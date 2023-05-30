@@ -19,6 +19,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+// RFR30 FIX MISTAKE YO _CtabPrint
 
 #define _CRT_SECURE_NO_WARNINGS
 #include <stddef.h>
@@ -77,18 +78,18 @@ struct Contab* CtabMakeQuick(const char*** strs, unsigned* rows, unsigned* cols)
 
 void CtabPrint(struct Contab* ct)// may be overwritten
 {
+	char c;
 	if (!ct) return;
 	for (size_t i = 0; !i || ct->rows[i + 1] > 0; i++)
+	{
+		ConCursor(0, ct->rows[i]);
+		for (size_t k = 0; k < ct->cols[0]; k++)
+		{
+			c = ct->cons[i]->prop == 0x5A ? '>' : ' ';// optional
+			putchar('>');
+		}
 		for (size_t j = 0; !j || ct->cols[j + 1] > 0; j++)
 		{
-			if (ct->cons[i]->prop == 0x5A)
-			{
-				ConCursor(0, ct->rows[i]);
-				for (size_t k = 0; k < ct->cols[0]; k++)
-				{
-					putchar('>');
-				}
-			}
 			ConCursor(ct->cols[j], ct->rows[i]);
 			if (StrLength(ct->cons[i][j].content) >= ct->cols[j + 1] - ct->cols[j])
 			{
@@ -103,6 +104,7 @@ void CtabPrint(struct Contab* ct)// may be overwritten
 				for (; k < ct->cols[j + 1] - ct->cols[j]; k++) putchar(' ');
 			}
 		}
+	}
 	CtabCursor(ct);
 }
 

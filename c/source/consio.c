@@ -29,7 +29,7 @@ void ConCursor(unsigned short col, unsigned short row)
 {
 	if (!ConHandle) ConInitialize();
 	if (!ConHandle) return;
-	COORD pos = { x,y };
+	COORD pos = { col,row };
 	SetConsoleCursorPosition(ConHandle, pos);
 }
 

@@ -1,7 +1,7 @@
 # unisym
 Uniformed Symbols.
-&emsp;For inline and external symbols; for variables, macros and functions.
-&emsp;Based on the official library or conventional styles.
+<br />&emsp;For inline and external symbols; for variables, macros and functions.
+<br />&emsp;Based on the official library or conventional styles.
 **: How to build by MAKEFILE**
 ```
 c64:

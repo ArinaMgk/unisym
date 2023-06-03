@@ -1,3 +1,20 @@
+//
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
 #ifndef ArnHabitDbg
 #define ArnHabitDbg
 
@@ -6,12 +23,12 @@
 	#define memalloc(dest,size)\
 		(*(char**)&dest=(char*)malloc(size))?((void)malc_count++):(erro("MEMORY RUN OUT!"),(void)0)
 	#define memfree(x) if(x){free((char*)(x));malc_count--;}// RFW21 version
-	#define srs(x,y) {void*ebx =(y);if(x)free((void*)x);malc_count--;(x)=ebx;}
+	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);malc_count--;*(void**)&(x)=ebx;}
 #else
 	#define memalloc(dest,size)\
 		(*(char**)&dest=(char*)malloc(size))?((void)0):(erro("MEMORY RUN OUT!"),(void)0)
 	#define memfree(x) {if(x)free((char*)(x));}
-	#define srs(x,y) {char*ebx =(y);if(x)free((char*)x);(x)=ebx;}
+	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
 #endif
 
 
@@ -24,6 +41,10 @@
 		if(mode=='c')system("pause");\
 		return 1;\
 	}
+
+// Her Convenient odd style. Maybe a bad habit for formal project.
+#define assert(expression) ((expression)?(char*)(expression):(exit(1),(char*)0))
+
 
 extern void erro(char*);
 extern void warn(char*);

@@ -23,12 +23,19 @@
 // IENCE. APPRECIATE SHARI-
 // NG YOUR FANTASTIC IDE-
 // A! -- SELF, RFT03.
+
 char chrar_sgned = 1;
+size_t malc_count, malc_limit = 64;
+//int main()
+//{
+//	char* c = ChrAdd("+1", "+3");
+//	puts(c);
+//}
 #include "E:/PROJ/SVGN/unisym.h"
 // test token all
 // ArnMgk RFT03
 char buf[256];
-void erro() {} size_t malc_count;
+
 
 char a[] = "0x+(1.2+i++);;\n";
 char* pos = a;

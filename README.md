@@ -4,6 +4,7 @@ Uniformed Symbols.
 <br/>&emsp;Based on the official library or conventional styles.
 <br/>
 **: How to build by MAKEFILE**
+<br/>
 ```
 c64:
 	gcc -c .././Unisym/c/source/*.c -m64 -D_dbg -O3 -s -lm -D_WinNT
@@ -12,8 +13,9 @@ c64:
 ```
 
 **: Folder**
-c &emsp C Programming Language<br/>
-cpp &emsp C++<br/>
-MCU &emsp MCU components and others<br/>
-x86 &emsp x86 Platform Assembly<br/>
-
+<br/>
+<br/>c &emsp C Programming Language
+<br/>cpp &emsp C++
+<br/>MCU &emsp MCU components and others
+<br/>x86 &emsp x86 Platform Assembly
+<br/>

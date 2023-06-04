@@ -10,3 +10,10 @@ c64:
 	ar rcs unisym64.libr *.o
 	del *.o
 ```
+
+**: Folder**
+c &emsp C Programming Language
+cpp &emsp C++
+MCU &emsp MCU components and others
+x86 &emsp x86 Platform Assembly
+

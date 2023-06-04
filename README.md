@@ -14,8 +14,8 @@ c64:
 
 **: Folder**
 <br/>
-<br/>c &emsp C Programming Language
-<br/>cpp &emsp C++
-<br/>MCU &emsp MCU components and others
-<br/>x86 &emsp x86 Platform Assembly
+<br/>c &emsp; C Programming Language
+<br/>cpp &emsp; C++
+<br/>MCU &emsp; MCU components and others
+<br/>x86 &emsp; x86 Platform Assembly
 <br/>

@@ -366,6 +366,9 @@ void ChrDiv(char* a, char* b);// return a as Quotient, b as remainder.
 int ChrCmp(const char* a, const char* b);// -1 0 1
 char* ChrFactorial(const char* a);// a has prefix '+'
 
+void DigInc(int ascii, char* posi);
+void DigDec(int ascii, char* posi);
+
 char* ChrArrange(const char* total, const char* items);
 char* ChrCombinate(const char* total, const char* items);
 char* ChrComDiv(const char* op1, const char* op2);// [Get Greatest Common Divisor]

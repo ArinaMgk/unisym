@@ -1,8 +1,10 @@
-//
+// ASCII TAB4 C99 ArnAssume
+// Operations for string of memory, as the complement of ISO/IEC standard.
 /*
-* CAUTION! The codes in UNISYM was written by Arina mainly, except some codes with comments that express the codes from others, however, the exception is greatly changed. So, do not take it for granted that the codes is completely correct. If the unexpected appears after you use unisym, nobody shall help you!
+* CAUTION! The codes was written by Arina lonely, except some codes with comments that express the codes from others, however, the exception is greatly changed. So, do not take it for granted that the codes is completely correct. If the unexpected appears after you use unisym, nobody shall help you!
 * Personal-style symbol according to Arina's bad habits: _dbg, malc_count, malc_limit, _noheap, ...
 */
+// E X P O S T U ** DO NOT TRAP IN C TOO MUCH! BE YOURSELF. ** L A T I O N //
 /*
 	Copyright 2023 ArinaMgk
 
@@ -17,7 +19,17 @@
 	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 	See the License for the specific language governing permissions and
 	limitations under the License.
+*/ 
+/* Linkage
+ * o malc_count yo [_dbg], numof area allocated in memory.
+ * i malc_limit, yo ![_noheap],the maximum permission for heap allocated or sizeof buffer.
+ * o malc_occupy. Zero means failure(heap unit size over or precise loss occur) or nothing for writing.
+ * x arna_eflag {(Permit)PrecLoss[io], HeapYo[io], Signed[i], ARN_DIGIT[]}
+ * - arna_LupRange {L, M}
+ * i arna_precise
 */
+
+// If you use for bootstrap programs or MCU developing, _noheap may be defined.
 
 // using stddef.h
 #ifndef _INC_STDDEF
@@ -33,17 +45,25 @@ extern size_t malc_limit;// the maximum for an allocation. 0 for disable any, bu
 		#include <stdlib.h>
 	#endif
 #endif
+;// format form of codes for VSCode
+extern size_t malc_occupy;
+extern size_t arna_precise;
 
+extern char arna_tempor[];// as result
+extern char arna_tmpslv[];// Do not use as result, same size with tempor.
+extern char arna_tmpext[];
 
-#ifndef ModDnode
+struct ArinaeFlag
+{
+	unsigned PrecLoss : 1, HeapYo : 1, Signed : 1, ARN_DIGIT : 1;
+};extern struct ArinaeFlag arna_eflag;
+
+// arna_LupRange for CoeAr and other advanced form.
+
+//---- ---- ---- ---- dnode ---- ---- ---- ----
+#ifndef _noheap
+#ifndef ModDnode // double-directions double-order-mode node
 #define ModDnode
-/*
-	double-directions double-order-mode node
-	Dnode- for a d-d node item
-	Dnodes- for a d-d node chain
-*/
-
-// HEAP USED!!! (NO MARKED)
 
 typedef struct Dnode
 {
@@ -58,9 +78,10 @@ Dnode* DnodeRewind(Dnode* any);
 size_t DnodeCount(Dnode* any);
 void DnodeRelease(Dnode* some);
 void DnodesRelease(Dnode* first);
-
 #endif
+#endif // endof _noheap
 
+//---- ---- ---- ---- string ---- ---- ---- ----
 #ifndef ModString
 #define ModString
 
@@ -307,7 +328,7 @@ char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
 char* StrReplaceHeap(const char* dest, const char* subfirstrom, const char* subto, size_t* times);
 char* StrHeapInsertThrow(const char* d, const char* s, size_t posi, size_t thrown);
 /* the previous strpool */
-/*
+/* ROUTINE EXAMPLE
 	StrPoolInit();
 	atexit(StrPoolRelease);
 	printf("%s", str = StrPoolHeap("Hello,world!"));
@@ -323,47 +344,33 @@ void StrPoolRelease();
 #endif
 
 //---- ---- ---- ---- chrar part ---- ---- ---- ----
-extern unsigned char chrar_sgned;// (signed?)
-//	// HEAP
+// Having brewed about 2 years, the design has matured and new non-destructive schemes have been tried and conceived. This, after 2023 (included), with the serived & advanced structures, also BCD-Arith., will be stopped updated. However, these are also a good tool for us.
+
+// failure: either *buffer=0 or heap=0
+// result for buffer in arna_tempor
 #ifndef _noheap
-char* instoa(ptrdiff_t num);// [Instant to ASCII]
+char* instoa(ptrdiff_t num);// [Instant to ASCII yo heap]
 #endif
-//	// BUFFER
-char* instoabuf(ptrdiff_t num, char* buf, size_t buflen);
+char* instob(ptrdiff_t num, char* buf);// [Instant to ASCII yo buffer]
 ptrdiff_t atoins(const char* str);// [ASCII to Instant]
 
-#ifndef _noheap
-// THE STRING ARITHMETIC NOW IS ONLY FOR HEAP CASE FOR NOT ENOUGH ENERGY. -- ARINA
-// Having brewed about 2 years, the design has matured and new non-destructive schemes have been tried and conceived.
-// This, after 2023 (included), with the serived & advanced structures, also BCD-Arith., will be stopped updated.
-// However, these are also a good tool for us.
-// E X P O S T U ** DO NOT TRAP IN C TOO MUCH! BE YOURSELF. ** L A T I O N //
-
-// Input: upper case, no sign digit; Output: with sign digit
 char* ChrHexToDec(const char* hex);
-// Output: upper case, In&Out: no sign digit
+// Output: upper case
 char* ChrDecToHex(char* dec);
 
 void ChrCpz(char* str);// Clear prefix zeros, "+001"-->"+1".
 char* ChrAdd(const char* dest, const char* sors);
 char* ChrSub(const char* dest, const char* sors);
 char* ChrMul(const char* a, const char* b);
-int ChrDiv(char* a, char* b);// return a as Quotient, b as remainder.
+void ChrDiv(char* a, char* b);// return a as Quotient, b as remainder.
 int ChrCmp(const char* a, const char* b);// -1 0 1
 char* ChrFactorial(const char* a);// a has prefix '+'
-void DigInc(int ascii, char* posi);
-void DigDec(int ascii, char* posi);
 
 char* ChrArrange(const char* total, const char* items);
 char* ChrCombinate(const char* total, const char* items);
 char* ChrComDiv(const char* op1, const char* op2);// [Get Greatest Common Divisor]
 char* ChrComMul(const char* op1, const char* op2);// [Get Least Common Multiple]
 
-//TODO. BUF VERSION is designed to build if time is free for her.
 #endif
 
-
-#endif
-
-// IN MEMORY OF THE FOREVER HER PAST YEARS //
-
+// IN MEMORY OF THE PAST YEARS //

@@ -29,9 +29,6 @@ static char* ptr_tempext = arna_tmpext;
 
 #define erro(x) ((void)(x))// CHEAT
 
-static void DigInc(int ascii, char* posi);
-static void DigDec(int ascii, char* posi);
-
 // It may be better to use Regular Expression
 const char static EscSeq[] = 
 {
@@ -1431,13 +1428,13 @@ char* ChrFactorial(const char* a)
 	return res;
 }
 
-static void DigInc(int ascii, char* posi)
+void DigInc(int ascii, char* posi)
 {
 	if ((ascii = *posi += ascii -= '0') <= '9') return;
 	do *posi-- = ascii - 10; while ((ascii = *posi + 1) > '9'); (*posi)++;
 }
 
-static void DigDec(int ascii, char* posi)
+void DigDec(int ascii, char* posi)
 {
 	if ((ascii = *posi -= ascii -= '0') >= '0') return;
 	do *posi-- = ascii + 10; while ((ascii = *posi - 1) < '0'); (*posi)--;

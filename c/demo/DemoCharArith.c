@@ -25,7 +25,6 @@
 size_t malc_count, malc_occupy;
 size_t malc_limit = 4096;
 char arna_tempor[128];
-size_t arna_tmpsiz = sizeof(arna_tempor);
 char arna_tmpslv[sizeof(arna_tempor)];
 char arna_tmpext[sizeof(arna_tempor)];
 
@@ -342,11 +341,3 @@ int TestChrDecToHex()
 	s = ChrDecToHex((char[]) { "30" });
 	printf("30 = 0x%s, len=%"PRIdPTR"\n", s, malc_occupy);
 }
-
-
-
-
-
-
-
-

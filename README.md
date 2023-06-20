@@ -1,5 +1,5 @@
-# unisym
-Uniformed Symbols.
+# UNISYM
+Uniformed Symbols, also as "Uniform Symbolic Library".
 <br/>&emsp;For inline and external symbols; for variables, macros and functions.
 <br/>&emsp;Based on the official library or conventional styles.
 <br/>

@@ -19,3 +19,5 @@ c64:
 <br/>MCU &emsp; MCU components and others
 <br/>x86 &emsp; x86 Platform Assembly
 <br/>
+<br/>coear: the mechanism can express and operate the big-real-number, e.g. `-1.23e45`
+<br/>

@@ -63,8 +63,12 @@
 #ifndef max//(a,b)
 #define max(a,b) ((a)>(b)?(a):(b))
 #endif
+#define MAX(d,s) if((d)<(s)){(d)=(s);}
 #ifndef min//(a,b)
 #define min(a,b) ((a)<(b)?(a):(b))
 #endif
+#define MIN(d,s) if((d)>(s)){(d)=(s);}
 
 #endif
+// ---- ---- ---- ---- ---- ---- ---- ----
+

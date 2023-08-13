@@ -85,31 +85,32 @@ void DnodesRelease(Dnode* first);
 #ifndef ModString
 #define ModString
 
-typedef struct Toknode
-{
-	// struct Dnode;
-	struct Toknode* left;// lower address
-	char* addr;// for order
-	size_t len;// non-order
-	struct Toknode* next;// higher address
-	
-	size_t row, col;
-} Toknode;
-
-/* LOOP WRITE */
 typedef enum TokType
 {
-	tok_any = 0xFF,
 	tok_EOF = 0,// -1 or 0
+	tok_any,
 	tok_string,// "Hallo"
 	tok_comment,// //
 	tok_directive,// #include
 	tok_number,// 1
 	tok_sym,// +-*/
 	tok_iden,// iden
-	tok_space,// ' ' or \t or ...
+	tok_space,// ' ' or \t or excluding new-line
 	tok_else,
 } TokType;
+
+typedef struct Toknode
+{
+	// struct Dnode;
+	struct Toknode* left;// lower address
+	union { char* addr; size_t index; };// for order
+	union { size_t len; TokType type; };// non-order
+	struct Toknode* next;// higher address
+
+	size_t row, col;
+} Toknode, Tode;
+
+
 
 static inline char* MemRelative(char* addr, size_t width, ptrdiff_t times)
 {
@@ -290,7 +291,7 @@ static inline const char* StrIndexChars(const char* s1, const char* s2)
 }
 
 void StrFilterOut(char* p, char c);
-void StrFilter(char* p, enum TokType tt);
+void StrFilter(char* p, enum TokType tt);//TODO. no considering new-line
 void StrFilterString(char* p, const char* needs);
 void StrFilterOutString(char* p, const char* neednot);
 
@@ -318,15 +319,42 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 	#ifdef ModDnode
 	Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer);
 	void StrTokenClear(Toknode* token_in_chain);
+	void StrTokenThrow(Toknode* one);// a b c --> a c
+	inline static Toknode* StrTokenBind(Toknode* left, Toknode* mid, Toknode* right)
+	{
+		if (left)
+			left->next = mid;
+		if (mid)
+			mid->next = right;
+		if (right)
+			right->left = mid;
+		if (mid)
+			mid->left = left;
+	}
 	#endif
 
 char* StrHeap(const char* valit_str);
+inline static char* StrHeapFromChar(char c)// Convert char in string in heap
+{
+	char* ptr;
+	memalloc(ptr, 2);
+	if (!ptr)return 0;
+	*ptr = c;
+	ptr[1] = 0;
+	return ptr;
+}
 void* MemHeap(const void* sors, size_t byteof);
 char* StrHeapN(const char* valit_str, size_t strlen);
 char* StrHeapAppend(const char* dest, const char* sors);
 char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
 char* StrReplaceHeap(const char* dest, const char* subfirstrom, const char* subto, size_t* times);
 char* StrHeapInsertThrow(const char* d, const char* s, size_t posi, size_t thrown);
+// posi_start and later positions of string move into the lower endian RFE02:16
+inline static void StrSubWithdraw(char* posi_start, size_t len)
+{
+	MemRelative(posi_start, StrLength(posi_start) + 1, -(ptrdiff_t)len);
+}
+
 /* the previous strpool */
 /* ROUTINE EXAMPLE
 	StrPoolInit();

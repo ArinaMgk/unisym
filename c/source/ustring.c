@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <ctype.h>// na isXType()
 #include "../alice.h"
-#include "../alice_dbg.h"
+#include "../aldbg.h"
 #include "../ustring.h"
 
 static char* ptr_tempmas = arna_tempor;
@@ -190,13 +190,13 @@ void StrFilterOutString(char* p, const char* neednot)
 
 #ifdef ModDnode
 static Toknode* StrTokenAppend(Toknode* any, char* content, size_t contlen, size_t ttype, size_t row, size_t col);
-static TokType StrToken_GetType(char chr);
-static size_t StrToken_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* bufptr);
+static TokType getctype(char chr);
+static size_t StrTokenAll_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* bufptr);
+static size_t crtline = 0, crtcol = 0;
 Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer)
 {
 	// Combination of -File and -Buf, ArinaMgk, RFT03.
 	// More infomation, to see the previous version.
-	size_t crtline = 0, crtcol = 0;// without test
 	
 	Toknode* first = 0, * crt = 0;
 	TokType CrtTType;
@@ -206,6 +206,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 	char* bufptr;
 
 	int c;
+	crtcol = crtline = 0;
 	memalloc(first, sizeof(Toknode));
 	crt = first;
 	first->left = first->next = 0;
@@ -214,7 +215,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 	first->col = first->row = 0;
 	bufptr = buffer;
 	// alnum & space & symbol
-	while ((c = getnext()) != EOF)
+	while ((crtcol++, c = getnext()) != EOF)
 	{
 		char dbg_chr = (char)c;
 		if (YoString)// Care about CrtTLen and *bufptr especially
@@ -222,7 +223,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			if (strtok == c)// exit
 			{
 				CrtTType = tok_string;
-				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);
+				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);// including terminated-symbol
 				bufptr = buffer;
 				YoString = 0;
 				CrtTLen = 0;
@@ -230,16 +231,16 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			}
 			else if (c == '\\')// escape sequence
 			{
-				c = getnext();
+				crtcol++, c = getnext();
 				if (c == EOF) break;
 				if (isdigit(c))
 				{
 					// octal: nest 0~2 3 numbers at most
-					int nest1 = getnext();
+					int nest1 = (crtcol++, getnext());
 					if (nest1 == EOF) break;
 					if (isdigit(nest1))
 					{
-						int nest2 = getnext();
+						int nest2 = (crtcol++, getnext());
 						if (nest2 == EOF) break;
 						if (isdigit(nest2))
 						{
@@ -252,7 +253,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 							// \12;
 							*bufptr++ = (unsigned char)((nest1 - '0') + (c - '0') * 8);
 							CrtTLen++;
-							seekback(-1);
+							crtcol--, seekback(-1);
 						}
 					}
 					else
@@ -260,16 +261,16 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 						// \1;
 						*bufptr++ = (unsigned char)(c - '0');
 						CrtTLen++;
-						seekback(-1);
+						crtcol--, seekback(-1);
 					}
 				}
 				else if (c == 'x')// nest 0~3 and use isxdigit()
 				{
-					c = getnext();
+					crtcol++, c = getnext();
 					if (c == EOF) break;
 					if (isxdigit(c))
 					{
-						int nest1 = getnext();
+						int nest1 = (crtcol++, getnext());
 						if (nest1 == EOF) break;
 						if (isxdigit(nest1))
 						{
@@ -285,7 +286,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 							c = (isdigit(c)) ? (c - '0') : (isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
 							*bufptr++ = (unsigned char)(c);
 							CrtTLen++;
-							seekback(-1);
+							crtcol--, seekback(-1);
 						}
 					}
 					else
@@ -293,7 +294,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 						// \x; = \0;
 						*bufptr++ = 0;
 						CrtTLen++;
-						seekback(-1);
+						crtcol--, seekback(-1);
 					}
 				}
 				else
@@ -322,27 +323,49 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 				CrtTLen++;
 			}
 		}
+		else if (c == '\n' || c == '\r')
+		{
+			// CRLF LFCR CR LF
+			int cc = (crtcol++, getnext());
+			if (cc == '\n' || cc == '\r')
+				if (c == cc)
+				{
+					crtcol--, seekback(-1);
+				}
+				else;
+			else if (cc != EOF) crtcol--, seekback(-1);
+			else break;
+			if (CrtTLen)
+			{
+				crtcol--;
+				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+				bufptr = buffer;
+				CrtTLen = 0;
+			}
+			crtline++;
+			crtcol ^= crtcol;
+		}
 		else if (c == '#' || c == '%')// Line Comment
 		{
-			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);
+			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 			bufptr = buffer;
 			CrtTLen = 0;
 			CrtTType = (c == '#') ? tok_comment : tok_directive;
-			while ((c = getnext()) != EOF && c != '\n' && c != '\r')
+			while ((crtcol++, c = getnext()) != EOF && c != '\n' && c != '\r')
 			{
 				CrtTLen++;
 				*bufptr++ = c;
 			}
 			if (c == EOF)break;
-			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);
+			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 			bufptr = buffer;
 			CrtTLen = 0;
 			CrtTType = tok_any;
-			seekback(-1);
+			crtcol--, seekback(-1);
 		}
 		else if (c == '\"' || c == '\'')// enter
 		{
-			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);
+			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 			CrtTLen = 0;
 			bufptr = buffer;
 
@@ -352,8 +375,8 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			bufptr = buffer;
 		}
 		else if ((isdigit(c)) && CrtTType != tok_iden &&
-			((CrtTType != tok_any && (crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol))) || CrtTType == tok_any)
-			&& (CrtTLen = StrToken_NumChk(getnext, seekback, buffer)))
+			((CrtTType != tok_any && (crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1))) || CrtTType == tok_any)
+			&& (CrtTLen = StrTokenAll_NumChk(getnext, seekback, buffer)))
 		{
 			CrtTType = tok_number;
 			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);
@@ -362,7 +385,6 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			bufptr = buffer;
 			continue;
 		}
-		//else if()
 		else if (isalnum(c) || c == '_')
 		{
 			if (CrtTType == tok_iden || CrtTType == tok_any)
@@ -370,7 +392,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 				CrtTLen++;// seem a waste after declaring bufptr.
 				*bufptr++ = c;
 				if (CrtTType == tok_any) CrtTType = tok_iden;
-				if (CrtTLen >= sizeof(buffer))
+				if (CrtTLen >= malc_limit)// sizeof(array buffer), "=" considers terminated-zero.
 				{
 					#ifdef _dbg
 					// erro("Buffer Oversize!");
@@ -380,8 +402,8 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			}
 			else
 			{
-				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);
-				CrtTType = StrToken_GetType(c);
+				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+				CrtTType = getctype(c);
 				CrtTLen = 1;
 				bufptr = buffer;
 				*bufptr++ = c;
@@ -389,12 +411,12 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 		}
 		else
 		{
-			if (CrtTType == StrToken_GetType(c) || CrtTType == tok_any)
+			if (CrtTType == getctype(c) || CrtTType == tok_any)
 			{
 				CrtTLen++;// seem a waste after declaring bufptr.
 				*bufptr++ = c;
-				if (CrtTType == tok_any) CrtTType = StrToken_GetType(c);
-				if (CrtTLen >= sizeof(buffer))
+				if (CrtTType == tok_any) CrtTType = getctype(c);
+				if (CrtTLen >= malc_limit)// sizeof(array buffer), "=" considers terminated-zero.
 				{
 					#ifdef _dbg
 					// erro("Buffer Oversize!");
@@ -404,17 +426,16 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			}
 			else
 			{
-				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);
+				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 				CrtTLen = 1;
 				bufptr = buffer;
 				*bufptr++ = c;
-				CrtTType = StrToken_GetType(c);
+				CrtTType = getctype(c);
 			}
 		}
-			
 	}
 	if (CrtTLen)
-		crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);
+		crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 endo:
 	return first;
 }
@@ -434,22 +455,31 @@ void StrTokenClear(Toknode* token_in_chain)
 	memfree(crt);
 }
 
-static Toknode* StrTokenAppend(Toknode* any, char* content, size_t contlen, size_t ttype, size_t row, size_t col)
+void StrTokenThrow(Toknode* one)
+{
+	if (one->left) one->left->next = one->next;
+	if (one->next) one->next->left = one->left;
+	memfree(one->addr);
+	memfree(one);
+}
+
+static Toknode* StrTokenAppend(Toknode* any, char* content, size_t contlen, size_t ttype, size_t row, size_t col)//TODO. TokType ttype
 {
 	Toknode* crt = any, * ret = 0;
+	if (!contlen) return any;
 	while (crt->next) crt = crt->next;
 	memalloc(ret, sizeof(Toknode));
 	ret->left = crt;
 	ret->next = 0;
 	crt->next = ret;
-	ret->addr = StrHeapN(content, contlen);
-	ret->len = ttype;
+	ret->addr = StrHeapN(content, contlen);// TODO. order&addr
+	ret->len = ttype;//TODO. union{len, toktype}
 	ret->row = row;
 	ret->col = col;
 	return ret;
 }
 
-static TokType StrToken_GetType(char chr)// Excluding Number
+static TokType getctype(char chr)// Excluding Number
 {
 	// is going to be renamed "ctype(char)"
 	if (isalnum(chr))
@@ -461,7 +491,7 @@ static TokType StrToken_GetType(char chr)// Excluding Number
 	return tok_else;
 }
 
-static size_t StrToken_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* bufptr)
+static size_t StrTokenAll_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* bufptr)
 {
 	// Combination of -File and -Buf, ArinaMgk, RFT03.
 	// More infomation, to see the previous version.
@@ -476,8 +506,8 @@ static size_t StrToken_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_t c
 		unsigned dot : 1;
 		unsigned sign : 1;
 	} OnceO = { 0 };
-	seekback(-1);
-	while ((c = getnext()) != EOF)
+	crtcol--, seekback(-1);
+	while ((crtcol++, c = getnext()) != EOF)
 	{
 		if (StrIndexChar("bodx", c))
 			if (OnceO.bodx)
@@ -504,11 +534,12 @@ static size_t StrToken_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_t c
 		res++;
 		*bufptr++ = c;
 	}
+	crtcol--;
 	if (c != EOF)
 		seekback(-1);
 	if (res > 1 && (*(bufptr - 1) == '+' || *(bufptr - 1) == '-' || *(bufptr - 1) == '.'))
 	{
-		seekback(-1);
+		crtcol--, seekback(-1);
 		res--;
 	}
 	return res;
@@ -1029,7 +1060,7 @@ void ChrCpz(char* str)
 char* ChrAdd(const char* a, const char* b)
 {
 	// may xchg to make length a >= b
-	if ((!a || !b || !*a || !*b) || (arna_eflag.Signed && (*a != '+' && *a != '-' || *b != '+' && *b != '-')))
+	if (!a || !b || !*a || !*b)
 	{
 		malc_occupy = 0;
 		arna_eflag.PrecLoss = 1;
@@ -1125,7 +1156,7 @@ char* ChrAdd(const char* a, const char* b)
 char* ChrSub(const char* a, const char* b)
 {
 	// length a >= b
-	if ((!a || !b || !*a || !*b) || (arna_eflag.Signed && (*a != '+' && *a != '-' || *b != '+' && *b != '-')))
+	if (!a || !b || !*a || !*b)// same with ChrAdd, tolerate the input sign: RFT17.
 	{
 		malc_occupy = 0;
 		arna_eflag.PrecLoss = 1;
@@ -1221,7 +1252,7 @@ char* ChrMul(const char* a, const char* b)
 		xchgptr(a, b);
 		xchgptr(endofa, endofb);
 	}
-	if ((size = ((size_t)endofa - (size_t)a + 1 + (size_t)endofb - (size_t)b + 1 + 2)) > malc_limit)
+	if ((size = ((size_t)endofa - (size_t)a + 1 + (size_t)endofb - (size_t)b + 1 + 2)) > malc_limit)//TODO. now the cancelled ERRO mechanism is actually useful.
 	{
 		malc_occupy = 0;
 		arna_eflag.PrecLoss = 1;

@@ -18,19 +18,23 @@
 #ifndef ArnHabitDbg// Add this can cheat the compiler
 #define ArnHabitDbg// Her Convenient odd style. Maybe a bad habit for formal project.
 
+#include <stddef.h>
+
 // Depend on the malloc function
 #ifdef _dbg
 	#define memalloc(dest,size)\
 		(*(char**)&dest=(char*)malloc(size))?((void)malc_count++):(erro("MEMORY RUN OUT!"),(void)0)
 	#define memfree(x) if(x){free((char*)(x));malc_count--;}// RFW21 version
 	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);malc_count--;*(void**)&(x)=ebx;}
-	#define malc(size) (malc_count++,malloc(size))
+	#define malc(size) (void*)(malc_count++,malloc(size))
+	#define zalc(size) (void*)(malc_count++,calloc(size,1))
 #else
 	#define memalloc(dest,size)\
 		(*(char**)&dest=(char*)malloc(size))?((void)0):(erro("MEMORY RUN OUT!"),(void)0)
 	#define memfree(x) {if(x)free((char*)(x));}
 	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
-	#define malc(size) (malloc(size))
+	#define malc(size) (void*)(malloc(size))
+	#define zalc(size) (void*)(calloc(size,1))
 #endif
 
 

@@ -69,6 +69,14 @@
 #endif
 #define MIN(d,s) if((d)>(s)){(d)=(s);}
 
+// ARINA-COVE C23-STYLE Attribute
+#define _Heap
+#define _Need_free _Heap
+#define _Heap_tmpher// The function with _Heap_tmpher should not call each other
+
+
+
+
 #endif
 // ---- ---- ---- ---- ---- ---- ---- ----
 

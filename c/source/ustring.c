@@ -793,8 +793,13 @@ void StrPoolRelease()
 #endif
 
 //---- ---- ---- ---- ChrAr ---- ---- ---- ----
+#define DECLEN_16B 5 // ~0 = 65535
+#define DECLEN_32B 10//      4,294,967,295
+#define DECLEN_64B 20//      18,446,744,073,709,551,615
+static const unsigned DECLEN_a[] = { 1,2,3,DECLEN_16B, DECLEN_32B, DECLEN_64B };
+
 #define AddDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)
-size_t size_dec = 0; static void size_dec_get()
+size_t size_dec = 0; void size_dec_get()
 {
 	register unsigned int i = 0;
 	register size_t r = (size_t)~0;

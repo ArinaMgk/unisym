@@ -402,6 +402,78 @@ char* ChrCombinate(const char* total, const char* items);
 char* ChrComDiv(const char* op1, const char* op2);// [Get Greatest Common Divisor]
 char* ChrComMul(const char* op1, const char* op2);// [Get Least Common Multiple]
 
+// RegAr used, temporarily set here
+
+// Boundary
+static inline unsigned char StrShiftLeft4(unsigned char* s, size_t len)
+{
+	unsigned char carry;
+	unsigned char lastc = 0;
+	do
+	{
+		carry = (*s & 0xF0) >> 4;// ArinaCove
+		*s <<= 4;
+		*s++ |= lastc;
+		lastc = carry;
+	} while (--len);
+	return lastc;
+}
+
+// Boundary
+static inline void StrShiftLeft8n(unsigned char* s, size_t len, size_t n)
+{
+	///MemRelative(s, len, (ptrdiff_t)n);
+	register size_t i = 0;
+	if (len == 0 || n == 0) return;
+	if (n >= len) MemSet(s, 0, len);
+	else
+	{
+		while (i < len) { if (i + 1 > n) s[len + n - i - 1] = s[len - i - 1]; i++; }
+		for (size_t j = 0; j < n; j++) s[j] = 0;
+	}
+	return;
+}
+
+// Boundary
+static inline unsigned char StrShiftRight4(unsigned char* s, size_t len)
+{
+	unsigned char carry;
+	unsigned char lastc = 0;
+	s += len - 1;
+	do
+	{
+		carry = (*s & 0x0F) << 4;// ArinaCove
+		*s >>= 4;
+		*s-- |= lastc;
+		lastc = carry;
+	} while (--len);
+	return lastc;
+}
+
+// Boundary
+static inline void StrShiftRight8n(unsigned char* s, size_t len, size_t n)
+{
+	///MemRelative(s, len, -(ptrdiff_t)n);
+	register size_t i = 0;
+	if (len == 0 || n == 0) return;
+	if (n >= len) MemSet(s, 0, len);
+	else
+	{
+		while (i < len) { if (i >= n) *(s + i - n) = s[i]; i++; }
+		for (size_t j = 0; j < n; j++) (s - n + len)[j] = 0;
+	}
+}
+
+static inline signed MemCompareRight(const byte* a, const byte* b, size_t n)
+{
+	for (ptrdiff_t i = n - 1; i >= 0; i--)
+	{
+		int state = (unsigned int)a[i] - (unsigned int)b[i];
+		if (state) return state;
+	}
+	return 0;
+}
+
 #endif
 
 // IN MEMORY OF THE PAST YEARS //

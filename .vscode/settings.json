@@ -1,8 +1,0 @@
-{
-	"files.associations": {
-		"*.R": "html",
-		"*.A": "assembly",
-		"number": "cpp",
-		"ustring.h": "c"
-	}
-}

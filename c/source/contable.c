@@ -28,7 +28,7 @@
 #include <conio.h>
 #include "../contable.h"
 #include "../alice.h"
-#include "../alice_dbg.h"
+#include "../aldbg.h"
 #include "../ustring.h"
 #include "../consio.h"
 // 

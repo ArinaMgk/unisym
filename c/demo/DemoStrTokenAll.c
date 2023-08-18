@@ -14,8 +14,8 @@
 	limitations under the License.
 */
 #define _CRT_SECURE_NO_WARNINGS
-#include "ustring.h"
-#include "alice_dbg.h"
+#include "../ustring.h"
+#include "../aldbg.h"
 #include "stdio.h"
 #include "stdlib.h"
 // ARN's IS ACCORDING TO A-
@@ -26,18 +26,19 @@
 
 char chrar_sgned = 1;
 size_t malc_count, malc_limit = 64;
+size_t malc_occupy;
+char arna_tempor[1], arna_tmpslv[1], arna_tmpext[1];
 //int main()
 //{
 //	char* c = ChrAdd("+1", "+3");
 //	puts(c);
 //}
-#include "E:/PROJ/SVGN/unisym.h"
 // test token all
-// ArnMgk RFT03
+// ArnMgk RFT03, RFT26
 char buf[256];
 
 
-char a[] = "0x+(1.2+i++);;\n";
+char a[] = "0x+(1.2+i++);;\n\r\n\ra\nb\n";
 char* pos = a;
 FILE* fp;
 int fgetnext()
@@ -60,6 +61,11 @@ void sseekback(ptrdiff_t l)
 	pos += l;
 }
 int use_file = 0;
+static void StrTokenPrintAll(Tode* first)
+{
+	do printf("Token: [R%llu,C%llu][%s][%llu] %s\n", first->row, first->col, ((const char* []){"END", "ANY", "STR", "CMT", "DIR", "NUM", "SYM", "IDN", "SPC", "ELS"})[first->type], StrLength(first->addr), first->type == tok_space ? "" : first->addr);
+	while (first = first->next);
+}
 int main()
 {
 	
@@ -67,36 +73,32 @@ int main()
 	if (use_file)
 	{
 		printf("This is from text file.\n");
-		fp = fopen("./DemoStrTokenAll.txt", "r");
+		fp = fopen("./DemoStrTokenAll.txt", "rb");
 		if (fp)
 		{
 			tn = StrTokenAll(fgetnext, fseekback, buf);
-			printf("[%llx]:\n", malc_count);
+			printf("[malc_count %llx]:\n", malc_count);
 		}
 	}
 	else
 	{
 		printf("This is from text buffer.\n");
-		puts(a);
+		// puts(a);
 		tn = StrTokenAll(sgetnext, sseekback, buf);
-		printf("[%llx]:\n", malc_count);
+		printf("[malc_count %llx]:\n", malc_count);
 	}
 	// over them
-	{
-		Toknode* last = tn;
-		while (last)
-		{
-			if (last->addr) printf("\t%s\n", last->addr);
-			last = last->next;
-		}
-	}
+	if (!tn) return 0;
+	while (tn->left) tn = tn->left;
+	StrTokenPrintAll(tn);
 	StrTokenClear(tn);
-	printf(" %llx\n\n", malc_count);
+	printf("[malc_count %llx]:\n", malc_count);
 	if (!use_file)
 	{
 		use_file = 1;
 		main();
 	}
+	system("pause");
 	return 0;
 }
 

@@ -19,7 +19,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<inttypes.h>
-#include"../alice_dbg.h"
+#include"../aldbg.h"
 #include"../ustring.h"
 
 size_t malc_count, malc_occupy;

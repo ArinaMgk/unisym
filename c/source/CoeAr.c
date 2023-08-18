@@ -355,11 +355,6 @@ coe* CoeCpy(const coe* obj)
 
 coe* CoeAdd(coe* dest, const coe* sors)
 {
-	if (dest->coff[1] == '0')
-	{
-		srs(dest->expo, StrHeap("+0"));
-		srs(dest->divr, StrHeap("+1"));
-	}
 	if (sors->coff[1] == '0') return dest;
 	if (dest->coff[1] == '0')
 	{
@@ -374,16 +369,17 @@ coe* CoeAdd(coe* dest, const coe* sors)
 	CoeDivrAlign(dest, 0);// prior to Ctz
 	CoeCtz(dest);
 	CoeDel((coe*)sors);
-	return dest;
-}
-
-coe* CoeSub(coe* dest, const coe* sors)
-{
+endo:
 	if (dest->coff[1] == '0')
 	{
 		srs(dest->expo, StrHeap("+0"));
 		srs(dest->divr, StrHeap("+1"));
 	}
+	return dest;
+}
+
+coe* CoeSub(coe* dest, const coe* sors)
+{
 	if (sors->coff[1] == '0') return dest;
 	if (dest->coff[1] == '0')
 	{
@@ -399,6 +395,12 @@ coe* CoeSub(coe* dest, const coe* sors)
 	CoeDivrAlign(dest, 0);// prior to Ctz
 	CoeCtz(dest);
 	CoeDel((coe*)sors);
+endo:
+	if (dest->coff[1] == '0')
+	{
+		srs(dest->expo, StrHeap("+0"));
+		srs(dest->divr, StrHeap("+1"));
+	}
 	return dest;
 }
 
@@ -773,12 +775,8 @@ endo:
 	return dest;
 }
 
-// NOW only accept positive integer exponent.
-// will contain the root in the future.
-// will make use of Log() in the future.
 coe* CoePow(coe* dest, const coe* sors)
 {
-	// The idea of Haruno
 	if (*sors->coff == '+' && !StrCompare(sors->divr, "+1"))
 	{
 		if (sors->coff[1] == '0')

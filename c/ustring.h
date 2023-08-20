@@ -31,9 +31,15 @@
 
 // If you use for bootstrap programs or MCU developing, _noheap may be defined.
 
-// using stddef.h
+#ifndef ModUnisymString// ---- ---- ---- ----
+#define ModUnisymString
+
 #ifndef _INC_STDDEF
 #include <stddef.h>
+#endif
+
+#ifndef _noheap
+#include "aldbg.h"
 #endif
 
 #ifndef _noheap
@@ -69,8 +75,8 @@ typedef struct Dnode
 {
 	struct Dnode* left;// lower address
 	char* addr;// for order
-	size_t len;// non-order
-	struct Dnode* next;// higher address
+	union { size_t len, type; };// non-order
+	union { struct Dnode* next, * right; };// higher address
 } Dnode;
 
 Dnode* DnodeCreate(Dnode* any, char* addr, size_t len);
@@ -102,11 +108,11 @@ typedef enum TokType
 typedef struct Toknode
 {
 	// struct Dnode;
-	struct Toknode* left;// lower address
-	union { char* addr; size_t index; };// for order
-	union { size_t len; TokType type; };// non-order
-	struct Toknode* next;// higher address
-
+	struct Toknode* left;
+	union { char* addr; size_t index; };
+	union { size_t len; TokType type; };
+	union { struct Toknode* next, * right; };
+	// [ L | ADDR & LEN/TYPE | R ]
 	size_t row, col;
 } Toknode, Tode;
 
@@ -317,8 +323,11 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 #ifndef _noheap
 
 	#ifdef ModDnode
+
+
+
 	Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer);
-	void StrTokenClear(Toknode* token_in_chain);
+	void StrTokenClearAll(Toknode* tstr);
 	void StrTokenThrow(Toknode* one);// a b c --> a c
 	inline static Toknode* StrTokenBind(Toknode* left, Toknode* mid, Toknode* right)
 	{
@@ -331,6 +340,23 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 		if (mid)
 			mid->left = left;
 	}
+
+	///inline static void StrTokenPrint(Toknode* first)
+	///{
+	#define StrTokenPrint(first)\
+		printf("Token: [R %llu,C %llu][%s] %s\n", first->row, first->col,\
+			((const char* []){"END", "ANY", "STR", "CMT", "DIR", "NUM", "SYM", "IDN", "SPC", "ELS"})\
+			[first->type], first->type == tok_space ? "" : first->addr);
+	///}
+	
+	// For the string of the Tode.
+	///inline static void StrTokenPrintAll(Toknode* first)
+	///{
+	#define StrTokenPrintAll(first)\
+		do StrTokenPrint(first);\
+		while (first = first->next);
+	///}
+	
 	#endif
 
 char* StrHeap(const char* valit_str);
@@ -464,7 +490,7 @@ static inline void StrShiftRight8n(unsigned char* s, size_t len, size_t n)
 	}
 }
 
-static inline signed MemCompareRight(const byte* a, const byte* b, size_t n)
+static inline signed MemCompareRight(const unsigned char* a, const unsigned char* b, size_t n)
 {
 	for (ptrdiff_t i = n - 1; i >= 0; i--)
 	{
@@ -476,4 +502,7 @@ static inline signed MemCompareRight(const byte* a, const byte* b, size_t n)
 
 #endif
 
+#endif// ---- ---- ModUnisymString ---- ----
+
 // IN MEMORY OF THE PAST YEARS //
+// History in `ustring.c`

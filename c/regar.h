@@ -29,6 +29,7 @@
 
 #ifndef ModRegisterBasedFloating
 #define ModRegisterBasedFloating
+// Also-known-as Regular Arith.
 
 #include <stddef.h>
 #include <limits.h>
@@ -40,6 +41,7 @@ extern size_t regcof,// for common result
 	regdiv;
 
 //---- ---- ---- ---- Single Style ---- ---- ---- ---- 
+// [Suggested Arina RFB20] better a-k-a BcdAr.
 // This is unsigned and in 256-system(Arina-Covenant Cliche^).
 // At least 2 times of byte.
 
@@ -103,7 +105,7 @@ typedef struct RegP_t
 		unsigned cofsign : 1;// 1 for neg
 		unsigned expsign : 1;
 		unsigned preloss : 1;// precise loss
-		unsigned defalen : PHIANE_REGAR_LENLEN;
+		size_t defalen : PHIANE_REGAR_LENLEN;
 	};
 } Rfnar_t;
 
@@ -142,6 +144,7 @@ int RedDiv(Rfnar_t* dest, const Rfnar_t* sors);
 
 
 //---- ---- ---- ---- Haruno Style ---- ---- ---- ---- 
+// [Suggested Arina RFB19] common used by Complex and the universal vector:
 typedef struct RegH_t
 {
 	Rfnar_t x, y, z, t;
@@ -172,7 +175,7 @@ Rfnar_t* _Need_free HrnAbs(const Hrnar_t* d);
 // ISSUE VER FIRST OF FB~17
 // > Simulate Heap
 // > Explicit heap and buffer
-// > buffer mode specific Default-3-buffers¥Þ
+// > buffer mode specific Default-3-buffers
 // > Have not test in dbg mode
 // > Hrn-part has not been tested.
 // > -Xxx8 unusual order of parameters. {too Lazy to change in this ver.}
@@ -181,4 +184,5 @@ Rfnar_t* _Need_free HrnAbs(const Hrnar_t* d);
 // > expo can just use the least one size_t.
 // > just tested x86.
 // > going to use "half-register" as arithmetic unit.
+// > e.g. "1+0.000001", if 0.000001 can not be expressed by the fixed register, nothing will be done.
 // EOF

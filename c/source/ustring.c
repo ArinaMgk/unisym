@@ -440,27 +440,27 @@ endo:
 	return first;
 }
 
-void StrTokenClear(Toknode* token_in_chain)
+inline static void StrTokenClear(Toknode* one)
 {
-	Toknode* crt = token_in_chain;
-	if (!token_in_chain) return;
-	while (crt->left) crt = crt->left;
-	memalloc(crt->left, 4);// Use time to get better struct
-	do
+	memfree(one->addr);
+	memfree(one);
+}
+
+void StrTokenClearAll(Toknode* tstr)
+{
+	while (tstr->left) tstr = tstr->left;
+	while (tstr)
 	{
-		memfree(crt->left);
-		if (crt->addr)
-			memfree(crt->addr);
-	} while (crt->next && (crt = crt->next));
-	memfree(crt);
+		tstr = tstr->next;
+		StrTokenClear(tstr->left);
+	}
 }
 
 void StrTokenThrow(Toknode* one)
 {
 	if (one->left) one->left->next = one->next;
 	if (one->next) one->next->left = one->left;
-	memfree(one->addr);
-	memfree(one);
+	StrTokenClear(one);
 }
 
 static Toknode* StrTokenAppend(Toknode* any, char* content, size_t contlen, size_t ttype, size_t row, size_t col)//TODO. TokType ttype
@@ -1593,16 +1593,10 @@ char* ChrComMul(const char* op1, const char* op2)
 #endif
 
 
-//---- ---- ---- ---- .HISTORY ---- ---- ---- ----
-// typedef struct LinearPropToken
-// {
-//  char* tok_content;// addr
-//  size_t toklen;// canceled
-//  struct LinearPropToken* left, * right;// left, next
-//  enum TokType toktype;// len
-// } tokprep;
-//
+//---- ---- ---- ---- HISTORY ---- ---- ---- ----
+// ...
 // RFR18 Append Dnode into ustring
 // RFT02 Append ChrAr into ustring
-// RFT15 Decide to make basic Wiki in current STD-C style before history; Auto adapt lower or upper letters and sign symbol; New demonstrations. The next day, uploaded.
+// ...
+// RFB19 Fix some mistakes
 

@@ -28,7 +28,7 @@ c64:
 
 `ustring`: the operations for string and big-integer-number「大數運算」 (flexible-size). Besides, this contains: SystemConversion「進制轉換」; The "u" is for distinction from that of the standard library, which means "UNISYM", **but "Unicode"**.
 
-`coear`: the mechanism can express and operate the big-real-number「不限長實數運算」, e.g. `-1.23e45`
+`coear`: the mechanism can express and operate the big-real-number「有理實數運算」, e.g. `-1.23e45`
 
 `numar`: the mechanism can express and operate the big-real-numbers (not endless) in 4 dimensions「時空矢量運算」.
 
@@ -44,3 +44,8 @@ c64:
 
 Except stipulation, all codes are produced by the contributors but the others. **If the codes rise any mistake while you use the codes in your important service, the contributors should not help you and your loss!** 
 
+
+
+---
+
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="arinamgk" data-color="#FF5F5F" data-emoji="🍨"  data-font="Lato" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#ffffff" data-coffee-color="#FFDD00" ></script>

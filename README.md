@@ -8,12 +8,14 @@ Uniformed Symbols, also as "Uniform Symbolic Library".
 
 This is still a β version. The symbols will be re-formed in the next main version.
 
-### Build
+### Build - Make into a library
+
+For example, for Windows 64-bit environment, by GCC 8.1.0, and in the parent directory, you can text your Makefile script:
 
 ```makefile
-c64:
-	gcc -c .././Unisym/c/source/*.c -m64 -D_dbg -O3 -s -lm -D_WinNT
-	ar rcs unisym64.libr *.o
+u64:
+	gcc -c ./unisym/c/source/*.c -m64 -D_dbg -O3 -s -lm -D_WinNT
+	ar rcs usym64.lib *.o
 	del *.o
 ```
 
@@ -48,4 +50,6 @@ Except stipulation, all codes are produced by the contributors but the others. *
 
 ---
 
-<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="arinamgk" data-color="#FF5F5F" data-emoji="🍨"  data-font="Lato" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#ffffff" data-coffee-color="#FFDD00" ></script>
+![Contributor ArinaMgk](./.picture/phina.head.bmp)
+
+[🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk)

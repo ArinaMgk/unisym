@@ -8,6 +8,8 @@ Uniformed Symbols, also as "Uniform Symbolic Library".
 
 This is still a β version. The symbols will be re-formed in the next main version.
 
+If you copy the code and used for the public, please **stipulate your copying from UNISYM led by ArinaMgk**.
+
 ### Build - Make into a library
 
 For example, for Windows 64-bit environment, by GCC 8.1.0, and in the parent directory, you can text your Makefile script:
@@ -24,9 +26,9 @@ u64:
 | Folder Name                | For                                                          |
 | -------------------------- | ------------------------------------------------------------ |
 | `old back and locale .git` |                                                              |
-| c                          | C Programming Language and C Plus Plus. (All Opensrc)        |
-| Kasha                      | x86 Platform Assembly Kit for OSDev. (かしゃ カーネル)(進修需要、暫不開源) |
-| MCU                        | for integrated micro-controller units                        |
+| c                          | C Programming Language and C Plus Plus. (All Open-src)       |
+| Kasha                      | x86-Series Platform Assembly Kit for OSDev.                  |
+| MCU                        | for integrated micro-controller units. (temporarily close-src) |
 
 `ustring`: the operations for string and big-integer-number「大數運算」 (flexible-size). Besides, this contains: SystemConversion「進制轉換」; The "u" is for distinction from that of the standard library, which means "UNISYM", **but "Unicode"**.
 
@@ -40,7 +42,25 @@ u64:
 
 `node`: node.
 
+`Kasha::arith`: Arithmetic;
+
+`Kasha::cpuins`: CPU Information;
+
+`Kasha::hdisk`: Hard-disk;
+
+`Kasha::osdev`: OSDEV Special;
+
+`Kasha::pseudo`: Pseudo structure for NASM and others assemblers;
+
+`Kasha::timer`: Date and time;
+
+`Kasha::video`: Video display;
+
 *others*: Console Table「終端字符繪表格」;
+
+
+
+- `.a`-suffixed file is for Arina-made assembler (private so far) , you may also use NASM0207.
 
 ### Source
 

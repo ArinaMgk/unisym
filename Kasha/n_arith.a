@@ -1,0 +1,49 @@
+;Name	Silver Garden Arithmetic.
+;Used	NASM 2.07
+;Author	The forever Arina
+;Check	Haruno
+
+;	Copyright 2023 ArinaMgk
+;	
+;	Licensed under the Apache License, Version 2.0 (the "License");
+;	you may not use this file except in compliance with the License.
+;	You may obtain a copy of the License at
+;	
+;	http://www.apache.org/licenses/LICENSE-2.0
+;	
+;	Unless required by applicable law or agreed to in writing, software
+;	distributed under the License is distributed on an "AS IS" BASIS,
+;	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;	See the License for the specific language governing permissions and
+;	limitations under the License.
+;
+
+%imacro Divx 1
+	%ifidni %1,BL
+		MOV DL,AL
+		MOV AL,AH
+		XOR AH,AH
+		DIV BL
+		XCHG DL,AL; THEN DL=HIGH QUO AL=OriginAL
+		DIV BL
+		XCHG DL,AH
+	%elifidni %1,BX
+		MOV CX,AX
+		MOV AX,DX
+		XOR DX,DX
+		DIV BX
+		XCHG CX,AX; THEN CX=HIGH QUO AX=OriginAX
+		DIV BX
+	%else
+		DIV %1
+	%endif
+%endmacro
+
+%imacro BCD2ASCII 0
+	MOV AH,AL
+	AND AL,0X0F
+	ADD AL,0X30
+	SHR AH,4
+	AND AH,0X0F
+	ADD AH,0X30
+%endmacro

@@ -1,0 +1,712 @@
+;Name	Kira Engine Macro Notes for Text mode.
+;Used	BIOS : TEXT MODE, NASM 2.07
+;Author	The forever Arina
+;Check	Haruno
+
+;	Copyright 2023 ArinaMgk
+;	
+;	Licensed under the Apache License, Version 2.0 (the "License");
+;	you may not use this file except in compliance with the License.
+;	You may obtain a copy of the License at
+;	
+;	http://www.apache.org/licenses/LICENSE-2.0
+;	
+;	Unless required by applicable law or agreed to in writing, software
+;	distributed under the License is distributed on an "AS IS" BASIS,
+;	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;	See the License for the specific language governing permissions and
+;	limitations under the License.
+;
+
+%define video_cols 80
+%define video_rows 25
+
+%imacro ConCursor 0-1 ~
+	%ifnidni ~,%1
+		%ifnidni AX,%1
+			MOV AX,%1
+		%endif
+		%ifnidni BX,%1
+			MOV BX,AX
+		%endif
+		MOV DX,0X3D4
+		MOV AL,0X0E
+		OUT DX,AL
+		INC DX
+		MOV AL,BH
+		OUT DX,AL
+		DEC DX
+		MOV AL,0X0F
+		OUT DX,AL
+		INC DX
+		MOV AL,BL
+		OUT DX,AL
+	%else
+		XOR AH,AH
+		MOV DX,0X3D4
+		MOV AL,0X0E
+		OUT DX,AL
+		INC DX
+		IN AL,DX
+		MOV AH,AL
+		DEC DX
+		MOV AL,0X0F
+		OUT DX,AL
+		INC DX
+		IN AL,DX
+	%endif
+%endmacro
+
+%imacro ConRoll 0-1 1
+    %ifnidni AL,%1
+        MOV AL,%1
+    %endif
+    OR AL,AL
+    JZ %%endo
+    CMP AL,video_rows
+    JB %%next
+    MOV AL,video_rows
+    %%next:
+    MOV CL,video_cols
+    MUL CL
+    MOV SI,AX
+    SHL SI,1
+    XOR DI,DI
+    MOV CX,video_cols*video_rows
+    SUB CX,AX
+    OR CX,CX
+    JZ %%fill
+    %%loop0:
+    MOV AX,WORD[ES:SI]
+    MOV WORD[ES:DI],AX
+    ADD SI,2
+    ADD DI,2
+    LOOP %%loop0
+    %%fill:
+    MOV CX,video_cols*video_rows*2
+    SUB CX,DI
+    SHR CX,1
+    %%loop:
+    MOV WORD[ES:DI],0x0720; ' ' AND WHITE ON BLACK
+    ADD DI,2
+    LOOP %%loop
+    %%endo:
+%endmacro
+
+%imacro ConPrintChar 1-3 0x07,~
+	%ifnidni %3,~
+		PUSH AX
+		PUSH BX
+		%ifnidni %1,AL
+			MOV AL,%1
+		%endif
+		%ifnidni %2,AH
+			%ifnidni  %2,~
+				MOV AH,%2
+			%endif
+		%endif
+		%ifnidni %3,BX
+			MOV BX,%3
+		%endif
+		SHL BX,1
+		%ifnidni %2,~
+			MOV WORD[ES:BX],AX
+		%else
+			MOV BYTE[ES:BX],AL
+		%endif
+		POP BX
+		POP AX
+	%else; %3 == ~
+		PUSH AX
+		PUSH CX
+		PUSH DX
+		%ifnidni AL,%1
+			MOV AL,%1
+		%endif
+		%ifnidni AH,%2
+			%ifnidni ~,%2
+				MOV AH,%2
+			%endif
+		%endif
+		PUSH AX
+		ConCursor
+		MOV BX,AX
+		; judge valid pointer
+		CMP BX,video_cols*video_rows
+		JB %%write; Roll a line before write
+		CALL %%F_RollLine
+		MOV AX,video_cols*(video_rows-1)+0
+		%%write:
+		MOV BX,AX
+		SHL BX,1; *= 2 (write ptr)
+		POP AX
+		; judge the cursor-controlled characters
+		CMP AL,0x0A; Line Feed \n
+			JNZ %%NotLF
+			SHR BX,1
+			CMP BX,video_cols*(video_rows-1); if >=, on the last line
+			JAE %%RollLF
+			ADD BX,video_cols
+			CALL %%F_CurSet
+			JMP %%F_FIN
+			%%RollLF:
+				PUSH BX
+				CALL %%F_RollLine
+				POP BX
+				JMP %%F_FIN
+		%%NotLF:
+			CMP AL,0x0D; Carriage Return \r
+			JNZ %%NotCR
+			SHR BX,1
+			MOV AX,BX
+			MOV CL,video_cols
+			DIV CL
+			MUL CL
+			MOV BX,AX
+			CALL %%F_CurSet
+			JMP %%F_FIN
+		%%NotCR:
+		; write memory video buffer
+		%ifnidni %2,~
+			MOV WORD[ES:BX],AX
+		%else
+			MOV BYTE[ES:BX],AL
+		%endif
+		SHR BX,1
+		; step cursor
+		INC BX
+		CMP BX,video_cols*video_rows
+		JB %%cur_check; Roll a line before write
+		MOV BX,video_cols*(video_rows-1)+0
+		PUSH BX
+		CALL %%F_RollLine
+		POP BX
+		%%cur_check:
+		CALL %%F_CurSet
+		%%F_FIN:
+		POP DX
+		POP CX
+		POP AX
+	%endif
+	JMP %%F_ENDO
+	%%F_RollLine:; independ from ../ConRoll
+		;---Derived from USL/video/
+		MOV AX,video_cols
+		MOV SI,AX
+		SHL SI,1
+		XOR DI,DI
+		MOV CX,video_cols*video_rows
+		SUB CX,AX
+		%%F_RollLine_loop0:
+		MOV AX,WORD[ES:SI]
+		MOV WORD[ES:DI],AX
+		ADD SI,2
+		ADD DI,2
+		LOOP %%F_RollLine_loop0
+		MOV CX,video_cols
+		%%F_RollLine_loop:
+		MOV WORD[ES:DI],0x0720
+		ADD DI,2
+		LOOP %%F_RollLine_loop
+		RET
+	%%F_CurSet:
+		ConCursor BX
+		RET
+	%%F_ENDO:
+%endmacro
+
+%imacro ConPrint 1-2 ~
+	%ifidni %1,SI
+		; PUSHAD; 8086 have not this , ArinaMgk updated in 2023
+			PUSH AX
+			PUSH CX
+			PUSH DX
+			PUSH BX
+			PUSH SP
+			PUSH BP
+			PUSH SI
+			PUSH DI
+		%ifidni %2,AH
+			PUSH AX
+		%endif
+		CALL %%F_GetCur
+		MOV BX,AX
+
+		MOV DI,SI
+		XOR CX,CX
+		%%LOOP:
+			MOV AL,[DS:DI]
+			INC DI
+			CMP AL,0
+			JZ %%SPECIAL_END
+			CMP AL,0X0D
+			JZ %%SPECIAL_D
+			CMP AL,0X0A
+			JZ %%SPECIAL_A
+			INC CX
+			JMP %%LOOP
+		%%F_PRINTSTR:
+			POP DX; RET
+				%ifidni %2,AH
+				POP AX
+				PUSH AX
+				%endif
+			PUSH DX
+			; PrintString SI,%2,CX,~
+			; stack preset"es=0xB800; ds" ret"_bx:NextPosi" vola(al/eax)
+			;  PrintString(preset si/<esi[PE 32]> str > ~ah/i style=0x07 > cx/ecx/i len > ~_bx/i posi=~)
+				PUSH AX
+				PUSH CX
+				PUSH DX
+				PUSH SI
+				PUSH DI
+				; input proc
+				%ifnidni AH,%2
+					%ifnidni %2,~
+						MOV AH,%2
+					%endif
+				%endif
+					PUSH AX
+					CALL %%F_GetCur
+					MOV BX,AX
+					POP AX
+				MOV DX,BX
+				ADD DX,CX
+				CMP DX,video_cols*video_rows
+				JAE %%case23
+				SHL BX,1
+				%%LOOP1:
+					MOV AL,[DS:SI]
+					%ifnidni %2,~
+						MOV WORD[ES:BX],AX; WRITE PROP
+					%else
+						MOV BYTE[ES:BX],AL; OIMT PROP
+					%endif
+					ADD BX,2
+					INC SI
+				LOOP %%LOOP1
+				SHR BX,1
+				JMP %%RETURN
+				%%case23:
+					MOV DX,CX
+					SUB DX,video_cols*video_rows-1
+					JB %%CASE3
+					XOR BX,BX
+					MOV CX,video_cols*video_rows-1
+					ADD SI,DX
+				%%LOOP2:
+					MOV AL,BYTE[DS:SI]
+					%ifnidni %2,~
+						MOV WORD[ES:BX],AX; WRITE PROP
+					%else
+						MOV BYTE[ES:BX],AL; OMIT
+					%endif
+					INC SI
+					ADD BX,2
+				LOOP %%LOOP2
+				SHR BX,1
+				JMP %%RETURN
+				%%CASE3:
+				;FROM DI TO BX
+				PUSH CX
+				MOV DX,video_cols*video_rows-1
+				ADD BX,CX
+				SUB BX,DX; FROM
+				SHL BX,1
+				SUB DX,CX; LOOP3 TIMES
+				MOV CX,DX
+				XOR DI,DI; TO
+				PUSH AX
+				%%LOOP3:
+					%ifnidni %2,~
+						MOV AX,[ES:BX]
+						MOV WORD[ES:DI],AX
+					%else
+						MOV AL,[ES:BX]
+						MOV BYTE[ES:DI],AL
+					%endif
+						ADD BX,2
+						ADD DI,2
+				LOOP %%LOOP3
+				POP AX
+				POP CX
+				MOV BX,DI
+				%%LOOP4:
+					MOV AL,[DS:SI]
+					%ifnidni %2,~
+						MOV WORD[ES:BX],AX
+					%else
+						MOV BYTE[ES:BX],AL
+					%endif
+					INC SI
+					ADD BX,2
+				LOOP %%LOOP4
+				SHR BX,1
+				JMP %%RETURN
+				%%RETURN:
+				CALL %%F_SetCur
+				POP DI
+				POP SI
+				POP DX
+				POP CX
+				POP AX
+			ADD SI,CX
+			XOR CX,CX
+			RET
+		%%SPECIAL_D:; keep SI,CX,DI,BX
+			OR CX,CX
+			JZ %%NEXT_SPECIAL_D
+			CALL %%F_PRINTSTR
+		%%NEXT_SPECIAL_D:
+			INC SI
+			PUSH CX
+			PUSH AX
+			MOV AX,BX
+			MOV CL,video_cols
+			DIV CL
+			MUL CL
+			MOV BX,AX
+			CALL %%F_SetCur
+			POP AX
+			POP CX
+			JMP %%LOOP
+		%%SPECIAL_A:
+			OR CX,CX
+			JZ %%NEXT_SPECIAL_A
+			CALL %%F_PRINTSTR
+			%%NEXT_SPECIAL_A:;DERIVED FROM PRINTCHAR
+				INC SI
+				CMP BX,video_cols*(video_rows-1)
+				JAE %%RollLF
+				ADD BX,video_cols
+				CALL %%F_SetCur
+				JMP %%LOOP
+				%%RollLF:
+					; PUSHAD; 8086 have not this , ArinaMgk updated in 2023
+						PUSH AX
+						PUSH CX
+						PUSH DX
+						PUSH BX
+						PUSH SP
+						PUSH BP
+						PUSH SI
+						PUSH DI
+					CALL %%F_RollLine
+					; POPAD; 8086 HAS NOT THIS , ArinaMgk updated in 2023
+						POP DI
+						POP SI
+						POP BP
+						POP SP
+						POP BX
+						POP DX
+						POP CX
+						POP AX
+					JMP %%LOOP
+		%%F_RollLine:
+			;---Derived from USL/video/
+			MOV AX,video_cols
+			MOV SI,AX
+			SHL SI,1
+			XOR DI,DI
+			MOV CX,video_cols*video_rows
+			SUB CX,AX
+			%%F_RollLine_loop0:
+			MOV AX,WORD[ES:SI]
+			MOV WORD[ES:DI],AX
+			ADD SI,2
+			ADD DI,2
+			LOOP %%F_RollLine_loop0
+			MOV CX,video_cols
+			%%F_RollLine_loop:
+			MOV WORD[ES:DI],0x0720
+			ADD DI,2
+			LOOP %%F_RollLine_loop
+			RET
+		%%SPECIAL_END:
+			OR CX,CX
+			JZ %%ENDO
+			CALL %%F_PRINTSTR
+			JMP %%ENDO
+	%elifidni %1,ESI
+		PUSHAD
+		%ifidni %2,AH
+			PUSH AX
+		%endif
+		CALL %%F_GetCur
+		MOV BX,AX
+
+		MOV EDI,ESI
+		XOR ECX,ECX
+		%%PX_LOOP:
+			MOV AL,[DS:EDI]
+			INC EDI
+			CMP AL,0
+			JZ %%PX_SPECIAL_END
+			CMP AL,0X0D
+			JZ %%PX_SPECIAL_D
+			CMP AL,0X0A
+			JZ %%PX_SPECIAL_A
+			INC ECX
+			JMP %%PX_LOOP
+		%%F_PRINTSTR:; call to here ,so ...
+			POP EDX
+			%ifidni %2,AH
+				POP AX
+				PUSH AX
+			%endif
+			PUSH EDX
+			; PrintString ESI,%2,ECX,~
+				PUSH EAX
+				PUSH ECX
+				PUSH EDX
+				PUSH ESI
+				PUSH EDI
+				%ifnidni AH,%2
+					%ifnidni %2,~
+						MOV AH,%2
+					%endif
+				%endif
+					PUSH AX
+					CALL %%F_GetCur
+					XOR EBX,EBX
+					MOV BX,AX
+					POP AX
+				MOV EDX,EBX
+				ADD EDX,ECX
+				CMP EDX,video_cols*video_rows
+				JAE %%case23
+				SHL EBX,1
+				%%LOOP1:
+					MOV AL,[DS:ESI]
+					%ifnidni %2,~
+						MOV WORD[ES:EBX],AX; WRITE PROP
+					%else
+						MOV BYTE[ES:EBX],AL; OIMT PROP
+					%endif
+					ADD EBX,2
+					INC ESI
+				LOOP %%LOOP1
+				SHR EBX,1
+				JMP %%RETURN
+				%%case23:
+					MOV EDX,ECX
+					SUB EDX,video_cols*video_rows-1
+					JB %%CASE3
+					XOR EBX,EBX
+					MOV ECX,video_cols*video_rows-1
+					ADD ESI,EDX
+				%%LOOP2:
+					MOV AL,BYTE[DS:ESI]
+					%ifnidni %2,~
+						MOV WORD[ES:EBX],AX; WRITE PROP
+					%else
+						MOV BYTE[ES:EBX],AL; OMIT
+					%endif
+					INC ESI
+					ADD EBX,2
+				LOOP %%LOOP2
+				SHR EBX,1
+				JMP %%RETURN
+				%%CASE3:
+					;FROM EDI TO EBX
+					PUSH ECX
+					MOV EDX,video_cols*video_rows-1
+					ADD EBX,ECX
+					SUB EBX,EDX; FROM
+					SHL EBX,1
+					SUB EDX,ECX; LOOP3 TIMES
+					MOV ECX,EDX
+					XOR EDI,EDI; TO
+					PUSH AX
+				%%LOOP3:
+					%ifnidni %2,~
+						MOV AX,[ES:EBX]
+						MOV WORD[ES:EDI],AX
+					%else
+						MOV AL,[ES:EBX]
+						MOV BYTE[ES:EDI],AL
+					%endif
+						ADD EBX,2
+						ADD EDI,2
+				LOOP %%LOOP3
+				POP AX
+				POP ECX
+				MOV EBX,EDI
+				%%LOOP4:
+					MOV AL,[DS:ESI]
+					%ifnidni %2,~
+						MOV WORD[ES:EBX],AX
+					%else
+						MOV BYTE[ES:EBX],AL
+					%endif
+					INC ESI
+					ADD EBX,2
+				LOOP %%LOOP4
+				SHR EBX,1
+				JMP %%RETURN
+				%%RETURN:
+				CALL %%F_SetCur
+				POP EDI
+				POP ESI
+				POP EDX
+				POP ECX
+				POP EAX
+			ADD ESI,ECX
+			MOV ECX,0
+			RET
+		%%PX_SPECIAL_D:; keep SI,CX,DI,BX
+			OR ECX,ECX
+			JZ %%PX_NEXT_SPECIAL_D
+			CALL %%F_PRINTSTR
+			%%PX_NEXT_SPECIAL_D:
+			INC ESI
+			PUSH ECX
+			PUSH AX
+				MOV AX,BX
+				MOV CL,video_cols
+				DIV CL
+				MUL CL
+				MOV BX,AX
+				CALL %%F_SetCur
+			POP AX
+			POP ECX
+			JMP %%PX_LOOP
+		%%PX_SPECIAL_A:
+			OR ECX,ECX
+			JZ %%PX_NEXT_SPECIAL_A
+			CALL %%F_PRINTSTR
+			%%PX_NEXT_SPECIAL_A:;DERIVED FROM PRINTCHAR
+				INC ESI
+				CMP BX,video_cols*(video_rows-1)
+				JAE %%PX_RollLF
+				ADD BX,video_cols
+				CALL %%F_SetCur
+				JMP %%PX_LOOP
+				%%PX_RollLF:
+					PUSHAD
+					CALL %%PX_F_RollLine
+					POPAD
+					JMP %%PX_LOOP
+		%%PX_F_RollLine:
+			;---Derived from USL/video/
+			MOV AX,video_cols
+			MOV SI,AX
+			SHL SI,1
+			XOR DI,DI
+			XOR ECX,ECX
+			MOV CX,video_cols*video_rows
+			SUB CX,AX
+			%%PX_F_RollLine_loop0:
+			MOV AX,WORD[ES:SI]
+			MOV WORD[ES:DI],AX
+			ADD SI,2
+			ADD DI,2
+			LOOP %%PX_F_RollLine_loop0
+			MOV CX,video_cols
+			%%PX_F_RollLine_loop:
+			MOV WORD[ES:DI],0x0720
+			ADD DI,2
+			LOOP %%PX_F_RollLine_loop
+			RET
+		%%PX_SPECIAL_END:
+			OR ECX,ECX
+			JZ %%ENDO
+			CALL %%F_PRINTSTR
+			JMP %%ENDO
+	%endif
+	%%F_GetCur:
+		ConCursor
+		RET
+	%%F_SetCur:
+		ConCursor BX
+		RET
+	%%ENDO:
+	%ifidni %2,AH
+		POP AX
+	%endif
+	%ifidni %1,ESI
+		POPAD
+	%else
+		; POPAD; 8086 HAS NOT THIS , ArinaMgk updated in 2023
+		POP DI
+		POP SI
+		POP BP
+		POP SP
+		POP BX
+		POP DX
+		POP CX
+		POP AX
+	%endif
+%endmacro
+
+%imacro ConPrintWord 1-2 F_ConPrintChar
+		PUSH CX
+		PUSH DX
+		PUSH AX
+		PUSH BX
+	MOV BX,%1
+	MOV CH,4; sizeof word
+	%%loop:
+	MOV DX,0XF000
+	MOV AX,BX
+	AND AX,DX
+	MOV CL,4
+	ROL AX,CL
+	SHL BX,CL
+	CMP AL,9
+	JBE %%NextStep
+	ADD AL,7
+	%%NextStep:
+	ADD AL,0X30
+		MOV CL,AL
+		MOV DX,BX
+		POP BX
+		POP AX
+		PUSH AX
+		PUSH BX
+		MOV AL,CL
+	CALL %2
+	MOV BX,DX
+	DEC CH
+	JNZ %%loop
+		POP BX
+		POP AX
+		POP DX
+		POP CX
+%endmacro
+
+%imacro ConPrintDword 1-2 F_ConPrintChar
+		PUSH ECX
+		PUSH EDX
+		PUSH EAX
+		PUSH EBX
+	MOV EBX,%1
+	MOV CH,8; sizeof word
+	%%loop:
+	MOV EDX,0XF000_0000
+	MOV EAX,EBX
+	AND EAX,EDX
+	ROL EAX,4
+	SHL EBX,4
+	CMP AL,9
+	JBE %%NextStep
+	ADD AL,7
+	%%NextStep:
+	ADD AL,0X30
+		MOV CL,AL
+		MOV EDX,EBX
+		POP EBX
+		POP EAX
+		PUSH EAX
+		PUSH EBX
+		MOV AL,CL
+	CALL %2
+	MOV EBX,EDX
+	DEC CH
+	JNZ %%loop
+		POP EBX
+		POP EAX
+		POP EDX
+		POP ECX
+%endmacro
+

@@ -1,0 +1,150 @@
+;Name	Date and Time and device timer.
+;Used	NASM 2.07
+;Author	The forever Arina
+;Check	Haruno
+;Code	GBK
+
+;	Copyright 2023 ArinaMgk
+;	
+;	Licensed under the Apache License, Version 2.0 (the "License");
+;	you may not use this file except in compliance with the License.
+;	You may obtain a copy of the License at
+;	
+;	http://www.apache.org/licenses/LICENSE-2.0
+;	
+;	Unless required by applicable law or agreed to in writing, software
+;	distributed under the License is distributed on an "AS IS" BASIS,
+;	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;	See the License for the specific language governing permissions and
+;	limitations under the License.
+;
+
+%imacro GetMoexDayIdentity 2
+	[section .data]
+	%%Moondays: DB 0x00,0X1F,0x1C,0x1F,0x1E,0x1F,0x1E,0x1F,0x1F,0x1E,0x1F,0x1E,0x1F
+	%%Pastdays: DW	0x0004
+	%%Month: DW 0X0000
+	__SECT__
+	PUSHAD
+	%ifnidni %1,AX
+	 MOV AX,%1
+	%endif
+	%ifnidni %2,CX
+	 MOV CX,%2
+	%endif
+	MOV WORD[%%Month],CX
+	MOV SI,2014
+	MOV DI,AX
+	%%JDG01:
+	CMP SI,DI
+	JBE %%JDG_HUNDRED
+	JMP %%JDG01_END
+	%%JDG_HUNDRED:
+	MOV BYTE[%%Moondays+2],0x1C
+	MOV AX,SI
+	MOV CH,100
+	DIV CH
+	CMP AH,0
+	JNE %%JDG_FOUR
+	MOV BYTE[%%Moondays+2],0x1D
+	CMP SI,DI
+	JAE %%JDG_FOUR
+	ADD WORD[%%Pastdays],1
+	%%JDG_FOUR:
+	XOR DX,DX
+	MOV AX,SI
+	MOV CX,4
+	DIV CX
+	CMP DX,0
+	JNE %%JDG_SUM
+	MOV BYTE[%%Moondays+2],0x1D
+	CMP SI,DI
+	JAE %%JDG_SUM
+	ADD WORD[%%Pastdays],1
+	%%JDG_SUM:
+	CMP SI,DI
+	JAE %%JDG_CRTYEAR
+	ADD WORD[%%Pastdays],365
+	%%JDG_CRTYEAR:
+	INC SI
+	JMP %%JDG01
+	%%JDG01_END:
+	MOV BX,%%Moondays
+	MOV DI,WORD[%%Month]
+	MOV SI,1
+	%%JDG_SUMPASTDAYS:
+	CMP SI,DI
+	JNE %%SUMPASTDAYS
+	JMP %%JDG_SUMPASTDAYS_END
+	%%SUMPASTDAYS:
+	XOR AH,AH
+	MOV AL,BYTE[BX+SI]
+	ADD WORD[%%Pastdays],AX
+	INC SI
+	JMP %%JDG_SUMPASTDAYS
+	%%JDG_SUMPASTDAYS_END:
+	POPAD
+	MOV SI,WORD[%%Month]
+	MOV BX,%%Moondays
+	MOV DL,BYTE[BX+SI]
+	MOV BX,WORD[%%Pastdays]
+%endmacro
+
+%imacro TimerInit16 2
+	CLI
+	; REGISTER IN IVT
+	MOV BX,0X70; 8259 SALVE RTC
+	MOV CL,2; *4
+	SHL BX,CL
+	PUSH ES
+		XOR AX,AX
+		MOV ES,AX	;Point to IVT
+		MOV WORD[ES:BX],%2
+		MOV WORD[ES:BX+2],%1
+	POP ES
+	; SET CMOS REGISTER B
+	MOV AL,0X0B
+	OR AL,0X80; STOP NMI
+	OUT 0X70,AL
+	MOV AL,0X12; OpenLoop(!UCI),!PIE,!AIE,UIE,!SQWE,BCD,24h,!DSLSWS
+	OUT 0X71,AL
+	; SET CMOS REGISTER C
+	MOV AL,0X0C
+	OUT 0X70,AL
+	IN AL,0X71;
+	;
+	IN AL,0XA1; Read a loop of 8259 Slave IMR Register, make it start producing INT signal
+	AND AL,0XFE; ClearBit 0
+	OUT 0XA1,AL
+	STI
+%endmacro
+
+%imacro TimerReadTime 0
+	%%SecureChk:
+	MOV AL,1000_1010B
+	OUT 0X70,AL
+	IN AL,0X71; Read RegiA
+	TEST AL,0X80
+	JNZ %%SecureChk
+	;READ SECOND
+	MOV AL,0X80
+	OUT 0X70,AL
+	IN AL,0X71
+	MOV DH,AL
+	;READ MINITE
+	MOV AL,0X82
+	OUT 0X70,AL
+	IN AL,0X71
+	MOV DL,AL
+	;READ HOUR
+	MOV AL,0X84
+	OUT 0X70,AL
+	IN AL,0X71
+	MOV AH,AL
+	;OPEN NMI AFTER READ REG-C, OR ONLY INT ONCE
+	MOV AL,0X0C
+	OUT 0X70,AL
+	IN AL,0x71
+	MOV AL,AH
+%endmacro
+

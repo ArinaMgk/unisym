@@ -69,7 +69,7 @@ int _Heap RsgMul(size_t* dstr, const size_t* sstr, size_t comlen);
 
 int _Heap_tmpher RsgDiv(size_t* dstr, size_t* sstr, size_t comlen);
 
-size_t* _Need_free RsgNew(size_t* sors, size_t len);
+size_t* _Need_free RsgNew(const size_t* sors, size_t len);
 
 size_t* _Need_free RsgImm(size_t sors, size_t len);
 
@@ -141,6 +141,7 @@ int RedMul(Rfnar_t* dest, const Rfnar_t* sors);
 
 int RedDiv(Rfnar_t* dest, const Rfnar_t* sors);
 
+double _Heap RedToDouble(const Rfnar_t* dest);
 
 
 //---- ---- ---- ---- Haruno Style ---- ---- ---- ---- 

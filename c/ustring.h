@@ -147,10 +147,11 @@ static inline void* MemSet(void* s, int c, size_t n)
 	return s;
 }
 
-static inline char* MemCopyN(char* dest, const char* sors, size_t n)
+// RFB31 changed from `static inline char* MemCopyN(char* dest, const char* sors, size_t n)`
+static inline char* MemCopyN(void* dest, const void* sors, size_t n)
 {
-	register char* d = dest;
-	while (n--) *d++ = *sors++;
+	register char* d = (char*)dest;
+	while (n--) *d++ = *(const char*)sors++;
 	return dest;
 }
 
@@ -431,53 +432,53 @@ char* ChrComMul(const char* op1, const char* op2);// [Get Least Common Multiple]
 // RegAr used, temporarily set here
 
 // Boundary
-static inline unsigned char StrShiftLeft4(unsigned char* s, size_t len)
+static inline unsigned char StrShiftLeft4(void* s, size_t len)
 {
 	unsigned char carry;
 	unsigned char lastc = 0;
 	do
 	{
-		carry = (*s & 0xF0) >> 4;// ArinaCove
-		*s <<= 4;
-		*s++ |= lastc;
+		carry = ((*(unsigned char*)s) & 0xF0) >> 4;// ArinaCove
+		(*(unsigned char*)s) <<= 4;
+		*(unsigned char*)s++ |= lastc;
 		lastc = carry;
 	} while (--len);
 	return lastc;
 }
 
 // Boundary
-static inline void StrShiftLeft8n(unsigned char* s, size_t len, size_t n)
+static inline void StrShiftLeft8n(void* s, size_t len, size_t n)
 {
 	///MemRelative(s, len, (ptrdiff_t)n);
 	register size_t i = 0;
 	if (len == 0 || n == 0) return;
-	if (n >= len) MemSet(s, 0, len);
+	if (n >= len) MemSet((unsigned char*)s, 0, len);
 	else
 	{
-		while (i < len) { if (i + 1 > n) s[len + n - i - 1] = s[len - i - 1]; i++; }
-		for (size_t j = 0; j < n; j++) s[j] = 0;
+		while (i < len) { if (i + 1 > n) ((unsigned char*)s)[len + n - i - 1] = ((unsigned char*)s)[len - i - 1]; i++; }
+		for (size_t j = 0; j < n; j++) ((unsigned char*)s)[j] = 0;
 	}
 	return;
 }
 
 // Boundary
-static inline unsigned char StrShiftRight4(unsigned char* s, size_t len)
+static inline unsigned char StrShiftRight4(void* s, size_t len)
 {
 	unsigned char carry;
 	unsigned char lastc = 0;
 	s += len - 1;
 	do
 	{
-		carry = (*s & 0x0F) << 4;// ArinaCove
-		*s >>= 4;
-		*s-- |= lastc;
+		carry = ((*(unsigned char*)s) & 0x0F) << 4;// ArinaCove
+		(*(unsigned char*)s) >>= 4;
+		*(unsigned char*)s-- |= lastc;
 		lastc = carry;
 	} while (--len);
 	return lastc;
 }
 
 // Boundary
-static inline void StrShiftRight8n(unsigned char* s, size_t len, size_t n)
+static inline void StrShiftRight8n(void* s, size_t len, size_t n)
 {
 	///MemRelative(s, len, -(ptrdiff_t)n);
 	register size_t i = 0;
@@ -485,8 +486,8 @@ static inline void StrShiftRight8n(unsigned char* s, size_t len, size_t n)
 	if (n >= len) MemSet(s, 0, len);
 	else
 	{
-		while (i < len) { if (i >= n) *(s + i - n) = s[i]; i++; }
-		for (size_t j = 0; j < n; j++) (s - n + len)[j] = 0;
+		while (i < len) { if (i >= n) *(((unsigned char*)s) + i - n) = ((unsigned char*)s)[i]; i++; }
+		for (size_t j = 0; j < n; j++) (((unsigned char*)s) - n + len)[j] = 0;
 	}
 }
 

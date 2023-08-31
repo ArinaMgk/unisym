@@ -28,7 +28,9 @@
 #include "../ustring.h"
 #include "../aldbg.h"
 #include <stdlib.h>
-#include <stdint.h>//
+#include <stdint.h>
+#include <math.h>
+#include <float.h>
 
 extern size_t size_dec;
 void size_dec_get();
@@ -46,7 +48,7 @@ size_t RsgDiv8(size_t * sstr, size_t slen, unsigned char divr)
 	// temp / divr = q ... r
 	size_t crtq, temp;
 	crtq = 0;
-	for (unsigned char* s = (unsigned char*)(sstr + slen) - 1; s >= sstr; s--)
+	for (unsigned char* s = (unsigned char*)(sstr + slen) - 1; s >= (unsigned char*)sstr; s--)
 	{
 		crtq <<= CHAR_BIT;
 		temp = *s + crtq;
@@ -57,16 +59,16 @@ size_t RsgDiv8(size_t * sstr, size_t slen, unsigned char divr)
 }
 
 //
-static inline signed RsgZero(size_t* sstr, size_t slen)
+static inline signed RsgZero(const size_t* sstr, size_t slen)
 {
 	do if (*sstr++) return 0; while (--slen);
 	return 1;
 }
 
 // The return is based on size_t and at least 1.
-static inline size_t RsgRealen(size_t* sstr, size_t slen)
+static inline size_t RsgRealen(const size_t* sstr, size_t slen)
 {
-	for (size_t* str = sstr + slen - 1; str > sstr; str--)
+	for (size_t* str = (size_t*)(sstr + slen - 1); str > sstr; str--)
 	{
 		if (!*str) slen--;
 		else break;
@@ -106,7 +108,7 @@ signed RsgCmp(const size_t* a, const size_t* b, size_t alen, size_t blen)
 		efflenb = RsgRealen(b, blen);
 	if (efflena == efflenb)
 	{
-		unsigned char* aa = a, * bb = b;
+		unsigned char* aa = (unsigned char*)a, * bb = (unsigned char*)b;
 		for (ptrdiff_t i = sizeof(size_t) * efflena - 1; i >= 0; i--)
 		{
 			int state = (unsigned int)aa[i] - (unsigned int)bb[i];
@@ -122,8 +124,8 @@ signed RsgCmpByte(const unsigned char* a, const unsigned char* b, size_t alen, s
 {
 	int state;
 	if (!alen || !blen) return -1;
-	size_t efflena = RsgByteRealenByte(a, alen),
-		efflenb = RsgByteRealenByte(b, blen);
+	size_t efflena = RsgByteRealenByte((size_t *)a, alen),
+		efflenb = RsgByteRealenByte((size_t *)b, blen);
 	if (efflena == efflenb)
 	{
 		for (ptrdiff_t i = efflena - 1; i >= 0; i--)
@@ -145,7 +147,7 @@ int RsgMul8(size_t* sstr, size_t slen, unsigned char mult)
 	// 23_45*6
 	size_t crtq, temp;
 	crtq = 0;
-	for (unsigned char* s = sstr; s < sstr + slen; s++)
+	for (unsigned char* s = (unsigned char*)sstr; (size_t*)s < sstr + slen; s++)
 	{
 		temp = *s * mult + crtq;
 		*s = temp & 0xFF;
@@ -160,7 +162,7 @@ int RsgAdd8(size_t* sstr, size_t slen, unsigned char plus)
 {
 	size_t carry, temp;
 	carry = plus;
-	for (unsigned char* s = sstr; s < sstr + slen; s++)
+	for (unsigned char* s = (unsigned char*)sstr; (size_t*)s < sstr + slen; s++)
 	{
 		temp = *s + carry;
 		*s = temp & 0xFF;
@@ -181,7 +183,7 @@ int RsgSub8(size_t* sstr, size_t slen, unsigned char subr)
 	{
 		borrow = -subr;
 		//{} NEG [borrow], `borrow = -borrow;` will rise a mistake in MSVC2022
-		for (unsigned char* s = sstr; s < sstr + slen; s++)
+		for (unsigned char* s = (unsigned char*)sstr; (size_t*)s < sstr + slen; s++)
 		{
 			temp = *s + borrow;
 			*s = temp & 0xFF;
@@ -260,7 +262,8 @@ char* _Need_free RsgToString(const size_t* sstr, size_t slen, signed syst)
 // Return the carry
 int RsgAdd(size_t* dstr, const size_t* sstr, size_t comlen)
 {
-	unsigned char* const d = dstr, const * const s = sstr;
+	unsigned char* d = (unsigned char*)dstr;
+	unsigned char const* s = (const unsigned char*)sstr;
 	size_t carry, temp;
 	carry = 0;
 	for (size_t i = 0; i < comlen * sizeof(size_t); i++)
@@ -278,18 +281,19 @@ int RsgSub(size_t* dstr, const size_t* sstr, size_t comlen)
 {
 	int sign = 0;
 	ptrdiff_t borrow, temp;
-	unsigned char* d, const* s;
+	unsigned char* d = (unsigned char*)dstr;
+	unsigned char const* s = (const unsigned char*)sstr;
 	borrow = 0;
 	// assure d > s in abs.
 	if (RsgCmp(dstr, sstr, comlen, comlen) < 0)
 	{
 		sign = 1;
 		d = MemHeap(sstr, sizeof(size_t) * comlen);
-		s = dstr;
+		s = (void*)dstr;
 	} 
 	else
 	{
-		d = dstr; s = sstr;
+		d = (void*)dstr; s = (void*)sstr;
 	}
 	for (size_t i = 0; i < comlen * sizeof(size_t); i++)
 	{
@@ -311,10 +315,11 @@ void RsgSubComple(size_t* dstr, const size_t* sstr, size_t comlen)
 {
 	int sign = 0;
 	ptrdiff_t borrow, temp;
-	unsigned char* d, const* s;
+	unsigned char* d = (unsigned char*)dstr;
+	unsigned char const* s = (const unsigned char*)sstr;
 	borrow = 0;
 	// assure d > s in abs.
-	d = dstr; s = sstr;
+	d = (void*)dstr; s = (void*)sstr;
 	for (size_t i = 0; i < comlen * sizeof(size_t) || borrow; i++)
 	{
 		if (i < comlen * sizeof(size_t))
@@ -331,10 +336,10 @@ void RsgSubComple(size_t* dstr, const size_t* sstr, size_t comlen)
 int _Heap RsgMul(size_t* dstr, const size_t* sstr, size_t comlen)
 {
 	typedef unsigned char ArUnit;// RFB15: Do not use signed, for its 1-padding.
-	ArUnit* res = RsgImm(0, comlen * 2);
+	ArUnit* res = (void*)RsgImm(0, comlen * 2);
 	size_t carry, temp;
 	// Phinae Version can update by the method.
-	ArUnit* d = dstr, * s = sstr;
+	ArUnit* d = (void*)dstr, * s = (void*)sstr;
 	for (size_t i = 0; i < sizeof(size_t) * comlen; i++)
 	{
 		carry = 0;
@@ -347,7 +352,7 @@ int _Heap RsgMul(size_t* dstr, const size_t* sstr, size_t comlen)
 		res[i + sizeof(size_t) * comlen] = carry;// comlen is spec. of s
 	}
 	MemCopyN(dstr, res, sizeof(size_t) * comlen);
-	int Over = !RsgZero(res + sizeof(size_t) / sizeof(ArUnit) * comlen, comlen);
+	int Over = !RsgZero((size_t*)(res + sizeof(size_t) / sizeof(ArUnit) * comlen), comlen);
 	memfree(res);
 	return Over;
 }
@@ -390,20 +395,20 @@ int _Heap_tmpher RsgDiv(size_t* dstr, size_t* sstr, size_t comlen)
 		MemSet(arna_tmpext, 0, bytlend);
 		times += crtd[bytlens - 1] / (((byte*)sstr)[bytlens - 1] + 1);
 		MemCopyN(arna_tmpext, sstr, bytlens);
-		RsgMul8(arna_tmpext, bytlend, times);// bytlens should be good
-		RsgSubComple(crtd, arna_tmpext, bytlend);
+		RsgMul8((void*)arna_tmpext, bytlend, times);// bytlens should be good
+		RsgSubComple((void*)crtd, (void*)arna_tmpext, bytlend);
 		(*crtresptr) += times;
 		///while (MemCompareRight(crtd, sstr, bytlens) >= 0)
-		while (RsgCmpByte(crtd, sstr, (i <= bytlend - bytlens && i>0) ?
+		while (RsgCmpByte((void*)crtd, (void*)sstr, (i <= bytlend - bytlens && i>0) ?
 			bytlens + 1 : bytlens, bytlens) >= 0)
 		{
 			(*crtresptr)++;
-			RsgSubComple(crtd, sstr, bytlens);
+			RsgSubComple((void*)crtd, (void*)sstr, bytlens);
 			MemSet(arna_tmpext, 0, bytlend);
 			times = crtd[bytlens - 1] / (((byte*)sstr)[bytlens - 1] + 1);
 			MemCopyN(arna_tmpext, sstr, bytlens);
-			RsgMul8(arna_tmpext, bytlend, times);// bytlens should be good
-			RsgSubComple(crtd, arna_tmpext, bytlend);
+			RsgMul8((void*)arna_tmpext, bytlend, times);// bytlens should be good
+			RsgSubComple((void*)crtd, (void*)arna_tmpext, bytlend);
 			(*crtresptr) += times;
 		}
 		crtresptr--;
@@ -418,7 +423,7 @@ int _Heap_tmpher RsgDiv(size_t* dstr, size_t* sstr, size_t comlen)
 }
 
 //
-size_t* _Need_free RsgNew(size_t* sors, size_t len)
+size_t* _Need_free RsgNew(const size_t* sors, size_t len)
 {
 	if (!len)return 0;
 	return MemHeap(sors, sizeof(size_t) * len);
@@ -455,8 +460,8 @@ int _Heap_tmpher RsgPow(size_t* base, const size_t* expo, size_t comlen)
 	}
 	if (malc_limit < sizeof(size_t) * comlen)
 		return 1;
-	size_t* exp = arna_tmpslv;
-	size_t* res = arna_tempor;
+	size_t* exp = (void*)arna_tmpslv;
+	size_t* res = (void*)arna_tempor;
 	MemCopyN(exp, expo, sizeof(*base) * comlen);
 	MemCopyN(res, base, sizeof(*base) * comlen);
 	RsgSub8(exp, comlen, 1);
@@ -759,7 +764,7 @@ void RedAlignExpo(Rfnar_t* d, Rfnar_t* s)
 	//{TD} if (RsgRealen(shift_times, dlen) > 1)// memory may be not enough to use (QAQ)
 	if (*shift_times & 1)StrShiftLeft4(d->coff, sizeof(size_t) * dlen);
 	*shift_times >>= 1;
-	StrShiftLeft8n(d->coff, sizeof(size_t) * dlen, *shift_times);
+	StrShiftLeft8n((void*)d->coff, sizeof(size_t) * dlen, *shift_times);
 	memfree(shift_times);
 }
 
@@ -813,7 +818,7 @@ void RedDivrUnit(Rfnar_t* d)
 {
 	RedReduct(d);
 	size_t dlen = d->defalen;
-	if (!RsgCmp(d->divr, &constr_1, dlen, 1)) return;
+	if (!RsgCmp(d->divr, constr_1.coff, dlen, 1)) return;
 	size_t shl_bytes = dlen * sizeof(size_t) - RsgRealenByte(d->coff, dlen);
 	if (shl_bytes > 0xFF) return;//{} Use this to limit to fast the arithmetic.
 	StrShiftLeft8n(d->coff, dlen * sizeof(size_t), shl_bytes);
@@ -844,7 +849,7 @@ void RedReduct(Rfnar_t* d)
 	size_t* GCD = RsgNew(d->coff, dlen);
 	RsgComDiv(GCD, d->divr, dlen);
 	size_t* GCDCpy = RsgNew(GCD, dlen);
-	if (RsgCmp(GCD, &constr_1, dlen, 1) > 0)
+	if (RsgCmp(GCD, constr_1.coff, dlen, 1) > 0)
 	{
 		RsgDiv(d->coff, GCD, dlen);
 		RsgDiv(d->divr, GCDCpy, dlen);
@@ -985,6 +990,7 @@ int RedCmp(const Rfnar_t* d, const Rfnar_t* s)
 int RedMul(Rfnar_t* dest, const Rfnar_t* sors)
 {
 	size_t dlen = dest->defalen;
+	int new_sors = 0;
 	if (RsgZero(dest->coff, dest->defalen) || RsgZero(sors->coff, sors->defalen))
 	{
 		srs(dest->coff, RsgImm(0, dlen));
@@ -997,7 +1003,11 @@ int RedMul(Rfnar_t* dest, const Rfnar_t* sors)
 	if (dest->defalen != sors->defalen)
 	{
 		if (dest->defalen > sors->defalen)
-			RedDig(sors, dest->defalen);
+		{
+			sors = RedHeap(sors);
+			RedDig((void*)sors, dest->defalen);
+			new_sors = 1;
+		}
 		else RedDig(dest, sors->defalen);
 		dlen = dest->defalen;
 	}
@@ -1005,6 +1015,7 @@ int RedMul(Rfnar_t* dest, const Rfnar_t* sors)
 	if (RsgMul(dest->divr, sors->divr, dlen)) return -1;
 	dest->cofsign ^= sors->cofsign;
 	RedExpoAdd(dest, sors->expo);
+	if (new_sors) RedDel((void*)sors);
 	RedReduct(dest);
 	return 0;
 }
@@ -1013,6 +1024,7 @@ int RedMul(Rfnar_t* dest, const Rfnar_t* sors)
 int RedDiv(Rfnar_t* dest, const Rfnar_t* sors)
 {
 	size_t dlen = dest->defalen;
+	int new_sors = 0;
 	if (RsgZero(sors->coff, sors->defalen))
 		return -2;
 	if (RsgZero(dest->coff, dest->defalen))
@@ -1027,7 +1039,11 @@ int RedDiv(Rfnar_t* dest, const Rfnar_t* sors)
 	if (dest->defalen != sors->defalen)
 	{
 		if (dest->defalen > sors->defalen)
-			RedDig(sors, dest->defalen);
+		{
+			sors = RedHeap(sors);
+			RedDig((void*)sors, dest->defalen);
+			new_sors = 1;
+		}
 		else RedDig(dest, sors->defalen);
 		dlen = dest->defalen;
 	}
@@ -1035,6 +1051,7 @@ int RedDiv(Rfnar_t* dest, const Rfnar_t* sors)
 	if (RsgMul(dest->divr, sors->coff, dlen)) return -1;
 	dest->cofsign ^= sors->cofsign;
 	RedExpoSub(dest, sors->expo);
+	if (new_sors) RedDel((void*)sors);
 	RedReduct(dest);
 	return 0;
 }
@@ -1211,13 +1228,270 @@ Rfnar_t* RedAtanh(Rfnar_t* dest);
 
 //
 
-double RedToDouble(const Rfnar_t* dest);
+// Below 4 were provided by Arina RFB29
+double _Heap RedToDouble(const Rfnar_t* dest)
+{
+	// based on CoeAr
+	Rfnar_t* d = RedHeap(dest);
+	RedDivrUnit(d);
+	double ll = 0.0;
+	if (RsgRealenByte(d->expo, d->defalen) > sizeof(size_t) || (*(ptrdiff_t*)d->expo) < 0 || ((ssize_t)d->defalen) < 0)// Check the exponent is too big
+		return INFINITY;
+	ptrdiff_t CrtPow = *d->expo;
+	if (d->expsign)CrtPow = -CrtPow;
+	if (CrtPow > (DBL_MAX_EXP >> 4))
+		return INFINITY;// base2 to base16
+	if ((CrtPow + 2 * RsgRealenByte(d->expo, d->defalen)) < (DBL_MIN_EXP >> 4))
+		return 0.0;
+	// Precise cut: only keep the highest size_t of the coff, which differs from the ToString
+	// [12345678][23456789]16^[7FFF FFFF]
+	const unsigned char* const p = (void*)d->coff;
+	size_t plen = RsgRealenByte(d->coff, d->defalen);
+	for (ptrdiff_t i = 0; i < plen; i++)
+	{
+		if (CrtPow >= DBL_MIN_EXP)
+			ll += (double)(p[i]) * exp2((double)CrtPow * 4);// base2 to base16, CrtPow << 2, I made a mistake "SHL 4" -- ArinaMgk RFB31
+		CrtPow += 2;// not coff *= 256 --> expo += 8
+		if (CrtPow > DBL_MAX_EXP) break;
+	}
+	if (d->cofsign)ll *= -1;
+	RedDel(d);
+	return ll;
+}
 
-Rfnar_t* RedFromDouble(double flt);
 
-char* RedToLocaleClassic(const Rfnar_t* obj, int opt);
+Rfnar_t* _Need_free RedFromDouble(double flt)// Waiting, Arina will code right now.
+{
+//	// based on CoeAr
+//	int sign = flt < 0;
+//	if (sign) flt = -flt;
+//	if (flt == 0.0) return CoeNew("+0", "+0", "+1");
+//	coe* res;
+//	if (isnan(flt)) 
+//		return CoeNew("+1", "+0", "+0");
+//	ptrdiff_t crtpow = (ptrdiff_t)(flt < 0. ? -log10(-flt) : log10(flt));
+//	size_t luptimes = 0;
+//	char* buf; memalloc(buf, show_precise + 2); buf[show_precise + 1] = 0;
+//	char* ptr = buf + 1;
+//	char* tmpptr;
+//	char c;
+//	while (crtpow > DBL_MIN_10_EXP && luptimes++ < show_precise)
+//	{
+//		c = (ptrdiff_t)(flt / pow(10, crtpow)) % 10 + 0x30;
+//		if (c < '0' || c > '9') c = '0';
+//		*ptr++ = c;
+//		crtpow--;
+//	}
+//	if (ptr == buf || ptr == buf + 1)
+//	{
+//		ptr = buf; ptr++;
+//		*ptr++ = '0';
+//	}
+//	*ptr = 0;
+//	buf[0] = sign ? '-' : '+';
+//	res = CoeNew(buf, tmpptr = instoa(crtpow+1), "+1");
+//	memfree(tmpptr);
+//	memfree(buf);
+//	CoeCtz(res);
+//	ChrCpz(res->coff);
+//	return res;
+}
 
-Rfnar_t* RedFromLocaleClassic(const char* str);
+// opt: 0[auto, 2 when out of (0.001,1000) differ from CoeAr] 1[int or float] 2[e format], in decimal
+char* _Need_free RedToLocaleClassic(const Rfnar_t* obj, int opt)// Waiting, Arina will code right now.
+{
+//	// based on CoeAr
+//	const size_t inte_lim = 8;// the mag. greater or less than this, will be to exponent form!
+//	size_t real_exp = atoins(obj->expo + 1);
+//	//
+//	coe* objj = CoeCpy(obj);
+//	CoeDivrUnit(objj, show_precise);// RFR16 Appended.
+//	//
+//	if (!opt)
+//		opt = (real_exp > inte_lim) ? 2 : 1;
+//	if (opt == 1)
+//	{
+//		size_t len = 0,
+//			numlen = 0;
+//		while (objj->coff[len])len++;
+//		numlen = len - 1;
+//		if (*objj->expo == '-') len++;
+//		//+2e-5 0.00002 (len 7)
+//		len += real_exp;// I am too lazy RFW25
+//		char* const tmpptr;
+//		memalloc(tmpptr, len + 1);
+//		{size_t ecx = len + 1; while (ecx--) tmpptr[ecx] = 0;}
+//		// I am too lazy to think the detail
+//		if (*objj->expo == '+')
+//		{
+//			char* subp = tmpptr;
+//			for (size_t i = 0; i < numlen + 1; i++)
+//				*subp++ = objj->coff[i];
+//			for (size_t i = 0; i < real_exp; i++)
+//				*subp++ = '0';
+//		}
+//		else if (real_exp >= numlen)//0.xxx
+//		{
+//			char* subp = tmpptr;
+//			*subp++ = *objj->coff;// sign
+//			*subp++ = '0';
+//			*subp++ = '.';
+//			for (size_t i = 0; i < real_exp - numlen;i++)
+//				*subp++ = '0';
+//			StrCopy(subp, objj->coff + 1);
+//		}
+//		else if (numlen == 1 || real_exp == 0)
+//		{
+//			StrCopy(tmpptr, objj->coff);
+//		}
+//		else
+//		{
+//			char* subp = tmpptr;
+//			*subp++ = *objj->coff;// sign
+//			for (size_t i = 1;i <= numlen - real_exp;i++)
+//				*subp++ = objj->coff[i];
+//			*subp++ = '.';
+//			StrCopy(subp, objj->coff + numlen - real_exp + 1);
+//		}
+//		CoeDel(objj);// RFR16
+//		return tmpptr;
+//	}
+//	else if (opt == 2)// +16 +23 +1.6e+23  +2 +4 +2e+4
+//	{
+//		size_t len = 0, len2 = 0,
+//			numlen = 0;
+//		while (objj->coff[len])len++;
+//		numlen = len - 1;
+//		char* tmp_expo = StrHeap(objj->expo);
+//		char* tmp_expo_dif = instoa(numlen - 1);
+//		srs(tmp_expo, ChrAdd(tmp_expo, tmp_expo_dif));
+//		while (tmp_expo[len2])len2++;
+//		len += len2;
+//		real_exp = atoins(tmp_expo);
+//
+//		char* tmpptr;
+//		memalloc(tmpptr, len + 3);
+//		{size_t ecx = len + 1; while (ecx--) tmpptr[ecx] = 0;}
+//		// I am too lazy to think the detail
+//		char* subp = tmpptr;
+//		*subp++ = *objj->coff;// sign
+//		*subp++ = objj->coff[1];
+//		if (numlen > 1)
+//		{
+//			*subp++ = '.';
+//			for (size_t i = 2; i < numlen + 1; i++)
+//				*subp++ = objj->coff[i];
+//		}
+//		if (real_exp)
+//		{
+//			*subp++ = 'e';
+//			StrCopy(subp, tmp_expo);
+//		}
+//
+//		memfree(tmp_expo_dif);
+//		memfree(tmp_expo);
+//		CoeDel(objj);// RFR16
+//		return tmpptr;
+//	}
+//	CoeDel(objj);// RFR16
+//	return 0;
+}
+
+Rfnar_t* _Need_free RedFromLocaleClassic(const char* str)// Waiting, Arina will code right now.
+{
+//	// based on CoeAr
+//	const char* ParA = str, * ParB = 0, * ParC = 0;
+//	size_t LenA = 0, LenB = 0, LenC = 0;
+//	char c;
+//	coe* co = 0;
+//	size_t coflen = 0;
+//loop: switch (c = *str++)
+//	{
+//	case 0:
+//		// Chk and gen co.
+//		memalloc(co, sizeof(coe));
+//		co->symb = 0;
+//		co->divr = StrHeap("+1");
+//		if (ParC) LenC = str - ParC - 1;// e2$$
+//		else if (ParB) LenB = str - ParB - 1;
+//		else LenA = str - ParA;
+//
+//		if (ParC && LenC && ParC[LenC - 1] != '+' && ParC[LenC - 1] != '-')
+//		{
+//			co->expo = StrHeapN(ParC, LenC);
+//			if (*co->expo != '+' && *co->expo != '-')
+//				srs(co->expo, StrHeapAppend(("+"), co->expo));
+//		}
+//		else co->expo = StrHeap("+0");
+//		if (!LenA && !LenB)
+//		{
+//			co->coff = StrHeap("+1");
+//			goto loopend;
+//		}
+//
+//		if (!ParB || ParA == ParB || !LenB)// only interger
+//		{
+//			co->coff = StrHeapN(ParA, LenA);
+//			if (*co->coff != '+' && *co->coff != '-')
+//				srs(co->coff, StrHeapAppend(("+"), co->coff));
+//			if (!co->coff[1])
+//				srs(co->coff, StrHeapAppend(co->coff, "1"));
+//			goto loopend;
+//		}
+//		else
+//		{
+//			memalloc(co->coff, LenA + LenB + 1);
+//			if (LenA)
+//				StrCopyN(co->coff, ParA, LenA);// 0.x case
+//			StrCopyN(co->coff + LenA, ParB, LenB);
+//			co->coff[LenA + LenB] = 0;
+//			char* tmpptr = instoa(LenB);
+//			srs(co->expo, ChrSub(co->expo, tmpptr));
+//			memfree(tmpptr);
+//			if (*co->coff != '+' && *co->coff != '-')
+//				srs(co->coff, StrHeapAppend(("+"), co->coff));
+//			if (!co->coff[1])
+//				srs(co->coff, StrHeapAppend(co->coff, "1"));
+//			goto loopend;
+//		}
+//		break;
+//	default:
+//		if (c >= '0' && c <= '9');
+//		else goto loopend;
+//		break;
+//	case '+':
+//	case '-':
+//		break;
+//	case 'e':
+//		if (ParC) goto loopend;
+//		ParC = str;
+//		if (ParA && ParB)//1.2e3
+//		{
+//			LenB = str - ParB - 1;
+//			ParC = str;
+//		}
+//		else if (ParA && !ParB)//1e2
+//		{
+//			LenA = str - ParA - 1;
+//			ParB = ParA;
+//			ParC = str;
+//		}
+//		else goto loopend;
+//		break;
+//	case '.':
+//		if (ParB || ParC) goto loopend;
+//		ParB = str;
+//		LenA = str - ParA - 1;//1.1
+//		break;
+//	} goto loop; 
+//	loopend:
+//	if (!co) return co;
+//	ChrCpz(co->coff);// +002$ 
+//	ChrCpz(co->expo);
+//	return co;
+}
+
+//{MSG to dosc.} [After 4 conversion functions, checking all existing fucntions for MALC and give me the mistakes. -- Arin.]
 
 //---- ---- ---- ---- Multid Style ---- ---- ---- ---- 
 // cross, dot, +, -, abs (5)
@@ -1314,7 +1588,7 @@ Hrnar_t* HrnCross(const Hrnar_t* d, const Hrnar_t* s)
 	RedMul(&e->y, &s->z);
 	RedMul(&r->z, &s->y);
 	RedMul(&e->z, &s->x);
-	RedSub(r, e);
+	HrnSub(r, e);
 	HrnClr(e);
 	return r;
 }
@@ -1331,7 +1605,7 @@ Rfnar_t* HrnDot(const Hrnar_t* d, const Hrnar_t* s)
 	r = RedHeap(&dd->x);
 	RedAdd(r, &dd->y);
 	RedAdd(r, &dd->z);
-	RedSub(r, &dd->z);
+	RedSub(r, &dd->t);
 	HrnClr(dd);
 	return r;
 }

@@ -1,4 +1,5 @@
 ﻿// Test File for regar.c
+//WinCmd$ gcc TestRegarPhinae.c ../source/regar.c ../source/ustring.c -o a.exe -D_dbg -I../
 //---- ---- ---- ---- Phinae Style ---- ---- ---- ---- 
 #include "aldbg.h"
 #include "regar.h"
@@ -15,7 +16,7 @@ char arna_tempor[MALC_LIMIT];
 char arna_tmpslv[MALC_LIMIT];
 char arna_tmpext[MALC_LIMIT];
 
-void erro() {}
+void erro(char* str) {}
 
 void printr(const Rfnar_t* r)
 {
@@ -91,7 +92,16 @@ int main()
 	// 0.33/-512
 	r0 = RedNewImm(1, 0, 3, 2);
 	r1 = RedNewImm(2, 2, 1, 2); r1->cofsign = 1;
-	RedDiv(r0, r1);
+	RedDiv(r0, r1);    RedDivrUnit(r0);
 	printf("1/3/-512:"); printr(r0);
+	printf("\talso equals %lf\n", RedToDouble(r0));
+
+	r0 = RedNewImm(2, 1, 1, 1);
+	puts("2*16=32");
+	printf("\talso equals %lf\n", RedToDouble(r0));
+
+	r0 = RedNewImm(2, 0, 3, 1);
+	puts("2 / 3");
+	printf("\talso equals %lf\n", RedToDouble(r0));
 
 }

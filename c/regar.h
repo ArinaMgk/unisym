@@ -125,6 +125,8 @@ void RedZip(Rfnar_t* dest);
 
 void RedAlignExpo(Rfnar_t* d, Rfnar_t* s);
 
+void RedExpoZero(Rfnar_t* d);// RFV2 ArnMgk
+
 void RedDivrUnit(Rfnar_t* d);
 
 void RedReduct(Rfnar_t* d);
@@ -143,6 +145,7 @@ int RedDiv(Rfnar_t* dest, const Rfnar_t* sors);
 
 double _Heap RedToDouble(const Rfnar_t* dest);
 
+Rfnar_t* _Need_free RedFromDouble(double flt, size_t rfnumlen, size_t FetchDigits);
 
 //---- ---- ---- ---- Haruno Style ---- ---- ---- ---- 
 // [Suggested Arina RFB19] common used by Complex and the universal vector:

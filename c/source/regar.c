@@ -768,6 +768,29 @@ void RedAlignExpo(Rfnar_t* d, Rfnar_t* s)
 	memfree(shift_times);
 }
 
+// Without check
+void RedExpoZero(Rfnar_t* d)// RFV2 ArnMgk [divr should be 1]
+{
+	const size_t tempo_lim = 0x1000;
+	size_t dlen = d->defalen;
+	if (RsgZero(d->expo, dlen)) return;
+	if (RsgRealen(d->coff, d->defalen) > 1 || d->expo[0] > tempo_lim) return;//{TOD} err
+	if (d->expsign == 1)
+		StrShiftRight8n((void*)d->coff, sizeof(size_t) * dlen, d->expo[0] * 2);//{} !
+	else
+	{
+		if (RsgRealenByte(d->coff, dlen) + d->expo[0] * 2 > d->defalen * sizeof(size_t))
+		{
+			Rfnar_t* tmp = RedNewImm(0, 0, 1, (RsgRealenByte(d->coff, dlen) + d->expo[0] * 2 + sizeof(size_t) - 1) / sizeof(size_t));
+			MemCopyN(tmp->coff, d->coff, RsgRealenByte(d->coff, dlen));
+		}
+		StrShiftLeft8n((void*)d->coff, sizeof(size_t) * dlen, d->expo[0] * 2);
+	}
+	d->expsign = 0;
+	for (size_t i = 0;i < d->defalen;i++) d->expo[i] = 0;
+}
+
+
 static inline void RedCoffAdd(Rfnar_t* dest, size_t* coff)
 {
 	// [L] same length
@@ -1228,7 +1251,7 @@ Rfnar_t* RedAtanh(Rfnar_t* dest);
 
 //
 
-// Below 4 were provided by Arina RFB29
+// Below 4 were by Arina RFB29
 double _Heap RedToDouble(const Rfnar_t* dest)
 {
 	// based on CoeAr
@@ -1259,151 +1282,61 @@ double _Heap RedToDouble(const Rfnar_t* dest)
 	return ll;
 }
 
-
-Rfnar_t* _Need_free RedFromDouble(double flt)// Waiting, Arina will code right now.
+#include <stdio.h>
+//
+Rfnar_t* _Need_free RedFromDouble(double flt, size_t rfnumlen, size_t FetchDigits)
 {
-//	// based on CoeAr
-//	int sign = flt < 0;
-//	if (sign) flt = -flt;
-//	if (flt == 0.0) return CoeNew("+0", "+0", "+1");
-//	coe* res;
-//	if (isnan(flt)) 
-//		return CoeNew("+1", "+0", "+0");
-//	ptrdiff_t crtpow = (ptrdiff_t)(flt < 0. ? -log10(-flt) : log10(flt));
-//	size_t luptimes = 0;
-//	char* buf; memalloc(buf, show_precise + 2); buf[show_precise + 1] = 0;
-//	char* ptr = buf + 1;
-//	char* tmpptr;
-//	char c;
-//	while (crtpow > DBL_MIN_10_EXP && luptimes++ < show_precise)
-//	{
-//		c = (ptrdiff_t)(flt / pow(10, crtpow)) % 10 + 0x30;
-//		if (c < '0' || c > '9') c = '0';
-//		*ptr++ = c;
-//		crtpow--;
-//	}
-//	if (ptr == buf || ptr == buf + 1)
-//	{
-//		ptr = buf; ptr++;
-//		*ptr++ = '0';
-//	}
-//	*ptr = 0;
-//	buf[0] = sign ? '-' : '+';
-//	res = CoeNew(buf, tmpptr = instoa(crtpow+1), "+1");
-//	memfree(tmpptr);
-//	memfree(buf);
-//	CoeCtz(res);
-//	ChrCpz(res->coff);
-//	return res;
+	// based on CoeAr
+	if (isnan(flt)) return RedNewImm(1, 0, 0, rfnumlen);
+	Rfnar_t* res = RedNewImm(0, 0, 1, rfnumlen);
+	if (flt == 0.0) return res;
+	if (res->cofsign = (flt < 0)) flt = -flt;
+	ptrdiff_t crtpow = ((ptrdiff_t)log2(flt)) & (~(ptrdiff_t)0b0111);
+	size_t luptimes = 0;
+	char* const buf = zalc((DBL_MAX_EXP >> 3) + 1);//{TOD} [BUF]
+	char* ptr = buf;
+	unsigned char* coffptr = (void*)res->coff;
+	unsigned char c;
+	double delta = 0.0;
+	if (rfnumlen * sizeof(size_t) < FetchDigits) FetchDigits = rfnumlen * sizeof(size_t);
+	while (crtpow > DBL_MIN_EXP && luptimes++ < FetchDigits)
+	{
+		delta = exp2(crtpow);
+		c = flt / delta;
+		flt -= c * delta;
+		*ptr++ = c;
+		crtpow -= 8;// 256 = 2^8
+	}
+	for (size_t i = 0; ptr > buf; i++)
+	{
+		*coffptr++ = *--ptr;
+	}
+	crtpow += 8;
+	if (crtpow < 0)
+	{
+		res->expsign = 1;
+		crtpow = -crtpow;
+	}
+	res->expo[0] = (crtpow >> (3 - 1));// 16-based
+	memfree(buf);
+	return res;
 }
 
-// opt: 0[auto, 2 when out of (0.001,1000) differ from CoeAr] 1[int or float] 2[e format], in decimal
-char* _Need_free RedToLocaleClassic(const Rfnar_t* obj, int opt)// Waiting, Arina will code right now.
+// {TODO}
+// opt: 0[auto 3-opt format when bytof(size_t)>2 or expo != 0] 1[int or float] 2[e format(+2.0e-2)], 3[e format((e-2)+2.0)], in decimal
+char* _Need_free RedToLocaleClassic(const Rfnar_t* obj, int opt)
 {
-//	// based on CoeAr
-//	const size_t inte_lim = 8;// the mag. greater or less than this, will be to exponent form!
-//	size_t real_exp = atoins(obj->expo + 1);
-//	//
-//	coe* objj = CoeCpy(obj);
-//	CoeDivrUnit(objj, show_precise);// RFR16 Appended.
-//	//
-//	if (!opt)
-//		opt = (real_exp > inte_lim) ? 2 : 1;
-//	if (opt == 1)
-//	{
-//		size_t len = 0,
-//			numlen = 0;
-//		while (objj->coff[len])len++;
-//		numlen = len - 1;
-//		if (*objj->expo == '-') len++;
-//		//+2e-5 0.00002 (len 7)
-//		len += real_exp;// I am too lazy RFW25
-//		char* const tmpptr;
-//		memalloc(tmpptr, len + 1);
-//		{size_t ecx = len + 1; while (ecx--) tmpptr[ecx] = 0;}
-//		// I am too lazy to think the detail
-//		if (*objj->expo == '+')
-//		{
-//			char* subp = tmpptr;
-//			for (size_t i = 0; i < numlen + 1; i++)
-//				*subp++ = objj->coff[i];
-//			for (size_t i = 0; i < real_exp; i++)
-//				*subp++ = '0';
-//		}
-//		else if (real_exp >= numlen)//0.xxx
-//		{
-//			char* subp = tmpptr;
-//			*subp++ = *objj->coff;// sign
-//			*subp++ = '0';
-//			*subp++ = '.';
-//			for (size_t i = 0; i < real_exp - numlen;i++)
-//				*subp++ = '0';
-//			StrCopy(subp, objj->coff + 1);
-//		}
-//		else if (numlen == 1 || real_exp == 0)
-//		{
-//			StrCopy(tmpptr, objj->coff);
-//		}
-//		else
-//		{
-//			char* subp = tmpptr;
-//			*subp++ = *objj->coff;// sign
-//			for (size_t i = 1;i <= numlen - real_exp;i++)
-//				*subp++ = objj->coff[i];
-//			*subp++ = '.';
-//			StrCopy(subp, objj->coff + numlen - real_exp + 1);
-//		}
-//		CoeDel(objj);// RFR16
-//		return tmpptr;
-//	}
-//	else if (opt == 2)// +16 +23 +1.6e+23  +2 +4 +2e+4
-//	{
-//		size_t len = 0, len2 = 0,
-//			numlen = 0;
-//		while (objj->coff[len])len++;
-//		numlen = len - 1;
-//		char* tmp_expo = StrHeap(objj->expo);
-//		char* tmp_expo_dif = instoa(numlen - 1);
-//		srs(tmp_expo, ChrAdd(tmp_expo, tmp_expo_dif));
-//		while (tmp_expo[len2])len2++;
-//		len += len2;
-//		real_exp = atoins(tmp_expo);
-//
-//		char* tmpptr;
-//		memalloc(tmpptr, len + 3);
-//		{size_t ecx = len + 1; while (ecx--) tmpptr[ecx] = 0;}
-//		// I am too lazy to think the detail
-//		char* subp = tmpptr;
-//		*subp++ = *objj->coff;// sign
-//		*subp++ = objj->coff[1];
-//		if (numlen > 1)
-//		{
-//			*subp++ = '.';
-//			for (size_t i = 2; i < numlen + 1; i++)
-//				*subp++ = objj->coff[i];
-//		}
-//		if (real_exp)
-//		{
-//			*subp++ = 'e';
-//			StrCopy(subp, tmp_expo);
-//		}
-//
-//		memfree(tmp_expo_dif);
-//		memfree(tmp_expo);
-//		CoeDel(objj);// RFR16
-//		return tmpptr;
-//	}
-//	CoeDel(objj);// RFR16
-//	return 0;
+// {}
 }
 
-Rfnar_t* _Need_free RedFromLocaleClassic(const char* str)// Waiting, Arina will code right now.
+// {TODO}
+Rfnar_t* _Need_free RedFromLocaleClassic(const char* str)
 {
-//	// based on CoeAr
-//	const char* ParA = str, * ParB = 0, * ParC = 0;
-//	size_t LenA = 0, LenB = 0, LenC = 0;
-//	char c;
-//	coe* co = 0;
+	// based on CoeAr
+	const char* ParA = str, * ParB = 0, * ParC = 0;
+	size_t LenA = 0, LenB = 0, LenC = 0;
+	char c;
+	Rfnar_t* co = 0;
 //	size_t coflen = 0;
 //loop: switch (c = *str++)
 //	{
@@ -1488,10 +1421,13 @@ Rfnar_t* _Need_free RedFromLocaleClassic(const char* str)// Waiting, Arina will 
 //	if (!co) return co;
 //	ChrCpz(co->coff);// +002$ 
 //	ChrCpz(co->expo);
-//	return co;
+	return co;
 }
 
 //{MSG to dosc.} [After 4 conversion functions, checking all existing fucntions for MALC and give me the mistakes. -- Arin.]
+//{TOD} [The version just use coff]
+//{TOD} [Buf is optional if the heap is available]
+//{TOD} [use Byte-unit and 256-base to make other version: BytAr(duplicate name with the history version: SGA) a independent file but yo ustring, I feel it will wider, though may lower speed. --ArnMgk]
 
 //---- ---- ---- ---- Multid Style ---- ---- ---- ---- 
 // cross, dot, +, -, abs (5)

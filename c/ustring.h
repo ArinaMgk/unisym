@@ -37,7 +37,7 @@
 #ifndef _INC_STDDEF
 #include <stddef.h>
 #endif
-
+#include "alice.h"
 #ifndef _noheap
 #include "aldbg.h"
 #endif
@@ -151,10 +151,11 @@ static inline void* MemSet(void* s, int c, size_t n)
 static inline char* MemCopyN(void* dest, const void* sors, size_t n)
 {
 	register char* d = (char*)dest;
-	while (n--) *d++ = *(const char*)sors++;
+	while (n--) *d++ = *(*((const char**)&sors))++;
 	return dest;
 }
 
+// n excludes terminating-0
 static inline char* StrCopyN(char* dest, const char* sors, size_t n)
 {
 	register char* d = dest;
@@ -409,11 +410,17 @@ char* instoa(ptrdiff_t num);// [Instant to ASCII yo heap]
 char* instob(ptrdiff_t num, char* buf);// [Instant to ASCII yo buffer]
 ptrdiff_t atoins(const char* str);// [ASCII to Instant]
 
-char* ChrHexToDec(const char* hex);
+char* _Need_free ChrHexToDec(const char* hex);
+
+char* _Need_free ChrHexToDecFloat(const char* hexf);
+
 // Output: upper case
 char* ChrDecToHex(char* dec);
 
+char* _Need_free ChrDecToHexFloat(const char* decf, size_t digits);
+
 void ChrCpz(char* str);// Clear prefix zeros, "+001"-->"+1".
+void ChrCtz(char* str);
 char* ChrAdd(const char* dest, const char* sors);
 char* ChrSub(const char* dest, const char* sors);
 char* ChrMul(const char* a, const char* b);
@@ -440,7 +447,7 @@ static inline unsigned char StrShiftLeft4(void* s, size_t len)
 	{
 		carry = ((*(unsigned char*)s) & 0xF0) >> 4;// ArinaCove
 		(*(unsigned char*)s) <<= 4;
-		*(unsigned char*)s++ |= lastc;
+		*(*((unsigned char**)&s))++ |= lastc;
 		lastc = carry;
 	} while (--len);
 	return lastc;
@@ -466,12 +473,12 @@ static inline unsigned char StrShiftRight4(void* s, size_t len)
 {
 	unsigned char carry;
 	unsigned char lastc = 0;
-	s += len - 1;
+	*(char**)s += len - 1;
 	do
 	{
 		carry = ((*(unsigned char*)s) & 0x0F) << 4;// ArinaCove
 		(*(unsigned char*)s) >>= 4;
-		*(unsigned char*)s-- |= lastc;
+		*(*((unsigned char**)&s))-- |= lastc;
 		lastc = carry;
 	} while (--len);
 	return lastc;

@@ -30,37 +30,51 @@ u64:
 | Kasha                      | x86-Series Platform Assembly Kit for OSDev.                  |
 | MCU                        | for integrated micro-controller units. (temporarily close-src) |
 
-`ustring`: the operations for string and big-integer-number「大數運算」 (flexible-size). Besides, this contains: SystemConversion「進制轉換」; The "u" is for distinction from that of the standard library, which means "UNISYM", **but "Unicode"**.
-
-`coear`: the mechanism can express and operate the big-real-number「有理實數運算」, e.g. `-1.23e45`
-
-`numar`: the mechanism can express and operate the big-real-numbers (not endless) in 4 dimensions「時空矢量運算」.
-
-`regar`:  the mechanism can express and operate the numbers in multi-byte way. 「多字節數字」
+`ustring`: the operations for string and big-integer-number「大數運算」 (flexible-size). Besides, this contains: SystemConversion「進制轉換」; The "u" is for distinction from that of the standard library, which means "UNISYM", **but "Unicode"**. This is going to divide into "hstring" and "bstring", and "usting" will include them.
 
 `dnode`: double-direction node.
 
+| String Arithmetic  | Description                                                  | State    |
+| ------------------ | ------------------------------------------------------------ | -------- |
+| ustring::**ChrAr** | [big endian] optional signed ASCII integer arithmetic  and operations, for buffer or heap, which can be printed directly. Now exists the dependence of `arna_eflag`, even input!!! | ripen    |
+| **CoeAr**          | [big endian] Arinae classic structure, Coff-expo-divr, based on **ChrAr**. the mechanism can express and operate any big-rational-real-number. | ripen    |
+| **NumAr**(4)       | [big endian] the mechanism can express and operate the big-rational-real-numbers (not endless) in 4 dimensions of time and room, or real and imaginary, based on **CoeAr**. | ripen    |
+| **RsgAr**          | [little endian] Haruno no base 256 expo-unit 16 extension. Use the register-size unit for faster arithmetic speed. 「多字節數字」 | ripen    |
+| **RegAr**          | [big endian] C-E-D structure based on **RsgAr**. the mechanism can express and operate any big-rational-real-number. | building |
+| **HrnAr**(4)       | [little endian] 4D based on **RegAr**                        | todo     |
+| **BytAr**          | [little endian] base 256 expo-unit 256 for signed integer, whose the first byte is the flag byte. | todo     |
+| **ArnAr**          | [little endian] Arinae classic structure based on **BytAr**. the mechanism can express and operate any big-rational-real-number. The expo and divr are optional. | todo     |
+| **TenAr**          | Haruno no. Operations for tensor(different sizes and types in an array) and array. | todo     |
+
 `node`: node.
 
-`Kasha::arith`: Arithmetic;
+`Treenode`: Old version, to adapt...
 
-`Kasha::cpuins`: CPU Information;
+| Kasha component | Description | State |
+| --------------- | ----------- | ----- |
+| `Kasha::arith`|Arithmetic  |       |
+| `Kasha::cpuins`|CPU Information |       |
+| `Kasha::hdisk`| Hard-disk |       |
+| `Kasha::osdev`| OSDEV Special |       |
+| `Kasha::pseudo` | Pseudo structure for NASM and others assemblers |       |
+| `Kasha::timer`| Date and time|       |
+| `Kasha::video`| Video display |       |
 
-`Kasha::hdisk`: Hard-disk;
 
-`Kasha::osdev`: OSDEV Special;
-
-`Kasha::pseudo`: Pseudo structure for NASM and others assemblers;
-
-`Kasha::timer`: Date and time;
-
-`Kasha::video`: Video display;
 
 *others*: Console Table「終端字符繪表格」;
 
 
 
 - `.a`-suffixed file is for Arina-made assembler (private so far) , you may also use NASM0207.
+
+
+
+### TODO
+
+- Simply-used version of each potential function.
+
+
 
 ### Source
 

@@ -917,7 +917,7 @@ static char* ChrInsPow(const char* in, size_t times)
 	}
 	return sum;
 } static char* ChrInsPow(const char* in, size_t times);// GCC required outside declaration
-char* ChrHexToDec(const char* hex)// slv using
+char* _Need_free ChrHexToDec(const char* hex)// slv using
 {
 	int sign = 0;
 	if (!hex || !*hex || !ptr_tempmas || !ptr_tempslv)
@@ -992,6 +992,51 @@ char* ChrHexToDec(const char* hex)// slv using
 	return sum;
 }
 
+// RFV3 (ArnMgk). E.g. "FE" stands for "0.FEH" and this return "9921875" stand for "0.9921875"
+//   (15/16+14/256) or (254/256), so "ABCD" : "ABH/256+CDH/256/256"
+//   171_0_0000_0000_0000_0000/256 = 66796875000000000
+//   205_0_0000_0000_0000_0000/65536=  312805175781250
+//   then cut the trailing zeros and the sign prefix{TODO optional}
+// ! input upper cases and this excludes element check.
+char* _Need_free ChrHexToDecFloat(const char* hexf)
+{
+	// assume limit 0X800, adapt in the future.
+	char unit_diver[] = "+16";
+	char* CrtDiver = StrHeap(unit_diver);// keep this size < 0x1000
+	char* temp = zalc(0X800 + 1);
+	char* temp_for_crt = zalc(0X800 + 1);
+	size_t tempexpo = 0X800 - 3;// based on 10
+	char* res = StrHeap("+0");
+	size_t paralen = StrLength(hexf);
+	char c;
+	arna_eflag.Signed = 1;
+	arna_eflag.HeapYo = 1;
+	for (size_t i = 0; i < paralen; i++)
+	{
+		char* ptr = temp;
+		*ptr++ = '+';
+		if (hexf[i] >= '0' && hexf[i] <= '9') *ptr++ = hexf[i];
+		else
+		{
+			*ptr++ = '1';
+			*ptr++ = hexf[i] - 'A' + '0';
+		}
+		size_t CrtCompensate = tempexpo;// 0x1000 - (ptr - temp);
+		MemSet(ptr, '0', CrtCompensate);
+		ptr[CrtCompensate] = 0;
+		char* crtdiv = StrCopyN(temp_for_crt, CrtDiver, 0X800);
+		ChrDiv(temp, crtdiv);// LIMIT EXIS
+		srs(res, ChrAdd(res, temp));
+		srs(CrtDiver, ChrMul(CrtDiver, unit_diver));
+	}
+	memfree(CrtDiver);
+	memfree(temp);
+	memfree(temp_for_crt);
+	ChrCtz(res);
+	srs(res, StrHeap(res + 1));
+	return res;
+}
+
 char* ChrDecToHex(char* dec)// Output: upper case
 {
 	// pass a non-0~9 number will cause potential mistake.
@@ -1042,6 +1087,47 @@ char* ChrDecToHex(char* dec)// Output: upper case
 	return dec - !(!arna_eflag.Signed);
 }
 
+// RFV3 (ArnMgk). E.g. "81" ---> "", based on ChrHexToDecFloat
+//  0.99 --> FD70AF
+//    0.99*16=15.84 0.84*16=13.44 0.44*16=7.04 0.04*16=0.64 0.64*16=10.24
+//    0.24*64=15.36 0.36...
+char* _Need_free ChrDecToHexFloat(const char* decf, size_t digits)
+{
+	arna_eflag.Signed = 1;
+	arna_eflag.HeapYo = 1;
+	size_t CrtLastDigs = StrLength(decf), CrtAfterDigs;
+	char* const res = zalc(digits + 1);
+	char* ptr = res;
+	char* buf = malc(CrtLastDigs + 1 + 1 + 2);// Sign+Null+Extern
+	buf[0] = '+';
+	StrCopy(buf + 1, decf);
+	for (size_t i = 0; i < digits; i++)
+	{
+		srs(buf, ChrMul("+16", buf));
+		CrtAfterDigs = StrLength(buf + 1);
+		if (CrtAfterDigs - CrtLastDigs == 2)
+		{
+			if (buf[1] == '1')
+			{
+				*ptr++ = 'A' + (buf[2] - '0');
+			}
+			else (void)erro;
+			MemRelative(buf + 3, CrtAfterDigs - 2 + 1, -2);// include 0
+		}
+		else if (CrtAfterDigs - CrtLastDigs == 1)
+		{
+			*ptr++ = (buf[1]);
+			MemRelative(buf + 2, CrtAfterDigs, -1);// include 0
+		}
+		else
+		{
+			*ptr++ = '0';
+		}
+	}
+	memfree(buf);
+	return res;
+}
+
 // Clear prefix zeros of hexa. E.g. "00012500" >>> "12500"
 void ChrCpz(char* str)
 {
@@ -1059,6 +1145,18 @@ void ChrCpz(char* str)
 	else MemRelative(str + num, siz - num + 1, -(ptrdiff_t)num);
 	// 000905$
 	// *  *  * 
+}
+
+//RFV3 from CoeAr
+void ChrCtz(char* str)
+{
+	size_t coflen = 0,
+		num = 0;// numof 0
+	while (str[coflen]) coflen++;
+	while (str[coflen - num - 1] == '0') num++;
+	if (str[coflen - num - 1] == '-' || str[coflen - num - 1] == '+') num--;
+	if (!num) return;// try to some calculator energy conditionally
+	str[coflen - num] = 0;// If num==0, nothing changed.
 }
 
 // Besides MAS: None Using

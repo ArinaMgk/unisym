@@ -436,6 +436,51 @@ char* ChrCombinate(const char* total, const char* items);
 char* ChrComDiv(const char* op1, const char* op2);// [Get Greatest Common Divisor]
 char* ChrComMul(const char* op1, const char* op2);// [Get Least Common Multiple]
 
+static inline char* _Need_free ChrFromByt(unsigned char* str, size_t bylen)
+{
+	// started from RedToLocaleClassic()
+	// 9876_5432H <=== 0x32,0x54,0x76,0x98;
+	// 9876.5432H <=== 0x32,0x54`0x76,0x98;
+	register char* res = malc((bylen << 1) | 1);
+	char c;
+	res += (bylen << 1);
+	*res-- = 0;
+	for (size_t i = 0; i < bylen; i++)
+	{
+		c = str[i] & 0x0F;
+		*res-- = c >= 10 ? c - 10 + 'A' : c + '0';
+		str[i] >>= 4;
+		c = str[i] & 0x0F;
+		*res-- = c >= 10 ? c - 10 + 'A' : c + '0';
+	}
+	return res + 1;
+}
+
+static inline unsigned char* _Need_free ChrToByt(char* str)
+{
+	// 98765432H ===> 0x32,0x54,0x76,0x98;
+	// keep the str even, so you may allocate an odd size.
+	// Without input check
+	size_t slen = StrLength(str);
+	if (slen & 1) return 0;
+	slen >>= 1;
+	unsigned char CrtChr = 0, * res = malc(slen + 1);
+	res[slen] = 0;
+	size_t i = slen;
+	do
+	{
+		CrtChr = 0;
+		if (str[1] >= 'A') CrtChr = str[1] - 'A';
+		else CrtChr = str[1] - '0';
+		if (str[0] >= 'A') CrtChr |= (str[0] - 'A') << 4;
+		else CrtChr |= (str[0] - '0') << 4;
+		str += 2;
+		i--;
+		res[i] = CrtChr;
+	} while (i > 0);
+	return res;
+}
+
 // RegAr used, temporarily set here
 
 // Boundary

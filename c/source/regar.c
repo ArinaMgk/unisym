@@ -1323,10 +1323,40 @@ Rfnar_t* _Need_free RedFromDouble(double flt, size_t rfnumlen, size_t FetchDigit
 }
 
 // {TODO}
-// opt: 0[auto 3-opt format when bytof(size_t)>2 or expo != 0] 1[int or float] 2[e format(+2.0e-2)], 3[e format((e-2)+2.0)], in decimal
+// opt: 0[auto 3-opt format when bytof(size_t)>2 or abs(expo)>1] 1[int or float] 2[e format(+2.0e-2)], 3[e format((e-2)+2.0)], in decimal
 char* _Need_free RedToLocaleClassic(const Rfnar_t* obj, int opt)
 {
-// {}
+	// 9876_5432H === 0x32,0x54,0x76,0x98;
+	// 9876.5432H === 0x32,0x54`0x76,0x98;
+	Rfnar_t* d = RedHeap(obj);
+	RedDivrUnit(d);
+	if (RsgRealen(d->expo, d->defalen) > 1)
+	{
+		char* ret = StrHeap(d->expsign ?
+			(d->cofsign ? "-0" : "+0") : (d->cofsign ? "-INF" : "+INF"));
+		RedDel(d);
+		return ret;
+	}
+	int chosen_3 = (RsgRealenByte(d->coff, d->defalen) > 2) || (*d->expo > 1);
+	switch (opt)
+	{
+	case 0:
+		// {TODO} ---- suspended ----
+		break;
+	case 1:
+		// {TODO}
+		break;
+	case 2:
+		// {TODO}
+		break;
+	case 3:
+		// {TODO}
+		break;
+	default:
+		RedDel(d);
+		return 0;
+		break;// Cheat some compilers
+	}
 }
 
 // {TODO}

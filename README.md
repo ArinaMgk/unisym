@@ -8,7 +8,7 @@ Uniformed Symbols, also as "Uniform Symbolic Library".
 
 This is still a β version. The symbols will be re-formed in the next main version.
 
-If you copy the code and used for the public, please **stipulate your copying from UNISYM led by ArinaMgk**.
+If you copy the code and used for the public, please **stipulate your copying from UNISYM led by<font color="purple"> ArinaMgk </font> **.
 
 ### Build - Make into a library
 
@@ -36,15 +36,16 @@ u64:
 
 | String Arithmetic  | Description                                                  | State    |
 | ------------------ | ------------------------------------------------------------ | -------- |
-| ustring::**ChrAr** | [big endian] optional signed ASCII integer arithmetic  and operations, for buffer or heap, which can be printed directly. Now exists the dependence of `arna_eflag`, even input!!! | ripen    |
-| **CoeAr**          | [big endian] Arinae classic structure, Coff-expo-divr, based on **ChrAr**. the mechanism can express and operate any big-rational-real-number. | ripen    |
+| ustring::**ChrAr** | [big endian] optional signed ASCII integer arithmetic  and operations, for buffer or heap, which can be printed directly. the used names are `BytAr` and `ASCAr` and `StrAr`. Now exists the dependence of `arna_eflag`, even input!!! | ripen    |
+| **CoeAr**(1)       | [big endian] Arinae classic structure, Coff-expo-divr, based on **ChrAr**. the mechanism can express and operate any big-rational-real-number. The name follows what ArnMgk called this. | ripen    |
 | **NumAr**(4)       | [big endian] the mechanism can express and operate the big-rational-real-numbers (not endless) in 4 dimensions of time and room, or real and imaginary, based on **CoeAr**. | ripen    |
-| **RsgAr**          | [little endian] Haruno no base 256 expo-unit 16 extension. Use the register-size unit for faster arithmetic speed. 「多字節數字」 | ripen    |
-| **RegAr**          | [big endian] C-E-D structure based on **RsgAr**. the mechanism can express and operate any big-rational-real-number. | building |
+| **RsgAr**(base)    | [little endian] Based on 256. Use the register-size unit for faster arithmetic speed. E.g. `0x12, 0x34` for 0x3412 | ripen    |
+| **RedAr**(1)       | [big endian] Dosconio's base 256 expo-unit 16 extension. C-E-D structure based on **RsgAr**. the mechanism can express and operate any big-rational-real-number. | building |
 | **HrnAr**(4)       | [little endian] 4D based on **RegAr**                        | todo     |
-| **BytAr**          | [little endian] base 256 expo-unit 256 for signed integer, whose the first byte is the flag byte. | todo     |
-| **ArnAr**          | [little endian] Arinae classic structure based on **BytAr**. the mechanism can express and operate any big-rational-real-number. The expo and divr are optional. | todo     |
-| **TenAr**          | Haruno no. Operations for tensor(different sizes and types in an array) and array. | todo     |
+| **BytAr**(base)    | [optional endian] base 256  for signed integer, whose the first byte is the flag byte. E.g. `0x12, 0x34` for 0x3412 or 0x1234. | todo     |
+| **DecAr**(base)    | [optional endian] base 100/256 for signed integer, whose the first byte is the flag byte. The first binary of the first is the sign bit and of the others are state flags. E.g. `0x12, 0x34` for 0d3412 or 0d1234. | todo     |
+| **ArnAr**(1)       | [optional endian] Arinae classic structure based on **BytAr**, base 256 expo-unit 256. the mechanism can express and operate any big-rational-real-number. The expo and divr are optional. | todo     |
+| **TenAr**(*)       | Haruno no. Operations for tensor(different sizes and types in an array) and array. | todo     |
 
 `node`: node.
 
@@ -66,13 +67,11 @@ u64:
 
 
 
+
+
+- `Chr-` means ASCII string, and `Byt-` for the basic memory unit.
+
 - `.a`-suffixed file is for Arina-made assembler (private so far) , you may also use NASM0207.
-
-
-
-### TODO
-
-- Simply-used version of each potential function.
 
 
 

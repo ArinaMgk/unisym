@@ -1,8 +1,6 @@
 // ASCII TAB4 C99 ArnAssume
 // Operations for string of memory, as the complement of ISO/IEC standard.
-/*
-* CAUTION! The codes was written by Arina lonely, except some codes with comments that express the codes from others, however, the exception is greatly changed. So, do not take it for granted that the codes is completely correct. If the unexpected appears after you use unisym, nobody shall help you!
-* Personal-style symbol according to Arina's bad habits: _dbg, malc_count, malc_limit, _noheap, ...
+/* CAUTION! The codes was mainly written by Arina, except some codes with comments that express the codes from others, however, the exception is greatly changed. So, do not take it for granted that the codes is completely correct. If the unexpected appears after you use unisym, nobody shall help you!
 */
 // E X P O S T U ** DO NOT TRAP IN C TOO MUCH! BE YOURSELF. ** L A T I O N //
 /*
@@ -19,8 +17,10 @@
 	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 	See the License for the specific language governing permissions and
 	limitations under the License.
-*/ 
-/* Linkage
+*/
+// {TODO} WIKI
+// still keep `_noheap` in the ustring.c.
+/* {TODO} Properties
  * o malc_count yo [_dbg], numof area allocated in memory.
  * i malc_limit, yo ![_noheap],the maximum permission for heap allocated or sizeof buffer.
  * o malc_occupy. Zero means failure(heap unit size over or precise loss occur) or nothing for writing.
@@ -28,68 +28,30 @@
  * - arna_LupRange {L, M}
  * i arna_precise
 */
+// ---- ---- ---- ----
+#define _LIB_STRING
 
-// If you use for bootstrap programs or MCU developing, _noheap may be defined.
-
-#ifndef ModUnisymString// ---- ---- ---- ----
-#define ModUnisymString
-
-#ifndef _INC_STDDEF
-#include <stddef.h>
-#endif
-#include "alice.h"
-#ifndef _noheap
-#include "aldbg.h"
+#ifndef _LIB_STRING_CLASSIC_DISABLE
+#include <string.h>
 #endif
 
-#ifndef _noheap
-extern size_t malc_limit;// the maximum for an allocation. 0 for disable any, but if you do not define _noheap, the relative codes and data will be compiled.
-	#ifdef _dbg
-		extern size_t malc_count;
+#ifndef _LIB_STRING_ONCE_HEAD
+#define _LIB_STRING_ONCE_HEAD
+	#ifndef _INC_STDDEF
+	#include <stddef.h>
 	#endif
-	#ifndef _INC_STDLIB
-		#include <stdlib.h>
-	#endif
-#endif
-;// format form of codes for VSCode
-extern size_t malc_occupy;
-extern size_t arna_precise;
-
-extern char arna_tempor[];// as result
-extern char arna_tmpslv[];// Do not use as result, same size with tempor.
-extern char arna_tmpext[];
+	#include "alice.h"
+	#include "aldbg.h"
 
 struct ArinaeFlag
 {
-	unsigned PrecLoss : 1, HeapYo : 1, Signed : 1, ARN_DIGIT : 1;
+	unsigned PrecLoss : 1,// <OUT>
+		Failure : 1,// <OUT>
+		Signed : 1,// <IN>
+		Sign : 1,// <OUT>
+		Dbg : 1;// <IN> kept for the future
 };extern struct ArinaeFlag arna_eflag;
-
-// arna_LupRange for CoeAr and other advanced form.
-
-//---- ---- ---- ---- dnode ---- ---- ---- ----
-#ifndef _noheap
-#ifndef ModDnode // double-directions double-order-mode node
-#define ModDnode
-
-typedef struct Dnode
-{
-	struct Dnode* left;// lower address
-	char* addr;// for order
-	union { size_t len, type; };// non-order
-	union { struct Dnode* next, * right; };// higher address
-} Dnode;
-
-Dnode* DnodeCreate(Dnode* any, char* addr, size_t len);
-Dnode* DnodeRewind(Dnode* any);
-size_t DnodeCount(Dnode* any);
-void DnodeRelease(Dnode* some);
-void DnodesRelease(Dnode* first);
-#endif
-#endif // endof _noheap
-
-//---- ---- ---- ---- string ---- ---- ---- ----
-#ifndef ModString
-#define ModString
+#define aflag arna_eflag
 
 typedef enum TokType
 {
@@ -116,7 +78,117 @@ typedef struct Toknode
 	size_t row, col;
 } Toknode, Tode;
 
+#endif
+//
+//
+//
+#if defined(_LIB_STRING_BUFFER) && !defined(_LIB_STRING_BUFFER_GUARD)// bstring.c, need pre-set buffer
+#define _LIB_STRING_BUFFER_GUARD
+	extern char arna_tempor[];// as result
+	extern char arna_tmpslv[];// Do not use as result, same size with tempor.
+	extern char arna_tmpext[];
 
+#endif
+//
+//
+//
+#if defined(_LIB_STRING_HEAP) && !defined(_LIB_STRING_HEAP_GUARD)// hstring.h, any need to allocate memory
+	#define _LIB_STRING_HEAP_GUARD
+//---- ---- ---- ---- dnode ---- ---- ---- ----
+	#ifndef ModDnode // double-directions double-order-mode node
+	#define ModDnode
+	typedef struct Dnode
+	{
+		struct Dnode* left;// lower address
+		char* addr;// for order
+		union { size_t len, type; };// non-order
+		union { struct Dnode* next, * right; };// higher address
+	} Dnode;
+
+	Dnode* DnodeCreate(Dnode* any, char* addr, size_t len);
+	Dnode* DnodeRewind(Dnode* any);
+	size_t DnodeCount(Dnode* any);
+	void DnodeRelease(Dnode* some);
+	void DnodesRelease(Dnode* first);
+	#endif
+
+//---- ---- ---- ---- common heap operations ---- ---- ---- ----
+	Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer);
+	void StrTokenClearAll(Toknode* tstr);
+	void StrTokenThrow(Toknode* one);// a b c --> a c
+	inline static Toknode* StrTokenBind(Toknode* left, Toknode* mid, Toknode* right)
+	{
+		if (left) left->next = mid;
+		if (mid) mid->next = right;
+		if (right) right->left = mid;
+		if (mid) mid->left = left;
+	}
+
+	#define StrTokenPrint(first)\
+		printf("Token: [R %llu,C %llu][%s] %s\n", first->row, first->col,\
+			((const char* []){"END", "ANY", "STR", "CMT", "DIR", "NUM", "SYM", "IDN", "SPC", "ELS"})\
+			[first->type], first->type == tok_space ? "" : first->addr);
+
+	// For the string of the Tode.
+	#define StrTokenPrintAll(first)\
+		do StrTokenPrint(first);\
+		while (first = first->next);
+	
+	inline static char* StrHeapFromChar(char c)// Convert char in string in heap
+	{
+		char* ptr = salc(2);
+		*ptr = c;
+		return ptr;
+	}
+	char* StrHeap(const char* valit_str);
+	void* MemHeap(const void* sors, size_t byteof);
+	char* StrHeapN(const char* valit_str, size_t strlen);
+	char* StrHeapAppend(const char* dest, const char* sors);
+	char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
+	char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, size_t* times);
+	char* StrHeapInsertThrow(const char* d, const char* s, size_t posi, size_t thrown);
+	// posi_start and later positions of string move into the lower endian RFE02:16
+
+	char* instoa(ptrdiff_t num);// [Instant to ASCII yo heap]
+
+//---- ---- ---- ---- the previous strpool ---- ---- ---- ----
+	/* ROUTINE EXAMPLE
+		StrPoolInit();
+		atexit(StrPoolRelease);
+		printf("%s", str = StrPoolHeap("Hello,world!"));
+	*/
+	#define _ModString_Strpool_UNIT_SIZE 4096// A page align by default
+
+	void StrPoolInit();
+	char* StrPoolHeap(const char*, size_t);
+	char* StrPoolAlloc(size_t);
+	char* StrPoolAllocZero(size_t);
+	void StrPoolRelease();
+
+#endif
+//
+//
+//
+#if (defined _LIB_STRING_BUFFER) && !(defined _LIB_STRING_HEAP) && defined(_LIB_STRING_BUFFER_0HEAP_GUARD)// {TODO}GUARD
+	#define _LIB_STRING_BUFFER_0HEAP_GUARD
+	#define ChrAdd ChrAddBuf
+	#define ChrSub ChrSubBuf
+	#define ChrMul ChrMulBuf
+	#define ChrDiv ChrDivBuf
+	#define stradd ChrAdd
+	#define strsub ChrSub
+	#define strmul ChrMul
+	#define instoa instob
+	// {TODO}...
+//ChrHexToDecBuf
+
+	
+#endif
+//
+//
+//
+#ifndef _LIB_STRING_ONCE_TAIL
+#define _LIB_STRING_ONCE_TAIL
 
 static inline char* MemRelative(char* addr, size_t width, ptrdiff_t times)
 {
@@ -203,8 +275,6 @@ static inline int StrCompareN(const char* a, const char* b, size_t n)
 	while (n && !(tmp = (*a - *b)) && *a++ && *b++) n--; return tmp;
 }
 
-/**/
-
 static inline size_t StrLength(const char* s)
 {
 	if (!s)return 0;
@@ -227,7 +297,7 @@ static inline char* StrElement(char* s, ptrdiff_t idx)
 	return (idx < 0) ? s + len + idx : s + idx;
 }
 
-static inline char StrCharLast(const char* s)//= StrElement(s, -1)
+static inline char StrCharLast(const char* s)//= *StrElement(s, -1)
 {
 	if (!s)return 0;
 	while (*s) s++;
@@ -253,7 +323,8 @@ static inline const char* StrIndexCharRight(const char* s, int c)
 	return res;
 }
 
-static inline size_t StrLenSameChar(const char* str, int c, const char** ret)
+// RFV07 Rename from "StrLenSameChar"
+static inline size_t StrLengthSameChar(const char* str, int c, const char** ret)
 {
 	// subord of StrSpanInclude()
 	const char* p = str;
@@ -322,119 +393,55 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 	return (char*)s2;
 }
 
-#ifndef _noheap
+#define StrSubWithdraw(posi_start,len)\
+	MemRelative((posi_start), StrLength(posi_start) + 1, -(ptrdiff_t)(len))
 
-	#ifdef ModDnode
+char* instob(ptrdiff_t num, char* buf);
+ptrdiff_t atoins(const char* str);
 
-
-
-	Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer);
-	void StrTokenClearAll(Toknode* tstr);
-	void StrTokenThrow(Toknode* one);// a b c --> a c
-	inline static Toknode* StrTokenBind(Toknode* left, Toknode* mid, Toknode* right)
-	{
-		if (left)
-			left->next = mid;
-		if (mid)
-			mid->next = right;
-		if (right)
-			right->left = mid;
-		if (mid)
-			mid->left = left;
-	}
-
-	///inline static void StrTokenPrint(Toknode* first)
-	///{
-	#define StrTokenPrint(first)\
-		printf("Token: [R %llu,C %llu][%s] %s\n", first->row, first->col,\
-			((const char* []){"END", "ANY", "STR", "CMT", "DIR", "NUM", "SYM", "IDN", "SPC", "ELS"})\
-			[first->type], first->type == tok_space ? "" : first->addr);
-	///}
-	
-	// For the string of the Tode.
-	///inline static void StrTokenPrintAll(Toknode* first)
-	///{
-	#define StrTokenPrintAll(first)\
-		do StrTokenPrint(first);\
-		while (first = first->next);
-	///}
-	
-	#endif
-
-char* StrHeap(const char* valit_str);
-inline static char* StrHeapFromChar(char c)// Convert char in string in heap
-{
-	char* ptr;
-	memalloc(ptr, 2);
-	if (!ptr)return 0;
-	*ptr = c;
-	ptr[1] = 0;
-	return ptr;
-}
-void* MemHeap(const void* sors, size_t byteof);
-char* StrHeapN(const char* valit_str, size_t strlen);
-char* StrHeapAppend(const char* dest, const char* sors);
-char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
-char* StrReplaceHeap(const char* dest, const char* subfirstrom, const char* subto, size_t* times);
-char* StrHeapInsertThrow(const char* d, const char* s, size_t posi, size_t thrown);
-// posi_start and later positions of string move into the lower endian RFE02:16
-inline static void StrSubWithdraw(char* posi_start, size_t len)
-{
-	MemRelative(posi_start, StrLength(posi_start) + 1, -(ptrdiff_t)len);
-}
-
-/* the previous strpool */
-/* ROUTINE EXAMPLE
-	StrPoolInit();
-	atexit(StrPoolRelease);
-	printf("%s", str = StrPoolHeap("Hello,world!"));
-*/
-#define _ModString_Strpool_UNIT_SIZE 4096// A page align by default
-
-void StrPoolInit();
-char* StrPoolHeap(const char*, size_t);
-char* StrPoolAlloc(size_t);
-char* StrPoolAllocZero(size_t);
-void StrPoolRelease();
-
-#endif
-
-//---- ---- ---- ---- chrar part ---- ---- ---- ----
+//---- ---- ---- ---- chrar part {TODO!!!} ---- ---- ---- ----
 // Having brewed about 2 years, the design has matured and new non-destructive schemes have been tried and conceived. This, after 2023 (included), with the serived & advanced structures, also BCD-Arith., will be stopped updated. However, these are also a good tool for us.
 
-// failure: either *buffer=0 or heap=0
-// result for buffer in arna_tempor
-#ifndef _noheap
-char* instoa(ptrdiff_t num);// [Instant to ASCII yo heap]
-#endif
-char* instob(ptrdiff_t num, char* buf);// [Instant to ASCII yo buffer]
-ptrdiff_t atoins(const char* str);// [ASCII to Instant]
-
-char* _Need_free ChrHexToDec(const char* hex);
-
-char* _Need_free ChrHexToDecFloat(const char* hexf);
-
-// Output: upper case
-char* ChrDecToHex(char* dec);
-
-char* _Need_free ChrDecToHexFloat(const char* decf, size_t digits);
 
 void ChrCpz(char* str);// Clear prefix zeros, "+001"-->"+1".
 void ChrCtz(char* str);
+
+#ifdef _LIB_STRING_HEAP
+char* _Need_free ChrHexToDec(const char* hex);
+char* ChrDecToHex(char* dec);// Output: upper case
+char* _Need_free ChrHexToDecFloat(const char* hexf);
+char* _Need_free ChrDecToHexFloat(const char* decf, size_t digits);
 char* ChrAdd(const char* dest, const char* sors);
 char* ChrSub(const char* dest, const char* sors);
 char* ChrMul(const char* a, const char* b);
 void ChrDiv(char* a, char* b);// return a as Quotient, b as remainder.
-int ChrCmp(const char* a, const char* b);// -1 0 1
 char* ChrFactorial(const char* a);// a has prefix '+'
-
-void DigInc(int ascii, char* posi);
-void DigDec(int ascii, char* posi);
-
 char* ChrArrange(const char* total, const char* items);
 char* ChrCombinate(const char* total, const char* items);
 char* ChrComDiv(const char* op1, const char* op2);// [Get Greatest Common Divisor]
 char* ChrComMul(const char* op1, const char* op2);// [Get Least Common Multiple]
+
+#endif
+#ifdef _LIB_STRING_BUFFER
+char* _Need_free ChrHexToDecBuf(const char* hex);
+char* ChrDecToHexBuf(char* dec);// Output: upper case
+char* ChrAddBuf(const char* dest, const char* sors);
+char* ChrSubBuf(const char* dest, const char* sors);
+char* ChrMulBuf(const char* a, const char* b);
+void ChrDivBuf(char* a, char* b);// return a as Quotient, b as remainder.
+char* ChrFactorialBuf(const char* a);// a has prefix '+'
+char* ChrArrangeBuf(const char* total, const char* items);
+char* ChrCombinateBuf(const char* total, const char* items);
+char* ChrComDivBuf(const char* op1, const char* op2);// [Get Greatest Common Divisor]
+char* ChrComMulBuf(const char* op1, const char* op2);// [Get Least Common Multiple]
+
+#endif
+
+int ChrCmp(const char* a, const char* b);// -1 0 1
+
+void DigInc(int ascii, char* posi);
+void DigDec(int ascii, char* posi);
+
 
 static inline char* _Need_free ChrFromByt(unsigned char* str, size_t bylen)
 {
@@ -529,7 +536,7 @@ static inline unsigned char StrShiftRight4(void* s, size_t len)
 	return lastc;
 }
 
-// Boundary
+// Boundary, may renamed StrShiftRightBytes
 static inline void StrShiftRight8n(void* s, size_t len, size_t n)
 {
 	///MemRelative(s, len, -(ptrdiff_t)n);
@@ -555,7 +562,4 @@ static inline signed MemCompareRight(const unsigned char* a, const unsigned char
 
 #endif
 
-#endif// ---- ---- ModUnisymString ---- ----
-
-// IN MEMORY OF THE PAST YEARS //
-// History in `ustring.c`
+// IN MEMORY OF OUR PAST YEARS //

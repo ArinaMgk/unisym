@@ -69,12 +69,15 @@
 #endif
 #define MIN(d,s) if((d)>(s)){(d)=(s);}
 
+#define isodd(x) ((x)&1)
+#define iseven(x) !((x)&1)
+
 // ARINA-COVE C23-STYLE Attribute
 #define _Heap
 #define _Need_free _Heap
 #define _Heap_tmpher// The function with _Heap_tmpher should not call each other
 
-
+#define AddDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
 
 
 #endif

@@ -10,6 +10,8 @@ This is still a β version. The symbols will be re-formed in the next main versi
 
 If you copy the code and used for the public, please **stipulate your copying from UNISYM led by<font color="purple"> ArinaMgk </font> **.
 
+Because only few people have forked the UNISYM, the big changes will be done without log in the specific documents.
+
 ### Build - Make into a library
 
 For example, for Windows 64-bit environment, by GCC 8.1.0, and in the parent directory, you can text your Makefile script:
@@ -34,18 +36,19 @@ u64:
 
 `dnode`: double-direction node.
 
-| String Arithmetic  | Description                                                  | State    |
-| ------------------ | ------------------------------------------------------------ | -------- |
-| ustring::**ChrAr** | [big endian] optional signed ASCII integer arithmetic  and operations, for buffer or heap, which can be printed directly. the used names are `BytAr` and `ASCAr` and `StrAr`. Now exists the dependence of `arna_eflag`, even input!!! | ripen    |
-| **CoeAr**(1)       | [big endian] Arinae classic structure, Coff-expo-divr, based on **ChrAr**. the mechanism can express and operate any big-rational-real-number. The name follows what ArnMgk called this. | ripen    |
-| **NumAr**(4)       | [big endian] the mechanism can express and operate the big-rational-real-numbers (not endless) in 4 dimensions of time and room, or real and imaginary, based on **CoeAr**. | ripen    |
-| **RsgAr**(base)    | [little endian] Based on 256. Use the register-size unit for faster arithmetic speed. E.g. `0x12, 0x34` for 0x3412 | ripen    |
-| **RedAr**(1)       | [big endian] Dosconio's base 256 expo-unit 16 extension. C-E-D structure based on **RsgAr**. the mechanism can express and operate any big-rational-real-number. | building |
-| **HrnAr**(4)       | [little endian] 4D based on **RegAr**                        | todo     |
-| **BytAr**(base)    | [optional endian] base 256  for signed integer, whose the first byte is the flag byte. E.g. `0x12, 0x34` for 0x3412 or 0x1234. | todo     |
-| **DecAr**(base)    | [optional endian] base 100/256 for signed integer, whose the first byte is the flag byte. The first binary of the first is the sign bit and of the others are state flags. E.g. `0x12, 0x34` for 0d3412 or 0d1234. | todo     |
-| **ArnAr**(1)       | [optional endian] Arinae classic structure based on **BytAr**, base 256 expo-unit 256. the mechanism can express and operate any big-rational-real-number. The expo and divr are optional. | todo     |
-| **TenAr**(*)       | Haruno no. Operations for tensor(different sizes and types in an array) and array. | todo     |
+| String Arithmetic | Description                                                  | State    |
+| ----------------- | ------------------------------------------------------------ | -------- |
+| **ChrAr**(base)   | [big endian] [variable-length] optional signed ASCII integer arithmetic  and operations, for buffer or heap, which can be printed directly. the used names are `BytAr` and `ASCAr` and `StrAr`. Now exists the optional dependence of `arna_eflag`. These are **2 version** in `hstring` and `bstring`. | ripen    |
+| **FltAr**(1)      | [big endian] `{{Sign, ChrAr}, ExpoInDec }` the extension of **ChrAr**. But any fltar-number is fixed-size. If the result is too big, the magic number "999… . …999" will be expressed. For the fixed size of floating part, the result may be cut to adapt to the structure. Natural and only for **buffer** version. | todo     |
+| **CoeAr**(1)      | [big endian] Arinae classic structure, Coff-expo-divr, based on **ChrAr**. the mechanism can express and operate any big-rational-real-number. The name follows what ArnMgk called this. | ripen    |
+| **NumAr**(4)      | [big endian] the mechanism can express and operate the big-rational-real-numbers (not endless) in 4 dimensions of time and room, or real and imaginary, based on **CoeAr**. | ripen    |
+| **RsgAr**(base)   | [little endian] Based on 256. Use the register-size unit for faster arithmetic speed. E.g. `0x12, 0x34` for 0x3412 | ripen    |
+| **RedAr**(1)      | [big endian] Dosconio's base 256 expo-unit 16 extension. C-E-D structure based on **RsgAr**. the mechanism can express and operate any big-rational-real-number. | building |
+| **HrnAr**(4)      | [little endian] 4D based on **RegAr**                        | todo     |
+| **BytAr**(base)   | [optional endian] base 256  for signed integer, whose the first byte is the flag byte. E.g. `0x12, 0x34` for 0x3412 or 0x1234. | todo     |
+| **DecAr**(base)   | [optional endian] base 100/256 for signed integer, whose the first byte is the flag byte. The first binary of the first is the sign bit and of the others are state flags. E.g. `0x12, 0x34` for 0d3412 or 0d1234. | todo     |
+| **ArnAr**(1)      | [optional endian] Arinae classic structure based on **BytAr**, base 256 expo-unit 256. the mechanism can express and operate any big-rational-real-number. The expo and divr are optional. | todo     |
+| **TenAr**(*)      | Haruno no. Operations for tensor(different sizes and types in an array) and array. | todo     |
 
 `node`: node.
 
@@ -73,7 +76,17 @@ u64:
 
 - `.a`-suffixed file is for Arina-made assembler (private so far) , you may also use NASM0207.
 
+### Adapted Host Environment
 
+- Windows x86 and x64
+
+### Macro
+
+#### > Common Control
+
+- `_ARN_INSIDE_LIBRARY_INCLUDE`
+- `_ARN_FLAG_DISABLE`
+- 
 
 ### Source
 

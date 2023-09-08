@@ -20,7 +20,18 @@
 
 #include <stddef.h>
 
-// Depend on the malloc function
+extern void erro(char*);
+extern void warn(char*);
+extern size_t malc_count;// <IN>
+extern size_t malc_limit;// <IN>
+extern size_t call_state;// <OUT>
+// call_state :
+// 00: nullptr
+// 01: over the limit for size
+// 02: invaild input but not null pointer
+extern size_t malc_occupy;
+extern size_t arna_precise;
+
 #ifdef _dbg
 	#define memalloc(dest,size)\
 		(*(char**)&dest=(char*)malloc(size))?((void)malc_count++):(erro("MEMORY RUN OUT!"),(void)0)
@@ -36,6 +47,13 @@
 	#define malc(size) (void*)(malloc(size))
 	#define zalc(size) (void*)(calloc(size,1))
 #endif
+inline static char* salc(size_t size)
+{
+	if (!size) return 0;
+	char* r = malc(size);
+	r[size - 1] = 0;
+	return r;
+}
 
 
 #define init_total_errmech() \
@@ -50,8 +68,9 @@
 
 #define assert(expression) ((expression)?(char*)(expression):(exit(1),(char*)0))
 
-extern void erro(char*);
-extern void warn(char*);
-extern size_t malc_count;
+
+#define ulibsym(limit)\
+	size_t malc_count, malc_limit=(limit), call_state;
+
 
 #endif

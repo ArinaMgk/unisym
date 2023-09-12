@@ -19,12 +19,14 @@
 // Number: Java style
 // NUMBER: Old style
 
+#pragma source numar.c//{TODO}
+
 extern "C"
 {
 	#include <stddef.h>
 	#include <stdlib.h>
 	#include "../../ustring.h"
-	#include "../../coear.h"
+	#include "../../cdear.h"
 	#include "../../NumAr.h"
 	#include "../../aldbg.h"
 }

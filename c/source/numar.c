@@ -15,7 +15,7 @@
 	limitations under the License.
 */
 #include "../../ustring.h"
-#include "../../coear.h"
+#include "../../cdear.h"
 #include "../../alice.h"
 #include "../../aldbg.h"
 #include "../../NumAr.h"

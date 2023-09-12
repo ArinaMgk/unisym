@@ -275,12 +275,12 @@ static inline int StrCompareN(const char* a, const char* b, size_t n)
 	while (n && !(tmp = (*a - *b)) && *a++ && *b++) n--; return tmp;
 }
 
+// RFV12 Updated.
 static inline size_t StrLength(const char* s)
 {
-	if (!s)return 0;
-	register const char* offset = s;
-	while (*offset) { offset++; }
-	return offset - s;
+	register size_t len = 0;
+	while (s[len]) len++;
+	return len;
 }
 
 static inline char* StrElement(char* s, ptrdiff_t idx)
@@ -403,8 +403,10 @@ ptrdiff_t atoins(const char* str);
 // Having brewed about 2 years, the design has matured and new non-destructive schemes have been tried and conceived. This, after 2023 (included), with the serived & advanced structures, also BCD-Arith., will be stopped updated. However, these are also a good tool for us.
 
 
-void ChrCpz(char* str);// Clear prefix zeros, "+001"-->"+1".
-void ChrCtz(char* str);
+size_t ChrCpz(char* str);// Clear prefix zeros, "+001"-->"+1".
+
+// Char-Arithmetic Cut Trailing zeros. Return the counts of chars that have been cut.
+size_t ChrCtz(char* str);
 
 #ifdef _LIB_STRING_HEAP
 char* _Need_free ChrHexToDec(const char* hex);

@@ -72,6 +72,9 @@
 #define isodd(x) ((x)&1)
 #define iseven(x) !((x)&1)
 
+#define chars_stack(x) &(char[]){#x "\0"}// chars_stack(123)
+#define chstk chars_stack
+
 // ARINA-COVE C23-STYLE Attribute
 #define _Heap
 #define _Need_free _Heap

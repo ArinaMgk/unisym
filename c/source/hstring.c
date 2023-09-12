@@ -334,16 +334,6 @@ char* ChrAdd(const char* a, const char* b)
 	if (*b == '-') { b++;flag.SignB = 1; }
 	if (flag.SignA ^ flag.SignB)
 	{
-		size_t templen = StrLength(a) + 1;
-		#ifndef _ARN_FLAG_DISABLE
-		if (templen > malc_limit)
-		{
-			///malc_occupy = 0;
-			aflag.Failure = 1;
-			call_state = 1;
-			return 0;
-		}
-		#endif
 		// the control of aflag is given to ChrSub(). 
 		return (flag.SignA ? ChrSub(b, a) : ChrSub(a, b));
 	}
@@ -377,16 +367,16 @@ char* ChrAdd(const char* a, const char* b)
 	#endif
 	char* q = malc(siz);
 #ifndef _ARN_FLAG_DISABLE// or execuate once
+	aflag.Sign = flag.SignA;
 	if (aflag.Signed)
-#endif
 	{
 		q[siz - 1] = 0;
 		*q = flag.SignA ? '-' : '+';
-		#ifndef _ARN_FLAG_DISABLE
-		aflag.Sign = flag.SignA;
-		#endif
-	}
-	else q[siz - 2] = 0;
+	} else q[siz - 2] = 0;
+#else
+	q[siz - 1] = 0;
+	*q = flag.SignA ? '-' : '+';
+#endif
 	size_t loop_time = siz - 3;// detail to see old version
 	////for (size_t i = 0; i < siz - 3; i++)
 	if(loop_time) do
@@ -434,20 +424,18 @@ char* ChrSub(const char* a, const char* b)
 	if (*b == '+') { b++; }
 	if (*b == '-') { b++;flag.SignB = 1; }
 	if (flag.SignA ^ flag.SignB)
-	{
-		size_t templen = StrLength(a) + 1;
-		#ifndef _ARN_FLAG_DISABLE
-		if (templen > malc_limit)
+		if (flag.SignA)// (-a)-(+b)
 		{
-			///malc_occupy = 0;
-			aflag.Failure = 1;
-			call_state = 1;
-			return 0;
+			char* r = ChrAdd(a, b);
+			#ifndef _ARN_FLAG_DISABLE
+			if (aflag.Signed)
+				aflag.Sign = 1, r[0] = '-';
+			#else
+			r[0] = '-';// default signed
+			#endif
+			return r;
 		}
-		#endif
-		// the control of aflag is given to ChrSub(). 
-		return ChrAdd(a, b);
-	}
+		else return ChrAdd(a, b);// (+a)-(-b)
 	const char* endofa = a, * endofb = b;// last digit
 	for (; '0' <= *endofa && *endofa <= '9'; endofa++); endofa--;
 	for (; '0' <= *endofb && *endofb <= '9'; endofb++); endofb--;
@@ -480,17 +468,17 @@ char* ChrSub(const char* a, const char* b)
 	#endif
 	char* q = malc(siz);
 #ifndef _ARN_FLAG_DISABLE
+	aflag.Sign = (flag.SignA ^ flag.xchged);
 	if (aflag.Signed)
-#endif
 	{
 		q[siz - 1] = 0;
 		// if no changed, the sign keep with them
 		*q = (flag.SignA ^ flag.xchged) ? '-' : '+';
-		#ifndef _ARN_FLAG_DISABLE
-		aflag.Sign = (flag.SignA ^ flag.xchged);
-		#endif
-	}
-	else q[siz - 2] = 0;
+	} else q[siz - 2] = 0;
+#else
+	q[siz - 1] = 0;
+	*q = (flag.SignA ^ flag.xchged) ? '-' : '+';
+#endif
 	size_t loop_time = siz - 2;
 	if(loop_time) do
 	{
@@ -502,7 +490,7 @@ char* ChrSub(const char* a, const char* b)
 		#else
 		q[loop_time] = regichar + 0x30;
 		#endif
-	} while (loop_time);
+	} while (--loop_time);
 	ChrCpz(q);
 	#ifndef _ARN_FLAG_DISABLE
 	aflag.PrecLoss = 0;
@@ -549,6 +537,7 @@ char* ChrMul(const char* a, const char* b)
 	{
 		xchgptr(a, b);
 		xchgptr(endofa, endofb);
+		xchg(flag.SignA, flag.SignB);
 	}
 	#ifndef _ARN_FLAG_DISABLE
 	if ((siz = (endofa - a + 1 + endofb - b + 1 + 1 + aflag.Signed)) > malc_limit)// Termino-Null and Sign, 9*9=81
@@ -564,21 +553,15 @@ char* ChrMul(const char* a, const char* b)
 	q = salc(siz);
 	MemSet(q, '0', siz - 1);
 #ifndef _ARN_FLAG_DISABLE
+	aflag.Sign = (flag.SignA ^ flag.SignB);
 	if (aflag.Signed)
 #endif
 	{
 		*q = (flag.SignA ^ flag.SignB) ? '-' : '+';
-		#ifndef _ARN_FLAG_DISABLE
-		aflag.Sign = (*q == '-');
-		#endif
 	}
 	for (int i = 0; i < endofb - b + 1; i++)
 	{
-		#ifndef _ARN_FLAG_DISABLE// default signed
-		p = q + siz - 2 - i - aflag.Signed;
-		#else
-		p = q + siz - 3 - i;
-		#endif
+		p = q + siz - 2 - i;
 		flag.carry_int = 0;
 		for (int j = 0; j < endofa - a + 1; j++)
 		{
@@ -599,10 +582,10 @@ char* ChrMul(const char* a, const char* b)
 	return q;
 }
 
-// ASCII String Div (without input check)
+// ASCII String Div (without input check)(aflag.Signed decide I&O but just O)
 void ChrDiv(char* a, char* b)
 {
-	if (!a || !b || !*a || !*b)
+	if (!a || !b || !*a || !*b)// {TODO} option to close, for faster speed of arith.
 	{
 		#ifndef _ARN_FLAG_DISABLE// with malc_states
 		///malc_occupy = 0;
@@ -616,7 +599,6 @@ void ChrDiv(char* a, char* b)
 	int tmp;//
 #ifndef _ARN_FLAG_DISABLE
 	if (aflag.Signed)
-#endif
 	{
 		if (*a != '+' && *a != '-' || *b != '+' && *b != '-')
 		{
@@ -628,9 +610,13 @@ void ChrDiv(char* a, char* b)
 			return;// BAD INPUT
 		}
 		int sign_a = (*a == '-') ^ (*b == '-');
+		aflag.Sign = sign_a;
 		*b++ = *a;
 		*a++ = sign_a ? '-' : '+';
 	}
+#else
+	aflag.Sign = 0;
+#endif
 	char* endofa = a, * endofb = b;// last digits
 	for (; '0' <= *endofa && *endofa <= '9'; endofa++); endofa--;
 	for (; '0' <= *endofb && *endofb <= '9'; endofb++); endofb--;

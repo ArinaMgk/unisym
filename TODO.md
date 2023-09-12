@@ -15,15 +15,15 @@
   - [x] hstring
   - [ ] bstring
   - [ ] debug for each, especially for Chr{+-*/} yo `TestCharArith.c`
-
 - [x] Change the **HeapYo**-bit of Arn-flag from for I&O into just Output.
 - [ ] CoeAr update for ustring
 - [ ] Continue to finish and check memory for RegAr with @dosconio.
 - [ ] `/c/test/` and `/c/demo/`
+- [ ] Adapt NumAr for CdeAr
 
 ### Others
 
-
+- [ ] `cpp::dstring`
 
 ### Potential Issue
 

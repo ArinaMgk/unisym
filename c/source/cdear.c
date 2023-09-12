@@ -16,78 +16,47 @@
 	limitations under the License.
 */
 
+#define _LIB_STRING_HEAP
 #include <stdlib.h>
 #include <setjmp.h>
 #include <limits.h>
 #include <float.h>
 #include <math.h>
-#include "../alice.h"
-#include "../aldbg.h"
 #include "../ustring.h"
-#include "../coear.h"
+#include "../cdear.h"
 
 #define boolean int
+#define coe_const(iden,co,ex) static const coe iden = {.coff=(co), .divr="+1", .expo=(ex)};
 
-// TODO. erro-return replace for erro()
+static size_t show_precise = _CDE_PRECISE_SHOW_DEFAULT;
+static size_t lup_times = _CDE_PRECISE_LOOPTIMES_LEAST_DEFAULT;
+static size_t lup_limit = _CDE_PRECISE_LOOPTIMES_LIMIT_DEFAULT;
+static size_t lup_last;// [OUT]
 
 //TODO. temporary use
 //pi=3.1415926535 8979323846 2643383279 5028841971 6939937510
 //     5820974944 5923078164 0628620899 8628034825 3421170679
-const static coe coepi =
-{
-	// .coff = "+31416",.divr = "+1", .expo = "-4"
-	.coff = "+3141592653589793238462643383279502884197169399375105820974944592",.divr = "+1", .expo = "-63"
-};
-const static coe coe2pi =
-{
-	.coff = "+62831853",.divr = "+1", .expo = "-7"
-	// .coff = "+6283185307179586476925286766559005768394338798750211641949889185",.divr = "+1", .expo = "-63"
-};
-const static coe coeln2 =
-{
-	.coff = "+6931471806094223",.divr = "+1", .expo = "-16"
-};
-const static coe coepi_half =
-{
-	// .coff = "+15707963268",.divr = "+1", .expo = "-10"
-	.coff = "+1570796326794896619231321691639751442098584699687552910487472296",.divr = "+1", .expo = "-63"
-};
-const static coe coepi_quarter =
-{
-	// .coff = "+7853981633",.divr = "+1", .expo = "-10"
-	.coff = "+785398163397448309615660845819875721049292349843776455243736148",.divr = "+1", .expo = "-63"
-};// coe2pi/4
-static const coe coeone =
-{
-	.coff = "+1", .divr = "+1", .expo = "+0"
-};
-static const coe coepone =
-{
-	.coff = "-1", .divr = "+1", .expo = "+0"
-};
-static const coe coezero =
-{
-	.coff = "+0", .divr = "+1", .expo = "+0"
-};
-static const coe coetwo =
-{
-	.coff = "+2", .divr = "+1", .expo = "+0"
-};
-static const coe coefour =
-{
-	.coff = "+4", .divr = "+1", .expo = "+0"
-};
-static const coe coehalf =
-{
-	.coff = "+1", .divr = "+2", .expo = "+0"
-};
+coe_const(coepi, "+3141592653589793238462643383279502884197169399375105820974944592", "-63")
+coe_const(coe2pi, "+6283185307179586476925286766559005768394338798750211641949889185", "-63")
+coe_const(coepi_half, "+1570796326794896619231321691639751442098584699687552910487472296", "-63")
+coe_const(coepi_quarter, "+785398163397448309615660845819875721049292349843776455243736148", "-63")
+coe_const(coeln2, "+6931471806094223", "-16")
+coe_const(coeone, "+1", "+0")
+coe_const(coenegone, "-1", "+0")
+coe_const(coezero, "+0", "+0")
+coe_const(coetwo, "+2", "+0")
+coe_const(coefour, "+4", "+0")
+static const coe coehalf = { .coff = "+1", .divr = "+2", .expo = "+0" };
 
 static size_t _DIG_CUT = 4;
 
-// RULE: a sign prefix is a must.
+void CoeInit()
+{
+	MemSet(&aflag, 0, sizeof aflag);
+	aflag.Signed = 1;
+}
 
 void CoeDig(coe* obj, size_t digits, int direction)
-// If the real precise is less, zero will be moved at the end of .coff from .expo.
 {
 	if (!digits) digits = show_precise;
 	size_t CrtPrecise = 0;
@@ -154,22 +123,26 @@ void CoeDig(coe* obj, size_t digits, int direction)
 
 coe* CoeCtz(coe* dest)
 {
-	size_t coflen = 0,
-		num = 0;// numof 0
-	while (dest->coff[coflen]) coflen++;
-	while (dest->coff[coflen - num - 1] == '0') num++;
-	// if (dest->coff[coflen - num] == '0' && !dest->coff[coflen - num + 1]) num--;
-	if (dest->coff[coflen - num - 1] == '-' || dest->coff[coflen - num - 1] == '+') num--;
-	if (!num) return dest;// try to some calculator energy conditionally
-	dest->coff[coflen - num] = 0;// If num==0, nothing changed.
 	char* tmpptr;
-	srs(dest->expo, ChrAdd(dest->expo, tmpptr = instoa(num)));
+	srs(dest->expo, ChrAdd(dest->expo, tmpptr = instoa(ChrCtz(dest->coff))));
 	memfree(tmpptr);
+	if (dest->coff[1] == '0')
+	{
+		dest->coff[0] = '+';
+		srs(dest->expo, StrHeap("+0"));
+		srs(dest->divr, StrHeap("+1"));
+	}
+	else if (*dest->divr == '-')
+	{
+		*dest->divr = '+';
+		*dest->coff = (*dest->coff == '-') ? '+' : '-';
+	}
 	return dest;
 }
 
 coe* CoeDivrAlign(coe* o1, coe* o2)
 {
+	// preset o1 and o2 zo not INF and not NAN
 	if (!o1) return 0;
 	if (!o2)// Reduction
 	{
@@ -240,11 +213,16 @@ coe* CoeDivrAlign(coe* o1, coe* o2)
 // DIVR HAS NOT A REAL SIGN!!!
 coe* CoeDivrUnit(coe* obj, size_t kept_precise)
 {
+	if (obj->divr[1] == '0')
+	{
+		erro("Zero divided exception!");
+		return 0;// !!!
+	}
 	if (!StrCompare(obj->divr, "+1"))
 		return obj;
 	size_t sorlen = 0;
 	while (obj->divr[sorlen])sorlen++;
-	if (!kept_precise || kept_precise + sorlen + 2 > malc_precise)
+	if (!kept_precise || kept_precise + sorlen + 2 > malc_limit)
 		return 0;
 	char* ptor; memalloc(ptor, kept_precise + 2);/**/
 	ptor[kept_precise + 1] = 0;
@@ -281,7 +259,7 @@ coe* CoeDivrUnit(coe* obj, size_t kept_precise)
 	size_t quo_len = 0;// excluding sign
 	for (; quo[quo_len + 1]; quo_len++);
 	if (quo_len < kept_precise)
-		erro("Divide Precise Expextion yo NumDiv()");
+		erro("Precise Exception yo CoeDivrUnit()");
 	quo[kept_precise + 1] = 0;
 	if (quo[kept_precise + 1] >= '5')// round
 		srs(quo, ChrAdd(quo, (*quo == '+') ? "+1" : "-1"));
@@ -303,7 +281,7 @@ int CoeExpoAlign(coe* o1, coe* o2)
 {
 	int state = ChrCmp(o1->expo, o2->expo);
 	if (state == 0) return 1;
-	char* limit = instoa(malc_precise);
+	char* limit = instoa(malc_limit);
 	if (state < 0) xchg(*(size_t*)&o1, *(size_t*)&o2);
 	// now expo: o1 > o2
 	char* expdif = ChrSub(o1->expo, o2->expo);
@@ -355,13 +333,10 @@ coe* CoeCpy(const coe* obj)
 
 coe* CoeAdd(coe* dest, const coe* sors)
 {
-	if (sors->coff[1] == '0') return dest;
-	if (dest->coff[1] == '0')
+	if (dest->divr[1] == '0' || sors->divr[1] == '0')
 	{
-		srs(dest->coff, StrHeap(sors->coff));
-		srs(dest->expo, StrHeap(sors->expo));
-		srs(dest->divr, StrHeap(sors->divr));
-		return dest;
+		erro("Zero divided exception!");
+		return 0;// !!!
 	}
 	sors = CoeCpy(sors);
 	CoeDivrAlign(dest, (coe*)sors);
@@ -369,25 +344,15 @@ coe* CoeAdd(coe* dest, const coe* sors)
 	CoeDivrAlign(dest, 0);// prior to Ctz
 	CoeCtz(dest);
 	CoeDel((coe*)sors);
-endo:
-	if (dest->coff[1] == '0')
-	{
-		srs(dest->expo, StrHeap("+0"));
-		srs(dest->divr, StrHeap("+1"));
-	}
 	return dest;
 }
 
 coe* CoeSub(coe* dest, const coe* sors)
 {
-	if (sors->coff[1] == '0') return dest;
-	if (dest->coff[1] == '0')
+	if (dest->divr[1] == '0' || sors->divr[1] == '0')
 	{
-		srs(dest->coff, StrHeap(sors->coff));
-		*dest->coff = (*dest->coff == '+') ? '-' : '+';
-		srs(dest->expo, StrHeap(sors->expo));
-		srs(dest->divr, StrHeap(sors->divr));
-		return dest;
+		erro("Zero divided exception!");
+		return 0;// !!!
 	}
 	sors = CoeCpy(sors);
 	CoeDivrAlign(dest, (coe*)sors);
@@ -395,17 +360,15 @@ coe* CoeSub(coe* dest, const coe* sors)
 	CoeDivrAlign(dest, 0);// prior to Ctz
 	CoeCtz(dest);
 	CoeDel((coe*)sors);
-endo:
-	if (dest->coff[1] == '0')
-	{
-		srs(dest->expo, StrHeap("+0"));
-		srs(dest->divr, StrHeap("+1"));
-	}
 	return dest;
 }
 
 int CoeCmp(const coe* o1, const coe* o2)
 {
+	if (o1->divr[1] == '0' || o2->divr[1] == '0')
+	{
+		return (int)('PHIN'+'AREN');// !!!
+	}
 	coe* dest = CoeCpy(o1),
 		* sors = CoeCpy(o2);
 	int state;
@@ -417,7 +380,12 @@ int CoeCmp(const coe* o1, const coe* o2)
 
 coe* CoeMul(coe* dest, const coe* sors)
 {
-	if (dest->coff[1] == '0' || sors->coff[1] == '0')
+	if (dest->divr[1] == '0' || sors->divr[1] == '0')
+	{
+		erro("Zero divided exception!");
+		return 0;// !!!
+	}
+	if (dest->coff[1] == '0' || sors->coff[1] == '0')// faster
 	{
 		srs(dest->coff, StrHeap("+0"));
 		srs(dest->expo, StrHeap("+0"));
@@ -429,11 +397,6 @@ coe* CoeMul(coe* dest, const coe* sors)
 	srs(dest->expo, ChrAdd(dest->expo, sors->expo));
 	CoeDivrAlign(dest, 0);// prior to Ctz
 	CoeCtz(dest);
-	if (*dest->divr == '-')
-	{
-		*dest->divr = '+';
-		*dest->coff = (*dest->coff == '-') ? '+' : '-';
-	}
 	return dest;
 }
 
@@ -457,7 +420,12 @@ coe* CoeHypot(coe* dest, const coe* sors)
 
 coe* CoeDiv(coe* dest, const coe* sors)
 {
-	if (sors->coff[1] == '0') 
+	if (dest->divr[1] == '0' || sors->divr[1] == '0')
+	{
+		erro("Zero divided exception!");
+		return 0;// !!!
+	}
+	if (sors->coff[1] == '0')
 	{
 		erro("CoeDiv: zero sors.");
 		return dest;
@@ -468,209 +436,9 @@ coe* CoeDiv(coe* dest, const coe* sors)
 	srs(dest->expo, ChrSub(dest->expo, sors->expo));
 	CoeDivrAlign(dest, 0);// prior to Ctz
 	CoeCtz(dest);
-	if (*dest->divr == '-')
-	{
-		*dest->divr = '+';
-		*dest->coff = (*dest->coff == '-') ? '+' : '-';
-	}
 	return dest;
 }
 
-// COE -> +1.227e+30 1e4 12.27 [Omit Divr]
-// opt: 0[auto] 1[int or float] 2[e format]
-// RFW25 Night : may cause many mistakes, but it can work in some case!
-char* CoeToLocaleClassic(const coe* obj, int opt)
-{
-	const size_t inte_lim = 8;// the mag. greater or less than this, will be to exponent form!
-	size_t real_exp = atoins(obj->expo + 1);
-	//
-	coe* objj = CoeCpy(obj);
-	CoeDivrUnit(objj, show_precise);// RFR16 Appended.
-	//
-	if (!opt)
-		opt = (real_exp > inte_lim) ? 2 : 1;
-	if (opt == 1)
-	{
-		size_t len = 0,
-			numlen = 0;
-		while (objj->coff[len])len++;
-		numlen = len - 1;
-		if (*objj->expo == '-') len++;
-		//+2e-5 0.00002 (len 7)
-		len += real_exp;// I am too lazy RFW25
-		char* const tmpptr;
-		memalloc(tmpptr, len + 1);
-		{size_t ecx = len + 1; while (ecx--) tmpptr[ecx] = 0;}
-		// I am too lazy to think the detail
-		if (*objj->expo == '+')
-		{
-			char* subp = tmpptr;
-			for (size_t i = 0; i < numlen + 1; i++)
-				*subp++ = objj->coff[i];
-			for (size_t i = 0; i < real_exp; i++)
-				*subp++ = '0';
-		}
-		else if (real_exp >= numlen)//0.xxx
-		{
-			char* subp = tmpptr;
-			*subp++ = *objj->coff;// sign
-			*subp++ = '0';
-			*subp++ = '.';
-			for (size_t i = 0; i < real_exp - numlen;i++)
-				*subp++ = '0';
-			StrCopy(subp, objj->coff + 1);
-		}
-		else if (numlen == 1 || real_exp == 0)
-		{
-			StrCopy(tmpptr, objj->coff);
-		}
-		else
-		{
-			char* subp = tmpptr;
-			*subp++ = *objj->coff;// sign
-			for (size_t i = 1;i <= numlen - real_exp;i++)
-				*subp++ = objj->coff[i];
-			*subp++ = '.';
-			StrCopy(subp, objj->coff + numlen - real_exp + 1);
-		}
-		CoeDel(objj);// RFR16
-		return tmpptr;
-	}
-	else if (opt == 2)// +16 +23 +1.6e+23  +2 +4 +2e+4
-	{
-		size_t len = 0, len2 = 0,
-			numlen = 0;
-		while (objj->coff[len])len++;
-		numlen = len - 1;
-		char* tmp_expo = StrHeap(objj->expo);
-		char* tmp_expo_dif = instoa(numlen - 1);
-		srs(tmp_expo, ChrAdd(tmp_expo, tmp_expo_dif));
-		while (tmp_expo[len2])len2++;
-		len += len2;
-		real_exp = atoins(tmp_expo);
-
-		char* tmpptr;
-		memalloc(tmpptr, len + 3);
-		{size_t ecx = len + 1; while (ecx--) tmpptr[ecx] = 0;}
-		// I am too lazy to think the detail
-		char* subp = tmpptr;
-		*subp++ = *objj->coff;// sign
-		*subp++ = objj->coff[1];
-		if (numlen > 1)
-		{
-			*subp++ = '.';
-			for (size_t i = 2; i < numlen + 1; i++)
-				*subp++ = objj->coff[i];
-		}
-		if (real_exp)
-		{
-			*subp++ = 'e';
-			StrCopy(subp, tmp_expo);
-		}
-
-		memfree(tmp_expo_dif);
-		memfree(tmp_expo);
-		CoeDel(objj);// RFR16
-		return tmpptr;
-	}
-	CoeDel(objj);// RFR16
-	return 0;
-}
-
-// +12.27e+3 12.27 [+A].[B]e[+C] -> COE (fail then 0)
-// RFW25 Night : may cause many mistakes, but it can work in some case!
-coe* CoeFromLocaleClassic(const char* str)
-{
-	const char* ParA = str, * ParB = 0, * ParC = 0;
-	size_t LenA = 0, LenB = 0, LenC = 0;
-	char c;
-	coe* co = 0;
-	size_t coflen = 0;
-loop: switch (c = *str++)
-	{
-	case 0:
-		// Chk and gen co.
-		memalloc(co, sizeof(coe));
-		co->symb = 0;
-		co->divr = StrHeap("+1");
-		if (ParC) LenC = str - ParC - 1;// e2$$
-		else if (ParB) LenB = str - ParB - 1;
-		else LenA = str - ParA;
-
-		if (ParC && LenC && ParC[LenC - 1] != '+' && ParC[LenC - 1] != '-')
-		{
-			co->expo = StrHeapN(ParC, LenC);
-			if (*co->expo != '+' && *co->expo != '-')
-				srs(co->expo, StrHeapAppend(("+"), co->expo));
-		}
-		else co->expo = StrHeap("+0");
-		if (!LenA && !LenB)
-		{
-			co->coff = StrHeap("+1");
-			goto loopend;
-		}
-
-		if (!ParB || ParA == ParB || !LenB)// only interger
-		{
-			co->coff = StrHeapN(ParA, LenA);
-			if (*co->coff != '+' && *co->coff != '-')
-				srs(co->coff, StrHeapAppend(("+"), co->coff));
-			if (!co->coff[1])
-				srs(co->coff, StrHeapAppend(co->coff, "1"));
-			goto loopend;
-		}
-		else
-		{
-			memalloc(co->coff, LenA + LenB + 1);
-			if (LenA)
-				StrCopyN(co->coff, ParA, LenA);// 0.x case
-			StrCopyN(co->coff + LenA, ParB, LenB);
-			co->coff[LenA + LenB] = 0;
-			char* tmpptr = instoa(LenB);
-			srs(co->expo, ChrSub(co->expo, tmpptr));
-			memfree(tmpptr);
-			if (*co->coff != '+' && *co->coff != '-')
-				srs(co->coff, StrHeapAppend(("+"), co->coff));
-			if (!co->coff[1])
-				srs(co->coff, StrHeapAppend(co->coff, "1"));
-			goto loopend;
-		}
-		break;
-	default:
-		if (c >= '0' && c <= '9');
-		else goto loopend;
-		break;
-	case '+':
-	case '-':
-		break;
-	case 'e':
-		if (ParC) goto loopend;
-		ParC = str;
-		if (ParA && ParB)//1.2e3
-		{
-			LenB = str - ParB - 1;
-			ParC = str;
-		}
-		else if (ParA && !ParB)//1e2
-		{
-			LenA = str - ParA - 1;
-			ParB = ParA;
-			ParC = str;
-		}
-		else goto loopend;
-		break;
-	case '.':
-		if (ParB || ParC) goto loopend;
-		ParB = str;
-		LenA = str - ParA - 1;//1.1
-		break;
-	} goto loop; 
-	loopend:
-	if (!co) return co;
-	ChrCpz(co->coff);// +002$ 
-	ChrCpz(co->expo);
-	return co;
-}
 
 static const unsigned char TaylorDptr[] =
 {
@@ -680,6 +448,7 @@ static const unsigned char TaylorDptr[] =
 	0b01000101,// 3 ln(x+1)
 	0b01010101 // 4 arctan [-1,+1]
 };
+// Taylors is writen by Haruno RFR.
 //MSB[Divr 00:1 01:n 10:n! 11:n*n]
 //   [00:All 01:OnlyOdd 10: OnlyEven]
 //   [StartPower 0~3]
@@ -690,7 +459,7 @@ static coe* CoeTaylor(coe* dest, unsigned char dptor, const coe* period, size_t 
 	char* tmp;
 	// [0~period{>0}). id period is not NULL
 	// recommand digcut 4
-	if (show_precise >= malc_precise)
+	if (show_precise >= malc_limit)
 	{
 		erro("SHOW >= MALC.");
 		return dest;
@@ -861,12 +630,12 @@ coe* CoeAsin(coe* dest)
 {
 	// This is based on CoeTaylor()
 	// def chk [-1,1]
-	if (CoeCmp(dest, &coeone) > 0 || CoeCmp(dest, &coepone) < 0)
+	if (CoeCmp(dest, &coeone) > 0 || CoeCmp(dest, &coenegone) < 0)
 	{
 		erro("ASin Over definition");
 		return dest;
 	}
-	if (show_precise >= malc_precise)
+	if (show_precise >= malc_limit)
 	{
 		erro("SHOW >= MALC.");
 		return dest;
@@ -1170,51 +939,192 @@ coe* CoeAtanh(coe* dest)
 	return dest;
 }
 
-// Taylors is writen by Haruno RFR.
-long long CoeToLLong(const coe* dest)
-{
-	long long ll = 0;
-	long long llpow = 1;
-	long long llmax = LLONG_MAX;
-	size_t lldigs = 0;
-	while (llmax)
-	{
-		lldigs++;
-		llmax /= 10;
-	}
-	// CoeDivrUnit(dest, lldigs+?)
-	ptrdiff_t CrtPow = atoins(dest->expo);
-	for (ptrdiff_t i = StrLength(dest->coff) - 1 + min(0, CrtPow); i > 0; i--)
-	{
-		if (lldigs--)
-		{
-			ll += llpow * (dest->coff[i] - '0');
-		}
-		llpow *= 10;
-	}
+// ---- ---- ---- ---- Conversion ---- ---- ---- ----
 
-	if (*dest->coff == '-')ll *= -1;
-	return ll;
+// LDouble is cancelled for "powl" and others cannot be linked by GCC for AR-Library.
+// Float does not have the problem, but also cancelled.
+// -- Arina RFA
+
+char* CoeToLocale(const coe* obj, int opt)
+{
+	// 0.0001 : "1" and -4, real_exp + len === 5
+	// 100000 : "1" and 5, real_exp + len === 6
+	coe* objj = CoeCpy(obj);
+	CoeDivrUnit(objj, show_precise);// RFR16 Appended.
+	ptrdiff_t real_exp_sgn = atoins(objj->expo);// limit {TODO}
+	size_t real_exp = real_exp_sgn < 0 ? -real_exp_sgn : real_exp_sgn;
+	size_t len = StrLength(objj->coff), numlen = len - 1;
+	//
+	if (!opt) opt = (real_exp + len + (real_exp_sgn < 0) >
+		_CDE_PRECISE_SHOW_LOCALE_EXPONENT) ? 2 : 1;
+	if (opt == 1)
+	{
+		if (*objj->expo == '-') len++;
+		//+2e-5 0.00002 (len 7)
+		len += real_exp;// I am too lazy -- Arina RFW25
+		char* const tmpptr = malc(len + 1);
+		{size_t ecx = len + 1; while (ecx--) tmpptr[ecx] = 0;}
+		// I am too lazy to think the detail
+		if (*objj->expo == '+')
+		{
+			char* subp = tmpptr;
+			for (size_t i = 0; i < numlen + 1; i++)
+				*subp++ = objj->coff[i];
+			for (size_t i = 0; i < real_exp; i++)
+				*subp++ = '0';
+		}
+		else if (real_exp >= numlen)//0.xxx
+		{
+			char* subp = tmpptr;
+			*subp++ = *objj->coff;// sign
+			*subp++ = '0';
+			*subp++ = '.';
+			for (size_t i = 0; i < real_exp - numlen;i++)
+				*subp++ = '0';
+			StrCopy(subp, objj->coff + 1);
+		}
+		else if (numlen == 1 || real_exp == 0)
+		{
+			StrCopy(tmpptr, objj->coff);
+		}
+		else
+		{
+			char* subp = tmpptr;
+			*subp++ = *objj->coff;// sign
+			for (size_t i = 1;i <= numlen - real_exp;i++)
+				*subp++ = objj->coff[i];
+			*subp++ = '.';
+			StrCopy(subp, objj->coff + numlen - real_exp + 1);
+		}
+		CoeDel(objj);// RFR16
+		return tmpptr;
+	}
+	else if (opt == 2)// +16 +23 +1.6e+23  +2 +4 +2e+4
+	{
+		char* tmp_expo = StrHeap(objj->expo);
+		char* tmp_expo_dif = instoa(numlen - 1);
+		srs(tmp_expo, ChrAdd(tmp_expo, tmp_expo_dif));
+		len += StrLength(tmp_expo);
+		real_exp = atoins(tmp_expo);
+
+		char* tmpptr = malc(len + 3);
+		{size_t ecx = len + 1; while (ecx--) tmpptr[ecx] = 0;}
+		// I am too lazy to think the detail
+		char* subp = tmpptr;
+		*subp++ = *objj->coff;// sign
+		*subp++ = objj->coff[1];
+		if (numlen > 1)
+		{
+			*subp++ = '.';
+			for (size_t i = 2; i < numlen + 1; i++)
+				*subp++ = objj->coff[i];
+		}
+		if (real_exp)
+		{
+			*subp++ = 'e';
+			StrCopy(subp, tmp_expo);
+		}
+
+		memfree(tmp_expo_dif);
+		memfree(tmp_expo);
+		CoeDel(objj);// RFR16
+		return tmpptr;
+	}
+	CoeDel(objj);// RFR16
+	return 0;
 }
 
-long double CoeToLDouble(const coe* dest)
+coe* CoeFromLocale(const char* str)
 {
-	coe* ddd = CoeCpy(dest);
-	CoeDivrUnit(ddd, show_precise);
-	long double ll = 0.0;
-	ptrdiff_t CrtPow = atoins(ddd->expo);
-	if (CrtPow > LDBL_MAX_10_EXP) return INFINITY;
-	for (ptrdiff_t i = StrLength(ddd->coff) - 1; i > 0; i--)
+	const char* ParA = str, * ParB = 0, * ParC = 0;
+	size_t LenA = 0, LenB = 0, LenC = 0;
+	char c;
+	coe* co = 0;
+	size_t coflen = 0;
+loop: switch (c = *str++)
 	{
-		if (CrtPow >= LDBL_MIN_10_EXP)
-			// ll += (dest->coff[i] - '0') * powl(10.0, CrtPow);// ...
-			ll += (ddd->coff[i] - '0') * pow(10.0, CrtPow);
-		CrtPow++;
-		if (CrtPow > LDBL_MAX_10_EXP) break;
-	}
-	if (*ddd->coff == '-')ll *= -1;
-	CoeDel(ddd);
-	return ll;
+	case 0:
+		// Chk and gen co.
+		memalloc(co, sizeof(coe));
+		co->symb = 0;
+		co->divr = StrHeap("+1");
+		if (ParC) LenC = str - ParC - 1;// e2$$
+		else if (ParB) LenB = str - ParB - 1;
+		else LenA = str - ParA;
+
+		if (ParC && LenC && ParC[LenC - 1] != '+' && ParC[LenC - 1] != '-')
+		{
+			co->expo = StrHeapN(ParC, LenC);
+			if (*co->expo != '+' && *co->expo != '-')
+				srs(co->expo, StrHeapAppend(("+"), co->expo));
+		}
+		else co->expo = StrHeap("+0");
+		if (!LenA && !LenB)
+		{
+			co->coff = StrHeap("+1");
+			goto loopend;
+		}
+
+		if (!ParB || ParA == ParB || !LenB)// only interger
+		{
+			co->coff = StrHeapN(ParA, LenA);
+			if (*co->coff != '+' && *co->coff != '-')
+				srs(co->coff, StrHeapAppend(("+"), co->coff));
+			if (!co->coff[1])
+				srs(co->coff, StrHeapAppend(co->coff, "1"));
+			goto loopend;
+		}
+		else
+		{
+			memalloc(co->coff, LenA + LenB + 1);
+			if (LenA)
+				StrCopyN(co->coff, ParA, LenA);// 0.x case
+			StrCopyN(co->coff + LenA, ParB, LenB);
+			co->coff[LenA + LenB] = 0;
+			char* tmpptr = instoa(LenB);
+			srs(co->expo, ChrSub(co->expo, tmpptr));
+			memfree(tmpptr);
+			if (*co->coff != '+' && *co->coff != '-')
+				srs(co->coff, StrHeapAppend(("+"), co->coff));
+			if (!co->coff[1])
+				srs(co->coff, StrHeapAppend(co->coff, "1"));
+			goto loopend;
+		}
+		break;
+	default:
+		if (c >= '0' && c <= '9');
+		else goto loopend;
+		break;
+	case '+':
+	case '-':
+		break;
+	case 'e':
+		if (ParC) goto loopend;
+		ParC = str;
+		if (ParA && ParB)//1.2e3
+		{
+			LenB = str - ParB - 1;
+			ParC = str;
+		}
+		else if (ParA && !ParB)//1e2
+		{
+			LenA = str - ParA - 1;
+			ParB = ParA;
+			ParC = str;
+		}
+		else goto loopend;
+		break;
+	case '.':
+		if (ParB || ParC) goto loopend;
+		ParB = str;
+		LenA = str - ParA - 1;//1.1
+		break;
+	} goto loop; 
+	loopend:
+	if (!co) return co;
+	ChrCpz(co->coff);// +002$ 
+	ChrCpz(co->expo);
+	return co;
 }
 
 double CoeToDouble(const coe* dest)
@@ -1237,62 +1147,6 @@ double CoeToDouble(const coe* dest)
 	return ll;
 }
 
-float CoeToFloat(const coe* dest)
-{
-	coe* ddd = CoeCpy(dest);
-	CoeDivrUnit(ddd, show_precise);
-	float ll = 0.0;
-	ptrdiff_t CrtPow = atoins(ddd->expo);
-	if (CrtPow > FLT_MAX_10_EXP) return INFINITY;
-	for (ptrdiff_t i = StrLength(ddd->coff) - 1; i > 0; i--)
-	{
-		if (CrtPow >= FLT_MIN_10_EXP)
-			ll += (ddd->coff[i] - '0') * powf(10.0, CrtPow);
-		CrtPow++;
-		if (CrtPow > FLT_MAX_10_EXP) break;
-	}
-	if (*ddd->coff == '-')ll *= -1;
-	CoeDel(ddd);
-	return ll;
-}
-
-coe* CoeFromLDouble(long double flt)
-{
-	int sign = flt < 0;
-	if (sign) flt = -flt;
-	if (flt == 0.0) return CoeNew("+0", "+0", "+1");
-	// make use of show_precise
-	coe* res;
-	// ptrdiff_t crtpow = (ptrdiff_t)log10l(flt);// MSVC2022 cannot make sense of this.--RFR13
-	ptrdiff_t crtpow = (ptrdiff_t)log10(flt);
-	size_t luptimes = 0;
-	char* buf; memalloc(buf, show_precise + 2); buf[show_precise + 1] = 0;
-	char* ptr = buf + 1;
-	char* tmpptr;
-	char c;
-	while (crtpow > LDBL_MIN_10_EXP && luptimes++ < show_precise)
-	{
-		// c = (ptrdiff_t)(flt / powl(10.0, (long double)crtpow)) % 10 + 0x30;// See above.--RFR13
-		c = (ptrdiff_t)(flt / pow(10.0, (long double)crtpow)) % 10 + 0x30;
-		if (c < '0' || c > '9')c = '0';
-		*ptr++ = c;
-		crtpow--;
-	}
-	if (ptr == buf || ptr == buf + 1)
-	{
-		ptr = buf; ptr++;
-		*ptr++ = '0';
-	}
-	*ptr = 0;
-	buf[0] = sign ? '-' : '+';
-	res = CoeNew(buf, tmpptr = instoa(crtpow), "+1");
-	memfree(tmpptr);
-	memfree(buf);
-	CoeCtz(res);
-	ChrCpz(res->coff);
-	return res;
-}
-
 coe* CoeFromDouble(double flt)
 {
 	// based on above
@@ -1304,16 +1158,20 @@ coe* CoeFromDouble(double flt)
 		return CoeNew("+1", "+0", "+0");
 	ptrdiff_t crtpow = (ptrdiff_t)(flt < 0. ? -log10(-flt) : log10(flt));
 	size_t luptimes = 0;
-	char* buf; memalloc(buf, show_precise + 2); buf[show_precise + 1] = 0;
+	char* buf = salc(show_precise + 2);
 	char* ptr = buf + 1;
 	char* tmpptr;
 	char c;
 	while (crtpow > DBL_MIN_10_EXP && luptimes++ < show_precise)
 	{
-		c = (ptrdiff_t)(flt / pow(10, crtpow)) % 10 + 0x30;
-		if (c < '0' || c > '9') c = '0';
+		double tmp0 = pow(10, crtpow);
+		ptrdiff_t tmp1 = flt / tmp0;
+		c = (tmp1 % 10) + 0x30;
+		flt -= tmp1 * tmp0;
 		*ptr++ = c;
 		crtpow--;
+		if (flt == 0.0) break;
+		// RFV12 fixed.
 	}
 	if (ptr == buf || ptr == buf + 1)
 	{
@@ -1325,51 +1183,9 @@ coe* CoeFromDouble(double flt)
 	res = CoeNew(buf, tmpptr = instoa(crtpow+1), "+1");
 	memfree(tmpptr);
 	memfree(buf);
+	ChrCpz(res->coff);
 	CoeCtz(res);
 	ChrCpz(res->coff);
 	return res;
 }
 
-coe* CoeFromFloat(float flt)
-{
-	int sign = flt < 0;
-	if (sign) flt = -flt;
-	if (flt == 0.0) return CoeNew("+0", "+0", "+1");
-	// based on above
-	coe* res;
-	ptrdiff_t crtpow = (ptrdiff_t)log10f(flt);
-	size_t luptimes = 0;
-	char* buf; memalloc(buf, show_precise + 2); buf[show_precise + 1] = 0;
-	char* ptr = buf + 1;
-	char* tmpptr;
-	char c;
-	while (crtpow > FLT_MIN_10_EXP && luptimes++ < show_precise)
-	{
-		c = (ptrdiff_t)(flt / powf(10, crtpow)) % 10 + 0x30;
-		if (c < '0' || c>'9')c = '0';
-		*ptr++ = c;
-		crtpow--;
-	}
-	if (ptr == buf || ptr == buf + 1)
-	{
-		ptr = buf; ptr++;
-		*ptr++ = '0';
-	}
-	*ptr = 0;
-	buf[0] = sign ? '-' : '+';
-	res = CoeNew(buf, tmpptr = instoa(crtpow), "+1");
-	memfree(tmpptr);
-	memfree(buf);
-	CoeCtz(res);
-	ChrCpz(res->coff);
-	return res;
-
-}
-
-coe* CoeFromLLong(long long signedll)
-{
-	char* str = instoa(signedll);
-	coe* res = CoeNew(str, "+0", "+1");
-	memfree(str);
-	return res;
-}

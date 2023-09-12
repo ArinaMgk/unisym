@@ -154,7 +154,7 @@ ptrdiff_t atoins(const char* str)
 
 // Clear prefix zeros of hexa. E.g. "00012500" >>> "12500", "-00" >>> "-0"
 // No need to make a specific buffer-version
-void ChrCpz(char* str)
+size_t ChrCpz(char* str)
 {
 	// assume str:not-null
 	if (*str == '+' || *str == '-') str++;
@@ -162,22 +162,25 @@ void ChrCpz(char* str)
 	ptrdiff_t num = 0;
 	char c;
 	while ((c = str[num]) && c == '0') num++;
-	if (!num) return;
+	if (!num) return 0;
 	if (c == 0 && str[num - 1] == '0')
+	{
 		str[1] = 0;
+		return num - 1;
+	}
 	else MemRelative(str + num, siz - num + 1, -num);// 000905_ : str=0 num=3 siz=6
+	return num;
 }
 
-//RFV3 from CoeAr
-void ChrCtz(char* str)
+size_t ChrCtz(char* str)
 {
 	size_t coflen = 0,
 		num = 0;// numof 0
 	while (str[coflen]) coflen++;
 	while (str[coflen - num - 1] == '0') num++;
 	if (str[coflen - num - 1] == '-' || str[coflen - num - 1] == '+') num--;
-	if (!num) return;// try to some calculator energy conditionally
-	str[coflen - num] = 0;// If num==0, nothing changed.
+	str[coflen - num] = 0;
+	return num;
 }
 
 int ChrCmp(const char* a, const char* b)

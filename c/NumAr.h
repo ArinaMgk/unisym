@@ -19,7 +19,7 @@
 
 // no considering header-guard in the caller.
 #include <complex.h>
-#include "coear.h"
+#include "cdear.h"
 
 typedef struct Complextern
 {

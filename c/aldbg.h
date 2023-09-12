@@ -19,6 +19,7 @@
 #define ArnHabitDbg// Her Convenient odd style. Maybe a bad habit for formal project.
 
 #include <stddef.h>
+#include "alice.h"
 
 extern void erro(char*);
 extern void warn(char*);
@@ -39,6 +40,8 @@ extern size_t arna_precise;
 	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);malc_count--;*(void**)&(x)=ebx;}
 	#define malc(size) (void*)(malc_count++,malloc(size))
 	#define zalc(size) (void*)(malc_count++,calloc(size,1))
+	#define memf(x) memfree(x)
+	
 #else
 	#define memalloc(dest,size)\
 		(*(char**)&dest=(char*)malloc(size))?((void)0):(erro("MEMORY RUN OUT!"),(void)0)
@@ -46,7 +49,11 @@ extern size_t arna_precise;
 	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
 	#define malc(size) (void*)(malloc(size))
 	#define zalc(size) (void*)(calloc(size,1))
+	#define memf(x) memfree(x)
+	
 #endif
+
+#include <stdlib.h>
 inline static char* salc(size_t size)
 {
 	if (!size) return 0;
@@ -68,7 +75,7 @@ inline static char* salc(size_t size)
 
 #define assert(expression) ((expression)?(char*)(expression):(exit(1),(char*)0))
 
-
+// Quickly set the necessary configuration
 #define ulibsym(limit)\
 	size_t malc_count, malc_limit=(limit), call_state;
 

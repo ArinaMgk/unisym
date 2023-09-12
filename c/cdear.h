@@ -18,25 +18,52 @@
 // ASCII C99 Generation-2nd:CoeAr. Ultimate Version
 // Based on ustring heap version
 
+// State Number
+// * INF: COF=NON0 DIV=0
+// * NAN: COF=0    DIV=0
+
+// Rule: 
+// * a sign prefix is a must.
+// * aflag will be applied
+// * the sign of divr is omitted and should always be positive
+// * State Number, but also with erro() call
+// * Arn is going to setup dnode-malc-table and warn-table (from old generation)
+
+#pragma source ./source/cdear.c
+
 #ifndef ModCoeArith
 #define ModCoeArith
 
-typedef struct coe
+typedef struct PhinaeCDEAr
 {
 	char* coff;
 	char* divr;
 	char* expo;
-	size_t symb;// operated by user
-} coe;// an element of a number: coff*symb*pow10 expo/divr
+	size_t symb;
+} coe, cde;// Current, seemingly since SGA-Generaion II
 
-extern size_t lup_times;
-extern size_t lup_limit;
-extern size_t lup_last;
-extern size_t show_precise;
-extern size_t malc_precise;
+struct PhinaeCDEArOld
+{
+	char* coff, * divr, * expo;
+};// since SGA-Generation I
 
+
+#define _CDE_PRECISE_SHOW_DEFAULT 63
+#define _CDE_PRECISE_ARITHMETIC_DEFAULT 79
+#define _CDE_PRECISE_SHOW_LOCALE_EXPONENT 8
+#define _CDE_PRECISE_LOOPTIMES_LEAST_DEFAULT 16
+#define _CDE_PRECISE_LOOPTIMES_LIMIT_DEFAULT 32
+
+// {TODO} coe ---> cde
+// {TODO} cut the dig for each loop of Taylor family
+
+// Initial and set the necessary system structure.
+void CoeInit();
+
+// Reset the length of the digits. If the real precise is less, zero will be moved at the end of coff from expo; if more, will cut.
 void CoeDig(coe* obj, size_t digits, int direction);
 
+// Cut trailing zeros of coff and append to expo. This is usually used at the end of the operation, so some adaptation is done here. 
 coe* CoeCtz(coe* dest);
 
 coe* CoeDivrAlign(coe* o1, coe* o2);
@@ -51,21 +78,21 @@ void CoeDel(coe* elm);
 
 coe* CoeCpy(const coe* obj);
 
+#define CdeAdd CoeAdd
 coe* CoeAdd(coe* dest, const coe* sors);
 
+#define CdeSub CoeSub
 coe* CoeSub(coe* dest, const coe* sors);
 
 int CoeCmp(const coe* o1, const coe* o2);
 
+#define CdeMul CoeMul
 coe* CoeMul(coe* dest, const coe* sors);
 
 coe* CoeHypot(coe* dest, const coe* sors);
 
+#define CdeDiv CoeDiv
 coe* CoeDiv(coe* dest, const coe* sors);
-
-char* CoeToLocaleClassic(const coe* obj, int opt);
-
-coe* CoeFromLocaleClassic(const char* str);
 
 //
 
@@ -110,21 +137,21 @@ coe* CoeAcosh(coe* dest);
 
 coe* CoeAtanh(coe* dest);
 
-//
-long long CoeToLLong(const coe* dest);
+// ---- ---- ---- ---- Conversion ---- ---- ---- ----
 
-long double CoeToLDouble(const coe* dest);
+#define CdeToLocale CoeToLocale
+// opt: 0[auto] 1[int or float] 2[e format]
+char* CoeToLocale(const coe* obj, int opt);
 
+#define CdeFromLocale CoeFromLocale
+// +12.27e+3 12.27 [+A].[B]e[+C] -> COE (fail then 0)
+coe* CoeFromLocale(const char* str);
+
+#define CdeToDouble CoeToDouble
 double CoeToDouble(const coe* dest);
 
-float CoeToFloat(const coe* dest);
-
-coe* CoeFromLDouble(long double flt);
-
+#define CdeFromDouble CoeFromDouble
 coe* CoeFromDouble(double flt);
 
-coe* CoeFromFloat(float flt);
-
-coe* CoeFromLLong(long long signedll);
 
 #endif

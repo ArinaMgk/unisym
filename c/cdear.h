@@ -96,6 +96,10 @@ coe* CoeDiv(coe* dest, const coe* sors);
 
 //
 
+// CoeRem: make dest < unit_period
+
+// CoeInt: clear the mantissa part
+
 coe* CoePow(coe* dest, const coe* sors);
 
 // CoeSqrt

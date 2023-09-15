@@ -1,7 +1,5 @@
 // ASCII TAB4 C99 ArnAssume
-// Operations for string of memory, as the complement of ISO/IEC standard.
-/* CAUTION! The codes was mainly written by Arina, except some codes with comments that express the codes from others, however, the exception is greatly changed. So, do not take it for granted that the codes is completely correct. If the unexpected appears after you use unisym, nobody shall help you!
-*/
+// Operations for string of ASCII character and node
 // E X P O S T U ** DO NOT TRAP IN C TOO MUCH! BE YOURSELF. ** L A T I O N //
 /*
 	Copyright 2023 ArinaMgk
@@ -18,22 +16,16 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-// {TODO} WIKI
-// still keep `_noheap` in the ustring.c.
-/* {TODO} Properties
- * o malc_count yo [_dbg], numof area allocated in memory.
- * i malc_limit, yo ![_noheap],the maximum permission for heap allocated or sizeof buffer.
- * o malc_occupy. Zero means failure(heap unit size over or precise loss occur) or nothing for writing.
- * x arna_eflag {(Permit)PrecLoss[io], HeapYo[io], Signed[i], ARN_DIGIT[]}
- * - arna_LupRange {L, M}
- * i arna_precise
+/* Component
+* node-family{node, dnode, tnode, nnode}
+* common heap operations
+* strpool
+* Buf-special part
+* General String Function
+* ChrAr
+* Temporarily Stage Area
 */
-// ---- ---- ---- ----
 #define _LIB_STRING
-
-#ifndef _LIB_STRING_CLASSIC_DISABLE
-#include <string.h>
-#endif
 
 #ifndef _LIB_STRING_ONCE_HEAD
 #define _LIB_STRING_ONCE_HEAD
@@ -53,6 +45,22 @@ struct ArinaeFlag
 };extern struct ArinaeFlag arna_eflag;
 #define aflag arna_eflag
 
+//single-direction simple node
+typedef struct Node
+{
+	struct Node* next;
+	char* data;
+} Node, node;
+
+// double-directions node
+typedef struct Dnode
+{
+	struct Dnode* left;// lower address
+	char* addr;// for order
+	union { size_t len, type; };// non-order
+	union { struct Dnode* next, * right; };// higher address
+} Dnode, dnode;// recommand using dnode
+
 typedef enum TokType
 {
 	tok_EOF = 0,// -1 or 0
@@ -62,21 +70,35 @@ typedef enum TokType
 	tok_directive,// #include
 	tok_number,// 1
 	tok_sym,// +-*/
-	tok_iden,// iden
+	tok_iden,// identifier
 	tok_space,// ' ' or \t or excluding new-line
 	tok_else,
-} TokType;
+} TokType, toktype;// the counts should not be greater than 15.
 
-typedef struct Toknode
+typedef struct TokenNode
 {
 	// struct Dnode;
-	struct Toknode* left;
+	struct TokenNode* left;
 	union { char* addr; size_t index; };
 	union { size_t len; TokType type; };
-	union { struct Toknode* next, * right; };
-	// [ L | ADDR & LEN/TYPE | R ]
+	union { struct TokenNode* next, * right; };
+	// [ L | AD & L/T | R ]
 	size_t row, col;
-} Toknode, Tode;
+} Toknode, Tode, tode, tnode;// recommand using tnode
+
+typedef struct TreeNode
+{
+	// no use of union for grace view of debug
+	struct TreeNode* left;
+	char* addr;
+	size_t class;
+	struct TreeNode* right;
+	size_t row, col;
+	//
+	struct TreeNode* subf;// sub-first-item
+	void* bind;
+	size_t flag;
+} Nesnode, nnode;// recommand using nnode
 
 #endif
 //
@@ -94,25 +116,22 @@ typedef struct Toknode
 //
 #if defined(_LIB_STRING_HEAP) && !defined(_LIB_STRING_HEAP_GUARD)// hstring.h, any need to allocate memory
 	#define _LIB_STRING_HEAP_GUARD
+//---- ---- ---- ---- node ---- ---- ---- ----
+	Node* NodeCreate(Node* previous, const char* data);
+	Node* NodeCreateOrder(Node* previous, const char* data);
+	size_t NodeIndex(Node* first, const char* cmp);
+	size_t NodeCount(Node* first);
+	Node* NodeInsert(Node* obj, const char* data);
+	void NodesRelease(Node* first);
+	
 //---- ---- ---- ---- dnode ---- ---- ---- ----
-	#ifndef ModDnode // double-directions double-order-mode node
-	#define ModDnode
-	typedef struct Dnode
-	{
-		struct Dnode* left;// lower address
-		char* addr;// for order
-		union { size_t len, type; };// non-order
-		union { struct Dnode* next, * right; };// higher address
-	} Dnode;
-
 	Dnode* DnodeCreate(Dnode* any, char* addr, size_t len);
 	Dnode* DnodeRewind(Dnode* any);
 	size_t DnodeCount(Dnode* any);
-	void DnodeRelease(Dnode* some);
-	void DnodesRelease(Dnode* first);
-	#endif
+	void DnodeRelease(Dnode* some, int tofree);
+	void DnodesRelease(Dnode* first, int tofree);
 
-//---- ---- ---- ---- common heap operations ---- ---- ---- ----
+//---- ---- ---- ---- tnode ---- ---- ---- ----
 	Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer);
 	void StrTokenClearAll(Toknode* tstr);
 	void StrTokenThrow(Toknode* one);// a b c --> a c
@@ -133,6 +152,8 @@ typedef struct Toknode
 	#define StrTokenPrintAll(first)\
 		do StrTokenPrint(first);\
 		while (first = first->next);
+
+//---- ---- ---- ---- common heap operations ---- ---- ---- ----
 	
 	inline static char* StrHeapFromChar(char c)// Convert char in string in heap
 	{
@@ -151,7 +172,7 @@ typedef struct Toknode
 
 	char* instoa(ptrdiff_t num);// [Instant to ASCII yo heap]
 
-//---- ---- ---- ---- the previous strpool ---- ---- ---- ----
+//---- ---- ---- ---- strpool ---- ---- ---- ----
 	/* ROUTINE EXAMPLE
 		StrPoolInit();
 		atexit(StrPoolRelease);
@@ -165,9 +186,9 @@ typedef struct Toknode
 	char* StrPoolAllocZero(size_t);
 	void StrPoolRelease();
 
-#endif
+#endif// !HEAP-PART
 //
-//
+// Buf-special part
 //
 #if (defined _LIB_STRING_BUFFER) && !(defined _LIB_STRING_HEAP) && defined(_LIB_STRING_BUFFER_0HEAP_GUARD)// {TODO}GUARD
 	#define _LIB_STRING_BUFFER_0HEAP_GUARD
@@ -183,9 +204,9 @@ typedef struct Toknode
 //ChrHexToDecBuf
 
 	
-#endif
+#endif// End of Buf-special part
 //
-//
+// General String Function
 //
 #ifndef _LIB_STRING_ONCE_TAIL
 #define _LIB_STRING_ONCE_TAIL
@@ -399,8 +420,10 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 char* instob(ptrdiff_t num, char* buf);
 ptrdiff_t atoins(const char* str);
 
-//---- ---- ---- ---- chrar part {TODO!!!} ---- ---- ---- ----
-// Having brewed about 2 years, the design has matured and new non-destructive schemes have been tried and conceived. This, after 2023 (included), with the serived & advanced structures, also BCD-Arith., will be stopped updated. However, these are also a good tool for us.
+//
+// Char-unit Arithmetic
+//
+// Having brewed about 2 years since 2022 Aug.
 
 
 size_t ChrCpz(char* str);// Clear prefix zeros, "+001"-->"+1".
@@ -490,7 +513,9 @@ static inline unsigned char* _Need_free ChrToByt(char* str)
 	return res;
 }
 
-// RegAr used, temporarily set here
+//
+// Temporarily Stage Area
+//
 
 // Boundary
 static inline unsigned char StrShiftLeft4(void* s, size_t len)

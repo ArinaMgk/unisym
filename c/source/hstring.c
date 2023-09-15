@@ -26,7 +26,97 @@
 #include "../aldbg.h"
 #include "../ustring.h"
 
-//---- ---- ---- ---- Dnode ---- ---- ---- ----
+//---- ---- ---- ---- node ---- ---- ---- ---- P-FA03 H-FR01
+
+Node* NodeCreate(Node* previous, const char* data)
+{
+	if (previous)
+	{
+		previous = *(Node**)previous = (Node*)malloc(sizeof(Node));
+	}
+	else previous = (Node*)malloc(sizeof(Node));
+	if (previous)
+	{
+		#ifdef _dbg
+			malc_count++;
+		#endif
+		previous->data = (char*)data;
+		previous->next = 0;
+	}
+	return previous;
+}
+
+Node* NodeCreateOrder(Node* previous, const char* data)
+{
+	if (previous)
+	{
+		for (; *(Node**)previous; previous = *(Node**)previous);
+		previous = *(Node**)previous = (Node*)malloc(sizeof(Node));
+	}
+	else previous = (Node*)malloc(sizeof(Node));
+	if (previous)
+	{
+		#ifdef _dbg
+			malc_count++;
+		#endif
+		previous->data = (char*)data;
+		previous->next = 0;
+	}
+	return previous;
+}
+
+size_t NodeIndex(Node* first, const char* cmp)
+{
+	size_t times = 0;
+	Node* next;
+	while (next = first)
+		if ((times++, first = next->next, next->data) && !StrCompare(next->data, cmp))
+			return times;
+	return 0;
+}
+
+size_t NodeCount(Node* first)
+{
+	size_t ret = 0;
+	while (first)
+	{
+		ret++;
+		first = first->next;
+	}
+	return ret;
+}
+
+Node* NodeInsert(Node* first, const char* data)
+{
+	Node* tmp;
+	if (first)
+	{
+		tmp = (Node*)malloc(sizeof(Node));
+		#ifdef _dbg
+			malc_count++;
+		#endif
+		tmp->data = (char*)data;
+		tmp->next = first->next;
+		first->next = tmp;
+		return first;
+	}
+	else return NodeCreate(0, data);
+	return 0;
+}
+
+void NodesRelease(Node* first)
+{
+	Node* next;
+	while (next = first)
+	{
+		free((first = next->next, next));
+		#ifdef _dbg
+			malc_count--;
+		#endif
+	}
+}
+
+//---- ---- ---- ---- dnode ---- ---- ---- ----
 
 Dnode* DnodeCreate(Dnode* any, char* addr, size_t len)
 {
@@ -97,16 +187,18 @@ size_t DnodeCount(Dnode* any)
 	return count;
 }
 
-void DnodeRelease(Dnode* some)
+void DnodeRelease(Dnode* some, int tofree)
 {
 	if (some->left) some->left->next = some->next;
 	if (some->next) some->next->left = some->left;
+	if (tofree) memfree(some->addr);
 	memfree(some);
 }
 
-void DnodesRelease(Dnode* first)
+void DnodesRelease(Dnode* first, int tofree)
 {
-	if (first->next) DnodesRelease(first->next);
+	if (first->next) DnodesRelease(first->next, tofree);
+	if (tofree) memfree(first->addr);
 	memfree(first);
 }
 
@@ -236,7 +328,6 @@ char* _Need_free ChrHexToDecFloat(const char* hexf)
 	size_t tempexpo = 0X800 - 3;// based on 10
 	char* res = StrHeap("+0");
 	size_t paralen = StrLength(hexf);
-	char c;
 	for (size_t i = 0; i < paralen; i++)
 	{
 		char* ptr = temp;
@@ -1403,7 +1494,7 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 		if (dn->next) { dn = dn->next; goto loop; }
 		for (; *p; p++)*q++ = *p;
 		*q = 0;
-		DnodesRelease(dn);
+		DnodesRelease(dn, 0);
 		return ret;
 	}
 	else

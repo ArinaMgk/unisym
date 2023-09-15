@@ -40,7 +40,6 @@ extern size_t arna_precise;
 	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);malc_count--;*(void**)&(x)=ebx;}
 	#define malc(size) (void*)(malc_count++,malloc(size))
 	#define zalc(size) (void*)(malc_count++,calloc(size,1))
-	#define memf(x) memfree(x)
 	
 #else
 	#define memalloc(dest,size)\
@@ -49,9 +48,12 @@ extern size_t arna_precise;
 	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
 	#define malc(size) (void*)(malloc(size))
 	#define zalc(size) (void*)(calloc(size,1))
-	#define memf(x) memfree(x)
-	
+
 #endif
+
+#define zalcof(x) zalc(sizeof(x))
+#define malcof(x) malc(sizeof(x))
+#define memf(x) memfree(x)
 
 #include <stdlib.h>
 inline static char* salc(size_t size)
@@ -63,14 +65,13 @@ inline static char* salc(size_t size)
 }
 
 
-#define init_total_errmech() \
+#define init_total_errmech(exitcode) \
 	if (setjmp(errjb))\
 	{\
 		if (SGAErroMsg && *SGAErroMsg)\
 			fprintf(stderr, "!Err %s\n", SGAErroMsg);\
 		if(malc_count) fprintf(stderr, "malc_count = %"PRIXPTR"\n", malc_count);\
-		if(mode=='c')system("pause");\
-		return 1;\
+		return (exitcode);\
 	}
 
 #define assert(expression) ((expression)?(char*)(expression):(exit(1),(char*)0))

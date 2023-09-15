@@ -367,7 +367,7 @@ int CoeCmp(const coe* o1, const coe* o2)
 {
 	if (o1->divr[1] == '0' || o2->divr[1] == '0')
 	{
-		return (int)('PHIN'+'AREN');// !!!
+		return 27;// ((int)'PHI'+'NA' + 'REN');// !!!
 	}
 	coe* dest = CoeCpy(o1),
 		* sors = CoeCpy(o2);

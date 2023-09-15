@@ -27,9 +27,6 @@
 #define pll(x,y)   printf("%s : %llx\n",(x),(y));
 #define pd(x) printf("%d\n",(x));
 
-#define max(a,b) ((a)>(b)?(a):(b))
-#define min(a,b) ((a)<(b)?(a):(b))
-
 #define point(r,c) (r*cols+c)
 
 #define uint unsigned int
@@ -68,9 +65,10 @@
 #define min(a,b) ((a)<(b)?(a):(b))
 #endif
 #define MIN(d,s) if((d)>(s)){(d)=(s);}
-
+// ---- ---- algorithm ---- ----
 #define isodd(x) ((x)&1)
 #define iseven(x) !((x)&1)
+#define isZeroMantissa(flt) ((int)(flt)==(flt)) // RFW23
 
 #define chars_stack(x) &(char[]){#x "\0"}// chars_stack(123)
 #define chstk chars_stack
@@ -82,7 +80,11 @@
 
 #define AddDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
 
+///#define foreachstr(iden,x) for(char iden, *iden#ptr=(char*)(x);iden=*iden#ptr;iden#ptr++)// {why} error tip yo VSCODE::IntelliSenseMode(GCC)
+#define for0(iden,times) for(size_t iden=0;iden<(times);iden++)
+#define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 
 #endif
+// more to see "aldbg.h"
 // ---- ---- ---- ---- ---- ---- ---- ----
 

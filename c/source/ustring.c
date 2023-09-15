@@ -62,7 +62,6 @@ void StrFilterString(char* p, const char* needs)
 {
 	char* q = p;
 	char c;
-	int (*jdg)(int);
 	for (; (c = *p) != 0; p++)
 		if (StrIndexChar(needs, c))
 			*q++ = c;
@@ -73,7 +72,6 @@ void StrFilterOutString(char* p, const char* neednot)
 {
 	char* q = p;
 	char c;
-	int (*jdg)(int);
 	for (; (c = *p) != 0; p++)
 		if (!StrIndexChar(neednot, c))
 			*q++ = c;
@@ -142,7 +140,7 @@ ptrdiff_t atoins(const char* str)
 	if (!size_dec) size_dec_get();
 	const char* ptr = str;
 	ptrdiff_t inst = 0;
-	while (*ptr && *ptr <= '9' && *ptr >= '0' && ptr - str + !Signed <= size_dec)
+	while (*ptr && *ptr <= '9' && *ptr >= '0' && (size_t)(ptr - str + !Signed) <= size_dec)
 	{
 		inst *= 10;
 		inst += *ptr - '0';

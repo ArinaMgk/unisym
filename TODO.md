@@ -4,6 +4,7 @@
 - [ ] Printable document version: *UNISYM Structures and Algorithms*.
 - [ ] Standard C++ support
 - [ ] Linux-Distributions Host environments support
+- [ ] Covenant and naming-rule
 
 ### Among all XxxAr
 
@@ -14,16 +15,17 @@
 - [ ] Split partial **ustring** into **hstring** and **bstring**, by the macro switch `_LIB_STRING_HEAP` and `_LIB_STRING_BUFFER` .
   - [x] hstring
   - [ ] bstring
-  - [ ] debug for each, especially for Chr{+-*/} yo `TestCharArith.c`
+  - [x] debug for each, especially for Chr{+-*/} yo `TestCharArith.c`
 - [x] Change the **HeapYo**-bit of Arn-flag from for I&O into just Output.
+- [ ] Minimum using mode macro  `_LIB_LIMIT_CHECK_DISABLE`
 - [ ] CoeAr update for ustring
-- [ ] Continue to finish and check memory for RegAr with @dosconio.
 - [ ] `/c/test/` and `/c/demo/`
 - [ ] Adapt NumAr for CdeAr
 
 ### Others
 
 - [ ] `cpp::dstring`
+- [ ] Node: insert left or right or sub-end or sub-head
 
 ### Potential Issue
 
@@ -31,7 +33,7 @@
 
 
 
+### Controversial
 
-
-
+- [ ] The type of `addr` of node should be `void*` or `char*`;
 

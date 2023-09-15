@@ -81,10 +81,10 @@ Edit by OneNote.
 | ChrDecToHex(Buf)   |         |                                                              |       |
 | ChrHexToDecFloat   |         |                                                              |       |
 | ChrDecToHexFloat   |         |                                                              |       |
-| ChrAdd(Buf)        | hstring |                                                              | v     |
-| ChrSub(Buf)        | hstring |                                                              | v     |
-| ChrMul(Buf)        | hstring |                                                              | v     |
-| ChrDiv(Buf)        | hstring |                                                              | v     |
+| ChrAdd(Buf)        | hstring |                                                              | old   |
+| ChrSub(Buf)        | hstring |                                                              | old   |
+| ChrMul(Buf)        | hstring |                                                              | old   |
+| ChrDiv(Buf)        | hstring |                                                              | old   |
 | ChrFactorial(Buf)  |         |                                                              |       |
 | ChrArrange(Buf)    |         |                                                              |       |
 | ChrCombinate(Buf)  |         |                                                              |       |
@@ -110,12 +110,12 @@ Edit by OneNote.
 | CoeNew             |         |                                                              |       |
 | CoeDel             |         |                                                              |       |
 | CoeCpy             |         |                                                              |       |
-| CoeAdd             |         |                                                              | v     |
-| CoeSub             |         |                                                              | v     |
+| CoeAdd             |         |                                                              | old   |
+| CoeSub             |         |                                                              | old   |
 | CoeCmp             |         |                                                              |       |
-| CoeMul             |         |                                                              | v     |
+| CoeMul             |         |                                                              | old   |
 | CoeHypot           |         |                                                              |       |
-| CoeDiv             |         |                                                              | v     |
+| CoeDiv             |         |                                                              | old   |
 | CoePow             |         |                                                              |       |
 | CoeSin             |         |                                                              |       |
 | CoeCos             |         |                                                              |       |
@@ -134,10 +134,10 @@ Edit by OneNote.
 | CoeAsinh           |         |                                                              |       |
 | CoeAcosh           |         |                                                              |       |
 | CoeAtanh           |         |                                                              |       |
-| CoeToLocale        |         |                                                              | v     |
-| CoeFromLocale      |         |                                                              | v     |
-| CoeToDouble        |         |                                                              | v     |
-| CoeFromDouble      |         |                                                              | v     |
+| CoeToLocale        |         |                                                              | old   |
+| CoeFromLocale      |         |                                                              | old   |
+| CoeToDouble        |         |                                                              | old   |
+| CoeFromDouble      |         |                                                              | old   |
 |                    |         |                                                              |       |
 | ConInitialize      | consio  |                                                              |       |
 | ConCursor          | consio  |                                                              |       |

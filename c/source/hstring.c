@@ -26,56 +26,59 @@
 #include "../aldbg.h"
 #include "../ustring.h"
 
-//---- ---- ---- ---- node ---- ---- ---- ---- P-FA03 H-FR01
+//---- ---- ---- ---- node ---- ---- ---- ---- P-FA03 H-FR01&FV16
 
-Node* NodeCreate(Node* previous, const char* data)
+node* NodeAppend(node* nod, void* addr)
 {
-	if (previous)
+	node* tmp = zalcof(node);
+	tmp->addr = addr;
+	if (nod)
 	{
-		previous = *(Node**)previous = (Node*)malloc(sizeof(Node));
+		tmp->next = nod->next;
+		nod->next = tmp;
 	}
-	else previous = (Node*)malloc(sizeof(Node));
-	if (previous)
-	{
-		#ifdef _dbg
-			malc_count++;
-		#endif
-		previous->data = (char*)data;
-		previous->next = 0;
-	}
-	return previous;
+	return tmp;
 }
 
-Node* NodeCreateOrder(Node* previous, const char* data)
+node* NodeAppendOrder(node* nod, void* addr)
 {
-	if (previous)
+	node* tmp = zalcof(node);
+	node* last = 0;
+	tmp->addr = addr;
+	if (!nod) return tmp;
+	if (addr <= nod->addr)// can omitted マ
 	{
-		for (; *(Node**)previous; previous = *(Node**)previous);
-		previous = *(Node**)previous = (Node*)malloc(sizeof(Node));
+		tmp->next = nod;
+		return tmp;
 	}
-	else previous = (Node*)malloc(sizeof(Node));
-	if (previous)
+	while (nod->next && (nod->addr < addr))
 	{
-		#ifdef _dbg
-			malc_count++;
-		#endif
-		previous->data = (char*)data;
-		previous->next = 0;
+		last = nod;
+		nod = nod->next;
 	}
-	return previous;
+	// either nod->addr>=addr(insert_left) or last_nod->addr<addr(insert_right)
+	if (!nod->next)// (insert_right)
+	{
+		nod->next = tmp;
+		return tmp;
+	}
+	// (insert_left)
+	if (last) last->next = tmp;// can omitted マ
+	tmp->next = nod;
+	return tmp;
 }
 
-size_t NodeIndex(Node* first, const char* cmp)
+size_t NodeIndex(node* first, void* cmp)
 {
 	size_t times = 0;
-	Node* next;
+	node* next;
 	while (next = first)
-		if ((times++, first = next->next, next->data) && !StrCompare(next->data, cmp))
+		if ((times++, first = next->next, next->addr) && !StrCompare(next->addr, cmp))
 			return times;
 	return 0;
 }
 
-size_t NodeCount(Node* first)
+size_t NodeCount(node* first)
 {
 	size_t ret = 0;
 	while (first)
@@ -86,33 +89,15 @@ size_t NodeCount(Node* first)
 	return ret;
 }
 
-Node* NodeInsert(Node* first, const char* data)
+void NodesRelease(node* first, int tofree)
 {
-	Node* tmp;
-	if (first)
+	node* next;
+	while (first)
 	{
-		tmp = (Node*)malloc(sizeof(Node));
-		#ifdef _dbg
-			malc_count++;
-		#endif
-		tmp->data = (char*)data;
-		tmp->next = first->next;
-		first->next = tmp;
-		return first;
-	}
-	else return NodeCreate(0, data);
-	return 0;
-}
-
-void NodesRelease(Node* first)
-{
-	Node* next;
-	while (next = first)
-	{
-		free((first = next->next, next));
-		#ifdef _dbg
-			malc_count--;
-		#endif
+		next = first->next;
+		if (tofree) memf(first->addr);
+		memf(first);
+		first = next;
 	}
 }
 
@@ -200,6 +185,108 @@ void DnodesRelease(Dnode* first, int tofree)
 	if (first->next) DnodesRelease(first->next, tofree);
 	if (tofree) memfree(first->addr);
 	memfree(first);
+}
+
+//---- ---- ---- ---- nnode ---- ---- ---- ----
+
+nnode* NnodeInsert(nnode* nod, int direction, nnode* parent)
+{
+	nnode* n = zalcof(nnode);
+	n->row = nod->row;
+	n->col = nod->col;
+	if (direction == 0)
+	{
+		n->left = nod->left;
+		n->right = nod;
+		if (parent && parent->subf == nod) parent->subf = n;
+	}
+	else
+	{
+		n->left = nod;
+		n->right = nod->right;
+	}
+	if (n->left)n->left->right = n;
+	if (n->right)n->right->left = n;
+	return n;
+}
+
+nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail, nnode* parent)
+{
+	if (subhead->left == subtail)// for empty parens and parend "(" ")"
+		return nod;
+	// Above: "(" no right, subhead zo ")"; ")" no left, subtail zo "("
+	nnode* subleft = subhead->left, * subright = subtail ? subtail->right : 0;
+	nod->subf = subhead;
+	// [nod] [] ... [sub1] [sub2] ... []
+	if (parent && parent->subf == subhead) parent->subf = nod;
+	if (subleft) subleft->right = subright;
+	if (subright) subright->left = subleft;
+	subhead->left = subtail->right = 0;
+}
+
+void NnodeRelease(nnode* nod, nnode* parent, void(*freefunc)(void*))
+{
+	if (parent && parent->subf == nod) parent->subf = nod->right;
+	if (nod->subf) NnodesRelease(nod->subf, nod, freefunc);
+	if (nod->left) nod->left->right = nod->right;
+	if (nod->right) nod->right->left = nod->left;
+	if (freefunc) freefunc(nod); else memf(nod);
+}
+
+void NnodesRelease(nnode* nod, nnode* parent, void(*freefunc)(void*))
+{
+	if (!nod) return;
+	nnode* crt = nod, * left = nod->left, * next;
+	if (nod->subf) NnodesRelease(nod->subf, nod, freefunc);
+	while (crt)
+	{
+		next = crt->right;
+		if (freefunc) freefunc(crt);
+		crt = next;
+	}
+	if (parent && parent->subf == nod) parent->subf = left;
+}
+
+// // --- --- --- ---
+
+dnode* NnodeToDnode(nnode* inp)
+{
+	if (sizeof(nnode) < sizeof(dnode)) return 0;
+	nnode tmpn, *next, *crt = inp;
+	dnode tmpd;
+	while (crt)//---> [4]
+	{
+		next = crt->right;
+		tmpn = *crt;
+		tmpd.addr = crt->addr;
+		tmpd.left = (void*)crt->left;
+		tmpd.next = (void*)crt->right;
+		tmpd.type = crt->class;
+		MemCopyN(crt, &tmpd, sizeof tmpd);
+		crt = next;
+	}
+	return (void*)inp;
+}
+
+tnode* NnodeToTnode(nnode* inp)
+{
+	if (sizeof(nnode) < sizeof(dnode)) return 0;
+	nnode tmpn, * next, * crt = inp;
+	tnode tmpd;
+	while (crt)//---> [6]
+	{
+		next = crt->right;
+		tmpn = *crt;
+		tmpd.addr = crt->addr;
+		tmpd.left = (void*)crt->left;
+		tmpd.next = (void*)crt->right;
+		tmpd.type = crt->class;
+		tmpd.row = crt->row;
+		tmpd.col = crt->col;
+		MemCopyN(crt, &tmpd, sizeof tmpd);
+		crt = next;
+	}
+	return (void*)inp;
 }
 
 //---- ---- ---- ---- ChrAr ---- ---- ---- ----
@@ -1215,12 +1302,12 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			crtline++;
 			crtcol ^= crtcol;
 		}
-		else if (c == '#' || c == '%')// Line Comment
+		else if (c == _TNODE_COMMENT || c == _TNODE_DIRECTIVE)// Line Comment
 		{
 			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 			bufptr = buffer;
 			CrtTLen = 0;
-			CrtTType = (c == '#') ? tok_comment : tok_directive;
+			CrtTType = (c == _TNODE_COMMENT) ? tok_comment : tok_directive;
 			while ((crtcol++, c = getnext()) != EOF && c != '\n' && c != '\r')
 			{
 				CrtTLen++;
@@ -1323,6 +1410,18 @@ void StrTokenClearAll(Toknode* tstr)
 	{
 		tstr = tstr->next;
 		StrTokenClear(tstr->left);
+	}
+}
+
+void TnodesReleases(tnode* nod, void(*freefunc)(void*))
+{
+	if (!nod) return;
+	tnode* crt = nod, * left = nod->left, * next;
+	while (crt)
+	{
+		next = crt->next;
+		if (freefunc) freefunc(crt);
+		crt = next;
 	}
 }
 

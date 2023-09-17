@@ -1,5 +1,3 @@
-Edit by OneNote.
-
 | Symbol             | File    | Description                                                  | Check |
 | ------------------ | ------- | ------------------------------------------------------------ | ----- |
 | Divx               | arith   | The DIV  instruction may over the limit, e.g. 0xFFFF div 0x1, this macro can solve the  problem, and still keep the zero exception. |       |
@@ -20,17 +18,6 @@ Edit by OneNote.
 | ConPrint           | video   |                                                              |       |
 | ConPrintWord       | video   |                                                              |       |
 | ConPrintDword      | video   |                                                              |       |
-| DnodeCreate        |         |                                                              |       |
-| DnodeRewind        |         |                                                              |       |
-| DnodeCount         |         |                                                              |       |
-| DnodeRelease       |         |                                                              |       |
-| DnodesRelease      |         |                                                              |       |
-| StrTokenAll        |         |                                                              |       |
-| StrTokenClearAll   |         |                                                              |       |
-| StrTokenThrow      |         |                                                              |       |
-| StrTokenBind       |         |                                                              |       |
-| StrTokenPrint      |         | macro                                                        |       |
-| StrTokenPrintAll   |         |                                                              |       |
 | StrHeapFromChar    |         |                                                              |       |
 | StrHeap            |         |                                                              |       |
 | MemHeap            |         |                                                              |       |
@@ -142,12 +129,27 @@ Edit by OneNote.
 | ConInitialize      | consio  |                                                              |       |
 | ConCursor          | consio  |                                                              |       |
 | Ctab*              |         |                                                              |       |
-| NodeCreate         | node    |                                                              |       |
-| NodeCreateOrder    | node    |                                                              |       |
-| NodeIndex          | node    |                                                              |       |
-| NodeCount          | node    |                                                              |       |
-| NodeInsert         | node    |                                                              |       |
-| NodesRelease       | node    |                                                              |       |
+|                    |         |                                                              |       |
+| **[Xnode]**        |         |                                                              |       |
+| NodeAppend         | bstring | Create  if nod is null, or append at the end of nod. If nod has the next item, the  new one will be between nod and its next item, i.e. insert a node in the right. |       |
+| NodeAppendOrder    | bstring | Create or insert in  the increasing order of addr.           |       |
+| NodeIndex          | bstring | Return the distance  plus one, or 0 for not found.           |       |
+| NodeCount          | bstring | Return the counts of  the node string.                       |       |
+| NodesRelease       | bstring | If tofree is not  zero, the addr of nod in the string will be free from memory. |       |
+| DnodeCreate        | bstring |                                                              |       |
+| DnodeRewind        | bstring |                                                              |       |
+| DnodeCount         | bstring |                                                              |       |
+| DnodeRelease       | bstring |                                                              |       |
+| DnodesRelease      | bstring |                                                              |       |
+| StrTokenAll        | bstring |                                                              |       |
+| StrTokenClearAll   | bstring |                                                              |       |
+| StrTokenThrow      | bstring |                                                              |       |
+| StrTokenBind       | bstring |                                                              |       |
+| StrTokenPrint      | ustring | macro                                                        |       |
+| StrTokenPrintAll   | ustring | macro                                                        |       |
+| TnodesRelease      |         |                                                              |       |
+| Nnode*             |         |                                                              |       |
+|                    |         |                                                              |       |
 | Rsg*               |         |                                                              |       |
 | Red*               |         |                                                              |       |
 | Hrn*               |         |                                                              |       |

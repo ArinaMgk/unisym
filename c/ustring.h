@@ -45,12 +45,14 @@ struct ArinaeFlag
 };extern struct ArinaeFlag arna_eflag;
 #define aflag arna_eflag
 
+//UNISYM xnode[a] > tenar=tnode[8] > nnode[6] > dnode[4] > node[2] //
+
 //single-direction simple node
 typedef struct Node
 {
 	struct Node* next;
-	char* data;
-} Node, node;
+	void* addr;
+} Node, node;// measures pointer[2]
 
 // double-directions node
 typedef struct Dnode
@@ -59,7 +61,7 @@ typedef struct Dnode
 	char* addr;// for order
 	union { size_t len, type; };// non-order
 	union { struct Dnode* next, * right; };// higher address
-} Dnode, dnode;// recommand using dnode
+} Dnode, dnode;// recommand using dnode. measures pointer[4]
 
 typedef enum TokType
 {
@@ -84,7 +86,7 @@ typedef struct TokenNode
 	union { struct TokenNode* next, * right; };
 	// [ L | AD & L/T | R ]
 	size_t row, col;
-} Toknode, Tode, tode, tnode;// recommand using tnode
+} Toknode, Tode, tode, tnode;// recommand using tnode. measures pointer[6]
 
 typedef struct TreeNode
 {
@@ -96,9 +98,22 @@ typedef struct TreeNode
 	size_t row, col;
 	//
 	struct TreeNode* subf;// sub-first-item
-	void* bind;
-	size_t flag;
-} Nesnode, nnode;// recommand using nnode
+	union { void* bind; size_t flag; };
+} Nesnode, nnode;// recommand using nnode. measures pointer[8]
+
+typedef struct ArnOldStyleNode
+{
+	struct ArnOldStyleNode* left;
+	char* addr;
+	size_t class;
+	struct ArnOldStyleNode* right;
+	size_t row, col;
+	//
+	struct ArnOldStyleNode* subf;
+	struct ArnOldStyleNode* parent;
+	struct ArnOldStyleNode* alias;
+	void* data;
+} xnode;// recommand using nnode. measures pointer[a]
 
 #endif
 //
@@ -117,12 +132,21 @@ typedef struct TreeNode
 #if defined(_LIB_STRING_HEAP) && !defined(_LIB_STRING_HEAP_GUARD)// hstring.h, any need to allocate memory
 	#define _LIB_STRING_HEAP_GUARD
 //---- ---- ---- ---- node ---- ---- ---- ----
-	Node* NodeCreate(Node* previous, const char* data);
-	Node* NodeCreateOrder(Node* previous, const char* data);
-	size_t NodeIndex(Node* first, const char* cmp);
-	size_t NodeCount(Node* first);
-	Node* NodeInsert(Node* obj, const char* data);
-	void NodesRelease(Node* first);
+	
+	// Create if nod is null, or append at the end of nod. If nod has the next item, the new one will be between nod and its next item, i.e. insert a node in the right.
+	node* NodeAppend(node* nod, void* addr);
+
+	// Create or insert in the increasing order of addr.
+	node* NodeAppendOrder(node* nod, void* addr);
+
+	// Return the distance plus one, or 0 for not found.
+	size_t NodeIndex(node* first, void* cmp);
+
+	// Return the counts of the node string.
+	size_t NodeCount(node* first);
+	
+	// If tofree is not zero, the addr of nod in the string will be free from memory.
+	void NodesRelease(node* first, int tofree);
 	
 //---- ---- ---- ---- dnode ---- ---- ---- ----
 	Dnode* DnodeCreate(Dnode* any, char* addr, size_t len);
@@ -132,9 +156,22 @@ typedef struct TreeNode
 	void DnodesRelease(Dnode* first, int tofree);
 
 //---- ---- ---- ---- tnode ---- ---- ---- ----
+
+	#define _TNODE_COMMENT '#'
+	#define _TNODE_DIRECTIVE '%'
+	
+	// ...
+	#define TnodeLoad StrTokenAll
 	Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer);
+
+	// {TODO} Merged into StrTokenReleases
 	void StrTokenClearAll(Toknode* tstr);
+
+	// freefunc should memf the parameter-pointed object besides its resources.
+	void TnodesReleases(tnode* nod, void(*freefunc)(void*));
+
 	void StrTokenThrow(Toknode* one);// a b c --> a c
+	
 	inline static Toknode* StrTokenBind(Toknode* left, Toknode* mid, Toknode* right)
 	{
 		if (left) left->next = mid;
@@ -152,6 +189,27 @@ typedef struct TreeNode
 	#define StrTokenPrintAll(first)\
 		do StrTokenPrint(first);\
 		while (first = first->next);
+
+//---- ---- ---- ---- nnode ---- ---- ---- ----
+
+	// param:direction [0:L 1:R]#cancelled[2:SubHead 3:SubTail]
+	nnode* NnodeInsert(nnode* nod, int direction, nnode* parent);
+
+	// Set a part of nnode as the sub of a nnode. If subtail is null, this is for all the right part of the nnode string. If only one item, keep subhead and subtail same.
+	nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail, nnode* parent);
+
+	// If freefunc is not null, free for memory will be executed. In the direction of right.
+	void NnodeRelease(nnode* nod, nnode* parent, void(*freefunc)(void*));
+
+	// If freefunc is not null, free for memory will be executed. In the direction of right.
+	void NnodesRelease(nnode* nod, nnode* parent, void(*freefunc)(void*));
+
+	//
+
+
+	// Conversion Function
+	dnode* NnodeToDnode(nnode* inp);
+	tnode* NnodeToTnode(nnode* inp);
 
 //---- ---- ---- ---- common heap operations ---- ---- ---- ----
 	
@@ -299,6 +357,7 @@ static inline int StrCompareN(const char* a, const char* b, size_t n)
 // RFV12 Updated.
 static inline size_t StrLength(const char* s)
 {
+	// do not judge s zo null for better debug
 	register size_t len = 0;
 	while (s[len]) len++;
 	return len;

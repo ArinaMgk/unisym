@@ -8,12 +8,12 @@
 | wstring    | [ANSI, wide char]                                            | todo  |
 | u8string   | [UTF-8, multi-byte]                                          | todo  |
 
-| Node Family yo hstring | Description                   | State    |
-| ---------------------- | ----------------------------- | -------- |
-| node                   | node.                         | ripen    |
-| dnode                  | double-direction node.        | ripen    |
-| nnode                  | nest-dnode, alias `TreeNode`. | toupdate |
-| tnode                  | token node                    | ripen    |
+| Node Family (XNode) yo hstring | Description                   | State    |
+| ------------------------------ | ----------------------------- | -------- |
+| node                           | node.                         | ripen    |
+| dnode                          | double-direction node.        | ripen    |
+| nnode                          | nest-dnode, alias `TreeNode`. | toupdate |
+| tnode                          | token node                    | ripen    |
 
 | String Arithmetic | Description                                                  | State    |
 | ----------------- | ------------------------------------------------------------ | -------- |
@@ -56,9 +56,9 @@
 
 ### File
 
-| .c File | Depend (.c .h) | Main-seer | Description | State |
-| ------- | -------------- | --------- | ----------- | ----- |
-|         |                |           |             |       |
-|         |                |           |             |       |
-|         |                |           |             |       |
+| Mod yo .c File | Depend (.c .h) | Main-seer | Description | State |
+| -------------- | -------------- | --------- | ----------- | ----- |
+| xnode          | *none*         | Phina     |             |       |
+|                |                |           |             |       |
+|                |                |           |             |       |
 

@@ -25,7 +25,8 @@
 ### Others
 
 - [ ] `cpp::dstring`
-- [ ] Node: insert left or right or sub-end or sub-head
+- [x] XNode: insert left or right or sub-end or sub-head or block(sub-range), C++ no class will match these perfectly.
+- [ ] a macro to let ustring replacing relative symbols into standard library form. For example, "StrLength" is to "strlen".
 
 ### Potential Issue
 

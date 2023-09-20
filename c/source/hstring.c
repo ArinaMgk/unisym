@@ -46,7 +46,7 @@ node* NodeAppendOrder(node* nod, void* addr)
 	node* last = 0;
 	tmp->addr = addr;
 	if (!nod) return tmp;
-	if (addr <= nod->addr)// can omitted マ
+	if (addr <= nod->addr)// can omitted ???
 	{
 		tmp->next = nod;
 		return tmp;
@@ -63,7 +63,7 @@ node* NodeAppendOrder(node* nod, void* addr)
 		return tmp;
 	}
 	// (insert_left)
-	if (last) last->next = tmp;// can omitted マ
+	if (last) last->next = tmp;// can omitted ???
 	tmp->next = nod;
 	return tmp;
 }
@@ -89,14 +89,20 @@ size_t NodeCount(node* first)
 	return ret;
 }
 
-void NodesRelease(node* first, int tofree)
+void NodeReleaseTofreeDefault(void* inp)
+{
+	node* nod = inp;
+	memf(nod->addr);
+	memf(nod);
+}
+
+void NodesRelease(node* first, void(*freefunc)(void*))
 {
 	node* next;
 	while (first)
 	{
 		next = first->next;
-		if (tofree) memf(first->addr);
-		memf(first);
+		if (freefunc) freefunc(first); else memf(first);
 		first = next;
 	}
 }
@@ -172,19 +178,25 @@ size_t DnodeCount(Dnode* any)
 	return count;
 }
 
-void DnodeRelease(Dnode* some, int tofree)
+void DnodeReleaseTofreeDefault(void* inp)
+{
+	dnode* nod = inp;
+	memf(nod->addr);
+	memf(nod);
+}
+
+void DnodeRelease(Dnode* some, void(*freefunc)(void*))
 {
 	if (some->left) some->left->next = some->next;
 	if (some->next) some->next->left = some->left;
-	if (tofree) memfree(some->addr);
-	memfree(some);
+	if (freefunc) freefunc(some); else memf(some);
 }
 
-void DnodesRelease(Dnode* first, int tofree)
+void DnodesRelease(Dnode* first, void(*freefunc)(void*))
 {
-	if (first->next) DnodesRelease(first->next, tofree);
-	if (tofree) memfree(first->addr);
-	memfree(first);
+	if (first->left) first->left->right = 0;
+	if (first->next) DnodesRelease(first->next, freefunc);
+	if (freefunc) freefunc(first); else memf(first);
 }
 
 //---- ---- ---- ---- nnode ---- ---- ---- ----
@@ -214,6 +226,17 @@ nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail, nnode* parent)
 {
 	if (subhead->left == subtail)// for empty parens and parend "(" ")"
 		return nod;
+#ifdef _LIB_DEBUG_CHECK_MORE
+	{
+		nnode* crt = subhead;
+		while (crt)
+		{
+			if(crt == subtail) break;
+			crt = crt->right;
+		}
+		if (crt != subtail) erro("subtail not be in the right of subhead.")
+	}
+#endif
 	// Above: "(" no right, subhead zo ")"; ")" no left, subtail zo "("
 	nnode* subleft = subhead->left, * subright = subtail ? subtail->right : 0;
 	nod->subf = subhead;
@@ -222,6 +245,13 @@ nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail, nnode* parent)
 	if (subleft) subleft->right = subright;
 	if (subright) subright->left = subleft;
 	subhead->left = subtail->right = 0;
+}
+
+void NnodeReleaseTofreeDefault(void* inp)
+{
+	nnode* nod = inp;
+	memf(nod->addr);
+	memf(nod);
 }
 
 void NnodeRelease(nnode* nod, nnode* parent, void(*freefunc)(void*))
@@ -241,7 +271,7 @@ void NnodesRelease(nnode* nod, nnode* parent, void(*freefunc)(void*))
 	while (crt)
 	{
 		next = crt->right;
-		if (freefunc) freefunc(crt);
+		if (freefunc) freefunc(crt); else memf(crt);
 		crt = next;
 	}
 	if (parent && parent->subf == nod) parent->subf = left;
@@ -265,7 +295,7 @@ dnode* NnodeToDnode(nnode* inp)
 		MemCopyN(crt, &tmpd, sizeof tmpd);
 		crt = next;
 	}
-	return (void*)inp;
+	return (void*)inp;// null ---> null
 }
 
 tnode* NnodeToTnode(nnode* inp)
@@ -1413,6 +1443,13 @@ void StrTokenClearAll(Toknode* tstr)
 	}
 }
 
+void TnodeReleaseTofreeDefault(void* inp)
+{
+	tnode* nod = inp;
+	memf(nod->addr);
+	memf(nod);
+}
+
 void TnodesReleases(tnode* nod, void(*freefunc)(void*))
 {
 	if (!nod) return;
@@ -1420,7 +1457,7 @@ void TnodesReleases(tnode* nod, void(*freefunc)(void*))
 	while (crt)
 	{
 		next = crt->next;
-		if (freefunc) freefunc(crt);
+		if (freefunc) freefunc(crt); else memf(crt);
 		crt = next;
 	}
 }

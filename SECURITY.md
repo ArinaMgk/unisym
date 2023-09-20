@@ -8,10 +8,10 @@ Except stipulation, all codes are produced by the contributors but the others. *
 
 The formal version may be released in the future.
 
-| Version        | Description                          | Supported          |
-| -------------- | ------------------------------------ | ------------------ |
-| ReleaseFirstry | Test the release mechanism of GitHub | ❎                  |
-| None           |                                      | :white_check_mark: |
+| Version          | Description                          | Supported                |
+| ---------------- | ------------------------------------ | ------------------------ |
+| `ReleaseFirstry` | Test the release mechanism of GitHub | ❎                        |
+| *None*           |                                      | not - :white_check_mark: |
 
 ## Test
 

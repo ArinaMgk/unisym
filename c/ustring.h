@@ -46,6 +46,7 @@ struct ArinaeFlag
 #define aflag arna_eflag
 
 //UNISYM xnode[a] > tenar=tnode[8] > nnode[6] > dnode[4] > node[2] //
+//  other nodes: inode from dnode;
 
 //single-direction simple node
 typedef struct Node
@@ -57,11 +58,12 @@ typedef struct Node
 // double-directions node
 typedef struct Dnode
 {
-	struct Dnode* left;// lower address
+	union { struct Dnode* left; void* data; };// lower address
 	char* addr;// for order
 	union { size_t len, type; };// non-order
 	union { struct Dnode* next, * right; };// higher address
-} Dnode, dnode;// recommand using dnode. measures pointer[4]
+} Dnode, dnode, inode;// recommand using dnode. measures pointer[4]
+// identifier-node uses alias {data, next, addr as iden, type}
 
 typedef enum TokType
 {
@@ -144,16 +146,23 @@ typedef struct ArnOldStyleNode
 
 	// Return the counts of the node string.
 	size_t NodeCount(node* first);
+
+	//
+	void NodeReleaseTofreeDefault(void* inp);
 	
 	// If tofree is not zero, the addr of nod in the string will be free from memory.
-	void NodesRelease(node* first, int tofree);
+	void NodesRelease(node* first, void(*freefunc)(void*));
 	
 //---- ---- ---- ---- dnode ---- ---- ---- ----
 	Dnode* DnodeCreate(Dnode* any, char* addr, size_t len);
 	Dnode* DnodeRewind(Dnode* any);
 	size_t DnodeCount(Dnode* any);
-	void DnodeRelease(Dnode* some, int tofree);
-	void DnodesRelease(Dnode* first, int tofree);
+	//
+	void DnodeReleaseTofreeDefault(void* inp);
+	//
+	void DnodeRelease(Dnode* some, void(*freefunc)(void*));
+	// in the direction of right.
+	void DnodesRelease(Dnode* first, void(*freefunc)(void*));
 
 //---- ---- ---- ---- tnode ---- ---- ---- ----
 
@@ -167,6 +176,9 @@ typedef struct ArnOldStyleNode
 	// {TODO} Merged into StrTokenReleases
 	void StrTokenClearAll(Toknode* tstr);
 
+	// Free for self and its addr.
+	void TnodeReleaseTofreeDefault(void* inp);
+	
 	// freefunc should memf the parameter-pointed object besides its resources.
 	void TnodesReleases(tnode* nod, void(*freefunc)(void*));
 
@@ -198,10 +210,13 @@ typedef struct ArnOldStyleNode
 	// Set a part of nnode as the sub of a nnode. If subtail is null, this is for all the right part of the nnode string. If only one item, keep subhead and subtail same.
 	nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail, nnode* parent);
 
-	// If freefunc is not null, free for memory will be executed. In the direction of right.
+	// Free for self and its addr.
+	void NnodeReleaseTofreeDefault(void* inp);
+	
+	// If freefunc is not null, free for memory will be defined by user, or just free the node block. In the direction of right.
 	void NnodeRelease(nnode* nod, nnode* parent, void(*freefunc)(void*));
 
-	// If freefunc is not null, free for memory will be executed. In the direction of right.
+	// If freefunc is not null, free for memory will be defined by user, or just free the node block. In the direction of right.
 	void NnodesRelease(nnode* nod, nnode* parent, void(*freefunc)(void*));
 
 	//
@@ -447,6 +462,16 @@ static inline const char* StrIndexChars(const char* s1, const char* s2)
 {
 	register char c; size_t offs;
 	while (c = *s1) { offs = 0; while (s2[offs]) if (s2[offs++] == c) return s1; s1++; } return NULL;
+}
+
+static inline const char* StrIndexCharsRight(const char* s1, const char* s2)// RFV19
+{
+	register char c; size_t offs; const char* res = 0;
+	while (c = *s1)
+	{
+		offs = 0; while (s2[offs]) if (s2[offs++] == c) res = s1; s1++;
+	}
+	return res;
 }
 
 void StrFilterOut(char* p, char c);

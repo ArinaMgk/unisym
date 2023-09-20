@@ -29,6 +29,7 @@
 // * State Number, but also with erro() call
 // * Arn is going to setup dnode-malc-table and warn-table (from old generation)
 
+#pragma warning(disable:4068)
 #pragma source ./source/cdear.c
 
 #ifndef ModCoeArith

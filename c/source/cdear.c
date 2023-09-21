@@ -293,12 +293,7 @@ int CoeExpoAlign(coe* o1, coe* o2)
 	}
 	size_t expdif_num = atoins(expdif);
 	srs(o1->expo, StrHeap(o2->expo));
-	char* newcoff; size_t coff_len = StrLength(o1->coff);
-	memalloc(newcoff, coff_len + expdif_num + 1);
-	StrCopy(newcoff, o1->coff);
-	MemSet(newcoff + coff_len, '0', expdif_num);
-	newcoff[coff_len + expdif_num] = 0;
-	srs(o1->coff, newcoff);
+	srs(o1->coff, StrHeapAppendChars(o1->coff, '0', expdif_num));
 	memfree(limit); memfree(expdif);
 	return 1;
 }
@@ -437,6 +432,24 @@ coe* CoeDiv(coe* dest, const coe* sors)
 	CoeDivrAlign(dest, 0);// prior to Ctz
 	CoeCtz(dest);
 	return dest;
+}
+
+coe* CoeInt(coe* dest)
+{
+	CoeDivrUnit(dest, show_precise);
+	if (dest->expo[1] == '0') return dest;
+	else if (dest->expo[0] == '-')
+	{
+		srs(dest->coff, StrHeap("+0"));
+		// srs(dest->divr, StrHeap("+1"));
+		srs(dest->expo, StrHeap("+0"));
+	}
+	else
+	{
+		ptrdiff_t expdif_num = atoins(dest->expo);// {Potential}
+		srs(dest->expo, StrHeap("+0"));
+		srs(dest->coff, StrHeapAppendChars(dest->coff, '0', expdif_num));
+	}
 }
 
 
@@ -849,6 +862,8 @@ coe* CoeFac(coe* dest)
 
 coe* CoePi()
 {
+	return CoeCpy(&coepi);
+
 	// take use of ARCTAN
 	coe* conum = CoeCpy(&coeone);
 	CoeAtan(conum);
@@ -858,6 +873,12 @@ coe* CoePi()
 	// CoeDig(conum, show_precise, 2);
 	return conum;
 
+}
+
+coe* CoeE()
+{
+	coe* co = CoeCpy(&coeone);
+	return CoeExp(co);
 }
 
 coe* CoeSinh(coe* dest)

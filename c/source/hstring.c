@@ -199,6 +199,57 @@ void DnodesRelease(Dnode* first, void(*freefunc)(void*))
 	if (freefunc) freefunc(first); else memf(first);
 }
 
+//---- ---- inode ---- ----
+
+
+inode* InodeUpdate(inode* inp, const char* iden, void* data, size_t typ, size_t prop, void(*freefunc_element)(void*))
+{
+	inode* left = 0;
+	inode* crt = 0;
+	if (!inp)
+		crt = zalcof(inode);
+	else if (crt = InodeLocate(inp, iden, &left))
+	{
+		if ((crt->property & INODE_READONLY) && prop == 2) return crt;
+		if (freefunc_element) freefunc_element(crt); else { memf(crt->data);/* addr? */ }
+	}
+	else
+		crt = left->right = zalcof(inode);// as the last one and assert(left)
+	if (!crt->addr) crt->addr = StrHeap(iden);
+	crt->property = prop & 1;
+	crt->data = data;
+	crt->type = typ;
+	return crt;
+}
+
+void* InodeDelete(inode* inp, const char* iden, void(*freefunc)(void*))
+{
+	inode* left = 0;
+	inode* crt = InodeLocate(inp, iden, &left);
+	if (crt)
+	{
+		if (left)left->right = crt->right;
+		if (freefunc) freefunc(crt); else memf(crt);
+	}
+}
+
+inode* InodeLocate(inode* inp, const char* iden, inode** refleft)
+{
+	inode* crt = inp;
+	if (refleft) *refleft = 0;
+	if (!inp) return 0;
+	do if (crt->addr && !StrCompare(iden, crt->addr))
+		return crt;
+	while ((!refleft || (*refleft = crt)) && (crt = crt->right));
+	return 0;
+}
+
+void InodesRelease(inode* first, void(*freefunc)(void*))
+{
+	if (first->right) InodesRelease(first->right, freefunc);
+	if (freefunc) freefunc(first); else memf(first);
+}
+
 //---- ---- ---- ---- nnode ---- ---- ---- ----
 
 nnode* NnodeInsert(nnode* nod, int direction, nnode* parent)
@@ -1332,7 +1383,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			crtline++;
 			crtcol ^= crtcol;
 		}
-		else if (c == _TNODE_COMMENT || c == _TNODE_DIRECTIVE)// Line Comment
+		else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && crt->row < crtline))// Line Comment
 		{
 			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 			bufptr = buffer;
@@ -1591,6 +1642,15 @@ char* StrHeapAppendN(const char* dest, const char* sors, size_t n)
 	StrCopyN(ret + dlen, sors, n);
 	return ret;
 }
+
+char* StrHeapAppendChars(char* dest, char chr, size_t n)
+{
+	char* d = salc(StrLength(dest) + n + 1);
+	char* ret = d;
+	while (*dest) { *d++ = *dest++; };
+	while (n--) *d++ = chr;
+	return ret;
+}// RFV20
 
 // From left, one by one, return all in heap! must free() by yourself. Inputs won't be free!
 // RFV07 rename from "StrReplaceHeap"

@@ -22,6 +22,8 @@
 - [ ] CoeAr update for ustring
 - [ ] `/c/test/` and `/c/demo/`
 - [ ] Adapt NumAr for CdeAr
+- [ ] Make use of `ADC`, `AAS`, `XADD` ... instructions
+- [ ] CoeXar Dependence, especially for CoePow and CoeLog
 
 ### Others
 

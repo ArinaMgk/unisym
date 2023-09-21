@@ -46,7 +46,7 @@ struct ArinaeFlag
 #define aflag arna_eflag
 
 //UNISYM xnode[a] > tenar=tnode[8] > nnode[6] > dnode[4] > node[2] //
-//  other nodes: inode from dnode;
+//  other nodes: inode (origined from dnode);
 
 //single-direction simple node
 typedef struct Node
@@ -58,12 +58,21 @@ typedef struct Node
 // double-directions node
 typedef struct Dnode
 {
-	union { struct Dnode* left; void* data; };// lower address
+	union { struct Dnode* left; };// lower address
 	char* addr;// for order
 	union { size_t len, type; };// non-order
 	union { struct Dnode* next, * right; };// higher address
-} Dnode, dnode, inode;// recommand using dnode. measures pointer[4]
-// identifier-node uses alias {data, next, addr as iden, type}
+} Dnode, dnode;// recommand using dnode. measures pointer[4]
+
+// identifier
+typedef struct IdenNode
+{
+	void* data;
+	char* addr;// for order
+	size_t type;
+	struct IdenNode* right;
+	size_t property;
+} inode;
 
 typedef enum TokType
 {
@@ -163,7 +172,18 @@ typedef struct ArnOldStyleNode
 	void DnodeRelease(Dnode* some, void(*freefunc)(void*));
 	// in the direction of right.
 	void DnodesRelease(Dnode* first, void(*freefunc)(void*));
+	// ---- ---- inode ---- ---- make use of DnodesRelease()
+	#define INODE_READONLY 0x01
+	// No duplicate check. prop[2:Not-change-prevous]
+	inode* InodeUpdate(inode* inp, const char* iden, void* data, size_t typ, size_t prop, void(*freefunc_element)(void*));
+	//
+	void* InodeDelete(inode* inp, const char* iden, void(*freefunc)(void*));
+	//
+	inode* InodeLocate(inode* inp, const char* iden, inode** refleft);
+	// in the direction of right.
+	void InodesRelease(inode* first, void(*freefunc)(void*));
 
+	
 //---- ---- ---- ---- tnode ---- ---- ---- ----
 
 	#define _TNODE_COMMENT '#'
@@ -239,6 +259,7 @@ typedef struct ArnOldStyleNode
 	char* StrHeapN(const char* valit_str, size_t strlen);
 	char* StrHeapAppend(const char* dest, const char* sors);
 	char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
+	char* StrHeapAppendChars(char* dest, char chr, size_t n);
 	char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, size_t* times);
 	char* StrHeapInsertThrow(const char* d, const char* s, size_t posi, size_t thrown);
 	// posi_start and later positions of string move into the lower endian RFE02:16
@@ -348,6 +369,15 @@ static inline char* StrAppendN(char* dest, const char* sors, size_t n)
 	if (!n) *d = 0;
 	return dest;
 }
+
+static inline char* StrAppendChars(char* dest, char chr, size_t n)
+{
+	register char* d = dest;
+	while (*d) { d++; };
+	while (n--) *d++ = chr;
+	*d = 0;
+	return dest;
+}// RFV20
 
 /* COMPARE */
 

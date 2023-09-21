@@ -17,6 +17,9 @@
 
 | String Arithmetic | Description                                                  | State    |
 | ----------------- | ------------------------------------------------------------ | -------- |
+| **BitAr**         | [optional endian] for any size.                              | todo     |
+| **TriAr**         |                                                              | todo     |
+| **SexAr**         |                                                              | todo     |
 | **ChrAr**(base)   | [big endian] [variable-length] optional signed ASCII integer arithmetic  and operations, for buffer or heap, which can be printed directly. the used names are `BytAr` and `ASCAr` and `StrAr`. Now exists the optional dependence of `arna_eflag`. These are **2 version** in `hstring` and `bstring`. | ripen    |
 | **FltAr**(1)      | [big endian] `{{Sign, ChrAr}, ExpoInDec }` the extension of **ChrAr**. But any fltar-number is fixed-size. If the result is too big, the magic number "999… . …999" will be expressed. For the fixed size of floating part, the result may be cut to adapt to the structure. Natural and only for **buffer** version. | todo     |
 | **CdeAr**(1)      | [big endian] Arinae classic structure, Coff-expo-divr, based on **ChrAr**. the mechanism can express and operate any big-rational-real-number. The name follows what ArnMgk called this. | ripen    |

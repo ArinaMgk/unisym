@@ -70,7 +70,7 @@ inline static char* salc(size_t size)
 	{\
 		if (SGAErroMsg && *SGAErroMsg)\
 			fprintf(stderr, "!Err %s\n", SGAErroMsg);\
-		if(malc_count) fprintf(stderr, "malc_count = %"PRIXPTR"\n", malc_count);\
+		if(malc_count) fprintf(stderr, "MEMORY LEAK %"PRIuPTR" TIMES.\n", malc_count);\
 		return (exitcode);\
 	}
 

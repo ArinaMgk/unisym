@@ -99,7 +99,8 @@ coe* CoeDiv(coe* dest, const coe* sors);
 
 // CoeRem: make dest < unit_period
 
-// CoeInt: clear the mantissa part
+// Clear the mantissa part. Based on CoeExpoAlign().
+coe* CoeInt(coe* dest);
 
 coe* CoePow(coe* dest, const coe* sors);
 
@@ -129,6 +130,8 @@ coe* CoeExp(coe* dest);//TEST-STAGE
 coe* CoeFac(coe* dest);
 
 coe* CoePi();
+
+coe* CoeE();
 
 coe* CoeSinh(coe* dest);
 

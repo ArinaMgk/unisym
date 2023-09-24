@@ -58,6 +58,16 @@ struct PhinaeCDEArOld
 // {TODO} coe ---> cde
 // {TODO} cut the dig for each loop of Taylor family
 
+static inline int CoeIsNAN(const coe* co)
+{
+	return (co->coff[1] == '0') && (co->divr[1] == '0');
+}
+
+static inline int CoeIsINF(const coe* co)
+{
+	return (co->coff[1] != '0') && (co->divr[1] == '0');
+}
+
 // Initial and set the necessary system structure.
 void CoeInit();
 

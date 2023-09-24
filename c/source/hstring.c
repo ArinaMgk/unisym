@@ -18,6 +18,8 @@
 //depend: ustring
 #define _ARN_INSIDE_LIBRARY_INCLUDE
 #define _LIB_STRING_HEAP
+
+#pragma warning(disable:6386)// overflow warning for MSVC
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -201,7 +203,7 @@ void DnodesRelease(Dnode* first, void(*freefunc)(void*))
 
 //---- ---- inode ---- ----
 
-
+// prop: [... |keep_type|readonly]
 inode* InodeUpdate(inode* inp, const char* iden, void* data, size_t typ, size_t prop, void(*freefunc_element)(void*))
 {
 	inode* left = 0;
@@ -210,19 +212,25 @@ inode* InodeUpdate(inode* inp, const char* iden, void* data, size_t typ, size_t 
 		crt = zalcof(inode);
 	else if (crt = InodeLocate(inp, iden, &left))
 	{
-		if ((crt->property & INODE_READONLY) && prop == 2) return crt;
+		if ((crt->property & INODE_READONLY) && prop == 0x80) return crt;
+		else if ((crt->property & INODE_TYPEKEEP) && prop == 0x80)
+		{
+			fprintf(stderr, "Erro: Change the special object into invalid type.");
+			return crt;
+			//{ERRO}
+		}
 		if (freefunc_element) freefunc_element(crt); else { memf(crt->data);/* addr? */ }
 	}
 	else
 		crt = left->right = zalcof(inode);// as the last one and assert(left)
 	if (!crt->addr) crt->addr = StrHeap(iden);
-	crt->property = prop & 1;
+	crt->property = prop & 0b11;
 	crt->data = data;
 	crt->type = typ;
 	return crt;
 }
 
-void* InodeDelete(inode* inp, const char* iden, void(*freefunc)(void*))
+void InodeDelete(inode* inp, const char* iden, void(*freefunc)(void*))
 {
 	inode* left = 0;
 	inode* crt = InodeLocate(inp, iden, &left);
@@ -296,6 +304,7 @@ nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail, nnode* parent)
 	if (subleft) subleft->right = subright;
 	if (subright) subright->left = subleft;
 	subhead->left = subtail->right = 0;
+	return nod;
 }
 
 void NnodeReleaseTofreeDefault(void* inp)
@@ -318,9 +327,9 @@ void NnodesRelease(nnode* nod, nnode* parent, void(*freefunc)(void*))
 {
 	if (!nod) return;
 	nnode* crt = nod, * left = nod->left, * next;
-	if (nod->subf) NnodesRelease(nod->subf, nod, freefunc);
 	while (crt)
 	{
+		if(crt->subf) NnodesRelease(crt->subf, crt, freefunc);
 		next = crt->right;
 		if (freefunc) freefunc(crt); else memf(crt);
 		crt = next;
@@ -335,7 +344,8 @@ dnode* NnodeToDnode(nnode* inp)
 	if (sizeof(nnode) < sizeof(dnode)) return 0;
 	nnode tmpn, *next, *crt = inp;
 	dnode tmpd;
-	while (crt)//---> [4]
+	//while (crt)//---> [4]
+	if (crt)
 	{
 		next = crt->right;
 		tmpn = *crt;
@@ -354,7 +364,8 @@ tnode* NnodeToTnode(nnode* inp)
 	if (sizeof(nnode) < sizeof(dnode)) return 0;
 	nnode tmpn, * next, * crt = inp;
 	tnode tmpd;
-	while (crt)//---> [6]
+	//while (crt)//---> [6]
+	if (crt)
 	{
 		next = crt->right;
 		tmpn = *crt;
@@ -368,6 +379,14 @@ tnode* NnodeToTnode(nnode* inp)
 		crt = next;
 	}
 	return (void*)inp;
+}
+
+void TnodeToNnode(nnode* des, const tnode* src)
+{
+	des->col = src->col;
+	des->row = src->row;
+	des->addr = src->addr;
+	des->class = src->type;
 }
 
 //---- ---- ---- ---- ChrAr ---- ---- ---- ----
@@ -452,7 +471,7 @@ char* ChrDecToHex(char* dec)// Output: upper case
 		return 0;
 	}
 	#endif
-	memalloc(p, declen + 1 + 1);
+	p = malc(declen + 1 + 1);
 	if(Signed) *p = '+';
 	// here
 	StrCopy(p + !(!Signed), dec);
@@ -493,7 +512,7 @@ char* _Need_free ChrHexToDecFloat(const char* hexf)
 	char* CrtDiver = StrHeap(unit_diver);// keep this size < 0x1000
 	char* temp = zalc(0X800 + 1);
 	char* temp_for_crt = zalc(0X800 + 1);
-	size_t tempexpo = 0X800 - 3;// based on 10
+	size_t tempexpo = (size_t)0X800 - 3;// based on 10
 	char* res = StrHeap("+0");
 	size_t paralen = StrLength(hexf);
 	for (size_t i = 0; i < paralen; i++)
@@ -1165,7 +1184,7 @@ char* StrPoolAllocZero(size_t length)
 		Available = 0;
 		return CRT_POOL + sizeof(void*);
 	}
-	register unsigned int ecx = length;
+	size_t ecx = length;// wish auto register
 	if (Available <= length) { NewPool(); }
 	Available -= length;
 	length = (size_t)CRT_POOL + _ModString_Strpool_UNIT_SIZE - Available;
@@ -1383,7 +1402,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			crtline++;
 			crtcol ^= crtcol;
 		}
-		else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && crt->row < crtline))// Line Comment
+		else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && (crt->row != crtline || CrtTType == tok_any && !crt->addr)))// Line Comment
 		{
 			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 			bufptr = buffer;
@@ -1474,7 +1493,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 	}
 	if (CrtTLen)
 		crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
-endo:
+///endo:
 	return first;
 }
 
@@ -1702,7 +1721,6 @@ char* StrHeapInsertThrow(const char* d, const char* s, size_t posi, size_t throw
 {
 	char* ret;
 	char* ptr;
-	char c;
 	size_t dlen, slen;
 	size_t i;// for loops below
 

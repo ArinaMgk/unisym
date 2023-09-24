@@ -174,10 +174,11 @@ typedef struct ArnOldStyleNode
 	void DnodesRelease(Dnode* first, void(*freefunc)(void*));
 	// ---- ---- inode ---- ---- make use of DnodesRelease()
 	#define INODE_READONLY 0x01
+	#define INODE_TYPEKEEP 0x02
 	// No duplicate check. prop[2:Not-change-prevous]
 	inode* InodeUpdate(inode* inp, const char* iden, void* data, size_t typ, size_t prop, void(*freefunc_element)(void*));
 	//
-	void* InodeDelete(inode* inp, const char* iden, void(*freefunc)(void*));
+	void InodeDelete(inode* inp, const char* iden, void(*freefunc)(void*));
 	//
 	inode* InodeLocate(inode* inp, const char* iden, inode** refleft);
 	// in the direction of right.
@@ -242,9 +243,11 @@ typedef struct ArnOldStyleNode
 	//
 
 
-	// Conversion Function
+	// Conversion Function (direct copy address of pointer)
 	dnode* NnodeToDnode(nnode* inp);
 	tnode* NnodeToTnode(nnode* inp);
+	
+	void TnodeToNnode(nnode* inp, const tnode* src);
 
 //---- ---- ---- ---- common heap operations ---- ---- ---- ----
 	
@@ -494,6 +497,23 @@ static inline const char* StrIndexChars(const char* s1, const char* s2)
 	while (c = *s1) { offs = 0; while (s2[offs]) if (s2[offs++] == c) return s1; s1++; } return NULL;
 }
 
+static inline const char* StrIndexCharsExcept(const char* s1, const char* s2)// RFV24
+{
+	register char c; 
+	for (;c = *s1;s1++)
+	{
+		int state = 0;
+		for (size_t offs = 0; s2[offs]; offs++)
+			if (s2[offs] == c)
+			{
+				state = 1;
+				break;
+			}
+		if (!state) return s1;
+	}
+	return NULL;
+}
+
 static inline const char* StrIndexCharsRight(const char* s1, const char* s2)// RFV19
 {
 	register char c; size_t offs; const char* res = 0;
@@ -503,6 +523,9 @@ static inline const char* StrIndexCharsRight(const char* s1, const char* s2)// R
 	}
 	return res;
 }
+
+//{TODO} static inline const char* StrIndexCharsExceptRight(const char* s1, const char* s2)
+
 
 void StrFilterOut(char* p, char c);
 void StrFilter(char* p, enum TokType tt);//TODO. no considering new-line

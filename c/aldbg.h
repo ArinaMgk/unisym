@@ -14,6 +14,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+#pragma warning(disable:6011)// for MSVC
 
 #ifndef ArnHabitDbg// Add this can cheat the compiler
 #define ArnHabitDbg// Her Convenient odd style. Maybe a bad habit for formal project.
@@ -70,7 +71,7 @@ inline static char* salc(size_t size)
 	{\
 		if (SGAErroMsg && *SGAErroMsg)\
 			fprintf(stderr, "!Err %s\n", SGAErroMsg);\
-		if(malc_count) fprintf(stderr, "MEMORY LEAK %"PRIuPTR" TIMES.\n", malc_count);\
+		if(exitcode&&malc_count) fprintf(stderr, "MEMORY LEAK %"PRIuPTR" TIMES.\n", malc_count);\
 		return (exitcode);\
 	}
 

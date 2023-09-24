@@ -1,4 +1,4 @@
-// ASCII Arina_habit_slice C99 TAB4
+// ASCII,GB Arina_habit_slice C99 TAB4
 /*
 	Copyright 2023 ArinaMgk
 
@@ -27,9 +27,11 @@
 #define pll(x,y)   printf("%s : %llx\n",(x),(y));
 #define pd(x) printf("%d\n",(x));
 
-#define point(r,c) (r*cols+c)
+#define concur(r,c) (r*cols+c)// ConsoleCursor
 
-#define uint unsigned int
+#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate ¡®unsigned¡¯
+	#define uint unsigned int
+#endif
 #define llong long long int
 #define sll signed long long int
 #define ullong unsigned long long int
@@ -83,6 +85,13 @@
 ///#define foreachstr(iden,x) for(char iden, *iden#ptr=(char*)(x);iden=*iden#ptr;iden#ptr++)// {why} error tip yo VSCODE::IntelliSenseMode(GCC)
 #define for0(iden,times) for(size_t iden=0;iden<(times);iden++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
+
+#ifdef _MSC_VER// for MSVC
+#define __FUNCIDEN__ __FUNCDNAME__
+#else
+#define __FUNCIDEN__ __func__// cannot auto-strcat
+#endif
+
 
 #endif
 // more to see "aldbg.h"

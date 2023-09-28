@@ -190,6 +190,7 @@ typedef struct ArnOldStyleNode
 	#define _TNODE_COMMENT '#'
 	#define _TNODE_DIRECTIVE '%'
 	
+	Toknode* StrTokenAppend(Toknode* any, const char* content, size_t contlen, size_t ttype, size_t row, size_t col);
 	// ...
 	#define TnodeLoad StrTokenAll
 	Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer);

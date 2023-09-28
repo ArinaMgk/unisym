@@ -16,21 +16,49 @@
 	limitations under the License.
 */
 
-#ifdef _WinNT
+#include "../consio.h"
+#if defined(_WinNT)
 #include <windows.h>
-
-static HANDLE ConHandle = 0;
-void ConInitialize()
-{
-	ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-}
-
+static HANDLE ConHandle = { 0 };
 void ConCursor(unsigned short col, unsigned short row)
 {
-	if (!ConHandle) ConInitialize();
-	if (!ConHandle) return;
+	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 	COORD pos = { col,row };
 	SetConsoleCursorPosition(ConHandle, pos);
 }
 
+void ConCursorMoveRight(unsigned short dif)
+{
+	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO ConInfo;
+	GetConsoleScreenBufferInfo(ConHandle, &ConInfo);
+	ConCursor(ConInfo.dwCursorPosition.X + dif, ConInfo.dwCursorPosition.Y);
+}
+
+void ConStyleAbnormal(void)
+{
+	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleTextAttribute(ConHandle, 0x0 + 0xF0);
+}
+
+void ConStyleNormal(void)
+{
+	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleTextAttribute(ConHandle, 0xF + 0x00);
+}
+
 #endif
+
+size_t ConScanLine(char* buf, size_t limit)
+{
+	size_t slen = 0;
+	fgets(buf, (int)limit, stdin);
+	if (!*buf) return 0;
+	while (buf[slen + 1])slen++;
+	while ((buf[slen] == '\n' || buf[slen] == '\r'))
+	{
+		buf[slen] = 0;
+		if (!slen) break; else slen--;
+	}
+	return 1 + slen;
+}

@@ -101,7 +101,7 @@ char* instob(ptrdiff_t num, char* buf)
 	size_t numslv = num > 0 ? num : -num;
 	AddDecimalDigitsLen(numlen, numslv);
 	#ifndef _ARN_FLAG_DISABLE
-	if (malc_limit < numlen || malc_limit < 3 - !arna_eflag.Signed || !buf)
+	if (malc_limit < numlen || malc_limit < (unsigned)3 - !arna_eflag.Signed || !buf)
 	{
 		///malc_occupy = 0;
 		arna_eflag.Failure = 1;

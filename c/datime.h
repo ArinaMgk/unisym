@@ -18,6 +18,13 @@
 #ifndef _LIB_DATETIME
 #define _LIB_DATETIME
 
+#include "alice.h"
+
+// origin: unisym/kasha/n_timer.a : %imacro GetMoexDayIdentity 2
+// year>=2014, month>0
+// Return pastdays and weekday(0~6)
+unsigned GetMoexDayIdentity(word year, word month, byte* weekday, byte* moondays);
+
 #define isLeapYear(year) (!((year)&3)&&((year)%100)||!((year)%400)) // RFQ27
 
 

@@ -22,7 +22,7 @@
 #pragma warning(disable:6386)// overflow warning for MSVC
 #include <stddef.h>
 #include <stdlib.h>
-#include <stdio.h>
+#include <stdio.h>// for EOF
 #include <ctype.h>// na isXType()
 #include "../alice.h"
 #include "../aldbg.h"
@@ -208,16 +208,22 @@ inode* InodeUpdate(inode* inp, const char* iden, void* data, size_t typ, size_t 
 {
 	inode* left = 0;
 	inode* crt = 0;
+	inode info = { .data = data };// {TODO} make use of this for memset dest
 	if (!inp)
 		crt = zalcof(inode);
 	else if (crt = InodeLocate(inp, iden, &left))
 	{
-		if ((crt->property & INODE_READONLY) && prop == 0x80) return crt;
+		if ((crt->property & INODE_READONLY) && prop == 0x80)
+		{
+			//{ERRO} Change the readonly object.
+			if (freefunc_element && data) freefunc_element(&info);
+			return 0;
+		}
 		else if ((crt->property & INODE_TYPEKEEP) && prop == 0x80)
 		{
-			fprintf(stderr, "Erro: Change the special object into invalid type.");
-			return crt;
-			//{ERRO}
+			//{ERRO} Change the special object into invalid type.
+			if (freefunc_element && data) freefunc_element(&info);
+			return 0;
 		}
 		if (freefunc_element) freefunc_element(crt); else { memf(crt->data);/* addr? */ }
 	}
@@ -1246,7 +1252,7 @@ const char static EscSeq[] =
 #define DECLEN_64B 20//      18,446,744,073,709,551,615
 static const unsigned DECLEN_a[] = { 1,2,3,DECLEN_16B, DECLEN_32B, DECLEN_64B };
 
-static Toknode* StrTokenAppend(Toknode* any, char* content, size_t contlen, size_t ttype, size_t row, size_t col);
+Toknode* StrTokenAppend(Toknode* any, const char* content, size_t contlen, size_t ttype, size_t row, size_t col);
 static TokType getctype(char chr);
 static size_t StrTokenAll_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* bufptr);
 static size_t crtline = 0, crtcol = 0;
@@ -1539,7 +1545,7 @@ void StrTokenThrow(Toknode* one)
 	StrTokenClear(one);
 }
 
-static Toknode* StrTokenAppend(Toknode* any, char* content, size_t contlen, size_t ttype, size_t row, size_t col)//TODO. TokType ttype
+Toknode* StrTokenAppend(Toknode* any, const char* content, size_t contlen, size_t ttype, size_t row, size_t col)//TODO. TokType ttype
 {
 	Toknode* crt = any, * ret = 0;
 	if (!contlen) return any;

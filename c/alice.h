@@ -42,6 +42,8 @@
 #define stduint size_t
 #define stdint ptrdiff_t
 
+#define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
+
 #define jump goto
 #define call(x) (x)()
 
@@ -88,7 +90,7 @@
 
 #ifdef _MSC_VER// for MSVC
 #define __FUNCIDEN__ __FUNCDNAME__
-#else
+#elif defined(__GNUC__)
 #define __FUNCIDEN__ __func__// cannot auto-strcat
 #endif
 

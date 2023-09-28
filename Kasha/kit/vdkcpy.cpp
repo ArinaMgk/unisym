@@ -1,4 +1,4 @@
-// GBK 20220507 ArinaKit::VDiskSectorWriter
+// GBK 20220507 ArinaKit::VDiskSectorWriter LinearWriter
 // E.g.> vdkcpy boot.bin vhd.vhd 0
 # include <stdio.h>
 # include <iostream>
@@ -7,7 +7,7 @@
 
 using namespace std;
 
-void main(int argc, char** args)
+int main(int argc, char** args)
 {
 	/*
 	 * arg2 source =args[1]
@@ -15,7 +15,7 @@ void main(int argc, char** args)
 	 * arg4 the numof sector to start na dest
 	 */
 	//read
-	if (argc < 4) return;
+	if (argc < 4) return 1;
 	unsigned char tmpc=0xFF;
 	std::ifstream ifs(args[1], ios_base::in|ios_base::binary);
 	//	RER07->这里错用了||ios_base::in就会替换换行的CRLF呢。

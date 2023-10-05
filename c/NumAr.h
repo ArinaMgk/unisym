@@ -14,33 +14,24 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-#ifndef ModComplexternArith
-#define ModComplexternArith
+#ifndef ModDimensionArith
+#define ModDimensionArith
 
 // no considering header-guard in the caller.
 #include <complex.h>
 #include "cdear.h"
 
-typedef struct Complextern
+typedef struct Arinium
 {
-	coe Real, Imag;
-} Scalar, scalar;// no using CoeDel
+	union { coe Real; coe x; };
+	coe y;
+	coe z;
+	union { coe Imag; coe t; };
+} dima, numa;// either 2d or 4d
 
-typedef struct Arinium// Arina time and space descriptor position.
-{
-	scalar x;
-	scalar y;
-	scalar z;
-	scalar t;
-} Arnum;// do not using ArnDel
+//{TODO} `extern struct NumFlag_t{unsigned PreciseDamp : 1;} ArnFlag;` into `AFLAG`
 
-struct NumFlag_t
-{
-	unsigned PreciseDamp : 1;
-};
-extern struct NumFlag_t ArnFlag;
-
-#ifdef _MSVC
+#ifdef _MSC_VER
 typedef _Dcomplex cplx_d;
 typedef _Lcomplex cplx_l;
 typedef _Fcomplex cplx_f;
@@ -50,75 +41,72 @@ typedef long double _Complex cplx_l;
 typedef float _Complex cplx_f;
 #endif
 
-scalar* NumNew(const char* Rcof, const char* Rexp, const char* Rdiv,
+#define NumInit() CoeInit()
+
+dima* NumNewComplex(const char* Rcof, const char* Rexp, const char* Rdiv,
 	const char* Icof, const char* Iexp, const char* Idiv);
 
-scalar* NumCpy(const scalar* num);
+dima* NumNew(const char* xcoff, const char* ycoff, const char* zcoff, const char* tcoff);
 
-void NumDel(scalar* num);
+dima* NumCpy(const dima* num);
 
-// Convert
+void NumDel(dima* num);
 
-cplx_l NumToLDComplex(const scalar* dest);
+// ---- ---- ---- ---- Convert ---- ---- ---- ---- 
 
-cplx_d NumToDComplex(const scalar* dest);
+cplx_d NumToComplex(const dima* dest);
 
-cplx_f NumToFComplex(const scalar* dest);
-
-scalar* NumFromLDComplex(cplx_l flt);
-
-scalar* NumFromDComplex(cplx_d flt);
-
-scalar* NumFromFComplex(cplx_f flt);
-
-scalar* NumFromLLong(long long signedll);
-
-// Operator
-
-void NumAdd(scalar* dest, const scalar* sors);
-
-void NumSub(scalar* dest, const scalar* sors);
-
-void NumMul(scalar* dest, const scalar* sors);
-
-void NumDiv(scalar* dest, const scalar* sors);
-
-void NumFactorial(scalar* dest);
-
-void NumPow(scalar* dest, const scalar* sors);
-
-void NumSin(scalar* dest);
-
-void NumCos(scalar* dest);
-
-void NumTan(scalar* dest);
-
-// No recommendation, below.
-void NumAsin(scalar* dest);
-
-void NumAcos(scalar* dest);
-
-void NumAtan(scalar* dest);
-
-void NumLog(scalar* dest);// Ln
-
-void NumExp(scalar* dest);
-
-void NumSinh(scalar* dest);
-
-void NumCosh(scalar* dest);
-
-void NumTanh(scalar* dest);
-
-void NumAsinh(scalar* dest);
-
-void NumAcosh(scalar* dest);
-
-void NumAtanh(scalar* dest);
+dima* NumFromComplex(cplx_d flt);
 
 // opt: 0[auto] 1[int or float] 2[e format]
-size_t NumToString(const scalar* dest, int opt, char* buf, size_t buflen);
+char* NumToString(const dima* dest, int opt);
 
-char* NumToStringAuto(const scalar* dest, int opt);
+// ---- ---- ---- ---- Operator ---- ---- ---- ---- 
+// For complex and 4d-vector
+coe* NumAbs(const dima* s);
+// Return zoyo (-pi,pi]
+coe* NumAng(const dima* s);
+// For complex and 4d-vector
+void NumAdd(dima* dest, const dima* sors);
+// For complex and 4d-vector
+void NumSub(dima* dest, const dima* sors);
+// For complex and 4d-vector(aka. NumDot)
+void NumMul(dima* dest, const dima* sors);
+// {TEMP}. Ultimate target zo for for D[xyz]+.
+void NumCross(dima* dest, const dima* sors);
+
+void NumDiv(dima* dest, const dima* sors);
+
+void NumPow(dima* dest, const dima* sors);
+
+void NumSqrt(dima* dest);
+//
+void NumExp(dima* dest);
+
+void NumLog(dima* dest);// based on e
+
+void NumSin(dima* dest);
+
+void NumCos(dima* dest);
+
+void NumTan(dima* dest);
+
+void NumAsin(dima* dest);
+
+void NumAcos(dima* dest);
+
+void NumAtan(dima* dest);
+
+void NumSinh(dima* dest);
+
+void NumCosh(dima* dest);
+
+void NumTanh(dima* dest);
+
+void NumAsinh(dima* dest);
+
+void NumAcosh(dima* dest);
+
+void NumAtanh(dima* dest);
 
 #endif

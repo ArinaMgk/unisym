@@ -14,56 +14,29 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-#include "../../ustring.h"
-#include "../../cdear.h"
-#include "../../alice.h"
-#include "../../aldbg.h"
-#include "../../NumAr.h"
+#define _LIB_STRING_HEAP
+#include "../ustring.h"
+#include "../cdear.h"
+#include "../numar.h"
 
-struct NumFlag_t NumFlag;
+#define scal(iden,rc,re,rd,ic,ie,id) const static dima iden={\
+	.Real.coff=rc,.Real.expo=re,.Real.divr=rd,\
+	.Imag.coff=ic,.Imag.expo=ie,.Imag.divr=id}
 
-const static scalar i = 
-{
-	.Real.coff = "+0", .Real.expo = "+0", .Real.divr = "+1",
-	.Imag.coff = "+1", .Imag.expo = "+0", .Imag.divr = "+1"
-};
-const static scalar numone =
-{
-	.Real.coff = "+1",.Real.expo = "+0",.Real.divr = "+1",
-	.Imag.coff = "+0",.Imag.expo = "+0",.Imag.divr = "+1",
-};
-const static scalar numneg = 
-{ 
-	.Real.coff = "-1",.Real.expo="+0",.Real.divr="+1",
-	.Imag.coff = "+0",.Imag.expo = "+0",.Imag.divr = "+1",
-};
-const static scalar numtwo =
-{
-	.Real.coff = "+2",.Real.expo = "+0",.Real.divr = "+1",
-	.Imag.coff = "+0",.Imag.expo = "+0",.Imag.divr = "+1",
-};
-const static scalar num2i =
-{
-	.Real.coff = "+0",.Real.expo = "+0",.Real.divr = "+1",
-	.Imag.coff = "+2",.Imag.expo = "+0",.Imag.divr = "+1",
-};
-const static scalar numnegi =
-{
-	.Real.coff = "+0",.Real.expo = "+0",.Real.divr = "+1",
-	.Imag.coff = "-1",.Imag.expo = "+0",.Imag.divr = "+1",
-};
-const static scalar numhalf =
-{
-	.Real.coff = "+1",.Real.expo = "+0",.Real.divr = "+2",
-	.Imag.coff = "+0",.Imag.expo = "+0",.Imag.divr = "+1",
-};
+//{TODO} aflag using
 
+scal(i, "+0", "+0", "+1", "+1", "+0", "+1");
+scal(numone, "+1", "+0", "+1", "+0", "+0", "+1");
+scal(numneg, "-1", "+0", "+1", "+0", "+0", "+1");
+scal(numtwo, "+2", "+0", "+1", "+0", "+0", "+1");
+scal(num2i, "+0", "+0", "+1", "+2", "+0", "+1");
+scal(numnegi, "+0", "+0", "+1", "-1", "+0", "+1");
+scal(numhalf, "+1", "+0", "+2", "+0", "+0", "+1");
 
-scalar* NumNew(const char* Rcof, const char* Rexp, const char* Rdiv,
+dima* NumNewComplex(const char* Rcof, const char* Rexp, const char* Rdiv,
 	const char* Icof, const char* Iexp, const char* Idiv)
 {
-	scalar* s;
-	memalloc(s, sizeof(scalar));
+	dima* s = zalcof(dima);
 	s->Real.coff = StrHeap(Rcof);
 	s->Real.expo = StrHeap(Rexp);
 	s->Real.divr = StrHeap(Rdiv);
@@ -73,12 +46,41 @@ scalar* NumNew(const char* Rcof, const char* Rexp, const char* Rdiv,
 	return s;
 }
 
-scalar* NumCpy(const scalar* num)
+dima* NumNew(const char* xcoff, const char* ycoff, const char* zcoff, const char* tcoff)
 {
-	return NumNew(num->Real.coff, num->Real.expo, num->Real.divr, num->Imag.coff, num->Imag.expo, num->Imag.divr);
+	dima* res = zalcof(dima);
+	res->x.coff = StrHeap(xcoff); res->x.expo = StrHeap("+0"); res->x.divr = StrHeap("+1");
+	res->y.coff = StrHeap(ycoff); res->y.expo = StrHeap("+0"); res->y.divr = StrHeap("+1");
+	res->z.coff = StrHeap(zcoff); res->z.expo = StrHeap("+0"); res->z.divr = StrHeap("+1");
+	res->t.coff = StrHeap(tcoff); res->t.expo = StrHeap("+0"); res->t.divr = StrHeap("+1");
+	return res;
 }
 
-void NumDel(scalar* num)
+dima* NumCpy(const dima* num)
+{
+	// return NumNewComplex(num->Real.coff, num->Real.expo, num->Real.divr, num->Imag.coff, num->Imag.expo, num->Imag.divr);
+	dima* res = zalcof(dima);
+	{
+		res->x.coff = StrHeap(num->x.coff);
+		res->x.expo = StrHeap(num->x.expo);
+		res->x.divr = StrHeap(num->x.divr);
+		res->t.coff = StrHeap(num->t.coff);
+		res->t.expo = StrHeap(num->t.expo);
+		res->t.divr = StrHeap(num->t.divr);
+	}
+	if (num->y.coff)// if not 2d, then 4d
+	{
+		res->y.coff = StrHeap(num->y.coff);
+		res->y.expo = StrHeap(num->y.expo);
+		res->y.divr = StrHeap(num->y.divr);
+		res->z.coff = StrHeap(num->z.coff);
+		res->z.expo = StrHeap(num->z.expo);
+		res->z.divr = StrHeap(num->z.divr);
+	}
+	return res;
+}
+
+void NumDel(dima* num)
 {
 	memfree(num->Real.coff);
 	memfree(num->Real.expo);
@@ -86,124 +88,109 @@ void NumDel(scalar* num)
 	memfree(num->Imag.coff);
 	memfree(num->Imag.expo);
 	memfree(num->Imag.divr);
+	if (num->y.coff)
+	{
+		memfree(num->y.coff);
+		memfree(num->y.expo);
+		memfree(num->y.divr);
+		memfree(num->z.coff);
+		memfree(num->z.expo);
+		memfree(num->z.divr);
+	}
 	memfree(num);
 }
 
-// Convert
+// ---- ---- ---- ---- Convert ---- ---- ---- ---- 
 
-cplx_l NumToLDComplex(const scalar* dest)
+cplx_d NumToComplex(const dima* dest)
 {
-#ifdef _MSVC
-	cplx_l ret = { CoeToLDouble(&dest->Real) , CoeToLDouble(&dest->Imag) };
-#else
-	cplx_d ret;
-	((long double*)&ret)[0] = CoeToLDouble(&dest->Real);
-	((long double*)&ret)[1] = CoeToLDouble(&dest->Imag);
-#endif
-	return ret;
-}
-
-cplx_d NumToDComplex(const scalar* dest)
-{
-#ifdef _MSVC
-	cplx_d ret = { CoeToDouble(&dest->Real) , CoeToDouble(&dest->Imag) };
-#else
+	//MSVC cplx_d ret = { CoeToDouble(&dest->Real) , CoeToDouble(&dest->Imag) };
 	cplx_d ret;
 	((double*)&ret)[0] = CoeToDouble(&dest->Real);
 	((double*)&ret)[1] = CoeToDouble(&dest->Imag);
-#endif
 	return ret;
 }
 
-cplx_f NumToFComplex(const scalar* dest)
+dima* NumFromComplex(cplx_d flt)
 {
-#ifdef _MSVC
-	cplx_f ret = { CoeToFloat(&dest->Real) , CoeToFloat(&dest->Imag) };
-#else
-	cplx_d ret;
-	((float*)&ret)[0] = CoeToFloat(&dest->Real);
-	((float*)&ret)[1] = CoeToFloat(&dest->Imag);
-#endif
-	return ret;
-}
-
-scalar* NumFromLDComplex(cplx_l flt)
-{
-#ifdef _MSVC
-	coe* c1 = CoeFromLDouble(flt._Val[0]);
-	coe* c2 = CoeFromLDouble(flt._Val[1]);
-#else
-	coe* c1 = CoeFromLDouble(((long double*)&flt)[0]);
-	coe* c2 = CoeFromLDouble(((long double*)&flt)[1]);
-#endif
-	scalar* res = NumNew(c1->coff, c1->expo, c1->divr, c2->coff, c2->expo, c2->divr);
-	CoeDel(c1); CoeDel(c2);
-	return res;
-}
-
-scalar* NumFromDComplex(cplx_d flt)
-{
-#ifdef _MSVC
-	coe* c1 = CoeFromDouble(flt._Val[0]);
-	coe* c2 = CoeFromDouble(flt._Val[1]);
-#else
+	//MSVC coe* c1 = CoeFromDouble(flt._Val[0]);
+	//MSVC coe* c2 = CoeFromDouble(flt._Val[1]);
 	coe* c1 = CoeFromDouble(((double*)&flt)[0]);
 	coe* c2 = CoeFromDouble(((double*)&flt)[1]);
-#endif
-	scalar* res = NumNew(c1->coff, c1->expo, c1->divr, c2->coff, c2->expo, c2->divr);
+	dima* res = NumNewComplex(c1->coff, c1->expo, c1->divr, c2->coff, c2->expo, c2->divr);
 	CoeDel(c1); CoeDel(c2);
 	return res;
 }
 
-scalar* NumFromFComplex(cplx_f flt)
+char* NumToString(const dima* dest, int opt)
 {
-#ifdef _MSVC
-	coe* c1 = CoeFromFloat(flt._Val[0]);
-	coe* c2 = CoeFromFloat(flt._Val[1]);
-#else
-	coe* c1 = CoeFromFloat(((float*)&flt)[0]);
-	coe* c2 = CoeFromFloat(((float*)&flt)[1]);
-#endif
-	scalar* res = NumNew(c1->coff, c1->expo, c1->divr, c2->coff, c2->expo, c2->divr);
-	CoeDel(c1); CoeDel(c2);
-	return res;
+	size_t pos = 0;
+	char c;
+	char
+		* str1 = CoeToLocale(&dest->Real, opt),
+		* str2 = CoeToLocale(&dest->Imag, opt);
+	size_t alsize = StrLength(str1) + StrLength(str2) + 3;// \0, space and i
+	char* buf = salc(alsize);
+	for (size_t i = 0; c = str1[i]; i++)
+	{
+		buf[pos++] = c;
+	}
+	if (dest->Imag.coff[1] != '0')
+	{
+		buf[pos++] = ' ';
+		for (size_t i = 0; c = str2[i]; i++)
+		{
+			buf[pos++] = c;
+		}
+		buf[pos++] = 'i';
+	}
+	memfree(str1);
+	memfree(str2);
+	return buf;
 }
 
-scalar* NumFromLLong(long long signedll)
+// ---- ---- ---- ---- Operator ---- ---- ---- ---- 
+coe* NumAbs(const dima* s)// r, i.e. hypot
 {
-	scalar* ret; memalloc(ret, sizeof(scalar));
-	coe* tmpcoe = CoeFromLLong(signedll);
-	ret->Real = *tmpcoe;
-	memfree(tmpcoe);// keep the string in heap
-	ret->Imag.coff = StrHeap("+0");
-	ret->Imag.expo = StrHeap("+0");
-	ret->Imag.divr = StrHeap("+1");
-	return ret;
-}
-
-// Operator
-static coe* NumAbs(const scalar* s)// r
-{
-	// hypot
-	coe* re = CoeCpy(&s->Real);
-	CoeHypot(re, &s->Imag);
+	coe* re = 0;
+	if (!s->y.coff)
+		CoeHypot(re = CoeCpy(&s->Real), &s->Imag);
+	else
+	{
+		int sign = 0;
+		coe* tmp = 0;
+		re = CoeNew("+0", "+0", "+1");
+		CoeMul(tmp = CoeCpy(&s->x), &s->x);
+		CoeAdd(re, tmp);
+		CoeDel(tmp);
+		CoeMul(tmp = CoeCpy(&s->y), &s->y);
+		CoeAdd(re, tmp);
+		CoeDel(tmp);
+		CoeMul(tmp = CoeCpy(&s->z), &s->z);
+		CoeAdd(re, tmp);
+		CoeDel(tmp);
+		CoeMul(tmp = CoeCpy(&s->t), &s->t);
+		CoeSub(re, tmp);
+		CoeDel(tmp);
+		CoeSqrt(re);// signed
+	}
 	return re;
 }
-static coe* NumAng(const scalar* s)// theta
+coe* NumAng(const dima* s)// theta, i.e. angle
 {
-	// (-pi,pi]
 	int statex = CoeCmp(&s->Real, &(coe){.coff = "+0", .expo = "+0", .divr = "+1" });
 	int statey = CoeCmp(&s->Imag, &(coe){.coff = "+0", .expo = "+0", .divr = "+1" });
 	if (!statey)
 	{
-		coe* cpi = CoePi();
+		if (!statex) return CoeNew("+0", "+0", "+1");
+		coe* cpi = s->Real.coff[0] == '+' ? CoeNew("+0", "+0", "+1") : CoePi();
 		return cpi;
 	}
 	else if (!statex)
 	{
 		coe* cpi = CoePi();
 		CoeDiv(cpi, &(coe){.coff = "+2", .expo = "+0", .divr = "+1" });
-		if (statey < 0) cpi->coff[1] = '-';
+		if (statey < 0) cpi->coff[0] = '-';
 		return cpi;
 	}
 	coe* ret = CoeCpy(&s->Imag);
@@ -212,46 +199,114 @@ static coe* NumAng(const scalar* s)// theta
 	if (statex < 0)
 	{
 		coe* cpi = CoePi();
-		if (statey < 0) cpi->coff[1] = '-';
+		if (statey < 0) cpi->coff[0] = '-';
 		CoeAdd(ret, cpi);
 		CoeDel(cpi);
 	}
 	return ret;
 }
 
-void NumAdd(scalar* dest, const scalar* sors)
+void NumAdd(dima* dest, const dima* sors)
 {
 	CoeAdd(&dest->Real, &sors->Real);
 	CoeAdd(&dest->Imag, &sors->Imag);
+	if (sors->y.coff)// else omit it
+		if (dest->y.coff)
+		{
+			CoeAdd(&dest->y, &sors->y);
+			CoeAdd(&dest->z, &sors->z);
+		}
+		else
+		{
+			dest->y.coff = StrHeap(sors->y.coff);
+			dest->y.expo = StrHeap(sors->y.expo);
+			dest->y.divr = StrHeap(sors->y.divr);
+			dest->z.coff = StrHeap(sors->z.coff);
+			dest->z.expo = StrHeap(sors->z.expo);
+			dest->z.divr = StrHeap(sors->z.divr);
+		}
 }
 
-void NumSub(scalar* dest, const scalar* sors)
+void NumSub(dima* dest, const dima* sors)
 {
 	CoeSub(&dest->Real, &sors->Real);
 	CoeSub(&dest->Imag, &sors->Imag);
+	if (sors->y.coff)// else omit it
+		if (dest->y.coff)
+		{
+			CoeSub(&dest->y, &sors->y);
+			CoeSub(&dest->z, &sors->z);
+		}
+		else
+		{
+			dest->y.coff = StrHeap(sors->y.coff);
+			dest->y.expo = StrHeap(sors->y.expo);
+			dest->y.divr = StrHeap(sors->y.divr);
+			dest->z.coff = StrHeap(sors->z.coff);
+			dest->z.expo = StrHeap(sors->z.expo);
+			dest->z.divr = StrHeap(sors->z.divr);
+		}
 }
 
-void NumMul(scalar* dest, const scalar* sors)
+void NumMul(dima* dest, const dima* sors)// aka NumDot
 {
-	// (a+bi)*(c+di) = ac-bd + i(ad+bc)
-	coe* s1 = CoeCpy(&dest->Real); CoeMul(s1, &sors->Real);// ac
-	coe* s2 = CoeCpy(&dest->Imag); CoeMul(s2, &sors->Imag);// bd
-	coe* s3 = CoeCpy(&dest->Real); CoeMul(s3, &sors->Imag);// ad
-	coe* s4 = CoeCpy(&dest->Imag); CoeMul(s4, &sors->Real);// bc
-	s1 = CoeSub(s1, s2);// ac-bd
-	s3 = CoeAdd(s3, s4);// ad+bc
-	// *&dest->Real = *s1; 
-	srs(dest->Real.coff, StrHeap(s1->coff));
-	srs(dest->Real.expo, StrHeap(s1->expo));
-	srs(dest->Real.divr, StrHeap(s1->divr));
-	// *&dest->Imag = *s3; 
-	srs(dest->Imag.coff, StrHeap(s3->coff));
-	srs(dest->Imag.expo, StrHeap(s3->expo));
-	srs(dest->Imag.divr, StrHeap(s3->divr));
-	CoeDel(s1); CoeDel(s2); CoeDel(s3); CoeDel(s4);
+	if ((size_t)(dest->y.coff) ^ (size_t)(sors->y.coff)) return;
+	if (!dest->y.coff)// (a+bi)*(c+di) = ac-bd + i(ad+bc)
+	{
+		coe* s1 = CoeCpy(&dest->Real); CoeMul(s1, &sors->Real);// ac
+		coe* s2 = CoeCpy(&dest->Imag); CoeMul(s2, &sors->Imag);// bd
+		coe* s3 = CoeCpy(&dest->Real); CoeMul(s3, &sors->Imag);// ad
+		coe* s4 = CoeCpy(&dest->Imag); CoeMul(s4, &sors->Real);// bc
+		s1 = CoeSub(s1, s2);// ac-bd
+		s3 = CoeAdd(s3, s4);// ad+bc
+		// *&dest->Real = *s1; 
+		CoeRst(&dest->Real, StrHeap(s1->coff), StrHeap(s1->expo), StrHeap(s1->divr));
+		// *&dest->Imag = *s3; 
+		CoeRst(&dest->Imag, StrHeap(s3->coff), StrHeap(s3->expo), StrHeap(s3->divr));
+		CoeDel(s1); CoeDel(s2); CoeDel(s3); CoeDel(s4);
+	}
+	else// x0*x1 + y0*y1 + z0*z1 - t0*t1
+	{
+		CoeMul(&dest->x, &sors->x);
+		CoeMul(&dest->y, &sors->y);
+		CoeMul(&dest->z, &sors->z);
+		CoeMul(&dest->t, &sors->t);
+		CoeAdd(&dest->x, &dest->y);
+		CoeAdd(&dest->x, &dest->z);
+		CoeSub(&dest->x, &dest->t);
+		CoeRst(&dest->y, StrHeap("+0"), StrHeap("+0"), StrHeap("+1"));
+		CoeRst(&dest->z, StrHeap("+0"), StrHeap("+0"), StrHeap("+1"));
+		CoeRst(&dest->t, StrHeap("+0"), StrHeap("+0"), StrHeap("+1"));
+	}
 }
 
-void NumDiv(scalar* dest, const scalar* sors)
+void NumCross(dima* dest, const dima* sors)// ¦Å d_i s_j e_k
+{
+	// dest_x dest_y dest_z
+	// sors_x sors_y sors_z
+	// e_x    e_y    e_z
+	// X: (dest_y*sors_z - dest_z*sors_y)
+	// Y: (dest_z*sors_x - dest_x*sors_z)
+	// Z: (dest_x*sors_y - dest_y*sors_x)
+	coe* resx = CoeCpy(&dest->y); CoeMul(resx, &sors->z);
+	coe* tmp = CoeCpy(&dest->z); CoeMul(tmp, &sors->y);
+	CoeSub(resx, tmp);
+	CoeDel(tmp);
+	coe* resy = CoeCpy(&dest->z); CoeMul(resy, &sors->x);
+	tmp = CoeCpy(&dest->x); CoeMul(tmp, &sors->z);
+	CoeSub(resy, tmp);
+	CoeDel(tmp);
+	coe* resz = CoeCpy(&dest->x); CoeMul(resz, &sors->y);
+	tmp = CoeCpy(&dest->y); CoeMul(tmp, &sors->x);
+	CoeSub(resz, tmp);
+	CoeDel(tmp);
+	CoeRst(&dest->x, resx->coff, resx->expo, resx->divr);
+	CoeRst(&dest->y, resy->coff, resy->expo, resy->divr);
+	CoeRst(&dest->z, resz->coff, resz->expo, resz->divr);
+	memf(resx); memf(resy); memf(resz);
+}
+
+void NumDiv(dima* dest, const dima* sors)
 {
 	// (s1+m1) / (s2+m2)
 	// (s1+m1)(s2-m2) / (s2*s2 + m2*m2)
@@ -270,59 +325,61 @@ void NumDiv(scalar* dest, const scalar* sors)
 	CoeSub(t4, t3);
 	CoeDiv(t1, t5);
 	CoeDiv(t4, t5);
-	// dest->Real = NumCpy(t1);
-	srs(dest->Real.coff, StrHeap(t1->coff));
-	srs(dest->Real.expo, StrHeap(t1->expo));
-	srs(dest->Real.divr, StrHeap(t1->divr));
-	// dest->Imag = NumCpy(t4);
-	srs(dest->Imag.coff, StrHeap(t4->coff));
-	srs(dest->Imag.expo, StrHeap(t4->expo));
-	srs(dest->Imag.divr, StrHeap(t4->divr));
+	CoeRst(&dest->Real, StrHeap(t1->coff), StrHeap(t1->expo), StrHeap(t1->divr));
+	CoeRst(&dest->Imag, StrHeap(t4->coff), StrHeap(t4->expo), StrHeap(t4->divr));
 	CoeDel(t1); CoeDel(t2); CoeDel(t3); CoeDel(t4); CoeDel(t5); CoeDel(t6);
 }
 
-void NumFactorial(scalar* dest)
+void NumPow(dima* dest, const dima* sors)
 {
-	if (!StrCompare("-1", dest->Real.expo)) dest->Real.expo[0] = '+';
-	if (StrCompare(dest->Real.divr, "+1") || dest->Real.expo[0] == '-' || dest->Imag.coff[1] != '0')
-	{
-		// erro("Fac Must input a real interger.");
-		//TODO.
-		return;
-	}
-	CoeFac(&dest->Real);
+	// (a+bi)^(c+di)
+	// exp( (c+di)*ln(a+bi) )
+	// exp( (c+di)*(ln(abs(a+bi))+i*arg(a+bi)) )
+	// exp( (c+di)*(ln(abs(a+bi)))+i*(c+di)*arg(a+bi)) )
+	// exp( (c+di)*(ln(abs(a+bi)))+i*(c*arg(a+bi)+d*arg(a+bi)) )
+	// exp( (c*ln(abs(a+bi))-d*arg(a+bi))+i*(c*arg(a+bi)+d*ln(abs(a+bi))) )
+	NumLog(dest);
+	NumMul(dest, sors);
+	NumExp(dest);
 }
 
-void NumPow(scalar* dest, const scalar* sors)
+void NumSqrt(dima* dest)
 {
-#ifdef _MSVC
-	cplx_d
-		d = { CoeToDouble(&dest->Real), CoeToDouble(&dest->Imag) },
-		s = { CoeToDouble(&sors->Real), CoeToDouble(&sors->Imag) };
-#else
-	cplx_d d, s;
-	((double*)&d)[0] = CoeToDouble(&dest->Real);
-	((double*)&d)[1] = CoeToDouble(&dest->Imag);
-	((double*)&s)[0] = CoeToDouble(&sors->Real);
-	((double*)&s)[1] = CoeToDouble(&sors->Imag);
-#endif
-	d = cpow(d, s);
-	scalar* res = NumFromDComplex(d);
-	srs(dest->Real.coff, StrHeap(res->Real.coff));
-	srs(dest->Real.expo, StrHeap(res->Real.expo));
-	srs(dest->Real.divr, StrHeap(res->Real.divr));
-	srs(dest->Imag.coff, StrHeap(res->Imag.coff));
-	srs(dest->Imag.expo, StrHeap(res->Imag.expo));
-	srs(dest->Imag.divr, StrHeap(res->Imag.divr));
-	NumDel(res);
-	return;// res
+	return NumPow(dest, &numhalf);
 }
 
-void NumSin(scalar* dest)
+void NumExp(dima* dest)
+{
+	// Exp(a+bi)=Exp(a)*(cos b +i*sin b)
+	CoeExp(&dest->Real);
+	coe* cospart = CoeCpy(&dest->Imag); CoeCos(cospart);
+	coe* sinpart = CoeCpy(&dest->Imag); CoeSin(sinpart);
+	CoeRst(&dest->Imag, StrHeap(dest->Real.coff), StrHeap(dest->Real.expo), StrHeap(dest->Real.divr));
+	CoeMul(&dest->Real, cospart);
+	CoeMul(&dest->Imag, sinpart);
+	CoeDel(sinpart);
+	CoeDel(cospart);
+	return;
+}
+
+void NumLog(dima* dest)
+{
+	// log(a+bi)=ln(abs(a+bi))+i*arg(a+bi)
+	coe* abs = NumAbs(dest);
+	coe* arg = NumAng(dest);
+	CoeLog(abs);
+	CoeRst(&dest->Real, StrHeap(abs->coff), StrHeap(abs->expo), StrHeap(abs->divr));
+	CoeRst(&dest->Imag, StrHeap(arg->coff), StrHeap(arg->expo), StrHeap(arg->divr));
+	CoeDel(abs);
+	CoeDel(arg);
+	return;
+}
+
+void NumSin(dima* dest)
 {
 	//=(exp(iz)-exp(-iz))/(2i)
 	NumMul(dest, &i);
-	scalar* another = NumCpy(dest);
+	dima* another = NumCpy(dest);
 	NumMul(another, &numneg);
 	NumExp(dest); NumExp(another);
 	NumSub(dest, another);
@@ -330,11 +387,11 @@ void NumSin(scalar* dest)
 	NumDel(another);
 }
 
-void NumCos(scalar* dest)
+void NumCos(dima* dest)
 {
 	//=(exp(iz)+exp(-iz))/2
 	NumMul(dest, &i);
-	scalar* another = NumCpy(dest);
+	dima* another = NumCpy(dest);
 	NumMul(another, &numneg);
 	NumExp(dest); NumExp(another);
 	NumAdd(dest, another);
@@ -342,20 +399,20 @@ void NumCos(scalar* dest)
 	NumDel(another);
 }
 
-void NumTan(scalar* dest)
+void NumTan(dima* dest)
 {
-	scalar* tmp = NumCpy(dest);
+	dima* tmp = NumCpy(dest);
 	NumCos(tmp);
 	NumSin(dest);
 	NumDiv(dest, tmp);
 	NumDel(tmp);
 }
 
-void NumAsin(scalar* dest)
+void NumAsin(dima* dest)
 {
-	//  ln(iz+sqrt(1-z*z))*(-i)
+	// ln(iz+sqrt(1-z*z))*(-i)
 	// no check definition, TODO.
-	scalar* dd = NumCpy(dest);
+	dima* dd = NumCpy(dest);
 	NumMul(dd, dest); NumMul(dd, &numneg); NumAdd(dd, &numone);// 1-z*z
 	NumPow(dd, &numhalf);
 	NumMul(dest, &i);
@@ -366,36 +423,34 @@ void NumAsin(scalar* dest)
 	return;
 }
 
-void NumAcos(scalar* dest)
+void NumAcos(dima* dest)
 {
-	//  ln(z+sqrt(z*z-1))*(-i)
+	// multivalued function ?
+	// ln(z+sqrt(z*z-1))*(-i)
+	// ln(z+i*sqrt(1-z^2))*(-i)
 	// no check definition, TODO.
-	scalar* dd = NumCpy(dest);
-	NumMul(dd, dest); NumSub(dd, &numone);// z*z-1
-	NumPow(dd, &numhalf);
-	NumAdd(dest, dd);
+	dima* d_square = NumCpy(dest);
+	dima* d_origin = NumCpy(dest);
+	NumMul(d_square, dest);
+	CoeRst(&dest->Real, StrHeap("+1"), StrHeap("+0"), StrHeap("+1"));
+	CoeRst(&dest->Imag, StrHeap("+0"), StrHeap("+0"), StrHeap("+1"));
+	NumSub(dest, d_square);
+	NumSqrt(dest);
+	NumMul(dest, &i);
+	NumAdd(dest, d_origin);
 	NumLog(dest);
 	NumMul(dest, &numnegi);
-	NumDel(dd);
+	NumDel(d_square);
+	NumDel(d_origin);
 	return;
 }
 
-void NumAtan(scalar* dest)
+void NumAtan(dima* dest)
 {
 	// (-i)* (ln ((1+i*z)/(1-i*z)) )/2 ?
 	// (-i)* ln div (i-z,i+z) /2
-	// no check definition, TODO.
-	//NumMul(dest, &i);
-	//scalar* ano = NumCpy(dest);
-	//NumMul(ano, &numneg);
-	//NumAdd(dest, &numone);
-	//NumAdd(ano, &numone);
-	//NumDiv(dest, ano);
-	//NumLog(dest);
-	//NumDiv(dest, &numtwo);
-	//NumMul(dest, &numnegi);
-	//NumDel(ano);
-	scalar* ano = NumCpy(dest);
+	//{TODO} checking definition.
+	dima* ano = NumCpy(dest);
 	NumMul(dest, &numneg);
 	NumAdd(dest, &i);
 	NumAdd(ano, &i);
@@ -407,43 +462,10 @@ void NumAtan(scalar* dest)
 	return;
 }
 
-void NumLog(scalar* dest)
-{
-	// {ln abs z, arg z}
-	coe* real = NumAbs(dest);
-	coe* imag = NumAng(dest);
-	CoeLog(real);
-	srs(dest->Real.coff, StrHeap(real->coff));
-	srs(dest->Real.expo, StrHeap(real->expo));
-	srs(dest->Real.divr, StrHeap(real->divr));
-	srs(dest->Imag.coff, StrHeap(imag->coff));
-	srs(dest->Imag.expo, StrHeap(imag->expo));
-	srs(dest->Imag.divr, StrHeap(imag->divr));
-	CoeDel(real);
-	CoeDel(imag);
-	return;
-}
-
-void NumExp(scalar* dest)
-{
-	// Exp(a+bi)=Exp(a)*(cos b +i*sin b)
-	CoeExp(&dest->Real);
-	coe* cospart = CoeCpy(&dest->Imag); CoeCos(cospart);
-	coe* sinpart = CoeCpy(&dest->Imag); CoeSin(sinpart);
-	srs(dest->Imag.coff, StrHeap(dest->Real.coff));
-	srs(dest->Imag.expo, StrHeap(dest->Real.expo));
-	srs(dest->Imag.divr, StrHeap(dest->Real.divr));
-	CoeMul(&dest->Real, cospart);
-	CoeMul(&dest->Imag, sinpart);
-	CoeDel(sinpart);
-	CoeDel(cospart);
-	return;
-}
-
-void NumSinh(scalar* dest)
+void NumSinh(dima* dest)
 {
 	//=(exp(z)-exp(-z))/2
-	scalar* another = NumCpy(dest);
+	dima* another = NumCpy(dest);
 	NumMul(another, &numneg);
 	NumExp(dest); NumExp(another);
 	NumSub(dest, another);
@@ -451,10 +473,10 @@ void NumSinh(scalar* dest)
 	NumDel(another);
 }
 
-void NumCosh(scalar* dest)
+void NumCosh(dima* dest)
 {
 	//=(exp(z)+exp(-z))/2
-	scalar* another = NumCpy(dest);
+	dima* another = NumCpy(dest);
 	NumMul(another, &numneg);
 	NumExp(dest); NumExp(another);
 	NumAdd(dest, another);
@@ -462,19 +484,19 @@ void NumCosh(scalar* dest)
 	NumDel(another);
 }
 
-void NumTanh(scalar* dest)
+void NumTanh(dima* dest)
 {
-	scalar* cosh_t = NumCpy(dest); NumCosh(cosh_t);
-	scalar* sinh_t = dest; NumSinh(sinh_t);
+	dima* cosh_t = NumCpy(dest); NumCosh(cosh_t);
+	dima* sinh_t = dest; NumSinh(sinh_t);
 	NumDiv(sinh_t, cosh_t);
 	NumDel(cosh_t);
 }
 
-void NumAsinh(scalar* dest)
+void NumAsinh(dima* dest)
 {
 	//  ln( z+ sqrt(z*z+1) )
-	// no check definition, TODO.
-	scalar* dd = NumCpy(dest);
+	//{TODO} checking definition.
+	dima* dd = NumCpy(dest);
 	NumMul(dd, dest); NumAdd(dd, &numone);// z*z+1
 	NumPow(dd, &numhalf);
 	NumAdd(dest, dd);
@@ -483,11 +505,12 @@ void NumAsinh(scalar* dest)
 	return;
 }
 
-void NumAcosh(scalar* dest) 
+void NumAcosh(dima* dest) 
 {
 	//  ln( z+ sqrt(z*z-1) )
-	// no check definition, TODO.
-	scalar* dd = NumCpy(dest);
+	//{TODO} checking definition.
+
+	dima* dd = NumCpy(dest);
 	NumMul(dd, dest); NumSub(dd, &numone);// z*z-1
 	NumPow(dd, &numhalf);
 	NumAdd(dest, dd);
@@ -496,69 +519,15 @@ void NumAcosh(scalar* dest)
 	return;
 }
 
-void NumAtanh(scalar* dest)
+void NumAtanh(dima* dest)
 {
 	//  ln( div( 1+z, 1-z ) )/2
-	// no check definition, TODO.
-	scalar* dd = NumCpy(dest); NumMul(dd, &numneg);
+	//{TODO} checking definition.
+	dima* dd = NumCpy(dest); NumMul(dd, &numneg);
 	NumAdd(dest, &numone); NumAdd(dd, &numone);
 	NumDiv(dest, dd);
 	NumLog(dest);
 	NumDiv(dest, &numtwo);
 	NumDel(dd);
 	return;
-}
-
-// opt: 0[auto] 1[int or float] 2[e format]
-size_t NumToString(const scalar* dest, int opt, char* buf, size_t buflen)
-{
-	size_t pos = 0;
-	char c;
-	char
-		* str1 = CoeToLocaleClassic(&dest->Real, opt),
-		* str2 = CoeToLocaleClassic(&dest->Imag, opt);
-	for (size_t i = 0; c = str1[i]; i++)
-	{
-		if (pos >= buflen) break;
-		buf[pos++] = c;
-	}
-	if (pos + 1 < buflen) buf[pos++] = ' ';
-	for (size_t i = 0; c = str2[i]; i++)
-	{
-		if (pos >= buflen) break;
-		buf[pos++] = c;
-	}
-	if (pos + 1 < buflen) buf[pos++] = 'i';
-	buf[min(pos, buflen - 1)] = 0;
-	memfree(str1);
-	memfree(str2);
-	return pos;
-}
-
-char* NumToStringAuto(const scalar* dest, int opt)
-{
-	size_t pos = 0;
-	char c;
-	char
-		* str1 = CoeToLocaleClassic(&dest->Real, opt),
-		* str2 = CoeToLocaleClassic(&dest->Imag, opt);
-	size_t alsize = StrLength(str1) + StrLength(str2) + 2 + 1 + 3;// 2 \0 and a space and 3 safety.
-	char* buf; memalloc(buf, alsize);
-	for (size_t i = 0; c = str1[i]; i++)
-	{
-		buf[pos++] = c;
-	}
-	if (dest->Imag.coff[1] != '0')
-	{
-		buf[pos++] = ' ';
-		for (size_t i = 0; c = str2[i]; i++)
-		{
-			buf[pos++] = c;
-		}
-		buf[pos++] = 'i';
-	}
-	buf[min(pos, alsize - 1)] = 0;
-	memfree(str1);
-	memfree(str2);
-	return buf;
 }

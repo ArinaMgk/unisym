@@ -1,5 +1,6 @@
 ### General
 
+- [ ] Kasha release complete x86 binary implementation for standard C99 Library (8086 to Pentium D to ...)
 - [ ] Create WIKI for each object in the UNISYM Library.
 - [ ] Printable document version: *UNISYM Structures and Algorithms*.
 - [ ] Standard C++ support
@@ -27,6 +28,9 @@
 - [ ] set error message but not call `erro`
 - [ ] Clarify the limit of `ChrPow` and others use single size_t
 - [ ] The reason for the compensation for `1000^(1/3)` not equal completely `10`
+- [ ] numar: adapt `x` `ri` `xy` `xyz` `xyzt` 
+- [ ] make it easy: you can make use of `-hs` `-bs` to make ustring.c includes h/bstring.c and change aflag disable by default, output signed by default (relative BIT into `unsigned`)
+- [ ] chrar yo bstring usually ends with `\0\0`
 
 ### Others
 

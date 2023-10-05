@@ -1,4 +1,4 @@
-// ASCII
+// ASCII C++ Header
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,19 +19,17 @@
 #ifndef ModComplexternArithCpp
 #define ModComplexternArithCpp
 #ifndef ModComplexternArith
-extern "C"
-{
+extern "C" {
 	#include <stddef.h>
+	#include "../c/cdear.h"
 	typedef struct Complextern
 	{
-		void* a; void* b; void* c; size_t d;
-		void* e; void* f; void* g; size_t h;
+		coe Real, Imag;
 	} Scalar, scalar;
 }
 #endif
 
-typedef class Number
-{
+typedef class Number {
 private:
 	;
 public:

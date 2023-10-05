@@ -45,7 +45,7 @@ coe_const(coepi, "+3141592653589793238462643383279502884197169399375105820974944
 coe_const(coe2pi, "+6283185307179586476925286766559005768394338798750211641949889185", "-63")
 coe_const(coepi_half, "+1570796326794896619231321691639751442098584699687552910487472296", "-63")
 coe_const(coepi_quarter, "+785398163397448309615660845819875721049292349843776455243736148", "-63")
-coe_const(coeln2, "+6931471806094223", "-16")
+coe_const(coeln2, "+69314718055994530941723212145817656807550013436025525412068001", "-62")// {HARD} (-1)^(i+1)/(i)
 coe_const(coeone, "+1", "+0")
 coe_const(coenegone, "-1", "+0")
 coe_const(coezero, "+0", "+0")
@@ -290,7 +290,7 @@ int CoeExpoAlign(coe* o1, coe* o2)
 	if (ChrCmp(expdif, limit) >= 0 || *expdif != '+')
 	{
 		memfree(limit); memfree(expdif);
-		// erro("CoeExpoAlign-OverLimit or -SystematicError.");
+		erro("CoeExpoAlign-OverLimit or -SystematicError.");
 		return 0;
 	}
 	size_t expdif_num = atoins(expdif);
@@ -325,6 +325,14 @@ coe* CoeCpy(const coe* obj)
 	ret->divr = StrHeap(obj->divr);
 	ret->symb = obj->symb;
 	return ret;
+}
+
+coe* CoeRst(coe* dest, char* coff, char* expo, char* divr)
+{
+	srs(dest->coff, coff);
+	srs(dest->expo, expo);
+	srs(dest->divr, divr);
+	return dest;
 }
 
 coe* CoeAdd(coe* dest, const coe* sors)
@@ -382,15 +390,19 @@ coe* CoeMul(coe* dest, const coe* sors)
 		return dest;
 	}
 	if (dest->coff[1] == '0' || sors->coff[1] == '0')// faster
-	{
-		srs(dest->coff, StrHeap("+0"));
-		srs(dest->expo, StrHeap("+0"));
-		srs(dest->divr, StrHeap("+1"));
-		return dest;
-	}
-	srs(dest->coff, ChrMul(dest->coff, sors->coff));
-	srs(dest->divr, ChrMul(dest->divr, sors->divr));
-	srs(dest->expo, ChrAdd(dest->expo, sors->expo));
+		return CoeRst(dest, StrHeap("+0"), StrHeap("+0"), StrHeap("+1"));
+	CoeRst(dest, ChrMul(dest->coff, sors->coff),
+		ChrAdd(dest->expo, sors->expo),
+		ChrMul(dest->divr, sors->divr));
+	CoeDivrAlign(dest, 0);// prior to Ctz
+	CoeCtz(dest);
+	return dest;
+}
+
+coe* CoeSquare(coe* dest)
+{
+	if (dest->divr[1] == '0') return dest;
+	CoeRst(dest, ChrMul(dest->coff, dest->coff), ChrAdd(dest->expo, dest->expo), ChrMul(dest->divr, dest->divr));
 	CoeDivrAlign(dest, 0);// prior to Ctz
 	CoeCtz(dest);
 	return dest;
@@ -403,14 +415,12 @@ coe* CoeHypot(coe* dest, const coe* sors)
 		if (dest->divr[1] != '0')srs(dest->coff, StrHeap(sors->coff));
 		return dest;
 	}
-	coe* tmpd = CoeCpy(dest);
 	coe* tmps = CoeCpy(sors);
-	CoeMul(dest, tmpd);
-	CoeMul(tmps, sors);
+	CoeSquare(dest);
+	CoeSquare(tmps);
 	CoeAdd(dest, tmps);
-	// too many check will make this slow
 	CoePow(dest, &coehalf);
-	CoeDel(tmpd); CoeDel(tmps);
+	CoeDel(tmps);
 	return dest;
 }
 
@@ -428,9 +438,9 @@ coe* CoeDiv(coe* dest, const coe* sors)
 		return dest;
 	}
 	if (dest->coff[1] == '0') return dest;
-	srs(dest->coff, ChrMul(dest->coff, sors->divr));
-	srs(dest->divr, ChrMul(dest->divr, sors->coff));
-	srs(dest->expo, ChrSub(dest->expo, sors->expo));
+	CoeRst(dest, ChrMul(dest->coff, sors->divr), 
+		ChrSub(dest->expo, sors->expo), 
+		ChrMul(dest->divr, sors->coff));
 	CoeDivrAlign(dest, 0);// prior to Ctz
 	CoeCtz(dest);
 	return dest;
@@ -460,15 +470,17 @@ coe* CoeInt(coe* dest)
 	return dest;
 }
 
-
-static const unsigned char TaylorDptr[] =
-{
-	0b10000000,// 0 exp
-	0b10010101,// 1 sin
-	0b10100001,// 2 cos yo (0,2]
-	0b01000101,// 3 ln(x+1)
-	0b01010101 // 4 arctan [-1,+1]
-};
+#define _CDETayFunc_Exp 0b10000000
+#define _CDETayFunc_Sin 0b10010101
+#define _CDETayFunc_Cos 0b10100001// cos yo (0,2]
+#define _CDETayFunc_Log 0b01000101// ln(x+1)
+#define _CDETayFunc_Atn 0b01010101// arctan [-1,+1]
+//
+#define _CDETayDptr_DivType(x) ((0b11000000&(x))>>6)
+#define _CDETayDptr_PowType(x) ((0b00110000&(x))>>4)
+#define _CDETayDptr_PoStart(x) ((0b00001100&(x))>>2)
+#define _CDETayDptr_PowSign(x) ((0b00000010&(x))>>1)// [bit]
+#define _CDETayDptr_SignTog(x) (0b00000001&(x))// [bit]
 // Taylors is writen by Haruno RFR.
 //MSB[Divr 00:1 01:n 10:n! 11:n*n]
 //   [00:All 01:OnlyOdd 10: OnlyEven]
@@ -478,7 +490,10 @@ static const unsigned char TaylorDptr[] =
 static coe* CoeTaylor(coe* dest, unsigned char dptor, const coe* period, size_t digcut)
 {
 	if (dest->divr[1] == '0') return dest;
-	char* tmp;
+	if (dest->coff[1] == '0' && !(_CDETayDptr_PoStart(dptor)))// {TEMP} for exp() dpot(0)
+	{
+		return CoeRst(dest, StrHeap("+1"), StrHeap("+0"), StrHeap("+1"));// coeone
+	}
 	// [0~period{>0}). id period is not NULL
 	// recommand digcut 4
 	if (show_precise >= malc_limit)
@@ -496,14 +511,13 @@ static coe* CoeTaylor(coe* dest, unsigned char dptor, const coe* period, size_t 
 		while (CoeCmp(crt, period) >= 0)
 			CoeSub(crt, period);
 	}
-	coe* CrtPow = CoeNew(tmp = instoa((0b00001100 & dptor) >> 2), "+0", "+1");
-	memfree(tmp);
+	coe* CrtPow = CoeFromInteger(_CDETayDptr_PoStart(dptor));
 	boolean sign = (crt->coff[0] == '-');
-	boolean signcrt = ((0b00000010 & dptor) >> 1);// ^ sign
-	boolean signshock = (0b00000001 & dptor);
-	enum { all_ = 0, only_odd, only_even, none_ } powtype = (0b00110000 & dptor) >> 4;
+	boolean signcrt = _CDETayDptr_PowSign(dptor);// ^ sign
+	boolean signshock = _CDETayDptr_SignTog(dptor);
+	enum { all_ = 0, only_odd, only_even, none_ } powtype = _CDETayDptr_PowType(dptor);
 	if (powtype == none_) goto endo;
-	enum { one_, n_, nf_, nn_ } divtype = (0b11000000 & dptor) >> 6;
+	enum { one_, n_, nf_, nn_ } divtype = _CDETayDptr_DivType(dptor);
 	if (divtype == nn_) goto endo;// do not support NOW.
 	coe* result;
 	coe* plus;
@@ -539,6 +553,10 @@ static coe* CoeTaylor(coe* dest, unsigned char dptor, const coe* period, size_t 
 			// coe* test_precise = CoeCpy(result);
 			// CoeDiv(test_precise, plus);
 			if (signcrt) plus->coff[0] = (plus->coff[0] == '-' ? '+' : '-');
+			if (StrLength(plus->coff) > malc_limit / 2)
+			{
+				CoeDig(plus, malc_limit / 2, 0);
+			}
 			CoeAdd(result, plus);
 			CoeDivrUnit(result, show_precise + 1);
 			conti = ((++i < lup_times) || StrCompareN(result->coff, ori, show_precise + 1)) && (i < lup_limit);
@@ -555,14 +573,36 @@ static coe* CoeTaylor(coe* dest, unsigned char dptor, const coe* period, size_t 
 		}
 		CoeDel(plus);
 	} while (conti);
+	if (i >= lup_limit) switch (dptor)
+	{
+	case _CDETayFunc_Exp:
+		CoeDel(result);
+		result = CoeFromDouble(exp(CoeToDouble(crt)));
+		break;
+	case _CDETayFunc_Log:
+		CoeDel(result);
+		result = CoeFromDouble(log(1 + CoeToDouble(crt)));
+		break;
+	case _CDETayFunc_Sin:
+		CoeDel(result);
+		result = CoeFromDouble(sin(CoeToDouble(crt)));
+		break;
+	case _CDETayFunc_Cos:
+		CoeDel(result);
+		result = CoeFromDouble(cos(CoeToDouble(crt)));
+		break;
+	case _CDETayFunc_Atn:
+		CoeDel(result);
+		result = CoeFromDouble(atan(CoeToDouble(crt)));
+		break;
+	default: break;
+	}
 	if (StrLength(result->coff) > show_precise + 1) CoeDig(result, show_precise, 2);// nearest
 	CoeDel(diver);
 endo:
 	CoeDel(CrtPow);
 	CoeDel(crt);
-	srs(dest->coff, StrHeap(result->coff));
-	srs(dest->expo, StrHeap(result->expo));
-	srs(dest->divr, StrHeap(result->divr));
+	CoeRst(dest, StrHeap(result->coff), StrHeap(result->expo), StrHeap(result->divr));
 	CoeDel(result);
 	return dest;
 }
@@ -574,29 +614,29 @@ coe* CoePow(coe* dest, const coe* sors)
 		if (dest->divr[1] != '0')srs(dest->coff, StrHeap(sors->coff));
 		return dest;
 	}
+	if (dest->coff[1] == '0')
+	{
+		int zo_nan = sors->coff[1] == '0';
+		return CoeRst(dest, StrHeap(zo_nan ? coenan.coff : "+0"), StrHeap(zo_nan ? coenan.expo : "+0"), StrHeap(zo_nan ? coenan.divr : "+1"));
+	}
+	if (sors->coff[1] == '0')
+		return CoeRst(dest, StrHeap("+1"), StrHeap("+0"), StrHeap("+1"));// coeone
 	if (*sors->coff == '+' && *sors->expo == '+' && !StrCompare(sors->divr, "+1"))
 	{
-		if (sors->coff[1] == '0')
-		{
-			srs(dest->coff, StrHeap("+1"));
-			srs(dest->expo, StrHeap("+0"));
-			srs(dest->divr, StrHeap("+1"));
-			return dest;
-		}
 		coe* CrtExp = CoeCpy(sors);
 		coe* ret = CoeCpy(dest);// attention! the char* will be free, so use this but "coe ret;" in stack
 		CoeSub(CrtExp, &coeone);
 		while (CoeCmp(CrtExp, &coezero) > 0)
 		{
+			size_t retlen = StrLength(ret->coff);
+			if (StrLength(dest->coff) + retlen + 4 > malc_limit)CoeDig(ret, malc_limit - 4 - retlen, 2);// Haruno fix RFC04: 4 is random magika number
 			CoeMul(ret, dest);
 			CoeSub(CrtExp, &coeone);
 			// void CoePrint(coe * co); CoePrint(ret); CoePrint(dest);
 			// srs(CrtExp, ChrSub(CrtExp, "+1"));
 		}
 		CoeDel(CrtExp);
-		srs(dest->coff, StrHeap(ret->coff));
-		srs(dest->expo, StrHeap(ret->expo));
-		srs(dest->divr, StrHeap(ret->divr));
+		CoeRst(dest, StrHeap(ret->coff), StrHeap(ret->expo), StrHeap(ret->divr));
 		CoeDel(ret);
 	}
 	else
@@ -613,14 +653,29 @@ coe* CoePow(coe* dest, const coe* sors)
 	return dest;
 }
 
+coe* CoeSqrt(coe* dest)// RFC02 Haruno
+{
+	int sign = 0;
+	if (dest->divr[1] == '0') return dest;
+	if (dest->coff[1] == '0') return dest;
+	if (dest->coff[0] == '-')
+	{
+		sign = 1;
+		dest->coff[0] = '+';
+	}
+	CoePow(dest, &coehalf);
+	if (sign) dest->coff[0] = '-';
+	return dest;
+}
+
 coe* CoeSin(coe* dest)
 {
-	return CoeTaylor(dest, TaylorDptr[1], &coe2pi, _DIG_CUT);
+	return CoeTaylor(dest, _CDETayFunc_Sin , &coe2pi, _DIG_CUT);
 }
 
 coe* CoeCos(coe* dest)
 {
-	return CoeTaylor(dest, TaylorDptr[2], &coe2pi, _DIG_CUT);
+	return CoeTaylor(dest, _CDETayFunc_Cos, &coe2pi, _DIG_CUT);
 }
 
 // NOW use indirectly method
@@ -640,9 +695,7 @@ coe* CoeTan(coe* dest)
 		return dest;
 	}
 	val_sin = CoeDiv(val_sin, val_cos);
-	srs(dest->coff, StrHeap(val_sin->coff));
-	srs(dest->expo, StrHeap(val_sin->expo));
-	srs(dest->divr, StrHeap(val_sin->divr));
+	CoeRst(dest, StrHeap(val_sin->coff), StrHeap(val_sin->expo), StrHeap(val_sin->divr));
 	CoeDel(val_sin);
 	CoeDel(val_cos);
 	return dest;
@@ -723,9 +776,7 @@ coe* CoeAsin(coe* dest)
 	CoeDel(diver_powfour);
 	CoeDel(diver_powfacn);
 	CoeDel(muler_fac2n);
-	srs(dest->coff, StrHeap(result->coff));
-	srs(dest->expo, StrHeap(result->expo));
-	srs(dest->divr, StrHeap(result->divr));
+	CoeRst(dest, StrHeap(result->coff), StrHeap(result->expo), StrHeap(result->divr));
 	CoeDel(result);
 	return dest;
 }
@@ -735,15 +786,9 @@ coe* CoeAcos(coe* dest)
 {
 	if (dest->divr[1] == '0') return dest;
 	// pi/2 - CoeAsin this
-	coe* _coepi_half = CoeCpy(&coepi_half);
-	dest = CoeAsin(dest);
-	CoeDivrUnit(dest, show_precise + 1);
-	CoeDivrUnit(_coepi_half, show_precise + 1);
-	_coepi_half = CoeSub(_coepi_half, dest);
-	srs(dest->coff, StrHeap(_coepi_half->coff));
-	srs(dest->expo, StrHeap(_coepi_half->expo));
-	srs(dest->divr, StrHeap(_coepi_half->divr));
-	CoeDel(_coepi_half);
+	CoeAsin(dest);
+	CoeNeg(dest);
+	CoeAdd(dest, &coepi_half);
 	return dest;
 }
 
@@ -769,10 +814,7 @@ coe* CoeAtan(coe* dest)
 	}
 	else if ((state = CoeCmp(dest, &coeone)) == 0)
 	{
-		// *dest = coepi_quarter;
-		srs(dest->coff, StrHeap(coepi_quarter.coff));
-		srs(dest->expo, StrHeap(coepi_quarter.expo));
-		srs(dest->divr, StrHeap(coepi_quarter.divr));
+		CoeRst(dest, StrHeap(coepi_quarter.coff), StrHeap(coepi_quarter.expo), StrHeap(coepi_quarter.divr));
 		CoeDig(dest, show_precise, 2);
 	}
 	else if (state == 1)
@@ -783,37 +825,14 @@ coe* CoeAtan(coe* dest)
 		CoeDiv(a, b);
 		CoeAtan(a);
 		CoeAdd(a, &coepi_quarter);
-		srs(dest->coff, StrHeap(a->coff));
-		srs(dest->expo, StrHeap(a->expo));
-		srs(dest->divr, StrHeap(a->divr));
+		CoeRst(dest, StrHeap(a->coff), StrHeap(a->expo), StrHeap(a->divr));
 		CoeDel(a); CoeDel(b);
 		// atan(A)=atan(1/(1+A*(A-1)))+atan(A-1)
 	}
 	else
 	{
-		// CoeDivrUnit(dest, show_precise + 4);
-		//if (CoeCmp(dest, &coehalf) == 1)
-		//{
-		//	// tan(a) = 2*tan(a/2)/(1-tan(a/2)*tan(a/2))
-		//	// atan atan tan a = ...
-		//	CoeDiv(dest, &coetwo);
-		//	CoeAtan(dest);
-		//	coe* a = CoeCpy(dest); CoeMul(a, &coetwo);
-		//	coe* b = CoeCpy(dest); CoeMul(b, dest);
-		//	*b->coff = *b->coff == '+' ? '-' : '+';
-		//	CoeAdd(b, &coeone);
-		//	CoeDiv(a, b);
-		//	CoeAtan(a);
-		//	CoeAtan(a);
-		//	srs(dest->coff, StrHeap(a->coff));
-		//	srs(dest->expo, StrHeap(a->expo));
-		//	srs(dest->divr, StrHeap(a->divr));
-		//	CoeDel(a); CoeDel(b);
-		//}
-		//else
-		//CoeDivrUnit(dest, show_precise + 4);
-		//CoeDig(dest, show_precise + 4, 2);
-		CoeTaylor(dest, TaylorDptr[4], 0, _DIG_CUT);
+		// tan(a) = 2*tan(a/2)/(1-tan(a/2)*tan(a/2)) ?
+		CoeTaylor(dest, _CDETayFunc_Atn, 0, _DIG_CUT);
 	}
 	return dest;
 }
@@ -838,14 +857,12 @@ coe* CoeLog(coe* dest)// ln, log`e()
 	}
 	if (CoeCmp(dest, &coetwo) == 0)
 	{
-		srs(dest->coff, StrHeap(coeln2.coff));
-		srs(dest->expo, StrHeap(coeln2.expo));
-		srs(dest->divr, StrHeap(coeln2.divr));
+		CoeRst(dest, StrHeap(coeln2.coff), StrHeap(coeln2.expo), StrHeap(coeln2.divr));
 	}
 	else
 	{
 		dest = CoeSub(dest, &coeone);
-		CoeTaylor(dest, TaylorDptr[3], 0, _DIG_CUT);
+		CoeTaylor(dest, _CDETayFunc_Log, 0, _DIG_CUT);
 	}
 	while (subtimes--)
 	{
@@ -861,7 +878,7 @@ int CoeSgn(const coe* dest)
 
 coe* CoeExp(coe* dest)// e
 {
-	CoeTaylor(dest, TaylorDptr[0], 0, _DIG_CUT);
+	CoeTaylor(dest, _CDETayFunc_Exp, 0, _DIG_CUT);
 	return dest;
 }
 
@@ -887,11 +904,10 @@ coe* CoePi()
 
 	// take use of ARCTAN
 	coe* conum = CoeCpy(&coeone);
-	CoeAtan(conum);
-	// CoeTaylor(conum, TaylorDptr[4], 0, _DIG_CUT);
+	CoeAtan(conum);// CoeTaylor(conum, TaylorDptr[4], 0, _DIG_CUT);
 	CoeMul(conum, &coetwo);
 	CoeMul(conum, &coetwo);
-	// CoeDig(conum, show_precise, 2);
+	CoeDig(conum, show_precise, 2);
 	return conum;
 
 }
@@ -944,9 +960,7 @@ coe* CoeAsinh(coe* dest)
 	if (dest->divr[1] == '0') return dest;
 	double d = CoeToDouble(dest);
 	coe* res = CoeFromDouble(asinh(d));
-	srs(dest->coff, StrHeap(res->coff));
-	srs(dest->expo, StrHeap(res->expo));
-	srs(dest->divr, StrHeap(res->divr));
+	CoeRst(dest, StrHeap(res->coff), StrHeap(res->expo), StrHeap(res->divr));
 	CoeDel(res);
 	return dest;
 }
@@ -963,9 +977,7 @@ coe* CoeAcosh(coe* dest)
 		return dest;
 	}
 	coe* res = CoeFromDouble(acosh(d));
-	srs(dest->coff, StrHeap(res->coff));
-	srs(dest->expo, StrHeap(res->expo));
-	srs(dest->divr, StrHeap(res->divr));
+	CoeRst(dest, StrHeap(res->coff), StrHeap(res->expo), StrHeap(res->divr));
 	CoeDel(res);
 	return dest;
 }
@@ -980,9 +992,7 @@ coe* CoeAtanh(coe* dest)
 		return dest;
 	}
 	coe* res = CoeFromDouble(atanh(d));
-	srs(dest->coff, StrHeap(res->coff));
-	srs(dest->expo, StrHeap(res->expo));
-	srs(dest->divr, StrHeap(res->divr));
+	CoeRst(dest, StrHeap(res->coff), StrHeap(res->expo), StrHeap(res->divr));
 	CoeDel(res);
 	return dest;
 }
@@ -1200,6 +1210,15 @@ double CoeToDouble(const coe* dest)
 	if (*ddd->coff == '-')ll *= -1;
 	CoeDel(ddd);
 	return ll;
+}
+
+coe* CoeFromInteger(ptrdiff_t integ)
+{
+	coe* res = zalcof(coe);
+	res->coff = instoa(integ);
+	res->expo = StrHeap("+0");
+	res->divr = StrHeap("+1");
+	return res;
 }
 
 coe* CoeFromDouble(double flt)

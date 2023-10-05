@@ -829,6 +829,7 @@ char* ChrMul(const char* a, const char* b)
 		///malc_occupy = 0;
 		aflag.Failure = 1;
 		call_state = 1;
+		//{TODO} convert to precise-cut
 		return 0;
 	}
 	#else
@@ -1286,7 +1287,8 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			if (strtok == c)// exit
 			{
 				CrtTType = tok_string;
-				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);// including terminated-symbol
+				buffer[CrtTLen] = 0;
+				crt = StrTokenAppend(crt, buffer, CrtTLen + 1, CrtTType, crtline, crtcol);// including terminated-symbol
 				bufptr = buffer;
 				YoString = 0;
 				CrtTLen = 0;
@@ -1591,7 +1593,7 @@ static size_t StrTokenAll_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_
 	crtcol--, seekback(-1);
 	while ((crtcol++, c = getnext()) != EOF)
 	{
-		if (StrIndexChar("bodx", c))
+		if (StrIndexChar("bodxij", c))// 'i' and 'j' for imagine, appended Haruno RFC05
 			if (OnceO.bodx)
 				break;
 			else

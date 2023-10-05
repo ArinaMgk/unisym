@@ -78,14 +78,14 @@ typedef enum TokType
 {
 	tok_EOF = 0,// -1 or 0
 	tok_any,
-	tok_string,// "Hallo"
 	tok_comment,// //
 	tok_directive,// #include
-	tok_number,// 1
 	tok_sym,// +-*/
-	tok_iden,// identifier
 	tok_space,// ' ' or \t or excluding new-line
-	tok_else,
+	tok_else,// above are usually not the entity
+	tok_iden,// identifier
+	tok_string,// "Hallo"
+	tok_number,// 1
 } TokType, toktype;// the counts should not be greater than 15.
 
 typedef struct TokenNode
@@ -532,6 +532,8 @@ void StrFilterOut(char* p, char c);
 void StrFilter(char* p, enum TokType tt);//TODO. no considering new-line
 void StrFilterString(char* p, const char* needs);
 void StrFilterOutString(char* p, const char* neednot);
+size_t StrDeprefixSpaces(char* str);
+size_t StrDesuffixSpaces(char* str);
 
 static inline char* StrTokenOnce(char* s1, const char* s2)
 {
@@ -551,6 +553,13 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 	_ModString_StrTokenOnce = 0;
 	return (char*)s2;
 }
+
+// // ---- ---- ---- sorting ---- ---- ---- // //
+
+// RFV30 GHC. Param:order[0:little>big 1:big>little]
+void StrSortBubble(char* str, int order);
+
+// // ---- ---- ----   ---- ---- ---- // //
 
 #define StrSubWithdraw(posi_start,len)\
 	MemRelative((posi_start), StrLength(posi_start) + 1, -(ptrdiff_t)(len))

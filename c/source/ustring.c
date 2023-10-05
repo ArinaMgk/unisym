@@ -77,9 +77,51 @@ void StrFilterOutString(char* p, const char* neednot)
 			*q++ = c;
 	*q = 0;
 }
+
+size_t StrDeprefixSpaces(char* str)// Base on ChrCpz RFV30
+{
+	size_t siz = StrLength(str);
+	ptrdiff_t num = 0;
+	char c;
+	while ((c = str[num]) && isspace(c)) num++;
+	if (!num) return 0;
+	else MemRelative(str + num, siz - num + 1, -num);
+	return num;
+}
+
+size_t StrDesuffixSpaces(char* str)// Base on ChrCtz RFV30
+{
+	size_t coflen = 0,
+		num = 0;
+	while (str[coflen]) coflen++;
+	while (isspace(str[coflen - num - 1])) num++;
+	str[coflen - num] = 0;
+	return num;
+}
+
 #endif
 
-//---- ---- ---- ---- ChrAr ---- ---- ---- ----
+// // ---- ---- ---- sorting ---- ---- ---- // //
+
+void StrSortBubble(char* str, int order)
+{
+	size_t len = StrLength(str);
+	char tmp;
+	for (size_t i = 0; i < len; i++)
+	{
+		for (size_t j = i + 1; j < len; j++)
+		{
+			if (order ? str[i] < str[j] : str[i] > str[j])
+			{
+				tmp = str[i];
+				str[i] = str[j];
+				str[j] = tmp;
+			}
+		}
+	}
+}
+
+// // ---- ---- ----   ---- ---- ---- // //
 
 size_t size_dec = 0; void size_dec_get()
 {
@@ -93,14 +135,14 @@ size_t size_dec = 0; void size_dec_get()
 
 char* instob(ptrdiff_t num, char* buf)
 {
-	#ifndef _ARN_FLAG_DISABLE
+	#ifdef _ARN_FLAG_ENABLE
 	size_t numlen = aflag.Signed + 1;
 	#else
 	size_t numlen = 2;
 	#endif
 	size_t numslv = num > 0 ? num : -num;
 	AddDecimalDigitsLen(numlen, numslv);
-	#ifndef _ARN_FLAG_DISABLE
+	#ifdef _ARN_FLAG_ENABLE
 	if (malc_limit < numlen || malc_limit < (unsigned)3 - !arna_eflag.Signed || !buf)
 	{
 		///malc_occupy = 0;
@@ -111,7 +153,7 @@ char* instob(ptrdiff_t num, char* buf)
 	#endif
 	//
 	char* p = buf + numlen - 2;
-	#ifndef _ARN_FLAG_DISABLE
+	#ifdef _ARN_FLAG_ENABLE
 	if (aflag.Signed)
 	#endif
 		*buf = num < 0 ? '-' : '+';
@@ -122,7 +164,7 @@ char* instob(ptrdiff_t num, char* buf)
 		*p-- = (numslv % 10) + '0';
 		numslv /= 10;
 	} while (numslv);
-	#ifndef _ARN_FLAG_DISABLE
+	#ifdef _ARN_FLAG_ENABLE
 	aflag.PrecLoss = 0;
 	aflag.Failure = 0;
 	aflag.Sign = num < 0;
@@ -149,6 +191,8 @@ ptrdiff_t atoins(const char* str)
 	///if (*ptr <= '9' && *ptr >= '0') ...
 	return sign ? -inst : inst;
 }
+
+//---- ---- ---- ---- ChrAr ---- ---- ---- ----
 
 // Clear prefix zeros of hexa. E.g. "00012500" >>> "12500", "-00" >>> "-0"
 // No need to make a specific buffer-version

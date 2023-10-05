@@ -16,5 +16,8 @@ detail in *Herinote*/CLOVER/covenant.
 
 ### Naming Rules
 
-
+- `number`: C++ style
+- `Number`: Java style
+- `number_t`: C style
+- `NUMBER`: Classic style
 

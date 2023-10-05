@@ -4,6 +4,8 @@
 
 The project is open-sourced under license of *Apache 2.0*. If you copy the code and used for the public or commercial, please **stipulate your copying from UNISYM led by<font color="purple"> ArinaMgk </font> **. All the code is by hands, without copying anyone including artificial intelligence, so these big changes and mistakes in codes may be forgiven .
 
+The project is always non-political and non-economic.
+
 - CATALOG: models (modules);
 - INDEX: symbols;
 - SECURITY: rule of using, participating and updating;

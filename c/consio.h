@@ -58,14 +58,15 @@ static inline void ConCursorReset(void)
 	printf("\033[H");
 }
 
-#if defined(_Linux)
+
+#if defined(_WinNT)
+void ConCursor(unsigned short col, unsigned short row);
+#else// defined(_Linux)
 //
 static inline void ConCursor(unsigned short col, unsigned short row)
 {
 	printf("\033[%hd;%hdH", col, row);
 }
-#elif defined(_WinNT)
-static inline void ConCursor(unsigned short col, unsigned short row);
 #endif
 
 
@@ -76,10 +77,16 @@ static inline void ConCursorShow(void)
 }
 
 //
+#if defined(_WinNT)
+void ConClear(void);
+#else// defined(_Linux)
+//
 static inline void ConClear(void)
 {
 	printf("\033[2J");
 }
+#endif
+
 
 //
 static inline void ConCursorHide(void)
@@ -88,18 +95,20 @@ static inline void ConCursorHide(void)
 }
 
 #if defined(_Linux)
-//
+// The style is for the brush
 static inline void ConStyleAbnormal(void)
 {
 	printf("\033[7m");
 }
-//
+// The style is for the brush
 static inline void ConStyleNormal(void)
 {
 	printf("\033[27m");
 }
 #elif defined(_WinNT)
+// The style is for the brush
 void ConStyleAbnormal(void);
+// The style is for the brush
 void ConStyleNormal(void);
 #endif
 

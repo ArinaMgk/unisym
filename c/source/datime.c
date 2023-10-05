@@ -33,9 +33,29 @@ unsigned GetMoexDayIdentity(word year, word month, byte* weekday, byte* moondays
 	if (isLeapYear(year)) MoonDays[2] = 29;
 	while (crtmoon < month)
 		PastDays += MoonDays[crtmoon++];
-	if (weekday) *weekday = (PastDays - 2 + 1) % 7;// increase for the first day of the month
-	// 20131229 is Sunday(0)
+	if (weekday) *weekday = (PastDays - 1) % 7;// increase for the first day of the month
+	// 20131229 is Sunday(0) PastDays(1)
 	if (moondays) *moondays = MoonDays[month];
-	return PastDays;// how many days between the first day of the month 00:00 from hday 23:59
+	return PastDays;// [excluded hday] how many days between the first day of the month 00:00 from hday 23:59
 }
+
+unsigned DatimeCalendar(word year, word month, byte* weekday, byte* moondays)// Haruno RFC01.00:00: Decide to not merge with GetMoexDayIdentity(), and this function can be compatile with any case.
+{
+	if (year >= 2014)return GetMoexDayIdentity(year, month, weekday, moondays);
+	byte MoonDays[13] = { 0,0X1F,0x1C,0x1F,0x1E,0x1F,0x1E,0x1F,0x1F,0x1E,0x1F,0x1E,27 };// 27 can for 2013 and earlier
+	// E.g. 2023 Jan: Jan~Nov + 27
+	// E.g. 2022 Dec: 2022.Dec + Jan~Nov + 27 == Jan~Dec + 27 
+	unsigned SpanDays = 0;// [included hday] how many days between the first day of the month 00:00 until hday 23:59
+	word crtyear = year;
+	if (!month || month > 12)return 0;
+	if (isLeapYear(year) && month <= 2) MoonDays[2] = 29;
+	while (crtyear++ < 2013)
+		SpanDays += isLeapYear(crtyear) ? 366 : 365;
+	for (unsigned i = month; i <= 12; i++)
+		SpanDays += MoonDays[i];
+	if (weekday) *weekday = 6 - ((SpanDays) % 7);
+	if (moondays) *moondays = month == 12 ? 31 : MoonDays[month];
+	return SpanDays;
+}
+
 

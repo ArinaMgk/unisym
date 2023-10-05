@@ -15,28 +15,21 @@
 	limitations under the License.
 */
 // Previous name "NumAr.cpp", which has same .obj name with "NumAr.c", which is in the same linkage list.
-// number: C++ style
-// Number: Java style
-// NUMBER: Old style
-
-#pragma source numar.c//{TODO}
 
 extern "C"
 {
 	#include <stddef.h>
 	#include <stdlib.h>
-	#include "../../ustring.h"
-	#include "../../cdear.h"
-	#include "../../NumAr.h"
-	#include "../../aldbg.h"
+	#include "../../c/ustring.h"
+	
+	#include "../../c/numar.h"
 }
 #include <iostream>
 #include "../../number"
 
 static const coe numone = { (char*)"+1", (char*)"+1", (char*)"+0" };
 
-Number::Number(int a)
-{
+Number::Number(int a) {
 	char* str;
 	scalar* sca = NumNew(str = instoa(a), "+0", "+1", "+0", "+0", "+1");
 	content = *sca;

@@ -19,13 +19,8 @@
 #include "../consio.h"
 #if defined(_WinNT)
 #include <windows.h>
+#include <stdlib.h>
 static HANDLE ConHandle = { 0 };
-void ConCursor(unsigned short col, unsigned short row)
-{
-	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-	COORD pos = { col,row };
-	SetConsoleCursorPosition(ConHandle, pos);
-}
 
 void ConCursorMoveRight(unsigned short dif)
 {
@@ -33,6 +28,18 @@ void ConCursorMoveRight(unsigned short dif)
 	CONSOLE_SCREEN_BUFFER_INFO ConInfo;
 	GetConsoleScreenBufferInfo(ConHandle, &ConInfo);
 	ConCursor(ConInfo.dwCursorPosition.X + dif, ConInfo.dwCursorPosition.Y);
+}
+
+void ConCursor(unsigned short col, unsigned short row)
+{
+	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	COORD pos = { col,row };
+	SetConsoleCursorPosition(ConHandle, pos);
+}
+
+void ConClear(void)
+{
+	system("cls");
 }
 
 void ConStyleAbnormal(void)

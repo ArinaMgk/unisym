@@ -71,7 +71,7 @@ static inline int CoeIsINF(const coe* co)
 // Initial and set the necessary system structure.
 void CoeInit();
 
-// Reset the length of the digits. If the real precise is less, zero will be moved at the end of coff from expo; if more, will cut.
+// Reset the length of the digits. If the real precise is less, zero will be moved at the end of coff from expo; if more, will cut. Param:direction[???forget]
 void CoeDig(coe* obj, size_t digits, int direction);
 
 // Cut trailing zeros of coff and append to expo. This is usually used at the end of the operation, so some adaptation is done here. 
@@ -88,6 +88,15 @@ coe* CoeNew(const char* coff, const char* expo, const char* divr);
 void CoeDel(coe* elm);
 
 coe* CoeCpy(const coe* obj);
+// Coe Version Of StrReheapStr
+coe* CoeRst(coe* dest, char* coff, char* expo, char* divr);
+
+inline static coe* CoeNeg(coe* dest)
+{
+	if (dest->coff[1] == '0')dest->coff[0] = '+';
+	else dest->coff[0] = dest->coff[0] == '+' ? '-' : '+';
+	return dest;
+}
 
 #define CdeAdd CoeAdd
 coe* CoeAdd(coe* dest, const coe* sors);
@@ -99,6 +108,8 @@ int CoeCmp(const coe* o1, const coe* o2);
 
 #define CdeMul CoeMul
 coe* CoeMul(coe* dest, const coe* sors);
+
+coe* CoeSquare(coe* dest);
 
 coe* CoeHypot(coe* dest, const coe* sors);
 
@@ -113,8 +124,8 @@ coe* CoeDiv(coe* dest, const coe* sors);
 coe* CoeInt(coe* dest);
 
 coe* CoePow(coe* dest, const coe* sors);
-
-// CoeSqrt
+// Signed Square Root. Return a negative if dest is negative, otherwise a positive.
+coe* CoeSqrt(coe* dest);
 
 // CoeCbrt
 
@@ -167,6 +178,8 @@ coe* CoeFromLocale(const char* str);
 
 #define CdeToDouble CoeToDouble
 double CoeToDouble(const coe* dest);
+
+coe* CoeFromInteger(ptrdiff_t integ);
 
 #define CdeFromDouble CoeFromDouble
 coe* CoeFromDouble(double flt);

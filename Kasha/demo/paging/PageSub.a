@@ -1,0 +1,54 @@
+;Char UTF-8, Derived from TaskSub_RFQ19x.a RFQ22,27
+[BITS 32]
+%include "debug.a"
+%include "demos.a"
+%include "osdev.a"
+Dem2Prog entry,CODE,CodeEnd,256,DATA,DataEnd,RONL,RonlEnd
+CallGate EQU 8*4+3
+APIEndo:
+[SECTION CODE ALIGN=16 VSTART=0]
+entry:
+	MOV AX,FS
+	MOV WORD[Rot+4],CallGate
+
+	MOV ESI,buf
+	CpuGetBrand
+
+	MOV EAX,DS
+	MOV EBX,GS
+	MOV GS,EAX
+	MOV DS,EBX
+	MOV ESI,str0
+	MOV DH,7
+	MOV EAX,1
+	CALL FAR [GS:Rot]
+
+	MOV EAX,DS
+	MOV EBX,GS
+	MOV GS,EAX
+	MOV DS,EBX
+	MOV ESI,buf
+	MOV EAX,1
+	CALL FAR [Rot]
+
+	MOV EAX,DS
+	MOV EBX,GS
+	MOV GS,EAX
+	MOV DS,EBX
+	MOV ESI,str
+	MOV DH,0x70
+	MOV EAX,1
+	CALL FAR [GS:Rot]
+
+	XOR EAX,EAX
+	CALL FAR [GS:Rot]
+CodeEnd:
+[SECTION DATA ALIGN=16 VSTART=0]
+buf: times 0x30 db 0
+Rot: dd 0,0
+DataEnd:
+[SECTION RONL ALIGN=16 VSTART=0]
+str0: db " CPUInfo : ",0
+str: db 0X0D,0X0A," Hello,world!",0x0D,0x0A,0
+RonlEnd:
+Enddf

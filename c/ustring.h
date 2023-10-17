@@ -17,7 +17,7 @@
 	limitations under the License.
 */
 /* Component
-* node-family{node, dnode, tnode, nnode}
+* node-family{xnode[a] > nnode[8] > anode=tnode[6] > inode[5] > dnode[4] > node[2]}
 * common heap operations
 * strpool
 * Buf-special part
@@ -44,9 +44,6 @@ struct ArinaeFlag
 		Dbg : 1;// <IN> kept for the future
 };extern struct ArinaeFlag arna_eflag;
 #define aflag arna_eflag
-
-//UNISYM xnode[a] > tenar=tnode[8] > nnode[6] > dnode[4] > node[2] //
-//  other nodes: inode (origined from dnode);
 
 //single-direction simple node
 typedef struct Node
@@ -104,19 +101,30 @@ typedef struct TreeNode
 	// no use of union for grace view of debug
 	struct TreeNode* left;
 	char* addr;
-	size_t class;
+	size_t class;//{TODO: type} avoid C++ keyword 'class'
 	struct TreeNode* right;
 	size_t row, col;
 	//
 	struct TreeNode* subf;// sub-first-item
 	union { void* bind; size_t flag; };
-} Nesnode, nnode;// recommand using nnode. measures pointer[8]
+} Nesnode, nnode;
+
+typedef struct ArrayNode
+{
+	struct ArrayNode* left;
+	void* data;
+	size_t type;
+	struct ArrayNode* next;
+	struct ArrayNode* subfirst;
+	struct ArrayNode* parent;
+} anode;
+// Difference: ANode has address of its parent.
 
 typedef struct ArnOldStyleNode
 {
 	struct ArnOldStyleNode* left;
 	char* addr;
-	size_t class;
+	size_t type;
 	struct ArnOldStyleNode* right;
 	size_t row, col;
 	//
@@ -259,7 +267,7 @@ typedef struct ArnOldStyleNode
 		return ptr;
 	}
 	char* StrHeap(const char* valit_str);
-	void* MemHeap(const void* sors, size_t byteof);
+	void* MemHeap(const void* sors, size_t bytelen);
 	char* StrHeapN(const char* valit_str, size_t strlen);
 	char* StrHeapAppend(const char* dest, const char* sors);
 	char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
@@ -397,10 +405,22 @@ static inline int StrCompare(const char* a, const char* b)
 	while (!(tmp = (*a - *b)) && *a++ && *b++); return tmp;
 }
 
+static inline int StrCompareInsensitive(const char* a, const char* b)// RFC12
+{
+	int tmp = 0;
+	while (!(tmp = (ascii_tolower(*a) - ascii_tolower(*b))) && *a++ && *b++); return tmp;
+}
+
 static inline int StrCompareN(const char* a, const char* b, size_t n)
 {
-	int tmp; tmp = 0;// MSVC' red tape
+	int tmp;
 	while (n && !(tmp = (*a - *b)) && *a++ && *b++) n--; return tmp;
+}
+
+static inline int StrCompareNInsensitive(const char* a, const char* b, size_t n)// RFC12
+{
+	int tmp;
+	while (n && !(tmp = (ascii_tolower(*a) - ascii_tolower(*b))) && *a++ && *b++) n--; return tmp;
 }
 
 // RFV12 Updated.
@@ -554,10 +574,26 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 	return (char*)s2;
 }
 
-// // ---- ---- ---- sorting ---- ---- ---- // //
+// // ---- ---- ---- set and sorting ---- ---- ---- // //
 
 // RFV30 GHC. Param:order[0:little>big 1:big>little]
 void StrSortBubble(char* str, int order);
+
+// RFC12
+static inline char* StrToLower(char* str)
+{
+	char* p = str;
+	while(*p) { *p = ascii_tolower(*p); p++; }
+	return str;
+}
+
+// RFC12
+static inline char* StrToUpper(char* str)
+{
+	char* p = str;
+	while (*p) { *p = ascii_toupper(*p); p++; }
+	return str;
+}
 
 // // ---- ---- ----   ---- ---- ---- // //
 

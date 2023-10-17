@@ -50,6 +50,13 @@
 	OR EDX,ECX; PROPERTY
 %endmacro
 
+%imacro GDTDptrAppend 0-2 0,0
+ MOV DWORD[EBX],%2;
+ ADD EBX,0X04;
+ MOV DWORD[EBX],%1;
+ ADD EBX,0X04;
+%endmacro
+
 %imacro GateStruct 3
 	%ifnidni EAX,%1
 		MOV EAX,%1

@@ -1,6 +1,5 @@
 // ASCII TAB4 C99 ArnAssume
-// TENSOR ARITHMETIC and OPERATION(for non-arith-elements)
-
+// Integer
 /*
 	Copyright 2023 ArinaMgk
 
@@ -17,36 +16,17 @@
 	limitations under the License.
 */
 
-#ifndef _LIB_TENSOR
-#define _LIB_TENSOR
 #include <stddef.h>
-// parallel with ustring::nnode
-
-struct tenelm
-{
-	size_t count;
-	size_t dimen;// if not zero, data points to next tenelm
-	void** datas;
-};
-
-typedef struct tensor
-{
-	size_t type;
-	struct tenelm data;
-} tensor;
-
-/* Nested structure and for example 3*2*0 {
-	row0 {col0{} col1{}}
-	row1 {col0{} col1{}}
-	row2 {col0{} col1{}}
-	}
-Arina Design: end by 0, e.g. 2*2*2(tensor), 3(vector), 2*2(matrix), 0(scalar)
-*/
 
 
+//{TEMP} no user-defined judging function
 
 
+// para:direction [0:ascend 1:descend]
+#define IntBubbleSort(array, size, direction) \
+	for (size_t i = 0; i < (size) - 1; i++) \
+		for(size_t j = i + 1; j < (size); j++) \
+			if ((array[i] > array[j]) ^ (direction)) \
+				array[i] ^= array[j] ^= array[i] ^= array[j];
+// E.g. IntBubbleSort(my_ints, numsof(my_ints), 0);
 
-
-
-#endif

@@ -1,0 +1,80 @@
+; Copyright 2023 ArinaMgk
+; Licensed under the Apache License, Version 2.0 (the "License");
+
+; stack [CPU ?]
+;  DbgEcho16(bx/i value, si/i posi=0);
+;  DbgEcho32(ebx/i value, esi/i posi=0);
+; preset"es=0xB800"
+;  DbgStop(void);
+; vola(ax)
+;  DefineStack(imm ss_val, sp_val)
+; File
+; Endf
+
+;---
+%imacro DbgEcho16 1-2 0
+ PUSHAD
+ MOV BX,%1
+ MOV SI,%2
+ SHL SI,1
+ MOV CX,4
+ MOV DX,0XF000
+ %%loop:
+ PUSH CX
+ SUB CL,1
+ ;CL *= 4 to SHL MASK-DX
+ MOV CH,CL
+ MOV CL,2
+ SHL CH,CL
+ MOV CL,CH
+ MOV AX,BX
+ AND AX,DX
+ SHR AX,CL
+ ;ADAPT TO ASCII
+ CMP AL,9
+ JBE %%NextStep
+ ADD AL,7
+ %%NextStep:
+ ADD AL,0X30
+ MOV [ES:SI],AL
+ ADD SI,2
+ SHR DX,4
+ POP CX
+ LOOP %%loop
+ POPAD
+%endmacro
+
+%imacro DbgEcho32 1-2 0
+ PUSHAD
+ MOV EBX,%1
+ MOV ESI,%2
+ SHL ESI,1
+ MOV ECX,8
+ MOV EDX,0XF000_0000
+ %%loop:
+ PUSH ECX
+ SUB ECX,1
+ ;CL *= 4 to SHL MASK-DX
+ SHL ECX,2
+ MOV EAX,EBX
+ AND EAX,EDX
+ SHR EAX,CL
+ ;ADAPT TO ASCII
+ CMP AL,9
+ JBE %%NextStep
+ ADD AL,7
+ %%NextStep:
+ ADD AL,0X30
+ MOV [ES:ESI],AL
+ ADD ESI,2
+ SHR EDX,4
+ POP ECX
+ LOOP %%loop
+ POPAD
+%endmacro
+
+%imacro DbgStop 0
+CLI
+%%halt: HLT
+JMP %%halt
+%endmacro

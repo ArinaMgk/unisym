@@ -115,10 +115,12 @@ void ConStyleNormal(void);
 // ConCurrentWorkingDirectory
 #ifdef _WinNT
 	#include <direct.h>
-	#define ConCurrentDirectory _getcwd
+	#define ConGetCurrentDirectory _getcwd
+	#define ConSetCurrentDirectory _chdir// return 0 if success
 #elif defined(_Linux)
 	#include <unistd.h>
-	#define ConCurrentDirectory getcwd
+	#define ConGetCurrentDirectory getcwd
+	#define ConSetCurrentDirectory chdir
 #endif
 
 #endif

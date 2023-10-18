@@ -45,7 +45,7 @@ index
 | **ChrAr**(base)   | [big endian] [variable-length] optional signed ASCII integer arithmetic  and operations, for buffer or heap, which can be printed directly. the used names are `BytAr` and `ASCAr` and `StrAr`. Now exists the optional dependence of `arna_eflag`. These are **2 version** in `hstring` and `bstring`. |                              |                                    | ripen    |
 | **FltAr**(1)      | [big endian] `{{Sign, ChrAr}, ExpoInDec }` the extension of **ChrAr**. But any fltar-number is fixed-size. If the result is too big, the magic number "999… . …999" will be expressed. For the fixed size of floating part, the result may be cut to adapt to the structure. Natural and only for **buffer** version. |                              |                                    | todo     |
 | **CdeAr**(1)      | [big endian] Arinae classic structure, Coff-expo-divr, based on **ChrAr**. the mechanism can express and operate any big-rational-real-number. The name follows what ArnMgk called this. | `+/-INF`, `NaN`,temp no `-0` | element and `aflag`, little `erro` | ripen    |
-| **NumAr**(4)      | [big endian] the mechanism can express and operate the big-rational-real-numbers (not endless) in 4 dimensions of time and room, or real and imaginary, based on **CdeAr**. |                              |                                    | toupdate |
+| **NumAr**(4)      | [big endian] the mechanism can express and operate the big-rational-real-numbers (not endless) in 4 dimensions of time and room, or real and imaginary, based on **CdeAr**. <br>Version: C, C++{TODO} |                              |                                    | ripen    |
 | **RsgAr**(base)   | [little endian] Based on 256. Use the register-size unit for faster arithmetic speed. E.g. `0x12, 0x34` for 0x3412 |                              |                                    | ripen    |
 | **RedAr**(1)      | [big endian] Dosconio's base 256 expo-unit 16 extension. C-E-D structure based on **RsgAr**. the mechanism can express and operate any big-rational-real-number. |                              |                                    | building |
 | **HrnAr**(4)      | [little endian] 4D based on **RegAr**                        |                              |                                    | todo     |
@@ -71,6 +71,12 @@ index
 | -------- | ------------- | ----- |
 | contable | Console Table | ripen |
 | consio   | Console IO    | ripen |
+
+| Hash  | Description                                | State |
+| ----- | ------------------------------------------ | ----- |
+| CRC64 | Cyclic Redundancy Check with 64-bit result | ripen |
+
+
 
 ### Macro
 

@@ -1,0 +1,60 @@
+; ASCII [Doshou Haruno] RFC07, Kasha Copyright 2023 ArinaMgk Apache License 2.0
+; dosconio:dosconyo@gmail.com
+; build:
+; - aasm demo_BubbleSort.a -I../n_
+; - vdkcpy demo_BubbleSort E:/vhd.vhd 1
+; - vmb.lnk startvm Kasa
+[CPU 386]
+%include "video.a"
+%include "arith.a"
+%include "pseudo.a"
+File
+	DefineStack16
+	MOV AX, 0x0100
+	MOV DS, AX
+	MOV AX, 0XB800
+	MOV ES, AX
+	; Bubble Sort
+	MOV ECX, DataEndo - Data
+	SHR ECX, 2; DIVX ECX, 4
+	MOV ESI, Data
+	DEC ECX
+	FOR_X:
+		MOV EDI, ESI
+		ADD EDI, 4; STEP
+		PUSH ECX
+		FOR_Y:
+			MOV EAX, [ESI]
+			CMP EAX, [EDI]
+			JBE FOR_Y_NEXT
+			MOV EDX, [EDI]
+			MOV [EDI], EAX
+			MOV [ESI], EDX
+		FOR_Y_NEXT:
+			ADD EDI, 4; STEP
+			LOOP FOR_Y
+		POP ECX
+		ADD ESI, 4; STEP
+		LOOP FOR_X
+	; Print Result
+	MOV ECX, DataEndo - Data
+	SHR ECX, 2; DIVX ECX, 4
+	MOV ESI, Data
+	Result_Echo:
+	MOV EBX, [ESI]
+	CALL F_Print16
+	MOV AL, ' '
+	CALL F_ConPrintChar
+	ADD ESI, 4
+	LOOP Result_Echo
+	CLI
+	HLT
+	F_Print16:
+		ConPrintDWord EBX,F_ConPrintChar
+		RET
+	F_ConPrintChar:
+		ConPrintChar AL,0x70,~
+		RET
+Data: DD 11,4,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15; NOV
+DataEndo:
+Endf

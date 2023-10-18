@@ -17,6 +17,9 @@
 ;	See the License for the specific language governing permissions and
 ;	limitations under the License.
 ;
+; stack preset"ds, ebx:dest" ret[ebx += sectors*512] [CPU ?]
+;  DiskReadLBA28(eax logi, cl sectors=1);
+;---
 
 %imacro HdiskLoadLBA28 1-2 1
 	PUSH EAX

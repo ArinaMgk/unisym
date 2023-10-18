@@ -17,30 +17,39 @@
 #ifndef ArnHabit
 #define ArnHabit
 
+#if defined(_WinNT)&&defined(_Bit64)
+	#include "us_win64.h"
+#else
+	#include <stddef.h>
+	#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate ¡®unsigned¡¯
+		#define uint unsigned int
+	#endif
+	#define llong long long int
+	#define sll signed long long int
+	#define ullong unsigned long long int
+	#define ull unsigned long long int
+	#define byte unsigned char
+	#define word unsigned short int
+	#define dword unsigned int
+	#define stduint size_t
+	#define stdint ptrdiff_t
+#endif
+
+
 #define nil 0
 #define nop 0x90
 
 #define masm __asm
 
-#define print(x) printf("%s",(x));
-#define printline(x) printf("%s\n",(x));
-#define pll(x,y)   printf("%s : %llx\n",(x),(y));
-#define pd(x) printf("%d\n",(x));
+#define print(x) printf("%s",(x))
+#define printline(x) printf("%s\n",(x))
+#define pll(x,y)   printf("%s : %llx\n",(x),(y))
+#define pd(x) printf("%d\n",(x))
 
 #define concur(r,c) (r*cols+c)// ConsoleCursor
 
-#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate ¡®unsigned¡¯
-	#define uint unsigned int
-#endif
-#define llong long long int
-#define sll signed long long int
-#define ullong unsigned long long int
-#define ull unsigned long long int
-#define byte unsigned char
-#define word unsigned short int
-#define dword unsigned int
-#define stduint size_t
-#define stdint ptrdiff_t
+
+
 
 #define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
 
@@ -87,6 +96,17 @@
 ///#define foreachstr(iden,x) for(char iden, *iden#ptr=(char*)(x);iden=*iden#ptr;iden#ptr++)// {why} error tip yo VSCODE::IntelliSenseMode(GCC)
 #define for0(iden,times) for(size_t iden=0;iden<(times);iden++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
+
+#define byteof sizeof
+#define numsof(x) (sizeof(x)/sizeof(*(x)))
+
+#define BitsTog(x,bits) ((x)^=(bits))
+#define ascii_isdigit(c) ((c)-'0'<10)
+#define ascii_islower(c) ((c)-'a'<26)
+#define ascii_isupper(c) ((c)-'A'<26)
+#define ascii_tolower(c) ((c)-'A'<26?(c)|0x20:c)
+#define ascii_toupper(c) ((c)-'a'<26?(c)&~0x20:c)
+#define ascii_tohexad(c) ((c)>='a'?(c)-'a'+10:(c)>='A'?(c)-'A'+10 :(c)-'0')
 
 #ifdef _MSC_VER// for MSVC
 #define __FUNCIDEN__ __FUNCDNAME__

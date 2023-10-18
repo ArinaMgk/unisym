@@ -1261,6 +1261,8 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 {
 	// Combination of -File and -Buf, ArinaMgk, RFT03.
 	// More infomation, to see the previous version.
+	// Not exist:
+	// 1. '\\' continue line
 	
 	Toknode* first = 0, * crt = 0;
 	TokType CrtTType;
@@ -1409,6 +1411,7 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			}
 			crtline++;
 			crtcol ^= crtcol;
+			CrtTType = tok_any;
 		}
 		else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && (crt->row != crtline || CrtTType == tok_any && !crt->addr)))// Line Comment
 		{
@@ -1433,11 +1436,9 @@ Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), ch
 			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 			CrtTLen = 0;
 			bufptr = buffer;
-
+			CrtTType = tok_string;
 			YoString = 1;
 			strtok = c;
-			CrtTLen = 0;
-			bufptr = buffer;
 		}
 		else if ((isdigit(c)) && CrtTType != tok_iden &&
 			((CrtTType != tok_any && (crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1))) || CrtTType == tok_any)
@@ -1637,10 +1638,10 @@ char* StrHeap(const char* valit_str)
 	return ret;
 }
 
-void* MemHeap(const void* sors, size_t byteof)
+void* MemHeap(const void* sors, size_t bytelen)
 {
-	char* ret = malc(byteof);
-	for (size_t i = 0; i < byteof; i++) ret[i] = ((const char*)sors)[i];
+	char* ret = malc(bytelen);
+	for (size_t i = 0; i < bytelen; i++) ret[i] = ((const char*)sors)[i];
 	return ret;
 }
 

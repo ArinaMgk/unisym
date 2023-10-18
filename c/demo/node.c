@@ -3,8 +3,9 @@
 #include<stdlib.h>
 #include<inttypes.h>
 #include"../ustring.h"
-#include"../node.h"
-//This program is to check dnote and note
+//This program is to check (others are to do):
+// - dnode 
+// - node
 // RFQ28 RFR01
 // gcc "(d)node.c" ../source/*.c -m64 -D_dbg -o dnode.exe
 size_t malc_count;
@@ -13,8 +14,8 @@ void NodesPrint(Node* first)
 {
 	Node* next;
 	while (next = first)
-		if ((first = next->next, next->data))
-			puts(next->data);
+		if ((first = next->next, next->addr))
+			puts(next->addr);
 }
 
 void main()

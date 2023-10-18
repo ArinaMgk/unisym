@@ -22,7 +22,6 @@
 #include <limits.h>
 #include <float.h>
 #include <math.h>
-#include "../aldbg.h"
 #include "../ustring.h"
 #include "../cdear.h"
 
@@ -55,10 +54,29 @@ static const coe coehalf = { .coff = "+1", .divr = "+2", .expo = "+0" };
 
 static size_t _DIG_CUT = 4;
 
+//{TODO} calc_precise = show_precise + 2
+
 void CoeInit()
 {
 	MemSet(&aflag, 0, sizeof aflag);
 	aflag.Signed = 1;
+}
+
+void CofIncDig(coe* obj, size_t digits)
+{
+	unsigned char sgn_digit = obj->coff[0];
+	DigInc('1', obj->coff + digits);
+	// E.g. "+123456???"
+	if (obj->coff[0] != sgn_digit)
+	{
+		/// char tmpbuf[2] = {0};
+		/// *tmpbuf = '0' + obj->coff[0] - sgn_digit;
+		MemRelative(obj->coff + 1, digits, 1);
+		srs(obj->expo, ChrAdd(obj->expo, "+1"));
+		/// srs(obj->coff, StrHeapInsertThrow(obj->coff, tmpbuf, 1, 0));
+		obj->coff[1] = '0' + obj->coff[0] - sgn_digit;
+		obj->coff[0] = sgn_digit;
+	}
 }
 
 void CoeDig(coe* obj, size_t digits, int direction)
@@ -89,24 +107,25 @@ void CoeDig(coe* obj, size_t digits, int direction)
 		}
 		// diection:0: need not anything
 		if (direction == 2 // Nearest, e.g. 1.5 to 2
-			&& obj->coff[digits + 1] >= '5') DigInc('1', obj->coff + digits);
+			&& obj->coff[digits + 1] >= '5') CofIncDig(obj, digits);
 		else if (!rest_al_zero)
 		{
 			size_t coflen = 0;
 			while (obj->coff[coflen])coflen++;
 			if (direction == 1)// to +inf
 				if (*obj->coff == '+')
-					DigInc('1', obj->coff + digits);
+					CofIncDig(obj, digits);
 				else;// '-'
 			else if (direction == 3)// to -inf
 				if (*obj->coff == '+')
 					;
-				else DigInc('1', obj->coff + digits);
+				else CofIncDig(obj, digits);
 			else if (direction == 4)// to out
-				DigInc('1', obj->coff + digits);
+				CofIncDig(obj, digits);
 		}
 		obj->coff[digits + 1] = 0;
 		char* internum;
+		/// for (CrtPrecise = 0; obj->coff[CrtPrecise + 1]; CrtPrecise++);
 		srs(obj->expo, ChrAdd(obj->expo, internum = instoa(CrtPrecise - digits)));
 		memfree(internum);
 	}
@@ -555,7 +574,7 @@ static coe* CoeTaylor(coe* dest, unsigned char dptor, const coe* period, size_t 
 			if (signcrt) plus->coff[0] = (plus->coff[0] == '-' ? '+' : '-');
 			if (StrLength(plus->coff) > malc_limit / 2)
 			{
-				CoeDig(plus, malc_limit / 2, 0);
+				CoeDig(plus, malc_limit / 2, 2);
 			}
 			CoeAdd(result, plus);
 			CoeDivrUnit(result, show_precise + 1);
@@ -604,6 +623,7 @@ endo:
 	CoeDel(crt);
 	CoeRst(dest, StrHeap(result->coff), StrHeap(result->expo), StrHeap(result->divr));
 	CoeDel(result);
+	CoeCtz(dest);
 	return dest;
 }
 
@@ -715,7 +735,8 @@ coe* CoeAsin(coe* dest)
 	// def chk [-1,1]
 	if (CoeCmp(dest, &coeone) > 0 || CoeCmp(dest, &coenegone) < 0)
 	{
-		erro("ASin Over definition");
+		erro("ASin or ArcX Over definition");
+		CoeRst(dest, StrHeap(coenan.coff), StrHeap(coenan.expo), StrHeap(coenan.divr));
 		return dest;
 	}
 	if (show_precise >= malc_limit)
@@ -789,6 +810,7 @@ coe* CoeAcos(coe* dest)
 	CoeAsin(dest);
 	CoeNeg(dest);
 	CoeAdd(dest, &coepi_half);
+	CoeDig(dest, show_precise, 2);
 	return dest;
 }
 
@@ -847,6 +869,7 @@ coe* CoeLog(coe* dest)// ln, log`e()
 	if (CoeCmp(dest, &coezero) <= 0)
 	{
 		erro("Log`e opt <= 0 overt definition.");
+		CoeRst(dest, StrHeap(coenan.coff), StrHeap(coenan.expo), StrHeap(coenan.divr));
 		return dest;
 	}
 	while (CoeCmp(dest, &coetwo) > 0)
@@ -888,6 +911,7 @@ coe* CoeFac(coe* dest)
 	if (StrCompare(dest->divr, "+1") || dest->expo[0] == '-')
 	{
 		erro("CoeFac");
+		CoeRst(dest, StrHeap(coenan.coff), StrHeap(coenan.expo), StrHeap(coenan.divr));
 		return dest;// do nothing if error
 	}
 	coe* AnotherOne = CoeCpy(&coeone);
@@ -974,6 +998,7 @@ coe* CoeAcosh(coe* dest)
 	if (d < 1.0)
 	{
 		erro("Acosh dom err");
+		CoeRst(dest, StrHeap(coenan.coff), StrHeap(coenan.expo), StrHeap(coenan.divr));
 		return dest;
 	}
 	coe* res = CoeFromDouble(acosh(d));
@@ -989,6 +1014,7 @@ coe* CoeAtanh(coe* dest)
 	if (fabs(d) > 1.0 || acosh(d) == 0.0)
 	{
 		erro("ATANH DEF ERR");
+		CoeRst(dest, StrHeap(coenan.coff), StrHeap(coenan.expo), StrHeap(coenan.divr));
 		return dest;
 	}
 	coe* res = CoeFromDouble(atanh(d));

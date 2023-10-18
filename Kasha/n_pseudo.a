@@ -22,6 +22,7 @@
 
 %imacro File 0
 	; Arinae first design. This will behave error in multi-section file!
+	;Because NASM's design, if you use File and Endf, the file can  contain only the default .text segment, to calucate the address with operators. May AASM will solve the problem. For a instruction / direction, there are 3 addresses for it: [from destination file] [from segment vstart] [] --ArinaRFQ05, limited by the problem.
 	%push File
 	%$ento: DB (%$endo-%$ento+511)/512
 %endmacro

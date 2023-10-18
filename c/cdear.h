@@ -35,6 +35,8 @@
 #ifndef ModCoeArith
 #define ModCoeArith
 
+#include "aldbg.h"
+
 typedef struct PhinaeCDEAr
 {
 	char* coff;
@@ -71,7 +73,8 @@ static inline int CoeIsINF(const coe* co)
 // Initial and set the necessary system structure.
 void CoeInit();
 
-// Reset the length of the digits. If the real precise is less, zero will be moved at the end of coff from expo; if more, will cut. Param:direction[???forget]
+// Reset the length of the digits. If the real precise is less, zero will be moved at the end of coff from expo; if more, will cut.
+	// param:direction 1:+inf 2:nearest 3:-inf 4:out
 void CoeDig(coe* obj, size_t digits, int direction);
 
 // Cut trailing zeros of coff and append to expo. This is usually used at the end of the operation, so some adaptation is done here. 

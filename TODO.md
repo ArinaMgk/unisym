@@ -39,6 +39,7 @@
 - [ ] a macro to let ustring replacing relative symbols into standard library form. For example, "StrLength" is to "strlen".
 - [ ] tnode functions and rewrite `Classic`, `Once`, `All`, where `-All` may call `-Once` and previous `-Once` into `-Classic`.
 - [ ] Token-Process can convert hexadecimal to decimal for integers optionally.
+- [ ] Multi-level Linear `StrTokenAll` 
 
 ### Potential Issue
 

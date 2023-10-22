@@ -1,11 +1,12 @@
-; ASCII [MASM] for MSDOS/WIN16
-; INT 21Partial AH from 00 to 0F
+; ASCII [MASM] for MSDOS/WIN16 (C)(ARINAMGK)UNISYM&DOSCONIO
+; INT 21 Partial AH from 00 to 0F
 
 ; AH = 00h DOS - PROGRAM TERMINATION - TaskTerminate
 ; void <<< ConTerm <<< void
 ; - iden. to `int 20h`
 ConTerm macro
-	mov ah, 000h
+	; mov ah, 000h <<< (CONTROVERSIAL)
+	mov ax, 4C00h
 	int 21h
 endm
 
@@ -38,31 +39,37 @@ endm
 ; AH = 04h DOS - AUX OUTPUT - AuxiliaryPrintChar
 ; void <<< AuxPrintChar <<< Char=DL {,sty=~}
 AuxPrintChar macro regpara:=<dl>
+	push ax
 	push dx
 	mov dl, regpara
 	mov ah, 004h
 	int 21h
 	pop dx
+	pop ax
 endm
 
 ; AH = 05h DOS - PRINTER OUTPUT - PrinterPrintChar
 ; void <<< PrtPrintChar <<< Char=DL {,sty=~}
 PrtPrintChar macro regpara:=<dl>
+	push ax
 	push dx
 	mov dl, regpara
 	mov ah, 005h
 	int 21h
 	pop dx
+	pop ax
 endm
 
 ; AH = 06h DOS - DIRECT CONSOLE I/O CHARACTER OUTPUT - ConsolePrintChar
 ; void <<< ConPrintChar <<< Char=DL {,sty=~}
 ConPrintChar macro regpara:=<dl>
+	push ax
 	push dx
 	mov dl, regpara
 	mov ah, 006h
 	int 21h
 	pop dx
+	pop ax
 endm
 
 ; AH = 06h DOS - DIRECT CONSOLE I/O CHARACTER INPUT - ConsoleGetCharEcho
@@ -102,22 +109,26 @@ endm
 ; - care: using offset keyword for object label in MASM
 ; - ^C/^Break checked, and INT 23h called if pressed
 ConPrint macro regpara:=<dx>
+	push ax
 	push dx
 	mov dx, regpara
 	mov ah, 009h
 	int 21h
 	pop dx
+	pop ax
 endm
 
 ; AH = 0Ah DOS - BUFFERED KEYBOARD INPUT - KeyboardGetString
 ; void <<< KbdGets <<< buffer=DS:DX
 ; - first byte of buffer must contain maximum length on entry, second byte (DOS set) contains actual length of previous line which may be recalled with
 KbdGets macro regpara:=<dx>
+	push ax
 	push dx
 	mov dx, regpara
 	mov ah, 00Ah
 	int 21h
 	pop dx
+	pop ax
 endm
 
 ; AH = 0Bh DOS - CHECK STANDARD INPUT STATUS - StandardStateOfInput
@@ -143,18 +154,18 @@ endm
 ; void <<< DskReset <<< void
 ; - Flushes all disk buffers.
 DskReset macro
+	push ax
 	mov ah, 00Dh
 	int 21h
+	pop ax
 endm
 
 ; AH = 0Eh DOS - SELECT DISK - DiskSelect
-; AL(LogicDrv) <<< DskSelect <<< DrvNum=AL[0:A,1:B...]
+; AL(LogicDrv) <<< DskSelect <<< DrvNum=AL{0:A,1:B...}
 DskSelect macro regpara:=<al>
-	push ax
 	mov al, regpara
 	mov ah, 00Eh
 	int 21h
-	pop ax
 endm
 
 ; AH = 0Fh DOS - OPEN DISK FILE - DiskFileOpen

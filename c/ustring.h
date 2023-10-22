@@ -134,6 +134,11 @@ typedef struct ArnOldStyleNode
 	void* data;
 } xnode;// recommand using nnode. measures pointer[a]
 
+#define StrCompareLocale strcoll
+#define StrCopyLocale strxfrm
+
+#define StrGetError strerror
+
 #endif
 //
 //

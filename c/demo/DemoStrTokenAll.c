@@ -41,6 +41,7 @@ char buf[256];
 char a[] = "0x+(1.2+i++);;\n\r\n\ra\nb\n";
 char* pos = a;
 FILE* fp;
+// If the users just want fseekback "-1" or have the own buffer, you can consider using "ungetc" instead of "fseek", which is friendly to the stdxxx.
 int fgetnext()
 {
 	if (!fp) return EOF;

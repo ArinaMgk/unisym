@@ -5,18 +5,19 @@ DATA SEGMENT
 	DW ?
 DATA ENDS
 
-STACK SEGMENT
+STACK SEGMENT STACK; Solve L4021
 	STAK DW 32 DUP(?)
 	TOP DW ?
 STACK ENDS
 
 CODE SEGMENT
 	ASSUME CS:CODE, DS:DATA, SS:STACK
+	ento:
 	mov ax, DATA
 	mov ds, ax
 	mov ax, STACK
 	mov ss, ax
-	mov sp, TOP
+	mov sp, TOP; Whether there should be `OFFSET(TOP)`, I don't know, the case will not be for NASM 
 	lup:
 		ConGetc
 		cmp al, 20h
@@ -29,4 +30,4 @@ CODE SEGMENT
 		ConTerm
 CODE ENDS
 
-END
+END ento; Solve L4038

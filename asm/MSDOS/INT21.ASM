@@ -1,4 +1,4 @@
-; ASCII [MASM] for MSDOS/WIN16
+; ASCII [MASM] for MSDOS/WIN16 (C)(ARINAMGK)UNISYM&DOSCONIO
 ; ---- conflict with Not-Interrupt Implementation ----
 ; Prefix of ArnStyleNaming:
 ;- Dos(Sys) Supervisor Function
@@ -25,6 +25,15 @@
 ;- Assume stack set
 ;- { } FUTURE TODO
 ;- -wo choose the first by default.
+
+; Abbreviation:
+;- DTA: data transfer area
+;- DPB: drive parameter block
+;- FCB: file control block
+;- ATI: allocation table information
+
+; Skill
+;- Pass in a object label, use `OFFSET(VAR1)` but not `OFFSET VAR1`
 
 include INT21p0X.ASM
 ; include INT21p1X.ASM

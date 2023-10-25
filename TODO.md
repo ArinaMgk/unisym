@@ -7,6 +7,7 @@
 - [ ] Linux-Distributions Host environments support
 - [ ] Covenant and naming-rule
 - [ ] Functions depended filter tool (combinate a new source file)
+- [ ] `erro` make use of `va_list`
 
 ### Among all XxxAr
 

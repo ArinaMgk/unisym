@@ -20,6 +20,7 @@
 ;- Ari      Arithmetic Function
 ;- Std      Standard I/O Function
 ;- File     File Function
+;- Int      Interrupt Function
 
 ; Description:
 ;- Assume stack set
@@ -31,6 +32,8 @@
 ;- DPB: drive parameter block
 ;- FCB: file control block
 ;- ATI: allocation table information
+;- RRF: random record field
+;- PSP: program segment prefix
 
 ; Skill
 ;- Pass in a object label, use `OFFSET(VAR1)` but not `OFFSET VAR1`

@@ -16,6 +16,7 @@
 	limitations under the License.
 */
 #define _ARN_INSIDE_LIBRARY_INCLUDE
+#define _LIB_STRING_BUFFER
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>

@@ -36,11 +36,9 @@ Some code depend on the standard or widely-used functions; some code are support
 
 ### Format
 
-- `.a`-suffixed and `n_`-prefixed file is for Arina-made assembler (private so far) , you may also use **NASM0207** as a replacement.
+- `.a` assembly file
 
-### Adapted Host Environment
-
-- Windows x86 and x64
+	- `.a`-suffixed and `n_`-prefixed file is for Arina-made assembler (private so far) , you may also use **NASM0207** as a replacement.
 
 
 
@@ -49,3 +47,14 @@ Some code depend on the standard or widely-used functions; some code are support
 ![Contributor ArinaMgk](./.picture/phina.head.bmp)
 
 [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk)
+
+Domain
+
+- unisym.org
+
+Contributors
+
+- Phina Ren (aka ArinaMgk yo GitHub)
+- dosconio (dosconyo@gmail.com)
+    - fork: [http://github.com/dosconio/unisym](Dosconio-forked Uniform Symbolics phina-origined)
+

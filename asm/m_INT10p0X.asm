@@ -62,21 +62,31 @@ endm
 ; BX = pixel column (0-319 or 0-639)
 
 ; AH = 05h VIDEO - SELECT DISPLAY PAGE - ConPageSet (for MASM)
-;{TODO}
+; BH,BL,DX <<< ConPageSet <<< Pgno(AL)[8b]=0, BufSeg(BX)=0
 ; AL =
-; 0-7: new page value for modes 0 & 1
-; 0-3: new page value for modes 2 & 3
-; 80h: read CRT/CPU page registers [PCjr only]
-; 81h: set CPU page register to value in BL [PCjr only]
-; 82h: set CRT page register to value in BH [PCjr only]
-; 83h: set both display registers to values in BH, BL [PCjr only]
-; {Corona/Cordata BIOS v4.10+}
-; 00h: set address of graphics bitmap buffer (video modes 60h,61h)
+;	0-7: new page value for modes 0 & 1
+;	0-3: new page value for modes 2 & 3
+;	80h: read CRT/CPU page registers [PCjr only]
+;	81h: set CPU page register to value in BL [PCjr only]
+;	82h: set CRT page register to value in BH [PCjr only]
+;	83h: set both display registers to values in BH, BL [PCjr only]
+;	{Corona/Cordata BIOS v4.10+}
+;	00h: set address of graphics bitmap buffer (video modes 60h,61h)
 ; BX = segment of buffer
-; 0Fh: get address of graphics bitmap buffer (video modes 60h,61h)
+;	0Fh: get address of graphics bitmap buffer (video modes 60h,61h)
 ; Return: BH = CRT page register (if AL >= 80h)
-; BL = CPU page register (if AL >= 80h)
-; DX = segment of graphics bitmap buffer (video modes 60h,61h; AL=0Fh)
+;	BL = CPU page register (if AL >= 80h)
+;	DX = segment of graphics bitmap buffer (video modes 60h,61h; AL=0Fh)
+ConPageSet macro pgno:=<0>, bufseg:=<0>
+	push ax
+	push bx
+	mov ah, 005h
+	mov al, pgno
+	mov bx, bufseg
+	int 10h
+	pop bx
+	pop ax
+endm
 
 ; AH = 06h VIDEO - SCROLL PAGE UP - ConRollUp
 ; void <<< ConRollUp <<< AL(lines)[8b], BH(Attribute)[8b], P0COL(CL), P0ROW(CH), P1COL(DL), P1ROW(DH)
@@ -176,13 +186,14 @@ endm
 ; AH = 0Eh VIDEO - WRITE CHARACTER AND ADVANCE CURSOR (TTY WRITE) - ConPrintCharGFore
 ; void <<< ConPrintCharGFore <<< AL(ASCII)[8b], BL(ForeColor)[graphics-8b], pgno(BH)=0[alpha-8b]
 ; - characters 07h (BEL), 08h (BS), 0Ah (LF), and 0Dh (CR) are interpreted and do the expected things
+; ({TEMP IDEN})
 ConPrintCharGFore macro ascii, fore:=<0>, pgno:=<0>
 	push ax
 	push bx
-	mov ah, 00Eh
-	mov al, ascii
+	mov al, ascii; make this before fixed 00Eh
 	mov bl, fore
 	mov bh, pgno
+	mov ah, 00Eh
 	int 10h
 	pop bx
 	pop ax

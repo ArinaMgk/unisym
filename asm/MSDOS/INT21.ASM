@@ -34,6 +34,7 @@
 ;- ATI: allocation table information
 ;- RRF: random record field
 ;- PSP: program segment prefix
+;- ASCIZ: ASCII string terminated by zero
 
 ; Skill
 ;- Pass in a object label, use `OFFSET(VAR1)` but not `OFFSET VAR1`

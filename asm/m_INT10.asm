@@ -5,5 +5,8 @@
 ; "P0": upper left corner
 ; "P1": lower right corner
 
-include m_INT10p0X.asm
+include m_INT10p0X.asm;{TODO}
+include m_INT10p1X.asm;{TODO}
+; Not exist p2X and p3X of INT 10.
+include m_INT10p4X.asm;{TODO}
 ;...

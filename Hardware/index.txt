@@ -1,9 +1,9 @@
 # UTF-8
-add_binary	
-
---- to check
-add_half_binary	半加器
---- to code
-shr_ss_byte 八位右移寄存器 串行输入串行输出
+add_binary 单位二进制全加器
+add_half_binary	单位二进制半加器
 mux_4sel1 4选1多路选择器
+--- to check
+--- to code
+coder_3_8 8-3编码器
+shr_ss_byte 八位右移寄存器 串行输入串行输出
 

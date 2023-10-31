@@ -7,6 +7,7 @@
 - [ ] Linux-Distributions Host environments support
 - [ ] Covenant and naming-rule
 - [ ] Functions depended filter tool (combinate a new source file)
+- [ ] `erro` make use of `va_list`
 
 ### Among all XxxAr
 
@@ -39,6 +40,7 @@
 - [ ] a macro to let ustring replacing relative symbols into standard library form. For example, "StrLength" is to "strlen".
 - [ ] tnode functions and rewrite `Classic`, `Once`, `All`, where `-All` may call `-Once` and previous `-Once` into `-Classic`.
 - [ ] Token-Process can convert hexadecimal to decimal for integers optionally.
+- [ ] Multi-level Linear `StrTokenAll` 
 
 ### Potential Issue
 

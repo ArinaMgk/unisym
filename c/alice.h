@@ -14,6 +14,10 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+#ifndef __USYM__
+#define __USYM__ 1
+#endif
+
 #ifndef ArnHabit
 #define ArnHabit
 
@@ -107,6 +111,12 @@
 #define ascii_tolower(c) ((c)-'A'<26?(c)|0x20:c)
 #define ascii_toupper(c) ((c)-'a'<26?(c)&~0x20:c)
 #define ascii_tohexad(c) ((c)>='a'?(c)-'a'+10:(c)>='A'?(c)-'A'+10 :(c)-'0')
+
+#define immed_tobool(i) !!(i)
+#if defined(_SUPPORT_BOOL) && !defined(_SUPPORT_BOOL_DEFINED)
+	#define _SUPPORT_BOOL_DEFINED
+	typedef enum bool { false, true } bool;// use immed_tobool() to convert with this
+#endif
 
 #ifdef _MSC_VER// for MSVC
 #define __FUNCIDEN__ __FUNCDNAME__

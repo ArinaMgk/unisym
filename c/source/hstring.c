@@ -387,6 +387,18 @@ tnode* NnodeToTnode(nnode* inp)
 	return (void*)inp;
 }
 
+void NnodeForeach(nnode* start, nnode* parent, void(*func)(nnode* self, nnode* parent))
+{
+	nnode* crt = start;
+	while (crt)
+	{
+		// do with children firstly
+		if (crt->subf) NnodeForeach(crt->subf, crt, func);
+		func(crt, parent);
+		crt = crt->right;
+	}
+}
+
 void TnodeToNnode(nnode* des, const tnode* src)
 {
 	des->col = src->col;

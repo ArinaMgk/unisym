@@ -27,11 +27,12 @@ Some code depend on the standard or widely-used functions; some code are support
 | Graphic | Any chrome relatives. |
 | Hardware | Mainly for Verilog and VHDL, now. |
 | Model | 3D-Print... |
-| Script | Rosama system in the future |
-| c                  | C Programming Language. Some are compatible with C++ with `extern "C"` keyword. |
-| Kasha              | x86-Series Platform Assembly Kit (kernel) for Operation System Development. |
+| Kasha              | x86-Series Platform Assembly Kit (kernel) for Operation System Development. (interrupts are in `asm`) |
+| Clover           | Symbol-syntax languages support |
+| Mark | Rosama system in the future |
+| Script | Datura system in the future |
 | asm | Host environment assembly |
-| cpp                | only for C++ Programming Language. |
+| c                  | C Programming Language. Some are compatible with C++ with `extern "C"` keyword. |
 | <del>MCU</del> | for integrated micro-controller units. (temporarily close-src, as `unisyml`) |
 
 ### Format

@@ -16,10 +16,14 @@
 */
 #ifndef __USYM__
 #define __USYM__ 1
+#define _LIB_C
 #endif
 
 #ifndef ArnHabit
 #define ArnHabit
+
+#define pointer(typ) typ * 
+// compatible with MIKA pointer: "pointer(pointer(void)) pp"
 
 #if defined(_WinNT)&&defined(_Bit64)
 	#include "us_win64.h"
@@ -51,8 +55,6 @@
 #define pd(x) printf("%d\n",(x))
 
 #define concur(r,c) (r*cols+c)// ConsoleCursor
-
-
 
 
 #define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible

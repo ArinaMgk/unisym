@@ -19,6 +19,9 @@
 #define _LIB_DATETIME
 
 #include "alice.h"
+#include <time.h>
+
+//{TODO} utime.h
 
 // origin: unisym/kasha/n_timer.a : %imacro GetMoexDayIdentity 2
 // year>=2014, month>0
@@ -28,9 +31,10 @@ unsigned GetMoexDayIdentity(word year, word month, byte* weekday, byte* moondays
 // extern of GetMoexDayIdentity, can show the months before 2014.
 unsigned DatimeCalendar(word year, word month, byte* weekday, byte* moondays);
 
-
+sll POSIXGetSeconds(struct tm* tm);
 
 #define isLeapYear(year) (!((year)&3)&&((year)%100)||!((year)%400)) // RFQ27
+#define getHerDayDif(y) (4 + (y - 114) * 365 + (y - 117 + 4) / 4 - (y - 101) / 100 + (y - 101) / 400) // RFX02 how many days between the first day of the year 00:00 from hday 23:59
 
 
 #endif

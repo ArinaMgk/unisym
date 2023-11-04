@@ -1,4 +1,4 @@
-//
+// ASCII TAB4 C99 ArnCovenant TAB CRLF
 /*
 	Copyright 2023 ArinaMgk
 
@@ -14,6 +14,9 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+
+//{MAY} Rename to debug.h
+
 #pragma warning(disable:6011)// for MSVC
 
 #ifndef ArnHabitDbg// Add this can cheat the compiler
@@ -34,7 +37,7 @@ extern size_t call_state;// <OUT>
 extern size_t malc_occupy;
 extern size_t arna_precise;
 
-#ifdef _dbg
+#if defined(_dbg) || defined(_DEBUG)
 	#define memalloc(dest,size)\
 		(*(char**)&dest=(char*)malloc(size))?((void)malc_count++):(erro("MEMORY RUN OUT!"),(void)0)
 	#define memfree(x) if(x){free((char*)(x));malc_count--;}// RFW21 version
@@ -74,8 +77,6 @@ inline static char* salc(size_t size)
 		if(exitcode&&malc_count) fprintf(stderr, "MEMORY LEAK %"PRIuPTR" TIMES.\n", malc_count);\
 		return (exitcode);\
 	}
-
-#define assert(expression) ((expression)?(char*)(expression):(exit(1),(char*)0))
 
 // Quickly set the necessary configuration
 #define ulibsym(limit)\

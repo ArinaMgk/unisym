@@ -260,7 +260,8 @@ typedef struct ArnOldStyleNode
 	// Conversion Function (direct copy address of pointer)
 	dnode* NnodeToDnode(nnode* inp);
 	tnode* NnodeToTnode(nnode* inp);
-	
+	void NnodeForeach(nnode* start, nnode* parent, void(*func)(nnode* self, nnode* parent));
+
 	void TnodeToNnode(nnode* inp, const tnode* src);
 
 //---- ---- ---- ---- common heap operations ---- ---- ---- ----

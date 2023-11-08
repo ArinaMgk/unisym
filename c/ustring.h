@@ -284,20 +284,6 @@ typedef struct ArnOldStyleNode
 
 	char* instoa(ptrdiff_t num);// [Instant to ASCII yo heap]
 
-//---- ---- ---- ---- strpool ---- ---- ---- ----
-	/* ROUTINE EXAMPLE
-		StrPoolInit();
-		atexit(StrPoolRelease);
-		printf("%s", str = StrPoolHeap("Hello,world!"));
-	*/
-	#define _ModString_Strpool_UNIT_SIZE 4096// A page align by default
-
-	void StrPoolInit();
-	char* StrPoolHeap(const char*, size_t);
-	char* StrPoolAlloc(size_t);
-	char* StrPoolAllocZero(size_t);
-	void StrPoolRelease();
-
 #endif// !HEAP-PART
 //
 // Buf-special part

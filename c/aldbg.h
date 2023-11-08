@@ -25,6 +25,8 @@
 #include <stddef.h>
 #include "alice.h"
 
+#define printb(x) printf("%s: " #x "\n",(x)?"True":"False")
+
 extern void erro(char*);
 extern void warn(char*);
 extern size_t malc_count;// <IN>

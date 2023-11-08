@@ -38,16 +38,12 @@ Some code depend on the standard or widely-used functions; some code are support
 ### Format
 
 - `.a` assembly file
-
-	- `.a`-suffixed and `n_`-prefixed file is for Arina-made assembler (private so far) , you may also use **NASM0207** as a replacement.
+- `.a`-suffixed and `n_`-prefixed file is for Arina-made assembler (private so far) , you may also use **NASM0207** as a replacement.
 
 
 
 ---
 
-![Contributor ArinaMgk](./.picture/phina.head.bmp)
-
-[🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk)
 
 Domain
 
@@ -56,6 +52,14 @@ Domain
 Contributors
 
 - Phina Ren (aka ArinaMgk yo GitHub)
+
+    - ![Contributor ArinaMgk](./.picture/phina.head.bmp) 
+
+    - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk)
+
 - dosconio (dosconyo@gmail.com)
+
+    - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) 
+
     - fork: [http://github.com/dosconio/unisym](Dosconio-forked Uniform Symbolics phina-origined)
 

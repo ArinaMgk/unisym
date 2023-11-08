@@ -1,22 +1,8 @@
 # UNISYM
 
-index
-
-- Arithmetic
-  - c
-  - cpp
-- Analog
-  - Losslessly Stored Design
-
-- Graphic
-- Hardware
-  - HDL
-- Kasha
-  - Intel x86
-- Model
-  - 3D-Print Model
 
 
+## Clover and Software Programming
 
 
 
@@ -85,9 +71,25 @@ index
 - `_ARN_FLAG_DISABLE` Control status variables and `aflag`.
 - `_LIB_DEBUG_CHECK_MORE`
 
+#### > Develop
+
+- `_dbg` <=> `_DEBUG`
+
+- `_AUTO_INCLUDE`
+
+#### > Environment
+
+- `_WinNT`
+- `_Linux`
+
 #### > Pragma
 
 - UNISYM-special pragma `#pragma source`, this may raise `MSVC:C4068`
+
+#### > String
+
+- `_LIB_STRING_HEAP`
+- `_LIB_STRING_BUFFER`
 
 ### File
 

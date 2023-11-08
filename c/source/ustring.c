@@ -262,4 +262,5 @@ void DigDec(int ascii, char* posi)
 // RFT02 Append ChrAr into ustring
 // ...
 // RFB19 Fix some mistakes
+// RFX07 Move out STRPOOL into HEAP
 

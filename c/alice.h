@@ -61,6 +61,7 @@
 
 #define jump goto
 #define call(x) (x)()
+#define callif(x) (x?(void)(x)():(void)0)
 
 // These IF can avoid error such as mixing "a=0" and "a==0"
 #define If(con) if(0||con)
@@ -114,7 +115,7 @@
 #define ascii_toupper(c) ((c)-'a'<26?(c)&~0x20:c)
 #define ascii_tohexad(c) ((c)>='a'?(c)-'a'+10:(c)>='A'?(c)-'A'+10 :(c)-'0')
 
-#define immed_tobool(i) !!(i)
+#define immed_tobool(i) !!(i) // != 0
 #if defined(_SUPPORT_BOOL) && !defined(_SUPPORT_BOOL_DEFINED)
 	#define _SUPPORT_BOOL_DEFINED
 	typedef enum bool { false, true } bool;// use immed_tobool() to convert with this

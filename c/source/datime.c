@@ -18,50 +18,27 @@
 
 #include "../datime.h"
 
-unsigned GetMoexDayIdentity(word year, word month, byte* weekday, byte* moondays)// RFV26
+// month{01~12}
+unsigned moondays(word year, word month)
 {
-	unsigned PastDays = 4;
-	byte MoonDays[13] = { 0,0X1F,0x1C,0x1F,0x1E,0x1F,0x1E,0x1F,0x1F,0x1E,0x1F,0x1E,0x1F };
-	word crtyear = 2014;
-	word crtmoon = 1;
-	if (year < 2014 || !month || month > 12)return 0;
-	while (crtyear < year)// until crtyear == month
-	{
-		PastDays += isLeapYear(crtyear) ? 366 : 365;
-		crtyear++;
-	}
-	if (isLeapYear(year)) MoonDays[2] = 29;
-	while (crtmoon < month)
-		PastDays += MoonDays[crtmoon++];
-	if (weekday) *weekday = (PastDays - 1) % 7;// increase for the first day of the month
-	// 20131229 is Sunday(0) PastDays(1)
-	if (moondays) *moondays = MoonDays[month];
-	return PastDays;// [excluded hday] how many days between the first day of the month 00:00 from hday 23:59
+	if (!month) return 0;
+	if (month == 2) return 28 + isLeapYear(year);
+	return 30 + ((month & 1) ^ (month > 7));
 }
 
-unsigned DatimeCalendar(word year, word month, byte* weekday, byte* moondays)// Haruno RFC01.00:00: Decide to not merge with GetMoexDayIdentity(), and this function can be compatile with any case.
+unsigned weekday(word year, word month, word day)
 {
-	if (year >= 2014)return GetMoexDayIdentity(year, month, weekday, moondays);
-	byte MoonDays[13] = { 0,0X1F,0x1C,0x1F,0x1E,0x1F,0x1E,0x1F,0x1F,0x1E,0x1F,0x1E,27 };// 27 can for 2013 and earlier
-	// E.g. 2023 Jan: Jan~Nov + 27
-	// E.g. 2022 Dec: 2022.Dec + Jan~Nov + 27 == Jan~Dec + 27 
-	unsigned SpanDays = 0;// [included hday] how many days between the first day of the month 00:00 until hday 23:59
-	word crtyear = year;
-	if (!month || month > 12)return 0;
-	if (isLeapYear(year) && month <= 2) MoonDays[2] = 29;
-	while (crtyear++ < 2013)
-		SpanDays += isLeapYear(crtyear) ? 366 : 365;
-	for (unsigned i = month; i <= 12; i++)
-		SpanDays += MoonDays[i];
-	if (weekday) *weekday = 6 - ((SpanDays) % 7);
-	if (moondays) *moondays = month == 12 ? 31 : MoonDays[month];
-	return SpanDays;
+	if (year > 2013) goto a;
+	if (year == 2013) if (month == 12) if (day == 28) return 6; else if (day > 28) goto a;
+	return (6 - (-herspan(year, month, day)) % 7);
+a:
+	return (herspan(year, month, day) - 1) % 7;
 }
 
-sll POSIXGetSeconds(struct tm *tm)
+llong POSIXGetSeconds(struct tm* tm)
 {
-    sll t;
-    sll y = tm->tm_year;// year number relative from 1900
+    llong t;
+    llong y = tm->tm_year;// year number relative from 1900
     // Detail IEEE 1003.1:2004, section 4.14, POSIX-style time constant
     // Application:
     //- NASM 0207 [main source of the function]

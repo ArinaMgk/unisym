@@ -6,6 +6,23 @@ The UNISYM is like GNU-LIB with demonstrations and documents, which help compile
 
 The project is open-sourced under license of *Apache 2.0*. If you copy the code and used for the public or commercial, please **stipulate your copying from UNISYM led by<font color="purple"> ArinaMgk </font> **. All the code is by hands, without copying anyone including artificial intelligence, so these big changes and mistakes in codes may be forgiven .
 
+For example:
+
+```
+ConPrint("Hello") # Some script-interpret
+
+ConPrint("Hello");/* CPL */
+
+Con::Print("Hello");// C++
+Con.Print("Hello");// C++
+
+ConPrint Hello_String; Assembly Macro
+
+...
+```
+
+
+
 The project is always non-political and non-economic.
 
 - CATALOG: models (modules);
@@ -55,11 +72,11 @@ Contributors
 
     - ![Contributor ArinaMgk](./.picture/phina.head.bmp) 
 
-    - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk)
+    - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk) 
 
 - dosconio (dosconyo@gmail.com)
 
     - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) 
 
-    - fork: [http://github.com/dosconio/unisym](Dosconio-forked Uniform Symbolics phina-origined)
+    - fork: [Dosconio-forked Uniform Symbolics phina-origined](http://github.com/dosconio/unisym) 
 

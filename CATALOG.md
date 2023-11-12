@@ -28,7 +28,7 @@
 | **BitAr**         | [optional endian] for any size.                              |                              |                                    | todo     |
 | **TriAr**         |                                                              |                              |                                    | todo     |
 | **SixAr**         |                                                              |                              |                                    | todo     |
-| **ChrAr**(base)   | [big endian] [variable-length] optional signed ASCII integer arithmetic  and operations, for buffer or heap, which can be printed directly. the used names are `BytAr` and `ASCAr` and `StrAr`. Now exists the optional dependence of `arna_eflag`. These are **2 version** in `hstring` and `bstring`. |                              |                                    | ripen    |
+| **ChrAr**(base)   | [big endian] [variable-length] optional signed ASCII integer arithmetic  and operations, for buffer or heap, which can be printed directly. Now exists the optional dependence of `arna_eflag`.  <br> **alias**: `BytAr` and `ASCAr` and `StrAr` <br> **digit size**: `char` <br> **structure**: optional`sign`  + ASCIZ-string`digits` <br> **where**: stack or buffer(0 in `bstring`) or heap(1 in `hstring`) <br> **efficiency**: 10.1/256 (0.1 for sign digit and NUL) <br> **range**: any real number |                              |                                    | ripen    |
 | **FltAr**(1)      | [big endian] `{{Sign, ChrAr}, ExpoInDec }` the extension of **ChrAr**. But any fltar-number is fixed-size. If the result is too big, the magic number "999… . …999" will be expressed. For the fixed size of floating part, the result may be cut to adapt to the structure. Natural and only for **buffer** version. |                              |                                    | todo     |
 | **CdeAr**(1)      | [big endian] Arinae classic structure, Coff-expo-divr, based on **ChrAr**. the mechanism can express and operate any big-rational-real-number. The name follows what ArnMgk called this. | `+/-INF`, `NaN`,temp no `-0` | element and `aflag`, little `erro` | ripen    |
 | **NumAr**(4)      | [big endian] the mechanism can express and operate the big-rational-real-numbers (not endless) in 4 dimensions of time and room, or real and imaginary, based on **CdeAr**. <br>Version: C, C++{TODO} |                              |                                    | ripen    |
@@ -74,13 +74,30 @@
 #### > Develop
 
 - `_dbg` <=> `_DEBUG`
-
-- `_AUTO_INCLUDE`
+- `_AUTO_INCLUDE` will include ASM or C codes
+- `_ASSERT_STRICT`
+- `_ASSERT_NONE`
 
 #### > Environment
 
+> `ENV(FREE)` are compatible with `ENV(HOST)` 
+>
+> The respective documents are `alice.h` and `host.h` 
+
+mutex
+
 - `_WinNT`
 - `_Linux`
+
+combinate
+
+- `_BINARY`
+    - 8
+    - 16
+    - 32
+    - 64
+
+- Endian ... 
 
 #### > Pragma
 

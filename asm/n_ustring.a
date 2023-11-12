@@ -2,7 +2,7 @@
 ; x64-calling-convention arina-covenant
 BITS 64
 [SECTION .data]
-	DB "UNISYM DOSCON.IO", 0, "[CPYRIGHT]Phina Ren", "[AUTHOR] Haruno Doshou"
+	DB "UNISYM DOSCON.IO", 0, "[COPYRIGHT]Phina Ren", "[AUTHOR] Haruno Doshou"
 [SECTION .code]
 	GLOBAL ChrAddx64
 	; EXTERN malloc

@@ -32,7 +32,7 @@
 	#ifndef _INC_STDDEF
 	#include <stddef.h>
 	#endif
-	#include "alice.h"
+	#include "host.h"
 	#include "aldbg.h"
 
 struct ArinaeFlag
@@ -332,14 +332,77 @@ static inline char* StrCopy(char* dest, const char* sors)
 	while (*d++ = *sors++); return dest;
 }
 
+// MemSet
+#if _BINARY >= 64
+//{TODO} move into .c file and cancel inline
+static inline void* MemSet(void* s, int c, size_t n)
+{
+	register union { byte* bptr;  word* wptr; dword* dptr; qword* qptr; size_t val; } ptr;
+	register qword qwd;
+	byte remain;
+	if (!n) return s;
+	ptr.bptr = (byte*)s;
+	while (ptr.val & 0b111) { *ptr.bptr++ = c; n--; if (!n) return s; }
+	remain = n & 0b111;
+	qwd = (qword)((byte)c) << 0x38 | (qword)((byte)c) << 0x30 | (qword)((byte)c) << 0x28 | (qword)((byte)c) << 0x20 | 
+		(qword)((byte)c) << 0x18 | (qword)((byte)c) << 0x10 | (qword)((byte)c) << 8 | (byte)c;
+	n >>= 3;
+	if (n) do// loop
+	{
+		*ptr.qptr++ = qwd;
+	} while (--n);
+	if (remain) do *ptr.bptr++ = (byte)c; while (--remain);// STOSB
+	return s;
+}
+#elif _BINARY >= 32
+static inline void* MemSet(void* s, int c, size_t n)
+{
+	register union { byte* bptr;  word* wptr; dword* dptr; size_t val; } ptr;
+	register dword dwd;
+	byte remain;
+	if (!n) return s;
+	ptr.bptr = (byte*)s;
+	while (ptr.val & 0b11) { *ptr.bptr++ = c; n--; if (!n) return s; }
+	remain = n & 0b11;
+	dwd = (dword)((byte)c) << 24 | (dword)((byte)c) << 16 | (dword)((byte)c << 8) | (byte)c;
+	n >>= 2;
+	if (n) do// loop
+	{
+		*ptr.dptr++ = dwd;// STOSD
+	} while (--n);
+	if (remain) do *ptr.bptr++ = (byte)c; while (--remain);// STOSB
+	return s;
+}
+#elif _BINARY >= 16
+static inline void* MemSet(void* s, int c, size_t n)
+{
+	register union { byte* bptr;  word* wptr; size_t val; } ptr;
+	register word wrd;
+	byte remain;
+	if (!n) return s;
+	ptr.bptr = (byte*)s;
+	if (ptr.val & 1) { *ptr.bptr++ = c; n--; if (!n) return s; }
+	remain = n & 1;
+	wrd = (word)((byte)c) << 8 | (byte)c;
+	n >>= 1;
+	if (n) do// loop
+	{
+		*ptr.wptr++ = wrd;// STOSW
+	} while (--n);
+	if (remain) *ptr.bptr++ = (byte)c;// STOSB
+	return s;
+}
+#else
+// is good for inline
 static inline void* MemSet(void* s, int c, size_t n)
 {
 	while (n) { n--; ((char*)s)[n] = (char)c; }
 	return s;
 }
+#endif
 
 // RFB31 changed from `static inline char* MemCopyN(char* dest, const char* sors, size_t n)`
-static inline char* MemCopyN(void* dest, const void* sors, size_t n)
+static inline void* MemCopyN(void* dest, const void* sors, size_t n)
 {
 	register char* d = (char*)dest;
 	while (n--) *d++ = *(*((const char**)&sors))++;

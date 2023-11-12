@@ -26,15 +26,31 @@
 // origin: unisym/kasha/n_timer.a : %imacro GetMoexDayIdentity 2
 // year>=2014, month>0
 // Return pastdays and weekday(0~6)
-unsigned GetMoexDayIdentity(word year, word month, byte* weekday, byte* moondays);
+llong GetMoexDayIdentity(word year, word month);
 
 // extern of GetMoexDayIdentity, can show the months before 2014.
-unsigned DatimeCalendar(word year, word month, byte* weekday, byte* moondays);
+llong DatimeCalendar(word year, word month);
 
-sll POSIXGetSeconds(struct tm* tm);
+llong POSIXGetSeconds(struct tm* tm);
 
 #define isLeapYear(year) (!((year)&3)&&((year)%100)||!((year)%400)) // RFQ27
-#define getHerDayDif(y) (4 + (y - 114) * 365 + (y - 117 + 4) / 4 - (y - 101) / 100 + (y - 101) / 400) // RFX02 how many days between the first day of the year 00:00 from hday 23:59
+
+// y: Yesus based
+#define getHerDaySpanYear(y) ((y>2013)?(4 + (y-1900-114)*365 + (y-1900-117+4)/4 - (y-1900-101)/100 + (y-1900-101)/400):-((2014-(y))*365 + (2016-(y))/4 - ((2100-(y))/100) + (2400-(y))/400 - (31-27)))
+
+#define getHerDaySpanMonth(y,m) (getHerDaySpanYear(y) + (m-1)*31 - (m-1)/2 - (m>2)*(30-28-isLeapYear(y)) + ((m>8)&&(m&1)))
+
+#define herspan(y,m,d) (getHerDaySpanMonth(y,m)+d-1)
+
+#define getHerWeekNumber(y,m,d) ((herspan(y,m,d)+6)/7-(herspan(y,m,d)<0))
+
+unsigned weekday(word year, word month, word day);
+
+unsigned moondays(word year, word month);
+
+#ifdef _AUTO_INCLUDE
+	#include "./source/datime.c"
+#endif // _AUTO_INCLUDE
 
 
 #endif

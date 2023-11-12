@@ -9,9 +9,11 @@
 
 void DrawCalendar(word year, word moon, byte crtday)
 {
-	unsigned char weekday, mondays;
+	unsigned char week_day, mondays;
 	if (moon == 0 || moon > 12) return;
-	unsigned pasts = DatimeCalendar(year, moon, &weekday, &mondays);
+	llong pasts = herspan(year, moon, 1);
+	week_day = weekday(year, moon, 1);
+	mondays = moondays(year, moon);
 	ConClear();
 	ConCursor(0, 0);
 	printf("    %s %d\n", ((char* []){
@@ -21,7 +23,7 @@ void DrawCalendar(word year, word moon, byte crtday)
 		"   October ", "  November ", "  December "})[moon-1], year);
 	puts("Sun.Mon.Tue.Wed.Thr.Fri.Sat.");
 	ConStyleAbnormal();
-	ConCursorMoveRight(weekday << 2);
+	ConCursorMoveRight(week_day << 2);
 	for (unsigned char i = 1; i <= mondays; i++)
 	{
 		if (i == crtday)
@@ -34,13 +36,13 @@ void DrawCalendar(word year, word moon, byte crtday)
 			printf("|%02d]", i);
 		else
 			printf("[%02d]", i);
-		weekday++; pasts++;
-		if (weekday >= 7)
+		week_day++; pasts++;
+		if (week_day >= 7)
 		{
 			ConStyleNormal();
-			puts("");
+			printf(" Week %4d\n", getHerWeekNumber(year, moon, i));
 			ConStyleAbnormal();
-			weekday = 0;
+			week_day = 0;
 		}
 	}
 	ConStyleNormal();

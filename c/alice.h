@@ -19,13 +19,27 @@
 #define _LIB_C
 #endif
 
-#ifndef ArnHabit
-#define ArnHabit
+#ifndef _LIB_UNISYM//alias ArnHabit
+#define _LIB_UNISYM
+
+#include <limits.h>
 
 #define pointer(typ) typ * 
 // compatible with MIKA pointer: "pointer(pointer(void)) pp"
 
-#if defined(_WinNT)&&defined(_Bit64)
+#if SIZE_MAX==0xFFFF
+	#define _BINARY 16 
+#elif SIZE_MAX==0xFFFFFFFF
+	#define _BINARY 32
+#elif SIZE_MAX==0xFFFFFFFFFFFFFFFF
+	#define _BINARY 64
+#else 
+	#define _BINARY 8
+#endif
+
+#define __BITS__ _BINARY
+
+#if defined(_WinNT)&&(_BINARY==64)
 	#include "us_win64.h"
 #else
 	#include <stddef.h>
@@ -39,6 +53,7 @@
 	#define byte unsigned char
 	#define word unsigned short int
 	#define dword unsigned int
+	#define qword unsigned long long int
 	#define stduint size_t
 	#define stdint ptrdiff_t
 #endif
@@ -122,11 +137,10 @@
 #endif
 
 #ifdef _MSC_VER// for MSVC
-#define __FUNCIDEN__ __FUNCDNAME__
+	#define __FUNCIDEN__ __FUNCDNAME__
 #elif defined(__GNUC__)
-#define __FUNCIDEN__ __func__// cannot auto-strcat
+	#define __FUNCIDEN__ __func__// cannot auto-strcat
 #endif
-
 
 #endif
 // more to see "aldbg.h"

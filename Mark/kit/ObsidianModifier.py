@@ -27,7 +27,9 @@ def convert_image_path(filepath, suffix):
         result = []
         for line in lines:
             tmpstr = line.lstrip()
-            if "</" in tmpstr and ">" in tmpstr: # html
+            if (len(line) > 2 and line[0:2] == "# ") or (len(line) > 3 and line[0:3] == "## ") or (len(line) > 4 and line[0:4] == "### ") or (len(line) > 5 and line[0:5] == "#### ") or (len(line) > 6 and line[0:6] == "##### ") or (len(line) > 7 and line[0:7]) == "###### ": # title
+                tmpstr = tmpstr + "\n"
+            elif "</" in tmpstr and ">" in tmpstr: # html
                 pass
             elif tmpstr and (tmpstr[0] != '|'): # table
                 tmpstr = line.replace("[[_resources/", "[]({}_resources/".format(prefix_dir))
@@ -50,10 +52,11 @@ def convert_image_path(filepath, suffix):
 
 if __name__ == '__main__':
     num = 0
-    convert_image_path("a.txt", ".txt")
+    # convert_image_path("a.txt", ".txt")
     files = get_markdown_files()
     for file in files:
         print(str(num) + "> " + file)
         num += 1
         convert_image_path(file, "")
-        
+        #{subprocess::} subprocess.call(["pandoc", file, "-o", file.replace(".md", ".html")])
+        #$ pandoc xxx.md --pdf-engine=xelatex -o xxx.pdf -V "mainfont=Microsoft YaHei"

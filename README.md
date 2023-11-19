@@ -29,7 +29,7 @@ The project is always non-political and non-economic.
 - INDEX: symbols;
 - SECURITY: rule of using, participating and updating;
 - UPDATE: the changes;
-- TODO: potential changes;
+- <del>TODO</del>: potential changes (temporarily cancelled);
 - LICENSE: opensource text of *Apache 2.0*;
 - MAKEFILE: build or install uniformed symbol library;
 - COMPATIBLE: Relations with other libraries, interfaces or implementations;

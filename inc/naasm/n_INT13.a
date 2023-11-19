@@ -1,0 +1,14 @@
+; Disk
+
+;20230201 ah(0:completed&&CF=0 ErrorCode&&CF=1) [es] stack int13h2 DiskDataLoad(al NumofSector=1, bx BufAddr=0, ch track=0, cl sector=2, dh DiskSide=0, dl DriveNo=80H);
+;default : read the second sector, which follow the forst sector, from master disk.
+%imacro DiskDataLoad 0-6 1,0,0,2,0,80H
+ MOV AL,%1
+ MOV AH,2H
+ MOV BX,%2
+ MOV CH,%3
+ MOV CL,%4
+ MOV DH,%5
+ MOV DL,%6
+ INT 13H
+%endmacro

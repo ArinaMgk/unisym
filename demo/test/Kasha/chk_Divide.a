@@ -1,0 +1,33 @@
+;20230209
+%include "debug.a"
+%include "arith.a" ; "sga.a"
+%define DIVIDE Divx
+File
+	DefineStack
+	MOV AX,0XB800
+	MOV ES,AX
+	
+	MOV AX,0xFFFF
+	MOV BL,1
+	DIVIDE BL
+	DbgEcho16 AX
+	MOV SI,80*1+1
+	DbgEcho16 DX,SI
+	
+	MOV DX,0XFEDC
+	MOV AX,0X4321
+	MOV BX,2
+	DIVIDE BX
+
+	MOV SI,80*2+0
+	DbgEcho16 CX,SI
+
+	MOV SI,80*2+4
+	DbgEcho16 AX,SI
+
+	MOV SI,80*3+1
+	DbgEcho16 DX,SI
+
+	DbgStop
+
+Endf

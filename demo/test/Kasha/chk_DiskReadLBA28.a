@@ -1,0 +1,37 @@
+;Build 20230207
+;	aasm app.a -o app.bin -IE:\CNRV\ASM\n_
+;	vdkcpy app.bin E:\vhd.vhd 1
+;	vdkcpy str.a E:\vhd.vhd 3
+%include "disk32.a"
+
+%include "video.a"
+%include "debug.a"
+
+File
+StackSet
+mov ax,0x1000
+mov es,ax
+mov ds,ax
+mov ebx,0
+mov ecx,0
+;
+MOV EAX,3
+PUSH EAX
+MOV EDX,EBX
+MOV CL,1
+CALL F_DiskReadLBA28
+MOV CL,[EDX]
+SUB CL,1
+JZ F_ENDO
+POP EAX
+INC EAX
+CALL F_DiskReadLBA28
+F_ENDO:
+;
+mov si,1
+PrintString si,80
+DbgStop
+F_DiskReadLBA28:
+DiskReadLBA28 EAX,CL
+RET
+Endf

@@ -298,7 +298,7 @@ Routine:
 		RETF
 		ALIGN 16
 	R_DiskReadLBA28:;eax=start, ds:ebx=buffer
-		DiskReadLBA28 EAX,1
+		HdiskLoadLBA28 EAX,1
 		RETF
 		ALIGN 16
 RoutineEnd:

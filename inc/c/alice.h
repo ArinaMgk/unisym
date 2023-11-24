@@ -33,12 +33,16 @@
 
 #if SIZE_MAX==0xFFFF
 	#define _BINARY 16 
+	#define __BIT_STR__ "16"
 #elif SIZE_MAX==0xFFFFFFFF
 	#define _BINARY 32
+	#define __BIT_STR__ "32"
 #elif SIZE_MAX==0xFFFFFFFFFFFFFFFF
 	#define _BINARY 64
+	#define __BIT_STR__ "64"
 #else 
 	#define _BINARY 8
+	#define __BIT_STR__ "8"
 #endif
 
 #define __BITS__ _BINARY

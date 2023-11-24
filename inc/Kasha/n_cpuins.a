@@ -33,11 +33,3 @@
 	CMP EDI, 0X80000004
 	JBE %%loop
 %endmacro CpuGetBrand32 1
-
-
-
-
-
-
-
-

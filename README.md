@@ -1,6 +1,6 @@
 # UNISYM
 
-**Uniformed Symbol**, also known as "*Uniform Symbolic Assembly and Implementation*", "*Pseudo Standard Library*" or "*Her-Interfaces*", which are based on the interfaces of official library or conventional styles, e.g. *ISO/IEC STD-C Interfaces*.
+**Uniformed (Universal) Symbol**, also known as "*Uniform Symbolic Assembly and Implementation*", "*Pseudo Standard Library*" or "*Her-Interfaces*", which are based on the interfaces of official library or conventional styles, e.g. *ISO/IEC STD-C Interfaces*.
 
 The UNISYM is like GNU-LIB with demonstrations and documents, which help compilers act among not only  translation of simple assembly instructions but also provide binary and linkages.
 
@@ -36,28 +36,27 @@ The project is always non-political and non-economic.
 
 ### Component
 
-Some code depend on the standard or widely-used functions; some code are supported by the complete UNISYM codes, such as *Kasha*.
-
-| Folder Name        | For                                                          |
-| ------------------ | ------------------------------------------------------------ |
-| Analog | Design-Metadata and products of the non-digital. |
-| Graphic | Any chrome relatives. |
-| Hardware | Mainly for Verilog and VHDL, now. |
-| Model | 3D-Print... |
-| Kasha              | x86-Series Platform Assembly Kit (kernel) for Operation System Development. (interrupts are in `asm`) |
-| Clover           | Symbol-syntax languages support |
-| Mark | Rosama system in the future |
-| Script | Datura system in the future |
-| asm | Host environment assembly |
-| c                  | C Programming Language. Some are compatible with C++ with `extern "C"` keyword. |
-| <del>MCU</del> | for integrated micro-controller units. (temporarily close-src, as `unisyml`) |
+| Folder Name        | For                                                     | As                                                         |
+| ------------------ | ------------------------------------------------------------ | ------------------ |
+| asm | source(asm) <=> object | assembler and dis-assembler |
+| demo | / | demonstrations |
+| doc | / | documents |
+| inc | / | including files |
+| lib | / | implementation source code |
+| linker | objects => output | linker, synthesizer and modifier |
+| magic | sources => sources + list + depend | compiler and translator |
+| witch | to outputs | analyzer and chrome engine |
+| wizard | / | constructor |
 
 ### Format
 
-- `.a` assembly file
-- `.a`-suffixed and `n_`-prefixed file is for Arina-made assembler (private so far) , you may also use **NASM0207** as a replacement.
+- `.a` `.m` assembly file
 
+- `.o` object file
 
+- `.mgk` magicoll source file
+
+    
 
 ---
 

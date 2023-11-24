@@ -456,7 +456,7 @@ Routine:
 		RET
 		ALIGN 16
 	R_DiskReadLBA28:
-		DiskReadLBA28 EAX,1
+		HdiskLoadLBA28 EAX,1
 		RET
 		ALIGN 16
 	R_PrintDwordCursor:

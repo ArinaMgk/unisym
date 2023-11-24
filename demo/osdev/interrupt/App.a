@@ -1,0 +1,35 @@
+; Filename: AppRfq28.a
+; Datetime: 202303011348
+; @ArinaMgk & @dosconio
+; ---- ---- ---- ----
+; ---- ---- ---- ----
+; Rebuild RFQ28 based on demoPage
+; Build
+;	asm mbr.a
+;		vdk mbr.a 0
+;	asm app.a
+;		vdk app.a 1
+;	asm sb1.a
+;		vdk sb1.a 50
+;	asm sb2.a
+;		vdk	sb2.a 100
+DD endo
+[BITS 32]
+MOV BYTE[0xB8001],0x70
+PUSH EAX; STAK CHK
+POP EAX
+MOV ESI,str0
+MOV EDI,0xB8000+80*2
+MOV ECX,str0e-str0
+Print0:
+	MOV AL,[ESI]
+	MOV [EDI],AL
+	INC ESI
+	ADD EDI,2
+	LOOP Print0
+CLI
+HLT
+str0: db "Hello,world!~~~"
+str0e:
+
+endo:

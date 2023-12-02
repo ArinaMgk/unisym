@@ -1,8 +1,8 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
-// LastCheck: RFX18
-// AllAuthor: @dosconio
-// ModuTitle: CPlusPlus Include C Header Tog
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant Host[Allocation]
+// LastCheck: RFZ02
+// AllAuthor: @ArinaMgk(till RFA03) @dosconio
+// ModuTitle: Simple Node
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,16 +20,19 @@
 	limitations under the License.
 */
 
-#ifndef _LIBX_C
-#define _LIBX_C
+#include "../../../inc/c/node.h"
+#include "../../../inc/c/aldbg.h"
 
-extern "C" {
-	///#define class Class
-
-#else
-#undef _LIBX_C
-
-	///#undef class
+void NodeRelease(node* first)
+{
+	if (!first) return;
+	node* next;
+	while (first)
+	{
+		next = first->next;
+		if (_node_freefunc) _node_freefunc(first->addr);
+		memf(first);
+		first = next;
+	}
+	_node_first = 0;
 }
-
-#endif

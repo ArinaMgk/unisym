@@ -28,9 +28,18 @@
 
 #include "../c/ustring.h"
 
-
-
 #include "cinc"// C End
 
+class String {
+private:
+	size_t counts;
+	char* addr;
+public:
+	String(const char* str);
+	~String();
+	size_t length();
+};
+
+typedef class String ustring;
 
 #endif // !_LIBX_STRING

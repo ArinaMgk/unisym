@@ -1,8 +1,8 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
-// LastCheck: RFX18
-// AllAuthor: @dosconio
-// ModuTitle: CPlusPlus Include C Header Tog
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant Host[ ]
+// LastCheck: RFZ02
+// AllAuthor: @ArinaMgk(till RFA03) @dosconio
+// ModuTitle: Simple Node
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,16 +20,21 @@
 	limitations under the License.
 */
 
-#ifndef _LIBX_C
-#define _LIBX_C
+#include "../../../inc/c/node.h"
+#include "../../../inc/c/aldbg.h"
 
-extern "C" {
-	///#define class Class
-
-#else
-#undef _LIBX_C
-
-	///#undef class
+static int isequal(void* addr0, void* addr1)
+{
+	return (int)((ptrdiff_t)addr0 - (ptrdiff_t)addr1);
 }
 
-#endif
+size_t NodeIndex(node* first, void* addr)
+{
+	size_t times = 0;
+	node* next;
+	while (next = first)
+		if ((times++, first = next->next, next->addr) && !(_node_compare ? _node_compare : isequal)(next->addr, addr))
+			return times;
+	return 0;
+}
+

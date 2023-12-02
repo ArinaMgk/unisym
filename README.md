@@ -4,7 +4,7 @@
 
 The UNISYM is like GNU-LIB with demonstrations and documents, which help compilers act among not only  translation of simple assembly instructions but also provide binary and linkages.
 
-The project is open-sourced under license of *Apache 2.0*. If you copy the code and used for the public or commercial, please **stipulate your copying from UNISYM led by<font color="purple"> ArinaMgk </font> **. All the code is by hands, without copying anyone including artificial intelligence, so these big changes and mistakes in codes may be forgiven .
+The project is open-sourced under license of *Apache 2.0*. If you copy the code and used for the public or commercial, please stipulate your copying from UNISYM led by<font color="purple"> ArinaMgk </font> . All the code is by hands, without copying anyone including artificial intelligence, so these big changes and mistakes in codes may be forgiven .
 
 For example:
 
@@ -67,15 +67,15 @@ Domain
 
 Contributors
 
-- Phina Ren (aka ArinaMgk yo GitHub)
+- Phina Ren (aka `ArinaMgk` yo GitHub)
 
     - ![Contributor ArinaMgk](./.picture/phina.head.bmp) 
 
     - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk) 
 
-- dosconio (dosconyo@gmail.com)
+- Dosconio (dosconyo@gmail.com)
 
     - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) 
 
-    - fork: [Dosconio-forked Uniform Symbolics phina-origined](http://github.com/dosconio/unisym) 
+    - fork: [Dosconio-forked Uniform Symbolic phina-origined](http://github.com/dosconio/unisym) 
 

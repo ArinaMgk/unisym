@@ -185,7 +185,7 @@ ptrdiff_t atoins(const char* str)
 	while (*ptr && *ptr <= '9' && *ptr >= '0' && (size_t)(ptr - str + !Signed) <= size_dec)
 	{
 		inst *= 10;
-		inst += *ptr - '0';
+		inst += (ptrdiff_t)*ptr - (ptrdiff_t)'0';
 		ptr++;
 	}
 	///if (*ptr <= '9' && *ptr >= '0') ...

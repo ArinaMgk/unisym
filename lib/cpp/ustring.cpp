@@ -2,7 +2,7 @@
 // Attribute: ArnCovenant yo Free 
 // LastCheck: RFX18
 // AllAuthor: @dosconio
-// ModuTitle: CPlusPlus Include C Header Tog
+// ModuTitle: ASCII String
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,16 +20,21 @@
 	limitations under the License.
 */
 
-#ifndef _LIBX_C
-#define _LIBX_C
+#define _LIB_STRING_HEAP
+#include "../../inc/cpp/ustring"
 
-extern "C" {
-	///#define class Class
-
-#else
-#undef _LIBX_C
-
-	///#undef class
+String::String(const char* str) {
+	counts = StrLength(str);
+	addr = (char*)malc(counts + 1);
+	StrCopy(addr, str);
 }
 
-#endif
+String::~String() {
+	memf(addr);
+	addr = NULL;
+	counts = 0;
+}
+
+size_t String::length() {
+	return this->counts;
+}

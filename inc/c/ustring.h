@@ -25,7 +25,17 @@
 * ChrAr
 * Temporarily Stage Area
 */
+
+/*
+* astring, aka Allocating String, used name `hstring` (heap) ;
+* bstring, aka Buffer String, keep the functions can run in Free-standing Environment
+*/
+
 #define _LIB_STRING
+
+#ifdef _INC_CPP
+#define register// ISO C++17 does not allow 'register' storage class specifier
+#endif
 
 #ifndef _LIB_STRING_ONCE_HEAD
 #define _LIB_STRING_ONCE_HEAD
@@ -45,12 +55,6 @@ struct ArinaeFlag
 };extern struct ArinaeFlag arna_eflag;
 #define aflag arna_eflag
 
-//single-direction simple node
-typedef struct Node
-{
-	struct Node* next;
-	void* addr;
-} Node, node;// measures pointer[2]
 
 // double-directions node
 typedef struct Dnode
@@ -101,7 +105,7 @@ typedef struct TreeNode
 	// no use of union for grace view of debug
 	struct TreeNode* left;
 	char* addr;
-	size_t class;
+	size_t type;// from `class` for C++ keyword compatibility
 	struct TreeNode* right;
 	size_t row, col;
 	//
@@ -157,23 +161,7 @@ typedef struct ArnOldStyleNode
 	#define _LIB_STRING_HEAP_GUARD
 //---- ---- ---- ---- node ---- ---- ---- ----
 	
-	// Create if nod is null, or append at the end of nod. If nod has the next item, the new one will be between nod and its next item, i.e. insert a node in the right.
-	node* NodeAppend(node* nod, void* addr);
 
-	// Create or insert in the increasing order of addr.
-	node* NodeAppendOrder(node* nod, void* addr);
-
-	// Return the distance plus one, or 0 for not found.
-	size_t NodeIndex(node* first, void* cmp);
-
-	// Return the counts of the node string.
-	size_t NodeCount(node* first);
-
-	//
-	void NodeReleaseTofreeDefault(void* inp);
-	
-	// If tofree is not zero, the addr of nod in the string will be free from memory.
-	void NodesRelease(node* first, void(*freefunc)(void*));
 	
 //---- ---- ---- ---- dnode ---- ---- ---- ----
 	Dnode* DnodeCreate(Dnode* any, char* addr, size_t len);
@@ -225,6 +213,7 @@ typedef struct ArnOldStyleNode
 		if (mid) mid->next = right;
 		if (right) right->left = mid;
 		if (mid) mid->left = left;
+		return mid;
 	}
 
 	#define StrTokenPrint(first)\
@@ -824,6 +813,8 @@ static inline signed MemCompareRight(const unsigned char* a, const unsigned char
 	}
 	return 0;
 }
+
+#undef register
 
 #endif
 

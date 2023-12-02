@@ -26,10 +26,11 @@
 #include "alice.h"
 
 #define printb(x) printf("%s: " #x "\n",(x)?"True":"False")
+#define malc_count _MALCOUNT
 
 extern void erro(char*);
 extern void warn(char*);
-extern size_t malc_count;// <IN>
+extern size_t _MALCOUNT;// <OUT>
 extern size_t malc_limit;// <IN>
 extern size_t call_state;// <OUT>
 // call_state :
@@ -41,11 +42,11 @@ extern size_t arna_precise;
 
 #if defined(_dbg) || defined(_DEBUG)
 	#define memalloc(dest,size)\
-		(*(char**)&dest=(char*)malloc(size))?((void)malc_count++):(erro("MEMORY RUN OUT!"),(void)0)
-	#define memfree(x) if(x){free((char*)(x));malc_count--;}// RFW21 version
-	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);malc_count--;*(void**)&(x)=ebx;}
-	#define malc(size) (void*)(malc_count++,malloc(size))
-	#define zalc(size) (void*)(malc_count++,calloc(size,1))
+		(*(char**)&dest=(char*)malloc(size))?((void)_MALCOUNT++):(erro("MEMORY RUN OUT!"),(void)0)
+	#define memfree(x) if(x){free((char*)(x));_MALCOUNT--;}// RFW21 version
+	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);_MALCOUNT--;*(void**)&(x)=ebx;}
+	#define malc(size) (void*)(_MALCOUNT++,malloc(size))
+	#define zalc(size) (void*)(_MALCOUNT++,calloc(size,1))
 	
 #else
 	#define memalloc(dest,size)\
@@ -76,13 +77,13 @@ inline static char* salc(size_t size)
 	{\
 		if (SGAErroMsg && *SGAErroMsg)\
 			fprintf(stderr, "!Err %s\n", SGAErroMsg);\
-		if(exitcode&&malc_count) fprintf(stderr, "MEMORY LEAK %"PRIuPTR" TIMES.\n", malc_count);\
+		if(exitcode&&_MALCOUNT) fprintf(stderr, "MEMORY LEAK %"PRIuPTR" TIMES.\n", _MALCOUNT);\
 		return (exitcode);\
 	}
 
 // Quickly set the necessary configuration
 #define ulibsym(limit)\
-	size_t malc_count, malc_limit=(limit), call_state;
+	size_t _MALCOUNT, malc_limit=(limit), call_state;
 
 
 #endif

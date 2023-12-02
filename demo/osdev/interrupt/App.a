@@ -4,32 +4,418 @@
 ; ---- ---- ---- ----
 ; ---- ---- ---- ----
 ; Rebuild RFQ28 based on demoPage
-; Build
-;	asm mbr.a
-;		vdk mbr.a 0
-;	asm app.a
-;		vdk app.a 1
-;	asm sb1.a
-;		vdk sb1.a 50
-;	asm sb2.a
-;		vdk	sb2.a 100
-DD endo
-[BITS 32]
-MOV BYTE[0xB8001],0x70
-PUSH EAX; STAK CHK
-POP EAX
-MOV ESI,str0
-MOV EDI,0xB8000+80*2
-MOV ECX,str0e-str0
-Print0:
-	MOV AL,[ESI]
-	MOV [EDI],AL
-	INC ESI
-	ADD EDI,2
-	LOOP Print0
-CLI
-HLT
-str0: db "Hello,world!~~~"
-str0e:
+; demoPage 可能有问题 0x9000~0x9FFF
 
+; 2023/03/03  21:14 2App.a
+; 2023/11/24  20:43 App
+; 2023/03/03  22:34 App.a
+; 2023/03/03  22:35 Mbr.a
+; 2023/03/03  21:17 Sb1.a
+; $ aasm App.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_ -IE:\PROJ\SVGN\unisym\demo\osdev\interrupt\n_
+; $ aasm Mbr.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_ -IE:\PROJ\SVGN\unisym\demo\osdev\interrupt\n_
+; $ aasm Sb1.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_ -IE:\PROJ\SVGN\unisym\demo\osdev\interrupt\n_
+; $ aasm Sb2.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_ -IE:\PROJ\SVGN\unisym\demo\osdev\interrupt\n_
+; $ cot ffset e:\vhd.vhd Mbr 0
+; $ cot ffset e:\vhd.vhd App 1
+; $ cot ffset e:\vhd.vhd Sb1 50
+; $ cot ffset e:\vhd.vhd Sb2 100
+
+;Finish Revive at 2023 Nov25 01:17
+
+DD endo
+SegCode EQU 8*1
+SegData EQU 8*2
+SegRot EQU 8*3
+SegGate EQU 8*4
+SegLDT EQU 8*5; 0 App has no LDT (NULL)
+SegTSS EQU 8*6
+SegLDT1 EQU 8*7
+SegTSS1 EQU 8*8
+SegLDT2 EQU 8*9
+SegTSS2 EQU 8*10
+
+IDTAddr EQU 0x80000000
+BaseLA EQU 0x80001000
+%include "tmpflat.a"
+%include "debug.a"
+%include "osdev.a"
+%include "video.a"
+%include "hdisk.a"
+%include "demos.a"
+[BITS 32]
+; Say hello
+	MOV BYTE[0x800B8001],0x70
+	PUSH EAX; STAK CHK
+	POP EAX
+	MOV ESI,str0
+	CALL R_Print
+; GDT : Routine & Gate & LDT & TSS
+	SGDT [GDTDptr]
+	MOV EBX,DWORD[GDTDptr+2]
+	XOR ECX,ECX
+	MOV CX,WORD[GDTDptr]
+	INC CX
+	ADD EBX,ECX
+	; ROUTINE
+	PUSH EBX
+	MOV EAX,__Routine
+	MOV EBX,__RoutineEnd-__Routine-1
+	MOV ECX,0x00409800
+	CALL F_GDTDptrStruct_32
+	POP EBX
+	GDTDptrAppend EDX,EAX	
+	; ROUTINE GATE
+	PUSH EBX
+	GateStruct (RoutineGate-__Routine),SegRot,1_11_011000000_0000B; P.DPL.01100000.PARA
+	POP EBX
+	GDTDptrAppend EDX,EAX
+	;
+	MOV DWORD[TSSAddr],EBX
+	; LDT
+	XOR EDX,EDX
+	XOR EAX,EAX
+	GDTDptrAppend EDX,EAX
+	; TSS
+	MOV EAX,0x80007000
+	MOV WORD[EAX],0
+	MOV ECX,CR3
+	MOV DWORD[EAX+28],ECX; PDBR
+	;;;MOV WORD[EAX+96],SegLDT; NO LDT
+	MOV WORD[EAX+96],0
+	MOV WORD[EAX+100],0; T=0 , is what ???
+	MOV WORD[EAX+102],103; NO I/O BITMAP
+		PUSH EAX
+		PUSH EBX
+		MOV EBX,104-1
+		MOV ECX,0x00408900
+		CALL F_GDTDptrStruct_32
+		POP EBX
+		GDTDptrAppend EDX,EAX
+		POP EAX
+		
+
+	SUB EBX,[GDTDptr+2]
+	DEC EBX
+	MOV WORD[GDTDptr],BX
+	LGDT [GDTDptr]
+	MOV CX,SegTSS
+	LTR CX
+	ADD WORD[EAX+2],1
+; Try Gate
+	MOV ESI,str1
+	MOV EDI,1
+	CALL SegGate:0
+	MOV EDI,5
+	MOV ESI,str2
+	MOV EBX,1
+	ADD EBX,2
+	CALL SegGate:0
+	MOV EDI,1
+	CALL SegGate:0
+; IDT
+	; The former 20 is for exceptions
+	CLI
+	GateStruct GeneralExceptionHandler,SegCode,0x8E00; 32BIT R0
+	MOV ESI,IDTAddr
+	MOV ECX,20; 20*8=0x0A0
+	_IDTFill0:
+		MOV [ESI],EAX
+		ADD ESI,4
+		MOV [ESI],EDX
+		ADD ESI,4
+		LOOP _IDTFill0
+	; Then for interruption (256)
+	GateStruct GeneralInterruptHandler,SegCode,0x8E00; 32BIT R0
+	MOV ECX,256-20; 256*8=0x800
+	_IDTFill1:
+		MOV [ESI],EAX
+		ADD ESI,4
+		MOV [ESI],EDX
+		ADD ESI,4
+		LOOP _IDTFill1
+	; Setup timer
+	GateStruct Timer_70HINTHandler,SegCode,0x8E00; 32BIT R0(this decides the ring of the handler?)
+	MOV [IDTAddr+8*0x70],EAX
+	MOV [IDTAddr+8*0x70+4],EDX
+	; Load IDT
+	SUB ESI,IDTAddr+1
+	MOV EAX,ESI
+	MOV [IVTDptr],AX
+	LIDT [IVTDptr]
+	; Enable 8259A
+	MOV AL,0X11
+	OUT 0X20,AL;ICW1：边沿触发/级联方式
+	MOV AL,0X20
+	OUT 0X21,AL;ICW2:起始中断向量
+	MOV AL,0X04
+	OUT 0X21,AL;ICW3:从片级联到IR2
+	MOV AL,0X01
+	OUT 0X21,AL;ICW4:非总线缓冲，全嵌套，正常EOI
+	MOV AL,0X11
+	OUT 0XA0,AL;ICW1：边沿触发/级联方式
+	MOV AL,0X70
+	OUT 0XA1,AL;ICW2:起始中断向量
+	MOV AL,0X04
+	OUT 0XA1,AL;ICW3:从片级联到IR2
+	MOV AL,0X01
+	OUT 0XA1,AL;ICW4:非总线缓冲，全嵌套，正常EOI
+	; set timer working 
+	MOV AL,0X0B;RTC寄存器B
+	OR AL,0X80;阻断NMI
+	OUT 0X70,AL
+	MOV AL,0X12;设置寄存器B，禁止周期性中断，开放更
+	OUT 0X71,AL;新结束后中断，BCD码，24小时制
+	IN AL,0XA1;读8259从片的IMR寄存器
+	AND AL,0XFE;清除BIT 0(此位连接RTC)
+	OUT 0XA1,AL;写回此寄存器
+	MOV AL,0X0C
+	OUT 0X70,AL
+	IN AL,0X71;读RTC寄存器C，复位未决的中断状态
+; Check PIC Device ???
+PIC_CHECK:
+; Open INT
+	;STI
+; Load Subapp 1&2
+	PUSH DWORD 50
+	CALL F_TSSStruct3
+
+	PUSH DWORD 100
+	CALL F_TSSStruct3
+
+	CALL SegTSS1:0; Nest Method
+	JMP SegTSS2:0
+	CALL SegTSS1:0; Nest Method
+	JMP SegTSS2:0
+
+	MOV ESI,BaseLA+str4
+	MOV EDI,1
+	CALL SegGate:0
+
+; Open INT
+	STI
+
+; Boundary
+	JMP $
+	DbgStop
+F_GDTDptrStruct_32:
+	GDTDptrStruct EAX,EBX,ECX
+	RET
+F_TSSStruct3:
+	TSSStruct_3
+	RET 4*1
+F_MemAllocSuperv:; DS:GlbArea ECX->EAX
+	PUSH EBX
+	OR ECX,ECX
+	JZ R_MemAllocS_End
+	MOV EAX,[SvpAllocPtr]
+	MOV EBX,EAX
+	ADD EBX,ECX
+	CMP EBX,0x7FFFF; demoPage {TODO ISSUE}
+	JBE R_MemAllocS_Next
+	XOR EAX,EAX
+	JMP R_MemAllocS_End
+	R_MemAllocS_Next:
+	ADD DWORD[SvpAllocPtr],ECX
+	DEC EBX
+	AND EBX,0xFFFFF000
+	R_MemAllocS_Loop:
+	CMP EBX,EAX
+	JB R_MemAllocS_End; E.G. 0x1000 < 0x1001
+	CALL RR_PageRegister
+	CMP EBX,0
+	JZ R_MemAllocS_End; demoPage {TODO ISSUE}
+	SUB EBX,0x1000
+	JMP R_MemAllocS_Loop
+	R_MemAllocS_End:
+	POP EBX
+	RET
+	RR_PageRegister:
+		PageRegister
+	RET
+SvpAllocPtr: DD 0xA000; Supervisor
+UsrAllocPtr: DD 0x00100000
+TSSNumb: DW 1
+TSSCrt: DW 0; App's=0
+TSSAddr: DD 0; -> [MainLDT(MayZero)+MainTSS][LDT1+TSS1][LDT2+TSS2]... yo GDT
+GDTDptr: DW 0
+	DD 0
+IVTDptr: DW 0
+	DD IDTAddr
+APISymbolTable:
+	RoutineNo: DD (rotEnd-rot0000)/8
+	rot0000:; Terminate
+		DD R_Terminate-__Routine
+		DW SegRot,0
+	rot0001:; PrintString in(esi:str)
+		DD R_Print-__Routine
+		DW SegRot,0
+	rot0002:; MemAlloc[UserLevel] stack in(ecx=length)ret(eax=start<ERR=0>)
+		DD R_MemAlloc-__Routine
+		DW SegRot,0
+	rot0003:; Free {TODO}
+		DD R_Mfree-__Routine
+		DW SegRot,0
+	rot0004:; in(eax:logisec) ret(ebx+=512)
+		DD R_DiskReadLBA28-__Routine
+		DW SegRot,0
+	rot0005:; R_PrintDwordCursor(EBX)->[ESI]
+		DD R_PrintDwordCursor-__Routine
+		DW SegRot,0
+	rot0006:;
+		DD R_TMP_RotateSub-__Routine
+		DW SegRot,0
+	rotEnd:
+__Routine:
+RoutineGate:; EDI=FUNCTION
+	PUSHAD
+	PUSH DS
+	PUSH EAX
+	MOV EAX,SegData
+	MOV DS,EAX
+	POP EAX
+	MOV EAX,EDI
+	CMP DWORD[RoutineNo],EAX
+	JB RoutineGateEnd
+	SHL EAX,3; MUL8
+	CALL NEAR [rot0000+EAX]
+	RoutineGateEnd:
+	POP DS
+	POPAD
+	RETF
+Routine:
+	R_Terminate:
+		;; OMIT CHECK STATE
+		;; change state "exit"
+		;XOR EBX,EBX
+		;MOV BX,[TSSCrt]
+		;SHL EBX,4; *16
+		;MOV EAX,[TSSAddr]
+		;ADD EAX,EBX; -> LDT`TSS Dptor 16bytes
+		;; Get Linear Addr
+		;MOV EBX,[EAX+8]; skip LDT
+		;MOV CL,8
+		;SHL BX,CL
+		;SHR EBX,CL
+		;SHL BX,CL
+		;SHL EBX,CL
+		;MOV EDX,[EAX+12]
+		;SHR EDX,CL
+		;SHR EDX,CL
+		;OR EBX,EDX; EBX ZO LA
+		;ADD WORD[EBX+2],1
+		; What did @ArinaMgk want to do, above? --@dosconio's check
+		POP EDX; STORE
+		POP DS; STORE
+		POPAD; STORE
+		PUSHFD
+		POP EDX
+		TEST DX,0100_0000_0000_0000B
+		JNZ NESTED_TASK
+
+		JMP SegTSS:0; Back App.a
+		RETF
+
+		WaitRemoved: HLT
+		JMP WaitRemoved
+		NESTED_TASK: IRETD
+		RETF; for next calling the subapp
+		ALIGN 16
+	R_Print:; in(esi:str)
+		FlatPrintCursor
+		RET
+		ALIGN 16
+	
+	R_MemAlloc:
+	CallMemAlloc:;User used
+		PUSH EBX
+		OR ECX,ECX
+		JZ R_MemAlloc_End
+		MOV EAX,[UsrAllocPtr]
+		MOV EBX,EAX
+		ADD EBX,ECX
+		CMP EBX,0x00400000; UserRight
+		JBE R_MemAlloc_Next
+		XOR EAX,EAX
+		JMP R_MemAlloc_End
+		R_MemAlloc_Next:
+		ADD DWORD[UsrAllocPtr],ECX
+		DEC EBX
+		AND EBX,0xFFFFF000
+		R_MemAlloc_Loop:
+			CMP EBX,EAX
+			JB R_MemAlloc_End
+			CALL RR_PageRegisterUser
+			CMP EBX,0
+			JZ R_MemAlloc_End
+			SUB EBX,0x1000
+			JMP R_MemAlloc_Loop
+		R_MemAlloc_End:
+		POP EBX
+		RET
+		RR_PageRegisterUser:
+			PageRegisterUser
+			RET
+		ALIGN 16
+
+	R_Mfree:
+		; ...暂无
+		RET
+		ALIGN 16
+
+	R_DiskReadLBA28:
+	ReadDisk:; in(eax:logisec) ret(ebx+=512)
+		FlatReadOneSecLBA28
+		RET
+		ALIGN 16
+
+	R_PrintDwordCursor:
+		FlatDbgEcho32
+		RET
+		ALIGN 16
+
+	R_TMP_RotateSub:
+		NOT BYTE[crtrun]
+		CMP BYTE[crtrun], 0
+		JZ RunSb2
+		RunSb1:
+			CALL SegTSS1:0
+			RET
+		RunSb2:
+			CALL SegTSS2:0
+			RET
+		ALIGN 16
+__RoutineEnd:
+Timer_70HINTHandler:
+	PUSHAD
+
+	MOV ESI,BaseLA+str3
+	MOV EDI,1
+	;CALL SegGate:0
+	MOV EDI,6
+	CALL SegGate:0
+
+	GIH
+	;OPEN NMI AFTER READ REG-C, OR ONLY INT ONCE
+	MOV AL,0X0C
+	OUT 0X70,AL
+	IN AL,0x71
+	POPAD
+	IRETD
+GeneralExceptionHandler:
+	MOV ESI,strException
+	CALL R_Print
+	DbgStop
+GeneralInterruptHandler:
+	PUSH EAX
+	GIH
+	POP EAX
+	IRETD
+str0: db 0x0a,0x0d,":Hello,world!~~~",0x0a,0x0d,0
+str1: db " 1+2=",0
+str2: times 8 db 0
+	db 0x0a,0x0d,0
+str3: db "<Ring~~>",0 
+str4: db "[Welcome]",0
+crtrun: db 0
+strException: db 0x0a,0x0d,":Exception!~~~",0x0a,0x0d,0
 endo:

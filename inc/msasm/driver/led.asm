@@ -1,10 +1,15 @@
-; ASCII [MASM] for MCU template
+; ASCII [MASM] TAB4 CRLF
+; Attribute: MCU template
+; LastCheck: RFX28
+; AllAuthor: @dosconio
+; ModuTitle: LED (temp for 4 2-dim LEDS)
+; Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
 ; for nega(G)-nega(R)-logi into al-posilogi. E.g. `11111110` is let red LED_0 light and others off.
 ; DH means Hong and DL means Lv in Pinyin.
 
 ; AL <<< LEDStruct <<< Reds(DH), Greens(DL)
-LEDStruct macro Red:<DH>, Green:<DL>
+LED_Struct macro Red:<DH>, Green:<DL>
 	push dx
 	push cx
 	mov dh, Red

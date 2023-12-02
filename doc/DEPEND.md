@@ -5,6 +5,6 @@
 ```mermaid
 graph TB
 	%% CPL
-	root[alice]--"x86"-->A[B]-->C[D];
+	root[alice & debug & STD-Constant]--"x86"-->node[node]-->C[...];
 ```
 

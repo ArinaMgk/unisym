@@ -84,7 +84,8 @@
 #define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
 
 #define jump goto
-#define call(x) (x)()
+#define call(x)   (x)()
+#define callnz(x) (x)&&(x)()
 #define callif(x) (x?(void)(x)():(void)0)
 
 // These IF can avoid error such as mixing "a=0" and "a==0"

@@ -1,9 +1,11 @@
 # Universal Logical Linear Language : Magicoll
 
 - domain: magicoll.org 
-- alias: `Magical Epic of Origin and Love `
-- file extension: `.mgk`
-- compiler: `mgc`
+- origin: `Magic Collection of Origin and Love Legend`, from `L.A.O.E.C. (Love & Origin Epic Collection, used name of UNISYM and Her-Note)` 
+- file extension: `.m` `.mg` `.mg*` 
+    - header extension: `.h` `.mgh` 
+
+- compiler: `mgc` 
 
 ## Dependence
 

@@ -1,8 +1,8 @@
 // ASCII C++11 TAB4 CRLF
 // Attribute: ArnCovenant yo Free 
-// LastCheck: RFX18
+// LastCheck: RFZ01
 // AllAuthor: @dosconio
-// ModuTitle: CPlusPlus Include C Header Tog
+// ModuTitle: General Header
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,16 +20,8 @@
 	limitations under the License.
 */
 
-#ifndef _LIBX_C
-#define _LIBX_C
-
-extern "C" {
-	///#define class Class
-
-#else
-#undef _LIBX_C
-
-	///#undef class
-}
-
-#endif
+class Basis
+{
+public:
+	class Basis* cotira = this;
+};

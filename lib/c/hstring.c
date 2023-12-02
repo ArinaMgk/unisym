@@ -28,86 +28,6 @@
 #include "../../inc/c/aldbg.h"
 #include "../../inc/c/ustring.h"
 
-//---- ---- ---- ---- node ---- ---- ---- ---- P-FA03 H-FR01&FV16
-
-node* NodeAppend(node* nod, void* addr)
-{
-	node* tmp = zalcof(node);
-	tmp->addr = addr;
-	if (nod)
-	{
-		tmp->next = nod->next;
-		nod->next = tmp;
-	}
-	return tmp;
-}
-
-node* NodeAppendOrder(node* nod, void* addr)
-{
-	node* tmp = zalcof(node);
-	node* last = 0;
-	tmp->addr = addr;
-	if (!nod) return tmp;
-	if (addr <= nod->addr)// can omitted ???
-	{
-		tmp->next = nod;
-		return tmp;
-	}
-	while (nod->next && (nod->addr < addr))
-	{
-		last = nod;
-		nod = nod->next;
-	}
-	// either nod->addr>=addr(insert_left) or last_nod->addr<addr(insert_right)
-	if (!nod->next)// (insert_right)
-	{
-		nod->next = tmp;
-		return tmp;
-	}
-	// (insert_left)
-	if (last) last->next = tmp;// can omitted ???
-	tmp->next = nod;
-	return tmp;
-}
-
-size_t NodeIndex(node* first, void* cmp)
-{
-	size_t times = 0;
-	node* next;
-	while (next = first)
-		if ((times++, first = next->next, next->addr) && !StrCompare(next->addr, cmp))
-			return times;
-	return 0;
-}
-
-size_t NodeCount(node* first)
-{
-	size_t ret = 0;
-	while (first)
-	{
-		ret++;
-		first = first->next;
-	}
-	return ret;
-}
-
-void NodeReleaseTofreeDefault(void* inp)
-{
-	node* nod = inp;
-	memf(nod->addr);
-	memf(nod);
-}
-
-void NodesRelease(node* first, void(*freefunc)(void*))
-{
-	node* next;
-	while (first)
-	{
-		next = first->next;
-		if (freefunc) freefunc(first); else memf(first);
-		first = next;
-	}
-}
 
 //---- ---- ---- ---- dnode ---- ---- ---- ----
 
@@ -358,7 +278,7 @@ dnode* NnodeToDnode(nnode* inp)
 		tmpd.addr = crt->addr;
 		tmpd.left = (void*)crt->left;
 		tmpd.next = (void*)crt->right;
-		tmpd.type = crt->class;
+		tmpd.type = crt->type;
 		MemCopyN(crt, &tmpd, sizeof tmpd);
 		crt = next;
 	}
@@ -378,7 +298,7 @@ tnode* NnodeToTnode(nnode* inp)
 		tmpd.addr = crt->addr;
 		tmpd.left = (void*)crt->left;
 		tmpd.next = (void*)crt->right;
-		tmpd.type = crt->class;
+		tmpd.type = crt->type;
 		tmpd.row = crt->row;
 		tmpd.col = crt->col;
 		MemCopyN(crt, &tmpd, sizeof tmpd);
@@ -404,7 +324,7 @@ void TnodeToNnode(nnode* des, const tnode* src)
 	des->col = src->col;
 	des->row = src->row;
 	des->addr = src->addr;
-	des->class = src->type;
+	des->type = src->type;
 }
 
 //---- ---- ---- ---- ChrAr ---- ---- ---- ----
@@ -588,7 +508,9 @@ char* _Need_free ChrDecToHexFloat(const char* decf, size_t digits)
 			{
 				*ptr++ = 'A' + (buf[2] - '0');
 			}
+			#ifdef _dbg
 			else (void)erro;
+			#endif
 			MemRelative(buf + 3, CrtAfterDigs - 2 + 1, -2);// include 0
 		}
 		else if (CrtAfterDigs - CrtLastDigs == 1)

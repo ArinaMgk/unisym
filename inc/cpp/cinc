@@ -1,6 +1,6 @@
 // ASCII C++11 TAB4 CRLF
 // Attribute: ArnCovenant yo Free 
-// LastCheck: RFX18
+// LastCheck: RFZ03
 // AllAuthor: @dosconio
 // ModuTitle: CPlusPlus Include C Header Tog
 /*
@@ -20,14 +20,18 @@
 	limitations under the License.
 */
 
-#ifndef _LIBX_C
-#define _LIBX_C
+#ifndef _INC_CPP
+#define _INC_CPP
+#endif
+
+#ifndef _INCX_C
+#define _INCX_C
 
 extern "C" {
 	///#define class Class
 
 #else
-#undef _LIBX_C
+#undef _INCX_C
 
 	///#undef class
 }

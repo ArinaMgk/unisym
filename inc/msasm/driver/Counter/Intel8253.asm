@@ -41,4 +41,14 @@ I8253_Init macro port_imm, clk_a, clk_b
 	pop   ax
 endm
 
-
+I8253_Read macro port, countn
+	push dx
+	mov   dx, port + I8253_CONTROL
+	xor   al, al
+	out   dx, al
+	mov   dx, port + countn
+	in    al, dx; Low
+	mov   ah, al
+	in    al, dx; High
+	pop   dx
+endm

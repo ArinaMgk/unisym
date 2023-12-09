@@ -17,8 +17,8 @@
 	limitations under the License.
 */
 
-#ifndef _LIB_ENV
-#define _LIB_ENV
+#ifndef _INC_ENV
+#define _INC_ENV
 
 #include "./alice.h"
 

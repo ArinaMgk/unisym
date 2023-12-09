@@ -17,9 +17,9 @@
 
 //$ gcc filedump.c ../source/consio.c -D_WinNT -o fdumpw.exe & gcc filedump.c ../source/consio.c -D_Linux -o fdumpl.exe
 
-#include "../alice.h"
-#include "../aldbg.h"
-#include "../consio.h"
+#include "alice.h"
+#include "aldbg.h"
+#include "consio.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>

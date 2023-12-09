@@ -1,4 +1,8 @@
-// ASCII C RFC07 @dosconio _LIB_ENCODE_CRC64
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant
+// LastCheck: RFZ05
+// AllAuthor: @dosconio
+// ModuTitle: Cyclic Redundancy Check with 64-bit result
 /*
 	Copyright 2023 ArinaMgk
 
@@ -7,6 +11,7 @@
 	You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
 
 	Unless required by applicable law or agreed to in writing, software
 	distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,10 +19,9 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-// Cyclic Redundancy Check with 64-bit result
 
-#ifndef _LIB_ENCODE_CRC64
-#define _LIB_ENCODE_CRC64
+#ifndef _INC_HASH_CRC64
+#define _INC_HASH_CRC64
 
 #define CRC64_ARINA_Polynomial    0x6E6552616E696850// (PhinaRen)
 #define CRC64_ARINA_Initial       0xFFFFFFFFFFFFFFFF// (PhinaRen)
@@ -51,13 +55,19 @@
 #define CRC64_USB_Initial         0xFFFFFFFFFFFFFFFF// (USB)
 
 #include <stdint.h>
+#include <stdio.h>
+#include "alice.h"
 
-uint64_t CRC64Reflect(uint64_t data, int width);
+//
+uint64_t HashCRC64Bytes(const byte* data, size_t length, uint64_t crc, uint64_t polynomial, uint64_t final_xor, int refl);
 
-uint64_t CRC64(const unsigned char* data, size_t length, uint64_t crc, uint64_t polynomial, uint64_t final_xor, int refl);
+//
+uint64_t HashCRC64File(FILE* fptr, uint64_t crc, uint64_t polynomial, uint64_t final_xor, int refl);
 
-uint64_t CRC64Once(uint64_t last, unsigned char data, uint64_t polynomial, int refl);
+//
+uint64_t HashCRC64Once(uint64_t last, byte data, uint64_t polynomial, int refl);
 
-uint64_t CRC64Endo(uint64_t last, uint64_t final_xor, int refl);
+//
+uint64_t HashCRC64Endo(uint64_t last, uint64_t final_xor, int refl);
 
-#endif // !_LIB_ENCODE_CRC64
+#endif // !_INC_HASH_CRC64

@@ -1,6 +1,6 @@
 ; ASCII N/AASM TAB4 CRLF
-; Attribute: ArnCovenant Free bin^32 CPU(80586+)
-; LastCheck: 2023 Nov 16
+; Attribute: ArnCovenant CPU(80586+)
+; LastCheck: RFZ03
 ; AllAuthor: @dosconio
 ; ModuTitle: Instruction CPUID
 ; Copyright: ArinaMgk UniSym, Apache License Version 2.0
@@ -11,7 +11,8 @@
 	DB "UNISYM DOSCON.IO", "CPUID"
 
 [SECTION .code]
-	GLOBAL @CpuBrand@4
+	GLOBAL @CpuBrand@4 
+	GLOBAL CpuBrand
 	[BITS 32]
 
 ; ____________________________________________________________________________
@@ -19,8 +20,9 @@
 ; Get CPU Brand Informatiom
 ; [__fastcall] CpuBrand <<< ECX(char* BufAddr)
 @CpuBrand@4:
+CpuBrand:
 	PUSHAD
 	MOV ESI, ECX
-	CpuBrand
+	M_CpuBrand
 	POPAD
 RET

@@ -24,7 +24,7 @@
 #include "../../../inc/c/aldbg.h"
 
 static const char _USYM_IDEN_[] = {
-	"UNISYM under Apache 2.0 Licence @ArinaMgk(till RFA03) @dosconio"
+	"UNISYM under Apache 2.0 Licence @ArinaMgk, @dosconio"
 };
 
 enum _Node_Order _node_order;

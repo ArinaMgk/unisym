@@ -1,6 +1,6 @@
 // ASCII C++11 TAB4 CRLF
 // Attribute: ArnCovenant yo Free 
-// LastCheck: RFX18
+// LastCheck: RFZ03
 // AllAuthor: @dosconio
 // ModuTitle: ASCII String
 /*
@@ -20,14 +20,11 @@
 	limitations under the License.
 */
 
-#ifndef _LIBX_STRING
-#define _LIBX_STRING
-
+#ifndef _INCX_STRING
+#define _INCX_STRING
 
 #include "cinc"// C Begin
-
-#include "../c/ustring.h"
-
+	#include "../c/ustring.h"
 #include "cinc"// C End
 
 class String {
@@ -38,8 +35,9 @@ public:
 	String(const char* str);
 	~String();
 	size_t length();
+	const char* reflect();
 };
 
 typedef class String ustring;
 
-#endif // !_LIBX_STRING
+#endif // !_INCX_STRING

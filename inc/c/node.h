@@ -75,6 +75,13 @@ void NodeRelease(node* first);
 
 // ---- ---- ---- ---- TO DO ---- ---- ---- ----
 //{TODO} INLINE DATA
+//{TODO} Replace _Node_Order into AFLAGA {ASF, DF, FF, ZF, ONF}
+// - ASF : Auto sort the node by the DF
+// - DF  : in increasing or decreasing order
+// - FF  : something wrong raised
+// - ZF  : zero flag, if the node is empty
+// - ONF : order flag, if the node has and only has one node
+//{TODO} NodeInsert()
 
 
 #endif

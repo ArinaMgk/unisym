@@ -1,6 +1,6 @@
 // ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant yo Free bin^16+ CPU(80586+)
-// LastCheck: 2023 Nov 16
+// Attribute: ArnCovenant CPU(80586+)
+// LastCheck: RFZ03
 // AllAuthor: @dosconio
 // ModuTitle: Instruction CPUID
 /*
@@ -20,13 +20,16 @@
 	limitations under the License.
 */
 
-#ifndef _LIB_CPUID
-#define _LIB_CPUID
+#ifndef _INC_CPUID
+#define _INC_CPUID
 
-__fastcall void CpuBrand(char*);
+#define _CPU_BRAND_SIZE 48
+
+// Get CPU Brand String
+void __fastcall CpuBrand(char*);
 
 
 #ifdef _AUTO_INCLUDE
-	//#include "./source/cpuid.c"
+	// ../../lib/asm/x86/cpuid.asm
 #endif // _AUTO_INCLUDE
-#endif // !_LIB_CPUID
+#endif // !_INC_CPUID

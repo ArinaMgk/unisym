@@ -11,6 +11,8 @@
 #include <datime.h>
 #include <consio.h>
 
+int show_weekid = 0;
+
 void DrawCalendar(word year, word moon, byte crtday)
 {
 	unsigned char week_day, mondays;
@@ -18,8 +20,7 @@ void DrawCalendar(word year, word moon, byte crtday)
 	llong pasts = herspan(year, moon, 1);
 	week_day = weekday(year, moon, 1);
 	mondays = moondays(year, moon);
-	ConClear();
-	ConCursor(0, 0);
+	puts("");
 	printf("    %s %d\n", ((char* []){
 		"   January ", "  February ", "     March ",
 		"     April ", "       May ", "      June ",
@@ -43,9 +44,13 @@ void DrawCalendar(word year, word moon, byte crtday)
 		week_day++; pasts++;
 		if (week_day >= 7)
 		{
-			ConStyleNormal();
-			printf(" Week %4d\n", getHerWeekNumber(year, moon, i));
-			ConStyleAbnormal();
+			if(show_weekid)
+			{
+				ConStyleNormal();
+				printf(" Week %4d", getHerWeekNumber(year, moon, i));
+				ConStyleAbnormal();
+			}
+			printf("\n");
 			week_day = 0;
 		}
 	}
@@ -53,7 +58,7 @@ void DrawCalendar(word year, word moon, byte crtday)
 	puts("");
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	// Q WASD F
 	int chr;
@@ -61,8 +66,18 @@ int main()
 	struct tm* tmp;
 	time(&timep);
 	tmp = localtime(&timep);// gmtime() for UTC
-	DrawCalendar(1900 + tmp->tm_year, 1 + tmp->tm_mon, tmp->tm_mday);
-	word CrtM = tmp->tm_mon, CrtY = tmp->tm_year;
+	word CrtM = tmp->tm_mon, CrtY = tmp->tm_year, CrtD = tmp->tm_mday;
+
+	if (argc > 1)
+	{
+		show_weekid = 1;
+		ConClear();
+	}
+
+	DrawCalendar(1900 + CrtY, 1 + CrtM, CrtD);
+
+	if(argc <= 1) exit(0);
+	
 	while (chr = getch())
 		switch (chr)
 		{
@@ -73,7 +88,9 @@ int main()
 			{
 				tmp->tm_mon = 11;
 				tmp->tm_year--;
-			} else tmp->tm_mon--;
+			}
+			else tmp->tm_mon--;
+			ConClear(); ConCursor(0, 0);
 			DrawCalendar(1900 + tmp->tm_year, 1 + tmp->tm_mon, (CrtM == tmp->tm_mon && CrtY == tmp->tm_year) ? tmp->tm_mday : 0);
 			break;
 		case 'd':// next month
@@ -81,20 +98,25 @@ int main()
 			{
 				tmp->tm_mon = 0;
 				tmp->tm_year++;
-			} else tmp->tm_mon++;
+			}
+			else tmp->tm_mon++;
+			ConClear(); ConCursor(0, 0);
 			DrawCalendar(1900 + tmp->tm_year, 1 + tmp->tm_mon, (CrtM == tmp->tm_mon && CrtY == tmp->tm_year) ? tmp->tm_mday : 0);
 			break;
 		case 'w':// last year
 			tmp->tm_year--;
+			ConClear(); ConCursor(0, 0);
 			DrawCalendar(1900 + tmp->tm_year, 1 + tmp->tm_mon, (CrtM == tmp->tm_mon && CrtY == tmp->tm_year) ? tmp->tm_mday : 0);
 			break;
 		case 's':// next year
 			tmp->tm_year++;
+			ConClear(); ConCursor(0, 0);
 			DrawCalendar(1900 + tmp->tm_year, 1 + tmp->tm_mon, (CrtM == tmp->tm_mon && CrtY == tmp->tm_year) ? tmp->tm_mday : 0);
 			break;
-		case 'f':
+		case 'f':// today
 			time(&timep);
 			tmp = localtime(&timep);// gmtime() for UTC
+			ConClear(); ConCursor(0, 0);
 			DrawCalendar(1900 + tmp->tm_year, 1 + tmp->tm_mon, tmp->tm_mday);
 			break;
 		default:

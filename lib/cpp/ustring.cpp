@@ -24,17 +24,21 @@
 #include "../../inc/cpp/ustring"
 
 String::String(const char* str) {
-	counts = StrLength(str);
-	addr = (char*)malc(counts + 1);
-	StrCopy(addr, str);
+	this->counts = StrLength(str);
+	this->addr = (char*)malc(counts + 1);
+	StrCopy(this->addr, str);
 }
 
 String::~String() {
-	memf(addr);
-	addr = NULL;
-	counts = 0;
+	memf(this->addr);
+	this->addr = NULL;
+	this->counts = 0;
 }
 
 size_t String::length() {
 	return this->counts;
+}
+
+const char* String::reflect() {
+	return this->addr;
 }

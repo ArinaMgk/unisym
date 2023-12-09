@@ -28,9 +28,13 @@
 
 #include <limits.h>
 
-#define pointer(typ) typ * 
-// compatible with MIKA pointer: "pointer(pointer(void)) pp"
+#ifndef _INC_CPP
+	#define pointer(_typ) _typ * 
+	#define pointerf(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
+	// compatible with Magicoll pointer: "pointer(pointer(void)) pp"
+#endif
 
+// temporarily make use of standard library
 #if SIZE_MAX==0xFFFF
 	#define _BINARY 16 
 	#define __BIT_STR__ "16"
@@ -44,6 +48,8 @@
 	#define _BINARY 8
 	#define __BIT_STR__ "8"
 #endif
+
+#define __ENDIAN__ 0//{TODO} 1 for big endian, 0 for little endian
 
 #define __BITS__ _BINARY
 
@@ -104,13 +110,17 @@
 
 #define AssignShiftLeft(l,m,r) (l=m,m=r)// different from `l=m=r`
 
+// May be conflict with stdlib.h, so temporarily:
+#include <stdlib.h>
 #ifndef max//(a,b)
 #define max(a,b) ((a)>(b)?(a):(b))
 #endif
-#define MAX(d,s) if((d)<(s)){(d)=(s);}
 #ifndef min//(a,b)
 #define min(a,b) ((a)<(b)?(a):(b))
 #endif
+
+#define MAX(d,s) if((d)<(s)){(d)=(s);}
+
 #define MIN(d,s) if((d)>(s)){(d)=(s);}
 // ---- ---- algorithm ---- ----
 #define isodd(x) ((x)&1)
@@ -134,7 +144,6 @@
 #define byteof sizeof
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
 
-#define BitsTog(x,bits) ((x)^=(bits))
 #define ascii_isdigit(c) ((c)-'0'<10)
 #define ascii_islower(c) ((c)-'a'<26)
 #define ascii_isupper(c) ((c)-'A'<26)
@@ -142,18 +151,49 @@
 #define ascii_toupper(c) ((c)-'a'<26?(c)&~0x20:c)
 #define ascii_tohexad(c) ((c)>='a'?(c)-'a'+10:(c)>='A'?(c)-'A'+10 :(c)-'0')
 
+//{} ustdbool.h, which includes binary.h
 #define immed_tobool(i) !!(i) // != 0
 #if defined(_SUPPORT_BOOL) && !defined(_SUPPORT_BOOL_DEFINED)
 	#define _SUPPORT_BOOL_DEFINED
 	typedef enum bool { false, true } bool;// use immed_tobool() to convert with this
 #endif
 
+// __FUNCIDEN__ : function identifier
 #ifdef _MSC_VER// for MSVC
 	#define __FUNCIDEN__ __FUNCDNAME__
 #elif defined(__GNUC__)
 	#define __FUNCIDEN__ __func__// cannot auto-strcat
 #endif
-
+	
+// ==== ==== <mcore.c> ==== ====	
+extern struct aflag_t// for some unisym functions, stored in stack for calling other functions. Method of application: register the current address of aflag globally before calling corresponding functions.
+{
+	byte carry : 1;                    // CF
+	byte autosort : 1;                 ///1 or ASF (Auto Sort Flag) 
+	byte parity : 1;                   // PF
+	byte signsym : 1;                  ///0 or SEF (Signed Operand Flag)
+	byte auxiliary : 1;                // AF
+	byte one : 1;                      ///0 or ONF (One Flag)
+	byte zero : 1;                     // ZF
+	byte sign : 1;                     // SF
+	byte debug : 1;                    // TF (Trap Flag)
+	byte interrupt : 1;                // IF
+	byte direction : 1;                // DF
+	byte overflow : 1;                 // OF
+	byte io_privilege_level : 2;       // IOPL
+	byte nested_task : 1;              // NT
+	byte fail : 1;                     ///0 or FF (Fail Flag)
+	//
+	byte resume : 1;                   // RF
+	byte virtual_8086 : 1;             // VM
+	byte alignment_check : 1;          // AC
+	byte virtual_interrupt : 1;        // VIF
+	byte virtual_interrupt_pending : 1;// VIP
+	byte identification : 1;           // ID
+	byte : 2;
+	byte : 8;
+} aflaga;
+	
 #endif
 // more to see "aldbg.h"
 // ---- ---- ---- ---- ---- ---- ---- ----

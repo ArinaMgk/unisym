@@ -11,7 +11,7 @@
 
 | String Mod | Description                                                  | State |
 | ---------- | ------------------------------------------------------------ | ----- |
-| ustring    | [ASCII] the operations for string and big-number, e.g. `2013e65535`. Besides, this contains: System-Conversion, e.g. `0x2712` to `10002`; The "u" is for distinction from that of the standard library, which means "UNISYM", **but "Unicode"**. This is going to divide into "**hstring**" and "**bstring**", and "ustring" will include them. `Chr-` means ASCII string, and `Byt-` for the basic memory unit. | ripen |
+| ustring    | [ASCII] the operations for string and big-number, e.g. `2013e65535`. Besides, this contains: System-Conversion, e.g. `0x2712` to `10002`; The "u" is for distinction from that of the standard library, which means "UNISYM", **but "Unicode"**. This is going to divide into "**astring**" and "**bstring**", and "ustring" will include them. `Chr-` means ASCII string, and `Byt-` for the basic memory unit. | ripen |
 | dstring    | double directions string, RFW06 created, for example, "123" is as `0xFF, 0x00, 0x31, 0x32, 0x33, 0x00 `. The structure is convenient for reverse printing, 0xFF means the head of the memory, the pointer should point to "`0x31`". | todo  |
 | wstring    | [ANSI, wide char]                                            | todo  |
 | u8string   | [UTF-8, multi-byte]                                          | todo  |
@@ -73,7 +73,7 @@
 
 #### > Develop
 
-- `_dbg` <=> `_DEBUG`
+- `_dbg`(old style) <=> `_DEBUG`
 - `_AUTO_INCLUDE` will include ASM or C codes
 - `_ASSERT_STRICT`
 - `_ASSERT_NONE`
@@ -84,20 +84,27 @@
 >
 > The respective documents are `alice.h` and `host.h` 
 
-mutex
+runtime host environment
 
 - `_WinNT`
 - `_Linux`
 
-combinate
+environment
 
 - `_BINARY`
     - 8
     - 16
     - 32
     - 64
-
 - Endian ... 
+
+strategy
+
+- `_INLINE` suffix, e.g. `_INC_USTRING_INLINE`  
+
+
+
+
 
 #### > Pragma
 

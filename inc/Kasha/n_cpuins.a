@@ -1,8 +1,9 @@
-;Name	CPU Instructions Routine.
-;Used	NASM 2.07
-;Author	The forever Arina
-;Check	Haruno
-;Code	GBK
+; ASCII N/AASM TAB4 CRLF
+; Attribute: ArnCovenant CPU(80586+)
+; LastCheck: RFZ03
+; AllAuthor: @dosconio
+; ModuTitle: Instruction CPUID yo Kasha
+; Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
 ;	Copyright 2023 ArinaMgk
 ;	
@@ -19,7 +20,7 @@
 ;	limitations under the License.
 ;
 
-%imacro CpuBrand 0
+%imacro M_CpuBrand 0
 	MOV EDI,0X80000002
 	%%loop:
 	MOV EAX, EDI

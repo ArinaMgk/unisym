@@ -5,10 +5,10 @@
 // Format:
 // - Lab: Pre0 ... Opc Op0, Op1 ...
 
-#ifndef A_X86_INST_H
-#define A_X86_INST_H
+#ifndef _AASM_INST
+#define _AASM_INST
 
-#define _NOP 0x90// i.e. _XCHG_AX_AX (@dosconio RFX14:20:34)
+#define _NOP 0x90 // i.e. _XCHG_AX_AX
 #define _XCHG_AX_CX 0x91
 #define _XCHG_AX_DX 0x92
 #define _XCHG_AX_BX 0x93
@@ -29,5 +29,8 @@
 #define _MOV_SI_imm 0xBE
 #define _MOV_DI_imm 0xBF
 
+#define _MOV_EAX_imm 0xB8
 
-#endif // !A_X86_INST_H
+#define _BIT_64 0x48 // e.g. _MOV_RAX_imm {0x48, 0xB8, imm64}
+
+#endif // !_AASM_INST

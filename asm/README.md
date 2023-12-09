@@ -12,7 +12,8 @@ Principle: can run in Intel-8086 and bootable by *Arina-Real-Address*, aka ARA i
 
 ## TODO Version ...
 
-
+- [ ] inherit `arina` directive i.e. `dw 0xaa55`. 
+- [ ] `BMK` directive (wo boot-mark), i.e. `times 510-$+$$` then `arina`.
 
 ## TODO Version 0x0101
 

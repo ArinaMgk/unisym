@@ -20,6 +20,13 @@
 	limitations under the License.
 */
 
+// AFLAGA {ASF, DF, FF, ZF, ONF}
+// - ASF : Auto sort the node by the DF
+// - DF  : in increasing or decreasing order
+// - FF  : something wrong raised
+// - ZF  : zero flag, if the node is empty
+// - ONF : order flag, if the node has and only has one node
+
 #ifndef _INC_NODE
 #define _INC_NODE
 
@@ -28,24 +35,24 @@
 typedef struct node
 {
 	struct node* next;
-	void* addr;
+	union { char* addr; void* offs; };
 } node;// measures stdint[2]
 
-extern enum _Node_Order
-{
-	_Node_Order_Increase, // default
-	_Node_Order_Decrease,
-	_Node_Order_UserDefine, // increasing order
-	_Node_Order_Disable,
-	_Node_Order_Insert, // for `NodeAppend()`, insert a node between the node and its next item, the `first` may not be the first node actually
-}
-_node_order;
+// extern enum _Node_Order
+// {
+//  _Node_Order_Increase,   //  ASF & !DF [default]
+//  _Node_Order_Decrease,   //  ASF &  DF
+//  _Node_Order_UserDefine, // !ASF &  _node_compare!=0
+//  _Node_Order_Disable,    // !ASF &  _node_compare==0
+//  _Node_Order_Insert      // cancelled
+// }
+// _node_order;
 
 // default null
 // return 0 for equal, 1 for greater, -1 for less
 extern int (*_node_compare)(void* addr0, void* addr1);
 
-// default provided by `memf()`
+// default provided by `memf()` for `addr`, not the `node` itself
 extern void(*_node_freefunc)(void*);
 
 // mark the head of the chain after last `NodeAppend()` , will be reset to zero after `NodeRelease()` 
@@ -57,31 +64,26 @@ extern node* _node_first;
 // Return the appended node.
 node* NodeAppend(node* first, void* addr);
 
+// 
+node* NodeInsert(node* first, void* addr);
+
 // ---- ---- ---- ---- Sort and Seek ---- ---- ---- ---- 
 
 // Sort the chain by `addr` in increasing or decreasing order.
 node* NodeSort(node* first);
 
 // Return the distance plus one, or 0 for not found.
-size_t NodeIndex(node* first, void* addr);
+size_t NodeIndex(const node* first, void* addr);
 
 // Return the counts of the node string.
-size_t NodeCount(node* first);
+size_t NodeCount(const node* first);
 
 // ---- ---- ---- ---- Destruction ---- ---- ---- ---- 
 
+// Remove a node from the chain.
+void NodeRemove(node* nod, node* left);
+
 // If `tofree` is zero, the `addr` of nodes in the chain will be released by single `memf()` . If you do not want to release the `addr` or call `freefunc`, set `addr` to zero.
 void NodeRelease(node* first);
-
-// ---- ---- ---- ---- TO DO ---- ---- ---- ----
-//{TODO} INLINE DATA
-//{TODO} Replace _Node_Order into AFLAGA {ASF, DF, FF, ZF, ONF}
-// - ASF : Auto sort the node by the DF
-// - DF  : in increasing or decreasing order
-// - FF  : something wrong raised
-// - ZF  : zero flag, if the node is empty
-// - ONF : order flag, if the node has and only has one node
-//{TODO} NodeInsert()
-
 
 #endif

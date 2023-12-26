@@ -69,6 +69,7 @@
 #### > Control
 
 - `_ARN_FLAG_DISABLE` Control status variables and `aflag`.
+- `_ARN_FLAG_ENABLE` 
 - `_LIB_DEBUG_CHECK_MORE`
 
 #### > Develop

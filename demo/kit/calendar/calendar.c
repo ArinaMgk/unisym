@@ -20,13 +20,14 @@ void DrawCalendar(word year, word moon, byte crtday)
 	llong pasts = herspan(year, moon, 1);
 	week_day = weekday(year, moon, 1);
 	mondays = moondays(year, moon);
-	puts("");
-	printf("    %s %d\n", ((char* []){
+	printf("\n");
+	printf("    %s %d \n", ((char* []){
 		"   January ", "  February ", "     March ",
 		"     April ", "       May ", "      June ",
 		"      July ", "    August ", " September ",
 		"   October ", "  November ", "  December "})[moon-1], year);
-	puts("Sun.Mon.Tue.Wed.Thr.Fri.Sat.");
+	printf("Sun.Mon.Tue.Wed.Thr.Fri.Sat.");
+	printf("\n");
 	ConStyleAbnormal();
 	ConCursorMoveRight(week_day << 2);
 	for (unsigned char i = 1; i <= mondays; i++)
@@ -50,12 +51,14 @@ void DrawCalendar(word year, word moon, byte crtday)
 				printf(" Week %4d", getHerWeekNumber(year, moon, i));
 				ConStyleAbnormal();
 			}
-			printf("\n");
+			ConStyleNormal();
+			printf("\n");// Although add a space, it do not fit `cmd` or `PowerShell` well(other printable characters can), but for `wt` and others.
+			ConStyleAbnormal();
 			week_day = 0;
 		}
 	}
 	ConStyleNormal();
-	puts("");
+	printf("\n");
 }
 
 int main(int argc, char* argv[])

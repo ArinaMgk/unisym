@@ -1,4 +1,8 @@
-// ASCII
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant Host[Allocation]
+// LastCheck: RFZ23
+// AllAuthor: @dosconio
+// ModuTitle: Number Arithmetic
 /*
 	Copyright 2023 ArinaMgk
 
@@ -7,6 +11,7 @@
 	You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
 
 	Unless required by applicable law or agreed to in writing, software
 	distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +24,7 @@
 
 // no considering header-guard in the caller.
 #include <complex.h>
-#include "cdear.h"
+#include "coear.h"
 
 typedef struct Arinium
 {

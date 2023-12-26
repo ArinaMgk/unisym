@@ -52,7 +52,7 @@ ConPrint Hello_String; Assembly Macro
 - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk) 
     - phina.net 
 
-- Dosconio (dosconyo@gmail.com)
+- Doshou Haruno (dosconyo@gmail.com)
 
     - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) 
     - fork: [Dosconio-forked Uniform Symbolic phina-origined](http://github.com/dosconio/unisym) 

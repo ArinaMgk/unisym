@@ -27,11 +27,14 @@
 
 #define printb(x) printf("%s: " #x "\n",(x)?"True":"False")
 #define malc_count _MALCOUNT
+#define malc_limit _MALLIMIT
 
-extern void erro(char*);
-extern void warn(char*);
+#define _MALLIMIT_DEFAULT 0x1000
+
+extern void erro(char* erromsg);
+extern void warn(char* warnmsg);
 extern size_t _MALCOUNT;// <OUT>
-extern size_t malc_limit;// <IN>
+extern size_t _MALLIMIT;// <IN>
 extern size_t call_state;// <OUT>
 // call_state :
 // 00: nullptr

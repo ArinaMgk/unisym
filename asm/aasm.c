@@ -21,7 +21,7 @@
 
 #include <alice.h>
 #include <stdio.h>
-#include <version.h>
+#include <version/version.h>
 
 int main()
 {

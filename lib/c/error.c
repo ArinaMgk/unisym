@@ -1,5 +1,8 @@
-// ASCII TAB4 C99 ArnAssume
-// Error processing library
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant 
+// LastCheck: RFZ23
+// AllAuthor: @dosconio
+// ModuTitle: Error processing
 /*
 	Copyright 2023 ArinaMgk
 
@@ -8,6 +11,7 @@
 	You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
 
 	Unless required by applicable law or agreed to in writing, software
 	distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,4 +20,14 @@
 	limitations under the License.
 */
 
-#include "../error.h"
+#include "../../inc/c/aldbg.h"
+#include "../../inc/c/error.h"
+
+#if defined(_DEBUG) || defined(_dbg)
+void erro(char* erromsg)
+{
+	
+}
+
+#endif
+

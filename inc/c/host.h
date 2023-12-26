@@ -1,5 +1,8 @@
-// ASCII C99 ArnCovenant Env(host) TAB4 CRLF
-// The file for free environment is the `alice.h`
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant Host
+// LastCheck: RFZ23
+// AllAuthor: @dosconio
+// ModuTitle: Host Environment
 /*
 	Copyright 2023 ArinaMgk
 
@@ -16,6 +19,8 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+
+// The file for free environment is the `alice.h`
 
 #ifndef _INC_ENV
 #define _INC_ENV

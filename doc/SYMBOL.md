@@ -24,10 +24,10 @@
 
 ## Arina Covenant (relic) (for CPL)
 
-- {memmec} All address are logic address and the relative addresses are continuous.
-- {memmec} Default decreasing stack(SS:SP) direction.
-- {digit } Default binary and bitwise operations.
-- {endian} Default little endian.
+- `{memmec}` All address are logic address and the relative addresses are continuous.
+- `{memmec}` Default decreasing stack(SS:SP) direction.
+- `{digit }` Default binary and bitwise operations.
+- `{endian}` Default little endian.
 
 
 

@@ -23,59 +23,64 @@
 #include "../../../inc/c/node.h"
 #include "../../../inc/c/aldbg.h"
 
+#define on_decresing_order (aflaga.direction)
+#define on_increasing_order (!aflaga.direction)
+
 node* NodeAppend(node* first, void* addr)
 {
 	node* tmp = zalcof(node);
 	node* last = first;
-	tmp->addr = addr;
+	tmp->offs = addr;
 	_node_first = first;
-	if (_node_order != _Node_Order_Insert)
+
+	aflaga.fail = 0;
+	aflaga.zero = 0;
+	aflaga.one = 0;
+	// if (_node_order != _Node_Order_Insert)
+	// {
+	if (!first)
 	{
-		if (!first) return _node_first = tmp;
-		if (_node_order <= _Node_Order_Decrease)
+		aflaga.one = 1;
+		return _node_first = tmp;
+	}
+	if (aflaga.autosort)
+	{
+		if ((addr <= first->offs) ^ on_decresing_order)
 		{
-			if ((addr <= first->addr) ^ (_node_order == _Node_Order_Decrease))
-			{
-				// insert left
-				tmp->next = first;
-				return _node_first = tmp;
-			}
-			while (first->next && ((first->next->addr < addr) ^ (_node_order == _Node_Order_Decrease)))
-			{
-				last = first;
-				first = first->next;
-			}
-			if ((first->addr < addr) ^ (_node_order == _Node_Order_Decrease))
-				last = first;
-			// insert right
+			// insert left
+			tmp->next = first;
+			return _node_first = tmp;
 		}
-		else if (_node_order == _Node_Order_UserDefine && _node_compare)
+		while (first->next && ((first->next->offs < addr) ^ on_decresing_order))
 		{
-			if (_node_compare(addr, first->addr) <= 0)
-			{
-				// insert left
-				tmp->next = first;
-				return _node_first = tmp;
-			}
-			while (first->next && _node_compare(first->next->addr, addr) < 0)
-			{
-				last = first;
-				first = first->next;
-			}
-			if (_node_compare(first->addr, addr) < 0)
-				last = first;
-			// insert right
-		}
-		else if(_node_order == _Node_Order_Disable)
-		{
-			while (first->next)
-			{
-				last = first;
-				first = first->next;
-			}
 			last = first;
+			first = first->next;
 		}
-		else return 0;/// erro()
+		if ((first->offs < addr) ^ on_decresing_order)
+			last = first;
+		// insert right
+	}
+	else if (_node_compare)
+	{
+		if (_node_compare(addr, first->offs) <= 0)
+		{
+			// insert left
+			tmp->next = first;
+			return _node_first = tmp;
+		}
+		while (first->next && _node_compare(first->next->offs, addr) < 0)
+		{
+			last = first;
+			first = first->next;
+		}
+		if (_node_compare(first->offs, addr) < 0)
+			last = first;
+		// insert right
+	}
+	else while (first->next)
+	{
+		first = first->next;
+		last = first;
 	}
 
 	if (first)// _node_order == _Node_Order_Insert and other conditions inserting right

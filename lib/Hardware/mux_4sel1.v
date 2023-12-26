@@ -15,3 +15,7 @@ module mux_4sel1(// Multiplexer
 		endcase
 	end
 endmodule
+
+// You can also realized by 
+// - 3 mux_2sel1
+// - 4 AND gate and a OR gate

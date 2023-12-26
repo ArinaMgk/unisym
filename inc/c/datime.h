@@ -1,6 +1,6 @@
 // ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant yo MIX bin^16+
-// LastCheck: 2023 Nov 16
+// LastCheck: 2023 Dec 25
 // AllAuthor: @dosconio
 // ModuTitle: Date and Time
 /*
@@ -28,34 +28,31 @@
 
 //{TODO} utime.h
 
-// origin: unisym/kasha/n_timer.a : %imacro GetMoexDayIdentity 2
-// year>=2014, month>0
-// Return pastdays and weekday(0~6)
-llong GetMoexDayIdentity(word year, word month);
-
-// extern of GetMoexDayIdentity, can show the months before 2014.
-llong DatimeCalendar(word year, word month);
-
-llong POSIXGetSeconds(struct tm* tm);
-
+// `[MACRO]`
 #define isLeapYear(year) (!((year)&3)&&((year)%100)||!((year)%400)) // RFQ27
 
-// y: Yesus based
+// `[MACRO]` y: Yesus based
 #define getHerDaySpanYear(y) ((y>2013)?(4 + (y-1900-114)*365 + (y-1900-117+4)/4 - (y-1900-101)/100 + (y-1900-101)/400):-((2014-(y))*365 + (2016-(y))/4 - ((2100-(y))/100) + (2400-(y))/400 - (31-27)))
 
+// `[MACRO]`
 #define getHerDaySpanMonth(y,m) (getHerDaySpanYear(y) + (m-1)*31 - (m-1)/2 - (m>2)*(30-28-isLeapYear(y)) + ((m>8)&&(m&1)))
 
+// `[MACRO]`
 #define herspan(y,m,d) (getHerDaySpanMonth(y,m)+d-1)
 
+// `[MACRO]`
 #define getHerWeekNumber(y,m,d) ((herspan(y,m,d)+6)/7-(herspan(y,m,d)<0))
 
+// What is the day{`0~6`} of the day{`01~31`} in the month{`01~12`} of the year{`0000~9999`}
 unsigned weekday(word year, word month, word day);
 
-unsigned moondays(word year, word month);
+// `[MACRO]` How many days in the month{01~12}
+#define moondays(year, month) (30 + (((month)&1) ^ ((month)>7)) - ((month)==2?2-isLeapYear(year):0))
 
-#ifdef _AUTO_INCLUDE
-	#include "../../lib/c/datime.c"
-#endif // _AUTO_INCLUDE
+//
+llong POSIXGetSeconds(struct tm* tm);
 
+// Reverse function of herspan()
+void fromherp(stdint herspans, word* year, word* month, word* day);
 
 #endif

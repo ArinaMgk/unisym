@@ -25,8 +25,9 @@
 
 node* NodeSort(node* first)
 {
+	struct _aflag_t af = aflaga;
 	_node_first = 0;
-	if (!first || _node_order >= _Node_Order_Disable) return 0;
+	if (!first || (!aflaga.autosort && _node_compare)) return 0;
 	node* next, * crt = first;
 	while (crt)
 	{
@@ -41,5 +42,6 @@ node* NodeSort(node* first)
 		memf(crt);
 		crt = next;
 	}
+	aflaga = af;
 	return _node_first;
 }

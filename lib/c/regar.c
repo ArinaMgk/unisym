@@ -1,7 +1,8 @@
-// ASCII TAB4 C99 ArnAssume(little-endian)
-// Doscon-io (Doshou Haruno)
-// Inherited from Phina.Ren
-// Haruno dosconyo@gmail.com
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant Host[Allocation]
+// LastCheck: RFZ23
+// AllAuthor: @dosconio
+// ModuTitle: Register-united Arithmetic
 /*
 	Copyright 2023 ArinaMgk
 
@@ -10,6 +11,7 @@
 	You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
 
 	Unless required by applicable law or agreed to in writing, software
 	distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,17 +25,21 @@
 
 //{Potential Issue} Memory Leak (malc_count) - Have not tested.
 
-#include "../regar.h"
-#include "../alice.h"
-#include "../ustring.h"
-#include "../aldbg.h"
+#include "../../inc/c/regar.h"
+#include "../../inc/c/alice.h"
+#include "../../inc/c/ustring.h"
+#include "../../inc/c/aldbg.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
 #include <float.h>
 
-extern size_t size_dec;
-void size_dec_get();
+extern size_t _size_decimal;
+void _size_decimal_get();
+
+extern char* arna_tempor;
+extern char* arna_tmpslv;
+extern char* arna_tmpext;
 
 // recommend from ustring into alice
 #define AddDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)
@@ -221,8 +227,8 @@ size_t* _Need_free RsgResize(const size_t* sstr, size_t slen, size_t dlen)
 char* _Need_free RsgToString(const size_t* sstr, size_t slen, signed syst)
 {
 	if (!slen) return StrHeap("0");
-	if (!size_dec) size_dec_get();
-	size_t malc_len = 1 + slen * size_dec;
+	if (!_size_decimal) _size_decimal_get();
+	size_t malc_len = 1 + slen * _size_decimal;
 	size_t* str = MemHeap(sstr, slen * sizeof(size_t));
 	char* ret;
 	memalloc(ret, malc_len);
@@ -602,7 +608,7 @@ const static Rfnar_t constr_1 = {
 };
 
 const static Rfnar_t constr_2pi = {
-	.coff = (size_t[]){3.141592653589793238 * 2 * 256 * 256 * 256 * 256 * 256 * 256 * 256},
+	.coff = (size_t[]){(size_t)(3.141592653589793238 * 2 * 256 * 256 * 256 * 256 * 256 * 256 * 256)},
 	.divr = (size_t[]){1},
 	.expo = (size_t[]){7}, .expsign = 1,
 	.defalen = 1
@@ -1258,7 +1264,7 @@ double _Heap RedToDouble(const Rfnar_t* dest)
 	Rfnar_t* d = RedHeap(dest);
 	RedDivrUnit(d);
 	double ll = 0.0;
-	if (RsgRealenByte(d->expo, d->defalen) > sizeof(size_t) || (*(ptrdiff_t*)d->expo) < 0 || ((ssize_t)d->defalen) < 0)// Check the exponent is too big
+	if (RsgRealenByte(d->expo, d->defalen) > sizeof(size_t) || (*(ptrdiff_t*)d->expo) < 0 || ((ptrdiff_t)d->defalen) < 0)// Check the exponent is too big
 		return INFINITY;
 	ptrdiff_t CrtPow = *d->expo;
 	if (d->expsign)CrtPow = -CrtPow;

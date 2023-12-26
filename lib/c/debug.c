@@ -1,6 +1,6 @@
 // ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant CPU(80586+)
-// LastCheck: RFZ04
+// LastCheck: RFZ26
 // AllAuthor: @dosconio
 // ModuTitle: Debug Aide
 /*
@@ -20,6 +20,7 @@
 	limitations under the License.
 */
 
-#include "../../inc/c/alice.h"
+#include "../../inc/c/aldbg.h"
 
-stduint _MALCOUNT;
+stduint malc_count = 0;
+stduint malc_limit = _MALLIMIT_DEFAULT;

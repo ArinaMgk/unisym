@@ -1,6 +1,6 @@
 // ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant
-// LastCheck: RFZ06
+// LastCheck: RFZ18
 // AllAuthor: @dosconio
 // ModuTitle: Operations for ASCIZ Character-based String
 /*
@@ -22,7 +22,6 @@
 
 // E X P O S T U ** DO NOT TRAP IN C TOO MUCH! BE YOURSELF(Practical). ** L A T I O N //
 /* {} Component
-* node-family{xnode[a] > nnode[8] > anode=tnode[6] > inode[5] > dnode[4] > node[2]}
 * common heap operations
 * strpool
 * Buf-special part
@@ -39,281 +38,82 @@
 * ! cautious 'a' and 'b' affix.
 */
 
-/* {} Have Done
-* * MemSet
-*/
-
-
+#if !defined(_INC_USTRING)
 #define _INC_USTRING
-
 #define _LIB_STRING
 
-#ifdef _INC_CPP
-#define register// ISO C++17 does not allow 'register' storage class specifier
+#include "host.h"
+#include "aldbg.h"
+#include "uctype.h"
+#include <string.h>//{TODO} STD LIB
+
+typedef enum _token_t
+{
+	tok_EOF = 0,  // 
+	tok_any,      // for features of any token
+	tok_comment,  // /* */ #
+	tok_direct,// directive like #include
+	tok_symbol,   // +-*/ ...
+	tok_spaces,   // ' ' or \t or excluding new-line
+	tok_others,   // above are usually not the entity
+
+	tok_identy,   // identifier
+	tok_string,   // "Hallo"
+	tok_number,   // 1
+} toktype;// the counts should not be greater than 15.
+
+#ifndef _INC_TNODE
+#include "tnode.h"
 #endif
 
-#ifndef _LIB_STRING_ONCE_HEAD
-#define _LIB_STRING_ONCE_HEAD
-	#ifndef _INC_STDDEF
-	#include <stddef.h>
-	#endif
-	#include "host.h"
-	#include "aldbg.h"
-
-struct ArinaeFlag
-{
-	unsigned PrecLoss : 1,// <OUT>
-		Failure : 1,// <OUT>
-		Signed : 1,// <IN>
-		Sign : 1,// <OUT>
-		Dbg : 1;// <IN> kept for the future
-};extern struct ArinaeFlag arna_eflag;
-#define aflag arna_eflag
-//{TODO} replaced by aflaga
+//---- ---- ---- ---- { TODO } ---- ---- ---- ----
+#define _INC_USTRING_INLINE// delete this after TODO
 
 
-// double-directions node
-typedef struct Dnode
-{
-	union { struct Dnode* left; };// lower address
-	char* addr;// for order
-	union { size_t len, type; };// non-order
-	union { struct Dnode* next, * right; };// higher address
-} Dnode, dnode;// recommand using dnode. measures pointer[4]
-
-// identifier
-typedef struct IdenNode
-{
-	void* data;
-	char* addr;// for order
-	size_t type;
-	struct IdenNode* right;
-	size_t property;
-} inode;
-
-typedef enum TokType
-{
-	tok_EOF = 0,// -1 or 0
-	tok_any,
-	tok_comment,// //
-	tok_directive,// #include
-	tok_sym,// +-*/
-	tok_space,// ' ' or \t or excluding new-line
-	tok_else,// above are usually not the entity
-	tok_iden,// identifier
-	tok_string,// "Hallo"
-	tok_number,// 1
-} TokType, toktype;// the counts should not be greater than 15.
-
-typedef struct TokenNode
-{
-	// struct Dnode;
-	struct TokenNode* left;
-	union { char* addr; size_t index; };
-	union { size_t len; TokType type; };
-	union { struct TokenNode* next, * right; };
-	// [ L | AD & L/T | R ]
-	size_t row, col;
-} Toknode, Tode, tode, tnode;// recommand using tnode. measures pointer[6]
-
-typedef struct TreeNode
-{
-	// no use of union for grace view of debug
-	struct TreeNode* left;
-	char* addr;
-	size_t type;// from `class` for C++ keyword compatibility
-	struct TreeNode* right;
-	size_t row, col;
-	//
-	struct TreeNode* subf;// sub-first-item
-	union { void* bind; size_t flag; };
-} Nesnode, nnode;
-
-typedef struct ArrayNode
-{
-	struct ArrayNode* left;
-	void* data;
-	size_t type;
-	struct ArrayNode* next;
-	struct ArrayNode* subfirst;
-	struct ArrayNode* parent;
-} anode;
-// Difference: ANode has address of its parent.
-
-typedef struct ArnOldStyleNode
-{
-	struct ArnOldStyleNode* left;
-	char* addr;
-	size_t type;
-	struct ArnOldStyleNode* right;
-	size_t row, col;
-	//
-	struct ArnOldStyleNode* subf;
-	struct ArnOldStyleNode* parent;
-	struct ArnOldStyleNode* alias;
-	void* data;
-} xnode;// recommand using nnode. measures pointer[a]
-
+//
 #define StrCompareLocale strcoll
+
+//
 #define StrCopyLocale strxfrm
 
+//
 #define StrGetError strerror
 
-#endif
+//---- ---- ---- ---- { General String Function } ---- ---- ---- ----
+
+// [ASTRING] Convert char in string in heap
+// equivalent `StrHeapAppendChars("", c, 1)` ---> {TODO: auto omit null destination string}
+char* StrHeapFromChar(char c);
+
+// [ASTRING]
+char* StrHeap(const char* valit_str);
+
+// [ASTRING]
+void* MemHeap(const void* sors, size_t bytelen);
+
+// [ASTRING]
+char* StrHeapN(const char* valit_str, size_t strlen);
+
+// [ASTRING]
+char* StrHeapAppend(const char* dest, const char* sors);
+
+// [ASTRING]
+char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
+
+// [ASTRING]
+char* StrHeapAppendChars(char* dest, char chr, size_t n);
+
+// [ASTRING]
+char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, size_t* times);
+
+// [ASTRING]
+char* StrHeapInsertThrow(const char* d, const char* s, size_t posi, size_t thrown);
+
+// [ASTRING]
+char* instoa(ptrdiff_t num);// [Instant to ASCII yo heap]
+
 //
-//
-//
-#if defined(_LIB_STRING_BUFFER) && !defined(_LIB_STRING_BUFFER_GUARD)// bstring.c, need pre-set buffer
-#define _LIB_STRING_BUFFER_GUARD
-	extern char arna_tempor[];// as result
-	extern char arna_tmpslv[];// Do not use as result, same size with tempor.
-	extern char arna_tmpext[];
-
-#endif
-//
-//
-//
-#if defined(_LIB_STRING_HEAP) && !defined(_LIB_STRING_HEAP_GUARD)// hstring.h, any need to allocate memory
-	#define _LIB_STRING_HEAP_GUARD
-//---- ---- ---- ---- node ---- ---- ---- ----
-	
-
-	
-//---- ---- ---- ---- dnode ---- ---- ---- ----
-	Dnode* DnodeCreate(Dnode* any, char* addr, size_t len);
-	Dnode* DnodeRewind(Dnode* any);
-	size_t DnodeCount(Dnode* any);
-	//
-	void DnodeReleaseTofreeDefault(void* inp);
-	//
-	void DnodeRelease(Dnode* some, void(*freefunc)(void*));
-	// in the direction of right.
-	void DnodesRelease(Dnode* first, void(*freefunc)(void*));
-	// ---- ---- inode ---- ---- make use of DnodesRelease()
-	#define INODE_READONLY 0x01
-	#define INODE_TYPEKEEP 0x02
-	// No duplicate check. prop[2:Not-change-prevous]
-	inode* InodeUpdate(inode* inp, const char* iden, void* data, size_t typ, size_t prop, void(*freefunc_element)(void*));
-	//
-	void InodeDelete(inode* inp, const char* iden, void(*freefunc)(void*));
-	//
-	inode* InodeLocate(inode* inp, const char* iden, inode** refleft);
-	// in the direction of right.
-	void InodesRelease(inode* first, void(*freefunc)(void*));
-
-	
-//---- ---- ---- ---- tnode ---- ---- ---- ----
-
-	#define _TNODE_COMMENT '#'
-	#define _TNODE_DIRECTIVE '%'
-	
-	Toknode* StrTokenAppend(Toknode* any, const char* content, size_t contlen, size_t ttype, size_t row, size_t col);
-	// ...
-	#define TnodeLoad StrTokenAll
-	Toknode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer);
-
-	// {TODO} Merged into StrTokenReleases
-	void StrTokenClearAll(Toknode* tstr);
-
-	// Free for self and its addr.
-	void TnodeReleaseTofreeDefault(void* inp);
-	
-	// freefunc should memf the parameter-pointed object besides its resources.
-	void TnodesReleases(tnode* nod, void(*freefunc)(void*));
-
-	void StrTokenThrow(Toknode* one);// a b c --> a c
-	
-	inline static Toknode* StrTokenBind(Toknode* left, Toknode* mid, Toknode* right)
-	{
-		if (left) left->next = mid;
-		if (mid) mid->next = right;
-		if (right) right->left = mid;
-		if (mid) mid->left = left;
-		return mid;
-	}
-
-	#define StrTokenPrint(first)\
-		printf("Token: [R %llu,C %llu][%s] %s\n", first->row, first->col,\
-			((const char* []){"END", "ANY", "STR", "CMT", "DIR", "NUM", "SYM", "IDN", "SPC", "ELS"})\
-			[first->type], first->type == tok_space ? "" : first->addr);
-
-	// For the string of the Tode.
-	#define StrTokenPrintAll(first)\
-		do StrTokenPrint(first);\
-		while (first = first->next);
-
-//---- ---- ---- ---- nnode ---- ---- ---- ----
-
-	// param:direction [0:L 1:R]#cancelled[2:SubHead 3:SubTail]
-	nnode* NnodeInsert(nnode* nod, int direction, nnode* parent);
-
-	// Set a part of nnode as the sub of a nnode. If subtail is null, this is for all the right part of the nnode string. If only one item, keep subhead and subtail same.
-	nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail, nnode* parent);
-
-	// Free for self and its addr.
-	void NnodeReleaseTofreeDefault(void* inp);
-	
-	// If freefunc is not null, free for memory will be defined by user, or just free the node block. In the direction of right.
-	void NnodeRelease(nnode* nod, nnode* parent, void(*freefunc)(void*));
-
-	// If freefunc is not null, free for memory will be defined by user, or just free the node block. In the direction of right.
-	void NnodesRelease(nnode* nod, nnode* parent, void(*freefunc)(void*));
-
-	//
-
-
-	// Conversion Function (direct copy address of pointer)
-	dnode* NnodeToDnode(nnode* inp);
-	tnode* NnodeToTnode(nnode* inp);
-	void NnodeForeach(nnode* start, nnode* parent, void(*func)(nnode* self, nnode* parent));
-
-	void TnodeToNnode(nnode* inp, const tnode* src);
-
-//---- ---- ---- ---- common heap operations ---- ---- ---- ----
-	
-	inline static char* StrHeapFromChar(char c)// Convert char in string in heap
-	{
-		char* ptr = salc(2);
-		*ptr = c;
-		return ptr;
-	}
-	char* StrHeap(const char* valit_str);
-	void* MemHeap(const void* sors, size_t bytelen);
-	char* StrHeapN(const char* valit_str, size_t strlen);
-	char* StrHeapAppend(const char* dest, const char* sors);
-	char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
-	char* StrHeapAppendChars(char* dest, char chr, size_t n);
-	char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, size_t* times);
-	char* StrHeapInsertThrow(const char* d, const char* s, size_t posi, size_t thrown);
-	// posi_start and later positions of string move into the lower endian RFE02:16
-
-	char* instoa(ptrdiff_t num);// [Instant to ASCII yo heap]
-
-#endif// !HEAP-PART
-//
-// Buf-special part
-//
-#if (defined _LIB_STRING_BUFFER) && !(defined _LIB_STRING_HEAP) && defined(_LIB_STRING_BUFFER_0HEAP_GUARD)// {TODO}GUARD
-	#define _LIB_STRING_BUFFER_0HEAP_GUARD
-	#define ChrAdd ChrAddBuf
-	#define ChrSub ChrSubBuf
-	#define ChrMul ChrMulBuf
-	#define ChrDiv ChrDivBuf
-	#define stradd ChrAdd
-	#define strsub ChrSub
-	#define strmul ChrMul
-	#define instoa instob
-	// {TODO}...
-//ChrHexToDecBuf
-
-	
-#endif// End of Buf-special part
-//
-// General String Function
-//
-#ifndef _LIB_STRING_ONCE_TAIL
-#define _LIB_STRING_ONCE_TAIL
-
+#ifdef _INC_USTRING_INLINE
 static inline char* MemRelative(char* addr, size_t width, ptrdiff_t times)
 {
 	register size_t i = 0;
@@ -322,7 +122,11 @@ static inline char* MemRelative(char* addr, size_t width, ptrdiff_t times)
 	else while (i < width) { addr[width + times - i - 1] = addr[width - i - 1]; i++; }
 	return addr + times;
 }/* Update: Arina fixed REC06 */
+#else
+#define MemRelative(addr,width,times) memmove((addr)+(times), addr, width) ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline char* MemAbsolute(char* dest, const char* sors, size_t width)
 {
 	register size_t i = 0;
@@ -330,14 +134,20 @@ static inline char* MemAbsolute(char* dest, const char* sors, size_t width)
 	else while (i < width) { dest[width - 1 - i] = sors[width - 1 - i]; i++; }
 	return dest;
 }/* Update: Arina fixed REC06 */
+#else
+#define MemAbsolute memmove ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline char* StrCopy(char* dest, const char* sors)
 {
 	register char* d = dest;
 	while (*d++ = *sors++); return dest;
 }
+#else
+#define StrCopy strcpy ///{TODO}
+#endif
 
-// ---- ---- MemSet ---- ----
 #ifdef _INC_USTRING_INLINE
 static inline void* MemSet(void* s, int c, size_t n)
 {
@@ -349,14 +159,19 @@ void* MemSet(void* s, int c, size_t n);
 #endif
 
 // RFB31 changed from `static inline char* MemCopyN(char* dest, const char* sors, size_t n)`
+#ifdef _INC_USTRING_INLINE
 static inline void* MemCopyN(void* dest, const void* sors, size_t n)
 {
 	register char* d = (char*)dest;
 	while (n--) *d++ = *(*((const char**)&sors))++;
 	return dest;
 }
+#else
+#define MemCopyN memcpy ///{TODO}
+#endif
 
 // n excludes terminating-0
+#ifdef _INC_USTRING_INLINE
 static inline char* StrCopyN(char* dest, const char* sors, size_t n)
 {
 	register char* d = dest;
@@ -366,7 +181,11 @@ static inline char* StrCopyN(char* dest, const char* sors, size_t n)
 endo:
 	return dest;
 }
+#else
+#define StrCopyN strncpy ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline char* StrAppend(char* dest, const char* sors)
 {
 	register char* d = dest;
@@ -374,7 +193,11 @@ static inline char* StrAppend(char* dest, const char* sors)
 	while (*d++ = *sors++);
 	return dest;
 }
+#else
+#define StrAppend strcat ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline char* StrAppendN(char* dest, const char* sors, size_t n)
 {
 	register char* d = dest;
@@ -383,7 +206,11 @@ static inline char* StrAppendN(char* dest, const char* sors, size_t n)
 	if (!n) *d = 0;
 	return dest;
 }
+#else
+#define StrAppendN strncat ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline char* StrAppendChars(char* dest, char chr, size_t n)
 {
 	register char* d = dest;
@@ -392,33 +219,52 @@ static inline char* StrAppendChars(char* dest, char chr, size_t n)
 	*d = 0;
 	return dest;
 }// RFV20
+#else
+///{TODO}
+#endif
 
-/* COMPARE */
+//---- ---- ---- ---- { Compare Function } ---- ---- ---- ----
 
+#ifdef _INC_USTRING_INLINE
 static inline int MemCompare(const char* a, const char* b, size_t n)
 {
 	register char tmp = 0;
 	while (n && !(tmp = (*a - *b))) n--; return (int)tmp;
 }
+#else
+#define MemCompare memcpy ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline int StrCompare(const char* a, const char* b)
 {
 	int tmp = 0;
 	while (!(tmp = (*a - *b)) && *a++ && *b++); return tmp;
 }
+#else
+#define StrCompare strcmp ///{TODO}
+#endif
 
+///{TODO} 2 Ver
 static inline int StrCompareInsensitive(const char* a, const char* b)// RFC12
 {
 	int tmp = 0;
 	while (!(tmp = (ascii_tolower(*a) - ascii_tolower(*b))) && *a++ && *b++); return tmp;
 }
 
+
+//
+#ifdef _INC_USTRING_INLINE
 static inline int StrCompareN(const char* a, const char* b, size_t n)
 {
 	int tmp;
 	while (n && !(tmp = (*a - *b)) && *a++ && *b++) n--; return tmp;
 }
+#else
+#define StrCompareN strncmp ///{TODO}
+#endif
 
+///{TODO} 2 Ver
 static inline int StrCompareNInsensitive(const char* a, const char* b, size_t n)// RFC12
 {
 	int tmp;
@@ -426,6 +272,7 @@ static inline int StrCompareNInsensitive(const char* a, const char* b, size_t n)
 }
 
 // RFV12 Updated.
+#ifdef _INC_USTRING_INLINE
 static inline size_t StrLength(const char* s)
 {
 	// do not judge s zo null for better debug
@@ -433,7 +280,11 @@ static inline size_t StrLength(const char* s)
 	while (s[len]) len++;
 	return len;
 }
+#else
+#define StrLength strlen ///{TODO}
+#endif
 
+//{TODO} 2 Ver
 static inline char* StrElement(char* s, ptrdiff_t idx)
 {
 	// a  b  c  [\0]
@@ -448,6 +299,7 @@ static inline char* StrElement(char* s, ptrdiff_t idx)
 	return (idx < 0) ? s + len + idx : s + idx;
 }
 
+//{TODO} 2 Ver
 static inline char StrCharLast(const char* s)//= *StrElement(s, -1)
 {
 	if (!s)return 0;
@@ -455,26 +307,40 @@ static inline char StrCharLast(const char* s)//= *StrElement(s, -1)
 	return *(s-1);
 }
 
+//
+#ifdef _INC_USTRING_INLINE
 static inline const char* MemIndexByte(const char* s, int c, size_t n)
 {
 	while (n--) { if (*s == c) return s; else s++; } return NULL;
 }
+#else
+#define MemIndexByte memchr ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline const char* StrIndexChar(const char* s, int c)
 {
 	register char tmp;
 	do if ((tmp = *s) == c) return s; else s++; while (tmp);
 	return NULL;
 }
+#else
+#define StrIndexChar strchr ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline const char* StrIndexCharRight(const char* s, int c)
 {
 	register char tmp; const char* res = 0;
 	do if ((tmp = *s) == c) res = s++; else s++; while (tmp);
 	return res;
 }
+#else
+#define StrIndexCharRight strrchr ///{TODO}
+#endif
 
 // RFV07 Rename from "StrLenSameChar"
+#ifdef _INC_USTRING_INLINE
 static inline size_t StrLengthSameChar(const char* str, int c, const char** ret)
 {
 	// subord of StrSpanInclude()
@@ -491,21 +357,33 @@ static inline size_t StrLengthSameChar(const char* str, int c, const char** ret)
 	*ret = 0;
 	return 0;
 }// A.R.I.N.A.
+#else
+///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline const char* StrIndexString(const char* dest, const char* sub)
 {
 	register size_t len;
 	while (*dest) { len = 0; while ((sub[len] == dest[len]) && (sub[len])) len++; if (!sub[len]) return dest; dest++; }
 	return NULL;
 }
+#else
+#define StrIndexString strstr ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline size_t StrSpanInclude(const char* s1, const char* s2)
 {
 	size_t res = 0; register size_t offs; register char c;
 	while (c = *s1++) { offs = 0; while ((s2[offs]) && (s2[offs] != c)) offs++; if (!s2[offs]) return res; res++; }
 	return res;
 }
+#else
+#define StrSpanInclude strspn ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline size_t StrSpanExclude(const char* s, const char* reject)
 {
 	size_t ret = 0;
@@ -513,13 +391,21 @@ static inline size_t StrSpanExclude(const char* s, const char* reject)
 	while (TmpChar = *s++) { ecx = reject; while (TmpElement = *ecx++) if (TmpElement == TmpChar)   return ret--; ret++; }
 	return ret;
 }
+#else
+#define StrSpanExclude strcspn ///{TODO}
+#endif
 
+#ifdef _INC_USTRING_INLINE
 static inline const char* StrIndexChars(const char* s1, const char* s2)
 {
 	register char c; size_t offs;
 	while (c = *s1) { offs = 0; while (s2[offs]) if (s2[offs++] == c) return s1; s1++; } return NULL;
 }
+#else
+#define StrIndexChars strpbrk ///{TODO}
+#endif
 
+//{TODO} 2 Ver
 static inline const char* StrIndexCharsExcept(const char* s1, const char* s2)// RFV24
 {
 	register char c; 
@@ -537,6 +423,7 @@ static inline const char* StrIndexCharsExcept(const char* s1, const char* s2)// 
 	return NULL;
 }
 
+//{TODO} 2 Ver
 static inline const char* StrIndexCharsRight(const char* s1, const char* s2)// RFV19
 {
 	register char c; size_t offs; const char* res = 0;
@@ -548,15 +435,22 @@ static inline const char* StrIndexCharsRight(const char* s1, const char* s2)// R
 }
 
 //{TODO} static inline const char* StrIndexCharsExceptRight(const char* s1, const char* s2)
+//
 
-
+//
 void StrFilterOut(char* p, char c);
-void StrFilter(char* p, enum TokType tt);//TODO. no considering new-line
+//TODO. no considering new-line
+void StrFilter(char* p, toktype tt);
+//
 void StrFilterString(char* p, const char* needs);
+//
 void StrFilterOutString(char* p, const char* neednot);
+//
 size_t StrDeprefixSpaces(char* str);
+//
 size_t StrDesuffixSpaces(char* str);
 
+#ifdef _INC_USTRING_INLINE
 static inline char* StrTokenOnce(char* s1, const char* s2)
 {
 	static char* _ModString_StrTokenOnce;// na StrToken, Arina updated yo RFT02.
@@ -575,13 +469,19 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 	_ModString_StrTokenOnce = 0;
 	return (char*)s2;
 }
+#else
+#define StrTokenOnce strtok ///{TODO}
+#endif
 
-// // ---- ---- ---- set and sorting ---- ---- ---- // //
+//---- ---- ---- ---- { Set and Sorting } ---- ---- ---- ----
 
 // RFV30 GHC. Param:order[0:little>big 1:big>little]
+//{TODO} 2 Ver
 void StrSortBubble(char* str, int order);
 
 // RFC12
+//{TODO} 2 Ver
+//{TODO} move to uctypes?
 static inline char* StrToLower(char* str)
 {
 	char* p = str;
@@ -590,6 +490,8 @@ static inline char* StrToLower(char* str)
 }
 
 // RFC12
+//{TODO} 2 Ver
+//{TODO} move to uctypes?
 static inline char* StrToUpper(char* str)
 {
 	char* p = str;
@@ -597,42 +499,70 @@ static inline char* StrToUpper(char* str)
 	return str;
 }
 
-// // ---- ---- ----   ---- ---- ---- // //
-
+//{TODO} StrRelative and StrRelativeN
 #define StrSubWithdraw(posi_start,len)\
 	MemRelative((posi_start), StrLength(posi_start) + 1, -(ptrdiff_t)(len))
 
+//
 char* instob(ptrdiff_t num, char* buf);
+
+//
 ptrdiff_t atoins(const char* str);
 
-//
-// Char-unit Arithmetic
-//
-// Having brewed about 2 years since 2022 Aug.
+//---- ---- ---- ---- { ChrAr } ---- ---- ---- ----
+// Have been brewed since 2022 Aug.
+// Chr+-*/ would not call each other without considering the aflaga.
 
-
-size_t ChrCpz(char* str);// Clear prefix zeros, "+001"-->"+1".
+// Clear prefix zeros, "+001"-->"+1".
+size_t ChrCpz(char* str);
 
 // Char-Arithmetic Cut Trailing zeros. Return the counts of chars that have been cut.
 size_t ChrCtz(char* str);
 
-#ifdef _LIB_STRING_HEAP
+//
 char* _Need_free ChrHexToDec(const char* hex);
-char* ChrDecToHex(char* dec);// Output: upper case
-char* _Need_free ChrHexToDecFloat(const char* hexf);
-char* _Need_free ChrDecToHexFloat(const char* decf, size_t digits);
-char* ChrAdd(const char* dest, const char* sors);
-char* ChrSub(const char* dest, const char* sors);
-char* ChrMul(const char* a, const char* b);
-void ChrDiv(char* a, char* b);// return a as Quotient, b as remainder.
-char* ChrFactorial(const char* a);// a has prefix '+'
-char* ChrArrange(const char* total, const char* items);
-char* ChrCombinate(const char* total, const char* items);
-char* ChrComDiv(const char* op1, const char* op2);// [Get Greatest Common Divisor]
-char* ChrComMul(const char* op1, const char* op2);// [Get Least Common Multiple]
 
-#endif
-#ifdef _LIB_STRING_BUFFER
+// Output: upper case
+char* ChrDecToHex(char* dec);
+
+//
+char* _Need_free ChrHexToDecFloat(const char* hexf);
+
+//
+char* _Need_free ChrDecToHexFloat(const char* decf, size_t digits);
+
+//
+char* ChrAdd(const char* dest, const char* sors);
+
+//
+char* ChrSub(const char* dest, const char* sors);
+
+//
+char* ChrMul(const char* a, const char* b);
+
+// return a as Quotient, b as remainder.
+void ChrDiv(char* a, char* b);
+
+// a has prefix '+'
+char* ChrFactorial(const char* a);
+
+//
+char* ChrArrange(const char* total, const char* items);
+
+//
+char* ChrCombinate(const char* total, const char* items);
+
+// [Get Greatest Common Divisor]
+char* ChrComDiv(const char* op1, const char* op2);
+
+// [Get Least Common Multiple]
+char* ChrComMul(const char* op1, const char* op2);
+
+char* ChrInsPow(const char* in, size_t times);
+
+//---- ---- ---- ---- { ChrArBuf now aka ChrBr } ---- ---- ---- ----
+
+#ifdef _LIB_STRING_BUFFER///{TODO}
 char* _Need_free ChrHexToDecBuf(const char* hex);
 char* ChrDecToHexBuf(char* dec);// Output: upper case
 char* ChrAddBuf(const char* dest, const char* sors);
@@ -644,136 +574,41 @@ char* ChrArrangeBuf(const char* total, const char* items);
 char* ChrCombinateBuf(const char* total, const char* items);
 char* ChrComDivBuf(const char* op1, const char* op2);// [Get Greatest Common Divisor]
 char* ChrComMulBuf(const char* op1, const char* op2);// [Get Least Common Multiple]
-
 #endif
 
+//---- ---- ---- ---- { ChrAr General } ---- ---- ---- ----
+
+//
 int ChrCmp(const char* a, const char* b);// -1 0 1
 
+//
 void DigInc(int ascii, char* posi);
+
+//
 void DigDec(int ascii, char* posi);
 
+//---- ---- ---- ---- { Others or Temporarily Stage Area } ---- ---- ---- ----
 
-static inline char* _Need_free bcdtoa(unsigned char* str, size_t bylen)
-{
-	// started from RedToLocaleClassic()
-	// 9876_5432H <=== 0x32,0x54,0x76,0x98;
-	// 9876.5432H <=== 0x32,0x54`0x76,0x98;
-	register char* res = (char*)malc((bylen << 1) | 1);
-	char c;
-	res += (bylen << 1);
-	*res-- = 0;
-	for (size_t i = 0; i < bylen; i++)
-	{
-		c = str[i] & 0x0F;
-		*res-- = c >= 10 ? c - 10 + 'A' : c + '0';
-		str[i] >>= 4;
-		c = str[i] & 0x0F;
-		*res-- = c >= 10 ? c - 10 + 'A' : c + '0';
-	}
-	return res + 1;
-}
+// 9876.5432H <=== 0x32,0x54`0x76,0x98;
+char* _Need_free bcdtoa(unsigned char* str, size_t bylen);
 
-static inline unsigned char* _Need_free atobcd(char* str)
-{
-	// 98765432H ===> 0x32,0x54,0x76,0x98;
-	// keep the str even, so you may allocate an odd size.
-	// Without input check
-	size_t slen = StrLength(str);
-	if (slen & 1) return 0;
-	slen >>= 1;
-	unsigned char CrtChr = 0, * res = (unsigned char*)malc(slen + 1);
-	res[slen] = 0;
-	size_t i = slen;
-	do
-	{
-		CrtChr = 0;
-		if (str[1] >= 'A') CrtChr = str[1] - 'A';
-		else CrtChr = str[1] - '0';
-		if (str[0] >= 'A') CrtChr |= (str[0] - 'A') << 4;
-		else CrtChr |= (str[0] - '0') << 4;
-		str += 2;
-		i--;
-		res[i] = CrtChr;
-	} while (i > 0);
-	return res;
-}
-
-//
-// Temporarily Stage Area
-//
+// 98765432H ===> 0x32,0x54,0x76,0x98;
+unsigned char* _Need_free atobcd(char* str);
 
 // Boundary
-static inline unsigned char StrShiftLeft4(void* s, size_t len)
-{
-	unsigned char carry;
-	unsigned char lastc = 0;
-	do
-	{
-		carry = ((*(unsigned char*)s) & 0xF0) >> 4;// ArinaCove
-		(*(unsigned char*)s) <<= 4;
-		*(*((unsigned char**)&s))++ |= lastc;
-		lastc = carry;
-	} while (--len);
-	return lastc;
-}
+unsigned char StrShiftLeft4(void* s, size_t len);
 
 // Boundary
-static inline void StrShiftLeft8n(void* s, size_t len, size_t n)
-{
-	///MemRelative(s, len, (ptrdiff_t)n);
-	register size_t i = 0;
-	if (len == 0 || n == 0) return;
-	if (n >= len) MemSet((unsigned char*)s, 0, len);
-	else
-	{
-		while (i < len) { if (i + 1 > n) ((unsigned char*)s)[len + n - i - 1] = ((unsigned char*)s)[len - i - 1]; i++; }
-		for (size_t j = 0; j < n; j++) ((unsigned char*)s)[j] = 0;
-	}
-	return;
-}
+void StrShiftLeft8n(void* s, size_t len, size_t n);
 
 // Boundary
-static inline unsigned char StrShiftRight4(void* s, size_t len)
-{
-	unsigned char carry;
-	unsigned char lastc = 0;
-	*(char**)s += len - 1;
-	do
-	{
-		carry = ((*(unsigned char*)s) & 0x0F) << 4;// ArinaCove
-		(*(unsigned char*)s) >>= 4;
-		*(*((unsigned char**)&s))-- |= lastc;
-		lastc = carry;
-	} while (--len);
-	return lastc;
-}
+unsigned char StrShiftRight4(void* s, size_t len);
 
 // Boundary, may renamed StrShiftRightBytes
-static inline void StrShiftRight8n(void* s, size_t len, size_t n)
-{
-	///MemRelative(s, len, -(ptrdiff_t)n);
-	register size_t i = 0;
-	if (len == 0 || n == 0) return;
-	if (n >= len) MemSet(s, 0, len);
-	else
-	{
-		while (i < len) { if (i >= n) *(((unsigned char*)s) + i - n) = ((unsigned char*)s)[i]; i++; }
-		for (size_t j = 0; j < n; j++) (((unsigned char*)s) - n + len)[j] = 0;
-	}
-}
+void StrShiftRight8n(void* s, size_t len, size_t n);
 
-static inline signed MemCompareRight(const unsigned char* a, const unsigned char* b, size_t n)
-{
-	for (ptrdiff_t i = n - 1; i >= 0; i--)
-	{
-		int state = (unsigned int)a[i] - (unsigned int)b[i];
-		if (state) return state;
-	}
-	return 0;
-}
+// In the direction of the left
+stdint MemCompareRight(const unsigned char* a, const unsigned char* b, size_t n);
 
-#undef register
-
-#endif
-
+#endif// !defined(_LIB_STRING) && !defined(_INC_USTRING)
 // IN MEMORY OF OUR PAST YEARS //

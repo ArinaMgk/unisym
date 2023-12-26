@@ -35,4 +35,7 @@ void NodeRelease(node* first)
 		first = next;
 	}
 	_node_first = 0;
+	aflaga.zero = 1;
+	aflaga.one = 0;
+	aflaga.fail = 0;
 }

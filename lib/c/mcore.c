@@ -22,5 +22,5 @@
 
 #include "../../inc/c/alice.h"
 
-struct aflag_t aflaga = { .autosort = 1 };
+struct _aflag_t aflaga = { .autosort = 1 };
 

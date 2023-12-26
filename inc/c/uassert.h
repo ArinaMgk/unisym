@@ -1,4 +1,8 @@
-// ASCII TAB4 C99 ArnCovenant TAB CRLF
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant Host[Allocation]
+// LastCheck: RFZ11
+// AllAuthor: @ArinaMgk(till RFA03) @dosconio
+// ModuTitle: Assert
 /*
 	Copyright 2023 ArinaMgk
 
@@ -7,6 +11,7 @@
 	You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
 
 	Unless required by applicable law or agreed to in writing, software
 	distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,9 +20,9 @@
 	limitations under the License.
 */
 
-#ifndef _LIB_UASSERT
-#define _LIB_UASSERT
+#ifndef _INC_UASSERT
+#define _INC_UASSERT
 
 #define assert(expression) ((expression)?(char*)(expression):(exit(1),(char*)0))
 
-#endif // !_LIB_UASSERT
+#endif // !_INC_UASSERT

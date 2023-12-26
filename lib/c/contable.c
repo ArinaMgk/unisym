@@ -26,11 +26,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <conio.h>
-#include "../contable.h"
-#include "../alice.h"
-#include "../aldbg.h"
-#include "../ustring.h"
-#include "../consio.h"
+#include "../../inc/c/graphic/contable.h"
+#include "../../inc/c/alice.h"
+#include "../../inc/c/aldbg.h"
+#include "../../inc/c/ustring.h"
+#include "../../inc/c/consio.h"
 // 
 typedef unsigned addr_t;
 

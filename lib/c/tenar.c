@@ -1,5 +1,8 @@
-// ASCII TAB4 C99 ArnAssume
-// Operations for Tensor (Array of SameType and RectDimension)
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant Host[Allocation]
+// LastCheck: RFZ23
+// AllAuthor: @dosconio
+// ModuTitle: TENSOR ARITHMETIC and OPERATION(for non-arith-elements)
 /*
 	Copyright 2023 ArinaMgk
 
@@ -8,6 +11,7 @@
 	You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
 
 	Unless required by applicable law or agreed to in writing, software
 	distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +21,8 @@
 */
 
 #include <stdlib.h>
-#include "../aldbg.h"
-#include "../tenar.h"
+#include "../../inc/c/aldbg.h"
+#include "../../inc/c/tenar.h"
 
 /// /// /// {TODO CHECK} /// /// ///
 
@@ -26,7 +30,7 @@
 static size_t TenNewSub(struct tenelm* crtte, size_t* dimen, void* (*InitFunc)(size_t idnumber))
 {
 	crtte->count = dimen[0];
-	if(dimen[1]) crtte->dimen = TenNewSub(crtte->datas, dimen + 1, InitFunc);// while (dimen[crtte->dimen]) crtte->dimen++;
+	if(dimen[1]) crtte->dimen = TenNewSub((struct tenelm*)crtte->datas, dimen + 1, InitFunc);// while (dimen[crtte->dimen]) crtte->dimen++;
 	else crtte->dimen = 1;
 	crtte->datas = zalc(sizeof(void*) * crtte->count);
 	for (size_t i = 0; i < crtte->count ; i++)

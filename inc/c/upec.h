@@ -19,6 +19,8 @@
 	limitations under the License.
 */
 
+//{TODO} Conversion Table
+
 // ASE, is more suitable for applications than ASCII.
 // - constant 0~F
 // - constant A~Z, a~z
@@ -57,14 +59,24 @@ H/L	0	1	2	3	4	5	6	7	8	9	A	B	C	D	E	F
 7|	q	r	s	t	u	v	w	x	y	z
 */
 
+//
 #define isuspace(c) (c <= 0x10 && c > 0x08)
+//
 #define isudigit(c) ((c & 0b11110000) == 0b00010000)
+//
 #define isuupper(c) ((c & 0b11100000) == 0b00100000)
+//
 #define isulower(c) ((c & 0b11100000) == 0b01100000)
+//
 #define isupunct(c) ((c & 0b11100000) == 0b01000000)
-
+//
 #define toulower(c) (isuupper(c)? (c) | 0b01000000 : (c))
+//
 #define touupper(c) (isulower(c)? (c) & 0b10111111 : (c))
+//
+static char upec2ascii(char upec);
+//
+static char ascii2upec(char ascii);
 
 static char upec2ascii(char upec) {
 	if (upec & 0b10000000) return 0x06;

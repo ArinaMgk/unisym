@@ -32,7 +32,10 @@
 	#define pointer(_typ) _typ * 
 	#define pointerf(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magicoll pointer: "pointer(pointer(void)) pp"
+#else
+	#define register// ISO C++17 does not allow 'register' storage class specifier
 #endif
+
 
 // temporarily make use of standard library
 #if SIZE_MAX==0xFFFF
@@ -49,6 +52,11 @@
 	#define __BIT_STR__ "8"
 #endif
 
+#include <inttypes.h>
+#define PRIdSTD PRIdPTR
+#define PRIuSTD PRIuPTR
+#define PRIxSTD PRIxPTR
+
 #define __ENDIAN__ 0//{TODO} 1 for big endian, 0 for little endian
 
 #define __BITS__ _BINARY
@@ -57,7 +65,7 @@
 	#include "us_win64.h"
 #else
 	#include <stddef.h>
-	#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate ¡®unsigned¡¯
+	#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate Â¡Â®unsignedÂ¡Â¯
 		#define uint unsigned int
 	#endif
 	#define llong long long int
@@ -110,7 +118,7 @@
 
 #define AssignShiftLeft(l,m,r) (l=m,m=r)// different from `l=m=r`
 
-// May be conflict with stdlib.h, so temporarily:
+//{} May be conflict with stdlib.h, so temporarily:
 #include <stdlib.h>
 #ifndef max//(a,b)
 #define max(a,b) ((a)>(b)?(a):(b))
@@ -122,7 +130,7 @@
 #define MAX(d,s) if((d)<(s)){(d)=(s);}
 
 #define MIN(d,s) if((d)>(s)){(d)=(s);}
-// ---- ---- algorithm ---- ----
+//{} ---- ---- algorithm ---- ----
 #define isodd(x) ((x)&1)
 #define iseven(x) !((x)&1)
 #define isZeroMantissa(flt) ((int)(flt)==(flt)) // RFW23
@@ -144,29 +152,17 @@
 #define byteof sizeof
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
 
-#define ascii_isdigit(c) ((c)-'0'<10)
-#define ascii_islower(c) ((c)-'a'<26)
-#define ascii_isupper(c) ((c)-'A'<26)
-#define ascii_tolower(c) ((c)-'A'<26?(c)|0x20:c)
-#define ascii_toupper(c) ((c)-'a'<26?(c)&~0x20:c)
-#define ascii_tohexad(c) ((c)>='a'?(c)-'a'+10:(c)>='A'?(c)-'A'+10 :(c)-'0')
-
-//{} ustdbool.h, which includes binary.h
-#define immed_tobool(i) !!(i) // != 0
-#if defined(_SUPPORT_BOOL) && !defined(_SUPPORT_BOOL_DEFINED)
-	#define _SUPPORT_BOOL_DEFINED
-	typedef enum bool { false, true } bool;// use immed_tobool() to convert with this
-#endif
-
 // __FUNCIDEN__ : function identifier
 #ifdef _MSC_VER// for MSVC
 	#define __FUNCIDEN__ __FUNCDNAME__
 #elif defined(__GNUC__)
 	#define __FUNCIDEN__ __func__// cannot auto-strcat
 #endif
+
+extern size_t _size_decimal;
 	
 // ==== ==== <mcore.c> ==== ====	
-extern struct aflag_t// for some unisym functions, stored in stack for calling other functions. Method of application: register the current address of aflag globally before calling corresponding functions.
+extern struct _aflag_t// for some unisym functions, stored in stack for calling other functions. Method of application: register the current address of aflag globally before calling corresponding functions.
 {
 	byte carry : 1;                    // CF
 	byte autosort : 1;                 ///1 or ASF (Auto Sort Flag) 
@@ -178,8 +174,8 @@ extern struct aflag_t// for some unisym functions, stored in stack for calling o
 	byte sign : 1;                     // SF
 	byte debug : 1;                    // TF (Trap Flag)
 	byte interrupt : 1;                // IF
-	byte direction : 1;                // DF
-	byte overflow : 1;                 // OF
+	byte direction : 1;                // DF (0 for increasing, 1 for decreasing)
+	byte overflow : 1;                 // OF or precies loss
 	byte io_privilege_level : 2;       // IOPL
 	byte nested_task : 1;              // NT
 	byte fail : 1;                     ///0 or FF (Fail Flag)
@@ -193,7 +189,9 @@ extern struct aflag_t// for some unisym functions, stored in stack for calling o
 	byte : 2;
 	byte : 8;
 } aflaga;
-	
+
+#define _aflaga_init() (MemSet(&aflaga, 0, sizeof aflaga), aflaga.autosort = 1)
+
 #endif
 // more to see "aldbg.h"
 // ---- ---- ---- ---- ---- ---- ---- ----

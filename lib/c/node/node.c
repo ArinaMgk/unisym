@@ -27,7 +27,7 @@ static const char _USYM_IDEN_[] = {
 	"UNISYM under Apache 2.0 Licence @ArinaMgk, @dosconio"
 };
 
-enum _Node_Order _node_order;
+// enum _Node_Order _node_order;
 
 int (*_node_compare)(void* addr0, void* addr1);
 

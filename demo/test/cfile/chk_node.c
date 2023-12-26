@@ -1,6 +1,6 @@
 // ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ02
+// LastCheck: RFZ11
 // AllAuthor: @ArinaMgk(till RFA03) @dosconio
 // ModuTitle: Test for Simple Node
 /*
@@ -59,23 +59,27 @@ char* StrHeap(const char* valit_str)
 	return ret;
 }
 
-void main()
+int main()
 {
 	printf("\n%" PRIdPTR "\n", malc_count);
 
 	node* nd = 0;
 	void* old_memf_func = _node_freefunc;
 	_node_freefunc = 0;
-	_node_order = _Node_Order_Insert;
+	// _node_order = _Node_Order_Insert;
 	nd = NodeAppend(nd, (void*)1);
-	NodeAppend(nd, (void*)2);
-	NodeAppend(nd->next, (void*)4);
-	NodeAppend(nd->next, (void*)3);
+	NodeInsert(nd, (void*)2);
+	NodeInsert(nd->next, (void*)4);
+	NodeInsert(nd->next, (void*)3);
 	NodesPrint(nd);
 	NodeRelease(nd);
 
 	puts("\n----\n");
-	_node_order = _Node_Order_Increase;
+	// _node_order = _Node_Order_Increase;
+	{
+		aflaga.autosort = 1;
+		aflaga.direction = 0;
+	}
 	NodeAppend(_node_first, (void*)1);
 	NodeAppend(_node_first, (void*)2);
 	NodeAppend(_node_first, (void*)4);
@@ -84,7 +88,11 @@ void main()
 	NodeRelease(_node_first);
 
 	puts("\n----\n");
-	_node_order = _Node_Order_Decrease;
+	// _node_order = _Node_Order_Decrease;
+	{
+		aflaga.autosort = 1;
+		aflaga.direction = 1;
+	}
 	NodeAppend(_node_first, (void*)1);
 	NodeAppend(_node_first, (void*)2);
 	NodeAppend(_node_first, (void*)4);
@@ -93,8 +101,11 @@ void main()
 	NodeRelease(_node_first);
 
 	puts("\n----\n");
-	_node_order = _Node_Order_UserDefine;
-	_node_compare = (int(*)(void*, void*))strcmp;
+	// _node_order = _Node_Order_UserDefine;
+	{
+		aflaga.autosort = 0;
+		_node_compare = (int(*)(void*, void*))strcmp;
+	}
 	_node_freefunc = old_memf_func;
 	NodeAppend(_node_first, StrHeap("123864"));
 	NodeAppend(_node_first, StrHeap("923456"));
@@ -107,19 +118,27 @@ void main()
 	NodeRelease(_node_first);
 
 	puts("\n----\n");
-	_node_order = _Node_Order_Disable;
-	_node_compare = 0;
+	// _node_order = _Node_Order_Disable;
+	{
+		aflaga.autosort = 0;
+		_node_compare = 0;
+	}
 	_node_freefunc = 0;
 	NodeAppend(_node_first, (void*)1);
 	NodeAppend(_node_first, (void*)2);
 	NodeAppend(_node_first, (void*)4);
 	NodeAppend(_node_first, (void*)3);
 	NodesPrint(_node_first);
-	_node_order = _Node_Order_Decrease;
+	// _node_order = _Node_Order_Decrease;
+	{
+		aflaga.autosort = 1;
+		aflaga.direction = 1;
+	}
 	NodeSort(_node_first);
 	NodesPrint(_node_first);
 	NodeRelease(_node_first);
 
 	puts("\n----\n");
 	printf("\n%" PRIdPTR "\n", malc_count);
+	return 0;
 }

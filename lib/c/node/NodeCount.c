@@ -23,7 +23,7 @@
 #include "../../../inc/c/node.h"
 #include "../../../inc/c/aldbg.h"
 
-size_t NodeCount(node* first)
+size_t NodeCount(const node* first)
 {
 	size_t ret = 0;
 	while (first)

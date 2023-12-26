@@ -1,4 +1,8 @@
-// ASCII TAB4 C99 ArnAssume RFC17
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnAssume
+// LastCheck: RFC17
+// AllAuthor: @dosconio
+// ModuTitle: Show Hexadecimal of File
 /*
 	Copyright 2023 ArinaMgk
 
@@ -7,6 +11,7 @@
 	You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
 
 	Unless required by applicable law or agreed to in writing, software
 	distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,8 +19,6 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
-//$ gcc filedump.c ../source/consio.c -D_WinNT -o fdumpw.exe & gcc filedump.c ../source/consio.c -D_Linux -o fdumpl.exe
 
 #include "alice.h"
 #include "aldbg.h"
@@ -57,7 +60,7 @@ int main(int argc, char** argv)
 	printf("+0 +1 +2 +3 +4 +5 +6 +7 +8 +9 +A +B +C +D +E +F 0123456789ABCDEF");
 	ConStyleNormal();
 
-	printline("");
+	printline(" ");
 
 	ConStyleAbnormal();
 	printf("%08" PRIXPTR, crtline);
@@ -80,8 +83,9 @@ int main(int argc, char** argv)
 				else putchar('.');
 			}
 			i |= (size_t)0xF;
+			printline("");
 			ConStyleAbnormal();
-			printf("\n%08" PRIXPTR, crtline);
+			printf("%08" PRIXPTR, crtline);
 			crtline += 0x10;
 			ConStyleNormal();
 			putchar(' ');
@@ -103,9 +107,7 @@ int main(int argc, char** argv)
 			else putchar('.');
 		}
 	}
-
 	printline("");
-
 	memf(buf);
 	return 0;
 }

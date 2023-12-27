@@ -1,0 +1,309 @@
+; GBK [Doshou Haruno], Kasha Copyright 2023 ArinaMgk Apache License 2.0
+; dosconio:dosconyo@gmail.com
+; x86 Protection Enable Mode
+; Build-half RFQ06 Rebuild RFQ09,RFQ10,RFQ11
+;	asm pe32app.a
+;	asm pe32sub.a
+;	vdk pe32app.a 1
+;	vdk pe32sub.a 50
+;Char UTF-8
+
+%include "osdev.a"
+%include "video.a"
+%include "debug.a"
+
+%include "hdisk.a"
+%include "demos.a"
+
+STACK_SEG EQU 0x1000
+THISF_SEG EQU 0x0100 ;this file
+THISF_ADR EQU 0x1000
+GDT_SEG   EQU 0x07B0
+GDT_ADDR  EQU 0x7B00
+STACK_LEN EQU 0x0A00
+SUBPROG_S EQU 50; SECTOR not SECTION
+SUBPROG_SEG EQU 0x07C0
+SUBPROG_A EQU 0x7C00
+[BITS 16]
+File
+DefineStack 0,STACK_SEG
+
+;---GDT make
+	MOV AX,GDT_SEG
+	MOV DS,AX
+	XOR EBX,EBX
+	;------GDTE 00 NULL
+	GDTDptrAppend 0,0
+	;------GDTE 01 Global Data
+	; BASE[00000000]LIM[FFFFF][4KB][32][KiSys][DATA][R0][读写/读执]
+	GDTDptrAppend 0x00CF9200,0x0000FFFF
+	;------GDTE 02 Current Code
+	; BASE[00001000]LIM[QWERT][Byt][32][KiSys][CODE][R0][只读/只执]
+	; 004Q9800 1000WERT
+	PUSH EBX
+	MOV EAX,THISF_ADR
+	MOV EBX,FILEEND2
+	DEC EBX
+	MOV ECX,0x00409800
+	CALL F_GDTDptrStruct
+	POP EBX
+	GDTDptrAppend EDX,EAX
+	;------GDTE 03 Stack
+	; BASE[00000600]LIM[00000][Byt][32][KiSys][DATA][R0][读写下拓/读执依从] << 这样是不对的
+	;Arina总结公式 [Limit~FFFF]+base = [0x600~0xFFF]
+	; so Limit=?F5FF<SP, base=0x1000
+	GDTDptrAppend 0x00CF9600,0x7B00FFFE
+	;------GDTE 04 Video display buffer 32K
+	; BASE[000B8000]LIM[07FFF][Byt][32][KiSys][DATA][R0][读写/读执]
+	GDTDptrAppend 0x0040920B,0x80007FFF
+	;------GDTE 05 32PE ROUTINE
+	; BASE[ADDRESsX]LIM[LIMiT][Byt][32][KiSys][CODE][R0][只读/只执]
+	; [AD4L98DR][ESSXIMIT]
+	PUSH EBX
+	MOV EAX,THISF_ADR+Routine
+	MOV EBX,RoutineEnd-Routine
+	DEC EBX
+	MOV ECX,0x00409800
+	CALL F_GDTDptrStruct
+	POP EBX
+	GDTDptrAppend EDX,EAX
+
+	MOV AX,THISF_SEG
+	MOV DS,AX
+	MOV [GDTPTR],EBX
+	ADD DWORD[GDTPTR],GDT_ADDR
+	DEC EBX; Now equal size of GDT
+	MOV WORD[DS:GDTable],BX
+	LGDT [DS:GDTable]
+
+Addr20Enable
+;---Enter Protected Mode
+	CLI; prevoius interrupts lost functions
+	MOV EAX,CR0
+	OR EAX,1
+	MOV CR0,EAX
+
+	JMP DWORD 8*2:mainx
+	DbgStop
+F_GDTDptrStruct:
+	GDTDptrStruct EAX,EBX,ECX
+	RET
+GDTPTR: DD 0;len
+;SUBAPP_ESP: DD 0
+[BITS 32];--------------------------------
+mainx:
+;---Init segment
+	MOV EAX,8*1
+	MOV DS,EAX
+	MOV EAX,8*4
+	MOV ES,EAX
+	MOV EAX,8*3
+	MOV SS,EAX
+	MOV ESP,0; STACK_LEN
+; EXPI RFQ10: Stack Check : Passed
+	;MOV ECX,0x1000/2
+	;CHKSTK:
+	;PUSH AX
+	;LOOP CHKSTK
+	
+	;mov eax,ESP ;DbgEcho32 eax ;push EAX ;mov eax,ESP ;DbgEcho32 eax,80 (result: 00000000 0000FFFC) for "GDTDptrAppend 0x00009600,0x1000F600"
+
+	;PUSH WORD 0X9876 ;MOV EAX,[0xfffe+0x1000] for "0x00009600,0x1000F5FF"
+	;PUSH DWORD 0X98765432; MOV EAX,[0X7AFC]; DbgEcho32 EAX
+;---
+;	JMP TEST_LIMIT_OF_SEG
+;	DbgStop
+;	TEST_LIMIT_OF_SEG_BACK:	MOV BYTE[ES:0],'P'
+
+	;JMP DWORD 8*5:0
+	;DbgStop
+;---Load Sub-program
+	MOV EAX,SUBPROG_S
+	MOV EBX,SUBPROG_A
+	DFLoad
+	MOV ECX,[SUBPROG_A]
+	ADD DWORD[THISF_ADR+RamAllocPtr],ECX
+;---Restruct GDT
+	MOV DWORD[THISF_ADR+ESPPTR],ESP
+	CMP WORD[SUBPROG_A+4],0x32DE; Magic Number
+	JNZ R_Terminate
+
+	MOV EBX,[THISF_ADR+GDTPTR]
+	; STACK 06
+	; BASE[BASEADDR]LIM[LIMIT][Byt][32][KiSys][DATA][R0][读写下拓/读执依从]
+	; BA4L96SE ADDRIMIT
+	; ALLOC MEM AND REWRITE STACK OF SUBAPP
+	PUSH EBX
+	MOV EBX,0x000_FFFFF
+	XOR EAX,EAX
+	MOV AX,WORD[SUBPROG_A+0X06]
+	ADD AX,0x1000-1
+	SHR EAX,3*4
+	SUB EBX,EAX
+	;MOV DWORD[THISF_ADR+SUBAPP_ESP],EBX
+	SHL EAX,3*4
+	ADD DWORD[THISF_ADR+RamAllocPtr],EAX
+	MOV EAX,[THISF_ADR+RamAllocPtr]; FIX MISTAKE RFQ18
+	MOV WORD[SUBPROG_A+0X06],8*06H
+	MOV ECX,0x00C09600
+	CALL F_GDTDptrStruct_32
+	POP EBX
+	GDTDptrAppend EDX,EAX
+
+	; code seg 07
+	; BASE[BaseAddr]LIM[Limit][Byt][32][KiSys][CODE][R0][只读/只执]
+	; BA4L98SE ADDRIMIT property"ecx=0x00409800"
+	PUSH EBX
+	MOV EAX,[SUBPROG_A+10H]
+	ADD EAX,SUBPROG_A
+	MOV EBX,[SUBPROG_A+14H]
+	DEC EBX
+	MOV ECX,0x00409800
+	CALL F_GDTDptrStruct_32
+	POP EBX
+	GDTDptrAppend EDX,EAX
+	MOV WORD[SUBPROG_A+10H],8*07H
+
+	; data seg 08
+	; property"ecx=0x00409000"
+	PUSH EBX
+	MOV EAX,[SUBPROG_A+18H]
+	ADD EAX,SUBPROG_A
+	MOV EBX,[SUBPROG_A+1CH]
+	DEC EBX
+	MOV ECX,0x00409200
+	CALL F_GDTDptrStruct_32
+	POP EBX
+	GDTDptrAppend EDX,EAX
+	MOV WORD[SUBPROG_A+18H],8*08H
+
+	; whole subapp seg 09 -> ES
+	PUSH EBX
+	MOV EAX,SUBPROG_A
+	MOV EBX,DWORD[SUBPROG_A]
+	DEC EBX
+	MOV ECX,0x00409200; READ ONLY
+	CALL F_GDTDptrStruct_32
+	POP EBX
+	GDTDptrAppend EDX,EAX
+
+	MOV DWORD[THISF_ADR+GDTPTR],EBX
+	DEC EBX
+	MOV WORD[DS:THISF_ADR+GDTable],BX
+	LGDT [DS:THISF_ADR+GDTable]
+
+;---API Kernel Routine Apply (32Bit)
+DEMOS_ROUT32:
+	MOV ECX,[SUBPROG_A+08H]
+	MOV EDX,0
+	MOV DX,RoutineNo
+	MOV ESI,SUBPROG_A+20H
+DEMOS_ROUT32_LOOP:
+	MOV EAX,[ESI]
+	CMP EAX,EDX
+	JB DEMOS_ROUT32_LOOP_NEXT
+	MOV EAX,0
+	DEMOS_ROUT32_LOOP_NEXT:
+	SHL EAX,2
+	MOV EAX,DWORD[EAX+THISF_ADR+rot0000]
+	MOV DWORD[ESI],EAX
+	ADD ESI,4
+	MOV WORD[ESI],8*5
+	ADD ESI,4
+LOOP DEMOS_ROUT32_LOOP
+;---run shell
+RunShell:
+	MOV EAX,8*9
+	MOV ES,EAX
+	CLI
+	MOV DWORD[THISF_ADR+ESPPTR],ESP
+	MOV EAX,8*6
+	;MOV EBX,DWORD[THISF_ADR+SUBAPP_ESP]
+	MOV SS,EAX
+	MOV ESP,0
+	STI; ANOTHER SAFE FOR STACK CHANGE
+	;DEFAULT GLOBAL DS
+			;JMP DWORD 8*5:0
+;MOV EAX,8*4
+;MOV ES,AX
+;MOV EAX,[0X7B00+8*5]
+;DbgEcho32 EAX
+;MOV EAX,[0X7B00+8*5+4]
+;DbgEcho32 EAX,80
+;DbgStop
+	JMP FAR [SUBPROG_A+0CH]; 48bit far jump?--RFQ10
+	DbgStop
+	NOP
+F_GDTDptrStruct_32:
+	GDTDptrStruct EAX,EBX,ECX
+	RET
+
+ESPPTR: DD 0
+GDTable:
+	DW 0
+	DD GDT_ADDR
+TerminateMsg: DB ':Demonstration End~',0x0D,0x0A,0
+RamAllocPtr: DD SUBPROG_A;from 0x7C00
+APISymbolTable:; till Routine
+	RoutineNo: DW (Routine-rot0000)/4
+	rot0000:; Terminate
+		DD R_Terminate-Routine
+	rot0001:; PrintString (accept New Line)
+		DD R_Print-Routine
+	rot0002:; Malloc
+		DD R_Malloc-Routine
+	rot0003:; (waiting for adding)
+		DD R_Mfree-Routine
+	rot0004:; DiskReadLBA28
+		DD R_DiskReadLBA28-Routine
+;---
+Routine:
+	R_Terminate:; 00 and other rontine point to here
+		MOV EAX,8*1
+		MOV DS,EAX
+		MOV EAX,8*3
+		MOV SS,EAX
+		MOV ESP,0;[THISF_ADR+ESPPTR]
+		MOV AH,7; White on Black
+		MOV ESI,THISF_ADR+TerminateMsg
+		CALL (8*5):(R_Print-Routine)
+		DbgStop
+		ALIGN 16
+	R_Print:; INPUT=DS:ESI
+		PUSH ES
+		PUSH EAX
+		PUSH EBX
+		PUSH AX	
+		MOV EAX,8*4
+		MOV ES,EAX
+		POP AX
+		Print ESI,AH
+		;PrintString ESI,AH,5,~
+		POP EBX
+		POP EAX
+		POP ES
+		RETF
+		ALIGN 16
+	R_Malloc:; ecx=length ret"eax=start"
+		PUSH DS
+		MOV EAX,8*1
+		MOV DS,EAX
+		MOV EAX,[DS:THISF_ADR+RamAllocPtr]
+		ADD DWORD[DS:THISF_ADR+RamAllocPtr],ECX
+		POP DS
+		RETF
+		ALIGN 16
+	R_Mfree:
+		; ...
+		RETF
+		ALIGN 16
+	R_DiskReadLBA28:;eax=start, ds:ebx=buffer
+		HdiskLoadLBA28 EAX,1
+		RETF
+		ALIGN 16
+RoutineEnd:
+;TEST_LIMIT_OF_SEG: JMP TEST_LIMIT_OF_SEG_BACK
+Endf
+FILEEND2:
+
+;Q : 32位代码段只能用大于等于4KB的可控栈段ま

@@ -1,0 +1,9 @@
+DD END
+TIMES 512-4-3 DB '~'
+DB "ED0"
+DB "OP1"
+TIMES 512-3-3 DB '~'
+DB "ED1"
+DB "OP2"
+DB 0
+END:

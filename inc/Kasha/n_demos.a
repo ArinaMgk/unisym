@@ -1,0 +1,935 @@
+; Demos
+;	Copyright 2023 ArinaMgk
+;	
+;	Licensed under the Apache License, Version 2.0 (the "License");
+;	you may not use this file except in compliance with the License.
+;	You may obtain a copy of the License at
+;	
+;	http://www.apache.org/licenses/LICENSE-2.0
+;	
+;	Unless required by applicable law or agreed to in writing, software
+;	distributed under the License is distributed on an "AS IS" BASIS,
+;	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;	See the License for the specific language governing permissions and
+;	limitations under the License.
+;
+;  Dprog(dw entry, 
+;	seg code, imm seglen, return label codeseglbl,
+;	seg data, imm seglen, return label dataseglbl,
+;	imm stacklen, return label stackseg, label api_end);
+
+;  DemProg(dw entry, seg codelbl, imm seglen,
+;	seg datalbl, imm seglen, imm stacklen);
+
+;  Dem2Prog(dw entry, seg codelbl, imm seglen, imm stacklen,
+;	seg datalbl, imm seglen, seg ronllbl, imm ronllen);
+
+;  Dapi(label name, imm API_ID);
+
+;  Enddf()
+
+; stack preset"ds; eax=LBA28Sector; ebx=address" ret"dword[ebx]=read_len"
+;  DFLoad()
+;---
+
+
+%imacro Dprog 10
+ FILELEN DD FILEEND
+ DB 0xDE,0x32
+ %9: DW %8; stack len
+ DD (%10-%%APIEnto)/8
+ DD %1; entry
+ %4: DD section.%2.start; code addr/seg
+    DD %3; code len
+ %7: DD section.%5.start; data addr/seg
+    DD %6; data len
+ %%APIEnto: 
+%endmacro
+
+%imacro DemProg 6; with Enddf
+ FILELEN DD FILEEND
+ DW 0x32DE
+ DW 0
+ DD %6; stack len
+ DD %1; entry
+ DD section.%2.start; code addr/seg
+  DD %3; code len
+ DD section.%4.start; data addr/seg
+  DD %5; data len
+ %%APIEnto: 
+%endmacro
+
+%imacro Dem2Prog 8; with Enddf
+ FILELEN DD FILEEND
+ DD 0
+ DW 3,0x32DE
+  TIMES 5 DD 0
+ DD %1; ENTRY
+  TIMES 5 DD 0
+ DD %4; STAK LEN
+  DD 0,0,0
+ DD %3; CODE LEN
+ DD section.%2.start; CODE ENTO
+ DD %6; DATA LEN
+ DD section.%5.start; DATA ENTO
+ DD %8
+ DD section.%7.start; RONL ENTO
+  TIMES 8 DD 0
+  TIMES 128 DB 0
+%endmacro
+
+%imacro Dapi 2
+ %1: DD %2
+ DW 0
+ DW 0
+%endmacro
+
+%imacro Enddf 0
+ [SECTION ENDOSEG align=16]
+ FILEEND:
+%endmacro
+
+%imacro DFLoad 0
+ PUSHAD
+  PUSH EAX
+  MOV CL,1
+  CALL %%F_DiskReadLBA28
+  SUB EBX,512
+  MOV EAX,DWORD[DS:EBX]
+  ADD EAX,511
+  XOR ECX,ECX
+  MOV CL,9; pow(2,9)=512
+  SHR EAX,CL
+  MOV CL,AL
+  MOV DWORD[DS:EBX],ECX
+  SHL DWORD[DS:EBX],9
+  POP EAX
+  SUB CL,1
+  JZ %%F_ENDO
+ INC EAX
+ ADD EBX,512
+ %%READLOOP:
+   CALL %%F_DiskReadLBA28
+  INC EAX
+  LOOP %%READLOOP
+  JMP %%F_ENDO
+ %%F_DiskReadLBA28:
+ HdiskLoadLBA28 EAX,1
+ RET
+ %%F_ENDO:
+ POPAD
+%endmacro
+
+;void [es] stack int13h2 CodefileLoad16(bx addr, imm numofsec_offset=0, imm start_sector=2); based:USL/DISK/DiskRead;
+%imacro CodefileLoad16 1-3 0,2
+ PUSHAD
+ MOV AL,1; NumofSector
+ MOV AH,2H
+ %ifnidni BX,%1
+  MOV BX,%1
+ %endif
+ MOV CH,0
+ MOV CL,%3
+ MOV DH,0
+ MOV DL,80H; Master Drive
+ INT 13H
+ MOV AL,[ES:BX+%2]
+ SUB AL,1
+ JBE %%endo
+ INC CL;
+ PUSH AX
+ MOV AX,ES
+ ADD AX,0x20; 512 Byte
+ MOV ES,AX
+ POP AX
+ MOV AH,2H
+ INT 13H
+ %%endo:
+ POPAD
+ ; ??? 8086 accept popad ???
+ ; ??? track limit ???
+ ; This will be adapted to LBA and CHS in the future --ArinaRFQ04
+%endmacro
+;If this function should be renamed, the previous name should be kept!
+
+; Below are from n_osdev.a of Arinae, collected and partially  commented  by Haruno.
+
+%imacro LDTDptrAppend 0
+ ;-ARINA DESIGNED-
+ ; STRUCT1 128Byt = 104TSS + 24LDT (3DptrLen)
+ ;>STRUCT2 256Byt = 104TSS + 152LDT (19DptrLen)
+ ;;WORD TSS[94] ZO Length (Limit) of LDT
+
+ ;20230227 21:28 change 94->98
+ PUSH EAX
+ PUSH EDX
+ PUSH EBX
+ PUSH EDI
+ 
+ MOV EDI,EBX; ADDR OF TSS
+ ADD EBX,104; ADDR OF LDT
+ XOR ECX,ECX
+ MOV CX,[EDI+94+4]; LEN OF LDT
+ INC CX
+ ADD EBX,ECX
+ MOV [EBX],EAX
+ MOV [EBX+4],EDX
+ ADD WORD[EDI+94+4],8
+ 
+ ;[0,SIZ7]->0; SIZ15]->1
+ SHR CX,3
+ SHL CX,3
+ OR CX,100B
+ 
+ POP EDI
+ POP EBX
+ POP EDX
+ POP EAX
+%endmacro
+
+%imacro TSSStruct 0
+	PUSHAD
+	MOV EBP,ESP
+	MOV ECX,256
+	; NOT "CALL FAR 8*2:R_Malloc"
+	CALL 8*2:R_Malloc
+	MOV ESI,EAX
+	MOV [EBP+4*4],EAX
+
+	MOV WORD[EAX+94],-1; LDT length 0
+	MOV EBX,EAX
+	ADD EBX,ECX
+	MOV EAX,[EBP+9*4]; LogiSector (Stack: LogiSector>EIP>EAX>ECX>EDX>EBX>ESP>EBP>ESI>EDI)(Default Segment for EBP&ESP: SS)
+	DFLoad
+ MOV ECX,DWORD[EBX];MISTAKE FOUND RFQ21:22:42 - NonExpi
+	ADD DWORD[EBX],256; SIZE(+=TSS+LDT)
+	CALL 8*2:R_Malloc; ASSERT EAX==EBX
+
+ ; SETUP HEADER, NOT All file data segm
+	MOV EAX,ESI
+	MOV EBX,256+20H; TSS+LDT+HEAD
+	DEC EBX
+	MOV ECX,0x0040F200; [Byt][32][KiSys][DATA][R3][读写/读执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+	MOV WORD[ESI+72],CX; ES
+
+ ; JUDGE MAGIC NUMBER
+	CMP WORD[ESI+256+4H],0x32DE
+	JZ %%NEXT1
+	MOV DWORD[EBP+4*4],0
+	JMP %%Endo
+	%%NEXT1:
+
+ ; SETUP LDT CODE SEGM
+	MOV EAX,[ESI+256+10H]
+	ADD EAX,ESI
+	ADD EAX,256
+	MOV EBX,[ESI+256+14H]
+	DEC EBX
+	MOV ECX,0x0040F800; [Byt][32][KiSys][CODE][R3][只读/只执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+	MOV WORD[ESI+256+10H],CX
+	MOV WORD[ESI+76],CX; CS
+
+ ; SETUP LDT DATA SEGM
+	MOV EAX,[ESI+256+18H]
+	ADD EAX,ESI
+	ADD EAX,256
+	MOV EBX,[ESI+256+1CH]
+	DEC EBX
+	MOV ECX,0x0040F200; [Byt][32][KiSys][DATA][R3][读写/读执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+	MOV WORD[ESI+256+18H],CX
+	MOV WORD[ESI+84],CX; DS
+
+ ; SETUP LDT STACK 0~2 SEGM
+	XOR EDI,EDI
+	MOV ECX,3
+	%%NEXT2:
+	PUSH ECX
+	MOV ECX,4096; 4K
+	CALL 8*2:R_Malloc
+	ADD EAX,ECX; STACK BASE FROM HIGH END
+	MOV EBX,0xFFFFE; 4K
+	MOV ECX,00C09600H; [4KB][32][KiSys][DATA][R0][读写下拓/读执依从]
+	OR EDI,EDI
+	JZ %%NEXT3
+		PUSH ECX
+		MOV ECX,EDI
+		%%NEXT4:
+		ADD ECX,2000H; STEP RING
+		LOOP %%NEXT4
+		POP ECX
+	%%NEXT3:
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR ECX,EDI; ring
+		PUSH EDI; TSS to fill
+		SHL EDI,3
+		ADD EDI,ESI
+		MOV DWORD[EDI+4],0
+		MOV WORD[EDI+8],CX
+		POP EDI
+	INC EDI
+	POP ECX
+	LOOP %%NEXT2
+
+ ; SETUP LDT STACK 3 SEGM
+	MOV EBX,0x000_FFFFF
+	MOV ECX,[ESI+256+8H]
+	ADD ECX,0x1000-1; align
+	SHR ECX,3*4
+	SUB EBX,ECX
+	SHL ECX,3*4
+	CALL 8*2:R_Malloc
+	ADD EAX,ECX
+	MOV ECX,0x00C0F600; [4KB][32][KiSys][DATA][R3][读写下拓/读执依从]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3
+	MOV WORD[ESI+256+8H],CX
+	MOV WORD[ESI+80],CX
+	MOV DWORD[ESI+56],0; ESP
+
+ ; Other TSS
+	MOV WORD[ESI],0; 反向链
+
+	MOV DWORD[ESI+28],0; CR3
+
+	MOV EAX,[ESI+256+0CH]
+	MOV DWORD[ESI+32],EAX; EIP
+
+	; EFLAGS
+	XOR EAX,EAX; RESET EFLAGS
+	PUSHFD
+	POP EAX
+	MOV DWORD[ESI+36],EAX
+
+	MOV WORD[ESI+100],0; T
+	MOV WORD[ESI+102],104-1; I/O REF BASE (NON-EXIST)
+
+	JMP %%Endo
+	%%F_LDTDptrAppend:
+		LDTDptrAppend
+		RET
+	%%F_GDTDptrStruct:
+		GDTDptrStruct EAX,EBX,ECX
+		RET
+	%%Endo:
+	POPAD
+	;ADD ESP,4*1; RET 4*1; Why cannot use the add?
+%endmacro
+
+%imacro TSSStruct_2 0
+ ;暂没有对memalloc进行回应
+ ;---SubLDT---
+ ;------LDTE 00 Header
+ ;------LDTE 01 Code
+ ;------LDTE 02 Data
+ ;------LDTE 03 Ronl
+ ;------LDTE 04 SS0 4k
+ ;------LDTE 05 SS1 4k
+ ;------LDTE 06 SS2 4k
+ ;------LDTE 07 SS3 4nk
+ ;除了栈外，暂不支持其他段大于0xFFFFF --RFQ22:11:16
+ ;---------
+	PUSHAD
+	MOV EBP,ESP
+	XOR ECX,ECX
+		MOV ECX,512
+	CALL CallMemAlloc; Get Crt Position (User)
+		;MOV BYTE[0],0; dbg
+	MOV ESI,EAX
+	MOV [EBP+4*4],EAX; Return Value
+	MOV EBX,EAX
+	MOV EAX,[EBP+9*4]; LogiSector (Stack: LogiSector>EIP>EAX>ECX>EDX>EBX>ESP>EBP>ESI>EDI)(Default Segment for EBP&ESP: SS)
+	; DFLoad
+		PUSHAD; 内存连续性检查连续性 暂无
+			CALL %%F_DiskReadLBA28
+			SUB EBX,512
+			MOV ECX,DWORD[DS:EBX]
+			ADD ECX,511
+			AND ECX,0xFFFF_FE00; shr9 & shl9
+			MOV DWORD[DS:EBX],ECX
+			SUB ECX,512
+			JZ %%F_ENDO
+				INC EAX
+				PUSH EAX
+				CALL CallMemAlloc
+		MOV EBX,EAX; ~= ADD EBX,512
+		POP EAX
+		SHL ECX,9
+		%%READLOOP:
+			PUSH ECX
+			CALL %%F_DiskReadLBA28
+			INC EAX
+			POP ECX
+			LOOP %%READLOOP
+			JMP %%F_ENDO
+		%%F_DiskReadLBA28:
+		HdiskLoadLBA28 EAX,1
+		RET
+		%%F_ENDO:
+		POPAD
+	MOV WORD[ESI+98],-1; LDT length 0
+	; {ESI=HEADER_ADDR}
+ ; CLEAR PAGEDIR USER PART; When switch takes or suspend a task, make a copy of User 512B PDir.
+	; ; MOV EBX,0xFFFFF000
+	; ; XOR EDI,EDI
+	; ; MOV ECX,512
+	; ; %%PD_USER_CLR:
+	; ; 	MOV DWORD[EBX+EDI*4],0
+	; ; 	INC EDI
+	; ; LOOP %%PD_USER_CLR
+ ; SETUP HEADER #00
+	MOV EAX,ESI
+	MOV EBX,256-1
+	MOV ECX,0x0040F200; [Byt][32][KiSys][DATA][R3][读写/读执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+ PUSH CX; ES
+	; MOV WORD[ESI+72],CX; ES
+
+ ; JUDGE MAGIC NUMBER
+	CMP WORD[ESI+10],0x32DE
+	JZ %%NEXT1
+	%%ERR:
+	MOV DWORD[EBP+4*4],1; 0
+	JMP %%Endo
+	%%NEXT1:
+
+ ; SETUP LDT CODE SEGM
+	MOV EAX,[ESI+76]
+	ADD EAX,ESI
+	MOV EBX,[ESI+72]
+	DEC EBX
+	MOV ECX,0x0040F800; [Byt][32][KiSys][CODE][R3][只读/只执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+	MOV WORD[ESI+76],CX; CS
+	POP CX
+	MOV WORD[ESI+72],CX
+
+ ; SETUP LDT DATA SEGM
+	MOV EAX,[ESI+84]
+	ADD EAX,ESI
+	MOV EBX,[ESI+80]
+	DEC EBX
+	MOV ECX,0x0040F200; [Byt][32][KiSys][DATA][R3][读写/读执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+	MOV WORD[ESI+84],CX; DS
+ ; SETUP LDT RONL SEGM
+	MOV EAX,[ESI+92]
+	ADD EAX,ESI
+	MOV EBX,[ESI+88]
+	DEC EBX
+	MOV ECX,0x0040F000; [Byt][32][KiSys][DATA][R3][只读/只执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+	MOV WORD[ESI+92],CX; GS
+ ; SETUP LDT STACK 0~2 SEGM
+	XOR EDI,EDI
+	MOV ECX,3
+	%%NEXT2:
+	PUSH ECX
+	MOV ECX,0x1000; 4K
+	CALL CallMemAlloc
+	ADD EAX,ECX; STACK BASE FROM HIGH END
+	MOV EBX,0xFFFFE; 4K
+	MOV ECX,00C09600H; [4KB][32][KiSys][DATA][R0][读写下拓/读执依从]
+	OR EDI,EDI
+	JZ %%NEXT3
+	PUSH ECX
+	PUSH EBP
+		MOV ECX,EDI
+		%%NEXT4:
+		;ADD ECX,2000H; STEP RING; Error fix RFQ27:18:16
+		MOV EBP,ESP
+		ADD DWORD[EBP],2000H
+		LOOP %%NEXT4
+	POP EBP
+	POP ECX
+	%%NEXT3:
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR ECX,EDI; ring
+		PUSH EDI; TSS to fill
+		SHL EDI,3
+		ADD EDI,ESI
+		MOV DWORD[EDI+4],0
+		MOV WORD[EDI+8],CX
+		POP EDI
+	INC EDI
+	POP ECX
+	LOOP %%NEXT2
+
+ ; SETUP LDT STACK 3 SEGM
+	MOV EBX,0x000_FFFFF
+	MOV ECX,[ESI+56]
+	ADD ECX,0x1000-1; align
+	SHR ECX,3*4
+	SUB EBX,ECX
+	SHL ECX,3*4
+	CALL CallMemAlloc; ecx -> eax
+	ADD EAX,ECX
+	MOV ECX,0x00C0F600; [4KB][32][KiSys][DATA][R3][读写下拓/读执依从]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3
+	MOV WORD[ESI+80],CX
+	MOV DWORD[ESI+56],0; ESP
+
+ ; Other TSS
+	MOV WORD[ESI],0; 反向链
+
+	; EFLAGS
+	XOR EAX,EAX; RESET EFLAGS
+	PUSHFD
+	POP EAX
+	MOV DWORD[ESI+36],EAX
+
+	MOV WORD[ESI+100],0; T
+	MOV WORD[ESI+102],104-1; I/O REF BASE (NON-EXIST)
+
+	JMP %%Endo
+	%%F_LDTDptrAppend:
+		LDTDptrAppend
+		RET
+	%%F_GDTDptrStruct:
+		GDTDptrStruct EAX,EBX,ECX
+		RET
+	%%Endo:
+	POPAD
+%endmacro
+
+%imacro BitmapAllocBottom 0
+	PUSH ECX
+	PUSH EDX
+	PUSH EBX
+	XOR EAX,EAX
+	MOV ECX,0x80000/0x1000; up to 0x00010000
+	%%Lup:
+	BTS [EBX],EAX
+	JNC %%Fin
+	INC EAX
+	LOOP %%Lup
+	; ALL OCCUPIED
+	XOR EAX,EAX
+	%%Fin:
+	SHL EAX,12
+	POP EBX
+	POP EDX
+	POP ECX
+%endmacro
+%imacro BitmapAllocBottomUser 0;
+	PUSH ECX
+	PUSH EDX
+	PUSH EBX
+	MOV EAX,0x10_0000/0x1000
+	MOV ECX,0x30_0000/0x1000; available : 4MB-1MB
+	%%Lup:
+	BTS [EBX],EAX
+	JNC %%Fin
+	INC EAX
+	LOOP %%Lup
+	; ALL OCCUPIED
+	XOR EAX,EAX
+	%%Fin:
+	SHL EAX,12
+	POP EBX
+	POP EDX
+	POP ECX
+%endmacro
+%imacro BitmapAllocBottom16 0
+	PUSH CX
+	PUSH DX
+	PUSH BX
+	XOR AX,AX
+	MOV CX,0x80000/0x1000
+	%%Lup:
+	BTS [BX],AX
+	JNC %%Fin
+	INC AX
+	LOOP %%Lup
+	; ALL OCCUPIED
+	XOR AX,AX
+	%%Fin:
+	SHL AX,12
+	POP BX
+	POP DX
+	POP CX
+%endmacro
+
+; 暂时没有BitmapAllocBottom失败检查
+%imacro PageRegister 0; make ds -> glb
+	; If the page item exists, do not do any.
+	PUSH EAX
+	PUSH EBX
+	PUSH ESI
+	;CHK PAGE TABLE PRESENT
+	MOV ESI,EBX
+	AND ESI,0xFFC00000
+	SHR ESI,20; SHR22&&SHL2
+	OR ESI,0xFFFFF000; PAGE DIRECTORY
+	TEST DWORD[ESI],1; PRESENT BIT
+	JNZ %%NEXT
+	;CREATE PAGED, WHICH IS BOUND TO LACK FOR P BIT
+	CALL %%F_BitmapAllocBottom
+	OR EAX,3; US=S RW P
+	MOV [ESI],EAX
+	%%NEXT:
+	MOV ESI,EBX
+	SHR ESI,10
+	AND ESI,0x003FF000
+	OR ESI,0xFFC0_0000; PAGETABLE no LinearAddr
+	AND EBX,0x003FF000
+	SHR EBX,10
+	OR ESI,EBX
+	TEST DWORD[ESI],1; PRESENT BIT
+	JNZ %%ENDM; need not create page table (item of what page dir pointed)
+
+	CALL %%F_BitmapAllocBottom
+	OR EAX,3; US=S RW P
+	MOV [ESI],EAX; REGISTER
+	JMP %%ENDM
+	%%F_BitmapAllocBottom:
+		PUSH EBX
+		MOV EBX,0x8008_0000
+		BitmapAllocBottom
+		POP EBX
+		RET
+	%%ENDM:
+	POP ESI
+	POP EBX
+	POP EAX
+%endmacro
+%imacro PageRegisterUser 0; look above
+	; If the page item exists, do not do any.
+	PUSH EAX
+	PUSH EBX
+	PUSH ESI
+	;CHK PAGE TABLE PRESENT
+	MOV ESI,EBX
+	AND ESI,0xFFC00000
+	SHR ESI,20; SHR22&&SHL2
+	OR ESI,0xFFFFF000; PAGE DIRECTORY
+	TEST DWORD[ESI],1; PRESENT BIT
+	JNZ %%NEXT
+	;CREATE PAGED, WHICH IS BOUND TO LACK FOR P BIT
+	CALL %%F_BitmapAllocBottom
+	OR EAX,7; US=User RW P
+	MOV [ESI],EAX
+	%%NEXT:
+	MOV ESI,EBX
+	SHR ESI,10
+	AND ESI,0x003FF000
+	OR ESI,0xFFC0_0000; PAGETABLE no LinearAddr
+	AND EBX,0x003FF000
+	SHR EBX,10
+	OR ESI,EBX
+	TEST DWORD[ESI],1; PRESENT BIT
+	JNZ %%ENDM; need not create page table (item of what page dir pointed)
+
+	CALL %%F_BitmapAllocBottom
+	OR EAX,7; US=User RW P
+	MOV [ESI],EAX; REGISTER
+	JMP %%ENDM
+	%%F_BitmapAllocBottom:
+		PUSH EBX
+		MOV EBX,0x8008_0000
+		BitmapAllocBottomUser
+		POP EBX
+		RET
+	%%ENDM:
+	POP ESI
+	POP EBX
+	POP EAX
+%endmacro
+%imacro PageRegister16 0
+ ;...
+%endmacro
+
+
+%imacro TSSStruct_3 0
+ ;暂没有对memalloc进行回应
+ ;---SubLDT---
+ ;------LDTE 00 Header
+ ;------LDTE 01 Code
+ ;------LDTE 02 Data
+ ;------LDTE 03 Ronl
+ ;------LDTE 04 SS0 4k
+ ;------LDTE 05 SS1 4k
+ ;------LDTE 06 SS2 4k
+ ;------LDTE 07 SS3 4nk
+ ;---------
+	PUSHAD
+	MOV EBP,ESP
+	MOV ECX,512
+	CALL CallMemAlloc
+	MOV ESI,EAX
+	MOV [EBP+4*4],EAX; Return Value(EBX)
+	MOV EBX,EAX
+	MOV EAX,[EBP+9*4]
+	; DFLoad
+		PUSHAD; 内存连续性检查连续性 暂无
+			CALL %%F_DiskReadLBA28
+			SUB EBX,512
+			MOV ECX,DWORD[DS:EBX]
+			ADD ECX,511
+			AND ECX,0xFFFF_FE00; shr9 & shl9
+			MOV DWORD[DS:EBX],ECX
+			SUB ECX,512
+			JZ %%F_ENDO
+				INC EAX
+				PUSH EAX
+				CALL CallMemAlloc
+		MOV EBX,EAX; ~= ADD EBX,512
+		POP EAX
+		SHL ECX,9
+		%%READLOOP:
+			PUSH ECX
+			CALL %%F_DiskReadLBA28
+			INC EAX
+			POP ECX
+			LOOP %%READLOOP
+			JMP %%F_ENDO
+		%%F_DiskReadLBA28:
+		HdiskLoadLBA28 EAX,1
+		RET
+		%%F_ENDO:
+		POPAD
+	MOV WORD[ESI+98],-1; LDT length 0
+	; {ESI=HEADER_ADDR}
+ ; CLEAR PAGEDIR USER PART; When switch takes or suspend a task, make a copy of User 512B PDir.
+	; ; MOV EBX,0xFFFFF000
+	; ; XOR EDI,EDI
+	; ; MOV ECX,512
+	; ; %%PD_USER_CLR:
+	; ; 	MOV DWORD[EBX+EDI*4],0
+	; ; 	INC EDI
+	; ; LOOP %%PD_USER_CLR
+ ; SETUP HEADER #00
+	MOV EAX,ESI
+	MOV EBX,256-1
+	MOV ECX,0x0040F200; [Byt][32][KiSys][DATA][R3][读写/读执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+ PUSH CX; ES
+	; MOV WORD[ESI+72],CX; ES
+
+ ; JUDGE MAGIC NUMBER
+	CMP WORD[ESI+10],0x32DE
+	JZ %%NEXT1
+	%%ERR:
+	MOV DWORD[EBP+4*4],1; 0
+	JMP %%Endo
+	%%NEXT1:
+
+ ; SETUP LDT CODE SEGM
+	MOV EAX,[ESI+76]
+	ADD EAX,ESI
+	MOV EBX,[ESI+72]
+	DEC EBX
+	MOV ECX,0x0040F800; [Byt][32][KiSys][CODE][R3][只读/只执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+	MOV WORD[ESI+76],CX; CS
+	POP CX
+	MOV WORD[ESI+72],CX
+
+ ; SETUP LDT DATA SEGM
+	MOV EAX,[ESI+84]
+	ADD EAX,ESI
+	MOV EBX,[ESI+80]
+	DEC EBX
+	MOV ECX,0x0040F200; [Byt][32][KiSys][DATA][R3][读写/读执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+	MOV WORD[ESI+84],CX; DS
+ ; SETUP LDT RONL SEGM
+	MOV EAX,[ESI+92]
+	ADD EAX,ESI
+	MOV EBX,[ESI+88]
+	DEC EBX
+	MOV ECX,0x0040F000; [Byt][32][KiSys][DATA][R3][只读/只执]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3; SET RING3
+	MOV WORD[ESI+92],CX; GS
+ ; SETUP LDT STACK 0~2 SEGM
+	XOR EDI,EDI
+	MOV ECX,3
+	%%NEXT2:
+	PUSH ECX
+	MOV ECX,0x1000; 4K
+	CALL CallMemAlloc
+	ADD EAX,ECX; STACK BASE FROM HIGH END
+	MOV EBX,0xFFFFE; 4K
+	MOV ECX,00C09600H; [4KB][32][KiSys][DATA][R0][读写下拓/读执依从]
+	OR EDI,EDI
+	JZ %%NEXT3
+	PUSH ECX
+	PUSH EBP
+		MOV ECX,EDI
+		%%NEXT4:
+		;ADD ECX,2000H; STEP RING; Error fix RFQ27:18:16
+		MOV EBP,ESP
+		ADD DWORD[EBP],2000H
+		LOOP %%NEXT4
+	POP EBP
+	POP ECX
+	%%NEXT3:
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR ECX,EDI; ring
+		PUSH EDI; TSS to fill
+		SHL EDI,3
+		ADD EDI,ESI
+		MOV DWORD[EDI+4],0
+		MOV WORD[EDI+8],CX
+		POP EDI
+	INC EDI
+	POP ECX
+	LOOP %%NEXT2
+
+ ; SETUP LDT STACK 3 SEGM
+	MOV EBX,0x000_FFFFF
+	MOV ECX,[ESI+56]
+	ADD ECX,0x1000-1; align
+	SHR ECX,3*4
+	SUB EBX,ECX
+	SHL ECX,3*4
+	CALL CallMemAlloc; ecx -> eax
+	ADD EAX,ECX
+	MOV ECX,0x00C0F600; [4KB][32][KiSys][DATA][R3][读写下拓/读执依从]
+	CALL %%F_GDTDptrStruct
+	MOV EBX,ESI
+	CALL %%F_LDTDptrAppend
+	OR CX,3
+	MOV WORD[ESI+80],CX
+	MOV DWORD[ESI+56],0; ESP
+
+ ; Other TSS
+	MOV WORD[ESI],0; 反向链
+	MOV WORD[ESI+2],0; AVAILABLE State
+
+	; EFLAGS
+	XOR EAX,EAX; RESET EFLAGS
+	PUSHFD
+	POP EAX
+	MOV DWORD[ESI+36],EAX
+
+	MOV WORD[ESI+100],0; T
+	MOV WORD[ESI+102],104-1; I/O REF BASE (NON-EXIST)
+
+	MOV WORD[ESI+88],0; FS
+	MOV EAX,CR3
+	MOV DWORD[ESI+28],EAX; PDBR	
+ ; CR3 (Part 1/2) 暂时不隔离任务了，因为：
+	;* App.a 既有app area又有krn area，比较混乱
+	;* AdrPointerL 没设定好
+	;* MemAlloc 没有为每个应用分别考虑且没有检查
+	;* 0xFFFFF以上的段暂不支持
+	; CALL %%M_CopyPDir; eax=PhizikAddr
+ ; Register LDT & TSS
+	SGDT [GDTDptr]
+	MOV EBX,DWORD[GDTDptr+2]
+	XOR EAX,EAX
+	MOV AX,[GDTDptr]
+	INC AX
+	ADD EBX,EAX
+	MOV WORD[ESI+96],AX; LDTSel
+
+	PUSH EBX
+	MOV EAX,ESI
+	ADD EAX,104; LDT
+	XOR EBX,EBX
+	MOV BX,[ESI+98];94
+	MOV ECX,0x00408200; [Byt][32][NaSys][DATA][R0][读写/读执]
+	CALL F_GDTDptrStruct_32
+	POP EBX
+	GDTDptrAppend EDX,EAX
+
+	PUSH EBX
+	MOV EAX,ESI; TSS
+	MOV EBX,104-1
+	MOV ECX,0x00408900; TSS RING0
+	CALL F_GDTDptrStruct_32
+	POP EBX
+	GDTDptrAppend EDX,EAX
+	ADD WORD[GDTDptr],8*2
+	LGDT [BaseLA+GDTDptr]
+	MOV [ESI+48],ESI
+	JMP %%Endo
+	%%F_LDTDptrAppend:
+		LDTDptrAppend
+		RET
+	%%F_GDTDptrStruct:
+		GDTDptrStruct EAX,EBX,ECX
+		RET
+	%%F_BitmapAllocBottom:
+		PUSH EBX
+		MOV EBX,0x8008_0000
+		BitmapAllocBottomUser
+		POP EBX
+		RET
+	%%M_CopyPDir:; in(void)-out(eax=PhizikAddr)~pres(ds=es=SegGlb)
+		; 未测试
+		PUSH ESI
+		PUSH EDI
+		PUSH EBX
+		PUSH ECX
+		CALL %%F_BitmapAllocBottom
+		MOV EBX,EAX
+		OR EBX,0X00000007
+		MOV [0XFFFFFFF8],EBX
+		MOV ECX,1024/2
+		MOV ESI,0XFFFFF000; ESI=CrtPDirLinearAddr
+		MOV EDI,0XFFFFE000; EDI=NewPDirLinearAddr
+		XOR EBX,EBX
+		%%M_CopyPDir_Zero:
+			MOV [EDI],EBX
+			ADD ESI,4
+			ADD EDI,4
+			LOOP %%M_CopyPDir_Zero		
+		MOV ECX,1024/2    ; ECX=NumofItems
+		CLD
+		REPE MOVSD 
+		POP ECX
+		POP EBX
+		POP EDI
+		POP ESI
+	%%Endo:
+	POPAD
+%endmacro
+

@@ -1,0 +1,11 @@
+;RFQ04
+%include "video.a"
+%include "debug.a"
+File
+	mov ax,cs
+	mov ds,ax
+	SetCursor 2
+	GetCursor
+	DbgEcho16 ax
+	DbgStop
+Endf

@@ -1,0 +1,478 @@
+;Build RFQ21&22
+;	asm PageApp.a
+;	asm PageSub.a
+;	vdk PageApp.a 1
+;	vdk PageSub.a 50
+; Char UTF-8, Derived from TaskApp_RFQ19x.a
+; "仍然没写完，有错误，最近两周天天学习x86，受不了了，而且26号开学，USL先搁置ば。"——HarunoRFQ23:22:25
+; "写完了"
+%include "osdev.a"
+%include "video.a"
+%include "debug.a"
+
+%include "hdisk.a"
+%include "demos.a"
+;---Macros---
+	%imacro M_CopyPDir 0; in(void)-out(eax=PhizikAddr)~pres(ds=es=SegGlb)
+		PUSH ESI
+		PUSH EDI
+		PUSH EBX
+		PUSH ECX
+
+		CALL F_BitmapAllocBottom            
+		MOV EBX,EAX
+		OR EBX,0X00000007
+		MOV [0XFFFFFFF8],EBX
+
+		MOV ESI,0XFFFFF000; ESI=CrtPDirLinearAddr
+		MOV EDI,0XFFFFE000; EDI=NewPDirLinearAddr
+		MOV ECX,1024      ; ECX=NumofItems
+		CLD
+		REPE MOVSD 
+
+		POP ECX
+		POP EBX
+		POP EDI
+		POP ESI
+	%endmacro
+;---GDT Info---
+	GDT_ADDR_PHYZIK EQU 0x7080
+	GDT_ADDR EQU 0x8000_7080
+	;------GDTE 00 R3 NULL
+	;------GDTE 01 R0 Global Data
+		; Span -8000'0000H (Phyzik-Linear)
+		MemLeft EQU 0x80009000
+		MemRight EQU 0x8007FFFF
+		; Span +10'0000H
+		UserLeft EQU 0x00000000
+		UserRight EQU 0x00300000
+		SegGlb EQU 8*1
+	;------GDTE 02 R3 Video Display Buffer 32K
+		SegVdo EQU 8*2
+	;------GDTE 03 R0 Routine
+		SegRot EQU 8*3
+	;------GDTE 04 R3 32PE GATE ROUTINE (FS)
+		SegGate EQU 8*4
+	;------GDTE 05 R0 AppTSS
+		SegTSS EQU 8*5
+	;------GDTE 06 R0 Code
+		SegCode EQU (8*6)
+	;------GDTE 07 R0 Stack32
+		SegStak EQU (8*7)
+		STACK_SEG EQU 0x9000
+		SUBPROG_S EQU 50; SECTOR
+	;------GDTE 08 R0 Subapp' TSS
+		SubTSS EQU 8*8
+	;------GDTE 09 R0 Subapp' LDT
+		SubLDT EQU (8*9)
+	;---------
+GDT_PhADR EQU 0x5000
+PgMap_PhADR EQU 0x80000
+AppTSS_ADR EQU 0x8000_7000
+THIS_P EQU 0x1000
+THISF_SEG EQU 0x0100 ;origin 16bit NonPE
+THISF_ADR EQU 0x8000_1000
+[BITS 16]
+File
+DefineStack 0,STACK_SEG
+;---PAGE
+	; Clear -> Set Present 0 -> make use of Protect
+	MOV AX,GDT_PhADR/16
+	MOV DS,AX
+	MOV CX,1024
+	XOR SI,SI
+	LoopClearPDir:
+		MOV DWORD[SI],0
+		ADD SI,4
+	LOOP LoopClearPDir
+	; INDEX PGDIR ITEM (Last one)
+	MOV DWORD[0x1000-4],0x00005003; US=S RW P 00005000~00005FFF FFFFF000~FFFFFFFF
+	; App no PgTable
+	MOV DWORD[0x1000/2],0x00008003; US=S RW P 00008000~00008FFF 80008000~80008FFF
+	MOV DWORD[0],0x00008003; Transition for. This will be removed later.
+	; Fill PgMap
+	MOV AX,PgMap_PhADR/16
+	MOV DS,AX
+	XOR SI,SI
+		MOV BYTE[SI],0xFF; 0
+		INC SI
+		MOV BYTE[SI],0x80; 1
+		INC SI
+		; Kernel Area
+		MOV CX,16-2
+		FillPgmKernel:
+		MOV BYTE[SI],0
+		INC SI
+		LOOP FillPgmKernel
+		; BIOS Area
+		MOV CX,16
+		FillPgmBIOS:
+		MOV BYTE[SI],0xFF
+		INC SI
+		LOOP FillPgmBIOS
+		; User Area
+		MOV CX,16*6
+		FillPgmUser:
+		MOV BYTE[SI],0
+		INC SI
+		LOOP FillPgmUser
+		; Omit the higher
+	; Fill Kernel PgTable
+	MOV AX,0x0800
+	MOV DS,AX
+	MOV CX,0x100; 0~0x100'000 , last one: 0x83fc:0x000ff003
+	XOR SI,SI
+	MOV EAX,3; US=S RW P
+	FillKrnPT:
+	MOV DWORD[SI],EAX
+	ADD SI,4
+	ADD EAX,0x1000
+	LOOP FillKrnPT
+	;
+	MOV EAX,0x5000
+	MOV CR3,EAX
+;---GDT make (Some had adapted to LinearAddr, this does not matter)
+	MOV AX,GDT_ADDR_PHYZIK/16
+	MOV DS,AX
+	XOR EBX,EBX
+	;------GDTE 00 R3 NULL
+	GDTDptrAppend 0,0
+	;------GDTE 01 SegGlb
+	GDTDptrAppend 0x00CF9200,0x0000FFFF
+	;------GDTE 02 SegVdo [R3]
+	GDTDptrAppend 0x0040F20B,0x80007FFF
+	;------GDTE 03 SegRot
+	PUSH EBX
+	MOV EAX,THISF_ADR+RoutineBase
+	MOV EBX,RoutineEnd-RoutineBase
+	DEC EBX
+	MOV ECX,0x00409800
+	CALL F_GDTDptrStruct
+	POP EBX
+	GDTDptrAppend EDX,EAX
+	;------GDTE 04 R3 32PE GATE ROUTINE (FS)
+	PUSH EBX
+	GateStruct (RoutineGate-RoutineBase),SegRot,1_11_011000000_0000B; P.DPL.01100000.PARA
+	POP EBX
+	GDTDptrAppend EDX,EAX
+	;------GDTE 05 AppTSS
+	PUSH EBX
+	MOV EAX,AppTSS_ADR
+	MOV EBX,104-1
+	MOV ECX,0x00408900
+	CALL F_GDTDptrStruct
+	POP EBX
+	GDTDptrAppend EDX,EAX
+	;------GDTE 06 R0 Code
+	PUSH EBX
+	MOV EAX,THISF_ADR
+	MOV EBX,FILEEND2-1
+	MOV ECX,0x00409800
+	CALL F_GDTDptrStruct
+	POP EBX
+	GDTDptrAppend EDX,EAX
+	;------GDTE 07 R0 Stack32
+	GDTDptrAppend 0x00CF9600,0x7000FFFE
+	; Adapt to Linear Address
+	;;MOV ECX,8-1; CX is OK
+	;;MOV SI,8*1+4; skip NULL
+	;;LineAdrAdapt:
+	;;OR DWORD[SI],0x8000_0000
+	;;ADD SI,8
+	;;LOOP LineAdrAdapt
+	;---escape gate
+		;OR DWORD[1*8+4],0x8000_0000
+		OR DWORD[2*8+4],0x8000_0000
+		OR DWORD[5*8+4],0x8000_0000
+		OR DWORD[7*8+4],0x8000_0000
+	; Register
+	MOV AX,THISF_SEG
+	MOV DS,AX
+	MOV [GDTPTR],EBX
+	ADD DWORD[GDTPTR],GDT_ADDR
+	DEC EBX
+	MOV WORD[GDTable],BX
+	LGDT [CS:GDTable]
+;---Enter Protected Mode & Enable Page
+	CLI; prevoius interrupts lost functions
+	Addr20Enable
+	MOV EAX,CR0
+	OR EAX,0x8000_0001
+	MOV CR0,EAX
+	JMP DWORD SegCode:mainx
+	DbgStop
+;---DATA16
+	F_GDTDptrStruct:
+		GDTDptrStruct EAX,EBX,ECX
+		RET
+	GDTPTR: DD 0;GDT&APPLDT
+	GDTable:
+		DW 0
+		DD GDT_ADDR
+[BITS 32];--------------------------------
+	mainx:
+;---Init segment
+	MOV EAX,SegGlb
+	MOV DS,EAX
+	MOV FS,EAX; FOR PASSING CHECK, PUSH FS AND POP FS
+	MOV GS,EAX; LIKE FS
+	MOV EAX,SegVdo
+	MOV ES,EAX
+	MOV EAX,SegStak
+	MOV SS,EAX
+	MOV ESP,0
+	LGDT [THISF_ADR+GDTable]; use phizik addr?
+	MOV DWORD[0xFFFF_F000],0
+;---Load Sub-program
+	PUSH DWORD SUBPROG_S
+	CALL F_TSSStruct2
+	MOV EDI,EBX; ESI -> App' TSS, EDI -> Sub' TSS
+	OR EBX,EBX
+	JNZ TER; Normal should be at 0
+;---App TSS
+	; MOV BYTE[0x800B8000],'A'; dbg
+	MOV EAX,AppTSS_ADR
+	MOV WORD[EAX],0; 反向链=0
+	MOV ECX,CR3
+	MOV DWORD[EAX+28],ECX; PDBR
+	MOV WORD[EAX+96],0; NO LDT
+	MOV WORD[EAX+100],0; T=0 , is what ???
+	MOV WORD[EAX+102],103; NO I/O BITMAP
+	MOV CX,SegTSS
+	LTR CX
+;---TSS&LDT REGI INTO GDT
+	MOV EBX,[THISF_ADR+GDTPTR]
+
+	PUSH EBX
+	MOV EAX,EDI; TSS
+	MOV EBX,104-1
+	MOV ECX,0x00408900; TSS RING0
+	CALL F_GDTDptrStruct_32
+	POP EBX
+	GDTDptrAppend EDX,EAX
+
+	PUSH EBX
+	MOV EAX,EDI
+	ADD EAX,104; LDT
+	XOR EBX,EBX
+	MOV BX,[EDI+98];94
+	MOV ECX,0x00408200; [Byt][32][NaSys][DATA][R0][读写/读执]
+	CALL F_GDTDptrStruct_32
+	POP EBX
+	GDTDptrAppend EDX,EAX
+
+	MOV DWORD[THISF_ADR+GDTPTR],EBX
+	DEC EBX
+	SUB EBX,GDT_ADDR
+	MOV WORD[THISF_ADR+GDTable],BX
+	LGDT [THISF_ADR+GDTable]
+;---TSS Finish
+	;MOV WORD[EDI+88],SegGate+3; FS, FS do not accept
+	MOV WORD[EDI+88],0; FS
+	MOV WORD[EDI+96],SubLDT; LDTSel
+	MOV EAX,CR3
+	MOV DWORD[EDI+28],EAX; PDBR
+;---Run Subapp
+RunShell:
+	MOV	ESI,THISF_ADR+WelcomeMsg
+	MOV DH,7
+	MOV EAX,1; print
+	CALL SegGate:0;
+
+	JMP SubTSS:0
+
+	MOV	ESI,THISF_ADR+TerminateMsg
+	MOV DH,7
+	MOV EAX,1; print
+	CALL SegGate:0;
+	TER:
+	DbgStop
+F_MemAllocSuperv:
+	; The function for memory alloc must be after paging
+	PUSH EBX
+	OR ECX,ECX
+	JZ R_MemAllocS_End
+
+	MOV EAX,SegGlb
+	MOV DS,EAX
+	; MemAlloc -> Malloc -> In the current pages? -> Palloc -> Return
+	MOV EAX,[DS:THISF_ADR+RamAllocPtr]
+	MOV EBX,EAX
+	ADD EBX,ECX
+	CMP EBX,UserRight
+	JBE R_MemAllocS_Next
+	XOR EAX,EAX
+	JMP R_MemAllocS_End
+	R_MemAllocS_Next:
+	ADD DWORD[DS:THISF_ADR+RamAllocPtr],ECX
+	DEC EBX
+	AND EBX,0xFFFFF000
+	R_MemAllocS_Loop:
+	CMP EBX,EAX
+	JB R_MemAllocS_End; E.G. 0x1000 < 0x1001
+	CALL RR_PageRegister
+
+	CMP EBX,0
+	JZ R_MemAlloc_End
+	SUB EBX,0x1000
+	JMP R_MemAllocS_Loop
+	
+	R_MemAllocS_End:
+	POP EBX
+	RET
+	RR_PageRegister:
+		PageRegister
+		RET
+	ALIGN 16
+F_GDTDptrStruct_32:
+	GDTDptrStruct EAX,EBX,ECX
+	RET
+F_TSSStruct2:
+	TSSStruct_2
+	RET 4*1
+;-----------
+WelcomeMsg: DB ':Hello~',0x0D,0x0A,0
+TerminateMsg: DB ':Demonstration End~',0x0D,0x0A,0
+RamAllocPtr: DD MemLeft
+UsrAllocPtr: DD UserLeft
+;-----------
+APISymbolTable:
+	RoutineNo: DD (rotEnd-rot0000)/8
+	rot0000:; Terminate
+		DD R_Terminate-RoutineBase
+		DW SegRot,0
+	rot0001:; PrintString (accept New Line) INPUT=(DS:ESI->str,DH=prop)	
+		DD R_Print-RoutineBase
+		DW SegRot,0
+	rot0002:; MemAlloc[UserLevel] stack in(ecx=length)ret(eax=start<ERR=0>)
+		DD R_MemAlloc-RoutineBase
+		DW SegRot,0
+	rot0003:; Free (暂无)
+		DD R_Mfree-RoutineBase
+		DW SegRot,0
+	rot0004:; DiskReadLBA28; in(eax=start, ds:ebx=buffer)
+		DD R_DiskReadLBA28-RoutineBase
+		DW SegRot,0
+	rot0005:; R_PrintDwordCursor(EDX)
+		DD R_PrintDwordCursor-RoutineBase
+		DW SegRot,0
+	rotEnd:
+;-----------
+RoutineBase:
+RoutineGate:; in(eax=RoutineID)
+	PUSHAD
+	PUSH DS
+	PUSH ES
+	PUSH FS
+	PUSH GS
+
+	;PUSH WORD SegGlb
+	;POP DS; ???
+	PUSH EAX
+		MOV EAX,DS
+		MOV FS,EAX
+		MOV EAX,SegGlb
+		MOV DS,EAX
+	POP EAX
+
+	CMP DWORD[THISF_ADR+RoutineNo],EAX
+	JB RoutineGateEnd
+	SHL EAX,3; MUL8
+	CALL NEAR [THISF_ADR+rot0000+EAX]
+	
+	RoutineGateEnd:
+	POP GS
+	POP FS
+	POP ES
+	POP DS
+	POPAD
+	RETF
+Routine:
+	R_Terminate:
+		PUSHFD
+		MOV EDX,[ESP]; default segment : ss
+		ADD ESP,4; ~= POP EDX
+		
+		; But in bits 16, we cannot use "[sp]" to access stack
+		TEST DX,0100_0000_0000_0000B; NT
+		JNZ R_Terminate_Nest
+			JMP (SegTSS):0; FOR JMP-TASK-SWITCH(NON-NEST)
+			RETF
+		R_Terminate_Nest:
+			IRETD
+			RETF
+		ALIGN 16
+	R_Print:
+		PUSH EAX
+		MOV EAX,SegVdo
+		MOV ES,EAX
+		MOV EAX,FS
+		MOV DS,EAX
+		POP EAX
+		MOV AH,DH
+		Print ESI,AH; do not use DH here
+		RET
+		ALIGN 16
+	R_MemAlloc:
+	CallMemAlloc:; Also used as near proc. in(ecx)out(eax)
+		; The function for memory alloc must be after paging
+		PUSH EBX
+		OR ECX,ECX
+		JZ R_MemAlloc_End
+
+		MOV EAX,SegGlb
+		MOV DS,EAX
+		; MemAlloc -> Malloc -> In the current pages? -> Palloc -> Return
+		MOV EAX,[DS:THISF_ADR+UsrAllocPtr]
+		MOV EBX,EAX
+		ADD EBX,ECX
+		CMP EBX,UserRight
+		JBE R_MemAlloc_Next
+		XOR EAX,EAX
+		JMP R_MemAlloc_End
+		R_MemAlloc_Next:
+		ADD DWORD[DS:THISF_ADR+UsrAllocPtr],ECX
+		DEC EBX
+		AND EBX,0xFFFFF000
+		R_MemAlloc_Loop:
+		CMP EBX,EAX
+		JB R_MemAlloc_End; E.G. 0x1000 < 0x1001
+		CALL RR_PageRegisterUser; when area cover xxxxx000, create pages .
+
+		CMP EBX,0
+		JZ R_MemAlloc_End
+		SUB EBX,0x1000
+		JMP R_MemAlloc_Loop
+
+		R_MemAlloc_End:
+		POP EBX
+		RET
+		RR_PageRegisterUser:
+			PageRegisterUser
+			RET
+		ALIGN 16
+	R_Mfree:
+		; ...暂无
+		RET
+		ALIGN 16
+	R_DiskReadLBA28:
+		HdiskLoadLBA28 EAX,1
+		RET
+		ALIGN 16
+	R_PrintDwordCursor:
+		PUSH EAX
+		MOV EAX,SegVdo
+		MOV ES,EAX
+		POP EAX
+
+		GetCursor
+		AND EAX,0xFFFF
+		DbgEcho32 EDX,EAX
+		ADD AX,8
+		SetCursor AX
+		RET
+		ALIGN 16
+RoutineEnd:
+;TEST_LIMIT_OF_SEG: JMP TEST_LIMIT_OF_SEG_BACK
+Endf
+FILEEND2:

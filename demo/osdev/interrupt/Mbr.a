@@ -1,0 +1,135 @@
+; Filename: MbrRfq28.a
+; Datetime: 202302282215
+; @ArinaMgk & @dosconio
+; ---- ---- ---- ----
+; $ aasm MbrRfq28.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_
+; $ aasm AppRfq28.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_
+; $ cot ffset E:\vhd.vhd MbrRfq28 0
+; $ cot ffset E:\vhd.vhd AppRfq28 1
+; ---- ---- ---- ----
+; Rebuild RFQ28
+
+%include "osdev.a"
+%include "hdisk.a"
+%include "debug.a"
+%include "demos.a"
+ProgPh EQU 0x1000
+GPDT EQU 0x5000
+MainPT EQU 0x8000
+PageAB EQU 0x80000
+GDTPh EQU 0x7080
+
+SECTION MBR VSTART=0x00007c00         
+	MOV AX,CS; 0
+	MOV SS,AX
+	MOV SP,0X7000
+; GDT
+	MOV AX,GDTPh/16
+	MOV DS,AX
+	XOR BX,BX
+	; 00 NULL
+	ADD BX,4*2
+	; 01 CODE SEGM - LIM[FFFFF][4KB][32][KiSys][CODE][R0][只读/只执]
+	MOV DWORD[BX],0x0000FFFF
+	ADD BX,4
+	MOV DWORD[BX],0x00CF9800
+	ADD BX,4
+	; 02 STAK/DATA - LIM[FFFFF][4KB][32][KiSys][DATA][R0][读写/读执]
+	MOV DWORD[BX],0x0000FFFF
+	ADD BX,4
+	MOV DWORD[BX],0x00CF9200
+	ADD BX,4
+	DEC BX
+	MOV [CS:GDTDPTR],BX
+; PAGING
+	MOV AX,GPDT/16
+	MOV DS,AX
+	MOV DWORD[0x1000-4],GPDT+3
+	MOV EDX,MainPT+3
+	MOV DWORD[0x1000/2],EDX
+	MOV DWORD[0],EDX
+	; Fill PgMap
+	MOV AX,PageAB/16
+	MOV DS,AX
+	MOV WORD[0],0xC0FF
+	MOV SI,0x10
+	MOV CX,SI
+	FillPgmBIOS:
+	MOV BYTE[SI],0xFF
+	INC SI
+	LOOP FillPgmBIOS
+	; Fill Kernel PgTable
+	MOV AX,MainPT/16
+	MOV DS,AX
+	MOV CX,0x100; 0~0x100'000 , last one: 0x83fc:0x000ff003
+	XOR SI,SI
+	MOV EAX,3; US=S RW P
+	FillKrnPT:
+	MOV DWORD[SI],EAX
+	ADD SI,4
+	ADD EAX,0x1000
+	LOOP FillKrnPT
+	;
+	MOV EAX,GPDT
+	MOV CR3,EAX
+; Open A20 then enable PE&PG
+	ADD DWORD[CS:GDTDPTR+2],0x8000_0000
+	LGDT [CS:GDTDPTR]
+	CLI
+	Addr20Enable
+	MOV EAX,CR0
+	OR EAX,0x8000_0001
+	MOV CR0,EAX
+	MOV EAX,CR3; This do what??? RFQ28
+	MOV CR3,EAX
+	JMP DWORD 8*1:mainx; why after execuating "xp 0x5000", IP will increase by 0x20??? RFQ28
+	DbgStop
+[BITS 32]
+mainx:
+	; Init segm
+	MOV EAX,8*2; DATA
+	MOV DS,EAX
+	LGDT [0x80000000+GDTDPTR]
+	MOV DS,EAX
+	MOV ES,EAX
+	MOV FS,EAX
+	MOV GS,EAX
+	MOV SS,EAX
+	MOV ESP,0X80007000
+	; Print logo
+	MOV ESI,STR
+	MOV EDI,0xB8000
+	MOV ECX,STREND-STR
+	PRINTSTR:
+		MOV AL,BYTE[ESI]
+		MOV BYTE[EDI],AL
+		ADD EDI,2
+		INC ESI
+		LOOP PRINTSTR
+	; Load OS
+	MOV EAX,1; SECTOR1
+	MOV EBX,ProgPh
+	DFLoad
+	; JMP ProgPh+4
+	JMP 0x80000000+mainxx
+	mainxx:
+	MOV ESI,0x80009000
+	MOV EDI,0x0000_1007
+
+	MOV ECX,4
+	AppPageFill:
+	MOV DWORD[ESI],EDI
+	LOOP AppPageFill
+	MOV DWORD[0xFFFFF000],0x0000_9007
+	MOV EAX,CR3; This do what??? RFQ28
+	MOV CR3,EAX
+	PUSH DWORD 4; why jmp 4 or jmp 8:4 cannot??? RFW1
+	RET
+GDTDPTR:
+	DW 0
+	DD GDTPh
+STR:
+	DB "DEMOS ",__DATE__
+	STREND:
+TIMES 510-($-$$) DB 0
+ARINA

@@ -1,0 +1,7 @@
+; Keyboard
+
+;20230201 ah(scancode) al(ascii) int16h0 KeyRead(void);
+%imacro KeyRead 0
+ XOR AH,AH
+ INT 0x16
+%endmacro

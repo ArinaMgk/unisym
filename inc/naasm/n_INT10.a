@@ -1,0 +1,56 @@
+
+;void stack int10h ScrnModeSet(al mode);
+%imacro ScrnModeSet 1
+ MOV AL,%1
+ XOR AH,AH
+ INT 0x10
+%endmacro
+
+;void volatile(ax,bx) int10he PrintCharCursor(al char);
+%imacro PrintCharCursor 1
+ MOV AH,0x0E
+ MOV AL,%1
+ XOR BX,BX
+ INT 0x10
+%endmacro
+
+;void volatile(ax,bx) int10he PrintCharCursor(al char, bh page, bl color);
+;here do not use greedy parameter for saving macro length
+%imacro PrintCharCursor 3
+ MOV AH,0x0E
+ MOV AL,%1
+ MOV BH,%2
+ MOV BL,%3
+ INT 0x10
+%endmacro
+
+;void [ds] volatile(ax,bx,si) int10he PrintStringCursor(si string);
+%imacro PrintStringCursor 1
+ XOR BX,BX
+ MOV AH,0x0E
+ MOV SI,%1
+ %%loop:
+ MOV AL,[DS:SI]
+ INC SI
+ CMP AL,0
+ JE %%endo
+ INT 0x10
+ JMP %%loop
+ %%endo:
+%endmacro
+
+;void [ds] volatile(ax,bx,si) int10he PrintStringCursor(si string, bh page, bl color);
+%imacro PrintStringCursor 3
+ MOV BH,%2
+ MOV BL,%3
+ MOV AH,0x0E
+ MOV SI,%1
+ %%loop:
+ MOV AL,[DS:SI]
+ INC SI
+ CMP AL,0
+ JE %%endo
+ INT 0x10
+ JMP %%loop
+ %%endo:
+%endmacro

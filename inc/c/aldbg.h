@@ -74,16 +74,6 @@ inline static char* salc(size_t size)
 	return r;
 }
 
-
-#define init_total_errmech(exitcode) \
-	if (setjmp(errjb))\
-	{\
-		if (SGAErroMsg && *SGAErroMsg)\
-			fprintf(stderr, "!Err %s\n", SGAErroMsg);\
-		if(exitcode&&_MALCOUNT) fprintf(stderr, "MEMORY LEAK %"PRIuPTR" TIMES.\n", _MALCOUNT);\
-		return (exitcode);\
-	}
-
 // Quickly set the necessary configuration
 #define ulibsym(limit)\
 	size_t _MALCOUNT, malc_limit=(limit), call_state;

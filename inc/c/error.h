@@ -23,7 +23,37 @@
 #ifndef _INC_ERROR
 #define _INC_ERROR
 
-//{TODO} move erro() here
+#include "aldbg.h"
+#include "node.h"
+
+#include <setjmp.h>
+
+#define errjb _ERRO_JUMP
+
+extern node* _WARN_CHAIN;
+extern node* _FREE_CHAIN;// tofree list
+extern char* _ERRO_MESSAGE;
+extern jmp_buf _ERRO_JUMP;
+
+#if defined(_DEBUG) || defined(_dbg)
+
+//
+#define init_total_errmech(exitcode) \
+	if (setjmp(errjb))\
+	{\
+		if (_ERRO_MESSAGE && *_ERRO_MESSAGE)\
+			fprintf(stderr, "!Err %s\n", _ERRO_MESSAGE);\
+		if(exitcode&&_MALCOUNT) fprintf(stderr, "MEMORY LEAK %"PRIuPTR" TIMES.\n", _MALCOUNT);\
+		return (exitcode);\
+	}
+
+//
+void erro(char* erromsg);
+
+//
+void warn(char* warnmsg);
+
+#endif
 
 
 #endif // !_INC_ERROR

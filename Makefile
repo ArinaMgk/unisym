@@ -38,7 +38,7 @@ CGW32D:
 	cd ${dest_obj}/CGWin32D/ && aasm -f win32 ../../unisym/lib/asm/x86/cpuid.asm -I../../unisym/inc/Kasha/n_ -o./cpuid.a.o
 	cd ${dest_obj}/CGWin32D/ && aasm -f win32 ../../unisym/lib/asm/x86/binary.asm -I../../unisym/inc/Kasha/n_ -o./binary.a.o
 	$(CC_32) ./lib/c/auxiliary/toxxxer.make.c -o ../_tmp/toxxxer.exe
-	cd ../_tmp/ && toxxxer.exe
+	cd ../_tmp/ && ./toxxxer.exe
 	cd ${dest_obj}/CGWin32D/ && $(CC_32) -c $(sors_c) -D_DEBUG -D_WinNT -D_Win32 -O3
 	#cd ${dest_obj}/CGWin32D/ && rm ${remv_c}
 	cd ${dest_obj}/CGWin32D/ && ar -rcs ../../_bin/libw32d.a *.o

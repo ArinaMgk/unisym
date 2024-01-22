@@ -563,6 +563,8 @@
 	POP ECX
 %endmacro
 %imacro BitmapAllocBottom16 0
+	; no demonstration using
+	;{TODO} merge with BitmapAllocBottom
 	PUSH CX
 	PUSH DX
 	PUSH BX
@@ -668,7 +670,7 @@
 	POP EAX
 %endmacro
 %imacro PageRegister16 0
- ;...
+ ;{merge this case}
 %endmacro
 
 

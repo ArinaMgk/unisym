@@ -4,21 +4,16 @@
 ; ---- ---- ---- ----
 ; ---- ---- ---- ----
 ; Rebuild RFQ28 based on demoPage
-; demoPage 可能有问题 0x9000~0x9FFF
+; demoPage may have issue 0x9000~0x9FFF
 
-; 2023/03/03  21:14 2App.a
-; 2023/11/24  20:43 App
-; 2023/03/03  22:34 App.a
-; 2023/03/03  22:35 Mbr.a
-; 2023/03/03  21:17 Sb1.a
 ; $ aasm App.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_ -IE:\PROJ\SVGN\unisym\demo\osdev\interrupt\n_
 ; $ aasm Mbr.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_ -IE:\PROJ\SVGN\unisym\demo\osdev\interrupt\n_
 ; $ aasm Sb1.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_ -IE:\PROJ\SVGN\unisym\demo\osdev\interrupt\n_
 ; $ aasm Sb2.a -IE:\PROJ\SVGN\unisym\inc\Kasha\n_ -IE:\PROJ\SVGN\unisym\demo\osdev\interrupt\n_
-; $ cot ffset e:\vhd.vhd Mbr 0
-; $ cot ffset e:\vhd.vhd App 1
-; $ cot ffset e:\vhd.vhd Sb1 50
-; $ cot ffset e:\vhd.vhd Sb2 100
+; $ ffset e:\vhd.vhd Mbr 0
+; $ ffset e:\vhd.vhd App 1
+; $ ffset e:\vhd.vhd Sb1 50
+; $ ffset e:\vhd.vhd Sb2 100
 
 ;Finish Revive at 2023 Nov25 01:17
 
@@ -143,34 +138,36 @@ BaseLA EQU 0x80001000
 	MOV [IVTDptr],AX
 	LIDT [IVTDptr]
 	; Enable 8259A
-	MOV AL,0X11
-	OUT 0X20,AL;ICW1：边沿触发/级联方式
-	MOV AL,0X20
-	OUT 0X21,AL;ICW2:起始中断向量
-	MOV AL,0X04
-	OUT 0X21,AL;ICW3:从片级联到IR2
-	MOV AL,0X01
-	OUT 0X21,AL;ICW4:非总线缓冲，全嵌套，正常EOI
-	MOV AL,0X11
-	OUT 0XA0,AL;ICW1：边沿触发/级联方式
-	MOV AL,0X70
-	OUT 0XA1,AL;ICW2:起始中断向量
-	MOV AL,0X04
-	OUT 0XA1,AL;ICW3:从片级联到IR2
-	MOV AL,0X01
-	OUT 0XA1,AL;ICW4:非总线缓冲，全嵌套，正常EOI
-	; set timer working 
-	MOV AL,0X0B;RTC寄存器B
-	OR AL,0X80;阻断NMI
-	OUT 0X70,AL
-	MOV AL,0X12;设置寄存器B，禁止周期性中断，开放更
-	OUT 0X71,AL;新结束后中断，BCD码，24小时制
-	IN AL,0XA1;读8259从片的IMR寄存器
-	AND AL,0XFE;清除BIT 0(此位连接RTC)
-	OUT 0XA1,AL;写回此寄存器
-	MOV AL,0X0C
-	OUT 0X70,AL
-	IN AL,0X71;读RTC寄存器C，复位未决的中断状态
+	; ; Master PIC
+	MOV AL, 10001B; ICW1 {ICW1EN, EdgeTrigger, 8b-ADI, !Single, ICW4EN}
+	OUT 0X20, AL
+	MOV AL, 0X20; ICW2: Relative Vector Address
+	OUT 0X21, AL
+	MOV AL, 00000100B; ICW3: P-2 Connected to Slave
+	OUT 0X21, AL
+	MOV AL, 00001B; ICW4 {!SFNM, !BUF, Slave(Unused?), ManualEOI, Not8B}
+	OUT 0X21, AL
+	; ; Slave PIC
+	MOV AL, 10001B; ICW1 {ICW1EN, EdgeTrigger, 8b-ADI, !Single, ICW4EN}
+	OUT 0XA0, AL
+	MOV AL, 0X70; ICW2: Relative Vector Address
+	OUT 0XA1, AL
+	MOV AL, 00000100B; ICW3: P-2 Connected to Slave
+	OUT 0XA1, AL
+	MOV AL, 00001B; ICW4 {!SFNM, !BUF, Slave(Unused?), ManualEOI, Not8B}
+	OUT 0XA1, AL
+	; Enable Timer
+	MOV AL, 0X0B; RTC Register B
+	OR AL, 0X80; Block NMI
+	OUT 0X70, AL
+	MOV AL, 0X12;Set Reg-B {Ban Periodic, Open Update-Int, BCD, 24h}
+	OUT 0X71, AL;
+	IN AL, 0XA1; Read IMR of Slave PIC
+	AND AL, 0XFE; Clear BIT 0, which is linked with RTC
+	OUT 0XA1, AL; Write back to IMR
+	MOV AL, 0X0C
+	OUT 0X70, AL
+	IN AL, 0X71; Read Reg-C, reset pending interrupt
 ; Check PIC Device ???
 PIC_CHECK:
 ; Open INT

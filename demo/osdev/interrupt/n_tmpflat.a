@@ -283,6 +283,7 @@
 	POPAD
 %endmacro
 
+;{TEMP}
 %imacro GIH 0
 	MOV AL,0x20; EOI
 	OUT 0xA0,AL; SLAVE

@@ -1,8 +1,15 @@
-;Char UTF-8, Derived from TaskSub_RFQ19x.a RFQ22,27
+; UTF-8 NASM TAB4 CRLF
+; Attribute: CPU(x86)
+; LastCheck: 2024JAN21
+; AllAuthor: @ArinaMgk @dosconio
+; ModuTitle: Paging
+; Copyright: ArinaMgk UniSym, Apache License Version 2.0
+
 [BITS 32]
 %include "debug.a"
 %include "demos.a"
 %include "osdev.a"
+%include "cpuins.a"
 Dem2Prog entry,CODE,CodeEnd,256,DATA,DataEnd,RONL,RonlEnd
 CallGate EQU 8*4+3
 APIEndo:
@@ -12,7 +19,7 @@ entry:
 	MOV WORD[Rot+4],CallGate
 
 	MOV ESI,buf
-	CpuGetBrand
+	M_CpuBrand
 
 	MOV EAX,DS
 	MOV EBX,GS

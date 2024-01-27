@@ -216,6 +216,8 @@
 %endmacro
 
 %imacro ConPrint 1-2 ~
+	; {! This version : the direction of roll screen is not directly up, but as possible as to fill the screen !}
+	; {May contain mistakes, please check it carefully!}
 	%ifidni %1,SI
 		; PUSHAD; 8086 have not this , ArinaMgk updated in 2023
 			PUSH AX
@@ -468,15 +470,15 @@
 				%endif
 					PUSH AX
 					CALL %%F_GetCur
-					XOR EBX,EBX
-					MOV BX,AX
+					MOVZX EBX,AX
 					POP AX
 				MOV EDX,EBX
-				ADD EDX,ECX
-				CMP EDX,video_cols*video_rows
-				JAE %%case23
+				ADD EDX,ECX; Whether Current Position + Length bigger than the last position of the screen
+				CMP EDX,video_cols*video_rows-1; leave one for cursor
+				JAE %%case23; case - overflows
 				SHL EBX,1
 				%%LOOP1:
+					; no overflow - directly print
 					MOV AL,[DS:ESI]
 					%ifnidni %2,~
 						MOV WORD[ES:EBX],AX; WRITE PROP

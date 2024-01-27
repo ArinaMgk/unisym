@@ -31,6 +31,16 @@
 	OUT 0X92,AL
 %endmacro
 
+%define DQDptr DefineDescriptor
+%imacro DefineDescriptor 0-3 0x00000000, 0x00000, 0x00CF9200; BASE, LIMIT, ATTR
+	;{TODO} More detail for ATTR
+	DW (%2) & 0xFFFF
+	DW (%1) & 0xFFFF
+	DB ((%1) >> 16) & 0xFF
+	DW (((%2) >> (4*2)) & 0x0F00) | ((%3) & 0xF0FF)
+	DB ((%1) >> 24) & 0xFF
+%endmacro
+
 %imacro GDTDptrStruct 3
 	%ifnidni EAX,%1
 	MOV EAX,%1
@@ -68,6 +78,15 @@
  ADD EBX,0X04;
  MOV DWORD[EBX],%1; High 32bit
  ADD EBX,0X04;
+%endmacro
+
+%define DQGate DefineGate
+%imacro DefineGate 0-4 0x0000,0x00000000,0,1_11_011000000_0000B
+	; {PARAM} OFFSET, SELECTOR, DPL, TYPE
+	DW (%2) & 0xFFFF
+	DW (%1) & 0xFFFF
+	DW ((%3) & 0b11111) | (((%4) << 8) & 0xFF00)
+	DW ((%2) >> 16) & 0xFFFF
 %endmacro
 
 %imacro GateStruct 3

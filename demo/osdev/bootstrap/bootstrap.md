@@ -1,5 +1,17 @@
 # Bootstrap
 
+| Filename               |                                                              |      |
+| ---------------------- | ------------------------------------------------------------ | ---- |
+| `BootDiskInstantInput` | bootstrap from a disk and you can input the parameters instantly. |      |
+
+
+
+`test_floppy` test in the floppy;
+
+`test_hdisk` test in the hard-disk;
+
+
+
 ## Arinae Kasha DOS
 
 collected from

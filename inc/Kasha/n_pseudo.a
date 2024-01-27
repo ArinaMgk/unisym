@@ -27,7 +27,8 @@
 	%$ento: DB (%$endo-%$ento+511)/512
 %endmacro
 
-%imacro FileX 0;{TODO} Relative DFLoad Routine
+; Flat Compatible File - FEnto, also with Endf
+%imacro Fent 0;{TODO} Relative DFLoad Routine as `CFLoad`  
 	%$ento: JMP _entry; 3 bytes
 	DW (%$endo-%$ento+511)/512
 	_entry:

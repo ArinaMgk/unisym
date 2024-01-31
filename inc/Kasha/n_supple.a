@@ -1,0 +1,72 @@
+; ASCII NASM TAB4 CRLF
+; Attribute: 
+; LastCheck: 2024Jan27
+; AllAuthor: @dosconio
+; ModuTitle: Supplement for advanced instructions
+; Copyright: ArinaMgk UniSym, Apache License Version 2.0
+
+%ifndef _INC_ASM_SUPPLE
+%define _INC_ASM_SUPPLE
+
+%imacro PushUsual 1
+	%ifidni %1, 32
+		%ifdef _LIMIT_80286
+			PUSH EAX
+			PUSH ECX
+			PUSH EDX
+			PUSH EBX
+			PUSH ESP
+			PUSH EBP
+			PUSH ESI
+			PUSH EDI
+		%else
+			PUSHAD
+		%endif
+	%elifidni %1, 16
+		%ifdef _LIMIT_8086
+			PUSH AX
+			PUSH CX
+			PUSH DX
+			PUSH BX
+			PUSH SP
+			PUSH BP
+			PUSH SI
+			PUSH DI
+		%else
+			PUSHA
+		%endif
+	%endif
+%endmacro
+
+%imacro PopUsual 1
+	%ifidni %1, 32
+		%ifdef _LIMIT_80286
+			POP EDI
+			POP ESI
+			POP EBP
+			POP ESP
+			POP EBX
+			POP EDX
+			POP ECX
+			POP EAX
+		%else
+			POPAD
+		%endif
+	%elifidni %1, 16
+		%ifdef _LIMIT_8086
+			POP DI
+			POP SI
+			POP BP
+			POP SP
+			POP BX
+			POP DX
+			POP CX
+			POP AX
+		%else
+			POPA
+		%endif
+	%endif
+%endmacro
+
+
+%endif ; !_INC_ASM_SUPPLE

@@ -1,0 +1,175 @@
+; ASCII NASM TAB4 CRLF
+; Attribute: CPU(I-80386)
+; LastCheck: 2024Jan29
+; AllAuthor: @dosconio
+; ModuTitle: Bootstrap (MBR) for Mecocoa
+; Copyright: ArinaMgk UniSym, Apache License Version 2.0
+
+; [MACRO] _FLOPPY : if defined, the release is for floppy disk, but for hard disk.
+
+FAT_BUFFER EQU 0x0600;~ 0x07FF
+
+%ifdef _FLOPPY
+	DRV_ID EQU 0x00
+%else
+	DRV_ID EQU 0x80
+%endif
+
+[CPU 386]
+
+%include "pseudo.a"
+%include "floppy.a"
+%include "video.a"
+%include "demos.a"
+%include "debug.a"
+%include "string.a"
+%include "INT10.a"; Video BIOS
+%include "INT13.a"; Disk BIOS
+%include "INT16.a"; Keyboard BIOS
+
+HeadFloppyFAT12 'MECOCOA SYS'; suits for any disk for jump-instruction
+
+DefineStack16
+CLI
+CLD
+
+MOV AX, 0x07C0
+MOV DS, AX
+MOV SI, str
+CALL Print
+KeyRead
+
+; LOAD KERNEL-16
+%ifdef _FLOPPY; ES -> 0x0000
+	XOR AX, AX
+	MOV ES, AX
+	DiskReset
+	;
+	;{TODO} SEEK AUTORUN SCRIPT
+		;
+	; SEEK KER.APP
+	MOV BP, [_BPB_ROE]
+	MOV CL, 4; _BPB_ROE * unitsize(32) / sectorsize(512) <=> EXPONENT: +5-9=-4
+	SHR BP, CL
+	PUSH WORD (_FLOSEC_ROOT_START-1)
+	lup_seek:; under BP
+		JZ Erro; from SHL and JMP
+		;
+		POP AX
+		INC AX; WHERE TO SEEK
+		PUSH AX
+		;
+		MOV SI, FAT_BUFFER
+		MOV CL, 1
+		CALL ReadFloppy
+		; Compare Strings
+			MOV SI, kernel_iden
+			MOV DI, FAT_BUFFER
+			MOV CX, 512/_FLOFAT_FILEENTO_LEN; 512/32
+			lup_seek_compare:
+				PUSH CX
+				MOV CX, _FLOFAT_FILENAME_LEN
+				JSTRX load_file
+				ADD DI, _FLOFAT_FILEENTO_LEN
+				POP CX
+				LOOP lup_seek_compare
+		DEC BP
+		JMP lup_seek
+
+	load_file:
+		ADD SP, 2; Release BP
+		AND DI, 0xFFE0
+		ADD DI, 0x001A; -> First Sector
+		MOV BX, [ES:DI]
+		PUSH BX
+		ADD BX, 14 + _FLOSEC_FAT1_START + _FLOSEC_FAT1_LEN + _FLOSEC_FAT2_LEN - 2; _BPB_ROE*32/512 + BootResv + ... - 2
+		;
+		MOV AX, BX
+		MOV CL, 1
+		MOV SI, 0x1000; ...Debug for 2h
+		load_loop:
+			CALL ReadFloppy
+			POP AX
+			CALL FATGetEntry
+			CMP AX, 0xFFF
+			JZ load_endo
+			PUSH AX
+			ADD AX, 14 + _FLOSEC_FAT1_START + _FLOSEC_FAT1_LEN + _FLOSEC_FAT2_LEN - 2
+			ADD SI, 512; _BPB_BPS
+			JMP load_loop
+	FATGetEntry:;[Locale Procedure] AX = XXXH <<< AX = Linear Sector Number
+		PUSH CX
+		PUSH DX
+		PUSH BX
+		PUSH SI
+		PUSH BP
+		PUSH ES
+		XOR BP, BP; TO HELP ALIGN
+		MOV ES, BP
+		MOV BX, 3
+		MUL BX; DX`AX = 3 * AL, for a entry takes 12 bits
+		SHR AX, 1
+		JNC FATGetEntry_WhichSector
+		OR BP, 4
+		;
+		FATGetEntry_WhichSector:
+		XOR DX, DX
+		MOV BX, 512; _BPB_BPS
+		DIV BX; DX`AX/BX= AX:FAT-SECTOR ... DX:ENTRY-OFFSET
+		;
+		ADD AX, _FLOSEC_FAT1_START
+		MOV SI, FAT_BUFFER
+		MOV CL, 2
+		CALL ReadFloppy
+		ADD SI, DX
+		MOV AX, [ES:SI]
+		MOV CX, BP
+		SHR AX, CL
+		AND AX, 0x0FFF; ...Debug for 2h 2024Feb01 00:00
+		;
+		POP ES
+		POP BP
+		POP SI
+		POP BX
+		POP DX
+		POP CX
+		RET
+	ReadFloppy:; PRES[ES] (CL:NoS, SI:Buf, AX:Lin)
+		DiskReadSectors CL, SI, AX, DRV_ID
+		RET
+load_endo:
+	MOV AX, 0x0100
+	MOV ES, AX
+	MOV DS, AX
+%else
+	MOV AX, 0x0100
+	MOV ES, AX
+	MOV DS, AX
+	CodefileLoad16 0, 2, 2; Sector 02 -> ES:0
+%endif
+
+; JUMP TO KERNEL-16
+JMP 0x0100: 0
+Endo:DbgStop;{TEMP} NO RETURN PARENT-DOS
+Erro:
+	MOV SI, error
+	CALL Print
+	JMP Endo
+Print:
+	PrintStringCursor SI
+	RET
+; DATA
+str:
+	DB "Press any key to enter Mecocoa"
+	%ifdef _FLOPPY
+	DB "(Floppy)"
+	%endif
+	DB "...",10,13,0; Mecocoa Style LFCR for new-line
+error:
+	DB "No Script or Kernel Found!",10,13,0
+kernel_iden:
+	DB "KER     APP"
+DB "By @dosconio"
+; FILE END
+TIMES 510-$+$$ DB 0
+ARINA

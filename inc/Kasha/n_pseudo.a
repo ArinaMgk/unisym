@@ -28,16 +28,22 @@
 %endmacro
 
 ; Flat Compatible File - FEnto, also with Endf
-%imacro Fent 0;{TODO} Relative DFLoad Routine as `CFLoad`  
-	%$ento: JMP _entry; 3 bytes
+; - Load by `CodefileLoad16 *,2,*`
+%imacro Fent 0;{TODO} Relative DFLoad Routine as `CFLoad`
+	%push Fent
+	%$ento: JMP SHORT _entry; 2 bytes, while the default NEAR is 3 bytes instruction
 	DW (%$endo-%$ento+511)/512
 	_entry:
 %endmacro
+
+; ---- ---- ---- ----   ---- ---- ---- ---- 
 
 %imacro Endf 0
 	%$endo:
 	%pop
 %endmacro
+
+; ---- ---- ---- ----   ---- ---- ---- ---- 
 
 %imacro DefineStack16 0-2 0,0x7C00
 	CLI
@@ -46,3 +52,4 @@
 	MOV SP,%2
 	STI
 %endmacro
+

@@ -1,14 +1,70 @@
-; Disk
+; ASCII NASM0207 TAB4 CRLF
+; Attribute: BIOS
+; LastCheck: 2024Jan30
+; AllAuthor: @dosconio
+; ModuTitle: Disk Routine
+; Copyright: ArinaMgk UniSym, Apache License Version 2.0
+
+; AH = 00h DISK - RESET DISK SYSTEM
+; void <<< DiskReset <<< DriveNo[DL]=00H(FloppyDisk)
+; DL = drive (if bit 7 is set both hard disks and floppy disks reset)
+%imacro DiskReset 0-1 0
+	MOV DL,%1; Make it can let DL=AH
+	XOR AH,AH
+	INT 13H
+%endmacro
+
 
 ;20230201 ah(0:completed&&CF=0 ErrorCode&&CF=1) [es] stack int13h2 DiskDataLoad(al NumofSector=1, bx BufAddr=0, ch track=0, cl sector=2, dh DiskSide=0, dl DriveNo=80H);
-;default : read the second sector, which follow the forst sector, from master disk.
+;default : read the second sector, which follow the first sector, from master disk.
+; DiskDataLoad
+; DiskReadSectors(BH:NoS, SI:Buf, AX:Lin, DL:Drv) ES:BX <--- LinearSector (from 0)
 %imacro DiskDataLoad 0-6 1,0,0,2,0,80H
- MOV AL,%1
- MOV AH,2H
- MOV BX,%2
- MOV CH,%3
- MOV CL,%4
- MOV DH,%5
- MOV DL,%6
- INT 13H
+	MOV AL,%1
+	MOV AH,2H
+	MOV BX,%2
+	MOV CH,%3; TRACK
+	MOV CL,%4; SECTOR
+	MOV DH,%5; HEADER
+	MOV DL,%6
+	INT 13H
+%endmacro
+%imacro DiskReadSectors 0-4 1,0,0,80H
+	; {ASSUME} _BPB_SPT = 18
+	; {TODO QUES} Can this deal with the constant linear sector?
+	; - 17(H0T0S18) and 18(H1T0S01)
+	; - 35(H1T0S18) and 36(H0T1S01)
+	; - 53(H0T1S18) and 54(H1T1S01)
+	; DH = (Lin / _BPB_SPT) & 1
+	; CH = (Lin / _BPB_SPT) / 2
+	; CL = (Lin % _BPB_SPT) + 1
+	PUSH AX
+	PUSH CX
+	PUSH DX
+	PUSH BX
+	PUSH SI
+	MOV DL,%4; [FIN.DL]
+	MOV AX,%3
+	MOV SI,%2
+	MOV BH,%1
+	MOV BL,18
+	DIV BL; AH=Lin%18, AL=Lin/18
+	INC AH; AH=Lin%18+1
+	MOV CL,AH; [FIN.CL] CL=Lin%18+1 
+	MOV CH,AL; CH=Lin/18
+	SHR CH,1 ; [FIN.CH] CH=Lin/18/2
+	RCL DH,1 ; [FIN.DH] @dosconio style: DH=Lin/18%2
+	MOV AL,BH; [FIN.AL]
+	MOV BX,SI; [FIN.BX]
+	MOV AH,2H; [FIN.AH]
+	MOV SI,AX
+	%%lup:
+		MOV AX,SI
+		INT 13H; RET{CF, AX}
+		JC %%lup
+	POP SI
+	POP BX
+	POP DX
+	POP CX
+	POP AX
 %endmacro

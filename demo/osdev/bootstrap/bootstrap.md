@@ -1,14 +1,21 @@
 # Bootstrap
 
-| Filename               |                                                              |      |
-| ---------------------- | ------------------------------------------------------------ | ---- |
-| `BootDiskInstantInput` | bootstrap from a disk and you can input the parameters instantly. |      |
+| Filename        | Fullname                                      | Media                    | Description                                                  | Function                            |
+| --------------- | --------------------------------------------- | ------------------------ | ------------------------------------------------------------ | ----------------------------------- |
+| `bootfi`        | `Boot FAT-Compatible Wait-instant-input`      | `Dynamic` Floppy; Hdisk; | bootstrap from a disk and you can input the parameters instantly, from *Arinae Codes*. |                                     |
+| `boothk`        | `Boot Wait-key`                               | Hdisk;                   | from early *Mecocoa*.                                        |                                     |
+| `bootfka`       | `Boot FAT-Compatible [Wait-key/File-Autorun]` | `Macro` Floppy; Hdisk;   | from *Mecocoa* since 2024-Jan-29.                            |                                     |
+| `.../FlatMbr.a` |                                               | Hdisk;                   |                                                              | 1) Paging and Segment in flat style |
 
 
 
 `test_floppy` test in the floppy;
 
 `test_hdisk` test in the hard-disk;
+
+`test_cdisc` is *to be done* for compact optical disc;
+
+- Disk = Hard-disk + Floppy+CD
 
 
 

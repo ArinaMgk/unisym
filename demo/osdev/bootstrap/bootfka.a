@@ -1,13 +1,14 @@
 ; ASCII NASM TAB4 CRLF
-; Attribute: CPU(I-80386)
-; LastCheck: 2024Jan29
+; Attribute: CPU(I-80386) DESTOPT(_FLOPPY)
+; LastCheck: 2024Feb11
 ; AllAuthor: @dosconio
 ; ModuTitle: Bootstrap (MBR) for Mecocoa
 ; Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
-; [MACRO] _FLOPPY : if defined, the release is for floppy disk, but for hard disk.
-
-FAT_BUFFER EQU 0x0600;~ 0x07FF
+ADDR_STACK  EQU 0x0600
+FAT_BUFFER  EQU 0x0600;~ 0x07FF
+ADDR_KERELF EQU 0x1000
+ADDR_KERNEL EQU 0x5000
 
 %ifdef _FLOPPY
 	DRV_ID EQU 0x00
@@ -29,20 +30,18 @@ FAT_BUFFER EQU 0x0600;~ 0x07FF
 
 HeadFloppyFAT12 'MECOCOA SYS'; suits for any disk for jump-instruction
 
-DefineStack16
-CLI
-CLD
-
+DefineStack16 0x0000, ADDR_STACK
 MOV AX, 0x07C0
 MOV DS, AX
+XOR AX, AX
+MOV ES, AX
+
 MOV SI, str
 CALL Print
 KeyRead
 
 ; LOAD KERNEL-16
 %ifdef _FLOPPY; ES -> 0x0000
-	XOR AX, AX
-	MOV ES, AX
 	DiskReset
 	;
 	;{TODO} SEEK AUTORUN SCRIPT
@@ -75,7 +74,6 @@ KeyRead
 				LOOP lup_seek_compare
 		DEC BP
 		JMP lup_seek
-
 	load_file:
 		ADD SP, 2; Release BP
 		AND DI, 0xFFE0
@@ -86,26 +84,24 @@ KeyRead
 		;
 		MOV AX, BX
 		MOV CL, 1
-		MOV SI, 0x1000; ...Debug for 2h
+		MOV SI, ADDR_KERELF; ...Debug for 2h
 		load_loop:
 			CALL ReadFloppy
 			POP AX
+			PUSHA
 			CALL FATGetEntry
-			CMP AX, 0xFFF
 			JZ load_endo
+			MOV BP, SP
+			MOV WORD[BP+2*7], AX
+			POPA
 			PUSH AX
 			ADD AX, 14 + _FLOSEC_FAT1_START + _FLOSEC_FAT1_LEN + _FLOSEC_FAT2_LEN - 2
 			ADD SI, 512; _BPB_BPS
 			JMP load_loop
-	FATGetEntry:;[Locale Procedure] AX = XXXH <<< AX = Linear Sector Number
-		PUSH CX
-		PUSH DX
-		PUSH BX
-		PUSH SI
-		PUSH BP
-		PUSH ES
+	FATGetEntry:;[Locale Procedure] [Volatile SI, BX, CX, DX, BP] [ZF:FileEnd, AX:NextSector(XXXH)]<<<[PreS ES=0][Input AX = Linear Sector Number]
+		; PUSH CX>DX>BX>SI>BP>ES
 		XOR BP, BP; TO HELP ALIGN
-		MOV ES, BP
+		; MOV ES, BP
 		MOV BX, 3
 		MUL BX; DX`AX = 3 * AL, for a entry takes 12 bits
 		SHR AX, 1
@@ -127,29 +123,51 @@ KeyRead
 		SHR AX, CL
 		AND AX, 0x0FFF; ...Debug for 2h 2024Feb01 00:00
 		;
-		POP ES
-		POP BP
-		POP SI
-		POP BX
-		POP DX
-		POP CX
+		CMP AX, 0xFFF
 		RET
 	ReadFloppy:; PRES[ES] (CL:NoS, SI:Buf, AX:Lin)
 		DiskReadSectors CL, SI, AX, DRV_ID
 		RET
-load_endo:
-	MOV AX, 0x0100
-	MOV ES, AX
-	MOV DS, AX
+	load_endo:
 %else
-	MOV AX, 0x0100
-	MOV ES, AX
-	MOV DS, AX
-	CodefileLoad16 0, 2, 2; Sector 02 -> ES:0
+	PUSH ES
+	CodefileLoad16 ADDR_KERELF, 2, 2; Sector 02 -> ES:0
+	POP ES
 %endif
 
+; FLAT OR ELF {TODO SCRIPT AND OTHERS} - (DS=0000)
+PUSH ES
+POP DS
+CMP BYTE[ADDR_KERELF+0xF], 'F'
+JNZ JMPK; TREAT AS FLAT, NO CONSIDERATION FOR STACK
+MOV BX, [ADDR_KERELF+0x18]; ENTRY
+PUSH WORD 0; CS
+PUSH BX    ; IP
+MOV BX, [ADDR_KERELF+0x1C]; ELF HEADER
+ADD BX, ADDR_KERELF
+MOV CX, [ADDR_KERELF+0x2C]; NUMOF PHT
+CLD
+lup_loadkernel:
+	CMP DWORD[BX], 0
+	JZ  lup_loadkernel_next; NO LOAD
+	PUSHA
+	MOV ECX, DWORD[BX+0x10]; ABANDON HIGH 16-BITS
+	MOV ESI, DWORD[BX+0x04]; ABANDON HIGH 16-BITS
+	ADD ESI, ADDR_KERELF; OFFSET
+	MOV EDI, DWORD[BX+0x08]
+	CMP EDI, ADDR_KERNEL
+	JB  lup_loadkernel_next0
+	REP MOVSB
+	lup_loadkernel_next0: POPA
+lup_loadkernel_next:
+	ADD  BX, 0x20; SIZEOF PHT
+	LOOP lup_loadkernel
+
 ; JUMP TO KERNEL-16
-JMP 0x0100: 0
+JMPKF:
+	RETF ;JMP 0x0500: OFFSET
+JMPK:
+	JMP 0x0100: 0
 Endo:DbgStop;{TEMP} NO RETURN PARENT-DOS
 Erro:
 	MOV SI, error
@@ -158,18 +176,24 @@ Erro:
 Print:
 	PrintStringCursor SI
 	RET
-; DATA
+; ---- DATA ----
 str:
 	DB "Press any key to enter Mecocoa"
 	%ifdef _FLOPPY
-	DB "(Floppy)"
+	DB "(F)"; Floppy
+	%else
+	DB "(D)"; Flat Disk
 	%endif
 	DB "...",10,13,0; Mecocoa Style LFCR for new-line
 error:
 	DB "No Script or Kernel Found!",10,13,0
 kernel_iden:
 	DB "KER     APP"
-DB "By @dosconio"
-; FILE END
+; DB "DOSCONIO"
+; ---- FILE END ----
 TIMES 510-$+$$ DB 0
-ARINA
+%ifdef __AASM__
+	ARINA
+%else
+	DB 01010101B, 10101010B; IS EQUIVALENT TO ARINA INSTRUCTION
+%endif

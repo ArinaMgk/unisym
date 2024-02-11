@@ -29,10 +29,24 @@
 
 ; Flat Compatible File - FEnto, also with Endf
 ; - Load by `CodefileLoad16 *,2,*`
-%imacro Fent 0;{TODO} Relative DFLoad Routine as `CFLoad`
+%imacro Fent 0
 	%push Fent
-	%$ento: JMP SHORT _entry; 2 bytes, while the default NEAR is 3 bytes instruction
+	%$ento: JMP SHORT _entry; 2 bytes
 	DW (%$endo-%$ento+511)/512
+	_entry:
+%endmacro
+
+%imacro Entf 0-1 "PHINANET"; 16 bytes
+	%push Flat
+	%$ento: JMP NEAR _entry; 3 bytes
+	NOP
+	DD (%$endo-%$ento)
+	DB %1; Magic number
+	;        .: T, F, N, O 
+	; PHINANET FLAT       (Real-16) (ENTRY ZERO OFFSET)
+	; PHINAELF ELF        (Real-16)
+	; PHINAREN RING-0 ELF (Prot-32)
+	; DOSCONIO RING-3 ELF (Prot-32)
 	_entry:
 %endmacro
 
@@ -47,9 +61,16 @@
 
 %imacro DefineStack16 0-2 0,0x7C00
 	CLI
-	MOV AX,%1
+	%ifidni %1,0
+		XOR AX,AX
+	%else
+		MOV AX,%1
+	%endif
 	MOV SS,AX
-	MOV SP,%2
-	STI
+	%ifidni %2,0
+		XOR SP,SP
+	%else
+		MOV SP,%2
+	%endif
 %endmacro
 

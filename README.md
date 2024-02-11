@@ -41,19 +41,25 @@ ConPrint Hello_String; Assembly Macro
 - `../bin/` 
 - `demo/` _(option)_ 
 
-
 **Domain** 
 
 - unisym.org
 
+**Mission** 
+
+- We never abandon any language, for it can be improved the potential to be more systematic and most suitable for some cases.
+
+
+
 **Contributors** 
 
-- ![Contributor ArinaMgk](./.picture/phina.head.bmp) ***Phina Ren*** (First Last)
-
+- ![Contributor ArinaMgk](./.picture/phina.head.bmp) <del> ***Phina Ren***</del> (First Last)  
+    - [**PAST**](./doc/author/arina.md):  <mark>Physically and Mentally Sick</mark>  
     - **Boudoir**: [Her-garden](phina.net)  or its `.org` or `.ren` 
     - **GitHub**: `ArinaMgk` 
     - **Mail**: 3245117655@qq.com 
     - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk) 
+
 - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** (Family First)
 
     - **Boudoir**: http://doscon.io and dosconio series

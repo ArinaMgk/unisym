@@ -146,7 +146,7 @@
 	INT 13H
 	%%endo:
 	POPAD
-	; ??? 8086 accept popad ???
+	; ??? 8086 may not accept popad ???
 	; ??? track limit ???
 	; This will be adapted to LBA and CHS in the future --ArinaRFQ04
 %endmacro

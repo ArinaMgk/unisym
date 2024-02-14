@@ -46,7 +46,7 @@ CGW32D:
 kitw32:
 	cd ${make_dir} && make -f kitw32.make all
 	# ***\AutoHotkey\Compiler\Ahk2Exe.exe /in %1 /out %2
-	ahkcc ./lib/Script/AutoHotkey/Arnscr.ahk ../../../../_bin/arnscr.exe
+	-ahkcc ./lib/Script/AutoHotkey/Arnscr.ahk ../../../../_bin/arnscr.exe
 
 CVW64D:
 	-cd ../_obj/ && mkdir CVWin64D

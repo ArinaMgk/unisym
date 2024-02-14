@@ -43,9 +43,6 @@ KeyRead
 ; LOAD KERNEL-16
 %ifdef _FLOPPY; ES -> 0x0000
 	DiskReset
-	;
-	;{TODO} SEEK AUTORUN SCRIPT
-		;
 	; SEEK KER.APP
 	MOV BP, [_BPB_ROE]
 	MOV CL, 4; _BPB_ROE * unitsize(32) / sectorsize(512) <=> EXPONENT: +5-9=-4

@@ -98,6 +98,11 @@ environment
     - 32
     - 64
 - Endian ... 
+- Platform
+    - {ISSUE} Whether to make a integer `_LIMIT_INTEL_SERIES_` to simplify the expression: 
+    - `_LIMIT_8086` for CPU 8086 or simpler, also contain _LIMIT_80286 and higher. So this contain below
+    - `_LIMIT_80286`  contain below
+
 
 strategy
 

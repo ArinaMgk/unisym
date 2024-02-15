@@ -9,7 +9,7 @@
 
 ; Read FAT12 File from Floppy Disk
 ; [Recommend ] Reset the disk before
-; [Input<<<<<] PRES{ES} DestinationAddress, FileNameAddress(Len11), BufferAddress
+; [Input<<<<<] PRES{ES, DS for fname} DestinationAddress, FileNameAddress(Len11), BufferAddress
 ; [Output    ] 0=No-Error-and-Found-File
 ; [CallConven] CDECL without sym-prefix
 
@@ -45,8 +45,8 @@ section .text
 ReadFileFFAT12:
 	PUSH BP
 	MOV BP, SP
-	; [BP+2*0] = ReturnAddress
-	; [BP+2*1] = BP
+	; [BP+2*0] = BP
+	; [BP+2*1] = ReturnAddress
 	; [BP+2*2] = DestinationAddress
 	; [BP+2*3] = FileNameAddress
 	; [BP+2*4] = BufferAddress

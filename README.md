@@ -57,7 +57,7 @@ ConPrint Hello_String; Assembly Macro
     - [**PAST**](./doc/author/arina.md):  <mark>Physically and Mentally Sick</mark>  
     - **Boudoir**: [Her-garden](phina.net)  or its `.org` or `.ren` 
     - **GitHub**: `ArinaMgk` 
-    - **Mail**: 3245117655@qq.com 
+    - **Mail**: phina@tuta.io 
     - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk) 
 
 - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** (Family First)

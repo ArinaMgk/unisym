@@ -38,3 +38,6 @@
 - `number_t`: C style
 - `NUMBER`: Classic style
 
+
+
+- Real-16: The symbols are without '_' prefix.

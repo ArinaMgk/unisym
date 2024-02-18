@@ -65,20 +65,24 @@
 	#include "us_win64.h"
 #else
 	#include <stddef.h>
-	#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate ¡®unsigned¡¯
+	#include <stdint.h>
+	#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate 'unsigned'
 		#define uint unsigned int
 	#endif
-	#define llong long long int
+	#define llong long long int 
 	#define sll signed long long int
 	#define ullong unsigned long long int
 	#define ull unsigned long long int
-	typedef unsigned char byte;
-	///[MinGW-i686 Conflict?] #define byte unsigned char
-	#define word unsigned short int
-	#define dword unsigned int
-	#define qword unsigned long long int
-	#define stduint size_t
-	#define stdint ptrdiff_t
+	typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
+	typedef   signed char sbyte;
+	typedef uint16_t  word;// unsigned short int
+	typedef  int16_t  sword;// signed short int
+	typedef uint32_t  dword;// unsigned int
+	typedef  int32_t  sdword;// signed int
+	typedef uint64_t  qword;// unsigned long long int
+	typedef  int64_t  sqword;// signed long long int
+	typedef size_t    stduint;
+	typedef ptrdiff_t stdint ;
 #endif
 
 

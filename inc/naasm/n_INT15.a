@@ -1,0 +1,11 @@
+; ASCII NASM0207 TAB4 CRLF
+; Attribute: BIOS
+; LastCheck: 2024Feb17
+; AllAuthor: @dosconio
+; ModuTitle: INT-15
+; Copyright: ArinaMgk UniSym, Apache License Version 2.0
+
+; Get Memory Info
+; ...
+
+

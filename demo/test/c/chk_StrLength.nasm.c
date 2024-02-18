@@ -4,7 +4,7 @@
 // - 
 
 #include <stdio.h>
-
+// Windows
 __fastcall unsigned StrLength(const char* str);
 
 int main()

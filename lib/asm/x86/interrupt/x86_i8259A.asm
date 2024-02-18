@@ -15,8 +15,10 @@ GLOBAL i8259A_Init32
 
 [BITS 32]
 
+;{TEMP} only for a timer
+
 i8259A_Init32:
-	; ; Master PIC
+	; Master PIC
 	MOV AL, 10001B; ICW1 {ICW1EN, EdgeTrigger, 8b-ADI, !Single, ICW4EN}
 	OUT 0X20, AL
 	MOV AL, 0X20; ICW2: Relative Vector Address
@@ -25,16 +27,16 @@ i8259A_Init32:
 	OUT 0X21, AL
 	MOV AL, 00001B; ICW4 {!SFNM, !BUF, Slave(Unused?), ManualEOI, Not8B}
 	OUT 0X21, AL
-	; ; Slave PIC
+	; Slave PIC
 	MOV AL, 10001B; ICW1 {ICW1EN, EdgeTrigger, 8b-ADI, !Single, ICW4EN}
 	OUT 0XA0, AL
 	MOV AL, 0X70; ICW2: Relative Vector Address
 	OUT 0XA1, AL
-	MOV AL, 00000100B; ICW3: P-2 Connected to Slave
+	MOV AL, 2; ICW3: P-2 Connected to Slave
 	OUT 0XA1, AL
 	MOV AL, 00001B; ICW4 {!SFNM, !BUF, Slave(Unused?), ManualEOI, Not8B}
 	OUT 0XA1, AL
-	; Enable Timer
+	;{TODO move to Timer} Enable Timer
 	MOV AL, 0X0B; RTC Register B
 	OR AL, 0X80; Block NMI
 	OUT 0X70, AL

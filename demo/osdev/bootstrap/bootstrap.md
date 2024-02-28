@@ -5,6 +5,7 @@
 | `bootfi`        | `Boot FAT-Compatible Wait-instant-input`      | `Dynamic` Floppy; Hdisk; | bootstrap from a disk and you can input the parameters instantly, from *Arinae Codes*. |                                     |
 | `boothk`        | `Boot Wait-key`                               | Hdisk;                   | from early *Mecocoa*.                                        |                                     |
 | `bootfka`       | `Boot FAT-Compatible [Wait-key/File-Autorun]` | `Macro` Floppy; Hdisk;   | from *Mecocoa* since 2024-Jan-29.                            |                                     |
+| `bootfx.a`      | `Boot FAT-Compatible Flat-Prot-32-Mode`       | Floppy                   | Enter Simple Flat-32 Environment                             |                                     |
 | `.../FlatMbr.a` |                                               | Hdisk;                   |                                                              | 1) Paging and Segment in flat style |
 
 

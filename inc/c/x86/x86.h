@@ -38,4 +38,17 @@ typedef struct _CPU_x86_gate
 	word offset_high;
 } gate_t;
 
+static inline gate_t* GateStructInterruptR0(gate_t* gate, dword addr, word segm, byte paracnt)
+{
+	gate->offset_low = addr & 0xFFFF;
+	gate->selector = segm;
+	gate->param_count = paracnt;
+	gate->type = 0xE;// interrupt gate
+	gate->notsys = 0;
+	gate->DPL = 0;
+	gate->present = 1;
+	gate->offset_high = (addr >> 16) & 0xFFFF;
+	return gate;
+}
+
 #endif

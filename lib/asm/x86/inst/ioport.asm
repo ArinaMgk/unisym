@@ -23,20 +23,20 @@ _OUT_b:
 ;	XCHG CX, AX
 ;	XCHG CX, DX
 	;{TEMP} Linux did not accept __fastcall, so use CDECL
-	; - [BP+4*0]=BP
-	; - [BP+4*1]=Return Address
-	; - [BP+4*2]=Port
-	; - [BP+4*3]=Data
+	; - [EBP+4*0]=BP
+	; - [EBP+4*1]=Return Address
+	; - [EBP+4*2]=Port
+	; - [EBP+4*3]=Data
 	PUSH EBP
-	MOV BP, SP
+	MOV EBP, ESP
 	PUSH DX
 	PUSH AX
-	MOV DX, [BP+4*2]
-	MOV AX, [BP+4*3]
+	MOV DX, [EBP+4*2]
+	MOV AX, [EBP+4*3]
 	OUT DX, AL
 	POP AX
 	POP DX
-	MOV SP, BP
+	MOV ESP, EBP
 	POP EBP
 RET
 
@@ -48,17 +48,17 @@ _IN_b:
 ;	MOVZX EAX, AL
 ;	XCHG CX, DX
 	;{TEMP} Linux did not accept __fastcall, so use CDECL
-	; - [BP+4*0]=BP
-	; - [BP+4*1]=Return Address
-	; - [BP+4*2]=Port
+	; - [EBP+4*0]=BP
+	; - [EBP+4*1]=Return Address
+	; - [EBP+4*2]=Port
 	PUSH EBP
-	MOV BP, SP
+	MOV EBP, ESP
 	PUSH DX
-	MOV DX, [BP+4*2]
+	MOV DX, [EBP+4*2]
 	IN AL, DX
 	MOVZX EAX, AL
 	POP DX
-	MOV SP, BP
+	MOV ESP, EBP
 	POP EBP
 RET
 
@@ -71,20 +71,20 @@ _OUT_w:
 ;	XCHG CX, AX
 ;	XCHG CX, DX
 	;{TEMP} Linux did not accept __fastcall, so use CDECL
-	; - [BP+4*0]=BP
-	; - [BP+4*1]=Return Address
-	; - [BP+4*2]=Port
-	; - [BP+4*3]=Data
+	; - [EBP+4*0]=BP
+	; - [EBP+4*1]=Return Address
+	; - [EBP+4*2]=Port
+	; - [EBP+4*3]=Data
 	PUSH EBP
-	MOV BP, SP
+	MOV EBP, ESP
 	PUSH DX
 	PUSH AX
-	MOV DX, [BP+4*2]
-	MOV AX, [BP+4*3]
+	MOV DX, [EBP+4*2]
+	MOV AX, [EBP+4*3]
 	OUT DX, AX
 	POP AX
 	POP DX
-	MOV SP, BP
+	MOV ESP, EBP
 	POP EBP
 RET
 
@@ -95,16 +95,16 @@ _IN_w:
 ;	IN AX, DX
 ;	XCHG CX, DX
 	;{TEMP} Linux did not accept __fastcall, so use CDECL
-	; - [BP+4*0]=BP
-	; - [BP+4*1]=Return Address
-	; - [BP+4*2]=Port
+	; - [EBP+4*0]=BP
+	; - [EBP+4*1]=Return Address
+	; - [EBP+4*2]=Port
 	PUSH EBP
-	MOV BP, SP
+	MOV EBP, ESP
 	PUSH DX
-	MOV DX, [BP+4*2]
+	MOV DX, [EBP+4*2]
 	IN AX, DX
 	POP DX
-	MOV SP, BP
+	MOV ESP, EBP
 	POP EBP
 RET
 	

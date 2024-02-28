@@ -83,8 +83,11 @@
 	typedef  int64_t  sqword;// signed long long int
 	typedef size_t    stduint;
 	typedef ptrdiff_t stdint ;
+	//
+	#define valword(x) (*(word*)&(x))
 #endif
 
+#define _NOT_ABSTRACTED// into UNISYM
 
 #define nil 0
 #define NUL 0

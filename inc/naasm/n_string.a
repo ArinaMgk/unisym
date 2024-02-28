@@ -11,7 +11,7 @@
 	PUSH SI
 	PUSH DI
 	REPE CMPSB
-	JCXZ %1
+	JCXZ %1; also can use JZ
 	POP DI
 	POP SI
 %endmacro

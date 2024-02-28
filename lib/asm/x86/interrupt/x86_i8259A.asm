@@ -16,6 +16,7 @@ GLOBAL i8259A_Init32
 [BITS 32]
 
 ;{TEMP} only for a timer
+;      - {WAIT} abstracted from Mecocoa
 
 i8259A_Init32:
 	; Master PIC

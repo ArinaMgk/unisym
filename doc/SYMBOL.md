@@ -31,6 +31,14 @@
 
 
 
+## Namespace
+
+
+
+`uni` . Of course, `std` is optional if you would like it.
+
+
+
 ## Naming Rules
 
 - `number`: C++ style

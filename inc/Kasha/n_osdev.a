@@ -32,16 +32,18 @@
 %endmacro
 
 %define DQDptr DefineDescriptor
-%imacro DefineDescriptor 0-3 0x00000000, 0x00000, 0x00CF9200; BASE, LIMIT, ATTR
+%imacro DefineDescriptor 0-3 0x00000000, 0xFFFFF, 0x00CF9200; BASE, LIMIT, ATTR
 	;{TODO} More detail for ATTR
 	DW (%2) & 0xFFFF
 	DW (%1) & 0xFFFF
 	DB ((%1) >> 16) & 0xFF
-	DW (((%2) >> (4*2)) & 0x0F00) | ((%3) & 0xF0FF)
+	DW (((%2) >> (4*2)) & 0x0F00) | (((%3)>>8) & 0xF0FF)
 	DB ((%1) >> 24) & 0xFF
 %endmacro
 
+; Not-Volatile
 %imacro GDTDptrStruct 3
+	PUSH EBX
 	%ifnidni EAX,%1
 	MOV EAX,%1
 	%endif
@@ -71,6 +73,7 @@
 	XOR BX,BX; REMAIN HIGH 16BIT
 	OR EDX,EBX; HIGH 4 BIT
 	OR EDX,ECX; PROPERTY
+	POP EBX
 %endmacro
 
 %imacro GDTDptrAppend 0-2 0,0

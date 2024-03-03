@@ -84,7 +84,7 @@
 	typedef size_t    stduint;
 	typedef ptrdiff_t stdint ;
 	//
-	#define valword(x) (*(word*)&(x))
+	#define valword(x) (*(word*)&(x))// will be template overload as C++ version
 #endif
 
 #define _NOT_ABSTRACTED// into UNISYM

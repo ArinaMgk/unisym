@@ -1,0 +1,4 @@
+-gitignore
+.vscode/settings.json
+doc/www.unisym.org
+*.pyc

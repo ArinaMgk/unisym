@@ -15,7 +15,14 @@
 			PUSH ECX
 			PUSH EDX
 			PUSH EBX
-			PUSH ESP
+			; PUSH ESP
+			MOV EAX, ESP
+			ADD EAX, 4*4
+			PUSH EAX
+			ADD ESP, 4*4
+			POP EAX
+			PUSH EAX; need not?
+			SUB ESP, 4*4
 			PUSH EBP
 			PUSH ESI
 			PUSH EDI
@@ -28,7 +35,14 @@
 			PUSH CX
 			PUSH DX
 			PUSH BX
-			PUSH SP
+			; PUSH SP
+			MOV AX, SP
+			ADD AX, 2*4
+			PUSH AX
+			ADD SP, 2*4
+			POP AX
+			PUSH AX; need not?
+			SUB SP, 2*4
 			PUSH BP
 			PUSH SI
 			PUSH DI

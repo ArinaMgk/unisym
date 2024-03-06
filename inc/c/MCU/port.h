@@ -1,8 +1,8 @@
-// ASCII C-SDCC TAB4 CRLF
+// ASCII <Lango> TAB4 CRLF
 // Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: 2024Mar01
-// AllAuthor: @dosconio
-// ModuTitle: 8051 MCU Header for SDCC
+// LastCheck: <date>
+// AllAuthor: ...
+// ModuTitle: ...
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,11 +20,15 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_8051_SDCC
-#define _INC_MCU_8051_SDCC
+#ifndef _INC_MCU_PORT
+#define _INC_MCU_PORT
 
-#define defbyt(idn,adr) __sfr  __at (adr) idn;
-#define defbit(idn,adr) __sbit __at (adr) idn;
-#include "i8051.h"
+void outpohi(byte port, byte pinidn);
+
+void outpolo(byte port, byte pinidn);
+
+void outpb(byte port, byte pinsmap);
+
+byte innpb(byte port);
 
 #endif

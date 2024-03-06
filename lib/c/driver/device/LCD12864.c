@@ -1,6 +1,6 @@
 // ASCII C-SDCC TAB4 CRLF
 // Attribute: depend(HD44780.c)
-// LastCheck: 2024Mar02
+// LastCheck: 2024Mar05
 // AllAuthor: @dosconio
 // ModuTitle: LCD1602
 /*
@@ -20,31 +20,32 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/c/driver/LCD1602.h"
+#if defined(_LCD12864_PIN_PSB)
 
+#include "../../../../inc/c/driver/LCD12864.h"
 
-void LCD1602_Initialize(void)
+#ifndef _HD44780_BIT4
+#define _HD44780_BIT4 0// default 8 parallel
+#endif
+
+void LCD12864_Initialize(void)
 {
-	HD44780_Out(
-		#if _HD44780_BIT4!=1
-		0x38// 8-bit, 2-line, 5x7
-		#else
-		0x28// 4-bit, 2-line, 5x7
-		#endif
-		, be_cmd);
+	outpi(_LCD12864_PIN_PSB, 1);// {TEMP}parallel mode
+	HD44780_Out(0x30, be_cmd);// {TEMP}8 bit(accept-only)
 	HD44780_Out(0x0c, be_cmd);// Display on, cursor off, blink off
 	HD44780_Out(0x06, be_cmd);// Entry mode: cursor increment, no shift scroll
 	HD44780_Out(0x01, be_cmd);// Clear display
 }
 
-void LCD1602_Clear(void)
+void LCD12864_Clear(void)
 {
 	HD44780_Out(0x01, be_cmd);
 }
 
-void LCD1602_CursorSet(byte col, byte row)
+void LCD12864_CursorSet(byte col, byte row)
 {
-	HD44780_Out(0x80 + (row * 0x40) + col, be_cmd);
+	static const byte _tab_row[] = { 0x80, 0x90, 0x88, 0x98 };
+	HD44780_Out((_tab_row[row]) | col, be_cmd);
 }
 
 // ---- just for single screen ----
@@ -52,30 +53,30 @@ void LCD1602_CursorSet(byte col, byte row)
 
 static char _tab_dec2hex[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
-void LCD1602_Position(word posi)
+void LCD12864_Position(word posi)
 {
 	// HD44780_Out(0x80 + pos, be_cmd);
 	if (posi <= 16 * 2)// col * row
-		LCD1602_CursorSet(posi & 0xF, posi >> 4);// (posi%16, posi/16)
+		LCD12864_CursorSet(posi & 7, posi >> 3);// ? useful ?
 }
 
-void LCD1602_OutText(const char* str, word len)//void outtxt(const char *str, dword len);
+void LCD12864_OutText(const char* str, word len)//void outtxt(const char *str, dword len);
 {
 	while (len-- && *str)
 		HD44780_Out(*str++, be_dat);
 }
 
-//#define LCD1602_OutString(a) LCD1602_OutText(a, ~(dword)0)//outs
+//#define LCD12864_OutString(a) LCD12864_OutText(a, ~(dword)0)//outs
 
-void LCD1602_OutChar(const char chr)//void outc(const char chr);
+void LCD12864_OutChar(const char chr)//void outc(const char chr);
 {
 	HD44780_Out(chr, be_dat);
-	//<=> LCD1602_OutText(&chr, 1);
+	//<=> LCD12864_OutText(&chr, 1);
 }
 
 // ----
 
-void LCD1602_Outi8hex(const byte inp)//void outi8hex(const byte inp);
+void LCD12864_Outi8hex(const byte inp)//void outi8hex(const byte inp);
 {
 	byte val = inp;
 	char buf[2];
@@ -85,10 +86,10 @@ void LCD1602_Outi8hex(const byte inp)//void outi8hex(const byte inp);
 		buf[1 - i] = _tab_dec2hex[val & 0xF];
 		val >>= 4;
 	}
-	LCD1602_OutText(buf, 2);
+	LCD12864_OutText(buf, 2);
 }
 
-void LCD1602_Outi16hex(const word inp)//void outi16hex(const word inp);
+void LCD12864_Outi16hex(const word inp)//void outi16hex(const word inp);
 {
 	word val = inp;
 	char buf[4];
@@ -98,10 +99,10 @@ void LCD1602_Outi16hex(const word inp)//void outi16hex(const word inp);
 		buf[3 - i] = _tab_dec2hex[val & 0xF];
 		val >>= 4;
 	}
-	LCD1602_OutText(buf, 4);
+	LCD12864_OutText(buf, 4);
 }
 
-void LCD1602_Outi32hex(const dword inp)//void outi32hex(const dword inp);
+void LCD12864_Outi32hex(const dword inp)//void outi32hex(const dword inp);
 {
 	dword val = inp;
 	char buf[8];
@@ -111,7 +112,9 @@ void LCD1602_Outi32hex(const dword inp)//void outi32hex(const dword inp);
 		buf[7 - i] = _tab_dec2hex[val & 0xF];
 		val >>= 4;
 	}
-	LCD1602_OutText(buf, 8);
+	LCD12864_OutText(buf, 8);
 }
 
 //{TODO} combinated with - JUST till here - until consio contain these.
+
+#endif

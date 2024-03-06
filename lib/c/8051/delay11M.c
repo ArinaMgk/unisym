@@ -1,8 +1,8 @@
-// ASCII C-SDCC TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: 2024Mar01
+// ASCII C TAB4 CRLF
+// Attribute: Freq(11.0592MHz)
+// LastCheck: 2024Mar04
 // AllAuthor: @dosconio
-// ModuTitle: 8051 MCU Header for SDCC
+// ModuTitle: 8051 MCU Delay 
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,11 +20,42 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_8051_SDCC
-#define _INC_MCU_8051_SDCC
+#define nop _nop_
+extern void nop(void);
 
-#define defbyt(idn,adr) __sfr  __at (adr) idn;
-#define defbit(idn,adr) __sbit __at (adr) idn;
-#include "i8051.h"
 
-#endif
+void delay010us()
+{
+	unsigned char i;
+	i = 2;
+	while (--i);
+}
+
+void delay100us()
+{
+	unsigned char i;
+	nop();
+	i = 43;
+	while (--i);
+}
+
+void delay500us()
+{
+	unsigned char i;
+	nop();
+	i = 227;
+	while (--i);
+}
+
+void delay001ms()
+{
+	unsigned char i, j;
+	nop();
+	i = 2;
+	j = 199;
+	do
+	{
+		while (--j);
+	} while (--i);
+}
+

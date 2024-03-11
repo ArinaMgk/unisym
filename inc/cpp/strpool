@@ -1,0 +1,54 @@
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: unchecked for C++ version
+// AllAuthor: ...
+// ModuTitle: ...
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+//{TODO} combinated with `new` keyword.
+
+#ifndef _INC_X_STRPOOL
+#define _INC_X_STRPOOL
+
+#ifndef _INC_CPP
+#define _INC_CPP
+#endif
+
+#include "../c/alice.h"
+
+namespace uni {
+
+	class Strpool {
+	public:
+		Strpool(stduint defablk = 0x1000);
+		~Strpool();
+		byte* Alloc(stduint size, const byte* mempos = 0);// make use of MemCopyN
+		byte* AllocZero(stduint size);// initialize with 0
+		byte* AllocString(const char* str, stduint length = 0);
+	private:
+		stduint unit_size;
+		byte* root_pool;
+		byte* last_pool;
+		byte* crt_pool;
+		stduint local_ptr;// < unit_size
+		byte* new_pool(stduint len=0);// and switch to it
+	};
+
+}
+
+#endif

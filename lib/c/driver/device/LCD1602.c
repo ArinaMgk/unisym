@@ -26,7 +26,7 @@
 void LCD1602_Initialize(void)
 {
 	HD44780_Out(
-		#if _HD44780_BIT4!=1
+		#if !defined(_HD44780_BIT4) || _HD44780_BIT4!=1
 		0x38// 8-bit, 2-line, 5x7
 		#else
 		0x28// 4-bit, 2-line, 5x7

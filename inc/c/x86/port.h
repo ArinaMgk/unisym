@@ -1,8 +1,8 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
-// LastCheck: RFZ03
-// AllAuthor: @dosconio
-// ModuTitle: CPlusPlus Include C Header Tog
+// ASCII <Lango> TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: <date>
+// AllAuthor: ...
+// ModuTitle: ...
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,20 +20,14 @@
 	limitations under the License.
 */
 
-#ifndef _INC_CPP
-#define _INC_CPP
-#endif
+#ifndef _INC_X86_PORT
+#define _INC_X86_PORT
 
-#ifndef _INC_HEAD_CPP
-#define _INC_HEAD_CPP
-
-extern "C" {
-	///#define class Class
-	#define register//                    ISO C++17 does not allow 'register' storage class specifier
-#else
-#undef _INC_HEAD_CPP
-	///#undef class
-	#undef  register// MSVC/*/xkeycheck.h The C++ Standard Library forbids macroizing the keyword "register"
-}
+#define outpi// Out to Port's Pin
+#define outpb OUT_b
+#define outpw OUT_w
+#define innpi// In from Port's Pin
+#define innpb IN_b
+#define innpw IN_w
 
 #endif

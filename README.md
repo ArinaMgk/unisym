@@ -4,6 +4,8 @@
 
 All the code is by hands, without copying anyone including artificial intelligence, so these big changes and mistakes in codes may be forgiven.
 
+Icon: ![icon](./.picture/unisym.20240306.png) (ゆにッシンボル, 統象庫)
+
 Repository: [Depend](./doc/DEPEND.md); [Catalog](./doc/CATALOG.md); [Symbol Covenant](./doc/SYMBOL.md) ; ...
 
 > Where to see the "`Uni-`" and "`-Sym`", for example, there are harmonious identifications for linkage-identifiers and calling-parameters, 

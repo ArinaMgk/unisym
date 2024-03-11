@@ -32,8 +32,6 @@
 	#define pointer(_typ) _typ * 
 	#define pointerf(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magicoll pointer: "pointer(pointer(void)) pp"
-#else
-	#define register// ISO C++17 does not allow 'register' storage class specifier
 #endif
 
 
@@ -127,12 +125,14 @@
 
 //{} May be conflict with stdlib.h, so temporarily:
 #include <stdlib.h>
-#ifndef max//(a,b)
-#define max(a,b) ((a)>(b)?(a):(b))
+#ifndef maxof//(a,b)
+#define maxof(a,b) ((a)>(b)?(a):(b))
 #endif
-#ifndef min//(a,b)
-#define min(a,b) ((a)<(b)?(a):(b))
+#ifndef minof//(a,b)
+#define minof(a,b) ((a)<(b)?(a):(b))
 #endif
+
+
 
 #define MAX(d,s) if((d)<(s)){(d)=(s);}
 

@@ -1,0 +1,99 @@
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: 
+// AllAuthor: @dosconio
+// ModuTitle: Linear Token Node for C++
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_X_TNODE
+#define _INC_X_TNODE
+
+#ifndef _INC_CPP
+#define _INC_CPP
+#endif
+
+extern "C" {
+#include "../c/alice.h"
+#include "../c/ustring.h"
+}
+extern "C++" {
+#include "dnode"
+}
+
+namespace uni {
+	class Tnode : public Dnode {
+	public:
+		stduint col, row;
+		Tnode*& left = (Tnode*&)Dnode::left;
+		Tnode*& next = (Tnode*&)Dnode::next;
+		void Suspend(void (*freefunc)(Tnode*) = 0, Tnode** as_root = 0,\
+			Tnode** as_last = 0, stduint** counts = 0);
+	};
+
+	class TnodeChain : public DnodeChain {
+	public:
+		TnodeChain();
+		TnodeChain(bool need_free);
+		~TnodeChain();
+		Tnode* Append(const void* addr, stduint contlen, stduint typ, stduint row, stduint col);
+		void Sort();
+		void Index(void* content);
+		// stduint Count() ...
+		Tnode* Root() {
+			return (Tnode*)root_node;
+		}
+		Tnode* Last() {
+			return (Tnode*)last_node;
+		}
+		
+		void Remove(const stduint iden);
+		void Remove(const void* content);
+		void Remove(Tnode* nod, bool systematic = true);
+		void SetFreeContent(bool need_free);
+	protected:
+		Tnode*& root_node = (Tnode*&)DnodeChain::root_node;
+		Tnode*& last_node = (Tnode*&)DnodeChain::last_node;
+		//{TODO}
+	};
+
+	class TokenParseUnit {
+	private:
+		TnodeChain* chain;
+		int (*getnext)(void);
+		void (*seekback)(stdint chars);
+	public:
+		stduint crtline;
+		stduint crtcol;
+		char* buffer, * bufptr;
+		TokenParseUnit(int (*getnext)(void), void (*seekback)(stdint chars), char* buffer);
+		~TokenParseUnit();
+		TnodeChain* TokenParse();
+		int Getnext() {
+			crtcol++;
+			return getnext();
+		}
+		void Seekpos(stdint chars) {
+			seekback(chars);
+		}
+		TnodeChain* GetChain() {
+			return chain;
+		}
+	};
+}
+
+#endif

@@ -1,0 +1,19 @@
+; ASCII NASM0207 TAB4 CRLF
+; Attribute: BIOS
+; LastCheck: 2024Jan31
+; AllAuthor: @dosconio
+; ModuTitle: String Routine
+; Copyright: ArinaMgk UniSym, Apache License Version 2.0
+
+; Real-16: Jump if the contexts of strings are equal
+; PRES: DS:SI, ES:DI, CX
+%imacro JSTRX 1
+	PUSH SI
+	PUSH DI
+	REPE CMPSB
+	JCXZ %1; also can use JZ
+	POP DI
+	POP SI
+%endmacro
+
+

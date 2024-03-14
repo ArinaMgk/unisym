@@ -14,7 +14,7 @@
 
 #### `ustdbool.h`≥ `stdbool.h` 
 
-
+since C99.
 
 #### `ustring.h` ≥ `string.h`
 

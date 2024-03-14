@@ -79,8 +79,8 @@ node* NodeAppend(node* first, void* addr)
 	}
 	else while (first->next)
 	{
-		first = first->next;
 		last = first;
+		first = first->next;
 	}
 
 	if (first)// _node_order == _Node_Order_Insert and other conditions inserting right

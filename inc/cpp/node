@@ -1,0 +1,78 @@
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: 
+// AllAuthor: @dosconio
+// ModuTitle: Node for C++
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_X_NODE
+#define _INC_X_NODE
+
+#ifndef _INC_CPP
+#define _INC_CPP
+#endif
+
+extern "C" {
+#include "../c/alice.h"
+#include "../c/aldbg.h"
+#include "../c/node.h"
+}
+
+namespace uni {
+
+	class NodeChain {
+	public:
+		NodeChain(bool need_free);
+		~NodeChain();
+		Node* Append(const void* addr);
+		toheap Node* Append(const char* addr);
+		Node* Append(const void* addr, bool onleft, Node* nod = 0);
+		void Index(void* content);
+		stduint Count() { return node_count; }
+		Node* Root() { return root_node; }
+		Node* Last() { return last_node; }
+		void Remove(const stduint iden);
+		void Remove(const void* content);
+		void Remove(Node* nod);
+		void SetFreeContent(bool need_free);
+		void Onfree(void(*fn_free)(void*) = 0, bool need_free = true) {
+			_node_freefunc = fn_free;
+			need_free_content = need_free;
+		}
+		void Sort();
+		void Onsort(bool sorted = true, bool little_to_big = true, int (*fn_compare)(const void*, const void*) = 0) {
+            this->sorted = sorted;
+            this->little_endian = little_to_big;
+            this->_node_compare = fn_compare;
+        }
+	protected:
+		stduint node_count;
+		Node* root_node;
+		Node* last_node;
+		bool need_free_content;
+		void(*_node_freefunc)(void*);
+		bool sorted;
+		bool little_endian;
+		bool free_pass_whole;
+		int (*_node_compare)(const void* addr0, const void* addr1);// return 0 for equal, 1 for greater, -1 for less
+	};
+
+}
+
+#endif
+

@@ -24,16 +24,16 @@
 #define _INC_CPP
 #endif
 
-#ifndef _INCX_C
-#define _INCX_C
+#ifndef _INC_HEAD_CPP
+#define _INC_HEAD_CPP
 
 extern "C" {
 	///#define class Class
-
+	#define register//                    ISO C++17 does not allow 'register' storage class specifier
 #else
-#undef _INCX_C
-
+#undef _INC_HEAD_CPP
 	///#undef class
+	#undef  register// MSVC/*/xkeycheck.h The C++ Standard Library forbids macroizing the keyword "register"
 }
 
 #endif

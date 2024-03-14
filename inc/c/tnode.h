@@ -80,5 +80,4 @@ inline static tnode* StrTokenBind(tnode* left, tnode* mid, tnode* right)
 	do StrTokenPrint(first);\
 	while (first = first->next);
 
-
 #endif

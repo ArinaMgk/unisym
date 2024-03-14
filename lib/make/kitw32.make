@@ -11,13 +11,16 @@ LIBC_DIR=../../lib/c/
 DEMO_DIR=../../demo/kit/
 OPT=-O3 -s -D_WinNT -L../../../_bin/ -lw32d
 
+CSC4=C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe
+
 all:\
 args\
 cal\
 clear\
 fdump\
 ffset\
-
+\
+segsel\
 
 
 args:
@@ -39,3 +42,8 @@ ffset:
 
 outdated:
 	# cmd /c move cal.exe ${DEST_BIN}
+
+segsel:
+	# OSDEV/SegmentSelector powered by DotNetFrameworkCS4
+	cd ${DEMO_DIR}SegmentSelector && ${CSC4} /nologo /t:winexe /out:SegSel.exe *.cs
+	mv ${DEMO_DIR}SegmentSelector/SegSel.exe ${DEST_BIN}SegSel.exe

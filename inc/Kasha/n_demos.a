@@ -121,36 +121,35 @@
 %endmacro
 
 ;void [es] stack int13h2 CodefileLoad16(bx addr, imm numofsec_offset=0, imm start_sector=2); based:USL/DISK/DiskRead;
-%imacro CodefileLoad16 1-3 0,2
- PUSHAD
- MOV AL,1; NumofSector
- MOV AH,2H
- %ifnidni BX,%1
-  MOV BX,%1
- %endif
- MOV CH,0
- MOV CL,%3
- MOV DH,0
- MOV DL,80H; Master Drive
- INT 13H
- MOV AL,[ES:BX+%2]
- SUB AL,1
- JBE %%endo
- INC CL;
- PUSH AX
- MOV AX,ES
- ADD AX,0x20; 512 Byte
- MOV ES,AX
- POP AX
- MOV AH,2H
- INT 13H
- %%endo:
- POPAD
- ; ??? 8086 accept popad ???
- ; ??? track limit ???
- ; This will be adapted to LBA and CHS in the future --ArinaRFQ04
+%imacro CodefileLoad16 1-4 0,2,0x80
+	PUSHAD
+	MOV AL,1; NumofSector
+	MOV AH,2H
+	%ifnidni BX,%1
+	MOV BX,%1
+	%endif
+	MOV CH,0
+	MOV CL,%3
+	MOV DH,0
+	MOV DL,%4
+	INT 13H
+	MOV AL,[ES:BX+%2]
+	SUB AL,1
+	JBE %%endo
+	INC CL;
+	PUSH AX
+	MOV AX,ES
+	ADD AX,0x20; 512 Byte
+	MOV ES,AX
+	POP AX
+	MOV AH,2H
+	INT 13H
+	%%endo:
+	POPAD
+	; ??? 8086 may not accept popad ???
+	; ??? track limit ???
+	; This will be adapted to LBA and CHS in the future --ArinaRFQ04
 %endmacro
-;If this function should be renamed, the previous name should be kept!
 
 ; Below are from n_osdev.a of Arinae, collected and partially  commented  by Haruno.
 
@@ -563,6 +562,8 @@
 	POP ECX
 %endmacro
 %imacro BitmapAllocBottom16 0
+	; no demonstration using
+	;{TODO} merge with BitmapAllocBottom
 	PUSH CX
 	PUSH DX
 	PUSH BX
@@ -668,7 +669,7 @@
 	POP EAX
 %endmacro
 %imacro PageRegister16 0
- ;...
+ ;{merge this case}
 %endmacro
 
 

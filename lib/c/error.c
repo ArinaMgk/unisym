@@ -20,13 +20,32 @@
 	limitations under the License.
 */
 
-#include "../../inc/c/aldbg.h"
 #include "../../inc/c/error.h"
 
+#include <stdio.h>
+
 #if defined(_DEBUG) || defined(_dbg)
+
+node* _WARN_CHAIN = NULL;
+char* _ERRO_MESSAGE = NULL;
+jmp_buf _ERRO_JUMP = { 0 };
+
 void erro(char* erromsg)
 {
-	
+	_ERRO_MESSAGE = erromsg;
+	if (_ERRO_JUMP) longjmp(_ERRO_JUMP, 1);
+	else
+	{
+		fprintf(stderr, "Error: %s\n", erromsg);
+		memf(_ERRO_MESSAGE);
+		exit(1);
+	}
+}
+
+void warn(char* warnmsg)
+{
+	if (_WARN_CHAIN) NodeAppend(_WARN_CHAIN, warnmsg);
+	else _WARN_CHAIN = NodeAppend(NULL, warnmsg);
 }
 
 #endif

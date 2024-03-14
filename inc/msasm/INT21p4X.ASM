@@ -343,8 +343,12 @@ endm
 ;	WORD  overlay number
 
 ; AH = 4Ch DOS 2+ - QUIT WITH EXIT CODE (EXIT)
-;AL = exit code
+; void <<< SysQuit <<< AL:excode=0
 ;Return: never returns
+%imacro SysQuit excode:=<0>
+	mov ax, 4C00h | excode
+	int 21h
+%endmacro
 
 ; AH = 4Dh DOS 2+ - GET EXIT CODE OF SUBPROGRAM (WAIT)
 ;Return: AL = exit code of subprogram (functions 31h or 4Ch)

@@ -12,6 +12,5 @@ CS:
 	#INVALID ${CSC4} /nologo /out:${dest_dir}hello.DotNetCS4.exe ${hello_dir}CSharp.cs
 	cd ${hello_dir} && ${CSC4} /nologo /out:${dest_dir}hello.DotNetCS4.exe CSharp.cs
 Java:
-	#INVALID cd ${dest_dir} && javac ../unisym/demo/hello/Java.java
 	javac ${hello_dir}Java.java -d ${dest_dir}
 	cd ${dest_dir} && java Java

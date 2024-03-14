@@ -28,7 +28,7 @@ int FFSet(const char* dest, const char* sors, size_t sector)// wo unisym/Kasha/k
 		fputc(ch, destfp);
 		bytes++;
 	}
-	printf("\nffset> %" PRIdPTR " bytes yo source.\n", bytes);
+	printf("%s> %" PRIdPTR " bytes from source.\n", sors, bytes);
 	fclose(fp);
 	fclose(destfp);
 	return 0;

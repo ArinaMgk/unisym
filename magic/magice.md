@@ -1,8 +1,8 @@
-# Universal Logical Linear Language : Magicoll
+# Universal Logical Linear Language : Magice
 
-- domain: magicoll.org 
+- domain: <del>http://magicoll.org</del> (abandoned) or http://magice.org 
 - origin: `Magic Collection of Origin and Love Legend`, from `L.A.O.E.C. (Love & Origin Epic Collection, used name of UNISYM and Her-Note)` 
-- file extension: `.m` `.mg` `.mg*` 
+- file extension: `.m` `.mg` `.mgc` `.src` 
     - header extension: `.h` `.mgh` 
 
 - compiler: `mgc` 

@@ -25,7 +25,25 @@
 	OUT 0X92,AL
 %endmacro
 
+%imacro Addr20Disable 0
+	IN AL,0x92
+	AND AL,11111101B
+	OUT 0X92,AL
+%endmacro
+
+%define DQDptr DefineDescriptor
+%imacro DefineDescriptor 0-3 0x00000000, 0xFFFFF, 0x00CF9200; BASE, LIMIT, ATTR
+	;{TODO} More detail for ATTR
+	DW (%2) & 0xFFFF
+	DW (%1) & 0xFFFF
+	DB ((%1) >> 16) & 0xFF
+	DW (((%2) >> (4*2)) & 0x0F00) | (((%3)>>8) & 0xF0FF)
+	DB ((%1) >> 24) & 0xFF
+%endmacro
+
+; Not-Volatile
 %imacro GDTDptrStruct 3
+	PUSH EBX
 	%ifnidni EAX,%1
 	MOV EAX,%1
 	%endif
@@ -43,18 +61,35 @@
 	ROL EDX,8
 	; EDX:EAX=[BASE 23~16][ZERO][BASE 31~24]:[BASEADDR (15~0)16][SEGLIMIT 16]
 	;IF YOU CAN'T SEE, REFER AGURICHAN' NOTE~
-	BSWAP EDX; NA 31~24,23~16
+	%ifndef _BSWAP_ALLOW_NOT
+		BSWAP EDX; NA 31~24,23~16
+	%else
+		ROL EDX, 16; AA0000BB -> 00BBAA00
+		SHR DX, 8  ; 00BBAA00 -> 00BB00AA
+		SHL EDX, 8 ; 00BB00AA -> BB00AA00
+		XCHG DL, DH; BB00AA00 -> BB0000AA
+	%endif
 	; EDX:EAX=[BASE 31~24][ZERO][BASE 23~16]:[BASEADDR (15~0)16][SEGLIMIT 16]
 	XOR BX,BX; REMAIN HIGH 16BIT
 	OR EDX,EBX; HIGH 4 BIT
 	OR EDX,ECX; PROPERTY
+	POP EBX
 %endmacro
 
 %imacro GDTDptrAppend 0-2 0,0
- MOV DWORD[EBX],%2;
+ MOV DWORD[EBX],%2; Low 32bit
  ADD EBX,0X04;
- MOV DWORD[EBX],%1;
+ MOV DWORD[EBX],%1; High 32bit
  ADD EBX,0X04;
+%endmacro
+
+%define DQGate DefineGate
+%imacro DefineGate 0-4 0x0000,0x00000000,0,1_11_011000000_0000B
+	; {PARAM} OFFSET, SELECTOR, DPL, TYPE
+	DW (%2) & 0xFFFF
+	DW (%1) & 0xFFFF
+	DW ((%3) & 0b11111) | (((%4) << 8) & 0xFF00)
+	DW ((%2) >> 16) & 0xFFFF
 %endmacro
 
 %imacro GateStruct 3

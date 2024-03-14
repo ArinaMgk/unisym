@@ -1,0 +1,68 @@
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: 
+// AllAuthor: @dosconio
+// ModuTitle: Identifier Node for C++
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_X_INODE
+#define _INC_X_INODE
+
+#ifndef _INC_CPP
+#define _INC_CPP
+#endif
+
+extern "C" {
+#include "../c/alice.h"
+}
+extern "C++" {
+#include "node"
+}
+
+namespace uni {
+
+	class Inode : public Node {
+	public:
+		const void* data;
+		stduint type;
+		stduint property;
+		Inode* next;
+	};
+
+	class InodeChain : public NodeChain {
+	public:
+		InodeChain(bool need_free);
+		~InodeChain();
+		void Append(const void* addr, const void* data, stduint typ, stduint prop);
+		void Sort();
+		void Index(void* content);
+		// inherited stduint Count() ... 
+		Inode* Root() {
+			return (Inode*)root_node;
+		}
+		void Remove(const stduint iden);
+		void Remove(const void* content);
+		void SetFreeContent(bool need_free);
+	protected:
+		Inode*& root_node = (Inode*&)NodeChain::root_node;
+		Inode*& last_node = (Inode*&)NodeChain::last_node;
+		//{TODO}
+	};
+}
+
+#endif

@@ -32,8 +32,6 @@
 	#define pointer(_typ) _typ * 
 	#define pointerf(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magicoll pointer: "pointer(pointer(void)) pp"
-#else
-	#define register// ISO C++17 does not allow 'register' storage class specifier
 #endif
 
 
@@ -52,6 +50,7 @@
 	#define __BIT_STR__ "8"
 #endif
 
+#define __STDC_FORMAT_MACROS// for GCC
 #include <inttypes.h>
 #define PRIdSTD PRIdPTR
 #define PRIuSTD PRIuPTR
@@ -65,22 +64,29 @@
 	#include "us_win64.h"
 #else
 	#include <stddef.h>
-	#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate ¡®unsigned¡¯
+	#include <stdint.h>
+	#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate 'unsigned'
 		#define uint unsigned int
 	#endif
-	#define llong long long int
+	#define llong long long int 
 	#define sll signed long long int
 	#define ullong unsigned long long int
 	#define ull unsigned long long int
-	typedef unsigned char byte;
-	///[MinGW-i686 Conflict?] #define byte unsigned char
-	#define word unsigned short int
-	#define dword unsigned int
-	#define qword unsigned long long int
-	#define stduint size_t
-	#define stdint ptrdiff_t
+	typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
+	typedef   signed char sbyte;
+	typedef uint16_t  word;// unsigned short int
+	typedef  int16_t  sword;// signed short int
+	typedef uint32_t  dword;// unsigned int
+	typedef  int32_t  sdword;// signed int
+	typedef uint64_t  qword;// unsigned long long int
+	typedef  int64_t  sqword;// signed long long int
+	typedef size_t    stduint;
+	typedef ptrdiff_t stdint ;
+	//
+	#define valword(x) (*(word*)&(x))// will be template overload as C++ version
 #endif
 
+#define _NOT_ABSTRACTED// into UNISYM
 
 #define nil 0
 #define NUL 0
@@ -116,16 +122,18 @@
 #define xchg(a,b) (a)^=(b)^=(a)^=(b)
 #define xchgptr(a,b) *(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b)
 
-#define AssignShiftLeft(l,m,r) (l=m,m=r)// different from `l=m=r`
+#define AssignParallel(l,m,r) ((l=m),(m=r))// different from `l=m=r`
 
 //{} May be conflict with stdlib.h, so temporarily:
 #include <stdlib.h>
-#ifndef max//(a,b)
-#define max(a,b) ((a)>(b)?(a):(b))
+#ifndef maxof//(a,b)
+#define maxof(a,b) ((a)>(b)?(a):(b))
 #endif
-#ifndef min//(a,b)
-#define min(a,b) ((a)<(b)?(a):(b))
+#ifndef minof//(a,b)
+#define minof(a,b) ((a)<(b)?(a):(b))
 #endif
+
+
 
 #define MAX(d,s) if((d)<(s)){(d)=(s);}
 

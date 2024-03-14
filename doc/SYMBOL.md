@@ -31,6 +31,14 @@
 
 
 
+## Namespace
+
+
+
+`uni` . Of course, `std` is optional if you would like it.
+
+
+
 ## Naming Rules
 
 - `number`: C++ style
@@ -38,3 +46,6 @@
 - `number_t`: C style
 - `NUMBER`: Classic style
 
+
+
+- Real-16: The symbols are without '_' prefix.

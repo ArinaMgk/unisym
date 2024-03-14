@@ -4,9 +4,13 @@
 
 All the code is by hands, without copying anyone including artificial intelligence, so these big changes and mistakes in codes may be forgiven.
 
-> Where to see the "Uni-" and "-Sym", for example, there are harmonious identifications for linkage-identifiers and calling-parameters, 
+Icon: ![icon](./.picture/unisym.20240306.png) (ゆにッシンボル, 統象庫)
 
-```
+Repository: [Depend](./doc/DEPEND.md); [Catalog](./doc/CATALOG.md); [Symbol Covenant](./doc/SYMBOL.md) ; ...
+
+> Where to see the "`Uni-`" and "`-Sym`", for example, there are harmonious identifications for linkage-identifiers and calling-parameters, 
+
+```c
 ConPrint("Hello") # Some script-interpret
 
 ConPrint("Hello");/* CPL */
@@ -23,7 +27,7 @@ ConPrint Hello_String; Assembly Macro
 
 | Folder Name        | For                                                     | As                                                         |
 | ------------------ | ------------------------------------------------------------ | ------------------ |
-| ASM `asm/` | sources(asm) <=> object | assembler and dis-assembler |
+| [ASM](./doc/AASM.md)  `asm/` | sources(asm) <=> object | assembler and dis-assembler |
 | DEM `demo/` | / | demonstrations |
 | DOC `doc/` | / | documents |
 | INC `inc/` | / | including files |
@@ -39,22 +43,30 @@ ConPrint Hello_String; Assembly Macro
 - `../bin/` 
 - `demo/` _(option)_ 
 
-
 **Domain** 
 
 - unisym.org
 
+**Mission** 
+
+- We never abandon any language, for it can be improved the potential to be more systematic and most suitable for some cases.
+
+
+
 **Contributors** 
 
-- Phina Ren (aka `ArinaMgk` yo GitHub)
+- ![Contributor ArinaMgk](./.picture/phina.head.bmp) <del> ***Phina Ren***</del> (First Last)  
+    - [**PAST**](./doc/author/arina.md):  <mark>Physically and Mentally Sick</mark>  
+    - **Boudoir**: [Her-garden](phina.net)  or its `.org` or `.ren` 
+    - **GitHub**: `ArinaMgk` 
+    - **Mail**: phina@tuta.io 
+    - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk) 
 
-    - ![Contributor ArinaMgk](./.picture/phina.head.bmp) 
-- [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk) 
-    - phina.net 
+- ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** (Family First)
 
-- Doshou Haruno (dosconyo@gmail.com)
-
-    - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) 
-    - fork: [Dosconio-forked Uniform Symbolic phina-origined](http://github.com/dosconio/unisym) 
-    - doscon.io 
+    - **Boudoir**: http://doscon.io and dosconio series
+    - **GitHub**: `dosconio` 
+    - **Mail**: dosconyo@gmail.com 
+    - **Fork**: [Dosconio-derived USYM](http://github.com/dosconio/unisym) 
+- 皆さん～
 

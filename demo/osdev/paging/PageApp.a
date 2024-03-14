@@ -1,17 +1,17 @@
-;Build RFQ21&22
-;	asm PageApp.a
-;	asm PageSub.a
-;	vdk PageApp.a 1
-;	vdk PageSub.a 50
-; Char UTF-8, Derived from TaskApp_RFQ19x.a
-; "仍然没写完，有错误，最近两周天天学习x86，受不了了，而且26号开学，USL先搁置ば。"——HarunoRFQ23:22:25
-; "写完了"
+; UTF-8 NASM TAB4 CRLF
+; Attribute: CPU(x86)
+; LastCheck: 2024JAN21
+; AllAuthor: @ArinaMgk @dosconio
+; ModuTitle: Paging
+; Copyright: ArinaMgk UniSym, Apache License Version 2.0
+
 %include "osdev.a"
 %include "video.a"
 %include "debug.a"
-
 %include "hdisk.a"
 %include "demos.a"
+%include "pseudo.a"
+
 ;---Macros---
 	%imacro M_CopyPDir 0; in(void)-out(eax=PhizikAddr)~pres(ds=es=SegGlb)
 		PUSH ESI
@@ -66,7 +66,7 @@
 	;------GDTE 09 R0 Subapp' LDT
 		SubLDT EQU (8*9)
 	;---------
-GDT_PhADR EQU 0x5000
+GPDT_PhADR EQU 0x5000
 PgMap_PhADR EQU 0x80000
 AppTSS_ADR EQU 0x8000_7000
 THIS_P EQU 0x1000
@@ -74,10 +74,10 @@ THISF_SEG EQU 0x0100 ;origin 16bit NonPE
 THISF_ADR EQU 0x8000_1000
 [BITS 16]
 File
-DefineStack 0,STACK_SEG
+DefineStack16 0,STACK_SEG
 ;---PAGE
 	; Clear -> Set Present 0 -> make use of Protect
-	MOV AX,GDT_PhADR/16
+	MOV AX,GPDT_PhADR/16
 	MOV DS,AX
 	MOV CX,1024
 	XOR SI,SI
@@ -410,7 +410,7 @@ Routine:
 		MOV DS,EAX
 		POP EAX
 		MOV AH,DH
-		Print ESI,AH; do not use DH here
+		ConPrint ESI,AH; do not use DH here
 		RET
 		ALIGN 16
 	R_MemAlloc:
@@ -464,12 +464,11 @@ Routine:
 		MOV EAX,SegVdo
 		MOV ES,EAX
 		POP EAX
-
-		GetCursor
+		ConCursor
 		AND EAX,0xFFFF
 		DbgEcho32 EDX,EAX
 		ADD AX,8
-		SetCursor AX
+		ConCursor AX
 		RET
 		ALIGN 16
 RoutineEnd:

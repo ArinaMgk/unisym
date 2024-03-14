@@ -177,7 +177,7 @@ static inline char* StrCopyN(char* dest, const char* sors, size_t n)
 	register char* d = dest;
 	if (!sors)goto endo;
 	while (n && (*d++ = *sors++)) n--;
-	*d = 0;
+	d[n ? -1 : 0] = 0;
 endo:
 	return dest;
 }

@@ -13,7 +13,7 @@
 ; ____________________________________________________________________________
 
 ; EAX <<< _StrLength <<< ECX(const char*)
-; __fastcall
+; Windows __fastcall
 ; Get the length of a ASCIZ string
 ; {TODO: optimize with SCASD and check 4 bytes for each iteration}
 ; - "\0" ---> FFFFFFFF

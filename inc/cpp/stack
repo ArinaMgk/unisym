@@ -1,0 +1,84 @@
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: <date>
+// AllAuthor: ...
+// ModuTitle: ...
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_X_STACK
+#define _INC_X_STACK
+
+namespace uni {
+
+	template <typename type0> class Stack {
+	public:
+		Stack(unsigned size);
+		~Stack();
+		void push(type0 item);
+		type0 pop();
+		bool isEmpty();
+		bool isFull();
+	private:
+		unsigned size;// todo size_t
+		unsigned ptr;// todo size_t
+		type0* stack;
+	};
+
+}
+
+namespace uni {
+
+#define tmpl(...) template <typename type0> __VA_ARGS__ Stack<type0>
+
+	tmpl()::Stack(unsigned size) {
+		this->size = size;
+		ptr = size;
+		stack = new type0[size];
+	}
+
+	tmpl()::~Stack() {
+		delete[] stack;
+	}
+
+	tmpl(void)::push(type0 item) {
+		if (isFull()) {
+			// throw "Stack is full";
+		}
+		else stack[--ptr] = item;
+	}
+
+	tmpl(type0)::pop() {
+		if (isEmpty()) {
+			// throw "Stack is empty";
+			return *stack;//{todo}
+		}
+		else return stack[ptr++];
+	}
+
+	tmpl(bool)::isEmpty() {
+		return ptr >= size;
+	}
+
+	tmpl(bool)::isFull() {
+		return ptr == 0;
+	}
+}
+
+#undef tmpl
+
+#endif

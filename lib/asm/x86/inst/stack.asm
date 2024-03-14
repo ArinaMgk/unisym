@@ -65,8 +65,8 @@ _pushfd:; do not change flags
 	PUSH EAX
 	PUSH EDX
 	MOV EAX, [EBP+4*2]
-	MOV EDX, [EBP+4*0]
-	MOV [EBP+4*0], EAX
+	MOV EDX, [EBP+4*1]
+	MOV [EBP+4*1], EAX
 	MOV [EBP+4*2], EDX
 	POP EDX
 	POP EAX

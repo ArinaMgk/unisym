@@ -30,6 +30,8 @@
 #define malc_limit _MALLIMIT
 
 #define _MALLIMIT_DEFAULT 0x1000
+#define unchecked
+#define toheap
 
 extern void erro(char* erromsg);
 extern void warn(char* warnmsg);
@@ -61,11 +63,16 @@ extern size_t arna_precise;
 
 #endif
 
-#define zalcof(x) zalc(sizeof(x))
-#define malcof(x) malc(sizeof(x))
-#define memf(x) memfree(x)
+#define zalcof(x) (x*)zalc(sizeof(x))
+#define malcof(x) (x*)malc(sizeof(x))
+#define memf(x)   memfree(x)
+#define mfree(x) {memfree(x);(x)=0;}
 
 #include <stdlib.h>
+inline static void _memf(void* x)
+{
+	memfree(x);
+}
 inline static char* salc(size_t size)
 {
 	if (!size) return 0;

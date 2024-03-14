@@ -51,4 +51,7 @@ static inline gate_t* GateStructInterruptR0(gate_t* gate, dword addr, word segm,
 	return gate;
 }
 
+// lib/c/processor/x86/delay.c
+void delay001s();
+
 #endif

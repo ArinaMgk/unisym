@@ -1,0 +1,82 @@
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: 
+// AllAuthor: @dosconio
+// ModuTitle: Linear Token Node for C++
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_X_NNODE
+#define _INC_X_NNODE
+
+#ifndef _INC_CPP
+#define _INC_CPP
+#endif
+
+extern "C" {
+#include "../c/alice.h"
+}
+extern "C++" {
+#include "tnode"
+}
+
+namespace uni {
+	class Nnode : public Tnode {
+	public:
+		stduint col, row;
+		Nnode*& left = (Nnode*&)Tnode::left;
+		Nnode*& next = (Nnode*&)Tnode::next;
+		Nnode* subf;
+		void* bind;
+	};
+
+	class NnodeChain : public TnodeChain {
+	public:
+		NnodeChain(bool need_free);
+		~NnodeChain();
+		void Append(const void* addr, stduint typ, stduint col, stduint row);
+		void Sort();
+		void Index(void* content);
+		// stduint Count() ...
+		Nnode* Root() {
+			return (Nnode*)root_node;
+		}
+		void Remove(const stduint iden);
+		void Remove(const void* content);
+		void SetFreeContent(bool need_free);
+	protected:
+		Nnode*& root_node = (Nnode*&)TnodeChain::root_node;
+		Nnode*& last_node = (Nnode*&)TnodeChain::last_node;
+		//{TODO}
+	};
+
+	class NestedParseUnit {
+	private:
+		NnodeChain* chain;
+	public:
+		bool parsed;
+		NestedParseUnit(TnodeChain& nchain);// will destructure TnodeChain
+		~NestedParseUnit();
+		
+		NnodeChain* GetNetwork() {
+			return chain;
+		}
+	
+	};
+}
+
+#endif

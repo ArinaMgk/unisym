@@ -34,6 +34,15 @@
 
 #include "host.h"// for using allocation
 
+#ifdef _INC_CPP
+class Dnode {
+public:
+	Dnode* next;
+	const void* offs;
+	Dnode* left;
+	size_t type;
+};
+#else
 typedef struct dnode
 {
 	union { struct dnode* next; };
@@ -42,6 +51,9 @@ typedef struct dnode
 	size_t type;// can be used in `free` but `index`
 	// aliases: `prev` and `right` and `len` besides `left` and `next` and `type`
 } dnode;// recommand using dnode. measures pointer[4]
+#endif
+
+#ifndef _INC_CPP
 
 // default null
 // return 0 for equal, 1 for greater, -1 for less
@@ -93,4 +105,5 @@ void DnodeRemove(dnode* some);
 // [Unordered] [Alloc] in the direction of right.
 void DnodeRelease(dnode* first);
 
+#endif// !_INC_CPP
 #endif// !_INC_DNODE

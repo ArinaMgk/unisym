@@ -50,6 +50,7 @@
 	#define __BIT_STR__ "8"
 #endif
 
+#define __STDC_FORMAT_MACROS// for GCC
 #include <inttypes.h>
 #define PRIdSTD PRIdPTR
 #define PRIuSTD PRIuPTR
@@ -121,7 +122,7 @@
 #define xchg(a,b) (a)^=(b)^=(a)^=(b)
 #define xchgptr(a,b) *(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b)
 
-#define AssignShiftLeft(l,m,r) (l=m,m=r)// different from `l=m=r`
+#define AssignParallel(l,m,r) ((l=m),(m=r))// different from `l=m=r`
 
 //{} May be conflict with stdlib.h, so temporarily:
 #include <stdlib.h>

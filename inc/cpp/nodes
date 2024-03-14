@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ22
-// AllAuthor: @dosconio
-// ModuTitle: Operations for ASCIZ Character-based String Specially output heap
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: unchecked for C++ version
+// AllAuthor: ...
+// ModuTitle: ...
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,13 +20,9 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/c/aldbg.h"
-#include "../../../../inc/c/ustring.h"
-
-char* StrHeapN(const char* valit_str, size_t strlen)
-{
-	MIN(strlen, StrLength(valit_str));// [Overcheck]
-	char* ret = (char*)zalc(strlen + 1);
-	StrCopyN(ret, valit_str, strlen);
-	return ret;
-}
+#include "node"
+#include "dnode"
+//! Need to destruction, may for using reference? -- Dosconio 2024MAR14
+#include "inode"// : node
+#include "tnode"// : dnode
+#include "nnode"// : tnode

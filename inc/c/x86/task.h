@@ -1,8 +1,8 @@
 // ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ22
+// Attribute: ArnCovenant yo Host
+// LastCheck: 20240313
 // AllAuthor: @dosconio
-// ModuTitle: Operations for ASCIZ Character-based String Specially output heap
+// ModuTitle: x86 Task Module
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,13 +20,13 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/c/aldbg.h"
-#include "../../../../inc/c/ustring.h"
+#ifndef _INC_x86_TASK
+#define _INC_x86_TASK
 
-char* StrHeapN(const char* valit_str, size_t strlen)
+struct TaskStateSegmentx86
 {
-	MIN(strlen, StrLength(valit_str));// [Overcheck]
-	char* ret = (char*)zalc(strlen + 1);
-	StrCopyN(ret, valit_str, strlen);
-	return ret;
-}
+
+};
+
+
+#endif

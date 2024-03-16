@@ -39,10 +39,7 @@ namespace uni {
 		while (next)
 		{
 			root_node = next->next;
-			if (need_free_content)
-				(_node_freefunc ? _node_freefunc : _memf)((void*)(free_pass_whole ? next : next->offs));
-			else memf(next);
-			node_count--;
+			chainfree(next);
 			next = (Inode*)root_node;
 		}
 	}

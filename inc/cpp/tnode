@@ -38,15 +38,26 @@ extern "C++" {
 namespace uni {
 	class Tnode : public Dnode {
 	public:
+		Tnode*& left = (Tnode*&)(Dnode::left);
+		Tnode*& next = (Tnode*&)(Dnode::next);
 		stduint col, row;
-		Tnode*& left = (Tnode*&)Dnode::left;
-		Tnode*& next = (Tnode*&)Dnode::next;
-		void Suspend(void (*freefunc)(Tnode*) = 0, Tnode** as_root = 0,\
+		Tnode(void* addr = 0, stduint typ = 0, Tnode* lef = 0, Tnode* nex = 0, \
+			stduint col = 0, stduint row = 0) : col(col), row(row) {
+			this->offs = addr;
+			this->type = typ;
+			this->left = lef;
+			this->next = nex;
+		}
+		Tnode(){}
+		void Suspend(void (*freefunc)(Tnode*) = 0, Tnode** as_root = 0, \
 			Tnode** as_last = 0, stduint** counts = 0);
+	private:
+		Dnode* dn;
 	};
 
 	class TnodeChain : public DnodeChain {
 	public:
+		char*& addr = (char*&)Dnode::offs;
 		TnodeChain();
 		TnodeChain(bool need_free);
 		~TnodeChain();
@@ -63,7 +74,8 @@ namespace uni {
 		
 		void Remove(const stduint iden);
 		void Remove(const void* content);
-		void Remove(Tnode* nod, bool systematic = true);
+		Tnode* Remove(Tnode* nod, bool systematic = true);
+
 		void SetFreeContent(bool need_free);
 	protected:
 		Tnode*& root_node = (Tnode*&)DnodeChain::root_node;

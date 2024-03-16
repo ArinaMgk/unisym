@@ -69,4 +69,12 @@ namespace uni {
 	};
 }
 
+#define dchainfree(next,pref) \
+	if (pref need_free_content && !pref _node_freefunc) memf(next->offs);\
+	if (pref need_free_content)\
+		(pref _node_freefunc ? pref _node_freefunc : _memf)\
+			((void*)(pref free_pass_whole ? next : next->offs));\
+	else memf(next);\
+	(pref node_count)--;
+
 #endif

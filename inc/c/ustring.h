@@ -49,7 +49,7 @@
 
 typedef enum _token_t
 {
-	tok_EOF = 0,  // 
+	tok_none = 0,  // 
 	tok_any,      // for features of any token
 	tok_comment,  // /* */ #
 	tok_direct,// directive like #include
@@ -60,7 +60,16 @@ typedef enum _token_t
 	tok_identy,   // identifier
 	tok_string,   // "Hallo"
 	tok_number,   // 1
+
+	tok_EOF
 } toktype;// the counts should not be greater than 15.
+
+enum {
+	tok_func = tok_EOF + 1,
+};
+
+#define isidnsym(type)(type<tok_others)
+#define isentity(type)(type>tok_others)
 
 #ifndef _INC_TNODE
 #include "tnode.h"

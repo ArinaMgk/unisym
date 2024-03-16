@@ -35,7 +35,7 @@
 #include "host.h"// for using allocation
 
 #ifdef _INC_CPP
-class Dnode {
+struct Dnode {
 public:
 	Dnode* next;
 	const void* offs;

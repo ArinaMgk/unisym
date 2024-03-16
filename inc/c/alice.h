@@ -108,6 +108,12 @@
 #define callnz(x) (x)&&(x)()
 #define callif(x) (x?(void)(x)():(void)0)
 
+#define asserv(x) if(x)x // Assert Value
+#define asrtand(x) (x)&&x // Assert Value
+#define asrtequ(x,y) if((x)==(y))x // Assert Value
+#define stepval(x) (!x)?0:x // do not nested by "()" !
+	// E.g. paralext = stepval(subtail)->next;
+
 // These IF can avoid error such as mixing "a=0" and "a==0"
 #define If(con) if(0||con)
 #define If_(con) if(1&&con)
@@ -154,7 +160,7 @@
 #define AddDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
 
 ///#define foreachstr(iden,x) for(char iden, *iden#ptr=(char*)(x);iden=*iden#ptr;iden#ptr++)// {why} error tip yo VSCODE::IntelliSenseMode(GCC)
-#define for0(iden,times) for(size_t iden=0;iden<(times);iden++)
+#define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 
 #define byteof sizeof

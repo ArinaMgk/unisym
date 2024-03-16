@@ -36,32 +36,70 @@ extern "C++" {
 
 namespace uni {
 	class Nnode : public Tnode {
+	// In fact is from Anode.h
 	public:
-		stduint col, row;
+		Nnode(void* addr = 0, Nnode* n_left = 0, Nnode* n_right = 0) :\
+			Tnode(addr, 0, (Tnode*)n_left, (Tnode*)n_right, 0, 0) { subf = 0; bind = 0; }
+		Nnode(Tnode* nod) : Tnode(nod) { subf = 0; data = 0; pare = 0; bind = 0; }
 		Nnode*& left = (Nnode*&)Tnode::left;
 		Nnode*& next = (Nnode*&)Tnode::next;
+		char*& addr = (char*&)Dnode::offs;
 		Nnode* subf;
+		Nnode* pare;// Want independent version? try Anode(anode.h)
+		void* data;
 		void* bind;
+		//
+		Nnode* Head() { // of parallel chain
+			return stepval(this->pare)->subf;// assert( while(...->left) )
+		}
+		Nnode* Adopt(Nnode* subhead, Nnode* subtail = 0);
+		bool isHead() { return (!this->left) && (!this->pare || this->pare->subf == this); }
+		bool asSubf() { return (this->pare) && (this->pare->subf == this); }
+
 	};
+
+	#undef Pref
+	#define Pref(x) NNODE_DIVSYM_##x
+	enum NNODE_DIVSYM_RETYPE {
+		Pref(NONE), Pref(HEAD), Pref(TAIL), Pref(MIDD), Pref(ERRO)
+	};
+	#undef Pref
 
 	class NnodeChain : public TnodeChain {
 	public:
+		// INHERI: Count() ...
 		NnodeChain(bool need_free);
 		~NnodeChain();
-		void Append(const void* addr, stduint typ, stduint col, stduint row);
+
+		Nnode* Append(const void* addr, stduint typ, stduint col, stduint row);
+		Nnode* Append(Tnode* tnode);// from outside of chain
+
+		Nnode* Insert(Nnode* insnod, bool onleft = false, \
+			const void* addr = 0, stduint typ = 0);
+
 		void Sort();
+
 		void Index(void* content);
-		// stduint Count() ...
-		Nnode* Root() {
-			return (Nnode*)root_node;
-		}
+
+		Nnode* Root() { return (Nnode*)root_node; }
+
 		void Remove(const stduint iden);
 		void Remove(const void* content);
+		Nnode* Remove(Nnode* nod, bool systematic = true) {
+			return NnodeRelease(nod, this, systematic);
+		}
+
 		void SetFreeContent(bool need_free);
+
+		//[ASSUME] Contents Heaped
+		NNODE_DIVSYM_RETYPE DivideSymbols(Nnode* inp, stduint width, stduint idx);
+
 	protected:
 		Nnode*& root_node = (Nnode*&)TnodeChain::root_node;
 		Nnode*& last_node = (Nnode*&)TnodeChain::last_node;
 		//{TODO}
+		static Nnode* NnodeRelease(Nnode* nod, NnodeChain* nc, bool systematic = true);
+		static void NnodesRelease(Nnode* nods, NnodeChain* nc);
 	};
 
 	class NestedParseUnit {
@@ -69,13 +107,14 @@ namespace uni {
 		NnodeChain* chain;
 	public:
 		bool parsed;
-		NestedParseUnit(TnodeChain& nchain);// will destructure TnodeChain
+		NestedParseUnit(TnodeChain& tchain);// will destructure TnodeChain
 		~NestedParseUnit();
-		
-		NnodeChain* GetNetwork() {
-			return chain;
-		}
-	
+		NnodeChain* GetNetwork() { return chain; }
+		bool Parse() { return NnodeParse(chain->Root(), chain) == 0; }
+		bool Linkage();
+
+	protected:
+		static bool NnodeParse(Nnode* tnod, NnodeChain* chain);
 	};
 }
 

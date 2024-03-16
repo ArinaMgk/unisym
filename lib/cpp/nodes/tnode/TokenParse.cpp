@@ -355,8 +355,6 @@ namespace uni {
 		}
 		if (CrtTLen) chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
 
-		chain->Remove(chain->Root());
-
 		return chain;
 	}
 

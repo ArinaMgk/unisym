@@ -30,31 +30,8 @@ namespace uni {
 
 #define tmpl(...) __VA_ARGS__ Nnode
 
-	tmpl(Nnode*)::Adopt(Nnode* subhead, Nnode* subtail) {
-		bool found = false;
-		if (!subhead) return 0;
-		if (subf) return 0;//{TODO} Remove each in current chain
-		if (subhead->left == subtail)// for empty parens and parend "(" ")"
-			return this;
-		// Above: "(" no right, subhead zo ")"; ")" no left, subtail zo "("
-
-		Nnode* crt;
-		crt = subhead;
-		do if (crt == subtail) {
-			found = true;
-			crt->pare = this;
-			break;
-		} while ((crt->pare = this) && (crt = crt->next));
-		if (!found) return 0;
-
-		Nnode* paraleft, * paralext = stepval(subtail)->next;
-		AssignParallel(paraleft, subhead->left, 0);
-		this->subf = subhead;
-		// [nod] [] ... [sub1] [sub2] ... []
-		if (pare && pare->subf == subhead) pare->subf = this;
-		if (paraleft) paraleft->next = paralext;
-		if (paralext) paralext->left = paraleft;
-		asserv(subtail)->next = 0;
+	Nnode* Nnode::ReheapString(const char* str) {
+		srs(this->addr, StrHeap(str));
 		return this;
 	}
 
@@ -96,7 +73,7 @@ namespace uni {
 		if (onleft) {
 			if (tmp->left = insnod->left) tmp->left->next = tmp;
 			(tmp->next = insnod)->left = tmp;
-			if (insnod->asSubf()) insnod->pare->subf = tmp;
+			insnod->isHead(tmp);
 			if (insnod == root_node) root_node = tmp;// assert(!tmp->left)
 		}
 		else {
@@ -105,6 +82,55 @@ namespace uni {
 			if (insnod == last_node) last_node = tmp;// assert(!tmp->next)
 		}
 		return tmp;
+	}
+
+	tmpl(Nnode*)::Insert(Nnode* insnod, Dnode* dnod, bool onleft) {
+		return Insert(insnod, onleft, dnod->offs, dnod->type);
+	}
+
+	tmpl(Nnode*)::Receive(Nnode* insnod, DnodeChain* dnod, bool onleft) {
+		Dnode* crt = dnod->Root();
+		while (crt) {
+			insnod = Insert(insnod, crt, onleft);
+			crt = crt->next;
+		}
+		dnod->Onfree(0, false);
+		dnod->~DnodeChain();
+		return insnod;
+	}
+
+	tmpl(Nnode*)::Adopt(Nnode* thisn, Nnode* subhead, Nnode* subtail, bool go_func) {
+		bool found = false;
+		if (subtail == (Nnode*)(~(stduint)0)) subtail = subhead;
+		if (!subhead) return 0;
+		if (thisn->subf) return 0;//{TODO} Remove each in current chain
+		//
+		if (go_func) thisn->type = tok_func;
+		if (subhead->left == subtail)// for empty parens and parend "(" ")"
+			return thisn;
+		// Above: "(" no right, subhead zo ")"; ")" no left, subtail zo "("
+
+		Nnode* crt;
+		crt = subhead;
+		if (subhead->isHead(thisn) && this)
+			if (root_node == subhead) root_node = thisn;
+			else if (last_node == subtail) last_node = subhead->left;
+		do if (crt == subtail) {
+			found = true;
+			crt->pare = thisn;
+			break;
+		} while ((crt->pare = thisn) && (crt = crt->next));
+		// if (!found) return 0; ... throw ...
+		// ----
+		Nnode* paraleft, * paralext = stepval(subtail)->next;
+		AssignParallel(paraleft, subhead->left, 0);
+		thisn->subf = subhead;
+		// [nod] [] ... [sub1] [sub2] ... []
+
+		if (paraleft) paraleft->next = paralext;
+		if (paralext) paralext->left = paraleft;
+		asserv(subtail)->next = 0;
+		return thisn;
 	}
 
 	tmpl(Nnode*)::NnodeRelease(Nnode* nod, NnodeChain* nc, bool systematic) {

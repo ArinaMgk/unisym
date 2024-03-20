@@ -24,6 +24,7 @@
 #include "../../../inc/c/ustring.h"
 #include "../../../inc/cpp/cinc"
 #include "../../../inc/cpp/inode"
+#include <new>
 
 namespace uni {
 
@@ -35,35 +36,70 @@ namespace uni {
 
 	tmpl()::~InodeChain() {
 		if (nullptr == root_node) return;
-		Inode* next = (Inode*)root_node;
-		while (next)
-		{
-			root_node = next->next;
-			chainfree(next);
-			next = (Inode*)root_node;
-		}
+		Inode* crt = root_node;
+		while (crt = Remove(crt, false));
+		root_node = nullptr;
 	}
 
-	tmpl(void)::Append(const void* addr, const void* data, stduint typ, stduint prop) {
+	tmpl(Inode*)::Remove(Inode* inod, bool systematic) {
+		Inode* left = 0, * crt = root_node;
+		if (!inod) return 0;
+		Inode* ret_next = inod->next;
+		if (systematic) {
+			if (inod != crt)
+			do if (crt->next == inod) {
+				left = crt;
+				break;
+			} while (crt = crt->next);
+			if (left) left->next = ret_next;
+		}
+
+		if (!_node_freefunc) memf(inod->offs);
+		if (need_free_content)
+			(_node_freefunc ? _node_freefunc : _memf)
+				((void*)(free_pass_whole ? inod : inod->offs));
+		else memf(inod);
+		node_count--;
+
+		return ret_next;
+	}
+
+	tmpl(void)::Remove(const char* content) {
+		Remove(Index(content));
+	}
+
+	tmpl(void)::Append(const char* addr, const void* data, stduint typ, bool readonly, bool typekeep) {
 		Inode* tmp = zalcof(Inode);
-		tmp->offs = addr;
+		new (tmp) Inode;
+		tmp->offs = StrHeap(addr);
 		tmp->data = data;
 		tmp->type = typ;
-		tmp->property = prop;
+		// tmp->property = prop;
+		tmp->readonly = readonly;
+		tmp->typekeep = typekeep;
 		tmp->next = nullptr;
 		node_count++;
-		if (nullptr == root_node)
-		{
-			last_node = root_node = tmp;
-		}
-		// if (aflaga.autosort)
-		// else if (_node_compare)
-		else
-		{
-			last_node = ((Inode*)last_node)->next = tmp;
-		}
+		last_node = (root_node ? last_node->next : root_node) = tmp;
 	}
 
 #undef tmpl
+
+	Inode* InodeChain::Index(const char* content) {
+		if (!root_node) return 0;
+		Inode* crt = root_node;
+		do if (crt->addr && !StrCompare(content, crt->addr))
+			return crt;
+		while (crt = crt->next);
+		return 0;
+	}
+
+	bool InodeChain::Update(const char* iden, void* data, size_t typ, bool readonly, bool typekeep) {
+		Inode* crt;
+		if (crt = Index(iden))
+			if (crt->readonly) return false;
+			else if (crt->typekeep && (typ != crt->type)) return false;
+		Append(iden, data, typ, readonly, typekeep);
+		return true;
+	}
 }
 

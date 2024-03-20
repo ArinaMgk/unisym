@@ -1,4 +1,4 @@
-// ASCII C++-20 TAB4 CRLF
+// UTF-8 C++-20 TAB4 CRLF
 // Attribute: ArnCovenant Host[Allocation]
 // LastCheck: 20240312
 // AllAuthor: @dosconio
@@ -30,8 +30,10 @@
 static bool NestedTokenParse(uni::NestedParseUnit* npu);
 
 namespace uni {
-	NestedParseUnit::NestedParseUnit(TnodeChain& tchain) {
-		// Origin from Haruno yo RFT27, principle of "Every action is a function, every object is in memory."; RFB19, RFV13 Rewrite£»
+	NestedParseUnit::NestedParseUnit(TnodeChain& tchain, NodeChain* TOGCChain) : TokenOperatorGroupChain(TOGCChain) {
+		linemn_no = column_no = 0;
+		msg_fail = 0;
+		// Origin from Haruno yo RFT27, principle of "Every action is a function, every object is in memory."; RFB19, RFV13 Rewrite
 		parsed = false;
 		chain = zalcof(NnodeChain);
 		new (chain) NnodeChain(true);
@@ -79,8 +81,8 @@ namespace uni {
 	}
 
 
-	bool NestedParseUnit::NnodeParse(Nnode* tnod, NnodeChain* chain) {
-		if (!tnod) return 0;
+	bool NestedParseUnit::NnodeParse(Nnode* tnod, NnodeChain* chain, bool merge_parensd) {
+		if (!tnod) return true;
 
 		bool state = true;
 		Nnode* crt = tnod;
@@ -119,32 +121,44 @@ namespace uni {
 						Nnode* fn = last_parens->left;// assume not anonymity
 						if (!(last_parens->left && last_parens->left->type == tok_identy && last_parens->left->row == last_parens->row))// anonymity
 							fn = chain->Insert(last_parens, true);
-						fn->Adopt(last_parens->next, crt->left)->type = tok_func;
-						chain->Remove(last_parens);
+						chain->Adopt(fn, last_parens->next, crt->left);
+						chain->Remove(last_parens); if (last_parens == tnod) tnod = fn;
 						chain->Remove(crt);
 						crt = fn;
 						if (!NnodeParse(fn->subf, chain))
 							return false;
-						/// exist_sym = 0; ¤Þ
+						if (merge_parensd && fn->type == tok_func && !fn->addr) {
+							if (fn->subf && fn->subf->next == 0) {
+								// assert fn->subf->left == 0
+								fn->subf->pare = fn->pare;
+								fn->subf->left = fn;
+								if (fn->subf->next = fn->next)
+									fn->next->left = fn->subf;
+								fn->next = fn->subf;
+								fn->subf = 0;
+							}
+							crt = chain->Remove(fn);
+							if (fn == tnod) tnod = crt;
+						}	
+						/// exist_sym = 0; ã¾
 						break;
 					}
 				}
 			}
+			if (!crt) return true;
 			crt = crt->next;
 			if (crt && (crt->row != crt->left->row)) last_parens = 0;
 		}
 		//{TODO} if (crtnest) erro("Match error");
-///		StrTokenNestParseOperator((parent && parent->subf) ? parent->subf : inp, parent, 0);
-		return true;
+		return ParseOperator(tnod, chain);
 	}
-
-	bool NestedParseUnit::Linkage() {
-		return false;
-	}
-
 
 	NestedParseUnit::~NestedParseUnit() {
 		if (!this) return;
+		if (TokenOperatorGroupChain) {
+			TokenOperatorGroupChain->~NodeChain();
+			mfree(TokenOperatorGroupChain);
+		}
 		if (chain) {
 			chain->~NnodeChain();
 			mfree(chain);

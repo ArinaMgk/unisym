@@ -34,6 +34,7 @@
 	// compatible with Magicoll pointer: "pointer(pointer(void)) pp"
 #endif
 
+typedef void(*_tofree_ft)(void*);
 
 // temporarily make use of standard library
 #if SIZE_MAX==0xFFFF

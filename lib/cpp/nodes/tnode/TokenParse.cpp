@@ -130,6 +130,7 @@ namespace uni {
 	TnodeChain* TokenParseUnit::TokenParse() {
 		toktype CrtTType{ tok_any };
 		size_t CrtTLen = 0;// = real length minus 1
+		stduint crtline_ento = _Default_Row_or_Col, crtcol_ento = _Default_Row_or_Col;
 		int YoString = 0;
 		char strtok;
 		int c;
@@ -147,7 +148,8 @@ namespace uni {
 				{
 					CrtTType = tok_string;
 					buffer[CrtTLen] = 0;
-					chain->Append(buffer, CrtTLen + 1, CrtTType, crtline, crtcol);// including terminated-symbol
+					chain->Append(buffer, CrtTLen + 1, CrtTType, crtline_ento, crtcol_ento);// including terminated-symbol
+					crtline_ento = crtline; crtcol_ento = crtcol;
 					bufptr = buffer;
 					YoString = 0;
 					CrtTLen = 0;
@@ -262,7 +264,8 @@ namespace uni {
 				if (CrtTLen)
 				{
 					crtcol--;
-					chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+					chain->Append(buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+					crtline_ento = crtline; crtcol_ento = crtcol - 1;// -1?
 					bufptr = buffer;
 					CrtTLen = 0;
 				}
@@ -272,7 +275,8 @@ namespace uni {
 			} 
 			else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && (chain->Last()->row != crtline || CrtTType == tok_any && !chain->Last()->offs)))// Line Comment
 			{
-				chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+				chain->Append(buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+				crtline_ento = crtline; crtcol_ento = crtcol - 1;// -1?
 				bufptr = buffer;
 				CrtTLen = 0;
 				CrtTType = (c == _TNODE_COMMENT) ? tok_comment : tok_direct;
@@ -282,7 +286,8 @@ namespace uni {
 					*bufptr++ = c;
 				}
 				if (c == EOF)break;
-				chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+				chain->Append(buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+				crtline_ento = crtline; crtcol_ento = crtcol - 1;// -1?
 				bufptr = buffer;
 				CrtTLen = 0;
 				CrtTType = tok_any;
@@ -290,7 +295,8 @@ namespace uni {
 			}
 			else if (c == '\"' || c == '\'')// enter
 			{
-				chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+				chain->Append(buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+				crtline_ento = crtline; crtcol_ento = crtcol - 1;// -1?
 				CrtTLen = 0;
 				bufptr = buffer;
 				CrtTType = tok_string;
@@ -298,11 +304,12 @@ namespace uni {
 				strtok = c;
 			}
 			else if ((isdigit(c)) && CrtTType != tok_identy &&
-				((CrtTType != tok_any && chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol - 1)) || CrtTType == tok_any)
+				((CrtTType != tok_any && (chain->Append(buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento)) && (crtline_ento = crtline, crtcol_ento = crtcol)) || CrtTType == tok_any)
 				&& (CrtTLen = StrTokenAll_NumChk(*this)))
 			{
 				CrtTType = tok_number;
-				chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol);
+				chain->Append(buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+				crtline_ento = crtline; crtcol_ento = crtcol;
 				CrtTType = tok_any;
 				CrtTLen = 0;// NOTICE!
 				bufptr = buffer;
@@ -323,7 +330,8 @@ namespace uni {
 				}
 				else
 				{
-					chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+					chain->Append(buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+					crtline_ento = crtline; crtcol_ento = crtcol - 1;// -1?
 					CrtTType = getctype(c);
 					CrtTLen = 1;
 					bufptr = buffer;
@@ -345,7 +353,8 @@ namespace uni {
 				}
 				else
 				{
-					chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+					chain->Append(buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+					crtline_ento = crtline; crtcol_ento = crtcol - 1;// -1?
 					CrtTLen = 1;
 					bufptr = buffer;
 					*bufptr++ = c;
@@ -353,7 +362,7 @@ namespace uni {
 				}
 			}
 		}
-		if (CrtTLen) chain->Append(buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+		if (CrtTLen) chain->Append(buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
 
 		return chain;
 	}

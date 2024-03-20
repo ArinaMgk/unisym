@@ -44,12 +44,17 @@ namespace uni {
 	tmpl()::~DnodeChain() {
 		if (nullptr == root_node) return;
 		Dnode* next = (Dnode*)root_node;
-		while (next)
-		{
-			root_node = next->next;
-			dchainfree(next,);
-			next = (Dnode*)root_node;
+		while (next = Remove(next, false));
+	}
+
+	Dnode* DnodeChain::Remove(Dnode* content, bool systematic) {
+		if (!content) return 0;
+		Dnode* ret_next = content->next;
+		if (systematic) {
+			if (content->left) content->left->next = ret_next;
+			if (ret_next) ret_next->left = content->left;
 		}
+		dchainfree(content,);
 	}
 
 	//{TODO}

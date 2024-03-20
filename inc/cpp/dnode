@@ -43,7 +43,7 @@ namespace uni {
 		Dnode* Root() { return root_node; }
 		Dnode* Last() { return last_node; }
 		void Remove(const stduint iden);
-		void Remove(const void* content);
+		Dnode* Remove(Dnode* content, bool systematic = true);
 		void SetFreeContent(bool need_free);
 		void Onfree(void(*fn_free)(void*) = 0, bool need_free = true) {
 			_node_freefunc = fn_free;

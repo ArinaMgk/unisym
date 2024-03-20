@@ -72,6 +72,13 @@ namespace uni {
 		int (*_node_compare)(const void* addr0, const void* addr1);// return 0 for equal, 1 for greater, -1 for less
 	};
 
+	template <typename type0> class LinearChain {
+	public:
+		stduint Count();
+		type0*& Getval(stduint idx);
+	private:
+		// ...
+	};
 }
 
 #endif

@@ -1,0 +1,15 @@
+// ...
+
+#ifndef _INC_X_FLOATING
+#define _INC_X_FLOATING
+
+namespace uni{
+	class Floating {
+	private:
+		stduint coff, expo, divr, demn;
+	public:
+		
+	};
+}
+
+#endif

@@ -40,37 +40,34 @@ namespace uni {
 	public:
 		const void* data;
 		stduint type;
-		stduint property;
+		struct {
+			bool readonly;
+			bool typekeep;
+		};
 		Inode* next;
+		char*& addr = (char*&)Node::offs;
 	};
 
 	class InodeChain : public NodeChain {
 	public:
 		InodeChain(bool need_free);
 		~InodeChain();
-		void Append(const void* addr, const void* data, stduint typ, stduint prop);
+		void Append(const char* addr, const void* data, stduint typ, bool readonly = false, bool typekeep = false);
 		void Sort();
-		void Index(void* content);
+		Inode* Index(const char* content);
 		// inherited stduint Count() ... 
 		Inode* Root() {
 			return (Inode*)root_node;
 		}
-		void Remove(const stduint iden);
-		void Remove(const void* content);
+		Inode* Remove(Inode* inod, bool systematic = true);
+		void Remove(const char* content);
 		void SetFreeContent(bool need_free);
+		bool Update(const char* iden, void* data, size_t typ, bool readonly = false, bool typekeep = false);
 	protected:
 		Inode*& root_node = (Inode*&)NodeChain::root_node;
 		Inode*& last_node = (Inode*&)NodeChain::last_node;
 		//{TODO}
 	};
 }
-
-#define chainfree(next) \
-	if (need_free_content && !_node_freefunc) memf(next->offs);\
-	if (need_free_content)\
-		(_node_freefunc ? _node_freefunc : _memf)\
-			((void*)(free_pass_whole ? next : next->offs));\
-	else memf(next);\
-	node_count--;
 
 #endif

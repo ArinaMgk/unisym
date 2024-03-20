@@ -38,7 +38,7 @@ typedef struct IdenNode
 #define INODE_READONLY 0x01
 #define INODE_TYPEKEEP 0x02
 
-// No duplicate check. prop[2:Not-change-prevous]
+// prop[2:Not-change-prevous]
 inode* InodeUpdate(inode* inp, const char* iden, void* data, size_t typ, size_t prop, void(*freefunc_element)(void*));
 
 // used name: InodeDelete ---> InodeRemove

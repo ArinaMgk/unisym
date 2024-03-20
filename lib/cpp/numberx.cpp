@@ -25,7 +25,7 @@ extern "C"
 	#include "../../c/numar.h"
 }
 #include <iostream>
-#include "../../number"
+#include "../../inc/cpp/number"
 
 static const coe numone = { (char*)"+1", (char*)"+1", (char*)"+0" };
 

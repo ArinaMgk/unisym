@@ -66,10 +66,15 @@ typedef enum _token_t
 
 enum {
 	tok_func = tok_EOF + 1,
+
+	tok__continue
 };
 
-#define isidnsym(type)(type<tok_others)
-#define isentity(type)(type>tok_others)
+//#define isidnsym(type)(type<tok_others)
+#define maysymbol(type)(type<tok_others)
+//#define isentity(type)(type>tok_others)
+#define maynotsym(type)(type>tok_others)
+
 
 #ifndef _INC_TNODE
 #include "tnode.h"
@@ -380,6 +385,20 @@ static inline const char* StrIndexString(const char* dest, const char* sub)
 #else
 #define StrIndexString strstr ///{TODO}
 #endif
+
+//{TODO} StrIndexStrings
+
+static inline const char* StrIndexStringRight(const char* dest, const char* sub)
+{
+	const char* ret = 0;
+	const char* ptr = 0;
+	size_t destlen = StrLength(dest);
+	size_t subslen = StrLength(sub);
+	if (destlen < subslen) return 0;
+	ptr = dest + destlen - subslen;
+	while ((ptr >= dest) && !(ret = StrIndexString(ptr--, sub)));
+	return ret;
+}
 
 #ifdef _INC_USTRING_INLINE
 static inline size_t StrSpanInclude(const char* s1, const char* s2)

@@ -27,10 +27,10 @@
 #define _INC_CPP
 #endif
 
-extern "C" {
+#include "cinc"
 #include "../c/alice.h"
 #include "../c/dnode.h"
-}
+#include "cinc"
 
 namespace uni {
 	class DnodeChain {

@@ -27,24 +27,23 @@
 #define _INC_CPP
 #endif
 
-extern "C" {
+#include "cinc"
 #include "../c/alice.h"
-}
-extern "C++" {
+#include "cinc"
 #include "node"
 #include "tnode"
-}
 
 namespace uni {
 	class Nnode : public Tnode {
 	// In fact is from Anode.h
 	public:
-		Nnode(void* addr = 0, Nnode* n_left = 0, Nnode* n_right = 0) :\
-			Tnode(addr, 0, (Tnode*)n_left, (Tnode*)n_right, 0, 0) { subf = 0; bind = 0; }
-		Nnode(Tnode* nod) : Tnode(nod) { subf = 0; data = 0; pare = 0; bind = 0; }
-		Nnode*& left = (Nnode*&)Tnode::left;
-		Nnode*& next = (Nnode*&)Tnode::next;
-		char*& addr = (char*&)Dnode::offs;
+		Nnode(void* addr = 0, Nnode* n_left = 0, Nnode* n_right = 0) :
+			Tnode(addr, 0, (Tnode*)n_left, (Tnode*)n_right, 0, 0),
+			addr((char*&)Dnode::offs), left((Nnode*&)Tnode::left), next((Nnode*&)Tnode::next) { subf = 0; bind = 0; }
+		Nnode(Tnode* nod) : Tnode(*nod), addr((char*&)Dnode::offs), left((Nnode*&)Tnode::left), next((Nnode*&)Tnode::next) { subf = 0; data = 0; pare = 0; bind = 0; }
+		Nnode*& left; // = (Nnode*&)Tnode::left;
+		Nnode*& next; // = (Nnode*&)Tnode::next;
+		char*& addr ; // = (char*&)Dnode::offs;
 		Nnode* subf;
 		Nnode* pare;// Want independent version? try Anode(anode.h)
 		void* data;
@@ -118,8 +117,8 @@ namespace uni {
 		NNODE_DIVSYM_RETYPE DivideSymbols(Nnode* inp, stduint width, stduint idx);
 		
 	protected:
-		Nnode*& root_node = (Nnode*&)TnodeChain::root_node;
-		Nnode*& last_node = (Nnode*&)TnodeChain::last_node;
+		Nnode*& root_node; // = (Nnode*&)TnodeChain::root_node;
+		Nnode*& last_node; // = (Nnode*&)TnodeChain::last_node;
 		//{TODO}
 		static Nnode* NnodeRelease(Nnode* nod, NnodeChain* nc, bool systematic = true);
 		static void NnodesRelease(Nnode* nods, NnodeChain* nc);

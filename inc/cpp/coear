@@ -27,7 +27,7 @@
 #include "../c/coear.h"
 #include "cinc"
 #include "floating"
-
+#include <math.h>
 #include "iostream"
 
 //{TODO} independent from `erro` `_MALCOUNT` `_MALLIMIT` .... [These should be of `malc` and `memf`.]
@@ -81,7 +81,7 @@ namespace uni {
 		Coe& operator/=(const Coe& src);
 
 		friend std::ostream& operator<< (std::ostream& out, const Coe& c);
-		friend uni::Coe& operator^ (const Coe& b, const Coe& c);
+		friend Coe operator^ (const Coe& b, const Coe& c);
 		Coe& operator^=(const Coe& src);
 
 		//{TEMP} no using: Coe res(CoeCpy(this->co)); CoeSin(res.co);

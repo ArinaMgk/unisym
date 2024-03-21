@@ -27,17 +27,16 @@
 #define _INC_CPP
 #endif
 
-extern "C" {
+#include "cinc"
 #include "../c/alice.h"
-}
-extern "C++" {
+#include "cinc"
 #include "node"
-}
 
 namespace uni {
 
 	class Inode : public Node {
 	public:
+		Inode(const char* in_addr = 0, const void* data = 0, stduint typ = 0, bool readonly = false, bool typekeep = false) :  data(data), type(typ), readonly(readonly), typekeep(typekeep), next(0), addr((char*&)Node::offs) { addr = (char*)in_addr; }
 		const void* data;
 		stduint type;
 		struct {
@@ -45,7 +44,8 @@ namespace uni {
 			bool typekeep;
 		};
 		Inode* next;
-		char*& addr = (char*&)Node::offs;
+		// `char*& addr = (char*&)Node::offs;` MSVC default initializer can deal with this but GCC.
+		char*& addr;
 	};
 
 	class InodeChain : public NodeChain {
@@ -64,8 +64,8 @@ namespace uni {
 		void SetFreeContent(bool need_free);
 		bool Update(const char* iden, void* data, size_t typ, bool readonly = false, bool typekeep = false);
 	protected:
-		Inode*& root_node = (Inode*&)NodeChain::root_node;
-		Inode*& last_node = (Inode*&)NodeChain::last_node;
+		Inode*& root_node; // = (Inode*&)NodeChain::root_node;
+		Inode*& last_node; // = (Inode*&)NodeChain::last_node;
 		//{TODO}
 	};
 }

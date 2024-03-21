@@ -54,7 +54,8 @@ namespace uni {
 			if (content->left) content->left->next = ret_next;
 			if (ret_next) ret_next->left = content->left;
 		}
-		dchainfree(content,);
+		dchainfree(content, this->);
+		return ret_next;
 	}
 
 	//{TODO}

@@ -19,15 +19,9 @@ VI_64=E:/software/VS22/VC/Tools/MSVC/14.37.32822/include/ -I"C:/Program Files (x
 VLIB_64="E:/software/VS22/VC/Tools/MSVC/14.37.32822/lib/x64/" /LIBPATH:"E:/software/VS22/VC/Tools/MSVC/14.37.32822/lib/onecore/x64"
 CGW32D_PATH=.
 
-# exclude `.make.c` file
-## sors_c=${csrc_dirx}/node/*.c ${csrc_dirx}/auxiliary/toxxxer.c ${csrc_dirx}/debug.c ${csrc_dirx}/crc64.c ${csrc_dirx}/binary.c ${csrc_dirx}/ustring/gstring/MemSet.c ${csrc_dirx}/mcore.c
-sors_c=${csrc_dirx}/*.c ${csrc_dirx}/node/*.c ${csrc_dirx}/dnode/*.c ${csrc_dirx}/inode/*.c ${csrc_dirx}/tnode/*.c ${csrc_dirx}/nnode/*.c ${csrc_dirx}/ustring/astring/*.c ${csrc_dirx}/ustring/gstring/*.c ${csrc_dirx}/ustring/chrar/*.c ${csrc_dirx}/datime/*.c ${csrc_dirx}/coear/*.c ${csrc_dirx}/auxiliary/toxxxer.c
-
-#remv_c=*.make.o
-
 # depend [gcc, makefile] [python]
 
-.PHONY: list mx86
+.PHONY: list mx86 cgw32
 
 list: # depend [python]
 	@python ./lib/Script/Makefile/makemake.py
@@ -35,19 +29,13 @@ list: # depend [python]
 mx86:
 	cd ${make_dir} && make -f cgmx86.make all
 
-all32: CGW32D kitw32 manual
+cgw32:
+	make -f ./lib/make/cgw32.make all
 
-CGW32D:
-	## set PATH=%PATH%;${CGW32D_PATH}
-	-cd ${dest_obj}/ && mkdir CGWin32D
-	cd ${dest_obj}/CGWin32D/ && aasm -f win32 ../../unisym/lib/asm/x86/cpuid.asm -I../../unisym/inc/Kasha/n_ -o./cpuid.a.o
-	cd ${dest_obj}/CGWin32D/ && aasm -f win32 ../../unisym/lib/asm/x86/binary.asm -I../../unisym/inc/Kasha/n_ -o./binary.a.o
-	$(CC_32) ./lib/c/auxiliary/toxxxer.make.c -o ../_tmp/toxxxer.exe
-	cd ../_tmp/ && ./toxxxer.exe
-	cd ${dest_obj}/CGWin32D/ && $(CC_32) -c $(sors_c) -D_DEBUG -D_WinNT -D_Win32 -O3
-	#cd ${dest_obj}/CGWin32D/ && rm ${remv_c}
-	cd ${dest_obj}/CGWin32D/ && ar -rcs ../../_bin/libw32d.a *.o
-	cd ${make_dir} && make -f cgw32.make debug
+
+
+
+all32: CGW32D kitw32 manual
 kitw32:
 	cd ${make_dir} && make -f kitw32.make all
 	# ***\AutoHotkey\Compiler\Ahk2Exe.exe /in %1 /out %2

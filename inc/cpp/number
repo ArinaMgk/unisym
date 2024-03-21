@@ -21,7 +21,7 @@
 #ifndef ModComplexternArith
 extern "C" {
 	#include <stddef.h>
-	#include "../c/cdear.h"
+	#include "../c/coear.h"
 	typedef struct Complextern
 	{
 		coe Real, Imag;

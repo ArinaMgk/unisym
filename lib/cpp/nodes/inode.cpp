@@ -30,8 +30,7 @@ namespace uni {
 
 #define tmpl(...) __VA_ARGS__ InodeChain
 
-	tmpl()::InodeChain(bool need_free) : NodeChain(need_free) {
-		
+	tmpl()::InodeChain(bool need_free) : NodeChain(need_free), root_node((Inode*&)NodeChain::root_node), last_node((Inode*&)NodeChain::last_node) {
 	}
 
 	tmpl()::~InodeChain() {
@@ -73,14 +72,7 @@ namespace uni {
 
 	tmpl(void)::Append(const char* addr, const void* data, stduint typ, bool readonly, bool typekeep) {
 		Inode* tmp = zalcof(Inode);
-		new (tmp) Inode;
-		tmp->offs = StrHeap(addr);
-		tmp->data = data;
-		tmp->type = typ;
-		// tmp->property = prop;
-		tmp->readonly = readonly;
-		tmp->typekeep = typekeep;
-		tmp->next = nullptr;
+		new (tmp) Inode(StrHeap(addr), data, typ, readonly, typekeep);
 		node_count++;
 		last_node = (root_node ? last_node->next : root_node) = tmp;
 	}

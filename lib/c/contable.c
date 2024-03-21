@@ -220,11 +220,11 @@ Conitem* CtabItemMakeQuick(const char** str, size_t strcount, size_t count)
 	if (!str || !count) return 0;
 	Conitem* ret;
 	memalloc(ret, sizeof(Conitem) * count);
-	for (size_t i = 0; i < min(strcount, count); i++)
+	for (size_t i = 0; i < minof(strcount, count); i++)
 	{
 		ret[i].content = StrHeap(str[i]);
 	}
-	for (size_t i = min(strcount, count); i < count; i++)
+	for (size_t i = minof(strcount, count); i < count; i++)
 	{
 		ret[i].content = StrHeap("");
 	}

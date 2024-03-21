@@ -31,7 +31,7 @@ void NodeRemove(node* nod, node* left)
 	else
 		_node_first = nod->next;
 	if (_node_freefunc)
-		_node_freefunc(nod->addr);
+		_node_freefunc((void*)nod->addr);
 	memf(nod);
 	if (_node_first)
 	{

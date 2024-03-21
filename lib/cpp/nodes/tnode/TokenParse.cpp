@@ -114,7 +114,7 @@ namespace uni {
 	TokenParseUnit::TokenParseUnit(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer) {
 		using uni::TnodeChain;
 		chain = zalcof(TnodeChain);
-		new (chain)TnodeChain();
+		new (chain)TnodeChain(true);
 		crtline = crtcol = _Default_Row_or_Col;
 		this->getnext = getnext;
 		this->seekback = seekback;

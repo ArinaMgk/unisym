@@ -30,7 +30,7 @@ void NodeRelease(node* first)
 	while (first)
 	{
 		next = first->next;
-		if (_node_freefunc) _node_freefunc(first->addr);
+		if (_node_freefunc) _node_freefunc((void*)first->addr);
 		memf(first);
 		first = next;
 	}

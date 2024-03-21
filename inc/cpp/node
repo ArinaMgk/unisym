@@ -27,11 +27,11 @@
 #define _INC_CPP
 #endif
 
-extern "C" {
+#include "cinc"
 #include "../c/alice.h"
 #include "../c/aldbg.h"
 #include "../c/node.h"
-}
+#include "cinc"
 
 namespace uni {
 

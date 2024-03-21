@@ -32,7 +32,7 @@ node* NodeSort(node* first)
 	while (crt)
 	{
 		next = crt->next;
-		NodeAppend(_node_first, crt->addr);
+		NodeAppend(_node_first, (void*)crt->addr);
 		crt = next;
 	}
 	crt = first;

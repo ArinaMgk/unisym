@@ -20,7 +20,7 @@
 	limitations under the License.
 */
 
-#include "../cpp/coear"
+#include "../../inc/cpp/coear"
 #include "math.h"
 
 namespace uni{
@@ -198,7 +198,7 @@ namespace uni{
 		return out;
 	}
 
-	uni::Coe& operator^ (const uni::Coe& b, const uni::Coe& c) {
+	Coe operator^ (const uni::Coe& b, const uni::Coe& c) {
 		double tofree_des = CoeToDouble(b.co);
 		double tofree_src = CoeToDouble(c.co);
 		Coe ret(CoeFromDouble(pow(tofree_des, tofree_src)));

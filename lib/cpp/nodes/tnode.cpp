@@ -31,12 +31,8 @@ namespace uni {
 
 #define tmpl(...) __VA_ARGS__ TnodeChain
 
-	tmpl()::TnodeChain() : DnodeChain(true) {
+	tmpl()::TnodeChain(bool need_free) : DnodeChain(need_free), root_node((Tnode*&)DnodeChain::root_node), last_node((Tnode*&)DnodeChain::last_node) {
 	    
-	}
-	
-	tmpl()::TnodeChain(bool need_free) : DnodeChain(need_free) {
-
 	}
 
 	tmpl()::~TnodeChain() {

@@ -59,7 +59,7 @@ typedef struct node {
 
 // default null
 // return 0 for equal, 1 for greater, -1 for less
-extern int (*_node_compare)(void* addr0, void* addr1);
+extern int (*_node_compare)(const void* addr0, const void* addr1);
 
 // default provided by `memf()` for `addr`, not the `node` itself
 extern void(*_node_freefunc)(void*);

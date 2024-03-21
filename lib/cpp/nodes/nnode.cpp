@@ -39,7 +39,7 @@ namespace uni {
 #undef tmpl
 #define tmpl(...) __VA_ARGS__ NnodeChain
 
-	tmpl()::NnodeChain(bool need_free) : TnodeChain(need_free) {
+	tmpl()::NnodeChain(bool need_free) : TnodeChain(need_free), root_node((Nnode*&)TnodeChain::root_node), last_node((Nnode*&)TnodeChain::last_node){
 	}
 
 	tmpl()::~NnodeChain() {

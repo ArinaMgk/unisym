@@ -73,3 +73,12 @@ size_t ConScanLine(char* buf, size_t limit)
 	}
 	return 1 + slen;
 }
+
+void ConClearScreen(void)
+{
+#ifdef _WinNT
+	system("cls");
+#elif defined(_Linux)
+	system("clear");
+#endif
+}

@@ -1,14 +1,9 @@
 # ASCII Makefile TAB4 CRLF
 # Attribute: 
-# LastCheck: RFZ09
+# LastCheck: 20240320
 # AllAuthor: @dosconio
 # ModuTitle: Makefile for UniSym
 # Copyright: ArinaMgk UniSym, Apache License Version 2.0
-
-# # "Debug" is for _DEBUG but for "-g" option
-
-#{TODO} Split into multiple script for different platform, e.g. `make lin32/gcc` `make win32/msvc`, while:
-#{TODO} Makefile Script Generator Script of Perl
 
 dest_bin=../_bin
 dest_obj=../_obj
@@ -29,6 +24,16 @@ CGW32D_PATH=.
 sors_c=${csrc_dirx}/*.c ${csrc_dirx}/node/*.c ${csrc_dirx}/dnode/*.c ${csrc_dirx}/inode/*.c ${csrc_dirx}/tnode/*.c ${csrc_dirx}/nnode/*.c ${csrc_dirx}/ustring/astring/*.c ${csrc_dirx}/ustring/gstring/*.c ${csrc_dirx}/ustring/chrar/*.c ${csrc_dirx}/datime/*.c ${csrc_dirx}/coear/*.c ${csrc_dirx}/auxiliary/toxxxer.c
 
 #remv_c=*.make.o
+
+# depend [gcc, makefile] [python]
+
+.PHONY: list mx86
+
+list: # depend [python]
+	@python ./lib/Script/Makefile/makemake.py
+
+mx86:
+	cd ${make_dir} && make -f cgmx86.make all
 
 all32: CGW32D kitw32 manual
 

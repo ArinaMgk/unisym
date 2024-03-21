@@ -49,7 +49,7 @@ inline static bool isprefix(uni::Nnode* crt) {
 	return sepawith(crt, crt->left) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
 }
 inline static bool ismiddle(uni::Nnode* crt) {
-	return sepawith(crt, crt->left->left) && parawith(crt, crt->left) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
+	return parawith(crt, crt->left) && sepawith(crt, crt->left->left) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
 }
 
 typedef bool (*ParseOperatorFunction_t)(uni::Nnode*, uni::NnodeChain*, bool&);

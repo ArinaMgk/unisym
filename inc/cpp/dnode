@@ -45,9 +45,10 @@ namespace uni {
 		void Remove(const stduint iden);
 		Dnode* Remove(Dnode* content, bool systematic = true);
 		void SetFreeContent(bool need_free);
-		void Onfree(void(*fn_free)(void*) = 0, bool need_free = true) {
+		void Onfree(void(*fn_free)(void*) = 0, bool need_free = true, bool pass_whole = true) {
 			_node_freefunc = fn_free;
 			need_free_content = need_free;
+			free_pass_whole = pass_whole;
 		}
 		void Sort();
 		void Onsort(bool sorted = true, bool little_to_big = true, int (*fn_compare)(const void*, const void*) = 0) {

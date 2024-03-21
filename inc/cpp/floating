@@ -6,7 +6,7 @@
 namespace uni{
 	class Floating {
 	private:
-		stduint coff, expo, divr, demn;
+		stduint coff, expo, divr, dime;
 	public:
 		
 	};

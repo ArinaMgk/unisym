@@ -1,1 +1,1 @@
-# CPL GCC Linux 32
+# CPL GCC Linux 64

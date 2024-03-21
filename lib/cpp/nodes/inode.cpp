@@ -52,13 +52,16 @@ namespace uni {
 				break;
 			} while (crt = crt->next);
 			if (left) left->next = ret_next;
+			if(root_node == inod) root_node = ret_next;
+			if(last_node == inod) last_node = left;
 		}
-
-		if (!_node_freefunc) memf(inod->offs);
 		if (need_free_content)
 			(_node_freefunc ? _node_freefunc : _memf)
-				((void*)(free_pass_whole ? inod : inod->offs));
-		else memf(inod);
+				((void*)(free_pass_whole ? inod : inod->data));
+		else {
+			memf(inod->offs);
+			memf(inod);
+		}
 		node_count--;
 
 		return ret_next;
@@ -98,6 +101,7 @@ namespace uni {
 		if (crt = Index(iden))
 			if (crt->readonly) return false;
 			else if (crt->typekeep && (typ != crt->type)) return false;
+			else Remove(iden);
 		Append(iden, data, typ, readonly, typekeep);
 		return true;
 	}

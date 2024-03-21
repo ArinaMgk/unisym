@@ -41,6 +41,7 @@ namespace uni {
 		Tnode*& left = (Tnode*&)(Dnode::left);
 		Tnode*& next = (Tnode*&)(Dnode::next);
 		stduint col, row;
+		char*& addr = (char*&)Dnode::offs;
 		Tnode(void* addr = 0, stduint typ = 0, Tnode* lef = 0, Tnode* nex = 0, \
 			stduint col = 0, stduint row = 0) : col(col), row(row) {
 			this->offs = addr;

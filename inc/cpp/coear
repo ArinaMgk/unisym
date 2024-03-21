@@ -42,6 +42,7 @@ namespace uni {
 		Coe(const Coe& c);
 		Coe(coe* c);
 		~Coe();
+		void Srs(const Coe& c);
 		bool isnan();
 		bool isinf();
 		double GetReal() const;
@@ -61,25 +62,41 @@ namespace uni {
 		Coe operator+ (Coe& s1);
 		friend Coe operator+ (const Coe& s0, const double s1);
 		friend Coe operator+ (const double s1, const Coe& s0);
+		Coe& operator+=(const Coe& src);
 
 		Coe operator- ();
 		Coe operator- (Coe& s1);
 		friend Coe operator- (const Coe& s0, const double s1);
 		friend Coe operator- (const double s1, const Coe& s0);
+		Coe& operator-=(const Coe& src);
 
 		Coe operator* (Coe& s1);
 		friend Coe operator* (const Coe& s0, const double s1);
 		friend Coe operator* (const double s1, const Coe& s0);
+		Coe& operator*=(const Coe& src);
 
 		Coe operator/ (Coe& s1);
 		friend Coe operator/ (const Coe& s0, const double s1);
 		friend Coe operator/ (const double s1, const Coe& s0);
+		Coe& operator/=(const Coe& src);
 
 		friend std::ostream& operator<< (std::ostream& out, const Coe& c);
+		friend uni::Coe& operator^ (const Coe& b, const Coe& c);
+		Coe& operator^=(const Coe& src);
 
 		//{TEMP} no using: Coe res(CoeCpy(this->co)); CoeSin(res.co);
-		Coe Sin();
-
+		Coe Sin() { return Coe(sin(ToDouble())); }
+		Coe Cos() { return Coe(cos(ToDouble())); }
+		Coe Tan() { return Coe(tan(ToDouble())); }
+		Coe ASin() { return Coe(asin(ToDouble())); }
+		Coe ACos() { return Coe(acos(ToDouble())); }
+		Coe ATan() { return Coe(atan(ToDouble())); }
+		Coe Sinh() { return Coe(sinh(ToDouble())); }
+		Coe Cosh() { return Coe(cosh(ToDouble())); }
+		Coe Tanh() { return Coe(tanh(ToDouble())); }
+		Coe ASinh() { return Coe(asinh(ToDouble())); }
+		Coe ACosh() { return Coe(acosh(ToDouble())); }
+		Coe ATanh() { return Coe(atanh(ToDouble())); }
 	protected:
 		coe* co;
 	};

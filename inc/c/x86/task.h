@@ -23,10 +23,49 @@
 #ifndef _INC_x86_TASK
 #define _INC_x86_TASK
 
+#include "alice.h"
+
 struct TaskStateSegmentx86
 {
-
+	word LastTSS;
+	word NextTSS;// Mecocoa's Design
+	dword ESP0;
+	word SS0;
+	word Padding0;
+	dword ESP1;
+	word SS1;
+	word Padding1;
+	dword ESP2;
+	word SS2;
+	word Padding2;
+	dword CR3;// Page Directory Base
+	dword EIP;
+	dword EFLAGS;
+	dword EAX;
+	dword ECX;
+	dword EDX;
+	dword EBX;
+	dword ESP;
+	dword EBP;
+	dword ESI;
+	dword EDI;
+	word ES;
+	word Padding3;
+	word CS;
+	word Padding4;
+	word SS;
+	word Padding5;
+	word DS;
+	word Padding6;
+	word FS;
+	word Padding7;
+	word GS;
+	word Padding8;
+	word LDT;
+	word LDTLength;// Mecocoa's Design
+	word STRC_15_T;
+	word IO_MAP; // default 103
+	// ---- 0104d:
 };
-
 
 #endif

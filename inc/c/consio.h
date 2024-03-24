@@ -21,8 +21,8 @@
 */
 
 
-#ifndef ModConIO
-#define ModConIO
+#ifndef _INC_CONSIO
+#define _INC_CONSIO
 #include <stdio.h>
 
 // Return the length of the words excluding terminating zero but "limit" considers it.

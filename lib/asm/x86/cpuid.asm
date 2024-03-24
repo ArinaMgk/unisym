@@ -5,7 +5,7 @@
 ; ModuTitle: Instruction CPUID
 ; Copyright: ArinaMgk UniSym, Apache License Version 2.0
 [CPU 586]
-%include "../../../Kasha/n_cpuins.a"
+%include "cpuins.a"
 
 [SECTION .data]
 	DB "UNISYM DOSCON.IO", "CPUID"

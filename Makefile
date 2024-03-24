@@ -21,7 +21,7 @@ CGW32D_PATH=.
 
 # depend [gcc, makefile] [python]
 
-.PHONY: list mx86 cgw32
+.PHONY: list mx86 cgw32 liblinux cgl32 cgl64
 
 list: # depend [python]
 	@python ./lib/Script/Makefile/makemake.py
@@ -32,8 +32,11 @@ mx86:
 cgw32:
 	make -f ./lib/make/cgw32.make all
 
-
-
+liblinux: cgl32 cgl64 # ELF
+cgl32:
+	make -f ./lib/make/cgl32.make all
+cgl64:
+	make -f ./lib/make/cgl64.make all
 
 all32: CGW32D kitw32 manual
 kitw32:

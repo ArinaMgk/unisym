@@ -25,7 +25,12 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef _Linux
+//{TEMP}{No Check}
+inline static int _getch() { char ch = getchar(); printf("\b "); return ch;}
+#else
 #include <conio.h>
+#endif
 #include "../../inc/c/graphic/contable.h"
 #include "../../inc/c/alice.h"
 #include "../../inc/c/aldbg.h"
@@ -197,7 +202,11 @@ int CtabLoop(struct Contab* ctab)
 			memalloc(buf, 128);
 			char* p = buf;
 			rewind(stdin);
+			#ifdef _Linux
+			{char* tmp = fgets(buf, 64, stdin);}
+			#else
 			gets_s(buf, 64);// mgk number
+			#endif
 			// RFR25: this will set the rest bytes zero? --Phina.
 			if ((!ctab->CtabItemResetVerify) || ctab->CtabItemResetVerify(ctab->curc, ctab->curr, buf))
 			srs(ctab->cons[ctab->curr][ctab->curc].content, StrHeapN(buf, 62));// mgk number

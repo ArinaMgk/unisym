@@ -22,7 +22,7 @@
 
 #include "../../inc/c/binary.h"
 
-uint64_t __cdecl BitReflect64(size_t times, uint64_t val)
+uint64_t _CALL_CPL BitReflect64(size_t times, uint64_t val)
 {
 	uint64_t reflection = 0x0;
 	if (!times) return val;

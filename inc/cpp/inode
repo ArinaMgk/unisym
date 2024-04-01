@@ -50,7 +50,7 @@ namespace uni {
 
 	class InodeChain : public NodeChain {
 	public:
-		InodeChain(bool need_free);
+		InodeChain(bool need_free = true);
 		~InodeChain();
 		void Append(const char* addr, const void* data, stduint typ, bool readonly = false, bool typekeep = false);
 		void Sort();

@@ -1,7 +1,8 @@
-// ASCII C++-STD11 TAB4 CRLF
-// LastCheck: 20240229
+// ASCII C++ TAB4 CRLF
+// Attribute: 
+// LastCheck: 20240331
 // AllAuthor: @dosconio
-// ModuTitle: Stream
+// ModuTitle: Class of Port and Pin
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,4 +20,26 @@
 	limitations under the License.
 */
 
-#include "../../inc/cpp/ustream"
+#ifndef _INC_PORT_X
+#define _INC_PORT_X
+
+#include "cinc"
+#include "../c/alice.h"
+#include "cinc"
+
+namespace uni {
+	class Port {
+	public:
+		Port(unsigned port_id) : port_iden(port_id) {}
+
+		//Port& operator[] (int port_id) const;
+		// operator=
+		// operator pword ({} pword: PortWord NamedByDscn)
+	protected:
+		unsigned port_iden;
+	};
+}
+
+extern "C++" uni::Port _PORT;
+
+#endif

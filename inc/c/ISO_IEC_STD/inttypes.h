@@ -1,6 +1,6 @@
 // ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant since(C99)
-// LastCheck: RFZ11
+// LastCheck: 2024MAR29
 // AllAuthor: @dosconio
 // ModuTitle: Alias for ISO IEC Standard CPL string.h
 /*
@@ -20,4 +20,4 @@
 	limitations under the License.
 */
 
-#include "../ustdbool.h"
+#include "../integer.h"

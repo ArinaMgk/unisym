@@ -1,4 +1,8 @@
 -gitignore
-.vscode/settings.json
+.vscode
+magic/.vscode
+doc/www.magice.org
+doc/www.phina.net
+doc/www.phina.org
 doc/www.unisym.org
 *.pyc

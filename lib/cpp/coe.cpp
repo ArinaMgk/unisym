@@ -63,7 +63,7 @@ namespace uni{
 		return s;
 	}
 
-	double Coe::ToDouble() const { return CoeToDouble(this->co); }
+	Coe::operator double() const { return CoeToDouble(this->co); }
 
 	Coe& operator++ (Coe& num) {// prefix
 		CoeAdd(num.co, &coeone);
@@ -206,7 +206,7 @@ namespace uni{
 	}
 
 	Coe& Coe::operator^= (const Coe& src) {
-		Srs(CoeFromDouble(pow(ToDouble(), src.ToDouble())));
+		Srs(CoeFromDouble(pow(operator double(), double(src))));
 		return *this;
 	}
 

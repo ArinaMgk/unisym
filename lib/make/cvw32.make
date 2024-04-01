@@ -1,19 +1,20 @@
-# UNISYM for MSVC-Win64 built-2024-04-01 23:50:23.136263
+# UNISYM for MSVC-Win32 built-2024-04-01 23:50:23.136263
 
 AASM = aasm
 udir = E:/PROJ/SVGN/unisym
 
-attr = /D_DEBUG /D_WinNT /D_Win64
-cplpref=_uvc64_
-cpppref=_uxxvc64_
-dest_obj=../_obj/CVWin64
+attr = /D_DEBUG /D_WinNT /D_Win32
+cplpref=_uvc32_
+cpppref=_uxxvc32_
+dest_obj=../_obj/CVWin32
 TOOLDIR = E:/software/VS22/VC/Tools/MSVC/14.39.33519
-CC = ${TOOLDIR}/bin/Hostx64/x64/cl.exe
+CC = ${TOOLDIR}/bin/Hostx86/x86/cl.exe
 CX = ${CC}
-AR = ${TOOLDIR}/bin/Hostx64/x64/lib.exe
-aattr = -fwin64 -I../../unisym/inc/Kasha/n_
-dest_abs = ../_bin/libw64d.lib
-VLIB_64=/LIBPATH:"${TOOLDIR}/lib/x64/" /LIBPATH:"${TOOLDIR}/lib/onecore/x64" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/um/x64" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/ucrt/x64"
+AR = ${TOOLDIR}/bin/Hostx86/x86/lib.exe
+# contain x86 - x64 can run this
+aattr = -fwin32 -I../../unisym/inc/Kasha/n_
+dest_abs = ../_bin/libw32d.lib
+VLIB_64=/LIBPATH:"${TOOLDIR}/lib/x86/" /LIBPATH:"${TOOLDIR}/lib/onecore/x86" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/um/x86" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/ucrt/x86"
 VI_SYS="C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/ucrt/"
 VI_64=${TOOLDIR}/include/ /I${VI_SYS} /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/um/" /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/shared/"
 .PHONY: all
@@ -21,8 +22,8 @@ VI_64=${TOOLDIR}/include/ /I${VI_SYS} /I"C:/Program Files (x86)/Windows Kits/10/
 all:
 	-@E:/software/w64dev/bin/mkdir.exe -p ${dest_obj}
 	-@E:/software/w64dev/bin/rm.exe -f ${dest_obj}/*
-	cd ${dest_obj}/ && ${AASM} ${aattr} ../../unisym/lib/asm/x64/cpuid.asm -o cpuid_a.o
-	cd ${dest_obj}/ && ${AASM} ${aattr} ../../unisym/lib/asm/x64/binary.asm -o binary_a.o
+	cd ${dest_obj}/ && ${AASM} ${aattr} ../../unisym/lib/asm/x86/cpuid.asm -o cpuid_a.o
+	cd ${dest_obj}/ && ${AASM} ${aattr} ../../unisym/lib/asm/x86/binary.asm -o binary_a.o
 	$(CC) ./lib/c/auxiliary/toxxxer.make.c /Fe: ../_tmp/toxxxer.make.exe /Fo: ../_tmp/toxxxer.make.obj /I${VI_64} ${attr} /link${VLIB_64} && ../_tmp/toxxxer.make&& echo toxxxer.make
 	$(CC) /c ./lib/c/binary.c /Fo:${dest_obj}/${cplpref}binary.obj /I${VI_64} ${attr}
 	$(CC) /c ./lib/c/consio.c /Fo:${dest_obj}/${cplpref}consio.obj /I${VI_64} ${attr}

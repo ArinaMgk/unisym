@@ -19,7 +19,7 @@
 
 #pragma warning(disable:6011)// for MSVC
 
-#ifndef _LIB_DEBUG// Add this can cheat the compiler
+#if !defined(_LIB_DEBUG) && defined(_DEBUG)// Add this can cheat the compiler
 #define _LIB_DEBUG// Her Convenient odd style. Maybe a bad habit for formal project.
 
 #include <stddef.h>
@@ -85,5 +85,13 @@ inline static char* salc(size_t size)
 #define ulibsym(limit)\
 	size_t _MALCOUNT, malc_limit=(limit), call_state;
 
+#ifdef _INC_CPP
+extern "C++" {
+	// `new(buf)type;` won't call this but `new type;`.
+	//void* operator new(size_t size);
+	//
+	//void operator delete(void* p);
+}
+#endif
 
 #endif

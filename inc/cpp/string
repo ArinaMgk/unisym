@@ -20,6 +20,9 @@
 	limitations under the License.
 */
 
+// Do not add this into your INC-path or your GCC may not find its header!
+// But you can add `*/inc/` and `*/inc/c/`.
+
 #ifndef _INCX_STRING
 #define _INCX_STRING
 
@@ -27,17 +30,20 @@
 	#include "../c/ustring.h"
 #include "cinc"// C End
 
-class String {
-private:
-	size_t counts;
-	char* addr;
-public:
-	String(const char* str);
-	~String();
-	size_t length();
-	const char* reflect();
-};
+namespace uni {
+	class String {
+	private:
+		size_t counts;
+		char* addr;
+	public:
+		String(const char* str);
+		~String();
+		size_t length();
+		const char* reflect();
+	};
+	
+}
 
-typedef class String ustring;
+typedef class uni::String ustring;
 
 #endif // !_INCX_STRING

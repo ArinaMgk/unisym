@@ -55,14 +55,11 @@ ConPrint Hello_String; Assembly Macro
 
 **Contributors** 
 
-- ![Contributor ArinaMgk](./.picture/phina.head.bmp) <del> ***Phina Ren***</del> (First Last)  
-    - [**PAST**](./doc/author/arina.md):  <mark>Physically and Mentally Sick</mark>  
-    - **Boudoir**: [Her-garden](phina.net)  or its `.org` or `.ren` 
-    - **GitHub**: `ArinaMgk` 
-    - **Mail**: phina@tuta.io 
-    - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk) 
+[🍨 Buy us a coffee for UNISYM project](https://www.buymeacoffee.com/arinamgk) 
 
-- ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** (Family First)
+- ![Contributor ArinaMgk](./.picture/phina.head.bmp) <del> ***[Phina Ren](./doc/author/arina.md)***</del>
+
+- ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** 
 
     - **Boudoir**: http://doscon.io and dosconio series
     - **GitHub**: `dosconio` 

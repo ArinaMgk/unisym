@@ -36,6 +36,7 @@ const char static EscSeq[] =
 	'n','\n','r','\r','a','\a','b','\b','f','\f','t','\t','v','\v'
 };// other equal to literal char except the "\x"[0~2] "\"[0~2]
 
+//{}{}{} Combinated with C
 static toktype getctype(char chr)// Excluding Number
 {
 	// is going to be renamed "ctype(char)"
@@ -48,6 +49,7 @@ static toktype getctype(char chr)// Excluding Number
 	return tok_others;
 }
 
+// return whether int, float
 static stduint StrTokenAll_NumChk(uni::TokenParseUnit& tpu)
 {
 	size_t res = 0;

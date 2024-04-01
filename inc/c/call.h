@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant since(C99)
-// LastCheck: RFZ11
+// ASCII C++ TAB4 CRLF
+// Attribute: 
+// LastCheck: 20240331
 // AllAuthor: @dosconio
-// ModuTitle: Alias for ISO IEC Standard CPL string.h
+// ModuTitle: Calling
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,4 +20,18 @@
 	limitations under the License.
 */
 
-#include "../ustdbool.h"
+#ifndef _INC_CALL
+#define _INC_CALL
+
+#if defined(_Linux) && SIZE_MAX==0xFFFFFFFF
+#define _CALL_FAST __attribute__((fastcall))
+#define _CALL_CPL  __attribute__((cdecl))
+#elif defined(_Linux)
+#define _CALL_FAST
+#define _CALL_CPL 
+#else
+#define _CALL_FAST __fastcall 
+#define _CALL_CPL __cdecl
+#endif
+
+#endif

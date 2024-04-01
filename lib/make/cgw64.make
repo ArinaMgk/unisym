@@ -1,26 +1,25 @@
-# UNISYM for GCC-Lin64 built-2024-04-01 23:50:23.136263
+# UNISYM for GCC-Win64 built-2024-04-01 23:50:23.136263
 
-CC32 = gcc -m32
-CX32 = g++ -m32
-CC64 = gcc -m64
-CX64 = g++ -m64
-AASM = /mnt/hgfs/_bin/ELF64/aasm
-attr = -D_DEBUG -D_Linux -O3
-aattr = -felf -I$(udir)/inc/Kasha/n_
-udir = /mnt/hgfs/unisym
+AASM = aasm
+udir = E:/PROJ/SVGN/unisym
 
+attr = -D_DEBUG -D_WinNT -O3 -D_Win64
 cplpref=_ugc64_
 cpppref=_uxxgc64_
-dest_obj=~/_obj/CGLin64
-dest_abs=/mnt/hgfs/_bin/libl64d.a
-CC=$(CC64)
-CX=$(CX64)
+dest_obj=../_obj/CGWin64
+CC = M:/tmp/bin/mingw64/bin/gcc.exe  -m64
+CX = M:/tmp/bin/mingw64/bin/g++.exe  -m64
+AR = M:/tmp/bin/mingw64/bin/ar.exe
+aattr = -fwin64 -I$(udir)/inc/Kasha/n_ 
+dest_abs = ../_bin/libw64d.a
 .PHONY: all
 
 all:
-	-@mkdir -p ${dest_obj}
-	-@rm -f ${dest_obj}/*
-	$(CC) ./lib/c/auxiliary/toxxxer.make.c -o ../_tmp/toxxxer.make && ../_tmp/toxxxer.make
+	-@E:/software/w64dev/bin/mkdir.exe -p ${dest_obj}
+	-@E:/software/w64dev/bin/rm.exe -f ${dest_obj}/*
+	cd ${dest_obj}/ && ${AASM} ${aattr} ../../unisym/lib/asm/x64/cpuid.asm -o cpuid_a.o
+	cd ${dest_obj}/ && ${AASM} ${aattr} ../../unisym/lib/asm/x64/binary.asm -o binary_a.o
+	$(CC) ./lib/c/auxiliary/toxxxer.make.c -o ../_tmp/toxxxer.make.exe && ../_tmp/toxxxer.make
 	$(CC) -c ./lib/c/binary.c -o ${dest_obj}/${cplpref}binary.o $(attr)
 	$(CC) -c ./lib/c/consio.c -o ${dest_obj}/${cplpref}consio.o $(attr)
 	$(CC) -c ./lib/c/contable.c -o ${dest_obj}/${cplpref}contable.o $(attr)

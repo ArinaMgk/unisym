@@ -1,0 +1,2 @@
+// help avoid using "*" but Point<> template, and also enjoy auto releasing the resources.
+// this + i will add the address by the size, like the pointer.

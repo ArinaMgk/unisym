@@ -1,173 +1,184 @@
+# UNISYM for GCC-Win32 built-2024-04-01 23:50:23.136263
 
-CC32 = gcc -m32
-CX32 = g++ -m32
-dest_obj=../_obj
+AASM = aasm
+udir = E:/PROJ/SVGN/unisym
+
+attr = -D_DEBUG -D_WinNT -O3 -D_Win32
+cplpref=_ugc32_
+cpppref=_uxxgc32_
+dest_obj=../_obj/CGWin32
+CC = E:/PROJ/CoStudioWin64/i686/bin/gcc.exe -m32
+CX = E:/PROJ/CoStudioWin64/i686/bin/g++.exe -m32
+AR = E:/PROJ/CoStudioWin64/i686/bin/ar.exe
+aattr = -fwin32 -I$(udir)/inc/Kasha/n_
+dest_abs = ../_bin/libw32d.a
 .PHONY: all
 
 all:
-	-@E:/software/w64dev/bin/mkdir.exe -p ${dest_obj}/CGWin32
-	-@E:/software/w64dev/bin/rm.exe -f ${dest_obj}/CGWin32/*
-	cd ${dest_obj}/CGWin32/ && aasm -f win32 ../../unisym/lib/asm/x86/cpuid.asm -I../../unisym/inc/Kasha/n_ -o./cpuid.a.o
-	cd ${dest_obj}/CGWin32/ && aasm -f win32 ../../unisym/lib/asm/x86/binary.asm -I../../unisym/inc/Kasha/n_ -o./binary.a.o
-	$(CC32) ./lib/c/auxiliary/toxxxer.make.c -o ../_tmp/toxxxer.make.exe && ../_tmp/toxxxer.make.exe
-	$(CC32) -c ./lib/c/binary.c -o ${dest_obj}/CGWin32/_ugc32_binary.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/consio.c -o ${dest_obj}/CGWin32/_ugc32_consio.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/contable.c -o ${dest_obj}/CGWin32/_ugc32_contable.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/crc64.c -o ${dest_obj}/CGWin32/_ugc32_crc64.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/debug.c -o ${dest_obj}/CGWin32/_ugc32_debug.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/error.c -o ${dest_obj}/CGWin32/_ugc32_error.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/mcore.c -o ${dest_obj}/CGWin32/_ugc32_mcore.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/numar.c -o ${dest_obj}/CGWin32/_ugc32_numar.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/regar.c -o ${dest_obj}/CGWin32/_ugc32_regar.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/stack.c -o ${dest_obj}/CGWin32/_ugc32_stack.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/strpool.c -o ${dest_obj}/CGWin32/_ugc32_strpool.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/tenar.c -o ${dest_obj}/CGWin32/_ugc32_tenar.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/window.c -o ${dest_obj}/CGWin32/_ugc32_window.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/auxiliary/toxxxer.c -o ${dest_obj}/CGWin32/_ugc32_toxxxer.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeAcos.c -o ${dest_obj}/CGWin32/_ugc32_CoeAcos.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeAcosh.c -o ${dest_obj}/CGWin32/_ugc32_CoeAcosh.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeAdd.c -o ${dest_obj}/CGWin32/_ugc32_CoeAdd.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/coear.c -o ${dest_obj}/CGWin32/_ugc32_coear.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeAsin.c -o ${dest_obj}/CGWin32/_ugc32_CoeAsin.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeAsinh.c -o ${dest_obj}/CGWin32/_ugc32_CoeAsinh.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeAtan.c -o ${dest_obj}/CGWin32/_ugc32_CoeAtan.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeAtanh.c -o ${dest_obj}/CGWin32/_ugc32_CoeAtanh.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeCmp.c -o ${dest_obj}/CGWin32/_ugc32_CoeCmp.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeCos.c -o ${dest_obj}/CGWin32/_ugc32_CoeCos.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeCosh.c -o ${dest_obj}/CGWin32/_ugc32_CoeCosh.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeCpy.c -o ${dest_obj}/CGWin32/_ugc32_CoeCpy.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeCtz.c -o ${dest_obj}/CGWin32/_ugc32_CoeCtz.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeDel.c -o ${dest_obj}/CGWin32/_ugc32_CoeDel.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeDig.c -o ${dest_obj}/CGWin32/_ugc32_CoeDig.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeDiv.c -o ${dest_obj}/CGWin32/_ugc32_CoeDiv.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeDivrAlign.c -o ${dest_obj}/CGWin32/_ugc32_CoeDivrAlign.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeDivrUnit.c -o ${dest_obj}/CGWin32/_ugc32_CoeDivrUnit.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeE.c -o ${dest_obj}/CGWin32/_ugc32_CoeE.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeExp.c -o ${dest_obj}/CGWin32/_ugc32_CoeExp.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeExpoAlign.c -o ${dest_obj}/CGWin32/_ugc32_CoeExpoAlign.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeFac.c -o ${dest_obj}/CGWin32/_ugc32_CoeFac.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeFromDouble.c -o ${dest_obj}/CGWin32/_ugc32_CoeFromDouble.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeFromInteger.c -o ${dest_obj}/CGWin32/_ugc32_CoeFromInteger.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeFromLocale.c -o ${dest_obj}/CGWin32/_ugc32_CoeFromLocale.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeHypot.c -o ${dest_obj}/CGWin32/_ugc32_CoeHypot.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeInit.c -o ${dest_obj}/CGWin32/_ugc32_CoeInit.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeInt.c -o ${dest_obj}/CGWin32/_ugc32_CoeInt.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeIsINF.c -o ${dest_obj}/CGWin32/_ugc32_CoeIsINF.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeIsNAN.c -o ${dest_obj}/CGWin32/_ugc32_CoeIsNAN.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeLog.c -o ${dest_obj}/CGWin32/_ugc32_CoeLog.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeMul.c -o ${dest_obj}/CGWin32/_ugc32_CoeMul.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeNeg.c -o ${dest_obj}/CGWin32/_ugc32_CoeNeg.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeNew.c -o ${dest_obj}/CGWin32/_ugc32_CoeNew.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoePi.c -o ${dest_obj}/CGWin32/_ugc32_CoePi.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoePow.c -o ${dest_obj}/CGWin32/_ugc32_CoePow.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeRst.c -o ${dest_obj}/CGWin32/_ugc32_CoeRst.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeSgn.c -o ${dest_obj}/CGWin32/_ugc32_CoeSgn.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeSin.c -o ${dest_obj}/CGWin32/_ugc32_CoeSin.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeSinh.c -o ${dest_obj}/CGWin32/_ugc32_CoeSinh.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeSqrt.c -o ${dest_obj}/CGWin32/_ugc32_CoeSqrt.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeSquare.c -o ${dest_obj}/CGWin32/_ugc32_CoeSquare.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeSub.c -o ${dest_obj}/CGWin32/_ugc32_CoeSub.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeTan.c -o ${dest_obj}/CGWin32/_ugc32_CoeTan.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeTanh.c -o ${dest_obj}/CGWin32/_ugc32_CoeTanh.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeTaylor.c -o ${dest_obj}/CGWin32/_ugc32_CoeTaylor.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeToDouble.c -o ${dest_obj}/CGWin32/_ugc32_CoeToDouble.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/coear/CoeToLocale.c -o ${dest_obj}/CGWin32/_ugc32_CoeToLocale.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/datime/fromherp.c -o ${dest_obj}/CGWin32/_ugc32_fromherp.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/datime/POSIXGetSeconds.c -o ${dest_obj}/CGWin32/_ugc32_POSIXGetSeconds.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/datime/weekday.c -o ${dest_obj}/CGWin32/_ugc32_weekday.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/dnode.c -o ${dest_obj}/CGWin32/_ugc32_dnode.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/DnodeAppend.c -o ${dest_obj}/CGWin32/_ugc32_DnodeAppend.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/DnodeBind.c -o ${dest_obj}/CGWin32/_ugc32_DnodeBind.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/DnodeCount.c -o ${dest_obj}/CGWin32/_ugc32_DnodeCount.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/DnodeIndex.c -o ${dest_obj}/CGWin32/_ugc32_DnodeIndex.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/DnodeInsert.c -o ${dest_obj}/CGWin32/_ugc32_DnodeInsert.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/DnodeRelease.c -o ${dest_obj}/CGWin32/_ugc32_DnodeRelease.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/DnodeRemove.c -o ${dest_obj}/CGWin32/_ugc32_DnodeRemove.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/DnodeRewind.c -o ${dest_obj}/CGWin32/_ugc32_DnodeRewind.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/dnode/DnodeSort.c -o ${dest_obj}/CGWin32/_ugc32_DnodeSort.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/inode/InodeDelete.c -o ${dest_obj}/CGWin32/_ugc32_InodeDelete.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/inode/InodeLocate.c -o ${dest_obj}/CGWin32/_ugc32_InodeLocate.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/inode/InodesRelease.c -o ${dest_obj}/CGWin32/_ugc32_InodesRelease.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/inode/InodeUpdate.c -o ${dest_obj}/CGWin32/_ugc32_InodeUpdate.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/nnode/nnode.c -o ${dest_obj}/CGWin32/_ugc32_nnode.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/nnode/NnodeBlock.c -o ${dest_obj}/CGWin32/_ugc32_NnodeBlock.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/nnode/NnodeInsert.c -o ${dest_obj}/CGWin32/_ugc32_NnodeInsert.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/nnode/NnodeRelease.c -o ${dest_obj}/CGWin32/_ugc32_NnodeRelease.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/nnode/NnodesRelease.c -o ${dest_obj}/CGWin32/_ugc32_NnodesRelease.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/node/node.c -o ${dest_obj}/CGWin32/_ugc32_node.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/node/NodeAppend.c -o ${dest_obj}/CGWin32/_ugc32_NodeAppend.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/node/NodeCount.c -o ${dest_obj}/CGWin32/_ugc32_NodeCount.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/node/NodeIndex.c -o ${dest_obj}/CGWin32/_ugc32_NodeIndex.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/node/NodeInsert.c -o ${dest_obj}/CGWin32/_ugc32_NodeInsert.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/node/NodeRelease.c -o ${dest_obj}/CGWin32/_ugc32_NodeRelease.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/node/NodeRemove.c -o ${dest_obj}/CGWin32/_ugc32_NodeRemove.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/node/NodeSort.c -o ${dest_obj}/CGWin32/_ugc32_NodeSort.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/tnode/StrTokenAll.c -o ${dest_obj}/CGWin32/_ugc32_StrTokenAll.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/tnode/StrTokenAppend.c -o ${dest_obj}/CGWin32/_ugc32_StrTokenAppend.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/tnode/StrTokenClearAll.c -o ${dest_obj}/CGWin32/_ugc32_StrTokenClearAll.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/tnode/StrTokenThrow.c -o ${dest_obj}/CGWin32/_ugc32_StrTokenThrow.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/tnode/tnode.c -o ${dest_obj}/CGWin32/_ugc32_tnode.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/tnode/TnodesReleases.c -o ${dest_obj}/CGWin32/_ugc32_TnodesReleases.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/atobcd.c -o ${dest_obj}/CGWin32/_ugc32_atobcd.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/bcdtoa.c -o ${dest_obj}/CGWin32/_ugc32_bcdtoa.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/instoa.c -o ${dest_obj}/CGWin32/_ugc32_instoa.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/MemHeap.c -o ${dest_obj}/CGWin32/_ugc32_MemHeap.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/StrHeap.c -o ${dest_obj}/CGWin32/_ugc32_StrHeap.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/StrHeapAppend.c -o ${dest_obj}/CGWin32/_ugc32_StrHeapAppend.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/StrHeapAppendChars.c -o ${dest_obj}/CGWin32/_ugc32_StrHeapAppendChars.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/StrHeapAppendN.c -o ${dest_obj}/CGWin32/_ugc32_StrHeapAppendN.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/StrHeapFromChar.c -o ${dest_obj}/CGWin32/_ugc32_StrHeapFromChar.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/StrHeapInsertThrow.c -o ${dest_obj}/CGWin32/_ugc32_StrHeapInsertThrow.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/StrHeapN.c -o ${dest_obj}/CGWin32/_ugc32_StrHeapN.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/astring/StrReplace.c -o ${dest_obj}/CGWin32/_ugc32_StrReplace.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrAdd.c -o ${dest_obj}/CGWin32/_ugc32_ChrAdd.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrArrange.c -o ${dest_obj}/CGWin32/_ugc32_ChrArrange.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrCmp.c -o ${dest_obj}/CGWin32/_ugc32_ChrCmp.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrCombinate.c -o ${dest_obj}/CGWin32/_ugc32_ChrCombinate.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrComDiv.c -o ${dest_obj}/CGWin32/_ugc32_ChrComDiv.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrComMul.c -o ${dest_obj}/CGWin32/_ugc32_ChrComMul.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrCpz.c -o ${dest_obj}/CGWin32/_ugc32_ChrCpz.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrCtz.c -o ${dest_obj}/CGWin32/_ugc32_ChrCtz.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrDecToHex.c -o ${dest_obj}/CGWin32/_ugc32_ChrDecToHex.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrDecToHexFloat.c -o ${dest_obj}/CGWin32/_ugc32_ChrDecToHexFloat.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrDiv.c -o ${dest_obj}/CGWin32/_ugc32_ChrDiv.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrFactorial.c -o ${dest_obj}/CGWin32/_ugc32_ChrFactorial.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrHexToDec.c -o ${dest_obj}/CGWin32/_ugc32_ChrHexToDec.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrHexToDecFloat.c -o ${dest_obj}/CGWin32/_ugc32_ChrHexToDecFloat.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrInsPow.c -o ${dest_obj}/CGWin32/_ugc32_ChrInsPow.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrMul.c -o ${dest_obj}/CGWin32/_ugc32_ChrMul.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/ChrSub.c -o ${dest_obj}/CGWin32/_ugc32_ChrSub.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/DigDec.c -o ${dest_obj}/CGWin32/_ugc32_DigDec.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/chrar/DigInc.c -o ${dest_obj}/CGWin32/_ugc32_DigInc.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/atoins.c -o ${dest_obj}/CGWin32/_ugc32_atoins.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/instob.c -o ${dest_obj}/CGWin32/_ugc32_instob.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/MemCompareRight.c -o ${dest_obj}/CGWin32/_ugc32_MemCompareRight.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/MemSet.c -o ${dest_obj}/CGWin32/_ugc32_MemSet.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrDeprefixSpaces.c -o ${dest_obj}/CGWin32/_ugc32_StrDeprefixSpaces.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrDesuffixSpaces.c -o ${dest_obj}/CGWin32/_ugc32_StrDesuffixSpaces.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrFilter.c -o ${dest_obj}/CGWin32/_ugc32_StrFilter.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrFilterOut.c -o ${dest_obj}/CGWin32/_ugc32_StrFilterOut.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrFilterOutString.c -o ${dest_obj}/CGWin32/_ugc32_StrFilterOutString.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrFilterString.c -o ${dest_obj}/CGWin32/_ugc32_StrFilterString.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrShiftLeft4.c -o ${dest_obj}/CGWin32/_ugc32_StrShiftLeft4.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrShiftLeft8n.c -o ${dest_obj}/CGWin32/_ugc32_StrShiftLeft8n.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrShiftRight4.c -o ${dest_obj}/CGWin32/_ugc32_StrShiftRight4.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrShiftRight8n.c -o ${dest_obj}/CGWin32/_ugc32_StrShiftRight8n.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/StrSortBubble.c -o ${dest_obj}/CGWin32/_ugc32_StrSortBubble.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CC32) -c ./lib/c/ustring/gstring/_size_decimal_get.c -o ${dest_obj}/CGWin32/_ugc32__size_decimal_get.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/coe.cpp -o ${dest_obj}/CGWin32/_uxxgc32_coe.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/consio.cpp -o ${dest_obj}/CGWin32/_uxxgc32_consio.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/floating.cpp -o ${dest_obj}/CGWin32/_uxxgc32_floating.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/numberx.cpp -o ${dest_obj}/CGWin32/_uxxgc32_numberx.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/strpool.cpp -o ${dest_obj}/CGWin32/_uxxgc32_strpool.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/ustream.cpp -o ${dest_obj}/CGWin32/_uxxgc32_ustream.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/ustring.cpp -o ${dest_obj}/CGWin32/_uxxgc32_ustring.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/nodes/dnode.cpp -o ${dest_obj}/CGWin32/_uxxgc32_dnode.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/nodes/inode.cpp -o ${dest_obj}/CGWin32/_uxxgc32_inode.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/nodes/nnode.cpp -o ${dest_obj}/CGWin32/_uxxgc32_nnode.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/nodes/node.cpp -o ${dest_obj}/CGWin32/_uxxgc32_node.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/nodes/tnode.cpp -o ${dest_obj}/CGWin32/_uxxgc32_tnode.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/nodes/nnode/NnodeParse.cpp -o ${dest_obj}/CGWin32/_uxxgc32_NnodeParse.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/nodes/nnode/NnodeParse/NnodeParseOperator.cpp -o ${dest_obj}/CGWin32/_uxxgc32_NnodeParseOperator.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	$(CX32) -c ./lib/cpp/nodes/tnode/TokenParse.cpp -o ${dest_obj}/CGWin32/_uxxgc32_TokenParse.o -D_DEBUG -D_WinNT -D_Win32 -O3
-	cd ${dest_obj}/CGWin32/ && ar -rcs ../../_bin/libw32.a *
+	-@E:/software/w64dev/bin/mkdir.exe -p ${dest_obj}
+	-@E:/software/w64dev/bin/rm.exe -f ${dest_obj}/*
+	cd ${dest_obj}/ && ${AASM} ${aattr} ../../unisym/lib/asm/x86/cpuid.asm -o cpuid_a.o
+	cd ${dest_obj}/ && ${AASM} ${aattr} ../../unisym/lib/asm/x86/binary.asm -o binary_a.o
+	$(CC) ./lib/c/auxiliary/toxxxer.make.c -o ../_tmp/toxxxer.make.exe && ../_tmp/toxxxer.make
+	$(CC) -c ./lib/c/binary.c -o ${dest_obj}/${cplpref}binary.o $(attr)
+	$(CC) -c ./lib/c/consio.c -o ${dest_obj}/${cplpref}consio.o $(attr)
+	$(CC) -c ./lib/c/contable.c -o ${dest_obj}/${cplpref}contable.o $(attr)
+	$(CC) -c ./lib/c/crc64.c -o ${dest_obj}/${cplpref}crc64.o $(attr)
+	$(CC) -c ./lib/c/debug.c -o ${dest_obj}/${cplpref}debug.o $(attr)
+	$(CC) -c ./lib/c/error.c -o ${dest_obj}/${cplpref}error.o $(attr)
+	$(CC) -c ./lib/c/mcore.c -o ${dest_obj}/${cplpref}mcore.o $(attr)
+	$(CC) -c ./lib/c/numar.c -o ${dest_obj}/${cplpref}numar.o $(attr)
+	$(CC) -c ./lib/c/regar.c -o ${dest_obj}/${cplpref}regar.o $(attr)
+	$(CC) -c ./lib/c/stack.c -o ${dest_obj}/${cplpref}stack.o $(attr)
+	$(CC) -c ./lib/c/strpool.c -o ${dest_obj}/${cplpref}strpool.o $(attr)
+	$(CC) -c ./lib/c/tenar.c -o ${dest_obj}/${cplpref}tenar.o $(attr)
+	$(CC) -c ./lib/c/window.c -o ${dest_obj}/${cplpref}window.o $(attr)
+	$(CC) -c ./lib/c/auxiliary/toxxxer.c -o ${dest_obj}/${cplpref}toxxxer.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeAcos.c -o ${dest_obj}/${cplpref}CoeAcos.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeAcosh.c -o ${dest_obj}/${cplpref}CoeAcosh.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeAdd.c -o ${dest_obj}/${cplpref}CoeAdd.o $(attr)
+	$(CC) -c ./lib/c/coear/coear.c -o ${dest_obj}/${cplpref}coear.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeAsin.c -o ${dest_obj}/${cplpref}CoeAsin.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeAsinh.c -o ${dest_obj}/${cplpref}CoeAsinh.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeAtan.c -o ${dest_obj}/${cplpref}CoeAtan.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeAtanh.c -o ${dest_obj}/${cplpref}CoeAtanh.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeCmp.c -o ${dest_obj}/${cplpref}CoeCmp.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeCos.c -o ${dest_obj}/${cplpref}CoeCos.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeCosh.c -o ${dest_obj}/${cplpref}CoeCosh.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeCpy.c -o ${dest_obj}/${cplpref}CoeCpy.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeCtz.c -o ${dest_obj}/${cplpref}CoeCtz.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeDel.c -o ${dest_obj}/${cplpref}CoeDel.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeDig.c -o ${dest_obj}/${cplpref}CoeDig.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeDiv.c -o ${dest_obj}/${cplpref}CoeDiv.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeDivrAlign.c -o ${dest_obj}/${cplpref}CoeDivrAlign.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeDivrUnit.c -o ${dest_obj}/${cplpref}CoeDivrUnit.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeE.c -o ${dest_obj}/${cplpref}CoeE.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeExp.c -o ${dest_obj}/${cplpref}CoeExp.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeExpoAlign.c -o ${dest_obj}/${cplpref}CoeExpoAlign.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeFac.c -o ${dest_obj}/${cplpref}CoeFac.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeFromDouble.c -o ${dest_obj}/${cplpref}CoeFromDouble.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeFromInteger.c -o ${dest_obj}/${cplpref}CoeFromInteger.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeFromLocale.c -o ${dest_obj}/${cplpref}CoeFromLocale.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeHypot.c -o ${dest_obj}/${cplpref}CoeHypot.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeInit.c -o ${dest_obj}/${cplpref}CoeInit.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeInt.c -o ${dest_obj}/${cplpref}CoeInt.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeIsINF.c -o ${dest_obj}/${cplpref}CoeIsINF.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeIsNAN.c -o ${dest_obj}/${cplpref}CoeIsNAN.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeLog.c -o ${dest_obj}/${cplpref}CoeLog.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeMul.c -o ${dest_obj}/${cplpref}CoeMul.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeNeg.c -o ${dest_obj}/${cplpref}CoeNeg.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeNew.c -o ${dest_obj}/${cplpref}CoeNew.o $(attr)
+	$(CC) -c ./lib/c/coear/CoePi.c -o ${dest_obj}/${cplpref}CoePi.o $(attr)
+	$(CC) -c ./lib/c/coear/CoePow.c -o ${dest_obj}/${cplpref}CoePow.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeRst.c -o ${dest_obj}/${cplpref}CoeRst.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeSgn.c -o ${dest_obj}/${cplpref}CoeSgn.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeSin.c -o ${dest_obj}/${cplpref}CoeSin.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeSinh.c -o ${dest_obj}/${cplpref}CoeSinh.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeSqrt.c -o ${dest_obj}/${cplpref}CoeSqrt.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeSquare.c -o ${dest_obj}/${cplpref}CoeSquare.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeSub.c -o ${dest_obj}/${cplpref}CoeSub.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeTan.c -o ${dest_obj}/${cplpref}CoeTan.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeTanh.c -o ${dest_obj}/${cplpref}CoeTanh.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeTaylor.c -o ${dest_obj}/${cplpref}CoeTaylor.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeToDouble.c -o ${dest_obj}/${cplpref}CoeToDouble.o $(attr)
+	$(CC) -c ./lib/c/coear/CoeToLocale.c -o ${dest_obj}/${cplpref}CoeToLocale.o $(attr)
+	$(CC) -c ./lib/c/datime/fromherp.c -o ${dest_obj}/${cplpref}fromherp.o $(attr)
+	$(CC) -c ./lib/c/datime/POSIXGetSeconds.c -o ${dest_obj}/${cplpref}POSIXGetSeconds.o $(attr)
+	$(CC) -c ./lib/c/datime/weekday.c -o ${dest_obj}/${cplpref}weekday.o $(attr)
+	$(CC) -c ./lib/c/dnode/dnode.c -o ${dest_obj}/${cplpref}dnode.o $(attr)
+	$(CC) -c ./lib/c/dnode/DnodeAppend.c -o ${dest_obj}/${cplpref}DnodeAppend.o $(attr)
+	$(CC) -c ./lib/c/dnode/DnodeBind.c -o ${dest_obj}/${cplpref}DnodeBind.o $(attr)
+	$(CC) -c ./lib/c/dnode/DnodeCount.c -o ${dest_obj}/${cplpref}DnodeCount.o $(attr)
+	$(CC) -c ./lib/c/dnode/DnodeIndex.c -o ${dest_obj}/${cplpref}DnodeIndex.o $(attr)
+	$(CC) -c ./lib/c/dnode/DnodeInsert.c -o ${dest_obj}/${cplpref}DnodeInsert.o $(attr)
+	$(CC) -c ./lib/c/dnode/DnodeRelease.c -o ${dest_obj}/${cplpref}DnodeRelease.o $(attr)
+	$(CC) -c ./lib/c/dnode/DnodeRemove.c -o ${dest_obj}/${cplpref}DnodeRemove.o $(attr)
+	$(CC) -c ./lib/c/dnode/DnodeRewind.c -o ${dest_obj}/${cplpref}DnodeRewind.o $(attr)
+	$(CC) -c ./lib/c/dnode/DnodeSort.c -o ${dest_obj}/${cplpref}DnodeSort.o $(attr)
+	$(CC) -c ./lib/c/inode/InodeDelete.c -o ${dest_obj}/${cplpref}InodeDelete.o $(attr)
+	$(CC) -c ./lib/c/inode/InodeLocate.c -o ${dest_obj}/${cplpref}InodeLocate.o $(attr)
+	$(CC) -c ./lib/c/inode/InodesRelease.c -o ${dest_obj}/${cplpref}InodesRelease.o $(attr)
+	$(CC) -c ./lib/c/inode/InodeUpdate.c -o ${dest_obj}/${cplpref}InodeUpdate.o $(attr)
+	$(CC) -c ./lib/c/nnode/nnode.c -o ${dest_obj}/${cplpref}nnode.o $(attr)
+	$(CC) -c ./lib/c/nnode/NnodeBlock.c -o ${dest_obj}/${cplpref}NnodeBlock.o $(attr)
+	$(CC) -c ./lib/c/nnode/NnodeInsert.c -o ${dest_obj}/${cplpref}NnodeInsert.o $(attr)
+	$(CC) -c ./lib/c/nnode/NnodeRelease.c -o ${dest_obj}/${cplpref}NnodeRelease.o $(attr)
+	$(CC) -c ./lib/c/nnode/NnodesRelease.c -o ${dest_obj}/${cplpref}NnodesRelease.o $(attr)
+	$(CC) -c ./lib/c/node/node.c -o ${dest_obj}/${cplpref}node.o $(attr)
+	$(CC) -c ./lib/c/node/NodeAppend.c -o ${dest_obj}/${cplpref}NodeAppend.o $(attr)
+	$(CC) -c ./lib/c/node/NodeCount.c -o ${dest_obj}/${cplpref}NodeCount.o $(attr)
+	$(CC) -c ./lib/c/node/NodeIndex.c -o ${dest_obj}/${cplpref}NodeIndex.o $(attr)
+	$(CC) -c ./lib/c/node/NodeInsert.c -o ${dest_obj}/${cplpref}NodeInsert.o $(attr)
+	$(CC) -c ./lib/c/node/NodeRelease.c -o ${dest_obj}/${cplpref}NodeRelease.o $(attr)
+	$(CC) -c ./lib/c/node/NodeRemove.c -o ${dest_obj}/${cplpref}NodeRemove.o $(attr)
+	$(CC) -c ./lib/c/node/NodeSort.c -o ${dest_obj}/${cplpref}NodeSort.o $(attr)
+	$(CC) -c ./lib/c/tnode/StrTokenAll.c -o ${dest_obj}/${cplpref}StrTokenAll.o $(attr)
+	$(CC) -c ./lib/c/tnode/StrTokenAppend.c -o ${dest_obj}/${cplpref}StrTokenAppend.o $(attr)
+	$(CC) -c ./lib/c/tnode/StrTokenClearAll.c -o ${dest_obj}/${cplpref}StrTokenClearAll.o $(attr)
+	$(CC) -c ./lib/c/tnode/StrTokenThrow.c -o ${dest_obj}/${cplpref}StrTokenThrow.o $(attr)
+	$(CC) -c ./lib/c/tnode/tnode.c -o ${dest_obj}/${cplpref}tnode.o $(attr)
+	$(CC) -c ./lib/c/tnode/TnodesReleases.c -o ${dest_obj}/${cplpref}TnodesReleases.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/atobcd.c -o ${dest_obj}/${cplpref}atobcd.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/bcdtoa.c -o ${dest_obj}/${cplpref}bcdtoa.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/instoa.c -o ${dest_obj}/${cplpref}instoa.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/MemHeap.c -o ${dest_obj}/${cplpref}MemHeap.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/StrHeap.c -o ${dest_obj}/${cplpref}StrHeap.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/StrHeapAppend.c -o ${dest_obj}/${cplpref}StrHeapAppend.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/StrHeapAppendChars.c -o ${dest_obj}/${cplpref}StrHeapAppendChars.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/StrHeapAppendN.c -o ${dest_obj}/${cplpref}StrHeapAppendN.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/StrHeapFromChar.c -o ${dest_obj}/${cplpref}StrHeapFromChar.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/StrHeapInsertThrow.c -o ${dest_obj}/${cplpref}StrHeapInsertThrow.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/StrHeapN.c -o ${dest_obj}/${cplpref}StrHeapN.o $(attr)
+	$(CC) -c ./lib/c/ustring/astring/StrReplace.c -o ${dest_obj}/${cplpref}StrReplace.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrAdd.c -o ${dest_obj}/${cplpref}ChrAdd.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrArrange.c -o ${dest_obj}/${cplpref}ChrArrange.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrCmp.c -o ${dest_obj}/${cplpref}ChrCmp.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrCombinate.c -o ${dest_obj}/${cplpref}ChrCombinate.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrComDiv.c -o ${dest_obj}/${cplpref}ChrComDiv.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrComMul.c -o ${dest_obj}/${cplpref}ChrComMul.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrCpz.c -o ${dest_obj}/${cplpref}ChrCpz.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrCtz.c -o ${dest_obj}/${cplpref}ChrCtz.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrDecToHex.c -o ${dest_obj}/${cplpref}ChrDecToHex.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrDecToHexFloat.c -o ${dest_obj}/${cplpref}ChrDecToHexFloat.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrDiv.c -o ${dest_obj}/${cplpref}ChrDiv.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrFactorial.c -o ${dest_obj}/${cplpref}ChrFactorial.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrHexToDec.c -o ${dest_obj}/${cplpref}ChrHexToDec.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrHexToDecFloat.c -o ${dest_obj}/${cplpref}ChrHexToDecFloat.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrInsPow.c -o ${dest_obj}/${cplpref}ChrInsPow.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrMul.c -o ${dest_obj}/${cplpref}ChrMul.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/ChrSub.c -o ${dest_obj}/${cplpref}ChrSub.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/DigDec.c -o ${dest_obj}/${cplpref}DigDec.o $(attr)
+	$(CC) -c ./lib/c/ustring/chrar/DigInc.c -o ${dest_obj}/${cplpref}DigInc.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/atoins.c -o ${dest_obj}/${cplpref}atoins.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/instob.c -o ${dest_obj}/${cplpref}instob.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/MemCompareRight.c -o ${dest_obj}/${cplpref}MemCompareRight.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/MemSet.c -o ${dest_obj}/${cplpref}MemSet.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrDeprefixSpaces.c -o ${dest_obj}/${cplpref}StrDeprefixSpaces.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrDesuffixSpaces.c -o ${dest_obj}/${cplpref}StrDesuffixSpaces.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrFilter.c -o ${dest_obj}/${cplpref}StrFilter.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrFilterOut.c -o ${dest_obj}/${cplpref}StrFilterOut.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrFilterOutString.c -o ${dest_obj}/${cplpref}StrFilterOutString.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrFilterString.c -o ${dest_obj}/${cplpref}StrFilterString.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrShiftLeft4.c -o ${dest_obj}/${cplpref}StrShiftLeft4.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrShiftLeft8n.c -o ${dest_obj}/${cplpref}StrShiftLeft8n.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrShiftRight4.c -o ${dest_obj}/${cplpref}StrShiftRight4.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrShiftRight8n.c -o ${dest_obj}/${cplpref}StrShiftRight8n.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/StrSortBubble.c -o ${dest_obj}/${cplpref}StrSortBubble.o $(attr)
+	$(CC) -c ./lib/c/ustring/gstring/_size_decimal_get.c -o ${dest_obj}/${cplpref}_size_decimal_get.o $(attr)
+	$(CX) -c ./lib/cpp/coe.cpp -o ${dest_obj}/${cpppref}coe.o $(attr)
+	$(CX) -c ./lib/cpp/consio.cpp -o ${dest_obj}/${cpppref}consio.o $(attr)
+	$(CX) -c ./lib/cpp/debug.cpp -o ${dest_obj}/${cpppref}debug.o $(attr)
+	$(CX) -c ./lib/cpp/floating.cpp -o ${dest_obj}/${cpppref}floating.o $(attr)
+	$(CX) -c ./lib/cpp/numberx.cpp -o ${dest_obj}/${cpppref}numberx.o $(attr)
+	$(CX) -c ./lib/cpp/stream.cpp -o ${dest_obj}/${cpppref}stream.o $(attr)
+	$(CX) -c ./lib/cpp/string.cpp -o ${dest_obj}/${cpppref}string.o $(attr)
+	$(CX) -c ./lib/cpp/strpool.cpp -o ${dest_obj}/${cpppref}strpool.o $(attr)
+	$(CX) -c ./lib/cpp/nodes/dnode.cpp -o ${dest_obj}/${cpppref}dnode.o $(attr)
+	$(CX) -c ./lib/cpp/nodes/inode.cpp -o ${dest_obj}/${cpppref}inode.o $(attr)
+	$(CX) -c ./lib/cpp/nodes/nnode.cpp -o ${dest_obj}/${cpppref}nnode.o $(attr)
+	$(CX) -c ./lib/cpp/nodes/node.cpp -o ${dest_obj}/${cpppref}node.o $(attr)
+	$(CX) -c ./lib/cpp/nodes/tnode.cpp -o ${dest_obj}/${cpppref}tnode.o $(attr)
+	$(CX) -c ./lib/cpp/nodes/nnode/NnodeParse.cpp -o ${dest_obj}/${cpppref}NnodeParse.o $(attr)
+	$(CX) -c ./lib/cpp/nodes/nnode/NnodeParse/NnodeParseOperator.cpp -o ${dest_obj}/${cpppref}NnodeParseOperator.o $(attr)
+	$(CX) -c ./lib/cpp/nodes/tnode/TokenParse.cpp -o ${dest_obj}/${cpppref}TokenParse.o $(attr)
+	${AR} -rcs ${dest_abs} ${dest_obj}/*

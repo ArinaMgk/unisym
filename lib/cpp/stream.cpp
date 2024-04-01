@@ -1,8 +1,7 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
-// LastCheck: RFX18
+// ASCII C++-STD11 TAB4 CRLF
+// LastCheck: 20240229
 // AllAuthor: @dosconio
-// ModuTitle: ASCII String
+// ModuTitle: Stream
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,25 +19,4 @@
 	limitations under the License.
 */
 
-#define _LIB_STRING_HEAP
-#include "../../inc/cpp/ustring"
-
-String::String(const char* str) {
-	this->counts = StrLength(str);
-	this->addr = (char*)malc(counts + 1);
-	StrCopy(this->addr, str);
-}
-
-String::~String() {
-	memf(this->addr);
-	this->addr = NULL;
-	this->counts = 0;
-}
-
-size_t String::length() {
-	return this->counts;
-}
-
-const char* String::reflect() {
-	return this->addr;
-}
+#include "../../inc/cpp/stream"

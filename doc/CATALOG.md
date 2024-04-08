@@ -75,9 +75,16 @@
 #### > Develop
 
 - `_dbg`(old style) <=> `_DEBUG`
+
 - `_AUTO_INCLUDE` will include ASM or C codes
+
 - `_ASSERT_STRICT`
+
 - `_ASSERT_NONE`
+
+- - - -
+
+- `_BUILD_MSVC`
 
 #### > Environment
 

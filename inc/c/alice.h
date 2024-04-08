@@ -46,6 +46,9 @@ typedef void(*_tofree_ft)(void*);
 
 #define masm __asm
 
+#define unchecked
+#define toheap
+
 #define print(x) printf("%s",(x))
 #define printline(x) printf("%s\n",(x))
 #define pll(x,y)   printf("%s : %llx\n",(x),(y))
@@ -56,9 +59,10 @@ typedef void(*_tofree_ft)(void*);
 #define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
 
 #define jump goto
-#define call(x)   (x)()
+//#define call(x)   (x)()
 #define callnz(x) (x)&&(x)()
 #define callif(x) (x?(void)(x)():(void)0)
+#define callifidn(x, iden) do if(x)(x)(iden); while(0)
 
 #define asserv(x) if(x)x // Assert Value
 #define asrtand(x) (x)&&x // Assert Value

@@ -29,6 +29,15 @@ namespace uni {
 		this->addr = (char*)malc(counts + 1);
 		StrCopy(this->addr, str);
 	}
+	String::String(const String& str) {
+		this->addr = StrHeap(str.addr);
+		this->counts = StrLength(this->addr);
+	}
+	String::String(char* str) {
+		this->counts = StrLength(str);
+		this->addr = str;
+		//str = 0;
+	}
 
 	String::~String() {
 		memf(this->addr);
@@ -42,6 +51,20 @@ namespace uni {
 
 	const char* String::reflect() {
 		return this->addr;
+	}
+
+	// USYM's special.
+	String& String::operator=(const String& str) {
+		if (this != &str) {
+			srs(this->addr, StrHeap(str.addr));
+			this->counts = StrLength(this->addr);
+		}
+		this->setthen(this);
+		return *this;
+	}
+	
+	std::ostream& operator<< (std::ostream& out, const String& str) {
+		return out << str.addr;
 	}
 
 }

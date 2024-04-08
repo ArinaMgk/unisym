@@ -2,7 +2,7 @@
 // Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
 // LastCheck: 
 // AllAuthor: @dosconio
-// ModuTitle: Linear Token Node for C++
+// ModuTitle: Nested (Network) Token Node for C++, origin from Anode
 /*
 	Copyright 2023 ArinaMgk
 
@@ -35,15 +35,14 @@
 
 namespace uni {
 	class Nnode : public Tnode {
-	// In fact is from Anode.h
 	public:
 		Nnode(void* addr = 0, Nnode* n_left = 0, Nnode* n_right = 0) :
 			Tnode(addr, 0, (Tnode*)n_left, (Tnode*)n_right, 0, 0),
 			addr((char*&)Dnode::offs), left((Nnode*&)Tnode::left), next((Nnode*&)Tnode::next) { subf = 0; bind = 0; }
 		Nnode(Tnode* nod) : Tnode(*nod), addr((char*&)Dnode::offs), left((Nnode*&)Tnode::left), next((Nnode*&)Tnode::next) { subf = 0; data = 0; pare = 0; bind = 0; }
+		char*& addr ; // = (char*&)Dnode::offs;
 		Nnode*& left; // = (Nnode*&)Tnode::left;
 		Nnode*& next; // = (Nnode*&)Tnode::next;
-		char*& addr ; // = (char*&)Dnode::offs;
 		Nnode* subf;
 		Nnode* pare;// Want independent version? try Anode(anode.h)
 		void* data;

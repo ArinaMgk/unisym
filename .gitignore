@@ -5,4 +5,7 @@ doc/www.magice.org
 doc/www.phina.net
 doc/www.phina.org
 doc/www.unisym.org
+witch/DotNet/udotnet/.vs
+witch/DotNet/udotnet/bin
+witch/DotNet/udotnet/obj
 *.pyc

@@ -33,8 +33,8 @@ ConPrint Hello_String; Assembly Macro
 | INC `inc/` | / | including files |
 | LIB `lib/` | / | implementation source code |
 | LNK `linker/` | objects => output | linker, synthesizer and modifier |
-| MGK `magic/` | sources => sources + list + depend | compiler and translator |
-| WIT `witch/` | to outputs | analyzer and chrome engine |
+| MGK `magic/` | sources => sources + list + depend | compiler, analyzer and translator |
+| WIT `witch/` | to outputs | **chrome** library and engine |
 | WZD `wizard/` | / | constructor |
 
 **Standard Release Version**
@@ -45,7 +45,7 @@ ConPrint Hello_String; Assembly Macro
 
 **Domain** 
 
-- unisym.org
+- [unisym.org](http://unisym.org) 
 
 **Mission** 
 
@@ -62,6 +62,7 @@ ConPrint Hello_String; Assembly Macro
 - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** 
 
     - **Boudoir**: http://doscon.io and dosconio series
+    - **Nickname**: Ayano
     - **GitHub**: `dosconio` 
     - **Mail**: dosconyo@gmail.com 
     - **Fork**: [Dosconio-derived USYM](http://github.com/dosconio/unisym) 

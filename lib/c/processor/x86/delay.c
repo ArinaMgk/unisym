@@ -1,5 +1,6 @@
 //TEMP only for mecocoa
-#ifdef ADDR_CountSeconds
+//TEMP merge by Macro-switch
+#if defined(ADDR_CountSeconds) && defined(_MCCA) 
 
 #include "../../../../inc/c/alice.h"
 #include "../../../../inc/c/x86/interface.x86.h"

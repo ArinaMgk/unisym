@@ -1,8 +1,8 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
-// LastCheck: RFZ01
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: 
 // AllAuthor: @dosconio
-// ModuTitle: General Header
+// ModuTitle: 
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,11 +20,10 @@
 	limitations under the License.
 */
 
-#ifndef _INC_UNIVERSAL_X
-#define _INC_UNIVERSAL_X
+#include "../witch"
 
-#include "cinc"
-#include "../c/aldbg.h"
-#include "cinc"
+namespace uni { namespace Witch {
+	
 
-#endif
+
+} }

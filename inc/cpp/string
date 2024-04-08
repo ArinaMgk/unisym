@@ -29,17 +29,48 @@
 #include "cinc"// C Begin
 	#include "../c/ustring.h"
 #include "cinc"// C End
+#include "property"
+#include <iostream>//{TEMP}
 
 namespace uni {
-	class String {
+	// dosconio style: you need read this carefully, because the others are greatly different from this!
+	class String: public uni::Property<String> {
 	private:
 		size_t counts;
 		char* addr;
+		bool no_termi_char;
 	public:
-		String(const char* str);
+		String(const char* str_asciz = "");
+		String(const String& str);
+		String(char* str);
 		~String();
 		size_t length();
 		const char* reflect();
+
+
+		// + String, int and built-in types
+		// += make use of `+`
+		String& operator=(const String& str);
+
+		bool operator<=(const String& s) const {
+			const char* ptr = StrIndexString(s.addr, this->addr);
+			return ptr != nullptr;
+		}
+		bool operator>=(const String& s) const {
+			const char* ptr = StrIndexString(this->addr, s.addr);
+			return ptr != nullptr;
+		}
+		bool operator==(const String& s) const {
+			return StrCompare(this->addr, s.addr) == 0;
+		}
+
+		char& operator[] (stduint idx) { return addr[idx]; }
+
+		friend std::ostream& operator<< (std::ostream& out, const String& str);
+
+		static String Heap(const String& str) { return String((const char*)(str.addr)); }
+
+
 	};
 	
 }

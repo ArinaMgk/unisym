@@ -36,12 +36,13 @@
 namespace uni {
 	class Tnode : public Dnode {
 	public:
+		// keep the order to avoid warning -Wreorder
+		char*& addr; // = (char*&)Dnode::offs;
 		Tnode*& left; // = (Tnode*&)(Dnode::left);
 		Tnode*& next; // = (Tnode*&)(Dnode::next);
 		stduint col, row;
-		char*& addr; // = (char*&)Dnode::offs;
 		Tnode(void* in_addr = 0, stduint typ = 0, Tnode* lef = 0, Tnode* nex = 0, \
-			stduint col = 0, stduint row = 0) : col(col), row(row), addr((char*&)Dnode::offs), left((Tnode*&)Dnode::left), next((Tnode*&)Dnode::next){
+			stduint col = 0, stduint row = 0) : addr((char*&)Dnode::offs), left((Tnode*&)Dnode::left), next((Tnode*&)Dnode::next), col(col), row(row) {
 			this->offs = in_addr;
 			this->type = typ;
 			this->left = lef;

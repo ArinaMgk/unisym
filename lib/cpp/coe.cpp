@@ -26,6 +26,7 @@
 namespace uni{
 	Coe::~Coe() {
 		CoeDel(this->co);
+		this->co = 0;
 	}
 	Coe::Coe(const char* coff, const char* divr, const char* expo, stduint dimension) {
 		CoeInit();
@@ -56,14 +57,12 @@ namespace uni{
 
 	double Coe::GetReal() const { return CoeToDouble(co); }
 
-	std::string Coe::ToString(int opt) const {
-		char* str = CoeToLocale(co, opt);
-		std::string s = str;
-		memfree(str);
-		return s;
+	String Coe::ToString(int opt) const {
+		return String (CoeToLocale(co, opt));
 	}
 
 	Coe::operator double() const { return CoeToDouble(this->co); }
+	Coe::operator String() const { return CoeToLocale(this->co, 0); }
 
 	Coe& operator++ (Coe& num) {// prefix
 		CoeAdd(num.co, &coeone);
@@ -101,16 +100,6 @@ namespace uni{
 		return res;
 	}
 
-	Coe operator+ (const Coe& s0, const double s1) {
-		Coe ret(CoeCpy(s0.co));
-		Coe res1(CoeFromDouble(s1));
-		CoeAdd(ret.co, res1.co);
-		return ret;
-	}
-	Coe operator+ (const double s1, const Coe& s0) {
-		return s0 + s1;
-	}
-
 	Coe& Coe::operator+= (const Coe& src) {
 		CoeAdd(this->co, src.co);
 		return *this;
@@ -128,20 +117,6 @@ namespace uni{
 		return res;
 	}
 
-	Coe operator- (const Coe& s0, const double s1) {
-		Coe ret(CoeCpy(s0.co));
-		Coe res1(CoeFromDouble(s1));
-		CoeSub(ret.co, res1.co);
-		return ret;
-	}
-
-	Coe operator- (const double s1, const Coe& s0) {
-		Coe res0(CoeCpy(s0.co));
-		Coe res1(CoeFromDouble(s1));
-		CoeSub(res1.co, res0.co);
-		return res1;
-	}
-
 	Coe& Coe::operator-= (const Coe& src) {
 		CoeSub(this->co, src.co);
 		return *this;
@@ -152,14 +127,6 @@ namespace uni{
 		CoeMul(res.co, s1.co);
 		return res;
 	}
-
-	Coe operator* (const Coe& s0, const double s1) {
-		Coe ret(CoeCpy(s0.co));
-		Coe res1(CoeFromDouble(s1));
-		CoeMul(ret.co, res1.co);
-		return ret;
-	}
-	Coe operator* (const double s1, const Coe& s0) { return s0 * s1; }
 
 	Coe Coe::operator/ (Coe& s1) {
 		Coe res(CoeCpy(this->co));
@@ -172,30 +139,9 @@ namespace uni{
 		return *this;
 	}
 
-	Coe operator/ (const Coe& s0, const double s1) {
-		Coe res0(CoeCpy(s0.co));
-		Coe res1(CoeFromDouble(s1));
-		CoeDiv(res0.co, res1.co);
-		return res0;
-	}
-
-	Coe operator/ (const double s1, const Coe& s0) {
-		Coe res0(CoeCpy(s0.co));
-		Coe res1(CoeFromDouble(s1));
-		CoeDiv(res1.co, res0.co);
-		return res1;
-	}
-
 	Coe& Coe::operator/= (const Coe& src) {
 		CoeDiv(this->co, src.co);
 		return *this;
-	}
-
-	std::ostream& operator<< (std::ostream& out, const uni::Coe& c) {
-		char* tofree = CoeToLocale(c.co, 0);
-		if (tofree) out << tofree;
-		mfree(tofree);
-		return out;
 	}
 
 	Coe operator^ (const uni::Coe& b, const uni::Coe& c) {

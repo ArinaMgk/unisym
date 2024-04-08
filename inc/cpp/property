@@ -1,0 +1,58 @@
+// ASCII C++ TAB4 CRLF
+// Attribute: 
+// LastCheck: 20240331
+// AllAuthor: @dosconio
+// ModuTitle: Class of Port and Pin
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+// Abandoned
+
+#if !defined(_INC_PROPERTY)
+#define _INC_PROPERTY
+
+#include "cinc"
+#include "../c/alice.h"
+#include "cinc"
+
+#include <functional>
+
+namespace uni {
+
+
+	template<typename type0>
+	class Property {
+
+	public:
+		Property() {}
+		~Property() {}
+		void onproperty(const std::function<void(type0*)>& propfunc) {
+			this->propfunc = propfunc;
+		}
+	protected:
+		std::function<void(type0*)> propfunc;// not void (*propfunc)(type0*);
+		inline void setthen(type0* tthis) {
+			callifidn(propfunc, tthis);
+		}
+	};
+}
+
+// 20240408 debug, use:
+// MSVC: str.onproperty(std::bind(&AA::BB, this));
+// Qt: str.onproperty(std::bind(&WidgetMain::TitleSet, this, std::placeholders::_1));
+
+#endif

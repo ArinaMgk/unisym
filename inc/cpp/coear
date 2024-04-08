@@ -36,14 +36,18 @@
 
 namespace uni {
 	class Coe /*: public coe*/ {
+		//{opt} bool: classic-str-storage, integer-storage
 	public:
 		Coe(const char* coff, const char* divr, const char* expo = "+0", stduint dimension = 0);
 		Coe(double num);
 		Coe(const char* local_str);
 		Coe(const Coe& c);
 		Coe(coe* c);
+		Coe& operator= (const Coe& s0) {
+			Srs(s0);
+			return *this;
+		}
 		~Coe();
-		void Srs(const Coe& c);
 		bool isnan();
 		bool isinf();
 		double GetReal() const;
@@ -51,9 +55,9 @@ namespace uni {
 		static Coe pi();
 		static Coe e();
 
-		std::string ToString(int opt = 0) const;
-		//{} uni::String ToString(int opt = 0) const;
+		String ToString(int opt = 0) const;
 		operator double() const;
+		operator String() const;
 
 		friend Coe& operator++ (Coe& num);// prefix
 		Coe operator++ (int);// suffix
@@ -62,27 +66,18 @@ namespace uni {
 
 		Coe operator+ () const;
 		Coe operator+ (Coe& s1);
-		friend Coe operator+ (const Coe& s0, const double s1);
-		friend Coe operator+ (const double s1, const Coe& s0);
 		Coe& operator+=(const Coe& src);
 
 		Coe operator- ();
 		Coe operator- (Coe& s1);
-		friend Coe operator- (const Coe& s0, const double s1);
-		friend Coe operator- (const double s1, const Coe& s0);
 		Coe& operator-=(const Coe& src);
 
 		Coe operator* (Coe& s1);
-		friend Coe operator* (const Coe& s0, const double s1);
-		friend Coe operator* (const double s1, const Coe& s0);
 		Coe& operator*=(const Coe& src);
 
 		Coe operator/ (Coe& s1);
-		friend Coe operator/ (const Coe& s0, const double s1);
-		friend Coe operator/ (const double s1, const Coe& s0);
 		Coe& operator/=(const Coe& src);
 
-		friend std::ostream& operator<< (std::ostream& out, const Coe& c);
 		friend Coe operator^ (const Coe& b, const Coe& c);
 		Coe& operator^=(const Coe& src);
 
@@ -101,6 +96,7 @@ namespace uni {
 		Coe ATanh() { return Coe(atanh(operator double())); }
 	protected:
 		coe* co;
+		void Srs(const Coe& c);
 	};
 	
 	extern const Coe coe_pi;

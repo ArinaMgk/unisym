@@ -50,7 +50,7 @@
 #else
 	#include <stddef.h>//{TEMP}
 	#include <stdint.h>//{TEMP}
-	#if !defined(uint)&&!defined(_Linux)// avoid GCC duplicate 'unsigned'
+	#if !defined(uint)&&!defined(_Linux)&&!defined(_NO_uint)// avoid GCC duplicate 'unsigned'
 		#define uint unsigned int
 	#endif
 	#define llong long long int 

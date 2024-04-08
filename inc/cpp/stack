@@ -27,7 +27,7 @@ namespace uni {
 
 	template <typename type0> class Stack {
 	public:
-		Stack(unsigned size);
+		explicit Stack(unsigned size);
 		~Stack();
 		void push(type0 item);
 		type0 pop();

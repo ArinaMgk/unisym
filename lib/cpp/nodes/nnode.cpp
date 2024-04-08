@@ -64,10 +64,8 @@ namespace uni {
 		new (tmp) Nnode;
 		tmp->offs = (void*)addr;
 		tmp->type = typ;
-		tmp->col = insnod ? insnod->col : 0;
-		tmp->row = insnod ? insnod->row : 0;
-		tmp->subf = 0;
-		tmp->pare = stepval(insnod)->pare;
+		#include "../../../inc/c/com/NnodeInsert.h"
+		_COM_NnodeInsert(insnod, onleft, 0, tmp);
 		node_count++;
 		if (!insnod) return last_node = root_node = tmp;// assert(!root_node)
 		if (onleft) {

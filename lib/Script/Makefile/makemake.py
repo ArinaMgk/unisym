@@ -40,8 +40,10 @@ list_asm_file = [
 list_cpl_file = get_files("./lib/c/", ".c")
 list_cpl_file_new = []
 #{TEMP} cut special docs
+# <board.lib> includes <processor.lib> 
+# <processor.lib> includes its special `asm` version
 for i in list_cpl_file:
-	if (".make.c" in i) or ("/lib/c/processor/" in i) or ("/lib/c/driver/" in i) or ("lib/c/ustring/bstring/" in i):
+	if (".make.c" in i) or ("/lib/c/processor/" in i) or ("/lib/c/driver/" in i) or ("lib/c/ustring/bstring/" in i): # fixed path for <processor.lib>, <board.lib>
 		pass
 	else:
 		list_cpl_file_new.append(i)
@@ -247,11 +249,11 @@ CC32 = gcc -m32 -c -fno-builtin -fleading-underscore -fno-pic\
 """
 text_gcc_mecocoa += "\nall:\n"
 text_gcc_mecocoa += '\t' + "-sudo mkdir -m 777 -p ~/_obj/libmx86\n"
-text_gcc_mecocoa += '\t' + "-rm -f ~/_obj/libmx86/_u_*.obj\n"
+text_gcc_mecocoa += '\t' + "-rm -f ~/_obj/libmx86/*.obj\n"
 for i in list_gcc_mecocoa_files:
 	file_path, file_ext = os.path.splitext(i)
-	text_gcc_mecocoa += '\t' + i + " -o ~/_obj/libmx86/_u_" + file_path.split("/")[-1] + ".obj\n"
-text_gcc_mecocoa += '\t' + "ar -rcs /mnt/hgfs/_bin/libmx86.a ~/_obj/libmx86/_u_*.obj\n"
+	text_gcc_mecocoa += '\t' + i + " -D_MCCA -Dp_i386 -o ~/_obj/libmx86/" + file_path.split("/")[-1] + ".obj\n"
+text_gcc_mecocoa += '\t' + "ar -rcs /mnt/hgfs/_bin/libmx86.a ~/_obj/libmx86/*.obj\n"
 with open('./lib/make/cgmx86.make', 'w+b') as fobj:
 	fobj.write(bytes(text_gcc_mecocoa, encoding = "utf8")) # do not append line-feed
 text_gcc_mecocoa = ""

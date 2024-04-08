@@ -63,6 +63,11 @@ namespace uni {
 		void Remove(const char* content);
 		void SetFreeContent(bool need_free);
 		bool Update(const char* iden, void* data, size_t typ, bool readonly = false, bool typekeep = false);
+
+		Inode* operator[](const char* iden) {
+			return Index(iden);
+		}
+
 	protected:
 		Inode*& root_node; // = (Inode*&)NodeChain::root_node;
 		Inode*& last_node; // = (Inode*&)NodeChain::last_node;

@@ -1,8 +1,8 @@
 // ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
+// Attribute:
 // LastCheck: RFZ01
 // AllAuthor: @dosconio
-// ModuTitle: General Header
+// ModuTitle: Basic Modules
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,11 +20,24 @@
 	limitations under the License.
 */
 
-#ifndef _INC_UNIVERSAL_X
-#define _INC_UNIVERSAL_X
+#ifndef _INC_BASIC_X
+#define _INC_BASIC_X
 
-#include "cinc"
-#include "../c/aldbg.h"
-#include "cinc"
+#include "./unisym"
+#include "./string"
+#include "./coear"
+#include "./nodes"
+
+#define QDelete(x) if(x)do{delete(x);--(malc_count);}while(false)
+
+namespace uni {
+	class Basis
+	{
+	public:
+		Basis() : cotira(this) {}
+		class Basis* cotira;
+	};
+
+}
 
 #endif

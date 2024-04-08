@@ -17,7 +17,9 @@
 
 //{MAY} Rename to debug.h
 
+#ifdef _BUILD_MSVC
 #pragma warning(disable:6011)// for MSVC
+#endif
 
 #if !defined(_LIB_DEBUG) && defined(_DEBUG)// Add this can cheat the compiler
 #define _LIB_DEBUG// Her Convenient odd style. Maybe a bad habit for formal project.
@@ -30,8 +32,6 @@
 #define malc_limit _MALLIMIT
 
 #define _MALLIMIT_DEFAULT 0x1000
-#define unchecked
-#define toheap
 
 extern void erro(char* erromsg);
 extern void warn(char* warnmsg);

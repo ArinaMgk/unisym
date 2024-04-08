@@ -57,9 +57,14 @@ unii8051:
 uniarmv7m: # including CortexM3
 	#
 
+# ---- [series for interfacial environments] ----
+
+dotnet:
+	#
+
 # ---- [utilities] ----
 
-kitw32:
+kitw32: # utility
 	cd ${make_dir} && make -f kitw32.make all
 	-ahkcc ./lib/Script/AutoHotkey/Arnscr.ahk ../../../../_bin/arnscr.exe # ***\AutoHotkey\Compiler\Ahk2Exe.exe /in %1 /out %2
 

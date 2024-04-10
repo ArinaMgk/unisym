@@ -31,8 +31,20 @@
 
 #include <functional>
 
-namespace uni {
+// 20240408 debug, use:
+// MSVC: str.onproperty(std::bind(&AA::BB, this));
+// Qt: str.onproperty(std::bind(&WidgetMain::TitleSet, this, std::placeholders::_1));
+// [use in class]
+#if defined(_BUILD_MSVC)
+#define unibind(obj,fun) (obj).onproperty(std::bind(&fun, this))
+#elif defined(_BUILD_Qt)
+#define unibind(obj,fun,...) (obj).onproperty(std::bind(&fun, this, __VA_ARGS__))
+#define unipara(i) std::placeholders::_##i
+#endif
 
+
+namespace uni {
+	// to meet her preference of C# style.
 
 	template<typename type0>
 	class Property {
@@ -50,9 +62,5 @@ namespace uni {
 		}
 	};
 }
-
-// 20240408 debug, use:
-// MSVC: str.onproperty(std::bind(&AA::BB, this));
-// Qt: str.onproperty(std::bind(&WidgetMain::TitleSet, this, std::placeholders::_1));
 
 #endif

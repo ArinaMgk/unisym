@@ -37,6 +37,7 @@
     - `{digit }` Default binary and bitwise operations.
     - `{endian}` Default little endian.
 - `NULL` = `nullptr` = 0
+- `sizeof` `std(/u/s)int` == address of pointer == `size_t` == `ptrdiff_t` 
 
 
 
@@ -51,6 +52,10 @@
     - namespace `uni` 
     - `AbcdOpqr` style for class name and function identifier
     - `abcdOpqr` style for object of the type AbcdOpqr or other types
+    - unisym formal style:
+        - If a reference return may point to `nullptr`, make a `ERR` object in the class to occupy the condition but use Exception System. 
+        - Usually the content can be cast into boolean object, which is compared with ERR, or we can use the parent/manager item acting as it.
+    - the prefix `set`, `get` are all in lower-style
 - C#
     - namespace `Unisym` 
 

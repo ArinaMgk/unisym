@@ -1,6 +1,6 @@
-// ASCII C++ TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: 
+// ASCII C++-11 TAB4 CRLF
+// Attribute: [Allocation]
+// LastCheck: 20240409
 // AllAuthor: @dosconio
 // ModuTitle: Node for C++
 /*
@@ -20,8 +20,8 @@
 	limitations under the License.
 */
 
-#ifndef _INC_X_NODE
-#define _INC_X_NODE
+#ifndef _INC_NODE_X
+#define _INC_NODE_X
 
 #ifndef _INC_CPP
 #define _INC_CPP
@@ -33,31 +33,29 @@
 #include "../c/node.h"
 #include "cinc"
 
+#include <iostream>
+
 namespace uni {
 
+	// ---- ---- Scheme {data*, link} ---- ----
 	class NodeChain {
 	public:
 		NodeChain(bool need_free);
 		~NodeChain();
 
-		Node* Append(const void* addr);
 		toheap Node* Append(const char* addr);
-		Node* Append(const void* addr, bool onleft, Node* nod = 0);
+		Node* Append(const void* addr, bool onleft = false, Node* nod = 0);
 
 		template <typename type1>
 		inline NodeChain& operator<<(const type1* addr) {
 			Append((const void*)addr);
 			return *this;
 		}
-		inline NodeChain& operator<<(const char* addr) {
-			Append(addr);
-			return *this;
-		}
 
 		void Index(void* content);
 		stduint Count() { return node_count; }
-		Node* Root() { return root_node; }
-		Node* Last() { return last_node; }
+		Node* Root() { return root_node; }// Reference version: Head() , which fits at least 1 item
+		Node* Last() { return last_node; }// Reference version: Tail() , which fits at least 1 item
 		void Remove(const stduint iden);
 		void Remove(const void* content);
 		void Remove(Node* nod);
@@ -69,13 +67,17 @@ namespace uni {
 		}
 		void Sort();
 		void Onsort(bool sorted = true, bool little_to_big = true, int (*fn_compare)(const void*, const void*) = 0) {
-            this->sorted = sorted;
-            this->little_endian = little_to_big;
-            this->_node_compare = fn_compare;
+			this->sorted = sorted;
+			this->little_endian = little_to_big;
+			this->_node_compare = fn_compare;
 		}
 		
 		Node* operator+=(const void* addr) {
 			return Append(addr);
+		}
+		NodeChain& operator<< (const void* addr) {
+			Append(addr);
+			return *this;
 		}
 
 	protected:
@@ -92,12 +94,142 @@ namespace uni {
 	
 	// For usual developers, the derived class from the template classes are more usual.
 	// The version of UNISYM allows you put implementation codes into independent documents.
-	template <typename type0> class LinearChain : NodeChain {
+	//[Abandoned] alias LinearChain: NodeChain
+
+	// ---- ---- Scheme {data, link} ---- ----
+
+	#include "../c/com/NodeInsert.h"
+	template <typename type0> struct SingleLinkNode {
+		type0 val;
+		SingleLinkNode<type0>* nex;
+		SingleLinkNode(void) : val(), nex(nullptr) {}
+		// ~SingleLinkNode() {}
+		inline SingleLinkNode<type0>* InsertNext(const type0& val) {
+			_COM_NodeInsert(SingleLinkNode<type0>, this, val, nex);
+		}
+		SingleLinkNode& operator=(const type0& val) {
+			this->val = val;
+			return *this;
+		}
+		type0& operator*() {
+			return val;
+		}
+	protected:
+
+	};
+	
+	template <typename type0> class SingleLinkList : public SingleLinkNode<type0> {
 	public:
-		stduint Count();
-		type0*& Getval(stduint idx);
-	private:
-		// ...
+		
+		SingleLinkList(void) : SingleLinkNode<type0>::SingleLinkNode(), nex(SingleLinkNode<type0>::nex) {}
+		
+		~SingleLinkList() {
+			SingleLinkNode<type0>* crt = nex, *next = nullptr;
+			while (crt) {
+				next = crt->nex;
+				//delete crt;
+				mfree(crt);
+				crt = next;
+			}
+		}
+
+		bool isEmpty() { return !nex; }
+
+		SingleLinkNode<type0>* Root() { return nex; }
+		SingleLinkNode<type0>* Last() {
+			SingleLinkNode<type0>* crt = this;
+			if (!nex) return nullptr;
+			while (crt->nex) crt = crt->nex;
+			return crt;
+		}
+
+		stduint Count() {
+			stduint cnt = 0;
+			SingleLinkNode<type0>* crt = this;
+			while (crt->nex) {
+				cnt++;
+				crt = crt->nex;
+			}
+			return cnt;
+		}
+
+		SingleLinkNode<type0>* Insert(const type0& val, bool onleft = false, SingleLinkNode<type0>* nod = 0) {
+			SingleLinkNode<type0>* tmp = 0, * last = this, * crt = this->nex;
+			// not exist order system
+			if (!crt) return this->InsertNext(val);
+			if (nod) do {
+				if (crt != nod) continue;
+				return (onleft ? last : nod)->InsertNext(val);
+			} while (AssignParallel(last, crt, crt->nex));
+			if (nod) return nullptr;// out of the chain
+			return Last()->InsertNext(val);
+		}
+
+		SingleLinkNode<type0>* Append(const type0& val, bool onhead = false) {
+			return Insert(val, false, (onhead||isEmpty()) ? this : Last());
+		}
+
+		bool Remove(SingleLinkNode<type0>* nod) {
+			if (nullptr == nod) return false;// companion with Index(*)
+			SingleLinkNode<type0>* lef = IndexLeft(nod);
+			asserv(lef)->nex = nod->nex;
+			delete nod;
+		}
+
+		SingleLinkNode<type0>* Index(const type0& val) const {
+			SingleLinkNode<type0>* crt = this->nex;
+			if (nullptr == crt) return nullptr;
+			do if (val == crt->val) return crt; while (crt = crt->nex);
+			return nullptr;
+		}
+
+		inline bool isExist(const SingleLinkNode<type0>* nod) const {
+			SingleLinkNode<type0>* crt = this->nex;
+			if (nullptr == nod) return false;
+			do if (nod == crt) return true; while (crt = crt->nex);
+			return false;
+		}
+
+		// Including this, the heading root.
+		SingleLinkNode<type0>* IndexLeft(const SingleLinkNode<type0>* nod) const {
+			SingleLinkNode<type0>* crt = (SingleLinkNode<type0>*)this;
+			if (nullptr == nod) return nullptr;
+			do if (nod == crt->nex) return crt; while (crt = crt->nex);
+			return nullptr;
+		}
+
+		// the only un-ordered operation
+		inline SingleLinkList<type0>* push(const type0& apd, bool onhead = false) {
+			this->Append(apd, onhead);
+			return this;
+		}
+
+		// on tail
+		inline SingleLinkList<type0>& operator<< (const type0& apd) {
+			return *push(apd);
+		}
+
+		inline std::ostream& operator>> (std::ostream& out) {
+			stduint i = 0;
+			std::cout << "SingleLinkList[" << Count() << "] = { " << std::endl;
+			SingleLinkNode<type0>* crt = this->nex;
+			while (crt) {
+				std::cout << "\t" << crt->val << ", // at index " << i++ << std::endl;
+				crt = crt->nex;
+			}
+			return std::cout << "}" << std::endl;
+		}
+
+		inline bool operator !() {
+			return isEmpty();
+		}
+		
+		inline SingleLinkNode<type0>* operator[] (const type0& val) {
+			return Index(val);
+		}
+
+	protected:
+		SingleLinkNode<type0>*& nex;
 	};
 
 }

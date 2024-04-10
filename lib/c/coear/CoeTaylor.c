@@ -1,4 +1,4 @@
-/// ASCII C99 TAB4 CRLF
+// ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant Host[Allocation]
 // LastCheck: RFZ23
 // AllAuthor: @ArinaMgk

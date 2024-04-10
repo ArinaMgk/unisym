@@ -66,7 +66,7 @@ typedef void(*_tofree_ft)(void*);
 
 #define asserv(x) if(x)x // Assert Value
 #define asrtand(x) (x)&&x // Assert Value
-#define asrtequ(x,y) if((x)==(y))x // Assert Value
+#define asrtequ(x,y) if((x)==(y))(x) // Assert Value
 #define stepval(x) (!x)?0:x // do not nested by "()" !
 	// E.g. paralext = stepval(subtail)->next;
 

@@ -62,7 +62,7 @@ namespace uni {
 		// After, the new item will be at idx.
 		// For example, if you have {A,B}, then insert(2,x)
 		//     will result in: {A,B,x} 
-		bool Insert(stduint idx, const type0& x){
+		bool Insert(stduint idx, const type0& x) {
 			bool success = true;
 			if (count >= limit || idx > count)
 				success = false;

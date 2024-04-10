@@ -30,6 +30,8 @@
 
 #define QDelete(x) if(x)do{delete(x);--(malc_count);}while(false)
 
+typedef const char* constchs;
+
 namespace uni {
 	class Basis
 	{

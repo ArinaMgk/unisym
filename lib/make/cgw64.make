@@ -1,4 +1,4 @@
-# UNISYM for GCC-Win64 built-2024-04-08 22:25:01.566859
+# UNISYM for GCC-Win64 built-2024-04-11 01:11:19.742094
 
 AASM = aasm
 udir = E:/PROJ/SVGN/unisym
@@ -99,6 +99,8 @@ all:
 	$(CC) -c ./lib/c/inode/InodeLocate.c -o ${dest_obj}/${cplpref}InodeLocate.o $(attr)
 	$(CC) -c ./lib/c/inode/InodesRelease.c -o ${dest_obj}/${cplpref}InodesRelease.o $(attr)
 	$(CC) -c ./lib/c/inode/InodeUpdate.c -o ${dest_obj}/${cplpref}InodeUpdate.o $(attr)
+	$(CC) -c ./lib/c/math/factorial.c -o ${dest_obj}/${cplpref}factorial.o $(attr)
+	$(CC) -c ./lib/c/math/taylor.c -o ${dest_obj}/${cplpref}taylor.o $(attr)
 	$(CC) -c ./lib/c/nnode/nnode.c -o ${dest_obj}/${cplpref}nnode.o $(attr)
 	$(CC) -c ./lib/c/nnode/NnodeBlock.c -o ${dest_obj}/${cplpref}NnodeBlock.o $(attr)
 	$(CC) -c ./lib/c/nnode/NnodeInsert.c -o ${dest_obj}/${cplpref}NnodeInsert.o $(attr)
@@ -173,6 +175,7 @@ all:
 	$(CX) -c ./lib/cpp/stream.cpp -o ${dest_obj}/${cpppref}stream.o $(attr)
 	$(CX) -c ./lib/cpp/string.cpp -o ${dest_obj}/${cpppref}string.o $(attr)
 	$(CX) -c ./lib/cpp/strpool.cpp -o ${dest_obj}/${cpppref}strpool.o $(attr)
+	$(CX) -c ./lib/cpp/Device/GPIO.cpp -o ${dest_obj}/${cpppref}GPIO.o $(attr)
 	$(CX) -c ./lib/cpp/nodes/dnode.cpp -o ${dest_obj}/${cpppref}dnode.o $(attr)
 	$(CX) -c ./lib/cpp/nodes/inode.cpp -o ${dest_obj}/${cpppref}inode.o $(attr)
 	$(CX) -c ./lib/cpp/nodes/nnode.cpp -o ${dest_obj}/${cpppref}nnode.o $(attr)

@@ -49,7 +49,7 @@ namespace uni {
 		return this->counts;
 	}
 
-	const char* String::reflect() {
+	const char* String::reflect() const {
 		return this->addr;
 	}
 

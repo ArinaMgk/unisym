@@ -45,12 +45,24 @@ namespace uni {
 		String(char* str);
 		~String();
 		size_t length();
-		const char* reflect();
+		const char* reflect() const;
 
+		operator const char* () const {
+			return this->reflect();
+		}
 
 		// + String, int and built-in types
 		// += make use of `+`
 		String& operator=(const String& str);
+
+		String operator+ (String& str) {
+			return String(StrHeapAppend(this->addr, str.addr));
+		}
+		String& operator+=(const String& str) {
+			//*this = *this + str;
+			srs(this->addr, StrHeapAppend(this->addr, str.addr));
+			return *this;
+		}
 
 		bool operator<=(const String& s) const {
 			const char* ptr = StrIndexString(s.addr, this->addr);

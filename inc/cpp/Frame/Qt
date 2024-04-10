@@ -1,0 +1,7 @@
+
+#if !defined(_INC_Qt_X) && defined(_BUILD_Qt)
+#define _INC_Qt_X
+#include "../basic"
+
+
+#endif

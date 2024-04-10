@@ -1,8 +1,8 @@
 // ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ11
-// AllAuthor: @ArinaMgk(till RFA03) @dosconio
-// ModuTitle: Simple Node
+// LastCheck: 20240410
+// AllAuthor: @ArinaMgk
+// ModuTitle: 
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,12 +20,18 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/node.h"
-#include "../../../inc/c/aldbg.h"
-#include "../../../inc/c/com/NodeInsert.h"
+#include "../../../inc/c/arith.h"
+#include <math.h>
 
-// will not change _node_first
-node* NodeInsert(node* nod, const void* addr)
+double dblfactorial(double inp)
 {
-	_COM_NodeInsert(node, nod, addr, next);
+	double res = 1.0;
+	inp = floor(inp);
+	if (inp <= 1) return 1;
+	while (inp >= 1)
+	{
+		res *= inp;
+		inp--;	
+	}
+	return res;
 }

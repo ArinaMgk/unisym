@@ -32,18 +32,18 @@
 
 #include "alice.h"
 
-#ifdef _INC_CPP
-class Node {
-public:
-	Node* next;
-	const void* offs;
-};
-#else
-typedef struct node {
-	struct node* next;
-	union { const char* addr; const void* offs; };
-} node; // measures stdint[2]
-#endif
+// measures stdint[2]
+
+//#ifdef _INC_CPP
+typedef struct Node {
+	struct Node* next;
+	union
+	{
+		const char* addr;
+		const void* offs;
+	};
+} node; 
+//#endif
 
 // extern enum _Node_Order
 // {
@@ -55,7 +55,7 @@ typedef struct node {
 // }
 // _node_order;
 
-#ifndef _INC_CPP
+//{TODO}namespace uni for C++:  #ifdef _INC_CPP
 
 // default null
 // return 0 for equal, 1 for greater, -1 for less
@@ -73,8 +73,7 @@ extern node* _node_first;
 // Return the appended node.
 node* NodeAppend(node* first, void* addr);
 
-// 
-node* NodeInsert(node* first, void* addr);
+node* NodeInsert(node* nod, const void* addr);
 
 // ---- ---- ---- ---- Sort and Seek ---- ---- ---- ---- 
 
@@ -95,5 +94,5 @@ void NodeRemove(node* nod, node* left);
 // If `tofree` is zero, the `addr` of nodes in the chain will be released by single `memf()` . If you do not want to release the `addr` or call `freefunc`, set `addr` to zero.
 void NodeRelease(node* first);
 
-#endif
+//{TODO}namespace uni for C++: #endif
 #endif

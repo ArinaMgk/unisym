@@ -1,0 +1,116 @@
+// ASCII CPP TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: <date>
+// AllAuthor: @dosconio
+// ModuTitle: ...
+// Copyright: ...
+
+#ifndef _INC_DEVICE_GPIO_X
+#define _INC_DEVICE_GPIO_X
+
+#include "../../c/alice.h"
+
+#ifdef _MCU_STM32F103VE_X
+
+// typedef volatile uint32* GeneralPurposeInputOutputAddr;
+
+// 00000000 maybe a valid address of someone
+
+namespace uni {
+	namespace GPIOMode {
+		enum Mode { //{TEMP}
+			OUT_PushPull = 0,
+			OUT_OpenDrain = 1,
+			IN_Analog = 2,
+			IN_Floating = 3,
+			IN_PullDown = 4,
+		};
+	}
+	
+	class GeneralPurposeInputOutputAddr;
+	class GeneralPurposeInputOutputPin;
+	class GeneralPurposeInputOutputPort;
+	//
+	class GeneralPurposeInputOutputAddr {
+		volatile uint32* address;
+	public:
+		GeneralPurposeInputOutputAddr(uint32 address) : address((volatile uint32*)address) {
+			
+		}
+		volatile uint32* operator&() { return address; }
+		
+		GeneralPurposeInputOutputAddr& operator=(uint32 val) { *address = val; return *this; }
+		GeneralPurposeInputOutputAddr& operator&=(uint32 val) { *address &= val; return *this; }
+		GeneralPurposeInputOutputAddr& operator|=(uint32 val) { *address |= val; return *this; }
+	};
+
+	class GeneralPurposeInputOutputPin {
+		GeneralPurposeInputOutputPort* parent;
+		uint32 bitposi;
+	public:
+		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi) {}
+		GeneralPurposeInputOutputPin& operator=(bool val);
+		void setMode(GPIOMode::Mode mod);
+		bool setSpeedM(uint32 MHz);
+	};
+	
+	class GeneralPurposeInputOutputPort {
+		GeneralPurposeInputOutputPin OutpdPins[8];
+		GeneralPurposeInputOutputPin ERR;
+	public:
+		GeneralPurposeInputOutputPort(uint32 CLK, uint32 ODR, uint32 CRL) : 
+			ClockPort(CLK),
+			OutpdPort(ODR),
+			CnrglPort(CRL)
+		{
+			for0 (i, numsof(OutpdPins))
+				OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
+		}
+		GeneralPurposeInputOutputAddr ClockPort;
+		GeneralPurposeInputOutputAddr OutpdPort;// Output Data Register
+		GeneralPurposeInputOutputAddr CnrglPort;// Control Register Low
+		GeneralPurposeInputOutputPin& operator[](uint8 pinid) {
+			return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
+		}
+	};
+	extern GeneralPurposeInputOutputPort GPIOA;
+	extern GeneralPurposeInputOutputPort GPIOB;
+	extern GeneralPurposeInputOutputPort GPIOC;
+	extern GeneralPurposeInputOutputPort GPIOD;
+	extern GeneralPurposeInputOutputPort GPIOE;
+	
+
+
+
+	class GeneralPurposeInputOutput {
+	public:
+		
+		GeneralPurposeInputOutputPort ERR;
+		GeneralPurposeInputOutput() : ERR(~0, ~0, ~0) {
+
+		}
+		GeneralPurposeInputOutputPort& operator[](char portid) {
+			GeneralPurposeInputOutputPort* GPIO_List[] = {
+				&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE
+			};
+			switch (portid) {
+			case 'A':
+			case 'B':
+			case 'C':
+			case 'D':
+			case 'E':
+				return *(GPIO_List[portid - 'A']);// break;
+			default:
+				return ERR;// break;
+			}
+		}
+	};
+	extern GeneralPurposeInputOutput GPIO;
+}
+
+
+
+#endif
+
+
+#endif // !_INC_DEVICE_GPIO_X

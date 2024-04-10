@@ -1,8 +1,7 @@
 // ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ11
-// AllAuthor: @ArinaMgk(till RFA03) @dosconio
-// ModuTitle: Simple Node
+// LastCheck: 2023 Nov 16
+// AllAuthor: @ArinaMgk; @dosconio
+// ModuTitle: Processor inside Math / Arithmetic
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,12 +19,14 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/node.h"
-#include "../../../inc/c/aldbg.h"
-#include "../../../inc/c/com/NodeInsert.h"
+#ifndef _INC_ARITHMETIC
+#define _INC_ARITHMETIC
 
-// will not change _node_first
-node* NodeInsert(node* nod, const void* addr)
-{
-	_COM_NodeInsert(node, nod, addr, next);
-}
+#include "alice.h"
+#include "coear.h"
+
+double dblfactorial(double inp);
+
+double dbltaylor(double inp, byte dptor, double period);
+
+#endif

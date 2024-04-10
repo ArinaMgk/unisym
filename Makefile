@@ -62,6 +62,11 @@ uniarmv7m: # including CortexM3
 dotnet:
 	#
 
+# ---- [series for specific board] ----
+
+STM32F103VEx:
+	#
+
 # ---- [utilities] ----
 
 kitw32: # utility

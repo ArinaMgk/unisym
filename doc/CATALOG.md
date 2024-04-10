@@ -66,13 +66,8 @@
 
 ### Macro
 
-#### > Control
 
-- `_ARN_FLAG_DISABLE` Control status variables and `aflag`.
-- `_ARN_FLAG_ENABLE` 
-- `_LIB_DEBUG_CHECK_MORE`
-
-#### > Develop
+#### > Soft Option Control
 
 - `_dbg`(old style) <=> `_DEBUG`
 
@@ -82,11 +77,23 @@
 
 - `_ASSERT_NONE`
 
-- - - -
+- `_ARN_FLAG_DISABLE` Control status variables and `aflag`.
+- `_ARN_FLAG_ENABLE` 
+- `_LIB_DEBUG_CHECK_MORE`
+
+#### > Kit
 
 - `_BUILD_MSVC`
 
-#### > Environment
+- `_BUILD_Qt` 
+
+#### > Processor and Controller
+
+- `_INC_MCU_STM32F103VE_X` 
+
+#### > Platform and Environment
+
+Sub-option of CPU or MCU
 
 > `ENV(FREE)` are compatible with `ENV(HOST)` 
 >

@@ -50,24 +50,24 @@
 #else
 	#include <stddef.h>//{TEMP}
 	#include <stdint.h>//{TEMP}
-	#if !defined(uint)&&!defined(_Linux)&&!defined(_NO_uint)// avoid GCC duplicate 'unsigned'
-		#define uint unsigned int
-	#endif
-	#define llong long long int 
-	#define sll signed long long int
-	#define ullong unsigned long long int
-	#define ull unsigned long long int
+	//{OPT}
+	#include "integer/prefabbr.h"
+	// #include "integer/ruststyle.h"
 	typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
 	typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char
+	typedef   signed char sint8;
 	typedef   signed char sbyte;
 	typedef uint16_t  word;// unsigned short int
 	typedef uint16_t  uint16;//[trend] unsigned short int
+	typedef  int16_t  sint16;//[trend]   signed short int
 	typedef  int16_t  sword;// signed short int
 	typedef uint32_t  dword;// unsigned int
 	typedef uint32_t  uint32;//[trend] unsigned int
+	typedef  int32_t  sint32;//          signed int
 	typedef  int32_t  sdword;// signed int
 	typedef uint64_t  qword;// unsigned long long int
 	typedef uint64_t  uint64;//[trend] unsigned long long int
+	typedef  int64_t  sint64;//          signed long long int
 	typedef  int64_t  sqword;// signed long long int
 	typedef size_t    stduint;
 	typedef ptrdiff_t stdint ;

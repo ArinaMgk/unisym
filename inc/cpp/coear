@@ -97,6 +97,7 @@ namespace uni {
 	protected:
 		coe* co;
 		void Srs(const Coe& c);
+		//{TODO} bool system hex(256) or decimal
 	};
 	
 	extern const Coe coe_pi;

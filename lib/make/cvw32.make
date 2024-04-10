@@ -1,4 +1,4 @@
-# UNISYM for MSVC-Win32 built-2024-04-08 22:25:01.566859
+# UNISYM for MSVC-Win32 built-2024-04-11 01:11:19.742094
 
 AASM = aasm
 udir = E:/PROJ/SVGN/unisym
@@ -104,6 +104,8 @@ all:
 	$(CC) /c ./lib/c/inode/InodeLocate.c /Fo:${dest_obj}/${cplpref}InodeLocate.obj /I${VI_64} ${attr}
 	$(CC) /c ./lib/c/inode/InodesRelease.c /Fo:${dest_obj}/${cplpref}InodesRelease.obj /I${VI_64} ${attr}
 	$(CC) /c ./lib/c/inode/InodeUpdate.c /Fo:${dest_obj}/${cplpref}InodeUpdate.obj /I${VI_64} ${attr}
+	$(CC) /c ./lib/c/math/factorial.c /Fo:${dest_obj}/${cplpref}factorial.obj /I${VI_64} ${attr}
+	$(CC) /c ./lib/c/math/taylor.c /Fo:${dest_obj}/${cplpref}taylor.obj /I${VI_64} ${attr}
 	$(CC) /c ./lib/c/nnode/nnode.c /Fo:${dest_obj}/${cplpref}nnode.obj /I${VI_64} ${attr}
 	$(CC) /c ./lib/c/nnode/NnodeBlock.c /Fo:${dest_obj}/${cplpref}NnodeBlock.obj /I${VI_64} ${attr}
 	$(CC) /c ./lib/c/nnode/NnodeInsert.c /Fo:${dest_obj}/${cplpref}NnodeInsert.obj /I${VI_64} ${attr}
@@ -178,6 +180,7 @@ all:
 	$(CX) /c ./lib/cpp/stream.cpp /Fo:${dest_obj}/${cpppref}stream.obj /I${VI_64} ${attr}
 	$(CX) /c ./lib/cpp/string.cpp /Fo:${dest_obj}/${cpppref}string.obj /I${VI_64} ${attr}
 	$(CX) /c ./lib/cpp/strpool.cpp /Fo:${dest_obj}/${cpppref}strpool.obj /I${VI_64} ${attr}
+	$(CX) /c ./lib/cpp/Device/GPIO.cpp /Fo:${dest_obj}/${cpppref}GPIO.obj /I${VI_64} ${attr}
 	$(CX) /c ./lib/cpp/nodes/dnode.cpp /Fo:${dest_obj}/${cpppref}dnode.obj /I${VI_64} ${attr}
 	$(CX) /c ./lib/cpp/nodes/inode.cpp /Fo:${dest_obj}/${cpppref}inode.obj /I${VI_64} ${attr}
 	$(CX) /c ./lib/cpp/nodes/nnode.cpp /Fo:${dest_obj}/${cpppref}nnode.obj /I${VI_64} ${attr}

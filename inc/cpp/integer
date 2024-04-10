@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ11
-// AllAuthor: @ArinaMgk(till RFA03) @dosconio
-// ModuTitle: Simple Node
+// ASCII C++-11 TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: 20240409
+// AllAuthor: @dosconio
+// ModuTitle: Integer based on ChrA/Br
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,12 +20,19 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/node.h"
-#include "../../../inc/c/aldbg.h"
-#include "../../../inc/c/com/NodeInsert.h"
+#ifndef _INC_INTEGER
+#define _INC_INTEGER
 
-// will not change _node_first
-node* NodeInsert(node* nod, const void* addr)
-{
-	_COM_NodeInsert(node, nod, addr, next);
+#include "cinc"
+#include "../c/ustring.h"
+#include "cinc"
+
+namespace uni {
+	class Integer {
+		bool onheap;
+	public:
+
+	};
 }
+
+#endif

@@ -6,12 +6,13 @@
 // Copyright: ...
 
 #include "../../../inc/cpp/Device/GPIO"
+#include "../../../inc/c/binary.h"
 
 namespace uni
 {
-	#ifdef _MCU_STM32F103VE_X
+	#ifdef _MCU_STM32F103VE
 	GeneralPurposeInputOutputPort GPIOA(0,0,0);//{}
-	GeneralPurposeInputOutputPort GPIOB(0x40021018, 0x40010C0C, 0x40010C00);
+	GeneralPurposeInputOutputPort GPIOB(0x40021018, 0x40010C0C, 0x40010C00, 3);
 	GeneralPurposeInputOutputPort GPIOC(0,0,0);//{}
 	GeneralPurposeInputOutputPort GPIOD(0,0,0);//{}
 	GeneralPurposeInputOutputPort GPIOE(0,0,0);//{}
@@ -21,9 +22,9 @@ namespace uni
 	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
 		// G'DP or D'DP
 		if (val)
-			parent->OutpdPort |=  (1 << bitposi);
+			BitSet(parent->OutpdPort, bitposi);
 		else
-			parent->OutpdPort &= ~(1 << bitposi);
+			BitClr(parent->OutpdPort, bitposi);
 		return *this;
 	}
 	
@@ -34,7 +35,7 @@ namespace uni
 	
 	bool GeneralPurposeInputOutputPin::setSpeedM(uint32 MHz) {
 		if (MHz == 2) {
-			parent->CnrglPort |=  (0x2 << (4*bitposi));
+			parent->CnrglPort |=  (0x2 << (4 * bitposi));
 			return true;
 		}
 		return false;

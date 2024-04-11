@@ -26,7 +26,7 @@
 #ifndef _LIB_UNISYM//alias ArnHabit
 #define _LIB_UNISYM
 
-#include "integer.h"
+#include "proctrl.h"
 
 #ifndef _INC_CPP
 	#define pointer(_typ) _typ * 
@@ -122,6 +122,8 @@ typedef void(*_tofree_ft)(void*);
 #include "aflag.h"
 
 extern size_t _size_decimal;
+
+
 
 #endif
 // more to see "aldbg.h"

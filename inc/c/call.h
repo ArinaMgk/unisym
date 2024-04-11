@@ -26,12 +26,12 @@
 #if defined(_Linux) && SIZE_MAX==0xFFFFFFFF
 #define _CALL_FAST __attribute__((fastcall))
 #define _CALL_CPL  __attribute__((cdecl))
-#elif defined(_Linux)
-#define _CALL_FAST
-#define _CALL_CPL 
-#else
+#elif defined(_WinNT)
 #define _CALL_FAST __fastcall 
 #define _CALL_CPL __cdecl
+#else
+#define _CALL_FAST
+#define _CALL_CPL 
 #endif
 
 #endif

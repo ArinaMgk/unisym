@@ -9,10 +9,14 @@
 #define _INC_DEVICE_GPIO_X
 
 #include "../../c/alice.h"
+#include "../../c/binary.h"
+#include "../reference"
 
-#ifdef _MCU_STM32F103VE_X
+#ifdef _MCU_STM32F103VE
 
-// typedef volatile uint32* GeneralPurposeInputOutputAddr;
+#if !(_typedest_len==4 && _typeaddr_len==4)
+#error "! You may need add optional macro `_MCU_STM32F103VE`"
+#endif
 
 // 00000000 maybe a valid address of someone
 
@@ -27,22 +31,10 @@ namespace uni {
 		};
 	}
 	
-	class GeneralPurposeInputOutputAddr;
 	class GeneralPurposeInputOutputPin;
 	class GeneralPurposeInputOutputPort;
 	//
-	class GeneralPurposeInputOutputAddr {
-		volatile uint32* address;
-	public:
-		GeneralPurposeInputOutputAddr(uint32 address) : address((volatile uint32*)address) {
-			
-		}
-		volatile uint32* operator&() { return address; }
-		
-		GeneralPurposeInputOutputAddr& operator=(uint32 val) { *address = val; return *this; }
-		GeneralPurposeInputOutputAddr& operator&=(uint32 val) { *address &= val; return *this; }
-		GeneralPurposeInputOutputAddr& operator|=(uint32 val) { *address |= val; return *this; }
-	};
+
 
 	class GeneralPurposeInputOutputPin {
 		GeneralPurposeInputOutputPort* parent;
@@ -57,8 +49,13 @@ namespace uni {
 	class GeneralPurposeInputOutputPort {
 		GeneralPurposeInputOutputPin OutpdPins[8];
 		GeneralPurposeInputOutputPin ERR;
+		uint32 EnablPosi;// of ClockPort
 	public:
-		GeneralPurposeInputOutputPort(uint32 CLK, uint32 ODR, uint32 CRL) : 
+		Reference ClockPort;
+		Reference OutpdPort;// Output Data Register
+		Reference CnrglPort;// Control Register Low
+		GeneralPurposeInputOutputPort(uint32 CLK, uint32 ODR, uint32 CRL, uint32 Enap = 0) :
+			EnablPosi(Enap), // (RCC_APB2ENR)
 			ClockPort(CLK),
 			OutpdPort(ODR),
 			CnrglPort(CRL)
@@ -66,9 +63,9 @@ namespace uni {
 			for0 (i, numsof(OutpdPins))
 				OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
 		}
-		GeneralPurposeInputOutputAddr ClockPort;
-		GeneralPurposeInputOutputAddr OutpdPort;// Output Data Register
-		GeneralPurposeInputOutputAddr CnrglPort;// Control Register Low
+		void enClock(bool enable = true) {
+			BitSet(ClockPort, EnablPosi);
+		}
 		GeneralPurposeInputOutputPin& operator[](uint8 pinid) {
 			return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
 		}

@@ -1,0 +1,29 @@
+// ASCII CPP TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: <date>
+// AllAuthor: @dosconio
+// ModuTitle: ...
+// Copyright: UNISYM led by ArinaMgk, Apache License, Version 2.0, unisym.org
+
+#ifndef _INC_REFERENCE
+#define _INC_REFERENCE
+
+#include "../c/alice.h"
+
+namespace uni {
+	
+	class Reference {
+		volatile typedest* address;
+	public:
+		Reference(typeaddr address) : address((volatile typedest*)address) {
+			
+		}
+		volatile typedest* operator&() { return address; }
+		
+		Reference& operator=(typedest val) { *address = val; return *this; }
+		Reference& operator&=(typedest val) { *address &= val; return *this; }
+		Reference& operator|=(typedest val) { *address |= val; return *this; }
+	};
+}
+
+#endif

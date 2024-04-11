@@ -29,6 +29,9 @@
 #include <limits.h>
 #include <stddef.h>
 
+// what depend on this:
+// - proctrl.h
+
 // ---- ---- ---- ---- Core of UniSym Integer ---- ---- ---- ----
 
 #if SIZE_MAX==0xFFFF

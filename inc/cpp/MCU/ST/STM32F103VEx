@@ -22,9 +22,15 @@
 
 #ifndef _INC_MCU_STM32F103VE_X
 #define _INC_MCU_STM32F103VE_X
-#ifndef _MCU_STM32F103VE_X
-#define _MCU_STM32F103VE_X
+#ifndef _MCU_STM32F103VE
+#define _MCU_STM32F103VE
 #endif
+/*
+F103:
+- V : 100 Pin
+- E : 512 Kilobyte Flash
+*/
+
 
 #include "../../Device/GPIO"
 

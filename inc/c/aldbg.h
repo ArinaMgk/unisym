@@ -24,7 +24,6 @@
 #if !defined(_LIB_DEBUG) && defined(_DEBUG)// Add this can cheat the compiler
 #define _LIB_DEBUG// Her Convenient odd style. Maybe a bad habit for formal project.
 
-#include <stddef.h>
 #include "alice.h"
 
 #define printb(x) printf("%s: " #x "\n",(x)?"True":"False")
@@ -66,7 +65,7 @@ extern size_t arna_precise;
 #define zalcof(x) (x*)zalc(sizeof(x))
 #define malcof(x) (x*)malc(sizeof(x))
 #define memf(x)   memfree(x)
-#define mfree(x) {memfree(x);(x)=0;}
+#define mfree(x) do{memfree(x);(x)=0;}while(0)
 
 #include <stdlib.h>
 inline static void _memf(void* x)

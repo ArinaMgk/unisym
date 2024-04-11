@@ -89,7 +89,7 @@
 
 #### > Processor and Controller
 
-- `_INC_MCU_STM32F103VE_X` 
+- `_INC_MCU_STM32F103VE` 
 
 #### > Platform and Environment
 

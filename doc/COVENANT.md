@@ -49,6 +49,7 @@
     - `AOpqr` style for  function identifier
 - C++ 
     - header style `number` 
+    - `Number_T` style for template name
     - namespace `uni` 
     - `AbcdOpqr` style for class name and function identifier
     - `abcdOpqr` style for object of the type AbcdOpqr or other types

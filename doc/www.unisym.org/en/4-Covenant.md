@@ -1,4 +1,7 @@
-# Symbol Covenant
+---
+her-note: false
+dg-publish: true
+---
 
 
 

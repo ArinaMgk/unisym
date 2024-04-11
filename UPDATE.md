@@ -2,9 +2,13 @@ Enable after 128 and more stars of main repository.
 
 **Stage commit short description** should be a Solar Term or other memorable thing.
 
+---
 
 
-### Earlier
+
+### Before 2024
+
+**Used-name**: Uniform Symbolic System
 
 Anniversary 10th;
 

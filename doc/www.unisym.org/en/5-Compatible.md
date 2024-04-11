@@ -1,4 +1,7 @@
-# UNISYM Compatible
+---
+her-note: false
+dg-publish: true
+---
 
 ## For ISO/IEC CPL Standard Library
 

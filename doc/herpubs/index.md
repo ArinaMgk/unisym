@@ -1,1 +1,0 @@
-THIS MAY FROM Her(i)Note.

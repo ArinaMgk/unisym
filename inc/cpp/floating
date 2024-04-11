@@ -3,10 +3,15 @@
 #ifndef _INC_X_FLOATING
 #define _INC_X_FLOATING
 
-namespace uni{
+#include "cinc"
+#include "../c/ustring.h"
+#include "cinc"
+
+namespace uni {
 	class Floating {
+		bool onheap;
 	private:
-		stduint coff, expo, divr, dime;
+		stduint coff, expo, divr, dime;//{} or char*
 	public:
 		
 	};

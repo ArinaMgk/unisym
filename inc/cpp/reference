@@ -18,6 +18,8 @@ namespace uni {
 		Reference(typeaddr address) : address((volatile typedest*)address) {
 			
 		}
+		
+		operator typedest() { return *address; }
 		volatile typedest* operator&() { return address; }
 		
 		Reference& operator=(typedest val) { *address = val; return *this; }

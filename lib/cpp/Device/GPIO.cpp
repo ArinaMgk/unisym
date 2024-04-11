@@ -28,19 +28,13 @@ namespace uni
 		return *this;
 	}
 	
-	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod) {
-		if (mod == GPIOMode::OUT_PushPull)
-			parent->CnrglPort &= ~(0xf << (4 * bitposi));
+	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed) {
+		uint32 bposi = bitposi << 2; // mul by 4
+		uint32 bmode = (uint32)mode;
+		uint32 state = (bmode & 1) ? GPIOSpeed::Atmost_Input : speed;
+		state |= (bmode & 0xC);// 0b1100
+		parent->CnrglPort = (parent->CnrglPort & ~(0xf << bposi)) | (state << bposi);
 	}
-	
-	bool GeneralPurposeInputOutputPin::setSpeedM(uint32 MHz) {
-		if (MHz == 2) {
-			parent->CnrglPort |=  (0x2 << (4 * bitposi));
-			return true;
-		}
-		return false;
-	}
-	
 	
 	
 	#endif

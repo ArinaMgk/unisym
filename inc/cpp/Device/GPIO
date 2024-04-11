@@ -19,31 +19,42 @@
 #endif
 
 // 00000000 maybe a valid address of someone
+// Design of Harunono Style
+// 202404112300: I tried use std::bind(), C++11 in ARMCC-v6, but it make MCU did not work! So do not use Property STYLE!
 
 namespace uni {
 	namespace GPIOMode {
-		enum Mode { //{TEMP}
-			OUT_PushPull = 0,
-			OUT_OpenDrain = 1,
-			IN_Analog = 2,
-			IN_Floating = 3,
-			IN_PullDown = 4,
+		enum Mode {
+			OUT_PushPull     = 0 << 2, 
+			OUT_OpenDrain    = 1 << 2,
+			OUT_AF_PushPull  = 2 << 2,
+			OUT_AF_OpenDrain = 3 << 2,
+			IN_Analog   = 1 + (0 << 2),
+			IN_Floating = 1 + (1 << 2), // default state
+			IN_PullDown = 1 + (2 << 2),
+			IN_KEPT     = 1 + (3 << 2)
 		};
 	}
-	
+	namespace GPIOSpeed {
+		enum Speed {
+			Atmost_Input = 0,
+			Atmost_10MHz = 1,
+			Atmost_2MHz  = 2,
+			Atmost_50MHz = 3,
+		};
+	    
+	}
+
 	class GeneralPurposeInputOutputPin;
 	class GeneralPurposeInputOutputPort;
 	//
-
-
 	class GeneralPurposeInputOutputPin {
 		GeneralPurposeInputOutputPort* parent;
 		uint32 bitposi;
 	public:
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi) {}
 		GeneralPurposeInputOutputPin& operator=(bool val);
-		void setMode(GPIOMode::Mode mod);
-		bool setSpeedM(uint32 MHz);
+		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_2MHz);
 	};
 	
 	class GeneralPurposeInputOutputPort {
@@ -103,6 +114,9 @@ namespace uni {
 		}
 	};
 	extern GeneralPurposeInputOutput GPIO;
+
+	typedef GeneralPurposeInputOutputPin GPIO_Pin;
+	typedef GeneralPurposeInputOutputPort GPIO_Port;
 }
 
 

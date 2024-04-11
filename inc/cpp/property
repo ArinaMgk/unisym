@@ -40,6 +40,8 @@
 #elif defined(_BUILD_Qt)
 #define unibind(obj,fun,...) (obj).onproperty(std::bind(&fun, this, __VA_ARGS__))
 #define unipara(i) std::placeholders::_##i
+#else
+#define unibind(obj,fun) (obj).onproperty(std::bind(&fun, this))
 #endif
 
 
@@ -56,6 +58,7 @@ namespace uni {
 			this->propfunc = propfunc;
 		}
 	protected:
+		//std::unary_function <type0*, void> propfunc;
 		std::function<void(type0*)> propfunc;// not void (*propfunc)(type0*);
 		inline void setthen(type0* tthis) {
 			callifidn(propfunc, tthis);

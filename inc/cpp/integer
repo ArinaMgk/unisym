@@ -20,18 +20,28 @@
 	limitations under the License.
 */
 
-#ifndef _INC_INTEGER
-#define _INC_INTEGER
+#ifndef _INC_INTEGER_X
+#define _INC_INTEGER_X
 
 #include "cinc"
-#include "../c/ustring.h"
+#include "../c/alice.h"
 #include "cinc"
+#include "property"
 
 namespace uni {
-	class Integer {
-		bool onheap;
+	template<typename type0>
+	class Integer_T : public uni::Property<Integer_T<type0>> {
+		type0 val;
 	public:
-
+		Integer_T(type0 val) :val(val) {}
+		operator type0() const {
+			return this->val;
+		}
+		inline Integer_T& operator=(type0 val) {
+			this->val = val;
+			this->setthen(this);
+			return *this;
+		}
 	};
 }
 

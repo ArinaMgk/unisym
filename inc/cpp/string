@@ -32,6 +32,7 @@
 #include "property"
 #include <iostream>//{TEMP}
 
+//{} Append property-call for += ... operator
 namespace uni {
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String: public uni::Property<String> {

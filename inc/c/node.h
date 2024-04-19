@@ -33,8 +33,17 @@
 #include "alice.h"
 
 // measures stdint[2]
+#ifdef _TYPNAM_
+#undef _TYPNAM_
+#endif
+#ifdef _INC_CPP
+#define _TYPNAM_ Node
+namespace uni {
+#else
+#define _TYPNAM_ node
+#endif
 
-//#ifdef _INC_CPP
+
 typedef struct Node {
 	struct Node* next;
 	union
@@ -43,6 +52,8 @@ typedef struct Node {
 		const void* offs;
 	};
 } node; 
+
+
 //#endif
 
 // extern enum _Node_Order
@@ -94,5 +105,8 @@ void NodeRemove(node* nod, node* left);
 // If `tofree` is zero, the `addr` of nodes in the chain will be released by single `memf()` . If you do not want to release the `addr` or call `freefunc`, set `addr` to zero.
 void NodeRelease(node* first);
 
-//{TODO}namespace uni for C++: #endif
+#ifdef _INC_CPP
+}
+#endif
+#undef _TYPNAM_
 #endif

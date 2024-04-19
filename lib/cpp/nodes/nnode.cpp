@@ -30,6 +30,14 @@ namespace uni {
 
 #define tmpl(...) __VA_ARGS__ Nnode
 
+	tmpl(bool)::isHead(Nnode* ifthen_reset = 0) {
+		// simple: (this->pare) && (this->pare->subf == this)
+		if (!this->pare) return (!this->left);
+		if (this->pare->subf != this) return false;
+		if (ifthen_reset) this->pare->subf = ifthen_reset;
+		return true;
+	}
+	
 	Nnode* Nnode::ReheapString(const char* str) {
 		srs(this->addr, StrHeap(str));
 		return this;

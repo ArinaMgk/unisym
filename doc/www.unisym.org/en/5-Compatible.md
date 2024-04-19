@@ -5,7 +5,8 @@ dg-publish: true
 
 ## For ISO/IEC CPL Standard Library
 
-
+- CPL: ISO-C99
+- C++: ISO-C++11/C++17
 
 ### `uassert.h` ≥ `assert.h`
 

@@ -1,0 +1,72 @@
+// ASCII CPP TAB4 CRLF
+// Docutitle: Queue Module, Abstract Data Type
+// Datecheck: 20240416 ~ .
+// Developer: @dosconio @ UNISYM
+// Attribute: [Allocate]
+// Reference: None
+// Dependens: None
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#if !defined(_INC_Queue_X)
+#define _INC_Queue_X
+
+#include "alice"
+
+//{TODO} make a pointer to front and distance from the rear
+
+namespace uni {
+	template <typename type0> class Queue {
+	private:
+	protected:
+		studint limit;
+		studint count;
+		type0* offss;
+		// do not use double pointer, but the index 0 is always what to be read.
+	public:
+		//{TODO} Move into another .cpp file
+		Queue(stdint limit) : limit(limit), count(0) {
+			offss = new type0[limit];
+		}
+		~Queue() {
+			delete[] offss;
+			offss = nullptr;
+			limit = 0;
+			count = 0;
+		}
+		stduint Enqueue(const type0& item) {
+			if (isFull()) return ~(stduint)0;
+			offss[count++] = item;
+			return count;// how many data in the queue
+		}
+		stduint Dequeue(type0& item) {
+			if (isEmpty()) return ~(stduint)0;
+			item = offss[0];
+			for (int i = 0; i < count - 1; i++) {
+				offss[i] = offss[i + 1];
+			}
+			count--;
+			return count;// how many data in the queue
+		}
+		bool isEmpty() { return !count; }
+		bool isFull() { return count >= limit; }
+	};
+}
+
+
+#endif // !defined(_INC_Queue_X)

@@ -40,13 +40,13 @@ namespace uni {
 			Tnode(addr, 0, (Tnode*)n_left, (Tnode*)n_right, 0, 0),
 			addr((char*&)Dnode::offs), left((Nnode*&)Tnode::left), next((Nnode*&)Tnode::next) { subf = 0; bind = 0; }
 		Nnode(Tnode* nod) : Tnode(*nod), addr((char*&)Dnode::offs), left((Nnode*&)Tnode::left), next((Nnode*&)Tnode::next) { subf = 0; data = 0; pare = 0; bind = 0; }
-		char*& addr ; // = (char*&)Dnode::offs;
+		char*&  addr ; // = (char*&)Dnode::offs;
 		Nnode*& left; // = (Nnode*&)Tnode::left;
 		Nnode*& next; // = (Nnode*&)Tnode::next;
-		Nnode* subf;
-		Nnode* pare;// Want independent version? try Anode(anode.h)
-		void* data;
-		void* bind;
+		Nnode*  subf;
+		Nnode*  pare;// Want independent version? try Anode(anode.h)
+		void*   data;
+		void*   bind;
 		//
 		Nnode* Head() { // of parallel chain
 			// return stepval(this->pare)->subf;// assert( while(...->left) )
@@ -60,13 +60,7 @@ namespace uni {
 			Nnode* crt = this; while (crt->next && (crt = crt->next)); return crt;
 		}
 
-		bool isHead(Nnode* ifthen_reset = 0) {
-			// simple: (this->pare) && (this->pare->subf == this)
-			if (!this->pare) return (!this->left);
-			if (this->pare->subf != this) return false;
-			if (ifthen_reset) this->pare->subf = ifthen_reset;
-			return true;
-		}
+		bool isHead(Nnode* ifthen_reset = 0);
 		bool difline(Nnode* nod) { return this->row != nod->row; }
 		Nnode* ReheapString(const char* str);
 	};

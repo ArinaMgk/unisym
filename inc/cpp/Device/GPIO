@@ -1,15 +1,17 @@
 // ASCII CPP TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: <date>
+// Attribute:  
+// LastCheck: 20240412
 // AllAuthor: @dosconio
-// ModuTitle: ...
+// ModuTitle: General Purpose Input Output
 // Copyright: ...
 
 #ifndef _INC_DEVICE_GPIO_X
 #define _INC_DEVICE_GPIO_X
 
+#include "../cinc"
 #include "../../c/alice.h"
 #include "../../c/binary.h"
+#include "../cinc"
 #include "../reference"
 
 #ifdef _MCU_STM32F103VE
@@ -19,10 +21,13 @@
 #endif
 
 // 00000000 maybe a valid address of someone
-// Design of Harunono Style
+// These are of Harunono Style, and the design have not be used by enough users!
 // 202404112300: I tried use std::bind(), C++11 in ARMCC-v6, but it make MCU did not work! So do not use Property STYLE!
 
+//{TODO} compare with HAL and fix this
+
 namespace uni {
+	//! enum can be like namespace is since C++11
 	namespace GPIOMode {
 		enum Mode {
 			OUT_PushPull     = 0 << 2, 
@@ -31,7 +36,7 @@ namespace uni {
 			OUT_AF_OpenDrain = 3 << 2,
 			IN_Analog   = 1 + (0 << 2),
 			IN_Floating = 1 + (1 << 2), // default state
-			IN_PullDown = 1 + (2 << 2),
+			IN_Pull     = 1 + (2 << 2),
 			IN_KEPT     = 1 + (3 << 2)
 		};
 	}
@@ -42,7 +47,6 @@ namespace uni {
 			Atmost_2MHz  = 2,
 			Atmost_50MHz = 3,
 		};
-	    
 	}
 
 	class GeneralPurposeInputOutputPin;
@@ -51,29 +55,26 @@ namespace uni {
 	class GeneralPurposeInputOutputPin {
 		GeneralPurposeInputOutputPort* parent;
 		uint32 bitposi;
+		bool innput;
 	public:
-		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi) {}
+		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
 		GeneralPurposeInputOutputPin& operator=(bool val);
+		operator bool();
 		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_2MHz);
+		void setPull(bool pullup);// If you do not pull-up or pull-down, that may be floating
+		void Toggle();
 	};
 	
 	class GeneralPurposeInputOutputPort {
-		GeneralPurposeInputOutputPin OutpdPins[8];
+		GeneralPurposeInputOutputPin OutpdPins[16];// 32[High-16:kept]
 		GeneralPurposeInputOutputPin ERR;
 		uint32 EnablPosi;// of ClockPort
 	public:
 		Reference ClockPort;
-		Reference OutpdPort;// Output Data Register
-		Reference CnrglPort;// Control Register Low
-		GeneralPurposeInputOutputPort(uint32 CLK, uint32 ODR, uint32 CRL, uint32 Enap = 0) :
-			EnablPosi(Enap), // (RCC_APB2ENR)
-			ClockPort(CLK),
-			OutpdPort(ODR),
-			CnrglPort(CRL)
-		{
-			for0 (i, numsof(OutpdPins))
-				OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
-		}
+		Reference CnrglPort;// Control Register Low, default 0x44444444
+		Reference InnpdPort;// Input Data Register, default 0x0000XXXX
+		Reference OutpdPort;// Output Data Register, default 0x00000000
+		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
 		void enClock(bool enable = true) {
 			BitSet(ClockPort, EnablPosi);
 		}
@@ -119,6 +120,15 @@ namespace uni {
 	typedef GeneralPurposeInputOutputPort GPIO_Port;
 }
 
+#elif defined(_MCU_MSP432)
+
+// HRNSTYLE for MSP432P401R Official Equipment
+#define gpo(x) GPIO_PORT_P##x
+#define gpi(y) GPIO_PIN##y
+#define PinSet(p,xdp) (xdp? \
+	GPIO_setOutputHighOnPin(p): \
+	GPIO_setOutputLowOnPin (p))
+#define PinGet(port,pin) (P##port##IN & BIT##pin)
 
 
 #endif

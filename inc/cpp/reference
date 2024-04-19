@@ -25,6 +25,8 @@ namespace uni {
 		Reference& operator=(typedest val) { *address = val; return *this; }
 		Reference& operator&=(typedest val) { *address &= val; return *this; }
 		Reference& operator|=(typedest val) { *address |= val; return *this; }
+		Reference& operator^=(typedest val) { *address ^= val; return *this; }
+		bool operator[](stduint idx) { return address[idx]; }
 	};
 }
 

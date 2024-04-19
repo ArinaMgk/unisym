@@ -36,6 +36,8 @@
 
 typedef void(*_tofree_ft)(void*);
 
+typedef void* pureptr_t;
+
 #define __ENDIAN__ 0//{TODO} 1 for big endian, 0 for little endian
 #define __BITS__ _BINARY
 

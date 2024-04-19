@@ -182,7 +182,7 @@ for val in list_asm_file:
 	# text_gcc_lin64 += tmp #----elf output format does not support 64-bit code
 for val in list_c_tomake:
 	file_path = get_outfilename(val)
-	tmp = '\t' + "$(CC) " + val + " -o ../_tmp/" + file_path + ".exe" + " && ../_tmp/" + file_path + "\n"
+	tmp = '\t' + "$(CC) " + val + " -o ../_tmp/" + file_path + ".exe" + " && ../_tmp/" + file_path + ".exe\n"
 	text_gcc_win32 += tmp
 	text_gcc_win64 += tmp
 	tmp = '\t' + "$(CC) " + val + " -o ../_tmp/" + file_path + " && ../_tmp/" + file_path + "\n"

@@ -14,3 +14,6 @@ all: magice.c
 	gcc $(CFLG) -o /mnt/hgfs/_bin/ELF64/mgc $<
 dbg:
 	@./chkmgc.sh
+
+dbgx86:
+	#

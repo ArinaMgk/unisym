@@ -43,6 +43,34 @@ namespace uni {
 			return *this;
 		}
 	};
+
+	class Integer {
+	protected:
+		bool unlimited;
+		bool signexist;
+		union {
+			char* chrnum;
+			stduint unsi;// unsigned
+			stdint  sigi;//   signed
+		};
+	public:
+		Integer(const char* addr) {
+			// if addr have sign... or...
+			//{}
+		}
+
+		Integer(stduint ui) : unlimited(false), signexist(false), unsi(ui) {}
+		Integer(stdint ui) : unlimited(false), signexist(true), sigi(ui) {}
+		inline operator stdint() {
+			return sigi;
+		}
+		inline operator stduint() {
+			return unsi;
+		}
+		toheap operator char* () {
+			//{}
+		}
+	};
 }
 
 #endif

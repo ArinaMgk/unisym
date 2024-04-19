@@ -5,6 +5,13 @@
 # ModuTitle: Makefile for UniSym
 # Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
+# Resources: for release version:
+# - inc/
+# - libs
+# - bin/  [optional] (utilities)
+# - demo/ [optional]
+# - aasm, magice, ...
+
 MSVC_DIR = E:/software/VS22/VC/Tools/MSVC/14.39.33519
 
 dest_bin=../_bin
@@ -12,7 +19,7 @@ dest_obj=../_obj
 make_dir=./lib/make/
 
 # depend [gcc, makefile] [python]
-# (use bash or may occur 'ar: *.obj: Invalid argument')
+# (use bash, or try windows-CMD, may occur 'ar: *.obj: Invalid argument' or others...)
 
 .PHONY: list mx86 cgw32 liblinux cgl32 cgl64  manual winslib linslib
 
@@ -23,6 +30,9 @@ list: # depend [python]
 	@python ./lib/Script/Makefile/makemake.py
 
 # ---- [usual host-environments] ----
+
+malice: # Magice Standard Library
+	#
 
 mx86:
 	make -f ${make_dir}cgmx86.make all
@@ -35,11 +45,14 @@ cgw32:
 cgw64:
 	make -f ./lib/make/cgw64.make all # x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
 
-libmsvc: cvw32 cvw64# MTd_StaticDebug
+libmsvc: cvw32 cvw64# MTd_StaticDebug 
 cvw32:
 	make -f ./lib/make/cvw32.make all
 cvw64:
 	make -f ./lib/make/cvw64.make all
+
+libnvcc: # Nvidia(R) CUDA
+	#
 
 liblinux: cgl32 cgl64 # ELF
 cgl16:

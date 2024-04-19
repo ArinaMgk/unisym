@@ -1,0 +1,52 @@
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: <date>
+// AllAuthor: @dosconio
+// ModuTitle: uni.Witch.Form
+// Parallels: (.C#)System.Windows.Forms
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_WITCH_MessageBox_X
+#define _INC_WITCH_MessageBox_X
+
+#include "../unisym"
+#include "../string"
+
+namespace uni {	namespace Witch {
+	//
+
+	class MessageBox {
+	private:
+
+	protected:
+		String text, title;
+		stduint button_type;
+	public:
+		int state;
+		MessageBox(const String& text, const String& title, stduint btnType = 0) : text(text), title(title), button_type(btnType), state(0) {
+
+		};
+		void Show();
+
+		//{} static version
+	};
+	
+	//
+} }
+
+#endif

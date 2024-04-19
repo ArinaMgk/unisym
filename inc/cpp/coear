@@ -98,6 +98,7 @@ namespace uni {
 		coe* co;
 		void Srs(const Coe& c);
 		//{TODO} bool system hex(256) or decimal
+		//{TODO} coe* co; ---> coe co;
 	};
 	
 	extern const Coe coe_pi;

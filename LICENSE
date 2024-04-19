@@ -209,11 +209,14 @@
 
    APPENDIX: Header format for source files.
 
-// ASCII <Lango> TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: <date>
-// AllAuthor: ...
-// ModuTitle: ...
+// <Codeset> <Lango/Format> <LnBegStyle> <LnEndStyle>
+// Docutitle: <Document>
+// Datecheck: <Date> ~ <Last-check>
+// Developer: <Author> @ <Organization/Company>
+// Attribute: <ArnCovenant> <Environment> <Platform>
+// Reference: <Reference>
+// Dependens: <Dependence>
+// Copyright: <License>
 /*
 	Copyright 2023 ArinaMgk
 
@@ -230,10 +233,3 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
-; ASCII <Lango> TAB4 CRLF
-; Attribute: <ArnCovenant> <yo Env> <bin^%> <CPU()>
-; LastCheck: <date>
-; AllAuthor: ...
-; ModuTitle: ...
-; Copyright: ArinaMgk UniSym, Apache License Version 2.0

@@ -59,7 +59,7 @@ namespace uni {
 	}
 
 	//{TODO}
-	tmpl(void)::Append(const void* addr, stduint typ) {
+	tmpl(void)::Append(void* addr, stduint typ) {
 		Dnode* tmp = zalcof(Dnode);
 		tmp->offs = addr;
 		tmp->type = typ;

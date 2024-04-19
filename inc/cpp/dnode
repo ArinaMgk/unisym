@@ -37,13 +37,25 @@ namespace uni {
 	public:
 		DnodeChain(bool need_free);
 		~DnodeChain();
-		void Append(const void* addr, stduint typ);
+		void Append(void* addr, stduint typ);
 		void Index(void* content);
 		stduint Count() { return node_count; }
 		Dnode* Root() { return root_node; }
 		Dnode* Last() { return last_node; }
 		void Remove(const stduint iden);
 		Dnode* Remove(Dnode* content, bool systematic = true);
+		Dnode* Reverse() { // {TOIN dnode.cpp}{unchecked}
+			Dnode* crt = root_node;
+			Dnode* nex = 0;
+			if (crt) do {
+				nex = crt->next;
+				xchgptr(crt->left, crt->next);
+			} while (crt = nex);
+			xchgptr(root_node, last_node);
+			return root_node;
+		}
+		void Clear() {
+		}
 		void SetFreeContent(bool need_free);
 		void Onfree(void(*fn_free)(void*) = 0, bool need_free = true, bool pass_whole = true) {
 			_node_freefunc = fn_free;

@@ -30,8 +30,12 @@ F103:
 - V : 100 Pin
 - E : 512 Kilobyte Flash
 */
+#define _MCU_STM32F103
+#define _MCU_STM32
+
 
 
 #include "../../Device/GPIO"
+#include "../../Device/RCC/RCC"
 
 #endif

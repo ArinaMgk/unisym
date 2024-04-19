@@ -3,18 +3,23 @@
 #ifndef _INC_X_FLOATING
 #define _INC_X_FLOATING
 
-#include "cinc"
-#include "../c/ustring.h"
-#include "cinc"
+#include "coear"
+
+#if 0
 
 namespace uni {
 	class Floating {
-		bool onheap;
+		bool strform;
 	private:
-		stduint coff, expo, divr, dime;//{} or char*
+		union {
+			stduint coff, expo, divr, dime; // !strform
+			Coe co; // strform
+		};
 	public:
 		
 	};
 }
+
+#endif
 
 #endif

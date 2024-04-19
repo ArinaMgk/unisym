@@ -1,0 +1,127 @@
+// ASCII CPP TAB4 CRLF
+// Docutitle: Binary Tree Node Chain, not Token-Node-Chain!
+// Datecheck: 20240416 ~ .
+// Developer: @dosconio @ UNISYM
+// Attribute: [Allocate]
+// Reference: None
+// Dependens: None
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#if !defined(_INC_BinaryNode_X)
+#define _INC_BinaryNode_X
+
+#include "alice"
+#include "dnode"
+
+namespace uni {
+	class Bnode : public Dnode {
+	public:
+		Bnode*& left;
+		Bnode*& next;
+		Bnode(void* content = nullptr) : left((Bnode*&)Dnode::left), next((Bnode*&)Dnode::next) {
+			next = (nullptr);
+			offs = (content);
+			left = (nullptr);
+			type = (0);
+		}
+		~Bnode() {
+			if (left != nullptr)
+				delete left;
+			if (next != nullptr)
+				delete next;
+		}
+		void Append(void* off, bool onleft = false) {
+			(onleft ? left : next) = new Bnode(off);
+		}
+		void Append(void* offlef, void* offnex) {
+			Append(offlef, true);
+			Append(offnex, false);
+		}
+
+	};
+
+	// parallel with `dnode`
+	class BnodeChain : public Bnode {
+	private:
+		//
+	protected:
+		//{} stduint node_count;
+		Bnode* root_node;
+		//{} Bnode* last_node;//{Optional}
+	public:
+		BnodeChain(void* content) : /* node_count(0),*/ root_node(this), /* last_node(nullptr),*/ Bnode::Bnode(content) { }
+		~BnodeChain() { }
+		enum TraversalOrder {
+			Preorder,
+			Inorder,
+			Postorder,
+		};
+		//
+		Bnode* Root() { return this; }
+		//{} stduint Count() { return node_count; }
+
+		// just print them on stdio
+		// - procfunc return whether to continue
+		void Traversal(TraversalOrder order = Preorder, bool (*procfunc)(Bnode*) = 0, Bnode* starter = (Bnode*)~(stduint)0) {
+			if (!~(stduint)starter) starter = this->root_node;
+			if (nullptr == starter) return;
+			switch (order) {
+			case Preorder:
+				if (procfunc) if (!procfunc(starter)) break;
+				Traversal(order, procfunc, starter->left);
+				Traversal(order, procfunc, starter->next);
+				break;
+			case Inorder:
+				Traversal(order, procfunc, starter->left);
+				if (procfunc) if (!procfunc(starter)) break;
+				Traversal(order, procfunc, starter->next);
+				break;
+			case Postorder:
+				Traversal(order, procfunc, starter->left);
+				Traversal(order, procfunc, starter->next);
+				if (procfunc) if (!procfunc(starter)) break;
+				break;
+			default:
+				break;
+			}
+		}
+
+		stduint Leaves(Bnode* starter = (Bnode*)~(stduint)0) {
+			if (!~(stduint)starter) starter = this->root_node;
+			if (nullptr == starter) return 0;
+			if (starter->left == nullptr && starter->next == nullptr) return 1;
+			stduint leftLeaves = Leaves(starter->left);
+			stduint rightLeaves = Leaves(starter->next);
+			return leftLeaves + rightLeaves;
+		}
+
+		stduint Depth(Bnode* starter = (Bnode*)~(stduint)0) {
+			if (!~(stduint)starter) starter = this->root_node;
+			if (nullptr == starter) return 0;
+			stduint leftDepth = Depth(starter->left);
+			stduint rightDepth = Depth(starter->next);
+			return maxof(leftDepth, rightDepth) + 1;
+		}
+	};
+
+
+
+}
+
+#endif

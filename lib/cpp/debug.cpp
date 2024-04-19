@@ -7,6 +7,10 @@
 //{TOIN} memory.cpp
 void* operator new(size_t size) {
 	return malc(size);
+	// if (offss == nullptr) {
+	// 	throw "Out of memory";
+	// }
+	// alice("Queue(limit)");
 }
 void* operator new[](size_t size) {
 	return malc(size);

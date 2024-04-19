@@ -1,5 +1,5 @@
 // ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant
+// Attribute: ArnCovenant since(C99)
 // LastCheck: RFZ11
 // AllAuthor: @dosconio
 // ModuTitle: Alias for ISO IEC Standard CPL string.h

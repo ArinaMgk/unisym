@@ -1,4 +1,14 @@
 -gitignore
-.vscode/settings.json
-doc/www.unisym.org
+.vscode
+magic/.vscode
+doc/www.magice.org
+doc/www.phina.net
+doc/www.phina.org
+doc/www.unisym.org/_*
+doc/www.unisym.org/.*
+doc/www.unisym.org/zh
+lib/make/c*
+witch/DotNet/udotnet/.vs
+witch/DotNet/udotnet/bin
+witch/DotNet/udotnet/obj
 *.pyc

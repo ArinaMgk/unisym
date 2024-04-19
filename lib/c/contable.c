@@ -25,7 +25,12 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef _Linux
+//{TEMP}{No Check}
+inline static int _getch() { char ch = getchar(); printf("\b "); return ch;}
+#else
 #include <conio.h>
+#endif
 #include "../../inc/c/graphic/contable.h"
 #include "../../inc/c/alice.h"
 #include "../../inc/c/aldbg.h"
@@ -197,7 +202,11 @@ int CtabLoop(struct Contab* ctab)
 			memalloc(buf, 128);
 			char* p = buf;
 			rewind(stdin);
+			#ifdef _Linux
+			{char* tmp = fgets(buf, 64, stdin);}
+			#else
 			gets_s(buf, 64);// mgk number
+			#endif
 			// RFR25: this will set the rest bytes zero? --Phina.
 			if ((!ctab->CtabItemResetVerify) || ctab->CtabItemResetVerify(ctab->curc, ctab->curr, buf))
 			srs(ctab->cons[ctab->curr][ctab->curc].content, StrHeapN(buf, 62));// mgk number
@@ -220,11 +229,11 @@ Conitem* CtabItemMakeQuick(const char** str, size_t strcount, size_t count)
 	if (!str || !count) return 0;
 	Conitem* ret;
 	memalloc(ret, sizeof(Conitem) * count);
-	for (size_t i = 0; i < min(strcount, count); i++)
+	for (size_t i = 0; i < minof(strcount, count); i++)
 	{
 		ret[i].content = StrHeap(str[i]);
 	}
-	for (size_t i = min(strcount, count); i < count; i++)
+	for (size_t i = minof(strcount, count); i < count; i++)
 	{
 		ret[i].content = StrHeap("");
 	}

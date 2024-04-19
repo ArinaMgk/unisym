@@ -35,13 +35,14 @@
 #include "host.h"// for using allocation
 
 #ifdef _INC_CPP
-class Dnode {
-public:
-	Dnode* next;
-	const void* offs;
-	Dnode* left;
-	size_t type;
-};
+namespace uni {
+	struct Dnode {
+		Dnode* next;
+		void* offs;
+		Dnode* left;
+		size_t type;
+	};
+}
 #else
 typedef struct dnode
 {

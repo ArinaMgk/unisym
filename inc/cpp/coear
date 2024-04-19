@@ -1,1 +1,111 @@
-// class Coe
+// ASCII C++ TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: <date>
+// AllAuthor: ...
+// ModuTitle: ...
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_X_COEAR
+#define _INC_X_COEAR
+#include "cinc"
+#include "../c/alice.h"
+#include "../c/coear.h"
+#include "cinc"
+#include "floating"
+#include "string"
+#include <math.h>
+#include <iostream>
+
+//{TODO} independent from `erro` `_MALCOUNT` `_MALLIMIT` .... [These should be of `malc` and `memf`.]
+//{TODO} do not use std:: and rely on it.
+
+namespace uni {
+	class Coe /*: public coe*/ {
+		//{opt} bool: classic-str-storage, integer-storage
+	public:
+		Coe(const char* coff, const char* divr, const char* expo = "+0", stduint dimension = 0);
+		Coe(double num);
+		Coe(const char* local_str);
+		Coe(const Coe& c);
+		Coe(coe* c);
+		Coe& operator= (const Coe& s0) {
+			Srs(s0);
+			return *this;
+		}
+		~Coe();
+		bool isnan();
+		bool isinf();
+		double GetReal() const;
+
+		static Coe pi();
+		static Coe e();
+
+		String ToString(int opt = 0) const;
+		operator double() const;
+		operator String() const;
+
+		friend Coe& operator++ (Coe& num);// prefix
+		Coe operator++ (int);// suffix
+		friend Coe& operator-- (Coe& num);
+		Coe operator-- (int);
+
+		Coe operator+ () const;
+		Coe operator+ (Coe& s1);
+		Coe& operator+=(const Coe& src);
+
+		Coe operator- ();
+		Coe operator- (Coe& s1);
+		Coe& operator-=(const Coe& src);
+
+		Coe operator* (Coe& s1);
+		Coe& operator*=(const Coe& src);
+
+		Coe operator/ (Coe& s1);
+		Coe& operator/=(const Coe& src);
+
+		friend Coe operator^ (const Coe& b, const Coe& c);
+		Coe& operator^=(const Coe& src);
+
+		//{TEMP} no using: Coe res(CoeCpy(this->co)); CoeSin(res.co);
+		Coe Sin()   { return Coe(sin  (operator double())); }
+		Coe Cos()   { return Coe(cos  (operator double())); }
+		Coe Tan()   { return Coe(tan  (operator double())); }
+		Coe ASin()  { return Coe(asin (operator double())); }
+		Coe ACos()  { return Coe(acos (operator double())); }
+		Coe ATan()  { return Coe(atan (operator double())); }
+		Coe Sinh()  { return Coe(sinh (operator double())); }
+		Coe Cosh()  { return Coe(cosh (operator double())); }
+		Coe Tanh()  { return Coe(tanh (operator double())); }
+		Coe ASinh() { return Coe(asinh(operator double())); }
+		Coe ACosh() { return Coe(acosh(operator double())); }
+		Coe ATanh() { return Coe(atanh(operator double())); }
+	protected:
+		coe* co;
+		void Srs(const Coe& c);
+		//{TODO} bool system hex(256) or decimal
+		//{TODO} coe* co; ---> coe co;
+	};
+	
+	extern const Coe coe_pi;
+	extern const Coe coe_e;
+
+}
+
+#endif // !_INC_X_FLOATING
+
+

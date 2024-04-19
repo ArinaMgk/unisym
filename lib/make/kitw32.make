@@ -9,7 +9,7 @@ INCC_DIR=../../inc/c/
 DEST_BIN=../../../_bin/
 LIBC_DIR=../../lib/c/
 DEMO_DIR=../../demo/kit/
-OPT=-O3 -s -D_WinNT -L../../../_bin/ -lw32d
+OPT=-O3 -s -D_WinNT -L../../../_bin/ -lw32
 
 CSC4=C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe
 

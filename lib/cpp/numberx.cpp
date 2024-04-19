@@ -16,6 +16,8 @@
 */
 // Previous name "NumAr.cpp", which has same .obj name with "NumAr.c", which is in the same linkage list.
 
+#if 0
+
 extern "C"
 {
 	#include <stddef.h>
@@ -25,7 +27,7 @@ extern "C"
 	#include "../../c/numar.h"
 }
 #include <iostream>
-#include "../../number"
+#include "../../inc/cpp/number"
 
 static const coe numone = { (char*)"+1", (char*)"+1", (char*)"+0" };
 
@@ -259,3 +261,5 @@ Number operator/ (const double s1, const Number& s0)
 	NumDel(res1);
 	return ret;
 }
+
+#endif

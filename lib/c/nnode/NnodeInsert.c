@@ -23,21 +23,21 @@
 #include "../../../inc/c/aldbg.h"
 #include "../../../inc/c/nnode.h"
 
-nnode* NnodeInsert(nnode* nod, int direction, nnode* parent)
+nnode* NnodeInsert(nnode* insnod, int direction, nnode* parent)
 {
 	nnode* n = zalcof(nnode);
-	n->row = nod->row;
-	n->col = nod->col;
+	#include "../../../inc/c/com/NnodeInsert.h"
+	_COM_NnodeInsert(insnod, !direction, parent, n);
 	if (direction == 0)
 	{
-		n->left = nod->left;
-		n->next = nod;
-		if (parent && parent->subf == nod) parent->subf = n;
+		n->left = insnod->left;
+		n->next = insnod;
+		if (parent && parent->subf == insnod) parent->subf = n;
 	}
 	else
 	{
-		n->left = nod;
-		n->next = nod->next;
+		n->left = insnod;
+		n->next = insnod->next;
 	}
 	if (n->left)n->left->next = n;
 	if (n->next)n->next->left = n;

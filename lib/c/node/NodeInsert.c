@@ -22,13 +22,10 @@
 
 #include "../../../inc/c/node.h"
 #include "../../../inc/c/aldbg.h"
+#include "../../../inc/c/com/NodeInsert.h"
 
-node* NodeInsert(node* first, void* addr)
+// will not change _node_first
+node* NodeInsert(node* nod, const void* addr)
 {
-	if(!first) return 0;
-	node* tmp = zalcof(node);
-	tmp->addr = addr;
-	tmp->next = first->next;
-	first->next = tmp;
-	return tmp;
+	_COM_NodeInsert(node, nod, addr, next);
 }

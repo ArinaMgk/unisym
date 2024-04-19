@@ -52,48 +52,34 @@ namespace uni {
 		{
 			root_node = next->next;
 			if (need_free_content)
-				(_node_freefunc ? _node_freefunc : _memf)((void*)(free_pass_whole ? next : next->offs));
-			else memf(next);
+				(_node_freefunc ? _node_freefunc : _memf)((void*)next->offs);
+			memf(next);
 			node_count--;
 			
 			next = root_node;
 		}
 	}
 
-	Node* NodeChain::Append(const void* addr) {
-		// Node* tmp = zalcof(Node);
-		// tmp->offs = addr;
-		// tmp->next = nullptr;
-		// node_count++;
-		// if (nullptr == root_node)
-		// 	last_node = root_node = tmp;
-		// else
-		// 	last_node = ((Node*)last_node)->next = tmp;
-		return Append(addr, false);
-	}
-
 	toheap Node* NodeChain::Append(const char* addr) {
-		return Append(StrHeap(addr), false);
+		return Append(StrHeap(addr));
 	}
 
+	// nod zo yo chain
 	unchecked Node* NodeChain::Append(const void* addr, bool onleft, Node* nod) {
-		Node* tmp = zalcof(Node);
-		tmp->offs = addr;
-		tmp->next = 0; // nullptr;
-		node_count++;
-
-		Node* last = root_node;
+		Node* tmp = 0;
+		Node* last = 0;
 		Node* crt = root_node;
 		int on_decresing_order = !little_endian;
-
-		if (nod) while (crt != nod && crt->next) {
-			AssignParallel(last, crt, crt->next);
-			if (crt != nod) {
-				if (onleft) tmp->next = nod; else nod->next = tmp;
-				return tmp;// out of current chain
-			}
-		}
-		else if (!root_node)
+		if (nod) do {
+			if (crt != nod) continue;
+			tmp = NodeInsert(onleft ? last : nod, addr);
+			if (!last) tmp->next = nod;
+			asrtequ(onleft ? root_node : last_node, nod) = tmp;
+			node_count++; return tmp;
+		} while (AssignParallel(last, crt, crt->next));
+		if (nod) return 0;// out of the chain
+		tmp = NodeInsert(0, addr); node_count++;
+		if (!root_node)
 			return last_node = root_node = tmp;
 		else if (!sorted)
 			return last_node = (last_node->next = tmp);

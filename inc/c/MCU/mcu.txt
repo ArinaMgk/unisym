@@ -1,0 +1,2 @@
+There are only for MCU but the board.
+The platform, aka instruction system, like `x86` or `Cortex` in `unisym/lib/`, is multi/one-to-one for a MCU.

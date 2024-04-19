@@ -1,0 +1,25 @@
+// ...
+
+#ifndef _INC_X_FLOATING
+#define _INC_X_FLOATING
+
+#include "coear"
+
+#if 0
+
+namespace uni {
+	class Floating {
+		bool strform;
+	private:
+		union {
+			stduint coff, expo, divr, dime; // !strform
+			Coe co; // strform
+		};
+	public:
+		
+	};
+}
+
+#endif
+
+#endif

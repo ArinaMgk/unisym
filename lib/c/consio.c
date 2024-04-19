@@ -21,9 +21,10 @@
 */
 
 #include "../../inc/c/consio.h"
+#include <stdlib.h>
 #if defined(_WinNT)
 #include <windows.h>
-#include <stdlib.h>
+
 static HANDLE ConHandle = { 0 };
 
 void ConCursorMoveRight(unsigned short dif)
@@ -63,7 +64,7 @@ void ConStyleNormal(void)
 size_t ConScanLine(char* buf, size_t limit)
 {
 	size_t slen = 0;
-	fgets(buf, (int)limit, stdin);
+	char* tmp = fgets(buf, (int)limit, stdin);// tmp: cheat compiler
 	if (!*buf) return 0;
 	while (buf[slen + 1])slen++;
 	while ((buf[slen] == '\n' || buf[slen] == '\r'))
@@ -72,4 +73,15 @@ size_t ConScanLine(char* buf, size_t limit)
 		if (!slen) break; else slen--;
 	}
 	return 1 + slen;
+}
+
+void ConClearScreen(void)
+{
+	int i =
+	#ifdef _WinNT
+	system("cls");
+#else // elif defined(_Linux)
+	system("clear");
+#endif
+	// cheat compiler
 }

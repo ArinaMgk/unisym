@@ -1,0 +1,93 @@
+// ASCII CPP TAB4 CRLF
+// Docutitle: Reset and Clock Control
+// Datecheck: 20240416 ~ <Last-check>
+// Developer: @dosconio
+// Attribute: <ArnCovenant> <Environment> <Platform>
+// Reference: <Reference>
+// Dependens: <Dependence>
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_RCC_X
+#define _INC_DEVICE_RCC_X
+
+#include "../../alice"
+#include "../../reference"
+
+#ifdef _MCU_STM32F103VE
+
+// !!! All unchecked
+
+/* Compatible for RCC of HAL */
+/*
+stm32f1xx_hal_rcc.c
+[ ]#define MCO1_CLK_ENABLE()     __HAL_RCC_GPIOA_CLK_ENABLE()
+[ ]#define MCO1_GPIO_PORT        GPIOA
+[ ]#define MCO1_PIN              GPIO_PIN_8
+[ ]static void RCC_Delay(uint32_t mdelay);
+[ ]HAL_StatusTypeDef HAL_RCC_DeInit(void)
+[ ]HAL_StatusTypeDef HAL_RCC_OscConfig(RCC_OscInitTypeDef  *RCC_OscInitStruct)
+   - TODO HSI
+   - TODO LSI
+   - TODO LSE
+   - TODO-SOON PLL
+[ ]HAL_StatusTypeDef HAL_RCC_ClockConfig(RCC_ClkInitTypeDef  *RCC_ClkInitStruct, uint32_t FLatency)
+[ ]void HAL_RCC_MCOConfig(uint32_t RCC_MCOx, uint32_t RCC_MCOSource, uint32_t RCC_MCODiv)
+[ ]void HAL_RCC_EnableCSS(void)
+[ ]void HAL_RCC_DisableCSS(void)
+[ ]uint32_t HAL_RCC_GetSysClockFreq(void)
+[ ]uint32_t HAL_RCC_GetHCLKFreq(void)
+[ ]uint32_t HAL_RCC_GetPCLK1Freq(void)
+[ ]uint32_t HAL_RCC_GetPCLK2Freq(void)
+[ ]void HAL_RCC_GetOscConfig(RCC_OscInitTypeDef  *RCC_OscInitStruct)
+[ ]void HAL_RCC_GetClockConfig(RCC_ClkInitTypeDef  *RCC_ClkInitStruct, uint32_t *pFLatency)
+[ ]void HAL_RCC_NMI_IRQHandler(void)
+[ ]static void RCC_Delay(uint32_t mdelay)
+[ ]__weak void HAL_RCC_CSSCallback(void)
+
+stm32f1xx_hal_rcc.h
+[ ]typedef struct ... RCC_ClkInitTypeDef;
+[ ]typedef struct ... RCC_PLLInitTypeDef;
+
+stm32f1xx_hal_rcc_ex.h
+[v]typedef struct ... RCC_OscInitTypeDef;
+[ ]define __HAL_RCC_HSE_CONFIG(__STATE__) 
+*/
+
+
+#include "RCCAddress"
+#include "RCCClock"
+#include "RCCOscillator"
+#include "RCCPrescaler"
+#include "RCCPLL"
+
+namespace uni {
+	class RCC_t {
+	protected:
+	public:
+		RCCOscillatorHSE HSE;
+		RCCOscillatorHSI HSI;
+		RCCOscillatorLSE LSE;
+		RCCOscillatorLSI LSI;
+		RCCPLL PLL;
+
+	};
+}
+
+#endif
+#endif

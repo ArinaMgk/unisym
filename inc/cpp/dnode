@@ -27,27 +27,40 @@
 #define _INC_CPP
 #endif
 
-extern "C" {
+#include "cinc"
 #include "../c/alice.h"
 #include "../c/dnode.h"
-}
+#include "cinc"
 
 namespace uni {
 	class DnodeChain {
 	public:
 		DnodeChain(bool need_free);
 		~DnodeChain();
-		void Append(const void* addr, stduint typ);
+		void Append(void* addr, stduint typ);
 		void Index(void* content);
 		stduint Count() { return node_count; }
 		Dnode* Root() { return root_node; }
 		Dnode* Last() { return last_node; }
 		void Remove(const stduint iden);
-		void Remove(const void* content);
+		Dnode* Remove(Dnode* content, bool systematic = true);
+		Dnode* Reverse() { // {TOIN dnode.cpp}{unchecked}
+			Dnode* crt = root_node;
+			Dnode* nex = 0;
+			if (crt) do {
+				nex = crt->next;
+				xchgptr(crt->left, crt->next);
+			} while (crt = nex);
+			xchgptr(root_node, last_node);
+			return root_node;
+		}
+		void Clear() {
+		}
 		void SetFreeContent(bool need_free);
-		void Onfree(void(*fn_free)(void*) = 0, bool need_free = true) {
+		void Onfree(void(*fn_free)(void*) = 0, bool need_free = true, bool pass_whole = true) {
 			_node_freefunc = fn_free;
 			need_free_content = need_free;
+			free_pass_whole = pass_whole;
 		}
 		void Sort();
 		void Onsort(bool sorted = true, bool little_to_big = true, int (*fn_compare)(const void*, const void*) = 0) {
@@ -68,5 +81,13 @@ namespace uni {
 		int (*_node_compare)(const void* addr0, const void* addr1);// return 0 for equal, 1 for greater, -1 for less
 	};
 }
+
+#define dchainfree(next,pref) \
+	if (pref need_free_content && !pref _node_freefunc) memf(next->offs);\
+	if (pref need_free_content)\
+		(pref _node_freefunc ? pref _node_freefunc : _memf)\
+			((void*)(pref free_pass_whole ? next : next->offs));\
+	else memf(next);\
+	(pref node_count)--;
 
 #endif

@@ -17,12 +17,13 @@
 
 //{MAY} Rename to debug.h
 
+#ifdef _BUILD_MSVC
 #pragma warning(disable:6011)// for MSVC
+#endif
 
-#ifndef _LIB_DEBUG// Add this can cheat the compiler
+#if !defined(_LIB_DEBUG) && defined(_DEBUG)// Add this can cheat the compiler
 #define _LIB_DEBUG// Her Convenient odd style. Maybe a bad habit for formal project.
 
-#include <stddef.h>
 #include "alice.h"
 
 #define printb(x) printf("%s: " #x "\n",(x)?"True":"False")
@@ -30,8 +31,6 @@
 #define malc_limit _MALLIMIT
 
 #define _MALLIMIT_DEFAULT 0x1000
-#define unchecked
-#define toheap
 
 extern void erro(char* erromsg);
 extern void warn(char* warnmsg);
@@ -66,7 +65,7 @@ extern size_t arna_precise;
 #define zalcof(x) (x*)zalc(sizeof(x))
 #define malcof(x) (x*)malc(sizeof(x))
 #define memf(x)   memfree(x)
-#define mfree(x) {memfree(x);(x)=0;}
+#define mfree(x) do{memfree(x);(x)=0;}while(0)
 
 #include <stdlib.h>
 inline static void _memf(void* x)
@@ -85,5 +84,13 @@ inline static char* salc(size_t size)
 #define ulibsym(limit)\
 	size_t _MALCOUNT, malc_limit=(limit), call_state;
 
+#ifdef _INC_CPP
+extern "C++" {
+	// `new(buf)type;` won't call this but `new type;`.
+	//void* operator new(size_t size);
+	//
+	//void operator delete(void* p);
+}
+#endif
 
 #endif

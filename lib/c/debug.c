@@ -22,5 +22,8 @@
 
 #include "../../inc/c/aldbg.h"
 
-stduint malc_count = 0;
-stduint malc_limit = _MALLIMIT_DEFAULT;
+#ifdef _DEBUG
+size_t malc_count = 0;
+size_t malc_limit = _MALLIMIT_DEFAULT;// you can use such `malc_limit = 100;` to change this.
+size_t call_state;
+#endif

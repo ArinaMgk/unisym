@@ -1,2 +1,0 @@
-# CPL MSVC Win64
-

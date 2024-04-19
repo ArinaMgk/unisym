@@ -20,8 +20,11 @@
 	limitations under the License.
 */
 
-class Basis
-{
-public:
-	class Basis* cotira = this;
-};
+#ifndef _INC_UNIVERSAL_X
+#define _INC_UNIVERSAL_X
+
+#include "cinc"
+#include "../c/aldbg.h"
+#include "cinc"
+
+#endif

@@ -1,7 +1,7 @@
 // ASCII C++ TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// Attribute: [Allocation]
 // LastCheck: <date>
-// AllAuthor: ...
+// AllAuthor: @dosconio
 // ModuTitle: ...
 /*
 	Copyright 2023 ArinaMgk
@@ -27,10 +27,11 @@ namespace uni {
 
 	template <typename type0> class Stack {
 	public:
-		Stack(unsigned size);
+		explicit Stack(unsigned size);
 		~Stack();
 		void push(type0 item);
-		type0 pop();
+		type0& pop();
+		type0& getTop();
 		bool isEmpty();
 		bool isFull();
 	private:
@@ -62,12 +63,16 @@ namespace uni {
 		else stack[--ptr] = item;
 	}
 
-	tmpl(type0)::pop() {
+	tmpl(type0&)::pop() {
 		if (isEmpty()) {
 			// throw "Stack is empty";
 			return *stack;//{todo}
 		}
 		else return stack[ptr++];
+	}
+
+	tmpl(type0&)::getTop() {
+		return stack[ptr];
 	}
 
 	tmpl(bool)::isEmpty() {

@@ -29,7 +29,7 @@ static const char _USYM_IDEN_[] = {
 
 // enum _Node_Order _node_order;
 
-int (*_node_compare)(void* addr0, void* addr1);
+int (*_node_compare)(const void* addr0, const void* addr1);
 
 static void NodeReleaseSingle(void* inp)
 {

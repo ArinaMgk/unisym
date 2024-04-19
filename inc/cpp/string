@@ -1,0 +1,93 @@
+// ASCII C++11 TAB4 CRLF
+// Attribute: ArnCovenant yo Free 
+// LastCheck: RFZ03
+// AllAuthor: @dosconio
+// ModuTitle: ASCII String
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+// Do not add this into your INC-path or your GCC may not find its header!
+// But you can add `*/inc/` and `*/inc/c/`.
+
+#ifndef _INCX_STRING
+#define _INCX_STRING
+
+#include "cinc"// C Begin
+	#include "../c/ustring.h"
+#include "cinc"// C End
+#include "property"
+#include <iostream>//{TEMP}
+
+//{} Append property-call for += ... operator
+namespace uni {
+	// dosconio style: you need read this carefully, because the others are greatly different from this!
+	class String: public uni::Property<String> {
+	private:
+		size_t counts;
+		char* addr;
+		bool no_termi_char;
+	public:
+		String(const char* str_asciz = "");
+		String(const String& str);
+		String(char* str);
+		~String();
+		size_t length();
+		const char* reflect() const;
+
+		operator const char* () const {
+			return this->reflect();
+		}
+
+		// + String, int and built-in types
+		// += make use of `+`
+		String& operator=(const String& str);
+
+		String operator+ (String& str) {
+			return String(StrHeapAppend(this->addr, str.addr));
+		}
+		String& operator+=(const String& str) {
+			//*this = *this + str;
+			srs(this->addr, StrHeapAppend(this->addr, str.addr));
+			return *this;
+		}
+
+		bool operator<=(const String& s) const {
+			const char* ptr = StrIndexString(s.addr, this->addr);
+			return ptr != nullptr;
+		}
+		bool operator>=(const String& s) const {
+			const char* ptr = StrIndexString(this->addr, s.addr);
+			return ptr != nullptr;
+		}
+		bool operator==(const String& s) const {
+			return StrCompare(this->addr, s.addr) == 0;
+		}
+
+		char& operator[] (stduint idx) { return addr[idx]; }
+
+		friend std::ostream& operator<< (std::ostream& out, const String& str);
+
+		static String Heap(const String& str) { return String((const char*)(str.addr)); }
+
+
+	};
+	
+}
+
+typedef class uni::String ustring;
+
+#endif // !_INCX_STRING

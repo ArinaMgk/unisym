@@ -1,16 +1,14 @@
 # UNISYM
 
-**Uniformed (Universal) Symbol**, also known as "*Uniform Symbolic System*", which is a system of programming, including not only implementation, library, tool-kits, displaying engine and demonstrations. The repository is open-sourced under license of *Apache 2.0*. If you copy the code and used for the public or commercial, please stipulate your copying from *UNISYM* led by *ArinaMgk*. 
+![icon](./.picture/unisym.20240306.png) **[Universal Symbol](http://unisym.org)**, also known as ゆにッシンボル, or as 統象庫, a system of programming and engineering, including not only implementation, library, tool-kits, chroming engine and demonstrations.
 
-All the code is by hands, without copying anyone including artificial intelligence, so these big changes and mistakes in codes may be forgiven.
+The repository is open-sourced under of *Apache License 2.0*. If you copy the code and used for the public or commercial, please stipulate your <u>copying from *UNISYM* led by *ArinaMgk*</u>. 
 
-Icon: ![icon](./.picture/unisym.20240306.png) (ゆにッシンボル, 統象庫)
+<font color="magenta">⚠︎ All the code are by hands, so these big changes and mistakes in codes may be forgiven.</font>
 
-Repository: [Depend](./doc/DEPEND.md); [Catalog](./doc/CATALOG.md); [Symbol Covenant](./doc/SYMBOL.md) ; ...
+For example, there are harmonious identifications for linkage-identifiers and calling-parameters:
 
-> Where to see the "`Uni-`" and "`-Sym`", for example, there are harmonious identifications for linkage-identifiers and calling-parameters, 
-
-```c
+```C++
 ConPrint("Hello") # Some script-interpret
 
 ConPrint("Hello");/* CPL */
@@ -23,50 +21,33 @@ ConPrint Hello_String; Assembly Macro
 ...
 ```
 
-**Component**
-
-| Folder Name        | For                                                     | As                                                         |
+| Component        | For                                                     | As                                                         |
 | ------------------ | ------------------------------------------------------------ | ------------------ |
-| [ASM](./doc/AASM.md)  `asm/` | sources(asm) <=> object | assembler and dis-assembler |
+| [ASM](./doc/assembly/AASM.md)  `asm/` | sources(asm) <=> object | assembler and dis-assembler |
 | DEM `demo/` | / | demonstrations |
 | DOC `doc/` | / | documents |
 | INC `inc/` | / | including files |
 | LIB `lib/` | / | implementation source code |
 | LNK `linker/` | objects => output | linker, synthesizer and modifier |
-| MGK `magic/` | sources => sources + list + depend | compiler and translator |
-| WIT `witch/` | to outputs | analyzer and chrome engine |
+| MGK `magic/` | sources => sources + list + depend | compiler, analyzer and translator |
+| WIT `witch/` | to outputs | **chrome** library and engine |
 | WZD `wizard/` | / | constructor |
 
-**Standard Release Version**
+---
 
-- `inc/` 
-- `../bin/` 
-- `demo/` _(option)_ 
+<!-- Contributors -->
 
-**Domain** 
+[🍨 Buy us a coffee for UNISYM project](https://www.buymeacoffee.com/arinamgk) 
 
-- unisym.org
+- ![Contributor ArinaMgk (Phina)](./.picture/phina.head.bmp) <del> ***[Phina Ren](./doc/author/arina.md)***</del>
 
-**Mission** 
-
-- We never abandon any language, for it can be improved the potential to be more systematic and most suitable for some cases.
-
-
-
-**Contributors** 
-
-- ![Contributor ArinaMgk](./.picture/phina.head.bmp) <del> ***Phina Ren***</del> (First Last)  
-    - [**PAST**](./doc/author/arina.md):  <mark>Physically and Mentally Sick</mark>  
-    - **Boudoir**: [Her-garden](phina.net)  or its `.org` or `.ren` 
-    - **GitHub**: `ArinaMgk` 
-    - **Mail**: phina@tuta.io 
-    - [🍨 Buy me a coffee](https://www.buymeacoffee.com/arinamgk) 
-
-- ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** (Family First)
+- ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** 
 
     - **Boudoir**: http://doscon.io and dosconio series
+    - **Nickname**: Ayano
     - **GitHub**: `dosconio` 
     - **Mail**: dosconyo@gmail.com 
     - **Fork**: [Dosconio-derived USYM](http://github.com/dosconio/unisym) 
+
 - 皆さん～
 

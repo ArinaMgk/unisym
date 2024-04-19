@@ -1,0 +1,30 @@
+// ASCII C++11 TAB4 CRLF
+// Attribute: 
+// LastCheck: 20240405
+// AllAuthor: @dosconio
+// ModuTitle: Console
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#if !defined(_INC_CONSOLE_X)
+#define _INC_CONSOLE_X
+
+#include "cinc"
+#include "../c/consio.h"
+#include "cinc"
+
+#endif

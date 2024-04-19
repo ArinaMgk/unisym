@@ -42,6 +42,11 @@
 #define _INC_USTRING
 #define _LIB_STRING
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
+#endif
+
 #include "host.h"
 #include "aldbg.h"
 #include "uctype.h"
@@ -49,7 +54,7 @@
 
 typedef enum _token_t
 {
-	tok_EOF = 0,  // 
+	tok_none = 0,  // 
 	tok_any,      // for features of any token
 	tok_comment,  // /* */ #
 	tok_direct,// directive like #include
@@ -60,7 +65,21 @@ typedef enum _token_t
 	tok_identy,   // identifier
 	tok_string,   // "Hallo"
 	tok_number,   // 1
+
+	tok_EOF
 } toktype;// the counts should not be greater than 15.
+
+enum {
+	tok_func = tok_EOF + 1,
+
+	tok__continue
+};
+
+//#define isidnsym(type)(type<tok_others)
+#define maysymbol(type)(type<tok_others)
+//#define isentity(type)(type>tok_others)
+#define maynotsym(type)(type>tok_others)
+
 
 #ifndef _INC_TNODE
 #include "tnode.h"
@@ -142,7 +161,8 @@ static inline char* MemAbsolute(char* dest, const char* sors, size_t width)
 static inline char* StrCopy(char* dest, const char* sors)
 {
 	register char* d = dest;
-	while (*d++ = *sors++); return dest;
+	while (*d++ = *sors++);
+	return dest;
 }
 #else
 #define StrCopy strcpy ///{TODO}
@@ -229,7 +249,8 @@ static inline char* StrAppendChars(char* dest, char chr, size_t n)
 static inline int MemCompare(const char* a, const char* b, size_t n)
 {
 	register char tmp = 0;
-	while (n && !(tmp = (*a - *b))) n--; return (int)tmp;
+	while (n && !(tmp = (*a - *b))) n--;
+	return (int)tmp;
 }
 #else
 #define MemCompare memcpy ///{TODO}
@@ -239,7 +260,8 @@ static inline int MemCompare(const char* a, const char* b, size_t n)
 static inline int StrCompare(const char* a, const char* b)
 {
 	int tmp = 0;
-	while (!(tmp = (*a - *b)) && *a++ && *b++); return tmp;
+	while (!(tmp = (*a - *b)) && *a++ && *b++);
+	return tmp;
 }
 #else
 #define StrCompare strcmp ///{TODO}
@@ -249,7 +271,8 @@ static inline int StrCompare(const char* a, const char* b)
 static inline int StrCompareInsensitive(const char* a, const char* b)// RFC12
 {
 	int tmp = 0;
-	while (!(tmp = (ascii_tolower(*a) - ascii_tolower(*b))) && *a++ && *b++); return tmp;
+	while (!(tmp = (int)(ascii_tolower(*a) - ascii_tolower(*b))) && *a++ && *b++);
+	return tmp;
 }
 
 
@@ -258,7 +281,9 @@ static inline int StrCompareInsensitive(const char* a, const char* b)// RFC12
 static inline int StrCompareN(const char* a, const char* b, size_t n)
 {
 	int tmp;
-	while (n && !(tmp = (*a - *b)) && *a++ && *b++) n--; return tmp;
+	while (n && !(tmp = (*a - *b)) && *a++ && *b++)
+		n--;
+	return tmp;
 }
 #else
 #define StrCompareN strncmp ///{TODO}
@@ -268,7 +293,9 @@ static inline int StrCompareN(const char* a, const char* b, size_t n)
 static inline int StrCompareNInsensitive(const char* a, const char* b, size_t n)// RFC12
 {
 	int tmp;
-	while (n && !(tmp = (ascii_tolower(*a) - ascii_tolower(*b))) && *a++ && *b++) n--; return tmp;
+	while (n && !(tmp = (ascii_tolower(*a) - ascii_tolower(*b))) && *a++ && *b++)
+		n--;
+	return tmp;
 }
 
 // RFV12 Updated.
@@ -277,7 +304,8 @@ static inline size_t StrLength(const char* s)
 {
 	// do not judge s zo null for better debug
 	register size_t len = 0;
-	while (s[len]) len++;
+	while (s[len])
+		len++;
 	return len;
 }
 #else
@@ -291,7 +319,6 @@ static inline char* StrElement(char* s, ptrdiff_t idx)
 	// +0 +1 +2 +3
 	// -3 -2 -1
 	if (!s || !*s)return 0;
-	int sign = 0;
 	size_t len = 0;
 	while (s[len]) len++;
 	if (idx > 0) if ((size_t)idx >= len) return 0;
@@ -311,7 +338,8 @@ static inline char StrCharLast(const char* s)//= *StrElement(s, -1)
 #ifdef _INC_USTRING_INLINE
 static inline const char* MemIndexByte(const char* s, int c, size_t n)
 {
-	while (n--) { if (*s == c) return s; else s++; } return NULL;
+	while (n--) { if (*s == c) return s; else s++; }
+	return NULL;
 }
 #else
 #define MemIndexByte memchr ///{TODO}
@@ -371,6 +399,20 @@ static inline const char* StrIndexString(const char* dest, const char* sub)
 #else
 #define StrIndexString strstr ///{TODO}
 #endif
+
+//{TODO} StrIndexStrings
+
+static inline const char* StrIndexStringRight(const char* dest, const char* sub)
+{
+	const char* ret = 0;
+	const char* ptr = 0;
+	size_t destlen = StrLength(dest);
+	size_t subslen = StrLength(sub);
+	if (destlen < subslen) return 0;
+	ptr = dest + destlen - subslen;
+	while ((ptr >= dest) && !(ret = StrIndexString(ptr--, sub)));
+	return ret;
+}
 
 #ifdef _INC_USTRING_INLINE
 static inline size_t StrSpanInclude(const char* s1, const char* s2)
@@ -454,11 +496,14 @@ size_t StrDesuffixSpaces(char* str);
 static inline char* StrTokenOnce(char* s1, const char* s2)
 {
 	static char* _ModString_StrTokenOnce;// na StrToken, Arina updated yo RFT02.
-	if (!s1) if (_ModString_StrTokenOnce) s1 = _ModString_StrTokenOnce; else return NULL;
+	if (!s1 && !(s1 = _ModString_StrTokenOnce))
+		return NULL;
 	register size_t offs;
 	/*Skip prefix*/ while (*s1) {
 		offs = 0; while (s2[offs]) {
-			if (s2[offs] == *s1) break; offs++;
+			if (s2[offs] == *s1)
+				break;
+			offs++;
 		} if (!s2[offs]) break; s1++;
 	}
 	_ModString_StrTokenOnce = s1;
@@ -609,6 +654,10 @@ void StrShiftRight8n(void* s, size_t len, size_t n);
 
 // In the direction of the left
 stdint MemCompareRight(const unsigned char* a, const unsigned char* b, size_t n);
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 #endif// !defined(_LIB_STRING) && !defined(_INC_USTRING)
 // IN MEMORY OF OUR PAST YEARS //

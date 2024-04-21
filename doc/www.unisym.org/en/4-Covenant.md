@@ -3,7 +3,7 @@ her-note: false
 dg-publish: true
 ---
 
-
+Her-style, Code-reusing and Conceptual-razor.
 
 ## Format
 
@@ -73,6 +73,18 @@ dg-publish: true
 - Avoid using reference& but pointer* for inside function for more simply transplant.
 - Use `uint8`, `uint16` and so on, as integer types.
 
-## Tendency
+## Contributing Rules 
+
+Tendency
 
 - use `nullptr` 
+
+Consideration
+
+- Catalog
+- Dependence
+- Attribute (especially Allocation)
+- Assert, strict-check and erroproc
+- Debug
+- Aflag
+- Inline version

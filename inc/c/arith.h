@@ -25,6 +25,8 @@
 #include "alice.h"
 #include "coear.h"
 
+extern stduint _EFDIGS;// how many effective digits
+
 double dblfactorial(double inp);
 
 double dbltaylor(double inp, byte dptor, double period);

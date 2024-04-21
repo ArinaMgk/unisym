@@ -1,8 +1,11 @@
-// ASCII <Lango> TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: <date>
-// AllAuthor: ...
-// ModuTitle: ...
+// ASCII CPL TAB4 CRLF
+// Docutitle: Floating
+// Datecheck: 20240421 ~ <Last-check>
+// Developer: @dosconio
+// Attribute: <ArnCovenant> <Environment> <Platform>
+// Reference: <Reference>
+// Dependens: <Dependence>
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,14 +23,12 @@
 	limitations under the License.
 */
 
-#ifndef _INC_X86_PORT
-#define _INC_X86_PORT
+#ifndef _INC_FLOATING
+#define _INC_FLOATING
 
-#define outpi// Out to Port's Pin
-#define outpb OUT_b
-#define outpw OUT_w
-#define innpi// In from Port's Pin
-#define innpb IN_b
-#define innpw IN_w
+#include "integer.h"
+
+#define isZeroMantissa(flt) ((int)(flt)==(flt)) 
+#define getNearInteger(flt) (flt+0.5)
 
 #endif

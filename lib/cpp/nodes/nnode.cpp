@@ -30,7 +30,7 @@ namespace uni {
 
 #define tmpl(...) __VA_ARGS__ Nnode
 
-	tmpl(bool)::isHead(Nnode* ifthen_reset = 0) {
+	tmpl(bool)::isHead(Nnode* ifthen_reset) {
 		// simple: (this->pare) && (this->pare->subf == this)
 		if (!this->pare) return (!this->left);
 		if (this->pare->subf != this) return false;

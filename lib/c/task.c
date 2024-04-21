@@ -1,8 +1,11 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
-// LastCheck: RFZ03
-// AllAuthor: @dosconio
-// ModuTitle: CPlusPlus Include C Header Tog
+// ASCII CPL TAB4 CRLF
+// Docutitle: Task
+// Datecheck: 20240421 ~ <Last-check>
+// Developer: @dosconio
+// Attribute: <ArnCovenant> <Environment> <Platform>
+// Reference: <Reference>
+// Dependens: <Dependence>
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,20 +23,23 @@
 	limitations under the License.
 */
 
-#ifndef _INC_CPP
-#define _INC_CPP
-#endif
-#ifdef __cplusplus
-#ifndef _INC_HEAD_CPP
-#define _INC_HEAD_CPP
+#include "../../inc/c/task.h"
 
-extern "C" {
-	///#define class Class
-	#define register//                    ISO C++17 does not allow 'register' storage class specifier
-#else
-#undef _INC_HEAD_CPP
-	///#undef class
-	#undef  register// MSVC/*/xkeycheck.h The C++ Standard Library forbids macroizing the keyword "register"
+#if defined(_ARC_x86)
+#if _ARC_x86 >= 3
+
+TSS_t* TaskStateSegmentInitialize(TSS_t* tss)
+{
+	byte* tmp = (byte*)tss;
+	for0(i, byteof(*tss))
+		tmp[i] = 0;
+	return tss;
+}
+
+// based on n_demos::TSSStruct_3
+void TaskStateSegmentSet(TSS_t* tss)
+{
+	//TODO
 }
 
 #endif

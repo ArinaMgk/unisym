@@ -31,7 +31,7 @@ char* instoa(ptrdiff_t num)
 	size_t numlen = 2;
 	#endif
 	size_t numslv = num > 0 ? num : -num;
-	AddDecimalDigitsLen(numlen, numslv);
+	movDecimalDigitsLen(numlen, numslv);
 	#ifndef _ARN_FLAG_DISABLE
 	if (numlen > malc_limit)
 	{

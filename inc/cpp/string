@@ -45,6 +45,13 @@ namespace uni {
 		String(const String& str);
 		String(char* str);
 		~String();
+		//
+		enum StringCharset {
+			ASCII,
+			UPECOrigin,
+			UTF8,
+		};
+		
 		size_t length();
 		const char* reflect() const;
 
@@ -78,6 +85,9 @@ namespace uni {
 		}
 
 		char& operator[] (stduint idx) { return addr[idx]; }
+		// [Abandoned]
+		// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }
+		// const char* operator[] (const char* str) { return StrIndexString(addr, str); }
 
 		friend std::ostream& operator<< (std::ostream& out, const String& str);
 

@@ -31,7 +31,7 @@ char* instob(ptrdiff_t num, char* buf)
 	size_t numlen = 2;
 	#endif
 	size_t numslv = num > 0 ? num : -num;
-	AddDecimalDigitsLen(numlen, numslv);
+	movDecimalDigitsLen(numlen, numslv);
 	#ifdef _ARN_FLAG_ENABLE
 	if (malc_limit < numlen || malc_limit < (unsigned)3 - !arna_eflag.Signed || !buf)
 	{

@@ -27,9 +27,9 @@ namespace uni
 			OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
 	}
 
-	GeneralPurposeInputOutputPort GPIOA(0x40010800, _RCC_APB2ENR_ADDR, _RCC_ENCLK_GPIOA);
-	GeneralPurposeInputOutputPort GPIOB(0x40010C00, _RCC_APB2ENR_ADDR, _RCC_ENCLK_GPIOB);
-	GeneralPurposeInputOutputPort GPIOC(0x40011000, _RCC_APB2ENR_ADDR, _RCC_ENCLK_GPIOC);
+	GeneralPurposeInputOutputPort GPIOA(0x40010800, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOA);
+	GeneralPurposeInputOutputPort GPIOB(0x40010C00, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOB);
+	GeneralPurposeInputOutputPort GPIOC(0x40011000, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOC);
 	GeneralPurposeInputOutputPort GPIOD(0,0,0);//{}
 	GeneralPurposeInputOutputPort GPIOE(0,0,0);//{}
 

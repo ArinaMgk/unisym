@@ -26,9 +26,14 @@
 
 #include "alice.h"
 
-#define printb(x) printf("%s: " #x "\n",(x)?"True":"False")
 #define malc_count _MALCOUNT
 #define malc_limit _MALLIMIT
+
+// #define jump goto // to see asm-inst
+#define idle() {_jump: goto _jump;}
+
+#define chars_stack(x) &(char[]){#x "\0"}// chars_stack(123)
+#define chstk chars_stack
 
 #define _MALLIMIT_DEFAULT 0x1000
 
@@ -62,10 +67,6 @@ extern size_t arna_precise;
 
 #endif
 
-#define zalcof(x) (x*)zalc(sizeof(x))
-#define malcof(x) (x*)malc(sizeof(x))
-#define memf(x)   memfree(x)
-#define mfree(x) do{memfree(x);(x)=0;}while(0)
 
 #include <stdlib.h>
 inline static void _memf(void* x)

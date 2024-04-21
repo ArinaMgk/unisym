@@ -1,5 +1,5 @@
 // ASCII C++ TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// Attribute: [Allocation]
 // LastCheck: 
 // AllAuthor: @dosconio
 // ModuTitle: Nested (Network) Token Node for C++, origin from Anode
@@ -32,6 +32,11 @@
 #include "cinc"
 #include "node"
 #include "tnode"
+
+// There are 2 method: pare<->subf and head<->memb, the later is that the head of a generation is fixed so pare->subf need not change, that is to say, the item need not know its parent but his head-sister!
+//{TODO} rename these NnodeOldA and make new Nnode, and NnodeChain is a special Nnode
+//  [ ] CPL Verion
+//  [ ] CPP Verion
 
 namespace uni {
 	class Nnode : public Tnode {

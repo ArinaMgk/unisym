@@ -3,10 +3,10 @@
 #ifndef _INTERFACE_X86_H
 #define _INTERFACE_X86_H
 
-#include "../alice.h"
+#include "../host.h"
 
 // lib/asm/x86/inst/ioport.asm
-#include "./port.h"
+#include "../port.h"
 void OUT_b(word Port, byte Data);
 word IN_b(word Port);
 void OUT_w(word Port, word Data);

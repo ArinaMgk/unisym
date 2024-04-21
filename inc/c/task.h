@@ -20,12 +20,15 @@
 	limitations under the License.
 */
 
-#ifndef _INC_x86_TASK
-#define _INC_x86_TASK
+#ifndef _INC_TASK
+#define _INC_TASK
 
-#include "alice.h"
+#include "host.h"
 
-struct TaskStateSegmentx86
+#if defined(_ARC_x86)
+#if _ARC_x86 >= 3
+
+typedef struct TaskStateSegmentx86
 {
 	word LastTSS;
 	word NextTSS;// Mecocoa's Design
@@ -66,6 +69,14 @@ struct TaskStateSegmentx86
 	word STRC_15_T;
 	word IO_MAP; // default 103
 	// ---- 0104d:
-};
+} TSS_t;
 
+TSS_t* TaskStateSegmentInitialize(TSS_t* tss);
+
+void TaskStateSegmentSet(TSS_t* tss);
+
+#endif
+#else
+//
+#endif // _ARC_x86
 #endif

@@ -12,11 +12,16 @@ namespace uni {
 		bool strform;
 	private:
 		union {
-			stduint coff, expo, divr, dime; // !strform
+			struct { stduint coff, expo, divr, dime; }; // !strform
 			Coe co; // strform
 		};
 	public:
-		
+		enum FloatingFormat {
+			IEEE_754,
+			Local,
+			COE,
+			Normal, // !strform
+		};
 	};
 }
 

@@ -41,9 +41,6 @@ extern char* arna_tempor;
 extern char* arna_tmpslv;
 extern char* arna_tmpext;
 
-// recommend from ustring into alice
-#define AddDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)
-
 //---- ---- ---- ---- Single Style ---- ---- ---- ---- 
 
 // Return the remainder of the sstr/divr

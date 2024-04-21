@@ -279,6 +279,12 @@
 #define minof(a,b) ((a)<(b)?(a):(b))
 #endif
 
+#define nil 0
+#define NUL 0
+#if !defined(_INC_CPP) && !defined(__cplusplus)
+	// #define nullptr (void*)0 // before C17
+#endif
+	
 // Intel Assembly Style
 #define MAX(d,s) if((d)<(s)){(d)=(s);}
 #define MIN(d,s) if((d)>(s)){(d)=(s);}
@@ -286,6 +292,12 @@
 #define isodd(x) ((x)&1)
 #define iseven(x) !((x)&1)
 
+#define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
+
+#define movDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
+
+extern stduint _size_decimal;
+	
 // More:
 
 // para:direction [0:ascend 1:descend]

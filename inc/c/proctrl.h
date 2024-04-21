@@ -7,7 +7,7 @@
 
 #ifndef _INC_PROCTRL
 #define _INC_PROCTRL
-#include "integer.h"
+#include "floating.h"
 #if defined(_MCU_STM32F103VE)
 // use 32b-align(times of 0x4) address
 typedef uint32  typedest;

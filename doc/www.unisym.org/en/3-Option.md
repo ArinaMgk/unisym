@@ -25,9 +25,21 @@ dg-publish: true
 
 - `_BUILD_Qt` 
 
-#### > Processor and Controller
+#### > Architecture
 
-- `_INC_MCU_STM32F103VE` 
+- `_ARC_x86` 
+    - this equals `3` : `_ARC_i80386`
+
+##### > Instruction Set (going to be abandoned)
+
+- p_i386
+- p_i8051
+- p_CortexM0
+
+#### > Processor and Controller Unit
+
+- `_MCU_STM32F103VE`
+- `_CPU_AMDRyzen7_5800H_Radeon`
 
 #### > Platform and Environment
 
@@ -39,8 +51,9 @@ Sub-option of CPU or MCU
 
 runtime host environment
 
-- `_WinNT`
+- `_WinNT`: `_Win32` `_Win64` 
 - `_Linux`
+- `_MCCA`
 
 environment
 

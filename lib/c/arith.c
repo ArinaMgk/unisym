@@ -1,8 +1,11 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
-// LastCheck: RFZ03
-// AllAuthor: @dosconio
-// ModuTitle: CPlusPlus Include C Header Tog
+// ASCII CPP TAB4 CRLF
+// Docutitle:  
+// Datecheck: 20240420 ~ .
+// Developer: @dosconio @ UNISYM
+// Attribute: [Allocate]
+// Reference: None
+// Dependens: None
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,21 +23,7 @@
 	limitations under the License.
 */
 
-#ifndef _INC_CPP
-#define _INC_CPP
-#endif
-#ifdef __cplusplus
-#ifndef _INC_HEAD_CPP
-#define _INC_HEAD_CPP
+#include "../../inc/c/arith.h"
 
-extern "C" {
-	///#define class Class
-	#define register//                    ISO C++17 does not allow 'register' storage class specifier
-#else
-#undef _INC_HEAD_CPP
-	///#undef class
-	#undef  register// MSVC/*/xkeycheck.h The C++ Standard Library forbids macroizing the keyword "register"
-}
+stduint _EFDIGS = 6;
 
-#endif
-#endif

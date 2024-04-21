@@ -33,9 +33,18 @@ F103:
 #define _MCU_STM32F103
 #define _MCU_STM32
 
-
+// If used with HAL:
+#undef RCC
+#undef GPIOA
+#undef GPIOB
+#undef GPIOC
+#undef GPIOD
+#undef GPIOE
+#undef GPIOF
+#undef GPIOG
 
 #include "../../Device/GPIO"
 #include "../../Device/RCC/RCC"
+#include "../../interrupt"
 
 #endif

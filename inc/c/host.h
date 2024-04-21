@@ -27,4 +27,21 @@
 
 #include "./alice.h"
 
+enum Architecture_t {
+	Architecture_x86,
+	Architecture_RISCV64,
+	
+	Architecture_x64,
+	Architecture_ARM,
+	Architecture_ARM64,
+	Architecture_MIPS,
+	Architecture_MIPS64,
+	Architecture_RISCV32,
+	Architecture_POWERPC64,
+	Architecture_POWERPC32,
+	Architecture_SPARC64,
+	Architecture_SPARC32,
+	Architecture_Unknown
+};
+
 #endif

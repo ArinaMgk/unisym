@@ -1,0 +1,11 @@
+
+
+// int128 and uint128
+
+class int128 {
+private:
+	int64 low;
+	uint64 high;
+public:
+	
+};

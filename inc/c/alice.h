@@ -38,33 +38,26 @@ typedef void(*_tofree_ft)(void*);
 
 typedef void* pureptr_t;
 
-#define __ENDIAN__ 0//{TODO} 1 for big endian, 0 for little endian
-#define __BITS__ _BINARY
-
-#define _NOT_ABSTRACTED// into UNISYM
-
-#define nil 0
-#define NUL 0
+// __ENDIAN__
+	#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
+// __BITS__
+	#define __BITS__ _BINARY
+// __FUNCIDEN__ : function identifier
+	#ifdef _MSC_VER // for MSVC
+		#define __FUNCIDEN__ __FUNCDNAME__
+	#elif defined(__GNUC__)
+		#define __FUNCIDEN__ __func__ // cannot auto-strcat
+	#endif
 
 #define masm __asm
 
-#define unchecked
+// ARINA-COVE C23-STYLE Attribute
+#define _Heap
+#define _Need_free _Heap
+#define _Heap_tmpher// The function with _Heap_tmpher should not call each other
 #define toheap
-
-#define print(x) printf("%s",(x))
-#define printline(x) printf("%s\n",(x))
-#define pll(x,y)   printf("%s : %llx\n",(x),(y))
-#define pd(x) printf("%d\n",(x))
-
-#define concur(r,c) (r*cols+c)// ConsoleCursor
-
-#define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
-
-#define jump goto
-//#define call(x)   (x)()
-#define callnz(x) (x)&&(x)()
-#define callif(x) (x?(void)(x)():(void)0)
-#define callifidn(x, iden) do if(x)(x)(iden); while(0)
+#define unchecked
+#define _NOT_ABSTRACTED// into UNISYM
 
 #define asserv(x) if(x)x // Assert Value
 #define asrtand(x) (x)&&x // Assert Value
@@ -72,62 +65,30 @@ typedef void* pureptr_t;
 #define stepval(x) (!x)?0:x // do not nested by "()" !
 	// E.g. paralext = stepval(subtail)->next;
 
-// These IF can avoid error such as mixing "a=0" and "a==0"
-#define If(con) if(0||con)
-#define If_(con) if(1&&con)
-#define RNZ(a) {if(a) return (a);}// Return if not zero
-#define RZ(a) {if(!a) return (a);}// Return if zero
+#define If(con) if(0||con) //<=> if(1&&con) : avoid error such as mixing "a=0" and "a==0"
 
-#define idle() {jump: goto jump;}
+#define byteof sizeof
+#define numsof(x) (sizeof(x)/sizeof(*(x)))
 
 #define zalloc(x) calloc((x),1)// Zero Alloc
+#define zalcof(x) (x*)zalc(sizeof(x))
+#define malcof(x) (x*)malc(sizeof(x))
+#define memf(x)   memfree(x)
+#define mfree(x) do{memfree(x);(x)=0;}while(0)
 
 // Added RFW24, Exchange but not for pointer, and address of `a` should not be the same as `b`
 #define xchg(a,b) (a)^=(b)^=(a)^=(b)
 #define xchgptr(a,b) *(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b)
 
 #define AssignParallel(l,m,r) ((l=m),(m=r))// different from `l=m=r`
-
-#include <stdlib.h>
-
-// ---- ---- Integer and Floating ---- ----
-
-
-// Floating
-#define isZeroMantissa(flt) ((int)(flt)==(flt)) 
-
-#define chars_stack(x) &(char[]){#x "\0"}// chars_stack(123)
-#define chstk chars_stack
-
-// ARINA-COVE C23-STYLE Attribute
-#define _Heap
-#define _Need_free _Heap
-#define _Heap_tmpher// The function with _Heap_tmpher should not call each other
-
-#define AddDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
+// Example: Bnode* inp = (Bnode*)~(stduint)0
+#define nulrecurs(inp, root, rets) do {if (!inp) return rets; else if (!~(stduint)inp) inp = root; } while (0)
 
 ///#define foreachstr(iden,x) for(char iden, *iden#ptr=(char*)(x);iden=*iden#ptr;iden#ptr++)// {why} error tip yo VSCODE::IntelliSenseMode(GCC)
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 
-#define byteof sizeof
-#define numsof(x) (sizeof(x)/sizeof(*(x)))
-
-// __FUNCIDEN__ : function identifier
-#ifdef _MSC_VER// for MSVC
-	#define __FUNCIDEN__ __FUNCDNAME__
-#elif defined(__GNUC__)
-	#define __FUNCIDEN__ __func__// cannot auto-strcat
-#endif
-
 #include "call.h"
 #include "aflag.h"
 
-extern size_t _size_decimal;
-
-
-
 #endif
-// more to see "aldbg.h"
-// ---- ---- ---- ---- ---- ---- ---- ----
-

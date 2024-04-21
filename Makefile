@@ -34,7 +34,7 @@ list: # depend [python]
 malice: # Magice Standard Library
 	#
 
-mx86:
+mx86: # do in your Linux
 	make -f ${make_dir}cgmx86.make all
 
 libwingcc: cgw32 cgw64 # COFF 

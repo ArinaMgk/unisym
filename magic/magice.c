@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "../inc/c/host.h"
 
 //{} Style: Intel-ASM
 
@@ -37,17 +38,15 @@ static const char *_ASM_MOV[] = {
 	"li a0, %d",
 };
 
-enum platform_t
-{
-	Intelx86_32bit = 0,// AASM
-	RISC_V,// RISC-V-ASM
-};
+// [ARCH]
+// AASM Architecture_x86     [temp: unchk]
+// GAS  Architecture_RISCV64
 
 //[Update] Accept + and - operators
 
 int main(int argc, char **argv)
 {
-	enum platform_t platform = RISC_V;
+	enum Architecture_t platform = Architecture_RISCV64;
 	if (argc != 2)
 	{
 		fprintf(stderr, "%s: invalid count of arguments\n", argv[0]);

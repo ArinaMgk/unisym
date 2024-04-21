@@ -50,6 +50,14 @@ for i in list_cpl_file:
 list_cpl_file = list_cpl_file_new
 list_cpl_file_new = []
 list_cpp_file = get_files("./lib/cpp/", ".cpp")
+list_cpp_file_new = []
+for i in list_cpp_file:
+	if ("/lib/cpp/Device/" in i) :
+		pass
+	else:
+		list_cpp_file_new.append(i)
+list_cpp_file = list_cpp_file_new
+list_cpp_file_new = []
 list_asm_free86 = get_files("./lib/asm/x86", ".asm")
 
 # [General-standing environment Library]
@@ -234,6 +242,7 @@ for val in list_asm_free86:
 	list_gcc_mecocoa_files.append("$(asmf) " + val)
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/i8259A.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/processor/x86/delay.c -DADDR_CountSeconds=0x524")
+list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/task.c")
 text_gcc_mecocoa = "# UNISYM for MECOCOA built-" + str(__BuildTime) + '\n'
 print(text_gcc_mecocoa)
 text_gcc_mecocoa += ".PHONY: all\n"
@@ -252,7 +261,7 @@ text_gcc_mecocoa += '\t' + "-sudo mkdir -m 777 -p ~/_obj/libmx86\n"
 text_gcc_mecocoa += '\t' + "-rm -f ~/_obj/libmx86/*.obj\n"
 for i in list_gcc_mecocoa_files:
 	file_path, file_ext = os.path.splitext(i)
-	text_gcc_mecocoa += '\t' + i + " -D_MCCA -Dp_i386 -o ~/_obj/libmx86/" + file_path.split("/")[-1] + ".obj\n"
+	text_gcc_mecocoa += '\t' + i + " -D_MCCA -Dp_i386 -D_MCCAx86 -D_ARC_x86=5 -o ~/_obj/libmx86/" + file_path.split("/")[-1] + ".obj\n"
 text_gcc_mecocoa += '\t' + "ar -rcs /mnt/hgfs/_bin/libmx86.a ~/_obj/libmx86/*.obj\n"
 with open('./lib/make/cgmx86.make', 'w+b') as fobj:
 	fobj.write(bytes(text_gcc_mecocoa, encoding = "utf8")) # do not append line-feed

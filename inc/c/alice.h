@@ -81,7 +81,8 @@ typedef void* pureptr_t;
 #define xchgptr(a,b) *(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b)
 
 #define AssignParallel(l,m,r) ((l=m),(m=r))// different from `l=m=r`
-// Example: Bnode* inp = (Bnode*)~(stduint)0
+// Use 0 and ~0 as special invalid value, while Rust uses `Option` containing null.
+// Example for the parameter: Bnode * inp = (Bnode*)~(stduint)0
 #define nulrecurs(inp, root, rets) do {if (!inp) return rets; else if (!~(stduint)inp) inp = root; } while (0)
 
 ///#define foreachstr(iden,x) for(char iden, *iden#ptr=(char*)(x);iden=*iden#ptr;iden#ptr++)// {why} error tip yo VSCODE::IntelliSenseMode(GCC)

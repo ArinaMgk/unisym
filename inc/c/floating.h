@@ -23,6 +23,8 @@
 	limitations under the License.
 */
 
+//{Option} {TODO!} software implementation or hardware implementation (by instruction by driving Co-processor)
+
 #ifndef _INC_FLOATING
 #define _INC_FLOATING
 

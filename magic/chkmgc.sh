@@ -24,5 +24,7 @@ check()
 }
 
 check 0 0
-check 12 12
+check 27 27
+check '20 - 13 + 12' 19
+check '-1+1' 0
 echo pass!

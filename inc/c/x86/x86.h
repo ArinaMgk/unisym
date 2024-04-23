@@ -7,7 +7,7 @@
 #ifndef _INC_X86
 #define _INC_X86
 
-#include "../alice.h"
+#include "../stdinc.h"
 
 typedef struct _CPU_x86_descriptor
 {

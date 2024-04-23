@@ -26,7 +26,6 @@
 #ifndef _INC_DEVICE_RCC_Prescaler_X
 #define _INC_DEVICE_RCC_Prescaler_X
 
-#include "../../alice"
 #include "../../reference"
 
 #ifdef _MCU_STM32F103VE

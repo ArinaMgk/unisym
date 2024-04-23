@@ -28,13 +28,15 @@ linslib: liblinux mx86
 
 list: # depend [python]
 	@python ./lib/Script/Makefile/makemake.py
+list-py3:
+	@python3 ./lib/Script/Makefile/makemake.py
 
 # ---- [usual host-environments] ----
 
 malice: # Magice Standard Library
 	#
 
-mx86: # do in your Linux
+mx86: #[Linux] # including different bitmodes (Real16, Flap32 ...)
 	make -f ${make_dir}cgmx86.make all
 
 libwingcc: cgw32 cgw64 # COFF 
@@ -56,9 +58,10 @@ libnvcc: # Nvidia(R) CUDA
 
 liblinux: cgl32 cgl64 # ELF
 cgl16:
-cgl32:
+	#
+cgl32:#[Linux]
 	make -f ./lib/make/cgl32.make all
-cgl64:
+cgl64:#[Linux]
 	make -f ./lib/make/cgl64.make all
 
 # ---- [series for free-standing environments] ----

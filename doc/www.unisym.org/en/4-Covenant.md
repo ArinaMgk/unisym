@@ -88,3 +88,9 @@ Consideration
 - Debug
 - Aflag
 - Inline version
+
+## Glossary
+
+Real-16: ...
+
+Flap-32: Flat-Segment and Protected-Mode and 32-bit-Data&Code-Segment

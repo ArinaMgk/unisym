@@ -23,7 +23,7 @@
 #ifndef _INC_DEV_I8259A
 #define _INC_DEV_I8259A
 
-#include "../alice.h"
+#include "../stdinc.h"
 #include "../x86/interface.x86.h"
 
 #define EOI ' '// 0x20, End of Interrupt

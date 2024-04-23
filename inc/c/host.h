@@ -1,8 +1,8 @@
 // ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host
-// LastCheck: RFZ23
-// AllAuthor: @dosconio
-// ModuTitle: Host Environment
+// Docutitle: (Common) Standard Include File and Basic Types and Characters of the Machine
+// Codifiers: @dosconio: 20240423 ~ 20240423
+// Attribute: Arn-Covenant Any-Architect Env-Hoststanding Host-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,29 +19,3 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
-// The file for free environment is the `alice.h`
-
-#ifndef _INC_ENV
-#define _INC_ENV
-
-#include "./alice.h"
-
-enum Architecture_t {
-	Architecture_x86,
-	Architecture_RISCV64,
-	
-	Architecture_x64,
-	Architecture_ARM,
-	Architecture_ARM64,
-	Architecture_MIPS,
-	Architecture_MIPS64,
-	Architecture_RISCV32,
-	Architecture_POWERPC64,
-	Architecture_POWERPC32,
-	Architecture_SPARC64,
-	Architecture_SPARC32,
-	Architecture_Unknown
-};
-
-#endif

@@ -80,7 +80,7 @@ AASM = aasm
 udir = E:/PROJ/SVGN/unisym
 """
 text_gcc_win32 += tmp + """
-attr = -D_DEBUG -D_WinNT -O3 -D_Win32
+attr = -D_DEBUG -O3 -D_Win32
 cplpref=_ugc32_
 cpppref=_uxxgc32_
 dest_obj=../_obj/CGWin32
@@ -91,7 +91,7 @@ aattr = -fwin32 -I$(udir)/inc/Kasha/n_
 dest_abs = ../_bin/libw32d.a
 """
 text_gcc_win64 += tmp + """
-attr = -D_DEBUG -D_WinNT -O3 -D_Win64
+attr = -D_DEBUG -O3 -D_Win64
 cplpref=_ugc64_
 cpppref=_uxxgc64_
 dest_obj=../_obj/CGWin64
@@ -102,7 +102,7 @@ aattr = -fwin64 -I$(udir)/inc/Kasha/n_
 dest_abs = ../_bin/libw64d.a
 """
 text_msv_win32 += tmp + """
-attr = /D_DEBUG /D_WinNT /D_Win32
+attr = /D_DEBUG /D_Win32
 cplpref=_uvc32_
 cpppref=_uxxvc32_
 dest_obj=../_obj/CVWin32
@@ -118,7 +118,7 @@ VI_SYS="C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/ucrt/"
 VI_64=${TOOLDIR}/include/ /I${VI_SYS} /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/um/" /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/shared/"
 """
 text_msv_win64 += tmp + """
-attr = /D_DEBUG /D_WinNT /D_Win64
+attr = /D_DEBUG /D_Win64
 cplpref=_uvc64_
 cpppref=_uxxvc64_
 dest_obj=../_obj/CVWin64
@@ -243,7 +243,7 @@ for val in list_asm_free86:
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/i8259A.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/processor/x86/delay.c -DADDR_CountSeconds=0x524")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/task.c")
-text_gcc_mecocoa = "# UNISYM for MECOCOA built-" + str(__BuildTime) + '\n'
+text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
 print(text_gcc_mecocoa)
 text_gcc_mecocoa += ".PHONY: all\n"
 text_gcc_mecocoa += """
@@ -261,7 +261,7 @@ text_gcc_mecocoa += '\t' + "-sudo mkdir -m 777 -p ~/_obj/libmx86\n"
 text_gcc_mecocoa += '\t' + "-rm -f ~/_obj/libmx86/*.obj\n"
 for i in list_gcc_mecocoa_files:
 	file_path, file_ext = os.path.splitext(i)
-	text_gcc_mecocoa += '\t' + i + " -D_MCCA -Dp_i386 -D_MCCAx86 -D_ARC_x86=5 -o ~/_obj/libmx86/" + file_path.split("/")[-1] + ".obj\n"
+	text_gcc_mecocoa += '\t' + i + " -Dp_i386 -D_MCCAx86 -D_ARC_x86=5 -o ~/_obj/libmx86/" + file_path.split("/")[-1] + ".obj\n"
 text_gcc_mecocoa += '\t' + "ar -rcs /mnt/hgfs/_bin/libmx86.a ~/_obj/libmx86/*.obj\n"
 with open('./lib/make/cgmx86.make', 'w+b') as fobj:
 	fobj.write(bytes(text_gcc_mecocoa, encoding = "utf8")) # do not append line-feed

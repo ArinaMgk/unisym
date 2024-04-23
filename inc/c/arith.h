@@ -22,7 +22,7 @@
 #ifndef _INC_ARITHMETIC
 #define _INC_ARITHMETIC
 
-#include "alice.h"
+#include "stdinc.h"
 #include "coear.h"
 
 extern stduint _EFDIGS;// how many effective digits

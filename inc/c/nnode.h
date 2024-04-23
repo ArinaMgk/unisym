@@ -23,7 +23,7 @@
 #ifndef _INC_NNODE
 #define _INC_NNODE
 
-#include "alice.h"
+#include "stdinc.h"
 
 typedef struct NestNode
 {

@@ -23,7 +23,7 @@
 #ifndef _INC_TASK
 #define _INC_TASK
 
-#include "host.h"
+#include "stdinc.h"
 
 #if defined(_ARC_x86)
 #if _ARC_x86 >= 3

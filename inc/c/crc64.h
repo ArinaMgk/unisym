@@ -56,7 +56,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include "alice.h"
+#include "stdinc.h"
 
 //
 uint64_t HashCRC64Bytes(const byte* data, size_t length, uint64_t crc, uint64_t polynomial, uint64_t final_xor, int refl);

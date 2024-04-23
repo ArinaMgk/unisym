@@ -23,7 +23,7 @@
 #ifndef _LIB_DATETIME
 #define _LIB_DATETIME
 
-#include "alice.h"
+#include "stdinc.h"
 #include <time.h>
 
 //{TODO} utime.h

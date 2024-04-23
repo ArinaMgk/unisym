@@ -22,9 +22,9 @@
 
 #ifndef _INC_USTRING_INLINE
 
-#include "../../../../inc/c/alice.h"
+#include "../../../../inc/c/stdinc.h"
 
-#if _BINARY >= 64
+#if __BITS__ >= 64
 void* MemSet(void* s, int c, size_t n)
 {
 	register union { byte* bptr;  word* wptr; dword* dptr; qword* qptr; size_t val; } ptr;
@@ -44,7 +44,7 @@ void* MemSet(void* s, int c, size_t n)
 	if (remain) do *ptr.bptr++ = (byte)c; while (--remain);// STOSB
 	return s;
 }
-#elif _BINARY >= 32
+#elif __BITS__ >= 32
 void* MemSet(void* s, int c, size_t n)
 {
 	register union { byte* bptr;  word* wptr; dword* dptr; size_t val; } ptr;
@@ -63,7 +63,7 @@ void* MemSet(void* s, int c, size_t n)
 	if (remain) do *ptr.bptr++ = (byte)c; while (--remain);// STOSB
 	return s;
 }
-#elif _BINARY >= 16
+#elif __BITS__ >= 16
 void* MemSet(void* s, int c, size_t n)
 {
 	register union { byte* bptr;  word* wptr; size_t val; } ptr;

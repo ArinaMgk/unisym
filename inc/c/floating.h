@@ -25,6 +25,12 @@
 
 //{Option} {TODO!} software implementation or hardware implementation (by instruction by driving Co-processor)
 
+// Compatible with:
+//{TODO} - ISO limits.h
+//{TODO} - ISO float.h
+//{TODO} - ISO fenv.h
+
+
 #ifndef _INC_FLOATING
 #define _INC_FLOATING
 

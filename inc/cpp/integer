@@ -24,7 +24,7 @@
 #define _INC_INTEGER_X
 
 #include "cinc"
-#include "../c/alice.h"
+#include "../c/stdinc.h"
 #include "cinc"
 #include "property"
 

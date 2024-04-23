@@ -20,10 +20,10 @@
 	limitations under the License.
 */
 
-#ifndef _INC_BINARY
-#define _INC_BINARY
+#ifndef _INC__BITS__
+#define _INC__BITS__
 
-#include "alice.h"
+#include "stdinc.h"
 #include "inttypes.h"
 
 #define BitTog(x,bits) ((x)^=(bits))

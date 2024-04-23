@@ -20,7 +20,7 @@
 	limitations under the License.
 */
 
-#include "alice.h"
+#include "stdinc.h"
 #include "aldbg.h"
 #include "consio.h"
 #include <stdio.h>

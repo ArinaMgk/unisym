@@ -18,6 +18,9 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+
+// can only be called by stdinc.h
+
 #ifndef __USYM__
 #define __USYM__ 1
 #define _LIB_C
@@ -26,8 +29,6 @@
 #ifndef _LIB_UNISYM//alias ArnHabit
 #define _LIB_UNISYM
 
-#include "proctrl.h"
-
 #ifndef _INC_CPP
 	#define pointer(_typ) _typ * 
 	#define pointerf(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
@@ -35,13 +36,12 @@
 #endif
 
 typedef void(*_tofree_ft)(void*);
-
 typedef void* pureptr_t;
 
 // __ENDIAN__
 	#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
 // __BITS__
-	#define __BITS__ _BINARY
+	// [Rely-on] stdinc.h
 // __FUNCIDEN__ : function identifier
 	#ifdef _MSC_VER // for MSVC
 		#define __FUNCIDEN__ __FUNCDNAME__
@@ -88,8 +88,5 @@ typedef void* pureptr_t;
 ///#define foreachstr(iden,x) for(char iden, *iden#ptr=(char*)(x);iden=*iden#ptr;iden#ptr++)// {why} error tip yo VSCODE::IntelliSenseMode(GCC)
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
-
-#include "call.h"
-#include "aflag.h"
 
 #endif

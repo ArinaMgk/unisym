@@ -47,17 +47,19 @@ Sub-option of CPU or MCU
 
 > `ENV(FREE)` are compatible with `ENV(HOST)` 
 >
-> The respective documents are `alice.h` and `host.h` 
+> The respective documents are `stdinc.h` and `stdinc.h` 
 
 runtime host environment
 
-- `_WinNT`: `_Win32` `_Win64` 
-- `_Linux`
-- `_MCCA`
+Trend: The macro name to the left of the colon is for internal use; the user should use the one to the right of the colon
+
+- `_WinNT`: `_Win32` `_Win64` `_Win16`
+- `_Linux`: `_Linux32` `_Linux64`
+- `_MCCA`: `_MCCAx86`
 
 environment
 
-- `_BINARY`
+- `__BITS__`
     - 8
     - 16
     - 32

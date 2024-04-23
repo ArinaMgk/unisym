@@ -23,7 +23,7 @@
 #ifndef _INC_INODE
 #define _INC_INODE
 
-#include "alice.h"
+#include "stdinc.h"
 
 typedef struct IdenNode
 {

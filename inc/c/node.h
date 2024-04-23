@@ -30,7 +30,7 @@
 #ifndef _INC_NODE
 #define _INC_NODE
 
-#include "alice.h"
+#include "stdinc.h"
 
 // measures stdint[2]
 #ifdef _TYPNAM_

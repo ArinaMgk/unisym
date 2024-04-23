@@ -3,7 +3,7 @@
 #ifndef _INTERFACE_X86_H
 #define _INTERFACE_X86_H
 
-#include "../host.h"
+#include "../stdinc.h"
 
 // lib/asm/x86/inst/ioport.asm
 #include "../port.h"

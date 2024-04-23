@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>// na isXType()
-#include "../../inc/c/alice.h"
+#include "../../inc/c/stdinc.h"
 #include "../../inc/c/aldbg.h"
 #include "../../inc/c/ustring.h"
 

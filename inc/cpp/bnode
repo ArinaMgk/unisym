@@ -23,10 +23,10 @@
 	limitations under the License.
 */
 
-#if !defined(_INC_BinaryNode_X)
-#define _INC_BinaryNode_X
+#if !defined(_INC__BITS__Node_X)
+#define _INC__BITS__Node_X
 
-#include "unisym"// #include "alice"
+#include "unisym"
 #include "dnode"
 #include "math.h"
 

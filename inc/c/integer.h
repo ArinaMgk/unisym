@@ -26,57 +26,62 @@
 #ifndef _INC_INTEGER
 #define _INC_INTEGER
 
+// Compatible with:
+//{TODO} - ISO stdint.h
+// - ISO inttypes.h
+#ifndef _INTTYPES // for MSVC, include guard for 3rd party interop
+#define _INTTYPES
+#endif
+#ifndef _INTTYPES_H_ // for GCC
+#define _INTTYPES_H_
+#endif
+
+//{TODO}
 #include <limits.h>
 #include <stddef.h>
 
-// what depend on this:
-// - proctrl.h
+
+// ---- ---- ---- ---- stdint.h ---- ---- ---- ----
+// If stdinc.h is included and stdint.h is not, then implement stdint.h; if all not, then include stdinc.h and re-judge including of stdint.h
+
+#ifndef _INC_ENV
+#include "stdinc.h"
+#endif
+
+
 
 // ---- ---- ---- ---- Core of UniSym Integer ---- ---- ---- ----
 
-#if SIZE_MAX==0xFFFF
-	#define _BINARY 16 
-	#define __BIT_STR__ "16"
-#elif SIZE_MAX==0xFFFFFFFF
-	#define _BINARY 32
-	#define __BIT_STR__ "32"
-#elif SIZE_MAX==0xFFFFFFFFFFFFFFFF
-	#define _BINARY 64
-	#define __BIT_STR__ "64"
-#else 
-	#define _BINARY 8
-	#define __BIT_STR__ "8"
-#endif
-
-#if defined(_WinNT)&&(_BINARY==64)
+#if (defined(_WinNT)&&(__BITS__==64)) || defined(_Win64)
 	#include "us_win64.h"
 #else
 	#include <stddef.h>//{TEMP}
 	#include <stdint.h>//{TEMP}
-	//{OPT}
-	#include "integer/prefabbr.h"
-	// #include "integer/ruststyle.h"
-	typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
-	typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char
-	typedef   signed char sint8;
-	typedef   signed char sbyte;
-	typedef uint16_t  word;// unsigned short int
-	typedef uint16_t  uint16;//[trend] unsigned short int
-	typedef  int16_t  sint16;//[trend]   signed short int
-	typedef  int16_t  sword;// signed short int
-	typedef uint32_t  dword;// unsigned int
-	typedef uint32_t  uint32;//[trend] unsigned int
-	typedef  int32_t  sint32;//          signed int
-	typedef  int32_t  sdword;// signed int
-	typedef uint64_t  qword;// unsigned long long int
-	typedef uint64_t  uint64;//[trend] unsigned long long int
-	typedef  int64_t  sint64;//          signed long long int
-	typedef  int64_t  sqword;// signed long long int
-	typedef size_t    stduint;
-	typedef ptrdiff_t stdint ;
-	//
-	#define valword(x) (*(word*)&(x))// will be template overload as C++ version
 #endif
+
+//{OPT}
+#include "integer/prefabbr.h"
+// #include "integer/ruststyle.h"
+typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
+typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char
+typedef   signed char sint8;
+typedef   signed char sbyte;
+typedef uint16_t  word;// unsigned short int
+typedef uint16_t  uint16;//[trend] unsigned short int
+typedef  int16_t  sint16;//[trend]   signed short int
+typedef  int16_t  sword;// signed short int
+typedef uint32_t  dword;// unsigned int
+typedef uint32_t  uint32;//[trend] unsigned int
+typedef  int32_t  sint32;//          signed int
+typedef  int32_t  sdword;// signed int
+typedef uint64_t  qword;// unsigned long long int
+typedef uint64_t  uint64;//[trend] unsigned long long int
+typedef  int64_t  sint64;//          signed long long int
+typedef  int64_t  sqword;// signed long long int
+typedef size_t    stduint;
+typedef ptrdiff_t stdint ;
+//
+#define valword(x) (*(word*)&(x))// will be template overload as C++ version
 
 // ---- ---- ---- ---- inttypes.h ---- ---- ---- ----
 

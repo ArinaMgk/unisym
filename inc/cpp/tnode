@@ -28,7 +28,7 @@
 #endif
 
 #include "cinc"
-#include "../c/alice.h"
+#include "../c/stdinc.h"
 #include "../c/ustring.h"
 #include "cinc"
 #include "dnode"

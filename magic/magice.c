@@ -23,11 +23,10 @@
 	limitations under the License.
 */
 
-#include "../inc/c/host.h"
+#include "../inc/c/stdinc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include "../inc/c/host.h"
 #include "../inc/c/compile/asmcode.h"
 
 enum Architecture_t platform = Architecture_RISCV64;

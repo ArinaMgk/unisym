@@ -9,7 +9,7 @@
 #define _INC_DEVICE_GPIO_X
 
 #include "../cinc"
-#include "../../c/alice.h"
+#include "../../c/stdinc.h"
 #include "../../c/binary.h"
 #include "../cinc"
 #include "../reference"

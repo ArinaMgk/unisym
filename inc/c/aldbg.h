@@ -24,7 +24,7 @@
 #if !defined(_LIB_DEBUG) && defined(_DEBUG)// Add this can cheat the compiler
 #define _LIB_DEBUG// Her Convenient odd style. Maybe a bad habit for formal project.
 
-#include "alice.h"
+#include "stdinc.h"
 
 #define malc_count _MALCOUNT
 #define malc_limit _MALLIMIT

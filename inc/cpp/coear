@@ -23,7 +23,7 @@
 #ifndef _INC_X_COEAR
 #define _INC_X_COEAR
 #include "cinc"
-#include "../c/alice.h"
+#include "../c/stdinc.h"
 #include "../c/coear.h"
 #include "cinc"
 #include "floating"

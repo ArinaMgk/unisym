@@ -1,10 +1,7 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: ...
-// Datecheck: 20240419 ~ <Last-check>
-// Developer: @dosconio
-// Attribute: <ArnCovenant> <Environment> <Platform>
-// Reference: <Reference>
-// Dependens: <Dependence>
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module) ASM-used Literal Instructions and Directives
+// Codifiers: @dosconio: 20240422 ~ <Last-check> 
+// Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -26,7 +23,7 @@
 #ifndef _INC_HeaderTemplate_RCCBus_X
 #define _INC_HeaderTemplate_RCCBus_X
 
-#include "alice"
+#include "unisym"
 #include "reference"
 
 #ifdef _MCU_STM32F103VE

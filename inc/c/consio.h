@@ -24,7 +24,7 @@
 #ifndef _INC_CONSIO
 #define _INC_CONSIO
 
-#include "alice.h"
+#include "stdinc.h"
 
 void curset(word posi);
 word curget(void);

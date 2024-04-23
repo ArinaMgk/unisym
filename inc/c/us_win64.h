@@ -20,22 +20,12 @@
 */
 // FOR Win64 ONLY
 
-#ifndef _INC_HOST_WIN64_
-#define _INC_HOST_WIN64_
+#ifndef _INC_ARCHITECT_WIN64_
+#define _INC_ARCHITECT_WIN64_
 
-// - need not depend on size_t and ptrdiff_t
+//{TEMP}
 
-#define uint unsigned int
-#define stduint unsigned long long int
-#define llong long long int
-#define sll signed long long int
-#define ullong unsigned long long int
-#define ull unsigned long long int
-#define byte unsigned char
-#define word unsigned short int
-#define dword unsigned int
-#define qword unsigned long long int
-#define stduint unsigned long long int
-#define stdint signed long long int
+	#include <stddef.h>//{TEMP}
+	#include <stdint.h>//{TEMP}
 
 #endif // !_HOST_WIN64_

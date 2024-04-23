@@ -47,7 +47,7 @@
 #pragma GCC diagnostic ignored "-Wparentheses"
 #endif
 
-#include "host.h"
+#include "stdinc.h"
 #include "aldbg.h"
 #include "uctype.h"
 #include <string.h>//{TODO} STD LIB

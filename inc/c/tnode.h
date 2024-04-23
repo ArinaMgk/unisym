@@ -25,7 +25,7 @@
 #ifndef _INC_TNODE
 #define _INC_TNODE
 
-#include "alice.h"
+#include "stdinc.h"
 #include "ustring.h"
 
 typedef struct TokenNode

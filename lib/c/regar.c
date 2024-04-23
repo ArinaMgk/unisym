@@ -26,7 +26,7 @@
 //{Potential Issue} Memory Leak (malc_count) - Have not tested.
 
 #include "../../inc/c/regar.h"
-#include "../../inc/c/alice.h"
+#include "../../inc/c/stdinc.h"
 #include "../../inc/c/ustring.h"
 #include "../../inc/c/aldbg.h"
 #include <stdlib.h>

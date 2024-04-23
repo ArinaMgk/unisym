@@ -20,7 +20,7 @@
 	limitations under the License.
 */
 
-#include "../../inc/c/alice.h"
+#include "../../inc/c/stdinc.h"
 
 struct _aflag_t aflaga = { .autosort = 1 };
 

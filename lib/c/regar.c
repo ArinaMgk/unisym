@@ -28,9 +28,8 @@
 #include "../../inc/c/regar.h"
 #include "../../inc/c/stdinc.h"
 #include "../../inc/c/ustring.h"
-#include "../../inc/c/aldbg.h"
+
 #include <stdlib.h>
-#include <stdint.h>
 #include <math.h>
 #include <float.h>
 

@@ -24,88 +24,10 @@
 #ifndef _INC_MACHINE
 #define _INC_MACHINE
 
-
-// If no host-environment will be used, you can define __BITS__ by yourself.
-#if defined(__BITS__)
-	//
-#elif defined(_Win32)
-	#undef _WinNT
-	#define _WinNT 32
-	#define __BITS__ 32
-#elif defined(_Win64)
-	#undef _WinNT
-	#define _WinNT 64
-	#define __BITS__ 64
-#elif defined(_Win16)
-	#undef _WinNT
-	#define _WinNT 16
-	#define __BITS__ 16
-//
-#elif defined(_Linux32)
-	#undef _Linux
-	#define _Linux 32
-	#define __BITS__ 32
-#elif defined(_Linux64)
-	#undef _Linux
-	#define _Linux 64
-	#define __BITS__ 64
-//
-#elif defined(_MCCAx86) // Architect + Bitmode
-	#undef _MCCA
-	#define _MCCA 0x8632 // default flat-segment mode
-	#define __BITS__ 32
-#elif defined(_MCCAx86Real)
-	#undef _MCCA
-	#define _MCCA 0x8616
-	#define __BITS__ 16
-// 
+#if defined(_dbg) || defined(_DEBUG)
+#include "debug.h"
 #else
-	#include "proctrl.h"
-	#define _INC_DEPEND_STDINT
-	#include <stdint.h> // try
-	#if SIZE_MAX==0xFFFF
-		#define __BITS__ 16 
-	#elif SIZE_MAX==0xFFFFFFFF
-		#define __BITS__ 32
-	#elif SIZE_MAX==0xFFFFFFFFFFFFFFFF
-		#define __BITS__ 64
-	#else 
-		#define __BITS__ 8
-	#endif
+#include "proctrl.h"
 #endif
-
-#if __BITS__ == 16
-	#define __BIT_STR__ "16"
-#elif __BITS__ == 32
-	#define __BIT_STR__ "32"
-#elif __BITS__ == 64
-	#define __BIT_STR__ "64"
-#elif __BITS__ == 8
-	#define __BIT_STR__ "8"
-#endif
-
-#include "alice.h"
-#include "floating.h"
-
-enum Architecture_t // for instruction sets
-{
-	Architecture_x86,
-	Architecture_RISCV64,
-	
-	Architecture_x64,
-	Architecture_ARM,
-	Architecture_ARM64,
-	Architecture_MIPS,
-	Architecture_MIPS64,
-	Architecture_RISCV32,
-	Architecture_POWERPC64,
-	Architecture_POWERPC32,
-	Architecture_SPARC64,
-	Architecture_SPARC32,
-	Architecture_Unknown
-};
-
-#include "call.h"
-#include "aflag.h"
 
 #endif

@@ -42,7 +42,6 @@
 #ifndef ModCoeArith
 #define ModCoeArith
 
-#include "aldbg.h"
 #include "ustring.h"
 
 typedef struct PhinaeCDEAr

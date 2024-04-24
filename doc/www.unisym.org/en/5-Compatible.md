@@ -29,9 +29,9 @@ since C99.
 | MemRelative    | *None*         |                                   |
 | ...            |                |                                   |
 
-### `integer.h`≥ `inttypes.h`, `???` 
+### `integer.h`≥ `inttypes.h`, `stdint.h`
 
-
+Users can also provide their own`stdint.h`.
 
 
 

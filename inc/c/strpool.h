@@ -23,7 +23,7 @@
 #ifndef _LIB_STRPOOL
 #define _LIB_STRPOOL
 
-#include "aldbg.h"
+#include "stdinc.h"
 
 /* ROUTINE EXAMPLE
 	StrPoolInit();

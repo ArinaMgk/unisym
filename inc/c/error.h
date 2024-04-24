@@ -23,7 +23,6 @@
 #ifndef _INC_ERROR
 #define _INC_ERROR
 
-#include "aldbg.h"
 #include "node.h"
 
 #include <setjmp.h>

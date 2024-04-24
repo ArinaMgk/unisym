@@ -1,4 +1,8 @@
-// ASCII TAB4 C99 ArnCovenant TAB CRLF
+// ASCII CPL TAB4 CRLF
+// Docutitle: (Module) Debug
+// Codifiers: @dosconio: 20240424 ~ <Last-check> 
+// Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -7,6 +11,7 @@
 	You may obtain a copy of the License at
 
 	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
 
 	Unless required by applicable law or agreed to in writing, software
 	distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +20,6 @@
 	limitations under the License.
 */
 
-//{MAY} Rename to debug.h
 
 #ifdef _BUILD_MSVC
 #pragma warning(disable:6011)// for MSVC
@@ -24,7 +28,7 @@
 #if !defined(_LIB_DEBUG) && defined(_DEBUG)// Add this can cheat the compiler
 #define _LIB_DEBUG// Her Convenient odd style. Maybe a bad habit for formal project.
 
-#include "stdinc.h"
+#include "proctrl.h"
 
 #define malc_count _MALCOUNT
 #define malc_limit _MALLIMIT
@@ -56,17 +60,7 @@ extern size_t arna_precise;
 	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);_MALCOUNT--;*(void**)&(x)=ebx;}
 	#define malc(size) (void*)(_MALCOUNT++,malloc(size))
 	#define zalc(size) (void*)(_MALCOUNT++,calloc(size,1))
-	
-#else
-	#define memalloc(dest,size)\
-		(*(char**)&dest=(char*)malloc(size))?((void)0):(erro("MEMORY RUN OUT!"),(void)0)
-	#define memfree(x) {if(x)free((char*)(x));}
-	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
-	#define malc(size) (void*)(malloc(size))
-	#define zalc(size) (void*)(calloc(size,1))
-
 #endif
-
 
 #include <stdlib.h>
 inline static void _memf(void* x)
@@ -95,3 +89,4 @@ extern "C++" {
 #endif
 
 #endif
+

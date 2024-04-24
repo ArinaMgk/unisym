@@ -54,7 +54,6 @@
 #define CRC64_USB_Polynomial      0x000000000000001B// (USB)
 #define CRC64_USB_Initial         0xFFFFFFFFFFFFFFFF// (USB)
 
-#include <stdint.h>
 #include <stdio.h>
 #include "stdinc.h"
 

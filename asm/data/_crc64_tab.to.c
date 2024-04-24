@@ -36,12 +36,12 @@ int main()
 	fprintf(fptr, "// ASCII C99 TAB4 CRLF\n");
 	fprintf(fptr, "// Attribute: Wo(USYM/asm/data/_crc64_tab.to.c)\n");
 	fprintf(fptr, "// LastCheck: 2024Jan26\n");
+	fprintf(fptr, "// CreateTim: " __DATE__ "\n");
 	fprintf(fptr, "// AllAuthor: @dosconio\n");
 	fprintf(fptr, "// ModuTitle: CRC64 Static Table like NASM0207\n");
 	fprintf(fptr, "\n");
-	fprintf(fptr, "#include <stdint.h>\n");
+	fprintf(fptr, "#include \"../../inc/c/stdinc.h\"\n");
 	fprintf(fptr, "#include <stdio.h>\n");
-	fprintf(fptr, "#include <inttypes.h>\n");
 	fprintf(fptr, "\n");
 	fprintf(fptr, "uint64_t _crc64_tab_nasm[256] =\n");
 	fprintf(fptr, "{\n\t");

@@ -33,7 +33,7 @@ inline static int _getch() { char ch = getchar(); printf("\b "); return ch;}
 #endif
 #include "../../inc/c/graphic/contable.h"
 #include "../../inc/c/stdinc.h"
-#include "../../inc/c/aldbg.h"
+
 #include "../../inc/c/ustring.h"
 #include "../../inc/c/consio.h"
 // 

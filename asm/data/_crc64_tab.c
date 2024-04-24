@@ -1,12 +1,12 @@
 // ASCII C99 TAB4 CRLF
 // Attribute: Wo(USYM/asm/data/_crc64_tab.to.c)
 // LastCheck: 2024Jan26
+// CreateTim: Apr 24 2024
 // AllAuthor: @dosconio
 // ModuTitle: CRC64 Static Table like NASM0207
 
-#include <stdint.h>
+#include "../../inc/c/stdinc.h"
 #include <stdio.h>
-#include <inttypes.h>
 
 uint64_t _crc64_tab_nasm[256] =
 {

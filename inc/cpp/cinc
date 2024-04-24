@@ -23,7 +23,11 @@
 #ifndef _INC_CPP
 #define _INC_CPP
 #endif
-#ifdef __cplusplus
+
+#ifndef __cplusplus
+#define __cplusplus
+#endif
+
 #ifndef _INC_HEAD_CPP
 #define _INC_HEAD_CPP
 
@@ -36,5 +40,4 @@ extern "C" {
 	#undef  register// MSVC/*/xkeycheck.h The C++ Standard Library forbids macroizing the keyword "register"
 }
 
-#endif
 #endif

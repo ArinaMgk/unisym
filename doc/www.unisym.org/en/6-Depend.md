@@ -3,7 +3,7 @@ her-note: false
 dg-publish: true
 ---
 
-## Depend
+## Depend Map
 
 ### By module 
 
@@ -12,8 +12,8 @@ dg-publish: true
 `[A] [Aloc]`Means containing some functions that need to **allocate** the memory space. 
 
 
-
-```mermaid
+to renew:
+```
 graph LR
 	%% UNISYM
 	%% @ArinaMgk
@@ -41,5 +41,23 @@ graph LR
 	setjmp-->error
 	node-->error
 	stdio-->error
+```
+
+
+#### core
+
+```mermaid
+graph LR
+	alice[アリス]
+	arch[archit.h]
+	arch-->alice
+	arch-->calling[call.h]
+	arch-->flag.h
+	proctrl[proctrl.h]
+	proctrl-->floating.h-->integer.h-->arch
+	stdinc[stdinc.h]
+	stdinc--"_BEBUG"-->debug.h-->proctrl
+	stdinc-->proctrl
+	unisym-->stdinc
 ```
 

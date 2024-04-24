@@ -1,7 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// LastCheck: RFZ23
-// AllAuthor: @dosconio
-// ModuTitle: General Header
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module) Binary Digit
+// Codifiers: @dosconio: 20240424 ~ <Last-check> 
+// Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -18,14 +19,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-// FOR Win64 ONLY
 
-#ifndef _INC_ARCHITECT_WIN64_
-#define _INC_ARCHITECT_WIN64_
-
-//{TEMP}
-
-	#include <stddef.h>//{TEMP}
-	#include <stdint.h>//{TEMP}
-
-#endif // !_HOST_WIN64_
+#include "cinc"
+#include "../c/binary.h"
+#include "cinc"

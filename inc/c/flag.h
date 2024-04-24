@@ -23,9 +23,10 @@
 #ifndef _INC_FLAG
 #define _INC_FLAG
 
-#include "integer.h"
-
 // ==== ==== <mcore.c> ==== ====
+
+#undef byte
+#define byte unsigned char
 
 extern struct _aflag_t// for some unisym functions, stored in stack for calling other functions. Method of application: register the current address of aflag globally before calling corresponding functions.
 {
@@ -54,6 +55,8 @@ extern struct _aflag_t// for some unisym functions, stored in stack for calling 
 	byte : 2;
 	byte : 8;
 } aflaga;
+
+#undef byte
 
 #define _aflaga_init() (MemSet(&aflaga, 0, sizeof aflaga), aflaga.autosort = 1)
 

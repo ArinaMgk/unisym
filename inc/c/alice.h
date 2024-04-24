@@ -19,7 +19,7 @@
 	limitations under the License.
 */
 
-// can only be called by stdinc.h
+// slice of Arina Coding Habits
 
 #ifndef __USYM__
 #define __USYM__ 1
@@ -30,8 +30,8 @@
 #define _LIB_UNISYM
 
 #ifndef _INC_CPP
-	#define pointer(_typ) _typ * 
-	#define pointerf(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
+	#define pointer_t(_typ) _typ * 
+	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magice pointer: "pointer(pointer(void)) pp"
 #endif
 
@@ -40,6 +40,7 @@ typedef void* pureptr_t;
 
 // __ENDIAN__
 	#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
+// __ARCH__
 // __BITS__
 	// [Rely-on] stdinc.h
 // __FUNCIDEN__ : function identifier
@@ -70,6 +71,14 @@ typedef void* pureptr_t;
 #define byteof sizeof
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
 
+#if !defined(_DEBUG) && !defined(_dbg)
+	#define memalloc(dest,size)\
+		((*(char**)&dest=(char*)malloc(size))? "":"! MEMORY RUN OUT!")
+	#define memfree(x) {if(x)free((char*)(x));}
+	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
+	#define malc(size) (void*)(malloc(size))
+	#define zalc(size) (void*)(calloc(size,1))
+#endif
 #define zalloc(x) calloc((x),1)// Zero Alloc
 #define zalcof(x) (x*)zalc(sizeof(x))
 #define malcof(x) (x*)malc(sizeof(x))

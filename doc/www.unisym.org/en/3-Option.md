@@ -51,11 +51,21 @@ Sub-option of CPU or MCU
 
 runtime host environment
 
-Trend: The macro name to the left of the colon is for internal use; the user should use the one to the right of the colon
+Trend: The macro name to the left of the colon is for internal use, which is in format "_Architecture_Host_Bitmode"; the user should use the one to the right of the colon
 
-- `_WinNT`: `_Win32` `_Win64` `_Win16`
-- `_Linux`: `_Linux32` `_Linux64`
-- `_MCCA`: `_MCCAx86`
+- `_Intelx86_Windows_32`
+- `_Intelx86o64_Windows_64`
+- `_Intelx86_Windows_16`
+- `_Intelx86_Linux_32`
+- `_Intelx86o64_Linux_64`
+- `_Intelx86_Mcca_32`
+- `_Intelx86_Mcca_16`
+
+"o" is "or".
+
+*pref*: means the architecture. If this has not set (not recommended), `Intelx86` or `Intelx86o64` will be applied. Below are potential prefixes.
+- `Intelx86`
+- `Riscv64`
 
 environment
 

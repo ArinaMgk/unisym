@@ -28,6 +28,7 @@
 
 // Compatible with:
 //{TODO} - ISO stdint.h
+//{TODO} - ISO limits.h
 // - ISO inttypes.h
 #ifndef _INTTYPES // for MSVC, include guard for 3rd party interop
 #define _INTTYPES
@@ -36,31 +37,50 @@
 #define _INTTYPES_H_
 #endif
 
+#include "archit.h"// If included and stdint.h is not, then implement stdint.h; if all not, then include this and re-judge including of stdint.h
+
 //{TODO}
 #include <limits.h>
 #include <stddef.h>
 
+// ---- ---- ---- ---- stdint.h [partial] ---- ---- ---- ----
 
-// ---- ---- ---- ---- stdint.h ---- ---- ---- ----
-// If stdinc.h is included and stdint.h is not, then implement stdint.h; if all not, then include stdinc.h and re-judge including of stdint.h
-
-#ifndef _INC_ENV
-#include "stdinc.h"
+// `long int` measures sometimes 32 and sometimes 64, as example, so it is necessary to add host for compilers except Magice, which is also a customizable linear language.
+#ifdef _Intelx86o64_Windows_64
+	#include "architect/arcx64_win64.h"
+#else
+	//
 #endif
+#ifdef _INC_DEPEND_STDINT // use others'
+	//
+#else
+	// GLIBC-Method
+	#ifndef WCHAR_MIN  /* also in wchar.h ?*/
+	#define WCHAR_MIN 0U
+	#define WCHAR_MAX 0xffffU
+	#endif
+	#define WINT_MIN 0U
+	#define WINT_MAX 0xffffU
 
+	// Macros for minimum-width or greatest-width integer constants
+	// - doesn't work in C89 ?
+	#define INT8_C(val) (INT_LEAST8_MAX-INT_LEAST8_MAX+(val))
+	#define UINT8_C(val) (val)
+	#define INT16_C(val) (INT_LEAST16_MAX-INT_LEAST16_MAX+(val))
+	#define UINT16_C(val) (val)
+	#define INT32_C(val) (INT_LEAST32_MAX-INT_LEAST32_MAX+(val))
+	#define UINT32_C(val) (val##U)
+	#define INT64_C(val) val##LL
+	#define UINT64_C(val) val##ULL
+	#define INTMAX_C(val) val##LL
+	#define UINTMAX_C(val) val##ULL
 
+#endif
 
 // ---- ---- ---- ---- Core of UniSym Integer ---- ---- ---- ----
 
-#if (defined(_WinNT)&&(__BITS__==64)) || defined(_Win64)
-	#include "us_win64.h"
-#else
-	#include <stddef.h>//{TEMP}
-	#include <stdint.h>//{TEMP}
-#endif
-
-//{OPT}
-#include "integer/prefabbr.h"
+//[Optional]
+// #include "integer/prefabbr.h"
 // #include "integer/ruststyle.h"
 typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
 typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char

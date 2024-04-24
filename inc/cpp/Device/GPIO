@@ -8,10 +8,8 @@
 #ifndef _INC_DEVICE_GPIO_X
 #define _INC_DEVICE_GPIO_X
 
-#include "../cinc"
-#include "../../c/stdinc.h"
-#include "../../c/binary.h"
-#include "../cinc"
+#include "../unisym"
+#include "../binary"
 #include "../reference"
 
 #ifdef _MCU_STM32F103VE

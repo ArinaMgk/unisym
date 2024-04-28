@@ -303,6 +303,9 @@ typedef ptrdiff_t stdint ;
 #ifndef minof//(a,b)
 #define minof(a,b) ((a)<(b)?(a):(b))
 #endif
+#ifndef absof//(a,b)
+#define absof(a) ((a)<0?-(a):(a))
+#endif
 
 #define nil 0
 #define NUL 0

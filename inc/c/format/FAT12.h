@@ -1,10 +1,7 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: Interrupt
-// Datecheck: 20240420 ~ <Last-check>
-// Developer: @dosconio
-// Attribute: <ArnCovenant> <Environment> <Platform>
-// Reference: <Reference>
-// Dependens: <Dependence>
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: (Format: File-System) File Allocation Table 12-bit
+// Codifiers: @dosconio: 20240426 ~ <Last-check> 
+// Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -23,14 +20,9 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Interrupt_X
-#define _INC_Interrupt_X
-#if 0
-//
-#elif defined(_MCU_STM32F10x)
+#ifndef _INC_FAT12
+#define _INC_FAT12
 
 
-#else
-// may for osdev?
-#endif
+
 #endif

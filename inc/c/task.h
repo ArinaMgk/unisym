@@ -27,6 +27,7 @@
 
 #if defined(_ARC_x86)
 #if _ARC_x86 >= 3
+#include "x86/x86.h"
 
 typedef struct TaskStateSegmentx86
 {
@@ -64,16 +65,15 @@ typedef struct TaskStateSegmentx86
 	word Padding7;
 	word GS;
 	word Padding8;
-	word LDT;
+	word LDTDptr;
 	word LDTLength;// Mecocoa's Design
 	word STRC_15_T;
 	word IO_MAP; // default 103
 	// ---- 0104d:
 } TSS_t;
 
-TSS_t* TaskStateSegmentInitialize(TSS_t* tss);
-
-void TaskStateSegmentSet(TSS_t* tss);
+// Load and make Task
+int Task3FromELF32(TSS_t* TSS, descriptor_t* GDT, stduint LDT_ID, descriptor_t* LDT, void* elfraw, word parent, dword* esps);
 
 #endif
 #else

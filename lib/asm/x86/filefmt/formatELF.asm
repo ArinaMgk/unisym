@@ -15,6 +15,7 @@
 GLOBAL LoadFileMELF
 GLOBAL _LoadFileMELF
 
+; "M" is from memory
 LoadFileMELF:
 	PUSH BP
 	MOV BP, SP
@@ -55,7 +56,7 @@ LoadFileMELF:
 	RET
 
 [BITS 32]
-
+; since ELF32_LoadExecFromMemory exists, this was changed into MACRO since ELF upgrade to .c(pp)/m file
 _LoadFileMELF:
 	PUSH EBP
 	MOV EBP, ESP

@@ -5,14 +5,10 @@ dg-publish: true
 
 ## Depend Map
 
-### By module 
-
-
-
 `[A] [Aloc]`Means containing some functions that need to **allocate** the memory space. 
 
 
-to renew:
+to renew :
 ```
 graph LR
 	%% UNISYM
@@ -44,7 +40,7 @@ graph LR
 ```
 
 
-#### core
+### core
 
 ```mermaid
 graph LR
@@ -55,9 +51,17 @@ graph LR
 	arch-->flag.h
 	proctrl[proctrl.h]
 	proctrl-->floating.h-->integer.h-->arch
+	proctrl-->uoption.h
 	stdinc[stdinc.h]
-	stdinc--"_BEBUG"-->debug.h-->proctrl
-	stdinc-->proctrl
+	stdinc--"_BEBUG? +debug.h"-->proctrl
 	unisym-->stdinc
 ```
 
+### Bootstrapping Circuit
+
+```mermaid
+graph LR
+	Mcca["Mecocoa(or other ENV)"]--MccaBuiltUnisym&MccaBuiltinMagiceChain-->MagiceChain--ENV=MCCA-->Mcca
+```
+
+### Arithmetic

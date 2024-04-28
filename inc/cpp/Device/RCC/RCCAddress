@@ -28,7 +28,7 @@
 
 #include "../../reference"
 
-#ifdef _MCU_STM32F103VE
+#ifdef _MCU_STM32F10x
 
 #define _RCC_CR   0x40021000
 #define _RCC_CR_POSI_HSIReady  1

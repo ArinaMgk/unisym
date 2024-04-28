@@ -11,7 +11,7 @@
 
 namespace uni
 {
-	#ifdef _MCU_STM32F103VE
+	#ifdef _MCU_STM32F10x
 	#define _OFFSET_GPIO_CRL 0x00
 	#define _OFFSET_GPIO_IDR 0x08
 	#define _OFFSET_GPIO_ODR 0x0C

@@ -30,7 +30,7 @@ ConPrint Hello_String; Assembly Macro
 | LIB `lib/` | / | implementation source code |
 | LNK `linker/` | objects => output | linker, synthesizer and modifier |
 | MGK `magic/` | sources => sources + list + depend | compiler, analyzer and translator |
-| WIT `witch/` | to outputs | **chrome** library and engine |
+| WIT `witch/` | to outputs | **rendering** library and engine |
 | WZD `wizard/` | / | constructor |
 
 ---

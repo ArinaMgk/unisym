@@ -12,10 +12,10 @@
 #include "../binary"
 #include "../reference"
 
-#ifdef _MCU_STM32F103VE
+#ifdef _MCU_STM32F10x
 
 #if !(_typedest_len==4 && _typeaddr_len==4)
-#error "! You may need add optional macro `_MCU_STM32F103VE`"
+#error "! You may need add optional macro `_MCU_STM32F103VE` or include `STM32F103VEx`"
 #endif
 
 // 00000000 maybe a valid address of someone

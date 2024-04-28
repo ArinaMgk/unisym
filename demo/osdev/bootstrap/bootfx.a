@@ -150,7 +150,7 @@ MOV ES, AX
 		ADD  BX, 0x20; SIZEOF PHT
 		LOOP lup_loadkernel
 ; ENTER FLAT-32
-	EnterFlat:
+	EnterFlat: CLI
 	LGDT [ES:0x7c00+gdt]
 	Addr20Enable
 	MOV EAX, CR0

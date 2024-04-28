@@ -1,6 +1,6 @@
 ## UNI-WITCH
 
-Computer graphics implementations, graphical user interface library and chrome engine.
+Computer graphics implementations, graphical user interface library and rendering engine.
 
 The `LIB` should at least provide a printing-point(s) function for *Witch*.
 

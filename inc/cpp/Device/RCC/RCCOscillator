@@ -30,7 +30,7 @@
 #include "RCCClock"
 #include "RCCPLL"
 
-#ifdef _MCU_STM32F103VE
+#ifdef _MCU_STM32F10x
 
 namespace uni {
 	class RCCOscillator {

@@ -8,6 +8,7 @@
 #define _INC_X86
 
 #include "../stdinc.h"
+#include "./interface.x86.h"
 
 typedef struct _CPU_x86_descriptor
 {
@@ -25,6 +26,22 @@ typedef struct _CPU_x86_descriptor
 	byte granularity : 1;
 	byte base_high;
 } descriptor_t;
+
+// return nothing
+static inline void GlobalDescriptor32Set(descriptor_t* gdte, dword base, dword limit, byte typ, byte DPL, byte not_sys, byte db, byte gran)
+{
+	gdte->limit_low = limit & 0xFFFF;
+	gdte->limit_high = (limit >> 16) & 0xF;
+	gdte->base_low = base & 0xFFFF;
+	gdte->base_middle = (base >> 16) & 0xFF;
+	gdte->base_high = (base >> 24) & 0xFF;
+	gdte->typ = typ;
+	gdte->notsys = not_sys;
+	gdte->DPL = DPL;
+	gdte->present = 1;
+	gdte->DB = db;
+	gdte->granularity = gran;
+}
 
 typedef struct _CPU_x86_gate
 {

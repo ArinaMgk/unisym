@@ -24,6 +24,9 @@
 #ifndef _INC_ARCHITECTURE
 #define _INC_ARCHITECTURE
 
+//{TODO} in uoption: Architecture_ARMv7
+
+//{TEMP} Do not change the order for Magice making use of it.
 enum Architecture_t // for instruction sets
 {
 	Architecture_x86,

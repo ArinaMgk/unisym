@@ -1,7 +1,7 @@
 // ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Module) ASM-used Literal Instructions and Directives
 // Codifiers: @dosconio: 20240422 ~ <Last-check> 
-// Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
+// Attribute: Arn-Covenant Any-Architect <Environment> <Reference/Dependence>
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -20,13 +20,13 @@
 	limitations under the License.
 */
 
-#ifndef _INC_HeaderTemplate_RCCBus_X
-#define _INC_HeaderTemplate_RCCBus_X
+#ifndef _INC_HeaderTemplate_X
+#define _INC_HeaderTemplate_X
 
-#include "unisym"
-#include "reference"
+// #include "unisym"
+// #include "reference"
 
-#ifdef _MCU_STM32F103VE
+#ifdef _MCU_STM32F10x
 
 namespace uni {
 	// ...

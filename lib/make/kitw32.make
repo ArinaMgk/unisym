@@ -2,14 +2,15 @@
 # Attribute: 
 # LastCheck: RFZ18
 # AllAuthor: @dosconio
-# ModuTitle: Makefile for kits of UniSym
+# ModuTitle: Makefile for utilities of UniSym
 # Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
 INCC_DIR=../../inc/c/
+LIBC_DIR=../../lib/c/
 DEST_BIN=../../../_bin/
 LIBC_DIR=../../lib/c/
-DEMO_DIR=../../demo/kit/
-OPT=-O3 -s -D_WinNT -L../../../_bin/ -lw32
+DEMO_DIR=../../demo/utilities/
+OPT=-O3 -s -D_WinNT -L../../../_bin/ -lw32d
 
 CSC4=C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe
 
@@ -47,3 +48,7 @@ segsel:
 	# OSDEV/SegmentSelector powered by DotNetFrameworkCS4
 	cd ${DEMO_DIR}SegmentSelector && ${CSC4} /nologo /t:winexe /out:SegSel.exe *.cs
 	mv ${DEMO_DIR}SegmentSelector/SegSel.exe ${DEST_BIN}SegSel.exe
+
+elf: # readelf
+	# readelf
+	gcc ${DEMO_DIR}readelf.c ${LIBC_DIR}format/ELF.c -I${INCC_DIR} -o ${DEST_BIN}readelf.exe ${OPT}

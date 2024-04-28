@@ -242,6 +242,7 @@ for val in list_asm_free86:
 	list_gcc_mecocoa_files.append("$(asmf) " + val)
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/i8259A.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/processor/x86/delay.c -DADDR_CountSeconds=0x524")
+list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/format/ELF.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/task.c")
 text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
 print(text_gcc_mecocoa)
@@ -254,14 +255,15 @@ asmattr = -I${unidir}/inc/Kasha/n_ -I${unidir}/inc/naasm/n_ -I./include/
 asm  = /mnt/hgfs/_bin/ELF64/aasm ${asmattr} #OPT: aasm
 asmf = ${asm} -felf
 CC32 = gcc -m32 -c -fno-builtin -fleading-underscore -fno-pic\
- -fno-stack-protector -I/mnt/hgfs/unisym/inc/c -D_Linux
+ -fno-stack-protector -I/mnt/hgfs/unisym/inc/c -D_MCCAx86 -D_ARC_x86=5
 """
 text_gcc_mecocoa += "\nall:\n"
 text_gcc_mecocoa += '\t' + "-sudo mkdir -m 777 -p ~/_obj/libmx86\n"
 text_gcc_mecocoa += '\t' + "-rm -f ~/_obj/libmx86/*.obj\n"
 for i in list_gcc_mecocoa_files:
 	file_path, file_ext = os.path.splitext(i)
-	text_gcc_mecocoa += '\t' + i + " -Dp_i386 -D_MCCAx86 -D_ARC_x86=5 -o ~/_obj/libmx86/" + file_path.split("/")[-1] + ".obj\n"
+	text_gcc_mecocoa += '\t' + i + " -Dp_i386 -D_MCCAx86 -D_ARC_x86=5 -o ~/_obj/libmx86/mx86_" + file_path.split("/")[-1] + ".obj\n"
+text_gcc_mecocoa += '\t' + "-rm /mnt/hgfs/_bin/libmx86.a\n"
 text_gcc_mecocoa += '\t' + "ar -rcs /mnt/hgfs/_bin/libmx86.a ~/_obj/libmx86/*.obj\n"
 with open('./lib/make/cgmx86.make', 'w+b') as fobj:
 	fobj.write(bytes(text_gcc_mecocoa, encoding = "utf8")) # do not append line-feed

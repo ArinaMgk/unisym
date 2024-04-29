@@ -26,12 +26,9 @@
 #ifndef _INC_PORT
 #define _INC_PORT
 
-// at least for x86
-#define outpi// Out to Port's Pin
-#define outpb OUT_b
-#define outpw OUT_w
-#define innpi// In from Port's Pin
-#define innpb IN_b
-#define innpw IN_w
+//{TODO}
+// - GPIO
+// - x86 port
+// - 8051 port
 
 #endif

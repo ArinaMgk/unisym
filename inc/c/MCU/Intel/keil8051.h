@@ -23,6 +23,12 @@
 #ifndef _INC_MCU_8051_Keil
 #define _INC_MCU_8051_Keil
 
+#ifndef _MCU_Intel8051
+#define _MCU_Intel8051
+#endif
+
+#include "../../stdinc.h"
+
 #define defbyt(idn,adr) sfr  idn=adr;
 #define defbit(idn,adr) sbit idn=adr;
 #include "i8051.h"

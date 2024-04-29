@@ -29,7 +29,6 @@
 #if defined(_ARC_x86)
 #if _ARC_x86 >= 3
 
-#include "../../inc/c/x86/x86.h"
 #include "../../inc/c/format/ELF.h"
 //{TEMPLATE} Flat-mode
 int Task3FromELF32(TSS_t* TSS, descriptor_t* GDT, stduint LDT_ID, descriptor_t* LDT, void* elfraw, word parent, dword* esps)

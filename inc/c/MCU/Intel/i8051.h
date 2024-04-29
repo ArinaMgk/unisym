@@ -172,15 +172,6 @@ defbit (pPSW_CY , 0xD7)
 #define _IV_i8051_TF1 3       /* 0x1b timer 1 */
 #define _IV_i8051_SI0 4       /* 0x23 serial port 0 */
 
-// ---- ---- ---- ---- todo stdinc.h ---- ---- ---- ----
-// test on 2024Mar02 by sizeof()
-typedef unsigned char byte;
-typedef unsigned int  word;
-typedef unsigned long dword;
-typedef signed char sbyte;
-typedef signed int  sword;
-typedef signed long sdword;
-
 // ---- ---- ---- ---- todo (cons)io.h ---- ---- ---- ----
 
 #define po(x) p##x

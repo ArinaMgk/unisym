@@ -50,7 +50,7 @@ graph LR
 	arch-->calling[call.h]
 	arch-->flag.h
 	proctrl[proctrl.h]
-	proctrl-->floating.h-->integer.h-->arch
+	proctrl--(x86.h...)-->floating.h-->integer.h-->arch
 	proctrl-->uoption.h
 	stdinc[stdinc.h]
 	stdinc--"_BEBUG? +debug.h"-->proctrl

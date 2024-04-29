@@ -35,6 +35,7 @@
 #include "../../../inc/c/MCU/Intel/keil8051.h"
 #else
 #endif
+#include "../stdinc.h"
 
 void HD44780_Out(byte cmddat, byte notcmd);
 

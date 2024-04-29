@@ -44,13 +44,27 @@
 #include <stddef.h>
 
 // ---- ---- ---- ---- stdint.h [partial] ---- ---- ---- ----
-
-// `long int` measures sometimes 32 and sometimes 64, as example, so it is necessary to add host for compilers except Magice, which is also a customizable linear language.
-#ifdef _Intelx86o64_Windows_64
-	#include "architect/arcx64_win64.h"
-#else
-	//
+#ifndef INT8_MIN
+	#define INT8_MIN (-128)
+	#define INT8_MAX 127
+	#define UINT8_MAX 255
 #endif
+#ifndef INT16_MIN
+	#define INT16_MIN (-32768)
+	#define INT16_MAX 32767
+	#define UINT16_MAX 65535
+#endif
+#ifndef INT32_MIN
+	#define INT32_MIN (-2147483647 - 1)
+	#define INT32_MAX 2147483647
+	#define UINT32_MAX 0xffffffffU
+#endif
+#ifndef INT64_MIN
+	#define INT64_MIN  (-9223372036854775807LL - 1)
+	#define INT64_MAX 9223372036854775807LL
+	#define UINT64_MAX 0xffffffffffffffffULL
+#endif
+// `long int` measures sometimes 32 and sometimes 64, as example, so it is necessary to add host for compilers except Magice, which is also a customizable linear language.
 #ifdef _INC_DEPEND_STDINT // use others'
 	//
 #else
@@ -94,10 +108,12 @@ typedef uint32_t  dword;// unsigned int
 typedef uint32_t  uint32;//[trend] unsigned int
 typedef  int32_t  sint32;//          signed int
 typedef  int32_t  sdword;// signed int
-typedef uint64_t  qword;// unsigned long long int
-typedef uint64_t  uint64;//[trend] unsigned long long int
-typedef  int64_t  sint64;//          signed long long int
-typedef  int64_t  sqword;// signed long long int
+#if !defined(_MCU_Intel8051)
+	typedef uint64_t  qword;// unsigned long long int
+	typedef uint64_t  uint64;//[trend] unsigned long long int
+	typedef  int64_t  sint64;//          signed long long int
+	typedef  int64_t  sqword;// signed long long int
+#endif
 typedef size_t    stduint;
 typedef ptrdiff_t stdint ;
 //

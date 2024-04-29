@@ -22,21 +22,25 @@ enum Procontroller_t // work with Architecture_t
 	PCU_Unknown
 };
 
+#if (__ARCH__ == Architecture_x86) && defined(_MCCA)//{TEMP}
+	#include "proctrl/x86/x86.h"
+#endif
+
 #if defined(_MCU_STM32F10x)
-// use 32b-align(times of 0x4) address
-typedef uint32  typedest;
-typedef uint32  typeaddr;
-#define _typedest_len 4
-#define _typeaddr_len 4
+	// use 32b-align(times of 0x4) address
+	typedef uint32  typedest;
+	typedef uint32  typeaddr;
+	#define _typedest_len 4
+	#define _typeaddr_len 4
 #else // x86
-typedef byte    typedest;
-typedef stduint typeaddr;
-typedef byte    typeport;
-typedef word    typepoid;
-#define _typedest_len 1
-#define _typeaddr_len 4
-#define _typeport_len 1
-#define _typepoid_len 2
+	typedef byte    typedest;
+	typedef stduint typeaddr;
+	typedef byte    typeport;
+	typedef word    typepoid;
+	#define _typedest_len 1
+	#define _typeaddr_len 4
+	#define _typeport_len 1
+	#define _typepoid_len 2
 #endif
 
 #endif

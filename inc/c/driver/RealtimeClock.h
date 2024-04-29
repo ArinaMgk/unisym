@@ -1,11 +1,8 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: Nixie-Tube
-// Datecheck: 20240417 ~ <Last-check>
-// Developer: @dosconio
-// Attribute: <ArnCovenant> <Environment> <Platform>
-// Reference: <Reference>
-// Dependens: <Dependence>
-// Copyright: UNISYM, under Apache License 2.0
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module) Real Time Clock
+// Codifiers: @dosconio: 20240220 ~ 20240429
+// Attribute: Arn-Covenant Any-Architect Bit-32mode <Reference/Dependence>
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
 
@@ -23,13 +20,16 @@
 	limitations under the License.
 */
 
-#if !defined(_INC_NixieTube)
-#define _INC_NixieTube
+#ifndef _INC_DEVICE_RealtimeClock
+#define _INC_DEVICE_RealtimeClock
 
 #include "../stdinc.h"
+#ifdef _MCCA // 0x8632
 
-extern byte _LED_SEGMENTS_HEXINUM[16];
+#define PORT_RTC 0x70
 
-void Nixie_Show(unsigned char Location, uint8 Number, byte Dot);
+void RTC_Init();
 
-#endif // !defined(_INC_NixieTube)
+#endif
+
+#endif

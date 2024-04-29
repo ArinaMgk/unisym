@@ -27,7 +27,6 @@
 
 #if defined(_ARC_x86)
 #if _ARC_x86 >= 3
-#include "x86/x86.h"
 
 typedef struct TaskStateSegmentx86
 {

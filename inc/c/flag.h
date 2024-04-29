@@ -39,7 +39,7 @@ extern struct _aflag_t// for some unisym functions, stored in stack for calling 
 	byte zero : 1;                     // ZF
 	byte sign : 1;                     // SF
 	byte debug : 1;                    // TF (Trap Flag)
-	byte interrupt : 1;                // IF
+	byte interrupt_enable : 1;         // IF (`interrupt` is a keyword of C51)
 	byte direction : 1;                // DF (0 for increasing, 1 for decreasing)
 	byte overflow : 1;                 // OF or precies loss
 	byte io_privilege_level : 2;       // IOPL

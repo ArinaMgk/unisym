@@ -243,6 +243,7 @@ for val in list_asm_free86:
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/i8259A.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/processor/x86/delay.c -DADDR_CountSeconds=0x524")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/format/ELF.c")
+list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/toki/rtclock.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/task.c")
 text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
 print(text_gcc_mecocoa)

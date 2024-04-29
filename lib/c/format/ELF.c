@@ -321,6 +321,7 @@ const char* getLiteral_ELFSectionFlags(byte typ)
 	return "UNK"; // "UNKNOWN";
 }
 
+#if __BITS__ == 32
 stduint ELF32_LoadExecFromMemory(const void* memsrc, void** p_entry)
 {
 	struct ELF_Header_t* header = (struct ELF_Header_t*)memsrc;
@@ -328,11 +329,14 @@ stduint ELF32_LoadExecFromMemory(const void* memsrc, void** p_entry)
 	void* entry = (void*)header->e_entry;
 	for0(i, header->e_phnum)
 	{
-		struct ELF_PHT_t* ph = (struct ELF_PHT_t*)(memsrc + header->e_phoff + header->e_phentsize * i);
+		struct ELF_PHT_t* ph = (struct ELF_PHT_t*)((byte*)memsrc + header->e_phoff + header->e_phentsize * i);
 		if (ph->p_type == PT_LOAD && (++retval))//{TEMP}VAddress
-			MemCopyN((pureptr_t)ph->p_vaddr, memsrc + ph->p_offset, ph->p_memsz); 
+			MemCopyN((pureptr_t)ph->p_vaddr, (byte*)memsrc + ph->p_offset, ph->p_memsz); 
 	}
 	if (p_entry) *p_entry = entry;
 	return retval;
 }
+#else if __BITS__ == 64
+	//{TODO}
+#endif
 

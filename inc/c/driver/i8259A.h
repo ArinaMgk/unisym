@@ -24,7 +24,6 @@
 #define _INC_DEV_I8259A
 
 #include "../stdinc.h"
-#include "../x86/interface.x86.h"
 
 #define EOI ' '// 0x20, End of Interrupt
 
@@ -59,6 +58,13 @@ typedef struct _i8259A_ICW
 		byte : 3; // [X]*3
 	} ICW4;
 } _8259A_init_t;
+
+#if defined(_MCCA) // 0x8632
+	#define _i8259A_MAS     0X20
+	#define _i8259A_MAS_IMR 0X21
+	#define _i8259A_SLV     0XA0
+	#define _i8259A_SLV_IMR 0XA1
+#endif
 
 void i8259A_init(const struct _i8259A_ICW* inf);
 

@@ -7,8 +7,7 @@
 #ifndef _INC_X86
 #define _INC_X86
 
-#include "../stdinc.h"
-#include "./interface.x86.h"
+#include "../../floating.h"// the file must have been included; this cheats analizer
 
 typedef struct _CPU_x86_descriptor
 {
@@ -67,6 +66,38 @@ static inline gate_t* GateStructInterruptR0(gate_t* gate, dword addr, word segm,
 	gate->offset_high = (addr >> 16) & 0xFFFF;
 	return gate;
 }
+
+// lib/asm/x86/inst/ioport.asm
+void OUT_b(word Port, byte Data);
+word IN_b(word Port);
+void OUT_w(word Port, word Data);
+word IN_w(word Port);
+#define outpi// Out to Port's Pin
+#define outpb OUT_b
+#define outpw OUT_w
+#define innpi// In from Port's Pin
+#define innpb IN_b
+#define innpw IN_w
+
+// lib/asm/x86/inst/manage.asm
+void HALT(void);
+void InterruptEnable(void);
+void InterruptDisable(void);
+void InterruptDTabLoad(void* addr);
+dword getCR3();
+dword getEflags();
+void jmpFar(dword offs, dword selc);//{TODO} JumpFar
+void CallFar(dword offs, dword selc);
+void returnfar(void);
+
+// lib/asm/x86/inst/interrupt.asm
+void returni(void);// for C
+
+// lib/asm/x86/inst/stack.asm
+void pushad(void);
+void popad(void);
+void pushfd(void);
+void popfd(void);
 
 // lib/c/processor/x86/delay.c
 void delay001s();

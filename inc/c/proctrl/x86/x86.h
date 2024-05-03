@@ -9,6 +9,22 @@
 
 #include "../../floating.h"// the file must have been included; this cheats analizer
 
+enum _CPU_x86_descriptor_type
+{
+	_Dptr_TSS286_Available = 1,
+	_Dptr_LDT = 2,
+	_Dptr_TSS286_Busy = 3,
+	_Dptr_CallGate286 = 4,
+	_Dptr_TaskGate = 5,
+	_Dptr_InterruptGate286 = 6,
+	_Dptr_TrapGate286 = 7,
+	//
+	_Dptr_TSS386_Available = 9,
+	_Dptr_TSS386_Busy = 0xB,
+	_Dptr_CallGate386 = 0xC,
+	_Dptr_InterruptGate386 = 0xE,
+	_Dptr_TrapGate386 = 0xF,
+};
 typedef struct _CPU_x86_descriptor
 {
 	word limit_low;
@@ -21,8 +37,8 @@ typedef struct _CPU_x86_descriptor
 	byte limit_high : 4;
 	byte available : 1;
 	byte Mod64 : 1;
-	byte DB : 1;
-	byte granularity : 1;
+	byte DB : 1; // 32-bitmode
+	byte granularity : 1; // 4k-times
 	byte base_high;
 } descriptor_t;
 
@@ -53,6 +69,11 @@ typedef struct _CPU_x86_gate
 	byte present : 1;
 	word offset_high;
 } gate_t;
+
+static inline dword DescriptorBaseGet(descriptor_t* desc)
+{
+	return desc->base_low | (desc->base_middle << 16) | (desc->base_high << 24);
+}
 
 static inline gate_t* GateStructInterruptR0(gate_t* gate, dword addr, word segm, byte paracnt)
 {

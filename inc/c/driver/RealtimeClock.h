@@ -1,7 +1,7 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPL TAB4 CRLF
 // Docutitle: (Module) Real Time Clock
 // Codifiers: @dosconio: 20240220 ~ 20240429
-// Attribute: Arn-Covenant Any-Architect Bit-32mode <Reference/Dependence>
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk

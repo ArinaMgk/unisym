@@ -102,9 +102,12 @@ enum Architecture_t // for instruction sets
 	#define _INC_DEPEND_STDINT
 #elif defined(_Intelx86o64_Windows_64)
 	#include "architect/arcx64_win64.h"
-#elif defined(_MCU_Intel8051)
+#elif defined(_MCU_Intel8051) || defined(_IMPLEMENT_KEIL8051) || defined(_IMPLEMENT_SDCC8051)
+	#undef _MCU_Intel8051
+	#define _MCU_Intel8051
 	#include "architect/arcintel_8051.h"
 	#define __BITS__ 8
+	#define __ARCH__ Architecture_Unknown
 #else
 	#define _INC_DEPEND_STDINT
 	#include <stdint.h> // try

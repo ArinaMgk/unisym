@@ -97,5 +97,21 @@ namespace uni {
 		return tmp;
 	}
 
+	void NodeChain::Remove(const void* content)	{
+		if (nullptr == root_node) return;
+		Node* next = root_node;
+		while (next)
+		{
+			if (next->offs != content) continue;
+			root_node = next->next;
+			if (need_free_content)
+				(_node_freefunc ? _node_freefunc : _memf)((void*)next->offs);
+			memf(next);
+			node_count--;
+
+			next = root_node;
+		}
+	}
+
 #undef tmpl
 }

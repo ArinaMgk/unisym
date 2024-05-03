@@ -1,9 +1,11 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: Macro Options
-// Codifiers: @dosconio: 20240423 ~ 20240423
+// ASCII CPL TAB4 CRLF
+// Docutitle: One-Wire Protocol
+// Datecheck: 20240429 ~ <Last-check>
+// Developer: @dosconio
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Reference: <Reference>
+// Dependens: <Dependence>
 // Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,13 +23,19 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Options
-#define _INC_Options
+#if !defined(_INC_STANDARD_OneWire)
+#define _INC_STANDARD_OneWire
 
-#if defined(_MCU_STM32F103VE) && !defined(_MCU_STM32F10x)
-	#define _MCU_STM32F10x
-#elif defined(_MCU_STM32F407ZE) && !defined(_MCU_STM32F4x)
-	#define _MCU_STM32F4x
+#if defined(_MCU_Intel8051)
+
+unsigned char OneWire_Init(void);
+
+void OneWire_SetBit(unsigned char Bit);
+unsigned char OneWire_GetBit(void);
+
+void OneWire_SetByte(unsigned char Byte);
+unsigned char OneWire_GetByte(void);
+
 #endif
 
 #endif

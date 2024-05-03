@@ -5,19 +5,22 @@ dg-publish: true
 
 ### Option Switch
 
+**option**: `arch`+`host`+`bitmode`
+- Architecture Class :chart: like "`_ARC_x86`" (for example, this macro may not exist, so do below)
+- Chip Class :chart: "`_CPU_AMDRyzen7_5800H_Radeon`"
+- Board Class :x:
+- Host Class :chart: "`Win32`"
+- Devkit Option :chart: "`_BUILD_MSVC`"
+
 #### > Soft Option Control
 
 - `_dbg`(old style) <=> `_DEBUG`
 
 - `_AUTO_INCLUDE` will include ASM or C codes
 
-- `_ASSERT_STRICT`
+- `_ASSERT_STRICT`, `_LIB_DEBUG_CHECK_MORE`
 
 - `_ASSERT_NONE`
-
-- `_ARN_FLAG_DISABLE` Control status variables and `aflag`.
-- `_ARN_FLAG_ENABLE` 
-- `_LIB_DEBUG_CHECK_MORE`
 
 #### > Kit
 

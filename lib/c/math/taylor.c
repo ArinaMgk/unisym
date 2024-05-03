@@ -57,7 +57,7 @@ double dbltaylor(double inp, enum TaylorType dptor_in, double period)
 	{
 		lup_last++;
 		plus = crt;
-		plus = pow(plus, CrtPow) / diver;
+		plus = dblpow_fexpo(plus, CrtPow) / diver;
 		if (plus)
 		{
 			double ori = result;
@@ -69,7 +69,7 @@ double dbltaylor(double inp, enum TaylorType dptor_in, double period)
 				divtype == n_ ? CrtPow :
 				divtype == nf_ ? dblfactorial(CrtPow) : 0;
 		}
-	} while (absof(result) <= absof(plus) * pow(10., _EFDIGS));
+	} while (absof(result) <= absof(plus) * dblpow_fexpo(10., _EFDIGS));
 
 	endo: return result;
 }

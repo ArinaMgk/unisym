@@ -1,8 +1,9 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Module) ASM-used Literal Instructions and Directives
+// Docutitle: (Module) uni.Witch.Control.Button
 // Codifiers: @dosconio: 20240422 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
+// Parallels: (.C#)System.Windows.Forms.Button
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,17 +21,33 @@
 	limitations under the License.
 */
 
-#ifndef _INC_HeaderTemplate_X
-#define _INC_HeaderTemplate_X
+#ifndef _INC_WITCH_CTRL_Button_X
+#define _INC_WITCH_CTRL_Button_X
 
-// #include "unisym"
-// #include "reference"
+#include "../Form"
+#include "../../cpp/string"
 
-#ifdef _MCU_STM32F10x
+namespace uni {	namespace Witch {
 
-namespace uni {
-	// ...
-}
+	class Button : public Control {
+	public:
+		uint32 backcolor;
+		String text;
+		Button(Form* pare, stduint left, stduint top, stduint width, stduint height) : Control(pare, left, top, width, height) {
 
-#endif
+		}
+		~Button() {
+
+		}
+		void Show();
+		void setBackcolor(uint32 bkcolor);
+		void Move(stduint left, stduint top) {
+			this->left = left;
+			this->top = top;
+		}
+		void Event(void* event);
+		void Render();
+	};
+
+}}
 #endif

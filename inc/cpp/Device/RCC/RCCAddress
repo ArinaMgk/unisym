@@ -74,6 +74,16 @@
 // #define _RCC_ENCLK_I2C2        31
 
 
+#elif defined(_MCU_STM32F4x)
+
+// RCC 0x40023800~0x40023BFF
+
+// RCC_AHB1ENR [default 0x00100000]
+#define _RCC_AHB1ENR_ADDR 0x40023830
+#define _RCC_AHB1ENR_POSI_ENCLK_GPIOA       0
+#define _RCC_AHB1ENR_POSI_ENCLK_GPIOB       1
+#define _RCC_AHB1ENR_POSI_ENCLK_GPIOC       2
+
 #endif
 #endif
 

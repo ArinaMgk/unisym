@@ -1,9 +1,11 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: Macro Options
-// Codifiers: @dosconio: 20240423 ~ 20240423
+// ASCII CPL TAB4 CRLF
+// Docutitle: Inter-Integrated Circuit, I2C
+// Datecheck: 20240429 ~ <Last-check>
+// Developer: @dosconio
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Reference: <Reference>
+// Dependens: <Dependence>
 // Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,13 +23,21 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Options
-#define _INC_Options
+#if !defined(_INC_STANDARD_IIC)
+#define _INC_STANDARD_IIC
 
-#if defined(_MCU_STM32F103VE) && !defined(_MCU_STM32F10x)
-	#define _MCU_STM32F10x
-#elif defined(_MCU_STM32F407ZE) && !defined(_MCU_STM32F4x)
-	#define _MCU_STM32F4x
+#if defined(_MCU_Intel8051)
+
+void I2C_Start(void);
+
+void I2C_SetByte(unsigned char Byte);
+unsigned char I2C_GetAck(void);
+
+unsigned char I2C_GetByte(void);
+void I2C_SetAck(unsigned char AckBit);
+
+void I2C_Stop(void);
+
 #endif
 
 #endif

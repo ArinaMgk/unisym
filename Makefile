@@ -24,6 +24,8 @@ make_dir=./lib/make/
 .PHONY: list mx86 cgw32 liblinux cgl32 cgl64  manual winslib linslib
 
 winslib: libwingcc libmsvc
+winsdll:
+	#
 linslib: liblinux mx86
 
 list: # depend [python]
@@ -85,6 +87,10 @@ STM32F103VEx:
 
 # ---- [utilities] ----
 
+tlwin: list cgw32 cgw64 cvw32 cvw64# test lib win
+	@echo "Build Finish."
+tllin: cgl32 cgl64 mx86# test lib lin
+	@echo "Build Finish."
 kitw32: # utility
 	cd ${make_dir} && make -f kitw32.make all
 	-ahkcc ./lib/Script/AutoHotkey/Arnscr.ahk ../../../../_bin/arnscr.exe # ***\AutoHotkey\Compiler\Ahk2Exe.exe /in %1 /out %2

@@ -25,8 +25,131 @@
 #include "stdinc.h"
 #include "coear.h"
 
-extern stduint _EFDIGS;// how many effective digits
+/*//{TODO}
+type
+- float_t
+- double_t
 
+macro
+- HUGE_VAL
+- HUGE_VALF
+- HUGE_VALL
+- INFINITY
+- NAN
+- FP_INFINITE
+- FP_NAN
+- FP_NORMAL
+- FP_SUBNORMAL
+- FP_ZERO
+- FP_FAST_FMA
+- FP_FAST_FMAF
+- FP_FAST_FMAL
+- FP_ILOGB0
+- FP_ILOGBNAN
+- MATH_ERRNO     1
+- MATH_ERREXCEPT 2
+- math_errhandling
+
+macro-style function
+- int fpclassify(*real-floating* x);
+- int isfinite(*real-floating* x);
+- int isinf(*real-floating* x);
+- int isnormal(*real-floating* x);
+- int signbit(*real-floating* x);
+
+function
+- version for `float` and `long double` of all belows.
+- atan2
+- aXXXh
+- exp2 (by bits logical)
+- expml
+- frexp
+- ilogb
+- ldexp
+- log10
+- log1p
+- log2
+- logb
+- modf
+- scalbn
+- scalbln
+- cbrt
+- hypot
+- erf
+- erfc
+- lgamma
+- tgamma
+- ceil
+- floor
+- nearbyint
+- rint
+- lrint
+- llrint
+- round
+- lround
+- llround
+- trunc
+- fmod
+- remainder
+- remquo
+- copysign
+- nan
+- nextafter
+- nexttoward
+- fdim
+- fmax
+- fmin
+- fma
+- isgreater
+- isgreaterequal
+- isless
+- islessequal
+- islessgreater
+- isunordered
+
+pragma
+- FP_CONTRACT
+*/
+
+extern stduint _EFDIGS;// how many effective digits
+void ariprecise(stduint prec);
+
+double dblexp(double expo);
+// based on `e`
+double dbllog(double power);
+
+double dblpow_iexpo(double bas, stdint exp);
+
+double dblpow_fexpo(double bas, double exp);
+
+//{TODO} and there will cpxpow_cexpo for Complex arithmetics
+
+// fabs
+double dblabs(double inp);
+
+double dblsqrt(double inp);
+
+// ---- angle ----
+
+double dblsin(double rad);
+
+double dblcos(double rad);
+
+double dbltan(double rad);
+
+double dblasin(double val);
+
+double dblacos(double val);
+
+double dblatan(double val);
+
+double dblsinh(double rad);
+
+double dblcosh(double rad);
+
+double dbltanh(double rad);
+
+// Dep(pow_f)
 double dblfactorial(double inp);
 
 #define _CDETayFunc_Exp 0b10000000

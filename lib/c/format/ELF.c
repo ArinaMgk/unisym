@@ -336,7 +336,7 @@ stduint ELF32_LoadExecFromMemory(const void* memsrc, void** p_entry)
 	if (p_entry) *p_entry = entry;
 	return retval;
 }
-#else if __BITS__ == 64
+#elif __BITS__ == 64
 	//{TODO}
 #endif
 

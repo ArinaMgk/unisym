@@ -1,6 +1,6 @@
 # UNISYM
 
-![icon](./.picture/unisym.20240306.png) **[Universal Symbol](http://unisym.org)**, also known as ゆにッシンボル, or as 統象庫, a system of programming and engineering, including not only implementation, library, tool-kits, chroming engine and demonstrations.
+![icon](./.picture/unisym.20240306.png) **[Universal Symbol System](http://unisym.org)**, also known as ゆにッシンボル, or as 統象庫, a system of programming and engineering, including not only implementation, library, tool-kits, chroming engine and demonstrations.
 
 The repository is open-sourced under of *Apache License 2.0*. If you copy the code and used for the public or commercial, please stipulate your <u>copying from *UNISYM* led by *ArinaMgk*</u>. 
 

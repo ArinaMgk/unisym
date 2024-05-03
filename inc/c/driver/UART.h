@@ -1,9 +1,11 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: Macro Options
-// Codifiers: @dosconio: 20240423 ~ 20240423
+// ASCII CPL TAB4 CRLF
+// Docutitle: Inter-Integrated Circuit, I2C
+// Datecheck: 20240502 ~ <Last-check>
+// Developer: @dosconio
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Reference: <Reference>
+// Dependens: <Dependence>
 // Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,13 +23,26 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Options
-#define _INC_Options
+#if !defined(_INC_STANDARD_UART)
+#define _INC_STANDARD_UART
 
-#if defined(_MCU_STM32F103VE) && !defined(_MCU_STM32F10x)
-	#define _MCU_STM32F10x
-#elif defined(_MCU_STM32F407ZE) && !defined(_MCU_STM32F4x)
-	#define _MCU_STM32F4x
+#if defined(_MCU_Intel8051)
+
+// We need to know the frequency like 9600bps@11.0592MHz
+
+extern void (*RoutineINT4)(void);// Keil will consider this as a define but a declaration? Haruno RFR19.
+void UART_Init(void);
+void UART_Init11W(void);
+void UART_Out(unsigned char Byte);
+
+/* Example
+	void RINT4(void)
+	{
+		//
+	} void (*RoutineINT4)(void) = RINT0;
+*/
+
+
 #endif
 
 #endif

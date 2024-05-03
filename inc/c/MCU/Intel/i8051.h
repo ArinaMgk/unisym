@@ -181,7 +181,7 @@ defbit (pPSW_CY , 0xD7)
 #define be_dat 1
 
 #define outpi(pin,elec)  ((pin)=(elec))
-#define innpi(pin,elec) (pin)
+#define innpi(pin) (pin)
 
 #ifdef _PORT_SPECIAL
 #define outpb(port,byte) ((port)=(byte)) 

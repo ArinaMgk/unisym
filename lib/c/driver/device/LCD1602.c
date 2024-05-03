@@ -114,4 +114,19 @@ void LCD1602_Outi32hex(const dword inp)//void outi32hex(const dword inp);
 	LCD1602_OutText(buf, 8);
 }
 
+void LCD1602_Outu8dec(const sbyte inp, byte len)
+{
+	// 0 ~ 255
+	char buf[3];
+	sbyte val = inp;
+	byte i;
+	if (len > 3) len = 3;
+	for (i = 0; i < len; i++)
+	{
+		buf[len - 1 - i] = '0' + val % 10;
+		val /= 10;
+	}
+	LCD1602_OutText(buf + len - i, i);
+}
+
 //{TODO} combinated with - JUST till here - until consio contain these.

@@ -12,9 +12,10 @@
 namespace uni
 {
 	#ifdef _MCU_STM32F10x
+
 	#define _OFFSET_GPIO_CRL 0x00
-	#define _OFFSET_GPIO_IDR 0x08
-	#define _OFFSET_GPIO_ODR 0x0C
+	#define _OFFSET_GPIO_IDR 0x10
+	#define _OFFSET_GPIO_ODR 0x14
 
 	GeneralPurposeInputOutputPort::GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap) :
 		EnablPosi(Enap), // (RCC_APB2ENR)
@@ -38,7 +39,7 @@ namespace uni
 	GeneralPurposeInputOutputPin::operator bool() {
 		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
 	}
-	
+
 	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
 		if (innput) return *this;
 		// G'DP or D'DP
@@ -48,7 +49,7 @@ namespace uni
 			BitClr(parent->OutpdPort, bitposi);
 		return *this;
 	}
-	
+
 	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed) {
 		uint32 bposi = bitposi << 2; // mul by 4
 		uint32 bmode = (uint32)mode;
@@ -59,13 +60,88 @@ namespace uni
 	}
 
 	void GeneralPurposeInputOutputPin::setPull(bool pullup) {
-		parent->OutpdPort = pullup ? 1 : 0;
+		parent->OutpdPort = pullup ? 1 : 0;//{TODO} really? I write rightly?
 	}
 
 	void GeneralPurposeInputOutputPin::Toggle() {
 		parent->OutpdPort ^= 1 << bitposi;
 	}
 
+// ---- ---- ---- ----
+	#elif defined(_MCU_STM32F4x)
+
+	#define _OFFSET_GPIO_MODER 0x00
+	#define _OFFSET_GPIO_OTYPE 0x04
+	#define _OFFSET_GPIO_SPEED 0x08
+	#define _OFFSET_GPIO_PULLS 0x0C
+	#define _OFFSET_GPIO_IDR   0x10
+	#define _OFFSET_GPIO_ODR   0x14
+
+	GeneralPurposeInputOutputPort::GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap) :
+		EnablPosi(Enap), // (RCC_APB2ENR)
+		ClockPort(CLK), // Enable Clock
+		InnpdPort(_OFFSET_GPIO_IDR + ADDR),
+		OutpdPort(_OFFSET_GPIO_ODR + ADDR),
+		//
+		ModerPort(_OFFSET_GPIO_MODER + ADDR),
+		OtypePort(_OFFSET_GPIO_OTYPE + ADDR),
+		SpeedPort(_OFFSET_GPIO_SPEED + ADDR),
+		PullsPort(_OFFSET_GPIO_PULLS + ADDR)
+		
+	{
+		for0(i, numsof(OutpdPins))
+			OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
+	}
+
+	GeneralPurposeInputOutputPort GPIOA(0x40020000, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOA);// ~ 0x400203FF
+	GeneralPurposeInputOutputPort GPIOB(0x40020400, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOB);
+	GeneralPurposeInputOutputPort GPIOC(0x40020800, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOC);
+	GeneralPurposeInputOutputPort GPIOD(0,0,0);//{}
+	GeneralPurposeInputOutputPort GPIOE(0,0,0);//{}
+
+	GeneralPurposeInputOutput GPIO;
+
+	GeneralPurposeInputOutputPin::operator bool() {
+		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
+	}
+
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
+		if (innput) return *this;
+		// G'DP or D'DP
+		if (val)
+			BitSet(parent->OutpdPort, bitposi);
+		else
+			BitClr(parent->OutpdPort, bitposi);
+		return *this;
+	}
+
+	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed) {
+		parent->ModerPort &= ~(uint32)(0x3 << (bitposi << 1));
+		parent->ModerPort |= (((stduint)mode)>>1) << (bitposi << 1);
+		if ((stduint)mode & 1)
+			BitSet(parent->OtypePort, bitposi);
+		else
+			BitClr(parent->OtypePort, bitposi);
+		parent->SpeedPort &= ~(uint32)(0x3 << (bitposi << 1));
+		parent->SpeedPort |= (stduint)speed << (bitposi << 1);
+		if (mode == GPIOMode::IN_Floating) parent->PullsPort &= ~(uint32)(0x3 << (bitposi << 1));
+		innput = (GPIOMode::IN_Floating == mode) || (GPIOMode::IN_Analog == mode) || (GPIOMode::IN_Pull == mode); // KEPT
+	}
+
+	void GeneralPurposeInputOutputPin::setPull(bool pullup) {
+		if (pullup) {
+			parent->PullsPort |= 0x1 << (bitposi << 1);// pull-up
+			parent->PullsPort &= ~(uint32)(0x2 << (bitposi << 1));
+		}
+		else {
+			parent->PullsPort |= 0x2 << (bitposi << 1);// pull-dn
+			parent->PullsPort &= ~(uint32)(0x1 << (bitposi << 1));
+		}
+	}
+
+	void GeneralPurposeInputOutputPin::Toggle() {
+		parent->OutpdPort ^= 1 << bitposi;
+	}
 	
 	#endif
 }

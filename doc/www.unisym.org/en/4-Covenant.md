@@ -73,6 +73,13 @@ Her-style, Code-reusing and Conceptual-razor.
 - Avoid using reference& but pointer* for inside function for more simply transplant.
 - Use `uint8`, `uint16` and so on, as integer types.
 
+### delay
+
+instructional delay: in file whose name including a frequency, e.g. `delay11M.asm`;
+
+timer delay: in file whose name does not, e.g. `delay.c`;
+
+
 ## Contributing Rules 
 
 Tendency
@@ -90,6 +97,8 @@ Consideration
 - Inline version
 
 ## Glossary
+
+ANY: AASM / NASM / YASM
 
 Real-16: ...
 

@@ -1,9 +1,8 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: Macro Options
-// Codifiers: @dosconio: 20240423 ~ 20240423
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
+// ASCII CPL TAB4 CRLF
+// Docutitle: (Module) Keyboard
+// Codifiers: @dosconio: 20240502 ~ 20240502
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,13 +20,22 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Options
-#define _INC_Options
+#ifndef _INC_DEVICE_Keyboard
+#define _INC_DEVICE_Keyboard
 
-#if defined(_MCU_STM32F103VE) && !defined(_MCU_STM32F10x)
-	#define _MCU_STM32F10x
-#elif defined(_MCU_STM32F407ZE) && !defined(_MCU_STM32F4x)
-	#define _MCU_STM32F4x
+//{TODO}[INTERFACE] KEYS_STATE_MAP
+
+#include "../stdinc.h"
+#ifdef _MCCA // 0x8632
+
+#define PORT_KBD 0x21
+
+// R:Buffer W:Buffer(8042 Data&8048 Command)
+#define PORT_KBD_BUFFER 0x60
+
+
+void Keyboard_Init();
+
 #endif
 
 #endif

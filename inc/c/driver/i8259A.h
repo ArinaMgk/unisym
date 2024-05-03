@@ -68,4 +68,7 @@ typedef struct _i8259A_ICW
 
 void i8259A_init(const struct _i8259A_ICW* inf);
 
+#define i8259Master_Enable(x) outpb(_i8259A_MAS_IMR | 1, innpb(_i8259A_MAS_IMR) & ~(byte)(1 <<(x)));
+#define i8259Slaver_Enable(x) outpb(_i8259A_SLV_IMR | 1, innpb(_i8259A_SLV_IMR) & ~(byte)(1 <<(x)));
+
 #endif

@@ -1,7 +1,7 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPL TAB4 CRLF
 // Docutitle: (Module) Real Time Clock
 // Codifiers: @dosconio: 20240220 ~ 20240429
-// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Attribute: Arn-Covenant Any-Architect Bit-32mode <Reference/Dependence>
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
@@ -20,19 +20,22 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/c/driver/i8259A.h"
-#include "../../../../inc/c/driver/RealtimeClock.h"
+#ifndef _INC_DEVICE_Timer
+#define _INC_DEVICE_Timer
 
-#ifdef _MCCA // 0x8632
+#ifdef _MCU_Intel8051
+extern void (*RoutineINT0)(void);// Keil will consider this as a define but a declaration? Haruno RFR19.
+void Timer0Init(void);
+void Timer0SetCounter(unsigned int Value);
+unsigned int Timer0GetCounter(void);
+void Timer0Mode(byte Flag);// para0: 0 is stop, 1 is run
 
-void RTC_Init()
+/* Example
+void RINT0(void)
 {
-	outpb(PORT_RTC, 0x8B);// mgk: RTC Register B and NMI
-	outpb(PORT_RTC | 1, 0x12);// mgk: Set Reg-B {Ban Periodic, Open Update-Int, BCD, 24h}
-	i8259Slaver_Enable(0);// Slave 0 is linked with RTC
-	outpb(PORT_RTC, 0x0C);// mgk: ?
-	innpb(PORT_RTC | 1);// Read Reg-C, reset pending interrupt
-	//{TODO} Check PIC Device?
-}
+	//
+} void (*RoutineINT0)(void) = RINT0;
+*/
+#endif
 
 #endif

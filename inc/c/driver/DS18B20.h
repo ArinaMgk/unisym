@@ -1,9 +1,11 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: Macro Options
-// Codifiers: @dosconio: 20240423 ~ 20240423
+// ASCII CPL TAB4 CRLF
+// Docutitle: DS18B20
+// Datecheck: 20240429 ~ <Last-check>
+// Developer: @dosconio
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Reference: <Reference>
+// Dependens: <Dependence>
 // Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,13 +23,17 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Options
-#define _INC_Options
+#if !defined(_INC_DEVICE_DS18B20)
+#define _INC_DEVICE_DS18B20
 
-#if defined(_MCU_STM32F103VE) && !defined(_MCU_STM32F10x)
-	#define _MCU_STM32F10x
-#elif defined(_MCU_STM32F407ZE) && !defined(_MCU_STM32F4x)
-	#define _MCU_STM32F4x
+#include "OneWire.h"
+
+#if defined(_MCU_Intel8051)
+
+void DS18B20_Convert(void);
+
+float DS18B20_Read(void);
+
 #endif
 
 #endif

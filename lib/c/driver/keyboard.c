@@ -1,9 +1,8 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: Macro Options
-// Codifiers: @dosconio: 20240423 ~ 20240423
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
+// ASCII CPL TAB4 CRLF
+// Docutitle: (Module) Keyboard
+// Codifiers: @dosconio: 20240502 ~ 20240502
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,13 +20,12 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Options
-#define _INC_Options
+#include "../../../inc/c/driver/keyboard.h"
+#include "../../../inc/c/driver/i8259A.h"
 
-#if defined(_MCU_STM32F103VE) && !defined(_MCU_STM32F10x)
-	#define _MCU_STM32F10x
-#elif defined(_MCU_STM32F407ZE) && !defined(_MCU_STM32F4x)
-	#define _MCU_STM32F4x
-#endif
 
-#endif
+void Keyboard_Init()
+{
+	i8259Master_Enable(1);// Master1 is linked with RTC
+}
+

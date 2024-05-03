@@ -1,9 +1,11 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: Macro Options
-// Codifiers: @dosconio: 20240423 ~ 20240423
+// ASCII CPL TAB4 CRLF
+// Docutitle: Inter-Integrated Circuit, I2C
+// Datecheck: 20240502 ~ <Last-check>
+// Developer: @dosconio
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Reference: <Reference>
+// Dependens: <Dependence>
 // Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,13 +23,18 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Options
-#define _INC_Options
+#if !defined(_INC_DEVICE_XPT2046)
+#define _INC_DEVICE_XPT2046
 
-#if defined(_MCU_STM32F103VE) && !defined(_MCU_STM32F10x)
-	#define _MCU_STM32F10x
-#elif defined(_MCU_STM32F407ZE) && !defined(_MCU_STM32F4x)
-	#define _MCU_STM32F4x
+#if defined(_MCU_Intel8051)
+
+#define XPT2046_VBAT 0xAC
+#define XPT2046_AUX  0xEC
+#define XPT2046_XP   0x9C //0xBC
+#define XPT2046_YP   0xDC
+
+unsigned int XPT2046_Ana2Dig(unsigned char Command);
+
 #endif
 
 #endif

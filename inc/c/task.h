@@ -71,8 +71,21 @@ typedef struct TaskStateSegmentx86
 	// ---- 0104d:
 } TSS_t;
 
-// Load and make Task
-int Task3FromELF32(TSS_t* TSS, descriptor_t* GDT, stduint LDT_ID, descriptor_t* LDT, void* elfraw, word parent, dword* esps);
+typedef struct
+{
+	word LDTSelector;
+	word TSSSelector;
+	word parent;
+	descriptor_t* LDT;
+	TSS_t* TSS;
+	byte ring: 2;
+	dword esp0, esp1, esp2, esp3;
+	dword entry;
+	void* IOMap;//{unused} //[Com-Covenant] usually after TSS in memory
+	stduint TSSBlockLength;//{unused} from beginning off TSS to end of IOMap
+} TaskFlat_t;
+
+void TaskFlatRegister(TaskFlat_t* TaskFlat, descriptor_t* GDT);
 
 #endif
 #else

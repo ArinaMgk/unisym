@@ -1,9 +1,7 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: Macro Options
-// Codifiers: @dosconio: 20240423 ~ 20240423
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
+// ASCII C++-11 TAB4 CRLF
+// LastCheck: 20240430
+// AllAuthor: @dosconio
+// ModuTitle: Integer based on ChrA/Br
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,13 +19,30 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Options
-#define _INC_Options
-
-#if defined(_MCU_STM32F103VE) && !defined(_MCU_STM32F10x)
-	#define _MCU_STM32F10x
-#elif defined(_MCU_STM32F407ZE) && !defined(_MCU_STM32F4x)
-	#define _MCU_STM32F4x
+#ifndef _INC_MCU_STM32F407ZE_X
+#define _INC_MCU_STM32F407ZE_X
+#ifndef _MCU_STM32F407ZE
+#define _MCU_STM32F407ZE
 #endif
+/*
+F103:
+- V : 100 Pin
+- E : 512 Kilobyte Flash
+*/
+#include "../../../c/stdinc.h"
+
+// If used with HAL:
+#undef RCC
+#undef GPIOA
+#undef GPIOB
+#undef GPIOC
+#undef GPIOD
+#undef GPIOE
+#undef GPIOF
+#undef GPIOG
+
+#include "../../Device/GPIO"
+#include "../../Device/RCC/RCC"
+#include "../../interrupt"
 
 #endif

@@ -128,5 +128,10 @@ namespace uni {
 	extern RCC_t RCC;
 }
 
+#elif defined(_MCU_STM32F4x)
+
+#include "RCCAddress"
+
+
 #endif
 #endif

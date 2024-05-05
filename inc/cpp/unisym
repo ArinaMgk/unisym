@@ -24,7 +24,7 @@
 #define _INC_UNIVERSAL_X
 
 #include "cinc"
-#include "../c/aldbg.h"
+#include "../c/stdinc.h"
 #include "cinc"
 
 #endif

@@ -22,10 +22,10 @@
 
 #include "../../../inc/c/datime.h"
 
-llong POSIXGetSeconds(struct tm* tm)
+uint64 POSIXGetSeconds(struct tm* tm)
 {
-    llong t;
-    llong y = tm->tm_year;// year number relative from 1900
+    uint64 t;
+    uint64 y = tm->tm_year;// year number relative from 1900
     // Detail IEEE 1003.1:2004, section 4.14, POSIX-style time constant
     // Application:
     //- NASM 0207 [main source of the function]

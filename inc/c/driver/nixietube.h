@@ -26,8 +26,10 @@
 #if !defined(_INC_NixieTube)
 #define _INC_NixieTube
 
-#include "../alice.h"
+#include "../stdinc.h"
 
 extern byte _LED_SEGMENTS_HEXINUM[16];
+
+void Nixie_Show(unsigned char Location, uint8 Number, byte Dot);
 
 #endif // !defined(_INC_NixieTube)

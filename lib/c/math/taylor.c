@@ -22,18 +22,22 @@
 
 #include "../../../inc/c/arith.h"
 #include "../../../inc/c/ustdbool.h"
-#include "math.h"
+#include <math.h>
 
-double dbltaylor(double inp, byte dptor, double period)
+double dbltaylor(double inp, enum TaylorType dptor_in, double period)
 {
+	byte dptor = dptor_in;
 	if (inp == 0.0 && !(_CDETayDptr_PoStart(dptor)))// {TEMP} for exp() dpot(0)
 		return 1.0;
 
 	double crt = inp;
-	while (crt < 0) crt += period;
-	while (crt >= period) crt -= period;
+	if (period != 0.0)
+	{
+		while (crt < 0) crt += period;
+		while (crt >= period) crt -= period;
+	}
 	double CrtPow = (_CDETayDptr_PoStart(dptor));
-	boolean sign = crt < 0;
+	//boolean sign = crt < 0;
 	boolean signcrt = _CDETayDptr_PowSign(dptor);// ^ sign
 	boolean signshock = _CDETayDptr_SignTog(dptor);
 	enum { all_ = 0, only_odd, only_even, none_ } powtype = _CDETayDptr_PowType(dptor);
@@ -47,36 +51,25 @@ double dbltaylor(double inp, byte dptor, double period)
 		divtype == nf_ ? dblfactorial(CrtPow) : 0;
 
 	// += sgn* powx/divcof
-	// more loop
-	boolean conti = 1;
-	size_t i = 0;
+	size_t loops = 0;
 	lup_last = 0;
 	do
 	{
 		lup_last++;
 		plus = crt;
-		plus = pow(plus, CrtPow) / diver;
-		// conti = () . NOW do not care, because we need consider the change rate of a and b of a/b
-		conti = 0;
+		plus = dblpow_fexpo(plus, CrtPow) / diver;
 		if (plus)
 		{
 			double ori = result;
 			if (signcrt) plus = -plus;
 			result += plus;
-
-			conti = (++i < 10000);
-			// [Old condi] ChrCmp(test_precise->expo, "+0") <= 0 && ...
-			// [Old condi] (ptrdiff_t)StrLength(result->coff) - atoins(result->expo) <= show_precise) ...
-			// CoeDel(test_precise);
 			if (signshock) signcrt = !signcrt;
 			CrtPow += powtype == all_ ? 1 : 2;
-
-			
 			diver = divtype == one_ ? 1 :
 				divtype == n_ ? CrtPow :
 				divtype == nf_ ? dblfactorial(CrtPow) : 0;
 		}
-	} while (conti);
+	} while (absof(result) <= absof(plus) * dblpow_fexpo(10., _EFDIGS));
 
 	endo: return result;
 }

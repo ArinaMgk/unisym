@@ -1,14 +1,21 @@
--gitignore
+# ASCII git-ignore TAB4 CRLF
+# ...
 .vscode
 magic/.vscode
-doc/www.magice.org
-doc/www.phina.net
-doc/www.phina.org
+# Website Temporary Files
 doc/www.unisym.org/_*
 doc/www.unisym.org/.*
 doc/www.unisym.org/zh
+# Locale Makefiles : code `make list` to generate
 lib/make/c*
-witch/DotNet/udotnet/.vs
-witch/DotNet/udotnet/bin
-witch/DotNet/udotnet/obj
+# .Net Class Library
+lib/dotNet/udotnet/.vs
+lib/dotNet/udotnet/obj
+# Python
 *.pyc
+# Rust
+lib/Rust/syst/target/
+Cargo.lock
+# Keil
+DebugConfig
+*.uvguix*

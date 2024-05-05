@@ -1,7 +1,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>
-#include "host.h"
+#include "stdinc.h"
 #include "ustring.h"
 
 // from branch source of COTLAB

@@ -1,6 +1,9 @@
 # UNISYM
 
-![icon](./.picture/unisym.20240306.png) **[Universal Symbol](http://unisym.org)**, also known as ゆにッシンボル, or as 統象庫, a system of programming and engineering, including not only implementation, library, tool-kits, chroming engine and demonstrations.
+![icon](./.picture/unisym.20240306.png) **[Universal Symbol System](http://unisym.org)**, also known as ゆにッシンボル, or as 統象庫, a system of programming and engineering, including not only implementation, library, tool-kits, chroming engine and demonstrations.
+
+![example](https://img.shields.io/badge/release-U2024SPRING-aliceblue.svg) ![example](https://img.shields.io/badge/supervisor-dosconio-violet.svg)
+
 
 The repository is open-sourced under of *Apache License 2.0*. If you copy the code and used for the public or commercial, please stipulate your <u>copying from *UNISYM* led by *ArinaMgk*</u>. 
 
@@ -30,7 +33,7 @@ ConPrint Hello_String; Assembly Macro
 | LIB `lib/` | / | implementation source code |
 | LNK `linker/` | objects => output | linker, synthesizer and modifier |
 | MGK `magic/` | sources => sources + list + depend | compiler, analyzer and translator |
-| WIT `witch/` | to outputs | **chrome** library and engine |
+| WIT `witch/` | to outputs | **rendering** library and engine |
 | WZD `wizard/` | / | constructor |
 
 ---

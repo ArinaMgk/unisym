@@ -16,7 +16,7 @@
 	limitations under the License.
 */
 
-#define erro(x) ((void)(x))// CHEAT
+
 
 #define _ARN_INSIDE_LIBRARY_INCLUDE
 #define _LIB_STRING_BUFFER
@@ -24,9 +24,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>// na isXType()
-#include "../../inc/c/alice.h"
-#include "../../inc/c/aldbg.h"
+#include "../../inc/c/stdinc.h"
 #include "../../inc/c/ustring.h"
+
+#define erro(x) ((void)(x))// CHEAT
 
 #if defined(_LIB_STRING_BUFFER) && !defined(_LIB_STRING_BUFFER_GUARD)// bstring.c, need pre-set buffer
 #define _LIB_STRING_BUFFER_GUARD

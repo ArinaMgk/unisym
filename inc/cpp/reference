@@ -8,7 +8,7 @@
 #ifndef _INC_REFERENCE
 #define _INC_REFERENCE
 
-#include "../c/alice.h"
+#include "../c/stdinc.h"
 
 namespace uni {
 	
@@ -19,14 +19,19 @@ namespace uni {
 			
 		}
 		
-		operator typedest() { return *address; }
-		volatile typedest* operator&() { return address; }
+		operator typedest() const { return *address; }
+		volatile typedest* operator&() const { return address; }
 		
 		Reference& operator=(typedest val) { *address = val; return *this; }
 		Reference& operator&=(typedest val) { *address &= val; return *this; }
 		Reference& operator|=(typedest val) { *address |= val; return *this; }
 		Reference& operator^=(typedest val) { *address ^= val; return *this; }
-		bool operator[](stduint idx) { return address[idx]; }
+		// Binary Digit Of
+		bool bitof(stduint idx) const { return *address & (1 << idx); }
+		//
+		void setof(stduint idx) { *address |= (1 << idx); }
+		//
+		void rstof(stduint idx) { *address &= ~(typedest)(1 << idx); }
 	};
 }
 

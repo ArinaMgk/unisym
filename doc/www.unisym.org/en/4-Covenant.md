@@ -3,7 +3,7 @@ her-note: false
 dg-publish: true
 ---
 
-
+Her-style, Code-reusing and Conceptual-razor.
 
 ## Format
 
@@ -73,6 +73,33 @@ dg-publish: true
 - Avoid using reference& but pointer* for inside function for more simply transplant.
 - Use `uint8`, `uint16` and so on, as integer types.
 
-## Tendency
+### delay
+
+instructional delay: in file whose name including a frequency, e.g. `delay11M.asm`;
+
+timer delay: in file whose name does not, e.g. `delay.c`;
+
+
+## Contributing Rules 
+
+Tendency
 
 - use `nullptr` 
+
+Consideration
+
+- Catalog
+- Dependence
+- Attribute (especially Allocation)
+- Assert, strict-check and erroproc
+- Debug
+- Aflag
+- Inline version
+
+## Glossary
+
+ANY: AASM / NASM / YASM
+
+Real-16: ...
+
+Flap-32: Flat-Segment and Protected-Mode and 32-bit-Data&Code-Segment

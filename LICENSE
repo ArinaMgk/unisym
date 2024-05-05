@@ -207,16 +207,13 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   APPENDIX: Header format for source files.
+   APPENDIX: Header format for source files, only the first line is required anyway.
 
 // <Codeset> <Lango/Format> <LnBegStyle> <LnEndStyle>
-// Docutitle: <Document>
-// Datecheck: <Date> ~ <Last-check>
-// Developer: <Author> @ <Organization/Company>
-// Attribute: <ArnCovenant> <Environment> <Platform>
-// Reference: <Reference>
-// Dependens: <Dependence>
-// Copyright: <License>
+// Docutitle: (<Type>) <Document(Linear?)>
+// Codifiers: <Author>(@ <Organization/Company>):( <Date> ~ <Last-check>)
+// Attribute: <Covenant> <Architect> <Environment> <Reference/Dependence>
+// Copyright: <Project>, under <License>
 /*
 	Copyright 2023 ArinaMgk
 
@@ -233,3 +230,5 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+
+END OF LICENSE DOCUMENT, AVAILABLE SINCE AD-2024.April.

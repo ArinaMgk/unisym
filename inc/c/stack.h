@@ -27,7 +27,7 @@
 #ifndef _LIB_STACK
 #define _LIB_STACK
 
-#include "alice.h"
+#include "stdinc.h"
 
 //{TOD} make use of aflaga.direction
 

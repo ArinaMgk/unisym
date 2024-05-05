@@ -26,57 +26,98 @@
 #ifndef _INC_INTEGER
 #define _INC_INTEGER
 
+// Compatible with:
+//{TODO} - ISO stdint.h
+//{TODO} - ISO limits.h
+// - ISO inttypes.h
+#ifndef _INTTYPES // for MSVC, include guard for 3rd party interop
+#define _INTTYPES
+#endif
+#ifndef _INTTYPES_H_ // for GCC
+#define _INTTYPES_H_
+#endif
+
+#include "archit.h"// If included and stdint.h is not, then implement stdint.h; if all not, then include this and re-judge including of stdint.h
+
+//{TODO}
 #include <limits.h>
 #include <stddef.h>
 
-// what depend on this:
-// - proctrl.h
+// ---- ---- ---- ---- stdint.h [partial] ---- ---- ---- ----
+#ifndef INT8_MIN
+	#define INT8_MIN (-128)
+	#define INT8_MAX 127
+	#define UINT8_MAX 255
+#endif
+#ifndef INT16_MIN
+	#define INT16_MIN (-32768)
+	#define INT16_MAX 32767
+	#define UINT16_MAX 65535
+#endif
+#ifndef INT32_MIN
+	#define INT32_MIN (-2147483647 - 1)
+	#define INT32_MAX 2147483647
+	#define UINT32_MAX 0xffffffffU
+#endif
+#ifndef INT64_MIN
+	#define INT64_MIN  (-9223372036854775807LL - 1)
+	#define INT64_MAX 9223372036854775807LL
+	#define UINT64_MAX 0xffffffffffffffffULL
+#endif
+// `long int` measures sometimes 32 and sometimes 64, as example, so it is necessary to add host for compilers except Magice, which is also a customizable linear language.
+#ifdef _INC_DEPEND_STDINT // use others'
+	//
+#else
+	// GLIBC-Method
+	#ifndef WCHAR_MIN  /* also in wchar.h ?*/
+	#define WCHAR_MIN 0U
+	#define WCHAR_MAX 0xffffU
+	#endif
+	#define WINT_MIN 0U
+	#define WINT_MAX 0xffffU
+
+	// Macros for minimum-width or greatest-width integer constants
+	// - doesn't work in C89 ?
+	#define INT8_C(val) (INT_LEAST8_MAX-INT_LEAST8_MAX+(val))
+	#define UINT8_C(val) (val)
+	#define INT16_C(val) (INT_LEAST16_MAX-INT_LEAST16_MAX+(val))
+	#define UINT16_C(val) (val)
+	#define INT32_C(val) (INT_LEAST32_MAX-INT_LEAST32_MAX+(val))
+	#define UINT32_C(val) (val##U)
+	#define INT64_C(val) val##LL
+	#define UINT64_C(val) val##ULL
+	#define INTMAX_C(val) val##LL
+	#define UINTMAX_C(val) val##ULL
+
+#endif
 
 // ---- ---- ---- ---- Core of UniSym Integer ---- ---- ---- ----
 
-#if SIZE_MAX==0xFFFF
-	#define _BINARY 16 
-	#define __BIT_STR__ "16"
-#elif SIZE_MAX==0xFFFFFFFF
-	#define _BINARY 32
-	#define __BIT_STR__ "32"
-#elif SIZE_MAX==0xFFFFFFFFFFFFFFFF
-	#define _BINARY 64
-	#define __BIT_STR__ "64"
-#else 
-	#define _BINARY 8
-	#define __BIT_STR__ "8"
-#endif
-
-#if defined(_WinNT)&&(_BINARY==64)
-	#include "us_win64.h"
-#else
-	#include <stddef.h>//{TEMP}
-	#include <stdint.h>//{TEMP}
-	//{OPT}
-	#include "integer/prefabbr.h"
-	// #include "integer/ruststyle.h"
-	typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
-	typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char
-	typedef   signed char sint8;
-	typedef   signed char sbyte;
-	typedef uint16_t  word;// unsigned short int
-	typedef uint16_t  uint16;//[trend] unsigned short int
-	typedef  int16_t  sint16;//[trend]   signed short int
-	typedef  int16_t  sword;// signed short int
-	typedef uint32_t  dword;// unsigned int
-	typedef uint32_t  uint32;//[trend] unsigned int
-	typedef  int32_t  sint32;//          signed int
-	typedef  int32_t  sdword;// signed int
+//[Optional]
+// #include "integer/prefabbr.h"
+// #include "integer/ruststyle.h"
+typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
+typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char
+typedef   signed char sint8;
+typedef   signed char sbyte;
+typedef uint16_t  word;// unsigned short int
+typedef uint16_t  uint16;//[trend] unsigned short int
+typedef  int16_t  sint16;//[trend]   signed short int
+typedef  int16_t  sword;// signed short int
+typedef uint32_t  dword;// unsigned int
+typedef uint32_t  uint32;//[trend] unsigned int
+typedef  int32_t  sint32;//          signed int
+typedef  int32_t  sdword;// signed int
+#if !defined(_MCU_Intel8051)
 	typedef uint64_t  qword;// unsigned long long int
 	typedef uint64_t  uint64;//[trend] unsigned long long int
 	typedef  int64_t  sint64;//          signed long long int
 	typedef  int64_t  sqword;// signed long long int
-	typedef size_t    stduint;
-	typedef ptrdiff_t stdint ;
-	//
-	#define valword(x) (*(word*)&(x))// will be template overload as C++ version
 #endif
+typedef size_t    stduint;
+typedef ptrdiff_t stdint ;
+//
+#define valword(x) (*(word*)&(x))// will be template overload as C++ version
 
 // ---- ---- ---- ---- inttypes.h ---- ---- ---- ----
 
@@ -278,7 +319,16 @@
 #ifndef minof//(a,b)
 #define minof(a,b) ((a)<(b)?(a):(b))
 #endif
+#ifndef absof//(a,b)
+#define absof(a) ((a)<0?-(a):(a))
+#endif
 
+#define nil 0
+#define NUL 0
+#if !defined(_INC_CPP) && !defined(__cplusplus)
+	// #define nullptr (void*)0 // before C17
+#endif
+	
 // Intel Assembly Style
 #define MAX(d,s) if((d)<(s)){(d)=(s);}
 #define MIN(d,s) if((d)>(s)){(d)=(s);}
@@ -286,6 +336,12 @@
 #define isodd(x) ((x)&1)
 #define iseven(x) !((x)&1)
 
+#define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
+
+#define movDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
+
+extern stduint _size_decimal;
+	
 // More:
 
 // para:direction [0:ascend 1:descend]

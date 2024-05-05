@@ -26,10 +26,10 @@
 #ifndef _INC_DEVICE_RCC_X
 #define _INC_DEVICE_RCC_X
 
-#include "../../alice"
+#include "../../unisym"
 #include "../../reference"
 
-#ifdef _MCU_STM32F103VE
+#ifdef _MCU_STM32F10x
 
 // !!! All unchecked
 
@@ -41,12 +41,11 @@ stm32f1xx_hal_rcc.c
 [ ]#define MCO1_PIN              GPIO_PIN_8
 [ ]static void RCC_Delay(uint32_t mdelay);
 [ ]HAL_StatusTypeDef HAL_RCC_DeInit(void)
-[ ]HAL_StatusTypeDef HAL_RCC_OscConfig(RCC_OscInitTypeDef  *RCC_OscInitStruct)
+[*]HAL_StatusTypeDef HAL_RCC_OscConfig(RCC_OscInitTypeDef  *RCC_OscInitStruct)
    - TODO HSI
    - TODO LSI
    - TODO LSE
-   - TODO-SOON PLL
-[ ]HAL_StatusTypeDef HAL_RCC_ClockConfig(RCC_ClkInitTypeDef  *RCC_ClkInitStruct, uint32_t FLatency)
+[*]HAL_StatusTypeDef HAL_RCC_ClockConfig(RCC_ClkInitTypeDef  *RCC_ClkInitStruct, uint32_t FLatency)
 [ ]void HAL_RCC_MCOConfig(uint32_t RCC_MCOx, uint32_t RCC_MCOSource, uint32_t RCC_MCODiv)
 [ ]void HAL_RCC_EnableCSS(void)
 [ ]void HAL_RCC_DisableCSS(void)
@@ -77,17 +76,62 @@ stm32f1xx_hal_rcc_ex.h
 #include "RCCPLL"
 
 namespace uni {
+	// use namespace to be comopatible with old C++ compilers
+	namespace FlashLatency {
+		enum FlashLatency {
+			LATENCY_0 = 0,
+			LATENCY_1 = 1,
+			LATENCY_2 = 2
+		};
+	}
 	class RCC_t {
 	protected:
+		//{TODO} Reference Conreg(_RCC_CR); Reference Cfgreg(_RCC_CFGR); ...
+		//{TEMP} Position Flash here:
+		FlashLatency::FlashLatency getLatency() {
+			Reference _FLASH_ACReg(0x40022000);
+			return (FlashLatency::FlashLatency)(_FLASH_ACReg & 0x7);
+		}
+		void setLatency(FlashLatency::FlashLatency FLatency) {
+			Reference _FLASH_ACReg(0x40022000);
+			_FLASH_ACReg = (_FLASH_ACReg & ~(0x7)) | FLatency;
+		}
+
 	public:
 		RCCOscillatorHSE HSE;
 		RCCOscillatorHSI HSI;
 		RCCOscillatorLSE LSE;
 		RCCOscillatorLSI LSI;
 		RCCPLL PLL;
-
+		RCCSystemClock Sysclock;
+		RCCAHB AHB;
+		RCCAPB APB1, APB2;
+		//
+		const Reference Cfgreg;
+		//
+		RCC_t() : APB1(1), APB2(2), Cfgreg(_RCC_CFGR) {
+			
+		}
+		//
+		bool setFlash(bool decrease = false, FlashLatency::FlashLatency FLatency = FlashLatency::LATENCY_2) { // param in order of using frequence, under C++ rules
+			//{TODO} HAL-macro FLASH_ACR_LATENCY
+			// "Increasing the number of wait states because of higher CPU frequency"
+			// "Decreasing the number of wait states because of lower CPU frequency"
+			if (FLatency == getLatency()) return true;
+			if ((FLatency > getLatency()) ^ decrease) // (>)^fasle=origin(>)
+				setLatency(FLatency);
+			return FLatency == getLatency();
+		}
 	};
+
+	//
+	extern RCC_t RCC;
 }
+
+#elif defined(_MCU_STM32F4x)
+
+#include "RCCAddress"
+
 
 #endif
 #endif

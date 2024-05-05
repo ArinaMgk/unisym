@@ -26,11 +26,10 @@
 //{Potential Issue} Memory Leak (malc_count) - Have not tested.
 
 #include "../../inc/c/regar.h"
-#include "../../inc/c/alice.h"
+#include "../../inc/c/stdinc.h"
 #include "../../inc/c/ustring.h"
-#include "../../inc/c/aldbg.h"
+
 #include <stdlib.h>
-#include <stdint.h>
 #include <math.h>
 #include <float.h>
 
@@ -40,9 +39,6 @@ void _size_decimal_get();
 extern char* arna_tempor;
 extern char* arna_tmpslv;
 extern char* arna_tmpext;
-
-// recommend from ustring into alice
-#define AddDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)
 
 //---- ---- ---- ---- Single Style ---- ---- ---- ---- 
 

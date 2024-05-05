@@ -32,7 +32,7 @@
 #ifndef _INC_DNODE
 #define _INC_DNODE
 
-#include "host.h"// for using allocation
+#include "stdinc.h"// for using allocation
 
 #ifdef _INC_CPP
 namespace uni {

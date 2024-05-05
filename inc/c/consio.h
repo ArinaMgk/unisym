@@ -23,13 +23,40 @@
 
 #ifndef _INC_CONSIO
 #define _INC_CONSIO
+
+#include "stdinc.h"
+#include <stdarg.h>
+
+void curset(word posi);
+word curget(void);
+void scrrol(word lines);
+void outtxt(const char *str, dword len);
+#define outs(a) outtxt(a, ~(dword)0)
+void outc(const char chr);
+
+void outi8hex(const byte inp);
+void outi16hex(const word inp);
+void outi32hex(const dword inp);
+void outi64hex(const uint64 inp);
+void outidec(int xx, int base, int sign);
+void outsfmtlst(const char* fmt, va_list lst);
+void outsfmt(const char* fmt, ...);
+
+#if defined(_WinNT) | defined(_Linux)
 #include <stdio.h>
+#elif defined(_MCCAx86)
+//
+#endif
+
+// ---- ---- ---- ----
 
 // Return the length of the words excluding terminating zero but "limit" considers it.
 size_t ConScanLine(char* buf, size_t limit);
 
+//
 void ConClearScreen(void);
 
+//
 #if defined(_Linux)
 //
 static inline void ConCursorMoveUp(unsigned short dif)
@@ -60,15 +87,17 @@ void ConCursorMoveRight(unsigned short dif);
 
 
 //
+#if defined(_Linux)
 static inline void ConCursorReset(void)
 {
 	printf("\033[H");
 }
+#endif
 
-
+//
 #if defined(_WinNT)
 void ConCursor(unsigned short col, unsigned short row);
-#else// defined(_Linux)
+#elif defined(_Linux)
 //
 static inline void ConCursor(unsigned short col, unsigned short row)
 {
@@ -78,15 +107,17 @@ static inline void ConCursor(unsigned short col, unsigned short row)
 
 
 //
+#if defined(_Linux)
 static inline void ConCursorShow(void)
 {
 	printf("\033[?25h");
 }
+#endif
 
-//
+// ConClear
 #if defined(_WinNT)
 void ConClear(void);
-#else// defined(_Linux)
+#elif defined(_Linux)
 //
 static inline void ConClear(void)
 {
@@ -96,10 +127,12 @@ static inline void ConClear(void)
 
 
 //
+#if defined(_Linux)
 static inline void ConCursorHide(void)
 {
 	printf("\033[?25l");
 }
+#endif
 
 #if defined(_Linux)
 // The style is for the brush

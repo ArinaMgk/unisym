@@ -52,7 +52,7 @@ dg-publish: true
 | timer           | Date and time                                   | ripen |
 | video           | Video display                                   | ripen |
 
-| Chrome   | Description   | State |
+| Module   | Description   | State |
 | -------- | ------------- | ----- |
 | contable | Console Table | ripen |
 | consio   | Console IO    | ripen |

@@ -19,7 +19,7 @@
 	limitations under the License.
 */
 
-#include <alice.h>
+#include <stdinc.h>
 #include <stdio.h>
 #include <version/version.h>
 

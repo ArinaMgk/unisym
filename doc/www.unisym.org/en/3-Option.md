@@ -5,19 +5,22 @@ dg-publish: true
 
 ### Option Switch
 
+**option**: `arch`+`host`+`bitmode`
+- Architecture Class :chart: like "`_ARC_x86`" (for example, this macro may not exist, so do below)
+- Chip Class :chart: "`_CPU_AMDRyzen7_5800H_Radeon`"
+- Board Class :x:
+- Host Class :chart: "`Win32`"
+- Devkit Option :chart: "`_BUILD_MSVC`"
+
 #### > Soft Option Control
 
 - `_dbg`(old style) <=> `_DEBUG`
 
 - `_AUTO_INCLUDE` will include ASM or C codes
 
-- `_ASSERT_STRICT`
+- `_ASSERT_STRICT`, `_LIB_DEBUG_CHECK_MORE`
 
 - `_ASSERT_NONE`
-
-- `_ARN_FLAG_DISABLE` Control status variables and `aflag`.
-- `_ARN_FLAG_ENABLE` 
-- `_LIB_DEBUG_CHECK_MORE`
 
 #### > Kit
 
@@ -25,9 +28,21 @@ dg-publish: true
 
 - `_BUILD_Qt` 
 
-#### > Processor and Controller
+#### > Architecture
 
-- `_INC_MCU_STM32F103VE` 
+- `_ARC_x86` 
+    - this equals `3` : `_ARC_i80386`
+
+##### > Instruction Set (going to be abandoned)
+
+- p_i386
+- p_i8051
+- p_CortexM0
+
+#### > Processor and Controller Unit
+
+- `_MCU_STM32F103VE`
+- `_CPU_AMDRyzen7_5800H_Radeon`
 
 #### > Platform and Environment
 
@@ -35,16 +50,29 @@ Sub-option of CPU or MCU
 
 > `ENV(FREE)` are compatible with `ENV(HOST)` 
 >
-> The respective documents are `alice.h` and `host.h` 
+> The respective documents are `stdinc.h` and `stdinc.h` 
 
 runtime host environment
 
-- `_WinNT`
-- `_Linux`
+Trend: The macro name to the left of the colon is for internal use, which is in format "_Architecture_Host_Bitmode"; the user should use the one to the right of the colon
+
+- `_Intelx86_Windows_32`
+- `_Intelx86o64_Windows_64`
+- `_Intelx86_Windows_16`
+- `_Intelx86_Linux_32`
+- `_Intelx86o64_Linux_64`
+- `_Intelx86_Mcca_32`
+- `_Intelx86_Mcca_16`
+
+"o" is "or".
+
+*pref*: means the architecture. If this has not set (not recommended), `Intelx86` or `Intelx86o64` will be applied. Below are potential prefixes.
+- `Intelx86`
+- `Riscv64`
 
 environment
 
-- `_BINARY`
+- `__BITS__`
     - 8
     - 16
     - 32

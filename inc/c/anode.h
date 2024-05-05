@@ -23,7 +23,7 @@
 #ifndef _INC_XNODE
 #define _INC_XNODE
 
-#include "alice.h"
+#include "stdinc.h"
 
 // Difference: ANode has address of its parent.
 typedef struct ArnOldStyleNode

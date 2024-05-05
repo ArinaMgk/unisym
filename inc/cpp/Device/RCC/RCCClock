@@ -26,11 +26,10 @@
 #ifndef _INC_DEVICE_RCC_Clock_X
 #define _INC_DEVICE_RCC_Clock_X
 
-#include "../../alice"
 #include "../../reference"
 #include "RCCAddress"
 
-#ifdef _MCU_STM32F103VE
+#ifdef _MCU_STM32F10x
 
 namespace uni {
 	namespace SysclkSource {
@@ -44,7 +43,14 @@ namespace uni {
 	class RCCSystemClock {
 		// source
 	protected:
-		 
+		SysclkSource::RCCSysclockSource getSource() {
+			Reference Cfgreg(_RCC_CFGR);
+			return (SysclkSource::RCCSysclockSource)(Cfgreg & _RCC_CFGR_MASK_SCLKSWSource);
+		}
+		void setSource(SysclkSource::RCCSysclockSource source) {
+			Reference Cfgreg(_RCC_CFGR);
+			Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_Switch) | (((stduint)source << _RCC_CFGR_POSI_Switch) >> 2);
+		}
 	public:
 		RCCSystemClock() {
 
@@ -53,19 +59,14 @@ namespace uni {
 			Reference _RCC_ConfigRegister(_RCC_CFGR);
 			return (SysclkSource::RCCSysclockSource)(_RCC_ConfigRegister & _RCC_CFGR_MASK_SCLKSWSource);
 		}
+		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL);
 	};
 
 	class RCCPeriphClock {
 		
 	};
-
-	class RCCHCLK {
-		
-	};
-
-	class RCCPCLK {
-		
-	};
+	//class RCCHCLK {
+	//class RCCPCLK {
 
 }
 

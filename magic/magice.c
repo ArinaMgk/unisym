@@ -23,40 +23,56 @@
 	limitations under the License.
 */
 
+#include "../inc/c/stdinc.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include "../inc/c/compile/asmcode.h"
 
-//{} Style: Intel-ASM
-
-static const char *_ASM_GLOBAL[] = {
-	"GLOBAL main ; default entry",
-	".global main # default entry",
-};
-static const char *_ASM_MOV[] = {
-	"mov eax, %d",
-	"li a0, %d",
-};
-
-enum platform_t
-{
-	Intelx86_32bit = 0,// AASM
-	RISC_V,// RISC-V-ASM
-};
+enum Architecture_t platform = Architecture_RISCV64;
+// AASM Architecture_x86     
+// GAS  Architecture_RISCV64
 
 //[Update] Accept + and - operators
 
 int main(int argc, char **argv)
 {
-	enum platform_t platform = RISC_V;
 	if (argc != 2)
 	{
 		fprintf(stderr, "%s: invalid count of arguments\n", argv[0]);
 		return 1;
 	}
-	puts(_ASM_GLOBAL[platform]);// "GLOBAL"
+	printf("%s%s\n", _AUT_HEAD[platform], _AUT_ARCHITECT[platform]);
+	puts(_ASM_GLOBAL[platform]); // GLOBAL main
 	puts("main:");
+
+	// make into structure: num (op num) (op num)...
 	printf("\t");
-	printf(_ASM_MOV[platform], atoi(argv[1]));
-	printf("\n");
-	puts("\tret");
+	char *p = argv[1];
+	printf(_ASM_MOV[platform], strtol(p, &p, 10));
+
+	while (*p)
+	{
+		if (*p == '+')
+		{
+			++p; // add its operand
+			printf("\t");
+			printf(_ASM_ADD[platform], strtol(p, &p, 10));
+		}
+		else if (*p == '-')
+		{
+			++p; // add its negative operand
+			printf("\t");
+			printf(_ASM_ADD[platform], -strtol(p, &p, 10));
+		}
+		else if (isspace(*p))
+			++p;
+		else
+		{
+			fprintf(stderr, "%s: invalid character '%c'\n", argv[0], *p);
+			return 1;
+		}
+	}
+	printf("\t");
+	puts(_ASM_RET[platform]);
 }

@@ -29,7 +29,7 @@
 #define _INC_CPP
 #endif
 
-#include "../c/alice.h"
+#include "../c/stdinc.h"
 
 namespace uni {
 

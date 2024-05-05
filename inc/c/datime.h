@@ -23,7 +23,7 @@
 #ifndef _LIB_DATETIME
 #define _LIB_DATETIME
 
-#include "alice.h"
+#include "stdinc.h"
 #include <time.h>
 
 //{TODO} utime.h
@@ -50,7 +50,7 @@ unsigned weekday(word year, word month, word day);
 #define moondays(year, month) (30 + (((month)&1) ^ ((month)>7)) - ((month)==2?2-isLeapYear(year):0))
 
 //
-llong POSIXGetSeconds(struct tm* tm);
+uint64 POSIXGetSeconds(struct tm* tm);
 
 // Reverse function of herspan()
 void fromherp(stdint herspans, word* year, word* month, word* day);

@@ -8,16 +8,12 @@
 #ifndef _INC_DEVICE_GPIO_X
 #define _INC_DEVICE_GPIO_X
 
-#include "../cinc"
-#include "../../c/alice.h"
-#include "../../c/binary.h"
-#include "../cinc"
+#include "../unisym"
+#include "../binary"
 #include "../reference"
 
-#ifdef _MCU_STM32F103VE
-
 #if !(_typedest_len==4 && _typeaddr_len==4)
-#error "! You may need add optional macro `_MCU_STM32F103VE`"
+#error "! You may need add optional macro `_MCU_STM32F103VE` or include `STM32F103VEx`"
 #endif
 
 // 00000000 maybe a valid address of someone
@@ -25,9 +21,10 @@
 // 202404112300: I tried use std::bind(), C++11 in ARMCC-v6, but it make MCU did not work! So do not use Property STYLE!
 
 //{TODO} compare with HAL and fix this
-
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
 namespace uni {
 	//! enum can be like namespace is since C++11
+#if defined(_MCU_STM32F10x)
 	namespace GPIOMode {
 		enum Mode {
 			OUT_PushPull     = 0 << 2, 
@@ -71,9 +68,9 @@ namespace uni {
 		uint32 EnablPosi;// of ClockPort
 	public:
 		Reference ClockPort;
-		Reference CnrglPort;// Control Register Low, default 0x44444444
-		Reference InnpdPort;// Input Data Register, default 0x0000XXXX
-		Reference OutpdPort;// Output Data Register, default 0x00000000
+		Reference CnrglPort;// Control Register Low, default 0x44444444 _MCU_STM32F10x
+		Reference InnpdPort;// Input Data Register, default 0x0000XXXX _MCU_STM32F10x
+		Reference OutpdPort;// Output Data Register, default 0x00000000 _MCU_STM32F10x
 		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
 		void enClock(bool enable = true) {
 			BitSet(ClockPort, EnablPosi);
@@ -82,6 +79,75 @@ namespace uni {
 			return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
 		}
 	};
+
+#elif defined(_MCU_STM32F4x)
+	namespace GPIOMode {
+		enum Mode {
+			// 20240502{TEMP} use [MODER[1:0],OTYPTR[i]] 3-bits to decide
+			OUT_PushPull = 0x2,    //010 with P-up P-dn capability
+			OUT_OpenDrain = 0x3,   //011 with P-up P-dn capability
+			OUT_AF_PushPull = 0x4, //100 Alternate Function PP with P-up P-dn capability
+			OUT_AF_OpenDrain = 0x5,//101 Alternate Function OD with P-up P-dn capability
+			IN_Analog = 0x6,   //11x
+			IN_Floating = 0x0, //00x default state
+			IN_Pull = 0x1,     //00x, LSB means not non-pull
+			IN_KEPT
+		};
+	}
+	namespace GPIOSpeed {
+		enum Speed {
+			Atmost_Low = 0,
+			Atmost_Medium = 1,
+			Atmost_High = 2,
+			Atmost_Veryhigh = 3,
+		};
+	}
+
+	class GeneralPurposeInputOutputPin;
+	class GeneralPurposeInputOutputPort;
+	//
+	class GeneralPurposeInputOutputPin {
+		GeneralPurposeInputOutputPort* parent;
+		uint32 bitposi;
+		bool innput;
+	public:
+		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
+		GeneralPurposeInputOutputPin& operator=(bool val);
+		operator bool();
+		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_Low);
+		void setPull(bool pullup);// If you do not pull-up or pull-down, that may be floating
+		void Toggle();
+	};
+
+	class GeneralPurposeInputOutputPort {
+		GeneralPurposeInputOutputPin OutpdPins[16];
+		GeneralPurposeInputOutputPin ERR;
+		uint32 EnablPosi;// of ClockPort
+	public:
+		Reference ClockPort;
+		Reference InnpdPort;
+		Reference OutpdPort;
+		//
+		Reference ModerPort;
+		Reference OtypePort;// OTYPER
+		Reference SpeedPort;// OSPEEDR
+		Reference PullsPort;// PUPDR
+		// Reference BSRR
+		// Reference LCKR
+		// Reference AFRL,AFRH
+		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
+		void enClock(bool enable = true) {
+			BitSet(ClockPort, EnablPosi);
+		}
+		GeneralPurposeInputOutputPin& operator[](uint8 pinid) {
+			return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
+		}
+	};
+
+
+#endif
+
+
 	extern GeneralPurposeInputOutputPort GPIOA;
 	extern GeneralPurposeInputOutputPort GPIOB;
 	extern GeneralPurposeInputOutputPort GPIOC;

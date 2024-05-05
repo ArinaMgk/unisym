@@ -17,7 +17,7 @@ void DrawCalendar(word year, word moon, byte crtday)
 {
 	unsigned char week_day, mondays;
 	if (moon == 0 || moon > 12) return;
-	llong pasts = herspan(year, moon, 1);
+	uint64 pasts = herspan(year, moon, 1);
 	week_day = weekday(year, moon, 1);
 	mondays = moondays(year, moon);
 	printf("\n");

@@ -26,23 +26,77 @@
 #ifndef _INC_DEVICE_RCC_PLL_X
 #define _INC_DEVICE_RCC_PLL_X
 
-#include "../../alice"
 #include "../../reference"
+#include "RCCAddress"
 
-#ifdef _MCU_STM32F103VE
+#ifdef _MCU_STM32F10x
 
 namespace uni {
 	namespace PLLSource {
 		enum RCCPLLClockSource {
 			HSI_div2 = 0x00000000, // 0b0000
 			HSE      = 0x00010000, // 0b0100 RCC_CFGR_PLLSRC
-			Unknown
+			Unknown,
+			Mask     = HSE
 		};
 	}
 	class RCCPLL {
+	private:
+		void setSource(PLLSource::RCCPLLClockSource source) {
+			Reference Cfgreg(_RCC_CFGR);
+			Cfgreg &= ~(uint32)PLLSource::Mask;
+			Cfgreg |= (uint32)source;
+		}
+		void enAble(bool ena = true) {
+			Reference Conreg(_RCC_CR);
+			ena ? Conreg.setof(_RCC_CR_POSI_PLLEnable) : Conreg.rstof(_RCC_CR_POSI_PLLEnable);
+			while (Conreg.bitof(_RCC_CR_POSI_PLLReady) ^ ena); // wait for PLL locked
+		}
 	public:
 		bool setMode(bool state_on = true, PLLSource::RCCPLLClockSource source = PLLSource::HSE, uint32 mulfactor = 9) {
-			// ...
+			//{TOCHK} Can this be used twice or more ?
+			if (RCCSystemClock::CurrentSource() == SysclkSource::PLL) {
+				return false;//{TEMP}
+			}
+			else {
+				Reference Conreg(_RCC_CR);
+				Reference Cfgreg(_RCC_CFGR);
+				if (state_on) {
+					//{TODO} use Tick to process
+					enAble(false);
+					//{TODO} HSE call this to set divr
+					// - prediv can be written only when the PLL is disabled.
+					// - {TEMP} div-one
+					if (source == PLLSource::HSE) {
+						//{TODO} RCC_CFGR2_PREDIV1SRC
+						const uint32 pred = 1;//{TEMP}
+						if (pred < 2) {
+							if (pred) Cfgreg.setof(_RCC_CFGR_POSI_PLL_XTPRE);
+							else Cfgreg.rstof(_RCC_CFGR_POSI_PLL_XTPRE);
+						}
+						// Configure the main PLL clock source
+						setSource(source);
+						// Configure the main PLL multiplication factors
+						if (mulfactor <= 9) {
+							mulfactor -= 2;
+							Cfgreg &= ~(uint32)(0xF << _RCC_CR_POSI_PLLMUL_LSB);
+							Cfgreg |= (uint32)(mulfactor << _RCC_CR_POSI_PLLMUL_LSB);
+						}
+						// Enable the main PLL
+						enAble();
+					}
+				}
+				else {
+					enAble(false);
+				}
+				return true;
+			}
+		}
+
+		// 
+		static bool isReady() {
+			Reference Conreg(_RCC_CR);
+			return Conreg.bitof(_RCC_CR_POSI_PLLReady);
 		}
 
 		static PLLSource::RCCPLLClockSource CurrentSource() {

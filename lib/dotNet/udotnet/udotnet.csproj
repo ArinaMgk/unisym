@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Unisym</AssemblyName>
+    <RootNamespace>Unisym</RootNamespace>
+    <PackageId>Unisym</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageOutputPath>$(OutputPath)</PackageOutputPath>
+    <BaseOutputPath>E:\PROJ\SVGN\_bin</BaseOutputPath>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <PackageIcon>unisym.20240306.png</PackageIcon>
+    <IntermediateOutputPath>..\..\..\..\..\_obj\udotnet\</IntermediateOutputPath> <!-- ./obj/ is fixed -->
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\.picture\unisym.20240306.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

@@ -26,19 +26,18 @@
 #ifndef _INC_DEVICE_RCC_Oscillator_X
 #define _INC_DEVICE_RCC_Oscillator_X
 
-#include "../../alice"
 #include "../../reference"
 #include "RCCClock"
 #include "RCCPLL"
 
-#ifdef _MCU_STM32F103VE
+#ifdef _MCU_STM32F10x
 
 namespace uni {
 	class RCCOscillator {
 	protected:
 		uni::Reference addr;
 	public:
-		
+		RCCOscillator() : addr(0) {} 
 	};
 
 	namespace HSEState {
@@ -49,8 +48,17 @@ namespace uni {
 		};
 	}
 	class RCCOscillatorHSE : public RCCOscillator {
+	protected:
+		uint32 predivr;
 	public:
-
+		friend class RCCPLL;
+		//
+		RCCOscillatorHSE() : predivr(1) {}
+		// 
+		static bool isReady() {
+			Reference Conreg(_RCC_CR);
+			return Conreg.bitof(_RCC_CR_POSI_HSEReady);
+		}
 		// return success.
 		bool setMode(HSEState::RCCOscillatorHSEState state = HSEState::Enable, uint32 predivr = 1) {
 			if ((RCCSystemClock::CurrentSource() == SysclkSource::HSE) || \
@@ -58,8 +66,8 @@ namespace uni {
 				(RCCPLL::CurrentSource() == PLLSource::HSE)) { // Condition of disable
 				//{TODO} Cancel Sysclock
 				return false;
-				if (!Reference(_RCC_CR)[_RCC_CR_HSEReady])
-					return false;
+				//if (!Reference(_RCC_CR).bitof(_RCC_CR_POSI_HSEReady))
+				//	return false;
 			}
 			else {
 				Reference Ctrlreg(_RCC_CR);
@@ -76,11 +84,11 @@ namespace uni {
 					break;
 				}
 				//
-				Reference HSEReady(_RCC_CR);
-				while (HSEReady[_RCC_CR_HSEReady]);
+				while (!isReady());
 				//{TODO} Check the HSE State by ticks
 				//{TODO} Tick Delay
-				//{TEMP} Omit predivr
+				this->predivr = predivr;
+				return true;
 			}
 		}
 	};
@@ -88,6 +96,11 @@ namespace uni {
 
 	class RCCOscillatorHSI : public RCCOscillator{
 	public:
+		// 
+		static bool isReady() {
+			Reference Conreg(_RCC_CR);
+			return Conreg.bitof(_RCC_CR_POSI_HSIReady);
+		}
 		//HSICalibrationValue
 	};
 	typedef RCCOscillatorHSI HSI_t;

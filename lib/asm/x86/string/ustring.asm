@@ -34,3 +34,6 @@ StrLength:
 	POP EDI
 RET
 
+;StrIndex
+	; REPNZ SCASB
+	; JZ <found>

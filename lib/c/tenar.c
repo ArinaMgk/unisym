@@ -21,7 +21,7 @@
 */
 
 #include <stdlib.h>
-#include "../../inc/c/aldbg.h"
+#include "../../inc/c/stdinc.h"
 #include "../../inc/c/tenar.h"
 
 /// /// /// {TODO CHECK} /// /// ///

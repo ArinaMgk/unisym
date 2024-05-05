@@ -24,6 +24,7 @@
 #define _INC_BASIC_X
 
 #include "./unisym"
+#include "./binary"
 #include "./string"
 #include "./coear"
 #include "./nodes"

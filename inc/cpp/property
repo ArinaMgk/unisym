@@ -26,7 +26,7 @@
 #define _INC_PROPERTY
 
 #include "cinc"
-#include "../c/alice.h"
+#include "../c/stdinc.h"
 #include "cinc"
 
 #include <functional>

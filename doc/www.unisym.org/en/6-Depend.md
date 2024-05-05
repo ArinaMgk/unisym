@@ -1,19 +1,23 @@
 ---
 her-note: false
 dg-publish: true
+charset: UTF-8
 ---
 
-## Depend
+Free-stand Environment:
+- Core
+- Math
 
-### By module 
+Hosted Environment:
+- Host
 
-
+## Depend Map
 
 `[A] [Aloc]`Means containing some functions that need to **allocate** the memory space. 
 
 
-
-```mermaid
+to renew :
+```
 graph LR
 	%% UNISYM
 	%% @ArinaMgk
@@ -42,4 +46,68 @@ graph LR
 	node-->error
 	stdio-->error
 ```
+
+
+### Syst
+
+Syst = Arch(destination system), Core(common system) and Devk(developing system)
+
+> 20240502: With the development of UNISYM, the including files of Core is bound to be complex and huge, it is necessary to ask users to use specific file but the only `stdinc`, more to see in `5-Compatible.md`. 
+
+- [ ] make these true since next generation (Release-U2025XXX):
+	- [ ] Arch + Devk --include--> Core
+
+>Why there will be Archi and Devk?
+>: For leak of determinism in language and compiler-system, e.g. the length of `int`, while Magice make these built-in rules so we need not provide `Syst` in UNISYM library but Magice-Compiler-Chain.
+
+>Is Core dependent?
+>: She is a abstract and independent completely, you can also take it `Orig` or `Love`❤.
+
+>Why UNISYM update slowly and a bit complex?
+>: There were few contributors and they were busy with living and feeding their families.
+
+```mermaid
+graph LR
+	alice[アリス]
+	arch[archit.h]
+	arch-->alice
+	arch-->calling[call.h]
+	arch-->flag.h
+	proctrl[proctrl.h]
+	proctrl--+(x86.h,i8051.h...)-->floating.h-->integer.h-->arch
+	proctrl-->uoption.h
+	stdinc[stdinc.h]
+	stdinc--"_BEBUG? +debug.h"-->proctrl
+	unisym-->stdinc
+```
+
+Next generation
+
+```mermaid
+graph LR
+	alice[CORE]
+	arch["ARCH: archit.h"]
+	arch-->alice
+	arch-->flag.h
+	proctrl[proctrl.h]-->port/memory.h
+	proctrl--+(x86.h,i8051.h...)-->arch-->dattype.h
+	stdinc["stdinc(.h)"]
+	stdinc--"_BEBUG? +debug.h"-->proctrl
+	specific-->stdinc
+	specific-->DEVK-->calling[calling.h]
+```
+
+
+### Bootstrapping Circuit
+
+```mermaid
+graph LR
+	Mcca["Mecocoa(or other ENV)"]--MccaBuiltUnisym&MccaBuiltinMagiceChain-->MagiceChain--ENV=MCCA-->Mcca
+```
+
+### Arithmetic
+
+- CoeAr
+- Builtin-floating functions
+
 

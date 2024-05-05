@@ -26,26 +26,37 @@
 #ifndef _INC_DEVICE_RCC_Prescaler_X
 #define _INC_DEVICE_RCC_Prescaler_X
 
-#include "../../alice"
 #include "../../reference"
 
-#ifdef _MCU_STM32F103VE
+#ifdef _MCU_STM32F10x
 
 namespace uni {
 	class RCCPrescaler {
-		virtual void TODO() = 0;
+		
 	};
 
-	class RCCAHB : public RCCPrescaler {
-		virtual void TODO() {}
+	class RCCAHB : public RCCPrescaler { // HCLK
+	public:
+		// available [0~8]. For example, if divexpo is 1, the divr 2^1 will be applied.
+		bool setMode(uint8 divexpo = 0, bool usingPCLK1 = true, bool usingPCLK2 = true);
 	};
 
-	class RCCAPB1 : public RCCPrescaler {
-		virtual void TODO() {}
-	};
-
-	class RCCAPB2 : public RCCPrescaler {
-		virtual void TODO() {}
+	class RCCAPB : public RCCPrescaler { // PCLK 1/2 
+	protected:
+		stduint PCLK_ID;
+	public:
+		RCCAPB(stduint PCLK_ID) : PCLK_ID((PCLK_ID - 1) & 1) {
+			// PCLK_ID can only be 1 or 2
+		}
+		//
+		bool setMode(uint8 divexpo) {
+			Reference Cfgreg(_RCC_CFGR);
+			if (divexpo >= 5) return false;
+			uint32 bitposi = 8 + PCLK_ID * 3;
+			if (divexpo) divexpo = (divexpo - 1) | 0x4;
+			Cfgreg = (Cfgreg & ~(uint32)(0x7 << bitposi)) | (divexpo << bitposi);
+			return true;
+		}
 	};
 
 

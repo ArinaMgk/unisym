@@ -29,12 +29,7 @@
 #ifndef _INC_CHIP_HD44780
 #define _INC_CHIP_HD44780
 
-#if defined(_IMPLEMENT_SDCC8051)
-#include "../../../inc/c/MCU/Intel/sdcc8051.h"
-#elif defined(_IMPLEMENT_KEIL8051)
-#include "../../../inc/c/MCU/Intel/keil8051.h"
-#else
-#endif
+#include "../stdinc.h"
 
 void HD44780_Out(byte cmddat, byte notcmd);
 

@@ -1,7 +1,5 @@
 
-#include "../../inc/cpp/cinc"
-#include "../../inc/c/aldbg.h"
-#include "../../inc/cpp/cinc"
+#include "../../inc/cpp/unisym"
 
 #ifdef _DEBUG
 //{TOIN} memory.cpp

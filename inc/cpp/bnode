@@ -1,6 +1,6 @@
 // ASCII CPP TAB4 CRLF
 // Docutitle: Binary Tree Node Chain, not Token-Node-Chain!
-// Datecheck: 20240416 ~ .
+// Datecheck: 20240416 ~ 20240421
 // Developer: @dosconio @ UNISYM
 // Attribute: [Allocate]
 // Reference: None
@@ -23,37 +23,55 @@
 	limitations under the License.
 */
 
-#if !defined(_INC_BinaryNode_X)
-#define _INC_BinaryNode_X
+#if !defined(_INC__BITS__Node_X)
+#define _INC__BITS__Node_X
 
-#include "alice"
+#include "unisym"
 #include "dnode"
+#include "math.h"
 
 namespace uni {
 	class Bnode : public Dnode {
 	public:
 		Bnode*& left;
 		Bnode*& next;
-		Bnode(void* content = nullptr) : left((Bnode*&)Dnode::left), next((Bnode*&)Dnode::next) {
+		Bnode() : left((Bnode*&)Dnode::left), next((Bnode*&)Dnode::next) {
 			next = (nullptr);
-			offs = (content);
+			offs = (nullptr);
 			left = (nullptr);
 			type = (0);
 		}
+		template <typename type0> Bnode(const type0& cont) : Bnode() {
+			offs = new type0(cont);
+		}
 		~Bnode() {
-			if (left != nullptr)
-				delete left;
-			if (next != nullptr)
-				delete next;
 		}
-		void Append(void* off, bool onleft = false) {
-			(onleft ? left : next) = new Bnode(off);
+
+		void Append(pureptr_t off, bool onleft = false) {
+			((onleft ? left : next) = new Bnode())->offs = off;
 		}
-		void Append(void* offlef, void* offnex) {
+		template <typename type0> void Append(const type0& cont, bool onleft = false) {
+			(onleft ? left : next) = new Bnode(cont);
+		}
+		void Append(pureptr_t offlef, pureptr_t offnex) {
 			Append(offlef, true);
 			Append(offnex, false);
 		}
+		template <typename type0> void Append(const type0& a, const type0& b) {
+			// Append(new type0(a), new type0(b));//{CAUSE} C1202 in MSVC
+			Append(a, true);
+			Append(b, false);
+		}
 
+		void Swap(Bnode& other) {
+			xchgptr(left, other.left);
+			xchgptr(next, other.next);
+		}
+		template <typename type0> type0& getContent() {
+			type0* cont = (type0*)this->offs;
+			if (nullptr == cont) throw nullptr;// !!!
+			return *cont;
+		}
 	};
 
 	// parallel with `dnode`
@@ -65,63 +83,86 @@ namespace uni {
 		Bnode* root_node;
 		//{} Bnode* last_node;//{Optional}
 	public:
-		BnodeChain(void* content) : /* node_count(0),*/ root_node(this), /* last_node(nullptr),*/ Bnode::Bnode(content) { }
-		~BnodeChain() { }
+		bool address_mode;
+		bool available;
+		BnodeChain(void* cont = nullptr) : /* node_count(0),*/ root_node(this), /* last_node(nullptr),*/ Bnode::Bnode(), address_mode(false) { 
+			offs = cont; 
+			available = true;
+		}
+		template <typename type0> BnodeChain(const type0& cont) : BnodeChain() {
+			offs = new type0(cont);
+		}
+		~BnodeChain() {
+			if (available)
+				Remove(Root());
+		}
+
 		enum TraversalOrder {
 			Preorder,
 			Inorder,
 			Postorder,
 		};
 		//
+		template <typename type0> void Remove(Bnode* item = (Bnode*)~(stduint)0) {
+			nulrecurs(item, Root(), );
+			Remove<type0>(item->left); //delete left;
+			Remove<type0>(item->next); //delete left;
+			item->left = item->next = nullptr;
+			if (address_mode);
+			else delete (type0*)item->offs;// {TODO} self-def func, from Nnode
+			if (root_node != item) mfree(item);
+			else available = false;
+		}
+		void Remove(Bnode* item = (Bnode*)~(stduint)0) {
+			nulrecurs(item, Root(), );
+			Remove(item->left); //delete left;
+			Remove(item->next); //delete left;
+			item->left = item->next = nullptr;
+			if (address_mode);
+			else mfree(item->offs);// {TODO} self-def func, from Nnode
+			if (root_node != item) mfree(item);
+			else available = false;
+		}
+		//
 		Bnode* Root() { return this; }
 		//{} stduint Count() { return node_count; }
 
 		// just print them on stdio
 		// - procfunc return whether to continue
-		void Traversal(TraversalOrder order = Preorder, bool (*procfunc)(Bnode*) = 0, Bnode* starter = (Bnode*)~(stduint)0) {
-			if (!~(stduint)starter) starter = this->root_node;
-			if (nullptr == starter) return;
-			switch (order) {
-			case Preorder:
-				if (procfunc) if (!procfunc(starter)) break;
-				Traversal(order, procfunc, starter->left);
-				Traversal(order, procfunc, starter->next);
-				break;
-			case Inorder:
-				Traversal(order, procfunc, starter->left);
-				if (procfunc) if (!procfunc(starter)) break;
-				Traversal(order, procfunc, starter->next);
-				break;
-			case Postorder:
-				Traversal(order, procfunc, starter->left);
-				Traversal(order, procfunc, starter->next);
-				if (procfunc) if (!procfunc(starter)) break;
-				break;
-			default:
-				break;
-			}
+		void Traversal(TraversalOrder order = Preorder, bool (*procfunc)(Bnode*) = 0, Bnode* starter = (Bnode*)~(stduint)0);
+		//
+		stduint Leaves(Bnode* starter = (Bnode*)~(stduint)0);
+		//
+		stduint Depth(Bnode* starter = (Bnode*)~(stduint)0);
+		// Swap left and its right for each
+		void Mirror(Bnode* from = (Bnode*)~(stduint)0) {
+			nulrecurs(from, Root(),);
+			Mirror(from->left);
+			Mirror(from->next);
+			xchgptr(from->left, from->next);
 		}
-
-		stduint Leaves(Bnode* starter = (Bnode*)~(stduint)0) {
-			if (!~(stduint)starter) starter = this->root_node;
-			if (nullptr == starter) return 0;
-			if (starter->left == nullptr && starter->next == nullptr) return 1;
-			stduint leftLeaves = Leaves(starter->left);
-			stduint rightLeaves = Leaves(starter->next);
-			return leftLeaves + rightLeaves;
+		//
+		stduint Count(Bnode* from = (Bnode*)~(stduint)0) {
+			if (!from) return 0;
+			else if (!~(stduint)from) from = Root();
+			if (nullptr == from->left && nullptr == from->next) return 1;
+			else return Count(from->left) + Count(from->next) + 1;
 		}
-
-		stduint Depth(Bnode* starter = (Bnode*)~(stduint)0) {
-			if (!~(stduint)starter) starter = this->root_node;
-			if (nullptr == starter) return 0;
-			stduint leftDepth = Depth(starter->left);
-			stduint rightDepth = Depth(starter->next);
-			return maxof(leftDepth, rightDepth) + 1;
+		//
+		bool isProper(Bnode* from = (Bnode*)~(stduint)0) {
+			nulrecurs(from, Root(), true);
+			if ((from->left == nullptr) ^ (from->next == nullptr)) return false;
+			else if (from->left || from->next) return isProper(from->left) && isProper(from->next);
+			else return true;
 		}
+		//
+		bool isFull() {
+			return exp2(Depth()) == Count() + 1;
+		}
+		//
+		bool isComplete(Bnode* from = (Bnode*)~(stduint)0);
 	};
-
-
-
+	//{TIPS} You can also use loop but recursion to do.
 }
 
 #endif

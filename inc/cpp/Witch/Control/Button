@@ -1,0 +1,53 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module) uni.Witch.Control.Button
+// Codifiers: @dosconio: 20240422 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+// Parallels: (.C#)System.Windows.Forms.Button
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_WITCH_CTRL_Button_X
+#define _INC_WITCH_CTRL_Button_X
+
+#include "../Form"
+#include "../../cpp/string"
+
+namespace uni {	namespace Witch {
+
+	class Button : public Control {
+	public:
+		uint32 backcolor;
+		String text;
+		Button(Form* pare, stduint left, stduint top, stduint width, stduint height) : Control(pare, left, top, width, height) {
+
+		}
+		~Button() {
+
+		}
+		void Show();
+		void setBackcolor(uint32 bkcolor);
+		void Move(stduint left, stduint top) {
+			this->left = left;
+			this->top = top;
+		}
+		void Event(void* event);
+		void Render();
+	};
+
+}}
+#endif

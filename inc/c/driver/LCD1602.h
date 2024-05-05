@@ -47,4 +47,6 @@ void LCD1602_Outi16hex(const word inp);
 
 void LCD1602_Outi32hex(const dword inp);
 
+void LCD1602_Outu8dec(const sbyte inp, byte len);
+
 #endif

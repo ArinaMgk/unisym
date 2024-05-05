@@ -25,6 +25,7 @@
 #define _INC_CONSIO
 
 #include "stdinc.h"
+#include <stdarg.h>
 
 void curset(word posi);
 word curget(void);
@@ -36,6 +37,10 @@ void outc(const char chr);
 void outi8hex(const byte inp);
 void outi16hex(const word inp);
 void outi32hex(const dword inp);
+void outi64hex(const uint64 inp);
+void outidec(int xx, int base, int sign);
+void outsfmtlst(const char* fmt, va_list lst);
+void outsfmt(const char* fmt, ...);
 
 #if defined(_WinNT) | defined(_Linux)
 #include <stdio.h>

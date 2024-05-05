@@ -1,8 +1,8 @@
 ﻿// ASCII C#.net6.0 TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// Dependens: None
 // LastCheck: 20240406
-// AllAuthor: ...
-// ModuTitle: ...
+// AllAuthor: @dosconio
+// DocuTitle: {TEMPLATE}
 using System;
 using System.Collections.Generic;
 using System.Linq;

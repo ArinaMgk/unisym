@@ -1,7 +1,7 @@
 // ASCII C99 TAB4 CRLF
 // LastCheck: RFZ23
 // AllAuthor: @dosconio
-// ModuTitle: General Header
+// ModuTitle: Architecture-specific definitions
 /*
 	Copyright 2023 ArinaMgk
 

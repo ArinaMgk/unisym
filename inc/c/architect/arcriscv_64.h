@@ -1,9 +1,7 @@
-// ASCII CPL TAB4 CRLF
-// Docutitle: (protocol) Inter-Integrated Circuit, I2C
-// Datecheck: 20240429 ~ <Last-check>
-// Developer: @dosconio
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
+// ASCII CPL-GCC-C99 TAB4 CRLF
+// LastCheck: 20240504
+// AllAuthor: @dosconio
+// ModuTitle: Architecture-specific definitions
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,21 +19,16 @@
 	limitations under the License.
 */
 
-#if !defined(_INC_STANDARD_IIC)
-#define _INC_STANDARD_IIC
+// for GCC compiler
 
-#if defined(_MCU_Intel8051)
+typedef signed char int8_t;
+typedef unsigned char uint8_t;
+typedef signed short int16_t;
+typedef unsigned short uint16_t;
+typedef signed int int32_t;
+typedef unsigned int uint32_t;
+typedef signed long int64_t;
+typedef unsigned long uint64_t;
 
-void I2C_Start(void);
 
-void I2C_SetByte(unsigned char Byte);
-unsigned char I2C_GetAck(void);
-
-unsigned char I2C_GetByte(void);
-void I2C_SetAck(unsigned char AckBit);
-
-void I2C_Stop(void);
-
-#endif
-
-#endif
+//{TODO} more with reference: arcx64_win64.h

@@ -23,6 +23,10 @@
 #ifndef _INC_NNODE
 #define _INC_NNODE
 
+// We can define macro if the content of "Nnode" changed in the future. `#define Nnode OldNnode` ...
+//{TODO} [NEW] Nnods(left+next+subf;pare+subf+1stN)
+//{TODO} [NEW] Bnods(next+subf;next+pare(need-not-link-subf)) in bnode.h
+
 #include "stdinc.h"
 
 typedef struct NestNode

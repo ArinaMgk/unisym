@@ -49,7 +49,9 @@ void Nixie_Show(unsigned char Location, uint8 Number, byte Dot)// Omit Type: sam
 	outpi(_NIXIETUBE_PIN_COM2, Location & 0x4);
 	outpi(_NIXIETUBE_PIN_COM1, Location & 0x2);
 	outpi(_NIXIETUBE_PIN_COM0, Location & 0x1);
-	_NIXIETUBE_PORT_DAT = _LED_SEGMENTS_HEXINUM[Number] | (Dot? 0x80: 0);
+	if (Number < numsof(_LED_SEGMENTS_HEXINUM))
+		_NIXIETUBE_PORT_DAT = _LED_SEGMENTS_HEXINUM[Number] | (Dot? 0x80: 0);
+	else _NIXIETUBE_PORT_DAT = 0;
 }
 
 

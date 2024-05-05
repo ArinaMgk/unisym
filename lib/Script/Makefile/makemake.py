@@ -246,6 +246,7 @@ list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/format/ELF.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/toki/rtclock.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/keyboard.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/task.c")
+list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/consio.c")
 text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
 print(text_gcc_mecocoa)
 text_gcc_mecocoa += ".PHONY: all\n"

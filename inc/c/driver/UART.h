@@ -1,5 +1,5 @@
 // ASCII CPL TAB4 CRLF
-// Docutitle: Inter-Integrated Circuit, I2C
+// Docutitle: UART and USART
 // Datecheck: 20240502 ~ <Last-check>
 // Developer: @dosconio
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence

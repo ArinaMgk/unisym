@@ -1,5 +1,5 @@
 // ASCII CPL TAB4 CRLF
-// Docutitle: (Module) Real Time Clock
+// Docutitle: (Module) Time and Clock
 // Codifiers: @dosconio: 20240220 ~ 20240429
 // Attribute: Arn-Covenant Any-Architect Bit-32mode <Reference/Dependence>
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
@@ -20,8 +20,14 @@
 	limitations under the License.
 */
 
+
 #ifndef _INC_DEVICE_Timer
 #define _INC_DEVICE_Timer
+
+// Category
+#include "RealtimeClock.h"// RTC
+// PIT
+// TSC
 
 #ifdef _MCU_Intel8051
 extern void (*RoutineINT0)(void);// Keil will consider this as a define but a declaration? Haruno RFR19.

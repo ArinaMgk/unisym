@@ -94,6 +94,9 @@ enum Architecture_t // for instruction sets
 	#define _Intelx86_Mcca_16
 	#define __ARCH__ Architecture_x86
 	#define __BITS__ 16
+#elif defined(_RiscV64)	
+	#define __ARCH__ Architecture_RISCV64
+	// #define __BITS__ 64 ?
 #endif
 // ---- ---- ---- ---- stdint.h [partial] ---- ---- ---- ----
 
@@ -108,6 +111,8 @@ enum Architecture_t // for instruction sets
 	#include "architect/arcintel_8051.h"
 	#define __BITS__ 8
 	#define __ARCH__ Architecture_Unknown
+#elif defined(_RiscV64)
+	#include "architect/arcriscv_64.h"
 #else
 	#define _INC_DEPEND_STDINT
 	#include <stdint.h> // try

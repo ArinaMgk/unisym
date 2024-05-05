@@ -39,16 +39,16 @@ typedef void(*_tofree_ft)(void*);
 typedef void* pureptr_t;
 
 // __ENDIAN__
-	#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
+#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
 // __ARCH__
 // __BITS__
 	// [Rely-on] stdinc.h
 // __FUNCIDEN__ : function identifier
-	#ifdef _MSC_VER // for MSVC
-		#define __FUNCIDEN__ __FUNCDNAME__
-	#elif defined(__GNUC__)
-		#define __FUNCIDEN__ __func__ // cannot auto-strcat
-	#endif
+#ifdef _MSC_VER // for MSVC
+#define __FUNCIDEN__ __FUNCDNAME__
+#elif defined(__GNUC__)
+#define __FUNCIDEN__ __func__ // cannot auto-strcat
+#endif
 
 #define masm __asm
 
@@ -72,12 +72,12 @@ typedef void* pureptr_t;
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
 
 #if !defined(_DEBUG) && !defined(_dbg)
-	#define memalloc(dest,size)\
+#define memalloc(dest,size)\
 		((*(char**)&dest=(char*)malloc(size))? "":"! MEMORY RUN OUT!")
-	#define memfree(x) {if(x)free((char*)(x));}
-	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
-	#define malc(size) (void*)(malloc(size))
-	#define zalc(size) (void*)(calloc(size,1))
+#define memfree(x) {if(x)free((char*)(x));}
+#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
+#define malc(size) (void*)(malloc(size))
+#define zalc(size) (void*)(calloc(size,1))
 #endif
 #define zalloc(x) calloc((x),1)// Zero Alloc
 #define zalcof(x) (x*)zalc(sizeof(x))
@@ -90,6 +90,8 @@ typedef void* pureptr_t;
 #define xchgptr(a,b) *(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b)
 
 #define AssignParallel(l,m,r) ((l=m),(m=r))// different from `l=m=r`
+#define Assign3(l,m,r) do{if(&(l)==&(r))AssignParallel(l,m,r); else xchg((l),(m));}while(0)
+#define Assign3Pointer(l,m,r) do{if(&(l)==&(r))AssignParallel(l,m,r); else xchgptr(a,b);}while(0)
 // Use 0 and ~0 as special invalid value, while Rust uses `Option` containing null.
 // Example for the parameter: Bnode * inp = (Bnode*)~(stduint)0
 #define nulrecurs(inp, root, rets) do {if (!inp) return rets; else if (!~(stduint)inp) inp = root; } while (0)

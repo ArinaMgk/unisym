@@ -9,11 +9,13 @@ doc/www.unisym.org/zh
 # Locale Makefiles : code `make list` to generate
 lib/make/c*
 # .Net Class Library
-witch/DotNet/udotnet/.vs
-witch/DotNet/udotnet/bin
-witch/DotNet/udotnet/obj
+lib/dotNet/udotnet/.vs
+lib/dotNet/udotnet/obj
 # Python
 *.pyc
+# Rust
+lib/Rust/syst/target/
+Cargo.lock
 # Keil
 DebugConfig
 *.uvguix*

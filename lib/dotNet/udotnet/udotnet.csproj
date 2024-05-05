@@ -10,19 +10,18 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageOutputPath>$(OutputPath)</PackageOutputPath>
     <BaseOutputPath>E:\PROJ\SVGN\_bin</BaseOutputPath>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <PackageIcon>unisym.20240306.png</PackageIcon>
+    <IntermediateOutputPath>..\..\..\..\..\_obj\udotnet\</IntermediateOutputPath> <!-- ./obj/ is fixed -->
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
-    <COMReference Include="{bee4bfec-6683-3e67-9167-3c0cbc68f40a}">
-      <WrapperTool>tlbimp</WrapperTool>
-      <VersionMinor>0</VersionMinor>
-      <VersionMajor>2</VersionMajor>
-      <Guid>bee4bfec-6683-3e67-9167-3c0cbc68f40a</Guid>
-    </COMReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="..\..\README.md">
+    <None Include="..\..\..\.picture\unisym.20240306.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>

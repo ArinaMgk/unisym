@@ -1,5 +1,5 @@
 // This is a template test (check)
-use syst::__add;
+use unisym::__add;
 
 #[test]
 fn test_add() {

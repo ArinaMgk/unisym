@@ -20,9 +20,14 @@
 	limitations under the License.
 */
 
-#include "node"
-#include "dnode"
+// each node have a pointer version Node and a template version Node_T<typ0>
+
+#include "node"// (Linear-Node)
+#include "dnode"// (DoubleDirection-Node)
 //! Need to destruction, may for using reference? -- Dosconio 2024MAR14
-#include "inode"// : node
-#include "tnode"// : dnode
-#include "nnode"// : tnode
+#include "inode"//{SUSPEND} (Identifier-Node) : node
+#include "tnode"// (Token-Node): dnode
+//{TODO} #include "bnode"// (Binary-Node) and Bnods
+//{TODO} #include "pnode"// (Pool-Node)
+#include "nnode"// (Ne(s)t-Node) and Nnods: tnode 
+//{TODO} #include "gnode" // (Graph-Node)

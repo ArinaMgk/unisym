@@ -53,6 +53,7 @@ extern size_t call_state;// <OUT>
 extern size_t malc_occupy;
 extern size_t arna_precise;
 
+//{TOIN} memory.h
 #if defined(_dbg) || defined(_DEBUG)
 	#define memalloc(dest,size)\
 		(*(char**)&dest=(char*)malloc(size))?((void)_MALCOUNT++):(erro("MEMORY RUN OUT!"),(void)0)

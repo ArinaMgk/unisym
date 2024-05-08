@@ -14,7 +14,7 @@ lib/dotNet/udotnet/obj
 # Python
 *.pyc
 # Rust
-lib/Rust/syst/target/
+lib/Rust/unisym/target/
 Cargo.lock
 # Keil
 DebugConfig

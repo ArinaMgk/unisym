@@ -1,7 +1,7 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: Pool Node System
-// Datecheck: 20240420 ~ <Last-check>
-// Developer: @dosconio
+// ASCII CPL TAB4 CRLF
+// Docutitle: (Property) Trait
+// Codifiers: @dosconio: 20240505 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -20,16 +20,13 @@
 	limitations under the License.
 */
 
-#ifndef _INC_PoolNode_X
-#define _INC_PoolNode_X
+#ifndef _INC_TRAIT
+#define _INC_TRAIT
 
-namespace uni {
-	struct Pnode {
-		struct Pnode* head;
-		struct Pnode* left;
-		struct Pnode* next;//dosconio trial design: points to inner for the pool has position.
-		void* offs[0x10];//{TODO} store multi-objects
-	};
-}
+// memopt
+
+// assert
+
+// aflag
 
 #endif

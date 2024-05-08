@@ -5,6 +5,12 @@ dg-publish: true
 
 ## Modules
 
+## ! Controversial or Not-stable Modules
+
+- Inode
+
+The below are stable contents.
+
 ### Arithmetic
 
 

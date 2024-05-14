@@ -23,14 +23,6 @@
 #ifndef _INC_DEVICE_Video
 #define _INC_DEVICE_Video
 
-//{TODO}[INTERFACE] PRESSED_POINTS_CHAIN(with pressure and range information for each point)
-//{TODO}[INTERFACE] Draw Point
-//{TODO}[INTERFACE] Draw Line-segment
-//{TODO}[INTERFACE] Draw Rectangle
-
-
-
-
-
+// see `Video`
 
 #endif

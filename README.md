@@ -38,11 +38,13 @@ ConPrint Hello_String; Assembly Macro
 
 ---
 
+![example](https://img.shields.io/badge/generation-2:Public-pink.svg)
+
 <!-- Contributors -->
 
 [🍨 Buy us a coffee for UNISYM project](https://www.buymeacoffee.com/arinamgk) 
 
-- ![Contributor ArinaMgk (Phina)](./.picture/phina.head.bmp) <del> ***[Phina Ren](./doc/author/arina.md)***</del>
+- ![Contributor ArinaMgk (Phina)](./.picture/phina.head.bmp) <del> ***Phina Ren***</del>
 
 - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** 
 

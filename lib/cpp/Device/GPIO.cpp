@@ -14,15 +14,18 @@ namespace uni
 	#ifdef _MCU_STM32F10x
 
 	#define _OFFSET_GPIO_CRL 0x00
-	#define _OFFSET_GPIO_IDR 0x10
-	#define _OFFSET_GPIO_ODR 0x14
+	#define _OFFSET_GPIO_CRH 0x04
+	#define _OFFSET_GPIO_IDR 0x08
+	#define _OFFSET_GPIO_ODR 0x0C
 
 	GeneralPurposeInputOutputPort::GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap) :
 		EnablPosi(Enap), // (RCC_APB2ENR)
 		ClockPort(CLK), // Enable Clock
 		CnrglPort(_OFFSET_GPIO_CRL + ADDR),
+		CnrghPort(_OFFSET_GPIO_CRH + ADDR),
 		InnpdPort(_OFFSET_GPIO_IDR + ADDR),
-		OutpdPort(_OFFSET_GPIO_ODR + ADDR)
+		OutpdPort(_OFFSET_GPIO_ODR + ADDR),
+		base(ADDR)
 	{
 		for0(i, numsof(OutpdPins))
 			OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
@@ -51,16 +54,17 @@ namespace uni
 	}
 
 	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed) {
-		uint32 bposi = bitposi << 2; // mul by 4
+		Reference& ref = (bitposi < 8) ? parent->CnrglPort : parent->CnrghPort;
+		uint32 bposi = (bitposi < 8) ? bitposi << 2 : (bitposi - 8) << 2; // mul by 4
 		uint32 bmode = (uint32)mode;
 		innput = (bmode & 1);
 		uint32 state = innput ? GPIOSpeed::Atmost_Input : speed;
 		state |= (bmode & 0xC);// 0b1100
-		parent->CnrglPort = (parent->CnrglPort & ~(0xf << bposi)) | (state << bposi);
+		ref = (ref & ~(0xf << bposi)) | (state << bposi);// or treat it a double-length Reference (64-bit)
 	}
 
 	void GeneralPurposeInputOutputPin::setPull(bool pullup) {
-		parent->OutpdPort = pullup ? 1 : 0;//{TODO} really? I write rightly?
+		(parent->OutpdPort).setof(bitposi, pullup);
 	}
 
 	void GeneralPurposeInputOutputPin::Toggle() {
@@ -87,6 +91,7 @@ namespace uni
 		OtypePort(_OFFSET_GPIO_OTYPE + ADDR),
 		SpeedPort(_OFFSET_GPIO_SPEED + ADDR),
 		PullsPort(_OFFSET_GPIO_PULLS + ADDR)
+		//{TODO} base(ADDR),
 		
 	{
 		for0(i, numsof(OutpdPins))

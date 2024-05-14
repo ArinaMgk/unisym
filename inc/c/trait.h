@@ -23,10 +23,14 @@
 #ifndef _INC_TRAIT
 #define _INC_TRAIT
 
-// memopt
+// [A] memopt
+// - "A" means allocating.
 
-// assert
 
-// aflag
+// [!] assert/panic
+
+// [F] aflag
+// - "F" means flag.
+
 
 #endif

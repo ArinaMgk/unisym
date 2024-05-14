@@ -1,0 +1,164 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Nested Vectored Interrupt Controller
+// Codifiers: @dosconio: 20240511
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_NVIC_X
+#define _INC_DEVICE_NVIC_X
+
+#include "../unisym"
+
+#if defined(_MCU_STM32F10x)
+
+#define _NVIC_PRIO_BITS 4
+
+namespace uni {
+	struct NVIC_Map {
+		uint32 ISER     [8];    // 0x000 (R/W)  Interrupt Set Enable Register
+		uint32 RESERVED0[24];
+		uint32 ICER     [8];    // 0x080 (R/W)  Interrupt Clear Enable Register
+		uint32 RSERVED1 [24];
+		uint32 ISPR     [8];    // 0x100 (R/W)  Interrupt Set Pending Register
+		uint32 RESERVED2[24];
+		uint32 ICPR     [8];    // 0x180 (R/W)  Interrupt Clear Pending Register
+		uint32 RESERVED3[24];
+		uint32 IABR     [8];    // 0x200 (R/W)  Interrupt Active bit Register
+		uint32 RESERVED4[56];
+		uint8  IP       [240];  // 0x300 (R/W)  Interrupt Priority Register (8Bit wide)
+		uint32 RESERVED5[644];
+		uint32 STIR;            // 0xE00 ( /W)  Software Trigger Interrupt Register
+	};
+	struct SysCtrlBlock_Map {
+		uint32 CPUID;          // 0x000 (R/ )  CPUID Base Register
+		uint32 ICSR;           // 0x004 (R/W)  Interrupt Control and State Register
+		uint32 VTOR;           // 0x008 (R/W)  Vector Table Offset Register
+		uint32 AIRCR;          // 0x00C (R/W)  Application Interrupt and Reset Control Register
+		uint32 SCR;            // 0x010 (R/W)  System Control Register
+		uint32 CCR;            // 0x014 (R/W)  Configuration Control Register
+		uint8  SHP      [12U]; // 0x018 (R/W)  System Handlers Priority Registers (4-7, 8-11, 12-15)
+		uint32 SHCSR;          // 0x024 (R/W)  System Handler Control and State Register
+		uint32 CFSR;           // 0x028 (R/W)  Configurable Fault Status Register
+		uint32 HFSR;           // 0x02C (R/W)  HardFault Status Register
+		uint32 DFSR;           // 0x030 (R/W)  Debug Fault Status Register
+		uint32 MMFAR;          // 0x034 (R/W)  MemManage Fault Address Register
+		uint32 BFAR;           // 0x038 (R/W)  BusFault Address Register
+		uint32 AFSR;           // 0x03C (R/W)  Auxiliary Fault Status Registe
+		uint32 PFR      [2U];  // 0x040 (R/ )  Processor Feature Register
+		uint32 DFR;            // 0x048 (R/ )  Debug Feature Register
+		uint32 ADR;            // 0x04C (R/ )  Auxiliary Feature Register
+		uint32 MMFR     [4U];  // 0x050 (R/ )  Memory Model Feature Register
+		uint32 ISAR     [5U];  // 0x060 (R/ )  Instruction Set Attributes Register
+		uint32 RESERVED0[5U];
+		uint32 CPACR;          // 0x088 (R/W)  Coprocessor Access Control Register
+	};
+	typedef enum
+	{
+		//  Cortex-M3 Processor Exceptions Numbers
+		IRQ_NonMaskableInt = -14,   // 2 Non Maskable Interrupt                   
+		IRQ_HardFault = -13,   // 3 Cortex-M3 Hard Fault Interrupt           
+		IRQ_MemoryManagement = -12,   // 4 Cortex-M3 Memory Management Interrupt    
+		IRQ_BusFault = -11,   // 5 Cortex-M3 Bus Fault Interrupt            
+		IRQ_UsageFault = -10,   // 6 Cortex-M3 Usage Fault Interrupt          
+		IRQ_SVCall = -5,    // 11 Cortex-M3 SV Call Interrupt             
+		IRQ_DebugMonitor = -4,    // 12 Cortex-M3 Debug Monitor Interrupt       
+		IRQ_PendSV = -2,    // 14 Cortex-M3 Pend SV Interrupt             
+		IRQ_SysTick = -1,    // 15 Cortex-M3 System Tick Interrupt         
+		//  STM32 specific Interrupt Numbers
+		IRQ_WWDG = 0,      // Window WatchDog Interrupt                  
+		IRQ_PVD = 1,       // PVD through EXTI Line detection Interrupt  
+		IRQ_TAMPER = 2,    // Tamper Interrupt                           
+		IRQ_RTC = 3,       // RTC global Interrupt                       
+		IRQ_FLASH = 4,     // FLASH global Interrupt                     
+		IRQ_RCC = 5,       // RCC global Interrupt                       
+		IRQ_EXTI0 = 6,     // EXTI Line0 Interrupt                       
+		IRQ_EXTI1 = 7,     // EXTI Line1 Interrupt                       
+		IRQ_EXTI2 = 8,     // EXTI Line2 Interrupt                       
+		IRQ_EXTI3 = 9,     // EXTI Line3 Interrupt                       
+		IRQ_EXTI4 = 10,    // EXTI Line4 Interrupt                       
+		IRQ_DMA1_Channel1 = 11,    // DMA1 Channel 1 global Interrupt            
+		IRQ_DMA1_Channel2 = 12,    // DMA1 Channel 2 global Interrupt            
+		IRQ_DMA1_Channel3 = 13,    // DMA1 Channel 3 global Interrupt            
+		IRQ_DMA1_Channel4 = 14,    // DMA1 Channel 4 global Interrupt            
+		IRQ_DMA1_Channel5 = 15,    // DMA1 Channel 5 global Interrupt            
+		IRQ_DMA1_Channel6 = 16,    // DMA1 Channel 6 global Interrupt            
+		IRQ_DMA1_Channel7 = 17,    // DMA1 Channel 7 global Interrupt            
+		IRQ_ADC1_2 = 18,    // ADC1 and ADC2 global Interrupt             
+		IRQ_USB_HP_CAN1_TX = 19,    // USB Device High Priority or CAN1 TX Interrupts  
+		IRQ_USB_LP_CAN1_RX0 = 20,    // USB Device Low Priority or CAN1 RX0 Interrupts  
+		IRQ_CAN1_RX1 = 21,   // CAN1 RX1 Interrupt                         
+		IRQ_CAN1_SCE = 22,   // CAN1 SCE Interrupt                         
+		IRQ_EXTI9_5 = 23,    // External Line[9:5] Interrupts              
+		IRQ_TIM1_BRK = 24,   // TIM1 Break Interrupt                       
+		IRQ_TIM1_UP = 25,    // TIM1 Update Interrupt                      
+		IRQ_TIM1_TRG_COM = 26,    // TIM1 Trigger and Commutation Interrupt     
+		IRQ_TIM1_CC = 27,    // TIM1 Capture Compare Interrupt             
+		IRQ_TIM2 = 28,       // TIM2 global Interrupt                      
+		IRQ_TIM3 = 29,       // TIM3 global Interrupt                      
+		IRQ_TIM4 = 30,       // TIM4 global Interrupt                      
+		IRQ_I2C1_EV = 31,    // I2C1 Event Interrupt                       
+		IRQ_I2C1_ER = 32,    // I2C1 Error Interrupt                       
+		IRQ_I2C2_EV = 33,    // I2C2 Event Interrupt                       
+		IRQ_I2C2_ER = 34,    // I2C2 Error Interrupt                       
+		IRQ_SPI1 = 35,       // SPI1 global Interrupt                      
+		IRQ_SPI2 = 36,       // SPI2 global Interrupt                      
+		IRQ_USART1 = 37,    // USART1 global Interrupt                    
+		IRQ_USART2 = 38,    // USART2 global Interrupt                    
+		IRQ_USART3 = 39,    // USART3 global Interrupt                    
+		IRQ_EXTI15_10 = 40,    // External Line[15:10] Interrupts            
+		IRQ_RTC_Alarm = 41,    // RTC Alarm through EXTI Line Interrupt      
+		IRQ_USBWakeUp = 42,    // USB Device WakeUp from suspend through EXTI Line Interrupt */
+		IRQ_TIM8_BRK = 43,    // TIM8 Break Interrupt                       
+		IRQ_TIM8_UP = 44,    // TIM8 Update Interrupt                      
+		IRQ_TIM8_TRG_COM = 45,    // TIM8 Trigger and Commutation Interrupt     
+		IRQ_TIM8_CC = 46,    // TIM8 Capture Compare Interrupt             
+		IRQ_ADC3 = 47,    // ADC3 global Interrupt                      
+		IRQ_FSMC = 48,    // FSMC global Interrupt                      
+		IRQ_SDIO = 49,    // SDIO global Interrupt                      
+		IRQ_TIM5 = 50,    // TIM5 global Interrupt                      
+		IRQ_SPI3 = 51,    // SPI3 global Interrupt                      
+		IRQ_UART4 = 52,    // UART4 global Interrupt                     
+		IRQ_UART5 = 53,    // UART5 global Interrupt                     
+		IRQ_TIM6 = 54,    // TIM6 global Interrupt                      
+		IRQ_TIM7 = 55,    // TIM7 global Interrupt                      
+		IRQ_DMA2_Channel1 = 56,    // DMA2 Channel 1 global Interrupt            
+		IRQ_DMA2_Channel2 = 57,    // DMA2 Channel 2 global Interrupt            
+		IRQ_DMA2_Channel3 = 58,    // DMA2 Channel 3 global Interrupt            
+		IRQ_DMA2_Channel4_5 = 59,    // DMA2 Channel 4 and Channel 5 global Interrupt   
+	} Request_t;
+	class NVIC_t {
+	public:
+		// Memory mapping of Core Hardware since 0xE000E000
+		NVIC_Map* map;
+		SysCtrlBlock_Map* scbmap;
+		NVIC_t() {
+			map = (NVIC_Map*)0xE000E100;// NIVC offset 0x100
+			scbmap = (SysCtrlBlock_Map*)0xE000ED00;// SCB offset 0xD00
+		}
+		void setPriority(Request_t req, uint32 priority);
+	};
+
+
+	extern NVIC_t NVIC;
+
+}
+
+#endif
+
+#endif

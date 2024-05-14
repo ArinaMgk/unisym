@@ -1,0 +1,177 @@
+// ASCII CPP TAB4 CRLF
+// Docutitle: (Module) Video
+// Codifiers: @dosconio: 20240513
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_Video_X
+#define _INC_DEVICE_Video_X
+
+#include "../unisym"
+#include "../cinc"
+#include "../../c/graphic/color.h"
+#include "../cinc"
+
+namespace uni {
+
+	typedef struct DisplayI2d {
+		stduint x, y;
+	public:
+		DisplayI2d(stduint x = 0, stduint y = 0) : x(x), y(y) {}
+	} DisplayPoint, DisplaySize;
+
+	struct DisplayPosition {
+		stduint x, y, z;
+	};
+	//[ATTR] little-endian
+	struct DisplayColor {
+		byte b, g, r, a; // union {x y z i} 
+	};
+	// (i) need to support 32b
+	inline static DisplayColor DisplayColorFrom32(uint32 argb) {
+		DisplayColor color = *(DisplayColor*)&argb;
+		return color;
+	}
+	#define GrafColor32(c) DisplayColorFrom32(c)
+
+	struct DisplayRectangle {
+		stduint x, y;// of vertex
+		stduint width, height;
+		DisplayColor color;
+		bool filled;
+	public:
+		DisplayPoint getVertex() {
+			return DisplayPoint(x, y);
+		}
+		DisplaySize getSize() {
+			return DisplaySize(width, height);
+		}
+	};
+	static inline DisplayRectangle GrafRectHollow(stduint x, stduint y, stduint w, stduint h, DisplayColor color) {
+		DisplayRectangle res;
+		res.x = x;
+		res.y = y;
+		res.width = w;
+		res.height = h;
+		res.filled = false;
+		return res;
+	}
+
+	struct DisplayFont {
+		pureptr_t addr;
+		pureptr_t family;
+		pureptr_t numbers;
+		DisplaySize size;
+	};
+
+	// general
+	typedef void (*onPressed_t)(DisplayPoint disp, stduint pressure, stduint range_radius);
+	class VideoControlBlock {
+	protected:
+		pureptr_t buffer_addr;
+		stduint pix_size;
+		stduint cols, rows;
+		onPressed_t onPressed;// callback event
+		// color can be past
+		void (*doSetCursor)(DisplayPoint disp);
+		DisplayPoint (*doGetCursor)();
+		void (*doDrawPoint)(DisplayPoint disp, DisplayColor* color);
+		void (*doDrawRectangle)(DisplayRectangle rect);
+		void (*doDrawFont)(DisplayPoint disp, DisplayFont font);
+	public:
+		VideoControlBlock(pureptr_t addr) : buffer_addr(addr) {}
+		~VideoControlBlock() {}
+		// here: public objects
+		inline void setMode(stduint psiz, stduint cols, stduint rows, onPressed_t onpress = 0) {
+			pix_size = psiz;
+			this->cols = cols;
+			this->rows = rows;
+			onPressed = onpress;
+		}
+		inline void setBind(
+			void (*doSetCursor)(DisplayPoint disp),
+			DisplayPoint(*doGetCursor)(),
+			void (*doDrawPoint)(DisplayPoint disp, DisplayColor* color),
+			void (*doDrawRectangle)(DisplayRectangle rect),
+			void (*doDrawFont)(DisplayPoint disp, DisplayFont font)
+		) {
+			this->doSetCursor = doSetCursor;
+			this->doGetCursor = doGetCursor;
+			this->doDrawPoint = doDrawPoint;
+			this->doDrawRectangle = doDrawRectangle;
+			this->doDrawFont = doDrawFont;
+		}
+		// basic
+		inline void setCursor(DisplayPoint disp) { if (doSetCursor) doSetCursor(disp); }
+		inline DisplayPoint getCursor() { if (doGetCursor) return doGetCursor(); { return DisplayPoint(); } }
+		inline void Draw(DisplayRectangle rect) { if (doDrawRectangle) doDrawRectangle(rect); }
+		inline void Draw(DisplayPoint disp, DisplayColor* color = 0) { if (doDrawPoint) doDrawPoint(disp, color); }
+		inline void Draw(DisplayPoint disp, DisplayFont font) { if (doDrawFont) doDrawFont(disp, font); }
+		inline void Draw(stdint x, stdint y, const char* str) {
+			if (x < 0) x = cols + x;
+			if (y < 0) y = rows + y;
+			if (x < 0 || y < 0) return;
+			DisplayPoint p(x, y);
+			DisplayFont f = { (pureptr_t)str };
+			Draw(p, f);
+		}
+		// more
+		void DrawLine(DisplayPoint disp, DisplaySize size, DisplayColor* color = 0) {
+			if (!doDrawPoint || !size.x || !size.y) return;
+			if (1 == size.x) for0(i, size.y) {
+				Draw(disp, color);// can also use "DrawRect"
+				disp.y++;// vertical
+			}
+			else if (1 == size.y) for0(i, size.x) {
+				Draw(disp, color);// can also use "DrawRect"
+				disp.x++;// horizontal
+			}
+			else if (size.y >= size.x) {
+				DisplayPoint orig = disp;
+				for0 (i, size.x) {
+					disp.x++;
+					for0 (j, (stduint)((double)orig.y + i * (size.y - 1) / (size.x - 1) + 0.5) - disp.y) {
+						disp.y++;
+						Draw(disp, color);
+					}
+				}
+			}
+			else {
+				DisplayPoint orig = disp;
+				for0(i, size.y) {
+					disp.y++;
+					for0(j, (stduint)((double)orig.x + i * (size.x - 1) / (size.y - 1) + 0.5) - disp.x) {
+						disp.x++;
+						Draw(disp, color);
+					}
+				}
+			}
+		}
+	};
+	/* e.g. 80x25
+		0xB8000 and pix_size(2)
+	*/
+
+}
+
+
+
+
+
+#endif

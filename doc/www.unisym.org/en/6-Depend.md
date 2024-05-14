@@ -4,17 +4,37 @@ dg-publish: true
 charset: UTF-8
 ---
 
+Syst = Host + Arch
+
 Free-stand Environment:
-- Core
-- Math
+- `Arch` (including the common `Core`)
+- `Arith`
+> You have to choose the architecture yourself, without the help of hosted characters.
 
 Hosted Environment:
-- Host
+- `Host`
+- ... (...)
+- `OSDev`
+
+Mixed Environment:
+- ... (below are what to do)
+- `Node` Node-Data-System
+- `Grap` Graphics and Witch
+- `Device`
+- `Format`
 
 ## Depend Map
 
-`[A] [Aloc]`Means containing some functions that need to **allocate** the memory space. 
+(Omit the common reference `Core`)
 
+```mermaid
+graph LR
+	Host-->Arith
+
+```
+>Different from other graph: point to reference but dependence
+
+---
 
 to renew :
 ```
@@ -48,9 +68,9 @@ graph LR
 ```
 
 
-### Syst
+### Host
 
-Syst = Arch(destination system), Core(common system) and Devk(developing system)
+Host = Arch(destination system), Core(common system) and Devk(developing system)
 
 > 20240502: With the development of UNISYM, the including files of Core is bound to be complex and huge, it is necessary to ask users to use specific file but the only `stdinc`, more to see in `5-Compatible.md`. 
 
@@ -65,6 +85,9 @@ Syst = Arch(destination system), Core(common system) and Devk(developing system)
 
 >Why UNISYM update slowly and a bit complex?
 >: There were few contributors and they were busy with living and feeding their families.
+
+>"The code of UNISYM is so useless or ugly!" ?
+>: It is your free to choose how to use. If YOU take anything for granted, there is nothing to say.
 
 ```mermaid
 graph LR
@@ -86,19 +109,21 @@ Next generation
 ```mermaid
 graph LR
 	alice[CORE]
-	arch["ARCH: archit.h"]
-	arch-->alice
-	arch-->flag.h
+	ARCH[archit.h]
+	ARCH-->alice
+	ARCH-->flag.h
+	ARCH-->InstInterface
 	proctrl[proctrl.h]-->port/memory.h
-	proctrl--+(x86.h,i8051.h...)-->arch-->dattype.h
-	stdinc["stdinc(.h)"]
+	proctrl--+(x86.h,i8051.h...)-->ARCH-->dattype.h
+	stdinc["RUNE stdinc(.h)"]
 	stdinc--"_BEBUG? +debug.h"-->proctrl
-	specific-->stdinc
-	specific-->DEVK-->calling[calling.h]
+	SPCF[specific]-->stdinc
+	SPCF-->DEVK[devkit]-->DCOV[devcove.h]
 ```
 
+Arch+Board+HostOS+Devkit
 
-### Bootstrapping Circuit
+### Bootstrapping Building Circuit
 
 ```mermaid
 graph LR

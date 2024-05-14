@@ -114,6 +114,13 @@ pragma
 extern stduint _EFDIGS;// how many effective digits
 void ariprecise(stduint prec);
 
+stduint intFibonacci(stduint idx);
+
+inline static stduint intpow2_iexpo(stduint expo)
+{
+	return 1 << expo;
+}
+
 double dblexp(double expo);
 // based on `e`
 double dbllog(double power);

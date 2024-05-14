@@ -4,7 +4,7 @@
 
 #include "../integer.h"
 
-typedef uint8 u8;
+typedef uint8 u8;//[CONFLICT] u8 is short for uint8 or utf-8
 typedef uint16 u16;
 typedef uint32 u32;
 typedef uint64 u64;

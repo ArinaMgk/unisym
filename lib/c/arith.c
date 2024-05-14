@@ -40,6 +40,22 @@ void ariprecise(stduint prec)
 	_EFDIGS = prec;
 }
 
+stduint intFibonacci(stduint idx)
+{
+	// 0, 1, 1, 2, 3, 5, ...
+	if (idx < 2) return idx;
+	idx -= 2;
+	stduint a = 1, b = 1, c = 1;
+	while (idx)
+	{
+		c = a + b;
+		a = b;
+		b = c;
+		--idx;
+	}
+	return c;
+}
+
 double dblpow_iexpo(double bas, stdint exp)
 {
 	if (exp < 0) return 1 / dblpow_iexpo(bas, -exp);

@@ -1,8 +1,10 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ11
-// AllAuthor: @ArinaMgk(till RFA03) @dosconio
-// ModuTitle: Simple Node
+// ASCII C++ TAB4 CRLF
+// Attribute: 
+// LastCheck: 20240512
+// AllAuthor: @dosconio
+// ModuTitle: uni.Witch.Form
+// Reference: (.C#)System.Windows.Forms
+// Copyright: ArinaMgk UniSym, Apache License Version 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,13 +22,16 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/node.h"
+#ifndef _INC_WITCH_X
+#define _INC_WITCH_X
 
-#include "../../../inc/c/com/NodeInsert.h"
+#include "../../cpp/Device/Video"
+#include "../unisym"
 
-// will not change _node_first
-node* NodeInsert(node* nod, const void* addr0)
-{
-	const char* addr = (const char*) addr0;
-	_COM_NodeInsert(node, nod, addr, next);
-}
+namespace uni { namespace Witch {
+
+
+
+} }
+
+#endif

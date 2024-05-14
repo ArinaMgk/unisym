@@ -39,7 +39,7 @@ namespace uni {
 	protected:
 		GnodeStorage_t storage;
 		union {
-			NodeChain vertexes_chain;
+			NodeChain vertexes_chain;//{TODO} `vertexes_chain`-->`*vertexes_chain`, `.`-->`->`
 			struct {
 				std::vector<std::vector<stduint>>* vertexes_matrix;
 				stduint vertexes_matrix_count;

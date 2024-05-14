@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ11
-// AllAuthor: @ArinaMgk(till RFA03) @dosconio
-// ModuTitle: Simple Node
+// ASCII CPL TAB4 CRLF
+// Docutitle: (Module) Video
+// Codifiers: @dosconio: 20240513
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,13 +20,12 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/node.h"
+#ifndef _INC_GRAPHIC
+#define _INC_GRAPHIC
 
-#include "../../../inc/c/com/NodeInsert.h"
+#include "stdinc.h"
 
-// will not change _node_first
-node* NodeInsert(node* nod, const void* addr0)
-{
-	const char* addr = (const char*) addr0;
-	_COM_NodeInsert(node, nod, addr, next);
-}
+
+
+#endif
+

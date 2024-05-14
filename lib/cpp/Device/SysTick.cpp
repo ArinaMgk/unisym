@@ -20,28 +20,24 @@
 	limitations under the License.
 */
 
-#ifndef _INC_DEVICE_TOKI_SysTick_X
-#define _INC_DEVICE_TOKI_SysTick_X
+#include "../../../inc/cpp/Device/SysTick"
+#include "../../../inc/cpp/Device/NVIC"
 
-#define ADDR_SysTick_Map 0xE000E010
+#define SysTick_CTRL_CLKSOURCE (1UL << 2)
+#define SysTick_CTRL_TICKINT   (1UL << 1) 
+#define SysTick_CTRL_ENABLE    (1UL << 0)
 
-#include "../unisym"
 
 namespace uni {
-	typedef struct SysTick_Map
-	{
-		uint32 CTRL;  // 0x000 (R/W)  SysTick Control and Status Register
-		uint32 LOAD;  // 0x004 (R/W)  SysTick Reload Value Register
-		uint32 VAL;   // 0x008 (R/W)  SysTick Current Value Register
-		uint32 CALIB; // 0x00C (R/ )  SysTick Calibration Register
-	} SysTick_Map;
+	bool SysTick::enClock(uint32 SysCoreClock, uint32 Hz) {
+		NVIC_t nvic;
+		SysTick_Map* st = (SysTick_Map*)ADDR_SysTick_Map;
+		if (SysCoreClock / Hz > 0xFFFFFF) return false;
+		st->LOAD = SysCoreClock / Hz - 1;
+		nvic.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
+		st->VAL = 0;// SysTick Counter Value
+		st->CTRL = SysTick_CTRL_CLKSOURCE | SysTick_CTRL_TICKINT | SysTick_CTRL_ENABLE;// Enable SysTick IRQ and SysTick Timer
+		return true;
+	}
 
-	#undef SysTick
-	class SysTick {
-	public:
-		static bool enClock(uint32 SysCoreClock, uint32 Hz);
-	};
 }
-
-
-#endif

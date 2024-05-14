@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ11
-// AllAuthor: @ArinaMgk(till RFA03) @dosconio
-// ModuTitle: Simple Node
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Nested Vectored Interrupt Controller
+// Codifiers: @dosconio: 20240511
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,13 +20,15 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/node.h"
+#include "../../../inc/cpp/Device/NVIC"
 
-#include "../../../inc/c/com/NodeInsert.h"
-
-// will not change _node_first
-node* NodeInsert(node* nod, const void* addr0)
-{
-	const char* addr = (const char*) addr0;
-	_COM_NodeInsert(node, nod, addr, next);
+namespace uni {
+	void NVIC_t::setPriority(Request_t req, uint32 priority) {
+		const uint32 IRQ = (uint32)(uint8)req;
+		uint8 writ = (priority << (8U - _NVIC_PRIO_BITS)) & (uint32)0xFF;
+		if ((sint32)req >= 0)
+			map->IP[IRQ] = writ;
+		else
+			scbmap->SHP[(IRQ & (uint32)0xF) - (uint32)4] = writ;
+	}
 }

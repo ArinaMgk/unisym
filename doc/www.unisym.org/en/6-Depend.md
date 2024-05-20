@@ -4,25 +4,6 @@ dg-publish: true
 charset: UTF-8
 ---
 
-Syst = Host + Arch
-
-Free-stand Environment:
-- `Arch` (including the common `Core`)
-- `Arith`
-> You have to choose the architecture yourself, without the help of hosted characters.
-
-Hosted Environment:
-- `Host`
-- ... (...)
-- `OSDev`
-
-Mixed Environment:
-- ... (below are what to do)
-- `Node` Node-Data-System
-- `Grap` Graphics and Witch
-- `Device`
-- `Format`
-
 ## Depend Map
 
 (Omit the common reference `Core`)
@@ -76,6 +57,7 @@ Host = Arch(destination system), Core(common system) and Devk(developing system)
 
 - [ ] make these true since next generation (Release-U2025XXX):
 	- [ ] Arch + Devk --include--> Core
+	- [ ] make C and C++ Header into one `.h`
 
 >Why there will be Archi and Devk?
 >: For leak of determinism in language and compiler-system, e.g. the length of `int`, while Magice make these built-in rules so we need not provide `Syst` in UNISYM library but Magice-Compiler-Chain.

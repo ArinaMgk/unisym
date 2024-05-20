@@ -18,8 +18,8 @@ typedef sint64 i64;
 #define i128
 typedef stduint usize;
 
-typedef float f32;
-typedef float f64;
+typedef float  f32;
+typedef double f64;
 
 //{} char
 //{} bool

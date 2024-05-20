@@ -33,7 +33,7 @@ namespace uni {
 	public:
 		Comparison_T(type0 storage) : state(true), storage(storage){
 		}
-		type0 get() { return storage; }
+		type0 get(const type0& defa) { return state ? storage : defa; }
 		void set(const type0& storage) { this->storage = storage; }
 		Comparison_T<type0> operator<(const type0& src) {
 			if (state && storage < src)

@@ -63,14 +63,18 @@ namespace uni {
 			return DisplaySize(width, height);
 		}
 	};
-	static inline DisplayRectangle GrafRectHollow(stduint x, stduint y, stduint w, stduint h, DisplayColor color) {
+	static inline DisplayRectangle GrafRect(stduint x, stduint y, stduint w, stduint h, DisplayColor color, bool hollow = false) {
 		DisplayRectangle res;
 		res.x = x;
 		res.y = y;
 		res.width = w;
 		res.height = h;
-		res.filled = false;
+		res.color = color;
+		res.filled = !hollow;
 		return res;
+	}
+	static inline DisplayRectangle GrafRectHollow(stduint x, stduint y, stduint w, stduint h, DisplayColor color) {
+		return GrafRect(x, y, w, h, color);
 	}
 
 	struct DisplayFont {
@@ -131,8 +135,11 @@ namespace uni {
 			DisplayFont f = { (pureptr_t)str };
 			Draw(p, f);
 		}
+		inline stduint getLimitX() { return cols; }
+		inline stduint getLimitY() { return rows; }
 		// more
-		void DrawLine(DisplayPoint disp, DisplaySize size, DisplayColor* color = 0) {
+		//{unchk} negSizy
+		void DrawLine(DisplayPoint disp, DisplaySize size, DisplayColor* color = 0, bool negSizy = false) {
 			if (!doDrawPoint || !size.x || !size.y) return;
 			if (1 == size.x) for0(i, size.y) {
 				Draw(disp, color);// can also use "DrawRect"
@@ -145,21 +152,21 @@ namespace uni {
 			else if (size.y >= size.x) {
 				DisplayPoint orig = disp;
 				for0 (i, size.x) {
-					disp.x++;
 					for0 (j, (stduint)((double)orig.y + i * (size.y - 1) / (size.x - 1) + 0.5) - disp.y) {
-						disp.y++;
 						Draw(disp, color);
+						if (negSizy) disp.y--; else disp.y++;
 					}
+					disp.x++;
 				}
 			}
 			else {
 				DisplayPoint orig = disp;
 				for0(i, size.y) {
-					disp.y++;
 					for0(j, (stduint)((double)orig.x + i * (size.x - 1) / (size.y - 1) + 0.5) - disp.x) {
-						disp.x++;
 						Draw(disp, color);
+						disp.x++;
 					}
+					if (negSizy) disp.y--; else disp.y++;
 				}
 			}
 		}

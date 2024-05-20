@@ -22,7 +22,7 @@
 // slice of Arina Coding Habits
 
 #ifndef __USYM__
-#define __USYM__ 1
+#define __USYM__ 2 // generation
 #define _LIB_C
 #endif
 
@@ -87,6 +87,7 @@ typedef void* pureptr_t;
 
 // Added RFW24, Exchange but not for pointer, and address of `a` should not be the same as `b`
 #define xchg(a,b) (a)^=(b)^=(a)^=(b)
+// check a==b before using
 #define xchgptr(a,b) *(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b)
 
 #define AssignParallel(l,m,r) ((l=m),(m=r))// different from `l=m=r`
@@ -98,6 +99,7 @@ typedef void* pureptr_t;
 
 ///#define foreachstr(iden,x) for(char iden, *iden#ptr=(char*)(x);iden=*iden#ptr;iden#ptr++)// {why} error tip yo VSCODE::IntelliSenseMode(GCC)
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
+#define for0r(iden,times) for(size_t iden=(times);iden--;)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 
 #endif

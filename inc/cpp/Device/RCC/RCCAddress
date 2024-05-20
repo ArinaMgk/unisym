@@ -83,6 +83,7 @@
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOA       0
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOB       1
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOC       2
+#define _RCC_AHB1ENR_POSI_ENCLK_GPIOD       3
 
 #endif
 #endif

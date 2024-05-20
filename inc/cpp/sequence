@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <iostream>
 #include <stdlib.h>
+#include "../c/alice.h"
 typedef size_t stduint;
 
 namespace uni {
@@ -112,7 +113,27 @@ namespace uni {
 		inline type0& operator[] (unsigned idx) { 
 			return idx < count ? offs[idx] : ERR; //offs[count - 1];//{TEMP} 
 		}
+		// Index One. `~0` as not-found
+		inline stduint Index(const type0& val, bool fromRight = false) {
+			if (!fromRight) {
+				for0(i, count) if (offs[i] == val) return i;
+			}
+			else for0r(i, count) if (offs[i] == val) return i;
+			return ~(stduint)0;
+		}
 
+		inline stduint IndexBinary(const type0& val) {
+			//{TODO} Sort First
+			stduint l = 0, r = count - 1;
+			stduint m;
+			while (l < r) {
+				m = l + ((r - l) >> 1);
+				if (val == offs[m]) return m;
+				else if (offs[m] < val) l = ++m;
+				else r = --m;// yo left part
+			}
+			return ~(stduint)0;
+		}
 	};
 	
 }

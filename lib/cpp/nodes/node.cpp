@@ -73,7 +73,7 @@ namespace uni {
 		if (nod) do {
 			if (crt != nod) continue;
 			tmp = NodeInsert(onleft ? last : nod, addr);
-			if (!last) tmp->next = nod;
+			if (onleft && !last) tmp->next = nod;
 			asrtequ(onleft ? root_node : last_node, nod) = tmp;
 			node_count++; return tmp;
 		} while (AssignParallel(last, crt, crt->next));
@@ -99,18 +99,96 @@ namespace uni {
 
 	void NodeChain::Remove(const void* content)	{
 		if (nullptr == root_node) return;
-		Node* next = root_node;
-		while (next)
-		{
-			if (next->offs != content) continue;
-			root_node = next->next;
+		Node* crt = root_node, *nex, *las = 0;
+		if (crt) do {
+			nex = crt->next;
+			if (crt->offs != content) continue;
+			if (crt == root_node) root_node = nex;
+			if (crt == last_node) last_node = las;
+			if (las) las->next = nex;// else this is Root
 			if (need_free_content)
-				(_node_freefunc ? _node_freefunc : _memf)((void*)next->offs);
-			memf(next);
+				(_node_freefunc ? _node_freefunc : _memf)((void*)crt->offs);
+			memf(crt);
 			node_count--;
+		} while (AssignParallel(las, crt, nex));
+	}
 
-			next = root_node;
+	void NodeChain::Remove(Node* nod) {
+		if (nullptr == root_node) return;
+		Node* crt = root_node, * nex, * las = 0;
+		if (crt) do {
+			nex = crt->next;
+			if (crt != nod) continue;
+			if (crt == root_node) root_node = nex;
+			if (crt == last_node) last_node = las;
+			if (las) las->next = nex;// else this is Root
+			if (need_free_content)
+				(_node_freefunc ? _node_freefunc : _memf)((void*)crt->offs);
+			memf(crt);
+			node_count--;
+			return;
+		} while (AssignParallel(las, crt, nex));
+	}
+
+	static int NodeSortDefault(const void* addr0, const void* addr1) {
+		return (stduint)addr0 - (stduint)addr1;
+	}
+	void NodeChain::SortByInsertion() {
+		int (*node_compare)(const void* addr0, const void* addr1) = NodeSortDefault;
+		if (_node_compare) node_compare = _node_compare;
+		Node* crt = Root();
+		if (!crt) return;
+		Node* last = crt, *next = crt->next;
+		while (crt = next) {
+			next = crt->next;
+
+			if (little_endian ? (node_compare(last->offs, crt->offs) > 0) :
+				(node_compare(last->offs, crt->offs) < 0))
+			{
+				// a_bit_lower crt a_bit_bigger...last
+				// Dnode can directly make use of left item
+				// end with crt<=Root or lower<crt<=bigger
+				Node* a_bit_bigger = Root(), * a_bit_lower = 0;
+				if (little_endian? (node_compare(crt->offs, a_bit_bigger->offs) <= 0):
+					(node_compare(crt->offs, a_bit_bigger->offs) >= 0)) 
+				{
+					Append(crt->offs, true, a_bit_bigger);
+					Remove(crt);
+					continue;
+				}
+				AssignParallel(a_bit_lower, a_bit_bigger, a_bit_bigger->next);
+				while (a_bit_bigger != crt) {
+					if (little_endian ? (node_compare(a_bit_lower->offs, crt->offs) < 0 &&
+						node_compare(crt->offs, a_bit_bigger->offs) <= 0):
+						(node_compare(a_bit_lower->offs, crt->offs) > 0 &&
+							node_compare(crt->offs, a_bit_bigger->offs) >= 0))
+					{
+						Append(crt->offs, false, a_bit_lower);
+						Remove(crt);
+						break;
+					}
+					AssignParallel(a_bit_lower, a_bit_bigger, a_bit_bigger->next);
+				}
+			}
+			else last = crt;
 		}
+	}
+
+	void NodeChain::SortBySelection() {
+		int (*node_compare)(const void* addr0, const void* addr1) = NodeSortDefault;
+		if (_node_compare) node_compare = _node_compare;
+		stduint ptr = 0;
+		Node* crt = Root();
+		if (crt) do {
+			Node* clim_one = crt;
+			Node* crtcrt = crt->next;
+			if (crtcrt) do {
+				if (little_endian ? (node_compare(crtcrt->offs, clim_one->offs) < 0) :
+					node_compare(crtcrt->offs, clim_one->offs) > 0)
+					clim_one = crtcrt;
+			} while (crtcrt = crtcrt->next);
+			if (clim_one != crt) Exchange(crt, clim_one);
+		} while (crt = crt->next);
 	}
 
 #undef tmpl

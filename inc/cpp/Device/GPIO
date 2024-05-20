@@ -74,7 +74,7 @@ namespace uni {
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
 		GeneralPurposeInputOutputPin& operator=(bool val);
 		operator bool();
-		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_2MHz);
+		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_2MHz, bool autoEnClk = true);
 		void setPull(bool pullup);// If you do not pull-up or pull-down, that may be floating
 		void Toggle();
 	};
@@ -133,7 +133,7 @@ namespace uni {
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
 		GeneralPurposeInputOutputPin& operator=(bool val);
 		operator bool();
-		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_Low);
+		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_Low, bool autoEnClk = true);
 		void setPull(bool pullup);// If you do not pull-up or pull-down, that may be floating
 		void Toggle();
 	};

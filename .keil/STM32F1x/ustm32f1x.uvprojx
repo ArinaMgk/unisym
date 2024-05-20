@@ -49,7 +49,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>..\..\..\_bin\mcu\</OutputDirectory>
-          <OutputName>ustm32f103ve</OutputName>
+          <OutputName>ustm32f1</OutputName>
           <CreateExecutable>0</CreateExecutable>
           <CreateLib>1</CreateLib>
           <CreateHexFile>0</CreateHexFile>
@@ -393,6 +393,16 @@
               <FileName>RCC.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\lib\cpp\Device\RCC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SysTick.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\lib\cpp\Device\SysTick.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>NVIC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\lib\cpp\Device\NVIC.cpp</FilePath>
             </File>
           </Files>
         </Group>

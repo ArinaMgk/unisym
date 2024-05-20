@@ -95,7 +95,12 @@
 
 //[Optional]
 // #include "integer/prefabbr.h"
-// #include "integer/ruststyle.h"
+#ifdef _STYLE_RUST
+	#include "integer/ruststyle.h"
+#else
+	// other styles ...
+#endif
+
 typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
 typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char
 typedef   signed char sint8;

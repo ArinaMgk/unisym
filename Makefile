@@ -34,10 +34,8 @@ make_dir=./lib/make/
 	\
 	tlwin tllin test clean
 
-list: # depend [python]
-	@python ./lib/Script/Makefile/makemake.py
-list-py3:
-	@python3 ./lib/Script/Makefile/makemake.py
+list: # depend [perl python]
+	@perl ./lib/Script/Makefile/makemake.pl
 
 # ---- [usual hosted-environments] ----
 

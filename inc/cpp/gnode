@@ -124,6 +124,12 @@ namespace uni {
 			}
 		}
 
+		bool isConnect(stduint src, stduint dst, bool directed = false) {
+			if (src == dst) return false;
+			if (!directed && src > dst) xchg(src, dst);
+			//{TODO} 
+		}
+
 		void TraversalBreadthFirst(stduint sors = 0, void (*fn)(stduint src) = 0) {
 			const stduint cnt = CountVertexes();
 			std::vector<bool> visited(cnt, false);

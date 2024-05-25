@@ -5,32 +5,71 @@ dg-publish: true
 
 ## Modules
 
-Syst(stdinc.h=unisym basic) = Host + Arch + Devk
+```mermaid
+graph LR
+subgraph UNISYM
+	subgraph Syst
+		subgraph Host
+		end
+		subgraph Arch
+		end
+		subgraph Devk
+		end
+	end
+	subgraph Arith
+	end
+	subgraph Node
+	end
+	subgraph Graf
+	end
+	subgraph Conio
+	end
+	subgraph Device
+	end
+	subgraph Format
+	end
+	subgraph Data
+	end
+	subgraph Others
+	end
+end
+```
 
-`Core` (alice.h)
-- trait.h
-- uassert.h
-- property
-- reference
+The relationships like dependence, to see [Depend](./6-Depend.md).
 
-Free-stand Environment(besides the common `Core`):
-- `Arch`  (archit.h and c/architect/)
-	- binary.h binary
-	- cpuid.h cpuid
-	- flag.h
-	- `integer/` integer.h integer
-	- floating.h floating
-	- port.h port
-	- proctrl.h
-	- uctype.h
-	- uoption.h
-	- ustdbool.h
-	- pointer
-	- compile/
-	- proctrl/ and MCU/
-		-{chores}
-		- ST
-		- XY
+- `Core` (alice.h & trait.h)
+	- uassert.h
+	- property
+	- reference
+- `Syst` (stdinc.h=unisym basic)
+	- `Devk` (host.h)
+		- call.h
+		- debug.h
+		- cinc
+		- ISO_IEC_STD/
+	- `Host` Hosted Environment
+		- error.h
+		- memory.h
+		- task.h
+		- ustring.h string
+		- interrupt
+	- `Arch`  (archit.h and c/architect/)
+		- binary.h binary
+		- cpuid.h cpuid
+		- flag.h
+		- `integer/` integer.h integer
+		- floating.h floating
+		- port.h port
+		- proctrl.h
+		- uctype.h
+		- uoption.h
+		- ustdbool.h
+		- pointer
+		- compile/
+		- proctrl/ and MCU/
+			-{chores}
+			- ST
+			- XY
 - `Arith` (arith.h)
 	- coear.h coear
 	- regar.h
@@ -40,41 +79,18 @@ Free-stand Environment(besides the common `Core`):
 	- comparison
 > You have to choose the architecture yourself, without the help of hosted characters.
 
-Hosted Environment:
-- `Host` & `Devk` (host.h)
-	- D call.h
-	- D debug.h
-	- D cinc
-	- D ISO_IEC_STD/
-	- H error.h
-	- H memory.h
-	- H task.h
-	- H ustring.h string
-	- H interrupt
-- ... (...)
-- `OSDev`
+- `OSDev` {TODO NO-DEP, into Host}
 
-Mixed Environment:
-- ... (below are what to do)
-- `Node` Node-Data-System (nodes.h nodes)
-	- node.h node
-	- inode.h inode
-	- dnode.h dnode
-	- bnode
-	- (!) tnode.h tnode
-	- nnode.h nnode
-	- anode.h
-	- pnode
-	- gnode
-- `Graf` Graphics and Witch (`graphic.h` and graphic/)
+- `Node` [Node-Data-System](./modules/Nodes.md)
+- `Graf` Graphics and Witch (`graphic.h` and graphic/) {TODO NO-DEP}
 	- color.h
 	- contable.h
 	- Frame/
 		- Qt
 	- Witch/
-- `Conio`
+- `Conio` {TODO NO-DEP}
 	- consio.h console stream
-- `Device` (cpp/Device/ and cpp/driver/)
+- `Device` (cpp/Device/ and cpp/driver/) {TODO NO-DEP}
 	- ADConverter/
 		- XPT2046.h
 	- Video/ and Video
@@ -101,7 +117,7 @@ Mixed Environment:
 	- GPIO
 	- EXTI
 	- nixietube
-- `Format` (format/)
+- `Format` (format/) {TODO NO-DEP}
 	- Encode:: crc64.h
 	- Time:: datime.h
 	- Buffer:: stack.h stack
@@ -111,6 +127,8 @@ Mixed Environment:
 	- Charset:: upec.h
 	- File:: ELF.h
 	- FileSys:: FAT12.h
+- Data (big size)
+	- Assembly Instructions
 - Others
 	- Kasha
 	- msasm
@@ -137,12 +155,6 @@ The below are stable contents.
 | wstring    | [ANSI, wide char]							  | todo  |
 | u8string   | [UTF-8, multi-byte]							| todo  |
 
-| Node Family (XNode) yo hstring | Description			 | State    |
-| ------------------------------ | ----------------------------- | -------- |
-| node				   | node.				 | ripen    |
-| dnode				  | double-direction node.	  | ripen    |
-| nnode				  | nest-dnode, alias `TreeNode`. | toupdate |
-| tnode				  | token node			  | ripen    |
 
 | String Arithmetic | Description								  | Special			    | ErrProc				    | State    |
 | ----------------- | ------------------------------------------------------------ | ---------------------------- | ---------------------------------- | -------- |

@@ -1,6 +1,5 @@
 // ASCII CPL-ISO99 TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: <date>
+// LastCheck: 20240523
 // AllAuthor: @dosconio
 // ModuTitle: Processor and Controller
 // Copyright: UNISYM led by ArinaMgk, Apache License, Version 2.0, unisym.org
@@ -22,19 +21,25 @@ enum Procontroller_t // work with Architecture_t
 	PCU_Unknown
 };
 
-#if !defined(_MCU_Intel8051) // Keil-C51 does not accept enum-element as macro-parameter
-	#if (__ARCH__ == Architecture_x86) && defined(_MCCA)//{TEMP}
-		#include "proctrl/x86/x86.h"
-	#endif
-#else
+#if defined(_MCU_Intel8051) // Keil-C51 does not accept enum-element as macro-parameter
 	// #include "MCU/Intel/i8051.h"
 	#if defined(_IMPLEMENT_KEIL8051)
 		#include "MCU/Intel/keil8051.h"
 	#elif defined(_IMPLEMENT_SDCC8051)
 		#include "MCU/Intel/sdcc8051.h"
 	#endif
+#elif defined(_MCCA)
+// [FLAW] cannot use `#if (__ARCH__ == Architecture_x86)` ...
+#if defined(_ARC_x86)
+	#include "proctrl/x86/x86.h"
+#elif defined(_ARC_RISCV_64)
+	#include "proctrl/RISCV/riscv64.h"
+#else
+	//...
+#endif
 #endif
 
+// Operational Unit Size
 #if defined(_MCU_STM32F10x)
 	// use 32b-align(times of 0x4) address
 	typedef uint32  typedest;

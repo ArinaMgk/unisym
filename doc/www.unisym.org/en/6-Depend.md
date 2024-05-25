@@ -6,6 +6,8 @@ charset: UTF-8
 
 ## Depend Map
 
+Version = ARCH (register & instruction) + HOST (os) + BITS (4/8/16/32/64...), except DEVK
+
 (Omit the common reference `Core`)
 
 ```mermaid
@@ -13,41 +15,8 @@ graph LR
 	Host-->Arith
 
 ```
+
 >Different from other graph: point to reference but dependence
-
----
-
-to renew :
-```
-graph LR
-	%% UNISYM
-	%% @ArinaMgk
-	root[alice & aldbg]-->node[node:A]
-	root-->cpuid[cpuid]
-	root-->binary[binary]--bitref-->hash_crc64["crc64 [File]"]
-	root-->mcore
-	root--systemlib-->consio
-	root-->datime
-	root-->uctype-->ustring
-	root-->dnode[dnode:A]--_Replace-->ustring
-	ustring--_StrHeap-->inode:A
-	ustring--_toktype-->tnode[tnode:A]-->ustring
-	ustring-->coear
-	root-->nnode:A
-	root-->UPEC
-	root-->strpool:A
-	root-->stack:A
-	root-->error
-	root-->uassert
-	root-->coear:A-->numar:A
-	root-->regar
-	root-->tenar:todo
-	
-	setjmp-->error
-	node-->error
-	stdio-->error
-```
-
 
 ### Host
 
@@ -55,7 +24,7 @@ Host = Arch(destination system), Core(common system) and Devk(developing system)
 
 > 20240502: With the development of UNISYM, the including files of Core is bound to be complex and huge, it is necessary to ask users to use specific file but the only `stdinc`, more to see in `5-Compatible.md`. 
 
-- [ ] make these true since next generation (Release-U2025XXX):
+- [ ] make these true since next generation (Release-U2025SPR):
 	- [ ] Arch + Devk --include--> Core
 	- [ ] make C and C++ Header into one `.h`
 
@@ -112,9 +81,33 @@ graph LR
 	Mcca["Mecocoa(or other ENV)"]--MccaBuiltUnisym&MccaBuiltinMagiceChain-->MagiceChain--ENV=MCCA-->Mcca
 ```
 
-### Arithmetic
+### Arith - Arithmetic
 
 - CoeAr
 - Builtin-floating functions
 
+Often-used
+- dblabs
 
+Single
+- ariprecise
+
+```mermaid
+graph LR
+	intFib
+	intpow2_iexpo
+	dblpow_iexpo
+	dblexp-->dblpow_iexpo
+	dbllog
+	dblpow_fexpo-->dblexp
+	dblpow_fexpo-->dbllog
+	dblsqrt-->dblpow_fexpo
+	dblsin/cos-->dblpow_iexpo
+	dbltan-->dblsin/cos
+	dblasin
+	dblacos
+	dblatan-->dblpow_iexpo
+	dblsinh/cosh-->dblexp
+	dbltanh-->dblpow_iexpo
+	dbltanh-->dblexp
+```

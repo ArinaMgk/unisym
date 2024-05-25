@@ -40,6 +40,9 @@ namespace uni
 	GeneralPurposeInputOutputPort GPIOG(0x40012000, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOG);
 
 	GeneralPurposeInputOutput GPIO;
+	static GeneralPurposeInputOutputPort* GPIO_List[] = {
+	&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG
+	};
 
 	GeneralPurposeInputOutputPin::operator bool() {
 		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
@@ -106,8 +109,13 @@ namespace uni
 	GeneralPurposeInputOutputPort GPIOC(0x40020800, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOC);
 	GeneralPurposeInputOutputPort GPIOD(0x40020C00, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOD);//
 	GeneralPurposeInputOutputPort GPIOE(0,0,0);//{}
+	GeneralPurposeInputOutputPort GPIOF(0,0,0);//{}
+	GeneralPurposeInputOutputPort GPIOG(0,0,0);//{}
 
 	GeneralPurposeInputOutput GPIO;
+	static GeneralPurposeInputOutputPort* GPIO_List[] = {
+		&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG
+	};
 
 	GeneralPurposeInputOutputPin::operator bool() {
 		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
@@ -116,6 +124,7 @@ namespace uni
 	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
 		if (innput) return *this;
 		// G'DP or D'DP
+		//{TO update}
 		if (val)
 			BitSet(parent->OutpdPort, bitposi);
 		else
@@ -152,6 +161,16 @@ namespace uni
 		parent->OutpdPort ^= 1 << bitposi;
 	}
 	
-	#endif
+#endif
+
+	GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](char portid) {
+		return ascii_isupper(portid) ? *(GPIO_List[portid - 'A']) : ERR;
+	}
+
+	//{UNCHK}
+	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (uint32 val) {
+		OutpdPort = val;
+		return *this;
+	}
 }
 

@@ -118,7 +118,7 @@ stduint intFibonacci(stduint idx);
 
 inline static stduint intpow2_iexpo(stduint expo)
 {
-	return 1 << expo;
+	return (stduint)1 << expo;
 }
 
 double dblexp(double expo);

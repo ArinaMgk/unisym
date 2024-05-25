@@ -11,6 +11,9 @@
 #include "../unisym"
 #include "../binary"
 #include "../reference"
+extern "C" {
+	#include "../../c/uctype.h"
+}
 
 #if !(_typedest_len==4 && _typeaddr_len==4)
 #error "! You may need add optional macro `_MCU_STM32F103VE` or include `STM32F103VEx`"
@@ -97,6 +100,8 @@ namespace uni {
 		GeneralPurposeInputOutputPin& operator[](uint8 pinid) {
 			return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
 		}
+		
+		GeneralPurposeInputOutputPort& operator=(uint32 val);
 	};
 
 #elif defined(_MCU_STM32F4x)
@@ -161,17 +166,16 @@ namespace uni {
 		GeneralPurposeInputOutputPin& operator[](uint8 pinid) {
 			return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
 		}
+
+		GeneralPurposeInputOutputPort& operator=(uint32 val);
 	};
 
 
 #endif
 
 
-	extern GeneralPurposeInputOutputPort GPIOA;
-	extern GeneralPurposeInputOutputPort GPIOB;
-	extern GeneralPurposeInputOutputPort GPIOC;
-	extern GeneralPurposeInputOutputPort GPIOD;
-	extern GeneralPurposeInputOutputPort GPIOE;
+	extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG;
+
 	
 
 
@@ -183,21 +187,7 @@ namespace uni {
 		GeneralPurposeInputOutput() : ERR(~0, ~0, ~0) {
 
 		}
-		GeneralPurposeInputOutputPort& operator[](char portid) {
-			GeneralPurposeInputOutputPort* GPIO_List[] = {
-				&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE
-			};
-			switch (portid) {
-			case 'A':
-			case 'B':
-			case 'C':
-			case 'D':
-			case 'E':
-				return *(GPIO_List[portid - 'A']);// break;
-			default:
-				return ERR;// break;
-			}
-		}
+		GeneralPurposeInputOutputPort& operator[](char portid);
 	};
 	extern GeneralPurposeInputOutput GPIO;
 

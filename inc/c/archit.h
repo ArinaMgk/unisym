@@ -48,25 +48,34 @@ enum Architecture_t // for instruction sets
 };
 
 // If no host-environment will be used, you can define __BITS__ by yourself.
-#if defined(__BITS__)
+#if defined(__BITS__) && defined(__ARCH__)
 	//
 #elif defined(_Win32) // "_WIN32" is for many Windows Series but just 32-bit
 	#undef _WinNT // if this cause warnings, add `#ifdef` more.
 	#define _WinNT 32
 	#define _Intelx86_Windows_32
 	#define __ARCH__ Architecture_x86
+	#ifndef _ARC_x86
+		#define _ARC_x86 0
+		#endif
 	#define __BITS__ 32
 #elif defined(_Win64)
 	#undef _WinNT
 	#define _WinNT 64
 	#define _Intelx86o64_Windows_64
 	#define __ARCH__ Architecture_x86
+	#ifndef _ARC_x86
+		#define _ARC_x86 0
+		#endif
 	#define __BITS__ 64
 #elif defined(_Win16)
 	#undef _WinNT
 	#define _WinNT 16
 	#define _Intelx86_Windows_16
-	#define __ARCH__ Architecture_x86	
+	#define __ARCH__ Architecture_x86
+	#ifndef _ARC_x86
+		#define _ARC_x86 0
+		#endif
 	#define __BITS__ 16
 //
 #elif defined(_Linux32)
@@ -74,12 +83,18 @@ enum Architecture_t // for instruction sets
 	#define _Linux 32
 	#define _Intelx86_Linux_32
 	#define __ARCH__ Architecture_x86
+	#ifndef _ARC_x86
+		#define _ARC_x86 0
+		#endif
 	#define __BITS__ 32
 #elif defined(_Linux64)
 	#undef _Linux
 	#define _Linux 64
 	#define _Intelx86o64_Linux_64
 	#define __ARCH__ Architecture_x86_64
+	#ifndef _ARC_x64
+		#define _ARC_x64
+		#endif
 	#define __BITS__ 64
 // [Special for Mecocoa]
 #elif defined(_MCCAx86)
@@ -87,16 +102,23 @@ enum Architecture_t // for instruction sets
 	#define _MCCA 0x8632 // default flat-segment mode
 	#define _Intelx86_Mcca_32
 	#define __ARCH__ Architecture_x86
+	#ifndef _ARC_x86
+		#define _ARC_x86 0
+		#endif
 	#define __BITS__ 32
 #elif defined(_MCCAx86Real)
 	#undef _MCCA
-	#define _MCCA 0x8616
+	#define _MCCA 0x8616//{TODO} remove
 	#define _Intelx86_Mcca_16
 	#define __ARCH__ Architecture_x86
+	#ifndef _ARC_x86
+		#define _ARC_x86 0
+		#endif
 	#define __BITS__ 16
-#elif defined(_RiscV64)	
+#elif defined(_OPT_RISCV64)
 	#define __ARCH__ Architecture_RISCV64
-	// #define __BITS__ 64 ?
+	#define _ARC_RISCV_64
+	#define __BITS__ 64
 #endif
 // ---- ---- ---- ---- stdint.h [partial] ---- ---- ---- ----
 
@@ -111,7 +133,7 @@ enum Architecture_t // for instruction sets
 	#include "architect/arcintel_8051.h"
 	#define __BITS__ 8
 	#define __ARCH__ Architecture_Unknown
-#elif defined(_RiscV64)
+#elif defined(_OPT_RISCV64)
 	#include "architect/arcriscv_64.h"
 #else
 	#define _INC_DEPEND_STDINT

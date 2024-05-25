@@ -92,35 +92,48 @@
 #endif
 
 // ---- ---- ---- ---- Core of UniSym Integer ---- ---- ---- ----
-
-//[Optional]
-// #include "integer/prefabbr.h"
+#ifdef _STYLE_ABBR
+	#include "integer/prefabbr.h"
+#endif
 #ifdef _STYLE_RUST
 	#include "integer/ruststyle.h"
 #else
 	// other styles ...
 #endif
 
+#if !defined(_MCU_Intel8051)
+#define _BIT_SUPPORT_64
+#else
+#undef  _BIT_SUPPORT_64
+#endif
+
 typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
 typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char
 typedef   signed char sint8;
+typedef   int8_t       int8;
 typedef   signed char sbyte;
 typedef uint16_t  word;// unsigned short int
 typedef uint16_t  uint16;//[trend] unsigned short int
 typedef  int16_t  sint16;//[trend]   signed short int
+typedef  int16_t  int16;
 typedef  int16_t  sword;// signed short int
 typedef uint32_t  dword;// unsigned int
 typedef uint32_t  uint32;//[trend] unsigned int
 typedef  int32_t  sint32;//          signed int
+typedef  int32_t  int32;
 typedef  int32_t  sdword;// signed int
-#if !defined(_MCU_Intel8051)
+#if defined(_BIT_SUPPORT_64)
 	typedef uint64_t  qword;// unsigned long long int
 	typedef uint64_t  uint64;//[trend] unsigned long long int
 	typedef  int64_t  sint64;//          signed long long int
+	typedef  int64_t  int64;
 	typedef  int64_t  sqword;// signed long long int
 #endif
+
+
 typedef size_t    stduint;
 typedef ptrdiff_t stdint ;
+typedef ptrdiff_t stdsint;
 //
 #define valword(x) (*(word*)&(x))// will be template overload as C++ version
 
@@ -203,21 +216,22 @@ typedef ptrdiff_t stdint ;
 #define PRIXFAST16 "X"
 #define PRIXFAST32 "X"
 #define PRIXFAST64 PRIX64
-
-#define PRIdMAX PRId64
-#define PRIiMAX PRIi64
-#define PRIoMAX PRIo64
-#define PRIuMAX PRIu64
-#define PRIxMAX PRIx64
-#define PRIXMAX PRIX64
-
-#define PRIdPTR PRId64
-#define PRIiPTR PRIi64
-#define PRIoPTR PRIo64
-#define PRIuPTR PRIu64
-#define PRIxPTR PRIx64
-#define PRIXPTR PRIX64
-
+#ifndef PRIdMAX
+	#define PRIdMAX PRId64
+	#define PRIiMAX PRIi64
+	#define PRIoMAX PRIo64
+	#define PRIuMAX PRIu64
+	#define PRIxMAX PRIx64
+	#define PRIXMAX PRIX64
+	#endif
+#ifndef PRIdPTR
+	#define PRIdPTR PRId64
+	#define PRIiPTR PRIi64
+	#define PRIoPTR PRIo64
+	#define PRIuPTR PRIu64
+	#define PRIxPTR PRIx64
+	#define PRIXPTR PRIX64
+	#endif
 // The fscanf macros for integers are:
 
 #define SCNd8 "hhd"
@@ -284,18 +298,20 @@ typedef ptrdiff_t stdint ;
 #define SCNxFAST32 "x"
 #define SCNxFAST64 PRIx64
 
-#define SCNdMAX PRId64
-#define SCNiMAX PRIi64
-#define SCNoMAX PRIo64
-#define SCNuMAX PRIu64
-#define SCNxMAX PRIx64
-
-#define SCNdPTR PRId64
-#define SCNiPTR PRIi64
-#define SCNoPTR PRIo64
-#define SCNxPTR PRIx64
-#define SCNuPTR PRIu64
-
+#ifndef SCNdMAX
+	#define SCNdMAX PRId64
+	#define SCNiMAX PRIi64
+	#define SCNoMAX PRIo64
+	#define SCNuMAX PRIu64
+	#define SCNxMAX PRIx64
+	#endif
+#ifndef SCNdPTR
+	#define SCNdPTR PRId64
+	#define SCNiPTR PRIi64
+	#define SCNoPTR PRIo64
+	#define SCNxPTR PRIx64
+	#define SCNuPTR PRIu64
+	#endif
 // International standard functions:
 
 //struct imaxdiv_t

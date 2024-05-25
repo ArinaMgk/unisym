@@ -1,7 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// LastCheck: 2023 Nov 16
-// AllAuthor: @ArinaMgk; @dosconio
-// ModuTitle: General Header
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: Micro Core
+// Codifiers: @dosconio: ~ 20240520
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,38 +20,58 @@
 	limitations under the License.
 */
 
-// slice of Arina Coding Habits
-
 #ifndef __USYM__
 #define __USYM__ 2 // generation
 #define _LIB_C
 #endif
 
-#ifndef _LIB_UNISYM//alias ArnHabit
+#ifndef _LIB_UNISYM
 #define _LIB_UNISYM
 
 #ifndef _INC_CPP
 	#define pointer_t(_typ) _typ * 
 	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magice pointer: "pointer(pointer(void)) pp"
+#else
+extern "C++" {
+	namespace uni {
+		// [TEST] let var float a = 2.0; then Castype(int, a) <=> cast<int>(a)
+		template<typename typed, typename types> inline static typed& cast(types& value) {
+			return *(typed*)(&value);
+		}
+	}
+}
 #endif
 
 typedef void(*_tofree_ft)(void*);
 typedef void* pureptr_t;
 
 // __ENDIAN__
-#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
+#ifndef __ENDIAN__
+	#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
+#endif
 // __ARCH__
 // __BITS__
 	// [Rely-on] stdinc.h
-// __FUNCIDEN__ : function identifier
+//{TOIN: DEVK} __FUNCIDEN__ : function identifier
 #ifdef _MSC_VER // for MSVC
-#define __FUNCIDEN__ __FUNCDNAME__
-#elif defined(__GNUC__)
-#define __FUNCIDEN__ __func__ // cannot auto-strcat
-#endif
+	#define __FUNCIDEN__ __FUNCDNAME__
+	#define _ALIGN
 
+
+#elif defined(__GNUC__)
+	#define __FUNCIDEN__ __func__ // cannot auto-strcat
+	#define _ALIGN(n) __attribute__((aligned(n)))
+
+#endif
+//{TOIN: DEVK}
 #define masm __asm
+//{TOIN: DEVK} _REGISTER
+	#ifdef _INC_CPP
+	#define _REGISTER
+	#else
+	#define _REGISTER register
+	#endif
 
 // ARINA-COVE C23-STYLE Attribute
 #define _Heap
@@ -69,6 +90,7 @@ typedef void* pureptr_t;
 #define If(con) if(0||con) //<=> if(1&&con) : avoid error such as mixing "a=0" and "a==0"
 
 #define byteof sizeof
+#define bitsof(x) (sizeof(x)*8)
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
 
 #if !defined(_DEBUG) && !defined(_dbg)
@@ -97,9 +119,13 @@ typedef void* pureptr_t;
 // Example for the parameter: Bnode * inp = (Bnode*)~(stduint)0
 #define nulrecurs(inp, root, rets) do {if (!inp) return rets; else if (!~(stduint)inp) inp = root; } while (0)
 
-///#define foreachstr(iden,x) for(char iden, *iden#ptr=(char*)(x);iden=*iden#ptr;iden#ptr++)// {why} error tip yo VSCODE::IntelliSenseMode(GCC)
+#define Castype(des,val) *(des*)&(val)
+#define Letvar(iden,type,init) type iden = (type)init
+
+#define foreach_str(iden,x) for(char iden, *_pointer=(char*)(x);iden=*_pointer;_pointer++)
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for0r(iden,times) for(size_t iden=(times);iden--;)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
+
 
 #endif

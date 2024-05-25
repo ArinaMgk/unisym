@@ -14,7 +14,7 @@ dg-publish: true
 
 #### > Soft Option Control
 
-- `_dbg`(old style) <=> `_DEBUG`
+- `_DEBUG`
 
 - `_AUTO_INCLUDE` will include ASM or C codes
 
@@ -33,6 +33,9 @@ dg-publish: true
 - `_ARC_x86` 
     - this equals `3` : `_ARC_i80386`
 
+style gene-3
+- `_OPT_RISCV64`
+
 ##### > Instruction Set (going to be abandoned)
 
 - p_i386
@@ -41,7 +44,7 @@ dg-publish: true
 
 #### > Processor and Controller Unit
 
-- `_MCU_STM32F103VE`
+- `_MCU_STM32F103VE` => `_MCU_STM32F10x`
 - `_CPU_AMDRyzen7_5800H_Radeon`
 
 #### > Platform and Environment
@@ -72,11 +75,7 @@ Trend: The macro name to the left of the colon is for internal use, which is in 
 
 environment
 
-- `__BITS__`
-    - 8
-    - 16
-    - 32
-    - 64
+- `__BITS__` 8 or 16 or 32 or 64
 - Endian ... 
 - Platform
     - {ISSUE} Whether to make a integer `_LIMIT_INTEL_SERIES_` to simplify the expression: 

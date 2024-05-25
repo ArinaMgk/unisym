@@ -100,10 +100,18 @@ word IN_w(word Port);
 #define innpb IN_b
 #define innpw IN_w
 
-// lib/asm/x86/inst/manage.asm
+// ---- lib/asm/x86/inst/manage.asm ----
 void HALT(void);
+
 void InterruptEnable(void);
 void InterruptDisable(void);
+static inline void enInterrupt(int enable) {
+	if (enable)
+		InterruptEnable();
+	else
+		InterruptDisable();
+}
+
 void InterruptDTabLoad(void* addr);
 dword getCR3();
 dword getEflags();
@@ -111,16 +119,16 @@ void jmpFar(dword offs, dword selc);//{TODO} JumpFar
 void CallFar(dword offs, dword selc);
 void returnfar(void);
 
-// lib/asm/x86/inst/interrupt.asm
+// ---- lib/asm/x86/inst/interrupt.asm ----
 void returni(void);// for C
 
-// lib/asm/x86/inst/stack.asm
+// ---- lib/asm/x86/inst/stack.asm ----
 void pushad(void);
 void popad(void);
 void pushfd(void);
 void popfd(void);
 
-// lib/c/processor/x86/delay.c
+// ---- lib/c/processor/x86/delay.c ----
 void delay001s();
 
 #endif

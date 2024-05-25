@@ -1,6 +1,4 @@
-#!
-# ASCII Python-3 TAB4 LF
-# Attribute:
+#!ASCII Python-3 TAB4 LF
 import os
 import sys
 import datetime

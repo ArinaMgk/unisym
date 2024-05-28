@@ -43,5 +43,6 @@ namespace uni {
 	};
 }
 
+extern "C" void SysDelay(stduint unit);
 
 #endif

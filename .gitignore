@@ -19,3 +19,7 @@ Cargo.lock
 # Keil
 DebugConfig
 *.uvguix*
+# Huge-interval-sources
+_asm_inst_bind.c
+_asm_dasm_bind.c
+_asm_inst_bin.c

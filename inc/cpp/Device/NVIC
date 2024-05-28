@@ -26,7 +26,7 @@
 #include "../unisym"
 
 #if defined(_MCU_STM32F10x)
-
+#undef NVIC
 #define _NVIC_PRIO_BITS 4
 
 namespace uni {

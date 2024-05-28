@@ -127,5 +127,7 @@ typedef void* pureptr_t;
 #define for0r(iden,times) for(size_t iden=(times);iden--;)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 
+#define _TEMP
+#define _TODO
 
 #endif

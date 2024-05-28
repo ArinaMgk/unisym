@@ -71,12 +71,14 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 			- ST
 			- XY
 - `Arith` (arith.h)
+	- instruction.h
 	- coear.h coear
 	- regar.h
 	- numar.h number
 	- tenar.h
 	- int128
 	- comparison
+	* riscv64
 > You have to choose the architecture yourself, without the help of hosted characters.
 
 - `OSDev` {TODO NO-DEP, into Host}
@@ -113,9 +115,9 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- RCC/
 	- Systick
 	- SysClock
-	- NVIC
+	- AFIO
+	- EXTI and NVIC (interrupt)
 	- GPIO
-	- EXTI
 	- nixietube
 - `Format` (format/) {TODO NO-DEP}
 	- Encode:: crc64.h

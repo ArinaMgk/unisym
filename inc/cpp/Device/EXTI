@@ -1,0 +1,72 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) External Interrupt / Event Controller
+// Codifiers: @dosconio: 20240525
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_EXTI_X
+#define _INC_DEVICE_EXTI_X
+
+#include "../unisym"
+#include "../binary"
+#include "../reference"
+
+namespace uni {
+	#if 0
+
+	#elif defined(_MCU_STM32F10x)
+	#undef EXTI
+	// Assume definition in startup.S
+	// - EXTI0_IRQHandler
+	// - ...
+
+	namespace GPIORupt {
+		enum RuptEdge {
+			Anyedge,
+			Posedge,// Rising Edge
+			Negedge// Falling Edge
+		};
+	}
+
+	namespace GPIOEvent {
+		enum EventEdge {
+			OUT_PushPull = 0 << 2,
+			Anyedge,
+			Posedge,// Rising Edge
+			Negedge// Falling Edge
+		};
+	}
+
+	#define _EXTI_ADDR 0x40010400 //~ 0x400107FF
+	class EXTI {
+	protected:
+		
+	public:
+		static Reference MaskInterrupt;// avail[19:0]
+		static Reference MaskEvent;// avail[19:0]
+		static Reference TriggerRising;// avail[19:0]
+		static Reference TriggerFalling;// avail[19:0]
+		static Reference Softrupt;// avail[19:0]
+		static Reference Pending;// avail[19:0]
+	};
+
+	#endif
+}
+
+#endif

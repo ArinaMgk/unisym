@@ -27,6 +27,7 @@
 #define _INC_DEVICE_RCC_Prescaler_X
 
 #include "../../reference"
+#include "RCCAddress"
 
 #ifdef _MCU_STM32F10x
 
@@ -56,6 +57,13 @@ namespace uni {
 			if (divexpo) divexpo = (divexpo - 1) | 0x4;
 			Cfgreg = (Cfgreg & ~(uint32)(0x7 << bitposi)) | (divexpo << bitposi);
 			return true;
+		}
+
+		void enAble(uint8 bitposi) {
+			Reference _RCC_APBxENR((PCLK_ID == 1) ? _RCC_APB2ENR_ADDR : // 1
+				_RCC_APB1ENR_ADDR // 0
+				);
+			_RCC_APBxENR.setof(bitposi);
 		}
 	};
 

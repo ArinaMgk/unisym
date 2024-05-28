@@ -33,8 +33,6 @@
 #define ModRegisterBasedFloating
 // Also-known-as Regular Arith.
 
-#include <stddef.h>
-#include <limits.h>
 #include "stdinc.h"
 
 // [LIMIT] Length is times of size_t or ptrdiff_t, but byte.

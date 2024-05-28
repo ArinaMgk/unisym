@@ -1,6 +1,6 @@
 // ASCII CPP TAB4 CRLF
 // Docutitle: Interrupt
-// Codifiers: @dosconio: 20240420 ~ <Last-check> 
+// Codifiers: @dosconio: 20240527
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,19 +20,27 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Interrupt_X
-#define _INC_Interrupt_X
-#include "unisym"
+#include "../../inc/cpp/interrupt"
+
+namespace uni {
 #if 0
 //
 #elif defined(_MCU_STM32F10x)
-#include "Device/NVIC"
-#include "Device/EXTI"
-#include "Device/AFIO"
-#include "Device/Interrupt/interrupt_tab.h"
 
+Reference EXTI::MaskInterrupt(_EXTI_ADDR + 0x00);// aka EXTI_IMR, default 0x00000000
 
+Reference EXTI::MaskEvent(_EXTI_ADDR + 0x04);// aka EXTI_EMR, default 0x00000000
+
+Reference EXTI::TriggerRising(_EXTI_ADDR + 0x08);// aka EXTI_RTSR, default 0x00000000
+
+Reference EXTI::TriggerFalling(_EXTI_ADDR + 0x0C);// aka EXTI_FTSR, default 0x00000000
+
+Reference EXTI::Softrupt(_EXTI_ADDR + 0x10);// aka EXTI_SWIER, default 0x00000000
+
+Reference EXTI::Pending(_EXTI_ADDR + 0x14);// aka EXTI_PR, default undefined
+
+	
 #else
 // may for osdev?
 #endif
-#endif
+}

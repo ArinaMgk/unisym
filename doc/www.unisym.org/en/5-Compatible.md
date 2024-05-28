@@ -39,6 +39,8 @@ since C99.
 | MemRelative    | *None*         |                                   |
 | ...            |                |                                   |
 
+### `archit.h` ≥ `limits.h`, `stddef.h`
+
 ### `integer.h` ≥ `inttypes.h`, `stdint.h`
 
 Users can also provide their own`stdint.h`.

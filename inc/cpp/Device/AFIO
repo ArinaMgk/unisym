@@ -1,6 +1,6 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: Interrupt
-// Codifiers: @dosconio: 20240420 ~ <Last-check> 
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Alternate Function I/O
+// Codifiers: @dosconio: 20240527
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,19 +20,33 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Interrupt_X
-#define _INC_Interrupt_X
-#include "unisym"
+#ifndef _INC_DEVICE_AFIO_X
+#define _INC_DEVICE_AFIO_X
+
+#include "../unisym"
+#include "../binary"
+#include "../reference"
+
+namespace uni {
+
 #if 0
-//
+
 #elif defined(_MCU_STM32F10x)
-#include "Device/NVIC"
-#include "Device/EXTI"
-#include "Device/AFIO"
-#include "Device/Interrupt/interrupt_tab.h"
+	#undef AFIO
+	#define _AFIO_ADDR 0x40010000 //~ 0x400103FF
+	class AFIO {
+	protected:
+		
+	public:
+		static Reference EventCtrlReg;// AFIO_EVCR
+		static Reference MapReg;// AFIO_MAPR
+		static Reference ExternInterruptCfgs[4];// AFIO_EXTICRx
+
+	};
 
 
-#else
-// may for osdev?
 #endif
+
+}
+
 #endif

@@ -210,6 +210,7 @@ double dblsin(double rad)
 		rad = (_pi) - rad;
 	if (rad > _pi / 4)
 		return res * dblsin_recurs(_pi / 2 - rad, 1);
+	if (rad == 0.0) return 0.0;// 20240527 fix-append
 	return res * dblsin_recurs(rad, 0);
 }
 double dblcos(double rad)
@@ -230,6 +231,7 @@ double dblcos(double rad)
 	}
 	if (rad > _pi / 4)
 		return res * dblsin_recurs(_pi / 2 - rad, 0);
+	if (rad == 0.0) return 1.0;// 20240527 fix-append
 	return res * dblsin_recurs(rad, 1);
 }
 

@@ -1,10 +1,24 @@
 // ASCII CPP TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: <date>
-// AllAuthor: @dosconio
-// ModuTitle: ...
-// Copyright: ...
+// Docutitle: (Device) General Purpose Input Output
+// Codifiers: @dosconio: 20240412
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
 
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
 #include "../../../inc/cpp/Device/GPIO"
 #include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/c/binary.h"
@@ -68,13 +82,44 @@ namespace uni
 		ref = (ref & ~(0xf << bposi)) | (state << bposi);// or treat it a double-length Reference (64-bit)
 		if (autoEnClk) parent->enClock();
 	}
+
+	void GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg) {
+		if (!isInput())
+			setMode(GPIOMode::IN_Floating);
+		RCC.APB2.enAble(_RCC_APB2ENR_POSI_ENCLK_AFIO_BITPOS);
+		for0(i, 10);// some delay to wait, magic_num: random
+		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[bitposi >> 2];
+		byte CrtPosi = (bitposi & 0x3) * 4;
+		CrtEXTICR = (CrtEXTICR &
+			~(stduint)(0xF << CrtPosi)) |
+			(GPIO.Index(parent) << CrtPosi);
+		EXTI::TriggerRising.setof(bitposi, edg != GPIORupt::Negedge);
+		EXTI::TriggerFalling.setof(bitposi, edg != GPIORupt::Posedge);
+		EXTI::MaskInterrupt.setof(bitposi); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
+	}
+
+
 	// for F1, only for input (?)
 	void GeneralPurposeInputOutputPin::setPull(bool pullup) {
 		(parent->OutpdPort).setof(bitposi, pullup);
 	}
 
+	void GeneralPurposeInputOutputPin::setInterrupt(Handler_t fn) {
+		FUNC_EXTI[bitposi] = fn;
+	}
+
+	bool GeneralPurposeInputOutputPin::isInput() const {
+		return 0 == (uint32_t(bitposi < 8 ? parent->CnrglPort : parent->CnrghPort) &
+			(0x3 << ((bitposi & 0x7)*4)));
+	}
+	
 	void GeneralPurposeInputOutputPin::Toggle() {
 		parent->OutpdPort ^= 1 << bitposi;
+	}
+
+	//{unchecked}
+	void Lock(bool tolock_orunlock) {
+		//{TODO}
 	}
 
 // ---- ---- ---- ----
@@ -97,7 +142,7 @@ namespace uni
 		OtypePort(_OFFSET_GPIO_OTYPE + ADDR),
 		SpeedPort(_OFFSET_GPIO_SPEED + ADDR),
 		PullsPort(_OFFSET_GPIO_PULLS + ADDR)
-		//{TODO} base(ADDR),
+		//{TODO...} base(ADDR),
 		
 	{
 		for0(i, numsof(OutpdPins))
@@ -162,9 +207,16 @@ namespace uni
 	}
 	
 #endif
-
+	
 	GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](char portid) {
 		return ascii_isupper(portid) ? *(GPIO_List[portid - 'A']) : ERR;
+	}
+
+	stduint GeneralPurposeInputOutput::Index(const GeneralPurposeInputOutputPort* port) {
+		for0 (i, numsof(GPIO_List)) {
+			if (port == GPIO_List[i]) return i;
+		}
+		return 0;
 	}
 
 	//{UNCHK}

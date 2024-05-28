@@ -49,7 +49,11 @@
 
 #include "stdinc.h"
 #include "uctype.h"
-#include <string.h>//{TODO} STD LIB
+
+typedef enum string_layout_t {
+	_string_zero_terminated = 0,
+	_string_length_prefixed
+} string_layout_t;
 
 typedef enum _token_t
 {
@@ -310,8 +314,8 @@ static inline size_t StrLength(const char* s)
 	return len;
 }
 #else
-#define StrLength strlen ///{TODO}
 #endif
+
 
 //{TODO} 2 Ver
 static inline char* StrElement(char* s, ptrdiff_t idx)

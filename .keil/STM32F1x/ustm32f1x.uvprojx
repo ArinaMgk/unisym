@@ -404,6 +404,21 @@
               <FileType>8</FileType>
               <FilePath>..\..\lib\cpp\Device\NVIC.cpp</FilePath>
             </File>
+            <File>
+              <FileName>AFIO.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\lib\cpp\Device\AFIO.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>interrupt_tab.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>interrupt.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\lib\cpp\interrupt.cpp</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

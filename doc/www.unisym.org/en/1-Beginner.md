@@ -28,3 +28,9 @@ if you develop MCU-program, use the special file like `STM32F103VE` for C++...
 - Microsoft
 - {TODO} Magice
 
+### TEMP
+
+- Win64 MSVC&GCC
+- Win32 GCC
+- Linux ELF64 ELF32
+- RISCV-64 GCC on Ubuntu(22.x+)-64

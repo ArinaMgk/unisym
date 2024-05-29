@@ -21,6 +21,7 @@ if you develop MCU-program, use the special file like `STM32F103VE` for C++...
 - `uincpath`, points to INC, a must for developer
 - `ulibpath`, points to LIB, optional
 - `ubinpath`, points to BIN, a must for user
+- `hostarget`, like `_OPT_RISCV64`, define when no target is specified
 
 ### Development Environment
 
@@ -34,3 +35,4 @@ if you develop MCU-program, use the special file like `STM32F103VE` for C++...
 - Win32 GCC
 - Linux ELF64 ELF32
 - RISCV-64 GCC on Ubuntu(22.x+)-64
+- STM32F 1/4

@@ -109,6 +109,7 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- LCD1602.h (specific LCD)
 	- nixietube.h
 	- OneWire.h (method)
+	- PIT.h
 	- RealtimeClock.h
 	- timer.h
 	- UART.h

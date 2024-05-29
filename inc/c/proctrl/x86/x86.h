@@ -130,5 +130,6 @@ void popfd(void);
 
 // ---- lib/c/processor/x86/delay.c ----
 void delay001s();
+void delay001ms();
 
 #endif

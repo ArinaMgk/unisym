@@ -58,6 +58,8 @@ namespace uni
 	&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG
 	};
 
+#if 1
+	
 	GeneralPurposeInputOutputPin::operator bool() {
 		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
 	}
@@ -107,6 +109,23 @@ namespace uni
 	void GeneralPurposeInputOutputPin::setInterrupt(Handler_t fn) {
 		FUNC_EXTI[bitposi] = fn;
 	}
+	
+	static Request_t GPIO_Request_list[16] = {
+			IRQ_EXTI0, IRQ_EXTI1, IRQ_EXTI2, IRQ_EXTI3,
+			IRQ_EXTI4, IRQ_EXTI9_5, IRQ_EXTI9_5, IRQ_EXTI9_5,
+			IRQ_EXTI9_5, IRQ_EXTI9_5, IRQ_EXTI15_10, IRQ_EXTI15_10,
+			IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10
+		};
+	void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) {
+		NVIC.setPriority(GPIO_Request_list[bitposi], preempt, sub_priority);
+	}
+
+	//{TODO}
+	void GeneralPurposeInputOutputPin::enInterrupt(bool enable) {
+		if (enable)
+			NVIC.map->ISER[GPIO_Request_list[bitposi] >> 5UL] = ((uint32_t)1 << (GPIO_Request_list[bitposi] & 0x1FUL));
+		else _TODO; 
+	}
 
 	bool GeneralPurposeInputOutputPin::isInput() const {
 		return 0 == (uint32_t(bitposi < 8 ? parent->CnrglPort : parent->CnrghPort) &
@@ -121,7 +140,7 @@ namespace uni
 	void Lock(bool tolock_orunlock) {
 		//{TODO}
 	}
-
+#endif
 // ---- ---- ---- ----
 #elif defined(_MCU_STM32F4x)
 

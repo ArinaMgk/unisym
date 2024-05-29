@@ -19,14 +19,101 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-#ifndef _INC_Interrupt_Table_X
-#define _INC_Interrupt_Table_X
+#ifndef _INC_Interrupt_Table
+#define _INC_Interrupt_Table
 
-extern "C" {
+#if defined(_MCCA) //{TEMP} Use CPL
 
-#if 0
-//
+#include "../../../c/stdinc.h"
+typedef enum
+{
+	IRQ_PIT = 0, // 8253/8254 PIT (Programmable Interval Timer)
+	IRQ_Keyboard = 1, // 8042? Keyboard Controller
+	IRQ_Cascade = 2, // 8259A Cascade
+	IRQ_Serial = 3, // default ethernet interrupt vector, or RS232 interrupt vector for port 2 {??? 16450 Serial Port}
+	IRQ_RS232_Port1 = 4, //  RS232 interrupt vector for port 1
+	IRQ_XT_WINI = 5, // ???
+	IRQ_Floppy = 6, // 8250 Floppy Disk Controller
+	_TODO
+} Request_Master_t;
+
 #elif defined(_MCU_STM32F10x)
+
+typedef enum
+{
+	//  Cortex-M3 Processor Exceptions Numbers
+	IRQ_NonMaskableInt = -14,   // 2 Non Maskable Interrupt                   
+	IRQ_HardFault = -13,   // 3 Cortex-M3 Hard Fault Interrupt           
+	IRQ_MemoryManagement = -12,   // 4 Cortex-M3 Memory Management Interrupt    
+	IRQ_BusFault = -11,   // 5 Cortex-M3 Bus Fault Interrupt            
+	IRQ_UsageFault = -10,   // 6 Cortex-M3 Usage Fault Interrupt          
+	IRQ_SVCall = -5,    // 11 Cortex-M3 SV Call Interrupt             
+	IRQ_DebugMonitor = -4,    // 12 Cortex-M3 Debug Monitor Interrupt       
+	IRQ_PendSV = -2,    // 14 Cortex-M3 Pend SV Interrupt             
+	IRQ_SysTick = -1,    // 15 Cortex-M3 System Tick Interrupt         
+	//  STM32 specific Interrupt Numbers
+	IRQ_WWDG = 0,      // Window WatchDog Interrupt                  
+	IRQ_PVD = 1,       // PVD through EXTI Line detection Interrupt  
+	IRQ_TAMPER = 2,    // Tamper Interrupt                           
+	IRQ_RTC = 3,       // RTC global Interrupt                       
+	IRQ_FLASH = 4,     // FLASH global Interrupt                     
+	IRQ_RCC = 5,       // RCC global Interrupt                       
+	IRQ_EXTI0 = 6,     // EXTI Line0 Interrupt                       
+	IRQ_EXTI1 = 7,     // EXTI Line1 Interrupt                       
+	IRQ_EXTI2 = 8,     // EXTI Line2 Interrupt                       
+	IRQ_EXTI3 = 9,     // EXTI Line3 Interrupt                       
+	IRQ_EXTI4 = 10,    // EXTI Line4 Interrupt                       
+	IRQ_DMA1_Channel1 = 11,    // DMA1 Channel 1 global Interrupt            
+	IRQ_DMA1_Channel2 = 12,    // DMA1 Channel 2 global Interrupt            
+	IRQ_DMA1_Channel3 = 13,    // DMA1 Channel 3 global Interrupt            
+	IRQ_DMA1_Channel4 = 14,    // DMA1 Channel 4 global Interrupt            
+	IRQ_DMA1_Channel5 = 15,    // DMA1 Channel 5 global Interrupt            
+	IRQ_DMA1_Channel6 = 16,    // DMA1 Channel 6 global Interrupt            
+	IRQ_DMA1_Channel7 = 17,    // DMA1 Channel 7 global Interrupt            
+	IRQ_ADC1_2 = 18,    // ADC1 and ADC2 global Interrupt             
+	IRQ_USB_HP_CAN1_TX = 19,    // USB Device High Priority or CAN1 TX Interrupts  
+	IRQ_USB_LP_CAN1_RX0 = 20,    // USB Device Low Priority or CAN1 RX0 Interrupts  
+	IRQ_CAN1_RX1 = 21,   // CAN1 RX1 Interrupt                         
+	IRQ_CAN1_SCE = 22,   // CAN1 SCE Interrupt                         
+	IRQ_EXTI9_5 = 23,    // External Line[9:5] Interrupts              
+	IRQ_TIM1_BRK = 24,   // TIM1 Break Interrupt                       
+	IRQ_TIM1_UP = 25,    // TIM1 Update Interrupt                      
+	IRQ_TIM1_TRG_COM = 26,    // TIM1 Trigger and Commutation Interrupt     
+	IRQ_TIM1_CC = 27,    // TIM1 Capture Compare Interrupt             
+	IRQ_TIM2 = 28,       // TIM2 global Interrupt                      
+	IRQ_TIM3 = 29,       // TIM3 global Interrupt                      
+	IRQ_TIM4 = 30,       // TIM4 global Interrupt                      
+	IRQ_I2C1_EV = 31,    // I2C1 Event Interrupt                       
+	IRQ_I2C1_ER = 32,    // I2C1 Error Interrupt                       
+	IRQ_I2C2_EV = 33,    // I2C2 Event Interrupt                       
+	IRQ_I2C2_ER = 34,    // I2C2 Error Interrupt                       
+	IRQ_SPI1 = 35,       // SPI1 global Interrupt                      
+	IRQ_SPI2 = 36,       // SPI2 global Interrupt                      
+	IRQ_USART1 = 37,    // USART1 global Interrupt                    
+	IRQ_USART2 = 38,    // USART2 global Interrupt                    
+	IRQ_USART3 = 39,    // USART3 global Interrupt                    
+	IRQ_EXTI15_10 = 40,    // External Line[15:10] Interrupts            
+	IRQ_RTC_Alarm = 41,    // RTC Alarm through EXTI Line Interrupt      
+	IRQ_USBWakeUp = 42,    // USB Device WakeUp from suspend through EXTI Line Interrupt */
+	IRQ_TIM8_BRK = 43,    // TIM8 Break Interrupt                       
+	IRQ_TIM8_UP = 44,    // TIM8 Update Interrupt                      
+	IRQ_TIM8_TRG_COM = 45,    // TIM8 Trigger and Commutation Interrupt     
+	IRQ_TIM8_CC = 46,    // TIM8 Capture Compare Interrupt             
+	IRQ_ADC3 = 47,    // ADC3 global Interrupt                      
+	IRQ_FSMC = 48,    // FSMC global Interrupt                      
+	IRQ_SDIO = 49,    // SDIO global Interrupt                      
+	IRQ_TIM5 = 50,    // TIM5 global Interrupt                      
+	IRQ_SPI3 = 51,    // SPI3 global Interrupt                      
+	IRQ_UART4 = 52,    // UART4 global Interrupt                     
+	IRQ_UART5 = 53,    // UART5 global Interrupt                     
+	IRQ_TIM6 = 54,    // TIM6 global Interrupt                      
+	IRQ_TIM7 = 55,    // TIM7 global Interrupt                      
+	IRQ_DMA2_Channel1 = 56,    // DMA2 Channel 1 global Interrupt            
+	IRQ_DMA2_Channel2 = 57,    // DMA2 Channel 2 global Interrupt            
+	IRQ_DMA2_Channel3 = 58,    // DMA2 Channel 3 global Interrupt            
+	IRQ_DMA2_Channel4_5 = 59,    // DMA2 Channel 4 and Channel 5 global Interrupt   
+} Request_t;
+
 /* Borrow Idens from Official
 __Vectors
 {TODO}	DCD     __initial_sp               ; Top of Stack
@@ -108,18 +195,20 @@ __Vectors
 {TODO}	DCD     DMA2_Channel4_5_IRQHandler ; DMA2 Channel4 & Channel5
 __Vectors_End
 */
-	typedef void (*Handler_t)(void);
-	extern Handler_t FUNC_EXTI[];
+typedef void (*Handler_t)(void);
 
-	void EXTI0_IRQHandler(void);
+extern "C" {
+extern Handler_t FUNC_EXTI[];
 
+void EXTI0_IRQHandler(void);
+}
 
 
 
 	
-	#else
+#else
 
 #endif
-}
+
 
 #endif

@@ -22,7 +22,27 @@
 
 #include "../../../inc/cpp/Device/NVIC"
 
+#if defined(_MCU_STM32F10x)
 namespace uni {
+
+	NVIC_t NVIC;
+
+	//{BELONG} core_m3.h
+	static uint32_t NVIC_EncodePriority(uint32_t PriorityGroup, uint32_t PreemptPriority, uint32_t SubPriority)
+	{
+		PriorityGroup &= 0x7;
+		uint32_t PreemptPriorityBits = ((7UL - PriorityGroup) > _NVIC_PRIO_BITS) ? _NVIC_PRIO_BITS : (uint32_t)(7UL - PriorityGroup);
+		uint32_t SubPriorityBits = ((PriorityGroup + _NVIC_PRIO_BITS) < (uint32_t)7UL) ? (uint32_t)0UL : (uint32_t)((PriorityGroup - 7UL) + _NVIC_PRIO_BITS);
+		return ((PreemptPriority & (uint32_t)((1UL << (PreemptPriorityBits)) - 1UL)) << SubPriorityBits) |
+			((SubPriority & (uint32_t)((1UL << (SubPriorityBits)) - 1UL)));
+	}
+
+	_TODO uint32 NVIC_t::getPriorityGroup() {
+		return 0; //{AI???}(uint32)((map->CTRL & (uint32)0x07000000) >> (uint32)28);
+	}
+
+	_TODO uint32 NVIC_t::setPriorityGroup(...) { return 0; }
+
 	void NVIC_t::setPriority(Request_t req, uint32 priority) {
 		const uint32 IRQ = (uint32)(uint8)req;
 		uint8 writ = (priority << (8U - _NVIC_PRIO_BITS)) & (uint32)0xFF;
@@ -31,4 +51,9 @@ namespace uni {
 		else
 			scbmap->SHP[(IRQ & (uint32)0xF) - (uint32)4] = writ;
 	}
+
+	void NVIC_t::setPriority(Request_t req, uint32 prepriority, uint32 subpriority) {
+		setPriority(req, NVIC_EncodePriority(getPriorityGroup(), prepriority, subpriority));
+	}
 }
+#endif

@@ -83,6 +83,8 @@ namespace uni {
 		void setMode(GPIOEvent::EventEdge edg);// must in input mode
 		void setPull(bool pullup);// If you do not pull-up or pull-down, that may be floating
 		void setInterrupt(Handler_t fn);
+		void setInterruptPriority(byte preempt, byte sub_priority);
+		void enInterrupt(bool enable = true);
 		bool isInput() const;
 		void Toggle();
 		void Lock(bool tolock_orunlock = true);

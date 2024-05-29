@@ -1,8 +1,8 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: Interrupt
-// Codifiers: @dosconio: 20240420 ~ <Last-check> 
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
+// ASCII CPL TAB4 CRLF
+// Docutitle: (Device) Programmable Interval Timer
+// Codifiers: @dosconio: 20240529
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,21 +20,13 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Interrupt_X
-#define _INC_Interrupt_X
+#ifndef _INC_DEVICE_PIT
+#define _INC_DEVICE_PIT
 
-#include "unisym"
-#include "Device/Interrupt/interrupt_tab.h"
+#include "../../cpp/Device/Interrupt/interrupt_tab.h"
 
-#if 0
-//
-#elif defined(_MCU_STM32F10x)
-#include "Device/NVIC"
-#include "Device/EXTI"
-#include "Device/AFIO"
+#define PORT_PIT 0x20
 
+void PIT_Init();
 
-#else
-// may for osdev?
-#endif
 #endif

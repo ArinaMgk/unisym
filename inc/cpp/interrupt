@@ -1,10 +1,7 @@
 // ASCII CPP TAB4 CRLF
 // Docutitle: Interrupt
-// Datecheck: 20240420 ~ <Last-check>
-// Developer: @dosconio
-// Attribute: <ArnCovenant> <Environment> <Platform>
-// Reference: <Reference>
-// Dependens: <Dependence>
+// Codifiers: @dosconio: 20240420 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -25,9 +22,16 @@
 
 #ifndef _INC_Interrupt_X
 #define _INC_Interrupt_X
+
+#include "unisym"
+#include "Device/Interrupt/interrupt_tab.h"
+
 #if 0
 //
 #elif defined(_MCU_STM32F10x)
+#include "Device/NVIC"
+#include "Device/EXTI"
+#include "Device/AFIO"
 
 
 #else

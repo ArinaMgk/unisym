@@ -21,3 +21,14 @@ Principle: can run in Intel-8086 and bootable by *Arina-Real-Address*, aka ARA i
 - [ ] support and only support the binary (flat) format, for output formats. 
 - [ ] support input from `File / Console-Input-by-line` and output to `File / Console-Output(Hex)`. 
 
+## Special
+
+```asm
+self keyword:
+- test eax,eax <=> test eax self
+- test i via rax self <=> mov rax,i; test rax,rax
+- JNS{A}else{B} <=> JS .a; A; jmp .end; .a:B .end:;
+
+
+```
+

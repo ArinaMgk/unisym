@@ -2,9 +2,6 @@
 // Docutitle: Pool Node System
 // Datecheck: 20240420 ~ <Last-check>
 // Developer: @dosconio
-// Attribute: <ArnCovenant> <Environment> <Platform>
-// Reference: <Reference>
-// Dependens: <Dependence>
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -26,8 +23,13 @@
 #ifndef _INC_PoolNode_X
 #define _INC_PoolNode_X
 
-// You can pick a kind of node.
-
-// Pool Node is that, the area, except pointer to next pool-node, is filled with many nodes but not only one.
+namespace uni {
+	struct Pnode {
+		struct Pnode* head;
+		struct Pnode* left;
+		struct Pnode* next;//dosconio trial design: points to inner for the pool has position.
+		void* offs[0x10];//{TODO} store multi-objects
+	};
+}
 
 #endif

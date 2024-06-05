@@ -34,10 +34,8 @@ make_dir=./lib/make/
 	\
 	tlwin tllin test clean
 
-list: # depend [python]
-	@python ./lib/Script/Makefile/makemake.py
-list-py3:
-	@python3 ./lib/Script/Makefile/makemake.py
+list: # depend [perl python]
+	@perl ./lib/Script/Makefile/makemake.pl
 
 # ---- [usual hosted-environments] ----
 
@@ -78,8 +76,8 @@ dotnet:
 	#
 
 rust:
-	cd lib/Rust/syst && cargo build
-	-cp lib/Rust/syst/target/debug/libsyst.rlib $(dest_bin)/
+	cd lib/Rust/unisym && cargo build
+	-cp lib/Rust/unisym/target/debug/libunisym.rlib $(dest_bin)/
 
 # ---- [utilities] ----
 
@@ -102,7 +100,7 @@ tllin: cgl32 cgl64 mx86# test lib lin
 	@echo "Build Finish."
 
 test: # "trust"
-	cd lib/Rust/syst && cargo test
+	cd lib/Rust/unisym && cargo test
 
 clean:
 	-cd ./inc/Python/ && rmdir __pycache__ /S /Q

@@ -39,9 +39,32 @@ since C99.
 | MemRelative    | *None*         |                                   |
 | ...            |                |                                   |
 
+### `archit.h` ≥ `limits.h`, `stddef.h`
+
 ### `integer.h` ≥ `inttypes.h`, `stdint.h`
 
 Users can also provide their own`stdint.h`.
 
-## `arith.h` ≥ `math.h`
+### `arith.h` ≥ `math.h`
+
+### `floating.h` ≥ `float.h`
+
+### `number.h` ≥ `complex.h`(C99+) , `fenv.h`(C99+) , `tgmath.h`(C99+)
+
+### `error.h` ≥ `errno.h`
+
+### `loc.h` ≥ `locale.h`
+
+### `supple.h` ≥ `setjmp.h`  , `stdarg.h.h`
+
+### `datime.h` ≥ `time.h` 
+
+### `consio.h` ≥ `stdio.h` 
+
+### `widechar.h` ≥ `wchar.h`(C95+)  , `wctype.h.h`(C95+) 
+
+## Below : C11+
+
+
+
 

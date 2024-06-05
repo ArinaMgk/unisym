@@ -21,24 +21,43 @@
 */
 
 #include "../../../../inc/c/ustring.h"
+#include "../../../../inc/c/uctype.h"
 
-void _size_decimal_get();
+static int sign = 0;
 
-ptrdiff_t atoins(const char* str)
+// decimal series
+
+static void setsym(const char**const inp) {
+	sign = 0;
+	if (**inp == '-') sign++, (*inp)++;
+	else if (**inp == '+') (*inp)++;
+}
+
+ptrdiff_t atoins(const char* str) // hosted-dep
 {
-	int sign = 0; int Signed = 0;
-	///if (!str || !*str)return 0;
-	if (*str == '-') sign++, str++, Signed++;
-	else if (*str == '+') str++, Signed++;
-	if (!_size_decimal) _size_decimal_get();
-	const char* ptr = str;
+	if (!str || !*str) return 0;
+	setsym(&str);
 	ptrdiff_t inst = 0;
-	while (*ptr && *ptr <= '9' && *ptr >= '0' && (size_t)(ptr - str + !Signed) <= _size_decimal)
+	for0 (i, _size_decimal_get()) if (ascii_isdigit(str[i]))
 	{
 		inst *= 10;
-		inst += (ptrdiff_t)*ptr - (ptrdiff_t)'0';
-		ptr++;
-	}
-	///if (*ptr <= '9' && *ptr >= '0') ...
+		inst += (ptrdiff_t)ascii_digtoins(str[i]);
+	} else break;
 	return sign ? -inst : inst;
 }
+int _atoidefa(const char* nptr) // hosted-dep
+{
+	if (!nptr || !*nptr) return 0;
+	setsym(&nptr);
+	int inst = 0;
+	for0(i, lookupDecimalDigits(sizeof(int))) if (ascii_isdigit(nptr[i]))
+	{
+		inst *= 10;
+		inst += (int)ascii_digtoins(nptr[i]);
+	} else break;
+	return sign ? -inst : inst;
+}
+
+// atohex(inp 0~f)
+// atobin(inp 0/1)
+

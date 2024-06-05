@@ -29,7 +29,7 @@ namespace uni {
 		// Binary Digit Of
 		bool bitof(stduint idx) const { return *address & (1 << idx); }
 		//
-		void setof(stduint idx) { *address |= (1 << idx); }
+		void setof(stduint idx, bool val = true) { if (val) *address |= (1 << idx); else rstof(idx); }
 		//
 		void rstof(stduint idx) { *address &= ~(typedest)(1 << idx); }
 	};

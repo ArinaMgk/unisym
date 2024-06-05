@@ -26,6 +26,7 @@
 // We can define macro if the content of "Nnode" changed in the future. `#define Nnode OldNnode` ...
 //{TODO} [NEW] Nnods(left+next+subf;pare+subf+1stN)
 //{TODO} [NEW] Bnods(next+subf;next+pare(need-not-link-subf)) in bnode.h
+// - Xnods is version with the sentinel nodes, which can point to the number of nodes or last_node at the `data`.
 
 #include "stdinc.h"
 

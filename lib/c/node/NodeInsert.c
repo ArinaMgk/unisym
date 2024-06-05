@@ -25,7 +25,8 @@
 #include "../../../inc/c/com/NodeInsert.h"
 
 // will not change _node_first
-node* NodeInsert(node* nod, const void* addr)
+node* NodeInsert(node* nod, const void* addr0)
 {
+	const char* addr = (const char*) addr0;
 	_COM_NodeInsert(node, nod, addr, next);
 }

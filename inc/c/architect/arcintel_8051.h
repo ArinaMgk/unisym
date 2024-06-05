@@ -80,4 +80,25 @@ typedef unsigned long   uintmax_t;
 #define PTRDIFF_MIN INT32_MIN
 #define PTRDIFF_MAX INT32_MAX
 #endif
+
+// limits.h
+#define MB_LEN_MAX    5 //{TEMP} AyanoChan did know, is it right?
+
+#define INT_MIN     INT16_MIN
+#define INT_MAX     INT16_MAX
+#define UINT_MAX    UINT16_MAX
+
+#define LONG_MIN    INT32_MIN
+#define LONG_MAX    INT32_MAX
+#define ULONG_MAX   UINT32_MAX
+
+#undef LLONG_MAX 
+#undef LLONG_MIN 
+#undef ULLONG_MAX
+
+// stddef.h
+typedef long signed int ptrdiff_t;
+typedef long unsigned int size_t;
+//{TODO} typedef long unsigned int wchar_t;//{TEMP}
+
 #endif // !_HOST_WIN64_

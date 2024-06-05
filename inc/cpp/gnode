@@ -1,0 +1,228 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module:Nodes) Graph Map
+// Codifiers: @dosconio: 20240508
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_GNode_X
+#define _INC_GNode_X
+
+#include "unisym"
+#include "node"
+#include "dnode"
+#include <vector>
+#include <queue>//{TODO} can be replaced by node
+
+namespace uni {
+	enum GnodeStorage_t {
+		_Gnode_Matrix,
+		_Gnode_List,
+	};
+
+	class GraphNodes {
+	protected:
+		GnodeStorage_t storage;
+		union {
+			NodeChain vertexes_chain;//{TODO} `vertexes_chain`-->`*vertexes_chain`, `.`-->`->`
+			struct {
+				std::vector<std::vector<stduint>>* vertexes_matrix;
+				stduint vertexes_matrix_count;
+			};
+		};
+	public:
+		GraphNodes(enum GnodeStorage_t storage = _Gnode_List) : storage(storage) {
+			if (storage == _Gnode_List) {
+				vertexes_chain = NodeChain();
+				vertexes_matrix = 0;
+			}
+			else if (storage == _Gnode_Matrix) {
+				vertexes_chain = NodeChain();// cheat compiler
+				vertexes_matrix = new std::vector<std::vector<stduint>>();
+				vertexes_matrix_count = 0;
+			}
+		}
+		~GraphNodes() {
+			if (storage == _Gnode_List) {
+				Node* nod = vertexes_chain.Root(), * nex;
+				if (nod) do {
+					nex = nod->next;
+					delete (DnodeChain*)nod->offs;
+					delete nod;
+				} while (nod = nex);
+			}
+			else if (storage == _Gnode_Matrix) {
+				delete vertexes_matrix;
+			}
+		}
+
+		// return how many vertexes in the system after operation, return nil for failure
+		stduint AppendVertex(stduint times = 1) {
+			if (storage == _Gnode_List) do {
+				DnodeChain* newch = new DnodeChain();
+				vertexes_chain << newch;
+			} while (--times);
+			else if (storage == _Gnode_Matrix) {
+				for0 (i, vertexes_matrix_count) for0(j, times)
+						(*vertexes_matrix)[i].push_back(0);
+				vertexes_matrix_count += times;
+				std::vector<stduint> a;
+				for0(i, vertexes_matrix_count) a.push_back(0);
+				for0(i, times) (*vertexes_matrix).push_back(a);
+			}
+			return 0;
+		}
+
+		stduint CountVertexes() {
+			if (storage == _Gnode_List)
+				return vertexes_chain.Count();
+			else if (storage == _Gnode_Matrix) {
+				return vertexes_matrix_count;// aka vec.count
+			}
+			return 0;
+		}
+
+		bool LinkEdge(stduint sors, stduint dest, bool double_dir = false, stduint weight = 1) {
+			if (storage == _Gnode_List) {
+				//{TODO} limit check for sors and dest
+				((DnodeChain*)((vertexes_chain + sors)->offs))->Reset((pureptr_t)dest, weight);
+				if (double_dir) 
+					((DnodeChain*)((vertexes_chain + dest)->offs))->Reset((pureptr_t)sors, weight);
+			}
+			else if (storage == _Gnode_Matrix) {
+				(*vertexes_matrix)[sors][dest] = weight;
+				if(double_dir) (*vertexes_matrix)[dest][sors] = weight;
+			}
+			return true;
+		}
+
+		// 0 for !exist
+		stduint getWeight(stduint sors, stduint dest) {
+			//{TODO} check
+			if (storage == _Gnode_List) {
+				DnodeChain* dc = (DnodeChain*)(vertexes_chain + sors)->offs;
+				Dnode* dn = dc->Index((pureptr_t)dest);
+				return dn ? dn->type : 0;
+			}
+			else if (storage == _Gnode_Matrix) {
+				return (*vertexes_matrix)[sors][dest];
+			}
+		}
+
+		bool isConnect(stduint src, stduint dst, bool directed = false) {
+			if (src == dst) return false;
+			if (!directed && src > dst) xchg(src, dst);
+			//{TODO} 
+		}
+
+		void TraversalBreadthFirst(stduint sors = 0, void (*fn)(stduint src) = 0) {
+			const stduint cnt = CountVertexes();
+			std::vector<bool> visited(cnt, false);
+			std::queue<stduint> q;
+			visited[sors] = true;
+			q.push(sors);
+			stduint gencrt = 0;
+			if (storage == _Gnode_List) while (true) {
+				stduint crtsrc = q.front();
+				q.pop();
+				if (fn) fn(crtsrc);
+				Dnode* nod = ((DnodeChain*)(vertexes_chain + crtsrc)->offs)->Root();
+				if (nod) do {
+					stduint adjacent = (stduint)nod->offs;
+					if (!visited[adjacent]) {
+						visited[adjacent] = true;
+						q.push(adjacent);
+					}
+				} while (nod = nod->next);
+				if (q.empty()) {
+					if (gencrt >= cnt) break;
+					else {
+						while (gencrt < cnt && visited[gencrt]) 
+							gencrt++;
+						if (gencrt >= cnt) break;
+						else {
+							visited[gencrt] = true;
+							q.push(gencrt++);
+						}
+					}
+				}
+			}
+			else if (storage == _Gnode_Matrix) while (true) {
+				stduint crtsrc = q.front();
+				q.pop();
+				if (fn) fn(crtsrc);
+				std::vector<stduint>* vers = &(*vertexes_matrix)[crtsrc];
+				for0 (i, vertexes_matrix_count) if ((*vertexes_matrix)[crtsrc][i]) {
+					const stduint& adjacent = i;
+					if (!visited[adjacent]) {
+						visited[adjacent] = true;
+						q.push(adjacent);
+					}
+				}
+				if (q.empty()) {
+					if (gencrt >= cnt) break;
+					else {
+						while (gencrt < cnt && visited[gencrt])
+							gencrt++;
+						if (gencrt >= cnt) break;
+						else {
+							visited[gencrt] = true;
+							q.push(gencrt++);
+						}
+					}
+				}
+			}
+		}
+
+		void TraversalDepthFirst(stduint sors = 0, void (*fn)(stduint src) = 0, std::vector<bool>* visit_list = 0) {
+			if (!visit_list) {
+				const stduint cnt = CountVertexes();
+				visit_list = new std::vector<bool>(cnt, false);
+				for0(i, cnt) if (!(*visit_list)[i])
+					TraversalDepthFirst(i, fn, visit_list);
+				delete visit_list;
+			}
+			else if (storage == _Gnode_List)  {
+				std::vector<bool>& visited = *visit_list;
+				visited[sors] = true;
+				if (fn) fn(sors);
+				Dnode* nod = ((DnodeChain*)(vertexes_chain + sors)->offs)->Root();
+				if (nod) do {
+					stduint adjacent = (stduint)nod->offs;
+					if (!visited[adjacent]) 
+						TraversalDepthFirst(adjacent, fn, visit_list);
+				} while (nod = nod->next);
+			}
+			else if (storage == _Gnode_Matrix) {
+				std::vector<bool>& visited = *visit_list;
+				visited[sors] = true;
+				if (fn) fn(sors);
+				std::vector<stduint>* vers = &(*vertexes_matrix)[sors];
+				for0(i, vertexes_matrix_count) if ((*vertexes_matrix)[sors][i]) {
+					const stduint& adjacent = i;
+					if (!visited[adjacent])
+						TraversalDepthFirst(adjacent, fn, visit_list);
+				}
+			}
+		}
+	};
+
+	// class GraphNodes_T
+}
+
+#endif

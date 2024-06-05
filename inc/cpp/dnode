@@ -32,13 +32,26 @@
 #include "../c/dnode.h"
 #include "cinc"
 
+// Exist : for offs
+// Match : for offs and type
+
 namespace uni {
 	class DnodeChain {
 	public:
-		DnodeChain(bool need_free);
+		DnodeChain(bool need_free = false);
 		~DnodeChain();
-		void Append(void* addr, stduint typ);
-		void Index(void* content);
+		void Append(void* addr, stduint typ);// do not check whether there are same items!
+		inline void AppendIfnotMatch(void* addr, stduint typ) {
+			if (!Match(addr, typ)) Append(addr, typ);
+		}
+		// Create if not exist
+		inline void Reset(void* addr, stduint typ) {
+			Dnode* nod = Index(addr);
+			if (nod) nod->type = typ;
+			else Append(addr, typ);
+		}
+		// Index First One
+		Dnode* Index(void* content);
 		stduint Count() { return node_count; }
 		Dnode* Root() { return root_node; }
 		Dnode* Last() { return last_node; }
@@ -68,6 +81,7 @@ namespace uni {
             this->little_endian = little_to_big;
             this->_node_compare = fn_compare;
         }
+		bool Match(void* off, stduint typ);
 	protected:
 		stduint node_count;
 		Dnode* root_node;

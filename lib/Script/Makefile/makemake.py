@@ -1,6 +1,4 @@
-#!
-# ASCII Python-3 TAB4 LF
-# Attribute:
+#!ASCII Python-3 TAB4 LF
 import os
 import sys
 import datetime
@@ -244,6 +242,7 @@ list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/i8259A.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/processor/x86/delay.c -DADDR_CountSeconds=0x524")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/format/ELF.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/toki/rtclock.c")
+list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/toki/PIT.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/keyboard.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/task.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/consio.c")

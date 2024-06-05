@@ -30,6 +30,12 @@ node* _WARN_CHAIN = NULL;
 char* _ERRO_MESSAGE = NULL;
 jmp_buf _ERRO_JUMP = { 0 };
 
+void _cast_panic() {
+	// make use of jmp_buf to jump to potential handler
+	while (1);
+	//abort();
+}
+
 void erro(char* erromsg)
 {
 	_ERRO_MESSAGE = erromsg;

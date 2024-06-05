@@ -28,6 +28,30 @@
 
 //{TODO} utime.h
 
+#ifdef _INC_CPP
+	namespace uni {
+#endif
+
+struct datime_t {
+	// time
+	byte second;// [0 60], heap-second accepted
+	byte minute;// [0 60]
+	byte hour;  // [0 23]
+	// date
+	byte mday;  // [0 30]
+	byte month; // [0 11]
+	stdint year;  //[CUSTOMED] usually 0 since 1900 or 0
+	stduint property;
+};
+
+struct datimex_t {
+	struct datime_t datime;
+	byte weekday;
+	uint16 yearday;
+	byte isDaylightSavingTime;
+};
+
+		
 // `[MACRO]`
 #define isLeapYear(year) (!((year)&3)&&((year)%100)||!((year)%400)) // RFQ27
 
@@ -54,5 +78,10 @@ uint64 POSIXGetSeconds(struct tm* tm);
 
 // Reverse function of herspan()
 void fromherp(stdint herspans, word* year, word* month, word* day);
+
+
+#ifdef _INC_CPP
+	}
+#endif
 
 #endif

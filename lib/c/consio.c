@@ -31,6 +31,8 @@ void outc(const char chr)
 	outtxt(&chr, 1);
 }
 
+//{TODO} use template to simplify:
+
 //{TEMP} always align to right
 void outi8hex(const byte inp)
 {
@@ -105,6 +107,18 @@ void outidec(int xx, int base, int sign)
 		outc(buf[i]);
 }
 
+//{UNCHK}
+void outi(stdint val, int base, int sign_show)
+{
+	if (base < 2) return;
+	char buf[bitsof(stdint)] = { 0 };
+	int i = 0;
+	if (val < 0) val = -val;
+	do buf[i++] = _tab_dec2hex[val % base]; while (val /= base);
+	if (sign_show) buf[i++] = val < 0 ? '-' : '+';
+	outtxt(buf, numsof(buf));
+}
+
 void outsfmtlst(const char* fmt, va_list lst)
 {
 	int i;
@@ -135,11 +149,11 @@ void outsfmtlst(const char* fmt, va_list lst)
 			break;
 		case 'p':
 			outtxt("0x", 2);
-			if (sizeof(stduint) == 64)
+			if (bitsof(stduint) == 64)
 				outi64hex(va_arg(paras, stduint));
-			else if (sizeof(stduint) == 32)
+			else if (bitsof(stduint) == 32)
 				outi32hex(va_arg(paras, stduint));
-			else if (sizeof(stduint) == 16)
+			else if (bitsof(stduint) == 16)
 				outi16hex(va_arg(paras, stduint));
 			else
 				outi8hex(va_arg(paras, stduint));
@@ -232,10 +246,10 @@ void ConClearScreen(void)
 {
 	int i =
 	#ifdef _WinNT
-	system("cls");
-#else // elif defined(_Linux)
-	system("clear");
-#endif
+		system("cls");
+	#else // elif defined(_Linux)
+		system("clear");
+	#endif
 	// cheat compiler
 }
 

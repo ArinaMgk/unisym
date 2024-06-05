@@ -23,17 +23,28 @@
 
 #include "../../../../inc/c/ustring.h"
 
+#define DECLEN_1B  1 // ~0 = 1
+#define DECLEN_4B  2 // ~0 = 16
+#define DECLEN_8B  3 // ~0 = 255
 #define DECLEN_16B 5 // ~0 = 65535
 #define DECLEN_32B 10//      4,294,967,295
 #define DECLEN_64B 20//      18,446,744,073,709,551,615
-static const unsigned DECLEN_a[] = { 1,2,3,DECLEN_16B, DECLEN_32B, DECLEN_64B };
+unsigned _size_decimal_table[] = { DECLEN_1B,DECLEN_4B,DECLEN_8B,DECLEN_16B, DECLEN_32B, DECLEN_64B };
 
-size_t _size_decimal = 0; void _size_decimal_get()
+//{OUTDATED TODEL}size_t _size_decimal = 0;
+
+size_t _size_decimal_get()
 {
-	register unsigned int i = 0;
-	register size_t r = (size_t)~0;
+	if (sizeof(ptrdiff_t) <= numsof(_size_decimal_table))
+		return lookupDecimalDigits(sizeof(ptrdiff_t));
+	_REGISTER unsigned int i = 0;
+	_REGISTER size_t r = (size_t)~0;
 	while (r)
 		i++, r /= 10;
 	//x64 for 20, and x86 for 10
-	_size_decimal = i;
+	return i;
+}
+
+size_t lookupDecimalDigits(size_t expo) {
+	return _size_decimal_table[expo]; //{TODO} assert
 }

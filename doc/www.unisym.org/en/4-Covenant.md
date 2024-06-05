@@ -31,6 +31,10 @@ Her-style, Code-reusing and Conceptual-razor.
 - mx: *Mecocoa* 
 
 
+## Trait
+
+to see `./inc/c/trait.h`
+
 
 ## Covenant
 

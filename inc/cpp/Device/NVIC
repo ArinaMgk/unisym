@@ -1,0 +1,73 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Nested Vectored Interrupt Controller
+// Codifiers: @dosconio: 20240511
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_NVIC_X
+#define _INC_DEVICE_NVIC_X
+
+#include "../unisym"
+
+#if defined(_MCU_STM32F10x)
+#include "../interrupt"
+#include "../../c/prochip/CortexM3.h"
+#undef NVIC
+#define _NVIC_PRIO_BITS 4
+
+namespace uni {
+	struct NVIC_Map {
+		uint32 ISER     [8];    // 0x000 (R/W)  Interrupt Set Enable Register
+		uint32 RESERVED0[24];
+		uint32 ICER     [8];    // 0x080 (R/W)  Interrupt Clear Enable Register
+		uint32 RSERVED1 [24];
+		uint32 ISPR     [8];    // 0x100 (R/W)  Interrupt Set Pending Register
+		uint32 RESERVED2[24];
+		uint32 ICPR     [8];    // 0x180 (R/W)  Interrupt Clear Pending Register
+		uint32 RESERVED3[24];
+		uint32 IABR     [8];    // 0x200 (R/W)  Interrupt Active bit Register
+		uint32 RESERVED4[56];
+		uint8  IP       [240];  // 0x300 (R/W)  Interrupt Priority Register (8Bit wide)
+		uint32 RESERVED5[644];
+		uint32 STIR;            // 0xE00 ( /W)  Software Trigger Interrupt Register
+	};
+	class NVIC_t {
+	public:
+		// Memory mapping of Core Hardware since 0xE000E000
+		NVIC_Map* map;
+		SysCtrlBlock_Map* scbmap;
+
+		NVIC_t() {
+			map = (NVIC_Map*)_NVIC_BASE;// NIVC offset 0x100
+			scbmap = (SysCtrlBlock_Map*)_SCB_BASE;// SCB offset 0xD00
+		}
+		_TODO uint32 getPriorityGroup();
+		_TODO uint32 setPriorityGroup(...);
+		void setPriority(Request_t req, uint32 priority);
+		void setPriority(Request_t req, uint32 prepriority, uint32 subpriority);
+	};
+
+
+	extern NVIC_t NVIC;
+
+}
+
+#endif
+
+#endif

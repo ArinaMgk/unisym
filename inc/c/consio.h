@@ -27,6 +27,12 @@
 #include "stdinc.h"
 #include <stdarg.h>
 
+enum {
+	_STD_IN = 0,
+	_STD_OUT = 1,
+	_STD_ERR = 2,
+};
+
 void curset(word posi);
 word curget(void);
 void scrrol(word lines);
@@ -41,6 +47,8 @@ void outi64hex(const uint64 inp);
 void outidec(int xx, int base, int sign);
 void outsfmtlst(const char* fmt, va_list lst);
 void outsfmt(const char* fmt, ...);
+
+//{TODO} #define printf outsfmt 
 
 #if defined(_WinNT) | defined(_Linux)
 #include <stdio.h>

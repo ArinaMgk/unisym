@@ -1,6 +1,6 @@
 // ASCII CPP TAB4 CRLF
 // Docutitle: MCU CW32F003
-// Datecheck: 20240421 ~ <Last-check>
+// Datecheck: 20240421
 // Developer: @dosconio
 // Attribute: <ArnCovenant> <Environment> <Platform>
 // Reference: <Reference>
@@ -29,6 +29,9 @@
 #define _MCU_CW32F003
 #endif
 
+#include "../../../c/prochip/CortexM0.h" // M0+
+
+// CW32F003 x3/x4
 
 
 #endif

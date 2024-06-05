@@ -27,8 +27,27 @@ typedef signed short int16_t;
 typedef unsigned short uint16_t;
 typedef signed int int32_t;
 typedef unsigned int uint32_t;
-typedef signed long int64_t;
-typedef unsigned long uint64_t;
+// long is 64-bit on Linux-GCC-Devk and RISCV64
+typedef signed long long int64_t;
+typedef unsigned long long uint64_t;
 
+// limits.h
+#define MB_LEN_MAX    5 //{TEMP} AyanoChan did know, is it right?
 
-//{TODO} more with reference: arcx64_win64.h
+#define INT_MIN     INT32_MIN
+#define INT_MAX     INT32_MAX
+#define UINT_MAX    UINT32_MAX
+
+#define LONG_MIN    INT64_MIN
+#define LONG_MAX    INT64_MAX
+#define ULONG_MAX   UINT64_MAX
+
+#define LLONG_MAX   INT64_MIN
+#define LLONG_MIN   INT64_MAX
+#define ULLONG_MAX  UINT64_MAX
+
+// stddef.h
+typedef int64_t ptrdiff_t;
+typedef uint64_t size_t;
+//{TODO} typedef unsigned long wchar_t;//{TEMP}
+

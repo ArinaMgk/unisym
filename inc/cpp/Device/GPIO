@@ -1,9 +1,24 @@
 // ASCII CPP TAB4 CRLF
-// Attribute:  
-// LastCheck: 20240412
-// AllAuthor: @dosconio
-// ModuTitle: General Purpose Input Output
-// Copyright: ...
+// Docutitle: (Device) General Purpose Input Output
+// Codifiers: @dosconio: 20240412
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
 
 #ifndef _INC_DEVICE_GPIO_X
 #define _INC_DEVICE_GPIO_X
@@ -11,6 +26,11 @@
 #include "../unisym"
 #include "../binary"
 #include "../reference"
+#include "../interrupt"
+
+extern "C" {
+	#include "../../c/uctype.h"
+}
 
 #if !(_typedest_len==4 && _typeaddr_len==4)
 #error "! You may need add optional macro `_MCU_STM32F103VE` or include `STM32F103VEx`"
@@ -20,11 +40,12 @@
 // These are of Harunono Style, and the design have not be used by enough users!
 // 202404112300: I tried use std::bind(), C++11 in ARMCC-v6, but it make MCU did not work! So do not use Property STYLE!
 
-//{TODO} compare with HAL and fix this
 #if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
 namespace uni {
 	//! enum can be like namespace is since C++11
 #if defined(_MCU_STM32F10x)
+	// compatible with `stm32f1xx_hal_gpio.h/c`
+	#undef GPIO
 	namespace GPIOMode {
 		enum Mode {
 			OUT_PushPull     = 0 << 2, 
@@ -57,9 +78,16 @@ namespace uni {
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
 		GeneralPurposeInputOutputPin& operator=(bool val);
 		operator bool();
-		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_2MHz);
+		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_2MHz, bool autoEnClk = true);
+		void setMode(GPIORupt::RuptEdge edg);// must in input mode
+		void setMode(GPIOEvent::EventEdge edg);// must in input mode
 		void setPull(bool pullup);// If you do not pull-up or pull-down, that may be floating
+		void setInterrupt(Handler_t fn);
+		void setInterruptPriority(byte preempt, byte sub_priority);
+		void enInterrupt(bool enable = true);
+		bool isInput() const;
 		void Toggle();
+		void Lock(bool tolock_orunlock = true);
 	};
 	
 	class GeneralPurposeInputOutputPort {
@@ -69,8 +97,10 @@ namespace uni {
 	public:
 		Reference ClockPort;
 		Reference CnrglPort;// Control Register Low, default 0x44444444 _MCU_STM32F10x
+		Reference CnrghPort;// Control Register High, default 0x44444444 _MCU_STM32F10x
 		Reference InnpdPort;// Input Data Register, default 0x0000XXXX _MCU_STM32F10x
 		Reference OutpdPort;// Output Data Register, default 0x00000000 _MCU_STM32F10x
+		stduint base;// may used in other library: `HAL_GPIO_Init((GPIO_TypeDef *)uni::GPIOA.base, &GPIO_InitStructure); `
 		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
 		void enClock(bool enable = true) {
 			BitSet(ClockPort, EnablPosi);
@@ -78,6 +108,8 @@ namespace uni {
 		GeneralPurposeInputOutputPin& operator[](uint8 pinid) {
 			return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
 		}
+		
+		GeneralPurposeInputOutputPort& operator=(uint32 val);
 	};
 
 #elif defined(_MCU_STM32F4x)
@@ -114,7 +146,7 @@ namespace uni {
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
 		GeneralPurposeInputOutputPin& operator=(bool val);
 		operator bool();
-		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_Low);
+		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_Low, bool autoEnClk = true);
 		void setPull(bool pullup);// If you do not pull-up or pull-down, that may be floating
 		void Toggle();
 	};
@@ -142,20 +174,15 @@ namespace uni {
 		GeneralPurposeInputOutputPin& operator[](uint8 pinid) {
 			return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
 		}
+
+		GeneralPurposeInputOutputPort& operator=(uint32 val);
 	};
 
 
 #endif
 
 
-	extern GeneralPurposeInputOutputPort GPIOA;
-	extern GeneralPurposeInputOutputPort GPIOB;
-	extern GeneralPurposeInputOutputPort GPIOC;
-	extern GeneralPurposeInputOutputPort GPIOD;
-	extern GeneralPurposeInputOutputPort GPIOE;
-	
-
-
+	extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG;
 
 	class GeneralPurposeInputOutput {
 	public:
@@ -164,21 +191,8 @@ namespace uni {
 		GeneralPurposeInputOutput() : ERR(~0, ~0, ~0) {
 
 		}
-		GeneralPurposeInputOutputPort& operator[](char portid) {
-			GeneralPurposeInputOutputPort* GPIO_List[] = {
-				&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE
-			};
-			switch (portid) {
-			case 'A':
-			case 'B':
-			case 'C':
-			case 'D':
-			case 'E':
-				return *(GPIO_List[portid - 'A']);// break;
-			default:
-				return ERR;// break;
-			}
-		}
+		GeneralPurposeInputOutputPort& operator[](char portid);
+		stduint Index(const GeneralPurposeInputOutputPort* port);
 	};
 	extern GeneralPurposeInputOutput GPIO;
 

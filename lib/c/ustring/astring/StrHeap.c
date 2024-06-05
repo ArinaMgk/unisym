@@ -26,7 +26,7 @@
 char* StrHeap(const char* valit_str)
 {
 	size_t slen = StrLength(valit_str);
-	char* ret = zalc(slen + 1);
+	char* ret = (char*) zalc(slen + 1);
 	StrCopy(ret, valit_str);
 	return ret;
 }

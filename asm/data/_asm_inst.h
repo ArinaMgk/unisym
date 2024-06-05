@@ -10,6 +10,8 @@
 #ifndef _INC_AASM_LIST_INSTRUCTION
 #define _INC_AASM_LIST_INSTRUCTION
 
+#define _ASM_OPERANDS_MAXNUM 5
+
 enum _asm_opcode {
 	I_AAA,
 	I_AAD,

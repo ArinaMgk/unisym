@@ -53,6 +53,7 @@ typedef struct Node {
 	};
 } node; 
 
+//{TODO} NodeChain and mix C&C++ into one
 
 //#endif
 

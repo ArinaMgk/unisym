@@ -38,4 +38,24 @@
 #define isZeroMantissa(flt) ((int)(flt)==(flt)) 
 #define getNearInteger(flt) (flt+0.5)
 
+inline static double CastF64FromU0(stduint i) {
+	//{TODO} Soft Implementation, while this is hard implementation
+	return (double)i;
+}
+/* AASM
+ test   i via rax self
+ JNS {
+ pxor   xmm0 self
+ cvtsi2sd xmm0,rax
+} else {
+ mov    rdx,rax
+ rdx <<= 1
+ eax  &= 1
+ rdx  |= rax
+ pxor   xmm0 self
+ cvtsi2sd xmm0,rdx
+ addsd  xmm0 self
+}
+*/
+
 #endif

@@ -157,7 +157,7 @@ namespace uni {
 		}
 		//
 		bool isFull() {
-			return exp2(Depth()) == Count() + 1;
+			return stduint(exp2(double(Depth()))) == Count() + 1;
 		}
 		//
 		bool isComplete(Bnode* from = (Bnode*)~(stduint)0);

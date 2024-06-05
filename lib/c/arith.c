@@ -40,6 +40,22 @@ void ariprecise(stduint prec)
 	_EFDIGS = prec;
 }
 
+stduint intFibonacci(stduint idx)
+{
+	// 0, 1, 1, 2, 3, 5, ...
+	if (idx < 2) return idx;
+	idx -= 2;
+	stduint a = 1, b = 1, c = 1;
+	while (idx)
+	{
+		c = a + b;
+		a = b;
+		b = c;
+		--idx;
+	}
+	return c;
+}
+
 double dblpow_iexpo(double bas, stdint exp)
 {
 	if (exp < 0) return 1 / dblpow_iexpo(bas, -exp);
@@ -194,6 +210,7 @@ double dblsin(double rad)
 		rad = (_pi) - rad;
 	if (rad > _pi / 4)
 		return res * dblsin_recurs(_pi / 2 - rad, 1);
+	if (rad == 0.0) return 0.0;// 20240527 fix-append
 	return res * dblsin_recurs(rad, 0);
 }
 double dblcos(double rad)
@@ -214,6 +231,7 @@ double dblcos(double rad)
 	}
 	if (rad > _pi / 4)
 		return res * dblsin_recurs(_pi / 2 - rad, 0);
+	if (rad == 0.0) return 1.0;// 20240527 fix-append
 	return res * dblsin_recurs(rad, 1);
 }
 

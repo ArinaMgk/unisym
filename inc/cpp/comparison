@@ -1,0 +1,106 @@
+// ASCII C++-ISO11 TAB4 CRLF
+// Docutitle: (Interface) Comparison
+// Codifiers: @dosconio: 20240514 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+// Parallels: Option<T> Result<T,E>
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+/*
+	"SignedObject" is a class like an object with sign digit, so named it so, --- 20240604. 
+*/
+
+// Sorting and Comparison and others return this
+
+// if i = 3, 1<i<3 will return false. (1<i make FALSE and pass the next comparison) 
+
+#ifndef _INCPP_SignedObject
+#define _INCPP_SignedObject
+
+#define Comparison_T SignedObject_T //{TEMP}
+
+namespace uni {
+	template <typename type0> class SignedObject_T {
+	protected:
+		bool state;
+		type0 storage;
+	public:
+		Comparison_T(type0 storage) : state(true), storage(storage){
+		}
+		type0 get(const type0& defa) { return state ? storage : defa; }
+		type0 get() { return storage; }
+		void set(const type0& storage) { this->storage = storage; }
+		Comparison_T<type0> operator<(const type0& src) {
+			if (state && storage < src)
+				storage = src;
+			else state = false;
+			return *this;
+		}
+		Comparison_T<type0> operator<=(const type0& src) {
+			if (state && storage <= src)
+				storage = src;
+			else state = false;
+			return *this;
+		}
+		Comparison_T<type0> operator>(const type0& src) {
+			if (state && storage > src)
+				storage = src;
+			else state = false;
+			return *this;
+		}
+		Comparison_T<type0> operator>=(const type0& src) {
+			if (state && storage >= src)
+				storage = src;
+			else state = false;
+			return *this;
+		}
+		friend Comparison_T operator<(const type0& src, Comparison_T des) {
+			if (des.state && (des.get() > src));
+			else des.state = false;
+			return des;
+		}
+		friend Comparison_T operator<=(const type0& src, Comparison_T des) {
+			if (des.state && (des.get() >= src));
+			else des.state = false;
+			return des;
+		}
+		friend Comparison_T operator>(const type0& src, Comparison_T des) {
+			if (des.state && (des.get() < src));
+			else des.state = false;
+			return des;
+		}
+		friend Comparison_T operator>=(const type0& src, Comparison_T des) {
+			if (des.state && (storage <= src));
+			else des.state = false;
+			return des;
+		}
+		operator bool() {
+			return state;
+		}
+	};
+}
+
+
+#endif
+/* check
+	typedef uni::Comparison_T<int> T;
+	printf("[1 <= 6 <= 2: %d]\n", bool(1 <= T(6) <= 2));
+	printf("[1 <= 1 <  2: %d]\n", bool(1 <= T(1) <  2));
+	//OUTP
+	// [1 <= 6 <= 2: 0]
+	// [1 <= 1 <  2: 1]
+*/

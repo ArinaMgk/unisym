@@ -23,10 +23,10 @@
 
 #include "../../../../inc/c/ustring.h"
 
-char* StrHeapN(const char* valit_str, size_t strlen)
+char* StrHeapN(const char* valit_str, size_t str_len)
 {
-	MIN(strlen, StrLength(valit_str));// [Overcheck]
-	char* ret = (char*)zalc(strlen + 1);
-	StrCopyN(ret, valit_str, strlen);
+	MIN(str_len, StrLength(valit_str));// [Overcheck]
+	char* ret = (char*)zalc(str_len + 1);
+	StrCopyN(ret, valit_str, str_len);
 	return ret;
 }

@@ -12,4 +12,11 @@ void delay001s()
 	while (*(stduint*)ADDR_CountSeconds == i) HALT();
 }
 
+void delay001ms()
+{
+	word* milsec_p = (word*)((stduint)ADDR_CountSeconds + sizeof(dword));
+	word i = *milsec_p;
+	while (*milsec_p == i) HALT();
+}
+
 #endif

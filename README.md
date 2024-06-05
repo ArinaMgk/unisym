@@ -7,6 +7,9 @@
 
 The repository is open-sourced under of *Apache License 2.0*. If you copy the code and used for the public or commercial, please stipulate your <u>copying from *UNISYM* led by *ArinaMgk*</u>. 
 
+Feature
+- Lossless Abstract 
+
 <font color="magenta">⚠︎ All the code are by hands, so these big changes and mistakes in codes may be forgiven.</font>
 
 For example, there are harmonious identifications for linkage-identifiers and calling-parameters:
@@ -38,11 +41,13 @@ ConPrint Hello_String; Assembly Macro
 
 ---
 
+![example](https://img.shields.io/badge/generation-2:Public-pink.svg)
+
 <!-- Contributors -->
 
 [🍨 Buy us a coffee for UNISYM project](https://www.buymeacoffee.com/arinamgk) 
 
-- ![Contributor ArinaMgk (Phina)](./.picture/phina.head.bmp) <del> ***[Phina Ren](./doc/author/arina.md)***</del>
+- ![Contributor ArinaMgk (Phina)](./.picture/phina.head.bmp) <del> ***Phina Ren***</del>
 
 - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** 
 

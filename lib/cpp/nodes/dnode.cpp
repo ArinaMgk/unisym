@@ -78,5 +78,23 @@ namespace uni {
 		}
 	}
 
+	Dnode* DnodeChain::Index(void* content) {
+		Dnode* nod = Root();
+		if (nod) do {
+			if (nod->offs == content)
+				return nod;
+		} while (nod = nod->next);
+		return 0;
+	}
+
+	bool DnodeChain::Match(void* off, stduint typ) {
+		Dnode* nod = Root();
+		if (nod) do {
+			if (nod->offs == off && nod->type == typ)
+				return true;
+		} while (nod = nod->next);
+		return false;
+	}
+
 #undef tmpl
 }

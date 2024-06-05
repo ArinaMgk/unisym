@@ -39,7 +39,7 @@ namespace uni {
 	// ---- ---- Scheme {data*, link} ---- ----
 	class NodeChain {
 	public:
-		NodeChain(bool need_free);
+		NodeChain(bool need_free = false);
 		~NodeChain();
 
 		toheap Node* Append(const char* addr);
@@ -50,7 +50,9 @@ namespace uni {
 			Append((const void*)addr);
 			return *this;
 		}
-
+		inline static void Exchange(Node* n1, Node* n2) {
+			if (n1 != n2) xchgptr(n1->offs, n2->offs);
+		}
 		void Index(void* content);
 		stduint Count() { return node_count; }
 		Node* Root() { return root_node; }// Reference version: Head() , which fits at least 1 item
@@ -64,16 +66,24 @@ namespace uni {
 			need_free_content = need_free;
 			free_pass_whole = pass_whole;
 		}
-		void Sort();
+		// insertion sort, ignoring `sorted`
+		void SortByInsertion();
+		// selection sort, ignoring `sorted`
+		void SortBySelection();
 		void Onsort(bool sorted = true, bool little_to_big = true, int (*fn_compare)(const void*, const void*) = 0) {
 			this->sorted = sorted;
 			this->little_endian = little_to_big;
 			this->_node_compare = fn_compare;
 		}
 		
-		Node* operator+=(const void* addr) {
-			return Append(addr);
+		Node* operator+(stduint idx) {
+			Node* crt = Root();
+			if (idx) do {
+				crt = crt->next;
+			} while (--idx);
+			return idx ? 0 : crt;
 		}
+
 		NodeChain& operator<< (const void* addr) {
 			Append(addr);
 			return *this;

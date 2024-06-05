@@ -49,7 +49,11 @@
 
 #include "stdinc.h"
 #include "uctype.h"
-#include <string.h>//{TODO} STD LIB
+
+typedef enum string_layout_t {
+	_string_zero_terminated = 0,
+	_string_length_prefixed
+} string_layout_t;
 
 typedef enum _token_t
 {
@@ -136,7 +140,7 @@ char* instoa(ptrdiff_t num);// [Instant to ASCII yo heap]
 #ifdef _INC_USTRING_INLINE
 static inline char* MemRelative(char* addr, size_t width, ptrdiff_t times)
 {
-	register size_t i = 0;
+	_REGISTER size_t i = 0;
 	if (width == 0 || times == 0) return addr;
 	if (times < 0) while (i < width) { *(addr + i + times) = addr[i]; i++; }
 	else while (i < width) { addr[width + times - i - 1] = addr[width - i - 1]; i++; }
@@ -149,7 +153,7 @@ static inline char* MemRelative(char* addr, size_t width, ptrdiff_t times)
 #ifdef _INC_USTRING_INLINE
 static inline char* MemAbsolute(char* dest, const char* sors, size_t width)
 {
-	register size_t i = 0;
+	_REGISTER size_t i = 0;
 	if (dest < sors) while (i < width) { dest[i] = sors[i]; i++; }
 	else while (i < width) { dest[width - 1 - i] = sors[width - 1 - i]; i++; }
 	return dest;
@@ -161,7 +165,7 @@ static inline char* MemAbsolute(char* dest, const char* sors, size_t width)
 #ifdef _INC_USTRING_INLINE
 static inline char* StrCopy(char* dest, const char* sors)
 {
-	register char* d = dest;
+	_REGISTER char* d = dest;
 	while (*d++ = *sors++);
 	return dest;
 }
@@ -172,7 +176,7 @@ static inline char* StrCopy(char* dest, const char* sors)
 #ifdef _INC_USTRING_INLINE
 static inline void* MemSet(void* s, int c, size_t n)
 {
-	while (n) { n--; ((char*)s)[n] = (char)c; }
+	while (n) ((char*)s)[--n] = (char)c;
 	return s;
 }
 #else
@@ -183,7 +187,7 @@ void* MemSet(void* s, int c, size_t n);
 #ifdef _INC_USTRING_INLINE
 static inline void* MemCopyN(void* dest, const void* sors, size_t n)
 {
-	register char* d = (char*)dest;
+	_REGISTER char* d = (char*)dest;
 	while (n--) *d++ = *(*((const char**)&sors))++;
 	return dest;
 }
@@ -195,7 +199,7 @@ static inline void* MemCopyN(void* dest, const void* sors, size_t n)
 #ifdef _INC_USTRING_INLINE
 static inline char* StrCopyN(char* dest, const char* sors, size_t n)
 {
-	register char* d = dest;
+	_REGISTER char* d = dest;
 	if (!sors)goto endo;
 	while (n && (*d++ = *sors++)) n--;
 	d[n ? -1 : 0] = 0;
@@ -209,7 +213,7 @@ endo:
 #ifdef _INC_USTRING_INLINE
 static inline char* StrAppend(char* dest, const char* sors)
 {
-	register char* d = dest;
+	_REGISTER char* d = dest;
 	while (*d) { d++; };
 	while (*d++ = *sors++);
 	return dest;
@@ -221,7 +225,7 @@ static inline char* StrAppend(char* dest, const char* sors)
 #ifdef _INC_USTRING_INLINE
 static inline char* StrAppendN(char* dest, const char* sors, size_t n)
 {
-	register char* d = dest;
+	_REGISTER char* d = dest;
 	while (*d) { d++; };
 	while (n && (*d++ = *sors++)) n--;
 	if (!n) *d = 0;
@@ -234,7 +238,7 @@ static inline char* StrAppendN(char* dest, const char* sors, size_t n)
 #ifdef _INC_USTRING_INLINE
 static inline char* StrAppendChars(char* dest, char chr, size_t n)
 {
-	register char* d = dest;
+	_REGISTER char* d = dest;
 	while (*d) { d++; };
 	while (n--) *d++ = chr;
 	*d = 0;
@@ -249,7 +253,7 @@ static inline char* StrAppendChars(char* dest, char chr, size_t n)
 #ifdef _INC_USTRING_INLINE
 static inline int MemCompare(const char* a, const char* b, size_t n)
 {
-	register char tmp = 0;
+	_REGISTER char tmp = 0;
 	while (n && !(tmp = (*a - *b))) n--;
 	return (int)tmp;
 }
@@ -304,14 +308,14 @@ static inline int StrCompareNInsensitive(const char* a, const char* b, size_t n)
 static inline size_t StrLength(const char* s)
 {
 	// do not judge s zo null for better debug
-	register size_t len = 0;
+	_REGISTER size_t len = 0;
 	while (s[len])
 		len++;
 	return len;
 }
 #else
-#define StrLength strlen ///{TODO}
 #endif
+
 
 //{TODO} 2 Ver
 static inline char* StrElement(char* s, ptrdiff_t idx)
@@ -349,7 +353,7 @@ static inline const char* MemIndexByte(const char* s, int c, size_t n)
 #ifdef _INC_USTRING_INLINE
 static inline const char* StrIndexChar(const char* s, int c)
 {
-	register char tmp;
+	_REGISTER char tmp;
 	do if ((tmp = *s) == c) return s; else s++; while (tmp);
 	return NULL;
 }
@@ -360,7 +364,7 @@ static inline const char* StrIndexChar(const char* s, int c)
 #ifdef _INC_USTRING_INLINE
 static inline const char* StrIndexCharRight(const char* s, int c)
 {
-	register char tmp; const char* res = 0;
+	_REGISTER char tmp; const char* res = 0;
 	do if ((tmp = *s) == c) res = s++; else s++; while (tmp);
 	return res;
 }
@@ -393,7 +397,7 @@ static inline size_t StrLengthSameChar(const char* str, int c, const char** ret)
 #ifdef _INC_USTRING_INLINE
 static inline const char* StrIndexString(const char* dest, const char* sub)
 {
-	register size_t len;
+	_REGISTER size_t len;
 	while (*dest) { len = 0; while ((sub[len] == dest[len]) && (sub[len])) len++; if (!sub[len]) return dest; dest++; }
 	return NULL;
 }
@@ -418,7 +422,7 @@ static inline const char* StrIndexStringRight(const char* dest, const char* sub)
 #ifdef _INC_USTRING_INLINE
 static inline size_t StrSpanInclude(const char* s1, const char* s2)
 {
-	size_t res = 0; register size_t offs; register char c;
+	size_t res = 0; _REGISTER size_t offs; _REGISTER char c;
 	while (c = *s1++) { offs = 0; while ((s2[offs]) && (s2[offs] != c)) offs++; if (!s2[offs]) return res; res++; }
 	return res;
 }
@@ -430,7 +434,7 @@ static inline size_t StrSpanInclude(const char* s1, const char* s2)
 static inline size_t StrSpanExclude(const char* s, const char* reject)
 {
 	size_t ret = 0;
-	register const char* ecx; char TmpChar, TmpElement;
+	_REGISTER const char* ecx; char TmpChar, TmpElement;
 	while (TmpChar = *s++) { ecx = reject; while (TmpElement = *ecx++) if (TmpElement == TmpChar)   return ret--; ret++; }
 	return ret;
 }
@@ -441,7 +445,7 @@ static inline size_t StrSpanExclude(const char* s, const char* reject)
 #ifdef _INC_USTRING_INLINE
 static inline const char* StrIndexChars(const char* s1, const char* s2)
 {
-	register char c; size_t offs;
+	_REGISTER char c; size_t offs;
 	while (c = *s1) { offs = 0; while (s2[offs]) if (s2[offs++] == c) return s1; s1++; } return NULL;
 }
 #else
@@ -451,7 +455,7 @@ static inline const char* StrIndexChars(const char* s1, const char* s2)
 //{TODO} 2 Ver
 static inline const char* StrIndexCharsExcept(const char* s1, const char* s2)// RFV24
 {
-	register char c; 
+	_REGISTER char c; 
 	for (;c = *s1;s1++)
 	{
 		int state = 0;
@@ -469,7 +473,7 @@ static inline const char* StrIndexCharsExcept(const char* s1, const char* s2)// 
 //{TODO} 2 Ver
 static inline const char* StrIndexCharsRight(const char* s1, const char* s2)// RFV19
 {
-	register char c; size_t offs; const char* res = 0;
+	_REGISTER char c; size_t offs; const char* res = 0;
 	while (c = *s1)
 	{
 		offs = 0; while (s2[offs]) if (s2[offs++] == c) res = s1; s1++;
@@ -499,7 +503,7 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 	static char* _ModString_StrTokenOnce;// na StrToken, Arina updated yo RFT02.
 	if (!s1 && !(s1 = _ModString_StrTokenOnce))
 		return NULL;
-	register size_t offs;
+	_REGISTER size_t offs;
 	/*Skip prefix*/ while (*s1) {
 		offs = 0; while (s2[offs]) {
 			if (s2[offs] == *s1)
@@ -558,6 +562,9 @@ ptrdiff_t atoins(const char* str);
 //---- ---- ---- ---- { ChrAr } ---- ---- ---- ----
 // Have been brewed since 2022 Aug.
 // Chr+-*/ would not call each other without considering the aflaga.
+
+size_t lookupDecimalDigits(size_t expo);
+extern size_t _size_decimal_get();
 
 // Clear prefix zeros, "+001"-->"+1".
 size_t ChrCpz(char* str);

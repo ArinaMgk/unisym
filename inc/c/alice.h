@@ -28,10 +28,15 @@
 #ifndef _LIB_UNISYM
 #define _LIB_UNISYM
 
+// ArnCovenant
+#define _BYTE_BITS_ 8
+
+
 #ifndef _INC_CPP
 	#define pointer_t(_typ) _typ * 
 	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magice pointer: "pointer(pointer(void)) pp"
+	#define _REGISTER register
 #else
 extern "C++" {
 	namespace uni {
@@ -41,10 +46,12 @@ extern "C++" {
 		}
 	}
 }
+	#define _REGISTER
 #endif
 
 typedef void(*_tofree_ft)(void*);
 typedef void* pureptr_t;
+typedef void(symbol_t)(void);
 
 // __ENDIAN__
 #ifndef __ENDIAN__
@@ -53,25 +60,19 @@ typedef void* pureptr_t;
 // __ARCH__
 // __BITS__
 	// [Rely-on] stdinc.h
-//{TOIN: DEVK} __FUNCIDEN__ : function identifier
 #ifdef _MSC_VER // for MSVC
+	#define _DEV_MSVC
+	// __FUNCIDEN__ : function identifier
 	#define __FUNCIDEN__ __FUNCDNAME__
 	#define _ALIGN
-
+	#define _ASM __asm
 
 #elif defined(__GNUC__)
+	#define _DEV_GCC
 	#define __FUNCIDEN__ __func__ // cannot auto-strcat
 	#define _ALIGN(n) __attribute__((aligned(n)))
-
+	#define _ASM __asm__
 #endif
-//{TOIN: DEVK}
-#define masm __asm
-//{TOIN: DEVK} _REGISTER
-	#ifdef _INC_CPP
-	#define _REGISTER
-	#else
-	#define _REGISTER register
-	#endif
 
 // ARINA-COVE C23-STYLE Attribute
 #define _Heap
@@ -90,8 +91,9 @@ typedef void* pureptr_t;
 #define If(con) if(0||con) //<=> if(1&&con) : avoid error such as mixing "a=0" and "a==0"
 
 #define byteof sizeof
-#define bitsof(x) (sizeof(x)*8)
+#define bitsof(x) (sizeof(x)*_BYTE_BITS_)
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
+#define offsof    _BYTE_BITS_*offsetof
 
 #if !defined(_DEBUG) && !defined(_dbg)
 #define memalloc(dest,size)\
@@ -121,6 +123,8 @@ typedef void* pureptr_t;
 
 #define Castype(des,val) *(des*)&(val)
 #define Letvar(iden,type,init) type iden = (type)init
+#define floorAlign(align,val) ((val/align)*align)
+#define ceilAlign(align,val)  floorAlign(align,val+(align-1))
 
 #define foreach_str(iden,x) for(char iden, *_pointer=(char*)(x);iden=*_pointer;_pointer++)
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)

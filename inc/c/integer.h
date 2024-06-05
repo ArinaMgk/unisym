@@ -62,14 +62,6 @@
 #endif
 
 // ---- ---- ---- ---- Core of UniSym Integer ---- ---- ---- ----
-#ifdef _STYLE_ABBR
-	#include "integer/prefabbr.h"
-#endif
-#ifdef _STYLE_RUST
-	#include "integer/ruststyle.h"
-#else
-	// other styles ...
-#endif
 
 #if !defined(_MCU_Intel8051)
 #define _BIT_SUPPORT_64
@@ -336,8 +328,15 @@ typedef ptrdiff_t stdsint;
 
 #define movDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
 
-extern stduint _size_decimal;
-	
+#ifdef _STYLE_ABBR
+	#include "integer/prefabbr.h"
+#endif
+#ifdef _STYLE_RUST
+	#include "integer/ruststyle.h"
+#else
+	// other styles ...
+#endif
+
 // More:
 
 // para:direction [0:ascend 1:descend]

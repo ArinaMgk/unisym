@@ -1,10 +1,7 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: MCU CW32F003
-// Datecheck: 20240421
-// Developer: @dosconio
-// Attribute: <ArnCovenant> <Environment> <Platform>
-// Reference: <Reference>
-// Dependens: <Dependence>
+// ASCII C TAB4 CRLF
+// Docutitle: (Algorithm) Sorting
+// Codifiers: @dosconio: 20240602
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -23,15 +20,24 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_CW32F003_X
-#define _INC_MCU_CW32F003_X
-#ifndef _MCU_CW32F003
-#define _MCU_CW32F003
-#endif
+#ifndef _INC_Sort
+#define _INC_Sort
 
-#include "../../../c/prochip/CortexM0.h" // M0+
+// Fit for ISO/IEC CPL Interfaces
 
-// CW32F003 x3/x4
+#define qsortof(arr,cmp) qsort(arr,numsof(arr),sizeof(*arr),cmp)
 
+// CPL Style
+#define cmpfof(iden,para_t) int iden(pureptr_t _a,pureptr_t _b)
+
+#define cmpf_inhead(para_t) para_t *pa=(para_t*)_a, *pb=(para_t *)_b
+
+
+/*E*G*
+cmpfof(cmp,int) {
+	cmpf_inhead(int);
+	return *pa - *pb;
+}
+*/
 
 #endif

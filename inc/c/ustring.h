@@ -563,6 +563,9 @@ ptrdiff_t atoins(const char* str);
 // Have been brewed since 2022 Aug.
 // Chr+-*/ would not call each other without considering the aflaga.
 
+size_t lookupDecimalDigits(size_t expo);
+extern size_t _size_decimal_get();
+
 // Clear prefix zeros, "+001"-->"+1".
 size_t ChrCpz(char* str);
 

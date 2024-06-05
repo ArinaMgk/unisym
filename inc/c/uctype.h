@@ -23,15 +23,19 @@
 #ifndef _INC_UCTYPE
 #define _INC_UCTYPE
 
-#define ascii_isdigit(c) ((c)-'0'<10)
+#define bytdif(c,v) ((unsigned char)(c-v))
 
-#define ascii_islower(c) ((c)-'a'<26)
+#define ascii_isdigit(c) (bytdif(c,'0')<10)
 
-#define ascii_isupper(c) ((c)-'A'<26)
+#define ascii_digtoins(c) (bytdif(c,'0'))
 
-#define ascii_isalpha(c) ((c)-'A'<26||(c)-'a'<26)
+#define ascii_islower(c) (bytdif(c,'a')<26)
 
-#define ascii_isalnum(c) ((c)-'0'<10||(c)-'A'<26||(c)-'a'<26)
+#define ascii_isupper(c) (bytdif(c,'A')<26)
+
+#define ascii_isalpha(c) (ascii_islower(c)||ascii_isupper(c))
+
+#define ascii_isalnum(c) (ascii_isalpha(c)||ascii_isdigit(c))
 
 #define ascii_iscontrol(c) ((c)<32||(c)==127)
 
@@ -45,7 +49,7 @@
 
 #define ascii_isblank(c) ((c)==' '||(c)=='\t')
 
-#define ascii_isxdigit(c) ((c)-'0'<10||(c)-'A'<6||(c)-'a'<6)
+#define ascii_isxdigit(c) (ascii_isdigit(c)||bytdif(c,'A')<6||bytdif(c,'a')<6)
 
 // ---- ---- ---- ----
 extern const unsigned char _tab_tolower[];

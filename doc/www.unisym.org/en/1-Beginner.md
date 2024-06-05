@@ -36,3 +36,13 @@ if you develop MCU-program, use the special file like `STM32F103VE` for C++...
 - Linux ELF64 ELF32
 - RISCV-64 GCC on Ubuntu(22.x+)-64
 - STM32F 1/4
+
+
+### About Generation-3
+
+- Guiding head file, like `inc/cpp/uint48`;
+- Use `.lib` for normal with weak linkage. use `.c` and other source files if you need to debug them;
+- Include host head file like `STM32F103VEx` but `stdinc.h` normally;
+- Mainly for `4X\4` aka C++, C#, Rust languages and begin developing Magice;
+- C++ based on C to cut duplication;
+- `_INCPP_...` rather than `_INC_..._X`, also `_INM_...` for Magice;

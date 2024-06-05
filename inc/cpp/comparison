@@ -1,8 +1,9 @@
 // ASCII C++-ISO11 TAB4 CRLF
-// Docutitle: (Module) Comparison
+// Docutitle: (Interface) Comparison
 // Codifiers: @dosconio: 20240514 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
+// Parallels: Option<T> Result<T,E>
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,14 +20,21 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+/*
+	"SignedObject" is a class like an object with sign digit, so named it so, --- 20240604. 
+*/
+
+// Sorting and Comparison and others return this
 
 // if i = 3, 1<i<3 will return false. (1<i make FALSE and pass the next comparison) 
 
-#ifndef _INC_Comparison_X
-#define _INC_Comparison_X
+#ifndef _INCPP_SignedObject
+#define _INCPP_SignedObject
+
+#define Comparison_T SignedObject_T //{TEMP}
 
 namespace uni {
-	template <typename type0> class Comparison_T {
+	template <typename type0> class SignedObject_T {
 	protected:
 		bool state;
 		type0 storage;

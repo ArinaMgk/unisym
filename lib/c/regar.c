@@ -33,9 +33,6 @@
 #include <math.h>
 #include <float.h>
 
-extern size_t _size_decimal;
-void _size_decimal_get();
-
 extern char* arna_tempor;
 extern char* arna_tmpslv;
 extern char* arna_tmpext;
@@ -223,8 +220,7 @@ size_t* _Need_free RsgResize(const size_t* sstr, size_t slen, size_t dlen)
 char* _Need_free RsgToString(const size_t* sstr, size_t slen, signed syst)
 {
 	if (!slen) return StrHeap("0");
-	if (!_size_decimal) _size_decimal_get();
-	size_t malc_len = 1 + slen * _size_decimal;
+	size_t malc_len = 1 + slen * _size_decimal_get();
 	size_t* str = MemHeap(sstr, slen * sizeof(size_t));
 	char* ret;
 	memalloc(ret, malc_len);

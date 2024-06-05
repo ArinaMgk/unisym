@@ -18,10 +18,15 @@ typedef sint64 i64;
 #define i128
 typedef stduint usize;
 
+// dosconio habit group
+typedef stduint u0;
+typedef int idefa;
+typedef unsigned udefa;
+
 typedef float  f32;
 typedef double f64;
 
-//{} char
-//{} bool
+//{TODO} char
+//{TODO} bool
 
 #endif

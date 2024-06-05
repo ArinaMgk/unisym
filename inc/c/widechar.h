@@ -1,10 +1,7 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: MCU CW32F003
-// Datecheck: 20240421
-// Developer: @dosconio
-// Attribute: <ArnCovenant> <Environment> <Platform>
-// Reference: <Reference>
-// Dependens: <Dependence>
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: Fixed-Multi-byte Char Set
+// Codifiers: @dosconio: 20240422 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -23,15 +20,16 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_CW32F003_X
-#define _INC_MCU_CW32F003_X
-#ifndef _MCU_CW32F003
-#define _MCU_CW32F003
+#ifndef _INC_CHAR_WIDE
+#define _INC_CHAR_WIDE
+// `locale.h` may define relative macros.
+
+#if defined(_OPT_CHARSET_GBK)
+#include "charset/widechar/GBK.h"
+#elif defined(__cplusplus) || defined(_INC_CPP)
+// wchar_t is a keyword
+#else // C
+typedef short int wchar_t;
 #endif
-
-#include "../../../c/prochip/CortexM0.h" // M0+
-
-// CW32F003 x3/x4
-
 
 #endif

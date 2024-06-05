@@ -31,6 +31,8 @@ void outc(const char chr)
 	outtxt(&chr, 1);
 }
 
+//{TODO} use template to simplify:
+
 //{TEMP} always align to right
 void outi8hex(const byte inp)
 {
@@ -109,7 +111,7 @@ void outidec(int xx, int base, int sign)
 void outi(stdint val, int base, int sign_show)
 {
 	if (base < 2) return;
-	char buf[8 * sizeof(stdint)] = { 0 };
+	char buf[bitsof(stdint)] = { 0 };
 	int i = 0;
 	if (val < 0) val = -val;
 	do buf[i++] = _tab_dec2hex[val % base]; while (val /= base);

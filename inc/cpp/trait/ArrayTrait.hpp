@@ -1,10 +1,7 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: MCU CW32F003
-// Datecheck: 20240421
-// Developer: @dosconio
-// Attribute: <ArnCovenant> <Environment> <Platform>
-// Reference: <Reference>
-// Dependens: <Dependence>
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Trait) Array
+// Codifiers: @dosconio: 20240603
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -23,15 +20,21 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_CW32F003_X
-#define _INC_MCU_CW32F003_X
-#ifndef _MCU_CW32F003
-#define _MCU_CW32F003
-#endif
+// Interface for various algorithm, trait for xnode-family and data-structure
 
-#include "../../../c/prochip/CortexM0.h" // M0+
+#ifndef _INCPP_TRAIT_ARRAY
+#define _INCPP_TRAIT_ARRAY
+#include "../unisym"
+namespace uni {
 
-// CW32F003 x3/x4
+class ArrayTrait {
+public:
+	virtual pureptr_t Locate(stduint idx) = 0; // keep operator[]
+	virtual stduint   Length() = 0;
+	virtual bool      Insert(...) = 0;//{} ...
+	virtual bool      Remove(...) = 0;//{} ...
+};
 
 
+}
 #endif

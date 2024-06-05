@@ -74,10 +74,12 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- instruction.h
 	- coear.h coear
 	- regar.h
-	- numar.h number
+	- numar.h number(.h)
 	- tenar.h
 	- int128
 	- comparison
+	- algorithm
+		- sort
 	* riscv64
 > You have to choose the architecture yourself, without the help of hosted characters.
 
@@ -121,18 +123,25 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- GPIO
 	- nixietube
 - `Format` (format/) {TODO NO-DEP}
+	- `Charset::Widechar` (widechar.h) {TODO}
+		- GBK.h {TODO}
+	- `Charset::Multichar` (multichar.h) {TODO}
+		- upec.h {TOIN}
+		- UTF-8.h {TODO}
 	- Encode:: crc64.h
 	- Time:: datime.h
-	- Buffer:: stack.h stack
-	- Buffer:: strpool.h strpool
-	- Buffer:: queue
-	- Buffer:: sequence
-	- Charset:: upec.h
+	- Buffer:: stack.h stack >> Trait
+	- Buffer:: strpool.h strpool >> Trait
+	- Buffer:: queue >> Trait
+	- Buffer:: sequence >> Trait
 	- File:: ELF.h
 	- FileSys:: FAT12.h
 - Data (big size)
 	- Assembly Instructions
+- Locale
+	- loc.h
 - Others
+	- sig.h
 	- Kasha
 	- msasm
 	- naasm
@@ -222,14 +231,17 @@ The below are stable contents.
 │  host.h [Host]
 │  inode.h [Node]
 │  integer.h [Arch]
+│  loc.h [Locale]
 │  memory.h [Host]
 │  nnode.h [Node]
 │  node.h [Node]
 │  nodes.h [Node]
 │  numar.h [Arith]
+│  number.h [Arith]
 │  port.h [Arch]
 │  proctrl.h [Arch]
 │  regar.h [Arith]
+│  sig.h
 │  stack.h [Format]
 │  stdinc.h [Syst]
 │  strpool.h [Format]
@@ -255,26 +267,7 @@ The below are stable contents.
 ├─compile [Arch]
 │	asmcode.h
 │	
-├─driver [Device]
-│  │  AT24C02.h ()
-│  │  DS1302.h ()
-│  │  DS18B20.h ()
-│  │  HD44780.h ()
-│  │  i8253A.h ()
-│  │  i8259A.h ()
-│  │  IIC.h (method)
-│  │  keyboard.h
-│  │  LCD12864.h (specific LCD)
-│  │  LCD1602.h (specific LCD)
-│  │  nixietube.h
-│  │  OneWire.h (method)
-│  │  RealtimeClock.h
-│  │  timer.h
-│  │  UART.h
-│  ├─ADConverter
-│  │	XPT2046.h
-│  └─Video
-│	    video.h
+├─driver [Device] ...
 ├─format [Format]
 │	ELF.h
 │	FAT12.h
@@ -283,18 +276,8 @@ The below are stable contents.
 │	color.h
 │	contable.h
 │	
-├─integer [Arch]
-│	prefabbr.h
-│	ruststyle.h
-│	
-├─ISO_IEC_STD [Devk]
-│	assert.h
-│	ctype.h
-│	inttypes.h
-│	math.h
-│	stdbool.h
-│	stdint.h
-│	string.h
+├─integer [Arch] ...
+├─ISO_IEC_STD [Devk] ...
 │	
 ├─MCU
 │  │  delay.h
@@ -403,55 +386,13 @@ The below are stable contents.
 │	n_video.a
 │	
 ├─msasm (Interrupts and string)
-│  │  INT10.asm
-│  │  INT10p0X.asm
-│  │  INT10p1X.asm
-│  │  INT21.ASM
-│  │  INT21p0X.ASM
-│  │  INT21p1X.ASM
-│  │  INT21p2X.ASM
-│  │  INT21p3X.ASM
-│  │  INT21p4X.ASM
-│  │  INT21p5X.ASM
-│  │  INT21p6X.ASM
-│  │  INT21p7X.ASM
-│  │  INT21p8X.ASM
-│  │  INT21p9X.ASM
-│  │  INT21pAX.ASM
-│  │  INT21pBX.ASM
-│  │  INT21pCX.ASM
-│  │  INT21pDX.ASM
-│  │  INT21pEX.ASM
-│  │  INT21pFX.ASM
+│  │  INT....asm
 │  │  ustring.asm
 │  │  
 │  └─driver
-│	│  led.asm
-│	│  nixie.asm
-│	│  
-│	├─AD
-│	│	ADC0809.asm
-│	│	
-│	├─Counter
-│	│	Intel8253.asm
-│	│	
-│	├─DA
-│	│	DAC0832.asm
-│	│	
-│	├─Extender
-│	│	Intel8255A.asm
-│	│	
-│	├─Interrupt
-│	│	Intel8259A.asm
-│	│	
-│	└─Keyboard
-│		  MtrKbd.asm
 │		  
 ├─naasm (Interrupts and string)
-│	n_INT10.a
-│	n_INT13.a
-│	n_INT15.a
-│	n_INT16.a
+│	n_....a
 │	n_string.a
 │	
 └─Python

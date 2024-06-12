@@ -22,11 +22,10 @@
 
 #include "../../../inc/c/node.h"
 
-#include "../../../inc/c/com/NodeInsert.h"
-
-// will not change _node_first
-node* NodeInsert(node* nod, const void* addr0)
+Node* NodeInsert(Node* nod, pureptr_t txt)
 {
-	const char* addr = (const char*) addr0;
-	_COM_NodeInsert(node, nod, addr, next);
+	Letvar(tmp, Node*, zalcof(Node));
+	tmp->offs = txt;
+	if (!nod) return tmp; /* 0 --> New */
+	return AssignParallel(tmp->next, nod->next, tmp);
 }

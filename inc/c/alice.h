@@ -103,10 +103,12 @@ typedef void(symbol_t)(void);
 #define malc(size) (void*)(malloc(size))
 #define zalc(size) (void*)(calloc(size,1))
 #endif
+
 #define zalloc(x) calloc((x),1)// Zero Alloc
 #define zalcof(x) (x*)zalc(sizeof(x))
 #define malcof(x) (x*)malc(sizeof(x))
-#define memf(x)   memfree(x)
+#define ralcof(x,addr,nums) (x*)realloc((void*)(addr),(nums)*sizeof(x))
+#define memf(x)     memfree(x)
 #define mfree(x) do{memfree(x);(x)=0;}while(0)
 
 // Added RFW24, Exchange but not for pointer, and address of `a` should not be the same as `b`

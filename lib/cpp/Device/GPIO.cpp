@@ -75,6 +75,7 @@ namespace uni
 	}
 
 	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
+		if (autoEnClk) parent->enClock();
 		Reference& ref = (bitposi < 8) ? parent->CnrglPort : parent->CnrghPort;
 		uint32 bposi = (bitposi < 8) ? bitposi << 2 : (bitposi - 8) << 2; // mul by 4
 		uint32 bmode = (uint32)mode;
@@ -82,7 +83,6 @@ namespace uni
 		uint32 state = innput ? GPIOSpeed::Atmost_Input : speed;
 		state |= (bmode & 0xC);// 0b1100
 		ref = (ref & ~(0xf << bposi)) | (state << bposi);// or treat it a double-length Reference (64-bit)
-		if (autoEnClk) parent->enClock();
 	}
 
 	void GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg) {
@@ -197,6 +197,7 @@ namespace uni
 	}
 
 	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
+		if (autoEnClk) parent->enClock();
 		parent->ModerPort &= ~(uint32)(0x3 << (bitposi << 1));
 		parent->ModerPort |= (((stduint)mode)>>1) << (bitposi << 1);
 		if ((stduint)mode & 1)
@@ -207,7 +208,7 @@ namespace uni
 		parent->SpeedPort |= (stduint)speed << (bitposi << 1);
 		if (mode == GPIOMode::IN_Floating) parent->PullsPort &= ~(uint32)(0x3 << (bitposi << 1));
 		innput = (GPIOMode::IN_Floating == mode) || (GPIOMode::IN_Analog == mode) || (GPIOMode::IN_Pull == mode); // KEPT
-		if (autoEnClk) parent->enClock();
+		
 	}
 
 	void GeneralPurposeInputOutputPin::setPull(bool pullup) {

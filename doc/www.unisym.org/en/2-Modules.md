@@ -41,6 +41,8 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- uassert.h
 	- property
 	- reference
+	- Trait: Array & LinearNodeChain
+	- Trait: Iterate
 - `Syst` (stdinc.h=unisym basic)
 	- `Devk` (host.h)
 		- call.h
@@ -77,9 +79,13 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- numar.h number(.h)
 	- tenar.h
 	- int128
-	- comparison
+	- comparison {TOIN TORE-DIR}
 	- algorithm
-		- sort
+		- compare
+		-        --> sort
+		-        --> search
+		- Frequency
+			- Fourier
 	* riscv64
 > You have to choose the architecture yourself, without the help of hosted characters.
 
@@ -133,7 +139,9 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- Buffer:: stack.h stack >> Trait
 	- Buffer:: strpool.h strpool >> Trait
 	- Buffer:: queue >> Trait
-	- Buffer:: sequence >> Trait
+	- Array-Series
+		- some of `Node`
+		- vector
 	- File:: ELF.h
 	- FileSys:: FAT12.h
 - Data (big size)
@@ -255,14 +263,13 @@ The below are stable contents.
 │  upec.h [Format]
 │  ustdbool.h [Arch]
 │  ustring.h [Host]
+├─algorithm ...
 ├─architect [Arch]
 │	arcintel_8051.h
 │	arcriscv_64.h
 │	arcx64_win64.h
 │	
-├─com [...]
-│	NnodeInsert.h
-│	NodeInsert.h
+├─com {TODEL}
 │	
 ├─compile [Arch]
 │	asmcode.h
@@ -323,7 +330,6 @@ The below are stable contents.
 │  property
 │  queue
 │  reference
-│  sequence
 │  stack
 │  stream
 │  string
@@ -396,6 +402,10 @@ The below are stable contents.
 │	n_string.a
 │	
 └─Python
-	  
+
+## Removed
+
+- sequence -> vector
+
 
 ```

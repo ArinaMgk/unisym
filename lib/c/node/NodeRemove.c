@@ -22,21 +22,11 @@
 
 #include "../../../inc/c/node.h"
 
-
-void NodeRemove(node* nod, node* left)
+void NodeRemove(Node* nod, Node* left, void (*_node_freefunc)(pureptr_t ptxt))
 {
 	if (!nod) return;
-	if (left)
-		left->next = nod->next;
-	else
-		_node_first = nod->next;
-	if (_node_freefunc)
-		_node_freefunc((void*)nod->addr);
+	asserv(left)->next = nod->next;
+	asserv(_node_freefunc)((pureptr_t)nod);
 	memf(nod);
-	if (_node_first)
-	{
-		aflaga.zero = 1;
-		aflaga.one = 0;
-	}
-	aflaga.fail = 0;
+	// aflaga.fail = 0;
 }

@@ -1,8 +1,8 @@
-// ASCII CPL TAB4 CRLF
-// Docutitle: (Module) Real Time Clock
-// Codifiers: @dosconio: 20240220 ~ 20240429
-// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) TIM
+// Codifiers: @dosconio: 20240422 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,24 +20,15 @@
 	limitations under the License.
 */
 
-#ifndef _INC_DEVICE_RealtimeClock
-#define _INC_DEVICE_RealtimeClock
+#include "../../inc/cpp/Device/TIM"
 
-#include "../stdinc.h"
-#include "../datime.h"
-
-#ifdef _MCCA // 0x8632. CPL
-
-	#define PORT_RTC 0x70
-
-	void RTC_Init();
-
-#elif defined(_MCU_STM32F10x) // C++
-
-
-
+namespace uni {
+#if 0
+#elif defined(_MCU_STM32F10x)
+//#undef TIM
 
 
 #endif
+}
 
-#endif
+

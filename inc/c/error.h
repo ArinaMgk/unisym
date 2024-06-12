@@ -52,6 +52,8 @@ void erro(char* erromsg);
 //
 void warn(char* warnmsg);
 
+void _cast_panic();
+
 #endif
 
 

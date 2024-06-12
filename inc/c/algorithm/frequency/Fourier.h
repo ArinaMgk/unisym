@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ02
-// AllAuthor: @ArinaMgk(till RFA03) @dosconio
-// ModuTitle: Simple Node
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Algorithm) Fourier Dimension Transform : Time and Frequency 
+// Codifiers: @dosconio: 20240422 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,22 +20,13 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/node.h"
+//{TODO} unify C and C++
+
+#ifndef _INCPP_Algorithm_Fourier
+#define _INCPP_Algorithm_Fourier
 
 
-void NodeRelease(node* first)
-{
-	if (!first) return;
-	node* next;
-	while (first)
-	{
-		next = first->next;
-		if (_node_freefunc) _node_freefunc((void*)first->addr);
-		memf(first);
-		first = next;
-	}
-	_node_first = 0;
-	aflaga.zero = 1;
-	aflaga.one = 0;
-	aflaga.fail = 0;
-}
+
+
+
+#endif

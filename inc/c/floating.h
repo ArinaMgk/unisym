@@ -36,6 +36,7 @@
 #include "integer.h"
 
 #define isZeroMantissa(flt) ((int)(flt)==(flt)) 
+#define isNaN(f) ((f) != (f))
 #define getNearInteger(flt) (flt+0.5)
 
 inline static double CastF64FromU0(stduint i) {

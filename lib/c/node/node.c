@@ -22,19 +22,6 @@
 
 #include "../../../inc/c/node.h"
 
-
 static const char _USYM_IDEN_[] = {
-	"UNISYM under Apache 2.0 Licence @ArinaMgk, @dosconio"
+	"UNISYM under Apache 2.0 Licence @ArinaMgk, @dosconio" "NODE"
 };
-
-// enum _Node_Order _node_order;
-
-int (*_node_compare)(const void* addr0, const void* addr1);
-
-static void NodeReleaseSingle(void* inp)
-{
-	node* next = ((node*)inp)->next;
-	memf(inp);
-} void(*_node_freefunc)(void*) = NodeReleaseSingle;
-
-node* _node_first;

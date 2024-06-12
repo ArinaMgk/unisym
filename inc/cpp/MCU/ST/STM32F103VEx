@@ -46,4 +46,9 @@ F103:
 #include "../../Device/RCC/RCC"
 #include "../../interrupt"
 
+//{TODO} compatible with `stm32f103xe.h`
+
+
+
+
 #endif

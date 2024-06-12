@@ -1,0 +1,209 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module) Vector
+// Codifiers: @dosconio: 20240607
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+// It's worth sacrificing some performance for the sake of code elegance.
+
+#ifndef _INCPP_Vector
+#define _INCPP_Vector
+#include "unisym"
+#include "./string"
+#include <new>
+#include "trait/ArrayTrait.hpp"
+#include "trait/IterateTrait.hpp"
+#include "cinc"
+#include "../c/algorithm/sort.h"
+#include "../c/algorithm/search.h"
+#include "cinc"
+
+namespace uni {
+
+	template <typename type0> class Vector : public ArrayTrait, public IterateTrait {
+	private: protected:
+		type0* addr;
+		stduint limit;
+		stduint count;
+		//
+		void Enlarge(stduint to_limit = 0) {
+			type0* last = addr;
+			if (!to_limit) (++limit) <<= 1;// dosconio method (0)(2)(6)(14)(30)...
+			else if (to_limit > limit) limit = to_limit;
+			else return;
+			addr = new type0[limit]; //ralcof(type0, addr, limit);
+			for0(i, count) {
+				addr[i] = last[i];
+			}
+			// for0(i, limit - count) new(&addr[count + i]) type0;//{TODO} why increase malc_count ?
+			delete[] last;
+		}
+	public:
+
+		Vector() : addr(nullptr), limit(nil), count(nil) {
+
+		}
+		Vector(const Vector& v) {
+			limit = v.limit;
+			count = v.count;
+			addr = new type0[limit];
+			for0 (i, count) addr[i] = v.addr[i];
+		}
+		Vector& operator=(const Vector& v) {
+			if (this != &v) Vector(v);
+			return *this;
+		}
+		static Vector<type0> From(const type0& content, stduint times) {
+			Vector<type0> v;
+			v.limit = v.count = times;
+			v.addr = new type0[v.limit];
+			for0 (i, v.count) v.addr[i] = content;
+			return v;
+		}
+
+		~Vector() {
+			//mfree(addr); // auto clear
+			delete[] addr;
+			limit = count = nil;
+		}
+
+		virtual void Iterate() {
+			if (_iterate_datas)
+				delete[] _iterate_datas;
+			_iterate_datas = new pureptr_t[count];
+			_iterate_crt = nil;
+			_iterate_lim = count;
+			for0(i, count) _iterate_datas[i] = &addr[i];
+		}
+
+		virtual pureptr_t Locate(stduint idx) const {
+			return (pureptr_t)&addr[idx];
+		}
+		inline type0& operator[] (stdint idx) {
+			if (idx > (stdint)count) throw 0.;//{TODO} error.h
+			if (idx < 0) idx += count;
+			return addr[idx];
+		}
+		#define _vector_item_equal(i,val) do if(addr[i]==(val))return i; while(0)
+		virtual stduint Locate(pureptr_t p_val, bool fromRight) const {
+			const type0& val = *(type0*)p_val;
+			if (!fromRight) for0(i, count)
+				_vector_item_equal(i, val);
+			else for0r(i, count)
+				_vector_item_equal(i, val);
+			return ~(stduint)0;
+		}
+		stduint Locate(const type0& val, bool fromRight = false) {
+			return Locate((pureptr_t)&val, fromRight);
+		}
+
+		virtual stduint   Length() const {
+			return count;
+		}
+		stduint Count() const { return Length(); }
+		stduint getSize() const { return limit; }
+
+
+		
+		// will auto enlarge if out of bounds
+		virtual bool      Insert(stduint idx, pureptr_t dat) {
+			if (!dat) return false;
+			if (count >= limit || idx > count) return false;
+			for (stduint i = 0; i < count - idx; i++)
+				addr[count - i] = addr[count - i - 1];
+			addr[idx] = type0(*(type0*)dat);
+			count++;
+			return true;
+		}
+		bool Append(stduint idx, const type0& x) {
+			return Insert(idx, (pureptr_t)&x);
+		}
+		bool Append(const type0& x) {
+			while (count >= limit) Enlarge();
+			addr[count++] = type0(x);
+			return true;
+		}
+		inline Vector& operator<< (const type0& apd) {
+			this->Append(apd);
+			return *this;
+		}
+
+		virtual bool      Remove(stduint idx, stduint times = 1) {
+			if (!times) return true;
+			if (!count || idx + times > count) return false;
+			for0(i, count - idx - times)
+				addr[idx + i] = addr[idx + times + i];
+			count -= times;
+			return true;
+		}
+
+		virtual bool Exchange(stduint idx1, stduint idx2) {
+			if (idx1 == idx2) return true;
+			if (idx1 >= count || idx2 >= count) return false;
+			byte buf[sizeof(type0)];
+			MemCopyN((pureptr_t)buf, (pureptr_t)&addr[idx1], sizeof(type0));
+			MemCopyN((pureptr_t)&addr[idx1], (pureptr_t)&addr[idx2], sizeof(type0));
+			MemCopyN((pureptr_t)&addr[idx2], (pureptr_t)buf, sizeof(type0));
+			return true;
+		}
+
+		virtual bool      Clear() {
+			count = 0;
+			return true;
+		}
+
+
+		bool isFull() { return count >= limit; }
+		bool isEmpty() { return !count; }
+		
+/*
+		inline std::ostream& operator>> (std::ostream& out) {
+			std::cout << "\nThere are " << Count() << " items:" << std::endl;
+			for (int i = 0; i < count; i++)
+				std::cout << "\titem " << i << " : " << offs[i] << std::endl;
+			return out;
+		}
+*/		
+		// Sorted
+		Vector& Sorted(int (*Cmp_f)(pureptr_t a,pureptr_t b) = 0) {
+			this->Compare_f = Cmp_f;
+			Sort(*this);
+			return *this;
+		}
+
+
+		// Search
+		stduint Search(const type0& val, int (*Cmp_f)(pureptr_t a, pureptr_t b) = 0) {
+			this->Compare_f = Cmp_f;
+			return ::Search(*this, (pureptr_t)&val);
+		}
+
+	};
+
+
+
+}
+
+template <typename type0> using vector = uni::Vector<type0>;
+
+#ifdef _STYLE_RUST
+template <typename type0> using Vec = uni::Vector<type0>;
+#endif
+
+#endif

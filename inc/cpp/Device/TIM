@@ -1,0 +1,127 @@
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) TIM
+// Codifiers: @dosconio: 20240422 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+//{TODO} unify C and C++
+
+#ifndef _INCPP_Device_TIM
+#define _INCPP_Device_TIM
+
+
+#include "../unisym"
+#include "../binary"
+#include "../reference"
+
+namespace uni {
+#if 0
+
+#elif defined(_MCU_STM32F10x)
+//#undef TIM
+
+
+/* Component
+- Advanced 高级定时器 TIM1 TIM8
+- Basic    基本定时器 TIM6 TIM7 : 16b-auto-reload-counter
+- Common   通用定时器 TIM2 TIM3 TIM4 TIM5
+*/
+
+//{TODO} stm32f1xx_hal_tim.h/c 
+
+//{TODO} TIM[6] TIM[7]
+
+/*
+	Reference CR1;  
+	Reference CR2;  
+	Reference SMCR; 
+	Reference DIER; 
+	Reference SR;   
+	Reference EGR;  
+	Reference CCMR1;
+	Reference CCMR2;
+	Reference CCER; 
+	Reference CNT;  
+	Reference PSC;  
+	Reference ARR;  
+	Reference RCR;  
+	Reference CCR1; 
+	Reference CCR2; 
+	Reference CCR3; 
+	Reference CCR4; 
+	Reference BDTR; 
+	Reference DCR;  
+	Reference DMAR; 
+	Reference OR;   
+*/
+	enum {
+		CR1,   // TIM control register 1,                     offset: 0x00
+		CR2,   // TIM control register 2,                     offset: 0x04
+		SMCR,  // TIM slave Mode Control register,            offset: 0x08
+		DIER,  // TIM DMA/interrupt enable register,          offset: 0x0C
+		SR,    // TIM status register,                        offset: 0x10
+		EGR,   // TIM event generation register,              offset: 0x14
+		CCMR1, // TIM  capture/compare mode register 1,       offset: 0x18
+		CCMR2, // TIM  capture/compare mode register 2,       offset: 0x1C
+		CCER,  // TIM capture/compare enable register,        offset: 0x20
+		CNT,   // TIM counter register,                       offset: 0x24
+		PSC,   // TIM prescaler register,                     offset: 0x28
+		ARR,   // TIM auto-reload register,                   offset: 0x2C
+		RCR,   // TIM  repetition counter register,           offset: 0x30
+		CCR1,  // TIM capture/compare register 1,             offset: 0x34
+		CCR2,  // TIM capture/compare register 2,             offset: 0x38
+		CCR3,  // TIM capture/compare register 3,             offset: 0x3C
+		CCR4,  // TIM capture/compare register 4,             offset: 0x40
+		BDTR,  // TIM break and dead-time register,           offset: 0x44
+		DCR,   // TIM DMA control register,                   offset: 0x48
+		DMAR,  // TIM DMA address for full transfer register, offset: 0x4C
+		OR,    // TIM option register,                        offset: 0x50
+	};
+
+	// Use Dynamic Objects
+	class TIM_t {
+	protected:
+
+	public:
+		#ifdef _MCU_STM32F103VE
+		struct {
+
+		} reg
+
+		
+		#else
+		#error ! よ TIM
+		#endif
+
+	};
+	
+	class TIM_A;
+	
+	class TIM_B : TIM_t {
+		public:
+
+	};
+
+	class TIM_C;
+
+
+#endif
+}
+
+#endif

@@ -31,7 +31,7 @@ namespace uni {
 	NestedParseUnit::NestedParseUnit(TnodeChain& tchain, NodeChain* TOGCChain) : TokenOperatorGroupChain(TOGCChain) {
 		linemn_no = column_no = 0;
 		msg_fail = 0;
-		TokenOperatorGroupChain->Onfree();
+		TokenOperatorGroupChain->func_free = NodeFreeSimple;
 		// Origin from Haruno yo RFT27, principle of "Every action is a function, every object is in memory."; RFB19, RFV13 Rewrite
 		parsed = false;
 		chain = zalcof(NnodeChain);

@@ -1,9 +1,8 @@
 // ASCII C99 TAB4 CRLF
-// Docutitle: (Common) Standard Include File and Basic Types and Characters of the Machine
-// Codifiers: @dosconio: 20240423 ~ 20240423
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
+// Attribute: ArnCovenant Host[Allocation]
+// LastCheck: RFZ02
+// AllAuthor: @ArinaMgk(till RFA03) @dosconio
+// ModuTitle: Simple Node
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,17 +20,27 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MACHINE
-#define _INC_MACHINE
-#if defined(_INC_CPP) || defined(__cplusplus)
-extern "C" {
-#endif
-#if defined(_dbg) || defined(_DEBUG)
-#include "debug.h"
-#else
-#include "proctrl.h"
-#endif
-#if defined(_INC_CPP) || defined(__cplusplus)
+#include "../../../inc/c/node.h"
+#include "../../../inc/c/ustring.h"
+
+void ChainInit(Chain* chain) {
+	MemSet(chain, nil, sizeof(Chain));
+	chain->state.been_sorted = true;
 }
-#endif
-#endif
+
+void ChainDrop(Chain* chain)
+{
+	Node* crt = chain->root_node;
+	if (!crt) return;
+	Node* next;
+	while (crt)
+	{
+		next = crt->next;
+		NodeRemove(crt, 0, chain->func_free);
+		crt = next;
+	}
+	//_node_crt = 0;
+	//aflaga.zero = 1;
+	//aflaga.one = 0;
+	//aflaga.fail = 0;
+}

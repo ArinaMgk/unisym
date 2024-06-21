@@ -40,7 +40,7 @@ namespace uni {
 		int (*cmp)(pureptr_t a, pureptr_t b) = arr.Compare_f ? arr.Compare_f : _Local_Compare;
 		for0 (i, arr.Length()) if (!cmp(p_val, arr.Locate(i)))
 			return i;
-		return ~(stduint)0;
+		return (stduint)None;
 	}
 
 	//{unchk} preset(ordered)
@@ -56,7 +56,7 @@ namespace uni {
 			else if (state > 0) l = ++m;
 			else r = --m;// yo left part
 		}
-		return ~(stduint)0;
+		return (stduint)None;
 	}
 	
 	// ~0 for failure
@@ -67,7 +67,7 @@ namespace uni {
 		case SearchMode::Binary: sear_f = SearchBinary; break;
 		default: sear_f = nullptr; break;
 		}
-		return sear_f ? sear_f(arr, p_val) : ~(stduint)0;
+		return sear_f ? sear_f(arr, p_val) : (stduint)None;
 	}
 }
 #endif

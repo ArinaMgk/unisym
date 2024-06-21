@@ -1,4 +1,4 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPL/CPP TAB4 CRLF
 // Docutitle: (Algorithm) Fourier Dimension Transform : Time and Frequency 
 // Codifiers: @dosconio: 20240422 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -19,8 +19,6 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
-//{TODO} unify C and C++
 
 #ifndef _INCPP_Algorithm_Fourier
 #define _INCPP_Algorithm_Fourier

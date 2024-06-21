@@ -166,9 +166,11 @@ using NodeChain = Chain;
 }
 #else
 #include "ustdbool.h"
+#include "../c/trait/ArrayTrait.h"
 typedef struct NodeChain_t {
 	_MACRO_CHAIN_MEMBER
 	void(*func_free)(void*);
+	int (*func_comp)(pureptr_t a, pureptr_t b);
 } chain_t, Chain; // measures stdint[2]
 
 // How many nodes after the node

@@ -24,6 +24,7 @@
 
 #include "stdinc.h"
 #include "coear.h"
+#include "number.h"
 
 /*//{TODO}
 type

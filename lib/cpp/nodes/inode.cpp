@@ -28,6 +28,8 @@
 
 namespace uni {
 
+#if 0
+
 #define tmpl(...) __VA_ARGS__ InodeChain
 
 	tmpl()::InodeChain(bool need_free) : NodeChain(need_free), root_node((Inode*&)NodeChain::root_node), last_node((Inode*&)NodeChain::last_node) {
@@ -97,5 +99,6 @@ namespace uni {
 		Append(iden, data, typ, readonly, typekeep);
 		return true;
 	}
+#endif
 }
 

@@ -121,10 +121,3 @@ Consideration
 - Aflag
 - Inline version
 
-## Glossary
-
-ANY: AASM / NASM / YASM
-
-Real-16: ...
-
-Flap-32: Flat-Segment and Protected-Mode and 32-bit Data&Code-Segment

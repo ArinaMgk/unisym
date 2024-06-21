@@ -81,12 +81,12 @@ rust:
 
 # ---- [utilities] ----
 
-manual: ${dest_bin}/usymdoc.pdf ${dest_bin}/magice.pdf#optional: latex ?.tex && dvipdfmx ?.dvi
+manual: ${dest_bin}/herepc.pdf ${dest_bin}/magice.pdf#optional: latex ?.tex && dvipdfmx ?.dvi
 	echo "Build Finish."
-${dest_bin}/usymdoc.pdf:
-	cd  ${dest_bin}/ && xelatex ../unisym/doc/manual/usymdoc.tex && rm usymdoc.log usymdoc.aux 
+${dest_bin}/herepc.pdf:
+	cd doc/herepc && xelatex herepc.tex && mv herepc.pdf ../../$@
 ${dest_bin}/magice.pdf:
-	cd  ${dest_bin}/ && xelatex ../unisym/doc/magice/magice.tex && rm magice.log magice.aux magice.out
+	cd  ${dest_bin}/ && xelatex ../unisym/doc/magice/magice.tex && rm magice.log magice.aux magice.out 
 
 kitw32: # utility
 	cd ${make_dir} && make -f kitw32.make all

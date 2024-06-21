@@ -24,7 +24,6 @@
 #define _LIB_DATETIME
 
 #include "stdinc.h"
-#include <time.h>
 
 //{TODO} utime.h
 
@@ -74,7 +73,10 @@ unsigned weekday(word year, word month, word day);
 #define moondays(year, month) (30 + (((month)&1) ^ ((month)>7)) - ((month)==2?2-isLeapYear(year):0))
 
 //
+#ifndef _IMPLEMENT_KEIL8051
+#include <time.h>//{TEMP}
 uint64 POSIXGetSeconds(struct tm* tm);
+#endif
 
 // Reverse function of herspan()
 void fromherp(stdint herspans, word* year, word* month, word* day);

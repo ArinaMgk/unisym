@@ -32,6 +32,11 @@
 #define _BYTE_BITS_ 8
 
 
+typedef void* pureptr_t;
+typedef void(*_tofree_ft)(pureptr_t);
+typedef  int(*_tocomp_ft)(pureptr_t, pureptr_t);
+typedef void(symbol_t)(void);
+
 #ifndef _INC_CPP
 	#define pointer_t(_typ) _typ * 
 	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
@@ -48,10 +53,6 @@ extern "C++" {
 }
 	#define _REGISTER
 #endif
-
-typedef void(*_tofree_ft)(void*);
-typedef void* pureptr_t;
-typedef void(symbol_t)(void);
 
 // __ENDIAN__
 #ifndef __ENDIAN__
@@ -120,7 +121,7 @@ typedef void(symbol_t)(void);
 #define Assign3(l,m,r) do{if(&(l)==&(r))AssignParallel(l,m,r); else xchg((l),(m));}while(0)
 #define Assign3Pointer(l,m,r) do{if(&(l)==&(r))AssignParallel(l,m,r); else xchgptr(a,b);}while(0)
 // Use 0 and ~0 as special invalid value, while Rust uses `Option` containing null.
-// Example for the parameter: Bnode * inp = (Bnode*)~(stduint)0
+// Example for the parameter: Bnode * inp = (Bnode*)None
 #define nulrecurs(inp, root, rets) do {if (!inp) return rets; else if (!~(stduint)inp) inp = root; } while (0)
 
 #define Castype(des,val) *(des*)&(val)

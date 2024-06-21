@@ -1,4 +1,4 @@
-// ASCII C99 TAB4 CRLF
+// ASCII C99/C++ TAB4 CRLF
 // Attribute: ArnCovenant
 // LastCheck: RFZ11
 // AllAuthor: @ArinaMgk(till RFA03) @dosconio
@@ -25,6 +25,10 @@
 
 #define immed_tobool(i) !!(i) // != 0
 
+#if !defined(__cplusplus) && !defined(_INC_CPP)
 typedef enum boolean { false, true } bool, boolean;// use immed_tobool() to convert with this
+#else
+typedef bool boolean;
+#endif
 
 #endif

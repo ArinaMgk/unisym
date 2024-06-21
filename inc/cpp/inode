@@ -33,7 +33,7 @@
 #include "node"
 
 namespace uni {
-
+#if 0
 	class Inode : public Node {
 	public:
 		Inode(const char* in_addr = 0, const void* data = 0, stduint typ = 0, bool readonly = false, bool typekeep = false) :  data(data), type(typ), readonly(readonly), typekeep(typekeep), next(0), addr((char*&)Node::offs) { addr = (char*)in_addr; }
@@ -73,6 +73,7 @@ namespace uni {
 		Inode*& last_node; // = (Inode*&)NodeChain::last_node;
 		//{TODO}
 	};
+#endif
 }
 
 #endif

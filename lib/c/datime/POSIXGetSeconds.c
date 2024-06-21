@@ -21,6 +21,7 @@
 */
 
 #include "../../../inc/c/datime.h"
+#include <time.h>
 
 uint64 POSIXGetSeconds(struct tm* tm)
 {

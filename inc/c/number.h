@@ -1,4 +1,4 @@
-// ASCII C TAB4 CRLF
+// ASCII CPL/CPP TAB4 CRLF
 // Docutitle: Number (Complex)
 // Codifiers: @dosconio: 20240603
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -24,7 +24,28 @@
 #define _INC_NUMBER
 
 #include "floating.h"
+#include "ustdbool.h"
+
+// ---- Complex ---- 
+
+struct ddouble /* double-double, ddi */ {
+	double real, imag;
+};
+
+struct dfloat /* double-float, dfl */ {
+	float real, imag;
+};
+
+// ---- CoeAr ---- 
+
+// ..
 
 
+// ---- HerAr ---- 
+extern boolean sign_coff;
+extern boolean sign_expo;
+extern stduint byte_total;
+extern stduint byte_divr;
+extern stduint byte_expo;
 
 #endif

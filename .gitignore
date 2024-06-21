@@ -2,6 +2,13 @@
 # ...
 .vscode
 magic/.vscode
+# Document
+*.pdf
+*.out
+*.gz
+*.aux
+*.log
+*.toc
 # Website Temporary Files
 doc/www.unisym.org/_*
 doc/www.unisym.org/.*

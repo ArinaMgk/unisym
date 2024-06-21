@@ -107,7 +107,7 @@ namespace uni {
 
 	tmpl(Nnode*)::Adopt(Nnode* thisn, Nnode* subhead, Nnode* subtail, bool go_func) {
 		bool found = false;
-		if (subtail == (Nnode*)(~(stduint)0)) subtail = subhead;
+		if (subtail == (Nnode*)None) subtail = subhead;
 		if (!subhead) return 0;
 		if (thisn->subf) return 0;//{TODO} Remove each in current chain
 		//

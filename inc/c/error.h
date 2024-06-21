@@ -29,8 +29,8 @@
 
 #define errjb _ERRO_JUMP
 
-extern node* _WARN_CHAIN;
-extern node* _FREE_CHAIN;// tofree list
+extern Node* _WARN_CHAIN;
+extern Node* _FREE_CHAIN;// tofree list
 extern char* _ERRO_MESSAGE;
 extern jmp_buf _ERRO_JUMP;
 

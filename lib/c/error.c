@@ -26,7 +26,7 @@
 
 #if defined(_DEBUG) || defined(_dbg)
 
-node* _WARN_CHAIN = NULL;
+Node* _WARN_CHAIN = NULL;
 char* _ERRO_MESSAGE = NULL;
 jmp_buf _ERRO_JUMP = { 0 };
 

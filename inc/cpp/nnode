@@ -96,7 +96,7 @@ namespace uni {
 		void Index(void* content);
 
 		// can use by pseudo static (set this zero)
-		Nnode* Adopt(Nnode* thisn, Nnode* subhead, Nnode* subtail = (Nnode*)~(stduint)0, bool go_func = true);
+		Nnode* Adopt(Nnode* thisn, Nnode* subhead, Nnode* subtail = (Nnode*)None, bool go_func = true);
 
 		Nnode* Root() { return (Nnode*)root_node; }
 		Nnode*& RootAddress() { return root_node; }

@@ -1,0 +1,37 @@
+\documentclass[a4paper,12pt,UTF8]{book}
+\usepackage{ctex}
+\usepackage{hyperref}
+\usepackage{geometry}
+
+\hypersetup{hidelinks,
+	colorlinks=true,
+	allcolors=black,
+	pdfstartview=Fit,
+	breaklinks=true}
+
+
+\geometry{a4paper,left=2cm,right=2cm,top=2cm,bottom=2cm}
+\begin{document}
+\author{dosconio}
+\begin{center}
+	% rgb(255, 97, 157)
+	\sc\fontsize{48pt}{0}\selectfont\textcolor[rgb]{1, 0.381, 0.618}{Her Epic}
+\end{center}
+
+\newpage % Indexes from even page
+% Indexes
+\renewcommand{\contentsname}{Contents}
+\tableofcontents
+
+\section{Foreword} % section 0.1
+
+\chapter{General}
+
+% use \input(recommended) or \include
+\input{CLV/xx-CLOVER.tex}
+
+
+
+\newpage
+END!% Write and accumulate. Split when this is huge enough.
+\end{document}

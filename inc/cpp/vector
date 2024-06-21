@@ -107,7 +107,7 @@ namespace uni {
 				_vector_item_equal(i, val);
 			else for0r(i, count)
 				_vector_item_equal(i, val);
-			return ~(stduint)0;
+			return (stduint)None;
 		}
 		stduint Locate(const type0& val, bool fromRight = false) {
 			return Locate((pureptr_t)&val, fromRight);
@@ -191,7 +191,7 @@ namespace uni {
 		// Search
 		stduint Search(const type0& val, int (*Cmp_f)(pureptr_t a, pureptr_t b) = 0) {
 			this->Compare_f = Cmp_f;
-			return ::Search(*this, (pureptr_t)&val);
+			return uni::Search(*this, (pureptr_t)&val);
 		}
 
 	};

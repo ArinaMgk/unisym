@@ -34,6 +34,8 @@ static const char _USYM_IDEN_[] = {
 	"UNISYM under Apache 2.0 Licence @ArinaMgk, @dosconio"
 };
 
+/*//{TODO}
+
 int (*_dnode_compare)(void* addr0, void* addr1);
 
 int _dnode_freepass = 0;
@@ -49,4 +51,4 @@ static void DnodeReleaseSingle(void* inp)
 
 dnode* _dnode_first;
 
-
+*/

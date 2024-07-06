@@ -14,6 +14,13 @@ dg-publish: true
 
 **Syster**: a pronoun to the project and the author
 
+### Number Abbreviations
+
+- 0 not
+- 2 to
+- 4 for
+- 9 none
+
 ### Punctuation marks
 
 - `()`	parenthesis

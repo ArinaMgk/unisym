@@ -249,7 +249,6 @@ The below are stable contents.
 │  strpool.h [Format]
 │  task.h [Host]
 │  tenar.h [Arith]
-│  tnode.h [Node]
 │  trait.h [Core]
 │  uassert.h [Core]
 │  uctype.h [Arch]

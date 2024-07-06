@@ -2,6 +2,50 @@
 \usepackage{ctex}
 \usepackage{hyperref}
 \usepackage{geometry}
+\usepackage{titlesec}
+% reference raw code
+\usepackage{listings}
+\usepackage{xcolor}
+
+%
+\newcounter{subsubparagraph}[subparagraph]
+\newcounter{subsubsubparagraph}[subsubparagraph]
+\newcounter{subsubsubsubparagraph}[subsubsubparagraph]
+\newcounter{subsubsubsubsubparagraph}[subsubsubsubparagraph]
+\newcounter{subsubsubsubsubsubparagraph}[subsubsubsubsubparagraph]
+% format of counters
+\renewcommand{\thesubsubparagraph}{\$.\arabic{subsubparagraph}}
+\renewcommand{\thesubsubsubparagraph}{\thesubsubparagraph.\arabic{subsubsubparagraph}}
+\renewcommand{\thesubsubsubsubparagraph}{\thesubsubsubparagraph.\arabic{subsubsubsubparagraph}}
+\renewcommand{\thesubsubsubsubsubparagraph}{\thesubsubsubsubparagraph.\arabic{subsubsubsubsubparagraph}}
+\renewcommand{\thesubsubsubsubsubsubparagraph}{\thesubsubsubsubsubparagraph.\arabic{subsubsubsubsubsubparagraph}}
+% commands for titles
+\newcommand{\subsubparagraph}[1]{%
+	\stepcounter{subsubparagraph}%
+	\par\noindent\llap{\thesubsubparagraph\enspace}#1\par}
+\newcommand{\subsubsubparagraph}[1]{%
+	\stepcounter{subsubsubparagraph}%
+	\par\noindent\llap{\thesubsubsubparagraph\enspace}#1\par}
+\newcommand{\subsubsubsubparagraph}[1]{%
+	\stepcounter{subsubsubsubparagraph}%
+	\par\noindent\llap{\thesubsubsubsubparagraph\enspace}#1\par}
+\newcommand{\subsubsubsubsubparagraph}[1]{%
+	\stepcounter{subsubsubsubsubparagraph}%
+	\par\noindent\llap{\thesubsubsubsubsubparagraph\enspace}#1\par}
+\newcommand{\subsubsubsubsubsubparagraph}[1]{%
+	\stepcounter{subsubsubsubsubsubparagraph}%
+	\par\noindent\llap{\thesubsubsubsubsubsubparagraph\enspace}#1\par}
+% format for title subsubsubparagraph
+\titleformat{\thesubsubparagraph}
+{\normalfont\normalsize\bfseries}% format
+{\thesubsubparagraph\enspace}% label
+{8pt}% sep
+{}% before-code
+[\titlerule]% after-code
+% [MORE...]
+% set tocdepth and secnumdepth, to adapt menu
+\setcounter{tocdepth}{3}
+\setcounter{secnumdepth}{8}
 
 \hypersetup{hidelinks,
 	colorlinks=true,
@@ -9,8 +53,37 @@
 	pdfstartview=Fit,
 	breaklinks=true}
 
+%\usepackage{listings}
+\lstset{
+	basicstyle          =   \sffamily,
+	keywordstyle        =   \bfseries,
+	commentstyle        =   \rmfamily\itshape,
+	stringstyle         =   \ttfamily,
+	flexiblecolumns,
+	numbers             =   left,
+	showspaces          =   false,
+	numberstyle         =   \zihao{-5}\ttfamily,
+	showstringspaces    =   false,
+	captionpos          =   t, % show caption on Top
+	frame               =   shadowbox,
+	rulesepcolor        =   \color{ red!20!green!20!blue!20}
+}
+\lstdefinestyle{GlobalC}{
+	language        =   C,
+	basicstyle      =   \zihao{-5}\ttfamily,
+	numberstyle     =   \zihao{-5}\ttfamily,
+	keywordstyle    =   \color{blue!70}\textbf,
+	stringstyle     =   \color{magenta},
+	commentstyle    =   \color{green!80!red}\ttfamily,
+	breaklines      =   true,
+	columns         =   fixed,
+	basewidth       =   0.5em,
+	tabsize         =   4,
+	keepspaces      =   true, 
+}
 
-\geometry{a4paper,left=2cm,right=2cm,top=2cm,bottom=2cm}
+
+\geometry{a4paper,left=3cm,right=2cm,top=2cm,bottom=2cm}
 \begin{document}
 \author{dosconio}
 \begin{center}
@@ -26,6 +99,8 @@
 \section{Foreword} % section 0.1
 
 \chapter{General}
+
+\chapter{Clover \mbox{-} Programming}
 
 % use \input(recommended) or \include
 \input{CLV/xx-CLOVER.tex}

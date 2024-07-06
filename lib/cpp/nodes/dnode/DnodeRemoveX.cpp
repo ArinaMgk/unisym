@@ -1,8 +1,8 @@
-// ASCII C++ TAB4 CRLF
-// Attribute: Allocate(Need)
-// LastCheck: unchecked for C++ version
-// AllAuthor: @dosconio
-// ModuTitle: Node for C++
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: Node for Double-Direction Double-Field Linear Chain
+// Codifiers: @dosconio: ~ 20240701
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,52 +21,56 @@
 */
 
 #include "../../../../inc/cpp/unisym"
-#include "../../../../inc/c/node.h"
+#include "../../../../inc/c/dnode.h"
 
 namespace uni {
 	// impl Array for 
 	// [no-use] LocateLeft
 
-	bool    Chain::Remove(stduint idx, stduint times) {
+	bool    Dchain::Remove(stduint idx, stduint times) {
 		if (!times) return true;
 		// if (!root_node) return false;
-		Node* crt = (Node*)Locate(idx);
+		Dnode* crt = (Dnode*)Locate(idx);
 		if (!crt) return false;
-		Node* const last = getLeft(crt, false);
-		Node* const next = (Node*)Locate(idx + times);
-		for0 (i, times) {
-			Node* const nex = crt->next;
-			NodeRemove(crt, nullptr, func_free);
+		Dnode* const last = crt->left;
+		Dnode* const next = (Dnode*)Locate(idx + times);
+		for0(i, times) {
+			Dnode* const nex = crt->next;
+			DnodeRemove(crt, func_free);
 			crt = nex;
 		}
 		asserv(last)->next = next;
-		NodeChainAdapt(last ? root_node : next, next ? last_node : last, -(stdint)times);
+		DnodeChainAdapt(last ? root_node : next, next ? last_node : last, -(stdint)times);
 		return true;
 	}
 
-	Node* Chain::Remove(Node* nod) {
-		Node* crt = Root(), * nex, * las = 0;
+	Dnode* Dchain::Remove(Dnode* nod) {
+		Dnode* crt = Root(), * nex, * las = 0;
 		if (!crt) return nullptr;
 		do {
 			nex = crt->next;
 			if (crt != nod) continue;
-			NodeRemove(crt, las, func_free);
-			NodeChainAdapt(crt == root_node ? nex : root_node, crt == last_node ? las : last_node, -1);
+			DnodeRemove(crt, func_free);
+			DnodeChainAdapt(crt == root_node ? nex : root_node, crt == last_node ? las : last_node, -1);
 			break;
 		} while (AssignParallel(las, crt, nex));
 		return nex;
 	}
 
-	Node* Chain::Remove(pureptr_t content) {
-		Node* crt = Root(), * nex, * las = 0;
+	Dnode* Dchain::Remove(pureptr_t content) {
+		Dnode* crt = Root(), * nex, * las = 0;
 		if (!crt) return nullptr;
 		do {
 			nex = crt->next;
 			if (crt->offs != content) continue;
-			NodeRemove(crt, las, func_free);
-			NodeChainAdapt(crt == root_node ? nex : root_node, crt == last_node ? las : last_node, -1);
+			DnodeRemove(crt, func_free);
+			DnodeChainAdapt(crt == root_node ? nex : root_node, crt == last_node ? las : last_node, -1);
 			break;
 		} while (AssignParallel(las, crt, nex));
 		return nex;
 	}
 }
+
+
+
+

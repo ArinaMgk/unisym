@@ -23,55 +23,57 @@
 
 #include "../../../../inc/cpp/unisym"
 #include "../../../../inc/cpp/nnode"
+#include "../../../../inc/cpp/string"
 #include <new>
 
 static bool NestedTokenParse(uni::NestedParseUnit* npu);
 
 namespace uni {
+	// Origin from Haruno yo RFT27, principle of "Every action is a function, every object is in memory."; RFB19, RFV13, 20240706 Rewrite
 	NestedParseUnit::NestedParseUnit(TnodeChain& tchain, NodeChain* TOGCChain) : TokenOperatorGroupChain(TOGCChain) {
 		linemn_no = column_no = 0;
 		msg_fail = 0;
-		TokenOperatorGroupChain->func_free = NodeFreeSimple;
-		// Origin from Haruno yo RFT27, principle of "Every action is a function, every object is in memory."; RFB19, RFV13 Rewrite
+		// TokenOperatorGroupChain->func_free = NodeHeapFreeSimple;
 		parsed = false;
 		chain = zalcof(NnodeChain);
 		new (chain) NnodeChain(true);
+		
 		int state = 0;
 		Tnode* crttn = 0;
-		union { Tnode* tnext{nullptr}; Nnode* nnext; };
-
+		union { Tnode* tnext{ nullptr }; Nnode* nnext; };
+		
 		// Solve comment, Trim trailing or middle spaces;
-		if (crttn = tchain.Root()) while (crttn = 
+		if (crttn = (Tnode*)tchain.Root()) while (crttn = 
 			(crttn->type == tok_comment ||
 			crttn->type == tok_spaces &&
 			crttn->row == crttn->left->row &&
 			(!crttn->next || crttn->row == crttn->next->row)) ?
-			tchain.Remove(crttn) : crttn->next);
+			(Tnode*)tchain.Remove(crttn) : crttn->next);
 
 		// String cat (must on a line);
-		if (crttn = tchain.Root()) do {
+		if (crttn = (Tnode*)tchain.Root()) do {
 			while ((crttn->type == tok_string) && (crttn->next) && (crttn->next->type == tok_string))
 			{
-				srs(crttn->offs, StrHeapAppend((char*)crttn->offs, (char*)crttn->next->offs));
+				srs(crttn->offs, StrHeapAppend(crttn->addr, crttn->next->addr));
 				tchain.Remove(crttn->next);
 			}
 		} while (crttn = crttn->next);
 
 		// Discard any directive temporarily;
-		crttn = tchain.Root();
+		crttn = (Tnode*)tchain.Root();
 		while (crttn)
-			crttn = (crttn->type == tok_direct) ? tchain.Remove(crttn) : crttn->next;
+			crttn = (crttn->type == tok_direct) ? (Tnode*)tchain.Remove(crttn) : crttn->next;
 
 		// ---- ---- ---- ---- Line ---> Nest ---- ---- ---- ----
 		tchain.Remove(tchain.Root());
 
 		// Restructure for nested
-		tchain.Onfree(0, false);
-		crttn = tchain.Root();
+		tchain.func_free = nullptr; // tchain.Onfree(0, false);
+		crttn = (Tnode*)tchain.Root();
 		while (crttn)
 		{
 			chain->Append(crttn);
-			crttn = tchain.Remove(crttn);
+			crttn = (Tnode*)tchain.Remove(crttn);
 		}
 
 		tchain.~TnodeChain();
@@ -118,9 +120,10 @@ namespace uni {
 						cases = chain->DivideSymbols(crt, 1, i);
 						if (cases == NNODE_DIVSYM_HEAD || cases == NNODE_DIVSYM_MIDD) exist_sym = true;
 						Nnode* fn = last_parens->left;// assume not anonymity
-						if (!(last_parens->left && last_parens->left->type == tok_identy && last_parens->left->row == last_parens->row))// anonymity
-							fn = chain->Insert(last_parens, true);
-						chain->Adopt(fn, last_parens->next, crt->left);
+						if (!(last_parens->left && last_parens->left->type == tok_identy &&
+							((TnodeField*)NnodeGetExtnField(last_parens->left))->row == ((TnodeField*)NnodeGetExtnField(last_parens))->row))// anonymity
+							fn = chain->Append(nullptr, true, last_parens); // fn = chain->Insert(last_parens, true);
+						NnodeBlock(fn, last_parens->next, crt->left);// chain->Adopt(fn, last_parens->next, crt->left);
 						chain->Remove(last_parens); if (last_parens == tnod) tnod = fn;
 						chain->Remove(crt);
 						crt = fn;
@@ -146,7 +149,7 @@ namespace uni {
 			}
 			if (!crt) return true;
 			crt = crt->next;
-			if (crt && (crt->row != crt->left->row)) last_parens = 0;
+			if (crt && (((TnodeField*)NnodeGetExtnField(crt))->row != ((TnodeField*)NnodeGetExtnField(crt->left))->row)) last_parens = 0;
 		}
 		//{TODO} if (crtnest) erro("Match error");
 		return ParseOperator(tnod, chain);

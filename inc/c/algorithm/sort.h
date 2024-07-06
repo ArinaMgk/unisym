@@ -24,6 +24,7 @@
 #define _INC_Sort
 
 // Fit for ISO/IEC CPL Interfaces
+#include "../stdinc.h"
 #include "compare.h"
 
 #define qsortof(arr,cmp) qsort(arr,numsof(arr),sizeof(*arr),cmp)
@@ -41,13 +42,13 @@ cmpfof(cmp) {
 */
 
 //STYLE G-3
-#ifdef _INC_CPP
-#include "../stdinc.h"
+#if defined(_INC_CPP)
 #include "../../cpp/trait/ArrayTrait.hpp"
 	#define setcmp(arr) Compare_ft cmp = (arr).Compare_f ? (arr).Compare_f : _Local_Compare
 namespace uni {
 
-	typedef int (*Compare_ft)(pureptr_t a, pureptr_t b);
+	//typedef int (*Compare_ft)(pureptr_t a, pureptr_t b);
+	typedef _tocomp_ft Compare_ft;
 	
 	enum SortMode {
 		BubbleA = 0, // for-for-if-xchg
@@ -85,6 +86,12 @@ namespace uni {
 		asserv(sort_f)(arr);
 	}
 }
+
+#else 
+
+#define setcmp(arr) _tocomp_ft cmp = (arr).func_comp ? (arr).func_comp : _Local_Compare
+
+
 #endif
 
 #endif

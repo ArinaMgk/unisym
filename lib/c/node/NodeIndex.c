@@ -22,4 +22,8 @@
 
 #include "../../../inc/c/node.h"
 
-//{TODO}
+Node* ChainLocateNode(chain_t* chn, stduint idx) {
+	Node* crt = chn->root_node;
+	if (crt) do; while ((idx--) && (crt = crt->next));
+	return crt; // if not found, crt is nullptr
+}

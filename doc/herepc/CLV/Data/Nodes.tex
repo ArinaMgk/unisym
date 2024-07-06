@@ -1,0 +1,55 @@
+
+The chain of a node contains a series of nodes. There are usually discrete so we need not allocate them at once.
+
+\subsubsection{Node Chain : Single-Field Chain}
+
+\paragraph{Structure} \
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+	typedef struct Node {
+		struct Node* next;
+		union {
+			const char* addr;
+			pureptr_t offs;
+		};
+	} Node; // measures stdint[2]
+\end{lstlisting}
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+#define _MACRO_CHAIN_MEMBER \
+Node* root_node;\
+Node* last_node;\
+struct {\
+	Node* midl_node;\
+} fastab;\
+stduint node_count;\
+stduint extn_field;\
+struct {\
+	bool been_sorted /* `need_sort` as para of Append */;\
+} state;
+
+C...
+
+C++...
+
+\end{lstlisting}
+Trait:  \verb|ArrayTrait|
+
+\paragraph{Structure} \
+
+.
+
+\subsubsection{Dnode Chain : Double-Field-and-Linked Chain}
+
+\subsubsection{Mnode Chain : Mapping Chain}
+
+\subsubsection{Nnode Chain : Nested Chain}
+
+\subsubsection{Gnode Chain : Graph}
+
+%\subparagraph{aaaa}
+%\subsubparagraph {aaaaa}
+%\subsubsubparagraph {bbbbb}
+

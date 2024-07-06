@@ -37,6 +37,10 @@ typedef void(*_tofree_ft)(pureptr_t);
 typedef  int(*_tocomp_ft)(pureptr_t, pureptr_t);
 typedef void(symbol_t)(void);
 
+#if defined(__cplusplus) && !defined(_INC_CPP)
+	#define _INC_CPP
+#endif
+
 #ifndef _INC_CPP
 	#define pointer_t(_typ) _typ * 
 	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 

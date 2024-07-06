@@ -23,139 +23,55 @@
 #include "../../../inc/cpp/cinc"
 #include "../../../inc/c/ustring.h"
 #include "../../../inc/cpp/cinc"
-#include "../../../inc/cpp/nnode"
+#include "../../../inc/c/nnode.h"
 #include <new>
 
 namespace uni {
 
-#define tmpl(...) __VA_ARGS__ Nnode
-
-	tmpl(bool)::isHead(Nnode* ifthen_reset) {
-		// simple: (this->pare) && (this->pare->subf == this)
-		if (!this->pare) return (!this->left);
-		if (this->pare->subf != this) return false;
-		if (ifthen_reset) this->pare->subf = ifthen_reset;
-		return true;
-	}
-	
-	Nnode* Nnode::ReheapString(const char* str) {
-		srs(this->addr, StrHeap(str));
-		return this;
-	}
-
-
-#undef tmpl
 #define tmpl(...) __VA_ARGS__ NnodeChain
 
-	tmpl()::NnodeChain(bool need_free) : TnodeChain(need_free), root_node((Nnode*&)TnodeChain::root_node), last_node((Nnode*&)TnodeChain::last_node){
+	tmpl(stduint)::Length() const {
+		_TODO return nil;
 	}
 
-	tmpl()::~NnodeChain() {
-		NnodesRelease(root_node, this);
+	tmpl()::Nchain(bool defa_free) {
+		root_node = nullptr;
+		func_free = nullptr;
+		extn_field = nil;
+		if (defa_free) this->func_free = NnodeHeapFreeSimple;
 	}
 
-	tmpl(Nnode*)::Append(const void* addr, stduint typ, stduint col, stduint row) {
-		Nnode* tmp = Insert(last_node, false, addr, typ);
-		tmp->col = col;
-		tmp->row = row;
-		tmp->bind = tmp->next = tmp->subf = 0;
-		return tmp;
+	tmpl()::~Nchain() {
+		NnodesRelease(root_node, func_free);
 	}
-
-	tmpl(Nnode*)::Append(Tnode* tnod) {
-		return Append(tnod->offs, tnod->type, tnod->col, tnod->row);
-	}
-
-	tmpl(Nnode*)::Insert(Nnode* insnod, bool onleft, const void* addr, stduint typ) {
-		if (!insnod && node_count) return nullptr;
-		Nnode* tmp = zalcof(Nnode);
-		new (tmp) Nnode;
-		tmp->offs = (void*)addr;
-		tmp->type = typ;
-		#include "../../../inc/c/com/NnodeInsert.h"
-		_COM_NnodeInsert(insnod, onleft, 0, tmp);
-		node_count++;
-		if (!insnod) return last_node = root_node = tmp;// assert(!root_node)
-		if (onleft) {
-			if (tmp->left = insnod->left) tmp->left->next = tmp;
-			(tmp->next = insnod)->left = tmp;
-			insnod->isHead(tmp);
-			if (insnod == root_node) root_node = tmp;// assert(!tmp->left)
+	
+	tmpl(Nnode*)::Append(pureptr_t addr, bool onleft, Nnode* nod) {
+		Nnode* tmp;
+		if (nod) {
+			tmp = NnodeInsert(nod, onleft ? 0 : 1, extn_field);
+			if (root_node == nod && onleft) root_node = tmp;
 		}
 		else {
-			if (tmp->next = insnod->next) tmp->next->left = tmp;
-			(tmp->left = insnod)->next = tmp;
-			if (insnod == last_node) last_node = tmp;// assert(!tmp->next)
+			tmp = NnodeInsert(onleft ? root_node : Youngest(), onleft ? 0 : 1, extn_field);
+			if (!root_node) root_node = tmp;
 		}
+		tmp->offs = addr;
 		return tmp;
 	}
 
-	tmpl(Nnode*)::Insert(Nnode* insnod, Dnode* dnod, bool onleft) {
-		return Insert(insnod, onleft, dnod->offs, dnod->type);
+	tmpl(Nnode*)::Remove(Nnode* nod) {
+		return NnodeRelease(nod, func_free);
 	}
-
-	tmpl(Nnode*)::Receive(Nnode* insnod, DnodeChain* dnod, bool onleft) {
-		Dnode* crt = dnod->Root();
-		while (crt) {
-			insnod = Insert(insnod, crt, onleft);
-			crt = crt->next;
+	
+	tmpl(bool)::Exchange(Nnode* idx1, Nnode* idx2) {
+		xchg(idx1->type, idx2->type);
+		xchgptr(idx1->offs, idx2->offs);
+		for0(i, extn_field) {
+			byte& b1 = *NnodeGetExtnField(idx1);
+			byte& b2 = *NnodeGetExtnField(idx2);
+			xchg(b1, b2);
 		}
-		dnod->Onfree(0, false);
-		dnod->~DnodeChain();
-		return insnod;
-	}
-
-	tmpl(Nnode*)::Adopt(Nnode* thisn, Nnode* subhead, Nnode* subtail, bool go_func) {
-		bool found = false;
-		if (subtail == (Nnode*)None) subtail = subhead;
-		if (!subhead) return 0;
-		if (thisn->subf) return 0;//{TODO} Remove each in current chain
-		//
-		if (go_func) thisn->type = tok_func;
-		if (subhead->left == subtail)// for empty parens and parend "(" ")"
-			return thisn;
-		// Above: "(" no right, subhead zo ")"; ")" no left, subtail zo "("
-
-		Nnode* crt;
-		crt = subhead;
-		if (subhead->isHead(thisn) && this)
-			if (root_node == subhead) root_node = thisn;
-			else if (last_node == subtail) last_node = subhead->left;
-		do if (crt == subtail) {
-			found = true;
-			crt->pare = thisn;
-			break;
-		} while ((crt->pare = thisn) && (crt = crt->next));
-		// if (!found) return 0; ... throw ...
-		// ----
-		Nnode* paraleft, * paralext = stepval(subtail)->next;
-		AssignParallel(paraleft, subhead->left, 0);
-		thisn->subf = subhead;
-		// [nod] [] ... [sub1] [sub2] ... []
-
-		if (paraleft) paraleft->next = paralext;
-		if (paralext) paralext->left = paraleft;
-		asserv(subtail)->next = 0;
-		return thisn;
-	}
-
-	tmpl(Nnode*)::NnodeRelease(Nnode* nod, NnodeChain* nc, bool systematic) {
-		Nnode* ret = nod->next;
-		asrtequ(nc->root_node, nod) = nod->next;
-		asrtequ(nc->last_node, nod) = nod->left;
-		if (systematic) {
-			asserv (nod->left)->next = nod->next;
-			asserv (nod->next)->left = nod->left;
-		}   
-		if (nod->subf) NnodesRelease(nod->subf, nc);
-		if (asrtand(nod->pare)->subf == nod)
-			nod->pare->subf = nod->next;
-		dchainfree(nod, nc->);
-		return ret;
-	}
-	tmpl(void)::NnodesRelease(Nnode* nods, NnodeChain* nc) {
-		if (0 == nods) return;
-		while (nods = NnodeRelease(nods, nc, false));
+		return true;
 	}
 
 	tmpl(NNODE_DIVSYM_RETYPE)::DivideSymbols(Nnode* inp, stduint width, stduint idx)
@@ -170,17 +86,20 @@ namespace uni {
 		// "a" "+++" "b", "a" "++"-'+'-"b"
 		if (idx == 0)
 		{
-			Nnode* newd = Insert(inp, false, StrHeap((char*)inp->offs + width), tok_symbol);
-			newd->col += width;
+			Nnode* newd = NnodeAppend(inp, 1, StrHeap(inp->addr + width), tok_symbol, sizeof(TnodeField));
+			Letvar(tf, TnodeField* const, NnodeGetExtnField(newd));
+			tf->col += width;
 			((char*)inp->offs)[width] = 0;
 			return NNODE_DIVSYM_HEAD;
 		}
 		// 2case @@.
 		// "a" "+++" "b", "a"-'++'-"+" "b"
 		if (idx + width == slen) {
-			Nnode* newd = Insert(inp, true, inp->offs, tok_symbol);
+			Nnode* newd = NnodeAppend(inp, 0, inp->offs, tok_symbol, sizeof(TnodeField));
+			Letvar(tf, TnodeField* const, NnodeGetExtnField(newd));
+			tf->col += width;
 			inp->addr = StrHeap(inp->addr + idx);
-			inp->col += slen - width;
+			tf->col += slen - width;
 			newd->addr[slen - width] = 0;
 			return NNODE_DIVSYM_TAIL;
 		}
@@ -188,11 +107,17 @@ namespace uni {
 		// "a" "+++*" "b", "a"-'++'-"+"-'*'-"b"
 		else
 		{
-			char* tmpaddr_mid = StrHeapN((char*)inp->offs + idx, width);
-			Nnode* newleft = Insert(inp, true, inp->offs, tok_symbol);
-			Nnode* newright = Insert(inp, false, StrHeap((char*)inp->offs + idx + width), tok_symbol);
-			inp->col += idx;
-			newright->col = inp->col + width;
+			char* tmpaddr_mid = StrHeapN(inp->addr + idx, width);
+
+			Nnode* newleft = NnodeAppend(inp, 0, inp->offs, tok_symbol, sizeof(TnodeField));
+			Nnode* newright = NnodeAppend(inp, 1, StrHeap(inp->addr + idx + width), tok_symbol, sizeof(TnodeField));
+
+			((TnodeField*)NnodeGetExtnField(inp))->col += idx;
+
+			((TnodeField*)NnodeGetExtnField(newright))->col =
+				((TnodeField*)NnodeGetExtnField(inp))->col
+				+ width;
+
 			inp->offs = tmpaddr_mid;
 			((char*)newleft->offs)[idx] = 0;
 			return NNODE_DIVSYM_MIDD;

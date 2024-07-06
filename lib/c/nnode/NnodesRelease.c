@@ -23,16 +23,21 @@
 
 #include "../../../inc/c/nnode.h"
 
-void NnodesRelease(nnode* nod, nnode* parent, void(*freefunc)(void*))
+void NnodesRelease(nnode* nod, _tofree_ft freefunc)
 {
 	if (!nod) return;
 	nnode* crt = nod, * left = nod->left, * next;
+	int is_eld = Nnode_isEldest(nod);
+	// assert (nod->left)
 	while (crt)
 	{
-		if(crt->subf) NnodesRelease(crt->subf, crt, freefunc);
+		if(crt->subf) NnodesRelease(crt->subf, freefunc);
 		next = crt->next;
 		if (freefunc) freefunc(crt); else memf(crt);
 		crt = next;
 	}
-	if (parent && parent->subf == nod) parent->subf = left;
+	if (left) {
+		if (is_eld) left->subf = 0;
+		else left->next = 0;
+	}
 }

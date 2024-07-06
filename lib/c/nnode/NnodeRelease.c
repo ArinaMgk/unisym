@@ -23,11 +23,13 @@
 
 #include "../../../inc/c/nnode.h"
 
-void NnodeRelease(nnode* nod, nnode* parent, void(*freefunc)(void*))
+Nnode* NnodeRelease(nnode* nod, _tofree_ft freefunc)
 {
-	if (parent && parent->subf == nod) parent->subf = nod->next;
-	if (nod->subf) NnodesRelease(nod->subf, nod, freefunc);
+	Nnode* res = nod->next;
+	if (Nnode_isEldest(nod)) nod->pare->subf = nod->next;
+	if (nod->subf) NnodesRelease(nod->subf, freefunc);
 	if (nod->left) nod->left->next = nod->next;
 	if (nod->next) nod->next->left = nod->left;
 	if (freefunc) freefunc(nod); else memf(nod);
+	return res;
 }

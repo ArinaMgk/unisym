@@ -1,8 +1,8 @@
-// ASCII C++ TAB4 CRLF
-// Attribute: Allocate(Need)
-// LastCheck: unchecked for C++ version
-// AllAuthor: @dosconio
-// ModuTitle: Node for C++
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: Node for Simple Linear Chain
+// Codifiers: @dosconio: ~ 20240701
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -40,13 +40,15 @@ namespace uni {
 			fastab.midl_node = LocateNode(node_count >> 1);
 	}
 
-	Chain::Chain() {
+	Chain::Chain(bool defa_free) {
 		root_node = nullptr;
 		last_node = nullptr;
 		fastab.midl_node = nullptr;
 		node_count = nil;
+		extn_field = nil;
 		func_free = nullptr;
 		state.been_sorted = true;// empty chain
+		if (defa_free) this->func_free = NodeHeapFreeSimple;
 	}
 
 	Chain::~Chain() {
@@ -101,8 +103,8 @@ namespace uni {
 	bool    Chain::Insert(stduint idx, pureptr_t dat) {
 		return true;//{TODO}
 	}
-	// ---- NodeAppend.cpp ----
-	// ---- NodeRemove.cpp ----
+	// ---- NodeAppendX.cpp ----
+	// ---- NodeRemoveX.cpp ----
 	//
 	bool    Chain::Exchange(stduint idx1, stduint idx2) {
 		Node& n1 = *(Node*)Locate(idx1);
@@ -114,7 +116,7 @@ namespace uni {
 
 	//
 
-
+	// pass coff!
 	_TEMP unchecked void Chain::SortByInsertion() {
 		setcmp(*this);
 		Node* crt = Root();
@@ -131,7 +133,7 @@ namespace uni {
 				if (cmp(crt->offs, a_bit_bigger->offs) <= 0)
 				{
 					Append(crt->offs, true, a_bit_bigger);
-					Remove(crt);
+					NodeRemove(crt, last, 0);
 					continue;
 				}
 				AssignParallel(a_bit_lower, a_bit_bigger, a_bit_bigger->next);
@@ -140,7 +142,7 @@ namespace uni {
 						cmp(crt->offs, a_bit_bigger->offs) <= 0))
 					{
 						Append(crt->offs, false, a_bit_lower);
-						Remove(crt);
+						NodeRemove(crt, last, 0);
 						break;
 					}
 					AssignParallel(a_bit_lower, a_bit_bigger, a_bit_bigger->next);

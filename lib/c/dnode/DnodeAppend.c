@@ -26,10 +26,10 @@
 #define on_decresing_order (aflaga.direction)
 #define on_increasing_order (!aflaga.direction)
 
-dnode* DnodeAppend(dnode* any, void* addr, size_t typlen)
+Dnode* DnodeAppend(Dnode* any, void* addr, size_t typlen, stduint extn_field)
 {
-	dnode* tmp = zalcof(dnode);
-	dnode* crt = any;
+	Letvar(tmp, Dnode*, zalc(sizeof(Dnode) + extn_field));
+	Dnode* crt = any;
 	tmp->offs = addr;
 	tmp->type = typlen;
 
@@ -37,8 +37,9 @@ dnode* DnodeAppend(dnode* any, void* addr, size_t typlen)
 	aflaga.zero = 0;
 	aflaga.one = !any;
 	if (!any)
-		return _dnode_first = tmp;
+		return tmp; // _dnode_first = tmp;
 	///int _localbit_dec = on_decresing_order;
+	/*
 lup:// Split into two directions will be faster
 	if (aflaga.autosort)
 	{
@@ -57,7 +58,7 @@ lup:// Split into two directions will be faster
 				tmp->next = crt;
 				if (crt->left) crt->left->next = tmp;
 				crt->left = tmp;
-				if (!tmp->left) _dnode_first = tmp;
+				if (!tmp->left) tmp; // _dnode_first = tmp
 			}
 		}
 		else // (addr >= any->offs) ^ on_decresing_order
@@ -116,7 +117,7 @@ lup:// Split into two directions will be faster
 			}
 		}
 	}
-	else
+	else*/
 	{
 		while (crt->next)
 			crt = crt->next;
@@ -124,6 +125,6 @@ lup:// Split into two directions will be faster
 		tmp->left = crt;
 		crt->next = tmp;
 	}
-
+	
 	return tmp;
 }

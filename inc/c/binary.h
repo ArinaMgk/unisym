@@ -30,6 +30,14 @@
 #define BitSet(dest,bitposi) (dest) |=  (1 << bitposi)
 #define BitClr(dest,bitposi) (dest) &= ~(1 << bitposi)
 
+// BitmapSet
+
+// BitmapClear
+
+// BitmapGet
+
+
+
 // [Linux does not use this!] Reflect bits of a value like a mirror.
 size_t _CALL_FAST BitReflect(size_t times, size_t val);
 

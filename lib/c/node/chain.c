@@ -23,12 +23,12 @@
 #include "../../../inc/c/node.h"
 #include "../../../inc/c/ustring.h"
 
-void ChainInit(Chain* chain) {
-	MemSet(chain, nil, sizeof(Chain));
+void ChainInit(chain_t* chain) {
+	MemSet(chain, nil, sizeof(chain_t));
 	chain->state.been_sorted = true;
 }
 
-void ChainDrop(Chain* chain)
+void ChainDrop(chain_t* chain)
 {
 	Node* crt = chain->root_node;
 	if (!crt) return;

@@ -22,9 +22,9 @@
 
 #include "../../../inc/c/node.h"
 
-Node* NodeInsert(Node* nod, pureptr_t txt)
+Node* NodeInsert(Node* nod, pureptr_t txt, stduint more_field)
 {
-	Letvar(tmp, Node*, zalcof(Node));
+	Letvar(tmp, Node*, zalc(sizeof(Node) + more_field));
 	tmp->offs = txt;
 	if (!nod) return tmp; /* 0 --> New */
 	return AssignParallel(tmp->next, nod->next, tmp);

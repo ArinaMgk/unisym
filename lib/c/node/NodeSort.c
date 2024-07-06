@@ -22,9 +22,9 @@
 
 #include "../../../inc/c/node.h"
 
-//{TODO} 
+//{TODO} Interface `Sort` `Array` ...
 
-void ChainSort(Chain* chain)
+void ChainSort(chain_t* chain)
 {
 	// ...
 }

@@ -23,9 +23,9 @@
 
 #include "../../../inc/c/dnode.h"
 
-dnode* DnodeIndex(const dnode* any, void* addr, stdint* ref_span, int direction)
+Dnode* DnodeIndex(const Dnode* any, void* addr, stdint* ref_span, int direction)
 {
-	dnode* tmp = (dnode*)any;// formal, and will not be changed really
+	Dnode* tmp = (Dnode*)any;// formal, and will not be changed really
 	stdint i = 0;
 	aflaga.fail = 0;
 

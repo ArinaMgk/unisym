@@ -50,8 +50,10 @@ void erro(char* erromsg)
 
 void warn(char* warnmsg)
 {
+	/*
 	if (_WARN_CHAIN) NodeAppend(_WARN_CHAIN, warnmsg);
 	else _WARN_CHAIN = NodeAppend(NULL, warnmsg);
+	*///{TODO}
 }
 
 #endif

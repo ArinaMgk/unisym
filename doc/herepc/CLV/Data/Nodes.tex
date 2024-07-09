@@ -1,6 +1,61 @@
 
 The chain of a node contains a series of nodes. There are usually discrete so we need not allocate them at once.
 
+\begin{center}
+\begin{longtable}{c|c|c|l}%[h!]
+		\caption{Comparison between Non-annulus Chain}
+		\label{tab:table_na_nodes} \\
+		%\begin{tabular}{c|c|c|l} if no using longtable
+		\hline \textbf{NODE} & \textbf{DNODE} & \textbf{NNODE} & \textbf{Puts}\\
+		chain\_t Chain & dchain\_t Dchain T[2] & nchain\_t Nchain & {} \\
+		\hline
+		\endfirsthead
+		\multicolumn{4}{c}%
+		{{\bfseries \tablename\ \thetable{} -- continued from previous page}} \\
+		\hline \textbf{NODE} & \textbf{DNODE} & \textbf{NNODE} & \textbf{Puts}  \\  \hline  
+		\endhead
+		\hline \multicolumn{4}{r}{{Continued on the next page...}} \\
+		\endfoot
+		\hline \hline
+		\endlastfoot
+		
+		\multicolumn{2}{c|}{Linear: $ArrayTrait$, $IterateTrait$} & Nested & \textit{(Form)} \\ 
+		\hline
+		\multicolumn{3}{c}{\$::$ReheapString$} & \textit{(S.R.S.)} \\ % "{c}" means no- split
+		\hline
+		\multicolumn{3}{c|}{$\$Insert$} & {nod,off,(type),ex-field,(on-right)$\rightarrow$(*)} \\
+		\hline
+		\multicolumn{3}{c|}{$\$Remove$} & {nod,(left),fn-free$\rightarrow$(*)(*next)} \\
+		\hline
+		\multicolumn{3}{c|}{$\$sRelease$ $\$\$Drop$} & {since,fn-free} \\
+		\hline
+		\multicolumn{3}{c|}{$\$HeapFreeSimple$} & {nod} \\
+		\hline
+		\multicolumn{3}{c|}{\$\$$Init$} & {()} \\
+		\hline
+		\multicolumn{3}{c|}{\$\$::$New$ \$$New$} & {(self) or ()$\rightarrow$(*)} \\
+		\hline
+		\multicolumn{3}{c|}{\$\$::$Count$ \$$Count$} & {count} \\
+		\hline
+		\multicolumn{3}{c|}{\$\$(::)$Append$} & {(self),off,left,nod[=0 or ,type]$\rightarrow$(*new)} \\
+		\hline
+		\multicolumn{3}{c|}{\$\$(::)$LocateNode$} & {$\rightarrow$(*) $\|$ {index};{off}} \\
+		\hline
+		\multicolumn{3}{c|}{\$\$::$Root$ and \$\$::$RootRef$} & {$\rightarrow$(*) or (\&*)} \\
+		\hline
+		\multicolumn{2}{c|}{\$\$::$Last$} & {\$::$Youngest$} & {(*)} \\
+		\hline
+		\multicolumn{2}{c|}{\$\$::$Head$} & {\$::$Head$} & {(*)} \\
+		\hline
+		\multicolumn{2}{c|}{\$\$::$Tail$} & {\$::$Tail$} & {(*)} \\
+		\hline
+		\multicolumn{2}{c|}{\$\$::$Sorted$ \$\$$Sort$} & {/} & {(self),fn-cmp} \\
+		\hline
+\end{longtable}
+\end{center}
+
+a `\$' stands for a node, such as `Node', `Dnode' or `Nnode', while double dollars `\$\$' stands for the respective chain, such as `Chain', `Dchain' or `Nchain'.
+
 \subsubsection{Node Chain : Single-Field Chain}
 
 \paragraph{Structure} \
@@ -13,6 +68,10 @@ The chain of a node contains a series of nodes. There are usually discrete so we
 			const char* addr;
 			pureptr_t offs;
 		};
+	#ifdef _INC_CPP
+	byte* GetExtnField() { return getExfield(*this); }
+	Node* ReheapString(const char* str);
+	#endif
 	} Node; // measures stdint[2]
 \end{lstlisting}
 

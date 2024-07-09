@@ -62,16 +62,8 @@ typedef struct Nnode
 		Nnode* crt = this; while (crt->next && (crt = crt->next)); return crt;
 	}
 
-	byte* GetExtnField() { return (byte*)this + sizeof(Nnode); }
-	static byte* GetExtnField(Nnode* nod) { return (byte*)nod + sizeof(Nnode); }
-
+	byte* GetExtnField() { return getExfield(*this); }
 	TnodeField* GetTnodeField() { return (TnodeField*)GetExtnField(); }
-
-	inline bool difline(Nnode* nod) {
-		Letvar(thistf, TnodeField* const, GetExtnField(this));
-		Letvar(nodetf, TnodeField* const, GetExtnField(nod));
-		return thistf->row != nodetf->row;
-	}
 
 	Nnode* ReheapString(const char* str) {
 		srs(this->addr, StrHeap(str));
@@ -91,28 +83,18 @@ inline static int Nnode_isEldest(Nnode* nod) {
 	return nod->left->subf == nod;
 }
 
-inline static byte* NnodeGetExtnField(Nnode* nod) {
-	return (byte*)nod + sizeof(Nnode);
-} // for C
-
-Nnode* NnodeAppend(Nnode* nod, int direction_right, pureptr_t offs, stduint typlen, stduint extn_field);
-
-// last version: onleft = false,;
-Nnode* NnodeInsert(Nnode* nod, int direction_right, stduint extn_field);
+Nnode* NnodeInsert(Nnode* nod, pureptr_t offs, stduint typlen, stduint extn_field, int direction_right);
 
 // Set a part of nnode as the sub of a nnode. If subtail is null, this is for all the right part of the nnode string. If only one item, keep subhead and subtail same.
 Nnode* NnodeBlock(Nnode* nod, Nnode* subhead, Nnode* subtail);
 
 // If freefunc is not null, free for memory will be defined by user, or just free the node block. In the direction of right.
-Nnode* NnodeRelease(nnode* nod, _tofree_ft freefunc);
+Nnode* NnodeRemove(nnode* nod, _tofree_ft freefunc);
 
 // If freefunc is not null, free for memory will be defined by user, or just free the node block. In the direction of right.
 void NnodesRelease(nnode* nod, _tofree_ft freefunc);
 
-inline static void NnodeHeapFreeSimple(pureptr_t inp) {
-	Letvar(nod, Nnode*, inp);
-	memf(nod->offs);
-}
+void NnodeHeapFreeSimple(pureptr_t inp);
 
 #if defined(__cplusplus) || defined(_INC_CPP)
 } // C++ Area
@@ -181,7 +163,7 @@ public:
 	Nnode* Root() const { return root_node; }
 	Nnode*& RootRef() { return root_node; }
 
-	// void Sort();
+	//[consider this not practical] void Sort();
 
 	// void Index(void* content);
 
@@ -253,10 +235,19 @@ typedef struct NnodeChain_t {
 	_tocomp_ft func_comp;
 } nchain_t, Nchain;
 
+size_t NnodeCount(const Nnode* chn);//{TODO} count in the next and subf direction
+
 inline static Nnode* NnodeNew(Nchain* chn) {
 	return (Nnode*)zalc(sizeof(Nnode) + chn->extn_field);
 }
 
+//{TODO}
+void   NchainInit(nchain_t* chain);
+void   NchainDrop(nchain_t* chain);
+void   NchainSort(nchain_t* chain);
+Nnode* NchainAppend(nchain_t* chn, pureptr_t addr, bool onleft, Nnode* nod);
+Nnode* NchainLocateNode(nchain_t* chn, stduint idx);
+// {OCCUPY POSITION} void   NnodeChainAdapt(nchain_t* chn, Nnode* root, Nnode* last, stdint count_dif);
 
 #endif
 #endif // !_INC_NNODE

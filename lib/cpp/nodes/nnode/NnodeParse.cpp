@@ -121,7 +121,7 @@ namespace uni {
 						if (cases == NNODE_DIVSYM_HEAD || cases == NNODE_DIVSYM_MIDD) exist_sym = true;
 						Nnode* fn = last_parens->left;// assume not anonymity
 						if (!(last_parens->left && last_parens->left->type == tok_identy &&
-							((TnodeField*)NnodeGetExtnField(last_parens->left))->row == ((TnodeField*)NnodeGetExtnField(last_parens))->row))// anonymity
+							(TnodeGetExtnField(*last_parens->left))->row == (TnodeGetExtnField(*last_parens))->row))// anonymity
 							fn = chain->Append(nullptr, true, last_parens); // fn = chain->Insert(last_parens, true);
 						NnodeBlock(fn, last_parens->next, crt->left);// chain->Adopt(fn, last_parens->next, crt->left);
 						chain->Remove(last_parens); if (last_parens == tnod) tnod = fn;
@@ -149,7 +149,7 @@ namespace uni {
 			}
 			if (!crt) return true;
 			crt = crt->next;
-			if (crt && (((TnodeField*)NnodeGetExtnField(crt))->row != ((TnodeField*)NnodeGetExtnField(crt->left))->row)) last_parens = 0;
+			if (crt && (TnodeGetExtnField(*crt)->row != TnodeGetExtnField(*crt->left)->row)) last_parens = 0;
 		}
 		//{TODO} if (crtnest) erro("Match error");
 		return ParseOperator(tnod, chain);

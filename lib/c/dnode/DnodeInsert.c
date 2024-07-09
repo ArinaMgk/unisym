@@ -23,14 +23,24 @@
 
 #include "../../../inc/c/dnode.h"
 
+#define on_decresing_order (aflaga.direction)
+#define on_increasing_order (!aflaga.direction)
+
 // Insert Right
-Dnode* DnodeInsert(Dnode* nod, pureptr_t offs, size_t typlen, stduint extn_field)
+Dnode* DnodeInsert(Dnode* nod, pureptr_t offs, size_t typlen, stduint extn_field, int direction_right)
 {
 	Letvar(tmp, Dnode*, zalc(sizeof(Dnode) + extn_field));
 	if (!tmp) return 0;
 	tmp->offs = offs;
 	tmp->type = typlen;
-	if (!(tmp->left = nod)) return tmp;
-	asserv(nod->next)->left = tmp;
-	return AssignParallel(tmp->next, nod->next, tmp);
+	if (direction_right) {
+		if (!(tmp->left = nod)) return tmp;
+		asserv(nod->next)->left = tmp;
+		return AssignParallel(tmp->next, nod->next, tmp);
+	}
+	else {
+		if (!(tmp->next = nod)) return tmp;
+		asserv(nod->left)->next = tmp;
+		return AssignParallel(tmp->left, nod->left, tmp);
+	}
 }

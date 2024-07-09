@@ -47,7 +47,7 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 	{
 		p = StrIndexString(p, subfirstrom);
 		if (!p) break;
-		dn = DnodeAppend(dn, (void*)p, sz_subfirstrom, 0);
+		dn = DnodeInsert(dn, (void*)p, sz_subfirstrom, 0, 1/*ON_RIGHT*/);
 		nums++;
 		p += sz_subfirstrom;
 	}
@@ -65,7 +65,7 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 		if (dn->next) { dn = dn->next; goto loop; }
 		for (; *p; p++)*q++ = *p;
 		*q = 0;
-		DnodeRelease(dn, 0);// non-free
+		DnodesRelease(dn, 0);// non-free
 		return ret;
 	}
 	else

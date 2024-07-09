@@ -23,7 +23,12 @@
 
 #include "../../../inc/c/nnode.h"
 
-Nnode* NnodeRelease(nnode* nod, _tofree_ft freefunc)
+void NnodeHeapFreeSimple(pureptr_t inp) {
+	Letvar(nod, Nnode*, inp);
+	memf(nod->offs);
+}
+
+Nnode* NnodeRemove(nnode* nod, _tofree_ft freefunc)
 {
 	Nnode* res = nod->next;
 	if (Nnode_isEldest(nod)) nod->pare->subf = nod->next;
@@ -32,4 +37,23 @@ Nnode* NnodeRelease(nnode* nod, _tofree_ft freefunc)
 	if (nod->next) nod->next->left = nod->left;
 	if (freefunc) freefunc(nod); else memf(nod);
 	return res;
+}
+
+void NnodesRelease(nnode* nod, _tofree_ft freefunc)
+{
+	if (!nod) return;
+	nnode* crt = nod, * left = nod->left, * next;
+	int is_eld = Nnode_isEldest(nod);
+	// assert (nod->left)
+	while (crt)
+	{
+		if (crt->subf) NnodesRelease(crt->subf, freefunc);
+		next = crt->next;
+		if (freefunc) freefunc(crt); else memf(crt);
+		crt = next;
+	}
+	if (left) {
+		if (is_eld) left->subf = 0;
+		else left->next = 0;
+	}
 }

@@ -1,8 +1,8 @@
 // ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ22
-// AllAuthor: @dosconio
-// ModuTitle: Nested Node
+// Attribute: ArnCovenant
+// LastCheck: RFZ21
+// AllAuthor: @ArinaMgk(till RFA03) @dosconio
+// ModuTitle: Double-directions Node
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,24 +20,15 @@
 	limitations under the License.
 */
 
+// AFLAGA {ASF, DF, FF, ZF, ONF}
+// - ASF : Auto sort the dnode by the DF
+// - DF  : in increasing or decreasing order
+// - FF  : something wrong raised
+// - ZF  : zero flag, if the dnode is empty
+// - ONF : order flag, if the dnode has and only has one dnode
 
-#include "../../../inc/c/nnode.h"
+#include "../../../inc/c/dnode.h"
 
-void NnodesRelease(nnode* nod, _tofree_ft freefunc)
-{
-	if (!nod) return;
-	nnode* crt = nod, * left = nod->left, * next;
-	int is_eld = Nnode_isEldest(nod);
-	// assert (nod->left)
-	while (crt)
-	{
-		if(crt->subf) NnodesRelease(crt->subf, freefunc);
-		next = crt->next;
-		if (freefunc) freefunc(crt); else memf(crt);
-		crt = next;
-	}
-	if (left) {
-		if (is_eld) left->subf = 0;
-		else left->next = 0;
-	}
+Dnode* DnodeNew(dchain_t* chn) {
+	return (Dnode*)zalc(sizeof(Dnode) + chn->extn_field);
 }

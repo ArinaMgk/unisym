@@ -23,7 +23,7 @@
 
 #include "../../../inc/c/nnode.h"
 
-Nnode* NnodeAppend(Nnode* nod, int direction_right, pureptr_t offs, stduint typlen, stduint extn_field)
+Nnode* NnodeInsert(Nnode* nod, pureptr_t offs, stduint typlen, stduint extn_field, int direction_right)
 {
 	Letvar(tmp, Nnode*, zalc(sizeof(Nnode) + extn_field));
 	tmp->type = typlen;
@@ -48,9 +48,4 @@ Nnode* NnodeAppend(Nnode* nod, int direction_right, pureptr_t offs, stduint typl
 		(tmp->left = nod)->next = tmp;
 	}
 	return tmp;
-}
-
-Nnode* NnodeInsert(Nnode* nod, int direction_right, stduint extn_field)
-{
-	return NnodeAppend(nod, direction_right, 0, 0, extn_field);
 }

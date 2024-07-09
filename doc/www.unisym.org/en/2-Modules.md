@@ -327,7 +327,6 @@ The below are stable contents.
 │  stream
 │  string
 │  strpool
-│  tnode
 │  unisym
 │  
 ├─Device
@@ -399,6 +398,7 @@ The below are stable contents.
 ## Removed
 
 - sequence -> vector
+- tnode inode
 
 
 ```

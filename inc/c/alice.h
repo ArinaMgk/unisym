@@ -138,6 +138,8 @@ extern "C++" {
 #define for0r(iden,times) for(size_t iden=(times);iden--;)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 
+#define getExfield(a) ((byte*)&(a) + sizeof(a)) // for l-value object
+
 #define _TEMP
 #define _TODO
 

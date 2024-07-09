@@ -15,7 +15,7 @@
 | node		 | node				          | ...    |
 | dnode		 | double-direction node	  | ...    |
 | nnode		 | nest-dnode                 | ...    |
-| tnode		 | token node			      | ...    |
+
 
 
 

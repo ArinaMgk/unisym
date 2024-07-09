@@ -27,6 +27,11 @@
 
 namespace uni {
 
+	Node* Node::ReheapString(const char* str) {
+		srs(this->addr, StrHeap(str));
+		return this;
+	}
+	
 	void Chain::NodeChainAdapt(Node* root, Node* last, stdint count_dif) {
 		node_count += count_dif;
 		root_node = root;
@@ -38,6 +43,10 @@ namespace uni {
 			fastab.midl_node = nullptr;
 		else
 			fastab.midl_node = LocateNode(node_count >> 1);
+	}
+
+	Node* Chain::New() {
+		return (Node*)zalc(sizeof(Node) + extn_field);
 	}
 
 	Chain::Chain(bool defa_free) {

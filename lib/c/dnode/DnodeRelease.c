@@ -24,7 +24,7 @@
 #include "../../../inc/c/dnode.h"
 
 // [Alloc] in the direction of right.
-void DnodeRelease(Dnode* first, _tofree_ft _dnode_freefunc)
+void DnodesRelease(Dnode* first, _tofree_ft _dnode_freefunc)
 {
 	if (!first) return;
 

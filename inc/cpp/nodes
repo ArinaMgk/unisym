@@ -23,11 +23,8 @@
 // each node have a pointer version Node and a template version Node_T<typ0>
 
 #include "node"// (Linear-Node)
-#include "dnode"// (DoubleDirection-Node)
-//! Need to destruction, may for using reference? -- Dosconio 2024MAR14
-#include "inode"//{SUSPEND} (Identifier-Node) : node
-#include "tnode"// (Token-Node): dnode
-//{TODO} #include "bnode"// (Binary-Node) and Bnods
+#include "dnode"// (DoubleDirection-Node and Token-Node)
 //{TODO} #include "pnode"// (Pool-Node)
 #include "nnode"// (Ne(s)t-Node) and Nnods: tnode 
 //{TODO} #include "gnode" // (Graph-Node)
+// mnode

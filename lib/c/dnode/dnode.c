@@ -34,21 +34,7 @@ static const char _USYM_IDEN_[] = {
 	"UNISYM under Apache 2.0 Licence @ArinaMgk, @dosconio"
 };
 
-/*//{TODO}
-
-int (*_dnode_compare)(void* addr0, void* addr1);
-
-int _dnode_freepass = 0;
-
-// used signature: void DnodeReleaseTofreeDefault(void* inp);
-static void DnodeReleaseSingle(void* inp)
-{
-	if (_dnode_freepass)
-		memf(((dnode*)inp)->addr);
-	// else just pass addr, meaning the addr may have the heap memory
-	memf(inp);
-} void(*_dnode_freefunc)(void*) = DnodeReleaseSingle;
-
-dnode* _dnode_first;
-
-*/
+void DnodeHeapFreeSimple(pureptr_t inp) {
+	Letvar(nod, Dnode*, inp);
+	memf(nod->offs);
+}

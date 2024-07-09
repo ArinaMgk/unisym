@@ -61,6 +61,14 @@ namespace uni {
 		_TODO uint32 setPriorityGroup(...);
 		void setPriority(Request_t req, uint32 priority);
 		void setPriority(Request_t req, uint32 prepriority, uint32 subpriority);
+		void setAble(Request_t req, bool ena = true) {
+			const stduint req_no = (stduint)req;
+			if (!req_no) return;
+			if (ena) {
+				this->map->ISER[req_no >> 5UL] = ((uint32_t)1 << (req_no & 0x1FUL));
+			}
+			else _TODO; 
+		}
 	};
 
 

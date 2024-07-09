@@ -187,7 +187,7 @@ __Vectors
 {TODO}	DCD     SPI3_IRQHandler            ; SPI3
 {TODO}	DCD     UART4_IRQHandler           ; UART4
 {TODO}	DCD     UART5_IRQHandler           ; UART5
-{TODO}	DCD     TIM6_IRQHandler            ; TIM6
+		DCD     TIM6_IRQHandler            ; TIM6
 {TODO}	DCD     TIM7_IRQHandler            ; TIM7
 {TODO}	DCD     DMA2_Channel1_IRQHandler   ; DMA2 Channel1
 {TODO}	DCD     DMA2_Channel2_IRQHandler   ; DMA2 Channel2
@@ -199,6 +199,7 @@ typedef void (*Handler_t)(void);
 
 extern "C" {
 extern Handler_t FUNC_EXTI[];
+extern Handler_t FUNC_TIMx[];
 
 void EXTI0_IRQHandler(void);
 }

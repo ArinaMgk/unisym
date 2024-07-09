@@ -271,7 +271,7 @@ void StrTokenAll(TokenParseUnit* tpu)
 			tpu->crtcol = _Default_Row_or_Col;
 			CrtTType = tok_any;
 		}
-		else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && (TnodeGetExtnField(tpu->tchn.last_node)->row != tpu->crtline || CrtTType == tok_any && !tpu->tchn.last_node->offs)))// Line Comment
+		else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && (TnodeGetExtnField(*tpu->tchn.last_node)->row != tpu->crtline || CrtTType == tok_any && !tpu->tchn.last_node->offs)))// Line Comment
 		{
 			StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
 			crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?

@@ -123,7 +123,7 @@ namespace uni
 	//{TODO}
 	void GeneralPurposeInputOutputPin::enInterrupt(bool enable) {
 		if (enable)
-			NVIC.map->ISER[GPIO_Request_list[bitposi] >> 5UL] = ((uint32_t)1 << (GPIO_Request_list[bitposi] & 0x1FUL));
+			NVIC.setAble(GPIO_Request_list[bitposi]);
 		else _TODO; 
 	}
 

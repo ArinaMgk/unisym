@@ -26,7 +26,19 @@
 #include "../../../../inc/c/ustring.h"
 #include "../../../../inc/cpp/cinc"
 namespace uni {
+	Node* Chain::Push(pureptr_t off, bool end_left) {
+		Node* new_nod = nullptr;
+		if (end_left) {
+			(new_nod = NodeInsert(nullptr, off, extn_field))->next = root_node;
+			NodeChainAdapt(new_nod, last_node, +1);
+		}
+		else {
+			NodeChainAdapt(root_node, new_nod = NodeInsert(last_node, off, extn_field), +1);
+		}
+		return new_nod;
+	}
 
+	
 	toheap Node* Chain::Append(const char* addr) {
 		return Append((pureptr_t)StrHeap(addr), false);
 	}
@@ -59,7 +71,7 @@ namespace uni {
 				tmp_nod.offs = addr;
 			}
 			if (cmp((pureptr_t)&tmp_nod, (pureptr_t)root_node) <= 0) { // less than any
-				return &Push(*(pureptr_t*)addr);
+				return Push(*(pureptr_t*)addr);
 			}
 			Node* crt = root_node;
 			while (cmp((pureptr_t)&tmp_nod, (pureptr_t)crt) > 0 && (crt = crt->next));

@@ -23,8 +23,12 @@
 #ifndef _INCPP_Algorithm_Fourier
 #define _INCPP_Algorithm_Fourier
 
+#include "../../arith.h"
 
+#define _loc_cos(x) _loc_sin((x)+_VAL_PI/2)
 
-
+// dat = [dblsin(2 * PI * i / (F_s) * 10)]
+//  where a one <=> F_s / NPT
+void dflFourier(dfloat* dat, stduint num, double(*_loc_sin)(double));
 
 #endif

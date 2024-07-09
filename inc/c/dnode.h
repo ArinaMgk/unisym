@@ -41,42 +41,41 @@
 #include "algorithm/search.h"
 namespace uni {
 extern "C" {
+	struct TnodeField;
 #else
 #include "ustdbool.h"
 #include "../c/trait/ArrayTrait.h"
 #endif
 
 // always pass pointer to Node but offs
-	
+
 typedef struct Dnode {
 	struct Dnode* next;
 	union { char* addr; pureptr_t offs; };
 	struct Dnode* left;
 	union { stduint type; stduint lens; };
+#ifdef _INC_CPP
+
+	byte* GetExtnField() { return getExfield(*this); }
+	TnodeField* GetTnodeField() { return (TnodeField*)GetExtnField(); }
+
+	Dnode* ReheapString(const char* str);
+
+#endif
 } Dnode; // measures stdint[4]
 
 inline static byte* DnodeGetExtnField(Dnode* nod) {
 	return (byte*)nod + sizeof(Dnode);
 }
 
-Dnode* DnodeInsert(Dnode* nod, pureptr_t offs, size_t typlen, stduint extn_field);
+Dnode* DnodeInsert(Dnode* nod, pureptr_t offs, size_t typlen, stduint extn_field, int direction_right);
 
 void DnodeRemove(Dnode* nod, _tofree_ft _dnode_freefunc);
-void DnodeRelease(Dnode* first, _tofree_ft _dnode_freefunc);
+void DnodesRelease(Dnode* first, _tofree_ft _dnode_freefunc);
 
-inline static void DnodeHeapFreeSimple(pureptr_t inp) {
-	Letvar(nod, Dnode*, inp);
-	memf(nod->offs);
-}
+void DnodeHeapFreeSimple(pureptr_t inp);
 
 Dnode* DnodeRewind(const Dnode* any);
-
-Dnode* DnodeAppend(Dnode* any, void* addr, size_t typlen, stduint extn_field);
-
-inline static void DnodeFreeSimple(pureptr_t inp) {
-	Letvar(nod, Dnode*, inp);
-	memf(nod->addr);
-}
 
 #define _MACRO_DCHAIN_MEMBER \
 	Dnode* root_node;\
@@ -104,6 +103,13 @@ typedef struct DnodeChain_t {
 	typedef struct TnodeField // extn_field
 	{
 		stduint row, col;
+		#ifdef _INC_CPP
+
+		inline bool difline(const TnodeField& nodf) {
+			return row != nodf.row;
+		}
+
+		#endif
 	} TnodeField;
 	// typedef Dnode Tnode;
 	typedef struct Tnode {
@@ -118,7 +124,7 @@ typedef struct DnodeChain_t {
 	typedef dchain_t tchain_t;
 
 	// get Tnode but from Dnode
-	#define TnodeGetExtnField(x) ((TnodeField*)DnodeGetExtnField(x))
+	#define TnodeGetExtnField(x) ((TnodeField*)getExfield(x))
 
 	Dnode* StrTokenAppend(tchain_t* chn, const char* content, size_t contlen, size_t ttype, size_t row, size_t col);
 
@@ -149,17 +155,7 @@ protected:
 	//
 	virtual stduint Length() const;
 	void DnodeChainAdapt(Dnode* root, Dnode* last, stdint count_dif);
-	template<typename type1> inline Dnode& Push(const type1& obj, bool end_left = true) {
-		Dnode* new_nod = nullptr;
-		if (end_left) {
-			(new_nod = DnodeInsert(nullptr, (pureptr_t)&obj, nil, extn_field))->next = root_node;
-			DnodeChainAdapt(new_nod, last_node, +1);
-		}
-		else {
-			DnodeChainAdapt(root_node, new_nod = DnodeInsert(last_node, (pureptr_t)&obj, nil, extn_field), +1);
-		}
-		return *new_nod;
-	}
+	Dnode* Push(pureptr_t off, bool end_left = true);
 	inline Dnode* New() {
 		return (Dnode*)zalc(sizeof(Dnode) + extn_field);
 	}
@@ -212,10 +208,6 @@ public:
 
 	// Pointer Operator
 	Dnode* operator[](stduint idx) { return (Dnode*)Locate(idx); }
-	//
-	template <typename type1> inline type1& get(stduint idx) {
-		return *(type1*)((*this)[idx]->offs);
-	}
 
 	//{TEMP} only for Dnode AREA
 	// Exist : for offs
@@ -257,9 +249,17 @@ using DnodeChain = Dchain;
 } // C++ END
 #else
 
-inline static Dnode* DnodeNew(dchain_t* chn) {
-	return (Dnode*)zalc(sizeof(Dnode) + chn->extn_field);
-}
+size_t DnodeCount(const Dnode* chn);//{TODO} count in the next direction
+	
+Dnode* DnodeNew(dchain_t* chn);
+
+//{TODO}
+void   DchainInit(dchain_t* chain);
+void   DchainDrop(dchain_t* chain);
+void   DchainSort(dchain_t* chain);
+Dnode* DchainAppend(dchain_t* chn, pureptr_t addr, bool onleft, Dnode* nod);
+Dnode* DchainLocateNode(dchain_t* chn, stduint idx);
+void   DnodeChainAdapt(dchain_t* chn, Dnode* root, Dnode* last, stdint count_dif);
 
 #endif
 #endif// !_INC_DNODE

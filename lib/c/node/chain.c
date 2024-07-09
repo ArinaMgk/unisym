@@ -23,24 +23,11 @@
 #include "../../../inc/c/node.h"
 #include "../../../inc/c/ustring.h"
 
+Node* NodeNew(chain_t* chn) {
+	return (Node*)zalc(sizeof(Node) + chn->extn_field);
+}
+
 void ChainInit(chain_t* chain) {
 	MemSet(chain, nil, sizeof(chain_t));
 	chain->state.been_sorted = true;
-}
-
-void ChainDrop(chain_t* chain)
-{
-	Node* crt = chain->root_node;
-	if (!crt) return;
-	Node* next;
-	while (crt)
-	{
-		next = crt->next;
-		NodeRemove(crt, 0, chain->func_free);
-		crt = next;
-	}
-	//_node_crt = 0;
-	//aflaga.zero = 1;
-	//aflaga.one = 0;
-	//aflaga.fail = 0;
 }

@@ -26,6 +26,9 @@
 #include "../../../inc/c/nnode.h"
 #include <new>
 
+#define ON_LEFT  0
+#define ON_RIGHT 1
+
 namespace uni {
 
 #define tmpl(...) __VA_ARGS__ NnodeChain
@@ -48,11 +51,11 @@ namespace uni {
 	tmpl(Nnode*)::Append(pureptr_t addr, bool onleft, Nnode* nod) {
 		Nnode* tmp;
 		if (nod) {
-			tmp = NnodeInsert(nod, onleft ? 0 : 1, extn_field);
+			tmp = NnodeInsert(nod, 0, 0, extn_field, onleft ? 0 : 1);
 			if (root_node == nod && onleft) root_node = tmp;
 		}
 		else {
-			tmp = NnodeInsert(onleft ? root_node : Youngest(), onleft ? 0 : 1, extn_field);
+			tmp = NnodeInsert(onleft ? root_node : Youngest(), 0, 0, extn_field, onleft ? 0 : 1);
 			if (!root_node) root_node = tmp;
 		}
 		tmp->offs = addr;
@@ -60,15 +63,15 @@ namespace uni {
 	}
 
 	tmpl(Nnode*)::Remove(Nnode* nod) {
-		return NnodeRelease(nod, func_free);
+		return NnodeRemove(nod, func_free);
 	}
 	
 	tmpl(bool)::Exchange(Nnode* idx1, Nnode* idx2) {
 		xchg(idx1->type, idx2->type);
 		xchgptr(idx1->offs, idx2->offs);
 		for0(i, extn_field) {
-			byte& b1 = *NnodeGetExtnField(idx1);
-			byte& b2 = *NnodeGetExtnField(idx2);
+			byte& b1 = *getExfield(*idx1);
+			byte& b2 = *getExfield(*idx2);
 			xchg(b1, b2);
 		}
 		return true;
@@ -86,8 +89,8 @@ namespace uni {
 		// "a" "+++" "b", "a" "++"-'+'-"b"
 		if (idx == 0)
 		{
-			Nnode* newd = NnodeAppend(inp, 1, StrHeap(inp->addr + width), tok_symbol, sizeof(TnodeField));
-			Letvar(tf, TnodeField* const, NnodeGetExtnField(newd));
+			Nnode* newd = NnodeInsert(inp, StrHeap(inp->addr + width), tok_symbol, sizeof(TnodeField), ON_RIGHT);
+			Letvar(tf, TnodeField* const, getExfield(*newd));
 			tf->col += width;
 			((char*)inp->offs)[width] = 0;
 			return NNODE_DIVSYM_HEAD;
@@ -95,8 +98,8 @@ namespace uni {
 		// 2case @@.
 		// "a" "+++" "b", "a"-'++'-"+" "b"
 		if (idx + width == slen) {
-			Nnode* newd = NnodeAppend(inp, 0, inp->offs, tok_symbol, sizeof(TnodeField));
-			Letvar(tf, TnodeField* const, NnodeGetExtnField(newd));
+			Nnode* newd = NnodeInsert(inp, inp->offs, tok_symbol, sizeof(TnodeField), ON_LEFT);
+			Letvar(tf, TnodeField* const, getExfield(*newd));
 			tf->col += width;
 			inp->addr = StrHeap(inp->addr + idx);
 			tf->col += slen - width;
@@ -109,13 +112,13 @@ namespace uni {
 		{
 			char* tmpaddr_mid = StrHeapN(inp->addr + idx, width);
 
-			Nnode* newleft = NnodeAppend(inp, 0, inp->offs, tok_symbol, sizeof(TnodeField));
-			Nnode* newright = NnodeAppend(inp, 1, StrHeap(inp->addr + idx + width), tok_symbol, sizeof(TnodeField));
+			Nnode* newleft = NnodeInsert(inp, inp->offs, tok_symbol, sizeof(TnodeField), ON_LEFT);
+			Nnode* newright = NnodeInsert(inp, StrHeap(inp->addr + idx + width), tok_symbol, sizeof(TnodeField), ON_RIGHT);
 
-			((TnodeField*)NnodeGetExtnField(inp))->col += idx;
+			(TnodeGetExtnField(*inp))->col += idx;
 
-			((TnodeField*)NnodeGetExtnField(newright))->col =
-				((TnodeField*)NnodeGetExtnField(inp))->col
+			(TnodeGetExtnField(*newright))->col =
+				(TnodeGetExtnField(*inp))->col
 				+ width;
 
 			inp->offs = tmpaddr_mid;

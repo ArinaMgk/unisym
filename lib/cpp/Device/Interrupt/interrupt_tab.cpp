@@ -21,12 +21,18 @@
 */
 #include "../../../../inc/cpp/interrupt"
 #include "../../../../inc/cpp/Device/EXTI"
+#include "../../../../inc/cpp/Device/TIM"
+
+using namespace uni;
+
 extern "C" {
 
 	#if 0
 	//
 	#elif defined(_MCU_STM32F10x)
 	Handler_t FUNC_EXTI[16] = { 0 };
+	Handler_t FUNC_TIMx[16] = { 0 };
+	//
 
 	static void _HandlerIRQ_EXTIx(byte x) {
 		if (uni::EXTI::Pending & (1 << x)) {
@@ -46,6 +52,27 @@ extern "C" {
 	void EXTI15_10_IRQHandler(void) {
 		for (byte i = 10; i < 16; i++) _HandlerIRQ_EXTIx(i);
 	}
+
+	static void _HandlerIRQ_TIMx(TIM_t& this_TIM) {
+		//{TODO} Capture compare 1 event 
+		//{TODO} Capture compare 2 event 
+		//{TODO} Capture compare 3 event 
+		//{TODO} Capture compare 4 event
+		// TIM Update event
+		{
+			const stduint _CVAL_TIM_SR_UIE = 1;
+			if (this_TIM[TimReg::DIER] & _CVAL_TIM_SR_UIE) { //aka __HAL_TIM_GET_IT_SOURCE
+				asserv(FUNC_TIMx[this_TIM.getID()])();
+				this_TIM[TimReg::SR] = ~_CVAL_TIM_SR_UIE; //aka __HAL_TIM_CLEAR_IT
+			}
+		}
+		//{TODO} TIM Break input event
+		//{TODO} TIM Trigger detection event
+		//{TODO} TIM commutation event
+	}
+
+	void TIM6_IRQHandler(void) {_HandlerIRQ_TIMx(uni::TIM6);}
+	
 
 
 

@@ -39,7 +39,7 @@
 #include "anode.h"
 
 //{TODO & UNREGISTERED} Conversion Function (direct copy address of pointer) 
-
+/*
 inline static dnode* NnodeToDnode(nnode* inp)
 {
 	if (sizeof(nnode) < sizeof(dnode)) return 0;
@@ -102,5 +102,5 @@ inline static void TnodeToNnode(nnode* des, const tnode* src)
 	des->type = src->type;
 }
 
-
+*/
 #endif

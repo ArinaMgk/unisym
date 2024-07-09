@@ -7,6 +7,10 @@
 \usepackage{listings}
 \usepackage{xcolor}
 
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{booktabs}
+
 %
 \newcounter{subsubparagraph}[subparagraph]
 \newcounter{subsubsubparagraph}[subsubparagraph]
@@ -88,7 +92,7 @@
 \author{dosconio}
 \begin{center}
 	% rgb(255, 97, 157)
-	\sc\fontsize{48pt}{0}\selectfont\textcolor[rgb]{1, 0.381, 0.618}{Her Epic}
+	\sc\fontsize{48pt}{0}\selectfont\textcolor[rgb]{1, 0, 0.618}{HeriEpic}
 \end{center}
 
 \newpage % Indexes from even page
@@ -105,7 +109,8 @@
 % use \input(recommended) or \include
 \input{CLV/xx-CLOVER.tex}
 
-
+\chapter{Unisym \mbox{-} Library}
+\input{USL/xx-UNISYM.tex}
 
 \newpage
 END!% Write and accumulate. Split when this is huge enough.

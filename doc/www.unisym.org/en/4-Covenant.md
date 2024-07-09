@@ -98,6 +98,13 @@ to see `./inc/c/trait.h`
 - Avoid using reference& but pointer* for inside function for more simply transplant.
 - Use `uint8`, `uint16` and so on, as integer types.
 
+---
+
+- Pointers
+	- `offs` a $void*$ pointer, it cannot be added to integers in some compilers for its non-size;
+	- `addr` a $char*$ or $byte*$ pointer, usually unioned with `offs` (an alias);
+
+
 ### delay
 
 instructional delay: in file whose name including a frequency, e.g. `delay11M.asm`;

@@ -53,20 +53,18 @@ typedef struct Node {
 		const char* addr;
 		pureptr_t offs;
 	};
+#ifdef _INC_CPP
+	byte* GetExtnField() { return getExfield(*this); }
+	Node* ReheapString(const char* str);
+#endif
 } Node; // measures stdint[2]
-
-inline static byte* NodeGetExtnField(Node* nod) {
-	return (byte*)nod + sizeof(Node);
-}
 
 Node* NodeInsert(Node* nod, pureptr_t txt, stduint more_field);
 
-void NodeRemove(Node* nod, Node* left, void (*_node_freefunc)(pureptr_t ptxt));
+void NodeRemove(Node* nod, Node* left, _tofree_ft _node_freefunc);
+void NodesRelease(Node* nod, Node* left, _tofree_ft _node_freefunc);
 
-inline static void NodeHeapFreeSimple(pureptr_t inp) {
-	Letvar(nod, Node*, inp);
-	memf(nod->addr);
-}
+void NodeHeapFreeSimple(pureptr_t inp);
 
 #define _MACRO_CHAIN_MEMBER \
 	Node* root_node;\
@@ -83,7 +81,7 @@ inline static void NodeHeapFreeSimple(pureptr_t inp) {
 
 typedef struct NodeChain_t {
 	_MACRO_CHAIN_MEMBER
-		_tofree_ft func_free; // void(*func_free)(void*);
+	_tofree_ft func_free; // void(*func_free)(void*);
 	_tocomp_ft func_comp; // int(*func_comp)(pureptr_t a, pureptr_t b);
 } chain_t;
 
@@ -95,22 +93,10 @@ protected:
 	//
 	virtual stduint Length() const;
 	void NodeChainAdapt(Node* root, Node* last, stdint count_dif);
-	template<typename type1> inline Node& Push(const type1& obj, bool end_left = true) {
-		Node* new_nod = nullptr;
-		if (end_left) {
-			(new_nod = NodeInsert(nullptr, (pureptr_t)&obj, extn_field))->next = root_node;
-			NodeChainAdapt(new_nod, last_node, +1);
-		}
-		else {
-			NodeChainAdapt(root_node, new_nod = NodeInsert(last_node, (pureptr_t)&obj, extn_field), +1);
-		}
-		return *new_nod;
-	}
-	inline Node* New() {
-		return (Node*)zalc(sizeof(Node) + extn_field);
-	}
+	Node* Push(pureptr_t off, bool end_left = true);
+	Node* New();
 public:
-	void(*func_free)(void*); // nullptr for not-auto sort, for `Append`
+	_tofree_ft func_free; // nullptr for not-auto sort, for `Append`
 	//
 	Chain(bool defa_free = false);
 	~Chain();
@@ -164,9 +150,6 @@ public:
 	// Pointer Operator
 	Node* operator[](stduint idx) {	return (Node*)Locate(idx); }
 	//
-	template <typename type1> inline type1& get(stduint idx) {
-		return *(type1*)((*this)[idx]->offs);
-	}
 
 
 	// Sorted
@@ -191,9 +174,7 @@ using NodeChain = Chain;
 // How many nodes after the node
 size_t NodeCount(const Node* first);
 
-inline static Node* NodeNew(chain_t* chn) {
-	return (Node*)zalc(sizeof(Node) + chn->extn_field);
-}
+Node* NodeNew(chain_t* chn);
 
 void ChainInit(chain_t* chain);
 void ChainDrop(chain_t* chain);

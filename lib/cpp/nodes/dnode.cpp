@@ -28,6 +28,11 @@
 namespace uni {
 #define tmpl(...) __VA_ARGS__ Dchain
 
+	Dnode* Dnode::ReheapString(const char* str) {
+		srs(this->addr, StrHeap(str));
+		return this;
+	}
+	
 	tmpl(void)::DnodeChainAdapt(Dnode* root, Dnode* last, stdint count_dif) {
 		node_count += count_dif;
 		root_node = root;
@@ -126,7 +131,7 @@ namespace uni {
 					Root()->type = crt->type;
 				}
 				else {
-					DnodeInsert(crtcrt, content, crt->type, extn_field);
+					DnodeInsert(crtcrt, content, crt->type, extn_field, 1/*ON_RIGHT*/);
 				}
 				DnodeRemove(crt, 0);// 0 to skip release
 			}

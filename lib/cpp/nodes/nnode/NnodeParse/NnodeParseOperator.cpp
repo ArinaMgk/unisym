@@ -31,10 +31,10 @@
 #define gettype(sym) (stepval(sym)->type)
 // | whom must != 0 (0 means non-exist) for true, 
 // v     so "0" is good to occupy.So for example, need not judge crt->left for `issuffix()`.
-#define parawith(sym,whom) (maynotsym(gettype(whom)) && !sym->difline(whom))
+#define parawith(sym,whom) (maynotsym(gettype(whom)) && !sym->GetTnodeField()->difline(*whom->GetTnodeField()))
 // | whom may  != 0 (0 means non-exist) for true, so "0" is good to occupy
 // v     so as above.
-#define sepawith(sym,whom) (maysymbol(gettype(whom)) ||  sym->difline(whom))
+#define sepawith(sym,whom) (maysymbol(gettype(whom)) ||  sym->GetTnodeField()->difline(*whom->GetTnodeField()))
 
 // size_t lleftt = crt->left->left ? crt->left->left->type : tok_any;
 // size_t leftt = crt->left ? crt->left->type : tok_any;

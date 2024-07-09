@@ -22,6 +22,11 @@
 
 #include "../../../inc/c/node.h"
 
+void NodeHeapFreeSimple(pureptr_t inp) {
+	Letvar(nod, Node*, inp);
+	memf(nod->addr);
+}
+
 void NodeRemove(Node* nod, Node* left, void (*_node_freefunc)(pureptr_t ptxt))
 {
 	if (!nod) return;
@@ -30,3 +35,30 @@ void NodeRemove(Node* nod, Node* left, void (*_node_freefunc)(pureptr_t ptxt))
 	memf(nod);
 	// aflaga.fail = 0;
 }
+
+void NodesRelease(Node* nod, Node* left, _tofree_ft _node_freefunc)
+{
+	Node* crt = nod;
+	if (!crt) return;
+	Node* next;
+	while (crt)
+	{
+		next = crt->next;
+		// NodeRemove(crt, 0, _node_freefunc);
+		{
+			asserv(_node_freefunc)((pureptr_t)crt);
+			memf(crt);
+		}
+		crt = next;
+	}
+	left->next = 0;
+	//_node_crt = 0;
+	//aflaga.zero = 1;
+	//aflaga.one = 0;
+	//aflaga.fail = 0;
+}
+
+void ChainDrop(chain_t* chain) {
+	NodesRelease(chain->root_node, 0, chain->func_free);
+}
+

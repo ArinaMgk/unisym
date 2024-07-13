@@ -16,8 +16,8 @@ Style Color: Herpink
 HerColor: double-0.618:
 - Herpink(R255, G97, B157) ( $B+1=k*(R+1)$, $G+1=k*(B+1)$ )
 
-## `HERPRO` ans static `HERDAT`
+## `HERPRO` and static `HERDAT`
 
-### opensrc **UNISYM** (Apache)
+### opensrc **[UNISYM](./www.unisym.org/en/2-Modules.md)** (Apache)
 
 ### ...

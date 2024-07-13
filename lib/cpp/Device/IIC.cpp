@@ -1,6 +1,6 @@
-// ASCII CPL/CPP TAB4 CRLF
-// Docutitle: (Algorithm) Fourier Dimension Transform : Time and Frequency 
-// Codifiers: @dosconio: 20240422 ~ <Last-check> 
+// UTF-8 C/C++11 TAB4 CRLF
+// Docutitle: (Protocol) Inter-Integrated Circuit, I2C
+// Codifiers: @dosconio: 20240429~;
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,24 +20,16 @@
 	limitations under the License.
 */
 
-#ifndef _INCPP_Algorithm_Fourier
-#define _INCPP_Algorithm_Fourier
+#include "../../inc/cpp/Device/IIC"
 
-#include "../../arith.h"
+namespace uni {
+#if 0
 
-#define _loc_cos(x) _loc_sin((x)+_VAL_PI/2)
+#elif defined(_MCU_STM32F10x)
 
-#ifdef _INC_CPP
-extern "C" {
+
+
+
+
 #endif
-
-// dat = [dblsin(2 * PI * i / (F_s) * 10)]
-//  where a one <=> F_s / NPT
-void dflFourier(dfloat* dat, stduint num, double(*_loc_sin)(double));
-
-
-#ifdef _INC_CPP
 }
-#endif
-
-#endif

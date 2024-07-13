@@ -60,12 +60,16 @@ stm32f1xx_hal_rcc.c
 [ ]__weak void HAL_RCC_CSSCallback(void)
 
 stm32f1xx_hal_rcc.h
-[ ]typedef struct ... RCC_ClkInitTypeDef;
-[ ]typedef struct ... RCC_PLLInitTypeDef;
+...
+
+stm32f1xx_hal_rcc_ex.c
+[v]HAL_StatusTypeDef HAL_RCCEx_PeriphCLKConfig(RCC_PeriphCLKInitTypeDef  *PeriphClkInit)
+...
 
 stm32f1xx_hal_rcc_ex.h
 [v]typedef struct ... RCC_OscInitTypeDef;
-[ ]define __HAL_RCC_HSE_CONFIG(__STATE__) 
+[ ]define __HAL_RCC_HSE_CONFIG(__STATE__)
+...
 */
 
 
@@ -107,7 +111,7 @@ namespace uni {
 		RCCAHB AHB;
 		RCCAPB APB1, APB2;
 		//
-		const Reference Cfgreg;
+		Reference Cfgreg;
 		//
 		RCC_t() : APB1(1), APB2(2), Cfgreg(_RCC_CFGR) {
 			

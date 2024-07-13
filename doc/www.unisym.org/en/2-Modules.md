@@ -3,6 +3,42 @@ her-note: false
 dg-publish: true
 ---
 
+## Component
+
+- Support for DEVK
+	- ISO/IEC 9899 - CPL (doing)
+	- Microsoft MSVC 2022
+	- GNU GCC and DJ-Delorie DJGPP
+	- Nvidia CUDA NVCC
+	- the SDCC for i8051
+- Mechanism
+	- Memory Leaking Mechanism
+- Assembly
+	- Kasha OSDEV Kernel
+	- IBM PC MACROs for NASM and MSASM
+	- Inline for C/C++
+	- AASM (doing)
+- Target
+	- PC OSDEV Processor
+	- QRS aka Embedded Controller
+	- Architecture
+		- x86
+		- x64
+		- RISCV64
+- Marking and Programming
+	- Hardware Description (suspended)
+	- SCH-PCB of Electronics (suspended)
+	- Magice (doing)
+	- C/C++
+	- DotNet C# and VB (doing)
+	- Rust crate (doing)
+- Auxiliary
+	- Qt (doing)
+	- EasyX (suspended)
+- Data and Collections
+	- Hello World
+	- Instructions for Architectures
+
 ## Modules
 
 ```mermaid
@@ -94,22 +130,26 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 - `Device` (cpp/Device/ and cpp/driver/) {TODO NO-DEP}
 	- `Conio` {TODO NO-DEP}
 		- consio.h console stream
-	- ADConverter/
+	- ADC and ADConverter/
 		- XPT2046.h
 	- Video/ and Video
 		- video.h
+	- Radio
+		- RDA5820 (:IIC)
+		- TEA5767 (:IIC)
+	- [Protocol, Interface and Wire]
+		- IIC, aka I2C
+		- OneWire.h
 	- AT24C02.h ()
 	- DS1302.h ()
 	- DS18B20.h ()
 	- HD44780.h ()
 	- i8253A.h ()
 	- i8259A.h ()
-	- IIC.h (method)
 	- keyboard.h
 	- LCD12864.h (specific LCD)
 	- LCD1602.h (specific LCD)
 	- nixietube.h
-	- OneWire.h (method)
 	- PIT.h
 	- RealtimeClock.h
 	- timer.h
@@ -329,21 +369,7 @@ The below are stable contents.
 │  strpool
 │  unisym
 │  
-├─Device
-│  │  EXTI
-│  │  GPIO
-│  │  NVIC
-│  │  SysClock
-│  │  SysTick
-│  │  Video
-│  │  
-│  └─RCC
-│	    RCC
-│	    RCCAddress
-│	    RCCClock
-│	    RCCOscillator
-│	    RCCPLL
-│	    RCCPrescaler
+├─Device ...
 │	    
 ├─driver
 │	nixietube
@@ -369,19 +395,7 @@ The below are stable contents.
 ├─gnuas
 │	g_ustring.asm
 │	
-├─Kasha
-│	n_arith.a
-│	n_cpuins.a
-│	n_debug.a
-│	n_demos.a
-│	n_floppy.a
-│	n_hdisk.a
-│	n_interrupt.a
-│	n_osdev.a
-│	n_pseudo.a
-│	n_supple.a
-│	n_timer.a
-│	n_video.a
+├─Kasha ...
 │	
 ├─msasm (Interrupts and string)
 │  │  INT....asm

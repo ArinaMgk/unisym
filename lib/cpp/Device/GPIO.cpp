@@ -64,6 +64,10 @@ namespace uni
 		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
 	}
 
+	bool GeneralPurposeInputOutputPin::getInn() {
+		return parent->InnpdPort & (1 << bitposi);
+	}
+	
 	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
 		if (innput) return *this;
 		// G'DP or D'DP

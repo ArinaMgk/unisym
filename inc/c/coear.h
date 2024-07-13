@@ -94,7 +94,7 @@ int CoeIsNAN(const coe* co);
 //
 int CoeIsINF(const coe* co);
 // Initial and set the necessary system structure.
-void CoeInit();
+void CoeInit(void);
 // Reset the length of the digits. If the real precise is less, zero will be moved at the end of coff from expo; if more, will cut.
 // param:direction 1:+inf 2:nearest 3:-inf 4:out
 void CoeDig(coe* obj, size_t digits, int direction);

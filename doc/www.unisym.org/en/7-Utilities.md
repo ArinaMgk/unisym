@@ -5,14 +5,16 @@ dg-publish: true
 
 ## Utilities
 
-calendar
-
-SegmentSelector
-
-VirtualDiskCopier
-
 args
 
-clear
+cal calendar (Linux Command)
 
-filedump
+clear (Linux Command)
+
+fdump filedump
+
+ffset VirtualDiskCopier
+
+segsel SegmentSelector
+
+### cot `COTLAB`

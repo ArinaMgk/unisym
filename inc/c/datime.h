@@ -25,7 +25,8 @@
 
 #include "stdinc.h"
 
-//{TODO} utime.h
+// Compatible with `time.h`
+#define __time_h
 
 #ifdef _INC_CPP
 	namespace uni {

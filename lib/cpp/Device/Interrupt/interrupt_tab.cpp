@@ -22,6 +22,7 @@
 #include "../../../../inc/cpp/interrupt"
 #include "../../../../inc/cpp/Device/EXTI"
 #include "../../../../inc/cpp/Device/TIM"
+#include "../../../../inc/cpp/Device/ADC"
 
 using namespace uni;
 
@@ -31,7 +32,8 @@ extern "C" {
 	//
 	#elif defined(_MCU_STM32F10x)
 	Handler_t FUNC_EXTI[16] = { 0 };
-	Handler_t FUNC_TIMx[16] = { 0 };
+	Handler_t FUNC_TIMx[16] = { 0 };// keep 0
+	Handler_t FUNC_ADCx[4] = { 0 };// keep 0
 	//
 
 	static void _HandlerIRQ_EXTIx(byte x) {
@@ -73,7 +75,26 @@ extern "C" {
 
 	void TIM6_IRQHandler(void) {_HandlerIRQ_TIMx(uni::TIM6);}
 	
-
+	void ADC1_2_IRQHandler(void) {
+		// 1 Check End of Conversion flag for regular group
+		for1(i, 2) {
+			ADC_t& crt = i == 1 ? uni::ADC1 : uni::ADC2;
+			if (crt[ADCReg::CR1].bitof(_ADC_CR1_POS_EOCIE) && crt[ADCReg::SR].bitof(_ADC_SR_POS_EOC)) {
+				// 确定是否有即将到来的外部触发、连续模式或扫描序列转换，适用于组内常规转换。对于STM32F1设备，如果启用了序列器（选择了多个通道），则在序列结束后会触发转换结束标志。
+				if (crt.isTriggeredBySoftware() && crt.getConfigLastDiscCount()) {
+					crt[ADCReg::CR1].rstof(_ADC_CR1_POS_EOCIE);// Disable ADC end of conversion interrupt on group regular
+				}
+				asserv(FUNC_ADCx[i])();
+				unchecked{//aka __HAL_ADC_CLEAR_FLAG
+					crt[ADCReg::SR].rstof(_ADC_SR_POS_STRT); 
+					crt[ADCReg::SR].rstof(_ADC_SR_POS_STRT);
+				}
+				break;
+			}
+		}
+		//{TODO} 2 Check End of Conversion flag for injected group
+		//{TODO} 3 Check Analog watchdog flags
+	}
 
 
 	#else

@@ -151,7 +151,7 @@ __Vectors
 {TODO}	DCD     DMA1_Channel5_IRQHandler   ; DMA1 Channel 5
 {TODO}	DCD     DMA1_Channel6_IRQHandler   ; DMA1 Channel 6
 {TODO}	DCD     DMA1_Channel7_IRQHandler   ; DMA1 Channel 7
-{TODO}	DCD     ADC1_2_IRQHandler          ; ADC1 & ADC2
+		DCD     ADC1_2_IRQHandler          ; ADC1 & ADC2
 {TODO}	DCD     USB_HP_CAN1_TX_IRQHandler  ; USB High Priority or CAN1 TX
 {TODO}	DCD     USB_LP_CAN1_RX0_IRQHandler ; USB Low  Priority or CAN1 RX0
 {TODO}	DCD     CAN1_RX1_IRQHandler        ; CAN1 RX1
@@ -200,8 +200,10 @@ typedef void (*Handler_t)(void);
 extern "C" {
 extern Handler_t FUNC_EXTI[];
 extern Handler_t FUNC_TIMx[];
+extern Handler_t FUNC_ADCx[];
 
 void EXTI0_IRQHandler(void);
+// ...
 }
 
 

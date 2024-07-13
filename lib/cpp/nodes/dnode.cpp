@@ -60,6 +60,10 @@ namespace uni {
 		Remove(0, Length());
 	}
 
+	tmpl(Dnode*)::New() {
+		return (Dnode*)zalc(sizeof(Dnode) + extn_field);
+	}
+
 	// impl Iterate for Chain
 	tmpl(void)::Iterate() {
 		if (_iterate_datas)

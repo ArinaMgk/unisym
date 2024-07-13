@@ -46,6 +46,13 @@ namespace uni {
 #if defined(_MCU_STM32F10x)
 	// compatible with `stm32f1xx_hal_gpio.h/c`
 	#undef GPIO
+	#undef GPIOA
+	#undef GPIOB
+	#undef GPIOC
+	#undef GPIOD
+	#undef GPIOE
+	#undef GPIOF
+	#undef GPIOG
 	namespace GPIOMode {
 		enum Mode {
 			OUT_PushPull     = 0 << 2, 
@@ -78,6 +85,8 @@ namespace uni {
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
 		GeneralPurposeInputOutputPin& operator=(bool val);
 		operator bool();
+		bool getInn();
+		inline byte getID() const { return bitposi; }
 		void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = GPIOSpeed::Atmost_2MHz, bool autoEnClk = true);
 		void setMode(GPIORupt::RuptEdge edg);// must in input mode
 		void setMode(GPIOEvent::EventEdge edg);// must in input mode
@@ -88,7 +97,7 @@ namespace uni {
 		bool isInput() const;
 		void Toggle();
 		void Lock(bool tolock_orunlock = true);
-		GeneralPurposeInputOutputPort& getParent() { return *parent; }//[unsafe]
+		GeneralPurposeInputOutputPort& getParent() const { return *parent; }//[unsafe]
 	};
 	
 	class GeneralPurposeInputOutputPort {
@@ -198,6 +207,8 @@ namespace uni {
 	};
 	extern GeneralPurposeInputOutput GPIO;
 
+	#undef GPIO_Pin
+	#undef GPIO_Port
 	typedef GeneralPurposeInputOutputPin GPIO_Pin;
 	typedef GeneralPurposeInputOutputPort GPIO_Port;
 }

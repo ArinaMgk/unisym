@@ -47,6 +47,8 @@ namespace uni {
 - Common   通用定时器 TIM2 TIM3 TIM4 TIM5
 */
 
+//{TODO} TIM1 TIM2 TIM3 TIM4 TIM5 TIM7 TIM8
+
 //{TODO} stm32f1xx_hal_tim.h/c 
 
 //{TODO} TIM[6] TIM[7]
@@ -79,10 +81,6 @@ namespace uni {
 			DMAR,  // TIM DMA address for full transfer register, offset: 0x4C
 			OR,    // TIM option register,                        offset: 0x50
 		} TimRegType;
-		
-		typedef struct {
-			byte TimArea[0x400];
-		} *TimArea;
 	}
 
 	// Use Dynamic Objects
@@ -93,7 +91,6 @@ namespace uni {
 	public:
 		TIM_t(stduint baseaddr, byte TIM_ID) : baseaddr(baseaddr), TIM_ID(TIM_ID) {}
 		#ifdef _MCU_STM32F103VE
-		//TimReg::TimArea 
 		Reference operator[](TimReg::TimRegType trt) {
 			return Reference(baseaddr + (((stduint)trt) << 2));
 		}

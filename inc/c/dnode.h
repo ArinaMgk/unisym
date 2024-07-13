@@ -156,9 +156,7 @@ protected:
 	virtual stduint Length() const;
 	void DnodeChainAdapt(Dnode* root, Dnode* last, stdint count_dif);
 	Dnode* Push(pureptr_t off, bool end_left = true);
-	inline Dnode* New() {
-		return (Dnode*)zalc(sizeof(Dnode) + extn_field);
-	}
+	Dnode* New();
 public:
 	void(*func_free)(void*); // nullptr for not-auto sort, for `Append`
 	//
@@ -197,12 +195,12 @@ public:
 	//
 	Dnode* Root() const { return root_node; }
 	template <typename type1> inline type1& Head() {
-		if (!root_node) throw "DNODE ROOT EMPTY";
+		// if (!root_node) throw "DNODE ROOT EMPTY";
 		return *(type1*)root_node->offs;
 	}
 	Dnode* Last() const { return last_node; }// Reference version: Tail() , which fits at least 1 item
 	template <typename type1> inline type1& Tail() {
-		if (!last_node) throw "DNODE TAIL EMPTY";
+		// if (!last_node) throw "DNODE TAIL EMPTY";
 		return *(type1*)last_node->offs;
 	}
 

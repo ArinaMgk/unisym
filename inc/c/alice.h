@@ -46,6 +46,7 @@ typedef void(symbol_t)(void);
 	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magice pointer: "pointer(pointer(void)) pp"
 	#define _REGISTER register
+	// no `this`
 #else
 extern "C++" {
 	namespace uni {
@@ -56,6 +57,7 @@ extern "C++" {
 	}
 }
 	#define _REGISTER
+	#define self (*this)
 #endif
 
 // __ENDIAN__

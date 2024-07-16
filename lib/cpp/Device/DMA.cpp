@@ -30,7 +30,19 @@ namespace uni {
 	#if 0
 
 	#elif defined(_MCU_STM32F10x)
-	#define _DMA_Counts 4
+	#define _DMA_Counts 3
+
+	static Request_t DMA1_Request_list[] = {
+		(Request_t)0, IRQ_DMA1_Channel1, IRQ_DMA1_Channel2, IRQ_DMA1_Channel3,
+		IRQ_DMA1_Channel4, IRQ_DMA1_Channel5, IRQ_DMA1_Channel6, IRQ_DMA1_Channel7
+	};// by channel id
+	static Request_t DMA2_Request_list[] = {
+		(Request_t)0, IRQ_DMA2_Channel1, IRQ_DMA2_Channel2, IRQ_DMA2_Channel3,
+		IRQ_DMA2_Channel4_5, IRQ_DMA2_Channel4_5
+	};// by channel id
+	static Request_t* DMAx_Requests_list[_DMA_Counts + 1] = {
+		(Request_t*)0, DMA1_Request_list, DMA2_Request_list
+	};
 
 	bool DMA_t::ExistChannel(byte channel) {
 		if (!channel) return false;
@@ -52,7 +64,8 @@ namespace uni {
 	};
 	static stduint RCC_DMAx_bitpos[_DMA_Counts] = // 0.._DMA_Counts
 	{
-		_RCC_AHBENR_POSI_ENCLK_DMA1,_RCC_AHBENR_POSI_ENCLK_DMA1,0
+		_RCC_AHBENR_POSI_ENCLK_DMA1,
+		_RCC_AHBENR_POSI_ENCLK_DMA2,
 	};
 	bool DMA_t::enClock(bool ena) {
 		Reference(RCC_DMAx_addrs[DMA_ID - 1]).setof(RCC_DMAx_bitpos[DMA_ID - 1], ena);
@@ -84,9 +97,15 @@ namespace uni {
 		return true;
 	}
 
+	void DMA_t::setInterruptPriority(byte channel, byte preempt, byte sub_priority) {
+		if (!ExistChannel(channel)) return;
+		NVIC.setPriority(
+			DMAx_Requests_list[DMA_ID][channel], preempt, sub_priority);
+	}
+
 	//
 
-	DMA_t DMA1(0x40020000, 1), DMA2(0x40020400, 2);
+	DMA_t DMAr(0,0), DMA1(0x40020000, 1), DMA2(0x40020400, 2);
 
 	#endif
 }

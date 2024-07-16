@@ -40,18 +40,16 @@ enum Procontroller_t // work with Architecture_t
 #endif
 
 // Operational Unit Size
-#if defined(_MCU_STM32F10x)
+#if defined(_MCU_STM32) || defined(_MCU_CW32F030)
 	// use 32b-align(times of 0x4) address
 	typedef uint32  typedest;
 	typedef uint32  typeaddr;
 	#define _typedest_len 4
 	#define _typeaddr_len 4
-#elif defined(_MCU_STM32F4x)
-	// I guessed ???
-	typedef uint32  typedest;
-	typedef uint32  typeaddr;
-	#define _typedest_len 4
-	#define _typeaddr_len 4
+
+#elif 0
+
+	
 #else // x86
 	typedef byte    typedest;
 	typedef stduint typeaddr;

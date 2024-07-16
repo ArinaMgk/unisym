@@ -81,8 +81,8 @@ void NodeHeapFreeSimple(pureptr_t inp);
 
 typedef struct NodeChain_t {
 	_MACRO_CHAIN_MEMBER
-	_tofree_ft func_free; // void(*func_free)(void*);
-	_tocomp_ft func_comp; // int(*func_comp)(pureptr_t a, pureptr_t b);
+	_tofree_ft func_free;
+	_tocomp_ft func_comp;
 } chain_t;
 
 #if defined(__cplusplus) || defined(_INC_CPP)
@@ -148,7 +148,7 @@ public:
 	}
 
 	// Pointer Operator
-	Node* operator[](stduint idx) {	return (Node*)Locate(idx); }
+	Node* operator[](stdint idx) { if (idx < 0) idx += node_count; return (Node*)Locate(idx); }
 	//
 
 

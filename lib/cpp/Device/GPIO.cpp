@@ -21,6 +21,7 @@
 */
 #include "../../../inc/cpp/Device/GPIO"
 #include "../../../inc/cpp/Device/RCC/RCC"
+#include "../../../inc/cpp/Device/RCC/RCCAddress"
 #include "../../../inc/c/binary.h"
 
 namespace uni
@@ -53,7 +54,6 @@ namespace uni
 	GeneralPurposeInputOutputPort GPIOF(0x40011C00, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOF);
 	GeneralPurposeInputOutputPort GPIOG(0x40012000, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOG);
 
-	GeneralPurposeInputOutput GPIO;
 	static GeneralPurposeInputOutputPort* GPIO_List[] = {
 	&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG
 	};
@@ -176,11 +176,14 @@ namespace uni
 	GeneralPurposeInputOutputPort GPIOB(0x40020400, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOB);
 	GeneralPurposeInputOutputPort GPIOC(0x40020800, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOC);
 	GeneralPurposeInputOutputPort GPIOD(0x40020C00, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOD);//
-	GeneralPurposeInputOutputPort GPIOE(0,0,0);//{}
-	GeneralPurposeInputOutputPort GPIOF(0,0,0);//{}
-	GeneralPurposeInputOutputPort GPIOG(0,0,0);//{}
+	GeneralPurposeInputOutputPort GPIOE(0x40021000, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOE);
+	GeneralPurposeInputOutputPort GPIOF(0x40021400, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOF);
+	GeneralPurposeInputOutputPort GPIOG(0x40021800, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOG);
+	GeneralPurposeInputOutputPort GPIOH(0x40021C00, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOH);
+	GeneralPurposeInputOutputPort GPIOI(0x40022000, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOI);
+	// GeneralPurposeInputOutputPort GPIOJ(0x40022400, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOJ);
+	// GeneralPurposeInputOutputPort GPIOK(0x40022800, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOK);
 
-	GeneralPurposeInputOutput GPIO;
 	static GeneralPurposeInputOutputPort* GPIO_List[] = {
 		&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG
 	};
@@ -230,7 +233,61 @@ namespace uni
 		parent->OutpdPort ^= 1 << bitposi;
 	}
 	
+// ---- ---- ---- ----
+#elif defined(_MCU_CW32F030)
+
+	GeneralPurposeInputOutputPort GPIOA(0x48000000, _SYSC_AHBEN_ADDR, _SYSC_AHBEN_POS_GPIOA);
+	GeneralPurposeInputOutputPort GPIOB(0x48000400, _SYSC_AHBEN_ADDR, _SYSC_AHBEN_POS_GPIOB);
+	GeneralPurposeInputOutputPort GPIOC(0x48000800, _SYSC_AHBEN_ADDR, _SYSC_AHBEN_POS_GPIOC);
+	GeneralPurposeInputOutputPort GPIOF(0x48001400, _SYSC_AHBEN_ADDR, _SYSC_AHBEN_POS_GPIOF);
+
+	static GeneralPurposeInputOutputPort* GPIO_List[] = {
+		&GPIOA, &GPIOB, &GPIOC, 0, 0, &GPIOF
+	};
+
+	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) {
+		using namespace GPIOReg;
+		const stduint mode = mod;
+		GeneralPurposeInputOutputPort& pare = getParent();
+		if (autoEnClk) pare.enClock();
+		pare.getReference(DIR).setof(bitposi, mode & 0x1);
+		pare.getReference(OPENDRAIN).setof(bitposi, mode & 0x2);
+		pare.getReference(SPEED).setof(bitposi, 0 != (stduint)spd);
+		pare.getReference(ANALOG).setof(bitposi, 0);/*TEMP*/
+		innput = mode & 0x1;
+	}
+	
+	void GeneralPurposeInputOutputPin::Toggle() {
+		using namespace GPIOReg;
+		GeneralPurposeInputOutputPort& pare = getParent();
+		pare.getReference(TOG).setof(bitposi);
+	}
+
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator = (bool val){
+		if (innput) return self;
+		getParent().getReference(GPIOReg::ODR).setof(bitposi, val);
+		return self;
+	}
+	GeneralPurposeInputOutputPin::operator bool() {
+		if (innput) return getParent().getReference(GPIOReg::IDR).bitof(bitposi);
+		return getParent().getReference(GPIOReg::ODR).bitof(bitposi);
+	}
+	bool GeneralPurposeInputOutputPin::getInn() {
+		return getParent().getReference(GPIOReg::IDR).bitof(bitposi);
+	}
+
+	void GeneralPurposeInputOutputPin::setPull(bool dir) {
+		using namespace GPIOReg;
+		GeneralPurposeInputOutputPort& pare = getParent();
+		pare.getReference(PUR).setof(bitposi, dir);
+		pare.getReference(PDR).setof(bitposi, !dir);
+	}
+
 #endif
+
+	GeneralPurposeInputOutput GPIO;
+	
+	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPin::getParent() { return *parent; }
 	
 	GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](char portid) {
 		return ascii_isupper(portid) ? *(GPIO_List[portid - 'A']) : ERR;
@@ -243,10 +300,23 @@ namespace uni
 		return 0;
 	}
 
-	//{UNCHK}
+	//
 	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (uint32 val) {
+		#ifdef _MCU_STM32
 		OutpdPort = val;
+		#else
+		using namespace GPIOReg;
+		getReference(ODR) = val;
+		#endif
 		return *this;
+	}
+
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPort::operator[] (byte pinid) {
+		#ifdef _MCU_STM32
+		return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
+		#elif defined(_MCU_CW32F030)
+		return pinid < numsof(pins) ? pins[pinid] : ERR;
+		#endif
 	}
 }
 

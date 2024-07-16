@@ -53,6 +53,7 @@ namespace uni {
 
 //{TODO} TIM[6] TIM[7]
 
+	#define _TIM_CR1_POS_CEN  0
 	#define _TIM_CR1_POS_ARPE 7
 	#define _TIM_SMCR_POS_MSM 7
 	#define _TIM_SR_POS_UIE   0
@@ -90,7 +91,7 @@ namespace uni {
 		byte TIM_ID;
 	public:
 		TIM_t(stduint baseaddr, byte TIM_ID) : baseaddr(baseaddr), TIM_ID(TIM_ID) {}
-		#ifdef _MCU_STM32F103VE
+		
 		Reference operator[](TimReg::TimRegType trt) {
 			return Reference(baseaddr + (((stduint)trt) << 2));
 		}
@@ -105,9 +106,11 @@ namespace uni {
 		void setInterruptPriority(byte preempt, byte sub_priority);
 		void enInterrupt(bool enable = true);
 
-		#else
-		#error ! よ TIM
-		#endif
+		void enAble(bool ena = true) {
+			(*this)[TimReg::CR1].setof(_TIM_CR1_POS_CEN, ena); //aka __HAL_TIM_ENABLE
+		}
+
+
 
 	};
 
@@ -139,7 +142,7 @@ namespace uni {
 		void enClock(bool ena = true) {
 			Reference(_RCC_APB1ENR_ADDR).setof(EnablPosi, ena); // aka BitSet(_RCC_APB1ENR_ADDR, EnablPosi);
 		}
-		
+
 		// Real Freq: 72M/(prescaler+1)
 		void setMode(stduint prescaler = 71, stduint period = 1000, bool auto_reload_preload = false) {
 			enClock();

@@ -90,7 +90,7 @@ namespace uni {
 		stduint _numsof_conv/*0..1+16*/; bool _align_left; stduint _numsof_disc; bool _trigger_ext_posedge;
 		pureptr_t bind;
 		// return 0xFF for invalid channel for the pin
-		byte getChannelNumber(const GPIO_Pin& pin) {
+		byte getChannelNumber(GPIO_Pin& pin) {
 			if (getID() == 3) {
 				if (pin.getID() < 4) {
 					if (&pin.getParent() == &GPIO['A']) return pin.getID();
@@ -128,7 +128,7 @@ namespace uni {
 		}
 		bool setMode(stduint numsof_conv = 0/*0..1+16*/, bool align_left = false, stduint numsof_disc = 0/*0..1+8*/, bool trigger_ext_posedge = false, byte divby = 6);
 
-		bool setChannel(const GPIO_Pin& pin, byte rank = 0/*0..16*/, ADCSample::ADCSample sample = ADCSample::HALF_111);
+		bool setChannel(GPIO_Pin& pin, byte rank = 0/*0..16*/, ADCSample::ADCSample sample = ADCSample::HALF_111);
 		// bool setChannel(MORE...)
 
 		void enInterrupt(bool enable = true, bool trigger_ext_posedge = false);

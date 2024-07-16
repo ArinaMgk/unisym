@@ -23,6 +23,8 @@ The chain of a node contains a series of nodes. There are usually discrete so we
 		\hline
 		\multicolumn{3}{c}{\$::$ReheapString$} & \textit{(S.R.S.)} \\ % "{c}" means no- split
 		\hline
+		\multicolumn{3}{c}{\$::$GetExtnField()$} & {} \\
+		\hline
 		\multicolumn{3}{c|}{$\$Insert$} & {nod,off,(type),ex-field,(on-right)$\rightarrow$(*)} \\
 		\hline
 		\multicolumn{3}{c|}{$\$Remove$} & {nod,(left),fn-free$\rightarrow$(*)(*next)} \\
@@ -43,6 +45,8 @@ The chain of a node contains a series of nodes. There are usually discrete so we
 		\hline
 		\multicolumn{3}{c|}{\$\$::$Root$ and \$\$::$RootRef$} & {$\rightarrow$(*) or (\&*)} \\
 		\hline
+		\multicolumn{2}{c|}{\$\$::$<<$, \$\$::$[]$} & {\$\$::$<<$, \$::$[]$} & {} \\
+		\hline
 		\multicolumn{2}{c|}{\$\$::$Last$} & {\$::$Youngest$} & {(*)} \\
 		\hline
 		\multicolumn{2}{c|}{\$\$::$Head$} & {\$::$Head$} & {(*)} \\
@@ -50,6 +54,8 @@ The chain of a node contains a series of nodes. There are usually discrete so we
 		\multicolumn{2}{c|}{\$\$::$Tail$} & {\$::$Tail$} & {(*)} \\
 		\hline
 		\multicolumn{2}{c|}{\$\$::$Sorted$ \$\$$Sort$} & {/} & {(self),fn-cmp} \\
+		\hline
+		{} & \multicolumn{2}{c|}{\$::$GetTnodeField$} & {} \\
 		\hline
 \end{longtable}
 \end{center}
@@ -68,10 +74,6 @@ a `\$' stands for a node, such as `Node', `Dnode' or `Nnode', while double dolla
 			const char* addr;
 			pureptr_t offs;
 		};
-	#ifdef _INC_CPP
-	byte* GetExtnField() { return getExfield(*this); }
-	Node* ReheapString(const char* str);
-	#endif
 	} Node; // measures stdint[2]
 \end{lstlisting}
 
@@ -89,22 +91,164 @@ struct {\
 	bool been_sorted /* `need_sort` as para of Append */;\
 } state;
 
-C...
+// C...
+typedef struct NodeChain_t {
+	_MACRO_CHAIN_MEMBER
+	_tofree_ft func_free;
+	_tocomp_ft func_comp;
+} chain_t;
 
-C++...
+// C++...
+class Chain : public ArrayTrait, public IterateTrait {
+protected: _MACRO_CHAIN_MEMBER /*...*/
+public:
+	_tofree_ft func_free;
+	Chain(bool defa_free = false);
+	~Chain();
+	/*...*/
+}
 
 \end{lstlisting}
-Trait:  \verb|ArrayTrait|
+% Node
+Trait:  \verb|ArrayTrait| \verb|IterateTrait|
 
-\paragraph{Structure} \
+\paragraph{Method} \
+
+\textbf{\$\$::SortByInsertion}
+
+\textbf{\$\$::getLeft}
+Get the left node of the node in the chain.
+
+
 
 .
 
 \subsubsection{Dnode Chain : Double-Field-and-Linked Chain}
 
+\paragraph{Structure} \
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+typedef struct Dnode {
+	struct Dnode* next;
+	union { char* addr; pureptr_t offs; };
+	struct Dnode* left;
+	union { stduint type; stduint lens; };
+} Dnode; // measures stdint[4]
+\end{lstlisting}
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+#define _MACRO_DCHAIN_MEMBER \
+Dnode* root_node;\
+Dnode* last_node;\
+struct {\
+	Dnode* midl_node;\
+} fastab;\
+stduint node_count;\
+stduint extn_field;\
+struct {\
+	bool been_sorted /* `need_sort` as para of Append */;\
+} state;
+	
+// C...
+typedef struct DnodeChain_t {
+	_MACRO_DCHAIN_MEMBER
+	_tofree_ft func_free;
+	_tocomp_ft func_comp;
+} dchain_t;
+typedef struct Tnode {
+	Dnode;
+	TnodeField;
+} Tnode;// Magice Style
+	
+// C++...
+class Dchain : public ArrayTrait, public IterateTrait {
+protected: _MACRO_DCHAIN_MEMBER /*...*/
+public:
+	_tofree_ft func_free;
+	Dchain(); ~Dchain();
+	/*...*/
+}
+	
+\end{lstlisting}
+
+% Dnode
+Trait:  \verb|ArrayTrait| \verb|IterateTrait|
+
+\paragraph{Method} \
+
+\textbf{\$\$::SortByInsertion}
+
+\textbf{DnodeRewind}
+
+\textbf{\$\$::Reverse}
+
+\textbf{\$\$::Match}
+
+\textbf{\$\$::AppendMatch}
+
+\textbf{\$\$::Reset}
+
+\textbf{TokenParseUnit}
+
 \subsubsection{Mnode Chain : Mapping Chain}
 
 \subsubsection{Nnode Chain : Nested Chain}
+
+\paragraph{Structure} \
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+typedef struct Nnode
+{
+	// Dnode
+	struct Nnode* next;
+	union { char* addr; void* offs; };
+	union { struct Nnode* left, * pare; };
+	union { stduint type; stduint lens; };
+	//
+	struct Nnode* subf;// sub-first item
+} Nnode, nnode;
+\end{lstlisting}
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+// C...
+typedef struct NnodeChain_t {
+	Nnode* root_node;
+	stduint extn_field;
+	_tofree_ft func_free;
+	_tocomp_ft func_comp;
+} nchain_t, Nchain;
+
+// C++...
+class Nchain {
+protected:
+	Nnode* root_node;
+public:
+	_tofree_ft func_free;
+	stduint extn_field;
+	//
+	Nchain(bool defa_free = false); ~Nchain();
+};
+	
+\end{lstlisting}
+
+% Nnode
+Trait:  
+
+\paragraph{Method} \
+
+
+\textbf{\$::isEldest, Nnode\_isEldest}
+
+\textbf{NnodeEldest}
+Get eldest node of parallel generation of the node.
+
+\textbf{\$\$::DivideSymbols}
+
+NestedParseUnit, TokenOperator, TokenOperatorGroup ...
 
 \subsubsection{Gnode Chain : Graph}
 

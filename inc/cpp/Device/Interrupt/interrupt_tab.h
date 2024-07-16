@@ -114,8 +114,7 @@ typedef enum
 	IRQ_DMA2_Channel4_5 = 59,    // DMA2 Channel 4 and Channel 5 global Interrupt   
 } Request_t;
 
-/* Borrow Idens from Official
-__Vectors
+/* Borrow Idens from Official __Vectors
 {TODO}	DCD     __initial_sp               ; Top of Stack
 {TODO}	DCD     Reset_Handler              ; Reset Handler
 {TODO}	DCD     NMI_Handler                ; NMI Handler
@@ -144,13 +143,13 @@ __Vectors
 		DCD     EXTI2_IRQHandler           ; EXTI Line 2
 		DCD     EXTI3_IRQHandler           ; EXTI Line 3
 		DCD     EXTI4_IRQHandler           ; EXTI Line 4
-{TODO}	DCD     DMA1_Channel1_IRQHandler   ; DMA1 Channel 1
-{TODO}	DCD     DMA1_Channel2_IRQHandler   ; DMA1 Channel 2
-{TODO}	DCD     DMA1_Channel3_IRQHandler   ; DMA1 Channel 3
-{TODO}	DCD     DMA1_Channel4_IRQHandler   ; DMA1 Channel 4
-{TODO}	DCD     DMA1_Channel5_IRQHandler   ; DMA1 Channel 5
-{TODO}	DCD     DMA1_Channel6_IRQHandler   ; DMA1 Channel 6
-{TODO}	DCD     DMA1_Channel7_IRQHandler   ; DMA1 Channel 7
+		DCD     DMA1_Channel1_IRQHandler   ; DMA1 Channel 1
+		DCD     DMA1_Channel2_IRQHandler   ; DMA1 Channel 2
+		DCD     DMA1_Channel3_IRQHandler   ; DMA1 Channel 3
+		DCD     DMA1_Channel4_IRQHandler   ; DMA1 Channel 4
+		DCD     DMA1_Channel5_IRQHandler   ; DMA1 Channel 5
+		DCD     DMA1_Channel6_IRQHandler   ; DMA1 Channel 6
+		DCD     DMA1_Channel7_IRQHandler   ; DMA1 Channel 7
 		DCD     ADC1_2_IRQHandler          ; ADC1 & ADC2
 {TODO}	DCD     USB_HP_CAN1_TX_IRQHandler  ; USB High Priority or CAN1 TX
 {TODO}	DCD     USB_LP_CAN1_RX0_IRQHandler ; USB Low  Priority or CAN1 RX0
@@ -188,13 +187,12 @@ __Vectors
 {TODO}	DCD     UART4_IRQHandler           ; UART4
 {TODO}	DCD     UART5_IRQHandler           ; UART5
 		DCD     TIM6_IRQHandler            ; TIM6
-{TODO}	DCD     TIM7_IRQHandler            ; TIM7
-{TODO}	DCD     DMA2_Channel1_IRQHandler   ; DMA2 Channel1
-{TODO}	DCD     DMA2_Channel2_IRQHandler   ; DMA2 Channel2
-{TODO}	DCD     DMA2_Channel3_IRQHandler   ; DMA2 Channel3
-{TODO}	DCD     DMA2_Channel4_5_IRQHandler ; DMA2 Channel4 & Channel5
-__Vectors_End
-*/
+		DCD     TIM7_IRQHandler            ; TIM7
+		DCD     DMA2_Channel1_IRQHandler   ; DMA2 Channel1
+		DCD     DMA2_Channel2_IRQHandler   ; DMA2 Channel2
+		DCD     DMA2_Channel3_IRQHandler   ; DMA2 Channel3
+		DCD     DMA2_Channel4_5_IRQHandler ; DMA2 Channel4 & Channel5
+__Vectors_End */
 typedef void (*Handler_t)(void);
 
 extern "C" {

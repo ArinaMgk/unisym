@@ -21,6 +21,10 @@ dg-publish: true
 - Target
 	- PC OSDEV Processor
 	- QRS aka Embedded Controller
+		- INTEL 8051
+		- STM32F1
+		- STM32F4
+		- CW32F030
 	- Architecture
 		- x86
 		- x64

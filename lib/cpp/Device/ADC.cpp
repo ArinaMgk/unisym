@@ -88,7 +88,7 @@ namespace uni {
 		return true;
 	}
 
-	bool ADC_t::setChannel(const GPIO_Pin& pin, byte rank, ADCSample::ADCSample sample) {
+	bool ADC_t::setChannel(GPIO_Pin& pin, byte rank, ADCSample::ADCSample sample) {
 		if (rank >= 16) return false;
 		byte grp = rank / 6;// 0, 1, 2
 		byte idx = rank % 6;// 0 .. 6
@@ -174,21 +174,7 @@ namespace uni {
 			//{PASS} set XferErrorCallback = ADC_DMAError;
 			self[ADCReg::SR].rstof(_ADC_SR_POS_EOC);// Clear regular group conversion flag and overrun flag
 			self[ADCReg::CR2].setof(_ADC_CR2_POS_DMA, true);
-			//aka HAL_DMA_Start_IT where src_addr is DR register
-			{
-				crt.enAble(false);
-				//aka DMA_SetConfig
-				{
-					crt[DMAReg::IFCR] |= (1 << _DMA_ISR_POS_GIF1)/*???*/ << 4/*a group*/; //<=> crt.setInterruptSub(false);
-					crt[DMAReg::CNDTRx[channel]] = leng;
-					pureptr_t src_addr = (pureptr_t)&self[ADCReg::DR];
-					pureptr_t dst_addr = addr;
-					crt[DMAReg::CPARx[channel]] = (stduint)(crt.m2p ? dst_addr : src_addr);
-					crt[DMAReg::CMARx[channel]] = (stduint)(crt.m2p ? src_addr : dst_addr);
-				}
-				crt.setInterruptSub(true, channel);
-				crt.enAble(true);
-			}
+			crt.StartInterrupt(addr, (pureptr_t)&self[ADCReg::DR], leng, channel);
 			bool ADC_IS_SOFTWARE_START_REGULAR = (self[ADCReg::CR2] & (7 << _ADC_CR2_POS_EXTSEL)) == 0x000E0000;
 			self[ADCReg::CR2] |= (ADC_IS_SOFTWARE_START_REGULAR) ?
 				(1 << _ADC_CR2_POS_SWStart | 1 << _ADC_CR2_POS_ExtTrig) :

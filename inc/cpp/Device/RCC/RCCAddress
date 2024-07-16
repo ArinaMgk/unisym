@@ -47,6 +47,9 @@
 #define _RCC_CFGR_MASK_Switch         0x3
 
 #define _RCC_APB1ENR_ADDR 0x4002101C
+#define _RCC_APB1ENR_POSI_ENCLK_TIM2        0
+#define _RCC_APB1ENR_POSI_ENCLK_DAC         29
+
 
 // RCC_APB2ENR [default 0x00000000]
 #define _RCC_APB2ENR_ADDR 0x40021018
@@ -90,6 +93,25 @@
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOB       1
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOC       2
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOD       3
+#define _RCC_AHB1ENR_POSI_ENCLK_GPIOE       4
+#define _RCC_AHB1ENR_POSI_ENCLK_GPIOF       5
+#define _RCC_AHB1ENR_POSI_ENCLK_GPIOG       6
+#define _RCC_AHB1ENR_POSI_ENCLK_GPIOH       7
+#define _RCC_AHB1ENR_POSI_ENCLK_GPIOI       8
+
+#elif defined(_MCU_CW32F030)
+
+// Sys Ctrl
+#define _SYSC_ADDR 0x40010000
+#define _SYSC_AHBEN_ADDR  (_SYSC_ADDR+0x30)
+#define _SYSC_AHBEN_POS_GPIOA  4
+#define _SYSC_AHBEN_POS_GPIOB  5
+#define _SYSC_AHBEN_POS_GPIOC  6
+#define _SYSC_AHBEN_POS_GPIOF  9
+
+
+#define _SYSC_APBEN2_ADDR (_SYSC_ADDR+0x34)
+#define _SYSC_APBEN1_ADDR (_SYSC_ADDR+0x38)
 
 #endif
 #endif

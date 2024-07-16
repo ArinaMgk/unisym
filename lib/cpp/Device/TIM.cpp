@@ -56,10 +56,7 @@ namespace uni {
 					}
 					*/
 				}
-				else
-				{
-					(*this)[TimReg::CR1] |= 1;/*TIM_CR1_CEN*/ //aka __HAL_TIM_ENABLE
-				}
+				else enAble();
 			}
 		}
 		else _TODO;

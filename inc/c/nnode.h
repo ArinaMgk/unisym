@@ -40,7 +40,7 @@ extern "C" {
 
 typedef struct Nnode
 {
-	// left
+	// Dnode
 	struct Nnode* next;
 	union { char* addr; void* offs; };
 	union { struct Nnode* left, * pare; };
@@ -119,7 +119,7 @@ protected:
 	}
 	
 public:
-	_tofree_ft func_free; // nullptr for not-auto sort, for `Append`
+	_tofree_ft func_free;
 	stduint extn_field;
 	//
 	Nchain(bool defa_free = false); ~Nchain();

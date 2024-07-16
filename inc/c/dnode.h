@@ -158,7 +158,7 @@ protected:
 	Dnode* Push(pureptr_t off, bool end_left = true);
 	Dnode* New();
 public:
-	void(*func_free)(void*); // nullptr for not-auto sort, for `Append`
+	_tofree_ft func_free;
 	//
 	Dchain(); ~Dchain();
 	// ---- T: Iterate

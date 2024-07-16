@@ -86,8 +86,8 @@ namespace uni {
 		}
 		else {
 			if (onleft)
-				Push(*(pureptr_t*)addr);
-			else Push(*(pureptr_t*)addr, false);
+				Push(addr);
+			else Push(addr, false);
 		}
 		return new_nod;
 	}

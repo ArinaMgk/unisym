@@ -139,6 +139,7 @@ extern "C++" {
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for0r(iden,times) for(size_t iden=(times);iden--;)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
+#define for0a(iden,array) for0(iden,numsof(array))
 
 #define getExfield(a) ((byte*)&(a) + sizeof(a)) // for l-value object
 

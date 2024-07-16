@@ -35,6 +35,7 @@ namespace uni {
 	#undef DMA
 	#undef DMA1
 	#undef DMA2
+	//{TODO} object for each channel
 
 	#define _DMA_CCRx_POS_EN 0
 	#define _DMA_CCRx_POS_TCIE 1
@@ -85,14 +86,14 @@ namespace uni {
 		bool ExistChannel(byte channel);
 	public:
 		Handler_t XferCpltCallback;
-		Handler_t XferHalfCpltCallback;
+		Handler_t XferHalfCallback;
 		Handler_t XferErrorCallback;
 		Handler_t XferAbortCallback;
 		bool m2p;
 		pureptr_t bind;
 		DMA_t(stduint baseaddr, byte DMA_ID) : baseaddr(baseaddr), DMA_ID(DMA_ID) {
 			XferCpltCallback = 0;
-			XferHalfCpltCallback = 0;
+			XferHalfCallback = 0;
 			XferErrorCallback = 0;
 			XferAbortCallback = 0;
 			bind = 0;
@@ -114,14 +115,37 @@ namespace uni {
 
 		bool setMode(byte channel, bool from_periph_or_memory, bool to_periph_or_memory, bool periph_inc = false, bool memory_inc = false, stduint periph_align = 2 /*byte*/, stduint memory_align = 2 /*byte*/, bool circular_mode = true, byte priority = 1);
 
+		// type: 0: total, 1:TCIE, 2:HTIE, 3:TEIE
+		bool enInterrupt(bool ena = true, byte type = 0, byte channel = 1) {
+			using namespace DMAReg;
+			if (type > 3 || !ExistChannel(channel)) return false;
+			self[CCRx[channel]].setof(type, ena);
+			return true;
+		}
+		
 		void setInterruptSub(bool ena_total, byte channel) {
 			using namespace DMAReg;
 			self[CCRx[channel]].setof(_DMA_CCRx_POS_TCIE, ena_total);
 			self[CCRx[channel]].setof(_DMA_CCRx_POS_TEIE, ena_total);
-			self[CCRx[channel]].setof(_DMA_CCRx_POS_HTIE, ena_total && XferHalfCpltCallback);
+			self[CCRx[channel]].setof(_DMA_CCRx_POS_HTIE, ena_total && XferHalfCallback);
 		}
 
+		void setInterruptPriority(byte channel, byte preempt, byte sub_priority);
 
+		void StartInterrupt(pureptr_t dst_addr, pureptr_t src_addr, stduint leng, byte channel) {
+			//aka HAL_DMA_Start_IT where src_addr is DR register
+			DMA_t& crt = self;
+			crt.enAble(false);
+			//aka DMA_SetConfig
+			{
+				crt[DMAReg::IFCR] |= (1 << _DMA_ISR_POS_GIF1)/*???*/ << 4/*a group*/; //<=> crt.setInterruptSub(false);
+				crt[DMAReg::CNDTRx[channel]] = leng;
+				crt[DMAReg::CPARx[channel]] = (stduint)(crt.m2p ? dst_addr : src_addr);
+				crt[DMAReg::CMARx[channel]] = (stduint)(crt.m2p ? src_addr : dst_addr);
+			}
+			crt.setInterruptSub(true, channel);
+			crt.enAble(true, channel);
+		}
 
 	};
 

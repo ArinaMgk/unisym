@@ -1,8 +1,9 @@
-// ASCII CPL/CPP TAB4 CRLF
-// Docutitle: (Algorithm) Fourier Dimension Transform : Time and Frequency 
-// Codifiers: @dosconio: 20240422 ~ <Last-check> 
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: Node for Nested / Tree / Binary
+// Codifiers: @dosconio: ~ 20240702
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
+// Descripts: 20240630 new design: left of eldest child points to parent, aka this->subf==this->subf->left for parent, this->left->subf==this for the eldest.
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,25 +21,28 @@
 	limitations under the License.
 */
 
-#ifndef _INCPP_Algorithm_Fourier
-#define _INCPP_Algorithm_Fourier
+#ifndef _INC_MNODE
+#define _INC_MNODE
 
-#include "../../arith.h"
+#include "stdinc.h"
+#include "dnode.h"
 
-#define _loc_cos(x) _loc_sin((x)+_VAL_PI/2)
+//{TODO} for CPL
 
-#ifdef _INC_CPP
-extern "C" {
-#endif
+namespace uni
+{
 
-// dat = [dblsin(2 * PI * i / (F_s) * 10)]
-//  where a one <=> F_s / NPT
-void dflFourier(dfloat* dat, stduint num, double(*_loc_sin)(double));
+	class Mchain {
+	protected:
+		Dchain chn;
+	public:
+		Mnode() : chn() {}
+		~Mnode() {}
 
-void dflFourierFromWord(word* ori_dat, dfloat* dat, stduint exp, double(*_loc_sin)(double));
+	};
 
-#ifdef _INC_CPP
-}
-#endif
+
+	
+} // namespace uni
 
 #endif

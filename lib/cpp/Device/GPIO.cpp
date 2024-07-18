@@ -60,7 +60,7 @@ namespace uni
 
 #if 1
 	
-	GeneralPurposeInputOutputPin::operator bool() {
+	GeneralPurposeInputOutputPin::operator bool() const {
 		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
 	}
 
@@ -188,7 +188,7 @@ namespace uni
 		&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG
 	};
 
-	GeneralPurposeInputOutputPin::operator bool() {
+	GeneralPurposeInputOutputPin::operator bool() const {
 		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
 	}
 
@@ -268,7 +268,7 @@ namespace uni
 		getParent().getReference(GPIOReg::ODR).setof(bitposi, val);
 		return self;
 	}
-	GeneralPurposeInputOutputPin::operator bool() {
+	GeneralPurposeInputOutputPin::operator bool() const {
 		if (innput) return getParent().getReference(GPIOReg::IDR).bitof(bitposi);
 		return getParent().getReference(GPIOReg::ODR).bitof(bitposi);
 	}
@@ -317,6 +317,14 @@ namespace uni
 		#elif defined(_MCU_CW32F030)
 		return pinid < numsof(pins) ? pins[pinid] : ERR;
 		#endif
+	}
+	
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(const GeneralPurposeInputOutputPin& pin) {
+		if (!parent) { // Initialize
+			parent = pin.parent; bitposi = pin.bitposi; innput = pin.innput;
+			return self;
+		}
+		else return self = bool(pin); // Assign 
 	}
 }
 

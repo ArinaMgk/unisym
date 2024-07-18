@@ -48,7 +48,8 @@ extern "C" {
 	void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = defa_speed, bool autoEnClk = true);\
 	void Toggle();\
 	GeneralPurposeInputOutputPin& operator=(bool val);\
-	operator bool();
+	GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin);\
+	operator bool() const;\
 
 
 

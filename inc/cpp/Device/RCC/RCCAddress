@@ -1,4 +1,4 @@
-// ASCII CPP TAB4 CRLF
+// UTF-8 CPP TAB4 CRLF
 // Docutitle: Phase-Locked Loop in Reset and Clock Control
 // Datecheck: 20240419 ~ <Last-check>
 // Developer: @dosconio
@@ -28,27 +28,51 @@
 
 #include "../../reference"
 
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x) // 2 Chips' 兼容節
+
+// CR
+	#define _RCC_CR_POSI_HSIReady  1
+	#define _RCC_CR_POSI_HSEReady  17
+	#define _RCC_CR_POSI_PLLEnable 24 // PLLON
+	#define _RCC_CR_POSI_PLLReady  25
+
+// CFGR
+	#define _RCC_PLLCFGR_POSI_PLLM   0
+	#define _RCC_PLLCFGR_POSI_PLLN   6
+	#define _RCC_PLLCFGR_POSI_PLLP   16
+	#define _RCC_PLLCFGR_POSI_PLLQ   24
+	#define _RCC_CFGR_POSI_SCLKSWSource   2 // 2b
+	#define _RCC_CFGR_MASK_SCLKSWSource   0x0000000C // System-Clock Switch Status
+	#define _RCC_CFGR_POSI_Switch         0
+	#define _RCC_CFGR_MASK_Switch         0x3
+
+// APB1ENR
+	#define _RCC_APB1ENR_POSI_ENCLK_TIM2 0
+	#define _RCC_APB1ENR_POSI_ENCLK_PWR  28 //{unchk for F1x}
+	#define _RCC_APB1ENR_POSI_ENCLK_DAC  29
+
+#endif
+// ---- ---- ---- ----   ---- ---- ---- ----
 #ifdef _MCU_STM32F10x
 
 #define _RCC_CR   0x40021000
-#define _RCC_CR_POSI_HSIReady  1
-#define _RCC_CR_POSI_HSEReady  17
-#define _RCC_CR_POSI_PLLEnable 24
-#define _RCC_CR_POSI_PLLReady  25
+//{TODEL} #define _RCC_CR_POSI_HSIReady  1
+//{TODEL} #define _RCC_CR_POSI_HSEReady  17
+//{TODEL} #define _RCC_CR_POSI_PLLEnable 24 // PLLON
+//{TODEL} #define _RCC_CR_POSI_PLLReady  25
 #define _RCC_CR_POSI_PLLMUL_LSB 18 // 4-bit
 
 #define _RCC_CFGR 0x40021004
 #define _RCC_CFGR_POSI_PLL_XTPRE 17
 #define _RCC_CFGR_POSI_PLLSource 16
 #define _RCC_CFGR_MASK_PLLSource      0x00010000
-#define _RCC_CFGR_POSI_SCLKSWSource   2
-#define _RCC_CFGR_MASK_SCLKSWSource   0x0000000C // System-Clock Switch Status
-#define _RCC_CFGR_POSI_Switch         0
-#define _RCC_CFGR_MASK_Switch         0x3
+//{TODEL}#define _RCC_CFGR_POSI_SCLKSWSource   2//2b
+//{TODEL}#define _RCC_CFGR_MASK_SCLKSWSource   0x0000000C
+//{TODEL}#define _RCC_CFGR_POSI_Switch         0
+//{TODEL}#define _RCC_CFGR_MASK_Switch         0x3
 
 #define _RCC_APB1ENR_ADDR 0x4002101C
-#define _RCC_APB1ENR_POSI_ENCLK_TIM2        0
-#define _RCC_APB1ENR_POSI_ENCLK_DAC         29
+
 
 
 // RCC_APB2ENR [default 0x00000000]
@@ -98,6 +122,8 @@
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOG       6
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOH       7
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOI       8
+
+#define _RCC_PLLCFGR_POSI_PLLSRC 22 // 1b. G'DP for HSE, D'DP for HSI
 
 #elif defined(_MCU_CW32F030)
 

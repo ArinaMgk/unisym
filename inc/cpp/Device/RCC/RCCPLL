@@ -102,5 +102,25 @@ namespace uni {
 	};
 }
 
+#elif defined(_MCU_STM32F4x)
+
+namespace uni {
+	namespace PLLSource {
+		enum PLLSource {
+			HSI = 0x00000000, //aka  RCC_PLLCFGR_PLLSRC_HSI
+			HSE = 0x00400000, //aka RCC_PLLCFGR_PLLSRC_HSE RCC_PLLCFGR_PLLSRC_HSE
+			Mask = HSE
+		};
+	}
+	class RCCPLL {
+	private:
+		void enAble(bool ena = true);
+	public:
+		bool setMode();
+		static bool isReady();
+	};
+}
+
+
 #endif
 #endif

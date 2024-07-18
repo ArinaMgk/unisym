@@ -70,7 +70,7 @@ void dflFourier(dfloat* dat, stduint exp, double(*_loc_sin)(double))
 #define f_move(dat,ori_dat,i,tmp) \
 	dat[tmp].real = ori_dat[i], dat[tmp].imag = 0.0;\
 	if (isodd(tmp))\
-		dat[tmp - 1].real = ori_dat[i], dat[tmp - 1].imag = 0.0;\
+		dat [tmp - 1].real = ori_dat[i], dat[tmp - 1].imag = 0.0;\
 	else dat[tmp + 1].real = ori_dat[i], dat[tmp + 1].imag = 0.0;
 
 void dflFourierFromWord(word* ori_dat, dfloat* dat, stduint exp, double(*_loc_sin)(double))
@@ -81,10 +81,14 @@ void dflFourierFromWord(word* ori_dat, dfloat* dat, stduint exp, double(*_loc_si
 	stduint siz = intpow2_iexpo(exp);
 	stduint ida = siz / 2, idb = siz - 1;
 	stduint tmp = 0;
+	dat[idb].real = ori_dat[idb], dat[idb].imag = 0.0;
 	for0(i, idb) {
 		if (i < tmp) {
 			f_move(dat, ori_dat, i, tmp);
 			f_move(dat, ori_dat, tmp, i);
+		}
+		else if (i == tmp) {
+			dat[i].real = ori_dat[i], dat[i].imag = 0.0;
 		}
 		stduint j = ida;
 		while (j <= tmp) {

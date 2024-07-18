@@ -30,6 +30,18 @@
 #include "RCCClock"
 #include "RCCPLL"
 
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+namespace uni {
+	namespace HSEState {
+		enum RCCOscillatorHSEState {
+			Disable = 0x00000000,
+			Enable = (uint32)1 << 16,// "HSEON"
+			Bypass = ((uint32)1 << 18 | Enable),// External clock source for HSE clock
+		};
+	}
+}
+#endif// _MCU_STM32F10x || _MCU_STM32F4x
+
 #ifdef _MCU_STM32F10x
 
 namespace uni {
@@ -40,13 +52,6 @@ namespace uni {
 		RCCOscillator() : addr(0) {} 
 	};
 
-	namespace HSEState {
-		enum RCCOscillatorHSEState {
-			Disable = 0x00000000,
-			Enable = (uint32)1<<16,// "HSEON"
-			Bypass = ((uint32)1<<18 | Enable),// External clock source for HSE clock
-		};
-	}
 	class RCCOscillatorHSE : public RCCOscillator {
 	protected:
 		uint32 predivr;
@@ -64,8 +69,8 @@ namespace uni {
 			if ((RCCSystemClock::CurrentSource() == SysclkSource::HSE) || \
 				(RCCSystemClock::CurrentSource() == SysclkSource::PLL) && \
 				(RCCPLL::CurrentSource() == PLLSource::HSE)) { // Condition of disable
-				//{TODO} Cancel Sysclock
-				return false;
+				//{TODO} Cancel Sysclock: if((__HAL_RCC_GET_FLAG(RCC_FLAG_HSERDY) != RESET) && (RCC_OscInitStruct->HSEState == RCC_HSE_OFF))
+				return false;// it is being used
 				//if (!Reference(_RCC_CR).bitof(_RCC_CR_POSI_HSEReady))
 				//	return false;
 			}
@@ -84,7 +89,7 @@ namespace uni {
 					break;
 				}
 				//
-				while (!isReady());
+				while (!isReady());//{tofix}
 				//{TODO} Check the HSE State by ticks
 				//{TODO} Tick Delay
 				this->predivr = predivr;
@@ -121,6 +126,36 @@ namespace uni {
 	typedef RCCOscillatorPLL PLL_t;
 	
 }
+
+#elif defined(_MCU_STM32F4x)
+namespace uni {
+	class RCCOscillatorHSE //{}: public RCCOscillator
+	{
+	protected:
+	public:
+		bool setMode();
+		static bool isReady();
+	};
+	typedef RCCOscillatorHSE HSE_t;
+
+	class RCCOscillatorHSI //{}: public RCCOscillator 
+	{
+	public:
+		// 
+		static bool isReady();
+		//HSICalibrationValue
+	/*{} HSI
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLM = 16;
+	*/
+	};
+	typedef RCCOscillatorHSI HSI_t;
+	
+}
+
 
 #endif
 #endif

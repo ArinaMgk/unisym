@@ -103,6 +103,10 @@ enum {
 //
 #define StrGetError strerror
 
+#ifdef _INC_CPP
+extern "C" {
+#endif
+
 //---- ---- ---- ---- { General String Function } ---- ---- ---- ----
 
 // [ASTRING] Convert char in string in heap
@@ -662,6 +666,10 @@ void StrShiftRight8n(void* s, size_t len, size_t n);
 
 // In the direction of the left
 stdint MemCompareRight(const unsigned char* a, const unsigned char* b, size_t n);
+
+#ifdef _INC_CPP
+}
+#endif
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop

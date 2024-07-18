@@ -39,5 +39,6 @@ F103:
 #undef RCC
 #include "../../../c/stdinc.h"
 #include "../../Device/GPIO"
+#include "../../Device/RCC/RCC"
 
 #endif

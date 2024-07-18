@@ -1,6 +1,6 @@
 // ASCII C/C++ TAB4 CRLF
-// Docutitle: Node for Nested / Tree / Binary
-// Codifiers: @dosconio: ~ 20240702
+// Docutitle: Map Node
+// Codifiers: @dosconio: ~ 20240716
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 // Descripts: 20240630 new design: left of eldest child points to parent, aka this->subf==this->subf->left for parent, this->left->subf==this for the eldest.
@@ -28,21 +28,46 @@
 #include "dnode.h"
 
 //{TODO} for CPL
+#ifdef _INC_CPP
 
 namespace uni
 {
 
+	struct Mnode : public Dnode {
+		pureptr_t operator= (pureptr_t val) { type = (stduint)val; }
+	};
+	
 	class Mchain {
 	protected:
 		Dchain chn;
 	public:
-		Mnode() : chn() {}
-		~Mnode() {}
-
+		_tocomp_ft func_comp;
+		Mchain() : chn() { func_comp = nullptr; }
+		~Mchain() {}
+		Mnode* operator[] (pureptr_t key) { return (Mnode*)chn.LocateNode(key, func_comp); }
+		Dchain& refChain() { return chn; }
+		bool isExist(pureptr_t key, Dnode** val_ref = 0) {
+			Dnode* res = chn.LocateNode(key, func_comp);
+			asserv(val_ref)[0] = res;
+			return res != nullptr;
+		}
+		void Map(pureptr_t key, pureptr_t val) {
+			Dnode* val_node;
+			if (isExist(key, &val_node)) {
+				chn.Remove(val_node);
+			}
+			val_node = chn.Append(key, false);
+			val_node->type = (stduint)val;
+		}
+		void unMap(pureptr_t key) {
+			chn.Remove(chn.LocateNode(key, func_comp));
+		}
 	};
 
 
 	
 } // namespace uni
+
+#endif
 
 #endif

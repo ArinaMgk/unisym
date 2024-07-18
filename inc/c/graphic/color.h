@@ -35,6 +35,7 @@
 // dark
 #define _COLOR_Maroon    0x00800000
 #define _COLOR_Silver    0x00C0C0C0
+#define _COLOR_SlateBlue 0x006A5ACD
 
 
 #endif

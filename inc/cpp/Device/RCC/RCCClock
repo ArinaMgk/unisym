@@ -28,9 +28,13 @@
 
 #include "../../reference"
 #include "RCCAddress"
+	#undef RTC
+	#undef ADC
+	#undef I2S2
+	#undef I2S3
+	#undef USB
 
-#ifdef _MCU_STM32F10x
-
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x) // Common Area
 namespace uni {
 	namespace SysclkSource {
 		enum RCCSysclockSource { // wo RCC_CFGR_SWS_xxx
@@ -40,11 +44,13 @@ namespace uni {
 			Unknown
 		};
 	}
-	#undef RTC
-	#undef ADC
-	#undef I2S2
-	#undef I2S3
-	#undef USB
+}
+#endif // _MCU_STM32F10x || _MCU_STM32F4x
+
+#ifdef _MCU_STM32F10x
+
+namespace uni {
+
 	namespace RCCPeriph {
 		enum RCCPeriphClockSelection {
 			RTC = 0,
@@ -148,6 +154,24 @@ namespace uni {
 	};
 	//class RCCHCLK {
 	//class RCCPCLK {
+
+}
+
+#elif defined(_MCU_STM32F4x)
+
+namespace uni {
+
+
+	class RCCSystemClock {
+	protected:
+		SysclkSource::RCCSysclockSource getSource();
+		void setSource(SysclkSource::RCCSysclockSource source);
+	public:
+		RCCSystemClock() { }
+		_TEMP static SysclkSource::RCCSysclockSource CurrentSource();
+		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL);
+	};
+
 
 }
 

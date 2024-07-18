@@ -134,16 +134,6 @@ typedef struct DnodeChain_t {
 		return (tchain_t*)chn;
 	}
 
-	typedef struct {
-		_Need_free tchain_t tchn;
-		int (*getnext)(void);
-		void (*seekback)(stdint chars);
-		//
-		stduint crtline;
-		stduint crtcol;
-		char* buffer, * bufptr;
-	} TokenParseUnit;
-
 #endif// ---- TOKEN NODE END
 
 #if defined(__cplusplus) || defined(_INC_CPP)
@@ -168,8 +158,16 @@ public:
 	Dnode* LocateNode(stduint idx) const;// (D)Node Special
 	virtual stduint Locate(pureptr_t p_val, bool fromRight) const;
 	// Index First One
-	inline Dnode* LocateNode(pureptr_t content) {
-		return LocateNode(Locate(content, false));
+	inline Dnode* LocateNode(pureptr_t content, _tocomp_ft cmp = 0) {
+		Dnode* res = nullptr, * crt = root_node;
+		if (!cmp) while (crt) {
+			if ((crt->offs == content)) { res = crt; break; }
+			else crt = crt->next;
+		}
+		else while (crt)
+			if (!cmp(crt->offs, content)) { res = crt; break; }
+			else crt = crt->next;
+		return res;
 	}
 	//
 	stduint Count() { return Length(); }
@@ -260,4 +258,7 @@ Dnode* DchainLocateNode(dchain_t* chn, stduint idx);
 void   DnodeChainAdapt(dchain_t* chn, Dnode* root, Dnode* last, stdint count_dif);
 
 #endif
+
+#include "tnode.h"
+
 #endif// !_INC_DNODE

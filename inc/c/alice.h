@@ -39,6 +39,9 @@ typedef void(symbol_t)(void);
 
 #if defined(__cplusplus) && !defined(_INC_CPP)
 	#define _INC_CPP
+	#define _CALL_C extern "C"
+#else	
+	#define _CALL_C
 #endif
 
 #ifndef _INC_CPP
@@ -94,6 +97,8 @@ extern "C++" {
 #define asrtequ(x,y) if((x)==(y))(x) // Assert Value
 #define stepval(x) (!x)?0:x // do not nested by "()" !
 	// E.g. paralext = stepval(subtail)->next;
+
+#define Ranginc(i,range) ++(i) %= range
 
 #define If(con) if(0||con) //<=> if(1&&con) : avoid error such as mixing "a=0" and "a==0"
 

@@ -84,11 +84,7 @@ namespace uni {
 				DnodeChainAdapt(root_node, last_node, +1);
 			}
 		}
-		else {
-			if (onleft)
-				Push(addr);
-			else Push(addr, false);
-		}
+		else new_nod = Push(addr, onleft);
 		return new_nod;
 	}
 }

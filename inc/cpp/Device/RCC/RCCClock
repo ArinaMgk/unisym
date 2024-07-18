@@ -170,6 +170,7 @@ namespace uni {
 		RCCSystemClock() { }
 		_TEMP static SysclkSource::RCCSysclockSource CurrentSource();
 		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL);
+		stduint getFrequency();//aka HAL_RCC_GetSysClockFreq
 	};
 
 

@@ -26,6 +26,8 @@
 
 using namespace uni;
 
+// SysTick_Handler in SysTick.cpp
+
 extern "C" {
 
 	#if 0

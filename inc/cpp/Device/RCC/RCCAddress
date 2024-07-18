@@ -37,10 +37,6 @@
 	#define _RCC_CR_POSI_PLLReady  25
 
 // CFGR
-	#define _RCC_PLLCFGR_POSI_PLLM   0
-	#define _RCC_PLLCFGR_POSI_PLLN   6
-	#define _RCC_PLLCFGR_POSI_PLLP   16
-	#define _RCC_PLLCFGR_POSI_PLLQ   24
 	#define _RCC_CFGR_POSI_SCLKSWSource   2 // 2b
 	#define _RCC_CFGR_MASK_SCLKSWSource   0x0000000C // System-Clock Switch Status
 	#define _RCC_CFGR_POSI_Switch         0
@@ -111,6 +107,10 @@
 
 // RCC 0x40023800~0x40023BFF
 
+#define _RCC_CFGR_POSI_HPRE 4
+#define _RCC_CFGR_MASK_HPRE 0x000000F0 // 0xF<<4
+
+
 // RCC_AHB1ENR [default 0x00100000]
 #define _RCC_AHB1ENR_ADDR 0x40023830
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOA       0
@@ -123,7 +123,14 @@
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOH       7
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOI       8
 
+#define _RCC_PLLCFGR_POSI_PLLM   0
+#define _RCC_PLLCFGR_MASK_PLLM   0x0000003F
+#define _RCC_PLLCFGR_POSI_PLLN   6
+#define _RCC_PLLCFGR_MASK_PLLN   0x00007FC0
+#define _RCC_PLLCFGR_POSI_PLLP   16
+#define _RCC_PLLCFGR_MASK_PLLP   0x00030000
 #define _RCC_PLLCFGR_POSI_PLLSRC 22 // 1b. G'DP for HSE, D'DP for HSI
+#define _RCC_PLLCFGR_POSI_PLLQ   24
 
 #elif defined(_MCU_CW32F030)
 

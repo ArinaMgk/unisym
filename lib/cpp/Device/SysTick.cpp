@@ -20,14 +20,16 @@
 	limitations under the License.
 */
 
+#include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/cpp/Device/SysTick"
 #include "../../../inc/cpp/Device/NVIC"
+
 
 #define SysTick_CTRL_CLKSOURCE (1UL << 2)
 #define SysTick_CTRL_TICKINT   (1UL << 1) 
 #define SysTick_CTRL_ENABLE    (1UL << 0)
 
-
+#ifdef _MCU_STM32F10x
 namespace uni {
 	bool SysTick::enClock(uint32 SysCoreClock, uint32 Hz) {
 		NVIC_t nvic;
@@ -41,6 +43,22 @@ namespace uni {
 	}
 
 }
+
+#elif defined(_MCU_STM32F4x)
+
+namespace uni {
+	bool SysTick::enClock(uint32 Hz) {//aka HAL_InitTick
+		//aka HAL_SYSTICK_Config core_cm4::SysTick_Config
+		if (SystemCoreClock / Hz > 0xFFFFFF/*wo CortexM4*/) return false;
+		ref().LOAD = SystemCoreClock / Hz - 1;
+		NVIC.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
+		ref().VAL = 0;
+		ref().CTRL = SysTick_CTRL_CLKSOURCE | SysTick_CTRL_TICKINT | SysTick_CTRL_ENABLE;
+		return true;
+	}
+}
+
+#endif
 
 extern "C" {
 	volatile stduint delay_count = 0;

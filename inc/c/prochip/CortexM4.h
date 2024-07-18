@@ -1,7 +1,8 @@
-// ASCII C++-11 TAB4 CRLF
-// LastCheck: 20240430
-// AllAuthor: @dosconio
-// ModuTitle: Integer based on ChrA/Br
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: (Processor, not MCU and not ARCH) Cortex-M4
+// Codifiers: @dosconio: 20240718
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,27 +20,15 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_STM32F407ZE_X
-#define _INC_MCU_STM32F407ZE_X
-#ifndef _MCU_STM32F407ZE
-#define _MCU_STM32F407ZE
-#endif
-#ifndef _MCU_STM32F4x
-#define _MCU_STM32F4x
-#endif
-#ifndef _MCU_STM32
-#define _MCU_STM32
-#endif
-/*
-F103:
-- V : 100 Pin
-- E : 512 Kilobyte Flash
-*/
+#ifndef _INC_Processor_CortexM4
+#define _INC_Processor_CortexM4
 
-#undef RCC
-#include "../../../c/stdinc.h"
-#include "../../Device/GPIO"
-#include "../../Device/RCC/RCC"
-#include "../../Device/SysTick"
+//{TODO} core_cm4.h
+//{TODO} up-abstract from STM32F4
+
+#include "../stdinc.h"
+
+#include "_COM_CORTEX_M_3_4.h"
+
 
 #endif

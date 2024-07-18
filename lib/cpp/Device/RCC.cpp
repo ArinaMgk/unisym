@@ -25,6 +25,7 @@
 
 #include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/cpp/Device/Flash"
+#include "../../../inc/cpp/Device/SysTick"
 
 namespace uni {
 #if defined(_MCU_STM32F10x)
@@ -66,12 +67,15 @@ namespace uni {
 
 	Flash_t Flash;
 
-	extern "C" stduint SystemCoreClock;
+	// naming from system_*chip*.c
+	uint32_t SystemCoreClock = 16000000;
+	const uint8_t AHBPrescTable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9 };
+	const uint8_t APBPrescTable[8] = { 0, 0, 0, 0, 1, 2, 3, 4 };
 
 	bool RCC_t::setClock(SysclkSource::RCCSysclockSource source) {
 		using namespace RCCReg;
 		if (source == SysclkSource::HSE /*{TODO} || source == SysclkSource::HSI*/) {
-			bool use_HSE = true;
+			//{}bool use_HSE = true;
 			//{TODO} RCC->CFGR = 0x00000000;// reset
 			RCC[APB1ENR].setof(_RCC_APB1ENR_POSI_ENCLK_PWR);//aka __HAL_RCC_PWR_CLK_ENABLE
 			//{} __HAL_PWR_VOLTAGESCALING_CONFIG // The voltage scaling allows optimizing the power consumption when the device is clocked below the maximum system frequency
@@ -80,13 +84,12 @@ namespace uni {
 			if (RCC.setFlash() && RCC.AHB.setMode() && RCC.Sysclock.setMode() && RCC.setFlash(true) && RCC.APB1.setMode(2) && RCC.APB2.setMode(1)); else
 				return false;
 
-			//SystemCoreClock = HAL_RCC_GetSysClockFreq() >> AHBPrescTable[(RCC->CFGR & RCC_CFGR_HPRE) >> RCC_CFGR_HPRE_Pos];//{TODO in the near future} set SystemCoreClock
-			//{TODO in the near future} HAL_InitTick
+			SystemCoreClock = RCC.Sysclock.getFrequency() >> AHBPrescTable[(RCC[CFGR] & _RCC_CFGR_MASK_HPRE) >> _RCC_CFGR_POSI_HPRE];
+			SysTick::enClock(1000);// default 1000Hz
 
 			Reference DBGMCU_IDCODE(0xE0042000UL /*DBGMCU_BASE+0x00*/);
 			if ((DBGMCU_IDCODE >> 16) == 0x1001)// HAL_GetREVID() ぞ ((DBGMCU->IDCODE) >> 16U) よ if (HAL_GetREVID() == 0x1001) // STM32F405x/407x/415x/417x Revision Z devices: prefetch is supported
 				Flash[FlashReg::ACR].setof(_Flash_ACR_POSI_PRFTEN);//aka __HAL_FLASH_PREFETCH_BUFFER_ENABLE(); ぞ (FLASH->ACR |= FLASH_ACR_PRFTEN) // Enable the Flash prefetch
-			return true;
 		}
 		else return false;
 		return true;
@@ -127,7 +130,35 @@ namespace uni {
 	SysclkSource::RCCSysclockSource RCCSystemClock::CurrentSource() {
 		return (SysclkSource::RCCSysclockSource)(RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_SCLKSWSource);
 	}
-	
+
+	stduint RCCSystemClock::getFrequency() {
+		using namespace RCCReg;
+		uint32_t pllm = 0U, pllvco = 0U, pllp = 0U;
+		uint32_t sysclockfreq = 0U;
+
+		switch (CurrentSource()) {
+		case SysclkSource::HSE:
+			sysclockfreq = 25000000U; // HSE_VALUE
+			break;
+		case SysclkSource::PLL:
+			// PLL_VCO = (HSE_VALUE or HSI_VALUE / PLLM) * PLLN
+			// SYSCLK = PLL_VCO / PLLP
+			pllm = RCC[PLLCFGR] & _RCC_PLLCFGR_MASK_PLLM;
+			pllvco = (uint32_t)((((uint64_t)
+				(/*__HAL_RCC_GET_PLL_OSCSOURCE()*/ RCC[PLLCFGR].bitof(_RCC_PLLCFGR_POSI_PLLSRC) ? 25000000U : 16000000U)
+				* ((uint64_t)((RCC[PLLCFGR] & _RCC_PLLCFGR_MASK_PLLN) >> _RCC_PLLCFGR_POSI_PLLN)))) / (uint64_t)pllm);
+
+			pllp = ((((RCC[PLLCFGR] & _RCC_PLLCFGR_MASK_PLLP) >> _RCC_PLLCFGR_POSI_PLLP) + 1U) * 2U);
+			sysclockfreq = pllvco / pllp;
+			break;
+		case SysclkSource::HSI:
+		default:
+			sysclockfreq = 16000000U; // F4 HSI_VALUE
+			break;
+		}
+		return sysclockfreq;
+	}
+
 	bool RCCOscillatorHSE::setMode() { //aka HAL_RCC_OscConfig
 			//{TEMP} fixed parameters
 			/*

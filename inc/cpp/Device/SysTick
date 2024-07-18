@@ -23,9 +23,13 @@
 #ifndef _INC_DEVICE_TOKI_SysTick_X
 #define _INC_DEVICE_TOKI_SysTick_X
 
+#include "../unisym"
+
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+
 #define ADDR_SysTick_Map 0xE000E010
 
-#include "../unisym"
+#undef SysTick
 
 namespace uni {
 	typedef struct SysTick_Map
@@ -35,13 +39,34 @@ namespace uni {
 		uint32 VAL;   // 0x008 (R/W)  SysTick Current Value Register
 		uint32 CALIB; // 0x00C (R/ )  SysTick Calibration Register
 	} SysTick_Map;
+}
+#endif
+
+#ifdef _MCU_STM32F10x
+
+
+
+namespace uni {
+	
 
 	#undef SysTick
 	class SysTick {
 	public:
-		static bool enClock(uint32 SysCoreClock, uint32 Hz);
+		static bool enClock(uint32 SysCoreClock, uint32 Hz);//{TODO} remove SysCoreClock
 	};
 }
+
+#elif defined(_MCU_STM32F4x) // Cortex-M4
+
+namespace uni {
+	class SysTick {
+	public:
+		static bool enClock(uint32 Hz);
+		static SysTick_Map& ref() { return *(SysTick_Map*)ADDR_SysTick_Map; }
+	};
+}
+
+#endif
 
 extern "C" void SysDelay(stduint unit);
 

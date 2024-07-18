@@ -24,12 +24,21 @@
 #define _INC_DEVICE_NVIC_X
 
 #include "../unisym"
+#include "../reference"
+#include "../interrupt"
+
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+
+#undef NVIC
+
+#define _NVIC_PRIO_BITS 4
+
+#endif
+
 
 #if defined(_MCU_STM32F10x)
-#include "../interrupt"
 #include "../../c/prochip/CortexM3.h"
-#undef NVIC
-#define _NVIC_PRIO_BITS 4
+
 
 namespace uni {
 	struct NVIC_Map {
@@ -75,6 +84,40 @@ namespace uni {
 	extern NVIC_t NVIC;
 
 }
+
+#elif defined(_MCU_STM32F4x)
+#include "../../c/prochip/CortexM4.h"
+
+namespace uni {
+	namespace NVICReg {
+		typedef enum {
+			ISER = 0x000 >> 2,
+			ICER = 0x080 >> 2,
+			ISPR = 0x100 >> 2,
+			ICPR = 0x180 >> 2,
+			IABR = 0x200 >> 2,
+			IP0  = 0x300 >> 2,
+			STIR = 0xE00 >> 2,
+		} NVICReg;
+	}
+
+	class NVIC_t {
+	public:
+		Reference operator[](NVICReg::NVICReg idx) {
+			return Reference(_NVIC_BASE + (((stduint)idx) << 2));
+		}
+		SysCtrlBlock_Map* scbmap;
+		uint32 getPriorityGroup();
+		uint8* getTable(stduint idx = 0) { return ((uint8*)&self[NVICReg::IP0]) + idx; }
+		void setPriority(Request_t req, uint32 priority);
+		void setPriority(Request_t req, uint32 prepriority, uint32 subpriority);
+
+	};
+
+
+	extern NVIC_t NVIC;
+}
+
 
 #endif
 

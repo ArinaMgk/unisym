@@ -50,11 +50,6 @@ namespace uni {
 	
 	
 	struct TokenParseManager {
-		/*TODO
-			DchainInit
-			DchainDrop
-		*/
-
 		Dchain dc;
 		TokenParseManager(int (*getnext)(void), void (*seekback)(stdint chars), char* buffer) : dc() {
 			in_tpu.getnext = getnext;
@@ -62,14 +57,32 @@ namespace uni {
 			in_tpu.crtcol = in_tpu.crtline = 1;
 			in_tpu.buffer = buffer;
 			in_tpu.bufptr = buffer;
-			dc.func_free;////
+			//
+			DchainInit(&in_tpu.tchn);
+			in_tpu.tchn.extn_field = sizeof(uni::TnodeField);
+			dc.func_free;//{TODO}
+			inntpu_avail = outtpu_avail = false;
 		}
-		void TokenParse() { 
+		~TokenParseManager() {
+			//{TODO}
+		}
+		bool TokenParse() { 
 			StrTokenAll(&in_tpu);
+			inntpu_avail = true;
+			uni::Dnode* crt = in_tpu.tchn.root_node;
+			if (crt) do {
+				dc.Append(crt->offs, false)->type = crt->type;
+			} while (crt = crt->next);
+			DchainDrop(&in_tpu.tchn);
+			inntpu_avail = false;
+			outtpu_avail = true;
+			return true;
 		}
 	protected:
 		//{TEMP} now C++ is powerful but C, so we use red tapes.
 		TokenParseUnit in_tpu;// for token
+		bool inntpu_avail;
+		bool outtpu_avail;
 	};
 
 }

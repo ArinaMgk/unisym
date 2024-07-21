@@ -31,6 +31,12 @@
 
 namespace uni {
 
+	bool Nnode::isEldest(Nnode* nod) {
+		if (!nod->left) return true; // root node
+		return nod && nod->left->subf == nod;
+	}
+
+	
 #define tmpl(...) __VA_ARGS__ NnodeChain
 
 	tmpl(stduint)::Length() const {
@@ -63,7 +69,9 @@ namespace uni {
 	}
 
 	tmpl(Nnode*)::Remove(Nnode* nod) {
-		return NnodeRemove(nod, func_free);
+		Nnode* nex = NnodeRemove(nod, func_free);
+		asrtequ(root_node, nod) = nex;
+		return nex;
 	}
 	
 	tmpl(bool)::Exchange(Nnode* idx1, Nnode* idx2) {
@@ -125,6 +133,16 @@ namespace uni {
 			((char*)newleft->offs)[idx] = 0;
 			return NNODE_DIVSYM_MIDD;
 		}
+	}
+
+	tmpl(Nnode*)::Receive(Nnode* insnod, DnodeChain* dnod, bool onleft) {
+		Dnode* crt = dnod->Root();
+		if (crt) do {
+			(insnod = Append(crt->offs, onleft, insnod))->type = crt->type;
+		} while (crt = crt->next);
+		dnod->func_free = nullptr;
+		dnod->~DnodeChain();
+		return insnod;
 	}
 
 #undef tmpl

@@ -5,6 +5,10 @@ dg-publish: true
 
 > The meaning of UNISYM is not the perfect, but herself.
 
+### Setup UNISYM
+
+1. set the environment variables: `ulibpath` and others. detail to refer [Covenant](./4-Covenant.md).
+
 ### About Generation-3
 
 Before `U2025SPR`, although some new characters will be added, the old style will be kept, but it is not recommended to use them.

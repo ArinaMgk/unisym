@@ -27,6 +27,7 @@ nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail)
 {
 	if (subhead->left == subtail)// for empty parens and parend "(" ")"
 		return nod;
+	if (None == (pureptr_t)subtail) subtail = subhead;
 #ifdef _LIB_DEBUG_CHECK_MORE
 	{
 		nnode* crt = subhead;
@@ -39,14 +40,15 @@ nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail)
 	}
 #endif
 	// Above: "(" no right, subhead zo ")"; ")" no left, subtail zo "("
-	nnode* subleft = subhead->left, * subright = subtail ? subtail->next : 0;
+	nnode* subleft = Nnode_getLeft(subhead), * subright = (subtail) ? subtail->next : 0;
 	nod->subf = subhead;
 	//{TODO} deal with nod's children
 	// [nod] [] ... [sub1] [sub2] ... []
-	if (Nnode_isEldest(subhead)) subleft->subf = subright;
+	if (Nnode_isEldest(subhead) && subhead->pare != nod)
+		subleft->subf = nod; //ISSUE subright
 	if (subleft) subleft->next = subright;
 	if (subright) subright->left = subleft;
-	subhead->left = nod;
+	subhead->left = nod;// parent
 	subtail->next = 0;
 	return nod;
 }

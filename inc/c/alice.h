@@ -116,7 +116,7 @@ extern "C++" {
 #define zalc(size) (void*)(calloc(size,1))
 #endif
 
-#define zalloc(x) calloc((x),1)// Zero Alloc
+#define zalloc(x) zalc(x)// Zero Alloc
 #define zalcof(x) (x*)zalc(sizeof(x))
 #define malcof(x) (x*)malc(sizeof(x))
 #define ralcof(x,addr,nums) (x*)realloc((void*)(addr),(nums)*sizeof(x))

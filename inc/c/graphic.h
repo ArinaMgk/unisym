@@ -24,8 +24,39 @@
 #define _INC_GRAPHIC
 
 #include "stdinc.h"
+#include "./graphic/color.h"
 
+#ifdef _INC_CPP
+namespace uni {
+#endif
 
+	typedef struct PointD {
+		stduint x, y;
+	public:
+		PointD(stduint x = 0, stduint y = 0) : x(x), y(y) {}
+	} Point, Size2;
 
+	struct Position {
+		stdint x, y, z, t;
+	};
+
+	struct Rectangle {
+		stduint x, y;// of vertex
+		stduint width, height;
+		Color color;
+		bool filled; // not hollow
+	public:
+		Point getVertex() {
+			return Point(x, y);
+		}
+		Size2 getSize() {
+			return Size2(width, height);
+		}
+	};
+
+#ifdef _INC_CPP
+}
+#endif
+	
 #endif
 

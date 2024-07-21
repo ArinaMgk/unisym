@@ -40,7 +40,8 @@ Nnode* NnodeInsert(Nnode* nod, pureptr_t offs, stduint typlen, stduint extn_fiel
 				nod->left->next = tmp;
 		}
 		nod->left = tmp;
-		AssignParallel(tmp->next, nod->next, tmp);
+		tmp->next = nod;
+		// AssignParallel(tmp->next, nod->next, tmp);
 	}
 	else // right
 	{

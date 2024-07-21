@@ -236,6 +236,10 @@ public:
 		return *this;
 	}
 
+	void setExtnField(stduint ext) {
+		extn_field = ext;
+	}
+
 	void SortByInsertion();
 	
 };
@@ -243,7 +247,8 @@ public:
 using DnodeChain = Dchain;
 
 } // C++ END
-#else
+namespace uni { extern "C" {
+#endif
 
 size_t DnodeCount(const Dnode* chn);//{TODO} count in the next direction
 	
@@ -257,7 +262,10 @@ Dnode* DchainAppend(dchain_t* chn, pureptr_t addr, bool onleft, Dnode* nod);
 Dnode* DchainLocateNode(dchain_t* chn, stduint idx);
 void   DnodeChainAdapt(dchain_t* chn, Dnode* root, Dnode* last, stdint count_dif);
 
-#endif
+#ifdef _INC_CPP
+}}
+#endif // _INC_CPP
+
 
 #include "tnode.h"
 

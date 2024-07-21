@@ -27,4 +27,20 @@
 #include "../c/consio.h"
 #include "cinc"
 
+#ifdef _INC_CPP
+namespace uni {
+	class Console {
+	protected:
+		
+	public:
+		// Clear Screen and empty I/O Buffers
+		static void Clear() {
+			//{TODO} buffers for
+			ConClearScreen();
+		}
+
+	};
+}
+#endif
+
 #endif

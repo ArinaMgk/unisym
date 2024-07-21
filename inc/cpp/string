@@ -32,18 +32,26 @@
 #include "property"
 #include <iostream>//{TEMP}
 
+/*TODO
+ * fit BString
+ * Multi-charset
+ */
+
 //{} Append property-call for += ... operator
 namespace uni {
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String: public uni::Property<String> {
-	private:
+	protected:
 		size_t counts;
 		char* addr;
 		bool no_termi_char;
+		stduint limits;// astring or bstring(non-0)
 	public:
 		String(const char* str_asciz = "");
 		String(const String& str);
-		String(char* str);
+		String(char* str) : String((const char*) str) {}
+		// String(char* str);
+		String(stduint buflen);
 		~String();
 		//
 		enum StringCharset {
@@ -53,15 +61,19 @@ namespace uni {
 		};
 		
 		size_t length();
-		const char* reflect() const;
+		char* reflect(size_t plus = 0);
+		const char* reference() const;
 
+		/*
 		operator const char* () const {
 			return this->reflect();
-		}
+		}*/
 
 		// + String, int and built-in types
 		// += make use of `+`
 		String& operator=(const String& str);
+		String& operator=(const char* addr);
+		//String& operator=(char* addr) { return(self = uni::String(addr)); }
 
 		String operator+ (String& str) {
 			return String(StrHeapAppend(this->addr, str.addr));
@@ -69,6 +81,7 @@ namespace uni {
 		String& operator+=(const String& str) {
 			//*this = *this + str;
 			srs(this->addr, StrHeapAppend(this->addr, str.addr));
+			this->counts = StrLength(this->addr);
 			return *this;
 		}
 
@@ -89,12 +102,19 @@ namespace uni {
 		// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }
 		// const char* operator[] (const char* str) { return StrIndexString(addr, str); }
 
-		friend std::ostream& operator<< (std::ostream& out, const String& str);
+		_TEMP friend std::ostream& operator<< (std::ostream& out, const String& str);
 
 		static String Heap(const String& str) { return String((const char*)(str.addr)); }
 
+		// not recommend: provide operator const char*()
 
-	};
+		String& Refresh() {
+			counts = minof(StrLength(addr), limits);
+			return self;
+		}
+
+
+	};//{TODO} option for allocating extra area for chars, aka vec<char>
 	
 }
 

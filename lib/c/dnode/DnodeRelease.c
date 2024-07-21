@@ -24,18 +24,19 @@
 #include "../../../inc/c/dnode.h"
 
 // [Alloc] in the direction of right.
-void DnodesRelease(Dnode* first, _tofree_ft _dnode_freefunc)
+//{TODE} void DnodesRelease(Dnode* first, _tofree_ft _dnode_freefunc)
+void DchainDrop(dchain_t* chain)
 {
-	if (!first) return;
+	if (!chain) return;
 
-	Dnode* crt = DnodeRewind(first);
+	Dnode* crt = chain->root_node;
 	while (crt)
 	{
 		Dnode* nod = crt;
 		crt = crt->next;
 		asserv(nod->left)->next = nod->next;
 		asserv(nod->next)->left = nod->left;
-		asserv(_dnode_freefunc)((pureptr_t)nod);
+		asserv(chain->func_free)((pureptr_t)nod);
 		memf(nod);
 	}
 

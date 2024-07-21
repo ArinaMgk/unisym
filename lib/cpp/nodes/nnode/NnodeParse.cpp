@@ -30,13 +30,13 @@ static bool NestedTokenParse(uni::NestedParseUnit* npu);
 
 namespace uni {
 	// Origin from Haruno yo RFT27, principle of "Every action is a function, every object is in memory."; RFB19, RFV13, 20240706 Rewrite
-	NestedParseUnit::NestedParseUnit(TnodeChain& tchain, NodeChain* TOGCChain) : TokenOperatorGroupChain(TOGCChain) {
+	NestedParseUnit::NestedParseUnit(TnodeChain& tchain, NodeChain* TOGCChain, stduint extn_fielen) : TokenOperatorGroupChain(TOGCChain) {
 		linemn_no = column_no = 0;
 		msg_fail = 0;
-		// TokenOperatorGroupChain->func_free = NodeHeapFreeSimple;
 		parsed = false;
 		chain = zalcof(NnodeChain);
 		new (chain) NnodeChain(true);
+		chain->extn_field = extn_fielen;
 		
 		int state = 0;
 		Tnode* crttn = 0;
@@ -68,16 +68,14 @@ namespace uni {
 		tchain.Remove(tchain.Root());
 
 		// Restructure for nested
-		tchain.func_free = nullptr; // tchain.Onfree(0, false);
 		crttn = (Tnode*)tchain.Root();
 		while (crttn)
 		{
 			chain->Append(crttn);
-			crttn = (Tnode*)tchain.Remove(crttn);
+			crttn = (Tnode*)tchain.Remove((Dnode*)crttn);
 		}
 
 		tchain.~TnodeChain();
-		memf(&tchain)
 		parsed = true;
 	}
 
@@ -119,11 +117,12 @@ namespace uni {
 					{
 						cases = chain->DivideSymbols(crt, 1, i);
 						if (cases == NNODE_DIVSYM_HEAD || cases == NNODE_DIVSYM_MIDD) exist_sym = true;
-						Nnode* fn = last_parens->left;// assume not anonymity
-						if (!(last_parens->left && last_parens->left->type == tok_identy &&
-							(TnodeGetExtnField(*last_parens->left))->row == (TnodeGetExtnField(*last_parens))->row))// anonymity
+						Nnode* fn = last_parens->getLeft();// assume not anonymity
+						if (!(last_parens->getLeft() && last_parens->getLeft()->type == tok_identy &&
+							(TnodeGetExtnField(*last_parens->getLeft()))->row == (TnodeGetExtnField(*last_parens))->row))// anonymity
 							fn = chain->Append(nullptr, true, last_parens); // fn = chain->Insert(last_parens, true);
-						NnodeBlock(fn, last_parens->next, crt->left);// chain->Adopt(fn, last_parens->next, crt->left);
+						NnodeBlock(fn, last_parens->next, crt->getLeft())->type = tok_func;// chain->Adopt(fn, last_parens->next, crt->getLeft());
+						
 						chain->Remove(last_parens); if (last_parens == tnod) tnod = fn;
 						chain->Remove(crt);
 						crt = fn;
@@ -131,9 +130,8 @@ namespace uni {
 							return false;
 						if (merge_parensd && fn->type == tok_func && !fn->addr) {
 							if (fn->subf && fn->subf->next == 0) {
-								// assert fn->subf->left == 0
-								fn->subf->pare = fn->pare;
-								fn->subf->left = fn;
+								// assert fn->subf->getLeft() == 0
+								//{TODO} fn->subf->pare = fn->pare;
 								if (fn->subf->next = fn->next)
 									fn->next->left = fn->subf;
 								fn->next = fn->subf;
@@ -149,7 +147,7 @@ namespace uni {
 			}
 			if (!crt) return true;
 			crt = crt->next;
-			if (crt && (TnodeGetExtnField(*crt)->row != TnodeGetExtnField(*crt->left)->row)) last_parens = 0;
+			if (crt && (TnodeGetExtnField(*crt)->row != TnodeGetExtnField(*crt->getLeft())->row)) last_parens = 0;
 		}
 		//{TODO} if (crtnest) erro("Match error");
 		return ParseOperator(tnod, chain);

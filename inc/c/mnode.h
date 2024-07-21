@@ -44,20 +44,27 @@ namespace uni
 		_tocomp_ft func_comp;
 		Mchain() : chn() { func_comp = nullptr; }
 		~Mchain() {}
-		Mnode* operator[] (pureptr_t key) { return (Mnode*)chn.LocateNode(key, func_comp); }
+		
+		// Auto Map
+		Mnode& operator[] (pureptr_t key) { 
+			Letvar(res, Mnode*, chn.LocateNode(key, func_comp));
+			return *(res ? res : Map(key, nullptr));
+		}
+
 		Dchain& refChain() { return chn; }
 		bool isExist(pureptr_t key, Dnode** val_ref = 0) {
 			Dnode* res = chn.LocateNode(key, func_comp);
 			asserv(val_ref)[0] = res;
 			return res != nullptr;
 		}
-		void Map(pureptr_t key, pureptr_t val) {
+		Mnode* Map(pureptr_t key, pureptr_t val) {
 			Dnode* val_node;
 			if (isExist(key, &val_node)) {
 				chn.Remove(val_node);
 			}
 			val_node = chn.Append(key, false);
 			val_node->type = (stduint)val;
+			return (Mnode*)val_node;
 		}
 		void unMap(pureptr_t key) {
 			chn.Remove(chn.LocateNode(key, func_comp));

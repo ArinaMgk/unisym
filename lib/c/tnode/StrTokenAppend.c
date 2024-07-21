@@ -26,9 +26,11 @@
 
 Dnode* StrTokenAppend(tchain_t* chn, const char* content, size_t contlen, size_t ttype, size_t row, size_t col)
 {
+	if (!contlen && ttype != tok_string) return 0;
 	chn->last_node = DnodeInsert(chn->last_node, (pureptr_t)StrHeapN(content, contlen), ttype, sizeof(TnodeField), 1/*ON_RIGHT*/);
 	TnodeField* tfield = TnodeGetExtnField(*chn->last_node);
 	tfield->row = row;
 	tfield->col = col;
+	if (!chn->root_node) return chn->root_node = chn->last_node;
 	return chn->last_node;
 }

@@ -31,11 +31,12 @@ void NnodeHeapFreeSimple(pureptr_t inp) {
 Nnode* NnodeRemove(nnode* nod, _tofree_ft freefunc)
 {
 	Nnode* res = nod->next;
-	if (Nnode_isEldest(nod)) nod->pare->subf = nod->next;
 	if (nod->subf) NnodesRelease(nod->subf, freefunc);
-	if (nod->left) nod->left->next = nod->next;
+	if (Nnode_isEldest(nod) && nod->pare) nod->pare->subf = nod->next;
+	else if (nod->left) nod->left->next = nod->next;
 	if (nod->next) nod->next->left = nod->left;
-	if (freefunc) freefunc(nod); else memf(nod);
+	if (freefunc) freefunc(nod);
+	memf(nod);
 	return res;
 }
 
@@ -49,7 +50,8 @@ void NnodesRelease(nnode* nod, _tofree_ft freefunc)
 	{
 		if (crt->subf) NnodesRelease(crt->subf, freefunc);
 		next = crt->next;
-		if (freefunc) freefunc(crt); else memf(crt);
+		if (freefunc) freefunc(crt);
+		memf(crt);
 		crt = next;
 	}
 	if (left) {

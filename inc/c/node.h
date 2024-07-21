@@ -124,7 +124,7 @@ public:
 	template <typename type1> inline Chain& operator<<(const type1& obj) {
 		Append((pureptr_t)&obj, false);
 		return *this;
-	}
+	}// do not pass pointers to what you what but itself!
 	inline Chain& operator<<(const char* addr) {
 		Append(addr);
 		return *this;

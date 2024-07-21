@@ -28,7 +28,7 @@
 // - ONF : order flag, if the dnode has and only has one dnode
 
 #include "../../../inc/c/dnode.h"
-
+#include "../../../inc/c/ustring.h"
 
 static const char _USYM_IDEN_[] = {
 	"UNISYM under Apache 2.0 Licence @ArinaMgk, @dosconio"
@@ -38,3 +38,8 @@ void DnodeHeapFreeSimple(pureptr_t inp) {
 	Letvar(nod, Dnode*, inp);
 	memf(nod->offs);
 }
+
+void DchainInit(dchain_t* chain) {
+	MemSet(chain, 0, sizeof(dchain_t));
+}
+

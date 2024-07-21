@@ -122,6 +122,7 @@ static size_t StrTokenAll_NumChk(TokenParseUnit* tpu)
 #define _Default_Row_or_Col 1
 
 
+#define apd() StrTokenAppend(&tpu->tchn, tpu->bufptr = buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento)
 
 void StrTokenAll(TokenParseUnit* tpu)
 {
@@ -145,10 +146,9 @@ void StrTokenAll(TokenParseUnit* tpu)
 			if (strtok == c)// exit
 			{
 				CrtTType = tok_string;
-				buffer[CrtTLen] = 0;
-				StrTokenAppend(&tpu->tchn, buffer, CrtTLen + 1, CrtTType, crtline_ento, crtcol_ento);// including terminated-symbol
+				buffer[CrtTLen++] = 0;
+				apd();// including terminated-symbol
 				crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol;
-				tpu->bufptr = buffer;
 				YoString = 0;
 				CrtTLen = 0;
 				CrtTType = tok_any;
@@ -262,9 +262,8 @@ void StrTokenAll(TokenParseUnit* tpu)
 			if (CrtTLen)
 			{
 				tpu->crtcol--;
-				StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+				apd();
 				crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
-				tpu->bufptr = buffer;
 				CrtTLen = 0;
 			}
 			tpu->crtline++;
@@ -273,9 +272,8 @@ void StrTokenAll(TokenParseUnit* tpu)
 		}
 		else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && (TnodeGetExtnField(*tpu->tchn.last_node)->row != tpu->crtline || CrtTType == tok_any && !tpu->tchn.last_node->offs)))// Line Comment
 		{
-			StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+			apd();
 			crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
-			tpu->bufptr = buffer;
 			CrtTLen = 0;
 			CrtTType = (c == _TNODE_COMMENT) ? tok_comment : tok_direct;
 			while ((c = this_getn(tpu)) != EOF && c != '\n' && c != '\r')
@@ -284,33 +282,30 @@ void StrTokenAll(TokenParseUnit* tpu)
 				*tpu->bufptr++ = c;
 			}
 			if (c == EOF)break;
-			StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+			apd();
 			crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
-			tpu->bufptr = buffer;
 			CrtTLen = 0;
 			CrtTType = tok_any;
 			this_back(tpu);
 		}
 		else if (c == '\"' || c == '\'')// enter
 		{
-			StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+			apd();
 			crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
 			CrtTLen = 0;
-			tpu->bufptr = buffer;
 			CrtTType = tok_string;
 			YoString = 1;
 			strtok = c;
 		}
 		else if ((ascii_isdigit(c)) && CrtTType != tok_identy &&
-			((CrtTType != tok_any && StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento) && (crtline_ento = tpu->crtline, crtcol_ento = tpu->crtcol)) || CrtTType == tok_any)
+			((CrtTType != tok_any && apd() && (crtline_ento = tpu->crtline, crtcol_ento = tpu->crtcol)) || CrtTType == tok_any)
 			&& (CrtTLen = StrTokenAll_NumChk(tpu)))
 		{
 			CrtTType = tok_number;
-			StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+			apd();
 			crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol;
 			CrtTType = tok_any;
 			CrtTLen = 0;// NOTICE!
-			tpu->bufptr = buffer;
 			continue;
 		}
 		else if (ascii_isalnum(c) || c == '_')
@@ -327,11 +322,10 @@ void StrTokenAll(TokenParseUnit* tpu)
 			}
 			else
 			{
-				StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+				apd();
 				crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
 				CrtTType = getctype(c);
 				CrtTLen = 1;
-				tpu->bufptr = buffer;
 				*tpu->bufptr++ = c;
 			}
 		}
@@ -349,14 +343,13 @@ void StrTokenAll(TokenParseUnit* tpu)
 			}
 			else
 			{
-				StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+				apd();
 				crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
 				CrtTLen = 1;
-				tpu->bufptr = buffer;
 				*tpu->bufptr++ = c;
 				CrtTType = getctype(c);
 			}
 		}
 	}
-	if (CrtTLen) StrTokenAppend(&tpu->tchn, buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento);
+	if (CrtTLen) apd();
 }

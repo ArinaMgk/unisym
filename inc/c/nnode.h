@@ -62,6 +62,10 @@ typedef struct Nnode
 		Nnode* crt = this; while (crt->next && (crt = crt->next)); return crt;
 	}
 
+	Nnode* getLeft() {
+		return isEldest() ? nullptr : left;
+	}
+
 	byte* GetExtnField() { return getExfield(*this); }
 	TnodeField* GetTnodeField() { return (TnodeField*)GetExtnField(); }
 
@@ -70,10 +74,8 @@ typedef struct Nnode
 		return this;
 	}
 
-	static bool isEldest(Nnode* nod) {
-		if (!nod->left) return 1; // root node
-		return nod->left->subf == nod;
-	}
+	static bool isEldest(Nnode* nod);
+	bool isEldest() { return isEldest(this); }
 
 #endif
 } Nnode, nnode;// {comb with nnode}
@@ -81,6 +83,10 @@ typedef struct Nnode
 inline static int Nnode_isEldest(Nnode* nod) {
 	if (!nod->left) return 1; // root node
 	return nod->left->subf == nod;
+}
+
+inline static Nnode* Nnode_getLeft(Nnode* nod) {
+	return Nnode_isEldest(nod) ? 0 : nod->left;
 }
 
 Nnode* NnodeInsert(Nnode* nod, pureptr_t offs, stduint typlen, stduint extn_field, int direction_right);
@@ -155,6 +161,12 @@ public:
 	template<typename type0> Nnode* Append(const type0& obj) {
 		return Append((pureptr_t)&obj, false);
 	}
+	Nnode* Append(Tnode* tn) {
+		Nnode* res = Append(StrHeap(tn->addr), false, 0, tn->type);
+		res->GetTnodeField()->col = tn->col;
+		res->GetTnodeField()->row = tn->row;
+		return res;
+	}
 	//
 	Nnode* Remove(Nnode* nod);
 	//
@@ -175,7 +187,7 @@ public:
 	NNODE_DIVSYM_RETYPE DivideSymbols(Nnode* inp, stduint width, stduint idx);
 	
 	//{TEMP} only for Nnode AREA
-	// ...
+	Nnode* Receive(Nnode* insnod, Dchain* dnod, bool onleft = false);
 
 };
 
@@ -190,7 +202,7 @@ public:
 	/*to free*/ char* msg_fail;
 	stduint linemn_no, column_no;
 	NodeChain* TokenOperatorGroupChain;
-	NestedParseUnit(TnodeChain& tchain, NodeChain* TOGCChain);// will destructure TnodeChain
+	NestedParseUnit(TnodeChain& tchain, NodeChain* TOGCChain, stduint extn_fielen);// will destructure TnodeChain
 	~NestedParseUnit();
 	NnodeChain* GetNetwork() { return chain; }
 	// Process:

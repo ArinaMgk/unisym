@@ -23,6 +23,21 @@
 #ifndef _INC_Color
 #define _INC_Color
 
+#ifdef _INC_CPP
+namespace uni {
+#endif
+	//[ATTR] little-endian
+	struct Color {
+		byte b, g, r, a; // union {x y z i} 
+		static Color From32(uint32 argb) {
+			Color color = *(Color*)&argb;
+			return color;
+		}
+	};
+#ifdef _INC_CPP
+}
+#endif
+
 // ❤
 #define _COLOR_AliceBlue 0x00F0F8FF
 

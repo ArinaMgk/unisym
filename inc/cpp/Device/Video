@@ -25,44 +25,19 @@
 
 #include "../unisym"
 #include "../cinc"
-#include "../../c/graphic/color.h"
+#include "../../c/graphic.h"
 #include "../cinc"
 
 namespace uni {
 
-	typedef struct DisplayI2d {
-		stduint x, y;
-	public:
-		DisplayI2d(stduint x = 0, stduint y = 0) : x(x), y(y) {}
-	} DisplayPoint, DisplaySize;
+	#define GrafColor32(c) Color::From32(c)
 
-	struct DisplayPosition {
-		stduint x, y, z;
-	};
-	//[ATTR] little-endian
-	struct DisplayColor {
-		byte b, g, r, a; // union {x y z i} 
-	};
-	// (i) need to support 32b
-	inline static DisplayColor DisplayColorFrom32(uint32 argb) {
-		DisplayColor color = *(DisplayColor*)&argb;
-		return color;
-	}
-	#define GrafColor32(c) DisplayColorFrom32(c)
-
-	struct DisplayRectangle {
-		stduint x, y;// of vertex
-		stduint width, height;
-		DisplayColor color;
-		bool filled;
-	public:
-		DisplayPoint getVertex() {
-			return DisplayPoint(x, y);
-		}
-		DisplaySize getSize() {
-			return DisplaySize(width, height);
-		}
-	};
+	typedef Point DisplayPoint;
+	typedef Size2 DisplaySize;
+	typedef Color DisplayColor;
+	typedef Rectangle DisplayRectangle;
+	
+	
 	static inline DisplayRectangle GrafRect(stduint x, stduint y, stduint w, stduint h, DisplayColor color, bool hollow = false) {
 		DisplayRectangle res;
 		res.x = x;

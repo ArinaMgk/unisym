@@ -6,18 +6,19 @@ dg-publish: true
 ## Component
 
 - Support for DEVK
-	- ISO/IEC 9899 - CPL (doing)
-	- Microsoft MSVC 2022
+	- ISO/IEC 9899 - CPL `doing`
+	- Microsoft Visual C++ (MSVC) 2022
 	- GNU GCC and DJ-Delorie DJGPP
 	- Nvidia CUDA NVCC
 	- the SDCC for i8051
 - Mechanism
 	- Memory Leaking Mechanism
+	- Uniformed Symbols and Fitness for languages and their implementations
 - Assembly
 	- Kasha OSDEV Kernel
 	- IBM PC MACROs for NASM and MSASM
 	- Inline for C/C++
-	- AASM (doing)
+	- AASM `doing`
 - Target
 	- PC OSDEV Processor
 	- QRS aka Embedded Controller
@@ -32,12 +33,12 @@ dg-publish: true
 - Marking and Programming
 	- Hardware Description (suspended)
 	- SCH-PCB of Electronics (suspended)
-	- Magice (doing)
+	- Magice `doing`
 	- C/C++
-	- DotNet C# and VB (doing)
-	- Rust crate (doing)
+	- DotNet C# and VB `doing`
+	- Rust crate `doing`
 - Auxiliary
-	- Qt (doing)
+	- Qt `doing`
 	- EasyX (suspended)
 - Data and Collections
 	- Hello World

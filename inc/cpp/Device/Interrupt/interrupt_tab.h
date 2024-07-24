@@ -22,6 +22,8 @@
 #ifndef _INC_Interrupt_Table
 #define _INC_Interrupt_Table
 
+typedef void (*Handler_t)(void);
+
 #if defined(_MCCA) //{TEMP} Use CPL
 
 #include "../../../c/stdinc.h"
@@ -193,7 +195,6 @@ typedef enum
 		DCD     DMA2_Channel3_IRQHandler   ; DMA2 Channel3
 		DCD     DMA2_Channel4_5_IRQHandler ; DMA2 Channel4 & Channel5
 __Vectors_End */
-typedef void (*Handler_t)(void);
 
 extern "C" {
 extern Handler_t FUNC_EXTI[];

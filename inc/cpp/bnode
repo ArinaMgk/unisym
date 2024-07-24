@@ -30,6 +30,11 @@
 #include "dnode"
 #include "math.h"
 
+/* TODO
+[ ] Index according to complete binary tree
+[ ] Combinate with NnodeChain
+*/
+
 namespace uni {
 	class Bnode : public Dnode {
 	public:

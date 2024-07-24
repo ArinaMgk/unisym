@@ -34,7 +34,7 @@ namespace uni
 {
 
 	struct Mnode : public Dnode {
-		pureptr_t operator= (pureptr_t val) { type = (stduint)val; }
+		pureptr_t operator= (pureptr_t val) { return (pureptr_t)(type = (stduint)val); }
 	};
 	
 	class Mchain {

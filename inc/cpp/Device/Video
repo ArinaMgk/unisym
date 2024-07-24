@@ -32,13 +32,13 @@ namespace uni {
 
 	#define GrafColor32(c) Color::From32(c)
 
-	typedef Point DisplayPoint;
+	typedef Point Point;
 	typedef Size2 DisplaySize;
 	typedef Color DisplayColor;
 	typedef Rectangle DisplayRectangle;
 	
 	
-	static inline DisplayRectangle GrafRect(stduint x, stduint y, stduint w, stduint h, DisplayColor color, bool hollow = false) {
+	static inline DisplayRectangle GrafRect(stduint x, stduint y, stduint w, stduint h, Color color, bool hollow = false) {
 		DisplayRectangle res;
 		res.x = x;
 		res.y = y;
@@ -48,7 +48,7 @@ namespace uni {
 		res.filled = !hollow;
 		return res;
 	}
-	static inline DisplayRectangle GrafRectHollow(stduint x, stduint y, stduint w, stduint h, DisplayColor color) {
+	static inline DisplayRectangle GrafRectHollow(stduint x, stduint y, stduint w, stduint h, Color color) {
 		return GrafRect(x, y, w, h, color);
 	}
 
@@ -59,23 +59,29 @@ namespace uni {
 		DisplaySize size;
 	};
 
+	class VideoControlInterface {
+	public:
+		virtual void SetCursor(const Point& disp) = 0;
+		virtual Point GetCursor() = 0;
+		virtual void DrawPoint(const Point& disp, Color* color) = 0;
+		virtual void DrawRectangle(const DisplayRectangle& rect) = 0;
+		virtual void DrawFont(const Point& disp, const DisplayFont& font) = 0;
+		virtual Color GetColor(Point p) = 0;
+	};
+	
 	// general
-	typedef void (*onPressed_t)(DisplayPoint disp, stduint pressure, stduint range_radius);
+	typedef void (*onPressed_t)(Point disp, stduint pressure, stduint range_radius);
 	class VideoControlBlock {
 	protected:
 		pureptr_t buffer_addr;
 		stduint pix_size;
 		stduint cols, rows;
 		onPressed_t onPressed;// callback event
+		VideoControlInterface* vci;
 		// color can be past
-		void (*doSetCursor)(DisplayPoint disp);
-		DisplayPoint (*doGetCursor)();
-		void (*doDrawPoint)(DisplayPoint disp, DisplayColor* color);
-		void (*doDrawRectangle)(DisplayRectangle rect);
-		void (*doDrawFont)(DisplayPoint disp, DisplayFont font);
 	public:
-		VideoControlBlock(pureptr_t addr) : buffer_addr(addr) {}
-		~VideoControlBlock() {}
+		VideoControlBlock(pureptr_t addr, VideoControlInterface* vci) : buffer_addr(addr), vci(vci) { }
+		~VideoControlBlock() { }
 		// here: public objects
 		inline void setMode(stduint psiz, stduint cols, stduint rows, onPressed_t onpress = 0) {
 			pix_size = psiz;
@@ -83,30 +89,18 @@ namespace uni {
 			this->rows = rows;
 			onPressed = onpress;
 		}
-		inline void setBind(
-			void (*doSetCursor)(DisplayPoint disp),
-			DisplayPoint(*doGetCursor)(),
-			void (*doDrawPoint)(DisplayPoint disp, DisplayColor* color),
-			void (*doDrawRectangle)(DisplayRectangle rect),
-			void (*doDrawFont)(DisplayPoint disp, DisplayFont font)
-		) {
-			this->doSetCursor = doSetCursor;
-			this->doGetCursor = doGetCursor;
-			this->doDrawPoint = doDrawPoint;
-			this->doDrawRectangle = doDrawRectangle;
-			this->doDrawFont = doDrawFont;
-		}
+
 		// basic
-		inline void setCursor(DisplayPoint disp) { if (doSetCursor) doSetCursor(disp); }
-		inline DisplayPoint getCursor() { if (doGetCursor) return doGetCursor(); { return DisplayPoint(); } }
-		inline void Draw(DisplayRectangle rect) { if (doDrawRectangle) doDrawRectangle(rect); }
-		inline void Draw(DisplayPoint disp, DisplayColor* color = 0) { if (doDrawPoint) doDrawPoint(disp, color); }
-		inline void Draw(DisplayPoint disp, DisplayFont font) { if (doDrawFont) doDrawFont(disp, font); }
+		inline void setCursor(Point disp) { vci->SetCursor(disp); }
+		inline Point getCursor() { return vci->GetCursor(); { return Point(); } }
+		inline void Draw(DisplayRectangle rect) { vci->DrawRectangle(rect); }
+		inline void Draw(Point disp, Color* color = 0) { vci->DrawPoint(disp, color); }
+		inline void Draw(Point disp, DisplayFont font) { vci->DrawFont(disp, font); }
 		inline void Draw(stdint x, stdint y, const char* str) {
 			if (x < 0) x = cols + x;
 			if (y < 0) y = rows + y;
 			if (x < 0 || y < 0) return;
-			DisplayPoint p(x, y);
+			Point p(x, y);
 			DisplayFont f = { (pureptr_t)str };
 			Draw(p, f);
 		}
@@ -114,8 +108,8 @@ namespace uni {
 		inline stduint getLimitY() { return rows; }
 		// more
 		//{unchk} negSizy
-		void DrawLine(DisplayPoint disp, DisplaySize size, DisplayColor* color = 0, bool negSizy = false) {
-			if (!doDrawPoint || !size.x || !size.y) return;
+		void DrawLine(Point disp, DisplaySize size, Color* color = 0, bool negSizy = false) {
+			if (!size.x || !size.y) return;
 			if (1 == size.x) for0(i, size.y) {
 				Draw(disp, color);// can also use "DrawRect"
 				disp.y++;// vertical
@@ -125,7 +119,7 @@ namespace uni {
 				disp.x++;// horizontal
 			}
 			else if (size.y >= size.x) {
-				DisplayPoint orig = disp;
+				Point orig = disp;
 				for0 (i, size.x) {
 					for0 (j, (stduint)((double)orig.y + i * (size.y - 1) / (size.x - 1) + 0.5) - disp.y) {
 						Draw(disp, color);
@@ -135,7 +129,7 @@ namespace uni {
 				}
 			}
 			else {
-				DisplayPoint orig = disp;
+				Point orig = disp;
 				for0(i, size.y) {
 					for0(j, (stduint)((double)orig.x + i * (size.x - 1) / (size.y - 1) + 0.5) - disp.x) {
 						Draw(disp, color);

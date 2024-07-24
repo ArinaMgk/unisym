@@ -29,28 +29,66 @@ namespace uni {
 	//[ATTR] little-endian
 	struct Color {
 		byte b, g, r, a; // union {x y z i} 
+		enum ColorIdentifier {
+			// ❤
+			AliceBlue = 0x00F0F8FF,
+
+			// classic
+			Red = 0x00FF0000,
+
+			// kinderness
+			MistyRose = 0x00FFE4E1,
+
+			// dark
+			Black = 0x00000000,
+			Maroon = 0x00800000,
+			Silver = 0x00C0C0C0,
+			SlateBlue = 0x006A5ACD,
+		};
+		//
+
+		Color(uint32 i = 0) {
+			*(uint32*)this = i;
+		}
+		Color(ColorIdentifier ci) {
+			*(uint32*)this = (uint32)ci;
+		}
+
 		static Color From32(uint32 argb) {
 			Color color = *(Color*)&argb;
 			return color;
 		}
+
+		static Color FromBGR565(uint16 col) {
+			Color color;
+			color.b = (col) & 0x1F;
+			color.g = (col >> 5) & 0x3F;
+			color.r = (col >> 11) & 0x1F;
+			return color;
+		}
+
+		operator uint32() {
+			return *(uint32*)this;
+		}
+
+		uint16 ToRGB565() const {
+			// R5[11] G6[5] B5[0]
+			uint16 _r = r >> (8 - 5), _g = g >> (8 - 6);
+			uint16 res = (uint16)(b >> (8 - 5));
+			res |= _g << 5;
+			res |= _r << 11;
+			return res;
+		}
 	};
+
+
+
+
 #ifdef _INC_CPP
 }
 #endif
 
-// ❤
-#define _COLOR_AliceBlue 0x00F0F8FF
 
-// classic
-#define _COLOR_Red       0x00FF0000
-
-// kinderness
-#define _COLOR_MistyRose 0x00FFE4E1
-
-// dark
-#define _COLOR_Maroon    0x00800000
-#define _COLOR_Silver    0x00C0C0C0
-#define _COLOR_SlateBlue 0x006A5ACD
 
 
 #endif

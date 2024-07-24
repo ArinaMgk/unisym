@@ -46,10 +46,12 @@ namespace uni {
 		Color color;
 		bool filled; // not hollow
 	public:
-		Point getVertex() {
+		Rectangle() {}
+		Rectangle(Point vertex, Size2 size, Color color = Color::From32(0), bool filled = true) : x(vertex.x), y(vertex.y), width(size.x), height(size.y), color(color), filled(filled) {}
+		Point getVertex() const {
 			return Point(x, y);
 		}
-		Size2 getSize() {
+		Size2 getSize() const {
 			return Size2(width, height);
 		}
 	};

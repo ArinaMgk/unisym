@@ -32,6 +32,12 @@ extern "C" {
 	#include "../../c/uctype.h"
 }
 
+/* TODO
+[ ] pin=double(X'DP Output)
+[ ] pin=int(check digital or analog output)
+
+*/
+
 #if !(_typedest_len==4 && _typeaddr_len==4)
 #error "! You may need add optional macro `_MCU_STM32F103VE` or include `STM32F103VEx`"
 #endif

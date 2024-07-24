@@ -14,6 +14,8 @@ dg-publish: true
 
 **Syster**: a pronoun to the project and the author
 
+**Innput**: a name of input which measures same with that of Output
+
 ### Number Abbreviations
 
 - 0 not

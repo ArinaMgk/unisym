@@ -182,6 +182,17 @@ namespace uni {
 			return FLatency == getLatency();
 		}
 		bool setClock(SysclkSource::RCCSysclockSource source);
+
+
+
+		// temp area
+		stduint getFrequencyHCLK() {
+			return SystemCoreClock;
+		}
+		stduint getFrequencyPCLK1();
+		stduint getFrequencyPCLK2();
+
+
 	};
 
 	extern RCC_t RCC;

@@ -167,17 +167,30 @@ namespace uni {
 			Atmost_Veryhigh = 3,
 		};
 	}
+	namespace GPIOReg {
+		typedef enum {
+			MODER = 0, OTYPER, OSPEEDR, PUPDR,
+			IDR, ODR, BSRR, LCKR,
+			AFRL, AFRH
+		} GPIOReg;
+	}
 
 	class GeneralPurposeInputOutputPin {
 		_COM_DEF_GPIO_Pin_Protected()
 	public:
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
+		bool getInn();
 		void setPull(bool pullup);
-		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_Low)
-		
+		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_Low);
+
+		//{TODO} interrupt-series
+
+		//! AFRx Register should be set by other device.
+		void _set_alternate(byte selection);
 	};
 
 	class GeneralPurposeInputOutputPort {
+		stduint baseaddr;
 		GeneralPurposeInputOutputPin OutpdPins[16];
 		GeneralPurposeInputOutputPin ERR;
 		uint32 EnablPosi;// of ClockPort
@@ -185,19 +198,20 @@ namespace uni {
 		Reference ClockPort;
 		Reference InnpdPort;
 		Reference OutpdPort;
-		//
+		//{TODEL}
 		Reference ModerPort;
 		Reference OtypePort;// OTYPER
 		Reference SpeedPort;// OSPEEDR
 		Reference PullsPort;// PUPDR
-		// Reference BSRR
-		// Reference LCKR
-		// Reference AFRL,AFRH
+		//
 		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
 		void enClock(bool enable = true) {
 			BitSet(ClockPort, EnablPosi);
 		}
 		GeneralPurposeInputOutputPin& operator[](uint8 pinid);
+		Reference operator[](GPIOReg::GPIOReg trt) {
+			return Reference(baseaddr + (((stduint)trt) << 2));
+		}
 
 		GeneralPurposeInputOutputPort& operator=(uint32 val);
 	};

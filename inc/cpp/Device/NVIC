@@ -106,11 +106,22 @@ namespace uni {
 		Reference operator[](NVICReg::NVICReg idx) {
 			return Reference(_NVIC_BASE + (((stduint)idx) << 2));
 		}
+		Reference Reflect(NVICReg::NVICReg idx, byte offs = 0) {
+			return Reference(_NVIC_BASE + (((stduint)idx + offs) << 2));
+		}
 		SysCtrlBlock_Map* scbmap;
 		uint32 getPriorityGroup();
 		uint8* getTable(stduint idx = 0) { return ((uint8*)&self[NVICReg::IP0]) + idx; }
 		void setPriority(Request_t req, uint32 priority);
 		void setPriority(Request_t req, uint32 prepriority, uint32 subpriority);
+		void setAble(Request_t req, bool ena = true) {
+			const stduint req_no = (stduint)req;
+			if (!req_no) return;
+			if (ena) {
+				Reflect(NVICReg::ISER, req_no >> 5UL) = ((uint32_t)1 << (req_no & 0x1FUL));
+			}
+			else _TODO;
+		}
 
 	};
 

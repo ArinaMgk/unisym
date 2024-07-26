@@ -56,6 +56,20 @@ namespace uni {
 		}
 	};
 
+	struct Circle {
+		Point center;
+		stduint radius;
+		Color color;
+		bool filled;
+	public:
+		Circle(Point centre, stduint r, Color color = Color::From32(0), bool filled = true) : center(centre), radius(r), color(color), filled(filled) {}
+		Point getVertex() const {
+			return center;
+		}
+		stdint getRadius() const { return radius; }
+	};
+
+
 #ifdef _INC_CPP
 }
 #endif

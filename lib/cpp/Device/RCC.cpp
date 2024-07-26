@@ -95,6 +95,13 @@ namespace uni {
 		return true;
 	}
 	
+	stduint RCC_t::getFrequencyPCLK1() {
+		return (getFrequencyHCLK() >> APBPrescTable[(RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_PPRE1) >> _RCC_CFGR_POSI_PPRE1]);
+	}
+	stduint RCC_t::getFrequencyPCLK2() {
+		return (getFrequencyHCLK() >> APBPrescTable[(RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_PPRE2) >> _RCC_CFGR_POSI_PPRE2]);
+	}
+	
 	bool RCCSystemClock::setMode(SysclkSource::RCCSysclockSource source) {
 		// if(((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_SYSCLK) == RCC_CLOCKTYPE_SYSCLK) then call this
 		bool state;

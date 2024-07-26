@@ -22,9 +22,9 @@ dg-publish: true
 - Target
 	- PC OSDEV Processor
 	- QRS aka Embedded Controller
-		- INTEL 8051
-		- STM32F1
-		- STM32F4
+		- INTEL 8051: AT89C5x STC89C5x
+		- `STM32F10x`
+		- `STM32F4x`
 		- CW32F030
 	- Architecture
 		- x86
@@ -139,6 +139,9 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 		- XPT2046.h
 	- Video/ and Video
 		- video.h
+		- ILI9320
+		- ILI9341
+		- video.h
 	- Radio
 		- RDA5820 (:IIC)
 		- TEA5767 (:IIC)
@@ -158,7 +161,7 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- PIT.h
 	- RealtimeClock.h
 	- timer.h
-	- UART.h
+	- UART
 	- RCC/
 	- Systick
 	- SysClock
@@ -385,7 +388,7 @@ The below are stable contents.
 ├─MCU
 │  ├─ST
 │  │	STM32F103VEx
-│  │	STM32F407ZEx
+│  │	STM32F4 STM32F407ZEx
 │  │	
 │  └─XY
 │	    CW32F003

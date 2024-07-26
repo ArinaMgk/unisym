@@ -23,6 +23,7 @@
 #include "../../../../inc/cpp/Device/EXTI"
 #include "../../../../inc/cpp/Device/TIM"
 #include "../../../../inc/cpp/Device/ADC"
+#include "../../../../inc/cpp/Device/UART"
 
 using namespace uni;
 
@@ -30,9 +31,9 @@ using namespace uni;
 
 extern "C" {
 
-	#if 0
+#if 0
 	//
-	#elif defined(_MCU_STM32F10x)
+#elif defined(_MCU_STM32F10x)
 	Handler_t FUNC_EXTI[16] = { 0 };
 	Handler_t FUNC_TIMx[16] = { 0 };// keep 0
 	Handler_t FUNC_ADCx[4] = { 0 };// keep 0
@@ -142,7 +143,26 @@ extern "C" {
 	}
 
 
-	#else
+#elif defined(_MCU_STM32F4x)
 
-	#endif
+	Handler_t FUNC_XART[8] = { 0 };
+
+	static void _HandlerIRQ_XART(byte art_id) {
+		if (!XART.isSync(art_id)) return;//{TEMP}
+		if ((*(USART_t*)XART[art_id])[XARTReg::SR].bitof(5)) { //aka __HAL_UART_GET_FLAG, 5 is USART_SR_RXNE
+			asserv(FUNC_XART[art_id])();
+		}
+		// ... more
+	}
+	
+	void USART1_IRQHandler(void) { _HandlerIRQ_XART(1); }
+	void USART2_IRQHandler(void) { _HandlerIRQ_XART(2); }
+	void USART3_IRQHandler(void) { _HandlerIRQ_XART(3); }
+	void UART4_IRQHandler(void) { _HandlerIRQ_XART(4); }
+	void UART5_IRQHandler(void) { _HandlerIRQ_XART(5); }
+	void USART6_IRQHandler(void) { _HandlerIRQ_XART(6); }
+
+	
+	
+#endif
 }

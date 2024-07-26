@@ -74,18 +74,21 @@ namespace uni {
 		void SetSheet(const Rectangle& rect) {
 			SetCursor(rect.getVertex());
 			setRegister(0x0050, rect.x);
-			setRegister(0x0052, rect.x);
-			setRegister(0x0051, rect.x + rect.width);
-			setRegister(0x0053, rect.y + rect.height);
+			setRegister(0x0052, rect.y);
+			setRegister(0x0051, rect.width);
+			setRegister(0x0053, rect.height);
 		}
 
 		virtual void SetCursor(const Point& disp);
 		virtual Point GetCursor();
-		virtual void DrawPoint(const Point& disp, Color* color);
-		virtual void DrawRectangle(const DisplayRectangle& rect);
+		virtual void DrawPoint(const Point& disp, Color color);
+		virtual void DrawRectangle(const Rectangle& rect);
 		virtual void DrawFont(const Point& disp, const DisplayFont& font);
 		virtual Color GetColor(Point p);
 	public:
+
+		inline void Draw(const Point& disp, Color color) { DrawPoint(disp, color); }
+		
 		void (*func_delay_us)(stduint us);
 		ILI9320_FreePins(stduint lines, GPIO_Pin** dat, GPIO_Pin WR, GPIO_Pin RD, GPIO_Pin RS, GPIO_Pin RST, GPIO_Pin CS, GPIO_Pin CL, GPIO_Pin DA) :
 			WR(WR), RD(RD), RS(RS), RST(RST), CS(CS), CL(CL), DA(DA) {
@@ -96,7 +99,7 @@ namespace uni {
 			}
 		}
 		
-		void setMode(byte lines);
+		void setMode(byte lines, Size2 siz);
 
 		//aka ili9320_WriteData 向控制器指定地址写入数据，调用前需先写寄存器地址，内部函数
 		void Send(word data) {
@@ -180,38 +183,10 @@ namespace uni {
 			RST.Toggle();
 		}
 
-		void setRegister(word idx, word val) {
-			/************************************************************************
-			 ** nCS       ----\__________________________________________/-------  **
-			 ** RS        ------\____________/-----------------------------------  **
-			 ** nRD       -------------------------------------------------------  **
-			 ** nWR       --------\_______/--------\_____/-----------------------  **
-			 ** DB[0:15]  ---------[index]----------[data]-----------------------  **
-			 **                                                                    **
-			 ** nCS       ----\__________________________________________/-------  **
-			 ** RS        ------\______________________/---------------------------**
-			 ** nRD       -------------------------------------------------------  **
-			 ** nWR       --------\_______/\_______/--------\_____/\_____/---------**
-			 ** DB[0:7]   ---------[0x00]---[index]---------[dataH][dataL]---------**
-			 ************************************************************************/
-			CS = 0;
-			RS = 0;
-			RD = 1;
-			Send(idx);
-			RS.Toggle();
-			Send(val);
-			CS.Toggle();
-		}
+		void setRegister(word idx, word val);
 
 		//aka ili9320_ReadRegister
-		word getRegister(word idx) {
-			word res;
-			CS = 0;
-			SendRegisterIndex(idx);
-			res = Read();
-			CS.Toggle();
-			return res;
-		}
+		word getRegister(word idx);
 		
 		void setBacklight(bool lit_on) {
 			_TODO

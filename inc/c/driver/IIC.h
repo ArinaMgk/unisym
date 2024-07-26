@@ -43,7 +43,7 @@ void I2C_Stop(void);
 
 namespace uni {
 
-	#if defined(_MCU_STM32F10x)
+	#if defined(_MCU_STM32)
 		#undef IIC
 	class IIC_t {
 		// Dynamic for software IIC, Static for hardware IIC

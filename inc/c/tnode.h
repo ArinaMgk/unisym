@@ -60,7 +60,7 @@ namespace uni {
 			//
 			DchainInit(&in_tpu.tchn);
 			in_tpu.tchn.extn_field = sizeof(uni::TnodeField);
-			dc.func_free;//{TODO}
+			dc.func_free = 0;//{TODO}
 			inntpu_avail = outtpu_avail = false;
 		}
 		~TokenParseManager() {

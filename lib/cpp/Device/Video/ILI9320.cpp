@@ -90,7 +90,7 @@ namespace uni {
 			setRegister(0x004e, disp.y);// line
 			setRegister(0x004f, 0x13f - disp.x);// column
 		}
-		else if (DeviceType == 0x9919) {
+		else if (DeviceType == 0x9919 || DeviceType == 0x3232) {
 			setRegister(0x004e, disp.x);// line
 			setRegister(0x004f, disp.y);
 		}
@@ -99,30 +99,36 @@ namespace uni {
 			setRegister(0x0021, 0x13f - disp.x);
 		}
 	}
-	void ILI9320_FreePins::DrawPoint(const Point& disp, Color* color) {
-		if ((disp.x > xlim) || (disp.y > ylim)) return;
+	void ILI9320_FreePins::DrawPoint(const Point& disp, Color color) {
+		if ((disp.x >= xlim) || (disp.y >= ylim)) return;
 		SetCursor(disp);
 		CS = 0;
 		SendRegisterIndex(0x0022);
 		RS = 1;
-		Send(color->ToRGB565());//>???????????????? is it 565 desga?
+		Send(color.ToRGB565());
 		CS.Toggle();
 	}
-	void ILI9320_FreePins::DrawRectangle(const DisplayRectangle& rect) {
-		//{UNCHK}
-		if (rect.filled) {
-			SetCursor(rect.getVertex());
+	void ILI9320_FreePins::DrawRectangle(const Rectangle& rect) {
+		// assert: filled
+		if (rect.width * rect.height == xlim * ylim) {
 			CS = 0;
 			SendRegisterIndex(0x0022);
 			RS = 1;
-			for0(i, xlim * ylim) Send(rect.color.ToRGB565());// ????????? RGB565 ですが？
+			for0(i, rect.width * rect.height) Send(rect.color.ToRGB565());
 			CS.Toggle();
 		}
-		else _TODO;
+		else {
+			uint64 color = rect.color.ToRGB565();
+			for0(i, rect.height) {
+				SetCursor(Point(rect.x, rect.y + i));
+				CS = 0;
+				SendRegisterIndex(0x0022);
+				for0(j, rect.width) Send(color);
+				CS.Toggle();
+			}
+		}
 	}
-	void ILI9320_FreePins::DrawFont(const Point& disp, const DisplayFont& font) {
-		_TODO
-	}
+	// USER-DEF void ILI9320_FreePins::DrawFont(const Point& disp, const DisplayFont& font);
 
 	//aka ili9320_GetPoint
 	Color ILI9320_FreePins::GetColor(Point p) {
@@ -141,11 +147,10 @@ namespace uni {
 	}
 
 
-	void ILI9320_FreePins::setMode(byte lines) {
+	void ILI9320_FreePins::setMode(byte lines, Size2 siz) {
 		self.lines = lines;
-
-		_TEMP xlim = 320;
-		_TEMP ylim = 240;
+		self.xlim = siz.x;
+		self.ylim = siz.y;
 
 		_TEMP;
 		WR.setMode(GPIOMode::OUT_PushPull);
@@ -174,7 +179,39 @@ namespace uni {
 		func_delay_us(5000);
 		Clear();
 	}
+
+	void ILI9320_FreePins::setRegister(word idx, word val) {
+				/************************************************************************
+				 ** nCS       ----\__________________________________________/-------  **
+				 ** RS        ------\____________/-----------------------------------  **
+				 ** nRD       -------------------------------------------------------  **
+				 ** nWR       --------\_______/--------\_____/-----------------------  **
+				 ** DB[0:15]  ---------[index]----------[data]-----------------------  **
+				 **                                                                    **
+				 ** nCS       ----\__________________________________________/-------  **
+				 ** RS        ------\______________________/---------------------------**
+				 ** nRD       -------------------------------------------------------  **
+				 ** nWR       --------\_______/\_______/--------\_____/\_____/---------**
+				 ** DB[0:7]   ---------[0x00]---[index]---------[dataH][dataL]---------**
+				 ************************************************************************/
+		CS = 0;
+		RS = 0;
+		RD = 1;
+		Send(idx);
+		RS.Toggle();
+		Send(val);
+		CS.Toggle();
+	}
 	
+	word ILI9320_FreePins::getRegister(word idx) {
+		word res;
+		CS = 0;
+		SendRegisterIndex(idx);
+		res = Read();
+		CS.Toggle();
+		return res;
+	}
+
 }
 
 #endif

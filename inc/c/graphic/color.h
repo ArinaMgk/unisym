@@ -39,6 +39,9 @@ namespace uni {
 			// kinderness
 			MistyRose = 0x00FFE4E1,
 
+			// light
+			Yellow = 0x00FFFF00,
+
 			// dark
 			Black = 0x00000000,
 			Maroon = 0x00800000,

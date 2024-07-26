@@ -360,9 +360,9 @@ typedef enum {
 {TODO}	DCD     I2C2_ER_IRQHandler                ; I2C2 Error
 {TODO}	DCD     SPI1_IRQHandler                   ; SPI1
 {TODO}	DCD     SPI2_IRQHandler                   ; SPI2
-{TODO}	DCD     USART1_IRQHandler                 ; USART1
-{TODO}	DCD     USART2_IRQHandler                 ; USART2
-{TODO}	DCD     USART3_IRQHandler                 ; USART3
+		DCD     USART1_IRQHandler                 ; USART1
+		DCD     USART2_IRQHandler                 ; USART2
+		DCD     USART3_IRQHandler                 ; USART3
 {TODO}	DCD     EXTI15_10_IRQHandler              ; External Line[15:10]s
 {TODO}	DCD     RTC_Alarm_IRQHandler              ; RTC Alarm (A and B) through EXTI Line
 {TODO}	DCD     OTG_FS_WKUP_IRQHandler            ; USB OTG FS Wakeup through EXTI line
@@ -375,8 +375,8 @@ typedef enum {
 {TODO}	DCD     SDIO_IRQHandler                   ; SDIO
 {TODO}	DCD     TIM5_IRQHandler                   ; TIM5
 {TODO}	DCD     SPI3_IRQHandler                   ; SPI3
-{TODO}	DCD     UART4_IRQHandler                  ; UART4
-{TODO}	DCD     UART5_IRQHandler                  ; UART5
+		DCD     UART4_IRQHandler                  ; UART4
+		DCD     UART5_IRQHandler                  ; UART5
 {TODO}	DCD     TIM6_DAC_IRQHandler               ; TIM6 and DAC1&2 underrun errors
 {TODO}	DCD     TIM7_IRQHandler                   ; TIM7
 {TODO}	DCD     DMA2_Stream0_IRQHandler           ; DMA2 Stream 0
@@ -394,7 +394,7 @@ typedef enum {
 {TODO}	DCD     DMA2_Stream5_IRQHandler           ; DMA2 Stream 5
 {TODO}	DCD     DMA2_Stream6_IRQHandler           ; DMA2 Stream 6
 {TODO}	DCD     DMA2_Stream7_IRQHandler           ; DMA2 Stream 7
-{TODO}	DCD     USART6_IRQHandler                 ; USART6
+		DCD     USART6_IRQHandler                 ; USART6
 {TODO}	DCD     I2C3_EV_IRQHandler                ; I2C3 event
 {TODO}	DCD     I2C3_ER_IRQHandler                ; I2C3 error
 {TODO}	DCD     OTG_HS_EP1_OUT_IRQHandler         ; USB OTG HS End Point 1 Out
@@ -406,6 +406,12 @@ typedef enum {
 {TODO}	DCD     HASH_RNG_IRQHandler               ; Hash and Rng
 {TODO}	DCD     FPU_IRQHandler                    ; FPU
 */
+
+extern "C" {
+	extern Handler_t FUNC_XART[8];
+}
+
+
 
 #endif
 

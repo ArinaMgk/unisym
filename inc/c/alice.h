@@ -99,6 +99,7 @@ extern "C++" {
 	// E.g. paralext = stepval(subtail)->next;
 
 #define Ranginc(i,range) ++(i) %= range
+#define Rangstp(i,step,range) (((i)+=(step))%=(range)) // step
 
 #define If(con) if(0||con) //<=> if(1&&con) : avoid error such as mixing "a=0" and "a==0"
 

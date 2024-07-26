@@ -26,7 +26,7 @@
 
 namespace uni
 {
-	#ifdef _MCU_STM32F10x
+#ifdef _MCU_STM32F10x
 
 	#define _OFFSET_GPIO_CRL 0x00
 	#define _OFFSET_GPIO_CRH 0x04
@@ -148,6 +148,7 @@ namespace uni
 // ---- ---- ---- ----
 #elif defined(_MCU_STM32F4x)
 
+	//{TODEL}
 	#define _OFFSET_GPIO_MODER 0x00
 	#define _OFFSET_GPIO_OTYPE 0x04
 	#define _OFFSET_GPIO_SPEED 0x08
@@ -156,6 +157,7 @@ namespace uni
 	#define _OFFSET_GPIO_ODR   0x14
 
 	GeneralPurposeInputOutputPort::GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap) :
+		baseaddr(ADDR),
 		EnablPosi(Enap), // (RCC_APB2ENR)
 		ClockPort(CLK), // Enable Clock
 		InnpdPort(_OFFSET_GPIO_IDR + ADDR),
@@ -232,7 +234,18 @@ namespace uni
 	void GeneralPurposeInputOutputPin::Toggle() {
 		parent->OutpdPort ^= 1 << bitposi;
 	}
-	
+
+	void GeneralPurposeInputOutputPin::_set_alternate(byte selection) {
+		selection &= 0xF;
+		byte bposi = (bitposi & 0x7) << 2;// mod 8 then mul-by 4
+		Reference r = parent->operator[](bitposi < 8 ? GPIOReg::AFRL : GPIOReg::AFRH);
+		r = (r & ~(stduint)(0xF << bposi)) | (selection << bposi);
+	}
+
+	bool GeneralPurposeInputOutputPin::getInn() {
+		return getParent()[GPIOReg::IDR].bitof(bitposi);
+	}
+
 // ---- ---- ---- ----
 #elif defined(_MCU_CW32F030)
 

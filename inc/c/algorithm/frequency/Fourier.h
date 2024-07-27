@@ -38,6 +38,11 @@ void dflFourier(dfloat* dat, stduint num, double(*_loc_sin)(double));
 void dflFourierFromWord(word* ori_dat, dfloat* dat, stduint exp, double(*_loc_sin)(double));
 
 #ifdef _INC_CPP
+
+inline static void Fourier(dfloat* dat, stduint num, double(*_loc_sin)(double) = 0) {
+	dflFourier(dat, num, _loc_sin);
+}
+
 }
 #endif
 

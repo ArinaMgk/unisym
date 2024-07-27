@@ -28,16 +28,10 @@
 
 #if 0
 //
-#elif defined(_MCU_STM32F10x)
+#elif defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
 #include "Device/NVIC"
 #include "Device/EXTI"
 #include "Device/AFIO"
-
-
-
-#elif defined(_MCU_STM32F4x)
-#include "Device/NVIC"
-
 
 #else
 

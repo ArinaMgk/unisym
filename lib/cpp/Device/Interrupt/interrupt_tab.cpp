@@ -31,14 +31,9 @@ using namespace uni;
 
 extern "C" {
 
-#if 0
-	//
-#elif defined(_MCU_STM32F10x)
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
 	Handler_t FUNC_EXTI[16] = { 0 };
-	Handler_t FUNC_TIMx[16] = { 0 };// keep 0
-	Handler_t FUNC_ADCx[4] = { 0 };// keep 0
-	//
-
+	
 	static void _HandlerIRQ_EXTIx(byte x) {
 		if (uni::EXTI::Pending & (1 << x)) {
 			// GPIO_PIN_x
@@ -46,17 +41,29 @@ extern "C" {
 			uni::EXTI::Pending = (1 << x);
 		}
 	}
-	void EXTI0_IRQHandler(void) {_HandlerIRQ_EXTIx(0);}
-	void EXTI1_IRQHandler(void) {_HandlerIRQ_EXTIx(1);}
-	void EXTI2_IRQHandler(void) {_HandlerIRQ_EXTIx(2);}
-	void EXTI3_IRQHandler(void) {_HandlerIRQ_EXTIx(3);}
-	void EXTI4_IRQHandler(void) {_HandlerIRQ_EXTIx(4);}
+	void EXTI0_IRQHandler(void) { _HandlerIRQ_EXTIx(0); }
+	void EXTI1_IRQHandler(void) { _HandlerIRQ_EXTIx(1); }
+	void EXTI2_IRQHandler(void) { _HandlerIRQ_EXTIx(2); }
+	void EXTI3_IRQHandler(void) { _HandlerIRQ_EXTIx(3); }
+	void EXTI4_IRQHandler(void) { _HandlerIRQ_EXTIx(4); }
 	void EXTI9_5_IRQHandler(void) {
 		for (byte i = 5; i < 9; i++) _HandlerIRQ_EXTIx(i);
 	}
 	void EXTI15_10_IRQHandler(void) {
 		for (byte i = 10; i < 16; i++) _HandlerIRQ_EXTIx(i);
 	}
+	
+#endif
+
+	
+#if 0
+	//
+#elif defined(_MCU_STM32F10x)
+	Handler_t FUNC_TIMx[16] = { 0 };// keep 0
+	Handler_t FUNC_ADCx[4] = { 0 };// keep 0
+	//
+
+
 
 	static void _HandlerIRQ_TIMx(TIM_t& this_TIM) {
 		//{TODO} Capture compare 1 event 

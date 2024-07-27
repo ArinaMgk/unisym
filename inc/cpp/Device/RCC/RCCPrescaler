@@ -59,7 +59,8 @@ namespace uni {
 		}
 
 		void enAble(uint8 bitposi) {
-			Reference _RCC_APBxENR((PCLK_ID == 1) ? _RCC_APB2ENR_ADDR : // 1
+			Reference _RCC_APBxENR((PCLK_ID == 1) ?
+				_RCC_APB2ENR_ADDR : // 1
 				_RCC_APB1ENR_ADDR // 0
 				);
 			_RCC_APBxENR.setof(bitposi);
@@ -83,13 +84,13 @@ namespace uni {
 		}
 		//
 		bool setMode(uint8 divexpo);
-/*
+
 		void enAble(uint8 bitposi) {
 			Reference _RCC_APBxENR((PCLK_ID == 1) ? _RCC_APB2ENR_ADDR : // 1
 				_RCC_APB1ENR_ADDR // 0
 			);
 			_RCC_APBxENR.setof(bitposi);
-		}*/
+		}
 	};
 
 

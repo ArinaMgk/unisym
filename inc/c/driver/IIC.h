@@ -132,7 +132,7 @@ namespace uni {
 				asserv(func_delay)();// necessary delay
 				SCL = true;
 				asserv(func_delay)();
-				SCL = false;;
+				SCL = false;
 				asserv(func_delay)();
 			}
 			if (auto_wait_ack) WaitAcknowledge();

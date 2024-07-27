@@ -26,6 +26,56 @@
 
 namespace uni
 {
+
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+
+	static Request_t GPIO_Request_list[16] = {
+		IRQ_EXTI0, IRQ_EXTI1, IRQ_EXTI2, IRQ_EXTI3,
+		IRQ_EXTI4, IRQ_EXTI9_5, IRQ_EXTI9_5, IRQ_EXTI9_5,
+		IRQ_EXTI9_5, IRQ_EXTI9_5, IRQ_EXTI15_10, IRQ_EXTI15_10,
+		IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10
+	};
+
+	void GeneralPurposeInputOutputPin::setInterrupt(Handler_t fn) {
+		FUNC_EXTI[bitposi] = fn;
+	}
+
+
+	void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) {
+		NVIC.setPriority(GPIO_Request_list[bitposi], preempt, sub_priority);
+	}
+
+	//{TODO}
+	void GeneralPurposeInputOutputPin::enInterrupt(bool enable) {
+		if (enable)
+			NVIC.setAble(GPIO_Request_list[bitposi]);
+		else _TODO;
+	}
+
+	void GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg) {
+		if (!isInput())
+			setMode(GPIOMode::IN_Floating);
+
+		#if defined(_MCU_STM32F10x)
+		RCC.APB2.enAble(_RCC_APB2ENR_POSI_ENCLK_AFIO_BITPOS);
+
+		#elif defined(_MCU_STM32F4x)
+		RCC.APB2.enAble(14);// SYSCFG EN
+		
+		#endif
+		for0(i, 10);// some delay to wait, magic_num: random
+		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[bitposi >> 2];
+		byte CrtPosi = (bitposi & 0x3) * 4;
+		CrtEXTICR = (CrtEXTICR &
+			~(stduint)(0xF << CrtPosi)) |
+			(GPIO.Index(parent) << CrtPosi);
+		EXTI::TriggerRising.setof(bitposi, edg != GPIORupt::Negedge);
+		EXTI::TriggerFalling.setof(bitposi, edg != GPIORupt::Posedge);
+		EXTI::MaskInterrupt.setof(bitposi); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
+	}
+
+#endif
+
 #ifdef _MCU_STM32F10x
 
 	#define _OFFSET_GPIO_CRL 0x00
@@ -89,46 +139,10 @@ namespace uni
 		ref = (ref & ~(0xf << bposi)) | (state << bposi);// or treat it a double-length Reference (64-bit)
 	}
 
-	void GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg) {
-		if (!isInput())
-			setMode(GPIOMode::IN_Floating);
-		RCC.APB2.enAble(_RCC_APB2ENR_POSI_ENCLK_AFIO_BITPOS);
-		for0(i, 10);// some delay to wait, magic_num: random
-		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[bitposi >> 2];
-		byte CrtPosi = (bitposi & 0x3) * 4;
-		CrtEXTICR = (CrtEXTICR &
-			~(stduint)(0xF << CrtPosi)) |
-			(GPIO.Index(parent) << CrtPosi);
-		EXTI::TriggerRising.setof(bitposi, edg != GPIORupt::Negedge);
-		EXTI::TriggerFalling.setof(bitposi, edg != GPIORupt::Posedge);
-		EXTI::MaskInterrupt.setof(bitposi); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
-	}
-
 
 	// for F1, only for input (?)
 	void GeneralPurposeInputOutputPin::setPull(bool pullup) {
 		(parent->OutpdPort).setof(bitposi, pullup);
-	}
-
-	void GeneralPurposeInputOutputPin::setInterrupt(Handler_t fn) {
-		FUNC_EXTI[bitposi] = fn;
-	}
-	
-	static Request_t GPIO_Request_list[16] = {
-			IRQ_EXTI0, IRQ_EXTI1, IRQ_EXTI2, IRQ_EXTI3,
-			IRQ_EXTI4, IRQ_EXTI9_5, IRQ_EXTI9_5, IRQ_EXTI9_5,
-			IRQ_EXTI9_5, IRQ_EXTI9_5, IRQ_EXTI15_10, IRQ_EXTI15_10,
-			IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10
-		};
-	void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) {
-		NVIC.setPriority(GPIO_Request_list[bitposi], preempt, sub_priority);
-	}
-
-	//{TODO}
-	void GeneralPurposeInputOutputPin::enInterrupt(bool enable) {
-		if (enable)
-			NVIC.setAble(GPIO_Request_list[bitposi]);
-		else _TODO; 
 	}
 
 	bool GeneralPurposeInputOutputPin::isInput() const {
@@ -138,6 +152,10 @@ namespace uni
 	
 	void GeneralPurposeInputOutputPin::Toggle() {
 		parent->OutpdPort ^= 1 << bitposi;
+	}
+
+	GeneralPurposeInputOutputPort::operator stduint() const {
+		return (stduint)InnpdPort;
 	}
 
 	//{unchecked}
@@ -187,7 +205,7 @@ namespace uni
 	// GeneralPurposeInputOutputPort GPIOK(0x40022800, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOK);
 
 	static GeneralPurposeInputOutputPort* GPIO_List[] = {
-		&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG
+		&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG, &GPIOH, &GPIOI
 	};
 
 	GeneralPurposeInputOutputPin::operator bool() const {
@@ -231,6 +249,11 @@ namespace uni
 		}
 	}
 
+	bool GeneralPurposeInputOutputPin::isInput() const {
+		return 0 == (parent->ModerPort &
+			(0x3 << ((bitposi & 0xF) * 2)));
+	}
+
 	void GeneralPurposeInputOutputPin::Toggle() {
 		parent->OutpdPort ^= 1 << bitposi;
 	}
@@ -244,6 +267,10 @@ namespace uni
 
 	bool GeneralPurposeInputOutputPin::getInn() {
 		return getParent()[GPIOReg::IDR].bitof(bitposi);
+	}
+
+	GeneralPurposeInputOutputPort::operator stduint() const {
+		return (stduint)InnpdPort;
 	}
 
 // ---- ---- ---- ----
@@ -276,7 +303,7 @@ namespace uni
 		pare.getReference(TOG).setof(bitposi);
 	}
 
-	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator = (bool val){
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= (bool val){
 		if (innput) return self;
 		getParent().getReference(GPIOReg::ODR).setof(bitposi, val);
 		return self;
@@ -296,11 +323,15 @@ namespace uni
 		pare.getReference(PDR).setof(bitposi, !dir);
 	}
 
+	GeneralPurposeInputOutputPort::operator stduint() const {
+		return (stduint)getReference(GPIOReg::IDR);
+	}
+
 #endif
 
 	GeneralPurposeInputOutput GPIO;
 	
-	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPin::getParent() { return *parent; }
+	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPin::getParent() const { return *parent; }
 	
 	GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](char portid) {
 		return ascii_isupper(portid) ? *(GPIO_List[portid - 'A']) : ERR;
@@ -338,6 +369,11 @@ namespace uni
 			return self;
 		}
 		else return self = bool(pin); // Assign 
+	}
+
+	// This will not be for declaration expression
+	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (const GeneralPurposeInputOutputPort& pot) {
+		return self = stduint(pot);
 	}
 }
 

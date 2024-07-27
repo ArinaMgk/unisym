@@ -329,11 +329,11 @@ typedef enum {
 {TODO}	DCD     RTC_WKUP_IRQHandler               ; RTC Wakeup through the EXTI line
 {TODO}	DCD     FLASH_IRQHandler                  ; FLASH
 {TODO}	DCD     RCC_IRQHandler                    ; RCC
-{TODO}	DCD     EXTI0_IRQHandler                  ; EXTI Line0
-{TODO}	DCD     EXTI1_IRQHandler                  ; EXTI Line1
-{TODO}	DCD     EXTI2_IRQHandler                  ; EXTI Line2
-{TODO}	DCD     EXTI3_IRQHandler                  ; EXTI Line3
-{TODO}	DCD     EXTI4_IRQHandler                  ; EXTI Line4
+		DCD     EXTI0_IRQHandler                  ; EXTI Line0
+		DCD     EXTI1_IRQHandler                  ; EXTI Line1
+		DCD     EXTI2_IRQHandler                  ; EXTI Line2
+		DCD     EXTI3_IRQHandler                  ; EXTI Line3
+		DCD     EXTI4_IRQHandler                  ; EXTI Line4
 {TODO}	DCD     DMA1_Stream0_IRQHandler           ; DMA1 Stream 0
 {TODO}	DCD     DMA1_Stream1_IRQHandler           ; DMA1 Stream 1
 {TODO}	DCD     DMA1_Stream2_IRQHandler           ; DMA1 Stream 2
@@ -346,7 +346,7 @@ typedef enum {
 {TODO}	DCD     CAN1_RX0_IRQHandler               ; CAN1 RX0
 {TODO}	DCD     CAN1_RX1_IRQHandler               ; CAN1 RX1
 {TODO}	DCD     CAN1_SCE_IRQHandler               ; CAN1 SCE
-{TODO}	DCD     EXTI9_5_IRQHandler                ; External Line[9:5]s
+		DCD     EXTI9_5_IRQHandler                ; External Line[9:5]s
 {TODO}	DCD     TIM1_BRK_TIM9_IRQHandler          ; TIM1 Break and TIM9
 {TODO}	DCD     TIM1_UP_TIM10_IRQHandler          ; TIM1 Update and TIM10
 {TODO}	DCD     TIM1_TRG_COM_TIM11_IRQHandler     ; TIM1 Trigger and Commutation and TIM11
@@ -363,7 +363,7 @@ typedef enum {
 		DCD     USART1_IRQHandler                 ; USART1
 		DCD     USART2_IRQHandler                 ; USART2
 		DCD     USART3_IRQHandler                 ; USART3
-{TODO}	DCD     EXTI15_10_IRQHandler              ; External Line[15:10]s
+		DCD     EXTI15_10_IRQHandler              ; External Line[15:10]s
 {TODO}	DCD     RTC_Alarm_IRQHandler              ; RTC Alarm (A and B) through EXTI Line
 {TODO}	DCD     OTG_FS_WKUP_IRQHandler            ; USB OTG FS Wakeup through EXTI line
 {TODO}	DCD     TIM8_BRK_TIM12_IRQHandler         ; TIM8 Break and TIM12
@@ -408,6 +408,7 @@ typedef enum {
 */
 
 extern "C" {
+	extern Handler_t FUNC_EXTI[];
 	extern Handler_t FUNC_XART[8];
 }
 

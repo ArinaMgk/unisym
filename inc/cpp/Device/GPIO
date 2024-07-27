@@ -29,7 +29,7 @@
 #include "../interrupt"
 
 extern "C" {
-	#include "../../c/uctype.h"
+#include "../../c/uctype.h"
 }
 
 /* TODO
@@ -49,7 +49,7 @@ extern "C" {
 		bool innput;//{TODEL}
 
 #define _COM_DEF_GPIO_Pin_Public(defa_speed)\
-	GeneralPurposeInputOutputPort& getParent();\
+	GeneralPurposeInputOutputPort& getParent() const;\
 	inline byte getID() const { return bitposi; }\
 	void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = defa_speed, bool autoEnClk = true);\
 	void Toggle();\
@@ -57,7 +57,9 @@ extern "C" {
 	GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin);\
 	operator bool() const;\
 
-
+#define _COM_DEF_GPIO_Port_Public()\
+	GeneralPurposeInputOutputPort& operator=(const GeneralPurposeInputOutputPort& pot);\
+	operator stduint() const;
 
 // 00000000 maybe a valid address of someone
 // These are of Harunono Style, and the design have not be used by enough users!
@@ -140,11 +142,12 @@ namespace uni {
 		GeneralPurposeInputOutputPin& operator[](uint8 pinid);
 
 		GeneralPurposeInputOutputPort& operator=(uint32 val);
+		_COM_DEF_GPIO_Port_Public()
 	};
 
 
 	extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG;
-
+// ---- ---- ---- ---- ---- ---- ---- ----
 	#elif defined(_MCU_STM32F4x)
 	namespace GPIOMode {
 		enum Mode {
@@ -180,7 +183,13 @@ namespace uni {
 	public:
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
 		bool getInn();
+		void setMode(GPIORupt::RuptEdge edg);// must in input mode
+		void setMode(GPIOEvent::EventEdge edg);// must in input mode
 		void setPull(bool pullup);
+		void setInterrupt(Handler_t fn);
+		void setInterruptPriority(byte preempt, byte sub_priority);
+		void enInterrupt(bool enable = true);
+		bool isInput() const;
 		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_Low);
 
 		//{TODO} interrupt-series
@@ -214,6 +223,8 @@ namespace uni {
 		}
 
 		GeneralPurposeInputOutputPort& operator=(uint32 val);
+
+		_COM_DEF_GPIO_Port_Public();
 	};
 
 	extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG;

@@ -68,10 +68,11 @@ class GeneralPurposeInputOutputPort {
 	stduint baseaddr;
 	Reference ClockPort;
 	stduint EnablPosi;// of ClockPort
-public:
-	Reference getReference(GPIOReg::GPIORegType idx) {
+	friend class GeneralPurposeInputOutputPin;
+	Reference getReference(GPIOReg::GPIORegType idx) const {
 		return Reference(baseaddr + (((stduint)idx) << 2));
 	}
+public:
 	void enClock(bool enable = true) {
 		ClockPort.setof(EnablPosi, enable);
 	}
@@ -85,7 +86,7 @@ public:
 	}
 	GeneralPurposeInputOutputPin& operator[](uint8 pinid);
 	GeneralPurposeInputOutputPort& operator=(uint32 val);
-
+	_COM_DEF_GPIO_Port_Public();
 };
 
 extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOF;

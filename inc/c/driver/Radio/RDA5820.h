@@ -57,7 +57,7 @@ static void inline_RDA5820_delay(void) {
 }
 
 namespace uni {
-#if defined(_MCU_STM32F10x)
+#if 1
 
 	class RDA5820_t {
 	protected:

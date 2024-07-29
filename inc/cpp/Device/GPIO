@@ -190,12 +190,14 @@ namespace uni {
 		void setInterruptPriority(byte preempt, byte sub_priority);
 		void enInterrupt(bool enable = true);
 		bool isInput() const;
-		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_Low);
-
+		
+		
 		//{TODO} interrupt-series
 
 		//! AFRx Register should be set by other device.
 		void _set_alternate(byte selection);
+		
+		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_Low)
 	};
 
 	class GeneralPurposeInputOutputPort {
@@ -224,7 +226,7 @@ namespace uni {
 
 		GeneralPurposeInputOutputPort& operator=(uint32 val);
 
-		_COM_DEF_GPIO_Port_Public();
+		_COM_DEF_GPIO_Port_Public()
 	};
 
 	extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG;

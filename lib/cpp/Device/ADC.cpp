@@ -20,9 +20,9 @@
 	limitations under the License.
 */
 
-#include "../../inc/cpp/Device/ADC"
-#include "../../inc/cpp/Device/RCC/RCCAddress"
-#include "../../inc/cpp/Device/RCC/RCCClock"
+#include "../../../inc/cpp/Device/ADC"
+#include "../../../inc/cpp/Device/RCC/RCCAddress"
+#include "../../../inc/cpp/Device/RCC/RCCClock"
 
 namespace uni {
 #if 0

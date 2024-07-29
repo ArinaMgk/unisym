@@ -156,7 +156,7 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- i8259A.h ()
 	- keyboard.h
 	- LCD12864.h (specific LCD)
-	- LCD1602.h (specific LCD)
+	- LCD1602 (specific LCD, Parallel and IIC)
 	- nixietube.h
 	- PIT.h
 	- RealtimeClock.h

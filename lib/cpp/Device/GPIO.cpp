@@ -119,7 +119,7 @@ namespace uni
 	}
 	
 	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
-		if (innput) return *this;
+		// if (innput) return *this;
 		// G'DP or D'DP
 		if (val)
 			BitSet(parent->OutpdPort, bitposi);
@@ -213,7 +213,7 @@ namespace uni
 	}
 
 	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
-		if (innput) return *this;
+		// if (innput) return *this;
 		// G'DP or D'DP
 		//{TO update}
 		if (val)
@@ -303,8 +303,8 @@ namespace uni
 		pare.getReference(TOG).setof(bitposi);
 	}
 
-	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= (bool val){
-		if (innput) return self;
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= (bool val) {
+		// if (innput) return self;
 		getParent().getReference(GPIOReg::ODR).setof(bitposi, val);
 		return self;
 	}

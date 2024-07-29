@@ -5,6 +5,48 @@
 
 \subsubsection{Array Trait}
 
+\verb|class ArrayTrait|
+
+The developers should implement:
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+virtual pureptr_t Locate(stduint idx) const = 0; //  operator[]
+
+// Index One. `~0` as not-found
+virtual stduint Locate(pureptr_t p_val, bool fromRight) const = 0;
+
+virtual stduint   Length() const = 0;
+
+// After, the new item will be at idx.
+// For example, if you have {A,B}, then insert(2,x) will result in: {A,B,x}
+virtual bool      Insert(stduint idx, pureptr_t dat) = 0;
+
+// You may need destructure them before calling this.
+virtual bool      Remove(stduint idx, stduint times) = 0;
+
+virtual bool Exchange(stduint idx1, stduint idx2) = 0;
+
+int (*Compare_f)(pureptr_t a, pureptr_t b);
+ArrayTrait() : Compare_f(nullptr) {}
+\end{lstlisting}
+
+\subsubsection{Iterate Trait}
+
+\verb|class IterateTrait|
+
+The developers should implement:
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+virtual void Iterate() = 0;
+\end{lstlisting}
+
+At least now, the efficient item should not be null.
+
+The users should use \verb|pureptr_t Iter()| to iterate, this return null for the end.
+
+
 \subsection{Node-Chain}
 \input{CLV/Data/Nodes.tex}
 

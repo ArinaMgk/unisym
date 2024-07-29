@@ -23,6 +23,74 @@
 #ifndef _INC_DEV_LCD1602
 #define _INC_DEV_LCD1602
 
+//{TODO} combinated with - JUST till here - until consio contain these.
+
+#include "../stdinc.h"
+#if defined(_INC_CPP)
+
+#include "../../cpp/Device/IIC"
+#include "../../cpp/Device/GPIO"
+
+#define _ADDR_PCF8574_T   0x4E
+#define _ADDR_PCF8574_AT  0x7E
+
+#define _LCD1206_ADDR_ROW1 0x80// 第一行写入地址
+#define _LCD1206_ADDR_ROW2 0xc0// 第二行写入地址
+
+namespace uni {
+	class LCD1206_IIC_t {
+		IIC_t IIC;
+		// bool state;
+		void (*delay_ms)(stduint ms);
+
+		void Send(byte dat, bool is_cmd = true) {
+			const byte mask = is_cmd ? 0x0C : 0x0D;
+			byte tmp;
+			IIC.SendStart();
+			IIC << _ADDR_PCF8574_T;
+			tmp = dat & 0xF0 | mask;// keep high 4 bits, set RS = 0, RW = 0, EN = 1
+			IIC << tmp;
+			//asserv(delay_ms)(20);
+			tmp &= 0xFB; // make EN = 0
+			IIC << tmp;
+			dat <<= 4;
+			tmp = dat | mask;
+			IIC << tmp;
+			//asserv(delay_ms)(20);
+			tmp &= 0xFB;
+			IIC << tmp;
+		}
+
+
+	public:
+		LCD1206_IIC_t(GPIO_Pin& SDA, GPIO_Pin& SCL, void (*delay_ms)(stduint ms));
+
+		void setMode() {
+			Send(0x33); // BUS8 -> BUS4
+			Send(0x32); //
+			Send(0x28); // 4b，2rows，5*7 while 0x38 for 8b
+			Send(0x0C); // on display, off cursor, no blink
+			Send(0x06); // no inc
+			Send(0x01); // Clear Screen
+		}
+
+		void DrawString(const char* str, word x = 0, word y = 0)
+		{
+			MIN(x, 15);
+			MIN(y, 1);
+			byte addr = 0x80 + 0x40 * y + x; // Move cursor
+			Send(addr);
+			while (*str)
+			{
+				Send(*str++, false);
+			}
+		}
+
+	};
+}
+
+#elif defined(_MCU_Intel8051)
+
 #include "HD44780.h"
 
 void LCD1602_Initialize(void);
@@ -49,4 +117,5 @@ void LCD1602_Outi32hex(const dword inp);
 
 void LCD1602_Outu8dec(const sbyte inp, byte len);
 
+#endif
 #endif

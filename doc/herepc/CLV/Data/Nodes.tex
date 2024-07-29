@@ -11,7 +11,7 @@ The chain of a node contains a series of nodes. There are usually discrete so we
 		\hline
 		\endfirsthead
 		\multicolumn{4}{c}%
-		{{\bfseries \tablename\ \thetable{} -- continued from previous page}} \\
+		{{\bfseries \tablename\ \thetable{} (continued) -- {Comparison between Non-annulus Chain}}} \\
 		\hline \textbf{NODE} & \textbf{DNODE} & \textbf{NNODE} & \textbf{Puts}  \\  \hline  
 		\endhead
 		\hline \multicolumn{4}{r}{{Continued on the next page...}} \\
@@ -27,7 +27,7 @@ The chain of a node contains a series of nodes. There are usually discrete so we
 		\hline
 		\multicolumn{3}{c|}{$\$Insert$} & {nod,off,(type),ex-field,(on-right)$\rightarrow$(*)} \\
 		\hline
-		\multicolumn{3}{c|}{$\$Remove$} & {nod,(left),fn-free$\rightarrow$(*)(*next)} \\
+		\multicolumn{3}{c|}{$\$Remove$} & {nod,(left),fn-free$\rightarrow$(*next)} \\
 		\hline
 		\multicolumn{3}{c|}{$\$sRelease$ $\$\$Drop$} & {since,fn-free} \\
 		\hline
@@ -47,7 +47,7 @@ The chain of a node contains a series of nodes. There are usually discrete so we
 		\hline
 		\multicolumn{2}{c|}{\$\$::$<<$, \$\$::$[]$} & {\$\$::$<<$, \$::$[]$} & {} \\
 		\hline
-		\multicolumn{2}{c|}{\$\$:$getLeft$} & {\$:$getLeft$} & {} \\
+		{\$\$:$getLeft$} & \multicolumn{2}{c|}{\$:$getLeft$} & {} \\
 		\hline
 		\multicolumn{2}{c|}{\$\$::$Last$} & {\$::$Youngest$} & {(*)} \\
 		\hline
@@ -63,6 +63,8 @@ The chain of a node contains a series of nodes. There are usually discrete so we
 \end{center}
 
 a `\$' stands for a node, such as `Node', `Dnode' or `Nnode', while double dollars `\$\$' stands for the respective chain, such as `Chain', `Dchain' or `Nchain'.
+
+`::' is for the class of \textit{C++} but \textit{C Programming Language}.
 
 \subsubsection{Node Chain : Single-Field Chain}
 
@@ -114,16 +116,18 @@ public:
 % Node
 Trait:  \verb|ArrayTrait| \verb|IterateTrait|
 
+\paragraph{Common Method} \
+
+In this part, the common field of the Nona-Chain will be explained.
+
+
+
 \paragraph{Method} \
 
-\textbf{\$\$::SortByInsertion}
 
-\textbf{\$\$::getLeft} (Common)
-Get the left node of the node in the chain.
+\textbf{\$\$::SortByInsertion} Sort, but by the Insertion method, which is a unique version for single linked node chain.
 
-
-
-.
+\input{CLV/Data/NodesCommon.tex}
 
 \subsubsection{Dnode Chain : Double-Field-and-Linked Chain}
 
@@ -238,7 +242,7 @@ public:
 \end{lstlisting}
 
 % Nnode
-Trait:  
+Trait: None
 
 \paragraph{Method} \
 
@@ -251,6 +255,11 @@ Get eldest node of parallel generation of the node.
 \textbf{\$\$::DivideSymbols}
 
 NestedParseUnit, TokenOperator, TokenOperatorGroup ...
+
+
+\textbf{\$\$::Receive}
+
+% Nnode* Receive(Nnode* insnod, DnodeChain* dnod, bool onleft = false);
 
 \subsubsection{Gnode Chain : Graph}
 

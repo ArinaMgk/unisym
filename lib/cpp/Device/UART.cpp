@@ -62,7 +62,7 @@ namespace uni {
 				self[CR1] |= 0xC;//aka UartHandle.Init.Mode = UART_MODE_TX_RX; (USART_CR1_TE | USART_CR1_RE)
 				self[CR1].rstof(15);// (USART_CR1_OVER8)
 				self[CR3] &= ~(stduint)(0x3 << 8);//aka UartHandle.Init.HwFlowCtl = UART_HWCONTROL_NONE; (USART_CR3_RTSE | USART_CR3_CTSE)
-				byte over_sampling = _TEMP 16;// or 8
+				// : byte over_sampling = _TEMP 16;// or 8
 				stduint freq = XART_ID == 1 || XART_ID == 6 ? RCC.getFrequencyPCLK2() : RCC.getFrequencyPCLK1();
 				self[BRR] = UART_BRR_SAMPLING(freq, /*UartHandle.Init.BaudRate = DEBUG_USART_BAUDRATE;*/ 115200, 16);
 			}

@@ -262,6 +262,10 @@ Dnode* DchainAppend(dchain_t* chn, pureptr_t addr, bool onleft, Dnode* nod);
 Dnode* DchainLocateNode(dchain_t* chn, stduint idx);
 void   DnodeChainAdapt(dchain_t* chn, Dnode* root, Dnode* last, stdint count_dif);
 
+inline static Dnode* getLeft(Dnode* nod) {
+	return nod->left;
+}
+
 #ifdef _INC_CPP
 }}
 #endif // _INC_CPP

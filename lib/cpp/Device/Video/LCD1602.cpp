@@ -1,6 +1,6 @@
-// UTF-8 C/C++11 TAB4 CRLF
-// Docutitle: (Protocol) Inter-Integrated Circuit, I2C
-// Codifiers: @dosconio: 20240429~;
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) LCD1206 
+// Codifiers: @dosconio: RFB3 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,16 +20,20 @@
 	limitations under the License.
 */
 
-#include "../../../inc/cpp/Device/IIC"
+#include "../../../../inc/c/driver/LCD1602.h"
+
+static void inline_LCD_delay(void) {
+	for0(i, 0x100);
+}
 
 namespace uni {
-#if 0
 
-#elif defined(_MCU_STM32F10x)
+	LCD1206_IIC_t::LCD1206_IIC_t(GPIO_Pin& SDA, GPIO_Pin& SCL, void (*delay_ms)(stduint ms)) :
+		IIC(SDA, SCL), delay_ms(delay_ms) 
+	{
+		IIC.func_delay = inline_LCD_delay;
+	}
 
 
-
-
-
-#endif
+	
 }

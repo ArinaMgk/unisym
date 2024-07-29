@@ -22,9 +22,9 @@
 */
 
 
-#include "../../inc/cpp/Device/DMA"
-#include "../../inc/cpp/Device/RCC/RCCAddress"
-#include "../../inc/cpp/Device/RCC/RCCClock"
+#include "../../../inc/cpp/Device/DMA"
+#include "../../../inc/cpp/Device/RCC/RCCAddress"
+#include "../../../inc/cpp/Device/RCC/RCCClock"
 
 namespace uni {
 	#if 0

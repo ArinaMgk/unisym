@@ -19,7 +19,25 @@
 	limitations under the License.
 */
 
+/* also act as implementation of `system_stm32f4xx.c`
+- SystemInit() <-> SystemInit()
+- SystemCoreClock <-> uni::SystemCoreClock yo RCC.cpp
+- SystemCoreClockUpdate() <-> uni::SystemCoreClock = RCC.Sysclock.getFrequency() >> AHBPrescTable[(RCC[CFGR] & _RCC_CFGR_MASK_HPRE) >> _RCC_CFGR_POSI_HPRE];
+*/
+#include "../../../inc/c/prochip/CortexM4.h"
 #include "../../../inc/cpp/MCU/ST/STM32F4"
+
+extern "C" void SystemInit(void);
+
+void SystemInit(void) {
+	// FPU
+	((SysCtrlBlock_Map*)_SCB_BASE)->CPACR |= ((3UL << 10 * 2) | (3UL << 11 * 2));// set CP10 and CP11 Full Access
+	// External S(D)RAM
+	//{TODO}
+	// User's Vector Table
+	//{TODO}
+}
+
 
 namespace uni {
 

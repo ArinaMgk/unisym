@@ -32,11 +32,9 @@
 
 
 namespace uni {
-#if 0
 
-#elif defined(_MCU_STM32F10x)
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
 	#undef DAC
-
 	// 2 16b-word for the 2 channels
 	#define _DAC_CR_POS_ENx    0
 	#define _DAC_CR_POS_BOFFx  1
@@ -52,12 +50,21 @@ namespace uni {
 	#define _DAC_CR_VAL_TSEL1_2 0x00000020 
 	#define _DAC_CR_VAL_TSEL1   0x00000038
 
-	
+	//
 	namespace DACReg {
 		typedef enum {
 			CR = 0, SWTRIGR, DHR12R1, DHR12L1, DHR8R1, DHR12R2, DHR12L2, DHR8R2, DHR12RD, DHR12LD, DHR8RD, DOR1, DOR2
+			#if defined(_MCU_STM32F4x)
+			, SR
+			#endif
 		} DACRegType;
 	}
+#endif
+
+
+#ifdef _MCU_STM32F10x
+
+	
 	namespace DACTrigger {
 		typedef enum {
 			T6 = (uint32)_DAC_CR_VAL_TEN1,
@@ -68,12 +75,25 @@ namespace uni {
 			SOFTWARE = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1
 		} DACTrigger;
 	}
+#endif
+	
 
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+
+	#define DAC_getStdvol(i) ((float)i*2.5/0x1000)
+	
 	class DAC_t {
 	protected:
 		stduint baseaddr;
 		//{MEANINGLESS} byte DAC_ID;
 		pureptr_t bind;
+		void setOutput(byte channel, uint16 val) {
+			val &= 0x0FFF;// max output 2.5V
+			if (channel == 1)
+				self[DACReg::DHR12R1] = val;
+			else if (channel == 2)
+				self[DACReg::DHR12R2] = val;
+		}
 	public:
 		DAC_t(stduint baseaddr) : baseaddr(baseaddr), bind(0){ }
 		stduint getBaseAddr() { return baseaddr; }
@@ -90,8 +110,30 @@ namespace uni {
 			self[DACReg::CR].setof(_DAC_CR_POS_ENx + (channel - 1) * 16 , ena);
 		}
 
-		bool enDMA(GPIO_Pin& pin, DACTrigger::DACTrigger trigger, bool buffer_enable, pureptr_t data, uint32_t leng, uint32_t align = 0);
+		byte getChannel(const GPIO_Pin& pin) {
+			if (&pin == &GPIOA[4])
+				return 1;
+			else if (&pin == &GPIOA[5])
+				return 2;
+			return 0;
+		}
 
+		void setOutput(GPIO_Pin& pin, uint16 val) {
+			byte channel = getChannel(pin);
+			if (!channel) return;
+			val &= 0x0FFF;// max output 2.5V
+			if (channel == 1)
+				self[DACReg::DHR12R1] = val;
+			else if (channel == 2)
+				self[DACReg::DHR12R2] = val;
+		}
+
+		#ifdef _MCU_STM32F10x //{TEMP}
+		bool enDMA(GPIO_Pin& pin, DACTrigger::DACTrigger trigger, bool buffer_enable, pureptr_t data, uint32_t leng, uint32_t align = 0);
+		#elif defined(_MCU_STM32F4x)
+		bool enAble(GPIO_Pin& pin);
+		#endif
+		
 	};
 
 	extern DAC_t DAC;

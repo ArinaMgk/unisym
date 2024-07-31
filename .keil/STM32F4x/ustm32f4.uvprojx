@@ -59,7 +59,7 @@
           <ListingPath>..\..\..\_obj\_lst\</ListingPath>
           <HexFormatSelection>1</HexFormatSelection>
           <Merge32K>0</Merge32K>
-          <CreateBatchFile>0</CreateBatchFile>
+          <CreateBatchFile>1</CreateBatchFile>
           <BeforeCompile>
             <RunUserProg1>0</RunUserProg1>
             <RunUserProg2>0</RunUserProg2>
@@ -330,8 +330,8 @@
             <uC99>0</uC99>
             <uGnu>1</uGnu>
             <useXO>0</useXO>
-            <v6Lang>1</v6Lang>
-            <v6LangP>5</v6LangP>
+            <v6Lang>3</v6Lang>
+            <v6LangP>3</v6LangP>
             <vShortEn>0</vShortEn>
             <vShortWch>0</vShortWch>
             <v6Lto>0</v6Lto>
@@ -383,7 +383,7 @@
       </TargetOption>
       <Groups>
         <Group>
-          <GroupName>Group</GroupName>
+          <GroupName>Embedded</GroupName>
           <Files>
             <File>
               <FileName>interrupt.cpp</FileName>
@@ -459,6 +459,19 @@
               <FileName>UART.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\lib\cpp\Device\UART.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>General</GroupName>
+        </Group>
+        <Group>
+          <GroupName>Device</GroupName>
+          <Files>
+            <File>
+              <FileName>LCD1602.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\lib\cpp\Device\Video\LCD1602.cpp</FilePath>
             </File>
           </Files>
         </Group>

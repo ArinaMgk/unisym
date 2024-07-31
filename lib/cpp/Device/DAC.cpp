@@ -32,18 +32,22 @@
 #define _DAC_ALIGN_8B_R  0x00000008U
 
 namespace uni {
-	#if 0
 
-	#elif defined(_MCU_STM32F10x)
-	#define _DAC_Counts 1
-
-
+	#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+	
 	bool DAC_t::enClock(bool ena) {
 		Reference(_RCC_APB1ENR_ADDR).setof(_RCC_APB1ENR_POSI_ENCLK_DAC);
 		if (ena != Reference(_RCC_APB1ENR_ADDR).bitof(_RCC_APB1ENR_POSI_ENCLK_DAC))
 			return false;
 		return true;
 	}
+	
+	#endif
+
+	#if 0
+	#elif defined(_MCU_STM32F10x)
+	#define _DAC_Counts 1
+
 
 	bool DAC_t::enDMA(GPIO_Pin& pin, DACTrigger::DACTrigger trigger, bool buffer_enable, pureptr_t data, uint32_t leng, uint32_t align) {
 		enClock();
@@ -129,9 +133,42 @@ namespace uni {
 	}
 */
 
+	#elif defined(_MCU_STM32F4x)
 
-
-	DAC_t DAC(0x40007400);//~0x40007FF
+	bool DAC_t::enAble(GPIO_Pin& pin) {
+		using namespace DACReg;
+		enClock();
+		pin.setMode(GPIOMode::IN_Analog);//{ISSUE} need pull-dn?
+		// : DAC_Init
+		/*TEMP
+		.DAC_Trigger = DAC_Trigger_None;
+		.DAC_WaveGeneration = DAC_WaveGeneration_None;
+		.DAC_LFSRUnmask_TriangleAmplitude = DAC_LFSRUnmask_Bit0;
+		.DAC_OutputBuffer = DAC_OutputBuffer_Disable;
+		*/
+		uint32 tmp = self[CR];
+		byte channel = 0;
+		if (&pin == &GPIOA[4]) channel = 1;
+		else if (&pin == &GPIOA[5]) channel = 2;
+		if (!channel) return false;
+		const byte shift = (channel - 1) << 4;
+		tmp &= ~(0x0000FFFF << shift);
+		// tmp2 = (DAC_InitStruct->DAC_Trigger | DAC_InitStruct->DAC_WaveGeneration | 		DAC_InitStruct->DAC_LFSRUnmask_TriangleAmplitude | DAC_InitStruct->DAC_OutputBuffer);
+		uint32 tmp2 = 0x00000002 << shift;// DAC_OutputBuffer_Disable
+		tmp |= tmp2;
+		self[CR] = tmp;
+		enAble(channel, true);//aka DAC_Cmd(DAC_Channel_1, ENABLE);
+		//aka DAC_SetChannel1Data(DAC_Align_12b_R, 0);
+		_TEMP{
+			self[DHR12R1] = 0;
+		}
+		return true;
+	}
 
 	#endif
+
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+	DAC_t DAC(0x40007400);//~0x400077FF
+#endif
+	
 }

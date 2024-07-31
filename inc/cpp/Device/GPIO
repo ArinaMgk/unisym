@@ -56,6 +56,8 @@ extern "C" {
 	GeneralPurposeInputOutputPin& operator=(bool val);\
 	GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin);\
 	operator bool() const;\
+	pureptr_t getAddress() const { return (pureptr_t)this; }\
+
 
 #define _COM_DEF_GPIO_Port_Public()\
 	GeneralPurposeInputOutputPort& operator=(const GeneralPurposeInputOutputPort& pot);\
@@ -77,6 +79,7 @@ extern "C" {
 #undef GPIOI
 
 #if defined(_MCU_STM32) || defined(_MCU_CW32F030)
+#define gpo(x) GPIO##x
 namespace uni {
 	//! enum can be like namespace is since C++11
 

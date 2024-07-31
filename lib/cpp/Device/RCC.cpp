@@ -71,6 +71,10 @@ namespace uni {
 	uint32_t SystemCoreClock = 16000000;
 	const uint8_t AHBPrescTable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9 };
 	const uint8_t APBPrescTable[8] = { 0, 0, 0, 0, 1, 2, 3, 4 };
+	/* default frequency
+		HSE_VALUE    ((uint32_t)25000000)
+		HSI_VALUE    ((uint32_t)16000000)
+	*/
 
 	bool RCC_t::setClock(SysclkSource::RCCSysclockSource source) {
 		using namespace RCCReg;

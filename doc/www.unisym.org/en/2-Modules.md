@@ -137,17 +137,21 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 		- consio.h console stream
 	- ADC and ADConverter/
 		- XPT2046.h
-	- Video/ and Video
-		- video.h
+	- Generator
+		- AD9959 (:SPI)
+	- Video/ and Video `video.h`
 		- ILI9320
 		- ILI9341
-		- video.h
+		- LCD12864.h (specific LCD)
+		- LCD1602 (specific LCD, Parallel and IIC)
 	- Radio
 		- RDA5820 (:IIC)
 		- TEA5767 (:IIC)
 	- [Protocol, Interface and Wire]
 		- IIC, aka I2C
+		- SPI
 		- OneWire.h
+		- UART
 	- AT24C02.h ()
 	- DS1302.h ()
 	- DS18B20.h ()
@@ -155,16 +159,12 @@ The relationships like dependence, to see [Depend](./6-Depend.md).
 	- i8253A.h ()
 	- i8259A.h ()
 	- keyboard.h
-	- LCD12864.h (specific LCD)
-	- LCD1602 (specific LCD, Parallel and IIC)
+		- Mtrkbd (4x4)
 	- nixietube.h
 	- PIT.h
-	- RealtimeClock.h
-	- timer.h
-	- UART
-	- RCC/
-	- Systick
-	- SysClock
+	- TOKI - RealtimeClock.h
+	- TOKI - timer.h
+	- TOKI - RCC: SysClock and Systick
 	- AFIO
 	- EXTI and NVIC (interrupt)
 	- GPIO

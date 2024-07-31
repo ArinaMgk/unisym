@@ -34,11 +34,11 @@
 #define _ADDR_PCF8574_T   0x4E
 #define _ADDR_PCF8574_AT  0x7E
 
-#define _LCD1206_ADDR_ROW1 0x80// 第一行写入地址
-#define _LCD1206_ADDR_ROW2 0xc0// 第二行写入地址
+#define _LCD1602_ADDR_ROW1 0x80// 第一行写入地址
+#define _LCD1602_ADDR_ROW2 0xc0// 第二行写入地址
 
 namespace uni {
-	class LCD1206_IIC_t {
+	class LCD1602_IIC_t {
 		IIC_t IIC;
 		// bool state;
 		void (*delay_ms)(stduint ms);
@@ -50,20 +50,20 @@ namespace uni {
 			IIC << _ADDR_PCF8574_T;
 			tmp = dat & 0xF0 | mask;// keep high 4 bits, set RS = 0, RW = 0, EN = 1
 			IIC << tmp;
-			//asserv(delay_ms)(20);
+			asserv(delay_ms)(1);
 			tmp &= 0xFB; // make EN = 0
 			IIC << tmp;
 			dat <<= 4;
 			tmp = dat | mask;
 			IIC << tmp;
-			//asserv(delay_ms)(20);
+			asserv(delay_ms)(1);
 			tmp &= 0xFB;
 			IIC << tmp;
 		}
 
 
 	public:
-		LCD1206_IIC_t(GPIO_Pin& SDA, GPIO_Pin& SCL, void (*delay_ms)(stduint ms));
+		LCD1602_IIC_t(GPIO_Pin& SDA, GPIO_Pin& SCL, void (*delay_ms)(stduint ms));
 
 		void setMode() {
 			Send(0x33); // BUS8 -> BUS4
@@ -71,6 +71,10 @@ namespace uni {
 			Send(0x28); // 4b，2rows，5*7 while 0x38 for 8b
 			Send(0x0C); // on display, off cursor, no blink
 			Send(0x06); // no inc
+			Clear();
+		}
+
+		void Clear() {
 			Send(0x01); // Clear Screen
 		}
 

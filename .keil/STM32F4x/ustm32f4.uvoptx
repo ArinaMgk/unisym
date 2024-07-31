@@ -177,8 +177,8 @@
   </Target>
 
   <Group>
-    <GroupName>Group</GroupName>
-    <tvExp>1</tvExp>
+    <GroupName>Embedded</GroupName>
+    <tvExp>0</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
     <RteFlg>0</RteFlg>
@@ -359,6 +359,34 @@
       <bDave2>0</bDave2>
       <PathWithFileName>..\..\lib\cpp\Device\UART.cpp</PathWithFileName>
       <FilenameWithoutPath>UART.cpp</FilenameWithoutPath>
+      <RteFlg>0</RteFlg>
+      <bShared>0</bShared>
+    </File>
+  </Group>
+
+  <Group>
+    <GroupName>General</GroupName>
+    <tvExp>0</tvExp>
+    <tvExpOptDlg>0</tvExpOptDlg>
+    <cbSel>0</cbSel>
+    <RteFlg>0</RteFlg>
+  </Group>
+
+  <Group>
+    <GroupName>Device</GroupName>
+    <tvExp>0</tvExp>
+    <tvExpOptDlg>0</tvExpOptDlg>
+    <cbSel>0</cbSel>
+    <RteFlg>0</RteFlg>
+    <File>
+      <GroupNumber>3</GroupNumber>
+      <FileNumber>16</FileNumber>
+      <FileType>8</FileType>
+      <tvExp>0</tvExp>
+      <tvExpOptDlg>0</tvExpOptDlg>
+      <bDave2>0</bDave2>
+      <PathWithFileName>..\..\lib\cpp\Device\Video\LCD1602.cpp</PathWithFileName>
+      <FilenameWithoutPath>LCD1602.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

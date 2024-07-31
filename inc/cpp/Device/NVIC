@@ -74,9 +74,11 @@ namespace uni {
 			const stduint req_no = (stduint)req;
 			if (!req_no) return;
 			if (ena) {
-				this->map->ISER[req_no >> 5UL] = ((uint32_t)1 << (req_no & 0x1FUL));
+				this->map->ISER[req_no >> 5UL] |= ((uint32_t)1 << (req_no & 0x1FUL));
 			}
-			else _TODO; 
+			else {
+				this->map->ISER[req_no >> 5UL] &= ~((uint32_t)1 << (req_no & 0x1FUL));
+			}
 		}
 	};
 
@@ -118,9 +120,11 @@ namespace uni {
 			const stduint req_no = (stduint)req;
 			if (!req_no) return;
 			if (ena) {
-				Reflect(NVICReg::ISER, req_no >> 5UL) = ((uint32_t)1 << (req_no & 0x1FUL));
+				Reflect(NVICReg::ISER, req_no >> 5UL) |= ((uint32_t)1 << (req_no & 0x1FUL));
 			}
-			else _TODO;
+			else {
+				Reflect(NVICReg::ISER, req_no >> 5UL) &= ~((uint32_t)1 << (req_no & 0x1FUL));
+			}
 		}
 
 	};

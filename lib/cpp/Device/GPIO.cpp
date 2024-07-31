@@ -47,9 +47,7 @@ namespace uni
 
 	//{TODO}
 	void GeneralPurposeInputOutputPin::enInterrupt(bool enable) {
-		if (enable)
-			NVIC.setAble(GPIO_Request_list[bitposi]);
-		else _TODO;
+		NVIC.setAble(GPIO_Request_list[bitposi], enable);
 	}
 
 	void GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg) {

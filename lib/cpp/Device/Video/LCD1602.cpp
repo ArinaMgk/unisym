@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Device) LCD1206 
+// Docutitle: (Device) LCD1602 
 // Codifiers: @dosconio: RFB3 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -23,12 +23,13 @@
 #include "../../../../inc/c/driver/LCD1602.h"
 
 static void inline_LCD_delay(void) {
-	for0(i, 0x100);
+	volatile int i = 0x100;
+	while(i--);
 }
 
 namespace uni {
 
-	LCD1206_IIC_t::LCD1206_IIC_t(GPIO_Pin& SDA, GPIO_Pin& SCL, void (*delay_ms)(stduint ms)) :
+	LCD1602_IIC_t::LCD1602_IIC_t(GPIO_Pin& SDA, GPIO_Pin& SCL, void (*delay_ms)(stduint ms)) :
 		IIC(SDA, SCL), delay_ms(delay_ms) 
 	{
 		IIC.func_delay = inline_LCD_delay;

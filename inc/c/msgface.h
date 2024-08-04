@@ -23,16 +23,17 @@
 #ifndef _INC_ERROR
 #define _INC_ERROR
 
-#include "node.h"
+// #include "node.h"
 
 #include <setjmp.h>
 
 #define errjb _ERRO_JUMP
 
-extern Node* _WARN_CHAIN;
-extern Node* _FREE_CHAIN;// tofree list
+// comments-in content will conflict with GLIBC, independent!
+// extern Node* _WARN_CHAIN;
+// extern Node* _FREE_CHAIN;// tofree list
 extern char* _ERRO_MESSAGE;
-extern jmp_buf _ERRO_JUMP;
+// extern jmp_buf _ERRO_JUMP;
 
 #if defined(_DEBUG) || defined(_dbg)
 

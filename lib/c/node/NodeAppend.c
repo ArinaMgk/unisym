@@ -35,7 +35,7 @@ Node* ChainAppend(chain_t* chn, pureptr_t addr, bool onleft, Node* nod)
 	int rstate;// return state
 
 	if (nod) {
-		new_nod = NodeInsert(onleft ? getLeft(chn, nod, tmp_dir) : nod, addr, extn_field);
+		new_nod = NodeInsert(onleft ? Node_getLeft(chn, nod, tmp_dir) : nod, addr, extn_field);
 		Node* const ro = !root_node || onleft && (nod == root_node) ? new_nod : root_node;
 		Node* const la = !last_node || !onleft && (nod == last_node) ? new_nod : last_node;
 		NodeChainAdapt(ro, la, +1);
@@ -69,7 +69,7 @@ Node* ChainAppend(chain_t* chn, pureptr_t addr, bool onleft, Node* nod)
 			NodeChainAdapt(root_node, new_nod, +1);
 		}
 		else {
-			new_nod = NodeInsert(getLeft(chn, crt, tmp_dir), addr, extn_field);
+			new_nod = NodeInsert(Node_getLeft(chn, crt, tmp_dir), addr, extn_field);
 			NodeChainAdapt(root_node, last_node, +1);
 		}
 	}

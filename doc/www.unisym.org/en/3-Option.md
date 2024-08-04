@@ -8,7 +8,6 @@ dg-publish: true
 **option**: `arch`+`host`+`bitmode`
 - Architecture Class :chart: like "`_ARC_x86`" (for example, this macro may not exist, so do below)
 - Chip Class :chart: "`_CPU_AMDRyzen7_5800H_Radeon`"
-- Board Class :x:
 - Host Class :chart: "`Win32`"
 - Devkit Option :chart: "`_BUILD_MSVC`"
 

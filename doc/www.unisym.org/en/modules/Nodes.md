@@ -1,10 +1,9 @@
 - `Node` Node-Data-System (nodes.h nodes) {TODO NO-DEP}
 	- node.h node
-	- inode.h inode
 	- dnode.h dnode
-	- bnode
+	- {TODEL} bnode
 	- nnode.h nnode
-	- anode.h
+	- {TODEL} anode.h
 	- pnode
 	- gnode
 

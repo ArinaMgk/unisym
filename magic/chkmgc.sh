@@ -10,7 +10,7 @@ check()
 {
 	arguments="$1"
 	expectation="$2"
-	/mnt/hgfs/_bin/ELF64/mgc "$arguments" > ~/_obj/check.s || exit
+	$ubinpath/ELF64/mgc "$arguments" > ~/_obj/check.s || exit
 	riscv64-unknown-linux-gnu-gcc -static -o ~/_obj/check ~/_obj/check.s
 	qemu-riscv64 -L $RISCV/sysroot ~/_obj/check
 	feekback="$?"

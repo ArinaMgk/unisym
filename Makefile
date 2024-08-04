@@ -92,6 +92,11 @@ kitw32: # utility
 	cd ${make_dir} && make -f kitw32.make all
 	-ahkcc ./lib/Script/AutoHotkey/Arnscr.ahk ../../../../_bin/arnscr.exe # ***\AutoHotkey\Compiler\Ahk2Exe.exe /in %1 /out %2
 
+MGC_CFLG = -std=c99 -fno-common
+
+magice:
+	gcc $(MGC_CFLG) -o $$ubinpath/ELF64/mgc magic/*.c
+
 # ---- [test] ----
 
 tlwin: list cgw32 cgw64 cvw32 cvw64# test lib win
@@ -101,6 +106,10 @@ tllin: cgl32 cgl64 mx86# test lib lin
 
 test: # "trust"
 	cd lib/Rust/unisym && cargo test
+
+test-mgc:
+	@cd magic && ./chkmgc.sh
+
 
 clean:
 	-cd ./inc/Python/ && rmdir __pycache__ /S /Q

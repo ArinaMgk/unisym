@@ -27,17 +27,8 @@ typedef void (*Handler_t)(void);
 #if defined(_MCCA) //{TEMP} Use CPL
 
 #include "../../../c/stdinc.h"
-typedef enum
-{
-	IRQ_PIT = 0, // 8253/8254 PIT (Programmable Interval Timer)
-	IRQ_Keyboard = 1, // 8042? Keyboard Controller
-	IRQ_Cascade = 2, // 8259A Cascade
-	IRQ_Serial = 3, // default ethernet interrupt vector, or RS232 interrupt vector for port 2 {??? 16450 Serial Port}
-	IRQ_RS232_Port1 = 4, //  RS232 interrupt vector for port 1
-	IRQ_XT_WINI = 5, // ???
-	IRQ_Floppy = 6, // 8250 Floppy Disk Controller
-	_TODO
-} Request_Master_t;
+#include "../../../c/board/IBM.h"
+
 
 #elif defined(_MCU_STM32F10x)
 

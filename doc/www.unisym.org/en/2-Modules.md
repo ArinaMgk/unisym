@@ -30,6 +30,11 @@ dg-publish: true
 		- x86
 		- x64
 		- RISCV64
+	- Platform and Board
+		- IBM Compatible PC
+		- Cortex M0
+		- Cortex M3
+		- Cortex M4
 - Marking and Programming
 	- Hardware Description (suspended)
 	- SCH-PCB of Electronics (suspended)
@@ -74,130 +79,131 @@ end
 
 The relationships like dependence, to see [Depend](./6-Depend.md).
 
+Now the `*` mark for document provided, no matter if it is detailed.
+
 - `Core` (alice.h & trait.h)
-	- uassert.h
-	- property
-	- reference
+	-  \* uassert.h
+	-  \* property
+	-  \* reference
 	- Trait: Array & LinearNodeChain
 	- Trait: Iterate
 - `System` (stdinc.h=unisym basic)
 	- `Devk` (host.h)
-		- call.h
-		- debug.h
-		- cinc
-		- ISO_IEC_STD/
+		-  \* call.h
+		-  \* debug.h
+		-  \* cinc
+		-  \* ISO_IEC_STD/
 	- `Host` Hosted Environment
-		- error.h
-		- memory.h
-		- task.h
-		- ustring.h string
-		- interrupt
+		-  \* msgface.h
+		-  \* memory.h
+		-  \* task.h
+		-  \* ustring.h string
+		-  \* interrupt
 	- `Arch`  (archit.h and c/architect/)
-		- binary.h binary
-		- cpuid.h cpuid
-		- flag.h
-		- `integer/` integer.h integer
-		- floating.h floating
-		- port.h port
-		- proctrl.h
-		- uctype.h
-		- uoption.h
-		- ustdbool.h
-		- pointer
-		- compile/
+		-  \* binary.h binary
+		-  \* cpuid.h cpuid
+		-  \* flag.h
+		-  \* `integer/` integer.h integer
+		-  \* floating.h floating
+		-  \* port.h port
+		-  \* proctrl.h
+		-  \* uctype.h
+		-  \* uoption.h
+		-  \* ustdbool.h
+		-  \* pointer
+		-  \* compile/
 		- proctrl/ and MCU/
-			-{chores}
-			- ST
-			- XY
+			-  \* ST
+			-  \* XY
 - `Arith` (arith.h)
-	- instruction.h
-	- coear.h coear
-	- regar.h
-	- numar.h number(.h)
-	- tenar.h
-	- int128
-	- comparison {TOIN TORE-DIR}
+	-  \* instruction.h
+	-  \* coear.h coear
+	-  \* regar.h
+	-  \* numar.h number(.h)
+	-  \* tenar.h
+	-  \* int128
+	-  \* comparison {TOIN TORE-DIR}
 	- algorithm
-		- compare
-		-        --> sort
-		-        --> search
+		-  \* compare
+		-        -->  \* sort
+		-        -->  \* search
 		- Frequency
-			- Fourier
-	* riscv64
+			-  \* Fourier
+	*  \* riscv64
 > You have to choose the architecture yourself, without the help of hosted characters.
 
 - `Grafic` Graphics and Witch (`graphic.h` and graphic/) {TODO NO-DEP}
-	- color.h
-	- contable.h
+	-  \* color.h
+	-  \* contable.h
 	- Frame/
-		- Qt
-	- Witch/
+		-  \* Qt
+	-  \* Witch/
 - `Device` (cpp/Device/ and cpp/driver/) {TODO NO-DEP}
 	- `Conio` {TODO NO-DEP}
-		- consio.h console stream
+		-  \* consio.h console stream
 	- ADC and ADConverter/
-		- XPT2046.h
+		-  \* XPT2046.h
 	- Generator
-		- AD9959 (:SPI)
+		-  \* AD9959 (:SPI)
 	- Video/ and Video `video.h`
-		- ILI9320
-		- ILI9341
-		- LCD12864.h (specific LCD)
-		- LCD1602 (specific LCD, Parallel and IIC)
+		-  \* ILI9320
+		-  \* ILI9341
+		-  \* LCD12864.h (specific LCD)
+		-  \* LCD1602 (specific LCD, Parallel and IIC)
 	- Radio
-		- RDA5820 (:IIC)
-		- TEA5767 (:IIC)
+		-  \* RDA5820 (:IIC)
+		-  \* TEA5767 (:IIC)
 	- [Protocol, Interface and Wire]
-		- IIC, aka I2C
-		- SPI
-		- OneWire.h
-		- UART
-	- AT24C02.h ()
-	- DS1302.h ()
-	- DS18B20.h ()
-	- HD44780.h ()
-	- i8253A.h ()
-	- i8259A.h ()
-	- keyboard.h
-		- Mtrkbd (4x4)
-	- nixietube.h
-	- PIT.h
-	- TOKI - RealtimeClock.h
-	- TOKI - timer.h
-	- TOKI - RCC: SysClock and Systick
-	- AFIO
-	- EXTI and NVIC (interrupt)
-	- GPIO
-	- nixietube
+		-  \* IIC, aka I2C
+		-  \* SPI
+		-  \* OneWire.h
+		-  \* UART
+	-  \* AT24C02.h ()
+	-  \* DS1302.h ()
+	-  \* DS18B20.h ()
+	-  \* HD44780.h ()
+	-  \* i8253A.h ()
+	-  \* i8259A.h ()
+	-  \* keyboard.h
+		-  \* Mtrkbd (4x4)
+	-  \* nixietube.h
+	-  \* PIT.h
+	-  \* TOKI - RealtimeClock.h
+	-  \* TOKI - timer.h
+	-  \* TOKI - RCC: SysClock and Systick
+	-  \* AFIO
+	-  \* EXTI and NVIC (interrupt)
+	-  \* GPIO
+	-  \* nixietube
 - `Format` (format/) {TODO NO-DEP}
 	- `Charset::Widechar` (widechar.h) {TODO}
-		- GBK.h {TODO}
+		-  \* GBK.h {TODO}
 	- `Charset::Multichar` (multichar.h) {TODO}
-		- upec.h {TOIN}
-		- UTF-8.h {TODO}
-	- Encode:: crc64.h
-	- Time:: datime.h
-	- Buffer:: stack.h stack >> Trait
-	- Buffer:: strpool.h strpool >> Trait
-	- Buffer:: queue >> Trait
+		-  \* upec.h {TOIN}
+		-  \* UTF-8.h {TODO}
+	-  \* Encode:: crc64.h
+	-  \* Time:: datime.h
+	-  \* Buffer:: stack.h stack >> Trait
+	-  \* Buffer:: strpool.h strpool >> Trait
+	-  \* Buffer:: queue >> Trait
 	- Array-Series
 		- `Node` [Node-Data-System](./modules/Nodes.md)
-		- vector
-	- File:: ELF.h
-	- FileSys:: FAT12.h
+		-  \* vector
+	-  \* File:: ELF.h
+	-  \* FileSys:: FAT12.h
 - Archiv (big scale, alias `Data`)
-	- Assembly Instructions
-	- DEMO and .picture
+	-  \* Assembly Instructions
+	-  \* DEMO and .picture
 - Locale
-	- loc.h
+	-  \* loc.h
 - Others
-	- sig.h
-	- Kasha
-	- msasm
-	- naasm
-	- Python
-	- Rust `unisym::`
-	- ...
+	-  \* sig.h
+	-  \* Kasha
+	-  \* msasm
+	-  \* naasm
+	-  \* Python
+	-  \* Rust `unisym::`
+	-  \* ...
 
 
 
@@ -274,7 +280,7 @@ The below are stable contents.
 │  datime.h [Format]
 │  debug.h [Devk]
 │  dnode.h [Node]
-│  error.h [Host]
+│  msgface.h [Host]
 │  flag.h [Arch]
 │  floating.h [Arch]
 │  graphic.h [Graf]

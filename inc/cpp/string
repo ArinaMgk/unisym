@@ -30,7 +30,7 @@
 	#include "../c/ustring.h"
 #include "cinc"// C End
 #include "property"
-#include <iostream>//{TEMP}
+// #include <iostream>//{TEMP}
 
 /*TODO
  * fit BString
@@ -102,7 +102,7 @@ namespace uni {
 		// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }
 		// const char* operator[] (const char* str) { return StrIndexString(addr, str); }
 
-		_TEMP friend std::ostream& operator<< (std::ostream& out, const String& str);
+		// _TEMP friend std::ostream& operator<< (std::ostream& out, const String& str);
 
 		static String Heap(const String& str) { return String((const char*)(str.addr)); }
 

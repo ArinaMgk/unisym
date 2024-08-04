@@ -195,7 +195,7 @@ inline static void NodeChainAdapt(chain_t* chn, Node* root, Node* last, stdint c
 		chn->fastab.midl_node = ChainLocateNode(chn, chn->node_count >> 1);
 }
 
-inline static Node* getLeft(chain_t* chn, Node* nod, bool fromRight) {
+inline static Node* Node_getLeft(chain_t* chn, Node* nod, bool fromRight) {
 	Node* res;
 	Node* crt = chn->root_node;
 	if (crt) do if (crt->next == nod) {

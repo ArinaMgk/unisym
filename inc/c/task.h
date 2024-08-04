@@ -41,7 +41,7 @@ typedef struct TaskStateSegmentx86
 	dword ESP2;
 	word SS2;
 	word Padding2;
-	dword CR3;// Page Directory Base
+	union { dword CR3; dword PDBR; }; // Page Directory Base
 	dword EIP;
 	dword EFLAGS;
 	dword EAX;

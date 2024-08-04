@@ -96,7 +96,7 @@ namespace uni {
 			return (pureptr_t)&addr[idx];
 		}
 		inline type0& operator[] (stdint idx) {
-			if (idx > (stdint)count) throw 0.;//{TODO} error.h
+			if (idx > (stdint)count) throw 0.;//{TODO} msgface.h
 			if (idx < 0) idx += count;
 			return addr[idx];
 		}

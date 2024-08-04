@@ -59,29 +59,29 @@ extern "C++" {
 		}
 	}
 }
-	#define _REGISTER
-	#define self (*this)
+#define _REGISTER
+#define self (*this)
 #endif
 
 // __ENDIAN__
 #ifndef __ENDIAN__
-	#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
+#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
 #endif
 // __ARCH__
 // __BITS__
 	// [Rely-on] stdinc.h
 #ifdef _MSC_VER // for MSVC
-	#define _DEV_MSVC
-	// __FUNCIDEN__ : function identifier
-	#define __FUNCIDEN__ __FUNCDNAME__
-	#define _ALIGN
-	#define _ASM __asm
+#define _DEV_MSVC
+// __FUNCIDEN__ : function identifier
+#define __FUNCIDEN__ __FUNCDNAME__
+#define _ALIGN
+#define _ASM __asm
 
 #elif defined(__GNUC__)
-	#define _DEV_GCC
-	#define __FUNCIDEN__ __func__ // cannot auto-strcat
-	#define _ALIGN(n) __attribute__((aligned(n)))
-	#define _ASM __asm__
+#define _DEV_GCC
+#define __FUNCIDEN__ __func__ // cannot auto-strcat
+#define _ALIGN(n) __attribute__((aligned(n)))
+#define _ASM __asm__
 #endif
 
 // ARINA-COVE C23-STYLE Attribute
@@ -98,8 +98,12 @@ extern "C++" {
 #define stepval(x) (!x)?0:x // do not nested by "()" !
 	// E.g. paralext = stepval(subtail)->next;
 
-#define Ranginc(i,range) ++(i) %= range
+#define Ranginc(i,range) do ++i, (i)%=(range);  while(0) //(++(i) %= range)
+#define Rangincx(i,min,max) do if(i>=max)i=min; else++i;  while(0)// max included
+#define Rangdec(i,range) do if(!(i)) i=range-1; else (--(i) %= range); while(0)
+#define Rangdecx(i,min,max) do if(i<=min)i=max; else--i;  while(0)// min included
 #define Rangstp(i,step,range) (((i)+=(step))%=(range)) // step
+#define Rangsub(i,step,range) do if(i < step) i = range - step; else i -= step; while(0)
 
 #define If(con) if(0||con) //<=> if(1&&con) : avoid error such as mixing "a=0" and "a==0"
 
@@ -144,6 +148,8 @@ extern "C++" {
 #define foreach_str(iden,x) for(char iden, *_pointer=(char*)(x);iden=*_pointer;_pointer++)
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for0r(iden,times) for(size_t iden=(times);iden--;)
+#define forp(ptr,times) for(pureptr_t _LIMIT=(pureptr_t)(ptr+times);(pureptr_t)ptr<_LIMIT;ptr++)
+#define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);ptr<(since)+(times);ptr++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 #define for0a(iden,array) for0(iden,numsof(array))
 

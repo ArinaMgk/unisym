@@ -56,7 +56,7 @@ Users can also provide their own`stdint.h`.
 
 ### `number.h` ≥ `complex.h`(C99+) , `fenv.h`(C99+) , `tgmath.h`(C99+)
 
-### `error.h` ≥ `errno.h`
+### `msgface.h` ≥ `errno.h`
 
 ### `loc.h` ≥ `locale.h`
 

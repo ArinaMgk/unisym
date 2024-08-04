@@ -89,9 +89,9 @@ namespace uni {
 		this->setthen(this);
 		return *this;
 	}
-	
+	/*
 	std::ostream& operator<< (std::ostream& out, const String& str) {
 		return out << str.addr;
 	}
-
+	*/
 }

@@ -332,7 +332,13 @@ namespace uni
 	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPin::getParent() const { return *parent; }
 	
 	GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](char portid) {
-		return ascii_isupper(portid) ? *(GPIO_List[portid - 'A']) : ERR;
+		return ascii_isupper(portid) ? *(GPIO_List[
+		#ifdef _MCU_MSP432
+			portid
+		#else
+			portid - 'A'
+		#endif
+		]) : ERR;
 	}
 
 	stduint GeneralPurposeInputOutput::Index(const GeneralPurposeInputOutputPort* port) {

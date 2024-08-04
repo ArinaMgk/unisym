@@ -98,6 +98,8 @@ to see `./inc/c/trait.h`
 - Avoid using reference& but pointer* for inside function for more simply transplant.
 - Use `uint8`, `uint16` and so on, as integer types.
 
+- prefix`get`, suffix`Get` and midfix`_get`
+
 ---
 
 - Pointers

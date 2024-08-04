@@ -105,6 +105,7 @@ namespace uni {
 			IOUP = 0;
 			Reset();
 			Send(_AD9959_FR1, FR1_DATA, 3, true);
+			Update();
 		}
 
 		void setMode() {}
@@ -114,11 +115,12 @@ namespace uni {
 			spi << regaddr;
 			for0(i, srclens) 
 				spi << srcdata[i];
-			if (update) Update();
+			// Update here マ
 			spi.SendStop();// CS=1
+			if (update) Update();
 		}
 
-		void setFrequency(byte chan, uint32 freq) {
+		void setFrequency(byte chan, uint32 freq, bool upd = true) {
 			if (chan > 4) return;
 			MIN(freq, 200000000);
 			byte CFTW0_DATA[4] = { 0x00,0x00,0x00,0x00 };
@@ -127,8 +129,8 @@ namespace uni {
 			CFTW0_DATA[2] = (freq_temp >> 8);
 			CFTW0_DATA[1] = (freq_temp >> 16);
 			CFTW0_DATA[0] = (freq_temp >> 24);
-			Send(_AD9959_CSR, getCSR_DATAx(chan), 1, true);
-			Send(_AD9959_CFTW0, CFTW0_DATA, 4, true);
+			Send(_AD9959_CSR, getCSR_DATAx(chan), 1, upd);
+			Send(_AD9959_CFTW0, CFTW0_DATA, 4, upd);
 		}
 
 		// 10-bit 0~1023 (->0 ~ 530mV)
@@ -146,11 +148,85 @@ namespace uni {
 
 		void setPhase(byte chan,  float _phaz/* 14b 0~16383 0..360*/) {
 			if (chan > 4) return;
+			while (_phaz >= 360) _phaz -= 360;
+			while (_phaz < 0) _phaz += 360;
 			uint16 phaz = _phaz * 45.511111; // 45.511111 zo 2^14/360
 			CPOW0_DATA[1] = phaz;
 			CPOW0_DATA[0] = (phaz >> 8);
 			Send(_AD9959_CSR, getCSR_DATAx(chan), 1, true);
 			Send(_AD9959_CPOW0, CPOW0_DATA, 2, true);
+		}
+
+		void setChannel(byte chan, uint32 freq, float ampl, float phaz) {
+			setFrequency(chan, freq);
+			setAmplitude(chan, ampl);
+			setPhase(chan, phaz);
+		}
+
+		// dosconio's Emergency method on 20240731 to sync phase
+		void setChannelAll(uint32 freq, float _ampl) {
+			// phase zero
+			// : setFrequency
+			MIN(freq, 200000000);
+			byte CFTW0_DATA[4] = { 0x00,0x00,0x00,0x00 };
+			uint32 freq_temp = freq * 8.589934592;
+			byte DSCN_TRIL[1] = { 0xF0 };
+			uint16 ampl = _ampl * 50.0 / 23; // dosconio expi : 23mV for 50
+			byte ACR_DATA[3] = { 0x00,0x00,0x00 };
+			CFTW0_DATA[3] = freq_temp;
+			CFTW0_DATA[2] = (freq_temp >> 8);
+			CFTW0_DATA[1] = (freq_temp >> 16);
+			CFTW0_DATA[0] = (freq_temp >> 24);
+			MIN(ampl, 1023);
+			ampl |= 0x1000;
+			ACR_DATA[2] = ampl;
+			ACR_DATA[1] = (ampl >> 8);
+			CPOW0_DATA[1] = 0;
+			CPOW0_DATA[0] = 0;
+			//
+			Send(_AD9959_CSR, DSCN_TRIL, 1, false);
+			Send(_AD9959_CFTW0, CFTW0_DATA, 4, false);
+			Send(_AD9959_CSR, DSCN_TRIL, 1, false);
+			Send(_AD9959_ACR, ACR_DATA, 3, false);
+			Send(_AD9959_CSR, ACR_DATA, 1, false);
+			Send(_AD9959_CPOW0, CPOW0_DATA, 2, true);
+		}
+		void setFrequencyAll(uint32 freq0, uint32 freq1, uint32 freq2, uint32 freq3, bool upd = true) {
+			setFrequency(0, freq0, false);
+			setFrequency(1, freq1, false);
+			setFrequency(2, freq2, false);
+			setFrequency(3, freq3, upd);
+		}
+		void setAmplitudeAll(float _ampl0, float _ampl1, float _ampl2, float _ampl3, bool upd = true) {
+			uint16 ampls[] = {
+				minof(uint16(_ampl0 * 50.0 / 23), (uint16)1023),
+				minof(uint16(_ampl1 * 50.0 / 23), (uint16)1023),
+				minof(uint16(_ampl2 * 50.0 / 23), (uint16)1023),
+				minof(uint16(_ampl3 * 50.0 / 23), (uint16)1023)
+			};
+			for0a(i, ampls) ampls[i] |= 0x1000;
+			byte ACR_DATA[3 * 4]{ 0 };
+			ACR_DATA[2] = ampls[0];
+			ACR_DATA[1] = (ampls[0] >> 8);
+			ACR_DATA[5] = ampls[1];
+			ACR_DATA[4] = (ampls[1] >> 8);
+			ACR_DATA[8] = ampls[2];
+			ACR_DATA[7] = (ampls[2] >> 8);
+			Send(_AD9959_CSR, CSR_DATA0, 1, false);
+			Send(_AD9959_ACR, ACR_DATA, 3, false);
+			Send(_AD9959_CSR, CSR_DATA1, 1, false);
+			Send(_AD9959_ACR, ACR_DATA + 3, 3, false);
+			Send(_AD9959_CSR, CSR_DATA2, 1, false);
+			Send(_AD9959_ACR, ACR_DATA + 6, 3, false);
+			Send(_AD9959_CSR, CSR_DATA3, 1, false);
+			Send(_AD9959_ACR, ACR_DATA + 9, 3, upd);
+		}
+		void setPhaseAllZero() {
+			byte TMPs[2] = { 0 };
+			byte DSCN_TRIL[1] = { 0xF0 };
+			Send(_AD9959_CSR, DSCN_TRIL, 1, false);
+			Send(_AD9959_CPOW0,    TMPs, 2, true);
+			//Update();
 		}
 
 	};

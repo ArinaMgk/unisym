@@ -24,7 +24,7 @@
 
 typedef void (*Handler_t)(void);
 
-#if defined(_MCCA) //{TEMP} Use CPL
+#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 
 #include "../../../c/stdinc.h"
 #include "../../../c/board/IBM.h"

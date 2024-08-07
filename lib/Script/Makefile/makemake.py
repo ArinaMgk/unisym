@@ -267,14 +267,14 @@ asmattr = -I${unidir}/inc/Kasha/n_ -I${unidir}/inc/naasm/n_ -I./include/
 asm  = $(ubinpath)/ELF64/aasm ${asmattr} #OPT: aasm
 asmf = ${asm} -felf
 CC32 = gcc -m32 -c -fno-builtin -fleading-underscore -fno-pic\
- -fno-stack-protector -I/mnt/hgfs/unisym/inc/c -D_MCCAx86 -D_ARC_x86=5
+ -fno-stack-protector -I$(unidir)/inc/c -D_MCCA=0x8632
 """
 text_gcc_mecocoa += "\nall:\n"
 text_gcc_mecocoa += '\t' + "-sudo mkdir -m 777 -p $(objdir)/libmx86\n"
 text_gcc_mecocoa += '\t' + "-rm -f $(objdir)/libmx86/*.obj\n"
 for i in list_gcc_mecocoa_files:
 	file_path, file_ext = os.path.splitext(i)
-	text_gcc_mecocoa += '\t' + i + " -Dp_i386 -D_MCCAx86 -D_ARC_x86=5 -o $(objdir)/libmx86/mx86_" + file_path.split("/")[-1] + ".obj\n"
+	text_gcc_mecocoa += '\t' + i + " -Dp_i386 -D_MCCA=0x8632 -o $(objdir)/libmx86/mx86_" + file_path.split("/")[-1] + ".obj\n" # for any bit
 text_gcc_mecocoa += '\t' + "-rm $(ubinpath)/libmx86.a\n"
 text_gcc_mecocoa += '\t' + "ar -rcs $(ubinpath)/libmx86.a $(objdir)/libmx86/*.obj\n"
 with open('./lib/make/cgmx86.make', 'w+b') as fobj:

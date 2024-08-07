@@ -3,7 +3,8 @@
 
 #include "../../../../inc/c/stdinc.h"
 
-#if defined(ADDR_CountSeconds) && defined(_MCCA) 
+#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
+#if defined(ADDR_CountSeconds)
 
 // depend(lib/asm/x86/inst/manage.asm)
 void delay001s()
@@ -19,4 +20,5 @@ void delay001ms()
 	while (*milsec_p == i) HALT();
 }
 
+#endif
 #endif

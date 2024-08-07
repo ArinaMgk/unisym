@@ -63,7 +63,7 @@ void ConClearScreen(void);
 
 #if defined(_WinNT) | defined(_Linux)
 #include <stdio.h>
-#elif defined(_MCCAx86)
+#elif defined(_MCCA) // && _MCCA==0x8632 ...
 //
 #endif
 

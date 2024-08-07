@@ -96,22 +96,18 @@ enum Architecture_t // for instruction sets
 		#endif
 	#define __BITS__ 64
 // [Special for Mecocoa]
-#elif defined(_MCCAx86)
-	#undef _MCCA
-	#define _MCCA 0x8632 // default flat-segment mode
+#elif defined(_MCCA) && _MCCA==0x8632// defined(_ARC_x86)
 	#define _Intelx86_Mcca_32
 	#define __ARCH__ Architecture_x86
 	#ifndef _ARC_x86
-		#define _ARC_x86 0
+		#define _ARC_x86 5
 		#endif
 	#define __BITS__ 32
-#elif defined(_MCCAx86Real)
-	#undef _MCCA
-	#define _MCCA 0x8616//{TODO} remove
+#elif defined(_MCCA) && _MCCA==0x8616// defined(_ARC_x86)
 	#define _Intelx86_Mcca_16
 	#define __ARCH__ Architecture_x86
 	#ifndef _ARC_x86
-		#define _ARC_x86 0
+		#define _ARC_x86 1
 		#endif
 	#define __BITS__ 16
 #elif defined(_OPT_RISCV64)

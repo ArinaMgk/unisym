@@ -37,4 +37,17 @@ typedef enum
 	_TODO
 } Request_Master_t;
 
+#define _i8259A_MAS     0X20
+#define _i8259A_MAS_IMR 0X21
+#define _i8259A_SLV     0XA0
+#define _i8259A_SLV_IMR 0XA1
+
+#define PORT_KBD 0x21
+#define PORT_KBD_BUFFER 0x60 // R:Buffer W:Buffer(8042 Data&8048 Command)
+
+#define PORT_RTC 0x70
+
+#define PIT_TIMER0     0x40 // I/O port for timer channel 0
+#define TIMER_MODE     0x43 // I/O port for timer mode control
+
 #endif

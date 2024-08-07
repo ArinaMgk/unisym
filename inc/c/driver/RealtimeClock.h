@@ -26,11 +26,9 @@
 #include "../stdinc.h"
 #include "../datime.h"
 
-#ifdef _MCCA // 0x8632. CPL
+#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 
-	#define PORT_RTC 0x70
-
-	void RTC_Init();
+void RTC_Init();
 
 #elif defined(_MCU_STM32F10x) // C++
 

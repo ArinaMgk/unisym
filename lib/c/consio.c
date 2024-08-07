@@ -24,7 +24,7 @@
 
 #if defined(_MCCA)// x86 or riscv64
 
-#if defined(_MCCA)
+#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 #include "proctrl/x86/x86.h" //{TEMP}
 void curset(word posi)
 {
@@ -229,11 +229,6 @@ void ConCursor(unsigned short col, unsigned short row)
 	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 	COORD pos = { col,row };
 	SetConsoleCursorPosition(ConHandle, pos);
-}
-
-void ConClear(void)
-{
-	system("cls");
 }
 
 void ConStyleAbnormal(void)

@@ -1,0 +1,94 @@
+\textbf{\$::ReheapString$(str)$}
+
+Treat the address of the node as a ASCIZ so re-heap it, which depends on the `$StrHeap()$'. 
+
+
+\textbf{\$::GetExtnField$()$}
+
+Get the pointer, to the end of the basic part of the node, which is the beginning of the extended part if it exists.
+
+
+\textbf{\$Insert$(nod,off,(typ),exf,onr)\rightarrow*$}
+
+Insert a node on the left or right on the node \textit{nod}. If \textit{nod} is null, this will return a pointer to the independent node. \textit{typ} exists for dnode and nnode for their owning. \textit{exf} defines the length of the extended part. \textit{onr} decides the direction, if \textit{nod} is not null.
+
+
+\textbf{\$Remove$(nod,(lef),fn-free)\rightarrow*nex$} 
+
+Remove the node no matter if in a chain. \textit{lef} is only for Node for it does not link its left node. The returns the pointer to the next node for iterating.
+
+
+\textbf{\$sRelease \$\$Drop$(since,fn-free)$}
+
+Remove the node and what on the right of it.
+
+
+\textbf{\$HeapFreeSimple}
+
+A simple releasing function. If we keep the member $func_free$ null, nothing will be done for the content of the node context. If $func_free$ points to this function, the `offs' aka `addr' will be `free'.
+
+
+\textbf{\$\$Init}
+
+Initialize the chain.
+
+
+\textbf{\$\$::New$()$ or \$New$(self)$}
+
+Create a new node context and return its pointer. The context keep the information for extended part.
+
+
+\textbf{\$\$::Count$()$ or \$Count$(self)$}
+
+Count how many nodes in the chain.
+
+
+\textbf{\$\$(::)Append$(self),off,lef,nod\rightarrow*$}
+
+Similar to `Insert' but this is for the chain. \textit{lef} decides the left ot the right when \textit{nod} is not null, the front or the tail when null.
+
+
+\textbf{\$\$(::)LocateNode ...}
+
+Unlike `Locate', always return the pointer to the node, which may be null if found not.
+
+
+\textbf{\$\$::Root and \$\$::RootRef}
+
+Return the root node of the chain. `Ref' is the reflect but reference, for Reference sometimes acts as a kind of a type in the Q'RS (Embedded Electronics) area.
+
+
+\textbf{\$\$::<< and \$(\$)::[]}
+
+Symbol style expression. ....
+
+
+\textbf{\$(\$)::getLeft} 
+
+Get the left node of the node in the chain, for `node', while get the left node of the node, no matter if it is in the chain.
+
+
+\textbf{\$\$::Last or \$:Youngest} 
+
+`Youngest' is for Nnode. Attention, Last is for the \textbf{leftest}, but youngest is for the \textbf{rightest} of the generation of the root generation.
+
+
+\textbf{\$\$::Head or \$:Head} 
+
+This is for the current generation.
+
+
+\textbf{\$\$::Tail or \$:Tail} 
+
+This is also for the current generation.
+
+
+\textbf{\$\$::Sorted or \$\$Sort} 
+
+Depends on the make interface for `Sort' trait.
+
+
+\textbf{\$::GetTnodeField} 
+
+For Dnode-compatible node. The design is for text parsing. The more to do the history commit of the git depot.
+

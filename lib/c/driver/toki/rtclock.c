@@ -23,7 +23,7 @@
 #include "../../../../inc/c/driver/i8259A.h"
 #include "../../../../inc/c/driver/RealtimeClock.h"
 
-#ifdef _MCCA // 0x8632
+#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 
 void RTC_Init()
 {

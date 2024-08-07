@@ -22,14 +22,14 @@
 
 
 #include "../../../inc/c/dnode.h"
-
-dnode* DnodeSort(dnode* any)
+/*
+Dnode* DnodeSort(Dnode* any)
 {
 	struct _aflag_t af = aflaga;
-	dnode* first = DnodeRewind(any);
+	Dnode* first = DnodeRewind(any);
 	_dnode_first = 0;
 	if (!first || (!aflaga.autosort && _dnode_compare)) return 0;
-	dnode* next, * crt = first;
+	Dnode* next, * crt = first;
 	while (crt)
 	{
 		next = crt->next;
@@ -46,3 +46,4 @@ dnode* DnodeSort(dnode* any)
 	aflaga = af;
 	return _dnode_first;
 }
+*/

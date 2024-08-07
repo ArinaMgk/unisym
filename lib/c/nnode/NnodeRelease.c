@@ -23,11 +23,39 @@
 
 #include "../../../inc/c/nnode.h"
 
-void NnodeRelease(nnode* nod, nnode* parent, void(*freefunc)(void*))
+void NnodeHeapFreeSimple(pureptr_t inp) {
+	Letvar(nod, Nnode*, inp);
+	memf(nod->offs);
+}
+
+Nnode* NnodeRemove(nnode* nod, _tofree_ft freefunc)
 {
-	if (parent && parent->subf == nod) parent->subf = nod->next;
-	if (nod->subf) NnodesRelease(nod->subf, nod, freefunc);
-	if (nod->left) nod->left->next = nod->next;
+	Nnode* res = nod->next;
+	if (nod->subf) NnodesRelease(nod->subf, freefunc);
+	if (Nnode_isEldest(nod) && nod->pare) nod->pare->subf = nod->next;
+	else if (nod->left) nod->left->next = nod->next;
 	if (nod->next) nod->next->left = nod->left;
-	if (freefunc) freefunc(nod); else memf(nod);
+	if (freefunc) freefunc(nod);
+	memf(nod);
+	return res;
+}
+
+void NnodesRelease(nnode* nod, _tofree_ft freefunc)
+{
+	if (!nod) return;
+	nnode* crt = nod, * left = nod->left, * next;
+	int is_eld = Nnode_isEldest(nod);
+	// assert (nod->left)
+	while (crt)
+	{
+		if (crt->subf) NnodesRelease(crt->subf, freefunc);
+		next = crt->next;
+		if (freefunc) freefunc(crt);
+		memf(crt);
+		crt = next;
+	}
+	if (left) {
+		if (is_eld) left->subf = 0;
+		else left->next = 0;
+	}
 }

@@ -26,16 +26,7 @@
 //{TODO}[INTERFACE] KEYS_STATE_MAP
 
 #include "../stdinc.h"
-#ifdef _MCCA // 0x8632
-
-#define PORT_KBD 0x21
-
-// R:Buffer W:Buffer(8042 Data&8048 Command)
-#define PORT_KBD_BUFFER 0x60
-
 
 void Keyboard_Init();
-
-#endif
 
 #endif

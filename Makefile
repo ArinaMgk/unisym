@@ -81,16 +81,21 @@ rust:
 
 # ---- [utilities] ----
 
-manual: ${dest_bin}/usymdoc.pdf ${dest_bin}/magice.pdf#optional: latex ?.tex && dvipdfmx ?.dvi
+manual: ${dest_bin}/herepc.pdf ${dest_bin}/magice.pdf#optional: latex ?.tex && dvipdfmx ?.dvi
 	echo "Build Finish."
-${dest_bin}/usymdoc.pdf:
-	cd  ${dest_bin}/ && xelatex ../unisym/doc/manual/usymdoc.tex && rm usymdoc.log usymdoc.aux 
+${dest_bin}/herepc.pdf:
+	cd doc/herepc && xelatex herepc.tex && mv herepc.pdf ../../$@
 ${dest_bin}/magice.pdf:
-	cd  ${dest_bin}/ && xelatex ../unisym/doc/magice/magice.tex && rm magice.log magice.aux magice.out
+	cd  ${dest_bin}/ && xelatex ../unisym/doc/magice/magice.tex && rm magice.log magice.aux magice.out 
 
 kitw32: # utility
 	cd ${make_dir} && make -f kitw32.make all
 	-ahkcc ./lib/Script/AutoHotkey/Arnscr.ahk ../../../../_bin/arnscr.exe # ***\AutoHotkey\Compiler\Ahk2Exe.exe /in %1 /out %2
+
+MGC_CFLG = -std=c99 -fno-common
+
+magice:
+	gcc $(MGC_CFLG) -o $$ubinpath/ELF64/mgc magic/*.c
 
 # ---- [test] ----
 
@@ -101,6 +106,10 @@ tllin: cgl32 cgl64 mx86# test lib lin
 
 test: # "trust"
 	cd lib/Rust/unisym && cargo test
+
+test-mgc:
+	@cd magic && ./chkmgc.sh
+
 
 clean:
 	-cd ./inc/Python/ && rmdir __pycache__ /S /Q

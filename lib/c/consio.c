@@ -24,6 +24,28 @@
 
 #if defined(_MCCA)// x86 or riscv64
 
+#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
+#include "proctrl/x86/x86.h" //{TEMP}
+void curset(word posi)
+{
+	outpb(0x03D4, 0x0E);
+	outpb(0x03D5, posi >> 8);
+	outpb(0x03D4, 0x0F);
+	outpb(0x03D5, posi & 0xFF);
+}
+
+word curget(void)
+{
+	word ret;
+	outpb(0x03D4, 0x0E);
+	ret = innpb(0x03D5) << 8;
+	outpb(0x03D4, 0x0F);
+	ret |= innpb(0x03D5);
+	return ret;
+}
+
+#endif
+
 static char _tab_dec2hex[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
 void outc(const char chr)
@@ -209,11 +231,6 @@ void ConCursor(unsigned short col, unsigned short row)
 	SetConsoleCursorPosition(ConHandle, pos);
 }
 
-void ConClear(void)
-{
-	system("cls");
-}
-
 void ConStyleAbnormal(void)
 {
 	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -248,7 +265,7 @@ void ConClearScreen(void)
 	#ifdef _WinNT
 		system("cls");
 	#else // elif defined(_Linux)
-		system("clear");
+		system("clear");// <=> printf("\033[2J");
 	#endif
 	// cheat compiler
 }

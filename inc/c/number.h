@@ -1,4 +1,4 @@
-// ASCII C TAB4 CRLF
+// ASCII CPL/CPP TAB4 CRLF
 // Docutitle: Number (Complex)
 // Codifiers: @dosconio: 20240603
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -24,7 +24,70 @@
 #define _INC_NUMBER
 
 #include "floating.h"
+#include "ustdbool.h"
+
+// ---- Complex ---- 
+
+typedef struct ddouble /* double-double, ddi */ {
+	double real, imag;
+} ddouble;
+
+typedef struct dfloat /* double-float, dfl */ {
+	float real, imag;
+} dfloat;
+
+#define __temp inline static
 
 
+#undef  tmpl
+#undef  tmpa
+#define tmpa dfloat
+#define tmpl(x) dfloat dfl##x
+//
+
+__temp
+tmpl(add)(tmpa a, tmpa b) {
+	tmpa res;
+	res.real = a.real + b.real;
+	res.imag = a.imag + b.imag;
+	return res;
+}
+
+__temp
+tmpl(sub)(tmpa a, tmpa b) {
+	tmpa res;
+	res.real = a.real - b.real;
+	res.imag = a.imag - b.imag;
+	return res;
+}
+
+__temp
+tmpl(mul)(tmpa a, tmpa b) {
+	tmpa res;
+	res.real = a.real * b.real - a.imag * b.imag;
+	res.imag = a.real * b.imag + a.imag * b.real;
+	return res;
+}
+
+__temp
+float dflabs(tmpa a) {
+	extern double dblsqrt(double);
+	return dblsqrt(a.real * a.real + a.imag * a.imag);
+}
+#define dflabs_m(a) sqrt((a).real * (a).real + (a).imag * (a).imag)
+
+#undef __temp
+
+// ---- CoeAr ---- 
+
+// ..
+
+
+// ---- HerAr ---- 
+extern boolean sign_coff;
+extern boolean sign_expo;
+extern stduint byte_total;
+extern stduint byte_divr;
+extern stduint byte_expo;
 
 #endif

@@ -50,12 +50,12 @@ namespace uni {
 			count = 0;
 		}
 		stduint Enqueue(const type0& item) {
-			if (isFull()) return ~(stduint)0;
+			if (isFull()) return None;
 			offss[count++] = item;
 			return count;// how many data in the queue
 		}
 		stduint Dequeue(type0& item) {
-			if (isEmpty()) return ~(stduint)0;
+			if (isEmpty()) return None;
 			item = offss[0];
 			for (int i = 0; i < count - 1; i++) {
 				offss[i] = offss[i + 1];

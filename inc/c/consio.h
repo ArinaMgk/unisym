@@ -33,6 +33,13 @@ enum {
 	_STD_ERR = 2,
 };
 
+/*//{TODO}
+struct ConsoleControlBlock {
+	word posi;
+	word width, height;
+};
+*/
+
 void curset(word posi);
 word curget(void);
 void scrrol(word lines);
@@ -48,11 +55,15 @@ void outidec(int xx, int base, int sign);
 void outsfmtlst(const char* fmt, va_list lst);
 void outsfmt(const char* fmt, ...);
 
+//
+void ConClearScreen(void);
+#define ConClear ConClearScreen
+
 //{TODO} #define printf outsfmt 
 
 #if defined(_WinNT) | defined(_Linux)
 #include <stdio.h>
-#elif defined(_MCCAx86)
+#elif defined(_MCCA) // && _MCCA==0x8632 ...
 //
 #endif
 
@@ -61,8 +72,6 @@ void outsfmt(const char* fmt, ...);
 // Return the length of the words excluding terminating zero but "limit" considers it.
 size_t ConScanLine(char* buf, size_t limit);
 
-//
-void ConClearScreen(void);
 
 //
 #if defined(_Linux)
@@ -119,17 +128,6 @@ static inline void ConCursor(unsigned short col, unsigned short row)
 static inline void ConCursorShow(void)
 {
 	printf("\033[?25h");
-}
-#endif
-
-// ConClear
-#if defined(_WinNT)
-void ConClear(void);
-#elif defined(_Linux)
-//
-static inline void ConClear(void)
-{
-	printf("\033[2J");
 }
 #endif
 

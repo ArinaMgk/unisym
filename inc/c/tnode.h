@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ22
-// AllAuthor: @dosconio
-// ModuTitle: Token Node
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: Token Node Parse
+// Codifiers: @dosconio: RFZ22 ~
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,64 +20,71 @@
 	limitations under the License.
 */
 
-// base of ustring::token system
-
 #ifndef _INC_TNODE
 #define _INC_TNODE
 
-#include "stdinc.h"
-#include "ustring.h"
+#include "dnode.h"
 
-typedef struct TokenNode
-{
-	// {dnode} 
-	struct TokenNode* next;
-	union { char* addr; void* offs; };
-	struct TokenNode* left;
-	union { size_t len; toktype type; };
-	size_t row, col;
-} tode, tnode;// recommand using tnode. measures pointer[6]
+#ifdef _INC_CPP
+namespace uni {
+#endif
 
-#define _TNODE_COMMENT '#'
-#define _TNODE_DIRECTIVE '%'
+	typedef struct TokenParseUnit {
+		tchain_t tchn;
+		int (*getnext)(void);
+		void (*seekback)(stdint chars);
+		//
+		stduint crtline;
+		stduint crtcol;
+		char* buffer, * bufptr;
+	} TokenParseUnit;
 
-//
-tnode* StrTokenAppend(tnode* any, const char* content, size_t contlen, size_t ttype, size_t row, size_t col);
+	_CALL_C void StrTokenAll(TokenParseUnit* tpu);
 
-// ...
-#define TnodeLoad StrTokenAll
-tnode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer);
-
-// {TODO} Merged into StrTokenReleases
-void StrTokenClearAll(tnode* tstr);
-
-// Free for self and its addr.
-void TnodeReleaseTofreeDefault(void* inp);
-
-// freefunc should memf the parameter-pointed object besides its resources.
-void TnodesReleases(tnode* nod, void(*freefunc)(void*));
-
-//
-void StrTokenThrow(tnode* one);// a b c --> a c
-
-//
-inline static tnode* StrTokenBind(tnode* left, tnode* mid, tnode* right)
-{
-	if (left) left->next = mid;
-	if (mid) mid->next = right;
-	if (right) right->left = mid;
-	if (mid) mid->left = left;
-	return mid;
+#ifdef _INC_CPP
 }
+#endif
 
-#define StrTokenPrint(first)\
-	printf("Token: [R %llu,C %llu][%s] %s\n", first->row, first->col,\
-		((const char* []){"END", "ANY", "STR", "CMT", "DIR", "NUM", "SYM", "IDN", "SPC", "ELS"})\
-		[first->type], first->type == tok_space ? "" : first->addr);
+#ifdef _INC_CPP
+namespace uni {
+	
+	
+	struct TokenParseManager {
+		Dchain dc;
+		TokenParseManager(int (*getnext)(void), void (*seekback)(stdint chars), char* buffer) : dc() {
+			in_tpu.getnext = getnext;
+			in_tpu.seekback = seekback;
+			in_tpu.crtcol = in_tpu.crtline = 1;
+			in_tpu.buffer = buffer;
+			in_tpu.bufptr = buffer;
+			//
+			DchainInit(&in_tpu.tchn);
+			in_tpu.tchn.extn_field = sizeof(uni::TnodeField);
+			dc.func_free = 0;//{TODO}
+			inntpu_avail = outtpu_avail = false;
+		}
+		~TokenParseManager() {
+			//{TODO}
+		}
+		bool TokenParse() { 
+			StrTokenAll(&in_tpu);
+			inntpu_avail = true;
+			uni::Dnode* crt = in_tpu.tchn.root_node;
+			if (crt) do {
+				dc.Append(crt->offs, false)->type = crt->type;
+			} while (crt = crt->next);
+			DchainDrop(&in_tpu.tchn);
+			inntpu_avail = false;
+			outtpu_avail = true;
+			return true;
+		}
+	protected:
+		//{TEMP} now C++ is powerful but C, so we use red tapes.
+		TokenParseUnit in_tpu;// for token
+		bool inntpu_avail;
+		bool outtpu_avail;
+	};
 
-// For the string of the Tode.
-#define StrTokenPrintAll(first)\
-	do StrTokenPrint(first);\
-	while (first = first->next);
-
+}
+#endif
 #endif

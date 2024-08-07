@@ -88,6 +88,9 @@ static inline gate_t* GateStructInterruptR0(gate_t* gate, dword addr, word segm,
 	return gate;
 }
 
+// lib/asm/x86/inst/inst.asm
+int setA32(int);
+
 // lib/asm/x86/inst/ioport.asm
 void OUT_b(word Port, byte Data);
 word IN_b(word Port);

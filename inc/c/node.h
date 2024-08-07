@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ02
-// AllAuthor: @ArinaMgk(till RFA03) @dosconio
-// ModuTitle: Simple Node
+// ASCII C99/C++11 TAB4 CRLF
+// Docutitle: Node
+// Codifiers: @ArinaMgk(~RFA03) @dosconio(20240409)
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,94 +20,191 @@
 	limitations under the License.
 */
 
-// AFLAGA {ASF, DF, FF, ZF, ONF}
-// - ASF : Auto sort the node by the DF
-// - DF  : in increasing or decreasing order
-// - FF  : something wrong raised
-// - ZF  : zero flag, if the node is empty
-// - ONF : order flag, if the node has and only has one node
+/* AFLAGA {ASF, DF, FF, ZF, ONF}
+- ASF : Auto sort the node by the DF
+- DF  : in increasing or decreasing order
+- FF  : something wrong raised
+- ZF  : zero flag, if the node is empty
+- ONF : order flag, if the node has and only has one node
+*/
 
 #ifndef _INC_NODE
 #define _INC_NODE
 
 #include "stdinc.h"
+#include "algorithm/sort.h"
+#include "algorithm/search.h"
 
-// measures stdint[2]
-#ifdef _TYPNAM_
-#undef _TYPNAM_
-#endif
-#ifdef _INC_CPP
-#define _TYPNAM_ Node
+#if defined(__cplusplus) || defined(_INC_CPP)
+#include "../cpp/trait/ArrayTrait.hpp"
+#include "../cpp/trait/IterateTrait.hpp"
 namespace uni {
-#else
-#define _TYPNAM_ node
+extern "C" {
+#else	
+#include "ustdbool.h"
+#include "../c/trait/ArrayTrait.h"
 #endif
 
+// always pass pointer to Node but offs
 
 typedef struct Node {
 	struct Node* next;
-	union
-	{
+	union {
 		const char* addr;
-		const void* offs;
+		pureptr_t offs;
 	};
-} node; 
-
-//{TODO} NodeChain and mix C&C++ into one
-
-//#endif
-
-// extern enum _Node_Order
-// {
-//  _Node_Order_Increase,   //  ASF & !DF [default]
-//  _Node_Order_Decrease,   //  ASF &  DF
-//  _Node_Order_UserDefine, // !ASF &  _node_compare!=0
-//  _Node_Order_Disable,    // !ASF &  _node_compare==0
-//  _Node_Order_Insert      // cancelled
-// }
-// _node_order;
-
-//{TODO}namespace uni for C++:  #ifdef _INC_CPP
-
-// default null
-// return 0 for equal, 1 for greater, -1 for less
-extern int (*_node_compare)(const void* addr0, const void* addr1);
-
-// default provided by `memf()` for `addr`, not the `node` itself
-extern void(*_node_freefunc)(void*);
-
-// mark the head of the chain after last `NodeAppend()` , will be reset to zero after `NodeRelease()` 
-extern node* _node_first;
-
-// ---- ---- ---- ---- Structure ---- ---- ---- ---- 
-
-// Whether the order is enabled or disabled depends on `_node_order`.
-// Return the appended node.
-node* NodeAppend(node* first, void* addr);
-
-node* NodeInsert(node* nod, const void* addr);
-
-// ---- ---- ---- ---- Sort and Seek ---- ---- ---- ---- 
-
-// Sort the chain by `addr` in increasing or decreasing order.
-node* NodeSort(node* first);
-
-// Return the distance plus one, or 0 for not found.
-size_t NodeIndex(const node* first, void* addr);
-
-// Return the counts of the node string.
-size_t NodeCount(const node* first);
-
-// ---- ---- ---- ---- Destruction ---- ---- ---- ---- 
-
-// Remove a node from the chain.
-void NodeRemove(node* nod, node* left);
-
-// If `tofree` is zero, the `addr` of nodes in the chain will be released by single `memf()` . If you do not want to release the `addr` or call `freefunc`, set `addr` to zero.
-void NodeRelease(node* first);
-
 #ifdef _INC_CPP
-}
+	byte* GetExtnField() { return getExfield(*this); }
+	Node* ReheapString(const char* str);
 #endif
-#undef _TYPNAM_
+} Node; // measures stdint[2]
+
+Node* NodeInsert(Node* nod, pureptr_t txt, stduint more_field);
+
+void NodeRemove(Node* nod, Node* left, _tofree_ft _node_freefunc);
+void NodesRelease(Node* nod, Node* left, _tofree_ft _node_freefunc);
+
+void NodeHeapFreeSimple(pureptr_t inp);
+
+#define _MACRO_CHAIN_MEMBER \
+	Node* root_node;\
+	Node* last_node;\
+	struct {\
+		Node* midl_node;\
+	} fastab;\
+	stduint node_count;\
+	stduint extn_field;\
+	struct {\
+		bool been_sorted /* `need_sort` as para of Append */;\
+	} state;
+// all be initialized with ZERO but been_sorted is decided by your preference.
+
+typedef struct NodeChain_t {
+	_MACRO_CHAIN_MEMBER
+	_tofree_ft func_free;
+	_tocomp_ft func_comp;
+} chain_t;
+
+#if defined(__cplusplus) || defined(_INC_CPP)
+} // C++ Area
+class Chain : public ArrayTrait, public IterateTrait {
+protected:
+	_MACRO_CHAIN_MEMBER
+	//
+	virtual stduint Length() const;
+	void NodeChainAdapt(Node* root, Node* last, stdint count_dif);
+	Node* Push(pureptr_t off, bool end_left = true);
+	Node* New();
+public:
+	_tofree_ft func_free; // nullptr for not-auto sort, for `Append`
+	//
+	Chain(bool defa_free = false);
+	~Chain();
+	// ---- T: Iterate
+	virtual void Iterate();
+	// ---- T: Array
+	//
+	virtual pureptr_t Locate(stduint idx) const;
+	Node* LocateNode(stduint idx) const;// (D)Node Special
+	virtual stduint Locate(pureptr_t p_val, bool fromRight) const;
+	//[Single-Direction]
+	Node* getLeft(Node* nod, bool fromRight) const;
+	// Locate First One
+	inline Node* LocateNode(pureptr_t content) {
+		return LocateNode(Locate(content, false));
+	}
+	//
+	//[protected] virtual stduint   Length() const;
+	stduint Count() { return Length(); }
+	// 
+	virtual bool Insert(stduint idx, pureptr_t dat);
+	toheap Node* Append(const char* addr);
+	// Priority: {nod > order > default_ends}
+	Node* Append(pureptr_t addr, bool onleft, Node* nod = 0);
+	template <typename type1> inline Chain& operator<<(const type1& obj) {
+		Append((pureptr_t)&obj, false);
+		return *this;
+	}// do not pass pointers to what you what but itself!
+	inline Chain& operator<<(const char* addr) {
+		Append(addr);
+		return *this;
+	}
+	//
+	virtual bool Remove(stduint idx, stduint times);
+	Node* Remove(Node* nod);
+	Node* Remove(pureptr_t content);
+	//
+	virtual bool Exchange(stduint idx1, stduint idx2);
+	//
+	Node* Root() const { return root_node; }
+	template <typename type1> inline type1& Head() {
+		if (!root_node) throw "NODE ROOT EMPTY";
+		return *(type1*)root_node->offs;
+	}
+	Node* Last() const { return last_node; }// Reference version: Tail() , which fits at least 1 item
+	template <typename type1> inline type1& Tail() {
+		if (!last_node) throw "NODE TAIL EMPTY";
+		return *(type1*)last_node->offs;
+	}
+
+	// Pointer Operator
+	Node* operator[](stdint idx) { if (idx < 0) idx += node_count; return (Node*)Locate(idx); }
+	//
+
+
+	// Sorted
+	Chain& Sorted(_tocomp_ft Cmp_f = 0) {
+		if (Cmp_f) this->Compare_f = Cmp_f;
+		Sort(*this);
+		state.been_sorted = true;
+		return *this;
+	}
+
+	void SortByInsertion();
+	
+};
+
+using NodeChain = Chain;
+
+
+
+}
+#else
+
+// How many nodes after the node
+size_t NodeCount(const Node* first);
+
+Node* NodeNew(chain_t* chn);
+
+void ChainInit(chain_t* chain);
+void ChainDrop(chain_t* chain);
+void ChainSort(chain_t* chain);
+Node* ChainAppend(chain_t* chn, pureptr_t addr, bool onleft, Node* nod);
+Node* ChainLocateNode(chain_t* chn, stduint idx);
+
+inline static void NodeChainAdapt(chain_t* chn, Node* root, Node* last, stdint count_dif) {
+	chn->  node_count += count_dif;
+	chn->  root_node = root;
+	chn->  last_node = last;
+	//[Fast Table except root/last node]
+	// assume 35 items, consider 33 items, 33 / 2 + 1 = 17;
+	// assume 3 items ... <=> 3 / 2 = 1;
+	if (chn->  node_count < 2 + 1) // root, last, and 
+		chn->  fastab.midl_node = 0;
+	else
+		chn->fastab.midl_node = ChainLocateNode(chn, chn->node_count >> 1);
+}
+
+inline static Node* Node_getLeft(chain_t* chn, Node* nod, bool fromRight) {
+	Node* res;
+	Node* crt = chn->root_node;
+	if (crt) do if (crt->next == nod) {
+		res = crt;
+		if (!fromRight) break;
+	} while (crt = crt->next);
+	return res;
+}
+
+#endif
+
 #endif

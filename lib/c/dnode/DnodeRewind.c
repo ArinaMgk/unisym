@@ -23,9 +23,9 @@
 
 #include "../../../inc/c/dnode.h"
 
-dnode* DnodeRewind(const dnode* any)
+Dnode* DnodeRewind(const Dnode* any)
 {
-	if (!any) return (dnode*)any;// 0
-	while (any->left) any = (const dnode*)(any->left);
-	return (dnode*)any;
+	if (!any) return (Dnode*)any;// 0
+	while (any->left) any = (const Dnode*)(any->left);
+	return (Dnode*)any;
 }

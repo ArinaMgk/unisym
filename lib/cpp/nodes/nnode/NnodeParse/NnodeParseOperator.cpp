@@ -24,16 +24,17 @@
 // Convert all operators into function calling form;
 
 #include "../../../../../inc/cpp/unisym"
+#include "../../../../../inc/cpp/string"
 #include "../../../../../inc/cpp/nnode"
 #include <new>
 
 #define gettype(sym) (stepval(sym)->type)
 // | whom must != 0 (0 means non-exist) for true, 
 // v     so "0" is good to occupy.So for example, need not judge crt->left for `issuffix()`.
-#define parawith(sym,whom) (maynotsym(gettype(whom)) && !sym->difline(whom))
+#define parawith(sym,whom) (maynotsym(gettype(whom)) && !sym->GetTnodeField()->difline(*whom->GetTnodeField()))
 // | whom may  != 0 (0 means non-exist) for true, so "0" is good to occupy
 // v     so as above.
-#define sepawith(sym,whom) (maysymbol(gettype(whom)) ||  sym->difline(whom))
+#define sepawith(sym,whom) (maysymbol(gettype(whom)) ||  sym->GetTnodeField()->difline(*whom->GetTnodeField()))
 
 // size_t lleftt = crt->left->left ? crt->left->left->type : tok_any;
 // size_t leftt = crt->left ? crt->left->type : tok_any;
@@ -41,18 +42,18 @@
 // size_t rrightt = crt->next->next ? crt->next->next->type :tok_any;
 
 inline static bool issuffix(uni::Nnode* crt) {
-	return sepawith(crt, crt->next) && parawith(crt, crt->left) && sepawith(crt, crt->left->left);
+	return sepawith(crt, crt->next) && parawith(crt, crt->getLeft()) && sepawith(crt, crt->getLeft()->getLeft());
 }
 inline static bool isprefix(uni::Nnode* crt) {
-	return sepawith(crt, crt->left) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
+	return sepawith(crt, crt->getLeft()) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
 }
 inline static bool ismiddle(uni::Nnode* crt) {
-	return parawith(crt, crt->left) && sepawith(crt, crt->left->left) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
+	return parawith(crt, crt->getLeft()) && sepawith(crt, crt->getLeft()->getLeft()) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
 }
 
 typedef bool (*ParseOperatorFunction_t)(uni::Nnode*, uni::NnodeChain*, bool&);
 
-const char* StrIndexOperator(const char* str, uni::TokenOperator** operators, size_t count, bool left_to_right) {
+const char* uni::StrIndexOperator(const char* str, uni::TokenOperator** operators, size_t count, bool left_to_right) {
 	const char* idx;
 	for0(i, count) {
 		if (idx = (left_to_right? StrIndexString : StrIndexStringRight)(str, (*operators)->idnop))
@@ -67,21 +68,23 @@ const char* StrIndexOperator(const char* str, uni::TokenOperator** operators, si
 //{TEMP} Middle ANY/SYM/SPA/NL STR/NUM/IDEN/FUNC(1) SYM(+-*/) STR/NUM/IDEN/FUNC(2) SYM/SPA/NL/NULL
 static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::TokenOperatorGroup* tog, bool& exist_sym, bool LR_but_RL, stduint condi) {
 	bool& op_suffix = LR_but_RL;
-	uni::Nnode*& subfirst = head->pare ? head->pare->subf : nc->RootAddress(), * crt = head, * tmp{ nullptr };
-
+	uni::Nnode*& subfirst = head->pare ? head->pare->subf : nc->RootRef(),
+		* crt = head, * tmp{ nullptr };
 	const char* idx;
 	exist_sym = false;
 	uni::TokenOperator* tmpop = nullptr;
-	for (crt = (LR_but_RL ? subfirst : subfirst->Tail()); crt; crt = (LR_but_RL ? crt->next : crt->left)) if ((crt->type == tok_symbol) && (exist_sym = true) && (tmpop = tog->operators) && (idx = StrIndexOperator(crt->addr, &tmpop, tog->count, LR_but_RL))) {
+	for (crt = (LR_but_RL ? subfirst : subfirst->Tail()); crt; crt = (LR_but_RL ? crt->next : crt->getLeft())) 
+		if ((crt->type == tok_symbol) && (exist_sym = true) && (tmpop = tog->operators) && (idx = StrIndexOperator(crt->addr, &tmpop, tog->count, LR_but_RL))) {
 		uni::Nnode* judge = 0;
 		if (tmpop) nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
 		if (condi == 2 && ismiddle(crt)) {
-			AssignParallel(tmp, crt, nc->Adopt(nc->Insert(judge = crt->left, true, StrHeap(stepval(tmpop)->ident)), crt->left, crt->next));
-			crt->col = tmp->col;
+			AssignParallel(tmp, crt, nc->Adopt(nc->Append(StrHeap(stepval(tmpop)->ident), true, judge = crt->getLeft()),
+				crt->getLeft(), crt->next));
+			crt->GetTnodeField()->col = tmp->GetTnodeField()->col;
 			nc->Remove(tmp);
-		}
+		} 
 		else if (condi == 1 && (op_suffix ? issuffix : isprefix)(crt)) { // Unary
-			crt = nc->Adopt(crt, judge = (op_suffix ? crt->left : crt->next))->ReheapString(stepval(tmpop)->ident);
+			crt = nc->Adopt(crt, judge = (op_suffix ? crt->getLeft() : crt->next))->ReheapString(stepval(tmpop)->ident);
 		}
 		if (head == judge) head = crt;
 	}

@@ -31,7 +31,7 @@
 typedef struct TaskStateSegmentx86
 {
 	word LastTSS;
-	word NextTSS;// Mecocoa's Design
+	word NextTSS;// static, Mecocoa's Design
 	dword ESP0;
 	word SS0;
 	word Padding0;
@@ -41,7 +41,7 @@ typedef struct TaskStateSegmentx86
 	dword ESP2;
 	word SS2;
 	word Padding2;
-	dword CR3;// Page Directory Base
+	union { dword CR3; dword PDBR; }; // Control Register 3, Page Directory Base
 	dword EIP;
 	dword EFLAGS;
 	dword EAX;
@@ -65,7 +65,7 @@ typedef struct TaskStateSegmentx86
 	word GS;
 	word Padding8;
 	word LDTDptr;
-	word LDTLength;// Mecocoa's Design
+	word LDTLength;// static, Mecocoa's Design
 	word STRC_15_T;
 	word IO_MAP; // default 103
 	// ---- 0104d:

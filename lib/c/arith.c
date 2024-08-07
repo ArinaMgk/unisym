@@ -29,11 +29,11 @@
 stduint _EFDIGS = 6;
 
 // CORE of Arithmetic
-const static double _pi = 3.14159265358979323846264338327950288419716939937510582097494459;
-const static double _ln2 = 0.69314718055994530941723212145817656807550013436025525412068;
-const static double _e = 2.7182818284590452353602874713526624977572470937;
+const static double _pi = _VAL_PI;
+const static double _ln2 = _VAL_L2;
+const static double _e = _VAL_E;
 // ln16
-const static double _4ln2 = 4 * 0.69314718055994530941723212145817656807550013436025525412068;
+const static double _4ln2 = 4 * _VAL_L2;
 
 void ariprecise(stduint prec)
 {

@@ -1,4 +1,4 @@
-// ASCII C99 TAB4 CRLF
+// UTF-8 C99 TAB4 CRLF
 // LastCheck: 2023 Nov 16
 // AllAuthor: @ArinaMgk; @dosconio
 // ModuTitle: Processor inside Math / Arithmetic
@@ -24,6 +24,15 @@
 
 #include "stdinc.h"
 #include "coear.h"
+#include "number.h"
+
+// π
+#define _VAL_PI 3.14159265358979323846264338327950288419716939937510582097494459
+// ln2
+#define _VAL_L2 0.69314718055994530941723212145817656807550013436025525412068
+// e
+#define _VAL_E  2.7182818284590452353602874713526624977572470937
+
 
 /*//{TODO}
 type
@@ -115,6 +124,14 @@ extern stduint _EFDIGS;// how many effective digits
 void ariprecise(stduint prec);
 
 stduint intFibonacci(stduint idx);
+
+// Floor method
+inline static stduint intlog2_iexpo(stduint v) {
+	stduint crt = 0;
+	if (!v) return 0;
+	while (v >>= 1) crt++;
+	return crt;
+}
 
 inline static stduint intpow2_iexpo(stduint expo)
 {

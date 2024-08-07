@@ -30,6 +30,11 @@
 #include "dnode"
 #include "math.h"
 
+/* TODO
+[ ] Index according to complete binary tree
+[ ] Combinate with NnodeChain
+*/
+
 namespace uni {
 	class Bnode : public Dnode {
 	public:
@@ -103,7 +108,7 @@ namespace uni {
 			Postorder,
 		};
 		//
-		template <typename type0> void Remove(Bnode* item = (Bnode*)~(stduint)0) {
+		template <typename type0> void Remove(Bnode* item = (Bnode*)None) {
 			nulrecurs(item, Root(), );
 			Remove<type0>(item->left); //delete left;
 			Remove<type0>(item->next); //delete left;
@@ -113,7 +118,7 @@ namespace uni {
 			if (root_node != item) mfree(item);
 			else available = false;
 		}
-		void Remove(Bnode* item = (Bnode*)~(stduint)0) {
+		void Remove(Bnode* item = (Bnode*)None) {
 			nulrecurs(item, Root(), );
 			Remove(item->left); //delete left;
 			Remove(item->next); //delete left;
@@ -129,27 +134,27 @@ namespace uni {
 
 		// just print them on stdio
 		// - procfunc return whether to continue
-		void Traversal(TraversalOrder order = Preorder, bool (*procfunc)(Bnode*) = 0, Bnode* starter = (Bnode*)~(stduint)0);
+		void Traversal(TraversalOrder order = Preorder, bool (*procfunc)(Bnode*) = 0, Bnode* starter = (Bnode*)None);
 		//
-		stduint Leaves(Bnode* starter = (Bnode*)~(stduint)0);
+		stduint Leaves(Bnode* starter = (Bnode*)None);
 		//
-		stduint Depth(Bnode* starter = (Bnode*)~(stduint)0);
+		stduint Depth(Bnode* starter = (Bnode*)None);
 		// Swap left and its right for each
-		void Mirror(Bnode* from = (Bnode*)~(stduint)0) {
+		void Mirror(Bnode* from = (Bnode*)None) {
 			nulrecurs(from, Root(),);
 			Mirror(from->left);
 			Mirror(from->next);
 			xchgptr(from->left, from->next);
 		}
 		//
-		stduint Count(Bnode* from = (Bnode*)~(stduint)0) {
+		stduint Count(Bnode* from = (Bnode*)None) {
 			if (!from) return 0;
 			else if (!~(stduint)from) from = Root();
 			if (nullptr == from->left && nullptr == from->next) return 1;
 			else return Count(from->left) + Count(from->next) + 1;
 		}
 		//
-		bool isProper(Bnode* from = (Bnode*)~(stduint)0) {
+		bool isProper(Bnode* from = (Bnode*)None) {
 			nulrecurs(from, Root(), true);
 			if ((from->left == nullptr) ^ (from->next == nullptr)) return false;
 			else if (from->left || from->next) return isProper(from->left) && isProper(from->next);
@@ -160,7 +165,7 @@ namespace uni {
 			return stduint(exp2(double(Depth()))) == Count() + 1;
 		}
 		//
-		bool isComplete(Bnode* from = (Bnode*)~(stduint)0);
+		bool isComplete(Bnode* from = (Bnode*)None);
 	};
 	//{TIPS} You can also use loop but recursion to do.
 }

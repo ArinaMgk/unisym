@@ -53,7 +53,7 @@ namespace uni {
 			while (Conreg.bitof(_RCC_CR_POSI_PLLReady) ^ ena); // wait for PLL locked
 		}
 	public:
-		bool setMode(bool state_on = true, PLLSource::RCCPLLClockSource source = PLLSource::HSE, uint32 mulfactor = 9) {
+		bool setMode(bool state_on = true, PLLSource::RCCPLLClockSource source = PLLSource::HSE, uint32 mulfactor = 9, bool HSE_div2 = false) {
 			//{TOCHK} Can this be used twice or more ?
 			if (RCCSystemClock::CurrentSource() == SysclkSource::PLL) {
 				return false;//{TEMP}
@@ -69,11 +69,7 @@ namespace uni {
 					// - {TEMP} div-one
 					if (source == PLLSource::HSE) {
 						//{TODO} RCC_CFGR2_PREDIV1SRC
-						const uint32 pred = 1;//{TEMP}
-						if (pred < 2) {
-							if (pred) Cfgreg.setof(_RCC_CFGR_POSI_PLL_XTPRE);
-							else Cfgreg.rstof(_RCC_CFGR_POSI_PLL_XTPRE);
-						}
+						Cfgreg.setof(_RCC_CFGR_POSI_PLL_XTPRE, HSE_div2);
 						// Configure the main PLL clock source
 						setSource(source);
 						// Configure the main PLL multiplication factors
@@ -105,6 +101,26 @@ namespace uni {
 		}
 	};
 }
+
+#elif defined(_MCU_STM32F4x)
+
+namespace uni {
+	namespace PLLSource {
+		enum PLLSource {
+			HSI = 0x00000000, //aka  RCC_PLLCFGR_PLLSRC_HSI
+			HSE = 0x00400000, //aka RCC_PLLCFGR_PLLSRC_HSE RCC_PLLCFGR_PLLSRC_HSE
+			Mask = HSE
+		};
+	}
+	class RCCPLL {
+	private:
+		void enAble(bool ena = true);
+	public:
+		bool setMode();
+		static bool isReady();
+	};
+}
+
 
 #endif
 #endif

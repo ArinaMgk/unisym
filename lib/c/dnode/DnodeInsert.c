@@ -26,56 +26,21 @@
 #define on_decresing_order (aflaga.direction)
 #define on_increasing_order (!aflaga.direction)
 
-dnode* DnodeInsert(dnode* nod, void* addr, size_t typlen, int direction)
+// Insert Right
+Dnode* DnodeInsert(Dnode* nod, pureptr_t offs, size_t typlen, stduint extn_field, int direction_right)
 {
-	dnode* tmp = zalcof(dnode);
-	dnode* crt = nod;
-	tmp->addr = addr;
+	Letvar(tmp, Dnode*, zalc(sizeof(Dnode) + extn_field));
+	if (!tmp) return 0;
+	tmp->offs = offs;
 	tmp->type = typlen;
-
-	aflaga.fail = 0;
-	aflaga.zero = 0;
-	aflaga.one = !nod;
-	if (!nod)
-		return _dnode_first = tmp;
-
-	switch (direction)
-	{
-	case -2:
-		// insert head
-		tmp->next = DnodeRewind(nod);
-		tmp->next->left = tmp;
-		_dnode_first = tmp;
-		break;
-	case -1:
-		// insert left
-		// (A) crt (C)
-		// (A-) -tmp- -crt (C)
-		tmp->left = crt->left;
-		tmp->next = crt;
-		if (crt->left) crt->left->next = tmp;
-		crt->left = tmp;
-		if (!tmp->left) _dnode_first = tmp;
-		break;
-	case 1:
-		// insert right
-		// (A) crt (C)
-		// (A) crt- -tmp- (-C)
-		tmp->left = crt;
-		tmp->next = crt->next;
-		if (crt->next) crt->next->left = tmp;
-		crt->next = tmp;
-		break;
-	case 2:
-		// insert tail
-		while (crt->next) crt = crt->next;
-		tmp->left = crt;
-		tmp->left->next = tmp;
-		break;
-	default:
-		aflaga.fail = 1;
-		memf(tmp);
-		return 0;
+	if (direction_right) {
+		if (!(tmp->left = nod)) return tmp;
+		asserv(nod->next)->left = tmp;
+		return AssignParallel(tmp->next, nod->next, tmp);
 	}
-	return tmp;
+	else {
+		if (!(tmp->next = nod)) return tmp;
+		asserv(nod->left)->next = tmp;
+		return AssignParallel(tmp->left, nod->left, tmp);
+	}
 }

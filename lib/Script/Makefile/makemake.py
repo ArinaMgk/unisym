@@ -50,12 +50,13 @@ list_cpl_file_new = []
 list_cpp_file = get_files("./lib/cpp/", ".cpp")
 list_cpp_file_new = []
 for i in list_cpp_file:
-	if ("/lib/cpp/Device/" in i) :
+	if ("/lib/cpp/Device/" in i) or ("/lib/cpp/MCU/" in i) :
 		pass
 	else:
 		list_cpp_file_new.append(i)
 list_cpp_file = list_cpp_file_new
 list_cpp_file_new = []
+
 list_asm_free86 = get_files("./lib/asm/x86", ".asm")
 
 # [General-standing environment Library]
@@ -135,24 +136,32 @@ CC32 = gcc -m32
 CX32 = g++ -m32
 CC64 = gcc -m64
 CX64 = g++ -m64
-AASM = /mnt/hgfs/_bin/ELF64/aasm
+AASM = $(ubinpath)/ELF64/aasm
 attr = -D_DEBUG -D_Linux -O3
 aattr = -felf -I$(udir)/inc/Kasha/n_
 udir = /mnt/hgfs/unisym
 """
+linux_title = """
+uincpath=/mnt/hgfs/unisym/inc
+ulibpath=/mnt/hgfs/unisym/lib
+ubinpath=/mnt/hgfs/SVGN/_bin
+objdir=/home/ayano/_obj
+"""
+text_gcc_lin32 += linux_title
 text_gcc_lin32 += tmp + """
 cplpref=_ugc32_
 cpppref=_uxxgc32_
-dest_obj=~/_obj/CGLin32
-dest_abs=/mnt/hgfs/_bin/libl32d.a
+dest_obj=$(objdir)/CGLin32
+dest_abs=$(ubinpath)/libl32d.a
 CC=$(CC32)
 CX=$(CX32)
 """
+text_gcc_lin64 += linux_title
 text_gcc_lin64 += tmp + """
 cplpref=_ugc64_
 cpppref=_uxxgc64_
-dest_obj=~/_obj/CGLin64
-dest_abs=/mnt/hgfs/_bin/libl64d.a
+dest_obj=$(objdir)/CGLin64
+dest_abs=$(ubinpath)/libl64d.a
 CC=$(CC64)
 CX=$(CX64)
 """
@@ -249,24 +258,25 @@ list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/consio.c")
 text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
 print(text_gcc_mecocoa)
 text_gcc_mecocoa += ".PHONY: all\n"
+text_gcc_mecocoa += linux_title
 text_gcc_mecocoa += """
 unidir = /mnt/hgfs/unisym
 libcdir = $(unidir)/lib/c
 libadir = $(unidir)/lib/asm
 asmattr = -I${unidir}/inc/Kasha/n_ -I${unidir}/inc/naasm/n_ -I./include/
-asm  = /mnt/hgfs/_bin/ELF64/aasm ${asmattr} #OPT: aasm
+asm  = $(ubinpath)/ELF64/aasm ${asmattr} #OPT: aasm
 asmf = ${asm} -felf
 CC32 = gcc -m32 -c -fno-builtin -fleading-underscore -fno-pic\
- -fno-stack-protector -I/mnt/hgfs/unisym/inc/c -D_MCCAx86 -D_ARC_x86=5
+ -fno-stack-protector -I$(unidir)/inc/c -D_MCCA=0x8632
 """
 text_gcc_mecocoa += "\nall:\n"
-text_gcc_mecocoa += '\t' + "-sudo mkdir -m 777 -p ~/_obj/libmx86\n"
-text_gcc_mecocoa += '\t' + "-rm -f ~/_obj/libmx86/*.obj\n"
+text_gcc_mecocoa += '\t' + "-sudo mkdir -m 777 -p $(objdir)/libmx86\n"
+text_gcc_mecocoa += '\t' + "-rm -f $(objdir)/libmx86/*.obj\n"
 for i in list_gcc_mecocoa_files:
 	file_path, file_ext = os.path.splitext(i)
-	text_gcc_mecocoa += '\t' + i + " -Dp_i386 -D_MCCAx86 -D_ARC_x86=5 -o ~/_obj/libmx86/mx86_" + file_path.split("/")[-1] + ".obj\n"
-text_gcc_mecocoa += '\t' + "-rm /mnt/hgfs/_bin/libmx86.a\n"
-text_gcc_mecocoa += '\t' + "ar -rcs /mnt/hgfs/_bin/libmx86.a ~/_obj/libmx86/*.obj\n"
+	text_gcc_mecocoa += '\t' + i + " -Dp_i386 -D_MCCA=0x8632 -o $(objdir)/libmx86/mx86_" + file_path.split("/")[-1] + ".obj\n" # for any bit
+text_gcc_mecocoa += '\t' + "-rm $(ubinpath)/libmx86.a\n"
+text_gcc_mecocoa += '\t' + "ar -rcs $(ubinpath)/libmx86.a $(objdir)/libmx86/*.obj\n"
 with open('./lib/make/cgmx86.make', 'w+b') as fobj:
 	fobj.write(bytes(text_gcc_mecocoa, encoding = "utf8")) # do not append line-feed
 text_gcc_mecocoa = ""

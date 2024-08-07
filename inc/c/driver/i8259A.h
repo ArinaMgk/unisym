@@ -59,12 +59,7 @@ typedef struct _i8259A_ICW
 	} ICW4;
 } _8259A_init_t;
 
-#if defined(_MCCA) // 0x8632
-	#define _i8259A_MAS     0X20
-	#define _i8259A_MAS_IMR 0X21
-	#define _i8259A_SLV     0XA0
-	#define _i8259A_SLV_IMR 0XA1
-#endif
+// some in IBM.h
 
 void i8259A_init(const struct _i8259A_ICW* inf);
 

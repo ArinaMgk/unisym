@@ -22,20 +22,8 @@
 
 #include "../../../inc/c/node.h"
 
-
-static int isequal(const void* addr0, const void* addr1)
-{
-	return (int)((ptrdiff_t)addr0 - (ptrdiff_t)addr1);
+Node* ChainLocateNode(chain_t* chn, stduint idx) {
+	Node* crt = chn->root_node;
+	if (crt) do; while ((idx--) && (crt = crt->next));
+	return crt; // if not found, crt is nullptr
 }
-
-size_t NodeIndex(const node* first, void* addr)
-{
-	size_t times = 0;
-	const node* next;
-	while (next = first)
-		// if ((times++, first = next->next, next->addr) && !(_node_compare ? _node_compare : isequal)(next->addr, addr))
-		if ((times++, first = next->next, next->addr) && !(_node_compare ? _node_compare(next->addr, addr) : isequal(next->addr, addr)))
-			return times;
-	return 0;
-}
-

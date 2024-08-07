@@ -20,13 +20,14 @@
 	limitations under the License.
 */
 
-#include "../../inc/c/error.h"
-
+#include "../../inc/c/msgface.h"
+#include "../../inc/c/stdinc.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 #if defined(_DEBUG) || defined(_dbg)
 
-node* _WARN_CHAIN = NULL;
+// Node* _WARN_CHAIN = NULL;
 char* _ERRO_MESSAGE = NULL;
 jmp_buf _ERRO_JUMP = { 0 };
 
@@ -50,8 +51,10 @@ void erro(char* erromsg)
 
 void warn(char* warnmsg)
 {
+	/*
 	if (_WARN_CHAIN) NodeAppend(_WARN_CHAIN, warnmsg);
 	else _WARN_CHAIN = NodeAppend(NULL, warnmsg);
+	*///{TODO}
 }
 
 #endif

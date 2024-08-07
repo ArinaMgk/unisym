@@ -21,11 +21,15 @@
 */
 
 
-#include "../../../inc/c/tnode.h"
+#include "../../../inc/c/dnode.h"
+#include "../../../inc/c/uctype.h"
+#include "../../../inc/c/ustring.h"
 #include <stdio.h>// for EOF
-#include <ctype.h>// for isalnum() etc.
 
-static size_t crtline = 0, crtcol = 0;
+#define _TNODE_COMMENT '#'
+#define _TNODE_DIRECTIVE '%'
+
+// static size_t crtline = 0, crtcol = 0;
 
 // It may be better to use Regular Expression
 const char static EscSeq[] = 
@@ -36,20 +40,27 @@ const char static EscSeq[] =
 static toktype getctype(char chr)// Excluding Number
 {
 	// is going to be renamed "ctype(char)"
-	if (isalnum(chr))
+	if (ascii_isalnum(chr))
 		return tok_identy;
-	else if (isspace(chr))
+	else if (ascii_isspace(chr))
 		return tok_spaces;
-	else if (ispunct(chr))
+	else if (ascii_ispunct(chr))
 		return tok_symbol;// including '_' but should be of identifier
 	return tok_others;
 }
 
-static size_t StrTokenAll_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* bufptr)
+static int this_getn(TokenParseUnit* tpu) {
+	tpu->crtcol++;
+	return tpu->getnext();
+}
+
+static void this_back(TokenParseUnit* tpu) {
+	tpu->crtcol--;
+	tpu->seekback(-1);
+}
+
+static size_t StrTokenAll_NumChk(TokenParseUnit* tpu)
 {
-	// Combination of -File and -Buf, ArinaMgk, RFT03.
-	// More infomation, to see the previous version.
-	
 	size_t res = 0;
 	int c;
 	int last_zo_num = 0;
@@ -60,150 +71,154 @@ static size_t StrTokenAll_NumChk(int (*getnext)(void), void (*seekback)(ptrdiff_
 		unsigned dot : 1;
 		unsigned sign : 1;
 	} OnceO = { 0 };
-	crtcol--, seekback(-1);
-	while ((crtcol++, c = getnext()) != EOF)
+	tpu->crtcol--;
+	tpu->seekback(-1);
+	while ((c = this_getn(tpu)) != EOF)
 	{
 		if (StrIndexChar("bodxij", c))// 'i' and 'j' for imagine, appended Haruno RFC05
 			if (OnceO.bodx)
 				break;
 			else
-				{last_zo_num = 0; OnceO.bodx = 1;}
+			{
+				last_zo_num = 0; OnceO.bodx = 1;
+			}
 		else if (c == 'e')
 			if (OnceO.e || !last_zo_num)
 				break;
 			else
-				{last_zo_num = 0; OnceO.e = 1;}
+			{
+				last_zo_num = 0; OnceO.e = 1;
+			}
 		else if (c == '.')
 			if (OnceO.dot)
 				break;
 			else
-				{last_zo_num = 0; OnceO.dot = 1;}
+			{
+				last_zo_num = 0; OnceO.dot = 1;
+			}
 		else if (c == '+' || c == '-')
-			if (OnceO.sign || !OnceO.e || *(bufptr - 1) != 'e')
+			if (OnceO.sign || !OnceO.e || *(tpu->bufptr - 1) != 'e')
 				break;
 			else
-				{last_zo_num = 0; OnceO.sign = 1;}
+			{
+				last_zo_num = 0; OnceO.sign = 1;
+			}
 		else if (c >= '0' && c <= '9') last_zo_num = 1;
 		else break;
 		res++;
-		*bufptr++ = c;
+		*tpu->bufptr++ = c;
 	}
-	crtcol--;
-	if (c != EOF)
-		seekback(-1);
-	if (res > 1 && (*(bufptr - 1) == '+' || *(bufptr - 1) == '-' || *(bufptr - 1) == '.'))
+	tpu->crtcol--;
+	if (c != EOF) tpu->seekback(-1);
+	if (res > 1 && (*(tpu->bufptr - 1) == '+' || *(tpu->bufptr - 1) == '-' || *(tpu->bufptr - 1) == '.'))
 	{
-		crtcol--, seekback(-1);
+		tpu->crtcol--, tpu->seekback(-1);
 		res--;
 	}
 	return res;
 }
 
-tnode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char* buffer)
-{
-	// Combination of -File and -Buf, ArinaMgk, RFT03.
-	// More infomation, to see the previous version.
-	// Not exist:
-	// 1. '\\' continue line
-	
-	tnode* first = 0, * crt = 0;
-	toktype CrtTType;
-	size_t CrtTLen = 0;// = real length minus 1
-	int YoString = 0; 
-	char strtok;
-	char* bufptr;
 
+#define _Default_Row_or_Col 1
+
+
+#define apd() StrTokenAppend(&tpu->tchn, tpu->bufptr = buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento)
+
+void StrTokenAll(TokenParseUnit* tpu)
+{
+	toktype CrtTType = tok_any;
+	size_t CrtTLen = 0;// = real length minus 1
+	stduint crtline_ento = _Default_Row_or_Col, crtcol_ento = _Default_Row_or_Col;
+	int YoString = 0;
+	char strtok;
 	int c;
-	crtcol = crtline = 0;
-	memalloc(first, sizeof(tnode));
-	crt = first;
-	first->left = first->next = 0;
-	first->addr = 0;
-	CrtTType = first->len = tok_any;
-	first->col = first->row = 0;
-	bufptr = buffer;
+	char* const buffer = tpu->buffer;
+
+	// Traditional Header Guard
+	StrTokenAppend(&tpu->tchn, "GHTANIRA", 1, tok_any, 0, 0);
+
 	// alnum & space & symbol
-	while ((crtcol++, c = getnext()) != EOF)
+	while ((c = this_getn(tpu)) != EOF)
 	{
 		char dbg_chr = (char)c;
-		if (YoString)// Care about CrtTLen and *bufptr especially
+		if (YoString)// Care about CrtTLen and *buf-ptr especially
 		{
 			if (strtok == c)// exit
 			{
 				CrtTType = tok_string;
-				buffer[CrtTLen] = 0;
-				crt = StrTokenAppend(crt, buffer, CrtTLen + 1, CrtTType, crtline, crtcol);// including terminated-symbol
-				bufptr = buffer;
+				buffer[CrtTLen++] = 0;
+				apd();// including terminated-symbol
+				crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol;
 				YoString = 0;
 				CrtTLen = 0;
 				CrtTType = tok_any;
 			}
 			else if (c == '\\')// escape sequence
 			{
-				crtcol++, c = getnext();
+				c = this_getn(tpu);
 				if (c == EOF) break;
-				if (isdigit(c))
+				if (ascii_isdigit(c))
 				{
 					// octal: nest 0~2 3 numbers at most
-					int nest1 = (crtcol++, getnext());
+					int nest1 = this_getn(tpu);
 					if (nest1 == EOF) break;
-					if (isdigit(nest1))
+					if (ascii_isdigit(nest1))
 					{
-						int nest2 = (crtcol++, getnext());
+						int nest2 = this_getn(tpu);
 						if (nest2 == EOF) break;
-						if (isdigit(nest2))
+						if (ascii_isdigit(nest2))
 						{
 							// \123
-							*bufptr++ = (unsigned char)(nest2 - '0' + (nest1 - '0') * 8 + (c - '0') * 8 * 8);
+							*tpu->bufptr++ = (unsigned char)(nest2 - '0' + (nest1 - '0') * 8 + (c - '0') * 8 * 8);
 							CrtTLen++;
 						}
 						else
 						{
 							// \12;
-							*bufptr++ = (unsigned char)((nest1 - '0') + (c - '0') * 8);
+							*tpu->bufptr++ = (unsigned char)((nest1 - '0') + (c - '0') * 8);
 							CrtTLen++;
-							crtcol--, seekback(-1);
+							this_back(tpu);
 						}
 					}
 					else
 					{
 						// \1;
-						*bufptr++ = (unsigned char)(c - '0');
+						*tpu->bufptr++ = (unsigned char)(c - '0');
 						CrtTLen++;
-						crtcol--, seekback(-1);
+						this_back(tpu);
 					}
 				}
 				else if (c == 'x')// nest 0~3 and use isxdigit()
 				{
-					crtcol++, c = getnext();
+					c = this_getn(tpu);
 					if (c == EOF) break;
-					if (isxdigit(c))
+					if (ascii_isxdigit(c))
 					{
-						int nest1 = (crtcol++, getnext());
+						int nest1 = this_getn(tpu);
 						if (nest1 == EOF) break;
-						if (isxdigit(nest1))
+						if (ascii_isxdigit(nest1))
 						{
 							// \x12;
-							nest1 = (isdigit(nest1)) ? (nest1 - '0') : (isupper(nest1)) ? (nest1 - 'A' + 10) : (nest1 - 'a' + 10);
-							c = (isdigit(c)) ? (c - '0') : (isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
-							*bufptr++ = (unsigned char)(c * 16 + nest1);
+							nest1 = (ascii_isdigit(nest1)) ? (nest1 - '0') : (ascii_isupper(nest1)) ? (nest1 - 'A' + 10) : (nest1 - 'a' + 10);
+							c = (ascii_isdigit(c)) ? (c - '0') : (ascii_isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
+							*tpu->bufptr++ = (unsigned char)(c * 16 + nest1);
 							CrtTLen++;
 						}
 						else
 						{
 							// \x1;
-							c = (isdigit(c)) ? (c - '0') : (isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
-							*bufptr++ = (unsigned char)(c);
+							c = (ascii_isdigit(c)) ? (c - '0') : (ascii_isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
+							*tpu->bufptr++ = (unsigned char)(c);
 							CrtTLen++;
-							crtcol--, seekback(-1);
+							this_back(tpu);
 						}
 					}
 					else
 					{
 						// \x; = \0;
-						*bufptr++ = 0;
+						*tpu->bufptr++ = 0;
 						CrtTLen++;
-						crtcol--, seekback(-1);
+						this_back(tpu);
 					}
 				}
 				else
@@ -215,135 +230,126 @@ tnode* StrTokenAll(int (*getnext)(void), void (*seekback)(ptrdiff_t chars), char
 					{
 						if (EscSeq[i << 1] == c)
 						{
-							*bufptr++ = EscSeq[(i << 1) + 1];
+							*tpu->bufptr++ = EscSeq[(i << 1) + 1];
 							CrtTLen++;
 							listlen = 0;
 							break;
 						}
 					}
 					if (!listlen) continue;
-					*bufptr++ = c;
+					*tpu->bufptr++ = c;
 					CrtTLen++;
 				}
 			}
 			else
 			{
-				*bufptr++ = c;
+				*tpu->bufptr++ = c;
 				CrtTLen++;
 			}
 		}
 		else if (c == '\n' || c == '\r')
 		{
 			// CRLF LFCR CR LF
-			int cc = (crtcol++, getnext());
+			int cc = this_getn(tpu);
 			if (cc == '\n' || cc == '\r')
 				if (c == cc)
 				{
-					crtcol--, seekback(-1);
+					this_back(tpu);
 				}
 				else;
-			else if (cc != EOF) crtcol--, seekback(-1);
+			else if (cc != EOF) this_back(tpu);
 			else break;
 			if (CrtTLen)
 			{
-				crtcol--;
-				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
-				bufptr = buffer;
+				tpu->crtcol--;
+				apd();
+				crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
 				CrtTLen = 0;
 			}
-			crtline++;
-			crtcol ^= crtcol;
+			tpu->crtline++;
+			tpu->crtcol = _Default_Row_or_Col;
 			CrtTType = tok_any;
 		}
-		else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && (crt->row != crtline || CrtTType == tok_any && !crt->addr)))// Line Comment
+		else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && (TnodeGetExtnField(*tpu->tchn.last_node)->row != tpu->crtline || CrtTType == tok_any && !tpu->tchn.last_node->offs)))// Line Comment
 		{
-			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
-			bufptr = buffer;
+			apd();
+			crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
 			CrtTLen = 0;
 			CrtTType = (c == _TNODE_COMMENT) ? tok_comment : tok_direct;
-			while ((crtcol++, c = getnext()) != EOF && c != '\n' && c != '\r')
+			while ((c = this_getn(tpu)) != EOF && c != '\n' && c != '\r')
 			{
 				CrtTLen++;
-				*bufptr++ = c;
+				*tpu->bufptr++ = c;
 			}
 			if (c == EOF)break;
-			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
-			bufptr = buffer;
+			apd();
+			crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
 			CrtTLen = 0;
 			CrtTType = tok_any;
-			crtcol--, seekback(-1);
+			this_back(tpu);
 		}
 		else if (c == '\"' || c == '\'')// enter
 		{
-			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+			apd();
+			crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
 			CrtTLen = 0;
-			bufptr = buffer;
 			CrtTType = tok_string;
 			YoString = 1;
 			strtok = c;
 		}
-		else if ((isdigit(c)) && CrtTType != tok_identy &&
-			((CrtTType != tok_any && (crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1))) || CrtTType == tok_any)
-			&& (CrtTLen = StrTokenAll_NumChk(getnext, seekback, buffer)))
+		else if ((ascii_isdigit(c)) && CrtTType != tok_identy &&
+			((CrtTType != tok_any && apd() && (crtline_ento = tpu->crtline, crtcol_ento = tpu->crtcol)) || CrtTType == tok_any)
+			&& (CrtTLen = StrTokenAll_NumChk(tpu)))
 		{
 			CrtTType = tok_number;
-			crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol);
+			apd();
+			crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol;
 			CrtTType = tok_any;
 			CrtTLen = 0;// NOTICE!
-			bufptr = buffer;
 			continue;
 		}
-		else if (isalnum(c) || c == '_')
+		else if (ascii_isalnum(c) || c == '_')
 		{
 			if (CrtTType == tok_identy || CrtTType == tok_any)
 			{
-				CrtTLen++;// seem a waste after declaring bufptr.
-				*bufptr++ = c;
+				CrtTLen++;// seem a waste after declaring tpu->bufptr.
+				*tpu->bufptr++ = c;
 				if (CrtTType == tok_any) CrtTType = tok_identy;
 				if (CrtTLen >= malc_limit)// sizeof(array buffer), "=" considers terminated-zero.
 				{
-					#ifdef _dbg
 					// erro("Buffer Oversize!");
-					#endif
-					return 0;
 				}
 			}
 			else
 			{
-				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+				apd();
+				crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
 				CrtTType = getctype(c);
 				CrtTLen = 1;
-				bufptr = buffer;
-				*bufptr++ = c;
+				*tpu->bufptr++ = c;
 			}
 		}
 		else
 		{
 			if (CrtTType == getctype(c) || CrtTType == tok_any)
 			{
-				CrtTLen++;// seem a waste after declaring bufptr.
-				*bufptr++ = c;
+				CrtTLen++;// seem a waste after declaring tpu->bufptr.
+				*tpu->bufptr++ = c;
 				if (CrtTType == tok_any) CrtTType = getctype(c);
 				if (CrtTLen >= malc_limit)// sizeof(array buffer), "=" considers terminated-zero.
 				{
-					#ifdef _dbg
 					// erro("Buffer Oversize!");
-					#endif
-					return 0;
 				}
 			}
 			else
 			{
-				crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
+				apd();
+				crtline_ento = tpu->crtline; crtcol_ento = tpu->crtcol - 1;// -1?
 				CrtTLen = 1;
-				bufptr = buffer;
-				*bufptr++ = c;
+				*tpu->bufptr++ = c;
 				CrtTType = getctype(c);
 			}
 		}
 	}
-	if (CrtTLen)
-		crt = StrTokenAppend(crt, buffer, CrtTLen, CrtTType, crtline, crtcol - 1);
-///endo:
-	return first;
+	if (CrtTLen) apd();
 }

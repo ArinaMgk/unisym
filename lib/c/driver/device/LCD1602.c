@@ -22,6 +22,7 @@
 
 #include "../../../../inc/c/driver/LCD1602.h"
 
+#if defined(_MCU_Intel8051)
 
 void LCD1602_Initialize(void)
 {
@@ -129,4 +130,5 @@ void LCD1602_Outu8dec(const sbyte inp, byte len)
 	LCD1602_OutText(buf + len - i, i);
 }
 
-//{TODO} combinated with - JUST till here - until consio contain these.
+
+#endif

@@ -2,6 +2,13 @@
 # ...
 .vscode
 magic/.vscode
+# Document
+*.pdf
+*.out
+*.gz
+*.aux
+*.log
+*.toc
 # Website Temporary Files
 doc/www.unisym.org/_*
 doc/www.unisym.org/.*
@@ -18,7 +25,7 @@ lib/Rust/unisym/target/
 Cargo.lock
 # Keil
 DebugConfig
-*.uvguix*
+*.uvgui*
 # Huge-interval-sources
 _asm_inst_bind.c
 _asm_dasm_bind.c

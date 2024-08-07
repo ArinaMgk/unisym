@@ -22,26 +22,9 @@
 
 #include "../../../inc/c/node.h"
 
+//{TODO} Interface `Sort` `Array` ...
 
-node* NodeSort(node* first)
+void ChainSort(chain_t* chain)
 {
-	struct _aflag_t af = aflaga;
-	_node_first = 0;
-	if (!first || (!aflaga.autosort && _node_compare)) return 0;
-	node* next, * crt = first;
-	while (crt)
-	{
-		next = crt->next;
-		NodeAppend(_node_first, (void*)crt->addr);
-		crt = next;
-	}
-	crt = first;
-	while (crt)
-	{
-		next = crt->next;
-		memf(crt);
-		crt = next;
-	}
-	aflaga = af;
-	return _node_first;
+	// ...
 }

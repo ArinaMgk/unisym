@@ -25,25 +25,26 @@
 #ifndef _MCU_STM32F103VE
 #define _MCU_STM32F103VE
 #endif
+#ifndef _MCU_STM32F10x
+#define _MCU_STM32F10x
+#endif
+#ifndef _MCU_STM32
+#define _MCU_STM32
+#endif
 /*
 F103:
 - V : 100 Pin
 - E : 512 Kilobyte Flash
 */
-#include "../../../c/stdinc.h"
 
-// If used with HAL:
 #undef RCC
-#undef GPIOA
-#undef GPIOB
-#undef GPIOC
-#undef GPIOD
-#undef GPIOE
-#undef GPIOF
-#undef GPIOG
 
+#include "../../../c/stdinc.h"
 #include "../../Device/GPIO"
 #include "../../Device/RCC/RCC"
 #include "../../interrupt"
+
+//{TODO} compatible with `stm32f103xe.h`
+
 
 #endif

@@ -23,7 +23,7 @@
 
 #include "../../../inc/c/dnode.h"
 
-dnode* DnodeBind(dnode* left, dnode* nod, dnode* right)
+Dnode* DnodeBind(Dnode* left, Dnode* nod, Dnode* right)
 {
 	if (!nod) return 0;
 	nod->left = left;

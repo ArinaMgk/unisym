@@ -22,21 +22,43 @@
 
 #include "../../../inc/c/node.h"
 
+void NodeHeapFreeSimple(pureptr_t inp) {
+	Letvar(nod, Node*, inp);
+	memf(nod->addr);
+}
 
-void NodeRemove(node* nod, node* left)
+void NodeRemove(Node* nod, Node* left, void (*_node_freefunc)(pureptr_t ptxt))
 {
 	if (!nod) return;
-	if (left)
-		left->next = nod->next;
-	else
-		_node_first = nod->next;
-	if (_node_freefunc)
-		_node_freefunc((void*)nod->addr);
+	asserv(left)->next = nod->next;
+	asserv(_node_freefunc)((pureptr_t)nod);
 	memf(nod);
-	if (_node_first)
-	{
-		aflaga.zero = 1;
-		aflaga.one = 0;
-	}
-	aflaga.fail = 0;
+	// aflaga.fail = 0;
 }
+
+void NodesRelease(Node* nod, Node* left, _tofree_ft _node_freefunc)
+{
+	Node* crt = nod;
+	if (!crt) return;
+	Node* next;
+	while (crt)
+	{
+		next = crt->next;
+		// NodeRemove(crt, 0, _node_freefunc);
+		{
+			asserv(_node_freefunc)((pureptr_t)crt);
+			memf(crt);
+		}
+		crt = next;
+	}
+	left->next = 0;
+	//_node_crt = 0;
+	//aflaga.zero = 1;
+	//aflaga.one = 0;
+	//aflaga.fail = 0;
+}
+
+void ChainDrop(chain_t* chain) {
+	NodesRelease(chain->root_node, 0, chain->func_free);
+}
+

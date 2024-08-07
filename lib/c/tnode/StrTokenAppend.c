@@ -22,20 +22,15 @@
 
 
 #include "../../../inc/c/ustring.h"
-#include "../../../inc/c/tnode.h"
+#include "../../../inc/c/dnode.h"
 
-tnode* StrTokenAppend(tnode* any, const char* content, size_t contlen, size_t ttype, size_t row, size_t col)
+Dnode* StrTokenAppend(tchain_t* chn, const char* content, size_t contlen, size_t ttype, size_t row, size_t col)
 {
-	tnode* crt = any, * ret = 0;
-	if (!contlen) return any;
-	while (crt->next) crt = crt->next;
-	memalloc(ret, sizeof(tnode));// Arinae style
-	ret->left = crt;
-	ret->next = 0;
-	crt->next = ret;
-	ret->addr = StrHeapN(content, contlen);// TODO. order&addr
-	ret->len = ttype;//TODO. union{len, toktype}
-	ret->row = row;
-	ret->col = col;
-	return ret;
+	if (!contlen && ttype != tok_string) return 0;
+	chn->last_node = DnodeInsert(chn->last_node, (pureptr_t)StrHeapN(content, contlen), ttype, sizeof(TnodeField), 1/*ON_RIGHT*/);
+	TnodeField* tfield = TnodeGetExtnField(*chn->last_node);
+	tfield->row = row;
+	tfield->col = col;
+	if (!chn->root_node) return chn->root_node = chn->last_node;
+	return chn->last_node;
 }

@@ -29,7 +29,7 @@
 #include "floating"
 #include "string"
 #include <math.h>
-#include <iostream>
+// #include <iostream>
 
 //{TODO} independent from `erro` `_MALCOUNT` `_MALLIMIT` .... [These should be of `malc` and `memf`.]
 //{TODO} do not use std:: and rely on it.

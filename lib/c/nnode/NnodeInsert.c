@@ -23,23 +23,30 @@
 
 #include "../../../inc/c/nnode.h"
 
-nnode* NnodeInsert(nnode* insnod, int direction, nnode* parent)
+Nnode* NnodeInsert(Nnode* nod, pureptr_t offs, stduint typlen, stduint extn_field, int direction_right)
 {
-	nnode* n = zalcof(nnode);
-	#include "../../../inc/c/com/NnodeInsert.h"
-	_COM_NnodeInsert(insnod, !direction, parent, n);
-	if (direction == 0)
+	Letvar(tmp, Nnode*, zalc(sizeof(Nnode) + extn_field));
+	tmp->type = typlen;
+	tmp->offs = offs;
+	if (!nod) return tmp;
+	if (direction_right == 0) // left
 	{
-		n->left = insnod->left;
-		n->next = insnod;
-		if (parent && parent->subf == insnod) parent->subf = n;
+		if (Nnode_isEldest(nod)) {
+			if (tmp->left = nod->left)
+				nod->pare->subf = tmp;
+		}
+		else {
+			if (tmp->left = nod->left)
+				nod->left->next = tmp;
+		}
+		nod->left = tmp;
+		tmp->next = nod;
+		// AssignParallel(tmp->next, nod->next, tmp);
 	}
-	else
+	else // right
 	{
-		n->left = insnod;
-		n->next = insnod->next;
+		if (tmp->next = nod->next) tmp->next->left = tmp;
+		(tmp->left = nod)->next = tmp;
 	}
-	if (n->left)n->left->next = n;
-	if (n->next)n->next->left = n;
-	return n;
+	return tmp;
 }

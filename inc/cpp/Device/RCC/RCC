@@ -29,6 +29,12 @@
 #include "../../unisym"
 #include "../../reference"
 
+#include "RCCAddress"
+#include "RCCClock"
+#include "RCCOscillator"
+#include "RCCPrescaler"
+#include "RCCPLL"
+
 #ifdef _MCU_STM32F10x
 
 // !!! All unchecked
@@ -60,20 +66,17 @@ stm32f1xx_hal_rcc.c
 [ ]__weak void HAL_RCC_CSSCallback(void)
 
 stm32f1xx_hal_rcc.h
-[ ]typedef struct ... RCC_ClkInitTypeDef;
-[ ]typedef struct ... RCC_PLLInitTypeDef;
+...
+
+stm32f1xx_hal_rcc_ex.c
+[v]HAL_StatusTypeDef HAL_RCCEx_PeriphCLKConfig(RCC_PeriphCLKInitTypeDef  *PeriphClkInit)
+...
 
 stm32f1xx_hal_rcc_ex.h
 [v]typedef struct ... RCC_OscInitTypeDef;
-[ ]define __HAL_RCC_HSE_CONFIG(__STATE__) 
+[ ]define __HAL_RCC_HSE_CONFIG(__STATE__)
+...
 */
-
-
-#include "RCCAddress"
-#include "RCCClock"
-#include "RCCOscillator"
-#include "RCCPrescaler"
-#include "RCCPLL"
 
 namespace uni {
 	// use namespace to be comopatible with old C++ compilers
@@ -107,7 +110,7 @@ namespace uni {
 		RCCAHB AHB;
 		RCCAPB APB1, APB2;
 		//
-		const Reference Cfgreg;
+		Reference Cfgreg;
 		//
 		RCC_t() : APB1(1), APB2(2), Cfgreg(_RCC_CFGR) {
 			
@@ -130,8 +133,70 @@ namespace uni {
 
 #elif defined(_MCU_STM32F4x)
 
-#include "RCCAddress"
+namespace uni {
 
+	extern uint32_t SystemCoreClock;
+	extern const uint8_t AHBPrescTable[16];
+	extern const uint8_t APBPrescTable[8];
+	
+	namespace RCCReg {
+		typedef enum {
+			CR = 0, PLLCFGR, CFGR, CIR,
+			AHB1RSTR, AHB2RSTR, AHB3RSTR, REV00,
+			APB1RSTR, APB2RSTR, REV01, REV02,
+			AHB1ENR, AHB2ENR, AHB3ENR, REV03,
+			APB1ENR, APB2ENR, REV04, REV05,
+			AHB1LPENR, AHB2LPENR, AHB3LPENR, REV06,
+			APB1LPENR, APB2LPENR, REV07, REV08,
+			BDCR, CSR, REV09, REV10,
+			SSCGR, PLLI2SCFGR
+		} RCCReg;
+	}
+
+	class RCC_t {
+	protected:
+		_TEMP byte getLatency() {
+			Reference _FLASH_ACReg(0x40023C00);
+			return (_FLASH_ACReg & 0x7);
+		}
+		_TEMP void setLatency(byte FLatency) {
+			FLatency &= 0x7;
+			Reference _FLASH_ACReg(0x40023C00);
+			_FLASH_ACReg = (_FLASH_ACReg & ~(0x7)) | FLatency;
+		}
+	public:
+		RCCOscillatorHSE HSE;
+		// RCCOscillatorHSI HSI;
+		// RCCOscillatorLSE LSE;
+		// RCCOscillatorLSI LSI;
+		RCCPLL PLL;
+		RCCSystemClock Sysclock;
+		RCCAHB AHB;
+		RCCAPB APB1, APB2;
+		inline Reference operator[](RCCReg::RCCReg idx) { return Reference(/*baseaddr*/0x40023800 + (((stduint)idx) << 2)); }
+		RCC_t() : APB1(1), APB2(2) {}
+		_TEMP bool setFlash(bool decrease = false) {
+			stduint FLatency = _TEMP 5;// FLASH_LATENCY_5
+			if ((FLatency > getLatency()) ^ decrease) // `=`need-not-consider
+				setLatency(FLatency);
+			return FLatency == getLatency();
+		}
+		bool setClock(SysclkSource::RCCSysclockSource source);
+
+
+
+		// temp area
+		stduint getFrequencyHCLK() {
+			return SystemCoreClock;
+		}
+		stduint getFrequencyPCLK1();
+		stduint getFrequencyPCLK2();
+
+
+	};
+
+	extern RCC_t RCC;
+}
 
 #endif
 #endif

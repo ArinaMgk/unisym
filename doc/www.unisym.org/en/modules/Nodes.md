@@ -1,11 +1,9 @@
 - `Node` Node-Data-System (nodes.h nodes) {TODO NO-DEP}
 	- node.h node
-	- inode.h inode
 	- dnode.h dnode
-	- bnode
-	- (!) tnode.h tnode
+	- {TODEL} bnode
 	- nnode.h nnode
-	- anode.h
+	- {TODEL} anode.h
 	- pnode
 	- gnode
 
@@ -16,7 +14,7 @@
 | node		 | node				          | ...    |
 | dnode		 | double-direction node	  | ...    |
 | nnode		 | nest-dnode                 | ...    |
-| tnode		 | token node			      | ...    |
+
 
 
 

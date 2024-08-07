@@ -31,6 +31,9 @@
 
 #include "../../../c/prochip/CortexM0.h" // M0+
 
+#include "../../Device/GPIO"
+// 2 speed, 2 driven-power, analog for ADC/VC/LVD, 4 int-trigger
+// all registers are by AHB-Bus
 
 
 #endif

@@ -1,8 +1,8 @@
-// ASCII C++ TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: 
-// AllAuthor: @dosconio
-// ModuTitle: D-D- Node for C++
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: Node for Double-Direction Double-Field Linear Chain
+// Codifiers: @dosconio: ~ 20240701
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,72 +20,129 @@
 	limitations under the License.
 */
 
+#include "../../../inc/cpp/dnode"
 #include "../../../inc/cpp/cinc"
 #include "../../../inc/c/ustring.h"
 #include "../../../inc/cpp/cinc"
-#include "../../../inc/cpp/dnode"
 
 namespace uni {
+#define tmpl(...) __VA_ARGS__ Dchain
 
-#define tmpl(...) __VA_ARGS__ DnodeChain
+	Dnode* Dnode::ReheapString(const char* str) {
+		srs(this->addr, StrHeap(str));
+		return this;
+	}
+	
+	tmpl(void)::DnodeChainAdapt(Dnode* root, Dnode* last, stdint count_dif) {
+		node_count += count_dif;
+		root_node = root;
+		last_node = last;
+		//[Fast Table except root/last node]
+		// assume 35 items, consider 33 items, 33 / 2 + 1 = 17;
+		// assume 3 items ... <=> 3 / 2 = 1;
+		if (node_count < 2 + 1) // root, last, and 
+			fastab.midl_node = nullptr;
+		else
+			fastab.midl_node = LocateNode(node_count >> 1);
+	}
 
-	tmpl()::DnodeChain(bool need_free) {
-		node_count = 0;
+	Dchain::Dchain() {
 		root_node = nullptr;
 		last_node = nullptr;
-		need_free_content = need_free;
-		_node_freefunc = 0;
-		sorted = false;
-		little_endian = true;
-		free_pass_whole = true;
-		_node_compare = 0;//{MAYBE} _defa_compare, to simplify the below
+		fastab.midl_node = nullptr;
+		node_count = nil;
+		extn_field = nil;
+		func_free = nullptr;
+		state.been_sorted = true;// empty chain
 	}
 
-	tmpl()::~DnodeChain() {
-		if (nullptr == root_node) return;
-		Dnode* next = (Dnode*)root_node;
-		while (next = Remove(next, false));
+	Dchain::~Dchain() {
+		Remove(0, Length());
 	}
 
-	Dnode* DnodeChain::Remove(Dnode* content, bool systematic) {
-		if (!content) return 0;
-		Dnode* ret_next = content->next;
-		if (systematic) {
-			if (content->left) content->left->next = ret_next;
-			if (ret_next) ret_next->left = content->left;
-		}
-		dchainfree(content, this->);
-		return ret_next;
+	tmpl(Dnode*)::New() {
+		return (Dnode*)zalc(sizeof(Dnode) + extn_field);
 	}
 
-	//{TODO}
-	tmpl(void)::Append(void* addr, stduint typ) {
-		Dnode* tmp = zalcof(Dnode);
-		tmp->offs = addr;
-		tmp->type = typ;
-		tmp->next = nullptr;
-		tmp->left = (Dnode*)last_node;
-		node_count++;
-		if (nullptr == root_node)
-		{
-			last_node = root_node = tmp;
-		}
-		// if (aflaga.autosort)
-		// else if (_node_compare)
-		else
-		{
-			last_node = ((Dnode*)last_node)->next = tmp;
+	// impl Iterate for Chain
+	tmpl(void)::Iterate() {
+		if (_iterate_datas)
+			delete[] _iterate_datas;
+		_iterate_lim = Length();
+		_iterate_datas = new pureptr_t[_iterate_lim];
+		_iterate_crt = nil;
+		Dnode* crt = Root();
+		for0(i, _iterate_lim) {
+			_iterate_datas[i] = (pureptr_t)crt;
+			crt = crt->next;
 		}
 	}
 
-	Dnode* DnodeChain::Index(void* content) {
-		Dnode* nod = Root();
-		if (nod) do {
-			if (nod->offs == content)
-				return nod;
-		} while (nod = nod->next);
-		return 0;
+	// impl Array for 
+	tmpl(pureptr_t)::Locate(stduint idx) const {
+		Dnode* crt = Root();
+		if (idx) do; while ((crt = crt->next) && (--idx));
+		return (pureptr_t)(idx ? nullptr : crt);
 	}
+	tmpl(Dnode*)::LocateNode(stduint idx) const {
+		Dnode* crt = Root();
+		if (crt) do; while ((idx--) && (crt = crt->next));
+		return crt; // if not found, crt is nullptr
+	}
+	//
+	tmpl(stduint)::Locate(pureptr_t p_val, bool fromRight) const {
+		// Left: Linked, Right: Iterated
+		return nil;//{TODO}
+	}
+	//
+	tmpl(stduint)::Length() const {
+		return node_count;
+	}
+	// 
+	tmpl(bool)::Insert(stduint idx, pureptr_t dat) {
+		return true;//{TODO}
+	}
+	// ---- DnodeAppendX.cpp ----
+	// ---- DnodeRemoveX.cpp ----
+	//
+	tmpl(bool)::Exchange(stduint idx1, stduint idx2) {
+		Dnode& n1 = *(Dnode*)Locate(idx1);
+		Dnode& n2 = *(Dnode*)Locate(idx2);
+		if (idx1 != idx2) {
+			xchgptr(n1.offs, n2.offs);
+			xchg(n1.type, n2.type);
+		}
+		return true;
+	}
+
+	
+	// pass coff!
+	_TEMP unchecked tmpl(void)::SortByInsertion() {
+		setcmp(*this);
+		Dnode* crt = Root();
+		if (!crt || !crt->next) return;
+		Dnode* next = crt->next;
+		while (crt = next) {
+			next = crt->next;
+			if (cmp(crt->left->offs, crt->offs) > 0)
+			{
+				pureptr_t content = crt->offs;
+				Dnode* crtcrt = crt->left->left;
+				while (crtcrt && cmp(crtcrt->offs, content) > 0)
+					crtcrt = crtcrt->left;
+				if (!crtcrt) {
+					Insert(0, content);
+					Root()->type = crt->type;
+				}
+				else {
+					DnodeInsert(crtcrt, content, crt->type, extn_field, 1/*ON_RIGHT*/);
+				}
+				DnodeRemove(crt, 0);// 0 to skip release
+			}
+		}
+	}
+
+	// Special AREA
 
 	bool DnodeChain::Match(void* off, stduint typ) {
 		Dnode* nod = Root();

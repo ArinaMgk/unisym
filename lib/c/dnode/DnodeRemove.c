@@ -23,18 +23,13 @@
 
 #include "../../../inc/c/dnode.h"
 
-// [Unordered] [Alloc]
-void DnodeRemove(dnode* some)
+// [Alloc]
+void DnodeRemove(Dnode* nod, _tofree_ft _dnode_freefunc)
 {
-	if (!some) return;
-	if (!some->left) _dnode_first = some->next;
-	aflaga.zero = !_dnode_first;
-	aflaga.one = _dnode_first && !_dnode_first->next;
-
-	if (some->left) some->left->next = some->next;
-	if (some->next) some->next->left = some->left;
-	if (_dnode_freefunc)
-		_dnode_freefunc(_dnode_freepass ? (void*)some : some->offs);
-	else memf(some);
-	aflaga.fail = 0;
+	if (!nod) return;
+	asserv(nod->left)->next = nod->next;
+	asserv(nod->next)->left = nod->left;
+	asserv(_dnode_freefunc)((pureptr_t)nod);
+	memf(nod);
+	// aflaga.fail = 0;
 }

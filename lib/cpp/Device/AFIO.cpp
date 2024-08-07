@@ -33,8 +33,17 @@ namespace uni {
 		Reference(_AFIO_ADDR + 0x10),Reference(_AFIO_ADDR + 0x14)
 	};
 
+#elif defined(_MCU_STM32F4x)
 
-
+	Reference SYSCFG::MEMRM(_SYSCFG_ADDR);
+	Reference SYSCFG::PMC(_SYSCFG_ADDR + 0x04);
+	Reference SYSCFG::ExternInterruptCfgs[4] = {
+		Reference(_SYSCFG_ADDR + 0x08),
+		Reference(_SYSCFG_ADDR + 0x0C),
+		Reference(_SYSCFG_ADDR + 0x10),
+		Reference(_SYSCFG_ADDR + 0x14)
+	};
+	Reference SYSCFG::CMPCR(_SYSCFG_ADDR + 0x20);
 
 #endif
 }

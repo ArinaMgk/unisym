@@ -59,17 +59,11 @@ Next generation
 
 ```mermaid
 graph LR
-	alice[CORE]
+	alice[COREs]
 	ARCH[archit.h]
 	ARCH-->alice
-	ARCH-->flag.h
-	ARCH-->InstInterface
-	proctrl[proctrl.h]-->port/memory.h
-	proctrl--+(x86.h,i8051.h...)-->ARCH-->dattype.h
-	stdinc["RUNE stdinc(.h)"]
-	stdinc--"_BEBUG? +debug.h"-->proctrl
-	SPCF[specific]-->stdinc
-	SPCF-->DEVK[devkit]-->DCOV[devcove.h]
+	ARCH--OPT-->ASMs
+	RUNT["stdinc"]-->DEVK[devkit]--debug?-->ARCH-->datype[TYPE]
 ```
 
 Arch+Board+HostOS+Devkit

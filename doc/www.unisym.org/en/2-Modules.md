@@ -3,12 +3,58 @@ her-note: false
 dg-publish: true
 ---
 
+## Component
+
+- Support for DEVK
+	- ISO/IEC 9899 - CPL `doing`
+	- Microsoft Visual C++ (MSVC) 2022
+	- GNU GCC and DJ-Delorie DJGPP
+	- Nvidia CUDA NVCC
+	- the SDCC for i8051
+- Mechanism
+	- Memory Leaking Mechanism
+	- Uniformed Symbols and Fitness for languages and their implementations
+- Assembly
+	- Kasha OSDEV Kernel
+	- IBM PC MACROs for NASM and MSASM
+	- Inline for C/C++
+	- AASM `doing`
+- Target
+	- PC OSDEV Processor
+	- QRS aka Embedded Controller
+		- INTEL 8051: AT89C5x STC89C5x
+		- `STM32F10x`
+		- `STM32F4x`
+		- CW32F030
+	- Architecture
+		- x86
+		- x64
+		- RISCV64
+	- Platform and Board
+		- IBM Compatible PC
+		- Cortex M0
+		- Cortex M3
+		- Cortex M4
+- Marking and Programming
+	- Hardware Description (suspended)
+	- SCH-PCB of Electronics (suspended)
+	- Magice `doing`
+	- C/C++
+	- DotNet C# and VB `doing`
+	- Rust crate `doing`
+- Auxiliary
+	- Qt `doing`
+	- EasyX (suspended)
+- Data and Collections
+	- Hello World
+	- Instructions for Architectures
+
 ## Modules
 
 ```mermaid
 graph LR
 subgraph UNISYM
-	subgraph Syst
+	subgraph System
 		subgraph Host
 		end
 		subgraph Arch
@@ -18,17 +64,13 @@ subgraph UNISYM
 	end
 	subgraph Arith
 	end
-	subgraph Node
-	end
-	subgraph Graf
-	end
-	subgraph Conio
+	subgraph Grafic
 	end
 	subgraph Device
 	end
 	subgraph Format
 	end
-	subgraph Data
+	subgraph Archiv
 	end
 	subgraph Others
 	end
@@ -37,117 +79,131 @@ end
 
 The relationships like dependence, to see [Depend](./6-Depend.md).
 
+Now the `*` mark for document provided, no matter if it is detailed.
+
 - `Core` (alice.h & trait.h)
-	- uassert.h
-	- property
-	- reference
-- `Syst` (stdinc.h=unisym basic)
+	-  \* uassert.h
+	-  \* property
+	-  \* reference
+	- Trait: Array & LinearNodeChain
+	- Trait: Iterate
+- `System` (stdinc.h=unisym basic)
 	- `Devk` (host.h)
-		- call.h
-		- debug.h
-		- cinc
-		- ISO_IEC_STD/
+		-  \* call.h
+		-  \* debug.h
+		-  \* cinc
+		-  \* ISO_IEC_STD/
 	- `Host` Hosted Environment
-		- error.h
-		- memory.h
-		- task.h
-		- ustring.h string
-		- interrupt
+		-  \* msgface.h
+		-  \* memory.h
+		-  \* task.h
+		-  \* ustring.h string
+		-  \* interrupt
 	- `Arch`  (archit.h and c/architect/)
-		- binary.h binary
-		- cpuid.h cpuid
-		- flag.h
-		- `integer/` integer.h integer
-		- floating.h floating
-		- port.h port
-		- proctrl.h
-		- uctype.h
-		- uoption.h
-		- ustdbool.h
-		- pointer
-		- compile/
+		-  \* binary.h binary
+		-  \* cpuid.h cpuid
+		-  \* flag.h
+		-  \* `integer/` integer.h integer
+		-  \* floating.h floating
+		-  \* port.h port
+		-  \* proctrl.h
+		-  \* uctype.h
+		-  \* uoption.h
+		-  \* ustdbool.h
+		-  \* pointer
+		-  \* compile/
 		- proctrl/ and MCU/
-			-{chores}
-			- ST
-			- XY
+			-  \* ST
+			-  \* XY
 - `Arith` (arith.h)
-	- instruction.h
-	- coear.h coear
-	- regar.h
-	- numar.h number(.h)
-	- tenar.h
-	- int128
-	- comparison
+	-  \* instruction.h
+	-  \* coear.h coear
+	-  \* regar.h
+	-  \* numar.h number(.h)
+	-  \* tenar.h
+	-  \* int128
+	-  \* comparison {TOIN TORE-DIR}
 	- algorithm
-		- sort
-	* riscv64
+		-  \* compare
+		-        -->  \* sort
+		-        -->  \* search
+		- Frequency
+			-  \* Fourier
+	*  \* riscv64
 > You have to choose the architecture yourself, without the help of hosted characters.
 
-- `OSDev` {TODO NO-DEP, into Host}
-
-- `Node` [Node-Data-System](./modules/Nodes.md)
-- `Graf` Graphics and Witch (`graphic.h` and graphic/) {TODO NO-DEP}
-	- color.h
-	- contable.h
+- `Grafic` Graphics and Witch (`graphic.h` and graphic/) {TODO NO-DEP}
+	-  \* color.h
+	-  \* contable.h
 	- Frame/
-		- Qt
-	- Witch/
-- `Conio` {TODO NO-DEP}
-	- consio.h console stream
+		-  \* Qt
+	-  \* Witch/
 - `Device` (cpp/Device/ and cpp/driver/) {TODO NO-DEP}
-	- ADConverter/
-		- XPT2046.h
-	- Video/ and Video
-		- video.h
-	- AT24C02.h ()
-	- DS1302.h ()
-	- DS18B20.h ()
-	- HD44780.h ()
-	- i8253A.h ()
-	- i8259A.h ()
-	- IIC.h (method)
-	- keyboard.h
-	- LCD12864.h (specific LCD)
-	- LCD1602.h (specific LCD)
-	- nixietube.h
-	- OneWire.h (method)
-	- PIT.h
-	- RealtimeClock.h
-	- timer.h
-	- UART.h
-	- RCC/
-	- Systick
-	- SysClock
-	- AFIO
-	- EXTI and NVIC (interrupt)
-	- GPIO
-	- nixietube
+	- `Conio` {TODO NO-DEP}
+		-  \* consio.h console stream
+	- ADC and ADConverter/
+		-  \* XPT2046.h
+	- Generator
+		-  \* AD9959 (:SPI)
+	- Video/ and Video `video.h`
+		-  \* ILI9320
+		-  \* ILI9341
+		-  \* LCD12864.h (specific LCD)
+		-  \* LCD1602 (specific LCD, Parallel and IIC)
+	- Radio
+		-  \* RDA5820 (:IIC)
+		-  \* TEA5767 (:IIC)
+	- [Protocol, Interface and Wire]
+		-  \* IIC, aka I2C
+		-  \* SPI
+		-  \* OneWire.h
+		-  \* UART
+	-  \* AT24C02.h ()
+	-  \* DS1302.h ()
+	-  \* DS18B20.h ()
+	-  \* HD44780.h ()
+	-  \* i8253A.h ()
+	-  \* i8259A.h ()
+	-  \* keyboard.h
+		-  \* Mtrkbd (4x4)
+	-  \* nixietube.h
+	-  \* PIT.h
+	-  \* TOKI - RealtimeClock.h
+	-  \* TOKI - timer.h
+	-  \* TOKI - RCC: SysClock and Systick
+	-  \* AFIO
+	-  \* EXTI and NVIC (interrupt)
+	-  \* GPIO
+	-  \* nixietube
 - `Format` (format/) {TODO NO-DEP}
 	- `Charset::Widechar` (widechar.h) {TODO}
-		- GBK.h {TODO}
+		-  \* GBK.h {TODO}
 	- `Charset::Multichar` (multichar.h) {TODO}
-		- upec.h {TOIN}
-		- UTF-8.h {TODO}
-	- Encode:: crc64.h
-	- Time:: datime.h
-	- Buffer:: stack.h stack >> Trait
-	- Buffer:: strpool.h strpool >> Trait
-	- Buffer:: queue >> Trait
-	- Buffer:: sequence >> Trait
-	- File:: ELF.h
-	- FileSys:: FAT12.h
-- Data (big size)
-	- Assembly Instructions
+		-  \* upec.h {TOIN}
+		-  \* UTF-8.h {TODO}
+	-  \* Encode:: crc64.h
+	-  \* Time:: datime.h
+	-  \* Buffer:: stack.h stack >> Trait
+	-  \* Buffer:: strpool.h strpool >> Trait
+	-  \* Buffer:: queue >> Trait
+	- Array-Series
+		- `Node` [Node-Data-System](./modules/Nodes.md)
+		-  \* vector
+	-  \* File:: ELF.h
+	-  \* FileSys:: FAT12.h
+- Archiv (big scale, alias `Data`)
+	-  \* Assembly Instructions
+	-  \* DEMO and .picture
 - Locale
-	- loc.h
+	-  \* loc.h
 - Others
-	- sig.h
-	- Kasha
-	- msasm
-	- naasm
-	- Python
-	- Rust `unisym::`
-	- ...
+	-  \* sig.h
+	-  \* Kasha
+	-  \* msasm
+	-  \* naasm
+	-  \* Python
+	-  \* Rust `unisym::`
+	-  \* ...
 
 
 
@@ -224,7 +280,7 @@ The below are stable contents.
 │  datime.h [Format]
 │  debug.h [Devk]
 │  dnode.h [Node]
-│  error.h [Host]
+│  msgface.h [Host]
 │  flag.h [Arch]
 │  floating.h [Arch]
 │  graphic.h [Graf]
@@ -247,7 +303,6 @@ The below are stable contents.
 │  strpool.h [Format]
 │  task.h [Host]
 │  tenar.h [Arith]
-│  tnode.h [Node]
 │  trait.h [Core]
 │  uassert.h [Core]
 │  uctype.h [Arch]
@@ -255,14 +310,13 @@ The below are stable contents.
 │  upec.h [Format]
 │  ustdbool.h [Arch]
 │  ustring.h [Host]
+├─algorithm ...
 ├─architect [Arch]
 │	arcintel_8051.h
 │	arcriscv_64.h
 │	arcx64_win64.h
 │	
-├─com [...]
-│	NnodeInsert.h
-│	NodeInsert.h
+├─com {TODEL}
 │	
 ├─compile [Arch]
 │	asmcode.h
@@ -323,29 +377,13 @@ The below are stable contents.
 │  property
 │  queue
 │  reference
-│  sequence
 │  stack
 │  stream
 │  string
 │  strpool
-│  tnode
 │  unisym
 │  
-├─Device
-│  │  EXTI
-│  │  GPIO
-│  │  NVIC
-│  │  SysClock
-│  │  SysTick
-│  │  Video
-│  │  
-│  └─RCC
-│	    RCC
-│	    RCCAddress
-│	    RCCClock
-│	    RCCOscillator
-│	    RCCPLL
-│	    RCCPrescaler
+├─Device ...
 │	    
 ├─driver
 │	nixietube
@@ -356,7 +394,7 @@ The below are stable contents.
 ├─MCU
 │  ├─ST
 │  │	STM32F103VEx
-│  │	STM32F407ZEx
+│  │	STM32F4 STM32F407ZEx
 │  │	
 │  └─XY
 │	    CW32F003
@@ -371,19 +409,7 @@ The below are stable contents.
 ├─gnuas
 │	g_ustring.asm
 │	
-├─Kasha
-│	n_arith.a
-│	n_cpuins.a
-│	n_debug.a
-│	n_demos.a
-│	n_floppy.a
-│	n_hdisk.a
-│	n_interrupt.a
-│	n_osdev.a
-│	n_pseudo.a
-│	n_supple.a
-│	n_timer.a
-│	n_video.a
+├─Kasha ...
 │	
 ├─msasm (Interrupts and string)
 │  │  INT....asm
@@ -396,6 +422,11 @@ The below are stable contents.
 │	n_string.a
 │	
 └─Python
-	  
+
+## Removed
+
+- sequence -> vector
+- tnode inode
+
 
 ```

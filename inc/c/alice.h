@@ -32,11 +32,24 @@
 #define _BYTE_BITS_ 8
 
 
+typedef void* pureptr_t;
+typedef void(*_tofree_ft)(pureptr_t);
+typedef  int(*_tocomp_ft)(pureptr_t, pureptr_t);
+typedef void(symbol_t)(void);
+
+#if defined(__cplusplus) && !defined(_INC_CPP)
+	#define _INC_CPP
+	#define _CALL_C extern "C"
+#else	
+	#define _CALL_C
+#endif
+
 #ifndef _INC_CPP
 	#define pointer_t(_typ) _typ * 
 	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magice pointer: "pointer(pointer(void)) pp"
 	#define _REGISTER register
+	// no `this`
 #else
 extern "C++" {
 	namespace uni {
@@ -46,32 +59,29 @@ extern "C++" {
 		}
 	}
 }
-	#define _REGISTER
+#define _REGISTER
+#define self (*this)
 #endif
-
-typedef void(*_tofree_ft)(void*);
-typedef void* pureptr_t;
-typedef void(symbol_t)(void);
 
 // __ENDIAN__
 #ifndef __ENDIAN__
-	#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
+#define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
 #endif
 // __ARCH__
 // __BITS__
 	// [Rely-on] stdinc.h
 #ifdef _MSC_VER // for MSVC
-	#define _DEV_MSVC
-	// __FUNCIDEN__ : function identifier
-	#define __FUNCIDEN__ __FUNCDNAME__
-	#define _ALIGN
-	#define _ASM __asm
+#define _DEV_MSVC
+// __FUNCIDEN__ : function identifier
+#define __FUNCIDEN__ __FUNCDNAME__
+#define _ALIGN
+#define _ASM __asm
 
 #elif defined(__GNUC__)
-	#define _DEV_GCC
-	#define __FUNCIDEN__ __func__ // cannot auto-strcat
-	#define _ALIGN(n) __attribute__((aligned(n)))
-	#define _ASM __asm__
+#define _DEV_GCC
+#define __FUNCIDEN__ __func__ // cannot auto-strcat
+#define _ALIGN(n) __attribute__((aligned(n)))
+#define _ASM __asm__
 #endif
 
 // ARINA-COVE C23-STYLE Attribute
@@ -88,6 +98,13 @@ typedef void(symbol_t)(void);
 #define stepval(x) (!x)?0:x // do not nested by "()" !
 	// E.g. paralext = stepval(subtail)->next;
 
+#define Ranginc(i,range) do ++i, (i)%=(range);  while(0) //(++(i) %= range)
+#define Rangincx(i,min,max) do if(i>=max)i=min; else++i;  while(0)// max included
+#define Rangdec(i,range) do if(!(i)) i=range-1; else (--(i) %= range); while(0)
+#define Rangdecx(i,min,max) do if(i<=min)i=max; else--i;  while(0)// min included
+#define Rangstp(i,step,range) (((i)+=(step))%=(range)) // step
+#define Rangsub(i,step,range) do if(i < step) i = range - step; else i -= step; while(0)
+
 #define If(con) if(0||con) //<=> if(1&&con) : avoid error such as mixing "a=0" and "a==0"
 
 #define byteof sizeof
@@ -103,10 +120,12 @@ typedef void(symbol_t)(void);
 #define malc(size) (void*)(malloc(size))
 #define zalc(size) (void*)(calloc(size,1))
 #endif
-#define zalloc(x) calloc((x),1)// Zero Alloc
+
+#define zalloc(x) zalc(x)// Zero Alloc
 #define zalcof(x) (x*)zalc(sizeof(x))
 #define malcof(x) (x*)malc(sizeof(x))
-#define memf(x)   memfree(x)
+#define ralcof(x,addr,nums) (x*)realloc((void*)(addr),(nums)*sizeof(x))
+#define memf(x)     memfree(x)
 #define mfree(x) do{memfree(x);(x)=0;}while(0)
 
 // Added RFW24, Exchange but not for pointer, and address of `a` should not be the same as `b`
@@ -118,7 +137,7 @@ typedef void(symbol_t)(void);
 #define Assign3(l,m,r) do{if(&(l)==&(r))AssignParallel(l,m,r); else xchg((l),(m));}while(0)
 #define Assign3Pointer(l,m,r) do{if(&(l)==&(r))AssignParallel(l,m,r); else xchgptr(a,b);}while(0)
 // Use 0 and ~0 as special invalid value, while Rust uses `Option` containing null.
-// Example for the parameter: Bnode * inp = (Bnode*)~(stduint)0
+// Example for the parameter: Bnode * inp = (Bnode*)None
 #define nulrecurs(inp, root, rets) do {if (!inp) return rets; else if (!~(stduint)inp) inp = root; } while (0)
 
 #define Castype(des,val) *(des*)&(val)
@@ -129,7 +148,12 @@ typedef void(symbol_t)(void);
 #define foreach_str(iden,x) for(char iden, *_pointer=(char*)(x);iden=*_pointer;_pointer++)
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for0r(iden,times) for(size_t iden=(times);iden--;)
+#define forp(ptr,times) for(pureptr_t _LIMIT=(pureptr_t)(ptr+times);(pureptr_t)ptr<_LIMIT;ptr++)
+#define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);ptr<(since)+(times);ptr++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
+#define for0a(iden,array) for0(iden,numsof(array))
+
+#define getExfield(a) ((byte*)&(a) + sizeof(a)) // for l-value object
 
 #define _TEMP
 #define _TODO

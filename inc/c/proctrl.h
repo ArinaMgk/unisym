@@ -28,30 +28,26 @@ enum Procontroller_t // work with Architecture_t
 	#elif defined(_IMPLEMENT_SDCC8051)
 		#include "MCU/Intel/sdcc8051.h"
 	#endif
-#elif defined(_MCCA)
-// [FLAW] cannot use `#if (__ARCH__ == Architecture_x86)` ...
-#if defined(_ARC_x86)
+#elif defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)// defined(_ARC_x86)
 	#include "proctrl/x86/x86.h"
+	#include "board/IBM.h"
 #elif defined(_ARC_RISCV_64)
 	#include "proctrl/RISCV/riscv64.h"
 #else
 	//...
 #endif
-#endif
 
 // Operational Unit Size
-#if defined(_MCU_STM32F10x)
+#if defined(_MCU_STM32) || defined(_MCU_CW32F030)
 	// use 32b-align(times of 0x4) address
 	typedef uint32  typedest;
 	typedef uint32  typeaddr;
 	#define _typedest_len 4
 	#define _typeaddr_len 4
-#elif defined(_MCU_STM32F4x)
-	// I guessed ???
-	typedef uint32  typedest;
-	typedef uint32  typeaddr;
-	#define _typedest_len 4
-	#define _typeaddr_len 4
+
+#elif 0
+
+	
 #else // x86
 	typedef byte    typedest;
 	typedef stduint typeaddr;

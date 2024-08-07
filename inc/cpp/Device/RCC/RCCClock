@@ -28,9 +28,13 @@
 
 #include "../../reference"
 #include "RCCAddress"
+	#undef RTC
+	#undef ADC
+	#undef I2S2
+	#undef I2S3
+	#undef USB
 
-#ifdef _MCU_STM32F10x
-
+#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x) // Common Area
 namespace uni {
 	namespace SysclkSource {
 		enum RCCSysclockSource { // wo RCC_CFGR_SWS_xxx
@@ -40,6 +44,25 @@ namespace uni {
 			Unknown
 		};
 	}
+}
+#endif // _MCU_STM32F10x || _MCU_STM32F4x
+
+#ifdef _MCU_STM32F10x
+
+namespace uni {
+
+	namespace RCCPeriph {
+		enum RCCPeriphClockSelection {
+			RTC = 0,
+			ADC = 1,
+			I2S2 = 2,// only-for F10: 1xE 1xG 3xE 3xG 5xC 7xC
+			I2S3 = 3,// only-for F10: 1xE 1xG 3xE 3xG 5xC 7xC
+			USB = 4,// only-for F10: 2x6 2xB 3x6 3xB 3xE 3xG 5xC 7xC
+		};// store the bitposi
+	}
+
+
+
 	class RCCSystemClock {
 		// source
 	protected:
@@ -61,12 +84,95 @@ namespace uni {
 		}
 		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL);
 	};
-
+	
+	#define _RCC_CFGR_POS_ADCPRE 14U // len 2b
+	#define _RCC_CFGR_MASK_ADCPRE (3U<<_RCC_CFGR_POS_ADCPRE)
 	class RCCPeriphClock {
+	public:
 		
+		// return success
+		static bool ConfigADC(byte divby = 6) {
+			// check pre-divider
+			if (!divby || isodd(divby) || (divby >> 1) > 4)
+				return false;
+			Reference Cfgreg(_RCC_CFGR);
+			Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_ADCPRE) | ((((stduint)divby >> 1) - 1) << _RCC_CFGR_POS_ADCPRE);
+			return true;
+		}
+
+		/*TEMP*/ void Config(RCCPeriph::RCCPeriphClockSelection perif) {
+		//{} uint32_t tickstart = 0U, temp_reg = 0U;
+			#if defined(_MCU_STM32F105xC) || defined(_MCU_STM32F107xC)
+			uint32_t  pllactive = 0U;
+			#endif
+			// RTC/LCD Configuration
+			if (perif == RCCPeriph::RTC) {
+				/*
+				FlagStatus pwrclkchanged = RESET;
+				// As soon as function is called to change RTC clock source, activation of the power domain is done. Requires to enable write access to Backup Domain of necessary 
+				if(__HAL_RCC_PWR_IS_CLK_DISABLED())
+				{
+				__HAL_RCC_PWR_CLK_ENABLE();
+				pwrclkchanged = SET;
+				}
+				
+				if(HAL_IS_BIT_CLR(PWR->CR, PWR_CR_DBP))
+				{
+				
+				SET_BIT(PWR->CR, PWR_CR_DBP);// Enable write access to Backup domain
+				tickstart = HAL_GetTick();// Wait for Backup domain Write protection disable
+				
+				while(HAL_IS_BIT_CLR(PWR->CR, PWR_CR_DBP))
+					if ((HAL_GetTick() - tickstart) > RCC_DBP_TIMEOUT_VALUE) return HAL_TIMEOUT;
+				}
+				temp_reg = (RCC->BDCR & RCC_BDCR_RTCSEL); // Reset the Backup domain only if the RTC Clock source selection is modified from reset value
+				if((temp_reg != 0x00000000U) && (temp_reg != (PeriphClkInit->RTCClockSelection & RCC_BDCR_RTCSEL)))
+				{
+					temp_reg = (RCC->BDCR & ~(RCC_BDCR_RTCSEL)); // Store the content of BDCR register before the reset of Backup Domain
+				// RTC Clock selection can be changed only if the Backup Domain is reset
+				__HAL_RCC_BACKUPRESET_FORCE();
+				__HAL_RCC_BACKUPRESET_RELEASE();
+				RCC->BDCR = temp_reg; // Restore the Content of BDCR register
+
+				// Wait for LSERDY if LSE was enabled
+				if (HAL_IS_BIT_SET(temp_reg, RCC_BDCR_LSEON))
+				{
+					tickstart = HAL_GetTick();
+					while(__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) == RESET)
+						if ((HAL_GetTick() - tickstart) > RCC_LSE_TIMEOUT_VALUE) return HAL_TIMEOUT;
+				}
+				}
+				__HAL_RCC_RTC_CONFIG(PeriphClkInit->RTCClockSelection); 
+
+				// Require to disable power clock if necessary
+				if(pwrclkchanged == SET)
+					__HAL_RCC_PWR_CLK_DISABLE();
+				*/
+			}
+			//{MORE}
+		}
 	};
 	//class RCCHCLK {
 	//class RCCPCLK {
+
+}
+
+#elif defined(_MCU_STM32F4x)
+
+namespace uni {
+
+
+	class RCCSystemClock {
+	protected:
+		SysclkSource::RCCSysclockSource getSource();
+		void setSource(SysclkSource::RCCSysclockSource source);
+	public:
+		RCCSystemClock() { }
+		_TEMP static SysclkSource::RCCSysclockSource CurrentSource();
+		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL);
+		stduint getFrequency();//aka HAL_RCC_GetSysClockFreq
+	};
+
 
 }
 

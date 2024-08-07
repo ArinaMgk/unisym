@@ -23,23 +23,26 @@
 
 #include "../../../inc/c/dnode.h"
 
-// [Unordered] [Alloc] in the direction of right.
-void DnodeRelease(dnode* first)
+// [Alloc] in the direction of right.
+//{TODE} void DnodesRelease(Dnode* first, _tofree_ft _dnode_freefunc)
+void DchainDrop(dchain_t* chain)
 {
-	if (!first) return;
+	if (!chain) return;
 
-	dnode* crt = DnodeRewind(first);
+	Dnode* crt = chain->root_node;
 	while (crt)
 	{
-		dnode* tmp = crt;
+		Dnode* nod = crt;
 		crt = crt->next;
-		if (_dnode_freefunc)
-			_dnode_freefunc(_dnode_freepass ? (void*)tmp : tmp->offs);
-		else memf(tmp);
+		asserv(nod->left)->next = nod->next;
+		asserv(nod->next)->left = nod->left;
+		asserv(chain->func_free)((pureptr_t)nod);
+		memf(nod);
 	}
 
-	_dnode_first = 0;
+	// _dnode_first = 0;
 	aflaga.fail = 0;
 	aflaga.zero = 0;
 	aflaga.one = 0;
 }
+

@@ -1,0 +1,167 @@
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Direct Memory Access
+// Codifiers: @dosconio: 20240712~;
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_Device_DMA
+#define _INC_Device_DMA
+
+#include "../unisym"
+#include "../reference"
+#include "../../c/binary.h"
+#include "GPIO"
+
+namespace uni {
+#if 0
+
+#elif defined(_MCU_STM32F10x)
+	#undef DMA
+	#undef DMA1
+	#undef DMA2
+	//{TODO} object for each channel
+
+	#define _DMA_CCRx_POS_EN 0
+	#define _DMA_CCRx_POS_TCIE 1
+	#define _DMA_CCRx_POS_HTIE 2
+	#define _DMA_CCRx_POS_TEIE 3
+	#define _DMA_CCRx_POS_DIR 4
+	#define _DMA_CCRx_POS_CIRC 5
+	#define _DMA_CCRx_POS_PINC 6
+	#define _DMA_CCRx_POS_MINC 7
+	#define _DMA_CCRx_POS_PSIZE 8 // 2b
+	#define _DMA_CCRx_POS_MSIZE 10 // 2b
+	#define _DMA_CCRx_POS_PL 12 // 2b
+	#define _DMA_CCRx_POS_M2M 14 
+
+	#define _DMA_ISR_POS_GIF1 0
+
+	#define _DMA_Group(regname, start) \
+		static struct {\
+			DMARegType operator[](byte idx) {\
+				if (!idx || idx > 7) return start;\
+				return (DMARegType)((stduint)start + 5 * (idx - 1));\
+			}\
+		} regname
+
+	namespace DMAReg {
+		typedef enum {
+			ISR = 0, IFCR,
+			CCR1, CNDTR1, CPAR1, CMAR1, _RESERVED1,
+			CCR2, CNDTR2, CPAR2, CMAR2, _RESERVED2,
+			CCR3, CNDTR3, CPAR3, CMAR3, _RESERVED3,
+			CCR4, CNDTR4, CPAR4, CMAR4, _RESERVED4,
+			CCR5, CNDTR5, CPAR5, CMAR5, _RESERVED5,
+			CCR6, CNDTR6, CPAR6, CMAR6, _RESERVED6,
+			CCR7, CNDTR7, CPAR7, CMAR7, _RESERVED7
+		} DMARegType;
+		_DMA_Group(CCRx, CCR1);
+		_DMA_Group(CNDTRx, CNDTR1);
+		_DMA_Group(CPARx, CPAR1);
+		_DMA_Group(CMARx, CMAR1);
+	}
+
+	
+	class DMA_t {
+	protected:
+		stduint baseaddr;
+		byte DMA_ID;
+		//
+		bool ExistChannel(byte channel);
+	public:
+		Handler_t XferCpltCallback;
+		Handler_t XferHalfCallback;
+		Handler_t XferErrorCallback;
+		Handler_t XferAbortCallback;
+		bool m2p;
+		pureptr_t bind;
+		DMA_t(stduint baseaddr, byte DMA_ID) : baseaddr(baseaddr), DMA_ID(DMA_ID) {
+			XferCpltCallback = 0;
+			XferHalfCallback = 0;
+			XferErrorCallback = 0;
+			XferAbortCallback = 0;
+			bind = 0;
+			m2p = false;
+		}
+		byte getID() { return DMA_ID; }
+		Reference operator[](DMAReg::DMARegType idx) {
+			return Reference(baseaddr + (((stduint)idx) << 2));
+		}
+
+		bool enClock(bool ena = true);
+		bool enAble(bool ena = true, byte channel = 1) {
+			using namespace DMAReg;
+			if (!ExistChannel(channel)) return false;
+			self[CCRx[channel]].setof(_DMA_CCRx_POS_EN, ena);
+			_TEMP while (self[CCRx[channel]].bitof(_DMA_CCRx_POS_EN) != ena);
+			return true;
+		}
+
+		bool setMode(byte channel, bool from_periph_or_memory, bool to_periph_or_memory, bool periph_inc = false, bool memory_inc = false, stduint periph_align = 2 /*byte*/, stduint memory_align = 2 /*byte*/, bool circular_mode = true, byte priority = 1);
+
+		// type: 0: total, 1:TCIE, 2:HTIE, 3:TEIE
+		bool enInterrupt(bool ena = true, byte type = 0, byte channel = 1) {
+			using namespace DMAReg;
+			if (type > 3 || !ExistChannel(channel)) return false;
+			self[CCRx[channel]].setof(type, ena);
+			return true;
+		}
+		
+		void setInterruptSub(bool ena_total, byte channel) {
+			using namespace DMAReg;
+			self[CCRx[channel]].setof(_DMA_CCRx_POS_TCIE, ena_total);
+			self[CCRx[channel]].setof(_DMA_CCRx_POS_TEIE, ena_total);
+			self[CCRx[channel]].setof(_DMA_CCRx_POS_HTIE, ena_total && XferHalfCallback);
+		}
+
+		void setInterruptPriority(byte channel, byte preempt, byte sub_priority);
+
+		void StartInterrupt(pureptr_t dst_addr, pureptr_t src_addr, stduint leng, byte channel) {
+			//aka HAL_DMA_Start_IT where src_addr is DR register
+			DMA_t& crt = self;
+			crt.enAble(false);
+			//aka DMA_SetConfig
+			{
+				crt[DMAReg::IFCR] |= (1 << _DMA_ISR_POS_GIF1)/*???*/ << 4/*a group*/; //<=> crt.setInterruptSub(false);
+				crt[DMAReg::CNDTRx[channel]] = leng;
+				crt[DMAReg::CPARx[channel]] = (stduint)(crt.m2p ? dst_addr : src_addr);
+				crt[DMAReg::CMARx[channel]] = (stduint)(crt.m2p ? src_addr : dst_addr);
+			}
+			crt.setInterruptSub(true, channel);
+			crt.enAble(true, channel);
+		}
+
+	};
+
+	extern DMA_t DMA1, DMA2;
+	static struct {
+		DMA_t& operator[](byte id) {
+			extern DMA_t DMAr;
+			switch (id) {
+			case 1: return DMA1;
+			case 2: return DMA2;
+			default: return DMAr;
+			}
+		}
+	} DMA;
+
+#endif
+}
+
+#endif

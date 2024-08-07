@@ -22,72 +22,65 @@
 
 #include "../../../inc/c/node.h"
 
+#define root_node chn->root_node
+#define last_node chn->last_node
+#define NodeChainAdapt(a,b,c) NodeChainAdapt(chn,a,b,c)
 
-#define on_decresing_order (aflaga.direction)
-#define on_increasing_order (!aflaga.direction)
-
-node* NodeAppend(node* first, void* addr)
+Node* ChainAppend(chain_t* chn, pureptr_t addr, bool onleft, Node* nod)
 {
-	node* tmp = zalcof(node);
-	node* last = first;
-	tmp->offs = addr;
-	_node_first = first;
+	stduint extn_field = chn->extn_field;
+	const bool need_sort = chn->func_comp != 0 ? true : false;
+	const bool tmp_dir = false; // from left
+	Node* new_nod = 0;
+	int rstate;// return state
 
-	aflaga.fail = 0;
-	aflaga.zero = 0;
-	aflaga.one = 0;
-	// if (_node_order != _Node_Order_Insert)
-	// {
-	if (!first)
-	{
-		aflaga.one = 1;
-		return _node_first = tmp;
+	if (nod) {
+		new_nod = NodeInsert(onleft ? Node_getLeft(chn, nod, tmp_dir) : nod, addr, extn_field);
+		Node* const ro = !root_node || onleft && (nod == root_node) ? new_nod : root_node;
+		Node* const la = !last_node || !onleft && (nod == last_node) ? new_nod : last_node;
+		NodeChainAdapt(ro, la, +1);
 	}
-	if (aflaga.autosort)
-	{
-		if ((addr <= first->offs) ^ on_decresing_order)
+	else if (!root_node) {
+		// assert last_node and !node_count
+		new_nod = NodeInsert(nil, addr, extn_field);
+		NodeChainAdapt(new_nod, new_nod, +1);
+	}
+	else if (need_sort) {
+		setcmp(*chn);
+		// assert been_sorted
+		if (!chn->state.been_sorted)
+			ChainSort(chn);
+		chn->state.been_sorted = true;
+		Node tmp_nod; // = { .next = nullptr, .offs = addr };
 		{
-			// insert left
-			tmp->next = first;
-			return _node_first = tmp;
+			tmp_nod.next = nil;
+			tmp_nod.offs = addr;
 		}
-		while (first->next && ((first->next->offs < addr) ^ on_decresing_order))
-		{
-			last = first;
-			first = first->next;
+		if (cmp((pureptr_t)&tmp_nod, (pureptr_t)root_node) <= 0) { // less than any
+			// return &Push(*(pureptr_t*)addr);
+			(new_nod = NodeInsert(0, addr, extn_field))->next = root_node;
+			NodeChainAdapt(new_nod, last_node, +1);
+			return new_nod;
 		}
-		if ((first->offs < addr) ^ on_decresing_order)
-			last = first;
-		// insert right
-	}
-	else if (_node_compare)
-	{
-		if (_node_compare(addr, first->offs) <= 0)
-		{
-			// insert left
-			tmp->next = first;
-			return _node_first = tmp;
+		Node* crt = root_node;
+		while (cmp((pureptr_t)&tmp_nod, (pureptr_t)crt) > 0 && (crt = crt->next));
+		if (!crt) {
+			new_nod = NodeInsert(last_node, addr, extn_field);
+			NodeChainAdapt(root_node, new_nod, +1);
 		}
-		while (first->next && _node_compare(first->next->offs, addr) < 0)
-		{
-			last = first;
-			first = first->next;
+		else {
+			new_nod = NodeInsert(Node_getLeft(chn, crt, tmp_dir), addr, extn_field);
+			NodeChainAdapt(root_node, last_node, +1);
 		}
-		if (_node_compare(first->offs, addr) < 0)
-			last = first;
-		// insert right
 	}
-	else while (first->next)
-	{
-		last = first;
-		first = first->next;
+	else {
+		if (onleft) {
+			// Push(*(pureptr_t*)addr);
+			(new_nod = NodeInsert(0, addr, extn_field))->next = root_node;
+			NodeChainAdapt(new_nod, last_node, +1);
+			return new_nod;
+		}
+		else NodeChainAdapt(root_node, new_nod = NodeInsert(last_node, addr, extn_field), +1);//Push(*(pureptr_t*)addr, false);
 	}
-
-	if (first)// _node_order == _Node_Order_Insert and other conditions inserting right
-	{
-		// insert right
-		tmp->next = first->next;
-		last->next = tmp;
-	}
-	return tmp;
+	return new_nod;
 }

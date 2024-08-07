@@ -22,14 +22,9 @@
 
 #include "../../../inc/c/node.h"
 
-
-size_t NodeCount(const node* first)
+size_t NodeCount(const Node* first)
 {
 	size_t ret = 0;
-	while (first)
-	{
-		ret++;
-		first = first->next;
-	}
+	if (first) do ret++; while (first = first->next);
 	return ret;
 }

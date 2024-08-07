@@ -29,11 +29,40 @@ namespace uni {
 
 class ArrayTrait {
 public:
-	virtual pureptr_t Locate(stduint idx) = 0; // keep operator[]
-	virtual stduint   Length() = 0;
-	virtual bool      Insert(...) = 0;//{} ...
-	virtual bool      Remove(...) = 0;//{} ...
+	virtual pureptr_t Locate(stduint idx) const = 0; //  operator[]
+
+	// Index One. `~0` as not-found
+	virtual stduint Locate(pureptr_t p_val, bool fromRight) const = 0;
+
+	virtual stduint   Length() const = 0;
+
+	// After, the new item will be at idx.
+	// For example, if you have {A,B}, then insert(2,x) will result in: {A,B,x}
+	virtual bool      Insert(stduint idx, pureptr_t dat) = 0;
+
+	// You may need destructure them before calling this.
+	virtual bool      Remove(stduint idx, stduint times) = 0;
+	
+	virtual bool Exchange(stduint idx1, stduint idx2) = 0;
+
+	int (*Compare_f)(pureptr_t a, pureptr_t b);
+	ArrayTrait() : Compare_f(nullptr) {}
+
+
 };
+
+/* extend
+sort SortTrait
+find LocateTrait -> {FUTURE} SignedObject_T<idx> which has unwrap() and wrap()
+*/
+
+
+/*[DERIVE]
+ --> Vector<T>
+//{TODO} --> LinearChainTrait --> Node Chains --> PriorityNodes --> ...
+*/
+
+
 
 
 }

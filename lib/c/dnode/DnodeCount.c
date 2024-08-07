@@ -23,7 +23,7 @@
 
 #include "../../../inc/c/dnode.h"
 
-size_t DnodeCount(const dnode* any)
+size_t DnodeCount(const Dnode* any)
 {
 	if (!any)return 0;
 	size_t count = 0;

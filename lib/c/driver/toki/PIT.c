@@ -23,10 +23,8 @@
 #include "../../../../inc/c/driver/i8259A.h"
 #include "../../../../inc/c/driver/PIT.h"
 
-#if defined(_MCCA)// 0x8632
+#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 
-#define PIT_TIMER0         0x40 // I/O port for timer channel 0 */
-#define TIMER_MODE     0x43 // I/O port for timer mode control */
 #define RATE_GENERATOR 0x34 // 00-11-010-0 : {Counter0 - LSB then MSB - rate generator - binary}
 #define TIMER_FREQ     1193182L // clock frequency for timer in PC and AT */
 #define HZ             1000  // clock freq (software settable on IBM-PC) */

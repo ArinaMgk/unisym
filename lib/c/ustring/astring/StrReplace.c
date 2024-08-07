@@ -35,7 +35,7 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 	if (!dest || !subfirstrom || !subto || !malc_limit)
 		return zalc(1);
 	if (!*dest || !*subfirstrom) return StrHeap(dest);
-	dnode* dn = 0;
+	Dnode* dn = 0;
 	size_t sz_subto = 0, nums = 0, sz_subfirstrom = 0, sz_len = 0;
 	ptrdiff_t chars_add = 0;
 	for (; subto[sz_subto]; sz_subto++);
@@ -47,7 +47,7 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 	{
 		p = StrIndexString(p, subfirstrom);
 		if (!p) break;
-		dn = DnodeAppend(dn, (void*)p, sz_subfirstrom);
+		dn = DnodeInsert(dn, (void*)p, sz_subfirstrom, 0, 1/*ON_RIGHT*/);
 		nums++;
 		p += sz_subfirstrom;
 	}
@@ -65,7 +65,7 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 		if (dn->next) { dn = dn->next; goto loop; }
 		for (; *p; p++)*q++ = *p;
 		*q = 0;
-		DnodeRelease(dn);
+		DnodesRelease(dn, 0);// non-free
 		return ret;
 	}
 	else

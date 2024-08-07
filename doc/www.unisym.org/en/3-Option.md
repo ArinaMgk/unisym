@@ -8,7 +8,6 @@ dg-publish: true
 **option**: `arch`+`host`+`bitmode`
 - Architecture Class :chart: like "`_ARC_x86`" (for example, this macro may not exist, so do below)
 - Chip Class :chart: "`_CPU_AMDRyzen7_5800H_Radeon`"
-- Board Class :x:
 - Host Class :chart: "`Win32`"
 - Devkit Option :chart: "`_BUILD_MSVC`"
 
@@ -64,8 +63,8 @@ Trend: The macro name to the left of the colon is for internal use, which is in 
 - `_Intelx86_Windows_16`
 - `_Intelx86_Linux_32`
 - `_Intelx86o64_Linux_64`
-- `_Intelx86_Mcca_32`
-- `_Intelx86_Mcca_16`
+- `_Intelx86_Mcca_32` _MCCA == 0x8632
+- `_Intelx86_Mcca_16` _MCCA == 0x8616
 
 "o" is "or".
 

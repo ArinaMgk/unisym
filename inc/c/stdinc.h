@@ -23,11 +23,15 @@
 
 #ifndef _INC_MACHINE
 #define _INC_MACHINE
-
+#if defined(_INC_CPP) || defined(__cplusplus)
+extern "C" {
+#endif
 #if defined(_dbg) || defined(_DEBUG)
 #include "debug.h"
 #else
 #include "proctrl.h"
 #endif
-
+#if defined(_INC_CPP) || defined(__cplusplus)
+}
+#endif
 #endif

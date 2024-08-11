@@ -94,6 +94,8 @@ extern "C++" {
 
 #define asserv(x) if(x)x // Assert Value
 #define asrtand(x) (x)&&x // Assert Value
+#define asrtinc(p) if(p)*(p)++ // for array
+#define asrtdec(p) if(p)*--(p) // for stack
 #define asrtequ(x,y) if((x)==(y))(x) // Assert Value
 #define stepval(x) (!x)?0:x // do not nested by "()" !
 	// E.g. paralext = stepval(subtail)->next;
@@ -152,6 +154,8 @@ extern "C++" {
 #define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);ptr<(since)+(times);ptr++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 #define for0a(iden,array) for0(iden,numsof(array))
+
+#define bitguard(x) ((x)&-(x))
 
 #define getExfield(a) ((byte*)&(a) + sizeof(a)) // for l-value object
 

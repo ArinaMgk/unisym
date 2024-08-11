@@ -180,7 +180,7 @@ Now the `*` mark for document provided, no matter if it is detailed.
 		-  \* GBK.h {TODO}
 	- `Charset::Multichar` (multichar.h) {TODO}
 		-  \* upec.h {TOIN}
-		-  \* UTF-8.h {TODO}
+		- UTF-8 from
 	-  \* Encode:: crc64.h
 	-  \* Time:: datime.h
 	-  \* Buffer:: stack.h stack >> Trait

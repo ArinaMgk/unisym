@@ -98,6 +98,7 @@ typedef ptrdiff_t stdint ;
 typedef ptrdiff_t stdsint;
 #ifndef _IMPLEMENT_KEIL8051
 static const pureptr_t None = (pureptr_t)~(stduint)0;
+static const stduint NONE = ~(stduint)0;
 #endif
 
 //

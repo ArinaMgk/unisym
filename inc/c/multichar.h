@@ -25,9 +25,21 @@
 
 #if defined(_OPT_CHARSET_UTF8)
 #include "charset/multichar/UTF-8.h"
-#else
-
+#endif
+#if defined(_OPT_CHARSET_UTF16)
+typedef uint16 unit_utf16_t;
+typedef struct {
+	unit_utf16_t unit[2];
+} char_utf16_t;
 #endif
 
+#ifdef _INC_CPP
+extern "C" {
+#endif
+	
+	stduint CscUTF(byte from, byte to, const pureptr_t src, stduint slen, pureptr_t* des);
 
+#ifdef _INC_CPP
+}
+#endif
 #endif

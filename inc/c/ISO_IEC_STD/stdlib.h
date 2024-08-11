@@ -25,7 +25,13 @@
 
 #include "../stdinc.h"// {archit.h}
 #include "../widechar.h"
+//- GBK
+//- UTF-32 (till now)
 #include "../multichar.h"
+//- UTF-8
+//- UTF-16
+
+
 
 // # type
 // - size_t よ archit.h

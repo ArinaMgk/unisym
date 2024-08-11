@@ -10,9 +10,9 @@ magic/.vscode
 *.log
 *.toc
 # Website Temporary Files
-doc/www.unisym.org/_*
-doc/www.unisym.org/.*
-doc/www.unisym.org/zh
+doc/WEB/www.unisym.org/_*
+doc/WEB/www.unisym.org/.*
+doc/WEB/www.unisym.org/zh
 # Locale Makefiles : code `make list` to generate
 lib/make/c*
 # .Net Class Library

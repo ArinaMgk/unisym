@@ -46,7 +46,19 @@ At least now, the efficient item should not be null.
 
 The users should use \verb|pureptr_t Iter()| to iterate, this return null for the end.
 
+\textbf{How To Use}, for example of \textit{Dnode},
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+fori(i, c) {
+	forhead(i, Dnode);
+	std::cout << i.addr << std::endl;
+}
+\end{lstlisting}
 
 \subsection{Node-Chain}
 \input{CLV/Data/Nodes.tex}
+
+\section{Magice Compiler}
+\input{CLV/Magice/xx-Magice.tex}
 

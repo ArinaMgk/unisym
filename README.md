@@ -7,8 +7,16 @@
 
 The repository is open-sourced under of *Apache License 2.0*. If you copy the code and used for the public or commercial, please stipulate your <u>copying from *UNISYM* led by *ArinaMgk*</u>. 
 
-Feature
+**Feature**
+
 - Lossless Abstract 
+
+**Hsyster** `HERSYS`
+
+- `HERNOT` and public `HEREPC`
+    - Herepic Style Color: Herpink(R255, G97, B157, #double-0.618) 
+- `HERPRO` and static `HERDAT`
+    - opensrc **UNISYM** (this, Apache)
 
 <font color="magenta">⚠︎ All the code are by hands, so these big changes and mistakes in codes may be forgiven.</font>
 
@@ -19,8 +27,8 @@ ConPrint("Hello") # Some script-interpret
 
 ConPrint("Hello");/* CPL */
 
-Con::Print("Hello");// C++
-Con.Print("Hello");// C++
+Con::Print("Hello");// C++ Static 
+Con.Print("Hello");// C++ Dynamic / Global
 
 ConPrint Hello_String; Assembly Macro
 
@@ -29,21 +37,15 @@ ConPrint Hello_String; Assembly Macro
 
 | Component        | For                                                     | As                                                         |
 | ------------------ | ------------------------------------------------------------ | ------------------ |
-| [ASM](./doc/assembly/AASM.md)  `asm/` | sources(asm) <=> object | assembler and dis-assembler |
-| DEM `demo/` | / | demonstrations |
-| DOC `doc/` | / | documents |
+| ASM `asm/` | sources(asm) <=> object | assembler and dis-assembler |
+| DEM `demo/` | / | demonstrations and utilities |
+| DOC `doc/` | / | documents, aka `HEREPC` |
 | INC `inc/` | / | including files |
 | LIB `lib/` | / | implementation source code |
-| LNK `linker/` | objects => output | linker, synthesizer and modifier |
-| MGK `magic/` | sources => sources + list + depend | compiler, analyzer and translator |
+| MGK `magic/` | sources => sources + list + depend + target | compiler, analyzer, translator, linker, synthesizer and modifier |
 | WIT `witch/` | to outputs | **rendering** library and engine |
 | WZD `wizard/` | / | constructor |
 
-- Project Tools and Utilities
-- HEREPC
-- Including Packages (`inc/`)
-- Libraries Packages (`lib/`)
-- Demonstrations Packages
 
 ---
 

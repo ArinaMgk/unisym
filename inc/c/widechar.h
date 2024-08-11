@@ -24,9 +24,21 @@
 #define _INC_CHAR_WIDE
 // `locale.h` may define relative macros.
 
+enum CharsetWide {
+	CHARSET_WIDE_ASCII,
+	CHARSET_WIDE_GBK  ,
+	CHARSET_WIDE_UTF32,
+};
+
 #if defined(_OPT_CHARSET_GBK)
 #include "charset/widechar/GBK.h"
-#elif defined(__cplusplus) || defined(_INC_CPP)
+#endif
+
+#if defined(_OPT_CHARSET_UTF32)
+typedef uint32 char_utf32_t;
+#endif
+
+#if defined(__cplusplus) || defined(_INC_CPP)
 // wchar_t is a keyword
 #else // C
 typedef short int wchar_t;

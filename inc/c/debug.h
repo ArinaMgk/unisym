@@ -63,29 +63,21 @@ extern size_t arna_precise;
 	#define zalc(size) (void*)(_MALCOUNT++,calloc(size,1))
 #endif
 
-#include <stdlib.h>
-inline static void _memf(void* x)
-{
-	memfree(x);
-}
-inline static char* salc(size_t size)
-{
-	if (!size) return 0;
-	char* r = (char*)malc(size);
-	r[size - 1] = 0;
-	return r;
-}
-
 // Quickly set the necessary configuration
 #define ulibsym(limit)\
 	size_t _MALCOUNT, malc_limit=(limit), call_state;
 
 #ifdef _INC_CPP
 extern "C++" {
+#endif
+	// inline static void _memf(void* x) { memfree(x); }
+	char* salc(size_t size);
+
 	// `new(buf)type;` won't call this but `new type;`.
 	//void* operator new(size_t size);
 	//
 	//void operator delete(void* p);
+#ifdef _INC_CPP
 }
 #endif
 

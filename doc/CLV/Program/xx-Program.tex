@@ -1,0 +1,57 @@
+
+\subsection{Bridge between Machine-code and Human-language}
+
+
+\subsection{Grammar, Syntax and Statement}
+
+\subsubsection{Equivalent Expression for C, C++}
+
+\begin{itemize}
+	\item{\verb|adr[idx]| $\leftrightarrow$ \verb|*(adr+idx)|}
+	\item{\verb|(&bloc)->memb| $\leftrightarrow$ \verb|bloc.memb|}
+	\item{\verb|!E| $\leftrightarrow$ \verb|0==E|}
+	\item{\verb|!!E| $\leftrightarrow$ \verb|0!=E|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|
+		\begin{itemize}
+			\item\textit{may take} \verb|ADD| \textit{or} \verb|INC| \textit{as assembly difference. \textemdash ARN}
+			\item\verb|--E| is analogous to this.
+		\end{itemize}
+	}
+	%
+	\item{\verb|*&a| $\leftrightarrow$ \verb|a|
+		\begin{itemize}
+			\item\textit{may not well for array label identifiers, for it} \verb|a == &a|.
+		\end{itemize}
+	}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|}
+\end{itemize}
+
+
+\subsection{Data-type and Memory}
+
+%(Heap/Stack)
+
+\subsection{Scope and Linkage}
+
+
+\subsection{Keyword and Operator Parsing}
+
+
+\subsection{Preprocessing and Parsing}
+
+
+\subsection{Procedure and Function}
+
+
+\subsection{Standard, Style and Arinae Covenant}
+
+
+

@@ -19,20 +19,18 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
-// Interface for various algorithm, trait for xnode-family and data-structure
-
+#include "../unisym"
+// ! Below are included by HEREPIC ! //
 #ifndef _INCPP_TRAIT_ARRAY
 #define _INCPP_TRAIT_ARRAY
-#include "../unisym"
 namespace uni {
 
 class ArrayTrait {
 public:
 	virtual pureptr_t Locate(stduint idx) const = 0; //  operator[]
 
-	// Index One. `~0` as not-found
-	virtual stduint Locate(pureptr_t p_val, bool fromRight) const = 0;
+	// Index One. `~0' as not-found
+	virtual stduint   Locate(pureptr_t p_val, bool fromRight) const = 0;
 
 	virtual stduint   Length() const = 0;
 
@@ -43,27 +41,12 @@ public:
 	// You may need destructure them before calling this.
 	virtual bool      Remove(stduint idx, stduint times) = 0;
 	
-	virtual bool Exchange(stduint idx1, stduint idx2) = 0;
+	virtual bool      Exchange(stduint idx1, stduint idx2) = 0;
 
-	int (*Compare_f)(pureptr_t a, pureptr_t b);
+	_tocomp_ft Compare_f;
+	
 	ArrayTrait() : Compare_f(nullptr) {}
 
-
 };
-
-/* extend
-sort SortTrait
-find LocateTrait -> {FUTURE} SignedObject_T<idx> which has unwrap() and wrap()
-*/
-
-
-/*[DERIVE]
- --> Vector<T>
-//{TODO} --> LinearChainTrait --> Node Chains --> PriorityNodes --> ...
-*/
-
-
-
-
 }
 #endif

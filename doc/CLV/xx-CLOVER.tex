@@ -1,4 +1,10 @@
 
+\section{Programming Language}
+
+\textit{Her. suggestion: `Begin with assembly (like} \verb|i-8086| \textit{NASM) firstly, then come here.'}
+
+\input{CLV/Program/xx-Program.tex}
+
 \section{Data Structure}
 
 \subsection{Trait}
@@ -9,27 +15,8 @@
 
 The developers should implement:
 
-\lstset{style=GlobalC}
-\begin{lstlisting}[language=C]
-virtual pureptr_t Locate(stduint idx) const = 0; //  operator[]
-
-// Index One. `~0` as not-found
-virtual stduint Locate(pureptr_t p_val, bool fromRight) const = 0;
-
-virtual stduint   Length() const = 0;
-
-// After, the new item will be at idx.
-// For example, if you have {A,B}, then insert(2,x) will result in: {A,B,x}
-virtual bool      Insert(stduint idx, pureptr_t dat) = 0;
-
-// You may need destructure them before calling this.
-virtual bool      Remove(stduint idx, stduint times) = 0;
-
-virtual bool Exchange(stduint idx1, stduint idx2) = 0;
-
-int (*Compare_f)(pureptr_t a, pureptr_t b);
-ArrayTrait() : Compare_f(nullptr) {}
-\end{lstlisting}
+\lstset{style=GlobalCxx}
+\lstinputlisting[language=C++, firstline=24]{../inc/cpp/trait/ArrayTrait.hpp}% , lastline=...
 
 \subsubsection{Iterate Trait}
 

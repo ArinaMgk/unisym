@@ -1,0 +1,45 @@
+% UTF-8 TexLive TAB4 CRLF
+% <<Love and Origin Epic Collection - Volume 01>>
+\documentclass[a4paper,12pt,UTF8]{book}
+\usepackage{ctex}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{titlesec}
+% reference raw code
+\usepackage{listings}
+\usepackage{xcolor}
+
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{booktabs}
+
+\input{COS/chapter/roothead.tex}
+
+\geometry{a4paper,left=3cm,right=2cm,top=2cm,bottom=2cm}
+\begin{document}
+\author{dosconio}
+\begin{center}
+	% rgb(255, 97, 157)
+	\sc\fontsize{48pt}{0}\selectfont\textcolor[rgb]{1, 0, 0.618}{Herepics}
+\end{center}
+
+\hfill\textbf{Volume 1}
+
+\newpage % Indexes from even page
+% Indexes
+\renewcommand{\contentsname}{Contents}
+\tableofcontents
+
+% Chap 1
+\input{COS/chapter/chaptitle-01.tex}
+
+more to see Volume-0。
+
+\chapter{BIO \mbox{-} }
+\input{BIO/xx-BIOLOG.tex}
+
+% other 14 chap.s
+
+\newpage
+END!
+\end{document}

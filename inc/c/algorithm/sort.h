@@ -23,6 +23,11 @@
 #ifndef _INC_Sort
 #define _INC_Sort
 
+/* extend
+sort SortTrait
+find LocateTrait -> {FUTURE} SignedObject_T<idx> which has unwrap() and wrap()
+*/
+
 // Fit for ISO/IEC CPL Interfaces
 #include "../stdinc.h"
 #include "compare.h"

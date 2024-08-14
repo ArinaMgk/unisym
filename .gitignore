@@ -1,4 +1,5 @@
 # ASCII git-ignore TAB4 CRLF
+priv-*
 # ...
 .vscode
 magic/.vscode

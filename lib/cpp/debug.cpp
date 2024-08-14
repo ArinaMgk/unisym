@@ -1,5 +1,6 @@
 
 #include "../../inc/cpp/unisym"
+#include <stdlib.h>
 
 #ifdef _DEBUG
 //{TOIN} memory.cpp

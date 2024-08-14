@@ -20,10 +20,10 @@
 	limitations under the License.
 */
 
-// node-family compatible chain{anode[a] > nnode[8] > tnode[6] > inode[5] :> dnode[4] > node[2]}
+// node-family compatible chain{anode[a] > nnode[8] > ... :> dnode[4] > node[2]}
 //{TODO} pnode for C++ template (pnode<struct xxx{...}>)
 
-// ":>" means not be compatible with smaller, but the next bigger level maybe compatible. E.g. tnode[6] > inode[5] :> dnode[4], t contains d, but i not.
+// ":>" means not be compatible with smaller, but the next bigger level maybe compatible. E.g. ... :> dnode[4], t contains d, but i not.
 
 // autosort do not contain the case of user-defined compare function
 // autosort affect by the value of `addr`
@@ -34,7 +34,6 @@
 
 #include "node.h"
 #include "dnode.h"
-#include "inode.h"
 #include "nnode.h"
 #include "anode.h"
 

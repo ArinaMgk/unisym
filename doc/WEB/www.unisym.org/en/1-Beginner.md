@@ -33,9 +33,3 @@ Generation 3 style:
 If you develop something on host-environment, include `stdinc.h` for C, `unisym` for C++;
 if you develop MCU-program, use the special file like `STM32F103VE` for C++...
 
-#### Gene-3 Style Modules
-
-- Node aka Chain
-- Dnode
-- Nnode
-

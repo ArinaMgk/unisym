@@ -1,0 +1,82 @@
+\begin{document}
+\author{dosconio}
+\begin{center}
+	% rgb(255, 97, 157)
+	\sc\fontsize{48pt}{0}\selectfont\textcolor[rgb]{1, 0, 0.618}{Herepics}
+\end{center}
+\ifdetail
+{\hfill\sc\fontsize{24pt}{0}\selectfont\textcolor[rgb]{1, 0, 0.618}{Volume 0}}
+\else
+{\hfill\sc\fontsize{24pt}{0}\selectfont\textcolor[rgb]{1, 0, 0.618}{Volume 0} Partial}
+% exclude some prove and other detail.
+\fi
+
+\newpage % Indexes from even page
+% Indexes
+\renewcommand{\contentsname}{Contents}
+\tableofcontents
+
+\section{Foreword} % section 0.1
+
+All content\cite{HEREPIC} are edited by hands but Artificial Intelligence.
+
+now contributing authors:
+
+\textbf{Doshou Ayano Haruno}
+$dosconyo@gmail.com$
+
+\section{General}
+
+\input{COS/chapter/chaptitle-01.tex}
+	\input{ASM/xx-ASMACH.tex}
+\input{COS/chapter/chaptitle-02.tex}
+	More to see volume 01.%\input{BIO/xx-BIOLOG.tex}
+\input{COS/chapter/chaptitle-03.tex}
+	\input{CAM/xx-CAMPAN.tex}
+
+\chapter{Clover \mbox{-} Command and Programming}
+% use \input, \subimport{relative path}{file}(recommended) or \include
+\input{CLV/xx-CLOVER.tex}
+
+\chapter{Cosmos \mbox{-} }
+\input{COS/xx-COSMOS.tex}
+
+\chapter{Cotoba \mbox{-} }
+\input{CTB/xx-COTOBA.tex}
+
+\chapter{FZK \mbox{-} }
+\input{FZK/xx-FIZIKS.tex}
+
+\chapter{HLP}
+\input{HLP/xx-APPLYS.tex}
+
+\chapter{Operating System Development}
+\input{OSD/xx-OSDEVL.tex}
+
+\chapter{OXA}
+\input{OXA/xx-OXALIC.tex}
+
+\chapter{QRS}
+\input{QRS/xx-QANRUS.tex}
+
+\chapter{Rosama}
+\input{RSM/xx-ROSAMA.tex}
+
+\chapter{Sakura}
+\input{SKR/xx-SAKURA.tex}
+
+\chapter{Unisym \mbox{-} Abstract, Formatting and Basic Mathematics}
+\subimport{USL}{xx-UNISYM}
+
+\chapter{WEB}
+\input{WEB/xx-SECNET.tex}
+
+\chapter{Yasmin \mbox{-} Society and History}
+\input{YAS/xx-YASMIN.tex}
+
+\newpage
+\bibliographystyle{ieeetr}
+\nocite{*}
+\bibliography{COS/sources}
+END!
+\end{document}

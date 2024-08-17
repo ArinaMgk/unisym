@@ -112,6 +112,8 @@ Now the `*` mark for document provided, no matter if it is detailed.
 		-  \* ustdbool.h
 		-  \* pointer
 		-  \* compile/
+		-  \* thread/
+			-  \* spinlock (TODO)
 		- proctrl/ and MCU/
 			-  \* ST
 			-  \* XY

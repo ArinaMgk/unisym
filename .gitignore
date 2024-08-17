@@ -8,8 +8,11 @@ magic/.vscode
 *.out
 *.gz
 *.aux
+*.bbl
+*.blg
 *.log
 *.toc
+*.run.xml
 # Website Temporary Files
 doc/WEB/www.unisym.org/_*
 doc/WEB/www.unisym.org/.*

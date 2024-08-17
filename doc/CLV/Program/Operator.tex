@@ -1,0 +1,100 @@
+
+for Std-C99, Single(Suffix then Prefix) $>$ \textbf{Double} $>$ Triple $>$ Assignment $>$ Half-Statement(Comma) .
+
+
+\begin{center}\begin{longtable}{|c|l|l|}
+	\hline
+	\textbf{Precedence/} & \textbf{Operator} & \textbf{Description} \\
+	\textbf{Associativity} & \textbf{} & \textbf{} \\
+	\hline
+	\endfirsthead
+	\hline
+	\textbf{P/A} & \textbf{Operator} & \textbf{Description} \\
+	\hline
+	\endhead
+	\hline
+	\endfoot
+	\hline
+	\endlastfoot
+	$\mathop{1}\limits ^{\rightarrow}$ 
+	& \verb|++|, \verb|--| & Suffix/postfix increment and decrement \\
+	\cline{2-3}
+	& \verb|()| & Function call \\
+	\cline{2-3}
+	& \verb|[]| & Array subscripting \\
+	\cline{2-3}
+	& \verb|.| & Structure and union member access \\
+	\cline{2-3}
+	& \verb|->| & Structure and union member access through pointer \\
+	\cline{2-3}
+	& \verb|(type0){...}| & Compound literal (C99) \\
+	\hline
+	$\mathop{2}\limits ^{\leftarrow}$ 
+	& \verb|++|, \verb|--| & Prefix increment and decrement \\
+	\cline{2-3}
+	& \verb|+|, \verb|-| & Unary plus and minus \\
+	\cline{2-3}
+	& \verb|!|, \verb|~| & Logical NOT and bitwise NOT \\
+	\cline{2-3}
+	& \verb|(type0)| & Cast conversion \\
+	\cline{2-3}
+	& \verb|*| & Indirection (dereference) \\
+	\cline{2-3}
+	& \verb|&| & Address-of l-value united in byte\\
+	\cline{2-3}
+	& \verb|sizeof| & Size-of united in byte\\
+	\cline{2-3}
+	& \verb|_Alignof| & Alignment requirement (C11) \\
+	\hline
+	$\mathop{3}\limits ^{\rightarrow}$ & \verb|*|, \verb|/|, \verb|%| & Multiplication, division, and remainder \\
+	\hline
+	$\mathop{4}\limits ^{\rightarrow}$ & \verb|+|, \verb|-| & Addition and subtraction \\
+	\hline
+	$\mathop{5}\limits ^{\rightarrow}$ & \verb|<<|, \verb|>>| & Bitwise left shift and right shift \\
+	\hline
+	$\mathop{6}\limits ^{\rightarrow}$ & \verb|<|, \verb|<=| & For relational operators < and ≤ respectively \\
+	\cline{2-3}
+	& \verb|>|, \verb|>=| & For relational operators > and ≥ respectively \\
+	\hline
+	$\mathop{7}\limits ^{\rightarrow}$ 
+	& \verb|==|, \verb|!=| & For relational = and ≠ respectively \\
+	\hline
+	$\mathop{8}\limits ^{\rightarrow}$ 
+	& \verb|&| & Bitwise AND \\
+	\hline
+	$\mathop{9}\limits ^{\rightarrow}$ 
+	& \verb|^| & Bitwise XOR (exclusive or) \\
+	\hline
+	$\mathop{10}\limits ^{\rightarrow}$ 
+	& \verb!|! & Bitwise OR (inclusive or) \\
+	\hline
+	$\mathop{11}\limits ^{\rightarrow}$ 
+	& \verb|&&| & Logical AND \\
+	\hline
+	$\mathop{12}\limits ^{\rightarrow}$ 
+	& \verb!||! & Logical OR \\
+	\hline
+	$\mathop{13}\limits ^{\leftarrow}$
+	& \verb!?:! & Ternary conditional  \\
+	\hline
+	$\mathop{14}\limits ^{\leftarrow}$
+	& \verb|=| & Simple Assignment (Below are Compound) \\
+	\cline{2-3}
+	& \verb|+=|, \verb|-=| & Assignment by sum and difference \\
+	\cline{2-3}
+	& \verb|*=|, \verb|/=|, \verb|%=| & Assignment by product, quotient, and remainder \\
+	\cline{2-3}
+	& \verb|<<=|, \verb|>>=| & Assignment by bitwise left shift and right shift \\
+	\cline{2-3}
+	& \verb|&=|, \verb|^=|, \verb!|=! & Assignment by bitwise AND, XOR, and OR \\
+	\hline
+	$\mathop{15}\limits ^{\rightarrow}$ & \verb|,| & Comma \\
+	\hline
+\end{longtable}\end{center}
+
+Address-of is called by reference in some books. This does not for bit-field and register objects.
+
+%{TODO} \verb|&| returns a l- or r- value address.
+%{TODO} used with ‘*’ ‘[]’ is like ‘LEA’ instruction.
+
+

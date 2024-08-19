@@ -25,10 +25,31 @@
 
 #include "stdinc.h"
 
+#ifdef _INC_CPP
+extern "C++" {
+#endif
+	// inline static void _memf(void* x) { memfree(x); }
+	char* salc(size_t size);
+
+	// `new(buf)type;` won't call this but `new type;`.
+	//void* operator new(size_t size);
+	//
+	//void operator delete(void* p);
+#ifdef _INC_CPP
+}
+#endif
+
+
 void*   memallocate(stduint siz);
 
-stduint memshrink(...);
+//{} stduint memshrink(...);
 
 void    memrelease();
+
+// : International Standard Interface [user - def]
+_CALL_C void* calloc(size_t nmemb, size_t size);
+_CALL_C void free(void* ptr);
+_CALL_C void* malloc(size_t size);
+_CALL_C void* realloc(void* ptr, size_t size);
 
 #endif

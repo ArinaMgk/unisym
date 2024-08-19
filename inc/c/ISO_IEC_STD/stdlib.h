@@ -56,10 +56,13 @@ struct lldiv_t {
 
 // # macro
 // - NULL よ archit.h
-// - EXIT_FAILURE
 // - EXIT_SUCCESS
+#define EXIT_SUCCESS 0
+// - EXIT_FAILURE
+#define EXIT_FAILURE 1
 // - RAND_MAX
-// - MB_CUR_MAX
+#define RAND_MAX 0x7FFF //{TEMP}
+//{TODO} - MB_CUR_MAX 
 
 // # function
 
@@ -67,49 +70,54 @@ struct lldiv_t {
 
 #include "../ustring.h" // contain "atoins" and "instoa"
 
-double atof(const char* nptr);
+#define atoi _atoidefa
+_CALL_C int _atoidefa(const char* inp);
 
-#define atoi(inp) _atoidefa(inp)
-int _atoidefa(const char* inp);
+#define atof atoflt
+_CALL_C double atoflt(const char* astr);
 
-long int atol(const char* nptr);
-long long int atoll(const char* nptr);
-double strtod(const char* restrict nptr, char** restrict endptr);
-float strtof(const char* restrict nptr, char** restrict endptr);
-long double strtold(const char* restrict nptr, char** restrict endptr);
-long int strtol(const char* restrict nptr, char** restrict endptr, int base);
-long long int strtoll(const char* restrict nptr, char** restrict endptr, int base);
-unsigned long int strtoul(const char* restrict nptr, char** restrict endptr, int base);
-unsigned long long int strtoull(const char* restrict nptr, char** restrict endptr, int base);
+#define atol atolong
+_CALL_C long int atolong(const char* inp);
+
+#define restrict //{TEMP}
+//{TODO}{HERE}
+_CALL_C double strtod(const char* restrict inp, char** restrict endptr);
+_CALL_C float strtof(const char* restrict inp, char** restrict endptr);
+_CALL_C long double strtold(const char* restrict inp, char** restrict endptr);
+_CALL_C long int strtol(const char* restrict inp, char** restrict endptr, int base);
+_CALL_C unsigned long int strtoul(const char* restrict inp, char** restrict endptr, int base);
+
+#ifdef _BIT_SUPPORT_64
+_CALL_C long long int atoll(const char* inp);
+_CALL_C long long int strtoll(const char* restrict inp, char** restrict endptr, int base);
+_CALL_C unsigned long long int strtoull(const char* restrict inp, char** restrict endptr, int base);
+#endif
 
 // Pseudo-random sequence generation
 
-int rand(void);
-void srand(unsigned int seed);
+_CALL_C int rand(void);
+_CALL_C void srand(unsigned int seed);
 
-// Memory management
+// Memory management 
 
-void* calloc(size_t nmemb, size_t size);
-void free(void* ptr);
-void* malloc(size_t size);
-void* realloc(void* ptr, size_t size);
+#include "../memory.h"
 
 // Communication with the environment]
 
-void abort(void);
-int atexit(void (*func)(void));
-void exit(int status);
-void _Exit(int status);
-char* getenv(const char* name);
-int system(const char* string);
+_CALL_C void abort(void);
+_CALL_C int atexit(void (*func)(void));
+_CALL_C void exit(int status);
+_CALL_C void _Exit(int status);
+_CALL_C char* getenv(const char* name);
+_CALL_C int system(const char* string);
 
 // Searching and sorting utilities
 
 //{} incl...
-void* bsearch(const void* key, const void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
+_CALL_C void* bsearch(const void* key, const void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
 
 #include "../algorithm/sort.h"
-void qsort(void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
+_CALL_C void qsort(void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
 
 // Integer arithmetic functions
 
@@ -120,19 +128,21 @@ static inline long int labs(long int j) { return _ABS_IMM(j); }
 static inline long long int llabs(long long int j) { return _ABS_IMM(j); }
 
 //{TODO} implementation by ASMx86(Hard) and (Soft) <- Decide by ARCH
-div_t div(int numer, int denom);
-ldiv_t ldiv(long int numer, long int denom);
-lldiv_t lldiv(long long int numer, long long int denom);
+_CALL_C struct div_t div(int numer, int denom);
+_CALL_C struct ldiv_t ldiv(long int numer, long int denom);
+_CALL_C struct lldiv_t lldiv(long long int numer, long long int denom);
 
 // Multibyte/wide character conversion functions
 
-int mblen(const char* s, size_t n);
-int mbtowc(wchar_t* restrict pwc, const char* restrict s, size_t n);
-int wctomb(char* s, wchar_t wc);
+_CALL_C int mblen(const char* s, size_t n);
+_CALL_C int mbtowc(wchar_t* restrict pwc, const char* restrict s, size_t n);
+_CALL_C int wctomb(char* s, wchar_t wc);
 
 // Multibyte/wide string conversion functions
 
-size_t mbstowcs(wchar_t* restrict pwcs, const char* restrict s, size_t n);
-size_t wcstombs(char* restrict s, const wchar_t* restrict pwcs, size_t n);
+_CALL_C size_t mbstowcs(wchar_t* restrict pwcs, const char* restrict s, size_t n);
+_CALL_C size_t wcstombs(char* restrict s, const wchar_t* restrict pwcs, size_t n);
+
+#undef restrict //{TEMP}, this make error for MSVC2022(C11) at 20240819
 
 #endif

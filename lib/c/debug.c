@@ -20,8 +20,7 @@
 	limitations under the License.
 */
 
-#include "../../inc/c/debug.h"
-#include <stdlib.h>
+#include "../../inc/c/stdinc.h"
 
 #ifdef _DEBUG
 size_t malc_count = 0;

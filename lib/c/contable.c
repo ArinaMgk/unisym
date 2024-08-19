@@ -22,8 +22,6 @@
 // RFR30 FIX MISTAKE YO _CtabPrint
 
 #define _CRT_SECURE_NO_WARNINGS
-#include <stddef.h>
-#include <stdlib.h>
 #include <stdio.h>
 #ifdef _Linux
 //{TEMP}{No Check}

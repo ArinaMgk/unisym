@@ -33,7 +33,6 @@
 #define _INC_DNODE
 
 #include "stdinc.h"// for using allocation
-#include <stdlib.h>
 
 #if defined(__cplusplus) || defined(_INC_CPP)
 #include "../cpp/trait/ArrayTrait.hpp"

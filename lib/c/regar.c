@@ -29,7 +29,6 @@
 #include "../../inc/c/stdinc.h"
 #include "../../inc/c/ustring.h"
 
-#include <stdlib.h>
 #include <math.h>
 #include <float.h>
 

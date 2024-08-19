@@ -1,8 +1,8 @@
-/// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ23
-// AllAuthor: @ArinaMgk
-// ModuTitle: ASCII Powerful Number of Arinae
+// ASCII C99 TAB4 CRLF
+// Docutitle: (Module) ASCII Powerful Number of Arinae
+// Codifiers: @ArinaMgk(RFZ23); @dosconio: 20240422 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,8 +21,40 @@
 */
 
 #include "../../../inc/c/coear.h"
+#include "../../../inc/c/uctype.h"
 #include <float.h>
 #include <math.h>
+
+#define isneostr(x) (x) // is not end of string
+#define issign(x) ((x)=='+'||(x)=='-')
+
+double atoflt(const char* astr)
+{
+	if (!astr) return 0.0;//{}
+	double res = 0.0;
+	double fraction = 1.0;
+	int exist_sign = 1;
+	int exist_point = 0;
+	if (issign(*astr) && *astr++ == '-')
+		exist_sign = -1;
+	while (isneostr(*astr)) {
+		if (ascii_isspace(*astr));
+		else if (ascii_isdigit(*astr)) {
+			if (exist_point) {
+				fraction /= 10.0;
+				res += (*astr - '0') * fraction;
+			}
+			else res = res * 10.0 + (*astr - '0');
+		}
+		else if (*astr == '.') {
+			if (!exist_point) exist_point = 1;
+			else return res * exist_sign;
+		}
+		else return res * exist_sign;
+		astr++;
+	}
+	return res * exist_sign;
+}
 
 double CoeToDouble(const coe* dest)
 {

@@ -24,7 +24,6 @@
 #include "../../inc/c/ustring.h"
 #include "../../inc/cpp/cinc"
 #include "../../inc/cpp/strpool"
-#include <stdlib.h>
 
 namespace uni {
 

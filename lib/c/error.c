@@ -22,8 +22,8 @@
 
 #include "../../inc/c/msgface.h"
 #include "../../inc/c/stdinc.h"
+#include "../../inc/c/ISO_IEC_STD/stdlib.h"
 #include <stdio.h>
-#include <stdlib.h>
 
 #if defined(_DEBUG) || defined(_dbg)
 

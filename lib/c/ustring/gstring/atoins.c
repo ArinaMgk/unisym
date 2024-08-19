@@ -45,18 +45,32 @@ ptrdiff_t atoins(const char* str) // hosted-dep
 	} else break;
 	return sign ? -inst : inst;
 }
-int _atoidefa(const char* nptr) // hosted-dep
+int _atoidefa(const char* inp) // hosted-dep
 {
-	if (!nptr || !*nptr) return 0;
-	setsym(&nptr);
+	if (!inp || !*inp) return 0;
+	setsym(&inp);
 	int inst = 0;
-	for0(i, lookupDecimalDigits(sizeof(int))) if (ascii_isdigit(nptr[i]))
+	for0(i, lookupDecimalDigits(sizeof(int))) if (ascii_isdigit(inp[i]))
 	{
 		inst *= 10;
-		inst += (int)ascii_digtoins(nptr[i]);
+		inst += (int)ascii_digtoins(inp[i]);
 	} else break;
 	return sign ? -inst : inst;
 }
+
+long int atolong(const char* inp) // hosted-dep
+{
+	if (!inp || !*inp) return 0;
+	setsym(&inp);
+	int inst = 0;
+	for0(i, lookupDecimalDigits(sizeof(long))) if (ascii_isdigit(inp[i]))
+	{
+		inst *= 10;
+		inst += (long)ascii_digtoins(inp[i]);
+	} else break;
+	return sign ? -inst : inst;
+}
+
 
 // atohex(inp 0~f)
 // atobin(inp 0/1)

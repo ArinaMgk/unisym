@@ -63,7 +63,7 @@ graph LR
 	ARCH[archit.h]
 	ARCH-->alice
 	ARCH--OPT-->ASMs
-	RUNT["stdinc"]-->DEVK[devkit]--debug?-->ARCH-->datype[TYPE]
+	RUNT["stdinc"]-->DEVK[devkit]--debug?hosted?-->ARCH-->datype[TYPE]
 ```
 
 Arch+Board+HostOS+Devkit

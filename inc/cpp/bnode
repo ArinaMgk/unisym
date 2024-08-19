@@ -29,7 +29,6 @@
 #include "unisym"
 #include "dnode"
 #include "math.h"
-#include <stdlib.h>
 
 /* TODO
 [ ] Index according to complete binary tree

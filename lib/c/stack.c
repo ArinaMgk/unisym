@@ -23,7 +23,6 @@
 #include "../../inc/c/stack.h"
 
 #include "../../inc/c/ustring.h"
-#include <stdlib.h>
 
 static struct stack_t glostack;
 

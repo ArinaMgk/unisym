@@ -3,6 +3,10 @@ her-note: false
 dg-publish: true
 ---
 
+## Dependence
+
+LaTeX GCC ANYM.AS NVCC MSVC DJGPP rustc perl python Obsidian
+
 ## Component
 
 - Support for DEVK

@@ -45,6 +45,19 @@
 	breaklinks=true}
 
 %\usepackage{listings}
+\newcommand{\epiccodedef}[2]{ \lstdefinestyle{#1}{
+	language        =   #2,
+	basicstyle      =   \zihao{-5}\ttfamily,
+	numberstyle     =   \zihao{-5}\ttfamily,
+	keywordstyle    =   \color{blue!70}\textbf,
+	stringstyle     =   \color{magenta},
+	commentstyle    =   \color{green!80!red}\ttfamily,
+	breaklines      =   true,
+	columns         =   fixed,
+	basewidth       =   0.5em,
+	tabsize         =   4,
+	keepspaces      =   true, 
+} }
 \lstset{
 	basicstyle          =   \sffamily,
 	keywordstyle        =   \bfseries,
@@ -59,48 +72,13 @@
 	frame               =   shadowbox,
 	rulesepcolor        =   \color{ red!20!green!20!blue!20}
 }
-\lstdefinestyle{GlobalASMx86}{
-	language        =   [x86masm]Assembler,
-	basicstyle      =   \zihao{-5}\ttfamily,
-	numberstyle     =   \zihao{-5}\ttfamily,
-	keywordstyle    =   \color{blue!70}\textbf,
-	stringstyle     =   \color{magenta},
-	commentstyle    =   \color{green!80!red}\ttfamily,
-	breaklines      =   true,
-	columns         =   fixed,
-	basewidth       =   0.5em,
-	tabsize         =   4,
-	keepspaces      =   true, 
-}
-\lstdefinestyle{GlobalC}{
-	language        =   C,
-	basicstyle      =   \zihao{-5}\ttfamily,
-	numberstyle     =   \zihao{-5}\ttfamily,
-	keywordstyle    =   \color{blue!70}\textbf,
-	stringstyle     =   \color{magenta},
-	commentstyle    =   \color{green!80!red}\ttfamily,
-	breaklines      =   true,
-	columns         =   fixed,
-	basewidth       =   0.5em,
-	tabsize         =   4,
-	keepspaces      =   true, 
-}
-\lstdefinestyle{GlobalCxx}{
-	language        =   C++,
-	basicstyle      =   \zihao{-5}\ttfamily,
-	numberstyle     =   \zihao{-5}\ttfamily,
-	keywordstyle    =   \color{blue!70}\textbf,
-	stringstyle     =   \color{magenta},
-	commentstyle    =   \color{green!80!red}\ttfamily,
-	breaklines      =   true,
-	columns         =   fixed,
-	basewidth       =   0.5em,
-	tabsize         =   4,
-	keepspaces      =   true, 
-}
-
+\epiccodedef{GlobalASMx86}{[x86masm]Assembler}
+\epiccodedef{GlobalC}{C}
+\epiccodedef{GlobalCxx}{C++}
+%
 \newcommand{\B}[1]{\textbf{#1}}
 \newcommand{\It}[1]{\textit{#1}} % Italy Lean
 \newcommand{\T}[1]{\texttt{#1}}
-
-\newcommand{\refer}[1]{\nameref{#1} (Epic\ref{#1} Page\pageref{#1})}
+%
+\newcommand{\labex}[1]{\label{#1}\hypertarget{#1}{}}
+\newcommand{\refer}[1]{\hyperlink{#1}{\nameref{#1}} (Epic\ref{#1} Page\pageref{#1})}

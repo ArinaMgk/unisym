@@ -34,7 +34,6 @@
 #include "stdinc.h"
 #include "algorithm/sort.h"
 #include "algorithm/search.h"
-#include <stdlib.h>
 
 #if defined(__cplusplus) || defined(_INC_CPP)
 #include "../cpp/trait/ArrayTrait.hpp"

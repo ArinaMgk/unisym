@@ -21,7 +21,6 @@
 extern "C"
 {
 	#include <stddef.h>
-	#include <stdlib.h>
 	#include "../../c/ustring.h"
 	
 	#include "../../c/numar.h"

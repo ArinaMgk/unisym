@@ -31,6 +31,7 @@ extern "C" {
 #else
 #include "proctrl.h"
 #endif
+#include "host.h"//{TODO} option switch
 #if defined(_INC_CPP) || defined(__cplusplus)
 }
 #endif

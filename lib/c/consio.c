@@ -208,7 +208,6 @@ void outsfmt(const char* fmt, ...)
 
 #else
 
-#include <stdlib.h>
 #if defined(_WinNT)
 #define byte _byte // avoid warning C4114 and error C2632
 #include <windows.h>

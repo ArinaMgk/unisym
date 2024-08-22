@@ -28,7 +28,7 @@
 #include "../../../inc/cpp/Device/SysTick"
 
 namespace uni {
-#if defined(_MCU_STM32F10x)
+#if defined(_MCU_STM32F1x)
 	bool RCCAHB::setMode(uint8 divexpo, bool usingPCLK1, bool usingPCLK2) {
 		// "Set the highest APBx dividers in order to ensure that we do not go through a non-spec phase whatever we decrease or increase HCLK"
 		Reference Cfgreg(_RCC_CFGR);

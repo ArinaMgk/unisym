@@ -34,7 +34,7 @@
 	#undef I2S3
 	#undef USB
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x) // Common Area
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) // Common Area
 namespace uni {
 	namespace SysclkSource {
 		enum RCCSysclockSource { // wo RCC_CFGR_SWS_xxx
@@ -45,9 +45,9 @@ namespace uni {
 		};
 	}
 }
-#endif // _MCU_STM32F10x || _MCU_STM32F4x
+#endif // _MCU_STM32F1x || _MCU_STM32F4x
 
-#ifdef _MCU_STM32F10x
+#ifdef _MCU_STM32F1x
 
 namespace uni {
 

@@ -27,7 +27,7 @@
 namespace uni
 {
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
 	static Request_t GPIO_Request_list[16] = {
 		IRQ_EXTI0, IRQ_EXTI1, IRQ_EXTI2, IRQ_EXTI3,
@@ -54,7 +54,7 @@ namespace uni
 		if (!isInput())
 			setMode(GPIOMode::IN_Floating);
 
-		#if defined(_MCU_STM32F10x)
+		#if defined(_MCU_STM32F1x)
 		RCC.APB2.enAble(_RCC_APB2ENR_POSI_ENCLK_AFIO_BITPOS);
 
 		#elif defined(_MCU_STM32F4x)
@@ -74,7 +74,7 @@ namespace uni
 
 #endif
 
-#ifdef _MCU_STM32F10x
+#ifdef _MCU_STM32F1x
 
 	#define _OFFSET_GPIO_CRL 0x00
 	#define _OFFSET_GPIO_CRH 0x04

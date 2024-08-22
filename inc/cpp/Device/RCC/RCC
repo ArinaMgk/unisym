@@ -35,7 +35,7 @@
 #include "RCCPrescaler"
 #include "RCCPLL"
 
-#ifdef _MCU_STM32F10x
+#ifdef _MCU_STM32F1x
 
 // !!! All unchecked
 

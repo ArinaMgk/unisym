@@ -23,7 +23,7 @@
 #include "../../../../inc/c/ustring.h"
 #include "../../../../inc/c/uctype.h"
 
-static int sign = 0;
+static int sign = 0;// shared object
 
 // decimal series
 
@@ -71,6 +71,74 @@ long int atolong(const char* inp) // hosted-dep
 	return sign ? -inst : inst;
 }
 
+#define restrict //{TEMP}
+
+//{TODO} _MAP_ALNUM_DIGIT
+/*
+long int StrToken_long(const char* restrict inp, char** restrict endptr, int base) // hosted-dep
+{
+	long int result = 0;
+	sign = 1;
+	const char* ptr = inp;
+	if (!inp) {
+		asserv(endptr)[0] = NULL;
+		return 0;
+	}
+	while (*ptr == ' ' || *ptr == '\t') ptr++;
+	setsym(&inp);
+	if (!base) {
+		if (*ptr == '0') {
+			if (ascii_toupper(ptr[1]) == 'X') {
+				base = 16;
+				ptr += 2;
+			}
+			else base = 8;
+		}
+		else base = 10;
+	}
+	else if (base < 2 || base > 36) {
+		asserv(endptr)[0] = inp;
+		return 0;
+	}
+	while (ascii_isalnum(*ptr)) {
+		int digit = 0;
+		if (ascii_isdigit(*ptr)) {
+			digit = *ptr - '0';
+		}
+		else if (*ptr >= 'a' && *ptr <= 'z') {
+			digit = *ptr - 'a' + 10;
+		}
+		else if (*ptr >= 'A' && *ptr <= 'Z') {
+			digit = *ptr - 'A' + 10;
+		}
+		if (digit >= base) {
+			break;
+		}
+		if (result > (LONG_MAX - digit) / base) {
+			// 超出范围
+			errno = ERANGE;
+			return sign >= 0 ? LONG_MAX : LONG_MIN;
+		}
+		result = result * base + digit;
+		ptr++;
+	}
+	if (endptr != NULL) {
+		*endptr = (char*)ptr;
+	}
+	return sign * result;
+}*/  /*
+int main() {
+	const char* str = "12345.";
+	char* endptr;
+	long int result = my_strtol(str, &endptr, 10);
+	printf("Converted value: %ld\n", result);
+	printf("End pointer: %s\n", endptr);
+
+}
+*//*
+Converted value: 12345
+End pointer: .
+*/
 
 // atohex(inp 0~f)
 // atobin(inp 0/1)

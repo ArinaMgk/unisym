@@ -29,9 +29,12 @@
 
 int main()
 {
-	const char dest_filename[] = "../unisym/lib/c/auxiliary/toxxxer.c";
+	const char* ulibpath = getenv("ulibpath");
+	char dest_filename[128];
 	const char copyright_info[] = "http://unisym.org/license.html";
 
+	strcpy(dest_filename, ulibpath);
+	strcat(dest_filename, "/c/auxiliary/toxxxer.c");
 	FILE* dest_file = fopen(dest_filename, "w");
 	if (dest_file == NULL) {
 		printf("Error: Cannot open file %s\n", dest_filename);

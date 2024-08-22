@@ -31,7 +31,7 @@ using namespace uni;
 
 extern "C" {
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	Handler_t FUNC_EXTI[16] = { 0 };
 	
 	static void _HandlerIRQ_EXTIx(byte x) {
@@ -58,7 +58,7 @@ extern "C" {
 	
 #if 0
 	//
-#elif defined(_MCU_STM32F10x)
+#elif defined(_MCU_STM32F1x)
 	Handler_t FUNC_TIMx[16] = { 0 };// keep 0
 	Handler_t FUNC_ADCx[4] = { 0 };// keep 0
 	//

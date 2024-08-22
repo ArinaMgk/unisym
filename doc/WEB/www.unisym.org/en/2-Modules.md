@@ -129,6 +129,7 @@ Now the `*` mark for document provided, no matter if it is detailed.
 	-  \* tenar.h
 	-  \* int128
 	-  \* comparison {TOIN TORE-DIR}
+	-  \* random
 	- algorithm
 		-  \* compare
 		-        -->  \* sort

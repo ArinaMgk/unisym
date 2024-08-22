@@ -25,10 +25,9 @@
 #if !defined(_INC_PROPERTY)
 #define _INC_PROPERTY
 
-#include "cinc"
 #include "../c/stdinc.h"
-#include "cinc"
 
+#include "../c/ISO_IEC_STD/stdlib.h"// for below
 #include <functional>
 
 // 20240408 debug, use:

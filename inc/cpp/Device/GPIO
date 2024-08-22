@@ -39,7 +39,7 @@ extern "C" {
 */
 
 #if !(_typedest_len==4 && _typeaddr_len==4)
-#error "! You may need add optional macro `_MCU_STM32F103VE` or include `STM32F103VEx`"
+#error "! You may need add optional macro `_MCU_STM32F1x` or include `STM32F103VEx`"
 #endif
 
 #define _COM_DEF_GPIO_Pin_Protected()\
@@ -85,7 +85,7 @@ namespace uni {
 	class GeneralPurposeInputOutputPin;
 	class GeneralPurposeInputOutputPort;
 
-	#if defined(_MCU_STM32F10x)
+	#if defined(_MCU_STM32F1x)
 		// compatible with `stm32f1xx_hal_gpio.h/c`
 	namespace GPIOMode {
 		enum Mode {
@@ -132,10 +132,10 @@ namespace uni {
 		uint32 EnablPosi;// of ClockPort
 	public:
 		Reference ClockPort;
-		Reference CnrglPort;// Control Register Low, default 0x44444444 _MCU_STM32F10x
-		Reference CnrghPort;// Control Register High, default 0x44444444 _MCU_STM32F10x
-		Reference InnpdPort;// Input Data Register, default 0x0000XXXX _MCU_STM32F10x
-		Reference OutpdPort;// Output Data Register, default 0x00000000 _MCU_STM32F10x
+		Reference CnrglPort;// Control Register Low, default 0x44444444 _MCU_STM32F1x
+		Reference CnrghPort;// Control Register High, default 0x44444444 _MCU_STM32F1x
+		Reference InnpdPort;// Input Data Register, default 0x0000XXXX _MCU_STM32F1x
+		Reference OutpdPort;// Output Data Register, default 0x00000000 _MCU_STM32F1x
 		stduint base;// may used in other library: `HAL_GPIO_Init((GPIO_TypeDef *)uni::GPIOA.base, &GPIO_InitStructure); `
 		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
 		void enClock(bool enable = true) {
@@ -238,7 +238,7 @@ namespace uni {
 	#include "../../c/driver/GPIO/GPIO_CW32x.hpp"
 	#elif defined(_MCU_MSP432)
 	#include "../../c/driver/GPIO/GPIO_MSP432.hpp"
-	#endif// _MCU_STM32F10x
+	#endif// _MCU_STM32F1x
 
 	struct GeneralPurposeInputOutput {
 		GeneralPurposeInputOutputPort ERR;

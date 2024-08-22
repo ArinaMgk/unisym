@@ -33,7 +33,7 @@
 
 namespace uni {
 
-	#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	
 	bool DAC_t::enClock(bool ena) {
 		Reference(_RCC_APB1ENR_ADDR).setof(_RCC_APB1ENR_POSI_ENCLK_DAC);
@@ -45,7 +45,7 @@ namespace uni {
 	#endif
 
 	#if 0
-	#elif defined(_MCU_STM32F10x)
+	#elif defined(_MCU_STM32F1x)
 	#define _DAC_Counts 1
 
 
@@ -167,7 +167,7 @@ namespace uni {
 
 	#endif
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	DAC_t DAC(0x40007400);//~0x400077FF
 #endif
 	

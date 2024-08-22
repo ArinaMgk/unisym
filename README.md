@@ -41,10 +41,9 @@ ConPrint Hello_String; Assembly Macro
 | DEM `demo/` | / | demonstrations and utilities |
 | DOC `doc/` | / | documents, aka `HEREPC` |
 | INC `inc/` | / | including files |
-| LIB `lib/` | / | implementation source code |
-| MGK `magic/` | sources => sources + list + depend + target | compiler, analyzer, translator, linker, synthesizer and modifier |
-| WIT `witch/` | to outputs | **rendering** library and engine |
-| WZD `wizard/` | / | constructor |
+| LIB `lib/` | / | implementation source code (including Witch **rendering** engine) |
+| MGK `magic/` | sources => sources + list + depend + target | constructor(wizard), compiler, analyzer, translator, linker, synthesizer and modifier |
+| WEL `wel/` |  | Si/E-mulator |
 
 
 ---

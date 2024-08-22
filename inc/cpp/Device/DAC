@@ -33,7 +33,7 @@
 
 namespace uni {
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	#undef DAC
 	// 2 16b-word for the 2 channels
 	#define _DAC_CR_POS_ENx    0
@@ -62,7 +62,7 @@ namespace uni {
 #endif
 
 
-#ifdef _MCU_STM32F10x
+#ifdef _MCU_STM32F1x
 
 	
 	namespace DACTrigger {
@@ -78,7 +78,7 @@ namespace uni {
 #endif
 	
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
 	#define DAC_getStdvol(i) ((float)i*2.5/0x1000)
 	
@@ -128,7 +128,7 @@ namespace uni {
 				self[DACReg::DHR12R2] = val;
 		}
 
-		#ifdef _MCU_STM32F10x //{TEMP}
+		#ifdef _MCU_STM32F1x //{TEMP}
 		bool enDMA(GPIO_Pin& pin, DACTrigger::DACTrigger trigger, bool buffer_enable, pureptr_t data, uint32_t leng, uint32_t align = 0);
 		#elif defined(_MCU_STM32F4x)
 		bool enAble(GPIO_Pin& pin);

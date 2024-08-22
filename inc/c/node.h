@@ -40,7 +40,7 @@
 #include "../cpp/trait/IterateTrait.hpp"
 namespace uni {
 extern "C" {
-#else	
+#else
 #include "ustdbool.h"
 #include "../c/trait/ArrayTrait.h"
 #endif
@@ -116,7 +116,7 @@ public:
 	//
 	//[protected] virtual stduint   Length() const;
 	stduint Count() { return Length(); }
-	// 
+	//
 	virtual bool Insert(stduint idx, pureptr_t dat);
 	toheap Node* Append(const char* addr);
 	// Priority: {nod > order > default_ends}
@@ -161,7 +161,7 @@ public:
 	}
 
 	void SortByInsertion();
-	
+
 };
 
 using NodeChain = Chain;
@@ -189,7 +189,7 @@ inline static void NodeChainAdapt(chain_t* chn, Node* root, Node* last, stdint c
 	//[Fast Table except root/last node]
 	// assume 35 items, consider 33 items, 33 / 2 + 1 = 17;
 	// assume 3 items ... <=> 3 / 2 = 1;
-	if (chn->  node_count < 2 + 1) // root, last, and 
+	if (chn->  node_count < 2 + 1) // root, last, and
 		chn->  fastab.midl_node = 0;
 	else
 		chn->fastab.midl_node = ChainLocateNode(chn, chn->node_count >> 1);

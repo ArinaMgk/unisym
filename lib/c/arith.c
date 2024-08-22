@@ -35,6 +35,14 @@ const static double _e = _VAL_E;
 // ln16
 const static double _4ln2 = 4 * _VAL_L2;
 
+// ---NO REGISTER---
+#define _ABS_IMM(a) ((a)<0?-(a):(a))
+int intabs(int j) { return _ABS_IMM(j); }
+int abs(int j) { return _ABS_IMM(j); }
+long int labs(long int j) { return _ABS_IMM(j); }
+long long int llabs(long long int j) { return _ABS_IMM(j); }
+// ---NO REGISTER--- END
+
 void ariprecise(stduint prec)
 {
 	_EFDIGS = prec;

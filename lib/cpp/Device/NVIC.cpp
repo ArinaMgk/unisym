@@ -22,7 +22,7 @@
 
 #include "../../../inc/cpp/Device/NVIC"
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 namespace uni {
 	// BELONG cortex_m3 and cortex_m4
 	static uint32_t NVIC_EncodePriority(uint32_t PriorityGroup, uint32_t PreemptPriority, uint32_t SubPriority)
@@ -37,7 +37,7 @@ namespace uni {
 #endif
 
 
-#if defined(_MCU_STM32F10x)
+#if defined(_MCU_STM32F1x)
 namespace uni {
 
 	NVIC_t NVIC;

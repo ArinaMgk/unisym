@@ -24,7 +24,7 @@
 
 namespace uni {
 #if 0
-#elif defined(_MCU_STM32F10x)
+#elif defined(_MCU_STM32F1x)
 //#undef TIM
 
 	void TIM_t::setInterrupt(Handler_t fn) {

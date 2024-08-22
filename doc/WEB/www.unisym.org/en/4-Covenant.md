@@ -9,15 +9,26 @@ Her-style, Code-reusing and Conceptual-razor.
 
 Target in format `Arch-Format(Devk)-Host`*`(D)`*
 - i8086-DJGPP-MSDOS {16}
-- i686-COFF(GCC)-Win32 {32}
-- i686-COFF(MVC)-Win64 {32}
-- ix64-COFF(GCC)-Win32 {64}
-- ix64-COFF(MVC)-Win64 {64}
-- i686-ELF(GCC)-Lin32 {32}
-- ix64-ELF(GCC)-Lin64 {64}
-- i686-ELF(GCC)-MCCAx86 {32}
-- RISCV64-ELF(GCC) {64}
-- RISCV64-ELF(GCC)-MCCAr64 {64}
+- i386-COFF(GCC)-Win32 {32}
+- i386-COFF(MVC)-Win64 {32}
+- x86_64-COFF(GCC)-Win32 {64}
+- x86_64-COFF(MVC)-Win64 {64}
+- i386-ELF(GCC)-Lin32 {32}
+- x86_64-ELF(GCC)-Lin64 {64}
+- i386-ELF(GCC)-MCCAx86 {32}
+- riscv64-ELF(GCC) {64}
+- riscv64-ELF(GCC)-MCCAr64 {64}
+- ARMv7.CortexM3-ELF(GCC)-STM32F1x {32}
+- ARMv7.CortexM4-ELF(GCC)-STM32F4x {32}
+- ARMv6.CortexM0-ELF(GCC)-CW32F030 {32}
+- ARMv6.CortexM0-ELF(GCC)-CW32F003 {32}
+- ARMv7.CortexM3-Keil.MDK-STM32F1x {32}
+- ARMv7.CortexM4-Keil.MDK-STM32F4x {32}
+- ARMv6.CortexM0-Keil.MDK-CW32F030 {32}
+- ARMv6.CortexM0-Keil.MDK-CW32F003 {32}
+- i8051-Keil-AT89C5 {16}
+
+* ARMv7 include ARMv7-M series.
 
 ### ARCH
 
@@ -48,6 +59,7 @@ to see `./inc/c/trait.h`
 - `uincpath`, points to INC, a must for developer
 - `ulibpath`, points to LIB, optional
 - `ubinpath`, points to BIN, a must for user
+- `uobjpath`, points to OBJ, temporary folder
 - `hostarget`, like `_OPT_RISCV64`, define when no target is specified
 
 ## TEMP

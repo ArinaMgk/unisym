@@ -25,6 +25,8 @@
 
 #include "stdinc.h"
 
+#define _STDLIB_H
+
 #ifdef _INC_CPP
 extern "C++" {
 #endif
@@ -40,11 +42,11 @@ extern "C++" {
 #endif
 
 
-void*   memallocate(stduint siz);
+_CALL_C void* memallocate(stduint siz);
 
 //{} stduint memshrink(...);
 
-void    memrelease();
+_CALL_C void    memrelease();
 
 // : International Standard Interface [user - def]
 _CALL_C void* calloc(size_t nmemb, size_t size);

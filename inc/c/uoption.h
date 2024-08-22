@@ -25,7 +25,7 @@
 #define _INC_Options
 
 #ifndef _MCU_STM32
-#if defined(_MCU_STM32F103VE) || defined(_MCU_STM32F10x)
+#if defined(_MCU_STM32F103VE) || defined(_MCU_STM32F1x)
 	#define _MCU_STM32
 #elif defined(_MCU_STM32F407ZE) || defined(_MCU_STM32F4x)
 	#define _MCU_STM32

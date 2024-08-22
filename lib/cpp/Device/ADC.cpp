@@ -27,7 +27,7 @@
 namespace uni {
 #if 0
 
-#elif defined(_MCU_STM32F10x)
+#elif defined(_MCU_STM32F1x)
 	#define _ADC_Counts 3
 
 	static stduint RCC_ADCx_addrs[_ADC_Counts] = // 0.._ADC_Counts

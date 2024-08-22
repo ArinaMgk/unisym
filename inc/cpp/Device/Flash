@@ -26,11 +26,11 @@
 #include "../unisym"
 #include "../reference"
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
-#endif// _MCU_STM32F10x || _MCU_STM32F4x
+#endif// _MCU_STM32F1x || _MCU_STM32F4x
 
-#ifdef _MCU_STM32F10x
+#ifdef _MCU_STM32F1x
 
 
 

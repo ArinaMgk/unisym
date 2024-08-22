@@ -30,7 +30,7 @@ typedef void (*Handler_t)(void);
 #include "../../../c/board/IBM.h"
 
 
-#elif defined(_MCU_STM32F10x)
+#elif defined(_MCU_STM32F1x)
 
 typedef enum
 {

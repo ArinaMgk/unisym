@@ -48,14 +48,14 @@
             <NotGenerated>0</NotGenerated>
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
-          <OutputDirectory>..\..\..\_bin\mcu\</OutputDirectory>
+          <OutputDirectory>..\..\..\..\_bin\mcu\</OutputDirectory>
           <OutputName>ustm32f1</OutputName>
           <CreateExecutable>0</CreateExecutable>
           <CreateLib>1</CreateLib>
           <CreateHexFile>0</CreateHexFile>
           <DebugInformation>0</DebugInformation>
           <BrowseInformation>1</BrowseInformation>
-          <ListingPath>..\..\..\_obj\_lst\</ListingPath>
+          <ListingPath>..\..\..\..\_obj\_lst\</ListingPath>
           <HexFormatSelection>1</HexFormatSelection>
           <Merge32K>0</Merge32K>
           <CreateBatchFile>0</CreateBatchFile>
@@ -338,7 +338,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>_MCU_STM32F10x</Define>
+              <Define>_MCU_STM32F1x</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
             </VariousControls>
@@ -387,37 +387,37 @@
             <File>
               <FileName>GPIO.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\GPIO.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\GPIO.cpp</FilePath>
             </File>
             <File>
               <FileName>RCC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\RCC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\RCC.cpp</FilePath>
             </File>
             <File>
               <FileName>SysTick.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\SysTick.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\SysTick.cpp</FilePath>
             </File>
             <File>
               <FileName>NVIC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\NVIC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\NVIC.cpp</FilePath>
             </File>
             <File>
               <FileName>AFIO.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\AFIO.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\AFIO.cpp</FilePath>
             </File>
             <File>
               <FileName>interrupt_tab.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
             </File>
             <File>
               <FileName>interrupt.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\interrupt.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\interrupt.cpp</FilePath>
             </File>
           </Files>
         </Group>

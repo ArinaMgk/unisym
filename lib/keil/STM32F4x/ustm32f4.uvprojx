@@ -49,14 +49,14 @@
             <NotGenerated>0</NotGenerated>
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
-          <OutputDirectory>..\..\..\_bin\mcu\</OutputDirectory>
+          <OutputDirectory>..\..\..\..\_bin\mcu\</OutputDirectory>
           <OutputName>ustm32f4</OutputName>
           <CreateExecutable>0</CreateExecutable>
           <CreateLib>1</CreateLib>
           <CreateHexFile>0</CreateHexFile>
           <DebugInformation>0</DebugInformation>
           <BrowseInformation>1</BrowseInformation>
-          <ListingPath>..\..\..\_obj\_lst\</ListingPath>
+          <ListingPath>..\..\..\..\_obj\_lst\</ListingPath>
           <HexFormatSelection>1</HexFormatSelection>
           <Merge32K>0</Merge32K>
           <CreateBatchFile>1</CreateBatchFile>
@@ -388,77 +388,77 @@
             <File>
               <FileName>interrupt.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\interrupt.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\interrupt.cpp</FilePath>
             </File>
             <File>
               <FileName>STM32F4.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\MCU\STM32F4.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\MCU\STM32F4.cpp</FilePath>
             </File>
             <File>
               <FileName>interrupt_tab.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
             </File>
             <File>
               <FileName>GPIO.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\GPIO.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\GPIO.cpp</FilePath>
             </File>
             <File>
               <FileName>ADC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\ADC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\ADC.cpp</FilePath>
             </File>
             <File>
               <FileName>AFIO.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\AFIO.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\AFIO.cpp</FilePath>
             </File>
             <File>
               <FileName>DAC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\DAC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\DAC.cpp</FilePath>
             </File>
             <File>
               <FileName>DMA.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\DMA.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\DMA.cpp</FilePath>
             </File>
             <File>
               <FileName>IIC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\IIC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\IIC.cpp</FilePath>
             </File>
             <File>
               <FileName>NVIC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\NVIC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\NVIC.cpp</FilePath>
             </File>
             <File>
               <FileName>RCC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\RCC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\RCC.cpp</FilePath>
             </File>
             <File>
               <FileName>SRAM.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\SRAM.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\SRAM.cpp</FilePath>
             </File>
             <File>
               <FileName>SysTick.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\SysTick.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\SysTick.cpp</FilePath>
             </File>
             <File>
               <FileName>TIM.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\TIM.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\TIM.cpp</FilePath>
             </File>
             <File>
               <FileName>UART.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\UART.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\UART.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -471,7 +471,7 @@
             <File>
               <FileName>LCD1602.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\lib\cpp\Device\Video\LCD1602.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Video\LCD1602.cpp</FilePath>
             </File>
           </Files>
         </Group>

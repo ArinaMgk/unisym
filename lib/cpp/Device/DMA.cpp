@@ -29,7 +29,7 @@
 namespace uni {
 	#if 0
 
-	#elif defined(_MCU_STM32F10x)
+	#elif defined(_MCU_STM32F1x)
 	#define _DMA_Counts 3
 
 	static Request_t DMA1_Request_list[] = {

@@ -28,7 +28,7 @@ make_dir=./lib/make/
 	libwingcc cgw16 cgw32 cgw64 dllmsvc libmsvc cvw32 cvw64 libnvcc\
 	liblinux cgl32 cgl64\
 	\
-	malice dotnet rust\
+	malice dotnet rust aasm\
 	\
 	manual kitw32\
 	\
@@ -79,6 +79,9 @@ rust:
 	cd lib/Rust/unisym && cargo build
 	-cp lib/Rust/unisym/target/debug/libunisym.rlib $(dest_bin)/
 
+aasm:
+	make -C asm
+
 # ---- [utilities] ----
 
 manual:
@@ -106,6 +109,16 @@ test: # "trust"
 
 test-mgc:
 	@cd magic && ./chkmgc.sh
+
+
+
+release-on-win: cgw32 cgw64 cvw32 cvw64 manual # tools...
+	@echo FI # finish
+release-on-lin: mx86 cgl32 cgl64 # tools...
+	@echo FI # finish
+release-on-dos:
+	@echo QAQ
+
 
 
 clean:

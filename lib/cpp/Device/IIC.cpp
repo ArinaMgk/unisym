@@ -25,7 +25,7 @@
 namespace uni {
 #if 0
 
-#elif defined(_MCU_STM32F10x)
+#elif defined(_MCU_STM32F1x)
 
 
 

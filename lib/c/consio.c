@@ -21,6 +21,7 @@
 */
 
 #include "../../inc/c/consio.h"
+#include "../../inc/c/ISO_IEC_STD/stdlib.h"
 
 #if defined(_MCCA)// x86 or riscv64
 

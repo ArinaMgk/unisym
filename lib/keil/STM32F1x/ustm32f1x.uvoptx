@@ -45,7 +45,7 @@
         <PageWidth>79</PageWidth>
         <PageLength>66</PageLength>
         <TabStop>8</TabStop>
-        <ListingPath>..\..\..\_obj\_lst\</ListingPath>
+        <ListingPath>..\..\..\..\_obj\_lst\</ListingPath>
       </OPTLEX>
       <ListingPage>
         <CreateCListing>1</CreateCListing>
@@ -189,7 +189,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\lib\cpp\Device\GPIO.cpp</PathWithFileName>
+      <PathWithFileName>..\..\..\lib\cpp\Device\GPIO.cpp</PathWithFileName>
       <FilenameWithoutPath>GPIO.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
@@ -201,7 +201,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\lib\cpp\Device\RCC.cpp</PathWithFileName>
+      <PathWithFileName>..\..\..\lib\cpp\Device\RCC.cpp</PathWithFileName>
       <FilenameWithoutPath>RCC.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
@@ -213,7 +213,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\lib\cpp\Device\SysTick.cpp</PathWithFileName>
+      <PathWithFileName>..\..\..\lib\cpp\Device\SysTick.cpp</PathWithFileName>
       <FilenameWithoutPath>SysTick.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
@@ -225,7 +225,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\lib\cpp\Device\NVIC.cpp</PathWithFileName>
+      <PathWithFileName>..\..\..\lib\cpp\Device\NVIC.cpp</PathWithFileName>
       <FilenameWithoutPath>NVIC.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
@@ -237,7 +237,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\lib\cpp\Device\AFIO.cpp</PathWithFileName>
+      <PathWithFileName>..\..\..\lib\cpp\Device\AFIO.cpp</PathWithFileName>
       <FilenameWithoutPath>AFIO.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
@@ -249,7 +249,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</PathWithFileName>
+      <PathWithFileName>..\..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</PathWithFileName>
       <FilenameWithoutPath>interrupt_tab.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
@@ -261,7 +261,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\lib\cpp\interrupt.cpp</PathWithFileName>
+      <PathWithFileName>..\..\..\lib\cpp\interrupt.cpp</PathWithFileName>
       <FilenameWithoutPath>interrupt.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>

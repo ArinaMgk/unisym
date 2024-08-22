@@ -43,7 +43,7 @@ style gene-3
 
 #### > Processor and Controller Unit
 
-- `_MCU_STM32F103VE` => `_MCU_STM32F10x`
+- `_MCU_STM32F103VE` => `_MCU_STM32F1x`
 - `_CPU_AMDRyzen7_5800H_Radeon`
 
 #### > Platform and Environment

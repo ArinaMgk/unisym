@@ -25,8 +25,8 @@
 #ifndef _MCU_STM32F103VE
 #define _MCU_STM32F103VE
 #endif
-#ifndef _MCU_STM32F10x
-#define _MCU_STM32F10x
+#ifndef _MCU_STM32F1x
+#define _MCU_STM32F1x
 #endif
 #ifndef _MCU_STM32
 #define _MCU_STM32

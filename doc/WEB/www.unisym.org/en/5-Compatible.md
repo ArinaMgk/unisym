@@ -7,7 +7,7 @@ dg-publish: true
 
 - use `STM32F103VEx` without macro but only `stdinc.h` with the macro, more to see in `6-Depend.md`;
 
-Below are target chip reference in `_MCU_STM32F10x`:
+Below are target chip reference in `_MCU_STM32F1x`:
 - `_MCU_STM32F103VE`
 - `_MCU_STM32F105xC`
 - `_MCU_STM32F107xC`

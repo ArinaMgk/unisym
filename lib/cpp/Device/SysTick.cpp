@@ -29,7 +29,7 @@
 #define SysTick_CTRL_TICKINT   (1UL << 1) 
 #define SysTick_CTRL_ENABLE    (1UL << 0)
 
-#ifdef _MCU_STM32F10x
+#ifdef _MCU_STM32F1x
 namespace uni {
 	bool SysTick::enClock(uint32 SysCoreClock, uint32 Hz) {
 		NVIC_t nvic;

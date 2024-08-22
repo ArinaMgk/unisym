@@ -32,6 +32,9 @@ extern "C" {
 #include "proctrl.h"
 #endif
 #include "host.h"//{TODO} option switch
+	extern char _MAP_HEXA[16];
+	extern char _MAP_hexa[16];
+//	
 #if defined(_INC_CPP) || defined(__cplusplus)
 }
 #endif

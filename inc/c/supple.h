@@ -23,4 +23,36 @@
 #ifndef _INC_COMPLEMENT
 #define _INC_COMPLEMENT
 
+#include "stdinc.h"
+
+// ---- { STDC:: stdarg.h } 20240824 ----
+// by makeing use of stack(BP) and C calling convention
+
+typedef struct {
+	unsigned char* stack_ptr;
+} para_list;
+
+#define _para_align(type) (((sizeof(type) + sizeof(stduint) - 1) / sizeof(stduint)) * sizeof(stduint))
+
+#define para_ento(ap, param) (ap.stack_ptr = (unsigned char *)&param + sizeof(stduint))
+
+#define para_next(ap, type) (*(type *)((ap.stack_ptr += _para_align(type)) - _para_align(type)))
+
+#define para_endo(ap) (ap.stack_ptr = NULL)// optional now
+
+#define Letpara(argiden, cdecl_iden) para_list argiden; para_ento(argiden, cdecl_iden);// we can use as uni::Letpara
+
+#define para_copy(dest, src, type) MemCopyN((void *)&dest, (void *)&src, _para_align(type))
+
+/* EXAMPLE
+void print_numbers(int count, ...) {
+	Letpara(args, count);
+	for0 (i, count) {
+		printf("%x\n", para_next(args, int));
+	}
+}
+*/
+
+// ---- { MORE } ----
+
 #endif

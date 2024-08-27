@@ -65,7 +65,11 @@ macro-style function
 - int isinf(*real-floating* x);
 - int isnormal(*real-floating* x);
 - int signbit(*real-floating* x);
-
+*/
+#ifdef _INC_CPP
+extern "C" {
+#endif
+/*
 function
 - version for `float` and `long double` of all belows.
 - atan2
@@ -122,6 +126,16 @@ pragma
 
 extern stduint _EFDIGS;// how many effective digits
 void ariprecise(stduint prec);
+
+// ---- { stdlib.h } ----
+//#define abs(i) intabs(i) 
+int intabs(int j);
+int abs(int j);
+long int labs(long int j);
+long long int llabs(long long int j);
+
+
+// ---- END
 
 stduint intFibonacci(stduint idx);
 
@@ -200,5 +214,9 @@ enum TaylorType {
 //   [StartSign 0:+ 1:-]
 //LSB[SignFlap 0:N 1:Y]
 double dbltaylor(double inp, enum TaylorType dptor, double period);
+
+#ifdef _INC_CPP
+}
+#endif
 
 #endif

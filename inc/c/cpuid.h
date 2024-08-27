@@ -23,10 +23,12 @@
 #ifndef _INC_CPUID
 #define _INC_CPUID
 
+#include "stdinc.h"
+
 #define _CPU_BRAND_SIZE 48
 
 // Get CPU Brand String
-void __fastcall CpuBrand(char*);
+void _CALL_FAST CpuBrand(char*);
 
 
 #ifdef _AUTO_INCLUDE

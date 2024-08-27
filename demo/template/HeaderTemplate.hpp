@@ -25,7 +25,7 @@
 
 // #include ".../stdinc.h"
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 namespace uni {
 extern "C" {
 #else
@@ -36,7 +36,7 @@ extern "C" {
 
 #endif
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 } //: C++ Area
 
 

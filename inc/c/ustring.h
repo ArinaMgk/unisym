@@ -557,11 +557,44 @@ static inline char* StrToUpper(char* str)
 #define StrSubWithdraw(posi_start,len)\
 	MemRelative((posi_start), StrLength(posi_start) + 1, -(ptrdiff_t)(len))
 
+// ---- ---- ---- ---- { Convert } ---- ---- ---- ----
+#define restrict //{TEMP}
 //
 char* instob(ptrdiff_t num, char* buf);
 
 //
 ptrdiff_t atoins(const char* str);
+
+//#define atoi _atoidefa
+int _atoidefa(const char* inp);
+
+//#define atol atolong
+long int atolong(const char* inp);
+//#define strtol StrTokenLong
+long int StrTokenLong(const char* restrict inp, char** restrict endptr, int base);
+//#define strtoul StrTokenULong
+unsigned long int StrTokenULong(const char* restrict inp, char** restrict endptr, int base);
+
+//{TODO} rename atodbl
+//#define atof atoflt
+double atoflt(const char* astr);
+//#define StrTokenDouble strtod
+double StrTokenDouble(const char* restrict inp, char** restrict endptr);
+//#define StrTokenFloat strtof
+float StrTokenFloat(const char* restrict inp, char** restrict endptr);
+//#define StrTokenLDouble strtold
+long double StrTokenLDouble(const char* restrict inp, char** restrict endptr);
+
+#ifdef _BIT_SUPPORT_64
+//#define atoll atollong
+long long int atollong(const char* inp);
+//#define strtoll StrTokenLLong
+long long int StrTokenLLong(const char* restrict inp, char** restrict endptr, int base);
+//#define strtoull StrTokenULLong
+unsigned long long int StrTokenULLong(const char* restrict inp, char** restrict endptr, int base);
+#endif
+
+#undef restrict
 
 //---- ---- ---- ---- { ChrAr } ---- ---- ---- ----
 // Have been brewed since 2022 Aug.
@@ -666,6 +699,12 @@ void StrShiftRight8n(void* s, size_t len, size_t n);
 
 // In the direction of the left
 stdint MemCompareRight(const unsigned char* a, const unsigned char* b, size_t n);
+
+// ---- ---- ---- ---- { Wide / Multi } ---- ---- ---- ----
+_TODO//#define mbstowcs StrWideFoMulti
+_TODO//#define wcstombs StrWideToMulti
+_TODO//#define mbtowc   ChrWideFoMulti
+_TODO//#define wctomb   ChrWideToMulti
 
 #ifdef _INC_CPP
 }

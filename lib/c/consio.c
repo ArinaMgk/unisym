@@ -20,6 +20,12 @@
 	limitations under the License.
 */
 
+//{TEMP} for windows.h
+#define _INC_USTDBOOL
+#define bool int
+#define boolean byte
+#define BOOLEAN byte
+
 #include "../../inc/c/consio.h"
 #include "../../inc/c/ISO_IEC_STD/stdlib.h"
 

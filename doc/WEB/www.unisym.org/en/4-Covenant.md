@@ -30,7 +30,6 @@ Target in format `Arch-Format(Devk)-Host`*`(D)`*
 
 * ARMv7 include ARMv7-M series.
 
-### ARCH
 
 ### Format
 
@@ -131,6 +130,7 @@ timer delay: in file whose name does not, e.g. `delay.c`;
 Tendency
 
 - use `nullptr` 
+- (TODO) wizard: from .mgc/.mgh -> .cpp/.h
 
 Consideration
 

@@ -26,7 +26,6 @@
 #define on_decresing_order (aflaga.direction)
 #define on_increasing_order (!aflaga.direction)
 
-// Insert Right
 Dnode* DnodeInsert(Dnode* nod, pureptr_t offs, size_t typlen, stduint extn_field, int direction_right)
 {
 	Letvar(tmp, Dnode*, zalc(sizeof(Dnode) + extn_field));

@@ -1,5 +1,8 @@
-; ASCII [NASM & AASM] WinNT x64 RFC12
-; x64-calling-convention arina-covenant
+; ASCII ANY TAB4 CRLF
+; Docutitle: x64-calling-convention arina-covenant
+; Codifiers: @dosconio: RFC12 ~ <Last-check> 
+; Attribute: Arn-Covenant Arc(AMD64) Env-Freestanding Non-Dependence
+; Copyright: UNISYM, under Apache License 2.0
 BITS 64
 [SECTION .data]
 	DB "UNISYM DOSCON.IO", 0, "[COPYRIGHT]Phina Ren", "[AUTHOR] Haruno Doshou"

@@ -27,7 +27,6 @@
 #define _CSTDLIB_// MSVC
 #define _GLIBCXX_CSTDLIB
 
-
 #include "../stdinc.h"// {archit.h}
 #include "../widechar.h"
 //- GBK
@@ -39,6 +38,8 @@
 #include "../random.h"// Pseudo-random sequence generation
 #include "../memory.h"// Memory management 
 #include "../algorithm/sort.h"// Searching and sorting utilities
+#include "../arith.h"// // Integer arithmetic functions
+
 
 #if defined(_INC_CPP)
 namespace std {
@@ -75,8 +76,6 @@ typedef struct lldiv_t {
 	long long int rem;  // RDX
 } lldiv_t;
 
-//{TODO}:below ===========================================
-
 // # macro
 // - NULL よ archit.h
 // - EXIT_SUCCESS
@@ -90,39 +89,11 @@ typedef struct lldiv_t {
 // # function
 
 // Numeric conversion
-//{TODO} into "ustring.h"
 
-// #include "../ustring.h" // contain "atoins" and "instoa"
+#include "../ustring.h" // contain "atoins" and "instoa", and { Multibyte/wide character/string conversion functions }
 // To adapt for GNU chain, do not use #define
 
 #define restrict //{TEMP}
-
-//#define atoi _atoidefa
-int _atoidefa(const char* inp);
-
-//#define atof atoflt
-double atoflt(const char* astr);
-
-//#define atol atolong
-long int atolong(const char* inp);
-//#define strtol StrToken_long
-long int StrToken_long(const char* restrict inp, char** restrict endptr, int base);
-
-//{TODO}{HERE}
-double strtod(const char* restrict inp, char** restrict endptr);
-float strtof(const char* restrict inp, char** restrict endptr);
-long double strtold(const char* restrict inp, char** restrict endptr);
-unsigned long int strtoul(const char* restrict inp, char** restrict endptr, int base);
-
-#ifdef _BIT_SUPPORT_64
-long long int atoll(const char* inp);
-long long int strtoll(const char* restrict inp, char** restrict endptr, int base);
-unsigned long long int strtoull(const char* restrict inp, char** restrict endptr, int base);
-#endif
-
-
-
-
 
 // Communication with the environment : International Standard Interface [user - def]
 
@@ -137,31 +108,13 @@ void _Exit(int status);
 char* getenv(const char* name);
 int system(const char* string);
 
-// Integer arithmetic functions よ arith.h
-//#define abs(i) intabs(i) 
-int intabs(int j);
-int abs(int j);
-long int labs(long int j);
-long long int llabs(long long int j);
-
-//{TODO} implementation by ASMx86(Hard) and (Soft) <- Decide by ARCH
 struct div_t div(int numer, int denom);
 struct ldiv_t ldiv(long int numer, long int denom);
 struct lldiv_t lldiv(long long int numer, long long int denom);
 
-// Multibyte/wide character conversion functions
-
-int mblen(const char* s, size_t n);
-int mbtowc(wchar_t* restrict pwc, const char* restrict s, size_t n);
-int wctomb(char* s, wchar_t wc);
-
-// Multibyte/wide string conversion functions
-
-size_t mbstowcs(wchar_t* restrict pwcs, const char* restrict s, size_t n);
-size_t wcstombs(char* restrict s, const wchar_t* restrict pwcs, size_t n);
 #undef restrict //{TEMP}, this make error for MSVC2022(C11) at 20240819
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 } //END C++ Area
 
 #else//: C Area

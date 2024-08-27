@@ -382,7 +382,7 @@
       </TargetOption>
       <Groups>
         <Group>
-          <GroupName>Group</GroupName>
+          <GroupName>Embeded</GroupName>
           <Files>
             <File>
               <FileName>GPIO.cpp</FileName>
@@ -419,7 +419,53 @@
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\interrupt.cpp</FilePath>
             </File>
+            <File>
+              <FileName>ADC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\ADC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>DAC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\DAC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>DMA.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\DMA.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>IIC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\IIC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SRAM.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\SRAM.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>TIM.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\TIM.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>UART.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\UART.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>STM32F1.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\MCU\STM32F1.cpp</FilePath>
+            </File>
           </Files>
+        </Group>
+        <Group>
+          <GroupName>General</GroupName>
+        </Group>
+        <Group>
+          <GroupName>Device</GroupName>
         </Group>
       </Groups>
     </Target>

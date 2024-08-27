@@ -35,7 +35,7 @@
 #include "algorithm/sort.h"
 #include "algorithm/search.h"
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 #include "../cpp/trait/ArrayTrait.hpp"
 #include "../cpp/trait/IterateTrait.hpp"
 namespace uni {
@@ -85,7 +85,7 @@ typedef struct NodeChain_t {
 	_tocomp_ft func_comp;
 } chain_t;
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 } // C++ Area
 class Chain : public ArrayTrait, public IterateTrait {
 protected:

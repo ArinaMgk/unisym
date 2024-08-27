@@ -180,36 +180,39 @@ text_gcc_lin64 += tmp
 for val in list_asm_file:
 	# for x86
 	fullname = val.replace("<INSSYS>", "x86")
-	tmp = '\t' + "cd ${dest_obj}/ && ${AASM} ${aattr} " + fullname + " -o " + get_outfilename(val) + "_a.o" + '\n'
+	tmp = '\t@echo AS ' + fullname + '\n\t' + "@cd ${dest_obj}/ && ${AASM} ${aattr} " + fullname + " -o " + get_outfilename(val) + "_a.o" + '\n'
 	text_gcc_win32 += tmp
 	text_msv_win32 += tmp
 	text_gcc_lin32 += tmp
 	# for x64
 	fullname = val.replace("<INSSYS>", "x64")
-	tmp = '\t' + "cd ${dest_obj}/ && ${AASM} ${aattr} " + fullname + " -o " + get_outfilename(val) + "_a.o" + '\n'
+	tmp = '\t@echo AS ' + fullname + '\n\t' + "@cd ${dest_obj}/ && ${AASM} ${aattr} " + fullname + " -o " + get_outfilename(val) + "_a.o" + '\n'
 	text_gcc_win64 += tmp
 	text_msv_win64 += tmp
 	# text_gcc_lin64 += tmp #----elf output format does not support 64-bit code
 for val in list_c_tomake:
 	file_path = get_outfilename(val)
-	tmp = '\t' + "$(CC) " + val + " -o $(uobjpath)/" + file_path + ".exe" + " && cd $(uobjpath)/ && ./" + file_path + ".exe\n"
+	tmp = '\t@echo MK Local Data\n\t' + "@$(CC) " + val + " -o $(uobjpath)/" + file_path + ".exe" + " && cd $(uobjpath)/ && ./" + file_path + ".exe\n"
 	text_gcc_win32 += tmp
 	text_gcc_win64 += tmp
-	tmp = '\t' + "$(CC) " + val + " -o $(uobjpath)/" + file_path + " && $(uobjpath)/" + file_path + "\n"
+	tmp = '\t@echo MK Local Data\n\t' + "@$(CC) " + val + " -o $(uobjpath)/" + file_path + " && $(uobjpath)/" + file_path + "\n"
 	text_gcc_lin32 += tmp
 	text_gcc_lin64 += tmp
-	tmp = '\t' + "$(CC) " + val + " /Fe: $(uobjpath)/" + file_path + ".exe" + " /Fo: $(uobjpath)/" + file_path + ".obj /I${VI_64} ${attr} /link${VLIB_64}" + " && $(uobjpath)/" + file_path + "&& echo " + file_path + "\n"
+	tmp = '\t@echo MK Local Data\n\t' + "@$(CC) " + val + " /Fe: $(uobjpath)/" + file_path + ".exe" + " /Fo: $(uobjpath)/" + file_path + ".obj /I${VI_64} ${attr} /link${VLIB_64}" + " && $(uobjpath)/" + file_path + "&& echo " + file_path + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
 if True:
-	val = "  __QWQ__  "
-	tmp = '\t' + "echo $(CC) -c " + val + " -o ${dest_obj}/${cplpref}" + get_outfilename(val) + ".o $(attr)\n"
+	tmp = """
+	@echo "CC  = $(CC)"
+	@echo "CX  = $(CX)"
+	@echo "ATTR= $(attr)"
+"""
 	text_gcc_win32 += tmp
 	text_gcc_win64 += tmp
 	text_gcc_lin32 += tmp
 	text_gcc_lin64 += tmp
 for val in list_cpl_file:
-	tmp = '\t@echo CC ' + get_outfilename(val) + '\n\t' + "@$(CC) -c " + val + " -o ${dest_obj}/${cplpref}" + get_outfilename(val) + ".o $(attr)\n"
+	tmp = '\t@echo CC ' + val + '\n\t' + "@$(CC) -c " + val + " -o ${dest_obj}/${cplpref}" + get_outfilename(val) + ".o $(attr)\n"
 	text_gcc_win32 += tmp
 	text_gcc_win64 += tmp
 	text_gcc_lin32 += tmp
@@ -218,7 +221,7 @@ for val in list_cpl_file:
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
 for val in list_cpp_file:
-	tmp = '\t@echo CX ' + get_outfilename(val) + '\n\t' + "@$(CX) -c " + val + " -o ${dest_obj}/${cpppref}" + get_outfilename(val) + ".o $(attr)\n"
+	tmp = '\t@echo CX ' + val + '\n\t' + "@$(CX) -c " + val + " -o ${dest_obj}/${cpppref}" + get_outfilename(val) + ".o $(attr)\n"
 	text_gcc_win32 += tmp
 	text_gcc_win64 += tmp
 	text_gcc_lin32 += tmp
@@ -226,12 +229,12 @@ for val in list_cpp_file:
 	tmp = '\t' + "$(CX) /c " + val + " /Fo:${dest_obj}/${cpppref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
-tmp = '\t' + "${AR} -rcs ${dest_abs} ${dest_obj}/*" + '\n'
+tmp = '\t@echo AR ${dest_abs} \n\t' + "@${AR} -rcs ${dest_abs} ${dest_obj}/*" + '\n'
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
 text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp
-tmp = '\t' + "${AR} /OUT:${dest_abs} ${dest_obj}/*" + '\n'
+tmp = '\t@echo AR ${dest_abs} \n\t' + "@${AR} /OUT:${dest_abs} ${dest_obj}/*" + '\n'
 text_msv_win32 += tmp
 text_msv_win64 += tmp
 set_makefile('./lib/make/cgw32.make', text_gcc_win32)

@@ -49,9 +49,20 @@ _CALL_C void* memallocate(stduint siz);
 _CALL_C void    memrelease();
 
 // : International Standard Interface [user - def]
-_CALL_C void* calloc(size_t nmemb, size_t size);
-_CALL_C void free(void* ptr);
-_CALL_C void* malloc(size_t size);
-_CALL_C void* realloc(void* ptr, size_t size);
+#ifdef _DEV_MSVC
+// #define _memory_midfix __cdecl
+// #define _memory_prefix
+#include "corecrt_malloc.h"
+#else
+#define _memory_midfix
+#define _memory_prefix _CALL_C
+_memory_prefix void*  calloc(size_t nmemb, size_t size);
+_memory_prefix void   free(void* ptr);
+_memory_prefix void*  malloc(size_t size);
+_memory_prefix void*  realloc(void* ptr, size_t size);
+#undef _memory_midfix
+#undef _memory_prefix
+#endif
+
 
 #endif

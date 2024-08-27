@@ -14,25 +14,25 @@
 
 MSVC_DIR = E:/software/VS22/VC/Tools/MSVC/14.39.33519
 
-dest_bin=../_bin
-dest_obj=../_obj
 make_dir=./lib/make/
 
 # depend [gcc, makefile] [python]
 # (use bash, or try windows-CMD, may occur 'ar: *.obj: Invalid argument' or others...)
 
 .PHONY: \
+	release-on-win release-on-lin release-on-dos \
+	\
 	list list-py3\
 	\
 	mx86 \
-	libwingcc cgw16 cgw32 cgw64 dllmsvc libmsvc cvw32 cvw64 libnvcc\
-	liblinux cgl32 cgl64\
+	cgw16 cgw32 cgw64 dllmsvc cvw32 cvw64 libnvcc\
+	cgl32 cgl64\
 	\
-	malice dotnet rust aasm\
+	malice dotnet rust\
 	\
-	manual kitw32\
+	manual kitw32 kitw32-more\
 	\
-	tlwin tllin test clean
+	test clean
 
 list: # depend [perl python]
 	@perl ./lib/Script/Makefile/makemake.pl
@@ -42,30 +42,30 @@ list: # depend [perl python]
 mx86: #[Linux] # including different bitmodes (Real16, Flap32 ...)
 	make -f ${make_dir}cgmx86.make all
 
-libwingcc: cgw16 cgw32 cgw64 # COFF 
+# COFF 
 cgw16: # with DJGPP
 	#
 cgw32:
-	make -f ./lib/make/cgw32.make all
+	make -f ${make_dir}cgw32.make all
 cgw64:
-	make -f ./lib/make/cgw64.make all # x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
+	make -f ${make_dir}cgw64.make all # x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
 
-dllmsvc:
-	#
-libmsvc: cvw32 cvw64# MTd_StaticDebug 
+# libmsvc MTd_StaticDebug 
 cvw32:
-	make -f ./lib/make/cvw32.make all
+	make -f ${make_dir}cvw32.make all
 cvw64:
-	make -f ./lib/make/cvw64.make all
+	make -f ${make_dir}cvw64.make all
+#{TODO} Make DLL File
 
-libnvcc: # Nvidia(R) CUDA
+# Nvidia(R) CUDA
+libnvcc: 
 	#
 
-liblinux: cgl32 cgl64 # ELF
+# liblinux ELF
 cgl32:
-	make -f ./lib/make/cgl32.make all
+	make -f ${make_dir}cgl32.make all
 cgl64:
-	make -f ./lib/make/cgl64.make all
+	make -f ${make_dir}cgl64.make all
 
 # ---- [series for interfacial environments] ----
 
@@ -77,10 +77,7 @@ dotnet:
 
 rust:
 	cd lib/Rust/unisym && cargo build
-	-cp lib/Rust/unisym/target/debug/libunisym.rlib $(dest_bin)/
-
-aasm:
-	make -C asm
+	-cp lib/Rust/unisym/target/debug/libunisym.rlib $(ubinpath)/
 
 # ---- [utilities] ----
 
@@ -88,8 +85,9 @@ manual:
 	@cd doc && xelatex herepc.tex && mv herepc.pdf ../../$@
 	@echo "Build Manual Finish."
 
-kitw32: # utility
+kitw32: # utility #(x86)
 	cd ${make_dir} && make -f kitw32.make all
+kitw32-more:	
 	-ahkcc ./lib/Script/AutoHotkey/Arnscr.ahk ../../../../_bin/arnscr.exe # ***\AutoHotkey\Compiler\Ahk2Exe.exe /in %1 /out %2
 
 MGC_CFLG = -std=c99 -fno-common
@@ -99,24 +97,21 @@ magice:
 
 # ---- [test] ----
 
-tlwin: list cgw32 cgw64 cvw32 cvw64# test lib win
-	@echo "Build Finish."
-tllin: cgl32 cgl64 mx86# test lib lin
-	@echo "Build Finish."
-
 test: # "trust"
 	cd lib/Rust/unisym && cargo test
 
 test-mgc:
 	@cd magic && ./chkmgc.sh
 
-
-
-release-on-win: cgw32 cgw64 cvw32 cvw64 manual # tools...
+release-on-win: list cgw32 cgw64 cvw32 cvw64 manual kitw32 #tools...
+	#make -C asm
 	@echo FI # finish
-release-on-lin: mx86 cgl32 cgl64 # tools...
+release-on-lin: list mx86 cgl32 cgl64 rust #tools...
+	#make -C asm
+	#wel
 	@echo FI # finish
-release-on-dos:
+release-on-dos: cgw16
+	make -C asm win16
 	@echo QAQ
 
 

@@ -33,12 +33,7 @@ byte _LED_SEGMENTS_HEXINUM[16] = // [A~F]
 
 #if defined(_MCU_Intel8051)
 
-#if defined(_IMPLEMENT_SDCC8051)
-#include "../../../../../inc/c/MCU/Intel/sdcc8051.h"
-#elif defined(_IMPLEMENT_KEIL8051)
-#include "../../../../../inc/c/MCU/Intel/keil8051.h"
-#else
-#endif
+#include "../../../../../inc/c/MCU/Intel/i8051.h"
 
 #if defined(_NIXIETUBE_PORT_DAT) && defined(_NIXIETUBE_PIN_COM0) && defined(_NIXIETUBE_PIN_COM1) && defined(_NIXIETUBE_PIN_COM2) 
 

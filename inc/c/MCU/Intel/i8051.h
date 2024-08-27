@@ -1,5 +1,5 @@
-// ASCII C-SDCC TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// ASCII DEF-C TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> PCU(i8051) [Allocation]
 // LastCheck: 2024Mar01
 // AllAuthor: @dosconio
 // ModuTitle: 8051 MCU Header for SDCC
@@ -20,8 +20,22 @@
 	limitations under the License.
 */
 
-#if !defined(_INC_MCU_8051) && defined(defbyt) && defined(defbit)
+#ifndef _MCU_Intel8051
+#define _MCU_Intel8051
+#endif
+
+#if !defined(_INC_MCU_8051)
 #define _INC_MCU_8051
+
+#include "../../stdinc.h"
+
+#ifdef _DEV_KEIL // for KEIL C51
+#define defbyt(idn,adr)   sfr  idn=adr;
+#define defbit(idn,adr)   sbit idn=adr;
+#else _TEMP // for SDCC
+#define defbyt(idn,adr) __sfr  __at (adr) idn;
+#define defbit(idn,adr) __sbit __at (adr) idn;
+#endif
 
 // ---- BYTE Register ----
 // defbyt (p0,    0x80)

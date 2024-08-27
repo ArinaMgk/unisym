@@ -30,8 +30,13 @@
 
 #include "proctrl.h"
 
+// ---- { memory } ----
+
 #define malc_count _MALCOUNT
 #define malc_limit _MALLIMIT
+extern size_t _MALCOUNT;// <OUT>
+extern size_t _MALLIMIT;// <IN>
+#define _MALLIMIT_DEFAULT 0x1000
 
 // #define jump goto // to see asm-inst
 #define idle() {_jump: goto _jump;}
@@ -39,17 +44,9 @@
 #define chars_stack(x) &(char[]){#x "\0"}// chars_stack(123)
 #define chstk chars_stack
 
-#define _MALLIMIT_DEFAULT 0x1000
 
 extern void erro(char* erromsg);
 extern void warn(char* warnmsg);
-extern size_t _MALCOUNT;// <OUT>
-extern size_t _MALLIMIT;// <IN>
-extern size_t call_state;// <OUT>
-// call_state :
-// 00: nullptr
-// 01: over the limit for size
-// 02: invaild input but not null pointer
 extern size_t malc_occupy;
 extern size_t arna_precise;
 
@@ -62,10 +59,6 @@ extern size_t arna_precise;
 	#define malc(size) (void*)(_MALCOUNT++,malloc(size))
 	#define zalc(size) (void*)(_MALCOUNT++,calloc(size,1))
 #endif
-
-// Quickly set the necessary configuration
-#define ulibsym(limit)\
-	size_t _MALCOUNT, malc_limit=(limit), call_state;
 
 #endif
 

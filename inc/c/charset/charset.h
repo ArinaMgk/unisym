@@ -1,8 +1,8 @@
-// ASCII C-SDCC TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: 2024Mar01
-// AllAuthor: @dosconio
-// ModuTitle: 8051 MCU Header for SDCC
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module) Charset
+// Codifiers: @dosconio: 20240823 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,11 +20,16 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_8051_SDCC
-#define _INC_MCU_8051_SDCC
+#ifndef _INC_Charset
+#define _INC_Charset
 
-#define defbyt(idn,adr) __sfr  __at (adr) idn;
-#define defbit(idn,adr) __sbit __at (adr) idn;
-#include "i8051.h"
+enum Charset {
+	CHARSET_ASCII,
+	CHARSET_GBK,
+	CHARSET_UTF_8,
+	CHARSET_UTF_16,
+	CHARSET_UTF_32,
+};
+
 
 #endif

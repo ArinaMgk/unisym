@@ -35,6 +35,43 @@
 #include "RCCPrescaler"
 #include "RCCPLL"
 
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+namespace uni {
+	extern uint32_t SystemCoreClock;
+	extern const uint8_t AHBPrescTable[16];
+	extern const uint8_t APBPrescTable[8];
+
+	namespace RCCReg {
+		typedef enum {
+			CR = 0,
+			#if defined(_MCU_STM32F4x)
+				PLLCFGR,
+			#endif
+			CFGR,
+			CIR,
+			#if defined(_MCU_STM32F4x)
+				AHB1RSTR, AHB2RSTR, AHB3RSTR, REV00,
+			#endif
+			#if   defined(_MCU_STM32F1x)
+				APB2RSTR, APB1RSTR, AHBENR, APB2ENR, APB1ENR,
+			#elif defined(_MCU_STM32F4x)
+				APB1RSTR, APB2RSTR, REV01, REV02,
+				AHB1ENR, AHB2ENR, AHB3ENR, REV03,
+				APB1ENR, APB2ENR, REV04, REV05,
+				AHB1LPENR, AHB2LPENR, AHB3LPENR, REV06,
+				APB1LPENR, APB2LPENR, REV07, REV08,
+			#endif
+			BDCR, CSR,
+			#ifdef _MCU_STM32F1x
+				AHBRSTR, CFGR2
+			#elif defined(_MCU_STM32F4x)
+				REV09, REV10, SSCGR, PLLI2SCFGR
+			#endif
+		} RCCReg;
+	}
+}
+#endif
+
 #ifdef _MCU_STM32F1x
 
 // !!! All unchecked
@@ -112,6 +149,7 @@ namespace uni {
 		//
 		Reference Cfgreg;
 		//
+		inline Reference operator[](RCCReg::RCCReg idx) { return Reference(_RCC_ADDR + (((stduint)idx) << 2)); }
 		RCC_t() : APB1(1), APB2(2), Cfgreg(_RCC_CFGR) {
 			
 		}
@@ -125,6 +163,7 @@ namespace uni {
 				setLatency(FLatency);
 			return FLatency == getLatency();
 		}
+		bool setClock(SysclkSource::RCCSysclockSource source);
 	};
 
 	//
@@ -134,25 +173,7 @@ namespace uni {
 #elif defined(_MCU_STM32F4x)
 
 namespace uni {
-
-	extern uint32_t SystemCoreClock;
-	extern const uint8_t AHBPrescTable[16];
-	extern const uint8_t APBPrescTable[8];
 	
-	namespace RCCReg {
-		typedef enum {
-			CR = 0, PLLCFGR, CFGR, CIR,
-			AHB1RSTR, AHB2RSTR, AHB3RSTR, REV00,
-			APB1RSTR, APB2RSTR, REV01, REV02,
-			AHB1ENR, AHB2ENR, AHB3ENR, REV03,
-			APB1ENR, APB2ENR, REV04, REV05,
-			AHB1LPENR, AHB2LPENR, AHB3LPENR, REV06,
-			APB1LPENR, APB2LPENR, REV07, REV08,
-			BDCR, CSR, REV09, REV10,
-			SSCGR, PLLI2SCFGR
-		} RCCReg;
-	}
-
 	class RCC_t {
 	protected:
 		_TEMP byte getLatency() {
@@ -173,7 +194,7 @@ namespace uni {
 		RCCSystemClock Sysclock;
 		RCCAHB AHB;
 		RCCAPB APB1, APB2;
-		inline Reference operator[](RCCReg::RCCReg idx) { return Reference(/*baseaddr*/0x40023800 + (((stduint)idx) << 2)); }
+		inline Reference operator[](RCCReg::RCCReg idx) { return Reference(_RCC_ADDR + (((stduint)idx) << 2)); }
 		RCC_t() : APB1(1), APB2(2) {}
 		_TEMP bool setFlash(bool decrease = false) {
 			stduint FLatency = _TEMP 5;// FLASH_LATENCY_5

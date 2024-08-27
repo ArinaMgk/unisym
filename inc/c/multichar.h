@@ -23,6 +23,8 @@
 #ifndef _INC_CHAR_MULTIBYTE
 #define _INC_CHAR_MULTIBYTE
 
+#include "charset/charset.h"
+
 #if defined(_OPT_CHARSET_UTF8)
 #include "charset/multichar/UTF-8.h"
 #endif

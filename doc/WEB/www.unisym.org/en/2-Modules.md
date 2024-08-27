@@ -27,8 +27,8 @@ LaTeX GCC ANYM.AS NVCC MSVC DJGPP rustc perl python Obsidian
 	- PC OSDEV Processor
 	- QRS aka Embedded Controller
 		- INTEL 8051: AT89C5x STC89C5x
-		- `STM32F10x`
-		- `STM32F4x`
+		- STM32F1x
+		- STM32F4x
 		- CW32F030
 	- Architecture
 		- x86
@@ -97,6 +97,7 @@ Now the `*` mark for document provided, no matter if it is detailed.
 		-  \* debug.h
 		-  \* cinc
 		-  \* ISO_IEC_STD/
+		-  \* supple
 	- `Host` Hosted Environment
 		-  \* msgface.h
 		-  \* memory.h
@@ -212,6 +213,26 @@ Now the `*` mark for document provided, no matter if it is detailed.
 	-  \* Rust `unisym::`
 	-  \* ...
 
+- Utility
+	- \* args
+	- \* cal
+	- \* clear
+	- \* cpuid
+	- \* fdump
+	- \* ffset
+	- \* OSDEV/SegmentSelector powered by DotNetFrameworkCS4
+
+- Support ISO/IEC/IEEE C99
+	- \* assert.h
+	- \* ctype.h
+	- \* inttypes.h
+	- \* iso646.h
+	- \* math.h
+	- \* stdarg.h
+	- \* stdbool.h
+	- \* stdint.h
+	- \* stdlib.h
+	- \* string.h
 
 
 ### ! Controversial or Not-stable Modules

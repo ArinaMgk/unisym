@@ -34,7 +34,7 @@
 
 #include "stdinc.h"// for using allocation
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 #include "../cpp/trait/ArrayTrait.hpp"
 #include "../cpp/trait/IterateTrait.hpp"
 #include "algorithm/sort.h"
@@ -136,7 +136,7 @@ typedef struct DnodeChain_t {
 
 #endif// ---- TOKEN NODE END
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 } // C++ Area
 extern "C++" {
 class Dchain : public ArrayTrait, public IterateTrait {

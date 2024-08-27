@@ -42,6 +42,9 @@ namespace uni {
 }
 #endif
 
+#define _PUBLIC_SYSTICK() \
+	static bool enClock(uint32 Hz)
+
 #ifdef _MCU_STM32F1x
 
 
@@ -52,7 +55,7 @@ namespace uni {
 	#undef SysTick
 	class SysTick {
 	public:
-		static bool enClock(uint32 SysCoreClock, uint32 Hz);//{TODO} remove SysCoreClock
+		_PUBLIC_SYSTICK();
 	};
 }
 
@@ -61,7 +64,7 @@ namespace uni {
 namespace uni {
 	class SysTick {
 	public:
-		static bool enClock(uint32 Hz);
+		_PUBLIC_SYSTICK();
 		static SysTick_Map& ref() { return *(SysTick_Map*)ADDR_SysTick_Map; }
 	};
 }

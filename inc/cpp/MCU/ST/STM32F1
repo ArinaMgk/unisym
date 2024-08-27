@@ -20,11 +20,8 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_STM32F103VE_X
-#define _INC_MCU_STM32F103VE_X
-#ifndef _MCU_STM32F103VE
-#define _MCU_STM32F103VE
-#endif
+#ifndef _INC_MCU_STM32F1_X
+#define _INC_MCU_STM32F1_X
 #ifndef _MCU_STM32F1x
 #define _MCU_STM32F1x
 #endif
@@ -42,6 +39,7 @@ F103:
 #include "../../../c/stdinc.h"
 #include "../../Device/GPIO"
 #include "../../Device/RCC/RCC"
+#include "../../Device/SysTick"
 #include "../../interrupt"
 
 //{TODO} compatible with `stm32f103xe.h`

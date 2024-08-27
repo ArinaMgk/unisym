@@ -54,11 +54,15 @@
 // ---- ---- ---- ----
 extern const unsigned char _tab_tolower[];
 extern const unsigned char _tab_toupper[];
+extern const unsigned char _tab_alnum_digit[];
 
 #define ascii_tolower(c) (_tab_tolower[(byte)c]) //((c)-'A'<26?(c)|0x20:c)
 
 #define ascii_toupper(c) (_tab_toupper[(byte)c]) //((c)-'a'<26?(c)&~0x20:c)
 
 #define ascii_tohexad(c) ((c)>='a'?(c)-'a'+10:(c)>='A'?(c)-'A'+10 :(c)-'0')
+
+#define _MAP_ALNUM_DIGIT(c) (_tab_alnum_digit[(byte)c])
+
 
 #endif

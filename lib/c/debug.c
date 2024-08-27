@@ -22,12 +22,6 @@
 
 #include "../../inc/c/stdinc.h"
 
-#ifdef _DEBUG
-size_t malc_count = 0;
-size_t malc_limit = _MALLIMIT_DEFAULT;// you can use such `malc_limit = 100;` to change this.
-size_t call_state;
-#endif
-
 char* salc(size_t size)
 {
 	if (!size) return 0;

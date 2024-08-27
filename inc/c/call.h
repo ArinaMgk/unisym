@@ -23,7 +23,7 @@
 #ifndef _INC_CALL
 #define _INC_CALL
 
-#if defined(_Linux) && SIZE_MAX==0xFFFFFFFF
+#if defined(_Linux) && __BITS__ == 32
 #define _CALL_FAST __attribute__((fastcall))
 #define _CALL_CPL  __attribute__((cdecl))
 #elif defined(_WinNT)
@@ -38,5 +38,11 @@
 #define callnz(x) (x)&&(x)()
 #define callif(x) (x?(void)(x)():(void)0)
 #define callifidn(x, iden) do if(x)(x)(iden); while(0)
+
+extern size_t call_state;// <OUT>
+// call_state :
+// 00: nullptr
+// 01: over the limit for size
+// 02: invaild input but not null pointer
 
 #endif

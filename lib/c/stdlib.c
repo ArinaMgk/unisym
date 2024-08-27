@@ -1,9 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Docutitle: (Common) Standard Include File and Basic Types and Characters of the Machine
-// Codifiers: @dosconio: 20240423 ~ 20240423
+// ASCII C TAB4 CRLF
+// Docutitle: (Interface) STDLIB
+// Codifiers: @dosconio: 20240602
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,21 +20,30 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MACHINE
-#define _INC_MACHINE
-#if defined(_INC_CPP) || defined(__cplusplus)
-extern "C" {
-#endif
-#if defined(_dbg) || defined(_DEBUG)
-#include "debug.h"
-#else
-#include "proctrl.h"
-#endif
-#include "host.h"//{TODO} option switch
-	extern char _tab_HEXA[16];
-	extern char _tab_hexa[16];
-//	
-#if defined(_INC_CPP) || defined(__cplusplus)
+#include "../../inc/c/ISO_IEC_STD/stdlib.h"
+
+unchecked //{TODO} implementation by ASMx86(Hard) and (Soft) <- Decide by ARCHITECTURE
+
+struct div_t div(int numer, int denom)
+{
+	struct div_t result;
+	result.quot = numer / denom;
+	result.rem = numer % denom;
+	return result;
 }
-#endif
-#endif
+
+struct ldiv_t ldiv(long int numer, long int denom)
+{
+	struct ldiv_t result;
+	result.quot = numer / denom;
+	result.rem = numer % denom;
+	return result;
+}
+
+struct lldiv_t lldiv(long long int numer, long long int denom)
+{
+	struct lldiv_t result;
+	result.quot = numer / denom;
+	result.rem = numer % denom;
+	return result;
+}

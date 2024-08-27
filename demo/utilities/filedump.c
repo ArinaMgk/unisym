@@ -26,6 +26,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
+#define printline(...) puts(__VA_ARGS__)
+
 int main(int argc, char** argv)
 {
 	size_t crtline = 0;

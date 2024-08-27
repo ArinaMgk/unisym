@@ -1,5 +1,5 @@
 // ASCII C/C++ TAB4 CRLF
-// Docutitle: Micro Core
+// Docutitle: Micro Core Pseudo Keywords
 // Codifiers: @dosconio: ~ 20240520
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -31,6 +31,8 @@
 // ArnCovenant
 #define _BYTE_BITS_ 8
 
+#define _TEMP
+#define _TODO
 
 typedef void* pureptr_t;
 typedef void(*_tofree_ft)(pureptr_t);
@@ -39,18 +41,17 @@ typedef void(symbol_t)(void);
 
 #if defined(__cplusplus) && !defined(_INC_CPP)
 	#define _INC_CPP
-	#define _CALL_C extern "C"
-#else	
-	#define _CALL_C
 #endif
 
 #ifndef _INC_CPP
+	#define _CALL_C
 	#define pointer_t(_typ) _typ * 
 	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magice pointer: "pointer(pointer(void)) pp"
 	#define _REGISTER register
 	// no `this`
 #else
+	#define _CALL_C extern "C"
 extern "C++" {
 	namespace uni {
 		// [TEST] let var float a = 2.0; then Castype(int, a) <=> cast<int>(a)
@@ -71,17 +72,27 @@ extern "C++" {
 // __BITS__
 	// [Rely-on] stdinc.h
 #ifdef _MSC_VER // for MSVC
-#define _DEV_MSVC
-// __FUNCIDEN__ : function identifier
-#define __FUNCIDEN__ __FUNCDNAME__
-#define _ALIGN
-#define _ASM __asm
+	#define _DEV_MSVC
+	// __FUNCIDEN__ : function identifier
+	#define __FUNCIDEN__ __FUNCDNAME__
+	#define _ALIGN
+	#define _ASM __asm
+	//#undef _CALL_C
+	//#define _CALL_C __cdecl
 
 #elif defined(__GNUC__)
-#define _DEV_GCC
-#define __FUNCIDEN__ __func__ // cannot auto-strcat
-#define _ALIGN(n) __attribute__((aligned(n)))
-#define _ASM __asm__
+	#define _DEV_GCC
+	#define __FUNCIDEN__ __func__ // cannot auto-strcat
+	#define _ALIGN(n) __attribute__((aligned(n)))
+	#define _ASM __asm__
+
+#elif defined(__UVISION_VERSION)
+	#define _DEV_KEIL
+	//{TODO}:
+	#define __FUNCIDEN__ 
+	#define _ALIGN
+	#define _ASM
+
 #endif
 
 // ARINA-COVE C23-STYLE Attribute
@@ -158,8 +169,5 @@ extern "C++" {
 #define bitguard(x) ((x)&-(x))
 
 #define getExfield(a) ((byte*)&(a) + sizeof(a)) // for l-value object
-
-#define _TEMP
-#define _TODO
 
 #endif

@@ -83,6 +83,7 @@ namespace uni {
 			return (SysclkSource::RCCSysclockSource)(_RCC_ConfigRegister & _RCC_CFGR_MASK_SCLKSWSource);
 		}
 		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL);
+		stduint getFrequency();
 	};
 	
 	#define _RCC_CFGR_POS_ADCPRE 14U // len 2b

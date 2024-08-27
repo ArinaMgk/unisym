@@ -27,8 +27,41 @@
 #include "../../../inc/cpp/Device/Flash"
 #include "../../../inc/cpp/Device/SysTick"
 
-namespace uni {
 #if defined(_MCU_STM32F1x)
+// : default frequency
+uint32_t HSE_VALUE = (8000000);
+uint32_t HSI_VALUE = (8000000);
+
+#elif defined(_MCU_STM32F4x)
+// : default frequency
+uint32_t HSE_VALUE = (25000000);
+uint32_t HSI_VALUE = (16000000);
+
+#endif
+
+
+namespace uni {
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	uint32_t SystemCoreClock = HSI_VALUE;
+	const uint8_t AHBPrescTable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9 };
+	const uint8_t APBPrescTable[8] = { 0, 0, 0, 0, 1, 2, 3, 4 };
+
+#endif
+
+#if defined(_MCU_STM32F1x)
+	bool RCC_t::setClock(SysclkSource::RCCSysclockSource source) {
+		using namespace RCCReg;
+		if (!(RCC.HSE.setMode() && RCC.PLL.setMode()))// PLL<<HSE*9/1
+			while (true);
+		if (RCC.setFlash() && RCC.AHB.setMode() && RCC.Sysclock.setMode() &&
+			RCC.setFlash(true) && RCC.APB1.setMode(1) && RCC.APB2.setMode(0));
+		else while (true);
+		SystemCoreClock = RCC.Sysclock.getFrequency() >> AHBPrescTable[(RCC[CFGR] & _RCC_CFGR_MASK_HPRE) >> _RCC_CFGR_POSI_HPRE];
+		SysTick::enClock(1000);// default 1000Hz
+		return true;
+	}
+	
 	bool RCCAHB::setMode(uint8 divexpo, bool usingPCLK1, bool usingPCLK2) {
 		// "Set the highest APBx dividers in order to ensure that we do not go through a non-spec phase whatever we decrease or increase HCLK"
 		Reference Cfgreg(_RCC_CFGR);
@@ -63,18 +96,53 @@ namespace uni {
 		while (getSource() != source);
 		return true;
 	}
+	//{TEMP} only for F103
+	//{TODO} : defined(STM32F105xC) || defined(STM32F107xC)
+	//{TODO} : defined(STM32F100xB) || defined(STM32F100xE)
+	stduint RCCSystemClock::getFrequency() {
+		using namespace RCCReg;
+		uint32_t pllm = 0U;
+		uint32_t sysclockfreq = 0U;
+
+		switch (CurrentSource()) {
+		case SysclkSource::HSE:
+			sysclockfreq = HSE_VALUE;
+			break;
+		case SysclkSource::PLL:
+			pllm = (RCC[CFGR] & _RCC_CFGR_MASK_PPRE2) >> _RCC_CFGR_POSI_PLLMUL;
+			if (pllm != 0x0D) pllm += 2U;
+			else pllm = 13U / 2U;// PLL multiplication factor = PLL input clock * 6.5
+			if (RCC[CFGR].bitof(_RCC_CFGR_POSI_PLLSource)) {
+				// PREDIV1 selected as PLL clock entry
+				stduint __prediv1factor = 1 + (RCC[CFGR2] & _RCC_CFGR2_MASK_PREDIV1);
+				if (!RCC[CFGR2].bitof(_RCC_CFGR2_POSI_PREDIV1SRC)) {
+					// HSE oscillator clock selected as PREDIV1 clock entry
+					sysclockfreq = (HSE_VALUE / __prediv1factor) * pllm;
+				}
+				else { // PLL2 clock selected
+					stduint __prediv2factor = ((RCC[CFGR2] & _RCC_CFGR2_MASK_PREDIV2) >> _RCC_CFGR2_POSI_PREDIV2) + 1U;
+					stduint pll2mull = ((RCC[CFGR2] & _RCC_CFGR2_MASK_PLL2MUL) >> 8U) + 2U;
+					sysclockfreq = (((HSE_VALUE / __prediv2factor) * pll2mull) / __prediv1factor) * pllm;
+				}
+			}
+			else {
+				sysclockfreq = (HSI_VALUE >> 1U) * pllm;// HSI oscillator clock divided by 2 selected as PLL clock entry
+			}
+			break;
+		case SysclkSource::HSI:
+		default:
+			sysclockfreq = HSI_VALUE;
+			break;
+		}
+		return sysclockfreq;
+	}
 #elif defined(_MCU_STM32F4x)
 
 	Flash_t Flash;
 
 	// naming from system_*chip*.c
-	uint32_t SystemCoreClock = 16000000;
-	const uint8_t AHBPrescTable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9 };
-	const uint8_t APBPrescTable[8] = { 0, 0, 0, 0, 1, 2, 3, 4 };
-	/* default frequency
-		HSE_VALUE    ((uint32_t)25000000)
-		HSI_VALUE    ((uint32_t)16000000)
-	*/
+	
+
 
 	bool RCC_t::setClock(SysclkSource::RCCSysclockSource source) {
 		using namespace RCCReg;
@@ -149,7 +217,7 @@ namespace uni {
 
 		switch (CurrentSource()) {
 		case SysclkSource::HSE:
-			sysclockfreq = 25000000U; // HSE_VALUE
+			sysclockfreq = HSE_VALUE;
 			break;
 		case SysclkSource::PLL:
 			// PLL_VCO = (HSE_VALUE or HSI_VALUE / PLLM) * PLLN

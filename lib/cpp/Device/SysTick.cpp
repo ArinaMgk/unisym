@@ -31,11 +31,11 @@
 
 #ifdef _MCU_STM32F1x
 namespace uni {
-	bool SysTick::enClock(uint32 SysCoreClock, uint32 Hz) {
+	bool SysTick::enClock(uint32 Hz) {
 		NVIC_t nvic;
 		SysTick_Map* st = (SysTick_Map*)ADDR_SysTick_Map;
-		if (SysCoreClock / Hz > 0xFFFFFF) return false;
-		st->LOAD = SysCoreClock / Hz - 1;
+		if (SystemCoreClock / Hz > 0xFFFFFF) return false;
+		st->LOAD = SystemCoreClock / Hz - 1;
 		nvic.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
 		st->VAL = 0;// SysTick Counter Value
 		st->CTRL = SysTick_CTRL_CLKSOURCE | SysTick_CTRL_TICKINT | SysTick_CTRL_ENABLE;// Enable SysTick IRQ and SysTick Timer

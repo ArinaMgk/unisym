@@ -56,6 +56,67 @@ double atoflt(const char* astr)
 	return res * exist_sign;
 }
 
+#define restrict
+
+double StrTokenDouble(const char* restrict inp, char** restrict endptr)
+{
+	double result = 0.0;
+	int sign = 1;
+	int decimal = 0;
+	int exponent = 0;
+	int exp_sign = 1;
+	char* ptr = (char*)inp;
+	while (ascii_isspace(*ptr)) ptr++;
+	if (issign(*ptr) && *ptr++ != '-')
+		sign = -1;
+	while (ascii_isdigit(*ptr)) {
+		result = result * 10 + (*ptr++ - '0');
+	}
+	if (*ptr == '.') {
+		ptr++;
+		while (ascii_isdigit(*ptr)) {
+			result = result * 10 + (*ptr++ - '0');
+			decimal++;
+		}
+	}
+	if (ascii_toupper(*ptr) == 'E') {
+		ptr++;
+		if (issign(*ptr) && *ptr++ != '-')
+			exp_sign = -1;
+		while (ascii_isdigit(*ptr)) {
+			exponent = exponent * 10 + (*ptr++ - '0');
+		}
+		exponent *= exp_sign;
+	}
+	asserv(endptr)[0] = ptr;
+	result *= sign * pow(10.0, exponent - decimal);
+	return result;
+}
+/* 20240822
+int main() {
+	const char* str = "123.456e-2e";
+	char* endptr;
+	double value = StrTokenDouble(str, &endptr);
+	printf("Value: %f\n", value);
+	printf("Endptr: %s\n", endptr);
+	return 0;
+}*//*
+Value: 12345.600000
+Endptr: e
+*/
+
+long double StrTokenLDouble(const char* restrict inp, char** restrict endptr)
+{
+	_TEMP return (long double)StrTokenDouble(inp, endptr);
+}
+
+float StrTokenFloat(const char* restrict inp, char** restrict endptr)
+{
+	return (float)StrTokenDouble(inp, endptr);
+}
+
+
+
 double CoeToDouble(const coe* dest)
 {
 	if (dest->divr[1] == '0')

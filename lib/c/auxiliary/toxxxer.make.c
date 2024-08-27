@@ -65,6 +65,22 @@ int main()
 		fprintf(dest_file, "\n");
 	}
 	fprintf(dest_file, "};\n");
+	// 
+	fprintf(dest_file, "const unsigned char _tab_alnum_digit[128] = {\n");
+	for (int i = 0; i < 8; i++) {
+		for (int j = 0; j < 16; j++) {
+			char ch = i * 16 + j;
+			if (isdigit(ch))
+				fprintf(dest_file, "\t%4d,", ch - '0');
+			else if (isupper(ch))
+				fprintf(dest_file, "\t%4d,", ch - 'A' + 10);
+			else if (islower(ch))
+				fprintf(dest_file, "\t%4d,", ch - 'a' + 10);
+			else fprintf(dest_file, "\t%4d,", 0);
+		}
+		fprintf(dest_file, "\n");
+	}
+	fprintf(dest_file, "};\n");
 	//
 	fprintf(dest_file, "\n");
 	fclose(dest_file);

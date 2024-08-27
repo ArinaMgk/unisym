@@ -1,8 +1,8 @@
-// ASCII C-SDCC TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: 2024Mar01
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant CPU(i80586+)
+// LastCheck: RFZ03
 // AllAuthor: @dosconio
-// ModuTitle: 8051 MCU Header for SDCC
+// ModuTitle: Test for Instruction CPUID
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,17 +20,15 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_8051_Keil
-#define _INC_MCU_8051_Keil
+#include "../../inc/c/cpuid.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-#ifndef _MCU_Intel8051
-#define _MCU_Intel8051
-#endif
+char buf[1 + _CPU_BRAND_SIZE];
 
-#include "../../stdinc.h"
-
-#define defbyt(idn,adr) sfr  idn=adr;
-#define defbit(idn,adr) sbit idn=adr;
-#include "i8051.h"
-
-#endif
+int main()
+{
+	// Show CPU Brand
+	CpuBrand(buf);
+	printf("CPU Brand:  %s\n", buf);
+}

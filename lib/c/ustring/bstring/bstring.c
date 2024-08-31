@@ -16,7 +16,7 @@
 	limitations under the License.
 */
 
-
+#if 0
 
 #define _ARN_INSIDE_LIBRARY_INCLUDE
 #define _LIB_STRING_BUFFER
@@ -714,3 +714,5 @@ char* ChrComMulBuf(const char* op1, const char* op2)
 
 
 */
+
+#endif

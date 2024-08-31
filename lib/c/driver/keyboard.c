@@ -23,9 +23,9 @@
 #include "../../../inc/c/driver/keyboard.h"
 #include "../../../inc/c/driver/i8259A.h"
 
-
+#ifdef _SUPPORT_Port8
 void Keyboard_Init()
 {
 	i8259Master_Enable(1);// Master1 is linked with RTC
 }
-
+#endif

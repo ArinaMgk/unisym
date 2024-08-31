@@ -24,6 +24,9 @@
 #define _INC_DEVICE_GPIO_X
 
 #include "../unisym"
+#if defined(_SUPPORT_GPIO)
+
+
 #include "../binary"
 #include "../reference"
 #include "../interrupt"
@@ -255,5 +258,5 @@ namespace uni {
 }
 
 
-
+#endif // _SUPPORT_GPIO
 #endif // !_INC_DEVICE_GPIO_X

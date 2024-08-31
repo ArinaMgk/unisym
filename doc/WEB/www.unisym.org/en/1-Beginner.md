@@ -27,7 +27,7 @@ epic00min cgl32/64 cgw16/32/64 cvw32/64
 
 Until 2024WTR.
 
-COVE: Since included and until excluded.
+
 
 ### About Generation-3
 
@@ -42,14 +42,4 @@ Before `U2025SPR`, although some new characters will be added, the old style wil
 - new format of target names
 
 
-#### Use which basic headfile
-
-Generation 2 style (until `U2025SPR`):
-
-`stdinc.h` for C, `unisym` for C++
-
-Generation 3 style:
-
-If you develop something on host-environment, include `stdinc.h` for C, `unisym` for C++;
-if you develop MCU-program, use the special file like `STM32F103VE` for C++...
 

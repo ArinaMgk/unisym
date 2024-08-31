@@ -24,6 +24,8 @@
 #include "../../../inc/cpp/Device/RCC/RCCAddress"
 #include "../../../inc/c/binary.h"
 
+#ifdef _SUPPORT_GPIO
+
 namespace uni
 {
 
@@ -381,3 +383,4 @@ namespace uni
 	}
 }
 
+#endif

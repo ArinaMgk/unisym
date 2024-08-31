@@ -13,6 +13,16 @@ Portability, Coupling and Practicality. Portability is for showing the uniform; 
 	\item Programming Languages (Magice, \verb|C|, \verb|C#|, ...)
 \end{itemize}
 
+\subsection{NOTICE when Modifying}
+
+\verb`_CALL_C` for Calling, \verb`extern "C"` for Linkage
+
+
+\B{Header Included}:
+If you develop something on host-environment, include `stdinc.h` for C/C++;
+if you develop MCU-program, use the special file like `STM32F1` for C++...
+
+
 \section{Locale}
 
 \begin{center}\begin{table}[h!]
@@ -37,6 +47,40 @@ Portability, Coupling and Practicality. Portability is for showing the uniform; 
 The section does not include \It{Kasha}. For AASM, Microsoft Macro Assembler, GNU-AS, Netwide Assembler.
 
 \section{Supply \mbox{-} \B{Qt}}
+
+\section{Supply for C and C++}
+
+Below are relation between international standards and UNISYM.
+
+%{TODO} add ref-link for each:
+\begin{center}\begin{longtable}{|c|c|}
+		\hline
+		\textbf{ISO/IEC C99\cite{StdC99}} & \textbf{header} \\
+		\hline\endfirsthead\hline
+		\textbf{ISO/IEC C99\cite{StdC99}} & \textbf{header} \\
+		\hline\endhead\hline\endfoot\hline\endlastfoot
+		assert.h & uassert.h \\\hline
+		ctype.h & uctype.h \\\hline
+		stdbool.h(C99+) & ustdbool.h \\\hline
+		string.h & ustring.h \\\hline
+		limits.h & \multirow{3}{*}{archit.h by stdinc} \\\cline{1-1}
+		stddef.h & \\\cline{1-1}
+		math.h & \\\hline
+		stdint.h & \multirow{2}{*}{integer.h by stdinc} \\\cline{1-1}
+		inttypes.h & \\\hline
+		float.h & floating.h by stdinc \\\hline
+		complex.h(C99+) & \multirow{3}{*}{number.h} \\\cline{1-1}
+		fenv.h(C99+) & \\\cline{1-1}
+		tgmath.h(C99+) & \\\hline
+		errno.h & msgface.h \\\hline
+		locale.h & loc.h \\\hline
+		setjmp.h & \multirow{2}{*}{supple.h} \\\cline{1-1}
+		stdarg.h & \\\hline
+		time.h & datime.h \\\hline
+		stdio.h & consio.h \\\hline
+		wchar.h(C95+) & \multirow{2}{*}{widechar.h} \\\cline{1-1}
+		wctype.h(C95+) & \\\hline
+\end{longtable}\end{center}
 
 \section{Charset}
 
@@ -70,18 +114,43 @@ You may need the header \verb|c/multichar.h| or \verb|c/widechar.h|.
 
 \section{Option Switch}
 
-% _MCU_
+\B{\_MCU\_}
+\begin{itemize}
+	\item \B{\_MCU\_Intel8051}\begin{itemize}
+		\item \verb`_SYS_FREQ` Frequency of the system.
+	\end{itemize}
+	%{TODO}
+\end{itemize}
 
-% _SUPPORT_ {device/bits}
+\B{\_SUPPORT\_} %{device/bits}
+\begin{itemize}
+	\item \B{GPIO}: Usually for MCU.
+	\item \B{Port8}: Usually for Personal Computers.
+\end{itemize}
 
-% _INC_
+\B{\_INC\_}
+\begin{itemize}
+	\item%{TODO}
+\end{itemize}
 
-% _CALL_
+\B{\_CALL\_} (is not Linkage)
+\begin{itemize}
+	\item%{TODO}
+\end{itemize}
 
+\B{\_ARC\_} and \B{\_OPT\_}
+\begin{itemize}
+	\item%{TODO}
+\end{itemize}
 
-% _ARC_ and _OPT_
-
-% _MCCA
+\B{\_MCCA\_} and Operating System
+\begin{itemize}
+	\item \verb|0x8616| x86, bits 16
+	\item \verb|0x8632| x86, bits 32
+	%\item \_Win32
+	%\item \_Win64
+	%\item \_WinNT
+\end{itemize}
 
 \section{Data and Table}
 

@@ -32,4 +32,12 @@
 #endif
 #endif
 
+// _SUPPORT_GPIO
+#ifdef _MCU_STM32
+#define _SUPPORT_GPIO
+#endif
+#if defined(_MCU_CW32F030) || defined(_MCU_CW32F003)
+#define _SUPPORT_GPIO
+#endif
+
 #endif

@@ -1,8 +1,8 @@
-// ASCII C TAB4 CRLF
-// Attribute: Freq(11.0592MHz)
-// LastCheck: 2024Mar04
-// AllAuthor: @dosconio
-// ModuTitle: 8051 MCU Delay 
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module) Delay or Sleep
+// Codifiers: @dosconio: 20240830 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,9 +20,37 @@
 	limitations under the License.
 */
 
+
+
+//{TODO} sleep() function
+
+#include "../../inc/c/stdinc.h"
+
+#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
+
+//: external linkage
+dword* ADDR_CountSeconds = (dword*)(0x500 + 0x24);
+word* ADDR_CountMSeconds = (word*)(0x500 + 0x28);
+
+// depend(lib/asm/x86/inst/manage.asm)
+void delay001s()
+{
+	dword i = *ADDR_CountSeconds;
+	while (*ADDR_CountSeconds == i) HALT();
+}
+
+void delay001ms()
+{
+	word i = *ADDR_CountMSeconds;
+	while (*ADDR_CountMSeconds == i) HALT();
+}
+#else
+
+
+#endif
+#if defined(_MCU_Intel8051) && _SYS_FREQ == 11059200
 #define nop _nop_
 extern void nop(void);
-
 
 void delay010us()
 {
@@ -59,3 +87,4 @@ void delay001ms()
 	} while (--i);
 }
 
+#endif

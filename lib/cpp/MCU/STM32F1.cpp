@@ -24,13 +24,16 @@
 - SystemCoreClock <-> uni::SystemCoreClock yo RCC.cpp
 - SystemCoreClockUpdate() <-> uni::SystemCoreClock = RCC.Sysclock.getFrequency() >> AHBPrescTable[(RCC[CFGR] & _RCC_CFGR_MASK_HPRE) >> _RCC_CFGR_POSI_HPRE];
 */
+#include "../../../inc/c/stdinc.h"
+#ifdef _MCU_STM32F1x
+
 #include "../../../inc/c/prochip/CortexM3.h"
 #include "../../../inc/cpp/MCU/ST/STM32F1"
 
 extern "C" void SystemInit(void);
 
 extern "C" {
-	char _IDN_BOARD[16] = "xx";// fill this with "03VET6" for STM32F103VET6
+	char _IDN_BOARD[16] = "xx";// fill this with "03VET6" for STM32F103VET6 (20240826 came up)
 }
 
 void SystemInit(void) {
@@ -48,3 +51,5 @@ namespace uni {
 
 	// void SystemInit_ExtMemCtl(void);//{TODO}
 }
+
+#endif

@@ -5,15 +5,6 @@
 # ModuTitle: Makefile for UniSym
 # Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
-# Resources: for release version:
-# - inc/
-# - libs
-# - bin/  [optional] (utilities)
-# - demo/ [optional]
-# - aasm, magice, ...
-
-MSVC_DIR = E:/software/VS22/VC/Tools/MSVC/14.39.33519
-
 make_dir=./lib/make/
 
 # depend [gcc, makefile] [python]
@@ -22,7 +13,7 @@ make_dir=./lib/make/
 .PHONY: \
 	release-on-win release-on-lin release-on-dos \
 	\
-	list list-py3\
+	local list list-py3\
 	\
 	mx86 \
 	cgw16 cgw32 cgw64 dllmsvc cvw32 cvw64 libnvcc\
@@ -34,7 +25,12 @@ make_dir=./lib/make/
 	\
 	test clean
 
-list: # depend [perl python]
+local:
+	@clear
+	@echo MK Local Data
+	@$(CC) ./lib/local/toxxxer.make.c -o $(uobjpath)/toxxxer.make.exe && cd $(uobjpath)/ && ./toxxxer.make.exe
+
+list: local# depend [perl python]
 	@perl ./lib/Script/Makefile/makemake.pl
 
 # ---- [usual hosted-environments] ----
@@ -45,9 +41,13 @@ mx86: #[Linux] # including different bitmodes (Real16, Flap32 ...)
 # COFF 
 cgw16: # with DJGPP
 	#
-cgw32:
+cgw32: list
+	-@mkdir.exe -p $(uobjpath)/CGWin32
+	-@rm -f $(uobjpath)/CGWin32/*
 	make -f ${make_dir}cgw32.make all
-cgw64:
+cgw64: list
+	-@mkdir.exe -p $(uobjpath)/CGWin64
+	-@rm -f $(uobjpath)/CGWin64/*
 	make -f ${make_dir}cgw64.make all # x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
 
 # libmsvc MTd_StaticDebug 
@@ -63,8 +63,12 @@ libnvcc:
 
 # liblinux ELF
 cgl32:
+	-@mkdir -p $(uobjpath)/CGLin32
+	-@rm -f $(uobjpath)/CGLin32/*
 	make -f ${make_dir}cgl32.make all
 cgl64:
+	-@mkdir -p $(uobjpath)/CGLin64
+	-@rm -f $(uobjpath)/CGLin64/*
 	make -f ${make_dir}cgl64.make all
 
 # ---- [series for interfacial environments] ----

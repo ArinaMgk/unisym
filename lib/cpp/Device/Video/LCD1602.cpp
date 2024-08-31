@@ -22,6 +22,8 @@
 
 #include "../../../../inc/c/driver/LCD1602.h"
 
+#if defined(_INC_CPP) && defined(_SUPPORT_GPIO)
+
 static void inline_LCD_delay(void) {
 	volatile int i = 0x100;
 	while(i--);
@@ -38,3 +40,5 @@ namespace uni {
 
 	
 }
+
+#endif

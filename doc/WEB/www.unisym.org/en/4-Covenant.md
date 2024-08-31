@@ -18,20 +18,17 @@ Target in format `Arch-Format(Devk)-Host`*`(D)`*
 - i386-ELF(GCC)-MCCAx86 {32}
 - riscv64-ELF(GCC) {64}
 - riscv64-ELF(GCC)-MCCAr64 {64}
-- ARMv7.CortexM3-ELF(GCC)-STM32F1x {32}
-- ARMv7.CortexM4-ELF(GCC)-STM32F4x {32}
-- ARMv6.CortexM0-ELF(GCC)-CW32F030 {32}
-- ARMv6.CortexM0-ELF(GCC)-CW32F003 {32}
-- ARMv7.CortexM3-Keil.MDK-STM32F1x {32}
-- ARMv7.CortexM4-Keil.MDK-STM32F4x {32}
-- ARMv6.CortexM0-Keil.MDK-CW32F030 {32}
-- ARMv6.CortexM0-Keil.MDK-CW32F003 {32}
+- ARM.CortexM3-ELF(GCC)-STM32F1x {32}v7
+- ARM.CortexM4-ELF(GCC)-STM32F4x {32}v7
+- ARM.CortexM0-ELF(GCC)-CW32F030 {32}v6
+- ARM.CortexM0-ELF(GCC)-CW32F003 {32}v6
+- ARM.CortexM3-Keil.MDK-STM32F1x {32}v7
+- ARM.CortexM4-Keil.MDK-STM32F4x {32}v7
+- ARM.CortexM0-Keil.MDK-CW32F030 {32}v6
+- ARM.CortexM0-Keil.MDK-CW32F003 {32}v6
 - i8051-Keil-AT89C5 {16}
 
 * ARMv7 include ARMv7-M series.
-
-
-### Format
 
 
 ### Devk
@@ -42,10 +39,6 @@ GCC = GNU Compiler Collection
 MVC = Microsoft Visual C/C++
 
 HER = her/pro/Magice 
-
-
-### Host
-
 
 
 ## Trait

@@ -20,8 +20,11 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/MCU/8051/sdcc8051.h"
-#include "../../../inc/c/MCU/port.h"
+#include "../../inc/c/stdinc.h"
+
+#if defined(_MCU_Intel8051)
+#include "../../inc/c/MCU/Intel/i8051.h"
+#include "../../inc/c/MCU/port.h"
 
 void outpohi(byte port, byte pinidn)
 {
@@ -84,3 +87,5 @@ byte innpb(byte port)
 	}
 	return 0xA5;// from 0xAA55
 }
+
+#endif

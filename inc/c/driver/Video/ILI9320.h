@@ -23,7 +23,7 @@
 #ifndef _INC_Driver_ILI9320
 #define _INC_Driver_ILI9320
 #include "../../stdinc.h"
-#ifdef _INC_CPP
+#if defined(_INC_CPP) && defined(_SUPPORT_GPIO)
 
 #include "../../../cpp/Device/Video"
 #include "../../../cpp/Device/GPIO"

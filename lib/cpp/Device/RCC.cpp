@@ -362,7 +362,8 @@ namespace uni {
 
 
 #endif
-	//
-	RCC_t RCC;
+	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+		RCC_t RCC;
+	#endif
 }
 

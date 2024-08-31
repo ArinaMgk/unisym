@@ -30,33 +30,13 @@ def set_makefile(fpath, ftext): # UTF-8
 		fobj.write(bytes(ftext, encoding = "utf8"))
 
 # ---- ---- ---- ---- ---- ---- ---- ----
-list_c_tomake = get_files("./lib/c/auxiliary/", ".make.c")
+#list_c_tomake = get_files("./lib/local/", ".make.c")
 list_asm_file = [
 	"$(ulibpath)/asm/<INSSYS>/cpuid.asm",
 	"$(ulibpath)/asm/<INSSYS>/binary.asm"
 ]
 list_cpl_file = get_files("./lib/c/", ".c")
-list_cpl_file_new = []
-#{TEMP} cut special docs
-# <board.lib> includes <processor.lib> 
-# <processor.lib> includes its special `asm` version
-for i in list_cpl_file:
-	if (".make.c" in i) or ("/lib/c/processor/" in i) or ("/lib/c/driver/" in i) or ("lib/c/ustring/bstring/" in i): # fixed path for <processor.lib>, <board.lib>
-		pass
-	else:
-		list_cpl_file_new.append(i)
-list_cpl_file = list_cpl_file_new
-list_cpl_file_new = []
 list_cpp_file = get_files("./lib/cpp/", ".cpp")
-list_cpp_file_new = []
-for i in list_cpp_file:
-	if ("/lib/cpp/Device/" in i) or ("/lib/cpp/MCU/" in i) :
-		pass
-	else:
-		list_cpp_file_new.append(i)
-list_cpp_file = list_cpp_file_new
-list_cpp_file_new = []
-
 list_asm_free86 = get_files("./lib/asm/x86", ".asm")
 
 # [General-standing environment Library]
@@ -74,37 +54,56 @@ text_gcc_lin32 = "# UNISYM for GCC-Lin32 built-" + str(__BuildTime) + '\n'
 text_gcc_lin64 = "# UNISYM for GCC-Lin64 built-" + str(__BuildTime) + '\n'
 print(text_gcc_win32, text_gcc_win64, text_msv_win32, text_msv_win64, text_gcc_lin32, text_gcc_lin64, sep="")
 # ---- make list by win
-tmp = """
+comhead = """
 AASM = aasm
-udir = E:/PROJ/SVGN/unisym
+cplpref=_cc_
+cplfile=$(wildcard lib/c/*.c) $(wildcard lib/c/**/*.c) $(wildcard lib/c/**/**/*.c) $(wildcard lib/c/**/**/**/*.c)
+cplobjs=$(patsubst %c, %o, $(cplfile))
+cpppref=_cx_
+cppfile=$(wildcard lib/cpp/*.cpp) $(wildcard lib/cpp/**/*.cpp) $(wildcard lib/cpp/**/**/*.cpp) $(wildcard lib/cpp/**/**/**/*.cpp)
+cppobjs=$(patsubst %cpp, %o, $(cppfile))
 """
-text_gcc_win32 += tmp + """
+text_gcc_win32 += comhead + """
 attr = -D_DEBUG -O3 -D_Win32
-cplpref=_ugc32_
-cpppref=_uxxgc32_
-dest_obj=../_obj/CGWin32
+dest_obj=$(uobjpath)/CGWin32
 CC = E:/PROJ/CoStudioWin64/i686/bin/gcc.exe -m32
 CX = E:/PROJ/CoStudioWin64/i686/bin/g++.exe -m32
 AR = E:/PROJ/CoStudioWin64/i686/bin/ar.exe
-aattr = -fwin32 -I$(udir)/inc/Kasha/n_
+aattr = -fwin32 -I$(uincpath)/Kasha/n_
 dest_abs = ../_bin/libw32d.a
 """
-text_gcc_win64 += tmp + """
+text_gcc_win64 += comhead + """
 attr = -D_DEBUG -O3 -D_Win64
-cplpref=_ugc64_
-cpppref=_uxxgc64_
-dest_obj=../_obj/CGWin64
+dest_obj=$(uobjpath)/CGWin64
 CC = M:/tmp/bin/mingw64/bin/gcc.exe  -m64
 CX = M:/tmp/bin/mingw64/bin/g++.exe  -m64
 AR = M:/tmp/bin/mingw64/bin/ar.exe
-aattr = -fwin64 -I$(udir)/inc/Kasha/n_ 
+aattr = -fwin64 -I$(uincpath)/Kasha/n_ 
 dest_abs = ../_bin/libw64d.a
 """
-text_msv_win32 += tmp + """
+text_gcc_lin32 += comhead + """
+attr = -D_DEBUG -D_Linux -O3
+aattr = -felf -I$(uincpath)/Kasha/n_
+dest_obj=$(uobjpath)/CGLin32
+dest_abs=$(ubinpath)/libl32d.a
+CC=gcc -m32
+CX=g++ -m32
+"""
+text_gcc_lin64 += comhead + """
+attr = -D_DEBUG -D_Linux -O3
+aattr = -felf -I$(uincpath)/Kasha/n_
+dest_obj=$(uobjpath)/CGLin64
+dest_abs=$(ubinpath)/libl64d.a
+CC=gcc -m64
+CX=g++ -m64
+"""
+
+#{TODO}:
+text_msv_win32 += comhead + """
 attr = /D_DEBUG /D_Win32
 cplpref=_uvc32_
 cpppref=_uxxvc32_
-dest_obj=../_obj/CVWin32
+dest_obj=$(uobjpath)/CVWin32
 TOOLDIR = E:/software/VS22/VC/Tools/MSVC/14.39.33519
 CC = ${TOOLDIR}/bin/Hostx86/x86/cl.exe
 CX = ${CC}
@@ -116,11 +115,12 @@ VLIB_64=/LIBPATH:"${TOOLDIR}/lib/x86/" /LIBPATH:"${TOOLDIR}/lib/onecore/x86" /LI
 VI_SYS="C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/ucrt/"
 VI_64=${TOOLDIR}/include/ /I${VI_SYS} /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/um/" /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/shared/"
 """
-text_msv_win64 += tmp + """
+#{TODO}:
+text_msv_win64 += comhead + """
 attr = /D_DEBUG /D_Win64
 cplpref=_uvc64_
 cpppref=_uxxvc64_
-dest_obj=../_obj/CVWin64
+dest_obj=$(uobjpath)/CVWin64
 TOOLDIR = E:/software/VS22/VC/Tools/MSVC/14.39.33519
 CC = ${TOOLDIR}/bin/Hostx64/x64/cl.exe
 CX = ${CC}
@@ -131,52 +131,23 @@ VLIB_64=/LIBPATH:"${TOOLDIR}/lib/x64/" /LIBPATH:"${TOOLDIR}/lib/onecore/x64" /LI
 VI_SYS="C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/ucrt/"
 VI_64=${TOOLDIR}/include/ /I${VI_SYS} /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/um/" /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/shared/"
 """
-tmp = """
-CC32 = gcc -m32
-CX32 = g++ -m32
-CC64 = gcc -m64
-CX64 = g++ -m64
-AASM = $(ubinpath)/ELF64/aasm
-attr = -D_DEBUG -D_Linux -O3
-aattr = -felf -I$(udir)/inc/Kasha/n_
-udir = /mnt/hgfs/unisym
-"""
-linux_title = """
 
-"""
-text_gcc_lin32 += linux_title
-text_gcc_lin32 += tmp + """
-cplpref=_ugc32_
-cpppref=_uxxgc32_
-dest_obj=$(uobjpath)/CGLin32
-dest_abs=$(ubinpath)/libl32d.a
-CC=$(CC32)
-CX=$(CX32)
-"""
-text_gcc_lin64 += linux_title
-text_gcc_lin64 += tmp + """
-cplpref=_ugc64_
-cpppref=_uxxgc64_
-dest_obj=$(uobjpath)/CGLin64
-dest_abs=$(ubinpath)/libl64d.a
-CC=$(CC64)
-CX=$(CX64)
-"""
 #
-tmp = ".PHONY: all\n"+\
-	"\nall:\n"+\
-	'\t-@E:/software/w64dev/bin/mkdir.exe -p ${dest_obj}\n'+\
-	'\t-@E:/software/w64dev/bin/rm.exe -f ${dest_obj}/*\n'
+tmp = """
+.PHONY: all
+all: $(asmobjs) $(cplobjs) $(cppobjs)
+"""
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
-text_msv_win32 += tmp
-text_msv_win64 += tmp
-tmp = ".PHONY: all\n"+\
-	"\nall:\n"+\
-	'\t-@mkdir -p ${dest_obj}\n'+\
-	'\t-@rm -f ${dest_obj}/*\n'
 text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp
+tmp = ".PHONY: all\n"+\
+	"\nall:\n"+\
+	'\t-@mkdir.exe -p ${dest_obj}\n'+\
+	'\t-@rm -f ${dest_obj}/*\n'
+text_msv_win32 += tmp
+text_msv_win64 += tmp
+
 for val in list_asm_file:
 	# for x86
 	fullname = val.replace("<INSSYS>", "x86")
@@ -190,17 +161,6 @@ for val in list_asm_file:
 	text_gcc_win64 += tmp
 	text_msv_win64 += tmp
 	# text_gcc_lin64 += tmp #----elf output format does not support 64-bit code
-for val in list_c_tomake:
-	file_path = get_outfilename(val)
-	tmp = '\t@echo MK Local Data\n\t' + "@$(CC) " + val + " -o $(uobjpath)/" + file_path + ".exe" + " && cd $(uobjpath)/ && ./" + file_path + ".exe\n"
-	text_gcc_win32 += tmp
-	text_gcc_win64 += tmp
-	tmp = '\t@echo MK Local Data\n\t' + "@$(CC) " + val + " -o $(uobjpath)/" + file_path + " && $(uobjpath)/" + file_path + "\n"
-	text_gcc_lin32 += tmp
-	text_gcc_lin64 += tmp
-	tmp = '\t@echo MK Local Data\n\t' + "@$(CC) " + val + " /Fe: $(uobjpath)/" + file_path + ".exe" + " /Fo: $(uobjpath)/" + file_path + ".obj /I${VI_64} ${attr} /link${VLIB_64}" + " && $(uobjpath)/" + file_path + "&& echo " + file_path + "\n"
-	text_msv_win32 += tmp
-	text_msv_win64 += tmp
 if True:
 	tmp = """
 	@echo "CC  = $(CC)"
@@ -212,20 +172,20 @@ if True:
 	text_gcc_lin32 += tmp
 	text_gcc_lin64 += tmp
 for val in list_cpl_file:
-	tmp = '\t@echo CC ' + val + '\n\t' + "@$(CC) -c " + val + " -o ${dest_obj}/${cplpref}" + get_outfilename(val) + ".o $(attr)\n"
-	text_gcc_win32 += tmp
-	text_gcc_win64 += tmp
-	text_gcc_lin32 += tmp
-	text_gcc_lin64 += tmp
+	#tmp = '\t@echo CC ' + val + '\n\t' + "@$(CC) -c " + val + " -o ${dest_obj}/${cplpref}" + get_outfilename(val) + ".o $(attr)\n"
+	#text_gcc_win32 += tmp
+	#text_gcc_win64 += tmp
+	#text_gcc_lin32 += tmp
+	#text_gcc_lin64 += tmp
 	tmp = '\t' + "$(CC) /c " + val + " /Fo:${dest_obj}/${cplpref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
 for val in list_cpp_file:
-	tmp = '\t@echo CX ' + val + '\n\t' + "@$(CX) -c " + val + " -o ${dest_obj}/${cpppref}" + get_outfilename(val) + ".o $(attr)\n"
-	text_gcc_win32 += tmp
-	text_gcc_win64 += tmp
-	text_gcc_lin32 += tmp
-	text_gcc_lin64 += tmp
+	#tmp = '\t@echo CX ' + val + '\n\t' + "@$(CX) -c " + val + " -o ${dest_obj}/${cpppref}" + get_outfilename(val) + ".o $(attr)\n"
+	#text_gcc_win32 += tmp
+	#text_gcc_win64 += tmp
+	#text_gcc_lin32 += tmp
+	#text_gcc_lin64 += tmp
 	tmp = '\t' + "$(CX) /c " + val + " /Fo:${dest_obj}/${cpppref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
@@ -237,6 +197,20 @@ text_gcc_lin64 += tmp
 tmp = '\t@echo AR ${dest_abs} \n\t' + "@${AR} /OUT:${dest_abs} ${dest_obj}/*" + '\n'
 text_msv_win32 += tmp
 text_msv_win64 += tmp
+
+tmp = """
+
+%.o: %.c
+	@echo "CC $(<)" && $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)
+%.o: %.cpp
+	@echo "CX $(<)" && $(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@)
+
+"""
+text_gcc_win32 += tmp
+text_gcc_win64 += tmp
+text_gcc_lin32 += tmp
+text_gcc_lin64 += tmp
+
 set_makefile('./lib/make/cgw32.make', text_gcc_win32)
 set_makefile('./lib/make/cgw64.make', text_gcc_win64)
 set_makefile('./lib/make/cvw32.make', text_msv_win32)
@@ -247,13 +221,14 @@ text_gcc_win32 = text_gcc_win64 = ""
 text_msv_win32 = text_msv_win64 = ""
 text_gcc_lin32 = text_gcc_lin64 = ""
 
+#{TO MIX with lin(elf)}
 # unisym/lib/make/cgmx86.make --[Linux Distributes, LF]-> -bin/libmx86.a
 # Mecocoa can use Linux format link-library, NOW!
 list_gcc_mecocoa_files = []
 for val in list_asm_free86:
 	list_gcc_mecocoa_files.append("$(asmf) " + val)
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/i8259A.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/processor/x86/delay.c")
+list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/delay.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/format/ELF.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/toki/rtclock.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/toki/PIT.c")
@@ -263,7 +238,6 @@ list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/consio.c")
 text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
 print(text_gcc_mecocoa)
 text_gcc_mecocoa += ".PHONY: all\n"
-text_gcc_mecocoa += linux_title
 text_gcc_mecocoa += """
 unidir = /mnt/hgfs/unisym
 libcdir = $(unidir)/lib/c

@@ -193,6 +193,8 @@ Now the `*` mark for document provided, no matter if it is detailed.
 	-  \* Time:: datime.h
 	-  \* Buffer:: stack.h stack >> Trait
 	-  \* Buffer:: strpool.h strpool >> Trait
+	-  \* Buffer:: strpage.h
+	-  \* Buffer:: strbuff.h
 	-  \* Buffer:: queue >> Trait
 	- Array-Series
 		- `Node` [Node-Data-System](./modules/Nodes.md)
@@ -206,6 +208,7 @@ Now the `*` mark for document provided, no matter if it is detailed.
 	-  \* loc.h
 - Others
 	-  \* sig.h
+	-  \* bitmap.h
 	-  \* Kasha
 	-  \* msasm
 	-  \* naasm

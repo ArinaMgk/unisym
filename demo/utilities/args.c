@@ -1,8 +1,8 @@
 // ASCII C99 TAB4 CRLF
-// Attribute: 
-// LastCheck: RFZ10
-// AllAuthor: @dosconio
-// ModuTitle: Arguments Echo : show arguments received from the commands
+// Docutitle: (Module) Basic Hosted-Env Template
+// Codifiers: @dosconio: RFZ10 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Hostedstanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,13 +20,18 @@
 	limitations under the License.
 */
 
+//: included by epic
 #include <stdio.h>
+#include <string.h>
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[], char* envp[]) {
 	int i;
 	printf("argc = %d;\n", argc);
 	for (i = 0; i < argc; i++) {
 		printf("argv[%d] = @\"%s\";\n", i, argv[i]);
+	}
+	if (!strcmp(argv[0], argv[1])) for (i = 0; envp[i] != NULL; i++) {
+		printf("envp[%d] = @\"\"\"%s\"\"\";\n", i, envp[i]);
 	}
 	return 0;
 }

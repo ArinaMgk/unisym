@@ -22,6 +22,11 @@ Portability, Coupling and Practicality. Portability is for showing the uniform; 
 If you develop something on host-environment, include `stdinc.h` for C/C++;
 if you develop MCU-program, use the special file like `STM32F1` for C++...
 
+\section{Notice}
+
+\B{Root Header for User}
+It is recommended that users use only header files whose directory is the root including path.
+
 
 \section{Locale}
 
@@ -54,32 +59,32 @@ Below are relation between international standards and UNISYM.
 
 %{TODO} add ref-link for each:
 \begin{center}\begin{longtable}{|c|c|}
-		\hline
-		\textbf{ISO/IEC C99\cite{StdC99}} & \textbf{header} \\
-		\hline\endfirsthead\hline
-		\textbf{ISO/IEC C99\cite{StdC99}} & \textbf{header} \\
-		\hline\endhead\hline\endfoot\hline\endlastfoot
-		assert.h & uassert.h \\\hline
-		ctype.h & uctype.h \\\hline
-		stdbool.h(C99+) & ustdbool.h \\\hline
-		string.h & ustring.h \\\hline
-		limits.h & \multirow{3}{*}{archit.h by stdinc} \\\cline{1-1}
-		stddef.h & \\\cline{1-1}
-		math.h & \\\hline
-		stdint.h & \multirow{2}{*}{integer.h by stdinc} \\\cline{1-1}
-		inttypes.h & \\\hline
-		float.h & floating.h by stdinc \\\hline
-		complex.h(C99+) & \multirow{3}{*}{number.h} \\\cline{1-1}
-		fenv.h(C99+) & \\\cline{1-1}
-		tgmath.h(C99+) & \\\hline
-		errno.h & msgface.h \\\hline
-		locale.h & loc.h \\\hline
-		setjmp.h & \multirow{2}{*}{supple.h} \\\cline{1-1}
-		stdarg.h & \\\hline
-		time.h & datime.h \\\hline
-		stdio.h & consio.h \\\hline
-		wchar.h(C95+) & \multirow{2}{*}{widechar.h} \\\cline{1-1}
-		wctype.h(C95+) & \\\hline
+	\hline
+	\textbf{ISO/IEC C99\cite{StdC99}} & \textbf{header} \\
+	\hline\endfirsthead\hline
+	\textbf{ISO/IEC C99\cite{StdC99}} & \textbf{header} \\
+	\hline\endhead\hline\endfoot\hline\endlastfoot
+	assert.h & uassert.h \\\hline
+	ctype.h & uctype.h \\\hline
+	stdbool.h(C99+) & ustdbool.h \\\hline
+	string.h & ustring.h \\\hline
+	limits.h & \multirow{3}{*}{archit.h by stdinc} \\\cline{1-1}
+	stddef.h & \\\cline{1-1}
+	math.h & \\\hline
+	stdint.h & \multirow{2}{*}{integer.h by stdinc} \\\cline{1-1}
+	inttypes.h & \\\hline
+	float.h & floating.h by stdinc \\\hline
+	complex.h(C99+) & \multirow{3}{*}{number.h} \\\cline{1-1}
+	fenv.h(C99+) & \\\cline{1-1}
+	tgmath.h(C99+) & \\\hline
+	errno.h & msgface.h \\\hline
+	locale.h & loc.h \\\hline
+	setjmp.h & \multirow{2}{*}{supple.h} \\\cline{1-1}
+	stdarg.h & \\\hline
+	time.h & datime.h \\\hline
+	stdio.h & consio.h \\\hline
+	wchar.h(C95+) & \multirow{2}{*}{widechar.h} \\\cline{1-1}
+	wctype.h(C95+) & \\\hline
 \end{longtable}\end{center}
 
 \section{Charset}
@@ -87,6 +92,8 @@ Below are relation between international standards and UNISYM.
 You may need the header \verb|c/multichar.h| or \verb|c/widechar.h|.
 
 \subsection{ASCII}
+
+\subimport{Charset}{ASCII}
 
 \subsection{Unicode}
 
@@ -108,9 +115,13 @@ You may need the header \verb|c/multichar.h| or \verb|c/widechar.h|.
 
 \begin{itemize}
 	\item `Bootstrap' to see \refer{Bootstrap Demonstration}.
+	\item `Hello' (Print a string to standard output) by each programming language. 
+	% According to the record, Brian Kernighan wrote Hello-world for B Programming Language, and later this became widely known in "The C Programming Language" written by Professor Kernighan & Ritchie in 1978.
 \end{itemize}
 
 \section{Utility}
+
+%{TODO}
 
 \section{Option Switch}
 

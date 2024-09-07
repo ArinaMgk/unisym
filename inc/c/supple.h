@@ -53,6 +53,44 @@ void print_numbers(int count, ...) {
 }
 */
 
+// ---- { STDC:: setjmp.h } 20240902 (Win32) ----
+
+typedef struct {
+	uint32 ret;
+	uint32 ebx;
+	uint32 esi;
+	uint32 edi;
+	uint32 ebp;
+	uint32 esp;
+} Retpoint;
+
+extern pureptr_t MarkPoint(Retpoint* buf);
+extern void JumpPoint(const Retpoint* buf, pureptr_t val);
+
+//#define setjmp MarkPoint
+//inline static void longjmp(jmp_buf buf, int v) { JumpPoint(&buf, v); }
+
+/* EXAMPLE #include <c/supple.h>
+static Retpoint env;
+void test_func() {
+	JumpPoint(&env, "ciallo");
+}
+int main() {
+	pureptr_t val;
+	val = MarkPoint(&env);
+	if (!val) {
+		test_func();
+	} else {
+		printf("Returned from longjmp, val = %s\n", val);
+	}
+}
+*//*
+aasm -f win32 %ulibpath%\asm\x86\jump.asm -o setjmpS.o -g
+gcc -m32 -o a.exe test.c setjmpS.o -g -I%uincpath%
+EXPECTED>a.exe
+Returned from longjmp, val = ciallo
+*/
+
 // ---- { MORE } ----
 
 #endif

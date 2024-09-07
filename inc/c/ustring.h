@@ -1,7 +1,7 @@
 // ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant
 // LastCheck: RFZ18
-// AllAuthor: @dosconio
+// AllAuthor: @ArinaMgk; @dosconio
 // ModuTitle: Operations for ASCIZ Character-based String
 /*
 	Copyright 2023 ArinaMgk
@@ -178,14 +178,15 @@ static inline char* StrCopy(char* dest, const char* sors)
 #endif
 
 #ifdef _INC_USTRING_INLINE
-static inline void* MemSet(void* s, int c, size_t n)
+static inline void* MemSet(void* d, int c, size_t n)
 {
-	while (n) ((char*)s)[--n] = (char)c;
-	return s;
+	while (n) ((char*)d)[--n] = (char)c;
+	return d;
 }
 #else
-void* MemSet(void* s, int c, size_t n);
+void* MemSet(void* d, int c, size_t n);
 #endif
+#define MetSetof(arr,c) MemSet(arr,c,sizeof(arr))
 
 // RFB31 changed from `static inline char* MemCopyN(char* dest, const char* sors, size_t n)`
 #ifdef _INC_USTRING_INLINE

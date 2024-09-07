@@ -146,13 +146,13 @@ enum Architecture_t // for instruction sets
 	#include <stddef.h>
 	#endif		
 #elif defined(_Intelx86o64_Windows_64)
-	#include "architect/arcx64_win64.h"
+	#include "../architect/arcx64_win64.h"
 #elif defined(_MCU_Intel8051)
-	#include "architect/arcintel_8051.h"
+	#include "../architect/arcintel_8051.h"
 	#define __BITS__ 8
 	#define __ARCH__ Architecture_Unknown
 #elif defined(_OPT_RISCV64)
-	#include "architect/arcriscv_64.h"
+	#include "../architect/arcriscv_64.h"
 #else // if unknown architecture, UNISYM will not define any
 	#define _INC_DEPEND_STDINT
 	#include <stdint.h> // try

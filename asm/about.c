@@ -22,6 +22,6 @@
 #define _AUTO_INCLUDE
 #define __BUILDENV__
 #include "aasm.h"
-#include <version/version.h>
+#include <../../demo/template/version/version.h>
 
 

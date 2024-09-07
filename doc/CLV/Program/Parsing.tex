@@ -1,0 +1,9 @@
+
+%{TODO} {Mgc} 任何语言 ---> 通用 Mika 中间语言 ---> 目标文件
+
+\subsubsection{Sequence Point}
+
+\paragraph{about Calling} \
+
+\B{First for arguments but function pointer}
+In the function call \verb`(*pf[f1()]) (f2(), f3() + f4())` the functions f1, f2, f3, and f4 may be called in any order. All side effects have to be completed before the function pointed to by \verb`pf[f1()]` is called.

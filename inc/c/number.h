@@ -24,7 +24,6 @@
 #define _INC_NUMBER
 
 #include "stdinc.h"
-#include "floating.h"
 #include "ustdbool.h"
 
 // ---- Complex ---- 

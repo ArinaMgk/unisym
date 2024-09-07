@@ -31,5 +31,9 @@ enum Charset {
 	CHARSET_UTF_32,
 };
 
+//{} upec ?
+//{} wide ?
+//{} multi ?
+
 
 #endif

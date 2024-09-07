@@ -1,0 +1,90 @@
+
+The definition and declaration of function, to see \refer{Function}.
+
+Definition reserves room for variables, but declarations do not.
+Usually a definition includes the respective declaration.
+
+Someone call both “declaration”: The former is “Definition Declaration” and the later is “Reference Declaration”. From this perspective, declaration can be a kind of definition, and vice versa. % yo 20240308
+
+When it comes to linkage, there is usually One Definition Rule (ODR) \textemdash only an object can own the entity of the specific object. %单定义规则
+Inline function are beyond the rule, for the header can implement them without any worries about duplication.
+
+Magice(Default configuration) and {Rust} will take the last definition for the near next code in the scope.
+
+\It{The declaration is a kind of pseudo-instruction.} \textemdash{Arina, RFA23}.
+
+\paragraph{non-function objects for $C,C++,M$}
+
+\B{Experiment - Slave statements cannot be declarations}%REZ07
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+	if (...) long long i;
+\end{lstlisting}
+
+\B{Experiment - C/C++ - Tentative Linkage 1}
+Below are codes in a global (out of any grace-scope) scope, where assumes N is an immediate integer. Results are done by \It{dosconio} with specific version.
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+	int i1 = N;        // definition, external linkage
+	static int i2 = N; // definition, internal linkage
+	extern int i3 = N; // definition, external linkage
+	int i4;            // tentative , external linkage
+	static int i5;     // tentative definition, internal linkage
+	int i1;            // refers to line-1 (valid tentative definition)
+	int i2;            // BAD (error in GCC, but pass for MSVC)
+	int i3;            // refers to line-3
+	int i4;            // refers to line-4
+	int i5;            // BAD (like line-7)
+	extern int i1;     // refers to previous external
+	extern int i2;     // refers to previous internal
+	extern int i3;     // refers to previous external
+	extern int i4;     // refers to previous external
+	extern int i5;     // refers to previous internal
+	// line-7 error: non-static declaration of 'i2' follows static declaration
+	// line-8 warning: 'i3' initialized and declared 'extern'
+\end{lstlisting}
+
+For {C}, the code is bad, but OK for {CPP}. For \It{Magice}, this will consider an operation with effect for stack in reality.
+
+\B{EXAMPLE - C/C++ - Tentative Linkage 2}
+If at the end of the translation unit containing, for example, \verb`int i[];`, the array \verb`i` still has incomplete type, the implicit initializer causes it to have 1 element, which is set to 0 on program startup.
+
+\B{EXAMPLE - C/C++ - Tentative Linkage 3}
+According to ISO/IEC C99
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+// OK in file scope
+extern char a[];
+char a[1];
+\end{lstlisting}
+\begin{lstlisting}[language=C]
+// BAD in file scope
+extern char* b;
+char b[1];
+\end{lstlisting}
+Notice that if one is not in file(global) scope, the object will be in stack, so it is impossible to link for C/C++.
+
+
+\paragraph{non-function objects for $Rust$} \
+
+\B{EXAMPLE}
+\lstset{style=GlobalRust}
+\begin{lstlisting}[language=Rust]
+let mut a: i32 = 10;
+\end{lstlisting}
+where \verb`mut`, \verb`:i32`, \verb`=10` 
+are optional for what you want to do.
+
+
+\paragraph{$struct/union$ for $C,C++$}
+
+We can define them later than their declaration. For example,
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+	struct struc_a_t;
+	typedef struc_a_t struc_b_t;
+	// ... before using the body of `struc_a_t'
+	struct struc_a_t { /*...*/ }
+\end{lstlisting}
+
+

@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant since(C99)
-// LastCheck: 2024MAR29
-// AllAuthor: @dosconio
-// ModuTitle: Alias for ISO IEC Standard CPL string.h
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module) Bitmap, not a picture format
+// Codifiers: @dosconio: 20240422 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,4 +20,23 @@
 	limitations under the License.
 */
 
-#include "../datype/integer.h"
+#ifndef _INC_BITMAP
+#define _INC_BITMAP
+#include "stdinc.h"
+#ifdef _INC_CPP
+
+namespace uni {
+	class Bitmap {
+	protected:
+		pureptr_t offs;// align by byte
+	public:
+		Bitmap(pureptr_t offs) : offs(offs) {}
+		/*//{TODO}
+		- setof() making use of ASM inst.
+		*/
+	};
+}
+
+
+#endif
+#endif

@@ -64,7 +64,7 @@ int main(int argc, char** argv)
 	printline(" ");
 
 	ConStyleAbnormal();
-	printf("%08" PRIXPTR, crtline);
+	printf("%08lX", crtline);
 	crtline += 0x10;
 	ConStyleNormal();
 	putchar(' ');
@@ -75,7 +75,7 @@ int main(int argc, char** argv)
 		printf("%02X", buf[i]);
 		if ((i & 0xF) == 0xF)
 		{
-			putchar(' ');
+			putchar(':');
 			i &= ~(size_t)0xF;
 			for (size_t j = 0;j < 0x10;j++)
 			{
@@ -86,7 +86,7 @@ int main(int argc, char** argv)
 			i |= (size_t)0xF;
 			printline("");
 			ConStyleAbnormal();
-			printf("%08" PRIXPTR, crtline);
+			printf("%08lX", crtline);
 			crtline += 0x10;
 			ConStyleNormal();
 			putchar(' ');

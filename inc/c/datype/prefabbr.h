@@ -1,4 +1,3 @@
-// part of ../integer.h
 
 #ifndef _INC_INTEGER_PREF_ABBR
 #define _INC_INTEGER_PREF_ABBR

@@ -41,19 +41,8 @@
 	}
 \end{itemize}
 
-\subsubsection{Definition and Declaration} (C99)
-
-\paragraph{$struct/union$ for $C,C++$}
-
-We can define them later than their declaration. For example,
-\lstset{style=GlobalC}
-\begin{lstlisting}[language=C]
-struct struc_a_t;
-typedef struc_a_t struc_b_t;
-// ... before using the body of `struc_a_t'
-struct struc_a_t { /*...*/ }
-\end{lstlisting}
-
+\subsubsection{Definition and Declaration} (C99, ...)
+\subimport{.}{Dex}
 
 \subsubsection{Judgment Statement `If'}
 

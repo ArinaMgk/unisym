@@ -24,7 +24,7 @@
 
 void NodeHeapFreeSimple(pureptr_t inp) {
 	Letvar(nod, Node*, inp);
-	memf(nod->addr);
+	memf(nod->offs);
 }
 
 void NodeRemove(Node* nod, Node* left, void (*_node_freefunc)(pureptr_t ptxt))

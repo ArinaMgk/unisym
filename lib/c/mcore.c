@@ -32,6 +32,8 @@ char _tab_hexa[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b
 size_t malc_count = 0;
 size_t malc_limit = _MALLIMIT_DEFAULT;// you can use such `malc_limit = 100;` to change this.
 
+void memf(void* m) { memfree(m); }
+
 // ---- { calling } ----
 
 size_t call_state;

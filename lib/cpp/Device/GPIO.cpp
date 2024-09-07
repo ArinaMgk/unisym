@@ -67,7 +67,7 @@ namespace uni
 		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[bitposi >> 2];
 		byte CrtPosi = (bitposi & 0x3) * 4;
 		CrtEXTICR = (CrtEXTICR &
-			~(stduint)(0xF << CrtPosi)) |
+			~_IMM(0xF << CrtPosi)) |
 			(GPIO.Index(parent) << CrtPosi);
 		EXTI::TriggerRising.setof(bitposi, edg != GPIORupt::Negedge);
 		EXTI::TriggerFalling.setof(bitposi, edg != GPIORupt::Posedge);
@@ -209,7 +209,7 @@ namespace uni
 	};
 
 	GeneralPurposeInputOutputPin::operator bool() const {
-		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
+		return (innput ? parent->InnpdPort : parent->OutpdPort) & (_IMM(1) << bitposi);
 	}
 
 	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
@@ -225,15 +225,15 @@ namespace uni
 
 	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
 		if (autoEnClk) parent->enClock();
-		parent->ModerPort &= ~(uint32)(0x3 << (bitposi << 1));
-		parent->ModerPort |= (((stduint)mode)>>1) << (bitposi << 1);
-		if ((stduint)mode & 1)
+		parent->ModerPort &= ~_IMM(0x3 << (bitposi << 1));
+		parent->ModerPort |= (_IMM(mode)>>1) << (bitposi << 1);
+		if (_IMM(mode) & 1)
 			BitSet(parent->OtypePort, bitposi);
 		else
 			BitClr(parent->OtypePort, bitposi);
-		parent->SpeedPort &= ~(uint32)(0x3 << (bitposi << 1));
-		parent->SpeedPort |= (stduint)speed << (bitposi << 1);
-		if (mode == GPIOMode::IN_Floating) parent->PullsPort &= ~(uint32)(0x3 << (bitposi << 1));
+		parent->SpeedPort &= ~_IMM(0x3 << (bitposi << 1));
+		parent->SpeedPort |= _IMM(speed) << (bitposi << 1);
+		if (mode == GPIOMode::IN_Floating) parent->PullsPort &= ~_IMM(0x3 << (bitposi << 1));
 		innput = (GPIOMode::IN_Floating == mode) || (GPIOMode::IN_Analog == mode) || (GPIOMode::IN_Pull == mode); // KEPT
 		
 	}
@@ -262,7 +262,7 @@ namespace uni
 		selection &= 0xF;
 		byte bposi = (bitposi & 0x7) << 2;// mod 8 then mul-by 4
 		Reference r = parent->operator[](bitposi < 8 ? GPIOReg::AFRL : GPIOReg::AFRH);
-		r = (r & ~(stduint)(0xF << bposi)) | (selection << bposi);
+		r = (r & ~_IMM(0xF << bposi)) | (selection << bposi);
 	}
 
 	bool GeneralPurposeInputOutputPin::getInn() {
@@ -292,7 +292,7 @@ namespace uni
 		if (autoEnClk) pare.enClock();
 		pare.getReference(DIR).setof(bitposi, mode & 0x1);
 		pare.getReference(OPENDRAIN).setof(bitposi, mode & 0x2);
-		pare.getReference(SPEED).setof(bitposi, 0 != (stduint)spd);
+		pare.getReference(SPEED).setof(bitposi, 0 != _IMM(spd));
 		pare.getReference(ANALOG).setof(bitposi, 0);/*TEMP*/
 		innput = mode & 0x1;
 	}

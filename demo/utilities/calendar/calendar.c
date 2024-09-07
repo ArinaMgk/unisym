@@ -13,11 +13,27 @@
 
 int show_weekid = 0;
 
+static char getPrefix(stdsint pasts) {
+	if (pasts < 0) return '[';
+	byte mod = (pasts + 1) % 30;
+	if (!mod) return '|';// if the beginning of the period
+	else if (mod < 5) return ' ';// if in the period
+	else return '[';
+}
+
+static char getSuffix(stdsint pasts) {
+	if (pasts < 0) return ']';
+	byte mod = (pasts + 1) % 30;
+	if (mod >= 5) return ']';
+	if (mod == 4) return '|';// if the ending of the period
+	else return ' ';// if in the period
+}
+
 void DrawCalendar(word year, word moon, byte crtday)
 {
 	unsigned char week_day, mondays;
 	if (moon == 0 || moon > 12) return;
-	uint64 pasts = herspan(year, moon, 1);
+	stdsint pasts = herspan(year, moon, 1);
 	week_day = weekday(year, moon, 1);
 	mondays = moondays(year, moon);
 	printf("\n");
@@ -35,13 +51,11 @@ void DrawCalendar(word year, word moon, byte crtday)
 		if (i == crtday)
 		{
 			ConStyleNormal();
-			printf("[%02d]", i);
+			printf("%c%02d%c", getPrefix(pasts) == '[' ? '<' : '!',
+				i, getSuffix(pasts) == ']' ? '>' : '!');
 			ConStyleAbnormal();
 		}
-		else if (year >= 2014 && !((pasts + 1) % 30))
-			printf("|%02d]", i);
-		else
-			printf("[%02d]", i);
+		else printf("%c%02d%c", getPrefix(pasts), i, getSuffix(pasts));
 		week_day++; pasts++;
 		if (week_day >= 7)
 		{

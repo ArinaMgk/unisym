@@ -24,6 +24,8 @@
 #define _MCU_Intel8051
 #endif
 
+#define double float// no support for long float
+
 #if !defined(_INC_MCU_8051)
 #define _INC_MCU_8051
 
@@ -32,7 +34,7 @@
 #ifdef _DEV_KEIL // for KEIL C51
 #define defbyt(idn,adr)   sfr  idn=adr;
 #define defbit(idn,adr)   sbit idn=adr;
-#else _TEMP // for SDCC
+#else // for SDCC
 #define defbyt(idn,adr) __sfr  __at (adr) idn;
 #define defbit(idn,adr) __sbit __at (adr) idn;
 #endif

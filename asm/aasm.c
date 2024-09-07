@@ -1,5 +1,5 @@
-// ASCII DJGPP (Debug MSVC2010) TAB4 CRLF
-// Attribute: ArnCovenant Host bin^16+ 386+
+// ASCII C TAB4 CRLF
+// Attribute: ArnCovenant Host bins(16+) 386+
 // LastCheck: RFX19
 // AllAuthor: @dosconio
 /*
@@ -20,13 +20,30 @@
 */
 
 #include <stdinc.h>
+#include <ustdbool.h>
 #include <stdio.h>
-#include <version/version.h>
+#include <../../demo/template/version/version.h>
+#include <time.h>
 
-int main()
+static time_t startup_time;
+static time_t temp_time;
+static byte rest_parse_phase = 2;
+static bool terminate_after_phase = false;
+
+static printinfo(void) {
+	time(&temp_time);
+	printf("%s", __PROJ_INFO__);
+	printf("Timspan: %" PRIuSTD "\n", temp_time - startup_time);
+}
+
+int main(int argc, char** argv, char** envv)
 {
-	puts(__PROJ_INFO__);
-	getchar();
+	time(&startup_time);
+	//{TODO} report_error = report_error_gnu;
+	//{TODO} error_file = stderr;
+	//{TODO} _set_malloc_error(report_error);
+	
+	printinfo();
 }
 
 

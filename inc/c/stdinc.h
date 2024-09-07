@@ -26,12 +26,11 @@
 #if defined(_INC_CPP) || defined(__cplusplus)
 extern "C" {
 #endif
-#if defined(_dbg) || defined(_DEBUG)
-#include "debug.h"
-#else
-#include "proctrl.h"
-#endif
+#include "proctrl/proctrl.h"
 #include "host.h"//{TODO} option switch
+#if defined(_dbg) || defined(_DEBUG)
+#include "system/debug.h"
+#endif
 	extern char _tab_HEXA[16];
 	extern char _tab_hexa[16];
 //	

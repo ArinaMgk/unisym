@@ -9,8 +9,8 @@
 #ifndef _INC_PROCTRL
 #define _INC_PROCTRL
 
-#include "uoption.h"
-#include "floating.h"
+#include "../system/uoption.h"
+#include "../datype/floating.h"
 
 //{TODO} in uoption: _PCU_CortexM7
 enum Procontroller_t // work with Architecture_t

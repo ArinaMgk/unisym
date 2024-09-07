@@ -2,7 +2,7 @@
 #ifndef _INC_INTEGER_STYLE_RUST
 #define _INC_INTEGER_STYLE_RUST
 
-#include "../integer.h"
+// INC by integer.h
 
 typedef uint8 u8;//[CONFLICT] u8 is short for uint8 or utf-8
 typedef uint16 u16;

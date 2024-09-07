@@ -30,14 +30,10 @@ def set_makefile(fpath, ftext): # UTF-8
 		fobj.write(bytes(ftext, encoding = "utf8"))
 
 # ---- ---- ---- ---- ---- ---- ---- ----
-#list_c_tomake = get_files("./lib/local/", ".make.c")
-list_asm_file = [
-	"$(ulibpath)/asm/<INSSYS>/cpuid.asm",
-	"$(ulibpath)/asm/<INSSYS>/binary.asm"
-]
 list_cpl_file = get_files("./lib/c/", ".c")
 list_cpp_file = get_files("./lib/cpp/", ".cpp")
 list_asm_free86 = get_files("./lib/asm/x86", ".asm")
+list_asm_free64 = get_files("./lib/asm/x64", ".asm")
 
 # [General-standing environment Library]
 # unisym/lib/make/cgw32.make -> -bin/libw32d.a 
@@ -56,6 +52,7 @@ print(text_gcc_win32, text_gcc_win64, text_msv_win32, text_msv_win64, text_gcc_l
 # ---- make list by win
 comhead = """
 AASM = aasm
+aat=-I$(uincpath)/Kasha/n_ -I$(uincpath)/naasm/n_
 cplpref=_cc_
 cplfile=$(wildcard lib/c/*.c) $(wildcard lib/c/**/*.c) $(wildcard lib/c/**/**/*.c) $(wildcard lib/c/**/**/**/*.c)
 cplobjs=$(patsubst %c, %o, $(cplfile))
@@ -69,7 +66,7 @@ dest_obj=$(uobjpath)/CGWin32
 CC = E:/PROJ/CoStudioWin64/i686/bin/gcc.exe -m32
 CX = E:/PROJ/CoStudioWin64/i686/bin/g++.exe -m32
 AR = E:/PROJ/CoStudioWin64/i686/bin/ar.exe
-aattr = -fwin32 -I$(uincpath)/Kasha/n_
+aattr = -fwin32
 dest_abs = ../_bin/libw32d.a
 """
 text_gcc_win64 += comhead + """
@@ -78,12 +75,12 @@ dest_obj=$(uobjpath)/CGWin64
 CC = M:/tmp/bin/mingw64/bin/gcc.exe  -m64
 CX = M:/tmp/bin/mingw64/bin/g++.exe  -m64
 AR = M:/tmp/bin/mingw64/bin/ar.exe
-aattr = -fwin64 -I$(uincpath)/Kasha/n_ 
+aattr = -fwin64
 dest_abs = ../_bin/libw64d.a
 """
 text_gcc_lin32 += comhead + """
 attr = -D_DEBUG -D_Linux -O3
-aattr = -felf -I$(uincpath)/Kasha/n_
+aattr = -felf
 dest_obj=$(uobjpath)/CGLin32
 dest_abs=$(ubinpath)/libl32d.a
 CC=gcc -m32
@@ -91,7 +88,7 @@ CX=g++ -m32
 """
 text_gcc_lin64 += comhead + """
 attr = -D_DEBUG -D_Linux -O3
-aattr = -felf -I$(uincpath)/Kasha/n_
+aattr = -felf
 dest_obj=$(uobjpath)/CGLin64
 dest_abs=$(ubinpath)/libl64d.a
 CC=gcc -m64
@@ -109,7 +106,7 @@ CC = ${TOOLDIR}/bin/Hostx86/x86/cl.exe
 CX = ${CC}
 AR = ${TOOLDIR}/bin/Hostx86/x86/lib.exe
 # contain x86 - x64 can run this
-aattr = -fwin32 -I$(uincpath)/Kasha/n_
+aattr = -fwin32
 dest_abs = ../_bin/libw32d.lib
 VLIB_64=/LIBPATH:"${TOOLDIR}/lib/x86/" /LIBPATH:"${TOOLDIR}/lib/onecore/x86" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/um/x86" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/ucrt/x86"
 VI_SYS="C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/ucrt/"
@@ -125,7 +122,7 @@ TOOLDIR = E:/software/VS22/VC/Tools/MSVC/14.39.33519
 CC = ${TOOLDIR}/bin/Hostx64/x64/cl.exe
 CX = ${CC}
 AR = ${TOOLDIR}/bin/Hostx64/x64/lib.exe
-aattr = -fwin64 -I$(uincpath)/Kasha/n_
+aattr = -fwin64
 dest_abs = ../_bin/libw64d.lib
 VLIB_64=/LIBPATH:"${TOOLDIR}/lib/x64/" /LIBPATH:"${TOOLDIR}/lib/onecore/x64" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/um/x64" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/ucrt/x64"
 VI_SYS="C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/ucrt/"
@@ -148,19 +145,15 @@ tmp = ".PHONY: all\n"+\
 text_msv_win32 += tmp
 text_msv_win64 += tmp
 
-for val in list_asm_file:
-	# for x86
-	fullname = val.replace("<INSSYS>", "x86")
-	tmp = '\t@echo AS ' + fullname + '\n\t' + "@cd ${dest_obj}/ && ${AASM} ${aattr} " + fullname + " -o " + get_outfilename(val) + "_a.o" + '\n'
+for val in list_asm_free86:
+	tmp = '\t@echo AS ' + val.replace("./lib", "lib") + "\n\t@${AASM} ${aattr} ${aat} " + val + " -o ${dest_obj}/_ae_" + get_outfilename(val) + ".o" + '\n'
 	text_gcc_win32 += tmp
 	text_msv_win32 += tmp
 	text_gcc_lin32 += tmp
-	# for x64
-	fullname = val.replace("<INSSYS>", "x64")
-	tmp = '\t@echo AS ' + fullname + '\n\t' + "@cd ${dest_obj}/ && ${AASM} ${aattr} " + fullname + " -o " + get_outfilename(val) + "_a.o" + '\n'
+for val in list_asm_free64:
+	tmp = '\t@echo AS ' + val.replace("./lib", "lib") + "\n\t@${AASM} ${aattr} ${aat} " + val + " -o ${dest_obj}/_ax_" + get_outfilename(val) + ".o" + '\n'
 	text_gcc_win64 += tmp
 	text_msv_win64 += tmp
-	# text_gcc_lin64 += tmp #----elf output format does not support 64-bit code
 if True:
 	tmp = """
 	@echo "CC  = $(CC)"
@@ -172,20 +165,10 @@ if True:
 	text_gcc_lin32 += tmp
 	text_gcc_lin64 += tmp
 for val in list_cpl_file:
-	#tmp = '\t@echo CC ' + val + '\n\t' + "@$(CC) -c " + val + " -o ${dest_obj}/${cplpref}" + get_outfilename(val) + ".o $(attr)\n"
-	#text_gcc_win32 += tmp
-	#text_gcc_win64 += tmp
-	#text_gcc_lin32 += tmp
-	#text_gcc_lin64 += tmp
 	tmp = '\t' + "$(CC) /c " + val + " /Fo:${dest_obj}/${cplpref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
 for val in list_cpp_file:
-	#tmp = '\t@echo CX ' + val + '\n\t' + "@$(CX) -c " + val + " -o ${dest_obj}/${cpppref}" + get_outfilename(val) + ".o $(attr)\n"
-	#text_gcc_win32 += tmp
-	#text_gcc_win64 += tmp
-	#text_gcc_lin32 += tmp
-	#text_gcc_lin64 += tmp
 	tmp = '\t' + "$(CX) /c " + val + " /Fo:${dest_obj}/${cpppref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp

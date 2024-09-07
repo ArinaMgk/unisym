@@ -1,0 +1,59 @@
+
+We usually consider procedure or sub-routine only exist in Assembly. % 过程
+Someone call the function returning nothing procedure. %函数
+
+\subsubsection{Calling Statement}
+
+Assume \verb`f` is a pointer to some function, or from an entity \verb`void f() {...}`, then \verb`f(...)` or \verb`(*f)(...)` can call the function, where \verb`...` stands for arguments actually. Even none-* or multi-* can call it, like \verb`(*****f)()`. % expi by dscn, 20240905
+
+\subsubsection{Parameter and Argument}
+
+\paragraph{For C or C++}\
+
+Because pointers are in a size, it is OK to write \verb`f(int arr[1][2]) {...}` as \verb`f(int arr[][2]) { ... }` or \verb`f(int (*arr)[2]) { ... }`.
+For multi arguments, the evaluation order (before calling) is decided by the compiler, and usually the passing order is from right to left (under CDECL, CPL Declaration Rule).
+
+When calling the function, the item filled in the place of the respective parameter is called `argument'. Hence parameter is {formal argument}.
+
+The form of parameter passing: reference, stack(of caller or callee), register.
+
+The \B{storage-class specifier} for a parameter declaration is only \verb`register`.
+
+\subsubsection{Calling Convention}\labex{Calling}
+
+\subsubsection{Register BP for Entering and Leaving Function}
+
+%{} for functions that have arguments or local variables, ...
+
+\subsubsection{Allocation of Stack}
+
+This is for the parameters and locale variables. Whether the arguments are aligned with bytes depends on the compiler. For Visual C++ in Win32, it usually with multi-bytes (a \verb`dword`), while it may be  only one for GCC. Try like this if we want to assure:
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+	// ASCII C TAB4 CRLF
+	// Docutitle: (Demo) 
+	// Codifiers: @dosconio
+	// Attribute: Endian(Little)(for %x occuper)
+	#include <stdio.h>
+	int main() {
+		char a, b;
+		printf("%x %x", &a, &b);
+	}
+\end{lstlisting}
+
+\subsubsection{Inline Function for $C/C++$}
+
+This appeared when the keyword \refer{keyword.inline} appeared.
+In a hosted environment, inline cannot specify function \It{main}.
+
+\B{EXAMPLE - Avoid side-effect}
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+inline MIN(int a, int b){if (a < b)return a; else return b;}
+#define min(x,y)((x)<(y)?(x):(y))
+\end{lstlisting}
+Assume \verb|a| assigned "1". Then
+\verb`min(++a,b);` makes \verb|a| equals 3, while
+\verb`MIN(++a,b);` makes \verb|a| equals 2.
+

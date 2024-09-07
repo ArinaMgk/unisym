@@ -33,7 +33,7 @@
 #define _INTTYPES_H_
 #endif
 
-#include "archit.h"// If included and stdint.h is not, then implement stdint.h; if all not, then include this and re-judge including of stdint.h
+#include "../system/archit.h"// If included and stdint.h is not, then implement stdint.h; if all not, then include this and re-judge including of stdint.h
 
 #ifdef _INC_DEPEND_STDINT // use others'
 	//
@@ -107,7 +107,7 @@ static const stduint NONE = ~(stduint)0;
 // ---- ---- ---- ---- inttypes.h ---- ---- ---- ----
 
 // The fprintf macros for integers are:
-
+//{TEMP} u/d for bits32 
 #ifndef PRId8
 	#define PRId8  "d"
 	#define PRId16 "d"
@@ -304,6 +304,14 @@ static const stduint NONE = ~(stduint)0;
 #define PRIdSTD PRIdPTR
 #define PRIuSTD PRIuPTR
 #define PRIxSTD PRIxPTR
+
+//: avoid using literal suffix
+#define _IMM(x) ((stduint)x)
+#define _IMM1 _IMM(1)
+#define _IMM64(x) ((uint64)x)
+#define _IMM32(x) ((uint32)x)
+#define _IMM16(x) ((uint16)x)
+#define _IMM8(x)  ((uint8)x)
 
 // Using `max` `min` may be conflict with stdlib.h:
 #ifndef maxof//(a,b)

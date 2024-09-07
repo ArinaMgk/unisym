@@ -28,8 +28,6 @@
 #if !defined(_LIB_DEBUG) && defined(_DEBUG)// Add this can cheat the compiler
 #define _LIB_DEBUG// Her Convenient odd style. Maybe a bad habit for formal project.
 
-#include "proctrl.h"
-
 // ---- { memory } ----
 
 #define malc_count _MALCOUNT
@@ -54,7 +52,7 @@ extern size_t arna_precise;
 #if defined(_dbg) || defined(_DEBUG)
 	#define memalloc(dest,size)\
 		(*(char**)&dest=(char*)malloc(size))?((void)_MALCOUNT++):(erro("MEMORY RUN OUT!"),(void)0)
-	#define memfree(x) if(x){free((char*)(x));_MALCOUNT--;}// RFW21 version
+	#define memfree(x) do if(x){free((char*)(x));_MALCOUNT--;} while(0)// RFW21 version
 	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);_MALCOUNT--;*(void**)&(x)=ebx;}
 	#define malc(size) (void*)(_MALCOUNT++,malloc(size))
 	#define zalc(size) (void*)(_MALCOUNT++,calloc(size,1))

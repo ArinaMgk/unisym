@@ -3,9 +3,16 @@
 
 The concept of `state machine' is widely accepted, for it describing the effect of the instructions, which can help us to get numeric register-effects and other side-effects.
 
+For example, the rules of conversion from function calling, entering(including allocating stack and others), leaving and evaluation to assembly implementation should be specific.
+
+More to see
+\begin{itemize}
+	\item \refer{Calling}
+\end{itemize}
+
 \subsection{Syntax, Semantics and Statement}
 % Syntax(Grammar), Semantics and Statement
-\input{CLV/Program/Statement.tex}
+\subimport{CLV/Program}{Statement}
 
 \subsection{Data-type and Memory}
 
@@ -15,24 +22,41 @@ The concept of `state machine' is widely accepted, for it describing the effect 
 
 
 \subsection{Keyword and Operator Parsing}
-
-%{TODO} keyword
-
+\subimport{CLV/Program}{Keyword}
 \input{CLV/Program/Operator.tex}
 
 \subsection{Preprocessing and Parsing}
+\subimport{CLV/Program}{Parsing}
 
-
-\subsection{Procedure and Function}
-
+\subsection{Procedure, Function and Method}
+\labex{Function}
+\subimport{CLV/Program}{Function}
 
 \subsection{Standard, Style and Arinae Covenant}
 
 
 \subsection{Target and Output Format}
 
-% Host/Guest
-% Hosted/Freestanding Env
+\subsubsection{Freestanding Environment}
 
-\subsection{Special Notion}
+Relative command options: %{TODO}
+
+\subsubsection{Hosted Environment}
+
+In Freestanding Environment, user can only use inline assembly, memory and arithmetic effect. However, the hosted includes at least interfaces provided by Operating System and Processor-registered mechanism, which provide much side-effect.
+
+Usually to see demo `args':
+
+\lstset{style=GlobalC}
+\lstinputlisting[language=C, firstline=24]{../demo/utilities/args.c}
+
+But the ISO/IEC recommend the below forms for `main' function with external symbol \verb`_main`:
+
+%{TODO} 
+
+\subsection{Assertion and Exception}
+
+\subsection{Special Notion and Adaptation}
+
+\subsubsection{Parallel and Multi-process}
 

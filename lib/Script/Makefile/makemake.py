@@ -87,7 +87,7 @@ CC=gcc -m32
 CX=g++ -m32
 """
 text_gcc_lin64 += comhead + """
-attr = -D_DEBUG -D_Linux -O3
+attr = -D_DEBUG -D_Linux -D__BITS__=64 -O3
 aattr = -felf
 dest_obj=$(uobjpath)/CGLin64
 dest_abs=$(ubinpath)/libl64d.a
@@ -95,9 +95,12 @@ CC=gcc -m64
 CX=g++ -m64
 """
 
+#  warn4819: Unicode Existing
+#  warn4010: Linefeed in Line Comment
+#  warn4005: Macro Redefinition
 #{TODO}:
 text_msv_win32 += comhead + """
-attr = /D_DEBUG /D_Win32
+attr = /D_DEBUG /D_Win32 /nologo /wd4819 /wd4010 /wd4005
 cplpref=_uvc32_
 cpppref=_uxxvc32_
 dest_obj=$(uobjpath)/CVWin32
@@ -114,7 +117,7 @@ VI_64=${TOOLDIR}/include/ /I${VI_SYS} /I"C:/Program Files (x86)/Windows Kits/10/
 """
 #{TODO}:
 text_msv_win64 += comhead + """
-attr = /D_DEBUG /D_Win64
+attr = /D_DEBUG /D_Win64 /nologo /wd4819 /wd4010 /wd4005
 cplpref=_uvc64_
 cpppref=_uxxvc64_
 dest_obj=$(uobjpath)/CVWin64
@@ -165,19 +168,19 @@ if True:
 	text_gcc_lin32 += tmp
 	text_gcc_lin64 += tmp
 for val in list_cpl_file:
-	tmp = '\t' + "$(CC) /c " + val + " /Fo:${dest_obj}/${cplpref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
+	tmp = "\t@$(CC) /c " + val + " /Fo:${dest_obj}/${cplpref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
 for val in list_cpp_file:
-	tmp = '\t' + "$(CX) /c " + val + " /Fo:${dest_obj}/${cpppref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
+	tmp = "\t@$(CX) /c " + val + " /Fo:${dest_obj}/${cpppref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
-tmp = '\t@echo AR ${dest_abs} \n\t' + "@${AR} -rcs ${dest_abs} ${dest_obj}/*" + '\n'
+tmp = '\t@echo AR ${dest_abs} \n\t' + "@${AR} -rcs ${dest_abs} ${dest_obj}/*\n"
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
 text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp
-tmp = '\t@echo AR ${dest_abs} \n\t' + "@${AR} /OUT:${dest_abs} ${dest_obj}/*" + '\n'
+tmp = '\t@echo AR ${dest_abs} \n\t' + "@${AR} /OUT:${dest_abs} ${dest_obj}/* /nologo\n"
 text_msv_win32 += tmp
 text_msv_win64 += tmp
 
@@ -218,6 +221,7 @@ list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/toki/PIT.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/keyboard.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/task.c")
 list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/consio.c")
+list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/console/conformat.c")
 text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
 print(text_gcc_mecocoa)
 text_gcc_mecocoa += ".PHONY: all\n"

@@ -26,9 +26,28 @@
 
 char buf[1 + _CPU_BRAND_SIZE];
 
-int main()
+static void show_cpu_brand(void)
 {
-	// Show CPU Brand
 	CpuBrand(buf);
 	printf("CPU Brand:  %s\n", buf);
+}
+
+int main(int argc, char* argv[])
+{
+	int badcmd = 0;
+	if (argc > 1 && argv[1][0] == '-')
+	{
+		if (!argv[1][2]) switch (argv[1][1]) {
+		case 'b': show_cpu_brand(); break;
+		default:
+			printf("Usage: %s [-b] [comments]\n", argv[0]);
+			badcmd = 1;
+			break;
+		}
+		else badcmd = 1;
+	}
+	else { // show all
+		show_cpu_brand();
+	}
+	exit(badcmd);
 }

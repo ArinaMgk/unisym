@@ -342,10 +342,10 @@ static const stduint NONE = ~(stduint)0;
 #define movDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
 
 #ifdef _STYLE_ABBR
-	#include "integer/prefabbr.h"
+	#include "prefabbr.h"
 #endif
 #ifdef _STYLE_RUST
-	#include "integer/ruststyle.h"
+	#include "ruststyle.h"
 #else
 	// other styles ...
 #endif

@@ -199,6 +199,7 @@ static inline void* MemCopyN(void* dest, const void* sors, size_t n)
 #else
 #define MemCopyN memcpy ///{TODO}
 #endif
+#define MemCopySrc(dest,sors) MemCopyN(dest,sors,sizeof(*sors))
 
 // n excludes terminating-0
 #ifdef _INC_USTRING_INLINE

@@ -52,6 +52,7 @@ graph LR
 	proctrl--+(x86.h,i8051.h...)-->floating.h-->integer.h-->arch
 	stdinc[stdinc.h]
 	stdinc--"_BEBUG? +debug.h"-->proctrl
+	stdinc-->host&memory.h
 	unisym-->stdinc
 ```
 

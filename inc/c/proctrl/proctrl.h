@@ -22,13 +22,13 @@ enum Procontroller_t // work with Architecture_t
 };
 
 #if defined(_MCU_Intel8051) // Keil-C51 does not accept enum-element as macro-parameter
-	#include "MCU/Intel/i8051.h"
+	#include "../MCU/Intel/i8051.h"
 #elif defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)// defined(_ARC_x86)
-	#include "proctrl/x86/x86.h"
-	#include "board/IBM.h"
+	#include "x86/x86.h"
+	#include "../board/IBM.h"
 	#define _SUPPORT_Port8
 #elif defined(_ARC_RISCV_64)
-	#include "proctrl/RISCV/riscv64.h"
+	#include "RISCV/riscv64.h"
 #else
 	//...
 #endif

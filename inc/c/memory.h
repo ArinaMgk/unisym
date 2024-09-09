@@ -27,6 +27,25 @@
 
 #define _STDLIB_H
 
+#if !defined(_DEBUG) && !defined(_dbg)
+	#define memalloc(dest,size)\
+			((*(char**)&dest=(char*)malloc(size))? "":"! MEMORY RUN OUT!")
+	#define memfree(x) {if(x)free((char*)(x));}
+	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
+	#define malc(size) (void*)(malloc(size))
+	#define zalc(size) (void*)(calloc(size,1))
+#else
+	#define memalloc(dest,size)\
+		(*(char**)&dest=(char*)malloc(size))?((void)_MALCOUNT++):(erro("MEMORY RUN OUT!"),(void)0)
+	#define memfree(x) do if(x){free((char*)(x));_MALCOUNT--;} while(0)// RFW21 version
+	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);_MALCOUNT--;*(void**)&(x)=ebx;}
+	#define malc(size) (void*)(_MALCOUNT++,malloc(size))
+	#define zalc(size) (void*)(_MALCOUNT++,calloc(size,1))
+#endif
+
+void memf(void* m);// non-side-effect version
+#define mfree(x) do{memfree(x);(x)=0;}while(0)
+
 #ifdef _INC_CPP
 extern "C++" {
 #endif

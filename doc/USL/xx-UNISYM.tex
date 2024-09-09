@@ -2,6 +2,8 @@
 
 \textbf{UNISYM} (Universal Symbolic Library, aka `Uniformed Symbolic Library') originates from the abstraction of a lossless computing project (Silver-Garden-Arithmetic), which is transformed into \textbf{COTLAB}.
 
+The `Library' below are specific modules, for common modules described in \refer{CLOVER}.
+
 \textbf{Features of UNISYM}
 
 Portability, Coupling and Practicality. Portability is for showing the uniform; Coupling is for expressing the systematic logic; Practicality is for making sense.
@@ -25,7 +27,7 @@ if you develop MCU-program, use the special file like `STM32F1` for C++...
 \section{Notice}
 
 \B{Root Header for User}
-It is recommended that users use only header files whose directory is the root including path.
+It is recommended that users use only header files whose directory is the root including path. For example, we should include \verb`<stdinc.h>` but \verb|system/alice.h|.
 
 
 \section{Locale}

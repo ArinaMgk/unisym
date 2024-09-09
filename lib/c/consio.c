@@ -1,8 +1,8 @@
 // ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant yo Host
-// LastCheck: 2023 Nov 16
-// AllAuthor: @ArinaMgk since RFR30; @dosconio
-// ModuTitle: Console Input and Output
+// Docutitle: (Module) Console Input and Output
+// Codifiers: @ArinaMgk; @dosconio: 20231116 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,7 +20,6 @@
 	limitations under the License.
 */
 
-//{TEMP} for windows.h
 #define _INC_USTDBOOL
 #define bool int
 #define boolean byte
@@ -28,8 +27,6 @@
 
 #include "../../inc/c/consio.h"
 #include "../../inc/c/ISO_IEC_STD/stdlib.h"
-
-#if defined(_MCCA)// x86 or riscv64
 
 #if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 #include "proctrl/x86/x86.h" //{TEMP}
@@ -53,206 +50,36 @@ word curget(void)
 
 #endif
 
-static char _tab_dec2hex[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
-
-void outc(const char chr)
-{
-	outtxt(&chr, 1);
-}
-
-//{TODO} use template to simplify:
-
-//{TEMP} always align to right
-void outi8hex(const byte inp)
-{
-	byte val = inp;
-	char buf[2];
-	for (stduint i = 0; i < 2; i++)
-	{
-		buf[1 - i] = _tab_dec2hex[val & 0xF];
-		val >>= 4;
-	}
-	outtxt(buf, 2);
-}
-
-// Replacement of DbgEcho16
-void outi16hex(const word inp)
-{
-	word val = inp;
-	char buf[4];
-	for (stduint i = 0; i < 4; i++)
-	{
-		buf[3 - i] = _tab_dec2hex[val & 0xF];
-		val >>= 4;
-	}
-	outtxt(buf, 4);
-}
-
-// Replacement of DbgEcho32
-void outi32hex(const dword inp)
-{
-	dword val = inp;
-	char buf[8];
-	for (stduint i = 0; i < 8; i++)
-	{
-		buf[7 - i] = _tab_dec2hex[val & 0xF];
-		val >>= 4;
-	}
-	outtxt(buf, 8);
-}
-
-void outi64hex(const uint64 inp)
-{
-	uint64 val = inp;
-	char buf[16];
-	for (stduint i = 0; i < numsof(buf); i++)
-	{
-		buf[numsof(buf) - 1 - i] = _tab_dec2hex[val & 0xF];
-		val >>= 4;
-	}
-	outtxt(buf, numsof(buf));
-}
-
-void outidec(int xx, int base, int sign)
-{
-	char buf[16];
-	int i;
-	unsigned x;
-
-	if (sign && (sign = xx < 0))
-		x = -xx;
-	else
-		x = xx;
-
-	i = 0;
-	do {
-		buf[i++] = _tab_dec2hex[x % base];
-	} while ((x /= base) != 0);
-
-	if (sign)
-		buf[i++] = '-';
-
-	while (--i >= 0)
-		outc(buf[i]);
-}
-
-//{UNCHK}
-void outi(stdint val, int base, int sign_show)
-{
-	if (base < 2) return;
-	char buf[bitsof(stdint)] = { 0 };
-	int i = 0;
-	if (val < 0) val = -val;
-	do buf[i++] = _tab_dec2hex[val % base]; while (val /= base);
-	if (sign_show) buf[i++] = val < 0 ? '-' : '+';
-	outtxt(buf, numsof(buf));
-}
-
-void outsfmtlst(const char* fmt, va_list lst)
-{
-	int i;
-	byte c;
-	char* s;
-	va_list paras = lst;
-	if (fmt == 0) return;
-
-	for (i = 0; (c = fmt[i]); i++) {
-		if (c != '%') {
-			if (c == (byte)'\xFF')
-			{
-				outtxt(&fmt[i], 2);
-				i++;
-			}
-			else outtxt(&fmt[i], 1);
-			continue;
-		}
-		c = fmt[++i];
-		if (c == 0)
-			break;
-		switch (c) {
-		case 'd':
-			outidec(va_arg(paras, int), 10, 1);
-			break;
-		case 'x':
-			outidec(va_arg(paras, int), 16, 1);
-			break;
-		case 'p':
-			outtxt("0x", 2);
-			if (bitsof(stduint) == 64)
-				outi64hex(va_arg(paras, stduint));
-			else if (bitsof(stduint) == 32)
-				outi32hex(va_arg(paras, stduint));
-			else if (bitsof(stduint) == 16)
-				outi16hex(va_arg(paras, stduint));
-			else
-				outi8hex(va_arg(paras, stduint));
-			break;
-		case 's':
-			if ((s = va_arg(paras, char*)) == 0)
-				s = "(null)";
-			outtxt(s, -1);
-			break;
-		case '%':
-			c = '%';
-			outtxt(&fmt[i], 1);
-			break;
-		default:
-			// no-care
-			break;
-		}
-	}
-}
-
-//{TEMP} only understands %d, %x, %p, %s.
-void outsfmt(const char* fmt, ...)
-{
-	va_list paras;
-
-	va_start(paras, fmt);
-	outsfmtlst(fmt, paras);
-	va_end(paras);
-}
-
-#else
-
 #if defined(_WinNT)
-#define byte _byte // avoid warning C4114 and error C2632
-#include <windows.h>
-#undef byte
-
-static HANDLE ConHandle = { 0 };
-
-void ConCursorMoveRight(unsigned short dif)
-{
-	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-	CONSOLE_SCREEN_BUFFER_INFO ConInfo;
-	GetConsoleScreenBufferInfo(ConHandle, &ConInfo);
-	ConCursor(ConInfo.dwCursorPosition.X + dif, ConInfo.dwCursorPosition.Y);
-}
-
-void ConCursor(unsigned short col, unsigned short row)
-{
-	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-	COORD pos = { col,row };
-	SetConsoleCursorPosition(ConHandle, pos);
-}
+	#define byte _byte // avoid warning C4114 and error C2632
+	#include <windows.h>
+	#undef byte
+	static HANDLE ConHandle = { 0 };
+#endif
 
 void ConStyleAbnormal(void)
 {
+#if defined(_WinNT)
 	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(ConHandle, 0x0 + 0xF0);
+#elif defined(_Linux)
+	printf("\033[7m");
+#endif
 }
 
 void ConStyleNormal(void)
 {
+#if defined(_WinNT)
 	if (!ConHandle) ConHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(ConHandle, 0xF + 0x00);
-}
-
+#elif defined(_Linux)
+	printf("\033[27m");
 #endif
+}
 
 size_t ConScanLine(char* buf, size_t limit)
 {
+#if defined(_WinNT) || defined(_Linux)
 	size_t slen = 0;
 	char* tmp = fgets(buf, (int)limit, stdin);// tmp: cheat compiler
 	if (!*buf) return 0;
@@ -263,6 +90,7 @@ size_t ConScanLine(char* buf, size_t limit)
 		if (!slen) break; else slen--;
 	}
 	return 1 + slen;
+#endif
 }
 
 void ConClearScreen(void)
@@ -275,5 +103,3 @@ void ConClearScreen(void)
 	#endif
 	// cheat compiler
 }
-
-#endif

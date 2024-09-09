@@ -1,0 +1,67 @@
+
+This is for Magice, some assembly and C.
+
+\begin{longtable}{|r|c|c|c|c|c|c|}
+	\hline
+	\B{MIKA}&\B{BYTES(M)}&\B{STDC}&\B{C-LP32}&\B{C-ILP32}&\B{C-LLP}&\B{C-LP64} \\
+	\hline\endfirsthead\hline
+	\B{MIKA}&\B{MAGICE}&\B{STDC}&\B{LP32}&\B{ILP32}&\B{LLP}&\B{LP64} \\
+	\hline\endhead\hline\endfoot\hline\endlastfoot
+	%
+	VOID&struct\{\}(0)&void& & & &\\\hline
+	BIT/+BOOL&bit(0.125)&usually int& & & &\\\hline
+	BYT(E)/+CHAR&1&char>=\B{1}&1&1&1&1\\\hline
+	WORD/+SHORT&2&short>=\B{2}&2&2&2&2\\\hline
+	*+INT&stduint&int>=2&2&4&4&4\\\hline
+	DWORD&4& & & & &\\\hline
+	FWORD&6& & & & &\\\hline
+	*+LONG&/&long>=4&4&4&4&8\\\hline
+	QWORD/+LLONG&8&long long>=\B{8}&8&8&8&8\\\hline
+	TWORD/TBYTE&10& & & & &\\\hline
+	OWORD&16&void& & & &\\\hline
+	YWORD&32&void& & & &\\\hline
+	ZWORD&64&void& & & &\\\hline
+	REAL\%[BITS]&\It{IEEE}&void& & & &\\\hline
+\end{longtable}
+
+\verb`*` means the size is not stable;
+\verb`+` means the type represent the signed data.
+
+`QWORD' is for Quadword.
+`TBYTE' is used from \It{Netwide Assembler}.
+`M' stands for Magice while `C' stands for CPL.
+`MIKA' is the General Middle Language.
+
+For `BYTE', a macro `OCTET' can be made to fit the habit of users.
+
+For `INT', the byte-size is 4 by default, but 2 for register-size less than 4.
+
+For `LONG', the byte-size is 4 for WinNT and Linux-32, but 8 for Linux-64.
+
+\It{ARN decided BYTE has fixed 8 binary digits.}
+
+M, C, C++ support pointer (add \verb`*`after the destination-type to express its type) to realize the access of memory like Assembly.
+And C++ provides \B{reference} to make the form of pointers beautiful, while provides class to make passing the instance beautiful.
+
+
+
+
+\subsubsection{for Assemblers}
+
+\paragraph{for Macro Assembler}
+It uses \verb`BYTE`, \verb`WORD` and \verb`DWORD` for integer types, and each of them can be prefixed with \verb`S` to become its signed type.
+
+Compared to A.N.Y., integers in MASM includes the sign property.
+
+\B{EXAMPLE - Pointer}
+\lstset{style=GlobalASMx86}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+arrayA byte 10h, 20h;
+pByte typedef ptr byte;
+ptr1 pByte arrayA;
+mov esi,ptr1
+mov al,[esi]
+\end{lstlisting}
+
+In the example, we assume an array \verb|10h, 20h| and define a new pointer type \verb|pByte| for it. 
+

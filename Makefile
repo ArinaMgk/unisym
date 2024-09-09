@@ -51,9 +51,9 @@ cgw64: list
 	make -f ${make_dir}cgw64.make all # x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
 
 # libmsvc MTd_StaticDebug 
-cvw32:
+cvw32: list
 	make -f ${make_dir}cvw32.make all
-cvw64:
+cvw64: list
 	make -f ${make_dir}cvw64.make all
 #{TODO} Make DLL File
 
@@ -62,11 +62,11 @@ libnvcc:
 	#
 
 # liblinux ELF
-cgl32:
+cgl32: list
 	-@mkdir -p $(uobjpath)/CGLin32
 	-@rm -f $(uobjpath)/CGLin32/*
 	make -f ${make_dir}cgl32.make all
-cgl64:
+cgl64: list
 	-@mkdir -p $(uobjpath)/CGLin64
 	-@rm -f $(uobjpath)/CGLin64/*
 	make -f ${make_dir}cgl64.make all

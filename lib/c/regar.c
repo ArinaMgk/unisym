@@ -1076,7 +1076,7 @@ int RedDiv(Rfnar_t* dest, const Rfnar_t* sors)
 	return 0;
 }
 
-inline static int RedTaylor(Rfnar_t* dest, unsigned char dptor, const Rfnar_t* period, size_t digcut) {}
+inline static int RedTaylor(Rfnar_t* dest, unsigned char dptor, const Rfnar_t* period, size_t digcut) { return _TODO 0; }
 //{TODO}
 //{
 //
@@ -1221,7 +1221,7 @@ Rfnar_t* RedPi();
 
 int RedSin(Rfnar_t* dest)
 {
-	RedTaylor(dest, TAYLOR_SIN, &constr_2pi, _DIG_CUT);
+	return RedTaylor(dest, TAYLOR_SIN, &constr_2pi, _DIG_CUT);
 }
 
 int RedCos(Rfnar_t* dest);
@@ -1354,6 +1354,7 @@ char* _Need_free RedToLocaleClassic(const Rfnar_t* obj, int opt)
 		return 0;
 		break;// Cheat some compilers
 	}
+	return _TODO 0;
 }
 
 // {TODO}

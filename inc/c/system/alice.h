@@ -72,26 +72,26 @@ extern "C++" {
 // __BITS__
 	// [Rely-on] stdinc.h
 #ifdef _MSC_VER // for MSVC
-	#define _DEV_MSVC
-	// __FUNCIDEN__ : function identifier
-	#define __FUNCIDEN__ __FUNCDNAME__
-	#define _ALIGN
-	#define _ASM __asm
-	//#undef _CALL_C
-	//#define _CALL_C __cdecl
+#define _DEV_MSVC
+// __FUNCIDEN__ : function identifier
+#define __FUNCIDEN__ __FUNCDNAME__
+#define _ALIGN
+#define _ASM __asm
+//#undef _CALL_C
+//#define _CALL_C __cdecl
 
 #elif defined(__GNUC__)
-	#define _DEV_GCC
-	#define __FUNCIDEN__ __func__ // cannot auto-strcat
-	#define _ALIGN(n) __attribute__((aligned(n)))
-	#define _ASM __asm__
+#define _DEV_GCC
+#define __FUNCIDEN__ __func__ // cannot auto-strcat
+#define _ALIGN(n) __attribute__((aligned(n)))
+#define _ASM __asm__
 
 #elif defined(__UVISION_VERSION)
-	#define _DEV_KEIL
-	//{TODO}:
-	#define __FUNCIDEN__ 
-	#define _ALIGN
-	#define _ASM
+#define _DEV_KEIL
+//{TODO}:
+#define __FUNCIDEN__ 
+#define _ALIGN
+#define _ASM
 
 #endif
 
@@ -125,26 +125,13 @@ extern "C++" {
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
 #define offsof    _BYTE_BITS_*offsetof
 
-#if !defined(_DEBUG) && !defined(_dbg)
-#define memalloc(dest,size)\
-		((*(char**)&dest=(char*)malloc(size))? "":"! MEMORY RUN OUT!")
-#define memfree(x) {if(x)free((char*)(x));}
-#define srs(x,y) {void*ebx=(void*)(y);if(x)free((char*)x);*(void**)&(x)=ebx;}
-#define malc(size) (void*)(malloc(size))
-#define zalc(size) (void*)(calloc(size,1))
-#endif
-
 #define zalloc(x) zalc(x)// Zero Alloc
 #define zalcof(x) (x*)zalc(sizeof(x))
 #define malcof(x) (x*)malc(sizeof(x))
 #define ralcof(x,addr,nums) (x*)realloc((void*)(addr),(nums)*sizeof(x))
-void memf(void* m);// non-side-effect version
-#define mfree(x) do{memfree(x);(x)=0;}while(0)
 
-// Added RFW24, Exchange but not for pointer, and address of `a` should not be the same as `b`
-#define xchg(a,b) (a)^=(b)^=(a)^=(b)
-// check a==b before using
-#define xchgptr(a,b) *(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b)
+#define xchg(a,b) do if(a!=b)(a)^=(b)^=(a)^=(b);while(0)
+#define xchgptr(a,b) do if((size_t*)a!=(size_t*)b)*(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b);while(0)
 
 #define AssignParallel(l,m,r) ((l=m),(m=r))// different from `l=m=r`
 #define Assign3(l,m,r) do{if(&(l)==&(r))AssignParallel(l,m,r); else xchg((l),(m));}while(0)

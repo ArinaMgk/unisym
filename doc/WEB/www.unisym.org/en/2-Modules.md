@@ -148,7 +148,7 @@ Now the `*` mark for document provided, no matter if it is detailed.
 	-  \* Witch/
 - `Device` (cpp/Device/ and cpp/driver/) {TODO NO-DEP}
 	- `Conio` {TODO NO-DEP}
-		-  \* consio.h console stream
+		-  \* consio.h & console/
 	- ADC and ADConverter/
 		-  \* XPT2046.h
 	- Generator

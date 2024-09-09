@@ -24,11 +24,21 @@
 #include <stdio.h>
 #include <../../demo/template/version/version.h>
 #include <time.h>
+#include <strpage.h>
+#include <strbuff.h>
 
 static time_t startup_time;
 static time_t temp_time;
 static byte rest_parse_phase = 2;
 static bool terminate_after_phase = false;
+
+Strpage* _offsets;
+Strbuff* _forwrefs;
+
+typedef struct ForewardReference {
+	int lineno;// line number
+	_TEMP int operand;
+} forwrefinfo;
 
 static printinfo(void) {
 	time(&temp_time);
@@ -42,8 +52,17 @@ int main(int argc, char** argv, char** envv)
 	//{TODO} report_error = report_error_gnu;
 	//{TODO} error_file = stderr;
 	//{TODO} _set_malloc_error(report_error);
+	_offsets = StrpageNew();
+	_forwrefs = StrbuffNew(byteof(forwrefinfo));
+
+
 	
+
 	printinfo();
+	StrpageFree(_offsets);
+	StrbuffFree(_forwrefs);
+	//{} ...
+	return malc_count;
 }
 
 

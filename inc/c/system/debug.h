@@ -42,21 +42,30 @@ extern size_t _MALLIMIT;// <IN>
 #define chars_stack(x) &(char[]){#x "\0"}// chars_stack(123)
 #define chstk chars_stack
 
+// ---- { logging } ----
 
 extern void erro(char* erromsg);
 extern void warn(char* warnmsg);
 extern size_t malc_occupy;
 extern size_t arna_precise;
 
-//{TOIN} memory.h
-#if defined(_dbg) || defined(_DEBUG)
-	#define memalloc(dest,size)\
-		(*(char**)&dest=(char*)malloc(size))?((void)_MALCOUNT++):(erro("MEMORY RUN OUT!"),(void)0)
-	#define memfree(x) do if(x){free((char*)(x));_MALCOUNT--;} while(0)// RFW21 version
-	#define srs(x,y) {void*ebx=(void*)(y);if(x)free((void*)x);_MALCOUNT--;*(void**)&(x)=ebx;}
-	#define malc(size) (void*)(_MALCOUNT++,malloc(size))
-	#define zalc(size) (void*)(_MALCOUNT++,calloc(size,1))
-#endif
+typedef enum {
+	_LOG_ERROR = 0,
+	_LOG_WARN,
+	_LOG_INFO,
+	_LOG_DEBUG,
+	_LOG_TRACE,
+} loglevel_t;
+
+typedef enum {
+	_LOG_STYLE_MAGICE = 0,
+	_LOG_STYLE_GCC,
+	_LOG_STYLE_MSVC,
+} logstyle_t;
+
+extern logstyle_t _logstyle;
+
+void printlog(loglevel_t level, const char* fmt, ...);
 
 #endif
 

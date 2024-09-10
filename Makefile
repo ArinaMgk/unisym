@@ -35,7 +35,7 @@ list: local# depend [perl python]
 
 # ---- [usual hosted-environments] ----
 
-mx86: #[Linux] # including different bitmodes (Real16, Flap32 ...)
+mx86: list # including (Real16, Flap32 ...)
 	make -f ${make_dir}cgmx86.make all
 
 # COFF 

@@ -118,24 +118,21 @@ void outi(stdint val, int base, int sign_show)
 	outtxt(buf, numsof(buf));
 }
 
-#if defined(_MCCA)// x86 or riscv64
-
-int outsfmtlst(const char* fmt, para_list lst)
+int outsfmtlst(const char* fmt, para_list paras)
 {
 	int i;
 	byte c;
 	char* s;
-	para_list paras = lst;
+	// para_list paras = lst;
 	if (fmt == 0) return 0;
 
-	for (i = 0; (c = fmt[i]); i++) {
+	for (i = 0; (c = fmt[i]); ) {
 		if (c != '%') {
-			if (c == (byte)'\xFF')
-			{
-				outtxt(&fmt[i], 2);
-				i++;
-			}
-			else outtxt(&fmt[i], 1);
+			stduint len = 1;
+			const char* q = fmt + i;
+			while (q[len] && (q[len] != '%')) len++;
+			outtxt(&fmt[i], len);
+			i += len;
 			continue;
 		}
 		c = fmt[++i];
@@ -172,14 +169,12 @@ int outsfmtlst(const char* fmt, para_list lst)
 			// no-care
 			break;
 		}
+		i++;
 	}
 	return i;
 }
 
-
-#endif
-
-//{TEMP} only understands %d, %x, %p, %s.
+//{TEMP} only understands %d, %x, %p, %s with-no modification.
 int outsfmt(const char* fmt, ...)
 {
 	Letpara(args, fmt);

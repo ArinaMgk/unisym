@@ -1,6 +1,10 @@
 
 This is for Magice, some assembly and C.
 
+\subsubsection{Data Model}
+
+Usually, the implementation about sizes of the fundamental types are collectively known as data model.
+
 \begin{longtable}{|r|c|c|c|c|c|c|}
 	\hline
 	\B{MIKA}&\B{BYTES(M)}&\B{STDC}&\B{C-LP32}&\B{C-ILP32}&\B{C-LLP}&\B{C-LP64} \\
@@ -40,18 +44,76 @@ For `LONG', the byte-size is 4 for WinNT and Linux-32, but 8 for Linux-64.
 
 \It{ARN decided BYTE has fixed 8 binary digits.}
 
-M, C, C++ support pointer (add \verb`*`after the destination-type to express its type) to realize the access of memory like Assembly.
-And C++ provides \B{reference} to make the form of pointers beautiful, while provides class to make passing the instance beautiful.
+For 32 bit systems:
+\begin{itemize}
+	\item LP32 or 2/4/4 (int is 16-bit, long and pointer are 32-bit)\begin{itemize}
+		\item may be for Win-16 API ?
+	\end{itemize}
+	\item ILP32 or 4/4/4 (int, long, and pointer are 32-bit)\begin{itemize}
+		\item Win32 API
+		\item Unix and Unix-like systems (Linux, Mac OS X)
+	\end{itemize}
+\end{itemize}
 
+For 64 bit systems:
+\begin{itemize}
+	\item LLP64 or 4/4/8 (int and long are 32-bit, pointer is 64-bit)\begin{itemize}
+		\item Win-64 API
+	\end{itemize}
+	\item LP64 or 4/8/8 (int is 32-bit, long and pointer are 64-bit)\begin{itemize}
+		\item Unix and Unix-like systems (Linux, Mac OS X)
+	\end{itemize}
+\end{itemize}
 
-
-
-\subsubsection{for Assemblers}
+Other models are very rare. For example, ILP64 (8/8/8: int, long, and pointer are 64-bit) only appeared in some early 64-bit Unix systems (e.g. Unicos on Cray).
 
 \paragraph{for Macro Assembler}
 It uses \verb`BYTE`, \verb`WORD` and \verb`DWORD` for integer types, and each of them can be prefixed with \verb`S` to become its signed type.
 
 Compared to A.N.Y., integers in MASM includes the sign property.
+
+\subsubsection{Pointer}
+
+M, C, C++ support pointer (add \verb`*`after the destination-type to express its type) to realize the access of memory like Assembly.
+
+The style \verb|type0* a| stresses that \verb|a| is an instance of the pointer.
+
+The style \verb|type0 *a| stresses the type of the destination.
+
+And C++ provides \B{reference} to make the form of pointers beautiful, while provides class to make passing the instance beautiful.
+
+The arithmetic for pointers are usually special. For plus and minus, the factor will be times by the size of the object to make it seems to have the unit. For multiply and bitwise operations, it is usually forbidden although it can be done easily in Binary Assembly. 
+
+For the analyzer, a pointer consists at least of the information of destination type and the logical address.
+If a pointer contain the end so you can know the range, it becomes a \B{fat pointer}.
+
+\subsubsection{Array}
+
+An array owns the feature of the pointer (such as participating in pointer-arithmetic). But it can be re-point as a pointer object (because it provides spaces for elements), the array exists actually a `label' in reflected Assembly except the elements information it carried. \It{Many users fight about whether (identifier of) array is a pointer. That is a meaningless question and it depends on they consider pointer an object or a feature.}
+
+There are two strategies to set the array. Assume an array \verb|arr[A][B][C]|:
+For Row-major, the adjacent `C' always reflect the constant element, also known as \verb|(*(*(arr+A)+B)+C)|.
+\begin{itemize}
+	\item Magice and C
+	\item C++
+\end{itemize}
+For Column-major, the adjacent `A' always reflect the constant element, also known as \verb|(*(*(arr+C)+B)+A)|.
+\begin{itemize}
+	\item Fortran
+\end{itemize}
+
+\B{EXAMPLE - Assign directly by identifier without loop or function}
+\begin{lstlisting}[language=C]
+typedef struct newt {char newt[5];} newt;
+int main()
+{
+	newt a = {1,2,3,4,5};
+	newt b = {0};
+	*(newt*)&b = *(newt*)&a;
+}
+\end{lstlisting}
+
+\paragraph{for Macro Assembler} \
 
 \B{EXAMPLE - Pointer}
 \lstset{style=GlobalASMx86}
@@ -64,4 +126,33 @@ mov al,[esi]
 \end{lstlisting}
 
 In the example, we assume an array \verb|10h, 20h| and define a new pointer type \verb|pByte| for it. 
+
+Keyword \verb`near` and \verb`far` can decide the length in some cases.
+\verb`near` can be used to assign 16 or 32 bits offset,
+while \verb`far` can be used to assign 32 or 48 bits offset with its segment.
+
+
+\subsubsection{Enumeration, Structure and Union}
+
+\paragraph{for Macro Assembler}
+
+\B{Definition}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+Employee STRUCT
+	IdenNum  BYTE "000000000"
+	LastName BYTE 30 DUP(0)
+	Years    WORD 0
+	Salary   DWORD 0,0,0,0
+Employee ENDS
+\end{lstlisting}
+
+
+{Declaration}
+
+{Reference}
+
+
+
+
+
 

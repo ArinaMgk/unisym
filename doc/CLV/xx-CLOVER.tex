@@ -20,40 +20,7 @@
 \subsection{Advanced Class}
 
 \subsection{Trait}
-
-\subsubsection{Array Trait}
-
-\verb|class ArrayTrait|
-
-The developers should implement:
-
-\lstset{style=GlobalCxx}
-\lstinputlisting[language=C++, firstline=24]{../inc/cpp/trait/ArrayTrait.hpp}% , lastline=...
-
-\subsubsection{Iterate Trait}
-
-\verb|class IterateTrait|
-
-The developers should implement:
-
-\lstset{style=GlobalC}
-\begin{lstlisting}[language=C]
-virtual void Iterate() = 0;
-\end{lstlisting}
-
-At least now, the efficient item should not be null.
-
-The users should use \verb|pureptr_t Iter()| to iterate, this return null for the end.
-
-\textbf{How To Use}, for example of \textit{Dnode},
-
-\lstset{style=GlobalC}
-\begin{lstlisting}[language=C]
-fori(i, c) {
-	forhead(i, Dnode);
-	std::cout << i.addr << std::endl;
-}
-\end{lstlisting}
+\subimport{CLV/Data}{Trait}
 
 \subsection{Node-Chain}
 \input{CLV/Data/Nodes.tex}

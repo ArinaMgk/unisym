@@ -50,7 +50,10 @@ extern size_t malc_occupy;
 extern size_t arna_precise;
 
 typedef enum {
-	_LOG_ERROR = 0,
+	_LOG_STDOUT = 0,
+	_LOG_FATAL,// instantly fatal: exit with error code
+	_LOG_PANIC,// internal error: panic instantly and dump core for reference
+	_LOG_ERROR,// usually terminate after current phase
 	_LOG_WARN,
 	_LOG_INFO,
 	_LOG_DEBUG,
@@ -59,13 +62,24 @@ typedef enum {
 
 typedef enum {
 	_LOG_STYLE_MAGICE = 0,
+	_LOG_STYLE_NONE,
 	_LOG_STYLE_GCC,
 	_LOG_STYLE_MSVC,
 } logstyle_t;
 
 extern logstyle_t _logstyle;
 
+extern const char* _pref_fata;
+extern const char* _pref_pani;
+extern const char* _pref_erro;
+extern const char* _pref_warn;
+extern const char* _pref_info;
+extern const char* _pref_dbug;
+extern const char* _pref_trac;
+
+void printlogx(loglevel_t level, const char* fmt, para_list paras);
 void printlog(loglevel_t level, const char* fmt, ...);
+#define printlnf(a, ...) printlog(_LOG_STDOUT, a, ##__VA_ARGS__)
 
 #endif
 

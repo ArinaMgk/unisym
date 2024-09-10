@@ -34,31 +34,51 @@ char* salc(size_t size)
 
 #ifdef _DEBUG
 
-logstyle_t _logstyle;
+logstyle_t _logstyle = _LOG_STYLE_NONE;
 
-void printlog(loglevel_t level, const char* fmt, ...)
+const char* _pref_fata = "[FATAL]";
+const char* _pref_pani = "[PANIC]";
+const char* _pref_erro = "[ERROR]";
+const char* _pref_warn = "[WARNS]";
+const char* _pref_info = "[INFOR]";
+const char* _pref_dbug = "[DEBUG]";
+const char* _pref_trac = "[TRACE]";
+
+void printlogx(loglevel_t level, const char* fmt, para_list paras)
 {
-#if defined(_Linux)
+#if defined(_Linux) || 1
 	//{TODO} _logstyle
-	Letpara(paras, fmt);
+	//{TODEL} Letpara(paras, fmt);
 	switch (level)
 	{
+	case _LOG_STDOUT:
+		outsfmtlst(fmt, paras); outs("\n"); return;
+	case _LOG_FATAL:// better into STDERR
+		outsfmt("\x1b[%dm%s", CON_FORE_RED, _pref_fata); break;
+	case _LOG_PANIC:// better into STDERR
+		outsfmt("\x1b[%dm%s", CON_FORE_RED, _pref_pani); break;
 	case _LOG_ERROR:// better into STDERR
-		outsfmt("\x1b[%dm[%s]", CON_FORE_RED, "ERROR"); break;
+		outsfmt("\x1b[%dm%s", CON_FORE_RED, _pref_erro); break;
 	case _LOG_WARN:
-		outsfmt("\x1b[%dm[%s]", CON_FORE_YELLOW, "WARNS"); break;
+		outsfmt("\x1b[%dm%s", CON_FORE_YELLOW, _pref_warn); break;
 	case _LOG_INFO:
-		outsfmt("\x1b[%dm[%s]", CON_FORE_BLUE, "INFOR"); break;
+		outsfmt("\x1b[%dm%s", CON_FORE_BLUE, _pref_info); break;
 	case _LOG_DEBUG:
-		outsfmt("\x1b[%dm[%s]", CON_FORE_GREEN, "DEBUG"); break;
+		outsfmt("\x1b[%dm%s", CON_FORE_GREEN, _pref_dbug); break;
 	case _LOG_TRACE:
-		outsfmt("\x1b[%dm[%s]", CON_FORE_GRAY, "TRACE"); break;
+		outsfmt("\x1b[%dm%s", CON_FORE_GRAY, _pref_trac); break;
 	default:
 		return;
 	}
 	outsfmtlst(fmt, paras);
 	outs("\x1b[0m\n");
 #endif
+}
+
+void printlog(loglevel_t level, const char* fmt, ...)
+{
+	Letpara(paras, fmt);
+	printlogx(level, fmt, paras);
 }
 
 #endif

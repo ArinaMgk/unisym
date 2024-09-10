@@ -28,6 +28,7 @@
 #include "../../inc/c/consio.h"
 #include "../../inc/c/ISO_IEC_STD/stdlib.h"
 
+//{TO-MOVE}
 #if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 #include "proctrl/x86/x86.h" //{TEMP}
 void curset(word posi)
@@ -90,16 +91,20 @@ size_t ConScanLine(char* buf, size_t limit)
 		if (!slen) break; else slen--;
 	}
 	return 1 + slen;
+#else
+	return _TODO 0;
 #endif
 }
 
 void ConClearScreen(void)
 {
 	int i =
-	#ifdef _WinNT
+#ifdef _WinNT
 		system("cls");
-	#else // elif defined(_Linux)
+#elif defined(_Linux)
 		system("clear");// <=> printf("\033[2J");
-	#endif
+#else
+		0; i++;
+#endif
 	// cheat compiler
 }

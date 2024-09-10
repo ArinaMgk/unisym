@@ -4,12 +4,12 @@
 // AllAuthor: @dosconio since RFT15
 // ProjTitle: Console Calendar Shell
 
-#define _AUTO_INCLUDE
 #include <stdio.h>
 #include <time.h>
 #include <conio.h>
 #include <datime.h>
 #include <consio.h>
+#include "../../../inc/c/ISO_IEC_STD/stdlib.h"
 
 int show_weekid = 0;
 
@@ -43,6 +43,7 @@ void DrawCalendar(word year, word moon, byte crtday)
 		"      July ", "    August ", " September ",
 		"   October ", "  November ", "  December "})[moon-1], year);
 	printf("Sun.Mon.Tue.Wed.Thr.Fri.Sat.");
+	       "(日)(月)(火)(水)(木)(金)(土)";
 	printf("\n");
 	ConStyleAbnormal();
 	ConCursorMoveRight(week_day << 2);

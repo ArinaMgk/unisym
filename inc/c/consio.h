@@ -57,7 +57,8 @@ typedef struct {
 } ConsoleCharPropertyColor8;
 
 enum CON_FORECOLOR {
-#if defined(_Linux)
+#if 0
+#elif defined(_Linux) || 1 // VT100
 	CON_FORE_DEFAULT = 39,
 	CON_FORE_DARK = 30,
 	CON_FORE_RED = 31,
@@ -75,12 +76,11 @@ enum CON_FORECOLOR {
 	CON_FORE_MAGENTA_LIGHT = 95,
 	CON_FORE_CYAN_LIGHT = 96,
 	CON_FORE_WHITE = 97,
-#else
-	CON_F_OCCUPY
 #endif
 };
 enum CON_BACKCOLOR {
-#if defined(_Linux)
+#if 0
+#elif defined(_Linux) || 1 // VT100
 	CON_BACK_DEFAULT = CON_FORE_DEFAULT + 10,
 	CON_BACK_DARK    = CON_FORE_DARK    + 10,
 	CON_BACK_RED     = CON_FORE_RED     + 10,
@@ -98,8 +98,6 @@ enum CON_BACKCOLOR {
 	CON_BACK_MAGENTA_LIGHT = CON_FORE_MAGENTA_LIGHT + 10,
 	CON_BACK_CYAN_LIGHT    = CON_FORE_CYAN_LIGHT    + 10,
 	CON_BACK_WHITE         = CON_FORE_WHITE         + 10,
-#else
-	CON_B_OCCUPY
 #endif
 };
 
@@ -119,6 +117,9 @@ void outidec(int xx, int base, int sign);
 void outi(stdint val, int base, int sign_show);
 int  outsfmtlst(const char* fmt, para_list lst);
 int  outsfmt(const char* fmt, ...);
+
+#define printline(...) puts(__VA_ARGS__)
+
 
 //
 void ConClearScreen(void);

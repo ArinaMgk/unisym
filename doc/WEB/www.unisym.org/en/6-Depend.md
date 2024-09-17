@@ -42,32 +42,18 @@ Host = Arch(destination system), Core(common system) and Devk(developing system)
 
 ```mermaid
 graph LR
-	alice[アリス]
 	arch[archit.h]
-	arch-->alice
-	arch-->calling[call.h]
-	arch-->flag.h
 	proctrl[proctrl.h]
 	proctrl-->uoption.h
-	proctrl--+(x86.h,i8051.h...)-->floating.h-->integer.h-->arch
+	proctrl-->floating.h-->integer.h-->arch
 	stdinc[stdinc.h]
-	stdinc--"_BEBUG? +debug.h"-->proctrl
-	stdinc-->host&memory.h
+	stdinc-->proctrl
+	stdinc-->host
+	host-->memory.h
+	stdinc-->supple
+	stdinc-->debug?
 	unisym-->stdinc
 ```
-
-Next generation
-
-```mermaid
-graph LR
-	alice[COREs]
-	ARCH[archit.h]
-	ARCH-->alice
-	ARCH--OPT-->ASMs
-	RUNT["stdinc"]-->DEVK[devkit]--debug?hosted?-->ARCH-->datype[TYPE]
-```
-
-Arch+Board+HostOS+Devkit
 
 ### Bootstrapping Building Circuit
 

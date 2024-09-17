@@ -11,17 +11,17 @@ Inline function are beyond the rule, for the header can implement them without a
 
 Magice(Default configuration) and {Rust} will take the last definition for the near next code in the scope.
 
-\It{The declaration is a kind of pseudo-instruction.} \textemdash{Arina, RFA23}.
+\It{The declaration is a kind of pseudo-instruction.} \textemdash{ArinaMgk, RFA23}.
 
 \paragraph{non-function objects for $C,C++,M$}
 
-\B{Experiment - Slave statements cannot be declarations}%REZ07
+\B{EXPERIMENT - Slave statements cannot be declarations}%REZ07
 \lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
 	if (...) long long i;
 \end{lstlisting}
 
-\B{Experiment - C/C++ - Tentative Linkage 1}
+\B{EXPERIMENT - C/C++ - Tentative Linkage 1}
 Below are codes in a global (out of any grace-scope) scope, where assumes N is an immediate integer. Results are done by \It{dosconio} with specific version.
 \lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
@@ -62,7 +62,35 @@ char a[1];
 extern char* b;
 char b[1];
 \end{lstlisting}
-Notice that if one is not in file(global) scope, the object will be in stack, so it is impossible to link for C/C++.
+Notice that if one is not in file (global) scope, the object will be in stack, so it is impossible to link for C/C++.
+
+\B{EXPERIMENT - C/C++ - Varibale Prefix 1}
+\begin{lstlisting}[language=C]
+	// SUBEXAMPLE 1 - MIXED ORDER OF PREFIX @ARINA
+	int unsigned const static p = 0;
+	static long const signed long int q = 1;
+	// SUBEXAMPLE 2 - @ARINA YO REC20
+	int x, const y = 6, z = 2;// not error in MSVC
+	x = 1; y = 2; z = 3;// 'const' is omitted
+\end{lstlisting}
+
+\B{EXPERIMENT - Old C Style before ANSI}
+
+If we define \verb`func(){}` without a `void' in the parameter list, then many arguments can be passed to it.
+A parameter-identifier is specified within the parentheses, and the parameter type is declared before the opening curly brace.
+If a type is not declared, it is assumed to be an int.
+It is worth noting that function declarations are not allowed to contain detailed parameter lists.
+
+\begin{lstlisting}[language=C]
+	// TEST Turbo C 3.0 by Arina on REB31
+	double old_style(); /* Obsolete function declaration */
+	double alt_style( a , real, b ) /* Obsolete function definition */
+		double* real;
+		int     a, b;
+	{
+		return ( *real + a );
+	}
+\end{lstlisting}
 
 
 \paragraph{non-function objects for $Rust$} \
@@ -71,8 +99,11 @@ Notice that if one is not in file(global) scope, the object will be in stack, so
 \lstset{style=GlobalRust}
 \begin{lstlisting}[language=Rust]
 let mut a: i32 = 10;
+let a: i32;// just declaration
+let b = 0;// definition with type inference, not reference because of this for basic type
+a = 0;// once assignment for not mutable variable
 \end{lstlisting}
-where \verb`mut`, \verb`:i32`, \verb`=10` 
+The line 1 where \verb`mut`, \verb`:i32`, \verb`=10` 
 are optional for what you want to do.
 
 

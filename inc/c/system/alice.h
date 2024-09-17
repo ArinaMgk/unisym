@@ -29,6 +29,7 @@
 #define _LIB_UNISYM
 
 // ArnCovenant
+#define __ARNC_COVENANT__ 2023 // RFR07
 #define _BYTE_BITS_ 8
 
 #define _TEMP
@@ -37,6 +38,7 @@
 typedef void* pureptr_t;
 typedef void(*_tofree_ft)(pureptr_t);
 typedef  int(*_tocomp_ft)(pureptr_t, pureptr_t);
+typedef int*(*_tocall_ft)(void*, ...);
 typedef void(symbol_t)(void);
 
 #if defined(__cplusplus) && !defined(_INC_CPP)
@@ -152,6 +154,8 @@ extern "C++" {
 #define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);ptr<(since)+(times);ptr++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 #define for0a(iden,array) for0(iden,numsof(array))
+
+#define sort0f(arr,len,cmp) sort(arr,arr+len,cmp)
 
 #define bitguard(x) ((x)&-(x))
 

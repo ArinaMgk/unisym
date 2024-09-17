@@ -4,7 +4,11 @@
 ; AllAuthor: @dosconio
 ; ModuTitle: Bootstrap (MBR) for Mecocoa
 ; Copyright: ArinaMgk UniSym, Apache License Version 2.0
-
+%ifdef _BASE_DOS
+	BOOT_ENTRY  EQU 0x1000
+%else
+BOOT_ENTRY  EQU 0x7C00
+%endif
 ADDR_STACK  EQU 0x0600
 FAT_BUFFER  EQU 0x0600;~ 0x07FF
 ADDR_KERELF EQU 0x1000
@@ -31,7 +35,7 @@ ADDR_KERNEL EQU 0x5000
 HeadFloppyFAT12 'MECOCOA SYS'; suits for any disk for jump-instruction
 
 DefineStack16 0x0000, ADDR_STACK
-MOV AX, 0x07C0
+MOV AX, BOOT_ENTRY/0x10
 MOV DS, AX
 XOR AX, AX
 MOV ES, AX

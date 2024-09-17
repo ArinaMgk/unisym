@@ -1,0 +1,41 @@
+
+Below are relation between international standards and UNISYM.
+
+The recommended standard sets are:
+\begin{itemize}
+\item CPL: ISO-C99
+\item CPP: ISO-C++11/C++17
+\end{itemize}
+
+%{TODO} add ref-link for each:
+\begin{center}\begin{longtable}{|c|c|}
+\hline
+\textbf{ISO/IEC C99\cite{StdC99}} & \textbf{header} \\
+\hline\endfirsthead\hline
+\textbf{ISO/IEC C99\cite{StdC99}} & \textbf{header} \\
+\hline\endhead\hline\endfoot\hline\endlastfoot
+assert.h & uassert.h \\\hline
+ctype.h & uctype.h \\\hline
+stdbool.h(C99+) & ustdbool.h \\\hline
+string.h & ustring.h \\\hline
+limits.h & \multirow{3}{*}{archit.h by stdinc} \\\cline{1-1}
+stddef.h & \\\cline{1-1}
+math.h & \\\hline
+stdint.h & \multirow{2}{*}{integer.h by stdinc} \\\cline{1-1}
+inttypes.h & \\\hline
+float.h & floating.h by stdinc \\\hline
+complex.h(C99+) & \multirow{3}{*}{number.h} \\\cline{1-1}
+fenv.h(C99+) & \\\cline{1-1}
+tgmath.h(C99+) & \\\hline
+errno.h & \multirow{2}{*}{msgface.h} \\\cline{1-1}
+signal.h &  \\\hline
+locale.h & loc.h \\\hline
+setjmp.h & \multirow{2}{*}{supple.h by stdinc} \\\cline{1-1}
+stdarg.h & \\\hline
+time.h & datime.h \\\hline
+stdio.h & consio.h \\\hline
+wchar.h(C95+) & \multirow{2}{*}{widechar.h} \\\cline{1-1}
+wctype.h(C95+) & \\\hline
+\end{longtable}\end{center}
+
+\subsection{Supply \mbox{-} \B{Qt}}

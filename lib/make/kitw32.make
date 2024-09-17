@@ -26,29 +26,29 @@ segsel\
 
 
 args:
-	# args
+	@echo 'MK args'
 	@gcc ${DEMO_DIR}args.c -I${INCC_DIR} -o ${DEST_BIN}args.exe ${OPT}
 cal:
-	# cal
+	@echo 'MK cal (Calendar)'
 	@gcc ${DEMO_DIR}calendar/calendar.c ${LIBC_DIR}datime/weekday.c -I${INCC_DIR} -o ${DEST_BIN}cal.exe ${OPT}
 clear:
-	# clear
+	@echo 'MK clear'
 	@gcc ${DEMO_DIR}clear.c -I${INCC_DIR} -o ${DEST_BIN}clear.exe ${OPT}
 cpuid:
-	# cpuid
+	@echo 'MK cpuid'
 	@gcc ${DEMO_DIR}cpuid.c -I${INCC_DIR} -o ${DEST_BIN}cpuid.exe ${OPT}
 fdump:
-	# fdump
+	@echo 'MK fdump'
 	@gcc ${DEMO_DIR}filedump.c ${LIBC_DIR}consio.c -I${INCC_DIR} -o ${DEST_BIN}fdump.exe ${OPT}
 ffset:
-	# ffset
+	@echo 'MK ffset'
 	@gcc ${DEMO_DIR}VirtualDiskCopier/ffset.c -I${INCC_DIR} -o ${DEST_BIN}ffset.exe ${OPT}
 
 segsel:
-	# OSDEV/SegmentSelector powered by DotNetFrameworkCS4
+	@echo 'MK OSDEV/SegmentSelector powered by .NetFx4:C#'
 	@cd ${DEMO_DIR}SegmentSelector && ${CSC4} /nologo /t:winexe /out:SegSel.exe *.cs
 	@mv ${DEMO_DIR}SegmentSelector/SegSel.exe ${DEST_BIN}SegSel.exe
 
-elf: # readelf
-	# readelf
+elf:
+	@echo MK readelf
 	@gcc ${DEMO_DIR}readelf.c ${LIBC_DIR}format/ELF.c -I${INCC_DIR} -o ${DEST_BIN}readelf.exe ${OPT}

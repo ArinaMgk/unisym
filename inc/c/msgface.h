@@ -25,7 +25,7 @@
 
 // #include "node.h"
 
-#include <setjmp.h>
+#include "stdinc.h"
 
 #define errjb _ERRO_JUMP
 

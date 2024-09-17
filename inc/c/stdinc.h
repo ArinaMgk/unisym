@@ -27,9 +27,9 @@
 extern "C" {
 #endif
 #include "proctrl/proctrl.h"
-#include "host.h"//{TODO} option switch
-#if defined(_dbg) || defined(_DEBUG)
+#include "host.h"
 #include "supple.h"
+#if defined(_dbg) || defined(_DEBUG)
 #include "system/debug.h"
 #endif
 	extern char _tab_HEXA[16];

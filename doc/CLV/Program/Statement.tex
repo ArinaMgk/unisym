@@ -44,23 +44,56 @@
 \subsubsection{Definition and Declaration} (C99, ...)
 \subimport{.}{Dex}
 
-\subsubsection{Judgment Statement `If'}
+\subsubsection{Multi-passing}
 
-\paragraph{for $C,C++$}
+	C and C++ has implemented this for simple reflection to assembly.
+
+	\B{for $Python$}
+
+	\begin{lstlisting}[language=Python]
+		if(a == 0): print(a)
+		if a != 0 : print(a)
+		if a == 1 :
+			print("One")
+		elif a == 2:
+			print("Two")
+		else:
+			print("Else")
+	\end{lstlisting}
+
+	\B{for $MATLAB$}
+
+\subsubsection{Judgment Selection `If'}
+\subimport{Statement}{If}
+
+\subsubsection{Reflection Selection `Switch'}
+\subimport{Statement}{Switch}
+
+\subsubsection{Conditional Loop `While'}
+\subimport{Statement}{While}
+	
+\subsubsection{Normal Loop `Do $-$ While'}
+
+	\B{EXAMPLE for $MASM$} - Print 10 numbers
+	\begin{lstlisting}[language={[x86masm]Assembler}]
+		mov eax,0
+		.REPEAT
+			inc eax
+			call WriteDec
+			call Crlf
+		.UNTIL eax == 10
+	\end{lstlisting}
 
 
+\subsubsection{Tri-loop `For'}
+\subimport{Statement}{Triloop}
 
 
+\subsubsection{Counter Repeat `ForX'}
 
+	The macro \T{for0}, \T{for1}, \T{for0a} and more, 
+	are defined in \verb|alice.h| (used by \verb`stdinc.h`) for C and C++.
 
-
-
-
-
-
-
-
-
-
-
+	% MASM
+	% ; repeat const;…;ENDM; （用于宏的マ）
 

@@ -5,63 +5,6 @@ dg-publish: true
 
 Her-style, Code-reusing and Conceptual-razor.
 
-## Target
-
-Target in format `Arch-Format(Devk)-Host`*`(D)`*
-- i8086-DJGPP-MSDOS {16}
-- i386-COFF(GCC)-Win32 {32}
-- i386-COFF(MVC)-Win64 {32}
-- x86_64-COFF(GCC)-Win32 {64}
-- x86_64-COFF(MVC)-Win64 {64}
-- i386-ELF(GCC)-Lin32 {32}
-- x86_64-ELF(GCC)-Lin64 {64}
-- i386-ELF(GCC)-MCCAx86 {32}
-- riscv64-ELF(GCC) {64}
-- riscv64-ELF(GCC)-MCCAr64 {64}
-- ARM.CortexM3-ELF(GCC)-STM32F1x {32}v7
-- ARM.CortexM4-ELF(GCC)-STM32F4x {32}v7
-- ARM.CortexM0-ELF(GCC)-CW32F030 {32}v6
-- ARM.CortexM0-ELF(GCC)-CW32F003 {32}v6
-- ARM.CortexM3-Keil.MDK-STM32F1x {32}v7
-- ARM.CortexM4-Keil.MDK-STM32F4x {32}v7
-- ARM.CortexM0-Keil.MDK-CW32F030 {32}v6
-- ARM.CortexM0-Keil.MDK-CW32F003 {32}v6
-- i8051-Keil-AT89C5 {16}
-
-* ARMv7 include ARMv7-M series.
-
-
-### Devk
-
-
-GCC = GNU Compiler Collection
-
-MVC = Microsoft Visual C/C++
-
-HER = her/pro/Magice 
-
-
-## Trait
-
-to see `./inc/c/trait.h`
-
-
-## Environment Variable
-
-- `uincpath`, points to INC, a must for developer
-- `ulibpath`, points to LIB, optional
-- `ubinpath`, points to BIN, a must for user
-- `uobjpath`, points to OBJ, temporary folder
-- `hostarget`, like `_OPT_RISCV64`, define when no target is specified
-
-## TEMP
-
-- Win64 MSVC&GCC
-- Win32 GCC
-- Linux ELF64 ELF32
-- RISCV-64 GCC on Ubuntu(22.x+)-64
-- STM32F 1/4
-
 ## Covenant
 
 - For C
@@ -71,7 +14,6 @@ to see `./inc/c/trait.h`
     - `{endian}` Default little endian.
 - `NULL` = `nullptr` = 0x0 ≠ 0.0
 - `sizeof` `std(/u/s)int` == address of pointer == `size_t` == `ptrdiff_t` 
-
 
 
 ## Naming Rules
@@ -125,13 +67,4 @@ Tendency
 - use `nullptr` 
 - (TODO) wizard: from .mgc/.mgh -> .cpp/.h
 
-Consideration
-
-- Catalog
-- Dependence
-- Attribute (especially Allocation)
-- Assert, strict-check and erroproc
-- Debug
-- Aflag
-- Inline version
 

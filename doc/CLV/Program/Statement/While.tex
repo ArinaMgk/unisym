@@ -1,0 +1,38 @@
+\B{for $A.N.Y.$}
+
+%{TODO}
+
+\B{for $C,C++$}
+
+Verilog is same as C/C++, except the parent`\(' and parend`\)' are by `begin' and `end'.
+
+
+\B{for $MASM$}
+% Is there WHILE when_const_true;…;ENDM For Macro
+\lstset{style=GlobalASMx86}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+
+.WHILE condition
+	;commands
+.ENDW
+\end{lstlisting}
+
+\B{for $MATLAB$}
+\begin{lstlisting}[language=MATLAB]
+while expression0 % need not parens
+	% ...
+end
+\end{lstlisting}
+
+\B{EXAMPLE for $Python$}
+\begin{lstlisting}[language=Python]
+	numbers = [0, 6, 1, 8, 2, 8]
+	even = []
+	odd = []
+	while len(numbers) > 0 :
+		number = numbers.pop()
+		if(number % 2 == 0):
+			even.append(number)
+		else:
+			odd.append(number)
+\end{lstlisting}

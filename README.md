@@ -1,15 +1,14 @@
 # UNISYM
 
-![icon](./.picture/unisym.20240306.png) **[Universal Symbol System](http://unisym.org)**, also known as ゆにッシンボル, or as 統象庫, a system of programming and engineering, including not only implementation, library, tool-kits, chroming engine and demonstrations.
+![icon](./.picture/unisym.20240306.png) **[Universal Symbol System](http://unisym.org)**,
+also known as ゆにッシンボル, or as 統象庫,
+a lossless abstract system of programming and engineering,
+including not only implementation, library, tool-kits, chroming engine and demonstrations.
 
 ![example](https://img.shields.io/badge/release-U2024AUTUMN-aliceblue.svg) ![example](https://img.shields.io/badge/supervisor-dosconio-violet.svg)
 
 
 The repository is open-sourced under of *Apache License 2.0*. If you copy the code and used for the public or commercial, please stipulate your <u>copying from *UNISYM* led by *ArinaMgk*</u>. 
-
-**Feature**
-
-- Lossless Abstract 
 
 **Hsyster** `HERSYS`
 
@@ -45,6 +44,26 @@ ConPrint Hello_String; Assembly Macro
 | MGK `magic/` | sources => sources + list + depend + target | constructor(wizard), compiler, analyzer, translator, linker, synthesizer and modifier |
 | WEL `wel/` |  | Si/E-mulator |
 
+**Environment Variable**
+
+Would better to set these environment variables, if using or building UNISYM:
+
+- `uincpath`, points to INC, a must for developer
+- `ulibpath`, points to LIB, optional
+- `ubinpath`, points to BIN, a must for user
+- `uobjpath`, points to OBJ, temporary folder
+- `hostarget`, like `_OPT_RISCV64`, define when no target is specified
+
+**Consideration** these if going to modify or using the code:
+
+- Catalog and Manual
+- Dependence
+- Attribute (especially Allocation)
+- Assert, strict-check and erroproc
+- Aflag
+- Inline and side-effect
+
+To reduce the size of basic header, you can remove some support like STM32Fx.
 
 ---
 

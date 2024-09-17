@@ -5,27 +5,27 @@ This is for Magice, some assembly and C.
 
 Usually, the implementation about sizes of the fundamental types are collectively known as data model.
 
-\begin{longtable}{|r|c|c|c|c|c|c|}
+\begin{longtable}{|r|c|c|c|c|c|}
 	\hline
-	\B{MIKA}&\B{BYTES(M)}&\B{STDC}&\B{C-LP32}&\B{C-ILP32}&\B{C-LLP}&\B{C-LP64} \\
+	\B{MIKA}&\B{BYTES(M)}&\B{STDC}&\B{C-LP32}&\B{C-ILP32/LLP}&\B{C-LP64} \\
 	\hline\endfirsthead\hline
-	\B{MIKA}&\B{MAGICE}&\B{STDC}&\B{LP32}&\B{ILP32}&\B{LLP}&\B{LP64} \\
+	\B{MIKA}&\B{MAGICE}&\B{STDC}&\B{LP32}&\B{ILP32/LLP}&\B{LP64} \\
 	\hline\endhead\hline\endfoot\hline\endlastfoot
 	%
-	VOID&struct\{\}(0)&void& & & &\\\hline
-	BIT/+BOOL&bit(0.125)&usually int& & & &\\\hline
-	BYT(E)/+CHAR&1&char>=\B{1}&1&1&1&1\\\hline
-	WORD/+SHORT&2&short>=\B{2}&2&2&2&2\\\hline
-	*+INT&stduint&int>=2&2&4&4&4\\\hline
-	DWORD&4& & & & &\\\hline
-	FWORD&6& & & & &\\\hline
-	*+LONG&/&long>=4&4&4&4&8\\\hline
-	QWORD/+LLONG&8&long long>=\B{8}&8&8&8&8\\\hline
-	TWORD/TBYTE&10& & & & &\\\hline
-	OWORD&16&void& & & &\\\hline
-	YWORD&32&void& & & &\\\hline
-	ZWORD&64&void& & & &\\\hline
-	REAL\%[BITS]&\It{IEEE}&void& & & &\\\hline
+	VOID&struct\{\}(0)&void& & &\\\hline
+	BIT/+BOOL&bit(0.125)&usually int& & &\\\hline
+	BYT(E)/+CHAR&1&char>=\B{1}&1&1&1\\\hline
+	WORD/+SHORT&2&short>=\B{2}&2&2&2\\\hline
+	*+INT&stduint&int>=2&2&4&4\\\hline
+	DWORD&4& & & &\\\hline
+	FWORD&6& & & &\\\hline
+	*+LONG&/&long>=4&4&4&8\\\hline
+	QWORD/+LLONG&8&long long>=\B{8}&8&8&8\\\hline
+	TWORD/TBYTE&10& & & &\\\hline
+	OWORD&16&void& & &\\\hline
+	YWORD&32&void& & &\\\hline
+	ZWORD&64&void& & &\\\hline
+	REAL\%[BITS]&\It{IEEE}&void& & &\\\hline
 \end{longtable}
 
 \verb`*` means the size is not stable;
@@ -76,9 +76,9 @@ Compared to A.N.Y., integers in MASM includes the sign property.
 
 M, C, C++ support pointer (add \verb`*`after the destination-type to express its type) to realize the access of memory like Assembly.
 
-The style \verb|type0* a| stresses that \verb|a| is an instance of the pointer.
+The style \verb|type0* a| stresses that \verb|a| is an instance of the pointer. \verb|type0[] a| stresses the array type, like $C\#$.
 
-The style \verb|type0 *a| stresses the type of the destination.
+The style \verb|type0 *a| stresses the type of the destination. \verb|type0 a[]| stresses the basic type, like $CPL$.
 
 And C++ provides \B{reference} to make the form of pointers beautiful, while provides class to make passing the instance beautiful.
 
@@ -86,6 +86,14 @@ The arithmetic for pointers are usually special. For plus and minus, the factor 
 
 For the analyzer, a pointer consists at least of the information of destination type and the logical address.
 If a pointer contain the end so you can know the range, it becomes a \B{fat pointer}.
+
+\subsubsection{Endianness}
+
+For multi-byte register, the processor should decide whether it is little or big endian.
+
+When designing a parser, there are also different processes for literal immediate.
+
+For example, if you code \verb|DW 'ab'|, it will become \verb"0x61,0x62 (0x6261)" in NASM, while \verb"(0x6162)" in MASM. The former has considered same results from \verb|DB 'ab'|. % Expi. Haruno RFC10
 
 \subsubsection{Array}
 
@@ -134,9 +142,28 @@ while \verb`far` can be used to assign 32 or 48 bits offset with its segment.
 
 \subsubsection{Enumeration, Structure and Union}
 
-\paragraph{for Macro Assembler}
+\paragraph{for Macro Assembler} \
 
-\B{Definition}
+{Definition}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+;: union
+union_name UNION
+	union_fields
+union_name ENDS
+;: a nested case
+struct_name STRUCT
+	structure_fields
+	UNION union_name
+		union_fields
+	ENDS
+struct_name ENDS
+\end{lstlisting}
+
+Except their mechanism from literal meanings, the only difference between structure and union is that, a union allows only one initialization value.
+
+\B{EXAMPLE - MASM Structure}
+
+{Definition}
 \begin{lstlisting}[language={[x86masm]Assembler}]
 Employee STRUCT
 	IdenNum  BYTE "000000000"
@@ -146,12 +173,16 @@ Employee STRUCT
 Employee ENDS
 \end{lstlisting}
 
-
 {Declaration}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+worker Employee <>
+\end{lstlisting}
+
+Unwritten content in Angle brackets can be ignored, written content can be overwritten; Using braces also works.
 
 {Reference}
 
-
+\verb|worker.IdenNum|; \verb|(Empolyee ptr [esi]).Years|;
 
 
 

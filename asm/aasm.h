@@ -37,3 +37,8 @@ typedef struct {
 	void (*cleanup) (int);
 } Prepro;
 extern Prepro _pp;
+
+void printinfo(void);
+void printl(loglevel_t level, const char* fmt, ...);
+int* handlog(void* _serious, ...);
+

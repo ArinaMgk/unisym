@@ -25,7 +25,6 @@
 #define _INC_CONSIO
 
 #include "stdinc.h"
-#include "supple.h"
 #include <stdarg.h>
 
 enum _STD_SRC_t{

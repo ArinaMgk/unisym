@@ -76,6 +76,7 @@ extern const char* _pref_warn;
 extern const char* _pref_info;
 extern const char* _pref_dbug;
 extern const char* _pref_trac;
+extern _tocall_ft _call_serious;// if error, panic or fatal
 
 void printlogx(loglevel_t level, const char* fmt, para_list paras);
 void printlog(loglevel_t level, const char* fmt, ...);

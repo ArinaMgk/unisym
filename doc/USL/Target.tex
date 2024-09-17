@@ -1,0 +1,94 @@
+
+\subsection{Output Target}
+
+Target in format \verb`Arch-Devk-Host(Digit)`
+\begin{itemize}
+\item \verb`i8086-CG-IBMPC ` {DJGPP 16 MSDOS}
+\item \verb`x86-CG-Win32   ` {32}
+\item \verb`x86-CM-Win32   ` {32}
+\item \verb`x64-CG-Win64   ` {64}
+\item \verb`x64-CM-Win64   ` {64}
+\item \verb`x86-EG-Lin32   ` {32}
+\item \verb`x64-EG-Lin64` {64}
+\item \verb`x86-EG-MCCA    ` {32}
+\item \verb`riscv64-EG-MCCA` {64}
+\item \verb`i8051-Keil-AT89C5    ` {16}
+\item \verb`cortexm3-EG-STM32F1  ` {32}v7
+\item \verb`cortexm4-EG-STM32F4  ` {32}v7
+\item \verb`cortexm0-EG-CW32F03  ` {32}v6
+\item \verb`cortexm0-EG-CW32F00  ` {32}v6
+\item \verb`cortexm3-Keil-STM32F1` {32}v7
+\item \verb`cortexm4-Keil-STM32F4` {32}v7
+\item \verb`cortexm0-Keil-CW32F03` {32}v6
+\item \verb`cortexm0-Keil-CW32F00` {32}v6
+\end{itemize}
+
+where,
+\begin{itemize}
+\item ARMv7 include ARMv7-M series;
+\item cortexm stands for ARM.CortexM;
+\item x64 stands for AMD64;
+\end{itemize}
+
+Second parameter is the kit:
+\begin{itemize}
+\item Ex: ELF
+\item Cx: COFF
+\item xG: GNU Compiler Collection
+\item xM: Microsoft Visual C/C++
+\item xA: Ain Magice
+\end{itemize}
+
+\subsection{Option Switch}
+
+\paragraph{\_MCU\_} \
+\begin{itemize}
+	\item \B{\_MCU\_Intel8051}\begin{itemize}
+		\item \verb`_SYS_FREQ` Frequency of the system.
+	\end{itemize}
+	\item \verb`_MCU_STM32F1x`
+	\item \verb`_MCU_STM32F4x`
+	\item \verb`_MCU_CW32F003`
+	\item \verb`_MCU_CW32F030`
+	\item \verb`_CPU_AMDRyzen7_5800H_Radeon`
+\end{itemize}
+
+\paragraph{\_SUPPORT\_} \
+\begin{itemize}
+	\item \B{GPIO}: Usually for MCU.
+	\item \B{Port8}: Usually for Personal Computers.
+\end{itemize}
+
+\paragraph{\_INC\_} \
+\begin{itemize}
+	\item%{TODO}
+\end{itemize}
+
+\paragraph{\_CALL\_} (is not Linkage) \
+\begin{itemize}
+	\item%{TODO}
+\end{itemize}
+
+\paragraph{\_OPT\_} \
+\begin{itemize}
+	\item \verb`_OPT_RISCV64`
+\end{itemize}
+
+The prefix is `\_ARC\_' in early style 2.
+
+\paragraph{\_MCCA\_} and Operating System
+
+\begin{itemize}
+	\item \verb|0x8616| x86, bits 16
+	\item \verb|0x8632| x86, bits 32
+	%\item \_Win32
+	%\item \_Win64
+	%\item \_WinNT
+\end{itemize}
+
+\paragraph{Development Kit} \
+\begin{itemize}
+\item \verb `_DEV_MSVC`
+\item \verb `_DEV_GCC`
+\item \verb `_BUILD_Qt` 
+\end{itemize}

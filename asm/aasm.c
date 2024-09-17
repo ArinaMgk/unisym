@@ -21,29 +21,42 @@
 
 #include <stdinc.h>
 #include <ustdbool.h>
+#include <ustring.h>
 #include <stdio.h>
-#include <../../demo/template/version/version.h>
 #include <time.h>
 #include <strpage.h>
 #include <strbuff.h>
+#include "aasm.h"
 
-static time_t startup_time;
-static time_t temp_time;
+extern time_t startup_time;
+
 static byte rest_parse_phase = 2;
-static bool terminate_after_phase = false;
+bool terminate_after_phase = false;
+bool treat_warn_as_erro = false;
+bool enable_warning = true;
+
+#define FILENAME_MAX 260
+static char inname[FILENAME_MAX];
+char outname[FILENAME_MAX];
+static char listname[FILENAME_MAX];
+static char errname[FILENAME_MAX];
 
 Strpage* _offsets;
 Strbuff* _forwrefs;
+
+FILE* outfile = NULL;
+
 
 typedef struct ForewardReference {
 	int lineno;// line number
 	_TEMP int operand;
 } forwrefinfo;
 
-static printinfo(void) {
-	time(&temp_time);
-	printf("%s", __PROJ_INFO__);
-	printf("Timspan: %" PRIuSTD "\n", temp_time - startup_time);
+void getcrt(_Need_free char** const pname, stduint* const plineno)
+{
+	//{TODO}
+	*plineno = 12;
+	*pname = StrHeap("nihao.asm");
 }
 
 int main(int argc, char** argv, char** envv)
@@ -54,14 +67,21 @@ int main(int argc, char** argv, char** envv)
 	//{TODO} _set_malloc_error(report_error);
 	_offsets = StrpageNew();
 	_forwrefs = StrbuffNew(byteof(forwrefinfo));
+	_logstyle = _LOG_STYLE_GCC;
+	_call_serious = handlog;
+	//{TODO} preproc = &nasmpp;
+	//{TODO} operating_mode = op_normal;
 
 
-	
+	//{TODO} 
+	printl(_LOG_WARN, "QAQ...");
+	//{TODO} 
 
 	printinfo();
 	StrpageFree(_offsets);
 	StrbuffFree(_forwrefs);
-	//{} ...
+	//{TODO} eval_cleanup();
+	//{TODO} stdscan_cleanup();
 	return malc_count;
 }
 

@@ -1,0 +1,34 @@
+\B{for $Magice, C,C++$}
+
+The case labels decide the entry of the evaluation put in the parens of switch. But it is false for below.
+
+\B{for $MATLAB$}
+\begin{lstlisting}[language=MATLAB]
+	switch val_src
+	case val_0
+		% ...
+	case val_1
+		% ...
+	otherwise
+		% ...
+	end
+\end{lstlisting}
+
+
+\B{for $Verilog$}
+\begin{lstlisting}[language=Verilog]
+	case (data[3:0]) // assume using bits 0~3 of data
+	4'h0: begin
+		//...
+	end
+	4'h1, 4'h2: begin
+		//...
+	end
+	default: begin
+		//...
+	end
+	endcase
+\end{lstlisting}
+
+
+

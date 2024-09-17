@@ -23,8 +23,6 @@
 #ifndef _INC_COMPLEMENT
 #define _INC_COMPLEMENT
 
-#include "stdinc.h"
-
 // ---- { STDC:: stdarg.h } 20240824 ----
 // by makeing use of stack(BP) and C calling convention
 
@@ -36,7 +34,15 @@ typedef struct {
 
 #if defined(_Linux) && __BITS__ == 64 || defined(_OPT_RISCV64)
 //#define para_ento(ap, param) (ap.stack_ptr = (byte*)&param + ...)// by dscn trial, 20240908
-#include <stdarg.h>//{TEMP} System V AMD64 ABI
+#ifdef _DEV_GCC//{TEMP} System V AMD64 ABI
+	#define va_start(ap,last) (__builtin_va_start(ap, last))
+	#define va_arg(ap,type) (__builtin_va_arg(ap, type))
+	#define va_end(ap) (__builtin_va_end(ap))
+	#define va_copy(d,s) (__builtin_va_copy(d, s))
+	typedef __builtin_va_list va_list;
+#else
+	#include <stdarg.h>
+#endif
 #define para_ento(ap, param) va_start(ap, param)
 #define para_next(ap, type) (type)va_arg(ap, type)
 #define para_endo(ap) va_end(ap)
@@ -63,6 +69,7 @@ void print_numbers(int count, ...) {
 
 // ---- { STDC:: setjmp.h } 20240902 (Win32) ----
 
+// x86
 typedef struct {
 	uint32 ret;
 	uint32 ebx;
@@ -72,13 +79,17 @@ typedef struct {
 	uint32 esp;
 } Retpoint;
 
+//{TEMP} only support 1 level of calling - please use setjmp.h now
+extern Retpoint _ERRO_JUMP;
+#define ErroPoint() (char*)MarkPoint(&_ERRO_JUMP)
+//extern char* ErroPoint();
 extern pureptr_t MarkPoint(Retpoint* buf);
 extern void JumpPoint(const Retpoint* buf, pureptr_t val);
 
 //#define setjmp MarkPoint
 //inline static void longjmp(jmp_buf buf, int v) { JumpPoint(&buf, v); }
 
-/* EXAMPLE #include <c/supple.h>
+/* EXAMPLE #include <c/stdinc.h>
 static Retpoint env;
 void test_func() {
 	JumpPoint(&env, "ciallo");

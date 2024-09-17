@@ -1,5 +1,5 @@
 
-\subsection{Bridge between Machine-code and Human-language}
+\subsection{Bridge between Machine-code and Advanced-language}
 
 The concept of `state machine' is widely accepted, for it describing the effect of the instructions, which can help us to get numeric register-effects and other side-effects.
 
@@ -10,16 +10,13 @@ More to see
 	\item \refer{Calling}
 \end{itemize}
 
-\subsection{Syntax, Semantics and Statement}
-% Syntax(Grammar), Semantics and Statement
+\subsection{Syntax, Semantics and Statement} % Grammar
 \subimport{CLV/Program}{Statement}
-
-\subsection{Data-type and Memory}
-
-%(Heap/Stack)
 
 \subsection{Scope and Linkage}
 
+\subsection{Identifier and Token Parsing}
+\subimport{CLV/Program}{Identifier}
 
 \subsection{Keyword and Operator Parsing}
 \subimport{CLV/Program}{Keyword}
@@ -33,26 +30,11 @@ More to see
 \subimport{CLV/Program}{Function}
 
 \subsection{Standard, Style and Arinae Covenant}
-
+\subimport{CLV/Program}{Standard}
 
 \subsection{Target and Output Format}
+\input{CLV/Program/Target}
 
-\subsubsection{Freestanding Environment}
-
-Relative command options: %{TODO}
-
-\subsubsection{Hosted Environment}
-
-In Freestanding Environment, user can only use inline assembly, memory and arithmetic effect. However, the hosted includes at least interfaces provided by Operating System and Processor-registered mechanism, which provide much side-effect.
-
-Usually to see demo `args':
-
-\lstset{style=GlobalC}
-\lstinputlisting[language=C, firstline=24]{../demo/utilities/args.c}
-
-But the ISO/IEC recommend the below forms for `main' function with external symbol \verb`_main`:
-
-%{TODO} 
 
 \subsection{Assertion and Exception}
 

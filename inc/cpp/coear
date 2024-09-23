@@ -22,10 +22,10 @@
 
 #ifndef _INC_X_COEAR
 #define _INC_X_COEAR
+#include <math.h>
 #include "../c/coear.h"
 #include "floating"
 #include "string"
-#include <math.h>
 // #include <iostream>
 
 //{TODO} independent from `erro` `_MALCOUNT` `_MALLIMIT` .... [These should be of `malc` and `memf`.]
@@ -91,6 +91,7 @@ namespace uni {
 		Coe ASinh() { return Coe(asinh(operator double())); }
 		Coe ACosh() { return Coe(acosh(operator double())); }
 		Coe ATanh() { return Coe(atanh(operator double())); }
+		operator String() { return String(CoeToLocale(this->co, 0)); } 
 	protected:
 		coe* co;
 		void Srs(const Coe& c);

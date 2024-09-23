@@ -28,6 +28,8 @@
 #include "../../../inc/c/consio.h"
 #include "../../../inc/c/ISO_IEC_STD/stdlib.h"
 
+#define pnext(t) para_next(paras, t)
+
 void outc(const char chr)
 {
 	outtxt(&chr, 1);
@@ -84,6 +86,7 @@ void outi64hex(const uint64 inp)
 	outtxt(buf, numsof(buf));
 }
 
+// Output `int` Decimal
 void outidec(int xx, int base, int sign)
 {
 	char buf[16];
@@ -107,16 +110,30 @@ void outidec(int xx, int base, int sign)
 		outc(buf[i]);
 }
 
+// Output Integer
 void outi(stdint val, int base, int sign_show)
 {
 	if (base < 2) return;
-	char buf[bitsof(stdint)] = { 0 };
-	int i = 0;
-	if (val < 0) val = -val;
-	do buf[i++] = _tab_HEXA[val % base]; while (val /= base);
-	if (sign_show) buf[i++] = val < 0 ? '-' : '+';
-	outtxt(buf, numsof(buf));
+	char buf[bitsof(stdint) + 2] = { 0 };
+	int i = sizeof(buf) - 1;
+	int neg = val < 0;
+	if (neg) val = -val;
+	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
+	if (sign_show) buf[--i] = neg ? '-' : '+';
+	outtxt(buf + i, numsof(buf));
 }
+
+// Output Unsigned Integer
+void outu(stduint val, int base)
+{
+	if (base < 2) return;
+	char buf[bitsof(stduint) + 1] = { 0 };
+	stduint i = sizeof(buf) - 1;
+	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
+	outtxt(buf + i, numsof(buf));
+}
+
+//{TEMP} outtxt() --redirect-> slfdef_func()
 
 int outsfmtlst(const char* fmt, para_list paras)
 {
@@ -140,24 +157,24 @@ int outsfmtlst(const char* fmt, para_list paras)
 			break;
 		switch (c) {
 		case 'd':
-			outidec(para_next(paras, int), 10, 1);
+			outidec(pnext(int), 10, 1);
 			break;
 		case 'x':
-			outidec(para_next(paras, int), 16, 1);
+			outidec(pnext(int), 16, 1);
 			break;
 		case 'p':
 			outtxt("0x", 2);
 			if (bitsof(stduint) == 64)
-				outi64hex(para_next(paras, stduint));
+				outi64hex(pnext(stduint));
 			else if (bitsof(stduint) == 32)
-				outi32hex(para_next(paras, stduint));
+				outi32hex(pnext(stduint));
 			else if (bitsof(stduint) == 16)
-				outi16hex(para_next(paras, stduint));
+				outi16hex(pnext(stduint));
 			else
-				outi8hex(para_next(paras, stduint));
+				outi8hex(pnext(stduint));
 			break;
 		case 's':
-			if ((s = para_next(paras, char*)) == 0)
+			if ((s = pnext(char*)) == 0)
 				s = "(null)";
 			outtxt(s, -1);
 			break;
@@ -165,8 +182,15 @@ int outsfmtlst(const char* fmt, para_list paras)
 			c = '%';
 			outtxt(&fmt[i], 1);
 			break;
+		case '[': // alicee extern 
+			if (!StrCompareN(fmt + i, "[u]", 3)) // Print Decimal STDUINT
+			{
+				outu(pnext(stduint), 10);
+				i += 3 - 1;
+			}
+			break;
 		default:
-			// no-care
+			outtxt(&fmt[i], 1);
 			break;
 		}
 		i++;

@@ -35,12 +35,12 @@ namespace uni {
 		this->counts = StrLength(this->addr);
 		limits = 0;
 	}
-	/*
+	
 	String::String(char* str) {
 		this->counts = StrLength(str);
 		this->addr = str;
 		//str = 0;
-	}*/
+	}
 	String::String(stduint buflen) {
 		this->addr = (char*)zalc(buflen);
 		this->counts = 0;

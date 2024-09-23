@@ -21,7 +21,6 @@
 */
 
 #include "../../inc/cpp/coear"
-#include "math.h"
 
 namespace uni{
 	Coe::~Coe() {

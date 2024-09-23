@@ -36,7 +36,7 @@
 //- UTF-16
 
 #include "../random.h"// Pseudo-random sequence generation
-#include "../memory.h"// Memory management 
+//#include "../memory.h"// Memory management (stdinc->host->memory)
 #include "../algorithm/sort.h"// Searching and sorting utilities
 #include "../arith.h"// // Integer arithmetic functions
 

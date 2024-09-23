@@ -49,8 +49,7 @@ namespace uni {
 	public:
 		String(const char* str_asciz = "");
 		String(const String& str);
-		String(char* str) : String((const char*) str) {}
-		// String(char* str);
+		String(char* str);
 		String(stduint buflen);
 		~String();
 		//

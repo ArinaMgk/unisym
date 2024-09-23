@@ -1,0 +1,214 @@
+
+Symbolic Style
+\begin{itemize}
+	\item Fix style: \verb`BioStrPrint = BIOS String Print`
+	\item Sub style: \verb`BIOS.Print`
+\end{itemize}
+
+Macro Calling Style
+\begin{itemize}
+	\item Direct BIN e.g. \verb`_PRINTF SYMBOL`
+	\item Linked OBJ e.g. \verb`DIVX MACRO`
+\end{itemize}
+
+
+\subsection{n\_arith}
+
+\subsubsection{External Basic Operation}
+
+\paragraph{DIVX} \
+\\
+\B{Preset}: DS:EBX=dest STACK \\
+\B{Parameter}: BL or BX \\
+\B{Return}: EBX+=sectors*512 \\
+\B{Description}: \\
+BL: AX/BL=AX...DL \\
+BX: DX`AX/BX=CX`AX...DX \\
+\B{Attribute}: CPU (i8086) \\
+\B{Nestcall}: \It{None}
+
+\subsubsection{Char Code}
+\paragraph{BCD2ASCII} \
+\\
+\B{Preset}: AL \\
+\B{Parameter}: \It{None} \\
+\B{Return}: $AH`AL$ \\
+\B{Description}: \\
+\B{Attribute}: CPU (i8086) \\
+\B{Nestcall}: \It{None}
+
+\subsection{n\_cpuins}
+
+\paragraph{CpuBrand} \
+\\
+\B{Preset}: DS:ESI=DATA48 \\
+\B{Parameter}: \It{None} \\
+\B{Return}: $VOLA(EAX,EBX,ECX,EDX,ESI,EDI)$ \\
+\B{Description}: Get CPU Brand Information \\
+\B{Attribute}: CPU (586+) \\
+\B{Nestcall}: \It{None}
+
+\subsection{n\_hdisk}
+
+\paragraph{HdiskLoadLBA28} \
+\\
+\B{Preset}: DS:EBX=dest STACK \\
+\B{Parameter}: EAX/I logi < CL/I sectors=1 \\
+\B{Return}: $EBX+=sectors*512$ \\
+\B{Description}: \\
+\B{Attribute}: CPU (386+) Harddisk (SectorSize 512Byte) \\
+\B{Nestcall}: \It{None}
+
+\subsection{n\_osdev}
+
+\paragraph{Addr20Enable} \
+\\
+\B{Preset}: \\
+\B{Parameter}: \\
+\B{Return}: $AL=Port[0x92]$ \\
+\B{Description}: Enable A20 to avoid automatic setting zero.\\
+\B{Attribute}: CPU (i8086) \\
+\B{Nestcall}: \It{None}
+
+\paragraph{GDTDptrStruct} \
+\\
+\B{Preset}: \\
+\B{Parameter}: EAX BASEADDR, EBX LIMIT, ECX PROPERTY\\
+\B{Return}: $EDX`EAX=FULL_DESCRIPTOR Vola{C,B}$ \\
+\B{Description}:  \\
+\B{Attribute}: CPU (386+) \\
+\B{Nestcall}: \It{None}
+
+\paragraph{GateStruct} \
+\\
+\B{Preset}: \\
+\B{Parameter}: EAX=OffsetOfSegment, BX=SegDptr, CX=Property\\
+\B{Return}: $Vola(ecx,ebx) (edx`eax=Dptr)$ \\
+\B{Description}:  \\
+\B{Attribute}: CPU (386+) \\
+\B{Nestcall}: \It{None}
+
+\subsection{n\_pseudo}
+
+\paragraph{File} \
+\\
+\B{Description}:  Use at the beginning of the file.\\
+
+\paragraph{Endf} \
+\\
+\B{Description}:  Use at the end of the file.\\
+
+\paragraph{DefineStack16} \
+\\
+\B{Preset}: \\
+\B{Parameter}: SS, SP\\
+\B{Return}: $Vola{AX}$ \\
+\B{Description}:  \\
+\B{Attribute}: BIT (16) \\
+\B{Nestcall}: \It{None}
+
+\subsection{n\_timer}
+\subsubsection{Date}
+
+\paragraph{GetMoexDayIdentity} \
+\\
+\B{Preset}: ax year, cx month STACK DS->DataSegm\\
+\B{Parameter}: ?SI String, AH/I Style\\
+\B{Return}: $BX=PastDays DL=HowManyDaysInTheMonth$ \\
+\B{Description}: Get the days between month 1st 00:00 through herday 24:00.\\
+\B{Attribute}: BIT (16) \\
+\B{Nestcall}: \It{None}
+
+\subsubsection{Time}
+
+\paragraph{TimerInit16} \
+\\
+\B{Preset}: STACK\\
+\B{Parameter}: CS/I CodeSeg, RoutintINT70\\
+\B{Return}: \\
+\B{Description}: \\
+\B{Attribute}: BIT (16) \\
+\B{Nestcall}: \It{None}
+
+\paragraph{TimerReadTime} \
+\\
+\B{Preset}: after calling TimerInit16\\
+\B{Parameter}: \\
+\B{Return}: $HH:MM:SS \rightarrow DH:DL:AL$\\
+\B{Description}: \\
+\B{Attribute}: BIT (16) \\
+\B{Nestcall}: \It{None}
+
+\subsection{n\_video}
+
+Now only for 8025 mode.
+
+\subsubsection{Cursor Operation}
+
+\paragraph{ConCursor} \
+\\
+\B{Preset}: \\
+\B{Parameter}: $AX posi=\sim$ \\
+\B{Return}: \\
+$\%1==~ Get: AX=AfterPosition Volatile\{DX\}$\\
+$\%1!=~ Set: Volatile\{AX, DX\} BX=\%1=AfterPosition$\\
+\B{Description}: Get or set the cursor.\\
+\B{Attribute}: BIT (16) CPU (i8086) \\
+\B{Nestcall}: \It{None}
+
+
+\subsubsection{Screen Other Operation}
+
+\paragraph{ConRoll} \
+\\
+\B{Preset}: ES=VideoBufferSegment(0xB800)\\
+\B{Parameter}: $AL rows=1 yo \left[1~video_rows\right]$ \\
+\B{Return}: $Volatile\{AX, CX, SI, DI\}$\\
+\B{Description}: Roll the screen.\\
+\B{Attribute}: BIT (16) CPU (i8086) \\
+\B{Nestcall}: \It{None}
+
+
+\subsubsection{Print Collection}
+
+\paragraph{ConPrintChar} \
+\\
+\B{Preset}: ES=VideoBufferSegment(0xB800) STACK\\
+\B{Parameter}: $AL/I char > \sim AH/I style=0x07 > \sim BX/I posi=\sim$ \\
+\B{Return}: $BX=NextPosi(automatic mode)$\\
+\B{Description}: Print a char on screen. \\
+If bx is invalid or out of the range, bx will be set 0. \\
+``posi'' starts from 0. \\
+Special chars for automatic position mode: \verb'\n', \verb'\r'\\
+\B{Attribute}: BIT (16) CPU (i8086) \\
+\B{Nestcall}: ConCursor (2 versions)
+
+\paragraph{ConPrint} \
+\\
+\B{Preset}: ES=VideoBufferSegment(0xB800) DS=SegofString STACK\\
+\B{Parameter}: $?SI String, AH/I\ Style$ \\
+\B{Return}: $BX=NextPosi\ Vola{?AX}$\\
+\B{Description}: Print a char on screen. \\
+Accept \verb'\n', \verb'\r' for controlling and \verb'\0' for end.\\
+\B{Attribute}: BIT (16) CPU (SI:i8086, ESI:386+) \\
+\B{Nestcall}: ConCursor (2 versions)
+
+{RFE221530} \It{ArinaMgk replace PUSHAD and POPAD to meet 8086 mode};
+
+\paragraph{ConPrintWord} \
+\\
+\B{Preset}: STACK\\
+\B{Parameter}: BX/I word , Proc(ConPrintChar AL,AH,~) \\
+\B{Return}: \\
+\B{Description}: \\
+\B{Attribute}: BIT (16) CPU (i8086) \\
+\B{Nestcall}: ConCursor yo ConPrintChar(Extern)
+
+\paragraph{ConPrintDword} \
+\\
+\B{Preset}: STACK\\
+\B{Parameter}: EBX/I word , Proc(ConPrintChar AL,AH,~) \\
+\B{Return}: \\
+\B{Description}: \\
+\B{Attribute}: BIT (16) CPU (386+) \\
+\B{Nestcall}: ConCursor yo ConPrintChar(Extern)

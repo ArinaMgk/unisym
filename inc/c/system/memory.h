@@ -23,7 +23,7 @@
 #ifndef _INC_MEMORY
 #define _INC_MEMORY
 
-#include "stdinc.h"
+#include "../stdinc.h"
 
 #define _STDLIB_H
 
@@ -43,7 +43,7 @@
 	#define zalc(size) (void*)(_MALCOUNT++,calloc(size,1))
 #endif
 
-void memf(void* m);// non-side-effect version
+void memf(void* m);// non-side-effect version, with null-check
 #define mfree(x) do{memfree(x);(x)=0;}while(0)
 
 #ifdef _INC_CPP

@@ -58,15 +58,6 @@ typedef struct {
 
 #define para_copy(dest, src, type) MemCopyN((void *)&dest, (void *)&src, _para_align(type))
 
-/* EXAMPLE
-void print_numbers(int count, ...) {
-	Letpara(args, count);
-	for0 (i, count) {
-		printf("%x\n", para_next(args, int));
-	}
-}
-*/
-
 // ---- { STDC:: setjmp.h } 20240902 (Win32) ----
 
 // x86
@@ -88,27 +79,6 @@ extern void JumpPoint(const Retpoint* buf, pureptr_t val);
 
 //#define setjmp MarkPoint
 //inline static void longjmp(jmp_buf buf, int v) { JumpPoint(&buf, v); }
-
-/* EXAMPLE #include <c/stdinc.h>
-static Retpoint env;
-void test_func() {
-	JumpPoint(&env, "ciallo");
-}
-int main() {
-	pureptr_t val;
-	val = MarkPoint(&env);
-	if (!val) {
-		test_func();
-	} else {
-		printf("Returned from longjmp, val = %s\n", val);
-	}
-}
-*//*
-aasm -f win32 %ulibpath%\asm\x86\jump.asm -o setjmpS.o -g
-gcc -m32 -o a.exe test.c setjmpS.o -g -I%uincpath%
-EXPECTED>a.exe
-Returned from longjmp, val = ciallo
-*/
 
 // ---- { MORE } ----
 

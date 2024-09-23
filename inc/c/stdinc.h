@@ -27,8 +27,8 @@
 extern "C" {
 #endif
 #include "proctrl/proctrl.h"
-#include "host.h"
-#include "supple.h"
+#include "system/host.h"
+#include "system/supple.h"
 #if defined(_dbg) || defined(_DEBUG)
 #include "system/debug.h"
 #endif

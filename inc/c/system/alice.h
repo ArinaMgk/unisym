@@ -60,6 +60,9 @@ extern "C++" {
 		template<typename typed, typename types> inline static typed& cast(types& value) {
 			return *(typed*)(&value);
 		}
+		template<typename typed> inline static typed& treat(pureptr_t addr) {
+			return *(typed*)addr;
+		}
 	}
 }
 #define _REGISTER

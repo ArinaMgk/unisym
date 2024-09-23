@@ -1,0 +1,96 @@
+
+\subsubsection{ASCIZ String}
+
+\B{Header}: \verb`c/ustring.h`
+
+\subsubsection{Array}
+
+An array owns the feature of the pointer (such as participating in pointer-arithmetic). But it can be re-point as a pointer object (because it provides spaces for elements), the array exists actually a `label' in reflected Assembly except the elements information it carried. \It{Many users fight about whether (identifier of) array is a pointer. That is a meaningless question and it depends on they consider pointer an object or a feature.}
+
+There are two strategies to set the array. Assume an array \verb|arr[A][B][C]|:
+For Row-major, the adjacent `C' always reflect the constant element, also known as \verb|(*(*(arr+A)+B)+C)|.
+\begin{itemize}
+	\item Magice and C
+	\item C++
+\end{itemize}
+For Column-major, the adjacent `A' always reflect the constant element, also known as \verb|(*(*(arr+C)+B)+A)|.
+\begin{itemize}
+	\item Fortran
+\end{itemize}
+
+\B{EXAMPLE - Assign directly by identifier without loop or function}
+\begin{lstlisting}[language=C]
+	typedef struct newt {char newt[5];} newt;
+	int main()
+	{
+		newt a = {1,2,3,4,5};
+		newt b = {0};
+		*(newt*)&b = *(newt*)&a;
+	}
+\end{lstlisting}
+
+\paragraph{for Macro Assembler} \
+
+\B{EXAMPLE - Pointer}
+\lstset{style=GlobalASMx86}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+	arrayA byte 10h, 20h;
+	pByte typedef ptr byte;
+	ptr1 pByte arrayA;
+	mov esi,ptr1
+	mov al,[esi]
+\end{lstlisting}
+
+In the example, we assume an array \verb|10h, 20h| and define a new pointer type \verb|pByte| for it. 
+
+Keyword \verb`near` and \verb`far` can decide the length in some cases.
+\verb`near` can be used to assign 16 or 32 bits offset,
+while \verb`far` can be used to assign 32 or 48 bits offset with its segment.
+
+
+\subsubsection{Enumeration, Structure and Union}
+
+\paragraph{for Macro Assembler} \
+
+{Definition}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+	;: union
+	union_name UNION
+	union_fields
+	union_name ENDS
+	;: a nested case
+	struct_name STRUCT
+	structure_fields
+	UNION union_name
+	union_fields
+	ENDS
+	struct_name ENDS
+\end{lstlisting}
+
+Except their mechanism from literal meanings, the only difference between structure and union is that, a union allows only one initialization value.
+
+\B{EXAMPLE - MASM Structure}
+
+{Definition}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+	Employee STRUCT
+	IdenNum  BYTE "000000000"
+	LastName BYTE 30 DUP(0)
+	Years    WORD 0
+	Salary   DWORD 0,0,0,0
+	Employee ENDS
+\end{lstlisting}
+
+{Declaration}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+	worker Employee <>
+\end{lstlisting}
+
+Unwritten content in Angle brackets can be ignored, written content can be overwritten; Using braces also works.
+
+{Reference}
+
+\verb|worker.IdenNum|; \verb|(Empolyee ptr [esi]).Years|;
+
+
+

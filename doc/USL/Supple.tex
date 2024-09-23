@@ -15,8 +15,8 @@ The recommended standard sets are:
 \textbf{ISO/IEC C99\cite{StdC99}} & \textbf{header} \\
 \hline\endhead\hline\endfoot\hline\endlastfoot
 assert.h & uassert.h \\\hline
-ctype.h & uctype.h \\\hline
-stdbool.h(C99+) & ustdbool.h \\\hline
+ctype.h & \T{c/uctype.h} \\\hline
+stdbool.h(C99+) & \T{c/ustdbool.h} \\\hline
 string.h & ustring.h \\\hline
 limits.h & \multirow{3}{*}{archit.h by stdinc} \\\cline{1-1}
 stddef.h & \\\cline{1-1}
@@ -39,3 +39,100 @@ wctype.h(C95+) & \\\hline
 \end{longtable}\end{center}
 
 \subsection{Supply \mbox{-} \B{Qt}}
+
+If user would like to use a object-style program although it may import some red tapes, try the example:
+
+1. Add one property in the fields.
+\begin{lstlisting}[language=C++]
+class WidgetMain : public QWidget
+{
+public:
+	uni::String title;
+\end{lstlisting}
+
+2. Bind the action method.
+\begin{lstlisting}[language=C++]
+void WidgetMain::TitleSet(uni::String* str) {
+	this->setWindowTitle(str->reflect());
+}
+
+WidgetMain::WidgetMain(QWidget *parent) : QWidget{parent} {
+	unibind(title, WidgetMain::TitleSet, unipara(1));
+	title = "Title";
+\end{lstlisting}
+
+Then we can use \verb|win.title = "Nihao!";| instead of \verb|win->setWindowTitle("Nihao!");|.
+
+\subsection{Debug}
+\B{Header}: auto-inc-by stdinc.
+
+\subsection{Static Flag}
+\B{Header}: auto-inc-by stdinc.
+
+\subsection{Property}
+\B{Header}: \verb`cpp/property`
+
+This provides a better form of using object that allows users bind callback function.
+
+\T{String} is a instance class.
+
+\B{unibind}: Bind a method of a class. It requires ISO/IEC C++ 17 and later standards.
+
+\subsection{Reference}
+\B{Header}: \verb`cpp/reference`
+
+A memory unit for complex memory or memory-reflected devices, which allows bit-wise operations.
+The size of {the unit} and {the address of the unit} depends on the PCU chip.
+The index of binary digit is from the LSB and using little endian.
+
+\B{bitof}: give a binary digit in the form of \T{bool}. 
+
+\B{setof}: set a binary digit high or low level. If the second level parameter omitted, it set the digit (high).
+
+\B{rstof}: reset a binary digit to low level.
+
+\paragraph{Pointer}
+
+\B{Header}: \verb`cpp/pointer`
+
+help avoid using "*" but \verb`Point<>` template, and also enjoy auto releasing the resources.
+
+\subsection{Supple}
+
+\B{Header}: (auto-inc-by \verb`stdinc`) \verb`c/system/supple.h`
+
+\B{EXAMPLE - Greedy Parameter Using}
+
+\begin{lstlisting}[language=C]
+void print_numbers(int count, ...) {
+	Letpara(args, count);
+	for0 (i, count) {
+		printf("%x\n", para_next(args, int));
+	}
+}
+\end{lstlisting}
+
+\B{EXAMPLE - Self-Defined Control Pointer}
+
+\begin{lstlisting}[language=C]
+#include <stdinc.h>
+static Retpoint env;
+void test_func() {
+	JumpPoint(&env, "ciallo");
+}
+int main() {
+	pureptr_t val;
+	val = MarkPoint(&env);
+	if (!val) {
+		test_func();
+	} else {
+		printf("Returned from longjmp, val = %s\n", val);
+	}
+}
+/*
+aasm -f win32 %ulibpath%\asm\x86\jump.asm -o setjmpS.o -g
+gcc -m32 -o a.exe test.c setjmpS.o -g -I%uincpath%
+EXPECTED>a.exe
+Returned from longjmp, val = ciallo
+*/
+\end{lstlisting}

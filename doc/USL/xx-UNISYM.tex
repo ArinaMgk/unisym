@@ -9,10 +9,10 @@ The `Library' below are specific modules, for common modules described in \refer
 Portability, Coupling and Practicality. Portability is for showing the uniform; Coupling is for expressing the systematic logic; Practicality is for making sense.
 
 \begin{itemize}
-	\item Architectures (Dinah, x86, RISCV64, ARM, ...)
-	\item Compilers (MC-AASM, GCC, MSVC, ...)
-	\item Operating Systems (Mecocoa, Windows, Linux, ...)
-	\item Programming Languages (Magice, \verb|C|, \verb|C#|, ...)
+\item Architectures (Dinah, x86, RISCV64, ARM, ...)
+\item Compilers (MC-AASM, GCC, MSVC, ...)
+\item Operating Systems (Mecocoa, Windows, Linux, ...)
+\item Programming Languages (Magice, \verb|C|, \verb|C#|, ...)
 \end{itemize}
 
 \subsection{NOTICE when Modifying}
@@ -22,7 +22,7 @@ Portability, Coupling and Practicality. Portability is for showing the uniform; 
 
 \B{Header Included}:
 If you develop something on host-environment, include `stdinc.h` for C/C++;
-if you develop MCU-program, use the special file like `STM32F1` for C++...
+if you develop MCU-program, use the special file like `STM32F1` for C++ (See more in \refer{QANRUS})...
 
 \section{Notice}
 
@@ -31,6 +31,7 @@ It is recommended that users use only header files whose directory is the root i
 
 
 \section{Locale}
+\B{Header}: \verb`c/loc.h`
 
 \begin{center}\begin{table}[h!]
 	\begin{tabular}{|l|l|l|}
@@ -41,7 +42,7 @@ It is recommended that users use only header files whose directory is the root i
 	\end{tabular}
 \end{table}\end{center}
 
-\section{Series \mbox{-} {MCUDEV}}
+\section{Dependence Map}
 
 \section{Library \mbox{-} Electronics}
 
@@ -49,13 +50,15 @@ It is recommended that users use only header files whose directory is the root i
 
 \section{Library \mbox{-} \B{Rust} Crate}
 
-\section{Library \mbox{-} Assembly Macros}
+\section{Library \mbox{-} Assembly Macro}
 
 The section does not include \It{Kasha}. For AASM, Microsoft Macro Assembler, GNU-AS, Netwide Assembler.
 
+\subsection{IBM Compatible Interface}
 
+\subsection{MS-DOS Interface}
 
-\section{Supply for C, C++}
+\section{Supplement for C, C++}
 \subimport{.}{Supple}
 
 \section{Charset}
@@ -64,12 +67,22 @@ The section does not include \It{Kasha}. For AASM, Microsoft Macro Assembler, GN
 \section{Console}
 \input{USL/Console/xx-Console.tex}
 
+\section{File System and Format}
+\input{USL/File/xx-File.tex}
+
+\section{Signal and Logging}
+
+\B{Header}: \verb`c/msgface.h`
+
+
+
+
 % Last sections
 
 \section{Wel}
 \subimport{.}{Wel}
 
-\section{Witch Graphic}
+\section{Witch Graphic} \labex{Witch}
 \subimport{.}{Witch}
 
 \section{Wizard}
@@ -89,6 +102,7 @@ The section does not include \It{Kasha}. For AASM, Microsoft Macro Assembler, GN
 \item \B{args}
 \item \B{cal}    calendar (Linux Command)
 \item \B{clear}  (Linux Command)
+\item \B{cpuid}
 \item \B{fdump}  filedump
 \item \B{ffset}  VirtualDiskCopier
 \item \B{segsel} SegmentSelector
@@ -99,4 +113,17 @@ The section does not include \It{Kasha}. For AASM, Microsoft Macro Assembler, GN
 
 \section{Builtin-Data}
 
-% _tab_ prefix
+\subsection{.picture and other Demonstration}
+
+\subsection{Linked Data}
+
+\begin{itemize}
+	\item \verb `_tab_HEXA` decimal to upper ASCII chars.
+	\item \verb `_tab_hexa` decimal to lower ASCII chars.
+	\item \verb `_tab_keycode2ascii` Keyboard Scan-code to ASCII and description.
+\end{itemize}
+
+\subsection{Assembly Instructions}
+
+%{} from NASMANL
+

@@ -1,4 +1,4 @@
-#include "../supple.h"
+#include "../stdinc.h" // supple
 
 #define va_list para_list
 #define __va_align(type) _para_align(type)

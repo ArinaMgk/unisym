@@ -114,6 +114,7 @@ void outi32hex(const dword inp);
 void outi64hex(const uint64 inp);
 void outidec(int xx, int base, int sign);
 void outi(stdint val, int base, int sign_show);
+void outu(stduint val, int base);
 int  outsfmtlst(const char* fmt, para_list lst);
 int  outsfmt(const char* fmt, ...);
 

@@ -49,12 +49,14 @@ void SystemInit(void) {
 
 namespace uni {
 
-	// takes 0x400 area memory
+	// each takes 0x400 area memory
 	USART_t XART1(0x40011000, 1);
+
 	USART_t XART2(0x40004400, 2);
 	USART_t XART3(0x40004800, 3);
 	UART_t  XART4(0x40004C00, 4);
 	UART_t  XART5(0x40005000, 5);
+	
 	USART_t XART6(0x40011400, 6);
 	UART_t  XART7(0x40007800, 7);
 	UART_t  XART8(0x40007C00, 8);

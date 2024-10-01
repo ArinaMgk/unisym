@@ -39,13 +39,10 @@
 class GeneralPurposeInputOutputPort {
 	//GeneralPurposeInputOutputPin pins[16];
 	//GeneralPurposeInputOutputPin ERR;
-	//stduint baseaddr;
 	//Reference ClockPort;
 	//stduint EnablPosi;// of ClockPort
 	//friend class GeneralPurposeInputOutputPin;
-	//Reference getReference(GPIOReg::GPIORegType idx) const {
-	//	return Reference(baseaddr + (((stduint)idx) << 2));
-	//}
+	//_COM... ...
 public:
 	//void enClock(bool enable = true) {
 	//	ClockPort.setof(EnablPosi, enable);

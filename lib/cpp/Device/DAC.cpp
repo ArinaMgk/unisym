@@ -63,7 +63,7 @@ namespace uni {
 			byte channel = 2;//{???} for GPIOA5
 			stduint tmp = 0;
 			BitSev(tmp, _DAC_CR_POS_BOFFx, buffer_enable);
-			tmp |= (stduint)trigger;
+			tmp |= _IMM(trigger);
 			BitClr(tmp, _DAC_CR_POS_WAVEx);
 			if (channel == 1)
 			{

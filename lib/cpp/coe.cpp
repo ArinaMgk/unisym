@@ -69,7 +69,7 @@ namespace uni{
 	}
 
 	Coe Coe::operator++ (int) {// suffix, do not pass Reference&
-		// Coe* prev = new Coe (*this);
+		// Coe* prev = new Coe self;
 		//-What is the principle? Haruno saw the return is called by twice before return then destructure.
 		Coe prev = *this;
 		CoeAdd(this->co, &coeone);

@@ -59,10 +59,10 @@ namespace uni {
 			DnodeChainAdapt(new_nod, new_nod, +1);
 		}
 		else if (need_sort) {
-			setcmp(*this);
+			setcmp(self);
 			// assert been_sorted
 			if (!state.been_sorted) 
-				Sort(*this); 
+				Sort(self); 
 			state.been_sorted = true;
 			Dnode tmp_nod; // = { .next = nullptr, .offs = addr };
 			{

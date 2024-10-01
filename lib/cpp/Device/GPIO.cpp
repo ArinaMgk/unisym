@@ -52,7 +52,9 @@ namespace uni
 		NVIC.setAble(GPIO_Request_list[bitposi], enable);
 	}
 
-	void GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg) {
+	void GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg, Handler_t fn) {
+		if (fn) setInterrupt(fn);
+
 		if (!isInput())
 			setMode(GPIOMode::IN_Floating);
 
@@ -74,27 +76,15 @@ namespace uni
 		EXTI::MaskInterrupt.setof(bitposi); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
 	}
 
+	GeneralPurposeInputOutputPort::GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap) :
+		EnablPosi(Enap), ClockPort(CLK), baseaddr(ADDR)
+	{
+		for0a(i, OutpdPins) OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
+	}
+
 #endif
 
 #ifdef _MCU_STM32F1x
-
-	#define _OFFSET_GPIO_CRL 0x00
-	#define _OFFSET_GPIO_CRH 0x04
-	#define _OFFSET_GPIO_IDR 0x08
-	#define _OFFSET_GPIO_ODR 0x0C
-
-	GeneralPurposeInputOutputPort::GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap) :
-		EnablPosi(Enap), // (RCC_APB2ENR)
-		ClockPort(CLK), // Enable Clock
-		CnrglPort(_OFFSET_GPIO_CRL + ADDR),
-		CnrghPort(_OFFSET_GPIO_CRH + ADDR),
-		InnpdPort(_OFFSET_GPIO_IDR + ADDR),
-		OutpdPort(_OFFSET_GPIO_ODR + ADDR),
-		base(ADDR)
-	{
-		for0(i, numsof(OutpdPins))
-			OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
-	}
 
 	GeneralPurposeInputOutputPort GPIOA(0x40010800, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOA);
 	GeneralPurposeInputOutputPort GPIOB(0x40010C00, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOB);
@@ -110,27 +100,12 @@ namespace uni
 
 #if 1
 	
-	GeneralPurposeInputOutputPin::operator bool() const {
-		return (innput ? parent->InnpdPort : parent->OutpdPort) & (1 << bitposi);
-	}
 
-	bool GeneralPurposeInputOutputPin::getInn() {
-		return parent->InnpdPort & (1 << bitposi);
-	}
-	
-	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
-		// if (innput) return *this;
-		// G'DP or D'DP
-		if (val)
-			BitSet(parent->OutpdPort, bitposi);
-		else
-			BitClr(parent->OutpdPort, bitposi);
-		return *this;
-	}
 
 	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
+		using namespace GPIOReg;
 		if (autoEnClk) parent->enClock();
-		Reference& ref = (bitposi < 8) ? parent->CnrglPort : parent->CnrghPort;
+		Reference ref = (bitposi < 8) ? (*parent)[CRL] : (*parent)[CRH];
 		uint32 bposi = (bitposi < 8) ? bitposi << 2 : (bitposi - 8) << 2; // mul by 4
 		uint32 bmode = (uint32)mode;
 		innput = (bmode & 1);
@@ -142,20 +117,17 @@ namespace uni
 
 	// for F1, only for input (?)
 	void GeneralPurposeInputOutputPin::setPull(bool pullup) {
-		(parent->OutpdPort).setof(bitposi, pullup);
+		(*parent)[GPIOReg::ODR].setof(bitposi, pullup);
 	}
 
 	bool GeneralPurposeInputOutputPin::isInput() const {
-		return 0 == (uint32_t(bitposi < 8 ? parent->CnrglPort : parent->CnrghPort) &
-			(0x3 << ((bitposi & 0x7)*4)));
+		using namespace GPIOReg;
+		return 0 == (*parent)[bitposi < 8 ? CRL : CRH].
+			mask((bitposi & 0x7)*4, 2);
 	}
 	
 	void GeneralPurposeInputOutputPin::Toggle() {
-		parent->OutpdPort ^= 1 << bitposi;
-	}
-
-	GeneralPurposeInputOutputPort::operator stduint() const {
-		return (stduint)InnpdPort;
+		(*parent)[GPIOReg::ODR] ^= _IMM1 << bitposi;
 	}
 
 	//{unchecked}
@@ -165,32 +137,6 @@ namespace uni
 #endif
 // ---- ---- ---- ----
 #elif defined(_MCU_STM32F4x)
-
-	//{TODEL}
-	#define _OFFSET_GPIO_MODER 0x00
-	#define _OFFSET_GPIO_OTYPE 0x04
-	#define _OFFSET_GPIO_SPEED 0x08
-	#define _OFFSET_GPIO_PULLS 0x0C
-	#define _OFFSET_GPIO_IDR   0x10
-	#define _OFFSET_GPIO_ODR   0x14
-
-	GeneralPurposeInputOutputPort::GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap) :
-		baseaddr(ADDR),
-		EnablPosi(Enap), // (RCC_APB2ENR)
-		ClockPort(CLK), // Enable Clock
-		InnpdPort(_OFFSET_GPIO_IDR + ADDR),
-		OutpdPort(_OFFSET_GPIO_ODR + ADDR),
-		//
-		ModerPort(_OFFSET_GPIO_MODER + ADDR),
-		OtypePort(_OFFSET_GPIO_OTYPE + ADDR),
-		SpeedPort(_OFFSET_GPIO_SPEED + ADDR),
-		PullsPort(_OFFSET_GPIO_PULLS + ADDR)
-		//{TODO...} base(ADDR),
-		
-	{
-		for0(i, numsof(OutpdPins))
-			OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
-	}
 
 	GeneralPurposeInputOutputPort GPIOA(0x40020000, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOA);// ~ 0x400203FF
 	GeneralPurposeInputOutputPort GPIOB(0x40020400, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOB);
@@ -208,54 +154,38 @@ namespace uni
 		&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG, &GPIOH, &GPIOI
 	};
 
-	GeneralPurposeInputOutputPin::operator bool() const {
-		return (innput ? parent->InnpdPort : parent->OutpdPort) & (_IMM(1) << bitposi);
-	}
-
-	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
-		// if (innput) return *this;
-		// G'DP or D'DP
-		//{TO update}
-		if (val)
-			BitSet(parent->OutpdPort, bitposi);
-		else
-			BitClr(parent->OutpdPort, bitposi);
-		return *this;
-	}
-
 	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
+		using namespace GPIOReg;
 		if (autoEnClk) parent->enClock();
-		parent->ModerPort &= ~_IMM(0x3 << (bitposi << 1));
-		parent->ModerPort |= (_IMM(mode)>>1) << (bitposi << 1);
-		if (_IMM(mode) & 1)
-			BitSet(parent->OtypePort, bitposi);
-		else
-			BitClr(parent->OtypePort, bitposi);
-		parent->SpeedPort &= ~_IMM(0x3 << (bitposi << 1));
-		parent->SpeedPort |= _IMM(speed) << (bitposi << 1);
-		if (mode == GPIOMode::IN_Floating) parent->PullsPort &= ~_IMM(0x3 << (bitposi << 1));
+		(*parent)[MODER] &= ~_IMM(0x3 << (bitposi << 1));
+		(*parent)[MODER] |= (_IMM(mode)>>1) << (bitposi << 1);
+		BitSev((*parent)[OTYPER], bitposi, _IMM(mode) & 1);
+		(*parent)[SPEED] &= ~_IMM(0x3 << (bitposi << 1));
+		(*parent)[SPEED] |= _IMM(speed) << (bitposi << 1);
+		if (mode == GPIOMode::IN_Floating) (*parent)[PULLS] &= ~_IMM(0x3 << (bitposi << 1));
 		innput = (GPIOMode::IN_Floating == mode) || (GPIOMode::IN_Analog == mode) || (GPIOMode::IN_Pull == mode); // KEPT
 		
 	}
 
 	void GeneralPurposeInputOutputPin::setPull(bool pullup) {
+		using namespace GPIOReg;
 		if (pullup) {
-			parent->PullsPort |= 0x1 << (bitposi << 1);// pull-up
-			parent->PullsPort &= ~(uint32)(0x2 << (bitposi << 1));
+			(*parent)[PULLS] |= 0x1 << (bitposi << 1);// pull-up
+			(*parent)[PULLS] &= ~_IMM(0x2 << (bitposi << 1));
 		}
 		else {
-			parent->PullsPort |= 0x2 << (bitposi << 1);// pull-dn
-			parent->PullsPort &= ~(uint32)(0x1 << (bitposi << 1));
+			(*parent)[PULLS] |= 0x2 << (bitposi << 1);// pull-dn
+			(*parent)[PULLS] &= ~_IMM(0x1 << (bitposi << 1));
 		}
 	}
 
 	bool GeneralPurposeInputOutputPin::isInput() const {
-		return 0 == (parent->ModerPort &
-			(0x3 << ((bitposi & 0xF) * 2)));
+		return 0 == (*parent)[GPIOReg::MODER].
+			mask((bitposi & 0xF) * 2, 2);// moder length 2 bit
 	}
 
 	void GeneralPurposeInputOutputPin::Toggle() {
-		parent->OutpdPort ^= 1 << bitposi;
+		(*parent)[GPIOReg::ODR] ^= _IMM1 << bitposi;
 	}
 
 	void GeneralPurposeInputOutputPin::_set_alternate(byte selection) {
@@ -263,14 +193,6 @@ namespace uni
 		byte bposi = (bitposi & 0x7) << 2;// mod 8 then mul-by 4
 		Reference r = parent->operator[](bitposi < 8 ? GPIOReg::AFRL : GPIOReg::AFRH);
 		r = (r & ~_IMM(0xF << bposi)) | (selection << bposi);
-	}
-
-	bool GeneralPurposeInputOutputPin::getInn() {
-		return getParent()[GPIOReg::IDR].bitof(bitposi);
-	}
-
-	GeneralPurposeInputOutputPort::operator stduint() const {
-		return (stduint)InnpdPort;
 	}
 
 // ---- ---- ---- ----
@@ -290,41 +212,32 @@ namespace uni
 		const stduint mode = mod;
 		GeneralPurposeInputOutputPort& pare = getParent();
 		if (autoEnClk) pare.enClock();
-		pare.getReference(DIR).setof(bitposi, mode & 0x1);
-		pare.getReference(OPENDRAIN).setof(bitposi, mode & 0x2);
-		pare.getReference(SPEED).setof(bitposi, 0 != _IMM(spd));
-		pare.getReference(ANALOG).setof(bitposi, 0);/*TEMP*/
+		pare[DIR].setof(bitposi, mode & 0x1);
+		pare[OPENDRAIN].setof(bitposi, mode & 0x2);
+		pare[SPEED].setof(bitposi, 0 != _IMM(spd));
+		pare[ANALOG].setof(bitposi, 0);/*TEMP*/
 		innput = mode & 0x1;
 	}
 	
 	void GeneralPurposeInputOutputPin::Toggle() {
 		using namespace GPIOReg;
 		GeneralPurposeInputOutputPort& pare = getParent();
-		pare.getReference(TOG).setof(bitposi);
+		pare[TOG].setof(bitposi);
 	}
 
 	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= (bool val) {
+		using namespace GPIOReg;
 		// if (innput) return self;
-		getParent().getReference(GPIOReg::ODR).setof(bitposi, val);
+		getParent()[ODR].setof(bitposi, val);
 		return self;
 	}
-	GeneralPurposeInputOutputPin::operator bool() const {
-		if (innput) return getParent().getReference(GPIOReg::IDR).bitof(bitposi);
-		return getParent().getReference(GPIOReg::ODR).bitof(bitposi);
-	}
-	bool GeneralPurposeInputOutputPin::getInn() {
-		return getParent().getReference(GPIOReg::IDR).bitof(bitposi);
-	}
+
 
 	void GeneralPurposeInputOutputPin::setPull(bool dir) {
 		using namespace GPIOReg;
 		GeneralPurposeInputOutputPort& pare = getParent();
-		pare.getReference(PUR).setof(bitposi, dir);
-		pare.getReference(PDR).setof(bitposi, !dir);
-	}
-
-	GeneralPurposeInputOutputPort::operator stduint() const {
-		return (stduint)getReference(GPIOReg::IDR);
+		pare[PUR].setof(bitposi, dir);
+		pare[PDR].setof(bitposi, !dir);
 	}
 
 #endif
@@ -343,22 +256,25 @@ namespace uni
 		]) : ERR;
 	}
 
-	stduint GeneralPurposeInputOutput::Index(const GeneralPurposeInputOutputPort* port) {
-		for0 (i, numsof(GPIO_List)) {
-			if (port == GPIO_List[i]) return i;
-		}
+	stduint GeneralPurposeInputOutput::Index(GeneralPurposeInputOutputPort* port) {
+		for0a(i, GPIO_List) if (port == GPIO_List[i])
+			return i;
 		return 0;
 	}
 
 	//
 	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (uint32 val) {
-		#ifdef _MCU_STM32
-		OutpdPort = val;
-		#else
-		using namespace GPIOReg;
-		getReference(ODR) = val;
-		#endif
+		self[GPIOReg::ODR] = val;
 		return *this;
+	}
+
+	// This will not be for declaration expression
+	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (GeneralPurposeInputOutputPort& pot) {
+		return self = stduint(pot);
+	}
+
+	GeneralPurposeInputOutputPort::operator stduint() {
+		return _IMM(self[GPIOReg::IDR]);
 	}
 
 	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPort::operator[] (byte pinid) {
@@ -377,10 +293,21 @@ namespace uni
 		else return self = bool(pin); // Assign 
 	}
 
-	// This will not be for declaration expression
-	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (const GeneralPurposeInputOutputPort& pot) {
-		return self = stduint(pot);
+	GeneralPurposeInputOutputPin::operator bool() const {
+		using namespace GPIOReg;
+		return getParent()[innput ? IDR : ODR].bitof(bitposi);
 	}
+
+	bool GeneralPurposeInputOutputPin::getInn() {
+		return getParent()[GPIOReg::IDR].bitof(bitposi);
+	}
+
+	// G'DP(high-level) or D'DP(low-level)
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(bool val) {
+		BitSev((*parent)[GPIOReg::ODR], bitposi, val);
+		return *this;
+	}
+
 }
 
 #endif

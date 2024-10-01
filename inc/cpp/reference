@@ -32,6 +32,15 @@ namespace uni {
 		void setof(stduint idx, bool val = true) { if (val) *address |= (1 << idx); else rstof(idx); }
 		//
 		void rstof(stduint idx) { *address &= ~(typedest)(1 << idx); }
+		
+		// Read with Mask
+		stduint mask(stduint bitposi, stduint bitslen) {
+			// e.g. mask(3,2): L_MASK{0b11} aka 
+			//      0b11000
+			// index: 43210
+			const stduint L_MASK = (_IMM1 << bitslen) - 1;
+			return (*address) & (L_MASK << bitposi);
+		}
 	};
 }
 

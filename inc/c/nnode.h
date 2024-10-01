@@ -66,7 +66,7 @@ typedef struct Nnode
 		return isEldest() ? nullptr : left;
 	}
 
-	byte* GetExtnField() { return getExfield(*this); }
+	byte* GetExtnField() { return getExfield(self); }
 	TnodeField* GetTnodeField() { return (TnodeField*)GetExtnField(); }
 
 	Nnode* ReheapString(const char* str) {

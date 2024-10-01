@@ -26,6 +26,11 @@
 #include "unisym"
 #include "Device/Interrupt/interrupt_tab.h"
 
+#define _COM_DEF_Interrupt_Interface() \
+void setInterrupt(Handler_t fn);\
+void setInterruptPriority(byte preempt, byte sub_priority);\
+void enInterrupt(bool enable = true)// you need add colon when using
+
 #if 0
 //
 #elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)

@@ -107,7 +107,7 @@ namespace uni {
 		void enInterrupt(bool enable = true);
 
 		void enAble(bool ena = true) {
-			(*this)[TimReg::CR1].setof(_TIM_CR1_POS_CEN, ena); //aka __HAL_TIM_ENABLE
+			self[TimReg::CR1].setof(_TIM_CR1_POS_CEN, ena); //aka __HAL_TIM_ENABLE
 		}
 
 
@@ -144,7 +144,8 @@ namespace uni {
 		}
 
 		// Real Freq: 72M/(prescaler+1)
-		void setMode(stduint prescaler = 71, stduint period = 1000, bool auto_reload_preload = false) {
+		void setMode(Handler_t fn = 0, stduint prescaler = 71, stduint period = 1000, bool auto_reload_preload = false) {
+			if (fn) setInterrupt(fn);
 			enClock();
 			// TODO uint32 tmpcr1 = TIMx->CR1;
 			if (0) { // for A and C
@@ -159,18 +160,18 @@ namespace uni {
 			//TODO  tmpcr1 |= (uint32_t)Structure->AutoReloadPreload;
 			//TODO  TIMx->CR1 = tmpcr1;
 
-			(*this)[TimReg::CR1].setof(_TIM_CR1_POS_ARPE, auto_reload_preload);
+			self[TimReg::CR1].setof(_TIM_CR1_POS_ARPE, auto_reload_preload);
 
 			//TIMx->ARR = period;
 			//TIMx->PSC = prescaler;
 			
-			(*this)[TimReg::ARR] = (period);
-			(*this)[TimReg::PSC] = (prescaler);
+			self[TimReg::ARR] = (period);
+			self[TimReg::PSC] = (prescaler);
 
 			if (0) { // for A
 				//TIMx->RCR = Structure->RepetitionCounter;
 			}
-			(*this)[TimReg::EGR] = 1; // TIM_EGR_UG;// Generate an update event to reload the Prescaler and the repetition counter(only for TIM1 and TIM8) value immediatly
+			self[TimReg::EGR] = 1; // TIM_EGR_UG;// Generate an update event to reload the Prescaler and the repetition counter(only for TIM1 and TIM8) value immediatly
 		}
 
 		

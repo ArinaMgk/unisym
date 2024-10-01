@@ -34,7 +34,7 @@ namespace GPIOReg {
 		FILTER, REV0, REV1, REV2,
 		IDR, ODR, BRR, BSRR,
 		TOG
-	} GPIORegType;
+	} GPIOReg;
 }
 namespace GPIOMode {
 	enum Mode {
@@ -65,13 +65,11 @@ public:
 class GeneralPurposeInputOutputPort {
 	GeneralPurposeInputOutputPin pins[16];
 	GeneralPurposeInputOutputPin ERR;
-	stduint baseaddr;
+	
 	Reference ClockPort;
 	stduint EnablPosi;// of ClockPort
 	friend class GeneralPurposeInputOutputPin;
-	Reference getReference(GPIOReg::GPIORegType idx) const {
-		return Reference(baseaddr + (((stduint)idx) << 2));
-	}
+	_COM_DEF_GPIO_Port_Protected();
 public:
 	void enClock(bool enable = true) {
 		ClockPort.setof(EnablPosi, enable);

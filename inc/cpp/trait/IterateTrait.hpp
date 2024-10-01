@@ -33,7 +33,7 @@ namespace uni {
 		stduint _iterate_lim;
 		pureptr_t* _iterate_datas;
 	public:
-		IterateTrait() : _iterate_crt((stduint)None), _iterate_datas(nullptr) {}
+		IterateTrait() : _iterate_crt(_IMM(None)), _iterate_datas(nullptr) {}
 		~IterateTrait() {
 			if (_iterate_datas) delete[] _iterate_datas;
 			_iterate_datas = nullptr;

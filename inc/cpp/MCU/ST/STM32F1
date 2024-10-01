@@ -40,6 +40,8 @@ F103:
 #include "../../Device/GPIO"
 #include "../../Device/RCC/RCC"
 #include "../../Device/SysTick"
+#include "../../Device/TIM"
+#include "../../../c/driver/UART.h"
 #include "../../interrupt"
 
 //{TODO} compatible with `stm32f103xe.h`

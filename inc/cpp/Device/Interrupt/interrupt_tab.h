@@ -44,8 +44,11 @@ typedef enum
 	IRQ_DebugMonitor = -4,    // 12 Cortex-M3 Debug Monitor Interrupt
 	IRQ_PendSV = -2,    // 14 Cortex-M3 Pend SV Interrupt
 	IRQ_SysTick = -1,    // 15 Cortex-M3 System Tick Interrupt
+
 	//  STM32 specific Interrupt Numbers
+	Request_None = 0,  // Special for WTDog Setting
 	IRQ_WWDG = 0,      // Window WatchDog Interrupt
+
 	IRQ_PVD = 1,       // PVD through EXTI Line detection Interrupt
 	IRQ_TAMPER = 2,    // Tamper Interrupt
 	IRQ_RTC = 3,       // RTC global Interrupt
@@ -162,9 +165,9 @@ typedef enum
 {TODO}	DCD     I2C2_ER_IRQHandler         ; I2C2 Error
 {TODO}	DCD     SPI1_IRQHandler            ; SPI1
 {TODO}	DCD     SPI2_IRQHandler            ; SPI2
-{TODO}	DCD     USART1_IRQHandler          ; USART1
-{TODO}	DCD     USART2_IRQHandler          ; USART2
-{TODO}	DCD     USART3_IRQHandler          ; USART3
+		DCD     USART1_IRQHandler          ; USART1
+		DCD     USART2_IRQHandler          ; USART2
+		DCD     USART3_IRQHandler          ; USART3
 		DCD     EXTI15_10_IRQHandler       ; EXTI Line 15..10
 {TODO}	DCD     RTC_Alarm_IRQHandler       ; RTC Alarm through EXTI Line
 {TODO}	DCD     USBWakeUp_IRQHandler       ; USB Wakeup from suspend
@@ -177,8 +180,8 @@ typedef enum
 {TODO}	DCD     SDIO_IRQHandler            ; SDIO
 {TODO}	DCD     TIM5_IRQHandler            ; TIM5
 {TODO}	DCD     SPI3_IRQHandler            ; SPI3
-{TODO}	DCD     UART4_IRQHandler           ; UART4
-{TODO}	DCD     UART5_IRQHandler           ; UART5
+		DCD     UART4_IRQHandler           ; UART4
+		DCD     UART5_IRQHandler           ; UART5
 		DCD     TIM6_IRQHandler            ; TIM6
 		DCD     TIM7_IRQHandler            ; TIM7
 		DCD     DMA2_Channel1_IRQHandler   ; DMA2 Channel1
@@ -189,6 +192,7 @@ __Vectors_End */
 
 extern "C" {
 extern Handler_t FUNC_EXTI[];
+extern Handler_t FUNC_XART[8];// 5 xart
 extern Handler_t FUNC_TIMx[];
 extern Handler_t FUNC_ADCx[];
 

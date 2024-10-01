@@ -306,12 +306,15 @@ static const stduint NONE = ~(stduint)0;
 #define PRIxSTD PRIxPTR
 
 //: avoid using literal suffix
-#define _IMM(x) ((stduint)x)
+// : S stands for Shift
+#define _IMM(x) ((stduint)(x))
 #define _IMM1 _IMM(1)
-#define _IMM64(x) ((uint64)x)
-#define _IMM32(x) ((uint32)x)
-#define _IMM16(x) ((uint16)x)
-#define _IMM8(x)  ((uint8)x)
+#define _IMM1S(x) (_IMM1<<(x))
+#define _IMM1R(x) (_IMM1>>(x))
+#define _IMM64(x) ((uint64)(x))
+#define _IMM32(x) ((uint32)(x))
+#define _IMM16(x) ((uint16)(x))
+#define _IMM8(x)  ((uint8)(x))
 
 // Using `max` `min` may be conflict with stdlib.h:
 #ifndef maxof//(a,b)

@@ -208,7 +208,7 @@ double dblsin(double rad)
 	double res = 1;
 	if (rad < 0) return -dblsin(-rad);
 	while (rad > 2 * _pi) //{TODO} f_getPartInteger, or may overlimit of stduint
-		rad -= ((stduint)(rad / _pi) & ~(stduint)1) * _pi;
+		rad -= (_IMM(rad / _pi) & ~_IMM(1)) * _pi;
 	if (rad > _pi)
 	{
 		res *= -1;
@@ -226,7 +226,7 @@ double dblcos(double rad)
 	double res = 1;
 	if (rad < 0) return dblcos(-rad);
 	while (rad > 2 * _pi) //{TODO} f_getPartInteger, or may overlimit of stduint
-		rad -= ((stduint)(rad / _pi) & ~(stduint)1) * _pi;
+		rad -= (_IMM(rad / _pi) & ~_IMM1) * _pi;
 	if (rad > _pi)
 	{
 		res *= -1;

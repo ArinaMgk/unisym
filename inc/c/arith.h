@@ -149,7 +149,7 @@ inline static stduint intlog2_iexpo(stduint v) {
 
 inline static stduint intpow2_iexpo(stduint expo)
 {
-	return (stduint)1 << expo;
+	return _IMM1 << expo;
 }
 
 double dblexp(double expo);

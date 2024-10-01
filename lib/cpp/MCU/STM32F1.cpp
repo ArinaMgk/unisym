@@ -29,6 +29,7 @@
 
 #include "../../../inc/c/prochip/CortexM3.h"
 #include "../../../inc/cpp/MCU/ST/STM32F1"
+#include "../../../inc/cpp/Device/RCC/RCC"
 
 extern "C" void SystemInit(void);
 
@@ -37,6 +38,8 @@ extern "C" {
 }
 
 void SystemInit(void) {
+	//using namespace uni;
+	//RCC[RCCReg::CR] |= 1;
 	// No FPU for STM32F1
 	// External S(D)RAM
 	//{TODO}
@@ -46,6 +49,12 @@ void SystemInit(void) {
 
 namespace uni {
 
+	USART_t XART1(0x40013800, 1);
+	
+	USART_t XART2(0x40004400, 2);
+	USART_t XART3(0x40004800, 3);
+	UART_t  XART4(0x40004C00, 4);
+	UART_t  XART5(0x40005000, 5);
 
 
 

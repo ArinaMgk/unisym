@@ -42,10 +42,10 @@ namespace uni {
 	void TIM_t::enInterrupt(bool enable) {
 		if (enable)
 		{
-			NVIC.setAble(TIM_Request_list[(*this).getID()]);
+			NVIC.setAble(TIM_Request_list[getID()]);
 			//aka HAL_TIM_Base_Start_IT
 			{
-				(*this)[TimReg::DIER] |= 1;// TIM_IT_UPDATE
+				self[TimReg::DIER] |= 1;// TIM_IT_UPDATE
 				if (getID() <= 5 || getID() == 8) //aka IS_TIM_SLAVE_INSTANCE, true for TIM 1/2/3/4/5/8
 				{
 					/* TODO (why so?)
@@ -64,9 +64,9 @@ namespace uni {
 
 	void TIM_t::ConfigMaster(_TEMP stduint master_output_triggerm, bool master_slave_enable) {
 		// Compatible with `HAL_StatusTypeDef HAL_TIMEx_MasterConfigSynchronization(TIM_HandleTypeDef *htim, TIM_MasterConfigTypeDef * sMasterConfig)`
-		(*this)[TimReg::CR2] &= ~(7U << 4); // Reset MMS Bits
-		(*this)[TimReg::CR2] |= master_output_triggerm; // Select the TRGO source
-		(*this)[TimReg::SMCR].setof(_TIM_SMCR_POS_MSM, master_slave_enable);
+		self[TimReg::CR2] &= ~(7U << 4); // Reset MMS Bits
+		self[TimReg::CR2] |= master_output_triggerm; // Select the TRGO source
+		self[TimReg::SMCR].setof(_TIM_SMCR_POS_MSM, master_slave_enable);
 	}
 	
 	TIM_B TIM6(0x40001000, 4, 6);

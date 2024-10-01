@@ -72,7 +72,7 @@ namespace uni {
 		}
 		void setSource(SysclkSource::RCCSysclockSource source) {
 			Reference Cfgreg(_RCC_CFGR);
-			Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_Switch) | (((stduint)source << _RCC_CFGR_POSI_Switch) >> 2);
+			Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_Switch) | ((_IMM(source) << _RCC_CFGR_POSI_Switch) >> 2);
 		}
 	public:
 		RCCSystemClock() {
@@ -97,7 +97,7 @@ namespace uni {
 			if (!divby || isodd(divby) || (divby >> 1) > 4)
 				return false;
 			Reference Cfgreg(_RCC_CFGR);
-			Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_ADCPRE) | ((((stduint)divby >> 1) - 1) << _RCC_CFGR_POS_ADCPRE);
+			Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_ADCPRE) | (((_IMM(divby) >> 1) - 1) << _RCC_CFGR_POS_ADCPRE);
 			return true;
 		}
 

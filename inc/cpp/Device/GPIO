@@ -36,7 +36,7 @@ extern "C" {
 }
 
 /* TODO
-[ ] pin=double(X'DP Output)
+[ ] pin=double(X'DP Output) with field
 [ ] pin=int(check digital or analog output)
 
 */
@@ -62,9 +62,15 @@ extern "C" {
 	pureptr_t getAddress() const { return (pureptr_t)this; }\
 
 
+#define _COM_DEF_GPIO_Port_Protected()\
+	stduint baseaddr;\
+
 #define _COM_DEF_GPIO_Port_Public()\
-	GeneralPurposeInputOutputPort& operator=(const GeneralPurposeInputOutputPort& pot);\
-	operator stduint() const;
+	Reference operator[](GPIOReg::GPIOReg trt) {\
+		return Reference(baseaddr + (_IMM(trt) << 2));\
+	}\
+	GeneralPurposeInputOutputPort& operator=(GeneralPurposeInputOutputPort& pot);\
+	operator stduint();
 
 // 00000000 maybe a valid address of someone
 // These are of Harunono Style, and the design have not be used by enough users!
@@ -90,6 +96,14 @@ namespace uni {
 
 	#if defined(_MCU_STM32F1x)
 		// compatible with `stm32f1xx_hal_gpio.h/c`
+
+	// containing IDR and ODR is a necessary.
+	namespace GPIOReg {
+		typedef enum {
+			CRL = 0, CRH, IDR, ODR,
+		} GPIOReg;
+	}
+
 	namespace GPIOMode {
 		enum Mode {
 			OUT_PushPull = 0 << 2,
@@ -119,10 +133,10 @@ namespace uni {
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
 		bool getInn();
 		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_2MHz)
-		void setMode(GPIORupt::RuptEdge edg);// must in input mode
+		void setMode(GPIORupt::RuptEdge edg, Handler_t fn = 0);// must in input mode
 		void setMode(GPIOEvent::EventEdge edg);// must in input mode
 		void setPull(bool pullup);
-		void setInterrupt(Handler_t fn);
+		void setInterrupt(Handler_t fn);//{TODEL}
 		void setInterruptPriority(byte preempt, byte sub_priority);
 		void enInterrupt(bool enable = true);
 		bool isInput() const;
@@ -133,13 +147,9 @@ namespace uni {
 		GeneralPurposeInputOutputPin OutpdPins[16];// 32[High-16:kept]
 		GeneralPurposeInputOutputPin ERR;
 		uint32 EnablPosi;// of ClockPort
+		_COM_DEF_GPIO_Port_Protected()
 	public:
 		Reference ClockPort;
-		Reference CnrglPort;// Control Register Low, default 0x44444444 _MCU_STM32F1x
-		Reference CnrghPort;// Control Register High, default 0x44444444 _MCU_STM32F1x
-		Reference InnpdPort;// Input Data Register, default 0x0000XXXX _MCU_STM32F1x
-		Reference OutpdPort;// Output Data Register, default 0x00000000 _MCU_STM32F1x
-		stduint base;// may used in other library: `HAL_GPIO_Init((GPIO_TypeDef *)uni::GPIOA.base, &GPIO_InitStructure); `
 		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
 		void enClock(bool enable = true) {
 			BitSet(ClockPort, EnablPosi);
@@ -154,6 +164,7 @@ namespace uni {
 	extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG;
 // ---- ---- ---- ---- ---- ---- ---- ----
 	#elif defined(_MCU_STM32F4x)
+
 	namespace GPIOMode {
 		enum Mode {
 			// 20240502{TEMP} use [MODER[1:0],OTYPTR[i]] 3-bits to decide
@@ -177,7 +188,7 @@ namespace uni {
 	}
 	namespace GPIOReg {
 		typedef enum {
-			MODER = 0, OTYPER, OSPEEDR, PUPDR,
+			MODER = 0, OTYPER, SPEED, PULLS,
 			IDR, ODR, BSRR, LCKR,
 			AFRL, AFRH
 		} GPIOReg;
@@ -188,16 +199,13 @@ namespace uni {
 	public:
 		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
 		bool getInn();
-		void setMode(GPIORupt::RuptEdge edg);// must in input mode
+		void setMode(GPIORupt::RuptEdge edg, Handler_t fn = 0);// must in input mode
 		void setMode(GPIOEvent::EventEdge edg);// must in input mode
 		void setPull(bool pullup);
-		void setInterrupt(Handler_t fn);
+		void setInterrupt(Handler_t fn);//{TODEL}
 		void setInterruptPriority(byte preempt, byte sub_priority);
 		void enInterrupt(bool enable = true);
 		bool isInput() const;
-		
-		
-		//{TODO} interrupt-series
 
 		//! AFRx Register should be set by other device.
 		void _set_alternate(byte selection);
@@ -206,28 +214,19 @@ namespace uni {
 	};
 
 	class GeneralPurposeInputOutputPort {
-		stduint baseaddr;
 		GeneralPurposeInputOutputPin OutpdPins[16];
 		GeneralPurposeInputOutputPin ERR;
 		uint32 EnablPosi;// of ClockPort
+		_COM_DEF_GPIO_Port_Protected();
 	public:
 		Reference ClockPort;
-		Reference InnpdPort;
-		Reference OutpdPort;
-		//{TODEL}
-		Reference ModerPort;
-		Reference OtypePort;// OTYPER
-		Reference SpeedPort;// OSPEEDR
-		Reference PullsPort;// PUPDR
 		//
 		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
 		void enClock(bool enable = true) {
 			BitSet(ClockPort, EnablPosi);
 		}
 		GeneralPurposeInputOutputPin& operator[](uint8 pinid);
-		Reference operator[](GPIOReg::GPIOReg trt) {
-			return Reference(baseaddr + (((stduint)trt) << 2));
-		}
+		
 
 		GeneralPurposeInputOutputPort& operator=(uint32 val);
 
@@ -247,7 +246,7 @@ namespace uni {
 		GeneralPurposeInputOutputPort ERR;
 		GeneralPurposeInputOutput() : ERR(~0, ~0, ~0) { }
 		GeneralPurposeInputOutputPort& operator[](char portid);
-		stduint Index(const GeneralPurposeInputOutputPort* port);
+		stduint Index(GeneralPurposeInputOutputPort* port);
 	};
 	extern GeneralPurposeInputOutput GPIO;
 

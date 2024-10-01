@@ -54,7 +54,7 @@ typedef struct Node {
 		pureptr_t offs;
 	};
 #ifdef _INC_CPP
-	byte* GetExtnField() { return getExfield(*this); }
+	byte* GetExtnField() { return getExfield(self); }
 	Node* ReheapString(const char* str);
 #endif
 } Node; // measures stdint[2]
@@ -155,7 +155,7 @@ public:
 	// Sorted
 	Chain& Sorted(_tocomp_ft Cmp_f = 0) {
 		if (Cmp_f) this->Compare_f = Cmp_f;
-		Sort(*this);
+		Sort(self);
 		state.been_sorted = true;
 		return *this;
 	}

@@ -102,11 +102,11 @@ namespace uni {
 		};
 		Reference reg = self[sqr_reg[grp]];
 		Reference sam = self[smpr_reg[chan / 10]];
-		reg = (reg & ~((stduint)0x1F << (idx * 5))) |
+		reg = (reg & ~(_IMM(0x1F) << (idx * 5))) |
 			(chan << (idx * 5));// Regular sequence configuration
 		chan %= 10;
-		sam = (sam & ~((stduint)0x7 << (chan * 3))) |
-			((stduint)sample << (chan * 3));// Channel sampling time configuration
+		sam = (sam & ~(_IMM(0x7) << (chan * 3))) |
+			(_IMM(sample) << (chan * 3));// Channel sampling time configuration
 		//{TODO} Support ADC_CHANNEL_TEMPSENSOR and ADC_CHANNEL_VREFINT here for respective devices, not for this GPIO pins version.
 		return true;
 	}

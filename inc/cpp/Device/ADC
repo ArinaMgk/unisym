@@ -113,7 +113,7 @@ namespace uni {
 		byte getID() { return ADC_ID; }
 		inline stduint getConfigLastDiscCount() { return _numsof_disc; }
 		Reference operator[](ADCReg::ADCRegType idx) {
-			return Reference(baseaddr + (((stduint)idx) << 2));
+			return Reference(baseaddr + (_IMM(idx) << 2));
 		}
 		bool isTriggeredBySoftware() { // ADC1_2_3_SWSTART
 			return (self[ADCReg::CR2] & (0x7 << _ADC_CR2_POS_EXTSEL)) == ((stduint)0x7 << _ADC_CR2_POS_EXTSEL);// 0x000E0000

@@ -52,7 +52,10 @@ extern "C" {
 	void EXTI15_10_IRQHandler(void) {
 		for (byte i = 10; i < 16; i++) _HandlerIRQ_EXTIx(i);
 	}
-	
+
+	// ----
+	Handler_t FUNC_XART[8] = { 0 };
+
 #endif
 
 	
@@ -62,6 +65,13 @@ extern "C" {
 	Handler_t FUNC_TIMx[16] = { 0 };// keep 0
 	Handler_t FUNC_ADCx[4] = { 0 };// keep 0
 	//
+	static void _HandlerIRQ_XART(byte art_id) {
+		if (!XART.isSync(art_id)) return;//{TEMP}
+		if ((*(USART_t*)XART[art_id])[XARTReg::SR].bitof(5)) { //aka __HAL_UART_GET_FLAG, 5 is USART_SR_RXNE
+			asserv(FUNC_XART[art_id])();
+		}
+		// ... more
+	}
 
 
 
@@ -152,7 +162,7 @@ extern "C" {
 
 #elif defined(_MCU_STM32F4x)
 
-	Handler_t FUNC_XART[8] = { 0 };
+	
 
 	static void _HandlerIRQ_XART(byte art_id) {
 		if (!XART.isSync(art_id)) return;//{TEMP}
@@ -162,14 +172,18 @@ extern "C" {
 		// ... more
 	}
 	
+
+	void USART6_IRQHandler(void) { _HandlerIRQ_XART(6); }	
+	
+#endif
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	// ---- XART ----
 	void USART1_IRQHandler(void) { _HandlerIRQ_XART(1); }
 	void USART2_IRQHandler(void) { _HandlerIRQ_XART(2); }
 	void USART3_IRQHandler(void) { _HandlerIRQ_XART(3); }
 	void UART4_IRQHandler(void) { _HandlerIRQ_XART(4); }
 	void UART5_IRQHandler(void) { _HandlerIRQ_XART(5); }
-	void USART6_IRQHandler(void) { _HandlerIRQ_XART(6); }
+#endif	
 
-	
-	
-#endif
 }

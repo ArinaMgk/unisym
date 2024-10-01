@@ -118,7 +118,7 @@ namespace uni {
 	
 	// pass coff!
 	_TEMP unchecked tmpl(void)::SortByInsertion() {
-		setcmp(*this);
+		setcmp(self);
 		Dnode* crt = Root();
 		if (!crt || !crt->next) return;
 		Dnode* next = crt->next;

@@ -43,6 +43,7 @@ void printl(loglevel_t level, const char* fmt, ...)
 	memf(crtfile);
 }
 
+int drop();
 int* handlog(void* _serious, ...)
 {
 	Letvar(serious, loglevel_t, _serious);
@@ -59,8 +60,9 @@ int* handlog(void* _serious, ...)
 			remove(outname);
 		}
 	case _LOG_PANIC:
+		puts("----\t----\tAASM panics!\t----\t----");
 		fflush(NULL);
-		exit(serious);
+		exit(drop());
 	}
 	return NULL;
 }

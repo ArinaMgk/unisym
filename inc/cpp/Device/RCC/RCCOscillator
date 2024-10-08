@@ -36,7 +36,7 @@ namespace uni {
 		enum RCCOscillatorHSEState {
 			Disable = 0x00000000,
 			Enable = (uint32)1 << 16,// "HSEON"
-			Bypass = ((uint32)1 << 18 | Enable),// External clock source for HSE clock
+			Bypass = ((uint32)1 << 18 | Enable)// External clock source for HSE clock
 		};
 	}
 }
@@ -49,7 +49,7 @@ namespace uni {
 	protected:
 		uni::Reference addr;
 	public:
-		RCCOscillator() : addr(0) {} 
+		RCCOscillator() : addr() {} 
 	};
 
 	class RCCOscillatorHSE : public RCCOscillator {

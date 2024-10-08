@@ -33,9 +33,8 @@
 
 extern "C" void SystemInit(void);
 
-extern "C" {
-	char _IDN_BOARD[16] = "xx";// fill this with "03VET6" for STM32F103VET6 (20240826 came up)
-}
+extern "C" char _IDN_BOARD[16];
+char _IDN_BOARD[16] = "xx";// fill this with "03VET6" for STM32F103VET6 (20240826 came up)
 
 void SystemInit(void) {
 	//using namespace uni;

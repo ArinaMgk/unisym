@@ -15,32 +15,42 @@ namespace uni {
 	class Reference {
 		volatile typedest* address;
 	public:
-		Reference(typeaddr address) : address((volatile typedest*)address) {
+		Reference(typeaddr _address = 0) : address((volatile typedest*)_address) {
 			
 		}
+		Reference(pureptr_t _address) : address((volatile typedest*)_address) {}
 		
 		operator typedest() const { return *address; }
 		volatile typedest* operator&() const { return address; }
 		
-		Reference& operator=(typedest val) { *address = val; return *this; }
-		Reference& operator&=(typedest val) { *address &= val; return *this; }
-		Reference& operator|=(typedest val) { *address |= val; return *this; }
-		Reference& operator^=(typedest val) { *address ^= val; return *this; }
+		Reference& operator=(typedest val)  { *(volatile typedest*)address = val; return *this; }
+		Reference& operator&=(typedest val) { *(volatile typedest*)address &= val; return *this; }
+		Reference& operator|=(typedest val) { *(volatile typedest*)address |= val; return *this; }
+		Reference& operator^=(typedest val) { *(volatile typedest*)address ^= val; return *this; }
 		// Binary Digit Of
 		bool bitof(stduint idx) const { return *address & (1 << idx); }
 		//
-		void setof(stduint idx, bool val = true) { if (val) *address |= (1 << idx); else rstof(idx); }
+		void setof(stduint idx, bool val = true) { if (val) *(volatile typedest*)address |= (1 << idx); else rstof(idx); }
 		//
-		void rstof(stduint idx) { *address &= ~(typedest)(1 << idx); }
+		void rstof(stduint idx) { *(volatile typedest*)address &= ~(typedest)(1 << idx); }
 		
 		// Read with Mask
 		stduint mask(stduint bitposi, stduint bitslen) {
 			// e.g. mask(3,2): L_MASK{0b11} aka 
 			//      0b11000
 			// index: 43210
-			const stduint L_MASK = (_IMM1 << bitslen) - 1;
+			const stduint L_MASK = _IMM1S(bitslen) - 1;
 			return (*address) & (L_MASK << bitposi);
 		}
+		// Write with Mask
+		stduint maset(stduint bitposi, stduint bitslen, stduint val) {
+			const stduint L_MASK = _IMM1S(bitslen) - 1;
+			stduint tmp = (*address);
+			tmp &= ~(L_MASK << bitposi);// keep others
+			tmp |= (val & L_MASK) << bitposi;
+			return *address = tmp;
+		}
+
 	};
 }
 

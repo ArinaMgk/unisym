@@ -7,7 +7,7 @@
 
   <Targets>
     <Target>
-      <TargetName>Library</TargetName>
+      <TargetName>Target</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <pArmCC>6190000::V6.19::ARMCLANG</pArmCC>
@@ -15,16 +15,16 @@
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
-          <Device>STM32F103VE</Device>
-          <Vendor>STMicroelectronics</Vendor>
-          <PackID>Keil.STM32F1xx_DFP.2.2.0</PackID>
+          <Device>ARMCM0P</Device>
+          <Vendor>ARM</Vendor>
+          <PackID>ARM.CMSIS.5.9.0</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
-          <Cpu>IRAM(0x20000000,0x10000) IROM(0x08000000,0x80000) CPUTYPE("Cortex-M3") CLOCK(12000000) ELITTLE</Cpu>
+          <Cpu>IRAM(0x20000000,0x00020000) IROM(0x00000000,0x00040000) CPUTYPE("Cortex-M0+") CLOCK(12000000) ESEL ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
           <StartupFile></StartupFile>
-          <FlashDriverDll>UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F10x_512 -FS08000000 -FL080000 -FP0($$Device:STM32F103VE$Flash\STM32F10x_512.FLM))</FlashDriverDll>
+          <FlashDriverDll>UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000)</FlashDriverDll>
           <DeviceId>0</DeviceId>
-          <RegisterFile>$$Device:STM32F103VE$Device\Include\stm32f10x.h</RegisterFile>
+          <RegisterFile>$$Device:ARMCM0P$Device\ARM\ARMCM0plus\Include\ARMCM0plus.h</RegisterFile>
           <MemoryEnv></MemoryEnv>
           <Cmp></Cmp>
           <Asm></Asm>
@@ -34,7 +34,7 @@
           <SLE66CMisc></SLE66CMisc>
           <SLE66AMisc></SLE66AMisc>
           <SLE66LinkerMisc></SLE66LinkerMisc>
-          <SFDFile>$$Device:STM32F103VE$SVD\STM32F103xx.svd</SFDFile>
+          <SFDFile></SFDFile>
           <bCustSvd>0</bCustSvd>
           <UseEnv>0</UseEnv>
           <BinPath></BinPath>
@@ -50,11 +50,11 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>..\..\..\..\_bin\mcu\</OutputDirectory>
-          <OutputName>ustm32f1</OutputName>
+          <OutputName>ucw32f030</OutputName>
           <CreateExecutable>0</CreateExecutable>
           <CreateLib>1</CreateLib>
           <CreateHexFile>0</CreateHexFile>
-          <DebugInformation>0</DebugInformation>
+          <DebugInformation>1</DebugInformation>
           <BrowseInformation>1</BrowseInformation>
           <ListingPath>..\..\..\..\_obj\_lst\</ListingPath>
           <HexFormatSelection>1</HexFormatSelection>
@@ -111,13 +111,13 @@
         </CommonProperty>
         <DllOption>
           <SimDllName>SARMCM3.DLL</SimDllName>
-          <SimDllArguments> -REMAP</SimDllArguments>
-          <SimDlgDll>DCM.DLL</SimDlgDll>
-          <SimDlgDllArguments>-pCM3</SimDlgDllArguments>
+          <SimDllArguments>  </SimDllArguments>
+          <SimDlgDll>DARMCM1.DLL</SimDlgDll>
+          <SimDlgDllArguments>-pCM0+</SimDlgDllArguments>
           <TargetDllName>SARMCM3.DLL</TargetDllName>
-          <TargetDllArguments></TargetDllArguments>
-          <TargetDlgDll>TCM.DLL</TargetDlgDll>
-          <TargetDlgDllArguments>-pCM3</TargetDlgDllArguments>
+          <TargetDllArguments> </TargetDllArguments>
+          <TargetDlgDll>TARMCM1.DLL</TargetDlgDll>
+          <TargetDlgDllArguments>-pCM0+</TargetDlgDllArguments>
         </DllOption>
         <DebugOption>
           <OPTHX>
@@ -135,7 +135,7 @@
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
             <Capability>1</Capability>
-            <DriverSelection>-1</DriverSelection>
+            <DriverSelection>4096</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
@@ -164,7 +164,7 @@
             <AdsACrf>1</AdsACrf>
             <AdsANop>0</AdsANop>
             <AdsANot>0</AdsANot>
-            <AdsLLst>0</AdsLLst>
+            <AdsLLst>1</AdsLLst>
             <AdsLmap>1</AdsLmap>
             <AdsLcgr>1</AdsLcgr>
             <AdsLsym>1</AdsLsym>
@@ -175,7 +175,7 @@
             <AdsLsxf>1</AdsLsxf>
             <RvctClst>0</RvctClst>
             <GenPPlst>0</GenPPlst>
-            <AdsCpuType>"Cortex-M3"</AdsCpuType>
+            <AdsCpuType>"Cortex-M0+"</AdsCpuType>
             <RvctDeviceName></RvctDeviceName>
             <mOS>0</mOS>
             <uocRom>0</uocRom>
@@ -192,7 +192,7 @@
             <hadIROM2>0</hadIROM2>
             <StupSel>8</StupSel>
             <useUlib>0</useUlib>
-            <EndSel>0</EndSel>
+            <EndSel>1</EndSel>
             <uLtcg>0</uLtcg>
             <nSecure>0</nSecure>
             <RoSelD>3</RoSelD>
@@ -248,12 +248,12 @@
               <IRAM>
                 <Type>0</Type>
                 <StartAddress>0x20000000</StartAddress>
-                <Size>0x10000</Size>
+                <Size>0x20000</Size>
               </IRAM>
               <IROM>
                 <Type>1</Type>
-                <StartAddress>0x8000000</StartAddress>
-                <Size>0x80000</Size>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x40000</Size>
               </IROM>
               <XRAM>
                 <Type>0</Type>
@@ -277,8 +277,8 @@
               </OCR_RVCT3>
               <OCR_RVCT4>
                 <Type>1</Type>
-                <StartAddress>0x8000000</StartAddress>
-                <Size>0x80000</Size>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x40000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
@@ -303,7 +303,7 @@
               <OCR_RVCT9>
                 <Type>0</Type>
                 <StartAddress>0x20000000</StartAddress>
-                <Size>0x10000</Size>
+                <Size>0x20000</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
@@ -315,7 +315,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>4</Optim>
+            <Optim>2</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -324,22 +324,22 @@
             <PlainCh>0</PlainCh>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
-            <wLevel>3</wLevel>
+            <wLevel>2</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
             <uC99>0</uC99>
             <uGnu>1</uGnu>
             <useXO>0</useXO>
             <v6Lang>3</v6Lang>
-            <v6LangP>3</v6LangP>
-            <vShortEn>1</vShortEn>
-            <vShortWch>1</vShortWch>
+            <v6LangP>6</v6LangP>
+            <vShortEn>0</vShortEn>
+            <vShortWch>0</vShortWch>
             <v6Lto>0</v6Lto>
             <v6WtE>0</v6WtE>
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-Wno-old-style-cast -Wno-keyword-macro -Wno-c++98-compat -Wno-padded -Wno-global-constructors -Wno-exit-time-destructors</MiscControls>
-              <Define>_MCU_STM32F1x</Define>
+              <Define>_MCU_CW32F030</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
             </VariousControls>
@@ -363,7 +363,7 @@
             </VariousControls>
           </Aads>
           <LDads>
-            <umfTarg>0</umfTarg>
+            <umfTarg>1</umfTarg>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
             <noStLib>0</noStLib>
@@ -383,32 +383,12 @@
       </TargetOption>
       <Groups>
         <Group>
-          <GroupName>Embeded</GroupName>
+          <GroupName>Embedded</GroupName>
           <Files>
             <File>
-              <FileName>GPIO.cpp</FileName>
+              <FileName>interrupt.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\Device\GPIO.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>RCC.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\Device\RCC.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>SysTick.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\Device\SysTick.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>NVIC.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\Device\NVIC.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>AFIO.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\Device\AFIO.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\interrupt.cpp</FilePath>
             </File>
             <File>
               <FileName>interrupt_tab.cpp</FileName>
@@ -416,49 +396,69 @@
               <FilePath>..\..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
             </File>
             <File>
-              <FileName>interrupt.cpp</FileName>
+              <FileName>GPIO.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\interrupt.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\GPIO.cpp</FilePath>
             </File>
             <File>
               <FileName>ADC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\ADC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\ADC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>AFIO.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\Device\AFIO.cpp</FilePath>
             </File>
             <File>
               <FileName>DAC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\DAC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\DAC.cpp</FilePath>
             </File>
             <File>
               <FileName>DMA.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\DMA.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\DMA.cpp</FilePath>
             </File>
             <File>
               <FileName>IIC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\IIC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\IIC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>NVIC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\Device\NVIC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>RCC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\Device\RCC.cpp</FilePath>
             </File>
             <File>
               <FileName>SRAM.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\SRAM.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\SRAM.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SysTick.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\Device\SysTick.cpp</FilePath>
             </File>
             <File>
               <FileName>TIM.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\TIM.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\TIM.cpp</FilePath>
             </File>
             <File>
               <FileName>UART.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\UART.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\UART.cpp</FilePath>
             </File>
             <File>
-              <FileName>STM32F1.cpp</FileName>
+              <FileName>CW32F030.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\MCU\STM32F1.cpp</FilePath>
+              <FilePath>..\..\cpp\MCU\CW32F030.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -481,7 +481,7 @@
   <LayerInfo>
     <Layers>
       <Layer>
-        <LayName>ustm32f103ve</LayName>
+        <LayName>stm32f4</LayName>
         <LayPrjMark>1</LayPrjMark>
       </Layer>
     </Layers>

@@ -1,8 +1,7 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: (Processor, not MCU and not ARCH) Cortex-M4
-// Codifiers: @dosconio: 20240718
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
+// ASCII C++-11 TAB4 CRLF
+// LastCheck: 20241007
+// AllAuthor: @dosconio
+// ModuTitle: (MCU) Texas Instruments MSP432P4x
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,18 +19,26 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Processor_CortexM4
-#define _INC_Processor_CortexM4
+#include "../../../inc/c/stdinc.h"
+#ifdef _MCU_MSP432P4
 
-//{TODO} core_cm4.h
-//{TODO} up-abstract from STM32F4
+#define _OPT_PCU_CortexM4P
+#include "../../../inc/c/prochip/CortexM4.h"
+#include "../../../inc/cpp/MCU/TI/MSP432P4"
 
-#include "../stdinc.h"
+extern "C" void SystemInit(void);
 
-#include "_COM_CORTEX_M_3_4.h"
+extern "C" char _IDN_BOARD[16];
+char _IDN_BOARD[16] = "xx";
 
-#ifdef _OPT_PCU_CortexM4P
-#else
-#endif
+void SystemInit(void) {
+	_TODO
+}
+
+
+namespace uni {
+
+
+}
 
 #endif

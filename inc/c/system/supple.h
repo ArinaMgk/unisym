@@ -45,12 +45,14 @@ typedef struct {
 #endif
 #define para_ento(ap, param) va_start(ap, param)
 #define para_next(ap, type) (type)va_arg(ap, type)
+#define para_next_char(ap) (char)para_next(ap, int)
 #define para_endo(ap) va_end(ap)
 #define Letpara(argiden, cdecl_iden) va_list argiden; para_ento(argiden, cdecl_iden)
 #define para_list va_list
 #else// Win, Lin32
 #define para_ento(ap, param) (ap.stack_ptr = (byte*)((stduint*)&param + 1))
 #define para_next(ap, type) (*(type *)((ap.stack_ptr += _para_align(type)) - _para_align(type)))
+#define para_next_char(ap) para_next(ap, char)
 #define para_endo(ap) (ap.stack_ptr = NULL)// optional now
 #define Letpara(argiden, cdecl_iden) para_list argiden; para_ento(argiden, cdecl_iden);// we can use as uni::Letpara
 #endif

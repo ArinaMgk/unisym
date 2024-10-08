@@ -156,6 +156,9 @@ int outsfmtlst(const char* fmt, para_list paras)
 		if (c == 0)
 			break;
 		switch (c) {
+		case 'c':
+			outc(para_next_char(paras));
+			break;
 		case 'd':
 			outidec(pnext(int), 10, 1);
 			break;

@@ -36,7 +36,7 @@
 
 //#define call(x)   (x)()
 #define callnz(x) (x)&&(x)()
-#define callif(x) (x?(void)(x)():(void)0)
+#define callif(x) ((x)?(void)(x)():(void)0)
 #define callifidn(x, iden) do if(x)(x)(iden); while(0)
 
 extern size_t call_state;// <OUT>

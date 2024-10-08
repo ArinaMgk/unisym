@@ -30,6 +30,7 @@ typedef struct {
 	byte ascii_shift;
 	const char* label_usual;// if not null, the char is not printable
 	const char* label_shift;// if not null, the char is not printable
+	rostr label_prefE0;
 } keymap_element_t;
 
 extern keymap_element_t _tab_keycode2ascii[0x80];

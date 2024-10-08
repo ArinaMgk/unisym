@@ -26,6 +26,11 @@
 #include "stdinc.h"
 #include "../../asm/data/_asm_inst.h"
 
+#ifdef _DEV_MSVC
+#define _INC(x) _ASM INC(x)// INC for multi-size cases
+#endif
+
+
 struct instruction_property_t
 {
 	enum Architecture_t instset;

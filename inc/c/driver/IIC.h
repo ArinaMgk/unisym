@@ -98,7 +98,7 @@ namespace uni {
 			asserv(func_delay)();
 			SCL = true;
 			asserv(func_delay)();
-			while (SDA.getInn()) {
+			while (SDA) {
 				if (++timespan) {
 					SendStop();
 					return last_ack_accepted = false;
@@ -149,7 +149,7 @@ namespace uni {
 				asserv(func_delay)();
 				SCL = true;
 				res <<= 1;
-				if (SDA.getInn()) res++;
+				if (SDA) res++;
 				asserv(func_delay)();
 			}
 			SCL = false;// dosconio fix

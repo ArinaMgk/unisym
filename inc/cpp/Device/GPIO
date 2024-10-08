@@ -48,29 +48,34 @@ extern "C" {
 #define _COM_DEF_GPIO_Pin_Protected()\
 	protected:\
 		GeneralPurposeInputOutputPort* parent;\
-		uint32 bitposi;\
-		bool innput;//{TODEL}
+		byte bitposi
+
+
 
 #define _COM_DEF_GPIO_Pin_Public(defa_speed)\
+	~GeneralPurposeInputOutputPin() override {}\
 	GeneralPurposeInputOutputPort& getParent() const;\
 	inline byte getID() const { return bitposi; }\
+	bool isInput() const;\
 	void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = defa_speed, bool autoEnClk = true);\
 	void Toggle();\
 	GeneralPurposeInputOutputPin& operator=(bool val);\
 	GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin);\
 	operator bool() const;\
 	pureptr_t getAddress() const { return (pureptr_t)this; }\
+	_COM_DEF_Interrupt_Interface()
 
 
 #define _COM_DEF_GPIO_Port_Protected()\
-	stduint baseaddr;\
+	stduint baseaddr\
 
 #define _COM_DEF_GPIO_Port_Public()\
+	~GeneralPurposeInputOutputPort() {}\
 	Reference operator[](GPIOReg::GPIOReg trt) {\
 		return Reference(baseaddr + (_IMM(trt) << 2));\
 	}\
 	GeneralPurposeInputOutputPort& operator=(GeneralPurposeInputOutputPort& pot);\
-	operator stduint();
+	operator stduint()
 
 // 00000000 maybe a valid address of someone
 // These are of Harunono Style, and the design have not be used by enough users!
@@ -100,7 +105,7 @@ namespace uni {
 	// containing IDR and ODR is a necessary.
 	namespace GPIOReg {
 		typedef enum {
-			CRL = 0, CRH, IDR, ODR,
+			CRL = 0, CRH, IDR, ODR
 		} GPIOReg;
 	}
 
@@ -121,25 +126,22 @@ namespace uni {
 			Atmost_Input = 0,
 			Atmost_10MHz = 1,
 			Atmost_2MHz = 2,
-			Atmost_50MHz = 3,
+			Atmost_50MHz = 3
 		};
 	}
 
 
 	//
-	class GeneralPurposeInputOutputPin {
-		_COM_DEF_GPIO_Pin_Protected()
+	class GeneralPurposeInputOutputPin final : public RuptTrait
+	{
+		_COM_DEF_GPIO_Pin_Protected();
 	public:
-		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
-		bool getInn();
-		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_2MHz)
-		void setMode(GPIORupt::RuptEdge edg, Handler_t fn = 0);// must in input mode
+		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* _parent = nullptr, uint32 _bitposi = 0) : parent(_parent), bitposi(_bitposi) {}
+		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_2MHz);
+		void setMode(GPIORupt::RuptEdge edg, Handler_t fn = nullptr);// must in input mode
 		void setMode(GPIOEvent::EventEdge edg);// must in input mode
 		void setPull(bool pullup);
-		void setInterrupt(Handler_t fn);//{TODEL}
-		void setInterruptPriority(byte preempt, byte sub_priority);
-		void enInterrupt(bool enable = true);
-		bool isInput() const;
+
 		void Lock(bool tolock_orunlock = true);
 	};
 
@@ -147,7 +149,7 @@ namespace uni {
 		GeneralPurposeInputOutputPin OutpdPins[16];// 32[High-16:kept]
 		GeneralPurposeInputOutputPin ERR;
 		uint32 EnablPosi;// of ClockPort
-		_COM_DEF_GPIO_Port_Protected()
+		_COM_DEF_GPIO_Port_Protected();
 	public:
 		Reference ClockPort;
 		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
@@ -157,7 +159,7 @@ namespace uni {
 		GeneralPurposeInputOutputPin& operator[](uint8 pinid);
 
 		GeneralPurposeInputOutputPort& operator=(uint32 val);
-		_COM_DEF_GPIO_Port_Public()
+		_COM_DEF_GPIO_Port_Public();
 	};
 
 
@@ -194,23 +196,20 @@ namespace uni {
 		} GPIOReg;
 	}
 
-	class GeneralPurposeInputOutputPin {
-		_COM_DEF_GPIO_Pin_Protected()
+	class GeneralPurposeInputOutputPin : public RuptTrait
+	{
+		_COM_DEF_GPIO_Pin_Protected();
 	public:
-		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(true) {}
-		bool getInn();
+		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi) {}
 		void setMode(GPIORupt::RuptEdge edg, Handler_t fn = 0);// must in input mode
 		void setMode(GPIOEvent::EventEdge edg);// must in input mode
 		void setPull(bool pullup);
-		void setInterrupt(Handler_t fn);//{TODEL}
-		void setInterruptPriority(byte preempt, byte sub_priority);
-		void enInterrupt(bool enable = true);
-		bool isInput() const;
+
 
 		//! AFRx Register should be set by other device.
 		void _set_alternate(byte selection);
 		
-		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_Low)
+		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_Low);
 	};
 
 	class GeneralPurposeInputOutputPort {
@@ -230,7 +229,7 @@ namespace uni {
 
 		GeneralPurposeInputOutputPort& operator=(uint32 val);
 
-		_COM_DEF_GPIO_Port_Public()
+		_COM_DEF_GPIO_Port_Public();
 	};
 
 	extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG;
@@ -238,13 +237,13 @@ namespace uni {
 
 	#elif defined(_MCU_CW32F030)
 	#include "../../c/driver/GPIO/GPIO_CW32x.hpp"
-	#elif defined(_MCU_MSP432)
+	#elif defined(_MCU_MSP432P4)
 	#include "../../c/driver/GPIO/GPIO_MSP432.hpp"
 	#endif// _MCU_STM32F1x
 
 	struct GeneralPurposeInputOutput {
 		GeneralPurposeInputOutputPort ERR;
-		GeneralPurposeInputOutput() : ERR(~0, ~0, ~0) { }
+		GeneralPurposeInputOutput() : ERR(_IMMNOT, _IMMNOT, _IMMNOT) { }
 		GeneralPurposeInputOutputPort& operator[](char portid);
 		stduint Index(GeneralPurposeInputOutputPort* port);
 	};

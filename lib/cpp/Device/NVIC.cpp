@@ -60,6 +60,17 @@ namespace uni {
 	void NVIC_t::setPriority(Request_t req, uint32 prepriority, uint32 subpriority) {
 		setPriority(req, NVIC_EncodePriority(getPriorityGroup(), prepriority, subpriority));
 	}
+
+	void NVIC_t::setAble(Request_t req, bool ena) {
+		const stduint req_no = _IMM(req);
+		if (!req_no) return;
+		if (ena) {
+			this->map->ISER[req_no >> 5UL] |= ((uint32_t)1 << (req_no & 0x1FUL));
+		}
+		else {
+			this->map->ISER[req_no >> 5UL] &= ~((uint32_t)1 << (req_no & 0x1FUL));
+		}
+	}
 }
 
 #elif defined(_MCU_STM32F4x)

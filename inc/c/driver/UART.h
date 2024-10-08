@@ -53,7 +53,7 @@ namespace uni {
 		_TODO
 	};
 
-	class USART_t {
+	class USART_t : public RuptTrait {
 	protected:
 		stduint baseaddr;
 		byte XART_ID;

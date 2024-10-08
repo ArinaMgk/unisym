@@ -40,6 +40,7 @@ typedef void(*_tofree_ft)(pureptr_t);
 typedef  int(*_tocomp_ft)(pureptr_t, pureptr_t);
 typedef int*(*_tocall_ft)(void*, ...);
 typedef void(symbol_t)(void);
+typedef const char* rostr;// read-only string
 
 #if defined(__cplusplus) && !defined(_INC_CPP)
 	#define _INC_CPP
@@ -109,6 +110,7 @@ extern "C++" {
 #define _NOT_ABSTRACTED// into UNISYM
 
 #define asserv(x) if(x)x // Assert Value
+#define asserz(x) if(!x)x // Assert Value Not
 #define asrtand(x) (x)&&x // Assert Value
 #define asrtinc(p) if(p)*(p)++ // for array
 #define asrtdec(p) if(p)*--(p) // for stack
@@ -116,6 +118,8 @@ extern "C++" {
 #define stepval(x) (!x)?0:x // do not nested by "()" !
 	// E.g. paralext = stepval(subtail)->next;
 
+#define Rangein(i,a,b) ((a)<=(i) && (i)<(b)) // i in [a,b) a..b
+#define Ranglin(i,a,l) ((a)<=(i) && (i)<(a+l)) // i in [a,a+l) a..a+l
 #define Ranginc(i,range) do ++i, (i)%=(range);  while(0) //(++(i) %= range)
 #define Rangincx(i,min,max) do if(i>=max)i=min; else++i;  while(0)// max included
 #define Rangdec(i,range) do if(!(i)) i=range-1; else (--(i) %= range); while(0)
@@ -135,7 +139,7 @@ extern "C++" {
 #define malcof(x) (x*)malc(sizeof(x))
 #define ralcof(x,addr,nums) (x*)realloc((void*)(addr),(nums)*sizeof(x))
 
-#define xchg(a,b) do if(a!=b)(a)^=(b)^=(a)^=(b);while(0)
+#define xchg(a,b) do if(a!=b){(a)^=(b);(b)^=(a);(a)^=(b);}while(0) // cancelled (a)^=(b)^=(a)^=(b);
 #define xchgptr(a,b) do if((size_t*)a!=(size_t*)b)*(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b);while(0)
 
 #define AssignParallel(l,m,r) ((l=m),(m=r))// different from `l=m=r`

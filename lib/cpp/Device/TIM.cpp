@@ -23,56 +23,190 @@
 #include "../../../inc/cpp/Device/TIM"
 
 namespace uni {
-#if 0
-#elif defined(_MCU_STM32F1x)
-//#undef TIM
-
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	byte TimCrtChan = 0;
 	void TIM_t::setInterrupt(Handler_t fn) {
 		FUNC_TIMx[getID()] = fn;
 	}
-
 	static Request_t TIM_Request_list[16] = {
-		(Request_t)0, (Request_t)0, (Request_t)0, (Request_t)0,
-		(Request_t)0, (Request_t)0, IRQ_TIM6, IRQ_TIM7,
+		Request_None, Request_None, IRQ_TIM2, IRQ_TIM3,
+		IRQ_TIM4, IRQ_TIM5, IRQ_TIM6, IRQ_TIM7,
 	};
 	void TIM_t::setInterruptPriority(byte preempt, byte sub_priority) {
 		NVIC.setPriority(TIM_Request_list[getID()], preempt, sub_priority);
 	}
-	//{TODO}
+	static void timer_it(byte TIM_ID, bool enable);
 	void TIM_t::enInterrupt(bool enable) {
-		if (enable)
-		{
+		if (enable) {
 			NVIC.setAble(TIM_Request_list[getID()]);
-			//aka HAL_TIM_Base_Start_IT
-			{
-				self[TimReg::DIER] |= 1;// TIM_IT_UPDATE
-				if (getID() <= 5 || getID() == 8) //aka IS_TIM_SLAVE_INSTANCE, true for TIM 1/2/3/4/5/8
-				{
-					/* TODO (why so?)
-					tmpsmcr = htim->Instance->SMCR & TIM_SMCR_SMS;
-					if (!IS_TIM_SLAVEMODE_TRIGGER_ENABLED(tmpsmcr))
-					{
-						__HAL_TIM_ENABLE(htim);
-					}
-					*/
-				}
-				else enAble();
-			}
+			timer_it(getID(), true);
 		}
 		else _TODO;
 	}
 
-	void TIM_t::ConfigMaster(_TEMP stduint master_output_triggerm, bool master_slave_enable) {
-		// Compatible with `HAL_StatusTypeDef HAL_TIMEx_MasterConfigSynchronization(TIM_HandleTypeDef *htim, TIM_MasterConfigTypeDef * sMasterConfig)`
-		self[TimReg::CR2] &= ~(7U << 4); // Reset MMS Bits
-		self[TimReg::CR2] |= master_output_triggerm; // Select the TRGO source
-		self[TimReg::SMCR].setof(_TIM_SMCR_POS_MSM, master_slave_enable);
+	//{TEMP}
+	#if defined(_MCU_STM32F4x)
+	GPIO_Pin* TIM_CHAN_t::setPulse(stduint period, stduint compare) {
+		Letvar(addr, TIM_C*, &TIM[TIM_ID]);
+		return addr->setPulse(CHAN_ID, period, compare);
 	}
 	
-	TIM_B TIM6(0x40001000, 4, 6);
-	TIM_B TIM7(0x40001400, 5, 7);
+	TIM_CHAN_t TIM_t::operator[](stduint chan_id) {
+		return TIM_CHAN_t(TIM_ID, chan_id);
+	}
+	#endif
+
+#endif
+
+#if 0
+#elif defined(_MCU_STM32F1x)
+	// contain: HAL_TIM_Base_Start_IT
+	static void timer_it(byte TIM_ID, bool enable) {
+		TIM_t& sel = *TIM[TIM_ID];
+		sel[TimReg::DIER] |= 1;// TIM_IT_UPDATE
+		if (sel.getID() <= 5 || sel.getID() == 8) //aka IS_TIM_SLAVE_INSTANCE, true for TIM 1/2/3/4/5/8
+		{
+			/* TODO (why so?)
+			tmpsmcr = htim->Instance->SMCR & TIM_SMCR_SMS;
+			if (!IS_TIM_SLAVEMODE_TRIGGER_ENABLED(tmpsmcr))
+			{
+				__HAL_TIM_ENABLE(htim);
+			}
+			*/
+		}
+		else sel.enAble();
+	}
+
+	void TIM_t::ConfigMaster(_TEMP stduint master_output_triggerm, bool master_slave_enable) {
+		using namespace TimReg;
+		// Compatible with `HAL_StatusTypeDef HAL_TIMEx_MasterConfigSynchronization(TIM_HandleTypeDef *htim, TIM_MasterConfigTypeDef * sMasterConfig)`
+		self[CR2] &= ~(7U << 4); // Reset MMS Bits
+		self[CR2] |= master_output_triggerm; // Select the TRGO source
+		self[SMCR].setof(_TIM_SMCR_POS_MSM, master_slave_enable);
+	}
+	
+	TIM_B TIM6(0x40001000, 6);
+	TIM_B TIM7(0x40001400, 7);
+	TIM_t* TIM[] = { nullptr,
+		nullptr, nullptr, nullptr, nullptr, nullptr,
+		&TIM6, &TIM7,
+	};
+
+#elif defined(_MCU_STM32F4x)
+	
+	TIM_C TIM2(0x40000000, 2);
+	TIM_C TIM3(0x40000400, 3);
+	TIM_C TIM4(0x40000800, 4);
+	TIM_C TIM5(0x40000C00, 5);
+	TIM_t* TIM[] = { nullptr,
+		nullptr, &TIM2, &TIM3, &TIM4, &TIM5,
+	};
+
+	static GPIO_Pin* GPINs_chan1_TIMx[] = { nullptr,
+		 nullptr, &GPIOA[15]
+	};
+	static GPIO_Pin* GPINs_chan2_TIMx[] = { nullptr,
+		 nullptr, &GPIOB[3]
+	};
+	static GPIO_Pin* GPINs_chan3_TIMx[] = { nullptr,
+		 nullptr, &GPIOB[10]
+	};
+	static GPIO_Pin* GPINs_chan4_TIMx[] = { nullptr,
+		 nullptr, &GPIOB[11]
+	};
+	static GPIO_Pin** GPINs_chanx[] = {
+		GPINs_chan1_TIMx, GPINs_chan2_TIMx, GPINs_chan3_TIMx, GPINs_chan4_TIMx
+	};
+	static byte GPINs_AFs_TIMx[1 + 11] = { nil,
+		1,1, 2,2,2, // TIM1~5: AF1 for TIM1&2
+		0xFF, 0xFF, // TIM6,7
+		3,3,3,3
+	};//{ONLY}  F407 & F417
+
+	static void timer_it(byte TIM_ID, bool enable) {
+		using namespace TimReg;
+		TIM_t& sel = *TIM[TIM_ID];
+		sel[DIER] |= 1;// TIM_IT_UPDATE
+		if ((sel[SMCR] & 0x7) == 0x6) // TIM_SLAVEMODE_TRIGGER is TIM_SMCR_SMS
+			sel.enAble();
+	}
+
+	GPIO_Pin* TIM_C::setPulse(byte channel, stduint period, stduint compare) {
+		using namespace TimReg;
+		//{TODO} Conflict among GPIOs
+		if (Ranglin(channel, 1, numsof(GPINs_chanx)) || !GPINs_chanx[channel][TIM_ID])
+			return nullptr;
+		GPIO_Pin& friendo = *GPINs_chanx[channel - 1][TIM_ID];
+		friendo.setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);
+		if (0xFF != GPINs_AFs_TIMx[TIM_ID])
+			friendo._set_alternate(GPINs_AFs_TIMx[TIM_ID]);
+		self.setMode(nullptr, _TIMC_DEFA_PRESCALER, period);
+		self.ConfigChannel(channel, period / 2);
+		self.enChannel(channel);
+		//: aka __HAL_TIM_SET_COMPARE
+		//{TODO} Spilt below, which can be used alone
+		static Reference refs[] = {
+			self[CCR1], self[CCR2], self[CCR3], self[CCR4]
+		};
+		refs[channel - 1] = compare;
+		return &friendo;
+	}
+
+	// aka HAL_TIM_PWM_ConfigChannel
+	void TIM_C::ConfigChannel(byte channel, stduint pulse) {
+		using namespace TimReg;
+		pulse--;
+		_TEMP stduint TIM_OCMODE_PWM1 = 0x6;// 0b110
+		//{TEMP} OCFastMode = TIM_OCFAST_DISABLE; (0x00000000U)
+		_TEMP stduint OCPolarity = 0;// TIM_OCPOLARITY_HIGH; G'DP if< CCR1_Val
+		if (!Ranglin(channel, 1, 4)) return;
+		TimReg::TimRegType trt = channel <= 2 ? CCMR1 : CCR2;
+		stduint shift = isodd(channel) ? 0 : 8;
+		//: aka TIM_OCx_SetConfig
+		{
+			enCaptureCompareChannel(channel, false);
+			static Reference refs[] = {
+				self[CCMR1], self[CCMR1],
+				self[CCMR2], self[CCMR2]
+			};
+			//: Reset the Output Compare Mode Bits
+			refs[channel - 1].maset(4 + shift, 3, TIM_OCMODE_PWM1);// TIM_CCMRx_OCxM
+			refs[channel - 1].maset(0 + shift, 2, nil);// TIM_CCMRx_CCxS
+			//: Select the Output Compare Mode
+			self[CCER].maset(4 * (channel - 1), 4, OCPolarity);// OCPolarity
+			if ((channel < 4) && (TIM_ID == 1 || TIM_ID == 8) &&
+				Ranglin(channel, 1, 3)) { // IS_TIM_CCXN_INSTANCE chan1~3
+				_TODO /*
+				tmpccer &= ~TIM_CCER_CC1NP;
+				tmpccer |= OC_Config->OCNPolarity << ...;
+				tmpccer &= ~TIM_CCER_CC1NE;
+				*/
+			}
+			if (TIM_ID == 1 || TIM_ID == 8) { // IS_TIM_BREAK_INSTANCE
+				_TODO /*
+				tmpcr2 &= ~TIM_CR2_OIS1;// ISx
+				tmpcr2 &= ~TIM_CR2_OIS1N;// ISxN
+				tmpcr2 |= OC_Config->OCIdleState;// <<2 <<4
+				tmpcr2 |= OC_Config->OCNIdleState;// <<2 << 4
+				*/
+			}
+			self[CCR1] = pulse;
+		}
+		self[trt] |= _IMM(0x00000008 << shift);// TIM_CCMRx_OCxPE
+		self[trt] &= ~_IMM(0x00000004 << shift);// TIM_CCMRx_OCxFE; // TIM_OCFAST_DISABLE; (0x00000000U)
+	}
 
 
+
+	_TEMP void TIM_CHAN_t::Select(stduint SlaveMode, stduint TriggerInn, stduint TriggerOut, bool MasterSlaveMode)
+	{
+		using namespace TimReg;
+		TIM_t& t = *TIM[TIM_ID];
+		t[SMCR].maset(0, 3, SlaveMode);// TIM_SelectSlaveMode
+		t[SMCR].maset(4, 3, TriggerInn);// TIM_SelectInputTrigger
+		t[CR2].maset(_TIM_CR2_POSI_MMS, 3, TriggerOut);// TIM_SelectOutputTrigger
+		t[SMCR].setof(7, MasterSlaveMode);// TIM_SelectMasterSlaveMode
+	}
 
 #endif
 }

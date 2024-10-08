@@ -41,7 +41,7 @@ namespace GPIOMode {
 		// Bit0(DIR) Bit1(OPENDRAIN)
 		IN = 0x01,// DIR(1) OPENDRAIN(x)
 		OUT_PushPull = 0x02,// DIR(0) OPENDRAIN(0)
-		OUT_OpenDrain = 0x03,// DIR(0) OPENDRAIN(1)
+		OUT_OpenDrain = 0x03// DIR(0) OPENDRAIN(1)
 	};
 }
 namespace GPIOSpeed {
@@ -51,15 +51,15 @@ namespace GPIOSpeed {
 	};
 }
 
-class GeneralPurposeInputOutputPin {
-	_COM_DEF_GPIO_Pin_Protected()
+class GeneralPurposeInputOutputPin final : public RuptTrait {
+	_COM_DEF_GPIO_Pin_Protected();
 public:
-	GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi), innput(false) {}
+	GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* _parent = nullptr, byte _bitposi = 0) : parent(_parent), bitposi(_bitposi) {}
 	void setPull(bool dir);
 	bool getInn();
 
 	
-	_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Low)
+	_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Low);
 };
 
 class GeneralPurposeInputOutputPort {
@@ -75,9 +75,9 @@ public:
 		ClockPort.setof(EnablPosi, enable);
 	}
 	GeneralPurposeInputOutputPort(uint32 ADDR, uint32 EnclkRef, uint32 Enapin = 0) 
-	: ERR((GeneralPurposeInputOutputPort*)~0, ~0), ClockPort(EnclkRef) {
+	: ERR((GeneralPurposeInputOutputPort*)~0, (byte)~0), ClockPort(EnclkRef) {
 		for0a(i, pins)
-			pins[i] = GeneralPurposeInputOutputPin(this, i);
+			pins[i] = GeneralPurposeInputOutputPin(this, byte(i));
 		baseaddr = ADDR;
 		EnablPosi = Enapin;
 		

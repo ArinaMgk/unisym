@@ -26,7 +26,7 @@
 
 #ifndef _INC_INN_GPIO_MSP432
 #define _INC_INN_GPIO_MSP432
-#if defined(_MCU_MSP432)
+#if defined(_MCU_MSP432P4)
 
 // HRN(OLD)STYLE for MSP432P401R Official Equipment
 #define gpo(x) GPIO_PORT_P##x

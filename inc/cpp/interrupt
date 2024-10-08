@@ -26,10 +26,20 @@
 #include "unisym"
 #include "Device/Interrupt/interrupt_tab.h"
 
+namespace uni {
+	class RuptTrait {
+	public:
+		virtual void setInterrupt(Handler_t fn) = 0;
+		virtual void setInterruptPriority(byte preempt, byte sub_priority) = 0;
+		virtual void enInterrupt(bool enable = true) = 0;
+		virtual ~RuptTrait() = default; // avoid [-Wnon-virtual-dtor]
+	};
+}
+
 #define _COM_DEF_Interrupt_Interface() \
-void setInterrupt(Handler_t fn);\
-void setInterruptPriority(byte preempt, byte sub_priority);\
-void enInterrupt(bool enable = true)// you need add colon when using
+virtual void setInterrupt(Handler_t fn) override;\
+virtual void setInterruptPriority(byte preempt, byte sub_priority) override;\
+virtual void enInterrupt(bool enable = true) override// you need add colon when using
 
 #if 0
 //

@@ -40,5 +40,6 @@ F103:
 #include "../../Device/SysTick"
 #include "../../Device/UART"
 #include "../../Device/DAC"
+#include "../../Device/TIM"
 
 #endif

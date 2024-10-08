@@ -150,6 +150,12 @@ namespace uni {
 
 
 namespace uni {
+
+	//{ONLY}  F407 & F417
+	static byte GPINs_AFs_XARTx[1 + 6] = { nil,
+		7,7,7, 8,8,8
+	};
+
 	static void setMode_initGPIO(byte XART_ID) {
 		GPIOA[9].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);// Tx
 		GPIOA[9].setPull(true);
@@ -157,8 +163,8 @@ namespace uni {
 		GPIOA[10].setPull(true);
 		(void)"GPIO Config for AUF regs"; {
 			byte GPIO_AF7_USART1 = 0x07;
-			GPIOA[9]._set_alternate(GPIO_AF7_USART1);
-			GPIOA[10]._set_alternate(GPIO_AF7_USART1);
+			GPIOA[ 9]._set_alternate(GPINs_AFs_XARTx[XART_ID]);
+			GPIOA[10]._set_alternate(GPINs_AFs_XARTx[XART_ID]);
 		}
 	}
 

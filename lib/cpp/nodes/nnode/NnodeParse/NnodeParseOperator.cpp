@@ -23,10 +23,10 @@
 
 // Convert all operators into function calling form;
 
+#include <new>
 #include "../../../../../inc/cpp/unisym"
 #include "../../../../../inc/cpp/string"
 #include "../../../../../inc/cpp/nnode"
-#include <new>
 
 #define gettype(sym) (stepval(sym)->type)
 // | whom must != 0 (0 means non-exist) for true, 

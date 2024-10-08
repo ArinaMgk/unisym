@@ -308,6 +308,8 @@ static const stduint NONE = ~(stduint)0;
 //: avoid using literal suffix
 // : S stands for Shift
 #define _IMM(x) ((stduint)(x))
+#define _IMMx2(x) (_IMM(x)<<1)
+#define _IMMx4(x) (_IMM(x)<<2)
 #define _IMM1 _IMM(1)
 #define _IMM1S(x) (_IMM1<<(x))
 #define _IMM1R(x) (_IMM1>>(x))
@@ -315,6 +317,7 @@ static const stduint NONE = ~(stduint)0;
 #define _IMM32(x) ((uint32)(x))
 #define _IMM16(x) ((uint16)(x))
 #define _IMM8(x)  ((uint8)(x))
+#define _IMMNOT (~(stduint)0)
 
 // Using `max` `min` may be conflict with stdlib.h:
 #ifndef maxof//(a,b)

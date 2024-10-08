@@ -30,7 +30,20 @@
 #elif defined(_MCU_STM32F407ZE) || defined(_MCU_STM32F4x)
 	#define _MCU_STM32
 #endif
+
+#ifndef __BITS__
+#define __BITS__ 32
 #endif
+#elif defined(_MCU_CW32F030) || defined(_MCU_CW32F003)
+
+#ifndef __BITS__
+#define __BITS__ 32
+#endif
+
+#endif
+
+
+
 
 // _SUPPORT_GPIO
 #ifdef _MCU_STM32

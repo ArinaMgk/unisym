@@ -116,8 +116,7 @@ namespace uni {
 	}
 	
 	static Request_t ADCx_Request_list[4] = {
-		(Request_t)0, IRQ_ADC1_2, IRQ_ADC1_2,
-		IRQ_ADC3
+		(Request_t)0, IRQ_ADC, IRQ_ADC, IRQ_ADC3
 	};
 	void ADC_t::setInterruptPriority(byte preempt, byte sub_priority) {
 		NVIC.setPriority(ADCx_Request_list[ADC_ID], preempt, sub_priority);
@@ -152,7 +151,7 @@ namespace uni {
 			DMA1.bind = (pureptr_t)this;
 		}
 		else return false;
-		return this;
+		return true;
 	}
 
 	//aka HAL_ADC_Start_DMA

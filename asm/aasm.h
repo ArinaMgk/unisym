@@ -38,6 +38,8 @@ typedef struct {
 } Prepro;
 extern Prepro _pp;
 
+typedef const unsigned char macros_t;
+
 void printinfo(void);
 void printl(loglevel_t level, const char* fmt, ...);
 int* handlog(void* _serious, ...);

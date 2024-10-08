@@ -15,7 +15,13 @@ The repository is open-sourced under of *Apache License 2.0*. If you copy the co
 - `HERNOT` and public `HEREPC`
     - Herepic Style Color: Herpink(R255, G97, B157, #double-0.618) 
 - `HERPRO` and static `HERDAT`
+	- Dinah Processor and Controller Chip
     - opensrc **UNISYM** (this, Apache)
+	- Mecocoa
+	- Host Environment
+		- Witch and Nova
+		- COTLAB
+	- Webnet Service
 
 <font color="magenta">⚠︎ All the code are by hands, so these big changes and mistakes in codes may be forgiven.</font>
 

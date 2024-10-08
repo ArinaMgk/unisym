@@ -25,94 +25,143 @@
 #ifndef _INCPP_Device_TIM
 #define _INCPP_Device_TIM
 
-
+/* Component
+- Advanced 高级定时器 TIM1 TIM8
+- Basic    基本定时器 TIM6 TIM7 : 16b-auto-reload-counter
+- Common   通用定时器 TIM2 TIM3 TIM4 TIM5 : general-purpose
+*/
 #include "../unisym"
 #include "../binary"
 #include "../reference"
 #include "../interrupt"
+#include "GPIO"
 #include "RCC/RCCAddress"
+
+//{TODO} each Channel has fixed address
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#undef TIM
+#undef TIM1
+#undef TIM2
+#undef TIM3
+#undef TIM4
+#undef TIM5
+#undef TIM6
+#undef TIM7
+#undef TIM8
+
+#define _TIM_CR1_POS_CEN   0
+#define _TIM_CR1_POS_UDIS  1
+#define _TIM_CR1_POS_URS   2
+#define _TIM_CR1_POS_OPM   3
+#define _TIM_CR1_POS_DIR   4
+#define _TIM_CR1_POS_CMS   5
+#define _TIM_CR1_POS_ARPE  7
+#define _TIM_CR1_POS_CKD   8
+
+#define _TIM_SMCR_POS_MSM 7
+#define _TIM_SR_POS_UIE   0
+
+namespace uni {
+	extern byte TimCrtChan;
+	// Haruno saw most parameters are compatible
+	namespace TimReg {
+		typedef enum {
+			CR1,   // TIM control register 1,                     0x00
+			CR2,   // TIM control register 2,                     0x04
+			SMCR,  // TIM slave Mode Control register,            0x08
+			DIER,  // TIM DMA/interrupt enable register,          0x0C
+			SR,    // TIM status register,                        0x10
+			EGR,   // TIM event generation register,              0x14
+			CCMR1, // TIM  capture/compare mode register 1,       0x18
+			CCMR2, // TIM  capture/compare mode register 2,       0x1C
+			CCER,  // TIM capture/compare enable register,        0x20
+			CNT,   // TIM counter register,                       0x24
+			PSC,   // TIM prescaler register,                     0x28
+			ARR,   // TIM auto-reload register,                   0x2C
+			RCR,   // TIM  repetition counter register,           0x30
+			CCR1,  // TIM capture/compare register 1,             0x34
+			CCR2,  // TIM capture/compare register 2,             0x38
+			CCR3,  // TIM capture/compare register 3,             0x3C
+			CCR4,  // TIM capture/compare register 4,             0x40
+			BDTR,  // TIM break and dead-time register,           0x44
+			DCR,   // TIM DMA control register,                   0x48
+			DMAR,  // TIM DMA address for full transfer register, 0x4C
+			OR,    // TIM option register,                        0x50
+		} TimRegType;
+	}
+	class TIM_CHAN_t;
+	class TIM_t : public RuptTrait {
+	protected:
+		stduint baseaddr;
+		byte TIM_ID;
+	public:
+		Handler_t FUNC_IC_Capture;
+		Handler_t FUNC_OC_DelayElapsed;
+		Handler_t FUNC_PWMPulseFinished;
+		Handler_t FUNC_Break;
+		Handler_t FUNC_Trigger;
+		Handler_t FUNC_Commute;
+		TIM_t(stduint baseaddr, byte TIM_ID) : baseaddr(baseaddr), TIM_ID(TIM_ID) {
+			FUNC_IC_Capture = 0;
+			FUNC_OC_DelayElapsed = 0;
+			FUNC_PWMPulseFinished = 0;
+			FUNC_Break = 0;
+			FUNC_Trigger = 0;
+			FUNC_Commute = 0;
+		}
+		Reference operator[](TimReg::TimRegType trt) {
+			return Reference(baseaddr + _IMMx4(trt));
+		}
+		TIM_CHAN_t operator[](stduint chan_id);
+		stduint getBaseaddr() const { return baseaddr; }
+		byte getID() const { return TIM_ID; }
+		_COM_DEF_Interrupt_Interface();
+		void enClock(bool ena = true) {
+			if (!TIM_ID) return;
+			byte width = 0;
+			stduint refaddr = _RCC_APB1ENR_ADDR;
+			if (TIM_ID == 1) {
+				refaddr = _RCC_APB2ENR_ADDR;
+				width = 11;
+			}
+			else if (Ranglin(TIM_ID, 2, 6)) { // TIM 2~7
+				width = TIM_ID - 2;
+			}
+			else _TODO;
+			Reference(refaddr).setof(width, ena);
+		}
+		void enAble(bool ena = true) {
+			self[TimReg::CR1].setof(_TIM_CR1_POS_CEN, ena); //aka __HAL_TIM_ENABLE
+		}
+		void ConfigMaster(_TEMP stduint master_output_triggerm = 0, bool master_slave_enable = false);
+	};
+
+	extern TIM_t* TIM[];
+	class TIM_A;
+	class TIM_B;
+	class TIM_C;
+	
+	class TIM_CHAN_t {
+		byte TIM_ID, CHAN_ID;
+	public:
+		TIM_CHAN_t(byte _TIM_ID, byte _CHAN_ID) : TIM_ID(_TIM_ID), CHAN_ID(_CHAN_ID) { }
+		GPIO_Pin* setPulse(stduint period, stduint compare);
+		_TEMP void Select(stduint SlaveMode = 0x7, stduint TriggerInn = 0x5, stduint TriggerOut = 0, bool MasterSlaveMode = false);
+	};
+}
+#endif // _MCU_STM32F1x || _MCU_STM32F4x
+
 
 namespace uni {
 #if 0
 
 #elif defined(_MCU_STM32F1x)
-	#undef TIM
-	#undef TIM6
-	#undef TIM7
 
-
-/* Component
-- Advanced 高级定时器 TIM1 TIM8
-- Basic    基本定时器 TIM6 TIM7 : 16b-auto-reload-counter
-- Common   通用定时器 TIM2 TIM3 TIM4 TIM5
-*/
-
-//{TODO} TIM1 TIM2 TIM3 TIM4 TIM5 TIM7 TIM8
 
 //{TODO} stm32f1xx_hal_tim.h/c 
-
-//{TODO} TIM[6] TIM[7]
-
-	#define _TIM_CR1_POS_CEN  0
-	#define _TIM_CR1_POS_ARPE 7
-	#define _TIM_SMCR_POS_MSM 7
-	#define _TIM_SR_POS_UIE   0
-
-	namespace TimReg {
-		typedef enum {
-			CR1,   // TIM control register 1,                     offset: 0x00
-			CR2,   // TIM control register 2,                     offset: 0x04
-			SMCR,  // TIM slave Mode Control register,            offset: 0x08
-			DIER,  // TIM DMA/interrupt enable register,          offset: 0x0C
-			SR,    // TIM status register,                        offset: 0x10
-			EGR,   // TIM event generation register,              offset: 0x14
-			CCMR1, // TIM  capture/compare mode register 1,       offset: 0x18
-			CCMR2, // TIM  capture/compare mode register 2,       offset: 0x1C
-			CCER,  // TIM capture/compare enable register,        offset: 0x20
-			CNT,   // TIM counter register,                       offset: 0x24
-			PSC,   // TIM prescaler register,                     offset: 0x28
-			ARR,   // TIM auto-reload register,                   offset: 0x2C
-			RCR,   // TIM  repetition counter register,           offset: 0x30
-			CCR1,  // TIM capture/compare register 1,             offset: 0x34
-			CCR2,  // TIM capture/compare register 2,             offset: 0x38
-			CCR3,  // TIM capture/compare register 3,             offset: 0x3C
-			CCR4,  // TIM capture/compare register 4,             offset: 0x40
-			BDTR,  // TIM break and dead-time register,           offset: 0x44
-			DCR,   // TIM DMA control register,                   offset: 0x48
-			DMAR,  // TIM DMA address for full transfer register, offset: 0x4C
-			OR,    // TIM option register,                        offset: 0x50
-		} TimRegType;
-	}
-
-	// Use Dynamic Objects
-	class TIM_t {
-	protected:
-		stduint baseaddr;
-		byte TIM_ID;
-	public:
-		TIM_t(stduint baseaddr, byte TIM_ID) : baseaddr(baseaddr), TIM_ID(TIM_ID) {}
-		
-		Reference operator[](TimReg::TimRegType trt) {
-			return Reference(baseaddr + (((stduint)trt) << 2));
-		}
-
-		void ConfigMaster(_TEMP stduint master_output_triggerm = 0, bool master_slave_enable = false);
-
-		stduint getBaseaddr() const { return baseaddr; }
-
-		byte getID() const { return TIM_ID; }
-
-		void setInterrupt(Handler_t fn);
-		void setInterruptPriority(byte preempt, byte sub_priority);
-		void enInterrupt(bool enable = true);
-
-		void enAble(bool ena = true) {
-			self[TimReg::CR1].setof(_TIM_CR1_POS_CEN, ena); //aka __HAL_TIM_ENABLE
-		}
-
-
-
-	};
+//{TODO} TIM1 TIM2 TIM3 TIM4 TIM5 TIM7 TIM8
+//{TODO} TIM[7]
 
 /*TODO
  * TIM_Prescaler
@@ -134,14 +183,9 @@ namespace uni {
 	class TIM_A;
 	
 	class TIM_B : public TIM_t {
-		stduint EnablPosi;
 		
 	public:
-		TIM_B(stduint baseaddr, stduint EnablPosi, byte TIM_ID) : TIM_t(baseaddr, TIM_ID), EnablPosi(EnablPosi) { }
-
-		void enClock(bool ena = true) {
-			Reference(_RCC_APB1ENR_ADDR).setof(EnablPosi, ena); // aka BitSet(_RCC_APB1ENR_ADDR, EnablPosi);
-		}
+		TIM_B(stduint baseaddr, byte TIM_ID) : TIM_t(baseaddr, TIM_ID) { }
 
 		// Real Freq: 72M/(prescaler+1)
 		void setMode(Handler_t fn = 0, stduint prescaler = 71, stduint period = 1000, bool auto_reload_preload = false) {
@@ -162,11 +206,8 @@ namespace uni {
 
 			self[TimReg::CR1].setof(_TIM_CR1_POS_ARPE, auto_reload_preload);
 
-			//TIMx->ARR = period;
-			//TIMx->PSC = prescaler;
-			
-			self[TimReg::ARR] = (period);
-			self[TimReg::PSC] = (prescaler);
+			self[TimReg::ARR] = period;
+			self[TimReg::PSC] = prescaler;
 
 			if (0) { // for A
 				//TIMx->RCR = Structure->RepetitionCounter;
@@ -174,16 +215,88 @@ namespace uni {
 			self[TimReg::EGR] = 1; // TIM_EGR_UG;// Generate an update event to reload the Prescaler and the repetition counter(only for TIM1 and TIM8) value immediatly
 		}
 
-		
-
 	}; // 6 and 7
-	extern TIM_B TIM6;
-	extern TIM_B TIM7;
+	extern TIM_B TIM6, TIM7;
 
 	class TIM_C;
 
+#elif defined(_MCU_STM32F4x)
 
+	#define _TIM_CR2_POSI_MMS 4
 	
+//{TODO} TIM1 TIM7 TIM8
+//{TODO} TIM[6] TIM[7]
+	//: TIMxCLK = HCLK/2=84MHz: TIMFREQ=TIMxCLK/TIMPrescaler=1MHz
+	//{TODO} get this from current sysfreq.
+	#define _TIMC_DEFA_PRESCALER 84
+	
+	#define _TIMC_DEFA_PERIOD    1000000
+	
+
+	class TIM_A;
+	class TIM_B;
+	class TIM_C : public TIM_t {
+
+	public:
+		TIM_C(stduint baseaddr, byte TIM_ID) : TIM_t(baseaddr, TIM_ID) { }
+		//
+		void setMode(Handler_t fn = nullptr, stduint prescaler = _TIMC_DEFA_PRESCALER, stduint period = _TIMC_DEFA_PERIOD, bool auto_reload_preload = false) {
+			using namespace TimReg;
+			prescaler--;
+			period--;
+			//{TEMP} ASSUME CounterMode=TIM_COUNTERMODE_UP;
+			//{TEMP} ASSUME ClockDivision=TIM_CLOCKDIVISION_DIV1 aka non-prescaled;
+			if (fn) setInterrupt(fn);
+			enClock();
+			//:aka HAL_TIM_Base_Init -> TIM_Base_SetConfig
+			stduint tmpcr1 = self[CR1];
+			if (TIM_ID == 8 || Ranglin(TIM_ID, 1, 5)) // IS_TIM_COUNTER_MODE_SELECT_INSTANCE
+			{
+				Reference(&tmpcr1).setof(_TIM_CR1_POS_DIR);//{TEMP} up
+				Reference(&tmpcr1) &= ~_IMM(0x00000060);// TIM_CR1_CMS
+			}
+			if (TIM_ID != 6 && TIM_ID != 7) { // IS_TIM_CLOCK_DIVISION_INSTANCE
+				Reference(&tmpcr1) &= ~_IMM(0x00000300);// TIM_CR1_CKD
+				// 0x00000000U TIM_CLOCKDIVISION_DIV1
+			}
+			Reference(&tmpcr1).setof(_TIM_CR1_POS_ARPE, auto_reload_preload);
+			self[CR1] = tmpcr1;
+			self[ARR] = period;
+			self[PSC] = prescaler;
+			if (TIM_ID == 1 || TIM_ID == 8) // IS_TIM_REPETITION_COUNTER_INSTANCE
+				self[PSC] = 0; // RepetitionCounter;
+			self[EGR] = _TEMP 1;// TIM_PSCReloadMode_Immediate
+		}
+
+
+		//: PWM (channel in range 1..1+4)
+		// contain setMode. compare: numsof former unit in period;
+		GPIO_Pin* setPulse(byte channel, stduint period, stduint compare);
+		// aka HAL_TIM_PWM_ConfigChannel
+		void ConfigChannel(byte channel, stduint pulse);
+		// aka HAL_TIM_PWM_Start
+		void enChannel(byte channel) {
+			using namespace TimReg;
+			enCaptureCompareChannel(channel);
+			if (TIM_ID == 1 || TIM_ID == 8) { // IS_TIM_BREAK_INSTANCE
+				self[BDTR] |= 0x00008000; //(TIM_BDTR_MOE)
+			}
+			if (0x6 != self[SMCR].mask(0, 3)) { // !IS_TIM_SLAVEMODE_TRIGGER_ENABLED
+				enAble();
+			}
+		}
+
+		//aka TIM_CCxChannelCmd
+		void enCaptureCompareChannel(byte channel, bool ena = true) {
+			using namespace TimReg;
+			if (!Ranglin(channel, 1, 4)) return;
+			self[CCER].setof(4 * --channel, ena);
+		}
+
+		
+	};
+	extern TIM_C TIM2, TIM3, TIM4, TIM5;
+
 
 #endif
 }

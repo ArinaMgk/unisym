@@ -61,14 +61,18 @@ namespace uni {
 #endif
 
 extern "C" {
-	volatile stduint delay_count = 0;
-	void SysTick_Handler(void) {
-		//{TODO} Callback and more options
-		delay_count&& delay_count--;
-	}
-	void SysDelay(stduint unit) {
-		//{ISSUE} append systick-enable check?
-		delay_count = unit;
-		while (delay_count);
-	}
+	extern volatile stduint delay_count;
+	void SysTick_Handler(void);
 }
+
+volatile stduint delay_count = 0;
+void SysTick_Handler(void) {
+	//{TODO} Callback and more options
+	delay_count&& delay_count--;
+}
+void SysDelay(stduint unit) {
+	//{ISSUE} append systick-enable check?
+	delay_count = unit;
+	while (delay_count);
+}
+

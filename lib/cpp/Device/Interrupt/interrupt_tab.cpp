@@ -29,6 +29,8 @@ using namespace uni;
 
 // SysTick_Handler in SysTick.cpp
 
+#define i_index(a,b) (*a[b])
+
 extern "C" {
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
@@ -56,13 +58,21 @@ extern "C" {
 	// ----
 	Handler_t FUNC_XART[8] = { 0 };
 
+	// ---- TIM ----
+	Handler_t FUNC_TIMx[16] = { 0 }; // Period Elapsed Callback
+	//: typ: 0:Basic, 1:CaptureCompare, 2:Update, 3:Break, 4:Trigger, 5:Commutation
+	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID);
+	void TIM2_IRQHandler(void) { _HandlerIRQ_TIMx(0, 2); }
+	void TIM3_IRQHandler(void) { _HandlerIRQ_TIMx(0, 3); }
+	void TIM4_IRQHandler(void) { _HandlerIRQ_TIMx(0, 4); }
+
+
 #endif
 
 	
 #if 0
 	//
 #elif defined(_MCU_STM32F1x)
-	Handler_t FUNC_TIMx[16] = { 0 };// keep 0
 	Handler_t FUNC_ADCx[4] = { 0 };// keep 0
 	//
 	static void _HandlerIRQ_XART(byte art_id) {
@@ -73,8 +83,8 @@ extern "C" {
 		// ... more
 	}
 
-
-
+	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {}
+	//{TODEL}
 	static void _HandlerIRQ_TIMx(TIM_t& this_TIM) {
 		//{TODO} Capture compare 1 event 
 		//{TODO} Capture compare 2 event 
@@ -174,6 +184,69 @@ extern "C" {
 	
 
 	void USART6_IRQHandler(void) { _HandlerIRQ_XART(6); }	
+
+
+	// pres: pos of SR and of DIER should be the same
+	static bool _HandlerIRQ_TIMx_Exist(byte TIM_ID, stduint pos) {
+		using namespace TimReg;
+		TIM_t& t = i_index(TIM, TIM_ID);
+		if (t[SR].bitof(pos)) {
+			if (t[DIER].bitof(pos)) { 
+				t[SR].setof(pos, false);
+				return true;
+			}
+			else return _TEMP false;
+		}
+		return false;
+	}
+	static void _HandlerIRQ_TIMx_Channel(byte TIM_ID, byte chan) {
+		using namespace TimReg;
+		TIM_t& t = i_index(TIM, TIM_ID);
+		if (_HandlerIRQ_TIMx_Exist(TIM_ID, TIM_ID)) {
+			// SR.CCxIF and DIER.CCx
+			TimCrtChan = chan;
+			bool tim1or2 = chan <= 2;
+			stduint mask = 0x3;
+			if (iseven(chan)) mask <<= 8; // chan 2 and 4
+			if (t[tim1or2 ? CCMR1 : CCMR2] &
+				mask) {
+				// Input capture event
+				callif(t.FUNC_IC_Capture);
+			}
+			else {
+				// Output compare event
+				callif(t.FUNC_OC_DelayElapsed);
+				callif(t.FUNC_PWMPulseFinished);
+			}
+			TimCrtChan = nil;
+		}
+	}
+	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {
+		//{TEMP} consider TIM_C just
+		using namespace TimReg;
+		if (typ) _TEMP return;
+		if (Ranglin(TIM_ID, 2, 4)) {
+			TIM_t& t = i_index(TIM, TIM_ID);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 1);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 2);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 3);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 4);
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 0)) { // UIF
+				callif(FUNC_TIMx[TIM_ID]);
+			}
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 7)) { // BIF BIE
+				callif(t.FUNC_Break);// Break input event
+			}
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 6)) { // TIF TIE
+				callif(t.FUNC_Trigger);// Trigger detection event
+			}
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 5)) { // COMIF COMIE
+				callif(t.FUNC_Commute);// Commutation event
+			}
+		}
+		else _TEMP return;
+	}
+
 	
 #endif
 

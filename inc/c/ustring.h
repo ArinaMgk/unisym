@@ -531,6 +531,11 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 
 //---- ---- ---- ---- { Set and Sorting } ---- ---- ---- ----
 
+// We can use this to use Big Endian
+inline static void MemReverse(char* str, stduint len) {
+	for0(i, len >> 1) xchg(str[i], str[len - i - 1]);
+}
+
 // RFV30 GHC. Param:order[0:little>big 1:big>little]
 //{TODO} 2 Ver
 void StrSortBubble(char* str, int order);

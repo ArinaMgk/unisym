@@ -41,9 +41,9 @@ uint32_t HSI_VALUE = (16000000);
 
 
 namespace uni {
-
+	extern stduint SystemCoreClock;
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
-	uint32_t SystemCoreClock = HSI_VALUE;
+	stduint SystemCoreClock = HSI_VALUE;
 	const uint8_t AHBPrescTable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9 };
 	const uint8_t APBPrescTable[8] = { 0, 0, 0, 0, 1, 2, 3, 4 };
 
@@ -55,8 +55,8 @@ namespace uni {
 		using namespace RCCReg;
 		return (getFrequencyHCLK() >> APBPrescTable[(RCC[CFGR] & _RCC_CFGR_MASK_PPRE2) >> _RCC_CFGR_POSI_PPRE2]);
 	}
-
-	
+#elif defined(_MCU_CW32F030)
+	stduint SystemCoreClock = 8000000;
 #endif
 
 #if defined(_MCU_STM32F1x)

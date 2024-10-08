@@ -42,6 +42,8 @@ F103:
 #include "../../Device/SysTick"
 #include "../../Device/TIM"
 #include "../../../c/driver/UART.h"
+#include "../../Device/ADC"
+#include "../../Device/DAC"
 #include "../../interrupt"
 
 //{TODO} compatible with `stm32f103xe.h`

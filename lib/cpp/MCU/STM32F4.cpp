@@ -34,7 +34,7 @@
 extern "C" void SystemInit(void);
 
 extern "C" {
-	char _IDN_BOARD[16] = "xx";// fill this with "03VET6" for STM32F103VET6 (20240826 came up)
+	char _IDN_BOARD[16] = "xx";
 }
 
 void SystemInit(void) {

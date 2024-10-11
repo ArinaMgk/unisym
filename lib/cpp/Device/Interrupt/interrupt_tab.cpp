@@ -206,10 +206,7 @@ extern "C" {
 			// SR.CCxIF and DIER.CCx
 			TimCrtChan = chan;
 			bool tim1or2 = chan <= 2;
-			stduint mask = 0x3;
-			if (iseven(chan)) mask <<= 8; // chan 2 and 4
-			if (t[tim1or2 ? CCMR1 : CCMR2] &
-				mask) {
+			if (t[tim1or2 ? CCMR1 : CCMR2].mask(iseven(chan) ? 8 : 0, 2)) {
 				// Input capture event
 				callif(t.FUNC_IC_Capture);
 			}
@@ -233,15 +230,20 @@ extern "C" {
 			_HandlerIRQ_TIMx_Channel(TIM_ID, 4);
 			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 0)) { // UIF
 				callif(FUNC_TIMx[TIM_ID]);
+				//(*TIM[TIM_ID])[SR].setof(0, true);
+				TIM[TIM_ID]->enAble();
 			}
 			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 7)) { // BIF BIE
 				callif(t.FUNC_Break);// Break input event
+				//{TODO}
 			}
 			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 6)) { // TIF TIE
 				callif(t.FUNC_Trigger);// Trigger detection event
+				//{TODO}
 			}
 			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 5)) { // COMIF COMIE
 				callif(t.FUNC_Commute);// Commutation event
+				//{TODO}
 			}
 		}
 		else _TEMP return;

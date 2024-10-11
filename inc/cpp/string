@@ -35,6 +35,7 @@
 /*TODO
  * fit BString
  * Multi-charset
+ * operator+ (intX) and (double) series
  */
 
 //{} Append property-call for += ... operator
@@ -45,11 +46,17 @@ namespace uni {
 		size_t counts;
 		char* addr;
 		bool no_termi_char;
-		stduint limits;// astring or bstring(non-0)
+		stduint limits;
+		bool allocated;// astring or bstring(non-0)
 	public:
+		// strheap
 		String(const char* str_asciz = "");
+		static String Heap(const String& str) { return String((const char*)(str.addr)); }
+		// class-constructor
 		String(const String& str);
-		String(char* str);
+		// give the [buffer_siz ? buffer : heap-in] string an alias
+		String(char* str, stduint buffer_siz = nil);
+		// define a heap string with a fixed length
 		String(stduint buflen);
 		~String();
 		//
@@ -63,16 +70,8 @@ namespace uni {
 		char* reflect(size_t plus = 0);
 		const char* reference() const;
 
-		/*
-		operator const char* () const {
-			return this->reflect();
-		}*/
-
-		// + String, int and built-in types
-		// += make use of `+`
 		String& operator=(const String& str);
 		String& operator=(const char* addr);
-		//String& operator=(char* addr) { return(self = uni::String(addr)); }
 
 		String operator+ (String& str) {
 			return String(StrHeapAppend(this->addr, str.addr));
@@ -84,10 +83,12 @@ namespace uni {
 			return *this;
 		}
 
+		//{TODO} return String Slice
 		bool operator<=(const String& s) const {
 			const char* ptr = StrIndexString(s.addr, this->addr);
 			return ptr != nullptr;
 		}
+		//{TODO} return String Slice
 		bool operator>=(const String& s) const {
 			const char* ptr = StrIndexString(this->addr, s.addr);
 			return ptr != nullptr;
@@ -97,15 +98,8 @@ namespace uni {
 		}
 
 		char& operator[] (stduint idx) { return addr[idx]; }
-		// [Abandoned]
-		// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }
-		// const char* operator[] (const char* str) { return StrIndexString(addr, str); }
+		String& operator<< (char chr);
 
-		// _TEMP friend std::ostream& operator<< (std::ostream& out, const String& str);
-
-		static String Heap(const String& str) { return String((const char*)(str.addr)); }
-
-		// not recommend: provide operator const char*()
 
 		String& Refresh() {
 			counts = minof(StrLength(addr), limits);
@@ -113,6 +107,12 @@ namespace uni {
 		}
 
 
+		// [Abandoned]
+		// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }
+		// const char* operator[] (const char* str) { return StrIndexString(addr, str); }
+		// _TEMP friend std::ostream& operator<< (std::ostream& out, const String& str);
+		// String& operator=(char* addr) { return(self = uni::String(addr)); }
+		// not recommend: provide operator const char*()
 	};//{TODO} option for allocating extra area for chars, aka vec<char>
 	
 }

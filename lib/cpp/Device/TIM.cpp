@@ -38,22 +38,28 @@ namespace uni {
 	static void timer_it(byte TIM_ID, bool enable);
 	void TIM_t::enInterrupt(bool enable) {
 		if (enable) {
-			NVIC.setAble(TIM_Request_list[getID()]);
-			timer_it(getID(), true);
+			NVIC.setAble(TIM_Request_list[getID()]);// dest
 		}
-		else _TODO;
+		timer_it(getID(), enable);// sors
 	}
 
-	//{TEMP}
+	
 	#if defined(_MCU_STM32F4x)
-	GPIO_Pin* TIM_CHAN_t::setPulse(stduint period, stduint compare) {
-		Letvar(addr, TIM_C*, &TIM[TIM_ID]);
-		return addr->setPulse(CHAN_ID, period, compare);
+	bool TIM_CHAN_t::setMode(stduint compare) {
+		Letvar(addr, TIM_C*, TIM[TIM_ID]);
+		return addr->setChannel(CHAN_ID, compare, nullptr);
 	}
 	
 	TIM_CHAN_t TIM_t::operator[](stduint chan_id) {
 		return TIM_CHAN_t(TIM_ID, chan_id);
 	}
+
+	struct lock_timc {
+		byte TIM_ID;
+		lock_timc(byte _TIM_ID) : TIM_ID(_TIM_ID) { TIM[_TIM_ID]->enAble(false); }
+		~lock_timc() { TIM[TIM_ID]->enAble(); }
+	};
+
 	#endif
 
 #endif
@@ -62,8 +68,9 @@ namespace uni {
 #elif defined(_MCU_STM32F1x)
 	// contain: HAL_TIM_Base_Start_IT
 	static void timer_it(byte TIM_ID, bool enable) {
+		using namespace TimReg;
 		TIM_t& sel = *TIM[TIM_ID];
-		sel[TimReg::DIER] |= 1;// TIM_IT_UPDATE
+		sel[DIER].setof(0, enable);// TIM_IT_UPDATE
 		if (sel.getID() <= 5 || sel.getID() == 8) //aka IS_TIM_SLAVE_INSTANCE, true for TIM 1/2/3/4/5/8
 		{
 			/* TODO (why so?)
@@ -99,20 +106,28 @@ namespace uni {
 	TIM_C TIM4(0x40000800, 4);
 	TIM_C TIM5(0x40000C00, 5);
 	TIM_t* TIM[] = { nullptr,
-		nullptr, &TIM2, &TIM3, &TIM4, &TIM5,
+		nullptr, (TIM_t*)(pureptr_t)&TIM2,(TIM_t*)(pureptr_t)&TIM3,
+		(TIM_t*)(pureptr_t)&TIM4,(TIM_t*)(pureptr_t)&TIM5,
 	};
 
 	static GPIO_Pin* GPINs_chan1_TIMx[] = { nullptr,
-		 nullptr, &GPIOA[15]
+		nullptr,// TIM1
+		& GPIOA[15]// or A[0]
+		
 	};
 	static GPIO_Pin* GPINs_chan2_TIMx[] = { nullptr,
-		 nullptr, &GPIOB[3]
+		nullptr,
+		& GPIOB[3],// or A[1]
+		nullptr,// TIM3
+		& GPIOD[13]// or B[7]
 	};
 	static GPIO_Pin* GPINs_chan3_TIMx[] = { nullptr,
-		 nullptr, &GPIOB[10]
+		nullptr,
+		& GPIOB[10]// or A[2]
 	};
 	static GPIO_Pin* GPINs_chan4_TIMx[] = { nullptr,
-		 nullptr, &GPIOB[11]
+		nullptr,
+		& GPIOB[11]// or A[3]
 	};
 	static GPIO_Pin** GPINs_chanx[] = {
 		GPINs_chan1_TIMx, GPINs_chan2_TIMx, GPINs_chan3_TIMx, GPINs_chan4_TIMx
@@ -123,6 +138,9 @@ namespace uni {
 		3,3,3,3
 	};//{ONLY}  F407 & F417
 
+	static TimReg::TimRegType _tab_timregs_ccr[] = {
+		TimReg::CCR1, TimReg::CCR2, TimReg::CCR3, TimReg::CCR4
+	};
 	static void timer_it(byte TIM_ID, bool enable) {
 		using namespace TimReg;
 		TIM_t& sel = *TIM[TIM_ID];
@@ -131,49 +149,71 @@ namespace uni {
 			sel.enAble();
 	}
 
-	GPIO_Pin* TIM_C::setPulse(byte channel, stduint period, stduint compare) {
+	void TIM_C::setMode(stduint prescaler, stduint period , bool auto_reload_preload) {
 		using namespace TimReg;
-		//{TODO} Conflict among GPIOs
-		if (Ranglin(channel, 1, numsof(GPINs_chanx)) || !GPINs_chanx[channel][TIM_ID])
-			return nullptr;
+		asserv(prescaler)--;
+		asserv(period)--;
+		bool _TEMP count_down = false;// direction
+		//{TEMP} ASSUME ClockDivision=TIM_CLOCKDIVISION_DIV1 aka non-prescaled;
+		enClock();
+		//:aka HAL_TIM_Base_Init -> TIM_Base_SetConfig
+		stduint tmpcr1 = self[CR1];
+		if (TIM_ID == 8 || Ranglin(TIM_ID, 1, 5)) // IS_TIM_COUNTER_MODE_SELECT_INSTANCE
+		{
+			Reference(&tmpcr1).setof(_TIM_CR1_POS_DIR, count_down);
+			Reference(&tmpcr1) &= ~_IMM(0x00000060);// TIM_CR1_CMS
+		}
+		if (TIM_ID != 6 && TIM_ID != 7) { // IS_TIM_CLOCK_DIVISION_INSTANCE
+			Reference(&tmpcr1) &= ~_IMM(0x00000300);// TIM_CR1_CKD
+			// 0x00000000U TIM_CLOCKDIVISION_DIV1
+		}
+		Reference(&tmpcr1).setof(_TIM_CR1_POS_ARPE, auto_reload_preload);
+		self[CR1] = tmpcr1;
+		self[ARR] = period;
+		self[PSC] = prescaler;
+		if (TIM_ID == 1 || TIM_ID == 8) // IS_TIM_REPETITION_COUNTER_INSTANCE
+			self[RCR] = 0; // RepetitionCounter;
+		self[EGR] = _TEMP 1;// TIM_PSCReloadMode_Immediate
+	}
+
+	// preset: Tim.setMode, e.g.(pres, period);
+	bool TIM_C::setChannel(byte channel, stduint pulse_compar, GPIO_Pin* pin) {
+		using namespace TimReg;
+		if (!Ranglin(channel, 1, numsof(GPINs_chanx)) ||
+			!GPINs_chanx[channel - 1][TIM_ID])
+			return false;
+		enAble(false);
 		GPIO_Pin& friendo = *GPINs_chanx[channel - 1][TIM_ID];
+		bool pin_accepted = _TEMP &friendo == pin;//{TODO} Conflict among GPIOs
 		friendo.setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);
 		if (0xFF != GPINs_AFs_TIMx[TIM_ID])
 			friendo._set_alternate(GPINs_AFs_TIMx[TIM_ID]);
-		self.setMode(nullptr, _TIMC_DEFA_PRESCALER, period);
-		self.ConfigChannel(channel, period / 2);
+		self.ConfigChannel(channel, pulse_compar);
 		self.enChannel(channel);
-		//: aka __HAL_TIM_SET_COMPARE
-		//{TODO} Spilt below, which can be used alone
-		static Reference refs[] = {
-			self[CCR1], self[CCR2], self[CCR3], self[CCR4]
-		};
-		refs[channel - 1] = compare;
-		return &friendo;
+		enAble();
+		return pin_accepted;
 	}
 
 	// aka HAL_TIM_PWM_ConfigChannel
 	void TIM_C::ConfigChannel(byte channel, stduint pulse) {
 		using namespace TimReg;
-		pulse--;
 		_TEMP stduint TIM_OCMODE_PWM1 = 0x6;// 0b110
 		//{TEMP} OCFastMode = TIM_OCFAST_DISABLE; (0x00000000U)
-		_TEMP stduint OCPolarity = 0;// TIM_OCPOLARITY_HIGH; G'DP if< CCR1_Val
+		_TEMP bool ddp_before_compar = false;
+		_TEMP bool TIM_OutputState_Enable = true;
 		if (!Ranglin(channel, 1, 4)) return;
-		TimReg::TimRegType trt = channel <= 2 ? CCMR1 : CCR2;
+		//
+		self[CCER].setof(4 * channel, false);// CCxE
+		TimReg::TimRegType trt = channel <= 2 ? CCMR1 : CCMR2;
 		stduint shift = isodd(channel) ? 0 : 8;
 		//: aka TIM_OCx_SetConfig
 		{
 			enCaptureCompareChannel(channel, false);
-			static Reference refs[] = {
-				self[CCMR1], self[CCMR1],
-				self[CCMR2], self[CCMR2]
-			};
-			//: Reset the Output Compare Mode Bits
-			refs[channel - 1].maset(4 + shift, 3, TIM_OCMODE_PWM1);// TIM_CCMRx_OCxM
-			refs[channel - 1].maset(0 + shift, 2, nil);// TIM_CCMRx_CCxS
+			self[trt].maset(4 + shift, 3, TIM_OCMODE_PWM1);// OCxM
+			self[trt].maset(0 + shift, 2, nil);// CCxS
 			//: Select the Output Compare Mode
-			self[CCER].maset(4 * (channel - 1), 4, OCPolarity);// OCPolarity
+			self[CCER].setof(4 * (channel - 1) + 1, ddp_before_compar);
+			self[CCER].setof(4 * (channel - 1) + 0, TIM_OutputState_Enable);
 			if ((channel < 4) && (TIM_ID == 1 || TIM_ID == 8) &&
 				Ranglin(channel, 1, 3)) { // IS_TIM_CCXN_INSTANCE chan1~3
 				_TODO /*
@@ -190,10 +230,10 @@ namespace uni {
 				tmpcr2 |= OC_Config->OCNIdleState;// <<2 << 4
 				*/
 			}
-			self[CCR1] = pulse;
+			self[_tab_timregs_ccr[channel - 1]] = pulse;//: aka __HAL_TIM_SET_COMPARE
 		}
-		self[trt] |= _IMM(0x00000008 << shift);// TIM_CCMRx_OCxPE
-		self[trt] &= ~_IMM(0x00000004 << shift);// TIM_CCMRx_OCxFE; // TIM_OCFAST_DISABLE; (0x00000000U)
+		self[trt] |= _IMM(0x00000008 << shift);// OCxPE
+		self[trt] &= ~_IMM(0x00000004 << shift);// OCxFE; // TIM_OCFAST_DISABLE; (0x00000000U)
 	}
 
 
@@ -206,6 +246,26 @@ namespace uni {
 		t[SMCR].maset(4, 3, TriggerInn);// TIM_SelectInputTrigger
 		t[CR2].maset(_TIM_CR2_POSI_MMS, 3, TriggerOut);// TIM_SelectOutputTrigger
 		t[SMCR].setof(7, MasterSlaveMode);// TIM_SelectMasterSlaveMode
+	}
+
+	bool TIM_CHAN_t::GenerateHalfwave(stduint pres, stduint period) {
+		using namespace TimReg;
+		TIM_C& t = *(TIM_C *)TIM[TIM_ID];
+		t.setMode(pres, period);
+		return self.setMode(period / 2);
+	}
+	void TIM_CHAN_t::RenerateHalfwave(stduint period) {
+		using namespace TimReg;
+		Letvar(addr, TIM_C*, self.getParent());
+		lock_timc lock(addr->getID());
+		(*addr)[ARR] = period - 1;
+		(*addr)[_tab_timregs_ccr[CHAN_ID]] = period / 2;
+	}
+
+	double TIM_CHAN_t::getDuty() const {
+		using namespace TimReg;
+		TIM_C& t = *(TIM_C*)TIM[TIM_ID];
+		return (double)(t[_tab_timregs_ccr[CHAN_ID]]) / (1. + t[ARR]);
 	}
 
 #endif

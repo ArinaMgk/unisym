@@ -54,6 +54,7 @@ namespace uni
 	}
 
 	void GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg, Handler_t fn) {
+		parent->enClock();
 		if (fn) setInterrupt(fn);
 
 		if (!isInput())
@@ -175,26 +176,30 @@ namespace uni
 		}
 		else {
 			(*parent)[PULLS] |= 0x2 << (bitposi << 1);// pull-dn
-			(*parent)[PULLS] &= ~_IMM(0x1 << (bitposi << 1));
+			(*parent)[PULLS] &= ~_IMM1S(bitposi << 1);
 		}
 	}
 
 	bool GeneralPurposeInputOutputPin::isInput() const {
 		using namespace GPIOReg;
-		// bitposi &= 0xF;
+		// panic if bitposi > 15
 		return 0 == (*parent)[MODER].
 			mask(bitposi * 2, 2);// moder length 2 bit
 	}
 
 	void GeneralPurposeInputOutputPin::Toggle() {
-		(*parent)[GPIOReg::ODR] ^= _IMM1 << bitposi;
+		(*parent)[GPIOReg::ODR] ^= _IMM1S(bitposi);
 	}
 
-	void GeneralPurposeInputOutputPin::_set_alternate(byte selection) {
+	bool GeneralPurposeInputOutputPin::_set_alternate(byte selection) {
+		using namespace GPIOReg;
+		const stduint block_siz = 4;
+		// panic if bitposi > 15
 		selection &= 0xF;
-		byte bposi = (bitposi & 0x7) << 2;// mod 8 then mul-by 4
-		Reference r = parent->operator[](bitposi < 8 ? GPIOReg::AFRL : GPIOReg::AFRH);
-		r = (r & ~_IMM(0xF << bposi)) | (selection << bposi);
+		byte bposi = (bitposi & 0x7) * block_siz;
+		Reference r = parent->operator[](bitposi < 8 ? AFRL : AFRH);
+		r.maset(bposi, block_siz, selection);
+		return true;//{TODO} Confilict check. True for allowing
 	}
 
 // ---- ---- ---- ----

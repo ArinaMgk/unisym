@@ -132,9 +132,10 @@ namespace uni {
 			Reference(refaddr).setof(width, ena);
 		}
 		void enAble(bool ena = true) {
-			self[TimReg::CR1].setof(_TIM_CR1_POS_CEN, ena); //aka __HAL_TIM_ENABLE
+			using namespace TimReg;
+			self[CR1].setof(_TIM_CR1_POS_CEN, ena);
 		}
-		void ConfigMaster(_TEMP stduint master_output_triggerm = 0, bool master_slave_enable = false);
+		void ConfigMaster(_TEMP stduint master_output_triggerm = 0, bool master_slave_enable = false);//{TO private}
 	};
 
 	extern TIM_t* TIM[];
@@ -146,8 +147,16 @@ namespace uni {
 		byte TIM_ID, CHAN_ID;
 	public:
 		TIM_CHAN_t(byte _TIM_ID, byte _CHAN_ID) : TIM_ID(_TIM_ID), CHAN_ID(_CHAN_ID) { }
-		GPIO_Pin* setPulse(stduint period, stduint compare);
+		bool setMode(stduint compare);
+
+		//
+		bool GenerateHalfwave(stduint pres, stduint period);
+		// preset: after using Generate-Halfwave
+		void RenerateHalfwave(stduint period);
+
 		_TEMP void Select(stduint SlaveMode = 0x7, stduint TriggerInn = 0x5, stduint TriggerOut = 0, bool MasterSlaveMode = false);
+		TIM_t* getParent() const { return TIM[TIM_ID]; }
+		double getDuty() const;
 	};
 }
 #endif // _MCU_STM32F1x || _MCU_STM32F4x
@@ -188,8 +197,7 @@ namespace uni {
 		TIM_B(stduint baseaddr, byte TIM_ID) : TIM_t(baseaddr, TIM_ID) { }
 
 		// Real Freq: 72M/(prescaler+1)
-		void setMode(Handler_t fn = 0, stduint prescaler = 71, stduint period = 1000, bool auto_reload_preload = false) {
-			if (fn) setInterrupt(fn);
+		void setMode(stduint prescaler = 71, stduint period = 1000, bool auto_reload_preload = false) {
 			enClock();
 			// TODO uint32 tmpcr1 = TIMx->CR1;
 			if (0) { // for A and C
@@ -236,44 +244,17 @@ namespace uni {
 	class TIM_A;
 	class TIM_B;
 	class TIM_C : public TIM_t {
-
+		// aka HAL_TIM_PWM_ConfigChannel
+		void ConfigChannel(byte channel, stduint pulse);
 	public:
 		TIM_C(stduint baseaddr, byte TIM_ID) : TIM_t(baseaddr, TIM_ID) { }
 		//
-		void setMode(Handler_t fn = nullptr, stduint prescaler = _TIMC_DEFA_PRESCALER, stduint period = _TIMC_DEFA_PERIOD, bool auto_reload_preload = false) {
-			using namespace TimReg;
-			prescaler--;
-			period--;
-			//{TEMP} ASSUME CounterMode=TIM_COUNTERMODE_UP;
-			//{TEMP} ASSUME ClockDivision=TIM_CLOCKDIVISION_DIV1 aka non-prescaled;
-			if (fn) setInterrupt(fn);
-			enClock();
-			//:aka HAL_TIM_Base_Init -> TIM_Base_SetConfig
-			stduint tmpcr1 = self[CR1];
-			if (TIM_ID == 8 || Ranglin(TIM_ID, 1, 5)) // IS_TIM_COUNTER_MODE_SELECT_INSTANCE
-			{
-				Reference(&tmpcr1).setof(_TIM_CR1_POS_DIR);//{TEMP} up
-				Reference(&tmpcr1) &= ~_IMM(0x00000060);// TIM_CR1_CMS
-			}
-			if (TIM_ID != 6 && TIM_ID != 7) { // IS_TIM_CLOCK_DIVISION_INSTANCE
-				Reference(&tmpcr1) &= ~_IMM(0x00000300);// TIM_CR1_CKD
-				// 0x00000000U TIM_CLOCKDIVISION_DIV1
-			}
-			Reference(&tmpcr1).setof(_TIM_CR1_POS_ARPE, auto_reload_preload);
-			self[CR1] = tmpcr1;
-			self[ARR] = period;
-			self[PSC] = prescaler;
-			if (TIM_ID == 1 || TIM_ID == 8) // IS_TIM_REPETITION_COUNTER_INSTANCE
-				self[PSC] = 0; // RepetitionCounter;
-			self[EGR] = _TEMP 1;// TIM_PSCReloadMode_Immediate
-		}
+		void setMode(stduint prescaler = _TIMC_DEFA_PRESCALER, stduint period = _TIMC_DEFA_PERIOD, bool auto_reload_preload = false);
 
+		bool setChannel(byte channel, stduint pulse, GPIO_Pin* pin);
 
+		//{TODO}
 		//: PWM (channel in range 1..1+4)
-		// contain setMode. compare: numsof former unit in period;
-		GPIO_Pin* setPulse(byte channel, stduint period, stduint compare);
-		// aka HAL_TIM_PWM_ConfigChannel
-		void ConfigChannel(byte channel, stduint pulse);
 		// aka HAL_TIM_PWM_Start
 		void enChannel(byte channel) {
 			using namespace TimReg;

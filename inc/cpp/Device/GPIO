@@ -207,7 +207,7 @@ namespace uni {
 
 
 		//! AFRx Register should be set by other device.
-		void _set_alternate(byte selection);
+		bool _set_alternate(byte selection);
 		
 		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_Low);
 	};

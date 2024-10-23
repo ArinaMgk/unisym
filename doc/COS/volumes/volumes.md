@@ -1,3 +1,3 @@
 - 0 正式ノ卷
-- 1 おなの卷 (priv, of BIO)
-- x ノワの卷 (priv)
+- 1 おなの卷 (priv, in hersym)
+- 2 ノワの卷 (priv, in hersym)

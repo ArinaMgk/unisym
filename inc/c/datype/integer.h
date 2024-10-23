@@ -310,6 +310,7 @@ static const stduint NONE = ~(stduint)0;
 #define _IMM(x) ((stduint)(x))
 #define _IMMx2(x) (_IMM(x)<<1)
 #define _IMMx4(x) (_IMM(x)<<2)
+#define _IMM0 _IMM(0)
 #define _IMM1 _IMM(1)
 #define _IMM1S(x) (_IMM1<<(x))
 #define _IMM1R(x) (_IMM1>>(x))
@@ -342,6 +343,9 @@ static const stduint NONE = ~(stduint)0;
 
 #define isodd(x) ((x)&1)
 #define iseven(x) !((x)&1)
+
+#define ondiv_m(sr,dv,qo,rm) ((qo)=(sr)/(dv),(rm)=(sr)%(dv))
+extern int64 ondiv_64(int64 sr, int64 dv, int64 *rm);// return quo
 
 #define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
 

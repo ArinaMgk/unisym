@@ -76,6 +76,7 @@ cgl64: list
 	-@rm -f $(uobjpath)/CGLin64/*
 	-@rm -f $(ubinpath)/libl64d.a
 	make -f ${make_dir}cgl64.make all
+	cd ${make_dir} && make -f kitl64.make all
 
 # ---- [series for interfacial environments] ----
 

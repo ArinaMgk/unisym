@@ -2,6 +2,20 @@
 
 The case labels decide the entry of the evaluation put in the parens of switch. But it is false for below.
 
+\begin{lstlisting}[language=C]
+switch (val) {
+	case 'A': {} break;
+	case 'B': {} break;
+	// ...
+	default: break;
+}
+\end{lstlisting}
+
+
+\B{: Fall-through} 
+It is a fall-through if the running path goes over another label but jump before it, after program pointer has entered a switch block from a label.
+For example, if the \verb|break;| in the line \verb|'B'| is removes, the val \verb|'A'| will cause a fall-through.
+
 \B{for $MATLAB$}
 \begin{lstlisting}[language=MATLAB]
 	switch val_src

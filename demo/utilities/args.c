@@ -28,10 +28,15 @@ int main(int argc, char *argv[], char* envp[]) {
 	int i;
 	printf("argc = %d;\n", argc);
 	for (i = 0; i < argc; i++) {
-		printf("argv[%d] = @\"%s\";\n", i, argv[i]);
+		printf("arg[%d] = @\"%s\";\n", i, argv[i]);
 	}
-	if (!strcmp(argv[0], argv[1])) for (i = 0; envp[i] != NULL; i++) {
-		printf("envp[%d] = @\"\"\"%s\"\"\";\n", i, envp[i]);
+	if (argc > 1 && !strcmp("-e", argv[1])) for (i = 0; envp[i] != NULL; i++) {
+		char* p = strchr(envp[i], '=');
+		if (p) {
+			*p = '\0';
+			printf("env[%s] = @\"%s\";\n", envp[i], p + 1);
+		}
+		else printf("envp[%d] = @\"\"\"%s\"\"\";\n", i, envp[i]);
 	}
 	return 0;
 }

@@ -33,6 +33,10 @@ namespace uni {
 		virtual void setInterruptPriority(byte preempt, byte sub_priority) = 0;
 		virtual void enInterrupt(bool enable = true) = 0;
 		virtual ~RuptTrait() = default; // avoid [-Wnon-virtual-dtor]
+		inline void enInterrupt(Handler_t fn) {
+			setInterrupt(fn);
+			enInterrupt(true);
+		}
 	};
 }
 

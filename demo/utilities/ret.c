@@ -1,9 +1,8 @@
 // ASCII C/C++ TAB4 CRLF
-// Docutitle: Macro Options
-// Codifiers: @dosconio: 20240423 ~ 20240423
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Docutitle: (Format: File) Return Codes
+// Codifiers: @dosconio: 20241021 
+// Attribute: Arn-Covenant Any-Architect <Environment> <Reference/Dependence>
 // Copyright: UNISYM, under Apache License 2.0
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,32 +20,15 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Options
-#define _INC_Options
+#include <stdlib.h>
+#include <stdio.h>
 
-
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
-	#define _MCU_STM32
-	#ifndef __BITS__
-	#define __BITS__ 32
-	#endif
-#elif defined(_MCU_CW32F030) || defined(_MCU_CW32F003)
-	#define _MCU_CW32
-	#ifndef __BITS__
-	#define __BITS__ 32
-	#endif
-
-#endif
-
-
-
-
-// _SUPPORT_GPIO
-#ifdef _MCU_STM32
-#define _SUPPORT_GPIO
-#endif
-#if defined(_MCU_CW32)
-#define _SUPPORT_GPIO
-#endif
-
-#endif
+int main(int argc, char* argv[])
+{
+	int ret = 0;
+	if (argc > 1)
+		ret = atoi(argv[1]);
+	if (argc > 2)
+		puts(argv[2]);
+	return ret;
+}

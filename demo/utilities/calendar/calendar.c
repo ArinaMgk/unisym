@@ -4,10 +4,17 @@
 // AllAuthor: @dosconio since RFT15
 // ProjTitle: Console Calendar Shell
 
-#include <stdio.h>
+#define tm _tmp_tm_
 #include <time.h>
-#include <conio.h>
+#undef tm
 #include <datime.h>
+#define tm _tmp_tm_
+#include <stdio.h>
+#ifndef _Linux
+	#include <conio.h>
+#else	
+	#define getch getchar//{TEMP}
+#endif
 #include <consio.h>
 #include "../../../inc/c/ISO_IEC_STD/stdlib.h"
 
@@ -86,16 +93,22 @@ int main(int argc, char* argv[])
 	tmp = localtime(&timep);// gmtime() for UTC
 	word CrtM = tmp->tm_mon, CrtY = tmp->tm_year, CrtD = tmp->tm_mday;
 
-	if (argc > 1)
-	{
-		show_weekid = 1;
-		ConClear();
+	if (argc <= 1) {
+		DrawCalendar(1900 + CrtY, 1 + CrtM, CrtD);
+		return 0;
 	}
-
-	DrawCalendar(1900 + CrtY, 1 + CrtM, CrtD);
-
-	if(argc <= 1) exit(0);
-	
+	if (!StrCompare("-wn", argv[1])) { // week number
+		stdsint week_number = getHerWeekNumber(1900 + CrtY, 1 + CrtM, CrtD);
+		outsfmt("%[i]\n", week_number);
+		return 0;
+	}
+	else if (!StrCompare("-dn", argv[1])) { // date number
+		stdsint date_number = herspan(1900 + CrtY, 1 + CrtM, CrtD);
+		outsfmt("%[i]\n", date_number);
+		return 0;
+	}
+	show_weekid = 1;
+	ConClear();
 	while (chr = getch())
 		switch (chr)
 		{

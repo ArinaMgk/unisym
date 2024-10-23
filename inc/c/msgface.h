@@ -43,7 +43,7 @@ extern char* _ERRO_MESSAGE;
 	{\
 		if (_ERRO_MESSAGE && *_ERRO_MESSAGE)\
 			fprintf(stderr, "!Err %s\n", _ERRO_MESSAGE);\
-		if(exitcode&&_MALCOUNT) fprintf(stderr, "MEMORY LEAK %"PRIuPTR" TIMES.\n", _MALCOUNT);\
+		if(exitcode&&_MALCOUNT) fprintf(stderr, "MEMORY LEAK %" PRIuPTR " TIMES.\n", _MALCOUNT);\
 		return (exitcode);\
 	}
 
@@ -55,6 +55,16 @@ void warn(char* warnmsg);
 
 void _cast_panic();
 
+#endif
+
+// GNU::stddef.h)
+#if defined(_DEV_GCC)
+#define _CRT_ERRNO_DEFINED
+#ifdef _WinNT
+ __attribute__((__dllimport__))
+#endif
+extern int* __attribute__((__cdecl__)) _errno(void);
+#define errno (*_errno())
 #endif
 
 

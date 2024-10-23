@@ -5,14 +5,18 @@
 # ModuTitle: Makefile for utilities of UniSym
 # Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
-INCC_DIR=../../inc/c/
-LIBC_DIR=../../lib/c/
-DEST_BIN=../../../_bin/
-LIBC_DIR=../../lib/c/
+export PATH := $(yanopath)/i686/bin;$(PATH)
+
+INCC_DIR=$(uincpath)/c/
+LIBC_DIR=$(ulibpath)/c/
+DEST_BIN=$(ubinpath)/
+#{TODO} DEST_BIN=$(ubinpath)/WIN32/
 DEMO_DIR=../../demo/utilities/
-OPT=-O3 -s -D_WinNT -L../../../_bin/ -lw32d
+OPT=-O3 -s -D_WinNT -L$(ubinpath) -lw32d
+CC32=$(yanopath)/i686/bin/gcc.exe -m32
 
 CSC4=C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe
+PREF=-I${INCC_DIR} -o ${DEST_BIN}
 
 all:\
 args\
@@ -21,28 +25,31 @@ clear\
 cpuid\
 fdump\
 ffset\
-\
+ret\
 segsel\
 
 
 args:
 	@echo 'MK args'
-	@gcc ${DEMO_DIR}args.c -I${INCC_DIR} -o ${DEST_BIN}args.exe ${OPT}
+	@$(CC32) ${DEMO_DIR}args.c $(PREF)args.exe ${OPT}
 cal:
 	@echo 'MK cal (Calendar)'
-	@gcc ${DEMO_DIR}calendar/calendar.c ${LIBC_DIR}datime/weekday.c -I${INCC_DIR} -o ${DEST_BIN}cal.exe ${OPT}
+	@$(CC32) ${DEMO_DIR}calendar/calendar.c $(PREF)cal.exe ${OPT}
 clear:
 	@echo 'MK clear'
-	@gcc ${DEMO_DIR}clear.c -I${INCC_DIR} -o ${DEST_BIN}clear.exe ${OPT}
+	@$(CC32) ${DEMO_DIR}clear.c $(PREF)clear.exe ${OPT}
 cpuid:
 	@echo 'MK cpuid'
-	@gcc ${DEMO_DIR}cpuid.c -I${INCC_DIR} -o ${DEST_BIN}cpuid.exe ${OPT}
+	@$(CC32) ${DEMO_DIR}cpuid.c $(PREF)cpuid.exe ${OPT}
 fdump:
 	@echo 'MK fdump'
-	@gcc ${DEMO_DIR}filedump.c ${LIBC_DIR}consio.c -I${INCC_DIR} -o ${DEST_BIN}fdump.exe ${OPT}
+	@$(CC32) ${DEMO_DIR}filedump.c ${LIBC_DIR}consio.c $(PREF)fdump.exe ${OPT}
 ffset:
 	@echo 'MK ffset'
-	@gcc ${DEMO_DIR}VirtualDiskCopier/ffset.c -I${INCC_DIR} -o ${DEST_BIN}ffset.exe ${OPT}
+	@$(CC32) ${DEMO_DIR}VirtualDiskCopier/ffset.c $(PREF)ffset.exe ${OPT}
+ret:
+	@echo 'MK ret'
+	@$(CC32) ${DEMO_DIR}ret.c $(PREF)ret.exe ${OPT}
 
 segsel:
 	@echo 'MK OSDEV/SegmentSelector powered by .NetFx4:C#'
@@ -51,4 +58,4 @@ segsel:
 
 elf:
 	@echo MK readelf
-	@gcc ${DEMO_DIR}readelf.c ${LIBC_DIR}format/ELF.c -I${INCC_DIR} -o ${DEST_BIN}readelf.exe ${OPT}
+	@$(CC32) ${DEMO_DIR}readelf.c ${LIBC_DIR}format/ELF.c $(PREF)readelf.exe ${OPT}

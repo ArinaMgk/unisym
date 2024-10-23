@@ -35,22 +35,14 @@ extern "C" {
 #include "../../c/uctype.h"
 }
 
-/* TODO
-[ ] pin=double(X'DP Output) with field
-[ ] pin=int(check digital or analog output)
-
-*/
-
 #if !(_typedest_len==4 && _typeaddr_len==4)
-#error "! You may need add optional macro `_MCU_STM32F1x` or include `STM32F103VEx`"
+#error "! You may need add optional macro like `_MCU_STM32F1x`"
 #endif
 
 #define _COM_DEF_GPIO_Pin_Protected()\
 	protected:\
 		GeneralPurposeInputOutputPort* parent;\
 		byte bitposi
-
-
 
 #define _COM_DEF_GPIO_Pin_Public(defa_speed)\
 	~GeneralPurposeInputOutputPin() override {}\

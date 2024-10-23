@@ -86,6 +86,7 @@ extern "C" {
 	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {}
 	//{TODEL}
 	static void _HandlerIRQ_TIMx(TIM_t& this_TIM) {
+		using namespace TimReg;
 		//{TODO} Capture compare 1 event 
 		//{TODO} Capture compare 2 event 
 		//{TODO} Capture compare 3 event 
@@ -93,9 +94,9 @@ extern "C" {
 		// TIM Update event
 		{
 			const stduint _CVAL_TIM_SR_UIE = 1;
-			if (this_TIM[TimReg::DIER] & _CVAL_TIM_SR_UIE) { //aka __HAL_TIM_GET_IT_SOURCE
+			if (this_TIM[DIER] & _CVAL_TIM_SR_UIE) { //aka __HAL_TIM_GET_IT_SOURCE
 				asserv(FUNC_TIMx[this_TIM.getID()])();
-				this_TIM[TimReg::SR] = ~_CVAL_TIM_SR_UIE; //aka __HAL_TIM_CLEAR_IT
+				this_TIM[SR] = ~_CVAL_TIM_SR_UIE; //aka __HAL_TIM_CLEAR_IT
 			}
 		}
 		//{TODO} TIM Break input event
@@ -204,7 +205,7 @@ extern "C" {
 		TIM_t& t = i_index(TIM, TIM_ID);
 		if (_HandlerIRQ_TIMx_Exist(TIM_ID, TIM_ID)) {
 			// SR.CCxIF and DIER.CCx
-			TimCrtChan = chan;
+			t.last_src = chan;
 			bool tim1or2 = chan <= 2;
 			if (t[tim1or2 ? CCMR1 : CCMR2].mask(iseven(chan) ? 8 : 0, 2)) {
 				// Input capture event
@@ -215,7 +216,7 @@ extern "C" {
 				callif(t.FUNC_OC_DelayElapsed);
 				callif(t.FUNC_PWMPulseFinished);
 			}
-			TimCrtChan = nil;
+			t.last_src = nil;
 		}
 	}
 	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {

@@ -124,7 +124,7 @@ enum Architecture_t // for instruction sets
 	#define _INC_DEPEND_LIMITS
 #endif
 // ---- ---- ---- ---- stddef.h fixed ---- ---- ---- ----
-#if defined(_INC_STDDEF) || defined(_STDDEF_H) || defined(_STDDEF_H_)
+#if defined(_INC_STDDEF) || defined(_STDDEF_H) || defined(_STDDEF_H_) || defined(__stddef_h)
 	#define _INC_DEPEND_STDDEF
 #endif
 // ---- ---- ---- ---- specific ---- ---- ---- ----
@@ -256,6 +256,9 @@ enum Architecture_t // for instruction sets
 	#endif
 	#if !defined(_STDDEF_H_)
 		#define _STDDEF_H_ // for GCC
+	#endif
+	#if !defined(__stddef_h)
+		#define __stddef_h // for Keil MDK
 	#endif
 
 #if __BITS__ == 16

@@ -67,29 +67,41 @@ namespace uni {
 	// Haruno saw most parameters are compatible
 	namespace TimReg {
 		typedef enum {
-			CR1,   // TIM control register 1,                     0x00
-			CR2,   // TIM control register 2,                     0x04
+			// : control register
+			CR1,   // 0x00
+			CR2,   // 0x04
 			SMCR,  // TIM slave Mode Control register,            0x08
 			DIER,  // TIM DMA/interrupt enable register,          0x0C
 			SR,    // TIM status register,                        0x10
 			EGR,   // TIM event generation register,              0x14
-			CCMR1, // TIM  capture/compare mode register 1,       0x18
-			CCMR2, // TIM  capture/compare mode register 2,       0x1C
+			// : capture/compare mode register
+			CCMR1, // 0x18
+			CCMR2, // 0x1C
 			CCER,  // TIM capture/compare enable register,        0x20
 			CNT,   // TIM counter register,                       0x24
 			PSC,   // TIM prescaler register,                     0x28
 			ARR,   // TIM auto-reload register,                   0x2C
 			RCR,   // TIM  repetition counter register,           0x30
-			CCR1,  // TIM capture/compare register 1,             0x34
-			CCR2,  // TIM capture/compare register 2,             0x38
-			CCR3,  // TIM capture/compare register 3,             0x3C
-			CCR4,  // TIM capture/compare register 4,             0x40
+			// : capture/compare register
+			CCR1,  // 0x34
+			CCR2,  // 0x38
+			CCR3,  // 0x3C
+			CCR4,  // 0x40
 			BDTR,  // TIM break and dead-time register,           0x44
 			DCR,   // TIM DMA control register,                   0x48
 			DMAR,  // TIM DMA address for full transfer register, 0x4C
 			OR,    // TIM option register,                        0x50
 		} TimRegType;
 	}
+
+	namespace TimChinSel { // TIM Channel Input Selection
+		typedef enum {// TIM Input 1~4 selected to whom respectively
+			Direct = 1, // IC1, IC2, IC3 or IC4
+			Indirect = 2, // IC2, IC1, IC4 or IC3
+			TRC = 3 // TRC
+		} TimChinSel;
+	}
+
 	class TIM_CHAN_t;
 	class TIM_t : public RuptTrait {
 	protected:
@@ -102,6 +114,7 @@ namespace uni {
 		Handler_t FUNC_Break;
 		Handler_t FUNC_Trigger;
 		Handler_t FUNC_Commute;
+		byte last_src;
 		TIM_t(stduint baseaddr, byte TIM_ID) : baseaddr(baseaddr), TIM_ID(TIM_ID) {
 			FUNC_IC_Capture = 0;
 			FUNC_OC_DelayElapsed = 0;
@@ -109,6 +122,7 @@ namespace uni {
 			FUNC_Break = 0;
 			FUNC_Trigger = 0;
 			FUNC_Commute = 0;
+			last_src = nil;
 		}
 		Reference operator[](TimReg::TimRegType trt) {
 			return Reference(baseaddr + _IMMx4(trt));
@@ -136,6 +150,9 @@ namespace uni {
 			self[CR1].setof(_TIM_CR1_POS_CEN, ena);
 		}
 		void ConfigMaster(_TEMP stduint master_output_triggerm = 0, bool master_slave_enable = false);//{TO private}
+		bool WantedSource(byte src) {
+			return last_src == src;
+		}
 	};
 
 	extern TIM_t* TIM[];
@@ -147,14 +164,14 @@ namespace uni {
 		byte TIM_ID, CHAN_ID;
 	public:
 		TIM_CHAN_t(byte _TIM_ID, byte _CHAN_ID) : TIM_ID(_TIM_ID), CHAN_ID(_CHAN_ID) { }
-		bool setMode(stduint compare);
-
+		bool setMode(stduint compare, GPIO_Pin* pin = nullptr);
+		// preset: setMode Parent; default: no-prescaler
+		void setMode(TimChinSel::TimChinSel sel, byte presexpo = 0);
 		//
 		bool GenerateHalfwave(stduint pres, stduint period);
 		// preset: after using Generate-Halfwave
 		void RenerateHalfwave(stduint period);
 
-		_TEMP void Select(stduint SlaveMode = 0x7, stduint TriggerInn = 0x5, stduint TriggerOut = 0, bool MasterSlaveMode = false);
 		TIM_t* getParent() const { return TIM[TIM_ID]; }
 		double getDuty() const;
 	};
@@ -274,7 +291,8 @@ namespace uni {
 			self[CCER].setof(4 * --channel, ena);
 		}
 
-		
+		_TEMP void Select(stduint SlaveMode = 0x7, stduint TriggerInn = 0x5, stduint TriggerOut = 0, bool MasterSlaveMode = false);
+
 	};
 	extern TIM_C TIM2, TIM3, TIM4, TIM5;
 

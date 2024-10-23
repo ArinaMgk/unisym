@@ -337,24 +337,29 @@ namespace uni {
 			return true;
 		}
 
+		static byte _tab_AHB_PRES_EXPO[] = {
+			0,  8,  9, 10, 11,  0, 12, 13, 14, 15
+		};
 		// divexpo is a great design of the past me! --dosconio 20240717
 		bool RCCAHB::setMode(_TEMP uint8 divexpo, bool usingPCLK1, bool usingPCLK2) {
+			using namespace RCCReg;
 			// if(((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_HCLK) == RCC_CLOCKTYPE_HCLK) call this
 			// "Set the highest APBx dividers in order to ensure that we do not go through a non-spec phase whatever we decrease or increase HCLK"
-			Reference Cfgreg = RCC[RCCReg::CFGR];
+			if (divexpo >= numsof(_tab_AHB_PRES_EXPO)) return false;
+			Reference Cfgreg = RCC[CFGR];
 			if (usingPCLK1) Cfgreg |= 0x00001C00; //aka MODIFY_REG(RCC->CFGR, RCC_CFGR_PPRE1, RCC_HCLK_DIV16);
 			if (usingPCLK2) Cfgreg |= 0x00001C00 << 3;
 			// Set the new HCLK clock divider
-			if (divexpo >= 9 _TODO) return false;
-			if (divexpo) divexpo = (divexpo - 1) | 0x8;// zero => zero-self
-			Cfgreg = (Cfgreg & ~_IMM(0x000000F0U)) | (divexpo << 4);// MGK number!
+			Cfgreg.maset(4, 4, _tab_AHB_PRES_EXPO[divexpo]);// HPRE
 			return true;
 		}
 
+		// F4 diff with F1
 		bool RCCAPB::setMode(uint8 divexpo) {
-			Reference Cfgreg = RCC[RCCReg::CFGR];
+			using namespace RCCReg;
+			Reference Cfgreg = RCC[CFGR];
 			if (divexpo >= 5) return false;
-			uint32 bitposi = 8 + PCLK_ID * 3;
+			uint32 bitposi = 10 + PCLK_ID * 3;// PCLK_ID is 0 or 1
 			if (divexpo) divexpo = (divexpo - 1) | 0x4;
 			Cfgreg = (Cfgreg & ~(uint32)(0x7 << bitposi)) | (divexpo << bitposi);
 			return true;

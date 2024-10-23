@@ -46,6 +46,25 @@ inline static double CastF64FromU0(stduint i) {
 }
 #endif
 
+#ifndef _CRT_ERRNO_DEFINED
+#if defined(_DEV_GCC) && defined(_Intelx86o64_Windows_64) && \
+	((defined (__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || (defined(__cplusplus) && __cplusplus >= 201103L))
+typedef struct {
+	long long __max_align_ll __attribute__((__aligned__(__alignof__(long long))));
+	long double __max_align_ld __attribute__((__aligned__(__alignof__(long double))));
+	#ifdef __i386__
+	__float128 __max_align_f128 __attribute__((__aligned__(__alignof(__float128))));
+	#endif
+} max_align_t;
+#endif // C11 or C++11
+#define _CRT_ERRNO_DEFINED
+#endif //! _CRT_ERRNO_DEFINED (// GNU: stddef.h)
+
+//{for GCC: STDDEF}
+#ifdef _Intelx86o64_Windows_64
+#include "../msgface.h"
+#endif
+
 /* AASM
  test   i via rax self
  JNS {

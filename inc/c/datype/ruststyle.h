@@ -2,6 +2,8 @@
 #ifndef _INC_INTEGER_STYLE_RUST
 #define _INC_INTEGER_STYLE_RUST
 
+#define loop while(1) // while(true)
+
 // INC by integer.h
 
 typedef uint8 u8;//[CONFLICT] u8 is short for uint8 or utf-8

@@ -191,6 +191,12 @@ int outsfmtlst(const char* fmt, para_list paras)
 				outu(pnext(stduint), 10);
 				i += 3 - 1;
 			}
+			else if (!StrCompareN(fmt + i, "[i]", 3)) // Print Decimal STDSINT
+			{
+				stdsint tmp = pnext(stdsint);
+				outi(tmp, 10, tmp < 0);
+				i += 3 - 1;
+			}
 			break;
 		default:
 			outtxt(&fmt[i], 1);

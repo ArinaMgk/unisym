@@ -106,6 +106,12 @@ namespace uni {
 			return self;
 		}
 
+		String& Clear() {
+			asserv(addr)[0] = '\0';
+			if (allocated) counts = nil;
+			return self;
+		}
+
 
 		// [Abandoned]
 		// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }

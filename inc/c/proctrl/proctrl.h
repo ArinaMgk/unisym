@@ -9,6 +9,12 @@
 #ifndef _INC_PROCTRL
 #define _INC_PROCTRL
 
+#if defined(_MCU_Intel8051)
+#define double float// no support for long float
+#else
+#define _BIT_SUPPORT_DFLOAT
+#endif
+
 #include "../system/uoption.h"
 #include "../datype/floating.h"
 

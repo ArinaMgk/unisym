@@ -34,8 +34,8 @@ uint32_t HSI_VALUE = (8000000);
 
 #elif defined(_MCU_STM32F4x)
 // : default frequency
-uint32_t HSE_VALUE = (25000000);
-uint32_t HSI_VALUE = (16000000);
+uint32_t HSE_VALUE = (8000000);
+uint32_t HSI_VALUE = (8000000);
 
 #endif
 
@@ -239,6 +239,7 @@ namespace uni {
 		return sysclockfreq;
 	}
 
+	// F407VET: SYSCLK=HSx/M*N/P
 	bool RCCOscillatorHSE::setMode() { //aka HAL_RCC_OscConfig
 			//{TEMP} fixed parameters
 			/*
@@ -309,6 +310,7 @@ namespace uni {
 		}
 		
 		bool RCCPLL::setMode() {
+			using namespace RCCReg;
 			// part PLL Configuration of HAL_RCC_OscConfig
 			// if ((RCC_OscInitStruct->PLL.PLLState) != RCC_PLL_NONE) call this
 			bool enabl_it = true;// if ((RCC_OscInitStruct->PLL.PLLState) == RCC_PLL_ON)
@@ -318,11 +320,11 @@ namespace uni {
 			if (enabl_it)
 			{
 				enAble(false);
-				stduint _m = 25;
-				stduint _n = 336;
+				stduint _m = 8;
 				stduint _p = 0x00000002U;//aka RCC_PLLP_DIV2
+				stduint _n = (168 / 8 * _p * _m);// = 336;
 				stduint _q = 7;
-				RCC[RCCReg::PLLCFGR] = (_TEMP PLLSource::HSE |
+				RCC[PLLCFGR] = (_TEMP PLLSource::HSE |
 					(_m << _RCC_PLLCFGR_POSI_PLLM) |
 					(_n << _RCC_PLLCFGR_POSI_PLLN) |
 					(((_p >> 1U) - 1U) << _RCC_PLLCFGR_POSI_PLLP) |

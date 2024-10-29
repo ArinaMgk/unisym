@@ -7,6 +7,13 @@ dg-publish: true
 
 LaTeX GCC ANYM.AS NVCC MSVC DJGPP rustc perl python Obsidian
 
+## Unchecked
+
+F4
+
+[ ] ADC
+[ ] TIMC
+
 ## Component
 
 - Support for DEVK
@@ -30,15 +37,6 @@ LaTeX GCC ANYM.AS NVCC MSVC DJGPP rustc perl python Obsidian
 		- STM32F1x
 		- STM32F4x
 		- CW32F030
-	- Architecture
-		- x86
-		- x64
-		- RISCV64
-	- Platform and Board
-		- IBM Compatible PC
-		- Cortex M0
-		- Cortex M3
-		- Cortex M4
 - Marking and Programming
 	- Hardware Description (suspended)
 	- SCH-PCB of Electronics (suspended)

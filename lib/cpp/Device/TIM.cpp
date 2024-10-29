@@ -100,11 +100,18 @@ namespace uni {
 	};
 
 #elif defined(_MCU_STM32F4x)
+
+	static const uint32 _REFADDR_TIM[] = { nil,
+		0x40010000, 0x40000000, 0x40000400, 0x40000800, // T 1 -> 4
+		0x40000C00, 0x40001000, 0x40001400, 0x40010400, // T 5 -> 8
+		0x40014000, 0x40014400, 0x40014800, 0x40001800, // T 9 -> 12
+		0x40001C00, 0x40002000 // T 13 -> 14
+	};
 	
-	TIM_C TIM2(0x40000000, 2);
-	TIM_C TIM3(0x40000400, 3);
-	TIM_C TIM4(0x40000800, 4);
-	TIM_C TIM5(0x40000C00, 5);
+	TIM_C TIM2(_REFADDR_TIM[2], 2);
+	TIM_C TIM3(_REFADDR_TIM[3], 3);
+	TIM_C TIM4(_REFADDR_TIM[4], 4);
+	TIM_C TIM5(_REFADDR_TIM[5], 5);
 	// STATIC : 0x40000000 + 0x400 * (TIM_ID-2) : IF TIM_ID IN 2..6
 	TIM_t* TIM[] = { nullptr,
 		nullptr, (TIM_t*)(pureptr_t)&TIM2,(TIM_t*)(pureptr_t)&TIM3,

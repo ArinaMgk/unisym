@@ -98,6 +98,10 @@ POSIXGetSeconds(struct tm* tm);
 // Reverse function of herspan()
 void fromherp(stdint herspans, word* year, word* month, word* day);
 
+typedef struct {
+	stduint sec; // second
+	stduint mic; // microsecond
+} timeval_t;
 
 #ifdef _INC_CPP
 	}

@@ -35,8 +35,8 @@ namespace uni {
 	namespace HSEState {
 		enum RCCOscillatorHSEState {
 			Disable = 0x00000000,
-			Enable = (uint32)1 << 16,// "HSEON"
-			Bypass = ((uint32)1 << 18 | Enable)// External clock source for HSE clock
+			Enable = _IMM1 << 16,// "HSEON"
+			Bypass = (_IMM1 << 18 | Enable)// External clock source for HSE clock
 		};
 	}
 }
@@ -65,37 +65,7 @@ namespace uni {
 			return Conreg.bitof(_RCC_CR_POSI_HSEReady);
 		}
 		// return success.
-		bool setMode(HSEState::RCCOscillatorHSEState state = HSEState::Enable, uint32 predivr = 1) {
-			if ((RCCSystemClock::CurrentSource() == SysclkSource::HSE) || \
-				(RCCSystemClock::CurrentSource() == SysclkSource::PLL) && \
-				(RCCPLL::CurrentSource() == PLLSource::HSE)) { // Condition of disable
-				//{TODO} Cancel Sysclock: if((__HAL_RCC_GET_FLAG(RCC_FLAG_HSERDY) != RESET) && (RCC_OscInitStruct->HSEState == RCC_HSE_OFF))
-				return false;// it is being used
-				//if (!Reference(_RCC_CR).bitof(_RCC_CR_POSI_HSEReady))
-				//	return false;
-			}
-			else {
-				Reference Ctrlreg(_RCC_CR);
-				Ctrlreg &=~ HSEState::Bypass;
-				switch (state) {
-				case HSEState::Enable:
-					Ctrlreg |= HSEState::Enable;
-					break;
-				case HSEState::Bypass:
-					Ctrlreg |= HSEState::Bypass;
-					break;
-				default:
-				case HSEState::Disable:
-					break;
-				}
-				//
-				while (!isReady());//{tofix}
-				//{TODO} Check the HSE State by ticks
-				//{TODO} Tick Delay
-				this->predivr = predivr;
-				return true;
-			}
-		}
+		bool setMode(HSEState::RCCOscillatorHSEState state = HSEState::Enable, uint32 predivr = 1);
 	};
 	typedef RCCOscillatorHSE HSE_t;
 

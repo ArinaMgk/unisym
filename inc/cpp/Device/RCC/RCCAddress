@@ -30,6 +30,35 @@
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) // 2 Chips' 兼容節
 
+namespace uni { namespace RCCReg {
+	typedef enum {
+		CR = 0,
+	#if defined(_MCU_STM32F4x)
+		PLLCFGR,
+	#endif
+		CFGR,
+		CIR,
+	#if defined(_MCU_STM32F4x)
+		AHB1RSTR, AHB2RSTR, AHB3RSTR, REV00,
+	#endif
+	#if   defined(_MCU_STM32F1x)
+		APB2RSTR, APB1RSTR, AHBENR, APB2ENR, APB1ENR,
+	#elif defined(_MCU_STM32F4x)
+		APB1RSTR, APB2RSTR, REV01, REV02,
+		AHB1ENR, AHB2ENR, AHB3ENR, REV03,
+		APB1ENR, APB2ENR, REV04, REV05,
+		AHB1LPENR, AHB2LPENR, AHB3LPENR, REV06,
+		APB1LPENR, APB2LPENR, REV07, REV08,
+	#endif
+		BDCR, CSR,
+	#ifdef _MCU_STM32F1x
+		AHBRSTR, CFGR2
+	#elif defined(_MCU_STM32F4x)
+		REV09, REV10, SSCGR, PLLI2SCFGR
+	#endif
+	} RCCReg;
+} }
+
 // CR
 	#define _RCC_CR_POSI_HSIReady  1
 	#define _RCC_CR_POSI_HSEReady  17
@@ -129,7 +158,13 @@
 // RCC 0x40023800~0x40023BFF
 #define _RCC_ADDR 0x40023800
 #define _RCC_APB1ENR_ADDR (_RCC_ADDR + 0x40)
+
+// RCC_APB2ENR 
 #define _RCC_APB2ENR_ADDR (_RCC_ADDR + 0x44)
+#define _RCC_APB2ENR_POSI_ENCLK_ADC1        8
+#define _RCC_APB2ENR_POSI_ENCLK_ADC2        9
+#define _RCC_APB2ENR_POSI_ENCLK_ADC3        10
+
 
 // Special Cfgr
 #define _RCC_CFGR_POSI_PPRE1 10

@@ -460,6 +460,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\MCU\STM32F1.cpp</FilePath>
             </File>
+            <File>
+              <FileName>RCC-Oscillator.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\RCC-Oscillator.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

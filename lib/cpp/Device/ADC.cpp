@@ -21,72 +21,39 @@
 */
 
 #include "../../../inc/cpp/Device/ADC"
-#include "../../../inc/cpp/Device/RCC/RCCAddress"
-#include "../../../inc/cpp/Device/RCC/RCCClock"
+#include "../../../inc/cpp/Device/RCC/RCC"
+#include "../../../inc/c/driver/ADConverter/Register-ADC.h"
 
 namespace uni {
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+
+	ADC_t ADCr(0), // error
+		ADC1(1), ADC2(2), ADC3(3);
+
+#endif	
 #if 0
 
 #elif defined(_MCU_STM32F1x)
-	#define _ADC_Counts 3
 
-	static stduint RCC_ADCx_addrs[_ADC_Counts] = // 0.._ADC_Counts
-	{
-		_RCC_APB2ENR_ADDR,0,0
-	};
-	static stduint RCC_ADCx_bitpos[_ADC_Counts] = // 0.._ADC_Counts
-	{
-		_RCC_APB2ENR_POSI_ENCLK_ADC1,0,0
+	static const uint32 _REFADDR_ADC[] = { nil,
+		0x40012400, 0x40012800, 0x40013C00
 	};
 
-	bool ADC_t::enClock(bool ena, byte divby) {
-		Reference(RCC_ADCx_addrs[ADC_ID - 1]).setof(RCC_ADCx_bitpos[ADC_ID - 1], ena);
-		if (ena != Reference(RCC_ADCx_addrs[ADC_ID - 1]).bitof(RCC_ADCx_bitpos[ADC_ID - 1])) return false;
-		// Periph Clock Config
-		RCCPeriphClock::ConfigADC(divby);
-		return true;
-	}
+	static stduint RCC_ADCx_addrs[3] = // 0.._ADC_Counts
+	{
+		_RCC_APB2ENR_ADDR, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_ADDR
+	};
+	static byte RCC_ADCx_bitpos[3] = // 0.._ADC_Counts
+	{
+		_RCC_APB2ENR_POSI_ENCLK_ADC1,
+		_RCC_APB2ENR_POSI_ENCLK_ADC2,
+		_RCC_APB2ENR_POSI_ENCLK_ADC3
+	};
 
-	//
-	bool ADC_t::setMode(stduint numsof_conv, bool align_left, stduint numsof_disc, bool trigger_ext_posedge, byte divby) {
-		_numsof_conv = numsof_conv; _align_left = align_left; _numsof_disc = numsof_disc; _trigger_ext_posedge = trigger_ext_posedge;
-		enClock(true, divby);
-		/* dosconio design yo 20240711 (TEMP)
-		 * DataAlign <=> align_left
-		 * ScanConvMode = !!numsof_conv // regular conversion
-		 * NbrOfConversion = numsof_conv ? numsof_conv : none
-		 * DiscontinuousConvMode = !!numsof_disc;
-		 * ContinuousConvMode = !numsof_disc;
-		 * NbrOfDiscConversion = numsof_disc ? numsof_disc : none
-		 * ExternalTrigConv <=> trigger_ext_posedge
-		*/
-		if (numsof_conv > 16 || numsof_disc > 8) return false;
-		self.enAble(false);// Stop potential conversion on going, on regular and injected groups
-		for0(i, (/*SystemCoreClock=>us*/ 72)) i = i;
-		self[ADCReg::CR2].setof(_ADC_CR2_POS_ALIGN, align_left);
-		//aka ADC_CFGR_EXTSEL
-		{
-			uint32 tmp;
-			if (!trigger_ext_posedge && getID() < 3) {
-				tmp = 0x000E0000;
-				self[ADCReg::CR2] |= tmp;
-			}
-			else {
-				_TODO
-			}
-		}
-		self[ADCReg::CR2].setof(_ADC_CR2_POS_CONT, !numsof_disc);
-		//
-		self[ADCReg::CR1].setof(_ADC_CR1_POS_SCAN, !!numsof_conv);
-		self[ADCReg::CR1].setof(_ADC_CR1_POS_DISCEN, !!numsof_disc);
-		if (numsof_disc--) {
-			self[ADCReg::CR1] = (self[ADCReg::CR1] & 0xFFFF8FFF) | (numsof_disc << _ADC_CR1_POS_DISCNUM);
-		}
-		if (numsof_conv--) {
-			self[ADCReg::SQR1] = (self[ADCReg::SQR1] & 0xFFF0FFFF) | (numsof_conv << _ADC_SQR1_POS_L);
-		}
-		return true;
-	}
+	static Request_t ADCx_Request_list[4] = {
+		Request_None, IRQ_ADC, IRQ_ADC, IRQ_ADC3
+	};
 
 	bool ADC_t::setChannel(GPIO_Pin& pin, byte rank, ADCSample::ADCSample sample) {
 		if (rank >= 16) return false;
@@ -111,18 +78,8 @@ namespace uni {
 		return true;
 	}
 
-	void ADC_t::setInterrupt(Handler_t fn) {
-		FUNC_ADCx[getID()] = fn;
-	}
-	
-	static Request_t ADCx_Request_list[4] = {
-		(Request_t)0, IRQ_ADC, IRQ_ADC, IRQ_ADC3
-	};
-	void ADC_t::setInterruptPriority(byte preempt, byte sub_priority) {
-		NVIC.setPriority(ADCx_Request_list[ADC_ID], preempt, sub_priority);
-	}
-
-	void ADC_t::enInterrupt(bool enable, bool trigger_ext_posedge) {
+	void ADC_t::enInterrupt(bool enable) {
+		bool trigger_ext = false;
 		// C-with HAL_ADC_Start_IT
 		if (enable) {
 			if (!self.enAble(true)) return;
@@ -185,11 +142,159 @@ namespace uni {
 
 	//
 
-	ADC_t \
-		ADCr(0x00000000, 0), // error
-		ADC1(0x40012400, 1),
-		ADC2(0x40012800, 2),
-		ADC3(0x40013C00, 3);
+#elif defined(_MCU_STM32F4x)
+	static const uint32 _REFADDR_ADC[] = { nil,
+		0x40012000, 0x40012100, 0x40012200
+	};// len 0x100 for each
+	Reference ADC_t::Reflect(ADCReg::ADCComType idx) {
+		return Reference(0x40012300 + _IMMx4(idx));
+	}
+
+	static stduint RCC_ADCx_addrs[3] = { // 0.._ADC_Counts
+		_IMM(& RCC[RCCReg::APB2ENR]),
+		_IMM(& RCC[RCCReg::APB2ENR]),
+		_IMM(& RCC[RCCReg::APB2ENR])
+	};
+	static byte RCC_ADCx_bitpos[3] = { // 0.._ADC_Counts
+		_RCC_APB2ENR_POSI_ENCLK_ADC1,
+		_RCC_APB2ENR_POSI_ENCLK_ADC2,
+		_RCC_APB2ENR_POSI_ENCLK_ADC3
+	};
+
+	static Request_t ADCx_Request_list[4] = {
+		Request_None, IRQ_ADC, IRQ_ADC, IRQ_ADC
+	};
+
+	static const byte CHANn_GPIOFx[] = {
+		0xFF, 0xFF, 0xFF,
+		9 , // pF3
+		14, // pF4
+		15, // pF5
+		4 , // pF6
+		5 , // pF7
+		6 , // pF8
+		7 , // pF9
+		8 , // pF10
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+	};
+	
+	bool ADC_t::setChannel(GPIO_Pin& pin) {
+		byte chan = getChannelNumber(pin);
+		if (chan == 0xFF) return false;
+		pin.setMode(GPIOMode::IN_Analog);
+		
+
+
+
+		return true;
+	}
+
+	void ADC_t::enInterrupt(bool enable) {} // TODO
 
 #endif
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+
+	stduint ADC_t::getBaseAddr() {
+		return _REFADDR_ADC[self.ADC_ID];
+	} //{TEMP} no-assert-opt
+
+	void ADC_t::setInterrupt(Handler_t fn) {
+		FUNC_ADCx[getID()] = fn;
+	}
+
+	void ADC_t::setInterruptPriority(byte preempt, byte sub_priority) {
+		NVIC.setPriority(ADCx_Request_list[ADC_ID], preempt, sub_priority);
+	}
+
+	bool ADC_t::enClock(bool ena, byte divby) {
+		using namespace ADCReg;
+		Reference(RCC_ADCx_addrs[ADC_ID - 1]).setof(RCC_ADCx_bitpos[ADC_ID - 1], ena);
+	#if defined(_MCU_STM32F1x)
+		if (ena) RCCPeriphClock::ConfigADC(divby);// Periph Clock Config
+	#elif defined(_MCU_STM32F4x)
+		// assert () in 2, 4, 6, 8
+		ADC_t::Reflect(CCR).maset(16, 2, divby >> 1);// set ADCPRE half literal
+	#endif
+		return ena == Reference(RCC_ADCx_addrs[ADC_ID - 1]).bitof(RCC_ADCx_bitpos[ADC_ID - 1]);
+	}
+
+	bool ADC_t::enAble(bool ena) {
+		using namespace ADCReg;
+		self[CR2].setof(_ADC_CR2_POS_ADON, ena);
+		return self[CR2].bitof(_ADC_CR2_POS_ADON) == ena;
+	}
+
+	byte ADC_t::getChannelNumber(GPIO_Pin& pin) {
+		if (getID() == 3) {
+			if (pin.getID() < 4) {
+				if (&pin.getParent() == &GPIO['A'])
+					return pin.getID();
+				else if (&pin.getParent() == &GPIO['C'])
+					return pin.getID() + 10;
+			#if defined(_MCU_STM32F4x)
+				else if (&pin.getParent() == &GPIO['F'])
+					return CHANn_GPIOFx[pin.getID()];
+			#endif
+				else return 0xFF;
+			}
+			else return 0xFF;
+		}
+		else if (getID() < 3) {
+			if (&pin.getParent() == &GPIO['A'])
+				return pin.getID() < 8 ? pin.getID() : 0xFF;
+			else if (&pin.getParent() == &GPIO['B'])
+				return pin.getID() < 2 ? (8 + pin.getID()) : 0xFF;
+			else if (&pin.getParent() == &GPIO['C'])
+				return pin.getID() < 6 ? (10 + pin.getID()) : 0xFF;
+			else return 0xFF;
+		}
+		else return 0xFF;
+	}
+
+	bool ADC_t::setMode(stduint numsof_conv, bool align_left, stduint numsof_disc, byte trigger_ext, byte divby) {
+		using namespace ADCReg;
+	#if defined(_MCU_STM32F4x)
+		_TEMP byte bitsband = 0;// ADC_RESOLUTION_12B
+		_TEMP bool EOCSelection = false;
+		_TEMP bool DMAContinuousRequests = true;//{TODO: Split out} for single ADC
+	#endif
+		enClock(true, divby);
+		if (numsof_conv > 16 || numsof_disc > 8) return false;//? for F1 or F1&4
+		self.enAble(false);// Stop potential conversion on going, on regular and injected groups
+		for0(i, SystemCoreClock / 1000000) i = i;
+		self[CR2].setof(_ADC_CR2_POS_ALIGN, align_left);
+	#if defined(_MCU_STM32F1x)
+		/* aka ADC_CFGR_EXTSEL */ {
+			if (!trigger_ext && getID() < 3) {
+				self[CR2] |= 0x000E0000;//{} magic
+			}
+			else _TODO;
+		}
+	#elif defined(_MCU_STM32F4x)
+		self[CR2].setof(9, DMAContinuousRequests);// DDS
+		self[CR2].setof(10, EOCSelection);// EOCS
+		self[CR2].maset(24, 6, nil);// EXTSEL and EXTEN
+		if (trigger_ext != /*ADC_SOFTWARE_START*/ 0x0F000001) {
+			(void)_TEMP _TODO "Assume ExternalTrigConvEdge = 0 ADC_EXTERNALTRIGCONVEDGE_NONE;";
+			self[CR2] |= trigger_ext;
+		}
+	#endif
+		self[CR2].setof(_ADC_CR2_POS_CONT, !numsof_disc);
+		Letvar(blk_cr1, volatile BLK_CR1*, &self[CR1]); {
+			blk_cr1->SCAN = !!numsof_conv;
+			blk_cr1->DISCEN = !!numsof_disc;
+		#if defined(_MCU_STM32F4x)
+			blk_cr1->RES = bitsband;
+		#endif
+			if (numsof_disc--)
+				blk_cr1->DISCNUM = numsof_disc;
+		}
+		if (numsof_conv--) {
+			self[SQR1].maset(_ADC_SQR1_POS_L, 4, numsof_conv);
+		}
+		return true;
+	}
+
+#endif	
 }

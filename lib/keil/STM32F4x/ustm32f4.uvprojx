@@ -386,21 +386,6 @@
           <GroupName>Embedded</GroupName>
           <Files>
             <File>
-              <FileName>interrupt.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\interrupt.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>STM32F4.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\MCU\STM32F4.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>interrupt_tab.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
-            </File>
-            <File>
               <FileName>GPIO.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\Device\GPIO.cpp</FilePath>
@@ -460,6 +445,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\Device\UART.cpp</FilePath>
             </File>
+            <File>
+              <FileName>RCC-Oscillator.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\RCC-Oscillator.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -469,6 +459,31 @@
               <FileName>string.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\string.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>System</GroupName>
+          <Files>
+            <File>
+              <FileName>interrupt.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\interrupt.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>interrupt_tab.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Hosted</GroupName>
+          <Files>
+            <File>
+              <FileName>STM32F4.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\MCU\STM32F4.cpp</FilePath>
             </File>
           </Files>
         </Group>

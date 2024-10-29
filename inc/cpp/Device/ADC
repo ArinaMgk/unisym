@@ -31,13 +31,42 @@
 #include "DMA"
 
 namespace uni {
-#if 0
 
-#elif defined(_MCU_STM32F1x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	class ADC_t;
 	#undef ADC
 	#undef ADC1
 	#undef ADC2
 	#undef ADC3
+	extern ADC_t ADC1, ADC2, ADC3;
+
+	static struct {
+		ADC_t& operator[](byte id) {
+			extern ADC_t ADCr;
+			const static ADC_t* ADC_LST[] = {
+				&ADC1,&ADC2,&ADC3
+			};
+			if (!Ranglin(id, 1, numsof(ADC_LST)))
+				return ADCr;
+			return *(ADC_t*)ADC_LST[id - 1];
+		}
+	} ADC;// union with others to save .(ro)data
+
+	namespace ADCReg {
+		typedef enum {
+			SR = 0, CR1, CR2, SMPR1,
+			SMPR2, JOFR1, JOFR2, JOFR3,
+			JOFR4, HTR, LTR, SQR1,
+			SQR2, SQR3, JSQR, JDR1,
+			JDR2, JDR3, JDR4, DR
+		} ADCRegType;
+	}
+
+#endif	
+
+
+#if 0
+#elif defined(_MCU_STM32F1x)
 
 	_TODO // into an enum
 	#define _ADC_SR_POS_EOC      1
@@ -49,27 +78,16 @@ namespace uni {
 	#define _ADC_CR1_POS_DISCNUM 13 // len 3b
 	#define _ADC_CR1_POS_DUALMOD 16
 	
-	#define _ADC_CR2_POS_ADON   0
-	#define _ADC_CR2_POS_CONT   1
-	#define _ADC_CR2_POS_DMA    8
-	#define _ADC_CR2_POS_ALIGN  11
+	//#define _ADC_CR2_POS_ADON   0
+	//#define _ADC_CR2_POS_CONT   1
+	//#define _ADC_CR2_POS_DMA    8
+	//#define _ADC_CR2_POS_ALIGN  11
 	#define _ADC_CR2_POS_EXTSEL 17 // len 3b
 	#define _ADC_CR2_POS_ExtTrig 20
 	#define _ADC_CR2_POS_SWStart 22
 	
-	#define _ADC_SQR1_POS_L     20 // len 4b
 	
 
-
-	namespace ADCReg {
-		typedef enum {
-			SR = 0, CR1, CR2, SMPR1,
-			SMPR2, JOFR1, JOFR2, JOFR3,
-			JOFR4, HTR, LTR, SQR1,
-			SQR2, SQR3, JSQR, JDR1,
-			JDR2, JDR3, JDR4, DR
-		} ADCRegType;
-	}
 	namespace ADCSample {
 		enum ADCSample {
 			HALF_3 = 0,// 1.5 cycles
@@ -82,86 +100,92 @@ namespace uni {
 			HALF_479,// 239.5 cycles
 		};
 	}
+#elif defined(_MCU_STM32F4x)
+	namespace ADCReg {
+		typedef enum {
+			CSR, CCR, CDR
+		} ADCComType;
+	}
+	
+#endif
 
-	class ADC_t {
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+
+	class ADC_t : public RuptTrait {
 	protected:
-		stduint baseaddr;
 		byte ADC_ID;
-		stduint _numsof_conv/*0..1+16*/; bool _align_left; stduint _numsof_disc; bool _trigger_ext_posedge;
 		pureptr_t bind;
 		// return 0xFF for invalid channel for the pin
-		byte getChannelNumber(GPIO_Pin& pin) {
-			if (getID() == 3) {
-				if (pin.getID() < 4) {
-					if (&pin.getParent() == &GPIO['A']) return pin.getID();
-					else if (&pin.getParent() == &GPIO['C']) return pin.getID() + 10;
-					else return 0xFF;
-				}
-				else return 0xFF;
-			}
-			else if (getID() < 3) {
-				if (&pin.getParent() == &GPIO['A']) return pin.getID() < 8 ? pin.getID() : 0xFF;
-				else if (&pin.getParent() == &GPIO['B']) return pin.getID() < 2 ? (8 + pin.getID()) : 0xFF;
-				else if (&pin.getParent() == &GPIO['C']) return pin.getID() < 6 ? (10 + pin.getID()) : 0xFF;
-				else return 0xFF;
-			}
-			else return 0xFF;
-		} // from F103VET6
+		byte getChannelNumber(GPIO_Pin& pin);
+		_COM_DEF_Interrupt_Interface();
 	public:
-		ADC_t(stduint baseaddr, byte ADC_ID) : baseaddr(baseaddr), ADC_ID(ADC_ID) { _numsof_conv = _numsof_disc = 0; _align_left = _trigger_ext_posedge = false; bind = 0; }
-		stduint getBaseAddr() { return baseaddr; }
+		ADC_t(byte _ADC_ID) : ADC_ID(_ADC_ID) { bind = 0; }
+		stduint getBaseAddr();
 		byte getID() { return ADC_ID; }
-		inline stduint getConfigLastDiscCount() { return _numsof_disc; }
 		Reference operator[](ADCReg::ADCRegType idx) {
-			return Reference(baseaddr + (_IMM(idx) << 2));
+			return Reference(getBaseAddr() + _IMMx4(idx));
 		}
+	#if defined(_MCU_STM32F4x)
+		static Reference Reflect(ADCReg::ADCComType idx);
+	#endif
+		// ---- ---- . ---- ---- . ---- ---- . ---- ---- 
+		bool enClock(bool ena = true, byte divby = 6);
+		// AD Conversion ON/OFF
+		// - Prerequisite: setMode.
+		// - called by setMode(inp false) and enInterrupt(not- DMA)
+		bool enAble(bool ena = true);
+		// aka (HAL_)ADC_Init
+		/* [ dosconio design yo 20240711 ]
+		 * DataAlign <=> align_left
+		 * ScanConvMode = !!numsof_conv // regular / continuous conversion
+		 * NbrOfConversion = numsof_conv ? numsof_conv : none
+		 *
+		 * DiscontinuousConvMode = !!numsof_disc;
+		 * ContinuousConvMode = !numsof_disc;
+		 * NbrOfDiscConversion = numsof_disc ? numsof_disc : none
+		 *
+		 * ExternalTrigConv <=> trigger_ext
+		*/
+		/* numsof_conv in range 0..1+16
+		 * numsof_disc in range 0..1+8
+		 * trigger_ext
+		 *     { 0 and non-0 . for F1 }
+		 *     { 0(None) 1(Rise) 2(Fall) 3(Both) . for F4 }
+		*/
+		bool setMode(stduint numsof_conv = 0, bool align_left = false, stduint numsof_disc = 0, byte trigger_ext = 0, byte divby = 6);
+
+		//
+	#if defined(_MCU_STM32F1x)
 		bool isTriggeredBySoftware() { // ADC1_2_3_SWSTART
 			return (self[ADCReg::CR2] & (0x7 << _ADC_CR2_POS_EXTSEL)) == ((stduint)0x7 << _ADC_CR2_POS_EXTSEL);// 0x000E0000
 		}
-		bool enClock(bool ena = true, byte divby = 6);
-		// called by setMode(inp false) and enInterrupt(not-DMA)
-		bool enAble(bool ena = true) {
-			// Prerequisite: setMode
-			self[ADCReg::CR2].setof(_ADC_CR2_POS_ADON, ena);
-			_TEMP while (self[ADCReg::CR2].bitof(_ADC_CR2_POS_ADON) != ena);
-			return true;
-		}
-		bool setMode(stduint numsof_conv = 0/*0..1+16*/, bool align_left = false, stduint numsof_disc = 0/*0..1+8*/, bool trigger_ext_posedge = false, byte divby = 6);
 
+
+		// may setMode of GPIO
 		bool setChannel(GPIO_Pin& pin, byte rank = 0/*0..16*/, ADCSample::ADCSample sample = ADCSample::HALF_111);
 		// bool setChannel(MORE...)
-
-		void enInterrupt(bool enable = true, bool trigger_ext_posedge = false);
-		void setInterrupt(Handler_t fn);
-		void setInterruptPriority(byte preempt, byte sub_priority);
 
 		//{TODO} combinate this and enInterrupt into setMode or enAble
 		bool enDMA(pureptr_t addr, stduint leng);
 
+		// Get Value
 		ADC_t& operator>> (uint32_t& val) {
-			//aka HAL_ADC_GetValue
-			val = self[ADCReg::DR];
+			using namespace ADCReg;
+			val = self[DR];
 			return self;
 		}
 
 		bool setDMA(bool periph_inc = false, bool memory_inc = false, stduint periph_align = 2 /*byte*/, stduint memory_align = 2 /*byte*/, bool circular_mode = true, byte priority = 1);
-
+	#else //{TEMP}
+		
+	
+		//
+		bool setChannel(GPIO_Pin& pin);
+	#endif
 
 	};
 
-	extern ADC_t ADC1, ADC2, ADC3;
-	static struct {
-		ADC_t& operator[](byte id) {
-			extern ADC_t ADCr;
-			switch (id) {
-			case 1: return ADC1;
-			case 2: return ADC2;
-			case 3: return ADC3;
-			default: return ADCr;
-			}
-		}
-	} ADC;
-
+	
 #endif
 }
 

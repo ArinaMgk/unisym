@@ -24,7 +24,6 @@
 #define _MCU_Intel8051
 #endif
 
-#define double float// no support for long float
 
 #if !defined(_INC_MCU_8051)
 #define _INC_MCU_8051

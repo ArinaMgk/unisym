@@ -159,6 +159,7 @@ namespace uni {
 // ---- ---- ---- ---- ---- ---- ---- ----
 	#elif defined(_MCU_STM32F4x)
 
+	//{TODO} comb with this of F1
 	namespace GPIOMode {
 		enum Mode {
 			// 20240502{TEMP} use [MODER[1:0],OTYPTR[i]] 3-bits to decide

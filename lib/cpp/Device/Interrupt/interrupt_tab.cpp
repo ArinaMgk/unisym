@@ -66,6 +66,7 @@ extern "C" {
 	void TIM3_IRQHandler(void) { _HandlerIRQ_TIMx(0, 3); }
 	void TIM4_IRQHandler(void) { _HandlerIRQ_TIMx(0, 4); }
 
+	Handler_t FUNC_ADCx[4] = { 0 };
 
 #endif
 
@@ -73,7 +74,6 @@ extern "C" {
 #if 0
 	//
 #elif defined(_MCU_STM32F1x)
-	Handler_t FUNC_ADCx[4] = { 0 };// keep 0
 	//
 	static void _HandlerIRQ_XART(byte art_id) {
 		if (!XART.isSync(art_id)) return;//{TEMP}
@@ -126,6 +126,8 @@ extern "C" {
 		//{TODO} 2 Check End of Conversion flag for injected group
 		//{TODO} 3 Check Analog watchdog flags
 	}
+
+	void ADC3_IRQHandler(void) { _TODO }
 
 	static void _HandlerIRQ_DMAChannelx(byte dma_id, byte chanx) {
 		DMA_t& crt = DMA[dma_id];
@@ -248,6 +250,10 @@ extern "C" {
 			}
 		}
 		else _TEMP return;
+	}
+
+	void ADC_IRQHandler(void) {
+		
 	}
 
 	

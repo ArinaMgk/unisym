@@ -9,7 +9,7 @@ dg-publish: true
 - Architecture Class :chart: like "`_ARC_x86`" (for example, this macro may not exist, so do below)
 - Chip Class :chart: "`_CPU_AMDRyzen7_5800H_Radeon`"
 - Host Class :chart: "`Win32`"
-- Devkit Option :chart: "`_BUILD_MSVC`"
+- Devkit Option :chart: "`_DEV_MSVC`"
 
 #### > Soft Option Control
 

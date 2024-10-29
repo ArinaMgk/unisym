@@ -9,7 +9,7 @@ Target in format \verb`Arch-Devk-Host(Digit)`
 \item \verb`x64-CG-Win64   ` {64}
 \item \verb`x64-CM-Win64   ` {64}
 \item \verb`x86-EG-Lin32   ` {32}
-\item \verb`x64-EG-Lin64` {64}
+\item \verb`x64-EG-Lin64`    {64}
 \item \verb`x86-EG-MCCA    ` {32}
 \item \verb`riscv64-EG-MCCA` {64}
 \item \verb`i8051-Keil-AT89C5    ` {16}
@@ -21,6 +21,7 @@ Target in format \verb`Arch-Devk-Host(Digit)`
 \item \verb`cortexm4-Keil-STM32F4` {32}v7
 \item \verb`cortexm0-Keil-CW32F03` {32}v6
 \item \verb`cortexm0-Keil-CW32F00` {32}v6
+\item \verb`cortexa7-Keil-STM32MP13` {32}v6
 \end{itemize}
 
 where,
@@ -43,22 +44,27 @@ Second parameter is the kit:
 
 \B{Header}: \verb`c/system/uoption.h` auto-inc-by stdinc.
 
-\paragraph{\_MCU\_} \
+\paragraph{Processor and Controller Unit} \
 \begin{itemize}
-	\item \B{\_MCU\_Intel8051}\begin{itemize}
+	\item \verb`_MCU_Intel8051` \begin{itemize}
 		\item \verb`_SYS_FREQ` Frequency of the system.
+		\item usually used with \verb`_DEV_`xxx
+		\item TODO: Make magice support this then cancel support for Keil-C51
 	\end{itemize}
 	\item \verb`_MCU_STM32F1x`
 	\item \verb`_MCU_STM32F4x`
+	\item \verb`_MCU_STM32MP13`
 	\item \verb`_MCU_CW32F003`
 	\item \verb`_MCU_CW32F030`
 	\item \verb`_CPU_AMDRyzen7_5800H_Radeon`
 \end{itemize}
 
-\paragraph{\_SUPPORT\_} \
+\paragraph{Support for Data-type and Device} \
 \begin{itemize}
-	\item \B{GPIO}: Usually for MCU.
-	\item \B{Port8}: Usually for Personal Computers.
+	\item \B{\_SUPPORT\_GPIO}: Usually for MCU.
+	\item \B{\_SUPPORT\_Port8}: Usually for Personal Computers.
+	\item \B{\_BIT\_SUPPORT\_64}
+	\item \B{\_BIT\_SUPPORT\_DFLOAT}
 \end{itemize}
 
 \paragraph{\_INC\_} \
@@ -83,9 +89,11 @@ The prefix is `\_ARC\_' in early style 2.
 \begin{itemize}
 	\item \verb|0x8616| x86, bits 16
 	\item \verb|0x8632| x86, bits 32
-	%\item \_Win32
-	%\item \_Win64
-	%\item \_WinNT
+	\item \_WinNT \begin{itemize}
+		\item \_Win32
+		\item \_Win64
+	\end{itemize}
+	\item \_Linux
 \end{itemize}
 
 \paragraph{Development Kit} \

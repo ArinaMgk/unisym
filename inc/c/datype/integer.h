@@ -96,7 +96,7 @@ typedef  int32_t  sdword;// signed int
 typedef size_t    stduint;
 typedef ptrdiff_t stdint ;
 typedef ptrdiff_t stdsint;
-#ifndef _IMPLEMENT_KEIL8051
+#ifndef _MCU_Intel8051
 static const pureptr_t None = (pureptr_t)~(stduint)0;
 static const stduint NONE = ~(stduint)0;
 #endif
@@ -345,7 +345,10 @@ static const stduint NONE = ~(stduint)0;
 #define iseven(x) !((x)&1)
 
 #define ondiv_m(sr,dv,qo,rm) ((qo)=(sr)/(dv),(rm)=(sr)%(dv))
+
+	#ifdef _BIT_SUPPORT_64
 extern int64 ondiv_64(int64 sr, int64 dv, int64 *rm);// return quo
+	#endif
 
 #define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
 

@@ -34,7 +34,7 @@
 // * State Number, but also with erro() call
 // * Arn is going to setup dnode-malc-table and warn-table (from old generation)
 
-#ifdef _BUILD_MSVC
+#ifdef _DEV_MSVC
 #pragma warning(disable:4068)
 #pragma source ./source/coear.c
 #endif

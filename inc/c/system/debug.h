@@ -21,7 +21,7 @@
 */
 
 
-#ifdef _BUILD_MSVC
+#ifdef _DEV_MSVC
 #pragma warning(disable:6011)// for MSVC
 #endif
 

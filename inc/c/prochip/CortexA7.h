@@ -1,7 +1,8 @@
-// ASCII C++-11 TAB4 CRLF
-// LastCheck: 20240430
-// AllAuthor: @dosconio
-// ModuTitle: MCU ST STM32F4
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: (Processor, not MCU and not ARCH) ARM Cortex-A7
+// Codifiers: @dosconio: 20241025
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,25 +20,7 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_STM32F4_X
-#define _INC_MCU_STM32F4_X
-#ifndef _MCU_STM32F4x
-#define _MCU_STM32F4x
-#endif
-#ifndef _MCU_STM32
-#define _MCU_STM32
-#endif
-
-#undef RCC
-#include "../../../c/stdinc.h"
-#include "../../Device/GPIO"
-#include "../../Device/RCC/RCC"
-#include "../../Device/SysTick"
-#include "../../Device/UART"
-#include "../../Device/DAC"
-#include "../../Device/ADC"
-#include "../../Device/TIM"
-
-extern "C" char _IDN_BOARD[16];
+#ifndef _INC_Processor_CortexA7
+#define _INC_Processor_CortexA7
 
 #endif

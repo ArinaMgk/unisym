@@ -1,8 +1,8 @@
 // ASCII C++-11 TAB4 CRLF
 // Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: 20240409
+// LastCheck: 20241025
 // AllAuthor: @dosconio
-// ModuTitle: MCU ST STM32F1
+// ModuTitle: MCU ST STM32MP13
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,33 +20,12 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_STM32F1_X
-#define _INC_MCU_STM32F1_X
-#ifndef _MCU_STM32F1x
-#define _MCU_STM32F1x
-#endif
+#ifndef _INC_MCU_STM32MP13_X
+#define _INC_MCU_STM32MP13_X
 #ifndef _MCU_STM32
 #define _MCU_STM32
 #endif
-/*
-F103:
-- V : 100 Pin
-- E : 512 Kilobyte Flash
-*/
 
-#undef RCC
-
-#include "../../../c/stdinc.h"
-#include "../../Device/GPIO"
-#include "../../Device/RCC/RCC"
-#include "../../Device/SysTick"
-#include "../../Device/TIM"
-#include "../../../c/driver/UART.h"
-#include "../../Device/ADC"
-#include "../../Device/DAC"
-#include "../../interrupt"
-
-//{TODO} compatible with `stm32f103xe.h`
-
+//{TODO} inc ARM Cortex-A7
 
 #endif

@@ -22,7 +22,7 @@
   </DaveTm>
 
   <Target>
-    <TargetName>Target 1</TargetName>
+    <TargetName>uIntel8051</TargetName>
     <ToolsetNumber>0x0</ToolsetNumber>
     <ToolsetName>MCS-51</ToolsetName>
     <TargetOption>
@@ -82,7 +82,7 @@
         <Book>
           <Number>0</Number>
           <Title>Data Sheet</Title>
-          <Path>DATASHTS\ATMEL\AT89C52_DS.PDF</Path>
+          <Path>DATASHTS\ATMEL\AT89C51_DS.PDF</Path>
         </Book>
         <Book>
           <Number>1</Number>
@@ -175,7 +175,7 @@
   </Target>
 
   <Group>
-    <GroupName>Source Group 1</GroupName>
+    <GroupName>Source Group</GroupName>
     <tvExp>1</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
@@ -183,12 +183,12 @@
     <File>
       <GroupNumber>1</GroupNumber>
       <FileNumber>1</FileNumber>
-      <FileType>2</FileType>
+      <FileType>1</FileType>
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>.\STARTUP.A51</PathWithFileName>
-      <FilenameWithoutPath>STARTUP.A51</FilenameWithoutPath>
+      <PathWithFileName>..\..\c\delay.c</PathWithFileName>
+      <FilenameWithoutPath>delay.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

@@ -10,6 +10,13 @@ More to see
 	\item \refer{Calling}
 \end{itemize}
 
+Compared with C++, CPL has
+no override,
+no class pre-parameter(\verb`this`), 
+no references(\verb`&`),
+no pre-constructure(calling in global area, beyond any procedure block), % int l = strlen("a");// this may happen without control
+so it does not own complex reflect.
+
 \subsection{Syntax, Semantics and Statement} % Grammar
 \subimport{CLV/Program}{Statement}
 

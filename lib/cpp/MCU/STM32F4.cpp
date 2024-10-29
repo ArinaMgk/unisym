@@ -1,5 +1,5 @@
 // ASCII C++-11 TAB4 CRLF
-// LastCheck: 20240430
+// LastCheck: 20241029
 // AllAuthor: @dosconio
 // ModuTitle: (MCU) STM32F4 Series
 /*
@@ -34,7 +34,7 @@
 extern "C" void SystemInit(void);
 
 extern "C" {
-	char _IDN_BOARD[16] = "xx";
+	char _IDN_BOARD[16] = "STM32F4";
 }
 
 void SystemInit(void) {

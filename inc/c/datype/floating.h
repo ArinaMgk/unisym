@@ -39,7 +39,7 @@
 #define isNaN(f) ((f) != (f))
 #define getNearInteger(flt) (flt+0.5)
 
-#ifndef _IMPLEMENT_KEIL8051
+#ifdef _BIT_SUPPORT_DFLOAT
 inline static double CastF64FromU0(stduint i) {
 	//{TODO} Soft Implementation, while this is hard implementation
 	return (double)i;

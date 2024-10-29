@@ -97,7 +97,7 @@ typedef void (*Handler_t)(void);
 {TODO}	DCD     TIM8_UP_IRQHandler         ; TIM8 Update
 {TODO}	DCD     TIM8_TRG_COM_IRQHandler    ; TIM8 Trigger and Commutation
 {TODO}	DCD     TIM8_CC_IRQHandler         ; TIM8 Capture Compare
-{TODO}	DCD     ADC3_IRQHandler            ; ADC3
+		DCD     ADC3_IRQHandler            ; ADC3
 {TODO}	DCD     FSMC_IRQHandler            ; FSMC
 {TODO}	DCD     SDIO_IRQHandler            ; SDIO
 {TODO}	DCD     TIM5_IRQHandler            ; TIM5
@@ -163,7 +163,7 @@ void EXTI0_IRQHandler(void);
 {TODO}	DCD     DMA1_Stream4_IRQHandler           ; DMA1 Stream 4
 {TODO}	DCD     DMA1_Stream5_IRQHandler           ; DMA1 Stream 5
 {TODO}	DCD     DMA1_Stream6_IRQHandler           ; DMA1 Stream 6
-{TODO}	DCD     ADC_IRQHandler                    ; ADC1, ADC2 and ADC3s
+		DCD     ADC_IRQHandler                    ; ADC1, ADC2 and ADC3s
 {TODO}	DCD     CAN1_TX_IRQHandler                ; CAN1 TX
 {TODO}	DCD     CAN1_RX0_IRQHandler               ; CAN1 RX0
 {TODO}	DCD     CAN1_RX1_IRQHandler               ; CAN1 RX1
@@ -233,6 +233,7 @@ extern "C" {
 	extern Handler_t FUNC_EXTI[];
 	extern Handler_t FUNC_XART[8];
 	extern Handler_t FUNC_TIMx[];
+	extern Handler_t FUNC_ADCx[];
 
 }
 

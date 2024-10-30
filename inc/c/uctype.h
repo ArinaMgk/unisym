@@ -51,6 +51,8 @@
 
 #define ascii_isxdigit(c) (ascii_isdigit(c)||bytdif(c,'A')<6||bytdif(c,'a')<6)
 
+// above make literal duplicated
+
 // ---- ---- ---- ----
 extern const unsigned char _tab_tolower[];
 extern const unsigned char _tab_toupper[];

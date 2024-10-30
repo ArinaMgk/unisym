@@ -155,6 +155,7 @@ extern "C++" {
 #define ceilAlign(align,val)  floorAlign(align,val+(align-1))
 
 #define foreach_str(iden,x) for(char iden, *_pointer=(char*)(x);iden=*_pointer;_pointer++)
+#define foreach_byt(iden,x) for(byte iden, *_pointer=(byte*)(x);iden=*_pointer;_pointer++)
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for0r(iden,times) for(size_t iden=(times);iden--;)
 #define forp(ptr,times) for(pureptr_t _LIMIT=(pureptr_t)(ptr+times);(pureptr_t)ptr<_LIMIT;ptr++)

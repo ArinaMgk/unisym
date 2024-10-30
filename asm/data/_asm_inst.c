@@ -6,7 +6,7 @@
 // Descripts: This file is supplementary for C/C++, while Magice builds these in.
 
 //{TODO} try generate from insns.dat by "insns.pl"
-
+//{TODO} Directive Instruction : ARINA
 
 const char * const _asm_inst_literal_list[] = {
 	"aaa",

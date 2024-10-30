@@ -72,7 +72,7 @@ static void StrbuffBalloc(Strbuff* s)
 }
 
 // Element Allocate
-pureptr_t StrbuffEallic(Strbuff* s)
+pureptr_t StrbuffEalloc(Strbuff* s)
 {
 	pureptr_t res;
 
@@ -126,7 +126,7 @@ void StrbuffRewind(Strbuff* s)
 	s->q_inn = s->q_glb = 0;
 }
 
-pureptr_t StrbuffBread(Strbuff* s)
+pureptr_t StrbuffEread(Strbuff* s)
 {
 	void* res;
 	if (s->q_glb + s->elm_len > s->total_len)

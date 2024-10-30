@@ -15,7 +15,7 @@ ADDR_KERNEL EQU 0x5000
 %ifdef _FLOPPY
 	DRV_ID EQU 0x00
 %else
-	; !
+	DRV_ID EQU 0x80
 %endif
 
 [CPU 386]

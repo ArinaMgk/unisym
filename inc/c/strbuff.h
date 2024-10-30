@@ -50,13 +50,13 @@ Strbuff* StrbuffNew(stduint elm_len);
 
 void StrbuffFree(Strbuff* s);
 
-pureptr_t StrbuffEallic(Strbuff* s);
+pureptr_t StrbuffEalloc(Strbuff* s);
 
 void StrbuffSend(Strbuff* s, pureptr_t src, stduint len);
 
 void StrbuffRewind(Strbuff* s);
 
-pureptr_t StrbuffBread(Strbuff* s);
+pureptr_t StrbuffEread(Strbuff* s);
 
 const void* StrbuffRead(Strbuff* s, stduint* lenp);
 

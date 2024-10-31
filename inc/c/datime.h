@@ -99,8 +99,8 @@ POSIXGetSeconds(struct tm* tm);
 void fromherp(stdint herspans, word* year, word* month, word* day);
 
 typedef struct {
-	stduint sec; // second
-	stduint mic; // microsecond
+	stduint sec; //  s: second
+	stduint mic; // us: microsecond
 } timeval_t;
 
 #ifdef _INC_CPP

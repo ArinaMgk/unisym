@@ -1,26 +1,37 @@
 
 \subsection{Output Target}
 
-Target in format \verb`Arch-Devk-Host(Digit)`
+Target in format \verb`Arch-Devk-[Host/Board](Mode)`
 \begin{itemize}
 \item \verb`i8086-CG-IBMPC ` {DJGPP 16 MSDOS}
-\item \verb`x86-CG-Win32   ` {32}
+\item \verb`x86-CG-Win32   ` {32} %stable
+\item \verb`x86-CV-Win32   ` {32} %stable
 \item \verb`x86-CM-Win32   ` {32}
-\item \verb`x64-CG-Win64   ` {64}
+\item \verb`x86-CL-Win32   ` {32}
+
+\item \verb`x64-CG-Win64   ` {64} %stable
+\item \verb`x64-CV-Win64   ` {64} %stable
 \item \verb`x64-CM-Win64   ` {64}
-\item \verb`x86-EG-Lin32   ` {32}
-\item \verb`x64-EG-Lin64`    {64}
-\item \verb`x86-EG-MCCA    ` {32}
+\item \verb`x64-CL-Win64   ` {64}
+
+\item \verb`x86-EG-Lin32   ` {32} %stable
+\item \verb`x64-EG-Lin64   ` {64} %stable
+\item \verb`x86-EG-MCCA    ` {32} %to-cover-more
 \item \verb`riscv64-EG-MCCA` {64}
-\item \verb`i8051-Keil-AT89C5    ` {16}
-\item \verb`cortexm3-EG-STM32F1  ` {32}v7
-\item \verb`cortexm4-EG-STM32F4  ` {32}v7
-\item \verb`cortexm0-EG-CW32F03  ` {32}v6
-\item \verb`cortexm0-EG-CW32F00  ` {32}v6
+\item \verb`i8051-Keil-AT89C5` {16}
+
+\item \verb`cortexm0-EG  -CW32F003 ` {32}v6
+\item \verb`cortexm0-Keil-CW32F003`{32}v6
+\item \verb`cortexm0-EG  -CW32F030 ` {32}v6
+\item \verb`cortexm0-Keil-CW32F030`{32}v6
+
+\item \verb`cortexm3-EG  -STM32F1  ` {32}v7
 \item \verb`cortexm3-Keil-STM32F1` {32}v7
+
+\item \verb`cortexm4-EG  -STM32F4  ` {32}v7
 \item \verb`cortexm4-Keil-STM32F4` {32}v7
-\item \verb`cortexm0-Keil-CW32F03` {32}v6
-\item \verb`cortexm0-Keil-CW32F00` {32}v6
+
+\item \verb`cortexa7-Gnu -STM32MP13`{32}v6 %to-cover-more
 \item \verb`cortexa7-Keil-STM32MP13` {32}v6
 \end{itemize}
 
@@ -36,8 +47,9 @@ Second parameter is the kit:
 \item Ex: ELF
 \item Cx: COFF
 \item xG: GNU Compiler Collection
-\item xM: Microsoft Visual C/C++
+\item xV: Microsoft Visual C/C++
 \item xA: Ain Magice
+\item xL: LLVM
 \end{itemize}
 
 \subsection{Option Switch}
@@ -100,5 +112,5 @@ The prefix is `\_ARC\_' in early style 2.
 \begin{itemize}
 \item \verb `_DEV_MSVC`
 \item \verb `_DEV_GCC`
-\item \verb `_BUILD_Qt` 
+\item \verb `_DEV_Qt` 
 \end{itemize}

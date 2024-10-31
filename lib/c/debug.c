@@ -45,16 +45,13 @@ const char* _pref_warn = "[WARNS]";
 const char* _pref_info = "[INFOR]";
 const char* _pref_dbug = "[DEBUG]";
 const char* _pref_trac = "[TRACE]";
-_tocall_ft _call_serious = NULL;
+_tocall_ft _call_serious;
+_tocall_ft _befo_logging;
 
-void printlogx(loglevel_t level, const char* fmt, para_list paras)
-{
+static void printpref(loglevel_t level) {
 #if defined(_Linux) || 1
-	//{TODO} _logstyle
 	switch (level)
 	{
-	case _LOG_STDOUT:
-		outsfmtlst(fmt, paras); outs("\n"); return;
 	case _LOG_FATAL:// better into STDERR
 		outsfmt("\x1b[%dm%s", CON_FORE_RED, _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
 		break;
@@ -72,11 +69,26 @@ void printlogx(loglevel_t level, const char* fmt, para_list paras)
 		outsfmt("\x1b[%dm%s", CON_FORE_GREEN, _logstyle == _LOG_STYLE_NONE ? _pref_dbug : "debug: "); break;
 	case _LOG_TRACE:
 		outsfmt("\x1b[%dm%s", CON_FORE_GRAY, _logstyle == _LOG_STYLE_NONE ? _pref_trac : "trace: "); break;
+	case _LOG_STDOUT:
 	default:
-		return;
+		break;
 	}
-	outsfmtlst(fmt, paras);
+#endif
+}
+
+static void printsuff() {
+#if defined(_Linux) || 1
 	outs("\x1b[0m\n");
+#endif
+}
+
+void printlogx(loglevel_t level, const char* fmt, para_list paras)
+{
+#if defined(_Linux) || 1
+	printpref(level);
+	asserv(_befo_logging) ((void*)level);
+	outsfmtlst(fmt, paras);
+	printsuff();
 #endif
 	if (level <= _LOG_WARN) // assume low level is more serious
 		asserv(_call_serious)((void*)level);

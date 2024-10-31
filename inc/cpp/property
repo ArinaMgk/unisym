@@ -38,7 +38,7 @@
 // [use in class]
 #if defined(_DEV_MSVC)
 #define unibind(obj,fun) (obj).onproperty(std::bind(&fun, this))
-#elif defined(_BUILD_Qt)
+#elif defined(_DEV_Qt)
 #define unibind(obj,fun,...) (obj).onproperty(std::bind(&fun, this, __VA_ARGS__))
 #define unipara(i) std::placeholders::_##i
 #else

@@ -1587,5 +1587,6 @@ const char * const _asm_inst_literal_list[] = {
 	"xstore",
 	"cmov",
 	"j",
-	"set"
+	"set",
+	"arina"
 };

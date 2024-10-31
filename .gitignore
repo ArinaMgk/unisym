@@ -13,6 +13,7 @@ magic/.vscode
 *.run.xml
 # Locale Makefiles : code `make list` to generate
 lib/make/c*
+lib/c/auxiliary/*
 # .Net Class Library
 lib/dotNet/udotnet/.vs
 lib/dotNet/udotnet/obj

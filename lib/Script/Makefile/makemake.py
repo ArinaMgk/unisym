@@ -269,6 +269,28 @@ with open('./lib/make/cgmx86.make', 'w+b') as fobj:
 	fobj.write(bytes(text_gcc_mecocoa, encoding = "utf8")) # do not append line-feed
 text_gcc_mecocoa = ""
 
-# f: free-standing environment
-# unisym/lib/make/cfcortexm3.make -> ...
-#{} ...
+STM32MP13 = '''
+PREF=arm-none-eabi-
+FLAG=-I$(uincpath) -D_MCU_STM32MP13
+AS=$(PREF)as
+CC=$(PREF)gcc -c
+LD=$(PREF)ld
+AR=$(PREF)ar
+NM=$(PREF)nm
+CXX=$(PREF)g++
+STRIP=$(PREF)strip
+OCOPY=$(PREF)objcopy
+ODUMP=$(PREF)objdump
+RANLIB=$(PREF)ranlib
+OPATH=$(uobjpath)/STM32MP13
+
+all: init
+	$(CC) lib/cpp/Device/GPIO.cpp -o $(OPATH)/_g_GPIO.o
+
+init:
+	-@mkdir $(OPATH)
+
+'''
+with open('./lib/make/cortexa7-Gnu-STM32MP13.make', 'w+b') as fobj:
+	fobj.write(bytes(STM32MP13, encoding = "utf8"))
+STM32MP13 = ""

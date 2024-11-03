@@ -61,11 +61,11 @@ extern "C++" {
 #endif
 
 
-_CALL_C void* memallocate(stduint siz);
+_ESYM_C void* memallocate(stduint siz);
 
 //{} stduint memshrink(...);
 
-_CALL_C void    memrelease();
+_ESYM_C void    memrelease();
 
 // : International Standard Interface [user - def]
 #ifdef _DEV_MSVC
@@ -74,7 +74,7 @@ _CALL_C void    memrelease();
 #include "corecrt_malloc.h"
 #else
 #define _memory_midfix
-#define _memory_prefix _CALL_C
+#define _memory_prefix _ESYM_C
 _memory_prefix void*  calloc(size_t nmemb, size_t size);
 _memory_prefix void   free(void* ptr);
 _memory_prefix void*  malloc(size_t size);

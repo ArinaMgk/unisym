@@ -34,10 +34,6 @@
 #define _ADC_SQR1_POS_L     20 // len 4b
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
-
-#endif
-
-#if defined(_MCU_STM32F4x)
 // C++ only
 namespace uni {
 	namespace ADCReg {
@@ -47,13 +43,24 @@ namespace uni {
 			// 0x0000XX00
 			stduint SCAN : 1, AWDSGL : 1, JAUTO : 1, DISCEN : 1, JDISCEN : 1, DISCNUM : 3;
 			// 0x00XX0000
-			stduint _RESERVED_CR_1 : 6, JAWDEN : 1, AWDEN : 1;
+			stduint
+			#if defined(_MCU_STM32F4x)
+				_RESERVED_CR_1 : 6,
+			#elif defined(_MCU_STM32F1x)
+				DUALMOD : 4, _RESERVED_CR_1 : 2,
+			#endif
+			JAWDEN: 1, AWDEN : 1;
 			// 0xXX000000
-			stduint RES : 2, OVERIE : 1, _RESERVED_CR_2 : 5;
+			stduint
+			#if defined(_MCU_STM32F4x)
+				RES : 2, OVERIE : 1, _RESERVED_CR_2 : 5;
+			#elif defined(_MCU_STM32F1x)
+				_RESERVED_CR_2 : 8;
+			#endif
 		};
 	}
 }
-
 #endif
+
 
 #endif // _INC_Device_ADC

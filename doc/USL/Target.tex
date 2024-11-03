@@ -65,7 +65,7 @@ Second parameter is the kit:
 	\end{itemize}
 	\item \verb`_MCU_STM32F1x`
 	\item \verb`_MCU_STM32F4x`
-	\item \verb`_MCU_STM32MP13`
+	\item \verb`_MPU_STM32MP13`
 	\item \verb`_MCU_CW32F003`
 	\item \verb`_MCU_CW32F030`
 	\item \verb`_CPU_AMDRyzen7_5800H_Radeon`
@@ -84,9 +84,14 @@ Second parameter is the kit:
 	\item%{TODO}
 \end{itemize}
 
+\paragraph{\_ESYM\_} Exported Symbol Style \
+\begin{itemize}
+	\item \verb`_EXSYM_C` for \verb`extern "C"`, normally with prefix \verb`_`
+\end{itemize}
+
 \paragraph{\_CALL\_} (is not Linkage) \
 \begin{itemize}
-	\item%{TODO}
+	\item%{TODO} cdelc fastcall ...
 \end{itemize}
 
 \paragraph{\_OPT\_} \

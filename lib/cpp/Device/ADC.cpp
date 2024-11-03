@@ -252,7 +252,7 @@ namespace uni {
 		else return 0xFF;
 	}
 
-	bool ADC_t::setMode(stduint numsof_conv, bool align_left, stduint numsof_disc, byte trigger_ext, byte divby) {
+	bool ADC_t::setMode(stduint numsof_conv, bool align_left, stduint numsof_disc, stduint trigger_ext, byte divby) {
 		using namespace ADCReg;
 	#if defined(_MCU_STM32F4x)
 		_TEMP byte bitsband = 0;// ADC_RESOLUTION_12B
@@ -294,6 +294,13 @@ namespace uni {
 			self[SQR1].maset(_ADC_SQR1_POS_L, 4, numsof_conv);
 		}
 		return true;
+	}
+
+	stduint ADC_t::getConfigLastDiscCount() {
+		using namespace ADCReg;
+		Letvar(blk_cr1, volatile BLK_CR1*, &self[CR1]); {
+			return blk_cr1->DISCNUM + 1;//{?} whether should plus 1
+		}
 	}
 
 #endif	

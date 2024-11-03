@@ -110,41 +110,46 @@ CC=gcc -m64
 CX=g++ -m64
 """
 
+# [Example of XXXXPATH]
+# msvcpath=E:/software/VS22/VC/Tools/MSVC/14.39.33519
+
 #  warn4819: Unicode Existing
 #  warn4010: Linefeed in Line Comment
 #  warn4005: Macro Redefinition
 #{TODO}:
 text_msv_win32 += comhead + """
 attr = /D_DEBUG /D_Win32 /nologo /wd4819 /wd4010 /wd4005
-cplpref=_uvc32_
-cpppref=_uxxvc32_
+cplpref=_uvc_
+cpppref=_uxxvc_
 dest_obj=$(uobjpath)/CVWin32
-TOOLDIR = E:/software/VS22/VC/Tools/MSVC/14.39.33519
-CC = ${TOOLDIR}/bin/Hostx86/x86/cl.exe
+CC = ${msvcpath}/bin/Hostx86/x86/cl.exe
 CX = ${CC}
-AR = ${TOOLDIR}/bin/Hostx86/x86/lib.exe
+AR = ${msvcpath}/bin/Hostx86/x86/lib.exe
 # contain x86 - x64 can run this
 aattr = -fwin32
 dest_abs = $(ubinpath)/libw32d.lib
-VLIB_64=/LIBPATH:"${TOOLDIR}/lib/x86/" /LIBPATH:"${TOOLDIR}/lib/onecore/x86" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/um/x86" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/ucrt/x86"
-VI_SYS="C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/ucrt/"
-VI_64=${TOOLDIR}/include/ /I${VI_SYS} /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/um/" /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/shared/"
+KitWin=C:/Program Files (x86)/Windows Kits/10
+VLIB_64=/LIBPATH:"${msvcpath}/lib/x86/" /LIBPATH:"${msvcpath}/lib/onecore/x86" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/um/x86" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/ucrt/x86"
+KitInc=$(KitWin)/Include/10.0.19041.0
+VI_SYS="$(KitInc)/ucrt/"
+VI_64=${msvcpath}/include/ /I${VI_SYS} /I"$(KitInc)/um/" /I"$(KitInc)/shared/"
 """
 #{TODO}:
 text_msv_win64 += comhead + """
 attr = /D_DEBUG /D_Win64 /nologo /wd4819 /wd4010 /wd4005
-cplpref=_uvc64_
-cpppref=_uxxvc64_
+cplpref=_uvc_
+cpppref=_uxxvc_
 dest_obj=$(uobjpath)/CVWin64
-TOOLDIR = E:/software/VS22/VC/Tools/MSVC/14.39.33519
-CC = ${TOOLDIR}/bin/Hostx64/x64/cl.exe
+CC = ${msvcpath}/bin/Hostx64/x64/cl.exe
 CX = ${CC}
-AR = ${TOOLDIR}/bin/Hostx64/x64/lib.exe
+AR = ${msvcpath}/bin/Hostx64/x64/lib.exe
 aattr = -fwin64
 dest_abs = $(ubinpath)/libw64d.lib
-VLIB_64=/LIBPATH:"${TOOLDIR}/lib/x64/" /LIBPATH:"${TOOLDIR}/lib/onecore/x64" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/um/x64" /LIBPATH:"C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/ucrt/x64"
-VI_SYS="C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/ucrt/"
-VI_64=${TOOLDIR}/include/ /I${VI_SYS} /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/um/" /I"C:/Program Files (x86)/Windows Kits/10/Include/10.0.19041.0/shared/"
+KitWin=C:/Program Files (x86)/Windows Kits/10
+VLIB_64=/LIBPATH:"${msvcpath}/lib/x64/" /LIBPATH:"${msvcpath}/lib/onecore/x64" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/um/x64" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/ucrt/x64"
+KitInc=$(KitWin)/Include/10.0.19041.0
+VI_SYS="$(KitInc)/ucrt/"
+VI_64=${msvcpath}/include/ /I${VI_SYS} /I"$(KitInc)/um/" /I"$(KitInc)/shared/"
 """
 
 #
@@ -269,28 +274,49 @@ with open('./lib/make/cgmx86.make', 'w+b') as fobj:
 	fobj.write(bytes(text_gcc_mecocoa, encoding = "utf8")) # do not append line-feed
 text_gcc_mecocoa = ""
 
-STM32MP13 = '''
+# ---- # ---- # MCUDEV # ---- # ---- #
+
+STM32F1 = "# UNISYM for GCC-STM32F1 built-" + str(__BuildTime) + '\n'
+STM32MP13 = "# UNISYM for GCC-STM32MP13 built-" + str(__BuildTime) + '\n'
+print(STM32F1, STM32MP13, sep="")
+
+STM32F1   += """IDEN=STM32F1
+FLAG=-I$(uincpath) -D_MCU_$(IDEN)x
+"""
+STM32MP13 += """IDEN=STM32MP13
+FLAG=-I$(uincpath) -D_MPU_$(IDEN)
+"""
+tmp = '''
 PREF=arm-none-eabi-
-FLAG=-I$(uincpath) -D_MCU_STM32MP13
+DEST=$(ubinpath)/lib$(IDEN).a
 AS=$(PREF)as
 CC=$(PREF)gcc -c
 LD=$(PREF)ld
 AR=$(PREF)ar
 NM=$(PREF)nm
-CXX=$(PREF)g++
+CX=$(PREF)g++ -c
 STRIP=$(PREF)strip
 OCOPY=$(PREF)objcopy
 ODUMP=$(PREF)objdump
 RANLIB=$(PREF)ranlib
-OPATH=$(uobjpath)/STM32MP13
+OPATH=$(uobjpath)/$(IDEN)
 
-all: init
-	$(CC) lib/cpp/Device/GPIO.cpp -o $(OPATH)/_g_GPIO.o
+cppfile=$(wildcard lib/cpp/Device/*.cpp) $(wildcard lib/cpp/Device/**/*.cpp)
+cppfile+= lib/cpp/interrupt.cpp lib/cpp/MCU/$(IDEN).cpp
+cppobjs=$(patsubst %cpp, %o, $(cppfile))
 
+all: init $(cppobjs)
+	@echo AR $(DEST) && ${AR} -rcs $(DEST) $(OPATH)/*
 init:
 	-@mkdir $(OPATH)
-
+%.o: %.cpp
+	@echo CX $(<)
+	@$(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"
 '''
+STM32F1   += tmp
+STM32MP13 += tmp
+with open('./lib/make/cortexm3-Gnu-STM32F1.make', 'w+b') as fobj:
+	fobj.write(bytes(STM32F1, encoding = "utf8"))
 with open('./lib/make/cortexa7-Gnu-STM32MP13.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32MP13, encoding = "utf8"))
 STM32MP13 = ""

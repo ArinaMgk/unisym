@@ -47,14 +47,15 @@ typedef const char* rostr;// read-only string
 #endif
 
 #ifndef _INC_CPP
-	#define _CALL_C
+	#define _ESYM_C
 	#define pointer_t(_typ) _typ * 
 	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magice pointer: "pointer(pointer(void)) pp"
 	#define _REGISTER register
 	// no `this`
 #else
-	#define _CALL_C extern "C"
+	#define _ESYM_C extern "C"
+	#define _ESYM_CPP extern "C++"
 extern "C++" {
 	namespace uni {
 		// [TEST] let var float a = 2.0; then Castype(int, a) <=> cast<int>(a)

@@ -35,16 +35,15 @@ int main()
 
 	strcpy(dest_filename, ulibpath);
 	strcat(dest_filename, "/c/auxiliary/toxxxer.c");
-	FILE* dest_file = fopen(dest_filename, "w");
+	FILE* dest_file = fopen(dest_filename, "wb");// use 'b' to make output fixed
 	if (dest_file == NULL) {
 		printf("Error: Cannot open file %s\n", dest_filename);
 		return 1;
 	}
-	fprintf(dest_file, "// ASCII C99 TAB4 CRLF\n");
+	fprintf(dest_file, "// ASCII C99 TAB4 LF\n");
+	fprintf(dest_file, "// Docutitle: Table of toupper and tolower\n");
+	fprintf(dest_file, "// Codifiers: @dosconio\n");
 	fprintf(dest_file, "// Attribute: Origin(toxxxer.make.c)\n");
-	fprintf(dest_file, "// AllAuthor: @dosconio\n");
-	fprintf(dest_file, "// ModuTitle: Table of toupper and tolower\n");
-	fprintf(dest_file, "// LastCheck: RFZ03\n");
 	fprintf(dest_file, "// OpLicense: %s\n", copyright_info);
 	fprintf(dest_file, "\n");
 	// tolower

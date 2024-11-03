@@ -37,7 +37,7 @@
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 namespace uni {
-	extern uint32_t SystemCoreClock;
+	extern stduint SystemCoreClock;
 	extern const uint8_t AHBPrescTable[16];
 	extern const uint8_t APBPrescTable[8];
 }

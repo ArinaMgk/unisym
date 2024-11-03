@@ -2,7 +2,7 @@
 // Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
 // LastCheck: 20241025
 // AllAuthor: @dosconio
-// ModuTitle: MCU ST STM32MP13
+// ModuTitle: MPU ST STM32MP13
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,8 +20,8 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_STM32MP13_X
-#define _INC_MCU_STM32MP13_X
+#ifndef _INC_MPU_STM32MP13_X
+#define _INC_MPU_STM32MP13_X
 #ifndef _MCU_STM32
 #define _MCU_STM32
 #endif

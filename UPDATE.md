@@ -1,17 +1,23 @@
-Enable after 128 and more stars of main repository.
+Last-Commit: 20241031：「 
+2024NOV01 is the real All Sains Day, she commited at the All Sains Eve.
+」
+---
 
-**Stage commit short description** should be a Solar Term or other memorable thing.
+### Unchecked
+
+STM32F4
+- [ ] ADC
+- [ ] TIMC
+
 
 ---
 
-### Since U2024SUMMER
+### Bofore Anniversary 11th
 
 
-### Before 2024
+### Before Anniversary 10th
 
 **Used-name**: Uniform Symbolic System
-
-Anniversary 10th;
 
 A restructure happened on November 16th, 2023, the previous code may be bad for compilers;
 

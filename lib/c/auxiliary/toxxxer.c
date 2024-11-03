@@ -1,8 +1,7 @@
-// ASCII C99 TAB4 CRLF
+// ASCII C99 TAB4 LF
+// Docutitle: Table of toupper and tolower
+// Codifiers: @dosconio
 // Attribute: Origin(toxxxer.make.c)
-// AllAuthor: @dosconio
-// ModuTitle: Table of toupper and tolower
-// LastCheck: RFZ03
 // OpLicense: http://unisym.org/license.html
 
 const unsigned char _tab_tolower[256] = {

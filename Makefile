@@ -20,11 +20,10 @@ ciallo:
 	@echo Welcome to use UNISYM
 
 local:
-	@clear
-	@echo MK Local Data
-	@$(CC) ./lib/local/toxxxer.make.c -o $(uobjpath)/toxxxer.make.exe && cd $(uobjpath)/ && ./toxxxer.make.exe
+	@make --no-print-directory -f ${make_dir}local.make all
 
 list: local# depend [perl python]
+	@clear
 	@perl ./lib/Script/Makefile/makemake.pl
 
 # ---- [naming style generation 2] ----
@@ -40,6 +39,9 @@ cvw64: x64-CV-Win64
 # liblinux ELF
 cgl32: x86-EG-Lin32
 cgl64: x64-EG-Lin64
+# mcudev
+cgstm32f: cortexm3-EG-STM32F1 cortexm4-EG-STM32F4
+cgstm32mp: cortexa7-Gnu-STM32MP13
 
 # ---- [other hosted-environments] ----
 
@@ -71,6 +73,9 @@ magice:
 
 test:
 	@echo Please use METUTOR to make a check or test for any component
+
+boot:
+	@make -f ${make_dir}boot.make --no-print-directory
 
 # ---- ---- ---- ---- [GENE3 STYLE] ---- ---- ---- ----
 # Win and Lin unified by Target Triple Cross-Compiles 
@@ -126,8 +131,11 @@ cortexm0-EG-CW32F030:
 cortexm0-Keil-CW32F030:
 	@echo TODO
 
-cortexm3-EG-STM32F1:
-	@echo TODO
+cortexm3-EG-STM32F1: list
+	-@mkdir -p $(uobjpath)/STM32F1
+	-@rm -f $(uobjpath)/STM32F1/*
+	-@rm -f $(ubinpath)/libSTM32F1.a
+	@make --no-print-directory -f ${make_dir}cortexm3-Gnu-STM32F1.make all
 cortexm3-Keil-STM32F1:
 	@echo TODO
 cortexm4-EG-STM32F4:
@@ -136,7 +144,10 @@ cortexm4-Keil-STM32F4:
 	@echo TODO
 
 cortexa7-Gnu-STM32MP13: list
-	@make -f ${make_dir}cortexa7-Gnu-STM32MP13.make all
+	-@mkdir -p $(uobjpath)/STM32MP13
+	-@rm -f $(uobjpath)/STM32MP13/*
+	-@rm -f $(ubinpath)/libSTM32MP13.a
+	@make --no-print-directory -f ${make_dir}cortexa7-Gnu-STM32MP13.make all
 cortexa7-Keil-STM32MP13:
 	@echo TODO
 

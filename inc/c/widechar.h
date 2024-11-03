@@ -37,7 +37,7 @@ typedef uint32 char_utf32_t;
 
 #if defined(_INC_CPP)
 // wchar_t is a keyword
-_CALL_C{
+_ESYM_C{
 #elif !defined(_INC_DEPEND_STDDEF) // C
 typedef unsigned short int wchar_t;
 #endif

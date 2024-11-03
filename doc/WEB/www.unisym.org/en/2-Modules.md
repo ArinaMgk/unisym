@@ -7,13 +7,6 @@ dg-publish: true
 
 LaTeX GCC ANYM.AS NVCC MSVC DJGPP rustc perl python Obsidian
 
-## Unchecked
-
-F4
-
-[ ] ADC
-[ ] TIMC
-
 ## Component
 
 - Support for DEVK
@@ -30,13 +23,6 @@ F4
 	- IBM PC MACROs for NASM and MSASM
 	- Inline for C/C++
 	- AASM `doing`
-- Target
-	- PC OSDEV Processor
-	- QRS aka Embedded Controller
-		- INTEL 8051: AT89C5x STC89C5x
-		- STM32F1x
-		- STM32F4x
-		- CW32F030
 - Marking and Programming
 	- Hardware Description (suspended)
 	- SCH-PCB of Electronics (suspended)
@@ -47,9 +33,6 @@ F4
 - Auxiliary
 	- Qt `doing`
 	- EasyX (suspended)
-- Data and Collections
-	- Hello World
-	- Instructions for Architectures
 
 ## Modules
 

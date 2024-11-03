@@ -23,7 +23,7 @@
 #ifndef _INC_Pseudo_Random
 #define _INC_Pseudo_Random
 
-_CALL_C int rand(void);
-_CALL_C void srand(unsigned int seed);
+_ESYM_C int rand(void);
+_ESYM_C void srand(unsigned int seed);
 
 #endif

@@ -69,7 +69,7 @@ tmpl(mul)(tmpa a, tmpa b) {
 	return res;
 }
 
-_CALL_C double dblsqrt(double);
+_ESYM_C double dblsqrt(double);
 __temp
 float dflabs(tmpa a) {
 	return dblsqrt(a.real * a.real + a.imag * a.imag);

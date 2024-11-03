@@ -58,6 +58,8 @@ Would better to set these environment variables, if using or building UNISYM:
 - `ulibpath`, points to LIB, optional
 - `ubinpath`, points to BIN, a must for user
 - `uobjpath`, points to OBJ, temporary folder
+- `yanopath`, points to GCC cross-compilers and others
+- `msvcpath`, points to Microsoft Visual C++ SDK
 - `hostarget`, like `_OPT_RISCV64`, define when no target is specified
 
 **Consideration** these if going to modify or using the code:

@@ -152,8 +152,8 @@ namespace uni {
 		 *     { 0 and non-0 . for F1 }
 		 *     { 0(None) 1(Rise) 2(Fall) 3(Both) . for F4 }
 		*/
-		bool setMode(stduint numsof_conv = 0, bool align_left = false, stduint numsof_disc = 0, byte trigger_ext = 0, byte divby = 6);
-
+		bool setMode(stduint numsof_conv = 0, bool align_left = false, stduint numsof_disc = 0, stduint trigger_ext = 0, byte divby = 6);
+		stduint getConfigLastDiscCount();
 		//
 	#if defined(_MCU_STM32F1x)
 		bool isTriggeredBySoftware() { // ADC1_2_3_SWSTART

@@ -39,8 +39,8 @@ find LocateTrait -> {FUTURE} SignedObject_T<idx> which has unwrap() and wrap()
 
 #define cmpf_inhead(para_t,pa,pb) para_t *pa=(para_t*)_a, *pb=(para_t *)_b
 
-//_TODO _CALL_C void qsort(void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
-//      _CALL_C void* bsearch(const void* key, const void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
+//_TODO _ESYM_C void qsort(void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
+//      _ESYM_C void* bsearch(const void* key, const void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
 
 /*E*G*
 cmpfof(cmp) {

@@ -34,8 +34,12 @@ using namespace uni;
 extern "C" {
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	_ESYM_CPP {
+		static void _HandlerIRQ_EXTIx(byte x);
+		static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID);
+	}
 	Handler_t FUNC_EXTI[16] = { 0 };
-	
+	_ESYM_CPP{
 	static void _HandlerIRQ_EXTIx(byte x) {
 		if (uni::EXTI::Pending & (1 << x)) {
 			// GPIO_PIN_x
@@ -43,6 +47,8 @@ extern "C" {
 			uni::EXTI::Pending = (1 << x);
 		}
 	}
+	}
+
 	void EXTI0_IRQHandler(void) { _HandlerIRQ_EXTIx(0); }
 	void EXTI1_IRQHandler(void) { _HandlerIRQ_EXTIx(1); }
 	void EXTI2_IRQHandler(void) { _HandlerIRQ_EXTIx(2); }
@@ -61,7 +67,6 @@ extern "C" {
 	// ---- TIM ----
 	Handler_t FUNC_TIMx[16] = { 0 }; // Period Elapsed Callback
 	//: typ: 0:Basic, 1:CaptureCompare, 2:Update, 3:Break, 4:Trigger, 5:Commutation
-	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID);
 	void TIM2_IRQHandler(void) { _HandlerIRQ_TIMx(0, 2); }
 	void TIM3_IRQHandler(void) { _HandlerIRQ_TIMx(0, 3); }
 	void TIM4_IRQHandler(void) { _HandlerIRQ_TIMx(0, 4); }
@@ -74,7 +79,13 @@ extern "C" {
 #if 0
 	//
 #elif defined(_MCU_STM32F1x)
+	_ESYM_CPP{
+		static void _HandlerIRQ_XART(byte art_id);
+		static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID);
+		static void _HandlerIRQ_DMAChannelx(byte dma_id, byte chanx);
+	}
 	//
+	_ESYM_CPP{
 	static void _HandlerIRQ_XART(byte art_id) {
 		if (!XART.isSync(art_id)) return;//{TEMP}
 		if ((*(USART_t*)XART[art_id])[XARTReg::SR].bitof(5)) { //aka __HAL_UART_GET_FLAG, 5 is USART_SR_RXNE
@@ -82,7 +93,6 @@ extern "C" {
 		}
 		// ... more
 	}
-
 	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {}
 	//{TODEL}
 	static void _HandlerIRQ_TIMx(TIM_t& this_TIM) {
@@ -103,6 +113,9 @@ extern "C" {
 		//{TODO} TIM Trigger detection event
 		//{TODO} TIM commutation event
 	}
+		
+	}
+
 
 	void TIM6_IRQHandler(void) {_HandlerIRQ_TIMx(uni::TIM6);}
 	
@@ -129,6 +142,7 @@ extern "C" {
 
 	void ADC3_IRQHandler(void) { _TODO }
 
+	_ESYM_CPP{
 	static void _HandlerIRQ_DMAChannelx(byte dma_id, byte chanx) {
 		DMA_t& crt = DMA[dma_id];
 		uint32 flag = crt[DMAReg::ISR];// each 4b: M-L[TEIFx HTIFx TCIFx GIFx], same with IFCR
@@ -156,6 +170,8 @@ extern "C" {
 			asserv(crt.XferErrorCallback)();
 			crt[DMAReg::IFCR] = (1U << 0 /*not 3*/ ) << (chanx << 2);// Clear all flags
 		}
+	}
+	    
 	}
 
 	void DMA1_Channel1_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 1); }

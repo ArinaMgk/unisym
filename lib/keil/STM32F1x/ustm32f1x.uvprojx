@@ -315,7 +315,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>4</Optim>
+            <Optim>1</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -464,6 +464,11 @@
               <FileName>RCC-Oscillator.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\RCC\RCC-Oscillator.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>GPIO-setMode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
             </File>
           </Files>
         </Group>

@@ -23,9 +23,12 @@
 #include "../../../../inc/cpp/Device/EXTI"
 #include "../../../../inc/cpp/Device/TIM"
 #include "../../../../inc/cpp/Device/ADC"
+#include "../../../../inc/c/driver/ADConverter/Register-ADC.h"
 #include "../../../../inc/cpp/Device/UART"
 
 using namespace uni;
+
+//{TODO} Software State Fields in the class
 
 // SysTick_Handler in SysTick.cpp
 
@@ -268,8 +271,43 @@ extern "C" {
 		else _TEMP return;
 	}
 
+	static bool ADC_IRQHandler_sub(ADC_t& sel) {
+		static bool busy;
+		using namespace ADCReg;
+		if (busy) return false; else busy = true;
+		bool flg1, flg2;
+		flg1 = sel[SR].bitof(1);// EOC
+		flg2 = sel[CR1].bitof(5);// EOCIE
+		if (flg1 && flg2) {
+			// > Determine whether any further conversion upcoming on group regular by external trigger, continuous mode or scan sequence on going.  
+			// > Note: On STM32F4, there is no independent flag of end of sequence.The test of scan sequence on going is done either with scan sequence disabled or with end of conversion flag set to of end of sequence.
+			// > Disable ADC end of single conversion interrupt on group regular Note: Overrun interrupt was enabled with EOC interrupt in HAL_ADC_Start_IT(), but is not disabled here because can be used by overrun IRQ process below.
+			bool SOFTWARE_START_INJECTED = sel[CR2].mask(20, 2);// JEXTEN
+			bool ContiConvMode = sel[CR2].bitof(_ADC_CR2_POS_CONT);
+			if (!SOFTWARE_START_INJECTED && !ContiConvMode&&
+				!sel[SQR1].mask(20, 4)/*L*/ && !sel[CR2].bitof(10)/*EOCS*/) {
+				sel[CR1].setof(5, false);// EOCIE
+			}
+			asserv(FUNC_ADCx[sel.getID()])();// Conversion complete callback
+			//{}sel[SR] &= ~_IMM(0x2);// Clear EOC flags
+			//sel[SR] &= ~_IMM(0x12);// Clear EOC and STRT flags
+			sel[SR] &= ~_IMM(0x10);// Clear STRT flags
+
+			//_TEMP sel[CR1].setof(1, false);
+			//_TEMP sel[CR1].setof(5, false);
+			busy = false;
+			return true;
+		}
+		//{TODO} MORE
+		busy = false;
+		return false;
+	}
 	void ADC_IRQHandler(void) {
-		
+		//_TEMP NVIC.setAble(IRQ_ADC, false);
+		if (ADC_IRQHandler_sub(ADC1)) return;
+		if (ADC_IRQHandler_sub(ADC2)) return;
+		if (ADC_IRQHandler_sub(ADC3)) return;
+		//_TEMP NVIC.setAble(IRQ_ADC, true);
 	}
 
 	

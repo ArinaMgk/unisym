@@ -235,10 +235,13 @@ namespace uni {
 	#endif// _MCU_STM32F1x
 
 	struct GeneralPurposeInputOutput {
+		#ifndef _MCU_MSP432P4
 		GeneralPurposeInputOutputPort ERR;
 		GeneralPurposeInputOutput() : ERR(_IMMNOT, _IMMNOT, _IMMNOT) { }
-		GeneralPurposeInputOutputPort& operator[](char portid);
 		stduint Index(GeneralPurposeInputOutputPort* port);
+		#endif
+		
+		GeneralPurposeInputOutputPort& operator[](byte portid);
 	};
 	extern GeneralPurposeInputOutput GPIO;
 

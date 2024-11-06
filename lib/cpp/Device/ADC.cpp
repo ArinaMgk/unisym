@@ -178,18 +178,65 @@ namespace uni {
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 	};
 	
-	bool ADC_t::setChannel(GPIO_Pin& pin) {
+	bool ADC_t::setChannel(GPIO_Pin& pin, byte rank, ADCSample::ADCSample sample) {
+		using namespace ADCReg;
+		if (rank >= 16) return false;
 		byte chan = getChannelNumber(pin);
 		if (chan == 0xFF) return false;
 		pin.setMode(GPIOMode::IN_Analog);
-		
-
-
-
+		const ADCRegType smpr = chan > 9 ? SMPR1 : SMPR2;
+		self[smpr].maset(3 * (chan % 10), 3, _IMM(sample));// 9 and 10
+		const ADCRegType sqr = ADCRegType(_IMM(SQR3) - rank / 6);
+		self[sqr].maset(5 * (rank % 6), 5, rank);
+		//: CASE ADC1 Channel_18 is selected for VBAT Channel ennable VBATE
+		if (getID() == 1 && chan == 18/*VBAT*/) {
+			// Because here is GPIO input, no this case.
+			// Disable the TEMPSENSOR channel in case of using board with multiplixed ADC_CHANNEL_VBAT & ADC_CHANNEL_TEMPSENSOR
+			//{TODO} if ((uint16_t)ADC_CHANNEL_TEMPSENSOR == (uint16_t)ADC_CHANNEL_VBAT)
+			if (0) ADC[CCR] = ADC[CCR];
+		}
+		//: If ADC1 Channel_16 or Channel_18 is selected for Temperature sensor or  Channel_17 is selected for VREFINT enable TSVREFE
+		if (getID() == 1 && false /*((sConfig->Channel == ADC_CHANNEL_TEMPSENSOR) || (sConfig->Channel == ADC_CHANNEL_VREFINT))*/) {
+			//{TODO}
+		}
 		return true;
 	}
 
-	void ADC_t::enInterrupt(bool enable) {} // TODO
+	static void func_sub_1(ADC_t& sel) {
+		using namespace ADCReg;
+		//{TEMP} assume ADC2 ADC3 both exist
+		//: If no ADC2&3, do not judge the if :
+		if (1 == sel.getID() ||
+			(2 == sel.getID() && ((ADC[CCR] & 0x0000001F) < 0x01)) ||
+			(3 == sel.getID() && ((ADC[CCR] & 0x0000001F) < 0x10)))
+		{
+			// if no external trigger present enable software conversion of regular channels
+			if (!(sel[CR2] & 0x30000000))// ADC_CR2_EXTEN
+				sel[CR2] |= 0x40000000;// ADC_CR2_SWSTART
+		}
+	}
+	void ADC_t::enInterrupt(bool enable) {
+		using namespace ADCReg;
+		if (enable) {
+			if (!self[CR2].bitof(0)) { // ADON
+				self[CR2].setof(0);
+				for0(i, 3 * SystemCoreClock / 1000000U) {}
+				while (!self[CR2].bitof(0));
+			}
+			
+			// Clear regular group conversion flag and overrun flag To ensure of no unknown state from potential previous ADC operations
+			self[SR] &= ~_IMM(0x22);// Clear EOC and OVR flags
+			self[CR1].setof(5);// EOCIE
+			self[CR1].setof(26);// OVRIE
+			if (ADC[CCR] & 0x0000001F) { // ADC_CCR_MULTI
+				// ADC1 and  no external trigger present enable software conversion of regular channels
+				if (getID() == 1 && !(self[CR2] & 0x30000000))// ADC_CR2_EXTEN
+					self[CR2] |= 0x40000000;// ADC_CR2_SWSTART
+			}
+			else func_sub_1(self);
+			NVIC.setAble(ADCx_Request_list[self.ADC_ID]);
+		}
+	}
 
 #endif
 
@@ -301,6 +348,19 @@ namespace uni {
 		Letvar(blk_cr1, volatile BLK_CR1*, &self[CR1]); {
 			return blk_cr1->DISCNUM + 1;//{?} whether should plus 1
 		}
+	}
+
+	//
+
+	//{TODO} unioned with other virtuals into single byte
+	ADC_t& ADC_Global::operator[](byte id) {
+		extern ADC_t ADCr;
+		const static ADC_t* ADC_LST[] = {
+			&ADC1,&ADC2,&ADC3
+		};
+		if (!Ranglin(id, 1, numsof(ADC_LST)))
+			return ADCr;
+		return *(ADC_t*)ADC_LST[id - 1];
 	}
 
 #endif	

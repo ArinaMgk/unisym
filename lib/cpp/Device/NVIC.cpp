@@ -68,7 +68,8 @@ namespace uni {
 			this->map->ISER[req_no >> 5UL] |= ((uint32_t)1 << (req_no & 0x1FUL));
 		}
 		else {
-			this->map->ISER[req_no >> 5UL] &= ~((uint32_t)1 << (req_no & 0x1FUL));
+			this->map->ICER[req_no >> 5UL] |= ((uint32_t)1 << (req_no & 0x1FUL));
+			//{MORE TODO}
 		}
 	}
 }

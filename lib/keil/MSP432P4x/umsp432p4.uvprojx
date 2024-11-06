@@ -338,7 +338,7 @@
             <v6WtE>0</v6WtE>
             <v6Rtti>0</v6Rtti>
             <VariousControls>
-              <MiscControls>-Wno-old-style-cast -Wno-keyword-macro -Wno-c++98-compat -Wno-padded -Wno-global-constructors -Wno-exit-time-destructors</MiscControls>
+              <MiscControls>-Wno-covered-switch-default -Wno-old-style-cast -Wno-keyword-macro -Wno-c++98-compat -Wno-padded -Wno-global-constructors -Wno-exit-time-destructors</MiscControls>
               <Define>_MCU_MSP432P4</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
@@ -404,6 +404,11 @@
               <FileName>MSP432P4.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\MCU\MSP432P4.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>GPIO-setMode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
             </File>
           </Files>
         </Group>

@@ -338,7 +338,7 @@
             <v6WtE>0</v6WtE>
             <v6Rtti>0</v6Rtti>
             <VariousControls>
-              <MiscControls>-Wno-old-style-cast -Wno-keyword-macro -Wno-c++98-compat -Wno-padded -Wno-global-constructors -Wno-exit-time-destructors</MiscControls>
+              <MiscControls>-Wno-weak-vtables -Wno-old-style-cast -Wno-keyword-macro -Wno-c++98-compat -Wno-padded -Wno-global-constructors -Wno-exit-time-destructors</MiscControls>
               <Define>_MCU_CW32F030</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
@@ -459,6 +459,16 @@
               <FileName>CW32F030.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\MCU\CW32F030.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>GPIO-setMode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>RCC-Oscillator.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\RCC-Oscillator.cpp</FilePath>
             </File>
           </Files>
         </Group>

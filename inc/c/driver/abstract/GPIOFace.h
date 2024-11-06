@@ -1,7 +1,8 @@
-// ASCII C++-11 TAB4 CRLF
-// LastCheck: 20241007
-// AllAuthor: @dosconio
-// ModuTitle: (MCU) Texas Instruments MSP432P4x
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Hardware Abstract Interface) Port 
+// Codifiers: @dosconio: 20240906 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,26 +20,9 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/stdinc.h"
-#ifdef _MCU_MSP432P4
-
-#define _OPT_PCU_CortexM4F
-#include "../../../inc/c/prochip/CortexM4.h"
-#include "../../../inc/cpp/MCU/TI/MSP432P4"
-
-extern "C" void SystemInit(void);
-
-extern "C" char _IDN_BOARD[16];
-char _IDN_BOARD[16] = "xx";// e.g. "01R" for MSP-EXP432P401R
-
-void SystemInit(void) {
-	_TODO
-}
+#ifndef _INC_Interface_GPIO
+#define _INC_Interface_GPIO
 
 
-namespace uni {
-
-
-}
 
 #endif

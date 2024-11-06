@@ -11,29 +11,22 @@
 #include "../c/stdinc.h"
 
 namespace uni {
-	
-	class Reference {
-		volatile typedest* address;
+
+	template <typename typeDest> class Reference_T {
+	protected:
+		volatile typeDest* address;
 	public:
-		Reference(typeaddr _address = 0) : address((volatile typedest*)_address) {
-			
-		}
-		Reference(pureptr_t _address) : address((volatile typedest*)_address) {}
-		
-		operator typedest() const { return *address; }
-		volatile typedest* operator&() const { return address; }
-		
-		Reference& operator=(typedest val)  { *(volatile typedest*)address = val; return *this; }
-		Reference& operator&=(typedest val) { *(volatile typedest*)address &= val; return *this; }
-		Reference& operator|=(typedest val) { *(volatile typedest*)address |= val; return *this; }
-		Reference& operator^=(typedest val) { *(volatile typedest*)address ^= val; return *this; }
-		// Binary Digit Of
-		bool bitof(stduint idx) const { return *address & (1 << idx); }
-		//
-		void setof(stduint idx, bool val = true) { if (val) *(volatile typedest*)address |= (1 << idx); else rstof(idx); }
-		//
-		void rstof(stduint idx) { *(volatile typedest*)address &= ~(typedest)(1 << idx); }
-		
+		Reference_T(typeaddr _address = 0) : address((volatile typeDest*)_address) {}
+		Reference_T(pureptr_t _address) : address((volatile typeDest*)_address) {}
+		operator typeDest() const { return *address; }
+		volatile typeDest* operator&() const { return address; }
+		Reference_T& operator= (typeDest val) { *address  = val; return self; }
+		Reference_T& operator&=(typeDest val) { *address &= val; return self; }
+		Reference_T& operator|=(typeDest val) { *address |= val; return self; }
+		Reference_T& operator^=(typeDest val) { *address ^= val; return self; }
+		inline bool bitof(stduint idx) const { return *address & _IMM1S(idx); }
+		inline void setof(stduint idx, bool val = true) { if (val) *address |= _IMM1S(idx); else rstof(idx); }
+		inline void rstof(stduint idx) { *address &= ~_IMM1S(idx); }
 		// Read with Mask
 		stduint mask(stduint bitposi, stduint bitslen) {
 			// e.g. mask(3,2): L_MASK{0b11} aka 
@@ -50,8 +43,9 @@ namespace uni {
 			tmp |= (val & L_MASK) << bitposi;
 			return *address = tmp;
 		}
-
 	};
+	
+	typedef Reference_T<typedest> Reference;
 }
 
 #endif

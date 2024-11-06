@@ -110,12 +110,7 @@ namespace uni {
 		void setAble(Request_t req, bool ena = true) {
 			const stduint req_no = _IMM(req);
 			if (!req_no) return;
-			if (ena) {
-				Reflect(NVICReg::ISER, req_no >> 5UL) |= ((uint32_t)1 << (req_no & 0x1FUL));
-			}
-			else {
-				Reflect(NVICReg::ISER, req_no >> 5UL) &= ~((uint32_t)1 << (req_no & 0x1FUL));
-			}
+			Reflect(ena ? NVICReg::ISER : NVICReg::ICER, req_no >> 5UL) |= ((uint32_t)1 << (req_no & 0x1FUL));
 		}
 
 	};

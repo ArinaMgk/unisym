@@ -25,6 +25,8 @@
 #if defined(_INC_Device_ADC) && !defined(_INC_Device_ADC_ONCE)
 #define _INC_Device_ADC_ONCE
 #include "../../stdinc.h"
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 // CR2
 #define _ADC_CR2_POS_ADON   0
 #define _ADC_CR2_POS_CONT   1
@@ -32,8 +34,6 @@
 #define _ADC_CR2_POS_ALIGN  11
 
 #define _ADC_SQR1_POS_L     20 // len 4b
-
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 // C++ only
 namespace uni {
 	namespace ADCReg {

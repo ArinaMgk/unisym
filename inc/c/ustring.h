@@ -259,13 +259,20 @@ static inline char* StrAppendChars(char* dest, char chr, size_t n)
 #ifdef _INC_USTRING_INLINE
 static inline int MemCompare(const char* a, const char* b, size_t n)
 {
-	_REGISTER char tmp = 0;
-	while (n && !(tmp = (*a - *b))) n--;
-	return (int)tmp;
+	_REGISTER int tmp = 0;
+	while (n && !(tmp = (*a++ - *b++))) n--;
+	return tmp;
 }
 #else
-#define MemCompare memcpy ///{TODO}
+#define MemCompare memcmp ///{TODO}
 #endif
+
+static inline int MemCompareInsensitive(const char* a, const char* b, size_t n)
+{
+	_REGISTER int tmp = 0;
+	while (n && !(tmp = (int)(ascii_tolower(*a++) - ascii_tolower(*b++)))) n--;
+	return tmp;
+}
 
 #ifdef _INC_USTRING_INLINE
 static inline int StrCompare(const char* a, const char* b)

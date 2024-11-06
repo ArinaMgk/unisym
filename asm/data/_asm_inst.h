@@ -1600,4 +1600,4 @@ enum _asm_opcode {
 #define _AASM_INST_MAX_INSLEN 16
 #define _AASM_INST_FIRST_COND_OPCODE I_CMOVcc //{ISSUE} should we mix them together ?
 
-#endif /* NASM_INSNSI_H */
+#endif

@@ -281,12 +281,13 @@ STM32MP13 = "# UNISYM for GCC-STM32MP13 built-" + str(__BuildTime) + '\n'
 print(STM32F1, STM32MP13, sep="")
 
 STM32F1   += """IDEN=STM32F1
-FLAG=-I$(uincpath) -D_MCU_$(IDEN)x
+FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m3 -mthumb $(FPU) $(FLOAT-ABI)
 """
 STM32MP13 += """IDEN=STM32MP13
 FLAG=-I$(uincpath) -D_MPU_$(IDEN)
 """
 tmp = '''
+FLAG+=-fdata-sections -ffunction-sections
 PREF=arm-none-eabi-
 DEST=$(ubinpath)/lib$(IDEN).a
 AS=$(PREF)as
@@ -308,7 +309,7 @@ cppobjs=$(patsubst %cpp, %o, $(cppfile))
 all: init $(cppobjs)
 	@echo AR $(DEST) && ${AR} -rcs $(DEST) $(OPATH)/*
 init:
-	-@mkdir $(OPATH)
+	-@test -d $(OPATH) || mkdir -p $(OPATH)
 %.o: %.cpp
 	@echo CX $(<)
 	@$(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"

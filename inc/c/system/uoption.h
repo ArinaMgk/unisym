@@ -35,6 +35,11 @@
 	#ifndef __BITS__
 	#define __BITS__ 32
 	#endif
+#elif defined(_MCU_MSP432P4)
+	#define _MCU_MSP432
+	#ifndef __BITS__
+	#define __BITS__ 32
+	#endif
 
 #endif
 
@@ -46,6 +51,9 @@
 #define _SUPPORT_GPIO
 #endif
 #if defined(_MCU_CW32)
+#define _SUPPORT_GPIO
+#endif
+#if defined(_MCU_MSP432)
 #define _SUPPORT_GPIO
 #endif
 

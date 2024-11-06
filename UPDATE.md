@@ -1,13 +1,18 @@
-Last-Commit: 20241031：「 
-2024NOV01 is the real All Sains Day, she commited at the All Sains Eve.
+Last-Commit: 20241104：「 
+
+」
+This-Commit: 「
+- import Reference_T and change Reference (unchk)
+- have not done WDog and Sysfile for MCU MSP-P4, just finish partial GPIO and checked pass
 」
 ---
 
-### Unchecked
+### Unchecked and Checked-but-Issued
 
 STM32F4
 - [ ] ADC
 - [ ] TIMC
+- [ ] Flash by STM32FLASH in Ubuntu, waste half day.
 
 
 ---

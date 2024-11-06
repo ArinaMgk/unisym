@@ -40,18 +40,6 @@ namespace uni {
 	#undef ADC3
 	extern ADC_t ADC1, ADC2, ADC3;
 
-	static struct {
-		ADC_t& operator[](byte id) {
-			extern ADC_t ADCr;
-			const static ADC_t* ADC_LST[] = {
-				&ADC1,&ADC2,&ADC3
-			};
-			if (!Ranglin(id, 1, numsof(ADC_LST)))
-				return ADCr;
-			return *(ADC_t*)ADC_LST[id - 1];
-		}
-	} ADC;// union with others to save .(ro)data
-
 	namespace ADCReg {
 		typedef enum {
 			SR = 0, CR1, CR2, SMPR1,
@@ -106,6 +94,19 @@ namespace uni {
 			CSR, CCR, CDR
 		} ADCComType;
 	}
+
+	namespace ADCSample {
+		enum ADCSample {
+			CYCL_3 = 0,// 3 cycles
+			CYCL_15,// 15 cycles
+			CYCL_28,// 28 cycles
+			CYCL_56,// 56 cycles
+			CYCL_84,// 84 cycles
+			CYCL_112,// 112 cycles
+			CYCL_144,// 144 cycles
+			CYCL_480,// 480 cycles
+		};
+	}
 	
 #endif
 
@@ -115,10 +116,10 @@ namespace uni {
 	protected:
 		byte ADC_ID;
 		pureptr_t bind;
-		// return 0xFF for invalid channel for the pin
+		// return 0..19 normally, 0xFF for invalid channel for the pin
 		byte getChannelNumber(GPIO_Pin& pin);
-		_COM_DEF_Interrupt_Interface();
 	public:
+		_COM_DEF_Interrupt_Interface();
 		ADC_t(byte _ADC_ID) : ADC_ID(_ADC_ID) { bind = 0; }
 		stduint getBaseAddr();
 		byte getID() { return ADC_ID; }
@@ -154,38 +155,49 @@ namespace uni {
 		*/
 		bool setMode(stduint numsof_conv = 0, bool align_left = false, stduint numsof_disc = 0, stduint trigger_ext = 0, byte divby = 6);
 		stduint getConfigLastDiscCount();
-		//
-	#if defined(_MCU_STM32F1x)
-		bool isTriggeredBySoftware() { // ADC1_2_3_SWSTART
-			return (self[ADCReg::CR2] & (0x7 << _ADC_CR2_POS_EXTSEL)) == ((stduint)0x7 << _ADC_CR2_POS_EXTSEL);// 0x000E0000
-		}
-
-
 		// may setMode of GPIO
-		bool setChannel(GPIO_Pin& pin, byte rank = 0/*0..16*/, ADCSample::ADCSample sample = ADCSample::HALF_111);
-		// bool setChannel(MORE...)
-
-		//{TODO} combinate this and enInterrupt into setMode or enAble
-		bool enDMA(pureptr_t addr, stduint leng);
-
+		/*
+		 * rank in range 0..16
+		*/
+		bool setChannel(GPIO_Pin& pin, byte rank = 0, ADCSample::ADCSample sample
+		#if defined(_MCU_STM32F1x)
+			= ADCSample::HALF_111
+		#elif defined(_MCU_STM32F4x)
+			= ADCSample::CYCL_144
+		#endif
+		);
 		// Get Value
 		ADC_t& operator>> (uint32_t& val) {
 			using namespace ADCReg;
 			val = self[DR];
 			return self;
 		}
+		//
+	#if defined(_MCU_STM32F1x)
+		bool isTriggeredBySoftware() { // ADC1_2_3_SWSTART
+			using namespace ADCReg;
+			return (self[CR2] & (0x7 << _ADC_CR2_POS_EXTSEL)) == ((stduint)0x7 << _ADC_CR2_POS_EXTSEL);// 0x000E0000
+		}
+		//{TODO} combinate this and enInterrupt into setMode or enAble
+		bool enDMA(pureptr_t addr, stduint leng);
+
 
 		bool setDMA(bool periph_inc = false, bool memory_inc = false, stduint periph_align = 2 /*byte*/, stduint memory_align = 2 /*byte*/, bool circular_mode = true, byte priority = 1);
 	#else //{TEMP}
 		
-	
-		//
-		bool setChannel(GPIO_Pin& pin);
 	#endif
 
 	};
 
-	
+	static struct ADC_Global {
+		ADC_t& operator[](byte id);
+		#ifdef _MCU_STM32F4x
+		inline Reference operator[](ADCReg::ADCComType idx) {
+			return ADC_t::Reflect(idx);
+		}
+		#endif
+	} ADC;// union with others to save .(ro)data
+
 #endif
 }
 

@@ -29,7 +29,7 @@
 #include "dnode.h"
 #include "ustring.h"
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 #include "../cpp/trait/ArrayTrait.hpp"
 #include "../cpp/trait/IterateTrait.hpp"
 #include "algorithm/sort.h"
@@ -66,7 +66,7 @@ typedef struct Nnode
 		return isEldest() ? nullptr : left;
 	}
 
-	byte* GetExtnField() { return getExfield(*this); }
+	byte* GetExtnField() { return getExfield(self); }
 	TnodeField* GetTnodeField() { return (TnodeField*)GetExtnField(); }
 
 	Nnode* ReheapString(const char* str) {
@@ -102,7 +102,7 @@ void NnodesRelease(nnode* nod, _tofree_ft freefunc);
 
 void NnodeHeapFreeSimple(pureptr_t inp);
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 } // C++ Area
 
 //{TODO} nchn[1][1] <=> root_node->next->subf->next

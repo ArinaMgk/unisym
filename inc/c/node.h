@@ -35,12 +35,12 @@
 #include "algorithm/sort.h"
 #include "algorithm/search.h"
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 #include "../cpp/trait/ArrayTrait.hpp"
 #include "../cpp/trait/IterateTrait.hpp"
 namespace uni {
 extern "C" {
-#else	
+#else
 #include "ustdbool.h"
 #include "../c/trait/ArrayTrait.h"
 #endif
@@ -54,7 +54,7 @@ typedef struct Node {
 		pureptr_t offs;
 	};
 #ifdef _INC_CPP
-	byte* GetExtnField() { return getExfield(*this); }
+	byte* GetExtnField() { return getExfield(self); }
 	Node* ReheapString(const char* str);
 #endif
 } Node; // measures stdint[2]
@@ -85,7 +85,7 @@ typedef struct NodeChain_t {
 	_tocomp_ft func_comp;
 } chain_t;
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 } // C++ Area
 class Chain : public ArrayTrait, public IterateTrait {
 protected:
@@ -116,7 +116,7 @@ public:
 	//
 	//[protected] virtual stduint   Length() const;
 	stduint Count() { return Length(); }
-	// 
+	//
 	virtual bool Insert(stduint idx, pureptr_t dat);
 	toheap Node* Append(const char* addr);
 	// Priority: {nod > order > default_ends}
@@ -155,13 +155,13 @@ public:
 	// Sorted
 	Chain& Sorted(_tocomp_ft Cmp_f = 0) {
 		if (Cmp_f) this->Compare_f = Cmp_f;
-		Sort(*this);
+		Sort(self);
 		state.been_sorted = true;
 		return *this;
 	}
 
 	void SortByInsertion();
-	
+
 };
 
 using NodeChain = Chain;
@@ -189,7 +189,7 @@ inline static void NodeChainAdapt(chain_t* chn, Node* root, Node* last, stdint c
 	//[Fast Table except root/last node]
 	// assume 35 items, consider 33 items, 33 / 2 + 1 = 17;
 	// assume 3 items ... <=> 3 / 2 = 1;
-	if (chn->  node_count < 2 + 1) // root, last, and 
+	if (chn->  node_count < 2 + 1) // root, last, and
 		chn->  fastab.midl_node = 0;
 	else
 		chn->fastab.midl_node = ChainLocateNode(chn, chn->node_count >> 1);

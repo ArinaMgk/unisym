@@ -1,0 +1,85 @@
+\begin{document}\begin{sloppypar}
+\author{dosconio}
+\begin{center}
+	% rgb(255, 97, 157)
+	\sc\fontsize{48pt}{0}\selectfont\textcolor[rgb]{1, 0, 0.618}{Herepics}
+\end{center}
+\ifdetail{}
+{\hfill\sc\fontsize{24pt}{0}\selectfont\textcolor[rgb]{1, 0, 0.618}{Volume 0}}
+\else
+{\hfill\sc\fontsize{24pt}{0}\selectfont\textcolor[rgb]{1, 0, 0.618}{Volume 0} Partial}
+% exclude some prove and other detail.
+\fi
+
+{\hfill\sc\fontsize{24pt}{0}\selectfont\textcolor[rgb]{1, 0, 0.618}{BuiltY\number\year{} M\number\month{} D\number\day{}}}
+
+\newpage % Indexes from even page
+% Indexes
+\renewcommand{\contentsname}{Contents}
+\tableofcontents
+
+\section{Foreword} % section 0.1
+
+All content\cite{HEREPIC} are edited by hands but Artificial Intelligence.
+
+The Elegant and Cultured EPIC is a maid for entropy and its ultimate malice.
+
+There are 3 special chapters in this volume: USL, YAS and SKR.
+
+now contributing authors:
+
+\textbf{Doshou Ayano Haruno}: \It{I am sorry that I may bring you some wrong or outdated information, in potentially bad English.}
+$dosconyo@gmail.com$
+
+Before reading the manual, please master the basics of below items:
+\begin{itemize}
+	\item Theory and Using of Computer and usual softwares 
+	\item 8086 assembly
+	\item ISO/IEC Standard C
+	\item Mathematics, Physics and languages
+\end{itemize}
+
+\section{Prologue} % General
+
+% TO-USE
+% use \setcounter if a block is divided into multi-PDFs.
+
+\input{COS/chapter/chaptitle-01.tex}
+	\input{ASM/xx-ASMACH.tex}
+\input{COS/chapter/chaptitle-02.tex}
+	More to see volume 01.
+\input{COS/chapter/chaptitle-03.tex}
+	\input{CAM/xx-CAMPAN.tex}
+\input{COS/chapter/chaptitle-04.tex}
+	\input{CLV/xx-CLOVER.tex}
+\input{COS/chapter/chaptitle-05.tex}
+	\input{COS/xx-COSMOS.tex}
+\input{COS/chapter/chaptitle-06.tex}
+	\input{CTB/xx-COTOBA.tex}
+\input{COS/chapter/chaptitle-07.tex}
+	\input{FZK/xx-FIZIKS.tex}
+\input{COS/chapter/chaptitle-08.tex}
+	\input{HLP/xx-APPLYS.tex}
+\input{COS/chapter/chaptitle-09.tex}
+	\input{OSD/xx-OSDEVL.tex}
+\input{COS/chapter/chaptitle-10.tex}
+	\input{OXA/xx-OXALIC.tex}
+\input{COS/chapter/chaptitle-11.tex}
+	\input{QRS/xx-QANRUS.tex}
+\input{COS/chapter/chaptitle-12.tex}
+	\input{RSM/xx-ROSAMA.tex}
+\input{COS/chapter/chaptitle-13.tex}
+	\input{SKR/xx-SAKURA.tex}
+\input{COS/chapter/chaptitle-14.tex}
+	\subimport{USL}{xx-UNISYM}
+\input{COS/chapter/chaptitle-15.tex}
+	\input{WEB/xx-SECNET.tex}
+\input{COS/chapter/chaptitle-16.tex}
+	\input{YAS/xx-YASMIN.tex}
+
+\newpage
+\bibliographystyle{ieeetr}
+\nocite{*}
+\bibliography{COS/sources}
+END\!
+\end{sloppypar}\end{document}

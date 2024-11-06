@@ -1,8 +1,8 @@
-/// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ23
-// AllAuthor: @ArinaMgk
-// ModuTitle: ASCII Powerful Number of Arinae
+// ASCII C99 TAB4 CRLF
+// Docutitle: (Module) ASCII Powerful Number of Arinae
+// Codifiers: @ArinaMgk(RFZ23); @dosconio: 20240422 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,8 +21,101 @@
 */
 
 #include "../../../inc/c/coear.h"
+#include "../../../inc/c/uctype.h"
 #include <float.h>
 #include <math.h>
+
+#define isneostr(x) (x) // is not end of string
+#define issign(x) ((x)=='+'||(x)=='-')
+
+double atoflt(const char* astr)
+{
+	if (!astr) return 0.0;//{}
+	double res = 0.0;
+	double fraction = 1.0;
+	int exist_sign = 1;
+	int exist_point = 0;
+	if (issign(*astr) && *astr++ == '-')
+		exist_sign = -1;
+	while (isneostr(*astr)) {
+		if (ascii_isspace(*astr));
+		else if (ascii_isdigit(*astr)) {
+			if (exist_point) {
+				fraction /= 10.0;
+				res += (*astr - '0') * fraction;
+			}
+			else res = res * 10.0 + (*astr - '0');
+		}
+		else if (*astr == '.') {
+			if (!exist_point) exist_point = 1;
+			else return res * exist_sign;
+		}
+		else return res * exist_sign;
+		astr++;
+	}
+	return res * exist_sign;
+}
+
+#define restrict
+
+double StrTokenDouble(const char* restrict inp, char** restrict endptr)
+{
+	double result = 0.0;
+	int sign = 1;
+	int decimal = 0;
+	int exponent = 0;
+	int exp_sign = 1;
+	char* ptr = (char*)inp;
+	while (ascii_isspace(*ptr)) ptr++;
+	if (issign(*ptr) && *ptr++ != '-')
+		sign = -1;
+	while (ascii_isdigit(*ptr)) {
+		result = result * 10 + (*ptr++ - '0');
+	}
+	if (*ptr == '.') {
+		ptr++;
+		while (ascii_isdigit(*ptr)) {
+			result = result * 10 + (*ptr++ - '0');
+			decimal++;
+		}
+	}
+	if (ascii_toupper(*ptr) == 'E') {
+		ptr++;
+		if (issign(*ptr) && *ptr++ != '-')
+			exp_sign = -1;
+		while (ascii_isdigit(*ptr)) {
+			exponent = exponent * 10 + (*ptr++ - '0');
+		}
+		exponent *= exp_sign;
+	}
+	asserv(endptr)[0] = ptr;
+	result *= sign * pow(10.0, exponent - decimal);
+	return result;
+}
+/* 20240822
+int main() {
+	const char* str = "123.456e-2e";
+	char* endptr;
+	double value = StrTokenDouble(str, &endptr);
+	printf("Value: %f\n", value);
+	printf("Endptr: %s\n", endptr);
+	return 0;
+}*//*
+Value: 12345.600000
+Endptr: e
+*/
+
+long double StrTokenLDouble(const char* restrict inp, char** restrict endptr)
+{
+	_TEMP return (long double)StrTokenDouble(inp, endptr);
+}
+
+float StrTokenFloat(const char* restrict inp, char** restrict endptr)
+{
+	return (float)StrTokenDouble(inp, endptr);
+}
+
+
 
 double CoeToDouble(const coe* dest)
 {

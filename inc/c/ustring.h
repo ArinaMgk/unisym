@@ -1,7 +1,7 @@
 // ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant
 // LastCheck: RFZ18
-// AllAuthor: @dosconio
+// AllAuthor: @ArinaMgk; @dosconio
 // ModuTitle: Operations for ASCIZ Character-based String
 /*
 	Copyright 2023 ArinaMgk
@@ -178,14 +178,15 @@ static inline char* StrCopy(char* dest, const char* sors)
 #endif
 
 #ifdef _INC_USTRING_INLINE
-static inline void* MemSet(void* s, int c, size_t n)
+static inline void* MemSet(void* d, int c, size_t n)
 {
-	while (n) ((char*)s)[--n] = (char)c;
-	return s;
+	while (n) ((char*)d)[--n] = (char)c;
+	return d;
 }
 #else
-void* MemSet(void* s, int c, size_t n);
+void* MemSet(void* d, int c, size_t n);
 #endif
+#define MetSetof(arr,c) MemSet(arr,c,sizeof(arr))
 
 // RFB31 changed from `static inline char* MemCopyN(char* dest, const char* sors, size_t n)`
 #ifdef _INC_USTRING_INLINE
@@ -198,6 +199,7 @@ static inline void* MemCopyN(void* dest, const void* sors, size_t n)
 #else
 #define MemCopyN memcpy ///{TODO}
 #endif
+#define MemCopySrc(dest,sors) MemCopyN(dest,sors,sizeof(*sors))
 
 // n excludes terminating-0
 #ifdef _INC_USTRING_INLINE
@@ -257,13 +259,20 @@ static inline char* StrAppendChars(char* dest, char chr, size_t n)
 #ifdef _INC_USTRING_INLINE
 static inline int MemCompare(const char* a, const char* b, size_t n)
 {
-	_REGISTER char tmp = 0;
-	while (n && !(tmp = (*a - *b))) n--;
-	return (int)tmp;
+	_REGISTER int tmp = 0;
+	while (n && !(tmp = (*a++ - *b++))) n--;
+	return tmp;
 }
 #else
-#define MemCompare memcpy ///{TODO}
+#define MemCompare memcmp ///{TODO}
 #endif
+
+static inline int MemCompareInsensitive(const char* a, const char* b, size_t n)
+{
+	_REGISTER int tmp = 0;
+	while (n && !(tmp = (int)(ascii_tolower(*a++) - ascii_tolower(*b++)))) n--;
+	return tmp;
+}
 
 #ifdef _INC_USTRING_INLINE
 static inline int StrCompare(const char* a, const char* b)
@@ -529,6 +538,11 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 
 //---- ---- ---- ---- { Set and Sorting } ---- ---- ---- ----
 
+// We can use this to use Big Endian
+inline static void MemReverse(char* str, stduint len) {
+	for0(i, len >> 1) xchg(str[i], str[len - i - 1]);
+}
+
 // RFV30 GHC. Param:order[0:little>big 1:big>little]
 //{TODO} 2 Ver
 void StrSortBubble(char* str, int order);
@@ -557,11 +571,44 @@ static inline char* StrToUpper(char* str)
 #define StrSubWithdraw(posi_start,len)\
 	MemRelative((posi_start), StrLength(posi_start) + 1, -(ptrdiff_t)(len))
 
+// ---- ---- ---- ---- { Convert } ---- ---- ---- ----
+#define restrict //{TEMP}
 //
 char* instob(ptrdiff_t num, char* buf);
 
 //
 ptrdiff_t atoins(const char* str);
+
+//#define atoi _atoidefa
+int _atoidefa(const char* inp);
+
+//#define atol atolong
+long int atolong(const char* inp);
+//#define strtol StrTokenLong
+long int StrTokenLong(const char* restrict inp, char** restrict endptr, int base);
+//#define strtoul StrTokenULong
+unsigned long int StrTokenULong(const char* restrict inp, char** restrict endptr, int base);
+
+//{TODO} rename atodbl
+//#define atof atoflt
+double atoflt(const char* astr);
+//#define StrTokenDouble strtod
+double StrTokenDouble(const char* restrict inp, char** restrict endptr);
+//#define StrTokenFloat strtof
+float StrTokenFloat(const char* restrict inp, char** restrict endptr);
+//#define StrTokenLDouble strtold
+long double StrTokenLDouble(const char* restrict inp, char** restrict endptr);
+
+#ifdef _BIT_SUPPORT_64
+//#define atoll atollong
+long long int atollong(const char* inp);
+//#define strtoll StrTokenLLong
+long long int StrTokenLLong(const char* restrict inp, char** restrict endptr, int base);
+//#define strtoull StrTokenULLong
+unsigned long long int StrTokenULLong(const char* restrict inp, char** restrict endptr, int base);
+#endif
+
+#undef restrict
 
 //---- ---- ---- ---- { ChrAr } ---- ---- ---- ----
 // Have been brewed since 2022 Aug.
@@ -666,6 +713,12 @@ void StrShiftRight8n(void* s, size_t len, size_t n);
 
 // In the direction of the left
 stdint MemCompareRight(const unsigned char* a, const unsigned char* b, size_t n);
+
+// ---- ---- ---- ---- { Wide / Multi } ---- ---- ---- ----
+_TODO//#define mbstowcs StrWideFoMulti
+_TODO//#define wcstombs StrWideToMulti
+_TODO//#define mbtowc   ChrWideFoMulti
+_TODO//#define wctomb   ChrWideToMulti
 
 #ifdef _INC_CPP
 }

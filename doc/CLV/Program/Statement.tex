@@ -1,0 +1,84 @@
+%{TODO} Magice's
+
+\subsubsection{Equivalent Expression for C, C++}
+
+\begin{itemize}
+	\item{\verb|adr[idx]| $\leftrightarrow$ \verb|*(adr+idx)|}
+	\item{\verb|(&bloc)->memb| $\leftrightarrow$ \verb|bloc.memb|}
+	\item{\verb|!E| $\leftrightarrow$ \verb|0==E|}
+	\item{\verb|!!E| $\leftrightarrow$ \verb|0!=E|}
+	\item{\verb|++E| $\leftrightarrow$ \verb|E+=1|
+		\begin{itemize}
+			\item\textit{may take} \verb|ADD| \textit{or} \verb|INC| \textit{as assembly difference. \textemdash ARN}
+			\item\verb|--E| is analogous to this.
+		\end{itemize}
+	}
+	\item{\verb|*&a| $\leftrightarrow$ \verb|a|
+		\begin{itemize}
+			\item\textit{may not well for array label identifiers, for it} \verb|a == &a|.
+		\end{itemize}
+	}
+	\item{\verb|do{exps;}while(cons);| $\leftrightarrow$ \verb|_do exps; if(cons)goto _do;|}
+	\item{\verb|for(dec_or_calls_div_by_commas; cond; exps0) exps;| 
+		
+		$\leftrightarrow$ \verb|dec_or_calls_div_by_commas; while(cond){exps;exps0;}|}
+	\item{\verb|while(condition) {functions(arguments);}| 
+		
+		$\leftrightarrow$ \verb|a:if(condition)goto b; /***/ goto a;b:;| 
+		
+		$\leftrightarrow$ \verb|while:condition; JZ endowhile; ...; JMP while; endowhile:;|}
+	\item{Single definition check \verb|#ifdef xxx| $\simeq$ \verb|#if defined(xxx)|
+		\begin{itemize}\item Similarly, \verb|#ifndef xxx| $\simeq$ \verb|#if !defined(xxx)|\end{itemize}
+	}
+	
+	\item{Global object definition \verb|char LABEL [SIZE_BYTE]| $\leftrightarrow$ \verb|#ASM RESB SIZE_BYTE|}
+	
+	\item{Boolean Operator \verb|if(!x)| $\leftrightarrow$ \verb|if(x==0)|
+		\begin{itemize}\item This is also true for floating numbers and pointers. (test yo RFW14, MSVC2022) \end{itemize}
+	}
+	
+	\item{\verb|if(Cond) Stat;| $\simeq$ \verb|Cond && Stat;| $\leftrightarrow$ \verb# !Cond || Stat; #
+	}
+\end{itemize}
+
+\subsubsection{Definition and Declaration} (C99, ...)
+\subimport{.}{Dex}
+
+\subsubsection{Multi-passing}
+
+	C and C++ has not implemented this for simple reflection to assembly.
+
+\subsubsection{Judgment Selection `If'}
+\subimport{Statement}{If}
+
+\subsubsection{Reflection Selection `Switch'}
+\subimport{Statement}{Switch}
+
+\subsubsection{Conditional Loop `While'}
+\subimport{Statement}{While}
+	
+\subsubsection{Normal Loop `Do $-$ While'}
+
+	\B{EXAMPLE for $MASM$} - Print 10 numbers
+	\begin{lstlisting}[language={[x86masm]Assembler}]
+		mov eax,0
+		.REPEAT
+			inc eax
+			call WriteDec
+			call Crlf
+		.UNTIL eax == 10
+	\end{lstlisting}
+
+
+\subsubsection{Tri-loop `For'}
+\subimport{Statement}{Triloop}
+
+
+\subsubsection{Counter Repeat `ForX'}
+
+	The macro \T{for0}, \T{for1}, \T{for0a} and more, 
+	are defined in \verb|alice.h| (used by \verb`stdinc.h`) for C and C++.
+
+	% MASM
+	% ; repeat const;…;ENDM; （用于宏的マ）
+

@@ -23,17 +23,26 @@
 #include "../../../../inc/cpp/Device/EXTI"
 #include "../../../../inc/cpp/Device/TIM"
 #include "../../../../inc/cpp/Device/ADC"
+#include "../../../../inc/c/driver/ADConverter/Register-ADC.h"
 #include "../../../../inc/cpp/Device/UART"
 
 using namespace uni;
 
+//{TODO} Software State Fields in the class
+
 // SysTick_Handler in SysTick.cpp
+
+#define i_index(a,b) (*a[b])
 
 extern "C" {
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	_ESYM_CPP {
+		static void _HandlerIRQ_EXTIx(byte x);
+		static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID);
+	}
 	Handler_t FUNC_EXTI[16] = { 0 };
-	
+	_ESYM_CPP{
 	static void _HandlerIRQ_EXTIx(byte x) {
 		if (uni::EXTI::Pending & (1 << x)) {
 			// GPIO_PIN_x
@@ -41,6 +50,8 @@ extern "C" {
 			uni::EXTI::Pending = (1 << x);
 		}
 	}
+	}
+
 	void EXTI0_IRQHandler(void) { _HandlerIRQ_EXTIx(0); }
 	void EXTI1_IRQHandler(void) { _HandlerIRQ_EXTIx(1); }
 	void EXTI2_IRQHandler(void) { _HandlerIRQ_EXTIx(2); }
@@ -52,20 +63,43 @@ extern "C" {
 	void EXTI15_10_IRQHandler(void) {
 		for (byte i = 10; i < 16; i++) _HandlerIRQ_EXTIx(i);
 	}
-	
+
+	// ----
+	Handler_t FUNC_XART[8] = { 0 };
+
+	// ---- TIM ----
+	Handler_t FUNC_TIMx[16] = { 0 }; // Period Elapsed Callback
+	//: typ: 0:Basic, 1:CaptureCompare, 2:Update, 3:Break, 4:Trigger, 5:Commutation
+	void TIM2_IRQHandler(void) { _HandlerIRQ_TIMx(0, 2); }
+	void TIM3_IRQHandler(void) { _HandlerIRQ_TIMx(0, 3); }
+	void TIM4_IRQHandler(void) { _HandlerIRQ_TIMx(0, 4); }
+
+	Handler_t FUNC_ADCx[4] = { 0 };
+
 #endif
 
 	
 #if 0
 	//
-#elif defined(_MCU_STM32F10x)
-	Handler_t FUNC_TIMx[16] = { 0 };// keep 0
-	Handler_t FUNC_ADCx[4] = { 0 };// keep 0
+#elif defined(_MCU_STM32F1x)
+	_ESYM_CPP{
+		static void _HandlerIRQ_XART(byte art_id);
+		static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID);
+		static void _HandlerIRQ_DMAChannelx(byte dma_id, byte chanx);
+	}
 	//
-
-
-
+	_ESYM_CPP{
+	static void _HandlerIRQ_XART(byte art_id) {
+		if (!XART.isSync(art_id)) return;//{TEMP}
+		if ((*(USART_t*)XART[art_id])[XARTReg::SR].bitof(5)) { //aka __HAL_UART_GET_FLAG, 5 is USART_SR_RXNE
+			asserv(FUNC_XART[art_id])();
+		}
+		// ... more
+	}
+	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {}
+	//{TODEL}
 	static void _HandlerIRQ_TIMx(TIM_t& this_TIM) {
+		using namespace TimReg;
 		//{TODO} Capture compare 1 event 
 		//{TODO} Capture compare 2 event 
 		//{TODO} Capture compare 3 event 
@@ -73,15 +107,18 @@ extern "C" {
 		// TIM Update event
 		{
 			const stduint _CVAL_TIM_SR_UIE = 1;
-			if (this_TIM[TimReg::DIER] & _CVAL_TIM_SR_UIE) { //aka __HAL_TIM_GET_IT_SOURCE
+			if (this_TIM[DIER] & _CVAL_TIM_SR_UIE) { //aka __HAL_TIM_GET_IT_SOURCE
 				asserv(FUNC_TIMx[this_TIM.getID()])();
-				this_TIM[TimReg::SR] = ~_CVAL_TIM_SR_UIE; //aka __HAL_TIM_CLEAR_IT
+				this_TIM[SR] = ~_CVAL_TIM_SR_UIE; //aka __HAL_TIM_CLEAR_IT
 			}
 		}
 		//{TODO} TIM Break input event
 		//{TODO} TIM Trigger detection event
 		//{TODO} TIM commutation event
 	}
+		
+	}
+
 
 	void TIM6_IRQHandler(void) {_HandlerIRQ_TIMx(uni::TIM6);}
 	
@@ -106,6 +143,9 @@ extern "C" {
 		//{TODO} 3 Check Analog watchdog flags
 	}
 
+	void ADC3_IRQHandler(void) { _TODO }
+
+	_ESYM_CPP{
 	static void _HandlerIRQ_DMAChannelx(byte dma_id, byte chanx) {
 		DMA_t& crt = DMA[dma_id];
 		uint32 flag = crt[DMAReg::ISR];// each 4b: M-L[TEIFx HTIFx TCIFx GIFx], same with IFCR
@@ -134,6 +174,8 @@ extern "C" {
 			crt[DMAReg::IFCR] = (1U << 0 /*not 3*/ ) << (chanx << 2);// Clear all flags
 		}
 	}
+	    
+	}
 
 	void DMA1_Channel1_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 1); }
 	void DMA1_Channel2_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 2); }
@@ -152,7 +194,7 @@ extern "C" {
 
 #elif defined(_MCU_STM32F4x)
 
-	Handler_t FUNC_XART[8] = { 0 };
+	
 
 	static void _HandlerIRQ_XART(byte art_id) {
 		if (!XART.isSync(art_id)) return;//{TEMP}
@@ -162,14 +204,122 @@ extern "C" {
 		// ... more
 	}
 	
+
+	void USART6_IRQHandler(void) { _HandlerIRQ_XART(6); }	
+
+
+	// pres: pos of SR and of DIER should be the same
+	static bool _HandlerIRQ_TIMx_Exist(byte TIM_ID, stduint pos) {
+		using namespace TimReg;
+		TIM_t& t = i_index(TIM, TIM_ID);
+		if (t[SR].bitof(pos)) {
+			if (t[DIER].bitof(pos)) { 
+				t[SR].setof(pos, false);
+				return true;
+			}
+			else return _TEMP false;
+		}
+		return false;
+	}
+	static void _HandlerIRQ_TIMx_Channel(byte TIM_ID, byte chan) {
+		using namespace TimReg;
+		TIM_t& t = i_index(TIM, TIM_ID);
+		if (_HandlerIRQ_TIMx_Exist(TIM_ID, TIM_ID)) {
+			// SR.CCxIF and DIER.CCx
+			t.last_src = chan;
+			bool tim1or2 = chan <= 2;
+			if (t[tim1or2 ? CCMR1 : CCMR2].mask(iseven(chan) ? 8 : 0, 2)) {
+				// Input capture event
+				callif(t.FUNC_IC_Capture);
+			}
+			else {
+				// Output compare event
+				callif(t.FUNC_OC_DelayElapsed);
+				callif(t.FUNC_PWMPulseFinished);
+			}
+			t.last_src = nil;
+		}
+	}
+	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {
+		//{TEMP} consider TIM_C just
+		using namespace TimReg;
+		if (typ) _TEMP return;
+		if (Ranglin(TIM_ID, 2, 4)) {
+			TIM_t& t = i_index(TIM, TIM_ID);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 1);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 2);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 3);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 4);
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 0)) { // UIF
+				callif(FUNC_TIMx[TIM_ID]);
+				//(*TIM[TIM_ID])[SR].setof(0, true);
+				TIM[TIM_ID]->enAble();
+			}
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 7)) { // BIF BIE
+				callif(t.FUNC_Break);// Break input event
+				//{TODO}
+			}
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 6)) { // TIF TIE
+				callif(t.FUNC_Trigger);// Trigger detection event
+				//{TODO}
+			}
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 5)) { // COMIF COMIE
+				callif(t.FUNC_Commute);// Commutation event
+				//{TODO}
+			}
+		}
+		else _TEMP return;
+	}
+
+	static bool ADC_IRQHandler_sub(ADC_t& sel) {
+		static bool busy;
+		using namespace ADCReg;
+		if (busy) return false; else busy = true;
+		bool flg1, flg2;
+		flg1 = sel[SR].bitof(1);// EOC
+		flg2 = sel[CR1].bitof(5);// EOCIE
+		if (flg1 && flg2) {
+			// > Determine whether any further conversion upcoming on group regular by external trigger, continuous mode or scan sequence on going.  
+			// > Note: On STM32F4, there is no independent flag of end of sequence.The test of scan sequence on going is done either with scan sequence disabled or with end of conversion flag set to of end of sequence.
+			// > Disable ADC end of single conversion interrupt on group regular Note: Overrun interrupt was enabled with EOC interrupt in HAL_ADC_Start_IT(), but is not disabled here because can be used by overrun IRQ process below.
+			bool SOFTWARE_START_INJECTED = sel[CR2].mask(20, 2);// JEXTEN
+			bool ContiConvMode = sel[CR2].bitof(_ADC_CR2_POS_CONT);
+			if (!SOFTWARE_START_INJECTED && !ContiConvMode&&
+				!sel[SQR1].mask(20, 4)/*L*/ && !sel[CR2].bitof(10)/*EOCS*/) {
+				sel[CR1].setof(5, false);// EOCIE
+			}
+			asserv(FUNC_ADCx[sel.getID()])();// Conversion complete callback
+			//{}sel[SR] &= ~_IMM(0x2);// Clear EOC flags
+			//sel[SR] &= ~_IMM(0x12);// Clear EOC and STRT flags
+			sel[SR] &= ~_IMM(0x10);// Clear STRT flags
+
+			//_TEMP sel[CR1].setof(1, false);
+			//_TEMP sel[CR1].setof(5, false);
+			busy = false;
+			return true;
+		}
+		//{TODO} MORE
+		busy = false;
+		return false;
+	}
+	void ADC_IRQHandler(void) {
+		//_TEMP NVIC.setAble(IRQ_ADC, false);
+		if (ADC_IRQHandler_sub(ADC1)) return;
+		if (ADC_IRQHandler_sub(ADC2)) return;
+		if (ADC_IRQHandler_sub(ADC3)) return;
+		//_TEMP NVIC.setAble(IRQ_ADC, true);
+	}
+
+	
+#endif
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	// ---- XART ----
 	void USART1_IRQHandler(void) { _HandlerIRQ_XART(1); }
 	void USART2_IRQHandler(void) { _HandlerIRQ_XART(2); }
 	void USART3_IRQHandler(void) { _HandlerIRQ_XART(3); }
 	void UART4_IRQHandler(void) { _HandlerIRQ_XART(4); }
 	void UART5_IRQHandler(void) { _HandlerIRQ_XART(5); }
-	void USART6_IRQHandler(void) { _HandlerIRQ_XART(6); }
+#endif	
 
-	
-	
-#endif
 }

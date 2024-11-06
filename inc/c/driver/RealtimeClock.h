@@ -30,7 +30,7 @@
 
 void RTC_Init();
 
-#elif defined(_MCU_STM32F10x) // C++
+#elif defined(_MCU_STM32F1x) // C++
 
 
 

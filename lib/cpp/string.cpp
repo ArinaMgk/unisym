@@ -29,28 +29,34 @@ namespace uni {
 		this->addr = (char*)malc(counts + 1);
 		StrCopy(this->addr, str);
 		limits = 0;
+		allocated = true;
 	}
 	String::String(const String& str) {
 		this->addr = StrHeap(str.addr);
 		this->counts = StrLength(this->addr);
 		limits = 0;
+		allocated = true;
 	}
-	/*
-	String::String(char* str) {
-		this->counts = StrLength(str);
+	
+	String::String(char* str, stduint buffer_siz) {
 		this->addr = str;
-		//str = 0;
-	}*/
+		this->counts = nil;
+		limits = buffer_siz;
+		allocated = nil == buffer_siz;
+	}
 	String::String(stduint buflen) {
 		this->addr = (char*)zalc(buflen);
 		this->counts = 0;
 		limits = buflen;
+		allocated = true;
 	}
 
 	String::~String() {
-		memf(this->addr);
+		if (allocated) memf(this->addr);
 		this->addr = NULL;
 		this->counts = 0;
+		limits = 0;
+		allocated = false;
 	}
 
 	size_t String::length() {
@@ -89,7 +95,23 @@ namespace uni {
 		this->setthen(this);
 		return *this;
 	}
-	/*
+
+	String& String::operator<< (char chr) {
+		if (allocated) {
+			srs(this->addr, StrHeapAppendChars(this->addr, chr, 1));
+			this->counts = 0;
+			//limits = limits;
+		}
+		else if (counts < limits) {
+			this->addr[counts] = chr;
+			this->counts++;
+			if (counts != limits) this->addr[counts] = '\0';
+		}
+		return self;
+	}
+
+	/*[Abandoned]
+	//{TODO} uni::stream
 	std::ostream& operator<< (std::ostream& out, const String& str) {
 		return out << str.addr;
 	}

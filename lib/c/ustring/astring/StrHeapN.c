@@ -25,7 +25,7 @@
 
 char* StrHeapN(const char* valit_str, size_t str_len)
 {
-	MIN(str_len, StrLength(valit_str));// [Overcheck]
+	// MIN(str_len, StrLength(valit_str));// [Overcheck]
 	char* ret = (char*)zalc(str_len + 1);
 	StrCopyN(ret, valit_str, str_len);
 	return ret;

@@ -1,4 +1,0 @@
-asm	../../unisym/lib/asm/x86/cpuid.asm
-set	sors_c
-.	../../unisym/lib/c/node/*.c
-.	../../unisym/lib/c/*.c

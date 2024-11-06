@@ -1,0 +1,133 @@
+
+
+\textbf{UNISYM} (Universal Symbolic Library, aka `Uniformed Symbolic Library') originates from the abstraction of a lossless computing project (Silver-Garden-Arithmetic), which is transformed into \textbf{COTLAB}.
+
+The `Library' below are specific modules, for common modules described in \refer{CLOVER}.
+
+\textbf{Features of UNISYM}
+
+Portability, Coupling and Practicality. Portability is for showing the uniform; Coupling is for expressing the systematic logic; Practicality is for making sense.
+
+\begin{itemize}
+\item Architectures (Dinah, x86, RISCV64, ARM, ...)
+\item Compilers (MC-AASM, GCC, MSVC, ...)
+\item Operating Systems (Mecocoa, Windows, Linux, ...)
+\item Programming Languages (Magice, \verb|C|, \verb|C#|, ...)
+\end{itemize}
+
+\subsection{NOTICE when Modifying}
+
+\verb`_CALL_C` for Calling, \verb`extern "C"` for Linkage
+
+
+\B{Header Included}:
+If you develop something on host-environment, include `stdinc.h` for C/C++;
+if you develop MCU-program, use the special file like `STM32F1` for C++ (See more in \refer{QANRUS})...
+
+\section{Notice}
+
+\B{Root Header for User}
+It is recommended that users use only header files whose directory is the root including path. For example, we should include \verb`<stdinc.h>` but \verb|system/alice.h|.
+
+
+\section{Locale}
+\B{Header}: \verb`c/loc.h`
+
+\begin{center}\begin{table}[h!]
+	\begin{tabular}{|l|l|l|}
+	\hline
+	\rowcolor[rgb]{0.95, 0.975, 1}\textbf{REGION} & \textbf{PHONE-HEADER} & \textbf{ANSI} \\ \hline
+	China Mainland & +86 & GBK(ZH-CN) \\ \hline
+	%{TODO}
+	\end{tabular}
+\end{table}\end{center}
+
+\section{Dependence Map}
+
+\section{Library \mbox{-} Electronics}
+
+\section{Library \mbox{-} \B{C\#} Library}
+
+\section{Library \mbox{-} \B{Rust} Crate}
+
+\section{Library \mbox{-} Assembly Macro}
+
+The section does not include \It{Kasha}. For AASM, Microsoft Macro Assembler, GNU-AS, Netwide Assembler.
+
+%reference www.ic.unicamp.br/~ducatte/mc404/Lampiao/docs/dosints.pdf
+
+\subsection{IBM Compatible Interface}
+
+\subsection{MS-DOS Interface}
+
+\section{Supplement for C, C++}
+\subimport{.}{Supple}
+
+\section{Charset}
+\input{USL/Charset/xx-Charset.tex}
+
+\section{Console}
+\input{USL/Console/xx-Console.tex}
+
+\section{File System and Format}
+\input{USL/File/xx-File.tex}
+
+\section{Signal and Logging}
+
+\B{Header}: \verb`c/msgface.h`
+
+
+
+
+% Last sections
+
+\section{Wel}
+\subimport{.}{Wel}
+
+\section{Witch Graphic} \labex{Witch}
+\subimport{.}{Witch}
+
+\section{Wizard}
+\subimport{.}{Wizard}
+
+\section{Demonstration}
+
+\begin{itemize}
+	\item `Bootstrap' to see \refer{Bootstrap Demonstration}.
+	\item `Hello' (Print a string to standard output) by each programming language. 
+	% According to the record, Brian Kernighan wrote Hello-world for B Programming Language, and later this became widely known in "The C Programming Language" written by Professor Kernighan & Ritchie in 1978.
+\end{itemize}
+
+\section{Utility}
+
+\begin{itemize}
+\item \B{args}
+\item \B{cal}    calendar (Linux Command)
+\item \B{clear}  (Linux Command)
+\item \B{cpuid}
+\item \B{fdump}  filedump
+\item \B{ffset}  VirtualDiskCopier
+\item \B{ret}    return \\
+	Return the integer and echo string with new-line, usually used with \verb`&&` or \verb `||` instead of `echo'.
+\item \B{segsel} SegmentSelector
+\end{itemize}
+
+\section{Output Target and Option Switch}
+\input{USL/Target.tex}
+
+\section{Builtin-Data}
+
+\subsection{.picture and other Demonstration}
+
+\subsection{Linked Data}
+
+\begin{itemize}
+	\item \verb `_tab_HEXA` decimal to upper ASCII chars.
+	\item \verb `_tab_hexa` decimal to lower ASCII chars.
+	\item \verb `_tab_keycode2ascii` Keyboard Scan-code to ASCII and description.
+\end{itemize}
+
+\subsection{Assembly Instructions}
+
+%{} from NASMANL
+

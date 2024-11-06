@@ -1,0 +1,86 @@
+
+We usually consider procedure or sub-routine only exist in Assembly. % 过程
+Someone call the function returning nothing procedure. %函数
+
+\subsubsection{Calling Statement}
+
+Assume \verb`f` is a pointer to some function, or from an entity \verb`void f() {...}`, then \verb`f(...)` or \verb`(*f)(...)` can call the function, where \verb`...` stands for arguments actually. Even none-* or multi-* can call it, like \verb`(*****f)()`. % expi by dscn, 20240905
+
+\subsubsection{Parameter and Argument}
+
+\paragraph{For C or C++}\
+
+Because pointers are in a size, it is OK to write \verb`f(int arr[1][2]) {...}` as \verb`f(int arr[][2]) { ... }` or \verb`f(int (*arr)[2]) { ... }`.
+For multi arguments, the evaluation order (before calling) is decided by the compiler.
+
+When calling the function, the item filled in the place of the respective parameter is called `argument'. Hence parameter is {formal argument}.
+
+The form of parameter passing: reference, stack(of caller or callee), register.
+
+The \B{storage-class specifier} for a parameter declaration is only \verb`register`.
+
+\subsubsection{Calling Convention \mbox{-} Prologue and Epilogue }\labex{Calling}
+
+\B{Header}: auto-inc-by stdinc.
+
+The registers that need to be preserved before calling a function and stored after its returning is \B{Function Calling Context}. The saving subject is whether caller or callee.
+
+\B{Consideration}
+\begin{itemize}
+	\item Registers need to be preserved
+	\item Passing Arguments by pointer(reference), stack or registers
+	\item Passing Order
+	\item Returning Method
+	\item Recover-register Method
+\end{itemize}
+
+\paragraph{STDCALL} \
+
+The passing order of arguments is from right to left. The stack will be popped before returning.
+
+\paragraph{CDECL: C Declaration} \
+
+The passing order of arguments is from right to left. The stack will be recovered by caller. Thus {IP}, {CS}, {EFLAG} and others will not be broken.
+
+The first argument is located closest to the top of the stack, according to which greedy arguments can be used more easily.
+
+\paragraph{FASTCALL} \
+
+% -------------------
+
+\B{Register BP for Entering and Leaving Function}
+
+%{} for functions that have arguments or local variables, ...
+
+\B{Allocation of Stack}
+
+This is for the parameters and locale variables. Whether the arguments are aligned with bytes depends on the compiler. For Visual C++ in Win32, it usually with multi-bytes (a \verb`dword`), while it may be  only one for GCC. Try like this if we want to assure:
+
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+	// ASCII C TAB4 CRLF
+	// Docutitle: (Demo) 
+	// Codifiers: @dosconio
+	// Attribute: Endian(Little)(for %x occuper)
+	#include <stdio.h>
+	int main() {
+		char a, b;
+		printf("%x %x", &a, &b);
+	}
+\end{lstlisting}
+
+\subsubsection{Inline Function for $C/C++$}
+
+This appeared when the keyword \refer{keyword.inline} appeared.
+In a hosted environment, inline cannot specify function \It{main}.
+
+\B{EXAMPLE - Avoid side-effect}
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+inline MIN(int a, int b){if (a < b)return a; else return b;}
+#define min(x,y)((x)<(y)?(x):(y))
+\end{lstlisting}
+Assume \verb|a| assigned "1". Then
+\verb`min(++a,b);` makes \verb|a| equals 3, while
+\verb`MIN(++a,b);` makes \verb|a| equals 2.
+

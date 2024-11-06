@@ -21,7 +21,6 @@
 extern "C"
 {
 	#include <stddef.h>
-	#include <stdlib.h>
 	#include "../../c/ustring.h"
 	
 	#include "../../c/numar.h"
@@ -116,7 +115,7 @@ Number& operator++ (Number& num)// prefix
 
 Number Number::operator++ (int)// suffix, do not pass Reference&
 {
-	// Number* prev = new Number (*this);
+	// Number* prev = new Number self;
 	//-What is the principle? Haruno saw the return is called by twice before return then destructure.
 	Number prev = *this;
 	CoeAdd(&this->content.Real, &numone);

@@ -1,8 +1,7 @@
-// ASCII C99 TAB4 CRLF
+// ASCII C99 TAB4 LF
+// Docutitle: Table of toupper and tolower
+// Codifiers: @dosconio
 // Attribute: Origin(toxxxer.make.c)
-// AllAuthor: @dosconio
-// ModuTitle: Table of toupper and tolower
-// LastCheck: RFZ03
 // OpLicense: http://unisym.org/license.html
 
 const unsigned char _tab_tolower[256] = {
@@ -40,5 +39,15 @@ const unsigned char _tab_toupper[256] = {
 	 208,	 209,	 210,	 211,	 212,	 213,	 214,	 215,	 216,	 217,	 218,	 219,	 220,	 221,	 222,	 223,
 	 224,	 225,	 226,	 227,	 228,	 229,	 230,	 231,	 232,	 233,	 234,	 235,	 236,	 237,	 238,	 239,
 	 240,	 241,	 242,	 243,	 244,	 245,	 246,	 247,	 248,	 249,	 250,	 251,	 252,	 253,	 254,	 255,
+};
+const unsigned char _tab_alnum_digit[128] = {
+	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,
+	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,
+	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,	   0,
+	   0,	   1,	   2,	   3,	   4,	   5,	   6,	   7,	   8,	   9,	   0,	   0,	   0,	   0,	   0,	   0,
+	   0,	  10,	  11,	  12,	  13,	  14,	  15,	  16,	  17,	  18,	  19,	  20,	  21,	  22,	  23,	  24,
+	  25,	  26,	  27,	  28,	  29,	  30,	  31,	  32,	  33,	  34,	  35,	   0,	   0,	   0,	   0,	   0,
+	   0,	  10,	  11,	  12,	  13,	  14,	  15,	  16,	  17,	  18,	  19,	  20,	  21,	  22,	  23,	  24,
+	  25,	  26,	  27,	  28,	  29,	  30,	  31,	  32,	  33,	  34,	  35,	   0,	   0,	   0,	   0,	   0,
 };
 

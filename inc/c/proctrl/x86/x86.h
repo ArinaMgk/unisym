@@ -4,10 +4,9 @@
 // AllAuthor: @dosconio
 // ModuTitle: General Header for x86 CPU
 
+#include "../../stdinc.h"
 #ifndef _INC_X86
 #define _INC_X86
-
-#include "../../floating.h"// the file must have been included; this cheats analizer
 
 enum _CPU_x86_descriptor_type
 {

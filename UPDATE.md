@@ -1,17 +1,28 @@
-Enable after 128 and more stars of main repository.
+Last-Commit: 20241104：「 
 
-**Stage commit short description** should be a Solar Term or other memorable thing.
+」
+This-Commit: 「
+- import Reference_T and change Reference (unchk)
+- have not done WDog and Sysfile for MCU MSP-P4, just finish partial GPIO and checked pass
+」
+---
+
+### Unchecked and Checked-but-Issued
+
+STM32F4
+- [ ] ADC
+- [ ] TIMC
+- [ ] Flash by STM32FLASH in Ubuntu, waste half day.
+
 
 ---
 
-### Since U2024SUMMER
+### Bofore Anniversary 11th
 
 
-### Before 2024
+### Before Anniversary 10th
 
 **Used-name**: Uniform Symbolic System
-
-Anniversary 10th;
 
 A restructure happened on November 16th, 2023, the previous code may be bad for compilers;
 

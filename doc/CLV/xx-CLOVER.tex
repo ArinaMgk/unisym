@@ -1,0 +1,47 @@
+
+\labex{CLOVER}
+\section{Programming Language}
+
+\textit{Her. suggestion: `Begin with assembly (like} \verb|i-8086| \textit{NASM) firstly, then come here. It is notable that advanced languages began from mapping with assembly.'}
+
+\B{Opposite Points of C and C++}
+\begin{itemize}
+	\item The length of \verb`int`, \verb`long` varies with the architecture
+		and is independent of \verb`stduint`.
+\end{itemize}
+
+\input{CLV/Program/xx-Program.tex}
+
+\section{Data Structure}
+
+The data may from evaluation of Objects, Functions or Expressions.
+
+\subsection{Integer Type}
+\subimport{CLV/Data}{Type}
+
+\subsection{Floating}
+\subimport{CLV/Data}{Floating}
+
+\subsection{Derived Type}
+\subimport{CLV/Data}{Typex}
+
+\subsection{Advanced Class}
+\subimport{CLV/Data}{Class-Advanced}
+
+\subsection{Alignment}
+
+For RISC-V processors, the addresses of data in memory should be aligned when \T{load}/\T{store} instructions act. An exception will arise if it does not match the alignment.
+x86 series have no the limit, but the times of accessing needed will be increasing if no alignment.
+
+\subsection{Trait}
+\subimport{CLV/Data}{Trait}
+
+\subsection{Node-Chain}
+\input{CLV/Data/Nodes.tex}
+
+\subsection{Byte-Block}
+\input{CLV/Data/Byte-Block.tex}
+
+\section{Magice Compiler}
+\input{CLV/Magice/xx-Magice.tex}
+

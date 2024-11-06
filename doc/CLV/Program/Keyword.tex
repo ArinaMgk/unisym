@@ -1,0 +1,11 @@
+
+\paragraph{inline}\
+\labex{keyword.inline}
+
+Syntax: \verb`inline function-declaration` (since C99)
+
+C99\cite{StdC99} says this make function Linkage internal.
+However, the combination of \verb'extern inline' is right in current implementation, which makes function external linkage and have macro feature. % -- Arina, REV20.
+Someone says the case is that, no binary will be generated for the function, it will be expanded if someone calls it in a same document, but if you try to get its address, the address is decided by external linkage in another document. \It{Dscn tried it on GCC/MSVC on WinNT but failed.}
+We'd better use \verb`static` or \verb`extern` while using inline.
+

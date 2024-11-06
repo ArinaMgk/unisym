@@ -1,0 +1,36 @@
+\B{for $Verilog$} is same as C89, except the parent`\(' and parend`\)' are by `begin' and `end'.
+
+% for MASM
+%; 格式 ~ para,<para_val1,para_val2,para_val3,…>;…;ENDM  （用于宏的マ）
+%; FORC: 格式 同FOR，para是字符，<>内是字符串，FORC顺序遍历每一个字符  （用于宏的マ）
+
+\B{for $MATLAB$}
+\begin{lstlisting}[language=MATLAB]
+	% obj_initial~obj_ends. step can be omitted and default one
+	for obj0=obj_initial:obj_step:obj_ends
+		...
+	end
+\end{lstlisting}
+
+
+\B{for $Python$} (with Enumerator)
+\begin{lstlisting}[language=Python]
+	# String
+	for letter in 'Python':
+		print("Crt Letter: %s" % letter)
+	# List
+	fruits = ['mikan', 'apple', 'mango']
+	for fruit in fruits:
+		print ('Crt Fruit: %s'% fruit)
+	# Index
+	for var in range(1,100) : a = var;# 1~99
+	for i in range(10) : print(i) # 0~9
+	for i in range(0,2,100) : print(i) # step 2
+	# Dictionary
+	for key, value in dict.items() # for 
+		print(value)
+	for i in dict.items() : print(i) # i zo a tuple unpacked
+	for key in dict.keys() : print(key) # <=> for key in dict
+	
+	# Use ^C to break endless loop
+\end{lstlisting}

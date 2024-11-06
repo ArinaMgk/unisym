@@ -30,5 +30,8 @@
 
 #include "_COM_CORTEX_M_3_4.h"
 
+#ifdef _OPT_PCU_CortexM4F
+#else
+#endif
 
 #endif

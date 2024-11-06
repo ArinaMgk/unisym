@@ -23,6 +23,8 @@
 #ifndef _LIB_DATETIME
 #define _LIB_DATETIME
 
+#define _TIME_H_
+
 #include "stdinc.h"
 
 // Compatible with `time.h`
@@ -51,6 +53,18 @@ struct datimex_t {
 	byte isDaylightSavingTime;
 };
 
+struct tm {
+	int tm_sec;
+	int tm_min;
+	int tm_hour;
+	int tm_mday;
+	int tm_mon;
+	int tm_year;
+	int tm_wday;
+	int tm_yday;
+	int tm_isdst;
+};
+
 		
 // `[MACRO]`
 #define isLeapYear(year) (!((year)&3)&&((year)%100)||!((year)%400)) // RFQ27
@@ -74,14 +88,20 @@ unsigned weekday(word year, word month, word day);
 #define moondays(year, month) (30 + (((month)&1) ^ ((month)>7)) - ((month)==2?2-isLeapYear(year):0))
 
 //
-#ifndef _IMPLEMENT_KEIL8051
-#include <time.h>//{TEMP}
-uint64 POSIXGetSeconds(struct tm* tm);
+#ifdef _BIT_SUPPORT_64
+uint64
+#else
+uint32
 #endif
+POSIXGetSeconds(struct tm* tm);
 
 // Reverse function of herspan()
 void fromherp(stdint herspans, word* year, word* month, word* day);
 
+typedef struct {
+	stduint sec; //  s: second
+	stduint mic; // us: microsecond
+} timeval_t;
 
 #ifdef _INC_CPP
 	}

@@ -26,11 +26,11 @@
 #include "../unisym"
 #include "../reference"
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
-#endif// _MCU_STM32F10x || _MCU_STM32F4x
+#endif// _MCU_STM32F1x || _MCU_STM32F4x
 
-#ifdef _MCU_STM32F10x
+#ifdef _MCU_STM32F1x
 
 
 
@@ -51,7 +51,7 @@ namespace uni {
 	class Flash_t {
 	public:
 		Reference operator[](FlashReg::FlashReg idx) {
-			return Reference(_Flash_ADDR + (((stduint)idx) << 2));
+			return Reference(_Flash_ADDR + (_IMM(idx) << 2));
 		}
 
 	};

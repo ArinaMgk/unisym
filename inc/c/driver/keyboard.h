@@ -23,9 +23,17 @@
 #ifndef _INC_DEVICE_Keyboard
 #define _INC_DEVICE_Keyboard
 
-//{TODO}[INTERFACE] KEYS_STATE_MAP
-
 #include "../stdinc.h"
+
+typedef struct {
+	byte ascii_usual;
+	byte ascii_shift;
+	const char* label_usual;// if not null, the char is not printable
+	const char* label_shift;// if not null, the char is not printable
+	rostr label_prefE0;
+} keymap_element_t;
+
+extern keymap_element_t _tab_keycode2ascii[0x80];
 
 void Keyboard_Init();
 

@@ -183,7 +183,7 @@ namespace uni {
 		// Sorted
 		Vector& Sorted(int (*Cmp_f)(pureptr_t a,pureptr_t b) = 0) {
 			this->Compare_f = Cmp_f;
-			Sort(*this);
+			Sort(self);
 			return *this;
 		}
 

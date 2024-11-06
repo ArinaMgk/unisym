@@ -26,11 +26,15 @@
 #if defined(_INC_CPP) || defined(__cplusplus)
 extern "C" {
 #endif
+#include "proctrl/proctrl.h"
+#include "system/host.h"
+#include "system/supple.h"
 #if defined(_dbg) || defined(_DEBUG)
-#include "debug.h"
-#else
-#include "proctrl.h"
+#include "system/debug.h"
 #endif
+	extern char _tab_HEXA[16];
+	extern char _tab_hexa[16];
+//	
 #if defined(_INC_CPP) || defined(__cplusplus)
 }
 #endif

@@ -11,28 +11,41 @@
 #include "../c/stdinc.h"
 
 namespace uni {
-	
-	class Reference {
-		volatile typedest* address;
+
+	template <typename typeDest> class Reference_T {
+	protected:
+		volatile typeDest* address;
 	public:
-		Reference(typeaddr address) : address((volatile typedest*)address) {
-			
+		Reference_T(typeaddr _address = 0) : address((volatile typeDest*)_address) {}
+		Reference_T(pureptr_t _address) : address((volatile typeDest*)_address) {}
+		operator typeDest() const { return *address; }
+		volatile typeDest* operator&() const { return address; }
+		Reference_T& operator= (typeDest val) { *address  = val; return self; }
+		Reference_T& operator&=(typeDest val) { *address &= val; return self; }
+		Reference_T& operator|=(typeDest val) { *address |= val; return self; }
+		Reference_T& operator^=(typeDest val) { *address ^= val; return self; }
+		inline bool bitof(stduint idx) const { return *address & _IMM1S(idx); }
+		inline void setof(stduint idx, bool val = true) { if (val) *address |= _IMM1S(idx); else rstof(idx); }
+		inline void rstof(stduint idx) { *address &= ~_IMM1S(idx); }
+		// Read with Mask
+		stduint mask(stduint bitposi, stduint bitslen) {
+			// e.g. mask(3,2): L_MASK{0b11} aka 
+			//      0b11000
+			// index: 43210
+			const stduint L_MASK = _IMM1S(bitslen) - 1;
+			return (*address) & (L_MASK << bitposi);
 		}
-		
-		operator typedest() const { return *address; }
-		volatile typedest* operator&() const { return address; }
-		
-		Reference& operator=(typedest val) { *address = val; return *this; }
-		Reference& operator&=(typedest val) { *address &= val; return *this; }
-		Reference& operator|=(typedest val) { *address |= val; return *this; }
-		Reference& operator^=(typedest val) { *address ^= val; return *this; }
-		// Binary Digit Of
-		bool bitof(stduint idx) const { return *address & (1 << idx); }
-		//
-		void setof(stduint idx, bool val = true) { if (val) *address |= (1 << idx); else rstof(idx); }
-		//
-		void rstof(stduint idx) { *address &= ~(typedest)(1 << idx); }
+		// Write with Mask
+		stduint maset(stduint bitposi, stduint bitslen, stduint val) {
+			const stduint L_MASK = _IMM1S(bitslen) - 1;
+			stduint tmp = (*address);
+			tmp &= ~(L_MASK << bitposi);// keep others
+			tmp |= (val & L_MASK) << bitposi;
+			return *address = tmp;
+		}
 	};
+	
+	typedef Reference_T<typedest> Reference;
 }
 
 #endif

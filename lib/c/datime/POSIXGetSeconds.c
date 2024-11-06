@@ -21,9 +21,13 @@
 */
 
 #include "../../../inc/c/datime.h"
-#include <time.h>
 
-uint64 POSIXGetSeconds(struct tm* tm)
+#ifdef _BIT_SUPPORT_64
+uint64
+#else
+uint32
+#endif
+POSIXGetSeconds(struct tm* tm)
 {
     uint64 t;
     uint64 y = tm->tm_year;// year number relative from 1900

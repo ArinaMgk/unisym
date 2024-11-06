@@ -23,6 +23,11 @@
 #ifndef _INC_Sort
 #define _INC_Sort
 
+/* extend
+sort SortTrait
+find LocateTrait -> {FUTURE} SignedObject_T<idx> which has unwrap() and wrap()
+*/
+
 // Fit for ISO/IEC CPL Interfaces
 #include "../stdinc.h"
 #include "compare.h"
@@ -33,6 +38,9 @@
 #define cmpfof(iden) int iden(pureptr_t _a,pureptr_t _b)
 
 #define cmpf_inhead(para_t,pa,pb) para_t *pa=(para_t*)_a, *pb=(para_t *)_b
+
+//_TODO _ESYM_C void qsort(void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
+//      _ESYM_C void* bsearch(const void* key, const void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
 
 /*E*G*
 cmpfof(cmp) {

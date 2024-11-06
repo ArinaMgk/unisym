@@ -4,20 +4,43 @@
 // AllAuthor: @dosconio since RFT15
 // ProjTitle: Console Calendar Shell
 
-#define _AUTO_INCLUDE
-#include <stdio.h>
+#define tm _tmp_tm_
 #include <time.h>
-#include <conio.h>
+#undef tm
 #include <datime.h>
+#define tm _tmp_tm_
+#include <stdio.h>
+#ifndef _Linux
+	#include <conio.h>
+#else	
+	#define getch getchar//{TEMP}
+#endif
 #include <consio.h>
+#include "../../../inc/c/ISO_IEC_STD/stdlib.h"
 
 int show_weekid = 0;
+
+static char getPrefix(stdsint pasts) {
+	if (pasts < 0) return '[';
+	byte mod = (pasts + 1) % 30;
+	if (!mod) return '|';// if the beginning of the period
+	else if (mod < 5) return ' ';// if in the period
+	else return '[';
+}
+
+static char getSuffix(stdsint pasts) {
+	if (pasts < 0) return ']';
+	byte mod = (pasts + 1) % 30;
+	if (mod >= 5) return ']';
+	if (mod == 4) return '|';// if the ending of the period
+	else return ' ';// if in the period
+}
 
 void DrawCalendar(word year, word moon, byte crtday)
 {
 	unsigned char week_day, mondays;
 	if (moon == 0 || moon > 12) return;
-	uint64 pasts = herspan(year, moon, 1);
+	stdsint pasts = herspan(year, moon, 1);
 	week_day = weekday(year, moon, 1);
 	mondays = moondays(year, moon);
 	printf("\n");
@@ -27,6 +50,7 @@ void DrawCalendar(word year, word moon, byte crtday)
 		"      July ", "    August ", " September ",
 		"   October ", "  November ", "  December "})[moon-1], year);
 	printf("Sun.Mon.Tue.Wed.Thr.Fri.Sat.");
+	       "(日)(月)(火)(水)(木)(金)(土)";
 	printf("\n");
 	ConStyleAbnormal();
 	ConCursorMoveRight(week_day << 2);
@@ -35,13 +59,11 @@ void DrawCalendar(word year, word moon, byte crtday)
 		if (i == crtday)
 		{
 			ConStyleNormal();
-			printf("[%02d]", i);
+			printf("%c%02d%c", getPrefix(pasts) == '[' ? '<' : '!',
+				i, getSuffix(pasts) == ']' ? '>' : '!');
 			ConStyleAbnormal();
 		}
-		else if (year >= 2014 && !((pasts + 1) % 30))
-			printf("|%02d]", i);
-		else
-			printf("[%02d]", i);
+		else printf("%c%02d%c", getPrefix(pasts), i, getSuffix(pasts));
 		week_day++; pasts++;
 		if (week_day >= 7)
 		{
@@ -71,16 +93,22 @@ int main(int argc, char* argv[])
 	tmp = localtime(&timep);// gmtime() for UTC
 	word CrtM = tmp->tm_mon, CrtY = tmp->tm_year, CrtD = tmp->tm_mday;
 
-	if (argc > 1)
-	{
-		show_weekid = 1;
-		ConClear();
+	if (argc <= 1) {
+		DrawCalendar(1900 + CrtY, 1 + CrtM, CrtD);
+		return 0;
 	}
-
-	DrawCalendar(1900 + CrtY, 1 + CrtM, CrtD);
-
-	if(argc <= 1) exit(0);
-	
+	if (!StrCompare("-wn", argv[1])) { // week number
+		stdsint week_number = getHerWeekNumber(1900 + CrtY, 1 + CrtM, CrtD);
+		outsfmt("%[i]\n", week_number);
+		return 0;
+	}
+	else if (!StrCompare("-dn", argv[1])) { // date number
+		stdsint date_number = herspan(1900 + CrtY, 1 + CrtM, CrtD);
+		outsfmt("%[i]\n", date_number);
+		return 0;
+	}
+	show_weekid = 1;
+	ConClear();
 	while (chr = getch())
 		switch (chr)
 		{

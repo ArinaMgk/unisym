@@ -24,12 +24,25 @@
 #define _INC_CHAR_WIDE
 // `locale.h` may define relative macros.
 
+#include "stdinc.h"
+#include "charset/charset.h"
+
 #if defined(_OPT_CHARSET_GBK)
 #include "charset/widechar/GBK.h"
-#elif defined(__cplusplus) || defined(_INC_CPP)
-// wchar_t is a keyword
-#else // C
-typedef short int wchar_t;
 #endif
 
+#if defined(_OPT_CHARSET_UTF32)
+typedef uint32 char_utf32_t;
+#endif
+
+#if defined(_INC_CPP)
+// wchar_t is a keyword
+_ESYM_C{
+#elif !defined(_INC_DEPEND_STDDEF) // C
+typedef unsigned short int wchar_t;
+#endif
+
+#if defined(_INC_CPP)
+}
+#endif
 #endif

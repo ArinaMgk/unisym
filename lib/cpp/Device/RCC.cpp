@@ -27,8 +27,53 @@
 #include "../../../inc/cpp/Device/Flash"
 #include "../../../inc/cpp/Device/SysTick"
 
+#if defined(_MCU_STM32F1x)
+// : default frequency
+uint32_t HSE_VALUE = (8000000);
+uint32_t HSI_VALUE = (8000000);
+
+#elif defined(_MCU_STM32F4x)
+// : default frequency
+uint32_t HSE_VALUE = (8000000);
+uint32_t HSI_VALUE = (8000000);
+
+#endif
+
+
 namespace uni {
-#if defined(_MCU_STM32F10x)
+	extern stduint SystemCoreClock;
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	stduint SystemCoreClock = HSI_VALUE;
+	const uint8_t AHBPrescTable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9 };
+	const uint8_t APBPrescTable[8] = { 0, 0, 0, 0, 1, 2, 3, 4 };
+
+	stduint RCC_t::getFrequencyPCLK1() {
+		using namespace RCCReg;
+		return (getFrequencyHCLK() >> APBPrescTable[(RCC[CFGR] & _RCC_CFGR_MASK_PPRE1) >> _RCC_CFGR_POSI_PPRE1]);
+	}
+	stduint RCC_t::getFrequencyPCLK2() {
+		using namespace RCCReg;
+		return (getFrequencyHCLK() >> APBPrescTable[(RCC[CFGR] & _RCC_CFGR_MASK_PPRE2) >> _RCC_CFGR_POSI_PPRE2]);
+	}
+#elif defined(_MCU_CW32F030)
+	stduint SystemCoreClock = 8000000;
+#endif
+
+#if defined(_MCU_STM32F1x)
+	bool RCC_t::setClock(SysclkSource::RCCSysclockSource source) {
+		using namespace RCCReg;
+		//{TEMP} HSE only
+		if (!(RCC.HSE.setMode() && RCC.PLL.setMode()))// PLL<<HSE*9/1
+			while (true);
+		if (RCC.setFlash() && RCC.AHB.setMode() && RCC.Sysclock.setMode() &&
+			RCC.setFlash(true) && RCC.APB1.setMode(1) && RCC.APB2.setMode(0));
+		else while (true);
+		const stduint hpre = (RCC[CFGR] & _RCC_CFGR_MASK_HPRE) >> _RCC_CFGR_POSI_HPRE;
+		SystemCoreClock = RCC.Sysclock.getFrequency() >> AHBPrescTable[hpre];
+		SysTick::enClock(1000);// default 1000Hz
+		return true;
+	}
+	
 	bool RCCAHB::setMode(uint8 divexpo, bool usingPCLK1, bool usingPCLK2) {
 		// "Set the highest APBx dividers in order to ensure that we do not go through a non-spec phase whatever we decrease or increase HCLK"
 		Reference Cfgreg(_RCC_CFGR);
@@ -63,18 +108,49 @@ namespace uni {
 		while (getSource() != source);
 		return true;
 	}
+	//{TEMP} only for F103
+	stduint RCCSystemClock::getFrequency() {
+		// If SYSCLK source is PLL, function returns a value based on HSE_VALUE 		divided by PREDIV factor(**) or HSI_VALUE(*) multiplied by the PLL factor.
+		using namespace RCCReg;
+		//{TODO} RCC_CFGR2_PREDIV1SRC
+		//{TODO} RCC_CFGR2_PREDIV1
+		uint32_t pllm = 0U,// PLLMUL factor
+			pllclk = 0U, prediv = 0U;
+		uint32_t sysclockfreq = 0U;
+
+		switch (CurrentSource()) {
+		case SysclkSource::HSE:
+			sysclockfreq = HSE_VALUE;
+			break;
+		case SysclkSource::PLL:
+			const static byte aPLLMULFactorTable[16] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 16 };
+			const static byte aPredivFactorTable[2] = { 1, 2 };
+			pllm = aPLLMULFactorTable[_IMM(RCC[CFGR] & _RCC_CFGR_MASK_PLLMUL) >> _RCC_CFGR_POSI_PLLMUL];
+			if ((RCC[CFGR] & _RCC_CFGR_MASK_PLLSource) != 0 /*RCC_PLLSOURCE_HSI_DIV2*/) {
+				prediv = aPredivFactorTable[_IMM(RCC[CFGR] & (1 << _RCC_CFGR_POSI_PLL_XTPRE)) >> _RCC_CFGR_POSI_PLL_XTPRE];
+				// HSE used as PLL clock source : PLLCLK = HSE/PREDIV1 * PLLMUL
+				pllclk = ((HSE_VALUE * pllm) / prediv);
+			}
+			else {
+				// HSI used as PLL clock source : PLLCLK = HSI/2 * PLLMUL
+				pllclk = ((HSI_VALUE >> 1) * pllm);
+			}
+			sysclockfreq = pllclk;
+			break;
+		case SysclkSource::HSI:
+		default:
+			sysclockfreq = HSI_VALUE;
+			break;
+		}
+		return sysclockfreq;
+	}
 #elif defined(_MCU_STM32F4x)
 
 	Flash_t Flash;
 
 	// naming from system_*chip*.c
-	uint32_t SystemCoreClock = 16000000;
-	const uint8_t AHBPrescTable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9 };
-	const uint8_t APBPrescTable[8] = { 0, 0, 0, 0, 1, 2, 3, 4 };
-	/* default frequency
-		HSE_VALUE    ((uint32_t)25000000)
-		HSI_VALUE    ((uint32_t)16000000)
-	*/
+	
+
 
 	bool RCC_t::setClock(SysclkSource::RCCSysclockSource source) {
 		using namespace RCCReg;
@@ -97,13 +173,6 @@ namespace uni {
 		}
 		else return false;
 		return true;
-	}
-	
-	stduint RCC_t::getFrequencyPCLK1() {
-		return (getFrequencyHCLK() >> APBPrescTable[(RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_PPRE1) >> _RCC_CFGR_POSI_PPRE1]);
-	}
-	stduint RCC_t::getFrequencyPCLK2() {
-		return (getFrequencyHCLK() >> APBPrescTable[(RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_PPRE2) >> _RCC_CFGR_POSI_PPRE2]);
 	}
 	
 	bool RCCSystemClock::setMode(SysclkSource::RCCSysclockSource source) {
@@ -135,7 +204,7 @@ namespace uni {
 	}
 	void RCCSystemClock::setSource(SysclkSource::RCCSysclockSource source) {
 		Reference Cfgreg = RCC[RCCReg::CFGR];
-		Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_Switch) | (((stduint)source << _RCC_CFGR_POSI_Switch) >> 2);
+		Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_Switch) | ((_IMM(source) << _RCC_CFGR_POSI_Switch) >> 2);
 	}
 
 	SysclkSource::RCCSysclockSource RCCSystemClock::CurrentSource() {
@@ -149,14 +218,14 @@ namespace uni {
 
 		switch (CurrentSource()) {
 		case SysclkSource::HSE:
-			sysclockfreq = 25000000U; // HSE_VALUE
+			sysclockfreq = HSE_VALUE;
 			break;
 		case SysclkSource::PLL:
 			// PLL_VCO = (HSE_VALUE or HSI_VALUE / PLLM) * PLLN
 			// SYSCLK = PLL_VCO / PLLP
 			pllm = RCC[PLLCFGR] & _RCC_PLLCFGR_MASK_PLLM;
 			pllvco = (uint32_t)((((uint64_t)
-				(/*__HAL_RCC_GET_PLL_OSCSOURCE()*/ RCC[PLLCFGR].bitof(_RCC_PLLCFGR_POSI_PLLSRC) ? 25000000U : 16000000U)
+				(/*__HAL_RCC_GET_PLL_OSCSOURCE()*/ RCC[PLLCFGR].bitof(_RCC_PLLCFGR_POSI_PLLSRC) ? HSE_VALUE : HSI_VALUE)
 				* ((uint64_t)((RCC[PLLCFGR] & _RCC_PLLCFGR_MASK_PLLN) >> _RCC_PLLCFGR_POSI_PLLN)))) / (uint64_t)pllm);
 
 			pllp = ((((RCC[PLLCFGR] & _RCC_PLLCFGR_MASK_PLLP) >> _RCC_PLLCFGR_POSI_PLLP) + 1U) * 2U);
@@ -164,12 +233,13 @@ namespace uni {
 			break;
 		case SysclkSource::HSI:
 		default:
-			sysclockfreq = 16000000U; // F4 HSI_VALUE
+			sysclockfreq = HSI_VALUE;
 			break;
 		}
 		return sysclockfreq;
 	}
 
+	// F407VET: SYSCLK=HSx/M*N/P
 	bool RCCOscillatorHSE::setMode() { //aka HAL_RCC_OscConfig
 			//{TEMP} fixed parameters
 			/*
@@ -240,6 +310,7 @@ namespace uni {
 		}
 		
 		bool RCCPLL::setMode() {
+			using namespace RCCReg;
 			// part PLL Configuration of HAL_RCC_OscConfig
 			// if ((RCC_OscInitStruct->PLL.PLLState) != RCC_PLL_NONE) call this
 			bool enabl_it = true;// if ((RCC_OscInitStruct->PLL.PLLState) == RCC_PLL_ON)
@@ -249,11 +320,11 @@ namespace uni {
 			if (enabl_it)
 			{
 				enAble(false);
-				stduint _m = 25;
-				stduint _n = 336;
+				stduint _m = 8;
 				stduint _p = 0x00000002U;//aka RCC_PLLP_DIV2
+				stduint _n = (168 / 8 * _p * _m);// = 336;
 				stduint _q = 7;
-				RCC[RCCReg::PLLCFGR] = (_TEMP PLLSource::HSE |
+				RCC[PLLCFGR] = (_TEMP PLLSource::HSE |
 					(_m << _RCC_PLLCFGR_POSI_PLLM) |
 					(_n << _RCC_PLLCFGR_POSI_PLLN) |
 					(((_p >> 1U) - 1U) << _RCC_PLLCFGR_POSI_PLLP) |
@@ -268,24 +339,29 @@ namespace uni {
 			return true;
 		}
 
+		static byte _tab_AHB_PRES_EXPO[] = {
+			0,  8,  9, 10, 11,  0, 12, 13, 14, 15
+		};
 		// divexpo is a great design of the past me! --dosconio 20240717
 		bool RCCAHB::setMode(_TEMP uint8 divexpo, bool usingPCLK1, bool usingPCLK2) {
+			using namespace RCCReg;
 			// if(((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_HCLK) == RCC_CLOCKTYPE_HCLK) call this
 			// "Set the highest APBx dividers in order to ensure that we do not go through a non-spec phase whatever we decrease or increase HCLK"
-			Reference Cfgreg = RCC[RCCReg::CFGR];
+			if (divexpo >= numsof(_tab_AHB_PRES_EXPO)) return false;
+			Reference Cfgreg = RCC[CFGR];
 			if (usingPCLK1) Cfgreg |= 0x00001C00; //aka MODIFY_REG(RCC->CFGR, RCC_CFGR_PPRE1, RCC_HCLK_DIV16);
 			if (usingPCLK2) Cfgreg |= 0x00001C00 << 3;
 			// Set the new HCLK clock divider
-			if (divexpo >= 9 _TODO) return false;
-			if (divexpo) divexpo = (divexpo - 1) | 0x8;// zero => zero-self
-			Cfgreg = (Cfgreg & ~(stduint)0x000000F0U) | (divexpo << 4);// MGK number!
+			Cfgreg.maset(4, 4, _tab_AHB_PRES_EXPO[divexpo]);// HPRE
 			return true;
 		}
 
+		// F4 diff with F1
 		bool RCCAPB::setMode(uint8 divexpo) {
-			Reference Cfgreg = RCC[RCCReg::CFGR];
+			using namespace RCCReg;
+			Reference Cfgreg = RCC[CFGR];
 			if (divexpo >= 5) return false;
-			uint32 bitposi = 8 + PCLK_ID * 3;
+			uint32 bitposi = 10 + PCLK_ID * 3;// PCLK_ID is 0 or 1
 			if (divexpo) divexpo = (divexpo - 1) | 0x4;
 			Cfgreg = (Cfgreg & ~(uint32)(0x7 << bitposi)) | (divexpo << bitposi);
 			return true;
@@ -294,7 +370,8 @@ namespace uni {
 
 
 #endif
-	//
-	RCC_t RCC;
+	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+		RCC_t RCC;
+	#endif
 }
 

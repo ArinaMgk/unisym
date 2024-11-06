@@ -24,7 +24,7 @@
 namespace uni {
 #if 0
 
-#elif defined(_MCU_STM32F10x)
+#elif defined(_MCU_STM32F1x)
 
 	Reference AFIO::EventCtrlReg(_AFIO_ADDR + 0x00);// AFIO_EVCR
 	Reference AFIO::MapReg(_AFIO_ADDR + 0x04);// AFIO_MAPR

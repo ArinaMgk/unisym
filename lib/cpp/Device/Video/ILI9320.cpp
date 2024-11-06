@@ -22,7 +22,7 @@
 
 #include "../../../../inc/c/driver/Video/ILI9320.h"
 
-#ifdef _INC_CPP
+#ifdef _SUPPORT_GPIO
 
 namespace uni {
 

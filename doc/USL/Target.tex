@@ -1,0 +1,121 @@
+
+\subsection{Output Target}
+
+Target in format \verb`Arch-Devk-[Host/Board](Mode)`
+\begin{itemize}
+\item \verb`i8086-CG-IBMPC ` {DJGPP 16 MSDOS}
+\item \verb`x86-CG-Win32   ` {32} %stable
+\item \verb`x86-CV-Win32   ` {32} %stable
+\item \verb`x86-CM-Win32   ` {32}
+\item \verb`x86-CL-Win32   ` {32}
+
+\item \verb`x64-CG-Win64   ` {64} %stable
+\item \verb`x64-CV-Win64   ` {64} %stable
+\item \verb`x64-CM-Win64   ` {64}
+\item \verb`x64-CL-Win64   ` {64}
+
+\item \verb`x86-EG-Lin32   ` {32} %stable
+\item \verb`x64-EG-Lin64   ` {64} %stable
+\item \verb`x86-EG-MCCA    ` {32} %to-cover-more
+\item \verb`riscv64-EG-MCCA` {64}
+\item \verb`i8051-Keil-AT89C5` {16}
+
+\item \verb`cortexm0-EG  -CW32F003 ` {32}v6
+\item \verb`cortexm0-Keil-CW32F003`{32}v6
+\item \verb`cortexm0-EG  -CW32F030 ` {32}v6
+\item \verb`cortexm0-Keil-CW32F030`{32}v6
+
+\item \verb`cortexm3-EG  -STM32F1  ` {32}v7
+\item \verb`cortexm3-Keil-STM32F1` {32}v7
+
+\item \verb`cortexm4-EG  -STM32F4  ` {32}v7
+\item \verb`cortexm4-Keil-STM32F4` {32}v7
+
+\item \verb`cortexa7-Gnu -STM32MP13`{32}v6 %to-cover-more
+\item \verb`cortexa7-Keil-STM32MP13` {32}v6
+\end{itemize}
+
+where,
+\begin{itemize}
+\item ARMv7 include ARMv7-M series;
+\item cortexm stands for ARM.CortexM;
+\item x64 stands for AMD64;
+\end{itemize}
+
+Second parameter is the kit:
+\begin{itemize}
+\item Ex: ELF
+\item Cx: COFF
+\item xG: GNU Compiler Collection
+\item xV: Microsoft Visual C/C++
+\item xA: Ain Magice
+\item xL: LLVM
+\end{itemize}
+
+\subsection{Option Switch}
+
+\B{Header}: \verb`c/system/uoption.h` auto-inc-by stdinc.
+
+\paragraph{Processor and Controller Unit} \
+\begin{itemize}
+	\item \verb`_MCU_Intel8051` \begin{itemize}
+		\item \verb`_SYS_FREQ` Frequency of the system.
+		\item usually used with \verb`_DEV_`xxx
+		\item TODO: Make magice support this then cancel support for Keil-C51
+	\end{itemize}
+	\item \verb`_MCU_STM32F1x`
+	\item \verb`_MCU_STM32F4x`
+	\item \verb`_MPU_STM32MP13`
+	\item \verb`_MCU_CW32F003`
+	\item \verb`_MCU_CW32F030`
+	\item \verb`_CPU_AMDRyzen7_5800H_Radeon`
+\end{itemize}
+
+\paragraph{Support for Data-type and Device} \
+\begin{itemize}
+	\item \B{\_SUPPORT\_GPIO}: Usually for MCU.
+	\item \B{\_SUPPORT\_Port8}: Usually for Personal Computers.
+	\item \B{\_BIT\_SUPPORT\_64}
+	\item \B{\_BIT\_SUPPORT\_DFLOAT}
+\end{itemize}
+
+\paragraph{\_INC\_} \
+\begin{itemize}
+	\item%{TODO}
+\end{itemize}
+
+\paragraph{\_ESYM\_} Exported Symbol Style \
+\begin{itemize}
+	\item \verb`_EXSYM_C` for \verb`extern "C"`, normally with prefix \verb`_`
+\end{itemize}
+
+\paragraph{\_CALL\_} (is not Linkage) \
+\begin{itemize}
+	\item%{TODO} cdelc fastcall ...
+\end{itemize}
+
+\paragraph{\_OPT\_} \
+\begin{itemize}
+	\item \verb`_OPT_RISCV64`
+\end{itemize}
+
+The prefix is `\_ARC\_' in early style 2.
+
+\paragraph{\_MCCA\_} and Operating System
+
+\begin{itemize}
+	\item \verb|0x8616| x86, bits 16
+	\item \verb|0x8632| x86, bits 32
+	\item \_WinNT \begin{itemize}
+		\item \_Win32
+		\item \_Win64
+	\end{itemize}
+	\item \_Linux
+\end{itemize}
+
+\paragraph{Development Kit} \
+\begin{itemize}
+\item \verb `_DEV_MSVC`
+\item \verb `_DEV_GCC`
+\item \verb `_DEV_Qt` 
+\end{itemize}

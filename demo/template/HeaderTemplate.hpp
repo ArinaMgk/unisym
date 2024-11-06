@@ -23,14 +23,25 @@
 #ifndef _INC_HeaderTemplate_X
 #define _INC_HeaderTemplate_X
 
-// #include "unisym"
-// #include "reference"
+// #include ".../stdinc.h"
 
-#ifdef _MCU_STM32F10x
-
+#if defined(_INC_CPP)
 namespace uni {
-	// ...
-}
+extern "C" {
+#else
+#include "ustdbool.h"
+#endif
+
+#ifdef _MCU_STM32F1x
+
+#endif
+
+#if defined(_INC_CPP)
+} //: C++ Area
+
+
+} //END C++ Area
+#else//: C Area
 
 #endif
 #endif

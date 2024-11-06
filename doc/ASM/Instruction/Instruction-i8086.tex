@@ -1,0 +1,359 @@
+
+\subsection{PCU Intel(R) 8086}
+
+% アリナ used to consider Intel-8086 Instructions as General Instructions.
+
+\subsubsection{Instruction Encoding Matrix}
+
+Below are the instruction encoding matrix for the Intel(R) 8086 processor. More to see manual\cite{i8086} Page 178(4-36).
+
+%\resizebox{\textwidth}{!}
+{ \setlength{\tabcolsep}{2pt} \fontsize{6pt}{6.18pt}\selectfont
+\begin{longtable}{|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+
+	\hline
+	\textbf{Hi/Lo} & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & A & B & C & D & E & F \\ \hline
+	\endfirsthead
+	\hline
+	\textbf{Hi/Lo} & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & A & B & C & D & E & F \\ \hline
+	\endhead
+	\hline
+	\endfoot
+	\hline
+	\endlastfoot
+
+	0 &
+	\makecell{ADD\\b,f,r/m} &
+	\makecell{ADD\\w,f,r/m} &
+	\makecell{ADD\\b,t,r/m} &
+	\makecell{ADD\\w,t,r/m} &
+	\makecell{ADD\\b,ia} &
+	\makecell{ADD\\w,ia} &
+	\makecell{PUSH\\ES} &
+	\makecell{POP\\ES} &
+	\makecell{OR\\b,f,r/m} &
+	\makecell{OR\\w,f,r/m} &
+	\makecell{OR\\b,t,r/m} &
+	\makecell{OR\\w,t,r/m} &
+	\makecell{OR\\b,i} &
+	\makecell{OR\\w,i} &
+	\makecell{PUSH\\CS} &
+	\\ \hline
+
+	1 &
+	\makecell{ADC\\b,f,r/m} &
+	\makecell{ADC\\w,f,r/m} &
+	\makecell{ADC\\b,t,r/m} &
+	\makecell{ADC\\w,t,r/m} &
+	\makecell{ADC\\b,i} &
+	\makecell{ADC\\w,i} &
+	\makecell{PUSH\\SS} &
+	\makecell{POP\\SS} &
+	\makecell{SBB\\b,f,r/m} &
+	\makecell{SBB\\w,f,r/m} &
+	\makecell{SBB\\b,t,r/m} &
+	\makecell{SBB\\w,t,r/m} &
+	\makecell{SBB\\b,i} &
+	\makecell{SBB\\w,i} &
+	\makecell{PUSH\\DS} &
+	\makecell{POP\\DS} \\ \hline
+
+	2 &
+	\makecell{AND\\b,f,r/m} &
+	\makecell{AND\\w,f,r/m} &
+	\makecell{AND\\b,t,r/m} &
+	\makecell{AND\\w,t,r/m} &
+	\makecell{AND\\b,i} &
+	\makecell{AND\\w,i} &
+	\makecell{SEG=\\ES} &
+	\makecell{DAA} &
+	\makecell{SUB\\b,f,r/m} &
+	\makecell{SUB\\w,f,r/m} &
+	\makecell{SUB\\b,t,r/m} &
+	\makecell{SUB\\w,t,r/m} &
+	\makecell{SUB\\b,i} &
+	\makecell{SUB\\w,i} &
+	\makecell{SEG\\CS} &
+	\makecell{DAS} \\ \hline
+
+	3 &
+	\makecell{XOR\\b,f,r/m} &
+	\makecell{XOR\\w,f,r/m} &
+	\makecell{XOR\\b,t,r/m} &
+	\makecell{XOR\\w,t,r/m} &
+	\makecell{XOR\\b,i} &
+	\makecell{XOR\\w,i} &
+	\makecell{SEG=\\SS} &
+	\makecell{AAA} &
+	\makecell{CMP\\b,f,r/m} &
+	\makecell{CMP\\w,f,r/m} &
+	\makecell{CMP\\b,t,r/m} &
+	\makecell{CMP\\w,t,r/m} &
+	\makecell{CMP\\b,i} &
+	\makecell{CMP\\w,i} &
+	\makecell{SEG\\DS} &
+	\makecell{AAS} \\ \hline
+
+	4 &
+	\makecell{INC\\AX} &
+	\makecell{INC\\CX} &
+	\makecell{INC\\DX} &
+	\makecell{INC\\BX} &
+	\makecell{INC\\SP} &
+	\makecell{INC\\BP} &
+	\makecell{INC\\SI} &
+	\makecell{INC\\DI} &
+	\makecell{DEC\\AX} &
+	\makecell{DEC\\CX} &
+	\makecell{DEC\\DX} &
+	\makecell{DEC\\BX} &
+	\makecell{DEC\\SP} &
+	\makecell{DEC\\BP} &
+	\makecell{DEC\\SI} &
+	\makecell{DEC\\DI} \\ \hline
+
+	5 &
+	\makecell{PUSH\\AX} &
+	\makecell{PUSH\\CX} &
+	\makecell{PUSH\\DX} &
+	\makecell{PUSH\\BX} &
+	\makecell{PUSH\\SP} &
+	\makecell{PUSH\\BP} &
+	\makecell{PUSH\\SI} &
+	\makecell{PUSH\\DI} &
+	\makecell{POP \\AX} &
+	\makecell{POP \\CX} &
+	\makecell{POP \\DX} &
+	\makecell{POP \\BX} &
+	\makecell{POP \\SP} &
+	\makecell{POP \\BP} &
+	\makecell{POP \\SI} &
+	\makecell{POP \\DI} \\ \hline
+	6 &
+	& &
+	& &
+	& &
+	& &
+	& &
+	& &
+	& &
+	& \\ \hline
+
+	7 &
+	\makecell{JO} &
+	\makecell{JNO} &
+	\makecell{JB/\\JNAE} &
+	\makecell{JNB/\\JAE} &
+	\makecell{JE/\\JZ} &
+	\makecell{JNE/\\JNZ} &
+	\makecell{JBE/\\JNA} &
+	\makecell{JNBE/\\JA} &
+	\makecell{JS} &
+	\makecell{JNS} &
+	\makecell{JP/\\JPE} &
+	\makecell{JNP/\\JPO} &
+	\makecell{JL/\\JNGE} &
+	\makecell{JNL/\\JGE} &
+	\makecell{JLE/\\JNG} &
+	\makecell{JNLE/\\JG} \\ \hline
+
+	8 &
+	\makecell{Immed\\b,r/m} &
+	\makecell{Immed\\w,r/m} &
+	\makecell{Immed\\b,r/m} &
+	\makecell{Immed\\is,r/m} &
+	\makecell{TEST\\b,r/m} &
+	\makecell{TEST\\w,r/m} &
+	\makecell{XCHG\\b,r/m} &
+	\makecell{XCHG\\w,r/m} &
+	\makecell{MOV\\b,f,r/m} &
+	\makecell{MOV\\w,f,r/m} &
+	\makecell{MOV\\b,t,r/m} &
+	\makecell{MOV\\w,t,r/m} &
+	\makecell{MOV\\sr,f,r/m }&
+	\makecell{LEA} &
+	\makecell{MOV\\sr,t,r/m} &
+	\makecell{POP\\r/m} \\ \hline
+
+	9 &
+	\makecell{XCHG\\AX} &
+	\makecell{XCHG\\CX} &
+	\makecell{XCHG\\DX} &
+	\makecell{XCHG\\BX} &
+	\makecell{XCHG\\SP} &
+	\makecell{XCHG\\BP} &
+	\makecell{XCHG\\SI} &
+	\makecell{XCHG\\DI} &
+	\makecell{CBW} &
+	\makecell{CWD} &
+	\makecell{CALL\\l,d} &
+	\makecell{WAIT} &
+	\makecell{PUSHF} &
+	\makecell{POPF} &
+	\makecell{SAHF} &
+	\makecell{LAHF} \\ \hline
+
+	A &
+	\makecell{MOV\\m$\rightarrow$AL} &
+	\makecell{MOV\\m$\rightarrow$AX} &
+	\makecell{MOV\\AL$\rightarrow$m} &
+	\makecell{MOV\\AX$\rightarrow$m} &
+	\makecell{MOVS} &
+	\makecell{MOVS} &
+	\makecell{CMPS} &
+	\makecell{CMPS} &
+	\makecell{TEST\\b,l,a} &
+	\makecell{TEST\\w,i,a} &
+	\makecell{STOS} &
+	\makecell{STOS} &
+	\makecell{LODS} &
+	\makecell{LODS} &
+	\makecell{SCAS} &
+	\makecell{SCAS} \\ \hline
+
+	B &
+	\makecell{MOV\\i$\rightarrow$AL} &
+	\makecell{MOV\\i$\rightarrow$CL} &
+	\makecell{MOV\\i$\rightarrow$DL} &
+	\makecell{MOV\\i$\rightarrow$BL} &
+	\makecell{MOV\\i$\rightarrow$AH} &
+	\makecell{MOV\\i$\rightarrow$CH} &
+	\makecell{MOV\\i$\rightarrow$DH} &
+	\makecell{MOV\\i$\rightarrow$BH} &
+	\makecell{MOV\\i$\rightarrow$AX} &
+	\makecell{MOV\\i$\rightarrow$CX} &
+	\makecell{MOV\\i$\rightarrow$DX} &
+	\makecell{MOV\\i$\rightarrow$BX} &
+	\makecell{MOV\\i$\rightarrow$SP} &
+	\makecell{MOV\\i$\rightarrow$BP} &
+	\makecell{MOV\\i$\rightarrow$SI} &
+	\makecell{MOV\\i$\rightarrow$DI} \\ \hline
+
+	C &
+	& &
+	\makecell{RET\\(i+SP)} &
+	\makecell{RET} &
+	\makecell{LES} &
+	\makecell{LDS} &
+	\makecell{MOV\\b,i,r/m} &
+	\makecell{MOV\\w,i,r/m} &
+	& &
+	\makecell{RET\\l,(i+SP)} &
+	\makecell{RET\\l} &
+	\makecell{INT\\Type 3} &
+	\makecell{INT\\(Any)} &
+	\makecell{INT0} &
+	\makecell{IRET} \\ \hline
+
+	D &
+	\makecell{Shift\\b} &
+	\makecell{Shift\\w} &
+	\makecell{Shift\\b,v} &
+	\makecell{Shift\\w,v} &
+	\makecell{AAM} &
+	\makecell{AAD} &
+	&
+	\makecell{XLAT} &
+	\makecell{ESC\\0} &
+	\makecell{ESC\\1} &
+	\makecell{ESC\\2} &
+	\makecell{ESC\\3} &
+	\makecell{ESC\\4} &
+	\makecell{ESC\\5} &
+	\makecell{ESC\\6} &
+	\makecell{ESC\\7} \\ \hline
+
+	E &
+	\makecell{LOOPNZ/\\LOOPNE} &
+	\makecell{LOOPZ/\\LOOPE} &
+	\makecell{LOOP} &
+	\makecell{JCXZ} &
+	\makecell{IN\\b} &
+	\makecell{IN\\w} &
+	\makecell{OUT\\b} &
+	\makecell{OUT\\w} &
+	\makecell{CALL\\d} &
+	\makecell{JMP\\d} &
+	\makecell{JMP\\l,d} &
+	\makecell{JMP\\si,d} &
+	\makecell{IN\\v,b} &
+	\makecell{IN\\v,w} &
+	\makecell{OUT\\v,b} &
+	\makecell{OUT\\v,w} \\ \hline
+
+	F &
+	\makecell{LOCK} &
+	&
+	\makecell{REP} &
+	\makecell{REP\\z} &
+	\makecell{HLT} &
+	\makecell{CMC} &
+	\makecell{Grp 1\\b,r/m} &
+	\makecell{Grp 1\\w,r/m} &
+	\makecell{CLC} &
+	\makecell{STC} &
+	\makecell{CLI} &
+	\makecell{STI} &
+	\makecell{CLD} &
+	\makecell{STD} &
+	\makecell{Grp 2\\b,r/m} &
+	\makecell{Grp 2\\w,r/m} \\ \hline
+\end{longtable}
+}
+
+\begin{longtable}{|c|c|c|c|c|c|c|c|c|}
+	\hline
+	\textbf{mod□r/m} & \textbf{000} & \textbf{001} & \textbf{010} & \textbf{011} & \textbf{100} & \textbf{101} & \textbf{110} & \textbf{111} \\
+	\hline
+	\endfirsthead
+
+	\hline
+	\textbf{mod□r/m} & \textbf{000} & \textbf{001} & \textbf{010} & \textbf{011} & \textbf{100} & \textbf{101} & \textbf{110} & \textbf{111} \\
+	\hline
+	\endhead
+
+	\hline
+	\endfoot
+
+	\hline
+	\endlastfoot
+
+	\textbf{Immed} & {ADD} & {OR} & {ADC} & {SBB} & {AND} & {SUB} & {XOR} & {CMP} \\
+	\hline
+	\textbf{Shift} & {ROL} & {ROR} & {RCL} & {RCR} & {SHL/SAL} & {SHR} & {-} & {SAR} \\
+	\hline
+	\textbf{Grp 1} & {TEST} & {-} & {NOT} & {NEG} & {MUL} & {IMUL} & {DLV} & {IDIV} \\
+	\hline
+	\textbf{Grp 2} &
+	\makecell{INC} &
+	\makecell{DEC} &
+	\makecell{CALL\\id} &
+	\makecell{CALL\\I,id} &
+	\makecell{JMP\\id} &
+	\makecell{JMP\\I,id} &
+	\makecell{PUSH} &
+	\makecell{-} \\
+	\hline
+
+\end{longtable}
+
+\begin{itemize}
+	\item\verb`b` : byte operation
+	\item\verb`d` : direct, e.g.
+	\item\verb`f` : from CPU register, \verb`AL`
+	\item\verb`i` : immediate, e.g. \verb`0x1227`
+	\item\verb`ia`: immed. to accum.
+	\item\verb`id`: indirect
+	\item\verb`is`: immed. byte sign ext.
+	\item\verb`l` : long ie. inter-segment
+	\item\verb`m` : memory, \verb`[0x2013]`
+	\item\verb`r/m`: EA is second byte
+	\item\verb`si`: short intra-segment
+	\item\verb`sr`: segment register
+	\item\verb`t` : to CPU register
+	\item\verb`v` : variable
+	\item\verb`w` : word operation
+	\item\verb`z` : zero
+\end{itemize}
+
+

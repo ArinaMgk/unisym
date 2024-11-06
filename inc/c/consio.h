@@ -27,8 +27,8 @@
 #include "stdinc.h"
 #include <stdarg.h>
 
-enum {
-	_STD_IN = 0,
+enum _STD_SRC_t{
+	_STD_INN = 0,
 	_STD_OUT = 1,
 	_STD_ERR = 2,
 };
@@ -39,6 +39,67 @@ struct ConsoleControlBlock {
 	word width, height;
 };
 */
+
+typedef struct {
+	struct {
+		byte Fore_B : 1;// blue
+		byte Fore_G : 1;// green
+		byte Fore_R : 1;// red
+		byte Highlight : 1;
+		byte Back_B : 1;// blue
+		byte Back_G : 1;// green
+		byte Back_R : 1;// red
+		byte Kirablink : 1;
+	};
+	byte Bold;
+	byte Underline;
+} ConsoleCharPropertyColor8;
+
+enum CON_FORECOLOR {
+#if 0
+#elif defined(_Linux) || 1 // VT100
+	CON_FORE_DEFAULT = 39,
+	CON_FORE_DARK = 30,
+	CON_FORE_RED = 31,
+	CON_FORE_GREEN = 32,
+	CON_FORE_YELLOW = 33,
+	CON_FORE_BLUE = 34,
+	CON_FORE_MAGENTA = 35,
+	CON_FORE_CYAN = 36,
+	CON_FORE_GRAY = 37,
+	CON_FORE_GRAY_LIGHT = 90,
+	CON_FORE_RED_LIGHT = 91,
+	CON_FORE_GREEN_LIGHT = 92,
+	CON_FORE_YELLOW_LIGHT = 93,
+	CON_FORE_BLUE_LIGHT = 94,
+	CON_FORE_MAGENTA_LIGHT = 95,
+	CON_FORE_CYAN_LIGHT = 96,
+	CON_FORE_WHITE = 97,
+#endif
+};
+enum CON_BACKCOLOR {
+#if 0
+#elif defined(_Linux) || 1 // VT100
+	CON_BACK_DEFAULT = CON_FORE_DEFAULT + 10,
+	CON_BACK_DARK    = CON_FORE_DARK    + 10,
+	CON_BACK_RED     = CON_FORE_RED     + 10,
+	CON_BACK_GREEN   = CON_FORE_GREEN   + 10,
+	CON_BACK_YELLOW  = CON_FORE_YELLOW  + 10,
+	CON_BACK_BLUE    = CON_FORE_BLUE    + 10,
+	CON_BACK_MAGENTA = CON_FORE_MAGENTA + 10,
+	CON_BACK_CYAN    = CON_FORE_CYAN    + 10,
+	CON_BACK_GRAY    = CON_FORE_GRAY    + 10,
+	CON_BACK_GRAY_LIGHT    = CON_FORE_GRAY_LIGHT    + 10,
+	CON_BACK_RED_LIGHT     = CON_FORE_RED_LIGHT     + 10,
+	CON_BACK_GREEN_LIGHT   = CON_FORE_GREEN_LIGHT   + 10,
+	CON_BACK_YELLOW_LIGHT  = CON_FORE_YELLOW_LIGHT  + 10,
+	CON_BACK_BLUE_LIGHT    = CON_FORE_BLUE_LIGHT    + 10,
+	CON_BACK_MAGENTA_LIGHT = CON_FORE_MAGENTA_LIGHT + 10,
+	CON_BACK_CYAN_LIGHT    = CON_FORE_CYAN_LIGHT    + 10,
+	CON_BACK_WHITE         = CON_FORE_WHITE         + 10,
+#endif
+};
+
 
 void curset(word posi);
 word curget(void);
@@ -52,16 +113,19 @@ void outi16hex(const word inp);
 void outi32hex(const dword inp);
 void outi64hex(const uint64 inp);
 void outidec(int xx, int base, int sign);
-void outsfmtlst(const char* fmt, va_list lst);
-void outsfmt(const char* fmt, ...);
+void outi(stdint val, int base, int sign_show);
+void outu(stduint val, int base);
+int  outsfmtlst(const char* fmt, para_list lst);
+int  outsfmt(const char* fmt, ...);
+
+#define printline(...) puts(__VA_ARGS__)
+
 
 //
 void ConClearScreen(void);
 #define ConClear ConClearScreen
 
-//{TODO} #define printf outsfmt 
-
-#if defined(_WinNT) | defined(_Linux)
+#if defined(_WinNT) || defined(_Linux)
 #include <stdio.h>
 #elif defined(_MCCA) // && _MCCA==0x8632 ...
 //
@@ -72,36 +136,10 @@ void ConClearScreen(void);
 // Return the length of the words excluding terminating zero but "limit" considers it.
 size_t ConScanLine(char* buf, size_t limit);
 
-
-//
-#if defined(_Linux)
-//
-static inline void ConCursorMoveUp(unsigned short dif)
-{
-	if (dif)printf("\033[%hdA", dif);
-}
-
-//
-static inline void ConCursorMoveDown(unsigned short dif)
-{
-	if (dif)printf("\033[%hdB", dif);
-}
-
-//
-static inline void ConCursorMoveRight(unsigned short dif)
-{
-	if (dif)printf("\033[%hdC", dif);
-}
-
-//
-static inline void ConCursorMoveLeft(unsigned short dif)
-{
-	if (dif)printf("\033[%hdD", dif);
-}
-#elif defined(_WinNT)
+void ConCursorMoveUp(unsigned short dif);
+void ConCursorMoveDown(unsigned short dif);
 void ConCursorMoveRight(unsigned short dif);
-#endif
-
+void ConCursorMoveLeft(unsigned short dif);
 
 //
 #if defined(_Linux)
@@ -111,17 +149,7 @@ static inline void ConCursorReset(void)
 }
 #endif
 
-//
-#if defined(_WinNT)
 void ConCursor(unsigned short col, unsigned short row);
-#elif defined(_Linux)
-//
-static inline void ConCursor(unsigned short col, unsigned short row)
-{
-	printf("\033[%hd;%hdH", col, row);
-}
-#endif
-
 
 //
 #if defined(_Linux)
@@ -140,23 +168,10 @@ static inline void ConCursorHide(void)
 }
 #endif
 
-#if defined(_Linux)
-// The style is for the brush
-static inline void ConStyleAbnormal(void)
-{
-	printf("\033[7m");
-}
-// The style is for the brush
-static inline void ConStyleNormal(void)
-{
-	printf("\033[27m");
-}
-#elif defined(_WinNT)
 // The style is for the brush
 void ConStyleAbnormal(void);
 // The style is for the brush
 void ConStyleNormal(void);
-#endif
 
 // ConCurrentWorkingDirectory
 #ifdef _WinNT

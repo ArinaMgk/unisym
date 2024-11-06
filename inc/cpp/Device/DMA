@@ -31,7 +31,7 @@
 namespace uni {
 #if 0
 
-#elif defined(_MCU_STM32F10x)
+#elif defined(_MCU_STM32F1x)
 	#undef DMA
 	#undef DMA1
 	#undef DMA2
@@ -140,8 +140,8 @@ namespace uni {
 			{
 				crt[DMAReg::IFCR] |= (1 << _DMA_ISR_POS_GIF1)/*???*/ << 4/*a group*/; //<=> crt.setInterruptSub(false);
 				crt[DMAReg::CNDTRx[channel]] = leng;
-				crt[DMAReg::CPARx[channel]] = (stduint)(crt.m2p ? dst_addr : src_addr);
-				crt[DMAReg::CMARx[channel]] = (stduint)(crt.m2p ? src_addr : dst_addr);
+				crt[DMAReg::CPARx[channel]] = _IMM(crt.m2p ? dst_addr : src_addr);
+				crt[DMAReg::CMARx[channel]] = _IMM(crt.m2p ? src_addr : dst_addr);
 			}
 			crt.setInterruptSub(true, channel);
 			crt.enAble(true, channel);

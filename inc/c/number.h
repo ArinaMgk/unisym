@@ -23,7 +23,7 @@
 #ifndef _INC_NUMBER
 #define _INC_NUMBER
 
-#include "floating.h"
+#include "stdinc.h"
 #include "ustdbool.h"
 
 // ---- Complex ---- 
@@ -69,9 +69,9 @@ tmpl(mul)(tmpa a, tmpa b) {
 	return res;
 }
 
+_ESYM_C double dblsqrt(double);
 __temp
 float dflabs(tmpa a) {
-	extern double dblsqrt(double);
 	return dblsqrt(a.real * a.real + a.imag * a.imag);
 }
 #define dflabs_m(a) sqrt((a).real * (a).real + (a).imag * (a).imag)

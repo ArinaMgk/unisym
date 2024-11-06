@@ -1,0 +1,67 @@
+
+\subsection{Bridge between Machine-code and Advanced-language}
+
+The concept of `state machine' is widely accepted, for it describing the effect of the instructions, which can help us to get numeric register-effects and other side-effects.
+
+For example, the rules of conversion from function calling, entering(including allocating stack and others), leaving and evaluation to assembly implementation should be specific.
+
+More to see
+\begin{itemize}
+	\item \refer{Calling}
+\end{itemize}
+
+Compared with C++, CPL has
+no override,
+no class pre-parameter(\verb`this`), 
+no references(\verb`&`),
+no pre-constructure(calling in global area, beyond any procedure block), % int l = strlen("a");// this may happen without control
+so it does not own complex reflect.
+
+\subsection{Syntax, Semantics and Statement} % Grammar
+\subimport{CLV/Program}{Statement}
+
+\subsection{Scope and Linkage}
+
+\subsection{Identifier and Token Parsing}
+\subimport{CLV/Program}{Identifier}
+
+\subsection{Keyword and Operator Parsing}
+\subimport{CLV/Program}{Keyword}
+\input{CLV/Program/Operator.tex}
+
+\subsection{Preprocessing and Parsing}
+\subimport{CLV/Program}{Parsing}
+
+\subsection{Procedure, Function and Method}
+\labex{Function}
+\subimport{CLV/Program}{Function}
+
+\subsection{Standard, Style and Arinae Covenant}
+\subimport{CLV/Program}{Standard}
+
+\subsection{Target and Output Format}
+\input{CLV/Program/Target}
+
+
+\subsection{Assertion and Exception}
+\input{CLV/Except/Assertion}
+
+\subsection{Parallel-Thread and Multi-process}
+
+\subsubsection{Spin-lock}
+
+\subsection{Binary Machine Operation}
+\B{Header}: \verb`c/binary.h`
+
+\paragraph{CPUID Operation} \
+\B{Header}: \verb`c/cpuid.h`
+
+
+\subsection{Special Notion and Adaptation}
+
+
+
+
+
+
+

@@ -1,0 +1,101 @@
+
+This is for Magice, some assembly and C.
+
+\subsubsection{Data Model}
+
+\B{Header}: integer, auto-inc-by stdinc.
+
+Usually, the implementation about sizes of the fundamental types are collectively known as data model.
+
+\begin{longtable}{|r|c|c|c|c|c|}
+	\hline
+	\B{MIKA}&\B{BYTES(M)}&\B{STDC}&\B{C-LP32}&\B{C-ILP32/LLP}&\B{C-LP64} \\
+	\hline\endfirsthead\hline
+	\B{MIKA}&\B{MAGICE}&\B{STDC}&\B{LP32}&\B{ILP32/LLP}&\B{LP64} \\
+	\hline\endhead\hline\endfoot\hline\endlastfoot
+	%
+	VOID&struct\{\}(0)&void& & &\\\hline
+	BIT/+BOOL&bit(0.125)&usually int& & &\\\hline
+	BYT(E)/+CHAR&1&char>=\B{1}&1&1&1\\\hline
+	WORD/+SHORT&2&short>=\B{2}&2&2&2\\\hline
+	*+INT&stduint&int>=2&2&4&4\\\hline
+	DWORD&4& & & &\\\hline
+	FWORD&6& & & &\\\hline
+	*+LONG&/&long>=4&4&4&8\\\hline
+	QWORD/+LLONG&8&long long>=\B{8}&8&8&8\\\hline
+	TWORD/TBYTE&10& & & &\\\hline
+	OWORD&16&void& & &\\\hline
+	YWORD&32&void& & &\\\hline
+	ZWORD&64&void& & &\\\hline
+	REAL\%[BITS]&\It{IEEE}&void& & &\\\hline
+\end{longtable}
+
+\verb`*` means the size is not stable;
+\verb`+` means the type represent the signed data.
+
+`QWORD' is for Quadword.
+`TBYTE' is used from \It{Netwide Assembler}.
+`M' stands for Magice while `C' stands for CPL.
+`MIKA' is the General Middle Language.
+
+For `BYTE', a macro `OCTET' can be made to fit the habit of users.
+
+For `INT', the byte-size is 4 by default, but 2 for register-size less than 4.
+
+For `LONG', the byte-size is 4 for WinNT and Linux-32, but 8 for Linux-64.
+
+\It{ARN decided BYTE has fixed 8 binary digits.}
+
+For 32 bit systems:
+\begin{itemize}
+	\item LP32 or 2/4/4 (int is 16-bit, long and pointer are 32-bit)\begin{itemize}
+		\item may be for Win-16 API ?
+	\end{itemize}
+	\item ILP32 or 4/4/4 (int, long, and pointer are 32-bit)\begin{itemize}
+		\item Win32 API
+		\item Unix and Unix-like systems (Linux, Mac OS X)
+	\end{itemize}
+\end{itemize}
+
+For 64 bit systems:
+\begin{itemize}
+	\item LLP64 or 4/4/8 (int and long are 32-bit, pointer is 64-bit)\begin{itemize}
+		\item Win-64 API
+	\end{itemize}
+	\item LP64 or 4/8/8 (int is 32-bit, long and pointer are 64-bit)\begin{itemize}
+		\item Unix and Unix-like systems (Linux, Mac OS X)
+	\end{itemize}
+\end{itemize}
+
+Other models are very rare. For example, ILP64 (8/8/8: int, long, and pointer are 64-bit) only appeared in some early 64-bit Unix systems (e.g. Unicos on Cray).
+
+\paragraph{for Macro Assembler}
+It uses \verb`BYTE`, \verb`WORD` and \verb`DWORD` for integer types, and each of them can be prefixed with \verb`S` to become its signed type.
+
+Compared to A.N.Y., integers in MASM includes the sign property.
+
+\subsubsection{Pointer}
+
+M, C, C++ support pointer (add \verb`*`after the destination-type to express its type) to realize the access of memory like Assembly.
+
+The style \verb|type0* a| stresses that \verb|a| is an instance of the pointer. \verb|type0[] a| stresses the array type, like $C\#$.
+
+The style \verb|type0 *a| stresses the type of the destination. \verb|type0 a[]| stresses the basic type, like $CPL$.
+
+And C++ provides \B{reference} to make the form of pointers beautiful, while provides class to make passing the instance beautiful.
+
+The arithmetic for pointers are usually special. For plus and minus, the factor will be times by the size of the object to make it seems to have the unit. For multiply and bitwise operations, it is usually forbidden although it can be done easily in Binary Assembly. 
+
+For the analyzer, a pointer consists at least of the information of destination type and the logical address.
+If a pointer contain the end so you can know the range, it becomes a \B{fat pointer}.
+
+\subsubsection{Endianness}
+
+For multi-byte register, the processor should decide whether it is little or big endian.
+
+When designing a parser, there are also different processes for literal immediate.
+
+For example, if you code \verb|DW 'ab'|, it will become \verb"0x61,0x62 (0x6261)" in NASM, while \verb"(0x6162)" in MASM. The former has considered same results from \verb|DB 'ab'|. % Expi. Haruno RFC10
+
+
+

@@ -1,5 +1,4 @@
 # ASCII git-ignore TAB4 CRLF
-# ...
 .vscode
 magic/.vscode
 # Document
@@ -7,14 +6,14 @@ magic/.vscode
 *.out
 *.gz
 *.aux
+*.bbl
+*.blg
 *.log
 *.toc
-# Website Temporary Files
-doc/www.unisym.org/_*
-doc/www.unisym.org/.*
-doc/www.unisym.org/zh
+*.run.xml
 # Locale Makefiles : code `make list` to generate
 lib/make/c*
+lib/c/auxiliary/*
 # .Net Class Library
 lib/dotNet/udotnet/.vs
 lib/dotNet/udotnet/obj
@@ -26,7 +25,3 @@ Cargo.lock
 # Keil
 DebugConfig
 *.uvgui*
-# Huge-interval-sources
-_asm_inst_bind.c
-_asm_dasm_bind.c
-_asm_inst_bin.c

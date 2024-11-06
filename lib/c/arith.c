@@ -35,6 +35,14 @@ const static double _e = _VAL_E;
 // ln16
 const static double _4ln2 = 4 * _VAL_L2;
 
+// ---NO REGISTER---
+#define _ABS_IMM(a) ((a)<0?-(a):(a))
+int intabs(int j) { return _ABS_IMM(j); }
+int abs(int j) { return _ABS_IMM(j); }
+long int labs(long int j) { return _ABS_IMM(j); }
+long long int llabs(long long int j) { return _ABS_IMM(j); }
+// ---NO REGISTER--- END
+
 void ariprecise(stduint prec)
 {
 	_EFDIGS = prec;
@@ -200,7 +208,7 @@ double dblsin(double rad)
 	double res = 1;
 	if (rad < 0) return -dblsin(-rad);
 	while (rad > 2 * _pi) //{TODO} f_getPartInteger, or may overlimit of stduint
-		rad -= ((stduint)(rad / _pi) & ~(stduint)1) * _pi;
+		rad -= (_IMM(rad / _pi) & ~_IMM(1)) * _pi;
 	if (rad > _pi)
 	{
 		res *= -1;
@@ -218,7 +226,7 @@ double dblcos(double rad)
 	double res = 1;
 	if (rad < 0) return dblcos(-rad);
 	while (rad > 2 * _pi) //{TODO} f_getPartInteger, or may overlimit of stduint
-		rad -= ((stduint)(rad / _pi) & ~(stduint)1) * _pi;
+		rad -= (_IMM(rad / _pi) & ~_IMM1) * _pi;
 	if (rad > _pi)
 	{
 		res *= -1;

@@ -22,29 +22,26 @@
 
 #include "../../inc/c/msgface.h"
 #include "../../inc/c/stdinc.h"
+#include "../../inc/c/ISO_IEC_STD/stdlib.h"
 #include <stdio.h>
-#include <stdlib.h>
 
 #if defined(_DEBUG) || defined(_dbg)
 
 // Node* _WARN_CHAIN = NULL;
-char* _ERRO_MESSAGE = NULL;
-jmp_buf _ERRO_JUMP = { 0 };
+Retpoint _ERRO_JUMP;
 
 void _cast_panic() {
-	// make use of jmp_buf to jump to potential handler
 	while (1);
 	//abort();
 }
 
 void erro(char* erromsg)
 {
-	_ERRO_MESSAGE = erromsg;
-	if (_ERRO_JUMP) longjmp(_ERRO_JUMP, 1);
+	if (&_ERRO_JUMP) JumpPoint(&_ERRO_JUMP, (pureptr_t)erromsg);
 	else
 	{
-		fprintf(stderr, "Error: %s\n", erromsg);
-		memf(_ERRO_MESSAGE);
+		printlog(_LOG_ERROR, "%s", erromsg);
+		// memf(erromsg);//{TODO} a leak here
 		exit(1);
 	}
 }

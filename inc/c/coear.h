@@ -34,7 +34,7 @@
 // * State Number, but also with erro() call
 // * Arn is going to setup dnode-malc-table and warn-table (from old generation)
 
-#ifdef _BUILD_MSVC
+#ifdef _DEV_MSVC
 #pragma warning(disable:4068)
 #pragma source ./source/coear.c
 #endif
@@ -42,7 +42,13 @@
 #ifndef ModCoeArith
 #define ModCoeArith
 
+#include "stdinc.h"
 #include "arith.h"
+
+#ifdef _INC_CPP
+extern "C" {
+#endif
+
 #include "ustring.h"
 
 typedef struct PhinaeCDEAr
@@ -192,5 +198,10 @@ double CoeToDouble(const coe* dest);
 coe* CoeFromInteger(ptrdiff_t integ);
 //
 coe* CoeFromDouble(double flt);
+
+
+#ifdef _INC_CPP
+}
+#endif
 
 #endif

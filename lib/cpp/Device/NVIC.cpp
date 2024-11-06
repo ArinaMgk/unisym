@@ -22,7 +22,7 @@
 
 #include "../../../inc/cpp/Device/NVIC"
 
-#if defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 namespace uni {
 	// BELONG cortex_m3 and cortex_m4
 	static uint32_t NVIC_EncodePriority(uint32_t PriorityGroup, uint32_t PreemptPriority, uint32_t SubPriority)
@@ -37,7 +37,7 @@ namespace uni {
 #endif
 
 
-#if defined(_MCU_STM32F10x)
+#if defined(_MCU_STM32F1x)
 namespace uni {
 
 	NVIC_t NVIC;
@@ -59,6 +59,18 @@ namespace uni {
 
 	void NVIC_t::setPriority(Request_t req, uint32 prepriority, uint32 subpriority) {
 		setPriority(req, NVIC_EncodePriority(getPriorityGroup(), prepriority, subpriority));
+	}
+
+	void NVIC_t::setAble(Request_t req, bool ena) {
+		const stduint req_no = _IMM(req);
+		if (!req_no) return;
+		if (ena) {
+			this->map->ISER[req_no >> 5UL] |= ((uint32_t)1 << (req_no & 0x1FUL));
+		}
+		else {
+			this->map->ICER[req_no >> 5UL] |= ((uint32_t)1 << (req_no & 0x1FUL));
+			//{MORE TODO}
+		}
 	}
 }
 

@@ -26,7 +26,7 @@
 //{TODO} combinated with - JUST till here - until consio contain these.
 
 #include "../stdinc.h"
-#if defined(_INC_CPP)
+#if defined(_INC_CPP) && defined(_SUPPORT_GPIO)
 
 #include "../../cpp/Device/IIC"
 #include "../../cpp/Device/GPIO"
@@ -34,8 +34,8 @@
 #define _ADDR_PCF8574_T   0x4E
 #define _ADDR_PCF8574_AT  0x7E
 
-#define _LCD1602_ADDR_ROW1 0x80// 第一行写入地址
-#define _LCD1602_ADDR_ROW2 0xc0// 第二行写入地址
+#define _LCD1602_ADDR_ROW1 0x80// address of row 0
+#define _LCD1602_ADDR_ROW2 0xc0// address of row 1
 
 namespace uni {
 	class LCD1602_IIC_t {

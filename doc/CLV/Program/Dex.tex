@@ -1,0 +1,121 @@
+
+The definition and declaration of function, to see \refer{Function}.
+
+Definition reserves room for variables, but declarations do not.
+Usually a definition includes the respective declaration.
+
+Someone call both “declaration”: The former is “Definition Declaration” and the later is “Reference Declaration”. From this perspective, declaration can be a kind of definition, and vice versa. % yo 20240308
+
+When it comes to linkage, there is usually One Definition Rule (ODR) \textemdash only an object can own the entity of the specific object. %单定义规则
+Inline function are beyond the rule, for the header can implement them without any worries about duplication.
+
+Magice(Default configuration) and {Rust} will take the last definition for the near next code in the scope.
+
+\It{The declaration is a kind of pseudo-instruction.} \textemdash{ArinaMgk, RFA23}.
+
+\paragraph{non-function objects for $C,C++,M$}
+
+\B{EXPERIMENT - Slave statements cannot be declarations}%REZ07
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+	if (...) long long i;
+\end{lstlisting}
+
+\B{EXPERIMENT - C/C++ - Tentative Linkage 1}
+Below are codes in a global (out of any grace-scope) scope, where assumes N is an immediate integer. Results are done by \It{dosconio} with specific version.
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+	int i1 = N;        // definition, external linkage
+	static int i2 = N; // definition, internal linkage
+	extern int i3 = N; // definition, external linkage
+	int i4;            // tentative , external linkage
+	static int i5;     // tentative definition, internal linkage
+	int i1;            // refers to line-1 (valid tentative definition)
+	int i2;            // BAD (error in GCC, but pass for MSVC)
+	int i3;            // refers to line-3
+	int i4;            // refers to line-4
+	int i5;            // BAD (like line-7)
+	extern int i1;     // refers to previous external
+	extern int i2;     // refers to previous internal
+	extern int i3;     // refers to previous external
+	extern int i4;     // refers to previous external
+	extern int i5;     // refers to previous internal
+	// line-7 error: non-static declaration of 'i2' follows static declaration
+	// line-8 warning: 'i3' initialized and declared 'extern'
+\end{lstlisting}
+
+For {C}, the code is bad, but OK for {CPP}. For \It{Magice}, this will consider an operation with effect for stack in reality.
+
+\B{EXAMPLE - C/C++ - Tentative Linkage 2}
+If at the end of the translation unit containing, for example, \verb`int i[];`, the array \verb`i` still has incomplete type, the implicit initializer causes it to have 1 element, which is set to 0 on program startup.
+
+\B{EXAMPLE - C/C++ - Tentative Linkage 3}
+According to ISO/IEC C99
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+// OK in file scope
+extern char a[];
+char a[1];
+\end{lstlisting}
+\begin{lstlisting}[language=C]
+// BAD in file scope
+extern char* b;
+char b[1];
+\end{lstlisting}
+Notice that if one is not in file (global) scope, the object will be in stack, so it is impossible to link for C/C++.
+
+\B{EXPERIMENT - C/C++ - Varibale Prefix 1}
+\begin{lstlisting}[language=C]
+	// SUBEXAMPLE 1 - MIXED ORDER OF PREFIX @ARINA
+	int unsigned const static p = 0;
+	static long const signed long int q = 1;
+	// SUBEXAMPLE 2 - @ARINA YO REC20
+	int x, const y = 6, z = 2;// not error in MSVC
+	x = 1; y = 2; z = 3;// 'const' is omitted
+\end{lstlisting}
+
+\B{EXPERIMENT - Old C Style before ANSI}
+
+If we define \verb`func(){}` without a `void' in the parameter list, then many arguments can be passed to it.
+A parameter-identifier is specified within the parentheses, and the parameter type is declared before the opening curly brace.
+If a type is not declared, it is assumed to be an int.
+It is worth noting that function declarations are not allowed to contain detailed parameter lists.
+
+\begin{lstlisting}[language=C]
+	// TEST Turbo C 3.0 by Arina on REB31
+	double old_style(); /* Obsolete function declaration */
+	double alt_style( a , real, b ) /* Obsolete function definition */
+		double* real;
+		int     a, b;
+	{
+		return ( *real + a );
+	}
+\end{lstlisting}
+
+
+\paragraph{non-function objects for $Rust$} \
+
+\B{EXAMPLE}
+\lstset{style=GlobalRust}
+\begin{lstlisting}[language=Rust]
+let mut a: i32 = 10;
+let a: i32;// just declaration
+let b = 0;// definition with type inference, not reference because of this for basic type
+a = 0;// once assignment for not mutable variable
+\end{lstlisting}
+The line 1 where \verb`mut`, \verb`:i32`, \verb`=10` 
+are optional for what you want to do.
+
+
+\paragraph{$struct/union$ for $C,C++$}
+
+We can define them later than their declaration. For example,
+\lstset{style=GlobalC}
+\begin{lstlisting}[language=C]
+	struct struc_a_t;
+	typedef struc_a_t struc_b_t;
+	// ... before using the body of `struc_a_t'
+	struct struc_a_t { /*...*/ }
+\end{lstlisting}
+
+

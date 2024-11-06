@@ -39,7 +39,7 @@ namespace uni {
 		char* buffer, * bufptr;
 	} TokenParseUnit;
 
-	_CALL_C void StrTokenAll(TokenParseUnit* tpu);
+	_ESYM_C void StrTokenAll(TokenParseUnit* tpu);
 
 #ifdef _INC_CPP
 }

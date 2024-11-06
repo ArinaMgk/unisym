@@ -1,0 +1,44 @@
+\labex{ASM}
+
+\section{Directive}
+
+\subsection{Base Compatible Platform}
+
+Usually, this is set by the category of the respective processor.
+There are examples for Intel$^{\textregistered}$80386.
+
+\B{for NASM}
+
+\T{CPU 386} or \T{[CPU 386]}
+
+\B{for MASM}
+
+\T{.386}
+
+
+\subsection{Calling and Memory Method}
+
+\B{for MASM}
+
+\verb`.model flat, stdcall` 
+
+flat: a 4GB segment is shared for code and data.
+
+\section{Instruction}
+\B{Header}: \verb`c/instruction.h`
+
+
+Instruction is also known as {Machine Instruction}.
+
+\subimport{ASM/Instruction}{Instruction-i8086}
+
+\section{Difference}
+
+\subsubsection{with Netwide ASM} (version 2.07)
+
+
+\subsubsection{with Microsoft Macro ASM}
+
+
+\subsubsection{with GNU-AS}
+

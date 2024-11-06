@@ -23,13 +23,13 @@
 #include "../../../../inc/c/ustring.h"
 #include "../../../../inc/c/uctype.h"
 
-static int sign = 0;
+static int sign = 0;// is_negative, a shared object
 
 // decimal series
 
 static void setsym(const char**const inp) {
 	sign = 0;
-	if (**inp == '-') sign++, (*inp)++;
+	if (**inp == '-') sign = !sign, (*inp)++;
 	else if (**inp == '+') (*inp)++;
 }
 
@@ -45,18 +45,217 @@ ptrdiff_t atoins(const char* str) // hosted-dep
 	} else break;
 	return sign ? -inst : inst;
 }
-int _atoidefa(const char* nptr) // hosted-dep
+int _atoidefa(const char* inp) // hosted-dep
 {
-	if (!nptr || !*nptr) return 0;
-	setsym(&nptr);
+	if (!inp || !*inp) return 0;
+	setsym(&inp);
 	int inst = 0;
-	for0(i, lookupDecimalDigits(sizeof(int))) if (ascii_isdigit(nptr[i]))
+	for0(i, lookupDecimalDigits(sizeof(int))) if (ascii_isdigit(inp[i]))
 	{
 		inst *= 10;
-		inst += (int)ascii_digtoins(nptr[i]);
+		inst += (int)ascii_digtoins(inp[i]);
 	} else break;
 	return sign ? -inst : inst;
 }
+
+long int atolong(const char* inp) // hosted-dep
+{
+	if (!inp || !*inp) return 0;
+	setsym(&inp);
+	int inst = 0;
+	for0(i, lookupDecimalDigits(sizeof(long))) if (ascii_isdigit(inp[i]))
+	{
+		inst *= 10;
+		inst += (long)ascii_digtoins(inp[i]);
+	} else break;
+	return sign ? -inst : inst;
+}
+#ifdef _BIT_SUPPORT_64
+long long int atollong(const char* inp) // sint64
+{
+	if (!inp || !*inp) return 0;
+	setsym(&inp);
+	long long int inst = 0;
+	for0(i, lookupDecimalDigits(sizeof(long long))) if (ascii_isdigit(inp[i]))
+	{
+		inst *= 10;
+		inst += (long long)ascii_digtoins(inp[i]);
+	} else break;
+	return sign ? -inst : inst;
+}
+#endif
+
+#define restrict //{TEMP}
+
+long int StrTokenLong(const char* restrict inp, char** restrict endptr, int base) // hosted-dep
+{
+	long int result = 0;
+	const char* ptr = inp;
+	if (!inp) {
+		asserv(endptr)[0] = NULL;
+		return 0;
+	}
+	while (*ptr == ' ' || *ptr == '\t') ptr++;
+	setsym(&inp);
+	if (!base) {
+		if (*ptr == '0') {
+			if (ascii_toupper(ptr[1]) == 'X') {
+				base = 16;
+				ptr += 2;
+			}
+			else base = 8;
+		}
+		else base = 10;
+	}
+	else if (base < 2 || base > 36) {
+		asserv(endptr)[0] = (char*)inp;
+		return 0;
+	}
+	while (ascii_isalnum(*ptr)) {
+		int digit = _MAP_ALNUM_DIGIT(*ptr);
+		if (!digit || digit >= base) break;
+		if (result > (LONG_MAX - digit) / base) {
+			//{TODO} errno = ERANGE;
+			return sign >= 0 ? LONG_MAX : LONG_MIN;
+		}
+		result = result * base + digit;
+		ptr++;
+	}
+	if (endptr != NULL) {
+		*endptr = (char*)ptr;
+	}
+	return sign * result;
+}/*
+int main() {
+	const char* str = "12345.";
+	char* endptr;
+	long int result = StrTokenLong(str, &endptr, 10);
+	printf("Converted value: %ld\n", result);
+	printf("End pointer: %s\n", endptr);
+}
+*//*
+Converted value: 12345
+End pointer: .
+*/
+
+unsigned long int StrTokenULong(const char* restrict inp, char** restrict endptr, int base)
+{
+	unsigned long int result = 0;
+	const char* ptr = inp;
+	if (!inp) {
+		asserv(endptr)[0] = NULL;
+		return 0;
+	}
+	while (*ptr == ' ' || *ptr == '\t') ptr++;
+	if (!base) {
+		if (*ptr == '0') {
+			if (ascii_toupper(ptr[1]) == 'X') {
+				base = 16;
+				ptr += 2;
+			}
+			else base = 8;
+		}
+		else base = 10;
+	}
+	else if (base < 2 || base > 36) {
+		asserv(endptr)[0] = (char*)inp;
+		return 0;
+	}
+	while (ascii_isalnum(*ptr)) {
+		int digit = _MAP_ALNUM_DIGIT(*ptr);
+		if (!digit || digit >= base) break;
+		if (result > (ULONG_MAX - digit) / base) {
+			//{TODO} errno = ERANGE;
+			return ULONG_MAX;
+		}
+		result = result * base + digit;
+		ptr++;
+	}
+	if (endptr != NULL) {
+		*endptr = (char*)ptr;
+	}
+	return result;
+}
+#ifdef _BIT_SUPPORT_64
+long long int StrTokenLLong(const char* restrict inp, char** restrict endptr, int base)
+{
+	long long int result = 0;
+	const char* ptr = inp;
+	if (!inp) {
+		asserv(endptr)[0] = NULL;
+		return 0;
+	}
+	while (*ptr == ' ' || *ptr == '\t') ptr++;
+	setsym(&inp);
+	if (!base) {
+		if (*ptr == '0') {
+			if (ascii_toupper(ptr[1]) == 'X') {
+				base = 16;
+				ptr += 2;
+			}
+			else base = 8;
+		}
+		else base = 10;
+	}
+	else if (base < 2 || base > 36) {
+		asserv(endptr)[0] = (char*)inp;
+		return 0;
+	}
+	while (ascii_isalnum(*ptr)) {
+		int digit = _MAP_ALNUM_DIGIT(*ptr);
+		if (!digit || digit >= base) break;
+		if (result > (LLONG_MAX - digit) / base) {
+			//{TODO} errno = ERANGE;
+			return sign >= 0 ? LLONG_MAX : LONG_MIN;
+		}
+		result = result * base + digit;
+		ptr++;
+	}
+	if (endptr != NULL) {
+		*endptr = (char*)ptr;
+	}
+	return sign * result;
+}
+
+unsigned long long int StrTokenULLong(const char* restrict inp, char** restrict endptr, int base)
+{
+	unsigned long long int result = 0;
+	const char* ptr = inp;
+	if (!inp) {
+		asserv(endptr)[0] = NULL;
+		return 0;
+	}
+	while (*ptr == ' ' || *ptr == '\t') ptr++;
+	if (!base) {
+		if (*ptr == '0') {
+			if (ascii_toupper(ptr[1]) == 'X') {
+				base = 16;
+				ptr += 2;
+			}
+			else base = 8;
+		}
+		else base = 10;
+	}
+	else if (base < 2 || base > 36) {
+		asserv(endptr)[0] = (char*)inp;
+		return 0;
+	}
+	while (ascii_isalnum(*ptr)) {
+		int digit = _MAP_ALNUM_DIGIT(*ptr);
+		if (!digit || digit >= base) break;
+		if (result > (ULLONG_MAX - digit) / base) {
+			//{TODO} errno = ERANGE;
+			return ULLONG_MAX;
+		}
+		result = result * base + digit;
+		ptr++;
+	}
+	if (endptr != NULL) {
+		*endptr = (char*)ptr;
+	}
+	return result;
+}
+#endif
 
 // atohex(inp 0~f)
 // atobin(inp 0/1)

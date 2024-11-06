@@ -26,27 +26,70 @@
 
 #ifndef _INC_INN_GPIO_MSP432
 #define _INC_INN_GPIO_MSP432
-#if defined(_MCU_MSP432)
+#if defined(_MCU_MSP432P4)
 
-// HRN(OLD)STYLE for MSP432P401R Official Equipment
-#define gpo(x) GPIO_PORT_P##x
-#define gpi(y) GPIO_PIN##y
+// Supple for Official
+
 #define PinSet(p,xdp) (xdp? \
 	GPIO_setOutputHighOnPin(p): \
 	GPIO_setOutputLowOnPin (p))
 #define PinGet(port,pin) (P##port##IN & BIT##pin)
 
+// [MAP] 20241017 dosconio virtual-pin-softmap
+// Offset 0001_000x ~ 0001_00Ax -> Port 0~10
+// Offset 0001_00x0 ~ 0001_00xF -> Pin  0~15
+// 0x0000_0BAD for failure
+
+namespace GPIOReg {
+	typedef enum {
+		_TODO TODO
+	} GPIOReg;
+}
+namespace GPIOMode {
+	enum Mode {
+		//{TODO}
+		IN,
+		OUT_PushPull,
+		OUT_OpenDrain
+	};
+}
+namespace GPIOSpeed {
+	enum Speed {
+		_TODO TODO
+	};
+}
+#define defa_speed GPIOSpeed::Speed::TODO
+
+class GeneralPurposeInputOutputPort;
+
+// Abstract Layer, should take no space. We use const to confirm, which is friendly to Rust.
+class GeneralPurposeInputOutputPin /*final : public RuptTrait*/ {
+public:
+	inline const GeneralPurposeInputOutputPort& getParent() const {
+		//{TODO}option if (...) return 0xBAD;
+		return *(const GeneralPurposeInputOutputPort *)this;
+	}
+	inline byte getID() const { return _IMM(this) & 0xF; }
+	//{} bool isInput() const;
+	void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = defa_speed, bool autoEnClk = true) const;
+	//{} void Toggle();
+	const GeneralPurposeInputOutputPin& operator=(bool val) const;
+	//{} GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin);
+	//{} operator bool() const;
+	//{} pureptr_t getAddress() const { return (pureptr_t)this; }
+	//{} _COM_DEF_Interrupt_Interface()
+};
+
+// Abstract Layer, should take no space.
 class GeneralPurposeInputOutputPort {
 	//GeneralPurposeInputOutputPin pins[16];
 	//GeneralPurposeInputOutputPin ERR;
-	//stduint baseaddr;
 	//Reference ClockPort;
 	//stduint EnablPosi;// of ClockPort
 	//friend class GeneralPurposeInputOutputPin;
-	//Reference getReference(GPIOReg::GPIORegType idx) const {
-	//	return Reference(baseaddr + (((stduint)idx) << 2));
-	//}
+	//_COM... ...
 public:
+	uint_fast8_t getID() const { return (uint_fast8_t(this) & 0xF0) >> 4; }
 	//void enClock(bool enable = true) {
 	//	ClockPort.setof(EnablPosi, enable);
 	//}
@@ -57,7 +100,7 @@ public:
 	//	baseaddr = ADDR;
 	//	EnablPosi = Enapin;
 	//}
-	//GeneralPurposeInputOutputPin& operator[](uint8 pinid);
+	const GeneralPurposeInputOutputPin& operator[](uint8 pinid) const;
 	//GeneralPurposeInputOutputPort& operator=(uint32 val);
 	//_COM_DEF_GPIO_Port_Public();
 };

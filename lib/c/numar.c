@@ -349,7 +349,7 @@ void NumPow(dima* dest, const dima* sors)
 
 void NumSqrt(dima* dest)
 {
-	return NumPow(dest, &numhalf);
+	NumPow(dest, &numhalf);
 }
 
 void NumExp(dima* dest)

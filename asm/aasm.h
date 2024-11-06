@@ -24,3 +24,23 @@
 #define __AUTHOR__ "@dosconio"
 #define __LICENSE__ "Apache License 2"
 
+#include <stdinc.h>
+
+_TEMP//:
+
+typedef struct {
+	//: Called at the start of a pass
+	//{TODO} void (*reset) (char*, int, efunc, evalfunc, ListGen*, StrList**);
+	//: Called to fetch a line of preprocessed source.
+	_Need_free char* (*getline) (void);
+	//: Called at the end of a pass.
+	void (*cleanup) (int);
+} Prepro;
+extern Prepro _pp;
+
+typedef const unsigned char macros_t;
+
+void printinfo(void);
+void printl(loglevel_t level, const char* fmt, ...);
+int* handlog(void* _serious, ...);
+

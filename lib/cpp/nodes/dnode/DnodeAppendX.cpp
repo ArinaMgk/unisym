@@ -46,7 +46,6 @@ namespace uni {
 	Dnode* Dchain::Append(pureptr_t addr, bool onleft, Dnode* nod) {
 		const bool need_sort = nullptr != Compare_f;
 		Dnode* new_nod = 0;
-		int rstate;// return state
 
 		if (nod) {
 			new_nod = DnodeInsert(onleft ? nod->left : nod, addr, nil, extn_field, 1/*ON_RIGHT*/);
@@ -60,10 +59,10 @@ namespace uni {
 			DnodeChainAdapt(new_nod, new_nod, +1);
 		}
 		else if (need_sort) {
-			setcmp(*this);
+			setcmp(self);
 			// assert been_sorted
 			if (!state.been_sorted) 
-				Sort(*this); 
+				Sort(self); 
 			state.been_sorted = true;
 			Dnode tmp_nod; // = { .next = nullptr, .offs = addr };
 			{

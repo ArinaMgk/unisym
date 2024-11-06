@@ -1,0 +1,300 @@
+
+\B{Header} \verb|inc/c/ustring.h|
+
+In a 7-bit ASCII character set, printable characters are those between \verb`0x20` and \verb`0x7E`; The control characters are characters from \verb`0x00` (NUL) to \verb`0x1F` (US) and the character \verb`0x7F` (DEL).
+
+Using 7 bits, 128 to 255 represent graphic symbols and Greek characters on IBM compatible machines.
+
+ASCII code does not specify the number of 128 $\sim$ 255 characters, in order to represent more characters, manufacturers have developed a variety of ASCII code extension specifications. Note that while these specifications are often referred to as Extended ASCII, they are not part of the ASCII standard.
+
+\subsubsection{Map - Control characters (non-printable)}
+
+\begin{center}\begin{longtable}{|c|c|l|}
+	\hline
+	\textbf{Decimal} & \textbf{Function} & \textbf{Description} \\
+	\hline\endfirsthead\hline
+	\textbf{Decimal} & \textbf{Function} & \textbf{Description (IBM Extend)} \\
+	\hline\endhead\hline\endfoot\hline\endlastfoot
+00 & NULL & Null character \\\hline
+01 & SOH  & Start of Header \\\hline
+02 & STX  & Start of Text \\\hline
+03 & ETX  & End of Text, hearts card suit \\\hline
+04 & EOT  & End of Transmission, diamonds card suit \\\hline
+05 & ENQ  & Enquiry, clubs card suit \\\hline
+06 & ACK  & Acknowledgement, spade card suit \\\hline
+07 & BEL  & Bell \\\hline
+08 & BS   & Backspace \\\hline
+09 & HT   & Horizontal Tab \\\hline
+10 & LF   & Line feed \\\hline
+11 & VT   & Vertical Tab, male symbol, symbol for Mars \\\hline
+12 & FF   & Form feed, female symbol, symbol for Venus \\\hline
+13 & CR   & Carriage return \\\hline
+14 & SO   & Shift Out \\\hline
+15 & SI   & Shift In \\\hline
+16 & DLE  & Data link escape \\\hline
+17 & DC1  & Device control 1 \\\hline
+18 & DC2  & Device control 2 \\\hline
+19 & DC3  & Device control 3 \\\hline
+20 & DC4  & Device control 4 \\\hline
+21 & NAK  & Negative-acknowledge \\\hline
+22 & SYN  & Synchronous idle \\\hline
+23 & ETB  & End of trans. block \\\hline
+24 & CAN  & Cancel \\\hline
+25 & EM   & End of medium \\\hline
+26 & SUB  & Substitute \\\hline
+27 & ESC  & Escape \\\hline
+28 & FS   & File separator \\\hline
+29 & GS   & Group separator \\\hline
+30 & RS   & Record separator \\\hline
+31 & US   & Unit separator \\\hline
+127 & DEL & Delete \\\hline
+\end{longtable}\end{center}
+
+\subsubsection{Map - Printable characters}
+
+{\font\rm="Sarasa Mono J" at 12pt \rm 
+\begin{longtable}{|c|c|l|}
+	\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description} \\
+	\hline\endfirsthead\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description (IBM Extend)} \\
+	\hline\endhead\hline\endfoot\hline\endlastfoot
+32 &   & Space \\\hline
+33 & ! & Exclamation mark \\\hline
+34 & " & Double quotes ; Quotation mark ; speech marks \\\hline
+35 & \#& Number sign \\\hline
+36 & \$& Dollar sign \\\hline
+37 & \%& Percent sign \\\hline
+38 & \&& Ampersand \\\hline
+39 & ' & Single quote or Apostrophe \\\hline
+40 & ( & Round brackets or parentheses, opening round bracket \\\hline
+41 & ) & Parentheses or round brackets, closing parentheses \\\hline
+42 & * & Asterisk \\\hline
+43 & + & Plus sign \\\hline
+44 & , & Comma \\\hline
+45 & - & Hyphen , minus sign \\\hline
+46 & . & Dot, full stop \\\hline
+47 & / & Slash , forward slash , fraction bar , division slash \\\hline
+\end{longtable}
+}
+
+48(0x30) → 57(0x39) are for Arabic figures zero to nine. 
+
+{\font\rm="Sarasa Mono J" at 12pt \rm 
+\begin{longtable}{|c|c|l|}
+	\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description} \\
+	\hline\endfirsthead\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description (IBM Extend)} \\
+	\hline\endhead\hline\endfoot\hline\endlastfoot
+58 & : & Colon \\\hline
+59 & ; & Semicolon \\\hline
+60 & < & Less-than sign \\\hline
+61 & = & Equals sign \\\hline
+62 & > & Greater-than sign ; Inequality \\\hline
+63 & ? & Question mark \\\hline
+64 & @ & At sign \\\hline
+\end{longtable}
+}
+
+65 → 90 are for uppercase letters A to Z.
+
+{\font\rm="Sarasa Mono J" at 12pt \rm 
+\begin{longtable}{|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+	\hline
+	HL&0&1&2&3&4&5&6&7&8&9&A&B&C&D&E&F\\\hline
+	\endfirsthead\hline
+	HL&0&1&2&3&4&5&6&7&8&9&A&B&C&D&E&F\\\hline
+	\endhead\hline\endfoot\hline\endlastfoot
+4x& &A&B&C&D&E&F&G&H&I&J&K&L&M&N&O\\\hline
+5x&P&Q&R&S&T&U&V&W&X&Y&Z& & & & & \\\hline
+\end{longtable}
+}
+
+{\font\rm="Sarasa Mono J" at 12pt \rm 
+\begin{center}\begin{longtable}{|c|c|l|}
+	\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description} \\
+	\hline\endfirsthead\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description (IBM Extend)} \\
+	\hline\endhead\hline\endfoot\hline\endlastfoot
+91 & [ & square brackets or box brackets, opening bracket \\\hline
+92 &$\backslash$& Backslash , reverse slash \\\hline
+93 & ] & box brackets or square brackets, closing bracket \\\hline
+94 & \^{}& Circumflex accent or Caret \\\hline
+95 & \_& underscore , understrike , underbar or low line \\\hline
+96 & ` & Grave accent \\\hline
+\end{longtable}\end{center}
+}
+
+97 → 122 are for lowercase letters a to z.
+
+{\font\rm="Sarasa Mono J" at 12pt \rm 
+\begin{longtable}{|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+	\hline
+	HL&0&1&2&3&4&5&6&7&8&9&A&B&C&D&E&F\\\hline
+	\endfirsthead\hline
+	HL&0&1&2&3&4&5&6&7&8&9&A&B&C&D&E&F\\\hline
+	\endhead\hline\endfoot\hline\endlastfoot
+6x& &a&b&c&d&e&f&g&h&i&j&k&l&m&n&o\\\hline
+7x&p&q&r&s&t&u&v&w&x&y&z& & & & & \\\hline
+\end{longtable}
+}
+
+{\font\rm="Sarasa Mono J" at 12pt \rm 
+\begin{center}\begin{longtable}{|c|c|l|}
+	\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description} \\
+	\hline\endfirsthead\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description (IBM Extend)} \\
+	\hline\endhead\hline\endfoot\hline\endlastfoot
+123 & \{& braces or curly brackets, opening braces \\\hline
+124 & | & vertical-bar, vbar, vertical line or vertical slash \\\hline
+125 & \}& curly brackets or braces, closing curly brackets \\\hline
+126 & \~& Tilde ; swung dash \\\hline
+\end{longtable}\end{center}
+}
+
+
+\subsubsection{Map - IBM Extend}
+{\font\rm="Sarasa Mono J" at 12pt \rm 
+\begin{center}\begin{longtable}{|c|c|l|}
+	\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description} \\
+	\hline\endfirsthead\hline
+	\textbf{Decimal} & \textbf{Char} & \textbf{Description (IBM Extend)} \\
+	\hline\endhead\hline\endfoot\hline\endlastfoot
+128 & Ç & Majuscule C-cedilla \\\hline
+129 & ü & letter u with umlaut or diaeresis , u-umlaut \\\hline
+130 & é & letter e with acute accent or e-acute \\\hline
+131 & â & letter a with circumflex accent or a-circumflex \\\hline
+132 & ä & letter a with umlaut or diaeresis , a-umlaut \\\hline
+133 & à & letter a with grave accent \\\hline
+134 & å & letter a with a ring \\\hline
+135 & ç & Minuscule c-cedilla \\\hline
+136 & ê & letter e with circumflex accent or e-circumflex \\\hline
+137 & ë & letter e with umlaut or diaeresis ; e-umlauts \\\hline
+138 & è & letter e with grave accent \\\hline
+139 & ï & letter i with umlaut or diaeresis ; i-umlaut \\\hline
+140 & î & letter i with circumflex accent or i-circumflex \\\hline
+141 & ì & letter i with grave accent \\\hline
+142 & Ä & letter A with umlaut or diaeresis ; A-umlaut \\\hline
+143 & Å & Capital letter A with a ring \\\hline
+144 & É & Capital letter E with acute accent or E-acute \\\hline
+145 & æ & Latin diphthong ae in lowercase \\\hline
+146 & Æ & Latin diphthong AE in uppercase \\\hline
+147 & ô & letter o with circumflex accent or o-circumflex \\\hline
+148 & ö & letter o with umlaut or diaeresis ; o-umlaut \\\hline
+149 & ò & letter o with grave accent \\\hline
+150 & û & letter u with circumflex accent or u-circumflex \\\hline
+151 & ù & letter u with grave accent \\\hline
+152 & ÿ & Lowercase letter y with diaeresis \\\hline
+153 & Ö & Letter O with umlaut or diaeresis ; O-umlaut \\\hline
+154 & Ü & Letter U with umlaut or diaeresis ; U-umlaut \\\hline
+155 & ø & Lowercase slashed zero or empty set \\\hline
+156 & £ & Pound sign ; symbol for the pound sterling \\\hline
+157 & Ø & Uppercase slashed zero or empty set \\\hline
+158 & × & Multiplication sign \\\hline
+159 & ƒ & Function sign ; f with hook sign ; florin sign \\\hline
+160 & á & Lowercase letter a with acute accent or a-acute \\\hline
+161 & í & Lowercase letter i with acute accent or i-acute \\\hline
+162 & ó & Lowercase letter o with acute accent or o-acute \\\hline
+163 & ú & Lowercase letter u with acute accent or u-acute \\\hline
+164 & ñ & eñe, enie, spanish letter enye, lowercase n with tilde \\\hline
+165 & Ñ & Spanish letter enye, uppercase N with tilde, EÑE, enie \\\hline
+166 & ª & feminine ordinal indicator \\\hline
+167 & º & masculine ordinal indicator \\\hline
+168 & ¿ & Inverted question marks \\\hline
+169 & ® & Registered trademark symbol \\\hline
+170 & ¬ & Logical negation symbol \\\hline
+171 & ½ & One half \\\hline
+172 & ¼ & Quarter, one fourth \\\hline
+173 & ¡ & Inverted exclamation marks \\\hline
+174 & « & Angle quotes, guillemets, right-pointing quotation mark \\\hline
+175 & » & Guillemets, angle quotes, left-pointing quotation marks \\\hline
+176 & ░ & Graphic character, low density dotted \\\hline
+177 & ▒ & Graphic character, medium density dotted \\\hline
+178 & ▓ & Graphic character, high density dotted \\\hline
+179 & │ & Box drawing character single vertical line \\\hline
+180 & ┤ & Box drawing character single vertical and left line \\\hline
+181 & Á & Capital letter A with acute accent or A-acute \\\hline
+182 & Â & Letter A with circumflex accent or A-circumflex \\\hline
+183 & À & Letter A with grave accent \\\hline
+184 & © & Copyright symbol \\\hline
+185 & ╣ & Box drawing character double line vertical and left \\\hline
+186 & ║ & Box drawing character double vertical line \\\hline
+187 & ╗ & Box drawing character double line upper right corner \\\hline
+188 & ╝ & Box drawing character double line lower right corner \\\hline
+189 & ¢ & Cent symbol \\\hline
+190 & ¥ & YEN and YUAN sign \\\hline
+191 & ┐ & Box drawing character single line upper right corner \\\hline
+192 & └ & Box drawing character single line lower left corner \\\hline
+193 & ┴ & Box drawing character single line horizontal and up \\\hline
+194 & ┬ & Box drawing character single line horizontal down \\\hline
+195 & ├ & Box drawing character single line vertical and right \\\hline
+196 & ─ & Box drawing character single horizontal line \\\hline
+197 & ┼ & Box drawing character single line horizontal vertical \\\hline
+198 & ã & Lowercase letter a with tilde or a-tilde \\\hline
+199 & Ã & Capital letter A with tilde or A-tilde \\\hline
+200 & ╚ & Box drawing character double line lower left corner \\\hline
+201 & ╔ & Box drawing character double line upper left corner \\\hline
+202 & ╩ & Box drawing character double line horizontal and up \\\hline
+203 & ╦ & Box drawing character double line horizontal down \\\hline
+204 & ╠ & Box drawing character double line vertical and right \\\hline
+205 & ═ & Box drawing character double horizontal line \\\hline
+206 & ╬ & Box drawing character double line horizontal vertical \\\hline
+207 & ¤ & Generic currency sign \\\hline
+208 & ð & Lowercase letter eth \\\hline
+209 & Ð & Capital letter Eth \\\hline
+210 & Ê & Letter E with circumflex accent or E-circumflex \\\hline
+211 & Ë & Letter E with umlaut or diaeresis, E-umlaut \\\hline
+212 & È & Capital letter E with grave accent \\\hline
+213 & ı & Lowercase dot less i \\\hline
+214 & Í & Capital letter I with acute accent or I-acute \\\hline
+215 & Î & Letter I with circumflex accent or I-circumflex \\\hline
+216 & Ï & Letter I with umlaut or diaeresis ; I-umlaut \\\hline
+217 & ┘ & Box drawing character single line lower right corner \\\hline
+218 & ┌ & Box drawing character single line upper left corner \\\hline
+219 & █ & Block, graphic character \\\hline
+220 & ▄ & Bottom half block \\\hline
+221 & ¦ & Vertical broken bar \\\hline
+222 & Ì & Capital letter I with grave accent \\\hline
+223 & ▀ & Top half block \\\hline
+224 & Ó & Capital letter O with acute accent or O-acute \\\hline
+225 & ß & Letter Eszett ; scharfes S or sharp S \\\hline
+226 & Ô & Letter O with circumflex accent or O-circumflex \\\hline
+227 & Ò & Capital letter O with grave accent \\\hline
+228 & õ & Lowercase letter o with tilde or o-tilde \\\hline
+229 & Õ & Capital letter O with tilde or O-tilde \\\hline
+230 & µ & Lowercase letter Mu ; micro sign or micron \\\hline
+231 & þ & Lowercase letter Thorn \\\hline
+232 & Þ & Capital letter Thorn \\\hline
+233 & Ú & Capital letter U with acute accent or U-acute \\\hline
+234 & Û & Letter U with circumflex accent or U-circumflex \\\hline
+235 & Ù & Capital letter U with grave accent \\\hline
+236 & ý & Lowercase letter y with acute accent \\\hline
+237 & Ý & Capital letter Y with acute accent \\\hline
+238 & ¯ & Macron symbol \\\hline
+239 & ´ & Acute accent \\\hline
+240 & ≡ & Congruence relation symbol \\\hline
+241 & ± & Plus-minus sign \\\hline
+242 & ‗ & underline or underscore \\\hline
+243 & ¾ & three quarters, three-fourths \\\hline
+244 & ¶ & Paragraph sign or pilcrow ; end paragraph mark \\\hline
+245 & § & Section sign \\\hline
+246 & ÷ & The division sign ; Obelus \\\hline
+247 & ¸ & cedilla \\\hline
+248 & ° & Degree symbol \\\hline
+249 & ¨ & Diaresis \\\hline
+250 & · & Interpunct or space dot \\\hline
+251 & ¹ & Superscript one, exponent 1, first power \\\hline
+252 & ³ & Superscript three, exponent 3, cube, third power \\\hline
+253 & ² & Superscript two, exponent 2, square, second power \\\hline
+254 & ■ & black square \\\hline
+255 & nbsp & Non-breaking space or no-break space \\\hline
+\end{longtable}\end{center}
+}
+
+\subsubsection{Map - Windows-1252 (CP-1252) Extend}
+
+to see HerNote

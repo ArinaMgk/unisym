@@ -29,13 +29,13 @@
 #define SysTick_CTRL_TICKINT   (1UL << 1) 
 #define SysTick_CTRL_ENABLE    (1UL << 0)
 
-#ifdef _MCU_STM32F10x
+#ifdef _MCU_STM32F1x
 namespace uni {
-	bool SysTick::enClock(uint32 SysCoreClock, uint32 Hz) {
+	bool SysTick::enClock(uint32 Hz) {
 		NVIC_t nvic;
 		SysTick_Map* st = (SysTick_Map*)ADDR_SysTick_Map;
-		if (SysCoreClock / Hz > 0xFFFFFF) return false;
-		st->LOAD = SysCoreClock / Hz - 1;
+		if (SystemCoreClock / Hz > 0xFFFFFF) return false;
+		st->LOAD = SystemCoreClock / Hz - 1;
 		nvic.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
 		st->VAL = 0;// SysTick Counter Value
 		st->CTRL = SysTick_CTRL_CLKSOURCE | SysTick_CTRL_TICKINT | SysTick_CTRL_ENABLE;// Enable SysTick IRQ and SysTick Timer
@@ -61,14 +61,18 @@ namespace uni {
 #endif
 
 extern "C" {
-	volatile stduint delay_count = 0;
-	void SysTick_Handler(void) {
-		//{TODO} Callback and more options
-		delay_count&& delay_count--;
-	}
-	void SysDelay(stduint unit) {
-		//{ISSUE} append systick-enable check?
-		delay_count = unit;
-		while (delay_count);
-	}
+	extern volatile stduint delay_count;
+	void SysTick_Handler(void);
 }
+
+volatile stduint delay_count = 0;
+void SysTick_Handler(void) {
+	//{TODO} Callback and more options
+	delay_count&& delay_count--;
+}
+void SysDelay(stduint unit) {
+	//{ISSUE} append systick-enable check?
+	delay_count = unit;
+	while (delay_count);
+}
+

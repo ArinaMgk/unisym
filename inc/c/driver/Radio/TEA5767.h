@@ -48,7 +48,7 @@ static void inline_TEA5767_delay(void) {
 }
 
 namespace uni {
-	#if defined(_MCU_STM32F10x)
+	#if defined(_MCU_STM32F1x)
 
 	class TEA5767_t {
 	protected:

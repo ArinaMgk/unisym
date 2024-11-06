@@ -1,0 +1,75 @@
+
+Below are 2 linear abstract data modules, whose element is \verb|stduint|.
+
+\subsubsection{Strpage : Dynamic Block Set}
+
+\B{\$New}$() \rightarrow *$
+
+\B{\$Free}$(*)$
+
+\B{\$Get}$(*, idx) \rightarrow stduint$
+
+Get the value in the position of Strpage.
+
+\B{\$Set}$(*, idx, val) \rightarrow *'$
+
+Set the value in the position of Strpage.
+Return the pointer to the ultimate manager of Strpage.
+Then we should access inside data with new but old manager.
+
+\subsubsection{Strbuff}
+
+\B{\$New}$(elm_len) \rightarrow *$
+
+\B{\$Free}$(*)$
+
+\B{\$Rewind}$(*)$
+
+Move the read pointer (Q) to the beginning (index zero).
+
+\B{\$Ealloc}$(*) \rightarrow pureptr$
+
+Allocate an element and return its pointer.
+
+\B{\$Send}$(*, *src, len)$
+
+Send bytes but elements.
+
+\B{\$Sendx}$(*, stduint pos, *src, len)$
+
+Send bytes but elements, into the position in the \It{strbuff}.
+
+\B{\$SendFile}$(*, FILE*)$
+
+\B{\$Send}\It{N}$(*, {N})$
+
+N can be:
+\begin{itemize}
+\item 8, 16, 32
+\item 64 if \verb`_BIT_SUPPORT_64` defined
+\item Std for stduint
+\item Wleb128u for unsigned Little-Endian Base 128 bytes
+\item Wleb128s for   signed Little-Endian Base 128 bytes
+\end{itemize}
+
+\B{\$Eread}$(*) \rightarrow pureptr$ Element Read
+
+Read an element and return its pointer.
+This will make read pointer advance.
+
+\B{\$Read}$(*, stduint* lenp) \rightarrow const void*$ 
+
+\verb`lenp` cannot be a nullptr.
+Read the fixed-length(\verb|*lenp|) data.
+Return the start address and setback \verb|*lenp| for the number of bytes read.
+
+\B{\$Pop}$(*, pureptr des, stduint len)$
+
+Pop enough bytes into the memory slice \verb`(des,len)` .
+
+\B{\$Popx}$(*, stduint pos, pureptr des, stduint len)$
+
+Pop enough bytes into the memory slice \verb`(des,len)` , 
+since the position.
+
+

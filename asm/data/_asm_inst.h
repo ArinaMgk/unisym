@@ -1592,11 +1592,12 @@ enum _asm_opcode {
 	I_CMOVcc,
 	I_Jcc,
 	I_SETcc,
+	
+	I_ARINA/* = 0x1227 */,
 	I_none = -1
-
 };
 
 #define _AASM_INST_MAX_INSLEN 16
 #define _AASM_INST_FIRST_COND_OPCODE I_CMOVcc //{ISSUE} should we mix them together ?
 
-#endif /* NASM_INSNSI_H */
+#endif

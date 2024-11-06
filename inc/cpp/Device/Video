@@ -172,7 +172,7 @@ namespace uni {
 			else if (size.y >= size.x) {
 				Point orig = disp;
 				for0 (i, size.x) {
-					for0 (j, (stduint)((double)orig.y + i * (size.y - 1) / (size.x - 1) + 0.5) - disp.y) {
+					for0 (j, _IMM((double)orig.y + i * (size.y - 1) / (size.x - 1) + 0.5) - disp.y) {
 						Draw(disp, color);
 						if (negSizy) disp.y--; else disp.y++;
 					}
@@ -182,7 +182,7 @@ namespace uni {
 			else {
 				Point orig = disp;
 				for0(i, size.y) {
-					for0(j, (stduint)((double)orig.x + i * (size.x - 1) / (size.y - 1) + 0.5) - disp.x) {
+					for0(j, _IMM((double)orig.x + i * (size.x - 1) / (size.y - 1) + 0.5) - disp.x) {
 						Draw(disp, color);
 						disp.x++;
 					}

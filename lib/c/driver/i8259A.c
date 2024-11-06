@@ -9,6 +9,8 @@
 
 #include "../../../inc/c/driver/i8259A.h"
 
+#ifdef _SUPPORT_Port8
+
 void i8259A_init(const struct _i8259A_ICW* inf)
 {
 	word port = inf->port;
@@ -17,3 +19,5 @@ void i8259A_init(const struct _i8259A_ICW* inf)
 	outpb(port + 1, valword(inf->ICW3));
 	if (inf->ICW1.ICW4_USED) outpb(port + 1, valword(inf->ICW4));
 }
+
+#endif

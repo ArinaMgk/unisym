@@ -1,0 +1,85 @@
+% of UNISYM
+\newcounter{subsubparagraph}[subparagraph]
+\newcounter{subsubsubparagraph}[subsubparagraph]
+\newcounter{subsubsubsubparagraph}[subsubsubparagraph]
+\newcounter{subsubsubsubsubparagraph}[subsubsubsubparagraph]
+\newcounter{subsubsubsubsubsubparagraph}[subsubsubsubsubparagraph]
+% format of counters
+\renewcommand{\thesubsubparagraph}{\$.\arabic{subsubparagraph}}
+\renewcommand{\thesubsubsubparagraph}{\thesubsubparagraph.\arabic{subsubsubparagraph}}
+\renewcommand{\thesubsubsubsubparagraph}{\thesubsubsubparagraph.\arabic{subsubsubsubparagraph}}
+\renewcommand{\thesubsubsubsubsubparagraph}{\thesubsubsubsubparagraph.\arabic{subsubsubsubsubparagraph}}
+\renewcommand{\thesubsubsubsubsubsubparagraph}{\thesubsubsubsubsubparagraph.\arabic{subsubsubsubsubsubparagraph}}
+% commands for titles
+\newcommand{\subsubparagraph}[1]{%
+	\stepcounter{subsubparagraph}%
+	\par\noindent\llap{\thesubsubparagraph\enspace}#1\par}
+\newcommand{\subsubsubparagraph}[1]{%
+	\stepcounter{subsubsubparagraph}%
+	\par\noindent\llap{\thesubsubsubparagraph\enspace}#1\par}
+\newcommand{\subsubsubsubparagraph}[1]{%
+	\stepcounter{subsubsubsubparagraph}%
+	\par\noindent\llap{\thesubsubsubsubparagraph\enspace}#1\par}
+\newcommand{\subsubsubsubsubparagraph}[1]{%
+	\stepcounter{subsubsubsubsubparagraph}%
+	\par\noindent\llap{\thesubsubsubsubsubparagraph\enspace}#1\par}
+\newcommand{\subsubsubsubsubsubparagraph}[1]{%
+	\stepcounter{subsubsubsubsubsubparagraph}%
+	\par\noindent\llap{\thesubsubsubsubsubsubparagraph\enspace}#1\par}
+% format for title subsubsubparagraph
+\titleformat{\thesubsubparagraph}
+{\normalfont\normalsize\bfseries}% format
+{\thesubsubparagraph\enspace}% label
+{8pt}% sep
+{}% before-code
+[\titlerule]% after-code
+% [MORE...]
+% set tocdepth and secnumdepth, to adapt menu
+\setcounter{tocdepth}{3}
+\setcounter{secnumdepth}{8}
+
+\hypersetup{hidelinks,
+	colorlinks=true,
+	allcolors=black,
+	pdfstartview=Fit,
+	breaklinks=true}
+
+%\usepackage{listings}
+\newcommand{\epiccodedef}[2]{ \lstdefinestyle{#1}{
+	language        =   #2,
+	basicstyle      =   \zihao{-5}\ttfamily,
+	numberstyle     =   \zihao{-5}\ttfamily,
+	keywordstyle    =   \color{blue!70}\textbf,
+	stringstyle     =   \color{magenta},
+	commentstyle    =   \color{green!80!red}\ttfamily,
+	breaklines      =   true,
+	columns         =   fixed,
+	basewidth       =   0.5em,
+	tabsize         =   4,
+	keepspaces      =   true, 
+} }
+\lstset{
+	basicstyle          =   \sffamily,
+	keywordstyle        =   \bfseries,
+	commentstyle        =   \rmfamily\itshape,
+	stringstyle         =   \ttfamily,
+	flexiblecolumns,
+	numbers             =   left,
+	showspaces          =   false,
+	numberstyle         =   \zihao{-5}\ttfamily,
+	showstringspaces    =   false,
+	captionpos          =   t, % show caption on Top
+	frame               =   shadowbox,
+	rulesepcolor        =   \color{ red!20!green!20!blue!20}
+}
+\epiccodedef{GlobalASMx86}{[x86masm]Assembler}
+\epiccodedef{GlobalC}{C}
+\epiccodedef{GlobalCxx}{C++}
+\epiccodedef{GlobalRust}{Rust}
+%
+\newcommand{\B}[1]{\textbf{#1}}
+\newcommand{\It}[1]{\textit{#1}} % Italy Lean
+\newcommand{\T}[1]{\texttt{#1}}
+%
+\newcommand{\labex}[1]{\label{#1}\hypertarget{#1}{}}
+\newcommand{\refer}[1]{\hyperlink{#1}{\nameref{#1}} (Epic\ref{#1} Page\pageref{#1})}

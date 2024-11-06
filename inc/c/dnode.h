@@ -34,7 +34,7 @@
 
 #include "stdinc.h"// for using allocation
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 #include "../cpp/trait/ArrayTrait.hpp"
 #include "../cpp/trait/IterateTrait.hpp"
 #include "algorithm/sort.h"
@@ -56,7 +56,7 @@ typedef struct Dnode {
 	union { stduint type; stduint lens; };
 #ifdef _INC_CPP
 
-	byte* GetExtnField() { return getExfield(*this); }
+	byte* GetExtnField() { return getExfield(self); }
 	TnodeField* GetTnodeField() { return (TnodeField*)GetExtnField(); }
 
 	Dnode* ReheapString(const char* str);
@@ -136,7 +136,7 @@ typedef struct DnodeChain_t {
 
 #endif// ---- TOKEN NODE END
 
-#if defined(__cplusplus) || defined(_INC_CPP)
+#if defined(_INC_CPP)
 } // C++ Area
 extern "C++" {
 class Dchain : public ArrayTrait, public IterateTrait {
@@ -231,7 +231,7 @@ public:
 	// Sorted
 	Dchain& Sorted(Compare_ft Cmp_f = nullptr) {
 		if (Cmp_f) this->Compare_f = Cmp_f;
-		Sort(*this);
+		Sort(self);
 		state.been_sorted = true;
 		return *this;
 	}

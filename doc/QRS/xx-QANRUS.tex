@@ -1,0 +1,92 @@
+\labex{QANRUS}
+Notice: Depot \verb`mcudev` has been merged with private repository \verb`herlib` into `me-tutor'.
+
+\section{Processor and Controller Unit}
+\B{Header}:
+\verb`c/proctrl/proctrl.h`, auto-inc-by stdinc;
+
+
+\subsection{Intel 8051 Compatible}
+
+\subsection{ARM Cortex Based}
+
+\subsubsection{ST STM32 Series}
+
+\subsubsection{TI MSP432 Series}
+
+\subsubsection{XY CW32 Series}
+
+\section{Protocol and Wire Interface}
+
+\subsection{IIC}\labex{IIC}
+
+\B{Header}: \verb`c/driver/IIC.h`
+
+\subsection{SPI}\labex{SPI}
+
+\subsection{One-wire}\labex{OneWire}
+
+\subsection{U(S)ART}\labex{XART}
+
+We call the combination of UART and USART `xART'. 
+
+\section{Device}
+
+\subsection{Video}
+
+These provide base implementation of \refer{Witch}.
+
+\subsubsection{ILI9320}
+\subsubsection{ILI9341}
+\subsubsection{LCD12864}
+\subsubsection{LCD1602}
+
+Contain \refer{IIC} and {Parallel} driver.
+
+\subsection{Generator}
+
+\subsubsection{AD9959}
+
+\B{Base}: \refer{SPI}.
+
+\subsection{Analog Digital Converter}
+
+\subsubsection{XPT2046}
+
+\subsection{Radio}
+
+\subsubsection{RDA5820}
+
+\B{Base}: \refer{IIC}.
+
+\subsubsection{TEA5767}
+
+\B{Base}: \refer{IIC}.
+
+\subsection{To-ki and Timer}
+\subsubsection{Virtual Timer}
+\B{Header}: \verb`c/driver/timer.h`
+
+\subsubsection{Programmable Interval Timer}
+\subsubsection{Real-time Clock}
+\subsubsection{Sys-Clock and Sys-tick}
+
+\subsection{Port and GPIO}
+\B{Header}: \verb`c/port.h`, \verb`cpp/Device/GPIO`.
+
+
+\subsection{Key-board}
+\B{Header}: \verb`c/driver/keyboard.h`, \verb`c/driver/Mtrkbd.h`.
+
+\subsection{Not-classified}
+\begin{itemize}
+\item AT24C02
+\item DS1302
+\item DS18B20
+\item HD44780
+\item i8253A
+\item i8259A
+\item Nixie-tube
+\end{itemize}
+
+

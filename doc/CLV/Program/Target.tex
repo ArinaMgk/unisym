@@ -1,0 +1,28 @@
+
+\subsubsection{Freestanding Environment}
+
+Relative command options: %{TODO}
+
+\subsubsection{Hosted Environment}
+
+In Freestanding Environment, user can only use inline assembly, memory and arithmetic effect. However, the hosted includes at least interfaces provided by Operating System and Processor-registered mechanism, which provide much side-effect.
+
+Usually to see demo `args':
+
+\lstset{style=GlobalC}
+\lstinputlisting[language=C, firstline=24]{../demo/utilities/args.c}
+
+But the ISO/IEC recommend the below forms for `main' function with external symbol \verb`_main`:
+
+\verb`int main(int argc, char *argv[]) {/* ... */}` or 
+\verb`int main(void) { }`
+
+\B{EXAMPLE - Empty-return in Startup}
+\begin{lstlisting}[language=C]
+// ARINA RFW4 TEST on GCC Lin32
+void main() { int a=2; }
+// arina@aUbt:~$ echo $?
+//:1
+\end{lstlisting}
+
+Learn the appliance with the utility `args'.

@@ -1,5 +1,5 @@
 ; ASCII N/AASM(N2.7) TAB4 CRLF
-; Attribute: ArnCovenant CPU(x64+)
+; Attribute: ArnCovenant Arc(AMD64)
 ; LastCheck: RFZ03
 ; AllAuthor: @dosconio
 ; ModuTitle: Instruction CPUID

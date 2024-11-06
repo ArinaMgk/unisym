@@ -23,9 +23,16 @@
 #include "../../inc/cpp/interrupt"
 
 namespace uni {
+// Occupiers
+
+	void RuptTrait::setInterrupt(Handler_t fn) { (void)fn; }
+	void RuptTrait::setInterruptPriority(byte preempt, byte sub_priority) { (void)preempt; (void)sub_priority; }
+	void RuptTrait::enInterrupt(bool enable) { (void)enable; }
+
+
 #if 0
 //
-#elif defined(_MCU_STM32F10x) || defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
 Reference EXTI::MaskInterrupt(_EXTI_ADDR + 0x00);// aka EXTI_IMR, default 0x00000000
 

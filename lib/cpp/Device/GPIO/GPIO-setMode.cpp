@@ -74,18 +74,18 @@ namespace uni {
 	// for single pin
 	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) const {
 		(void)autoEnClk;//{} enClock it
+		(void)spd;//{}
+		bool innput;
 		switch (mod) {
 		case GPIOMode::OUT_PushPull: case GPIOMode::OUT_OpenDrain:
-			// make use of ROM_GPIOTABLE[0](fast8 port, fast16 pin), aka ROM_GPIO_setAsOutputPin
-			((void (*)(uint_fast8_t, uint_fast16_t))ROM_GPIOTABLE[0])(
-				getParent().getID(), _IMM1S(getID()));
+			innput = false;
 			break;
 		case GPIOMode::IN:
-			_TODO
+			innput = true;
 			break;
-		default: break;
+		default: return;
 		}
-		(void)spd;//{}
+		ROM_GPIOTABLE[innput ? 14 : 0](getParent().getID(), _IMM1S(getID()));
 	}
 	
 #endif

@@ -3,5 +3,6 @@
 - Netwide ASM 2.7
 - ST Manual and HAL STM32F1x
 - ST Manual and HAL STM32F4x
+- ST Manual and STM32CubeMP13 Package v1.1.0
 - TI Manual and simplelink_msp432p4_sdk_3_40_01_02/source/
 - CW Manual and EXs

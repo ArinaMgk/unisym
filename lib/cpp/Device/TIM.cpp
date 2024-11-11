@@ -118,6 +118,7 @@ namespace uni {
 		(TIM_t*)(pureptr_t)&TIM4,(TIM_t*)(pureptr_t)&TIM5,
 	};
 
+	//{TODO} a channel may connect multiple pins
 	static GPIO_Pin* GPINs_chan1_TIMx[] = { nullptr,
 		nullptr, // TIM1
 		& GPIOA[15], // or A[0]
@@ -200,15 +201,16 @@ namespace uni {
 			!GPINs_chanx[channel - 1][TIM_ID])
 			return false;
 		enAble(false);
-		GPIO_Pin& friendo = *GPINs_chanx[channel - 1][TIM_ID];
-		bool pin_accepted = _TEMP &friendo == pin;//{TODO} Conflict among GPIOs
-		friendo.setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);
-		if (0xFF != GPINs_AFs_TIMx[TIM_ID])
-			friendo._set_alternate(GPINs_AFs_TIMx[TIM_ID]);
+		if (pin || true) {
+			GPIO_Pin& friendo = *GPINs_chanx[channel - 1][TIM_ID];
+			friendo.setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);
+			if (0xFF != GPINs_AFs_TIMx[TIM_ID])
+				friendo._set_alternate(GPINs_AFs_TIMx[TIM_ID]);
+		}
 		self.ConfigChannel(channel, pulse_compar);
 		self.enChannel(channel);
 		enAble();
-		return pin_accepted;
+		return true;
 	}
 
 	// aka HAL_TIM_PWM_ConfigChannel

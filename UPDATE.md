@@ -1,9 +1,8 @@
-Last-Commit: 20241104：「 
-
+Last-Commit: 20241107：「 
++ (till 1227) mistake lunar winter for U2024WTR, this will release same label on solar winter (same day with anni-11). This is a pre-U2024WTR.
 」
 This-Commit: 「
-- import Reference_T and change Reference (unchk)
-- have not done WDog and Sysfile for MCU MSP-P4, just finish partial GPIO and checked pass
+- 
 」
 ---
 
@@ -13,7 +12,11 @@ STM32F4
 - [ ] ADC
 - [ ] TIMC
 - [ ] Flash by STM32FLASH in Ubuntu, waste half day.
+- XART1 use -O0 only to compile please.
 
+MSP432P4
+- [ ] GPIO Pin  Input Mode
+- [ ] GPIO Port operator=(u16)
 
 ---
 

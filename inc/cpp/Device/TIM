@@ -251,9 +251,9 @@ namespace uni {
 	
 //{TODO} TIM1 TIM7 TIM8
 //{TODO} TIM[6] TIM[7]
-	//: TIMxCLK = HCLK/2=84MHz: TIMFREQ=TIMxCLK/TIMPrescaler=1MHz
+	//: TIMxCLK = HCLK/2 = 84MHz: TIMFREQ=TIMxCLK/TIMPrescaler=1MHz
 	//{TODO} get this from current sysfreq.
-	#define _TIMC_DEFA_PRESCALER 84
+	#define _TIMC_DEFA_PRESCALER 84 // 1e-6 second, 168M div APB1Pres(4) mul (2)
 	
 	#define _TIMC_DEFA_PERIOD    1000000
 	

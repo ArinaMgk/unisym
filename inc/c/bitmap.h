@@ -29,14 +29,41 @@ namespace uni {
 	class Bitmap {
 	protected:
 		pureptr_t offs;// align by byte
+		stduint size;
+		bool alloc;
 	public:
-		Bitmap(pureptr_t offs) : offs(offs) {}
-		/*//{TODO}
-		- setof() making use of ASM inst.
-		*/
+		Bitmap(pureptr_t offs, stduint size) : offs(offs), size(size), alloc(false) {}
+		// cnts > 0
+		Bitmap(stduint cnts) : size((cnts - _BYTE_BITS_ + 1) / _BYTE_BITS_), alloc(true) { offs = zalc(size); }
+		~Bitmap() { if (alloc) mfree(offs); }
+		bool bitof(stduint idx) const {
+			const byte& byt = ((byte*)offs)[idx / _BYTE_BITS_];
+			const stduint bitidx = idx % _BYTE_BITS_;
+			return (byt >> bitidx) & 1;
+		}
+		bool setof(stduint idx, bool src = true) {
+			byte& byt = ((byte*)offs)[idx / _BYTE_BITS_];
+			const stduint bitidx = idx % _BYTE_BITS_;
+			bool val = (byt >> bitidx) & 1;
+			if (val ^ src) byt ^= 1 << bitidx;
+			return val;
+		}
+		//
+		bool operator[](stduint idx) const { return bitof(idx); }
 	};
 }
 
+#else
+
+//{TODO}:
+
+typedef struct Bitmap_t {
+	pureptr_t offs;
+	stduint size;
+	byte alloc : 1;
+} Bitmap_t;
+
+Bitmap_t* BitmapNew(stduint cnts);
 
 #endif
 #endif

@@ -199,9 +199,10 @@ namespace uni
 		#ifdef _MCU_MSP432P4
 		static byte maps_caps[] = {1,3,5,7,9};//A B C D E
 		return *(GeneralPurposeInputOutputPort*)(
-			portid <= 10 ? (portid << 4) : 
+			portid <= 10 ? (portid << 4) :
 			portid == 'J' ? (11 << 4) :
 			portid > 'E' ? 0xBAD :
+			(portid >= '0' && portid <= '9') ? ((portid - '0') << 4) :
 			ascii_isupper(portid) ? (maps_caps[portid - 'A'] << 4) : 0xBAD
 			);
 		#else
@@ -218,12 +219,6 @@ namespace uni
 		for0a(i, GPIO_List) if (port == GPIO_List[i])
 			return i;
 		return 0;
-	}
-
-	//
-	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (uint32 val) {
-		self[GPIOReg::ODR] = val;
-		return *this;
 	}
 
 	// This will not be for declaration expression
@@ -244,23 +239,72 @@ namespace uni
 		else return self = bool(pin); // Assign 
 	}
 
+
+#else
+	
+	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(const GeneralPurposeInputOutputPin& pin) const{
+		self = bool(pin);
+		return self;
+	}
+
+	//{TODO} Try made into GPIOReg::ODR
+	static stduint _TAB_ADDR_GPIOx[] = {
+		0,// P0
+		0x40004C00,// P1(A LOW)
+		0x40004C01,// P2(A HIG)
+		0x40004C20,// P3(B LOW)
+		0x40004C21,// P4(B HIG)
+		0x40004C40,// P5(C LOW)
+		0x40004C41,// P6(C HIG)
+		0x40004C60,// P7(D LOW)
+		0x40004C61,// P8(D HIG)
+		0x40004C80,// P9(E LOW)
+		0x40004C81,// P10
+		0x40004D20,// PJ
+	};
+
+	void GeneralPurposeInputOutputPin::Toggle() const {
+		Reference_T<byte> this_pin(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID()));
+		this_pin = !this_pin;
+	}
+
+	Reference_T<byte> GeneralPurposeInputOutputPort::operator[](GPIOReg8::GPIOReg8 trt) const {
+		return _TAB_ADDR_GPIOx[getID()] + _IMM(trt);
+	}
+
+#endif
+
+	//{} Combine GeneralPurposeInputOutputPin::operator= here
+	
+	//
+	#ifdef _MCU_MSP432P4
+	const
+	#endif
+	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator=
+	#ifdef _MCU_MSP432P4
+		(uint16 val) const {
+		ROM_GPIOTABLE[2](getID(), ~val);// set ddp
+		ROM_GPIOTABLE[1](getID(),  val);// set gdp
+		//{TODO} Try by _TAB_ADDR_GPIOx_OUT
+		return self;
+	}
+	#else
+		(uint32 val) {
+		using namespace GPIOReg; self[ODR] = val;
+		return self;
+	}
+	#endif
+	
 	GeneralPurposeInputOutputPin::operator bool() const {
+		#ifdef _MCU_MSP432P4
+		return byte(Reference_T<byte>(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID())));
+		#else
 		using namespace GPIOReg;
 		return getParent()[isInput() ? IDR : ODR].bitof(bitposi);
+		#endif
 	}
 
 
-#else
-
-	//GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= const(const GeneralPurposeInputOutputPin& pin) { }
-
-	static stduint _TAB_ADDR_GPIOx_OUT[] = {
-		0,// P0
-		0x40004C02,// P1
-		0x40004C03,// P2OUT
-	};
-	
-#endif
 	#ifdef _MCU_MSP432P4
 	const
 	#endif
@@ -287,7 +331,7 @@ namespace uni
 	#endif
 	{
 	#ifdef _MCU_MSP432P4
-		Reference_T<byte>(&BITBAND_PERI(*(uint32*)_TAB_ADDR_GPIOx_OUT[getParent().getID()], getID())) = byte(val);
+		Reference_T<byte>(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID())) = byte(val);
 	#else
 		getParent()[GPIOReg::ODR].setof(bitposi, val);
 	#endif

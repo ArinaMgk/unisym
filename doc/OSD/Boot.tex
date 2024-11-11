@@ -4,42 +4,23 @@
 
 \subsection{Bootstrap Demonstration}\labex{Bootstrap Demonstration} \
 
-\verb`test_floppy` test in the floppy;
+\subsubsection{Boot x86}
 
-\verb`test_hdisk` test in the hard-disk;
+\verb`KER.APP` for REAL16 Successor / Kernel.
 
-\verb`test_cdisc` is \It{to be done} for compact optical disc;
+\verb`KEX.APP` for FLAP32 Successor / Kernel.
 
-$Disk = Hard-disk + Floppy + Compact-Disc$.
+\paragraph{Outdated Bootstrap} \
+\begin{itemize}
+\item ibm-bootarn \B{Media}: \verb|Dynamic| Floppy; Hdisk;
 
-\paragraph{bootfi} \
+	Bootstrap from a disk and you can input the parameters instantly, from \It{Arinae Codes}.
+\item ibm-boothk \B{Media}: Hdisk;
 
-Boot FAT-Compatible Wait-instant-input. Bootstrap from a disk and you can input the parameters instantly, from \It{Arinae Codes}.
-
-\B{Media}: \verb|Dynamic| Floppy; Hdisk;
-
-\paragraph{boothk}\ % hdisk key-wait
-
-Boot Wait-key. From early \It{Mecocoa}.
-
-\B{Media}: Hdisk;
-
-\paragraph{bootfka}\
-
-Boot FAT-Compatible [Wait-key/File-Autorun]. From \It{Mecocoa} since 2024-Jan-29.
-
-\B{Media}: \verb`Macro` Floppy; Hdisk;
-
-\paragraph{bootfx}\
-
-Boot FAT-Compatible Flat-Prot-32-Mode. Enter Simple Flat-32 Environment.
-
-\B{Media}: Floppy;
-
-\paragraph{FlatMbr}\
+	Boot Wait-key. From early \It{Mecocoa}.
+\end{itemize}
 
 
-\B{Media}: Hdisk;
 
 \begin{itemize}
 	\item Paging and Segment in flat style;

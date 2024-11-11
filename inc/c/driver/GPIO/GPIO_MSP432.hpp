@@ -40,11 +40,23 @@
 // Offset 0001_00x0 ~ 0001_00xF -> Pin  0~15
 // 0x0000_0BAD for failure
 
-namespace GPIOReg {
+namespace GPIOReg8 {
 	typedef enum {
-		_TODO TODO
-	} GPIOReg;
-}
+		IDR = 0x00, // Input Data Register
+		ODR = 0x02, // Output Data Register
+		DIR = 0x04, // Direction Register
+		REN = 0x06, // Resistor Enable Register
+		DS = 0x08, // Drive Strenght Register
+		SEL0 = 0x0A, // Select Register 0
+		SEL1 = 0x0C, // Select Register 1
+		// IV = 0x0E, // (WORD) Interrupt Vector Register
+		//
+		SELC = 0x16, // Complement Register
+		IES = 0x18, // Interrupt Edge Select Register
+		IE = 0x1A, // Interrupt Enable Register
+		IFG = 0x1C // Interrupt Flag Register
+	} GPIOReg8;// LEN BYTE only
+}// GPIOReg for 16-bit
 namespace GPIOMode {
 	enum Mode {
 		//{TODO}
@@ -72,37 +84,23 @@ public:
 	inline byte getID() const { return _IMM(this) & 0xF; }
 	//{} bool isInput() const;
 	void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = defa_speed, bool autoEnClk = true) const;
-	//{} void Toggle();
+	void Toggle() const;
 	const GeneralPurposeInputOutputPin& operator=(bool val) const;
-	//{} GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin);
-	//{} operator bool() const;
-	//{} pureptr_t getAddress() const { return (pureptr_t)this; }
+	const GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin) const;
+	operator bool() const;
 	//{} _COM_DEF_Interrupt_Interface()
 };
 
 // Abstract Layer, should take no space.
 class GeneralPurposeInputOutputPort {
-	//GeneralPurposeInputOutputPin pins[16];
-	//GeneralPurposeInputOutputPin ERR;
-	//Reference ClockPort;
-	//stduint EnablPosi;// of ClockPort
-	//friend class GeneralPurposeInputOutputPin;
-	//_COM... ...
 public:
 	uint_fast8_t getID() const { return (uint_fast8_t(this) & 0xF0) >> 4; }
-	//void enClock(bool enable = true) {
-	//	ClockPort.setof(EnablPosi, enable);
-	//}
-	//GeneralPurposeInputOutputPort(uint32 ADDR, uint32 EnclkRef, uint32 Enapin = 0)
-	//	: ERR((GeneralPurposeInputOutputPort*)~0, ~0), ClockPort(EnclkRef) {
-	//	for0a(i, pins)
-	//		pins[i] = GeneralPurposeInputOutputPin(this, i);
-	//	baseaddr = ADDR;
-	//	EnablPosi = Enapin;
-	//}
+	Reference_T<byte> operator[](GPIOReg8::GPIOReg8 trt) const;
 	const GeneralPurposeInputOutputPin& operator[](uint8 pinid) const;
-	//GeneralPurposeInputOutputPort& operator=(uint32 val);
-	//_COM_DEF_GPIO_Port_Public();
+	const GeneralPurposeInputOutputPort& operator=(uint16 val) const;
+	//{} const GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (GeneralPurposeInputOutputPort& pot) const;
+	// const GeneralPurposeInputOutputPort::operator stduint() const;
+	//{} _COM_DEF_GPIO_Port_Public();
 };
 
 //extern GeneralPurposeInputOutputPort GPIO1, GPIO2, GPIO3, GPIO4;

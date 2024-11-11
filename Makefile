@@ -23,7 +23,6 @@ local:
 	@make --no-print-directory -f ${make_dir}local.make all
 
 list: local# depend [perl python]
-	@clear
 	@perl ./lib/Script/Makefile/makemake.pl
 
 # ---- [naming style generation 2] ----
@@ -105,6 +104,7 @@ x64-CM-Win64: #{} cmw64
 x64-CL-Win64: #{} clw64
 
 x86-EG-Lin32: list
+x86-EG-Lin32: list
 	-@mkdir -p $(uobjpath)/CGLin32
 	-@rm -f $(uobjpath)/CGLin32/*
 	-@rm -f $(ubinpath)/libl32d.a
@@ -153,3 +153,4 @@ cortexa7-Keil-STM32MP13:
 
 clean:
 	-cd ./inc/Python/ && rmdir __pycache__ /S /Q
+	-cd ./lib/Rust/unisym && cargo clean

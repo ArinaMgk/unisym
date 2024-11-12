@@ -172,6 +172,12 @@ namespace uni {
 			val = self[DR];
 			return self;
 		}
+		// feedback 0~1
+		ADC_t& operator>> (float& val) {
+			using namespace ADCReg;
+			val = float(self[DR]) / _TEMP 4095;//{TODO check the BITS}
+			return self;
+		}
 		//
 	#if defined(_MCU_STM32F1x)
 		bool isTriggeredBySoftware() { // ADC1_2_3_SWSTART

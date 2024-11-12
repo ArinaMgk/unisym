@@ -1,18 +1,17 @@
-Last-Commit: 20241107：「 
+Last-Commit: 20241111：「 
 + (till 1227) mistake lunar winter for U2024WTR, this will release same label on solar winter (same day with anni-11). This is a pre-U2024WTR.
 」
 This-Commit: 「
-- 
++ Fix F4.ADC
++ ReadFileFFAT12 FATBUF from ES to DS
 」
 ---
 
 ### Unchecked and Checked-but-Issued
 
 STM32F4
-- [ ] ADC
-- [ ] TIMC
-- [ ] Flash by STM32FLASH in Ubuntu, waste half day.
-- XART1 use -O0 only to compile please.
+- [ ]
+* XART1 use -O0 only to compile please.
 
 MSP432P4
 - [ ] GPIO Pin  Input Mode

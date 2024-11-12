@@ -63,7 +63,7 @@ rust:
 # ---- [utilities] ----
 
 manual:
-	@cd doc && xelatex herepc.tex && mv herepc.pdf ${ubinpath}/{$@}.pdf
+	@cd doc && xelatex herepc.tex && mv herepc.pdf ${ubinpath}/${@}.pdf
 
 MGC_CFLG = -std=c99 -fno-common
 

@@ -27,7 +27,11 @@
 #include "stdinc.h"
 #include <stdarg.h>
 
-enum _STD_SRC_t{
+#ifdef _INC_CPP
+extern "C" {
+#endif
+
+enum _STD_SRC_t {
 	_STD_INN = 0,
 	_STD_OUT = 1,
 	_STD_ERR = 2,
@@ -188,4 +192,8 @@ void ConStyleNormal(void);
 	#include "../../lib/c/consio.c"
 #endif // _AUTO_INCLUDE
 
+
+#ifdef _INC_CPP
+}
+#endif
 #endif

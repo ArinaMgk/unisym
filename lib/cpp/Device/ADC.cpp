@@ -187,7 +187,7 @@ namespace uni {
 		const ADCRegType smpr = chan > 9 ? SMPR1 : SMPR2;
 		self[smpr].maset(3 * (chan % 10), 3, _IMM(sample));// 9 and 10
 		const ADCRegType sqr = ADCRegType(_IMM(SQR3) - rank / 6);
-		self[sqr].maset(5 * (rank % 6), 5, rank);
+		self[sqr].maset(5 * (rank % 6), 5, chan);
 		//: CASE ADC1 Channel_18 is selected for VBAT Channel ennable VBATE
 		if (getID() == 1 && chan == 18/*VBAT*/) {
 			// Because here is GPIO input, no this case.

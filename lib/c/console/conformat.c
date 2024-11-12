@@ -133,6 +133,19 @@ void outu(stduint val, int base)
 	outtxt(buf + i, numsof(buf));
 }
 
+_TEMP static void outfloat(float val)
+{
+	if (val < 0) outtxt("-", 1);
+	outu((stduint)val, 10);
+	val -= (stduint)val;
+	val *= 1000000;
+	val += 0.5;
+	if (_IMM(val)) {
+		outtxt(".", 1);
+		outu((stduint)val, 10);
+	}
+}
+
 //{TEMP} outtxt() --redirect-> slfdef_func()
 
 int outsfmtlst(const char* fmt, para_list paras)
@@ -165,6 +178,9 @@ int outsfmtlst(const char* fmt, para_list paras)
 		case 'x':
 			outidec(pnext(int), 16, 1);
 			break;
+		case 'f':
+			outfloat(pnext(double));
+			break;
 		case 'p':
 			outtxt("0x", 2);
 			if (bitsof(stduint) == 64)
@@ -177,8 +193,8 @@ int outsfmtlst(const char* fmt, para_list paras)
 				outi8hex(pnext(stduint));
 			break;
 		case 's':
-			if ((s = pnext(char*)) == 0)
-				s = "(null)";
+			s = pnext(char*);
+			if (!s) s = "(null)";
 			outtxt(s, -1);
 			break;
 		case '%':

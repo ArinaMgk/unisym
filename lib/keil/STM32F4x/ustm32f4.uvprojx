@@ -339,7 +339,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-D__stdlib_h</MiscControls>
-              <Define>_MCU_STM32F4x</Define>
+              <Define>_MCU_STM32F4x  _HIS_IMPLEMENT</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
             </VariousControls>
@@ -465,6 +465,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\string.cpp</FilePath>
             </File>
+            <File>
+              <FileName>conformat.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\console\conformat.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -479,6 +484,11 @@
               <FileName>interrupt_tab.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>mcore.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\mcore.c</FilePath>
             </File>
           </Files>
         </Group>

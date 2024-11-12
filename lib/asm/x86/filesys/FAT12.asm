@@ -42,14 +42,16 @@ GLOBAL ReadFileFFAT12
 %endmacro
 
 section .text
-ReadFileFFAT12:
+;[UPDATE]
+; 20241112 FATBUF from ES to DS
+ReadFileFFAT12:;<CDecl>(word DestinationAddress, word FileNameAddress, word BufferAddress)
 	PUSH BP
 	MOV BP, SP
 	; [BP+2*0] = BP
 	; [BP+2*1] = ReturnAddress
-	; [BP+2*2] = DestinationAddress
-	; [BP+2*3] = FileNameAddress
-	; [BP+2*4] = BufferAddress
+	; [BP+2*2] = ES: DestinationAddress
+	; [BP+2*3] = DS: FileNameAddress
+	; [BP+2*4] = DS: BufferAddress
 	PUSH WORD (_FLOSEC_ROOT_START-1); [BP-2*1] SeekPos
 	PUSHA
 	;
@@ -59,7 +61,9 @@ ReadFileFFAT12:
 		JZ Erro; from OR and JMP
 		ADD WORD[SeekPos], 1
 		PUSH CX
+		CALL XchgSegs
 		ReadFlo [FatBuf], [SeekPos]
+		CALL XchgSegs
 		; Compare Strings
 			MOV SI, [FnamAdr]
 			MOV DI, [FatBuf]
@@ -67,7 +71,7 @@ ReadFileFFAT12:
 			lup_seek_compare:
 				PUSH CX
 				MOV CX, _FLOFAT_FILENAME_LEN
-				JSTRX load_file
+				JSTRX_DS load_file
 				ADD DI, _FLOFAT_FILEENTO_LEN
 				POP CX
 				LOOP lup_seek_compare
@@ -77,7 +81,7 @@ ReadFileFFAT12:
 		; ADD SP, 2; Release Stack
 		AND DI, 0xFFE0
 		ADD DI, 0x001A; -> First Sector
-		MOV BX, [ES:DI]
+		MOV BX, [DI]
 		PUSH BX
 		ADD BX, 14 + _FLOSEC_FAT1_START + _FLOSEC_FAT1_LEN + _FLOSEC_FAT2_LEN - 2; _BPB_ROE*32/512 + BootResv + ... - 2
 		;
@@ -96,6 +100,12 @@ ReadFileFFAT12:
 			ADD AX, 14 + _FLOSEC_FAT1_START + _FLOSEC_FAT1_LEN + _FLOSEC_FAT2_LEN - 2
 			ADD SI, 512; _BPB_BPS
 			JMP load_loop
+XchgSegs:
+	PUSH ES
+	PUSH DS
+	POP ES
+	POP DS
+	RET
 
 FATGetEntry:;[Locale Procedure] [Volatile SI, BX, CX, DX, BP] [ZF:FileEnd, AX:NextSector(XXXH)]<<<[PreS ES=0][Input AX = Linear Sector Number]
 	; PUSH CX>DX>BX>SI>BP>ES
@@ -113,7 +123,7 @@ FATGetEntry:;[Locale Procedure] [Volatile SI, BX, CX, DX, BP] [ZF:FileEnd, AX:Ne
 	DIV BX; DX`AX/BX= AX:FAT-SECTOR ... DX:ENTRY-OFFSET
 	;
 	ADD AX, _FLOSEC_FAT1_START
-	ReadFlo [FatBuf], AX, 2
+	ReadFlo [FatBuf], AX, 2; 2 Sectors
 	ADD SI, DX
 	MOV AX, [ES:SI]
 	POP CX

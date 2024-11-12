@@ -82,7 +82,7 @@ namespace uni {
 	USART_t& USART_t::operator << (const char* p) {
 		while (*p) {
 			self << stduint(*p++);
-			for0(i, _TEMP 1000);
+			for0(i, _TEMP 1000);// ~= 168M / 115200 ?
 		}
 		return self;
 	}

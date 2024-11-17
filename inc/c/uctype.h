@@ -54,9 +54,15 @@
 // above make literal duplicated
 
 // ---- ---- ---- ----
-extern const unsigned char _tab_tolower[];
-extern const unsigned char _tab_toupper[];
-extern const unsigned char _tab_alnum_digit[];
+#if defined(_INC_CPP) || defined(__cplusplus)
+extern "C" {
+#endif
+	extern const unsigned char _tab_tolower[];
+	extern const unsigned char _tab_toupper[];
+	extern const unsigned char _tab_alnum_digit[];
+#if defined(_INC_CPP) || defined(__cplusplus)
+}
+#endif
 
 #define ascii_tolower(c) (_tab_tolower[(byte)c]) //((c)-'A'<26?(c)|0x20:c)
 

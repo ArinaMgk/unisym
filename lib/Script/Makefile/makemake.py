@@ -277,14 +277,18 @@ text_gcc_mecocoa = ""
 # ---- # ---- # MCUDEV # ---- # ---- #
 
 STM32F1 = "# UNISYM for GCC-STM32F1 built-" + str(__BuildTime) + '\n'
+STM32F4 = "# UNISYM for GCC-STM32F4 built-" + str(__BuildTime) + '\n'
 STM32MP13 = "# UNISYM for GCC-STM32MP13 built-" + str(__BuildTime) + '\n'
 print(STM32F1, STM32MP13, sep="")
 
 STM32F1   += """IDEN=STM32F1
 FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m3 -mthumb $(FPU) $(FLOAT-ABI)
 """
+STM32F4   += """IDEN=STM32F4
+FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+"""
 STM32MP13 += """IDEN=STM32MP13
-FLAG=-I$(uincpath) -D_MPU_$(IDEN)
+FLAG=-I$(uincpath) -D_MPU_$(IDEN)  -mcpu=cortex-a7 -mthumb -mfpu=vfpv4-d16   -mfloat-abi=hard
 """
 tmp = '''
 FLAG+=-fdata-sections -ffunction-sections
@@ -315,9 +319,15 @@ init:
 	@$(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"
 '''
 STM32F1   += tmp
+STM32F4   += tmp
 STM32MP13 += tmp
 with open('./lib/make/cortexm3-Gnu-STM32F1.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32F1, encoding = "utf8"))
+with open('./lib/make/cortexm4-Gnu-STM32F4.make', 'w+b') as fobj:
+	fobj.write(bytes(STM32F4, encoding = "utf8"))
 with open('./lib/make/cortexa7-Gnu-STM32MP13.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32MP13, encoding = "utf8"))
+
+STM32F1 = ""
+STM32F4 = ""
 STM32MP13 = ""

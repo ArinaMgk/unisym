@@ -39,6 +39,9 @@
 #define isNaN(f) ((f) != (f))
 #define getNearInteger(flt) (flt+0.5)
 
+typedef float float32;
+typedef double float64;
+
 #ifdef _BIT_SUPPORT_DFLOAT
 inline static double CastF64FromU0(stduint i) {
 	//{TODO} Soft Implementation, while this is hard implementation

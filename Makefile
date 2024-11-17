@@ -139,7 +139,10 @@ cortexm3-EG-STM32F1: list
 cortexm3-Keil-STM32F1:
 	@echo TODO
 cortexm4-EG-STM32F4:
-	@echo TODO
+	-@mkdir -p $(uobjpath)/STM32F4
+	-@rm -f $(uobjpath)/STM32F4/*
+	-@rm -f $(ubinpath)/libSTM32F4.a
+	@make --no-print-directory -f ${make_dir}cortexm4-Gnu-STM32F4.make all
 cortexm4-Keil-STM32F4:
 	@echo TODO
 

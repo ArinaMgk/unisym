@@ -22,7 +22,7 @@
 /* also act as implementation of `system_stm32f4xx.c`
 - SystemInit() <-> SystemInit()
 - SystemCoreClock <-> uni::SystemCoreClock yo RCC.cpp
-- SystemCoreClockUpdate() <-> uni::SystemCoreClock = RCC.Sysclock.getFrequency() >> AHBPrescTable[(RCC[CFGR] & _RCC_CFGR_MASK_HPRE) >> _RCC_CFGR_POSI_HPRE];
+- SystemCoreClockUpdate() <-> RCC.Sysclock.getCoreFrequency()
 */
 
 #include "../../../inc/c/stdinc.h"

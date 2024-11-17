@@ -470,6 +470,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\RCC\RCC-Oscillator.cpp</FilePath>
             </File>
+            <File>
+              <FileName>SysClock.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

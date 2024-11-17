@@ -35,6 +35,9 @@ namespace uni {
 			const stduint L_MASK = _IMM1S(bitslen) - 1;
 			return (*address) & (L_MASK << bitposi);
 		}
+		stduint masof(stduint bitposi, stduint bitslen) {
+			return mask(bitposi, bitslen) >> bitposi;
+		}
 		// Write with Mask
 		stduint maset(stduint bitposi, stduint bitslen, stduint val) {
 			const stduint L_MASK = _IMM1S(bitslen) - 1;
@@ -46,6 +49,15 @@ namespace uni {
 	};
 	
 	typedef Reference_T<typedest> Reference;
+	template <typename typeDest> class Bitfield_T : public Reference_T<typeDest> {
+		byte pos, len;
+	public:
+		Bitfield_T(pureptr_t _address, byte _pos, byte _len) : Reference_T<typeDest> _IMM(_address), pos(_pos), len(_len) {}
+		operator stduint() { return Reference_T<typeDest>::masof(pos, len); }
+		stduint operator= (stduint val) { return Reference_T<typeDest>::maset(pos, len, val); }
+	};
+	typedef Bitfield_T<typedest> Tdsfield;
+	typedef Bitfield_T<stduint> Stdfield;
 }
 
 #endif

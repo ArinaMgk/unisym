@@ -33,23 +33,29 @@
 	#undef I2S2
 	#undef I2S3
 	#undef USB
-
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) // Common Area
+	
 namespace uni {
+
 	namespace SysclkSource {
+	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) // Common Area
 		enum RCCSysclockSource { // wo RCC_CFGR_SWS_xxx
 			HSI = 0x00000000, // 0b0000
 			HSE = 0x00000004, // 0b0100
 			PLL = 0x00000008, // 0b1000
 			Unknown
 		};
+	#elif defined(_MPU_STM32MP13)
+		enum RCCSysclockSource {
+			HSI,
+			HSE,
+			PLL1,
+			MPUDIV //= HSE | PLL1
+		};
+	#endif // _MCU_STM32F1x || _MCU_STM32F4x
 	}
-}
-#endif // _MCU_STM32F1x || _MCU_STM32F4x
 
 #ifdef _MCU_STM32F1x
 
-namespace uni {
 
 	namespace RCCPeriph {
 		enum RCCPeriphClockSelection {
@@ -78,12 +84,12 @@ namespace uni {
 		RCCSystemClock() {
 
 		}
-		static SysclkSource::RCCSysclockSource CurrentSource() {
-			Reference _RCC_ConfigRegister(_RCC_CFGR);
-			return (SysclkSource::RCCSysclockSource)(_RCC_ConfigRegister & _RCC_CFGR_MASK_SCLKSWSource);
-		}
+		static SysclkSource::RCCSysclockSource CurrentSource();
 		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL);
+		// SYSCLK
 		stduint getFrequency();
+		// get and update SystemCoreClock
+		stduint getCoreFrequency();
 	};
 	
 	#define _RCC_CFGR_POS_ADCPRE 14U // len 2b
@@ -156,12 +162,7 @@ namespace uni {
 	//class RCCHCLK {
 	//class RCCPCLK {
 
-}
-
 #elif defined(_MCU_STM32F4x)
-
-namespace uni {
-
 
 	class RCCSystemClock {
 	protected:
@@ -171,11 +172,22 @@ namespace uni {
 		RCCSystemClock() { }
 		_TEMP static SysclkSource::RCCSysclockSource CurrentSource();
 		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL);
+		// SYSCLK
 		stduint getFrequency();//aka HAL_RCC_GetSysClockFreq
+		// get and update SystemCoreClock
+		stduint getCoreFrequency();
 	};
 
+#elif defined(_MPU_STM32MP13)
 
-}
+	class RCCSystemClock {
+	public:
+		// aka __HAL_RCC_GET_MPU_SOURCE
+		static SysclkSource::RCCSysclockSource CurrentSource();
+		// get and update SystemCoreClock
+		stduint getCoreFrequency();// aka HAL_RCC_GetSystemCoreClockFreq and HAL_RCC_GetMPUSSFreq
+	};
 
 #endif
+}
 #endif

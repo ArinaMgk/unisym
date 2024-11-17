@@ -57,12 +57,14 @@ namespace uni {
 	protected:
 		stduint baseaddr;
 		byte XART_ID;
+		stduint last_bandrate;
+		void Delay_unit();
 	public:
 		Reference operator[](XARTReg::USARTReg idx) {
-			return Reference(baseaddr + (_IMM(idx) << 2));
+			return Reference(baseaddr + _IMMx4(idx));
 		}
-		USART_t(stduint _baseaddr, byte _XART_ID) : baseaddr(_baseaddr), XART_ID(_XART_ID) {}
-		void setMode(_TEMP void);
+		USART_t(stduint _baseaddr, byte _XART_ID) : baseaddr(_baseaddr), XART_ID(_XART_ID), last_bandrate(1){}
+		void setMode(stduint band_rate = 115200);
 		int operator>> (int& res);
 		USART_t& operator<< (stduint dat);
 		USART_t& operator<< (const char* p);

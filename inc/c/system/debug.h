@@ -76,6 +76,7 @@ extern const char* _pref_warn;
 extern const char* _pref_info;
 extern const char* _pref_dbug;
 extern const char* _pref_trac;
+extern const char** _tab_pref[];
 extern _tocall_ft _call_serious;// if error, panic or fatal
 extern _tocall_ft _befo_logging;// after prefix, before context
 

@@ -11,8 +11,9 @@ extern bool terminate_after_phase;
 extern bool treat_warn_as_erro;
 extern bool enable_warning;
 
+#define FILENAME_MAX 260
 extern FILE* outfile;
-extern char  outname;
+extern char  outname[FILENAME_MAX];
 
 // NASM-style warning
 const struct warning {
@@ -63,15 +64,21 @@ void printl(loglevel_t level, const char* fmt, ...)
 	memf(crtfile);
 }
 
+FILE* error_file;
+void usage(void) { fputs("type `aasm -h' for help\n", error_file); }
+
+
 int drop();
+extern bool want_usage;
+
 int* handlog(void* _serious, ...)
 {
 	Letvar(serious, loglevel_t, _serious);
 	switch (serious)
 	{
 	case _LOG_WARN:
-		if (treat_warn_as_erro)
-	case _LOG_ERROR:
+		if (treat_warn_as_erro)//{TODE} from warning_on[0]
+	case _LOG_ERROR:// NONFATAL
 		terminate_after_phase = true;
 	default: break;
 	case _LOG_FATAL:
@@ -79,10 +86,14 @@ int* handlog(void* _serious, ...)
 			fclose(outfile);
 			remove(outname);
 		}
+		if (want_usage) usage();
+		exit(1);
 	case _LOG_PANIC:
 		puts("----\t----\tAASM panics!\t----\t----");
 		fflush(NULL);
-		exit(drop());
+		exit(3); // exit(drop());
 	}
 	return NULL;
 }
+
+

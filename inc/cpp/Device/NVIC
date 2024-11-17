@@ -104,6 +104,11 @@ namespace uni {
 		}
 		SysCtrlBlock_Map* scbmap;
 		uint32 getPriorityGroup();
+		// bitsof_prepriority: 0~4
+		void setPriorityGroup(stduint bitsof_prepriority) {
+			const stduint AIRCR_VECTKEY_MASK = 0x05FA0000;
+			scbmap->AIRCR = AIRCR_VECTKEY_MASK | ((7 - bitsof_prepriority) << 8);
+		}
 		uint8* getTable(stduint idx = 0) { return ((uint8*)&self[NVICReg::IP0]) + idx; }
 		void setPriority(Request_t req, uint32 priority);
 		void setPriority(Request_t req, uint32 prepriority, uint32 subpriority);

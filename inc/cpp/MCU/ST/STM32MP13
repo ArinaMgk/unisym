@@ -26,6 +26,13 @@
 #define _MCU_STM32
 #endif
 
+#include "../../../c/stdinc.h"
 //{TODO} inc ARM Cortex-A7
+#include "../../Device/RCC/RCC"
+#include "../../Device/GPIO"
+#include "../../Device/SysTick"
+#include "../../../c/random.h"
+
+_ESYM_C char _IDN_BOARD[16];
 
 #endif

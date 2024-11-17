@@ -36,7 +36,7 @@ namespace uni {
 
 // IO Modes
 #ifdef _MCU_STM32F1x
-	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
 		using namespace GPIOReg;
 		if (autoEnClk) parent->enClock();
 		Reference ref = (bitposi < 8) ? (*parent)[CRL] : (*parent)[CRH];
@@ -46,20 +46,31 @@ namespace uni {
 		uint32 state = innput ? GPIOSpeed::Atmost_Input : speed;
 		state |= (bmode & 0xC);// 0b1100
 		ref = (ref & ~(0xf << bposi)) | (state << bposi);// or treat it a double-length Reference (64-bit)
+		return self;
 	}
-#elif defined(_MCU_STM32F4x)
-	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
+#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	#if defined(_MPU_STM32MP13)
+	const
+	#endif
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk)
+	#if defined(_MPU_STM32MP13)
+		const
+	#endif
+	{
 		using namespace GPIOReg;
-		if (autoEnClk) parent->enClock();
-		(*parent)[MODER] &= ~_IMM(0x3 << (bitposi << 1));
-		(*parent)[MODER] |= (_IMM(mode) >> 1) << (bitposi << 1);
-		BitSev((*parent)[OTYPER], bitposi, _IMM(mode) & 1);
-		(*parent)[SPEED] &= ~_IMM(0x3 << (bitposi << 1));
-		(*parent)[SPEED] |= _IMM(speed) << (bitposi << 1);
-		if (mode == GPIOMode::IN_Floating) (*parent)[PULLS] &= ~_IMM(0x3 << (bitposi << 1));
+	#if defined(_MPU_STM32MP13)
+		byte bitposi = getID();
+	#endif
+		if (autoEnClk) getParent().enClock();
+		getParent()[MODER].maset(_IMMx2(bitposi), 2, _IMM(mode) >> 1);
+		getParent()[OTYPER].setof(bitposi, _IMM(mode) & 1);
+		getParent()[SPEED].maset(_IMMx2(bitposi), 2, _IMM(speed) >> 1);
+		if (mode == GPIOMode::IN_Floating)
+			getParent()[PULLS].maset(_IMMx2(bitposi), 2, 0);
+		return self;
 	}
 #elif defined(_MCU_CW32F030)
-	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) {
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) {
 		using namespace GPIOReg;
 		const stduint mode = mod;
 		GeneralPurposeInputOutputPort& pare = getParent();
@@ -69,10 +80,11 @@ namespace uni {
 		pare[SPEED].setof(bitposi, 0 != _IMM(spd));
 		pare[ANALOG].setof(bitposi, 0);/*TEMP*/
 		// innput = mode & 0x1;
+		return self;
 	}
 #elif defined(_MCU_MSP432P4)//{TEMP} ROM Method only
 	// for single pin
-	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) const {
+	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) const {
 		(void)autoEnClk;//{} enClock it
 		(void)spd;//{}
 		bool innput;
@@ -86,6 +98,7 @@ namespace uni {
 		default: return;
 		}
 		ROM_GPIOTABLE[innput ? 14 : 0](getParent().getID(), _IMM1S(getID()));
+		return self;
 	}
 	
 #endif

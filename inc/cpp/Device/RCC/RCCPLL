@@ -29,9 +29,13 @@
 #include "../../reference"
 #include "RCCAddress"
 
-#ifdef _MCU_STM32F1x
+/* MEMMAP
+** this == 0x1 0x2 0x3 0x4, for PLL1 PLL2 PLL3 PLL4
+*/
 
 namespace uni {
+#ifdef _MCU_STM32F1x
+
 	namespace PLLSource {
 		enum RCCPLLClockSource {
 			HSI_div2 = 0x00000000, // 0b0000
@@ -100,11 +104,11 @@ namespace uni {
 			return (PLLSource::RCCPLLClockSource)(_RCC_ConfigRegister & _RCC_CFGR_MASK_PLLSource);
 		}
 	};
-}
+
 
 #elif defined(_MCU_STM32F4x)
 
-namespace uni {
+
 	namespace PLLSource {
 		enum PLLSource {
 			HSI = 0x00000000, //aka  RCC_PLLCFGR_PLLSRC_HSI
@@ -119,8 +123,35 @@ namespace uni {
 		bool setMode();
 		static bool isReady();
 	};
-}
 
+#elif defined(_MPU_STM32MP13)
+	namespace PLL1Source {
+		enum PLL1SourceType {
+			HSI = 0, HSE = 0x1, OFF
+		};// pos 0 len 2
+	}
+	#define PLL2Source         PLL1Source
+	#define RCCPLL2ClockSource RCCPLL1ClockSource
+
+
+	
+	class RCCPLL {
+	private:
+		//{} void enAble(bool ena = true) const;
+	public:
+		stduint getID() const { return _IMM(this) & 0xF; } // 1 ~ 4
+		//{} bool setMode() const;
+		//{} static bool isReady() const;
+
+		// AKA{__HAL_RCC_GET_PLL12_SOURCE}
+		stduint CurrentSource() const;
+		
+		// ---- Below are parts from AKA HAL_RCC_GetPLL1ClockFreq
+		stduint getFrequencyP() const;
+		stduint getFrequencyQ() const;//TODO same to getFrequencyP
+		stduint getFrequencyR() const;//TODO same to getFrequencyP
+	};
 
 #endif
+}
 #endif

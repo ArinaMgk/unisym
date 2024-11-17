@@ -41,7 +41,15 @@ namespace uni {
 			return false;
 		return true;
 	}
-	
+
+	static DACReg::DACRegType DHR12Rx[] = { DACReg::DHR12R1, DACReg::DHR12R2 };
+	void DAC_t::setOutput(byte channel, uint16 val) {
+		using namespace ::uni::DACReg;
+		// assert (channel)
+		val &= 0x0FFF;// max output 2.5V
+		self[DHR12Rx[channel]] = val;
+	}
+
 	#endif
 
 	#if 0

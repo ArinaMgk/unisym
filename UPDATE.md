@@ -1,17 +1,15 @@
-Last-Commit: 20241111：「 
+Last-Commit: 20241112：「 
 + (till 1227) mistake lunar winter for U2024WTR, this will release same label on solar winter (same day with anni-11). This is a pre-U2024WTR.
 」
 This-Commit: 「
-+ Fix F4.ADC
-+ ReadFileFFAT12 FATBUF from ES to DS
++ 20241113 create `DACx[Pin&] => DACChan`
++ 20241113 change `setMode(GPIOMode...)` return self but void
+	* so we can assign the status or read it (should add a delay) after setting the IO mode.
++ 20241116 append RCC.Sysclock.getCoreFrequency() for SystemCoreClock
 」
 ---
 
 ### Unchecked and Checked-but-Issued
-
-STM32F4
-- [ ]
-* XART1 use -O0 only to compile please.
 
 MSP432P4
 - [ ] GPIO Pin  Input Mode
@@ -19,7 +17,7 @@ MSP432P4
 
 ---
 
-### Bofore Anniversary 11th
+### Before Anniversary 11th
 
 
 ### Before Anniversary 10th

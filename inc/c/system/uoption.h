@@ -25,7 +25,7 @@
 #define _INC_Options
 
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)|| defined(_MPU_STM32MP13)
 	#define _MCU_STM32
 	#ifndef __BITS__
 	#define __BITS__ 32

@@ -31,7 +31,7 @@
 extern "C" void SystemInit(void);
 
 extern "C" char _IDN_BOARD[16];
-char _IDN_BOARD[16] = "xx";
+char _IDN_BOARD[16] = "CW32F030";
 
 void SystemInit(void) {
 	_TEMP Letvar(hsi, volatile uint32 *, 0x40010018UL);

@@ -38,6 +38,7 @@ logstyle_t _logstyle = _LOG_STYLE_NONE;
 // GCC  Style {filename:lineno: error: ...}
 // This process `error` only. User should print `filename` and `lineno` before calling.
 
+const char* _pref_null = "";
 const char* _pref_fata = "[FATAL]";
 const char* _pref_pani = "[PANIC]";
 const char* _pref_erro = "[ERROR]";
@@ -47,6 +48,10 @@ const char* _pref_dbug = "[DEBUG]";
 const char* _pref_trac = "[TRACE]";
 _tocall_ft _call_serious;
 _tocall_ft _befo_logging;
+
+const char** _tab_pref[] = {
+	&_pref_null,& _pref_fata,& _pref_pani,& _pref_erro,& _pref_warn,& _pref_info,& _pref_dbug,& _pref_trac
+};
 
 static void printpref(loglevel_t level) {
 #if defined(_Linux) || 1

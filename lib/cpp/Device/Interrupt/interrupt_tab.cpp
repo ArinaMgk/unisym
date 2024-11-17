@@ -66,6 +66,23 @@ extern "C" {
 
 	// ----
 	Handler_t FUNC_XART[8] = { 0 };
+	_ESYM_CPP{
+	static void _HandlerIRQ_XART(byte art_id) {
+		//{?} Instrument here to support OS ?
+		#ifndef _HIS_INT
+		if (!XART.isSync(art_id)) return;//{TEMP}
+		if ((*(USART_t*)XART[art_id])[XARTReg::SR].bitof(5)) { //aka __HAL_UART_GET_FLAG, 5 is USART_SR_RXNE
+			asserv(FUNC_XART[art_id])();
+		}
+		// ... more
+		//{?} Instrument here to support OS ?
+		#else
+		{
+			asserv(FUNC_XART[art_id])();
+		}
+		#endif
+	}
+	}
 
 	// ---- TIM ----
 	Handler_t FUNC_TIMx[16] = { 0 }; // Period Elapsed Callback
@@ -89,13 +106,6 @@ extern "C" {
 	}
 	//
 	_ESYM_CPP{
-	static void _HandlerIRQ_XART(byte art_id) {
-		if (!XART.isSync(art_id)) return;//{TEMP}
-		if ((*(USART_t*)XART[art_id])[XARTReg::SR].bitof(5)) { //aka __HAL_UART_GET_FLAG, 5 is USART_SR_RXNE
-			asserv(FUNC_XART[art_id])();
-		}
-		// ... more
-	}
 	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {}
 	//{TODEL}
 	static void _HandlerIRQ_TIMx(TIM_t& this_TIM) {
@@ -194,17 +204,6 @@ extern "C" {
 
 #elif defined(_MCU_STM32F4x)
 
-	
-
-	static void _HandlerIRQ_XART(byte art_id) {
-		if (!XART.isSync(art_id)) return;//{TEMP}
-		if ((*(USART_t*)XART[art_id])[XARTReg::SR].bitof(5)) { //aka __HAL_UART_GET_FLAG, 5 is USART_SR_RXNE
-			asserv(FUNC_XART[art_id])();
-		}
-		// ... more
-	}
-	
-
 	void USART6_IRQHandler(void) { _HandlerIRQ_XART(6); }	
 
 
@@ -240,6 +239,7 @@ extern "C" {
 			t.last_src = nil;
 		}
 	}
+	_ESYM_CPP{
 	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {
 		//{TEMP} consider TIM_C just
 		using namespace TimReg;
@@ -270,7 +270,7 @@ extern "C" {
 		}
 		else _TEMP return;
 	}
-
+	}
 	static bool ADC_IRQHandler_sub(ADC_t& sel) {
 		static bool busy;
 		using namespace ADCReg;
@@ -289,12 +289,7 @@ extern "C" {
 				sel[CR1].setof(5, false);// EOCIE
 			}
 			asserv(FUNC_ADCx[sel.getID()])();// Conversion complete callback
-			//{}sel[SR] &= ~_IMM(0x2);// Clear EOC flags
-			//sel[SR] &= ~_IMM(0x12);// Clear EOC and STRT flags
 			sel[SR] &= ~_IMM(0x10);// Clear STRT flags
-
-			//_TEMP sel[CR1].setof(1, false);
-			//_TEMP sel[CR1].setof(5, false);
 			busy = false;
 			return true;
 		}

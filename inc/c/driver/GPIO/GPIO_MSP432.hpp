@@ -72,22 +72,10 @@ namespace GPIOSpeed {
 }
 #define defa_speed GPIOSpeed::Speed::TODO
 
-class GeneralPurposeInputOutputPort;
-
 // Abstract Layer, should take no space. We use const to confirm, which is friendly to Rust.
 class GeneralPurposeInputOutputPin /*final : public RuptTrait*/ {
 public:
-	inline const GeneralPurposeInputOutputPort& getParent() const {
-		//{TODO}option if (...) return 0xBAD;
-		return *(const GeneralPurposeInputOutputPort *)this;
-	}
-	inline byte getID() const { return _IMM(this) & 0xF; }
-	//{} bool isInput() const;
-	void setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = defa_speed, bool autoEnClk = true) const;
-	void Toggle() const;
-	const GeneralPurposeInputOutputPin& operator=(bool val) const;
-	const GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin) const;
-	operator bool() const;
+	_COM_DEF_GPIN16();
 	//{} _COM_DEF_Interrupt_Interface()
 };
 

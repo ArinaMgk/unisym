@@ -35,6 +35,14 @@
 #include "RCCPrescaler"
 #include "RCCPLL"
 
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_CW32F030)
+#define _SCC_DEFAULT HSI_VALUE
+#elif defined(_MPU_STM32MP13)
+#define _SCC_DEFAULT 64000000
+#else
+#define _SCC_DEFAULT 8000000
+#endif
+
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 namespace uni {
 	extern stduint SystemCoreClock;
@@ -43,50 +51,9 @@ namespace uni {
 }
 #endif
 
+namespace uni {
 #ifdef _MCU_STM32F1x
 
-// !!! All unchecked
-
-/* Compatible for RCC of HAL */
-/*
-stm32f1xx_hal_rcc.c
-[ ]#define MCO1_CLK_ENABLE()     __HAL_RCC_GPIOA_CLK_ENABLE()
-[ ]#define MCO1_GPIO_PORT        GPIOA
-[ ]#define MCO1_PIN              GPIO_PIN_8
-[ ]static void RCC_Delay(uint32_t mdelay);
-[ ]HAL_StatusTypeDef HAL_RCC_DeInit(void)
-[*]HAL_StatusTypeDef HAL_RCC_OscConfig(RCC_OscInitTypeDef  *RCC_OscInitStruct)
-   - TODO HSI
-   - TODO LSI
-   - TODO LSE
-[*]HAL_StatusTypeDef HAL_RCC_ClockConfig(RCC_ClkInitTypeDef  *RCC_ClkInitStruct, uint32_t FLatency)
-[ ]void HAL_RCC_MCOConfig(uint32_t RCC_MCOx, uint32_t RCC_MCOSource, uint32_t RCC_MCODiv)
-[ ]void HAL_RCC_EnableCSS(void)
-[ ]void HAL_RCC_DisableCSS(void)
-[ ]uint32_t HAL_RCC_GetSysClockFreq(void)
-[ ]uint32_t HAL_RCC_GetHCLKFreq(void)
-[ ]uint32_t HAL_RCC_GetPCLK1Freq(void)
-[ ]uint32_t HAL_RCC_GetPCLK2Freq(void)
-[ ]void HAL_RCC_GetOscConfig(RCC_OscInitTypeDef  *RCC_OscInitStruct)
-[ ]void HAL_RCC_GetClockConfig(RCC_ClkInitTypeDef  *RCC_ClkInitStruct, uint32_t *pFLatency)
-[ ]void HAL_RCC_NMI_IRQHandler(void)
-[ ]static void RCC_Delay(uint32_t mdelay)
-[ ]__weak void HAL_RCC_CSSCallback(void)
-
-stm32f1xx_hal_rcc.h
-...
-
-stm32f1xx_hal_rcc_ex.c
-[v]HAL_StatusTypeDef HAL_RCCEx_PeriphCLKConfig(RCC_PeriphCLKInitTypeDef  *PeriphClkInit)
-...
-
-stm32f1xx_hal_rcc_ex.h
-[v]typedef struct ... RCC_OscInitTypeDef;
-[ ]define __HAL_RCC_HSE_CONFIG(__STATE__)
-...
-*/
-
-namespace uni {
 	// use namespace to be comopatible with old C++ compilers
 	namespace FlashLatency {
 		enum FlashLatency {
@@ -139,7 +106,7 @@ namespace uni {
 		// temp area
 		stduint getFrequencyHCLK() {
 			return SystemCoreClock;
-		}
+		}//{TODEL}
 		stduint getFrequencyPCLK1();
 		stduint getFrequencyPCLK2();
 
@@ -147,11 +114,8 @@ namespace uni {
 
 	//
 	extern RCC_t RCC;
-}
 
 #elif defined(_MCU_STM32F4x)
-
-namespace uni {
 	
 	class RCC_t {
 	protected:
@@ -188,7 +152,7 @@ namespace uni {
 		// temp area
 		stduint getFrequencyHCLK() {
 			return SystemCoreClock;
-		}
+		}//{TODEL}
 		stduint getFrequencyPCLK1();
 		stduint getFrequencyPCLK2();
 
@@ -196,7 +160,25 @@ namespace uni {
 	};
 
 	extern RCC_t RCC;
-}
 
+#elif defined(_MPU_STM32MP13)
+	class RCC_t {
+	public:
+		RCCPLL& PLL1 = *(RCCPLL*)_IMM(1);
+		RCCSystemClock Sysclock;
+		//
+		inline Reference operator[](RCCReg::RCCReg idx) const { return _RCC_ADDR + _IMMx4(idx); }
+		// _TEMP AREA
+		stduint _HSI_getFrequency() const;
+		// aka __HAL_RCC_GET_MPU_DIV
+		stduint getMPUDiv() const {
+			stduint ret{ self[RCCReg::MPCKDIVR].masof(0, 4) + 1 };// MPUDIV
+			MIN(ret, 16)
+			return ret;
+		}
+	};
+
+	extern RCC_t RCC;
 #endif
+}
 #endif

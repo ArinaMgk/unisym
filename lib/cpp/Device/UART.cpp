@@ -26,7 +26,7 @@ inline static stduint UART_BRR_SAMPLING(stduint _PCLK_, stduint _BAUD_, byte bi)
 namespace uni {
 	static void setMode_initGPIO(byte XART_ID);
 	//aka HAL_UART_Init
-	void USART_t::setMode(_TEMP void) {
+	void USART_t::setMode(stduint band_rate) {
 		using namespace XARTReg;
 		_TEMP if (XART_ID != 1) return;
 		{
@@ -44,7 +44,8 @@ namespace uni {
 				self[CR3] &= ~_IMM(0x3 << 8);//aka UartHandle.Init.HwFlowCtl = UART_HWCONTROL_NONE; (USART_CR3_RTSE | USART_CR3_CTSE)
 				// : byte over_sampling = _TEMP 16;// or 8
 				stduint freq = XART_ID == 1 || XART_ID == 6 ? RCC.getFrequencyPCLK2() : RCC.getFrequencyPCLK1();
-				self[BRR] = UART_BRR_SAMPLING(freq, /*UartHandle.Init.BaudRate = DEBUG_USART_BAUDRATE;*/ 115200, 16);
+				last_bandrate = band_rate;
+				self[BRR] = UART_BRR_SAMPLING(freq, band_rate, 16);
 			}
 			// In asynchronous mode, the following bits must be kept cleared:
 			// - LINEN and CLKEN bits in the USART_CR2 register,
@@ -71,19 +72,22 @@ namespace uni {
 		return res = d & mask;
 	}
 
+	extern stduint SystemCoreClock;
+	void USART_t::Delay_unit() {
+		for (volatile stduint i = 0; i < SystemCoreClock / last_bandrate; i++);
+	}
+	
 	//aka HAL_UART_Transmit
 	//{TODO} conflict
 	USART_t& USART_t::operator << (stduint dat) {
 		using namespace XARTReg;
 		bool len9b = false;// or 8b
 		self[DR] = dat & (len9b ? 0x1FF : 0x0FF);
+		Delay_unit();
 		return self;
 	}
 	USART_t& USART_t::operator << (const char* p) {
-		while (*p) {
-			self << stduint(*p++);
-			for0(i, _TEMP 1000);// ~= 168M / 115200 ?
-		}
+		while (*p) self << stduint(*p++);
 		return self;
 	}
 

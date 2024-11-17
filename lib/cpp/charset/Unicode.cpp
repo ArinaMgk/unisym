@@ -125,6 +125,8 @@ static stduint CscFromUTF8(const byte* src, stduint slen, pureptr_t des, byte to
 	return expected ? NONE : dlen;
 }
 
+#define UNICHAR_LEN_CRTMAX 4
+
 // Result in Heap
 // No prefix here: BOM: {0xFF, 0xFE} for little endian, {0xFE, 0xFF} for big endian
 stduint CscUTF(byte from, byte to, const pureptr_t src, stduint slen, pureptr_t* des) {
@@ -133,8 +135,8 @@ stduint CscUTF(byte from, byte to, const pureptr_t src, stduint slen, pureptr_t*
 	if (from == 8) {
 		stduint res = CscFromUTF8((const byte*)src, slen, *des, to);
 		if (res == NONE) return NONE;
-		if (!*des) *des = zalc(res + 4);
-		MemSet(*des, 0, 4);
+		if (!*des) *des = zalc(res + UNICHAR_LEN_CRTMAX);
+		MemSet(*des, nil, UNICHAR_LEN_CRTMAX);
 		return CscFromUTF8((const byte*)src, slen, *des, to);
 	}
 	return NONE;

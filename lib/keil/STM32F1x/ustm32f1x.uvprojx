@@ -315,7 +315,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>1</Optim>
+            <Optim>2</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -469,6 +469,11 @@
               <FileName>GPIO-setMode.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SysClock.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
             </File>
           </Files>
         </Group>

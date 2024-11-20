@@ -283,8 +283,7 @@ namespace uni
 #elif defined(_MCU_MSP432P4)
 	
 	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(const GeneralPurposeInputOutputPin& pin) const{
-		self = bool(pin);
-		return self;
+		return self = bool(pin);
 	}
 
 
@@ -328,10 +327,10 @@ namespace uni
 	
 	GeneralPurposeInputOutputPin::operator bool() const {
 		#ifdef _MCU_MSP432P4
-		return byte(Reference_T<byte>(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID())));
+		return byte(Reference_T<byte>(&BITBAND_PERI(getParent()[GPIOReg8::IDR], getID())));
 		#else
 		using namespace GPIOReg;
-		return getParent()[isInput() ? IDR : ODR].bitof(bitposi);
+		return getParent()[IDR].bitof(bitposi);// cancel isInput() ? IDR : ODR
 		#endif
 	}
 

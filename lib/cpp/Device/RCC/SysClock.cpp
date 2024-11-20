@@ -147,7 +147,7 @@ namespace uni {
 		stduint mpu_div;
 		switch (CurrentSource()) {
 		case SysclkSource::HSI:
-			SystemCoreClock = RCC._HSI_getFrequency();
+			SystemCoreClock = RCC.HSI.getFrequency();
 			break;
 		case SysclkSource::HSE:
 			SystemCoreClock = HSE_VALUE;
@@ -179,5 +179,14 @@ namespace uni {
 		return SysclkSource::RCCSysclockSource(RCC[RCCReg::MPCKSELR] & 0b11);
 	}
 #endif
+	// ---- isReady ----
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#elif defined(_MPU_STM32MP13)
+	bool RCCSystemClock::isReady() {
+		return RCC[RCCReg::MPCKSELR].bitof(31);
+	}
+#endif
+	
+
 	
 }

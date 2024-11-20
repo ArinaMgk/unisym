@@ -27,11 +27,11 @@
 #elif defined(_MCU_STM32F4x)
 
 bool RCCPLL::isReady() {
-	return RCC[RCCReg::CR].bitof(_RCC_CR_POSI_PLLReady);
+	return RCC[CR].bitof(_RCC_CR_POSI_PLLReady);
 }
 
 void RCCPLL::enAble(bool ena) {
-	Reference Conreg = RCC[RCCReg::CR];
+	Reference Conreg = RCC[CR];
 	Conreg.setof(_RCC_CR_POSI_PLLEnable, ena);
 	while (Conreg.bitof(_RCC_CR_POSI_PLLReady) ^ ena); // wait for PLL locked
 }
@@ -67,28 +67,190 @@ bool RCCPLL::setMode() {
 }
 
 #elif defined(_MPU_STM32MP13)
+const static RCCReg::RCCReg PLLxCR[4] = {
+	RCCReg::PLL1CR, RCCReg::PLL2CR, RCCReg::PLL3CR, RCCReg::PLL4CR};
+const static RCCReg::RCCReg PLLxCFGR1[4] = {
+	RCCReg::PLL1CFGR1, RCCReg::PLL2CFGR1,
+	RCCReg::PLL3CFGR1, RCCReg::PLL4CFGR1 };
+const static RCCReg::RCCReg PLLxCFGR2[4] = {
+	RCCReg::PLL1CFGR2, RCCReg::PLL2CFGR2,
+	RCCReg::PLL3CFGR2, RCCReg::PLL4CFGR2 };
+const static RCCReg::RCCReg PLLxFRACR[4] = {
+	RCCReg::PLL1FRACR, RCCReg::PLL2FRACR,
+	RCCReg::PLL3FRACR, RCCReg::PLL4FRACR };
+const static RCCReg::RCCReg PLLxCSGR[4] = {
+	RCCReg::PLL1CSGR, RCCReg::PLL2CSGR,
+	RCCReg::PLL3CSGR, RCCReg::PLL4CSGR };
+const static RCCReg::RCCReg RCKxSELR[4] = {
+	RCCReg::RCK12SELR, RCCReg::RCK12SELR,
+	RCCReg::RCK3SELR, RCCReg::RCK4SELR };
+const static stduint _RST_PLLxCFGR1[4] = {
+	0x00010031U, 0x00010063U, 0x00010031U, 0x00010031U
+};
+const static stduint _RST_PLLxCFGR2[4] = {
+	0x00010100U, 0x00010101U, 0x00010101U, 0x00000000U
+};
+
+void RCCPLL::enAble(bool ena) const {
+	using namespace RCCReg;
+	RCC[PLLxCR[getID() - 1]].setof(0, ena);// PLLON
+}
+
+bool RCCPLL::isUsed() const {
+	if (getID() == 1) {
+		SysclkSource::RCCSysclockSource src = RCCSystemClock::CurrentSource();
+		bool tmp = src == SysclkSource::PLL1 || src == SysclkSource::MPUDIV;
+		asserv(tmp) = RCCSystemClock::isReady();
+		return tmp;
+	}
+	else if (getID() == 2) {
+		bool axis_used = RCC.AKA__HAL_RCC_GET_AXIS_SOURCE() == AxisSource::PLL2;
+		asserv(axis_used) = RCC.AKA_RCC_FLAG_AXISSRCRDY();
+		return axis_used;
+	}
+	else if (getID() == 3) {
+		bool mlahb_used = RCC.AKA__HAL_RCC_GET_MLAHB_SOURCE() == MLAHBSource::PLL3;
+		asserv(mlahb_used) = RCC.AKA_RCC_FLAG_MLAHBSSRCRDY();
+		return mlahb_used;
+	}
+	return false;
+}
+
+bool RCCPLL::isReady() const {
+	using namespace RCCReg;
+	return RCC[PLLxCR[getID() - 1]].bitof(1);// PLLxRDY
+}
+
+static void setModeSub(const RCCPLL& sel, PLLMode mod) {
+	byte id = sel.getID() - 1;
+	if (mod == PLLMode::SpreadSpectrum) {
+		// check valid of INC_STEP, SSCG_MODE, RPDFN_DIS, TPDFN_DIS, MOD_PER
+		//{} __HAL_RCC_PLL1CSGCONFIG(pll1->MOD_PER, pll1->TPDFN_DIS, pll1->RPDFN_DIS, pll1->SSCG_MODE, pll1->INC_STEP);
+	}
+	RCC[PLLxCR[id]].setof(2, mod == PLLMode::SpreadSpectrum);// SSCG_CTRL AKA __HAL_RCC_PLL1/2_SSMODE_xABLE
+	sel.enAble(true); while (true != sel.isReady());
+	RCC[PLLxCR[id]].maset(4, 3, 0b111);// AKA __HAL_RCC_PLLxCLKOUT_ENABLE
+}
+bool RCCPLL::setMode(PLLMode mod, PLL1Source::PLL1SourceType src, PLLPara_t para) const {
+	byte id = getID() - 1;
+	// range of N depends on whether Integer/Fractional
+	if (getID() == 2) { // PLL2
+		// Check if PLL1 set
+		PLL1Source::PLL1SourceType crtsrc = (PLL1Source::PLL1SourceType)CurrentSource();
+		if (isUsed() || (crtsrc != PLL1Source::HSE && crtsrc != PLL1Source::HSI))
+			return false;
+	}
+	if (id == 0 || id == 1) {
+		if (!canMode(false)) return false;
+		if (!setSource(_IMM(src))) return false;
+		setPara(para);
+		// In integer or clock spreading mode the application shall ensure that a 0 is loaded into the SDM
+		if (mod == PLLMode::Integer || mod == PLLMode::SpreadSpectrum)
+			para.frac = nil;
+		ConfigFracv(para.frac);
+		setModeSub(self, mod);
+	}
+	else return false;
+	return true;
+}
+bool RCCPLL::setMode(PLLMode mod, PLL3Source::PLL3SourceType src, bool if_range, PLLPara_t para) const {
+	byte id = getID() - 1;
+	if (id == 2 || id == 3) {
+		if (!canMode(false)) return false;
+		if (!setSource(_IMM(src))) return false;
+		RCC[PLL3CFGR1].maset(24, 2, if_range ? 1 : 0); // IFRGE AKA __HAL_RCC_PLL3/4_IFRANGE
+		setPara(para);
+		// In integer or clock spreading mode the application shall ensure that a 0 is loaded into the SDM
+		if (mod == PLLMode::Integer || mod == PLLMode::SpreadSpectrum)
+			para.frac = nil;
+		ConfigFracv(para.frac);
+		setModeSub(self, mod);
+	}
+	else return false;
+	return true;
+}
+
+bool RCCPLL::canMode(bool reset) const {
+	using namespace RCCReg;
+	byte id = getID() - 1;
+	if (reset) {
+		Reference cr = RCC[PLLxCR[id]];
+		cr.maset(4, 3, 0);// DIV P/Q/R EN
+		enAble(false); while (false != isReady());
+		RCC[PLLxCR[id]].setof(2, false);// SSCG_CTRL
+		//
+		RCC[RCKxSELR[id]].maset(0, 2, 0);// SRC
+		RCC[PLLxCFGR1[id]] = _RST_PLLxCFGR1[id];
+		RCC[PLLxCFGR2[id]] = _RST_PLLxCFGR2[id];
+		RCC[PLLxFRACR[id]] = 0;
+		RCC[PLLxCSGR[id]] = 0;
+		return true;
+	}
+	else if (!isUsed()) {
+		RCC[PLLxCR[id]].maset(4, 3, nil);// AKA __HAL_RCC_PLLxCLKOUT_DISABLE(DIVP|DIVQ|DIVR)
+		enAble(false); while (false != isReady());
+		return true;
+	}
+	return false;
+}
+
+
+void RCCPLL::setPara(PLLPara_t para) const {
+	byte id = getID() - 1;
+	RCC[PLLxCFGR1[id]].maset(16, 6, para.m - 1);// DIVM
+	RCC[PLLxCFGR1[id]].maset(0, 9, para.n - 1);// DIVN
+	RCC[PLLxCFGR2[id]].maset(0, 7, para.p - 1);// DIVP
+	RCC[PLLxCFGR2[id]].maset(8, 7, para.q - 1);// DIVQ
+	RCC[PLLxCFGR2[id]].maset(16, 7, para.r - 1);// DIVR
+}
+void RCCPLL::ConfigFracv(stduint frac) const {
+	byte id = getID() - 1;
+	// AKA __HAL_RCC_PLL1FRACV_DISABLE
+	RCC[PLLxFRACR[id]].setof(16, false);// FRACLE
+	// AKA __HAL_RCC_PLL1FRACV_CONFIG
+	RCC[PLLxFRACR[id]].maset(3, 13, frac);// FRACV
+	// AKA __HAL_RCC_PLL1FRACV_ENABLE
+	RCC[PLLxFRACR[id]].setof(16, true);// FRACLE
+}
 
 stduint RCCPLL::CurrentSource() const {
 	using namespace RCCReg;
-	if (getID() == 1 || getID() == 2) {
-		return RCC[RCK12SELR].masof(0, 2);// PLL12SRC
+	static RCCReg::RCCReg RCKxSELR[4] = {
+		RCK12SELR, RCK12SELR, RCK3SELR, RCK4SELR
+	};
+	if (Ranglin(getID(), 1, 4)) {
+		return RCC[RCKxSELR[getID() - 1]].masof(0, 2);// PLLxSRC
 	}
 	return nil;
 }
-
+bool RCCPLL::setSource(stduint src) const {
+	byte id = getID() - 1;
+	if (!Ranglin(id, 0, 4)) return false;
+	// Do not change pll src if already in use
+	if ((id == 0 && RCC.PLL2.isUsed()) || (id == 1 && RCC.PLL1.isUsed())) { // PLL1&2
+		if (CurrentSource() != (src))
+			return false;
+	}
+	else {
+		RCC[RCKxSELR[id]].maset(0, 2, (src));// PLLxSRC
+		while (true != RCC[RCKxSELR[id]].bitof(31));// PLLxSRCRDY
+	}
+	return true;
+}
 
 stduint RCCPLL::getFrequencyP() const {
 	using namespace RCCReg;
 	stduint tmp = 0;
+	byte id = getID() - 1;
 	if (getID() == 1 || getID() == 2) {
-		float32 pll1m = RCC[PLL1CFGR1].masof(16, 6) + 1;// DIVM1
-		bool pll1fracen = RCC[PLL1FRACR].bitof(16);// FRACLE
-		float32 fracn1_us = pll1fracen ? RCC[PLL1FRACR].masof(3, 13) : 0;// FRACV
-		float32 DIVN = RCC[PLL1CFGR1].masof(0, 9) + 1;
+		float32 pll1m = RCC[PLLxCFGR1[id]].masof(16, 6) + 1;// DIVM1
+		bool pll1fracen = RCC[PLLxFRACR[id]].bitof(16);// FRACLE
+		float32 fracn1_us = pll1fracen ? RCC[PLLxFRACR[id]].masof(3, 13) : 0;// FRACV
+		float32 DIVN = RCC[PLLxCFGR1[id]].masof(0, 9) + 1;
 		float32 pll1vco = DIVN + (fracn1_us / (float32)0x2000);// Intermediary value
 		switch (PLL1Source::PLL1SourceType(CurrentSource())) {
 		case PLL1Source::HSI:
-			pll1vco *= (float32)RCC._HSI_getFrequency() / pll1m;
+			pll1vco *= (float32)RCC.HSI.getFrequency() / pll1m;
 			break;
 		case PLL1Source::HSE:
 			pll1vco *= (float32)HSE_VALUE / pll1m;
@@ -97,7 +259,7 @@ stduint RCCPLL::getFrequencyP() const {
 			pll1vco = 0;
 			break;
 		}
-		const stduint P_Div = RCC[PLL1CFGR2].masof(0, 7) + 1;
+		const stduint P_Div = RCC[PLLxCFGR2[id]].masof(0, 7) + 1;
 		return pll1vco / (float32)P_Div;// aka PLL1/2_Clocks->PLL1_P/Q/R_Frequency
 	}
 	return 0;

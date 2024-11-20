@@ -29,19 +29,19 @@
 namespace uni {
 	class RuptTrait {
 	public:
-		virtual void setInterrupt(Handler_t fn) = 0;
+		virtual void setInterrupt(Handler_t _func) = 0;
 		virtual void setInterruptPriority(byte preempt, byte sub_priority) = 0;
 		virtual void enInterrupt(bool enable = true) = 0;
 		virtual ~RuptTrait() = default; // avoid [-Wnon-virtual-dtor]
-		inline void enInterrupt(Handler_t fn) {
-			setInterrupt(fn);
+		inline void enInterrupt(Handler_t _func) {
+			setInterrupt(_func);
 			enInterrupt(true);
 		}
 	};
 }
 
 #define _COM_DEF_Interrupt_Interface() \
-virtual void setInterrupt(Handler_t fn) override;\
+virtual void setInterrupt(Handler_t _func) override;\
 virtual void setInterruptPriority(byte preempt, byte sub_priority) override;\
 virtual void enInterrupt(bool enable = true) override// you need add colon when using
 

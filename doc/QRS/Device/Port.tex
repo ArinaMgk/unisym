@@ -1,0 +1,34 @@
+
+General Purpose Input Output
+
+\B{Header}: \verb`c/port.h`, \verb`cpp/Device/GPIO`.
+
+\B{Trait}: \verb`RuptTrait` for GPIO.
+
+\B{Sub-Generation}: 2
+
+\paragraph{Pin Method}
+\begin{itemize}
+\item operator \verb`=` for reading and writing the pin
+\item $getID$ $\rightarrow$ an integer, and $getParent$ \verb`()` $\rightarrow$ {Port}.
+\item $setMode$ \verb`(Mode, Speed=defa_speed, autoEnClk = true)` $\rightarrow$ self
+
+Set the working mode of GPIO.
+
+The third parameter is left for historical reason, this may be removed in the future. In some MCU, we can config registers when the GPIO is disabled. % She remembered STM32F103VET6 
+
+\item $canMode$
+
+Cancel working modes, destructure the device, and finally disable the working clock signal.
+
+%\item setPull, use setMode to flush pull floating
+
+%\item setAlternate/Connect
+
+% void Toggle()
+
+% bool isInput()
+
+\end{itemize}
+
+

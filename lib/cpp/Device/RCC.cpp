@@ -23,6 +23,7 @@
 #include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/cpp/Device/Flash"
 #include "../../../inc/cpp/Device/SysTick"
+#include "../../../inc/c/driver/RCC/RCC-registers.hpp"
 
 //{TODO} User Can Def by Macro
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_CW32F030)
@@ -36,6 +37,7 @@ stduint HSI_VALUE = (64000000U);
 
 
 namespace uni {
+	using namespace RCCReg;
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	const uint8_t AHBPrescTable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9 };
 	const uint8_t APBPrescTable[8] = { 0, 0, 0, 0, 1, 2, 3, 4 };
@@ -71,11 +73,11 @@ namespace uni {
 	Flash_t Flash;
 
 	bool RCCOscillatorHSE::isReady() {
-		return RCC[RCCReg::CR].bitof(_RCC_CR_POSI_HSEReady);
+		return RCC[CR].bitof(_RCC_CR_POSI_HSEReady);
 	}
 
 	bool RCCOscillatorHSI::isReady() {
-		return RCC[RCCReg::CR].bitof(_RCC_CR_POSI_HSIReady);
+		return RCC[CR].bitof(_RCC_CR_POSI_HSIReady);
 	}
 
 	static byte _tab_AHB_PRES_EXPO[] = {
@@ -83,7 +85,6 @@ namespace uni {
 	};
 	// divexpo is a great design of the past me! --dosconio 20240717
 	bool RCCAHB::setMode(_TEMP uint8 divexpo, bool usingPCLK1, bool usingPCLK2) {
-		using namespace RCCReg;
 		// if(((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_HCLK) == RCC_CLOCKTYPE_HCLK) call this
 		// "Set the highest APBx dividers in order to ensure that we do not go through a non-spec phase whatever we decrease or increase HCLK"
 		if (divexpo >= numsof(_tab_AHB_PRES_EXPO)) return false;
@@ -107,18 +108,60 @@ namespace uni {
 	}
 
 #elif defined(_MPU_STM32MP13)
-	stduint RCC_t::_HSI_getFrequency() const {
-		using namespace RCCReg;
-		stduint tmp = 0;
-		if (RCC[OCRDYR].bitof(_RCC_OCRDYR_POS_HSIDIVRDY))
-			tmp = RCC[HSICFGR].masof(0, 2);// HSIDIV aka __HAL_RCC_GET_HSI_DIV{DIV 1,2,4,8}
-		return HSI_VALUE >> tmp;
+	extern stduint SystemCoreClock;
+
+	void RCC_t::canMode() const {
+		HSI.enAble(); while (!HSI.isReady());
+		RCC[MCO1CFGR] = nil;
+		RCC[MCO2CFGR] = nil;
+		RCC[MPCKSELR].maset(0, 2, 0);// RCC_MPCKSELR_MPUSRC
+		RCC[ASSCKSELR].maset(0, 3, 0);;// RCC_ASSCKSELR_AXISSRC
+		//{} ifdef RCC_MSSCKSELR_MLAHBSSRC : MODIFY_REG(RCC->MSSCKSELR, (RCC_MSSCKSELR_MLAHBSSRC), 0U);
+		RCC[MPCKDIVR].maset(0, 4, 1);// RCC_MPCKDIVR_MPUDIV -> RCC_MPCKDIVR_MPUDIV_0
+		RCC[AXIDIVR].maset(0, 3, 0);// RCC_AXIDIVR_AXIDIV -> 0
+		RCC[APB4DIVR].maset(0, 3, 0);// RCC_APB4DIVR_APB4DIV -> 0
+		RCC[APB5DIVR].maset(0, 3, 0);// RCC_APB5DIVR_APB5DIV -> 0
+		//{} ifdef RCC_MLAHBDIVR_MLAHBDIV : MODIFY_REG(RCC->MLAHBDIVR, (RCC_MLAHBDIVR_MLAHBDIV), 0U);
+		RCC[APB1DIVR].maset(0, 3, 0);// RCC_APB1DIVR_APB1DIV -> 0
+		RCC[APB2DIVR].maset(0, 3, 0);// RCC_APB2DIVR_APB2DIV -> 0
+		RCC[APB3DIVR].maset(0, 3, 0);// RCC_APB3DIVR_APB3DIV -> 0
+		//{} ifdef RCC_APB6DIVR_APB6DIV : MODIFY_REG(RCC->APB6DIVR, (RCC_APB6DIVR_APB6DIV), 0U);
+		PLL1.canMode();
+		PLL2.canMode();
+		PLL3.canMode();
+		PLL4.canMode();
+		HSI.Reset();// canMode will set state OFF, not default state
+		RCC[OCENCLRR] = _IMM(_OCENCLRR::_MASK) & (~_IMM1);// except HSION
+		RCC[RDLSICR].setof(0, false);// LSION
+		RCC[CSICFGR].maset(8, 5, 0);// CSI TRIM
+		// ---- A7
+		RCC[MP_CIER] = _MP_CIxR::_MASK;
+		RCC[MP_CIFR] = _MP_CIxR::_MASK;
+		RCC[MP_RSTSCLRR] = _IMM(_MP_MP_RSTSyR::_MASK) & 0x1FFF;// except SPARE
+		// ---- A7 END
+		SystemCoreClock = HSI_VALUE;
+		if (!SysTick::enClock(1000));
 	}
 
+	// TEMP AREA ----
+
+	AxisSource RCC_t::AKA__HAL_RCC_GET_AXIS_SOURCE() const {
+		return (AxisSource)RCC[ASSCKSELR].masof(0, 3);// AXISSRC
+	}
+	MLAHBSource RCC_t::AKA__HAL_RCC_GET_MLAHB_SOURCE() const {
+		return (MLAHBSource)RCC[MSSCKSELR].masof(0, 2);// MLAHBSSRC
+	}
+	bool RCC_t::AKA_RCC_FLAG_AXISSRCRDY() const {
+		return RCC[ASSCKSELR].bitof(31);// AXISSRCSRDY
+	}
+	bool RCC_t::AKA_RCC_FLAG_MLAHBSSRCRDY() const {
+		return RCC[MSSCKSELR].bitof(31);// MLAHBSSRCSRDY
+	}
+
+	
 #endif
 
 	#include "../../../inc/c/driver/RCC/RCC-setClock.hpp"
-	#include "../../../inc/c/driver/RCC/PLL.hpp"
 		
 	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
 		RCC_t RCC;

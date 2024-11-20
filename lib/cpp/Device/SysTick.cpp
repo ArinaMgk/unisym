@@ -58,14 +58,18 @@ namespace uni {
 	}
 }
 #elif defined(_MPU_STM32MP13)
+
+static stduint Hz = 1000;
+
 //{TEMP} GCC only
 #define __get_CP64(cp, op1, Rt, CRm)         _ASM volatile("MRRC p" # cp ", " # op1 ", %Q0, %R0, c" # CRm  : "=r" (Rt) : : "memory" )
 #define __set_CP(cp, op1, Rt, CRn, CRm, op2) _ASM volatile("MCR p" # cp ", " # op1 ", %0, c" # CRn ", c" # CRm ", " # op2 : : "r" (Rt) : "memory" )
 extern stduint HSE_VALUE, HSI_VALUE;
 namespace uni {
-	bool SysTick::enClock(uint32 Hz) {//aka HAL_InitTick
+	bool SysTick::enClock(uint32 _Hz) {//aka HAL_InitTick
 		_TEMP stduint TICK_INT_PRIORITY = 0x0FU;
-		if (!Hz) return false;
+		if (!_Hz) return false;
+		Hz = _Hz;
 		if (0 _TODO) { // defined(USE_ST_CASIS)
 			//{TODO} HAL_SYSTICK_Config(SystemCoreClock / Hz);
 		}
@@ -73,7 +77,6 @@ namespace uni {
 			//{TODO}
 		}
 		else {
-			_TEMP if (Hz != 1000) return false;
 			// Cortex Related
 			// PL1_SetCounterFrequency(HSI_VALUE);// Set Counter Frequency {__set_CNTFRQ(HSI_VALUE);+__ISB}
 			{
@@ -94,7 +97,7 @@ namespace uni {
 		bool hse = 0x1/*HSE*/ == RCC[STGENCKSELR].masof(0, 2);// STGENSRC
 		uint64 PL1_GetCurrentPhysicalValue;// AKA IT
 		__get_CP64(15, 0, PL1_GetCurrentPhysicalValue, 14);
-		return PL1_GetCurrentPhysicalValue / (hse ? HSE_VALUE : HSI_VALUE / _TEMP 1000 /*Hz*/);
+		return PL1_GetCurrentPhysicalValue / (hse ? HSE_VALUE : HSI_VALUE / Hz);
 	}
 }
 

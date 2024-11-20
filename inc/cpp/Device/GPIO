@@ -67,6 +67,7 @@ extern "C" {
 	operator bool() const
 
 	//{TOADD} bool isInput() const;
+	//{TOADD} &self setPull(bool pull_up) const;
 
 #define _COM_DEF_GPIO_Port_Protected()\
 	stduint baseaddr\

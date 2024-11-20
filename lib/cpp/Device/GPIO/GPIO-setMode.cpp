@@ -84,7 +84,7 @@ namespace uni {
 	}
 #elif defined(_MCU_MSP432P4)//{TEMP} ROM Method only
 	// for single pin
-	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) const {
+	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) const {
 		(void)autoEnClk;//{} enClock it
 		(void)spd;//{}
 		bool innput;
@@ -95,7 +95,7 @@ namespace uni {
 		case GPIOMode::IN:
 			innput = true;
 			break;
-		default: return;
+		default: return self;
 		}
 		ROM_GPIOTABLE[innput ? 14 : 0](getParent().getID(), _IMM1S(getID()));
 		return self;

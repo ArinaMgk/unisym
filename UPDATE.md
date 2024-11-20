@@ -1,11 +1,8 @@
-Last-Commit: 20241112：「 
+Last-Commit: 20241117：「 
 + (till 1227) mistake lunar winter for U2024WTR, this will release same label on solar winter (same day with anni-11). This is a pre-U2024WTR.
 」
 This-Commit: 「
-+ 20241113 create `DACx[Pin&] => DACChan`
-+ 20241113 change `setMode(GPIOMode...)` return self but void
-	* so we can assign the status or read it (should add a delay) after setting the IO mode.
-+ 20241116 append RCC.Sysclock.getCoreFrequency() for SystemCoreClock
++ 
 」
 ---
 

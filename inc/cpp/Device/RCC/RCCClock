@@ -182,6 +182,8 @@ namespace uni {
 
 	class RCCSystemClock {
 	public:
+		// aka MPUSRCRDY
+		static bool isReady();
 		// aka __HAL_RCC_GET_MPU_SOURCE
 		static SysclkSource::RCCSysclockSource CurrentSource();
 		// get and update SystemCoreClock

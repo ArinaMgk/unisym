@@ -314,8 +314,6 @@ namespace uni {
 	}
 }
 
-	#define _RCC_OCRDYR_POS_HSIDIVRDY 2
-
 #endif
 // ---- ---- ---- ----   ---- ---- ---- ----
 #ifdef _MCU_STM32F1x

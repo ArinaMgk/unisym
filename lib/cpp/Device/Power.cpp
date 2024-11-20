@@ -1,8 +1,8 @@
-// ASCII C++-11 TAB4 CRLF
-// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
-// LastCheck: 20241025
-// AllAuthor: @dosconio
-// ModuTitle: MPU ST STM32MP13
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Module) Power Control (PWR and Watchdog)
+// Codifiers: @dosconio: 20241119
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,24 +20,16 @@
 	limitations under the License.
 */
 
-#ifndef _MPU_STM32MP13
-#error Uoption lack, define _MPU_STM32MP13 please
-#endif
+#include "../../../inc/cpp/Device/Power"
 
-#ifndef _INC_MPU_STM32MP13_X
-#define _INC_MPU_STM32MP13_X
-#ifndef _MCU_STM32
-#define _MCU_STM32
-#endif
+namespace uni {
+#if 0
 
-#include "../../../c/stdinc.h"
-//{TODO} inc ARM Cortex-A7
-#include "../../Device/RCC/RCC"
-#include "../../Device/GPIO"
-#include "../../Device/Power"
-#include "../../Device/SysTick"
-#include "../../../c/random.h"
+#elif defined(_MPU_STM32MP13)
+	PWR_t PWR;
 
-_ESYM_C char _IDN_BOARD[16];
+	
 
 #endif
+}
+

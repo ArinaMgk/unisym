@@ -3,6 +3,8 @@
 #define _INC_INTEGER_STYLE_RUST
 
 #define loop while(1) // while(true)
+#define fn auto
+#define let auto
 
 // INC by integer.h
 

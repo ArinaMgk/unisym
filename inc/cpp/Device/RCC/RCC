@@ -162,20 +162,54 @@ namespace uni {
 	extern RCC_t RCC;
 
 #elif defined(_MPU_STM32MP13)
+	enum class AxisSource { HSI, HSE, PLL2, OFF };
+	enum class MLAHBSource { HSI, HSE, CSI, PLL3 };
+	
 	class RCC_t {
 	public:
+		union {
+			RCCOscillatorHSE HSE;
+			RCCOscillatorHSI HSI;
+			RCCOscillatorCSI CSI;
+			RCCOscillatorLSI LSI;
+			RCCOscillatorLSE LSE;
+		};
 		RCCPLL& PLL1 = *(RCCPLL*)_IMM(1);
+		RCCPLL& PLL2 = *(RCCPLL*)_IMM(2);
+		RCCPLL& PLL3 = *(RCCPLL*)_IMM(3);
+		RCCPLL& PLL4 = *(RCCPLL*)_IMM(4);
 		RCCSystemClock Sysclock;
 		//
 		inline Reference operator[](RCCReg::RCCReg idx) const { return _RCC_ADDR + _IMMx4(idx); }
+		//{} void* operator->() const { return (void*)_RCC_ADDR; }
+
+		// Reset Mode 
+		// [AKA] HAL_RCC_DeInit
+		// [DO.]
+		// - HSI ON and used as system clock source
+		// - HSE, PLL1, PLL2 and PLL3 and PLL4 OFF
+		// - AHB, APB Bus pre-scaler set to 1.
+		// - MCO1 and MCO2 OFF
+		// - All interrupts disabled (except Wake-up from CSTOP Interrupt Enable)
+		// [NOT] HSECSS, LSECSS, LSI, LSE, RTC and Peripheral clock
+		// - Peripheral clocks
+		void canMode() const;
+
+		
 		// _TEMP AREA
-		stduint _HSI_getFrequency() const;
+
 		// aka __HAL_RCC_GET_MPU_DIV
 		stduint getMPUDiv() const {
 			stduint ret{ self[RCCReg::MPCKDIVR].masof(0, 4) + 1 };// MPUDIV
 			MIN(ret, 16)
 			return ret;
 		}
+
+		AxisSource AKA__HAL_RCC_GET_AXIS_SOURCE() const;
+		MLAHBSource AKA__HAL_RCC_GET_MLAHB_SOURCE() const;
+		bool AKA_RCC_FLAG_AXISSRCRDY() const;
+		bool AKA_RCC_FLAG_MLAHBSSRCRDY() const;
+
 	};
 
 	extern RCC_t RCC;

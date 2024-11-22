@@ -60,8 +60,8 @@ namespace uni {
 		stduint last_bandrate;
 		void Delay_unit();
 	public:
-		Reference operator[](XARTReg::USARTReg idx) {
-			return Reference(baseaddr + _IMMx4(idx));
+		Reference operator[](XARTReg::USARTReg idx) const {
+			return baseaddr + _IMMx4(idx);
 		}
 		USART_t(stduint _baseaddr, byte _XART_ID) : baseaddr(_baseaddr), XART_ID(_XART_ID), last_bandrate(1){}
 		void setMode(stduint band_rate = 115200);

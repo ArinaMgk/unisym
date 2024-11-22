@@ -65,6 +65,10 @@ namespace uni {
 			CSITRIM = 8, // len 5
 			CSICAL = 16, // len 8
 		};
+		enum class _MPCKDIVR { // off 0x564
+			MPUDIV = 0, // len 4
+			MPUDIVRDY = 31,
+		};
 
 
 	#endif

@@ -170,12 +170,12 @@ namespace uni {
 		asserv(sclk_used) = RCCSystemClock::isReady();
 		if (sclk_used) return true;
 		//
-		bool axis_used = RCC.AKA__HAL_RCC_GET_AXIS_SOURCE() == AxisSource::HSE;
-		asserv(axis_used) = RCC.AKA_RCC_FLAG_AXISSRCRDY();
+		bool axis_used = RCC.AXIS.getSource() == AxisSource::HSE;
+		asserv(axis_used) = RCC.AXIS.isReady();
 		if (axis_used) return true;
 		//
-		bool mlahb_used = RCC.AKA__HAL_RCC_GET_MLAHB_SOURCE() == MLAHBSource::HSE;
-		asserv(mlahb_used) = RCC.AKA_RCC_FLAG_MLAHBSSRCRDY();
+		bool mlahb_used = RCC.MLAHB.getSource() == MLAHBSource::HSE;
+		asserv(mlahb_used) = RCC.MLAHB.isReady();
 		if (mlahb_used) return true;
 		return isUsed_for_PLL(true);
 	}
@@ -184,18 +184,18 @@ namespace uni {
 		asserv(sclk_used) = RCCSystemClock::isReady();
 		if (sclk_used) return true;
 		//
-		bool axis_used = RCC.AKA__HAL_RCC_GET_AXIS_SOURCE() == AxisSource::HSI;
-		asserv(axis_used) = RCC.AKA_RCC_FLAG_AXISSRCRDY();
+		bool axis_used = RCC.AXIS.getSource() == AxisSource::HSI;
+		asserv(axis_used) = RCC.AXIS.isReady();
 		if (axis_used) return true;
 		//
-		bool mlahb_used = RCC.AKA__HAL_RCC_GET_MLAHB_SOURCE() == MLAHBSource::HSI;
-		asserv(mlahb_used) = RCC.AKA_RCC_FLAG_MLAHBSSRCRDY();
+		bool mlahb_used = RCC.MLAHB.getSource() == MLAHBSource::HSI;
+		asserv(mlahb_used) = RCC.MLAHB.isReady();
 		if (mlahb_used) return true;
 		return isUsed_for_PLL(false);
 	}
 	bool RCCOscillatorCSI::isUsed() const {
-		bool mlahb_used = RCC.AKA__HAL_RCC_GET_MLAHB_SOURCE() == MLAHBSource::CSI;
-		asserv(mlahb_used) = RCC.AKA_RCC_FLAG_MLAHBSSRCRDY();
+		bool mlahb_used = RCC.MLAHB.getSource() == MLAHBSource::CSI;
+		asserv(mlahb_used) = RCC.MLAHB.isReady();
 		if (mlahb_used) return true;
 		bool pll3_used = (RCC.PLL3.CurrentSource() == _IMM(PLL3Source::CSI))
 			&& RCC.PLL3.isReady();
@@ -225,7 +225,7 @@ namespace uni {
 				setDiv(divexpo);
 			}
 			RCC.Sysclock.getCoreFrequency();
-			return SysTick::enClock(1000);
+			return SysTick::enClock(SysTickHz);
 		}
 		else {
 			enAble(true); while (true != isReady());

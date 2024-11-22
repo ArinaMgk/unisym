@@ -78,7 +78,7 @@ namespace uni {
 		return true;
 	}
 
-	void ADC_t::enInterrupt(bool enable) {
+	void ADC_t::enInterrupt(bool enable) const {
 		bool trigger_ext = false;
 		// C-with HAL_ADC_Start_IT
 		if (enable) {
@@ -202,7 +202,7 @@ namespace uni {
 		return true;
 	}
 
-	static void func_sub_1(ADC_t& sel) {
+	static void func_sub_1(const ADC_t& sel) {
 		using namespace ADCReg;
 		//{TEMP} assume ADC2 ADC3 both exist
 		//: If no ADC2&3, do not judge the if :
@@ -215,7 +215,7 @@ namespace uni {
 				sel[CR2] |= 0x40000000;// ADC_CR2_SWSTART
 		}
 	}
-	void ADC_t::enInterrupt(bool enable) {
+	void ADC_t::enInterrupt(bool enable) const {
 		using namespace ADCReg;
 		if (enable) {
 			if (!self[CR2].bitof(0)) { // ADON
@@ -242,15 +242,15 @@ namespace uni {
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
-	stduint ADC_t::getBaseAddr() {
+	stduint ADC_t::getBaseAddr() const {
 		return _REFADDR_ADC[self.ADC_ID];
 	} //{TEMP} no-assert-opt
 
-	void ADC_t::setInterrupt(Handler_t fn) {
+	void ADC_t::setInterrupt(Handler_t fn) const {
 		FUNC_ADCx[getID()] = fn;
 	}
 
-	void ADC_t::setInterruptPriority(byte preempt, byte sub_priority) {
+	void ADC_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority(ADCx_Request_list[ADC_ID], preempt, sub_priority);
 	}
 
@@ -266,7 +266,7 @@ namespace uni {
 		return ena == Reference(RCC_ADCx_addrs[ADC_ID - 1]).bitof(RCC_ADCx_bitpos[ADC_ID - 1]);
 	}
 
-	bool ADC_t::enAble(bool ena) {
+	bool ADC_t::enAble(bool ena) const {
 		using namespace ADCReg;
 		self[CR2].setof(_ADC_CR2_POS_ADON, ena);
 		return self[CR2].bitof(_ADC_CR2_POS_ADON) == ena;

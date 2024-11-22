@@ -21,14 +21,15 @@
 */
 
 #include "../../../../inc/cpp/Device/RCC/RCC"
+#include "../../../../inc/c/driver/RCC/RCC-registers.hpp"
 #include "../../../../inc/cpp/Device/Flash"
 #include "../../../../inc/cpp/Device/SysTick"
 
 extern stduint HSE_VALUE;
 extern stduint HSI_VALUE;
 
+stduint SystemCoreClock = _SCC_DEFAULT;
 namespace uni {
-	stduint SystemCoreClock = _SCC_DEFAULT;
 	// ---- setMode ----
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	// [F4] if(((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_SYSCLK) == RCC_CLOCKTYPE_SYSCLK) then call this
@@ -53,6 +54,32 @@ namespace uni {
 		while (getSource() != source);
 		return true;
 	}
+#elif defined(_MPU_STM32MP13)
+	bool RCCSystemClock::setMode(SysclkSource::RCCSysclockSource source, byte divexpo) {
+		//: Ensure clock source is ready
+		switch (source) {
+		case SysclkSource::HSI:
+			if (!RCC.HSI.isReady()) return false;
+			break;
+		case SysclkSource::HSE:
+			if (!RCC.HSE.isReady()) return false;
+			break;
+		case SysclkSource::PLL1:
+			if (!RCC.PLL1.isReady()) return false;
+			break;
+		case SysclkSource::MPUDIV:
+			if (divexpo > 4) return false;
+			if (!RCC.PLL1.isReady()) return false;
+			setDiv(divexpo);
+			break;
+		default: return false;
+		}
+		setSource(source);
+		while (true != isReady());
+		//: [Cortex A7]
+		RCC.Sysclock.getCoreFrequency();
+		return SysTick::enClock(SysTickHz);
+	}
 #endif
 	// ---- xetSource ----
 #if 0
@@ -64,6 +91,10 @@ namespace uni {
 	void RCCSystemClock::setSource(SysclkSource::RCCSysclockSource source) {
 		Reference Cfgreg = RCC[RCCReg::CFGR];
 		Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_Switch) | ((_IMM(source) << _RCC_CFGR_POSI_Switch) >> 2);
+	}
+#elif defined(_MPU_STM32MP13)
+	void RCCSystemClock::setSource(SysclkSource::RCCSysclockSource source) {
+		RCC[RCCReg::MPCKSELR].maset(0, 2, _IMM(source));
 	}
 #endif
 	// ---- getFrequency (SYSCLK) ----
@@ -186,7 +217,14 @@ namespace uni {
 		return RCC[RCCReg::MPCKSELR].bitof(31);
 	}
 #endif
-	
-
+	// ---- setDiv ----
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#elif defined(_MPU_STM32MP13)
+	void RCCSystemClock::setDiv(byte divexpo) {
+		using namespace RCCReg;
+		RCC[MPCKDIVR].maset(_IMM(_MPCKDIVR::MPUDIV), 4, divexpo);
+		// need wait until ready ?
+	}
+#endif
 	
 }

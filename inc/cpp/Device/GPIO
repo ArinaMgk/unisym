@@ -274,6 +274,17 @@ namespace uni {
 	#include "../../c/driver/GPIO/GPIO_MSP432.hpp"
 	#endif// _MCU_STM32F1x
 
+#if !defined(_MCU_STM32F1x) && !defined(_MCU_STM32F4x) && !defined(_MCU_CW32F030)
+	
+	// Abstract Layer, should take no space. We use const to confirm, which is friendly to Rust.
+	class GeneralPurposeInputOutputPin final : public RuptTrait {
+	public:
+		_COM_DEF_GPIN16();
+		_COM_DEF_Interrupt_Interface();
+	};
+
+#endif
+
 	struct GeneralPurposeInputOutput {
 		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_CW32F030) //{} OLD Style
 		GeneralPurposeInputOutputPort ERR;

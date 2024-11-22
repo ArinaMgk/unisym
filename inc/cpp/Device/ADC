@@ -121,10 +121,10 @@ namespace uni {
 	public:
 		_COM_DEF_Interrupt_Interface();
 		ADC_t(byte _ADC_ID) : ADC_ID(_ADC_ID) { bind = 0; }
-		stduint getBaseAddr();
-		byte getID() { return ADC_ID; }
-		Reference operator[](ADCReg::ADCRegType idx) {
-			return Reference(getBaseAddr() + _IMMx4(idx));
+		stduint getBaseAddr() const;
+		byte getID() const { return ADC_ID; }
+		Reference operator[](ADCReg::ADCRegType idx) const {
+			 return getBaseAddr() + _IMMx4(idx);
 		}
 	#if defined(_MCU_STM32F4x)
 		static Reference Reflect(ADCReg::ADCComType idx);
@@ -134,7 +134,7 @@ namespace uni {
 		// AD Conversion ON/OFF
 		// - Prerequisite: setMode.
 		// - called by setMode(inp false) and enInterrupt(not- DMA)
-		bool enAble(bool ena = true);
+		bool enAble(bool ena = true) const;
 		// aka (HAL_)ADC_Init
 		/* [ dosconio design yo 20240711 ]
 		 * DataAlign <=> align_left
@@ -180,7 +180,7 @@ namespace uni {
 		}
 		//
 	#if defined(_MCU_STM32F1x)
-		bool isTriggeredBySoftware() { // ADC1_2_3_SWSTART
+		bool isTriggeredBySoftware() const { // ADC1_2_3_SWSTART
 			using namespace ADCReg;
 			return (self[CR2] & (0x7 << _ADC_CR2_POS_EXTSEL)) == ((stduint)0x7 << _ADC_CR2_POS_EXTSEL);// 0x000E0000
 		}

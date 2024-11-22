@@ -190,7 +190,7 @@ namespace uni {
 				}
 			}
 		}
-	};
+	};// Single Layer
 	/* e.g. 80x25
 		0xB8000 and pix_size(2)
 	*/

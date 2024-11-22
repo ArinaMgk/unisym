@@ -72,21 +72,6 @@ namespace uni
 		IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10
 	};
 
-	void GeneralPurposeInputOutputPin::setInterrupt(Handler_t fn) {
-		FUNC_EXTI[bitposi] = fn;
-	}
-
-
-	void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) {
-		NVIC.setPriority(GPIO_Request_list[bitposi], preempt, sub_priority);
-	}
-
-	//{TODO}
-	void GeneralPurposeInputOutputPin::enInterrupt(bool enable) {
-		if (bitposi < numsof(GPIO_Request_list))
-			NVIC.setAble(GPIO_Request_list[bitposi], enable);
-	}
-
 	GeneralPurposeInputOutputPort::GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap) :
 		EnablPosi(Enap), baseaddr(ADDR), ClockPort(CLK)
 	{
@@ -224,13 +209,11 @@ namespace uni
 		pare[PDR].setof(bitposi, !dir);
 	}
 
-	void GeneralPurposeInputOutputPin::setInterrupt(Handler_t fn) { _TODO(void) fn; }
-	void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) { _TODO(void) preempt; (void)sub_priority; }
-	void GeneralPurposeInputOutputPin::enInterrupt(bool enable) { _TODO(void) enable; }
-
-
 #endif
 
+#include "../../../inc/c/driver/GPIO/GPIO-Interrupt.hpp"
+
+	
 	GeneralPurposeInputOutput GPIO;
 	
 	GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](byte portid) {

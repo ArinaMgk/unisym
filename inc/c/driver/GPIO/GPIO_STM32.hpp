@@ -27,12 +27,6 @@
 
 #define defa_speed GPIOSpeed::Speed::Atmost_Medium
 
-class GeneralPurposeInputOutputPin /*final : public RuptTrait*/ {
-public:
-	_COM_DEF_GPIN16();
-	//{} _COM_DEF_Interrupt_Interface()
-};
-
 // Abstract Layer, should take no space.
 class GeneralPurposeInputOutputPort {
 public:

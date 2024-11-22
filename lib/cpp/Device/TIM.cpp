@@ -25,18 +25,18 @@
 namespace uni {
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	
-	void TIM_t::setInterrupt(Handler_t fn) {
+	void TIM_t::setInterrupt(Handler_t fn) const {
 		FUNC_TIMx[getID()] = fn;
 	}
 	static Request_t TIM_Request_list[16] = {
 		Request_None, Request_None, IRQ_TIM2, IRQ_TIM3,
 		IRQ_TIM4, IRQ_TIM5, IRQ_TIM6, IRQ_TIM7,
 	};
-	void TIM_t::setInterruptPriority(byte preempt, byte sub_priority) {
+	void TIM_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority(TIM_Request_list[getID()], preempt, sub_priority);
 	}
 	static void timer_it(byte TIM_ID, bool enable);
-	void TIM_t::enInterrupt(bool enable) {
+	void TIM_t::enInterrupt(bool enable) const {
 		if (enable) {
 			NVIC.setAble(TIM_Request_list[getID()]);// dest
 		}

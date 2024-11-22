@@ -77,6 +77,27 @@ Contain \refer{IIC} and {Parallel} driver.
 
 \subsubsection{Sys-Clock and Sys-tick}
 
+\paragraph{SysTick::enClock} \
+
+\B{static}
+
+\B{IO}
+
+$(Hz) \rightarrow successful?$
+
+\paragraph{SysClock::getCoreFrequency} \
+
+\B{IO}
+
+$\rightarrow stduint$
+
+\B{Similar} 
+\begin{itemize}
+\item ST HAL \verb`HAL_RCC_GetSystemCoreClockFreq`
+\item CMSIS \verb`SystemCoreClockUpdate`
+\end{itemize}
+
+
 
 \subsection{Port and GPIO}
 \subimport{QRS/Device}{Port}

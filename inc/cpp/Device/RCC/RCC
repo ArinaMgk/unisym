@@ -43,9 +43,10 @@
 #define _SCC_DEFAULT 8000000
 #endif
 
+extern "C" stduint SystemCoreClock;
+extern "C" stduint SysTickHz;
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 namespace uni {
-	extern stduint SystemCoreClock;
 	extern const uint8_t AHBPrescTable[16];
 	extern const uint8_t APBPrescTable[8];
 }
@@ -162,8 +163,7 @@ namespace uni {
 	extern RCC_t RCC;
 
 #elif defined(_MPU_STM32MP13)
-	enum class AxisSource { HSI, HSE, PLL2, OFF };
-	enum class MLAHBSource { HSI, HSE, CSI, PLL3 };
+
 	
 	class RCC_t {
 	public:
@@ -179,6 +179,16 @@ namespace uni {
 		RCCPLL& PLL3 = *(RCCPLL*)_IMM(3);
 		RCCPLL& PLL4 = *(RCCPLL*)_IMM(4);
 		RCCSystemClock Sysclock;
+		//
+		AXISS_t AXIS;
+		MLAHB_t MLAHB;
+		RCCAPB& APB1 = *(RCCAPB*)_IMM(1);
+		RCCAPB& APB2 = *(RCCAPB*)_IMM(2);
+		RCCAPB& APB3 = *(RCCAPB*)_IMM(3);
+		RCCAPB& APB4 = *(RCCAPB*)_IMM(4);
+		RCCAPB& APB5 = *(RCCAPB*)_IMM(5);
+		RCCAPB& APB6 = *(RCCAPB*)_IMM(6);
+
 		//
 		inline Reference operator[](RCCReg::RCCReg idx) const { return _RCC_ADDR + _IMMx4(idx); }
 		//{} void* operator->() const { return (void*)_RCC_ADDR; }
@@ -204,12 +214,6 @@ namespace uni {
 			MIN(ret, 16)
 			return ret;
 		}
-
-		AxisSource AKA__HAL_RCC_GET_AXIS_SOURCE() const;
-		MLAHBSource AKA__HAL_RCC_GET_MLAHB_SOURCE() const;
-		bool AKA_RCC_FLAG_AXISSRCRDY() const;
-		bool AKA_RCC_FLAG_MLAHBSSRCRDY() const;
-
 	};
 
 	extern RCC_t RCC;

@@ -19,32 +19,56 @@
 	limitations under the License.
 */
 
-/* also act as implementation of `system_stm32f4xx.c`
-- SystemInit() <-> SystemInit()
-- SystemCoreClock <-> uni::SystemCoreClock yo RCC.cpp
-- SystemCoreClockUpdate() <-> RCC.Sysclock.getCoreFrequency()
-*/
-
 #include "../../../inc/c/stdinc.h"
 #ifdef _MPU_STM32MP13
 
 #include "../../../inc/c/prochip/CortexA7.h"
 #include "../../../inc/cpp/MCU/ST/STM32MP13"
 
+// ONLY A Cortex A7 Chip in MP13 Series, till 2024 Nov.
+
 extern "C" void SystemInit(void);
+extern "C" void MP13_SystemInit(void);
 
 extern "C" {
 	char _IDN_BOARD[16] = "STM32MP13";
 }
 
-void _TODO_SystemInit(void) {
-
+void SystemInit(void) {
+	MP13_SystemInit();
 }
 
 
 namespace uni {
 
 
+}
+
+// serve for libc_nano.a in bare-metal mode
+extern "C" {
+	int _getpid(void);
+	int _kill(int pid, int sig);
+	void _exit(int status);
+}
+
+
+int _getpid(void)
+{
+	return 1;
+}
+
+int _kill(int pid, int sig)
+{
+	(void)pid;
+	(void)sig;
+	//{} errno = EINVAL;
+	return -1;
+}
+
+void _exit(int status)
+{
+	_kill(status, -1);
+	while (1);
 }
 
 #endif

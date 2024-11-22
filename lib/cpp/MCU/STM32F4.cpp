@@ -19,12 +19,6 @@
 	limitations under the License.
 */
 
-/* also act as implementation of `system_stm32f4xx.c`
-- SystemInit() <-> SystemInit()
-- SystemCoreClock <-> uni::SystemCoreClock yo RCC.cpp
-- SystemCoreClockUpdate() <-> RCC.Sysclock.getCoreFrequency()
-*/
-
 #include "../../../inc/c/stdinc.h"
 #ifdef _MCU_STM32F4x
 

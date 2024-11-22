@@ -104,13 +104,13 @@ bool RCCPLL::isUsed() const {
 		return tmp;
 	}
 	else if (getID() == 2) {
-		bool axis_used = RCC.AKA__HAL_RCC_GET_AXIS_SOURCE() == AxisSource::PLL2;
-		asserv(axis_used) = RCC.AKA_RCC_FLAG_AXISSRCRDY();
+		bool axis_used = RCC.AXIS.getSource() == AxisSource::PLL2;
+		asserv(axis_used) = RCC.AXIS.isReady();
 		return axis_used;
 	}
 	else if (getID() == 3) {
-		bool mlahb_used = RCC.AKA__HAL_RCC_GET_MLAHB_SOURCE() == MLAHBSource::PLL3;
-		asserv(mlahb_used) = RCC.AKA_RCC_FLAG_MLAHBSSRCRDY();
+		bool mlahb_used = RCC.MLAHB.getSource() == MLAHBSource::PLL3;
+		asserv(mlahb_used) = RCC.MLAHB.isReady();
 		return mlahb_used;
 	}
 	return false;

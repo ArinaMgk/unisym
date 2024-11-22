@@ -35,7 +35,6 @@ stduint HSE_VALUE = (24000000U);
 stduint HSI_VALUE = (64000000U);
 #endif
 
-
 namespace uni {
 	using namespace RCCReg;
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
@@ -108,8 +107,11 @@ namespace uni {
 	}
 
 #elif defined(_MPU_STM32MP13)
-	extern stduint SystemCoreClock;
 
+	RCCReg::RCCReg APBxDIVR[] = {
+		APB1DIVR, APB2DIVR, APB3DIVR, APB4DIVR, APB5DIVR, APB6DIVR
+	};
+	
 	void RCC_t::canMode() const {
 		HSI.enAble(); while (!HSI.isReady());
 		RCC[MCO1CFGR] = nil;
@@ -140,25 +142,97 @@ namespace uni {
 		RCC[MP_RSTSCLRR] = _IMM(_MP_MP_RSTSyR::_MASK) & 0x1FFF;// except SPARE
 		// ---- A7 END
 		SystemCoreClock = HSI_VALUE;
-		if (!SysTick::enClock(1000));
+		if (!SysTick::enClock(SysTickHz));
 	}
 
 	// TEMP AREA ----
 
-	AxisSource RCC_t::AKA__HAL_RCC_GET_AXIS_SOURCE() const {
-		return (AxisSource)RCC[ASSCKSELR].masof(0, 3);// AXISSRC
+	bool AXISS_t::setMode(AxisSource source, byte divr) {
+		bool state = true;
+		if (!Ranglin(divr, 1, 4)) return false;
+		switch (source) {
+		case AxisSource::HSI:
+			if (!RCC.HSI.isReady()) return false;
+			break;
+		case AxisSource::HSE:
+			if (!RCC.HSE.isReady()) return false;
+			break;
+		case AxisSource::PLL2:
+			if (!RCC.PLL2.isReady()) return false;
+			break;
+		default:// OFF
+			state = false;
+			break;
+		}
+		setSource(source);
+		while (state != isReady());
+		setDiv(divr);
+		return true;
 	}
-	MLAHBSource RCC_t::AKA__HAL_RCC_GET_MLAHB_SOURCE() const {
-		return (MLAHBSource)RCC[MSSCKSELR].masof(0, 2);// MLAHBSSRC
+	bool MLAHB_t::setMode(MLAHBSource source, byte divexpo) {
+		if (divexpo > 0b111) return false;
+		switch (source) {
+		case MLAHBSource::HSI:
+			if (!RCC.HSI.isReady()) return false;
+			break;
+		case MLAHBSource::HSE:
+			if (!RCC.HSE.isReady()) return false;
+			break;
+		case MLAHBSource::CSI:
+			if (!RCC.CSI.isReady()) return false;
+			break;
+		case MLAHBSource::PLL3:
+			if (!RCC.PLL3.isReady()) return false;
+			break;
+		default:// OFF
+			break;
+		}
+		setSource(source);
+		while (!isReady());
+		setDiv(divexpo);
+		return true;
 	}
-	bool RCC_t::AKA_RCC_FLAG_AXISSRCRDY() const {
-		return RCC[ASSCKSELR].bitof(31);// AXISSRCSRDY
-	}
-	bool RCC_t::AKA_RCC_FLAG_MLAHBSSRCRDY() const {
-		return RCC[MSSCKSELR].bitof(31);// MLAHBSSRCSRDY
+	bool RCCAPB::setMode(byte divexpo) {
+		if (divexpo > 4) return false;
+		byte id = getID() - 1;
+		// AKA AKA __HAL_RCC_APBx_DIV 
+		RCC[APBxDIVR[id]].maset(0, 3, divexpo);// APBxDIV
+		// AKA RCC_FLAG_APBxDIVRDY
+		while (!RCC[APBxDIVR[id]].bitof(31));// APBxDIVRDY
+		return true;
 	}
 
 	
+	AxisSource AXISS_t::getSource() const {
+		return (AxisSource)RCC[ASSCKSELR].masof(0, 3);// AXISSRC
+	}
+	MLAHBSource MLAHB_t::getSource() const {
+		return (MLAHBSource)RCC[MSSCKSELR].masof(0, 2);// MLAHBSSRC
+	}
+
+	void AXISS_t::setSource(AxisSource source) const {
+		RCC[ASSCKSELR].maset(0, 3, _IMM(source));// AXISSRC
+	}
+	void MLAHB_t::setSource(MLAHBSource source) const {
+		RCC[MSSCKSELR].maset(0, 2, _IMM(source));// MLAHBS SRC
+	}
+
+	bool AXISS_t::isReady() const {
+		return RCC[ASSCKSELR].bitof(31);// AXISSRCSRDY
+	}
+	bool MLAHB_t::isReady() const {
+		return RCC[MSSCKSELR].bitof(31);// MLAHBSSRCSRDY
+	}
+
+	void AXISS_t::setDiv(byte divr) const {
+		RCC[AXIDIVR].maset(0, 3, divr);//   AXIDIV
+		while (!RCC[AXIDIVR].bitof(31)); // AXIDIVRD
+	}
+	void MLAHB_t::setDiv(byte divr) const {
+		RCC[MLAHBDIVR].maset(0, 4, divr);//   MLAHB DIV
+		while (!RCC[MLAHBDIVR].bitof(31)); // MLAHB DIV RD
+	}
+
 #endif
 
 	#include "../../../inc/c/driver/RCC/RCC-setClock.hpp"

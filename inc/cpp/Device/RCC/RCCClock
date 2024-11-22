@@ -37,21 +37,21 @@
 namespace uni {
 
 	namespace SysclkSource {
-	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) // Common Area
-		enum RCCSysclockSource { // wo RCC_CFGR_SWS_xxx
+		enum RCCSysclockSource {
+		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) 
+		// wo RCC_CFGR_SWS_xxx
 			HSI = 0x00000000, // 0b0000
 			HSE = 0x00000004, // 0b0100
 			PLL = 0x00000008, // 0b1000
-			Unknown
-		};
-	#elif defined(_MPU_STM32MP13)
-		enum RCCSysclockSource {
+		#elif defined(_MPU_STM32MP13)
 			HSI,
 			HSE,
 			PLL1,
-			MPUDIV //= HSE | PLL1
+			MPUDIV, //= HSE | PLL1
+		#else
+			Unknown
+		#endif
 		};
-	#endif // _MCU_STM32F1x || _MCU_STM32F4x
 	}
 
 #ifdef _MCU_STM32F1x
@@ -181,13 +181,23 @@ namespace uni {
 #elif defined(_MPU_STM32MP13)
 
 	class RCCSystemClock {
+	protected:
+		// AKA __HAL_RCC_MPU_DIV
+		void setDiv(byte divexpo);
+		// AKA __HAL_RCC_MPU_SOURCE
+		void setSource(SysclkSource::RCCSysclockSource source);
 	public:
 		// aka MPUSRCRDY
 		static bool isReady();
 		// aka __HAL_RCC_GET_MPU_SOURCE
 		static SysclkSource::RCCSysclockSource CurrentSource();
 		// get and update SystemCoreClock
-		stduint getCoreFrequency();// aka HAL_RCC_GetSystemCoreClockFreq and HAL_RCC_GetMPUSSFreq
+		// aka HAL_RCC_GetSystemCoreClockFreq and HAL_RCC_GetMPUSSFreq
+		stduint getCoreFrequency();
+		// AKA RCC_CLOCKTYPE_MPU & RCC_MPUConfig
+		// default: PLL1 DIV2
+		// divexpo: 0~4 for DIV {1,2,4,8,16} for MPUDIV
+		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL1, byte divexpo = 1);
 	};
 
 #endif

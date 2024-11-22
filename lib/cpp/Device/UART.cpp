@@ -1,5 +1,7 @@
 
 #include "../../../inc/c/driver/UART.h"
+#include "../../../inc/cpp/Device/RCC/RCC"
+
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 // bi: 8 or 16           
@@ -72,7 +74,6 @@ namespace uni {
 		return res = d & mask;
 	}
 
-	extern stduint SystemCoreClock;
 	void USART_t::Delay_unit() {
 		for (volatile stduint i = 0; i < SystemCoreClock / last_bandrate; i++);
 	}
@@ -106,7 +107,7 @@ namespace uni {
 
 	// ---- ---- INTSYS ---- ----
 
-	void USART_t::setInterrupt(Handler_t fn) {
+	void USART_t::setInterrupt(Handler_t fn) const {
 		FUNC_XART[XART_ID] = fn;
 	}
 	static Request_t XART_Request_list[8] = {
@@ -116,11 +117,11 @@ namespace uni {
 		, IRQ_USART6, Request_None
 		#endif
 	};
-	void USART_t::setInterruptPriority(byte preempt, byte sub_priority) {
+	void USART_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority(XART_Request_list[XART_ID], preempt, sub_priority);
 	}
 
-	void USART_t::enInterrupt(bool enable) {
+	void USART_t::enInterrupt(bool enable) const {
 		using namespace XARTReg;
 		if (enable)
 		{

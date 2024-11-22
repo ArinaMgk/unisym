@@ -50,6 +50,13 @@ cpu_list_t cpu_list[] = {
 	{"merced", IF_IA64},
 };
 
+extern "C" stdint next_seg = 0;
+extern "C" stdint SegAlloc();
+extern "C" void SegInit();
+stdint SegAlloc() { // SegAlloc
+	return (next_seg += 2) - 2;
+}
+void SegInit() { next_seg = 0; }
 
 
 

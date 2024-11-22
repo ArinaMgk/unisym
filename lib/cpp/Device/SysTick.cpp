@@ -59,7 +59,7 @@ namespace uni {
 }
 #elif defined(_MPU_STM32MP13)
 
-static stduint Hz = 1000;
+stduint SysTickHz = 1000;
 
 //{TEMP} GCC only
 #define __get_CP64(cp, op1, Rt, CRm)         _ASM volatile("MRRC p" # cp ", " # op1 ", %Q0, %R0, c" # CRm  : "=r" (Rt) : : "memory" )
@@ -69,7 +69,7 @@ namespace uni {
 	bool SysTick::enClock(uint32 _Hz) {//aka HAL_InitTick
 		_TEMP stduint TICK_INT_PRIORITY = 0x0FU;
 		if (!_Hz) return false;
-		Hz = _Hz;
+		SysTickHz = _Hz;
 		if (0 _TODO) { // defined(USE_ST_CASIS)
 			//{TODO} HAL_SYSTICK_Config(SystemCoreClock / Hz);
 		}
@@ -97,7 +97,7 @@ namespace uni {
 		bool hse = 0x1/*HSE*/ == RCC[STGENCKSELR].masof(0, 2);// STGENSRC
 		uint64 PL1_GetCurrentPhysicalValue;// AKA IT
 		__get_CP64(15, 0, PL1_GetCurrentPhysicalValue, 14);
-		return PL1_GetCurrentPhysicalValue / (hse ? HSE_VALUE : HSI_VALUE / Hz);
+		return PL1_GetCurrentPhysicalValue / ((hse ? HSE_VALUE : HSI_VALUE) / SysTickHz);
 	}
 }
 

@@ -186,7 +186,7 @@ namespace uni {
 		
 		// ---- Below are parts from AKA HAL_RCC_GetPLL1ClockFreq
 		//{} Can these use PLLPara_t getParameter() const ?
-		stduint getFrequencyP() const;
+		stduint getFrequencyP() const;// AKA GetPLL1PClockFreq in system_....c
 		stduint getFrequencyQ() const;//TODO
 		stduint getFrequencyR() const;//TODO
 	};

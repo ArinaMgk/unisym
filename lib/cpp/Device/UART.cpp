@@ -162,9 +162,9 @@ namespace uni {
 	};
 
 	static void setMode_initGPIO(byte XART_ID) {
-		GPIOA[9].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);// Tx
+		GPIOA[9].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Veryhigh);// Tx
 		GPIOA[9].setPull(true);
-		GPIOA[10].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);// Rx
+		GPIOA[10].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Veryhigh);// Rx
 		GPIOA[10].setPull(true);
 		(void)"GPIO Config for AUF regs"; {
 			byte GPIO_AF7_USART1 = 0x07;

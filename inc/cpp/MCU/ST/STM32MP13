@@ -34,7 +34,7 @@
 //{TODO} inc ARM Cortex-A7
 #include "../../Device/RCC/RCC"
 #include "../../Device/GPIO"
-#include "../../Device/Power"
+#include "../../Device/_Power.hpp"
 #include "../../Device/SysTick"
 #include "../../../c/random.h"
 

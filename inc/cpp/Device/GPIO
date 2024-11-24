@@ -26,74 +26,37 @@
 #include "../unisym"
 #if defined(_SUPPORT_GPIO)
 
-
 #include "../binary"
 #include "../reference"
 #include "../interrupt"
-
-extern "C" {
 #include "../../c/uctype.h"
-}
 
-#if !(_typedest_len==4 && _typeaddr_len==4)
-#error "! You may need add optional macro like `_MCU_STM32F1x`"
-#endif
+// [MAP] 20241017 dosconio virtual-pin-softmap
+// Offset 0001_000x ~ 0001_00Ax -> Port 0~10
+// Offset 0001_00x0 ~ 0001_00xF -> Pin  0~15
+// 0x0000_0BAD for failure
 
-#define _COM_DEF_GPIO_Pin_Protected()\
-	protected:\
-		GeneralPurposeInputOutputPort* parent;\
-		byte bitposi
-
-#define _COM_DEF_GPIO_Pin_Public(defa_speed)\
-	~GeneralPurposeInputOutputPin() override {}\
-	GeneralPurposeInputOutputPort& getParent() const;\
-	inline byte getID() const { return bitposi; }\
-	bool isInput() const;\
-	GeneralPurposeInputOutputPin& setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = defa_speed, bool autoEnClk = true);\
-	void Toggle();\
-	GeneralPurposeInputOutputPin& operator=(bool val);\
-	GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin);\
-	operator bool() const;\
-	pureptr_t getAddress() const { return (pureptr_t)this; }\
-	_COM_DEF_Interrupt_Interface()
+#define SelfGpin const GeneralPurposeInputOutputPin&
+#define SelfGpor const GeneralPurposeInputOutputPort&
 
 #define _COM_DEF_GPIN16()\
-	inline const GeneralPurposeInputOutputPort& getParent() const { return *(const GeneralPurposeInputOutputPort*)this; }\
+	inline SelfGpor getParent() const { return *(const GeneralPurposeInputOutputPort*)this; }\
 	inline byte getID() const { return _IMM(this) & 0xF; }\
-	const GeneralPurposeInputOutputPin& setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd = defa_speed, bool autoEnClk = true) const;\
+	SelfGpin operator=(bool val) const;\
+	SelfGpin operator=(SelfGpin pin) const { return self = bool(pin); }\
+	operator bool() const;\
+	SelfGpin setMode(GPIOMode mod, GPIOSpeed spd = defa_speed, bool autoEnClk = true) const;\
+	void setPull(bool pull_up) const;\
 	void Toggle() const;\
-	const GeneralPurposeInputOutputPin& operator=(bool val) const;\
-	const GeneralPurposeInputOutputPin& operator=(const GeneralPurposeInputOutputPin& pin) const;\
-	operator bool() const
-
-	//{TOADD} bool isInput() const;
-	//{TOADD} &self setPull(bool pull_up) const;
-
-#define _COM_DEF_GPIO_Port_Protected()\
-	stduint baseaddr\
-
-#define _COM_DEF_GPIO_Port_Public()\
-	~GeneralPurposeInputOutputPort() {}\
-	Reference operator[](GPIOReg::GPIOReg trt) {\
-		return Reference(baseaddr + (_IMM(trt) << 2));\
-	}\
-	GeneralPurposeInputOutputPort& operator=(GeneralPurposeInputOutputPort& pot);\
-	operator stduint()
+	void Lock(bool tolock_orunlock = true) const;\
+	bool isInput() const;\
+	_COM_DEF_Interrupt_Interface()
 
 // 00000000 maybe a valid address of someone
 // These are of Harunono Style, and the design have not be used by enough users!
 // 202404112300: I tried use std::bind(), C++11 in ARMCC-v6, but it make MCU did not work! So do not use Property STYLE!
 
 #undef GPIO
-#undef GPIOA
-#undef GPIOB
-#undef GPIOC
-#undef GPIOD
-#undef GPIOE
-#undef GPIOF
-#undef GPIOG
-#undef GPIOH
-#undef GPIOI
 
 #define gpo(x) GPIO##x
 namespace uni {
@@ -102,207 +65,159 @@ namespace uni {
 	class GeneralPurposeInputOutputPin;
 	class GeneralPurposeInputOutputPort;
 
-#if defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
-
-	namespace GPIOReg {
-		typedef enum {
-			MODER = 0, OTYPER, SPEED, PULLS /*aka PUPDR*/,
-			IDR, ODR, BSRR, LCKR,
-			AFRL, AFRH
-		#if defined(_MPU_STM32MP13)
-			,
-			BRR = 0x28 / 4,
-			SECCFGR = 0x30 / 4,
-			HWCFGR10 = 0x3C8 / 4,
-			HWCFGR09 = 0x3CC / 4,
-			HWCFGR08 = 0x3D0 / 4,
-			HWCFGR07 = 0x3D4 / 4,
-			HWCFGR06 = 0x3D8 / 4,
-			HWCFGR05 = 0x3DC / 4,
-			HWCFGR04 = 0x3E0 / 4,
-			HWCFGR03 = 0x3E4 / 4,
-			HWCFGR02 = 0x3E8 / 4,
-			HWCFGR01 = 0x3EC / 4,
-			HWCFGR00 = 0x3F0 / 4,
-			VERR = 0x3F4 / 4,
-			IPIDR = 0x3F8 / 4,
-			SIDR = 0x3FC / 4
-		#endif
-		} GPIOReg;
-	}
-	//{TODO} comb with this of F1
-	namespace GPIOMode {
-		enum Mode {
-			// 20240502{TEMP} use [MODER[1:0],OTYPTR[i]] 3-bits to decide
-			OUT_PushPull = 0x2,    //010 with P-up P-dn capability
-			OUT_OpenDrain = 0x3,   //011 with P-up P-dn capability
-			OUT_AF_PushPull = 0x4, //100 Alternate Function PP with P-up P-dn capability
-			OUT_AF_OpenDrain = 0x5,//101 Alternate Function OD with P-up P-dn capability
-			IN_Analog = 0x6,   //11x
-			IN_Floating = 0x0, //00x default state
-			IN_Pull = 0x1,     //00x, LSB means not non-pull
-			INN = IN_Floating,
-			OUT = OUT_PushPull,
-		};
-	}
-	namespace GPIOSpeed {
-		enum Speed {
-			Atmost_Low = 0,
-			Atmost_Medium = 1,
-			Atmost_High = 2,
-			Atmost_Veryhigh = 3,
-		};
-	}
-
-
+#if defined(_MCU_STM32F1x)
+	enum class GPIOReg {
+		CRL = 0, CRH,
+		IDR, ODR, BSRR, BRR, LCKR
+	};
+#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	enum class GPIOReg {
+		MODER = 0, OTYPER, SPEED, PULLS /*aka PUPDR*/,
+		IDR, ODR, BSRR, LCKR,
+		AFRL, AFRH
+	#if defined(_MPU_STM32MP13)
+		,
+		BRR = 0x28 / 4,
+		// ...
+		SECCFGR = 0x30 / 4,
+		// ...
+		HWCFGR10 = 0x3C8 / 4, HWCFGR09, HWCFGR08,
+		HWCFGR07, HWCFGR06, HWCFGR05, HWCFGR04,
+		HWCFGR03, HWCFGR02, HWCFGR01, HWCFGR00,
+		VERR, IPIDR, SIDR
+	#endif
+	};
 #endif
 
-	#if defined(_MCU_STM32F1x)
-		// compatible with `stm32f1xx_hal_gpio.h/c`
-
-	// containing IDR and ODR is a necessary.
-	namespace GPIOReg {
-		typedef enum {
-			CRL = 0, CRH, IDR, ODR,
-			BSRR, BRR, LCKR
-		} GPIOReg;
-	}
-
-	namespace GPIOMode {
-		enum Mode {
-			OUT_PushPull = 0 << 2,
-			OUT_OpenDrain = 1 << 2,
-			OUT_AF_PushPull = 2 << 2,
-			OUT_AF_OpenDrain = 3 << 2,
-			IN_Analog = 1 + (0 << 2),
-			IN_Floating = 1 + (1 << 2), // default state
-			IN_Pull = 1 + (2 << 2),
-			IN_KEPT = 1 + (3 << 2)
-		};
-	}
-	namespace GPIOSpeed {
-		enum Speed {
-			Atmost_Input = 0,
-			Atmost_10MHz = 1,
-			Atmost_2MHz = 2,
-			Atmost_50MHz = 3
-		};
-	}
-
-
-	//
-	class GeneralPurposeInputOutputPin final : public RuptTrait
-	{
-		_COM_DEF_GPIO_Pin_Protected();
-	public:
-		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* _parent = nullptr, uint32 _bitposi = 0) : parent(_parent), bitposi(_bitposi) {}
-		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_2MHz);
-		void setMode(GPIORupt::RuptEdge edg, Handler_t fn = nullptr);// must in input mode
-		void setMode(GPIOEvent::EventEdge edg);// must in input mode
-		void setPull(bool pullup);
-
-		void Lock(bool tolock_orunlock = true);
+#if defined(_MCU_STM32F1x)
+//{TODO} comb with below
+	enum class GPIOMode {
+		OUT_PushPull = 0 << 2,
+		OUT_OpenDrain = 1 << 2,
+		OUT_AF_PushPull = 2 << 2,
+		OUT_AF_OpenDrain = 3 << 2,
+		IN_Analog = 1 + (0 << 2),
+		IN_Floating = 1 + (1 << 2), // default state
+		IN_Pull = 1 + (2 << 2),
+		IN_KEPT = 1 + (3 << 2)
 	};
-
-	class GeneralPurposeInputOutputPort {
-		GeneralPurposeInputOutputPin OutpdPins[16];// 32[High-16:kept]
-		GeneralPurposeInputOutputPin ERR;
-		uint32 EnablPosi;// of ClockPort
-		_COM_DEF_GPIO_Port_Protected();
-	public:
-		Reference ClockPort;
-		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
-		void enClock(bool enable = true) {
-			BitSet(ClockPort, EnablPosi);
-		}
-		GeneralPurposeInputOutputPin& operator[](uint8 pinid);
-
-		GeneralPurposeInputOutputPort& operator=(uint32 val);
-		_COM_DEF_GPIO_Port_Public();
+#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	//{TODO} comb with this of F1
+	enum class GPIOMode {
+		// 20240502{TEMP} use [MODER[1:0],OTYPTR[i]] 3-bits to decide
+		OUT_PushPull = 0x2,    //010 with P-up P-dn capability
+		OUT_OpenDrain = 0x3,   //011 with P-up P-dn capability
+		OUT_AF_PushPull = 0x4, //100 Alternate Function PP with P-up P-dn capability
+		OUT_AF_OpenDrain = 0x5,//101 Alternate Function OD with P-up P-dn capability
+		IN_Analog = 0x6,   //11x
+		IN_Floating = 0x0, //00x default state
+		IN_Pull = 0x1,     //00x, LSB means not non-pull
+		INN = IN_Floating,
+		OUT = OUT_PushPull,
 	};
+#elif defined(_MCU_CW32F030)
+	enum class GPIOMode {
+		IN = 0x01,          // DIR(1) OPENDRAIN(x)
+		OUT_PushPull = 0x02,// DIR(0) OPENDRAIN(0)
+		OUT_OpenDrain = 0x03// DIR(0) OPENDRAIN(1)
+	};// Bit0(DIR) Bit1(OPENDRAIN)
+#elif defined(_MCU_MSP432P4)
+	enum class GPIOMode {
+		IN, OUT_PushPull, OUT_OpenDrain
+	};//{TODO}
+#endif
 
-
-	extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG;
-// ---- ---- ---- ---- ---- ---- ---- ----
-	#elif defined(_MCU_STM32F4x)
-
-	class GeneralPurposeInputOutputPin : public RuptTrait
-	{
-		_COM_DEF_GPIO_Pin_Protected();
-	public:
-		GeneralPurposeInputOutputPin(GeneralPurposeInputOutputPort* parent = 0, uint32 bitposi = 0) : parent(parent), bitposi(bitposi) {}
-		void setMode(GPIORupt::RuptEdge edg, Handler_t fn = 0);// must in input mode
-		void setMode(GPIOEvent::EventEdge edg);// must in input mode
-		void setPull(bool pullup);
-
-
-		//{} setConnect(...)
-		//! AFRx Register should be set by other device.
-		bool _set_alternate(byte selection);
-		
-		_COM_DEF_GPIO_Pin_Public(GPIOSpeed::Atmost_Low);
+#if defined(_MCU_STM32F1x)
+#define defa_speed GPIOSpeed::Atmost_2MHz
+	enum class GPIOSpeed {
+		Atmost_Input = 0, Atmost_10MHz, Atmost_2MHz, Atmost_50MHz
 	};
-
-	class GeneralPurposeInputOutputPort {
-		GeneralPurposeInputOutputPin OutpdPins[16];
-		GeneralPurposeInputOutputPin ERR;
-		uint32 EnablPosi;// of ClockPort
-		_COM_DEF_GPIO_Port_Protected();
-	public:
-		Reference ClockPort;
-		//
-		GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap = 0);
-		void enClock(bool enable = true) {
-			BitSet(ClockPort, EnablPosi);
-		}
-		GeneralPurposeInputOutputPin& operator[](uint8 pinid);
-		
-
-		GeneralPurposeInputOutputPort& operator=(uint32 val);
-
-		_COM_DEF_GPIO_Port_Public();
+#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#define defa_speed GPIOSpeed::Medium
+	enum class GPIOSpeed {
+		Low = 0, Medium, High, Veryhigh,
 	};
+#elif defined(_MCU_CW32F030)
+	enum class GPIOSpeed {
+		Low = 0, High
+	};
+#endif
 
-	extern GeneralPurposeInputOutputPort GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG;
-	extern GeneralPurposeInputOutputPort GPIOH, GPIOI;
 
-	#elif defined(_MPU_STM32MP13)
-	#include "../../c/driver/GPIO/GPIO_STM32.hpp"
-	#elif defined(_MCU_CW32F030)
-	#include "../../c/driver/GPIO/GPIO_CW32x.hpp"
-	#elif defined(_MCU_MSP432P4)
-	#include "../../c/driver/GPIO/GPIO_MSP432.hpp"
-	#endif// _MCU_STM32F1x
-
-#if !defined(_MCU_STM32F1x) && !defined(_MCU_STM32F4x) && !defined(_MCU_CW32F030)
+#if defined(_MCU_STM32)
+#include "../../c/driver/GPIO/GPIO_STM32.hpp"
+#elif defined(_MCU_CW32F030)
+#include "../../c/driver/GPIO/GPIO_CW32x.hpp"
+#elif defined(_MCU_MSP432P4)
+#include "../../c/driver/GPIO/GPIO_MSP432.hpp"
+#endif
 	
 	// Abstract Layer, should take no space. We use const to confirm, which is friendly to Rust.
 	class GeneralPurposeInputOutputPin final : public RuptTrait {
 	public:
 		_COM_DEF_GPIN16();
-		_COM_DEF_Interrupt_Interface();
+	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+		//
+		const GeneralPurposeInputOutputPin& setMode(GPIORupt::RuptEdge edg, Handler_t fn = 0) const;// must in input mode
+		//
+		const GeneralPurposeInputOutputPin& setMode(GPIOEvent::EventEdge edg) const;// must in input mode
+		//{} setConnect(...)
+		//! AFRx Register should be set by other device.
+	#endif
+	#if defined(_MCU_STM32F4x)
+		bool _set_alternate(byte selection) const;
+	#endif
 	};
 
-#endif
+	class GeneralPurposeInputOutputPort {
+	public:
+		stduint getID() const { return (_IMM(this) & 0xF0) >> 4; }
+		void enClock(bool enable = true) const;
+		operator stduint() const;
+		SelfGpin operator[](int pinid) const { return *(const GeneralPurposeInputOutputPin*)((_IMM(this) & 0xF0) + (pinid & 0xF)); }
+		SelfGpor operator=(SelfGpor pot) const { return self = stduint(pot); }
+		SelfGpor operator=(stduint val) const;
+	#if defined(_MCU_MSP432P4)
+		Reference_T<byte> operator[](GPIOReg8::GPIOReg8 trt) const;
+	#else
+		Reference operator[](GPIOReg trt) const;
+	#endif
+	};
 
 	struct GeneralPurposeInputOutput {
-		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_CW32F030) //{} OLD Style
-		GeneralPurposeInputOutputPort ERR;
-		GeneralPurposeInputOutput() : ERR(_IMMNOT, _IMMNOT, _IMMNOT) { }
-		stduint Index(GeneralPurposeInputOutputPort* port);
-		#endif
-		
-		GeneralPurposeInputOutputPort& operator[](byte portid);
+		SelfGpor operator[](unsigned portid) const;
 	};
 	extern GeneralPurposeInputOutput GPIO;
 
 	#undef GPIO_Pin
 	#undef GPIO_Port
-	typedef GeneralPurposeInputOutputPin GPIO_Pin;
+	#define GPIO_Pin GPIN
 	typedef const GeneralPurposeInputOutputPin GPIN;
-	typedef GeneralPurposeInputOutputPort GPIO_Port;
+	#define GPIO_Port GPORT
 	typedef const GeneralPurposeInputOutputPort GPORT;
 }
+
+
+#define GPIOA GPIO['A']
+#define GPIOB GPIO['B']
+#define GPIOC GPIO['C']
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_MSP432P4)
+#define GPIOD GPIO['D']
+#define GPIOE GPIO['E']
+#endif
+
+#define GPIOF GPIO['F']
+
+#if defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#define GPIOG GPIO['G']
+#define GPIOH GPIO['H']
+#define GPIOI GPIO['I']
+#endif
+
+#if defined(_MCU_MSP432P4)
+#define GPIOJ GPIO['J']
+#endif
 
 
 #endif // _SUPPORT_GPIO

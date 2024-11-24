@@ -279,7 +279,7 @@ text_gcc_mecocoa = ""
 STM32F1 = "# UNISYM for GCC-STM32F1 built-" + str(__BuildTime) + '\n'
 STM32F4 = "# UNISYM for GCC-STM32F4 built-" + str(__BuildTime) + '\n'
 STM32MP13 = "# UNISYM for GCC-STM32MP13 built-" + str(__BuildTime) + '\n'
-print(STM32F1, STM32MP13, sep="")
+print(STM32F1, STM32F4, STM32MP13, sep="")
 
 STM32F1   += """IDEN=STM32F1
 FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m3 -mthumb $(FPU) $(FLOAT-ABI)

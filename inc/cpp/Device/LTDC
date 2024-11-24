@@ -1,9 +1,8 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: (Device) General Purpose Input Output, for Texas Instruments MSP432
-// Codifiers: @dosconio: 20241115
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Deivce) LTDC
+// Codifiers: @dosconio: 20241123 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
-//! only included by inner UNISYM `.../GPIO`
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,13 +20,11 @@
 	limitations under the License.
 */
 
-#ifndef _INC_INN_GPIO_STM32
-#define _INC_INN_GPIO_STM32
-#if defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#ifndef _INC_Device_LTDC
+#define _INC_Device_LTDC
+
+#include "_Video.hpp"
 
 
 
-
-
-#endif
 #endif

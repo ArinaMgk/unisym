@@ -35,11 +35,6 @@
 	GPIO_setOutputLowOnPin (p))
 #define PinGet(port,pin) (P##port##IN & BIT##pin)
 
-// [MAP] 20241017 dosconio virtual-pin-softmap
-// Offset 0001_000x ~ 0001_00Ax -> Port 0~10
-// Offset 0001_00x0 ~ 0001_00xF -> Pin  0~15
-// 0x0000_0BAD for failure
-
 namespace GPIOReg8 {
 	typedef enum {
 		IDR = 0x00, // Input Data Register
@@ -57,34 +52,12 @@ namespace GPIOReg8 {
 		IFG = 0x1C // Interrupt Flag Register
 	} GPIOReg8;// LEN BYTE only
 }// GPIOReg for 16-bit
-namespace GPIOMode {
-	enum Mode {
-		//{TODO}
-		IN,
-		OUT_PushPull,
-		OUT_OpenDrain
-	};
-}
-namespace GPIOSpeed {
-	enum Speed {
-		_TODO TODO
-	};
-}
-#define defa_speed GPIOSpeed::Speed::TODO
 
-// Abstract Layer, should take no space.
-class GeneralPurposeInputOutputPort {
-public:
-	uint_fast8_t getID() const { return (uint_fast8_t(this) & 0xF0) >> 4; }
-	Reference_T<byte> operator[](GPIOReg8::GPIOReg8 trt) const;
-	const GeneralPurposeInputOutputPin& operator[](uint8 pinid) const;
-	const GeneralPurposeInputOutputPort& operator=(uint16 val) const;
-	//{} const GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (GeneralPurposeInputOutputPort& pot) const;
-	// const GeneralPurposeInputOutputPort::operator stduint() const;
-	//{} _COM_DEF_GPIO_Port_Public();
+enum class GPIOSpeed {
+	_TODO TODO
 };
+#define defa_speed GPIOSpeed::TODO
 
-//extern GeneralPurposeInputOutputPort GPIO1, GPIO2, GPIO3, GPIO4;
 
 #endif
 #endif

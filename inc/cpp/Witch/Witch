@@ -28,7 +28,7 @@
 #ifndef _INC_WITCH_X
 #define _INC_WITCH_X
 
-#include "../../cpp/Device/Video"
+#include "../../cpp/Device/_Video.hpp"
 #include "../unisym"
 
 namespace uni { namespace Witch {

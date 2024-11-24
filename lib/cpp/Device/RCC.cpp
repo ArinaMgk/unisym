@@ -28,6 +28,7 @@
 //{TODO} User Can Def by Macro
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_CW32F030)
 // : default frequency
+extern stduint HSE_VALUE, HSI_VALUE;
 stduint HSE_VALUE = (8000000);
 stduint HSI_VALUE = (8000000);
 #elif defined(_MPU_STM32MP13)

@@ -23,7 +23,7 @@
 #include "../../../../inc/cpp/Device/RCC/RCC"
 #include "../../../../inc/cpp/Device/RCC/RCCClock"
 #include "../../../../inc/cpp/Device/SysTick"
-#include "../../../../inc/cpp/Device/Power"
+#include "../../../../inc/cpp/Device/_Power.hpp"
 #include "../../../../inc/c/driver/RCC/RCC-registers.hpp"
 
 

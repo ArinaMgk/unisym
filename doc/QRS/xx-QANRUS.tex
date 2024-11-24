@@ -32,9 +32,33 @@ We call the combination of UART and USART `xART'.
 
 \section{Device}
 
+PHYZIK DEIVCE, Ref by address
+
+- Because 'this' taken for identification
+
+- e.g. IIC-Hard \verb`IIC`, GPIO, TIM, ADC, DAC, ...
+
+ABSTRACT DEIVCE
+
+- May contain multiple physical devices
+
+- e.g. Video.hpp, Audio.hpp, Power.hpp, ...
+
+DYNAMIC DEIVCE, Ref by name
+
+- e.g. IIC-Soft \verb`IIC_t`, ...
+
+Why such confusion
+
+> Because the maintainer is only Haruno, till now
+
+> Historically forming reasons
+
 \subsection{Video}
 
 These provide base implementation of \refer{Witch}.
+
+\subsubsection{LTDC : LCD TFT Display Controller}
 
 \subsubsection{ILI9320}
 \subsubsection{ILI9341}

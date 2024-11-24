@@ -164,6 +164,8 @@ namespace uni {
 		bool setSource(stduint src) const;
 		//
 		void ConfigFracv(stduint frac) const;
+		//
+		float32 getVCO() const;
 	public:
 		//
 		void enAble(bool ena = true) const;

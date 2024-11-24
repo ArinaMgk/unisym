@@ -20,7 +20,7 @@
 	limitations under the License.
 */
 
-#include "../../../inc/cpp/Device/Power"
+#include "../../../inc/cpp/Device/_Power.hpp"
 
 namespace uni {
 #if 0

@@ -203,7 +203,7 @@ namespace uni {
 		enAble(false);
 		if (pin || true) {
 			GPIO_Pin& friendo = *GPINs_chanx[channel - 1][TIM_ID];
-			friendo.setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);
+			friendo.setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Veryhigh);
 			if (0xFF != GPINs_AFs_TIMx[TIM_ID])
 				friendo._set_alternate(GPINs_AFs_TIMx[TIM_ID]);
 		}

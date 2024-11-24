@@ -238,29 +238,45 @@ bool RCCPLL::setSource(stduint src) const {
 	return true;
 }
 
+
+float32 RCCPLL::getVCO() const {
+	byte id = getID() - 1;
+	float32 pll_m = RCC[PLLxCFGR1[id]].masof(16, 6) + 1;// DIVM1
+	bool pll1fracen = RCC[PLLxFRACR[id]].bitof(16);// FRACLE
+	float32 fracn1_us = pll1fracen ? RCC[PLLxFRACR[id]].masof(3, 13) : 0;// FRACV
+	float32 DIVN = RCC[PLLxCFGR1[id]].masof(0, 9) + 1;
+	float32 pll_vco = DIVN + (fracn1_us / (float32)0x2000);// Intermediary value
+	switch (PLL1Source::PLL1SourceType(CurrentSource())) {
+	case PLL1Source::HSI:
+		pll_vco *= (float32)RCC.HSI.getFrequency() / pll_m;
+		break;
+	case PLL1Source::HSE:
+		pll_vco *= (float32)HSE_VALUE / pll_m;
+		break;
+	case PLL1Source::OFF: default:
+		pll_vco = 0;
+		break;
+	}
+	return pll_vco;
+}
 stduint RCCPLL::getFrequencyP() const {
 	using namespace RCCReg;
 	stduint tmp = 0;
 	byte id = getID() - 1;
-	if (getID() == 1 || getID() == 2) {
-		float32 pll1m = RCC[PLLxCFGR1[id]].masof(16, 6) + 1;// DIVM1
-		bool pll1fracen = RCC[PLLxFRACR[id]].bitof(16);// FRACLE
-		float32 fracn1_us = pll1fracen ? RCC[PLLxFRACR[id]].masof(3, 13) : 0;// FRACV
-		float32 DIVN = RCC[PLLxCFGR1[id]].masof(0, 9) + 1;
-		float32 pll1vco = DIVN + (fracn1_us / (float32)0x2000);// Intermediary value
-		switch (PLL1Source::PLL1SourceType(CurrentSource())) {
-		case PLL1Source::HSI:
-			pll1vco *= (float32)RCC.HSI.getFrequency() / pll1m;
-			break;
-		case PLL1Source::HSE:
-			pll1vco *= (float32)HSE_VALUE / pll1m;
-			break;
-		case PLL1Source::OFF: default:
-			pll1vco = 0;
-			break;
-		}
+	if (Ranglin(getID(), 1, 4)) { // no for PLL 3 4
 		const stduint P_Div = RCC[PLLxCFGR2[id]].masof(0, 7) + 1;
-		return pll1vco / (float32)P_Div;// aka PLL1/2_Clocks->PLL1_P/Q/R_Frequency
+		return getVCO() / (float32)P_Div;// aka PLL1/2_Clocks->PLL1_P/Q/R_Frequency
+	}
+	return 0;
+}
+//{uchk}
+stduint RCCPLL::getFrequencyQ() const {
+	using namespace RCCReg;
+	stduint tmp = 0;
+	byte id = getID() - 1;
+	if (Ranglin(getID(), 1, 4)) { // no for PLL 3 4
+		const stduint Q_Div = RCC[PLLxCFGR2[id]].masof(8, 7) + 1;
+		return getVCO() / (float32)Q_Div;// aka PLL1/2_Clocks->PLL1_P/Q/R_Frequency
 	}
 	return 0;
 }

@@ -1,4 +1,4 @@
-Last-Commit: 20241122：「 
+Last-Commit: 20241124：「 
 + (till 1227) mistake lunar winter for U2024WTR, this will release same label on solar winter (same day with anni-11). This is a pre-U2024WTR.
 」
 This-Commit: 「
@@ -7,6 +7,11 @@ This-Commit: 「
 ---
 
 ### Unchecked and Checked-but-Issued
+
+Virtual Methods since 20241124
+(Before are spftware only. The test of VIRTUAL is passed in GCC)
+- [ ] IIC Soft
+- [ ] SPI Soft
 
 MSP432P4
 - [ ] GPIO Pin  Input Mode

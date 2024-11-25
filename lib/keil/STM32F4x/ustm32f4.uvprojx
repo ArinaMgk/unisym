@@ -431,11 +431,6 @@
               <FilePath>..\..\..\lib\cpp\Device\SRAM.cpp</FilePath>
             </File>
             <File>
-              <FileName>SysTick.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\Device\SysTick.cpp</FilePath>
-            </File>
-            <File>
               <FileName>TIM.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\Device\TIM.cpp</FilePath>
@@ -444,26 +439,6 @@
               <FileName>UART.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\Device\UART.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>GPIO-setMode.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>SysClock.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>PLL.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\PLL.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>Oscillator.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\Oscillator.cpp</FilePath>
             </File>
             <File>
               <FileName>Power.cpp</FileName>
@@ -491,6 +466,11 @@
           <GroupName>System</GroupName>
           <Files>
             <File>
+              <FileName>STM32F4.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\MCU\STM32F4.cpp</FilePath>
+            </File>
+            <File>
               <FileName>interrupt.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\interrupt.cpp</FilePath>
@@ -509,21 +489,64 @@
         </Group>
         <Group>
           <GroupName>Hosted</GroupName>
-          <Files>
-            <File>
-              <FileName>STM32F4.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\..\lib\cpp\MCU\STM32F4.cpp</FilePath>
-            </File>
-          </Files>
         </Group>
         <Group>
-          <GroupName>Device</GroupName>
+          <GroupName>Device Video</GroupName>
           <Files>
             <File>
               <FileName>LCD1602.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\Device\Video\LCD1602.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Video.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Video.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>LTDC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Video\LTDC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>ILI9341.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Video\ILI9341.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>ILI9320.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Video\ILI9320.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Subembed</GroupName>
+          <Files>
+            <File>
+              <FileName>SysClock.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>PLL.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\PLL.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Oscillator.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\Oscillator.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SysTick.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\Device\SysTick.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>GPIO-setMode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
             </File>
           </Files>
         </Group>

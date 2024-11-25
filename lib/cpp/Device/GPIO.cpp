@@ -85,7 +85,7 @@ namespace uni
 		getParent()[GPIOReg::PDR].setof(getID(), !pullup);
 	#elif defined(_MCU_STM32F1x)
 		getParent()[GPIOReg::ODR].setof(getID(), pullup);// Output Directly
-	#elif defined(_MCU_STM32F4x)
+	#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
 		getParent()[GPIOReg::PULLS].maset(_IMMx2(getID()), 2, pullup ? 0b01 : 0b10);
 	#endif
 	}
@@ -112,17 +112,17 @@ namespace uni
 		return getParent()[GPIOReg::DIR].bitof(getID());
 	#elif defined(_MCU_STM32F1x)
 		return 0 == getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].mask(getID() * 4, 2);
-	#elif defined(_MCU_STM32F4x)
+	#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
 		return 0 == getParent()[GPIOReg::MODER].mask(getID() * 2, 2);// moder length 2 bit
 	#else
 		return false;
 	#endif
 	}
 
-#if defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
 	// Old Style
 	bool GeneralPurposeInputOutputPin::_set_alternate(byte selection) const {
-	#if defined(_MCU_STM32F4x)
+	#if 1
 		const stduint block_siz = 4;
 		// panic if getID() > 15
 		selection &= 0xF;
@@ -140,7 +140,7 @@ namespace uni
 	#if defined(_MPU_STM32MP13)
 		using namespace RCCReg;
 		RCCReg::RCCReg AHB4ENR_NS = enable ? MP_NS_AHB4ENSETR : MP_NS_AHB4ENCLRR;
-		RCC[AHB4ENR_NS].setof(getID());
+		RCC[AHB4ENR_NS] = _IMM1S(getID());
 	#elif defined(_MCU_CW32F030)
 		Reference(_SYSC_AHBEN_ADDR).setof(_SYSC_AHBEN_POS_GPIOA + getID(), enable);
 	#elif defined(_MCU_STM32F1x)

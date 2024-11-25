@@ -36,6 +36,7 @@
 #include "../../Device/GPIO"
 #include "../../Device/_Power.hpp"
 #include "../../Device/SysTick"
+#include "../../Device/LTDC"
 #include "../../../c/random.h"
 
 _ESYM_C char _IDN_BOARD[16];

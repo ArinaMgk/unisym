@@ -73,6 +73,10 @@ namespace uni {
 		_COM_DEF_Interrupt_Interface();
 	};
 
+	class XART_SOFT {
+		_TODO byte todo;
+	};
+
 }
 
 

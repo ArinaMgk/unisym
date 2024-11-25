@@ -7,27 +7,67 @@ General Purpose Input Output
 
 \B{Sub-Generation}: 2
 
-\paragraph{Pin Method}
+\paragraph{Pin Method} \
+
 \begin{itemize}
 \item operator \verb`=` for reading and writing the pin
+
 \item $getID$ $\rightarrow$ an integer, and $getParent$ \verb`()` $\rightarrow$ {Port}.
+
 \item $setMode$ \verb`(Mode, Speed=defa_speed, autoEnClk = true)` $\rightarrow$ self
 
 Set the working mode of GPIO.
 
 The third parameter is left for historical reason, this may be removed in the future. In some MCU, we can config registers when the GPIO is disabled. % She remembered STM32F103VET6 
 
+\item Set Rupt or Event Mode
+
 \item $canMode$
 
 Cancel working modes, destructure the device, and finally disable the working clock signal.
 
-%\item setPull, use setMode to flush pull floating
+\item setPull, use setMode to flush pull floating
 
-%\item setAlternate/Connect
+\item void Toggle()
 
-% void Toggle()
+\item void Lock()
 
-% bool isInput()
+\item bool isInput()
+
+\item Connect %setAlternate
+
+\paragraph{Port Method} \
+
+operator \verb`=` for reading and writing the port (multiple pins).
+
+\paragraph{Physical GPIOs} \
+
+Each port contains 16 pins.
+
+For MSP432P4, usually use GPIO 0, 1, 2, ... 8 pins ports.
+
+\begin{longtable}{|l|c|c|c|c|c|}
+	\hline \rowcolor[rgb]{0.95, 0.975, 1}
+	{MCU} & 
+	\B{GPIO A B C} & \B{GPIO D E} & \B{GPIO F} & \B{GPIO G H I} & \B{GPIO J}
+	\\ \hline\endfirsthead
+	\hline \rowcolor[rgb]{0.95, 0.975, 1}
+	{(Cont.)} & 
+	\B{GPIO A B C} & \B{GPIO D E} & \B{GPIO F} & \B{GPIO G H I} & \B{GPIO J}
+	\\ \hline\endhead\hline\endfoot\hline\endlastfoot
+	%
+	STM32F1 & Ex. & Ex. & Ex. & . & .  
+	\\ \hline
+	STM32F4 & Ex. & Ex. & Ex. & Ex. & .  
+	\\ \hline
+	STM32MP13 & Ex. & Ex. & Ex. & Ex. & .  
+	\\ \hline
+	CW32F030 & Ex. & . & Ex. & . & .  
+	\\ \hline
+	MSP432P4 & Ex. & Ex. & . & . & Ex. 
+	\\ \hline
+\end{longtable}
+
 
 \end{itemize}
 

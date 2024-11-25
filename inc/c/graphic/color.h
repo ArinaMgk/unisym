@@ -23,6 +23,8 @@
 #ifndef _INC_Color
 #define _INC_Color
 
+#define DEF_COLOR(v,iden) iden=v
+
 #ifdef _INC_CPP
 namespace uni {
 #endif
@@ -31,22 +33,20 @@ namespace uni {
 		byte b, g, r, a; // union {x y z i} 
 		enum ColorIdentifier {
 			// ❤
-			AliceBlue = 0x00F0F8FF,
+			DEF_COLOR(0x00F0F8FF, AliceBlue),
 
 			// classic
-			Red = 0x00FF0000,
-
-			// kinderness
-			MistyRose = 0x00FFE4E1,
-
+			DEF_COLOR(0x00000000, Black),
+			DEF_COLOR(0x00FF0000, Red),
+			DEF_COLOR(0x00FFFF00, Yellow),
+			
 			// light
-			Yellow = 0x00FFFF00,
-
+			DEF_COLOR(0x00C0C0C0, Silver),
+			DEF_COLOR(0x00FFE4E1, MistyRose),
+			
 			// dark
-			Black = 0x00000000,
-			Maroon = 0x00800000,
-			Silver = 0x00C0C0C0,
-			SlateBlue = 0x006A5ACD,
+			DEF_COLOR(0x00800000, Maroon),
+			DEF_COLOR(0x006A5ACD, SlateBlue),
 		};
 		//
 

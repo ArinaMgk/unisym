@@ -43,122 +43,53 @@ void I2C_Stop(void);
 
 namespace uni {
 
-	#if defined(_MCU_STM32)
-		#undef IIC
+#undef IIC
+#if defined(_MCU_STM32)
+	
 	class IIC_t {
-		// Dynamic for software IIC, Static for hardware IIC
+	protected:
+		bool last_ack_accepted;
+		bool push_pull;
+	public:
+		bool operator<<(byte txt) { Send(txt, true); return self.last_ack_accepted; }
+		//
+		virtual void SendStart(void) {};
+		virtual void SendStop(void) {};
+		virtual bool WaitAcknowledge() { return false; };
+		virtual void SendAcknowledge(bool ack = true) {};
+		virtual void Send(byte txt, bool auto_wait_ack = false) {};
+		virtual byte ReadByte(bool feedback = true, bool ack = true) { return 0; };
+	};
+
+	class IIC_SOFT : public IIC_t {
 	protected:
 		GPIO_Pin& SDA, & SCL;
-		bool last_ack_accepted;
 	public:
 		Handler_t func_delay;
-	
-		IIC_t(GPIO_Pin& SDA, GPIO_Pin& SCL) : SDA(SDA), 
-			SCL(SCL) {	
-			#if DA_PP == 1
-				SDA.setMode(GPIOMode::OUT_PushPull);
-			#else
-				SDA.setMode(GPIOMode::OUT_OpenDrain);
-			#endif
+
+		IIC_SOFT(GPIO_Pin& SDA, GPIO_Pin& SCL) : SDA(SDA),
+			SCL(SCL) {
+			SDA.setMode(push_pull ? GPIOMode::OUT_PushPull : GPIOMode::OUT_OpenDrain);
 			SCL.setMode(GPIOMode::OUT_PushPull);
 			SCL = true;
 			SDA = true;
 		}
 
-		void SendStart(void) {
-			#if DA_PP == 1
-			SDA.setMode(GPIOMode::OUT_PushPull);
-			#endif
-			SDA = true;
-			SCL = true;
-			asserv(func_delay)();
-			SDA = false;
-			asserv(func_delay)();
-			SCL = false;
-		}
-		
-		void SendStop(void) {
-			#if DA_PP == 1
-			SDA.setMode(GPIOMode::OUT_PushPull);
-			#endif
-			SCL = false;// opt?
-			SDA = false;
-			asserv(func_delay)();
-			SCL = true;
-			SDA = true;
-			asserv(func_delay)();
-		}
-		
-		bool WaitAcknowledge() {
-			#if DA_PP == 1
-			SDA.setMode(GPIOMode::IN_Floating);
-			#endif
-			byte timespan = 0;
-			SDA = true;
-			asserv(func_delay)();
-			SCL = true;
-			asserv(func_delay)();
-			while (SDA) {
-				if (++timespan) {
-					SendStop();
-					return last_ack_accepted = false;
-				}
-				asserv(func_delay)();
-			}
-			SCL = false;
-			return last_ack_accepted = true;
-		}
-		
-		void SendAcknowledge(bool ack = true) {
-			#if DA_PP == 1
-			SDA.setMode(GPIOMode::OUT_PushPull);
-			#endif
-			SCL = false;
-			SDA = !ack;
-			asserv(func_delay)();
-			SCL = true;
-			asserv(func_delay)();
-			SCL = false;
-		}
-		
-		void Send(byte txt, bool auto_wait_ack = false) {
-			#if DA_PP == 1
-			SDA.setMode(GPIOMode::OUT_PushPull);
-			#endif
-			SCL = false;
-			for0(i, _BYTE_BITS_) {
-				SDA = txt & 0x80;
-				txt <<= 1;
-				asserv(func_delay)();// necessary delay
-				SCL = true;
-				asserv(func_delay)();
-				SCL = false;
-				asserv(func_delay)();
-			}
-			if (auto_wait_ack) WaitAcknowledge();
-		}
-		bool operator<<(byte txt) { Send(txt, true); return self.last_ack_accepted; }
-		
-		byte ReadByte(bool feedback = true, bool ack = true) {
-			#if DA_PP == 1
-			SDA.setMode(GPIOMode::IN_Floating);
-			#endif
-			byte res = 0;
-			for0(i, _BYTE_BITS_) {
-				SCL = false;
-				asserv(func_delay)();
-				SCL = true;
-				res <<= 1;
-				if (SDA) res++;
-				asserv(func_delay)();
-			}
-			SCL = false;// dosconio fix
-			if (feedback) SendAcknowledge(ack);
-			return res;
-		}
+		virtual void SendStart(void);
+		virtual void SendStop(void);
+		virtual bool WaitAcknowledge();
+		virtual void SendAcknowledge(bool ack = true);
+		virtual void Send(byte txt, bool auto_wait_ack = false);
+		virtual byte ReadByte(bool feedback = true, bool ack = true);
 	};
 
-	#endif
+	
+	class IIC_HARD : public IIC_t {
+
+	};
+	
+
+#endif
 
 }
 

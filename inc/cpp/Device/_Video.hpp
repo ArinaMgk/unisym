@@ -20,6 +20,8 @@
 	limitations under the License.
 */
 
+// Screen = Video + Touch (Do not manage {Backlight} )
+
 #ifndef _INC_DEVICE_Video_X
 #define _INC_DEVICE_Video_X
 

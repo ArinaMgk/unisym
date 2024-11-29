@@ -118,8 +118,8 @@ namespace uni {
 
 	//
 	/*
-	void DAC_t::setInterrupt(Handler_t fn) {
-		FUNC_DACx[getID()] = fn;
+	void DAC_t::setInterrupt(Handler_t f) {
+		FUNC_DACx[getID()] = f;
 	}
 
 	static Request_t DACx_Request_list[4] = {

@@ -33,20 +33,20 @@ namespace uni {
 		byte b, g, r, a; // union {x y z i} 
 		enum ColorIdentifier {
 			// ❤
-			DEF_COLOR(0x00F0F8FF, AliceBlue),
+			DEF_COLOR(0xFFF0F8FF, AliceBlue),
 
 			// classic
-			DEF_COLOR(0x00000000, Black),
-			DEF_COLOR(0x00FF0000, Red),
-			DEF_COLOR(0x00FFFF00, Yellow),
+			DEF_COLOR(0xFF000000, Black),
+			DEF_COLOR(0xFFFF0000, Red),
+			DEF_COLOR(0xFFFFFF00, Yellow),
 			
 			// light
-			DEF_COLOR(0x00C0C0C0, Silver),
-			DEF_COLOR(0x00FFE4E1, MistyRose),
+			DEF_COLOR(0xFFC0C0C0, Silver),
+			DEF_COLOR(0xFFFFE4E1, MistyRose),
 			
 			// dark
-			DEF_COLOR(0x00800000, Maroon),
-			DEF_COLOR(0x006A5ACD, SlateBlue),
+			DEF_COLOR(0xFF800000, Maroon),
+			DEF_COLOR(0xFF6A5ACD, SlateBlue),
 		};
 		//
 
@@ -69,6 +69,8 @@ namespace uni {
 			color.r = (col >> 11) & 0x1F;
 			return color;
 		}
+
+		//{TODO} static HSLA
 
 		operator uint32() {
 			return *(uint32*)this;

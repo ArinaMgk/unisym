@@ -25,7 +25,7 @@
 namespace uni {
 // Occupiers
 
-	void RuptTrait::setInterrupt(Handler_t fn) const { (void)fn; }
+	void RuptTrait::setInterrupt(Handler_t f) const { (void)f; }
 	void RuptTrait::setInterruptPriority(byte preempt, byte sub_priority) const { (void)preempt; (void)sub_priority; }
 	void RuptTrait::enInterrupt(bool enable) const { (void)enable; }
 

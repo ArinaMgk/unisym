@@ -40,6 +40,7 @@ typedef void(*_tofree_ft)(pureptr_t);
 typedef  int(*_tocomp_ft)(pureptr_t, pureptr_t);
 typedef int*(*_tocall_ft)(void*, ...);
 typedef void(symbol_t)(void);
+typedef void (*Handler_t)(void);
 typedef const char* rostr;// read-only string
 
 #if defined(__cplusplus) && !defined(_INC_CPP)
@@ -62,7 +63,7 @@ extern "C++" {
 		template<typename typed, typename types> inline static typed& cast(types& value) {
 			return *(typed*)(&value);
 		}
-		template<typename typed> inline static typed& treat(pureptr_t addr) {
+		template<typename typed, typename types> inline static typed& treat(types addr) {
 			return *(typed*)addr;
 		}
 	}

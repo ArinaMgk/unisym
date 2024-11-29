@@ -35,19 +35,16 @@ namespace uni {
 	
 #elif defined(_MCU_STM32F4x)
 	#define _EXTI_ADDR 0x40013C00 //~ 0x40013FFF
-
-
+#elif defined(_MPU_STM32MP13)
+	#define _EXTI_ADDR 0x5000D000 //~ 0x5000DFFF
 #endif
 
 	
 
-	#if 0
+#if 0
 
-	#elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
-	#undef EXTI
-	// Assume definition in startup.S
-	// - EXTI0_IRQHandler
-	// - ...
+#elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#undef EXTI
 
 	namespace GPIORupt {
 		enum RuptEdge {
@@ -65,8 +62,12 @@ namespace uni {
 			Negedge// Falling Edge
 		};
 	}
-
+#endif
 	
+#if 0
+
+#elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#undef EXTI
 	class EXTI {
 	protected:
 		
@@ -78,8 +79,59 @@ namespace uni {
 		static Reference Softrupt;// avail[19:0]
 		static Reference Pending;// avail[19:0]
 	};
+#elif defined(_MPU_STM32MP13)
+#undef EXTI
+	// based on 135D
 
-	#endif
+	enum class EXTIReg {
+		// Group 1 :
+		//            RTSR : rising  trigger selection
+		//            FTSR : falling trigger selection
+		//            SWIER: software interrupt event register
+		//            RPR  : rising  edge pending register
+		//            FPR  : falling edge pending register
+		//            TZENR: Trust-Zone enable register
+		RTSR1 = 0x00, FTSR1 = 0x04, SWIER1 = 0x08, RPR1 = 0x0C, FPR1 = 0x10, TZENR1 = 0x14,
+		RTSR2 = 0x20, FTSR2 = 0x24, SWIER2 = 0x28, RPR2 = 0x2C, FPR2 = 0x30, TZENR2 = 0x34,
+		RTSR3 = 0x40, FTSR3 = 0x44, SWIER3 = 0x48, RPR3 = 0x4C, FPR3 = 0x50, TZENR3 = 0x54,
+		// Group 2 :
+		EXTICR1 = 0x60
+	};
+
+	#define extichan const EXTILine
+
+	class EXTILine {
+	protected:
+		//{TODO} isEvent
+		//{TODO} isDirect
+		//{TODO} isConfig
+		//{TODO} isGPIO
+		//{TODO} is___ (Reserved)
+	public:
+		byte getChannel() const { return _IMM(this) % 0x20; }
+
+		// Below for TEMP
+		byte& refRegisterNumber() const;
+
+		
+	};// address from EXTI0 : 0x00000000 to EXTI
+
+	class GeneralPurposeInputOutputPin;
+	struct EXTI_t {
+		inline Reference operator[](EXTIReg trt) const { return _EXTI_ADDR + _IMM(trt); }
+
+		extichan& operator[](byte pinid) const { return treat<extichan>_IMM(pinid); }
+		extichan& operator[](const GeneralPurposeInputOutputPin& pin) const;
+		inline Reference TriggerRising(byte REGx) const { return _EXTI_ADDR + _IMM(EXTIReg::RTSR1) + _IMM(REGx - 1) * 0x20; }
+		inline Reference TriggerFalling(byte REGx) const { return _EXTI_ADDR + _IMM(EXTIReg::FTSR1) + _IMM(REGx - 1) * 0x20; }
+		inline Reference getSWIER(byte REGx) const { return _EXTI_ADDR + _IMM(EXTIReg::SWIER1) + _IMM(REGx - 1) * 0x20; }
+		inline Reference PendingRising(byte REGx) const { return _EXTI_ADDR + _IMM(EXTIReg::RPR1) + _IMM(REGx - 1) * 0x20; }
+		inline Reference PendingFalling(byte REGx) const { return _EXTI_ADDR + _IMM(EXTIReg::FPR1) + _IMM(REGx - 1) * 0x20; }
+		inline Reference getTZENR(byte REGx) const { return _EXTI_ADDR + _IMM(EXTIReg::TZENR1) + _IMM(REGx - 1) * 0x20; }
+	};
+	extern EXTI_t EXTI;
+
+#endif
 }
 
 #endif

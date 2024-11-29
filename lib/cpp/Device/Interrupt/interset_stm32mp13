@@ -1,0 +1,231 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Interrupt Set) STM32MP13 
+// Codifiers: @dosconio: 20241127
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+// If conflicts, replace ! Omit RESERVED_IRQHandler
+// from
+// - mp135d mp135f
+Handler_t IRQ_Vector_Table[MAX_IRQ_n] = {
+	// Software Generated Interrupts
+	// 00
+	SGI0_IRQHandler,
+	SGI1_IRQHandler,
+	SGI2_IRQHandler,
+	SGI3_IRQHandler,
+	SGI4_IRQHandler,
+	SGI5_IRQHandler,
+	SGI6_IRQHandler,
+	SGI7_IRQHandler,
+	SGI8_IRQHandler,
+	SGI9_IRQHandler,
+	// 10
+	SGI10_IRQHandler,
+	SGI11_IRQHandler,
+	SGI12_IRQHandler,
+	SGI13_IRQHandler,
+	SGI14_IRQHandler,
+	SGI15_IRQHandler,
+	RESERVED_IRQHandler,
+	RESERVED_IRQHandler,
+	RESERVED_IRQHandler,
+	RESERVED_IRQHandler,
+	// 20
+	RESERVED_IRQHandler,
+	RESERVED_IRQHandler,
+	RESERVED_IRQHandler,
+	RESERVED_IRQHandler,
+	RESERVED_IRQHandler,
+	// Private Peripheral Interrupts
+	VirtualMaintenanceInterrupt_IRQHandler,
+	HypervisorTimer_IRQHandler,
+	VirtualTimer_IRQHandler,
+	Legacy_nFIQ_IRQHandler,
+	SecurePhysicalTimer_IRQHandler,
+	// 30
+	NonSecurePhysicalTimer_IRQHandler,
+	Legacy_nIRQ_IRQHandler,
+	// ----  STM32 ----
+	RESERVED_IRQHandler,
+	PVD_AVD_IRQHandler,
+	TAMP_IRQHandler,
+	RTC_WKUP_ALARM_IRQHandler,
+	TZC_IT_IRQHandler,
+	RCC_IRQHandler,
+	EXTI0_IRQHandler,
+	EXTI1_IRQHandler,
+	// 40
+	EXTI2_IRQHandler,
+	EXTI3_IRQHandler,
+	EXTI4_IRQHandler,
+	DMA1_Stream0_IRQHandler,
+	DMA1_Stream1_IRQHandler,
+	DMA1_Stream2_IRQHandler,
+	DMA1_Stream3_IRQHandler,
+	DMA1_Stream4_IRQHandler,
+	DMA1_Stream5_IRQHandler,
+	DMA1_Stream6_IRQHandler,
+	// 50
+	ADC1_IRQHandler,
+	ADC2_IRQHandler,
+	FDCAN1_IT0_IRQHandler,
+	FDCAN2_IT0_IRQHandler,
+	FDCAN1_IT1_IRQHandler,
+	FDCAN2_IT1_IRQHandler,
+	EXTI5_IRQHandler,
+	TIM1_BRK_IRQHandler,
+	TIM1_UP_IRQHandler,
+	TIM1_TRG_COM_IRQHandler,
+	// 60
+	TIM1_CC_IRQHandler,
+	TIM2_IRQHandler,
+	TIM3_IRQHandler,
+	TIM4_IRQHandler,
+	I2C1_EV_IRQHandler,
+	I2C1_ER_IRQHandler,
+	I2C2_EV_IRQHandler,
+	I2C2_ER_IRQHandler,
+	SPI1_IRQHandler,
+	SPI2_IRQHandler,
+	// 70
+	USART1_IRQHandler,
+	USART2_IRQHandler,
+	USART3_IRQHandler,
+	EXTI10_IRQHandler,
+	RTC_TIMESTAMP_IRQHandler,
+	EXTI11_IRQHandler,
+	TIM8_BRK_IRQHandler,
+	TIM8_UP_IRQHandler,
+	TIM8_TRG_COM_IRQHandler,
+	TIM8_CC_IRQHandler,
+	// 80
+	DMA1_Stream7_IRQHandler,
+	FMC_IRQHandler,
+	SDMMC1_IRQHandler,
+	TIM5_IRQHandler,
+	SPI3_IRQHandler,
+	UART4_IRQHandler,
+	UART5_IRQHandler,
+	TIM6_IRQHandler,
+	TIM7_IRQHandler,
+	DMA2_Stream0_IRQHandler,
+	// 90
+	DMA2_Stream1_IRQHandler,
+	DMA2_Stream2_IRQHandler,
+	DMA2_Stream3_IRQHandler,
+	DMA2_Stream4_IRQHandler,
+	ETH1_IRQHandler,
+	ETH1_WKUP_IRQHandler,
+	FDCAN_CAL_IRQHandler,
+	EXTI6_IRQHandler,
+	EXTI7_IRQHandler,
+	EXTI8_IRQHandler,
+	// 100
+	EXTI9_IRQHandler,
+	DMA2_Stream5_IRQHandler,
+	DMA2_Stream6_IRQHandler,
+	DMA2_Stream7_IRQHandler,
+	USART6_IRQHandler,
+	I2C3_EV_IRQHandler,
+	I2C3_ER_IRQHandler,
+	USBH_PORT1_IRQHandler,
+	USBH_PORT2_IRQHandler,
+	EXTI12_IRQHandler,
+	// 110
+	EXTI13_IRQHandler,
+	DCMIPP_IRQHandler,
+		CRYP1_IRQHandler,//*
+	HASH1_IRQHandler,
+		SAES_IRQHandler,//*
+	UART7_IRQHandler,
+	UART8_IRQHandler,
+	SPI4_IRQHandler,
+	SPI5_IRQHandler,
+	SAI1_IRQHandler,
+	// 120
+	LTDC_IRQHandler,
+	LTDC_ER_IRQHandler,
+	SAI2_IRQHandler ,
+	QUADSPI_IRQHandler,
+	LPTIM1_IRQHandler,
+	I2C4_EV_IRQHandler,
+	I2C4_ER_IRQHandler,
+	SPDIF_RX_IRQHandler ,
+	OTG_IRQHandler,
+	ETH2_IRQHandler,
+	// 130
+	ETH2_WKUP_IRQHandler,
+	DMAMUX1_OVR_IRQHandler,
+	DMAMUX2_OVR_IRQHandler,
+	TIM15_IRQHandler,
+	TIM16_IRQHandler,
+	TIM17_IRQHandler,
+	TIM12_IRQHandler,
+		PKA_IRQHandler,//*
+	EXTI14_IRQHandler,
+	MDMA_IRQHandler,
+	// 140
+	SDMMC2_IRQHandler,
+	EXTI15_IRQHandler,
+	MDMA_SEC_IT_IRQHandler,
+	TIM13_IRQHandler,
+	TIM14_IRQHandler,
+	RNG1_IRQHandler,
+	I2C5_EV_IRQHandler,
+	I2C5_ER_IRQHandler,
+	LPTIM2_IRQHandler,
+	LPTIM3_IRQHandler,
+	// 150
+	LPTIM4_IRQHandler,
+	LPTIM5_IRQHandler,
+	ETH1_LPI_IRQHandler,
+	ETH2_LPI_IRQHandler,
+	RCC_WAKEUP__IRQHandler,
+	RESERVED_IRQHandler,
+	DTS_IRQHandler,
+	MPU_WAKEUP_PIN_IRQHandler,
+	IWDG1_IRQHandler,
+	IWDG2_IRQHandler,
+	// 160
+	TAMP_SIRQHandler,
+	RTC_WKUP_ALARM_S_IRQHandler,
+	RTC_TS_S_IRQHandler,
+	LTDC_SEC_IRQHandler,
+	LTDC_SEC_ER_IRQHandler,
+	PMUIRQ0_IRQHandler,
+	COMMRX0_IRQHandler,
+	COMMTX0_IRQHandler,
+	AXIERRIRQ_IRQHandler,
+	DDRPERFM_IRQHandler,
+	// 170
+	nCTIIRQ0_IRQHandler,
+		MCE_IRQHandler,//*
+	DFSDM1_IRQHandler,
+	DFSDM2_IRQHandler,
+	DMA3_Stream0_IRQHandler,
+	DMA3_Stream1_IRQHandler,
+	DMA3_Stream2_IRQHandler,
+	DMA3_Stream3_IRQHandler,
+	DMA3_Stream4_IRQHandler,
+	DMA3_Stream5_IRQHandler,
+	// 180
+	DMA3_Stream6_IRQHandler,
+	DMA3_Stream7_IRQHandler,
+};

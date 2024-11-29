@@ -25,8 +25,8 @@
 namespace uni {
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	
-	void TIM_t::setInterrupt(Handler_t fn) const {
-		FUNC_TIMx[getID()] = fn;
+	void TIM_t::setInterrupt(Handler_t f) const {
+		FUNC_TIMx[getID()] = f;
 	}
 	static Request_t TIM_Request_list[16] = {
 		Request_None, Request_None, IRQ_TIM2, IRQ_TIM3,

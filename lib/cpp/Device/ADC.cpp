@@ -246,8 +246,8 @@ namespace uni {
 		return _REFADDR_ADC[self.ADC_ID];
 	} //{TEMP} no-assert-opt
 
-	void ADC_t::setInterrupt(Handler_t fn) const {
-		FUNC_ADCx[getID()] = fn;
+	void ADC_t::setInterrupt(Handler_t f) const {
+		FUNC_ADCx[getID()] = f;
 	}
 
 	void ADC_t::setInterruptPriority(byte preempt, byte sub_priority) const {

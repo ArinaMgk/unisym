@@ -38,19 +38,7 @@
 
 #define SelfGpin const GeneralPurposeInputOutputPin&
 #define SelfGpor const GeneralPurposeInputOutputPort&
-
-#define _COM_DEF_GPIN16()\
-	inline SelfGpor getParent() const { return *(const GeneralPurposeInputOutputPort*)this; }\
-	inline byte getID() const { return _IMM(this) & 0xF; }\
-	SelfGpin operator=(bool val) const;\
-	SelfGpin operator=(SelfGpin pin) const { return self = bool(pin); }\
-	operator bool() const;\
-	SelfGpin setMode(GPIOMode mod, GPIOSpeed spd = defa_speed, bool autoEnClk = true) const;\
-	void setPull(bool pull_up) const;\
-	void Toggle() const;\
-	void Lock(bool tolock_orunlock = true) const;\
-	bool isInput() const;\
-	_COM_DEF_Interrupt_Interface()
+	
 
 // 00000000 maybe a valid address of someone
 // These are of Harunono Style, and the design have not be used by enough users!
@@ -143,6 +131,12 @@ namespace uni {
 	};
 #endif
 
+	#undef GPIO_Pin
+	#undef GPIO_Port
+	#define GPIO_Pin GPIN
+	typedef const GeneralPurposeInputOutputPin GPIN;
+	#define GPIO_Port GPORT
+	typedef const GeneralPurposeInputOutputPort GPORT;
 
 #if defined(_MCU_STM32)
 #include "../../c/driver/GPIO/GPIO_STM32.hpp"
@@ -155,10 +149,20 @@ namespace uni {
 	// Abstract Layer, should take no space. We use const to confirm, which is friendly to Rust.
 	class GeneralPurposeInputOutputPin final : public RuptTrait {
 	public:
-		_COM_DEF_GPIN16();
-	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+		inline SelfGpor getParent() const { return treat<GPIO_Port>(_IMM(this) & ~_IMM(0xF)); }\
+			inline byte getID() const { return _IMM(this) & 0xF; }
+		SelfGpin operator=(bool val) const;
+		SelfGpin operator=(SelfGpin pin) const { return self = bool(pin); }
+		operator bool() const;
+		SelfGpin setMode(GPIOMode mod, GPIOSpeed spd = defa_speed, bool autoEnClk = true) const;
+		void setPull(bool pull_up) const;
+		void Toggle() const;
+		void Lock(bool tolock_orunlock = true) const;
+		bool isInput() const;
+		_COM_DEF_Interrupt_Interface();
+	#if defined(_MCU_STM32) // F1 F4 MP13
 		//
-		const GeneralPurposeInputOutputPin& setMode(GPIORupt::RuptEdge edg, Handler_t fn = 0) const;// must in input mode
+		const GeneralPurposeInputOutputPin& setMode(GPIORupt::RuptEdge edg, Handler_t f = 0) const;// must in input mode
 		//
 		const GeneralPurposeInputOutputPin& setMode(GPIOEvent::EventEdge edg) const;// must in input mode
 		//{} setConnect(...)
@@ -174,7 +178,7 @@ namespace uni {
 		stduint getID() const { return (_IMM(this) & 0xF0) >> 4; }
 		void enClock(bool enable = true) const;
 		operator stduint() const;
-		SelfGpin operator[](int pinid) const { return *(const GeneralPurposeInputOutputPin*)((_IMM(this) & 0xF0) + (pinid & 0xF)); }
+		SelfGpin operator[](int pinid) const { return treat<GPIO_Pin>((_IMM(this) & 0xF0) + (pinid & 0xF)); }
 		SelfGpor operator=(SelfGpor pot) const { return self = stduint(pot); }
 		SelfGpor operator=(stduint val) const;
 	#if defined(_MCU_MSP432P4)
@@ -189,12 +193,6 @@ namespace uni {
 	};
 	extern GeneralPurposeInputOutput GPIO;
 
-	#undef GPIO_Pin
-	#undef GPIO_Port
-	#define GPIO_Pin GPIN
-	typedef const GeneralPurposeInputOutputPin GPIN;
-	#define GPIO_Port GPORT
-	typedef const GeneralPurposeInputOutputPort GPORT;
 }
 
 

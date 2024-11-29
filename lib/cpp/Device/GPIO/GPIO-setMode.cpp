@@ -72,11 +72,11 @@ namespace uni {
 
 	
 // Interrupt Modes
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32)// F1 F4 MP13
 
-	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg, Handler_t fn) const {
+	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg, Handler_t f) const {
 		getParent().enClock();
-		if (fn) setInterrupt(fn);
+		if (f) setInterrupt(f);
 		if (!isInput()) setMode(GPIOMode::IN_Floating);
 
 	#if defined(_MCU_STM32F1x)
@@ -84,13 +84,14 @@ namespace uni {
 	#elif defined(_MCU_STM32F4x)
 		RCC.APB2.enAble(14);// SYSCFG EN
 	#endif
-		
+	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 		for0(i, 10);// some delay to wait, magic_num: random
 		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[getID() >> 2];
 		CrtEXTICR.maset(_IMMx4(getID()), 4, getParent().getID());
 		EXTI::TriggerRising.setof(getID(), edg != GPIORupt::Negedge);
 		EXTI::TriggerFalling.setof(getID(), edg != GPIORupt::Posedge);
 		EXTI::MaskInterrupt.setof(getID()); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
+	#endif
 		return self;
 	}
 

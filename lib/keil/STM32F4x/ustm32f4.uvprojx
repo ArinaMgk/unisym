@@ -445,6 +445,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\Power.cpp</FilePath>
             </File>
+            <File>
+              <FileName>GIC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\GIC.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

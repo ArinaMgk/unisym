@@ -21,10 +21,6 @@
 */
 #include "../../../../inc/cpp/interrupt"
 #include "../../../../inc/cpp/Device/EXTI"
-#include "../../../../inc/cpp/Device/TIM"
-#include "../../../../inc/cpp/Device/ADC"
-#include "../../../../inc/c/driver/ADConverter/Register-ADC.h"
-#include "../../../../inc/cpp/Device/UART"
 
 using namespace uni;
 
@@ -34,287 +30,162 @@ using namespace uni;
 
 #define i_index(a,b) (*a[b])
 
-extern "C" {
+// EXTI
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+static void _HandlerIRQ_EXTIx(byte x);
+#endif
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
-	_ESYM_CPP {
-		static void _HandlerIRQ_EXTIx(byte x);
-		static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID);
-	}
+
+extern "C" {
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
 	Handler_t FUNC_EXTI[16] = { 0 };
-	_ESYM_CPP{
-	static void _HandlerIRQ_EXTIx(byte x) {
-		if (uni::EXTI::Pending & (1 << x)) {
-			// GPIO_PIN_x
-			if (FUNC_EXTI[x]) FUNC_EXTI[x]();
-			uni::EXTI::Pending = (1 << x);
-		}
-	}
-	}
 
 	void EXTI0_IRQHandler(void) { _HandlerIRQ_EXTIx(0); }
 	void EXTI1_IRQHandler(void) { _HandlerIRQ_EXTIx(1); }
 	void EXTI2_IRQHandler(void) { _HandlerIRQ_EXTIx(2); }
 	void EXTI3_IRQHandler(void) { _HandlerIRQ_EXTIx(3); }
 	void EXTI4_IRQHandler(void) { _HandlerIRQ_EXTIx(4); }
+#endif
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	void EXTI9_5_IRQHandler(void) {
 		for (byte i = 5; i < 9; i++) _HandlerIRQ_EXTIx(i);
 	}
 	void EXTI15_10_IRQHandler(void) {
 		for (byte i = 10; i < 16; i++) _HandlerIRQ_EXTIx(i);
 	}
-
-	// ----
-	Handler_t FUNC_XART[8] = { 0 };
-	_ESYM_CPP{
-	static void _HandlerIRQ_XART(byte art_id) {
-		//{?} Instrument here to support OS ?
-		#ifndef _HIS_INT
-		if (!XART.isSync(art_id)) return;//{TEMP}
-		if ((*(USART_t*)XART[art_id])[XARTReg::SR].bitof(5)) { //aka __HAL_UART_GET_FLAG, 5 is USART_SR_RXNE
-			asserv(FUNC_XART[art_id])();
-		}
-		// ... more
-		//{?} Instrument here to support OS ?
-		#else
-		{
-			asserv(FUNC_XART[art_id])();
-		}
-		#endif
-	}
-	}
-
-	// ---- TIM ----
-	Handler_t FUNC_TIMx[16] = { 0 }; // Period Elapsed Callback
-	//: typ: 0:Basic, 1:CaptureCompare, 2:Update, 3:Break, 4:Trigger, 5:Commutation
-	void TIM2_IRQHandler(void) { _HandlerIRQ_TIMx(0, 2); }
-	void TIM3_IRQHandler(void) { _HandlerIRQ_TIMx(0, 3); }
-	void TIM4_IRQHandler(void) { _HandlerIRQ_TIMx(0, 4); }
-
-	Handler_t FUNC_ADCx[4] = { 0 };
-
-#endif
-
+#elif defined(_MPU_STM32MP13)
+	// relationship: lib\cpp\Device\Interrupt\interset_stm32mp13
+	// relationship: inc\cpp\Device\Interrupt\interrupt_stm32mp13.h
+	// [from]
+	// - mp135d mp135f
 	
-#if 0
-	//
-#elif defined(_MCU_STM32F1x)
-	_ESYM_CPP{
-		static void _HandlerIRQ_XART(byte art_id);
-		static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID);
-		static void _HandlerIRQ_DMAChannelx(byte dma_id, byte chanx);
-	}
-	//
-	_ESYM_CPP{
-	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {}
-	//{TODEL}
-	static void _HandlerIRQ_TIMx(TIM_t& this_TIM) {
-		using namespace TimReg;
-		//{TODO} Capture compare 1 event 
-		//{TODO} Capture compare 2 event 
-		//{TODO} Capture compare 3 event 
-		//{TODO} Capture compare 4 event
-		// TIM Update event
-		{
-			const stduint _CVAL_TIM_SR_UIE = 1;
-			if (this_TIM[DIER] & _CVAL_TIM_SR_UIE) { //aka __HAL_TIM_GET_IT_SOURCE
-				asserv(FUNC_TIMx[this_TIM.getID()])();
-				this_TIM[SR] = ~_CVAL_TIM_SR_UIE; //aka __HAL_TIM_CLEAR_IT
-			}
-		}
-		//{TODO} TIM Break input event
-		//{TODO} TIM Trigger detection event
-		//{TODO} TIM commutation event
-	}
-		
-	}
+	//: access by Bitmap
+	byte EXTI_Lastlev[16 / bitsof(byte)]{ 0 };// last trigger level
+	// byte EXTI_Posedge[16 / bitsof(byte)]{ 0 };
+	// byte EXTI_Negedge[16 / bitsof(byte)]{ 0 };
+	byte EXTI_REGx[16];// 1, 2, ...
 
-
-	void TIM6_IRQHandler(void) {_HandlerIRQ_TIMx(uni::TIM6);}
+	void EXTI5_IRQHandler(void) { _HandlerIRQ_EXTIx(5); }
+	void EXTI6_IRQHandler(void) { _HandlerIRQ_EXTIx(6); }
+	void EXTI7_IRQHandler(void) { _HandlerIRQ_EXTIx(7); }
+	void EXTI8_IRQHandler(void) { _HandlerIRQ_EXTIx(8); }
+	void EXTI9_IRQHandler(void) { _HandlerIRQ_EXTIx(9); }
+	void EXTI10_IRQHandler(void) { _HandlerIRQ_EXTIx(10); }
+	void EXTI11_IRQHandler(void) { _HandlerIRQ_EXTIx(11); }
+	void EXTI12_IRQHandler(void) { _HandlerIRQ_EXTIx(12); }
+	void EXTI13_IRQHandler(void) { _HandlerIRQ_EXTIx(13); }
+	void EXTI14_IRQHandler(void) { _HandlerIRQ_EXTIx(14); }
+	void EXTI15_IRQHandler(void) { _HandlerIRQ_EXTIx(15); }
 	
-	void ADC1_2_IRQHandler(void) {
-		// 1 Check End of Conversion flag for regular group
-		for1(i, 2) {
-			ADC_t& crt = i == 1 ? uni::ADC1 : uni::ADC2;
-			if (crt[ADCReg::CR1].bitof(_ADC_CR1_POS_EOCIE) && crt[ADCReg::SR].bitof(_ADC_SR_POS_EOC)) {
-				// 确定是否有即将到来的外部触发、连续模式或扫描序列转换，适用于组内常规转换。对于STM32F1设备，如果启用了序列器（选择了多个通道），则在序列结束后会触发转换结束标志。
-				if (crt.isTriggeredBySoftware() && crt.getConfigLastDiscCount()) {
-					crt[ADCReg::CR1].rstof(_ADC_CR1_POS_EOCIE);// Disable ADC end of conversion interrupt on group regular
-				}
-				asserv(FUNC_ADCx[i])();
-				unchecked{//aka __HAL_ADC_CLEAR_FLAG
-					crt[ADCReg::SR].rstof(_ADC_SR_POS_STRT); 
-					crt[ADCReg::SR].rstof(_ADC_SR_POS_STRT);
-				}
-				break;
-			}
-		}
-		//{TODO} 2 Check End of Conversion flag for injected group
-		//{TODO} 3 Check Analog watchdog flags
-	}
-
-	void ADC3_IRQHandler(void) { _TODO }
-
-	_ESYM_CPP{
-	static void _HandlerIRQ_DMAChannelx(byte dma_id, byte chanx) {
-		DMA_t& crt = DMA[dma_id];
-		uint32 flag = crt[DMAReg::ISR];// each 4b: M-L[TEIFx HTIFx TCIFx GIFx], same with IFCR
-		uint32 sors = crt[DMAReg::CCRx[chanx]];
-		if ((flag & (0x2 << (chanx << 2))) &&
-			BitGet(sors, _DMA_CCRx_POS_TCIE)) // Transfer Complete Interrupt
-		{
-			if (!BitGet(sors, _DMA_CCRx_POS_CIRC))
-				crt.enInterrupt(false, 1, chanx);
-			asserv(crt.XferCpltCallback)();
-			crt[DMAReg::IFCR] = (1U << 1) << (chanx << 2);
-		}
-		else if ((flag & (0x4 << (chanx << 2))) &&
-			BitGet(sors, _DMA_CCRx_POS_HTIE)) // Half Transfer Complete Interrupt
-		{
-			if (!BitGet(sors, _DMA_CCRx_POS_CIRC))
-				crt.enInterrupt(false, 2, chanx);
-			asserv(crt.XferHalfCallback)();
-			crt[DMAReg::IFCR] = (1U << 2) << (chanx << 2);
-		}
-		else if ((flag & (0x8 << (chanx << 2))) &&
-			BitGet(sors, _DMA_CCRx_POS_TEIE)) // Transfer Error Interrupt
-		{
-			crt.enInterrupt(false, 0, chanx);
-			asserv(crt.XferErrorCallback)();
-			crt[DMAReg::IFCR] = (1U << 0 /*not 3*/ ) << (chanx << 2);// Clear all flags
-		}
-	}
-	    
-	}
-
-	void DMA1_Channel1_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 1); }
-	void DMA1_Channel2_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 2); }
-	void DMA1_Channel3_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 3); }
-	void DMA1_Channel4_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 4); }
-	void DMA1_Channel5_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 5); }
-	void DMA1_Channel6_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 6); }
-	void DMA1_Channel7_IRQHandler(void) { _HandlerIRQ_DMAChannelx(1, 7); }
-	void DMA2_Channel1_IRQHandler(void) { _HandlerIRQ_DMAChannelx(2, 1); }
-	void DMA2_Channel2_IRQHandler(void) { _HandlerIRQ_DMAChannelx(2, 2); }
-	void DMA2_Channel3_IRQHandler(void) { _HandlerIRQ_DMAChannelx(2, 3); }
-	void DMA2_Channel4_5_IRQHandler(void) {
-		//{} ...
-	}
+	_TEMP symbol_t SecurePhysicalTimer_hand;
+	
+	void RESERVED_IRQHandler(void) {}
+	//
+	void HypervisorTimer_IRQHandler(void) {}
+	void VirtualTimer_IRQHandler(void) {}
+	void SecurePhysicalTimer_IRQHandler(void) { SecurePhysicalTimer_hand(); }// TICK ?
+	void NonSecurePhysicalTimer_IRQHandler(void) {}
+	//
+	void RTC_TIMESTAMP_IRQHandler(void) {}
+	void RTC_WKUP_ALARM_IRQHandler(void) {}
+	void RTC_WKUP_ALARM_S_IRQHandler(void) {}
+	void RTC_TS_S_IRQHandler(void) {}
+	//
+	void ETH1_LPI_IRQHandler(void) {}
+	void ETH1_IRQHandler(void) {}
+	void ETH1_WKUP_IRQHandler(void) {}
+	void ETH2_LPI_IRQHandler(void) {}
+	void ETH2_IRQHandler(void) {}
+	void ETH2_WKUP_IRQHandler(void) {}
+	//
+	void FDCAN1_IT0_IRQHandler(void) {}
+	void FDCAN2_IT0_IRQHandler(void) {}
+	void FDCAN1_IT1_IRQHandler(void) {}
+	void FDCAN2_IT1_IRQHandler(void) {}
+	void FDCAN_CAL_IRQHandler(void) {}
+	//
+	void VirtualMaintenanceInterrupt_IRQHandler(void) {}
+	void Legacy_nFIQ_IRQHandler(void) {}
+	void Legacy_nIRQ_IRQHandler(void) {}
+	void PVD_AVD_IRQHandler(void) {}
+	void TAMP_IRQHandler(void) {}
+	void TZC_IT_IRQHandler(void) {}
+	void RCC_IRQHandler(void) {}
+	void FMC_IRQHandler(void) {}
+	void SDMMC1_IRQHandler(void) {}
+	void USBH_PORT1_IRQHandler(void) {}
+	void USBH_PORT2_IRQHandler(void) {}
+	void DCMIPP_IRQHandler(void) {}
+	void CRYP1_IRQHandler(void) {} // Ex{135F} !{135D}
+	void HASH1_IRQHandler(void) {}
+	void SAES_IRQHandler(void) {}
+	void SAI1_IRQHandler(void) {}
+	void SAI2_IRQHandler(void) {}
+	void QUADSPI_IRQHandler(void) {}
+	void SPDIF_RX_IRQHandler(void) {}
+	void OTG_IRQHandler(void) {}
+	void SDMMC2_IRQHandler(void) {}
+	void RNG1_IRQHandler(void) {}
+	void RCC_WAKEUP__IRQHandler(void) {}
+	void DTS_IRQHandler(void) {}
+	void MPU_WAKEUP_PIN_IRQHandler(void) {}
+	void IWDG1_IRQHandler(void) {}
+	void IWDG2_IRQHandler(void) {}
+	void TAMP_SIRQHandler(void) {}
+	void PMUIRQ0_IRQHandler(void) {}
+	void COMMRX0_IRQHandler(void) {}
+	void COMMTX0_IRQHandler(void) {}
+	void AXIERRIRQ_IRQHandler(void) {}
+	void nCTIIRQ0_IRQHandler(void) {}
+	void DFSDM1_IRQHandler(void) {}
+	void DFSDM2_IRQHandler(void) {}
+	void PKA_IRQHandler(void) {}
+	void MCE_IRQHandler(void) {}
 
 
-#elif defined(_MCU_STM32F4x)
-
-	void USART6_IRQHandler(void) { _HandlerIRQ_XART(6); }	
-
-
-	// pres: pos of SR and of DIER should be the same
-	static bool _HandlerIRQ_TIMx_Exist(byte TIM_ID, stduint pos) {
-		using namespace TimReg;
-		TIM_t& t = i_index(TIM, TIM_ID);
-		if (t[SR].bitof(pos)) {
-			if (t[DIER].bitof(pos)) { 
-				t[SR].setof(pos, false);
-				return true;
-			}
-			else return _TEMP false;
-		}
-		return false;
-	}
-	static void _HandlerIRQ_TIMx_Channel(byte TIM_ID, byte chan) {
-		using namespace TimReg;
-		TIM_t& t = i_index(TIM, TIM_ID);
-		if (_HandlerIRQ_TIMx_Exist(TIM_ID, TIM_ID)) {
-			// SR.CCxIF and DIER.CCx
-			t.last_src = chan;
-			bool tim1or2 = chan <= 2;
-			if (t[tim1or2 ? CCMR1 : CCMR2].mask(iseven(chan) ? 8 : 0, 2)) {
-				// Input capture event
-				callif(t.FUNC_IC_Capture);
-			}
-			else {
-				// Output compare event
-				callif(t.FUNC_OC_DelayElapsed);
-				callif(t.FUNC_PWMPulseFinished);
-			}
-			t.last_src = nil;
-		}
-	}
-	_ESYM_CPP{
-	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {
-		//{TEMP} consider TIM_C just
-		using namespace TimReg;
-		if (typ) _TEMP return;
-		if (Ranglin(TIM_ID, 2, 4)) {
-			TIM_t& t = i_index(TIM, TIM_ID);
-			_HandlerIRQ_TIMx_Channel(TIM_ID, 1);
-			_HandlerIRQ_TIMx_Channel(TIM_ID, 2);
-			_HandlerIRQ_TIMx_Channel(TIM_ID, 3);
-			_HandlerIRQ_TIMx_Channel(TIM_ID, 4);
-			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 0)) { // UIF
-				callif(FUNC_TIMx[TIM_ID]);
-				//(*TIM[TIM_ID])[SR].setof(0, true);
-				TIM[TIM_ID]->enAble();
-			}
-			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 7)) { // BIF BIE
-				callif(t.FUNC_Break);// Break input event
-				//{TODO}
-			}
-			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 6)) { // TIF TIE
-				callif(t.FUNC_Trigger);// Trigger detection event
-				//{TODO}
-			}
-			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 5)) { // COMIF COMIE
-				callif(t.FUNC_Commute);// Commutation event
-				//{TODO}
-			}
-		}
-		else _TEMP return;
-	}
-	}
-	static bool ADC_IRQHandler_sub(ADC_t& sel) {
-		static bool busy;
-		using namespace ADCReg;
-		if (busy) return false; else busy = true;
-		bool flg1, flg2;
-		flg1 = sel[SR].bitof(1);// EOC
-		flg2 = sel[CR1].bitof(5);// EOCIE
-		if (flg1 && flg2) {
-			// > Determine whether any further conversion upcoming on group regular by external trigger, continuous mode or scan sequence on going.  
-			// > Note: On STM32F4, there is no independent flag of end of sequence.The test of scan sequence on going is done either with scan sequence disabled or with end of conversion flag set to of end of sequence.
-			// > Disable ADC end of single conversion interrupt on group regular Note: Overrun interrupt was enabled with EOC interrupt in HAL_ADC_Start_IT(), but is not disabled here because can be used by overrun IRQ process below.
-			bool SOFTWARE_START_INJECTED = sel[CR2].mask(20, 2);// JEXTEN
-			bool ContiConvMode = sel[CR2].bitof(_ADC_CR2_POS_CONT);
-			if (!SOFTWARE_START_INJECTED && !ContiConvMode&&
-				!sel[SQR1].mask(20, 4)/*L*/ && !sel[CR2].bitof(10)/*EOCS*/) {
-				sel[CR1].setof(5, false);// EOCIE
-			}
-			asserv(FUNC_ADCx[sel.getID()])();// Conversion complete callback
-			sel[SR] &= ~_IMM(0x10);// Clear STRT flags
-			busy = false;
-			return true;
-		}
-		//{TODO} MORE
-		busy = false;
-		return false;
-	}
-	void ADC_IRQHandler(void) {
-		//_TEMP NVIC.setAble(IRQ_ADC, false);
-		if (ADC_IRQHandler_sub(ADC1)) return;
-		if (ADC_IRQHandler_sub(ADC2)) return;
-		if (ADC_IRQHandler_sub(ADC3)) return;
-		//_TEMP NVIC.setAble(IRQ_ADC, true);
-	}
-
+	#include "interset_stm32mp13"
 	
 #endif
-
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
-	// ---- XART ----
-	void USART1_IRQHandler(void) { _HandlerIRQ_XART(1); }
-	void USART2_IRQHandler(void) { _HandlerIRQ_XART(2); }
-	void USART3_IRQHandler(void) { _HandlerIRQ_XART(3); }
-	void UART4_IRQHandler(void) { _HandlerIRQ_XART(4); }
-	void UART5_IRQHandler(void) { _HandlerIRQ_XART(5); }
-#endif	
 
 }
+
+// AKA HAL_EXTI_IRQHandler
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+static void _HandlerIRQ_EXTIx(byte x) {
+	if (EXTI::Pending.bitof(x)) {
+		asserv (FUNC_EXTI[x])();
+		EXTI::Pending = _IMM1S(x);
+	}
+}
+#elif defined(_MPU_STM32MP13)
+#include "../../../../inc/c/bitmap.h"
+static void _HandlerIRQ_EXTIx(byte x) {
+	if (!EXTI_REGx[x]) return;
+	Bitmap llevel(EXTI_Lastlev, sizeof(EXTI_Lastlev));
+	if (EXTI.PendingRising(EXTI_REGx[x]).bitof(x)) {
+		llevel.setof(x, true);
+		asserv(FUNC_EXTI[x])();
+		EXTI.PendingRising(EXTI_REGx[x]) = _IMM1S(x);
+	}
+	if (EXTI.PendingFalling(EXTI_REGx[x]).bitof(x)) {
+		llevel.setof(x, false);
+		asserv(FUNC_EXTI[x])();
+		EXTI.PendingFalling(EXTI_REGx[x]) = _IMM1S(x);
+	}
+}
+namespace uni { EXTI_t EXTI; }
+#endif
+#include "Interrupt_timer.hpp"
+#include "Interrupt_adc.hpp"
+#include "Interrupt_dma.hpp"
+#include "Interrupt_xart.hpp"
+#include "Interrupt_iic.hpp"
+#include "Interrupt_spi.hpp"
+#include "Interrupt_sgi.hpp"
+#include "Interrupt_dram.hpp"
+#include "Interrupt_video.hpp"
+
+#if defined(_MPU_STM32MP13)
+byte& EXTILine::refRegisterNumber() const { return EXTI_REGx[getChannel()]; }
+extichan& EXTI_t::operator[](const GeneralPurposeInputOutputPin& pin) const { return treat<extichan>_IMM(pin.getID()); }
+#endif

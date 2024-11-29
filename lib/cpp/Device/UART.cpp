@@ -107,8 +107,8 @@ namespace uni {
 
 	// ---- ---- INTSYS ---- ----
 
-	void USART_t::setInterrupt(Handler_t fn) const {
-		FUNC_XART[XART_ID] = fn;
+	void USART_t::setInterrupt(Handler_t f) const {
+		FUNC_XART[XART_ID] = f;
 	}
 	static Request_t XART_Request_list[8] = {
 		Request_None, IRQ_USART1, IRQ_USART2, IRQ_USART3,

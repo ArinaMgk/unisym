@@ -181,7 +181,7 @@ namespace uni
 	const GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](unsigned portid) const {
 	#ifdef _MCU_MSP432P4
 		static byte maps_caps[] = {1,3,5,7,9};//A B C D E
-		return *(GeneralPurposeInputOutputPort*)(
+		return treat<GeneralPurposeInputOutputPort>(
 			portid <= 10 ? (portid << 4) :
 			portid == 'J' ? (11 << 4) :
 			portid > 'E' ? 0xBAD :
@@ -189,7 +189,7 @@ namespace uni
 			ascii_isupper(portid) ? _IMM(maps_caps[portid - 'A'] << 4) : 0xBAD
 			);
 	#else
-		return *(GeneralPurposeInputOutputPort*)_IMM((portid - 'A') << 4);
+		return treat<GeneralPurposeInputOutputPort>_IMM((portid - 'A') << 4);
 	#endif
 	}
 

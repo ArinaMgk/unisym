@@ -50,6 +50,7 @@ cpu_list_t cpu_list[] = {
 	{"merced", IF_IA64},
 };
 
+// segment-number allocator
 extern "C" stdint next_seg = 0;
 extern "C" stdint SegAlloc();
 extern "C" void SegInit();

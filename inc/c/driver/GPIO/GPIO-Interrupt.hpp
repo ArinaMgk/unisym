@@ -32,6 +32,16 @@ void GeneralPurposeInputOutputPin::enInterrupt(bool enable) const {
 	if (getID() < numsof(GPIO_Request_list))
 		NVIC.setAble(GPIO_Request_list[getID()], enable);
 }
+
+#elif defined(_MPU_STM32MP13)
+void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) const {
+	GIC.setPriority(GPIO_Request_list[getID()], preempt);// preempt ?
+	(void)sub_priority;
+}
+void GeneralPurposeInputOutputPin::enInterrupt(bool enable) const {
+	if (getID() < numsof(GPIO_Request_list))
+		GIC.enInterrupt(GPIO_Request_list[getID()], enable);
+}
 #else
 void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) const { _TODO(void) preempt; (void)sub_priority; }
 void GeneralPurposeInputOutputPin::enInterrupt(bool enable) const { _TODO(void) enable; }

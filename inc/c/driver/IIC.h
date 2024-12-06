@@ -75,12 +75,12 @@ namespace uni {
 			SDA = true;
 		}
 
-		virtual void SendStart(void);
-		virtual void SendStop(void);
-		virtual bool WaitAcknowledge();
-		virtual void SendAcknowledge(bool ack = true);
-		virtual void Send(byte txt, bool auto_wait_ack = false);
-		virtual byte ReadByte(bool feedback = true, bool ack = true);
+		virtual void SendStart(void) override;
+		virtual void SendStop(void) override;
+		virtual bool WaitAcknowledge() override;
+		virtual void SendAcknowledge(bool ack = true) override;
+		virtual void Send(byte txt, bool auto_wait_ack = false) override;
+		virtual byte ReadByte(bool feedback = true, bool ack = true) override;
 	};
 
 	

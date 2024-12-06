@@ -93,6 +93,7 @@ extern "C++" {
 #define __FUNCIDEN__ __func__ // cannot auto-strcat
 #define _ALIGN(n) __attribute__((aligned(n)))
 #define _ASM __asm__
+#define _WEAK __attribute__((weak))
 
 #elif defined(__UVISION_VERSION)
 #define _DEV_KEIL

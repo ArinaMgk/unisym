@@ -64,12 +64,12 @@ namespace uni {
 			& MISO,
 			& CSEL;// Chip select
 
-		virtual byte Transceive(byte data);
+		virtual byte Transceive(byte data) override;
 	public:
 		SPI_SOFT(GPIO_Pin& SCLK, GPIO_Pin& MOSI, GPIO_Pin& MISO, GPIO_Pin& CSEL);
-		virtual byte Transceivex(stduint data, byte blen);
-		virtual void SendStart();
-		virtual void SendStop();
+		virtual byte Transceivex(stduint data, byte blen) override;
+		virtual void SendStart() override;
+		virtual void SendStop() override;
 	};
 	class SPI_HARD : public SPI_t {
 

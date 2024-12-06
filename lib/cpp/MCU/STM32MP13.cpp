@@ -26,6 +26,7 @@
 #include "../../../inc/cpp/MCU/ST/STM32MP13"
 
 // ONLY A Cortex A7 Chip in MP13 Series, till 2024 Nov.
+// MP131 MP133 MP135
 
 extern "C" void SystemInit(void);
 extern "C" void MP13_SystemInit(void);
@@ -42,6 +43,12 @@ void SystemInit(void) {
 namespace uni {
 
 
+}
+
+_ESYM_C _WEAK void SystemInit_Interrupts_SoftIRQn_Handler(uint32_t Software_Interrupt_Id, uint8_t cpu_id_request)
+{
+	((void)Software_Interrupt_Id);
+	((void)cpu_id_request);
 }
 
 // serve for libc_nano.a in bare-metal mode

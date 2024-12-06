@@ -81,9 +81,10 @@ static void printpref(loglevel_t level) {
 #endif
 }
 
-static void printsuff() {
+static void printsuff(loglevel_t level) {
 #if defined(_Linux) || 1
-	outs("\x1b[0m\n");
+	if (level != _LOG_STDOUT)
+		outs("\x1b[0m\n");
 #endif
 }
 
@@ -93,9 +94,9 @@ void printlogx(loglevel_t level, const char* fmt, para_list paras)
 	printpref(level);
 	asserv(_befo_logging) ((void*)level);
 	outsfmtlst(fmt, paras);
-	printsuff();
+	printsuff(level);
 #endif
-	if (level <= _LOG_WARN) // assume low level is more serious
+	if (level != _LOG_STDOUT) // assume low level is more serious
 		asserv(_call_serious)((void*)level);
 }
 

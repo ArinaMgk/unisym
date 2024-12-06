@@ -29,8 +29,95 @@
 namespace uni {
 	LTDC_t LTDC;
 
+	static Point cursor[2];
+
+	static stduint layer_baseaddr[2];//{dup}?
+	
+	static LTDC_LAYER_t layers[2] = { LTDC_LAYER_t(1), LTDC_LAYER_t(2) };
+
+	bool LTDC_LAYER_t::setMode(stduint baseaddr, Rectangle window) const {
+		return false; _TEMP;
+
+
+		// vcb.baseaddr = baseaddr;
+	}
+
+	Rectangle LTDC_LAYER_t::getWindow() const {
+		return _TEMP Rectangle(Point(0, 0), Size2(800, 480));
+	}
+	
+	VideoControlBlock LTDC_LAYER_t::getControlBlock() const {
+		return VideoControlBlock(nullptr, self);
+	}
+
+	void LTDC_LAYER_t::SetCursor(const Point& disp) const {
+		cursor[getID() - 1] = disp;
+	}
+	Point LTDC_LAYER_t::GetCursor() const {
+		return cursor[getID() - 1];
+	}
+	void LTDC_LAYER_t::DrawPoint(const Point& disp, Color color) const {
+		auto win = getWindow().getSize();
+		if (disp.x >= win.x || disp.y >= win.y) return;
+		Letvar(p, uint16*, _TEMP 0xC0000000);
+		p += disp.x + disp.y * win.x;
+		*(uint32_t*)p = (*(uint32_t*)p & 0xFFFF0000) | _TEMP color.ToRGB565();
+	}
+
+	//{TODO} Make in MemSet for ARM
+	// Draw filled rectangle
+	// RGB565 only
+	// use -O3 may better
+	void LTDC_LAYER_t::DrawRectangle(const Rectangle& rect) const {
+		// uint16 0,4,8 0b0000 0b0100 0b1000
+		// uint32 0,8,16 0b0000 0b1000 0b10000
+		// uint64 0,16,32 0b0000 0b10000 0b100000
+		// Better: Draw more Points simultaneously
+		// found: 20241203 write uint32 is more quickly
+		auto win = getWindow().getSize();
+		union {
+			uint32* p32; uint16* p16; uint64* p64;
+		};
+		p16 = (uint16*)(_TEMP 0xC0000000 & ~_IMM(0b11));
+		p16 += rect.x + rect.y * win.x;
+		stduint hei = 0;
+		if (rect.height) {
+			uint32 line_color = rect.color.ToRGB565();
+			uint32 times = rect.width;
+			if (_IMM(p16) & 0b111) {
+				*p16 = line_color;
+				times--;
+			}
+			line_color |= line_color << 16;
+			uint64 line_color64 = line_color | ((uint64)line_color << 32);
+			if (times & 0b111 & _IMM(p64)) do { // (times & 0b111) || (_IMM(p64) & 0b111)
+				for0(i, times >> 1)
+					* p32++ = line_color;
+				if (times & 1) *p16++ = line_color;
+				p16 += win.x - rect.width;
+				hei++;
+			} while (hei < rect.height);
+			else do {
+				stduint _TIME = times >> 2;
+				while (_TIME--) {
+					*p64++ = line_color64;
+				}
+				p16 += win.x - rect.width;
+				hei++;
+			} while (hei < rect.height);
+		}
+	}
+	Color LTDC_LAYER_t::GetColor(Point p) const { return Color(0); }
+
+
+	///
+
 	void LTDC_t::enClock(bool ena) {
 		RCC[ena ? RCCReg::MP_NS_APB4ENSETR : RCCReg::MP_NS_APB4ENCLRR] = 0x00000001;
+	}
+
+	LTDC_LAYER_t& LTDC_t::operator[](unsigned layer) const {
+		return layers[layer - 1];
 	}
 	
 	bool LTDC_t::setMode(Color color) {

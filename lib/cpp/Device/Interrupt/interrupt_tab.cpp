@@ -174,6 +174,59 @@ static void _HandlerIRQ_EXTIx(byte x) {
 	}
 }
 namespace uni { EXTI_t EXTI; }
+
+// What associated to GICv2 IP from ARM
+#define GIC_HIGHEST_INTERRUPT_VALUE 1020U
+#define GIC_HIGHEST_SGI_PPI_VALUE     31U
+#define GIC_HIGHEST_SGI_VALUE         15U
+
+// ID 1023. This value is returned to a processor, in response to an interrupt acknowledge, 
+// if there is no pending interrupt with sufficient priority for it to be signaled to the processor.
+#define GIC_ACKNOWLEDGE_RESPONSE 1023U
+
+
+// ---- Generic IRQ Handler (Software IRQs, PPIs & IRQs) ----
+#if defined ( __GNUC__ )
+#pragma GCC push_options
+#pragma GCC target("general-regs-only")
+_ESYM_C void __attribute__((interrupt("IRQ")))IRQ_Handler(void)
+#elif defined ( __ICCARM__ )
+__irq __arm void IRQ_Handler(void)
+#endif
+{
+	Request_t ItId;
+	Handler_t handler;
+	while (true) {
+		// Get highest pending Interrupt Id from GIC driver
+		ItId = IRQ_GetActiveIRQ();
+		if (ItId <= GIC_HIGHEST_INTERRUPT_VALUE) /* Highest value of GIC Valid Interrupt */
+		{
+			// Check validity of IRQ
+			if (ItId >= MAX_IRQ_n)
+				return;// erro rather SystemInit_IRQ_ErrorHandler();
+			else
+			{
+				handler = uni::GIC.getHandler(ItId);
+				asserv(handler)(); else return; // erro;
+			}
+			/* End Acknowledge interrupt */
+			IRQ_EndOfInterrupt((Request_t)ItId);
+		}
+		else {
+		  /* Normal case: whenever there is no more pending IRQ , IAR returns ACKNOWLEDGE special IRQ value */
+			if (ItId == GIC_ACKNOWLEDGE_RESPONSE)
+				break;
+			else { // Spurious IRQ Value (1022)  ...
+				return; //erro;
+			}
+		}
+	}
+}
+#ifdef __GNUC__
+#pragma GCC pop_options
+#endif
+
+
 #endif
 #include "Interrupt_timer.hpp"
 #include "Interrupt_adc.hpp"
@@ -186,6 +239,40 @@ namespace uni { EXTI_t EXTI; }
 #include "Interrupt_video.hpp"
 
 #if defined(_MPU_STM32MP13)
+
+bool EXTILine::isDirect() const {
+	static byte Reserved[] = { 20,34,35,41,49,51,54,61,62,63,64,65,66,67,73,74 };
+	if (isConfigurable()) return false;
+	for0a(i, Reserved) if (_IMM(Reserved[i]) == _IMM(this))
+		return false;
+	return true;
+}
+
 byte& EXTILine::refRegisterNumber() const { return EXTI_REGx[getChannel()]; }
+
 extichan& EXTI_t::operator[](const GeneralPurposeInputOutputPin& pin) const { return treat<extichan>_IMM(pin.getID()); }
+
+void EXTI_t::setConfig(byte line) const {
+	if (self[line].isConfigurable());
+	// set {EXTI_MODE_NONE EXTI_TRIGGER_NONE}
+	_TODO
+}
+
+void EXTI_t::setConfig(byte line, EXTIEdge edge, bool rupt_or_event, byte gport_id) const {
+	byte chan = self[line].getChannel();
+	byte regi = self[line].getRegroup();
+	EXTI_REGx[chan] = regi;
+	if (self[line].isConfigurable()) {
+		TriggerRising(regi).setof(chan, (edge == EXTIEdge::Posedge || edge == EXTIEdge::Anyedge));
+		TriggerFalling(regi).setof(chan, (edge == EXTIEdge::Negedge || edge == EXTIEdge::Anyedge));
+		if (self[line].isGPIO()) {
+			uint32* exti_ctrl = (uint32*)&self[EXTIReg::EXTICR];
+			exti_ctrl += (chan & 0xF) >> 2;// 4 pins for each register
+			Reference(exti_ctrl).maset((chan & 0b11) * 4, 4, gport_id);
+		}
+	}
+	MaskRegister(regi, true).setof(chan, rupt_or_event);// Interrupt
+	MaskRegister(regi, false).setof(chan, !rupt_or_event);// Event
+}
+
 #endif

@@ -285,7 +285,7 @@ static inline int StrCompare(const char* a, const char* b)
 #define StrCompare strcmp ///{TODO}
 #endif
 
-///{TODO} 2 Ver
+// aka stricmp
 static inline int StrCompareInsensitive(const char* a, const char* b)// RFC12
 {
 	int tmp = 0;

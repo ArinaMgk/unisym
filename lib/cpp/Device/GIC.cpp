@@ -27,6 +27,7 @@
 //{TEMP}
 extern "C" {
 	void TMP_GIC_Enable(void);
+	extern Handler_t IRQ_Vector_Table[MAX_IRQ_n];
 }
 
 namespace uni {
@@ -34,7 +35,6 @@ namespace uni {
 
 	stduint GIC_t::IRQ_ID0;
 	bool GIC_t::enable;
-	Handler_t GIC_t::IRQTable[IRQ_GIC_LINE_COUNT];
 
 	
 	void GIC_t::enAble(bool ena) const {
@@ -45,13 +45,13 @@ namespace uni {
 
 	void GIC_t::setHandler(Request_t id, Handler_t handler) const {
 		if (id < 0 || id >= IRQ_GIC_LINE_COUNT) return;
-		IRQTable[id] = handler;
+		IRQ_Vector_Table[id] = handler;
 	}
 
 	Handler_t GIC_t::getHandler(Request_t id) const {
 		stduint irq = _IMM(id) & 0x3FF;
 		if (irq >= IRQ_GIC_LINE_COUNT) return nullptr;
-		return IRQTable[irq];
+		return IRQ_Vector_Table[irq];
 	}
 
 	// AKA GIC_EnableIRQ + GIC_DisableIRQ

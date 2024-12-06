@@ -47,14 +47,18 @@
 //   int printf(const char* restrict format, ...);
 #define printf outsfmt
 //{} int scanf(const char* restrict format, ...);
-//{} int snprintf(char* restrict s, size_t n, const char* restrict format, ...);
 //{} int sprintf(char* restrict s, const char* restrict format, ...);
 //{} int sscanf(const char* restrict s, const char* restrict format, ...);
 //{} int vfprintf(FILE* restrict stream, const char* restrict format, va_list arg);
 //{} int vfscanf(FILE* restrict stream, const char* restrict format, va_list arg);
 //{} int vprintf(const char* restrict format, va_list arg);
 //{} int vscanf(const char* restrict format, va_list arg);
+
+
+//{} int snprintf(char* restrict s, size_t n, const char* restrict format, ...);
 //{} int vsnprintf(char* restrict s, size_t n, const char* restrict format, va_list arg);
+
+
 //{} int vsprintf(char* restrict s, const char* restrict format, va_list arg);
 //{} int vsscanf(const char* restrict s, const char* restrict format, va_list arg);
 

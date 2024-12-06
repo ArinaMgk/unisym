@@ -1,8 +1,8 @@
-Last-Commit: 20241125：「 
+Last-Commit: 20241129：「 
 + (till 1227) mistake lunar winter for U2024WTR, this will release same label on solar winter (same day with anni-11). This is a pre-U2024WTR.
 」
 This-Commit: 「
-+ 
++ UART for Win&Lin
 」
 ---
 

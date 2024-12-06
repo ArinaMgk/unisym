@@ -39,7 +39,6 @@ bool treat_warn_as_erro = false;
 bool enable_warning = true;
 bool endian_little = true;
 bool using_debug_info = false;
-bool want_usage = false;
 
 #define FILENAME_MAX 260
 char inname[FILENAME_MAX];

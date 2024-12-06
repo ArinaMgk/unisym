@@ -55,7 +55,7 @@ namespace uni {
 		// class-constructor
 		String(const String& str);
 		// give the [buffer_siz ? buffer : heap-in] string an alias
-		String(char* str, stduint buffer_siz = nil);
+		String(char* str, stduint buffer_siz);
 		// define a heap string with a fixed length
 		String(stduint buflen);
 		~String();

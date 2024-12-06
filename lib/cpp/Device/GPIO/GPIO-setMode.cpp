@@ -91,6 +91,8 @@ namespace uni {
 		EXTI::TriggerRising.setof(getID(), edg != GPIORupt::Negedge);
 		EXTI::TriggerFalling.setof(getID(), edg != GPIORupt::Posedge);
 		EXTI::MaskInterrupt.setof(getID()); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
+	#elif defined(_MPU_STM32MP13)
+		EXTI.setConfig(getID(), edg, true, getParent().getID());
 	#endif
 		return self;
 	}

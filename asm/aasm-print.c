@@ -69,7 +69,16 @@ void usage(void) { fputs("type `aasm -h' for help\n", error_file); }
 
 
 int drop();
-extern bool want_usage;
+bool want_usage = false;
+
+// Single Processor Logging
+// BOOL:
+int log_pass1;
+int log_pass2;
+int log_usage;
+int log_0file;
+int log_0severity;
+enum warn_t log_warnt;
 
 int* handlog(void* _serious, ...)
 {
@@ -96,4 +105,40 @@ int* handlog(void* _serious, ...)
 	return NULL;
 }
 
+void aasm_log(loglevel_t level, const char* fmt, ...) {
+	Letpara(paras, fmt);
+	{
+		Letpara(ap, fmt);
+		char* currentfile = NULL;
+		int32_t lineno = 0;
 
+		if (is_suppressed_warning(severity))
+			return;
+
+		if (!log_0file)
+			src_get(&lineno, &currentfile);
+
+		if (currentfile) {
+			fprintf(error_file, "%s:%"PRId32": ", currentfile, lineno);
+			memf(currentfile);
+		}
+		else {
+			fputs("nasm: ", error_file);
+		}
+
+	}
+	{
+
+		char msg[1024];
+		const char* pfx;
+		loglevel_t lev;
+
+		printlogx(lev, fmt, args);
+		snprintf(msg, sizeof msg, "%s", fmt);
+		if (*listname)
+			nasmlist.error(severity, *_tab_pref[_IMM(lev)], msg);
+	}
+
+
+	printlogx(level, fmt, paras);
+}

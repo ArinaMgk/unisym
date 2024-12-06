@@ -116,7 +116,6 @@ namespace uni {
 	
 	class GIC_t {
 		static bool enable;
-		static Handler_t IRQTable[IRQ_GIC_LINE_COUNT];//{?} DUPLICATED?
 	
 
 	public:
@@ -130,7 +129,7 @@ namespace uni {
 		inline Reference operator[](GICInterface trt) const { return _GIC_ADDR + 0x1000 + _IMMx4(trt); }
 
 		void canMode() const {
-			for0a(i, IRQTable) IRQTable[i] = nullptr;
+			// for0a(i, IRQTable) IRQTable[i] = nullptr;
 		}
 		void enAble(bool ena = true) const;
 		void setHandler(Request_t id, Handler_t handler) const;

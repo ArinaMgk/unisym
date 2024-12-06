@@ -81,6 +81,7 @@ extern _tocall_ft _call_serious;// if error, panic or fatal
 extern _tocall_ft _befo_logging;// after prefix, before context
 
 void printlogx(loglevel_t level, const char* fmt, para_list paras);
+typedef void (*_printlog_t)(loglevel_t level, const char* fmt, ...);
 void printlog(loglevel_t level, const char* fmt, ...);
 #define printlnf(a, ...) printlog(_LOG_STDOUT, a, ##__VA_ARGS__)
 

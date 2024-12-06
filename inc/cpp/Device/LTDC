@@ -104,11 +104,28 @@ namespace uni {
 		FPF0R,        // Flexible Pixel Format 0  : 0x74
 		FPF1R,        // Flexible Pixel Format 1  : 0x78
 	};// L1 (or L2) from offset 0x100 (or 0x200) from LTDC
-
-	class LTDC_LAYER_t {
+	
+	// MP13 have no DMA2D
+	// 20241201: Trait must be an entity, not a virtual class. use `override` may make some avoid errors
+	class LTDC_LAYER_t : public VideoControlInterface {
+	protected:
+		byte id;
 	public:
+		LTDC_LAYER_t(byte id) : id(id) {}
 		stduint getID() const { return _IMM(this) == 2 ? 0x2 : 0x1; }
 		Reference operator[](LTDCReg trt) const { return 0x5A001000 + getID() * 0x100 + _IMMx4(trt); }
+
+		bool setMode(stduint baseaddr, Rectangle window) const;
+		Rectangle getWindow() const;
+		VideoControlBlock getControlBlock() const;
+		// VideoControlInterface
+		virtual void SetCursor(const Point& disp) const;
+		virtual Point GetCursor() const;
+		virtual void DrawPoint(const Point& disp, Color color) const override;
+		virtual void DrawRectangle(const Rectangle& rect) const override;
+		virtual Color GetColor(Point p) const;
+		//:VideoControlInterface Impl by USER
+		virtual void DrawFont(const Point& disp, const DisplayFont& font) const;
 	};// Layer 0x00000001 and 0x00000002
 	class LTDC_t {
 	private:
@@ -121,7 +138,7 @@ namespace uni {
 		// ---- BASIC PROPERTIES ----
 		void enClock(bool ena = true);
 		Reference operator[](LTDCReg trt) const { return 0x5A001000 + _IMMx4(trt); }
-		LTDC_LAYER_t& operator[](unsigned layer) { return *(LTDC_LAYER_t*)(layer == 2 ? 0x2 : 0x1); }
+		LTDC_LAYER_t& operator[](unsigned layer) const;
 		// AKA __HAL_LTDC_ENABLE / DISABLE
 		void enAble(bool ena = true);
 		// ----

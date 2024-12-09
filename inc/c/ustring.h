@@ -298,7 +298,7 @@ static inline int StrCompareInsensitive(const char* a, const char* b)// RFC12
 #ifdef _INC_USTRING_INLINE
 static inline int StrCompareN(const char* a, const char* b, size_t n)
 {
-	int tmp;
+	int tmp = 0;
 	while (n && !(tmp = (*a - *b)) && *a++ && *b++)
 		n--;
 	return tmp;

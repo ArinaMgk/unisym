@@ -140,6 +140,7 @@ long long int llabs(long long int j);
 stduint intFibonacci(stduint idx);
 
 // Floor method
+// 0->0 1->0 2->1 3->1 4->2 5->2 ...
 inline static stduint intlog2_iexpo(stduint v) {
 	stduint crt = 0;
 	if (!v) return 0;
@@ -150,6 +151,14 @@ inline static stduint intlog2_iexpo(stduint v) {
 inline static stduint intpow2_iexpo(stduint expo)
 {
 	return _IMM1 << expo;
+}
+
+// Ceiling method
+// 0->0 1->1 2->1 3->2 4->2 5->3 ...
+inline static stduint intlog2__iexpo(stduint v) {
+	stduint floor = intlog2_iexpo(v);
+	stduint cmpr = intpow2_iexpo(floor);
+	return (cmpr == v) ? floor : floor + 1;
 }
 
 double dblexp(double expo);

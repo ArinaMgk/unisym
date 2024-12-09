@@ -36,10 +36,57 @@ namespace uni {
 	stduint GIC_t::IRQ_ID0;
 	bool GIC_t::enable;
 
-	
+	// Initialize the interrupt distributor.
+	static inline void GIC_DistInit(void)
+	{
+		uint32_t i;
+		uint32_t num_irq = 0U;
+		uint32_t priority_field;
+		// A reset sets all bits in the IGROUPRs corresponding to the SPIs to 0, configuring all of the interrupts as Secure.
+		GIC.enDistributor(false);
+		num_irq = 32U * ((GIC.getDistributorInfo() & 0x1FU) + 1U);
+		// Priority level is implementation defined. To determine the number of priority bits implemented write 0xFF to an IPRIORITYR priority field and read back the value stored.
+		GIC.setPriority((Request_t)0U, 0xFFU);
+		priority_field = GIC.getPriority((Request_t)0U);
+		for (i = 32U; i < num_irq; i++)
+		{
+			//Disable the SPI interrupt
+			GIC.enInterrupt((Request_t)i, false);
+			//Set level-sensitive (and N-N model)
+			GIC.setConfig((Request_t)i, 0U);
+			GIC.setPriority((Request_t)i, priority_field / 2U);
+			GIC.setTarget((Request_t)i, 1U);// for CPU0
+		}
+		GIC.enDistributor(true);
+	}
+
+	// Initialize the CPU's interrupt interface
+	static inline void GIC_CPUInterfaceInit(void)
+	{
+		uint32_t i;
+		uint32_t priority_field;
+		GIC.enInterface(false);
+		GIC.setPriority((Request_t)0U, 0xFFU);
+		priority_field = GIC.getPriority((Request_t)0U);
+		for (i = 0U; i < 32U; i++)// SGI and PPI
+		{
+			if (i > 15U) {
+				GIC.setConfig((Request_t)i, 0U);// Set level-sensitive (and N-N model) for PPI
+			}
+			GIC.enInterrupt((Request_t)i, false);
+			GIC.setPriority((Request_t)i, priority_field / 2U);
+		}
+		GIC.enInterface(true);
+		GIC.setBinaryPoint(0U);
+		GIC.setInterfacePriorityMask(0xFFU);
+	}
+
+	// Init
 	void GIC_t::enAble(bool ena) const {
 		if (ena) {
-			TMP_GIC_Enable();
+			// defined(DOXYGEN) ?
+			GIC_DistInit();
+			GIC_CPUInterfaceInit(); //per CPU
 		}
 	}
 
@@ -104,6 +151,12 @@ namespace uni {
 		return Reference(addr).masof(shift, 8);
 	}
 
+	uint32 GIC_t::getGroup(Request_t IRQn) const {
+		uint32* addr = (uint32*)_IMM(&self[GICDistributor::IGROUPR]);
+		addr += _IMM(IRQn) / 32U;
+		uint32 shift = (IRQn % 32U);
+		return Reference(addr).masof(shift, 1);
+	}
 	void GIC_t::setGroup(Request_t IRQn, uint32 group) const {
 		uint32* addr = (uint32*)_IMM(&self[GICDistributor::IGROUPR]);
 		addr += _IMM(IRQn) / 32U;
@@ -122,6 +175,10 @@ namespace uni {
 		addr += _IMM(IRQn) / 4U;
 		uint32 shift = (IRQn % 4U) * 8U;
 		return Reference(addr).masof(shift, 8);
+	}
+
+	void GIC_t::SendSGI(Request_t IRQn, uint32 target_list, uint32 filter_list) const {
+		GIC[GICDistributor::SGIR] = ((filter_list & 3U) << 24U) | ((target_list & 0xFFUL) << 16U) | (_IMM(IRQn) & 0x0FUL);
 	}
 
 	// ---- ---- ---- ---- ---- ---- ---- ----
@@ -175,6 +232,8 @@ namespace uni {
 		}
 		return pend;
 	}
+
+
 
 }
 

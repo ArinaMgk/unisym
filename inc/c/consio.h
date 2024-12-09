@@ -27,10 +27,6 @@
 #include "stdinc.h"
 #include <stdarg.h>
 
-#ifdef _INC_CPP
-extern "C" {
-#endif
-
 enum _STD_SRC_t {
 	_STD_INN = 0,
 	_STD_OUT = 1,
@@ -104,6 +100,10 @@ enum CON_BACKCOLOR {
 #endif
 };
 
+#ifdef _INC_CPP
+extern "C" {
+#endif
+
 
 void curset(word posi);
 word curget(void);
@@ -112,11 +112,9 @@ void outtxt(const char *str, dword len);
 #define outs(a) outtxt(a, ~(dword)0)
 void outc(const char chr);
 
-void outi8hex(const byte inp);
-void outi16hex(const word inp);
-void outi32hex(const dword inp);
-void outi64hex(const uint64 inp);
+// [DEPRECATED]
 void outidec(int xx, int base, int sign);
+
 void outi(stdint val, int base, int sign_show);
 void outu(stduint val, int base);
 int  outsfmtlst(const char* fmt, para_list lst);
@@ -195,5 +193,14 @@ void ConStyleNormal(void);
 
 #ifdef _INC_CPP
 }
+
+namespace uni {
+	class Console_t {
+	public:
+		//:{OPT} C# Style WriteLine();
+	};
+	extern Console_t Console;
+}
+
 #endif
 #endif

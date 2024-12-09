@@ -143,7 +143,37 @@ namespace uni {
 		
 	};// address from EXTI0 : 0x00000000 to EXTI
 
+
+	enum class EXTICore {
+		C1
+	};
+	enum class EXTICoreReg {
+		// Mask Register
+		IMR1 = 0x00,
+		EMR1 = 0x04,
+		IMR2 = 0x10,
+		EMR2 = 0x14,
+		IMR3 = 0x20,
+		EMR3 = 0x24
+	};// AKA EXTI_Core_TypeDef
+	class EXTICore_t {
+	public:
+		inline Reference operator[](EXTICoreReg trt) const {
+			return (_EXTI_ADDR + 0x0080) + _IMM(trt);
+		};
+		inline void canMode() const {
+			self[EXTICoreReg::IMR1] = 0;
+			self[EXTICoreReg::IMR2] = 0;
+			self[EXTICoreReg::IMR3] = 0;
+			self[EXTICoreReg::EMR1] = 0;
+			self[EXTICoreReg::EMR2] = 0;
+			self[EXTICoreReg::EMR3] = 0;
+		}
+	};
+	
 	class GeneralPurposeInputOutputPin;
+
+
 	class EXTI_t {
 	protected:
 		// AKA HAL_EXTI_SetConfigLine
@@ -155,6 +185,7 @@ namespace uni {
 
 		inline Reference operator[](EXTIReg trt) const { return _EXTI_ADDR + _IMM(trt); }
 
+		const EXTICore_t& operator[](EXTICore trt) const { return treat<EXTICore_t>_IMM(trt); }
 		extichan& operator[](byte pinid) const { return treat<extichan>_IMM(pinid); }
 		extichan& operator[](const GeneralPurposeInputOutputPin& pin) const;
 		inline Reference TriggerRising(byte REGx) const { return _EXTI_ADDR + _IMM(EXTIReg::RTSR1) + _IMM(REGx - 1) * 0x20; }

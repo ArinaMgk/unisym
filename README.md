@@ -10,7 +10,10 @@ also known as ゆにッシンボル, or as 統象庫,
 a lossless abstract system of programming and engineering,
 including not only implementation, library, tool-kits, chroming engine and demonstrations.
 
-![example](https://img.shields.io/badge/release-U2024WINTER-aliceblue.svg) ![example](https://img.shields.io/badge/supervisor-dosconio-violet.svg)
+![example](https://img.shields.io/badge/release-U2024WINTER-aliceblue.svg)
+![example](https://img.shields.io/badge/supervisor-dosconio-violet.svg)
+<!--till 2024Dec21-->![example](https://img.shields.io/badge/generation-2:Public-pink.svg)
+<!--dynlib since 2024Dec21--> ![example](https://img.shields.io/badge/libversion-0.1-green.svg) 
 
 > [!IMPORTANT]
 > The repository is open-sourced under of *Apache License 2.0*. If you copy the code and used for the public or commercial, please stipulate your <u>copying from *UNISYM* led by *ArinaMgk*</u>. 
@@ -52,8 +55,10 @@ ConPrint Hello_String; Assembly Macro
 | DOC `doc/` | / | documents, aka `HEREPC` |
 | INC `inc/` | / | including files |
 | LIB `lib/` | / | implementation source code (including Witch **rendering** engine) |
-| MGK `magic/` | sources => sources + list + depend + target | constructor(wizard), compiler, analyzer, translator, linker, synthesizer and modifier |
+| MGK `magic/` | sources => sources + list + depend + target | compiler, analyzer, translator, linker, synthesizer and modifier |
 | WEL `wel/` |  | Si/E-mulator |
+
+- Constructor (Wizard) now combined into Rosemana.
 
 **Environment Variable**
 
@@ -79,8 +84,6 @@ Would better to set these environment variables, if using or building UNISYM:
 To reduce the size of basic header, you can remove some support like STM32Fx.
 
 ---
-
-![example](https://img.shields.io/badge/generation-2:Public-pink.svg)
 
 <!-- Contributors -->
 

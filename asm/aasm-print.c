@@ -1,8 +1,11 @@
+#include "tmp.h"
+
 #include <stdinc.h>
 #include <ustdbool.h>
 #include <../../demo/template/version/version.h>
 #include <time.h>
 #include <stdio.h>
+
 
 static time_t temp_time;
 time_t startup_time;
@@ -69,7 +72,7 @@ void usage(void) { fputs("type `aasm -h' for help\n", error_file); }
 
 
 int drop();
-bool want_usage = false;
+int want_usage = false;
 
 // Single Processor Logging
 // BOOL:
@@ -102,7 +105,17 @@ int* handlog(void* _serious, ...)
 		fflush(NULL);
 		exit(3); // exit(drop());
 	}
+	log_pass1 = 0, log_pass2 = 0, log_0file = 0, log_0severity = 0, log_warnt = ERR_WARN_NONE;//--auto clean flag
 	return NULL;
+}
+
+extern char listname[];
+
+extern bool warning_on[ERR_WARN_MAX + 1];
+static bool is_suppressed_warning(loglevel_t severity)
+{
+	return severity == _LOG_WARN &&
+		((log_warnt && !warning_on[log_warnt]) || (log_pass1 && pass0 != 1) || (log_pass2 && pass0 != 2));
 }
 
 void aasm_log(loglevel_t level, const char* fmt, ...) {
@@ -112,7 +125,7 @@ void aasm_log(loglevel_t level, const char* fmt, ...) {
 		char* currentfile = NULL;
 		int32_t lineno = 0;
 
-		if (is_suppressed_warning(severity))
+		if (is_suppressed_warning(level))
 			return;
 
 		if (!log_0file)
@@ -130,13 +143,10 @@ void aasm_log(loglevel_t level, const char* fmt, ...) {
 	{
 
 		char msg[1024];
-		const char* pfx;
-		loglevel_t lev;
 
-		printlogx(lev, fmt, args);
 		snprintf(msg, sizeof msg, "%s", fmt);
 		if (*listname)
-			nasmlist.error(severity, *_tab_pref[_IMM(lev)], msg);
+			nasmlist.error(level, *_tab_pref[_IMM(level)], msg);
 	}
 
 

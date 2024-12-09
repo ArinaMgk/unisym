@@ -21,6 +21,8 @@
 */
 
 #include "../../../inc/cpp/Device/TIM"
+#include "../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
+
 
 namespace uni {
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
@@ -311,6 +313,16 @@ namespace uni {
 		return (double)(t[_tab_timregs_ccr[CHAN_ID - 1]]) / (1. + t[ARR]);
 	}
 
+#elif defined(_MPU_STM32MP13)
+	
+	static const uint32 _REFADDR_TIM[] = { nil,
+		APB2_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x1000, APB1_PERIPH_BASE + 0x2000, // T 1 -> 4
+		APB1_PERIPH_BASE + 0x3000, APB1_PERIPH_BASE + 0x4000, APB1_PERIPH_BASE + 0x5000, APB2_PERIPH_BASE + 0x1000, // T 5 -> 8
+		nil,                       nil,                       nil,                       APB6_PERIPH_BASE + 0x7000, // T 9 -> 12
+		APB6_PERIPH_BASE + 0x8000, APB6_PERIPH_BASE + 0x9000, APB6_PERIPH_BASE + 0xA000, APB6_PERIPH_BASE + 0xB000, // T 13 -> 16
+		APB6_PERIPH_BASE + 0xC000 // T 17
+	};
+	
 #endif
 }
 

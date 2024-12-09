@@ -81,11 +81,6 @@ extern "C" {
 	
 	void RESERVED_IRQHandler(void) {}
 	//
-	void HypervisorTimer_IRQHandler(void) {}
-	void VirtualTimer_IRQHandler(void) {}
-	void SecurePhysicalTimer_IRQHandler(void) { SecurePhysicalTimer_hand(); }// TICK ?
-	void NonSecurePhysicalTimer_IRQHandler(void) {}
-	//
 	void RTC_TIMESTAMP_IRQHandler(void) {}
 	void RTC_WKUP_ALARM_IRQHandler(void) {}
 	void RTC_WKUP_ALARM_S_IRQHandler(void) {}

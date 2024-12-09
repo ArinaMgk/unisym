@@ -1,0 +1,90 @@
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Cache
+// Codifiers: @dosconio: 20241208 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Device_CACHE
+#define _INCPP_Device_CACHE
+#include "../../c/stdinc.h"
+namespace uni {
+
+#ifdef _MPU_STM32MP13
+	
+	class Cache_t {
+	public:
+		// AKA L1C_EnableCaches
+		void enAble(bool ena = true) const;
+
+		// AKA L1C_EnableBTAC
+		void enBTAC(bool ena = true) const;
+
+		// AKA L1C_InvalidateBTAC
+		// Invalidate entire branch predictor array
+		void InvalidateBTAC() const;
+
+		// AKA L1C_InvalidateICacheAll DCacheAll
+		// Invalidate the whole instruction / data cache
+		void InvalidateICacheAll(void) const;
+		void InvalidateDCacheAll(void) const;
+
+		// AKA L1C_CleanDCacheMVA
+		// Clean the data cache for a given address
+		void CleanDCacheMVA(pureptr_t va) const;
+
+		// AKA L1C_InvalidateDCacheMVA
+		// Invalidate the data cache for a given address
+		void InvalidateDCacheMVA(pureptr_t va) const;
+
+		// AKA L1C_CleanInvalidateDCacheMVA
+		// Clean and invalidate the data cache for a given address
+		void CleanInvalidateDCacheMVA(pureptr_t va) const;
+
+		// AKA L1C_CleanInvalidateCache
+		// Clean and Invalidate the entire data or unified cache
+		// Generic mechanism for cleaning/invalidating the entire data or unified cache to the point of coherency
+		// op: 0 - invalidate, 1 - clean, otherwise - invalidate and clean
+		void CleanInvalidateCache(uint32 op) const;
+
+		// AKA L1C_CleanDCacheAll
+		// Clean the whole data cache.
+		inline void CleanDCacheAll(void) const {
+			CleanInvalidateCache(1);
+		}
+
+		// AKA L1C_CleanInvalidateDCacheAll
+		// Clean and invalidate the whole data cache.
+		inline void CleanInvalidateDCacheAll(void) const {
+			CleanInvalidateCache(2);
+		}
+
+
+	};
+	typedef Cache_t L1C_t;// Level 1 Cache
+	extern Cache_t L1C;
+
+	class L2C_t {
+	public:
+	};
+
+#endif
+}
+
+
+#endif

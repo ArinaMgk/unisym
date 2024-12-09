@@ -59,11 +59,10 @@ namespace uni {
 }
 #elif defined(_MPU_STM32MP13)
 
+#include "../../../inc/c/proctrl/ARM/cortex_a7.h"
 stduint SysTickHz = 1000;
 
-//{TEMP} GCC only
-#define __get_CP64(cp, op1, Rt, CRm)         _ASM volatile("MRRC p" # cp ", " # op1 ", %Q0, %R0, c" # CRm  : "=r" (Rt) : : "memory" )
-#define __set_CP(cp, op1, Rt, CRn, CRm, op2) _ASM volatile("MCR p" # cp ", " # op1 ", %0, c" # CRn ", c" # CRm ", " # op2 : : "r" (Rt) : "memory" )
+
 extern stduint HSE_VALUE, HSI_VALUE;
 namespace uni {
 	bool SysTick::enClock(uint32 _Hz) {//aka HAL_InitTick
@@ -81,12 +80,12 @@ namespace uni {
 			// PL1_SetCounterFrequency(HSI_VALUE);// Set Counter Frequency {__set_CNTFRQ(HSI_VALUE);+__ISB}
 			{
 				__set_CP(15, 0, HSI_VALUE, 14, 0, 0);
-				_ASM volatile ("isb 0xF":::"memory");
+				__ISB();
 			}
 			// PL1_SetLoadValue(0x1U);// Initialize Counter {__set_CNTP_TVAL(0x1U);+__ISB}
 			{
 				__set_CP(15, 0, 0x1U, 14, 2, 0);
-				_ASM volatile ("isb 0xF":::"memory");
+				__ISB();
 			}
 		}
 		return true;
@@ -111,7 +110,7 @@ extern "C" {
 volatile stduint delay_count = 0;
 void SysTick_Handler(void) {
 	//{TODO} Callback and more options
-	delay_count&& delay_count--;
+	asserv(delay_count)--;
 }
 void SysDelay(stduint unit) {
 #if defined(_MPU_STM32MP13)
@@ -125,3 +124,21 @@ void SysDelay(stduint unit) {
 #endif
 }
 
+#if defined(_MPU_STM32MP13)
+void SecurePhysicalTimer_IRQHandler(void) {
+	uni::GIC[IRQ_SecurePhyTimer].setPending(false);
+	/*
+		_ASM volatile(	"MRC p15, 0, r3, c14, c2, 0" "\n"
+						"ADD r3, r3, #47872"         "\n"
+						"ADD r3, r3, #128"           "\n"
+						"MCR p15, 0, r3, c14, c2, 0":::"r3");
+			Measured error with (-O0) is 6 CLK/tick = 6/48000 = 0.01 % = 0.1ms/s (34 CLK/tick ... 0.7ms/s for C)
+			Measured error with (-O2) is 6 CLK/tick = 6/48000 = 0.01 % = 0.1ms/s
+	*/
+	PL1_SetLoadValue((HSI_VALUE / 1000U) +
+		PL1_GetCurrentValue()// compensates. decrements below 0 after IRQ trigger, negative time since triggered
+	);
+	SysTick_Handler();// HAL_IncTick
+}// TICK
+void NonSecurePhysicalTimer_IRQHandler(void) {}
+#endif

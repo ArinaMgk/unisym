@@ -20,6 +20,9 @@
 */
 // end in aasm.c
 #define _CRT_SECURE_NO_WARNINGS
+
+#include "tmp.h"
+
 #define _INC_DNODE//{}
 #include <stdinc.h>
 //{} #include <ustdbool.h>
@@ -29,7 +32,7 @@
 #include <strpage.h>
 #include <strbuff.h>
 #include "aasm.h"
-#include "tmp.h"
+
 
 extern time_t startup_time;
 

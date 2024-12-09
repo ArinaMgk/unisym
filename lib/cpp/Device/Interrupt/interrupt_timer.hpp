@@ -135,3 +135,8 @@ static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {
 	//{TODO}
 #endif
 }
+
+#if defined(_MPU_STM32MP13)
+void HypervisorTimer_IRQHandler(void) {}
+void VirtualTimer_IRQHandler(void) {}
+#endif

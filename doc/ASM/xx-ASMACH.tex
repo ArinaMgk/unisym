@@ -34,11 +34,23 @@ Instruction is also known as {Machine Instruction}.
 
 \section{Difference}
 
-\subsubsection{with Netwide ASM} (version 2.07)
+\begin{itemize}
+\item Netwide ASM (version 2.07)
+\item Microsoft Macro ASM (6.15)
+\item GNU-AS
+\end{itemize}
+
+AASM / NASM specifies that all labels are addresses but accessing, which is different from that of C, whose array labels indicate objects but addresses.
+For some assemblers, there are for a same value:
+
+\verb|[A+B+1]|; \verb|[A+OFFSET(B)+1]|; \verb|1[A][B]|.
+
+And there are for another value:
+
+\verb|A|; \verb|[A]|; \verb|[OFFSET A]|.
+
+\refer{Magice} uses AASM, which is a middle language, supporting automatically inline cross-platform AASM. If native assembly statements are used, the program will be degraded and deprived cross-platform property.
 
 
-\subsubsection{with Microsoft Macro ASM}
 
-
-\subsubsection{with GNU-AS}
 

@@ -1,0 +1,84 @@
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Boot and Security and OTP Control
+// Codifiers: @dosconio: 20241215
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Device_BSEC
+#define _INCPP_Device_BSEC
+#include "../../c/stdinc.h"
+#include "../../cpp/reference"
+namespace uni {
+#ifdef _MPU_STM32MP13
+
+	enum class BSECReg {
+		BSEC_OTP_CONFIG = 0x00 / 4,// BSEC OTP Configuration
+		BSEC_OTP_CONTROL = 0x04 / 4,// BSEC OTP Control
+		BSEC_OTP_WRDATA = 0x08 / 4,// BSEC OTP Write Data
+		BSEC_OTP_STATUS = 0x0C / 4,// BSEC OTP Status
+		BSEC_OTP_LOCK = 0x10 / 4,// BSEC OTP Configuration
+		BSEC_DENABLE = 0x14 / 4,// BSEC Debug Configuration
+		//
+		BSEC_OTP_DISTURBED0 = 0x1C / 4,// BSEC OTP Disturbed Status
+		BSEC_OTP_DISTURBED1 = 0x20 / 4,// BSEC OTP Disturbed Status
+		BSEC_OTP_DISTURBED2 = 0x24 / 4,// BSEC OTP Disturbed Status
+		//
+		BSEC_OTP_ERROR0 = 0x34 / 4,// BSEC OTP Error Status
+		BSEC_OTP_ERROR1 = 0x38 / 4,// BSEC OTP Error Status
+		BSEC_OTP_ERROR2 = 0x3C / 4,// BSEC OTP Error Status
+		//
+		BSEC_OTP_WRLOCK0 = 0x4C / 4,// BSEC OTP Lock status
+		BSEC_OTP_WRLOCK1 = 0x50 / 4,// BSEC OTP Lock status
+		BSEC_OTP_WRLOCK2 = 0x54 / 4,// BSEC OTP Lock status
+		//
+		BSEC_OTP_SPLOCK0 = 0x64 / 4,// BSEC OTP prg lock under ctrl by stick bits
+		BSEC_OTP_SPLOCK1 = 0x68 / 4,// BSEC OTP prg lock under ctrl by stick bits
+		BSEC_OTP_SPLOCK2 = 0x6C / 4,// BSEC OTP prg lock under ctrl by stick bits
+		//
+		BSEC_OTP_SWLOCK0 = 0x7C / 4,// BSEC OTP Shadow Write Lck under ctrl by sticky bits
+		BSEC_OTP_SWLOCK1 = 0x80 / 4,// BSEC OTP Shadow Write Lck under ctrl by sticky bits
+		BSEC_OTP_SWLOCK2 = 0x84 / 4,// BSEC OTP Shadow Write Lck under ctrl by sticky bits
+		//
+		BSEC_OTP_SRLOCK0 = 0x94 / 4,// BSEC OTP Shadow read lock under ctrl by sticky bits
+		BSEC_OTP_SRLOCK1 = 0x98 / 4,// BSEC OTP Shadow read lock under ctrl by sticky bits
+		BSEC_OTP_SRLOCK2 = 0x9C / 4,// BSEC OTP Shadow read lock under ctrl by sticky bits
+		//
+		BSEC_JTAGIN = 0xAC / 4,// BSEC JTAG Input
+		BSEC_JTAGOUT = 0xB0 / 4,// BSEC JTAG Output
+		BSEC_SCRATCH = 0xB4 / 4,// BSEC SCRATCH
+		//
+		BSEC_OTP_DATA = 0x200 / 4,//[u32, 96] BSEC Shadow Registers
+		//
+		HWCFGR = 0xFF0 / 4, VERR, IPIDR, SIDR
+	};
+	
+	// 
+	class BSEC_t {
+	public:
+		Reference operator[](BSECReg idx) const;
+
+	};
+	extern BSEC_t BSEC;
+
+
+#endif
+}
+
+
+#endif

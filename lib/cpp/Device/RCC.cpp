@@ -234,6 +234,11 @@ namespace uni {
 		while (!RCC[MLAHBDIVR].bitof(31)); // MLAHB DIV RD
 	}
 
+	void RCC_t::enSyscfg(bool ena) const {
+		using namespace RCCReg;
+		RCC[ena ? MP_NS_APB3ENSETR : MP_NS_APB3ENCLRR] = _IMM1S(0);
+	}
+
 #endif
 
 	#include "../../../inc/c/driver/RCC/RCC-setClock.hpp"

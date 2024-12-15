@@ -23,6 +23,7 @@
 #include "../../../inc/cpp/Device/ADC"
 #include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/c/driver/ADConverter/Register-ADC.h"
+#include "../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 
 namespace uni {
 
@@ -179,7 +180,7 @@ namespace uni {
 	};
 	
 	bool ADC_t::setChannel(GPIO_Pin& pin, byte rank, ADCSample::ADCSample sample) {
-		using namespace ADCReg;
+		using namespace ::uni::ADCReg;
 		if (rank >= 16) return false;
 		byte chan = getChannelNumber(pin);
 		if (chan == 0xFF) return false;
@@ -237,7 +238,14 @@ namespace uni {
 			NVIC.setAble(ADCx_Request_list[self.ADC_ID]);
 		}
 	}
+#elif defined(_MPU_STM32MP13)
+	static const uint32 _REFADDR_ADC[] = { nil,
+		AHB2_PERIPH_BASE + 0x3000,
+		AHB2_PERIPH_BASE + 0x4000
+	};
+	// ADC_Common_TypeDef of each is base plus 0x0300
 
+	
 #endif
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)

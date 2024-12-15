@@ -35,7 +35,7 @@ namespace uni {
 		stduint front_porch;
 	};// AKA LTDC_InitTypeDef
 
-	// pander stm32mp135fxx_ca7.h
+	// pander stm32mp135 d/f xx_ca7.h
 	enum class LTDCReg {
 		IDR,  // identification  
 		LCR,  // layer count  
@@ -69,8 +69,9 @@ namespace uni {
 		CCRCR,// computed CRC   : 0x7c
 		 // ...
 		FUTR = 0x90 / 4,// FIFO underrun threshold   : 0x90
-	};
-	// pander stm32mp135fxx_ca7.h
+	};// AKA LTDC_TypeDef
+
+	// pander stm32mp135 d/f xx_ca7.h
 	enum class LTDCLayerReg {
 		C0R,          // configuration 0 
 		C1R,          // configuration 1 
@@ -103,7 +104,7 @@ namespace uni {
 		CYR1R,        // Conversion YCbCr RGB 1  : 0x70
 		FPF0R,        // Flexible Pixel Format 0  : 0x74
 		FPF1R,        // Flexible Pixel Format 1  : 0x78
-	};// L1 (or L2) from offset 0x100 (or 0x200) from LTDC
+	};// AKA LTDC_Layer_TypeDef L1 (or L2) from offset 0x100 (or 0x200) from LTDC
 	
 	// MP13 have no DMA2D
 	// 20241201: Trait must be an entity, not a virtual class. use `override` may make some avoid errors
@@ -137,7 +138,7 @@ namespace uni {
 		LTDC_t() : HSPolarity(false), VSPolarity(false), DEPolarity(false), PCPolarity(false) {}
 		// ---- BASIC PROPERTIES ----
 		void enClock(bool ena = true);
-		Reference operator[](LTDCReg trt) const { return 0x5A001000 + _IMMx4(trt); }
+		Reference operator[](LTDCReg trt) const { return 0x5A001000 + _IMMx4(trt); }// APB4_PERIPH_BASE + 0x1000UL
 		LTDC_LAYER_t& operator[](unsigned layer) const;
 		// AKA __HAL_LTDC_ENABLE / DISABLE
 		void enAble(bool ena = true);

@@ -1,8 +1,8 @@
-// ASCII CPP TAB4 CRLF
-// Docutitle: (Driver) SRAM
-// Codifiers: @dosconio: 20240723
-// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) TZC TrustZone Address
+// Codifiers: @dosconio: 20241213 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,20 +20,32 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/driver/SRAM.h"
+#include "../../../inc/cpp/Device/TZC"
+#include "../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 
 #ifdef _MPU_STM32MP13
 #include "../../../inc/c/proctrl/ARM/cortex_a7.h"
 #include "../../../inc/cpp/Device/RCC/RCC"	
 namespace uni {
-	BKPSRAM_t BKPSRAM;
+	TZC_t TZC;
+	ETZPC_t ETZPC;
 
-	void BKPSRAM_t::enClock(bool ena) const {
-		RCC[ena ? RCCReg::MP_AHB5ENSETR : RCCReg::MP_AHB5ENCLRR] = _IMM1S(8);// BKPSRAMEN
+	Reference TZC_t::operator[](TZCReg idx) const {
+		return APB5_PERIPH_BASE + 0x6000 + _IMMx4(idx);
 	}
 
+	void TZC_t::enClock(bool ena) const {
+		RCC[ena ? RCCReg::MP_APB5ENSETR : RCCReg::MP_APB5ENCLRR] = _IMM1S(11);// TZCEN
+	}
+
+	//
+
+	void ETZPC_t::enClock(bool ena) const {
+		RCC[ena ? RCCReg::MP_APB5ENSETR : RCCReg::MP_APB5ENCLRR] = _IMM1S(13);// ETZPCEN
+	}
 
 
 
 }
 #endif
+

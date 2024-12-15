@@ -1,5 +1,5 @@
 // UTF-8 CPP-ISO11 TAB4 CRLF
-// Docutitle: (Device) Double Data Rate (DDR) Memory
+// Docutitle: (Device) TZC TrustZone Address
 // Codifiers: @dosconio: 20241213 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -20,30 +20,46 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/cpp/Device/DDR"
-#include "../../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
-
+#ifndef _INCPP_Device_TZC
+#define _INCPP_Device_TZC
+#include "../unisym"
+#include "../reference"
 namespace uni {
+
 #ifdef _MPU_STM32MP13
-	DDR_t DDR;
+	enum class TZCReg {
+		BUILD_CONFIG, ACTION, GATE_KEEPER, SPECULATION_CTRL,
+		// Region 0:
+		REG_BASE_LOWO = 0x100 / 4,
+		REG_BASE_HIGHO,
+		REG_TOP_LOWO,
+		REG_TOP_HIGHO,
+		REG_ATTRIBUTESO,
+		REG_ID_ACCESSO
+	};// AKA TZC_TypeDef
+	
+	class TZC_t {
+	public:
+		Reference operator[](TZCReg idx) const;
 
-	Reference DDR_t::operator[](DDRControl idx) const {
-		return APB4_PERIPH_BASE + 0x3000 + _IMMx4(idx);
-	}
-	Reference DDR_t::operator[](DDRPerform idx) const {
-		return APB4_PERIPH_BASE + 0x7000 + _IMMx4(idx);
-	}
-	Reference DDR_t::operator[](DDRPhyziks idx) const {
-		return APB4_PERIPH_BASE + 0x4000 + _IMMx4(idx);
-	}
+		// AKA __HAL_RCC_TZC_CLK_ENABLE
+		void enClock(bool ena = true) const;
 
-	bool DDR_t::setMode(bool wakeup_from_standby, bool self_refresh, stduint zdata, bool clear_bkp) const {
+	};
+	extern TZC_t TZC;
 
 
-		return true;
-	}
+	// Embedded TrustZone Peripheral Controller
+	class ETZPC_t {
+	public:
 
+		// AKA __HAL_RCC_ETZPC_CLK_ENABLE
+		void enClock(bool ena = true) const;
 
+	};
+	extern ETZPC_t ETZPC;
+
+#endif // _MPU_STM32MP13
+
+} // namespace uni
 #endif
-}
-

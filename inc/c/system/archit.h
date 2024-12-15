@@ -52,7 +52,7 @@ enum Architecture_ARMv_t {
 	Archit_ARM_v5,// ARM7EJ ARM9E ARM10E XScale
 	Archit_ARM_v6,// ARM11 Cortex-M
 	Archit_ARM_v7,// Cortex-{A M R}
-	Archit_ARM_v8,//
+	Archit_ARM_v8//
 };
 
 

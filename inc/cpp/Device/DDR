@@ -1,0 +1,102 @@
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Double Data Rate (DDR) Memory
+// Codifiers: @dosconio: 20241213 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Device_DDR
+#define _INCPP_Device_DDR
+#include "../unisym"
+#include "../reference"
+namespace uni {
+
+#ifdef _MPU_STM32MP13
+
+	enum class DDRControl {
+		MSTR, STAT,
+		MRCTRL0 = 0x10 / 4, MRCTRL1, MRSTAT,
+		DERATEEN = 0x20 / 4, DERATEINT,
+		PWRCTL = 0x30 / 4, PWRTMG, HWLPCTL,
+		RFSHCTL0 = 0x50 / 4,
+		RFSHCTL3 = 0x60 / 4, RFSHTMG,
+		CRCPARCTL0 = 0xC0 / 4,
+		CRCPARSTAT = 0xCC / 4, INIT0, INIT1, INIT2, INIT3, INIT4, INIT5,
+		DIMMCTL = 0xF0 / 4,
+		DRAMTMG0 = 0x100 / 4, DRAMTMG1, DRAMTMG2, DRAMTMG3, DRAMTMG4, DRAMTMG5, DRAMTMG6, DRAMTMG7, DRAMTMG8,
+		DRAMTMG14 = 0x138 / 4, DRAMTMG15,
+		ZQCTL0 = 0x180 / 4, ZQCTL1, ZQCTL2, ZQSTAT, DFITMG0, DFITMG1, DFILPCFG0,
+		DFIUPD0 = 0x1A0 / 4, DFIUPD1, DFIUPD2,
+		DFIMISC = 0x1B0 / 4,
+		DFISTAT = 0x1BC / 4,
+		DFIPHYMSTR = 0x1C4 / 4,
+		ADDRMAP1 = 0x204 / 4, ADDRMAP2, ADDRMAP3, ADDRMAP4, ADDRMAP5, ADDRMAP6, ADDRMAP7, ADDRMAP8, ADDRMAP9, ADDRMAP10, ADDRMAP11,
+		ODTCFG = 0x240 / 4, ODTMAP,
+		SCHED = 0x250 / 4, SCHED1,
+		PERFHPR1 = 0x25C / 4,
+		PERFLPR1 = 0x264 / 4,
+		PERFWR1 = 0x26C / 4,
+		DBG0 = 0x300 / 4, DBG1, DBGCAM, DBGCMD, DBGSTAT,
+		SWCTL = 0x320 / 4, SWSTAT,
+		POISONCFG = 0x36C / 4, POISONSTAT,
+		PSTAT = 0x3FC / 4, PCCFG, PCFGR_0, PCFGW_0,
+		PCTRL_0 = 0x490 / 4, PCFGQOS0_0, PCFGQOS1_0, PCFGWQOS0_0, PCFGWQOS1_0
+	};// AKA DDRCTRL_TypeDef
+	enum class DDRPerform {
+		CTL, CFG, STATUS, CCR, IER, ISR, ICR,
+		TCNT = 0x20 / 4,
+		CNT0 = 0x30 / 4,
+		CNT1 = 0x38 / 4,
+		CNT2 = 0x40 / 4,
+		CNT3 = 0x48 / 4,
+		HWCFG = 0x3F0 / 4, VER, ID, SID
+	};// AKA DDRPERFM_TypeDef
+	enum class DDRPhyziks {
+		RIDR, PIR, PGCR, PGSR,
+		DLLGCR, ACDLLCR,
+		PTR0, PTR1, PTR2,
+		ACIOCR, DXCCR, DSGCR, DCR,
+		DTPR0, DTPR1, DTPR2,
+		// 0x40
+		MR0, MR1, MR2, MR3,
+		ODTCR, DTAR, DTDR0, DTDR1,
+		// ...
+		GPR0 = 0x178 / 4, GPR1,
+		ZQ0CR0, ZQ0CR1, ZQ0SR0, ZQ0SR1,
+		// ...
+		DX0GCR = 0x1C0 / 4, DX0GSR0, DX0GSR1, DX0DLLCR, DX0DQTR, DX0DQSTR,
+		DX1GCR = 0x200 / 4, DX1GSR0, DX1GSR1, DX1DLLCR, DX1DQTR, DX1DQSTR
+	};// AKA DDRPHYC_TypeDef
+
+	
+	class DDR_t {
+	public:
+		Reference operator[](DDRControl idx) const;
+		Reference operator[](DDRPerform idx) const;
+		Reference operator[](DDRPhyziks idx) const;
+
+		// AKA HAL_DDR_Init
+		bool setMode(bool wakeup_from_standby = false, bool self_refresh = false, stduint zdata = nil, bool clear_bkp = false) const;
+
+	};
+	extern DDR_t DDR;
+
+#endif // _MPU_STM32MP13
+
+} // namespace uni
+#endif

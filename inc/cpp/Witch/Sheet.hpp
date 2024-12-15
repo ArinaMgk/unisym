@@ -1,8 +1,11 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: (Processor, not MCU and not ARCH) Cortex-M0 and Cortex-M0+
-// Codifiers: @dosconio: 20240529
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
+// ASCII C++ TAB4 CRLF
+// Attribute: 
+// LastCheck: 20241214
+// AllAuthor: @dosconio
+// ModuTitle: Sheet Tree
+// Reference: 
+// Parallel : Electron Engine, Flutter
+// Copyright: ArinaMgk UniSym, Apache License Version 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,11 +23,12 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Processor_CortexM0
-#define _INC_Processor_CortexM0
+#ifndef _INC_SHEET
+#define _INC_SHEET
 
-#ifdef _OPT_PCU_CortexM0P
+// - The superior diverts the subordinate, the subordinate triggers the superior
+// - the page, form, and control are all sheets
 
-#endif
+
 
 #endif

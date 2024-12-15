@@ -1,6 +1,6 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: (Processor, not MCU and not ARCH) Cortex-M0 and Cortex-M0+
-// Codifiers: @dosconio: 20240529
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) CRC
+// Codifiers: @dosconio: 20241213 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,11 +20,16 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Processor_CortexM0
-#define _INC_Processor_CortexM0
+#include "../../../inc/cpp/Device/CRC"
 
-#ifdef _OPT_PCU_CortexM0P
+namespace uni {
+#ifdef _MPU_STM32MP13
+	CRC_t CRC;
+
+
+
+
 
 #endif
+}
 
-#endif

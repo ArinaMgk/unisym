@@ -11,16 +11,16 @@ using System.Threading.Tasks;
 
 namespace Unisym
 {
-    public class _Hello
-    {
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public _Hello(string Name = "Alice", string Description = "dosconio")
-        {
-            this.Name = Name;
-            this.Description = Description;
-            Console.WriteLine("Ciallo, minasan~");
-        }
+	public class _Hello
+	{
+		public string Name { get; set; }
+		public string Description { get; set; }
+		public _Hello(string Name = "Alice", string Description = "dosconio")
+		{
+			this.Name = Name;
+			this.Description = Description;
+			Console.WriteLine("Ciallo, minasan~");
+		}
 
-    }
+	}
 }

@@ -84,13 +84,13 @@ namespace uni {
 		if (rect.height) {
 			uint32 line_color = rect.color.ToRGB565();
 			uint32 times = rect.width;
-			if (_IMM(p16) & 0b111) {
-				*p16 = line_color;
+			while (_IMM(p16) & 0b111) {
+				*p16++ = line_color;
 				times--;
 			}
 			line_color |= line_color << 16;
 			uint64 line_color64 = line_color | ((uint64)line_color << 32);
-			if (times & 0b111 & _IMM(p64)) do { // (times & 0b111) || (_IMM(p64) & 0b111)
+			if ((times | _IMM(p64)) & 0b111) do { // (times & 0b111) || (_IMM(p64) & 0b111)
 				for0(i, times >> 1)
 					* p32++ = line_color;
 				if (times & 1) *p16++ = line_color;

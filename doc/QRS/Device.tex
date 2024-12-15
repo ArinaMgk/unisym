@@ -1,0 +1,77 @@
+
+
+PHYZIK DEIVCE, Ref by address
+
+- Because 'this' taken for identification
+
+- e.g. IIC-Hard \verb`IIC`, GPIO, TIM, ADC, DAC, ...
+
+ABSTRACT DEIVCE
+
+- May contain multiple physical devices
+
+- e.g. Video.hpp, Audio.hpp, Power.hpp, ...
+
+DYNAMIC DEIVCE, Ref by name
+
+- e.g. IIC-Soft \verb`IIC_t`, ...
+
+Why such confusion
+
+> Because the maintainer is only Haruno, till now
+
+> Historically forming reasons
+
+\subsection{Video}
+\subimport{Device}{Video}
+
+\subsection{Memory}
+
+MMU to see Paging.
+
+\subsubsection{Trust-Zone Controller}
+
+\subsubsection{DDR}
+
+\subsection{Generator}
+
+\subsubsection{AD9959}
+
+\B{Base}: \refer{SPI}.
+
+\subsection{Analog Digital Converter}
+
+\subsubsection{XPT2046}
+
+\subsection{Radio}
+
+\subsubsection{RDA5820}
+
+\B{Base}: \refer{IIC}.
+
+\subsubsection{TEA5767}
+
+\B{Base}: \refer{IIC}.
+
+\subsection{To-ki and Timer}
+\subimport{Device}{Toki}
+
+\subsection{Port and GPIO}
+\subimport{Device}{Port}
+
+\subsection{Key-board}
+\B{Header}: \verb`c/driver/keyboard.h`, \verb`c/driver/Mtrkbd.h`.
+
+\subsection{Power Controller}
+
+\subsection{Not-classified}
+\begin{itemize}
+	\item AT24C02
+	\item DS1302
+	\item DS18B20
+	\item HD44780
+	\item i8253A
+	\item i8259A
+	\item Nixie-tube
+\end{itemize}
+

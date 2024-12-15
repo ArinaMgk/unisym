@@ -62,7 +62,10 @@ word curget(void)
 #include <stdio.h>
 void outtxt(const char* str, dword len)
 {
-	for0(i, len) if (*str) putchar(*str++); else return;
+	for0(i, len) {
+		putchar(*str++);
+	}
+	_crt_out_cnt += len;
 }
 #endif
 

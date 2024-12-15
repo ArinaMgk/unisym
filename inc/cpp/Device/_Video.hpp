@@ -80,6 +80,9 @@ namespace uni {
 		// color can be past
 	public:
 		VideoControlBlock(pureptr_t addr, const VideoControlInterface& vci) : buffer_addr(addr), vci(vci) { }
+
+		//{TODO} VideoControlBlock(pureptr_t addr, const VideoControlInterface& vci, const TouchControlInterface& tci) : buffer_addr(addr), vci(vci) { }
+
 		~VideoControlBlock() { }
 		// here: public objects
 		inline void setMode(stduint psiz, stduint cols, stduint rows, onPressed_t onpress = 0) {
@@ -106,17 +109,26 @@ namespace uni {
 			}
 		}
 		inline void Draw(const Circle& circ) {
+			//{TODO} 2024121014: When circ.r==100, two lines will not be draw!
 			stduint x = 0, y = circ.radius;
 			stdsint delta, tmp;
 			delta = 3 - (circ.radius << 1);
 			const Point& cen = circ.center;
 			while(y > x) {
-				if(circ.filled)
+				if (circ.filled)
 				{
-					vci.DrawRectangle(Rectangle(Point(cen.x - x, cen.y + y), Size2(2 * x, 1), circ.color));
-					vci.DrawRectangle(Rectangle(Point(cen.x - x, cen.y - y), Size2(2 * x, 1), circ.color));
-					vci.DrawRectangle(Rectangle(Point(cen.x - y, cen.y + x), Size2(2 * y, 1), circ.color));
-					vci.DrawRectangle(Rectangle(Point(cen.x - y, cen.y - x), Size2(2 * y, 1), circ.color));
+					Rectangle rect(Point(cen.x - x, cen.y + y), Size2(2 * x, 1), circ.color);
+					vci.DrawRectangle(rect);
+					// vci.DrawRectangle(Rectangle(Point(cen.x - x, cen.y - y), Size2(2 * x, 1), circ.color));
+					rect.y -= 2 * y;
+					vci.DrawRectangle(rect);
+					// vci.DrawRectangle(Rectangle(Point(cen.x - y, cen.y + x), Size2(2 * y, 1), circ.color));
+					rect.width = 2 * y;
+					rect.x = cen.x - y, rect.y = cen.y + x;
+					vci.DrawRectangle(rect);
+					// vci.DrawRectangle(Rectangle(Point(cen.x - y, cen.y - x), Size2(2 * y, 1), circ.color));
+					rect.y -= 2 * x;
+					vci.DrawRectangle(rect);
 				}
 				else
 				{

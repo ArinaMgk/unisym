@@ -49,6 +49,35 @@ namespace uni {
 			JDR2, JDR3, JDR4, DR
 		} ADCRegType;
 	}
+#elif defined(_MPU_STM32MP13)
+	enum class ADCReg {
+		ISR,// Interrupt and Status Register
+		IER,// Interrupt Enable Register
+		CR,// Control Register
+		CFGR1,// 0x0X, "CFGR1" maybe "CFGR"
+		//
+		CFGR2,
+		SMPR1, SMPR2, RESERVED0,// 0x1X sample time
+		TR1, TR2, TR3, RESERVED1,// 0x2X watchdog threshold
+		SQR1, SQR2, SQR3, SQR4,// 0x3X regular sequence
+		// 0x4X :
+		DR,// regular data
+		RESERVED2, RESERVED3, JSQR,// injected sequence
+		// 0x6X :
+		OFR1 = 0x60/4, OFR2, OFR3, OFR4,// Offset Register
+		// 0x8X :
+		JDR1 = 0x80 / 4, JDR2, JDR3, JDR4,// Injected Data Register
+		// 0xAX :
+		AWD2CR = 0xA0 / 4, AWD3CR, RESERVED4, RESERVED5,// Analog Watchdog
+		DIFSEL,// Differential mode Selection
+		CALFACT,// Calibration Factors
+		OR = 0xC8 / 4, // Option
+		//
+		HWCFGR0 = 0x3F0 / 4,// hardware configuration
+		VERR,// Version
+		IPIDR,// ID
+		SIDR// Size ID
+	};// AKA ADC_TypeDef
 
 #endif	
 
@@ -107,6 +136,12 @@ namespace uni {
 			CYCL_480,// 480 cycles
 		};
 	}
+
+#elif defined(_MPU_STM32MP13)
+	enum class ADCCom {
+		CSR = 0x300 / 4,// Control Status Register
+		CCR = 0x308 / 4,// Control Register
+	};// AKA ADC_Common_TypeDef
 	
 #endif
 

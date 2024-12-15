@@ -39,6 +39,8 @@ namespace uni {
 			DEF_COLOR(0xFF000000, Black),
 			DEF_COLOR(0xFFFF0000, Red),
 			DEF_COLOR(0xFFFFFF00, Yellow),
+			DEF_COLOR(0xFF00FF00, Green),
+			DEF_COLOR(0xFF0000FF, Blue),
 			
 			// light
 			DEF_COLOR(0xFFC0C0C0, Silver),

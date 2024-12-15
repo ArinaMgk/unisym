@@ -31,9 +31,13 @@
 #define pnext(t) para_next(paras, t)
 
 // [Single Thread]
-// -> Screen / Device{Console...}
-// -> Buffer / Stream{File...}
+// keep the 4 not nested!
+// 1> Screen / Device{Console...}
+// 1> Buffer / Stream{File...}
+// 2> String.Format(...) : (1)getlen (2)getval
 static void (*local_out)(const char* str, dword len) = outtxt;
+_TODO byte local_out_lock = 0;// 0 for accessable
+stduint _crt_out_cnt;
 
 void outc(const char chr)
 {
@@ -42,12 +46,13 @@ void outc(const char chr)
 
 //{TEMP} always align to right
 #define DEF_outiXhex(siz) static void outi##siz##hex(uint##siz inp) {\
+	void (*localout)(const char* str, dword len) = local_out;\
 	char buf[2 * byteof(uint##siz)];\
 	for0r(i, numsof(buf)) {\
 		buf[i] = _tab_HEXA[inp & 0xF];\
 		inp >>= 4;\
 	}\
-	local_out(buf, numsof(buf));\
+	localout(buf, numsof(buf));\
 }
 //
 DEF_outiXhex(8);
@@ -80,6 +85,7 @@ void outidec(int xx, int base, int sign)
 // Output Integer
 void outi(stdint val, int base, int sign_show)
 {
+	void (*localout)(const char* str, dword len) = local_out;
 	if (base < 2) return;
 	char buf[bitsof(stdint) + 2] = { 0 };// may bigger than 2 * bitsof(stdint) + 2 if base < 16 
 	int i = sizeof(buf) - 1;
@@ -87,34 +93,40 @@ void outi(stdint val, int base, int sign_show)
 	if (neg) val = -val;
 	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
 	if (sign_show) buf[--i] = neg ? '-' : '+';
-	local_out(buf + i, numsof(buf));
+	localout(buf + i, numsof(buf));
 }
 
 // Output Unsigned Integer
 void outu(stduint val, int base)
 {
+	void (*localout)(const char* str, dword len) = local_out;
 	if (base < 2) return;
 	char buf[bitsof(stduint) + 1] = { 0 };
 	stduint i = sizeof(buf) - 1;
 	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
-	local_out(buf + i, numsof(buf));
+	localout(buf + i, numsof(buf));
 }
 
 _TEMP static void outfloat(float val)
 {
-	if (val < 0) local_out("-", 1);
+	void (*localout)(const char* str, dword len) = local_out;
+	if (val < 0) localout("-", 1);
 	outu((stduint)val, 10);
 	val -= (stduint)val;
 	val *= 1000000;
 	val += 0.5;
 	if (_IMM(val)) {
-		local_out(".", 1);
+		localout(".", 1);
 		outu((stduint)val, 10);
 	}
 }
 
 int outsfmtlst(const char* fmt, para_list paras)
 {
+	//{TODO} while (local_out_lock);
+	//{TODO} add lock
+	void (*localout)(const char* str, dword len) = local_out;
+	_crt_out_cnt = 0;
 	int i;
 	byte c;
 	char* s;
@@ -130,7 +142,7 @@ int outsfmtlst(const char* fmt, para_list paras)
 			stduint len = 1;
 			const char* q = fmt + i;
 			while (q[len] && (q[len] != '%')) len++;
-			local_out(&fmt[i], len);
+			localout(&fmt[i], len);
 			i += len;
 			continue;
 		}
@@ -173,7 +185,7 @@ int outsfmtlst(const char* fmt, para_list paras)
 			outfloat(pnext(double));
 			break;
 		case 'p':
-			local_out("0x", 2);
+			localout("0x", 2);
 			if (bitsof(stduint) == 64)
 				outi64hex(pnext(stduint));
 			else if (bitsof(stduint) == 32)
@@ -186,11 +198,11 @@ int outsfmtlst(const char* fmt, para_list paras)
 		case 's':
 			s = pnext(char*);
 			if (!s) s = "(null)";
-			local_out(s, -1);
+			localout(s, -1);
 			break;
 		case '%':
 			c = '%';
-			local_out(&fmt[i], 1);
+			localout(&fmt[i], 1);
 			break;
 		case '[': // alicee extend
 			if (!StrCompareN(fmt + i, "[u]", 3)) // Print Decimal STDUINT
@@ -206,12 +218,13 @@ int outsfmtlst(const char* fmt, para_list paras)
 			}
 			break;
 		default:
-			local_out(&fmt[i], 1);
+			localout(&fmt[i], 1);
 			break;
 		}
 		i++;
 	}
-	return i;
+	// leave lock
+	return _crt_out_cnt;
 }
 
 //{TEMP} only understands %d, %x, %p, %s with-no modification.

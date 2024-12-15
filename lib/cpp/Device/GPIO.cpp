@@ -96,13 +96,13 @@ namespace uni
 		Reference_T<byte> this_pin(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID()));
 		this_pin = !this_pin;
 	#elif defined(_MCU_CW32F030)
-		getParent()[GPIOReg::TOG] = getID();
+		getParent()[GPIOReg::TOG] = _IMM1S(getID());
 	#else
 		getParent()[GPIOReg::ODR] ^= _IMM1S(getID());// no use of BSRR
 	#endif
 	}
 
-	void GeneralPurposeInputOutputPin::Lock(bool tolock_orunlock) const {
+	void GeneralPurposeInputOutputPin::Lock(bool tolock_or_unlock) const {
 		//{TODO}
 	}
 

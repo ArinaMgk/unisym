@@ -40,15 +40,20 @@ extern bool exist_fpu;
 extern bool exist_mmu;
 extern bool exist_cache;// L1
 
-#include "../../Device/RCC/RCC"
-#include "../../Device/GPIO"
 #include "../../Device/_Power.hpp"
-#include "../../Device/SysTick"
+#include "../../Device/BSEC"
 #include "../../Device/Cache"
+#include "../../Device/DDR"
 #include "../../Device/FPU"
-#include "../../Device/MMU"
+#include "../../Device/GPIO"
 #include "../../Device/LTDC"
+#include "../../Device/MCE"
+#include "../../Device/MMU"
+#include "../../Device/RCC/RCC"
 #include "../../../c/random.h"
+#include "../../../c/driver/SRAM.h"
+#include "../../Device/SysTick"
+#include "../../Device/TZC"
 
 _ESYM_C char _IDN_BOARD[16];
 

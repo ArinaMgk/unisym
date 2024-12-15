@@ -1,6 +1,6 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: (Processor, not MCU and not ARCH) Cortex-M0 and Cortex-M0+
-// Codifiers: @dosconio: 20240529
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Memory Cipher Engine
+// Codifiers: @dosconio: 20241215
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,11 +20,24 @@
 	limitations under the License.
 */
 
-#ifndef _INC_Processor_CortexM0
-#define _INC_Processor_CortexM0
+#ifndef _INCPP_Device_MCE
+#define _INCPP_Device_MCE
+#include "../../c/stdinc.h"
+namespace uni {
+#ifdef _MPU_STM32MP13
 
-#ifdef _OPT_PCU_CortexM0P
+	// AHB6
+	class MCE_t {
+	public:
+		// AKA __HAL_RCC_MCE_CLK_ENABLE
+		void enClock(bool ena = true) const;
+
+	};
+	extern MCE_t MCE;
+
 
 #endif
+}
 
-#endif
+
+#endif // _INCPP_Device_MCE

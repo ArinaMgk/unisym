@@ -10,6 +10,26 @@ General Purpose Input Output
 Compared with other peripherals, GPIO own ``pure-virtual'' class, for the number of which is up to thousands.
 So do NOT use \It{him}\verb`.RuptTrait::enInterrupt(some_hand);`.
 
+\B{Size of Class}
+
+Non-static fields in C++ classes are contained in the class object, while static members are in the static area and shared for any instance of the class as one copy.
+Member functions are code but data, it is actually static if no considering the first hidden parameter \verb`this`.
+
+% Method 就是 this 作为首参数的 Function 。20241212のdosconio
+
+\verb`sizeof` works for memory allocation. To avoid empty classes overlapping, the protective byte will be applied to them.
+In other words, the bytes of an empty class is $1$.
+
+\begin{lstlisting}[language=C++]
+struct A { virtual void a() = 0; };// 4U
+struct B { void a(); };// 1U
+struct C : public A { virtual void a() {} };// 4U
+struct D : public A { virtual void a() override {} };// 4Uv
+\end{lstlisting}
+% dosconio 20241202
+
+After experimentation, it is found that properties with virtual inheritance may also have fields for identifying identities, which is why \verb`RuptTrait` does not work on \It{GPIO}.
+
 \paragraph{Pin Method} \
 
 \begin{itemize}

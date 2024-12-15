@@ -25,6 +25,7 @@
 #define _INC_CONSIO
 
 #include "stdinc.h"
+#include "ustring.h"
 #include <stdarg.h>
 
 enum _STD_SRC_t {
@@ -105,16 +106,22 @@ extern "C" {
 #endif
 
 
+// [HOST-DEF]
 void curset(word posi);
 word curget(void);
 void scrrol(word lines);
-void outtxt(const char *str, dword len);
-#define outs(a) outtxt(a, ~(dword)0)
+void outtxt(const char* str, dword len);
+
+// [INNER-USE]
+#define outs(a) outtxt(a, StrLength(a))
 void outc(const char chr);
+
+extern stduint _crt_out_cnt;
 
 // [DEPRECATED]
 void outidec(int xx, int base, int sign);
 
+// User Use
 void outi(stdint val, int base, int sign_show);
 void outu(stduint val, int base);
 int  outsfmtlst(const char* fmt, para_list lst);

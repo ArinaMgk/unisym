@@ -170,7 +170,7 @@ namespace uni {
 		bool isUsed() const;
 		//
 		bool isReady() const;
-		// AKA __HAL_RCC_CSI_DISABLE
+		// AKA __HAL_RCC_CSI_ENABLE/DISABLE
 		void enAble(bool ena = true) const;
 		// State(ON)
 		// calibration: 0..0x20

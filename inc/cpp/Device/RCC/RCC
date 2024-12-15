@@ -214,6 +214,11 @@ namespace uni {
 			MIN(ret, 16)
 			return ret;
 		}
+
+		// AKA __HAL_RCC_SYSCFG_CLK_ENABLE for APB3
+		// ? can move into APB3?
+		void enSyscfg(bool ena = true) const;
+
 	};
 
 	extern RCC_t RCC;

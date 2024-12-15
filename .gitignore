@@ -17,6 +17,8 @@ lib/c/auxiliary/*
 # .Net Class Library
 lib/dotNet/udotnet/.vs
 lib/dotNet/udotnet/obj
+lib/dotNet/TestConsole/bin
+lib/dotNet/TestConsole/obj
 # Python
 *.pyc
 # Rust

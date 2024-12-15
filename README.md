@@ -10,10 +10,10 @@ also known as ゆにッシンボル, or as 統象庫,
 a lossless abstract system of programming and engineering,
 including not only implementation, library, tool-kits, chroming engine and demonstrations.
 
-![example](https://img.shields.io/badge/release-U2024WINTER-aliceblue.svg)
-![example](https://img.shields.io/badge/supervisor-dosconio-violet.svg)
-<!--till 2024Dec21-->![example](https://img.shields.io/badge/generation-2:Public-pink.svg)
-<!--dynlib since 2024Dec21--> ![example](https://img.shields.io/badge/libversion-0.1-green.svg) 
+![LasRelease](https://img.shields.io/badge/release-U2024WINTER-aliceblue.svg)
+![Supervisor](https://img.shields.io/badge/supervisor-dosconio-violet.svg)
+![Generation](https://img.shields.io/badge/generation-3:Public-pink.svg)
+![DynamicVer](https://img.shields.io/badge/libversion-0.1-green.svg)
 
 > [!IMPORTANT]
 > The repository is open-sourced under of *Apache License 2.0*. If you copy the code and used for the public or commercial, please stipulate your <u>copying from *UNISYM* led by *ArinaMgk*</u>. 

@@ -52,7 +52,7 @@ void outc(const char chr)
 		buf[i] = _tab_HEXA[inp & 0xF];\
 		inp >>= 4;\
 	}\
-	localout(buf, numsof(buf));\
+	outs(buf);\
 }
 //
 DEF_outiXhex(8);
@@ -93,7 +93,7 @@ void outi(stdint val, int base, int sign_show)
 	if (neg) val = -val;
 	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
 	if (sign_show) buf[--i] = neg ? '-' : '+';
-	localout(buf + i, numsof(buf));
+	outs(buf + i);
 }
 
 // Output Unsigned Integer
@@ -104,7 +104,7 @@ void outu(stduint val, int base)
 	char buf[bitsof(stduint) + 1] = { 0 };
 	stduint i = sizeof(buf) - 1;
 	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
-	localout(buf + i, numsof(buf));
+	outs(buf + i);
 }
 
 _TEMP static void outfloat(float val)
@@ -186,6 +186,7 @@ int outsfmtlst(const char* fmt, para_list paras)
 			break;
 		case 'p':
 			localout("0x", 2);
+			// typeid
 			if (bitsof(stduint) == 64)
 				outi64hex(pnext(stduint));
 			else if (bitsof(stduint) == 32)
@@ -198,7 +199,7 @@ int outsfmtlst(const char* fmt, para_list paras)
 		case 's':
 			s = pnext(char*);
 			if (!s) s = "(null)";
-			localout(s, -1);
+			outs(s);
 			break;
 		case '%':
 			c = '%';

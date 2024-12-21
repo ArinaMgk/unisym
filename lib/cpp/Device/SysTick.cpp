@@ -91,12 +91,16 @@ namespace uni {
 		return true;
 	}
 
+	uint64 SysTick::getTickPhysical() {
+		uint64 PL1_GetCurrentPhysicalValue;// AKA IT
+		__get_CP64(15, 0, PL1_GetCurrentPhysicalValue, 14);
+		return PL1_GetCurrentPhysicalValue;
+	}
+	
 	uint64 SysTick::getTick() {
 		using namespace RCCReg;
 		bool hse = 0x1/*HSE*/ == RCC[STGENCKSELR].masof(0, 2);// STGENSRC
-		uint64 PL1_GetCurrentPhysicalValue;// AKA IT
-		__get_CP64(15, 0, PL1_GetCurrentPhysicalValue, 14);
-		return PL1_GetCurrentPhysicalValue / ((hse ? HSE_VALUE : HSI_VALUE) / SysTickHz);
+		return getTickPhysical() / ((hse ? HSE_VALUE : HSI_VALUE) / SysTickHz);
 	}
 }
 

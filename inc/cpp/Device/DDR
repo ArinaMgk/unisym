@@ -24,9 +24,9 @@
 #define _INCPP_Device_DDR
 #include "../unisym"
 #include "../reference"
-namespace uni {
-
 #ifdef _MPU_STM32MP13
+#include "RAM/DDRHeader.hpp"
+namespace uni {
 
 	enum class DDRControl {
 		MSTR, STAT,
@@ -83,20 +83,61 @@ namespace uni {
 		DX1GCR = 0x200 / 4, DX1GSR0, DX1GSR1, DX1DLLCR, DX1DQTR, DX1DQSTR
 	};// AKA DDRPHYC_TypeDef
 
-	
+
+	enum class DDRType {
+		DDR3, // 4G
+		DDR3_8Gb,
+		LPDDR2, // 4G
+		LPDDR3, // 4G
+		UNKNOWN
+	};
+
 	class DDR_t {
+	protected:
+		// Set DDR Clock Speed
+		bool ddr_clk_enable(stduint spd);
+		// AKA ddr_enable_clock
+		void enClock(bool ena = true) const;
+		// ...
+		bool ddrphy_idone_wait();
+		// Wait quasi dynamic register update
+		bool wait_sw_done_ack();
+		// AKA HAL_DDR_PHY_Init
+		bool ddrphy_init(Reference& locref);
+		//
+		stduint getFrequency() const;
+		//
+		bool self_refresh_zcal(stduint _zdata);
+		//
+		void save_ddr_training_area();
+		void restore_ddr_training_area();
+		// Wait quasi dynamic register update
+		bool wait_operating_mode(stduint mode);
+		//
+		//
+
 	public:
+		enum DDR_Size {
+			DDRSize_256M = (0b0010) | (256 < 4),
+			DDRSize_512M = (0b0010) | (512 < 4),
+		};
+		
+		bool wakeup_from_standby = false;
+		bool self_refresh = false;
+		bool clear_bkp = false;
+		stduint zdata = nil;
+
 		Reference operator[](DDRControl idx) const;
 		Reference operator[](DDRPerform idx) const;
 		Reference operator[](DDRPhyziks idx) const;
 
 		// AKA HAL_DDR_Init
-		bool setMode(bool wakeup_from_standby = false, bool self_refresh = false, stduint zdata = nil, bool clear_bkp = false) const;
+		bool setMode(DDRType typ, DDR_Size siz);
 
 	};
 	extern DDR_t DDR;
 
+} // namespace uni
 #endif // _MPU_STM32MP13
 
-} // namespace uni
 #endif

@@ -1,0 +1,21 @@
+
+The concept of `state machine' is widely accepted, for it describing the effect of the instructions, which can help us to get numeric register-effects and other side-effects.
+
+For example, the rules of conversion from function calling, entering(including allocating stack and others), leaving and evaluation to assembly implementation should be specific.
+
+More to see
+\begin{itemize}
+	\item \refer{Calling}
+\end{itemize}
+
+Compared with C++, CPL has
+no override,
+no class pre-parameter(\verb`this`), 
+no references(\verb`&`),
+no pre-constructure(calling in global area, beyond any procedure block), % int l = strlen("a");// this may happen without control
+so it does not own complex reflect.
+
+\subsubsection{Control Transfer}
+
+\verb`goto label` is equivalent to \verb`jmp label;`.
+

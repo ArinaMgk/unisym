@@ -28,7 +28,27 @@
 
 // - The superior diverts the subordinate, the subordinate triggers the superior
 // - the page, form, and control are all sheets
+#include "../unisym"
 
+namespace uni {
+
+	class Sheet {
+	private:
+		Sheet* renderring_sheet;
+	public:
+		_tocall_ft onFocus;// Activated
+		_tocall_ft onEnter;// Mouse Move In
+		_tocall_ft onLeave;// Mouse Move Out
+		_tocall_ft onMoved;// Mouse Move or Finger Move
+		_tocall_ft onClick;// Mouse Click or Finger Touch
+
+		virtual void reRender();// Stop this and subs and re-render
+		
+
+	};
+
+
+}
 
 
 #endif

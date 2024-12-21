@@ -10,6 +10,8 @@
 
 #include "../c/stdinc.h"
 
+#define Reflocal(x) stduint _##x; Reference x _IMM(&_##x); _##x
+
 namespace uni {
 
 	template <typename typeDest> class Reference_T {

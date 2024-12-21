@@ -26,9 +26,9 @@
 #define _INC_DEVICE_Video_X
 
 #include "../unisym"
-#include "../cinc"
 #include "../../c/graphic.h"
-#include "../cinc"
+
+
 
 namespace uni {
 

@@ -1,6 +1,7 @@
+
 // ASCII CPP TAB4 CRLF
-// Docutitle: (Module) Video
-// Codifiers: @dosconio: 20241216
+// Docutitle: (Module) Screen
+// Codifiers: @dosconio: 20240516
 // Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
@@ -20,21 +21,29 @@
 	limitations under the License.
 */
 
-#ifndef _INC_DEVICE_Touch_X
-#define _INC_DEVICE_Touch_X
+// Screen = Video + Touch (Do not manage {Backlight} )
 
-#include "../unisym"
+#ifndef _INC_DEVICE_Screen
+#define _INC_DEVICE_Screen
+
+#include "../../c/nnode.h"
+#include "./_Video.hpp"
+#include "./_Touch.hpp"
+#include "../Witch/Sheet.hpp"
 
 namespace uni {
 
-
-	
-	class TouchControlBlock {
-
+	#define optional
+	class Screen {
+		NnodeChain sheet;
+		optional VideoControlBlock* vcb;
+		optional TouchControlBlock* tcb;
+	public:
+		
 	};
+	#undef optional
 
-
-	
 }
+
 
 #endif

@@ -269,7 +269,7 @@ stduint RCCPLL::getFrequencyP() const {
 	}
 	return 0;
 }
-//{uchk}
+
 stduint RCCPLL::getFrequencyQ() const {
 	using namespace RCCReg;
 	stduint tmp = 0;
@@ -277,6 +277,17 @@ stduint RCCPLL::getFrequencyQ() const {
 	if (Ranglin(getID(), 1, 4)) { // no for PLL 3 4
 		const stduint Q_Div = RCC[PLLxCFGR2[id]].masof(8, 7) + 1;
 		return getVCO() / (float32)Q_Div;// aka PLL1/2_Clocks->PLL1_P/Q/R_Frequency
+	}
+	return 0;
+}
+
+stduint RCCPLL::getFrequencyR() const {
+	using namespace RCCReg;
+	stduint tmp = 0;
+	byte id = getID() - 1;
+	if (Ranglin(getID(), 1, 4)) { // no for PLL 3 4
+		const stduint R_Div = RCC[PLLxCFGR2[id]].masof(16, 7) + 1;
+		return getVCO() / (float32)R_Div;// aka PLL1/2_Clocks->PLL1_P/Q/R_Frequency
 	}
 	return 0;
 }

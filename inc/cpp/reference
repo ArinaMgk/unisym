@@ -23,6 +23,7 @@ namespace uni {
 		operator typeDest() const { return *address; }
 		volatile typeDest* operator&() const { return address; }
 		Reference_T& operator= (typeDest val) { *address  = val; return self; }
+		Reference_T& operator= (const Reference_T& val) { *address = typeDest(val); return self; }
 		Reference_T& operator&=(typeDest val) { *address &= val; return self; }
 		Reference_T& operator|=(typeDest val) { *address |= val; return self; }
 		Reference_T& operator^=(typeDest val) { *address ^= val; return self; }
@@ -52,8 +53,8 @@ namespace uni {
 	
 	typedef Reference_T<typedest> Reference;
 	template <typename typeDest> class Bitfield_T : public Reference_T<typeDest> {
-		byte pos, len;
 	public:
+		byte pos, len;
 		Bitfield_T(pureptr_t _address, byte _pos, byte _len) : Reference_T<typeDest> _IMM(_address), pos(_pos), len(_len) {}
 		operator stduint() { return Reference_T<typeDest>::masof(pos, len); }
 		stduint operator= (stduint val) { return Reference_T<typeDest>::maset(pos, len, val); }

@@ -21,25 +21,422 @@
 */
 
 #include "../../../../inc/cpp/Device/LTDC"
+#include "../../../../inc/cpp/Device/DDR"
 #include "../../../../inc/cpp/Device/RCC/RCC"
 #include "../../../../inc/cpp/Device/RCC/RCCAddress"
 #if defined(_MPU_STM32MP13)
 
+#define lt(x) getParent()[LTDCReg::x]
+#define ly(x) self[LTDCLayerReg::x]
 
 namespace uni {
 	LTDC_t LTDC;
 
 	static Point cursor[2];
-
-	static stduint layer_baseaddr[2];//{dup}?
 	
 	static LTDC_LAYER_t layers[2] = { LTDC_LAYER_t(1), LTDC_LAYER_t(2) };
 
-	bool LTDC_LAYER_t::setMode(stduint baseaddr, Rectangle window) const {
-		return false; _TEMP;
+	static stduint dbgs;
+	//
 
+	LTDC_LAYER_t::LayerPara* LTDC_LAYER_t::layer_param_refer(LTDC_LAYER_t::LayerPara* para) {
+		para->roleaddr = (pureptr_t)DDR.getRoleress();
+		para->window = Rectangle(Point(0, 0), Size2(800, 480));
+		para->image_size = Size2(800, 480);
+		para->factor1_mode = true;
+		para->factor2_mode = true;
+		para->backcolor = Color::Black;
+		para->pixel_format = PixelFormat::RGB565;
+		para->Alpha0 = 0;
+		return para;
+	}
 
-		// vcb.baseaddr = baseaddr;
+	bool LTDC_LAYER_t::setMode_sub(LayerPara& param) const {
+		uint32 tmp,
+			stride, PSIZE = 0U,
+			ALEN = 0U, APOS = 0U, RLEN = 0U, RPOS = 0U, BLEN = 0U, BPOS = 0U, GLEN = 0U, GPOS = 0U;
+		stduint win_x0 = param.window.getVertex().x;
+		stduint win_x1 = param.window.getVertexOpposite().x;
+		stduint win_y0 = param.window.getVertex().y;
+		stduint win_y1 = param.window.getVertexOpposite().y;
+		{
+			Tdsfield AHBP((pureptr_t)&lt(BPCR), 16, 12);
+			Tdsfield AVBP((pureptr_t)&lt(BPCR), 0, 12);
+			stduint vir_WHPCR = 0;
+			Tdsfield WHSPPOS((pureptr_t)&vir_WHPCR, 16, 12);// part &ly(WHPCR)
+			Tdsfield WHSTPOS((pureptr_t)&vir_WHPCR, 0, 12);// part &ly(WHPCR)
+			stduint vir_WVPCR = 0;
+			Tdsfield WVSPPOS((pureptr_t)&vir_WVPCR, 16, 12);// part &ly(WVPCR)
+			Tdsfield WVSTPOS((pureptr_t)&vir_WVPCR, 0, 12);// part &ly(WVPCR)
+			// Configure the horizontal start and stop position
+			WHSPPOS = win_x1 + AHBP;// after once, &ly(WHPCR) will not be changed instantly
+			WHSTPOS = win_x0 + AHBP + 1;
+			ly(WHPCR) = vir_WHPCR;
+			// Configure the vertical start and stop position
+			WVSPPOS = win_y1 + AVBP;
+			WVSTPOS = win_y0 + AVBP + 1;
+			ly(WVPCR) = vir_WVPCR;
+		}
+		{
+			// Configure the default color values
+			ly(DCCR) = uint32(param.backcolor) & _TEMP 0xFFFFFF;
+			// Specifies the constant alpha value
+			Tdsfield CONSTA((pureptr_t)&ly(CACR), 0, 8);
+			CONSTA = param.backcolor.a;// use backcolor as Alpha
+		}
+		// Specifies the pixel format
+		{
+			switch (param.pixel_format) {
+			case PixelFormat::ARGB1555:
+				PSIZE = 2U;
+				ALEN = 1U; APOS = 15U; RLEN = 5U; RPOS = 10U; GLEN = 5U; GPOS = 5U; BLEN = 5U; BPOS = 0U;
+				break;
+			case PixelFormat::ARGB4444:
+				PSIZE = 2U;
+				ALEN = 4U; APOS = 12U; RLEN = 4U; RPOS = 8U; GLEN = 4U; GPOS = 4U; BLEN = 4U; BPOS = 0U;
+				break;
+			case PixelFormat::L8:
+				PSIZE = 1U;
+				ALEN = 0U; APOS = 0U; RLEN = 8U; RPOS = 0U; GLEN = 8U; GPOS = 0U; BLEN = 8U; BPOS = 0U;
+				break;
+			case PixelFormat::AL44:
+				PSIZE = 1U;
+				ALEN = 4U; APOS = 4U; RLEN = 4U; RPOS = 0U; GLEN = 4U; GPOS = 0U; BLEN = 4U; BPOS = 0U;
+				break;
+			case PixelFormat::AL88:
+				PSIZE = 2U;
+				ALEN = 8U; APOS = 8U; RLEN = 8U; RPOS = 0U; GLEN = 8U; GPOS = 0U; BLEN = 8U; BPOS = 0U;
+				break;
+			default:
+				break;
+			}
+			switch (param.pixel_format) {
+			case PixelFormat::ARGB8888:
+			case PixelFormat::ABGR8888:
+			case PixelFormat::RGBA8888:
+			case PixelFormat::BGRA8888:
+			case PixelFormat::RGB565:
+			case PixelFormat::BGR565:
+			case PixelFormat::RGB888:
+				ly(PFCR) = _IMM(param.pixel_format);
+				ly(FPF0R) = 0U;
+				ly(FPF1R) = 0U;
+				break;
+			case PixelFormat::ARGB1555:
+			case PixelFormat::ARGB4444:
+			case PixelFormat::L8:
+			case PixelFormat::AL44:
+			case PixelFormat::AL88:
+				ly(PFCR) = 0x7U;
+				ly(FPF0R) = (RLEN << 14U) + (RPOS << 9U) + (ALEN << 5U) + APOS;
+				ly(FPF1R) = (PSIZE << 18U) + (BLEN << 14U) + (BPOS << 9U) + (GLEN << 5U) + GPOS;
+				break;
+			default:
+				break;
+			}
+			switch (param.pixel_format) {
+			case PixelFormat::ARGB8888:
+			case PixelFormat::ABGR8888:
+			case PixelFormat::RGBA8888:
+			case PixelFormat::BGRA8888:
+				stride = 4U;
+				break;
+			case PixelFormat::RGB888:
+				stride = 3U;
+				break;
+			case PixelFormat::RGB565:
+			case PixelFormat::BGR565:
+			case PixelFormat::ARGB1555:
+			case PixelFormat::ARGB4444:
+			case PixelFormat::AL88:
+			case PixelFormat::UYVY:
+			case PixelFormat::VYUY:
+			case PixelFormat::YVYU:
+			case PixelFormat::YUYV:
+				stride = 2U;
+				break;
+			case PixelFormat::L8:
+			case PixelFormat::AL44:
+			default:
+				stride = 1U;
+				break;
+			}
+		}
+		// Configure the frame buffer line number
+		ly(CFBLNR) = param.image_size.y;
+		// set the pitch
+		ly(CFBLR) = (((0x10000U - param.image_size.x * stride)) << 16U) | (param.window.width * stride + 7U);
+		// YUV configurations
+		stduint&& mask_yuv_config = 0b111;// YIA | YSPA | YFPA
+		if (ly(C1R) & mask_yuv_config) {
+			// [YREN OF CBF YF  YCM  YCEN  HPDEN* VPDEN*  ?]
+			//    9   8   7  6  5 4   3      2      1     0
+			stduint&& mask_pcr = 0b101111111;
+			ly(PCR) &= ~mask_pcr;
+			switch (param.pixel_format) {
+			case PixelFormat::UYVY:
+				ly(PCR) = _IMM1S(3) | _IMM1S(7);// YCEN | CBF
+				break;
+			case PixelFormat::VYUY:
+				ly(PCR) = _IMM1S(3); // YCEN;
+				break;
+			case PixelFormat::YUYV:
+				ly(PCR) = _IMM1S(3) | _IMM1S(6) | _IMM1S(7);// YCEN | YF | CBF
+				break;
+			case PixelFormat::YVYU:
+				ly(PCR) = _IMM1S(3) | _IMM1S(6);// YCEN | YF
+				break;
+			case PixelFormat::NV12:
+				ly(PCR) = _IMM1S(3) | (0x1 << 4) | _IMM1S(7);
+				break;
+			case PixelFormat::NV21:
+				ly(PCR) = _IMM1S(3) | (0x1 << 4);
+				break;
+			case PixelFormat::YUV420:
+				ly(PCR) = _IMM1S(3) | (0x2 << 4) | _IMM1S(7);
+				break;
+			case PixelFormat::YVU420:
+				ly(PCR) = _IMM1S(3) | (0x2 << 4);
+				break;
+			default:
+				break;
+			}
+		}
+		// Specifies the blending factors
+		ly(BFCR) &= ~_IMM(0x10707);//(BOR | BF2 | BF1);
+		_TEMP stduint BlendingOrder = 0;
+		tmp = BlendingOrder << 16U;
+		ly(BFCR) = (param.factor1_mode ? /*T:PAxCA*/(0b110 << 8) : /*F:CA*/(0b100 << 8)) | (param.factor2_mode ? /*T:PAxCA*/(0b111) : /*F:CA*/(0b101)) | tmp;
+		// Configure the layer burst length configuration register
+		_TEMP stduint BurstLength = 0;
+		ly(BLCR) = BurstLength;
+		if (ly(C1R) & mask_yuv_config) {
+			// Configure the conversion YCbCr RGB
+			// ly(CYR0R) &= ~(CB2B | CR2R);
+			ly(CYR0R) = 0x02040199U;
+			// ly(CYR1R) &= ~(CR2G | CB2G);
+			ly(CYR1R) = 0x006400D0U;
+		}
+		_TEMP stduint HorMirrorEn = 0;
+		_TEMP stduint VertMirrorEn = 0;
+		//
+		if (!HorMirrorEn && !VertMirrorEn) {
+			ly(CFBAR) = _IMM(param.roleaddr);// Configure the color frame buffer start address
+			switch (param.pixel_format) {
+			case PixelFormat::NV12:
+			case PixelFormat::NV21:
+				// [AFBADD0] Configure the auxiliary frame buffer address 0
+				ly(AFBA0R) = 0;//{} AuxiliaryFB.StartAddressBuffer0;
+				// [AFBADD1] Configure the auxiliary frame buffer address 1
+				ly(AFBA1R) = 0;//{} AuxiliaryFB.StartAddressBuffer1;
+				// Configure the buffer length
+				{
+					stduint vir_AFBLR = ly(AFBLR);
+					Tdsfield AFBP((pureptr_t)&vir_AFBLR, 16, 15);
+					Tdsfield AFBLL((pureptr_t)&vir_AFBLR, 0, 14);
+					AFBP = param.image_size.x;
+					AFBLL = param.window.width + 7U;
+					ly(AFBLR) = vir_AFBLR;
+				}
+				// [AFBLNBR] Configure the frame buffer line number
+				ly(AFBLNR) = param.image_size.y >> 1U;
+				break;
+			case PixelFormat::YUV420:
+			case PixelFormat::YVU420:
+				// [AFBADD0] Configure the auxiliary frame buffer address 0
+				ly(AFBA0R) = 0;//{} AuxiliaryFB.StartAddressBuffer0;
+				// [AFBADD1] Configure the auxiliary frame buffer address 1
+				ly(AFBA1R) = 0;//{} AuxiliaryFB.StartAddressBuffer1;
+				// Configure the buffer length
+				{
+					stduint vir_AFBLR = ly(AFBLR);
+					Tdsfield AFBP((pureptr_t)&vir_AFBLR, 16, 15);
+					Tdsfield AFBLL((pureptr_t)&vir_AFBLR, 0, 14);
+					AFBP = param.image_size.x >> 1U;
+					AFBLL = (param.window.width >> 1U) + 7U;
+					ly(AFBLR) = vir_AFBLR;
+				}
+				// [AFBLNBR] Configure the frame buffer line number
+				ly(AFBLNR) = param.image_size.y >> 1U;
+				break;
+			default:
+				break;
+			}
+			// Configure the color frame buffer pitch in byte
+			{
+				stduint vir_CFBLR = ly(CFBLR);
+				Tdsfield CFBP((pureptr_t)&vir_CFBLR, 16, 15);
+				Tdsfield CFBLL((pureptr_t)&vir_CFBLR, 0, 14);
+				CFBP = param.image_size.x * stride;
+				CFBLL = param.window.width * stride + 7U;
+				ly(CFBLR) = vir_CFBLR;
+			}
+			// Enable LTDC_Layer by setting LEN bit
+			ly(CR) = _IMM1S(0);// LEN
+		}
+		else if (HorMirrorEn && !VertMirrorEn) {
+			ly(CFBAR) = _IMM(param.roleaddr) + stride * param.window.width - 1U;
+			switch (param.pixel_format)
+			{
+			case PixelFormat::NV12:
+			case PixelFormat::NV21:
+				ly(AFBA0R) = 0 + //{} pLayerCfg->AuxiliaryFB.StartAddressBuffer0
+					stride * param.window.width - 1U;
+				ly(AFBA1R) = 0 + //{} pLayerCfg->AuxiliaryFB.StartAddressBuffer1
+					stride * param.window.width - 1U;
+				{
+					stduint vir_AFBLR = ly(AFBLR);
+					Tdsfield AFBP((pureptr_t)&vir_AFBLR, 16, 15);
+					Tdsfield AFBLL((pureptr_t)&vir_AFBLR, 0, 14);
+					AFBP = param.image_size.x;
+					AFBLL = param.window.width + 7U;
+					ly(AFBLR) = vir_AFBLR;
+				}
+				ly(AFBLNR) = param.image_size.y >> 1U;
+				break;
+			case PixelFormat::YUV420:
+			case PixelFormat::YVU420:
+				ly(AFBA0R) = 0 + //{} pLayerCfg->AuxiliaryFB.StartAddressBuffer0
+					(stride * (param.window.width >> 1U)) - 1U;
+				ly(AFBA1R) = 0 + //{} pLayerCfg->AuxiliaryFB.StartAddressBuffer1
+					(stride * (param.window.width >> 1U)) - 1U;
+				{
+					stduint vir_AFBLR = ly(AFBLR);
+					Tdsfield AFBP((pureptr_t)&vir_AFBLR, 16, 15);
+					Tdsfield AFBLL((pureptr_t)&vir_AFBLR, 0, 14);
+					AFBP = param.image_size.x >> 1U;
+					AFBLL = (param.window.width >> 1U) + 7U;
+					ly(AFBLR) = vir_AFBLR;
+				}
+				ly(AFBLNR) = param.image_size.y >> 1U;
+				break;
+			default:
+				break;
+			}
+			{
+				stduint vir_CFBLR = ly(CFBLR);
+				Tdsfield CFBP((pureptr_t)&vir_CFBLR, 16, 15);
+				Tdsfield CFBLL((pureptr_t)&vir_CFBLR, 0, 14);
+				CFBP = param.image_size.x * stride;
+				CFBLL = param.window.width * stride + 7U;
+				ly(CFBLR) = vir_CFBLR;
+			}
+			// Enable horizontal mirroring bit & LTDC_Layer by setting LEN bit
+			ly(CR) = _IMM1S(8) | _IMM1S(0);// HMEN | LEN;
+		}
+		else if (!HorMirrorEn && VertMirrorEn) {
+			ly(CFBAR) = _IMM(param.roleaddr) + stride * param.window.width * (param.window.height - 1);
+			switch (param.pixel_format)
+			{
+			case PixelFormat::NV12:
+			case PixelFormat::NV21:
+				ly(AFBA0R) = 0 + //{} AuxiliaryFB.StartAddressBuffer0
+					stride * param.window.width * ((param.window.height >> 1U) - 1U);
+				ly(AFBA1R) = 0 + //{} AuxiliaryFB.StartAddressBuffer1
+					stride * param.window.width * ((param.window.height >> 1U) - 1U);
+				{
+					stduint vir_AFBLR = ly(AFBLR);
+					Tdsfield AFBP((pureptr_t)&vir_AFBLR, 16, 15);
+					Tdsfield AFBLL((pureptr_t)&vir_AFBLR, 0, 14);
+					AFBP = 0x10000U - (param.image_size.x * stride);
+					AFBLL = param.window.width * stride + 7U;
+					ly(AFBLR) = vir_AFBLR;
+				}
+				ly(AFBLNR) = param.image_size.y >> 1U;
+				break;
+			case PixelFormat::YUV420:
+			case PixelFormat::YVU420:
+				ly(AFBA0R) = 0 +//{} AuxiliaryFB.StartAddressBuffer0
+					stride * (param.window.width >> 1U) * ((param.window.height >> 1U) - 1U);
+				ly(AFBA1R) = 0 +//{} AuxiliaryFB.StartAddressBuffer1
+					stride * (param.window.width >> 1U) * ((param.window.height >> 1U) - 1U);
+				{
+					stduint vir_AFBLR = ly(AFBLR);
+					Tdsfield AFBP((pureptr_t)&vir_AFBLR, 16, 15);
+					Tdsfield AFBLL((pureptr_t)&vir_AFBLR, 0, 14);
+					AFBP = (0x10000U - (param.image_size.x >> 1U)) * stride;
+					AFBLL = (param.window.width >> 1U) * stride + 7U;
+					ly(AFBLR) = vir_AFBLR;
+				}
+				ly(AFBLNR) = param.image_size.y >> 1U;
+				break;
+			default:
+				break;
+			}
+			{
+				stduint vir_CFBLR = ly(CFBLR);
+				Tdsfield CFBP((pureptr_t)&vir_CFBLR, 16, 15);
+				Tdsfield CFBLL((pureptr_t)&vir_CFBLR, 0, 14);
+				CFBP = 0x10000U - param.image_size.x * stride;
+				CFBLL = param.window.width * stride + 7U;
+				ly(CFBLR) = vir_CFBLR;
+			}
+			ly(CR) = _IMM1S(0);// LEN
+		}
+		else if (HorMirrorEn && VertMirrorEn) {
+			ly(CFBAR) = _IMM(param.roleaddr) + stride * param.window.width * param.window.height - 1;
+			switch (param.pixel_format)
+			{
+			case PixelFormat::NV12:
+			case PixelFormat::NV21:
+				ly(AFBA0R) = 0 + //{} AuxiliaryFB.StartAddressBuffer0 +
+					(stride * param.window.width * (param.window.height >> 1U)) - 1U;
+				ly(AFBA1R) = 0 + //{} AuxiliaryFB.StartAddressBuffer1 +
+					(stride * param.window.width * (param.window.height >> 1U)) - 1U;
+				{
+					stduint vir_AFBLR = ly(AFBLR);
+					Tdsfield AFBP((pureptr_t)&vir_AFBLR, 16, 15);
+					Tdsfield AFBLL((pureptr_t)&vir_AFBLR, 0, 14);
+					AFBP = 0x10000U - param.image_size.x * stride;
+					AFBLL = param.window.width * stride + 7U;
+					ly(AFBLR) = vir_AFBLR;
+				}
+				ly(AFBLNR) = param.image_size.y >> 1U;
+				break;
+			case PixelFormat::YUV420:
+			case PixelFormat::YVU420:
+				ly(AFBA0R) = 0 + //{} AuxiliaryFB.StartAddressBuffer0 +
+					(stride * (param.window.width >> 1U) * (param.window.height >> 1U)) - 1U;
+				ly(AFBA1R) = 0 + //{} AuxiliaryFB.StartAddressBuffer1 +
+					(stride * (param.window.width >> 1U) * (param.window.height >> 1U)) - 1U;
+				{
+					stduint vir_AFBLR = ly(AFBLR);
+					Tdsfield AFBP((pureptr_t)&vir_AFBLR, 16, 15);
+					Tdsfield AFBLL((pureptr_t)&vir_AFBLR, 0, 14);
+					AFBP = (0x10000U - (param.image_size.x >> 1U)) * stride;
+					AFBLL = ((param.window.width >> 1U) * stride) + 7U;
+					ly(AFBLR) = vir_AFBLR;
+				}
+				ly(AFBLNR) = param.image_size.y >> 1U;
+				break;
+			default:
+				break;
+			}
+			ly(CR) = _IMM1S(8) | _IMM1S(0);// HMEN | LEN;
+		}
+		return true;
+	}
+
+	bool LTDC_LAYER_t::assert_param(LayerPara param) const {
+		asrtret(param.image_size.x <= 0xFFFF);// LTDC_LxCFBLR_CFBLL: color frame buffer line lengthThese bits define the length of one line of pixels in bytes + 7.The line length is computed as follows:active high width * number of bytes per pixel + 7.
+		asrtret(param.image_size.y <= 0xFFFF);// LTDC_LxCFBLNR_CFBLNBR: frame buffer line numberThese bits define the number of lines in the frame buffer that corresponds to the active high width. 
+		//
+		asrtret(param.window.x <= 0xFFFF);// LTDC_LxWHPCR_WHSTPOS
+		asrtret(param.window.y <= 0xFFFF);// LTDC_LxWHPCR_WHSTPOS
+		asrtret(param.window.x + param.window.width <= 0xFFFF);// LTDC_LxWHPCR_WHSTPOS
+		// LTDC_LxWHPCR_WHSTPOS: window horizontal start positionThese bits configure the first visible pixel of a line of the layer window.WHSTPOS[15:0] must be >= AAW[15:0] bits (programmed in LTDC_AWCR register).
+		asrtret(param.window.y + param.window.height <= 0xFFFF);// LTDC_LxWHPCR_WHSPPOS
+		// LTDC_LxWHPCR_WHSPPOS: window horizontal stop positionThese bits configure the last visible pixel of a line of the layer window.WHSPPOS[15:0] must be <= AHBP[15:0] bits + 1 (programmed in LTDC_BPCR register).
+		return true;
+	}
+
+	LTDC_t& LTDC_LAYER_t::getParent() const { return LTDC; }
+
+	bool LTDC_LAYER_t::setMode(LayerPara& param) const {
+		asrtret(assert_param(param));
+		asrtret(setMode_sub(param));
+		getParent()[LTDCReg::SRCR] = _IMM1S(0);// IMR
+		return true;
 	}
 
 	Rectangle LTDC_LAYER_t::getWindow() const {

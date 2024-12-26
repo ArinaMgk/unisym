@@ -1,5 +1,5 @@
-Last-Commit: 20241215：「 
-+ (till 1227) mistake lunar winter for U2024WTR, this will release same label on solar winter (same day with anni-11). This is a pre-U2024WTR.
+Last-Commit: 20241221：「 
++
 」
 This-Commit: 「
 + 
@@ -19,16 +19,17 @@ MSP432P4
 
 ---
 
-### Before Anniversary 12th
+### Anniversary 12th
 
+(20241228 -> 20251227)
 
-### Before Anniversary 11th
+### Anniversary 11th
 
 After this, release UNISYM:
-- each month for DSCN branch
+- each month for DSCN branch with merge
 - each quarter for main branch
 
-### Before Anniversary 10th
+### Anniversary 10th
 
 After this, release UNISYM:
 - each quarter for DSCN branch

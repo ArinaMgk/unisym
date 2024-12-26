@@ -171,7 +171,7 @@ statin uint32 __get_CLIDR(void)
 
 // ---- Timer
 
-// Get Count Value
+// Count Value
 // AKA PL1_GetCurrentValue in core_ca.h
 // AKA __get_CNTP_TVAL     in cmsis_cp15.h
 statin uint32 PL1_GetCurrentValue(void) {
@@ -179,8 +179,6 @@ statin uint32 PL1_GetCurrentValue(void) {
 	__get_CP(15, 0, result, 14, 2, 0);
 	return result;
 }
-
-// Set Count Value
 // AKA PL1_SetLoadValue in core_ca.h
 // =   __set_CNTP_TVAL  in cmsis_cp15.h + __ISB()
 statin void PL1_SetLoadValue(uint32 value) {
@@ -188,6 +186,16 @@ statin void PL1_SetLoadValue(uint32 value) {
 	__ISB();
 }
 
+// PL1 Physical Timer Counter Frequency
+statin uint32 __get_CNTFRQ(void) {
+	uint32 result;
+	__get_CP(15, 0, result, 14, 0, 0);
+	return result;
+}
+statin void __set_CNTFRQ(uint32 value)
+{
+	__set_CP(15, 0, value, 14, 0, 0);
+}
 
 
 #undef statin

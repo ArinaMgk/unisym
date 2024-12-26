@@ -105,18 +105,44 @@ namespace uni {
 		FPF0R,        // Flexible Pixel Format 0  : 0x74
 		FPF1R,        // Flexible Pixel Format 1  : 0x78
 	};// AKA LTDC_Layer_TypeDef L1 (or L2) from offset 0x100 (or 0x200) from LTDC
+
 	
 	// MP13 have no DMA2D
 	// 20241201: Trait must be an entity, not a virtual class. use `override` may make some avoid errors
+	class LTDC_t;
 	class LTDC_LAYER_t : public VideoControlInterface {
+	public:
+		struct LayerPara {
+			pureptr_t roleaddr;
+			Color backcolor;
+			Rectangle window;
+			Size2 image_size;
+			// backcolor : { ST.Alpha Backcolor{Red Green Blue} }
+			PixelFormat pixel_format = PixelFormat::ARGB8888;
+			byte Alpha0;
+			// ? /*T:PAxCA*/(0b110<<8) : /*F:CA*/(0b100<<8)
+			bool factor1_mode;
+			// ? /*T:PAxCA*/(0b111)    : /*F:CA*/(0b101)
+			bool factor2_mode;
+		};// keep alignment for ARM
+		static LayerPara* layer_param_refer(LayerPara*);
 	protected:
 		byte id;
+
+		// AKA LTDC_SetConfig
+		bool setMode_sub(LayerPara& param) const;
+
+		bool assert_param(LayerPara param) const;
+
 	public:
 		LTDC_LAYER_t(byte id) : id(id) {}
 		stduint getID() const { return _IMM(this) == 2 ? 0x2 : 0x1; }
-		Reference operator[](LTDCReg trt) const { return 0x5A001000 + getID() * 0x100 + _IMMx4(trt); }
+		LTDC_t& getParent() const;
+		Reference operator[](LTDCLayerReg trt) const { return 0x5A001000 + getID() * 0x100 + _IMMx4(trt); }
 
-		bool setMode(stduint baseaddr, Rectangle window) const;
+		// AKA HAL_LTDC_ConfigLayer
+		bool setMode(LayerPara& param) const;
+
 		Rectangle getWindow() const;
 		VideoControlBlock getControlBlock() const;
 		// VideoControlInterface

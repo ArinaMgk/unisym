@@ -28,10 +28,37 @@
 #ifdef _INC_CPP
 namespace uni {
 #endif
-	//[ATTR] little-endian
+
+	enum class PixelFormat {
+		ARGB8888 = 0x00,
+		ABGR8888 = 0x01,
+		RGBA8888 = 0x02,
+		BGRA8888 = 0x03,
+		//
+		RGB565 = 0x04,
+		BGR565 = 0x05,
+		RGB888 = 0x06,
+		ARGB1555 = 0x07,
+		ARGB4444 = 0x08,
+		L8 = 0x09,
+		AL44 = 0x0A,
+		AL88 = 0x0B,
+		//
+		UYVY = 0x0C,
+		VYUY = 0x0D,
+		YUYV = 0x0E,
+		YVYU = 0x0F,
+		//
+		NV12 = 0x10,
+		NV21 = 0x11,
+		YUV420 = 0x12,
+		YVU420 = 0x13
+	};
+	
+	//[ATTR] little-endian, argb
 	struct Color {
 		byte b, g, r, a; // union {x y z i} 
-		enum ColorIdentifier {
+		enum ColorIdentifier : uint32 {
 			// ❤
 			DEF_COLOR(0xFFF0F8FF, AliceBlue),
 
@@ -53,10 +80,7 @@ namespace uni {
 		//
 
 		Color(uint32 i = 0) {
-			*(uint32*)this = i;
-		}
-		Color(ColorIdentifier ci) {
-			*(uint32*)this = (uint32)ci;
+			*(uint32*)this = i;// address may be in alignment
 		}
 
 		static Color From32(uint32 argb) {
@@ -74,9 +98,7 @@ namespace uni {
 
 		//{TODO} static HSLA
 
-		operator uint32() {
-			return *(uint32*)this;
-		}
+		operator uint32() { return *(uint32*)this; }
 
 		uint16 ToRGB565() const {
 			// R5[11] G6[5] B5[0]

@@ -42,9 +42,9 @@ namespace uni {
 }
 #endif// _MCU_STM32F1x || _MCU_STM32F4x
 
+namespace uni {
 #ifdef _MCU_STM32F1x
 
-namespace uni {
 	class RCCOscillator {
 	protected:
 		uni::Reference addr;
@@ -90,15 +90,8 @@ namespace uni {
 	};
 	typedef RCCOscillatorLSE LSE_t;
 
-	class RCCOscillatorPLL : public RCCOscillator{
-
-	};
-	typedef RCCOscillatorPLL PLL_t;
-	
-}
-
 #elif defined(_MCU_STM32F4x)
-namespace uni {
+
 	class RCCOscillatorHSE //{}: public RCCOscillator
 	{
 	protected:
@@ -124,8 +117,95 @@ namespace uni {
 	};
 	typedef RCCOscillatorHSI HSI_t;
 	
-}
+#elif defined(_MPU_STM32MP13)
 
+	class RCCOscillatorHSE { //{}: public RCCOscillator
+	public:
+		// AKA IS_HSE_IN_USE
+		bool isUsed() const;
+		// AKA RCC_FLAG_HSERDY
+		bool isReady() const;
+		//
+		void enAble(bool ena = true) const;
+		// AKA (PARTOF-HAL_RCC_OscConfig) HAL_RCC_HSEConfig
+		bool setMode(bool bypass = false, bool byp_dig = false) const;
+		// State(OFF), not RESET to default
+		bool canMode() const;
+	};
+	typedef RCCOscillatorHSE HSE_t;
+	
+	class RCCOscillatorHSI { //{}: public RCCOscillator
+		// useless `this`
+	protected:
+		// AKA __HAL_RCC_HSI_DIV and RCC_FLAG_HSIDIVRDY
+		void setDiv(byte div) const;
+		// AKA __HAL_RCC_HSI_CALIBRATIONVALUE_ADJUST
+		void AdjectCalibration(stduint calibration) const;
+	public:
+		// AKA IS_HSI_IN_USE
+		bool isUsed() const;
+		//
+		bool isReady() const;
+		//
+		void enAble(bool ena = true) const;
+		// State(ON)
+		// divexpo    : MASK(0b11) 0~3 for DIV 1 2 4 8
+		// calibration: 0..0x80
+		bool setMode(byte divexpo, byte calibration) const;
+		// Reset to default state
+		void Reset() const;
+		// State(OFF)
+		bool canMode() const;
+		//
+		stduint getFrequency() const;
+	};
+	typedef RCCOscillatorHSI HSI_t;
+
+	class RCCOscillatorCSI { //: public RCCOscillator {
+	protected:
+		// AKA __HAL_RCC_CSI_CALIBRATIONVALUE_ADJUST
+		void AdjectCalibration(stduint calibration) const;
+	public:
+		// AKA IS_CSI_IN_USE
+		bool isUsed() const;
+		//
+		bool isReady() const;
+		// AKA __HAL_RCC_CSI_ENABLE/DISABLE
+		void enAble(bool ena = true) const;
+		// State(ON)
+		// calibration: 0..0x20
+		bool setMode(byte calibration) const;
+		// State(OFF)
+		bool canMode() const;
+	};
+	typedef RCCOscillatorCSI CSI_t;
+	
+	class RCCOscillatorLSI { //: public RCCOscillator {
+	public:
+		// AKA RCC_FLAG_LSIRDY
+		bool isReady() const;
+		// AKA __HAL_RCC_LSI_ENABLE / _DISABLE
+		void enAble(bool ena = true) const;
+		// State(ON)
+		bool setMode() const;
+		// State(OFF)
+		bool canMode() const;
+	};
+	typedef RCCOscillatorLSI LSI_t;
+
+	class RCCOscillatorLSE { //: public RCCOscillator {
+	public:
+		// AKA 
+		bool isReady() const;
+		//
+		void enAble(bool ena = true) const;
+		// AKA PWR{SET}+HAL_RCC_LSEConfig
+		bool setMode(bool bypass = false, bool byp_dig = false) const;
+		// State(OFF), not RESET to default
+		bool canMode() const;
+	};
+	typedef RCCOscillatorLSE LSE_t;
 
 #endif
+}
 #endif

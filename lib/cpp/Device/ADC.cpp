@@ -23,6 +23,7 @@
 #include "../../../inc/cpp/Device/ADC"
 #include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/c/driver/ADConverter/Register-ADC.h"
+#include "../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 
 namespace uni {
 
@@ -78,7 +79,7 @@ namespace uni {
 		return true;
 	}
 
-	void ADC_t::enInterrupt(bool enable) {
+	void ADC_t::enInterrupt(bool enable) const {
 		bool trigger_ext = false;
 		// C-with HAL_ADC_Start_IT
 		if (enable) {
@@ -179,7 +180,7 @@ namespace uni {
 	};
 	
 	bool ADC_t::setChannel(GPIO_Pin& pin, byte rank, ADCSample::ADCSample sample) {
-		using namespace ADCReg;
+		using namespace ::uni::ADCReg;
 		if (rank >= 16) return false;
 		byte chan = getChannelNumber(pin);
 		if (chan == 0xFF) return false;
@@ -187,7 +188,7 @@ namespace uni {
 		const ADCRegType smpr = chan > 9 ? SMPR1 : SMPR2;
 		self[smpr].maset(3 * (chan % 10), 3, _IMM(sample));// 9 and 10
 		const ADCRegType sqr = ADCRegType(_IMM(SQR3) - rank / 6);
-		self[sqr].maset(5 * (rank % 6), 5, rank);
+		self[sqr].maset(5 * (rank % 6), 5, chan);
 		//: CASE ADC1 Channel_18 is selected for VBAT Channel ennable VBATE
 		if (getID() == 1 && chan == 18/*VBAT*/) {
 			// Because here is GPIO input, no this case.
@@ -202,7 +203,7 @@ namespace uni {
 		return true;
 	}
 
-	static void func_sub_1(ADC_t& sel) {
+	static void func_sub_1(const ADC_t& sel) {
 		using namespace ADCReg;
 		//{TEMP} assume ADC2 ADC3 both exist
 		//: If no ADC2&3, do not judge the if :
@@ -215,7 +216,7 @@ namespace uni {
 				sel[CR2] |= 0x40000000;// ADC_CR2_SWSTART
 		}
 	}
-	void ADC_t::enInterrupt(bool enable) {
+	void ADC_t::enInterrupt(bool enable) const {
 		using namespace ADCReg;
 		if (enable) {
 			if (!self[CR2].bitof(0)) { // ADON
@@ -237,20 +238,27 @@ namespace uni {
 			NVIC.setAble(ADCx_Request_list[self.ADC_ID]);
 		}
 	}
+#elif defined(_MPU_STM32MP13)
+	static const uint32 _REFADDR_ADC[] = { nil,
+		AHB2_PERIPH_BASE + 0x3000,
+		AHB2_PERIPH_BASE + 0x4000
+	};
+	// ADC_Common_TypeDef of each is base plus 0x0300
 
+	
 #endif
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
-	stduint ADC_t::getBaseAddr() {
+	stduint ADC_t::getBaseAddr() const {
 		return _REFADDR_ADC[self.ADC_ID];
 	} //{TEMP} no-assert-opt
 
-	void ADC_t::setInterrupt(Handler_t fn) {
-		FUNC_ADCx[getID()] = fn;
+	void ADC_t::setInterrupt(Handler_t f) const {
+		FUNC_ADCx[getID()] = f;
 	}
 
-	void ADC_t::setInterruptPriority(byte preempt, byte sub_priority) {
+	void ADC_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority(ADCx_Request_list[ADC_ID], preempt, sub_priority);
 	}
 
@@ -266,7 +274,7 @@ namespace uni {
 		return ena == Reference(RCC_ADCx_addrs[ADC_ID - 1]).bitof(RCC_ADCx_bitpos[ADC_ID - 1]);
 	}
 
-	bool ADC_t::enAble(bool ena) {
+	bool ADC_t::enAble(bool ena) const {
 		using namespace ADCReg;
 		self[CR2].setof(_ADC_CR2_POS_ADON, ena);
 		return self[CR2].bitof(_ADC_CR2_POS_ADON) == ena;

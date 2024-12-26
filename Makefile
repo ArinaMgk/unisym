@@ -23,7 +23,6 @@ local:
 	@make --no-print-directory -f ${make_dir}local.make all
 
 list: local# depend [perl python]
-	@clear
 	@perl ./lib/Script/Makefile/makemake.pl
 
 # ---- [naming style generation 2] ----
@@ -64,7 +63,7 @@ rust:
 # ---- [utilities] ----
 
 manual:
-	@cd doc && xelatex herepc.tex && mv herepc.pdf ${ubinpath}/{$@}.pdf
+	@cd doc && xelatex herepc.tex && mv herepc.pdf ${ubinpath}/${@}.pdf
 
 MGC_CFLG = -std=c99 -fno-common
 
@@ -83,6 +82,7 @@ i8086-CG-IBMPC:
 	@echo TODO
 x86-CG-Win32: list
 	-@mkdir.exe -p $(uobjpath)/CGWin32
+	-@mkdir.exe -p $(uobjpath)/CGWin32-DLL
 	-@rm -f $(uobjpath)/CGWin32/*
 	-@rm -f $(ubinpath)/libw32d.a
 	make -f ${make_dir}cgw32.make all
@@ -95,6 +95,7 @@ x86-CL-Win32: #{} clw32
 
 x64-CG-Win64: list
 	-@mkdir.exe -p $(uobjpath)/CGWin64
+	-@mkdir.exe -p $(uobjpath)/CGWin64-DLL
 	-@rm -f $(uobjpath)/CGWin64/*
 	-@rm -f $(ubinpath)/libw64d.a
 	make -f ${make_dir}cgw64.make all # x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
@@ -104,13 +105,17 @@ x64-CV-Win64: list
 x64-CM-Win64: #{} cmw64
 x64-CL-Win64: #{} clw64
 
+# [Static + Dynamic]
 x86-EG-Lin32: list
 	-@mkdir -p $(uobjpath)/CGLin32
+	-@mkdir -p $(uobjpath)/CGLin32-DLL
 	-@rm -f $(uobjpath)/CGLin32/*
 	-@rm -f $(ubinpath)/libl32d.a
 	make -f ${make_dir}cgl32.make all
+# [Static + Dynamic]
 x64-EG-Lin64: list
 	-@mkdir -p $(uobjpath)/CGLin64
+	-@mkdir -p $(uobjpath)/CGLin64-DLL
 	-@rm -f $(uobjpath)/CGLin64/*
 	-@rm -f $(ubinpath)/libl64d.a
 	make -f ${make_dir}cgl64.make all
@@ -139,7 +144,10 @@ cortexm3-EG-STM32F1: list
 cortexm3-Keil-STM32F1:
 	@echo TODO
 cortexm4-EG-STM32F4:
-	@echo TODO
+	-@mkdir -p $(uobjpath)/STM32F4
+	-@rm -f $(uobjpath)/STM32F4/*
+	-@rm -f $(ubinpath)/libSTM32F4.a
+	@make --no-print-directory -f ${make_dir}cortexm4-Gnu-STM32F4.make all
 cortexm4-Keil-STM32F4:
 	@echo TODO
 
@@ -153,3 +161,4 @@ cortexa7-Keil-STM32MP13:
 
 clean:
 	-cd ./inc/Python/ && rmdir __pycache__ /S /Q
+	-cd ./lib/Rust/unisym && cargo clean

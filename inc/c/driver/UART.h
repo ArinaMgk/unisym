@@ -57,18 +57,24 @@ namespace uni {
 	protected:
 		stduint baseaddr;
 		byte XART_ID;
+		stduint last_baudrate;
+		void Delay_unit();
 	public:
-		Reference operator[](XARTReg::USARTReg idx) {
-			return Reference(baseaddr + (_IMM(idx) << 2));
+		Reference operator[](XARTReg::USARTReg idx) const {
+			return baseaddr + _IMMx4(idx);
 		}
-		USART_t(stduint _baseaddr, byte _XART_ID) : baseaddr(_baseaddr), XART_ID(_XART_ID) {}
-		void setMode(_TEMP void);
+		USART_t(stduint _baseaddr, byte _XART_ID) : baseaddr(_baseaddr), XART_ID(_XART_ID), last_baudrate(1){}
+		void setMode(stduint band_rate = 115200);
 		int operator>> (int& res);
 		USART_t& operator<< (stduint dat);
 		USART_t& operator<< (const char* p);
 		bool enAble(bool ena = true);
 		bool enClock(bool ena = true);
 		_COM_DEF_Interrupt_Interface();
+	};
+
+	class XART_SOFT {
+		_TODO byte todo;
 	};
 
 }
@@ -107,6 +113,59 @@ namespace uni {
 namespace uni {
 	extern USART_t XART1, XART2, XART3, XART6;
 	extern UART_t  XART4, XART5, XART7, XART8;
+}
+
+#elif defined(_WinNT) || defined(_Linux) // Any Hosted
+
+#ifdef _WinNT
+#define UNICODE
+#include <WinSock2.h>
+#include <windows.h>
+#define _INC_USTDBOOL
+
+#elif defined(_Linux)
+#include <fcntl.h>
+#include <unistd.h>
+#include <termios.h>
+#include <string.h>
+#include <sys/select.h>
+
+#endif
+#include "../../cpp/string"
+
+namespace uni {
+	enum class UARTCheck {
+		None, Odd, Even, Mark
+	};
+	enum class UARTStopBit {
+		One, OneHalf, Two
+	};
+	class UART_t {
+		stduint baudrate;
+		bool state;
+		String portname;// "\\\\.\\COM10" or "ttyUSB0"
+		stduint databits;
+		UARTCheck parity;
+		UARTStopBit stopbits;
+	#ifdef _WinNT
+		HANDLE pHandle;
+	#elif defined(_Linux)
+		int pHandle;
+	#endif
+	public:
+		bool sync;
+		UART_t(String portname) :
+			baudrate(baudrate), state(false), portname(portname), databits(8), parity(UARTCheck::None), stopbits(UARTStopBit::One), 
+			sync(true) {}
+		~UART_t();
+		bool setMode(stduint _baudrate = 115200);
+		bool operator>> (int& res);// return if new data received
+		bool operator<< (stduint dat);
+		inline UART_t& operator<< (const char* p) {
+			while (*p) self << stduint(*p++);
+			return self;
+		}
+	};
 }
 
 #endif

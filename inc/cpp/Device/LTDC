@@ -1,0 +1,190 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Deivce) LTDC
+// Codifiers: @dosconio: 20241123 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_Device_LTDC
+#define _INC_Device_LTDC
+#if defined(_MPU_STM32MP13)
+
+#include "../reference"
+#include "_Video.hpp"
+
+namespace uni {
+	struct LTDC_TIMESPAN {
+		stduint sync_len;
+		stduint back_porch;
+		stduint active_len;
+		stduint front_porch;
+	};// AKA LTDC_InitTypeDef
+
+	// pander stm32mp135 d/f xx_ca7.h
+	enum class LTDCReg {
+		IDR,  // identification  
+		LCR,  // layer count  
+		SSCR, // synchronization size configuration  
+		BPCR, // back porch configuration  
+		// 0x10
+		AWCR, // active width configuration  
+		TWCR, // total width configuration  
+		GCR,  // global control  
+		GC1R, // global configuration 1  
+		// 0x20
+		GC2R, // global configuration 2  
+		SRCR, // shadow reload configuration  
+		GCCR, // gamma correction configuration  
+		BCCR, // background color configuration  
+		// ...
+		IER = 0x34 / 4, // interrupt enable   : 0x34
+		ISR,  // interrupt status   : 0x38
+		ICR,  // Interrupt Clear Register  : 0x3c
+		LIPCR,// line interrupt position configuration   : 0x40
+		CPSR, // current position status   : 0x44
+		CDSR, // current display status   : 0x48
+		// ...
+		EDCR = 0x60 / 4,// external display control   : 0x60
+		IER2,   // interrupt enable  2  : 0x64
+		ISR2,   // interrupt status  2  : 0x68
+		ICR2,   // Interrupt Clear Register 2  : 0x6c
+		LIPCR2, // line interrupt position configuration  2  : 0x70
+		// ...
+		ECRCR = 0x78 / 4,// expected CRC   : 0x78
+		CCRCR,// computed CRC   : 0x7c
+		 // ...
+		FUTR = 0x90 / 4,// FIFO underrun threshold   : 0x90
+	};// AKA LTDC_TypeDef
+
+	// pander stm32mp135 d/f xx_ca7.h
+	enum class LTDCLayerReg {
+		C0R,          // configuration 0 
+		C1R,          // configuration 1 
+		RCR,          // reload control 
+		CR,           // control 
+		// 0x10:
+		WHPCR,        // window horizontal position configuration 
+		WVPCR,        // window vertical position configuration  
+		CKCR,         // color keying configuration 
+		PFCR,         // pixel format configuration 
+		// 0x20:
+		CACR,         // constant alpha configuration 
+		DCCR,         // default color configuration  
+		BFCR,         // blending factors configuration  
+		BLCR,         // burst length configuration 
+		// 0x30:
+		PCR,          // planar configuration 
+		CFBAR,        // color frame buffer address 
+		CFBLR,        // color frame buffer length  
+		CFBLNR,       // color frame buffer line number 
+		// 0x40:
+		AFBA0R,       // auxiliary frame buffer address 0 
+		AFBA1R,       // auxiliary frame buffer address 1 
+		AFBLR,        // auxiliary frame buffer length 
+		AFBLNR,       // auxiliary frame buffer line number 
+		// 0x50:
+		CLUTWR,       // CLUT write
+		// ...
+		CYR0R = 0x6c / 4,        // Conversion YCbCr RGB 0  : 0x6c
+		CYR1R,        // Conversion YCbCr RGB 1  : 0x70
+		FPF0R,        // Flexible Pixel Format 0  : 0x74
+		FPF1R,        // Flexible Pixel Format 1  : 0x78
+	};// AKA LTDC_Layer_TypeDef L1 (or L2) from offset 0x100 (or 0x200) from LTDC
+
+	
+	// MP13 have no DMA2D
+	// 20241201: Trait must be an entity, not a virtual class. use `override` may make some avoid errors
+	class LTDC_t;
+	class LTDC_LAYER_t : public VideoControlInterface {
+	public:
+		struct LayerPara {
+			pureptr_t roleaddr;
+			Color backcolor;
+			Rectangle window;
+			Size2 image_size;
+			// backcolor : { ST.Alpha Backcolor{Red Green Blue} }
+			PixelFormat pixel_format = PixelFormat::ARGB8888;
+			byte Alpha0;
+			// ? /*T:PAxCA*/(0b110<<8) : /*F:CA*/(0b100<<8)
+			bool factor1_mode;
+			// ? /*T:PAxCA*/(0b111)    : /*F:CA*/(0b101)
+			bool factor2_mode;
+		};// keep alignment for ARM
+		static LayerPara* layer_param_refer(LayerPara*);
+	protected:
+		byte id;
+
+		// AKA LTDC_SetConfig
+		bool setMode_sub(LayerPara& param) const;
+
+		bool assert_param(LayerPara param) const;
+
+	public:
+		LTDC_LAYER_t(byte id) : id(id) {}
+		stduint getID() const { return _IMM(this) == 2 ? 0x2 : 0x1; }
+		LTDC_t& getParent() const;
+		Reference operator[](LTDCLayerReg trt) const { return 0x5A001000 + getID() * 0x100 + _IMMx4(trt); }
+
+		// AKA HAL_LTDC_ConfigLayer
+		bool setMode(LayerPara& param) const;
+
+		Rectangle getWindow() const;
+		VideoControlBlock getControlBlock() const;
+		// VideoControlInterface
+		virtual void SetCursor(const Point& disp) const;
+		virtual Point GetCursor() const;
+		virtual void DrawPoint(const Point& disp, Color color) const override;
+		virtual void DrawRectangle(const Rectangle& rect) const override;
+		virtual Color GetColor(Point p) const;
+		//:VideoControlInterface Impl by USER
+		virtual void DrawFont(const Point& disp, const DisplayFont& font) const;
+	};// Layer 0x00000001 and 0x00000002
+	class LTDC_t {
+	private:
+		LTDC_TIMESPAN horizontal, vertical;
+		// FifoUnderThresh
+	public:
+		bool HSPolarity, VSPolarity, DEPolarity,
+			PCPolarity;// true: LTDC_PCPOLARITY_IIPC, false: _IPC
+		LTDC_t() : HSPolarity(false), VSPolarity(false), DEPolarity(false), PCPolarity(false) {}
+		// ---- BASIC PROPERTIES ----
+		void enClock(bool ena = true);
+		Reference operator[](LTDCReg trt) const { return 0x5A001000 + _IMMx4(trt); }// APB4_PERIPH_BASE + 0x1000UL
+		LTDC_LAYER_t& operator[](unsigned layer) const;
+		// AKA __HAL_LTDC_ENABLE / DISABLE
+		void enAble(bool ena = true);
+		// ----
+		//
+		LTDC_TIMESPAN& refHorizontal() { return horizontal; }
+		//
+		LTDC_TIMESPAN& refVertical() { return vertical; }
+		// AKA HAL_LTDC_Init
+		bool setMode(Color color);
+		//
+		stduint getFrequency();
+
+	};
+
+
+
+	extern LTDC_t LTDC;
+}
+
+
+#endif
+#endif

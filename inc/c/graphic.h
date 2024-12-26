@@ -51,6 +51,8 @@ namespace uni {
 		Point getVertex() const {
 			return Point(x, y);
 		}
+		// Get Point Located at Right Bottom
+		Point getVertexOpposite() { return Point(x + width, y + height); }
 		Size2 getSize() const {
 			return Size2(width, height);
 		}

@@ -41,89 +41,39 @@ namespace uni {
 	protected:
 		// bool CPOL; when SCLK==CPOL, Trans is idle
 		// bool CPHA; sample at first edge and send secondly if zero, or second edge
+		virtual byte Transceive(byte data) { return data & nil; }
+	public:
+		Handler_t func_delay;
+
+		virtual byte Transceivex(stduint data, byte blen) { return nil; }
+		virtual void SendStart() {}
+		virtual void SendStop() {}
+		//
+		void Send(byte data) { (void)Transceive(data); }
+		// 0xFF is a dummy data
+		byte Read(void) { return Transceive(0xFF); }
+		SPI_t& operator<<(byte txt) { Send(txt); return self; }
+		void operator>>(byte& txt) { txt = Read(); }
+	};
+
+	class SPI_SOFT : public SPI_t {
+	protected:
+	protected:
 		GPIO_Pin& SCLK,
 			& MOSI,
 			& MISO,
 			& CSEL;// Chip select
 
-		byte Transceive(byte data) {
-			byte res = 0;// rx
-			for0(i, _BYTE_BITS_) {
-				SCLK = 0;
-				asserv(func_delay)();
-				MOSI = data & 0x80;
-				data <<= 1;
-				asserv(func_delay)();
-				SCLK.Toggle();
-				asserv(func_delay)();
-				res <<= 1;
-				if (MISO.getAddress() != MOSI.getAddress() && MISO) res |= 1;
-			}
-			SCLK = 0;
-			return res;
-		}
+		virtual byte Transceive(byte data) override;
 	public:
-		Handler_t func_delay;
-		SPI_t(GPIO_Pin& SCLK, GPIO_Pin& MOSI, GPIO_Pin& MISO, GPIO_Pin& CSEL) : SCLK(SCLK), MOSI(MOSI), MISO(MISO), CSEL(CSEL)
-		{
-			SCLK.setMode(GPIOMode::OUT_PushPull);
-			if (MISO.getAddress() != MOSI.getAddress())
-				MISO.setMode(GPIOMode::IN_Floating);
-			MOSI.setMode(GPIOMode::OUT_PushPull);
-			CSEL.setMode(GPIOMode::OUT_PushPull);
-			CSEL = 1;
-			SCLK = 0;
-			MOSI = _TEMP 0;
-		}
-
-		byte Transceivex(stduint data, byte blen) {
-			byte res = 0;// rx
-			MIN(blen, bitsof(stduint));
-			stduint mask = 1 << (blen - 1);
-			for0(i, blen) {
-				SCLK = 0;
-				asserv(func_delay)();
-				MOSI = data & mask;// DIN
-				data <<= 1;
-				asserv(func_delay)();
-				SCLK.Toggle();
-				asserv(func_delay)();
-				res <<= 1;
-				if (MISO.getAddress() != MOSI.getAddress() && MISO) res |= 1;
-			}
-			SCLK = 0;
-			return res;
-		}
-		
-		void Send(byte data) {
-		    (void)Transceive(data);
-		}
-
-		byte Read(void) {
-			return Transceive(0xFF);// 0xFF is a dummy data
-		}
-
-		SPI_t& operator<<(byte txt) {
-			Send(txt);
-			return self;
-		}
-
-		void operator>>(byte& txt) {
-			txt = Read();
-		}
-
-		void SendStart() {
-			CSEL = 1;
-			SCLK = 0;
-			MOSI = 0;
-			CSEL.Toggle();
-		}
-
-		void SendStop() {
-			MOSI = 0;
-			CSEL = 1;
-		}
+		SPI_SOFT(GPIO_Pin& SCLK, GPIO_Pin& MOSI, GPIO_Pin& MISO, GPIO_Pin& CSEL);
+		virtual byte Transceivex(stduint data, byte blen) override;
+		virtual void SendStart() override;
+		virtual void SendStop() override;
 	};
+	class SPI_HARD : public SPI_t {
+
+	};//{TODO}
 
 #endif
 

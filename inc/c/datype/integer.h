@@ -329,6 +329,7 @@ static const stduint NONE = ~(stduint)0;
 #endif
 #ifndef absof//(a,b)
 #define absof(a) ((a)<0?-(a):(a))
+#define ABS(a,b) ((a)<(b)?(b-a):(a-b))
 #endif
 
 #define nil 0
@@ -338,8 +339,9 @@ static const stduint NONE = ~(stduint)0;
 #endif
 	
 // Intel Assembly Style
-#define MAX(d,s) if((d)<(s)){(d)=(s);}
-#define MIN(d,s) if((d)>(s)){(d)=(s);}
+#define MAX(d,s,...) if((d)<(s)){(d)=(s);__VA_ARGS__;}
+#define MIN(d,s,...) if((d)>(s)){(d)=(s);__VA_ARGS__;}
+// - e.g. for0(i, n) MAX(max_len, StrLength(arr[i]), id = i);// get longest string
 
 #define isodd(x) ((x)&1)
 #define iseven(x) !((x)&1)

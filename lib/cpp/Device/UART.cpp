@@ -1,5 +1,182 @@
 
 #include "../../../inc/c/driver/UART.h"
+#include "../../../inc/cpp/Device/RCC/RCC"
+
+#ifdef _WinNT
+namespace uni {
+	UART_t::~UART_t() {
+		HANDLE hCom = *(HANDLE*)pHandle;
+		CloseHandle(hCom);
+	}
+
+	bool UART_t::setMode(stduint _baudrate) {
+		baudrate = _baudrate;
+		DCB dcb = { 0 };
+		pHandle = CreateFileA(portname.reference(),
+			GENERIC_READ | GENERIC_WRITE,
+			nil,// not-shared
+			NULL,// default security attributes
+			OPEN_EXISTING,// open existing file
+			sync ? 0 : FILE_FLAG_OVERLAPPED,
+			NULL);// default template file
+		state = pHandle != (HANDLE)None;
+		asserv(state) = SetupComm(pHandle, 1024, 1024);
+		dcb.DCBlength = sizeof(dcb);
+		dcb.BaudRate = baudrate;
+		dcb.ByteSize = databits;
+		dcb.Parity = stduint(parity);
+		dcb.StopBits = stduint(stopbits);
+		asserv(state) = SetCommState(pHandle, &dcb);
+		if (!state) return state;
+		// AllTotal = XTTMultiplier * numsof_rw + XTTConstant (ms)
+		COMMTIMEOUTS TimeOuts;
+		TimeOuts.ReadIntervalTimeout = 1000;
+		TimeOuts.ReadTotalTimeoutMultiplier = 500;
+		TimeOuts.ReadTotalTimeoutConstant = 5000;
+		TimeOuts.WriteTotalTimeoutMultiplier = 500;
+		TimeOuts.WriteTotalTimeoutConstant = 2000;
+		SetCommTimeouts(pHandle, &TimeOuts);
+		PurgeComm(pHandle, PURGE_TXCLEAR | PURGE_RXCLEAR);// Clear Buffer
+		return state;
+	}
+
+	bool UART_t::operator>> (int& res) {
+		HANDLE hCom = pHandle;
+		byte buf[4];
+		dword dwBytesWritten;
+		if (sync) {
+			BOOL bReadStat = ReadFile(hCom, buf, 1, (LPDWORD)&dwBytesWritten, NULL/*sync*/);
+			res = buf[0];// -52 is the EOF
+		}
+		else {
+			DWORD dwErrorFlags;
+			COMSTAT comStat;
+			OVERLAPPED m_osRead = { 0 };
+			m_osRead.hEvent = CreateEvent(NULL, TRUE, FALSE,
+			#ifndef _DEV_GCC
+				(LPCWSTR)L"ReadEvent"
+			#else
+				(LPCWSTR)"ReadEvent"
+			#endif
+				);
+			ClearCommError(hCom, &dwErrorFlags, &comStat);
+			if (!comStat.cbInQue)return 0;
+			BOOL bReadStat = ReadFile(hCom, buf, 1, (LPDWORD)&dwBytesWritten, &m_osRead);
+			if (!bReadStat) {
+				if (GetLastError() == ERROR_IO_PENDING)
+					GetOverlappedResult(hCom, &m_osRead, (LPDWORD)&dwBytesWritten, TRUE);// wait until read is done
+				else {
+					ClearCommError(hCom, &dwErrorFlags, &comStat);
+					CloseHandle(m_osRead.hEvent);
+					return false;
+				}
+				res = buf[0];// -52 is the EOF
+			}
+		}
+		return dwBytesWritten;
+	}
+	
+	bool UART_t::operator<< (stduint dat) {
+		HANDLE hCom = pHandle;
+		byte buf = dat;
+		dword dwBytesWritten;
+		if (sync) {
+			BOOL bWriteStat = WriteFile(hCom, &buf, 1, (LPDWORD)&dwBytesWritten, NULL/*sync*/);
+			if (!bWriteStat) return false;
+		}
+		else {
+			DWORD dwErrorFlags;
+			COMSTAT comStat;
+			OVERLAPPED m_osWrite = { 0 };
+			m_osWrite.hEvent = CreateEvent(NULL, TRUE, FALSE,
+			#ifndef _DEV_GCC
+				(LPCWSTR)L"WriteEvent"
+			#else
+				(LPCWSTR)"WriteEvent"
+			#endif
+				);
+			ClearCommError(hCom, &dwErrorFlags, &comStat);
+			BOOL bWriteStat = WriteFile(hCom, &buf, 1, (LPDWORD)&dwBytesWritten, &m_osWrite);
+			if (!bWriteStat) {
+				if (GetLastError() == ERROR_IO_PENDING)
+					WaitForSingleObject(m_osWrite.hEvent, 1000);// wait 1000ms
+				else {
+					ClearCommError(hCom, &dwErrorFlags, &comStat);
+					CloseHandle(m_osWrite.hEvent);
+					return false;
+				}
+			}
+		}
+		return dwBytesWritten;
+	}
+	
+}
+
+#elif defined(_Linux)
+namespace uni {
+	UART_t::~UART_t() {
+		if (state) close(pHandle);
+		state = false;
+	}
+
+	_WEAK bool UART_t::setMode(stduint _baudrate) {
+		baudrate = _baudrate;
+		int fd = open(portname.reference(), O_RDWR | O_NOCTTY);
+		state = fd != -1;
+		struct termios tty = { 0 };
+		if (!state) return state;
+		else tcgetattr(fd, &tty) == 0;
+		if (!state) {
+			close(fd);
+			return state;
+		}
+		cfsetispeed(&tty, baudrate);
+		cfsetospeed(&tty, baudrate);
+		tty.c_cflag &= ~PARENB; // _TEMP no-parity
+		tty.c_cflag &= ~CSTOPB; // _TEMP 1 stop bit
+		tty.c_cflag &= ~CSIZE; // _TEMP clear data size
+		tty.c_cflag |= CS8; // _TEMP 8 data bits
+		tty.c_cflag &= ~CRTSCTS; // _TEMP no flow control
+		tty.c_cflag |= CREAD | CLOCAL; // enable receiver and set local mode
+		tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // raw input
+		tty.c_iflag &= ~(IXON | IXOFF | IXANY); // disable software flow control
+		tty.c_oflag &= ~OPOST; // raw output
+		tty.c_cc[VMIN] = 1; // read a char
+		tty.c_cc[VTIME] = 0; // no timeout
+		state = tcsetattr(fd, TCSANOW, &tty) == 0;
+		if (!state) {
+			close(fd);
+		}
+		else tcflush(fd, TCIFLUSH);
+		pHandle = fd;
+		return state;
+	}
+
+	bool UART_t::operator>> (int& res) {
+		char buf;
+		fd_set readfds;
+		FD_ZERO(&readfds);
+		FD_SET(pHandle, &readfds);
+		int loc_state = select(pHandle + 1, &readfds, NULL, NULL, NULL);
+		if (loc_state == -1) {// wait for data, may block caller
+			return false;
+		}
+		else if (loc_state > 0 && FD_ISSET(pHandle, &readfds)) {
+			int bytes_read = read(pHandle, &buf, 1);
+			res = buf;
+			return bytes_read > 0;
+		}
+		return false;
+	}
+
+	bool UART_t::operator<< (stduint dat) {
+		int written = write(pHandle, &dat, 1);
+		return written > 0;
+	}
+
+}
+
+#endif
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 // bi: 8 or 16           
@@ -26,7 +203,7 @@ inline static stduint UART_BRR_SAMPLING(stduint _PCLK_, stduint _BAUD_, byte bi)
 namespace uni {
 	static void setMode_initGPIO(byte XART_ID);
 	//aka HAL_UART_Init
-	void USART_t::setMode(_TEMP void) {
+	void USART_t::setMode(stduint band_rate) {
 		using namespace XARTReg;
 		_TEMP if (XART_ID != 1) return;
 		{
@@ -44,7 +221,8 @@ namespace uni {
 				self[CR3] &= ~_IMM(0x3 << 8);//aka UartHandle.Init.HwFlowCtl = UART_HWCONTROL_NONE; (USART_CR3_RTSE | USART_CR3_CTSE)
 				// : byte over_sampling = _TEMP 16;// or 8
 				stduint freq = XART_ID == 1 || XART_ID == 6 ? RCC.getFrequencyPCLK2() : RCC.getFrequencyPCLK1();
-				self[BRR] = UART_BRR_SAMPLING(freq, /*UartHandle.Init.BaudRate = DEBUG_USART_BAUDRATE;*/ 115200, 16);
+				last_baudrate = band_rate;
+				self[BRR] = UART_BRR_SAMPLING(freq, band_rate, 16);
 			}
 			// In asynchronous mode, the following bits must be kept cleared:
 			// - LINEN and CLKEN bits in the USART_CR2 register,
@@ -71,19 +249,21 @@ namespace uni {
 		return res = d & mask;
 	}
 
+	void USART_t::Delay_unit() {
+		for (volatile stduint i = 0; i < SystemCoreClock / last_baudrate; i++);
+	}
+	
 	//aka HAL_UART_Transmit
 	//{TODO} conflict
 	USART_t& USART_t::operator << (stduint dat) {
 		using namespace XARTReg;
 		bool len9b = false;// or 8b
 		self[DR] = dat & (len9b ? 0x1FF : 0x0FF);
+		Delay_unit();
 		return self;
 	}
 	USART_t& USART_t::operator << (const char* p) {
-		while (*p) {
-			self << stduint(*p++);
-			for0(i, _TEMP 1000);
-		}
+		while (*p) self << stduint(*p++);
 		return self;
 	}
 
@@ -102,8 +282,8 @@ namespace uni {
 
 	// ---- ---- INTSYS ---- ----
 
-	void USART_t::setInterrupt(Handler_t fn) {
-		FUNC_XART[XART_ID] = fn;
+	void USART_t::setInterrupt(Handler_t f) const {
+		FUNC_XART[XART_ID] = f;
 	}
 	static Request_t XART_Request_list[8] = {
 		Request_None, IRQ_USART1, IRQ_USART2, IRQ_USART3,
@@ -112,11 +292,11 @@ namespace uni {
 		, IRQ_USART6, Request_None
 		#endif
 	};
-	void USART_t::setInterruptPriority(byte preempt, byte sub_priority) {
+	void USART_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority(XART_Request_list[XART_ID], preempt, sub_priority);
 	}
 
-	void USART_t::enInterrupt(bool enable) {
+	void USART_t::enInterrupt(bool enable) const {
 		using namespace XARTReg;
 		if (enable)
 		{
@@ -157,9 +337,9 @@ namespace uni {
 	};
 
 	static void setMode_initGPIO(byte XART_ID) {
-		GPIOA[9].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);// Tx
+		GPIOA[9].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Veryhigh);// Tx
 		GPIOA[9].setPull(true);
-		GPIOA[10].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);// Rx
+		GPIOA[10].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Veryhigh);// Rx
 		GPIOA[10].setPull(true);
 		(void)"GPIO Config for AUF regs"; {
 			byte GPIO_AF7_USART1 = 0x07;

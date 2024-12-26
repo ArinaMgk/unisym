@@ -31,10 +31,10 @@ static void inline_LCD_delay(void) {
 
 namespace uni {
 
-	LCD1602_IIC_t::LCD1602_IIC_t(GPIO_Pin& SDA, GPIO_Pin& SCL, void (*delay_ms)(stduint ms)) :
-		IIC(SDA, SCL), delay_ms(delay_ms) 
+	LCD1602_IIC_t::LCD1602_IIC_t(IIC_t& iic, void (*delay_ms)(stduint ms)) :
+		IIC(iic)
 	{
-		IIC.func_delay = inline_LCD_delay;
+		
 	}
 
 

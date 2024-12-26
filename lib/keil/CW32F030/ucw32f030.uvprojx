@@ -315,7 +315,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>2</Optim>
+            <Optim>1</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -466,9 +466,24 @@
               <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
             </File>
             <File>
-              <FileName>RCC-Oscillator.cpp</FileName>
+              <FileName>SysClock.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\RCC-Oscillator.cpp</FilePath>
+              <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Oscillator.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\Oscillator.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>PLL.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\PLL.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Power.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Power.cpp</FilePath>
             </File>
           </Files>
         </Group>

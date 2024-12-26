@@ -6,8 +6,8 @@
 // Copyright: UNISYM, under Apache License 2.0
 namespace Unisym
 {
-    public class String
-    {
-        
-    }
+	public class String
+	{
+
+	}
 }

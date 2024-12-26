@@ -23,5 +23,8 @@
 #ifndef _INC_Processor_CortexM0
 #define _INC_Processor_CortexM0
 
+#ifdef _OPT_PCU_CortexM0P
+
+#endif
 
 #endif

@@ -44,7 +44,17 @@ enum Architecture_t // for instruction sets
 	//
 	Architecture_Unknown
 };
-//{TODO} in uoption: Architecture_ARMv7
+enum Architecture_ARMv_t {
+	Archit_ARM_v1,// ARM1
+	Archit_ARM_v2,// ARM2 ARM3
+	Archit_ARM_v3,// ARM6,ARM7
+	Archit_ARM_v4,// StrongARM ARM7TDMI ARM9TDMI
+	Archit_ARM_v5,// ARM7EJ ARM9E ARM10E XScale
+	Archit_ARM_v6,// ARM11 Cortex-M
+	Archit_ARM_v7,// Cortex-{A M R}
+	Archit_ARM_v8//
+};
+
 
 // If no host-environment will be used, you can define __BITS__ by yourself.
 #if defined(__BITS__) && defined(__ARCH__)

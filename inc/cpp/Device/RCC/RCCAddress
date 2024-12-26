@@ -71,6 +71,7 @@ namespace uni { namespace RCCReg {
 	#define _RCC_CFGR_POSI_SCLKSWSource   2 // 2b
 	#define _RCC_CFGR_MASK_SCLKSWSource   0x0000000C // System-Clock Switch Status
 	#define _RCC_CFGR_POSI_HPRE 4
+	#define _RCC_CFGR_LENG_HPRE 4
 	#define _RCC_CFGR_MASK_HPRE 0x000000F0 // 0xF<<4
 
 	#define _RCC_CFGR_MASK_PPRE1 (_IMM(0x7) << _RCC_CFGR_POSI_PPRE1)
@@ -82,6 +83,236 @@ namespace uni { namespace RCCReg {
 	#define _RCC_APB1ENR_POSI_ENCLK_TIM2 0
 	#define _RCC_APB1ENR_POSI_ENCLK_PWR  28 //{unchk for F1x}
 	#define _RCC_APB1ENR_POSI_ENCLK_DAC  29
+
+#elif defined(_MPU_STM32MP13)
+namespace uni {
+	namespace RCCReg {
+		typedef enum {
+		SECCFGR = 0,          // secure configuration reg.
+		//
+		MP_SREQSETR = 0x100/4,// stop request set reg.
+		MP_SREQCLRR,          // stop request clear reg.                  0x104
+		MP_APRSTCR,           // application reset control reg.           0x108
+		MP_APRSTSR,           // application reset status reg.            0x10C
+		PWRLPDLYCR,           // low-power Stop modes delay control reg.  0x110
+		MP_GRSTCSETR,         // global reset control set reg.            0x114
+		BR_RSTSCLRR,          // BOOTROM reset status clear reg.          0x118
+		MP_RSTSSETR,          // reset status set reg.                    0x11C
+		MP_RSTSCLRR,          // reset status clear reg.                  0x120
+		MP_IWDGFZSETR,        // IWDG clock freeze set reg.               0x124
+		MP_IWDGFZCLRR,        // IWDG clock freeze clear reg.             0x128
+		//
+		MP_CIER = 0x200/4,    // clock source interrupt enable reg.
+		MP_CIFR,              // clock source interrupt flag reg.         0x204
+		BDCR = 0x400/4,       // backup domain control reg.
+		RDLSICR,              // reset duration and LSI control reg.      0x404
+		//
+		OCENSETR = 0x420/4,   // oscillator clock enable set reg.
+		OCENCLRR,             // oscillator clock enable clear reg.       0x424
+		OCRDYR,               // oscillators and MPU and AXI clock ready reg.       : 0x428
+		//
+		HSICFGR = 0x440/4,    // HSI configuration reg.
+		CSICFGR,              // CSI configuration reg.                             : 0x444
+		//
+		MCO1CFGR = 0x460/4,   // MCO1 configuration reg.
+		MCO2CFGR,             // MCO2 configuration reg.                            : 0x464
+		DBGCFGR,              // debug configuration reg.                           : 0x468
+		//
+		RCK12SELR = 0x480/4,  // PLL1 and PLL2 reference clock selection reg.
+		RCK3SELR,             // PLL3 reference clock selection reg.                : 0x484
+		RCK4SELR,             // PLL4 reference clock selection reg.                : 0x488
+		//
+		PLL1CR = 0x4A0/4,     // PLL1 control reg.
+		PLL1CFGR1,            // PLL1 configuration reg. 1                          : 0x4A4
+		PLL1CFGR2,            // PLL1 configuration reg. 2                          : 0x4A8
+		PLL1FRACR,            // PLL1 fractional reg.                               : 0x4AC
+		PLL1CSGR,             // PLL1 clock spreading generator reg.                : 0x4B0
+		//
+		PLL2CR = 0x4D0/4,  //  
+		PLL2CFGR1,         // 0x4D4
+		PLL2CFGR2,         // 0x4D8
+		PLL2FRACR,         // 0x4DC
+		PLL2CSGR,          // 0x4E0
+		//
+		PLL3CR = 0x500/4,  //
+		PLL3CFGR1,         // 0x504
+		PLL3CFGR2,         // 0x508
+		PLL3FRACR,         // 0x50C
+		PLL3CSGR,          // 0x510
+		//
+		PLL4CR = 0x520/4,  //
+		PLL4CFGR1,         // 0x524
+		PLL4CFGR2,         // 0x528
+		PLL4FRACR,         // 0x52C
+		PLL4CSGR,          // 0x530
+		//
+		MPCKSELR = 0x540/4,// MPU clock selection reg.
+		ASSCKSELR,         // AXI sub-system clock selection reg.                : 0x544
+		MSSCKSELR,         // MLAHB sub-system clock selection reg.              : 0x548
+		CPERCKSELR,        // common peripheral kernel clock selection reg.      : 0x54C
+		//
+		RTCDIVR = 0x560/4, // RTC clock division reg.
+		MPCKDIVR,          // MPU clock divider reg.                             : 0x564
+		AXIDIVR,           // AXI clock divider reg.                             : 0x568
+		MLAHBDIVR,         // MLAHB clock divider reg.                           : 0x56C
+		APB1DIVR,          // APB1 clock divider reg.                            : 0x570
+		APB2DIVR,          // APB2 clock divider reg.                            : 0x574
+		APB3DIVR,          // APB3 clock divider reg.                            : 0x578
+		APB4DIVR,          // APB4 clock divider reg.                            : 0x57C
+		APB5DIVR,          // APB5 clock divider reg.                            : 0x580
+		APB6DIVR,          // APB6 clock divider reg.                            : 0x584
+		//
+		TIMG1PRER =0x5A0/4,// APB1 timers group1 prescaler reg.
+		TIMG2PRER,         // APB2 timers group2 prescaler reg.                  : 0x5A4
+		TIMG3PRER,         // APB6 timers group3 prescaler reg.                  : 0x5A8
+		//
+		DDRITFCR = 0x5C0/4,// DDR interface control reg.
+		//
+		I2C12CKSELR =0x600/4,// I2C1 and I2C2 kernel clock selection reg.
+		I2C345CKSELR,      // I2C3, I2C4 and I2C5 kernel clock selection reg.    : 0x604
+		SPI2S1CKSELR,      // SPI/I2S1 kernel clock selection reg.               : 0x608
+		SPI2S23CKSELR,     // SPI/I2S2 and SPI/I2S3 kernel clock selection reg.  : 0x60C
+		SPI45CKSELR,       // SPI/I2S4 and SPI5 kernel clock selection reg.      : 0x610
+		UART12CKSELR,      // USART1 and USART2 kernel clock selection reg.      : 0x614
+		UART35CKSELR,      // USART3 and UART5 kernel clock selection reg.       : 0x618
+		UART4CKSELR,       // UART4 kernel clock selection reg.                  : 0x61C
+		UART6CKSELR,       // USART6 kernel clock selection reg.                 : 0x620
+		UART78CKSELR,      // UART7 and UART8 kernel clock selection reg.        : 0x624
+		LPTIM1CKSELR,      // LPTIM1 kernel clock selection reg.                 : 0x628
+		LPTIM23CKSELR,     // LPTIM2 and LPTIM3 kernel clock selection reg.      : 0x62C
+		LPTIM45CKSELR,     // LPTIM4 and LPTIM5 kernel clock selection reg.      : 0x630
+		SAI1CKSELR,        // SAI1 kernel clock selection reg.                   : 0x634
+		SAI2CKSELR,        // SAI2 kernel clock selection reg.                   : 0x638
+		FDCANCKSELR,       // FDCAN kernel clock selection reg.                  : 0x63C
+		SPDIFCKSELR,       // SPDIFRX kernel clock selection reg.                : 0x640
+		ADC12CKSELR,       // ADC1 and ADC2 kernel clock selection reg.          : 0x644
+		SDMMC12CKSELR,     // SDMMC1 and SDMMC2 kernel clock selection reg.      : 0x648
+		ETH12CKSELR,       // ETH1 and ETH2 kernel clock selection reg.          : 0x64C
+		USBCKSELR,         // USB kernel clock selection reg.                    : 0x650
+		QSPICKSELR,        // QSPI kernel clock selection reg.                   : 0x654
+		FMCCKSELR,         // FMC kernel clock selection reg.                    : 0x658
+		RNG1CKSELR,        // RNG1 kernel clock selection reg.                   : 0x65C
+		STGENCKSELR,       // STGEN clock selection reg.                         : 0x660
+		DCMIPPCKSELR,      // DCMIPP kernel clock selection reg.                 : 0x664
+		SAESCKSELR,        // SAES kernel clock selection reg.                   : 0x668
+		//
+		APB1RSTSETR = 0x6A0/4,// APB1 peripheral reset set reg.
+		APB1RSTCLRR,       // APB1 peripheral reset clear reg.                   : 0x6A4
+		APB2RSTSETR,       // APB2 peripheral reset set reg.                     : 0x6A8
+		APB2RSTCLRR,       // APB2 peripheral reset clear reg.                   : 0x6AC
+		APB3RSTSETR,       // APB3 peripheral reset set reg.                     : 0x6B0
+		APB3RSTCLRR,       // APB3 peripheral reset clear reg.                   : 0x6B4
+		APB4RSTSETR,       // APB4 peripheral reset set reg.                     : 0x6B8
+		APB4RSTCLRR,       // APB4 peripheral reset clear reg.                   : 0x6BC
+		APB5RSTSETR,       // APB5 peripheral reset set reg.                     : 0x6C0
+		APB5RSTCLRR,       // APB5 peripheral reset clear reg.                   : 0x6C4
+		APB6RSTSETR,       // APB6 peripheral reset set reg.                     : 0x6C8
+		APB6RSTCLRR,       // APB6 peripheral reset clear reg.                   : 0x6CC
+		AHB2RSTSETR,       // AHB2 peripheral reset set reg.                     : 0x6D0
+		AHB2RSTCLRR,       // AHB2 peripheral reset clear reg.                   : 0x6D4
+		//
+		AHB4RSTSETR = 0x6E0/4,// AHB4 peripheral reset set reg.
+		AHB4RSTCLRR,       // AHB4 peripheral reset clear reg.                   : 0x6E4
+		AHB5RSTSETR,       // AHB5 peripheral reset set reg.                     : 0x6E8
+		AHB5RSTCLRR,       // AHB5 peripheral reset clear reg.                   : 0x6EC
+		AHB6RSTSETR,       // AHB6 peripheral reset set reg.                     : 0x6F0
+		AHB6RSTCLRR,       // AHB6 peripheral reset clear reg.                   : 0x6F4
+		//
+		MP_APB1ENSETR = 0x700/4,// APB1 peripheral enable set reg.
+		MP_APB1ENCLRR,     // APB1 peripheral enable clear reg.                  : 0x704
+		MP_APB2ENSETR,     // APB2 peripheral enable set reg.                    : 0x708
+		MP_APB2ENCLRR,     // APB2 peripheral enable clear reg.                  : 0x70C
+		MP_APB3ENSETR,     // APB3 peripheral enable set reg.                    : 0x710
+		MP_APB3ENCLRR,     // APB3 peripheral enable clear reg.                  : 0x714
+		MP_S_APB3ENSETR,   // secure APB3 peripheral enable set reg.             : 0x718
+		MP_S_APB3ENCLRR,   // secure APB3 peripheral enable clear reg.           : 0x71C
+		MP_NS_APB3ENSETR,  // non-secure APB3 peripheral enable set reg.         : 0x720
+		MP_NS_APB3ENCLRR,  // non-secure APB3 peripheral enable clear reg.       : 0x724
+		MP_APB4ENSETR,     // APB4 peripheral enable set reg.                    : 0x728
+		MP_APB4ENCLRR,     // APB4 peripheral enable clear reg.                  : 0x72C
+		MP_S_APB4ENSETR,   // secure APB4 peripheral enable set reg.             : 0x730
+		MP_S_APB4ENCLRR,   // secure APB4 peripheral enable clear reg.           : 0x734
+		MP_NS_APB4ENSETR,  // non-secure APB4 peripheral enable set reg.         : 0x738
+		MP_NS_APB4ENCLRR,  // non-secure APB4 peripheral enable clear reg.       : 0x73C
+		MP_APB5ENSETR,     // APB5 peripheral enable set reg.                    : 0x740
+		MP_APB5ENCLRR,     // APB5 peripheral enable clear reg.                  : 0x744
+		MP_APB6ENSETR,     // APB6 peripheral enable set reg.                    : 0x748
+		MP_APB6ENCLRR,     // APB6 peripheral enable clear reg.                  : 0x74C
+		MP_AHB2ENSETR,     // AHB2 peripheral enable set reg.                    : 0x750
+		MP_AHB2ENCLRR,     // AHB2 peripheral enable clear reg.                  : 0x754
+		//
+		MP_S_AHB4ENSETR = 0x768/4,// secure AHB4 peripheral enable set reg.
+		MP_S_AHB4ENCLRR,   // secure AHB4 peripheral enable clear reg.           : 0x76C
+		MP_NS_AHB4ENSETR,  // non-secure AHB4 peripheral enable set reg.         : 0x770
+		MP_NS_AHB4ENCLRR,  // non-secure AHB4 peripheral enable clear reg.       : 0x774
+		MP_AHB5ENSETR,     // AHB5 peripheral enable set reg.                    : 0x778
+		MP_AHB5ENCLRR,     // AHB5 peripheral enable clear reg.                  : 0x77C
+		MP_AHB6ENSETR,     // AHB6 peripheral enable set reg.                    : 0x780
+		MP_AHB6ENCLRR,     // AHB6 peripheral enable clear reg.                  : 0x784
+		MP_S_AHB6ENSETR,   // secure AHB6 peripheral enable set reg.             : 0x788
+		MP_S_AHB6ENCLRR,   // secure AHB6 peripheral enable clear reg.           : 0x78C
+		MP_NS_AHB6ENSETR,  // non-secure AHB6 peripheral enable set reg.         : 0x790
+		MP_NS_AHB6ENCLRR,  // non-secure AHB6 peripheral enable clear reg.       : 0x794
+		//
+		MP_APB1LPENSETR = 0x800/4,// APB1 Sleep clock enable set reg.
+		MP_APB1LPENCLRR,   // APB1 Sleep clock enable clear reg.                 : 0x804
+		MP_APB2LPENSETR,   // APB2 Sleep clock enable set reg.                   : 0x808
+		MP_APB2LPENCLRR,   // APB2 Sleep clock enable clear reg.                 : 0x80C
+		MP_APB3LPENSETR,   // APB3 Sleep clock enable set reg.                   : 0x810
+		MP_APB3LPENCLRR,   // APB3 Sleep clock enable clear reg.                 : 0x814
+		MP_S_APB3LPENSETR, // secure APB3 Sleep clock enable set reg.            : 0x818
+		MP_S_APB3LPENCLRR, // secure APB3 Sleep clock enable clear reg.          : 0x81C
+		MP_NS_APB3LPENSETR,// non-secure APB3 Sleep clock enable set reg.        : 0x820
+		MP_NS_APB3LPENCLRR,// non-secure APB3 Sleep clock enable clear reg.      : 0x824
+		MP_APB4LPENSETR,   // APB4 Sleep clock enable set reg.                   : 0x828
+		MP_APB4LPENCLRR,   // APB4 Sleep clock enable clear reg.                 : 0x82C
+		MP_S_APB4LPENSETR, // secure APB4 sleep peripheral enable set reg.       : 0x830
+		MP_S_APB4LPENCLRR, // secure APB4 sleep peripheral enable clear reg.     : 0x834
+		MP_NS_APB4LPENSETR,// non-secure APB4 sleep peripheral enable set reg.   : 0x838
+		MP_NS_APB4LPENCLRR,// non-secure APB4 sleep peripheral enable clear reg. : 0x83C
+		MP_APB5LPENSETR,   // APB5 Sleep clock enable set reg.                   : 0x840
+		MP_APB5LPENCLRR,   // APB5 Sleep clock enable clear reg.                 : 0x844
+		MP_APB6LPENSETR,   // APB6 sleep clock enable set reg.                   : 0x848
+		MP_APB6LPENCLRR,   // APB6 sleep clock enable clear reg.                 : 0x84C
+		MP_AHB2LPENSETR,   // AHB2 Sleep clock enable set reg.                   : 0x850
+		MP_AHB2LPENCLRR,   // AHB2 Sleep clock enable clear reg.                 : 0x854
+		MP_AHB4LPENSETR,   // AHB4 Sleep clock enable set reg.                   : 0x858
+		MP_AHB4LPENCLRR,   // AHB4 Sleep clock enable clear reg.                 : 0x85C
+		//
+		MP_S_AHB4LPENSETR = 0x868/4,// secure AHB4 Sleep clock enable set reg.
+		MP_S_AHB4LPENCLRR, // secure AHB4 Sleep clock enable clear reg.          : 0x86C
+		MP_NS_AHB4LPENSETR,// non-secure AHB4 Sleep clock enable set reg.        : 0x870
+		MP_NS_AHB4LPENCLRR,// non-secure AHB4 Sleep clock enable clear reg.      : 0x874
+		MP_AHB5LPENSETR,   // AHB5 Sleep clock enable set reg.                   : 0x878
+		MP_AHB5LPENCLRR,   // AHB5 Sleep clock enable clear reg.                 : 0x87C
+		MP_AHB6LPENSETR,   // AHB6 Sleep clock enable set reg.                   : 0x880
+		MP_AHB6LPENCLRR,   // AHB6 Sleep clock enable clear reg.                 : 0x884
+		MP_S_AHB6LPENSETR, // secure AHB6 Sleep clock enable set reg.            : 0x888
+		MP_S_AHB6LPENCLRR, // secure AHB6 Sleep clock enable clear reg.          : 0x88C
+		MP_NS_AHB6LPENSETR,// non-secure AHB6 Sleep clock enable set reg.        : 0x890
+		MP_NS_AHB6LPENCLRR,// non-secure AHB6 Sleep clock enable clear reg.      : 0x894
+		MP_S_AXIMLPENSETR, // secure AXI Sleep clock enable set reg.             : 0x898
+		MP_S_AXIMLPENCLRR, // secure AXI Sleep clock enable clear reg.           : 0x89C
+		MP_NS_AXIMLPENSETR,// non-secure AXI Sleep clock enable set reg.         : 0x8A0
+		MP_NS_AXIMLPENCLRR,// non-secure AXI Sleep clock enable clear reg.       : 0x8A4
+		MP_MLAHBLPENSETR,  // MLAHB Sleep clock enable set reg.                  : 0x8A8
+		MP_MLAHBLPENCLRR,  // MLAHB Sleep clock enable clear reg.                : 0x8AC
+		//
+		APB3SECSR = 0x8C0/4,// APB3 peripheral secure state reg.
+		APB4SECSR,         // APB4 peripheral secure state reg.                  : 0x8C4
+		APB5SECSR,         // APB5 peripheral secure state reg.                  : 0x8C8
+		APB6SECSR,         // APB6 peripheral secure state reg.                  : 0x8CC
+		AHB2SECSR,         // AHB2 peripheral secure state reg.                  : 0x8D0
+		AHB4SECSR,         // AHB4 peripheral secure state reg.                  : 0x8D4
+		AHB5SECSR,         // AHB5 peripheral secure state reg.                  : 0x8D8
+		AHB6SECSR,         // AHB6 peripheral secure state reg.                  : 0x8DC
+		//
+		VERR = 0xFF4/4,    // Version reg.
+		IDR,               // ID reg.                                            : 0xFF8 
+		SIDR,              // Size ID reg.                                       : 0xFFC 
+		} RCCReg;// AKA RCC_TypeDef
+	}
+}
 
 #endif
 // ---- ---- ---- ----   ---- ---- ---- ----
@@ -184,6 +415,11 @@ namespace uni { namespace RCCReg {
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOG       6
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOH       7
 #define _RCC_AHB1ENR_POSI_ENCLK_GPIOI       8
+#define _RCC_AHB1ENR_POSI_ENCLK_CRC         12
+#define _RCC_AHB1ENR_POSI_ENCLK_BKPSRAMEN   18
+#define _RCC_AHB1ENR_POSI_ENCLK_CCMDATARAM  20
+#define _RCC_AHB1ENR_POSI_ENCLK_DMA1        21
+#define _RCC_AHB1ENR_POSI_ENCLK_DMA2        22
 
 #define _RCC_PLLCFGR_POSI_PLLM   0
 #define _RCC_PLLCFGR_MASK_PLLM   0x0000003F
@@ -193,6 +429,9 @@ namespace uni { namespace RCCReg {
 #define _RCC_PLLCFGR_MASK_PLLP   0x00030000
 #define _RCC_PLLCFGR_POSI_PLLSRC 22 // 1b. G'DP for HSE, D'DP for HSI
 #define _RCC_PLLCFGR_POSI_PLLQ   24
+
+#elif defined(_MPU_STM32MP13)
+#define _RCC_ADDR 0x50000000
 
 #elif defined(_MCU_CW32F030)
 

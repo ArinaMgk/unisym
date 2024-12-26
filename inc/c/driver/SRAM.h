@@ -22,22 +22,36 @@
 
 #ifndef _INC_SRAM
 #define _INC_SRAM
-
+#include "../../cpp/unisym"
+#include "../../cpp/reference"
 #if defined(_MCU_STM32F1x)
 
 namespace uni {
 
-	class SRAM {
+	class SRAM_t {
 	private:
 	public:
 		
 	};
-
-
-
-	
 }
 
+#endif
+
+#ifdef _MPU_STM32MP13
+namespace uni {
+
+	// AHB5
+	// Backup SRAM
+	class BKPSRAM_t {
+	private:
+	public:
+		//
+		stduint getAddress() const;
+		// AKA __HAL_RCC_BKPSRAM_CLK_ENABLE
+		void enClock(bool ena = true) const;
+	};
+	extern BKPSRAM_t BKPSRAM;
+}
 #endif
 
 #endif

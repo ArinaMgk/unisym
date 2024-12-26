@@ -29,9 +29,13 @@
 #include "../../reference"
 #include "RCCAddress"
 
-#ifdef _MCU_STM32F1x
+/* MEMMAP
+** this == 0x1 0x2 0x3 0x4, for PLL1 PLL2 PLL3 PLL4
+*/
 
 namespace uni {
+#ifdef _MCU_STM32F1x
+
 	namespace PLLSource {
 		enum RCCPLLClockSource {
 			HSI_div2 = 0x00000000, // 0b0000
@@ -100,11 +104,11 @@ namespace uni {
 			return (PLLSource::RCCPLLClockSource)(_RCC_ConfigRegister & _RCC_CFGR_MASK_PLLSource);
 		}
 	};
-}
+
 
 #elif defined(_MCU_STM32F4x)
 
-namespace uni {
+
 	namespace PLLSource {
 		enum PLLSource {
 			HSI = 0x00000000, //aka  RCC_PLLCFGR_PLLSRC_HSI
@@ -119,8 +123,76 @@ namespace uni {
 		bool setMode();
 		static bool isReady();
 	};
-}
 
+#elif defined(_MPU_STM32MP13)
+	enum class PLLMode {
+		Integer = 0, Fractional = 0x1, SpreadSpectrum = 0x2
+	};// pos 0 len 2
+	namespace PLL1Source {
+		enum PLL1SourceType {
+			HSI = 0, HSE = 0x1, OFF
+		};// pos 0 len 2
+	}
+	#define PLL2Source         PLL1Source
+	#define RCCPLL2ClockSource RCCPLL1ClockSource
+	namespace PLL3Source {
+		enum PLL3SourceType {
+			HSI = 0, HSE = 0x1, CSI = 0x2, OFF = 0x3
+		};// pos 0 len 2
+	}
+	#define PLL4Source         PLL3Source
+	#define RCCPLL4ClockSource RCCPLL3ClockSource
+
+	// [omit] PLLState(ON), PLLSource(HAD), PLLMODE(HAD) PLLRGE(HAD34)
+	// [less] MOD_PER, RPDFN_DIS, TPDFN_DIS, SSCG_MODE, INC_STEP
+	struct PLLPara_t{
+		byte m;// 1 .. 64
+		word n;// IntPLL1600(25.100), IntPLL800(25..200), FractionalModes(4..512)
+		byte p, q, r;// 1 .. 128
+		word frac;// 0 .. 8191
+	};// aka RCC_PLLInitTypeDef
+	// assure in the order
+	#define setModePLL12(mod,src,...) setMode((mod),(src),(PLLPara_t){__VA_ARGS__})
+	#define setModePLL34(mod,src,ifr,...) setMode((mod),(src),(ifr),(PLLPara_t){__VA_ARGS__})
+
+	
+	class RCCPLL {
+	private:
+		// AKA{__HAL_RCC_PLL1_CONFIG}
+		void setPara(PLLPara_t para) const;
+		//
+		bool setSource(stduint src) const;
+		//
+		void ConfigFracv(stduint frac) const;
+		//
+		float32 getVCO() const;
+	public:
+		//
+		void enAble(bool ena = true) const;
+		// AKA {__IS_PLLx_IN_USE}
+		bool isUsed() const;
+		//
+		stduint getID() const { return _IMM(this) & 0xF; } // 1 ~ 4
+		//
+		bool isReady() const;
+		// set state ON
+		// AKA {RCC_PLL1_Config, RCCEx_PLLx_Config}
+		// if_range: 0 for 4~8MHz, 1 for 8~16MHz
+		bool setMode(PLLMode mod, PLL1Source::PLL1SourceType src, PLLPara_t para) const;
+		bool setMode(PLLMode mod, PLL3Source::PLL3SourceType src, bool if_range, PLLPara_t para) const;
+		// Reset or set state OFF
+		bool canMode(bool reset = true) const;
+		
+		// AKA{__HAL_RCC_GET_PLLx_SOURCE}
+		stduint CurrentSource() const;
+		
+		// ---- Below are parts from AKA HAL_RCC_GetPLL1ClockFreq
+		//{} Can these use PLLPara_t getParameter() const ?
+		stduint getFrequencyP() const;// AKA GetPLLxClockFreq in system_....c
+		stduint getFrequencyQ() const;
+		stduint getFrequencyR() const;
+	};
 
 #endif
+}
 #endif

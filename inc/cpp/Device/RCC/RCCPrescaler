@@ -93,6 +93,53 @@ namespace uni {
 		}
 	};
 
+#elif defined(_MPU_STM32MP13)
+
+	enum class AxisSource { HSI, HSE, PLL2, OFF };
+	enum class MLAHBSource { HSI, HSE, CSI, PLL3 };
+
+	class AXISS_t : public RCCPrescaler {
+	protected:
+		// AKA __HAL_RCC_AXISS_SOURCE
+		void setSource(AxisSource source) const;
+		// AKA __HAL_RCC_AXI_DIV and RCC_FLAG_AXIDIVRDY
+		void setDiv(byte divr) const;
+	public:
+		// AKA__HAL_RCC_GET_AXIS_SOURCE
+		AxisSource getSource() const;
+		// AKA _RCC_FLAG_AXISSRCRDY
+		bool isReady() const;
+		// AKA RCC_AXISSConfig
+		// default: PLL2 DIV1
+		// divexpo: DIV 1~4
+		bool setMode(AxisSource source = AxisSource::PLL2, byte divr = 1);
+
+	};
+
+	class MLAHB_t : public RCCPrescaler {
+	protected:
+		// AKA __HAL_RCC_MLAHB_SOURCE
+		void setSource(MLAHBSource source) const;
+		// AKA __HAL_RCC_MLAHB_DIV and RCC_FLAG_MLAHBDIVRDY
+		void setDiv(byte divexpo) const;
+	public:
+		// AKA__HAL_RCC_GET_MLAHB_SOURCE
+		MLAHBSource getSource() const;
+		// AKA _RCC_FLAG_MLAHBSSRCRDY
+		bool isReady() const;
+		// AKA RCC_MLAHBConfig
+		// default: PLL3 DIV1
+		// divexpo: 0~7 for DIV{1,2,4,8,16,32,64,128}
+		bool setMode(MLAHBSource source = MLAHBSource::PLL3, byte divexpo = 0);
+	};
+	
+	class RCCAPB : public RCCPrescaler {
+	public:
+		//  1~6
+		stduint getID() const { return _IMM(this) & 0b111; }
+		// divexpo: 0~4 for DIV{1,2,4,8,16}
+		bool setMode(byte divexpo);
+	};
 
 #endif
 }

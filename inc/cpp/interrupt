@@ -29,25 +29,25 @@
 namespace uni {
 	class RuptTrait {
 	public:
-		virtual void setInterrupt(Handler_t fn) = 0;
-		virtual void setInterruptPriority(byte preempt, byte sub_priority) = 0;
-		virtual void enInterrupt(bool enable = true) = 0;
+		virtual void setInterrupt(Handler_t _func) const = 0;
+		virtual void setInterruptPriority(byte preempt, byte sub_priority) const = 0;
+		virtual void enInterrupt(bool enable = true) const = 0;
 		virtual ~RuptTrait() = default; // avoid [-Wnon-virtual-dtor]
-		inline void enInterrupt(Handler_t fn) {
-			setInterrupt(fn);
+		inline void enInterrupt(Handler_t _func) const {
+			setInterrupt(_func);
 			enInterrupt(true);
 		}
 	};
 }
 
 #define _COM_DEF_Interrupt_Interface() \
-virtual void setInterrupt(Handler_t fn) override;\
-virtual void setInterruptPriority(byte preempt, byte sub_priority) override;\
-virtual void enInterrupt(bool enable = true) override// you need add colon when using
+virtual void setInterrupt(Handler_t _func) const override;\
+virtual void setInterruptPriority(byte preempt, byte sub_priority) const override;\
+virtual void enInterrupt(bool enable = true) const override // you need add colon when using
 
 #if 0
 //
-#elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32)
 #include "Device/NVIC"
 #include "Device/EXTI"
 #include "Device/AFIO"

@@ -16,4 +16,24 @@
 	POP SI
 %endmacro
 
-
+; PRES: DS:SI, DS:DI, CX
+%imacro JSTRX_DS 1
+	PUSH AX
+	PUSH SI
+	PUSH DI
+	%%loop:
+		MOV AL, [SI]
+		CMP [DI], AL
+		JNZ %%labl
+		INC SI
+		INC DI
+		LOOP %%loop
+		POP DI
+		POP SI
+		POP AX
+		JMP %1
+	%%labl:
+	POP DI
+	POP SI
+	POP AX
+%endmacro

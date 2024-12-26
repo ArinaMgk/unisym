@@ -12,17 +12,29 @@ Notice: Depot \verb`mcudev` has been merged with private repository \verb`herlib
 
 \subsubsection{ST STM32 Series}
 
+Single Core Controller
+
+\begin{itemize}
+\item M3: F1x
+\item M4: F4x
+\item A7: MP13x
+\end{itemize}
+
 \subsubsection{TI MSP432 Series}
 
+P4
+
 \subsubsection{XY CW32 Series}
+
+F030
 
 \section{Protocol and Wire Interface}
 
 \subsection{IIC}\labex{IIC}
-
-\B{Header}: \verb`c/driver/IIC.h`
+\subimport{QRS/Device}{IIC}
 
 \subsection{SPI}\labex{SPI}
+\subimport{QRS/Device}{SPI}
 
 \subsection{One-wire}\labex{OneWire}
 
@@ -30,63 +42,12 @@ Notice: Depot \verb`mcudev` has been merged with private repository \verb`herlib
 
 We call the combination of UART and USART `xART'. 
 
+Soft
+
+Hard
+
+UART for Hosted:
+The port name may be \verb`\\.\COM10` or \verb`/dev/ttyUSB0`.
+
 \section{Device}
-
-\subsection{Video}
-
-These provide base implementation of \refer{Witch}.
-
-\subsubsection{ILI9320}
-\subsubsection{ILI9341}
-\subsubsection{LCD12864}
-\subsubsection{LCD1602}
-
-Contain \refer{IIC} and {Parallel} driver.
-
-\subsection{Generator}
-
-\subsubsection{AD9959}
-
-\B{Base}: \refer{SPI}.
-
-\subsection{Analog Digital Converter}
-
-\subsubsection{XPT2046}
-
-\subsection{Radio}
-
-\subsubsection{RDA5820}
-
-\B{Base}: \refer{IIC}.
-
-\subsubsection{TEA5767}
-
-\B{Base}: \refer{IIC}.
-
-\subsection{To-ki and Timer}
-\subsubsection{Virtual Timer}
-\B{Header}: \verb`c/driver/timer.h`
-
-\subsubsection{Programmable Interval Timer}
-\subsubsection{Real-time Clock}
-\subsubsection{Sys-Clock and Sys-tick}
-
-\subsection{Port and GPIO}
-\B{Header}: \verb`c/port.h`, \verb`cpp/Device/GPIO`.
-
-
-\subsection{Key-board}
-\B{Header}: \verb`c/driver/keyboard.h`, \verb`c/driver/Mtrkbd.h`.
-
-\subsection{Not-classified}
-\begin{itemize}
-\item AT24C02
-\item DS1302
-\item DS18B20
-\item HD44780
-\item i8253A
-\item i8259A
-\item Nixie-tube
-\end{itemize}
-
-
+\subimport{QRS}{Device}

@@ -40,6 +40,7 @@ typedef void(*_tofree_ft)(pureptr_t);
 typedef  int(*_tocomp_ft)(pureptr_t, pureptr_t);
 typedef int*(*_tocall_ft)(void*, ...);
 typedef void(symbol_t)(void);
+typedef void (*Handler_t)(void);
 typedef const char* rostr;// read-only string
 
 #if defined(__cplusplus) && !defined(_INC_CPP)
@@ -62,7 +63,7 @@ extern "C++" {
 		template<typename typed, typename types> inline static typed& cast(types& value) {
 			return *(typed*)(&value);
 		}
-		template<typename typed> inline static typed& treat(pureptr_t addr) {
+		template<typename typed, typename types> inline static typed& treat(types addr) {
 			return *(typed*)addr;
 		}
 	}
@@ -92,6 +93,7 @@ extern "C++" {
 #define __FUNCIDEN__ __func__ // cannot auto-strcat
 #define _ALIGN(n) __attribute__((aligned(n)))
 #define _ASM __asm__
+#define _WEAK __attribute__((weak))
 
 #elif defined(__UVISION_VERSION)
 #define _DEV_KEIL
@@ -116,6 +118,7 @@ extern "C++" {
 #define asrtinc(p) if(p)*(p)++ // for array
 #define asrtdec(p) if(p)*--(p) // for stack
 #define asrtequ(x,y) if((x)==(y))(x) // Assert Value
+#define asrtret(w) if(!(w)) return false;
 #define stepval(x) (!x)?0:x // do not nested by "()" !
 	// E.g. paralext = stepval(subtail)->next;
 
@@ -158,7 +161,7 @@ extern "C++" {
 #define foreach_str(iden,x) for(char iden, *_pointer=(char*)(x);iden=*_pointer;_pointer++)
 #define foreach_byt(iden,x) for(byte iden, *_pointer=(byte*)(x);iden=*_pointer;_pointer++)
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
-#define for0r(iden,times) for(size_t iden=(times);iden--;)
+#define for0r(iden,times) for(size_t iden=(times);iden--;)//<=> for(.=N-1;.>=0;.--)
 #define forp(ptr,times) for(pureptr_t _LIMIT=(pureptr_t)(ptr+times);(pureptr_t)ptr<_LIMIT;ptr++)
 #define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);ptr<(since)+(times);ptr++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)

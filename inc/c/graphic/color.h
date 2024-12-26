@@ -23,38 +23,64 @@
 #ifndef _INC_Color
 #define _INC_Color
 
+#define DEF_COLOR(v,iden) iden=v
+
 #ifdef _INC_CPP
 namespace uni {
 #endif
-	//[ATTR] little-endian
+
+	enum class PixelFormat {
+		ARGB8888 = 0x00,
+		ABGR8888 = 0x01,
+		RGBA8888 = 0x02,
+		BGRA8888 = 0x03,
+		//
+		RGB565 = 0x04,
+		BGR565 = 0x05,
+		RGB888 = 0x06,
+		ARGB1555 = 0x07,
+		ARGB4444 = 0x08,
+		L8 = 0x09,
+		AL44 = 0x0A,
+		AL88 = 0x0B,
+		//
+		UYVY = 0x0C,
+		VYUY = 0x0D,
+		YUYV = 0x0E,
+		YVYU = 0x0F,
+		//
+		NV12 = 0x10,
+		NV21 = 0x11,
+		YUV420 = 0x12,
+		YVU420 = 0x13
+	};
+	
+	//[ATTR] little-endian, argb
 	struct Color {
 		byte b, g, r, a; // union {x y z i} 
-		enum ColorIdentifier {
+		enum ColorIdentifier : uint32 {
 			// ❤
-			AliceBlue = 0x00F0F8FF,
+			DEF_COLOR(0xFFF0F8FF, AliceBlue),
 
 			// classic
-			Red = 0x00FF0000,
-
-			// kinderness
-			MistyRose = 0x00FFE4E1,
-
+			DEF_COLOR(0xFF000000, Black),
+			DEF_COLOR(0xFFFF0000, Red),
+			DEF_COLOR(0xFFFFFF00, Yellow),
+			DEF_COLOR(0xFF00FF00, Green),
+			DEF_COLOR(0xFF0000FF, Blue),
+			
 			// light
-			Yellow = 0x00FFFF00,
-
+			DEF_COLOR(0xFFC0C0C0, Silver),
+			DEF_COLOR(0xFFFFE4E1, MistyRose),
+			
 			// dark
-			Black = 0x00000000,
-			Maroon = 0x00800000,
-			Silver = 0x00C0C0C0,
-			SlateBlue = 0x006A5ACD,
+			DEF_COLOR(0xFF800000, Maroon),
+			DEF_COLOR(0xFF6A5ACD, SlateBlue),
 		};
 		//
 
 		Color(uint32 i = 0) {
-			*(uint32*)this = i;
-		}
-		Color(ColorIdentifier ci) {
-			*(uint32*)this = (uint32)ci;
+			*(uint32*)this = i;// address may be in alignment
 		}
 
 		static Color From32(uint32 argb) {
@@ -70,9 +96,9 @@ namespace uni {
 			return color;
 		}
 
-		operator uint32() {
-			return *(uint32*)this;
-		}
+		//{TODO} static HSLA
+
+		operator uint32() { return *(uint32*)this; }
 
 		uint16 ToRGB565() const {
 			// R5[11] G6[5] B5[0]

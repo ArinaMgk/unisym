@@ -22,13 +22,26 @@
 
 #include "../../../inc/c/driver/SRAM.h"
 
+#ifdef _MPU_STM32MP13
+#include "../../../inc/c/proctrl/ARM/cortex_a7.h"
+#include "../../../inc/cpp/Device/RCC/RCC"
+#include "../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 namespace uni {
+	BKPSRAM_t BKPSRAM;
 
-
-
-
-
-
-
+	#define impl(x) x BKPSRAM_t
 	
+
+	impl(stduint)::getAddress() const {
+		return AHB5_PERIPH_BASE;
+	}
+	
+	impl(void)::enClock(bool ena) const {
+		RCC[ena ? RCCReg::MP_AHB5ENSETR : RCCReg::MP_AHB5ENCLRR] = _IMM1S(8);// BKPSRAMEN
+	}
+
+
+
+
 }
+#endif

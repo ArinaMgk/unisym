@@ -1,0 +1,52 @@
+
+\paragraph{Line After $//$} \
+
+omit the rest part of the line
+Often known as "C++-style" or "single-line" comments.
+(since C99)
+\begin{itemize}
+	\item {C, C++}
+\end{itemize}
+
+\paragraph{Line After $\#$} \
+\begin{itemize}
+	\item Shell: Bash, ...
+	\item Perl (Perl has no block-comment)
+	\item Python
+\end{itemize}
+
+\paragraph{Line After $\;$} \
+\begin{itemize}
+	\item A/N/YASM MASM
+\end{itemize}
+
+\paragraph{Line Head Direction} \
+\begin{itemize}
+	\item \B{REM} Windows CMD;
+	\item \B{TITLE} MASM (\B{END} has it but also side-effect);
+\end{itemize}
+
+\paragraph{Special Block Rule} \ \\
+\B{For MASM}
+
+\It{\B{COMMENT} + some-symbol + ... + some-symbol}.
+\begin{lstlisting}[language={[x86masm]Assembler}]
+	comment @ there-are-comments
+	there-are-comments
+	there-are-comments @ there-are-comments
+\end{lstlisting}
+
+
+\paragraph{Block Between $/*$ and $*/$} \
+omit the part before the next end-flag `*/`
+Often known as "C-style" or "multi-line" comments.
+\begin{itemize}
+	\item {C, C++}
+\end{itemize}
+
+
+%[Reference]
+% C17     (ISO/IEC 9899:2018): 6.4.9 Comments (p: 54)
+% C11     (ISO/IEC 9899:2011): 6.4.9 Comments (p: 75)
+% C99     (ISO/IEC 9899:1999): 6.4.9 Comments (p: 66)
+% C89/C90 (ISO/IEC 9899:1990): 3.1.9 Comments

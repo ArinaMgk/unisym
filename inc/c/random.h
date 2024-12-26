@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Module) Pseudo-random
+// Docutitle: (Module&Device) Pseudo-random
 // Codifiers: @dosconio: 20240422 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -23,7 +23,19 @@
 #ifndef _INC_Pseudo_Random
 #define _INC_Pseudo_Random
 
+#include "stdinc.h"
+
 _ESYM_C int rand(void);
 _ESYM_C void srand(unsigned int seed);
+
+#if defined(_MPU_STM32MP13) && defined(_INC_CPP)
+namespace uni {
+
+	class RNG {
+		//{TODO}
+	};
+	
+}
+#endif
 
 #endif

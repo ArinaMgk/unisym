@@ -7,25 +7,18 @@
 
 AS=aasm
 ASM_FLAG= -I$(uincpath)/Kasha/n_ -I$(uincpath)/naasm/n_ # aasm will auto-inc these in the future
-NAM=$(shell echo $(basename $(notdir $<)) | cut -c5- | tr '[:lower:]' '[:upper:]')
-DST=boot-x86-$(NAM).bin
-TIT=Bootstrap $(DST)
-DOING=$(AS) $< $(ASM_FLAG) -o $(ubinpath)/$(DST)
+# NAM=$(shell echo $(basename $(notdir $<)) | cut -c5- | tr '[:lower:]' '[:upper:]')
+# DST=boot-$(NAM).bin
+# TIT=Bootstrap $(DST)
+# DOING=$(AS) $< $(ASM_FLAG) -o $(ubinpath)/$(DST) -D_FLOPPY
 
-.PHONY: all \
-	usual-x86 \
-	bootfka bootfx
+SRC=$(ulibpath)/../demo/osdev/bootstrap/bootx86.asm
 
-usual-x86: bootfka bootfx
+.PHONY: all usual-x86
+
+#{TODO} Floppy and Disk Unified
+usual-x86:
+	@echo AS Boot x86 Floppy-only
+	@$(AS) $(SRC) $(ASM_FLAG) -o $(ubinpath)/boot-x86.bin -D_FLOPPY
 
 all: usual-x86
-
-# ---- ---- ---- ---- x86 ---- ---- ---- ---- 
-
-bootfka: ./demo/osdev/bootstrap/bootfka.asm
-	@echo AS $(TIT)
-	@$(DOING) || echo x_x when $(DOING)
-
-bootfx: ./demo/osdev/bootstrap/bootfx.asm
-	@echo AS $(TIT)
-	@$(DOING) || echo x_x when $(DOING)

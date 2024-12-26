@@ -20,6 +20,8 @@
 	limitations under the License.
 */
 
+//[i] DMA2D to see `GPU`
+
 #ifndef _INC_Device_DMA
 #define _INC_Device_DMA
 
@@ -28,13 +30,33 @@
 #include "../../c/binary.h"
 #include "GPIO"
 
-namespace uni {
-#if 0
+// MEMMAP:
+// 0x0000_01AB DMA1
+// 0x0000_02AB DMA2
+// - AA: Number of the Channel
+// - BB: Number of the Stream
 
-#elif defined(_MCU_STM32F1x)
+#define _DEV_MASK_DMA 0x377 // 0b11_0111_0111
+
+namespace uni {
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	#undef DMA
 	#undef DMA1
 	#undef DMA2
+
+	#define _DMA_Group(regname, start) \
+		static struct {\
+			DMARegType operator[](byte idx) {\
+				if (!idx || idx > 7) return start;\
+				return (DMARegType)(_IMM(start) + _DMA_Group_Span * (idx - 1));\
+			}\
+		} regname
+
+
+#endif
+#if 0
+
+#elif defined(_MCU_STM32F1x)
 	//{TODO} object for each channel
 
 	#define _DMA_CCRx_POS_EN 0
@@ -51,14 +73,7 @@ namespace uni {
 	#define _DMA_CCRx_POS_M2M 14 
 
 	#define _DMA_ISR_POS_GIF1 0
-
-	#define _DMA_Group(regname, start) \
-		static struct {\
-			DMARegType operator[](byte idx) {\
-				if (!idx || idx > 7) return start;\
-				return (DMARegType)((stduint)start + 5 * (idx - 1));\
-			}\
-		} regname
+	#define _DMA_Group_Span 5
 
 	namespace DMAReg {
 		typedef enum {
@@ -77,13 +92,47 @@ namespace uni {
 		_DMA_Group(CMARx, CMAR1);
 	}
 
+
+
+
+#elif defined(_MCU_STM32F4x)
+	#define _DMA_Group_Span 6
 	
+	#define _DMA_SxCR_POS_EN 0
+
+	namespace DMAReg {
+		typedef enum {
+			LISR, HISR, LIFCR, HIFCR,
+			S0CR, S0NDTR, S0PAR, S0M0AR, S0M1AR, S0FCR,
+			S1CR, S1NDTR, S1PAR, S1M0AR, S1M1AR, S1FCR,
+			S2CR, S2NDTR, S2PAR, S2M0AR, S2M1AR, S2FCR,
+			S3CR, S3NDTR, S3PAR, S3M0AR, S3M1AR, S3FCR,
+			S4CR, S4NDTR, S4PAR, S4M0AR, S4M1AR, S4FCR,
+			S5CR, S5NDTR, S5PAR, S5M0AR, S5M1AR, S5FCR,
+			S6CR, S6NDTR, S6PAR, S6M0AR, S6M1AR, S6FCR,
+			S7CR, S7NDTR, S7PAR, S7M0AR, S7M1AR, S7FCR
+		} DMARegType;
+		_DMA_Group(CR, S0CR);
+		_DMA_Group(NDTR, S0NDTR);
+		_DMA_Group(PAR, S0PAR);
+		_DMA_Group(M0AR, S0M0AR);
+		_DMA_Group(M1AR, S0M1AR);
+		_DMA_Group(FCR, S0FCR);
+	}
+
+	
+#endif
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	class DMAStream;
+	class DMAChannel;
 	class DMA_t {
 	protected:
-		stduint baseaddr;
 		byte DMA_ID;
+	#if defined(_MCU_STM32F1x)
 		//
 		bool ExistChannel(byte channel);
+	#endif
 	public:
 		Handler_t XferCpltCallback;
 		Handler_t XferHalfCallback;
@@ -91,7 +140,10 @@ namespace uni {
 		Handler_t XferAbortCallback;
 		bool m2p;
 		pureptr_t bind;
-		DMA_t(stduint baseaddr, byte DMA_ID) : baseaddr(baseaddr), DMA_ID(DMA_ID) {
+		//
+		byte getID() const { return DMA_ID; }
+		Reference operator[](DMAReg::DMARegType idx);
+		DMA_t(byte DMA_ID) : DMA_ID(DMA_ID) {
 			XferCpltCallback = 0;
 			XferHalfCallback = 0;
 			XferErrorCallback = 0;
@@ -99,12 +151,8 @@ namespace uni {
 			bind = 0;
 			m2p = false;
 		}
-		byte getID() { return DMA_ID; }
-		Reference operator[](DMAReg::DMARegType idx) {
-			return Reference(baseaddr + (((stduint)idx) << 2));
-		}
-
 		bool enClock(bool ena = true);
+	#if defined(_MCU_STM32F1x)		
 		bool enAble(bool ena = true, byte channel = 1) {
 			using namespace DMAReg;
 			if (!ExistChannel(channel)) return false;
@@ -116,13 +164,14 @@ namespace uni {
 		bool setMode(byte channel, bool from_periph_or_memory, bool to_periph_or_memory, bool periph_inc = false, bool memory_inc = false, stduint periph_align = 2 /*byte*/, stduint memory_align = 2 /*byte*/, bool circular_mode = true, byte priority = 1);
 
 		// type: 0: total, 1:TCIE, 2:HTIE, 3:TEIE
+		//{TOIN} (chan, type, ena)
 		bool enInterrupt(bool ena = true, byte type = 0, byte channel = 1) {
 			using namespace DMAReg;
 			if (type > 3 || !ExistChannel(channel)) return false;
 			self[CCRx[channel]].setof(type, ena);
 			return true;
 		}
-		
+
 		void setInterruptSub(bool ena_total, byte channel) {
 			using namespace DMAReg;
 			self[CCRx[channel]].setof(_DMA_CCRx_POS_TCIE, ena_total);
@@ -136,20 +185,41 @@ namespace uni {
 			//aka HAL_DMA_Start_IT where src_addr is DR register
 			DMA_t& crt = self;
 			crt.enAble(false);
-			//aka DMA_SetConfig
-			{
-				crt[DMAReg::IFCR] |= (1 << _DMA_ISR_POS_GIF1)/*???*/ << 4/*a group*/; //<=> crt.setInterruptSub(false);
-				crt[DMAReg::CNDTRx[channel]] = leng;
-				crt[DMAReg::CPARx[channel]] = _IMM(crt.m2p ? dst_addr : src_addr);
-				crt[DMAReg::CMARx[channel]] = _IMM(crt.m2p ? src_addr : dst_addr);
-			}
+			crt.setTransfer(channel, dst_addr, src_addr, leng);
 			crt.setInterruptSub(true, channel);
 			crt.enAble(true, channel);
 		}
 
+		//:new
+
+	private:
+		//aka DMA_SetConfig
+		void setTransfer(byte chan, pureptr_t dst_addr, pureptr_t src_addr, stduint leng) {
+			using namespace DMAReg;
+			self[IFCR] |= (1 << _DMA_ISR_POS_GIF1)/*???*/ << 4/*a group*/; //<=> crt.setInterruptSub(false);
+			self[CNDTRx[chan]] = leng;
+			self[CPARx[chan]] = _IMM(self.m2p ? dst_addr : src_addr);
+			self[CMARx[chan]] = _IMM(self.m2p ? src_addr : dst_addr);
+		}
+	#endif
+	#if defined(_MCU_STM32F4x)
+		const DMAStream& operator[](unsigned stream) const {
+			return *(const DMAStream*)((_IMM(getID()) << 8) | (stream << 4));
+		}
+
+	#endif
 	};
 
 	extern DMA_t DMA1, DMA2;
+#ifdef _MCU_STM32F4x
+	
+	namespace DMAConnect {
+		typedef enum {
+			ADC1 = 0x0200,
+			XART1_Tx = 0x0274,// e.g. DMA2 S7 C4
+		}DMAConnectType;
+	}//{TODO}
+#endif
 	static struct {
 		DMA_t& operator[](byte id) {
 			extern DMA_t DMAr;
@@ -159,9 +229,104 @@ namespace uni {
 			default: return DMAr;
 			}
 		}
+	#ifdef _MCU_STM32F4x
+		const DMAChannel& Pair(DMAConnect::DMAConnectType conn) const {
+			return *(const DMAChannel*)_IMM(conn);
+		}
+	#endif
 	} DMA;
+#ifdef _MCU_STM32F4x
+	class DMAStream {
+	protected:
+		DMAReg::DMARegType refIFCR() const {
+			using namespace DMAReg;
+			return getID() & 0b100 ? HIFCR : LIFCR;
+		}
+
+	public:
+		const DMAChannel& operator[](unsigned chan) const {
+			return *(const DMAChannel*)(_IMM(this) | chan);
+		}
+		DMA_t& getParent(void) const {
+			return DMA[_IMM(this) >> 8];
+		}
+
+		stduint getID() const {
+			return (_IMM(this) >> 4) & 0b111;
+		}
+
+		void enAble(bool ena = true) const {
+			using namespace DMAReg;
+			DMA_t& sel = getParent();
+			sel[CR[getID()]].setof(_DMA_SxCR_POS_EN, ena);
+			while (sel[CR[getID()]].bitof(_DMA_SxCR_POS_EN) != ena);
+		}
+
+		// cancel working modes, aka HAL_DMA_DeInit
+		void canMode(void) const {
+			using namespace DMAReg;
+			DMA_t& sel = getParent();
+			sel.enClock();
+			sel[CR[getID()]] = 0;
+			sel[NDTR[getID()]] = 0;
+			sel[PAR[getID()]] = 0;
+			sel[M0AR[getID()]] = 0;
+			sel[M1AR[getID()]] = 0;
+			sel[FCR[getID()]] = 0x00000021;
+			ClearInterruptFlags();
+			while (sel[CR[getID()]].bitof(_DMA_SxCR_POS_EN));
+		}
+
+
+
+		//
+
+		void ClearInterruptFlags() const {
+			using namespace DMAReg;
+			DMA_t& sel = getParent();
+			byte posi = 0;
+			if (getID() & 0b010) posi += 16;
+			if (getID() & 0b001) posi += 6;
+			sel[refIFCR()].maset(posi, 6, 0x3F);
+		}
+	};
+
+	class DMAChannel {
+	public:
+		enum FIFOThreshold {
+			_1QuarterFull = 0, _1HalfFull, _3QuarterFull, _Full
+		};
+		byte getID() const {
+			return _IMM(this) & 0b111;
+		}
+		const DMAStream& getParent(void) const {
+			return *(const DMAStream*)(_IMM(this) & 0x370);
+		}
+		// aka HAL_DMA_Init
+		bool setMode(
+			bool from_periph, bool to_periph,
+			bool periph_inc = false, bool memory_inc = false,
+			bool circular_mode = true,
+			stduint periph_align = 2 /*byte*/, stduint memory_align = 2 /*byte*/,
+			byte priority = 1) const;
+
+		void setTransfer(pureptr_t dst_addr, pureptr_t src_addr, stduint leng) const {
+			using namespace DMAReg;
+			byte st = getParent().getID();
+			DMA_t& sel = getParent().getParent();
+			bool m2p = 1 == sel[CR[st]].masof(6, 2); // DIR
+			sel[NDTR[st]] = leng;
+			sel[PAR[st]] = _IMM(m2p ? dst_addr : src_addr);
+			sel[M0AR[st]] = _IMM(m2p ? src_addr : dst_addr);
+		}
+
+		void setFIFOThreshold(DMAChannel::FIFOThreshold hold) const;
+
+	};
+#endif
 
 #endif
+
 }
 
 #endif

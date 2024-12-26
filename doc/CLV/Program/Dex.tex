@@ -9,7 +9,9 @@ Someone call both “declaration”: The former is “Definition Declaration” 
 When it comes to linkage, there is usually One Definition Rule (ODR) \textemdash only an object can own the entity of the specific object. %单定义规则
 Inline function are beyond the rule, for the header can implement them without any worries about duplication.
 
+\B{Shadowing}:
 Magice(Default configuration) and {Rust} will take the last definition for the near next code in the scope.
+Note that the definition includes the type, besides its value.
 
 \It{The declaration is a kind of pseudo-instruction.} \textemdash{ArinaMgk, RFA23}.
 

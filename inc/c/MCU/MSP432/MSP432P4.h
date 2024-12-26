@@ -24,18 +24,38 @@
 #if !defined(_INC_MCU_MSP432P4_INNER)
 #define _INC_MCU_MSP432P4_INNER
 
+typedef void (*ROM_FUNC_t)(uint_fast8_t, uint_fast16_t);
+
 // ROM API Table
 #define ROM_APITABLE       ((uint32 *)0x02000800)
 #define ROM_VERSION                   (ROM_APITABLE[ 0])
-#define ROM_ADC14TABLE     ((uint32 *)(ROM_APITABLE[ 1]))
-#define ROM_AES256TABLE    ((uint32 *)(ROM_APITABLE[ 2]))
-#define ROM_COMPTABLE      ((uint32 *)(ROM_APITABLE[ 3]))
-#define ROM_CRC32TABLE     ((uint32 *)(ROM_APITABLE[ 4]))
-#define ROM_CSTABLE        ((uint32 *)(ROM_APITABLE[ 5]))
-#define ROM_DMATABLE       ((uint32 *)(ROM_APITABLE[ 6]))
-#define ROM_FLASHCTLTABLE  ((uint32 *)(ROM_APITABLE[ 7]))
-#define ROM_FPUTABLE       ((uint32 *)(ROM_APITABLE[ 8]))
-#define ROM_GPIOTABLE      ((uint32 *)(ROM_APITABLE[ 9]))
+#define ROM_ADC14TABLE     ((ROM_FUNC_t *)(ROM_APITABLE[ 1]))
+#define ROM_AES256TABLE    ((ROM_FUNC_t *)(ROM_APITABLE[ 2]))
+#define ROM_COMPTABLE      ((ROM_FUNC_t *)(ROM_APITABLE[ 3]))
+#define ROM_CRC32TABLE     ((ROM_FUNC_t *)(ROM_APITABLE[ 4]))
+#define ROM_CSTABLE        ((ROM_FUNC_t *)(ROM_APITABLE[ 5]))
+#define ROM_DMATABLE       ((ROM_FUNC_t *)(ROM_APITABLE[ 6]))
+#define ROM_FLASHCTLTABLE  ((ROM_FUNC_t *)(ROM_APITABLE[ 7]))
+#define ROM_FPUTABLE       ((ROM_FUNC_t *)(ROM_APITABLE[ 8]))
+#define ROM_GPIOTABLE      ((ROM_FUNC_t *)(ROM_APITABLE[ 9]))
+/* ROM_GPIOTABLE
+** 0 setAsOutputPin
+** 1 setOutputHighOnPin
+** 2 setOutputLowOnPin
+** 3 toggleOutputOnPin  (unused)
+** 4
+** 5
+** 6
+** 7
+** 8
+** 9
+**10
+**11
+**12
+**13
+**14 setAsInputPin
+**15
+**/
 #define ROM_I2CTABLE       ((uint32 *)(ROM_APITABLE[10]))
 #define ROM_INTTABLE       ((uint32 *)(ROM_APITABLE[11]))
 #define ROM_MPUTABLE       ((uint32 *)(ROM_APITABLE[12]))
@@ -65,9 +85,9 @@
 #define BITBAND_SRAM_BASE  _IMM(0x22000000)
 #define BITBAND_PERI_BASE  _IMM(0x42000000)
 // SRAM allows 32 bit bit band access
-#define BITBAND_SRAM(x, b)  (*((uint32 *) (BITBAND_SRAM_BASE +  (((uint32)(volatile const uint32 *)&(x)) - SRAM_BASE  )*32 + (b)*4)))
+#define BITBAND_SRAM(x, b)  (*((uint32 *) (BITBAND_SRAM_BASE +  (((uint32)&(x)) - SRAM_BASE  )*32 + (b)*4)))
 // peripherals with 8 bit or 16 bit register access allow only 8 bit or 16 bit bit band access, so cast to 8 bit always
-#define BITBAND_PERI(x, b)  (*((byte *) (BITBAND_PERI_BASE +  (((uint32)(volatile const uint32 *)&(x)) - PERIPH_BASE)*32 + (b)*4)))
+#define BITBAND_PERI(x, b)  (*((byte *) (BITBAND_PERI_BASE +  (((uint32)&(x)) - PERIPH_BASE)*32 + (b)*4)))
 
 
 #endif

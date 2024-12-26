@@ -38,6 +38,7 @@
 #define _LCD1602_ADDR_ROW2 0xc0// address of row 1
 
 namespace uni {
+	//{TODO} class LCD1602, IIC as a case.
 	class LCD1602_IIC_t {
 		IIC_t IIC;
 		// bool state;
@@ -63,7 +64,7 @@ namespace uni {
 
 
 	public:
-		LCD1602_IIC_t(GPIO_Pin& SDA, GPIO_Pin& SCL, void (*delay_ms)(stduint ms));
+		LCD1602_IIC_t(IIC_t& iic, void (*delay_ms)(stduint ms) = nullptr);
 
 		void setMode() {
 			Send(0x33); // BUS8 -> BUS4

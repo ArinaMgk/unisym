@@ -1,7 +1,11 @@
 "-" for un finished and "+" for finished.
+Below are listed in the order of TIME.
 
 - Netwide ASM 2.7
-- ST Manual and HAL STM32F1x
-- ST Manual and HAL STM32F4x
-- TI Manual and simplelink_msp432p4_sdk_3_40_01_02/source/
-- CW Manual and EXs
+
+- ST Manual and HAL STM32F1x (2017 May)
+- ST Manual and HAL STM32F4x (2017)
+- ST Manual and STM32CubeMP13 Package v1.1.0
+- TI Manual and Simplelink_msp432p4_sdk_3_40_01_02/source/
+- CW Manual and EXs CW32F030 & CW32F003 (0.1)
+- CW Manual and EXs CW32F010 (1.0.2)

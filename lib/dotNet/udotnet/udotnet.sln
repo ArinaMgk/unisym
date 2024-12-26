@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34616.47
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "udotnet", "udotnet.csproj", "{10C0C588-0DDC-4B56-9A8E-9E3370E798C2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "udotnet", "udotnet.csproj", "{10C0C588-0DDC-4B56-9A8E-9E3370E798C2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestConsole", "..\TestConsole\TestConsole.csproj", "{8012BE80-F400-4223-B012-7AF1DB95A7AE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{10C0C588-0DDC-4B56-9A8E-9E3370E798C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{10C0C588-0DDC-4B56-9A8E-9E3370E798C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{10C0C588-0DDC-4B56-9A8E-9E3370E798C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8012BE80-F400-4223-B012-7AF1DB95A7AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8012BE80-F400-4223-B012-7AF1DB95A7AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8012BE80-F400-4223-B012-7AF1DB95A7AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8012BE80-F400-4223-B012-7AF1DB95A7AE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -461,14 +461,29 @@
               <FilePath>..\..\cpp\MCU\STM32F1.cpp</FilePath>
             </File>
             <File>
-              <FileName>RCC-Oscillator.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\RCC-Oscillator.cpp</FilePath>
-            </File>
-            <File>
               <FileName>GPIO-setMode.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SysClock.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>PLL.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\PLL.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Oscillator.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\Oscillator.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Power.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Power.cpp</FilePath>
             </File>
           </Files>
         </Group>

@@ -1,0 +1,1 @@
+Consider STM32F4x as the full version.

@@ -10,6 +10,8 @@ __Copyright= "ArinaMgk UniSym, Apache License Version 2.0"
 __BuildTime= datetime.datetime.today()
 # Default  : {TEMP: _DEBUG Version}
 
+__LibVersion= "0.1"
+
 print(__ModuTitle, ": built at", __BuildTime)
 
 def get_files(whatpath, suffix):
@@ -64,6 +66,8 @@ def apd_gnu_item(text):
 	text_gcc_lin32 += text
 	text_gcc_lin64 += text
 
+#[TEMP] ASM cannot make PIC
+
 # ---- make list by win
 comhead = """
 AASM = aasm
@@ -83,7 +87,8 @@ CX = $(yanopath)/i686/bin/g++.exe -m32
 AR = $(yanopath)/i686/bin/ar.exe
 aattr = -fwin32
 dest_abs = $(ubinpath)/libw32d.a
-"""
+dest_dll = $(ubinpath)/libw32d.so."""
+text_gcc_win32 += __LibVersion
 text_gcc_win64 += comhead + """
 attr = -D_DEBUG -O3 -D_Win64
 dest_obj=$(uobjpath)/CGWin64
@@ -92,7 +97,8 @@ CX = $(yanopath)/x64/bin/g++.exe  -m64
 AR = $(yanopath)/x64/bin/ar.exe
 aattr = -fwin64
 dest_abs = $(ubinpath)/libw64d.a
-"""
+dest_dll = $(ubinpath)/libw64d.so."""
+text_gcc_win64 += __LibVersion
 text_gcc_lin32 += comhead + """
 attr = -D_DEBUG -D_Linux -O3
 aattr = -felf
@@ -100,7 +106,9 @@ dest_obj=$(uobjpath)/CGLin32
 dest_abs=$(ubinpath)/libl32d.a
 CC=gcc -m32
 CX=g++ -m32
-"""
+LD=ld -m elf_i386
+dest_dll=$(ubinpath)/libl32d.so."""
+text_gcc_lin32 += __LibVersion
 text_gcc_lin64 += comhead + """
 attr = -D_DEBUG -D_Linux -D__BITS__=64 -O3
 aattr = -felf
@@ -108,7 +116,8 @@ dest_obj=$(uobjpath)/CGLin64
 dest_abs=$(ubinpath)/libl64d.a
 CC=gcc -m64
 CX=g++ -m64
-"""
+LD=ld -m elf_x86_64
+dest_dll=$(ubinpath)/libl64d.so.""" + __LibVersion
 
 # [Example of XXXXPATH]
 # msvcpath=E:/software/VS22/VC/Tools/MSVC/14.39.33519
@@ -128,6 +137,7 @@ AR = ${msvcpath}/bin/Hostx86/x86/lib.exe
 # contain x86 - x64 can run this
 aattr = -fwin32
 dest_abs = $(ubinpath)/libw32d.lib
+dest_dll=...
 KitWin=C:/Program Files (x86)/Windows Kits/10
 VLIB_64=/LIBPATH:"${msvcpath}/lib/x86/" /LIBPATH:"${msvcpath}/lib/onecore/x86" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/um/x86" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/ucrt/x86"
 KitInc=$(KitWin)/Include/10.0.19041.0
@@ -145,6 +155,9 @@ CX = ${CC}
 AR = ${msvcpath}/bin/Hostx64/x64/lib.exe
 aattr = -fwin64
 dest_abs = $(ubinpath)/libw64d.lib
+dest_dll = $(ubinpath)/libw64d.so."""
+text_msv_win64 += __LibVersion
+text_msv_win64 += """
 KitWin=C:/Program Files (x86)/Windows Kits/10
 VLIB_64=/LIBPATH:"${msvcpath}/lib/x64/" /LIBPATH:"${msvcpath}/lib/onecore/x64" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/um/x64" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/ucrt/x64"
 KitInc=$(KitWin)/Include/10.0.19041.0
@@ -164,7 +177,9 @@ text_gcc_lin64 += tmp
 tmp = ".PHONY: all\n"+\
 	"\nall:\n"+\
 	'\t-@mkdir.exe -p ${dest_obj}\n'+\
-	'\t-@rm -f ${dest_obj}/*\n'
+	'\t-@mkdir.exe -p ${dest_obj}-DLL\n'+\
+	'\t-@rm -f ${dest_obj}/*\n'+\
+	'\t-@rm -f ${dest_obj}-DLL/*\n'
 text_msv_win32 += tmp
 text_msv_win64 += tmp
 
@@ -200,12 +215,19 @@ for val in list_cpp_file:
 	tmp = "\t@$(CX) /c " + val + " /Fo:${dest_obj}/${cpppref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
-tmp = '\t@echo AR ${dest_abs} \n\t' + "@${AR} -rcs ${dest_abs} ${dest_obj}/*\n"
+tmp = """\t@echo AR ${dest_abs}
+\t@${AR} -rcs ${dest_abs} ${dest_obj}/*
+\t@echo AR ${dest_dll}
+\t@rm -f ${dest_dll}
+"""
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
+tmp += """\t@${LD} -shared -o ${dest_dll} ${dest_obj}-DLL/* -lc"""
 text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp
-tmp = '\t@echo AR ${dest_abs} \n\t' + "@${AR} /OUT:${dest_abs} ${dest_obj}/* /nologo\n"
+tmp = """\t@echo AR ${dest_abs}
+\t@${AR} /OUT:${dest_abs} ${dest_obj}/* /nologo
+"""
 text_msv_win32 += tmp
 text_msv_win64 += tmp
 
@@ -214,9 +236,13 @@ tmp = """
 %.o: %.c
 	@echo "CC $(<)"
 	@$(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
+	@echo "CC $(<) (shared)"
+	@$(CC) -fpic $(attr) -c $< -o $(dest_obj)-DLL/$(cplpref)$(notdir $@)
 %.o: %.cpp
 	@echo "CX $(<)"
 	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
+	@echo "CX $(<) (shared)"
+	@$(CX) -fpic $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@)
 
 """
 text_gcc_win32 += tmp
@@ -277,14 +303,18 @@ text_gcc_mecocoa = ""
 # ---- # ---- # MCUDEV # ---- # ---- #
 
 STM32F1 = "# UNISYM for GCC-STM32F1 built-" + str(__BuildTime) + '\n'
+STM32F4 = "# UNISYM for GCC-STM32F4 built-" + str(__BuildTime) + '\n'
 STM32MP13 = "# UNISYM for GCC-STM32MP13 built-" + str(__BuildTime) + '\n'
-print(STM32F1, STM32MP13, sep="")
+print(STM32F1, STM32F4, STM32MP13, sep="")
 
 STM32F1   += """IDEN=STM32F1
 FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m3 -mthumb $(FPU) $(FLOAT-ABI)
 """
+STM32F4   += """IDEN=STM32F4
+FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+"""
 STM32MP13 += """IDEN=STM32MP13
-FLAG=-I$(uincpath) -D_MPU_$(IDEN)
+FLAG=-I$(uincpath) -D_MPU_$(IDEN)  -mcpu=cortex-a7 -mthumb -mfpu=vfpv4-d16   -mfloat-abi=hard
 """
 tmp = '''
 FLAG+=-fdata-sections -ffunction-sections
@@ -315,9 +345,15 @@ init:
 	@$(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"
 '''
 STM32F1   += tmp
+STM32F4   += tmp
 STM32MP13 += tmp
 with open('./lib/make/cortexm3-Gnu-STM32F1.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32F1, encoding = "utf8"))
+with open('./lib/make/cortexm4-Gnu-STM32F4.make', 'w+b') as fobj:
+	fobj.write(bytes(STM32F4, encoding = "utf8"))
 with open('./lib/make/cortexa7-Gnu-STM32MP13.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32MP13, encoding = "utf8"))
+
+STM32F1 = ""
+STM32F4 = ""
 STM32MP13 = ""

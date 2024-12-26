@@ -1,0 +1,231 @@
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Double Data Rate (DDR) Memory
+// Codifiers: @dosconio: 20241213 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Device_DDR
+#define _INCPP_Device_DDR
+#include "../unisym"
+#include "../reference"
+#ifdef _MPU_STM32MP13
+#include "RAM/DDRHeader.hpp"
+namespace uni {
+
+	enum class DDRControl {
+		MSTR, STAT,
+		MRCTRL0 = 0x10 / 4, MRCTRL1, MRSTAT,
+		DERATEEN = 0x20 / 4, DERATEINT,
+		PWRCTL = 0x30 / 4, PWRTMG, HWLPCTL,
+		RFSHCTL0 = 0x50 / 4,
+		RFSHCTL3 = 0x60 / 4, RFSHTMG,
+		CRCPARCTL0 = 0xC0 / 4,
+		CRCPARSTAT = 0xCC / 4, INIT0, INIT1, INIT2, INIT3, INIT4, INIT5,
+		DIMMCTL = 0xF0 / 4,
+		DRAMTMG0 = 0x100 / 4, DRAMTMG1, DRAMTMG2, DRAMTMG3, DRAMTMG4, DRAMTMG5, DRAMTMG6, DRAMTMG7, DRAMTMG8,
+		DRAMTMG14 = 0x138 / 4, DRAMTMG15,
+		ZQCTL0 = 0x180 / 4, ZQCTL1, ZQCTL2, ZQSTAT, DFITMG0, DFITMG1, DFILPCFG0,
+		DFIUPD0 = 0x1A0 / 4, DFIUPD1, DFIUPD2,
+		DFIMISC = 0x1B0 / 4,
+		DFISTAT = 0x1BC / 4,
+		DFIPHYMSTR = 0x1C4 / 4,
+		ADDRMAP1 = 0x204 / 4, ADDRMAP2, ADDRMAP3, ADDRMAP4, ADDRMAP5, ADDRMAP6, ADDRMAP7, ADDRMAP8, ADDRMAP9, ADDRMAP10, ADDRMAP11,
+		ODTCFG = 0x240 / 4, ODTMAP,
+		SCHED = 0x250 / 4, SCHED1,
+		PERFHPR1 = 0x25C / 4,
+		PERFLPR1 = 0x264 / 4,
+		PERFWR1 = 0x26C / 4,
+		DBG0 = 0x300 / 4, DBG1, DBGCAM, DBGCMD, DBGSTAT,
+		SWCTL = 0x320 / 4, SWSTAT,
+		POISONCFG = 0x36C / 4, POISONSTAT,
+		PSTAT = 0x3FC / 4, PCCFG, PCFGR_0, PCFGW_0,
+		PCTRL_0 = 0x490 / 4, PCFGQOS0_0, PCFGQOS1_0, PCFGWQOS0_0, PCFGWQOS1_0
+	};// AKA DDRCTRL_TypeDef
+	enum class DDRPerform {
+		CTL, CFG, STATUS, CCR, IER, ISR, ICR,
+		TCNT = 0x20 / 4,
+		CNT0 = 0x30 / 4,
+		CNT1 = 0x38 / 4,
+		CNT2 = 0x40 / 4,
+		CNT3 = 0x48 / 4,
+		HWCFG = 0x3F0 / 4, VER, ID, SID
+	};// AKA DDRPERFM_TypeDef
+	enum class DDRPhyziks {
+		RIDR, PIR, PGCR, PGSR,
+		DLLGCR, ACDLLCR,
+		PTR0, PTR1, PTR2,
+		ACIOCR, DXCCR, DSGCR, DCR,
+		DTPR0, DTPR1, DTPR2,
+		// 0x40
+		MR0, MR1, MR2, MR3,
+		ODTCR, DTAR, DTDR0, DTDR1,
+		// ...
+		GPR0 = 0x178 / 4, GPR1,
+		ZQ0CR0, ZQ0CR1, ZQ0SR0, ZQ0SR1,
+		// ...
+		DX0GCR = 0x1C0 / 4, DX0GSR0, DX0GSR1, DX0DLLCR, DX0DQTR, DX0DQSTR,
+		DX1GCR = 0x200 / 4, DX1GSR0, DX1GSR1, DX1DLLCR, DX1DQTR, DX1DQSTR
+	};// AKA DDRPHYC_TypeDef
+
+
+	enum class DDRType {
+		DDR3, // 4G
+		DDR3_8Gb,
+		LPDDR2, // 4G
+		LPDDR3, // 4G
+		UNKNOWN
+	};
+	//{} why another classification:
+	//   { DDR3 LPDDR2_16 LPDDR2_32 LPDDR3_16 LPDDR3_32 }
+
+	class DDR_t {
+	public:
+		enum SelfRefreshMode {
+			SoftSelfRefresh = 0,
+			AutoSelfRefresh = 1,
+			HardSelfRefresh = 2,
+			Invalid = 3
+		};// AKA HAL_DDR_SelfRefreshModeTypeDef
+	protected:
+		// Set DDR Clock Speed
+		bool ddr_clk_enable(stduint spd);
+		// AKA ddr_enable_clock
+		void enClock(bool ena = true) const;
+		// ...
+		bool ddrphy_idone_wait();
+		// Wait quasi dynamic register update
+		bool wait_sw_done_ack();
+		// AKA HAL_DDR_PHY_Init
+		bool ddrphy_init(Reference& locref);
+		//
+		stduint getFrequency() const;
+		//
+		bool self_refresh_zcal(stduint _zdata);
+		//
+		void save_ddr_training_area();
+		void restore_ddr_training_area();
+		// Wait quasi dynamic register update
+		bool wait_operating_mode(stduint mode);
+		// AKA enable_axi_port + disable_axi_port
+		bool enable_axi_port(bool ena = true) const;
+		// AKA ... + ...
+		bool enable_host_interface(bool ena = true) const;
+		//
+		bool sw_selfref_entry();
+		void sw_selfref_exit() {
+			self[DDRControl::PWRCTL].setof(5, false);// SELFREF_SW
+		}
+		bool set_qd3_update_conditions();
+		bool unset_qd3_update_conditions();
+		bool wait_refresh_update_done_ack();
+
+		// Mode Register Writes (MRW or MRS)
+		bool mode_register_write(stduint addr, stduint data);
+		// Switch DDR3 from DLL-on to DLL-off
+		bool ddr3_dll_off();
+		// AKA HAL_DDR_Refresh_Disable()+HAL_DDR_Refresh_Restore(, *, *)
+		bool setRefresh(bool ena, uint32_t rfshctl3 = 0, uint32_t pwrctl = 0);
+		//
+		bool refresh_cmd();
+		// Refresh compensation by forcing refresh command
+		// Rule1: Tref should be always < tREFW ? R x tREBW/8
+		// Rule2: refcomp = RU(Tref/tREFI)  = RU(RxTref/tREFW)
+		bool refresh_compensation(stduint start);
+		//
+		bool ddr_sw_self_refresh_in();
+		bool ddr_sr_mode_ssr();
+		bool ddr_sr_mode_asr();
+		bool ddr_sr_mode_hsr();
+		SelfRefreshMode ddr_sr_read_mode();
+
+
+
+	public:
+		enum DDR_Size {
+			DDRSize_256M = (0b0010) | (256 < 4),
+			DDRSize_512M = (0b0010) | (512 < 4),
+		};
+		
+		bool wakeup_from_standby = false;
+		bool self_refresh = false;
+		bool clear_bkp = false;
+		stduint zdata = nil;
+
+		Reference operator[](DDRControl idx) const;
+		Reference operator[](DDRPerform idx) const;
+		Reference operator[](DDRPhyziks idx) const;
+
+		volatile uint32* getRoleress(stduint offset = 0) const;// role address
+
+		// AKA HAL_DDR_Init
+		bool setMode(DDRType typ, DDR_Size siz);
+		// AKA HAL_DDR_SR_SetMode
+		// Activate either HW, or SW or automatic self-refresh, in low power cases (when entering in or exiting from CSTOP).
+		bool setModeSR(SelfRefreshMode mod);
+		SelfRefreshMode getModeSR() { return ddr_sr_read_mode(); }
+
+		// TEMP AREA ----
+
+		// Enable DDR Self-Refresh, in low power cases (when entering in CSTOP or before shutting down).
+		bool HAL_DDR_SR_Entry(
+			uint32_t* zq0cr0_zdata // IO calibration value
+		);
+
+		// Remove DDR Self-Refresh on low power cases (when exiting from CSTOP).
+		bool HAL_DDR_SR_Exit();
+
+
+
+
+
+	};
+	extern DDR_t DDR;
+
+	// TEST
+
+	// tests a simple read/write access to the DDR.
+	// Note that the previous content is restored after test.
+	bool ddr_test_rw_access(DDR_t& ddr);
+
+	// Tests the DDR data bus wiring.
+	// This is inspired from the Data Bus Test algorithm written by Michael Barr
+	// in "Programming Embedded Systems in C and C++" book.
+	// resources.oreilly.com/examples/9781565923546/blob/master/Chapter6/
+	// File: memtest.c - This source code belongs to Public Domain.
+	bool ddr_test_data_bus(DDR_t& ddr);
+
+	// Tests the DDR address bus wiring.
+	// This is inspired from the Data Bus Test algorithm written by Michael Barr
+	// in "Programming Embedded Systems in C and C++" book.
+	// resources.oreilly.com/examples/9781565923546/blob/master/Chapter6/
+	// File: memtest.c - This source code belongs to Public Domain.
+	bool ddr_test_addr_bus(DDR_t& ddr);
+
+	// Checks the DDR size. It has to be run with Data Cache off.
+	// This test is run before data have been put in DDR, and is only done for
+	// cold boot. The DDR data can then be overwritten, and it is not useful to
+	// restore its content.
+	// Returns DDR computed size.
+	uint32 ddr_check_size(DDR_t& ddr);
+	
+
+} // namespace uni
+#endif // _MPU_STM32MP13
+
+#endif

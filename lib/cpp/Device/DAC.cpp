@@ -41,7 +41,15 @@ namespace uni {
 			return false;
 		return true;
 	}
-	
+
+	static DACReg::DACRegType DHR12Rx[] = { DACReg::DHR12R1, DACReg::DHR12R2 };
+	void DAC_t::setOutput(byte channel, uint16 val) {
+		using namespace ::uni::DACReg;
+		// assert (channel)
+		val &= 0x0FFF;// max output 2.5V
+		self[DHR12Rx[channel]] = val;
+	}
+
 	#endif
 
 	#if 0
@@ -110,8 +118,8 @@ namespace uni {
 
 	//
 	/*
-	void DAC_t::setInterrupt(Handler_t fn) {
-		FUNC_DACx[getID()] = fn;
+	void DAC_t::setInterrupt(Handler_t f) {
+		FUNC_DACx[getID()] = f;
 	}
 
 	static Request_t DACx_Request_list[4] = {

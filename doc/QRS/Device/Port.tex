@@ -1,0 +1,97 @@
+
+General Purpose Input Output
+
+\B{Header}: \verb`c/port.h`, \verb`cpp/Device/GPIO`.
+
+\B{Trait}: \verb`RuptTrait` for GPIO.
+
+\B{Sub-Generation}: 2
+
+Compared with other peripherals, GPIO own ``pure-virtual'' class, for the number of which is up to thousands.
+So do NOT use \It{him}\verb`.RuptTrait::enInterrupt(some_hand);`.
+
+\B{Size of Class}
+
+Non-static fields in C++ classes are contained in the class object, while static members are in the static area and shared for any instance of the class as one copy.
+Member functions are code but data, it is actually static if no considering the first hidden parameter \verb`this`.
+
+% Method 就是 this 作为首参数的 Function 。20241212のdosconio
+
+\verb`sizeof` works for memory allocation. To avoid empty classes overlapping, the protective byte will be applied to them.
+In other words, the bytes of an empty class is $1$.
+
+\begin{lstlisting}[language=C++]
+struct A { virtual void a() = 0; };// 4U
+struct B { void a(); };// 1U
+struct C : public A { virtual void a() {} };// 4U
+struct D : public A { virtual void a() override {} };// 4Uv
+\end{lstlisting}
+% dosconio 20241202
+
+After experimentation, it is found that properties with virtual inheritance may also have fields for identifying identities, which is why \verb`RuptTrait` does not work on \It{GPIO}.
+
+\paragraph{Pin Method} \
+
+\begin{itemize}
+\item operator \verb`=` for reading and writing the pin
+
+\item $getID$ $\rightarrow$ an integer, and $getParent$ \verb`()` $\rightarrow$ {Port}.
+
+\item $setMode$ \verb`(Mode, Speed=defa_speed, autoEnClk = true)` $\rightarrow$ self
+
+Set the working mode of GPIO.
+
+The third parameter is left for historical reason, this may be removed in the future. In some MCU, we can config registers when the GPIO is disabled. % She remembered STM32F103VET6 
+
+\item Set Rupt or Event Mode
+
+\item $canMode$
+
+Cancel working modes, destructure the device, and finally disable the working clock signal.
+
+\item setPull, use setMode to flush pull floating
+
+\item void Toggle()
+
+\item void Lock()
+
+\item bool isInput()
+
+\item Connect %setAlternate
+
+\paragraph{Port Method} \
+
+operator \verb`=` for reading and writing the port (multiple pins).
+
+\paragraph{Physical GPIOs} \
+
+Each port contains 16 pins.
+
+For MSP432P4, usually use GPIO 0, 1, 2, ... 8 pins ports.
+
+\begin{longtable}{|l|c|c|c|c|c|}
+	\hline \rowcolor[rgb]{0.95, 0.975, 1}
+	{MCU} & 
+	\B{GPIO A B C} & \B{GPIO D E} & \B{GPIO F} & \B{GPIO G H I} & \B{GPIO J}
+	\\ \hline\endfirsthead
+	\hline \rowcolor[rgb]{0.95, 0.975, 1}
+	{(Cont.)} & 
+	\B{GPIO A B C} & \B{GPIO D E} & \B{GPIO F} & \B{GPIO G H I} & \B{GPIO J}
+	\\ \hline\endhead\hline\endfoot\hline\endlastfoot
+	%
+	STM32F1 & Ex. & Ex. & Ex. & . & .  
+	\\ \hline
+	STM32F4 & Ex. & Ex. & Ex. & Ex. & .  
+	\\ \hline
+	STM32MP13 & Ex. & Ex. & Ex. & Ex. & .  
+	\\ \hline
+	CW32F030 & Ex. & . & Ex. & . & .  
+	\\ \hline
+	MSP432P4 & Ex. & Ex. & . & . & Ex. 
+	\\ \hline
+\end{longtable}
+
+
+\end{itemize}
+
+

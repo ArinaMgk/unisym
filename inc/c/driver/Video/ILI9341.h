@@ -25,7 +25,7 @@
 #include "../../stdinc.h"
 #if defined(_INC_CPP) && defined(_SUPPORT_GPIO)
 
-#include "../../../cpp/Device/Video"
+#include "../../../cpp/Device/_Video.hpp"
 #include "../../../cpp/Device/GPIO"
 
 // dep on uni::SDRAM/FSMC

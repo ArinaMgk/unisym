@@ -30,6 +30,12 @@
 #include "GPIO"
 #include "DMA"
 
+/*
+[F4]
+- 0x0000_0001 DAC Channel 1
+- 0x0000_0002 DAC Channel 2
+
+*/
 
 namespace uni {
 
@@ -81,19 +87,13 @@ namespace uni {
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
 	#define DAC_getStdvol(i) ((float)i*2.5/0x1000)
-	
+	class DACChan;
 	class DAC_t {
 	protected:
 		stduint baseaddr;
 		//{MEANINGLESS} byte DAC_ID;
 		pureptr_t bind;
-		void setOutput(byte channel, uint16 val) {
-			val &= 0x0FFF;// max output 2.5V
-			if (channel == 1)
-				self[DACReg::DHR12R1] = val;
-			else if (channel == 2)
-				self[DACReg::DHR12R2] = val;
-		}
+		void setOutput(byte channel, uint16 val);
 	public:
 		DAC_t(stduint baseaddr) : baseaddr(baseaddr), bind(0){ }
 		stduint getBaseAddr() { return baseaddr; }
@@ -110,22 +110,21 @@ namespace uni {
 			self[DACReg::CR].setof(_DAC_CR_POS_ENx + (channel - 1) * 16 , ena);
 		}
 
-		byte getChannel(const GPIO_Pin& pin) {
+		byte getChannel(const GPIO_Pin& pin) const {
 			if (&pin == &GPIOA[4])
 				return 1;
 			else if (&pin == &GPIOA[5])
 				return 2;
 			return 0;
 		}
+		const DACChan& operator[](const GPIO_Pin& pin) const {
+		    return *(const DACChan*)_IMM(getChannel(pin));
+		}
 
 		void setOutput(GPIO_Pin& pin, uint16 val) {
 			byte channel = getChannel(pin);
 			if (!channel) return;
-			val &= 0x0FFF;// max output 2.5V
-			if (channel == 1)
-				self[DACReg::DHR12R1] = val;
-			else if (channel == 2)
-				self[DACReg::DHR12R2] = val;
+			setOutput(channel, val);
 		}
 
 		#ifdef _MCU_STM32F1x //{TEMP}
@@ -137,6 +136,13 @@ namespace uni {
 	};
 
 	extern DAC_t DAC;
+
+	class DACChan {
+	public:
+		DAC_t& getParent() const { return DAC; }
+		byte getID() const { return _IMM(this) % (1 + 2); }
+	};
+
 
 #endif
 }

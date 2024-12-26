@@ -42,35 +42,25 @@ namespace uni {
 }
 #endif
 
-#define _PUBLIC_SYSTICK() \
-	static bool enClock(uint32 Hz)
-
-#ifdef _MCU_STM32F1x
-
-
+extern "C" void SysDelay(stduint unit);
 
 namespace uni {
-	
-
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
 	#undef SysTick
 	class SysTick {
 	public:
-		_PUBLIC_SYSTICK();
-	};
-}
-
-#elif defined(_MCU_STM32F4x) // Cortex-M4
-
-namespace uni {
-	class SysTick {
-	public:
-		_PUBLIC_SYSTICK();
+		static bool enClock(uint32 Hz);
+		inline static void Delay(stduint unit) { SysDelay(unit); }
+	#if defined(_MCU_STM32F4x)
 		static SysTick_Map& ref() { return *(SysTick_Map*)ADDR_SysTick_Map; }
+	#elif defined(_MPU_STM32MP13)
+		// AKA HAL_GetTick
+		static uint64 getTick();
+		//
+		static uint64 getTickPhysical();
+	#endif
 	};
-}
-
 #endif
-
-extern "C" void SysDelay(stduint unit);
+}
 
 #endif

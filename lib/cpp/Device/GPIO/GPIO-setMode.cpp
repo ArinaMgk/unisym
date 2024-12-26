@@ -33,89 +33,68 @@
 #endif
 
 namespace uni {
-
-// IO Modes
-#ifdef _MCU_STM32F1x
-	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
-		using namespace GPIOReg;
-		if (autoEnClk) parent->enClock();
-		Reference ref = (bitposi < 8) ? (*parent)[CRL] : (*parent)[CRH];
-		uint32 bposi = (bitposi < 8) ? bitposi << 2 : (bitposi - 8) << 2; // mul by 4
+	
+	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOMode mode, GPIOSpeed speed, bool autoEnClk) const {
+	#if 0
+	#elif defined(_MCU_MSP432P4)
+		(void)autoEnClk;//{} enClock it
+	#else
+		if (autoEnClk) getParent().enClock();
+	#endif
+	#if 0
+	#elif defined(_MCU_MSP432P4)//{TEMP} ROM Method only
+		(void)speed;//{}
+		bool innput = GPIOMode::IN == mode ? true : false;
+		ROM_GPIOTABLE[innput ? 14 : 0](getParent().getID(), _IMM1S(getID()));
+	#elif defined(_MCU_CW32F030)
+		const stduint mod = _IMM(mode);
+		getParent()[GPIOReg::DIR].setof(getID(), mod & 0x1);
+		getParent()[GPIOReg::OPENDRAIN].setof(getID(), mod & 0x2);
+		getParent()[GPIOReg::SPEED].setof(getID(), 0 != _IMM(speed));
+		getParent()[GPIOReg::ANALOG].setof(getID(), 0);/*TEMP*/
+	#elif defined(_MCU_STM32F1x)
+		uint32 bposi = (getID() < 8) ? getID() << 2 : (getID() - 8) << 2; // mul by 4
 		uint32 bmode = (uint32)mode;
 		bool innput = (bmode & 1);
-		uint32 state = innput ? GPIOSpeed::Atmost_Input : speed;
+		uint32 state = _IMM(innput ? GPIOSpeed::Atmost_Input : speed);
 		state |= (bmode & 0xC);// 0b1100
-		ref = (ref & ~(0xf << bposi)) | (state << bposi);// or treat it a double-length Reference (64-bit)
-	}
-#elif defined(_MCU_STM32F4x)
-	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mode, GPIOSpeed::Speed speed, bool autoEnClk) {
-		using namespace GPIOReg;
-		if (autoEnClk) parent->enClock();
-		(*parent)[MODER] &= ~_IMM(0x3 << (bitposi << 1));
-		(*parent)[MODER] |= (_IMM(mode) >> 1) << (bitposi << 1);
-		BitSev((*parent)[OTYPER], bitposi, _IMM(mode) & 1);
-		(*parent)[SPEED] &= ~_IMM(0x3 << (bitposi << 1));
-		(*parent)[SPEED] |= _IMM(speed) << (bitposi << 1);
-		if (mode == GPIOMode::IN_Floating) (*parent)[PULLS] &= ~_IMM(0x3 << (bitposi << 1));
-	}
-#elif defined(_MCU_CW32F030)
-	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) {
-		using namespace GPIOReg;
-		const stduint mode = mod;
-		GeneralPurposeInputOutputPort& pare = getParent();
-		if (autoEnClk) pare.enClock();
-		pare[DIR].setof(bitposi, mode & 0x1);
-		pare[OPENDRAIN].setof(bitposi, mode & 0x2);
-		pare[SPEED].setof(bitposi, 0 != _IMM(spd));
-		pare[ANALOG].setof(bitposi, 0);/*TEMP*/
-		// innput = mode & 0x1;
-	}
-#elif defined(_MCU_MSP432P4)//{TEMP} ROM Method only
-	// for single pin
-	void GeneralPurposeInputOutputPin::setMode(GPIOMode::Mode mod, GPIOSpeed::Speed spd, bool autoEnClk) const {
-		(void)autoEnClk;//{} enClock it
-		switch (mod) {
-		case GPIOMode::OUT_PushPull: case GPIOMode::OUT_OpenDrain:
-			// make use of ROM_GPIOTABLE[0](fast8 port, fast16 pin), aka ROM_GPIO_setAsOutputPin
-			((void (*)(uint_fast8_t, uint_fast16_t))ROM_GPIOTABLE[0])(
-				getParent().getID(), _IMM1S(getID()));
-			break;
-		case GPIOMode::IN:
-			_TODO
-			break;
-		default: break;
-		}
-		(void)spd;//{}
+		getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].maset(bposi, 4, state);
+	#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, _IMM(mode) >> 1);
+		getParent()[GPIOReg::OTYPER].setof(getID(), _IMM(mode) & 1);
+		getParent()[GPIOReg::SPEED].maset(_IMMx2(getID()), 2, _IMM(speed) >> 1);
+		if (mode == GPIOMode::IN_Floating)
+			getParent()[GPIOReg::PULLS].maset(_IMMx2(getID()), 2, 0);
+	#endif
+		return self;
 	}
 	
-#endif
+
 	
 // Interrupt Modes
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32)// F1 F4 MP13
 
-	void GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg, Handler_t fn) {
-		parent->enClock();
-		if (fn) setInterrupt(fn);
-
-		if (!isInput())
-			setMode(GPIOMode::IN_Floating);
+	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg, Handler_t f) const {
+		getParent().enClock();
+		if (f) setInterrupt(f);
+		if (!isInput()) setMode(GPIOMode::IN_Floating);
 
 	#if defined(_MCU_STM32F1x)
 		RCC.APB2.enAble(_RCC_APB2ENR_POSI_ENCLK_AFIO_BITPOS);
-
 	#elif defined(_MCU_STM32F4x)
 		RCC.APB2.enAble(14);// SYSCFG EN
-
 	#endif
+	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 		for0(i, 10);// some delay to wait, magic_num: random
-		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[bitposi >> 2];
-		byte CrtPosi = (bitposi & 0x3) * 4;
-		CrtEXTICR = (CrtEXTICR &
-			~_IMM(0xF << CrtPosi)) |
-			(GPIO.Index(parent) << CrtPosi);
-		EXTI::TriggerRising.setof(bitposi, edg != GPIORupt::Negedge);
-		EXTI::TriggerFalling.setof(bitposi, edg != GPIORupt::Posedge);
-		EXTI::MaskInterrupt.setof(bitposi); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
+		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[getID() >> 2];
+		CrtEXTICR.maset(_IMMx4(getID()), 4, getParent().getID());
+		EXTI::TriggerRising.setof(getID(), edg != GPIORupt::Negedge);
+		EXTI::TriggerFalling.setof(getID(), edg != GPIORupt::Posedge);
+		EXTI::MaskInterrupt.setof(getID()); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
+	#elif defined(_MPU_STM32MP13)
+		EXTI.setConfig(getID(), edg, true, getParent().getID());
+	#endif
+		return self;
 	}
 
 #endif	

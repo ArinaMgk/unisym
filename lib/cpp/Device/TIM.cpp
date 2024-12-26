@@ -21,22 +21,24 @@
 */
 
 #include "../../../inc/cpp/Device/TIM"
+#include "../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
+
 
 namespace uni {
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	
-	void TIM_t::setInterrupt(Handler_t fn) {
-		FUNC_TIMx[getID()] = fn;
+	void TIM_t::setInterrupt(Handler_t f) const {
+		FUNC_TIMx[getID()] = f;
 	}
 	static Request_t TIM_Request_list[16] = {
 		Request_None, Request_None, IRQ_TIM2, IRQ_TIM3,
 		IRQ_TIM4, IRQ_TIM5, IRQ_TIM6, IRQ_TIM7,
 	};
-	void TIM_t::setInterruptPriority(byte preempt, byte sub_priority) {
+	void TIM_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority(TIM_Request_list[getID()], preempt, sub_priority);
 	}
 	static void timer_it(byte TIM_ID, bool enable);
-	void TIM_t::enInterrupt(bool enable) {
+	void TIM_t::enInterrupt(bool enable) const {
 		if (enable) {
 			NVIC.setAble(TIM_Request_list[getID()]);// dest
 		}
@@ -118,6 +120,7 @@ namespace uni {
 		(TIM_t*)(pureptr_t)&TIM4,(TIM_t*)(pureptr_t)&TIM5,
 	};
 
+	//{TODO} a channel may connect multiple pins
 	static GPIO_Pin* GPINs_chan1_TIMx[] = { nullptr,
 		nullptr, // TIM1
 		& GPIOA[15], // or A[0]
@@ -200,15 +203,16 @@ namespace uni {
 			!GPINs_chanx[channel - 1][TIM_ID])
 			return false;
 		enAble(false);
-		GPIO_Pin& friendo = *GPINs_chanx[channel - 1][TIM_ID];
-		bool pin_accepted = _TEMP &friendo == pin;//{TODO} Conflict among GPIOs
-		friendo.setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Atmost_Veryhigh);
-		if (0xFF != GPINs_AFs_TIMx[TIM_ID])
-			friendo._set_alternate(GPINs_AFs_TIMx[TIM_ID]);
+		if (pin || true) {
+			GPIO_Pin& friendo = *GPINs_chanx[channel - 1][TIM_ID];
+			friendo.setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Veryhigh);
+			if (0xFF != GPINs_AFs_TIMx[TIM_ID])
+				friendo._set_alternate(GPINs_AFs_TIMx[TIM_ID]);
+		}
 		self.ConfigChannel(channel, pulse_compar);
 		self.enChannel(channel);
 		enAble();
-		return pin_accepted;
+		return true;
 	}
 
 	// aka HAL_TIM_PWM_ConfigChannel
@@ -309,6 +313,16 @@ namespace uni {
 		return (double)(t[_tab_timregs_ccr[CHAN_ID - 1]]) / (1. + t[ARR]);
 	}
 
+#elif defined(_MPU_STM32MP13)
+	
+	static const uint32 _REFADDR_TIM[] = { nil,
+		APB2_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x1000, APB1_PERIPH_BASE + 0x2000, // T 1 -> 4
+		APB1_PERIPH_BASE + 0x3000, APB1_PERIPH_BASE + 0x4000, APB1_PERIPH_BASE + 0x5000, APB2_PERIPH_BASE + 0x1000, // T 5 -> 8
+		nil,                       nil,                       nil,                       APB6_PERIPH_BASE + 0x7000, // T 9 -> 12
+		APB6_PERIPH_BASE + 0x8000, APB6_PERIPH_BASE + 0x9000, APB6_PERIPH_BASE + 0xA000, APB6_PERIPH_BASE + 0xB000, // T 13 -> 16
+		APB6_PERIPH_BASE + 0xC000 // T 17
+	};
+	
 #endif
 }
 

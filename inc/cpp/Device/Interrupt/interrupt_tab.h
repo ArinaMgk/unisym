@@ -22,16 +22,16 @@
 #ifndef _INC_Interrupt_Table
 #define _INC_Interrupt_Table
 
-typedef void (*Handler_t)(void);
+#include "../../../c/stdinc.h"
 
 #if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 
-#include "../../../c/stdinc.h"
 #include "../../../c/board/IBM.h"
 
 
 #elif defined(_MCU_STM32F1x)
 
+// startup_stm32f103xe.keil.s
 /* Borrow Idens from Official __Vectors
 {TODO}	DCD     __initial_sp               ; Top of Stack
 {TODO}	DCD     Reset_Handler              ; Reset Handler
@@ -112,21 +112,9 @@ typedef void (*Handler_t)(void);
 		DCD     DMA2_Channel4_5_IRQHandler ; DMA2 Channel4 & Channel5
 __Vectors_End */
 
-extern "C" {
-extern Handler_t FUNC_EXTI[];
-extern Handler_t FUNC_XART[8];// 5 xart
-extern Handler_t FUNC_TIMx[];
-extern Handler_t FUNC_ADCx[];
-
-void EXTI0_IRQHandler(void);
-// ...
-}
-
-
-
-
 #elif defined(_MCU_STM32F4x)
 
+// startup_stm32f407xx.keil.s
 /*
 		DCD     __initial_sp               ; Top of Stack
 {TODO}	DCD     Reset_Handler              ; Reset Handler
@@ -229,19 +217,19 @@ void EXTI0_IRQHandler(void);
 {TODO}	DCD     FPU_IRQHandler                    ; FPU
 */
 
+#endif
+
+#ifdef _MCU_STM32
 extern "C" {
 	extern Handler_t FUNC_EXTI[];
-	extern Handler_t FUNC_XART[8];
+	extern Handler_t FUNC_XART[];// 5 xart
 	extern Handler_t FUNC_TIMx[];
 	extern Handler_t FUNC_ADCx[];
-
 }
-
-
-
 #endif
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+
 namespace uni {
 	typedef enum {
 	// Cortex-M4 Processor Exceptions Numbers
@@ -364,8 +352,9 @@ namespace uni {
 		IRQ_FPU = 81                 //FPU global interrupt
 	} Request_t;
 }
-
-
+#elif defined(_MPU_STM32MP13)
+#include "interrupt_stm32mp13.h"
+#include "../../../c/driver/interrupt/GIC.h"
 #endif
 
 #endif

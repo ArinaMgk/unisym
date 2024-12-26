@@ -26,17 +26,19 @@
 #include "../../../inc/c/stdinc.h"
 #ifdef _MCU_CW32F030
 
-#include "../../../inc/c/prochip/CortexM0.h"
+#define _OPT_PCU_CortexM0P
+#include "../../../inc/c/prochip/CortexM0.h"// M0+
 
 extern "C" void SystemInit(void);
 
 extern "C" char _IDN_BOARD[16];
-char _IDN_BOARD[16] = "xx";
+_WEAK char _IDN_BOARD[16] = "CW32F030";
+
+extern "C" stduint SystemCoreClock;
 
 void SystemInit(void) {
 	_TEMP Letvar(hsi, volatile uint32 *, 0x40010018UL);
 	_TEMP Letvar(lsi, volatile uint32 *, 0x40010020UL);
-	// uni::SystemCoreClock = 8000000;
 	//: CW_SYSCTRL->HSI_f.TRIM = *((volatile uint16_t*)RCC_HSI_TRIMCODEADDR);
 	*hsi = (*hsi & ~_IMM(0x7FF)) | 0x00012600U;
 	//: CW_SYSCTRL->LSI_f.TRIM = *((volatile uint16_t*)RCC_LSI_TRIMCODEADDR);

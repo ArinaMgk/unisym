@@ -20,12 +20,41 @@
 	limitations under the License.
 */
 
+#ifndef _MPU_STM32MP13
+#error Uoption lack, define _MPU_STM32MP13 please
+#endif
+
 #ifndef _INC_MPU_STM32MP13_X
 #define _INC_MPU_STM32MP13_X
 #ifndef _MCU_STM32
 #define _MCU_STM32
 #endif
 
+#include "../../../c/stdinc.h"
 //{TODO} inc ARM Cortex-A7
+
+extern bool exist_cortex_m4;
+extern bool exist_sram;
+extern bool exist_ddr;
+extern bool exist_fpu;
+extern bool exist_mmu;
+extern bool exist_cache;// L1
+
+#include "../../Device/_Power.hpp"
+#include "../../Device/BSEC"
+#include "../../Device/Cache"
+#include "../../Device/DDR"
+#include "../../Device/FPU"
+#include "../../Device/GPIO"
+#include "../../Device/LTDC"
+#include "../../Device/MCE"
+#include "../../Device/MMU"
+#include "../../Device/RCC/RCC"
+#include "../../../c/random.h"
+#include "../../../c/driver/SRAM.h"
+#include "../../Device/SysTick"
+#include "../../Device/TZC"
+
+_ESYM_C char _IDN_BOARD[16];
 
 #endif

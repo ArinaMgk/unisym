@@ -29,7 +29,7 @@
 extern "C" void SystemInit(void);
 
 extern "C" char _IDN_BOARD[16];
-char _IDN_BOARD[16] = "xx";// e.g. "01R" for MSP-EXP432P401R
+_WEAK char _IDN_BOARD[16] = "xx";// e.g. "01R" for MSP-EXP432P401R
 
 void SystemInit(void) {
 	_TODO

@@ -26,274 +26,175 @@
 
 #ifdef _SUPPORT_GPIO
 
+// Inner Include
 #if 0
 #elif defined(_MCU_MSP432P4)
 #include "../../../inc/c/MCU/MSP432/MSP432P4.h"
 #endif
 
+// if zero => no GPIO
+static stduint _TAB_ADDR_GPIOx[] = {
+#if defined(_MCU_MSP432P4)
+	0,// P0
+	0x40004C00, 0x40004C01,// P1 P2 (PA)
+	0x40004C20, 0x40004C21,// P3 P4 (PB)
+	0x40004C40, 0x40004C41,// P5 P6 (PC)
+	0x40004C60, 0x40004C61,// P7 P8 (PD)
+	0x40004C80, 0x40004C81,// P9 P10(PE)
+	0x40004D20,// PJ
+#elif defined(_MPU_STM32MP13)// PA ~ PI in AHB4_PERIPH_BASE + 0x2000 + 0x1000*n
+	0x50002000, 0x50003000, 0x50004000, 0x50005000,
+	0x50006000, 0x50007000, 0x50008000, 0x50009000, 0x5000A000,
+#elif defined(_MCU_STM32F1x)// PA ~ PG
+	0x40010800, 0x40010C00, 0x40011000, 0x40011400,
+	0x40011800, 0x40011C00, 0x40012000,
+#elif defined(_MCU_STM32F4x)// PA ~ PI
+	0x40020000, 0x40020400, 0x40020800, 0x40020C00,
+	0x40021000, 0x40021400, 0x40021800, 0x40021C00, 0x40022000,
+#elif defined(_MCU_CW32F030)// PA
+	0x48000000, 0x48000400, 0x48000800,// A B C
+	0, 0, 0x48001400,// F
+#else
+	#error [unisym] unsupported MCU
+#endif
+};
+
 namespace uni
 {
-
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
-
-	static Request_t GPIO_Request_list[16] = {
-		IRQ_EXTI0, IRQ_EXTI1, IRQ_EXTI2, IRQ_EXTI3,
-		IRQ_EXTI4, IRQ_EXTI9_5, IRQ_EXTI9_5, IRQ_EXTI9_5,
-		IRQ_EXTI9_5, IRQ_EXTI9_5, IRQ_EXTI15_10, IRQ_EXTI15_10,
-		IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10, IRQ_EXTI15_10
-	};
-
-	void GeneralPurposeInputOutputPin::setInterrupt(Handler_t fn) {
-		FUNC_EXTI[bitposi] = fn;
-	}
-
-
-	void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) {
-		NVIC.setPriority(GPIO_Request_list[bitposi], preempt, sub_priority);
-	}
-
-	//{TODO}
-	void GeneralPurposeInputOutputPin::enInterrupt(bool enable) {
-		if (bitposi < numsof(GPIO_Request_list))
-			NVIC.setAble(GPIO_Request_list[bitposi], enable);
-	}
-
-	GeneralPurposeInputOutputPort::GeneralPurposeInputOutputPort(uint32 ADDR, uint32 CLK, uint32 Enap) :
-		EnablPosi(Enap), baseaddr(ADDR), ClockPort(CLK)
-	{
-		for0a(i, OutpdPins) OutpdPins[i] = GeneralPurposeInputOutputPin(this, i);
-	}
-
-#endif
-
-#ifdef _MCU_STM32F1x
-
-	GeneralPurposeInputOutputPort GPIOA(0x40010800, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOA);
-	GeneralPurposeInputOutputPort GPIOB(0x40010C00, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOB);
-	GeneralPurposeInputOutputPort GPIOC(0x40011000, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOC);
-	GeneralPurposeInputOutputPort GPIOD(0x40011400, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOD);
-	GeneralPurposeInputOutputPort GPIOE(0x40011800, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOE);
-	GeneralPurposeInputOutputPort GPIOF(0x40011C00, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOF);
-	GeneralPurposeInputOutputPort GPIOG(0x40012000, _RCC_APB2ENR_ADDR, _RCC_APB2ENR_POSI_ENCLK_GPIOG);
-
-	static GeneralPurposeInputOutputPort* GPIO_List[] = {
-	&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG
-	};
-
-#if 1
-	
-	// for F1, only for input (?)
-	void GeneralPurposeInputOutputPin::setPull(bool pullup) {
-		(*parent)[GPIOReg::ODR].setof(bitposi, pullup);
-	}
-
-	bool GeneralPurposeInputOutputPin::isInput() const {
-		using namespace GPIOReg;
-		// bitposi &= 0x7;
-		return 0 == (*parent)[bitposi < 8 ? CRL : CRH].
-			mask(bitposi * 4, 2);
-	}
-	
-	void GeneralPurposeInputOutputPin::Toggle() {
-		(*parent)[GPIOReg::ODR] ^= _IMM1 << bitposi;
-	}
-
-	//{unchecked}
-	void Lock(bool tolock_orunlock) {
-		//{TODO}
-	}
-#endif
-// ---- ---- ---- ----
-#elif defined(_MCU_STM32F4x)
-
-	GeneralPurposeInputOutputPort GPIOA(0x40020000, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOA);// ~ 0x400203FF
-	GeneralPurposeInputOutputPort GPIOB(0x40020400, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOB);
-	GeneralPurposeInputOutputPort GPIOC(0x40020800, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOC);
-	GeneralPurposeInputOutputPort GPIOD(0x40020C00, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOD);//
-	GeneralPurposeInputOutputPort GPIOE(0x40021000, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOE);
-	GeneralPurposeInputOutputPort GPIOF(0x40021400, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOF);
-	GeneralPurposeInputOutputPort GPIOG(0x40021800, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOG);
-	GeneralPurposeInputOutputPort GPIOH(0x40021C00, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOH);
-	GeneralPurposeInputOutputPort GPIOI(0x40022000, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOI);
-	// GeneralPurposeInputOutputPort GPIOJ(0x40022400, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOJ);
-	// GeneralPurposeInputOutputPort GPIOK(0x40022800, _RCC_AHB1ENR_ADDR, _RCC_AHB1ENR_POSI_ENCLK_GPIOK);
-
-	static GeneralPurposeInputOutputPort* GPIO_List[] = {
-		&GPIOA, &GPIOB, &GPIOC, &GPIOD, &GPIOE, &GPIOF, &GPIOG, &GPIOH, &GPIOI
-	};
-
-	void GeneralPurposeInputOutputPin::setPull(bool pullup) {
-		using namespace GPIOReg;
-		if (pullup) {
-			(*parent)[PULLS] |= 0x1 << (bitposi << 1);// pull-up
-			(*parent)[PULLS] &= ~_IMM(0x2 << (bitposi << 1));
-		}
-		else {
-			(*parent)[PULLS] |= 0x2 << (bitposi << 1);// pull-dn
-			(*parent)[PULLS] &= ~_IMM1S(bitposi << 1);
-		}
-	}
-
-	bool GeneralPurposeInputOutputPin::isInput() const {
-		using namespace GPIOReg;
-		// panic if bitposi > 15
-		return 0 == (*parent)[MODER].
-			mask(bitposi * 2, 2);// moder length 2 bit
-	}
-
-	void GeneralPurposeInputOutputPin::Toggle() {
-		(*parent)[GPIOReg::ODR] ^= _IMM1S(bitposi);
-	}
-
-	bool GeneralPurposeInputOutputPin::_set_alternate(byte selection) {
-		using namespace GPIOReg;
-		const stduint block_siz = 4;
-		// panic if bitposi > 15
-		selection &= 0xF;
-		byte bposi = (bitposi & 0x7) * block_siz;
-		Reference r = parent->operator[](bitposi < 8 ? AFRL : AFRH);
-		r.maset(bposi, block_siz, selection);
-		return true;//{TODO} Confilict check. True for allowing
-	}
-
-// ---- ---- ---- ----
-#elif defined(_MCU_CW32F030)
-
-	GeneralPurposeInputOutputPort GPIOA(0x48000000, _SYSC_AHBEN_ADDR, _SYSC_AHBEN_POS_GPIOA);
-	GeneralPurposeInputOutputPort GPIOB(0x48000400, _SYSC_AHBEN_ADDR, _SYSC_AHBEN_POS_GPIOB);
-	GeneralPurposeInputOutputPort GPIOC(0x48000800, _SYSC_AHBEN_ADDR, _SYSC_AHBEN_POS_GPIOC);
-	GeneralPurposeInputOutputPort GPIOF(0x48001400, _SYSC_AHBEN_ADDR, _SYSC_AHBEN_POS_GPIOF);
-
-	static GeneralPurposeInputOutputPort* GPIO_List[] = {
-		&GPIOA, &GPIOB, &GPIOC, nullptr, nullptr, &GPIOF
-	};
-	
-	bool GeneralPurposeInputOutputPin::isInput() const {
-		using namespace GPIOReg;
-		return getParent()[DIR].bitof(bitposi);
-	}
-
-	void GeneralPurposeInputOutputPin::Toggle() {
-		using namespace GPIOReg;
-		GeneralPurposeInputOutputPort& pare = getParent();
-		pare[TOG].setof(bitposi);
-	}
-
-	void GeneralPurposeInputOutputPin::setPull(bool dir) {
-		using namespace GPIOReg;
-		GeneralPurposeInputOutputPort& pare = getParent();
-		pare[PUR].setof(bitposi, dir);
-		pare[PDR].setof(bitposi, !dir);
-	}
-
-	void GeneralPurposeInputOutputPin::setInterrupt(Handler_t fn) { _TODO(void) fn; }
-	void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) { _TODO(void) preempt; (void)sub_priority; }
-	void GeneralPurposeInputOutputPin::enInterrupt(bool enable) { _TODO(void) enable; }
-
-
-#endif
-
-	GeneralPurposeInputOutput GPIO;
-	
-	GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](byte portid) {
-		#ifdef _MCU_MSP432P4
-		static byte maps_caps[] = {1,3,5,7,9};//A B C D E
-		return *(GeneralPurposeInputOutputPort*)(
-			portid <= 10 ? (portid << 4) : 
-			portid == 'J' ? (11 << 4) :
-			portid > 'E' ? 0xBAD :
-			ascii_isupper(portid) ? (maps_caps[portid - 'A'] << 4) : 0xBAD
-			);
-		#else
-		return ascii_isupper(portid) ? *(GPIO_List[portid - 'A']) : ERR;
-		#endif
-	}
-
-#ifndef _MCU_MSP432P4
-	
-	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPin::getParent() const { return *parent; }
-	
-
-	stduint GeneralPurposeInputOutput::Index(GeneralPurposeInputOutputPort* port) {
-		for0a(i, GPIO_List) if (port == GPIO_List[i])
-			return i;
-		return 0;
-	}
-
-	//
-	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (uint32 val) {
-		self[GPIOReg::ODR] = val;
-		return *this;
-	}
-
-	// This will not be for declaration expression
-	GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator= (GeneralPurposeInputOutputPort& pot) {
-		return self = stduint(pot);
-	}
-
-	GeneralPurposeInputOutputPort::operator stduint() {
-		return _IMM(self[GPIOReg::IDR]);
-	}
-
-	
-	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator=(const GeneralPurposeInputOutputPin& pin) {
-		if (!parent) { // Initialize
-			parent = pin.parent; bitposi = pin.bitposi;
-			return self;
-		}
-		else return self = bool(pin); // Assign 
-	}
-
-	GeneralPurposeInputOutputPin::operator bool() const {
-		using namespace GPIOReg;
-		return getParent()[isInput() ? IDR : ODR].bitof(bitposi);
-	}
-
-
-#else
-
-	//GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= const(const GeneralPurposeInputOutputPin& pin) { }
-
-	static stduint _TAB_ADDR_GPIOx_OUT[] = {
-		0,// P0
-		0x40004C02,// P1
-		0x40004C03,// P2OUT
-	};
-	
-#endif
-	#ifdef _MCU_MSP432P4
-	const
-	#endif
-	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPort::operator[] (byte pinid)
-	#ifdef _MCU_MSP432P4
-		const
-	#endif
-	{
-		#ifdef _MCU_STM32
-		return pinid < numsof(OutpdPins) ? OutpdPins[pinid] : ERR;
-		#elif defined(_MCU_CW32F030)
-		return pinid < numsof(pins) ? pins[pinid] : ERR;
-		#elif defined(_MCU_MSP432P4)
-		return *(const GeneralPurposeInputOutputPin*)((_IMM(this) & 0xF0) + (pinid & 0xF));
-		#endif
-	}
 	// G'DP(high-level) or D'DP(low-level)
+	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= (bool val) const {
 	#ifdef _MCU_MSP432P4
-	const
-	#endif
-	GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= (bool val)
-	#ifdef _MCU_MSP432P4
-		const
-	#endif
-	{
-	#ifdef _MCU_MSP432P4
-		Reference_T<byte>(&BITBAND_PERI(*(uint32*)_TAB_ADDR_GPIOx_OUT[getParent().getID()], getID())) = byte(val);
+		Reference_T<byte>(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID())) = byte(val);
 	#else
-		getParent()[GPIOReg::ODR].setof(bitposi, val);
+		getParent()[GPIOReg::ODR].setof(getID(), val);
 	#endif
 		return self;
 	}
 
+	GeneralPurposeInputOutputPin::operator bool() const {
+	#ifdef _MCU_MSP432P4
+		return byte(Reference_T<byte>(&BITBAND_PERI(getParent()[GPIOReg8::IDR], getID())));
+	#else
+		return getParent()[GPIOReg::IDR].bitof(getID());// cancel isInput() ? IDR : ODR
+	#endif
+	}
+
+	void GeneralPurposeInputOutputPin::setPull(bool pullup) const {
+	#if defined(_MCU_CW32F030)
+		getParent()[GPIOReg::PUR].setof(getID(), pullup);
+		getParent()[GPIOReg::PDR].setof(getID(), !pullup);
+	#elif defined(_MCU_STM32F1x)
+		getParent()[GPIOReg::ODR].setof(getID(), pullup);// Output Directly
+	#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+		getParent()[GPIOReg::PULLS].maset(_IMMx2(getID()), 2, pullup ? 0b01 : 0b10);
+	#endif
+	}
+	
+	void GeneralPurposeInputOutputPin::Toggle() const
+	{
+	#if defined(_MCU_MSP432P4)
+		Reference_T<byte> this_pin(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID()));
+		this_pin = !this_pin;
+	#elif defined(_MCU_CW32F030)
+		getParent()[GPIOReg::TOG] = _IMM1S(getID());
+	#else
+		getParent()[GPIOReg::ODR] ^= _IMM1S(getID());// no use of BSRR
+	#endif
+	}
+
+	void GeneralPurposeInputOutputPin::Lock(bool tolock_or_unlock) const {
+		//{TODO}
+	}
+
+	bool GeneralPurposeInputOutputPin::isInput() const {
+		// panic if getID() > 15
+	#if defined(_MCU_CW32F030)
+		return getParent()[GPIOReg::DIR].bitof(getID());
+	#elif defined(_MCU_STM32F1x)
+		return 0 == getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].mask(getID() * 4, 2);
+	#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+		return 0 == getParent()[GPIOReg::MODER].mask(getID() * 2, 2);// moder length 2 bit
+	#else
+		return false;
+	#endif
+	}
+
+#if defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	// Old Style
+	bool GeneralPurposeInputOutputPin::_set_alternate(byte selection) const {
+	#if 1
+		const stduint block_siz = 4;
+		// panic if getID() > 15
+		selection &= 0xF;
+		byte bposi = (getID() & 0x7) * block_siz;
+		getParent()[getID() < 8 ? GPIOReg::AFRL : GPIOReg::AFRH].maset(bposi, block_siz, selection);
+	#endif
+		return true;//{TODO} Confilict check. True for allowing
+	}
+#endif
+
+	// ---- ---- ---- ---- GPORT ---- ---- ---- ----
+	GeneralPurposeInputOutput GPIO;
+
+	void GeneralPurposeInputOutputPort::enClock(bool enable) const {
+	#if defined(_MPU_STM32MP13)
+		using namespace RCCReg;
+		RCCReg::RCCReg AHB4ENR_NS = enable ? MP_NS_AHB4ENSETR : MP_NS_AHB4ENCLRR;
+		RCC[AHB4ENR_NS] = _IMM1S(getID());
+	#elif defined(_MCU_CW32F030)
+		Reference(_SYSC_AHBEN_ADDR).setof(_SYSC_AHBEN_POS_GPIOA + getID(), enable);
+	#elif defined(_MCU_STM32F1x)
+		Reference(_RCC_APB2ENR_ADDR).setof(_RCC_APB2ENR_POSI_ENCLK_GPIOA + getID(), enable);
+	#elif defined(_MCU_STM32F4x)
+		Reference(_RCC_AHB1ENR_ADDR).setof(_RCC_AHB1ENR_POSI_ENCLK_GPIOA + getID(), enable);
+	#endif
+	}
+	
+	#ifndef _MCU_MSP432P4 //{TEMP}
+	GeneralPurposeInputOutputPort::operator stduint() const {
+		return _IMM(self[GPIOReg::IDR]);
+	}
+	#endif
+	
+	#if 0
+	#elif defined(_MCU_MSP432P4)
+	Reference_T<byte> GeneralPurposeInputOutputPort::operator[](GPIOReg8::GPIOReg8 trt) const {
+		return _TAB_ADDR_GPIOx[getID()] + _IMM(trt);
+	}
+	#else
+	Reference GeneralPurposeInputOutputPort::operator[](GPIOReg trt) const {
+		return _TAB_ADDR_GPIOx[getID()] + _IMMx4(trt);
+	}
+	#endif
+	const GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator=(stduint val) const {
+	#ifdef _MCU_MSP432P4		
+		ROM_GPIOTABLE[2](getID(), ~val);// set ddp
+		ROM_GPIOTABLE[1](getID(),  val);// set gdp
+	#else
+		self[GPIOReg::ODR] = val;
+	#endif
+		return self;
+	}
+
+	// ---- ---- ---- ---- GPIO ---- ---- ---- ----
+	
+	const GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](unsigned portid) const {
+	#ifdef _MCU_MSP432P4
+		static byte maps_caps[] = {1,3,5,7,9};//A B C D E
+		return treat<GeneralPurposeInputOutputPort>(
+			portid <= 10 ? (portid << 4) :
+			portid == 'J' ? (11 << 4) :
+			portid > 'E' ? 0xBAD :
+			(portid >= '0' && portid <= '9') ? ((portid - '0') << 4) :
+			ascii_isupper(portid) ? _IMM(maps_caps[portid - 'A'] << 4) : 0xBAD
+			);
+	#else
+		return treat<GeneralPurposeInputOutputPort>_IMM((portid - 'A') << 4);
+	#endif
+	}
+
+#include "../../../inc/c/driver/GPIO/GPIO-Interrupt.hpp"
+	
 }
 
 #endif

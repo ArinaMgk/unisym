@@ -1,26 +1,39 @@
-Last-Commit: 20241104：「 
-
+Last-Commit: 20241221：「 
++
 」
 This-Commit: 「
-- import Reference_T and change Reference (unchk)
-- have not done WDog and Sysfile for MCU MSP-P4, just finish partial GPIO and checked pass
++ 
 」
 ---
 
 ### Unchecked and Checked-but-Issued
 
-STM32F4
-- [ ] ADC
-- [ ] TIMC
-- [ ] Flash by STM32FLASH in Ubuntu, waste half day.
+Virtual Methods since 20241124
+(Before are spftware only. The test of VIRTUAL is passed in GCC)
+- [ ] IIC Soft
+- [ ] SPI Soft
 
+MSP432P4
+- [ ] GPIO Pin  Input Mode
+- [ ] GPIO Port operator=(u16)
 
 ---
 
-### Bofore Anniversary 11th
+### Anniversary 12th
 
+(20241228 -> 20251227)
 
-### Before Anniversary 10th
+### Anniversary 11th
+
+After this, release UNISYM:
+- each month for DSCN branch with merge
+- each quarter for main branch
+
+### Anniversary 10th
+
+After this, release UNISYM:
+- each quarter for DSCN branch
+- each year for main branch
 
 **Used-name**: Uniform Symbolic System
 

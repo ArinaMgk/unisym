@@ -32,7 +32,7 @@
 
 namespace uni {
 
-	#define GrafColor32(c) Color::From32(c)
+	#define GrafColor32(c) Color::FromRGB888(c)
 
 	static inline Rectangle GrafRect(stduint x, stduint y, stduint w, stduint h, Color color, bool hollow = false) {
 		Rectangle res;

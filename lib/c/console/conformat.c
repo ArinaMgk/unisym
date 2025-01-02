@@ -35,7 +35,8 @@
 // 1> Screen / Device{Console...}
 // 1> Buffer / Stream{File...}
 // 2> String.Format(...) : (1)getlen (2)getval
-static void (*local_out)(const char* str, dword len) = outtxt;
+// can be empty fucntion but nullptr
+static outbyte_t local_out = outtxt;
 _TODO byte local_out_lock = 0;// 0 for accessable
 stduint _crt_out_cnt;
 
@@ -45,10 +46,10 @@ void outc(const char chr)
 }
 
 //{TEMP} always align to right
-#define DEF_outiXhex(siz) static void outi##siz##hex(uint##siz inp) {\
+#define DEF_outiXhex(siz) void outi##siz##hex(uint##siz inp) {\
 	void (*localout)(const char* str, dword len) = local_out;\
-	char buf[2 * byteof(uint##siz)];\
-	for0r(i, numsof(buf)) {\
+	char buf[2 * byteof(uint##siz)] = {0};\
+	for0r(i, numsof(buf) - 1) {\
 		buf[i] = _tab_HEXA[inp & 0xF];\
 		inp >>= 4;\
 	}\
@@ -123,8 +124,8 @@ _TEMP static void outfloat(float val)
 
 int outsfmtlst(const char* fmt, para_list paras)
 {
-	//{TODO} while (local_out_lock);
-	//{TODO} add lock
+	while (local_out_lock);
+	local_out_lock = 1;//{TODO} add multitask lock
 	void (*localout)(const char* str, dword len) = local_out;
 	_crt_out_cnt = 0;
 	int i;
@@ -171,12 +172,14 @@ int outsfmtlst(const char* fmt, para_list paras)
 			goto case_integer;
 		case 'd':
 			tmp_base = 10;
-			goto case_integer;
-		case 'x':
-			tmp_base = 16;
 		case_integer:
 			outi(pnext(int), tmp_base, tmp_signed);
 			tmp_signed = 0;
+			break;
+		case 'x':
+			tmp_base = 16;
+		case_unteger:
+			outu(pnext(int), tmp_base);
 			break;
 		
 
@@ -217,6 +220,21 @@ int outsfmtlst(const char* fmt, para_list paras)
 				outi(tmp, 10, tmp < 0);
 				i += 3 - 1;
 			}
+			else if (!StrCompareN(fmt + i, "[8H]", 3)) // Print Hex STDUINT 8 bit
+			{
+				outi8hex(pnext(uint8));
+				i += 4 - 1;
+			}
+			else if (!StrCompareN(fmt + i, "[16H]", 3)) // Print Hex STDSINT 16 bit
+			{
+				outi16hex(pnext(uint16));
+				i += 5 - 1;
+			}
+			else if (!StrCompareN(fmt + i, "[32H]", 3)) // Print Hex STDSINT 32 bit
+			{
+				outi32hex(pnext(uint32));
+				i += 5 - 1;
+			}
 			break;
 		default:
 			localout(&fmt[i], 1);
@@ -224,7 +242,8 @@ int outsfmtlst(const char* fmt, para_list paras)
 		}
 		i++;
 	}
-	// leave lock
+
+	_TEMP local_out_lock = 0;// leave lock
 	return _crt_out_cnt;
 }
 
@@ -234,4 +253,12 @@ int outsfmt(const char* fmt, ...)
 	Letpara(args, fmt);
 	return outsfmtlst(fmt, args);
 	// para_endo(args);
+}
+
+outbyte_t outredirect(outbyte_t out)
+{
+	outbyte_t last_out = local_out;
+	//{TODO} check lock there
+	if (out) local_out = out;
+	return last_out;
 }

@@ -74,6 +74,9 @@ namespace uni {
 		case 0b01: bus_width = 0x10; break;
 		default: bus_width = 0x20; break;
 		}
+		//
+		//{TODO} HERE do the AKA HAL_DDR_MspInit passing typ to it
+		//
 		// [ using bitposi of mp135d
 		// - STM32MP_DDR3
 		// - STM32MP_LPDDR2_32 STM32MP_LPDDR2_16

@@ -34,72 +34,7 @@ enum _STD_SRC_t {
 	_STD_ERR = 2,
 };
 
-/*//{TODO}
-struct ConsoleControlBlock {
-	word posi;
-	word width, height;
-};
-*/
-
-typedef struct {
-	struct {
-		byte Fore_B : 1;// blue
-		byte Fore_G : 1;// green
-		byte Fore_R : 1;// red
-		byte Highlight : 1;
-		byte Back_B : 1;// blue
-		byte Back_G : 1;// green
-		byte Back_R : 1;// red
-		byte Kirablink : 1;
-	};
-	byte Bold;
-	byte Underline;
-} ConsoleCharPropertyColor8;
-
-enum CON_FORECOLOR {
-#if 0
-#elif defined(_Linux) || 1 // VT100
-	CON_FORE_DEFAULT = 39,
-	CON_FORE_DARK = 30,
-	CON_FORE_RED = 31,
-	CON_FORE_GREEN = 32,
-	CON_FORE_YELLOW = 33,
-	CON_FORE_BLUE = 34,
-	CON_FORE_MAGENTA = 35,
-	CON_FORE_CYAN = 36,
-	CON_FORE_GRAY = 37,
-	CON_FORE_GRAY_LIGHT = 90,
-	CON_FORE_RED_LIGHT = 91,
-	CON_FORE_GREEN_LIGHT = 92,
-	CON_FORE_YELLOW_LIGHT = 93,
-	CON_FORE_BLUE_LIGHT = 94,
-	CON_FORE_MAGENTA_LIGHT = 95,
-	CON_FORE_CYAN_LIGHT = 96,
-	CON_FORE_WHITE = 97,
-#endif
-};
-enum CON_BACKCOLOR {
-#if 0
-#elif defined(_Linux) || 1 // VT100
-	CON_BACK_DEFAULT = CON_FORE_DEFAULT + 10,
-	CON_BACK_DARK    = CON_FORE_DARK    + 10,
-	CON_BACK_RED     = CON_FORE_RED     + 10,
-	CON_BACK_GREEN   = CON_FORE_GREEN   + 10,
-	CON_BACK_YELLOW  = CON_FORE_YELLOW  + 10,
-	CON_BACK_BLUE    = CON_FORE_BLUE    + 10,
-	CON_BACK_MAGENTA = CON_FORE_MAGENTA + 10,
-	CON_BACK_CYAN    = CON_FORE_CYAN    + 10,
-	CON_BACK_GRAY    = CON_FORE_GRAY    + 10,
-	CON_BACK_GRAY_LIGHT    = CON_FORE_GRAY_LIGHT    + 10,
-	CON_BACK_RED_LIGHT     = CON_FORE_RED_LIGHT     + 10,
-	CON_BACK_GREEN_LIGHT   = CON_FORE_GREEN_LIGHT   + 10,
-	CON_BACK_YELLOW_LIGHT  = CON_FORE_YELLOW_LIGHT  + 10,
-	CON_BACK_BLUE_LIGHT    = CON_FORE_BLUE_LIGHT    + 10,
-	CON_BACK_MAGENTA_LIGHT = CON_FORE_MAGENTA_LIGHT + 10,
-	CON_BACK_CYAN_LIGHT    = CON_FORE_CYAN_LIGHT    + 10,
-	CON_BACK_WHITE         = CON_FORE_WHITE         + 10,
-#endif
-};
+#include "graphic/color-consio.h"
 
 #ifdef _INC_CPP
 extern "C" {
@@ -121,11 +56,13 @@ extern stduint _crt_out_cnt;
 // [DEPRECATED]
 void outidec(int xx, int base, int sign);
 
+typedef void (*outbyte_t)(const char* str, dword len);
 // User Use
 void outi(stdint val, int base, int sign_show);
 void outu(stduint val, int base);
 int  outsfmtlst(const char* fmt, para_list lst);
 int  outsfmt(const char* fmt, ...);
+outbyte_t outredirect(outbyte_t out);
 
 #define printline(...) puts(__VA_ARGS__)
 
@@ -201,12 +138,32 @@ void ConStyleNormal(void);
 #ifdef _INC_CPP
 }
 
+#include "../cpp/stream"
+#include "../c/graphic.h"
+
 namespace uni {
-	class Console_t {
+	class Console_t : public OstreamTrait, public IstreamTrait
+	{
 	public:
-		//:{OPT} C# Style WriteLine();
+		// print string with format at cursor
+		// C Style printf
+		virtual int FormatShow(const char* fmt, ...) = 0;
 	};
-	extern Console_t Console;
+
+	class HostConsole : public Console_t // single instance
+	{
+	public:
+		virtual int out(const char* str, dword len);
+		virtual int inn();
+	public:
+		virtual int FormatShow(const char* fmt, ...);
+		Point getCursor();
+		stduint getWidth();
+		stduint getHeight();
+	};
+#if defined(_WinNT) || defined(_Linux)
+	extern HostConsole Console;
+#endif
 }
 
 #endif

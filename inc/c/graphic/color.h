@@ -23,6 +23,8 @@
 #ifndef _INC_Color
 #define _INC_Color
 
+#include "../stdinc.h"
+
 #define DEF_COLOR(v,iden) iden=v
 
 #ifdef _INC_CPP
@@ -56,7 +58,7 @@ namespace uni {
 	};
 	
 	//[ATTR] little-endian, argb
-	struct Color {
+	struct alignas(byteof(uint32)) Color {
 		byte b, g, r, a; // union {x y z i} 
 		enum ColorIdentifier : uint32 {
 			// ❤
@@ -79,26 +81,14 @@ namespace uni {
 		};
 		//
 
-		Color(uint32 i = 0) {
-			*(uint32*)this = i;// address may be in alignment
-		}
+		Color(uint32 i = 0) { *(uint32*)this = i; }
 
-		static Color From32(uint32 argb) {
-			Color color = *(Color*)&argb;
-			return color;
-		}
-
-		static Color FromBGR565(uint16 col) {
-			Color color;
-			color.b = (col) & 0x1F;
-			color.g = (col >> 5) & 0x3F;
-			color.r = (col >> 11) & 0x1F;
-			return color;
-		}
+		static Color FromRGB888(uint32 argb);
+		static Color FromBGR565(uint16 col);
 
 		//{TODO} static HSLA
 
-		operator uint32() { return *(uint32*)this; }
+		operator uint32() const { return *(uint32*)this; }
 
 		uint16 ToRGB565() const {
 			// R5[11] G6[5] B5[0]
@@ -107,6 +97,19 @@ namespace uni {
 			res |= _g << 5;
 			res |= _r << 11;
 			return res;
+		}
+
+		uint32 ToBGR888() const {
+			union {
+				uint32 ret32;
+				struct { uint16 lows, highs; };
+			} ret;
+			ret.ret32 = uint32(self) & 0x00FFFFFF;
+			ret.lows ^= ret.highs;
+			ret.highs ^= ret.lows;
+			ret.highs &= 0x00FF;
+			ret.lows ^= ret.highs;
+			return ret.ret32;
 		}
 	};
 

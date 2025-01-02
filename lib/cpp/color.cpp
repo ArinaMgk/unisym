@@ -1,7 +1,8 @@
-// ASCII C++-STD11 TAB4 CRLF
-// LastCheck: 20240229
-// AllAuthor: @dosconio
-// ModuTitle: Stream
+// ASCII C TAB4 CRLF
+// Docutitle: (Module) Color
+// Codifiers: @dosconio: 20240513
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,21 +20,19 @@
 	limitations under the License.
 */
 
-#ifndef _INC_STREAM
-#define _INC_STREAM
-
-#include "trait/XstreamTrait.hpp"
-
-#define conio con
-// 2023 Arinae style: in_buf << conio << out_str, out_str >> conio >> in_buf
-// con considers priority of operator<< and >> and return con itself
-// - out2 << (out1 << con) << in1 << in2
-// - in2 >> (in1 >> con) >> out1 >> out2
+#include "../../inc/c/graphic/color.h"
 
 namespace uni {
+	Color Color::FromRGB888(uint32 argb) {
+		Color color = *(Color*)&argb;
+		return color;
+	}
 
-
+	Color Color::FromBGR565(uint16 col) {
+		Color color;
+		color.b = (col) & 0x1F;
+		color.g = (col >> 5) & 0x3F;
+		color.r = (col >> 11) & 0x1F;
+		return color;
+	}
 }
-
-
-#endif

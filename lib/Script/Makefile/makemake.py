@@ -332,7 +332,7 @@ ODUMP=$(PREF)objdump
 RANLIB=$(PREF)ranlib
 OPATH=$(uobjpath)/$(IDEN)
 
-cppfile=$(wildcard lib/cpp/Device/*.cpp) $(wildcard lib/cpp/Device/**/*.cpp)
+cppfile=$(wildcard lib/cpp/Device/*.cpp) $(wildcard lib/cpp/Device/**/*.cpp) lib/cpp/color.cpp
 cppfile+= lib/cpp/interrupt.cpp lib/cpp/MCU/$(IDEN).cpp
 cppobjs=$(patsubst %cpp, %o, $(cppfile))
 

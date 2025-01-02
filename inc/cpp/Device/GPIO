@@ -149,8 +149,8 @@ namespace uni {
 	// Abstract Layer, should take no space. We use const to confirm, which is friendly to Rust.
 	class GeneralPurposeInputOutputPin final : public RuptTrait {
 	public:
-		inline SelfGpor getParent() const { return treat<GPIO_Port>(_IMM(this) & ~_IMM(0xF)); }\
-			inline byte getID() const { return _IMM(this) & 0xF; }
+		inline SelfGpor getParent() const { return treat<GPIO_Port>(_IMM(this) & ~_IMM(0xF)); }
+		inline byte getID() const { return _IMM(this) & 0xF; }
 		SelfGpin operator=(bool val) const;
 		SelfGpin operator=(SelfGpin pin) const { return self = bool(pin); }
 		operator bool() const;

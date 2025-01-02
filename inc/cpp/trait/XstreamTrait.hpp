@@ -1,7 +1,8 @@
-// ASCII C++-STD11 TAB4 CRLF
-// LastCheck: 20240229
-// AllAuthor: @dosconio
-// ModuTitle: Stream
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Trait) Stream
+// Codifiers: @dosconio: 20240603
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,20 +20,20 @@
 	limitations under the License.
 */
 
-#ifndef _INC_STREAM
-#define _INC_STREAM
+// for Console, File, XART(...)
 
-#include "trait/XstreamTrait.hpp"
-
-#define conio con
-// 2023 Arinae style: in_buf << conio << out_str, out_str >> conio >> in_buf
-// con considers priority of operator<< and >> and return con itself
-// - out2 << (out1 << con) << in1 << in2
-// - in2 >> (in1 >> con) >> out1 >> out2
-
+#ifndef _INCPP_TRAIT_Stream
+#define _INCPP_TRAIT_Stream
+#include "../unisym"
 namespace uni {
-
-
+	class OstreamTrait {
+		// bytes
+		virtual int out(const char* str, dword len) = 0;
+	};
+	class IstreamTrait {
+		// byte
+		virtual int inn() = 0;
+	};
 }
 
 

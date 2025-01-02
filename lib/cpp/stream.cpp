@@ -20,3 +20,10 @@
 */
 
 #include "../../inc/cpp/stream"
+
+static void _stream_out();
+static void _stream_inn();
+
+// Console: consio.cpp
+//    File: ...
+//    XART: ...

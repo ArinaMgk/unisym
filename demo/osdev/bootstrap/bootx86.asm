@@ -18,6 +18,8 @@ ADDR_KERNEL EQU 0x1000
 	DRV_ID EQU 0x80
 %endif
 
+;{TODO Solve} Load from Floppy or Harddisk ?
+
 [CPU 386]
 
 %include "pseudo.a"
@@ -148,13 +150,13 @@ MOV ES, AX
 		MOV EDI, DWORD[BX+0x08]
 		CMP EDI, ADDR_KERNEL
 		JB  lup_loadkernel_next0
-		REP MOVSB
+		REP MOVSB; assert ECX + EDI < 0x7c00 or EDI >= 0x7e00
 		lup_loadkernel_next0: POPA
 	lup_loadkernel_next:
 		ADD  BX, 0x20; SIZEOF PHT
 		LOOP lup_loadkernel
 ; ENTER FLAT-32
-	CMP BYTE[BOOT_ENTRY+kernel_iden+2], 'R'; All SegRegs are 0
+	CMP BYTE[BOOT_ENTRY+kernel_iden+2], 'R'; KER detected, All SegRegs are 0
 	JZ Retshort
 	EnterFlat: CLI
 	LGDT [ES:0x7c00+gdt]

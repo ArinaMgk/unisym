@@ -10,7 +10,7 @@ also known as ゆにッシンボル, or as 統象庫,
 a lossless abstract system of programming and engineering,
 including not only implementation, library, tool-kits, chroming engine and demonstrations.
 
-![LasRelease](https://img.shields.io/badge/release-U2024WINTER-aliceblue.svg)
+![LasRelease](https://img.shields.io/badge/release-U2024ULTIMATE-aliceblue.svg)
 ![Supervisor](https://img.shields.io/badge/supervisor-dosconio-violet.svg)
 ![Generation](https://img.shields.io/badge/generation-3:Public-pink.svg)
 ![DynamicVer](https://img.shields.io/badge/libversion-0.1-green.svg)
@@ -24,8 +24,8 @@ including not only implementation, library, tool-kits, chroming engine and demon
     - Herepic Style Color: Herpink(R255, G97, B157, #double-0.618) 
 - `HERPRO` and static `HERDAT`
 	- Dinah Processor and Controller Chip
-    - opensrc **UNISYM** (this, Apache)
-	- Mecocoa
+    - opensrc **UNISYM** (this, Apache), up-to chip-level `arch-objfmt-env`
+	- Mecocoa, up-to board-level `board-arch-mode`
 	- Host Environment
 		- Witch and Nova
 		- COTLAB

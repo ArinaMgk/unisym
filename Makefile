@@ -26,6 +26,7 @@ list: local# depend [perl python]
 	@perl ./lib/Script/Makefile/makemake.pl
 
 # ---- [naming style generation 2] ----
+# {TODO} cross-compile system, now many native in win64 and lin64
 # ELF including (Real16, Flap32 ...)
 mx86: x86-EG-MCCA
 # COFF with DJGPP
@@ -38,6 +39,7 @@ cvw64: x64-CV-Win64
 # liblinux ELF
 cgl32: x86-EG-Lin32
 cgl64: x64-EG-Lin64
+cll64: x64-EL-Lin64 # C/C++: AMD64 ELF LLVM Linux(Mode-64)
 # mcudev
 cgstm32f: cortexm3-EG-STM32F1 cortexm4-EG-STM32F4
 cgstm32mp: cortexa7-Gnu-STM32MP13
@@ -120,6 +122,9 @@ x64-EG-Lin64: list
 	-@rm -f $(ubinpath)/libl64d.a
 	make -f ${make_dir}cgl64.make all
 	cd ${make_dir} && make -f kitl64.make all
+x64-EV-Lin64:
+x64-EM-Lin64:
+x64-EL-Lin64: x64-EG-Lin64
 x86-EG-MCCA: list
 	make -f ${make_dir}cgmx86.make all
 riscv64-EG-MCCA:

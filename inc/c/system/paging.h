@@ -1,8 +1,8 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
-// LastCheck: RFZ03
-// AllAuthor: @dosconio
-// ModuTitle: Instruction CPUID
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (System) Paging
+// Codifiers: @dosconio: 20241209 ~ <Last-check> 
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,11 +20,35 @@
 	limitations under the License.
 */
 
-#ifndef _INCX_CPUID
-#define _INCX_CPUID
+#include "../stdinc.h"
 
-#include "cinc"// C Begin
-	#include "../c/cpuid.h"
-#include "cinc"// C End
+#if !defined(_INC_System_Paging) && defined(_INC_CPP)
+#define _INC_System_Paging
 
-#endif // !_INCX_CPUID
+namespace uni {
+#if defined(_ARC_x86)
+
+	
+	struct Page {
+
+	};
+
+	// below are virtual entity
+
+	struct PageTable {
+		Page operator[](size_t entry_index) const {
+			
+		};
+	};
+
+	struct PageDirectory {
+
+	};
+
+
+	
+#endif
+
+}
+
+#endif

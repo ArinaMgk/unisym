@@ -2,7 +2,7 @@
 #include "../../inc/c/consio.h"
 #include <stdio.h>
 
-#if defined(_WinNT) || defined(_Linux)
+#if defined(_WinNT) || defined(_Linux) ||  defined(_MCCA)
 namespace uni {
 	HostConsole Console;
 
@@ -12,7 +12,11 @@ namespace uni {
 		return _crt_out_cnt;
 	}
 	int HostConsole::inn() {
+	#if defined(_WinNT) || defined(_Linux)
 		return _TEMP getchar();
+	#else
+		return _TEMP 0;
+	#endif
 	}
 
 	int HostConsole::FormatShow(const char* fmt, ...) {

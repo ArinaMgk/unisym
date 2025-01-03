@@ -10,8 +10,8 @@
 %endif
 ADDR_STACK  EQU 0x0600
 FAT_BUFFER  EQU 0x0600;~ 0x07FF
-ADDR_KERELF EQU 0x1000
-ADDR_KERNEL EQU 0x1000
+ADDR_KERELF EQU 0x7E00
+ADDR_KERNEL EQU 0x0200
 %ifdef _FLOPPY
 	DRV_ID EQU 0x00
 %else; HARDDISK
@@ -150,7 +150,7 @@ MOV ES, AX
 		MOV EDI, DWORD[BX+0x08]
 		CMP EDI, ADDR_KERNEL
 		JB  lup_loadkernel_next0
-		REP MOVSB; assert ECX + EDI < 0x7c00 or EDI >= 0x7e00
+		REP MOVSB; assert ECX + EDI < 0x7c00
 		lup_loadkernel_next0: POPA
 	lup_loadkernel_next:
 		ADD  BX, 0x20; SIZEOF PHT

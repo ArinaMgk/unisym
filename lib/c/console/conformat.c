@@ -48,7 +48,7 @@ void outc(const char chr)
 //{TEMP} always align to right
 #define DEF_outiXhex(siz) void outi##siz##hex(uint##siz inp) {\
 	void (*localout)(const char* str, dword len) = local_out;\
-	char buf[2 * byteof(uint##siz)] = {0};\
+	char buf[2 * byteof(uint##siz) + 1] = {0};\
 	for0r(i, numsof(buf) - 1) {\
 		buf[i] = _tab_HEXA[inp & 0xF];\
 		inp >>= 4;\

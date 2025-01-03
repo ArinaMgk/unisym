@@ -30,7 +30,7 @@
 
 //{TO-MOVE}
 #if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
-#include "proctrl/x86/x86.h" //{TEMP}
+#include "../../inc/c/proctrl/x86/x86.h"
 void curset(word posi)
 {
 	outpb(0x03D4, 0x0E);

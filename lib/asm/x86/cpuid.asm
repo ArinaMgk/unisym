@@ -13,6 +13,7 @@
 [SECTION .code]
 	GLOBAL @CpuBrand@4 
 	GLOBAL CpuBrand
+	GLOBAL _CpuBrand
 	[BITS 32]
 
 ; ____________________________________________________________________________
@@ -21,6 +22,7 @@
 ; [__fastcall] CpuBrand <<< ECX(char* BufAddr)
 @CpuBrand@4:
 CpuBrand:
+_CpuBrand:
 	PUSHAD
 	MOV ESI, ECX
 	M_CpuBrand

@@ -26,7 +26,7 @@
 #ifdef _Linux
 //{TEMP}{No Check}
 inline static int _getch() { char ch = getchar(); printf("\b "); return ch;}
-#else
+#elif defined(_WinNT)
 #include <conio.h>
 #endif
 #include "../../inc/c/graphic/contable.h"

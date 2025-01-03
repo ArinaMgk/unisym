@@ -74,7 +74,7 @@ void ConClearScreen(void);
 #if defined(_WinNT) || defined(_Linux)
 #include <stdio.h>
 #elif defined(_MCCA) // && _MCCA==0x8632 ...
-//
+// use \n\r for newline
 #endif
 
 // ---- ---- ---- ----
@@ -161,7 +161,7 @@ namespace uni {
 		stduint getWidth();
 		stduint getHeight();
 	};
-#if defined(_WinNT) || defined(_Linux)
+#if defined(_WinNT) || defined(_Linux) || defined(_MCCA)
 	extern HostConsole Console;
 #endif
 }

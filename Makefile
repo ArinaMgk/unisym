@@ -126,6 +126,10 @@ x64-EV-Lin64:
 x64-EM-Lin64:
 x64-EL-Lin64: x64-EG-Lin64
 x86-EG-MCCA: list
+	-@mkdir -p $(uobjpath)/CGMin32
+	#-@mkdir -p $(uobjpath)/CGMin32-DLL
+	-@rm -f $(uobjpath)/CGMin32/*
+	-@rm -f $(ubinpath)/libm32d.a
 	make -f ${make_dir}cgmx86.make all
 riscv64-EG-MCCA:
 	@echo TODO

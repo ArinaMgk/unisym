@@ -100,6 +100,8 @@ typedef ptrdiff_t stdsint;
 static const pureptr_t None = (pureptr_t)~(stduint)0;
 static const stduint NONE = ~(stduint)0;
 #endif
+//
+typedef void (*outbyte_t)(const char* str, stduint len);
 
 //
 #define valword(x) (*(word*)&(x))// will be template overload as C++ version

@@ -714,6 +714,13 @@ void StrShiftRight8n(void* s, size_t len, size_t n);
 // In the direction of the left
 stdint MemCompareRight(const unsigned char* a, const unsigned char* b, size_t n);
 
+// ---- ---- ---- ---- { Buffer } ---- ---- ---- ----
+
+// like sprintf
+int outsfmtbuf(char* buf, const char* fmt, ...);
+// like vsprintf
+int outsfmtlstbuf(char* buf, const char* fmt, para_list lst);
+
 // ---- ---- ---- ---- { Wide / Multi } ---- ---- ---- ----
 _TODO//#define mbstowcs StrWideFoMulti
 _TODO//#define wcstombs StrWideToMulti

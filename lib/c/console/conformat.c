@@ -37,6 +37,7 @@
 // 2> String.Format(...) : (1)getlen (2)getval
 // can be empty fucntion but nullptr
 static outbyte_t local_out = outtxt;
+Handler_t _serial_callback = 0;
 _TODO byte local_out_lock = 0;// 0 for accessable
 stduint _crt_out_cnt;
 
@@ -45,9 +46,12 @@ void outc(const char chr)
 	local_out(&chr, 1);
 }
 
+#undef outs
+#define outs(x) local_out(x, StrLength(x))
+
 //{TEMP} always align to right
 #define DEF_outiXhex(siz) void outi##siz##hex(uint##siz inp) {\
-	void (*localout)(const char* str, dword len) = local_out;\
+	outbyte_t localout = local_out;\
 	char buf[2 * byteof(uint##siz) + 1] = {0};\
 	for0r(i, numsof(buf) - 1) {\
 		buf[i] = _tab_HEXA[inp & 0xF];\
@@ -86,7 +90,7 @@ void outidec(int xx, int base, int sign)
 // Output Integer
 void outi(stdint val, int base, int sign_show)
 {
-	void (*localout)(const char* str, dword len) = local_out;
+	outbyte_t localout = local_out;
 	if (base < 2) return;
 	char buf[bitsof(stdint) + 2] = { 0 };// may bigger than 2 * bitsof(stdint) + 2 if base < 16 
 	int i = sizeof(buf) - 1;
@@ -100,7 +104,7 @@ void outi(stdint val, int base, int sign_show)
 // Output Unsigned Integer
 void outu(stduint val, int base)
 {
-	void (*localout)(const char* str, dword len) = local_out;
+	outbyte_t localout = local_out;
 	if (base < 2) return;
 	char buf[bitsof(stduint) + 1] = { 0 };
 	stduint i = sizeof(buf) - 1;
@@ -110,7 +114,7 @@ void outu(stduint val, int base)
 
 _TEMP static void outfloat(float val)
 {
-	void (*localout)(const char* str, dword len) = local_out;
+	outbyte_t localout = local_out;
 	if (val < 0) localout("-", 1);
 	outu((stduint)val, 10);
 	val -= (stduint)val;
@@ -126,7 +130,7 @@ int outsfmtlst(const char* fmt, para_list paras)
 {
 	while (local_out_lock);
 	local_out_lock = 1;//{TODO} add multitask lock
-	void (*localout)(const char* str, dword len) = local_out;
+	outbyte_t localout = local_out;
 	_crt_out_cnt = 0;
 	int i;
 	byte c;
@@ -244,6 +248,7 @@ int outsfmtlst(const char* fmt, para_list paras)
 	}
 
 	_TEMP local_out_lock = 0;// leave lock
+	asserv(_serial_callback)();
 	return _crt_out_cnt;
 }
 

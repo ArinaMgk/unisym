@@ -1,10 +1,3 @@
-Last-Commit: 20250102：「 
-+
-」
-This-Commit: 「
-+ 
-」
----
 
 ### Unchecked and Checked-but-Issued
 

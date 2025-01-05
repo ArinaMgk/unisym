@@ -29,8 +29,10 @@
 #include "cinc"// C Begin
 	#include "../c/ustring.h"
 #include "cinc"// C End
-#include "property"
-// #include <iostream>//{TEMP}
+#ifndef _MCCA
+	#include "property"
+	// #include <iostream>//{TEMP}
+#endif
 
 /*TODO
  * fit BString
@@ -41,7 +43,11 @@
 //{} Append property-call for += ... operator
 namespace uni {
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
-	class String: public uni::Property<String> {
+	class String
+	#ifndef _MCCA
+		: public uni::Property<String>
+	#endif 
+	{
 	protected:
 		size_t counts;
 		char* addr;
@@ -49,6 +55,7 @@ namespace uni {
 		stduint limits;
 		bool allocated;// astring or bstring(non-0)
 	public:
+		void UnsafeSetBuffer(char* str, stduint buffer_siz);
 		// strheap
 		String(const char* str_asciz = "");
 		static String Heap(const String& str) { return String((const char*)(str.addr)); }
@@ -111,6 +118,8 @@ namespace uni {
 			if (allocated) counts = nil;
 			return self;
 		}
+
+		String& Format(const char* fmt, ...);
 
 
 		// [Abandoned]

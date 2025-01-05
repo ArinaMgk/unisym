@@ -37,7 +37,7 @@ namespace uni {
 		limits = 0;
 		allocated = true;
 	}
-	
+
 	String::String(char* str, stduint buffer_siz) {
 		this->addr = str;
 		this->counts = nil;
@@ -82,7 +82,9 @@ namespace uni {
 			srs(this->addr, StrHeap(str.addr));
 			this->counts = StrLength(this->addr);
 		}
+		#ifndef _MCCA
 		this->setthen(this);
+		#endif
 		return *this;
 	}
 	
@@ -92,7 +94,9 @@ namespace uni {
 			srs(this->addr, StrHeap(addr));
 			this->counts = StrLength(this->addr);
 		}
+		#ifndef _MCCA
 		this->setthen(this);
+		#endif
 		return *this;
 	}
 
@@ -109,6 +113,15 @@ namespace uni {
 		}
 		return self;
 	}
+
+
+	String& String::Format(const char* fmt, ...) {
+	//{TODO} for astring
+		Letpara(args, fmt);
+		outsfmtlstbuf(addr, fmt, args);
+		return self;
+	}
+
 
 	/*[Abandoned]
 	//{TODO} uni::stream

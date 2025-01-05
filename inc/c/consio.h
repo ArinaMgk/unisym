@@ -45,7 +45,7 @@ extern "C" {
 void curset(word posi);
 word curget(void);
 void scrrol(word lines);
-void outtxt(const char* str, dword len);
+void outtxt(const char* str, stduint len);
 
 // [INNER-USE]
 #define outs(a) outtxt(a, StrLength(a))
@@ -56,13 +56,13 @@ extern stduint _crt_out_cnt;
 // [DEPRECATED]
 void outidec(int xx, int base, int sign);
 
-typedef void (*outbyte_t)(const char* str, dword len);
 // User Use
 void outi(stdint val, int base, int sign_show);
 void outu(stduint val, int base);
 int  outsfmtlst(const char* fmt, para_list lst);
 int  outsfmt(const char* fmt, ...);
 outbyte_t outredirect(outbyte_t out);
+extern Handler_t _serial_callback;
 
 #define printline(...) puts(__VA_ARGS__)
 
@@ -149,8 +149,12 @@ namespace uni {
 		// C Style printf
 		virtual int FormatShow(const char* fmt, ...) = 0;
 	};
-
-	class HostConsole : public Console_t // single instance
+	class HostConsole
+	#if !defined(_MCCA)
+		: public Console_t // single instance
+	#else
+		#define virtual
+	#endif
 	{
 	public:
 		virtual int out(const char* str, dword len);
@@ -160,6 +164,9 @@ namespace uni {
 		Point getCursor();
 		stduint getWidth();
 		stduint getHeight();
+	#ifdef _MCCA
+		#undef virtual
+	#endif
 	};
 #if defined(_WinNT) || defined(_Linux) || defined(_MCCA)
 	extern HostConsole Console;

@@ -16,6 +16,33 @@
 	limitations under the License.
 */
 
+#include "../../../../inc/c/ustring.h"
+#include "../../../../inc/c/consio.h"
+
+char* p_outsfmtbuf = 0;
+static void outtxtbuf_endo() { *p_outsfmtbuf = 0; }
+static void outtxtbuf(const char* str, stduint len) {
+	for0(i, len)* p_outsfmtbuf++ = str[i];
+}
+
+// like sprintf
+int outsfmtbuf(char* buf, const char* fmt, ...) {
+	Letpara(args, fmt);
+	return outsfmtlstbuf(buf, fmt, args);
+}
+
+// like vsprintf
+int outsfmtlstbuf(char* buf, const char* fmt, para_list lst) {
+	p_outsfmtbuf = buf;
+	Handler_t _last_callback = _serial_callback; _serial_callback = outtxtbuf_endo;
+	outbyte_t last = outredirect(outtxtbuf);
+	int ret = outsfmtlst(fmt, lst);
+	outredirect(last);
+	_serial_callback = _last_callback;
+	p_outsfmtbuf = 0;
+	return ret;
+}
+
 #if 0
 
 #define _ARN_INSIDE_LIBRARY_INCLUDE

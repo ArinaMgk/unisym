@@ -60,7 +60,7 @@ word curget(void)
 
 #if defined(_WinNT) || defined(_Linux)
 #include <stdio.h>
-void outtxt(const char* str, dword len)
+void outtxt(const char* str, stduint len)
 {
 	for0(i, len) {
 		putchar(*str++);

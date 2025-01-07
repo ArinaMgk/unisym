@@ -1,7 +1,7 @@
-// ASCII C/C++ TAB4 CRLF
-// Docutitle: (Format: File-System) File Allocation Table 12-bit
-// Codifiers: @dosconio: 20240426 ~ <Last-check> 
-// Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Stroage) SDCard
+// Codifiers: @dosconio: 20250107
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -20,9 +20,8 @@
 	limitations under the License.
 */
 
-#ifndef _INC_FAT12
-#define _INC_FAT12
+#include "../../../../inc/cpp/Device/SD.hpp"
 
-//{} use StorageTrait
+namespace uni {
 
-#endif
+}

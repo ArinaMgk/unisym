@@ -54,8 +54,31 @@ const char** _tab_pref[] = {
 };
 
 static void printpref(loglevel_t level) {
-#if defined(_Linux) || 1
-	switch (level)
+switch (level)
+#if defined(_MCCA) && _MCCA==0x8632
+	{
+	case _LOG_FATAL:// better into STDERR
+		outsfmt("\xFF\x47%s\xFF\x04", _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
+		break;
+	case _LOG_PANIC:// better into STDERR
+		outsfmt("\xFF\x47%s\xFF\x04", _logstyle == _LOG_STYLE_NONE ? _pref_pani : "panic: ");
+		break;
+	case _LOG_ERROR:// better into STDERR
+		outsfmt("\xFF\x47%s\xFF\x04", _logstyle == _LOG_STYLE_NONE ? _pref_erro : "error: ");
+		break;
+	case _LOG_WARN:
+		outsfmt("\xFF\x67%s\xFF\x06", _logstyle == _LOG_STYLE_NONE ? _pref_warn : "warning: "); break;
+	case _LOG_INFO:
+		outsfmt("\xFF\x03%s", _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
+	case _LOG_DEBUG:
+		outsfmt("%s", _logstyle == _LOG_STYLE_NONE ? _pref_dbug : "debug: "); break;
+	case _LOG_TRACE:
+		outsfmt("%s", _logstyle == _LOG_STYLE_NONE ? _pref_trac : "trace: "); break;
+	case _LOG_STDOUT:
+	default:
+		break;
+	}
+#elif defined(_Linux) || 1
 	{
 	case _LOG_FATAL:// better into STDERR
 		outsfmt("\x1b[%dm%s", CON_FORE_RED, _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
@@ -82,7 +105,9 @@ static void printpref(loglevel_t level) {
 }
 
 static void printsuff(loglevel_t level) {
-#if defined(_Linux) || 1
+#if defined(_MCCA) && _MCCA==0x8632
+	outs("\xFF\x07\n\r");
+#elif defined(_Linux) || 1
 	if (level != _LOG_STDOUT)
 		outs("\x1b[0m\n");
 #endif

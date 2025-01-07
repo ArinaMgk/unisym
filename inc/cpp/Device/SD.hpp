@@ -1,6 +1,6 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Trait) Stroage
-// Codifiers: @dosconio: 20250104
+// Docutitle: (Stroage) SDCard
+// Codifiers: @dosconio: 20250107
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,16 +20,27 @@
 	limitations under the License.
 */
 
-// a Block default { 512 bytes }
 
-#ifndef _INCPP_TRAIT_Storage
-#define _INCPP_TRAIT_Storage
+#ifndef _INCPP_Storage_Harddisk
+#define _INCPP_Storage_Harddisk
+
 #include "../unisym"
+
+#ifdef _INC_CPP
+
+#include "../trait/StorageTrait.hpp"
+
 namespace uni {
-	class StorageTrait {
+	class Harddisk_t : public StorageTrait {
+		enum class HarddiskType {
+			LBA28
+		};
 	public:
-		stduint Block_Size;
-		void* Block_buffer;// for byte access
+		// heritance
+		// - stduint Block_Size;
+		// - void* Block_buffer;
+		HarddiskType type;
+		Harddisk_t(HarddiskType type) : type(type) {}
 		virtual bool Read(stduint BlockIden, void* Dest) = 0;
 		virtual bool Write(stduint BlockIden, const void* Sors) = 0;
 		// byte read
@@ -38,6 +49,7 @@ namespace uni {
 	};
 
 }
-
+#endif
 
 #endif
+

@@ -184,9 +184,18 @@ extern const char* getLiteral_ELFSectionFlags(byte typ);
 
 //
 
+#ifdef _INC_CPP
+extern "C" {
+#endif
+
+
 // ELF32_LoadFromMemory //{TODO} ELF<32>::LoadFromMemory
 //{TEMP} no check for validation
 // return how many PHBlock has been loaded
 stduint ELF32_LoadExecFromMemory(const void* memsrc, void** p_entry);
+
+#ifdef _INC_CPP
+}
+#endif
 
 #endif

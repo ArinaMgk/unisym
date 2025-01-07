@@ -1,6 +1,6 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Trait) Stroage
-// Codifiers: @dosconio: 20250104
+// Docutitle: (Stroage) Harddisk
+// Codifiers: @dosconio: 20250107
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,24 +20,35 @@
 	limitations under the License.
 */
 
-// a Block default { 512 bytes }
+#ifndef _INCPP_Storage_Harddisk
+#define _INCPP_Storage_Harddisk
 
-#ifndef _INCPP_TRAIT_Storage
-#define _INCPP_TRAIT_Storage
-#include "../unisym"
+#include "../stdinc.h"
+
+#ifdef _INC_CPP
+
+#include "../../cpp/trait/StorageTrait.hpp"
+
 namespace uni {
-	class StorageTrait {
+	class Harddisk_t : public StorageTrait {
 	public:
-		stduint Block_Size;
-		void* Block_buffer;// for byte access
-		virtual bool Read(stduint BlockIden, void* Dest) = 0;
-		virtual bool Write(stduint BlockIden, const void* Sors) = 0;
+		enum class HarddiskType {
+			LBA28
+		};
+	public:
+		// heritance
+		// - stduint Block_Size;
+		// - void* Block_buffer;
+		HarddiskType type;
+		Harddisk_t(HarddiskType type) : type(type) {}
+		virtual bool Read(stduint BlockIden, void* Dest);
+		virtual bool Write(stduint BlockIden, const void* Sors) { return _TODO false; }
 		// byte read
-		virtual byte operator[](uint64 bytid) = 0;
+		virtual byte operator[](uint64 bytid) { return _TODO 0; }
 
 	};
 
 }
-
+#endif
 
 #endif

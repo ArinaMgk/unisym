@@ -21,6 +21,7 @@
 */
 
 #include "../../../../inc/c/ustring.h"
+#if !defined(_MCCA)
 #include <ctype.h>// na isXType()
 
 void StrFilter(char* p, toktype tt)
@@ -40,3 +41,4 @@ void StrFilter(char* p, toktype tt)
 			*q++ = c;
 	*q = 0;
 }
+#endif

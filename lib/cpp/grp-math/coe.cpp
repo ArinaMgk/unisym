@@ -21,7 +21,7 @@
 */
 
 #include "../../../inc/cpp/coear"
-
+#if !defined(_MCCA)
 namespace uni{
 	Coe::~Coe() {
 		CoeDel(this->co);
@@ -158,4 +158,4 @@ namespace uni{
 }
 
 
-
+#endif

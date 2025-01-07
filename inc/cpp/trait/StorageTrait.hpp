@@ -1,8 +1,8 @@
-/// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant Host[Allocation]
-// LastCheck: RFZ23
-// AllAuthor: @ArinaMgk
-// ModuTitle: ASCII Powerful Number of Arinae
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Trait) Stroage
+// Codifiers: @dosconio: 20250104
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,16 +20,22 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/coear.h"
-#if !defined(_MCCA)
-#include <math.h>
-coe* CoeAsinh(coe* dest)
-{
-	if (dest->divr[1] == '0') return dest;
-	double d = CoeToDouble(dest);
-	coe* res = CoeFromDouble(asinh(d));
-	CoeRst(dest, StrHeap(res->coff), StrHeap(res->expo), StrHeap(res->divr));
-	CoeDel(res);
-	return dest;
+// a Block default { 512 bytes }
+
+#ifndef _INCPP_TRAIT_Storage
+#define _INCPP_TRAIT_Storage
+#include "../unisym"
+namespace uni {
+	class StorageTrait {
+	public:
+		stduint Block_Size;
+		virtual bool Read(stduint BlockIden, void* Dest) = 0;
+		virtual bool Write(stduint BlockIden, const void* Sors) = 0;
+	   // bytes
+		virtual int out(const char* str, dword len) = 0;
+	};
+
 }
+
+
 #endif

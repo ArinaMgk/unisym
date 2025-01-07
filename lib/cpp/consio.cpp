@@ -1,6 +1,8 @@
 
 #include "../../inc/c/consio.h"
+#if !defined(_MCCA)
 #include <stdio.h>
+#endif
 
 #if defined(_WinNT) || defined(_Linux) ||  defined(_MCCA)
 namespace uni {

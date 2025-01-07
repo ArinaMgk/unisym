@@ -21,6 +21,7 @@
 */
 
 #include "../../../../inc/c/ustring.h"
+#if !defined(_MCCA)
 #include <ctype.h>// na isXType()
 
 // Base on ChrCpz RFV30
@@ -34,3 +35,4 @@ size_t StrDeprefixSpaces(char* str)
 	else MemRelative(str + num, siz - num + 1, -num);
 	return num;
 }
+#endif

@@ -113,13 +113,15 @@ enum Architecture_ARMv_t {
 		#define _ARC_x86 5
 		#endif
 	#define __BITS__ 32
-#elif defined(_MCCA) && _MCCA==0x8616// defined(_ARC_x86)
+/*	
+#elif defined(_MCCA) && _MCCA==0x8616 //--> _MDOS but _MCCA
 	#define _Intelx86_Mcca_16
 	#define __ARCH__ Architecture_x86
 	#ifndef _ARC_x86
 		#define _ARC_x86 1
 		#endif
 	#define __BITS__ 16
+*/
 #elif defined(_OPT_RISCV64)
 	#define __ARCH__ Architecture_RISCV64
 	#define _ARC_RISCV_64
@@ -141,6 +143,7 @@ enum Architecture_ARMv_t {
 
 // `long int` measures sometimes 32 and sometimes 64, as example, so it is necessary to add host for compilers except Magice, which is also a customizable linear language.
 
+/*
 #if defined(_INC_DEPEND_STDINT) || defined(_INC_DEPEND_LIMITS) || defined(_INC_DEPEND_STDDEF)
 	// do nothing. We would better include UNISYM at the beginning of the document.
 	#ifndef _INC_DEPEND_STDINT
@@ -154,7 +157,11 @@ enum Architecture_ARMv_t {
 	#ifndef _INC_DEPEND_STDDEF
 	#define _INC_DEPEND_STDDEF
 	#include <stddef.h>
-	#endif		
+	#endif
+*/
+#if 0
+// #elif defined(_MCCA) && _MCCA==0x8632 // i686-ELF
+// 	#include "../architect/arcx86.h"
 #elif defined(_Intelx86o64_Windows_64)
 	#include "../architect/arcx64_win64.h"
 #elif defined(_MCU_Intel8051)

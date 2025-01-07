@@ -22,6 +22,7 @@
 
 #include "../../../inc/c/coear.h"
 #include "../../../inc/c/uctype.h"
+#if !defined(_MCCA)
 #include <float.h>
 #include <math.h>
 
@@ -139,3 +140,4 @@ double CoeToDouble(const coe* dest)
 	CoeDel(ddd);
 	return ll;
 }
+#endif

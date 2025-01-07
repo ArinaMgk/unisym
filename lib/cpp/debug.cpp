@@ -1,7 +1,7 @@
 
 #include "../../inc/cpp/unisym"
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && !defined(_MCCA)
 //{TOIN} memory.cpp
 void* operator new(size_t size) {
 	return malc(size);

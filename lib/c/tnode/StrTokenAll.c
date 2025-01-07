@@ -24,6 +24,7 @@
 #include "../../../inc/c/dnode.h"
 #include "../../../inc/c/uctype.h"
 #include "../../../inc/c/ustring.h"
+#if !defined(_MCCA)
 #include <stdio.h>// for EOF
 
 #define _TNODE_COMMENT '#'
@@ -353,3 +354,4 @@ void StrTokenAll(TokenParseUnit* tpu)
 	}
 	if (CrtTLen) apd();
 }
+#endif

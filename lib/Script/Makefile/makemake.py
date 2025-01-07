@@ -44,6 +44,7 @@ list_asm_free64 = get_files("./lib/asm/x64", ".asm")
 # unisym/lib/make/cvw64.make -> -bin/libw64d.lib
 # unisym/lib/make/cgl32.make -> -bin/libl32d.a
 # unisym/lib/make/cgmx86.make -> -bin/libm32d.a (both Kernel+User)
+# (Mecocoa User Library is Aococam, ACCM)
 # unisym/lib/make/cgl64.make -> -bin/libl64d.a
 text_gcc_win32 = "# UNISYM for GCC-Win32 built-" + str(__BuildTime) + '\n'
 text_gcc_win64 = "# UNISYM for GCC-Win64 built-" + str(__BuildTime) + '\n'
@@ -119,8 +120,8 @@ attr = -D_DEBUG -D_MCCA=0x8632 -O3
 aattr = -felf
 dest_obj=$(uobjpath)/CGMin32
 dest_abs=$(ubinpath)/libm32d.a
-CC=gcc -m32 -fno-builtin -fleading-underscore -fno-pic -std=c99   -fno-stack-protector
-CX=g++ -m32 -fno-builtin -fleading-underscore -fno-pic -std=c++2a -fno-stack-protector -frtti
+CC=gcc -m32 -fno-stack-protector -static           -Wno-builtin-declaration-mismatch 
+CX=g++ -m32 -fno-stack-protector -static -fno-rtti -Wno-builtin-declaration-mismatch -fno-exceptions -fno-unwind-tables
 LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libm32d.so.""" + __LibVersion
 
@@ -259,7 +260,7 @@ tmp = """
 	@$(CC) -fpic $(attr) -c $< -o $(dest_obj)-DLL/$(cplpref)$(notdir $@)
 %.o: %.cpp
 	@echo "CX $(<)"
-	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
+	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
 	@echo "CX $(<) (shared)"
 	@$(CX) -fpic $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@)
 
@@ -275,7 +276,7 @@ tmp = """
 	@$(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
 %.o: %.cpp
 	@echo "CX $(<)"
-	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
+	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
 
 """
 text_gcc_mecocoa += tmp

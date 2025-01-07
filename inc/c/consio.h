@@ -150,7 +150,7 @@ namespace uni {
 		virtual int FormatShow(const char* fmt, ...) = 0;
 	};
 	class HostConsole
-	#if !defined(_MCCA)
+	#if 1 // !defined(_MCCA)
 		: public Console_t // single instance
 	#else
 		#define virtual
@@ -164,7 +164,7 @@ namespace uni {
 		Point getCursor();
 		stduint getWidth();
 		stduint getHeight();
-	#ifdef _MCCA
+	#if 0 && !defined(_MCCA)
 		#undef virtual
 	#endif
 	};

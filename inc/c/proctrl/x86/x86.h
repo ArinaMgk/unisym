@@ -61,12 +61,29 @@ typedef struct _CPU_x86_gate
 {
 	word offset_low;
 	word selector;
-	byte param_count;
+	byte param_count : 5;
+	byte zero : 3;
 	byte type : 4;
 	byte notsys : 1;
 	byte DPL : 2;
 	byte present : 1;
 	word offset_high;
+#ifdef _INC_CPP
+	// default (1_11_01100_00000000)
+	// - zero parameter
+	// - ring 3
+	void setModeCall(dword addr, word segsel) {
+		offset_low = addr;
+		offset_high = addr >> 16;
+		selector = segsel;
+		param_count = 0;
+		zero = 0;
+		type = 0b1100;
+		notsys = 0;
+		DPL = 3;
+		present = 1;
+	}
+#endif
 } gate_t;
 
 static inline dword DescriptorBaseGet(descriptor_t* desc)

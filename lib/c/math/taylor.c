@@ -22,6 +22,7 @@
 
 #include "../../../inc/c/arith.h"
 #include "../../../inc/c/ustdbool.h"
+#if !defined(_MCCA)
 #include <math.h>
 
 double dbltaylor(double inp, enum TaylorType dptor_in, double period)
@@ -73,3 +74,4 @@ double dbltaylor(double inp, enum TaylorType dptor_in, double period)
 
 	endo: return result;
 }
+#endif

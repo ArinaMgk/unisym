@@ -23,7 +23,7 @@
 	limitations under the License.
 */
 
-#if !defined(_INC__BITS__Node_X)
+#if !defined(_INC__BITS__Node_X) && !defined(_MCCA)
 #define _INC__BITS__Node_X
 
 #include "unisym"

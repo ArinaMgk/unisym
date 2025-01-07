@@ -118,7 +118,10 @@ namespace uni {
 	String& String::Format(const char* fmt, ...) {
 	//{TODO} for astring
 		Letpara(args, fmt);
-		outsfmtlstbuf(addr, fmt, args);
+		if (!allocated) outsfmtlstbuf(addr, fmt, args);
+		else {
+			_TODO;
+		}
 		return self;
 	}
 

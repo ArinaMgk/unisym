@@ -163,7 +163,7 @@ extern "C++" {
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for0r(iden,times) for(size_t iden=(times);iden--;)//<=> for(.=N-1;.>=0;.--)
 #define forp(ptr,times) for(pureptr_t _LIMIT=(pureptr_t)(ptr+times);(pureptr_t)ptr<_LIMIT;ptr++)
-#define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);ptr<(since)+(times);ptr++)
+#define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);_IMM(ptr)<_IMM(since)+(times);ptr++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 #define for0a(iden,array) for0(iden,numsof(array))
 

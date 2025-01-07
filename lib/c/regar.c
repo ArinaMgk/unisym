@@ -29,6 +29,8 @@
 #include "../../inc/c/stdinc.h"
 #include "../../inc/c/ustring.h"
 
+#if !defined(_MCCA)
+
 #include <math.h>
 #include <float.h>
 
@@ -1577,4 +1579,4 @@ Rfnar_t* HrnDot(const Hrnar_t* d, const Hrnar_t* s)
 Rfnar_t* _Need_free HrnAbs(const Hrnar_t* d)
 ;
 
-// EOF
+#endif

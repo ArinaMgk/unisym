@@ -23,6 +23,8 @@
 #include "../../inc/c/strbuff.h"
 #include "../../inc/c/ustring.h"
 
+#if !defined(_MCCA)
+
 //{TEMP}
 #define likely(x)   (!!(x))
 #define unlikely(x) (!!(x))
@@ -307,3 +309,5 @@ void StrbuffSendWleb128s(Strbuff* s, int value)
 	}
 	StrbuffSend(s, temp, len);
 }
+
+#endif

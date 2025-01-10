@@ -1,8 +1,8 @@
-// ASCII CPL TAB4 CRLF
-// Docutitle: (Device) Programmable Interval Timer
-// Codifiers: @dosconio: 20240529
-// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
+// ASCII C99 TAB4 CRLF
+// Attribute: ArnCovenant CPU(80586+)
+// LastCheck: RFZ26
+// AllAuthor: @dosconio
+// ModuTitle: String Allocation
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,21 +19,12 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+#include "../../../../inc/c/stdinc.h"
 
-#ifndef _INC_DEVICE_PIT
-#define _INC_DEVICE_PIT
-
-#include "../../cpp/Device/Interrupt/interrupt_tab.h"
-
-#ifdef _INC_CPP
-extern "C" {
-#endif
-
-void PIT_Init();
-
-
-#ifdef _INC_CPP
+char* salc(size_t size)
+{
+	if (!size) return 0;
+	char* r = (char*)malc(size);
+	r[size - 1] = 0;
+	return r;
 }
-#endif
-
-#endif

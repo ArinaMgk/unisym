@@ -133,7 +133,8 @@ extern "C++" {
 
 #define If(con) if(0||con) //<=> if(1&&con) : avoid error such as mixing "a=0" and "a==0"
 
-#define byteof sizeof
+#define byteof       sizeof
+#define sliceof(x) x,sizeof(x)
 #define bitsof(x) (sizeof(x)*_BYTE_BITS_)
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
 #define offsof    _BYTE_BITS_*offsetof

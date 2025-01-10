@@ -45,8 +45,33 @@ virtual void setInterrupt(Handler_t _func) const override;\
 virtual void setInterruptPriority(byte preempt, byte sub_priority) const override;\
 virtual void enInterrupt(bool enable = true) const override // you need add colon when using
 
-#if 0
-//
+#if defined(_MCCA) && _MCCA == 0x8632
+
+namespace uni {
+	class GateInterrupt : public gate_t {
+	public:
+		
+	};
+	class InterruptControl {
+		// FLAP32
+	protected:
+		GateInterrupt* IVT_SEL_ADDR;
+	public:
+		InterruptControl(stduint _ivt_sel_addr) : IVT_SEL_ADDR((GateInterrupt*)_ivt_sel_addr) {}
+		GateInterrupt& operator[](uint8 index) {
+			return IVT_SEL_ADDR[index];
+		}
+		void enAble(bool enable = true);
+
+		void Reset(word SegCode);
+
+		inline stduint operator&() {
+			return (stduint)IVT_SEL_ADDR;
+		}
+
+	};
+}
+
 #elif defined(_MCU_STM32)
 #include "Device/NVIC"
 #include "Device/EXTI"

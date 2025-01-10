@@ -60,9 +60,13 @@ typedef struct _i8259A_ICW
 } _8259A_init_t;
 
 // some in IBM.h
-
-void i8259A_init(const struct _i8259A_ICW* inf);
-
+#ifdef _INC_CPP
+extern "C" {
+#endif
+	void i8259A_init(const struct _i8259A_ICW* inf);
+#ifdef _INC_CPP
+}
+#endif
 #define i8259Master_Enable(x) outpb(_i8259A_MAS_IMR | 1, innpb(_i8259A_MAS_IMR) & ~(byte)(1 <<(x)));
 #define i8259Slaver_Enable(x) outpb(_i8259A_SLV_IMR | 1, innpb(_i8259A_SLV_IMR) & ~(byte)(1 <<(x)));
 

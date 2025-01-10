@@ -23,14 +23,6 @@
 #include "../../inc/c/stdinc.h"
 #include "../../inc/c/consio.h"
 
-char* salc(size_t size)
-{
-	if (!size) return 0;
-	char* r = (char*)malc(size);
-	r[size - 1] = 0;
-	return r;
-}
-
 #ifdef _DEBUG
 
 logstyle_t _logstyle = _LOG_STYLE_NONE;

@@ -116,12 +116,15 @@ LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libl32d.so.""" + __LibVersion
 
 text_gcc_mecocoa += comhead + """
-attr = -D_DEBUG -D_MCCA=0x8632 -O3
+attr = -D_DEBUG -D_MCCA=0x8632
 aattr = -felf
 dest_obj=$(uobjpath)/CGMin32
 dest_abs=$(ubinpath)/libm32d.a
-CC=gcc -m32 -fno-stack-protector -static           -Wno-builtin-declaration-mismatch 
-CX=g++ -m32 -fno-stack-protector -static -fno-rtti -Wno-builtin-declaration-mismatch -fno-exceptions -fno-unwind-tables
+COMWAN = -Wno-builtin-declaration-mismatch
+COMFLG = -m32 -static -fno-builtin -nostdlib -O3 $(COMWAN)
+#  -fno-stack-protector -fno-pic
+CC=gcc $(COMFLG)
+CX=g++ $(COMFLG) -std=c++2a -fno-exceptions  -fno-unwind-tables -fno-rtti -Wno-volatile
 LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libm32d.so.""" + __LibVersion
 

@@ -114,7 +114,7 @@ enum Architecture_ARMv_t {
 		#endif
 	#define __BITS__ 32
 /*	
-#elif defined(_MCCA) && _MCCA==0x8616 //--> _MDOS but _MCCA
+#elif defined(_MCCA) && _MCCA==0x8616 //--> _KASHA (Real16) but _MCCA
 	#define _Intelx86_Mcca_16
 	#define __ARCH__ Architecture_x86
 	#ifndef _ARC_x86

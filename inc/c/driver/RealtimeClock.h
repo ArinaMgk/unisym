@@ -28,7 +28,16 @@
 
 #if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 
+#ifdef _INC_CPP
+extern "C" {
+#endif
+
 void RTC_Init();
+
+#ifdef _INC_CPP
+}
+#endif
+
 
 #elif defined(_MCU_STM32F1x) // C++
 

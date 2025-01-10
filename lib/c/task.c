@@ -33,6 +33,7 @@
 
 #include "../../inc/c/format/ELF.h"
 
+//{outdated}
 // LocaleDescriptor32SetFromELF32
 // 0
 // 1 code: 00000000~7FFFFFFF

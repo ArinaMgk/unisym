@@ -5,29 +5,34 @@
 ; ModuTitle: 
 ; Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
-GLOBAL _HALT
-GLOBAL _InterruptEnable, _InterruptDisable, _InterruptDTabLoad
-GLOBAL _getCR3, _getEflags
-GLOBAL _jmpFar, _CallFar
+GLOBAL _HALT, HALT
+GLOBAL _InterruptDisable, InterruptDTabLoad
+GLOBAL  InterruptEnable,  InterruptDisable
+GLOBAL getCR3, getEflags
+GLOBAL jmpFar, CallFar
 GLOBAL _returnfar
+GLOBAL returnfar
+GLOBAL TaskReturn
 
 [CPU 386]
 
 [BITS 32]
 
 _HALT:
+HALT:
 	HLT
 RET
 
-_InterruptEnable:
+InterruptEnable:
 	STI
 RET
 
 _InterruptDisable:
+InterruptDisable:
 	CLI
 RET
 
-_InterruptDTabLoad:
+InterruptDTabLoad:
 	; - [EBP+4*0]=EBX
 	; - [EBP+4*1]=Return Address
 	; - [EBP+4*2]=Address of IDT
@@ -40,16 +45,16 @@ _InterruptDTabLoad:
 	POP  EBX
 RET
 
-_getCR3:
+getCR3:
 	MOV EAX, CR3
 RET
 
-_getEflags:
+getEflags:
 	PUSHFD
 	POP EAX
 RET
 
-_jmpFar:; + TSS_ID_inGDT
+jmpFar:; + TSS_ID_inGDT
 	; - [EBP+4*0]=BP
 	; - [EBP+4*1]=Return Address
 	; - [EBP+4*2]=Address
@@ -61,7 +66,7 @@ _jmpFar:; + TSS_ID_inGDT
 	POP EBP
 RET
 
-_CallFar:
+CallFar:
 	PUSH EBP
 	MOV EBP, ESP
 	CALL FAR [EBP+4*2]
@@ -70,5 +75,17 @@ _CallFar:
 RET
 
 _returnfar:
+returnfar:
 	RETF
 RET
+ALIGN 16
+TaskReturn:
+	PUSHFD
+	POP EDX
+	TEST DX, 0100_0000_0000_0000B
+	JNZ NESTED_TASK
+	JMP 8*5:0; 8*5 TEMP
+RET
+	NESTED_TASK: IRETD
+RET; for next calling the subapp
+ALIGN 16

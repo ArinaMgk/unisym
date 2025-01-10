@@ -30,6 +30,10 @@ using namespace uni;
 
 #define i_index(a,b) (*a[b])
 
+#if defined(_MCCA) && _MCCA == 0x8632
+#include "interset_mecocoa"
+#endif
+
 // EXTI
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
 static void _HandlerIRQ_EXTIx(byte x);

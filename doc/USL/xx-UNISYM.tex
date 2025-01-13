@@ -123,9 +123,21 @@ The section does not include \It{Kasha}. For AASM, Microsoft Macro Assembler, GN
 
 \subsection{Linked Data}
 
+in header \verb`c/data.h`
+\begin{itemize}
+	\item \verb `_BITFONT_ASCII_8x5`
+	\item \verb `_BITFONT_ASCII_16x8`
+\end{itemize}
+
+in header \verb`c/uctype.h`
 \begin{itemize}
 	\item \verb `_tab_HEXA` decimal to upper ASCII chars.
 	\item \verb `_tab_hexa` decimal to lower ASCII chars.
+	\item \verb `_tab_alnum_digit` ASCII chars to hexadecimal.
+\end{itemize}
+
+in header \verb`c/driver/keyboard.h`
+\begin{itemize}
 	\item \verb `_tab_keycode2ascii` Keyboard Scan-code to ASCII and description.
 \end{itemize}
 

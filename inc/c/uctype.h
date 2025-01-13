@@ -39,7 +39,7 @@
 
 #define ascii_iscontrol(c) ((c)<32||(c)==127)
 
-#define ascii_isprint(c) ((c)>=' '&&(c)<127)
+#define ascii_isprint(c) ((c)>=' '&&(c)<127) // Rangein(ch, 0x20, 0x80)
 
 #define ascii_isgraph(c) ((c)>' '&&(c)<127)
 

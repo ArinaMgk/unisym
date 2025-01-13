@@ -329,14 +329,19 @@ ODUMP=$(PREF)objdump
 RANLIB=$(PREF)ranlib
 OPATH=$(uobjpath)/$(IDEN)
 
+cplfile=$(wildcard lib/c/data/**/*.c) $(wildcard lib/c/console/*.c) lib/c/mcore.c
+cplobjs=$(patsubst %c, %o, $(cplfile))
 cppfile=$(wildcard lib/cpp/Device/*.cpp) $(wildcard lib/cpp/Device/**/*.cpp) lib/cpp/color.cpp
 cppfile+= lib/cpp/interrupt.cpp lib/cpp/MCU/$(IDEN).cpp
 cppobjs=$(patsubst %cpp, %o, $(cppfile))
 
-all: init $(cppobjs)
+all: init $(cplobjs) $(cppobjs)
 	@echo AR $(DEST) && ${AR} -rcs $(DEST) $(OPATH)/*
 init:
 	-@test -d $(OPATH) || mkdir -p $(OPATH)
+%.o: %.c
+	@echo CC $(<)
+	@$(CC) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CC) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"	
 %.o: %.cpp
 	@echo CX $(<)
 	@$(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"

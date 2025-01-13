@@ -458,7 +458,8 @@ namespace uni {
 		if (disp.x >= win.x || disp.y >= win.y) return;
 		Letvar(p, uint16*, _TEMP 0xC0000000);
 		p += disp.x + disp.y * win.x;
-		*(uint32_t*)p = (*(uint32_t*)p & 0xFFFF0000) | _TEMP color.ToRGB565();
+		if (_IMM(p) & 0b11) *p = color.ToRGB565();
+		else *(uint32_t*)p = (*(uint32_t*)p & 0xFFFF0000) | _TEMP color.ToRGB565();
 	}
 
 	//{TODO} Make in MemSet for ARM

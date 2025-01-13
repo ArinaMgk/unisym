@@ -23,7 +23,7 @@
 #include "../../../../inc/c/storage/harddisk.h"
 
 namespace uni {
-#ifdef _DEV_GCC
+#if defined(_DEV_GCC) && defined(_MCCA) && _MCCA == 0x8632
 	bool Harddisk_t::Read(stduint BlockIden, void* Dest) {
 		stduint C, B;
 		__asm volatile("mov %%ecx, %0" : "=r" (C));// will break GNU stack judge: __asm ("push %ecx");

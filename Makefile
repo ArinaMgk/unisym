@@ -25,6 +25,9 @@ local:
 list: local# depend [perl python]
 	@perl ./lib/Script/Makefile/makemake.pl
 
+native:
+	#{TODO}
+
 # ---- [naming style generation 2] ----
 # {TODO} cross-compile system, now many native in win64 and lin64
 # ELF including (Real16, Flap32 ...)

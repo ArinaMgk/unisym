@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Module) ASM-used Literal Instructions and Directives
+// Docutitle: (Data) Inline Data Set in UNISYM
 // Codifiers: @dosconio: 20240422 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -23,22 +23,22 @@
 #ifndef _INC_HeaderTemplate_X
 #define _INC_HeaderTemplate_X
 
-// #include ".../stdinc.h"
+#include "stdinc.h"
 
 #if defined(_INC_CPP)
 namespace uni {
-extern "C" {
-#else
-#include "ustdbool.h"
-#endif
-
-#ifdef _MCU_STM32F1x
+	extern "C" {
+	#else
 
 #endif
+
+// 0x20 .. 0x7F
+extern byte _BITFONT_ASCII_8x5[95][5];
+extern byte _BITFONT_ASCII_16x8[95][16];
+
 
 #if defined(_INC_CPP)
-} //: C++ Area
-
+	} //: C++ Area
 
 } //END C++ Area
 #else//: C Area

@@ -104,6 +104,9 @@ extern "C++" {
 
 #endif
 
+#define _ENDIAN_LOW // little endian for bit-field, ...
+#define _ENDIAN_BIG //    big endian for bit-field, ...
+
 // ARINA-COVE C23-STYLE Attribute
 #define _Heap
 #define _Need_free _Heap

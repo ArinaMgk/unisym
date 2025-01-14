@@ -60,7 +60,11 @@ namespace uni {
 	}
 
 	size_t String::length() {
-		return this->counts;
+		if (!allocated) {
+			Refresh();
+			return counts;
+		}
+		else return counts = StrLength(addr);
 	}
 
 	char* String::reflect(size_t plus) {

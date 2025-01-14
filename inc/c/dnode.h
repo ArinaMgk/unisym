@@ -173,7 +173,8 @@ public:
 	stduint Count() { return Length(); }
 	//
 	virtual bool Insert(stduint idx, pureptr_t dat);
-	toheap Dnode* Append(const char* addr);
+	Dnode* Append(const char* addr);
+	toheap Dnode* Append(char* addr);
 	// Priority: {nod > order > default_ends}
 	Dnode* Append(pureptr_t addr, bool onleft, Dnode* nod = 0);
 	template <typename type1> inline Dchain& operator<<(const type1& obj) {

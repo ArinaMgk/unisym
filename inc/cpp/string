@@ -76,6 +76,8 @@ namespace uni {
 		size_t length();
 		char* reflect(size_t plus = 0);
 		const char* reference() const;
+		bool available() { return allocated || (limits - counts > 1); }
+		bool need_termichar() { return !allocated; }
 
 		String& operator=(const String& str);
 		String& operator=(const char* addr);
@@ -104,10 +106,23 @@ namespace uni {
 			return StrCompare(this->addr, s.addr) == 0;
 		}
 
-		char& operator[] (stduint idx) { return addr[idx]; }
+		char& operator[] (stdsint idx) {
+			stduint len = length();
+			if (!len) return addr[0];
+			while (idx < 0) idx += len;
+			return addr[idx];
+		}
 		String& operator<< (char chr);
 
-
+		String& Reheap(char* dest) {
+			if (allocated) {
+				counts = StrLength(dest);
+				limits = 0;
+				srs(addr, dest);
+			}
+			return self;
+		}
+		
 		String& Refresh() {
 			counts = minof(StrLength(addr), limits);
 			return self;
@@ -120,6 +135,10 @@ namespace uni {
 		}
 
 		int Format(const char* fmt, ...);
+
+		String& Replaced(const char* subfirstrom, const char* subto, size_t* times = 0) {
+			return Reheap(StrReplace(addr, subfirstrom, subto, times));
+		}
 
 
 		// [Abandoned]

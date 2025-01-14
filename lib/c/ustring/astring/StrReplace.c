@@ -35,7 +35,9 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 	if (!dest || !subfirstrom || !subto || !malc_limit)
 		return zalc(1);
 	if (!*dest || !*subfirstrom) return StrHeap(dest);
-	dchain_t* dc = NULL;
+	dchain_t* dc = zalcof(dchain_t);
+	//
+	char* ret;
 	DchainInit(dc);
 	size_t sz_subto = 0, nums = 0, sz_subfirstrom = 0, sz_len = 0;
 	ptrdiff_t chars_add = 0;
@@ -55,7 +57,7 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 	if (nums)
 	{
 		if (times) *times = nums;
-		char* ret = salc((ptrdiff_t)sz_len + (ptrdiff_t)chars_add + (ptrdiff_t)1);
+		ret = salc((ptrdiff_t)sz_len + (ptrdiff_t)chars_add * nums + (ptrdiff_t)1);
 		p = dest; char* q = ret;
 		Dnode* dn = dc->root_node;
 	loop:
@@ -65,13 +67,12 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 		if (dn->next) { dn = dn->next; goto loop; }
 		for (; *p; p++)*q++ = *p;
 		*q = 0;
-		DchainDrop(&dc);
-		return ret;
 	}
-	else
-		return StrHeap(dest);
+	else ret = StrHeap(dest);
 
 endo:
+	DchainDrop(dc);
+	mfree(dc);
 	aflaga = af;
-	return 0;
+	return ret;
 }

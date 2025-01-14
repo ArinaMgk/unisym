@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Module) ASM-used Literal Instructions and Directives
+// Docutitle: File
 // Codifiers: @dosconio: 20240422 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -20,28 +20,47 @@
 	limitations under the License.
 */
 
-#ifndef _INC_HeaderTemplate_X
-#define _INC_HeaderTemplate_X
+#ifndef _INC_File
+#define _INC_File
 
-// #include ".../stdinc.h"
+#include "stdinc.h"
 
 #if defined(_INC_CPP)
 extern "C" {
 #endif
-//: Common Area
-#ifdef _MCU_STM32F1x
 
-#endif
-	
+
 
 #if defined(_INC_CPP)
 } //: C++ Area
+#include "../cpp/string"
 namespace uni {
 
+	// depend { String }
+	enum class FileOpenType {
+		Read, Write, Append //{MORE}
+	};
+	class HostFile // not inherited from File(FileSystem(BlockTraitObject))
+	{
+		void* fptr;
+	public:
+		~HostFile();
+		HostFile() : fptr(nullptr) {}
+		HostFile(rostr filepath, FileOpenType fopen_type = FileOpenType::Read);
+		explicit operator bool() const { return nullptr != fptr; }
+		//
+		bool operator>> (byte& B);
+		// will check available zone of String.
+		bool operator>> (String& str);
+		//
+		bool operator<< (byte B);
+		//
+		bool operator<< (const String& str);
+	};
 
+	
 } //END C++ Area
 #else//: C Area
 
-//END C Area
 #endif
 #endif

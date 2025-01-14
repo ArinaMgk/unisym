@@ -40,7 +40,10 @@ namespace uni {
 		return new_nod;
 	}
 
-	toheap Dnode* Dchain::Append(const char* addr) {
+	Dnode* Dchain::Append(const char* addr) {
+		return Append((pureptr_t)addr, false);
+	}
+	Dnode* Dchain::Append(char* addr) {
 		return Append((pureptr_t)StrHeap(addr), false);
 	}
 	Dnode* Dchain::Append(pureptr_t addr, bool onleft, Dnode* nod) {

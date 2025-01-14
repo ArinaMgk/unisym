@@ -22,20 +22,34 @@
 #include "../../../inc/c/dnode.h"
 
 enum { ON_LEFT = 0, ON_RIGHT = 1 };
-#if 0
-Dnode* Append(dchain_t* chn, pureptr_t addr, bool onleft, Dnode* nod) {
+
+static Dnode* DnodePush(dchain_t* chn, pureptr_t off, bool end_left) {
+	Dnode* new_nod = NULL;
+	if (end_left) {
+		(new_nod = DnodeInsert(NULL, off, nil, chn->extn_field, ON_RIGHT))->next = chn->root_node;
+		DnodeChainAdapt(chn, new_nod, chn->last_node, +1);
+	}
+	else {
+		DnodeChainAdapt(chn, chn->root_node,
+			new_nod = DnodeInsert(chn->last_node, off, nil, chn->extn_field, ON_RIGHT),
+			+1);
+	}
+	return new_nod;
+}
+
+Dnode* DchainAppend(dchain_t* chn, pureptr_t addr, bool onleft, Dnode* nod) {
 	// const bool need_sort = Compare_f;
 	Dnode* new_nod = 0;
 	if (nod) {
-		new_nod = DnodeInsert(onleft ? nod->left : nod, addr, nil, extn_field, ON_RIGHT);
-		Dnode* const ro = !root_node || onleft && (nod == root_node) ? new_nod : root_node;
-		Dnode* const la = !last_node || !onleft && (nod == last_node) ? new_nod : last_node;
-		DnodeChainAdapt(ro, la, +1);
+		new_nod = DnodeInsert(onleft ? nod->left : nod, addr, nil, chn->extn_field, ON_RIGHT);
+		Dnode* const ro = !chn->root_node || onleft && (nod == chn->root_node) ? new_nod : chn->root_node;
+		Dnode* const la = !chn->last_node || !onleft && (nod == chn->last_node) ? new_nod : chn->last_node;
+		DnodeChainAdapt(chn, ro, la, +1);
 	}
-	else if (!root_node) {
+	else if (!chn->root_node) {
 		// assert last_node and !node_count
-		new_nod = DnodeInsert(NULL, addr, nil, extn_field, ON_RIGHT);
-		DnodeChainAdapt(new_nod, new_nod, +1);
+		new_nod = DnodeInsert(NULL, addr, nil, chn->extn_field, ON_RIGHT);
+		DnodeChainAdapt(chn, new_nod, new_nod, +1);
 	}
 /*//{TODO}
 	else if (need_sort) {
@@ -64,7 +78,6 @@ Dnode* Append(dchain_t* chn, pureptr_t addr, bool onleft, Dnode* nod) {
 		}
 	}
 */
-	else new_nod = Push(addr, onleft);
+	else new_nod = DnodePush(chn, addr, onleft);
 	return new_nod;
 }
-#endif

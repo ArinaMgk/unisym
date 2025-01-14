@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Module) ASM-used Literal Instructions and Directives
+// Docutitle: File
 // Codifiers: @dosconio: 20240422 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -20,28 +20,45 @@
 	limitations under the License.
 */
 
-#ifndef _INC_HeaderTemplate_X
-#define _INC_HeaderTemplate_X
+#define _CRT_SECURE_NO_WARNINGS
 
-// #include ".../stdinc.h"
+#include "../../inc/c/file.h"
 
-#if defined(_INC_CPP)
-extern "C" {
-#endif
-//: Common Area
-#ifdef _MCU_STM32F1x
+#include <stdio.h>
+#include <stdlib.h>
 
-#endif
-	
-
-#if defined(_INC_CPP)
-} //: C++ Area
 namespace uni {
+#ifdef _WinNT
+	HostFile::~HostFile() {
+		if (!fptr) return;
+		Letvar(p, FILE*, fptr);
+		fclose(p);
+		fptr = nullptr;
+	}
 
+	HostFile::HostFile(rostr filepath, FileOpenType fopen_type) {
+		static rostr fop_iden[]{
+			"r", "w", "a"
+		};
+		fptr = (void*)fopen(filepath, fop_iden[_IMM(fopen_type)]);
+	}
 
-} //END C++ Area
-#else//: C Area
+	bool HostFile::operator>> (byte& B) {
+		int ch = fgetc((FILE*)fptr);
+		B = (ch != EOF) ? ch : 0;
+		return (ch != EOF);
+	}
 
-//END C Area
+	bool HostFile::operator>> (String& str) {
+		byte B;
+		bool state;
+		while (str.available()) {
+			state = self >> B;
+			if (B || str.need_termichar()) // ASCII
+				str << B;
+			if (!state) break;
+		}
+		return true;
+	}
 #endif
-#endif
+};

@@ -82,7 +82,7 @@ namespace uni {
 			srs(this->addr, StrHeap(str.addr));
 			this->counts = StrLength(this->addr);
 		}
-		#ifndef _MCCA
+		#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
 		this->setthen(this);
 		#endif
 		return *this;
@@ -94,7 +94,7 @@ namespace uni {
 			srs(this->addr, StrHeap(addr));
 			this->counts = StrLength(this->addr);
 		}
-		#ifndef _MCCA
+		#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
 		this->setthen(this);
 		#endif
 		return *this;
@@ -115,14 +115,17 @@ namespace uni {
 	}
 
 
-	String& String::Format(const char* fmt, ...) {
-	//{TODO} for astring
+	int String::Format(const char* fmt, ...) {
+		int ret = 0;
 		Letpara(args, fmt);
-		if (!allocated) outsfmtlstbuf(addr, fmt, args);
+		if (!allocated) ret = outsfmtlstbuf(addr, fmt, args);
 		else {
-			_TODO;
+			ret = this->counts = outsfmtlstlen(fmt, args);
+			limits = ret + 1;
+			srs(addr, salc(limits));
+			outsfmtlstbuf(addr, fmt, args);
 		}
-		return self;
+		return ret;
 	}
 
 

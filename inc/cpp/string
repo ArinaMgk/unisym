@@ -29,7 +29,7 @@
 #include "cinc"// C Begin
 	#include "../c/ustring.h"
 #include "cinc"// C End
-#ifndef _MCCA
+#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
 	#include "property"
 	// #include <iostream>//{TEMP}
 #endif
@@ -44,15 +44,15 @@
 namespace uni {
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String
-	#ifndef _MCCA
+	#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
 		: public uni::Property<String>
 	#endif 
 	{
 	protected:
-		size_t counts;
+		size_t counts;// effective length, exclude '\0'
 		char* addr;
 		bool no_termi_char;
-		stduint limits;
+		stduint limits;// include '\0'
 		bool allocated;// astring or bstring(non-0)
 	public:
 		void UnsafeSetBuffer(char* str, stduint buffer_siz);
@@ -119,7 +119,7 @@ namespace uni {
 			return self;
 		}
 
-		String& Format(const char* fmt, ...);
+		int Format(const char* fmt, ...);
 
 
 		// [Abandoned]

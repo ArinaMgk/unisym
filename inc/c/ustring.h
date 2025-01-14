@@ -721,6 +721,14 @@ int outsfmtbuf(char* buf, const char* fmt, ...);
 // like vsprintf
 int outsfmtlstbuf(char* buf, const char* fmt, para_list lst);
 
+// get the length of the string that would be output by outsfmtbuf
+// excluding the null - terminator.
+// same as the StrLength(ret)
+int outsfmtlstlen(const char* fmt, para_list lst);
+int lensfmt(const char* fmt, ...);
+
+
+
 // ---- ---- ---- ---- { Wide / Multi } ---- ---- ---- ----
 _TODO//#define mbstowcs StrWideFoMulti
 _TODO//#define wcstombs StrWideToMulti

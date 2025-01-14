@@ -43,6 +43,20 @@ int outsfmtlstbuf(char* buf, const char* fmt, para_list lst) {
 	return ret;
 }
 
+// for length
+static void outtxtlen(const char* str, stduint len) { _crt_out_cnt += len; }
+int outsfmtlstlen(const char* fmt, para_list lst)
+{
+	outbyte_t last = outredirect(outtxtlen);
+	int ret = outsfmtlst(fmt, lst);
+	outredirect(last);
+	return ret;
+}
+int lensfmt(const char* fmt, ...) {
+	Letpara(args, fmt);
+	return outsfmtlstlen(fmt, args);
+}
+
 #if 0
 
 #define _ARN_INSIDE_LIBRARY_INCLUDE

@@ -167,6 +167,12 @@ namespace uni {
 	#if 0 && !defined(_MCCA)
 		#undef virtual
 	#endif
+	#if defined(_WinNT) || defined(_Linux)
+		void Clear() {
+			//{TODO} buffers for
+			ConClearScreen();
+		}
+	#endif
 	};
 #if defined(_WinNT) || defined(_Linux) || defined(_MCCA)
 	extern HostConsole Console;

@@ -23,25 +23,50 @@
 #ifndef _INC_INTEGER_X
 #define _INC_INTEGER_X
 
-#include "cinc"
-#include "../c/stdinc.h"
-#include "cinc"
+#include "unisym"
 #include "property"
 
 namespace uni {
+	class String;// If no using methods related to this, no need to include `string` file
+
 	template<typename type0>
-	class Integer_T : public uni::Property<Integer_T<type0>> {
+	class _Value_Integer_T {
+	protected:		
+		type0 val;
+		// padding for [little endian], so we can pass this entity to printf directly
+		char paddings[sizeof(stduint) - sizeof(type0)] = { 0 };
+	public:
+		_Value_Integer_T(type0 val) :val(val) {}
+	};
+	
+	template<typename type0>
+	class Integer_T :
+		// public _Value_Integer_T<type0>,
+		public uni::Property<Integer_T<type0>> {
 		type0 val;
 	public:
-		Integer_T(type0 val) :val(val) {}
+		Integer_T(type0 val)  : val(val) //_Value_Integer_T<type0>(val)
+		{}
 		operator type0() const {
 			return this->val;
 		}
+
+		// use *&self to get value
+		type0* operator&() {
+			return &this->val;
+		}
+		Integer_T* getAddress() {
+			return this;
+		}
+
 		inline Integer_T& operator=(type0 val) {
 			this->val = val;
 			this->setthen(this);
 			return *this;
 		}
+
+		//{} C# Style
+		String ToString();
 	};
 
 	class Integer {
@@ -70,6 +95,9 @@ namespace uni {
 		toheap operator char* () {
 			//{}
 		}
+
+		//{} C# Style
+		String ToString();
 	};
 }
 

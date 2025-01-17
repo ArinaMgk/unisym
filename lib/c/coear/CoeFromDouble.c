@@ -23,7 +23,6 @@
 #include "../../../inc/c/coear.h"
 #if !defined(_MCCA)
 #include <float.h>
-#include <math.h>
 
 coe* CoeFromDouble(double flt)
 {

@@ -142,6 +142,7 @@ void ConStyleNormal(void);
 #include "../c/graphic.h"
 
 namespace uni {
+	// Command Line Interface
 	class Console_t : public OstreamTrait, public IstreamTrait
 	{
 	public:
@@ -149,6 +150,7 @@ namespace uni {
 		// C Style printf
 		virtual int FormatShow(const char* fmt, ...) = 0;
 	};
+	
 	class HostConsole
 	#if 1 // !defined(_MCCA)
 		: public Console_t // single instance
@@ -164,6 +166,9 @@ namespace uni {
 		Point getCursor();
 		stduint getWidth();
 		stduint getHeight();
+	#if defined(_STYLE_CSHARP)
+		int WriteLine(const char* fmt, ...);
+	#endif
 	#if 0 && !defined(_MCCA)
 		#undef virtual
 	#endif

@@ -25,11 +25,18 @@
 
 namespace uni {
 	String::String(const char* str) {
-		this->counts = StrLength(str);
-		this->addr = (char*)malc(counts + 1);
-		StrCopy(this->addr, str);
+		allocated = str;
+		if (allocated) {
+			this->counts = StrLength(str);
+			this->addr = (char*)malc(counts + 1);
+			StrCopy(this->addr, str);
+		}
+		else {
+			counts = 0;
+			addr = NULL;
+		}
 		limits = 0;
-		allocated = true;
+
 	}
 	String::String(const String& str) {
 		this->addr = StrHeap(str.addr);

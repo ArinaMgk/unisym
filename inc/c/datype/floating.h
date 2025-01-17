@@ -49,9 +49,9 @@ inline static double CastF64FromU0(stduint i) {
 }
 #endif
 
-#ifndef _CRT_ERRNO_DEFINED
 #if defined(_DEV_GCC) && defined(_Intelx86o64_Windows_64) && \
-	((defined (__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || (defined(__cplusplus) && __cplusplus >= 201103L))
+	((defined (__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || (defined(__cplusplus) && __cplusplus >= 201103L)) \
+	// && !def(_CRT_ERRNO_DEFINED)
 typedef struct {
 	long long __max_align_ll __attribute__((__aligned__(__alignof__(long long))));
 	long double __max_align_ld __attribute__((__aligned__(__alignof__(long double))));
@@ -60,8 +60,8 @@ typedef struct {
 	#endif
 } max_align_t;
 #endif // C11 or C++11
-#define _CRT_ERRNO_DEFINED
-#endif //! _CRT_ERRNO_DEFINED (// GNU: stddef.h)
+// #define _CRT_ERRNO_DEFINED
+
 
 //{for GCC: STDDEF}
 #ifdef _Intelx86o64_Windows_64

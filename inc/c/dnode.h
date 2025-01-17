@@ -151,6 +151,7 @@ public:
 	_tofree_ft func_free;
 	//
 	Dchain(); ~Dchain();
+	Dchain(_tofree_ft fn_free) : Dchain() { func_free = fn_free; }
 	// ---- T: Iterate
 	virtual void Iterate();
 	// ---- T: Array

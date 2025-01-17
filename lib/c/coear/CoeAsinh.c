@@ -22,7 +22,6 @@
 
 #include "../../../inc/c/coear.h"
 #if !defined(_MCCA)
-#include <math.h>
 coe* CoeAsinh(coe* dest)
 {
 	if (dest->divr[1] == '0') return dest;

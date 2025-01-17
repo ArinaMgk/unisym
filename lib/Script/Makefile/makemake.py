@@ -257,14 +257,12 @@ text_msv_win64 += tmp
 tmp = """
 
 %.o: %.c
-	@echo "CC $(<)"
+	@echo "CC $(<) with shared"
 	@$(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
-	@echo "CC $(<) (shared)"
 	@$(CC) -fpic $(attr) -c $< -o $(dest_obj)-DLL/$(cplpref)$(notdir $@)
 %.o: %.cpp
-	@echo "CX $(<)"
+	@echo "CX $(<) with shared"
 	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
-	@echo "CX $(<) (shared)"
 	@$(CX) -fpic $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@)
 
 """

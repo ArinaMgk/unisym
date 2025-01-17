@@ -132,6 +132,7 @@ char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
 char* StrHeapAppendChars(char* dest, char chr, size_t n);
 
 // [ASTRING]
+// IO times: input pointer to maximum times to replace, output pointer to replaced times
 char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, size_t* times);
 
 // [ASTRING]

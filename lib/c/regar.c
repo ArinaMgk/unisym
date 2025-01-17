@@ -25,13 +25,13 @@
 
 //{Potential Issue} Memory Leak (malc_count) - Have not tested.
 
+#include "../../inc/c/arith.h"
 #include "../../inc/c/regar.h"
 #include "../../inc/c/stdinc.h"
 #include "../../inc/c/ustring.h"
 
 #if !defined(_MCCA)
 
-#include <math.h>
 #include <float.h>
 
 extern char* arna_tempor;
@@ -591,7 +591,7 @@ not0	var_n	0000	infinite (=lim x->inf` pow(x,var_n))
 }
 */
 
-static size_t _DIG_CUT = 4;
+size_t _DIG_CUT = 4;
 
 const static Rfnar_t constr_1 = {
 	.coff = (size_t[]){1},

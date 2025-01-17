@@ -24,7 +24,7 @@
 #define _INC_X_COEAR
 
 #include "../c/ISO_IEC_STD/stdlib.h"
-#include <math.h>
+// #include <math.h>
 
 #include "../c/coear.h"
 #include "floating"

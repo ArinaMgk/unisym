@@ -22,10 +22,14 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "../../inc/c/file.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+
+//{TEMP} avoid conflict with stdlib.h
+#define _INC_STDLIB
+
+#include "../../inc/c/file.h"
 
 namespace uni {
 #ifdef _WinNT

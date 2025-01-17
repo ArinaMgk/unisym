@@ -22,6 +22,8 @@
 #ifndef _INC_ARITHMETIC
 #define _INC_ARITHMETIC
 
+#define _INC_STDLIB
+
 #include "stdinc.h"
 #include "coear.h"
 #include "number.h"
@@ -33,12 +35,10 @@
 // e
 #define _VAL_E  2.7182818284590452353602874713526624977572470937
 
+typedef float32 float_t;
+typedef float64 double_t;
 
 /*//{TODO}
-type
-- float_t
-- double_t
-
 macro
 - HUGE_VAL
 - HUGE_VALF
@@ -66,51 +66,23 @@ macro-style function
 - int isnormal(*real-floating* x);
 - int signbit(*real-floating* x);
 */
+
+// Microsoft Definitions
+#ifndef _HUGE_ENUF
+#define _HUGE_ENUF  1e+300  // _HUGE_ENUF*_HUGE_ENUF must overflow
+#endif
+#define INFINITY   ((float)(_HUGE_ENUF * _HUGE_ENUF))
+#define HUGE_VAL   ((double)INFINITY)
+#define HUGE_VALF  ((float)INFINITY)
+#define HUGE_VALL  ((long double)INFINITY)
+#define NAN        ((float)(INFINITY * 0.0F))
+
+
 #ifdef _INC_CPP
 extern "C" {
 #endif
-/*
-- frexp
-- ilogb
-- ldexp
-- log10
-- log1p
-- log2
-- logb
-- modf
-- scalbn
-- scalbln
-- hypot
-- lgamma
-- tgamma
-- ceil
-- floor
-- nearbyint
-- rint
-- lrint
-- llrint
-- round
-- lround
-- llround
-- trunc
-- fmod
-- remainder
-- remquo
-- copysign
-- nan
-- nextafter
-- nexttoward
-- fma
-- isgreater
-- isgreaterequal
-- isless
-- islessequal
-- islessgreater
-- isunordered
 
-pragma
-- FP_CONTRACT
-*/
+//{TODO} pragma FP_CONTRACT
 
 extern stduint _EFDIGS;// how many effective digits
 void ariprecise(stduint prec);
@@ -135,6 +107,13 @@ inline static stduint intlog2_iexpo(stduint v) {
 	while (v >>= 1) crt++;
 	return crt;
 }
+#if defined(_USE_INNER_MATH)
+#define ilogb intlog2_iexpo
+#else
+int ilogbf(float val);
+int ilogb(double val);
+int ilogbl(long double val);
+#endif
 
 inline static stduint intpow2_iexpo(stduint expo)
 {
@@ -142,6 +121,24 @@ inline static stduint intpow2_iexpo(stduint expo)
 }
 
 // Ceiling method
+
+//{} ceil
+#if defined(_USE_INNER_MATH)
+#define ceilf dblceil // TEMP no float ver
+#else
+float ceilf(float val);
+double ceil(double val);
+long double ceill(long double val);
+#endif
+//{} floor
+#if defined(_USE_INNER_MATH)
+#define floorf dblfloor // TEMP no float ver
+#else
+float floorf(float val);
+double floor(double val);
+long double floorl(long double val);
+#endif
+
 // 0->0 1->1 2->1 3->2 4->2 5->3 ...
 inline static stduint intlog2__iexpo(stduint v) {
 	stduint floor = intlog2_iexpo(v);
@@ -156,6 +153,15 @@ double dblexp(double expo);
 float expf(float val);
 double exp(double val);
 long double expl(long double val);
+#endif
+
+//{}  ldexp
+#if defined(_USE_INNER_MATH)
+#define ldexpf dblldexp // TEMP no float ver
+#else
+float ldexpf(float val, int exp);
+double ldexp(double val, int exp);
+long double ldexpl(long double val, int exp);
 #endif
 
 //{} exp2 (by bits logical)
@@ -222,6 +228,13 @@ long double logbl(long double val);
 double dblpow_iexpo(double bas, stdint exp);
 
 double dblpow_fexpo(double bas, double exp);
+#if defined(_USE_INNER_MATH)
+#define powf dblpow_fexpo // TEMP no float ver
+#else
+float powf(float x, float y);
+double pow(double x, double y);
+long double powl(long double x, long double y);
+#endif
 
 //{TODO} and there will cpxpow_cexpo for Complex arithmetics
 
@@ -270,6 +283,15 @@ double dblsqrt(double inp);
 float sqrtf(float val);
 double sqrt(double val);
 long double sqrtl(long double val);
+#endif
+
+//{} hypot
+#if defined(_USE_INNER_MATH)
+#define hypotf dblhypot // TEMP no float ver
+#else
+float hypotf(float x, float y);
+double hypot(double x, double y);
+long double hypotl(long double x, long double y);
 #endif
 
 // ---- angle ----
@@ -391,6 +413,8 @@ double tanh(double val);
 long double tanhl(long double val);
 #endif
 
+// ---- OTHERS ----
+
 //{} cbrt
 #if defined(_USE_INNER_MATH)
 #define cbrtf dblcbrt // TEMP no float ver
@@ -412,6 +436,205 @@ float erfcf(float val);
 double erfc(double val);
 long double erfcl(long double val);
 #endif
+
+//{} fma
+#if defined(_USE_INNER_MATH)
+#define fmaf dblfma // TEMP no float ver
+#else
+float fmaf(float a, float b, float c);
+double fma(double a, double b, double c);
+long double fmal(long double a, long double b, long double c);
+#endif
+
+//{} fmod
+#if defined(_USE_INNER_MATH)
+#define fmodf dblfmod // TEMP no float ver
+#else
+float fmodf(float a, float b);
+double fmod(double a, double b);
+long double fmodl(long double a, long double b);
+#endif
+//{} modf
+#if defined(_USE_INNER_MATH)
+#define modff dblmodf // TEMP no float ver
+#else
+float modff(float a, float* b);
+double modf(double a, double* b);
+long double modfl(long double a, long double* b);
+#endif
+
+//{} frexp
+#if defined(_USE_INNER_MATH)
+#define frexpf dblfrexp // TEMP no float ver
+#else
+float frexpf(float a, int* exp);
+double frexp(double a, int* exp);
+long double frexpl(long double a, int* exp);
+#endif
+
+//{} l/tgamma
+#if defined(_USE_INNER_MATH)
+#define lgammaf dbllgamma // TEMP no float ver
+#define tgammaf dbltgamma // TEMP no float ver
+#else
+float lgammaf(float a);
+double lgamma(double a);
+long double lgammal(long double a);
+float tgammaf(float a);
+double tgamma(double a);
+long double tgammal(long double a);
+#endif
+
+//{} scalbn and scalbln
+#if defined(_USE_INNER_MATH)
+#define scalbnf dblscalbn // TEMP no float ver
+#define scalblnf dblscalbln // TEMP no float ver
+#else
+float scalbnf(float a, int exp);
+double scalbn(double a, int exp);
+long double scalbnl(long double a, int exp);
+float scalblnf(float a, long exp);
+double scalbln(double a, long exp);
+long double scalblnl(long double a, long exp);
+#endif
+
+//{} trunc
+#if defined(_USE_INNER_MATH)
+#define truncf dbltrunc // TEMP no float ver
+#else
+float truncf(float a);
+double trunc(double a);
+long double truncl(long double a);
+#endif
+
+//{} copysign
+#if defined(_USE_INNER_MATH)
+#define copysignf dblcopysign // TEMP no float ver
+#else
+float copysignf(float a, float b);
+double copysign(double a, double b);
+long double copysignl(long double a, long double b);
+#endif
+
+//{} nan
+#if defined(_USE_INNER_MATH)
+#define nanf dblnan // TEMP no float ver
+#else
+float nanf(const char* tagp);
+double nan(const char* tagp);
+long double nanl(const char* tagp);
+#endif
+
+//{} remainder and remquo
+#if defined(_USE_INNER_MATH)
+#define remainderf dblremainder // TEMP no float ver
+#define remquof dblremquo // TEMP no float ver
+#else
+float remainderf(float a, float b);
+double remainder(double a, double b);
+long double remainderl(long double a, long double b);
+float remquof(float a, float b, int* quo);
+double remquo(double a, double b, int* quo);
+long double remquol(long double a, long double b, int* quo);
+#endif
+
+//{} rint, lrint, llrint
+#if defined(_USE_INNER_MATH)
+#define rintf dblrint // TEMP no float ver
+#define lrintf dblrint // TEMP no float ver
+#define llrintf dblrint // TEMP no float ver
+#else
+float rintf(float a);
+double rint(double a);
+long double rintl(long double a);
+long lrintf(float a);
+long lrint(double a);
+long lrintl(long double a);
+long long llrintf(float a);
+long long llrint(double a);
+long long llrintl(long double a);
+#endif
+
+//{} round, lround, llround
+#if defined(_USE_INNER_MATH)
+#define roundf dblround // TEMP no float ver
+#define lroundf dblround // TEMP no float ver
+#define llroundf dblround // TEMP no float ver
+#else
+float roundf(float a);
+double round(double a);
+long double roundl(long double a);
+long lroundf(float a);
+long lround(double a);
+long lroundl(long double a);
+long long llroundf(float a);
+long long llround(double a);
+long long llroundl(long double a);
+#endif
+
+//{} nearbyint
+#if defined(_USE_INNER_MATH)
+#define nearbyintf dblnearbyint // TEMP no float ver
+#else
+float nearbyintf(float a);
+double nearbyint(double a);
+long double nearbyintl(long double a);
+#endif
+
+//{} nextafter nexttoward
+#if defined(_USE_INNER_MATH)
+#define nextafterf dblnextafter // TEMP no float ver
+#define nexttowardf dblnexttoward // TEMP no float ver
+#else
+float nextafterf(float a, float b);
+double nextafter(double a, double b);
+long double nextafterl(long double a, long double b);
+float nexttowardf(float a, long double b);
+double nexttoward(double a, long double b);
+long double nexttowardl(long double a, long double b);
+#endif
+
+//{} compare-serial
+// isgreater isgreaterequal isless islessequal islessgreater isunordered
+#if defined(_USE_INNER_MATH)
+#define isgreaterf dblisgreater // TEMP no float ver
+#define isgreaterequalf dblisgreaterequal // TEMP no float ver
+#define islessf dblisless // TEMP no float ver
+#define islessequalf dblislessequal // TEMP no float ver
+#define islessgreaterf dblislessgreater // TEMP no float ver
+#define isunordf dblisunordered // TEMP no float ver
+#else
+int isgreaterf(float a, float b);
+int isgreaterequalf(float a, float b);
+int islessf(float a, float b);
+int islessequalf(float a, float b);
+int islessgreaterf(float a, float b);
+int isunorderedf(float a, float b);
+int isgreater(double a, double b);
+int isgreaterequal(double a, double b);
+int isless(double a, double b);
+int islessequal(double a, double b);
+int islessgreater(double a, double b);
+int isunordered(double a, double b);
+#endif
+
+//{} judge-serial
+int isnan(double a);
+int isinf(double a);
+int isnormal(double a);
+int isfinite(double a);
+
+//{}
+#if defined(_DEV_MSVC) && defined(_INC_CPP)
+extern "C++" inline bool signbit(_In_ double _X) throw();
+extern "C++" inline int fpclassify(_In_ double _X) throw();
+#else
+int signbit(double a);
+int fpclassify(double a);
+#endif
+
+
+// ---- Common ----
 
 // Dep(pow_f)
 double dblfactorial(double inp);

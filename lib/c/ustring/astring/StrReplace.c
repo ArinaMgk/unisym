@@ -24,13 +24,12 @@
 #include "../../../../inc/c/ustring.h"
 #include "../../../../inc/c/dnode.h"
 
-//{TOD} check
 // From left, one by one, return all in heap! must free() by yourself. Inputs won't be free!
 // RFV07 rename from "StrReplaceHeap"
 char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, size_t* times)
 {
 	struct _aflag_t af = aflaga;
-
+	size_t time_limit = times ? *times : ~_IMM0;
 	if (times) *times = 0;
 	if (!dest || !subfirstrom || !subto || !malc_limit)
 		return zalc(1);
@@ -46,7 +45,7 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 	for (; dest[sz_len]; sz_len++);
 	chars_add = (ptrdiff_t)sz_subto - (ptrdiff_t)sz_subfirstrom;
 	const char* p = dest;
-	while (1)
+	while (nums < time_limit)
 	{
 		p = StrIndexString(p, subfirstrom);
 		if (!p) break;

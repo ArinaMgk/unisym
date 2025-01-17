@@ -23,7 +23,6 @@
 #include "../../../inc/c/coear.h"
 #include "../../../inc/c/ustdbool.h"
 #if !defined(_MCCA)
-#include <math.h>
 
 coe* CoeTaylor(coe* dest, unsigned char dptor, const coe* period, size_t digcut)
 {

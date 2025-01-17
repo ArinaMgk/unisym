@@ -358,15 +358,6 @@ extern int64 ondiv_64(int64 sr, int64 dv, int64 *rm);// return quo
 
 #define movDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
 
-#ifdef _STYLE_ABBR
-	#include "prefabbr.h"
-#endif
-#ifdef _STYLE_RUST
-	#include "ruststyle.h"
-#else
-	// other styles ...
-#endif
-
 // More:
 
 // para:direction [0:ascend 1:descend]

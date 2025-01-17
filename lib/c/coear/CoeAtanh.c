@@ -22,7 +22,6 @@
 
 #include "../../../inc/c/coear.h"
 #if !defined(_MCCA)
-#include <math.h>
 
 coe* CoeAtanh(coe* dest)
 {

@@ -111,7 +111,7 @@ extern "C" {
 	void TZC_IT_IRQHandler(void) {}
 	void RCC_IRQHandler(void) {}
 	void FMC_IRQHandler(void) {}
-	void SDMMC1_IRQHandler(void) {}
+	_WEAK void SDMMC1_IRQHandler(void) {}
 	void USBH_PORT1_IRQHandler(void) {}
 	void USBH_PORT2_IRQHandler(void) {}
 	void DCMIPP_IRQHandler(void) {}

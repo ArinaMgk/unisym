@@ -139,6 +139,7 @@ void ConStyleNormal(void);
 }
 
 #include "../cpp/stream"
+#include "../cpp/string"
 #include "../c/graphic.h"
 
 namespace uni {
@@ -167,7 +168,9 @@ namespace uni {
 		stduint getWidth();
 		stduint getHeight();
 	#if defined(_STYLE_CSHARP)
-		int WriteLine(const char* fmt, ...);
+		// C#: return void but not here
+		int WriteLine(const char* fmt = "", ...);
+		int WriteLine(const String& str);
 	#endif
 	#if 0 && !defined(_MCCA)
 		#undef virtual

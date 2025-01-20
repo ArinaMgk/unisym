@@ -46,6 +46,8 @@ void outc(const char chr)
 	local_out(&chr, 1);
 }
 
+//{TODO} preempt the lock
+
 #undef outs
 #define outs(x) local_out(x, StrLength(x))
 
@@ -135,10 +137,17 @@ int outsfmtlst(const char* fmt, para_list paras)
 	int i;
 	byte c;
 	char* s;
-	
+
+	//     % +- ent . end (h/l) sym
 	unsigned tmp_base = 16;
-	char tmp_signed = 0;
+	char tmp_signed = 0;// +-
 	char tmp_percent_feed = 0;
+	// 0 float, 1 double, 2 long double
+	// -2 byte, -1 short, 0 int, 1 long, 2 long long
+	char sizlevel = 0;
+	stduint ent = 0;
+	stduint end = 0;
+	char dotted = 0;
 
 	if (fmt == 0) return 0;
 
@@ -160,11 +169,21 @@ int outsfmtlst(const char* fmt, para_list paras)
 			outc(para_next_char(paras));
 			break;
 
-			// ---- SIGN SWITCH ----
+			// ---- SIGN & SIZE SWITCH ----
 		case '+':// '-' for alignment
 			tmp_signed = 1;
 			c = '%'; tmp_percent_feed = 1;
 			break;
+		// '-'
+		case 'l':// no mixed with 'h'
+			if (sizlevel >= 0) sizlevel++;
+			c = '%'; tmp_percent_feed = 1;
+			break;
+		case 'h':
+			if (sizlevel <= 0) sizlevel--;
+			c = '%'; tmp_percent_feed = 1;
+			break;
+
 
 			// ---- INTEGER ---- [signed] [base] ...
 
@@ -189,19 +208,26 @@ int outsfmtlst(const char* fmt, para_list paras)
 
 
 		case 'f':
-			outfloat(pnext(double));
+			if (sizlevel == 1)
+				outfloat(pnext(double));
+			else if (sizlevel == 0)
+				outfloat(pnext(float));
+			sizlevel = 0;
 			break;
 		case 'p':
 			localout("0x", 2);
 			// typeid
-			if (bitsof(stduint) == 64)
+			#if __BITS__ == 64
 				outi64hex(pnext(stduint));
-			else if (bitsof(stduint) == 32)
+			#elif __BITS__ == 32
 				outi32hex(pnext(stduint));
-			else if (bitsof(stduint) == 16)
+			#elif __BITS__ == 16
 				outi16hex(pnext(stduint));
-			else
+			#elif __BITS__ == 8
 				outi8hex(pnext(stduint));
+			#else
+				#error "Unsupport bits"
+			#endif
 			break;
 		case 's':
 			s = pnext(char*);
@@ -213,7 +239,15 @@ int outsfmtlst(const char* fmt, para_list paras)
 			localout(&fmt[i], 1);
 			break;
 		case '[': // alicee extend
-			if (!StrCompareN(fmt + i, "[u]", 3)) // Print Decimal STDUINT
+			if (!StrCompareN(fmt + i, "[2c]", 4)) // Print 2-byte Character
+			{
+				uint16 tmp = pnext(uint16);
+				const char* ptmp = (char*)&tmp;
+				outc(ptmp[0]);
+				outc(ptmp[1]);
+				i += 4 - 1;
+			}
+			else if(!StrCompareN(fmt + i, "[u]", 3)) // Print Decimal STDUINT
 			{
 				outu(pnext(stduint), 10);
 				i += 3 - 1;
@@ -224,17 +258,17 @@ int outsfmtlst(const char* fmt, para_list paras)
 				outi(tmp, 10, tmp < 0);
 				i += 3 - 1;
 			}
-			else if (!StrCompareN(fmt + i, "[8H]", 3)) // Print Hex STDUINT 8 bit
+			else if (!StrCompareN(fmt + i, "[8H]", 4)) // Print Hex STDUINT 8 bit
 			{
 				outi8hex(pnext(uint8));
 				i += 4 - 1;
 			}
-			else if (!StrCompareN(fmt + i, "[16H]", 3)) // Print Hex STDSINT 16 bit
+			else if (!StrCompareN(fmt + i, "[16H]", 5)) // Print Hex STDSINT 16 bit
 			{
 				outi16hex(pnext(uint16));
 				i += 5 - 1;
 			}
-			else if (!StrCompareN(fmt + i, "[32H]", 3)) // Print Hex STDSINT 32 bit
+			else if (!StrCompareN(fmt + i, "[32H]", 5)) // Print Hex STDSINT 32 bit
 			{
 				outi32hex(pnext(uint32));
 				i += 5 - 1;

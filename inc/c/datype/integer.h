@@ -69,11 +69,11 @@
 #undef  _BIT_SUPPORT_64
 #endif
 
-typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
-typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char
+typedef unsigned char byte;  // [MinGW-i686 Conflict] #define byte unsigned char
+typedef unsigned char uint8; // [trend] [MinGW-i686 Conflict] #define byte unsigned char
 typedef   signed char sint8;
 typedef   int8_t       int8;
-typedef   signed char sbyte;
+typedef   signed char sbyte; // [C#]
 typedef uint16_t  word;// unsigned short int
 typedef uint16_t  uint16;//[trend] unsigned short int
 typedef  int16_t  sint16;//[trend]   signed short int

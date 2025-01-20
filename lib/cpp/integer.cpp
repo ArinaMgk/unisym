@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: 
-// LastCheck: RFZ10
+// ASCII C++-11 TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: 20240409
 // AllAuthor: @dosconio
-// ModuTitle: Clear Screen 
+// ModuTitle: Integer based on ChrA/Br
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,16 +20,14 @@
 	limitations under the License.
 */
 
-// Compensate for console if it does not support the "clear" command.
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "../../inc/cpp/integer"
+#include "../../inc/cpp/string"
 
-int main()
-{	
-#ifdef _WinNT
-	system("cls");
-#else
-	printf("\033c");// or "\x1b[H\x1b[2J"
-#endif
+namespace uni {
+	String Integer_T<int32>::ToString() {
+		String str;
+		str.Format("%d", val);
+		return str;
+	}
 }

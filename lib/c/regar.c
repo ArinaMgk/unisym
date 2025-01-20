@@ -30,6 +30,8 @@
 #include "../../inc/c/stdinc.h"
 #include "../../inc/c/ustring.h"
 
+extern size_t _DIG_CUT;
+
 #if !defined(_MCCA)
 
 #include <float.h>
@@ -591,7 +593,7 @@ not0	var_n	0000	infinite (=lim x->inf` pow(x,var_n))
 }
 */
 
-size_t _DIG_CUT = 4;
+
 
 const static Rfnar_t constr_1 = {
 	.coff = (size_t[]){1},

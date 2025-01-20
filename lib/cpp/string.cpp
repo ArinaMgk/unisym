@@ -47,7 +47,7 @@ namespace uni {
 
 	String::String(char* str, stduint buffer_siz) {
 		this->addr = str;
-		this->counts = nil;
+		this->counts = StrLength(this->addr);
 		limits = buffer_siz;
 		allocated = nil == buffer_siz;
 	}

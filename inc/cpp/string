@@ -62,6 +62,7 @@ namespace uni {
 		// class-constructor
 		String(const String& str);
 		// give the [buffer_siz ? buffer : heap-in] string an alias
+		// use this to contain (give an alias to) a string (char*) in heap
 		String(char* str, stduint buffer_siz);
 		// define a heap string with a fixed length
 		String(stduint buflen);
@@ -82,8 +83,8 @@ namespace uni {
 		String& operator=(const String& str);
 		String& operator=(const char* addr);
 
-		String operator+ (String& str) {
-			return String(StrHeapAppend(this->addr, str.addr));
+		String operator+ (const String& str) {
+			return String(StrHeapAppend(this->addr, str.addr), 0);
 		}
 		String& operator+=(const String& str) {
 			//*this = *this + str;

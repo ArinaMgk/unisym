@@ -16,6 +16,15 @@ switch (val) {
 It is a fall-through if the running path goes over another label but jump before it, after program pointer has entered a switch block from a label.
 For example, if the \verb|break;| in the line \verb|'B'| is removes, the val \verb|'A'| will cause a fall-through.
 
+\B{for $C\#$}
+
+Based on C++.
+Besides,
+
+(1) the cases could be available labels, e.g. \verb`goto case 'A';`;
+
+(2) \B{Inborn-String}: because the string is the inside type, it could be used directly, e.g. \verb`case 'phina':`;
+
 \B{for $MATLAB$}
 \begin{lstlisting}[language=MATLAB]
 	switch val_src

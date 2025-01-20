@@ -45,6 +45,13 @@ namespace uni {
 		outredirect(last);
 		return ret;
 	}
+	int HostConsole::WriteLine(const String& str) {
+		outbyte_t last = outredirect(outtxt);
+		int ret = outsfmt("%s", str.reference());
+		if (ret >= 0) ret += outsfmt(_NEWLINE);
+		outredirect(last);
+		return ret;
+	}
 	
 }
 #endif

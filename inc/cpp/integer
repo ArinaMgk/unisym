@@ -40,9 +40,12 @@ namespace uni {
 	};
 	
 	template<typename type0>
-	class Integer_T :
+	class Integer_T
 		// public _Value_Integer_T<type0>,
-		public uni::Property<Integer_T<type0>> {
+	#if !defined(_PROPERTY_STRING_OFF)
+		: public uni::Property<Integer_T<type0>>
+	#endif
+	{
 		type0 val;
 	public:
 		Integer_T(type0 val)  : val(val) //_Value_Integer_T<type0>(val)
@@ -65,7 +68,7 @@ namespace uni {
 			return *this;
 		}
 
-		//{} C# Style
+		// C# Style
 		String ToString();
 	};
 
@@ -96,7 +99,7 @@ namespace uni {
 			//{}
 		}
 
-		//{} C# Style
+		// C# Style
 		String ToString();
 	};
 }

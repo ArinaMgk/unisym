@@ -218,6 +218,18 @@ namespace uni {
 		RCC[MSSCKSELR].maset(0, 2, _IMM(source));// MLAHBS SRC
 	}
 
+	stduint AXISS_t::getFrequency() const {
+		switch (getSource()) {
+		case AxisSource::HSI:
+			return RCC.HSI.getFrequency();
+		case AxisSource::HSE:
+			return RCC.HSE.getFrequency();
+		case AxisSource::PLL2:
+			return RCC.PLL2.getFrequencyP();
+		case AxisSource::OFF: default: return 0;
+		}
+	}
+
 	bool AXISS_t::isReady() const {
 		return RCC[ASSCKSELR].bitof(31);// AXISSRCSRDY
 	}

@@ -1,6 +1,6 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: PLL Module and RCC PLL Controller
-// Codifiers: @dosconio: 20241116
+// Docutitle: (Compile) Linkage
+// Codifiers: @dosconio
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,12 +20,23 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/cpp/Device/RCC/RCC"
-#include "../../../../inc/cpp/Device/Flash"
-#include "../../../../inc/cpp/Device/SysTick"
-#include "../../../../inc/c/driver/RCC/RCC-registers.hpp"
+#ifndef _INCX_LINKAGE
+#define _INCX_LINKAGE
 
 namespace uni {
-	using namespace RCCReg;
-#include "../../../../inc/c/driver/RCC/PLL.hpp"
+
+	enum class LinkageType {
+		External_Once,// shared by multi-sources
+		External_Append,
+		External_Weak,
+		External_Others,
+		Internal_File,// out of functions
+		Internal_Function,
+	};
+
+	
+
+
 }
+
+#endif

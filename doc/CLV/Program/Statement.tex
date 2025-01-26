@@ -69,15 +69,21 @@
 		.UNTIL eax == 10
 	\end{lstlisting}
 
+	\B{for $C,C++,C\#$}
+	...
 
 \subsubsection{Tri-loop `For'}
 \subimport{Statement}{Triloop}
 
 
-\subsubsection{Counter Repeat `ForX'}
+\subsubsection{Counting Repeat and `foreach'}
 
 	The macro \T{for0}, \T{for1}, \T{for0a} and more, 
 	are defined in \verb|alice.h| (used by \verb`stdinc.h`) for C and C++.
+
+	while they are keywords in Magice.
+	
+	For \verb`C#`, \verb|foreach(i_type i in IEnumerable_Objects) ...|, where \verb`i_type` usually is \verb`var`.
 
 	% MASM
 	% ; repeat const;…;ENDM; （用于宏的マ）

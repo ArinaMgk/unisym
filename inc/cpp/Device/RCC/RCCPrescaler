@@ -107,6 +107,8 @@ namespace uni {
 	public:
 		// AKA__HAL_RCC_GET_AXIS_SOURCE
 		AxisSource getSource() const;
+		// AKA HAL_RCC_GetAXISSFreq
+		stduint getFrequency() const;
 		// AKA _RCC_FLAG_AXISSRCRDY
 		bool isReady() const;
 		// AKA RCC_AXISSConfig

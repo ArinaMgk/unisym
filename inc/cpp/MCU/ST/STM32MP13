@@ -54,6 +54,7 @@ extern bool exist_cache;// L1
 #include "../../../c/driver/SRAM.h"
 #include "../../Device/SysTick"
 #include "../../Device/TZC"
+#include "../../Device/SD.hpp"
 
 _ESYM_C char _IDN_BOARD[16];
 

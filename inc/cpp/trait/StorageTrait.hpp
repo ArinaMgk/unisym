@@ -22,6 +22,9 @@
 
 // a Block default { 512 bytes }
 
+// - Harddisk
+// - SDCard
+
 #ifndef _INCPP_TRAIT_Storage
 #define _INCPP_TRAIT_Storage
 #include "../unisym"

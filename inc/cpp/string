@@ -149,9 +149,17 @@ namespace uni {
 		// String& operator=(char* addr) { return(self = uni::String(addr)); }
 		// not recommend: provide operator const char*()
 	};//{TODO} option for allocating extra area for chars, aka vec<char>
+
+	//{TODO} Slice_T
+
+	class Slice {
+		stduint address;
+		stduint length;
+	};
 	
 }
 
 typedef class uni::String ustring;
+
 
 #endif // !_INCX_STRING

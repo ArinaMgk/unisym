@@ -95,12 +95,12 @@ namespace uni {
 		inline operator stduint() {
 			return unsi;
 		}
-		toheap operator char* () {
-			//{}
-		}
 
+		toheap operator char* ();// {TODO}
 		// C# Style
 		String ToString();
+
+		
 	};
 }
 

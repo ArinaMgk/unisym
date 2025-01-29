@@ -30,6 +30,7 @@
 
 #include "../trait/StorageTrait.hpp"
 #include "../interrupt"
+#include "../string"
 
 #if defined(_MPU_STM32MP13)
 
@@ -93,6 +94,7 @@ namespace uni {
 		};
 	public:
 		CardType_E CardType;
+		// ----: SD_HandleTypeDef :----
 		uint32 CSD[4];// SD card specific data table
 		uint32 CID[4];// SD card identification number table
 	protected:
@@ -154,8 +156,43 @@ namespace uni {
 		bool SDMMC_CmdSendCSD(uint32 Argument, uint32* feedback) const;
 		// ???
 		bool SDMMC_CmdSetRelAdd(uint16* pRCA, uint32* feedback) const;
+
+		// [17 18] Send the Read Single/Multi Block command and check the response
+		uint32 SDMMC_CmdReadSingleBlock(uint32 ReadAdd, uint32* feedback);
+		uint32 SDMMC_CmdReadMultiBlock(uint32 ReadAdd, uint32* feedback);
+
+		// [24 25] Send the Write Single/Multi Block command and check the response
+		uint32 SDMMC_CmdWriteSingleBlock(uint32 ReadAdd, uint32* feedback);
+		uint32 SDMMC_CmdWriteMultiBlock(uint32 ReadAdd, uint32* feedback);
+
+		// [32 35]
+		bool SDMMC_CmdSDEraseStartAdd(uint32 StartAdd, uint32* feedback);
+		bool SDMMC_CmdEraseStartAdd(uint32 StartAdd, uint32* feedback);
+		// [33 36]
+		bool SDMMC_CmdSDEraseEndAdd(uint32 EndAdd, uint32* feedback);
+		bool SDMMC_CmdEraseEndAdd(uint32 EndAdd, uint32* feedback);
+
+		bool SDMMC_CmdErase(uint32 EraseType, uint32* feedback);
+
+		bool SDMMC_CmdStopTransfer(uint32* feedback);
+
+		bool SDMMC_CmdBusWidth(uint32 BusWidth, uint32* feedback);
+
 		// Send the Select Deselect command and check the response
 		bool SDMMC_CmdSelDesel(uint32 Addr, uint32* feedback) const;
+
+		bool SDMMC_CmdSendSCR(uint32* feedback);
+		bool SDMMC_CmdSetRelAddMmc(uint16 RCA, uint32* feedback);
+		uint32 SDMMC_CmdSleepMmc(uint32 Argument, uint32* feedback);
+		bool SDMMC_CmdSendStatus(uint32 Argument, uint32* feedback);
+		bool SDMMC_CmdStatusRegister(uint32* feedback);
+		bool SDMMC_CmdOpCondition(uint32 Argument, uint32* feedback);
+		bool SDMMC_CmdSwitch(uint32 Argument, uint32* feedback);
+		bool SDMMC_CmdVoltageSwitch(uint32* feedback);
+		bool SDMMC_CmdSendEXTCSD(uint32 Argument, uint32* feedback);
+
+
+
 		//
 		bool SDMMC_GetCmdResp1(uint8 SD_CMD, uint32 Timeout, uint32* feedback) const;
 		bool SDMMC_GetCmdResp2(uint32* feedback) const;
@@ -165,6 +202,13 @@ namespace uni {
 		//
 		bool SDMMC_CmdAppCommand(uint32 Argument, uint32* feedback) const;
 		bool SDMMC_CmdAppOperCommand(uint32 Argument, uint32* feedback) const;
+		//
+		bool SDMMC_ConfigData(const SDMMC_DataInitTypeDef& Data);
+
+	_Comment("Linked List management functions") protected:
+
+		bool SD_SendSDStatus(uint32* pSDstatus, uint32* feedback);
+
 	public://[debug]
 		inline bool SendCommand(stduint argument, stduint cmdindex, byte response) {
 			return SDMMC_SendCommand(argument, cmdindex, response, WaitForInterrupt_E::None, true);

@@ -25,7 +25,7 @@
 #include "../../inc/cpp/string"
 
 namespace uni {
-	String Integer_T<int32>::ToString() {
+	template<> String Integer_T<int32>::ToString() {
 		String str;
 		str.Format("%d", val);
 		return str;

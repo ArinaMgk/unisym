@@ -121,3 +121,20 @@ SDMMC_OCR_ERRORBITS             =   (0xFDFFE008U),
 #define SDMMC_CMD_GEN_CMD                             (56U)  // Used either to transfer a data block to the card or to get a data block from the card for general purpose/application specific commands.
 #define SDMMC_CMD_NO_CMD                              (64U)
 
+
+
+// Following commands are SD Card Specific commands
+// SDMMC_APP_CMD should be sent before sending
+
+#define SDMMC_CMD_APP_SD_SET_BUSWIDTH                 ((uint8_t)6U)   /*!< (ACMD6) Defines the data bus width to be used for data transfer. The allowed data bus widths are given in SCR register.                                                   */
+#define SDMMC_CMD_SD_APP_STATUS                       ((uint8_t)13U)  /*!< (ACMD13) Sends the SD status.                                                            */
+#define SDMMC_CMD_SD_APP_SEND_NUM_WRITE_BLOCKS        ((uint8_t)22U)  /*!< (ACMD22) Sends the number of the written (without errors) write blocks. Responds with 32bit+CRC data block.                                                               */
+#define SDMMC_CMD_SD_APP_OP_COND                      ((uint8_t)41U)  /*!< (ACMD41) Sends host capacity support information (HCS) and asks the accessed card to send its operating condition register (OCR) content in the response on the CMD line. */
+#define SDMMC_CMD_SD_APP_SET_CLR_CARD_DETECT          ((uint8_t)42U)  /*!< (ACMD42) Connect/Disconnect the 50 KOhm pull-up resistor on CD/DAT3 (pin 1) of the card  */
+#define SDMMC_CMD_SD_APP_SEND_SCR                     ((uint8_t)51U)  /*!< Reads the SD Configuration Register (SCR).                                               */
+#define SDMMC_CMD_SDMMC_RW_DIRECT                     ((uint8_t)52U)  /*!< For SD I/O card only, reserved for security specification.                               */
+#define SDMMC_CMD_SDMMC_RW_EXTENDED                   ((uint8_t)53U)  /*!< For SD I/O card only, reserved for security specification.                               */
+
+// Following commands are MMC Specific commands.
+#define SDMMC_CMD_MMC_SLEEP_AWAKE                     ((uint8_t)5U)   // Toggle the device between Sleep state and Standby state.
+

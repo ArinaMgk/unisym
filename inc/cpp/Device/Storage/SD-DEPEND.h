@@ -42,4 +42,47 @@ typedef struct
 	uint8  Reserved4;            // Always 1
 } HAL_SD_CardCSDTypeDef;
 
+// SDMMC Data Control structure
+enum class SDMMC_DataTransferDir {
+	toCard = 0,
+	toSDMMC = 1
+};// SDMMC_DCTRLR[bit 1]
+enum class SDMMC_DataTransferMode {
+	Block = 0,
+	Stream = 0b10
+};// SDMMC_DCTRLR[bit 2 len 2]
+typedef struct
+{
+	uint32 DataTimeOut;     // data timeout period in card bus clock periods.
+	uint32 DataLength;      // number of data bytes to be transferred.
+	uint32 DataBlockSize;   // data block size for block transfer.
+	SDMMC_DataTransferDir TransferDir;     // data transfer direction, whether the transfer R/W
+	SDMMC_DataTransferMode TransferMode;    // whether data transfer is in stream or block mode.
+	bool DPSM;            // whether SDMMC Data path state machine (DPSM) O/X
+} SDMMC_DataInitTypeDef;
+
+// ---- Link Node ----
+
+// SDEx_Exported_Types_Group1 SD Card Internal DMA Buffer structure
+typedef struct
+{
+	uint32 IDMALAR;  // SDMMC DMA linked list configuration register
+	uint32 IDMABASER;// SDMMC DMA buffer base address register
+	uint32 IDMABSIZE;// SDMMC DMA buffer size register
+} SDMMC_DMALinkNode;// AKA SDMMC_DMALinkNodeTypeDef;
+typedef struct
+{
+	SDMMC_DMALinkNode* pHeadNode;
+	SDMMC_DMALinkNode* pTailNode;
+	uint32 NodesCounter;// who are ready for execution
+#ifdef _INC_CPP
+
+#endif	
+} SDMMC_DMALinkedList;// AKA SDMMC_DMALinkedListTypeDef;
+
+
+
+// using string::Slice as SDMMC_DMALinkNodeConfTypeDef;
+
+
 

@@ -111,6 +111,7 @@ extern "C++" {
 #define _Heap
 #define _Need_free _Heap
 #define _Heap_tmpher// The function with _Heap_tmpher should not call each other
+#define _Comment(x)
 #define toheap
 #define unchecked
 #define _NOT_ABSTRACTED// into UNISYM

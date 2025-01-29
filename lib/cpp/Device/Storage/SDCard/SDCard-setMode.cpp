@@ -20,12 +20,12 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/cpp/Device/SD.hpp"
-#include "../../../../inc/cpp/Device/RCC/RCC"
-#include "../../../../inc/cpp/Device/GPIO"
-#include "../../../../inc/cpp/Device/SysTick"
-#include "../../../../inc/c/driver/interrupt/GIC.h"
-#include "../../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
+#include "../../../../../inc/cpp/Device/SD.hpp"
+#include "../../../../../inc/cpp/Device/RCC/RCC"
+#include "../../../../../inc/cpp/Device/GPIO"
+#include "../../../../../inc/cpp/Device/SysTick"
+#include "../../../../../inc/c/driver/interrupt/GIC.h"
+#include "../../../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 
 #define BLOCKSIZE 512
 
@@ -37,14 +37,12 @@
 #define SDMMC_MAXERASETIMEOUT              ((uint32_t)63000U)     // Max erase Timeout 63 s
 #define SDMMC_STOPTRANSFERTIMEOUT          ((uint32_t)100000000U) // Timeout for STOP TRANSMISSION command
 
-extern "C" void dbg_sdcard();
-extern "C" void dbg_sdcard2();
 extern "C" int  outsfmt0(const char* fmt, ...);
 
 namespace uni {
 #if defined(_MPU_STM32MP13)
 
-	// AKA HAL_SD_Init
+	// AKA HAL_SD_Init + HAL_SD_ConfigSpeedBusOperation
 	// refer SDMMC_InitTypeDef
 	//[pres]
 	// // SDMMC_CLKSRC::PLL3: User should config RCCPLL::setMode and enable DIVR
@@ -129,7 +127,6 @@ namespace uni {
 		if (sdmmc_clk) SysDelay(1U + (74U * SysTickHz / sdmmc_clk));
 
 		asrtret(SD_PowerON(NULL));
-//		dbg_sdcard();
 		asrtret(SD_InitCard(NULL));{}{}
 		if (!SDMMC_CmdBlockLength(BLOCKSIZE)) {
 			self[SDReg::ICR] = (_IMM1S(0U)) | (_IMM1S(1U)) | (_IMM1S(2U)) |

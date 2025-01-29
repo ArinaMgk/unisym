@@ -38,4 +38,13 @@ extern "C" {
 #if defined(_INC_CPP) || defined(__cplusplus)
 }
 #endif
+#ifdef _STYLE_ABBR
+#include "datype/prefabbr.h"
+#endif
+#ifdef _STYLE_RUST
+#include "datype/ruststyle.h"
+#endif
+#ifdef _STYLE_CSHARP
+#include "datype/csharpstyle.h"
+#endif
 #endif

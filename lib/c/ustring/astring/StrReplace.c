@@ -24,18 +24,20 @@
 #include "../../../../inc/c/ustring.h"
 #include "../../../../inc/c/dnode.h"
 
-//{TOD} check
 // From left, one by one, return all in heap! must free() by yourself. Inputs won't be free!
 // RFV07 rename from "StrReplaceHeap"
 char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, size_t* times)
 {
 	struct _aflag_t af = aflaga;
-
+	size_t time_limit = times ? *times : ~_IMM0;
 	if (times) *times = 0;
 	if (!dest || !subfirstrom || !subto || !malc_limit)
 		return zalc(1);
 	if (!*dest || !*subfirstrom) return StrHeap(dest);
-	Dnode* dn = 0;
+	dchain_t* dc = zalcof(dchain_t);
+	//
+	char* ret;
+	DchainInit(dc);
 	size_t sz_subto = 0, nums = 0, sz_subfirstrom = 0, sz_len = 0;
 	ptrdiff_t chars_add = 0;
 	for (; subto[sz_subto]; sz_subto++);
@@ -43,21 +45,20 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 	for (; dest[sz_len]; sz_len++);
 	chars_add = (ptrdiff_t)sz_subto - (ptrdiff_t)sz_subfirstrom;
 	const char* p = dest;
-	while (1)
+	while (nums < time_limit)
 	{
 		p = StrIndexString(p, subfirstrom);
 		if (!p) break;
-		dn = DnodeInsert(dn, (void*)p, sz_subfirstrom, 0, 1/*ON_RIGHT*/);
+		Dnode* dn = DchainAppend(dc, (pureptr_t)p, false, NULL);
+		p += dn->lens = sz_subfirstrom;
 		nums++;
-		p += sz_subfirstrom;
 	}
 	if (nums)
 	{
 		if (times) *times = nums;
-		char* ret = malc((ptrdiff_t)sz_len + (ptrdiff_t)chars_add + (ptrdiff_t)1);
-		ret[(ptrdiff_t)sz_len + (ptrdiff_t)chars_add] = 0;// for dbg
+		ret = salc((ptrdiff_t)sz_len + (ptrdiff_t)chars_add * nums + (ptrdiff_t)1);
 		p = dest; char* q = ret;
-		dn = DnodeRewind(dn);
+		Dnode* dn = dc->root_node;
 	loop:
 		for (; p < dn->addr; p++) *q++ = *p;
 		p += dn->type;
@@ -65,13 +66,12 @@ char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, s
 		if (dn->next) { dn = dn->next; goto loop; }
 		for (; *p; p++)*q++ = *p;
 		*q = 0;
-		DnodesRelease(dn, 0);// non-free
-		return ret;
 	}
-	else
-		return StrHeap(dest);
+	else ret = StrHeap(dest);
 
 endo:
+	DchainDrop(dc);
+	mfree(dc);
 	aflaga = af;
-	return 0;
+	return ret;
 }

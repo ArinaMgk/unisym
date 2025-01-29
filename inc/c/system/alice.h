@@ -104,10 +104,14 @@ extern "C++" {
 
 #endif
 
+#define _ENDIAN_LOW // little endian for bit-field, ...
+#define _ENDIAN_BIG //    big endian for bit-field, ...
+
 // ARINA-COVE C23-STYLE Attribute
 #define _Heap
 #define _Need_free _Heap
 #define _Heap_tmpher// The function with _Heap_tmpher should not call each other
+#define _Comment(x)
 #define toheap
 #define unchecked
 #define _NOT_ABSTRACTED// into UNISYM
@@ -133,7 +137,8 @@ extern "C++" {
 
 #define If(con) if(0||con) //<=> if(1&&con) : avoid error such as mixing "a=0" and "a==0"
 
-#define byteof sizeof
+#define byteof       sizeof
+#define sliceof(x) x,sizeof(x)
 #define bitsof(x) (sizeof(x)*_BYTE_BITS_)
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
 #define offsof    _BYTE_BITS_*offsetof
@@ -163,7 +168,7 @@ extern "C++" {
 #define for0(iden,times) for(size_t iden=0, _LIMIT=(times);iden<(_LIMIT);iden++)
 #define for0r(iden,times) for(size_t iden=(times);iden--;)//<=> for(.=N-1;.>=0;.--)
 #define forp(ptr,times) for(pureptr_t _LIMIT=(pureptr_t)(ptr+times);(pureptr_t)ptr<_LIMIT;ptr++)
-#define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);ptr<(since)+(times);ptr++)
+#define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);_IMM(ptr)<_IMM(since)+(times);ptr++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
 #define for0a(iden,array) for0(iden,numsof(array))
 

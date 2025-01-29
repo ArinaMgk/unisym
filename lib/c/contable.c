@@ -22,11 +22,13 @@
 // RFR30 FIX MISTAKE YO _CtabPrint
 
 #define _CRT_SECURE_NO_WARNINGS
+#ifndef _MCCA // Bare Metal C
 #include <stdio.h>
+
 #ifdef _Linux
 //{TEMP}{No Check}
 inline static int _getch() { char ch = getchar(); printf("\b "); return ch;}
-#else
+#elif defined(_WinNT)
 #include <conio.h>
 #endif
 #include "../../inc/c/graphic/contable.h"
@@ -435,4 +437,4 @@ void CtabRemoveCol(struct Contab* ctab)
 	if (ctab->curc)
 		ctab->curc--;
 }
-
+#endif

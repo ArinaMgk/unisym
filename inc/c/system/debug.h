@@ -85,5 +85,9 @@ typedef void (*_printlog_t)(loglevel_t level, const char* fmt, ...);
 void printlog(loglevel_t level, const char* fmt, ...);
 #define printlnf(a, ...) printlog(_LOG_STDOUT, a, ##__VA_ARGS__)
 
+#define ploginfo(...) printlog(_LOG_INFO, __VA_ARGS__)
+#define plogwarn(...) printlog(_LOG_WARN, __VA_ARGS__)
+#define plogerro(...) printlog(_LOG_ERROR, __VA_ARGS__)
+
 #endif
 

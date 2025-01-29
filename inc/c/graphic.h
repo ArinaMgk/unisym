@@ -47,7 +47,7 @@ namespace uni {
 		bool filled; // not hollow
 	public:
 		Rectangle() {}
-		Rectangle(Point vertex, Size2 size, Color color = Color::From32(0), bool filled = true) : x(vertex.x), y(vertex.y), width(size.x), height(size.y), color(color), filled(filled) {}
+		Rectangle(Point vertex, Size2 size, Color color = Color::FromRGB888(0), bool filled = true) : x(vertex.x), y(vertex.y), width(size.x), height(size.y), color(color), filled(filled) {}
 		Point getVertex() const {
 			return Point(x, y);
 		}
@@ -64,7 +64,7 @@ namespace uni {
 		Color color;
 		bool filled;
 	public:
-		Circle(Point centre, stduint r, Color color = Color::From32(0), bool filled = true) : center(centre), radius(r), color(color), filled(filled) {}
+		Circle(Point centre, stduint r, Color color = Color::FromRGB888(0), bool filled = true) : center(centre), radius(r), color(color), filled(filled) {}
 		Point getVertex() const {
 			return center;
 		}

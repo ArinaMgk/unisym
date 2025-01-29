@@ -34,7 +34,7 @@ void PIT_Init()
 	outpb(TIMER_MODE, RATE_GENERATOR);
 	outpb(PIT_TIMER0, (byte)(TIMER_FREQ / HZ));
 	outpb(PIT_TIMER0, (byte)((TIMER_FREQ / HZ) >> 8));
-	i8259Master_Enable(IRQ_PIT);
+	i8259Master_Enable(DEV_MAS_PIT);
 }
 
 #endif

@@ -63,9 +63,13 @@ Cancel working modes, destructure the device, and finally disable the working cl
 
 operator \verb`=` for reading and writing the port (multiple pins).
 
+operator \verb`[int]` $\rightarrow$ \verb`Pin` for reference its pins.
+
 \paragraph{Physical GPIOs} \
 
-Each port contains 16 pins.
+operator \verb`[char]` $\rightarrow$ \verb`Port` for reference its ports.
+
+Usually, each port contains 16 pins.
 
 For MSP432P4, usually use GPIO 0, 1, 2, ... 8 pins ports.
 

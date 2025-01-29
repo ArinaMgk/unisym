@@ -27,9 +27,16 @@
 
 #define _CPU_BRAND_SIZE 48
 
+#ifdef _INC_CPP
+extern "C" {
+#endif
+
 // Get CPU Brand String
 void _CALL_FAST CpuBrand(char*);
 
+#ifdef _INC_CPP
+}
+#endif
 
 #ifdef _AUTO_INCLUDE
 	// ../../lib/asm/x86/cpuid.asm

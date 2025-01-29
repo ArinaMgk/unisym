@@ -25,9 +25,6 @@
 #include "../../../../inc/cpp/Device/SysTick"
 #include "../../../../inc/c/driver/RCC/RCC-registers.hpp"
 
-extern "C" stduint HSE_VALUE;
-extern "C" stduint HSI_VALUE;
-
 namespace uni {
 	using namespace RCCReg;
 #include "../../../../inc/c/driver/RCC/PLL.hpp"

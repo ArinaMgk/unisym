@@ -69,11 +69,11 @@
 #undef  _BIT_SUPPORT_64
 #endif
 
-typedef unsigned char byte; // [MinGW-i686 Conflict] #define byte unsigned char
-typedef unsigned char uint8; //[trend] [MinGW-i686 Conflict] #define byte unsigned char
+typedef unsigned char byte;  // [MinGW-i686 Conflict] #define byte unsigned char
+typedef unsigned char uint8; // [trend] [MinGW-i686 Conflict] #define byte unsigned char
 typedef   signed char sint8;
 typedef   int8_t       int8;
-typedef   signed char sbyte;
+typedef   signed char sbyte; // [C#]
 typedef uint16_t  word;// unsigned short int
 typedef uint16_t  uint16;//[trend] unsigned short int
 typedef  int16_t  sint16;//[trend]   signed short int
@@ -100,6 +100,8 @@ typedef ptrdiff_t stdsint;
 static const pureptr_t None = (pureptr_t)~(stduint)0;
 static const stduint NONE = ~(stduint)0;
 #endif
+//
+typedef void (*outbyte_t)(const char* str, stduint len);
 
 //
 #define valword(x) (*(word*)&(x))// will be template overload as C++ version
@@ -355,15 +357,6 @@ extern int64 ondiv_64(int64 sr, int64 dv, int64 *rm);// return quo
 #define AlignEven(x) ((x)+1)&(~1)// {Q} the size of ~1 may be flexible
 
 #define movDecimalDigitsLen(i,num) do{(i)++;(num)/=10;}while(num)// e.g. for "0" is 1, "12" is 2
-
-#ifdef _STYLE_ABBR
-	#include "prefabbr.h"
-#endif
-#ifdef _STYLE_RUST
-	#include "ruststyle.h"
-#else
-	// other styles ...
-#endif
 
 // More:
 

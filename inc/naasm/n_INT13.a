@@ -18,7 +18,7 @@
 ;20230201 ah(0:completed&&CF=0 ErrorCode&&CF=1) [es] stack int13h2 DiskDataLoad(al NumofSector=1, bx BufAddr=0, ch track=0, cl sector=2, dh DiskSide=0, dl DriveNo=80H);
 ;default : read the second sector, which follow the first sector, from master disk.
 ; DiskDataLoad
-; DiskReadSectors(BH:NoS, SI:Buf, AX:Lin, DL:Drv) ES:BX <--- LinearSector (from 0)
+; DiskReadSectors(BH:NoS, SI:Buf, AX:Lin, <UserProtect>DL:Drv) ES:BX <--- LinearSector (from 0)
 %imacro DiskDataLoad 0-6 1,0,0,2,0,80H
 	MOV AL,%1
 	MOV AH,2H
@@ -40,10 +40,12 @@
 	; CL = (Lin % _BPB_SPT) + 1
 	PUSH AX
 	PUSH CX
-	PUSH DX
+	; PUSH DX
 	PUSH BX
 	PUSH SI
-	MOV DL,%4; [FIN.DL]
+	%ifnidni DL,%4
+		MOV  DL,%4; [FIN.DL]
+	%endif
 	MOV AX,%3
 	MOV SI,%2
 	MOV BH,%1
@@ -64,7 +66,7 @@
 		JC %%lup
 	POP SI
 	POP BX
-	POP DX
+	; POP DX
 	POP CX
 	POP AX
 %endmacro

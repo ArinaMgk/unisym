@@ -21,7 +21,7 @@
 */
 
 #include "../../../inc/c/arith.h"
-#include <math.h>
+#if !defined(_MCCA)
 // RFW9 Factorial family
 size_t Factorial(size_t argu)// from SGAr
 {
@@ -80,3 +80,4 @@ double dblfactorial(double inp)
 	}
 	return res;
 }
+#endif

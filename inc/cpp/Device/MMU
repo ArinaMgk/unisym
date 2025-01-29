@@ -23,6 +23,7 @@
 #ifndef _INCPP_Device_MCU
 #define _INCPP_Device_MCU
 #include "../../c/stdinc.h"
+#include "../../c/system/paging.h"
 namespace uni {
 #ifdef _MPU_STM32MP13
 

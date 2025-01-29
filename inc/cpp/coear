@@ -20,11 +20,11 @@
 	limitations under the License.
 */
 
-#ifndef _INC_X_COEAR
+#if !defined(_INC_X_COEAR) && !defined(_MCCA)
 #define _INC_X_COEAR
 
 #include "../c/ISO_IEC_STD/stdlib.h"
-#include <math.h>
+// #include <math.h>
 
 #include "../c/coear.h"
 #include "floating"

@@ -23,13 +23,13 @@
 	limitations under the License.
 */
 
-#if !defined(_INC__BITS__Node_X)
+#if !defined(_INC__BITS__Node_X) && !defined(_MCCA)
 #define _INC__BITS__Node_X
 
 #include "unisym"
 #include "dnode"
 #include "../c/ISO_IEC_STD/stdlib.h"
-#include "math.h"
+// #include "math.h"
 
 /* TODO
 [ ] Index according to complete binary tree

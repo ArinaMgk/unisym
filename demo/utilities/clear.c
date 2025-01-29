@@ -23,17 +23,13 @@
 // Compensate for console if it does not support the "clear" command.
 
 #include <stdlib.h>
-
-const char command[] =
-	#ifdef _WinNT
-	"cls"
-	#else
-	"clear"
-	#endif
-;
+#include <stdio.h>
 
 int main()
-{
-	system(command);
+{	
+#ifdef _WinNT
+	system("cls");
+#else
+	printf("\033c");// or "\x1b[H\x1b[2J"
+#endif
 }
-

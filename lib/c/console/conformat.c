@@ -35,7 +35,9 @@
 // 1> Screen / Device{Console...}
 // 1> Buffer / Stream{File...}
 // 2> String.Format(...) : (1)getlen (2)getval
-static void (*local_out)(const char* str, dword len) = outtxt;
+// can be empty fucntion but nullptr
+static outbyte_t local_out = outtxt;
+Handler_t _serial_callback = 0;
 _TODO byte local_out_lock = 0;// 0 for accessable
 stduint _crt_out_cnt;
 
@@ -44,11 +46,16 @@ void outc(const char chr)
 	local_out(&chr, 1);
 }
 
+//{TODO} preempt the lock
+
+#undef outs
+#define outs(x) local_out(x, StrLength(x))
+
 //{TEMP} always align to right
-#define DEF_outiXhex(siz) static void outi##siz##hex(uint##siz inp) {\
-	void (*localout)(const char* str, dword len) = local_out;\
-	char buf[2 * byteof(uint##siz)];\
-	for0r(i, numsof(buf)) {\
+#define DEF_outiXhex(siz) void outi##siz##hex(uint##siz inp) {\
+	outbyte_t localout = local_out;\
+	char buf[2 * byteof(uint##siz) + 1] = {0};\
+	for0r(i, numsof(buf) - 1) {\
 		buf[i] = _tab_HEXA[inp & 0xF];\
 		inp >>= 4;\
 	}\
@@ -85,7 +92,7 @@ void outidec(int xx, int base, int sign)
 // Output Integer
 void outi(stdint val, int base, int sign_show)
 {
-	void (*localout)(const char* str, dword len) = local_out;
+	outbyte_t localout = local_out;
 	if (base < 2) return;
 	char buf[bitsof(stdint) + 2] = { 0 };// may bigger than 2 * bitsof(stdint) + 2 if base < 16 
 	int i = sizeof(buf) - 1;
@@ -99,7 +106,7 @@ void outi(stdint val, int base, int sign_show)
 // Output Unsigned Integer
 void outu(stduint val, int base)
 {
-	void (*localout)(const char* str, dword len) = local_out;
+	outbyte_t localout = local_out;
 	if (base < 2) return;
 	char buf[bitsof(stduint) + 1] = { 0 };
 	stduint i = sizeof(buf) - 1;
@@ -109,7 +116,7 @@ void outu(stduint val, int base)
 
 _TEMP static void outfloat(float val)
 {
-	void (*localout)(const char* str, dword len) = local_out;
+	outbyte_t localout = local_out;
 	if (val < 0) localout("-", 1);
 	outu((stduint)val, 10);
 	val -= (stduint)val;
@@ -123,17 +130,24 @@ _TEMP static void outfloat(float val)
 
 int outsfmtlst(const char* fmt, para_list paras)
 {
-	//{TODO} while (local_out_lock);
-	//{TODO} add lock
-	void (*localout)(const char* str, dword len) = local_out;
+	while (local_out_lock);
+	local_out_lock = 1;//{TODO} add multitask lock
+	outbyte_t localout = local_out;
 	_crt_out_cnt = 0;
 	int i;
 	byte c;
 	char* s;
-	
+
+	//     % +- ent . end (h/l) sym
 	unsigned tmp_base = 16;
-	char tmp_signed = 0;
+	char tmp_signed = 0;// +-
 	char tmp_percent_feed = 0;
+	// 0 float, 1 double, 2 long double
+	// -2 byte, -1 short, 0 int, 1 long, 2 long long
+	char sizlevel = 0;
+	stduint ent = 0;
+	stduint end = 0;
+	char dotted = 0;
 
 	if (fmt == 0) return 0;
 
@@ -155,11 +169,21 @@ int outsfmtlst(const char* fmt, para_list paras)
 			outc(para_next_char(paras));
 			break;
 
-			// ---- SIGN SWITCH ----
+			// ---- SIGN & SIZE SWITCH ----
 		case '+':// '-' for alignment
 			tmp_signed = 1;
 			c = '%'; tmp_percent_feed = 1;
 			break;
+		// '-'
+		case 'l':// no mixed with 'h'
+			if (sizlevel >= 0) sizlevel++;
+			c = '%'; tmp_percent_feed = 1;
+			break;
+		case 'h':
+			if (sizlevel <= 0) sizlevel--;
+			c = '%'; tmp_percent_feed = 1;
+			break;
+
 
 			// ---- INTEGER ---- [signed] [base] ...
 
@@ -171,30 +195,39 @@ int outsfmtlst(const char* fmt, para_list paras)
 			goto case_integer;
 		case 'd':
 			tmp_base = 10;
-			goto case_integer;
-		case 'x':
-			tmp_base = 16;
 		case_integer:
 			outi(pnext(int), tmp_base, tmp_signed);
 			tmp_signed = 0;
+			break;
+		case 'x':
+			tmp_base = 16;
+		case_unteger:
+			outu(pnext(int), tmp_base);
 			break;
 		
 
 
 		case 'f':
-			outfloat(pnext(double));
+			if (sizlevel == 1)
+				outfloat(pnext(double));
+			else if (sizlevel == 0)
+				outfloat(pnext(float));
+			sizlevel = 0;
 			break;
 		case 'p':
 			localout("0x", 2);
 			// typeid
-			if (bitsof(stduint) == 64)
+			#if __BITS__ == 64
 				outi64hex(pnext(stduint));
-			else if (bitsof(stduint) == 32)
+			#elif __BITS__ == 32
 				outi32hex(pnext(stduint));
-			else if (bitsof(stduint) == 16)
+			#elif __BITS__ == 16
 				outi16hex(pnext(stduint));
-			else
+			#elif __BITS__ == 8
 				outi8hex(pnext(stduint));
+			#else
+				#error "Unsupport bits"
+			#endif
 			break;
 		case 's':
 			s = pnext(char*);
@@ -206,7 +239,15 @@ int outsfmtlst(const char* fmt, para_list paras)
 			localout(&fmt[i], 1);
 			break;
 		case '[': // alicee extend
-			if (!StrCompareN(fmt + i, "[u]", 3)) // Print Decimal STDUINT
+			if (!StrCompareN(fmt + i, "[2c]", 4)) // Print 2-byte Character
+			{
+				uint16 tmp = pnext(uint16);
+				const char* ptmp = (char*)&tmp;
+				outc(ptmp[0]);
+				outc(ptmp[1]);
+				i += 4 - 1;
+			}
+			else if(!StrCompareN(fmt + i, "[u]", 3)) // Print Decimal STDUINT
 			{
 				outu(pnext(stduint), 10);
 				i += 3 - 1;
@@ -217,6 +258,21 @@ int outsfmtlst(const char* fmt, para_list paras)
 				outi(tmp, 10, tmp < 0);
 				i += 3 - 1;
 			}
+			else if (!StrCompareN(fmt + i, "[8H]", 4)) // Print Hex STDUINT 8 bit
+			{
+				outi8hex(pnext(uint8));
+				i += 4 - 1;
+			}
+			else if (!StrCompareN(fmt + i, "[16H]", 5)) // Print Hex STDSINT 16 bit
+			{
+				outi16hex(pnext(uint16));
+				i += 5 - 1;
+			}
+			else if (!StrCompareN(fmt + i, "[32H]", 5)) // Print Hex STDSINT 32 bit
+			{
+				outi32hex(pnext(uint32));
+				i += 5 - 1;
+			}
 			break;
 		default:
 			localout(&fmt[i], 1);
@@ -224,7 +280,9 @@ int outsfmtlst(const char* fmt, para_list paras)
 		}
 		i++;
 	}
-	// leave lock
+
+	_TEMP local_out_lock = 0;// leave lock
+	asserv(_serial_callback)();
 	return _crt_out_cnt;
 }
 
@@ -234,4 +292,12 @@ int outsfmt(const char* fmt, ...)
 	Letpara(args, fmt);
 	return outsfmtlst(fmt, args);
 	// para_endo(args);
+}
+
+outbyte_t outredirect(outbyte_t out)
+{
+	outbyte_t last_out = local_out;
+	//{TODO} check lock there
+	if (out) local_out = out;
+	return last_out;
 }

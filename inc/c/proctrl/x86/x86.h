@@ -39,6 +39,15 @@ typedef struct _CPU_x86_descriptor
 	byte DB : 1; // 32-bitmode
 	byte granularity : 1; // 4k-times
 	byte base_high;
+#ifdef _INC_CPP
+	void setRange(dword addr, dword limit) {
+		limit_low = limit;
+		limit_high = limit >> 16;
+		base_low = addr;
+		base_middle = addr >> 16;
+		base_high = addr >> 24;
+	}
+#endif
 } descriptor_t;
 
 // return nothing
@@ -61,13 +70,37 @@ typedef struct _CPU_x86_gate
 {
 	word offset_low;
 	word selector;
-	byte param_count;
+	byte param_count : 5;
+	byte zero : 3;
 	byte type : 4;
 	byte notsys : 1;
 	byte DPL : 2;
 	byte present : 1;
 	word offset_high;
+#ifdef _INC_CPP
+	void setRange(dword addr, word segsel) {
+		offset_low = addr;
+		offset_high = addr >> 16;
+		selector = segsel;
+	}
+	// default (1_11_01100_00000000)
+	// - zero parameter
+	// - ring 3
+	void setModeCall(dword addr, word segsel) {
+		setRange(addr, segsel);
+		param_count = 0;
+		zero = 0;
+		type = 0b1100;
+		notsys = 0;
+		DPL = 3;
+		present = 1;
+	}
+#endif
 } gate_t;
+
+#ifdef _INC_CPP
+extern "C" {
+#endif
 
 static inline dword DescriptorBaseGet(descriptor_t* desc)
 {
@@ -121,17 +154,22 @@ void jmpFar(dword offs, dword selc);//{TODO} JumpFar
 void CallFar(dword offs, dword selc);
 void returnfar(void);
 
+void TaskReturn();
+
 // ---- lib/asm/x86/inst/interrupt.asm ----
-void returni(void);// for C
+void _returni(void);// for C
 
 // ---- lib/asm/x86/inst/stack.asm ----
-void pushad(void);
-void popad(void);
-void pushfd(void);
-void popfd(void);
+void _pushad(void);
+void _popad(void);
+void _pushfd(void);
+void _popfd(void);
 
 // ---- lib/c/processor/x86/delay.c ----
 void delay001s();
 void delay001ms();
 
+#ifdef _INC_CPP
+}
+#endif
 #endif

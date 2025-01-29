@@ -25,8 +25,15 @@
 
 #include "../../cpp/Device/Interrupt/interrupt_tab.h"
 
-#define PORT_PIT 0x20
+#ifdef _INC_CPP
+extern "C" {
+#endif
 
 void PIT_Init();
+
+
+#ifdef _INC_CPP
+}
+#endif
 
 #endif

@@ -24,7 +24,6 @@
 #define _INC__BITS__
 
 #include "stdinc.h"
-#include "inttypes.h"
 
 #define BitTog(x,bits) ((x)^=(bits))
 #define BitSet(dest,bitposi) (dest) |=  (_IMM1 << bitposi)

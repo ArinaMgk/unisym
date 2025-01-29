@@ -45,11 +45,34 @@ The users should use \verb|pureptr_t Iter()| to iterate, this return null for th
 \end{lstlisting}
 
 \subsubsection{Comparison Trait}
-%{} Sort
-%{} Search
+%subsubsection {TODO} Sort
+%subsubsection {TODO} Search
 
 \subsubsection{Interrupt Trait}
 
-%RuptTrait (not-stable)
+RuptTrait
+
+% detail
+
+\subsubsection{Stream Trait}
+
+\verb`OstreamTrait` and \verb`IstreamTrait`
+
+\subsubsection{Storage Trait}
+
+\verb`StorageTrait`
+
+Block buffer-like data structure, but temporary stream data structure.
+
+\subsubsection{Sub-Trait}
+
+Console
+\begin{itemize}
+\item \verb`Console_t`
+	\begin{itemize}
+	\item entity \verb`Console` for Standard TTY
+	\item \verb`VideoConsole` for Graphic TTY
+	\end{itemize}
+\end{itemize}
 
 

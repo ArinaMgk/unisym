@@ -20,10 +20,10 @@
 	limitations under the License.
 */
 
-#ifndef _INC_STRBUFF
+#if !defined(_INC_STRBUFF) && !defined(_MCCA)
+#include "stdinc.h"
 #define _INC_STRBUFF
 
-#include "stdinc.h"
 #include <stdio.h>
 
 typedef struct StrBuff {

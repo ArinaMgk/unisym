@@ -67,7 +67,7 @@ typedef struct TaskStateSegmentx86
 	word LDTDptr;
 	word LDTLength;// static, Mecocoa's Design
 	word STRC_15_T;
-	word IO_MAP; // default 103
+	word IO_MAP; // (102D) default 103
 	// ---- 0104d:
 } TSS_t;
 
@@ -85,7 +85,16 @@ typedef struct
 	stduint TSSBlockLength;//{unused} from beginning off TSS to end of IOMap
 } TaskFlat_t;
 
+#if defined(_INC_CPP)
+extern "C" {
+#endif
+
 void TaskFlatRegister(TaskFlat_t* TaskFlat, descriptor_t* GDT);
+	
+#if defined(_INC_CPP)
+}
+#endif
+
 
 #endif
 #else

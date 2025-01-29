@@ -1,8 +1,6 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: 
-// LastCheck: 20240405
+// ASCII C99 TAB4 CRLF
 // AllAuthor: @dosconio
-// ModuTitle: Console
+// ModuTitle: Double-directions Node
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,27 +18,23 @@
 	limitations under the License.
 */
 
-#if !defined(_INC_CONSOLE_X)
-#define _INC_CONSOLE_X
 
-#include "cinc"
-#include "../c/consio.h"
-#include "cinc"
+#include "../../../inc/c/dnode.h"
 
-#ifdef _INC_CPP
-namespace uni {
-	class Console {
-	protected:
-		
-	public:
-		// Clear Screen and empty I/O Buffers
-		static void Clear() {
-			//{TODO} buffers for
-			ConClearScreen();
-		}
+enum { ON_LEFT = 0, ON_RIGHT = 1 };
 
-	};
+void   DnodeChainAdapt(dchain_t* chn, Dnode* root, Dnode* last, stdint count_dif)
+{
+	chn->node_count += count_dif;
+	chn->root_node = root;
+	chn->last_node = last;
+	//[Fast Table except root/last node]
+	// assume 35 items, consider 33 items, 33 / 2 + 1 = 17;
+	// assume 3 items ... <=> 3 / 2 = 1;
+	#if 0
+	if (node_count < 2 + 1) // root, last, and 
+		fastab.midl_node = NULL;
+	else
+		fastab.midl_node = LocateNode(node_count >> 1);
+	#endif
 }
-#endif
-
-#endif

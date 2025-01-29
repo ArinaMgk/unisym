@@ -1,8 +1,8 @@
-// ASCII C++11 TAB4 CRLF
-// Attribute: ArnCovenant yo Free 
-// LastCheck: RFZ03
+// ASCII C++-11 TAB4 CRLF
+// Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
+// LastCheck: 20240409
 // AllAuthor: @dosconio
-// ModuTitle: Instruction CPUID
+// ModuTitle: Integer based on ChrA/Br
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,11 +20,14 @@
 	limitations under the License.
 */
 
-#ifndef _INCX_CPUID
-#define _INCX_CPUID
 
-#include "cinc"// C Begin
-	#include "../c/cpuid.h"
-#include "cinc"// C End
+#include "../../inc/cpp/integer"
+#include "../../inc/cpp/string"
 
-#endif // !_INCX_CPUID
+namespace uni {
+	template<> String Integer_T<int32>::ToString() {
+		String str;
+		str.Format("%d", val);
+		return str;
+	}
+}

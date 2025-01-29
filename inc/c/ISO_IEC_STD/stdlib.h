@@ -43,7 +43,9 @@
 
 #if defined(_INC_CPP)
 namespace std {
+	//declare in random.h
 	int rand(void);
+
 	double strtod(const char* inp, char** endptr);
 	float strtof(const char* inp, char** endptr);
 	long double strtold(const char* inp, char** endptr);

@@ -47,17 +47,22 @@ void memf(void* m);// non-side-effect version, with null-check
 #define mfree(x) do{memfree(x);(x)=0;}while(0)
 
 #ifdef _INC_CPP
-extern "C++" {
+extern "C" {
 #endif
+	
 	// inline static void _memf(void* x) { memfree(x); }
+
+	// size includes null-terminator
 	char* salc(size_t size);
+
+#ifdef _INC_CPP
+}
 
 	// `new(buf)type;` won't call this but `new type;`.
 	//void* operator new(size_t size);
 	//
 	//void operator delete(void* p);
-#ifdef _INC_CPP
-}
+
 #endif
 
 

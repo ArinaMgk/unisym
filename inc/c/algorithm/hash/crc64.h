@@ -23,6 +23,8 @@
 #ifndef _INC_HASH_CRC64
 #define _INC_HASH_CRC64
 
+#include "../../stdinc.h"
+
 #define CRC64_ARINA_Polynomial    0x6E6552616E696850// (PhinaRen)
 #define CRC64_ARINA_Initial       0xFFFFFFFFFFFFFFFF// (PhinaRen)
 
@@ -54,6 +56,9 @@
 #define CRC64_USB_Polynomial      0x000000000000001B// (USB)
 #define CRC64_USB_Initial         0xFFFFFFFFFFFFFFFF// (USB)
 
+_TEMP
+#ifndef _MCCA
+
 #include <stdio.h>
 #include "../../stdinc.h"
 
@@ -68,5 +73,7 @@ uint64_t HashCRC64Once(uint64_t last, byte data, uint64_t polynomial, int refl);
 
 //
 uint64_t HashCRC64Endo(uint64_t last, uint64_t final_xor, int refl);
+
+#endif
 
 #endif // !_INC_HASH_CRC64

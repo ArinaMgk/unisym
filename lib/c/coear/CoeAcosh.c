@@ -21,8 +21,7 @@
 */
 
 #include "../../../inc/c/coear.h"
-#include <math.h>
-
+#if !defined(_MCCA)
 coe* CoeAcosh(coe* dest)
 {
 	if (dest->divr[1] == '0') return dest;
@@ -40,3 +39,4 @@ coe* CoeAcosh(coe* dest)
 	CoeDel(res);
 	return dest;
 }
+#endif

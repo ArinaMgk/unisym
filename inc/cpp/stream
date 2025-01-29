@@ -22,6 +22,8 @@
 #ifndef _INC_STREAM
 #define _INC_STREAM
 
+#include "trait/XstreamTrait.hpp"
+
 #define conio con
 // 2023 Arinae style: in_buf << conio << out_str, out_str >> conio >> in_buf
 // con considers priority of operator<< and >> and return con itself
@@ -29,7 +31,8 @@
 // - in2 >> (in1 >> con) >> out1 >> out2
 
 namespace uni {
-	
+
+
 }
 
 

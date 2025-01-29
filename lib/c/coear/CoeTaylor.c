@@ -22,7 +22,7 @@
 
 #include "../../../inc/c/coear.h"
 #include "../../../inc/c/ustdbool.h"
-#include <math.h>
+#if !defined(_MCCA)
 
 coe* CoeTaylor(coe* dest, unsigned char dptor, const coe* period, size_t digcut)
 {
@@ -144,3 +144,4 @@ endo:
 	CoeCtz(dest);
 	return dest;
 }
+#endif

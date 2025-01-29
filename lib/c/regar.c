@@ -25,11 +25,15 @@
 
 //{Potential Issue} Memory Leak (malc_count) - Have not tested.
 
+#include "../../inc/c/arith.h"
 #include "../../inc/c/regar.h"
 #include "../../inc/c/stdinc.h"
 #include "../../inc/c/ustring.h"
 
-#include <math.h>
+extern size_t _DIG_CUT;
+
+#if !defined(_MCCA)
+
 #include <float.h>
 
 extern char* arna_tempor;
@@ -589,7 +593,7 @@ not0	var_n	0000	infinite (=lim x->inf` pow(x,var_n))
 }
 */
 
-static size_t _DIG_CUT = 4;
+
 
 const static Rfnar_t constr_1 = {
 	.coff = (size_t[]){1},
@@ -1577,4 +1581,4 @@ Rfnar_t* HrnDot(const Hrnar_t* d, const Hrnar_t* s)
 Rfnar_t* _Need_free HrnAbs(const Hrnar_t* d)
 ;
 
-// EOF
+#endif

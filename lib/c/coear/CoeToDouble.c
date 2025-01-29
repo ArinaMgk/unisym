@@ -19,11 +19,11 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
+#include "../../../inc/c/arith.h"
 #include "../../../inc/c/coear.h"
 #include "../../../inc/c/uctype.h"
+#if !defined(_MCCA)
 #include <float.h>
-#include <math.h>
 
 #define isneostr(x) (x) // is not end of string
 #define issign(x) ((x)=='+'||(x)=='-')
@@ -139,3 +139,4 @@ double CoeToDouble(const coe* dest)
 	CoeDel(ddd);
 	return ll;
 }
+#endif

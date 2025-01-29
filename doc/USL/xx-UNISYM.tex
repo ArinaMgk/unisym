@@ -26,7 +26,18 @@ Loosely coupled design are applied to our Outputs, but Tightly for the library h
 If you develop something on host-environment, include `stdinc.h` for C/C++;
 if you develop MCU-program, use the special file like `STM32F1` for C++ (See more in \refer{QANRUS})...
 
-\section{Notice}
+\section{Symbol Interface Set}
+
+\begin{itemize}
+\item Unified Symbol Interface Set
+\item Assembly Macro Package : BIOS Interrupt Set
+\item ISO Standard C Set
+\item ISO Standard C++ Set.
+\item \verb|_STYLE_CSHARP|:DotNet C# Set
+\item \verb|_STYLE_RUST|: std Rust Set
+\end{itemize}
+
+\section{Using}
 
 \B{Root Header for User}
 It is recommended that users use only header files whose directory is the root including path. For example, we should include \verb`<stdinc.h>` but \verb|system/alice.h|.
@@ -123,9 +134,21 @@ The section does not include \It{Kasha}. For AASM, Microsoft Macro Assembler, GN
 
 \subsection{Linked Data}
 
+in header \verb`c/data.h`
+\begin{itemize}
+	\item \verb `_BITFONT_ASCII_8x5`
+	\item \verb `_BITFONT_ASCII_16x8`
+\end{itemize}
+
+in header \verb`c/uctype.h`
 \begin{itemize}
 	\item \verb `_tab_HEXA` decimal to upper ASCII chars.
 	\item \verb `_tab_hexa` decimal to lower ASCII chars.
+	\item \verb `_tab_alnum_digit` ASCII chars to hexadecimal.
+\end{itemize}
+
+in header \verb`c/driver/keyboard.h`
+\begin{itemize}
 	\item \verb `_tab_keycode2ascii` Keyboard Scan-code to ASCII and description.
 \end{itemize}
 

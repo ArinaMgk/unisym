@@ -82,6 +82,16 @@ The style \verb|type0* a| stresses that \verb|a| is an instance of the pointer. 
 
 The style \verb|type0 *a| stresses the type of the destination. \verb|type0 a[]| stresses the basic type, like $CPL$.
 
+\begin{lstlisting}[language=C++]
+// C++
+int* a = &aa, b = &bb;// b is of type 'int'
+
+// C#
+unsafe {
+int* a = &aa, b = &bb;// b is of type 'int*'
+}
+\end{lstlisting}
+
 And C++ provides \B{reference} to make the form of pointers beautiful, while provides class to make passing the instance beautiful.
 
 The arithmetic for pointers are usually special. For plus and minus, the factor will be times by the size of the object to make it seems to have the unit. For multiply and bitwise operations, it is usually forbidden although it can be done easily in Binary Assembly. 

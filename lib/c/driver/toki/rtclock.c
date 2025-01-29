@@ -27,11 +27,11 @@
 
 void RTC_Init()
 {
-	outpb(PORT_RTC, 0x8B);// mgk: RTC Register B and NMI
-	outpb(PORT_RTC | 1, 0x12);// mgk: Set Reg-B {Ban Periodic, Open Update-Int, BCD, 24h}
+	outpb(IRQ_RTC, 0x8B);// mgk: RTC Register B and NMI
+	outpb(IRQ_RTC | 1, 0x12);// mgk: Set Reg-B {Ban Periodic, Open Update-Int, BCD, 24h}
 	i8259Slaver_Enable(0);// Slave 0 is linked with RTC
-	outpb(PORT_RTC, 0x0C);// mgk: ?
-	innpb(PORT_RTC | 1);// Read Reg-C, reset pending interrupt
+	outpb(IRQ_RTC, 0x0C);// mgk: ?
+	innpb(IRQ_RTC | 1);// Read Reg-C, reset pending interrupt
 	//{TODO} Check PIC Device?
 }
 

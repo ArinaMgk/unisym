@@ -19,6 +19,9 @@
 
 #ifndef ModConTable
 #define ModConTable
+
+#include "../stdinc.h"
+
 typedef struct Conitem
 {
 	char* content;

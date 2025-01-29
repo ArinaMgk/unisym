@@ -20,6 +20,7 @@
 	limitations under the License.
 */
 #define _LIB_STRING_HEAP
+#if !defined(_MCCA)
 #include "../../inc/c/ustring.h"
 #include "../../inc/c/numar.h"
 
@@ -535,3 +536,4 @@ void NumAtanh(dima* dest)
 	NumDel(dd);
 	return;
 }
+#endif

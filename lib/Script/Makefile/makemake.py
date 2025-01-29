@@ -43,27 +43,33 @@ list_asm_free64 = get_files("./lib/asm/x64", ".asm")
 # unisym/lib/make/cvw32.make -> -bin/libw32d.lib
 # unisym/lib/make/cvw64.make -> -bin/libw64d.lib
 # unisym/lib/make/cgl32.make -> -bin/libl32d.a
+# unisym/lib/make/cgmx86.make -> -bin/libm32d.a (both Kernel+User)
+# (Mecocoa User Library is Aococam, ACCM)
 # unisym/lib/make/cgl64.make -> -bin/libl64d.a
 text_gcc_win32 = "# UNISYM for GCC-Win32 built-" + str(__BuildTime) + '\n'
 text_gcc_win64 = "# UNISYM for GCC-Win64 built-" + str(__BuildTime) + '\n'
 text_msv_win32 =  "# UNISYM for MSVC-Win32 built-" + str(__BuildTime) + '\n'
 text_msv_win64 = "# UNISYM for MSVC-Win64 built-" + str(__BuildTime) + '\n'
 text_gcc_lin32 = "# UNISYM for GCC-Lin32 built-" + str(__BuildTime) + '\n'
+text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
 text_gcc_lin64 = "# UNISYM for GCC-Lin64 built-" + str(__BuildTime) + '\n'
 print(text_gcc_win32, text_gcc_win64, text_msv_win32, text_msv_win64, text_gcc_lin32, text_gcc_lin64, sep="")
+print(text_gcc_mecocoa)
 
 text_gcc_win32 += "ENVIDEN=cgw32" + "\n"
 text_gcc_win64 += "ENVIDEN=cgw64" + "\n"
 text_gcc_lin32 += "ENVIDEN=cgl32" + "\n"
+text_gcc_mecocoa += "ENVIDEN=cgmx86" + "\n"
 text_gcc_lin64 += "ENVIDEN=cgl64" + "\n"
 text_msv_win32 += "ENVIDEN=cvw32" + "\n"
 text_msv_win64 += "ENVIDEN=cvw64" + "\n"
 
 def apd_gnu_item(text):
-	global text_gcc_win32, text_gcc_win64, text_gcc_lin32, text_gcc_lin64
+	global text_gcc_win32, text_gcc_win64, text_gcc_lin32, text_gcc_mecocoa, text_gcc_lin64
 	text_gcc_win32 += text
 	text_gcc_win64 += text
 	text_gcc_lin32 += text
+	text_gcc_mecocoa += text
 	text_gcc_lin64 += text
 
 #[TEMP] ASM cannot make PIC
@@ -87,8 +93,8 @@ CX = $(yanopath)/i686/bin/g++.exe -m32
 AR = $(yanopath)/i686/bin/ar.exe
 aattr = -fwin32
 dest_abs = $(ubinpath)/libw32d.a
-dest_dll = $(ubinpath)/libw32d.so."""
-text_gcc_win32 += __LibVersion
+dest_dll = $(ubinpath)/libw32d.so.""" + __LibVersion
+
 text_gcc_win64 += comhead + """
 attr = -D_DEBUG -O3 -D_Win64
 dest_obj=$(uobjpath)/CGWin64
@@ -97,8 +103,8 @@ CX = $(yanopath)/x64/bin/g++.exe  -m64
 AR = $(yanopath)/x64/bin/ar.exe
 aattr = -fwin64
 dest_abs = $(ubinpath)/libw64d.a
-dest_dll = $(ubinpath)/libw64d.so."""
-text_gcc_win64 += __LibVersion
+dest_dll = $(ubinpath)/libw64d.so.""" + __LibVersion
+
 text_gcc_lin32 += comhead + """
 attr = -D_DEBUG -D_Linux -O3
 aattr = -felf
@@ -107,8 +113,21 @@ dest_abs=$(ubinpath)/libl32d.a
 CC=gcc -m32
 CX=g++ -m32
 LD=ld -m elf_i386
-dest_dll=$(ubinpath)/libl32d.so."""
-text_gcc_lin32 += __LibVersion
+dest_dll=$(ubinpath)/libl32d.so.""" + __LibVersion
+
+text_gcc_mecocoa += comhead + """
+attr = -D_DEBUG -D_MCCA=0x8632
+aattr = -felf
+dest_obj=$(uobjpath)/CGMin32
+dest_abs=$(ubinpath)/libm32d.a
+COMWAN = -Wno-builtin-declaration-mismatch
+COMFLG = -m32 -static -fno-builtin -nostdlib -O3 $(COMWAN)
+#  -fno-stack-protector -fno-pic
+CC=gcc $(COMFLG)
+CX=g++ $(COMFLG) -std=c++2a -fno-exceptions  -fno-unwind-tables -fno-rtti -Wno-volatile
+LD=ld -m elf_i386
+dest_dll=$(ubinpath)/libm32d.so.""" + __LibVersion
+
 text_gcc_lin64 += comhead + """
 attr = -D_DEBUG -D_Linux -D__BITS__=64 -O3
 aattr = -felf
@@ -155,8 +174,8 @@ CX = ${CC}
 AR = ${msvcpath}/bin/Hostx64/x64/lib.exe
 aattr = -fwin64
 dest_abs = $(ubinpath)/libw64d.lib
-dest_dll = $(ubinpath)/libw64d.so."""
-text_msv_win64 += __LibVersion
+dest_dll = $(ubinpath)/libw64d.so.""" + __LibVersion
+
 text_msv_win64 += """
 KitWin=C:/Program Files (x86)/Windows Kits/10
 VLIB_64=/LIBPATH:"${msvcpath}/lib/x64/" /LIBPATH:"${msvcpath}/lib/onecore/x64" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/um/x64" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/ucrt/x64"
@@ -173,6 +192,7 @@ all: $(asmobjs) $(cplobjs) $(cppobjs)
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
 text_gcc_lin32 += tmp
+text_gcc_mecocoa += tmp
 text_gcc_lin64 += tmp
 tmp = ".PHONY: all\n"+\
 	"\nall:\n"+\
@@ -193,6 +213,7 @@ for val in list_asm_free86:
 	text_gcc_win32 += tmp
 	text_msv_win32 += tmp
 	text_gcc_lin32 += tmp
+	text_gcc_mecocoa += tmp
 for val in list_asm_free64:
 	tmp = '\t@echo AS ' + val.replace("./lib", "lib") + "\n\t@${AASM} ${aattr} ${aat} " + val + " -o ${dest_obj}/_ax_" + get_outfilename(val) + ".o" + '\n'
 	text_gcc_win64 += tmp
@@ -206,6 +227,7 @@ if True:
 	text_gcc_win32 += tmp
 	text_gcc_win64 += tmp
 	text_gcc_lin32 += tmp
+	text_gcc_mecocoa += tmp
 	text_gcc_lin64 += tmp
 for val in list_cpl_file:
 	tmp = "\t@$(CC) /c " + val + " /Fo:${dest_obj}/${cplpref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
@@ -222,6 +244,7 @@ tmp = """\t@echo AR ${dest_abs}
 """
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
+text_gcc_mecocoa += tmp
 tmp += """\t@${LD} -shared -o ${dest_dll} ${dest_obj}-DLL/* -lc"""
 text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp
@@ -234,14 +257,12 @@ text_msv_win64 += tmp
 tmp = """
 
 %.o: %.c
-	@echo "CC $(<)"
+	@echo "CC $(<) with shared"
 	@$(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
-	@echo "CC $(<) (shared)"
 	@$(CC) -fpic $(attr) -c $< -o $(dest_obj)-DLL/$(cplpref)$(notdir $@)
 %.o: %.cpp
-	@echo "CX $(<)"
-	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
-	@echo "CX $(<) (shared)"
+	@echo "CX $(<) with shared"
+	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
 	@$(CX) -fpic $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@)
 
 """
@@ -249,56 +270,30 @@ text_gcc_win32 += tmp
 text_gcc_win64 += tmp
 text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp
+tmp = """
+
+%.o: %.c
+	@echo "CC $(<)"
+	@$(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
+%.o: %.cpp
+	@echo "CX $(<)"
+	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
+
+"""
+text_gcc_mecocoa += tmp
+
+
 
 set_makefile('./lib/make/cgw32.make', text_gcc_win32)
 set_makefile('./lib/make/cgw64.make', text_gcc_win64)
 set_makefile('./lib/make/cvw32.make', text_msv_win32)
 set_makefile('./lib/make/cvw64.make', text_msv_win64)
 set_makefile('./lib/make/cgl32.make', text_gcc_lin32)
+set_makefile('./lib/make/cgmx86.make', text_gcc_mecocoa)
 set_makefile('./lib/make/cgl64.make', text_gcc_lin64)
 text_gcc_win32 = text_gcc_win64 = ""
 text_msv_win32 = text_msv_win64 = ""
-text_gcc_lin32 = text_gcc_lin64 = ""
-
-#{TO MIX with lin(elf)}
-# unisym/lib/make/cgmx86.make --[Linux Distributes, LF]-> -bin/libmx86.a
-# Mecocoa can use Linux format link-library, NOW!
-list_gcc_mecocoa_files = []
-for val in list_asm_free86:
-	list_gcc_mecocoa_files.append("$(asmf) " + val)
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/i8259A.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/delay.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/format/ELF.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/toki/rtclock.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/toki/PIT.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/driver/keyboard.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/task.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/consio.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/console/conformat.c")
-list_gcc_mecocoa_files.append("$(CC32) ${libcdir}/mcore.c")
-text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
-print(text_gcc_mecocoa)
-text_gcc_mecocoa += ".PHONY: all\n"
-text_gcc_mecocoa += """
-libcdir = $(ulibpath)/c
-libadir = $(ulibpath)/asm
-asmattr = -I${uincpath}/Kasha/n_ -I${uincpath}/naasm/n_ -I./include/
-asm  = $(ubinpath)/ELF64/aasm ${asmattr} #OPT: aasm
-asmf = ${asm} -felf
-CC32 = gcc -m32 -c -fno-builtin -fleading-underscore -fno-pic\
- -fno-stack-protector -I$(uincpath)/c -D_MCCA=0x8632
-"""
-text_gcc_mecocoa += "\nall:\n"
-text_gcc_mecocoa += '\t' + "-sudo mkdir -m 777 -p $(uobjpath)/libmx86\n"
-text_gcc_mecocoa += '\t' + "-rm -f $(uobjpath)/libmx86/*.obj\n"
-for i in list_gcc_mecocoa_files:
-	file_path, file_ext = os.path.splitext(i)
-	text_gcc_mecocoa += '\t' + i + " -D_MCCA=0x8632 -o $(uobjpath)/libmx86/mx86_" + file_path.split("/")[-1] + ".obj\n" # for any bit
-text_gcc_mecocoa += '\t' + "-rm $(ubinpath)/libmx86.a\n"
-text_gcc_mecocoa += '\t' + "ar -rcs $(ubinpath)/libmx86.a $(uobjpath)/libmx86/*.obj\n"
-with open('./lib/make/cgmx86.make', 'w+b') as fobj:
-	fobj.write(bytes(text_gcc_mecocoa, encoding = "utf8")) # do not append line-feed
-text_gcc_mecocoa = ""
+text_gcc_lin32 = text_gcc_mecocoa = text_gcc_lin64 = ""
 
 # ---- # ---- # MCUDEV # ---- # ---- #
 
@@ -332,14 +327,19 @@ ODUMP=$(PREF)objdump
 RANLIB=$(PREF)ranlib
 OPATH=$(uobjpath)/$(IDEN)
 
-cppfile=$(wildcard lib/cpp/Device/*.cpp) $(wildcard lib/cpp/Device/**/*.cpp)
+cplfile=$(wildcard lib/c/data/**/*.c) $(wildcard lib/c/console/*.c) lib/c/mcore.c
+cplobjs=$(patsubst %c, %o, $(cplfile))
+cppfile=$(wildcard lib/cpp/Device/*.cpp) $(wildcard lib/cpp/Device/**/*.cpp) $(wildcard lib/cpp/Device/**/**/*.cpp) lib/cpp/color.cpp
 cppfile+= lib/cpp/interrupt.cpp lib/cpp/MCU/$(IDEN).cpp
 cppobjs=$(patsubst %cpp, %o, $(cppfile))
 
-all: init $(cppobjs)
+all: init $(cplobjs) $(cppobjs)
 	@echo AR $(DEST) && ${AR} -rcs $(DEST) $(OPATH)/*
 init:
 	-@test -d $(OPATH) || mkdir -p $(OPATH)
+%.o: %.c
+	@echo CC $(<)
+	@$(CC) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CC) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"	
 %.o: %.cpp
 	@echo CX $(<)
 	@$(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"

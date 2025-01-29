@@ -23,6 +23,7 @@
 #define ModDimensionArith
 
 // no considering header-guard in the caller.
+#if !defined(_MCCA)
 #include <complex.h>
 #include "coear.h"
 
@@ -114,4 +115,5 @@ void NumAcosh(dima* dest);
 
 void NumAtanh(dima* dest);
 
+#endif
 #endif

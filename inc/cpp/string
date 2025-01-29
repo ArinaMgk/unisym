@@ -29,8 +29,10 @@
 #include "cinc"// C Begin
 	#include "../c/ustring.h"
 #include "cinc"// C End
-#include "property"
-// #include <iostream>//{TEMP}
+#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
+	#include "property"
+	// #include <iostream>//{TEMP}
+#endif
 
 /*TODO
  * fit BString
@@ -41,20 +43,26 @@
 //{} Append property-call for += ... operator
 namespace uni {
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
-	class String: public uni::Property<String> {
+	class String
+	#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
+		: public uni::Property<String>
+	#endif 
+	{
 	protected:
-		size_t counts;
+		size_t counts;// effective length, exclude '\0'
 		char* addr;
 		bool no_termi_char;
-		stduint limits;
+		stduint limits;// include '\0'
 		bool allocated;// astring or bstring(non-0)
 	public:
+		void UnsafeSetBuffer(char* str, stduint buffer_siz);
 		// strheap
 		String(const char* str_asciz = "");
 		static String Heap(const String& str) { return String((const char*)(str.addr)); }
 		// class-constructor
 		String(const String& str);
 		// give the [buffer_siz ? buffer : heap-in] string an alias
+		// use this to contain (give an alias to) a string (char*) in heap
 		String(char* str, stduint buffer_siz);
 		// define a heap string with a fixed length
 		String(stduint buflen);
@@ -69,12 +77,14 @@ namespace uni {
 		size_t length();
 		char* reflect(size_t plus = 0);
 		const char* reference() const;
+		bool available() { return allocated || (limits - counts > 1); }
+		bool need_termichar() { return !allocated; }
 
 		String& operator=(const String& str);
 		String& operator=(const char* addr);
 
-		String operator+ (String& str) {
-			return String(StrHeapAppend(this->addr, str.addr));
+		String operator+ (const String& str) {
+			return String(StrHeapAppend(this->addr, str.addr), 0);
 		}
 		String& operator+=(const String& str) {
 			//*this = *this + str;
@@ -97,10 +107,23 @@ namespace uni {
 			return StrCompare(this->addr, s.addr) == 0;
 		}
 
-		char& operator[] (stduint idx) { return addr[idx]; }
+		char& operator[] (stdsint idx) {
+			stduint len = length();
+			if (!len) return addr[0];
+			while (idx < 0) idx += len;
+			return addr[idx];
+		}
 		String& operator<< (char chr);
 
-
+		String& Reheap(char* dest) {
+			if (allocated) {
+				counts = StrLength(dest);
+				limits = 0;
+				srs(addr, dest);
+			}
+			return self;
+		}
+		
 		String& Refresh() {
 			counts = minof(StrLength(addr), limits);
 			return self;
@@ -112,6 +135,12 @@ namespace uni {
 			return self;
 		}
 
+		int Format(const char* fmt, ...);
+
+		String& Replaced(const char* subfirstrom, const char* subto, size_t* times = 0) {
+			return Reheap(StrReplace(addr, subfirstrom, subto, times));
+		}
+
 
 		// [Abandoned]
 		// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }
@@ -120,9 +149,17 @@ namespace uni {
 		// String& operator=(char* addr) { return(self = uni::String(addr)); }
 		// not recommend: provide operator const char*()
 	};//{TODO} option for allocating extra area for chars, aka vec<char>
+
+	//{TODO} Slice_T
+
+	class Slice {
+		stduint address;
+		stduint length;
+	};
 	
 }
 
 typedef class uni::String ustring;
+
 
 #endif // !_INCX_STRING

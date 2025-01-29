@@ -23,7 +23,10 @@
 #include "../../inc/c/msgface.h"
 #include "../../inc/c/stdinc.h"
 #include "../../inc/c/ISO_IEC_STD/stdlib.h"
+
+#if !defined(_MCCA)
 #include <stdio.h>
+#endif
 
 #if defined(_DEBUG) || defined(_dbg)
 

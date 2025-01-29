@@ -25,11 +25,18 @@
 
 namespace uni {
 	String::String(const char* str) {
-		this->counts = StrLength(str);
-		this->addr = (char*)malc(counts + 1);
-		StrCopy(this->addr, str);
+		allocated = str;
+		if (allocated) {
+			this->counts = StrLength(str);
+			this->addr = (char*)malc(counts + 1);
+			StrCopy(this->addr, str);
+		}
+		else {
+			counts = 0;
+			addr = NULL;
+		}
 		limits = 0;
-		allocated = true;
+
 	}
 	String::String(const String& str) {
 		this->addr = StrHeap(str.addr);
@@ -37,10 +44,10 @@ namespace uni {
 		limits = 0;
 		allocated = true;
 	}
-	
+
 	String::String(char* str, stduint buffer_siz) {
 		this->addr = str;
-		this->counts = nil;
+		this->counts = StrLength(this->addr);
 		limits = buffer_siz;
 		allocated = nil == buffer_siz;
 	}
@@ -60,7 +67,11 @@ namespace uni {
 	}
 
 	size_t String::length() {
-		return this->counts;
+		if (!allocated) {
+			Refresh();
+			return counts;
+		}
+		else return counts = StrLength(addr);
 	}
 
 	char* String::reflect(size_t plus) {
@@ -82,7 +93,9 @@ namespace uni {
 			srs(this->addr, StrHeap(str.addr));
 			this->counts = StrLength(this->addr);
 		}
+		#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
 		this->setthen(this);
+		#endif
 		return *this;
 	}
 	
@@ -92,7 +105,9 @@ namespace uni {
 			srs(this->addr, StrHeap(addr));
 			this->counts = StrLength(this->addr);
 		}
+		#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
 		this->setthen(this);
+		#endif
 		return *this;
 	}
 
@@ -109,6 +124,21 @@ namespace uni {
 		}
 		return self;
 	}
+
+
+	int String::Format(const char* fmt, ...) {
+		int ret = 0;
+		Letpara(args, fmt);
+		if (!allocated) ret = outsfmtlstbuf(addr, fmt, args);
+		else {
+			ret = this->counts = outsfmtlstlen(fmt, args);
+			limits = ret + 1;
+			srs(addr, salc(limits));
+			outsfmtlstbuf(addr, fmt, args);
+		}
+		return ret;
+	}
+
 
 	/*[Abandoned]
 	//{TODO} uni::stream

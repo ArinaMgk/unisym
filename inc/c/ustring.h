@@ -132,6 +132,7 @@ char* StrHeapAppendN(const char* dest, const char* sors, size_t n);
 char* StrHeapAppendChars(char* dest, char chr, size_t n);
 
 // [ASTRING]
+// IO times: input pointer to maximum times to replace, output pointer to replaced times
 char* StrReplace(const char* dest, const char* subfirstrom, const char* subto, size_t* times);
 
 // [ASTRING]
@@ -713,6 +714,21 @@ void StrShiftRight8n(void* s, size_t len, size_t n);
 
 // In the direction of the left
 stdint MemCompareRight(const unsigned char* a, const unsigned char* b, size_t n);
+
+// ---- ---- ---- ---- { Buffer } ---- ---- ---- ----
+
+// like sprintf
+int outsfmtbuf(char* buf, const char* fmt, ...);
+// like vsprintf
+int outsfmtlstbuf(char* buf, const char* fmt, para_list lst);
+
+// get the length of the string that would be output by outsfmtbuf
+// excluding the null - terminator.
+// same as the StrLength(ret)
+int outsfmtlstlen(const char* fmt, para_list lst);
+int lensfmt(const char* fmt, ...);
+
+
 
 // ---- ---- ---- ---- { Wide / Multi } ---- ---- ---- ----
 _TODO//#define mbstowcs StrWideFoMulti

@@ -1,7 +1,8 @@
 ; Docutitle: (Bootstrap) for x86
 ; Codifiers: @dosconio: 20240218 ~ 1111 
-; Attribute: Arn-Covenant i386+ Env-Freestanding Non-Dependence
+; Attribute: Arn-Covenant i386+ Env-Freestanding Non-Dependence BIOS/MBR
 ; Copyright: UNISYM, under Apache License 2.0
+; Descriptn: Popular Bootstrap for ATX-PC is UEFI now
 
 %ifdef _BASE_DOS
 	BOOT_ENTRY  EQU 0x1000
@@ -10,13 +11,15 @@
 %endif
 ADDR_STACK  EQU 0x0600
 FAT_BUFFER  EQU 0x0600;~ 0x07FF
-ADDR_KERELF EQU 0x1000
-ADDR_KERNEL EQU 0x1000
+ADDR_KERELF EQU 0x7E00
+ADDR_KERNEL EQU 0x0200
 %ifdef _FLOPPY
 	DRV_ID EQU 0x00
 %else; HARDDISK
 	DRV_ID EQU 0x80
 %endif
+
+;{TODO Solve} Load from Floppy or Harddisk ?
 
 [CPU 386]
 
@@ -31,7 +34,7 @@ ADDR_KERNEL EQU 0x1000
 %include "INT13.a"; Disk BIOS
 ;%include "INT16.a"; Keyboard BIOS
 
-HeadFloppyFAT12 'MECOCOA SYS'; suits for any disk for jump-instruction
+HeadFloppyFAT12 {'MECOCOASYS', DRV_ID}
 
 DefineStack16 0x0000, ADDR_STACK
 MOV AX, BOOT_ENTRY/0x10
@@ -54,7 +57,7 @@ MOV ES, AX
 		;
 		MOV SI, FAT_BUFFER
 		MOV CL, 1
-		CALL ReadFloppy
+		CALL ReadXdisk
 		; Compare Strings
 			CALL lup_seek_compare_call; Check "KER "
 			MOV BYTE[kernel_iden+2], 'X'
@@ -86,7 +89,7 @@ MOV ES, AX
 		MOV CL, 1
 		MOV SI, ADDR_KERELF; ...Debug for 2h
 		load_loop:
-			CALL ReadFloppy
+			CALL ReadXdisk
 			POP AX
 			PUSHA
 			CALL FATGetEntry
@@ -114,7 +117,7 @@ MOV ES, AX
 		ADD AX, _FLOSEC_FAT1_START
 		MOV SI, FAT_BUFFER
 		MOV CL, 2
-		CALL ReadFloppy
+		CALL ReadXdisk
 		ADD SI, DX
 		MOV AX, [ES:SI]
 		MOV CX, BP
@@ -123,12 +126,14 @@ MOV ES, AX
 		;
 		CMP AX, 0xFFF
 		RET
-	ReadFloppy:; PRES[ES] (CL:NoS, SI:Buf, AX:Lin)
-		DiskReadSectors CL, SI, AX, DRV_ID
+	ReadXdisk:; PRES[ES, DL] (CL:NoS, SI:Buf, AX:Lin) Vola(DX)
+		PUSH DX
+		DiskReadSectors CL, SI, AX, [_BS_Vols + 10]; [1]AUTO from hdisk/floppy/...
+		POP DX
 		RET
 	load_endo:
 
-; FLAT OR ELF {TODO SCRIPT AND OTHERS} - (DS=0000)
+; FLAT OR ELF {TODO SCRIPT AND OTHERS} - (DS=0000 after loaded)
 	PUSH ES
 	POP DS
 	MOV BX, [ADDR_KERELF+0x18]; ENTRY
@@ -148,13 +153,13 @@ MOV ES, AX
 		MOV EDI, DWORD[BX+0x08]
 		CMP EDI, ADDR_KERNEL
 		JB  lup_loadkernel_next0
-		REP MOVSB
+		REP MOVSB; assert ECX + EDI < 0x7c00
 		lup_loadkernel_next0: POPA
 	lup_loadkernel_next:
 		ADD  BX, 0x20; SIZEOF PHT
 		LOOP lup_loadkernel
 ; ENTER FLAT-32
-	CMP BYTE[BOOT_ENTRY+kernel_iden+2], 'R'; All SegRegs are 0
+	CMP BYTE[BOOT_ENTRY+kernel_iden+2], 'R'; [2]AUTO KER detected, All SegRegs are 0
 	JZ Retshort
 	EnterFlat: CLI
 	LGDT [ES:0x7c00+gdt]

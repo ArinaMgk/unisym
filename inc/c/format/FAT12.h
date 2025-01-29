@@ -23,6 +23,6 @@
 #ifndef _INC_FAT12
 #define _INC_FAT12
 
-
+//{} use StorageTrait
 
 #endif

@@ -24,6 +24,7 @@
 */
 
 #include "../../../inc/cpp/bnode"
+#if !defined(_MCCA)
 
 namespace uni {
 	void BnodeChain::Traversal(TraversalOrder order, bool (*procfunc)(Bnode*), Bnode* starter) {
@@ -64,4 +65,4 @@ namespace uni {
 		return maxof(leftDepth, rightDepth) + 1;
 	}
 }
-
+#endif

@@ -8,7 +8,9 @@
 ;{TODO} add `x86` in document name;
 
 GLOBAL _OUT_b, _IN_b; out dx, al; in al, dx;
+GLOBAL OUT_b, IN_b;
 GLOBAL _OUT_w, _IN_w; out dx, ax; in ax, dx;
+GLOBAL OUT_w, IN_w;
 
 [CPU 386]
 
@@ -17,6 +19,7 @@ GLOBAL _OUT_w, _IN_w; out dx, ax; in ax, dx;
 ; __fastcall void OUT_b(word Port, word Data);
 ; VOID <<< _OUT_b <<< ECX(DX Port), EDX(AX Data)
 _OUT_b:
+OUT_b:
 ;	XCHG CX, DX
 ;	XCHG CX, AX
 ;	OUT DX, AL
@@ -43,6 +46,7 @@ RET
 ; __fastcall word IN_b(word Port);
 ; BYTE <<< _IN_b <<< ECX(Port)
 _IN_b:
+IN_b:
 ;	XCHG CX, DX
 ;	IN AL, DX
 ;	MOVZX EAX, AL
@@ -65,6 +69,7 @@ RET
 ; __fastcall void OUT_w(word Port, word Data);
 ; VOID <<< _OUT_w <<< ECX(Port), EDX(Data)
 _OUT_w:
+OUT_w:
 ;	XCHG CX, DX
 ;	XCHG CX, AX
 ;	OUT DX, AX
@@ -91,6 +96,7 @@ RET
 ; __fastcall word IN_w(word Port);
 ; WORD <<< _IN_w <<< ECX(Port)
 _IN_w:
+IN_w:
 ;	XCHG CX, DX
 ;	IN AX, DX
 ;	XCHG CX, DX

@@ -129,7 +129,7 @@ static void setModeSub(const RCCPLL& sel, PLLMode mod) {
 	}
 	RCC[PLLxCR[id]].setof(2, mod == PLLMode::SpreadSpectrum);// SSCG_CTRL AKA __HAL_RCC_PLL1/2_SSMODE_xABLE
 	sel.enAble(true); while (true != sel.isReady());
-	RCC[PLLxCR[id]].maset(4, 3, 0b111);// AKA __HAL_RCC_PLLxCLKOUT_ENABLE
+	RCC[PLLxCR[id]].maset(4, 3, 0b111);// AKA __HAL_RCC_PLLxCLKOUT_ENABLE, 0b111 for MSB{R Q P}LSB
 }
 bool RCCPLL::setMode(PLLMode mod, PLL1Source::PLL1SourceType src, PLLPara_t para) const {
 	byte id = getID() - 1;

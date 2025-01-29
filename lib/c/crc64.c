@@ -23,6 +23,8 @@
 #include "../../inc/c/algorithm/hash/crc64.h"
 #include "../../inc/c/binary.h"
 
+#ifndef _MCCA
+
 uint64_t HashCRC64Bytes(const byte* data, size_t length, uint64_t crc, uint64_t polynomial, uint64_t final_xor, int refl)
 {
 	uint64_t remainder = crc;
@@ -60,3 +62,5 @@ uint64_t HashCRC64Endo(uint64_t last, uint64_t final_xor, int refl)
 {
 	return (BitReflect64(64 & refl, last) ^ final_xor);
 }
+
+#endif

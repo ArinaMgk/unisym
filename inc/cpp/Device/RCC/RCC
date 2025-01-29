@@ -43,8 +43,8 @@
 #define _SCC_DEFAULT 8000000
 #endif
 
-extern "C" stduint SystemCoreClock;
-extern "C" stduint SysTickHz;
+extern stduint SystemCoreClock;
+extern stduint SysTickHz;
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 namespace uni {
 	extern const uint8_t AHBPrescTable[16];

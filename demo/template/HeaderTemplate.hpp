@@ -26,22 +26,22 @@
 // #include ".../stdinc.h"
 
 #if defined(_INC_CPP)
-namespace uni {
 extern "C" {
-#else
-#include "ustdbool.h"
 #endif
-
+//: Common Area
 #ifdef _MCU_STM32F1x
 
 #endif
+	
 
 #if defined(_INC_CPP)
 } //: C++ Area
+namespace uni {
 
 
 } //END C++ Area
 #else//: C Area
 
+//END C Area
 #endif
 #endif

@@ -21,6 +21,7 @@
 */
 
 #include "../../../../inc/c/ustring.h"
+#if !defined(_MCCA)
 #include <ctype.h>// na isXType()
 
 // Base on ChrCtz RFV30
@@ -33,3 +34,4 @@ size_t StrDesuffixSpaces(char* str)
 	str[coflen - num] = 0;
 	return num;
 }
+#endif

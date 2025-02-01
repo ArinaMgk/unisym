@@ -77,12 +77,56 @@ typedef struct
 	uint32 NodesCounter;// who are ready for execution
 #ifdef _INC_CPP
 
-#endif	
+#endif
 } SDMMC_DMALinkedList;// AKA SDMMC_DMALinkedListTypeDef;
 
 
 
 // using string::Slice as SDMMC_DMALinkNodeConfTypeDef;
 
+
+// SD_Exported_Types_Group6 SD Card Status returned by ACMD13
+enum class SDMMC_BusWidth : uint32 {
+	Bits1 = 0b00,
+	Bits4 = 0b01,
+	Bits8 = 0b10
+};
+typedef struct {
+	SDMMC_BusWidth  DataBusWidth;  // Shows the currently defined data bus width                 */
+	uint32 ProtectedAreaSize;      // Carries information about the capacity of protected area   */
+	uint16 CardType;               //{TEMP} HALF-DONE
+	uint16 EraseSize;              // Determines the number of AUs to be erased in one operation */
+	uint8  SecuredMode;            // Card is in secured mode of operation                       */
+	uint8  SpeedClass;             // Carries information about the speed class of the card      */
+	uint8  PerformanceMove;        // Carries information about the card's performance move      */
+	uint8  AllocationUnitSize;     // Carries information about the card's allocation unit size  */
+	uint8  EraseTimeout;           // Determines the timeout for any number of AU erase          */
+	uint8  EraseOffset;            // Carries information about the erase offset                 */
+	uint8  UhsSpeedGrade;          // Carries information about the speed grade of UHS card      */
+	uint8  UhsAllocationUnitSize;  // Carries information about the UHS card's allocation unit size  */
+	uint8  VideoSpeedClass;        // Carries information about the Video Speed Class of UHS card    */
+} HAL_SD_CardStatusTypeDef;
+
+enum class HAL_SD_CardStateTypeDef {
+	READY          = 0x00000001U,  /*!< Card state is ready                     */
+	IDENTIFICATION = 0x00000002U,  /*!< Card is in identification state         */
+	STANDBY        = 0x00000003U,  /*!< Card is in standby state                */
+	TRANSFER       = 0x00000004U,  /*!< Card is in transfer state               */
+	SENDING        = 0x00000005U,  /*!< Card is sending an operation            */
+	RECEIVING      = 0x00000006U,  /*!< Card is receiving operation information */
+	PROGRAMMING    = 0x00000007U,  /*!< Card is in programming state            */
+	DISCONNECTED   = 0x00000008U,  /*!< Card is disconnected                    */
+	ERROR          = 0x000000FFU,  /*!< Card response Error                     */
+};
+
+enum class SDMMC_SPEED_MODE {
+	AUTO          = (0x00000000U),
+	DEFAULT       = (0x00000001U),
+	HIGH          = (0x00000002U),
+	ULTRA         = (0x00000003U),
+	ULTRA_SDR104  = ULTRA,
+	DDR           = (0x00000004U),
+	ULTRA_SDR50   = (0x00000005U),
+};
 
 

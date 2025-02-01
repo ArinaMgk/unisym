@@ -76,7 +76,7 @@ namespace uni {
 			SDMMC_CLKSRC clk_src = SDMMC_CLKSRC::HCLK6,
 			bool clock_edge = false,
 			bool powersave_enable = false,
-			byte bus_width = 4,
+			SDMMC_BusWidth bus_width = SDMMC_BusWidth::Bits4,
 			bool hardware_flow_control_enable = false);
 	protected:
 		// AKA HAL_SD_InitCard
@@ -121,18 +121,12 @@ namespace uni {
 			uint32 CardSpeed;
 		} CardInfo;
 	
-		
-		void setClockEdge(bool clock_edge) const;
-		void setClockPowerSave(bool powersave_enable) const;
-		void setBusWide(byte bus_width) const;
-		void setHardwareFlowControl(bool hardware_flow_control_enable) const;
-		void setClockDiv(stduint Init_ClockDiv) const;
 		//
 		// Identify card operating voltage
 		// Enquires cards about their operating voltage and configures clock controls and stores SD information that will be needed in future in the SD handle.
 		bool SD_PowerON(uint32* feedback);
 		bool SD_InitCard(uint32* feedback);
-		bool SDMMC_CmdBlockLength(uint32 BlockSize) const;
+		bool SDMMC_CmdBlockLength(uint32 BlockSize, uint32* feedback = nullptr) const;
 		//
 		bool SDMMC_CmdGoIdleState() const;
 		// 
@@ -207,12 +201,41 @@ namespace uni {
 
 	_Comment("Linked List management functions") protected:
 
-		bool SD_SendSDStatus(uint32* pSDstatus, uint32* feedback);
+		// pSDstatus: Pointer to the buffer that will contain the SD card status SD Status register
+		bool SD_SendSDStatus(uint32* pSDstatus, uint32* write_times, uint32* feedback);
+
+	_Comment("Peripheral Control functions") protected:
+
+		// Gets the SD status info.( shall be called if there is no SD transaction ongoing )
+		bool HAL_SD_GetCardStatus(HAL_SD_CardStatusTypeDef* pStatus, uint32* feedback);
+
+		_TEMP public:
+		bool SD_FindSCR(uint32* pSCR, uint32* feedback);
+		protected:
+		bool SD_WideBus_Enable(bool ena, uint32* feedback);
+
+		// Enables wide bus operation for the requested card if supported by card.
+		bool HAL_SD_ConfigWideBusOperation(bool clock_edge, bool powersave_enable, SDMMC_BusWidth bus_width, bool hardware_flow_control_enable, uint32* feedback);
+
+		// Returns the current card's status
+		bool SD_SendStatus(uint32* pCardStatus, uint32* feedback);
+		// Gets the current sd card data state
+		HAL_SD_CardStateTypeDef HAL_SD_GetCardState();
+
+		// Switches the SD card to High Speed mode.
+		// This API must be used after "Transfer State"; This operation should be followed by the configuration of PLL to have SDMMCCK clock between 25 and 50 MHz
+		// @param  SwitchSpeedMode: SD speed mode( SDMMC_SDR12_SWITCH_PATTERN, SDMMC_SDR25_SWITCH_PATTERN)
+		bool SD_SwitchSpeed(uint32 SwitchSpeedMode, uint32* feedback);
+		// Configure the speed bus mode
+		bool HAL_SD_ConfigSpeedBusOperation(SDMMC_SPEED_MODE SpeedMode);
 
 	public://[debug]
 		inline bool SendCommand(stduint argument, stduint cmdindex, byte response) {
 			return SDMMC_SendCommand(argument, cmdindex, response, WaitForInterrupt_E::None, true);
 		}
+	_TEMP protected:
+		stduint last_ClockDiv;
+			_TEMP public:		stduint temp_ClockDiv;
 	public:
 		// AKA __HAL_RCC_GET_SDMMC1_SOURCE = __HAL_RCC_GET_SDIO_SOURCE
 		SDMMC_CLKSRC getClockSource() const;
@@ -220,6 +243,24 @@ namespace uni {
 		void setClockSource(SDMMC_CLKSRC clk_src) const;
 		// AKA HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SDMMCx)
 		stduint getFrequency() const;
+
+	public:
+		// reg should be set into sel[SDReg::CLKCR] finally
+		inline static void setClockEdge(Reference& reg, bool clock_edge) {
+			reg.setof(16, !clock_edge);// NEGEDGE
+		}
+		inline static void setClockPowerSave(Reference& reg, bool powersave_enable) {
+			reg.setof(12, powersave_enable);// PWRSAV
+		}
+		inline static void setBusWide(Reference& reg, SDMMC_BusWidth bus_width) {
+			reg.maset(14, 2, _IMM(bus_width));// WIDBUS
+		}
+		inline static void setHardwareFlowControl(Reference& reg, bool hardflow_control) {
+			reg.setof(17, hardflow_control);// HWFC_EN
+		}
+		inline static void setClockDiv(Reference& reg, stduint Init_ClockDiv) {
+			reg.maset(0, 10, Init_ClockDiv);// CLKDIV
+		}
 
 	};
 	typedef SecureDigitalCard_t SDCard_t;

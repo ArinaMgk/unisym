@@ -30,6 +30,7 @@
 
 #define bitmatch(bits,mask) (((bits) & (mask)) == (mask))
 #define statin inline static
+#define whenis(x) case(x):// when is
 
 //[refer]
 // - stm32mp13xx_hal_sd.c
@@ -107,26 +108,6 @@ namespace uni {
 	// 
 
 
-	void SecureDigitalCard_t::setClockEdge(bool clock_edge) const {
-		self[SDReg::CLKCR].setof(16, !clock_edge);// NEGEDGE
-	}
-	void SecureDigitalCard_t::setClockPowerSave(bool powersave_enable) const {
-		self[SDReg::CLKCR].setof(12, powersave_enable);// PWRSAV
-	}
-	void SecureDigitalCard_t::setBusWide(byte bus_width) const {
-		if (bus_width == 1)
-			self[SDReg::CLKCR].maset(4, 2, 0b00);// WIDBUS
-		else if (bus_width == 4)
-			self[SDReg::CLKCR].maset(4, 2, 0b01);// WIDBUS
-		else if (bus_width == 8)
-			self[SDReg::CLKCR].maset(4, 2, 0b10);// WIDBUS
-	}
-	void SecureDigitalCard_t::setHardwareFlowControl(bool hardflow_control) const {
-		self[SDReg::CLKCR].setof(17, hardflow_control);// HWFC_EN
-	}
-	void SecureDigitalCard_t::setClockDiv(stduint Init_ClockDiv) const {
-		self[SDReg::CLKCR].maset(0, 10, Init_ClockDiv);// CLKDIV
-	}
 
 	bool SecureDigitalCard_t::SD_PowerON(uint32* feedback) {
 		uint32 error_state;
@@ -292,9 +273,9 @@ namespace uni {
 		asserv(feedback)[0] = SDMMC_ERROR_NONE;
 		return true;
 	}
-	bool SecureDigitalCard_t::SDMMC_CmdBlockLength(uint32 BlockSize) const {
+	bool SecureDigitalCard_t::SDMMC_CmdBlockLength(uint32 BlockSize, uint32* feedback) const {
 		SDMMC_SendCommand(BlockSize, SDMMC_CMD_SET_BLOCKLEN, 0b01, WaitForInterrupt_E::None, true);
-		asrtret(SDMMC_GetCmdResp1(SDMMC_CMD_SET_BLOCKLEN, SDMMC_CMDTIMEOUT, NULL));
+		asrtret(SDMMC_GetCmdResp1(SDMMC_CMD_SET_BLOCKLEN, SDMMC_CMDTIMEOUT, feedback));
 		return true;
 	}
 
@@ -653,17 +634,341 @@ namespace uni {
 		return true;
 	}
 
-
-	bool SecureDigitalCard_t::SD_SendSDStatus(uint32* pSDstatus, uint32* feedback) {
+	
+	bool SecureDigitalCard_t::SD_SendSDStatus(uint32* pSDstatus, uint32* write_times, uint32* feedback) {
+		uint32* pData = pSDstatus;
 		uint32 tickstart = SysTick::getTick();
 
-		_TODO
-			
+		// Check SD response
+		if (bitmatch(SDMMC_GetResponse(self, 1), SDMMC_CARD_LOCKED)) {
+			asserv(feedback)[nil] = SDMMC_ERROR_LOCK_UNLOCK_FAILED;
+			return false;
+		}
+
+		// Set block size for card if it is not equal to current block size for card
+		asrtret(SDMMC_CmdBlockLength(64, feedback));
+		// Send CMD55
+		asrtret(SDMMC_CmdAppCommand(CardInfo.RelCardAdd << 16U, feedback));
+		// Configure the SD DPSM (Data Path State Machine)
+		{
+			SDMMC_DataInitTypeDef config{
+				.DataTimeOut = SDMMC_DATATIMEOUT,
+				.DataLength = 64,
+				.DataBlockSize = 6,// 2^6 is 64B,
+				.TransferDir = SDMMC_DataTransferDir::toSDMMC,
+				.TransferMode = SDMMC_DataTransferMode::Block,
+				.DPSM = true
+			};
+			(void) SDMMC_ConfigData(config);
+		}
+		// Send ACMD13 (SD_APP_STAUS)  with argument as card's RCA
+		asrtret(SDMMC_CmdStatusRegister(feedback));
+		// Get status data
+		uint32 mask = (_IMM1S(5U)) | (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(8U));// (!__HAL_SD_GET_FLAG(hsd, SDMMC_FLAG_RXOVERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DATAEND))
+		while (!(self[SDReg::STA] & mask))
+		{
+			if (self[SDReg::STA].bitof(15)) // FLAG_RXFIFOHF
+			{
+				for0(i, _BYTE_BITS_) {
+					*pData++ = SDMMC_ReadFIFO(self);
+					++ *write_times;
+				}
+			}
+			if (SysTick::getTick() - tickstart > SDMMC_DATATIMEOUT) {
+				asserv(feedback)[nil] = SDMMC_ERROR_TIMEOUT;
+				return false;
+			}
+		}
+		if (self[SDReg::STA].bitof(3)) { // DTIMEOUT
+			asserv(feedback)[nil] = SDMMC_ERROR_DATA_TIMEOUT;
+			return false;
+		}
+		else if (self[SDReg::STA].bitof(1)) { // DCRCFAIL
+			asserv(feedback)[nil] = SDMMC_ERROR_DATA_CRC_FAIL;
+			return false;
+		}
+		else if (self[SDReg::STA].bitof(5)) { // RXOVERR
+			asserv(feedback)[nil] = SDMMC_ERROR_RX_OVERRUN;
+			return false;
+		}
+		while (self[SDReg::STA].bitof(12)) // SDMMC_FLAG_DPSMACT
+		{
+			*pData++ = SDMMC_ReadFIFO(self);
+			++ *write_times;
+			if (SysTick::getTick() - tickstart > SDMMC_DATATIMEOUT) {
+				asserv(feedback)[nil] = SDMMC_ERROR_TIMEOUT;
+				return false;
+			}
+		}
+		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)
+		self[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
+		//
+		asserv(feedback)[nil] = SDMMC_ERROR_NONE;
+		return true;
+	}
+
+	bool SecureDigitalCard_t::HAL_SD_GetCardStatus(HAL_SD_CardStatusTypeDef* pStatus, uint32* feedback) {
+		bool state;
+		uint32 sd_status[16];
+		uint32 tmp = 0;
+		//
+		asserv(feedback)[nil] = SDMMC_ERROR_NONE;
+		//{TODO} check busy
+		state = SD_SendSDStatus(sd_status, &tmp, feedback);
+		if (!state) {
+			// Clear all the static flags
+			// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS)
+			self[SDReg::ICR] = (_IMM1S(0U)) | (_IMM1S(1U)) | (_IMM1S(2U)) |
+				(_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) |
+				(_IMM1S(6U)) | (_IMM1S(7U)) | (_IMM1S(8U)) |
+				(_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) |
+				(_IMM1S(21U)) | (_IMM1S(22U)) | (_IMM1S(23U)) |
+				(_IMM1S(24U)) | (_IMM1S(25U)) | (_IMM1S(26U)) |
+				(_IMM1S(27U)) | (_IMM1S(28U));
+		}
+		else {
+			pStatus->DataBusWidth = SDMMC_BusWidth((sd_status[0] & 0xC0U) >> 6U);
+			pStatus->SecuredMode = ((sd_status[0] & 0x20U) >> 5U);
+			pStatus->CardType = (((sd_status[0] & 0x00FF0000U) >> 8U) | ((sd_status[0] & 0xFF000000U) >> 24U));
+			//{} CardType = (CardType_E)pStatus->CardType;
+			pStatus->ProtectedAreaSize = (((sd_status[1] & 0xFFU) << 24U) | ((sd_status[1] & 0xFF00U) << 8U) |
+				((sd_status[1] & 0xFF0000U) >> 8U) | ((sd_status[1] & 0xFF000000U) >> 24U));
+			pStatus->SpeedClass = (sd_status[2] & 0xFFU);
+			pStatus->PerformanceMove = ((sd_status[2] & 0xFF00U) >> 8U);
+			pStatus->AllocationUnitSize = ((sd_status[2] & 0xF00000U) >> 20U);
+			pStatus->EraseSize = (((sd_status[2] & 0xFF000000U) >> 16U) | (sd_status[3] & 0xFFU));
+			pStatus->EraseTimeout = ((sd_status[3] & 0xFC00U) >> 10U);
+			pStatus->EraseOffset = ((sd_status[3] & 0x0300U) >> 8U);
+			pStatus->UhsSpeedGrade = ((sd_status[3] & 0x00F0U) >> 4U);
+			pStatus->UhsAllocationUnitSize = (sd_status[3] & 0x000FU);
+			pStatus->VideoSpeedClass = ((sd_status[4] & 0xFF000000U) >> 24U);
+		}
+		// Set Block Size for Card
+		if (!SDMMC_CmdBlockLength(BLOCKSIZE, feedback)) {
+			// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS)
+			self[SDReg::ICR] = (_IMM1S(0U)) | (_IMM1S(1U)) | (_IMM1S(2U)) |
+				(_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) |
+				(_IMM1S(6U)) | (_IMM1S(7U)) | (_IMM1S(8U)) |
+				(_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) |
+				(_IMM1S(21U)) | (_IMM1S(22U)) | (_IMM1S(23U)) |
+				(_IMM1S(24U)) | (_IMM1S(25U)) | (_IMM1S(26U)) |
+				(_IMM1S(27U)) | (_IMM1S(28U));
+			return false;
+		}
+		return state;
+	}
+
+	// Finds the SD card SCR register value
+	bool SecureDigitalCard_t::SD_FindSCR(uint32* pSCR, uint32* feedback) {
+		uint32 tickstart = SysTick::getTick();
+		uint32 index = 0U;
+		uint32 tempscr[2U] = { 0UL, 0UL };
+		uint32* scr = pSCR;
+		// Set Block Size To 8 Bytes
+		asrtret(SDMMC_CmdBlockLength(8, feedback));
+		// Send CMD55 APP_CMD with argument as card's RCA
+		asrtret(SDMMC_CmdAppCommand(CardInfo.RelCardAdd << 16, feedback));
+		{
+			SDMMC_DataInitTypeDef config{
+				.DataTimeOut = SDMMC_DATATIMEOUT,
+				.DataLength = 8,
+				.DataBlockSize = 3,// 2^3 is 8B,
+				.TransferDir = SDMMC_DataTransferDir::toSDMMC,
+				.TransferMode = SDMMC_DataTransferMode::Block,
+				.DPSM = true
+			};
+			(void)SDMMC_ConfigData(config);
+		}
+		// Send ACMD51 SD_APP_SEND_SCR with argument as 0
+		asrtret(SDMMC_CmdSendSCR(feedback));
+		while (!(self[SDReg::STA] & (((_IMM1S(5U)) | (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(10U)) | (_IMM1S(8U))))))// !__HAL_SD_GET_FLAG(hsd, SDMMC_FLAG_RXOVERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DBCKEND | SDMMC_FLAG_DATAEND)
+		{
+			if (!self[SDReg::STA].bitof(19) // RXFIFOE
+				&& (index == 0U)) {
+				tempscr[0] = SDMMC_ReadFIFO(self);
+				tempscr[1] = SDMMC_ReadFIFO(self);
+				index++;
+			}
+			if (SysTick::getTick() - tickstart > SDMMC_DATATIMEOUT) {
+			    asserv(feedback)[nil] = SDMMC_ERROR_TIMEOUT;
+				return false;
+			}
+		}
+		if (self[SDReg::STA].bitof(3)) { // DTIMEOUT
+			asserv(feedback)[nil] = SDMMC_ERROR_DATA_TIMEOUT;
+			return false;
+		}
+		else if (self[SDReg::STA].bitof(1)) { // DCRCFAIL
+			asserv(feedback)[nil] = SDMMC_ERROR_DATA_CRC_FAIL;
+			return false;
+		}
+		else if (self[SDReg::STA].bitof(5)) { // RXOVERR
+			asserv(feedback)[nil] = SDMMC_ERROR_RX_OVERRUN;
+			return false;
+		}
+		else {
+			// No error flag set, Clear all the static flags
+			// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)
+			self[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
+			*scr = (((tempscr[1] & SDMMC_0TO7BITS) << 24U) | ((tempscr[1] & SDMMC_8TO15BITS) << 8U) | ((tempscr[1] & SDMMC_16TO23BITS) >> 8U) | ((tempscr[1] & SDMMC_24TO31BITS) >> 24U));
+			scr++;
+			*scr = (((tempscr[0] & SDMMC_0TO7BITS) << 24U) | ((tempscr[0] & SDMMC_8TO15BITS) << 8U) | ((tempscr[0] & SDMMC_16TO23BITS) >> 8U) | ((tempscr[0] & SDMMC_24TO31BITS) >> 24U));
+		}
+		asserv(feedback)[nil] = SDMMC_ERROR_NONE;
+		return true;
+	}
+	
+	// Enable/Disable the SDMMC wide bus mode.
+	bool SecureDigitalCard_t::SD_WideBus_Enable(bool ena, uint32* feedback) {
+		uint32 scr[2U] = { 0UL, 0UL };
+		if (bitmatch(SDMMC_GetResponse(self, 1), SDMMC_CARD_LOCKED)) {
+			return SDMMC_ERROR_LOCK_UNLOCK_FAILED;
+		}
+		// Get SCR Register
+		asrtret(SD_FindSCR(scr, feedback));
+		if (ena) {
+			// If requested card supports wide bus operation
+			if (scr[1U] & SDMMC_WIDE_BUS_SUPPORT) {
+				// Send CMD55 APP_CMD with argument as card's RCA
+				asrtret(SDMMC_CmdAppCommand(CardInfo.RelCardAdd << 16, feedback));
+				// Send ACMD6 APP_CMD with argument as 2 for wide bus mode
+				asrtret(SDMMC_CmdBusWidth(2, feedback));
+			}
+			else {
+				asserv(feedback)[nil] = SDMMC_ERROR_REQUEST_NOT_APPLICABLE;
+				return false;
+			}
+		}
+		else {
+			// If requested card supports 1 bit mode operation
+			if (scr[1U] & SDMMC_SINGLE_BUS_SUPPORT) {
+				// Send CMD55 APP_CMD with argument as card's RCA
+				asrtret(SDMMC_CmdAppCommand(CardInfo.RelCardAdd << 16, feedback));
+				// Send ACMD6 APP_CMD with argument as 0 for single bus mode
+				asrtret(SDMMC_CmdBusWidth(0, feedback));
+			}
+			else {
+				asserv(feedback)[nil] = SDMMC_ERROR_REQUEST_NOT_APPLICABLE;
+				return false;
+			}
+		}
+		asserv(feedback)[nil] = SDMMC_ERROR_NONE;
+		return true;
+	}
+	
+	bool SecureDigitalCard_t::HAL_SD_ConfigWideBusOperation(bool clock_edge, bool powersave_enable, SDMMC_BusWidth bus_width, bool hardware_flow_control_enable, uint32* feedback) {
+		//{} Busy Check
+		uint32 tempback = nil;
+		if (!feedback) feedback = &tempback;
+		if (CardType != CardType_E::SECURED) switch (bus_width) {
+			whenis(SDMMC_BusWidth::Bits8)
+			{
+				(feedback)[nil] = SDMMC_ERROR_UNSUPPORTED_FEATURE;
+				break;
+			}
+			whenis(SDMMC_BusWidth::Bits4)
+			{
+				SD_WideBus_Enable(true, feedback);
+				break;
+			}
+			whenis(SDMMC_BusWidth::Bits1)
+			{
+				SD_WideBus_Enable(false, feedback);
+				break;
+			}
+		default:
+			(feedback)[nil] = SDMMC_ERROR_INVALID_PARAMETER;
+			break;
+		}
+		else {
+			// SD Card does not support this feature
+			(feedback)[nil] = SDMMC_ERROR_UNSUPPORTED_FEATURE;
+			return false;
+		}
+
+		bool state;
+		uint32 sdmmc_clk = 0U;
+		if (feedback[nil] != SDMMC_ERROR_NONE) {
+			// Clear all the static flags
+			// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS)
+			self[SDReg::ICR] = (_IMM1S(0U)) | (_IMM1S(1U)) | (_IMM1S(2U)) |
+				(_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) |
+				(_IMM1S(6U)) | (_IMM1S(7U)) | (_IMM1S(8U)) |
+				(_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) |
+				(_IMM1S(21U)) | (_IMM1S(22U)) | (_IMM1S(23U)) |
+				(_IMM1S(24U)) | (_IMM1S(25U)) | (_IMM1S(26U)) |
+				(_IMM1S(27U)) | (_IMM1S(28U));
+			state = false;
+		}
+		else if (sdmmc_clk = getFrequency()) {
+			stduint this_ClockDiv;
+			// Check if user Clock div < Normal speed 25Mhz, no change in Clockdiv
+			// or UltraHigh speed SD card,user Clock div
+			if (last_ClockDiv >= (sdmmc_clk / (2U * SD_NORMAL_SPEED_FREQ)) ||
+				CardInfo.CardSpeed == CARD_ULTRA_HIGH_SPEED)
+				this_ClockDiv = last_ClockDiv;
+			else if (CardInfo.CardSpeed == CARD_HIGH_SPEED) {
+				// High speed SD card, Max Frequency = 50Mhz
+				if (!last_ClockDiv) {
+					this_ClockDiv = (sdmmc_clk > SD_HIGH_SPEED_FREQ) ? sdmmc_clk / (2U * SD_HIGH_SPEED_FREQ) : last_ClockDiv;
+				}
+				else {
+					this_ClockDiv = ((sdmmc_clk / (2U * last_ClockDiv)) > SD_HIGH_SPEED_FREQ) ? sdmmc_clk / (2U * SD_HIGH_SPEED_FREQ) : last_ClockDiv;
+				}
+			}
+			else {
+				// No High speed SD card, Max Frequency = 25Mhz
+				if (!last_ClockDiv) {
+					this_ClockDiv = (sdmmc_clk > SD_NORMAL_SPEED_FREQ) ? sdmmc_clk / (2U * SD_NORMAL_SPEED_FREQ) : last_ClockDiv;
+				}
+				else {
+					this_ClockDiv = ((sdmmc_clk / (2U * last_ClockDiv)) > SD_NORMAL_SPEED_FREQ) ? sdmmc_clk / (2U * SD_NORMAL_SPEED_FREQ) : last_ClockDiv;
+				}
+			}
+		#if (USE_SD_TRANSCEIVER != 0U)
+			Init.TranceiverPresent = hsd->Init.TranceiverPresent;
+		#endif
+			// SDMMC_Init (partial)
+			{
+				_TEMP temp_ClockDiv = this_ClockDiv;
+				Reflocal(clkcr) = self[SDReg::CLKCR] & (~((((0x3FFUL << (0U)) | (0x1UL << (12U)) | (0x3UL << (14U)) | (0x1UL << (16U)) | (0x1UL << (17U)) | (0x1UL << (18U)) | (0x1UL << (19U)) | (0x3UL << (20U))))));
+				setBusWide(clkcr, bus_width);
+				setClockDiv(clkcr, last_ClockDiv = this_ClockDiv);
+				setClockEdge(clkcr, clock_edge);
+				setClockPowerSave(clkcr, powersave_enable);
+				setHardwareFlowControl(clkcr, hardware_flow_control_enable);
+				self[SDReg::CLKCR] = clkcr;
+			}
+		}
+		// Set Block Size for Card
+		if (!SDMMC_CmdBlockLength(BLOCKSIZE, feedback)) {
+			// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS)
+			self[SDReg::ICR] = (_IMM1S(0U)) | (_IMM1S(1U)) | (_IMM1S(2U)) |
+				(_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) |
+				(_IMM1S(6U)) | (_IMM1S(7U)) | (_IMM1S(8U)) |
+				(_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) |
+				(_IMM1S(21U)) | (_IMM1S(22U)) | (_IMM1S(23U)) |
+				(_IMM1S(24U)) | (_IMM1S(25U)) | (_IMM1S(26U)) |
+				(_IMM1S(27U)) | (_IMM1S(28U));
+		}
+		return state;
 	}
 
 
-
-
+	bool SecureDigitalCard_t::SD_SendStatus(uint32* pCardStatus, uint32* feedback) {
+		// Send Status command
+		asrtret(SDMMC_CmdSendStatus(CardInfo.RelCardAdd << 16, feedback));
+		*pCardStatus = SDMMC_GetResponse(self, 1);
+		return true;
+	}
+	HAL_SD_CardStateTypeDef SecureDigitalCard_t::HAL_SD_GetCardState() {
+		uint32 cardstate;
+		uint32 errorstate;
+		uint32 resp1 = 0;
+		errorstate = SD_SendStatus(&resp1, &errorstate);
+		cardstate = ((resp1 >> 9U) & 0x0FU);
+		return (HAL_SD_CardStateTypeDef)cardstate;
+	}
 
 
 #endif

@@ -76,13 +76,14 @@ typedef struct
 	SDMMC_DMALinkNode* pTailNode;
 	uint32 NodesCounter;// who are ready for execution
 #ifdef _INC_CPP
-
+	//{} Methods
 #endif
 } SDMMC_DMALinkedList;// AKA SDMMC_DMALinkedListTypeDef;
 
 
 
 // using string::Slice as SDMMC_DMALinkNodeConfTypeDef;
+//{TODO} Dnode and DChain
 
 
 // SD_Exported_Types_Group6 SD Card Status returned by ACMD13

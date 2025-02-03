@@ -95,7 +95,9 @@ namespace uni {
 		return frequency;
 	}
 
-
+	bool SecureDigitalCard_t::Read(stduint BlockIden, void* Dest) {
+		
+	}
 
 
 #endif

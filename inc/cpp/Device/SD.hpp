@@ -58,13 +58,14 @@ namespace uni {
 		byte SDMMC_ID;
 		bool Inner_Rupt_Handler;
 	public:
+		pureptr_t roleaddr;// for operator[](uint64 bytid)
 		SecureDigitalCard_t(byte _SDMMC_ID) : SDMMC_ID(_SDMMC_ID) {}
 		byte getID() const { return SDMMC_ID; }
 		Reference operator[](SDReg idx) const;
 		// ---- StorageTrait ----
 		// - stduint Block_Size;
 		// - void* Block_buffer;
-		virtual bool Read(stduint BlockIden, void* Dest) { return false; }
+		virtual bool Read(stduint BlockIden, void* Dest);
 		virtual bool Write(stduint BlockIden, const void* Sors) { return false; }//{unchecked}
 		virtual byte operator[](uint64 bytid) { return false; }// byte read
 		// ---- RuptTrait ----
@@ -199,10 +200,54 @@ namespace uni {
 		//
 		bool SDMMC_ConfigData(const SDMMC_DataInitTypeDef& Data);
 
-	_Comment("Linked List management functions") protected:
+
+		
+	_Comment("Chores") protected:
 
 		// pSDstatus: Pointer to the buffer that will contain the SD card status SD Status register
 		bool SD_SendSDStatus(uint32* pSDstatus, uint32* write_times, uint32* feedback);
+
+	_Comment("Linked List functions") public:
+
+		// AKA HAL_SDEx_DMALinkedList_BuildNode
+		void SDMMC_DMALinkedList_BuildNode(SDMMC_DMALinkNode* pNode, Slice* pNodeConf)
+		{
+			uint32&& SDMMC_IDMALAR_ULS = _IMM1S(30);
+			uint32&& SDMMC_IDMALAR_ABR = _IMM1S(29);
+			if ((!pNode) || (!pNodeConf)) return;
+			pNode->IDMABASER = pNodeConf->address;
+			pNode->IDMABSIZE = pNodeConf->length;
+			pNode->IDMALAR = SDMMC_IDMALAR_ULS | SDMMC_IDMALAR_ABR;
+		}
+
+		// AKA HAL_SDEx_DMALinkedList_InsertNode = SDMMC_DMALinkedList_InsertNode
+		bool SDMMC_DMALinkedList_InsertNode(SDMMC_DMALinkedList* pLinkedList, SDMMC_DMALinkNode* pPrevNode, SDMMC_DMALinkNode* pNode);
+
+		// AKA HAL_SDEx_DMALinkedList_RemoveNode
+		bool SDMMC_DMALinkedList_RemoveNode(SDMMC_DMALinkedList* pLinkedList, SDMMC_DMALinkNode* pNode);
+
+		// AKA HAL_SDEx_...
+		void SDMMC_DMALinkedList_LockNode(SDMMC_DMALinkNode* pNode) {
+			Reference(&pNode->IDMALAR).setof(29, false); // ABR
+		}
+		void SDMMC_DMALinkedList_UnlockNode(SDMMC_DMALinkNode* pNode) {
+			Reference(&pNode->IDMALAR).setof(29, true); // ABR
+		}
+
+		// enable/disable circular mode
+		// AKA HAL_SDEx_DMALinkedList_EnableCircularMode or HAL_SDEx_DMALinkedList_DisableCircularMode
+		void SDMMC_DMALinkedList_EnableCircularMode(SDMMC_DMALinkedList* pLinkedList, bool ena = true) {
+			Reference(&pLinkedList->pTailNode->IDMALAR).setof(31, ena); // ULA
+			if (ena) {
+				Reference(&pLinkedList->pTailNode->IDMALAR).maset(2, 14, nil);// IDMALA
+			}
+		}
+
+		// Reads block(s) from a specified address in a card. The received Data will be stored in linked list buffers.  linked list should be prepared before call this function .
+		bool HAL_SDEx_DMALinkedList_ReadBlocks(SDMMC_DMALinkedList* pLinkedList, uint32 BlockAddr, uint32 NumberOfBlocks, uint32* feedback = nullptr);
+
+		// Write block(s) to a specified address in a card. The transferred Data are stored linked list nodes buffers .  linked list should be prepared before call this function 
+		bool HAL_SDEx_DMALinkedList_WriteBlocks(SDMMC_DMALinkedList* pLinkedList, uint32 BlockAddr, uint32 NumberOfBlocks, uint32* feedback = nullptr);
 
 	_Comment("Peripheral Control functions") protected:
 

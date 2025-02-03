@@ -153,6 +153,7 @@ namespace uni {
 	//{TODO} Slice_T
 
 	class Slice {
+	public:
 		stduint address;
 		stduint length;
 	};

@@ -176,7 +176,7 @@ namespace uni {
 		self[SDReg::IDMACTRL] = 0b11; // SDMMC_ENABLE_IDMA_DOUBLE_BUFF0;
 
 		// Read Blocks in DMA mode
-		//{} self.Context = (SD_CONTEXT_READ_MULTIPLE_BLOCK | SD_CONTEXT_DMA);
+		self.Context = (SDContext ::READ_MULTIPLE_BLOCK_DMA);
 
 		asrtret(SDMMC_CmdReadMultiBlock(add, feedback));
 
@@ -241,7 +241,7 @@ namespace uni {
 		self[SDReg::IDMACTRL] = 0b11; // SDMMC_ENABLE_IDMA_DOUBLE_BUFF0;
 
 		// Write Blocks in DMA mode
-		//{} self.Context = (SD_CONTEXT_WRITE_MULTIPLE_BLOCK | SD_CONTEXT_DMA);
+		Context = (SDContext ::WRITE_MULTIPLE_BLOCK_DMA);
 
 		asrtret(SDMMC_CmdWriteMultiBlock(add, feedback));
 

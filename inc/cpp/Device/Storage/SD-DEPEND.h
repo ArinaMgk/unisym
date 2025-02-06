@@ -42,6 +42,21 @@ typedef struct
 	uint8  Reserved4;            // Always 1
 } HAL_SD_CardCSDTypeDef;
 
+// Card Identification Data: CID Register
+typedef struct
+{
+	uint8_t  ManufacturerID;  // Manufacturer ID
+	uint16_t OEM_AppliID;     // OEM/Application ID
+	uint32_t ProdName1;       // Product Name part1
+	uint8_t  ProdName2;       // Product Name part2
+	uint8_t  ProdRev;         // Product Revision
+	uint32_t ProdSN;          // Product Serial Number
+	uint8_t  Reserved1;       // Reserved1
+	uint16_t ManufactDate;    // Manufacturing Date
+	uint8_t  CID_CRC;         // CID CRC
+	uint8_t  Reserved2;       // Always 1
+} HAL_SD_CardCIDTypeDef;
+
 // SDMMC Data Control structure
 enum class SDMMC_DataTransferDir {
 	toCard = 0,
@@ -131,3 +146,24 @@ enum class SDMMC_SPEED_MODE {
 };
 
 
+enum class SDContext {
+	NONE                 = 0x00000000U, // None
+	IT                   = 0x00000008U, // Process in Interrupt mode
+	DMA                  = 0x00000080U, // Process in DMA mode
+	// Read single block operation
+	READ_SINGLE_BLOCK    = 0x00000001U,
+	READ_SINGLE_BLOCK_IT = READ_SINGLE_BLOCK | IT,
+	READ_SINGLE_BLOCK_DMA = READ_SINGLE_BLOCK | DMA,
+	// Read multiple blocks operatio
+	READ_MULTIPLE_BLOCK  = 0x00000002U,
+	READ_MULTIPLE_BLOCK_IT  =  READ_MULTIPLE_BLOCK | IT,
+	READ_MULTIPLE_BLOCK_DMA  =  READ_MULTIPLE_BLOCK | DMA,
+	// Write single block operation
+	WRITE_SINGLE_BLOCK   = 0x00000010U,
+	WRITE_SINGLE_BLOCK_IT   = WRITE_SINGLE_BLOCK | IT,
+	WRITE_SINGLE_BLOCK_DMA   = WRITE_SINGLE_BLOCK | DMA,
+	// Write multiple blocks operation
+	WRITE_MULTIPLE_BLOCK = 0x00000020U,
+	WRITE_MULTIPLE_BLOCK_IT = WRITE_MULTIPLE_BLOCK | IT,
+	WRITE_MULTIPLE_BLOCK_DMA = WRITE_MULTIPLE_BLOCK | DMA,
+};

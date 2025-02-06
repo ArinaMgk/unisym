@@ -29,6 +29,9 @@
 
 #define BLOCKSIZE 512
 
+#define bitmatch(bits,mask) (((bits) & (mask)) == (mask))
+#define statin inline static
+
 #define SD_INIT_FREQ           400000U // Initialization phase : 400 kHz max
 #define SD_NORMAL_SPEED_FREQ 25000000U // Normal speed phase : 25 MHz max
 #define SD_HIGH_SPEED_FREQ   50000000U // High speed phase : 50 MHz max
@@ -37,12 +40,16 @@
 #define SDMMC_MAXERASETIMEOUT              ((uint32_t)63000U)     // Max erase Timeout 63 s
 #define SDMMC_STOPTRANSFERTIMEOUT          ((uint32_t)100000000U) // Timeout for STOP TRANSMISSION command
 
-extern "C" int  outsfmt0(const char* fmt, ...);
-
 namespace uni {
 #if defined(_MPU_STM32MP13)
 #include "../../../../../inc/cpp/Device/Storage/SD-PARA.h"
 
+	// Set SDMMC Power state to OFF
+	// AKA SD_PowerOFF
+	statin void SDMMC_PowerState_OFF(const SecureDigitalCard_t& sd) {
+		sd[SDReg::POWER].maset(0, 2, nil);// PWRCTRL
+	}
+	
 	// AKA HAL_SD_Init + HAL_SD_ConfigSpeedBusOperation
 	// refer SDMMC_InitTypeDef
 	//[pres]
@@ -51,6 +58,10 @@ namespace uni {
 	bool SecureDigitalCard_t::setMode(SDMMC_CLKSRC clk_src, bool clock_edge, bool powersave_enable, SDMMC_BusWidth bus_width, bool hardware_flow_control_enable) {
 		byte _id = getID() - 1;
 		asrtret(_id < 2);
+		//
+		//{?} BSP_IOEXPANDER_Init(0, IOEXPANDER_IO_MODE);
+		//{?} LL_ETZPC_SetSecureSysRamSize(ETZPC, 0); after __HAL_RCC_TZC_CLK_ENABLE
+		//
 		//{TODO} USE_SD_TRANSCEIVER and then [TranceiverPresent] needed.
 		//{TODO} SDMMC2
 		//{TEMP} self.ClockDiv = SDMMC_NSPEED_CLK_DIV;
@@ -111,7 +122,7 @@ namespace uni {
 		asrtret(HAL_SD_ConfigWideBusOperation(clock_edge, powersave_enable, bus_width, hardware_flow_control_enable, NULL));
 		// Verify that SD card is ready to use after Initialization
 		while ((HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER));
-		//{may-use} hsd->Context = SD_CONTEXT_NONE;
+		Context = SDContext::NONE;
 		asrtret (HAL_SD_ConfigSpeedBusOperation(SDMMC_SPEED_MODE::HIGH));// Try to switch to High Speed Mode , if supported by the card
 		return true;
 	}
@@ -130,9 +141,9 @@ namespace uni {
 	#if (USE_SD_TRANSCEIVER != 0U)//{TEMP} no-use
 		Init.TranceiverPresent = hsd->Init.TranceiverPresent;
 		if (hsd->Init.TranceiverPresent == SDMMC_TRANSCEIVER_PRESENT)
-			hsd->Instance->POWER |= SDMMC_POWER_DIRPOL;
+			self[SDReg::POWER |= SDMMC_POWER_DIRPOL;
 	#elif defined (USE_SD_DIRPOL)//{TEMP} no-use
-		hsd->Instance->POWER |= SDMMC_POWER_DIRPOL;
+		self[SDReg::POWER |= SDMMC_POWER_DIRPOL;
 	#endif /* USE_SD_TRANSCEIVER  */
 		// AKA SDMMC_Init, Initialize SDMMC peripheral interface with default configuration
 		{
@@ -165,7 +176,26 @@ namespace uni {
 		return true;
 	}
 
-
+	bool SecureDigitalCard_t::canMode() {
+	#if (USE_SD_TRANSCEIVER != 0U)//{TODO}
+		// Deactivate the 1.8V Mode */
+		if (hsd->Init.TranceiverPresent == SDMMC_TRANSCEIVER_PRESENT)
+		{
+		#if defined (USE_HAL_SD_REGISTER_CALLBACKS) && (USE_HAL_SD_REGISTER_CALLBACKS == 1U)
+			if (hsd->DriveTransceiver_1_8V_Callback == NULL)
+			{
+				hsd->DriveTransceiver_1_8V_Callback = HAL_SD_DriveTransceiver_1_8V_Callback;
+			}
+			hsd->DriveTransceiver_1_8V_Callback(RESET);
+		#else
+			HAL_SD_DriveTransceiver_1_8V_Callback(RESET);
+		#endif // USE_HAL_SD_REGISTER_CALLBACKS
+		}
+	#endif // USE_SD_TRANSCEIVER
+		SDMMC_PowerState_OFF(self);
+		//{} DeInitCallback
+		return true;
+	}
 
 #endif
 }

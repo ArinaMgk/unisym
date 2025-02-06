@@ -127,11 +127,11 @@ namespace uni {
 				if ((hsd->SdCard.CardSpeed == CARD_ULTRA_HIGH_SPEED) ||
 					(hsd->SdCard.CardType == CARD_SDHC_SDXC))
 				{
-					hsd->Instance->CLKCR |= SDMMC_CLKCR_BUSSPEED;
+					self[SDReg::CLKCR |= SDMMC_CLKCR_BUSSPEED;
 					/* Enable Ultra High Speed */
-					if (SD_UltraHighSpeed(hsd, SDMMC_SDR104_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+					if (SD_UltraHighSpeed(hsd, SDMMC_SDR104_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 					{
-						if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+						if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 						{
 							hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 							status = HAL_ERROR;
@@ -141,7 +141,7 @@ namespace uni {
 				else if (hsd->SdCard.CardSpeed == CARD_HIGH_SPEED)
 				{
 				  /* Enable High Speed */
-					if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+					if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 					{
 						hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 						status = HAL_ERROR;
@@ -156,12 +156,12 @@ namespace uni {
 					(hsd->SdCard.CardType == CARD_SDHC_SDXC))
 				{
 				  /* Enable UltraHigh Speed */
-					if (SD_UltraHighSpeed(hsd, SDMMC_SDR104_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+					if (SD_UltraHighSpeed(hsd, SDMMC_SDR104_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 					{
 						hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 						status = HAL_ERROR;
 					}
-					hsd->Instance->CLKCR |= SDMMC_CLKCR_BUSSPEED;
+					self[SDReg::CLKCR |= SDMMC_CLKCR_BUSSPEED;
 				}
 				else
 				{
@@ -176,12 +176,12 @@ namespace uni {
 					(hsd->SdCard.CardType == CARD_SDHC_SDXC))
 				{
 				  /* Enable UltraHigh Speed */
-					if (SD_UltraHighSpeed(hsd, SDMMC_SDR50_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+					if (SD_UltraHighSpeed(hsd, SDMMC_SDR50_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 					{
 						hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 						status = HAL_ERROR;
 					}
-					hsd->Instance->CLKCR |= SDMMC_CLKCR_BUSSPEED;
+					self[SDReg::CLKCR |= SDMMC_CLKCR_BUSSPEED;
 				}
 				else
 				{
@@ -196,12 +196,12 @@ namespace uni {
 					(hsd->SdCard.CardType == CARD_SDHC_SDXC))
 				{
 				  /* Enable DDR Mode*/
-					if (SD_DDR_Mode(hsd) != HAL_SD_ERROR_NONE)
+					if (SD_DDR_Mode(hsd) != SDMMC_ERROR_NONE)
 					{
 						hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 						status = HAL_ERROR;
 					}
-					hsd->Instance->CLKCR |= SDMMC_CLKCR_BUSSPEED | SDMMC_CLKCR_DDR;
+					self[SDReg::CLKCR |= SDMMC_CLKCR_BUSSPEED | SDMMC_CLKCR_DDR;
 				}
 				else
 				{
@@ -217,7 +217,7 @@ namespace uni {
 					(hsd->SdCard.CardType == CARD_SDHC_SDXC))
 				{
 				  /* Enable High Speed */
-					if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+					if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 					{
 						hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 						status = HAL_ERROR;
@@ -233,7 +233,7 @@ namespace uni {
 			case SDMMC_SPEED_MODE_DEFAULT:
 			{
 			  /* Switch to default Speed */
-				if (SD_SwitchSpeed(hsd, SDMMC_SDR12_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+				if (SD_SwitchSpeed(hsd, SDMMC_SDR12_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 				{
 					hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 					status = HAL_ERROR;
@@ -258,7 +258,7 @@ namespace uni {
 					(hsd->SdCard.CardType == CARD_SDHC_SDXC))
 				{
 				  /* Enable High Speed */
-					if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+					if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 					{
 						hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 						status = HAL_ERROR;
@@ -277,7 +277,7 @@ namespace uni {
 					(hsd->SdCard.CardType == CARD_SDHC_SDXC))
 				{
 				  /* Enable High Speed */
-					if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+					if (SD_SwitchSpeed(hsd, SDMMC_SDR25_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 					{
 						hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 						status = HAL_ERROR;
@@ -293,7 +293,7 @@ namespace uni {
 			case SDMMC_SPEED_MODE_DEFAULT:
 			{
 			  /* Switch to default Speed */
-				if (SD_SwitchSpeed(hsd, SDMMC_SDR12_SWITCH_PATTERN) != HAL_SD_ERROR_NONE)
+				if (SD_SwitchSpeed(hsd, SDMMC_SDR12_SWITCH_PATTERN) != SDMMC_ERROR_NONE)
 				{
 					hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 					status = HAL_ERROR;

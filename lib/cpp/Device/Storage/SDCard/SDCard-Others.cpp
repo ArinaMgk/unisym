@@ -84,6 +84,7 @@ namespace uni {
 		sd[SDReg::POWER].setof(1, true);// PWRCTRL b1
 	}
 	// Set SDMMC Power state to OFF
+	// AKA SD_PowerOFF
 	statin void SDMMC_PowerState_OFF(const SecureDigitalCard_t& sd) {
 		sd[SDReg::POWER].maset(0, 2, nil);// PWRCTRL
 	}
@@ -164,22 +165,22 @@ namespace uni {
 				{
 					hsd->SdCard.CardSpeed = CARD_ULTRA_HIGH_SPEED;
 					// Start switching procedue
-					hsd->Instance->POWER |= SDMMC_POWER_VSWITCHEN;
+					self[SDReg::POWER |= SDMMC_POWER_VSWITCHEN;
 					// Send CMD11 to switch 1.8V mode
 					errorstate = SDMMC_CmdVoltageSwitch(hsd->Instance);
-					if (errorstate != HAL_SD_ERROR_NONE) return errorstate;
+					if (errorstate != SDMMC_ERROR_NONE) return errorstate;
 					// Check to CKSTOP
-					while ((hsd->Instance->STA & SDMMC_FLAG_CKSTOP) != SDMMC_FLAG_CKSTOP)
+					while ((self[SDReg::STA & SDMMC_FLAG_CKSTOP) != SDMMC_FLAG_CKSTOP)
 					{
-						if ((HAL_GetTick() - tickstart) >= SDMMC_DATATIMEOUT)
+						if ((SysTick::getTick() - tickstart) >= SDMMC_DATATIMEOUT)
 						{
-							return HAL_SD_ERROR_TIMEOUT;
+							return SDMMC_ERROR_TIMEOUT;
 						}
 					}
 					// Clear CKSTOP Flag
-					hsd->Instance->ICR = SDMMC_FLAG_CKSTOP;
+					self[SDReg::ICR = SDMMC_FLAG_CKSTOP;
 					// Check to BusyD0
-					if ((hsd->Instance->STA & SDMMC_FLAG_BUSYD0) != SDMMC_FLAG_BUSYD0)
+					if ((self[SDReg::STA & SDMMC_FLAG_BUSYD0) != SDMMC_FLAG_BUSYD0)
 					{
 					// Error when activate Voltage Switch in SDMMC Peripheral
 						return SDMMC_ERROR_UNSUPPORTED_FEATURE;
@@ -193,27 +194,27 @@ namespace uni {
 						HAL_SD_DriveTransceiver_1_8V_Callback(SET);
 					#endif // USE_HAL_SD_REGISTER_CALLBACKS */
 							// Switch ready
-						hsd->Instance->POWER |= SDMMC_POWER_VSWITCH;
+						self[SDReg::POWER |= SDMMC_POWER_VSWITCH;
 						// Check VSWEND Flag
-						while ((hsd->Instance->STA & SDMMC_FLAG_VSWEND) != SDMMC_FLAG_VSWEND)
+						while ((self[SDReg::STA & SDMMC_FLAG_VSWEND) != SDMMC_FLAG_VSWEND)
 						{
-							if ((HAL_GetTick() - tickstart) >= SDMMC_DATATIMEOUT)
+							if ((SysTick::getTick() - tickstart) >= SDMMC_DATATIMEOUT)
 							{
-								return HAL_SD_ERROR_TIMEOUT;
+								return SDMMC_ERROR_TIMEOUT;
 							}
 						}
 						// Clear VSWEND Flag
-						hsd->Instance->ICR = SDMMC_FLAG_VSWEND;
+						self[SDReg::ICR = SDMMC_FLAG_VSWEND;
 						// Check BusyD0 status
-						if ((hsd->Instance->STA & SDMMC_FLAG_BUSYD0) == SDMMC_FLAG_BUSYD0)
+						if ((self[SDReg::STA & SDMMC_FLAG_BUSYD0) == SDMMC_FLAG_BUSYD0)
 						{
 							return HAL_SD_ERROR_INVALID_VOLTRANGE;// Error when enabling 1.8V mode
 						}
 						// Switch to 1.8V OK
 						// Disable VSWITCH FLAG from SDMMC Peripheral
-						hsd->Instance->POWER = 0x13U;
+						self[SDReg::POWER = 0x13U;
 						// Clean Status flags
-						hsd->Instance->ICR = 0xFFFFFFFFU;
+						self[SDReg::ICR = 0xFFFFFFFFU;
 					}
 				}
 			}
@@ -386,7 +387,7 @@ namespace uni {
 				(_IMM1S(21U)) | (_IMM1S(22U)) | (_IMM1S(23U)) |
 				(_IMM1S(24U)) | (_IMM1S(25U)) | (_IMM1S(26U)) |
 				(_IMM1S(27U)) | (_IMM1S(28U));
-			//{} hsd->ErrorCode |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
+			//{} error_code |= HAL_SD_ERROR_UNSUPPORTED_FEATURE;
 			return false;
 		}
 		pCSD->EraseGrSize = (uint8_t)((CSD[2] & 0x00004000U) >> 14U);
@@ -409,7 +410,20 @@ namespace uni {
 		pCSD->Reserved4 = 1;
 		return true;
 	}
-	extern "C" void f_0();
+
+	void SecureDigitalCard_t::HAL_SD_GetCardCID(HAL_SD_CardCIDTypeDef* pCID)
+	{
+		pCID->ManufacturerID = ((CID[0] & 0xFF000000U) >> 24U);
+		pCID->OEM_AppliID = ((CID[0] & 0x00FFFF00U) >> 8U);
+		pCID->ProdName1 = (((CID[0] & 0x000000FFU) << 24U) | ((CID[1] & 0xFFFFFF00U) >> 8U));
+		pCID->ProdName2 = (CID[1] & 0x000000FFU);
+		pCID->ProdRev = ((CID[2] & 0xFF000000U) >> 24U);
+		pCID->ProdSN = (((CID[2] & 0x00FFFFFFU) << 8U) | ((CID[3] & 0xFF000000U) >> 24U));
+		pCID->Reserved1 = ((CID[3] & 0x00F00000U) >> 20U);
+		pCID->ManufactDate = (uint16_t)((CID[3] & 0x000FFF00U) >> 8U);
+		pCID->CID_CRC = ((CID[3] & 0x000000FEU) >> 1U);
+		pCID->Reserved2 = 1U;
+	}
 
 	bool SecureDigitalCard_t::SDMMC_CmdSendCID(uint32* feedback) const {
 		CmdInitType cit;
@@ -969,6 +983,108 @@ namespace uni {
 		cardstate = ((resp1 >> 9U) & 0x0FU);
 		return (HAL_SD_CardStateTypeDef)cardstate;
 	}
+
+
+	bool SecureDigitalCard_t::HAL_SD_Abort()
+	{
+		uint32 error_code = SDMMC_ERROR_NONE;
+		uint32 tickstart;
+
+		//__HAL_SD_DISABLE_IT(hsd, SDMMC_IT_DATAEND | SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_TXUNDERR | SDMMC_IT_RXOVERR);
+		(self[SDReg::MASK] &= ~(((0x1UL << (8U)) | (0x1UL << (1U)) | (0x1UL << (3U)) | (0x1UL << (4U)) | (0x1UL << (5U)))));
+		self[SDReg::CMD].rstof(6);// __SDMMC_CMDTRANS_DISABLE: SDMMC_CMD_CMDTRANS
+
+		// we will send the CMD12 in all cases in order to stop the data transfers
+		// In case the data transfer just finished , the external memory will not respond and will return SDMMC_ERROR_TIMEOUT
+		// In case the data transfer aborted , the external memory will respond and will return SDMMC_ERROR_NONE
+		// Other scenario will return HAL_ERROR
+
+		SDMMC_CmdStopTransfer(&error_code);
+		if ((error_code != SDMMC_ERROR_NONE) && (error_code != SDMMC_ERROR_TIMEOUT))
+		{
+			return false;
+		}
+
+		tickstart = SysTick::getTick();
+		if ((self[SDReg::DCTRL].bitof(1)) == 0) // SDMMC_TRANSFER_DIR_TO_CARD
+		{
+			if (error_code == SDMMC_ERROR_NONE)
+			{
+				// while (!__HAL_SD_GET_FLAG(hsd, SDMMC_FLAG_DABORT | SDMMC_FLAG_BUSYD0END))
+				while (!(((self[SDReg::STA] & (((0x1UL << (11U)) | (0x1UL << (21U))))) != 0U)))
+				{
+					if ((SysTick::getTick() - tickstart) >= SDMMC_DATATIMEOUT)
+					{
+						error_code = SDMMC_ERROR_TIMEOUT;
+						return false;
+					}
+				}
+			}
+
+			if (error_code == SDMMC_ERROR_TIMEOUT)
+			{
+				// while (!__HAL_SD_GET_FLAG(hsd, SDMMC_FLAG_DATAEND))
+				while (!self[SDReg::STA].bitof(8))// SDMMC_FLAG_DATAEND
+				{
+					if ((SysTick::getTick() - tickstart) >= SDMMC_DATATIMEOUT) {
+						error_code = SDMMC_ERROR_TIMEOUT;
+						return false;
+					}
+				}
+			}
+		}
+		// else if ((self[DCTRL] & SDMMC_DCTRL_DTDIR) == SDMMC_TRANSFER_DIR_TO_SDMMC)
+		else if (self[SDReg::DCTRL].bitof(1))
+		{
+			// while (!__HAL_SD_GET_FLAG(hsd, SDMMC_FLAG_DABORT | SDMMC_FLAG_DATAEND))
+			while (!self[SDReg::STA] & ( _IMM1S(8)&_IMM1S(11) ))
+			{
+				if ((SysTick::getTick() - tickstart) >= SDMMC_DATATIMEOUT)
+				{
+					error_code = SDMMC_ERROR_TIMEOUT;
+					return false;
+				}
+			}
+		}
+
+		/*The reason of all these while conditions previously is that we need to wait the SDMMC and clear
+		  the appropriate flags that will be set depending of the abort/non abort of the memory */
+		/*Not waiting the SDMMC flags will cause the next SDMMC_DISABLE_IDMA to not get cleared
+		  and will result in next SDMMC read/write operation to fail */
+
+		// SDMMC ready for clear data flags
+		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_FLAG_BUSYD0END);
+		self[SDReg::ICR] = _IMM1S(21);
+		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)
+		self[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
+		/* If IDMA Context, disable Internal DMA */
+		self[SDReg::IDMACTRL] = 0;// SDMMC_DISABLE_IDMA
+		Context = SDContext::NONE;
+		return true;
+	}
+
+	bool SecureDigitalCard_t::HAL_SD_Abort_IT()
+	{
+		HAL_SD_CardStateTypeDef CardState;
+		uint32 error_code;
+		// Disable All interrupts
+		//__HAL_SD_DISABLE_IT(hsd, SDMMC_IT_DATAEND | SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_TXUNDERR | SDMMC_IT_RXOVERR);
+		(self[SDReg::MASK] &= ~(((0x1UL << (8U)) | (0x1UL << (1U)) | (0x1UL << (3U)) | (0x1UL << (4U)) | (0x1UL << (5U)))));
+		// If IDMA Context, disable Internal DMA
+		self[SDReg::IDMACTRL] = 0; // SDMMC_DISABLE_IDMA;
+		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)
+		self[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
+		CardState = HAL_SD_GetCardState();
+		if ((CardState == HAL_SD_CardStateTypeDef::RECEIVING) || (CardState == HAL_SD_CardStateTypeDef ::SENDING))
+		{
+			error_code = SDMMC_CmdStopTransfer(&error_code);
+		}
+		if (error_code != SDMMC_ERROR_NONE) return false; else
+			_Comment("{TODO} HAL_SD_AbortCallback");
+		return true;
+	}
+
+
 
 
 #endif

@@ -33,6 +33,8 @@
 #include "../string"
 
 #if defined(_MPU_STM32MP13)
+//{TODO} now SysTick Freq Fixed on 1kHz
+//    search `SysTick::get...` for more
 
 namespace uni {
 
@@ -55,8 +57,12 @@ namespace uni {
 
 	class SecureDigitalCard_t : public StorageTrait, public RuptTrait
 	{
+		friend void _HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd);
 		byte SDMMC_ID;
 		bool Inner_Rupt_Handler;
+	protected:
+		Slice TxBuff;// pTxBuffPtr + TxXferSize
+		Slice RxBuff;// pRxBuffPtr + RxXferSize
 	public:
 		pureptr_t roleaddr;// for operator[](uint64 bytid)
 		SecureDigitalCard_t(byte _SDMMC_ID) : SDMMC_ID(_SDMMC_ID) {}
@@ -65,9 +71,10 @@ namespace uni {
 		// ---- StorageTrait ----
 		// - stduint Block_Size;
 		// - void* Block_buffer;
+		// //{TODO} Constantly Read/Write
 		virtual bool Read(stduint BlockIden, void* Dest);
-		virtual bool Write(stduint BlockIden, const void* Sors) { return false; }//{unchecked}
-		virtual byte operator[](uint64 bytid) { return false; }// byte read
+		virtual bool Write(stduint BlockIden, const void* Sors);
+		virtual byte operator[](uint64 bytid) { return _TODO false; }// byte read
 		// ---- RuptTrait ----
 		virtual void setInterrupt(Handler_t _func) const override { _TODO }
 		virtual void setInterruptPriority(byte preempt, byte sub_priority) const override { _TODO }
@@ -79,6 +86,11 @@ namespace uni {
 			bool powersave_enable = false,
 			SDMMC_BusWidth bus_width = SDMMC_BusWidth::Bits4,
 			bool hardware_flow_control_enable = false);
+
+		// AKA HAL_SD_DeInit
+		bool canMode();
+
+
 	protected:
 		// AKA HAL_SD_InitCard
 		bool setModeSub();
@@ -95,6 +107,7 @@ namespace uni {
 		};
 	public:
 		CardType_E CardType;
+		SDContext Context;
 		// ----: SD_HandleTypeDef :----
 		uint32 CSD[4];// SD card specific data table
 		uint32 CID[4];// SD card identification number table
@@ -142,9 +155,24 @@ namespace uni {
 		bool SDMMC_GetCmdError() const;
 		bool SDMMC_CmdOperCond() const;
 		//
-		//
+
+		//{TODO} use bit-field to redo the impl: 
+
 		//
 		bool HAL_SD_GetCardCSD(HAL_SD_CardCSDTypeDef* pCSD);
+		// @brief  Returns information the information of the card which are stored on the CID register.
+		void HAL_SD_GetCardCID(HAL_SD_CardCIDTypeDef* pCID);
+		// @brief  Gets the SD card info.
+		void HAL_SD_GetCardInfo(HAL_SD_CardInfoTypeDef* pCardInfo) {
+			// pCardInfo->CardType = (hsd->SdCard.CardType);
+			// pCardInfo->CardVersion = (hsd->SdCard.CardVersion);
+			pCardInfo->Class = (CardInfo.Class);
+			pCardInfo->RelCardAdd = (CardInfo.RelCardAdd);
+			pCardInfo->BlockNbr = (CardInfo.BlockNbr);
+			pCardInfo->BlockSize = (CardInfo.BlockSize);
+			pCardInfo->LogBlockNbr = (CardInfo.LogBlockNbr);
+			pCardInfo->LogBlockSize = (CardInfo.LogBlockSize);
+		}
 		// Send the Send CID command and check the response
 		bool SDMMC_CmdSendCID(uint32* feedback) const;
 		// Send the Send CSD command and check the response
@@ -206,6 +234,46 @@ namespace uni {
 
 		// pSDstatus: Pointer to the buffer that will contain the SD card status SD Status register
 		bool SD_SendSDStatus(uint32* pSDstatus, uint32* write_times, uint32* feedback);
+
+	_Comment("IO functions") public:
+
+		bool HAL_SD_ReadBlocks(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback);
+
+		bool HAL_SD_WriteBlocks(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback);
+
+		// Reads block(s) from a specified address in a card. The Data transfer is managed in interrupt mode.
+		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
+		bool HAL_SD_ReadBlocks_IT(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+
+		// Writes block(s) to a specified address in a card. The Data transfer is managed in interrupt mode.
+		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
+		// You could also check the IT transfer process through the SD Tx interrupt event.
+		bool HAL_SD_WriteBlocks_IT(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+
+		// Reads block(s) from a specified address in a card. The Data transfer is managed by DMA mode.
+		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
+		// You could also check the DMA transfer process through the SD Rx interrupt event.
+		bool HAL_SD_ReadBlocks_DMA(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+
+		// Writes block(s) to a specified address in a card. The Data transfer is managed by DMA mode.
+		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
+		// You could also check the DMA transfer process through the SD Tx interrupt event.
+		bool HAL_SD_WriteBlocks_DMA(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+
+		// Erases the specified memory area of the given SD card.
+		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
+		bool HAL_SD_Erase(uint32 BlockStartAdd, uint32 BlockEndAdd, uint32* feedback);
+
+
+
+	_Comment("IO functions") protected:
+
+		// Wrap up reading in non-blocking mode.
+		void SD_Read_IT();
+
+		// Wrap up writing in non-blocking mode.
+		void SD_Write_IT();
+
 
 	_Comment("Linked List functions") public:
 
@@ -273,6 +341,12 @@ namespace uni {
 		bool SD_SwitchSpeed(uint32 SwitchSpeedMode, uint32* feedback);
 		// Configure the speed bus mode
 		bool HAL_SD_ConfigSpeedBusOperation(SDMMC_SPEED_MODE SpeedMode);
+
+		// Abort the current transfer and disable the SD.
+		bool HAL_SD_Abort();
+
+		// Abort the current transfer and disable the SD (IT mode).
+		bool HAL_SD_Abort_IT();
 
 	public://[debug]
 		inline bool SendCommand(stduint argument, stduint cmdindex, byte response) {

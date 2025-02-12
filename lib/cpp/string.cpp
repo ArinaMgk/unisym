@@ -93,7 +93,7 @@ namespace uni {
 			srs(this->addr, StrHeap(str.addr));
 			this->counts = StrLength(this->addr);
 		}
-		#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
+		#if defined(_USE_PROPERTY)
 		this->setthen(this);
 		#endif
 		return *this;
@@ -105,7 +105,7 @@ namespace uni {
 			srs(this->addr, StrHeap(addr));
 			this->counts = StrLength(this->addr);
 		}
-		#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
+		#if defined(_USE_PROPERTY)
 		this->setthen(this);
 		#endif
 		return *this;

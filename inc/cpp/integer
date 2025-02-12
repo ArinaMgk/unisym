@@ -42,7 +42,7 @@ namespace uni {
 	template<typename type0>
 	class Integer_T
 		// public _Value_Integer_T<type0>,
-	#if !defined(_PROPERTY_STRING_OFF)
+	#if defined(_USE_PROPERTY)
 		: public uni::Property<Integer_T<type0>>
 	#endif
 	{

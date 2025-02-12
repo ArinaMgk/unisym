@@ -29,7 +29,7 @@
 #include "cinc"// C Begin
 	#include "../c/ustring.h"
 #include "cinc"// C End
-#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
+#if defined(_USE_PROPERTY)
 	#include "property"
 	// #include <iostream>//{TEMP}
 #endif
@@ -44,7 +44,7 @@
 namespace uni {
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String
-	#if !defined(_MCCA) && !defined(_PROPERTY_STRING_OFF)
+	#if defined(_USE_PROPERTY)
 		: public uni::Property<String>
 	#endif 
 	{

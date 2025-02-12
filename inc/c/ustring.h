@@ -59,20 +59,23 @@ typedef enum _token_t
 {
 	tok_none = 0,  // special meaning, e.g. FAILURE
 	tok_any,      // for features of any token
-
-	tok_comment,  // /* */ #
-	tok_direct,// directive like #include
+	//
 	tok_symbol,   // +-*/ ...
 	tok_spaces,   // ' ' or \t or excluding new-line
-	
-	tok_others,   // above are usually not the entity
-
+	tok_number,   // [multi-method] 1, 0x12, 23U, 0.1
 	tok_identy,   // identifier
+	//
+	tok_others,   // above are usually not the entity
+	//
+	tok_comment,  // /* */ #
+	tok_direct,// directive like #include
 	tok_string,   // "Hallo"
-	tok_number,   // 1
-
+	//
 	tok_EOF // a placeholder, do not use it but can succeed since it.
 } toktype;// the counts should not be greater than 15.
+// phrase 0 : token into what is or above tok_others
+// phrase 1 : comment, directive, string, ...
+
 
 enum {
 	tok_func = tok_EOF + 1,

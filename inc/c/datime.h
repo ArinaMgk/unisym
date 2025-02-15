@@ -31,7 +31,7 @@
 #define __time_h
 
 #ifdef _INC_CPP
-	namespace uni {
+	_ESYM_C {
 #endif
 
 struct datime_t {
@@ -53,6 +53,7 @@ struct datimex_t {
 	byte isDaylightSavingTime;
 };
 
+#ifndef _HIS_TIME_H //{}: will remove after unisym realize time.h 
 struct tm {
 	int tm_sec;
 	int tm_min;
@@ -64,6 +65,7 @@ struct tm {
 	int tm_yday;
 	int tm_isdst;
 };
+#endif
 
 		
 // `[MACRO]`

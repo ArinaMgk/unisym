@@ -259,11 +259,13 @@ namespace uni {
 		using namespace XARTReg;
 		bool len9b = false;// or 8b
 		self[DR] = dat & (len9b ? 0x1FF : 0x0FF);
-		Delay_unit();
 		return self;
 	}
 	USART_t& USART_t::operator << (const char* p) {
-		while (*p) self << stduint(*p++);
+		while (*p) {
+			self << stduint(*p++);
+			Delay_unit();
+		}
 		return self;
 	}
 

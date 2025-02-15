@@ -39,6 +39,9 @@
 #define _SCC_DEFAULT HSI_VALUE
 #elif defined(_MPU_STM32MP13)
 #define _SCC_DEFAULT 64000000
+#elif defined(_MCU_MSP432P4)
+extern stduint __SYSTEM_CLOCK;
+#define _SCC_DEFAULT __SYSTEM_CLOCK
 #else
 #define _SCC_DEFAULT 8000000
 #endif

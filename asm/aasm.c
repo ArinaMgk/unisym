@@ -24,13 +24,13 @@
 #include "tmp.h"
 
 #define _INC_DNODE//{}
-#include <stdinc.h>
+#include <c/stdinc.h>
 //{} #include <ustdbool.h>
-#include <ustring.h>
+#include <c/ustring.h>
 #include <stdio.h>
 #include <time.h>
-#include <strpage.h>
-#include <strbuff.h>
+#include <c/strpage.h>
+#include <c/strbuff.h>
 #include "aasm.h"
 
 
@@ -79,7 +79,9 @@ int main(int argc, char** argv) {
 	main0();
 	offsets = StrpageNew();
 	forwrefs = StrbuffNew(sizeof(forwrefinfo));
-	main2(argc, argv);
+
+	//contain 5 leaks
+	//main2(argc, argv);
 	
 
 
@@ -90,7 +92,7 @@ int main(int argc, char** argv) {
 int drop() {
 	if (want_usage) usage();
 #ifdef _DEBUG
-	printinfo();
+	// printinfo();
 #endif
 	StrpageFree(offsets);
 	StrbuffFree(forwrefs);

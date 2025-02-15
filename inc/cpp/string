@@ -136,6 +136,7 @@ namespace uni {
 		}
 
 		int Format(const char* fmt, ...);
+		static String newFormat(const char* fmt, ...);
 
 		String& Replaced(const char* subfirstrom, const char* subto, size_t* times = 0) {
 			return Reheap(StrReplace(addr, subfirstrom, subto, times));

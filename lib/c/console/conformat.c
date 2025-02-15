@@ -97,11 +97,31 @@ void outi(stdint val, int base, int sign_show)
 	char buf[bitsof(stdint) + 2] = { 0 };// may bigger than 2 * bitsof(stdint) + 2 if base < 16 
 	int i = sizeof(buf) - 1;
 	int neg = val < 0;
-	if (neg) val = -val;
+	if (neg) {
+		val = -val;
+		sign_show = 1;
+	}
 	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
 	if (sign_show) buf[--i] = neg ? '-' : '+';
 	outs(buf + i);
 }
+#if defined(_BIT_SUPPORT_64)
+void outi64(int64 val, int base, int sign_show)
+{
+	outbyte_t localout = local_out;
+	if (base < 2) return;
+	char buf[bitsof(int64) + 2] = { 0 };
+	int i = sizeof(buf) - 1;
+	int neg = val < 0;
+	if (neg) {
+		val = -val;
+		sign_show = 1;
+	}
+	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
+	if (sign_show) buf[--i] = neg ? '-' : '+';
+	outs(buf + i);
+}
+#endif
 
 // Output Unsigned Integer
 void outu(stduint val, int base)
@@ -273,6 +293,14 @@ int outsfmtlst(const char* fmt, para_list paras)
 				outi32hex(pnext(uint32));
 				i += 5 - 1;
 			}
+			// ...
+		#if defined(_BIT_SUPPORT_64)
+			// Print Decimal 64 bit
+			else if (!StrCompareN(fmt + i, "[64I]", 5)) {
+				outi64(pnext(int64), 10, 0);
+				i += 5 - 1;
+			}
+		#endif
 			break;
 		default:
 			localout(&fmt[i], 1);

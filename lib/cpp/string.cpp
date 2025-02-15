@@ -134,7 +134,20 @@ namespace uni {
 			ret = this->counts = outsfmtlstlen(fmt, args);
 			limits = ret + 1;
 			srs(addr, salc(limits));
+			para_ento(args, fmt);
 			outsfmtlstbuf(addr, fmt, args);
+		}
+		return ret;
+	}
+	String String::newFormat(const char* fmt, ...) {
+		String ret("");
+		Letpara(args, fmt);
+		{
+			ret.counts = outsfmtlstlen(fmt, args);
+			ret.limits = ret.counts + 1;
+			srs(ret.addr, salc(ret.limits));
+			para_ento(args, fmt);
+			outsfmtlstbuf(ret.addr, fmt, args);
 		}
 		return ret;
 	}

@@ -24,6 +24,7 @@
 #include "../../../../inc/c/driver/RCC/RCC-registers.hpp"
 #include "../../../../inc/cpp/Device/Flash"
 #include "../../../../inc/cpp/Device/SysTick"
+#include "../../../../inc/cpp/reference"
 
 extern stduint HSE_VALUE;
 extern stduint HSI_VALUE;
@@ -194,6 +195,103 @@ namespace uni {
 		}
 		return SystemCoreClock;
 	}
+#elif defined(_MCU_MSP432P4)
+
+	#include "../../../../inc/c/MCU/MSP432/MSP432P4.h"
+	
+	
+
+	#define __VLOCLK           10000
+	#define __MODCLK           24000000
+	#define __LFXT             32768
+	#define __HFXT             48000000
+	//
+	
+	stduint RCCSystemClock::getCoreFrequency() {
+		uint32_t dividerValue = 0, centeredFreq = 0, calVal = 0;
+		int16_t dcoTune = 0;
+		float dcoConst = 0.0;
+		Stdfield DCOTUNE(&CS->CTL0, 0, 10);
+		Stdfield DCORSEL(&CS->CTL0, 16, 3);
+		Stdfield SELM(&CS->CTL1, 0, 3);// source
+		Stdfield DIVM(&CS->CTL1, 16, 3);
+		dividerValue = _IMM1S(DIVM);
+
+		switch (CS_CTL1_SELM_E _IMM(SELM)) {
+		case CS_CTL1_SELM_E::LFXTCLK:
+			if (BITBAND_PERI(CS->IFG, CS_IFG_LFXTIFG_OFS))
+			{
+				// Clear interrupt flag
+				CS->KEY = CS_KEY_VAL;
+				CS->CLRIFG |= CS_CLRIFG_CLR_LFXTIFG;
+				CS->KEY = 1;
+				if (BITBAND_PERI(CS->IFG, CS_IFG_LFXTIFG_OFS))
+				{
+					SystemCoreClock = (
+						(BITBAND_PERI(CS->CLKEN, CS_CLKEN_REFOFSEL_OFS) ? 128000 : 32000)
+						/ dividerValue);
+				}
+				else SystemCoreClock = __LFXT / dividerValue;
+			}
+			else SystemCoreClock = __LFXT / dividerValue;
+			break;
+		case CS_CTL1_SELM_E::VLOCLK:
+			SystemCoreClock = __VLOCLK / dividerValue;
+			break;
+		case CS_CTL1_SELM_E::REFOCLK:
+			SystemCoreClock = (
+				(BITBAND_PERI(CS->CLKEN, CS_CLKEN_REFOFSEL_OFS) ? 128000 : 32000)
+				/ dividerValue);
+			break;
+		case CS_CTL1_SELM_E::DCOCLK:
+			dcoTune = _IMM(DCOTUNE);
+			centeredFreq = 1500000 * _IMM1S(DCORSEL);
+			if (dcoTune == 0) SystemCoreClock = centeredFreq;
+			else {
+				if (dcoTune & 0x1000)
+				{
+					dcoTune = dcoTune | 0xF000;
+				}
+				if (BITBAND_PERI(CS->CTL0, CS_CTL0_DCORES_OFS))
+				{
+					dcoConst = *((volatile const float*)&TLV->DCOER_CONSTK_RSEL04);
+					calVal = TLV->DCOER_FCAL_RSEL04;
+				}
+				/* Internal Resistor */
+				else
+				{
+					dcoConst = *((volatile const float*)&TLV->DCOIR_CONSTK_RSEL04);
+					calVal = TLV->DCOIR_FCAL_RSEL04;
+				}
+				SystemCoreClock = (uint32_t)((centeredFreq)
+					/ (1 - ((dcoConst * dcoTune) / (8 * (1 + dcoConst * (768 - calVal))))));
+			}
+			break;
+		case CS_CTL1_SELM_E::MODOSC:
+			SystemCoreClock = __MODCLK / dividerValue;
+			break;
+		case CS_CTL1_SELM_E::HFXTCLK:
+			if (BITBAND_PERI(CS->IFG, CS_IFG_HFXTIFG_OFS))
+			{
+				// Clear interrupt flag
+				CS->KEY = CS_KEY_VAL;
+				CS->CLRIFG |= CS_CLRIFG_CLR_HFXTIFG;
+				CS->KEY = 1;
+				if (BITBAND_PERI(CS->IFG, CS_IFG_HFXTIFG_OFS))
+				{
+					SystemCoreClock = (
+						(BITBAND_PERI(CS->CLKEN, CS_CLKEN_REFOFSEL_OFS) ? 128000 : 32000)
+						/ dividerValue);
+				}
+				else SystemCoreClock = __HFXT / dividerValue;
+			}
+			else SystemCoreClock = __HFXT / dividerValue;
+			break;
+		default: break;
+		}
+		return SystemCoreClock;
+	}
+
 #endif
 	// ---- CurrentSource ---- {TODO} comb F1&F4 and use masof
 #if defined(_MCU_STM32F1x)

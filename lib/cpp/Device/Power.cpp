@@ -27,9 +27,19 @@ namespace uni {
 
 #elif defined(_MPU_STM32MP13)
 	PWR_t PWR;
+#elif defined(_MCU_MSP432P4)
+	#include "../../../inc/c/MCU/MSP432/MSP432P4.h"
+	Watchdog_t WdogA;
+
+	Reference_T<uint16> Watchdog_t::operator[](WDogReg idx) {
+		return WDT_A_BASE + _IMMx2(idx);
+	}
+	
+	void Watchdog_t::HoldTimer() {
+		ROM_WDTTABLE[0]();
+	}
 
 	
-
 #endif
 }
 

@@ -1,7 +1,7 @@
 #include "tmp.h"
 
-#include <stdinc.h>
-#include <ustdbool.h>
+#include <c/stdinc.h>
+#include <c/ustdbool.h>
 #include <../../demo/template/version/version.h>
 #include <time.h>
 #include <stdio.h>

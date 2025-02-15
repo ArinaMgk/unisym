@@ -59,6 +59,28 @@ namespace uni {
 	};
 	typedef SYSCFG AFIO;
 
+#elif defined(_MCU_MSP432P4) // aka SYSCTL
+
+	typedef struct {
+		uint32 REBOOT_CTL;      // [IO] Reboot Control Register */
+		uint32 NMI_CTLSTAT;     // [IO] NMI Control and Status Register */
+		uint32 WDTRESET_CTL;    // [IO] Watchdog Reset Control Register */
+		uint32 PERIHALT_CTL;    // [IO] Peripheral Halt Control Register */
+		uint32 SRAM_SIZE;       // [I ] SRAM Size Register */
+		uint32 SRAM_BANKEN;     // [IO] SRAM Bank Enable Register */
+		uint32 SRAM_BANKRET;    // [IO] SRAM Bank Retention Control Register */
+		uint32 RESERVED0;
+		uint32 FLASH_SIZE;      // [I] Flash Size Register */
+		uint32 RESERVED1[3];
+		uint32 DIO_GLTFLT_CTL;  // [IO] Digital I/O Glitch Filter Control Register */
+		uint32 RESERVED2[3];
+		uint32 SECDATA_UNLOCK;  // [IO] IP Protected Secure Zone Data Access Unlock Register */
+	} SYSCTL_Type;
+#define SYSCTL ((SYSCTL_Type *) SYSCTL_BASE)
+	//
+#define SYSCTL_SRAM_BANKEN_BNK7_EN  (0x00000080) // SRAM Bank1 enable
+
+
 #endif
 
 }

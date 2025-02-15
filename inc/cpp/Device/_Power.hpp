@@ -57,6 +57,20 @@ namespace uni {
 	};
 
 	extern PWR_t PWR;
+
+#elif defined(_MCU_MSP432P4)
+
+	enum class WDogReg {
+		CTL = 6,
+	};
+	class Watchdog_t {
+	public:
+		Reference_T<uint16> operator[](WDogReg idx);
+		// AKA ROM_WDT_A_holdTimer
+		void HoldTimer();
+	};
+
+	extern Watchdog_t WdogA;// Watchdog A
 #endif
 }
 

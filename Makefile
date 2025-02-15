@@ -45,6 +45,7 @@ cgl64: x64-EG-Lin64
 cll64: x64-EL-Lin64 # C/C++: AMD64 ELF LLVM Linux(Mode-64)
 # mcudev
 cgstm32f: cortexm3-EG-STM32F1 cortexm4-EG-STM32F4
+cgstm32h: cortexm7-EG-STM32H7
 cgstm32mp: cortexa7-Gnu-STM32MP13
 
 # ---- [other hosted-environments] ----
@@ -161,6 +162,13 @@ cortexm4-EG-STM32F4:
 	-@rm -f $(ubinpath)/libSTM32F4.a
 	@make --no-print-directory -f ${make_dir}cortexm4-Gnu-STM32F4.make all
 cortexm4-Keil-STM32F4:
+	@echo TODO
+cortexm7-EG-STM32H7:
+	-@mkdir -p $(uobjpath)/STM32H7
+	-@rm -f $(uobjpath)/STM32H7/*
+	-@rm -f $(ubinpath)/libSTM32H7.a
+	@make --no-print-directory -f ${make_dir}cortexm4-Gnu-STM32F4.make all
+cortexm7-Keil-STM32H7:
 	@echo TODO
 
 cortexa7-Gnu-STM32MP13: list

@@ -20,9 +20,9 @@
 	limitations under the License.
 */
 
-#include <stdinc.h>
-#include <multichar.h>
-#include <uctype.h>
+#include <c/stdinc.h>
+#include <c/multichar.h>
+#include <c/uctype.h>
 _ESYM_C {
 #include <insns.h>
 

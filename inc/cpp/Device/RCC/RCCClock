@@ -199,7 +199,13 @@ namespace uni {
 		// divexpo: 0~4 for DIV {1,2,4,8,16} for MPUDIV
 		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL1, byte divexpo = 1);
 	};
+#elif defined(_MCU_MSP432P4)
 
+	class RCCSystemClock {
+	public:
+		// AKA SystemCoreClockUpdate
+		static stduint getCoreFrequency();
+	};
 #endif
 }
 #endif

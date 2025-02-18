@@ -43,7 +43,7 @@ namespace uni {
 
 #if 0
 
-#elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 #undef EXTI
 
 	namespace GPIORupt {

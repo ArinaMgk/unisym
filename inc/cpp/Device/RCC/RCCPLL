@@ -123,7 +123,22 @@ namespace uni {
 		bool setMode();
 		static bool isReady();
 	};
+#elif defined(_MCU_STM32H7x)
 
+	namespace PLLSource {
+		enum PLLSource {
+			HSI, CSI, HSE, _NONE
+		};
+	}
+	
+	//{TEMP} only for PLL1
+	class RCCPLL {
+	public:
+		stduint getFrequency_ToCore() const;
+
+		PLLSource::PLLSource CurrentSource() const;
+	};
+	
 #elif defined(_MPU_STM32MP13)
 	enum class PLLMode {
 		Integer = 0, Fractional = 0x1, SpreadSpectrum = 0x2

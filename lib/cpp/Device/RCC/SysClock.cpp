@@ -30,6 +30,12 @@ extern stduint HSE_VALUE;
 extern stduint HSI_VALUE;
 
 stduint SystemCoreClock = _SCC_DEFAULT;
+
+#if defined(_MCU_STM32H7x)
+stduint SystemD2Clock = 64000000;
+_ESYM_C const byte D1CorePrescTable[16] = { 0, 0, 0, 0, 1, 2, 3, 4, 1, 2, 3, 4, 6, 7, 8, 9 };
+#endif
+
 namespace uni {
 	// ---- setMode ----
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
@@ -173,6 +179,25 @@ namespace uni {
 		const stduint AHB_Prescaler = RCC[CFGR].masof(_RCC_CFGR_POSI_HPRE, _RCC_CFGR_LENG_HPRE);
 		return SystemCoreClock = RCC.Sysclock.getFrequency() >> AHBPrescTable[AHB_Prescaler];
 	}
+#elif defined(_MCU_STM32H7x)
+	stduint RCCSystemClock::getCoreFrequency() {
+		switch (CurrentSource()) {
+		case SysclkSource::HSI:
+			SystemCoreClock = RCC.HSI.getFrequency_ToCore(); break;
+		case SysclkSource::HSE:
+			SystemCoreClock = RCC.HSE.getFrequency(); break;
+		case SysclkSource::PLL1:
+			SystemCoreClock = RCC.PLL1.getFrequency_ToCore(); break;
+		case SysclkSource::CSI:
+		default:
+			SystemCoreClock = RCC.CSI.getFrequency();
+			break;
+		}
+		// HCLK frequency
+		Stdfield RCC_D1CFGR_D1CPRE(RCC[RCCReg::D1CFGR], 8, 4);
+		return SystemCoreClock >>= D1CorePrescTable[_IMM(RCC_D1CFGR_D1CPRE)];
+	}
+	
 #elif defined(_MPU_STM32MP13)
 	stduint RCCSystemClock::getCoreFrequency() {
 		using namespace RCCReg;
@@ -299,7 +324,7 @@ namespace uni {
 		Reference _RCC_ConfigRegister(_RCC_CFGR);
 		return (SysclkSource::RCCSysclockSource)(_RCC_ConfigRegister & _RCC_CFGR_MASK_SCLKSWSource);
 	}
-#elif defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	SysclkSource::RCCSysclockSource RCCSystemClock::CurrentSource() {
 		return (SysclkSource::RCCSysclockSource)(RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_SCLKSWSource);
 	}

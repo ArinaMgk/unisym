@@ -30,7 +30,7 @@
 #include "RCCClock"
 #include "RCCPLL"
 
-extern stduint HSE_VALUE, HSI_VALUE;
+extern stduint HSE_VALUE, HSI_VALUE, CSI_VALUE, LSE_VALUE, LSI_VALUE;
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 namespace uni {
@@ -119,6 +119,31 @@ namespace uni {
 	};
 	typedef RCCOscillatorHSI HSI_t;
 	
+#elif defined(_MCU_STM32H7x)
+
+	class RCCOscillatorHSE { //{}: public RCCOscillator
+	public:
+		//
+		inline stduint getFrequency() const {
+			return HSE_VALUE;
+		}
+	};
+	typedef RCCOscillatorHSE HSE_t;
+
+	class RCCOscillatorHSI { //{}: public RCCOscillator
+	public:
+		stduint getFrequency_ToCore() const;
+	};
+	typedef RCCOscillatorHSI HSI_t;
+
+	class RCCOscillatorCSI { //: public RCCOscillator {
+	public:
+		stduint getFrequency() const {
+			return CSI_VALUE;
+		}
+	};
+	typedef RCCOscillatorCSI CSI_t;
+
 #elif defined(_MPU_STM32MP13)
 
 	class RCCOscillatorHSE { //{}: public RCCOscillator

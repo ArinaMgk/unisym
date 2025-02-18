@@ -59,7 +59,7 @@ namespace uni {
 		uint32 state = _IMM(innput ? GPIOSpeed::Atmost_Input : speed);
 		state |= (bmode & 0xC);// 0b1100
 		getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].maset(bposi, 4, state);
-	#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, _IMM(mode) >> 1);
 		getParent()[GPIOReg::OTYPER].setof(getID(), _IMM(mode) & 1);
 		getParent()[GPIOReg::SPEED].maset(_IMMx2(getID()), 2, _IMM(speed) >> 1);
@@ -70,7 +70,7 @@ namespace uni {
 	}
 	
 
-	
+#if !defined(_MCU_STM32H7x)
 // Interrupt Modes
 #if defined(_MCU_STM32)// F1 F4 MP13
 
@@ -84,7 +84,7 @@ namespace uni {
 	#elif defined(_MCU_STM32F4x)
 		RCC.APB2.enAble(14);// SYSCFG EN
 	#endif
-	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 		for0(i, 10);// some delay to wait, magic_num: random
 		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[getID() >> 2];
 		CrtEXTICR.maset(_IMMx4(getID()), 4, getParent().getID());
@@ -97,7 +97,9 @@ namespace uni {
 		return self;
 	}
 
-#endif	
+#endif
+
+#endif//{TEMP}
 
 }
 #endif

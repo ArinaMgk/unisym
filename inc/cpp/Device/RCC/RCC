@@ -37,7 +37,7 @@
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_CW32F030)
 #define _SCC_DEFAULT HSI_VALUE
-#elif defined(_MPU_STM32MP13)
+#elif defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 #define _SCC_DEFAULT 64000000
 #elif defined(_MCU_MSP432P4)
 extern stduint __SYSTEM_CLOCK;
@@ -165,6 +165,22 @@ namespace uni {
 
 	extern RCC_t RCC;
 
+#elif defined(_MCU_STM32H7x)
+	class RCC_t {
+	public:
+
+		RCCOscillatorHSE HSE;
+		RCCOscillatorHSI HSI;
+		RCCOscillatorCSI CSI;
+
+		RCCPLL PLL1;
+
+		inline Reference operator[](RCCReg::RCCReg idx) const { return _RCC_ADDR + _IMMx4(idx); }
+		
+
+	};
+
+	extern RCC_t RCC;
 #elif defined(_MPU_STM32MP13)
 
 	

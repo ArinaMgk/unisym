@@ -357,7 +357,7 @@ with open('./lib/make/cortexm3-Gnu-STM32F1.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32F1, encoding = "utf8"))
 with open('./lib/make/cortexm4-Gnu-STM32F4.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32F4, encoding = "utf8"))
-with open('./lib/make/cortexa7-Gnu-STM32H7.make', 'w+b') as fobj:
+with open('./lib/make/cortexm7-Gnu-STM32H7.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32H7, encoding = "utf8"))
 with open('./lib/make/cortexa7-Gnu-STM32MP13.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32MP13, encoding = "utf8"))

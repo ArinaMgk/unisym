@@ -66,6 +66,42 @@ bool RCCPLL::setMode() {
 	return true;
 }
 
+#elif defined(_MCU_STM32H7x)
+
+stduint RCCPLL::getFrequency_ToCore() const {
+	uint32_t pllp = 2, pllsource = 0, pllm = 2, pllfracen = 0, hsivalue = 0;
+	float fracn1, pllvco = 0;
+	// PLL_VCO = (HSE_VALUE or HSI_VALUE or CSI_VALUE/ PLLM) * PLLN
+	// SYSCLK = PLL_VCO / PLLR
+	Stdfield PLLCKSELR_DIVM1(RCC[PLLCKSELR], 4, 6);
+	Stdfield PLL1FRACR_FRACN1(RCC[PLL1FRACR], 3, 13);
+	pllm = _IMM(PLLCKSELR_DIVM1);
+	pllfracen = RCC[PLLCFGR].bitof(0); // RCC_PLLCFGR_PLL1FRACEN
+	fracn1 = pllfracen * _IMM(PLL1FRACR_FRACN1);;
+	Stdfield PLL1DIVR_N1(RCC[PLL1DIVR], 0, 9);
+	Stdfield PLL1DIVR_P1(RCC[PLL1DIVR], 9, 7);
+	// Stdfield PLL1DIVR_Q1(RCC[PLL1DIVR], 16, 7);
+	// Stdfield PLL1DIVR_R1(RCC[PLL1DIVR], 24, 7);
+	stduint freq = 0;
+	switch (CurrentSource()) {
+	case PLLSource::HSI:
+		freq = RCC.HSI.getFrequency_ToCore(); break;
+	case PLLSource::HSE:
+		freq = RCC.HSE.getFrequency(); break;
+	default:
+	case PLLSource::CSI:
+		freq = RCC.CSI.getFrequency(); break;
+	}
+	pllvco = (freq / pllm) * (_IMM(PLL1DIVR_N1) + (fracn1 / 0x2000) + 1);
+	return SystemCoreClock = (pllvco / (1 + _IMM(PLL1DIVR_P1)));
+}
+
+PLLSource::PLLSource RCCPLL::CurrentSource() const {
+	return PLLSource::PLLSource(RCC[PLLCKSELR] & 0b11);
+}
+
+
+
 #elif defined(_MPU_STM32MP13)
 const static RCCReg::RCCReg PLLxCR[4] = {
 	RCCReg::PLL1CR, RCCReg::PLL2CR, RCCReg::PLL3CR, RCCReg::PLL4CR};

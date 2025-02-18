@@ -167,7 +167,7 @@ cortexm7-EG-STM32H7:
 	-@mkdir -p $(uobjpath)/STM32H7
 	-@rm -f $(uobjpath)/STM32H7/*
 	-@rm -f $(ubinpath)/libSTM32H7.a
-	@make --no-print-directory -f ${make_dir}cortexm4-Gnu-STM32F4.make all
+	@make --no-print-directory -f ${make_dir}cortexm7-Gnu-STM32H7.make all
 cortexm7-Keil-STM32H7:
 	@echo TODO
 

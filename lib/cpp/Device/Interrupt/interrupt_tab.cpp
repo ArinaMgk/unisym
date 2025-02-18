@@ -41,9 +41,10 @@ static void _HandlerIRQ_EXTIx(byte x);
 
 
 extern "C" {
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#ifdef _MCU_STM32
 	Handler_t FUNC_EXTI[16] = { 0 };
-
+#endif
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
 	void EXTI0_IRQHandler(void) { _HandlerIRQ_EXTIx(0); }
 	void EXTI1_IRQHandler(void) { _HandlerIRQ_EXTIx(1); }
 	void EXTI2_IRQHandler(void) { _HandlerIRQ_EXTIx(2); }

@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
 	forwrefs = StrbuffNew(sizeof(forwrefinfo));
 
 	//contain 5 leaks
-	//main2(argc, argv);
+	main2(argc, argv);
 	
 
 

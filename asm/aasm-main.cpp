@@ -51,3 +51,10 @@ extern "C" void define_macros_early(time_t* startup_time)
 		pp_pre_define(uni::String::newFormat("__POSIX_TIME__=%[64I]", posix_time).reflect());
 	}
 }
+
+extern "C" void define_macros_late(rostr ofmt_shortname)
+{
+	pp_pre_define(uni::String::newFormat("__OUTPUT_FORMAT__=%s\n", ofmt_shortname).reflect());
+}
+
+

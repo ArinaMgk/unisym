@@ -25,12 +25,18 @@
 #include "../../../inc/cpp/Device/SysTick"
 #include "../../../inc/c/driver/RCC/RCC-registers.hpp"
 
-//{TODO} User Can Def by Macro
+// high/low/(C) speed external/internal oscillator
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_CW32F030)
 // : default frequency
 extern stduint HSE_VALUE, HSI_VALUE;
 stduint HSE_VALUE = (8000000);
 stduint HSI_VALUE = (8000000);
+#elif defined(_MCU_STM32H7x)
+stduint HSE_VALUE = (25000000);
+stduint HSI_VALUE = (64000000);
+stduint LSE_VALUE = (32768);
+stduint CSI_VALUE = (4000000);
+
 #elif defined(_MPU_STM32MP13)
 stduint HSE_VALUE = (24000000U);
 stduint HSI_VALUE = (64000000U);
@@ -255,7 +261,7 @@ namespace uni {
 
 	#include "../../../inc/c/driver/RCC/RCC-setClock.hpp"
 		
-	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	#if defined(_MCU_STM32)
 		RCC_t RCC;
 	#endif
 }

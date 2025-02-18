@@ -56,6 +56,9 @@ namespace uni {
 	public:
 		byte pos, len;
 		Bitfield_T(pureptr_t _address, byte _pos, byte _len) : Reference_T<typeDest> _IMM(_address), pos(_pos), len(_len) {}
+		//
+		template <typename type0>
+		Bitfield_T(const Reference_T<type0>& _refer, byte _pos, byte _len) : Reference_T<typeDest>((pureptr_t)&_refer), pos(_pos), len(_len) {}
 		operator stduint() { return Reference_T<typeDest>::masof(pos, len); }
 		stduint operator= (stduint val) { return Reference_T<typeDest>::maset(pos, len, val); }
 	};

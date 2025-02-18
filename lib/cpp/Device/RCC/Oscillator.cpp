@@ -117,6 +117,13 @@ namespace uni {
 
 		return true;
 	}
+#elif defined(_MCU_STM32H7x)
+
+	stduint RCCOscillatorHSI::getFrequency_ToCore() const {
+		Stdfield HSIDIV(RCC[CR], 3, 2);
+		return HSI_VALUE >> _IMM(HSIDIV);
+	}
+	
 #elif defined(_MPU_STM32MP13)
 
 	// ---- isReady

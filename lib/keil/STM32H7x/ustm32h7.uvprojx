@@ -389,10 +389,55 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\GPIO.cpp</FilePath>
             </File>
+            <File>
+              <FileName>SysClock.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>PLL.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\PLL.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Oscillator.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\Oscillator.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>RCC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>General</GroupName>
+        </Group>
+        <Group>
+          <GroupName>Submodule</GroupName>
+          <Files>
+            <File>
+              <FileName>GPIO-setMode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>interrupt_tab.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Locale</GroupName>
+          <Files>
+            <File>
+              <FileName>STM32H7.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\MCU\STM32H7.cpp</FilePath>
+            </File>
+          </Files>
         </Group>
       </Groups>
     </Target>

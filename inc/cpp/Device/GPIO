@@ -58,7 +58,7 @@ namespace uni {
 		CRL = 0, CRH,
 		IDR, ODR, BSRR, BRR, LCKR
 	};
-#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	enum class GPIOReg {
 		MODER = 0, OTYPER, SPEED, PULLS /*aka PUPDR*/,
 		IDR, ODR, BSRR, LCKR,
@@ -89,7 +89,7 @@ namespace uni {
 		IN_Pull = 1 + (2 << 2),
 		IN_KEPT = 1 + (3 << 2)
 	};
-#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)  || defined(_MPU_STM32MP13)
 	//{TODO} comb with this of F1
 	enum class GPIOMode {
 		// 20240502{TEMP} use [MODER[1:0],OTYPTR[i]] 3-bits to decide
@@ -120,7 +120,7 @@ namespace uni {
 	enum class GPIOSpeed {
 		Atmost_Input = 0, Atmost_10MHz, Atmost_2MHz, Atmost_50MHz
 	};
-#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 #define defa_speed GPIOSpeed::Medium
 	enum class GPIOSpeed {
 		Low = 0, Medium, High, Veryhigh,
@@ -168,7 +168,7 @@ namespace uni {
 		//{} setConnect(...)
 		//! AFRx Register should be set by other device.
 	#endif
-	#if defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		bool _set_alternate(byte selection) const;
 	#endif
 	};
@@ -200,14 +200,14 @@ namespace uni {
 #define GPIOB GPIO['B']
 #define GPIOC GPIO['C']
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_MSP432P4) || defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MCU_MSP432P4) || defined(_MPU_STM32MP13)
 #define GPIOD GPIO['D']
 #define GPIOE GPIO['E']
 #endif
 
 #define GPIOF GPIO['F']
 
-#if defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 #define GPIOG GPIO['G']
 #define GPIOH GPIO['H']
 #define GPIOI GPIO['I']
@@ -217,6 +217,9 @@ namespace uni {
 #define GPIOJ GPIO['J']
 #endif
 
+#if defined(_MCU_STM32H7x)
+#define GPIOK GPIO['K']
+#endif
 
 #endif // _SUPPORT_GPIO
 #endif // !_INC_DEVICE_GPIO_X

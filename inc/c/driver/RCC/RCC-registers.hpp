@@ -1,8 +1,8 @@
 namespace uni {
-	namespace RCCReg {
-	#if 0
+#if 0
 
-	#elif defined(_MPU_STM32MP13)
+#elif defined(_MPU_STM32MP13)
+	namespace RCCReg {
 		namespace _MP_MP_RSTSyR {
 			enum MP_CIxR_POS { // off 0x11C and 0x120
 				_MASK = 0b1001'1111'0111'1111
@@ -71,7 +71,9 @@ namespace uni {
 		};
 
 
-	#endif
 	}
+#else
+	namespace RCCReg { }
+#endif
 }
 

@@ -37,6 +37,7 @@
 #include "../../Device/DAC"
 #include "../../Device/ADC"
 #include "../../Device/TIM"
+#include "../../Device/Cache"
 
 extern "C" char _IDN_BOARD[16];
 

@@ -90,5 +90,8 @@ struct SysCtrlBlock_Map {
 	uint32 ABFSR;                  // 0x2A8 (R/W)  Auxiliary Bus Fault Status
 };
 #define SCB ((struct SysCtrlBlock_Map *)_SCB_BASE)
+#ifdef _CortexM7_SCB_TEMP
+#include "CortexM7/CortexM7-SCB.h"
+#endif
 
 #endif

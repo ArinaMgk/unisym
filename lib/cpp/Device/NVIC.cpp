@@ -99,4 +99,42 @@ namespace uni {
 
 }
 
+#elif defined(_MCU_STM32H7x)
+#define _CortexM7_SCB_TEMP
+#include "../../../inc/c/prochip/CortexM7.h"
+
+namespace uni {
+
+	NVIC_t NVIC;
+
+	Reference NVIC_t::operator[](NVICReg::NVICReg idx) {
+		return _NVIC_BASE + _IMMx4(idx);
+	}
+
+	void NVIC_t::setPriorityGroup(stduint bitsof_prepriority) {
+		uint32_t reg_value;
+		uint32_t PriorityGroupTmp = ((7 - bitsof_prepriority) & 0x07UL);     /* only values 0..7 are used          */
+		reg_value = SCB->AIRCR;                                              /* read old register configuration    */
+		reg_value &= ~_IMM(SCB_AIRCR_VECTKEY_Msk | SCB_AIRCR_PRIGROUP_Msk);  /* clear bits to change               */
+		reg_value = (reg_value |
+			((uint32_t)0x5FAUL << SCB_AIRCR_VECTKEY_Pos) |
+			(PriorityGroupTmp << 8U)); // Insert write key and priorty group
+		SCB->AIRCR = reg_value;
+	}
+
+	void NVIC_t::setPriority(Request_t req, uint32 priority) {
+		const uint32 IRQ = (uint32)(uint8)req;
+		uint8 writ = (priority << (8U - _NVIC_PRIO_BITS)) & (uint32)0xFF;
+		if ((sint32)req >= 0)
+			*getTable(IRQ) = writ;
+		else
+			SCB->SHPR[(IRQ & (uint32)0xF) - (uint32)4] = writ;
+	}
+
+}
+
+
+
+
+
 #endif

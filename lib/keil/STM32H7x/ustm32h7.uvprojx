@@ -395,19 +395,24 @@
               <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
             </File>
             <File>
-              <FileName>PLL.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\PLL.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>Oscillator.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\Oscillator.cpp</FilePath>
-            </File>
-            <File>
               <FileName>RCC.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\RCC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Cache.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Cache.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SysTick.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\SysTick.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>NVIC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\NVIC.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -417,6 +422,16 @@
         <Group>
           <GroupName>Submodule</GroupName>
           <Files>
+            <File>
+              <FileName>PLL.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\PLL.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Oscillator.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\Oscillator.cpp</FilePath>
+            </File>
             <File>
               <FileName>GPIO-setMode.cpp</FileName>
               <FileType>8</FileType>

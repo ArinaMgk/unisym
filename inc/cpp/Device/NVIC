@@ -27,11 +27,28 @@
 #include "../reference"
 #include "../interrupt"
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 
 #undef NVIC
 
 #define _NVIC_PRIO_BITS 4
+
+#endif
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+
+namespace uni {
+	namespace NVICReg {
+		typedef enum {
+			ISER = 0x000 >> 2,
+			ICER = 0x080 >> 2,
+			ISPR = 0x100 >> 2,
+			ICPR = 0x180 >> 2,
+			IABR = 0x200 >> 2,
+			IP0 = 0x300 >> 2,
+			STIR = 0xE00 >> 2,
+		} NVICReg;
+	}
+}
 
 #endif
 
@@ -82,17 +99,6 @@ namespace uni {
 #include "../../c/prochip/CortexM4.h"
 
 namespace uni {
-	namespace NVICReg {
-		typedef enum {
-			ISER = 0x000 >> 2,
-			ICER = 0x080 >> 2,
-			ISPR = 0x100 >> 2,
-			ICPR = 0x180 >> 2,
-			IABR = 0x200 >> 2,
-			IP0  = 0x300 >> 2,
-			STIR = 0xE00 >> 2,
-		} NVICReg;
-	}
 
 	class NVIC_t {
 	public:
@@ -117,6 +123,32 @@ namespace uni {
 			if (!req_no) return;
 			Reflect(ena ? NVICReg::ISER : NVICReg::ICER, req_no >> 5UL) |= ((uint32_t)1 << (req_no & 0x1FUL));
 		}
+
+	};
+
+
+	extern NVIC_t NVIC;
+}
+
+#elif defined(_MCU_STM32H7x)
+
+#define NVIC_STIR_INTID_Pos  0U                                         /*!< STIR: INTLINESNUM Position */
+#define NVIC_STIR_INTID_Msk (0x1FFUL /*<< NVIC_STIR_INTID_Pos*/)        /*!< STIR: INTLINESNUM Mask */
+
+
+namespace uni {
+
+
+	class NVIC_t {
+	protected:
+		uint8* getTable(stduint idx = 0) { return ((uint8*)&self[NVICReg::IP0]) + idx; }
+	public:
+		Reference operator[](NVICReg::NVICReg idx);
+		// bitsof_prepriority: range 0..5
+		void setPriorityGroup(stduint bitsof_prepriority);
+
+		void setPriority(Request_t req, uint32 priority);
+
 
 	};
 

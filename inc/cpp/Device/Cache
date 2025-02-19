@@ -83,6 +83,22 @@ namespace uni {
 	public:
 	};
 
+#elif defined(_MCU_STM32H7x)
+
+	class Cache_t {
+	public:
+		//
+		void enAble(bool ena = true) const;
+
+		// AKA SCB_EnableICache SCB_EnableDCache
+		void enAbleICacheAll(void) const;
+		void enAbleDCacheAll(void) const;
+
+
+	};
+	typedef Cache_t L1C_t;// Level 1 Cache
+	extern Cache_t L1C;
+	
 #endif
 }
 

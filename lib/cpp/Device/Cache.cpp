@@ -138,4 +138,80 @@ namespace uni {
 
 }
 
+
+#elif defined(_MCU_STM32H7x)
+
+#define _CortexM7_SCB_TEMP
+#include "../../../inc/c/prochip/CortexM7.h"
+
+// below are for CM7
+
+// Data Synchronization Barrier
+// Acts as a special kind of Data Memory Barrier.
+// It completes when all explicit memory accesses before this instruction complete.
+#define __DSB() do { \
+	_ASM __volatile__ ("" : : : "memory", "cc"); _Comment("AKA __schedule_barrier");\
+	__builtin_arm_dsb(0xF);\
+	_ASM __volatile__ ("" : : : "memory", "cc"); _Comment("AKA __schedule_barrier"); } while (false)
+// Instruction Synchronization Barrier
+// Instruction Synchronization Barrier flushes the pipeline in the processor,
+// All instructions following the ISB are fetched from cache or memory, after the instruction has been completed.
+#define __ISB() do { \
+	_ASM __volatile__ ("" : : : "memory", "cc"); _Comment("AKA __schedule_barrier");\
+	__builtin_arm_isb(0xF);\
+	_ASM __volatile__ ("" : : : "memory", "cc"); _Comment("AKA __schedule_barrier"); } while (false)
+
+// Cache Size ID Register Macros
+#define CCSIDR_WAYS(x)         (((x) & SCB_CCSIDR_ASSOCIATIVITY_Msk) >> SCB_CCSIDR_ASSOCIATIVITY_Pos)
+#define CCSIDR_SETS(x)         (((x) & SCB_CCSIDR_NUMSETS_Msk      ) >> SCB_CCSIDR_NUMSETS_Pos      )
+
+
+namespace uni {
+    
+	Cache_t L1C;
+
+	void Cache_t::enAble(bool ena) const {
+		enAbleICacheAll();
+		enAbleDCacheAll();
+		SCB->CACR |= 1 << 2;
+	}
+
+	void Cache_t::enAbleICacheAll(void) const {
+		__DSB();
+		__ISB();
+		SCB->ICIALLU = 0UL;// invalidate I-Cache
+		__DSB();
+		__ISB();
+		SCB->CCR |= _IMM1S(17);// SCB_CCR_IC_Msk;// enable
+		__DSB();
+		__ISB();
+	}
+	void Cache_t::enAbleDCacheAll(void) const {
+		uint32_t ccsidr;
+		uint32_t sets;
+		uint32_t ways;
+		SCB->CSSELR = 0U; /*(0U << 1U) | 0U;*/  /* Level 1 data cache */
+		__DSB();
+		ccsidr = SCB->CCSIDR;// invalidate D-Cache
+		sets = CCSIDR_SETS(ccsidr);
+		do {
+			ways = CCSIDR_WAYS(ccsidr);
+			do {
+				SCB->DCISW = (((sets << SCB_DCISW_SET_Pos) & SCB_DCISW_SET_Msk) |
+					((ways << SCB_DCISW_WAY_Pos) & SCB_DCISW_WAY_Msk));
+			#if defined ( __CC_ARM )
+				__schedule_barrier();
+			#endif
+			} while (ways-- != 0U);
+		} while (sets-- != 0U);
+		__DSB();
+		SCB->CCR |= SCB_CCR_DC_Msk; // enable D-Cache */
+		__DSB();
+		__ISB();
+	}
+
+
+}
+
+
 #endif

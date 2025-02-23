@@ -19,7 +19,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
+#define _MCU_RCC_TEMP
 #include "../../../../inc/cpp/Device/RCC/RCC"
 #include "../../../../inc/c/driver/RCC/RCC-registers.hpp"
 #include "../../../../inc/cpp/Device/Flash"
@@ -38,25 +38,60 @@ _ESYM_C const byte D1CorePrescTable[16] = { 0, 0, 0, 0, 1, 2, 3, 4, 1, 2, 3, 4, 
 
 namespace uni {
 	// ---- setMode ----
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	// [F4] if(((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_SYSCLK) == RCC_CLOCKTYPE_SYSCLK) then call this
-	bool RCCSystemClock::setMode(SysclkSource::RCCSysclockSource source) {
+	bool RCCSystemClock::setMode(SysclkSource::RCCSysclockSource source
+	#if defined(_MCU_STM32H7x)
+		, byte divexpo
+	#endif
+	)
+	{
 		bool state;
+		#if defined(_MCU_STM32H7x)
+		static int lst[]{
+					0x0, 0x8, 0x9, 0xa, 0xb,
+					-1,
+					0xc, 0xd, 0xe, 0xf
+		};
+		asrtret(divexpo < numsof(lst) && lst[divexpo] >= 0);
+		RCC_D1CFGR_D1CPRE = lst[divexpo];
+	#endif
+		
 		switch (source) {
 		case SysclkSource::HSI:
+		#if defined(_MCU_STM32H7x)
+			state = RCC.HSI.isReady();
+		#else
 			state = RCCOscillatorHSI::isReady();
+		#endif
 			break;
+		//
 		case SysclkSource::HSE:
-			state = RCCOscillatorHSE::isReady();
+		#if defined(_MCU_STM32H7x)
+			state = RCC.HSE.isReady();
+		#else
+			RCCOscillatorHSE::isReady();
+		#endif
 			break;
-		case SysclkSource::PLL:
-			state = RCCPLL::isReady();
-			break;
+		//
+		case SysclkSource::
+			#if defined(_MCU_STM32H7x)
+			PLL1: state = RCC.PLL1.isReady();
+			#else
+			PLL: state = RCCPLL::isReady();
+			#endif
+				break;
+		//
+		#if defined(_MCU_STM32H7x)
+		case SysclkSource::CSI:
+			state = RCC.CSI.isReady();
+		#endif
+		//
 		default:
 			state = false;
 			break;
 		}
-		if (!state) return false;
+		asrtret (state);
 		setSource(source);
 		while (getSource() != source);
 		return true;
@@ -99,6 +134,14 @@ namespace uni {
 		Reference Cfgreg = RCC[RCCReg::CFGR];
 		Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_Switch) | ((_IMM(source) << _RCC_CFGR_POSI_Switch) >> 2);
 	}
+#elif defined(_MCU_STM32H7x)
+	SysclkSource::RCCSysclockSource RCCSystemClock::getSource() {
+		return (SysclkSource::RCCSysclockSource)_IMM(RCC_CFGR_SW);
+	}
+	void RCCSystemClock::setSource(SysclkSource::RCCSysclockSource source) {
+		RCC_CFGR_SW = _IMM(source);
+	}
+	
 #elif defined(_MPU_STM32MP13)
 	void RCCSystemClock::setSource(SysclkSource::RCCSysclockSource source) {
 		RCC[RCCReg::MPCKSELR].maset(0, 2, _IMM(source));
@@ -194,7 +237,6 @@ namespace uni {
 			break;
 		}
 		// HCLK frequency
-		Stdfield RCC_D1CFGR_D1CPRE(RCC[RCCReg::D1CFGR], 8, 4);
 		return SystemCoreClock >>= D1CorePrescTable[_IMM(RCC_D1CFGR_D1CPRE)];
 	}
 	
@@ -324,9 +366,13 @@ namespace uni {
 		Reference _RCC_ConfigRegister(_RCC_CFGR);
 		return (SysclkSource::RCCSysclockSource)(_RCC_ConfigRegister & _RCC_CFGR_MASK_SCLKSWSource);
 	}
-#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#elif defined(_MCU_STM32F4x)
 	SysclkSource::RCCSysclockSource RCCSystemClock::CurrentSource() {
-		return (SysclkSource::RCCSysclockSource)(RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_SCLKSWSource);
+		return (SysclkSource::RCCSysclockSource)((RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_SCLKSWSource));
+	}
+#elif defined(_MCU_STM32H7x)
+	SysclkSource::RCCSysclockSource RCCSystemClock::CurrentSource() {
+		return (SysclkSource::RCCSysclockSource)((RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_SCLKSWSource) >> 3);
 	}
 #elif defined(_MPU_STM32MP13)
 	SysclkSource::RCCSysclockSource RCCSystemClock::CurrentSource() {

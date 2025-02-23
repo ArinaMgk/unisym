@@ -39,6 +39,9 @@
 #define _SCC_DEFAULT HSI_VALUE
 #elif defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 #define _SCC_DEFAULT 64000000
+#ifdef _MCU_RCC_TEMP
+#include "RCC-STM32H7.hpp"
+#endif
 #elif defined(_MCU_MSP432P4)
 extern stduint __SYSTEM_CLOCK;
 #define _SCC_DEFAULT __SYSTEM_CLOCK
@@ -166,6 +169,10 @@ namespace uni {
 	extern RCC_t RCC;
 
 #elif defined(_MCU_STM32H7x)
+#define    PCLK1 APB1
+#define    PCLK2 APB2
+#define  D1PCLK1 APB3
+#define  D3PCLK1 APB4
 	class RCC_t {
 	public:
 
@@ -174,9 +181,17 @@ namespace uni {
 		RCCOscillatorCSI CSI;
 
 		RCCPLL PLL1;
+		RCCSystemClock Sysclock;
+		RCCAHB AHB;
+		RCCAPB APB1, APB2, APB3, APB4;
+		
+		RCC_t() : APB1(0), APB2(1), APB3(2), APB4(3) {}
 
 		inline Reference operator[](RCCReg::RCCReg idx) const { return _RCC_ADDR + _IMMx4(idx); }
-		
+
+		// Config using recommended parameters
+		bool setClock(SysclkSource::RCCSysclockSource source);
+
 
 	};
 

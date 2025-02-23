@@ -151,14 +151,14 @@ namespace uni {
 // It completes when all explicit memory accesses before this instruction complete.
 #define __DSB() do { \
 	_ASM __volatile__ ("" : : : "memory", "cc"); _Comment("AKA __schedule_barrier");\
-	__builtin_arm_dsb(0xF);\
+	_ASM volatile ("dsb 0xF":::"memory");\
 	_ASM __volatile__ ("" : : : "memory", "cc"); _Comment("AKA __schedule_barrier"); } while (false)
 // Instruction Synchronization Barrier
 // Instruction Synchronization Barrier flushes the pipeline in the processor,
 // All instructions following the ISB are fetched from cache or memory, after the instruction has been completed.
 #define __ISB() do { \
 	_ASM __volatile__ ("" : : : "memory", "cc"); _Comment("AKA __schedule_barrier");\
-	__builtin_arm_isb(0xF);\
+	_ASM volatile ("isb 0xF":::"memory");\
 	_ASM __volatile__ ("" : : : "memory", "cc"); _Comment("AKA __schedule_barrier"); } while (false)
 
 // Cache Size ID Register Macros

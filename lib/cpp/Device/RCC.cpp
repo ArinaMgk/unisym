@@ -19,7 +19,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
+#define _MCU_RCC_TEMP
 #include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/cpp/Device/Flash"
 #include "../../../inc/cpp/Device/SysTick"
@@ -43,7 +43,7 @@ stduint HSI_VALUE = (64000000U);
 #endif
 
 namespace uni {
-	using namespace RCCReg;
+	
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	const uint8_t AHBPrescTable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9 };
 	const uint8_t APBPrescTable[8] = { 0, 0, 0, 0, 1, 2, 3, 4 };
@@ -59,7 +59,7 @@ namespace uni {
 #endif
 
 #if defined(_MCU_STM32F1x)
-
+	using namespace RCCReg;
 	bool RCCAHB::setMode(uint8 divexpo, bool usingPCLK1, bool usingPCLK2) {
 		// "Set the highest APBx dividers in order to ensure that we do not go through a non-spec phase whatever we decrease or increase HCLK"
 		Reference Cfgreg(_RCC_CFGR);
@@ -75,8 +75,7 @@ namespace uni {
 	
 	
 #elif defined(_MCU_STM32F4x)
-
-	Flash_t Flash;
+	using namespace RCCReg;
 
 	bool RCCOscillatorHSE::isReady() {
 		return RCC[CR].bitof(_RCC_CR_POSI_HSEReady);
@@ -89,7 +88,7 @@ namespace uni {
 	static byte _tab_AHB_PRES_EXPO[] = {
 		0,  8,  9, 10, 11,  0, 12, 13, 14, 15
 	};
-	// divexpo is a great design of the past me! --dosconio 20240717
+	// divexpo is a mac-friendly design of the past mine! --dosconio 20240717
 	bool RCCAHB::setMode(_TEMP uint8 divexpo, bool usingPCLK1, bool usingPCLK2) {
 		// if(((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_HCLK) == RCC_CLOCKTYPE_HCLK) call this
 		// "Set the highest APBx dividers in order to ensure that we do not go through a non-spec phase whatever we decrease or increase HCLK"
@@ -113,8 +112,41 @@ namespace uni {
 		return true;
 	}
 
-#elif defined(_MPU_STM32MP13)
+#elif defined(_MCU_STM32H7x)
 
+	bool RCCAHB::setMode(uint8 divexpo) {
+		static int lst[]{
+			0x0, 0x8, 0x9, 0xa, 0xb,
+			-1,
+			0xc, 0xd, 0xe, 0xf
+		};
+		asrtret(divexpo < numsof(lst) && lst[divexpo] >= 0);
+		RCC_D1CFGR_HPRE = lst[divexpo];
+		return true;
+	}
+
+	bool RCCAPB::setMode(uint8 divexpo) {
+		asrtret(divexpo < 5);
+		if (divexpo) divexpo += 3;
+		switch (PCLK_ID) {
+		case 0:
+			RCC_D2CFGR_D2PPRE1 = divexpo; break;
+		case 1:
+			RCC_D2CFGR_D2PPRE2 = divexpo; break;
+		case 2:// APB3
+			RCC_D1CFGR_D1PPRE = divexpo; break;
+		case 3:
+			RCC_D3CFGR_D3PPRE = divexpo; break;
+		default: return false;
+		}
+
+
+		return true;
+	}
+	
+
+#elif defined(_MPU_STM32MP13)
+	using namespace RCCReg;
 	RCCReg::RCCReg APBxDIVR[] = {
 		APB1DIVR, APB2DIVR, APB3DIVR, APB4DIVR, APB5DIVR, APB6DIVR
 	};
@@ -259,10 +291,10 @@ namespace uni {
 
 #endif
 
-	#include "../../../inc/c/driver/RCC/RCC-setClock.hpp"
+#include "../../../inc/c/driver/RCC/RCC-setClock.hpp"// Some use this
 		
-	#if defined(_MCU_STM32)
-		RCC_t RCC;
-	#endif
+#if defined(_MCU_STM32)
+	RCC_t RCC;
+#endif
 }
 

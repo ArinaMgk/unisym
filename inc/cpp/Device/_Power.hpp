@@ -26,13 +26,45 @@
 #include "../unisym"
 #include "../reference"
 
-#if defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32H7x)
+#define _ADDR_PWR (D3_AHB1PERIPH_BASE + 0x4800)
+#elif defined(_MPU_STM32MP13)
 #define _ADDR_PWR 0x50001000
 #endif
 
 namespace uni {
 #if 0
 	
+#elif defined(_MCU_STM32H7x)
+
+#include "../MCU/_ADDRESS/ADDR-STM32.h"
+#ifdef _MCU_PWR_TEMP
+#include "./Power/Power-STM32H7.hpp"
+#endif
+
+enum class PWRReg {
+	CR1, CSR1, CR2, CR3,
+	CPUCR,
+	D3CR = 0x18 / 4,
+	WKUPCR = 0x20 / 4, WKUPFR, WKUPEPR,
+};
+
+class PWR_t {
+public:
+	Reference operator[](PWRReg idx) {
+		return _ADDR_PWR + _IMMx4(idx);
+	}
+
+	// TEMP AREA
+
+	// Configure the main internal regulator output voltage, AKA __HAL_PWR_VOLTAGESCALING_CONFIG
+	// @param regulator: `[0 SCALE3, 1 SCALE2, 3 SCALE1]` the regulator output voltage to achieve a tradeoff between performance and power consumption when the device does not operate at the maximum frequency (refer to the datasheets for more details).
+	void ConfigVoltageScaling(byte regulator);
+
+
+};
+extern PWR_t PWR;
+
 #elif defined(_MPU_STM32MP13)
 
 	enum class PWRReg {
@@ -55,7 +87,6 @@ namespace uni {
 			while (ena ^ self[PWRReg::CR1].bitof(8));
 		}
 	};
-
 	extern PWR_t PWR;
 
 #elif defined(_MCU_MSP432P4)

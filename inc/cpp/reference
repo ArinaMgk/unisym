@@ -24,6 +24,9 @@ namespace uni {
 		volatile typeDest* operator&() const { return address; }
 		Reference_T& operator= (typeDest val) { *address  = val; return self; }
 		Reference_T& operator= (const Reference_T& val) { *address = typeDest(val); return self; }
+		Reference_T(const Reference_T& other) {
+			address = other.address;
+		}
 		Reference_T& operator&=(typeDest val) { *address &= val; return self; }
 		Reference_T& operator|=(typeDest val) { *address |= val; return self; }
 		Reference_T& operator^=(typeDest val) { *address ^= val; return self; }
@@ -31,14 +34,14 @@ namespace uni {
 		inline void setof(stduint idx, bool val = true) { if (val) *address |= _IMM1S(idx); else rstof(idx); }
 		inline void rstof(stduint idx) { *address &= ~_IMM1S(idx); }
 		// Read with Mask
-		stduint mask(stduint bitposi, stduint bitslen) {
+		stduint mask(stduint bitposi, stduint bitslen) const {
 			// e.g. mask(3,2): L_MASK{0b11} aka 
 			//      0b11000
 			// index: 43210
 			const stduint L_MASK = _IMM1S(bitslen) - 1;
 			return (*address) & (L_MASK << bitposi);
 		}
-		stduint masof(stduint bitposi, stduint bitslen) {
+		stduint masof(stduint bitposi, stduint bitslen) const {
 			return mask(bitposi, bitslen) >> bitposi;
 		}
 		// Write with Mask
@@ -59,7 +62,7 @@ namespace uni {
 		//
 		template <typename type0>
 		Bitfield_T(const Reference_T<type0>& _refer, byte _pos, byte _len) : Reference_T<typeDest>((pureptr_t)&_refer), pos(_pos), len(_len) {}
-		operator stduint() { return Reference_T<typeDest>::masof(pos, len); }
+		operator stduint() const { return Reference_T<typeDest>::masof(pos, len); }
 		stduint operator= (stduint val) { return Reference_T<typeDest>::maset(pos, len, val); }
 	};
 	typedef Bitfield_T<typedest> Tdsfield;

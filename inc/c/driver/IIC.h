@@ -44,7 +44,7 @@ void I2C_Stop(void);
 namespace uni {
 
 #undef IIC
-#if defined(_MCU_STM32)
+#if defined(_SUPPORT_GPIO)
 	
 	class IIC_t {
 	protected:

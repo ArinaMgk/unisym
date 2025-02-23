@@ -51,7 +51,7 @@ namespace uni {
 namespace uni {
 	bool SysTick::enClock(uint32 Hz) {
 		//aka HAL_SYSTICK_Config core_cm4::SysTick_Config
-		if (SystemCoreClock / Hz > 0xFFFFFF/*wo CortexM4*/) return false;
+		if (SystemCoreClock / Hz - 1 > 0xFFFFFF/*wo CortexM4*/) return false;
 		ref().LOAD = SystemCoreClock / Hz - 1;
 		NVIC.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
 		ref().VAL = 0;
@@ -69,7 +69,7 @@ namespace uni {
 		ref().LOAD = SystemCoreClock / _Hz - 1; /* set reload register */
 		NVIC.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
 		ref().VAL = 0UL; /* Load the SysTick Counter Value */
-		ref().CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
+		ref().CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk | 4; // SYSTICK_CLKSOURCE_HCLK;
 		return true;
 	}
 }
@@ -136,6 +136,21 @@ void SysDelay(stduint unit) {
 	using namespace uni;
 	uint64 endo = SysTick::getTick() + unit;
 	while (true) if (SysTick::getTick() >= endo) break;
+#elif defined(_MCU_STM32H7x)
+	uint32 tcnt = 0;
+	uint32 tick_load = uni::SysTick::ref().LOAD;
+	uint32 tick_prev = uni::SysTick::ref().VAL;
+	uint64 dest = (uint64)unit * (SystemCoreClock / SysTickHz);
+	while (true) {
+		uint32 tick_last = uni::SysTick::ref().VAL;
+		if (tick_last != tick_prev) {
+			if (tick_last < tick_prev) tcnt += tick_prev - tick_last;
+			else tcnt += tick_load - tick_last + tick_prev;
+			tick_prev = tick_last;
+			if (tcnt >= dest) break;
+		}
+	}
+
 #else
 	//{ISSUE} append systick-enable check?
 	delay_count = unit;

@@ -323,7 +323,7 @@
             <PlainCh>0</PlainCh>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
-            <wLevel>3</wLevel>
+            <wLevel>1</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
             <uC99>1</uC99>
@@ -337,7 +337,7 @@
             <v6WtE>0</v6WtE>
             <v6Rtti>0</v6Rtti>
             <VariousControls>
-              <MiscControls></MiscControls>
+              <MiscControls>-Wno-c++98-compat -Wno-old-style-cast -Wno-c++98-c++11-compat-binary-literal -Wno-extra-semi-stmt -Wno-deprecated-copy-with-user-provided-copy -Wno-c++98-compat-pedantic -Wno-keyword-macro</MiscControls>
               <Define>_MCU_STM32H7x</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
@@ -414,6 +414,16 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\NVIC.cpp</FilePath>
             </File>
+            <File>
+              <FileName>Flash.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Flash.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Power.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Power.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -441,6 +451,11 @@
               <FileName>interrupt_tab.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>RCC-setClock.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\RCC-setClock.cpp</FilePath>
             </File>
           </Files>
         </Group>

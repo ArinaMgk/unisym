@@ -58,6 +58,62 @@ namespace uni {
 	extern Flash_t Flash;// yo RCC!
 }
 
+#elif defined(_MCU_STM32H7x)
+
+#define _Flash_ADDR (D1_AHB1PERIPH_BASE + 0x2000)
+namespace uni {
+
+	namespace FlashReg {
+		typedef enum {
+		ACR,                // FLASH access control register
+		KEYR1,              // Flash Key Register for bank1
+		OPTKEYR,            // Flash Option Key Register
+		CR1,                // Flash Control Register for bank1
+		SR1,                // Flash Status Register for bank1
+		CCR1,               // Flash Control Register for bank1
+		OPTCR,              // Flash Option Control Register
+		OPTSR_CUR,          // Flash Option Status Current Register
+		OPTSR_PRG,          // Flash Option Status Current Register
+		OPTCCR,             // Flash Option Clear Control Register
+		PRAR_CUR1,          // Flash Current Protection Address Register for bank1
+		PRAR_PRG1,          // Flash Protection Address to Program Register for bank1
+		SCAR_CUR1,          // Flash Current Secure Address Register for bank1
+		SCAR_PRG1,          // Flash Secure Address Register for bank1
+		WPSN_CUR1,          // Flash Current Write Protection Register on bank1
+		WPSN_PRG1,          // Flash Write Protection to Program Register on bank1
+		BOOT_CUR,           // Flash Current Boot Address for Pelican Core Register
+		BOOT_PRG,           // Flash Boot Address to Program for Pelican Core Register
+		CRCCR1 = 0x50/4,    // Flash CRC Control register For Bank1 Register
+		CRCSADD1,           // Flash CRC Start Address Register for Bank1
+		CRCEADD1,           // Flash CRC End Address Register for Bank1
+		CRCDATA,            // Flash CRC Data Register for Bank1
+		ECC_FA1,            // Flash ECC Fail Address For Bank1 Register
+		KEYR2 = 0x104/4,    // Flash Key Register for bank2
+		CR2 = 0x10C/4,      // Flash Control Register for bank2
+		SR2,                // Flash Status Register for bank2
+		CCR2,               // Flash Status Register for bank2
+		PRAR_CUR2 = 0x128/4,// Flash Current Protection Address Register for bank2
+		PRAR_PRG2,          // Flash Protection Address to Program Register for bank2
+		SCAR_CUR2,          // Flash Current Secure Address Register for bank2
+		SCAR_PRG2,          // Flash Secure Address Register for bank2
+		WPSN_CUR2,          // Flash Current Write Protection Register on bank2
+		WPSN_PRG2,          // Flash Write Protection to Program Register on bank2
+		CRCCR2 = 0x150/4,   // Flash CRC Control register For Bank2 Register
+		CRCSADD2,           // Flash CRC Start Address Register for Bank2
+		CRCEADD2,           // Flash CRC End Address Register for Bank2
+		CRCDATA2,           // Flash CRC Data Register for Bank2
+		ECC_FA2,            // Flash ECC Fail Address For Bank2 Register
+		} FlashReg;
+	}
+	
+	class Flash_t {
+	public:
+		Reference operator[](FlashReg::FlashReg idx);
+
+	};
+	extern Flash_t Flash;// yo RCC!
+}
+
 #endif
 #endif
 

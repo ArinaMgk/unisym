@@ -23,9 +23,7 @@
 #include "../../../inc/cpp/Device/IIC"
 
 namespace uni {
-#if 0
-
-#elif defined(_MCU_STM32)
+#if defined(_SUPPORT_GPIO)
 
 	void IIC_SOFT::SendStart(void) {
 		if (push_pull) SDA.setMode(GPIOMode::OUT_PushPull);

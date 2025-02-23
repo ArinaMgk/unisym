@@ -122,7 +122,7 @@ extern "C++" {
 #define asrtinc(p) if(p)*(p)++ // for array
 #define asrtdec(p) if(p)*--(p) // for stack
 #define asrtequ(x,y) if((x)==(y))(x) // Assert Value
-#define asrtret(w) if(!(w)) return false;
+#define asrtret(w) if(!(w)) return false; // this can be with an `else`
 #define stepval(x) (!x)?0:x // do not nested by "()" !
 	// E.g. paralext = stepval(subtail)->next;
 

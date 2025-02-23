@@ -1,6 +1,6 @@
-// ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Module) Power Control (PWR and Watchdog)
-// Codifiers: @dosconio: 20241119
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: (Device) Flash
+// Codifiers: @dosconio: ~ 20240718
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -20,34 +20,20 @@
 	limitations under the License.
 */
 
-#include "../../../inc/cpp/Device/_Power.hpp"
+
+#include "../../../inc/cpp/Device/Flash"
+#include "../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 
 namespace uni {
 #if 0
-
+#elif defined(_MCU_STM32F4x)
+	Flash_t Flash;
 #elif defined(_MCU_STM32H7x)
-#include "../../../inc/cpp/Device/Power/Power-STM32H7.hpp"
-	PWR_t PWR;
-	void PWR_t::ConfigVoltageScaling(byte regulator) {
-		PWR_D3CR_VOS = regulator;
-		stduint tmpreg = PWR_D3CR_VOS;// Delay
+	Flash_t Flash;
+
+	Reference Flash_t::operator[](FlashReg::FlashReg idx) {
+		return _Flash_ADDR + _IMMx4(idx);
 	}
 
-#elif defined(_MPU_STM32MP13)
-	PWR_t PWR;
-#elif defined(_MCU_MSP432P4)
-	#include "../../../inc/c/MCU/MSP432/MSP432P4.h"
-	Watchdog_t WdogA;
-
-	Reference_T<uint16> Watchdog_t::operator[](WDogReg idx) {
-		return WDT_A_BASE + _IMMx2(idx);
-	}
-	
-	void Watchdog_t::HoldTimer() {
-		ROM_WDTTABLE[0]();
-	}
-
-	
 #endif
 }
-

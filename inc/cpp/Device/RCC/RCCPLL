@@ -130,15 +130,37 @@ namespace uni {
 			HSI, CSI, HSE, _NONE
 		};
 	}
+
+	struct PLLPara_t {
+		byte m;// 
+		word n;// 
+		byte p, q, r;// 
+		word frac;// 
+	};// aka RCC_PLLInitTypeDef
+	// assure in the order
+	#define setModePLL12(mod,src,...) setMode((mod),(src),(PLLPara_t){__VA_ARGS__})
+
 	
 	//{TEMP} only for PLL1
 	class RCCPLL {
 	public:
+
+		void enAble(bool ena = true) const;
+		bool isReady() const;
+
+		
 		stduint getFrequency_ToCore() const;
 
 		PLLSource::PLLSource CurrentSource() const;
+
+		// range 0..4
+		// vcosel 0 WIDE and 1 MEDIUM
+		bool setMode(PLLSource::PLLSource src, stduint range, stduint vcosel, PLLPara_t para) const;
+
+		bool canMode(bool reset = true) const;
 	};
-	
+	#define setModePLL(src,rng,vsel,...) setMode((src),rng,vsel,(PLLPara_t){__VA_ARGS__})
+
 #elif defined(_MPU_STM32MP13)
 	enum class PLLMode {
 		Integer = 0, Fractional = 0x1, SpreadSpectrum = 0x2

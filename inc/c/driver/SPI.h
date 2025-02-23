@@ -34,7 +34,7 @@
 
 namespace uni {
 
-#if defined(_MCU_STM32)
+#if defined(_SUPPORT_GPIO)
 #undef SPI
 	class SPI_t {
 	// Dynamic for software, Static for hardware

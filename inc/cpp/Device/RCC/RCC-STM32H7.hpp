@@ -257,42 +257,24 @@
 #define RCC_PLL1FRACR_FRACN1   Stdfield(RCC[RCCReg::PLL1FRACR], 3, 13)
 
 /********************  Bit definition for RCC_PLL2DIVR register  ***************/
-#define RCC_PLL2DIVR_N2_Pos                    (0U)
-#define RCC_PLL2DIVR_N2_Msk                    (0x1FFU << RCC_PLL2DIVR_N2_Pos) /*!< 0x000001FF */
-#define RCC_PLL2DIVR_N2                        RCC_PLL2DIVR_N2_Msk
-#define RCC_PLL2DIVR_P2_Pos                    (9U)
-#define RCC_PLL2DIVR_P2_Msk                    (0x7FU << RCC_PLL2DIVR_P2_Pos)  /*!< 0x0000FE00 */
-#define RCC_PLL2DIVR_P2                        RCC_PLL2DIVR_P2_Msk
-#define RCC_PLL2DIVR_Q2_Pos                    (16U)
-#define RCC_PLL2DIVR_Q2_Msk                    (0x7FU << RCC_PLL2DIVR_Q2_Pos)  /*!< 0x007F0000 */
-#define RCC_PLL2DIVR_Q2                        RCC_PLL2DIVR_Q2_Msk
-#define RCC_PLL2DIVR_R2_Pos                    (24U)
-#define RCC_PLL2DIVR_R2_Msk                    (0x7FU << RCC_PLL2DIVR_R2_Pos)  /*!< 0x7F000000 */
-#define RCC_PLL2DIVR_R2                        RCC_PLL2DIVR_R2_Msk
+#define RCC_PLL2DIVR_N2  Stdfield(RCC[RCCReg::PLL2DIVR], 0, 9)
+#define RCC_PLL2DIVR_P2  Stdfield(RCC[RCCReg::PLL2DIVR], 9, 7)
+#define RCC_PLL2DIVR_Q2  Stdfield(RCC[RCCReg::PLL2DIVR], 16, 7)
+#define RCC_PLL2DIVR_R2  Stdfield(RCC[RCCReg::PLL2DIVR], 24, 7)
+
 
 /********************  Bit definition for RCC_PLL2FRACR register  ***************/
-#define RCC_PLL2FRACR_FRACN2_Pos               (3U)
-#define RCC_PLL2FRACR_FRACN2_Msk               (0x1FFFU << RCC_PLL2FRACR_FRACN2_Pos) /*!< 0x0000FFF8 */
-#define RCC_PLL2FRACR_FRACN2                   RCC_PLL2FRACR_FRACN2_Msk
+#define RCC_PLL2FRACR_FRACN2   Stdfield(RCC[RCCReg::PLL2FRACR], 3, 13)
+
 
 /********************  Bit definition for RCC_PLL3DIVR register  ***************/
-#define RCC_PLL3DIVR_N3_Pos                    (0U)
-#define RCC_PLL3DIVR_N3_Msk                    (0x1FFU << RCC_PLL3DIVR_N3_Pos) /*!< 0x000001FF */
-#define RCC_PLL3DIVR_N3                        RCC_PLL3DIVR_N3_Msk
-#define RCC_PLL3DIVR_P3_Pos                    (9U)
-#define RCC_PLL3DIVR_P3_Msk                    (0x7FU << RCC_PLL3DIVR_P3_Pos)  /*!< 0x0000FE00 */
-#define RCC_PLL3DIVR_P3                        RCC_PLL3DIVR_P3_Msk
-#define RCC_PLL3DIVR_Q3_Pos                    (16U)
-#define RCC_PLL3DIVR_Q3_Msk                    (0x7FU << RCC_PLL3DIVR_Q3_Pos)  /*!< 0x007F0000 */
-#define RCC_PLL3DIVR_Q3                        RCC_PLL3DIVR_Q3_Msk
-#define RCC_PLL3DIVR_R3_Pos                    (24U)
-#define RCC_PLL3DIVR_R3_Msk                    (0x7FU << RCC_PLL3DIVR_R3_Pos)  /*!< 0x7F000000 */
-#define RCC_PLL3DIVR_R3                        RCC_PLL3DIVR_R3_Msk
+#define RCC_PLL3DIVR_N3  Stdfield(RCC[RCCReg::PLL3DIVR], 0, 9)
+#define RCC_PLL3DIVR_P3  Stdfield(RCC[RCCReg::PLL3DIVR], 9, 7)
+#define RCC_PLL3DIVR_Q3  Stdfield(RCC[RCCReg::PLL3DIVR], 16, 7)
+#define RCC_PLL3DIVR_R3  Stdfield(RCC[RCCReg::PLL3DIVR], 24, 7)
 
 /********************  Bit definition for RCC_PLL3FRACR register  ***************/
-#define RCC_PLL3FRACR_FRACN3_Pos               (3U)
-#define RCC_PLL3FRACR_FRACN3_Msk               (0x1FFFU << RCC_PLL3FRACR_FRACN3_Pos) /*!< 0x0000FFF8 */
-#define RCC_PLL3FRACR_FRACN3                   RCC_PLL3FRACR_FRACN3_Msk
+#define RCC_PLL3FRACR_FRACN3                   Stdfield(RCC[RCCReg::PLL3FRACR], 3, 13)
 
 /********************  Bit definition for RCC_D1CCIPR register  ***************/
 #define RCC_D1CCIPR_FMCSEL_Pos                 (0U)
@@ -364,19 +346,9 @@
 #define RCC_D2CCIP1R_SWPSEL                    RCC_D2CCIP1R_SWPSEL_Msk
 
 /********************  Bit definition for RCC_D2CCIP2R register  ***************/
-#define RCC_D2CCIP2R_USART16SEL_Pos            (3U)
-#define RCC_D2CCIP2R_USART16SEL_Msk            (0x7U << RCC_D2CCIP2R_USART16SEL_Pos) /*!< 0x00000038 */
-#define RCC_D2CCIP2R_USART16SEL                RCC_D2CCIP2R_USART16SEL_Msk
-#define RCC_D2CCIP2R_USART16SEL_0              (0x1U << RCC_D2CCIP2R_USART16SEL_Pos) /*!< 0x00000008 */
-#define RCC_D2CCIP2R_USART16SEL_1              (0x2U << RCC_D2CCIP2R_USART16SEL_Pos) /*!< 0x00000010 */
-#define RCC_D2CCIP2R_USART16SEL_2              (0x4U << RCC_D2CCIP2R_USART16SEL_Pos) /*!< 0x00000020 */
+#define RCC_D2CCIP2R_USART16SEL                Stdfield(RCC[RCCReg::D2CCIP2R], 3, 3)
+#define RCC_D2CCIP2R_USART28SEL                Stdfield(RCC[RCCReg::D2CCIP2R], 0, 3)
 
-#define RCC_D2CCIP2R_USART28SEL_Pos            (0U)
-#define RCC_D2CCIP2R_USART28SEL_Msk            (0x7U << RCC_D2CCIP2R_USART28SEL_Pos) /*!< 0x00000007 */
-#define RCC_D2CCIP2R_USART28SEL                RCC_D2CCIP2R_USART28SEL_Msk
-#define RCC_D2CCIP2R_USART28SEL_0              (0x1U << RCC_D2CCIP2R_USART28SEL_Pos) /*!< 0x00000001 */
-#define RCC_D2CCIP2R_USART28SEL_1              (0x2U << RCC_D2CCIP2R_USART28SEL_Pos) /*!< 0x00000002 */
-#define RCC_D2CCIP2R_USART28SEL_2              (0x4U << RCC_D2CCIP2R_USART28SEL_Pos) /*!< 0x00000004 */
 
 #define RCC_D2CCIP2R_RNGSEL_Pos                (8U)
 #define RCC_D2CCIP2R_RNGSEL_Msk                (0x3U << RCC_D2CCIP2R_RNGSEL_Pos) /*!< 0x00000300 */
@@ -838,9 +810,9 @@
 #define RCC_APB2ENR_TIM8EN_Pos                 (1U)
 #define RCC_APB2ENR_TIM8EN_Msk                 (0x1U << RCC_APB2ENR_TIM8EN_Pos) /*!< 0x00000002 */
 #define RCC_APB2ENR_TIM8EN                     RCC_APB2ENR_TIM8EN_Msk
-#define RCC_APB2ENR_USART1EN_Pos               (4U)
-#define RCC_APB2ENR_USART1EN_Msk               (0x1U << RCC_APB2ENR_USART1EN_Pos) /*!< 0x00000010 */
-#define RCC_APB2ENR_USART1EN                   RCC_APB2ENR_USART1EN_Msk
+
+
+
 #define RCC_APB2ENR_USART6EN_Pos               (5U)
 #define RCC_APB2ENR_USART6EN_Msk               (0x1U << RCC_APB2ENR_USART6EN_Pos) /*!< 0x00000020 */
 #define RCC_APB2ENR_USART6EN                   RCC_APB2ENR_USART6EN_Msk

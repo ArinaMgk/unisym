@@ -172,6 +172,10 @@ namespace uni {
 		bool isReady() const;
 		// calibration:
 		bool setMode(bool ena = true, bool bypass = false) const;
+
+		stduint getFrequency() const {
+			return LSE_VALUE;
+		}
 	};
 	typedef RCCOscillatorLSE LSE_t;
 
@@ -180,6 +184,10 @@ namespace uni {
 		bool isReady() const;
 		// calibration:
 		bool setMode(bool ena = true) const;
+
+		stduint getFrequency() const {
+			return LSI_VALUE;
+		}
 	};
 	typedef RCCOscillatorLSI LSI_t;
 

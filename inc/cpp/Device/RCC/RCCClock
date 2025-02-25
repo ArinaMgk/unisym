@@ -183,6 +183,7 @@ namespace uni {
 		// SYSCLK
 		stduint getFrequency();//aka HAL_RCC_GetSysClockFreq
 		// get and update SystemCoreClock
+		// AKA HAL_RCCEx_GetD1SysClockFreq
 		stduint getCoreFrequency();
 	};
 

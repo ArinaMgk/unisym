@@ -19,6 +19,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+#define _DEBUG// for erro()
 #include "../../../../inc/cpp/interrupt"
 #include "../../../../inc/cpp/Device/EXTI"
 
@@ -35,23 +36,26 @@ using namespace uni;
 #endif
 
 // EXTI
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 static void _HandlerIRQ_EXTIx(byte x);
 #endif
 
 
 extern "C" {
 #ifdef _MCU_STM32
+	_WEAK void HardFault_Handler() { erro(); }
+#endif
+#ifdef _MCU_STM32
 	Handler_t FUNC_EXTI[16] = { 0 };
 #endif
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	void EXTI0_IRQHandler(void) { _HandlerIRQ_EXTIx(0); }
 	void EXTI1_IRQHandler(void) { _HandlerIRQ_EXTIx(1); }
 	void EXTI2_IRQHandler(void) { _HandlerIRQ_EXTIx(2); }
 	void EXTI3_IRQHandler(void) { _HandlerIRQ_EXTIx(3); }
 	void EXTI4_IRQHandler(void) { _HandlerIRQ_EXTIx(4); }
 #endif
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32H7x) || defined(_MCU_STM32F4x)
 	void EXTI9_5_IRQHandler(void) {
 		for (byte i = 5; i < 9; i++) _HandlerIRQ_EXTIx(i);
 	}
@@ -156,6 +160,15 @@ static void _HandlerIRQ_EXTIx(byte x) {
 		EXTI::Pending = _IMM1S(x);
 	}
 }
+#elif defined(_MCU_STM32H7x)
+namespace uni { EXTI_t EXTI; }
+static void _HandlerIRQ_EXTIx(byte x) {
+	if (EXTI.Pending(0, 1).bitof(x)) {
+		asserv(FUNC_EXTI[x])();
+		EXTI.Pending(0, 1) = _IMM1S(x);
+	}
+}
+
 #elif defined(_MPU_STM32MP13)
 #include "../../../../inc/c/bitmap.h"
 static void _HandlerIRQ_EXTIx(byte x) {

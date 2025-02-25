@@ -143,7 +143,23 @@ namespace uni {
 
 		return true;
 	}
+
 	
+	stduint RCC_t::getFrequencyHCLK() {
+		return SystemD2Clock = Sysclock.getCoreFrequency() >> D1CorePrescTable[_IMM(RCC_D1CFGR_HPRE)];
+	}
+	stduint RCC_t::getFrequencyPCLK1() {
+		return (getFrequencyHCLK() >> D1CorePrescTable[_IMM(RCC_D2CFGR_D2PPRE1)]);
+	}
+	stduint RCC_t::getFrequencyPCLK2() {
+		return (getFrequencyHCLK() >> D1CorePrescTable[_IMM(RCC_D2CFGR_D2PPRE2)]);
+	}
+	stduint RCC_t::getFrequencyD1PCLK1() {
+		return (getFrequencyHCLK() >> D1CorePrescTable[_IMM(RCC_D1CFGR_D1PPRE)]);
+	}
+	stduint RCC_t::getFrequencyD3PCLK1() {
+		return (getFrequencyHCLK() >> D1CorePrescTable[_IMM(RCC_D3CFGR_D3PPRE)]);
+	}
 
 #elif defined(_MPU_STM32MP13)
 	using namespace RCCReg;

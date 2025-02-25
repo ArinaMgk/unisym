@@ -424,6 +424,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\Power.cpp</FilePath>
             </File>
+            <File>
+              <FileName>UART.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\UART.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

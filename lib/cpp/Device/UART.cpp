@@ -1,4 +1,5 @@
-
+#define _MCU_XART_TEMP
+#define _MCU_RCC_TEMP
 #include "../../../inc/c/driver/UART.h"
 #include "../../../inc/cpp/Device/RCC/RCC"
 
@@ -328,9 +329,6 @@ namespace uni {
 
 #elif defined(_MCU_STM32F4x)
 
-
-
-
 namespace uni {
 
 	//{ONLY}  F407 & F417
@@ -356,5 +354,423 @@ namespace uni {
 
 }
 
+#elif defined(_MCU_STM32H7x)
+
+namespace uni {
+	USART_t XART1(1), XART2(2), XART3(3), XART6(6);
+	UART_t  XART4(4), XART5(5), XART7(7), XART8(8);
+
+	static const stduint xart_addr[8]{ 
+	D2_APB2PERIPH_BASE + 0x1000, D2_APB1PERIPH_BASE + 0x4400, D2_APB1PERIPH_BASE + 0x4800, D2_APB1PERIPH_BASE + 0x4C00,
+	D2_APB1PERIPH_BASE + 0x5000, D2_APB2PERIPH_BASE + 0x1400, D2_APB1PERIPH_BASE + 0x7800, D2_APB1PERIPH_BASE + 0x7C00,
+	};
+
+	static byte GPINs_AFs_XARTx[8] = {
+		7,7,7, 8,8, 7,7,8
+	};
+
+	Reference USART_t::operator[](XARTReg::USARTReg idx) const { return xart_addr[XART_ID - 1] + _IMM(idx); }
+	Reference_T<uint16> USART_t::operator[](XARTReg::USARTReg16 idx) const { return xart_addr[XART_ID - 1] + _IMM(idx); }
+
+	static void setMode_initGPIO(byte xart_id) {
+		if (!Ranglin(xart_id, 1, 8)) return;
+		xart_id--;
+		static GPIN* RPins[8] _TODO{
+			&GPIOA[10], nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr,
+		};
+		static GPIN* TPins[8] _TODO {
+			&GPIOA[9], nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr,
+		};
+		RPins[xart_id]->setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Veryhigh).setPull(true);// Rx
+		RPins[xart_id]->_set_alternate(GPINs_AFs_XARTx[xart_id]);
+		TPins[xart_id]->setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::Veryhigh).setPull(true);// Tx
+		TPins[xart_id]->_set_alternate(GPINs_AFs_XARTx[xart_id]);
+	}
+
+	// ----
+
+	void UART_t::setInterrupt(Handler_t _func) const { _TODO }
+	void UART_t::setInterruptPriority(byte preempt, byte sub_priority) const { _TODO }
+	void UART_t::enInterrupt(bool enable) const { _TODO }
+	void USART_t::setInterrupt(Handler_t _func) const { _TODO }
+	void USART_t::setInterruptPriority(byte preempt, byte sub_priority) const { _TODO }
+	void USART_t::enInterrupt(bool enable) const { _TODO }
+
+
+	// ----
+
+	int UART_t::inn() {
+		return _TODO 0;
+	}
+	int UART_t::out(const char* str, stduint len) {
+		return _TODO 0;
+	}
+	int USART_t::inn() {
+		return _TODO 0;
+	}
+	int USART_t::out(const char* str, stduint len) {
+		return _TODO 0;
+	}
+
+
+	// ----
+
+	#undef D3PCLK1
+	#define UART_DIV_SAMPLING8(__PCLK__, __BAUD__, __PRESCALER__)   (((((__PCLK__)/uart_prescalers[(__PRESCALER__)])*2) + ((__BAUD__)/2)) / (__BAUD__))
+	#define UART_DIV_SAMPLING16(__PCLK__, __BAUD__, __PRESCALER__)  ((((__PCLK__)/uart_prescalers[(__PRESCALER__)]) + ((__BAUD__)/2)) / (__BAUD__))
+	static const uint16 uart_prescalers[] {
+		1, 2, 4, 6, 8, 10, 12, 16, 32, 64, 128, 256
+	};
+	
+	// HAL_UART_Init
+	bool USART_t::setMode(stduint band_rate) {
+		//[TEMP]
+		// UART_WORDLENGTH_8B UART_STOPBITS_1 UART_PARITY_NONE UART_HWCONTROL_NONE UART_MODE_TX_RX
+		//
+		stduint wordlen_mask = 0x10001000;// for CR1
+		enum class WordLength_E {
+			Bits7 = 0x10000000,
+			Bits8 = 0x00000000,
+			Bits9 = 0x00001000,
+		};
+		WordLength_E wordlen = WordLength_E::Bits8;
+		//
+		_Comment(USART_CR2_STOP should= 0);
+		// Appended MSB Parity, CR1
+		bool parity_enable = false;
+		bool parity_odd = false;
+		#define USART_PARITY_NONE 0
+		#define USART_PARITY_EVEN (USART_CR1_PCE)
+		#define USART_PARITY_ODD  ((USART_CR1_PCE | USART_CR1_PS))
+		#define USART_PARITY_MASK USART_PARITY_ODD
+		// Mode (Parallel Setting), CR1
+		bool mode_tx = true;// USART_CR1_TE
+		bool mode_rx = true;// USART_CR1_RE
+		// USART_InitTypeDef CLKPolarity
+		bool clock_polarity;// true for USART_CR2_CPOL else 0
+		// USART_InitTypeDef CLKPhase: clock transition on which the bit capture is made.
+		bool clock_phase;// true for (USART_CR2_CPHA) second clock transition but (0) first
+		// USART_InitTypeDef CLKLastBit: whether the clock pulse corresponding to the last transmitted data bit (MSB) has to be output on the SCLK pin in synchronous mode
+		bool lastbit_ena;// true for USART_CR2_LBCL
+		// Prescaler
+		stduint presval = 1;
+		
+		bool state = false;
+		for0a(i, uart_prescalers) if (uart_prescalers[i] == presval) { state = true; presval = i; break; }
+		asrtret (state);
+		// UART_InitTypeDef: HwFlowCtl, 4=2*2 states:
+		bool HwFlowCtl_RTS = false;// USART_CR3_RTSE
+		bool HwFlowCtl_CTS = false;// USART_CR3_CTSE
+		// UART_InitTypeDef: OverSampling, whether the Over sampling 8 is enabled or disabled, to achieve higher speed (up to f_PCLK/8)
+		bool OverSampling = false;// true for USART_CR1_OVER8 but 16
+		// UART_InitTypeDef: OneBitSampling, whether a single sample or three samples' majority vote is selected. Selecting the single sample method increases the receiver tolerance to clock deviations
+		bool OneBitSampling_ena = false;// USART_CR3_ONEBIT
+		// UART_InitTypeDef: FIFOMode
+		bool FIFOMode = false;// USART_CR1_FIFOEN
+		//
+		enum class Threshold_E {
+			_1_8,// R/TXFIFO reaches 1/8 of its depth
+			_1_4,//                  1/4
+			_1_2,//                  1/2
+			_3_4,//                  3/4
+			_7_8,//                  7/8
+			_8_8,// R/TXFIFO becomes empt
+		};
+		Threshold_E TXFIFOThreshold;// USART_CR3_TXFTCFG
+		Threshold_E RXFIFOThreshold;// USART_CR3_RXFTCFG
+		// ---- ---- above are info about USART_InitTypeDef and UART_InitTypeDef ---- ----
+		// if (HwFlowCtl_RTS || HwFlowCtl_CTS) { // HwFlowCtl != UART_HWCONTROL_NONE
+		// 	//{} for XART1~8 + LPUART1 // IS_UART_HWFLOW_INSTANCE
+		// }
+		// else {
+		// 	//{} for XART1~8 + LPUART1 // IS_UART_INSTANCE || IS_LPUART_INSTANCE
+		// }
+		{
+			enClock();
+			setMode_initGPIO(XART_ID);
+		}
+		enAble(false);
+		/* Set the UART Communication parameters */
+		// special parameters
+		//{} UART_INSTANCE_LOWPOWER =>    IS_LPUART_STOPBITS 
+		//                          else  IS_UART_STOPBITS,  IS_UART_ONE_BIT_SAMPLE
+		//{} UART_FIFOMODE_ENABLE   =>    IS_UART_TXFIFO_THRESHOLD,  IS_UART_RXFIFO_THRESHOLD
+
+		// UART_SetConfig
+		{
+			uint32_t tmpreg = 0x00000000U;
+			UART_CLKSRC clocksource = UART_CLKSRC::UNDEFINED;
+			uint16_t brrtemp = 0x0000U;
+			uint16_t usartdiv = 0x0000U;
+			// ---- USART CR1 Configuration ---- //
+			/* Clear M, PCE, PS, TE, RE and OVER8 bits and configure */
+			Reflocal (cr1) = self[XARTReg::CR1];
+			cr1 = (cr1 & ~wordlen_mask) | _IMM(wordlen);
+			cr1 &= ~USART_PARITY_MASK;
+			if (parity_enable) {
+				cr1 |= parity_odd ? USART_PARITY_ODD : USART_PARITY_EVEN;
+			}
+			USART_CR1_TE_REF(cr1) = mode_tx;
+			USART_CR1_RE_REF(cr1) = mode_rx;
+			USART_CR1_OVER8_REF(cr1) = OverSampling;
+			USART_CR1_FIFOEN_REF(cr1) = FIFOMode;
+			self[XARTReg::CR1] = cr1;
+
+			// ---- USART CR2 Configuration ---- //
+			USART_CR2_STOP(self) = 0;
+			
+			// ---- USART CR3 Configuration ---- //
+			Reflocal(cr3) = 0;
+			// - UART HardWare Flow Control: set CTSE and RTSE bits
+			USART_CR3_RTSE_REF(cr3) = HwFlowCtl_RTS;
+			USART_CR3_CTSE_REF(cr3) = HwFlowCtl_CTS;
+			// - one-bit sampling method versus three samples' majority rule according
+			if (_TEMP true) // (!(UART_INSTANCE_LOWPOWER(huart)))
+			{
+				_Comment("We did not consider LPUART now");
+				USART_CR3_ONEBIT_REF(cr3) = OneBitSampling_ena;// (not applicable to LPUART)
+			}
+			//
+			if (FIFOMode) {
+				USART_CR3_RXFTCFG_REF(cr3) = _IMM(RXFIFOThreshold);
+				USART_CR3_TXFTCFG_REF(cr3) = _IMM(TXFIFOThreshold);
+			}
+			self[XARTReg::CR3] = cr3;
+
+			// ---- USART PRESC Configuration ---- //
+			/* Configure
+			 * - UART Clock Prescaler : set PRESCALER according to uart_prescalers[presval] value */
+			USART_PRESC_PRESCALER(self) = presval;
+
+			// ---- USART BRR Configuration ---- //
+			clocksource = getClockSource();
+
+			// ---- Check LPUART instance ---- //
+			#if 0//{TODO}
+			if (UART_INSTANCE_LOWPOWER(huart))
+			{
+				/* Retrieve frequency clock */
+				tmpreg = 0U;
+				switch (clocksource)
+				{
+				case UART_CLOCKSOURCE_D3PCLK1:
+					tmpreg = HAL_RCCEx_GetD3PCLK1Freq();
+					break;
+				case UART_CLOCKSOURCE_PLL2:
+					HAL_RCCEx_GetPLL2ClockFreq(&pll2_clocks);
+					tmpreg = pll2_clocks.PLL2_Q_Frequency;
+					break;
+				case UART_CLOCKSOURCE_PLL3:
+					HAL_RCCEx_GetPLL3ClockFreq(&pll3_clocks);
+					tmpreg = pll3_clocks.PLL3_Q_Frequency;
+					break;
+				case UART_CLOCKSOURCE_HSI:
+					if (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIDIV) != 0U)
+					{
+						tmpreg = (uint32_t)(HSI_VALUE >> (__HAL_RCC_GET_HSI_DIVIDER() >> 3U));
+					}
+					else
+					{
+						tmpreg = (uint32_t)HSI_VALUE;
+					}
+					break;
+				case UART_CLOCKSOURCE_CSI:
+					tmpreg = (uint32_t)CSI_VALUE;
+					break;
+				case UART_CLOCKSOURCE_LSE:
+					tmpreg = (uint32_t)LSE_VALUE;
+					break;
+				case UART_CLOCKSOURCE_UNDEFINED:
+				default:
+					ret = HAL_ERROR;
+					break;
+				}
+				/* if proper clock source reported */
+				if (tmpreg != 0U)
+				{
+				  /* ensure that Frequency clock is in the range [3 * baudrate, 4096 * baudrate] */
+					if ((tmpreg < (3 * band_rate)) ||
+						(tmpreg > (4096 * band_rate)))
+					{
+						ret = HAL_ERROR;
+					}
+					else
+					{
+						switch (clocksource)
+						{
+						case UART_CLOCKSOURCE_D3PCLK1:
+							tmpreg = (uint32_t)(UART_DIV_LPUART(HAL_RCCEx_GetD3PCLK1Freq(), band_rate, uart_prescalers[presval]));
+							break;
+						case UART_CLOCKSOURCE_PLL2:
+							HAL_RCCEx_GetPLL2ClockFreq(&pll2_clocks);
+							tmpreg = (uint32_t)(UART_DIV_LPUART(pll2_clocks.PLL2_Q_Frequency, band_rate, uart_prescalers[presval]));
+							break;
+						case UART_CLOCKSOURCE_PLL3:
+							HAL_RCCEx_GetPLL3ClockFreq(&pll3_clocks);
+							tmpreg = (uint32_t)(UART_DIV_LPUART(pll3_clocks.PLL3_Q_Frequency, band_rate, uart_prescalers[presval]));
+							break;
+						case UART_CLOCKSOURCE_HSI:
+							if (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIDIV) != 0U)
+							{
+								tmpreg = (uint32_t)(UART_DIV_LPUART((HSI_VALUE >> (__HAL_RCC_GET_HSI_DIVIDER() >> 3)), band_rate, uart_prescalers[presval]));
+							}
+							else
+							{
+								tmpreg = (uint32_t)(UART_DIV_LPUART(HSI_VALUE, band_rate, uart_prescalers[presval]));
+							}
+							break;
+						case UART_CLOCKSOURCE_CSI:
+							tmpreg = (uint32_t)(UART_DIV_LPUART(CSI_VALUE, band_rate, uart_prescalers[presval]));
+							break;
+						case UART_CLOCKSOURCE_LSE:
+							tmpreg = (uint32_t)(UART_DIV_LPUART(LSE_VALUE, band_rate, uart_prescalers[presval]));
+							break;
+						case UART_CLOCKSOURCE_UNDEFINED:
+						default:
+							ret = HAL_ERROR;
+							break;
+						}
+
+						if ((tmpreg >= UART_LPUART_BRR_MIN) && (tmpreg <= UART_LPUART_BRR_MAX))
+						{
+							self[XARTReg::BRR] = tmpreg;
+						}
+						else
+						{
+							ret = HAL_ERROR;
+						}
+					}  /*   if ( (tmpreg < (3 * band_rate) ) || (tmpreg > (4096 * band_rate) )) */
+				} /* if (tmpreg != 0) */
+			}
+			#else
+			if (0);
+			#endif
+			// ---- Check UART Over Sampling to set Baud Rate Register ---- //
+			else
+			{
+				switch (clocksource)
+				{
+				case UART_CLKSRC::DxPCLKx:
+					if (Ranglin(XART_ID, 2, 4) || Ranglin(XART_ID, 7, 2)) {
+						if (OverSampling)
+							usartdiv = (UART_DIV_SAMPLING8(RCC.getFrequencyPCLK1(), band_rate, presval));
+						else
+							self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.getFrequencyPCLK1(), band_rate, presval));
+					}
+					else if (XART_ID == 1 || XART_ID == 6) {
+						if (OverSampling)
+							usartdiv = (UART_DIV_SAMPLING8(RCC.getFrequencyPCLK2(), band_rate, presval));
+						else
+							self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.getFrequencyPCLK2(), band_rate, presval));
+					}
+					break;
+				case UART_CLKSRC::PLL2:
+					if (OverSampling)
+					{
+						usartdiv = (UART_DIV_SAMPLING8(RCC.PLL2.getFrequencyQ(), band_rate, presval));
+					}
+					else {
+						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.PLL2.getFrequencyQ(), band_rate, presval));
+					}
+					break;
+				case UART_CLKSRC::PLL3:
+					if (OverSampling)
+					{
+						usartdiv = (UART_DIV_SAMPLING8(RCC.PLL3.getFrequencyQ(), band_rate, presval));
+					}
+					else {
+						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.PLL3.getFrequencyQ(), band_rate, presval));
+					}
+					break;
+				case UART_CLKSRC::HSI:
+					// ST Origin Code: if HSION&HSIRDY, use getFrequency_ToCore or use HSI_VALUE
+					if (OverSampling)
+					{
+						usartdiv = (UART_DIV_SAMPLING8(RCC.HSI.getFrequency_ToCore(), band_rate, presval));
+					}
+					else {
+						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.HSI.getFrequency_ToCore(), band_rate, presval));
+					}
+					break;
+				case UART_CLKSRC::CSI:
+					if (OverSampling)
+						usartdiv = (UART_DIV_SAMPLING8(RCC.CSI.getFrequency(), band_rate, presval));
+					else
+						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.CSI.getFrequency(), band_rate, presval));
+					break;
+				case UART_CLKSRC::LSE:
+					if (OverSampling)
+						usartdiv = (UART_DIV_SAMPLING8(RCC.LSE.getFrequency(), band_rate, presval));
+					else
+						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.LSE.getFrequency(), band_rate, presval));
+					break;
+				case UART_CLKSRC::UNDEFINED:
+				default:
+					return false;
+					break;
+				}
+				if (OverSampling)
+				{
+					brrtemp = usartdiv & 0xFFF0U;
+					brrtemp |= (uint16_t)((usartdiv & 0x000FU) >> 1U);
+					self[XARTReg::BRR] = brrtemp;
+				}
+			}
+
+		}
+		//{TODO} Adv Init
+		//{} if (huart->AdvancedInit.AdvFeatureInit != UART_ADVFEATURE_NO_INIT)
+		//{} {
+		//{} 	UART_AdvFeatureConfig(huart);
+		//{} }
+		/* In asynchronous mode, the following bits must be kept cleared:
+		- LINEN and CLKEN bits in the USART_CR2 register,
+		- SCEN, HDSEL and IREN  bits in the USART_CR3 register.*/
+
+
+		enAble(true);
+		/* TEACK and/or REACK to check before moving huart->gState and huart->RxState to Ready */
+		_Comment("UART_CheckIdleState(huart)") {
+			if _IMM(USART_CR1_TE(self))
+			{
+				while (!_IMM(USART_ISR_TEACK(self)));
+			}
+			if _IMM(USART_CR1_RE(self))
+			{
+				while (!_IMM(USART_ISR_REACK(self)));
+			}
+		}
+		// no consider timeout
+		return true;
+	}
+	//
+	bool USART_t::enAble(bool ena) {
+		self[XARTReg::CR1].setof(0, ena);// USART_CR1_UE, USART Enable
+		return self[XARTReg::CR1].bitof(0);
+	}
+	//
+	bool USART_t::enClock(bool ena) {
+		//{TEMP} for XART1
+		RCC[RCCReg::APB2ENR].setof(4, ena);// RCC_APB2ENR_USART1EN
+		return RCC[RCCReg::APB2ENR].bitof(4);
+	}
+	//
+
+	UART_CLKSRC USART_t::getClockSource() {
+		switch (XART_ID) {
+		case 1: case 6:
+			return UART_CLKSRC _IMM(RCC_D2CCIP2R_USART16SEL);
+		case 2: case 3: case 4: case 5: case 7: case 8:
+			return UART_CLKSRC _IMM(RCC_D2CCIP2R_USART28SEL);
+		default:
+			return UART_CLKSRC::UNDEFINED;
+		}
+	}
+
+
+	
+}
 
 #endif

@@ -144,10 +144,16 @@ namespace uni {
 		uint8* getTable(stduint idx = 0) { return ((uint8*)&self[NVICReg::IP0]) + idx; }
 	public:
 		Reference operator[](NVICReg::NVICReg idx);
+		Reference Reflect(NVICReg::NVICReg idx, byte offs = 0);
+
 		// bitsof_prepriority: range 0..5
+		uint32 getPriorityGroup();
 		void setPriorityGroup(stduint bitsof_prepriority);
 
 		void setPriority(Request_t req, uint32 priority);
+		void setPriority(Request_t req, uint32 prepriority, uint32 subpriority);
+
+		void setAble(Request_t req, bool ena = true);
 
 
 	};

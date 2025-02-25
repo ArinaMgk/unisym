@@ -149,7 +149,8 @@ namespace uni {
 	public:
 		// print string with format at cursor
 		// C Style printf
-		virtual int FormatShow(const char* fmt, ...) = 0;
+		// // virtual int FormatShow(const char* fmt, ...) = 0;
+		// [Update] Please Use Console.FormatOut but Console.FormatShow
 	};
 	
 	class HostConsole
@@ -160,10 +161,9 @@ namespace uni {
 	#endif
 	{
 	public:
-		virtual int out(const char* str, dword len);
+		virtual int out(const char* str, stduint len);
 		virtual int inn();
 	public:
-		virtual int FormatShow(const char* fmt, ...);
 		Point getCursor();
 		stduint getWidth();
 		stduint getHeight();

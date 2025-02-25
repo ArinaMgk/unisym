@@ -112,7 +112,7 @@ namespace uni {
 	}
 
 	PLLSource::PLLSource RCCPLL::CurrentSource() const {
-		return PLLSource::PLLSource(RCC[RCCReg::PLLCKSELR] & 0b11);
+		return PLLSource::PLLSource _IMM(RCC_PLLCKSELR_PLLSRC);
 	}
 
 	bool RCCPLL::setMode(PLLSource::PLLSource src, stduint range, stduint vcosel, PLLPara_t para) const {
@@ -156,6 +156,51 @@ namespace uni {
 		}
 		else return false;
 		return true;
+	}
+
+
+	static void getFrequencies(const RCCPLL& pll, stduint& P, stduint& Q, stduint& R) {
+		if (!Ranglin(pll.getID(), 1, 3)) return;
+		byte id = pll.getID() - 1;
+		uint32_t    pllxm = 1, pllxfracen = 0;
+		float fracn1, pll_vco = 0;
+		pllxm = _IMM(RCC_PLLCKSELR_DIVM1);
+		pllxfracen = RCC[RCCReg::PLLCFGR].bitof(4 * id); // RCC_PLLCFGR_PLLxFRACEN;
+		static const RCCReg::RCCReg fracrs[]{ RCCReg::PLL1FRACR, RCCReg::PLL2FRACR, RCCReg::PLL3FRACR };
+		static const RCCReg::RCCReg plldivs[]{ RCCReg::PLL1DIVR, RCCReg::PLL2DIVR, RCCReg::PLL3DIVR };
+		fracn1 = pllxfracen * Stdfield(RCC[fracrs[id]], 3, 13);// RCC_PLLxFRACR_FRACNx
+		switch (pll.CurrentSource())// DIVN
+		{
+		case PLLSource::HSI:
+			// ST Origin Code: if HSION&HSIRDY, use getFrequency_ToCore or use HSI_VALUE
+			pll_vco = (RCC.HSI.getFrequency_ToCore() / pllxm) * (Stdfield(RCC[plldivs[id]], 0, 9) + (fracn1 / 0x2000) + 1);
+			break;
+		case PLLSource::HSE:
+			pll_vco = (RCC.HSE.getFrequency() / pllxm) * (Stdfield(RCC[plldivs[id]], 0, 9) + (fracn1 / 0x2000) + 1);
+			break;
+		default:
+		case PLLSource::CSI:
+			pll_vco = (RCC.CSI.getFrequency() / pllxm) * (Stdfield(RCC[plldivs[id]], 0, 9) + (fracn1 / 0x2000) + 1);
+			break;
+		}
+		P = pll_vco / (Stdfield(RCC[plldivs[id]],  9, 7) + 1);// RCC_PLLxDIVR_P1
+		Q = pll_vco / (Stdfield(RCC[plldivs[id]], 16, 7) + 1);// RCC_PLLxDIVR_Q1
+		R = pll_vco / (Stdfield(RCC[plldivs[id]], 24, 7) + 1);// RCC_PLLxDIVR_R1
+	}
+	stduint RCCPLL::getFrequencyP() const {
+		stduint P, Q, R;
+		getFrequencies(self, P, Q, R);
+		return P;
+	}
+	stduint RCCPLL::getFrequencyQ() const {
+		stduint P, Q, R;
+		getFrequencies(self, P, Q, R);
+		return Q;
+	}
+	stduint RCCPLL::getFrequencyR() const {
+		stduint P, Q, R;
+		getFrequencies(self, P, Q, R);
+		return R;
 	}
 
 #elif defined(_MPU_STM32MP13)

@@ -49,8 +49,12 @@ extern stduint __SYSTEM_CLOCK;
 #define _SCC_DEFAULT 8000000
 #endif
 
-extern stduint SystemCoreClock;
+extern stduint SystemCoreClock, SystemD2Clock;
 extern stduint SysTickHz;
+#if defined(_MCU_STM32H7x)
+_ESYM_C const byte D1CorePrescTable[16];
+#endif
+
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 namespace uni {
 	extern const uint8_t AHBPrescTable[16];
@@ -179,18 +183,27 @@ namespace uni {
 		RCCOscillatorHSE HSE;
 		RCCOscillatorHSI HSI;
 		RCCOscillatorCSI CSI;
+		RCCOscillatorLSE LSE;
+		RCCOscillatorLSI LSI;
 
-		RCCPLL PLL1;
+		RCCPLL PLL1, PLL2, PLL3;
 		RCCSystemClock Sysclock;
 		RCCAHB AHB;
 		RCCAPB APB1, APB2, APB3, APB4;
 		
-		RCC_t() : APB1(0), APB2(1), APB3(2), APB4(3) {}
+		RCC_t() : APB1(0), APB2(1), APB3(2), APB4(3), PLL1(1), PLL2(2), PLL3(3) {}
 
 		inline Reference operator[](RCCReg::RCCReg idx) const { return _RCC_ADDR + _IMMx4(idx); }
 
 		// Config using recommended parameters
 		bool setClock(SysclkSource::RCCSysclockSource source);
+
+
+		stduint getFrequencyHCLK();
+		stduint getFrequencyPCLK1();
+		stduint getFrequencyPCLK2();
+		stduint getFrequencyD1PCLK1();
+		stduint getFrequencyD3PCLK1();
 
 
 	};

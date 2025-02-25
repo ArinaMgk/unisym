@@ -19,7 +19,12 @@
 	limitations under the License.
 */
 
-#include "../../inc/cpp/stream"
+#include "../../inc/cpp/unisym"
+#include "../../inc/c/consio.h"
+
+
+#define pnext(t) para_next(paras, t)
+#define outc     OutChar
 
 static void _stream_out();
 static void _stream_inn();
@@ -27,3 +32,14 @@ static void _stream_inn();
 // Console: consio.cpp
 //    File: ...
 //    XART: ...
+
+#define localout out
+namespace uni {
+	int OstreamTrait::FormatOut(const char* fmt, ...) {
+		Letpara(paras, fmt);
+		_crt_out_cnt = 0;
+		#define _STREAM_FORMAT_CPP
+		#include "../../inc/c/stream/format-body.h"
+		return _crt_out_cnt;
+	}
+}

@@ -57,14 +57,14 @@ namespace uni {
 		static bool enClock(uint32 Hz);
 		//
 		inline static void Delay(stduint unit) { SysDelay(unit); }
-	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+		#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		static SysTick_Map& ref() { return *(SysTick_Map*)ADDR_SysTick_Map; }
-	#elif defined(_MPU_STM32MP13)
+		#endif
 		// AKA HAL_GetTick
 		static uint64 getTick();
 		//
 		static uint64 getTickPhysical();
-	#endif
+	
 	};
 }
 

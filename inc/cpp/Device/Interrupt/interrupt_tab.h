@@ -359,7 +359,7 @@ namespace uni {
 	{
 	//*****  Cortex-M Processor Exceptions Numbers
 		IRQ_NonMaskableInt         = -14,    // [ ] 2  Non Maskable Interrupt                                          
-		IRQ_HardFault              = -13,    // [ ] 4  Cortex-M Memory Management Interrupt                            
+		IRQ_HardFault              = -13,    // [v] 4  Cortex-M Memory Management Interrupt                            
 		IRQ_MemoryManagement       = -12,    // [ ] 4  Cortex-M Memory Management Interrupt                            
 		IRQ_BusFault               = -11,    // [ ] 5  Cortex-M Bus Fault Interrupt                                    
 		IRQ_UsageFault             = -10,    // [ ] 6  Cortex-M Usage Fault Interrupt                                  

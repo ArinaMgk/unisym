@@ -25,14 +25,33 @@
 #ifndef _INCPP_TRAIT_Stream
 #define _INCPP_TRAIT_Stream
 #include "../unisym"
+#include "../string"
+//included "../../c/consio.h"
 namespace uni {
 	class OstreamTrait {
+		stduint _crt_out_cnt = 0;
 		// bytes
-		virtual int out(const char* str, dword len) = 0;
+		virtual int out(const char* str, stduint len) = 0;
+		void OutInteger() {}
+		//
+		void outfloat(double) {}
+		void outi64(int64, int base, int sign_show) {}
+		void outi8hex(int8) {}
+		void outi16hex(int16) {}
+		void outi32hex(int32) {}
+		void outi64hex(int64) {}
+		inline void OutChar(char ch) { out(&ch, 1); }
+	
+	public:
+		int FormatOut(const char* fmt, ...);
+		int operator<< (const Slice& slice) { return out((char*)slice.address, slice.length); }
+
 	};
 	class IstreamTrait {
 		// byte
 		virtual int inn() = 0;
+	public:
+		int FormatInn(const char* fmt, ...);
 	};
 }
 

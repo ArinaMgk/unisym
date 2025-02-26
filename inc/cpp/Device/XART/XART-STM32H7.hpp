@@ -20,18 +20,27 @@
 #define USART_CR1_IDLEIE_Pos          (4U)
 #define USART_CR1_IDLEIE_Msk          (0x1U << USART_CR1_IDLEIE_Pos)           /*!< 0x00000010 */
 #define USART_CR1_IDLEIE              USART_CR1_IDLEIE_Msk                     /*!< IDLE Interrupt Enable */
-#define USART_CR1_RXNEIE_Pos          (5U)
-#define USART_CR1_RXNEIE_Msk          (0x1U << USART_CR1_RXNEIE_Pos)           /*!< 0x00000020 */
-#define USART_CR1_RXNEIE              USART_CR1_RXNEIE_Msk                     /*!< RXNE Interrupt Enable */
+
+// RXNE Interrupt Enable
+#define USART_CR1_RXNEIE(x)           Stdfield(x[XARTReg::CR1], 5, 1)
+#define USART_CR1_RXNEIE_REF(x)       Stdfield(x, 5, 1)
+
+
+
+
 #define USART_CR1_TCIE_Pos            (6U)
 #define USART_CR1_TCIE_Msk            (0x1U << USART_CR1_TCIE_Pos)             /*!< 0x00000040 */
 #define USART_CR1_TCIE                USART_CR1_TCIE_Msk                       /*!< Transmission Complete Interrupt Enable */
 #define USART_CR1_TXEIE_Pos           (7U)
 #define USART_CR1_TXEIE_Msk           (0x1U << USART_CR1_TXEIE_Pos)            /*!< 0x00000080 */
 #define USART_CR1_TXEIE               USART_CR1_TXEIE_Msk                      /*!< TXE Interrupt Enable */
-#define USART_CR1_PEIE_Pos            (8U)
-#define USART_CR1_PEIE_Msk            (0x1U << USART_CR1_PEIE_Pos)             /*!< 0x00000100 */
-#define USART_CR1_PEIE                USART_CR1_PEIE_Msk                       /*!< PE Interrupt Enable */
+
+// PE Interrupt Enable
+#define USART_CR1_PEIE(x)             Stdfield(x[XARTReg::CR1], 8, 1)
+#define USART_CR1_PEIE_REF(x)         Stdfield(x, 8, 1)
+
+
+
 #define USART_CR1_PS_Pos              (9U)
 #define USART_CR1_PS_Msk              (0x1U << USART_CR1_PS_Pos)               /*!< 0x00000200 */
 #define USART_CR1_PS                  USART_CR1_PS_Msk                         /*!< Parity Selection */
@@ -168,9 +177,14 @@
 #define USART_CR2_ADD                 USART_CR2_ADD_Msk                        /*!< Address of the USART node */
 
 /******************  Bit definition for USART_CR3 register  *******************/
-#define USART_CR3_EIE_Pos             (0U)
-#define USART_CR3_EIE_Msk             (0x1U << USART_CR3_EIE_Pos)              /*!< 0x00000001 */
-#define USART_CR3_EIE                 USART_CR3_EIE_Msk                        /*!< Error Interrupt Enable */
+
+// Error Interrupt Enable
+#define USART_CR3_EIE(x)              Stdfield(x[XARTReg::CR3], 0, 1)
+#define USART_CR3_EIE_REF(x)          Stdfield(x, 0, 1)
+
+
+
+
 #define USART_CR3_IREN_Pos            (1U)
 #define USART_CR3_IREN_Msk            (0x1U << USART_CR3_IREN_Pos)             /*!< 0x00000002 */
 #define USART_CR3_IREN                USART_CR3_IREN_Msk                       /*!< IrDA mode Enable */
@@ -248,11 +262,9 @@
 #define USART_CR3_RXFTCFG(x)            Stdfield(x[XARTReg::CR3], 25, 3)
 #define USART_CR3_RXFTCFG_REF(x)        Stdfield(x, 25, 3)
 
-
-
-#define USART_CR3_RXFTIE_Pos          (28U)
-#define USART_CR3_RXFTIE_Msk          (0x1U << USART_CR3_RXFTIE_Pos)           /*!< 0x10000000 */
-#define USART_CR3_RXFTIE              USART_CR3_RXFTIE_Msk                     /*!< RXFIFO threshold interrupt enable */
+// RXFIFO threshold interrupt enable
+#define USART_CR3_RXFTIE(x)            Stdfield(x[XARTReg::CR3], 28, 1)
+#define USART_CR3_RXFTIE_REF(x)        Stdfield(x, 28, 1)
 
 #define USART_CR3_TXFTCFG(x)            Stdfield(x[XARTReg::CR3], 29, 3)
 #define USART_CR3_TXFTCFG_REF(x)        Stdfield(x, 29, 3)
@@ -318,9 +330,13 @@
 #define USART_ISR_RXNE_Pos            (5U)
 #define USART_ISR_RXNE_Msk            (0x1U << USART_ISR_RXNE_Pos)             /*!< 0x00000020 */
 #define USART_ISR_RXNE                USART_ISR_RXNE_Msk                       /*!< Read Data Register Not Empty */
-#define USART_ISR_TC_Pos              (6U)
-#define USART_ISR_TC_Msk              (0x1U << USART_ISR_TC_Pos)               /*!< 0x00000040 */
-#define USART_ISR_TC                  USART_ISR_TC_Msk                         /*!< Transmission Complete */
+
+// Transmission Complete
+#define USART_ISR_TC(x)       Stdfield(x[XARTReg::ISR], 6, 1)
+#define USART_ISR_TC_REF(x)   Stdfield(x, 6, 1)
+
+
+
 #define USART_ISR_TXE_Pos             (7U)
 #define USART_ISR_TXE_Msk             (0x1U << USART_ISR_TXE_Pos)              /*!< 0x00000080 */
 #define USART_ISR_TXE                 USART_ISR_TXE_Msk                        /*!< Transmit Data Register Empty */

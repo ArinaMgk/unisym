@@ -338,7 +338,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-Wno-c++98-compat -Wno-old-style-cast -Wno-c++98-c++11-compat-binary-literal -Wno-extra-semi-stmt -Wno-deprecated-copy-with-user-provided-copy -Wno-c++98-compat-pedantic -Wno-keyword-macro</MiscControls>
-              <Define>_MCU_STM32H7x</Define>
+              <Define>_MCU_STM32H7x, _HIS_IMPLEMENT</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
             </VariousControls>
@@ -433,6 +433,33 @@
         </Group>
         <Group>
           <GroupName>General</GroupName>
+          <Files>
+            <File>
+              <FileName>stream.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\stream.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>string.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\string.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>bstring.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\ustring\bstring\bstring.c</FilePath>
+            </File>
+            <File>
+              <FileName>conformat.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\console\conformat.c</FilePath>
+            </File>
+            <File>
+              <FileName>mcore.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\mcore.c</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>Submodule</GroupName>

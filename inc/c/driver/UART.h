@@ -124,6 +124,11 @@ namespace uni {
 		PLL2, PLL3, HSI, CSI, LSE,
 		UNDEFINED = 0x80U
 	};// UART_ClockSourceTypeDef
+	enum class WordLength_E {
+		Bits7 = 0x10000000,
+		Bits8 = 0x00000000,
+		Bits9 = 0x00001000,
+	};
 
 	class UART_t final: public RuptTrait, public IstreamTrait, public OstreamTrait {
 	protected:
@@ -141,25 +146,34 @@ namespace uni {
 		_TODO
 	};
 
-	class USART_t final: public RuptTrait, public IstreamTrait, public OstreamTrait {
+	class USART_t final : public RuptTrait, public IstreamTrait, public OstreamTrait {
+	public:
+		Slice rx_buffer = { 0, 0 };
+		rostr error = NULL;
 	protected:
+		stduint rx_pointer = 0;// should < rx_buffer.length
 		byte XART_ID;// 1..n+1
 		void Delay_unit();
-		Slice rx_buffer = { 0, 0 };
-		bool lock = false;
+		bool lock_r = false;
 		stduint status = ERR_UART_NONE;
+		//
+		stduint mask;
 	public:
 		_COM_DEF_Interrupt_Interface();
 
 		_Comment("[lock]")
 			virtual int inn() override;
 
-		_Comment("[lock]")// "str" maybe point to uint32 and len may be ignored
+		_Comment("")// "str" maybe point to uint32 and len may be ignored
 			virtual int out(const char* str, stduint len) override;
 	public:
 		int operator>> (int& res) { return res = inn(); }
 		USART_t& operator<< (stduint dat);
 		USART_t& operator<< (const char* p) { out(p, StrLength(p)); return self; }
+
+	protected:
+		WordLength_E wordlen = WordLength_E::Bits8;
+		bool parity_enable = false;
 
 	public:
 		Reference operator[](XARTReg::USARTReg idx) const;// 32b
@@ -173,6 +187,19 @@ namespace uni {
 		//
 		UART_CLKSRC getClockSource();
 		//
+		// AKA HAL_UART_Receive_IT
+		void innByInterrupt();
+
+		bool isReady() {
+			return !lock_r;
+		}
+
+		void ClearBuffer() { rx_pointer = nil; }
+		stduint getBufferPointer() { return rx_pointer; }
+	public:
+		// AKA UART_Receive_IT
+		void innHandlerByInterrupt();
+
 
 	};
 }

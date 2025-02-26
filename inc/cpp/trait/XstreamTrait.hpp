@@ -32,7 +32,7 @@ namespace uni {
 		stduint _crt_out_cnt = 0;
 		// bytes
 		virtual int out(const char* str, stduint len) = 0;
-		void OutInteger() {}
+		void OutInteger(uint64 val, ...) {}
 		//
 		void outfloat(double) {}
 		void outi64(int64, int base, int sign_show) {}

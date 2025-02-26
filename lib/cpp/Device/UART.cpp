@@ -179,6 +179,27 @@ namespace uni {
 
 #endif
 
+_Comment("Interrupt") namespace uni {
+	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+	void USART_t::setInterrupt(Handler_t f) const {
+		FUNC_XART[XART_ID] = f;
+	}
+	static Request_t XART_Request_list[] = { Request_None,
+		IRQ_USART1, IRQ_USART2, IRQ_USART3, IRQ_UART4,
+		IRQ_UART5,
+		#ifdef _MCU_STM32F4x
+		IRQ_USART6, Request_None, Request_None
+		#elif defined(_MCU_STM32H7x)
+		IRQ_USART6, IRQ_UART7, IRQ_UART8,
+		#endif
+	};
+	void USART_t::setInterruptPriority(byte preempt, byte sub_priority) const {
+		NVIC.setPriority(XART_Request_list[XART_ID], preempt, sub_priority);
+	}
+	#endif
+}
+
+
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 // bi: 8 or 16           
 //:not check detailedly for F1
@@ -285,19 +306,7 @@ namespace uni {
 
 	// ---- ---- INTSYS ---- ----
 
-	void USART_t::setInterrupt(Handler_t f) const {
-		FUNC_XART[XART_ID] = f;
-	}
-	static Request_t XART_Request_list[8] = {
-		Request_None, IRQ_USART1, IRQ_USART2, IRQ_USART3,
-		IRQ_UART4, IRQ_UART5
-		#ifdef _MCU_STM32F4x
-		, IRQ_USART6, Request_None
-		#endif
-	};
-	void USART_t::setInterruptPriority(byte preempt, byte sub_priority) const {
-		NVIC.setPriority(XART_Request_list[XART_ID], preempt, sub_priority);
-	}
+
 
 	void USART_t::enInterrupt(bool enable) const {
 		using namespace XARTReg;
@@ -394,9 +403,55 @@ namespace uni {
 	void UART_t::setInterrupt(Handler_t _func) const { _TODO }
 	void UART_t::setInterruptPriority(byte preempt, byte sub_priority) const { _TODO }
 	void UART_t::enInterrupt(bool enable) const { _TODO }
-	void USART_t::setInterrupt(Handler_t _func) const { _TODO }
-	void USART_t::setInterruptPriority(byte preempt, byte sub_priority) const { _TODO }
-	void USART_t::enInterrupt(bool enable) const { _TODO }
+
+	// HAL_NVIC_EnableIRQ
+	void USART_t::enInterrupt(bool enable) const {
+		NVIC.setAble(_TEMP IRQ_USART1, enable);
+	}
+
+	void USART_t::innByInterrupt() {
+		while (lock_r);
+		lock_r = true;
+		// (frame error, noise error, overrun error)
+		USART_CR3_EIE(self) = true;
+		// Enable the UART Parity Error interupt and RX FIFO Threshold interrupt (if FIFO mode is enabled) or Data Register Not Empty interrupt (if FIFO mode is disabled)
+		USART_CR1_PEIE(self) = true;
+		if _IMM(USART_CR1_FIFOEN(self))
+			USART_CR3_RXFTIE(self) = true;
+		else
+			USART_CR1_RXNEIE(self) = true;
+		// rx_pointer = nil; => Dame
+		// lock_r = false; => unlock by rx-handler
+	}
+
+	void USART_t::innHandlerByInterrupt() {
+		uint16* tmp = (uint16*)(rx_buffer.address + rx_pointer);
+		/* Check that a Rx process is ongoing */
+		if (lock_r) {
+			if (wordlen == WordLength_E::Bits9 && !parity_enable) {
+				*tmp = inn();
+				rx_pointer += 2;
+			}
+			else {
+				*(uint8*)tmp = inn();
+				rx_pointer++;
+			}
+			// now *tmp is the data received
+			if (rx_pointer >= rx_buffer.length) {
+				// Disable the UART Parity Error Interrupt and RXNE interrupt
+				USART_CR1_RXNEIE(self) = 0;
+				USART_CR1_PEIE(self) = 0;
+				// Disable the UART Error Interrupt: (Frame error, noise error, overrun error)
+				USART_CR3_EIE(self) = 0;
+				// no consider HAL_UART_RxCpltCallback
+			}
+			lock_r = false;
+		}
+		else {
+			// Clear RXNE interrupt flag
+			self[XARTReg::RQR] |= USART_RQR_RXFRQ;// __HAL_UART_SEND_REQ
+		}
+	}
 
 
 	// ----
@@ -407,11 +462,22 @@ namespace uni {
 	int UART_t::out(const char* str, stduint len) {
 		return _TODO 0;
 	}
+
 	int USART_t::inn() {
-		return _TODO 0;
+		stduint uhdata = (uint16)self[XARTReg::RDR];
+		if (wordlen == WordLength_E::Bits9 && !parity_enable) {
+			return uint16(uhdata & mask);
+		}
+		else {
+			return uint8(uhdata & mask);
+		}
 	}
 	int USART_t::out(const char* str, stduint len) {
-		return _TODO 0;
+		for0 (i, len) {
+			while (!USART_ISR_TC(self));
+			self[XARTReg::TDR] = str[i];
+		}
+		return len;
 	}
 
 
@@ -430,16 +496,11 @@ namespace uni {
 		// UART_WORDLENGTH_8B UART_STOPBITS_1 UART_PARITY_NONE UART_HWCONTROL_NONE UART_MODE_TX_RX
 		//
 		stduint wordlen_mask = 0x10001000;// for CR1
-		enum class WordLength_E {
-			Bits7 = 0x10000000,
-			Bits8 = 0x00000000,
-			Bits9 = 0x00001000,
-		};
-		WordLength_E wordlen = WordLength_E::Bits8;
+		_TEMP wordlen = WordLength_E::Bits8;
 		//
 		_Comment(USART_CR2_STOP should= 0);
 		// Appended MSB Parity, CR1
-		bool parity_enable = false;
+		_TEMP parity_enable = false;
 		bool parity_odd = false;
 		#define USART_PARITY_NONE 0
 		#define USART_PARITY_EVEN (USART_CR1_PCE)
@@ -502,8 +563,8 @@ namespace uni {
 		{
 			uint32_t tmpreg = 0x00000000U;
 			UART_CLKSRC clocksource = UART_CLKSRC::UNDEFINED;
-			uint16_t brrtemp = 0x0000U;
-			uint16_t usartdiv = 0x0000U;
+			uint16 brrtemp = 0x0000U;
+			uint16 usartdiv = 0x0000U;
 			// ---- USART CR1 Configuration ---- //
 			/* Clear M, PCE, PS, TE, RE and OVER8 bits and configure */
 			Reflocal (cr1) = self[XARTReg::CR1];
@@ -657,13 +718,13 @@ namespace uni {
 						if (OverSampling)
 							usartdiv = (UART_DIV_SAMPLING8(RCC.getFrequencyPCLK1(), band_rate, presval));
 						else
-							self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.getFrequencyPCLK1(), band_rate, presval));
+							self[XARTReg::BRR] = (uint16)(UART_DIV_SAMPLING16(RCC.getFrequencyPCLK1(), band_rate, presval));
 					}
 					else if (XART_ID == 1 || XART_ID == 6) {
 						if (OverSampling)
 							usartdiv = (UART_DIV_SAMPLING8(RCC.getFrequencyPCLK2(), band_rate, presval));
 						else
-							self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.getFrequencyPCLK2(), band_rate, presval));
+							self[XARTReg::BRR] = (uint16)(UART_DIV_SAMPLING16(RCC.getFrequencyPCLK2(), band_rate, presval));
 					}
 					break;
 				case UART_CLKSRC::PLL2:
@@ -672,7 +733,7 @@ namespace uni {
 						usartdiv = (UART_DIV_SAMPLING8(RCC.PLL2.getFrequencyQ(), band_rate, presval));
 					}
 					else {
-						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.PLL2.getFrequencyQ(), band_rate, presval));
+						self[XARTReg::BRR] = (uint16)(UART_DIV_SAMPLING16(RCC.PLL2.getFrequencyQ(), band_rate, presval));
 					}
 					break;
 				case UART_CLKSRC::PLL3:
@@ -681,7 +742,7 @@ namespace uni {
 						usartdiv = (UART_DIV_SAMPLING8(RCC.PLL3.getFrequencyQ(), band_rate, presval));
 					}
 					else {
-						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.PLL3.getFrequencyQ(), band_rate, presval));
+						self[XARTReg::BRR] = (uint16)(UART_DIV_SAMPLING16(RCC.PLL3.getFrequencyQ(), band_rate, presval));
 					}
 					break;
 				case UART_CLKSRC::HSI:
@@ -691,20 +752,20 @@ namespace uni {
 						usartdiv = (UART_DIV_SAMPLING8(RCC.HSI.getFrequency_ToCore(), band_rate, presval));
 					}
 					else {
-						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.HSI.getFrequency_ToCore(), band_rate, presval));
+						self[XARTReg::BRR] = (uint16)(UART_DIV_SAMPLING16(RCC.HSI.getFrequency_ToCore(), band_rate, presval));
 					}
 					break;
 				case UART_CLKSRC::CSI:
 					if (OverSampling)
 						usartdiv = (UART_DIV_SAMPLING8(RCC.CSI.getFrequency(), band_rate, presval));
 					else
-						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.CSI.getFrequency(), band_rate, presval));
+						self[XARTReg::BRR] = (uint16)(UART_DIV_SAMPLING16(RCC.CSI.getFrequency(), band_rate, presval));
 					break;
 				case UART_CLKSRC::LSE:
 					if (OverSampling)
 						usartdiv = (UART_DIV_SAMPLING8(RCC.LSE.getFrequency(), band_rate, presval));
 					else
-						self[XARTReg::BRR] = (uint16_t)(UART_DIV_SAMPLING16(RCC.LSE.getFrequency(), band_rate, presval));
+						self[XARTReg::BRR] = (uint16)(UART_DIV_SAMPLING16(RCC.LSE.getFrequency(), band_rate, presval));
 					break;
 				case UART_CLKSRC::UNDEFINED:
 				default:
@@ -714,7 +775,7 @@ namespace uni {
 				if (OverSampling)
 				{
 					brrtemp = usartdiv & 0xFFF0U;
-					brrtemp |= (uint16_t)((usartdiv & 0x000FU) >> 1U);
+					brrtemp |= (uint16)((usartdiv & 0x000FU) >> 1U);
 					self[XARTReg::BRR] = brrtemp;
 				}
 			}
@@ -743,6 +804,20 @@ namespace uni {
 			}
 		}
 		// no consider timeout
+		// AKA UART_MASK_COMPUTATION
+		switch (wordlen) {
+		case WordLength_E::Bits7:
+			mask = parity_enable ? 0x7F : 0x3F;// one bit is for parity
+			break;
+		case WordLength_E::Bits8:
+			mask = parity_enable ? 0xFF : 0x7F;
+			break;
+		case WordLength_E::Bits9:
+			mask = parity_enable ? 0x1FF : 0xFF;
+			break;
+		default:
+			return false;
+		}
 		return true;
 	}
 	//

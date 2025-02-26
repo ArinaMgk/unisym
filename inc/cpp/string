@@ -42,6 +42,14 @@
 
 //{} Append property-call for += ... operator
 namespace uni {
+	//{TODO} Slice_T
+
+	class Slice {
+	public:
+		stduint address;
+		stduint length;
+	};
+
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String
 	#if defined(_USE_PROPERTY)
@@ -79,6 +87,10 @@ namespace uni {
 		const char* reference() const;
 		bool available() { return allocated || (limits - counts > 1); }
 		bool need_termichar() { return !allocated; }
+
+		Slice getSlice() const {
+			return Slice{ (stduint)addr, limits };
+		}
 
 		String& operator=(const String& str);
 		String& operator=(const char* addr);
@@ -150,14 +162,6 @@ namespace uni {
 		// String& operator=(char* addr) { return(self = uni::String(addr)); }
 		// not recommend: provide operator const char*()
 	};//{TODO} option for allocating extra area for chars, aka vec<char>
-
-	//{TODO} Slice_T
-
-	class Slice {
-	public:
-		stduint address;
-		stduint length;
-	};
 	
 }
 

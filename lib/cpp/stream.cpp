@@ -25,6 +25,10 @@
 
 #define pnext(t) para_next(paras, t)
 #define outc     OutChar
+#define outtxt   out
+//{TODO combine}
+#define outu     OutInteger
+#define outi     OutInteger
 
 static void _stream_out();
 static void _stream_inn();

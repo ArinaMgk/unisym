@@ -368,7 +368,8 @@ namespace uni {
 		IRQ_PendSV                 = -2,     // [ ] 14 Cortex-M Pend SV Interrupt                                     
 		IRQ_SysTick                = -1,     // [x] 15 Cortex-M System Tick Interrupt                                 
 	//*****  STM32 specific Interrupt Numbers
-		IRQ_WWDG                   = 0,      // [ ] Window WatchDog Interrupt                                         
+		Request_None               = nil,
+		IRQ_WWDG = 0,      // [ ] Window WatchDog Interrupt                                         
 		IRQ_PVD_AVD                = 1,      // [ ] PVD/AVD through EXTI Line detection Interrupt                     
 		IRQ_TAMP_STAMP             = 2,      // [ ] Tamper and TimeStamp interrupts through the EXTI line             
 		IRQ_RTC_WKUP               = 3,      // [ ] RTC Wakeup interrupt through the EXTI line                        
@@ -405,9 +406,9 @@ namespace uni {
 		IRQ_I2C2_ER                = 34,     // [ ] I2C2 Error Interrupt                                              
 		IRQ_SPI1                   = 35,     // [ ] SPI1 global Interrupt                                             
 		IRQ_SPI2                   = 36,     // [ ] SPI2 global Interrupt                                             
-		IRQ_USART1                 = 37,     // [ ] USART1 global Interrupt                                           
-		IRQ_USART2                 = 38,     // [ ] USART2 global Interrupt                                           
-		IRQ_USART3                 = 39,     // [ ] USART3 global Interrupt                                           
+		IRQ_USART1                 = 37,     // [x] USART1 global Interrupt                                           
+		IRQ_USART2                 = 38,     // [x] USART2 global Interrupt                                           
+		IRQ_USART3                 = 39,     // [x] USART3 global Interrupt                                           
 		IRQ_EXTI15_10              = 40,     // [ ] External Line[15:10] Interrupts                                   
 		IRQ_RTC_Alarm              = 41,     // [ ] RTC Alarm (A and B) through EXTI Line Interrupt                    
 		IRQ_TIM8_BRK_TIM12         = 43,     // [ ] TIM8 Break Interrupt and TIM12 global interrupt                   
@@ -419,8 +420,8 @@ namespace uni {
 		IRQ_SDMMC1                 = 49,     // [ ] SDMMC1 global Interrupt                                           
 		IRQ_TIM5                   = 50,     // [ ] TIM5 global Interrupt                                             
 		IRQ_SPI3                   = 51,     // [ ] SPI3 global Interrupt                                             
-		IRQ_UART4                  = 52,     // [ ] UART4 global Interrupt                                            
-		IRQ_UART5                  = 53,     // [ ] UART5 global Interrupt                                            
+		IRQ_UART4                  = 52,     // [x] UART4 global Interrupt                                            
+		IRQ_UART5                  = 53,     // [x] UART5 global Interrupt                                            
 		IRQ_TIM6_DAC               = 54,     // [ ] TIM6 global and DAC1&2 underrun error  interrupts                 
 		IRQ_TIM7                   = 55,     // [ ] TIM7 global interrupt                                             
 		IRQ_DMA2_Stream0           = 56,     // [ ] DMA2 Stream 0 global Interrupt                                  
@@ -434,7 +435,7 @@ namespace uni {
 		IRQ_DMA2_Stream5           = 68,     // [ ] DMA2 Stream 5 global interrupt                                    
 		IRQ_DMA2_Stream6           = 69,     // [ ] DMA2 Stream 6 global interrupt                                    
 		IRQ_DMA2_Stream7           = 70,     // [ ] DMA2 Stream 7 global interrupt                                    
-		IRQ_USART6                 = 71,     // [ ] USART6 global interrupt                                           
+		IRQ_USART6                 = 71,     // [x] USART6 global interrupt                                           
 		IRQ_I2C3_EV                = 72,     // [ ] I2C3 event interrupt                                              
 		IRQ_I2C3_ER                = 73,     // [ ] I2C3 error interrupt                                              
 		IRQ_OTG_HS_EP1_OUT         = 74,     // [ ] USB OTG HS End Point 1 Out global interrupt                       
@@ -444,8 +445,8 @@ namespace uni {
 		IRQ_DCMI                   = 78,     // [ ] DCMI global interrupt                                             
 		IRQ_RNG                    = 80,     // [ ] RNG global interrupt                                              
 		IRQ_FPU                    = 81,     // [ ] FPU global interrupt                                              
-		IRQ_UART7                  = 82,     // [ ] UART7 global interrupt                                            
-		IRQ_UART8                  = 83,     // [ ] UART8 global interrupt                                            
+		IRQ_UART7                  = 82,     // [x] UART7 global interrupt                                            
+		IRQ_UART8                  = 83,     // [x] UART8 global interrupt                                            
 		IRQ_SPI4                   = 84,     // [ ] SPI4 global Interrupt                                             
 		IRQ_SPI5                   = 85,     // [ ] SPI5 global Interrupt                                             
 		IRQ_SPI6                   = 86,     // [ ] SPI6 global Interrupt                                             

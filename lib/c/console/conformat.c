@@ -20,15 +20,14 @@
 	limitations under the License.
 */
 
-#define _INC_USTDBOOL
-#define bool int
-#define boolean byte
-#define BOOLEAN byte
-
 #include "../../../inc/c/consio.h"
+#include "../../../inc/c/arith.h"
 #include "../../../inc/c/ISO_IEC_STD/stdlib.h"
 
 #define pnext(t) para_next(paras, t)
+
+#define out_integer(a1,a2,a3,a4,a5,a6,a7) outinteger(a1,a2,a3,a4,a5,a6,a7, local_out)
+#define out_floating(a1) outfloat(a1, local_out)
 
 // [Single Thread]
 // keep the 4 not nested!
@@ -62,90 +61,30 @@ void outc(const char chr)
 	outs(buf);\
 }
 //
-DEF_outiXhex(8);
+//DEF_outiXhex(8);
 // Replacement of DbgEcho16
-DEF_outiXhex(16);
+//DEF_outiXhex(16);
 // Replacement of DbgEcho32
-DEF_outiXhex(32);
+//DEF_outiXhex(32);
 //
-DEF_outiXhex(64);
+//DEF_outiXhex(64);
 
-// [outdated] Output `int` Decimal, not `stduint`
-void outidec(int xx, int base, int sign)
-{
-	char buf[2 * byteof(int) + 2];
-	int i;
-	unsigned x;
-	if (sign && (sign = xx < 0))
-		x = -xx;
-	else
-		x = Castype(unsigned, xx);
-	i = 0; do {
-		buf[i++] = _tab_HEXA[x % base];
-	} while ((x /= base) != 0);
-	if (sign)
-		buf[i++] = '-';
-	while (--i >= 0)
-		outc(buf[i]);
-}
 
-// Output Integer
-void outi(stdint val, int base, int sign_show)
-{
-	outbyte_t localout = local_out;
-	if (base < 2) return;
-	char buf[bitsof(stdint) + 2] = { 0 };// may bigger than 2 * bitsof(stdint) + 2 if base < 16 
-	int i = sizeof(buf) - 1;
-	int neg = val < 0;
-	if (neg) {
-		val = -val;
-		sign_show = 1;
-	}
-	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
-	if (sign_show) buf[--i] = neg ? '-' : '+';
-	outs(buf + i);
-}
 #if defined(_BIT_SUPPORT_64)
-void outi64(int64 val, int base, int sign_show)
+#ifdef _MCCA
+bool outinteger(stduint val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo, outbyte_t out)
+#else
+bool outinteger(uint64 val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo, outbyte_t out)
+#endif
 {
-	outbyte_t localout = local_out;
-	if (base < 2) return;
-	char buf[bitsof(int64) + 2] = { 0 };
-	int i = sizeof(buf) - 1;
-	int neg = val < 0;
-	if (neg) {
-		val = -val;
-		sign_show = 1;
-	}
-	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
-	if (sign_show) buf[--i] = neg ? '-' : '+';
-	outs(buf + i);
+	#include "../../../inc/c/stream/format-out-integer.h"
 }
+#else
 #endif
 
-// [Parallel(C++)] Output Unsigned Integer
-void outu(stduint val, int base)
+static void outfloat(float val, outbyte_t localout)
 {
-	outbyte_t localout = local_out;
-	if (base < 2) return;
-	char buf[bitsof(stduint) + 1] = { 0 };
-	stduint i = sizeof(buf) - 1;
-	do buf[--i] = _tab_HEXA[val % base]; while (val /= base);
-	outs(buf + i);
-}
-
-_TEMP static void outfloat(float val)
-{
-	outbyte_t localout = local_out;
-	if (val < 0) localout("-", 1);
-	outu((stduint)val, 10);
-	val -= (stduint)val;
-	val *= 1000000;
-	val += 0.5;
-	if (_IMM(val)) {
-		localout(".", 1);
-		outu((stduint)val, 10);
-	}
+	#include "../../../inc/c/stream/format-out-floating.h"
 }
 
 int outsfmtlst(const char* fmt, para_list paras)

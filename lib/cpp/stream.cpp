@@ -21,14 +21,16 @@
 
 #include "../../inc/cpp/unisym"
 #include "../../inc/c/consio.h"
+#include "../../inc/c/arith.h"
 
 
 #define pnext(t) para_next(paras, t)
 #define outc     OutChar
 #define outtxt   out
-//{TODO combine}
-#define outu     OutInteger
-#define outi     OutInteger
+
+#define out_integer  OutInteger
+#define out_floating OutFloating
+
 
 static void _stream_out();
 static void _stream_inn();
@@ -39,11 +41,27 @@ static void _stream_inn();
 
 #define localout out
 namespace uni {
-	int OstreamTrait::FormatOut(const char* fmt, ...) {
+	int OstreamTrait::OutFormat(const char* fmt, ...) {
 		Letpara(paras, fmt);
 		_crt_out_cnt = 0;
 		#define _STREAM_FORMAT_CPP
 		#include "../../inc/c/stream/format-body.h"
 		return _crt_out_cnt;
 	}
+
+	#ifdef _MCCA
+	bool OstreamTrait::OutInteger(stduint val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo)
+	#else
+	bool OstreamTrait::OutInteger(uint64 val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo)
+	#endif
+	{
+		#include "../../inc/c/stream/format-out-integer.h"
+	}
+
+	void OstreamTrait::OutFloating(double val) {
+		#include "../../inc/c/stream/format-out-floating.h"
+	}
+
+
+
 }

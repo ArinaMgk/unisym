@@ -92,10 +92,10 @@ namespace uni {
 /* CHECK EXAMPLE
 	for0(i, 0x400) {
 		dword v = ((dword*)kernel_paging.page_directory)[i];
-		if (v) Console.FormatShow("0x%x:0x%x ", i, v);
+		if (v) Console.OutFormat("0x%x:0x%x ", i, v);
 	}
 	for0(i, 0x400) {
 		dword v = ((dword*)(kernel_paging.page_directory)[0][0].ref())[i];
-		if (v) Console.FormatShow("0x%x:0x%x ", i, v);
+		if (v) Console.OutFormat("0x%x:0x%x ", i, v);
 	}
 */

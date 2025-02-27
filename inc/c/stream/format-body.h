@@ -54,53 +54,40 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 			break;
 
 
-			// ---- INTEGER ---- [signed] [base] ...
-
-		case 'b':// alicee extend
-			tmp_base = 2;
-			goto case_integer;
+		// ---- INTEGER ---- [signed] [base] ...
+		//{TODO} use sizlevel
 		case 'o':
-			tmp_base = 8;
-			goto case_integer;
-		case 'd':
-			tmp_base = 10;
-		case_integer:
-			#if !defined(_STREAM_FORMAT_CPP)
-			outi(pnext(int), tmp_base, tmp_signed);
+			out_integer(pnext(unsigned), 8, tmp_signed, true, _TODO 0, _TODO false, intlog2_iexpo(byteof(unsigned)));
 			tmp_signed = 0;
-			#endif
+			break;
+		case 'd':
+			out_integer(pnext(signed), 10, tmp_signed, true, _TODO 0, _TODO false, intlog2_iexpo(byteof(signed)));
+			tmp_signed = 0;
+			break;
+
+		// ---- UNSIGNED ----
+		case 'b':// alicee extend
+			out_integer(pnext(unsigned), 2, false, false, _TODO 0, _TODO false, intlog2_iexpo(byteof(unsigned)));
 			break;
 		case 'x':
-			tmp_base = 16;
-		case_unteger:
-			#if !defined(_STREAM_FORMAT_CPP)
-			outu(pnext(int), tmp_base);
-			#endif
+			out_integer(pnext(unsigned), -16, false, false, _TODO 0, _TODO false, intlog2_iexpo(byteof(unsigned)));
+			break;
+		case 'u':
+			out_integer(pnext(unsigned), 10, false, false, _TODO 0, _TODO false, intlog2_iexpo(byteof(unsigned)));
 			break;
 
 
 
 		case 'f':
 			if (sizlevel == 1)
-				outfloat(pnext(double));
+				out_floating(pnext(double));
 			else if (sizlevel == 0)
-				outfloat(pnext(float));
+				out_floating(pnext(float));
 			sizlevel = 0;
 			break;
 		case 'p':
 			localout("0x", 2);
-			// typeid
-		#if __BITS__ == 64
-			outi64hex(pnext(stduint));
-		#elif __BITS__ == 32
-			outi32hex(pnext(stduint));
-		#elif __BITS__ == 16
-			outi16hex(pnext(stduint));
-		#elif __BITS__ == 8
-			outi8hex(pnext(stduint));
-		#else
-		#error "Unsupport bits"
-		#endif
+			out_integer(pnext(stduint), -16, false, false, __BITS__ / 4, true, intlog2_iexpo(byteof(stduint)));
 			break;
 		case 's':
 			s = pnext(char*);
@@ -122,35 +109,37 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 			}
 			else if (!StrCompareN(fmt + i, "[u]", 3)) // Print Decimal STDUINT
 			{
-				outu(pnext(stduint), 10);
+				out_integer(pnext(stduint), 10, false, false, 0, false, intlog2_iexpo(byteof(stduint)));
 				i += 3 - 1;
 			}
 			else if (!StrCompareN(fmt + i, "[i]", 3)) // Print Decimal STDSINT
 			{
-				stdsint tmp = pnext(stdsint);
-				outi(tmp, 10, tmp < 0);
+				out_integer(pnext(stdsint), 10, false, true, 0, false, intlog2_iexpo(byteof(stdsint)));
 				i += 3 - 1;
 			}
 			else if (!StrCompareN(fmt + i, "[8H]", 4)) // Print Hex STDUINT 8 bit
 			{
-				outi8hex(pnext(uint8));
+				out_integer(pnext(uint8), 16, false, false, byteof(uint8) << 1, true, intlog2_iexpo(byteof(uint8)));
 				i += 4 - 1;
 			}
 			else if (!StrCompareN(fmt + i, "[16H]", 5)) // Print Hex STDSINT 16 bit
 			{
-				outi16hex(pnext(uint16));
+				out_integer(pnext(uint16), 16, false, false, byteof(uint16) << 1, true, intlog2_iexpo(byteof(uint16)));
 				i += 5 - 1;
 			}
 			else if (!StrCompareN(fmt + i, "[32H]", 5)) // Print Hex STDSINT 32 bit
 			{
-				outi32hex(pnext(uint32));
+				out_integer(pnext(uint32), 16, false, false, byteof(uint32) << 1, true, intlog2_iexpo(byteof(uint32)));
 				i += 5 - 1;
 			}
-			// ...
 		#if defined(_BIT_SUPPORT_64)
-			// Print Decimal 64 bit
+			else if (!StrCompareN(fmt + i, "[64H]", 5)) // Print Hex STDSINT 64 bit
+			{
+				out_integer(pnext(uint64), 16, false, false, byteof(uint64) << 1, true, intlog2_iexpo(byteof(uint64)));
+				i += 5 - 1;
+			}
 			else if (!StrCompareN(fmt + i, "[64I]", 5)) {
-				outi64(pnext(int64), 10, 0);
+				out_integer(pnext(sint64), 10, false, true, 0, true, intlog2_iexpo(byteof(sint64)));
 				i += 5 - 1;
 			}
 		#endif

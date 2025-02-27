@@ -52,7 +52,7 @@ namespace uni {
 		explicit operator bool() const { return nullptr != fptr; }
 		//
 		virtual int inn() { return _TODO - 1; }
-		virtual int out(const char* str, dword len) { return _TODO - 1; }
+		virtual int out(const char* str, stduint len) { return _TODO - 1; }
 		//
 		bool operator>> (byte& B);
 		// will check available zone of String.

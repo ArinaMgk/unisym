@@ -1,8 +1,6 @@
 
 ### Unchecked and Checked-but-Issued
 
-[ ] parameters of outs-series to be appended `outtxt` to avoid using thread-locks: `consinn` `consout` (keep previous outs-series)
-
 Virtual Methods since 20241124
 (Before are software only. The test of VIRTUAL is passed in GCC)
 - [ ] IIC Soft

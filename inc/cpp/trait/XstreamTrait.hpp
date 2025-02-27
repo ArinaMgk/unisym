@@ -32,18 +32,26 @@ namespace uni {
 		stduint _crt_out_cnt = 0;
 		// bytes
 		virtual int out(const char* str, stduint len) = 0;
-		void OutInteger(uint64 val, ...) {}
+	public:
+		// `base`: `-16` for lower-case, else this should greater than 1
+		// `sign_show`: whether show sign if sign_have is true
+		// `sign_have`: whether it is signed number
+		// `zero_padding`: pad with 0 or space
+		// e.g. *(-123, 10, true, true, 8, true) => -00000123
+		#ifdef _MCCA
+		bool OutInteger(stduint val, int base, bool sign_show = false,
+			bool sign_have = true, byte least_digits = 0, bool zero_padding = false, byte bytexpo = 2);
+		#else
+		bool OutInteger(uint64 val, int base, bool sign_show = false,
+			bool sign_have = true, byte least_digits = 0, bool zero_padding = false, byte bytexpo = 2);
+		#endif
+		//{} OutCoearNumber
 		//
-		void outfloat(double) {}
-		void outi64(int64, int base, int sign_show) {}
-		void outi8hex(int8) {}
-		void outi16hex(int16) {}
-		void outi32hex(int32) {}
-		void outi64hex(int64) {}
+		void OutFloating(double);
 		inline void OutChar(char ch) { out(&ch, 1); }
 	
 	public:
-		int FormatOut(const char* fmt, ...);
+		int OutFormat(const char* fmt, ...);
 		int operator<< (const Slice& slice) { return out((char*)slice.address, slice.length); }
 
 	};
@@ -51,7 +59,7 @@ namespace uni {
 		// byte
 		virtual int inn() = 0;
 	public:
-		int FormatInn(const char* fmt, ...);
+		int InnFormat(const char* fmt, ...);
 	};
 }
 

@@ -38,6 +38,7 @@ void I2C_Stop(void);
 
 #elif defined(_INC_CPP) // Below are C++ Area
 #include "../../cpp/Device/GPIO"
+#include "../../cpp/trait/XstreamTrait.hpp"
 
 #define DA_PP 1
 
@@ -46,19 +47,27 @@ namespace uni {
 #undef IIC
 #if defined(_SUPPORT_GPIO)
 	
-	class IIC_t {
+	class IIC_t : public OstreamTrait, public IstreamTrait {
 	protected:
 		bool last_ack_accepted;
 		bool push_pull;
 	public:
-		bool operator<<(byte txt) { Send(txt, true); return self.last_ack_accepted; }
+		virtual int out(const char* str, stduint len) {
+			for0(i, len) Send(((const byte*)str)[i], true);// do ... while ACK
+			return self.last_ack_accepted;
+		}
+		virtual int inn() {
+			return ReadByte(true, true);
+		}
+	public:
+		bool operator<<(byte txt) { return out((char*)&txt, 1); }
 		//
-		virtual void SendStart(void) {};
-		virtual void SendStop(void) {};
-		virtual bool WaitAcknowledge() { return false; };
-		virtual void SendAcknowledge(bool ack = true) {};
-		virtual void Send(byte txt, bool auto_wait_ack = false) {};
-		virtual byte ReadByte(bool feedback = true, bool ack = true) { return 0; };
+		virtual void SendStart(void) {}
+		virtual void SendStop(void) {}
+		virtual bool WaitAcknowledge() { return false; }
+		virtual void SendAcknowledge(bool ack = true) {}
+		virtual void Send(byte txt, bool auto_wait_ack = false) {}
+		virtual byte ReadByte(bool feedback = true, bool ack = true) { return 0; }
 	};
 
 	class IIC_SOFT : public IIC_t {

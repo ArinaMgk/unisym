@@ -30,15 +30,18 @@
 
 #undef RCC
 #include "../../../c/stdinc.h"
-#include "../../Device/GPIO"
-#include "../../Device/RCC/RCC"
-#include "../../Device/SysTick"
-#include "../../Device/UART"
+
 #include "../../Device/DAC"
 #include "../../Device/ADC"
 #include "../../Device/TIM"
+#include "../../Device/IIC"
+#include "../../Device/GPIO"
+#include "../../Device/UART"
 #include "../../Device/Cache"
+#include "../../Device/RCC/RCC"
+#include "../../Device/SysTick"
 #include "../../Device/_Power.hpp"
+#include "../../Device/_Video.hpp"
 
 extern "C" char _IDN_BOARD[16];
 

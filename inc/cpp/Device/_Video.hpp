@@ -124,6 +124,8 @@ namespace uni {
 		Point cursor;
 		Size2 size;// char size but pixel size
 		stduint typ;// 0: inner_8x5, 1:inner_16x8
+	public:
+		
 		Color forecolor;
 	protected:
 		static void (VideoConsole::* DrawCharPosition_f[])(uni::Point, uni::Color, char);
@@ -135,10 +137,10 @@ namespace uni {
 		VideoConsole(const VideoControlInterface& vci, Size2 siz) : 
 			vci(vci), cursor({ 0,0 }), size(siz), typ(1), forecolor(Color::Black) { }
 	public:
-		virtual int out(const char* str, dword len);
+		virtual int out(const char* str, stduint len);
 		virtual int inn() _TODO;
 	public:
-		virtual int FormatShow(const char* fmt, ...);
+
 		void curinc() {
 			cursor.x++;
 			if (cursor.x >= size.x) {

@@ -429,6 +429,16 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\UART.cpp</FilePath>
             </File>
+            <File>
+              <FileName>IIC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\IIC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SPI.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\SPI.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -450,14 +460,29 @@
               <FilePath>..\..\c\ustring\bstring\bstring.c</FilePath>
             </File>
             <File>
+              <FileName>mcore.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\mcore.c</FilePath>
+            </File>
+            <File>
               <FileName>conformat.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\c\console\conformat.c</FilePath>
             </File>
             <File>
-              <FileName>mcore.c</FileName>
+              <FileName>Video.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Video.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>font-8x5.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\mcore.c</FilePath>
+              <FilePath>..\..\c\data\font\font-8x5.c</FilePath>
+            </File>
+            <File>
+              <FileName>font-16x8.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\data\font\font-16x8.c</FilePath>
             </File>
           </Files>
         </Group>

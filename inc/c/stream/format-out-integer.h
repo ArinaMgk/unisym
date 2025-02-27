@@ -2,7 +2,7 @@
 	// ---- COMMON ----
 	char buf[bitsof(val) + 1] = { 0 };// asci_zero 
 	char* bufp = buf + sizeof(buf) - 1;
-	auto neg = sign_have && (*(stdsint*)&val) < 0;
+	bool neg = sign_have && (*(stdsint*)&val) < 0;
 	char pad = zero_padding ? '0' : ' ';
 	char* alnum_tab = base == -16 ? _tab_hexa : _tab_HEXA;
 	if (neg) {

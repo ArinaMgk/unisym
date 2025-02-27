@@ -197,17 +197,10 @@ namespace uni {
 		}
 		#undef crt_self
 	}
-	int VideoConsole::out(const char* str, dword len) {
+	int VideoConsole::out(const char* str, stduint len) {
+		crt_self = this;
 		_VideoConsoleOut(str, len);
 		return 0 _TEMP;
-	}
-	int VideoConsole::FormatShow(const char* fmt, ...) {
-		crt_self = this;
-		Letpara(args, fmt);
-		outbyte_t last = outredirect(_VideoConsoleOut);
-		int ret = outsfmtlst(fmt, args);
-		outredirect(last);
-		return ret;
 	}
 
 }

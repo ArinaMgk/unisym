@@ -62,20 +62,20 @@ SDMMC_OCR_ERRORBITS             =   (0xFDFFE008U),
 
 // Masks for R6 Response
 // [1]
-#define SDMMC_R6_GENERAL_UNKNOWN_ERROR     ((uint32_t)0x00002000U)
-#define SDMMC_R6_ILLEGAL_CMD               ((uint32_t)0x00004000U)
-#define SDMMC_R6_COM_CRC_FAILED            ((uint32_t)0x00008000U)
+#define SDMMC_R6_GENERAL_UNKNOWN_ERROR     (0x00002000U)
+#define SDMMC_R6_ILLEGAL_CMD               (0x00004000U)
+#define SDMMC_R6_COM_CRC_FAILED            (0x00008000U)
 // [2]
-#define SDMMC_VOLTAGE_WINDOW_SD            ((uint32_t)0x80100000U)
-#define SDMMC_HIGH_CAPACITY                ((uint32_t)0x40000000U)
-#define SDMMC_STD_CAPACITY                 ((uint32_t)0x00000000U)
-#define SDMMC_CHECK_PATTERN                ((uint32_t)0x000001AAU)
-#define SD_SWITCH_1_8V_CAPACITY            ((uint32_t)0x01000000U)
-#define SDMMC_DDR50_SWITCH_PATTERN         ((uint32_t)0x80FFFF04U)
-#define SDMMC_SDR104_SWITCH_PATTERN        ((uint32_t)0x80FF1F03U)
-#define SDMMC_SDR50_SWITCH_PATTERN         ((uint32_t)0x80FF1F02U)
-#define SDMMC_SDR25_SWITCH_PATTERN         ((uint32_t)0x80FFFF01U)
-#define SDMMC_SDR12_SWITCH_PATTERN         ((uint32_t)0x80FFFF00U)
+#define SDMMC_VOLTAGE_WINDOW_SD            (0x80100000U)
+#define SDMMC_HIGH_CAPACITY                (0x40000000U)
+#define SDMMC_STD_CAPACITY                 (0x00000000U)
+#define SDMMC_CHECK_PATTERN                (0x000001AAU)
+#define SD_SWITCH_1_8V_CAPACITY            (0x01000000U)
+#define SDMMC_DDR50_SWITCH_PATTERN         (0x80FFFF04U)
+#define SDMMC_SDR104_SWITCH_PATTERN        (0x80FF1F03U)
+#define SDMMC_SDR50_SWITCH_PATTERN         (0x80FF1F02U)
+#define SDMMC_SDR25_SWITCH_PATTERN         (0x80FFFF01U)
+#define SDMMC_SDR12_SWITCH_PATTERN         (0x80FFFF00U)
 
 
 // SDMMC Commands Index
@@ -137,4 +137,27 @@ SDMMC_OCR_ERRORBITS             =   (0xFDFFE008U),
 
 // Following commands are MMC Specific commands.
 #define SDMMC_CMD_MMC_SLEEP_AWAKE                     ((uint8_t)5U)   // Toggle the device between Sleep state and Standby state.
+
+
+// ---- ... ----
+
+#define SDMMC_ALLZERO                      (0x00000000U)
+#define SDMMC_WIDE_BUS_SUPPORT             (0x00040000U)
+#define SDMMC_SINGLE_BUS_SUPPORT           (0x00010000U)
+#define SDMMC_CARD_LOCKED                  (0x02000000U)
+#ifndef SDMMC_DATATIMEOUT
+#define SDMMC_DATATIMEOUT                  (0xFFFFFFFFU)
+#endif /* SDMMC_DATATIMEOUT */
+#define SDMMC_0TO7BITS                     (0x000000FFU)
+#define SDMMC_8TO15BITS                    (0x0000FF00U)
+#define SDMMC_16TO23BITS                   (0x00FF0000U)
+#define SDMMC_24TO31BITS                   (0xFF000000U)
+#define SDMMC_MAX_DATA_LENGTH              (0x01FFFFFFU)
+#define SDMMC_HALFFIFO                     (0x00000008U)
+#define SDMMC_HALFFIFOBYTES                (0x00000020U)
+
+#define CARD_NORMAL_SPEED        ((uint32_t)0x00000000U)    // Normal Speed Card <12.5Mo/s , Spec Version 1.01    */
+#define CARD_HIGH_SPEED          ((uint32_t)0x00000100U)    // High Speed Card <25Mo/s , Spec version 2.00        */
+#define CARD_ULTRA_HIGH_SPEED    ((uint32_t)0x00000200U)    // UHS-I SD Card <50Mo/s for SDR50, DDR5 Cards and <104Mo/s for SDR104, Spec version 3.01          */
+
 

@@ -30,7 +30,7 @@
 #include "RCCClock"
 #include "RCCPLL"
 
-extern stduint HSE_VALUE, HSI_VALUE;
+extern stduint HSE_VALUE, HSI_VALUE, CSI_VALUE, LSE_VALUE, LSI_VALUE;
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 namespace uni {
@@ -119,6 +119,78 @@ namespace uni {
 	};
 	typedef RCCOscillatorHSI HSI_t;
 	
+#elif defined(_MCU_STM32H7x)
+
+	class RCCOscillatorHSE { //{}: public RCCOscillator
+	public:
+		bool isReady() const;
+		//
+		inline stduint getFrequency() const {
+			return HSE_VALUE;
+		}
+		//
+		bool setMode(bool ena = true, bool bypass = false) const;
+	};
+	typedef RCCOscillatorHSE HSE_t;
+
+	class RCCOscillatorHSI { //{}: public RCCOscillator
+	public:
+		bool isReady() const;
+
+		stduint getFrequency_ToCore() const;
+
+		// div: 0 1 2 3 for 1 2 4 8
+		// calibration:
+		bool setMode(bool ena, byte divr, stduint calibration) const;
+	};
+	typedef RCCOscillatorHSI HSI_t;
+	//
+	class RCCOscillatorHSI48 { //{}: public RCCOscillator
+	public:
+		bool isReady() const;
+		bool setMode(bool ena) const;
+	};
+	typedef RCCOscillatorHSI48 HSI48_t;
+
+	class RCCOscillatorCSI { //: public RCCOscillator {
+	public:
+		bool isReady() const;
+		void enAble(bool ena = true) const;
+		stduint getFrequency() const {
+			return CSI_VALUE;
+		}
+
+		// calibration:
+		bool setMode(bool ena, stduint calibration) const;
+
+	};
+	typedef RCCOscillatorCSI CSI_t;
+
+
+	class RCCOscillatorLSE { //: public RCCOscillator {
+	public:
+		bool isReady() const;
+		// calibration:
+		bool setMode(bool ena = true, bool bypass = false) const;
+
+		stduint getFrequency() const {
+			return LSE_VALUE;
+		}
+	};
+	typedef RCCOscillatorLSE LSE_t;
+
+	class RCCOscillatorLSI { //: public RCCOscillator {
+	public:
+		bool isReady() const;
+		// calibration:
+		bool setMode(bool ena = true) const;
+
+		stduint getFrequency() const {
+			return LSI_VALUE;
+		}
+	};
+	typedef RCCOscillatorLSI LSI_t;
+
 #elif defined(_MPU_STM32MP13)
 
 	class RCCOscillatorHSE { //{}: public RCCOscillator

@@ -123,6 +123,51 @@ namespace uni {
 		bool setMode();
 		static bool isReady();
 	};
+#elif defined(_MCU_STM32H7x)
+
+	namespace PLLSource {
+		enum PLLSource {
+			HSI, CSI, HSE, _NONE
+		};
+	}
+
+	struct PLLPara_t {
+		byte m;// 
+		word n;// 
+		byte p, q, r;// 
+		word frac;// 
+	};// aka RCC_PLLInitTypeDef
+	// assure in the order
+	#define setModePLL12(mod,src,...) setMode((mod),(src),(PLLPara_t){__VA_ARGS__})
+
+	
+	//{TEMP} only for PLL1
+	class RCCPLL {
+		byte id;// 1~3
+	public:
+		RCCPLL(byte _id) : id(_id) {}
+
+		byte getID() const { return id; }
+
+		void enAble(bool ena = true) const;
+		bool isReady() const;
+
+		
+		stduint getFrequency_ToCore() const;// should be static
+
+		stduint getFrequencyP() const;
+		stduint getFrequencyQ() const;
+		stduint getFrequencyR() const;
+
+		PLLSource::PLLSource CurrentSource() const;
+
+		// range 0..4
+		// vcosel 0 WIDE and 1 MEDIUM
+		bool setMode(PLLSource::PLLSource src, stduint range, stduint vcosel, PLLPara_t para) const;
+
+		bool canMode(bool reset = true) const;
+	};
+	#define setModePLL(src,rng,vsel,...) setMode((src),rng,vsel,(PLLPara_t){__VA_ARGS__})
 
 #elif defined(_MPU_STM32MP13)
 	enum class PLLMode {

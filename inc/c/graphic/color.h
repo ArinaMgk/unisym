@@ -65,6 +65,7 @@ namespace uni {
 			DEF_COLOR(0xFFF0F8FF, AliceBlue),
 
 			// classic
+			DEF_COLOR(0xFFFFFFFF, White),
 			DEF_COLOR(0xFF000000, Black),
 			DEF_COLOR(0xFFFF0000, Red),
 			DEF_COLOR(0xFFFFFF00, Yellow),

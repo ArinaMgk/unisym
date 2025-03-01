@@ -29,6 +29,8 @@
 #define SysTick_CTRL_TICKINT   (1UL << 1) 
 #define SysTick_CTRL_ENABLE    (1UL << 0)
 
+stduint SysTickHz = 1000;
+
 #ifdef _MCU_STM32F1x
 namespace uni {
 	bool SysTick::enClock(uint32 Hz) {
@@ -47,9 +49,9 @@ namespace uni {
 #elif defined(_MCU_STM32F4x)
 
 namespace uni {
-	bool SysTick::enClock(uint32 Hz) {//aka HAL_InitTick
+	bool SysTick::enClock(uint32 Hz) {
 		//aka HAL_SYSTICK_Config core_cm4::SysTick_Config
-		if (SystemCoreClock / Hz > 0xFFFFFF/*wo CortexM4*/) return false;
+		if (SystemCoreClock / Hz - 1 > 0xFFFFFF/*wo CortexM4*/) return false;
 		ref().LOAD = SystemCoreClock / Hz - 1;
 		NVIC.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
 		ref().VAL = 0;
@@ -57,15 +59,28 @@ namespace uni {
 		return true;
 	}
 }
+#elif defined(_MCU_STM32H7x)
+
+namespace uni {
+	bool SysTick::enClock(uint32 _Hz) {
+		if (!_Hz || (SystemCoreClock / _Hz - 1 > SysTick_LOAD_RELOAD_Msk)) return false;
+		SysTickHz = _Hz;
+		//aka HAL_SYSTICK_Config SysTick_Config
+		ref().LOAD = SystemCoreClock / _Hz - 1; /* set reload register */
+		NVIC.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
+		ref().VAL = 0UL; /* Load the SysTick Counter Value */
+		ref().CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk | 4; // SYSTICK_CLKSOURCE_HCLK;
+		return true;
+	}
+}
 #elif defined(_MPU_STM32MP13)
 
 #include "../../../inc/c/proctrl/ARM/cortex_a7.h"
-stduint SysTickHz = 1000;
 
 
 extern stduint HSE_VALUE, HSI_VALUE;
 namespace uni {
-	bool SysTick::enClock(uint32 _Hz) {//aka HAL_InitTick
+	bool SysTick::enClock(uint32 _Hz) {
 		_TEMP stduint TICK_INT_PRIORITY = 0x0FU;
 		if (!_Hz) return false;
 		SysTickHz = _Hz;
@@ -121,11 +136,29 @@ void SysDelay(stduint unit) {
 	using namespace uni;
 	uint64 endo = SysTick::getTick() + unit;
 	while (true) if (SysTick::getTick() >= endo) break;
+#elif defined(_MCU_STM32H7x)
+	uint32 tcnt = 0;
+	uint32 tick_load = uni::SysTick::ref().LOAD;
+	uint32 tick_prev = uni::SysTick::ref().VAL;
+	uint64 dest = (uint64)unit * (SystemCoreClock / SysTickHz);
+	while (true) {
+		uint32 tick_last = uni::SysTick::ref().VAL;
+		if (tick_last != tick_prev) {
+			if (tick_last < tick_prev) tcnt += tick_prev - tick_last;
+			else tcnt += tick_load - tick_last + tick_prev;
+			tick_prev = tick_last;
+			if (tcnt >= dest) break;
+		}
+	}
+
 #else
 	//{ISSUE} append systick-enable check?
 	delay_count = unit;
 	while (delay_count);
 #endif
+}
+void SysDelay_ms(stduint ms) {
+	SysDelay(ms * SysTickHz / 1000);
 }
 
 #if defined(_MPU_STM32MP13)

@@ -19,7 +19,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
+#define _MCU_RCC_TEMP
 #include "../../../../inc/cpp/Device/GPIO"
 #include "../../../../inc/cpp/Device/RCC/RCC"
 #include "../../../../inc/cpp/Device/RCC/RCCAddress"
@@ -59,7 +59,7 @@ namespace uni {
 		uint32 state = _IMM(innput ? GPIOSpeed::Atmost_Input : speed);
 		state |= (bmode & 0xC);// 0b1100
 		getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].maset(bposi, 4, state);
-	#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, _IMM(mode) >> 1);
 		getParent()[GPIOReg::OTYPER].setof(getID(), _IMM(mode) & 1);
 		getParent()[GPIOReg::SPEED].maset(_IMMx2(getID()), 2, _IMM(speed) >> 1);
@@ -70,7 +70,7 @@ namespace uni {
 	}
 	
 
-	
+
 // Interrupt Modes
 #if defined(_MCU_STM32)// F1 F4 MP13
 
@@ -91,13 +91,24 @@ namespace uni {
 		EXTI::TriggerRising.setof(getID(), edg != GPIORupt::Negedge);
 		EXTI::TriggerFalling.setof(getID(), edg != GPIORupt::Posedge);
 		EXTI::MaskInterrupt.setof(getID()); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
+	#elif defined(_MCU_STM32H7x)
+		RCC_APB4ENR_SYSCFGEN = 1; stduint tmp = RCC_APB4ENR_SYSCFGEN;
+		Reference(&SYSCFG->EXTICR[getID() / 4]).maset(_IMMx4(getID()), 4, getParent().getID());
+		// Set IMR but EMR (EMR similar)
+		EXTI[EXTICore::D1][EXTICoreReg::IMR1].setof(getID());
+		EXTI[EXTICore::D1][EXTICoreReg::EMR1].rstof(getID());
+		/* Clear Rising Falling edge configuration */
+		EXTI[EXTIReg::RTSR1].setof(getID(), edg == GPIORupt::Posedge || edg == GPIORupt::Anyedge);
+		EXTI[EXTIReg::FTSR1].setof(getID(), edg == GPIORupt::Negedge || edg == GPIORupt::Anyedge);
 	#elif defined(_MPU_STM32MP13)
 		EXTI.setConfig(getID(), edg, true, getParent().getID());
 	#endif
 		return self;
 	}
 
-#endif	
+#endif
+
+
 
 }
 #endif

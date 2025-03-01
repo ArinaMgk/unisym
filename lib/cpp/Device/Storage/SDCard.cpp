@@ -28,6 +28,9 @@
 #include "../../../../inc/c/driver/interrupt/GIC.h"
 #include "../../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 
+#define BLOCKSIZE 512
+static const _TEMP stduint block_bytes { BLOCKSIZE };
+
 #define bitmatch(bits,mask) (((bits) & (mask)) == (mask))
 #define statin inline static
 
@@ -36,7 +39,6 @@
 // - stm32mp13xx_hal_sd_ex.c
 // - stm32mp13xx_ll_sdmmc.c
 
-#define BLOCKSIZE 512
 
 #define SDMMC_MAX_VOLT_TRIAL               ((uint32_t)0x0000FFFFU)
 
@@ -95,7 +97,47 @@ namespace uni {
 		return frequency;
 	}
 
+	bool SecureDigitalCard_t::Read(stduint BlockIden, void* Dest) {
+		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)
+		self[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
+		//[1] (? How to Use)
+		// Slice LinkNodeConf{
+		// 	.address = _IMM(Dest),// not roleaddr
+		// 	.length = block_bytes,
+		// };
+		// SDMMC_DMALinkNode pLinkNode = { 0 };
+		// SDMMC_DMALinkedList Read_LinkedList = { 0 };
+		// SDMMC_DMALinkedList_BuildNode(&pLinkNode, &LinkNodeConf);
+		// SDMMC_DMALinkedList_InsertNode(&Read_LinkedList, NULL, &pLinkNode);
+		// SDMMC_DMALinkedList_EnableCircularMode(&Read_LinkedList, false);
+		// HAL_SDEx_DMALinkedList_ReadBlocks(&Read_LinkedList, BlockIden, 1);
+		//[2]
+		HAL_SD_ReadBlocks((uint8_t*)Dest, BlockIden, 1, 1000, NULL);
+		while (HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
+		return true;
+	}
 
+	bool SecureDigitalCard_t::Write(stduint BlockIden, const void* Sors) {
+		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)
+		self[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
+		//[1] single node case (? Unchk)
+		// HAL_SDEx_DMALinkedList_BuildNode(&pLinkNode[0], &LinkNodeConf);
+		// HAL_SDEx_DMALinkedList_InsertNode(&Write_LinkedList, NULL, &pLinkNode[0]);
+		// /*Enable Circular Linked list mode */
+		// HAL_SDEx_DMALinkedList_EnableCircularMode(&Write_LinkedList);
+		// TxLnkLstBufCplt = 0;
+		// TxNodeBufCplt = 0;
+		// /* Write 24MB  on uSD card using DMA transfer */
+		// HAL_SDEx_DMALinkedList_WriteBlocks(&hsd1, &Write_LinkedList, DATA_ADDRESS, DATA_SIZE / BLOCKSIZE);
+		// // (here) HAL_SDEx_DMALinkedList_LockNode .. R/W Operations for Buffer .. HAL_SDEx_DMALinkedList_UnlockNode
+		// /* Remove write nodes, remove node on the right then left */
+		// HAL_SDEx_DMALinkedList_RemoveNode(&Write_LinkedList, &pLinkNode[0]);
+		//[2]
+		stduint timeo = 1000;// assume 1kHz SysTick
+		HAL_SD_WriteBlocks((uint8_t*)Sors, BlockIden, 1, timeo, NULL);
+		while (HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
+		return true;
+	}
 
 
 #endif

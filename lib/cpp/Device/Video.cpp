@@ -187,7 +187,15 @@ namespace uni {
 			draw_f = VideoConsole::DrawCharPosition_f[crt_self->typ];
 		}
 		else return;
-		for0(i, len) {
+		for0(i, len) if (false);
+		else if (str[i] == '\n') {
+			crt_self->cursor.y++;
+			crt_self->FeedLine();
+		}
+		else if (str[i] == '\r') {
+			crt_self->cursor.x = nil;
+		}
+		else {
 			(crt_self->*draw_f) (
 				Point(
 					crt_self->cursor.x * FontSizeWidth[crt_self->typ],
@@ -197,17 +205,27 @@ namespace uni {
 		}
 		#undef crt_self
 	}
-	int VideoConsole::out(const char* str, dword len) {
+	int VideoConsole::out(const char* str, stduint len) {
+		crt_self = this;
 		_VideoConsoleOut(str, len);
 		return 0 _TEMP;
 	}
-	int VideoConsole::FormatShow(const char* fmt, ...) {
-		crt_self = this;
-		Letpara(args, fmt);
-		outbyte_t last = outredirect(_VideoConsoleOut);
-		int ret = outsfmtlst(fmt, args);
-		outredirect(last);
-		return ret;
+
+	void VideoConsole::FeedLine() {
+		while (cursor.y >= size.y) {
+			cursor.y--;
+			Size2 scr(size.x * FontSizeWidth[crt_self->typ], size.y * FontSizeHeight[crt_self->typ]);
+			VideoControlBlock(vci, scr, backcolor).RollUp(FontSizeHeight[crt_self->typ]);
+		}
+	}
+	
+	void VideoConsole::curinc() {
+		cursor.x++;
+		if (cursor.x >= size.x) {
+			cursor.x -= size.x;
+			cursor.y++;
+		}
+		if (cursor.y >= size.y) FeedLine();
 	}
 
 }

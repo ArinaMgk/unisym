@@ -19,37 +19,79 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-
+#define _MCU_RCC_TEMP
 #include "../../../../inc/cpp/Device/RCC/RCC"
 #include "../../../../inc/c/driver/RCC/RCC-registers.hpp"
 #include "../../../../inc/cpp/Device/Flash"
 #include "../../../../inc/cpp/Device/SysTick"
+#include "../../../../inc/cpp/reference"
 
 extern stduint HSE_VALUE;
 extern stduint HSI_VALUE;
 
 stduint SystemCoreClock = _SCC_DEFAULT;
+
+#if defined(_MCU_STM32H7x)
+stduint SystemD2Clock = 64000000;
+_ESYM_C const byte D1CorePrescTable[16] = { 0, 0, 0, 0, 1, 2, 3, 4, 1, 2, 3, 4, 6, 7, 8, 9 };
+#endif
+
 namespace uni {
 	// ---- setMode ----
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	// [F4] if(((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_SYSCLK) == RCC_CLOCKTYPE_SYSCLK) then call this
-	bool RCCSystemClock::setMode(SysclkSource::RCCSysclockSource source) {
+	bool RCCSystemClock::setMode(SysclkSource::RCCSysclockSource source
+	#if defined(_MCU_STM32H7x)
+		, byte divexpo
+	#endif
+	)
+	{
 		bool state;
+		#if defined(_MCU_STM32H7x)
+		static int lst[]{
+					0x0, 0x8, 0x9, 0xa, 0xb,
+					-1,
+					0xc, 0xd, 0xe, 0xf
+		};
+		asrtret(divexpo < numsof(lst) && lst[divexpo] >= 0);
+		RCC_D1CFGR_D1CPRE = lst[divexpo];
+	#endif
+		
 		switch (source) {
 		case SysclkSource::HSI:
+		#if defined(_MCU_STM32H7x)
+			state = RCC.HSI.isReady();
+		#else
 			state = RCCOscillatorHSI::isReady();
+		#endif
 			break;
+		//
 		case SysclkSource::HSE:
-			state = RCCOscillatorHSE::isReady();
+		#if defined(_MCU_STM32H7x)
+			state = RCC.HSE.isReady();
+		#else
+			RCCOscillatorHSE::isReady();
+		#endif
 			break;
-		case SysclkSource::PLL:
-			state = RCCPLL::isReady();
-			break;
+		//
+		case SysclkSource::
+			#if defined(_MCU_STM32H7x)
+			PLL1: state = RCC.PLL1.isReady();
+			#else
+			PLL: state = RCCPLL::isReady();
+			#endif
+				break;
+		//
+		#if defined(_MCU_STM32H7x)
+		case SysclkSource::CSI:
+			state = RCC.CSI.isReady();
+		#endif
+		//
 		default:
 			state = false;
 			break;
 		}
-		if (!state) return false;
+		asrtret (state);
 		setSource(source);
 		while (getSource() != source);
 		return true;
@@ -92,6 +134,14 @@ namespace uni {
 		Reference Cfgreg = RCC[RCCReg::CFGR];
 		Cfgreg = (Cfgreg & ~_RCC_CFGR_MASK_Switch) | ((_IMM(source) << _RCC_CFGR_POSI_Switch) >> 2);
 	}
+#elif defined(_MCU_STM32H7x)
+	SysclkSource::RCCSysclockSource RCCSystemClock::getSource() {
+		return (SysclkSource::RCCSysclockSource)_IMM(RCC_CFGR_SW);
+	}
+	void RCCSystemClock::setSource(SysclkSource::RCCSysclockSource source) {
+		RCC_CFGR_SW = _IMM(source);
+	}
+	
 #elif defined(_MPU_STM32MP13)
 	void RCCSystemClock::setSource(SysclkSource::RCCSysclockSource source) {
 		RCC[RCCReg::MPCKSELR].maset(0, 2, _IMM(source));
@@ -172,6 +222,24 @@ namespace uni {
 		const stduint AHB_Prescaler = RCC[CFGR].masof(_RCC_CFGR_POSI_HPRE, _RCC_CFGR_LENG_HPRE);
 		return SystemCoreClock = RCC.Sysclock.getFrequency() >> AHBPrescTable[AHB_Prescaler];
 	}
+#elif defined(_MCU_STM32H7x)
+	stduint RCCSystemClock::getCoreFrequency() {
+		switch (CurrentSource()) {
+		case SysclkSource::HSI:
+			SystemCoreClock = RCC.HSI.getFrequency_ToCore(); break;
+		case SysclkSource::HSE:
+			SystemCoreClock = RCC.HSE.getFrequency(); break;
+		case SysclkSource::PLL1:
+			SystemCoreClock = RCC.PLL1.getFrequency_ToCore(); break;
+		case SysclkSource::CSI:
+		default:
+			SystemCoreClock = RCC.CSI.getFrequency();
+			break;
+		}
+		// HCLK frequency
+		return SystemCoreClock >>= D1CorePrescTable[_IMM(RCC_D1CFGR_D1CPRE)];
+	}
+	
 #elif defined(_MPU_STM32MP13)
 	stduint RCCSystemClock::getCoreFrequency() {
 		using namespace RCCReg;
@@ -194,6 +262,103 @@ namespace uni {
 		}
 		return SystemCoreClock;
 	}
+#elif defined(_MCU_MSP432P4)
+
+	#include "../../../../inc/c/MCU/MSP432/MSP432P4.h"
+	
+	
+
+	#define __VLOCLK           10000
+	#define __MODCLK           24000000
+	#define __LFXT             32768
+	#define __HFXT             48000000
+	//
+	
+	stduint RCCSystemClock::getCoreFrequency() {
+		uint32_t dividerValue = 0, centeredFreq = 0, calVal = 0;
+		int16_t dcoTune = 0;
+		float dcoConst = 0.0;
+		Stdfield DCOTUNE(&CS->CTL0, 0, 10);
+		Stdfield DCORSEL(&CS->CTL0, 16, 3);
+		Stdfield SELM(&CS->CTL1, 0, 3);// source
+		Stdfield DIVM(&CS->CTL1, 16, 3);
+		dividerValue = _IMM1S(DIVM);
+
+		switch (CS_CTL1_SELM_E _IMM(SELM)) {
+		case CS_CTL1_SELM_E::LFXTCLK:
+			if (BITBAND_PERI(CS->IFG, CS_IFG_LFXTIFG_OFS))
+			{
+				// Clear interrupt flag
+				CS->KEY = CS_KEY_VAL;
+				CS->CLRIFG |= CS_CLRIFG_CLR_LFXTIFG;
+				CS->KEY = 1;
+				if (BITBAND_PERI(CS->IFG, CS_IFG_LFXTIFG_OFS))
+				{
+					SystemCoreClock = (
+						(BITBAND_PERI(CS->CLKEN, CS_CLKEN_REFOFSEL_OFS) ? 128000 : 32000)
+						/ dividerValue);
+				}
+				else SystemCoreClock = __LFXT / dividerValue;
+			}
+			else SystemCoreClock = __LFXT / dividerValue;
+			break;
+		case CS_CTL1_SELM_E::VLOCLK:
+			SystemCoreClock = __VLOCLK / dividerValue;
+			break;
+		case CS_CTL1_SELM_E::REFOCLK:
+			SystemCoreClock = (
+				(BITBAND_PERI(CS->CLKEN, CS_CLKEN_REFOFSEL_OFS) ? 128000 : 32000)
+				/ dividerValue);
+			break;
+		case CS_CTL1_SELM_E::DCOCLK:
+			dcoTune = _IMM(DCOTUNE);
+			centeredFreq = 1500000 * _IMM1S(DCORSEL);
+			if (dcoTune == 0) SystemCoreClock = centeredFreq;
+			else {
+				if (dcoTune & 0x1000)
+				{
+					dcoTune = dcoTune | 0xF000;
+				}
+				if (BITBAND_PERI(CS->CTL0, CS_CTL0_DCORES_OFS))
+				{
+					dcoConst = *((volatile const float*)&TLV->DCOER_CONSTK_RSEL04);
+					calVal = TLV->DCOER_FCAL_RSEL04;
+				}
+				/* Internal Resistor */
+				else
+				{
+					dcoConst = *((volatile const float*)&TLV->DCOIR_CONSTK_RSEL04);
+					calVal = TLV->DCOIR_FCAL_RSEL04;
+				}
+				SystemCoreClock = (uint32_t)((centeredFreq)
+					/ (1 - ((dcoConst * dcoTune) / (8 * (1 + dcoConst * (768 - calVal))))));
+			}
+			break;
+		case CS_CTL1_SELM_E::MODOSC:
+			SystemCoreClock = __MODCLK / dividerValue;
+			break;
+		case CS_CTL1_SELM_E::HFXTCLK:
+			if (BITBAND_PERI(CS->IFG, CS_IFG_HFXTIFG_OFS))
+			{
+				// Clear interrupt flag
+				CS->KEY = CS_KEY_VAL;
+				CS->CLRIFG |= CS_CLRIFG_CLR_HFXTIFG;
+				CS->KEY = 1;
+				if (BITBAND_PERI(CS->IFG, CS_IFG_HFXTIFG_OFS))
+				{
+					SystemCoreClock = (
+						(BITBAND_PERI(CS->CLKEN, CS_CLKEN_REFOFSEL_OFS) ? 128000 : 32000)
+						/ dividerValue);
+				}
+				else SystemCoreClock = __HFXT / dividerValue;
+			}
+			else SystemCoreClock = __HFXT / dividerValue;
+			break;
+		default: break;
+		}
+		return SystemCoreClock;
+	}
+
 #endif
 	// ---- CurrentSource ---- {TODO} comb F1&F4 and use masof
 #if defined(_MCU_STM32F1x)
@@ -203,7 +368,11 @@ namespace uni {
 	}
 #elif defined(_MCU_STM32F4x)
 	SysclkSource::RCCSysclockSource RCCSystemClock::CurrentSource() {
-		return (SysclkSource::RCCSysclockSource)(RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_SCLKSWSource);
+		return (SysclkSource::RCCSysclockSource)((RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_SCLKSWSource));
+	}
+#elif defined(_MCU_STM32H7x)
+	SysclkSource::RCCSysclockSource RCCSystemClock::CurrentSource() {
+		return (SysclkSource::RCCSysclockSource)((RCC[RCCReg::CFGR] & _RCC_CFGR_MASK_SCLKSWSource) >> 3);
 	}
 #elif defined(_MPU_STM32MP13)
 	SysclkSource::RCCSysclockSource RCCSystemClock::CurrentSource() {

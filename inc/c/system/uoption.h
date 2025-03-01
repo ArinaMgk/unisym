@@ -25,7 +25,7 @@
 #define _INC_Options
 
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)|| defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)|| defined(_MPU_STM32MP13)
 	#define _MCU_STM32
 	#ifndef __BITS__
 	#define __BITS__ 32
@@ -41,7 +41,8 @@
 	#ifndef __BITS__
 	#define __BITS__ 32
 	#endif
-
+	//
+	#define ROM_APITABLE ((uint32*)0x02000800)
 #endif
 
 #if defined(Architecture_Value)

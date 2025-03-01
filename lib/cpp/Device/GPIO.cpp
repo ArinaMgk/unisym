@@ -51,6 +51,10 @@ static stduint _TAB_ADDR_GPIOx[] = {
 #elif defined(_MCU_STM32F4x)// PA ~ PI
 	0x40020000, 0x40020400, 0x40020800, 0x40020C00,
 	0x40021000, 0x40021400, 0x40021800, 0x40021C00, 0x40022000,
+#elif defined(_MCU_STM32H7x)// PA ~ PK [11]
+	0x58020000, 0x58020400, 0x58020800, 0x58020C00,
+	0x58021000, 0x58021400, 0x58021800, 0x58021C00,
+	0x58022000, 0x58022400, 0x58022800,
 #elif defined(_MCU_CW32F030)// PA
 	0x48000000, 0x48000400, 0x48000800,// A B C
 	0, 0, 0x48001400,// F
@@ -85,7 +89,7 @@ namespace uni
 		getParent()[GPIOReg::PDR].setof(getID(), !pullup);
 	#elif defined(_MCU_STM32F1x)
 		getParent()[GPIOReg::ODR].setof(getID(), pullup);// Output Directly
-	#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		getParent()[GPIOReg::PULLS].maset(_IMMx2(getID()), 2, pullup ? 0b01 : 0b10);
 	#endif
 	}
@@ -112,14 +116,14 @@ namespace uni
 		return getParent()[GPIOReg::DIR].bitof(getID());
 	#elif defined(_MCU_STM32F1x)
 		return 0 == getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].mask(getID() * 4, 2);
-	#elif defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		return 0 == getParent()[GPIOReg::MODER].mask(getID() * 2, 2);// moder length 2 bit
 	#else
 		return false;
 	#endif
 	}
 
-#if defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	// Old Style
 	bool GeneralPurposeInputOutputPin::_set_alternate(byte selection) const {
 	#if 1
@@ -147,6 +151,8 @@ namespace uni
 		Reference(_RCC_APB2ENR_ADDR).setof(_RCC_APB2ENR_POSI_ENCLK_GPIOA + getID(), enable);
 	#elif defined(_MCU_STM32F4x)
 		Reference(_RCC_AHB1ENR_ADDR).setof(_RCC_AHB1ENR_POSI_ENCLK_GPIOA + getID(), enable);
+	#elif defined(_MCU_STM32H7x)
+		Reference(_RCC_AHB4ENR_ADDR).setof(_RCC_AHB4ENR_POSI_ENCLK_GPIOA + getID(), enable);
 	#endif
 	}
 	

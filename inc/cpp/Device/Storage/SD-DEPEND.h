@@ -42,6 +42,21 @@ typedef struct
 	uint8  Reserved4;            // Always 1
 } HAL_SD_CardCSDTypeDef;
 
+// Card Identification Data: CID Register
+typedef struct
+{
+	uint8_t  ManufacturerID;  // Manufacturer ID
+	uint16_t OEM_AppliID;     // OEM/Application ID
+	uint32_t ProdName1;       // Product Name part1
+	uint8_t  ProdName2;       // Product Name part2
+	uint8_t  ProdRev;         // Product Revision
+	uint32_t ProdSN;          // Product Serial Number
+	uint8_t  Reserved1;       // Reserved1
+	uint16_t ManufactDate;    // Manufacturing Date
+	uint8_t  CID_CRC;         // CID CRC
+	uint8_t  Reserved2;       // Always 1
+} HAL_SD_CardCIDTypeDef;
+
 // SDMMC Data Control structure
 enum class SDMMC_DataTransferDir {
 	toCard = 0,
@@ -76,13 +91,79 @@ typedef struct
 	SDMMC_DMALinkNode* pTailNode;
 	uint32 NodesCounter;// who are ready for execution
 #ifdef _INC_CPP
-
-#endif	
+	//{} Methods
+#endif
 } SDMMC_DMALinkedList;// AKA SDMMC_DMALinkedListTypeDef;
 
 
 
 // using string::Slice as SDMMC_DMALinkNodeConfTypeDef;
+//{TODO} Dnode and DChain
 
 
+// SD_Exported_Types_Group6 SD Card Status returned by ACMD13
+enum class SDMMC_BusWidth : uint32 {
+	Bits1 = 0b00,
+	Bits4 = 0b01,
+	Bits8 = 0b10
+};
+typedef struct {
+	SDMMC_BusWidth  DataBusWidth;  // Shows the currently defined data bus width                 */
+	uint32 ProtectedAreaSize;      // Carries information about the capacity of protected area   */
+	uint16 CardType;               //{TEMP} HALF-DONE
+	uint16 EraseSize;              // Determines the number of AUs to be erased in one operation */
+	uint8  SecuredMode;            // Card is in secured mode of operation                       */
+	uint8  SpeedClass;             // Carries information about the speed class of the card      */
+	uint8  PerformanceMove;        // Carries information about the card's performance move      */
+	uint8  AllocationUnitSize;     // Carries information about the card's allocation unit size  */
+	uint8  EraseTimeout;           // Determines the timeout for any number of AU erase          */
+	uint8  EraseOffset;            // Carries information about the erase offset                 */
+	uint8  UhsSpeedGrade;          // Carries information about the speed grade of UHS card      */
+	uint8  UhsAllocationUnitSize;  // Carries information about the UHS card's allocation unit size  */
+	uint8  VideoSpeedClass;        // Carries information about the Video Speed Class of UHS card    */
+} HAL_SD_CardStatusTypeDef;
 
+enum class HAL_SD_CardStateTypeDef {
+	READY          = 0x00000001U,  /*!< Card state is ready                     */
+	IDENTIFICATION = 0x00000002U,  /*!< Card is in identification state         */
+	STANDBY        = 0x00000003U,  /*!< Card is in standby state                */
+	TRANSFER       = 0x00000004U,  /*!< Card is in transfer state               */
+	SENDING        = 0x00000005U,  /*!< Card is sending an operation            */
+	RECEIVING      = 0x00000006U,  /*!< Card is receiving operation information */
+	PROGRAMMING    = 0x00000007U,  /*!< Card is in programming state            */
+	DISCONNECTED   = 0x00000008U,  /*!< Card is disconnected                    */
+	ERROR          = 0x000000FFU,  /*!< Card response Error                     */
+};
+
+enum class SDMMC_SPEED_MODE {
+	AUTO          = (0x00000000U),
+	DEFAULT       = (0x00000001U),
+	HIGH          = (0x00000002U),
+	ULTRA         = (0x00000003U),
+	ULTRA_SDR104  = ULTRA,
+	DDR           = (0x00000004U),
+	ULTRA_SDR50   = (0x00000005U),
+};
+
+
+enum class SDContext {
+	NONE                 = 0x00000000U, // None
+	IT                   = 0x00000008U, // Process in Interrupt mode
+	DMA                  = 0x00000080U, // Process in DMA mode
+	// Read single block operation
+	READ_SINGLE_BLOCK    = 0x00000001U,
+	READ_SINGLE_BLOCK_IT = READ_SINGLE_BLOCK | IT,
+	READ_SINGLE_BLOCK_DMA = READ_SINGLE_BLOCK | DMA,
+	// Read multiple blocks operatio
+	READ_MULTIPLE_BLOCK  = 0x00000002U,
+	READ_MULTIPLE_BLOCK_IT  =  READ_MULTIPLE_BLOCK | IT,
+	READ_MULTIPLE_BLOCK_DMA  =  READ_MULTIPLE_BLOCK | DMA,
+	// Write single block operation
+	WRITE_SINGLE_BLOCK   = 0x00000010U,
+	WRITE_SINGLE_BLOCK_IT   = WRITE_SINGLE_BLOCK | IT,
+	WRITE_SINGLE_BLOCK_DMA   = WRITE_SINGLE_BLOCK | DMA,
+	// Write multiple blocks operation
+	WRITE_MULTIPLE_BLOCK = 0x00000020U,
+	WRITE_MULTIPLE_BLOCK_IT = WRITE_MULTIPLE_BLOCK | IT,
+	WRITE_MULTIPLE_BLOCK_DMA = WRITE_MULTIPLE_BLOCK | DMA,
+};

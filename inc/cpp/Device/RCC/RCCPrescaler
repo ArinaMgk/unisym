@@ -67,30 +67,48 @@ namespace uni {
 		}
 	};
 
-#elif defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) 
 
 	class RCCAHB : public RCCPrescaler { // HCLK
 	public:
 		//-SEE-ABOVE
-		bool setMode(uint8 divexpo = 0, bool usingPCLK1 = true, bool usingPCLK2 = true);
+		bool setMode
+			#if defined(_MCU_STM32F4x)
+			(uint8 divexpo = 0, bool usingPCLK1 = true, bool usingPCLK2 = true);
+			#elif defined(_MCU_STM32H7x)
+			(uint8 divexpo = 0);
+			#endif
+
+		
 	};
 
 	class RCCAPB : public RCCPrescaler { // PCLK 1/2 
 	protected:
+		// 0 for APB1
 		stduint PCLK_ID;
 	public:
-		RCCAPB(stduint PCLK_ID) : PCLK_ID((PCLK_ID - 1) & 1) {
-			// PCLK_ID can only be 1 or 2
+		RCCAPB(stduint _PCLK_ID) : PCLK_ID(_PCLK_ID - 1) {
+			// PCLK_ID can only be 1 or 2 for F4x
 		}
 		//
 		bool setMode(uint8 divexpo);
 
-		void enAble(uint8 bitposi) {
+		void enAble
+		#if defined(_MCU_STM32F4x)
+			(uint8 bitposi)
+		{
 			Reference _RCC_APBxENR((PCLK_ID == 1) ? _RCC_APB2ENR_ADDR : // 1
 				_RCC_APB1ENR_ADDR // 0
 			);
 			_RCC_APBxENR.setof(bitposi);
 		}
+		#else
+			();
+		#endif
+
+
+
+		
 	};
 
 #elif defined(_MPU_STM32MP13)

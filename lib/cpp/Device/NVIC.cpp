@@ -22,9 +22,9 @@
 
 #include "../../../inc/cpp/Device/NVIC"
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 namespace uni {
-	// BELONG cortex_m3 and cortex_m4
+	// BELONG cortex_m3 and cortex_m4 and (m7?)
 	static uint32_t NVIC_EncodePriority(uint32_t PriorityGroup, uint32_t PreemptPriority, uint32_t SubPriority)
 	{
 		PriorityGroup &= 0x7;
@@ -98,5 +98,64 @@ namespace uni {
 	}
 
 }
+
+#elif defined(_MCU_STM32H7x)
+#define _CortexM7_SCB_TEMP
+#include "../../../inc/c/prochip/CortexM7.h"
+
+namespace uni {
+
+	NVIC_t NVIC;
+
+	Reference NVIC_t::operator[](NVICReg::NVICReg idx) {
+		return _NVIC_BASE + _IMMx4(idx);
+	}
+	Reference NVIC_t::Reflect(NVICReg::NVICReg idx, byte offs) {
+		return Reference(_NVIC_BASE + ((_IMM(idx) + offs) << 2));
+	}
+	
+	uint32 NVIC_t::getPriorityGroup() {
+		return (_IMM((SCB->AIRCR & SCB_AIRCR_PRIGROUP_Msk) >> SCB_AIRCR_PRIGROUP_Pos));
+	}
+	void NVIC_t::setPriorityGroup(stduint bitsof_prepriority) {
+		uint32_t reg_value;
+		uint32_t PriorityGroupTmp = ((7 - bitsof_prepriority) & 0x07UL);     /* only values 0..7 are used          */
+		reg_value = SCB->AIRCR;                                              /* read old register configuration    */
+		reg_value &= ~_IMM(SCB_AIRCR_VECTKEY_Msk | SCB_AIRCR_PRIGROUP_Msk);  /* clear bits to change               */
+		reg_value = (reg_value |
+			((uint32_t)0x5FAUL << SCB_AIRCR_VECTKEY_Pos) |
+			(PriorityGroupTmp << 8U)); // Insert write key and priorty group
+		SCB->AIRCR = reg_value;
+	}
+
+	void NVIC_t::setPriority(Request_t req, uint32 priority) {
+		const uint32 IRQ = (uint32)(uint8)req;
+		uint8 writ = (priority << (8U - _NVIC_PRIO_BITS)) & (uint32)0xFF;
+		if ((sint32)req >= 0)
+			*getTable(IRQ) = writ;
+		else
+			SCB->SHPR[(IRQ & (uint32)0xF) - (uint32)4] = writ;
+	}
+	void NVIC_t::setPriority(Request_t req, uint32 prepriority, uint32 subpriority) {
+		setPriority(req, NVIC_EncodePriority(getPriorityGroup(), prepriority, subpriority));
+	}
+
+	// AKA __NVIC_EnableIRQ and __NVIC_DisableIRQ
+	void NVIC_t::setAble(Request_t req_no, bool ena) {
+		if ((stdsint)req_no >= 0) {
+			Reflect(ena ? NVICReg::ISER : NVICReg::ICER, req_no >> 5UL) = _IMM1S(req_no & 0x1FUL);
+			if (!ena) {
+				__DSB();
+				__ISB();
+			}
+		}
+	}
+
+
+}
+
+
+
+
 
 #endif

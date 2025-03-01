@@ -5,6 +5,7 @@ Below are listed in the order of TIME.
 
 - ST Manual and HAL STM32F1x (2017 May)
 - ST Manual and HAL STM32F4x (2017)
+- ST Manual and HAL STM32H7x (2017)
 - ST Manual and STM32CubeMP13 Package v1.1.0
 - TI Manual and Simplelink_msp432p4_sdk_3_40_01_02/source/
 - CW Manual and EXs CW32F030 & CW32F003 (0.1)

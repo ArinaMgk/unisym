@@ -28,8 +28,6 @@
 #include "../../../../../inc/c/driver/interrupt/GIC.h"
 #include "../../../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 
-extern "C" void outsfmt0(rostr, ...);
-
 #define bitmatch(bits,mask) (((bits) & (mask)) == (mask))
 
 //[refer]
@@ -48,9 +46,6 @@ extern "C" void outsfmt0(rostr, ...);
 #define SDMMC_CMDTIMEOUT                   ((uint32_t)5000U)      // Command send and response timeout
 #define SDMMC_MAXERASETIMEOUT              ((uint32_t)63000U)     // Max erase Timeout 63 s
 #define SDMMC_STOPTRANSFERTIMEOUT          ((uint32_t)100000000U) // Timeout for STOP TRANSMISSION command
-
-// SDMMCx->ARG = Command->Argument;
-static stduint SDMMCx_ARGs[2];
 
 // setby { SDMMC_GetCmdResp7 }
 static bool timeout_not_flag = false;
@@ -74,7 +69,6 @@ namespace uni {
 		// 8 is the number of required instructions cycles for the below loop statement. The SDMMC_CMDTIMEOUT is expressed in ms
 		stduint timeout = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U / SysTickHz);
 		uint32 sta_reg;
-// outsfmt0("(SDMMC_GetCmdResp1)");
 		do {
 			asrtret(timeout_not_flag = timeout--);
 			asserv(feedback)[nil] = SDMMC_ERROR_TIMEOUT;
@@ -97,7 +91,6 @@ namespace uni {
 		if (SDMMC_GetCommandResponse(self) != SD_CMD) {
 			asserv(feedback)[nil] = SDMMC_ERROR_CMD_CRC_FAIL; return false;
 		}
-// outsfmt0("(GetCmdResp1.response_r1)");
 		// have received response, retrieve it for analysis
 		uint32 response_r1 = SDMMC_GetResponse(self, 1);
 		if ((response_r1 & SDMMC_OCR_ERRORBITS) == 0) {
@@ -172,7 +165,6 @@ namespace uni {
 			asserv(feedback)[nil] = SDMMC_ERROR_TIMEOUT;
 			sta_reg = self[SDReg::STA] & 0x45;// !(CCRCFAIL | CMDREND | CTIMEOUT) || (CMDACT=CPSMACT)
 		} while (!sta_reg || self[SDReg::STA].bitof(13));
-// outsfmt0("(GetCmdResp2 %x)", _IMM(self[SDReg::STA]));
 		if (self[SDReg::STA].bitof(2))// STAR.CTIMEOUT
 		{
 			// Card is not SD V2.0 compliant
@@ -226,7 +218,6 @@ namespace uni {
 			asserv(feedback)[nil] = SDMMC_ERROR_TIMEOUT;
 			sta_reg = self[SDReg::STA] & 0x45;// !(CCRCFAIL | CMDREND | CTIMEOUT) || (CMDACT=CPSMACT)
 		} while (!sta_reg || self[SDReg::STA].bitof(13));
-//outsfmt0("(GetCmdResp6 STA %x)", _IMM(self[SDReg::STA]));
 		if (self[SDReg::STA].bitof(2))// STAR.CTIMEOUT
 		{
 			// Card is not SD V2.0 compliant
@@ -242,14 +233,12 @@ namespace uni {
 			return false;
 		}
 		uint8 cmd_resp = SDMMC_GetCommandResponse(self);
-//outsfmt0("(GetCmdResp6 cmd_resp=%x SD_CMD=%x)", cmd_resp, SD_CMD);
 		// Check response received is of desired command
 		if (cmd_resp != SD_CMD) {
 			asserv(feedback)[nil] = SDMMC_ERROR_CMD_CRC_FAIL; return false;
 		}
 		self[SDReg::ICR] = (_IMM1S(21) | _IMM(0b11000101));// __SDMMC_CLEAR_FLAG: SDMMC_STATIC_CMD_FLAGS = FLAG_CCRCFAIL | FLAG_CTIMEOUT | FLAG_CMDREND | FLAG_CMDSENT | FLAG_BUSYD0END
 		uint32 response_r1 = self[SDReg::RESP1];//SDMMC_GetResponse(self, 1);
-//outsfmt0("(GetCmdResp6 response_r1=%x)", response_r1);
 		if ((response_r1 & (SDMMC_R6_GENERAL_UNKNOWN_ERROR | SDMMC_R6_ILLEGAL_CMD | SDMMC_R6_COM_CRC_FAILED)) == 0) {
 			*pRCA = (uint16_t)(response_r1 >> 16);
 			asserv(feedback)[nil] = SDMMC_ERROR_NONE; return true;

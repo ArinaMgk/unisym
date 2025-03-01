@@ -21,6 +21,10 @@
 */
 
 #include "../../../inc/c/coear.h"
+
+#undef isnan
+#define isnan(x) ((x) != (x))
+
 #if !defined(_MCCA)
 #include <float.h>
 

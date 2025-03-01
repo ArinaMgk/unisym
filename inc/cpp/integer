@@ -42,7 +42,7 @@ namespace uni {
 	template<typename type0>
 	class Integer_T
 		// public _Value_Integer_T<type0>,
-	#if !defined(_PROPERTY_STRING_OFF)
+	#if defined(_USE_PROPERTY)
 		: public uni::Property<Integer_T<type0>>
 	#endif
 	{
@@ -64,7 +64,9 @@ namespace uni {
 
 		inline Integer_T& operator=(type0 val) {
 			this->val = val;
+			#if defined(_USE_PROPERTY)
 			this->setthen(this);
+			#endif
 			return *this;
 		}
 

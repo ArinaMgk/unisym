@@ -59,6 +59,47 @@ namespace uni {
 	};
 	typedef SYSCFG AFIO;
 
+#elif defined(_MCU_STM32H7x) // aka SYSCFG
+	#include "../MCU/_ADDRESS/ADDR-STM32.h"
+	typedef struct
+	{
+		uint32  RESERVED1;
+		uint32 PMCR;           // SYSCFG peripheral mode configuration register,      offset: 0x04        */
+		uint32 EXTICR[4];      // SYSCFG external interrupt configuration registers,  offset: 0x08-0x14   */
+		uint32  RESERVED2[2];
+		uint32 CCCSR;          // SYSCFG compensation cell control/status register,   offset: 0x20        */
+		uint32 CCVR;           // SYSCFG compensation cell value register,            offset: 0x24        */
+		uint32 CCCR;           // SYSCFG compensation cell code register,             offset: 0x28        */
+		uint32  RESERVED3[62];
+		uint32 PKGR;           // SYSCFG package register,                            offset: 0x124       */
+		uint32  RESERVED4[118];
+		uint32 UR[18];         // SYSCFG user register 0,                             offset: 0x300       */
+	} SYSCFG_t;
+	#define SYSCFG ((SYSCFG_t *) (D3_APB1PERIPH_BASE + 0x0400))
+
+
+#elif defined(_MCU_MSP432P4) // aka SYSCTL
+
+	typedef struct {
+		uint32 REBOOT_CTL;      // [IO] Reboot Control Register */
+		uint32 NMI_CTLSTAT;     // [IO] NMI Control and Status Register */
+		uint32 WDTRESET_CTL;    // [IO] Watchdog Reset Control Register */
+		uint32 PERIHALT_CTL;    // [IO] Peripheral Halt Control Register */
+		uint32 SRAM_SIZE;       // [I ] SRAM Size Register */
+		uint32 SRAM_BANKEN;     // [IO] SRAM Bank Enable Register */
+		uint32 SRAM_BANKRET;    // [IO] SRAM Bank Retention Control Register */
+		uint32 RESERVED0;
+		uint32 FLASH_SIZE;      // [I] Flash Size Register */
+		uint32 RESERVED1[3];
+		uint32 DIO_GLTFLT_CTL;  // [IO] Digital I/O Glitch Filter Control Register */
+		uint32 RESERVED2[3];
+		uint32 SECDATA_UNLOCK;  // [IO] IP Protected Secure Zone Data Access Unlock Register */
+	} SYSCTL_Type;
+#define SYSCTL ((SYSCTL_Type *) SYSCTL_BASE)
+	//
+#define SYSCTL_SRAM_BANKEN_BNK7_EN  (0x00000080) // SRAM Bank1 enable
+
+
 #endif
 
 }

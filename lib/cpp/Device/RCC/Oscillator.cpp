@@ -20,6 +20,8 @@
 	limitations under the License.
 */
 
+#define _MCU_RCC_TEMP
+#define _MCU_PWR_TEMP
 #include "../../../../inc/cpp/Device/RCC/RCC"
 #include "../../../../inc/cpp/Device/RCC/RCCClock"
 #include "../../../../inc/cpp/Device/SysTick"
@@ -31,9 +33,57 @@ extern stduint HSE_VALUE;
 extern stduint HSI_VALUE;
 
 namespace uni {
+	
+
+// isReady
+
+#if 0
+#elif defined(_MCU_STM32H7x)
+	bool RCCOscillatorHSI::isReady() const {
+		return RCC[RCCReg::CR].bitof(2);
+	}
+	bool RCCOscillatorHSE::isReady() const {
+		return RCC[RCCReg::CR].bitof(17);
+	}
+	bool RCCOscillatorHSI48::isReady() const {
+		return RCC[RCCReg::CR].bitof(13);
+	}
+	bool RCCOscillatorCSI::isReady() const { // Internal RC 4MHz oscillator clock
+		return RCC[RCCReg::CR].bitof(8);
+	}
+	bool RCCOscillatorLSI::isReady() const {
+		return RCC[RCCReg::CSR].bitof(1);
+	}
+	bool RCCOscillatorLSE::isReady() const {
+		return RCC[RCCReg::BDCR].bitof(1);
+	}
+#elif defined(_MPU_STM32MP13)
 	using namespace RCCReg;
+
+	bool RCCOscillatorHSI::isReady() const {
+		return RCC[OCRDYR].bitof(_OCRDYR::HSIRDY);
+	}
+	bool RCCOscillatorHSE::isReady() const {
+		return RCC[OCRDYR].bitof(_OCRDYR::HSERDY);
+	}
+	bool RCCOscillatorCSI::isReady() const {
+		return RCC[OCRDYR].bitof(_OCRDYR::CSIRDY);
+	}
+	bool RCCOscillatorLSI::isReady() const {
+		return RCC[RDLSICR].bitof(_IMM(_RDLSICR::LSIRDY));
+	}
+	bool RCCOscillatorLSE::isReady() const {
+		return RCC[BDCR].bitof(_IMM(_BDCR::LSERDY));
+	}
+#endif
+
+
+
+
 	// HSE setMode
 #ifdef _MCU_STM32F1x
+	using namespace RCCReg;
+
 	bool RCCOscillatorHSE::setMode(HSEState::RCCOscillatorHSEState state, uint32 predivr) {
 		if ((RCCSystemClock::CurrentSource() == SysclkSource::HSE) || \
 			(RCCSystemClock::CurrentSource() == SysclkSource::PLL) && \
@@ -67,6 +117,8 @@ namespace uni {
 		}
 	}
 #elif defined(_MCU_STM32F4x)
+	using namespace RCCReg;
+
 	// F407VET: SYSCLK=HSx/M*N/P
 	bool RCCOscillatorHSE::setMode() { //aka HAL_RCC_OscConfig
 			//{TEMP} fixed parameters
@@ -117,24 +169,126 @@ namespace uni {
 
 		return true;
 	}
-#elif defined(_MPU_STM32MP13)
+#elif defined(_MCU_STM32H7x)
 
-	// ---- isReady
-	bool RCCOscillatorHSE::isReady() const {
-		return RCC[OCRDYR].bitof(_OCRDYR::HSERDY);
+#include "../../../../inc/cpp/Device/_Power.hpp"
+
+
+	// ---- setMode
+
+
+	// HSI
+	
+	stduint RCCOscillatorHSI::getFrequency_ToCore() const {
+		Stdfield HSIDIV(RCC[RCCReg::CR], 3, 2);
+		return HSI_VALUE >> _IMM(HSIDIV);
 	}
-	bool RCCOscillatorHSI::isReady() const {
-		return RCC[OCRDYR].bitof(_OCRDYR::HSIRDY);
+
+	bool RCCOscillatorHSI::setMode(bool ena, byte divr, stduint calibration) const {
+		asrtret(divr < 4 && calibration <= 0xFFF);
+		/* When the HSI is used as system clock it will not disabled */
+		if ((RCCSystemClock::CurrentSource() == SysclkSource::HSI) ||
+			((RCCSystemClock::CurrentSource() == SysclkSource::PLL1) && ((PLLSource::PLLSource)_IMM(RCC_PLLCKSELR_PLLSRC) == PLLSource::HSI)))
+		{
+			asrtret (isReady() && !ena) else
+			{
+				Reflocal(cr) = RCC[RCCReg::CR];
+				cr.setof(0, ena); // RCC_CR_HSION
+				cr.maset(3, 2, divr); // RCC_CR_HSIDIV
+				RCC[RCCReg::CR] = cr;
+				while (!ena ^ isReady());
+				RCC_ICSCR_HSITRIM = calibration;// __HAL_RCC_HSI_CALIBRATIONVALUE_ADJUST
+			}
+		}
+		else {
+			if (ena) {
+				Reflocal(cr) = RCC[RCCReg::CR];
+				cr.setof(0, ena); // RCC_CR_HSION
+				cr.maset(3, 2, divr); // RCC_CR_HSIDIV
+				RCC[RCCReg::CR] = cr;
+				while (!ena ^ isReady());
+				RCC_ICSCR_HSITRIM = calibration;// __HAL_RCC_HSI_CALIBRATIONVALUE_ADJUST
+			}
+			else {
+				RCC[RCCReg::CR].setof(0, false); // RCC_CR_HSION
+				while (isReady());
+			}
+		}
+		return true;
 	}
-	bool RCCOscillatorCSI::isReady() const {
-		return RCC[OCRDYR].bitof(_OCRDYR::CSIRDY);
+
+	bool RCCOscillatorHSI48::setMode(bool ena) const {
+		RCC[RCCReg::CR].setof(12, ena); // RCC_CR_HSI48ON
+		while (ena != isReady());
+		return true;
 	}
-	bool RCCOscillatorLSI::isReady() const {
-		return RCC[RDLSICR].bitof(_IMM(_RDLSICR::LSIRDY));
+
+	// HSE
+
+	bool RCCOscillatorHSE::setMode(bool ena, bool bypass) const {
+		if (!ena) bypass = false;
+		// When the HSE is used as system clock or clock source for PLL in these cases HSE will not disabled 
+		if ((RCCSystemClock::CurrentSource() == SysclkSource::HSE) ||
+			((RCCSystemClock::CurrentSource() == SysclkSource::PLL1) && ((PLLSource::PLLSource)_IMM(RCC_PLLCKSELR_PLLSRC) == PLLSource::HSE)))
+		{
+			if (isReady() && !ena) return false;
+		}
+		else {
+			// __HAL_RCC_HSE_CONFIG
+			RCC[RCCReg::CR].setof(16, ena);// RCC_CR_HSEON
+			RCC[RCCReg::CR].setof(18, bypass);// RCC_CR_HSEBYP
+			while (ena != isReady());
+		}
+		return true;
 	}
-	bool RCCOscillatorLSE::isReady() const {
-		return RCC[BDCR].bitof(_IMM(_BDCR::LSERDY));
+
+	// CSI
+	void RCCOscillatorCSI::enAble(bool ena) const {
+			RCC[RCCReg::CR].setof(7, ena);// RCC_CR_CSION
+			while (ena != isReady());
 	}
+	bool RCCOscillatorCSI::setMode(bool ena, stduint calibration) const {
+		asrtret(calibration <= 0x1F);
+		if ((RCCSystemClock::CurrentSource() == SysclkSource::CSI) ||
+			((RCCSystemClock::CurrentSource() == SysclkSource::PLL1) && ((PLLSource::PLLSource)_IMM(RCC_PLLCKSELR_PLLSRC) == PLLSource::CSI)))
+		{
+			asrtret(isReady() && !ena) else {
+				RCC_ICSCR_CSITRIM = calibration;// __HAL_RCC_CSI_CALIBRATIONVALUE_ADJUST
+			}
+		}
+		else {
+			enAble(ena);
+			if (ena) {
+				RCC_ICSCR_CSITRIM = calibration;// __HAL_RCC_CSI_CALIBRATIONVALUE_ADJUST
+			}
+		}
+		return true;
+	}
+
+	// LSE
+
+	bool RCCOscillatorLSE::setMode(bool ena, bool bypass) const {
+		if (!ena) bypass = false;
+		// Enable write access to Backup domain
+		PWR[PWRReg::CR1] |= PWR_CR1_DBP;
+		while (PWR[PWRReg::CR1] & PWR_CR1_DBP);
+		// __HAL_RCC_LSE_CONFIG
+		RCC[RCCReg::BDCR].setof(0, ena);// RCC_BDCR_LSEON
+		RCC[RCCReg::BDCR].setof(2, bypass);// RCC_BDCR_LSEBYP
+		while (ena != isReady());
+		return true;
+	}
+
+	// LSI
+
+	bool RCCOscillatorLSI::setMode(bool ena) const {
+		RCC[RCCReg::CSR].setof(0, ena); // RCC_CSR_LSION
+		while (ena != isReady());
+		return true;
+	}
+
+
+#elif defined(_MPU_STM32MP13)
 	// ---- enAble
 	void RCCOscillatorHSE::enAble(bool ena) const {
 		RCC[ena ? OCENSETR : OCENCLRR] = _IMM1S(_OCENSETR::HSEON);// not setof

@@ -352,6 +352,164 @@ namespace uni {
 		IRQ_FPU = 81                 //FPU global interrupt
 	} Request_t;
 }
+#elif defined(_MCU_STM32H7x)
+
+namespace uni {
+	typedef enum
+	{
+	//*****  Cortex-M Processor Exceptions Numbers
+		IRQ_NonMaskableInt         = -14,    // [ ] 2  Non Maskable Interrupt                                          
+		IRQ_HardFault              = -13,    // [v] 4  Cortex-M Memory Management Interrupt                            
+		IRQ_MemoryManagement       = -12,    // [ ] 4  Cortex-M Memory Management Interrupt                            
+		IRQ_BusFault               = -11,    // [ ] 5  Cortex-M Bus Fault Interrupt                                    
+		IRQ_UsageFault             = -10,    // [ ] 6  Cortex-M Usage Fault Interrupt                                  
+		IRQ_SVCall                 = -5,     // [ ] 11 Cortex-M SV Call Interrupt                                     
+		IRQ_DebugMonitor           = -4,     // [ ] 12 Cortex-M Debug Monitor Interrupt                               
+		IRQ_PendSV                 = -2,     // [ ] 14 Cortex-M Pend SV Interrupt                                     
+		IRQ_SysTick                = -1,     // [x] 15 Cortex-M System Tick Interrupt                                 
+	//*****  STM32 specific Interrupt Numbers
+		Request_None               = nil,
+		IRQ_WWDG = 0,      // [ ] Window WatchDog Interrupt                                         
+		IRQ_PVD_AVD                = 1,      // [ ] PVD/AVD through EXTI Line detection Interrupt                     
+		IRQ_TAMP_STAMP             = 2,      // [ ] Tamper and TimeStamp interrupts through the EXTI line             
+		IRQ_RTC_WKUP               = 3,      // [ ] RTC Wakeup interrupt through the EXTI line                        
+		IRQ_FLASH                  = 4,      // [ ] FLASH global Interrupt                                            
+		IRQ_RCC                    = 5,      // [ ] RCC global Interrupt                                              
+		IRQ_EXTI0                  = 6,      // [ ] EXTI Line0 Interrupt                                              
+		IRQ_EXTI1                  = 7,      // [ ] EXTI Line1 Interrupt                                              
+		IRQ_EXTI2                  = 8,      // [ ] EXTI Line2 Interrupt                                              
+		IRQ_EXTI3                  = 9,      // [ ] EXTI Line3 Interrupt                                              
+		IRQ_EXTI4                  = 10,     // [ ] EXTI Line4 Interrupt                                              
+		IRQ_DMA1_Stream0           = 11,     // [ ] DMA1 Stream 0 global Interrupt                                    
+		IRQ_DMA1_Stream1           = 12,     // [ ] DMA1 Stream 1 global Interrupt                                    
+		IRQ_DMA1_Stream2           = 13,     // [ ] DMA1 Stream 2 global Interrupt                                    
+		IRQ_DMA1_Stream3           = 14,     // [ ] DMA1 Stream 3 global Interrupt                                    
+		IRQ_DMA1_Stream4           = 15,     // [ ] DMA1 Stream 4 global Interrupt                                    
+		IRQ_DMA1_Stream5           = 16,     // [ ] DMA1 Stream 5 global Interrupt                                    
+		IRQ_DMA1_Stream6           = 17,     // [ ] DMA1 Stream 6 global Interrupt                                    
+		IRQ_ADC                    = 18,     // [ ] ADC1 and  ADC2 global Interrupts                                  
+		IRQ_FDCAN1_IT0             = 19,     // [ ] FDCAN1 Interrupt line 0                                           
+		IRQ_FDCAN2_IT0             = 20,     // [ ] FDCAN2 Interrupt line 0                                           
+		IRQ_FDCAN1_IT1             = 21,     // [ ] FDCAN1 Interrupt line 1                                           
+		IRQ_FDCAN2_IT1             = 22,     // [ ] FDCAN2 Interrupt line 1                                           
+		IRQ_EXTI9_5                = 23,     // [ ] External Line[9:5] Interrupts                                     
+		IRQ_TIM1_BRK               = 24,     // [ ] TIM1 Break Interrupt                                              
+		IRQ_TIM1_UP                = 25,     // [ ] TIM1 Update Interrupt                                             
+		IRQ_TIM1_TRG_COM           = 26,     // [ ] TIM1 Trigger and Commutation Interrupt                            
+		IRQ_TIM1_CC                = 27,     // [ ] TIM1 Capture Compare Interrupt                                    
+		IRQ_TIM2                   = 28,     // [ ] TIM2 global Interrupt                                             
+		IRQ_TIM3                   = 29,     // [ ] TIM3 global Interrupt                                             
+		IRQ_TIM4                   = 30,     // [ ] TIM4 global Interrupt                                             
+		IRQ_I2C1_EV                = 31,     // [ ] I2C1 Event Interrupt                                              
+		IRQ_I2C1_ER                = 32,     // [ ] I2C1 Error Interrupt                                              
+		IRQ_I2C2_EV                = 33,     // [ ] I2C2 Event Interrupt                                              
+		IRQ_I2C2_ER                = 34,     // [ ] I2C2 Error Interrupt                                              
+		IRQ_SPI1                   = 35,     // [ ] SPI1 global Interrupt                                             
+		IRQ_SPI2                   = 36,     // [ ] SPI2 global Interrupt                                             
+		IRQ_USART1                 = 37,     // [x] USART1 global Interrupt                                           
+		IRQ_USART2                 = 38,     // [x] USART2 global Interrupt                                           
+		IRQ_USART3                 = 39,     // [x] USART3 global Interrupt                                           
+		IRQ_EXTI15_10              = 40,     // [ ] External Line[15:10] Interrupts                                   
+		IRQ_RTC_Alarm              = 41,     // [ ] RTC Alarm (A and B) through EXTI Line Interrupt                    
+		IRQ_TIM8_BRK_TIM12         = 43,     // [ ] TIM8 Break Interrupt and TIM12 global interrupt                   
+		IRQ_TIM8_UP_TIM13          = 44,     // [ ] TIM8 Update Interrupt and TIM13 global interrupt                  
+		IRQ_TIM8_TRG_COM_TIM14     = 45,     // [ ] TIM8 Trigger and Commutation Interrupt and TIM14 global interrupt 
+		IRQ_TIM8_CC                = 46,     // [ ] TIM8 Capture Compare Interrupt                                    
+		IRQ_DMA1_Stream7           = 47,     // [ ] DMA1 Stream7 Interrupt                                            
+		IRQ_FMC                    = 48,     // [ ] FMC global Interrupt                                              
+		IRQ_SDMMC1                 = 49,     // [ ] SDMMC1 global Interrupt                                           
+		IRQ_TIM5                   = 50,     // [ ] TIM5 global Interrupt                                             
+		IRQ_SPI3                   = 51,     // [ ] SPI3 global Interrupt                                             
+		IRQ_UART4                  = 52,     // [x] UART4 global Interrupt                                            
+		IRQ_UART5                  = 53,     // [x] UART5 global Interrupt                                            
+		IRQ_TIM6_DAC               = 54,     // [ ] TIM6 global and DAC1&2 underrun error  interrupts                 
+		IRQ_TIM7                   = 55,     // [ ] TIM7 global interrupt                                             
+		IRQ_DMA2_Stream0           = 56,     // [ ] DMA2 Stream 0 global Interrupt                                  
+		IRQ_DMA2_Stream1           = 57,     // [ ] DMA2 Stream 1 global Interrupt                                  
+		IRQ_DMA2_Stream2           = 58,     // [ ] DMA2 Stream 2 global Interrupt                                  
+		IRQ_DMA2_Stream3           = 59,     // [ ] DMA2 Stream 3 global Interrupt                                  
+		IRQ_DMA2_Stream4           = 60,     // [ ] DMA2 Stream 4 global Interrupt                                  
+		IRQ_ETH                    = 61,     // [ ] Ethernet global Interrupt                                         
+		IRQ_ETH_WKUP               = 62,     // [ ] Ethernet Wakeup through EXTI line Interrupt                       
+		IRQ_FDCAN_CAL              = 63,     // [ ] FDCAN Calibration unit Interrupt                                  
+		IRQ_DMA2_Stream5           = 68,     // [ ] DMA2 Stream 5 global interrupt                                    
+		IRQ_DMA2_Stream6           = 69,     // [ ] DMA2 Stream 6 global interrupt                                    
+		IRQ_DMA2_Stream7           = 70,     // [ ] DMA2 Stream 7 global interrupt                                    
+		IRQ_USART6                 = 71,     // [x] USART6 global interrupt                                           
+		IRQ_I2C3_EV                = 72,     // [ ] I2C3 event interrupt                                              
+		IRQ_I2C3_ER                = 73,     // [ ] I2C3 error interrupt                                              
+		IRQ_OTG_HS_EP1_OUT         = 74,     // [ ] USB OTG HS End Point 1 Out global interrupt                       
+		IRQ_OTG_HS_EP1_IN          = 75,     // [ ] USB OTG HS End Point 1 In global interrupt                        
+		IRQ_OTG_HS_WKUP            = 76,     // [ ] USB OTG HS Wakeup through EXTI interrupt                          
+		IRQ_OTG_HS                 = 77,     // [ ] USB OTG HS global interrupt                                       
+		IRQ_DCMI                   = 78,     // [ ] DCMI global interrupt                                             
+		IRQ_RNG                    = 80,     // [ ] RNG global interrupt                                              
+		IRQ_FPU                    = 81,     // [ ] FPU global interrupt                                              
+		IRQ_UART7                  = 82,     // [x] UART7 global interrupt                                            
+		IRQ_UART8                  = 83,     // [x] UART8 global interrupt                                            
+		IRQ_SPI4                   = 84,     // [ ] SPI4 global Interrupt                                             
+		IRQ_SPI5                   = 85,     // [ ] SPI5 global Interrupt                                             
+		IRQ_SPI6                   = 86,     // [ ] SPI6 global Interrupt                                             
+		IRQ_SAI1                   = 87,     // [ ] SAI1 global Interrupt                                             
+		IRQ_LTDC                   = 88,     // [ ] LTDC global Interrupt                                             
+		IRQ_LTDC_ER                = 89,     // [ ] LTDC Error global Interrupt                                       
+		IRQ_DMA2D                  = 90,     // [ ] DMA2D global Interrupt                                            
+		IRQ_SAI2                   = 91,     // [ ] SAI2 global Interrupt                                             
+		IRQ_QUADSPI                = 92,     // [ ] Quad SPI global interrupt                                         
+		IRQ_LPTIM1                 = 93,     // [ ] LP TIM1 interrupt                                                 
+		IRQ_CEC                    = 94,     // [ ] HDMI-CEC global Interrupt                                         
+		IRQ_I2C4_EV                = 95,     // [ ] I2C4 Event Interrupt                                              
+		IRQ_I2C4_ER                = 96,     // [ ] I2C4 Error Interrupt                                              
+		IRQ_SPDIF_RX               = 97,     // [ ] SPDIF-RX global Interrupt                                         
+		IRQ_OTG_FS_EP1_OUT         = 98,     // [ ] USB OTG HS2 global interrupt                                      
+		IRQ_OTG_FS_EP1_IN          = 99,     // [ ] USB OTG HS2 End Point 1 Out global interrupt                      
+		IRQ_OTG_FS_WKUP            = 100,    // [ ] USB OTG HS2 End Point 1 In global interrupt                       
+		IRQ_OTG_FS                 = 101,    // [ ] USB OTG HS2 Wakeup through EXTI interrupt                         
+		IRQ_DMAMUX1_OVR	           = 102,    // [ ] DMAMUX1 Overrun interrupt                                          
+		IRQ_HRTIM1_Master          = 103,    // [ ] HRTIM Master Timer global Interrupts                              
+		IRQ_HRTIM1_TIMA            = 104,    // [ ] HRTIM Timer A global Interrupt                                    
+		IRQ_HRTIM1_TIMB            = 105,    // [ ] HRTIM Timer B global Interrupt                                    
+		IRQ_HRTIM1_TIMC            = 106,    // [ ] HRTIM Timer C global Interrupt                                    
+		IRQ_HRTIM1_TIMD            = 107,    // [ ] HRTIM Timer D global Interrupt                                    
+		IRQ_HRTIM1_TIME            = 108,    // [ ] HRTIM Timer E global Interrupt                                    
+		IRQ_HRTIM1_FLT             = 109,    // [ ] HRTIM Fault global Interrupt                                      
+		IRQ_DFSDM1_FLT0            = 110,    // [ ] DFSDM Filter1 Interrupt                                            
+		IRQ_DFSDM1_FLT1            = 111,    // [ ] DFSDM Filter2 Interrupt                                            
+		IRQ_DFSDM1_FLT2            = 112,    // [ ] DFSDM Filter3 Interrupt                                            
+		IRQ_DFSDM1_FLT3            = 113,    // [ ] DFSDM Filter4 Interrupt                                            
+		IRQ_SAI3                   = 114,    // [ ] SAI3 global Interrupt                                             
+		IRQ_SWPMI1                 = 115,    // [ ] Serial Wire Interface 1 global interrupt                          
+		IRQ_TIM15                  = 116,    // [ ] TIM15 global Interrupt                                            
+		IRQ_TIM16                  = 117,    // [ ] TIM16 global Interrupt                                            
+		IRQ_TIM17                  = 118,    // [ ] TIM17 global Interrupt                                            
+		IRQ_MDIOS_WKUP             = 119,    // [ ] MDIOS Wakeup  Interrupt                                           
+		IRQ_MDIOS                  = 120,    // [ ] MDIOS global Interrupt                                            
+		IRQ_JPEG                   = 121,    // [ ] JPEG global Interrupt                                             
+		IRQ_MDMA                   = 122,    // [ ] MDMA global Interrupt                                             
+		IRQ_SDMMC2                 = 124,    // [ ] SDMMC2 global Interrupt                                           
+		IRQ_HSEM1                  = 125,    // [ ] HSEM1 global Interrupt                                            
+		IRQ_ADC3                   = 127,    // [ ] ADC3 global Interrupt                                             
+		IRQ_DMAMUX2_OVR            = 128,    // [ ] DMAMUX2 Overrun interrupt                                          
+		IRQ_BDMA_Channel0          = 129,    // [ ] BDMA Channel 0 global Interrupt                                   
+		IRQ_BDMA_Channel1          = 130,    // [ ] BDMA Channel 1 global Interrupt                                   
+		IRQ_BDMA_Channel2          = 131,    // [ ] BDMA Channel 2 global Interrupt                                   
+		IRQ_BDMA_Channel3          = 132,    // [ ] BDMA Channel 3 global Interrupt                                   
+		IRQ_BDMA_Channel4          = 133,    // [ ] BDMA Channel 4 global Interrupt                                   
+		IRQ_BDMA_Channel5          = 134,    // [ ] BDMA Channel 5 global Interrupt                                   
+		IRQ_BDMA_Channel6          = 135,    // [ ] BDMA Channel 6 global Interrupt                                   
+		IRQ_BDMA_Channel7          = 136,    // [ ] BDMA Channel 7 global Interrupt                                   
+		IRQ_COMP                   = 137,    // [ ] COMP global Interrupt                                             
+		IRQ_LPTIM2                 = 138,    // [ ] LP TIM2 global interrupt                                          
+		IRQ_LPTIM3                 = 139,    // [ ] LP TIM3 global interrupt                                          
+		IRQ_LPTIM4                 = 140,    // [ ] LP TIM4 global interrupt                                          
+		IRQ_LPTIM5                 = 141,    // [ ] LP TIM5 global interrupt                                          
+		IRQ_LPUART1                = 142,    // [ ] LP UART1 interrupt                                                
+		IRQ_CRS                    = 144,    // [ ] Clock Recovery Global Interrupt                                   
+		IRQ_SAI4                   = 146,    // [ ] SAI4 global interrupt                                             
+		IRQ_WAKEUP_PIN             = 149,    // [ ] Interrupt for all 6 wake-up pins                                  
+	} Request_t;
+}
+
 #elif defined(_MPU_STM32MP13)
 #include "interrupt_stm32mp13.h"
 #include "../../../c/driver/interrupt/GIC.h"

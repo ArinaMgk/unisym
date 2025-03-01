@@ -1,4 +1,4 @@
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 static Request_t GPIO_Request_list[16] = {
 	IRQ_EXTI0, IRQ_EXTI1, IRQ_EXTI2, IRQ_EXTI3,
 	IRQ_EXTI4, IRQ_EXTI9_5, IRQ_EXTI9_5, IRQ_EXTI9_5,
@@ -24,7 +24,7 @@ void GeneralPurposeInputOutputPin::setInterrupt(Handler_t f) const {
 		f;
 }
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) const {
 	NVIC.setPriority(GPIO_Request_list[getID()], preempt, sub_priority);
 }

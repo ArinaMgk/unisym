@@ -48,6 +48,8 @@ namespace uni {
 			HSE,
 			PLL1,
 			MPUDIV, //= HSE | PLL1
+		#elif defined(_MCU_STM32H7x)
+			HSI = 0, CSI, HSE, PLL1 // (magic order ruled)
 		#else
 			Unknown
 		#endif
@@ -162,7 +164,7 @@ namespace uni {
 	//class RCCHCLK {
 	//class RCCPCLK {
 
-#elif defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 
 	class RCCSystemClock {
 	protected:
@@ -170,11 +172,18 @@ namespace uni {
 		void setSource(SysclkSource::RCCSysclockSource source);
 	public:
 		RCCSystemClock() { }
-		_TEMP static SysclkSource::RCCSysclockSource CurrentSource();
-		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL);
+		static SysclkSource::RCCSysclockSource CurrentSource();
+		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::
+		#ifdef _MCU_STM32F4x
+			PLL
+		#elif defined(_MCU_STM32H7x)
+			PLL1, byte divexpo = 0
+		#endif
+		);
 		// SYSCLK
 		stduint getFrequency();//aka HAL_RCC_GetSysClockFreq
 		// get and update SystemCoreClock
+		// AKA HAL_RCCEx_GetD1SysClockFreq
 		stduint getCoreFrequency();
 	};
 
@@ -199,7 +208,13 @@ namespace uni {
 		// divexpo: 0~4 for DIV {1,2,4,8,16} for MPUDIV
 		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL1, byte divexpo = 1);
 	};
+#elif defined(_MCU_MSP432P4)
 
+	class RCCSystemClock {
+	public:
+		// AKA SystemCoreClockUpdate
+		static stduint getCoreFrequency();
+	};
 #endif
 }
 #endif

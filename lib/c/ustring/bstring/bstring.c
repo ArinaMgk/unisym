@@ -34,11 +34,10 @@ int outsfmtbuf(char* buf, const char* fmt, ...) {
 // like vsprintf
 int outsfmtlstbuf(char* buf, const char* fmt, para_list lst) {
 	p_outsfmtbuf = buf;
-	Handler_t _last_callback = _serial_callback; _serial_callback = outtxtbuf_endo;
 	outbyte_t last = outredirect(outtxtbuf);
 	int ret = outsfmtlst(fmt, lst);
+	outtxt("\0", 1);
 	outredirect(last);
-	_serial_callback = _last_callback;
 	p_outsfmtbuf = 0;
 	return ret;
 }

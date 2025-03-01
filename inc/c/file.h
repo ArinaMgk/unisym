@@ -34,13 +34,15 @@ extern "C" {
 #if defined(_INC_CPP)
 } //: C++ Area
 #include "../cpp/string"
+#include "../cpp/trait/XstreamTrait.hpp"
 namespace uni {
 
 	// depend { String }
 	enum class FileOpenType {
 		Read, Write, Append //{MORE}
 	};
-	class HostFile // not inherited from File(FileSystem(BlockTraitObject))
+	class HostFile : public OstreamTrait, public IstreamTrait
+	// not inherited from File(FileSystem(BlockTraitObject))
 	{
 		void* fptr;
 	public:
@@ -48,6 +50,9 @@ namespace uni {
 		HostFile() : fptr(nullptr) {}
 		HostFile(rostr filepath, FileOpenType fopen_type = FileOpenType::Read);
 		explicit operator bool() const { return nullptr != fptr; }
+		//
+		virtual int inn() { return _TODO - 1; }
+		virtual int out(const char* str, stduint len) { return _TODO - 1; }
 		//
 		bool operator>> (byte& B);
 		// will check available zone of String.

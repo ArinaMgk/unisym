@@ -25,9 +25,7 @@
 #include "../../../inc/c/driver/SPI.h"
 
 namespace uni {
-#if 0
-
-#elif defined(_MCU_STM32)
+#if defined(_SUPPORT_GPIO)
 
 	byte SPI_SOFT::Transceive(byte data) {
 		byte res = 0;// rx

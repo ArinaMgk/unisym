@@ -26,6 +26,7 @@
 
 #include "stdinc.h"
 #include "ustring.h"
+#include "ustdbool.h"
 #include <stdarg.h>
 
 enum _STD_SRC_t {
@@ -53,16 +54,12 @@ void outc(const char chr);
 
 extern stduint _crt_out_cnt;
 
-// [DEPRECATED]
-void outidec(int xx, int base, int sign);
+bool outinteger(uint64 val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo, outbyte_t out);
 
 // User Use
-void outi(stdint val, int base, int sign_show);
-void outu(stduint val, int base);
 int  outsfmtlst(const char* fmt, para_list lst);
 int  outsfmt(const char* fmt, ...);
 outbyte_t outredirect(outbyte_t out);
-extern Handler_t _serial_callback;
 
 #define printline(...) puts(__VA_ARGS__)
 
@@ -147,9 +144,12 @@ namespace uni {
 	class Console_t : public OstreamTrait, public IstreamTrait
 	{
 	public:
+		virtual int out(const char* str, stduint len) { _TEMP return 0; }
+		virtual int inn() { _TEMP return 0; }
 		// print string with format at cursor
 		// C Style printf
-		virtual int FormatShow(const char* fmt, ...) = 0;
+		// // virtual int FormatShow(const char* fmt, ...) = 0;
+		// [Update] Please Use Console.OutFormat but Console.OutFormat
 	};
 	
 	class HostConsole
@@ -160,10 +160,9 @@ namespace uni {
 	#endif
 	{
 	public:
-		virtual int out(const char* str, dword len);
+		virtual int out(const char* str, stduint len);
 		virtual int inn();
 	public:
-		virtual int FormatShow(const char* fmt, ...);
 		Point getCursor();
 		stduint getWidth();
 		stduint getHeight();

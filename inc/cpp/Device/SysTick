@@ -25,7 +25,7 @@
 
 #include "../unisym"
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 
 #define ADDR_SysTick_Map 0xE000E010
 
@@ -43,8 +43,9 @@ namespace uni {
 #endif
 
 extern "C" void SysDelay(stduint unit);
+extern "C" void SysDelay_ms(stduint ms);
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32)
 
 extern stduint SysTickHz;
 
@@ -52,18 +53,52 @@ namespace uni {
 	#undef SysTick
 	class SysTick {
 	public:
+		//aka HAL_InitTick
 		static bool enClock(uint32 Hz);
+		//
 		inline static void Delay(stduint unit) { SysDelay(unit); }
-	#if defined(_MCU_STM32F4x)
+		#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		static SysTick_Map& ref() { return *(SysTick_Map*)ADDR_SysTick_Map; }
-	#elif defined(_MPU_STM32MP13)
+		#endif
 		// AKA HAL_GetTick
 		static uint64 getTick();
 		//
 		static uint64 getTickPhysical();
-	#endif
+	
 	};
 }
+
+#define SysTick_CTRL_COUNTFLAG_Pos         16U                                            /*!< SysTick CTRL: COUNTFLAG Position */
+#define SysTick_CTRL_COUNTFLAG_Msk         (1UL << SysTick_CTRL_COUNTFLAG_Pos)            /*!< SysTick CTRL: COUNTFLAG Mask */
+
+#define SysTick_CTRL_CLKSOURCE_Pos          2U                                            /*!< SysTick CTRL: CLKSOURCE Position */
+#define SysTick_CTRL_CLKSOURCE_Msk         (1UL << SysTick_CTRL_CLKSOURCE_Pos)            /*!< SysTick CTRL: CLKSOURCE Mask */
+
+#define SysTick_CTRL_TICKINT_Pos            1U                                            /*!< SysTick CTRL: TICKINT Position */
+#define SysTick_CTRL_TICKINT_Msk           (1UL << SysTick_CTRL_TICKINT_Pos)              /*!< SysTick CTRL: TICKINT Mask */
+
+#define SysTick_CTRL_ENABLE_Pos             0U                                            /*!< SysTick CTRL: ENABLE Position */
+#define SysTick_CTRL_ENABLE_Msk            (1UL /*<< SysTick_CTRL_ENABLE_Pos*/)           /*!< SysTick CTRL: ENABLE Mask */
+
+/* SysTick Reload Register Definitions */
+#define SysTick_LOAD_RELOAD_Pos             0U                                            /*!< SysTick LOAD: RELOAD Position */
+#define SysTick_LOAD_RELOAD_Msk            (0xFFFFFFUL /*<< SysTick_LOAD_RELOAD_Pos*/)    /*!< SysTick LOAD: RELOAD Mask */
+
+/* SysTick Current Register Definitions */
+#define SysTick_VAL_CURRENT_Pos             0U                                            /*!< SysTick VAL: CURRENT Position */
+#define SysTick_VAL_CURRENT_Msk            (0xFFFFFFUL /*<< SysTick_VAL_CURRENT_Pos*/)    /*!< SysTick VAL: CURRENT Mask */
+
+/* SysTick Calibration Register Definitions */
+#define SysTick_CALIB_NOREF_Pos            31U                                            /*!< SysTick CALIB: NOREF Position */
+#define SysTick_CALIB_NOREF_Msk            (1UL << SysTick_CALIB_NOREF_Pos)               /*!< SysTick CALIB: NOREF Mask */
+
+#define SysTick_CALIB_SKEW_Pos             30U                                            /*!< SysTick CALIB: SKEW Position */
+#define SysTick_CALIB_SKEW_Msk             (1UL << SysTick_CALIB_SKEW_Pos)                /*!< SysTick CALIB: SKEW Mask */
+
+#define SysTick_CALIB_TENMS_Pos             0U                                            /*!< SysTick CALIB: TENMS Position */
+#define SysTick_CALIB_TENMS_Msk            (0xFFFFFFUL /*<< SysTick_CALIB_TENMS_Pos*/)    /*!< SysTick CALIB: TENMS Mask */
+
+
 #endif
 
 #endif

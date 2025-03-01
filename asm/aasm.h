@@ -27,7 +27,7 @@
 #define __AUTHOR__ "@dosconio"
 #define __LICENSE__ "Apache License 2"
 
-#include <stdinc.h>
+#include <c/stdinc.h>
 
 typedef struct {
 	//: Called at the start of a pass

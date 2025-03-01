@@ -2,7 +2,7 @@
 ### Unchecked and Checked-but-Issued
 
 Virtual Methods since 20241124
-(Before are spftware only. The test of VIRTUAL is passed in GCC)
+(Before are software only. The test of VIRTUAL is passed in GCC)
 - [ ] IIC Soft
 - [ ] SPI Soft
 
@@ -15,6 +15,8 @@ MSP432P4
 ### Anniversary 12th
 
 (20241228 -> 20251227)
+
+20250212: `_PROPERTY_STRING_OFF` -> `_USE_PROPERTY`
 
 ### Anniversary 11th
 

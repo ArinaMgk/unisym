@@ -44,7 +44,11 @@ extern size_t _MALLIMIT;// <IN>
 
 // ---- { logging } ----
 
-extern void erro(char* erromsg);
+extern void erro(char* erromsg
+#ifdef _INC_CPP
+	= NULL
+#endif
+);
 extern void warn(char* warnmsg);
 extern size_t malc_occupy;
 extern size_t arna_precise;

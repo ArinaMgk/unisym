@@ -83,6 +83,71 @@ namespace uni { namespace RCCReg {
 	#define _RCC_APB1ENR_POSI_ENCLK_TIM2 0
 	#define _RCC_APB1ENR_POSI_ENCLK_PWR  28 //{unchk for F1x}
 	#define _RCC_APB1ENR_POSI_ENCLK_DAC  29
+#elif defined(_MCU_STM32H7x)
+
+namespace uni {
+	namespace RCCReg {
+		typedef enum {
+			CR,                 // RCC clock control
+			ICSCR,              // RCC Internal Clock Sources Calibration
+			CRRCR,              // Clock Recovery RC
+			CFGR = 0x10/4,      // RCC clock configuration
+			D1CFGR = 0x18/4,    // RCC Domain 1 configuration
+			D2CFGR,             // RCC Domain 2 configuration
+			D3CFGR,             // RCC Domain 3 configuration
+			PLLCKSELR = 0x28/4, // RCC PLLs Clock Source Selection
+			PLLCFGR,            // RCC PLLs  Configuration
+			PLL1DIVR,           // RCC PLL1 Dividers Configuration
+			PLL1FRACR,          // RCC PLL1 Fractional Divider Configuration
+			PLL2DIVR,           // RCC PLL2 Dividers Configuration
+			PLL2FRACR,          // RCC PLL2 Fractional Divider Configuration
+			PLL3DIVR,           // RCC PLL3 Dividers Configuration
+			PLL3FRACR,          // RCC PLL3 Fractional Divider Configuration
+			D1CCIPR = 0x4C/4,   // RCC Domain 1 Kernel Clock Configuration
+			D2CCIP1R,           // RCC Domain 2 Kernel Clock Configuration
+			D2CCIP2R,           // RCC Domain 2 Kernel Clock Configuration
+			D3CCIPR,            // RCC Domain 3 Kernel Clock Configuration
+			CIER = 0x60/4,      // RCC Clock Source Interrupt Enable
+			CIFR,               // RCC Clock Source Interrupt Flag
+			CICR,               // RCC Clock Source Interrupt Clear
+			BDCR = 0x70/4,      // RCC Vswitch Backup Domain Control
+			CSR,                // RCC clock control & status
+			AHB3RSTR = 0x7C/4,  // RCC AHB3 peripheral reset
+			AHB1RSTR,           // RCC AHB1 peripheral reset
+			AHB2RSTR,           // RCC AHB2 peripheral reset
+			AHB4RSTR,           // RCC AHB4 peripheral reset
+			APB3RSTR,           // RCC APB3 peripheral reset
+			APB1LRSTR,          // RCC APB1 peripheral reset Low Word
+			APB1HRSTR,          // RCC APB1 peripheral reset High Word
+			APB2RSTR,           // RCC APB2 peripheral reset
+			APB4RSTR,           // RCC APB4 peripheral reset
+			GCR,                // RCC RCC Global Control
+			D3AMR = 0xA8/4,     // RCC Domain 3 Autonomous Mode
+			RSR = 0xD0/4,       // RCC Reset status
+			AHB3ENR,            // RCC AHB3 peripheral clock
+			AHB1ENR,            // RCC AHB1 peripheral clock
+			AHB2ENR,            // RCC AHB2 peripheral clock
+			AHB4ENR,            // RCC AHB4 peripheral clock
+			APB3ENR,            // RCC APB3 peripheral clock
+			APB1LENR,           // RCC APB1 peripheral clock  Low Word
+			APB1HENR,           // RCC APB1 peripheral clock  High Word
+			APB2ENR,            // RCC APB2 peripheral clock
+			APB4ENR,            // RCC APB4 peripheral clock
+			AHB3LPENR = 0xFC/4, // RCC AHB3 peripheral sleep clock
+			AHB1LPENR,          // RCC AHB1 peripheral sleep clock
+			AHB2LPENR,          // RCC AHB2 peripheral sleep clock
+			AHB4LPENR,          // RCC AHB4 peripheral sleep clock
+			APB3LPENR,          // RCC APB3 peripheral sleep clock
+			APB1LLPENR,         // RCC APB1 peripheral sleep clock  Low Word
+			APB1HLPENR,         // RCC APB1 peripheral sleep clock  High Word
+			APB2LPENR,          // RCC APB2 peripheral sleep clock
+			APB4LPENR,          // RCC APB4 peripheral sleep clock
+		} RCCReg;// AKA RCC_TypeDef
+	}
+}
+
+// CFGR
+	#define _RCC_CFGR_MASK_SCLKSWSource   0x00000038 // System-Clock Switch Status
 
 #elif defined(_MPU_STM32MP13)
 namespace uni {
@@ -429,6 +494,15 @@ namespace uni {
 #define _RCC_PLLCFGR_MASK_PLLP   0x00030000
 #define _RCC_PLLCFGR_POSI_PLLSRC 22 // 1b. G'DP for HSE, D'DP for HSI
 #define _RCC_PLLCFGR_POSI_PLLQ   24
+
+// ----
+#elif defined(_MCU_STM32H7x)
+#define _RCC_ADDR 0x58024400
+
+#define _RCC_AHB4ENR_ADDR (_RCC_ADDR + 0xE0)
+#define _RCC_AHB4ENR_POSI_ENCLK_GPIOA (0)
+
+
 
 #elif defined(_MPU_STM32MP13)
 #define _RCC_ADDR 0x50000000

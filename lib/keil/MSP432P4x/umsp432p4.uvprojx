@@ -315,7 +315,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>2</Optim>
+            <Optim>1</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -324,14 +324,14 @@
             <PlainCh>0</PlainCh>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
-            <wLevel>2</wLevel>
+            <wLevel>3</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
             <uC99>0</uC99>
             <uGnu>1</uGnu>
             <useXO>0</useXO>
             <v6Lang>3</v6Lang>
-            <v6LangP>3</v6LangP>
+            <v6LangP>8</v6LangP>
             <vShortEn>0</vShortEn>
             <vShortWch>0</vShortWch>
             <v6Lto>0</v6Lto>
@@ -409,6 +409,21 @@
               <FileName>GPIO-setMode.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Power.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Power.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SysTick.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\SysTick.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SysClock.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
             </File>
           </Files>
         </Group>

@@ -99,8 +99,32 @@ long long int llabs(long long int j);
 
 stduint intFibonacci(stduint idx);
 
+// 64-bit unsigned division and modulo
+inline uint64_t udivmoddi4(uint64_t num, uint64_t den, uint64_t* rem_p) {
+	uint64_t quot = 0, qbit = 1;
+	if (den == 0) return 0;
+	// Left-align denominator
+	while ((int64_t)den >= 0) {
+		den <<= 1;
+		qbit <<= 1;
+	}
+	while (qbit) {
+		if (den <= num) {
+			num -= den;
+			quot += qbit;
+		}
+		den >>= 1;
+		qbit >>= 1;
+	}
+	asserv(rem_p)[0] = num;
+	return quot;
+}
+
+
+
 // Floor method
 // 0->0 1->0 2->1 3->1 4->2 5->2 ...
+// e.g. 0<=1:u8 1<=2:u16 2<=4:u32 3<=8:u64
 inline static stduint intlog2_iexpo(stduint v) {
 	stduint crt = 0;
 	if (!v) return 0;

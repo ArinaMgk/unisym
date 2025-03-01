@@ -24,6 +24,8 @@
 #define _INC_MCU_MSP432P4
 
 #include "../../../c/stdinc.h"
+#include "../../Device/AFIO"
 #include "../../Device/GPIO"
+#include "../../Device/_Power.hpp"
 
 #endif

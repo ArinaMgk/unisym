@@ -64,7 +64,9 @@ namespace uni {
 
 		inline Integer_T& operator=(type0 val) {
 			this->val = val;
+			#if defined(_USE_PROPERTY)
 			this->setthen(this);
+			#endif
 			return *this;
 		}
 

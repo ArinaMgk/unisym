@@ -36,7 +36,6 @@
 // 2> String.Format(...) : (1)getlen (2)getval
 // can be empty fucntion but nullptr
 static outbyte_t local_out = outtxt;
-Handler_t _serial_callback = 0;
 _TODO byte local_out_lock = 0;// 0 for accessable
 stduint _crt_out_cnt;
 
@@ -71,11 +70,7 @@ void outc(const char chr)
 
 
 #if defined(_BIT_SUPPORT_64)
-#ifdef _MCCA
-bool outinteger(stduint val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo, outbyte_t out)
-#else
 bool outinteger(uint64 val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo, outbyte_t out)
-#endif
 {
 	#include "../../../inc/c/stream/format-out-integer.h"
 }
@@ -96,7 +91,6 @@ int outsfmtlst(const char* fmt, para_list paras)
 	#define _STREAM_FORMAT_C
 	#include "../../../inc/c/stream/format-body.h"
 	_TEMP local_out_lock = 0;// leave lock
-	asserv(_serial_callback)();
 	return _crt_out_cnt;
 }
 

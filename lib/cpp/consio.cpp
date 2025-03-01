@@ -30,9 +30,9 @@ namespace uni {
 	HostConsole Console;
 
 	int HostConsole::out(const char* str, stduint len) {
-		::_crt_out_cnt = nil;
-		outtxt(str, len);
-		return ::_crt_out_cnt;
+		if (!count_mode) outtxt(str, len);
+		out_count += len;
+		return len;
 	}
 	int HostConsole::inn() {
 	#if defined(_WinNT) || defined(_Linux)
@@ -41,16 +41,6 @@ namespace uni {
 		return _TEMP 0;
 	#endif
 	}
-
-#if 0 // outdated
-	int HostConsole::FormatShow(const char* fmt, ...) {
-		Letpara(args, fmt);
-		outbyte_t last = outredirect(outtxt);
-		int ret = outsfmtlst(fmt, args);
-		outredirect(last);
-		return ret;
-	}
-#endif
 
 }
 #endif

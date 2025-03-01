@@ -9,7 +9,7 @@
 		val = ~val + 1;
 		sign_show = 1;
 	}
-	if (_IMM1S(bytexpo) < byteof(val)) // use if to avoid MSVC ROL discovered at 20250227
+	if (_IMM1S(bytexpo) < byteof(stduint)) // use if to avoid MSVC ROL discovered at 20250227
 		val &= _IMM1S(_IMM1S(bytexpo + 3)) - 1;// <=> case 0: val = (uint8)val; break ...
 	// #if defined(_MCCA) && _MCCA == 0x8632
 	// uint64 valquo = 0, valrem = 0;

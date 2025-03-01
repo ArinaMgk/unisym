@@ -41,19 +41,25 @@ static void _stream_inn();
 
 #define localout out
 namespace uni {
-	int OstreamTrait::OutFormat(const char* fmt, ...) {
-		Letpara(paras, fmt);
-		_crt_out_cnt = 0;
+	int OstreamTrait::OutFormat(const char* fmt, para_list paras) {
+		out_count = 0;
 		#define _STREAM_FORMAT_CPP
 		#include "../../inc/c/stream/format-body.h"
-		return _crt_out_cnt;
+		return out_count;
+	}
+	int OstreamTrait::OutFormat(const char* fmt, ...) {
+		Letpara(paras, fmt);
+		return OutFormat(fmt, paras);
+	}
+	stduint OstreamTrait::CountFormat(const char* fmt, ...) {
+		Letpara(paras, fmt);
+		count_mode = true;
+		stduint ret = OutFormat(fmt, paras);
+		count_mode = false;
+		return ret;
 	}
 
-	#ifdef _MCCA
-	bool OstreamTrait::OutInteger(stduint val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo)
-	#else
 	bool OstreamTrait::OutInteger(uint64 val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo)
-	#endif
 	{
 		#include "../../inc/c/stream/format-out-integer.h"
 	}

@@ -89,7 +89,7 @@ To reduce the size of basic header, you can remove some support like STM32Fx.
 
 [🍨 Buy us a coffee for UNISYM project](https://www.buymeacoffee.com/arinamgk) 
 
-- ![Contributor ArinaMgk (Phina)](./.picture/phina.head.bmp) <del> ***Phina Ren***</del>
+- ![Contributor ArinaMgk (Phina)](./.picture/phina.head.bmp) <del> ***Phina Ren***</del>, ***Azusa***(Ren's successor)
 
 - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** 
 

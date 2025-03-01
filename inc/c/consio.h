@@ -54,17 +54,12 @@ void outc(const char chr);
 
 extern stduint _crt_out_cnt;
 
-#ifdef _MCCA// the pure uint64 input will become 0 in the function
-bool outinteger(stduint val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo, outbyte_t out);
-#else
 bool outinteger(uint64 val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo, outbyte_t out);
-#endif
 
 // User Use
 int  outsfmtlst(const char* fmt, para_list lst);
 int  outsfmt(const char* fmt, ...);
 outbyte_t outredirect(outbyte_t out);
-extern Handler_t _serial_callback;
 
 #define printline(...) puts(__VA_ARGS__)
 

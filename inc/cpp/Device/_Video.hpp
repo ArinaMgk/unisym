@@ -73,14 +73,18 @@ namespace uni {
 	class VideoControlBlock {
 	protected:
 		pureptr_t buffer_addr;
-		stduint pix_size;
-		stduint cols, rows;
+		stduint pix_size = 4;
+		stduint cols = 0, rows = 0;
 		onPressed_t onPressed;// callback event
 		const VideoControlInterface& vci;
+		Color back_color;
 		// color can be past
 	public:
 		~VideoControlBlock() { }
-		VideoControlBlock(pureptr_t addr, const VideoControlInterface& vci) : buffer_addr(addr), vci(vci) { }
+		VideoControlBlock(pureptr_t addr, const VideoControlInterface& vci) : 
+			buffer_addr(addr), vci(vci) { }
+		VideoControlBlock(const VideoControlInterface& vci, const Size2& siz, const Color& bcolor) : 
+			buffer_addr(nullptr), vci(vci), cols(siz.x), rows(siz.y), back_color(bcolor) { }
 		// here: public objects
 		inline void setMode(stduint psiz, stduint cols, stduint rows, onPressed_t onpress = 0) {
 			pix_size = psiz;
@@ -116,6 +120,19 @@ namespace uni {
 		virtual void Draw_2Points(Point disp, Color colors[4]);
 		virtual void Draw_4Points(Point disp, Color colors[4]);
 
+		void RollUp(stduint height) {
+			for (stduint y = 0; y < rows - height; y++) {
+				for (stduint x = 0; x < cols; x++) {
+					Draw(Point(x, y), vci.GetColor(Point(x, y + height)));
+				}
+			}
+			for (stduint y = rows - height; y < rows; y++) {
+				for (stduint x = 0; x < cols; x++) {
+					Draw(Point(x, y), back_color);
+				}
+			}
+		}
+
 	};// Single Layer
 
 	// inherit Console_t to make a console with self-defined font.
@@ -127,27 +144,26 @@ namespace uni {
 	public:
 		
 		Color forecolor;
+		Color backcolor;
 	protected:
 		static void (VideoConsole::* DrawCharPosition_f[])(uni::Point, uni::Color, char);
 		static VideoConsole* crt_self;
 		friend void _VideoConsoleOut(const char* str, stduint len);
 		void DrawCharPosition_8x5(Point disp, Color color, char ch);
 		void DrawCharPosition_16x8(Point disp, Color color, char ch);
+		void FeedLine();
 	public:
-		VideoConsole(const VideoControlInterface& vci, Size2 siz) : 
-			vci(vci), cursor({ 0,0 }), size(siz), typ(1), forecolor(Color::Black) { }
+		VideoConsole(const VideoControlInterface& vci,
+			Size2 siz,
+			const Color& fore_color = Color::White,
+			const Color& back_color = Color::Black) :
+			vci(vci), cursor({ 0,0 }), size(siz), typ(1), forecolor(fore_color), backcolor(back_color) { }
 	public:
 		virtual int out(const char* str, stduint len);
 		virtual int inn() _TODO;
 	public:
 
-		void curinc() {
-			cursor.x++;
-			if (cursor.x >= size.x) {
-				cursor.x -= size.x;
-				cursor.y++;
-			}
-		}
+		void curinc();
 
 
 	};

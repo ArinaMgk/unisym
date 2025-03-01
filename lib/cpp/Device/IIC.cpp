@@ -46,10 +46,11 @@ namespace uni {
 	}
 
 	bool IIC_SOFT::WaitAcknowledge() {
-		if (push_pull) SDA.setMode(GPIOMode::IN_Floating);
+		if (push_pull) SDA.setMode(GPIOMode::OUT_PushPull);
 		byte timespan = 0;
 		SDA = true;
 		asserv(func_delay)();
+		if (push_pull) SDA.setMode(GPIOMode::IN_Floating);
 		SCL = true;
 		asserv(func_delay)();
 		while (SDA) {

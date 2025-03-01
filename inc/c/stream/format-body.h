@@ -58,11 +58,9 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 		//{TODO} use sizlevel
 		case 'o':
 			out_integer(pnext(unsigned), 8, tmp_signed, true, _TODO 0, _TODO false, intlog2_iexpo(byteof(unsigned)));
-			tmp_signed = 0;
 			break;
 		case 'd':
 			out_integer(pnext(signed), 10, tmp_signed, true, _TODO 0, _TODO false, intlog2_iexpo(byteof(signed)));
-			tmp_signed = 0;
 			break;
 
 		// ---- UNSIGNED ----
@@ -147,6 +145,9 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 		default:
 			localout(&fmt[i], 1);
 			break;
+		}
+		if (tmp_percent_feed != 1) {
+			tmp_signed = 0;
 		}
 		i++;
 	}

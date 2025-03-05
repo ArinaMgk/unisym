@@ -30,7 +30,7 @@ namespace uni {
 	
 	PageEntry* PageDirectory::ref() { return (PageEntry*)_IMM(Paging::page_directory); }
 	PageEntry* PageTable::ref() {
-		return (PageEntry*)(getParent().ref()[getID()].address << 12);
+		return (PageEntry*)(_IMM(getParent().ref()[getID()].address) << 12);
 	}
 	PageEntry* Page::ref() {
 		return &getParent().ref()[getID()];
@@ -47,7 +47,7 @@ namespace uni {
 		PageEntry& v = getParent().ref()[getID()];
 		if (!isPresent()) {
 			v.address = _IMM(_physical_allocate(0x1000)) >> 12;
-			MemSet((void*)(v.address << 12), 0, 0x1000);
+			MemSet((void*)(_IMM(v.address) << 12), 0, 0x1000);
 		}
 		v.P = present;
 		v.R_W = writable;

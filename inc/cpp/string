@@ -38,17 +38,22 @@
  * fit BString
  * Multi-charset
  * operator+ (intX) and (double) series
+ *
+ * 20250305 String(ASCIZ) and Slice(Pure/ASCII/...)
  */
 
 //{} Append property-call for += ... operator
 namespace uni {
 	//{TODO} Slice_T
-
-	class Slice {
-	public:
+	template <typename type0>
+	struct Slice_T {
 		stduint address;
 		stduint length;
+		//
+		stduint getLength() const { return length * sizeof(type0); }
 	};
+
+	typedef Slice_T<byte> Slice;
 
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String
@@ -127,6 +132,8 @@ namespace uni {
 		}
 		String& operator<< (char chr);
 
+		// ---- Heap 
+
 		String& Reheap(char* dest) {
 			if (allocated) {
 				counts = StrLength(dest);
@@ -135,6 +142,14 @@ namespace uni {
 			}
 			return self;
 		}
+
+		// ---- Buffer
+
+		inline const char* IndexString(const char* str) {
+			return StrIndexString(this->addr, str);
+		}
+
+		// ----
 		
 		String& Refresh() {
 			counts = minof(StrLength(addr), limits);

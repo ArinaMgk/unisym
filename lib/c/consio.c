@@ -97,7 +97,7 @@ void outtxt(const char* str, stduint len) {
 	static byte attr_enable = 0;
 	word posi = curget() * 2;
 	byte chr;
-	MIN(len, StrLength(str));
+	// MIN(len, StrLength(str));
 	for0(i, len) {
 		chr = (byte)*str++;
 		switch (chr)

@@ -356,11 +356,7 @@
 #define RCC_D2CCIP2R_RNGSEL_0                  (0x1U << RCC_D2CCIP2R_RNGSEL_Pos) /*!< 0x00000100 */
 #define RCC_D2CCIP2R_RNGSEL_1                  (0x2U << RCC_D2CCIP2R_RNGSEL_Pos) /*!< 0x00000200 */
 
-#define RCC_D2CCIP2R_I2C123SEL_Pos             (12U)
-#define RCC_D2CCIP2R_I2C123SEL_Msk             (0x3U << RCC_D2CCIP2R_I2C123SEL_Pos) /*!< 0x00003000 */
-#define RCC_D2CCIP2R_I2C123SEL                 RCC_D2CCIP2R_I2C123SEL_Msk
-#define RCC_D2CCIP2R_I2C123SEL_0               (0x1U << RCC_D2CCIP2R_I2C123SEL_Pos) /*!< 0x00001000 */
-#define RCC_D2CCIP2R_I2C123SEL_1               (0x2U << RCC_D2CCIP2R_I2C123SEL_Pos) /*!< 0x00002000 */
+#define RCC_D2CCIP2R_I2C123SEL                 Stdfield(RCC[RCCReg::D2CCIP2R], 12, 2)
 
 #define RCC_D2CCIP2R_USBSEL_Pos                (20U)
 #define RCC_D2CCIP2R_USBSEL_Msk                (0x3U << RCC_D2CCIP2R_USBSEL_Pos) /*!< 0x00300000 */
@@ -389,11 +385,7 @@
 #define RCC_D3CCIPR_LPUART1SEL_1               (0x2U << RCC_D3CCIPR_LPUART1SEL_Pos) /*!< 0x00000002 */
 #define RCC_D3CCIPR_LPUART1SEL_2               (0x4U << RCC_D3CCIPR_LPUART1SEL_Pos) /*!< 0x00000004 */
 
-#define RCC_D3CCIPR_I2C4SEL_Pos                (8U)
-#define RCC_D3CCIPR_I2C4SEL_Msk                (0x3U << RCC_D3CCIPR_I2C4SEL_Pos) /*!< 0x00000300 */
-#define RCC_D3CCIPR_I2C4SEL                    RCC_D3CCIPR_I2C4SEL_Msk
-#define RCC_D3CCIPR_I2C4SEL_0                  (0x1U << RCC_D3CCIPR_I2C4SEL_Pos) /*!< 0x00000100 */
-#define RCC_D3CCIPR_I2C4SEL_1                  (0x2U << RCC_D3CCIPR_I2C4SEL_Pos) /*!< 0x00000200 */
+#define RCC_D3CCIPR_I2C4SEL                    Stdfield(RCC[RCCReg::D3CCIPR], 8, 2)
 
 #define RCC_D3CCIPR_LPTIM2SEL_Pos              (10U)
 #define RCC_D3CCIPR_LPTIM2SEL_Msk              (0x7U << RCC_D3CCIPR_LPTIM2SEL_Pos) /*!< 0x00001C00 */

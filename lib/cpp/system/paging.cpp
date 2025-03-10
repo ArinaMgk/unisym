@@ -27,11 +27,14 @@ namespace uni {
 #if defined(_ARC_x86)
 
 	PageDirectory* Paging::page_directory;
-	
+
+	// return PD address
 	PageEntry* PageDirectory::ref() { return (PageEntry*)_IMM(Paging::page_directory); }
+	// position self address in PD, pointer to array of pointers of pages
 	PageEntry* PageTable::ref() {
 		return (PageEntry*)(_IMM(getParent().ref()[getID()].address) << 12);
 	}
+	// position self address in PT, pointer to a real page
 	PageEntry* Page::ref() {
 		return &getParent().ref()[getID()];
 	}

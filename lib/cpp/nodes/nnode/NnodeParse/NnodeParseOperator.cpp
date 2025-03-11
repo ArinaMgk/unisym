@@ -34,7 +34,7 @@
 #define parawith(sym,whom) (maynotsym(gettype(whom)) && !sym->GetTnodeField()->difline(*whom->GetTnodeField()))
 // | whom may  != 0 (0 means non-exist) for true, so "0" is good to occupy
 // v     so as above.
-#define sepawith(sym,whom) (maysymbol(gettype(whom)) ||  sym->GetTnodeField()->difline(*whom->GetTnodeField()))
+#define sepawith(sym,whom) (!whom || maysymbol(gettype(whom)) ||  sym->GetTnodeField()->difline(*whom->GetTnodeField()))
 
 // size_t lleftt = crt->left->left ? crt->left->left->type : tok_any;
 // size_t leftt = crt->left ? crt->left->type : tok_any;

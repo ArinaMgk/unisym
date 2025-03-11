@@ -137,7 +137,7 @@ namespace uni {
 		String& Reheap(char* dest) {
 			if (allocated) {
 				counts = StrLength(dest);
-				limits = 0;
+				// limits = 0;
 				srs(addr, dest);
 			}
 			return self;

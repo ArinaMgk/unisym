@@ -84,9 +84,9 @@ enum {
 };
 
 //#define isidnsym(type)(type<tok_others)
-#define maysymbol(type)(type<tok_others)
+#define maysymbol(type)(type==tok_symbol)
 //#define isentity(type)(type>tok_others)
-#define maynotsym(type)(type>tok_others)
+#define maynotsym(type)(type>tok_symbol)
 
 
 #ifndef _INC_TNODE

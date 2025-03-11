@@ -24,6 +24,7 @@
 #define _INC_TNODE
 
 #include "dnode.h"
+#include "ustring.h"
 
 #ifdef _INC_CPP
 namespace uni {
@@ -37,7 +38,7 @@ namespace uni {
 		stduint crtline;
 		stduint crtcol;
 		char* buffer, * bufptr;
-	} TokenParseUnit;
+	} TokenParseUnit;// C Style
 
 	_ESYM_C void StrTokenAll(TokenParseUnit* tpu);
 
@@ -48,7 +49,7 @@ namespace uni {
 #ifdef _INC_CPP
 namespace uni {
 	
-	
+
 	struct TokenParseManager {
 		Dchain dc;
 		TokenParseManager(int (*getnext)(void), void (*seekback)(stdint chars), char* buffer) : dc() {
@@ -70,7 +71,7 @@ namespace uni {
 			StrTokenAll(&in_tpu);
 			inntpu_avail = true;
 			uni::Dnode* crt = in_tpu.tchn.root_node;
-			if (crt) do {
+			if (crt) do if (crt->type != tok_spaces) {
 				dc.Append(crt->offs, false)->type = crt->type;
 			} while (crt = crt->next);
 			DchainDrop(&in_tpu.tchn);

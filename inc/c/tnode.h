@@ -73,7 +73,11 @@ namespace uni {
 			uni::Dnode* crt = in_tpu.tchn.root_node;
 			if (crt) do if (crt->type != tok_spaces) {
 				dc.Append(crt->offs, false)->type = crt->type;
-			} while (crt = crt->next);
+			}
+			else {
+				memf(crt->offs);
+			}
+			while (crt = crt->next);
 			DchainDrop(&in_tpu.tchn);
 			inntpu_avail = false;
 			outtpu_avail = true;

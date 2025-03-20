@@ -240,6 +240,9 @@ namespace uni {
 			self[TimReg::EGR] = 1; // TIM_EGR_UG;// Generate an update event to reload the Prescaler and the repetition counter(only for TIM1 and TIM8) value immediatly
 		}
 
+		void setPeriod();
+		void setPrescaler();
+		
 	}; // 6 and 7
 	extern TIM_B TIM6, TIM7;
 

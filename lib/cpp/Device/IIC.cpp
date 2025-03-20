@@ -56,7 +56,7 @@ namespace uni {
 		SCL = true;
 		asserv(func_delay)();
 		while (SDA) {
-			if (++timespan) {
+			if (++timespan > _TEMP 250) {
 				SendStop();
 				return last_ack_accepted = false;
 			}

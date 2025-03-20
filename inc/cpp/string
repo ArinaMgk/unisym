@@ -145,8 +145,11 @@ namespace uni {
 
 		// ---- Buffer
 
-		inline const char* IndexString(const char* str) {
+		inline const char* Index(const char* str) {
 			return StrIndexString(this->addr, str);
+		}
+		inline const char* Index(const String& str) {
+			return StrIndexString(this->addr, str.reference());
 		}
 
 		// ----
@@ -165,8 +168,17 @@ namespace uni {
 		int Format(const char* fmt, ...);
 		static String newFormat(const char* fmt, ...);
 
+
+		// ---- ---- ---- ----
+
 		String& Replaced(const char* subfirstrom, const char* subto, size_t* times = 0) {
 			return Reheap(StrReplace(addr, subfirstrom, subto, times));
+		}
+
+		String& DesuffixSpaces() {
+			StrDesuffixSpaces(addr);
+			Refresh();
+			return self;
 		}
 
 

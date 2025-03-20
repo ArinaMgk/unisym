@@ -30,7 +30,7 @@ size_t StrDesuffixSpaces(char* str)
 	size_t coflen = 0,
 		num = 0;
 	while (str[coflen]) coflen++;
-	while (isspace(str[coflen - num - 1])) num++;
+	while (coflen - num >= 1 && isspace(str[coflen - num - 1])) num++;
 	str[coflen - num] = 0;
 	return num;
 }

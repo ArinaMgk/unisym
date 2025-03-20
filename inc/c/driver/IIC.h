@@ -51,7 +51,7 @@ namespace uni {
 	class IIC_t : public OstreamTrait, public IstreamTrait {
 	protected:
 		bool last_ack_accepted;
-		bool push_pull;
+		bool push_pull = false;
 	public:
 		virtual int out(const char* str, stduint len) {
 			for0(i, len) Send(((const byte*)str)[i], true);// do ... while ACK
@@ -67,6 +67,9 @@ namespace uni {
 		virtual void SendStop(void) {}
 		virtual bool WaitAcknowledge() { return false; }
 		virtual void SendAcknowledge(bool ack = true) {}
+
+		//{TODO} send return ACK status
+
 		void Send(byte txt, bool auto_wait_ack = false) { Send(&txt, _BYTE_BITS_, auto_wait_ack); }
 		virtual void Send(byte* txt, stduint len, bool auto_wait_ack = false) {}
 		virtual byte ReadByte(bool feedback = true, bool ack = true) { return 0; }
@@ -79,8 +82,10 @@ namespace uni {
 	public:
 		Handler_t func_delay;
 
-		IIC_SOFT(GPIO_Pin& SDA, GPIO_Pin& SCL) : SDA(SDA),
-			SCL(SCL) {
+		IIC_SOFT(GPIO_Pin& SDA, GPIO_Pin& SCL, bool init_now = true)
+			: SDA(SDA), SCL(SCL) { if (init_now) setMode(); }
+
+		void setMode() {
 			SDA.setMode(push_pull ? GPIOMode::OUT_PushPull : GPIOMode::OUT_OpenDrain);
 			SCL.setMode(GPIOMode::OUT_PushPull);
 			SCL = true;

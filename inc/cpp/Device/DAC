@@ -26,6 +26,7 @@
 
 #include "../unisym"
 #include "../reference"
+#include "../trait/XstreamTrait.hpp"
 #include "../../c/binary.h"
 #include "GPIO"
 #include "DMA"
@@ -88,7 +89,11 @@ namespace uni {
 
 	#define DAC_getStdvol(i) ((float)i*2.5/0x1000)
 	class DACChan;
-	class DAC_t {
+	class DAC_t
+		#if 0
+		: public RuptTrait
+		#endif
+	{
 	protected:
 		stduint baseaddr;
 		//{MEANINGLESS} byte DAC_ID;
@@ -117,6 +122,13 @@ namespace uni {
 				return 2;
 			return 0;
 		}
+		GPIO_Pin* getPin(byte channel) {
+			if (channel == 1)
+				return &GPIOA[4];
+			else if (channel == 2)
+				return &GPIOA[5];
+			return 0;
+		}
 		const DACChan& operator[](const GPIO_Pin& pin) const {
 		    return *(const DACChan*)_IMM(getChannel(pin));
 		}
@@ -137,7 +149,11 @@ namespace uni {
 
 	extern DAC_t DAC;
 
-	class DACChan {
+	class DACChan
+		#if 0
+		: public RuptTrait, public OstreamTrait
+		#endif
+	{
 	public:
 		DAC_t& getParent() const { return DAC; }
 		byte getID() const { return _IMM(this) % (1 + 2); }

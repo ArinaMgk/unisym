@@ -26,6 +26,7 @@
 
 #include "../unisym"
 #include "../reference"
+#include "../trait/XstreamTrait.hpp"
 #include "../../c/binary.h"
 #include "GPIO"
 #include "DMA"
@@ -147,7 +148,9 @@ namespace uni {
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
-	class ADC_t : public RuptTrait {
+	class ADC_t
+		: public RuptTrait, public IstreamTrait
+	{
 	protected:
 		byte ADC_ID;
 		pureptr_t bind;
@@ -201,16 +204,17 @@ namespace uni {
 			= ADCSample::CYCL_144
 		#endif
 		);
+		virtual int inn() {
+			return self[ADCReg::DR];
+		}
 		// Get Value
 		ADC_t& operator>> (uint32_t& val) {
-			using namespace ADCReg;
-			val = self[DR];
+			val = inn();
 			return self;
 		}
 		// feedback 0~1
 		ADC_t& operator>> (float& val) {
-			using namespace ADCReg;
-			val = float(self[DR]) / _TEMP 4095;//{TODO check the BITS}
+			val = float _IMM(inn()) / _TEMP 4095;//{TODO check the BITS}
 			return self;
 		}
 		//

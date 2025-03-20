@@ -26,6 +26,7 @@
 #include "../stdinc.h"
 
 #define _STDLIB_H
+//#define __stdlib_h
 
 #if !defined(_DEBUG) && !defined(_dbg)
 	#define memalloc(dest,size)\
@@ -77,6 +78,7 @@ _ESYM_C void    memrelease();
 // #define _memory_midfix __cdecl
 // #define _memory_prefix
 #include "corecrt_malloc.h"
+#elif defined(__stdlib_h)// ARMGCC
 #else
 #define _memory_midfix
 #define _memory_prefix _ESYM_C

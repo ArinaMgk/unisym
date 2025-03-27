@@ -21,14 +21,13 @@ including not only implementation, library, tool-kits, chroming engine and demon
 **Hsyster** `HERSYS`
 
 - `HERNOT` and public `HEREPC`
-    - Herepic Style Color: Herpink(R255, G97, B157, #double-0.618) 
+    - Herepic Style Color: <font color="#FF619D">Herpink</font> <!-- (R255, G97, B157, #double-0.618)  -->
 - `HERPRO` and static `HERDAT`
-	- Dinah Processor and Controller Chip
-    - opensrc **UNISYM** (this, Apache), up-to chip-level `arch-objfmt-env`
-	- Mecocoa, up-to board-level `board-arch-mode`
-	- Host Environment
-		- Witch and Nova
-		- COTLAB
+	- Dinah (Processor and Controller Chip)
+    - opensrc **UNISYM** (this Abstract Centre, Apache), up-to chip-level `arch-objfmt-env`
+	- Mecocoa (General Hosted Environment), up-to board-level `board-arch-mode`
+	- Witch and Nova (Graphics Rendering and Gaming)
+	- COTLAB (Command-Line Interface)
 	- Webnet Service
 
 <font color="magenta">⚠︎ All the code are by hands, so these big changes and mistakes in codes may be forgiven.</font>
@@ -65,12 +64,20 @@ ConPrint Hello_String; Assembly Macro
 Would better to set these environment variables, if using or building UNISYM:
 
 - `uincpath`, points to INC, a must for developer
+
+Below are disappearing:
+
 - `ulibpath`, points to LIB, optional
 - `ubinpath`, points to BIN, a must for user
 - `uobjpath`, points to OBJ, temporary folder
 - `yanopath`, points to GCC cross-compilers and others
 - `msvcpath`, points to Microsoft Visual C++ SDK
 - `hostarget`, like `_OPT_RISCV64`, define when no target is specified
+
+**Covenants**
+- Binary Processor
+- Little Endian
+
 
 **Consideration** these if going to modify or using the code:
 

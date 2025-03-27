@@ -324,7 +324,7 @@
             <PlainCh>0</PlainCh>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
-            <wLevel>3</wLevel>
+            <wLevel>1</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
             <uC99>1</uC99>
@@ -338,7 +338,7 @@
             <v6WtE>0</v6WtE>
             <v6Rtti>0</v6Rtti>
             <VariousControls>
-              <MiscControls>-D__stdlib_h</MiscControls>
+              <MiscControls></MiscControls>
               <Define>_MCU_STM32F4x  _HIS_IMPLEMENT</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
@@ -449,6 +449,11 @@
               <FileName>GIC.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\GIC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Flash.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Flash.cpp</FilePath>
             </File>
           </Files>
         </Group>

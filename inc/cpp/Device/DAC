@@ -98,7 +98,6 @@ namespace uni {
 		stduint baseaddr;
 		//{MEANINGLESS} byte DAC_ID;
 		pureptr_t bind;
-		void setOutput(byte channel, uint16 val);
 	public:
 		DAC_t(stduint baseaddr) : baseaddr(baseaddr), bind(0){ }
 		stduint getBaseAddr() { return baseaddr; }
@@ -132,6 +131,8 @@ namespace uni {
 		const DACChan& operator[](const GPIO_Pin& pin) const {
 		    return *(const DACChan*)_IMM(getChannel(pin));
 		}
+
+		void setOutput(byte channel, uint16 val);
 
 		void setOutput(GPIO_Pin& pin, uint16 val) {
 			byte channel = getChannel(pin);

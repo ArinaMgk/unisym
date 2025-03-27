@@ -204,7 +204,7 @@ namespace uni {
 			= ADCSample::CYCL_144
 		#endif
 		);
-		virtual int inn() {
+		virtual int inn() override {
 			return self[ADCReg::DR];
 		}
 		// Get Value

@@ -82,6 +82,8 @@ struct tm {
 
 // `[MACRO]`
 #define getHerWeekNumber(y,m,d) ((herspan(y,m,d)+6)/7-(herspan(y,m,d)<0))
+// derived: get week number of the year, range 1 .. 1 + 365/7 + 1, aka [1,52]
+#define getYearWeekNumber(y,m,d)(getHerWeekNumber(y,m,d)-getHerWeekNumber(y,1,1)+1)
 
 // What is the day{`0~6`} of the day{`01~31`} in the month{`01~12`} of the year{`0000~9999`}
 unsigned weekday(word year, word month, word day);

@@ -38,17 +38,22 @@
  * fit BString
  * Multi-charset
  * operator+ (intX) and (double) series
+ *
+ * 20250305 String(ASCIZ) and Slice(Pure/ASCII/...)
  */
 
 //{} Append property-call for += ... operator
 namespace uni {
 	//{TODO} Slice_T
-
-	class Slice {
-	public:
+	template <typename type0>
+	struct Slice_T {
 		stduint address;
 		stduint length;
+		//
+		stduint getLength() const { return length * sizeof(type0); }
 	};
+
+	typedef Slice_T<byte> Slice;
 
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String
@@ -127,14 +132,27 @@ namespace uni {
 		}
 		String& operator<< (char chr);
 
+		// ---- Heap 
+
 		String& Reheap(char* dest) {
 			if (allocated) {
 				counts = StrLength(dest);
-				limits = 0;
+				// limits = 0;
 				srs(addr, dest);
 			}
 			return self;
 		}
+
+		// ---- Buffer
+
+		inline const char* Index(const char* str) {
+			return StrIndexString(this->addr, str);
+		}
+		inline const char* Index(const String& str) {
+			return StrIndexString(this->addr, str.reference());
+		}
+
+		// ----
 		
 		String& Refresh() {
 			counts = minof(StrLength(addr), limits);
@@ -150,8 +168,17 @@ namespace uni {
 		int Format(const char* fmt, ...);
 		static String newFormat(const char* fmt, ...);
 
+
+		// ---- ---- ---- ----
+
 		String& Replaced(const char* subfirstrom, const char* subto, size_t* times = 0) {
 			return Reheap(StrReplace(addr, subfirstrom, subto, times));
+		}
+
+		String& DesuffixSpaces() {
+			StrDesuffixSpaces(addr);
+			Refresh();
+			return self;
 		}
 
 

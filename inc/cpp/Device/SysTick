@@ -44,6 +44,7 @@ namespace uni {
 
 extern "C" void SysDelay(stduint unit);
 extern "C" void SysDelay_ms(stduint ms);
+extern "C" void SysDelay_us(stduint us);
 
 #if defined(_MCU_STM32)
 

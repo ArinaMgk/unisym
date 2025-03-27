@@ -36,7 +36,7 @@ int outsfmtlstbuf(char* buf, const char* fmt, para_list lst) {
 	p_outsfmtbuf = buf;
 	outbyte_t last = outredirect(outtxtbuf);
 	int ret = outsfmtlst(fmt, lst);
-	outtxt("\0", 1);
+	outsfmt("%c", nil);
 	outredirect(last);
 	p_outsfmtbuf = 0;
 	return ret;

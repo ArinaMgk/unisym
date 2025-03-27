@@ -19,7 +19,11 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+
+#ifndef _DEBUG
 #define _DEBUG// for erro()
+#endif
+
 #include "../../../../inc/cpp/interrupt"
 #include "../../../../inc/cpp/Device/EXTI"
 
@@ -36,7 +40,7 @@ using namespace uni;
 #endif
 
 // EXTI
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32)
 static void _HandlerIRQ_EXTIx(byte x);
 #endif
 

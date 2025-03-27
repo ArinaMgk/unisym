@@ -161,6 +161,13 @@ void SysDelay_ms(stduint ms) {
 	SysDelay(ms * SysTickHz / 1000);
 }
 
+void SysDelay_us(stduint us) {
+	if (us * SysTickHz < 1000000) {
+		for (volatile stduint i = 0; i < SystemCoreClock / 1000000 * us; i++);
+	}
+	else SysDelay(us * SysTickHz / 1000000);
+}
+
 #if defined(_MPU_STM32MP13)
 void SecurePhysicalTimer_IRQHandler(void) {
 	uni::GIC[IRQ_SecurePhyTimer].setPending(false);

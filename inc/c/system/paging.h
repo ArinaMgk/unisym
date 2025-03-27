@@ -27,6 +27,10 @@
 // #include "../bitmap.h"
 
 namespace uni {
+
+	struct Page;
+	
+
 #if defined(_ARC_x86)
 
 	struct PageEntry {

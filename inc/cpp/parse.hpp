@@ -1,8 +1,8 @@
-// ASCII C99 TAB4 CRLF
-// Attribute: ArnCovenant 
-// LastCheck: RFZ22
-// AllAuthor: @dosconio
-// ModuTitle: Operations for ASCIZ Character-based String
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: Token Node Parse
+// Codifiers: @dosconio: RFZ22 ~
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,18 +20,28 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/c/ustring.h"
-#if !defined(_MCCA)
-#include <ctype.h>// na isXType()
+#ifndef _INC_PARSE_X
+#define _INC_PARSE_X
 
-// Base on ChrCtz RFV30
-size_t StrDesuffixSpaces(char* str)
-{
-	size_t coflen = 0,
-		num = 0;
-	while (str[coflen]) coflen++;
-	while (coflen - num >= 1 && isspace(str[coflen - num - 1])) num++;
-	str[coflen - num] = 0;
-	return num;
+#include "trait/XstreamTrait.hpp"
+
+namespace uni {
+
+	class LinearParser
+	{
+	public:
+		LinearParser(IstreamTrait& lparser);
+		LinearParser(IstreamTrait& lparser, stduint buflen);
+		LinearParser(IstreamTrait& lparser, String& buf);
+	};
+
+
+	class NestedParser {
+	public:
+		NestedParser(const LinearParser& lparser);
+	};
+
+
 }
+
 #endif

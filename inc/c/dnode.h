@@ -178,10 +178,15 @@ public:
 	toheap Dnode* Append(char* addr);
 	// Priority: {nod > order > default_ends}
 	Dnode* Append(pureptr_t addr, bool onleft, Dnode* nod = 0);
+	template <typename type1> inline Dchain& operator<<(type1* obj) {
+		Append((pureptr_t)obj, false);
+		return *this;
+	}
 	template <typename type1> inline Dchain& operator<<(const type1& obj) {
 		Append((pureptr_t)&obj, false);
 		return *this;
 	}
+	// DO NOT << for heapping rostr
 	inline Dchain& operator<<(const char* addr) {
 		Append(addr);
 		return *this;

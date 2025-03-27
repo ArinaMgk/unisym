@@ -37,6 +37,7 @@ void I2C_SetAck(unsigned char AckBit);
 void I2C_Stop(void);
 
 #elif defined(_INC_CPP) // Below are C++ Area
+#include "../../cpp/reference"
 #include "../../cpp/Device/GPIO"
 #include "../../cpp/trait/XstreamTrait.hpp"
 
@@ -50,7 +51,7 @@ namespace uni {
 	class IIC_t : public OstreamTrait, public IstreamTrait {
 	protected:
 		bool last_ack_accepted;
-		bool push_pull;
+		bool push_pull = false;
 	public:
 		virtual int out(const char* str, stduint len) {
 			for0(i, len) Send(((const byte*)str)[i], true);// do ... while ACK
@@ -66,8 +67,13 @@ namespace uni {
 		virtual void SendStop(void) {}
 		virtual bool WaitAcknowledge() { return false; }
 		virtual void SendAcknowledge(bool ack = true) {}
-		virtual void Send(byte txt, bool auto_wait_ack = false) {}
+
+		//{TODO} send return ACK status
+
+		void Send(byte txt, bool auto_wait_ack = false) { Send(&txt, _BYTE_BITS_, auto_wait_ack); }
+		virtual void Send(byte* txt, stduint len, bool auto_wait_ack = false) {}
 		virtual byte ReadByte(bool feedback = true, bool ack = true) { return 0; }
+		//{} Read(&bits, bitlen, ...)
 	};
 
 	class IIC_SOFT : public IIC_t {
@@ -76,8 +82,10 @@ namespace uni {
 	public:
 		Handler_t func_delay;
 
-		IIC_SOFT(GPIO_Pin& SDA, GPIO_Pin& SCL) : SDA(SDA),
-			SCL(SCL) {
+		IIC_SOFT(GPIO_Pin& SDA, GPIO_Pin& SCL, bool init_now = true)
+			: SDA(SDA), SCL(SCL) { if (init_now) setMode(); }
+
+		void setMode() {
 			SDA.setMode(push_pull ? GPIOMode::OUT_PushPull : GPIOMode::OUT_OpenDrain);
 			SCL.setMode(GPIOMode::OUT_PushPull);
 			SCL = true;
@@ -88,15 +96,74 @@ namespace uni {
 		virtual void SendStop(void) override;
 		virtual bool WaitAcknowledge() override;
 		virtual void SendAcknowledge(bool ack = true) override;
-		virtual void Send(byte txt, bool auto_wait_ack = false) override;
-		virtual byte ReadByte(bool feedback = true, bool ack = true) override;
+		virtual void Send(byte* txt, stduint len, bool auto_wait_ack = false) override;
+		virtual byte ReadByte(bool feedback = true, bool ack = true) override;//[to-be-outdated]
 	};
 
-	
+	#ifdef _MCU_STM32H7x
+	#ifdef _MCU_IIC_TEMP
+	#include "../../cpp/Device/_inner/IIC-STM32H7.hpp"
+	#endif
+	enum class IICReg // x4
+	{
+		CR1, CR2,
+		OAR1, OAR2,
+		TIMINGR,
+		TIMEOUTR,
+		ISR,
+		ICR,
+		PECR,
+		RXDR, TXDR,
+	};
+	enum class IIC_Clksrc_E {
+		DxPCLK1,// D2 for IIC123, D3 for IIC4
+		PLL3, HSI, CSI
+	};// for field RCC_D2CCIP2R_I2C123SEL
+
+	#endif
 	class IIC_HARD : public IIC_t {
+		//
+		//{TEMP} only <= 8 bit, aka BITS8
+	protected:
+		byte id;// 1..4 for H7
+		
+	public:
+		// debug failed!
+		// AKA HAL_I2C_Mem_Write(self, dest_addr, &txt, 1, &txt, 1, uint32_t Timeout), split into:
+		virtual void SendStart(void) override;
+		virtual void SendStop(void) override;
+		virtual bool WaitAcknowledge() override;
+		virtual void Send(byte* txt, stduint len, bool auto_wait_ack = false) override;
 
+		//
+		virtual byte ReadByte(bool feedback = true, bool ack = true) override;
+		virtual void SendAcknowledge(bool ack = true) override;
+		
+		//
+		IIC_HARD(byte _id) : id(_id) {}
+		#ifdef _MCU_STM32H7x
+	protected:
+		stduint dest_addr = 0;
+		bool send_start_just = false;
+	public:
+		Reference operator[] (IICReg reg);
+		bool enClock(bool ena = true);
+		bool enAble(bool ena = true);
+
+		void setDestination(stduint _dest_addr) { dest_addr = _dest_addr; }
+		
+		// none or single address
+		bool setMode(stduint self_addr0 = 0);
+		#endif
 	};
-	
+	#ifdef _MCU_STM32H7x
+	extern IIC_HARD IIC1, IIC2, IIC3, IIC4;
+	#define I2C1 IIC1
+	#define I2C2 IIC2
+	#define I2C3 IIC3
+	#define I2C4 IIC4
+	#endif
+
 
 #endif
 

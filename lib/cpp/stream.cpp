@@ -32,9 +32,6 @@
 #define out_floating OutFloating
 
 
-static void _stream_out();
-static void _stream_inn();
-
 // Console: consio.cpp
 //    File: ...
 //    XART: ...

@@ -1,14 +1,12 @@
 
 ### Unchecked and Checked-but-Issued
 
-Virtual Methods since 20241124
-(Before are software only. The test of VIRTUAL is passed in GCC)
-- [ ] IIC Soft
-- [ ] SPI Soft
-
 MSP432P4
 - [ ] GPIO Pin  Input Mode
 - [ ] GPIO Port operator=(u16)
+
+Kasha Macro Library
+- [ ] Menu for dos_ints.pdf
 
 ---
 
@@ -17,6 +15,8 @@ MSP432P4
 (20241228 -> 20251227)
 
 20250212: `_PROPERTY_STRING_OFF` -> `_USE_PROPERTY`
+
+Azusa participated in.
 
 ### Anniversary 11th
 

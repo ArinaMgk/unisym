@@ -149,7 +149,7 @@ void uni::InterruptControl::enAble(bool enable) {
 }
 
 void uni::InterruptControl::Reset(word SegCode) {
-	struct __attribute__((packed)) { uint16 u_16fore; uint32 u_32back; } tmp48_le;
+	_PACKED(struct)  { uint16 u_16fore; uint32 u_32back; } tmp48_le;
 	for0a(i, ERQ_Handlers) {
 		GateStructInterruptR0(&self[i], ERQ_Handlers[i], SegCode, 0);
 	}

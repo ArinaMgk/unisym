@@ -27,11 +27,16 @@
 
 namespace uni {
 
+	// take over StrTokenAll
 	class LinearParser
 	{
+		IstreamTrait* src;
 	public:
+		// [1] use heap string
 		LinearParser(IstreamTrait& lparser);
+		// [2] use buffer string
 		LinearParser(IstreamTrait& lparser, stduint buflen);
+		// [3] use exist string
 		LinearParser(IstreamTrait& lparser, String& buf);
 	};
 

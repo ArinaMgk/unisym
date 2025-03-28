@@ -60,7 +60,7 @@ static void this_back(TokenParseUnit* tpu) {
 	tpu->seekback(-1);
 }
 
-static size_t StrTokenAll_NumChk(TokenParseUnit* tpu)
+size_t StrTokenAll_NumChk(TokenParseUnit* tpu)
 {
 	size_t res = 0;
 	int c;
@@ -125,6 +125,19 @@ static size_t StrTokenAll_NumChk(TokenParseUnit* tpu)
 
 #define apd() StrTokenAppend(&tpu->tchn, tpu->bufptr = buffer, CrtTLen, CrtTType, crtline_ento, crtcol_ento)
 
+// 20250328
+stduint StrTokenNormal(TokenParseUnit* tpu, const TokenParseMethod* method)
+{
+	
+}
+
+// Here Assume
+// - with _TNODE_COMMENT
+// - with _TNODE_DIRECTIVE
+// - "" and '' for string
+// - number in a format
+// - default tok_identy, symbols and spaces. with line and column
+// - keep spaces
 void StrTokenAll(TokenParseUnit* tpu)
 {
 	toktype CrtTType = tok_any;
@@ -133,8 +146,10 @@ void StrTokenAll(TokenParseUnit* tpu)
 	int YoString = 0;
 	char strtok;
 	int c;
+	tpu->bufptr = tpu->buffer;
 	char* const buffer = tpu->buffer;
 
+	tpu->tchn.func_free = DnodeHeapFreeSimple;
 	// Traditional Header Guard
 	StrTokenAppend(&tpu->tchn, "GHTANIRA", 1, tok_any, 0, 0);
 

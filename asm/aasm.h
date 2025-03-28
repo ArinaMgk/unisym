@@ -1,7 +1,7 @@
 // ASCII DJGPP (Debug MSVC2010) TAB4 CRLF
 // Attribute: ArnCovenant Host bin^16+ 386+
 // LastCheck: RFX19
-// AllAuthor: @dosconio
+// AllAuthor: @dosconio, @ArinaMgk
 /*
 	Copyright 2023 ArinaMgk
 
@@ -68,5 +68,47 @@ extern enum warn_t log_warnt;
 void printinfo(void);
 void printl(loglevel_t level, const char* fmt, ...);
 int* handlog(void* _serious, ...);
+
+// ---- FILE ----
+struct dbgffmt;
+struct outffmt;
+
+// DebugFileFormat
+struct dbgffmt {
+
+};// AKA dfmt
+
+// OutFileFormat
+#define OFMT_TEXT 1 /* Text file format */
+struct outffmt {
+	//
+	rostr    fullname;
+	//
+	rostr    shortname;
+	//
+	unsigned flags;
+	// to the first element of the debug information
+	struct dbgffmt** debug_formats;
+	// to the element that is being used
+	/*
+		this is set to the default at compile time and changed if the -F option is selected.
+		If developing a set of new debug formats for an output format, be sure to set this to whatever default you want.
+	*/
+	struct dbgffmt* current_dfmt;
+	//
+
+
+
+
+
+
+
+
+	
+};// AKA ofmt
+
+
+
+
 
 #endif

@@ -1,10 +1,11 @@
 // ASCII CPL-C99 TAB4 LF
 // Docutitle: Magice Compiler
 // Datecheck: 20240416 ~ .
-// Developer: @dosconio @ UNISYM
+// Developer: @dosconio, @ArinaMgk
 // Attribute: [Allocate]
 // Reference: None
 // Dependens: None
+// Descriptn: .mgc -> {.mid / .mak} for {.exe / .html}
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -28,6 +29,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "../inc/c/compile/asmcode.h"
+
+long int strtol(const char *str, char **endptr, int base);
+
 
 enum Architecture_t platform = Architecture_RISCV64;
 // AASM Architecture_x86     

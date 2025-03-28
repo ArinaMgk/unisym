@@ -40,7 +40,7 @@ typedef void(*_tofree_ft)(pureptr_t);
 typedef  int(*_tocomp_ft)(pureptr_t, pureptr_t);
 typedef int*(*_tocall_ft)(void*, ...);
 typedef void(symbol_t)(void);
-typedef void (*Handler_t)(void);
+typedef void(*Handler_t)(void);
 typedef const char* rostr;// read-only string
 
 #if defined(__cplusplus) && !defined(_INC_CPP)
@@ -55,7 +55,7 @@ typedef const char* rostr;// read-only string
 	#define _REGISTER register
 	// no `this`
 #else
-	#define _ESYM_C extern "C"
+	#define _ESYM_C   extern "C"
 	#define _ESYM_CPP extern "C++"
 extern "C++" {
 	namespace uni {
@@ -103,6 +103,8 @@ extern "C++" {
 #define _ASM
 
 #endif
+
+#define _PACKED(x) x __attribute__((packed))
 
 #define _ENDIAN_LOW // little endian for bit-field, ...
 #define _ENDIAN_BIG //    big endian for bit-field, ...

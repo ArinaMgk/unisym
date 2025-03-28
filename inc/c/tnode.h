@@ -1,4 +1,4 @@
-// ASCII C/C++ TAB4 CRLF
+﻿// ASCII C/C++ TAB4 CRLF
 // Docutitle: Token Node Parse
 // Codifiers: @dosconio: RFZ22 ~
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -32,13 +32,40 @@ namespace uni {
 
 	typedef struct TokenParseUnit {
 		tchain_t tchn;
-		int (*getnext)(void);
-		void (*seekback)(stdint chars);
+		int (*getnext)(void);// user-def
+		void (*seekback)(stdint chars);// user-def
 		//
 		stduint crtline;
 		stduint crtcol;
-		char* buffer, * bufptr;
+		//{OUTDATED} using LinearParser
+		char* buffer,// user-def
+			* bufptr;
 	} TokenParseUnit;// C Style
+
+	// Must and All chars begun with 0~9
+	typedef size_t(*StrTokenAll_NumChk_t)(TokenParseUnit* tpu);
+
+	typedef enum TokenParseOption_e {
+		string_single_quote = 0x01,
+		string_double_quote = 0x02,
+		comment_line_after = 0x04,// like "//"
+		directive = 0x08,// like # in "#include"
+		omit_spaces = 0x10,
+	} TokenParseOption_e;
+
+	typedef struct TokenParseMethod {
+		TokenParseOption_e option;
+		StrTokenAll_NumChk_t numchk;
+
+	} TokenParseMethod;
+
+	_ESYM_C size_t StrTokenAll_NumChk(TokenParseUnit* tpu);
+
+	_ESYM_C stduint StrTokenNormal(TokenParseUnit* tpu, const TokenParseMethod* method);
+
+	// TODO: bool Match(tok_type, &nod)
+	// TODO: bool Match(fmt, &{...}) = scanf
+	// TODO: bool MatchInteger(&..., signed, base, maxlen); ...
 
 	_ESYM_C void StrTokenAll(TokenParseUnit* tpu);
 
@@ -48,7 +75,7 @@ namespace uni {
 
 #ifdef _INC_CPP
 namespace uni {
-	
+
 
 	struct TokenParseManager {
 		Dchain dc;
@@ -67,7 +94,7 @@ namespace uni {
 		~TokenParseManager() {
 			//{TODO}
 		}
-		bool TokenParse() { 
+		bool TokenParse() {
 			StrTokenAll(&in_tpu);
 			inntpu_avail = true;
 			uni::Dnode* crt = in_tpu.tchn.root_node;
@@ -78,6 +105,7 @@ namespace uni {
 				memf(crt->offs);
 			}
 			while (crt = crt->next);
+			in_tpu.tchn.func_free = NULL;
 			DchainDrop(&in_tpu.tchn);
 			inntpu_avail = false;
 			outtpu_avail = true;

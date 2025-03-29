@@ -1,8 +1,8 @@
 // ASCII C++11 TAB4 CRLF
 // Attribute: ArnCovenant yo Free 
 // LastCheck: RFX18
-// AllAuthor: @dosconio
-// ModuTitle: ASCII String
+// AllAuthor: @dosconio, @ArinaMgk
+// ModuTitle: Data / Text String
 /*
 	Copyright 2023 ArinaMgk
 
@@ -22,6 +22,7 @@
 
 #define _LIB_STRING_HEAP
 #include "../../inc/cpp/string"
+#include "../../inc/cpp/trait/XstreamTrait.hpp"
 
 namespace uni {
 	String::String(const char* str) {
@@ -36,7 +37,6 @@ namespace uni {
 			addr = NULL;
 		}
 		limits = 0;
-
 	}
 	String::String(const String& str) {
 		this->addr = StrHeap(str.addr);
@@ -57,6 +57,16 @@ namespace uni {
 		limits = buflen;
 		allocated = true;
 	}
+	String::String(Charset charset, rostr str) {
+		allocated = str;
+		if (allocated) {
+			this->counts = StrLength(str);
+			this->limits = counts + 1;
+			this->addr = (char*)malc(limits);
+			StrCopy(this->addr, str);
+		}
+		this->charset = charset;
+	}
 
 	String::~String() {
 		if (allocated) memf(this->addr);
@@ -66,56 +76,121 @@ namespace uni {
 		allocated = false;
 	}
 
-	size_t String::length() {
-		if (!allocated) {
-			Refresh();
+	stduint String::getCharCount() const {
+		switch (charset)
+		{
+		case Charset::ASCIZ:
+		case Charset::Memory:
+		default:
 			return counts;
 		}
-		else return counts = StrLength(addr);
 	}
 
 	char* String::reflect(size_t plus) {
-		if (plus) {
-			char* tmp = (char*)zalc(counts + plus + 1);
-			StrCopy(tmp, addr);
-			srs(addr, tmp);
-			//ISSUE should not counts += plus;
+		switch (charset)
+		{
+		case Charset::ASCIZ:
+			if (plus) {
+				limits = counts + plus + 1;
+				char* tmp = (char*)zalc(limits);
+				StrCopy(tmp, addr);
+				srs(addr, tmp);
+				Refresh();
+			}
+			break;
+		case Charset::Memory:
+		default:
+			break;
 		}
 		return this->addr;
 	}
-	const char* String::reference() const {
-		return this->addr;
+
+	bool String::available() {
+		if (allocated) return true;
+		switch (charset)
+		{
+		case Charset::ASCIZ:
+			// each char measures 1 byte
+			return limits - counts > getTermicharCount();
+		case Charset::Memory:
+			return limits > counts;
+		default:
+			//{TODO}
+			return limits - counts > getTermicharCount();
+		}
 	}
+
+	byte String::getTermicharCount() {
+		return charset == Charset::ASCIZ ? 1 : 0;
+	}
+
 
 	// USYM's special.
 	String& String::operator=(const String& str) {
-		if (this != &str) {
-			srs(this->addr, StrHeap(str.addr));
-			this->counts = StrLength(this->addr);
+		if (this == &str) return self;
+		switch (charset)
+		{
+		case Charset::ASCIZ:
+			if (allocated) {
+				srs(this->addr, StrHeap(str.addr));
+				this->counts = StrLength(this->addr);
+				this->limits = this->counts + 1;
+			}
+			else {
+				StrCopyN(this->addr, str.addr, this->limits);
+			}
+		case Charset::Memory:
+			//{TODO}
+		default:
+			//{TODO}
+			break;
 		}
 		#if defined(_USE_PROPERTY)
 		this->setthen(this);
 		#endif
-		return *this;
+		return self;
 	}
 	
 	
 	String& String::operator=(const char* addr) {
-		if (this->addr != addr) {
-			srs(this->addr, StrHeap(addr));
-			this->counts = StrLength(this->addr);
+		if (this->addr == addr) return self;
+		switch (charset)
+		{
+		case Charset::ASCIZ:
+			if (allocated) {
+				srs(this->addr, StrHeap(addr));
+				this->counts = StrLength(this->addr);
+				this->limits = this->counts + 1;
+			}
+			else {
+				StrCopyN(this->addr, addr, this->limits);
+			}
+		case Charset::Memory:
+			//{TODO}
+		default:
+			//{TODO}
+			break;
 		}
 		#if defined(_USE_PROPERTY)
 		this->setthen(this);
 		#endif
-		return *this;
+		return self;
 	}
 
 	String& String::operator<< (char chr) {
+		// If limits > old.counts + 1, need not re-allocate
+		// for Memory and ASCIZ
 		if (allocated) {
-			srs(this->addr, StrHeapAppendChars(this->addr, chr, 1));
-			this->counts = 0;
-			//limits = limits;
+			if (limits <= counts + 1) {
+				char* tmp = (char*)zalc(Enlarge(counts + 1));
+				StrCopy(tmp, this->addr);
+				srs(addr, tmp);
+				Refresh();
+			}
+			this->addr[counts] = chr;
+			if (charset == Charset::ASCIZ)
+				this->addr[counts + 1] = '\0';
+			this->counts++;
 		}
 		else if (counts < limits) {
 			this->addr[counts] = chr;
@@ -125,13 +200,38 @@ namespace uni {
 		return self;
 	}
 
+	String& String::Refresh(char* str) {
+		stduint newlen;
+		switch (charset)
+		{
+		case Charset::ASCIZ:
+			newlen = StrLength(str);
+			if (newlen + 1 > limits) {
+				// realloc
+				char* tmp = (char*)zalc(Enlarge(newlen + 1));
+				StrCopy(tmp, str);
+				srs(addr, tmp);
+				Refresh();
+			}
+			break;
+		case Charset::Memory:
+			//{TODO}
+			break;
+		default:
+			break;
+		}
+		return self;
+	}
 
+
+	//{} ASCIZ + mem
 	int String::Format(const char* fmt, ...) {
 		int ret = 0;
 		Letpara(args, fmt);
 		if (!allocated) ret = outsfmtlstbuf(addr, fmt, args);
 		else {
 			ret = this->counts = outsfmtlstlen(fmt, args);
+			// ret = this->counts = OstreamTrait::CountFormat(fmt, args);
 			limits = ret + 1;
 			srs(addr, salc(limits));
 			para_ento(args, fmt);
@@ -139,11 +239,13 @@ namespace uni {
 		}
 		return ret;
 	}
+	//{} ASCIZ + mem
 	String String::newFormat(const char* fmt, ...) {
 		String ret("");
 		Letpara(args, fmt);
 		{
 			ret.counts = outsfmtlstlen(fmt, args);
+			// ret.counts = OstreamTrait::CountFormat(fmt, args); -- C++ MSVC64 class static method -- paralist span a stduint, 20250329
 			ret.limits = ret.counts + 1;
 			srs(ret.addr, salc(ret.limits));
 			para_ento(args, fmt);

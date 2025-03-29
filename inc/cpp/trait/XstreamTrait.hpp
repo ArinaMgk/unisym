@@ -1,4 +1,4 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+﻿// ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Trait) Stream
 // Codifiers: @dosconio: 20240603
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -28,6 +28,7 @@
 #include "../string"
 //included "../../c/consio.h"
 namespace uni {
+	// keep this {0} available
 	class OstreamTrait {
 	protected:
 		// below: clear by OutFormat
@@ -52,6 +53,7 @@ namespace uni {
 	public:
 		int OutFormat(const char* fmt, para_list plst);
 		int OutFormat(const char* fmt, ...);
+		//static
 		stduint CountFormat(const char* fmt, ...);
 		int operator<< (const Slice& slice) { return out((char*)slice.address, slice.length); }
 
@@ -60,7 +62,17 @@ namespace uni {
 		// byte
 		virtual int inn() = 0;
 	public:
+		// -1 is end-symbol
 		int InnFormat(const char* fmt, ...);
+	};
+
+	class OstreamInstance_t : public OstreamTrait {
+		virtual int out(const char* str, stduint len) override {
+			if (!count_mode) { (void)str[0]; }
+			out_count += len;
+			return len;
+		}
+		public: OstreamInstance_t() { count_mode = true; }
 	};
 }
 

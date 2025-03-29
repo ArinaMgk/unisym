@@ -1,4 +1,4 @@
-// ASCII C++-STD11 TAB4 CRLF
+﻿// ASCII C++-STD11 TAB4 CRLF
 // LastCheck: 20240229
 // AllAuthor: @dosconio
 // ModuTitle: Stream
@@ -20,6 +20,7 @@
 */
 
 #include "../../inc/cpp/unisym"
+#include "new"
 #include "../../inc/c/consio.h"
 #include "../../inc/c/arith.h"
 
@@ -35,6 +36,17 @@
 // Console: consio.cpp
 //    File: ...
 //    XART: ...
+
+// -- C++ MSVC64 class static method -- paralist span a stduint, 20250329
+// called from static  OstreamTrait::CountFormat
+static stduint _CountFormat(const char* fmt, para_list pl) {
+	using namespace uni;
+	char buf[byteof(OstreamInstance_t)];
+	new (buf) OstreamInstance_t;
+	OstreamInstance_t& oi = *(OstreamInstance_t*)buf;
+	stduint ret = oi.OutFormat(fmt, pl);
+	return ret;
+}
 
 #define localout out
 namespace uni {

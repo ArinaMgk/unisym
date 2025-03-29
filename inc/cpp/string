@@ -1,8 +1,8 @@
-// ASCII C++11 TAB4 CRLF
+// UTF-8 C++11 TAB4 CRLF
 // Attribute: ArnCovenant yo Free 
 // LastCheck: RFZ03
-// AllAuthor: @dosconio
-// ModuTitle: ASCII String
+// AllAuthor: @dosconio, @ArinaMgk
+// ModuTitle: Data / Text String
 /*
 	Copyright 2023 ArinaMgk
 
@@ -55,23 +55,35 @@ namespace uni {
 
 	typedef Slice_T<byte> Slice;
 
+	
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String
+		//: Ostream, Istream
 	#if defined(_USE_PROPERTY)
-		: public uni::Property<String>
+	: public uni::Property<String>
 	#endif 
 	{
+	public:
+		enum class Charset {
+			Memory,
+			ASCIZ,// ASCII, the only one terminated with zero
+			UPECOrigin,
+			UTF8,
+		};
+			
 	protected:
-		size_t counts;// effective length, exclude '\0'
 		char* addr;
-		bool no_termi_char;
 		stduint limits;// include '\0'
+		//
+		stduint counts;// effective count of char, exclude '\0'
 		bool allocated;// astring or bstring(non-0)
 	public:
-		void UnsafeSetBuffer(char* str, stduint buffer_siz);
+		Charset charset = Charset::ASCIZ;
+
+//////// There are 4 ASCIZ constructors
+
 		// strheap
 		String(const char* str_asciz = "");
-		static String Heap(const String& str) { return String((const char*)(str.addr)); }
 		// class-constructor
 		String(const String& str);
 		// give the [buffer_siz ? buffer : heap-in] string an alias
@@ -79,23 +91,36 @@ namespace uni {
 		String(char* str, stduint buffer_siz);
 		// define a heap string with a fixed length
 		String(stduint buflen);
-		~String();
-		//
-		enum StringCharset {
-			ASCII,
-			UPECOrigin,
-			UTF8,
-		};
-		
-		size_t length();
-		char* reflect(size_t plus = 0);
-		const char* reference() const;
-		bool available() { return allocated || (limits - counts > 1); }
-		bool need_termichar() { return !allocated; }
 
+//////// There are other constructors
+		String(Charset charset, rostr str = "");
+
+		
+		~String();
+
+		// Do Refresh() after modifying this
+		// e.g. "フィーナ" is 4
+		stduint getCharCount() const;
+		_Comment(outdated) size_t length() {
+			Refresh();
+			return getCharCount();
+		}
+
+		char* reflect(size_t plus = 0);
+		const char* reference() const { return this->addr; }
+		bool available();
+
+
+		// return the bytes of the terminator
+		byte getTermicharCount();
+		//
+		stduint getLimit() const { return limits; }
+		//
 		Slice getSlice() const {
 			return Slice{ (stduint)addr, limits };
 		}
+
+
 
 		String& operator=(const String& str);
 		String& operator=(const char* addr);
@@ -103,27 +128,32 @@ namespace uni {
 		String operator+ (const String& str) {
 			return String(StrHeapAppend(this->addr, str.addr), 0);
 		}
+
+		#if 0 //{}: charset buffer new-alloc
 		String& operator+=(const String& str) {
-			//*this = *this + str;
-			srs(this->addr, StrHeapAppend(this->addr, str.addr));
-			this->counts = StrLength(this->addr);
-			return *this;
+			Reheap(StrHeapAppend(this->addr, str.addr));
+			return self;
 		}
+		#endif
 
 		//{TODO} return String Slice
+		//{} ASCIZ
 		bool operator<=(const String& s) const {
 			const char* ptr = StrIndexString(s.addr, this->addr);
 			return ptr != nullptr;
 		}
 		//{TODO} return String Slice
+		//{} ASCIZ
 		bool operator>=(const String& s) const {
 			const char* ptr = StrIndexString(this->addr, s.addr);
 			return ptr != nullptr;
 		}
+		//{} ASCIZ
 		bool operator==(const String& s) const {
-			return StrCompare(this->addr, s.addr) == 0;
+			return !StrCompare(this->addr, s.addr);
 		}
 
+		//{TODO} getChar but Byte
 		char& operator[] (stdsint idx) {
 			stduint len = length();
 			if (!len) return addr[0];
@@ -132,19 +162,27 @@ namespace uni {
 		}
 		String& operator<< (char chr);
 
-		// ---- Heap 
+		stduint Enlarge(stduint want) {
+			if (!limits) return 0;
+			do {
+				limits = limits * 2 + 2;// enlarge method, at least add 1
+			} while (want > limits);
+			return limits;
+		}
 
+		// ---- Heap 
+		//{} ASCIZ
 		String& Reheap(char* dest) {
 			if (allocated) {
 				counts = StrLength(dest);
-				// limits = 0;
+				limits = counts + 1;
 				srs(addr, dest);
 			}
 			return self;
 		}
 
 		// ---- Buffer
-
+		//{}  (ASCIZ)
 		inline const char* Index(const char* str) {
 			return StrIndexString(this->addr, str);
 		}
@@ -153,11 +191,14 @@ namespace uni {
 		}
 
 		// ----
-		
+
+		//{}  (ASCIZ)
 		String& Refresh() {
 			counts = minof(StrLength(addr), limits);
 			return self;
 		}
+		// like Reheap and reflect
+		String& Refresh(char* str);
 
 		String& Clear() {
 			asserv(addr)[0] = '\0';
@@ -170,11 +211,11 @@ namespace uni {
 
 
 		// ---- ---- ---- ----
-
+		//{}  (ASCIZ)
 		String& Replaced(const char* subfirstrom, const char* subto, size_t* times = 0) {
 			return Reheap(StrReplace(addr, subfirstrom, subto, times));
 		}
-
+		//{}  (ASCIZ)
 		String& DesuffixSpaces() {
 			StrDesuffixSpaces(addr);
 			Refresh();

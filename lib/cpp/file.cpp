@@ -58,7 +58,7 @@ namespace uni {
 		bool state;
 		while (str.available()) {
 			state = self >> B;
-			if (B || str.need_termichar()) // ASCII
+			if (B || str.getTermicharCount())
 				str << B;
 			if (!state) break;
 		}

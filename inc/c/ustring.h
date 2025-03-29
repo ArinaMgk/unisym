@@ -205,14 +205,15 @@ static inline void* MemCopyN(void* dest, const void* sors, size_t n)
 #endif
 #define MemCopySrc(dest,sors) MemCopyN(dest,sors,sizeof(*sors))
 
-// n excludes terminating-0
 #ifdef _INC_USTRING_INLINE
+// 20250329 make same with `strncpy`
+// n includes terminating-0
 static inline char* StrCopyN(char* dest, const char* sors, size_t n)
 {
 	_REGISTER char* d = dest;
 	if (!sors)goto endo;
 	while (n && (*d++ = *sors++)) n--;
-	d[n ? -1 : 0] = 0;
+	//d[n ? -1 : 0] = 0; // n excludes terminating-0
 endo:
 	return dest;
 }

@@ -24,20 +24,69 @@
 #define _INC_PARSE_X
 
 #include "trait/XstreamTrait.hpp"
+#include "../c/graphic.h"
 
 namespace uni {
 
-	// take over StrTokenAll
+	class LinearParser;
+	// Input begun with 0~9, not after {_, a~z, A~Z}
+	typedef stduint(*LineParse_NumChk_t)(LinearParser& lp);
+
+	stduint LineParse_NumChk_Default(LinearParser& lp);
+
+	typedef stduint(*LineParse_Comment_t)(LinearParser& lp);
+
+	stduint LineParse_Comment_Sharp(LinearParser& lp);// # ...
+	stduint LineParse_Comment_C(LinearParser& lp);// /* ... */
+	stduint LineParse_Comment_Cpp(LinearParser& lp);// // ...
+
+	// Take over TokenParseManager
 	class LinearParser
 	{
 		IstreamTrait* src;
+		String* buf = 0;
+		Point pos = { 0, 0 };
+		byte static_buf[byteof(String)];// use if buf null
+	protected:
+		int getChar();
+		void moveCursor(stdsint relative);
+	public:
+		stdsint _Default_Row_or_Col = 1;
+
+		// number
+		LineParse_NumChk_t handler_numchk = LineParse_NumChk_Default;
+
+		// comment
+		LineParse_Comment_t handler_comment = LineParse_Comment_Sharp;
+
+		// string
+		bool method_string_single_quote = false;
+		bool method_string_double_quote = false;
+
+		// directive
+		char method_directive = '\0';// e.g. '%' in "%include"
+
+		// space
+		bool method_omit_spaces = true;
+
+		// symbol
+		bool method_treatiden_underscore = true;// else, treat as symbol
 	public:
 		// [1] use heap string
 		LinearParser(IstreamTrait& lparser);
 		// [2] use buffer string
-		LinearParser(IstreamTrait& lparser, stduint buflen);
+		LinearParser(IstreamTrait& lparser, char* addr, stduint buflen);
 		// [3] use exist string
 		LinearParser(IstreamTrait& lparser, String& buf);
+		//
+		~LinearParser() {
+			asserv(buf)->~String();
+		}
+		// take over previous StrTokenAll
+		Dchain& Parse(Dchain);
+		// TODO: bool Match(tok_type, &nod)
+		// TODO: bool Match(fmt, &{...}) = scanf
+		// TODO: bool MatchInteger(&..., signed, base, maxlen); ...
 	};
 
 

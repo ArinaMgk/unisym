@@ -50,6 +50,10 @@
 #include "stdinc.h"
 #include "uctype.h"
 
+#ifndef EOF
+#define EOF (-1)
+#endif
+
 typedef enum string_layout_t {
 	_string_zero_terminated = 0,
 	_string_length_prefixed

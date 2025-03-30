@@ -126,7 +126,7 @@ typedef struct DnodeChain_t {
 	// get Tnode but from Dnode
 	#define TnodeGetExtnField(x) ((TnodeField*)getExfield(x))
 
-	Dnode* StrTokenAppend(tchain_t* chn, const char* content, size_t contlen, size_t ttype, size_t row, size_t col);
+
 
 	inline static tchain_t* StrTokenNew(dchain_t* chn) {
 		chn->extn_field = sizeof(TnodeField);

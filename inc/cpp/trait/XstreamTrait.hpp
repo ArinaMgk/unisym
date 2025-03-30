@@ -35,6 +35,7 @@ namespace uni {
 		stduint out_count = 0;
 		stduint inn_count = 0;
 		bool count_mode = false;
+	public:
 		// bytes
 		virtual int out(const char* str, stduint len) = 0;
 	public:
@@ -59,6 +60,7 @@ namespace uni {
 
 	};
 	class IstreamTrait {
+	public:	
 		// byte
 		virtual int inn() = 0;
 	public:

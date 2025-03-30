@@ -78,6 +78,20 @@ namespace uni {
 		stduint counts;// effective count of char, exclude '\0'
 		bool allocated;// astring or bstring(non-0)
 	public:
+		bool inn_direction = false;// true: FIFO
+		int out(const char* str, stduint len);
+		int inn() {
+			if (charset == Charset::Memory && counts) {
+				if (!inn_direction) return addr[--counts];// no termichar
+				else {
+					char first = addr[0];
+					MemRelative(addr + 1, --counts, -1);
+					return first;
+				}
+			}
+			return -1;
+		}
+	public:
 		Charset charset = Charset::ASCIZ;
 
 //////// There are 4 ASCIZ constructors

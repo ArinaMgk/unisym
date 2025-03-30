@@ -45,13 +45,19 @@ namespace uni {
 	{
 		IstreamTrait* src;
 		String* buf = 0;
-		Point pos = { 0, 0 };
-		byte static_buf[byteof(String)];// use if buf null
+		String* tobuf = 0;
+		Point pos = { 1, 1 };
+		byte static_lnbuf[byteof(String)];// use if buf null
+		byte static_tobuf[byteof(String)];// use if buf null
 	protected:
 		int getChar();
-		void moveCursor(stdsint relative);
+		inline int askChar() { return src->inn(); }
+		void setChar(char c) { linebuf->operator<<(c); pos.x++; }
+		void backChar(char c) { (*tobuf) << c; pos.x--; }
+	private:
+		String* linebuf;
+		String* todobuf;
 	public:
-		stdsint _Default_Row_or_Col = 1;
 
 		// number
 		LineParse_NumChk_t handler_numchk = LineParse_NumChk_Default;
@@ -81,9 +87,14 @@ namespace uni {
 		//
 		~LinearParser() {
 			asserv(buf)->~String();
+			if (buf) memf(buf);
+			buf = NULL;
+			asserv(tobuf)->~String();
+			if (tobuf) memf(tobuf);
+			tobuf = NULL;
 		}
-		// take over previous StrTokenAll
-		Dchain& Parse(Dchain);
+		// take over previous StrTokenAll, deal with literals
+		Dchain& Parse(Dchain&);
 		// TODO: bool Match(tok_type, &nod)
 		// TODO: bool Match(fmt, &{...}) = scanf
 		// TODO: bool MatchInteger(&..., signed, base, maxlen); ...

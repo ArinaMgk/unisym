@@ -1,4 +1,4 @@
-// ASCII C++-20 TAB4 CRLF
+﻿// ASCII C++-20 TAB4 CRLF
 // Attribute: ArnCovenant Host[Allocation]
 // LastCheck: 20240312
 // AllAuthor: @dosconio
@@ -48,7 +48,10 @@ inline static bool isprefix(uni::Nnode* crt) {
 	return sepawith(crt, crt->getLeft()) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
 }
 inline static bool ismiddle(uni::Nnode* crt) {
-	return parawith(crt, crt->getLeft()) && sepawith(crt, crt->getLeft()->getLeft()) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
+	auto crtleft = crt->getLeft();
+	bool a = parawith(crt, crtleft);
+	if (a) a = sepawith(crt, crtleft->getLeft());
+	return a && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
 }
 
 typedef bool (*ParseOperatorFunction_t)(uni::Nnode*, uni::NnodeChain*, bool&);
@@ -56,7 +59,7 @@ typedef bool (*ParseOperatorFunction_t)(uni::Nnode*, uni::NnodeChain*, bool&);
 const char* uni::StrIndexOperator(const char* str, uni::TokenOperator** operators, size_t count, bool left_to_right) {
 	const char* idx;
 	for0(i, count) {
-		if (idx = (left_to_right? StrIndexString : StrIndexStringRight)(str, (*operators)->idnop))
+		if (idx = (left_to_right ? StrIndexString : StrIndexStringRight)(str, (*operators)->idnop))
 			return idx;
 		else ++ * operators;
 	}
@@ -73,21 +76,22 @@ static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::Toke
 	const char* idx;
 	exist_sym = false;
 	uni::TokenOperator* tmpop = nullptr;
-	for (crt = (LR_but_RL ? subfirst : subfirst->Tail()); crt; crt = (LR_but_RL ? crt->next : crt->getLeft())) 
+	for (crt = (LR_but_RL ? subfirst : subfirst->Tail()); crt; crt = (LR_but_RL ? crt->next : crt->getLeft()))
 		if ((crt->type == tok_symbol) && (exist_sym = true) && (tmpop = tog->operators) && (idx = StrIndexOperator(crt->addr, &tmpop, tog->count, LR_but_RL))) {
-		uni::Nnode* judge = 0;
-		if (tmpop) nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
-		if (condi == 2 && ismiddle(crt)) {
-			AssignParallel(tmp, crt, nc->Adopt(nc->Append(StrHeap(stepval(tmpop)->ident), true, judge = crt->getLeft()),
-				crt->getLeft(), crt->next));
-			crt->GetTnodeField()->col = tmp->GetTnodeField()->col;
-			nc->Remove(tmp);
-		} 
-		else if (condi == 1 && (op_suffix ? issuffix : isprefix)(crt)) { // Unary
-			crt = nc->Adopt(crt, judge = (op_suffix ? crt->getLeft() : crt->next))->ReheapString(stepval(tmpop)->ident);
+			uni::Nnode* judge = 0;
+			if (tmpop) nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
+			if (condi == 2 && ismiddle(crt)) {
+				auto newParent = nc->Append(StrHeap(stepval(tmpop)->ident), true, judge = crt->getLeft());
+				*newParent->GetTnodeField() = *crt->GetTnodeField();
+				AssignParallel(tmp, crt, nc->Adopt(newParent, crt->getLeft(), crt->next));
+				crt->GetTnodeField()->col = tmp->GetTnodeField()->col;
+				nc->Remove(tmp);
+			}
+			else if (condi == 1 && (op_suffix ? issuffix : isprefix)(crt)) { // Unary
+				crt = nc->Adopt(crt, judge = (op_suffix ? crt->getLeft() : crt->next))->ReheapString(stepval(tmpop)->ident);
+			}
+			if (head == judge) head = crt;
 		}
-		if (head == judge) head = crt;
-	}
 	return true;
 }
 

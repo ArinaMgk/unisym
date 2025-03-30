@@ -24,6 +24,7 @@
 #define _INC_PARSE_X
 
 #include "trait/XstreamTrait.hpp"
+#include "nnode"
 #include "../c/graphic.h"
 
 namespace uni {
@@ -34,11 +35,11 @@ namespace uni {
 
 	stduint LineParse_NumChk_Default(LinearParser& lp);
 
-	typedef stduint(*LineParse_Comment_t)(LinearParser& lp);
+	typedef bool(*LineParse_Comment_t)(LinearParser& lp, bool just_chk);
 
-	stduint LineParse_Comment_Sharp(LinearParser& lp);// # ...
-	stduint LineParse_Comment_C(LinearParser& lp);// /* ... */
-	stduint LineParse_Comment_Cpp(LinearParser& lp);// // ...
+	bool LineParse_Comment_Sharp(LinearParser& lp, bool just_chk);// # ...
+	bool LineParse_Comment_C(LinearParser& lp, bool just_chk);// /* ... */
+	bool LineParse_Comment_Cpp(LinearParser& lp, bool just_chk);// // ...
 
 	// Take over TokenParseManager
 	class LinearParser
@@ -49,14 +50,16 @@ namespace uni {
 		Point pos = { 1, 1 };
 		byte static_lnbuf[byteof(String)];// use if buf null
 		byte static_tobuf[byteof(String)];// use if buf null
-	protected:
+	public:
 		int getChar();
 		inline int askChar() { return src->inn(); }
-		void setChar(char c) { linebuf->operator<<(c); pos.x++; }
-		void backChar(char c) { (*tobuf) << c; pos.x--; }
+		void setChar(char c) { linebuf->operator<<(c); }
+		bool backChar(char c) { (*tobuf) << c; pos.x--; return true; }
 	private:
 		String* linebuf;
 		String* todobuf;
+
+		bool handler_escape_sequence();
 	public:
 
 		// number
@@ -68,8 +71,9 @@ namespace uni {
 		// string
 		bool method_string_single_quote = false;
 		bool method_string_double_quote = false;
+		bool method_string_escape_sequence = true;
 
-		// directive
+		// directive (do not add comment)
 		char method_directive = '\0';// e.g. '%' in "%include"
 
 		// space
@@ -104,6 +108,9 @@ namespace uni {
 	class NestedParser {
 	public:
 		NestedParser(const LinearParser& lparser);
+
+
+		Nchain& Parse(Nchain&, const Dchain&);
 	};
 
 

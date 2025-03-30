@@ -78,22 +78,157 @@ namespace uni
 	int LinearParser::getChar() {
 		int ch = todobuf->inn();
 		if (ch == EOF) ch = askChar();
+		pos.x += 1;
 		return ch;
 	}
 
 	#define apd() do { if (!(method_omit_spaces && CrtTType == tok_spaces)) TokenAppend(dc, linebuf->reference(), linebuf->getCharCount(), CrtTType, crtline_ento, crtcol_ento); linebuf->Clear(); } while (0)
 
 	stduint LineParse_NumChk_Default(LinearParser& lp) {
-		return _TODO nil;
+		size_t res = 0;
+		int c, lastc;
+		int last_zo_num = 0;
+		struct OnceOccur {
+			unsigned bodx : 1;
+			unsigned e : 1;
+			unsigned dot : 1;
+			unsigned sign : 1;
+		} OnceO = { 0 };
+		while ((c = lp.getChar()) != EOF) {
+			if (StrIndexChar("bodxij", c))// 'i' and 'j' for imagine, appended Haruno RFC05
+				if (OnceO.bodx)
+					break;
+				else
+				{
+					last_zo_num = 0; OnceO.bodx = 1;
+				}
+			else if (c == 'e')
+				if (OnceO.e || !last_zo_num)
+					break;
+				else
+				{
+					last_zo_num = 0; OnceO.e = 1;
+				}
+			else if (c == '.')
+				if (OnceO.dot)
+					break;
+				else
+				{
+					last_zo_num = 0; OnceO.dot = 1;
+				}
+			else if (c == '+' || c == '-')
+				if (OnceO.sign || !OnceO.e || lastc != 'e')
+					break;
+				else
+				{
+					last_zo_num = 0; OnceO.sign = 1;
+				}
+			else if (c >= '0' && c <= '9') last_zo_num = 1;
+			else break;
+			res++;
+			lp.setChar(c);
+			lastc = c;
+		}
+		if (res > 1 && (lastc == '+' || lastc == '-' || lastc == '.'))
+		{
+			lp.backChar(lastc);
+			res--;
+		}
+		if (c != EOF) lp.backChar(c);
+		return res;
 	}
 
-	stduint LineParse_Comment_Sharp(LinearParser& lp) {
-		return _TODO nil;
+	bool LineParse_Comment_Sharp(LinearParser& lp, bool just_chk) {
+		char c = lp.getChar();
+		bool ret = c == '#';
+		if (just_chk) return ret;
+		while ((c = lp.getChar()) != EOF &&
+		c != '\n' && c != '\r')
+		{
+			lp.setChar(c);
+		}
+		if (c == EOF) return ret;
+		lp.backChar(c);
+		return ret;
+	}
+
+	// return true for continue, false for break
+	bool LinearParser::handler_escape_sequence() {
+		char c;
+		if ((c = getChar()) == EOF) return false;
+		if (ascii_isdigit(c))
+		{
+			// octal: nest 0~2 3 numbers at most
+			int nest1 = getChar();
+			if (nest1 == EOF) return false;
+			if (ascii_isdigit(nest1))
+			{
+				int nest2 = getChar();
+				if (nest2 == EOF) return false;
+				if (ascii_isdigit(nest2)) {
+					// \123
+					setChar((unsigned char)(nest2 - '0' + (nest1 - '0') * 8 + (c - '0') * 8 * 8));
+				}
+				else {
+					// \12;
+					setChar((nest1 - '0') + (c - '0'));
+					backChar(nest2);
+				}
+			}
+			else {
+				// \1;
+				setChar(c - '0');
+				backChar(nest1);
+			}
+		}
+		else if (c == 'x')// nest 0~3 and use isxdigit()
+		{
+			c = getChar();
+			if (c == EOF) return false;
+			if (ascii_isxdigit(c))
+			{
+				int nest1 = getChar();
+				if (nest1 == EOF) return false;
+				if (ascii_isxdigit(nest1))
+				{
+					// \x12;
+					nest1 = (ascii_isdigit(nest1)) ? (nest1 - '0') : (ascii_isupper(nest1)) ? (nest1 - 'A' + 10) : (nest1 - 'a' + 10);
+					c = (ascii_isdigit(c)) ? (c - '0') : (ascii_isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
+					setChar(c * 16 + nest1);
+				}
+				else {
+					// \x1;
+					c = (ascii_isdigit(c)) ? (c - '0') : (ascii_isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
+					setChar(c);
+					backChar(nest1);
+				}
+			}
+			else {
+				// \x; = \0;
+				setChar(0);
+				backChar(c);
+			}
+		}
+		else {
+			// escape char and other
+			if (c == EOF) return false;
+			size_t listlen = sizeof(EscSeq) / 2;
+			for0 (i, listlen) {
+				if (EscSeq[i << 1] == c)
+				{
+					setChar(EscSeq[(i << 1) + 1]);
+					listlen = 0;
+					return false;
+				}
+			}
+			if (!listlen) return true;
+			setChar(c);
+		}
+		return true;
 	}
 
 	Dchain& LinearParser::Parse(Dchain& dc) {
 		toktype CrtTType = tok_any;
-		size_t CrtTLen = 0;// = real length minus 1
 		stduint crtline_ento = pos.x, crtcol_ento = pos.y;
 		int YoString = 0;
 		char strtok;
@@ -112,118 +247,24 @@ namespace uni
 		dc.func_free = DnodeHeapFreeSimple;
 		dc.setExtnField(sizeof(TnodeField));
 		TokenAppend(dc, "GHTANIRA", 1, tok_any, 0, 0);// Traditional Header Guard
-		// alnum & space & symbol
 		while ((c = getChar()) != EOF)
 		{
-			// ploginfo("I got %c", c);
 			Letvar(dbg_chr, char, c);
 			if (YoString)
 			{
-				/*
-				if (strtok == c)// exit
-				{
-					CrtTType = tok_string;
-					buffer[CrtTLen++] = 0;
+				if (strtok == c) {
 					apd();// including terminated-symbol
-					crtline_ento = pos.y; crtcol_ento = pos.x;
+					//pos.x += 2;
+					crtline_ento = pos.y;
+					crtcol_ento = pos.x - 1;
 					YoString = 0;
-					CrtTLen = 0;
 					CrtTType = tok_any;
 				}
-				else if (c == '\\')// escape sequence
-				{
-					c = this_getn(tpu);
-					if (c == EOF) break;
-					if (ascii_isdigit(c))
-					{
-						// octal: nest 0~2 3 numbers at most
-						int nest1 = this_getn(tpu);
-						if (nest1 == EOF) break;
-						if (ascii_isdigit(nest1))
-						{
-							int nest2 = this_getn(tpu);
-							if (nest2 == EOF) break;
-							if (ascii_isdigit(nest2))
-							{
-								// \123
-								*tpu->bufptr++ = (unsigned char)(nest2 - '0' + (nest1 - '0') * 8 + (c - '0') * 8 * 8);
-								CrtTLen++;
-							}
-							else
-							{
-								// \12;
-								*tpu->bufptr++ = (unsigned char)((nest1 - '0') + (c - '0') * 8);
-								CrtTLen++;
-								this_back(tpu);
-							}
-						}
-						else
-						{
-							// \1;
-							*tpu->bufptr++ = (unsigned char)(c - '0');
-							CrtTLen++;
-							this_back(tpu);
-						}
-					}
-					else if (c == 'x')// nest 0~3 and use isxdigit()
-					{
-						c = this_getn(tpu);
-						if (c == EOF) break;
-						if (ascii_isxdigit(c))
-						{
-							int nest1 = this_getn(tpu);
-							if (nest1 == EOF) break;
-							if (ascii_isxdigit(nest1))
-							{
-								// \x12;
-								nest1 = (ascii_isdigit(nest1)) ? (nest1 - '0') : (ascii_isupper(nest1)) ? (nest1 - 'A' + 10) : (nest1 - 'a' + 10);
-								c = (ascii_isdigit(c)) ? (c - '0') : (ascii_isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
-								*tpu->bufptr++ = (unsigned char)(c * 16 + nest1);
-								CrtTLen++;
-							}
-							else
-							{
-								// \x1;
-								c = (ascii_isdigit(c)) ? (c - '0') : (ascii_isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
-								*tpu->bufptr++ = (unsigned char)(c);
-								CrtTLen++;
-								this_back(tpu);
-							}
-						}
-						else
-						{
-							// \x; = \0;
-							*tpu->bufptr++ = 0;
-							CrtTLen++;
-							this_back(tpu);
-						}
-					}
-					else
-					{
-						// escape char and other
-						if (c == EOF) break;
-						size_t listlen = sizeof(EscSeq) / 2;
-						for (size_t i = 0; i < listlen; i++)
-						{
-							if (EscSeq[i << 1] == c)
-							{
-								*tpu->bufptr++ = EscSeq[(i << 1) + 1];
-								CrtTLen++;
-								listlen = 0;
-								break;
-							}
-						}
-						if (!listlen) continue;
-						setChar(c);
-						CrtTLen++;
-					}
+				else if (method_string_escape_sequence && c == '\\') {
+					if (handler_escape_sequence())
+						continue; else break;
 				}
-				else
-				{
-					setChar(c);
-					CrtTLen++;
-				}
-				*/
+				else setChar(c);
 			}
 			else if (c == '\n' || c == '\r')
 			{
@@ -238,76 +279,91 @@ namespace uni
 				else if (cc != EOF) backChar(cc);
 				else break;
 				if (linebuf->getCharCount()) apd();
-				pos.y++;
-				pos.x = 1; //_Default_Row_or_Col;
-				crtline_ento = pos.y; crtcol_ento = pos.x;
+				crtline_ento = ++pos.y;
+				crtcol_ento = pos.x = 1; //_Default_Row_or_Col;
 				CrtTType = tok_any;
 			}
-			/*
-
-			else if (c == _TNODE_COMMENT || (c == _TNODE_DIRECTIVE && (TnodeGetExtnField(*tpu->tchn.last_node)->row != pos.y || CrtTType == tok_any && !tpu->tchn.last_node->offs)))// Line Comment
-			{
+			else if (method_directive &&
+				c == method_directive &&
+				(TnodeGetExtnField(*dc.Last())->row != pos.y || CrtTType == tok_any)
+				) {
 				apd();
-				crtline_ento = pos.y; crtcol_ento = pos.x - 1;// -1?
-				CrtTLen = 0;
-				CrtTType = (c == _TNODE_COMMENT) ? tok_comment : tok_direct;
-				while ((c = this_getn(tpu)) != EOF && c != '\n' && c != '\r')
+				crtline_ento = pos.y;
+				crtcol_ento = pos.x - 1;
+				CrtTType = tok_direct;
+				while ((c = getChar()) != EOF &&
+					c != '\n' && c != '\r')
 				{
-					CrtTLen++;
 					setChar(c);
 				}
-				if (c == EOF)break;
+				if (c == EOF) break;
 				apd();
-				crtline_ento = pos.y; crtcol_ento = pos.x - 1;// -1?
-				CrtTLen = 0;
+				crtline_ento = pos.y;
+				crtcol_ento = pos.x - 1;
 				CrtTType = tok_any;
-				this_back(tpu);
-			}*/
+				backChar(c);
+			}
+
+			else if (handler_comment && 1 &&
+				backChar(c) && handler_comment(self, true)) {
+				apd();
+				crtline_ento = pos.y;
+				crtcol_ento = pos.x - 1;
+				handler_comment(self, false);
+				CrtTType = tok_comment;
+				apd();
+				crtline_ento = pos.y;
+				crtcol_ento = pos.x - 1;
+				CrtTType = tok_any;
+			}
 			
-		/*
-			else if (c == '\"' || c == '\'')// enter
+			else if (method_string_double_quote && c == '\"' ||
+				method_string_single_quote && c == '\'')// enter string
 			{
 				apd();
-				crtline_ento = pos.y; crtcol_ento = pos.x - 1;// -1?
-				CrtTLen = 0;
+				crtline_ento = pos.y;
+				crtcol_ento = pos.x - 1;
 				CrtTType = tok_string;
 				YoString = 1;
 				strtok = c;
 			}
-			else if ((ascii_isdigit(c)) && CrtTType != tok_identy &&
-				((CrtTType != tok_any && apd() && (crtline_ento = pos.y, crtcol_ento = pos.x)) || CrtTType == tok_any)
-				&& (CrtTLen = StrTokenAll_NumChk(tpu)))
+			else if (
+				ascii_isdigit(c) && handler_numchk &&
+				 CrtTType != tok_identy)
 			{
+				if (CrtTType != tok_any) {
+					apd();
+					crtline_ento = pos.y;
+					crtcol_ento = pos.x - 1;
+				}
+				backChar(c);
+				stduint lens = handler_numchk(self);
+				// ploginfo("%s handler_numchk> %[u]", __FUNCIDEN__, lens);
+				//
 				CrtTType = tok_number;
 				apd();
-				crtline_ento = pos.y; crtcol_ento = pos.x;
+				crtline_ento = pos.y;
+				crtcol_ento = pos.x;
 				CrtTType = tok_any;
-				CrtTLen = 0;// NOTICE!
 				continue;
 			}
-			else if (ascii_isalnum(c) || c == '_')
+			else if (ascii_isalnum(c) ||
+				method_treatiden_underscore && c == '_')
 			{
 				if (CrtTType == tok_identy || CrtTType == tok_any)
 				{
-					CrtTLen++;// seem a waste after declaring tpu->bufptr.
 					setChar(c);
 					if (CrtTType == tok_any) CrtTType = tok_identy;
-					if (CrtTLen >= malc_limit)// sizeof(array buffer), "=" considers terminated-zero.
-					{
-						// erro("Buffer Oversize!");
-					}
 				}
 				else
 				{
 					apd();
-					crtline_ento = pos.y; crtcol_ento = pos.x - 1;// -1?
-					CrtTType = getctype(c);
-					CrtTLen = 1;
+					crtline_ento = pos.y;
+					crtcol_ento = pos.x - 1;
 					setChar(c);
+					CrtTType = getctype(c);
 				}
 			}
-
-			*/
 			else if (CrtTType == getctype(c) || CrtTType == tok_any)
 			{
 				setChar(c);
@@ -316,7 +372,7 @@ namespace uni
 			else {
 				apd();
 				crtline_ento = pos.y;
-				crtcol_ento = pos.x;
+				crtcol_ento = pos.x - 1;
 				setChar(c);
 				CrtTType = getctype(c);
 			}

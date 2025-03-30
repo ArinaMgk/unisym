@@ -143,12 +143,14 @@ namespace uni {
 			return String(StrHeapAppend(this->addr, str.addr), 0);
 		}
 
-		#if 0 //{}: charset buffer new-alloc
+		//{}: charset buffer new-alloc
 		String& operator+=(const String& str) {
-			Reheap(StrHeapAppend(this->addr, str.addr));
+			// Reheap(StrHeapAppend(this->addr, str.addr));
+			rostr p = str.reference();
+			while (*p) self << *p++;
 			return self;
 		}
-		#endif
+		
 
 		//{TODO} return String Slice
 		//{} ASCIZ

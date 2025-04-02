@@ -184,6 +184,14 @@ namespace uni {
 #if defined(_WinNT) || defined(_Linux) || defined(_MCCA)
 	extern HostConsole Console;
 #endif
+
+	class HostConsoleLine :
+		public IstreamTrait // return -1 for LineEnd
+	{
+		_TODO
+	};
+
+	
 }
 
 #endif

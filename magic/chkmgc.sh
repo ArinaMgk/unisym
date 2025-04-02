@@ -23,6 +23,9 @@ check()
 	fi	
 }
 
+cd ../
+make magice
+cd magic
 check 0 0
 check 27 27
 check '20 - 13 + 12' 19

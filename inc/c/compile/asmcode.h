@@ -42,15 +42,19 @@ static const char *_ASM_GLOBAL[] = {
 };
 static const char *_ASM_RET[] = {
 	"RET" _INST_SUFFIX,
-	"ret" _INST_SUFFIX,
+	"ret" _INST_SUFFIX,// jalr x0, x1, 0
 };
-static const char *_ASM_MOV[] = {
-	"MOV EAX, %ld" _INST_SUFFIX,
-	"li a0, %ld" _INST_SUFFIX,
+
+// signed
+static const char* _ASM_MOV[] = {
+	"MOV EAX, %[i]" _INST_SUFFIX,
+	"li a0, %[i]" _INST_SUFFIX,
 };
-static const char *_ASM_ADD[] = {
-	"ADD EAX, %ld" _INST_SUFFIX,
-	"add a0, a0, %ld" _INST_SUFFIX,
+
+// signed
+static const char* _ASM_ADD[] = {
+	"ADD EAX, %[i]" _INST_SUFFIX,
+	"add a0, a0, %[i]" _INST_SUFFIX,
 };
 
 

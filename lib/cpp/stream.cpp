@@ -24,6 +24,13 @@
 #include "../../inc/c/consio.h"
 #include "../../inc/c/arith.h"
 
+// useless
+// #ifdef _DEV_GCC
+// #pragma GCC diagnostic push
+// //#pragma GCC diagnostic ignored "-Wint-conversion"// C
+// #pragma GCC diagnostic ignored "-Wfloat-conversion"// C++
+// #pragma GCC diagnostic ignored "-Wconversion"// C++
+// #endif
 
 #define pnext(t) para_next(paras, t)
 #define outc     OutChar
@@ -50,7 +57,7 @@ static stduint _CountFormat(const char* fmt, para_list pl) {
 
 #define localout out
 namespace uni {
-	int OstreamTrait::OutFormat(const char* fmt, para_list paras) {
+	int OstreamTrait::OutFormatPack(const char* fmt, para_list paras) {
 		out_count = 0;
 		#define _STREAM_FORMAT_CPP
 		#include "../../inc/c/stream/format-body.h"
@@ -58,12 +65,12 @@ namespace uni {
 	}
 	int OstreamTrait::OutFormat(const char* fmt, ...) {
 		Letpara(paras, fmt);
-		return OutFormat(fmt, paras);
+		return OutFormatPack(fmt, paras);
 	}
 	stduint OstreamTrait::CountFormat(const char* fmt, ...) {
 		Letpara(paras, fmt);
 		count_mode = true;
-		stduint ret = OutFormat(fmt, paras);
+		stduint ret = OutFormatPack(fmt, paras);
 		count_mode = false;
 		return ret;
 	}
@@ -80,3 +87,7 @@ namespace uni {
 
 
 }
+
+// #ifdef _DEV_GCC
+// #pragma GCC diagnostic pop
+// #endif

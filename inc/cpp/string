@@ -103,7 +103,7 @@ namespace uni {
 		// give the [buffer_siz ? buffer : heap-in] string an alias
 		// use this to contain (give an alias to) a string (char*) in heap
 		String(char* str, stduint buffer_siz);
-		// define a heap string with a fixed length
+		// define a heap string with a fixed length, keep it zero-initialized
 		String(stduint buflen);
 
 //////// There are other constructors

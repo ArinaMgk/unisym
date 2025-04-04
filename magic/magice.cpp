@@ -1,4 +1,4 @@
-// ASCII C++ TAB4 LF
+﻿// ASCII C++ TAB4 LF
 // Docutitle: Magice Compiler
 // Datecheck: 20240416 ~ .
 // Developer: @dosconio, @ArinaMgk
@@ -31,15 +31,14 @@
 #include "../inc/c/consio.h"
 #include "../inc/cpp/parse.hpp"
 #include "../inc/c/compile/asmcode.h"
-#include "../inc/cpp/trait/XstreamTrait.hpp"
-#include <stdio.h>
+// #include "../inc/cpp/trait/XstreamTrait.hpp"
+// #include <stdio.h>
 
-_ESYM_C long int strtol(const char *str, char **endptr, int base);
 
 class MagInn : public uni::IstreamTrait {
-	char* p;
 public:
-	MagInn(char* p) : p(p) {}
+	char* p;
+	MagInn(char* p = 0) : p(p) {}
 	virtual int inn() {
 		return *p ? *p++ : -1;
 	}
@@ -52,11 +51,21 @@ enum Architecture_t platform = Architecture_RISCV64;
 
 //[Update] Accept + and - operators
 
+void mag_erro(rostr srcfile, stduint lineno, uni::Tnode* dn, rostr fmt, ...) {
+	using namespace uni;
+	Letpara(plist, fmt);
+	printlogx(_LOG_ERROR, fmt, plist);
+	//
+	Console.OutFormat("%s\n", srcfile);
+	for0(i, dn->col - 1) Console.OutFormat(" ");
+	Console.OutFormat("^\n");
+}
+
 int magic(int argc, char** argv) {
 	using namespace uni;
 	OstreamTrait* dst;// to be a HostFile or ConsoleLine
 	IstreamTrait* src;
-	MagInn minn(argv[1]);
+	MagInn minn;
 	LinearParser parser(minn);
 	Dchain dc;
 	dst = &Console;
@@ -67,43 +76,47 @@ int magic(int argc, char** argv) {
 		return 1;
 	}
 
-	if (argc != 2) {
-		plogerro("%s: invalid count of arguments\n", argv[0]);
-		return 1;
+	if (argc <= 1) {
+		ploginfo("Usage: magic str0 (str1) (str2 ...)\n\t Magice will combine them.");
+		return 0;
 	}
+
 
 	dst->OutFormat("%s%s", _AUT_HEAD[platform], _AUT_ARCHITECT[platform]);
 	dst->OutFormat("%s", _ASM_GLOBAL[platform]); // GLOBAL main
 	dst->OutFormat("main:\n");
 
-	parser.Parse(dc);
+	parser.GHT = false;
+	for1(i, argc - 1) {
+		minn.p = argv[i];
+		parser.Parse(dc);
+	}
 	// FORM: num (op num) (op num)...
 
-	auto nod = dc.Root()->next;
-	if (true) {
-		bool neg;
+	if (Tnode* nod = (Tnode*)dc.Root()) {
+		bool neg = false;
 		stdsint val = 0;
 		dst->OutFormat("\t");
-		dst->OutFormat(_ASM_MOV[platform], atoins(nod->addr));
-		while (nod = nod->next) switch (nod->type) {
+		dst->OutFormat(_ASM_MOV[platform], 0);
+		do switch (nod->type) {
 		case tok_symbol:
-			break;
-		case tok_number:
-			if (!StrCompare(nod->left->addr, "+")) neg = false;
-			else if (!StrCompare(nod->left->addr, "-")) neg = true;
+			if (!StrCompare(nod->addr, "+")) neg = false;
+			else if (!StrCompare(nod->addr, "-")) neg = true;
 			else {
-				plogerro("do number: invalid grammar '%s'\n", nod->left->addr);
+				mag_erro(argv[1] _TEMP, 1, nod, "bad symbol %s", nod->addr);
 				return 1;
 			}
+			break;
+		case tok_number:
 			val = atoins(nod->addr);
 			if (neg) val = -val;
 			dst->OutFormat("\t");
 			dst->OutFormat(_ASM_ADD[platform], val);
 			break;
 		default:
-			plogerro("invalid nodtype '%s'\n", nod->addr);
+			mag_erro(argv[1] _TEMP, 1, nod, "bad nodtype '%s'", nod->addr);
 			break;
-		}
+		} while (nod = nod->next);
 	}
 
 	dst->OutFormat("\t");
@@ -115,12 +128,9 @@ int main(int argc, char** argv)
 {
 	using namespace uni;
 	//Letvar(buf, char*, malc(0x1000));
-
-	if (int stat = magic(argc, argv)) {
-		plogerro("Bad %d", stat);
-		goto endo;
-	}
-endo:
+	int stat;
+	stat = magic(argc, argv);
 	//memf(buf);
-	return malc_count;
+	if (malc_count) plogerro("Memory Leak %[u]", malc_count);
+	return stat;
 }

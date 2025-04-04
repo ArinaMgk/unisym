@@ -262,3 +262,56 @@ namespace uni {
 	}
 	*/
 }
+
+
+const char* StrIndexString_KMP(const char* dest, const char* sub)
+{
+	stduint sublen = StrLength(sub);
+	if (!*dest || !sublen) return NULL;
+	uni::String str_next((sublen + 1) * byteof(stduint)); auto pnext = str_next.reflect();// or Letvar
+	stduint crt_pref = 0, las_preflen = 0, p = 0;
+	bool good = false;
+	for (stduint i = 1; i < sublen; (good || !las_preflen) ? (pnext[1 + i++] = crt_pref) : 0)
+		crt_pref = (good = sub[las_preflen = crt_pref] == sub[i]) ? (crt_pref + 1) : pnext[crt_pref];
+	// if (1) { puts(""); for0(i, sublen + 1) printf("%d ", pnext[i]); puts(""); }
+	do dest += (good = *dest == sub[p]) || !p; while (sub[p = good ? p + 1 : pnext[p]] && *dest);
+	return sub[p] ? NULL : dest - sublen;
+}
+/*20250403
+	// TEST
+	// ABABABCAA
+	// ABABC
+	// 00120 [next]
+	// 00012 [AzsNext]
+	// stduint next[] = { _Comment(Occupy) nil, _Comment(Occupy) nil, 0,1,2 };
+	////
+	for (stduint i = 1; i < sublen;) {
+		if (sub[crt_pref] == sub[i]) {
+			crt_pref++;
+			pnext[1 + i] = crt_pref;
+		}
+		else if (crt_pref) {
+			crt_pref = pnext[crt_pref];// pnext[crt_pref - 1];
+			continue;
+		}
+		else { // crt_pref=0, and pnext[0] == 0
+			pnext[1 + i] = 0;
+		}
+		i++;
+	}
+	////
+	if (!*dest || !sublen) return NULL;
+	do {
+		bool good = *dest == sub[p];
+		dest += (!p || good);
+		p = good ? p + 1 : next[p];
+	} while (sub[p] && *dest);
+	////
+	Console.OutFormat("I find substr at %s\n", StrIndexString_KMP("ABABABCAA", "AB"));
+	Console.OutFormat("I find substr at %s\n", StrIndexString_KMP("ABABABCAA", "ABABZ"));
+	Console.OutFormat("I find substr at %s\n", StrIndexString_KMP("ABABABCAA", "ABABC"));
+	Console.OutFormat("I find substr at %s\n", StrIndexString_KMP("ABABABCAA", "BCAA"));
+	Console.OutFormat("I find substr at %s\n", StrIndexString_KMP("ABABABCAA", "ABCDABCABC"));
+	Console.OutFormat("I find substr at %s\n", StrIndexString_KMP("ABABABCAAAAAA", "ABACABAB"));// 000101232
+*/
+

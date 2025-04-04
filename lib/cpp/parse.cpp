@@ -246,7 +246,7 @@ namespace uni
 
 		dc.func_free = DnodeHeapFreeSimple;
 		dc.setExtnField(sizeof(TnodeField));
-		TokenAppend(dc, "GHTANIRA", 1, tok_any, 0, 0);// Traditional Header Guard
+		if (GHT) TokenAppend(dc, "GHTANIRA", 1, tok_any, 0, 0);// Traditional Header Guard
 		while ((c = getChar()) != EOF)
 		{
 			Letvar(dbg_chr, char, c);

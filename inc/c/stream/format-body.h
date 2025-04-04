@@ -107,7 +107,8 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 			}
 			else if (!StrCompareN(fmt + i, "[u]", 3)) // Print Decimal STDUINT
 			{
-				out_integer(pnext(stduint), 10, false, false, 0, false, intlog2_iexpo(byteof(stduint)));
+				stduint uuu = pnext(stduint);
+				out_integer(uuu, 10, false, false, 0, false, intlog2_iexpo(byteof(stduint)));
 				i += 3 - 1;
 			}
 			else if (!StrCompareN(fmt + i, "[i]", 3)) // Print Decimal STDSINT

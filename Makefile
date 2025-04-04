@@ -71,10 +71,10 @@ rust:
 manual:
 	@cd doc && xelatex herepc.tex && mv herepc.pdf ${ubinpath}/${@}.pdf
 
-MGC_CFLG = -std=c++17 -fno-common -static -D_DEBUG -L$(ubinpath) 
+MGC_CFLG = -D_DEBUG -L$(ubinpath) -std=c++17  -fno-common -static
 
 magice:
-	g++ $(MGC_CFLG) -o $(ubinpath)/ELF64/mgc magic/*.cpp -ll64d
+	g++ $(MGC_CFLG) -o $(ubinpath)/ELF64/mgc magic/*.cpp -ll64d -D_Linux -D__BITS__=64
 
 test:
 	@echo Please use METUTOR to make a check or test for any component

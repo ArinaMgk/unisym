@@ -419,10 +419,16 @@ static inline size_t StrLengthSameChar(const char* str, int c, const char** ret)
 #ifdef _INC_USTRING_INLINE
 static inline const char* StrIndexString(const char* dest, const char* sub)
 {
+	//{} the length of sub greater than 5, try KMP algorithm. we need a len=(sub-2) array ...
 	_REGISTER size_t len;
 	while (*dest) { len = 0; while ((sub[len] == dest[len]) && (sub[len])) len++; if (!sub[len]) return dest; dest++; }
 	return NULL;
 }
+// @ArinaMgk (Azusa)
+// return the start of substring in dststring
+// O(m+n+K), avoid seek back
+const char* StrIndexString_KMP(const char* dest, const char* sub);
+
 #else
 #define StrIndexString strstr ///{TODO}
 #endif

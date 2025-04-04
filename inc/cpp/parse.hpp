@@ -61,6 +61,7 @@ namespace uni {
 
 		bool handler_escape_sequence();
 	public:
+		bool GHT = true;
 
 		// number
 		LineParse_NumChk_t handler_numchk = LineParse_NumChk_Default;

@@ -1,4 +1,4 @@
-// ASCII DJGPP (Debug MSVC2010) TAB4 CRLF
+﻿// ASCII DJGPP (Debug MSVC2010) TAB4 CRLF
 // Attribute: ArnCovenant Host bin^16+ 386+
 // LastCheck: RFX19
 // AllAuthor: @dosconio, @ArinaMgk
@@ -75,7 +75,7 @@ struct outffmt;
 
 // DebugFileFormat
 struct dbgffmt {
-
+	int _;
 };// AKA dfmt
 
 // OutFileFormat
@@ -90,10 +90,7 @@ struct outffmt {
 	// to the first element of the debug information
 	struct dbgffmt** debug_formats;
 	// to the element that is being used
-	/*
-		this is set to the default at compile time and changed if the -F option is selected.
-		If developing a set of new debug formats for an output format, be sure to set this to whatever default you want.
-	*/
+	// (set by -F)
 	struct dbgffmt* current_dfmt;
 	//
 
@@ -104,7 +101,7 @@ struct outffmt {
 
 
 
-	
+
 };// AKA ofmt
 
 

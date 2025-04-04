@@ -23,7 +23,9 @@
 #ifndef _INC_ASMCODE
 #define _INC_ASMCODE
 
-//{TEMP} Style: Intel-ASM for x86 and GAS-ASM for RISC-V
+//{TEMP} Style: 
+//1 AASM - Intel x86
+//2 GAS  - ASM for RISC-V64
 
 #define _INST_SUFFIX "\n"
 

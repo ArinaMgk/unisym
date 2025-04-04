@@ -52,7 +52,7 @@ namespace uni {
 		inline void OutChar(char ch) { out(&ch, 1); }
 
 	public:
-		int OutFormat(const char* fmt, para_list plst);
+		int OutFormatPack(const char* fmt, para_list plst);
 		int OutFormat(const char* fmt, ...);
 		//static
 		stduint CountFormat(const char* fmt, ...);

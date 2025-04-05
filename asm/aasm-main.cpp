@@ -1,16 +1,18 @@
-#define _HIS_TIME_H
+﻿#define _HIS_TIME_H
 #include <c/stdinc.h>
 #include <c/datime.h>
 #include <c/consio.h>
 
 #include <time.h>
 
+#include "aasm.h"
+
 _ESYM_C{
 	void pp_pre_define(char* definition);
 }
 
 //{TODO} UNI DATIME
-extern "C" void define_macros_early(time_t* startup_time)
+extern "C" void define_macros_early(time_t * startup_time)
 {
 	char temp[128];
 	tm lt, * lt_p, gm, * gm_p;
@@ -57,4 +59,6 @@ extern "C" void define_macros_late(rostr ofmt_shortname)
 	pp_pre_define(uni::String::newFormat("__OUTPUT_FORMAT__=%s\n", ofmt_shortname).reflect());
 }
 
-
+extern "C" void mainx() {
+	OutfileFormat::setMode();
+}

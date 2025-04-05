@@ -1,4 +1,4 @@
-// ASCII C99 TAB4 CRLF
+﻿// ASCII C99 TAB4 CRLF
 // Docutitle: (Module) 
 // Codifiers: @dosconio: 20240906 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -40,12 +40,20 @@ typedef struct Strpage {
 	};
 } Strpage;
 
-Strpage* StrpageNew(void);
+#ifdef _INC_CPP
+extern "C" {
+#endif
 
-void StrpageFree(Strpage* sp);
+	Strpage* StrpageNew(void);
 
-stduint StrpageGet(const Strpage* sp, stduint index);
+	void StrpageFree(Strpage* sp);
 
-Strpage* StrpageSet(Strpage* sp, stduint index, stduint val);
+	stduint StrpageGet(const Strpage* sp, stduint index);
 
+	Strpage* StrpageSet(Strpage* sp, stduint index, stduint val);
+
+
+#ifdef _INC_CPP
+}
+#endif
 #endif

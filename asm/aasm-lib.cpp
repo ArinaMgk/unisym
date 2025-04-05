@@ -1,4 +1,4 @@
-// ASCII C TAB4 CRLF
+﻿// ASCII C TAB4 CRLF
 // Docutitle: (Module) 
 // Codifiers: @dosconio: 20241114
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -22,11 +22,10 @@
 
 #include <c/stdinc.h>
 #include <c/multichar.h>
-#include <c/uctype.h>
-_ESYM_C {
-#include <insns.h>
+//#include <c/uctype.h>
 
-}
+
+#include <insns.h>
 
 _ESYM_C uint64_t _crc64_tab_nasm[256];
 

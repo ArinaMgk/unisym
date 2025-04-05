@@ -27,7 +27,8 @@
 #define __AUTHOR__ "@dosconio"
 #define __LICENSE__ "Apache License 2"
 
-#include <c/stdinc.h>
+#include "../inc/c/stdinc.h"
+#include "aasm-typedef.h"
 
 typedef struct {
 	//: Called at the start of a pass
@@ -69,43 +70,15 @@ void printinfo(void);
 void printl(loglevel_t level, const char* fmt, ...);
 int* handlog(void* _serious, ...);
 
-// ---- FILE ----
-struct dbgffmt;
-struct outffmt;
+#ifdef _INC_CPP
 
-// DebugFileFormat
-struct dbgffmt {
-	int _;
-};// AKA dfmt
+// Outfile Format
+struct OutfileFormat {
+	static outffmt* crt_format;
+	static void setMode();
+};
 
-// OutFileFormat
-#define OFMT_TEXT 1 /* Text file format */
-struct outffmt {
-	//
-	rostr    fullname;
-	//
-	rostr    shortname;
-	//
-	unsigned flags;
-	// to the first element of the debug information
-	struct dbgffmt** debug_formats;
-	// to the element that is being used
-	// (set by -F)
-	struct dbgffmt* current_dfmt;
-	//
-
-
-
-
-
-
-
-
-
-};// AKA ofmt
-
-
-
+#endif
 
 
 #endif

@@ -1,4 +1,4 @@
-// ASCII C TAB4 CRLF
+﻿// ASCII C TAB4 CRLF
 // Attribute: ArnCovenant Host bins(16+) 386+
 // LastCheck: RFX19
 // AllAuthor: @dosconio
@@ -20,20 +20,23 @@
 */
 // end in aasm.c
 #define _CRT_SECURE_NO_WARNINGS
-
+//extern "C" {
 #include "tmp.h"
+//}
 
 #define _INC_DNODE//{}
 #include <c/stdinc.h>
 //{} #include <ustdbool.h>
 #include <c/ustring.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <c/strpage.h>
 #include <c/strbuff.h>
-#include "aasm.h"
+//#include "aasm.h"
 
 
+//_ESYM_C{
 extern time_t startup_time;
 
 static byte rest_parse_phase = 2;
@@ -59,35 +62,48 @@ typedef struct ForewardReference {
 	int lineno;// line number
 	_TEMP int operand;
 } forwrefinfo;
+//}
 
 
-void getcrt(_Need_free char** const pname, stduint* const plineno)
+_ESYM_C void getcrt(_Need_free char** const pname, stduint* const plineno)
 {
 	//{TODO}
 	//*plineno = 12;
 	//*pname = StrHeap("nihao.asm");
 }
 
+void mainx();
 
 int drop();
 int* handlog(void* _serious, ...);
+void define_macros_early(time_t* startup_time);
 int main(int argc, char** argv) {
 	time(&startup_time);
 	error_file = stderr;
 	_call_serious = handlog;
+	_logstyle = _LOG_STYLE_GCC;
 	SegInit();
 	main0();
 	offsets = StrpageNew();
 	forwrefs = StrbuffNew(sizeof(forwrefinfo));
 
+	mainx();
+	//{} return drop();
+	define_macros_early(&startup_time);
+
+
 	//contain 5 leaks
 	main2(argc, argv);
-	
+
+
+
 
 
 	//{} {} {}
-	return drop();
+	return drop() - _TEMP 5;
 }
+
+_ESYM_C void usage();
 
 int drop() {
 	if (want_usage) usage();

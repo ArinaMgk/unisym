@@ -30,53 +30,13 @@ static bool NestedTokenParse(uni::NestedParseUnit* npu);
 
 namespace uni {
 	// Origin from Haruno yo RFT27, principle of "Every action is a function, every object is in memory."; RFB19, RFV13, 20240706 Rewrite
-	NestedParseUnit::NestedParseUnit(TnodeChain& tchain, NodeChain* TOGCChain, stduint extn_fielen) : TokenOperatorGroupChain(TOGCChain) {
-		linemn_no = column_no = 0;
-		msg_fail = 0;
-		parsed = false;
+	NestedParseUnit::NestedParseUnit(const TnodeChain& tchain, NodeChain* TOGCChain, stduint extn_fielen) : TokenOperatorGroupChain(TOGCChain) {
 		chain = zalcof(NnodeChain);
 		new (chain) NnodeChain(true);
-		chain->extn_field = extn_fielen;
-		
-		int state = 0;
-		Tnode* crttn = 0;
-		union { Tnode* tnext{ nullptr }; Nnode* nnext; };
-		
-		// Solve comment, Trim trailing or middle spaces;
-		if (crttn = (Tnode*)tchain.Root()) while (crttn = 
-			(crttn->type == tok_comment ||
-			crttn->type == tok_spaces &&
-			crttn->row == crttn->left->row &&
-			(!crttn->next || crttn->row == crttn->next->row)) ?
-			(Tnode*)tchain.Remove(crttn) : crttn->next);
+		chain->extn_field = maxof(byteof(TnodeField), extn_fielen);
 
-		// String cat (must on a line);
-		if (crttn = (Tnode*)tchain.Root()) do {
-			while ((crttn->type == tok_string) && (crttn->next) && (crttn->next->type == tok_string))
-			{
-				srs(crttn->offs, StrHeapAppend(crttn->addr, crttn->next->addr));
-				tchain.Remove(crttn->next);
-			}
-		} while (crttn = crttn->next);
-
-		// Discard any directive temporarily;
-		crttn = (Tnode*)tchain.Root();
-		while (crttn)
-			crttn = (crttn->type == tok_direct) ? (Tnode*)tchain.Remove(crttn) : crttn->next;
-
-		// ---- ---- ---- ---- Line ---> Nest ---- ---- ---- ----
-		tchain.Remove(tchain.Root());
-
-		// Restructure for nested
-		crttn = (Tnode*)tchain.Root();
-		while (crttn)
-		{
-			chain->Append(crttn);
-			crttn = (Tnode*)tchain.Remove((Dnode*)crttn);
-		}
-
-		tchain.~TnodeChain();
-		parsed = true;
+		// Structure for nested ---- Line ---> Nest ----
+		if (auto crttn = (Tnode*)tchain.Root()) do chain->Append(crttn); while (crttn = crttn->next);
 	}
 
 
@@ -111,7 +71,8 @@ namespace uni {
 					// do not care only one item in the block
 					if (!crtnest-- && !last_parens) {
 						//fprintf(stderr, "Unmatched parenthesis at line %" PRIuPTR ".", crt->row);
-						return false;
+						state = false;
+						goto endo;
 					}
 					if (crtnest == 0)
 					{
@@ -122,12 +83,15 @@ namespace uni {
 							(TnodeGetExtnField(*last_parens->getLeft()))->row == (TnodeGetExtnField(*last_parens))->row))// anonymity
 							fn = chain->Append(nullptr, true, last_parens); // fn = chain->Insert(last_parens, true);
 						NnodeBlock(fn, last_parens->next, crt->getLeft())->type = tok_func;// chain->Adopt(fn, last_parens->next, crt->getLeft());
-						
+
 						chain->Remove(last_parens); if (last_parens == tnod) tnod = fn;
 						chain->Remove(crt);
 						crt = fn;
 						if (!NnodeParse(fn->subf, chain))
-							return false;
+						{
+							state = false;
+							goto endo;
+						}
 						if (merge_parensd && fn->type == tok_func && !fn->addr) {
 							if (fn->subf && fn->subf->next == 0) {
 								// assert fn->subf->getLeft() == 0
@@ -139,7 +103,7 @@ namespace uni {
 							}
 							crt = chain->Remove(fn);
 							if (fn == tnod) tnod = crt;
-						}	
+						}
 						/// exist_sym = 0; ま
 						break;
 					}
@@ -149,16 +113,24 @@ namespace uni {
 			crt = crt->next;
 			if (crt && (TnodeGetExtnField(*crt)->row != TnodeGetExtnField(*crt->getLeft())->row)) last_parens = 0;
 		}
-		//{TODO} if (crtnest) erro("Match error");
-		return ParseOperator(tnod, chain);
+		if (crtnest) {
+			state = false;
+			goto endo;
+		}
+		state = ParseOperator(tnod, chain);
+	endo:
+		if (!state) {
+			chain->~Nchain();
+		}
+		return state;
 	}
 
 	NestedParseUnit::~NestedParseUnit() {
 		if (!this) return;
-		if (TokenOperatorGroupChain) {
-			TokenOperatorGroupChain->~NodeChain();
-			mfree(TokenOperatorGroupChain);
-		}
+		// if (TokenOperatorGroupChain) {
+		// 	TokenOperatorGroupChain->~NodeChain();
+		// 	mfree(TokenOperatorGroupChain);
+		// }
 		if (chain) {
 			chain->~NnodeChain();
 			mfree(chain);

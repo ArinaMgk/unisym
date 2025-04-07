@@ -1,4 +1,4 @@
-// ASCII C++ TAB4 CRLF
+﻿// ASCII C++ TAB4 CRLF
 // Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
 // LastCheck: 
 // AllAuthor: @dosconio
@@ -36,7 +36,7 @@ namespace uni {
 		return nod && nod->left->subf == nod;
 	}
 
-	
+
 #define tmpl(...) __VA_ARGS__ NnodeChain
 
 	tmpl(stduint)::Length() const {
@@ -51,9 +51,12 @@ namespace uni {
 	}
 
 	tmpl()::~Nchain() {
-		NnodesRelease(root_node, func_free);
+		if (root_node) NnodesRelease(root_node, func_free);
+		root_node = nullptr;
+		func_free = nullptr;
+		extn_field = nil;
 	}
-	
+
 	tmpl(Nnode*)::Append(pureptr_t addr, bool onleft, Nnode* nod) {
 		Nnode* tmp;
 		if (nod) {
@@ -73,7 +76,7 @@ namespace uni {
 		asrtequ(root_node, nod) = nex;
 		return nex;
 	}
-	
+
 	tmpl(bool)::Exchange(Nnode* idx1, Nnode* idx2) {
 		xchg(idx1->type, idx2->type);
 		xchgptr(idx1->offs, idx2->offs);
@@ -92,7 +95,7 @@ namespace uni {
 		if (slen == 0 || idx + width > slen) return NNODE_DIVSYM_ERRO;
 		// 0case .
 		if (slen == width) return NNODE_DIVSYM_NONE;// assert (idx zo 0)
-		
+
 		// 1case .@@
 		// "a" "+++" "b", "a" "++"-'+'-"b"
 		if (idx == 0)

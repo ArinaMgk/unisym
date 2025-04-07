@@ -1,4 +1,4 @@
-// ASCII C/C++ TAB4 CRLF
+﻿// ASCII C/C++ TAB4 CRLF
 // Docutitle: Token Node Parse
 // Codifiers: @dosconio: RFZ22 ~
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -103,6 +103,20 @@ namespace uni {
 		// TODO: bool Match(tok_type, &nod)
 		// TODO: bool Match(fmt, &{...}) = scanf
 		// TODO: bool MatchInteger(&..., signed, base, maxlen); ...
+
+		static void RemoveComments(Dchain& tchain) {
+			if (Dnode* crttn = tchain.Root()) while (crttn =
+				(crttn->type == tok_comment ? tchain.Remove(crttn) : crttn->next));
+		}
+		static void StringConcatenation(Dchain& tchain) {
+			if (Dnode* crttn = tchain.Root()) do {
+				while ((crttn->type == tok_string) && (crttn->next) && (crttn->next->type == tok_string))
+				{
+					srs(crttn->offs, StrHeapAppend(crttn->addr, crttn->next->addr));
+					tchain.Remove(crttn->next);
+				}
+			} while (crttn = crttn->next);
+		}
 	};
 
 

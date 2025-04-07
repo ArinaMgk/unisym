@@ -198,11 +198,8 @@ class NestedParseUnit {
 private:
 	NnodeChain* chain;
 public:
-	bool parsed;
-	/*to free*/ char* msg_fail;
-	stduint linemn_no, column_no;
 	NodeChain* TokenOperatorGroupChain;
-	NestedParseUnit(TnodeChain& tchain, NodeChain* TOGCChain, stduint extn_fielen);// will destructure TnodeChain
+	NestedParseUnit(const TnodeChain& tchain, NodeChain* TOGCChain, stduint extn_fielen);// will destructure TnodeChain
 	~NestedParseUnit();
 	NnodeChain* GetNetwork() { return chain; }
 	// Process:

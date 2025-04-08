@@ -211,7 +211,7 @@ protected:
 	bool ParseOperator(Nnode* pare, NnodeChain* nc);
 };
 
-typedef void(*_tok_bindfunc_t)(DnodeChain* io);
+
 
 struct TokenOperator {
 	const char* idnop;

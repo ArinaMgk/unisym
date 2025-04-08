@@ -100,17 +100,19 @@ typedef struct DnodeChain_t {
 
 	// typename: ((const char* []){"END", "ANY", "STR", "CMT", "DIR", "NUM", "SYM", "IDN", "SPC", "ELS"}) [first->type]
 
+	
 	typedef struct TnodeField // extn_field
 	{
 		stduint row, col;
 		#ifdef _INC_CPP
-
+		
 		inline bool difline(const TnodeField& nodf) {
 			return row != nodf.row;
 		}
-
+		
 		#endif
 	} TnodeField;
+
 	// typedef Dnode Tnode;
 	typedef struct Tnode {
 		// Dnode Dn;
@@ -252,6 +254,12 @@ public:
 };
 }
 using DnodeChain = Dchain;
+
+typedef void(*_tok_bindfunc_t)(DnodeChain* io);
+typedef struct mag_node_t {
+	stduint row, col;// same with tnode
+	_tok_bindfunc_t bind;
+} mag_node_t;
 
 } // C++ END
 namespace uni { extern "C" {

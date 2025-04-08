@@ -26,6 +26,7 @@
 #include <new>
 #include "../../../../../inc/cpp/unisym"
 #include "../../../../../inc/cpp/string"
+#include "../../../../../inc/cpp/dnode"
 #include "../../../../../inc/cpp/nnode"
 
 #define gettype(sym) (stepval(sym)->type)
@@ -84,11 +85,17 @@ static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::Toke
 				auto newParent = nc->Append(StrHeap(stepval(tmpop)->ident), true, judge = crt->getLeft());
 				*newParent->GetTnodeField() = *crt->GetTnodeField();
 				AssignParallel(tmp, crt, nc->Adopt(newParent, crt->getLeft(), crt->next));
+				if (tmpop->bindfn && nc->extn_field >= byteof(uni::mag_node_t)) {
+					((uni::mag_node_t*)getExfield(*crt))->bind = tmpop->bindfn;
+				}
 				crt->GetTnodeField()->col = tmp->GetTnodeField()->col;
 				nc->Remove(tmp);
 			}
 			else if (condi == 1 && (op_suffix ? issuffix : isprefix)(crt)) { // Unary
 				crt = nc->Adopt(crt, judge = (op_suffix ? crt->getLeft() : crt->next))->ReheapString(stepval(tmpop)->ident);
+				if (tmpop->bindfn && nc->extn_field >= byteof(uni::mag_node_t)) {
+					((uni::mag_node_t*)getExfield(*crt))->bind = tmpop->bindfn;
+				}
 			}
 			if (head == judge) head = crt;
 		}

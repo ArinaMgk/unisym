@@ -31,9 +31,13 @@
 #include "../inc/c/consio.h"
 #include "../inc/cpp/parse.hpp"
 #include "../inc/c/compile/asmcode.h"
-// #include "../inc/cpp/trait/XstreamTrait.hpp"
-// #include <stdio.h>
 
+uni::NodeChain* ele_stack;
+
+uni::OstreamTrait* dst;// to be a HostFile or ConsoleLine
+uni::IstreamTrait* src;
+
+char** arg_v;
 
 class MagInn : public uni::IstreamTrait {
 public:
@@ -45,21 +49,28 @@ public:
 
 };
 
-struct mag_node_t {
-	stduint row, col;// same with tnode
-	uni::_tok_bindfunc_t bind;
-};
+
 
 enum Architecture_t platform = Architecture_RISCV64;
 // AASM Architecture_x86     
 // GAS  Architecture_RISCV64
 
+void fn_preposi(uni::DnodeChain* io) {  }
+void fn_prenega(uni::DnodeChain* io) { dst->OutFormat("neg a0, a0\n"); }
+void fn_arimul(uni::DnodeChain* io) { dst->OutFormat("mul a0, a0, a1\n"); }
+void fn_aridiv(uni::DnodeChain* io) { dst->OutFormat("div a0, a0, a1\n"); }
+void fn_ariadd(uni::DnodeChain* io) { dst->OutFormat("add a0, a0, a1\n"); }
+void fn_arisub(uni::DnodeChain* io) { dst->OutFormat("sub a0, a0, a1\n"); }
+
 uni::TokenOperator
-arimul{ "*","*",NULL },
-aridiv{ "/","/",NULL },
-ariadd{ "+","+",NULL },
-arisub{ "-","-",NULL },
+preposi{ "+","OP@PREPOSI",fn_preposi },
+prenega{ "-","OP@PRENEGA",fn_prenega },
+arimul{ "*","OP@ARIMUL",fn_arimul },
+aridiv{ "/","OP@ARIDIV",fn_aridiv },
+ariadd{ "+","OP@ARIADD",fn_ariadd },
+arisub{ "-","OP@ARISUB",fn_arisub },
 //
+op_lev0[]{ preposi, prenega },
 op_lev1[]{ arimul, aridiv },
 op_lev2[]{ ariadd, arisub };
 
@@ -69,7 +80,7 @@ void mag_erro(rostr srcfile, stduint lineno, uni::Tnode* dn, rostr fmt, ...) {
 	printlogx(_LOG_ERROR, fmt, plist);
 	//
 	Console.OutFormat("%s\n", srcfile);
-	if (dn->col) {
+	if (false && dn->col) {
 		for0(i, dn->col - 1) Console.OutFormat(" ");
 		Console.OutFormat("^\n");
 	}
@@ -77,21 +88,16 @@ void mag_erro(rostr srcfile, stduint lineno, uni::Tnode* dn, rostr fmt, ...) {
 
 #define togsym(a) a,numsof(a)
 
-uni::NodeChain* ele_stack;
 
-uni::OstreamTrait* dst;// to be a HostFile or ConsoleLine
-uni::IstreamTrait* src;
-
-char** arg_v;
 
 static void push(void) {
-	uni::Console.OutFormat("\taddi sp, sp, -8\n");
-	uni::Console.OutFormat("\tsd a0, 0(sp)\n");
+	dst->OutFormat("\taddi sp, sp, -8\n");
+	dst->OutFormat("\tsd a0, 0(sp)\n");
 	// Depth++;
 }
 static void pop(rostr reg) {
-	uni::Console.OutFormat("\tld %s, 0(sp)\n", reg);
-	uni::Console.OutFormat("\taddi sp, sp, 8\n");
+	dst->OutFormat("\tld %s, 0(sp)\n", reg);
+	dst->OutFormat("\taddi sp, sp, 8\n");
 	// Depth--;
 }
 
@@ -100,13 +106,27 @@ static void NnodePrint(const uni::Nnode* nnod, unsigned nest)
 	uni::Nnode* crt = (uni::Nnode*)nnod;
 	while (crt)
 	{
+		uni::Console.OutFormat(";");
 		for0(i, nest) uni::Console.OutFormat(i + 1 == _LIMIT ? "->" : "--");
 		uni::Console.OutFormat("%s\n", crt->offs);
 		if (crt->subf) NnodePrint(crt->subf, nest + 1);
 		crt = crt->next;
 	}
 }
-static void NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
+static void NnodeWalk(uni::Nnode* nnod)
+{
+	using namespace uni;
+	Nnode* tmpnode = nnod;
+	Tnode tn = { 0 };
+	static stdsint val = 0;
+	while (tmpnode->next) tmpnode = tmpnode->next;
+	while (tmpnode) {
+		if (tmpnode->subf) NnodeWalk(tmpnode->subf);
+		Console.OutFormat("# %s #", tmpnode->addr);
+		tmpnode = tmpnode->getLeft();
+	}
+}
+static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 {
 	using namespace uni;
 	Nnode* tmpnode = nnod;
@@ -114,31 +134,17 @@ static void NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 	static stdsint val = 0;
 	while (tmpnode->next) {
 		if (tmpnode->type == tok_symbol) {// have next
-			if (tmpnode->next->type == tok_number) {
-				if (!StrCompare("+", tmpnode->addr)) {
-					srs(tmpnode->next->addr, StrHeapAppend("+", tmpnode->next->addr));
-				}
-				else if (!StrCompare("-", tmpnode->addr)) {
-					srs(tmpnode->next->addr, StrHeapAppend("-", tmpnode->next->addr));
-				}
-			}
-			else if (tmpnode->next->type == tok_func) {
-			    tmpnode->next->addr[0] = tmpnode->addr[0];
-			}
-			else {
-				tn.col = ((mag_node_t*)getExfield(tmpnode))->col;
-				tn.col = ((mag_node_t*)getExfield(tmpnode))->row;
-				mag_erro(arg_v[1], __LINE__, &tn, "bad symbol %s", tmpnode->addr);
-			}
-			tmpnode = nchan->Remove(tmpnode);
+			tn.col = ((mag_node_t*)getExfield(tmpnode))->col;
+			tn.col = ((mag_node_t*)getExfield(tmpnode))->row;
+			mag_erro(arg_v[1], __LINE__, &tn, "unsupported symbol %s", tmpnode->addr);
+			return false;
 		}
 		else tmpnode = tmpnode->next;
 	}
 	while (tmpnode) {
-		if (tmpnode->subf) NnodeProcess(tmpnode->subf, nchan);
-		// if (tmpnode->addr) Console.OutFormat("%s ", tmpnode->addr);
-
-		// assume it is binary tree
+		if (tmpnode->subf && !NnodeProcess(tmpnode->subf, nchan)) return false;
+		mag_node_t* magnod;
+		// assume it is 1&2 tree
 		switch (tmpnode->type) {
 		case tok_number:
 			val = atoins(tmpnode->addr);
@@ -147,26 +153,15 @@ static void NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 			if (tmpnode->getLeft()) {// right
 				push();
 			}
-			else if (tmpnode->pare) {// left
+			else if (tmpnode->pare && tmpnode->next) {// left
 				pop("a1");
 			}
 			break;
 		case tok_func:
-			if (!StrCompare("+", tmpnode->addr)) {
+			magnod = (mag_node_t*)getExfield(*tmpnode);
+			if (magnod->bind) {
 				dst->OutFormat("\t");
-				dst->OutFormat("add a0, a0, a1\n");
-			}
-			else if (!StrCompare("-", tmpnode->addr)) {
-				dst->OutFormat("\t");
-				dst->OutFormat("sub a0, a0, a1\n");
-			}
-			else if (!StrCompare("*", tmpnode->addr)) {
-				dst->OutFormat("\t");
-				dst->OutFormat("mul a0, a0, a1\n");
-			}
-			else if (!StrCompare("/", tmpnode->addr)) {
-				dst->OutFormat("\t");
-				dst->OutFormat("div a0, a0, a1\n");
+				magnod->bind(NULL);
 			}
 			else {
 				tn.col = ((mag_node_t*)getExfield(tmpnode))->col;
@@ -184,12 +179,13 @@ static void NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 			tn.col = ((mag_node_t*)getExfield(tmpnode))->col;
 			tn.col = ((mag_node_t*)getExfield(tmpnode))->row;
 			mag_erro(arg_v[1], __LINE__, &tn, "bad node type %d", tmpnode->type);
-			return;
+			return false;
 		}
 
 
 		tmpnode = tmpnode->getLeft();
 	}
+	return true;
 }
 
 
@@ -228,6 +224,7 @@ int magic(int argc, char** argv) {
 	// FORM: num (op num) (op num)...
 
 	// make operator list
+	operators.Append(new TokenOperatorGroup(togsym(op_lev0), false, 1), false);
 	operators.Append(new TokenOperatorGroup(togsym(op_lev1), true), false);
 	operators.Append(new TokenOperatorGroup(togsym(op_lev2), true), false);
 
@@ -235,9 +232,12 @@ int magic(int argc, char** argv) {
 	if (!npu.Parse()) return 1;
 
 	auto netroot = npu.GetNetwork()->Root();
+	NnodeWalk(netroot); dst->OutFormat("\n");
 	// NnodePrint(netroot, 0);
 	NnodeProcess(netroot, npu.GetNetwork());
 	// NnodePrint(npu.GetNetwork()->Root(), 0);
+
+
 
 
 	dst->OutFormat("\t");

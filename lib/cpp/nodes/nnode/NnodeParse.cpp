@@ -62,7 +62,11 @@ namespace uni {
 					if (crtnest == 1) {
 						last_parens = crt;
 						cases = chain->DivideSymbols(crt, 1, i);
-						if (crtnest == 1 && (cases == NNODE_DIVSYM_TAIL || cases == NNODE_DIVSYM_MIDD)) exist_sym = true;
+						if (crtnest == 1 && (cases == NNODE_DIVSYM_TAIL || cases == NNODE_DIVSYM_MIDD))
+						{
+							exist_sym = true;
+							if (tnod->getLeft()) tnod = tnod->getLeft();
+						}
 						break;
 					}
 				}
@@ -111,7 +115,7 @@ namespace uni {
 			}
 			if (!crt) return true;
 			crt = crt->next;
-			if (crt && (TnodeGetExtnField(*crt)->row != TnodeGetExtnField(*crt->getLeft())->row)) last_parens = 0;
+			// if (crt && (TnodeGetExtnField(*crt)->row != TnodeGetExtnField(*crt->getLeft())->row)) last_parens = 0;
 		}
 		if (crtnest) {
 			state = false;

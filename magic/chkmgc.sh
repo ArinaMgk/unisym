@@ -31,5 +31,6 @@ check 27 27
 check '20 - 13 + 12' 19
 check '-1+1' 0
 check '1-8/(2*2)+3*6' 17
+check '- - 12* + - - + + +4' 48
 
 echo pass!

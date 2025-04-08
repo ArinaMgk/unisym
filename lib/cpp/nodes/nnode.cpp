@@ -96,11 +96,13 @@ namespace uni {
 		// 0case .
 		if (slen == width) return NNODE_DIVSYM_NONE;// assert (idx zo 0)
 
+		MAX(extn_field, sizeof(TnodeField));
+
 		// 1case .@@
 		// "a" "+++" "b", "a" "++"-'+'-"b"
 		if (idx == 0)
 		{
-			Nnode* newd = NnodeInsert(inp, StrHeap(inp->addr + width), tok_symbol, sizeof(TnodeField), ON_RIGHT);
+			Nnode* newd = NnodeInsert(inp, StrHeap(inp->addr + width), tok_symbol, extn_field, ON_RIGHT);
 			Letvar(tf, TnodeField* const, getExfield(*newd));
 			tf->col += width;
 			((char*)inp->offs)[width] = 0;
@@ -109,7 +111,8 @@ namespace uni {
 		// 2case @@.
 		// "a" "+++" "b", "a"-'++'-"+" "b"
 		if (idx + width == slen) {
-			Nnode* newd = NnodeInsert(inp, inp->offs, tok_symbol, sizeof(TnodeField), ON_LEFT);
+			Nnode* newd = NnodeInsert(inp, inp->offs, tok_symbol, extn_field, ON_LEFT);
+			if (root_node == inp) root_node = newd;
 			Letvar(tf, TnodeField* const, getExfield(*newd));
 			tf->col += width;
 			inp->addr = StrHeap(inp->addr + idx);
@@ -123,8 +126,10 @@ namespace uni {
 		{
 			char* tmpaddr_mid = StrHeapN(inp->addr + idx, width);
 
-			Nnode* newleft = NnodeInsert(inp, inp->offs, tok_symbol, sizeof(TnodeField), ON_LEFT);
-			Nnode* newright = NnodeInsert(inp, StrHeap(inp->addr + idx + width), tok_symbol, sizeof(TnodeField), ON_RIGHT);
+			Nnode* newleft = NnodeInsert(inp, inp->offs, tok_symbol, extn_field, ON_LEFT);
+			Nnode* newright = NnodeInsert(inp, StrHeap(inp->addr + idx + width), tok_symbol, extn_field, ON_RIGHT);
+
+			if (root_node == inp) root_node = newleft;
 
 			(TnodeGetExtnField(*inp))->col += idx;
 

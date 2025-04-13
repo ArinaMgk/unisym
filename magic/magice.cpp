@@ -26,9 +26,9 @@
 
 #include "./magice.hpp"
 
-#include "../inc/cpp/unisym"
+
 #include "../inc/c/uctype.h"
-#include "../inc/c/consio.h"
+
 #include "../inc/cpp/parse.hpp"
 #include "../inc/c/compile/asmcode.h"
 
@@ -55,24 +55,7 @@ enum Architecture_t platform = Architecture_RISCV64;
 // AASM Architecture_x86     
 // GAS  Architecture_RISCV64
 
-void fn_preposi(uni::DnodeChain* io) {  }
-void fn_prenega(uni::DnodeChain* io) { dst->OutFormat("neg a0, a0\n"); }
-void fn_arimul(uni::DnodeChain* io) { dst->OutFormat("mul a0, a0, a1\n"); }
-void fn_aridiv(uni::DnodeChain* io) { dst->OutFormat("div a0, a0, a1\n"); }
-void fn_ariadd(uni::DnodeChain* io) { dst->OutFormat("add a0, a0, a1\n"); }
-void fn_arisub(uni::DnodeChain* io) { dst->OutFormat("sub a0, a0, a1\n"); }
 
-uni::TokenOperator
-preposi{ "+","OP@PREPOSI",fn_preposi },
-prenega{ "-","OP@PRENEGA",fn_prenega },
-arimul{ "*","OP@ARIMUL",fn_arimul },
-aridiv{ "/","OP@ARIDIV",fn_aridiv },
-ariadd{ "+","OP@ARIADD",fn_ariadd },
-arisub{ "-","OP@ARISUB",fn_arisub },
-//
-op_lev0[]{ preposi, prenega },
-op_lev1[]{ arimul, aridiv },
-op_lev2[]{ ariadd, arisub };
 
 void mag_erro(rostr srcfile, stduint lineno, uni::Tnode* dn, rostr fmt, ...) {
 	using namespace uni;
@@ -86,7 +69,7 @@ void mag_erro(rostr srcfile, stduint lineno, uni::Tnode* dn, rostr fmt, ...) {
 	}
 }
 
-#define togsym(a) a,numsof(a)
+
 
 
 
@@ -119,6 +102,7 @@ static void NnodeWalk(uni::Nnode* nnod)
 	Nnode* tmpnode = nnod;
 	Tnode tn = { 0 };
 	static stdsint val = 0;
+	if (!nnod) return;
 	while (tmpnode->next) tmpnode = tmpnode->next;
 	while (tmpnode) {
 		if (tmpnode->subf) NnodeWalk(tmpnode->subf);
@@ -132,10 +116,11 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 	Nnode* tmpnode = nnod;
 	Tnode tn = { 0 };
 	static stdsint val = 0;
+	if (!nnod || !nchan) return true;
 	while (tmpnode->next) {
 		if (tmpnode->type == tok_symbol) {// have next
-			tn.col = ((mag_node_t*)getExfield(tmpnode))->col;
-			tn.col = ((mag_node_t*)getExfield(tmpnode))->row;
+			tn.col = ((mag_node_t*)getExfield(*tmpnode))->col;
+			tn.col = ((mag_node_t*)getExfield(*tmpnode))->row;
 			mag_erro(arg_v[1], __LINE__, &tn, "unsupported symbol %s", tmpnode->addr);
 			return false;
 		}
@@ -159,13 +144,10 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 			break;
 		case tok_func:
 			magnod = (mag_node_t*)getExfield(*tmpnode);
-			if (magnod->bind) {
-				dst->OutFormat("\t");
-				magnod->bind(NULL);
-			}
+			asserv(magnod->bind)(NULL);
 			else {
-				tn.col = ((mag_node_t*)getExfield(tmpnode))->col;
-				tn.col = ((mag_node_t*)getExfield(tmpnode))->row;
+				tn.col = ((mag_node_t*)getExfield(*tmpnode))->col;
+				tn.col = ((mag_node_t*)getExfield(*tmpnode))->row;
 				mag_erro(arg_v[1], __LINE__, &tn, "bad operator %s", tmpnode->addr);
 			}
 			if (tmpnode->getLeft()) {
@@ -176,8 +158,8 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 			}
 			break;
 		default:
-			tn.col = ((mag_node_t*)getExfield(tmpnode))->col;
-			tn.col = ((mag_node_t*)getExfield(tmpnode))->row;
+			tn.col = ((mag_node_t*)getExfield(*tmpnode))->col;
+			tn.col = ((mag_node_t*)getExfield(*tmpnode))->row;
 			mag_erro(arg_v[1], __LINE__, &tn, "bad node type %d", tmpnode->type);
 			return false;
 		}
@@ -191,6 +173,7 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 
 
 int magic(int argc, char** argv) {
+	int state = 0;
 	using namespace uni;
 	arg_v = argv;
 	MagInn minn;
@@ -203,12 +186,14 @@ int magic(int argc, char** argv) {
 
 	if (!dst || !src) {
 		plogerro("expected input and output streams.");
-		return 1;
+		state = 1;
+		goto endo;
 	}
 
 	if (argc <= 1) {
 		ploginfo("Usage: magic str0 (str1) (str2 ...)\n\t Magice will combine them.");
-		return 0;
+		state = 0;
+		goto endo;
 	}
 
 
@@ -221,29 +206,27 @@ int magic(int argc, char** argv) {
 		minn.p = argv[i];
 		parser.Parse(dc);
 	}
-	// FORM: num (op num) (op num)...
 
-	// make operator list
-	operators.Append(new TokenOperatorGroup(togsym(op_lev0), false, 1), false);
-	operators.Append(new TokenOperatorGroup(togsym(op_lev1), true), false);
-	operators.Append(new TokenOperatorGroup(togsym(op_lev2), true), false);
+	{
+		Operators::List(operators);
 
-	NestedParseUnit npu(dc, &operators, sizeof(mag_node_t));
-	if (!npu.Parse()) return 1;
+		NestedParseUnit npu(dc, &operators, sizeof(mag_node_t));
+		if (!npu.Parse()) return 1;
 
-	auto netroot = npu.GetNetwork()->Root();
-	NnodeWalk(netroot); dst->OutFormat("\n");
-	// NnodePrint(netroot, 0);
-	NnodeProcess(netroot, npu.GetNetwork());
-	// NnodePrint(npu.GetNetwork()->Root(), 0);
-
-
+		auto netroot = npu.GetNetwork()->Root();
+		NnodeWalk(netroot); dst->OutFormat("\n");
+		// NnodePrint(netroot, 0);
+		NnodeProcess(netroot, npu.GetNetwork());
+		// NnodePrint(npu.GetNetwork()->Root(), 0);
+	}
 
 
 	dst->OutFormat("\t");
 	dst->OutFormat(_ASM_RET[platform]);
+endo:
+
 	delete ele_stack;
-	return 0;
+	return state;
 }
 
 int main(int argc, char** argv)

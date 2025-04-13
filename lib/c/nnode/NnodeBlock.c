@@ -1,4 +1,4 @@
-// ASCII C99 TAB4 CRLF
+﻿// ASCII C99 TAB4 CRLF
 // Attribute: ArnCovenant Host[Allocation]
 // LastCheck: RFZ22
 // AllAuthor: @dosconio
@@ -33,7 +33,7 @@ nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail)
 		nnode* crt = subhead;
 		while (crt)
 		{
-			if(crt == subtail) break;
+			if (crt == subtail) break;
 			crt = crt->next;
 		}
 		if (crt != subtail) erro("subtail not be in the right of subhead.")
@@ -44,8 +44,8 @@ nnode* NnodeBlock(nnode* nod, nnode* subhead, nnode* subtail)
 	nod->subf = subhead;
 	//{TODO} deal with nod's children
 	// [nod] [] ... [sub1] [sub2] ... []
-	if (Nnode_isEldest(subhead) && subhead->pare != nod)
-		subleft->subf = nod; //ISSUE subright
+	if (Nnode_isEldest(subhead) && subhead->pare && subhead->pare != nod)
+		subhead->pare->subf = nod; // subleft->subf ... //ISSUE subright
 	if (subleft) subleft->next = subright;
 	if (subright) subright->left = subleft;
 	subhead->left = nod;// parent

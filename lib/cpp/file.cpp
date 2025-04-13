@@ -32,7 +32,7 @@
 #include "../../inc/c/file.h"
 
 namespace uni {
-#ifdef _WinNT
+#if defined(_WinNT) || defined(_Linux)
 	HostFile::~HostFile() {
 		if (!fptr) return;
 		Letvar(p, FILE*, fptr);

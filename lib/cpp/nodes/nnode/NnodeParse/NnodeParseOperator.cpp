@@ -78,26 +78,45 @@ static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::Toke
 	exist_sym = false;
 	uni::TokenOperator* tmpop = nullptr;
 	for (crt = (LR_but_RL ? subfirst : subfirst->Tail()); crt; crt = (LR_but_RL ? crt->next : crt->getLeft()))
-		if ((crt->type == tok_symbol) && (exist_sym = true) && (tmpop = tog->operators) && (idx = StrIndexOperator(crt->addr, &tmpop, tog->count, LR_but_RL))) {
-			uni::Nnode* judge = 0;
-			if (tmpop) nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
-			if (condi == 2 && ismiddle(crt)) {
-				auto newParent = nc->Append(StrHeap(stepval(tmpop)->ident), true, judge = crt->getLeft());
-				*newParent->GetTnodeField() = *crt->GetTnodeField();
-				AssignParallel(tmp, crt, nc->Adopt(newParent, crt->getLeft(), crt->next));
-				if (tmpop->bindfn && nc->extn_field >= byteof(uni::mag_node_t)) {
-					((uni::mag_node_t*)getExfield(*crt))->bind = tmpop->bindfn;
+		if ((crt->type == tok_symbol) && (exist_sym = true)) {
+			tmpop = tog->operators;
+			uni::TokenOperator* tmpend = tmpop + tog->count;
+			idx = StrIndexOperator(crt->addr, &tmpop, tog->count, LR_but_RL);
+			bool cont = true;
+			if (tmpop) while (tmpop < tmpend && cont) {
+				uni::Nnode* judge = 0;
+				if (tmpop) {
+					bool pass_divsym = false;
+					if (true || tog->condition == 1 && tog->left_to_right == false || true) {
+						char c = idx[StrLength(tmpop->idnop)];
+						if (c && ascii_ispunct(c)) pass_divsym = true;
+					}
+					if (!pass_divsym) {
+						nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
+						cont = false;
+					}
+					else tmpop++;
 				}
-				crt->GetTnodeField()->col = tmp->GetTnodeField()->col;
-				nc->Remove(tmp);
-			}
-			else if (condi == 1 && (op_suffix ? issuffix : isprefix)(crt)) { // Unary
-				crt = nc->Adopt(crt, judge = (op_suffix ? crt->getLeft() : crt->next))->ReheapString(stepval(tmpop)->ident);
-				if (tmpop->bindfn && nc->extn_field >= byteof(uni::mag_node_t)) {
-					((uni::mag_node_t*)getExfield(*crt))->bind = tmpop->bindfn;
+				if (!idx) continue;
+				if (condi == 2 && ismiddle(crt)) {
+					auto newParent = nc->Append(StrHeap(stepval(tmpop)->ident), true, judge = crt->getLeft());
+					*newParent->GetTnodeField() = *crt->GetTnodeField();
+					AssignParallel(tmp, crt, nc->Adopt(newParent, crt->getLeft(), crt->next));
+					if (tmpop->bindfn && nc->extn_field >= byteof(uni::mag_node_t)) {
+						((uni::mag_node_t*)getExfield(*crt))->bind = tmpop->bindfn;
+					}
+					crt->GetTnodeField()->col = tmp->GetTnodeField()->col;
+					nc->Remove(tmp);
 				}
+				else if (condi == 1 && (op_suffix ? issuffix : isprefix)(crt)) { // Unary
+					crt = nc->Adopt(crt, judge = (op_suffix ? crt->getLeft() : crt->next))->ReheapString(stepval(tmpop)->ident);
+					if (tmpop->bindfn && nc->extn_field >= byteof(uni::mag_node_t)) {
+						((uni::mag_node_t*)getExfield(*crt))->bind = tmpop->bindfn;
+					}
+				}
+				if (head == judge) head = crt;
 			}
-			if (head == judge) head = crt;
+
 		}
 	return true;
 }

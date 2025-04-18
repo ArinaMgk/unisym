@@ -29,14 +29,15 @@ namespace uni {
 		allocated = str;
 		if (allocated) {
 			this->counts = StrLength(str);
-			this->addr = (char*)malc(counts + 1);
+			limits = counts + 1;
+			this->addr = (char*)malc(limits);
 			StrCopy(this->addr, str);
 		}
 		else {
 			counts = 0;
 			addr = NULL;
+			limits = 0;
 		}
-		limits = 0;
 	}
 	String::String(const String& str) {
 		this->addr = StrHeap(str.addr);

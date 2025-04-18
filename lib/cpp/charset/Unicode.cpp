@@ -141,3 +141,15 @@ stduint CscUTF(byte from, byte to, const pureptr_t src, stduint slen, pureptr_t*
 	}
 	return NONE;
 }
+
+stduint ScanUTF8(byte* src) {
+	if (!src) return NONE;
+	if (*src < 0x80) return 1;
+	else if (*src < 0xC0 || *src >= 0xFE) return NONE;
+	else if (*src < 0xE0) return 2;// 110xxxxx 10xxxxxx
+	else if (*src < 0xF0) return 3;// 1110xxxx 10xxxxxx 10xxxxxx
+	else if (*src < 0xF8) return 4;// 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+	else if (*src < 0xFC) return 5;
+	else if (*src < 0xFE) return 6;
+	return NONE;
+}

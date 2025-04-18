@@ -1,4 +1,4 @@
-// ASCII C/C++ TAB4 CRLF
+﻿// ASCII C/C++ TAB4 CRLF
 // Docutitle: Node for Double-Direction Double-Field Linear Chain
 // Codifiers: @dosconio: ~ 20240701
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -32,7 +32,7 @@ namespace uni {
 		srs(this->addr, StrHeap(str));
 		return this;
 	}
-	
+
 	tmpl(void)::DnodeChainAdapt(Dnode* root, Dnode* last, stdint count_dif) {
 		node_count += count_dif;
 		root_node = root;
@@ -100,7 +100,21 @@ namespace uni {
 	}
 	// 
 	tmpl(bool)::Insert(stduint idx, pureptr_t dat) {
-		return true;//{TODO}
+		if (!idx) {
+			root_node = DnodeInsert(root_node, dat, nil, extn_field, 0/*ON_LEFT*/);
+		}
+		else {
+			auto len = Count();
+			if (idx > len) return false;
+			else if (idx == len) {
+				last_node = DnodeInsert(last_node, dat, nil, extn_field, 1/*ON_RIGHT*/);
+			}
+			else {
+				DnodeInsert(operator[](idx - 1), dat, nil, extn_field, 1/*ON_RIGHT*/);
+			}
+		}
+		node_count++;
+		return true;
 	}
 	// ---- DnodeAppendX.cpp ----
 	// ---- DnodeRemoveX.cpp ----
@@ -115,20 +129,20 @@ namespace uni {
 		return true;
 	}
 
-	
+
 	// pass coff!
-	_TEMP unchecked tmpl(void)::SortByInsertion() {
+	tmpl(void)::SortByInsertion() {
 		setcmp(self);
 		Dnode* crt = Root();
 		if (!crt || !crt->next) return;
 		Dnode* next = crt->next;
 		while (crt = next) {
 			next = crt->next;
-			if (cmp(crt->left->offs, crt->offs) > 0)
+			if (cmp(crt->left, crt) > 0)
 			{
 				pureptr_t content = crt->offs;
 				Dnode* crtcrt = crt->left->left;
-				while (crtcrt && cmp(crtcrt->offs, content) > 0)
+				while (crtcrt && cmp(crtcrt, crt) > 0)
 					crtcrt = crtcrt->left;
 				if (!crtcrt) {
 					Insert(0, content);
@@ -136,8 +150,10 @@ namespace uni {
 				}
 				else {
 					DnodeInsert(crtcrt, content, crt->type, extn_field, 1/*ON_RIGHT*/);
+					node_count++;
 				}
 				DnodeRemove(crt, 0);// 0 to skip release
+				node_count--;
 			}
 		}
 	}

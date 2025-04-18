@@ -1,7 +1,8 @@
-#include "tmp.h"
+﻿#include "tmp.h"
 
 #include <c/stdinc.h>
-#include <c/ustdbool.h>
+
+#include "aasm-main.h"
 #include <../../demo/template/version/version.h>
 #include <time.h>
 #include <stdio.h>
@@ -19,11 +20,7 @@ extern FILE* outfile;
 extern char  outname[FILENAME_MAX];
 
 // NASM-style warning
-const struct warning {
-	rostr name;
-	rostr help;
-	bool enabled;
-} warnings[] = {
+const struct warning warnings[] = {
 	{"error",           "treat warnings as errors", false},
 	{"macro-params",    "macro calls with wrong parameter count", true},
 	{"macro-selfref",   "cyclic macro references", false},

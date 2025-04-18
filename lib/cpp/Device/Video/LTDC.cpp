@@ -69,12 +69,12 @@ namespace uni {
 			Tdsfield WVSPPOS((pureptr_t)&vir_WVPCR, 16, 12);// part &ly(WVPCR)
 			Tdsfield WVSTPOS((pureptr_t)&vir_WVPCR, 0, 12);// part &ly(WVPCR)
 			// Configure the horizontal start and stop position
-			WHSPPOS = win_x1 + AHBP;// after once, &ly(WHPCR) will not be changed instantly
-			WHSTPOS = win_x0 + AHBP + 1;
+			WHSPPOS = win_x1 + _IMM(AHBP);// after once, &ly(WHPCR) will not be changed instantly
+			WHSTPOS = win_x0 + _IMM(AHBP) + 1;
 			ly(WHPCR) = vir_WHPCR;
 			// Configure the vertical start and stop position
-			WVSPPOS = win_y1 + AVBP;
-			WVSTPOS = win_y0 + AVBP + 1;
+			WVSPPOS = win_y1 + _IMM(AVBP);
+			WVSTPOS = win_y0 + _IMM(AVBP) + 1;
 			ly(WVPCR) = vir_WVPCR;
 		}
 		{

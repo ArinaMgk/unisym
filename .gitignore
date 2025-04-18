@@ -11,6 +11,7 @@ magic/.vscode
 *.log
 *.toc
 *.run.xml
+obj/
 # Locale Makefiles : code `make list` to generate
 lib/make/c*
 lib/c/auxiliary/*

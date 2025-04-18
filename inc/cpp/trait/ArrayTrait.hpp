@@ -21,6 +21,12 @@
 */
 #include "../unisym"
 // ! Below are included by HEREPIC ! //
+
+// Sort ArrayTrait Request Mutable
+// - Chain
+// - Dchain
+// - Vector
+
 #ifndef _INCPP_TRAIT_ARRAY
 #define _INCPP_TRAIT_ARRAY
 namespace uni {

@@ -175,7 +175,6 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 int magic(int argc, char** argv) {
 	int state = 0;
 	using namespace uni;
-	arg_v = argv;
 	MagInn minn;
 	LinearParser parser(minn);
 	Dchain dc;
@@ -232,9 +231,18 @@ endo:
 int main(int argc, char** argv)
 {
 	using namespace uni;
+	arg_v = argv;
 	//Letvar(buf, char*, malc(0x1000));
-	int stat;
-	stat = magic(argc, argv);
+	int stat = 0;
+
+	FILE* file = 0;
+
+	if (argc > 1) {
+		// judge "mgc XXX.mgc"
+
+		stat;
+	}
+	else stat = magic(argc, argv);
 	//memf(buf);
 	if (malc_count) plogerro("Memory Leak %[u]", malc_count);
 	return stat;

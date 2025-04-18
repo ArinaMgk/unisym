@@ -126,7 +126,7 @@ namespace uni {
 	//
 
 	// pass coff!
-	_TEMP unchecked void Chain::SortByInsertion() {
+	void Chain::SortByInsertion() {
 		setcmp(self);
 		Node* crt = Root();
 		if (!crt) return;

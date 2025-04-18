@@ -20,6 +20,10 @@
 	limitations under the License.
 */
 
+// [Linear and Nested]
+// ArinaMgk Direct Style used, not using regex or popular principle of compilation
+// But we can use regex to parse or check formatted data by them
+
 #ifndef _INC_PARSE_X
 #define _INC_PARSE_X
 
@@ -100,6 +104,7 @@ namespace uni {
 		}
 		// take over previous StrTokenAll, deal with literals
 		Dchain& Parse(Dchain&);
+		inline Dchain& Scan(Dchain& d) { return Parse(d); }
 		// TODO: bool Match(tok_type, &nod)
 		// TODO: bool Match(fmt, &{...}) = scanf
 		// TODO: bool MatchInteger(&..., signed, base, maxlen); ...

@@ -41,6 +41,9 @@ extern "C" {
 	
 	stduint CscUTF(byte from, byte to, const pureptr_t src, stduint slen, pureptr_t* des);
 
+	// return the length of the next UTF-8 char
+	stduint ScanUTF8(byte* src);
+
 #ifdef _INC_CPP
 }
 #endif

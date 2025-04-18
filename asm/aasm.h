@@ -28,6 +28,7 @@
 #define __LICENSE__ "Apache License 2"
 
 #include "../inc/c/stdinc.h"
+#include "aasm-main.h"
 #include "aasm-typedef.h"
 
 typedef struct {

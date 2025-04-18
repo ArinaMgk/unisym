@@ -179,7 +179,6 @@ namespace uni {
 		String& operator<< (char chr);
 
 		stduint Enlarge(stduint want) {
-			if (!limits) return 0;
 			do {
 				limits = limits * 2 + 2;// enlarge method, at least add 1
 			} while (want > limits);
@@ -218,7 +217,7 @@ namespace uni {
 
 		String& Clear() {
 			asserv(addr)[0] = '\0';
-			if (allocated) counts = nil;
+			counts = nil;
 			return self;
 		}
 

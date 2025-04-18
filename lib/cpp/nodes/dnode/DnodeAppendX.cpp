@@ -1,4 +1,4 @@
-// ASCII C/C++ TAB4 CRLF
+﻿// ASCII C/C++ TAB4 CRLF
 // Docutitle: Dnode for Double-Direction Double-Field Linear Chain
 // Codifiers: @dosconio: ~ 20240701
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -55,7 +55,7 @@ namespace uni {
 			Dnode* const ro = !root_node || onleft && (nod == root_node) ? new_nod : root_node;
 			Dnode* const la = !last_node || !onleft && (nod == last_node) ? new_nod : last_node;
 			DnodeChainAdapt(ro, la, +1);
-		} 
+		}
 		else if (!root_node) {
 			// assert last_node and !node_count
 			new_nod = DnodeInsert(nullptr, addr, nil, extn_field, 1/*ON_RIGHT*/);
@@ -64,8 +64,8 @@ namespace uni {
 		else if (need_sort) {
 			setcmp(self);
 			// assert been_sorted
-			if (!state.been_sorted) 
-				Sort(self); 
+			if (!state.been_sorted)
+				Sort(self);
 			state.been_sorted = true;
 			Dnode tmp_nod; // = { .next = nullptr, .offs = addr };
 			{
@@ -73,7 +73,7 @@ namespace uni {
 				tmp_nod.offs = addr;
 			}
 			if (cmp((pureptr_t)&tmp_nod, (pureptr_t)root_node) <= 0) { // less than any
-				return Push(*(pureptr_t*)addr);
+				return Push(addr);
 			}
 			Dnode* crt = root_node;
 			while (cmp((pureptr_t)&tmp_nod, (pureptr_t)crt) > 0 && (crt = crt->next));

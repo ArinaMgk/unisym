@@ -1,6 +1,6 @@
-// ASCII C TAB4 CRLF
+﻿// ASCII C TAB4 CRLF
 // Docutitle: (Algorithm) Sorting
-// Codifiers: @dosconio: 20240602
+// Codifiers: @dosconio, @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -52,43 +52,64 @@ cmpfof(cmp) {
 //STYLE G-3
 #if defined(_INC_CPP)
 #include "../../cpp/trait/ArrayTrait.hpp"
-	#define setcmp(arr) Compare_ft cmp = (arr).Compare_f ? (arr).Compare_f : _Local_Compare
+#define setcmp(arr) Compare_ft cmp = (arr).Compare_f ? (arr).Compare_f : _Local_Compare
 namespace uni {
 
 	//typedef int (*Compare_ft)(pureptr_t a, pureptr_t b);
 	typedef _tocomp_ft Compare_ft;
-	
+
 	enum SortMode {
-		BubbleA = 0, // for-for-if-xchg
-		BubbleSelection, // for-for-if-logidx
-		BubbleC, // for-while<left>
+		Bubble = 0, // for-for-if-xchg
+		Selection, // for-for-if-logidx
+		Insertion,
 	};
 
-	
-	inline static void SortBubbleA(ArrayTrait& arr) {
-		stduint count = arr.Length();
-		setcmp(arr);
-		for0 (i, count) for (stduint j = i + 1; j < count; j++) if (cmp(arr.Locate(i), arr.Locate(j)) > 0) {
-			arr.Exchange(i, j);
-		}
-	}
 
-	unchecked inline static void SortSelection(ArrayTrait& arr) {
+	inline static void SortBubble(ArrayTrait& arr) {
 		stduint count = arr.Length();
 		setcmp(arr);
 		for0(i, count) {
+			int swapped = 0;
+			for (stduint j = 0; j < count - i - 1; j++)
+				if (cmp(arr.Locate(j), arr.Locate(j + 1)) > 0) {
+					arr.Exchange(j, j + 1);
+					swapped = 1;
+				}
+			if (!swapped) break;
+		}
+	}
+
+	// Left area are ordered
+	inline static void SortInsertion(ArrayTrait& arr) {
+		stduint count = arr.Length();
+		setcmp(arr);
+		for1(i, count - 1) {
+			stdsint j = i - 1;
+			while (j >= 0 && cmp(arr.Locate(j), arr.Locate(j + 1)) > 0) {
+				arr.Exchange(j, j + 1);
+				j--;
+			}
+		}
+	}
+	
+	// Left area are ordered
+	inline static void SortSelection(ArrayTrait& arr) {
+		stduint count = arr.Length();
+		setcmp(arr);
+		for0(i, count - 1) {
 			stduint clim_one = i;
 			for (stduint j = i + 1; j < count; j++) if (cmp(arr.Locate(clim_one), arr.Locate(j)) > 0)
-				clim_one = j;
+			clim_one = j;
 			arr.Exchange(i, clim_one);
 		}
 	}
 
-	inline static void Sort(ArrayTrait& arr, SortMode sm = SortMode::BubbleA) {
+	inline static void Sort(ArrayTrait& arr, SortMode sm = SortMode::Bubble) {
 		void (*sort_f)(ArrayTrait & arr) = nullptr;
 		switch (sm) {
-		case SortMode::BubbleA: sort_f = SortBubbleA; break;
-		case SortMode::BubbleSelection: sort_f = SortSelection; break;
+		case SortMode::Bubble: sort_f = SortBubble; break;
+		case SortMode::Selection: sort_f = SortSelection; break;
+		case SortMode::Insertion: sort_f = SortInsertion; break;
 		default: sort_f = nullptr; break;
 		}
 		asserv(sort_f)(arr);

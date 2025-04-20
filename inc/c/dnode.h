@@ -240,7 +240,7 @@ public:
 	// Sorted
 	Dchain& Sorted(Compare_ft Cmp_f = nullptr) {
 		if (Cmp_f) this->Compare_f = Cmp_f;
-		Sort(self);
+		self.Sort();
 		state.been_sorted = true;
 		return *this;
 	}
@@ -249,8 +249,16 @@ public:
 		extn_field = ext;
 	}
 
+protected:
 	void SortByInsertion();
-	
+public:
+	inline void Sort(SortMode method = SortMode::Insertion) {
+		switch (method) {
+		case SortMode::Insertion: SortByInsertion(); break;
+		default: ::uni::Sort(self, method);
+		}
+	}
+
 };
 }
 using DnodeChain = Dchain;

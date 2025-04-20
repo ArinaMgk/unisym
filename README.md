@@ -20,8 +20,11 @@ including not only implementation, library, tool-kits, chroming engine and demon
 
 **Hsyster** `HERSYS`
 
-- `HERNOT` and public `HEREPC`
-    - Herepic Style Color: <font color="#FF619D">Herpink</font> <!-- (R255, G97, B157, #double-0.618)  -->
+- Hierarchical Data System: `HERNOT` and public `HEREPC`
+    - Herepic
+        - Style Color: <font color="#FF619D">Herpink</font> <!-- (R255, G97, B157, #double-0.618)  -->
+        - `{now} request MAGIC-MARK`
+        - (OK)TeX&PDF, ( )HTML, ( )Markdown
 - `HERPRO` and static `HERDAT`
 	- Dinah (Processor and Controller Chip)
     - opensrc **UNISYM** (this Abstract Centre, Apache), up-to chip-level `arch-objfmt-env`

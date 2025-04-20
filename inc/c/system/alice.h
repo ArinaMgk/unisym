@@ -172,6 +172,7 @@ extern "C++" {
 #define forp(ptr,times) for(pureptr_t _LIMIT=(pureptr_t)(ptr+times);(pureptr_t)ptr<_LIMIT;ptr++)
 #define for0p(typ,ptr,since,times) for(typ* ptr=(typ*)(since);_IMM(ptr)<_IMM(since)+(times);ptr++)
 #define for1(iden,times) for(size_t iden=1;iden<=(times);iden++)
+#define for1r(iden,times) for(size_t iden=(times);--iden;)//<=> for(.=N-1;.>0;.--)
 #define for0a(iden,array) for0(iden,numsof(array))
 
 #define sort0f(arr,len,cmp) sort(arr,arr+len,cmp)

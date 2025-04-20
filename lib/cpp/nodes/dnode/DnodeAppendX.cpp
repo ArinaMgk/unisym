@@ -65,7 +65,7 @@ namespace uni {
 			setcmp(self);
 			// assert been_sorted
 			if (!state.been_sorted)
-				Sort(self);
+				self.Sort();
 			state.been_sorted = true;
 			Dnode tmp_nod; // = { .next = nullptr, .offs = addr };
 			{

@@ -1,6 +1,8 @@
 
 ### Unchecked and Checked-but-Issued
 
+- [ ] `Array<type0>(address,count)`
+
 MSP432P4
 - [ ] GPIO Pin  Input Mode
 - [ ] GPIO Port operator=(u16)

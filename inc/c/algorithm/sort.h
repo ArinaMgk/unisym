@@ -49,71 +49,27 @@ cmpfof(cmp) {
 }
 */
 
+// We can print info in Compare_ft to see the order of traversal
+
 //STYLE G-3
 #if defined(_INC_CPP)
 #include "../../cpp/trait/ArrayTrait.hpp"
 #define setcmp(arr) Compare_ft cmp = (arr).Compare_f ? (arr).Compare_f : _Local_Compare
 namespace uni {
 
-	//typedef int (*Compare_ft)(pureptr_t a, pureptr_t b);
 	typedef _tocomp_ft Compare_ft;
 
-	enum SortMode {
-		Bubble = 0, // for-for-if-xchg
-		Selection, // for-for-if-logidx
-		Insertion,
+	enum class SortMode {
+		Bubble = 0, // O(n)     O(n^2)   O(n^2)              [KEEP-RELA]
+		Insertion,  //                             === Bubble
+		Selection,  // O(n^2)   O(n^2)   O(n^2)   [TIME-SAME]
+		Heap,       // O(nlogn) O(nlogn) O(nlogn) [TIME-SAME][KEEP-RELA]
+		Merge,      // O(nlogn) O(nlogn) O(nlogn) [TIME-SAME][KEEP-RELA][NEED-ALLOC(n)?]
+		Quick,      // O(nlogn) O(nlogn) O(n^2)                         [NEED-ALLOC(nlogn)?]
+		Shell,//{TODO} O(n) O(n^1.3) O(n^2)
 	};
 
-
-	inline static void SortBubble(ArrayTrait& arr) {
-		stduint count = arr.Length();
-		setcmp(arr);
-		for0(i, count) {
-			int swapped = 0;
-			for (stduint j = 0; j < count - i - 1; j++)
-				if (cmp(arr.Locate(j), arr.Locate(j + 1)) > 0) {
-					arr.Exchange(j, j + 1);
-					swapped = 1;
-				}
-			if (!swapped) break;
-		}
-	}
-
-	// Left area are ordered
-	inline static void SortInsertion(ArrayTrait& arr) {
-		stduint count = arr.Length();
-		setcmp(arr);
-		for1(i, count - 1) {
-			stdsint j = i - 1;
-			while (j >= 0 && cmp(arr.Locate(j), arr.Locate(j + 1)) > 0) {
-				arr.Exchange(j, j + 1);
-				j--;
-			}
-		}
-	}
-	
-	// Left area are ordered
-	inline static void SortSelection(ArrayTrait& arr) {
-		stduint count = arr.Length();
-		setcmp(arr);
-		for0(i, count - 1) {
-			stduint clim_one = i;
-			for (stduint j = i + 1; j < count; j++) if (cmp(arr.Locate(clim_one), arr.Locate(j)) > 0)
-			clim_one = j;
-			arr.Exchange(i, clim_one);
-		}
-	}
-
-	inline static void Sort(ArrayTrait& arr, SortMode sm = SortMode::Bubble) {
-		void (*sort_f)(ArrayTrait & arr) = nullptr;
-		switch (sm) {
-		case SortMode::Bubble: sort_f = SortBubble; break;
-		case SortMode::Selection: sort_f = SortSelection; break;
-		case SortMode::Insertion: sort_f = SortInsertion; break;
-		default: sort_f = nullptr; break;
-		}
-		asserv(sort_f)(arr);
-	}
+	void Sort(ArrayTrait& arr, SortMode sm = SortMode::Bubble);
 }
 
 #else 

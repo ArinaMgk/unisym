@@ -72,7 +72,7 @@ extern "C++" {
 #define self (*this)
 #endif
 
-// __ENDIAN__
+// __ENDIAN__ : Byte Order in Target Host
 #ifndef __ENDIAN__
 #define __ENDIAN__ 0 //[Optional] 1 for big endian, 0 for little endian
 #endif

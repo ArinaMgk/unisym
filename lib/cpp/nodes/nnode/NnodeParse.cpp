@@ -50,17 +50,24 @@ namespace uni {
 		char c;
 		// Below: for ( )
 		stduint crtnest = 0;
+		char crtnest_type = 0;// 0 or ( or [
+		char crtnest_endp = 0;//(helpful)
 		Nnode* last_parens = 0;
 
-		// E.g. 0+func(0w0)
-		//      0+[ ... ], [...]={func, {0}{w}{0}}
-		while (crt) {
+		// Process what are not prefix, suffix or midfix, whose priority is the highest
+		// - paren     ()
+		// - subscript []
+			while (crt) {
 			if (crt->type == tok_symbol) for0(i, StrLength(crt->addr)) {
 				c = crt->addr[i];
-				if (c == '(') {
+				if (!crtnest_type && (c == '(' || c == '[') || (c == crtnest_type))
+				{
 					crtnest++;
 					if (crtnest == 1) {
 						last_parens = crt;
+						crtnest_type = c;
+						crtnest_endp = (c == '(') ? ')' : ']';
+						//
 						cases = chain->DivideSymbols(crt, 1, i);
 						if (crtnest == 1 && (cases == NNODE_DIVSYM_TAIL || cases == NNODE_DIVSYM_MIDD))
 						{
@@ -70,33 +77,41 @@ namespace uni {
 						break;
 					}
 				}
-				else if (c == ')')
+				else if (c == crtnest_endp)
 				{
-					// do not care only one item in the block
-					if (!crtnest-- && !last_parens) {
-						//fprintf(stderr, "Unmatched parenthesis at line %" PRIuPTR ".", crt->row);
-						state = false;
-						goto endo;
-					}
-					if (crtnest == 0)
-					{
+					crtnest--;
+					if (crtnest == 0) {
+						crtnest_type = crtnest_endp = 0;
 						cases = chain->DivideSymbols(crt, 1, i);
 						if (cases == NNODE_DIVSYM_HEAD || cases == NNODE_DIVSYM_MIDD) exist_sym = true;
-						Nnode* fn = last_parens->getLeft();// assume not anonymity
-						if (!(last_parens->getLeft() && last_parens->getLeft()->type == tok_identy &&
-							(TnodeGetExtnField(*last_parens->getLeft()))->row == (TnodeGetExtnField(*last_parens))->row))// anonymity
-							fn = chain->Append(nullptr, true, last_parens); // fn = chain->Insert(last_parens, true);
-						NnodeBlock(fn, last_parens->next, crt->getLeft())->type = tok_func;// chain->Adopt(fn, last_parens->next, crt->getLeft());
-
-						chain->Remove(last_parens); if (last_parens == tnod) tnod = fn;
-						chain->Remove(crt);
+						Nnode* fn = last_parens->getLeft();
+						bool anonymity = !(last_parens->getLeft() && last_parens->getLeft()->type == tok_identy);
+						//
+						if (c == ')') {
+							// a(b), +(b)
+							if (anonymity) fn = chain->Append(nullptr, true, last_parens);
+							NnodeBlock(fn, last_parens->next, crt->getLeft())->type = tok_func;// chain->Adopt(fn, last_parens->next, crt->getLeft());
+							chain->Remove(last_parens); if (last_parens == tnod) tnod = fn;
+							chain->Remove(crt);
+						}
+						else {// ]
+							// [], +[a] => fn(NULL,a), a [ b ] => fn( a b )
+							// e,g, (-a[1][2])[3], [a]([b][v]), ([(a)])
+							bool valued = (last_parens->getLeft() && last_parens->getLeft()->type == tok_func);
+							if (anonymity && !valued) (fn = chain->Append(NULL, true, last_parens))->type = tok_string;
+							chain->Exchange(fn, last_parens); xchgptr(fn, last_parens);// xchg a and [, now fn is a
+							NnodeBlock(last_parens, last_parens->next, crt->getLeft())->type = tok_func;
+							srs(last_parens->addr, StrHeap("operator[]"));
+							chain->Remove(crt);
+							fn = last_parens;
+						}
 						crt = fn;
 						if (!NnodeParse(fn->subf, chain))
 						{
 							state = false;
 							goto endo;
 						}
-						if (merge_parensd && fn->type == tok_func && !fn->addr) {
+						if (c == ')' && merge_parensd && fn->type == tok_func && !fn->addr) {
 							if (fn->subf && fn->subf->next == 0) {
 								// assert fn->subf->getLeft() == 0
 								//{TODO} fn->subf->pare = fn->pare;
@@ -111,11 +126,15 @@ namespace uni {
 						/// exist_sym = 0; ま
 						break;
 					}
+					else if (!last_parens) { // crtnest > 0
+						//fprintf(stderr, "Unmatched parenthesis at line %" PRIuPTR ".", crt->row);
+						state = false;
+						goto endo;
+					}
 				}
 			}
 			if (!crt) return true;
 			crt = crt->next;
-			// if (crt && (TnodeGetExtnField(*crt)->row != TnodeGetExtnField(*crt->getLeft())->row)) last_parens = 0;
 		}
 		if (crtnest) {
 			state = false;

@@ -80,6 +80,7 @@ namespace uni {
 	tmpl(bool)::Exchange(Nnode* idx1, Nnode* idx2) {
 		xchg(idx1->type, idx2->type);
 		xchgptr(idx1->offs, idx2->offs);
+		xchgptr(idx1->subf, idx2->subf);
 		for0(i, extn_field) {
 			byte& b1 = *getExfield(*idx1);
 			byte& b2 = *getExfield(*idx2);

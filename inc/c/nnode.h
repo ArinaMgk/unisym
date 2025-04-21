@@ -68,6 +68,7 @@ typedef struct Nnode
 
 	byte* GetExtnField() { return getExfield(self); }
 	TnodeField* GetTnodeField() { return (TnodeField*)GetExtnField(); }
+	inline mag_node_t& GetMagnoField() { return *(mag_node_t*)(GetExtnField()); }
 
 	Nnode* ReheapString(const char* str) {
 		srs(this->addr, StrHeap(str));

@@ -44,19 +44,23 @@ namespace uni {
 	bool LineParse_Comment_Sharp(LinearParser& lp, bool just_chk);// # ...
 	bool LineParse_Comment_C(LinearParser& lp, bool just_chk);// /* ... */
 	bool LineParse_Comment_Cpp(LinearParser& lp, bool just_chk);// // ...
+	bool LineParse_Comment_C_Cpp(LinearParser& lp, bool just_chk);// mixture of C and Cpp
 
-	// Take over TokenParseManager
+	// [used name]  TokenParseManager
+	// [uni.String] FILO
 	class LinearParser
 	{
 		IstreamTrait* src;
 		String* buf = 0;
 		String* tobuf = 0;
-		Point pos = { 1, 1 };
 		byte static_lnbuf[byteof(String)];// use if buf null
 		byte static_tobuf[byteof(String)];// use if buf null
 	public:
+		Point pos = { 1, 1 };
+	public:
 		int getChar();
 		inline int askChar() { return src->inn(); }
+		void unsetChar() { linebuf->inn_rear(); }
 		void setChar(char c) { linebuf->operator<<(c); }
 		bool backChar(char c) { (*tobuf) << c; pos.x--; return true; }
 	private:
@@ -72,6 +76,8 @@ namespace uni {
 
 		// comment
 		LineParse_Comment_t handler_comment = LineParse_Comment_Sharp;
+
+		bool method_line_continuation = true;
 
 		// string
 		bool method_string_single_quote = false;

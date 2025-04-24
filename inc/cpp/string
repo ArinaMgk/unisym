@@ -27,11 +27,11 @@
 #define _INCX_STRING
 
 #include "cinc"// C Begin
-	#include "../c/ustring.h"
+#include "../c/ustring.h"
 #include "cinc"// C End
 #if defined(_USE_PROPERTY)
-	#include "property"
-	// #include <iostream>//{TEMP}
+#include "property"
+// #include <iostream>//{TEMP}
 #endif
 
 /*TODO
@@ -42,7 +42,7 @@
  * 20250305 String(ASCIZ) and Slice(Pure/ASCII/...)
  */
 
-//{} Append property-call for += ... operator
+ //{} Append property-call for += ... operator
 namespace uni {
 	//{TODO} Slice_T
 	template <typename type0>
@@ -55,13 +55,13 @@ namespace uni {
 
 	typedef Slice_T<byte> Slice;
 
-	
+
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String
 		//: Ostream, Istream
-	#if defined(_USE_PROPERTY)
-	: public uni::Property<String>
-	#endif 
+#if defined(_USE_PROPERTY)
+		: public uni::Property<String>
+#endif 
 	{
 	public:
 		enum class Charset {
@@ -70,7 +70,7 @@ namespace uni {
 			UPECOrigin,
 			UTF8,
 		};
-			
+
 	protected:
 		char* addr;
 		stduint limits;// include '\0'
@@ -79,173 +79,176 @@ namespace uni {
 		bool allocated;// astring or bstring(non-0)
 	public:
 		bool inn_direction = false;// true: FIFO
+		int inn_head() {
+			char first = addr[0];
+			MemRelative(addr + 1, --counts, -1);
+			return first;
+		}
+		int inn_rear() {
+			return addr[--counts];// no termichar
+		}
 		int out(const char* str, stduint len);
 		int inn() {
 			if (charset == Charset::Memory && counts) {
-				if (!inn_direction) return addr[--counts];// no termichar
-				else {
-					char first = addr[0];
-					MemRelative(addr + 1, --counts, -1);
-					return first;
-				}
+				return !inn_direction ? inn_rear() : inn_head();
 			}
 			return -1;
 		}
 	public:
 		Charset charset = Charset::ASCIZ;
 
-//////// There are 4 ASCIZ constructors
+		//////// There are 4 ASCIZ constructors
 
-		// strheap
-		String(const char* str_asciz = "");
-		// class-constructor
-		String(const String& str);
-		// give the [buffer_siz ? buffer : heap-in] string an alias
-		// use this to contain (give an alias to) a string (char*) in heap
-		String(char* str, stduint buffer_siz);
-		// define a heap string with a fixed length, keep it zero-initialized
-		String(stduint buflen);
+				// strheap
+				String(const char* str_asciz = "");
+				// class-constructor
+				String(const String& str);
+				// give the [buffer_siz ? buffer : heap-in] string an alias
+				// use this to contain (give an alias to) a string (char*) in heap
+				String(char* str, stduint buffer_siz);
+				// define a heap string with a fixed length, keep it zero-initialized
+				String(stduint buflen);
 
-//////// There are other constructors
-		String(Charset charset, rostr str = "");
-
-		
-		~String();
-
-		// Do Refresh() after modifying this
-		// e.g. "フィーナ" is 4
-		stduint getCharCount() const;
-		_Comment(outdated) size_t length() {
-			Refresh();
-			return getCharCount();
-		}
-
-		char* reflect(size_t plus = 0);
-		const char* reference() const { return this->addr; }
-		bool available();
+				//////// There are other constructors
+						String(Charset charset, rostr str = "");
 
 
-		// return the bytes of the terminator
-		byte getTermicharCount();
-		//
-		stduint getLimit() const { return limits; }
-		//
-		Slice getSlice() const {
-			return Slice{ (stduint)addr, limits };
-		}
+						~String();
+
+						// Do Refresh() after modifying this
+						// e.g. "フィーナ" is 4
+						stduint getCharCount() const;
+						_Comment(outdated) size_t length() {
+							//{20250424} removed: Refresh();
+							return getCharCount();
+						}
+
+						char* reflect(size_t plus = 0);
+						const char* reference() const { return this->addr; }
+						bool available();
+
+
+						// return the bytes of the terminator
+						byte getTermicharCount();
+						//
+						stduint getLimit() const { return limits; }
+						//
+						Slice getSlice() const {
+							return Slice{ (stduint)addr, limits };
+						}
 
 
 
-		String& operator=(const String& str);
-		String& operator=(const char* addr);
+						String& operator=(const String& str);
+						String& operator=(const char* addr);
 
-		String operator+ (const String& str) {
-			return String(StrHeapAppend(this->addr, str.addr), 0);
-		}
+						String operator+ (const String& str) {
+							return String(StrHeapAppend(this->addr, str.addr), 0);
+						}
 
-		//{}: charset buffer new-alloc
-		String& operator+=(const String& str) {
-			// Reheap(StrHeapAppend(this->addr, str.addr));
-			rostr p = str.reference();
-			while (*p) self << *p++;
-			return self;
-		}
-		
-
-		//{TODO} return String Slice
-		//{} ASCIZ
-		bool operator<=(const String& s) const {
-			const char* ptr = StrIndexString(s.addr, this->addr);
-			return ptr != nullptr;
-		}
-		//{TODO} return String Slice
-		//{} ASCIZ
-		bool operator>=(const String& s) const {
-			const char* ptr = StrIndexString(this->addr, s.addr);
-			return ptr != nullptr;
-		}
-		//{} ASCIZ
-		bool operator==(const String& s) const {
-			return !StrCompare(this->addr, s.addr);
-		}
-
-		//{TODO} getChar but Byte
-		char& operator[] (stdsint idx) {
-			stduint len = length();
-			if (!len) return addr[0];
-			while (idx < 0) idx += len;
-			return addr[idx];
-		}
-		String& operator<< (char chr);
-
-		stduint Enlarge(stduint want) {
-			do {
-				limits = limits * 2 + 2;// enlarge method, at least add 1
-			} while (want > limits);
-			return limits;
-		}
-
-		// ---- Heap 
-		//{} ASCIZ
-		String& Reheap(char* dest) {
-			if (allocated) {
-				counts = StrLength(dest);
-				limits = counts + 1;
-				srs(addr, dest);
-			}
-			return self;
-		}
-
-		// ---- Buffer
-		//{}  (ASCIZ)
-		inline const char* Index(const char* str) {
-			return StrIndexString(this->addr, str);
-		}
-		inline const char* Index(const String& str) {
-			return StrIndexString(this->addr, str.reference());
-		}
-
-		// ----
-
-		//{}  (ASCIZ)
-		String& Refresh() {
-			counts = minof(StrLength(addr), limits);
-			return self;
-		}
-		// like Reheap and reflect
-		String& Refresh(char* str);
-
-		String& Clear() {
-			asserv(addr)[0] = '\0';
-			counts = nil;
-			return self;
-		}
-
-		int Format(const char* fmt, ...);
-		static String newFormat(const char* fmt, ...);
+						//{}: charset buffer new-alloc
+						String& operator+=(const String& str) {
+							// Reheap(StrHeapAppend(this->addr, str.addr));
+							rostr p = str.reference();
+							while (*p) self << *p++;
+							return self;
+						}
 
 
-		// ---- ---- ---- ----
-		//{}  (ASCIZ)
-		String& Replaced(const char* subfirstrom, const char* subto, size_t* times = 0) {
-			return Reheap(StrReplace(addr, subfirstrom, subto, times));
-		}
-		//{}  (ASCIZ)
-		String& DesuffixSpaces() {
-			StrDesuffixSpaces(addr);
-			Refresh();
-			return self;
-		}
+						//{TODO} return String Slice
+						//{} ASCIZ
+						bool operator<=(const String& s) const {
+							const char* ptr = StrIndexString(s.addr, this->addr);
+							return ptr != nullptr;
+						}
+						//{TODO} return String Slice
+						//{} ASCIZ
+						bool operator>=(const String& s) const {
+							const char* ptr = StrIndexString(this->addr, s.addr);
+							return ptr != nullptr;
+						}
+						//{} ASCIZ
+						bool operator==(const String& s) const {
+							return !StrCompare(this->addr, s.addr);
+						}
+
+						//{TODO} getChar but Byte
+						char& operator[] (stdsint idx) {
+							stduint len = length();
+							if (!len) return addr[0];
+							while (idx < 0) idx += len;
+							return addr[idx];
+						}
+						String& operator<< (char chr);
+
+						stduint Enlarge(stduint want) {
+							do {
+								limits = limits * 2 + 2;// enlarge method, at least add 1
+							} while (want > limits);
+							return limits;
+						}
+
+						// ---- Heap 
+						//{} ASCIZ
+						String& Reheap(char* dest) {
+							if (allocated) {
+								counts = StrLength(dest);
+								limits = counts + 1;
+								srs(addr, dest);
+							}
+							return self;
+						}
+
+						// ---- Buffer
+						//{}  (ASCIZ)
+						inline const char* Index(const char* str) {
+							return StrIndexString(this->addr, str);
+						}
+						inline const char* Index(const String& str) {
+							return StrIndexString(this->addr, str.reference());
+						}
+
+						// ----
+
+						//{}  (ASCIZ)
+						String& Refresh() {
+							counts = minof(StrLength(addr), limits);
+							return self;
+						}
+						// like Reheap and reflect
+						String& Refresh(char* str);
+
+						String& Clear() {
+							asserv(addr)[0] = '\0';
+							counts = nil;
+							return self;
+						}
+
+						int Format(const char* fmt, ...);
+						static String newFormat(const char* fmt, ...);
 
 
-		// [Abandoned]
-		// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }
-		// const char* operator[] (const char* str) { return StrIndexString(addr, str); }
-		// _TEMP friend std::ostream& operator<< (std::ostream& out, const String& str);
-		// String& operator=(char* addr) { return(self = uni::String(addr)); }
-		// not recommend: provide operator const char*()
+						// ---- ---- ---- ----
+						//{}  (ASCIZ)
+						String& Replaced(const char* subfirstrom, const char* subto, size_t* times = 0) {
+							return Reheap(StrReplace(addr, subfirstrom, subto, times));
+						}
+						//{}  (ASCIZ)
+						String& DesuffixSpaces() {
+							StrDesuffixSpaces(addr);
+							Refresh();
+							return self;
+						}
+
+
+						// [Abandoned]
+						// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }
+						// const char* operator[] (const char* str) { return StrIndexString(addr, str); }
+						// _TEMP friend std::ostream& operator<< (std::ostream& out, const String& str);
+						// String& operator=(char* addr) { return(self = uni::String(addr)); }
+						// not recommend: provide operator const char*()
 	};//{TODO} option for allocating extra area for chars, aka vec<char>
-	
+
 }
 
 typedef class uni::String ustring;

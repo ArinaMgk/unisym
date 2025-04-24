@@ -115,7 +115,8 @@ enum NNODE_DIVSYM_RETYPE {
 };
 #undef Pref
 
-class Nchain {
+class Nchain
+{
 protected:
 	Nnode* root_node;
 	//

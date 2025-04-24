@@ -82,7 +82,15 @@ namespace uni
 		return ch;
 	}
 
-	#define apd() do { if (!(method_omit_spaces && CrtTType == tok_spaces)) TokenAppend(dc, linebuf->reference(), linebuf->getCharCount(), CrtTType, crtline_ento, crtcol_ento); linebuf->Clear(); } while (0)
+#define apd() do { if (!(method_omit_spaces && CrtTType == tok_spaces)) TokenAppend(dc, linebuf->reference(), linebuf->getCharCount(), CrtTType, crtline_ento, crtcol_ento); linebuf->Clear(); } while (0)
+
+	// CRLF LFCR CR LF, c is the first char
+	inline static void EatLinefeed(LinearParser& lp, char c) {
+		int cc = lp.getChar();
+		if (cc == '\n' || cc == '\r')
+			if (c == cc) lp.backChar(cc); else;
+		else if (cc != EOF) lp.backChar(cc);
+	}
 
 	stduint LineParse_NumChk_Default(LinearParser& lp) {
 		size_t res = 0;
@@ -124,6 +132,17 @@ namespace uni
 					last_zo_num = 0; OnceO.sign = 1;
 				}
 			else if (c >= '0' && c <= '9') last_zo_num = 1;
+			else if (lp.method_line_continuation && c == '\\') {
+				int ch0 = lp.getChar();
+				if (ch0 == '\n' || ch0 == '\r') {
+					EatLinefeed(lp, ch0); ++lp.pos.y; continue;
+				}
+				else {
+					lp.backChar(ch0);
+					lp.backChar('\\');
+					return res;
+				}
+			}
 			else break;
 			res++;
 			lp.setChar(c);
@@ -138,19 +157,6 @@ namespace uni
 		return res;
 	}
 
-	bool LineParse_Comment_Sharp(LinearParser& lp, bool just_chk) {
-		char c = lp.getChar();
-		bool ret = c == '#';
-		if (just_chk) return ret;
-		while ((c = lp.getChar()) != EOF &&
-		c != '\n' && c != '\r')
-		{
-			lp.setChar(c);
-		}
-		if (c == EOF) return ret;
-		lp.backChar(c);
-		return ret;
-	}
 
 	// return true for continue, false for break
 	bool LinearParser::handler_escape_sequence() {
@@ -213,7 +219,7 @@ namespace uni
 			// escape char and other
 			if (c == EOF) return false;
 			size_t listlen = sizeof(EscSeq) / 2;
-			for0 (i, listlen) {
+			for0(i, listlen) {
 				if (EscSeq[i << 1] == c)
 				{
 					setChar(EscSeq[(i << 1) + 1]);
@@ -237,12 +243,12 @@ namespace uni
 		this->linebuf = buf ? buf : (String*)&static_lnbuf;
 		String& buffer = *linebuf;
 		buffer.charset = String::Charset::Memory;
-		buffer.inn_direction = true;
+		buffer.inn_direction = false;
 
 		this->todobuf = tobuf ? tobuf : (String*)&static_tobuf;
 		String& tbuf = *todobuf;
 		tbuf.charset = String::Charset::Memory;
-		tbuf.inn_direction = true;
+		tbuf.inn_direction = false;
 
 		dc.func_free = DnodeHeapFreeSimple;
 		dc.setExtnField(sizeof(TnodeField));
@@ -268,22 +274,32 @@ namespace uni
 			}
 			else if (c == '\n' || c == '\r')
 			{
-				// CRLF LFCR CR LF
-				int cc = getChar();
-				if (cc == '\n' || cc == '\r')
-					if (c == cc)
-					{
-						backChar(cc);
+				EatLinefeed(self, c);
+				bool line_continuation = method_line_continuation &&
+					linebuf->getCharCount() && (*linebuf)[linebuf->getCharCount() - 1] == '\\';
+				// no consider: directive, comment
+				++pos.y;
+				// if (CrtTType == tok_direct); else
+				if (!line_continuation) {
+					if (linebuf->getCharCount()) apd();
+					CrtTType = tok_any;
+					crtline_ento = pos.y;
+					crtcol_ento = pos.x = 1; //_Default_Row_or_Col;
+				}
+				else if (linebuf->getCharCount() > 1) {
+					linebuf->inn_rear();
+				}
+				else if (dc.Count()) {
+					linebuf->Clear();
+					CrtTType = (_token_t)dc.Last()->type;
+					auto tmpp = dc.Last()->addr;
+					if (tmpp) while (*tmpp) {
+						setChar(*tmpp++);
 					}
-					else;
-				else if (cc != EOF) backChar(cc);
-				else break;
-				if (linebuf->getCharCount()) apd();
-				crtline_ento = ++pos.y;
-				crtcol_ento = pos.x = 1; //_Default_Row_or_Col;
-				CrtTType = tok_any;
+					dc.Remove(dc.Last());
+				}
 			}
-			else if (method_directive &&
+			else if (CrtTType == tok_direct || method_directive &&
 				c == method_directive &&
 				(TnodeGetExtnField(*dc.Last())->row != pos.y || CrtTType == tok_any)
 				) {
@@ -291,13 +307,21 @@ namespace uni
 				crtline_ento = pos.y;
 				crtcol_ento = pos.x - 1;
 				CrtTType = tok_direct;
-				while ((c = getChar()) != EOF &&
-					c != '\n' && c != '\r')
-				{
-					setChar(c);
-				}
-				if (c == EOF) break;
-				apd();
+
+				bool line_continuation;
+				do {
+					while ((c = getChar()) != EOF && c != '\n' && c != '\r')
+						setChar(c);
+					line_continuation = method_line_continuation &&
+						linebuf->getCharCount() && (*linebuf)[linebuf->getCharCount() - 1] == '\\';
+					if (line_continuation) linebuf->inn_rear();
+					apd();
+					if (line_continuation) {
+						EatLinefeed(self, c);
+						crtline_ento = ++pos.y;
+						crtcol_ento = pos.x = 1; //_Default_Row_or_Col;
+					}
+				} while (line_continuation);
 				crtline_ento = pos.y;
 				crtcol_ento = pos.x - 1;
 				CrtTType = tok_any;
@@ -316,7 +340,7 @@ namespace uni
 				crtcol_ento = pos.x - 1;
 				CrtTType = tok_any;
 			}
-			
+
 			else if (method_string_double_quote && c == '\"' ||
 				method_string_single_quote && c == '\'')// enter string
 			{
@@ -329,7 +353,7 @@ namespace uni
 			}
 			else if (
 				ascii_isdigit(c) && handler_numchk &&
-				 CrtTType != tok_identy)
+				CrtTType != tok_identy)
 			{
 				if (CrtTType != tok_any) {
 					apd();

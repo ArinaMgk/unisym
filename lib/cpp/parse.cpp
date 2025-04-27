@@ -82,7 +82,11 @@ namespace uni
 		return ch;
 	}
 
-#define apd() do { if (!(method_omit_spaces && CrtTType == tok_spaces)) TokenAppend(dc, linebuf->reference(), linebuf->getCharCount(), CrtTType, crtline_ento, crtcol_ento); linebuf->Clear(); } while (0)
+#define apd() do { \
+		if (!(method_omit_spaces && CrtTType == tok_spaces || method_omit_comment && CrtTType == tok_comment)) \
+			TokenAppend(dc, linebuf->reference(), linebuf->getCharCount(), CrtTType, crtline_ento, crtcol_ento); \
+			linebuf->Clear();\
+		} while (0)
 
 	// CRLF LFCR CR LF, c is the first char
 	inline static void EatLinefeed(LinearParser& lp, char c) {
@@ -301,7 +305,7 @@ namespace uni
 			}
 			else if (CrtTType == tok_direct || method_directive &&
 				c == method_directive &&
-				(TnodeGetExtnField(*dc.Last())->row != pos.y || CrtTType == tok_any)
+				(CrtTType == tok_any || dc.Last()->GetTnodeField()->row != pos.y)
 				) {
 				apd();
 				crtline_ento = pos.y;

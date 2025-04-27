@@ -83,6 +83,8 @@ typedef enum _token_t
 
 enum {
 	tok_func = tok_EOF + 1,
+	tok_statement,
+	tok_block,
 
 	tok__continue
 };

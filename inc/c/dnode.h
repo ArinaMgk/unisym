@@ -48,7 +48,7 @@ extern "C" {
 #endif
 
 // always pass pointer to Node but offs
-
+struct Tnode;
 typedef struct Dnode {
 	struct Dnode* next;
 	union { char* addr; pureptr_t offs; };
@@ -58,7 +58,7 @@ typedef struct Dnode {
 
 	byte* GetExtnField() { return getExfield(self); }
 	TnodeField* GetTnodeField() { return (TnodeField*)GetExtnField(); }
-
+	Tnode* GetTnode() { return (Tnode*)this; }
 	Dnode* ReheapString(const char* str);
 
 #endif

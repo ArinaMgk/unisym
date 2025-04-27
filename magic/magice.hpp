@@ -17,16 +17,17 @@ struct Operators {
 
 enum magic_token {
 	magict_keyword = tok__continue,
+	
 
 	magict__continue
 };
 
 // list of Nnode, whose root is only one
-struct Statement
-	: public uni::Nchain
-{
+// struct Statement
+// 	: public uni::Nchain
+// {
 
-};
+// };
 
 
 // ---- Magice for MarkLike

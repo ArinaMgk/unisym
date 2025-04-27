@@ -76,6 +76,7 @@ namespace uni {
 
 		// comment
 		LineParse_Comment_t handler_comment = LineParse_Comment_Sharp;
+		bool method_omit_comment = false;
 
 		bool method_line_continuation = true;
 
@@ -130,14 +131,7 @@ namespace uni {
 		}
 	};
 
-
-	class NestedParser {
-	public:
-		NestedParser(const LinearParser& lparser);
-
-
-		Nchain& Parse(Nchain&, const Dchain&);
-	};
+	using NestedParser = NestedParseUnit;
 
 
 }

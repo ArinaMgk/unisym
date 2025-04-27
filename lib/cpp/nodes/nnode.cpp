@@ -105,7 +105,8 @@ namespace uni {
 		{
 			Nnode* newd = NnodeInsert(inp, StrHeap(inp->addr + width), tok_symbol, extn_field, ON_RIGHT);
 			Letvar(tf, TnodeField* const, getExfield(*newd));
-			tf->col += width;
+			tf->row = inp->GetTnodeField()->row;
+			tf->col = inp->GetTnodeField()->col + width;
 			((char*)inp->offs)[width] = 0;
 			return NNODE_DIVSYM_HEAD;
 		}
@@ -115,9 +116,10 @@ namespace uni {
 			Nnode* newd = NnodeInsert(inp, inp->offs, tok_symbol, extn_field, ON_LEFT);
 			if (root_node == inp) root_node = newd;
 			Letvar(tf, TnodeField* const, getExfield(*newd));
-			tf->col += width;
+			tf->row = inp->GetTnodeField()->row;
+			tf->col = inp->GetTnodeField()->col;
 			inp->addr = StrHeap(inp->addr + idx);
-			tf->col += slen - width;
+			inp->GetTnodeField()->col += slen - width;
 			newd->addr[slen - width] = 0;
 			return NNODE_DIVSYM_TAIL;
 		}
@@ -129,6 +131,10 @@ namespace uni {
 
 			Nnode* newleft = NnodeInsert(inp, inp->offs, tok_symbol, extn_field, ON_LEFT);
 			Nnode* newright = NnodeInsert(inp, StrHeap(inp->addr + idx + width), tok_symbol, extn_field, ON_RIGHT);
+			newleft->GetTnodeField()->row = newright->GetTnodeField()->row = inp->GetTnodeField()->row;
+			newleft->GetTnodeField()->col = inp->GetTnodeField()->col;
+			newright->GetTnodeField()->col = inp->GetTnodeField()->col + idx + width;
+			inp->GetTnodeField()->col += idx;
 
 			if (root_node == inp) root_node = newleft;
 

@@ -39,7 +39,7 @@ namespace uni {
 		if (auto crttn = (Tnode*)tchain.Root()) do chain->Append(crttn); while (crttn = crttn->next);
 	}
 
-
+	// classic and outdated
 	bool NestedParseUnit::NnodeParse(Nnode* tnod, NnodeChain* chain, bool merge_parensd) {
 		if (!tnod) return true;
 
@@ -57,7 +57,7 @@ namespace uni {
 		// Process what are not prefix, suffix or midfix, whose priority is the highest
 		// - paren     ()
 		// - subscript []
-			while (crt) {
+		while (crt) {
 			if (crt->type == tok_symbol) for0(i, StrLength(crt->addr)) {
 				c = crt->addr[i];
 				if (!crtnest_type && (c == '(' || c == '[') || (c == crtnest_type))

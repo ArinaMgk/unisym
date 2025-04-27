@@ -1,4 +1,4 @@
-// ASCII C/C++ TAB4 CRLF
+﻿// ASCII C/C++ TAB4 CRLF
 // Docutitle: Node for Nested / Tree / Binary
 // Codifiers: @dosconio: ~ 20240702
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -62,8 +62,13 @@ typedef struct Nnode
 		Nnode* crt = this; while (crt->next && (crt = crt->next)); return crt;
 	}
 
-	Nnode* getLeft() {
-		return isEldest() ? nullptr : left;
+	inline Nnode* getLeft() { return isEldest() ? nullptr : left; }
+	Nnode* getParent() {
+		Nnode* crt = this;
+		while (!crt->isEldest()) crt = crt->left;
+		if (!crt->pare) return nullptr;
+		if (crt == crt->pare->subf) return crt->pare;
+		return nullptr;
 	}
 
 	byte* GetExtnField() { return getExfield(self); }
@@ -191,23 +196,46 @@ public:
 	//{TEMP} only for Nnode AREA
 	Nnode* Receive(Nnode* insnod, Dchain* dnod, bool onleft = false);
 
+	inline static void Traversal(Nnode* nod, void (traversal)(Nnode& nod, stduint nest), stduint nest = 0) {
+		for (; nod; nod = nod->next) {
+			traversal(*nod, nest);
+			if (nod->subf) Traversal(nod->subf, traversal, nest + 1);
+		}
+	}
+	inline void Traversal(void (traversal)(Nnode& nod, stduint nest), stduint nest = 0) {  Traversal(root_node, traversal, nest); }
+
 };
 
 using NnodeChain = Nchain;
 using TnodeChain = Dchain;
 
+// Process in order for C
+// - { } Block
+// - ( ) Parens and [ ] Brackets
+// -  ;  Comma
 class NestedParseUnit {
 private:
 	NnodeChain* chain;
 public:
+	enum class Method {
+		CPL, CPP = CPL,
+		COT, Python = COT,
+	};
+
+	Method method = Method::CPL;
+
 	NodeChain* TokenOperatorGroupChain;
-	NestedParseUnit(const TnodeChain& tchain, NodeChain* TOGCChain, stduint extn_fielen);// will destructure TnodeChain
+	NestedParseUnit(const TnodeChain& tchain, NodeChain* TOGCChain, stduint extn_fielen = sizeof(mag_node_t));// will destructure TnodeChain
 	~NestedParseUnit();
 	NnodeChain* GetNetwork() { return chain; }
 	// Process:
 	bool Parse() {
 		return NnodeParse(chain->Root(), chain);
 	}
+
+	void ParseBlockStatements_CPL(Nnode* beg_nod); void ParseBlockStatements_CPL() { ParseBlockStatements_CPL(chain->Root()); }
+
+
 protected:
 	bool NnodeParse(Nnode* tnod, NnodeChain* chain, bool merge_parensd = true);
 	bool ParseOperator(Nnode* pare, NnodeChain* nc);

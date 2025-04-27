@@ -237,7 +237,7 @@ int main(int argc, char** argv)
 
 	FILE* file = 0;
 
-	if (argc > 1) {
+	if (argc > 1 && 0) {
 		// judge "mgc XXX.mgc"
 
 		stat;

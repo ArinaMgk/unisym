@@ -50,6 +50,7 @@ static void ParseStatements_CPL(Nchain& nchain, Nnode* beg_nod) {
 			nchain.Remove(crt);
 			crt = fn;
 			left0_nod = crt->next;
+			break;
 		}
 		// consider declaration assignment
 		else if (crt->type == tok_block && !crt->getParent() && !is_declaration_assignment_tail(crt->left)) {

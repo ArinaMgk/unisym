@@ -1,4 +1,4 @@
-// ASCII C99/C++11 TAB4 CRLF
+﻿// ASCII C99/C++11 TAB4 CRLF
 // Docutitle: Node
 // Codifiers: @ArinaMgk(~RFA03) @dosconio(20240409)
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -97,8 +97,9 @@ protected:
 	Node* New();
 public:
 	_tofree_ft func_free; // nullptr for not-auto sort, for `Append`
-	//
-	Chain(bool defa_free = false);
+
+	Chain(_tofree_ft free = 0);// old Chain(bool defa_free = false);
+
 	~Chain();
 	// ---- T: Iterate
 	virtual void Iterate();
@@ -117,18 +118,24 @@ public:
 	//[protected] virtual stduint   Length() const;
 	stduint Count() { return Length(); }
 	//
+
 	virtual bool Insert(stduint idx, pureptr_t dat);
-	toheap Node* Append(const char* addr);
 	// Priority: {nod > order > default_ends}
-	Node* Append(pureptr_t addr, bool onleft, Node* nod = 0);
+	// updated 20250427
+	Node* Append(pureptr_t addr, bool onleft = false, Node* nod = 0);
+
+
+	toheap Node* AppendHeapstr(const char* addr);
 	template <typename type1> inline Chain& operator<<(const type1& obj) {
 		Append((pureptr_t)&obj, false);
 		return *this;
 	}// do not pass pointers to what you what but itself!
 	inline Chain& operator<<(const char* addr) {
-		Append(addr);
+		AppendHeapstr(addr);
 		return *this;
 	}
+
+
 	//
 	virtual bool Remove(stduint idx, stduint times);
 	Node* Remove(Node* nod);

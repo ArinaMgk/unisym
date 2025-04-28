@@ -1,4 +1,4 @@
-// ASCII C/C++ TAB4 CRLF
+﻿// ASCII C/C++ TAB4 CRLF
 // Docutitle: Node for Simple Linear Chain
 // Codifiers: @dosconio: ~ 20240701
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -31,7 +31,7 @@ namespace uni {
 		srs(this->addr, StrHeap(str));
 		return this;
 	}
-	
+
 	void Chain::NodeChainAdapt(Node* root, Node* last, stdint count_dif) {
 		node_count += count_dif;
 		root_node = root;
@@ -49,15 +49,14 @@ namespace uni {
 		return (Node*)zalc(sizeof(Node) + extn_field);
 	}
 
-	Chain::Chain(bool defa_free) {
+	Chain::Chain(_tofree_ft free) {
 		root_node = nullptr;
 		last_node = nullptr;
 		fastab.midl_node = nullptr;
 		node_count = nil;
 		extn_field = nil;
-		func_free = nullptr;
+		this->func_free = free ? free : NodeHeapFreeSimple;
 		state.been_sorted = true;// empty chain
-		if (defa_free) this->func_free = NodeHeapFreeSimple;
 	}
 
 	Chain::~Chain() {

@@ -1,4 +1,4 @@
-// ASCII C99/C++11 TAB4 CRLF
+﻿// ASCII C99/C++11 TAB4 CRLF
 // Docutitle: Node
 // Codifiers: @ArinaMgk(~RFA03) @dosconio(20240409)
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -38,9 +38,9 @@ namespace uni {
 		return new_nod;
 	}
 
-	
-	toheap Node* Chain::Append(const char* addr) {
-		return Append((pureptr_t)StrHeap(addr), false);
+
+	toheap Node* Chain::AppendHeapstr(const char* addr) {
+		return Append((pureptr_t)StrHeap(addr));
 	}
 	Node* Chain::Append(pureptr_t addr, bool onleft, Node* nod) {
 		const bool need_sort = nullptr != Compare_f;
@@ -53,7 +53,7 @@ namespace uni {
 			Node* const ro = !root_node || onleft && (nod == root_node) ? new_nod : root_node;
 			Node* const la = !last_node || !onleft && (nod == last_node) ? new_nod : last_node;
 			NodeChainAdapt(ro, la, +1);
-		} 
+		}
 		else if (!root_node) {
 			// assert last_node and !node_count
 			new_nod = NodeInsert(nullptr, addr, extn_field);
@@ -62,8 +62,8 @@ namespace uni {
 		else if (need_sort) {
 			setcmp(self);
 			// assert been_sorted
-			if (!state.been_sorted) 
-				Sort(self); 
+			if (!state.been_sorted)
+				Sort(self);
 			state.been_sorted = true;
 			Node tmp_nod; // = { .next = nullptr, .offs = addr };
 			{

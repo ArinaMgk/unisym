@@ -133,6 +133,13 @@ namespace uni {
 					}
 				}
 			}
+			else if (crt->subf) {
+				if (!NnodeParse(crt->subf, chain))
+				{
+					state = false;
+					goto endo;
+				}
+			}
 			if (!crt) return true;
 			crt = crt->next;
 		}

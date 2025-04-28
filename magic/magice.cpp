@@ -74,42 +74,46 @@ void mag_erro(rostr srcfile, stduint lineno, uni::Tnode* dn, rostr fmt, ...) {
 
 
 static void push(void) {
-	dst->OutFormat("\taddi sp, sp, -8\n");
+	dst->OutFormat("\taddi sp, sp, -8 # push\n");
 	dst->OutFormat("\tsd a0, 0(sp)\n");
 	// Depth++;
 }
 static void pop(rostr reg) {
-	dst->OutFormat("\tld %s, 0(sp)\n", reg);
+	dst->OutFormat("\tld %s, 0(sp) # pop\n", reg);
 	dst->OutFormat("\taddi sp, sp, 8\n");
 	// Depth--;
 }
 
-static void NnodePrint(const uni::Nnode* nnod, unsigned nest)
-{
-	uni::Nnode* crt = (uni::Nnode*)nnod;
-	while (crt)
-	{
-		uni::Console.OutFormat(";");
-		for0(i, nest) uni::Console.OutFormat(i + 1 == _LIMIT ? "->" : "--");
-		uni::Console.OutFormat("%s\n", crt->offs);
-		if (crt->subf) NnodePrint(crt->subf, nest + 1);
-		crt = crt->next;
-	}
+static void NnodePrint(uni::Nnode& nnod, stduint nest) {
+	uni::Console.OutFormat("#");// GAS Style
+	for0(i, nest) uni::Console.OutFormat(i + 1 == _LIMIT ? "->" : "--");
+	uni::Console.OutFormat("|%s|\n", nnod.offs);
 }
+
+bool GetDirection(uni::Nnode* nnod) {
+	//if (nnod->getParent() &&\
+		nnod->getParent()->type == tok_func &&\
+		!StrCompare(nnod->getParent()->addr, "OP@ASSIGN")) return true;
+	return false;// true for LEFT-RIGHT
+}
+
 static void NnodeWalk(uni::Nnode* nnod)
 {
 	using namespace uni;
 	Nnode* tmpnode = nnod;
-	Tnode tn = { 0 };
 	static stdsint val = 0;
 	if (!nnod) return;
-	while (tmpnode->next) tmpnode = tmpnode->next;
+	bool direction = GetDirection(nnod);// true for LEFT-RIGHT
+	if (!direction) while (tmpnode->next) tmpnode = tmpnode->next;
 	while (tmpnode) {
 		if (tmpnode->subf) NnodeWalk(tmpnode->subf);
 		Console.OutFormat("# %s #", tmpnode->addr);
-		tmpnode = tmpnode->getLeft();
+		tmpnode = direction ? tmpnode->next : tmpnode->getLeft();
 	}
 }
+
+Variable variables;
+
 static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 {
 	using namespace uni;
@@ -117,7 +121,9 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 	Tnode tn = { 0 };
 	static stdsint val = 0;
 	if (!nnod || !nchan) return true;
-	while (tmpnode->next) {
+	bool direction = GetDirection(nnod);// true for LEFT-RIGHT
+
+	if (!direction) while (tmpnode->next) {
 		if (tmpnode->type == tok_symbol) {// have next
 			tn.col = ((mag_node_t*)getExfield(*tmpnode))->col;
 			tn.col = ((mag_node_t*)getExfield(*tmpnode))->row;
@@ -133,8 +139,7 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 		switch (tmpnode->type) {
 		case tok_number:
 			val = atoins(tmpnode->addr);
-			dst->OutFormat("\t");
-			dst->OutFormat("li a0, %[i]\n", val);
+			dst->OutFormat("\tli a0, %[i]\n", val);
 			if (tmpnode->getLeft()) {// right
 				push();
 			}
@@ -144,7 +149,7 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 			break;
 		case tok_func:
 			magnod = (mag_node_t*)getExfield(*tmpnode);
-			asserv(magnod->bind)(NULL);
+			asserv(magnod->bind)((Dchain*)tmpnode);
 			else {
 				tn.col = ((mag_node_t*)getExfield(*tmpnode))->col;
 				tn.col = ((mag_node_t*)getExfield(*tmpnode))->row;
@@ -153,8 +158,23 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 			if (tmpnode->getLeft()) {
 				push();
 			}
-			else if (tmpnode->pare) {
+			else if (tmpnode->pare && tmpnode->next) { // getParent
 				pop("a1");
+			}
+			break;
+		case tok_identy:
+			if (tmpnode->addr) {
+				stdsint offset = variables.GetOffset(tmpnode->addr);
+				dst->OutFormat("\taddi a0, fp, -%[i] # %s\n", offset, tmpnode->addr);// leave the offset
+				if (tmpnode->getParent() && tmpnode->getParent()->addr && !!StrCompare(tmpnode->getParent()->addr, "OP@ASSIGN")) {
+					dst->OutFormat("\tld a0, 0(a0)\n", offset, tmpnode->addr);
+				}
+				if (tmpnode->getLeft()) {// right
+					push();
+				}
+				else if (tmpnode->pare && tmpnode->next) {// left
+					pop("a1");
+				}
 			}
 			break;
 		default:
@@ -165,10 +185,13 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 		}
 
 
-		tmpnode = tmpnode->getLeft();
+		if (!direction) tmpnode = tmpnode->getLeft();
+		else tmpnode = tmpnode->next;
 	}
 	return true;
 }
+
+
 
 
 
@@ -179,6 +202,8 @@ int magic(int argc, char** argv) {
 	LinearParser parser(minn);
 	Dchain dc;
 	NodeChain operators(NodeHeapFreeSimple);
+
+
 	dst = &Console;
 	src = &minn;
 	ele_stack = new NodeChain(NULL);
@@ -198,7 +223,7 @@ int magic(int argc, char** argv) {
 
 	dst->OutFormat("%s%s", _AUT_HEAD[platform], _AUT_ARCHITECT[platform]);
 	dst->OutFormat("%s", _ASM_GLOBAL[platform]); // GLOBAL main
-	dst->OutFormat("main:\n");
+	dst->OutFormat("#%s\n", argv[1]);
 
 	parser.GHT = false;
 	for1(i, argc - 1) {
@@ -209,19 +234,51 @@ int magic(int argc, char** argv) {
 	{
 		Operators::List(operators);
 
-		NestedParseUnit npu(dc, &operators, sizeof(mag_node_t));
+		NestedParseUnit fileScope(dc, &operators, sizeof(mag_node_t));
+		NestedParseUnit& npu = fileScope;
+
 		if (!npu.Parse()) return 1;
 
 		auto netroot = npu.GetNetwork()->Root();
+
+		npu.ParseBlockStatements_CPL();
+		variables.List(fileScope.GetNetwork());
+
+		dst->OutFormat("main:\n");
+		// Procedure Prologue
+		dst->OutFormat("\taddi sp, sp, -8\n");
+		dst->OutFormat("\tsd fp, 0(sp)\n");
+		dst->OutFormat("\tmv fp, sp\n");
+		dst->OutFormat("\taddi sp, sp, -%[u]\n", variables.GetTotalSize());
+		dst->OutFormat("main_1:\n");
+
+
 		NnodeWalk(netroot); dst->OutFormat("\n");
-		// NnodePrint(netroot, 0);
-		NnodeProcess(netroot, npu.GetNetwork());
-		// NnodePrint(npu.GetNetwork()->Root(), 0);
+		npu.GetNetwork()->Traversal(NnodePrint);
+
+		for (auto crt = npu.GetNetwork()->Root(); crt; crt = crt->next) {
+			if (crt->type != tok_statement) {
+				plogerro("Bad Statement");
+				return 1;
+			}
+			dst->OutFormat("\n");
+			if (crt->subf) NnodeProcess(crt->subf, npu.GetNetwork());
+		}
+
+		// for only 1 func:
+		variables.~Variable();
+
 	}
 
-
+	// Procedure Epilogue
+	dst->OutFormat("main_endo:\n");
+	dst->OutFormat("\tmv sp, fp\n");
+	dst->OutFormat("\tld fp, 0(sp)\n");
+	dst->OutFormat("\taddi sp, sp, 8\n");
 	dst->OutFormat("\t");
-	dst->OutFormat(_ASM_RET[platform]);
+	dst->OutFormat(_ASM_RET[platform]);// Normal but Interrupt ...
+
+
 endo:
 
 	delete ele_stack;

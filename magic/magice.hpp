@@ -5,6 +5,8 @@
 #include "../inc/cpp/unisym"
 
 #include "../inc/c/node.h"
+#include "../inc/c/dnode.h"
+#include "../inc/c/nnode.h"
 #include "../inc/c/consio.h"
 #include "../inc/cpp/string"
 
@@ -15,9 +17,18 @@ struct Operators {
 	static void List(uni::Chain& nc);
 };
 
+struct Variable {
+	uni::NodeChain variables;
+	Variable();
+	void List(uni::Nchain* nchain);
+	stdsint GetOffset(rostr iden);
+	stduint GetTotalSize() { return 8 * variables.Count(); }
+};
+void DelVari(pureptr_t p);
+
 enum magic_token {
 	magict_keyword = tok__continue,
-	
+
 
 	magict__continue
 };

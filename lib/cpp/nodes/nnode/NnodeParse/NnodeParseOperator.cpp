@@ -29,6 +29,8 @@
 #include "../../../../../inc/cpp/dnode"
 #include "../../../../../inc/cpp/nnode"
 
+using namespace uni;
+
 #define gettype(sym) (stepval(sym)->type)
 // | whom must != 0 (0 means non-exist) for true, 
 // v     so "0" is good to occupy.So for example, need not judge crt->left for `issuffix()`.
@@ -75,9 +77,9 @@ static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::Toke
 	uni::Nnode*& subfirst = head->pare ? head->pare->subf : nc->RootRef(),
 		* crt = head, * tmp{ nullptr };
 	const char* idx;
-	exist_sym = false;
 	uni::TokenOperator* tmpop = nullptr;
-	for (crt = (LR_but_RL ? subfirst : subfirst->Tail()); crt; crt = (LR_but_RL ? crt->next : crt->getLeft()))
+	if (subfirst) for (crt = (LR_but_RL ? subfirst : subfirst->Tail()); crt; crt = (LR_but_RL ? crt->next : crt->getLeft())) {
+		if (crt->subf) ParseOperatorGroup(crt->subf, nc, tog, exist_sym, LR_but_RL, condi);
 		if ((crt->type == tok_symbol) && (exist_sym = true)) {
 			tmpop = tog->operators;
 			uni::TokenOperator* tmpend = tmpop + tog->count;
@@ -107,17 +109,25 @@ static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::Toke
 					}
 					crt->GetTnodeField()->col = tmp->GetTnodeField()->col;
 					nc->Remove(tmp);
+					for (Nnode* subf = crt->subf; subf; subf = subf->next) {
+						if (!ParseOperatorGroup(subf, nc, tog, exist_sym, LR_but_RL, condi)) return false;
+					}
 				}
 				else if (condi == 1 && (op_suffix ? issuffix : isprefix)(crt)) { // Unary
 					crt = nc->Adopt(crt, judge = (op_suffix ? crt->getLeft() : crt->next))->ReheapString(stepval(tmpop)->ident);
 					if (tmpop->bindfn && nc->extn_field >= byteof(uni::mag_node_t)) {
 						((uni::mag_node_t*)getExfield(*crt))->bind = tmpop->bindfn;
 					}
+					for (Nnode* subf = crt->subf; subf; subf = subf->next) {
+						if (!ParseOperatorGroup(subf, nc, tog, exist_sym, LR_but_RL, condi)) return false;
+					}
 				}
 				if (head == judge) head = crt;
 			}
 
 		}
+	}
+
 	return true;
 }
 
@@ -130,7 +140,10 @@ namespace uni {
 		Node* crt = TokenOperatorGroupChain->Root();
 		TokenOperatorGroup* tog{ nullptr };
 		if (crt) do if (tog = (TokenOperatorGroup*)crt->offs)
+		{
+			exist_sym = false;
 			state = ParseOperatorGroup(head, nc, tog, exist_sym, tog->left_to_right, tog->condition);
+		}
 		while ((crt = crt->next) && (exist_sym && state));
 		return state;
 	}

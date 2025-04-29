@@ -148,12 +148,14 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 			}
 			break;
 		case tok_func:
-			magnod = (mag_node_t*)getExfield(*tmpnode);
-			asserv(magnod->bind)((Dchain*)tmpnode);
-			else {
-				tn.col = ((mag_node_t*)getExfield(*tmpnode))->col;
-				tn.col = ((mag_node_t*)getExfield(*tmpnode))->row;
-				mag_erro(arg_v[1], __LINE__, &tn, "bad operator %s", tmpnode->addr);
+			if (tmpnode->addr) {
+				magnod = (mag_node_t*)getExfield(*tmpnode);
+				asserv(magnod->bind)((Dchain*)tmpnode);
+				else {
+					tn.col = ((mag_node_t*)getExfield(*tmpnode))->col;
+					tn.col = ((mag_node_t*)getExfield(*tmpnode))->row;
+					mag_erro(arg_v[1], __LINE__, &tn, "bad operator %s", tmpnode->addr);
+				}
 			}
 			if (tmpnode->getLeft()) {
 				push();

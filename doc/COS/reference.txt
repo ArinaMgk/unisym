@@ -21,3 +21,4 @@ Item are listed in the order of TIME, of each group.
 	- CW Manual and EXs CW32F030 & CW32F003 (0.1)
 	- CW Manual and EXs CW32F010 (1.0.2)
 
+- [Hosted System] Mecocoa ...

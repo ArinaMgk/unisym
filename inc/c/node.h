@@ -118,7 +118,7 @@ public:
 	//[protected] virtual stduint   Length() const;
 	stduint Count() { return Length(); }
 	//
-
+	// [Interface]
 	virtual bool Insert(stduint idx, pureptr_t dat);
 	// Priority: {nod > order > default_ends}
 	// updated 20250427

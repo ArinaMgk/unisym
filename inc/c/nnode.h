@@ -231,16 +231,27 @@ public:
 	NestedParseUnit(const TnodeChain& tchain, NodeChain* TOGCChain, stduint extn_fielen = sizeof(mag_node_t));// will destructure TnodeChain
 	~NestedParseUnit();
 	NnodeChain* GetNetwork() { return chain; }
-	// Process:
+	// Process: () [] and operators
 	bool Parse() {
-		return NnodeParse(chain->Root(), chain);
+		//return NnodeParse(chain->Root(), chain);
+		bool state = ParseParen(chain->Root(), chain);
+		if (state) state = ParseOperator(chain->Root(), chain);
+		if (!state) {
+			chain->~Nchain();
+		}
+		return state;
 	}
 
 	void ParseBlockStatements_CPL(Nnode* beg_nod); void ParseBlockStatements_CPL() { ParseBlockStatements_CPL(chain->Root()); }
 
 
 protected:
+	// Process current and child : () and []
+	bool ParseParen(Nnode* tnod, NnodeChain* chain, bool merge_parensd = true);
+	
+	// [OLD] Process: () [] and operators
 	bool NnodeParse(Nnode* tnod, NnodeChain* chain, bool merge_parensd = true);
+	// Process Current Operator
 	bool ParseOperator(Nnode* pare, NnodeChain* nc);
 };
 

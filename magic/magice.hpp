@@ -27,18 +27,12 @@ struct Variable {
 void DelVari(pureptr_t p);
 
 enum magic_token {
-	magict_keyword = tok__continue,
-
+	magict_function = tok__continue,
+	magict_sta_declaration,
+	magict_sta_return,
 
 	magict__continue
 };
-
-// list of Nnode, whose root is only one
-// struct Statement
-// 	: public uni::Nchain
-// {
-
-// };
 
 
 // ---- Magice for MarkLike

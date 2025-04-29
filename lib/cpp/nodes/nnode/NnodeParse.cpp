@@ -39,10 +39,8 @@ namespace uni {
 		if (auto crttn = (Tnode*)tchain.Root()) do chain->Append(crttn); while (crttn = crttn->next);
 	}
 
-	// classic and outdated
-	bool NestedParseUnit::NnodeParse(Nnode* tnod, NnodeChain* chain, bool merge_parensd) {
+	bool NestedParseUnit::ParseParen(Nnode* tnod, NnodeChain* chain, bool merge_parensd) {
 		if (!tnod) return true;
-
 		bool state = true;
 		Nnode* crt = tnod;
 		bool exist_sym{ false };
@@ -106,10 +104,9 @@ namespace uni {
 							fn = last_parens;
 						}
 						crt = fn;
-						if (!NnodeParse(fn->subf, chain))
+						if (!ParseParen(fn->subf, chain))
 						{
-							state = false;
-							goto endo;
+							return false;
 						}
 						if (c == ')' && merge_parensd && fn->type == tok_func && !fn->addr) {
 							if (fn->subf && fn->subf->next == 0) {
@@ -119,40 +116,28 @@ namespace uni {
 									fn->next->left = fn->subf;
 								fn->next = fn->subf;
 								fn->subf = 0;
+								crt = chain->Remove(fn);
+								if (fn == tnod) tnod = crt;
 							}
-							crt = chain->Remove(fn);
-							if (fn == tnod) tnod = crt;
 						}
 						/// exist_sym = 0; ま
 						break;
 					}
 					else if (!last_parens) { // crtnest > 0
-						//fprintf(stderr, "Unmatched parenthesis at line %" PRIuPTR ".", crt->row);
-						state = false;
-						goto endo;
+						return false;
 					}
 				}
 			}
 			else if (crt->subf) {
-				if (!NnodeParse(crt->subf, chain))
-				{
-					state = false;
-					goto endo;
-				}
+				if (!ParseParen(crt->subf, chain))
+					return false;
 			}
 			if (!crt) return true;
 			crt = crt->next;
 		}
-		if (crtnest) {
-			state = false;
-			goto endo;
-		}
-		state = ParseOperator(tnod, chain);
-	endo:
-		if (!state) {
-			chain->~Nchain();
-		}
-		return state;
+		if (crtnest)
+			return false;
+		return true;
 	}
 
 	NestedParseUnit::~NestedParseUnit() {

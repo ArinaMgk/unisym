@@ -243,7 +243,7 @@ int magic(int argc, char** argv) {
 
 		auto netroot = npu.GetNetwork()->Root();
 
-		npu.ParseBlockStatements_CPL();
+		npu.ParseStatements_CPL();
 		variables.List(fileScope.GetNetwork());
 
 		dst->OutFormat("main:\n");

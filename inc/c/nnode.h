@@ -235,24 +235,27 @@ public:
 	bool Parse() {
 		//return NnodeParse(chain->Root(), chain);
 		bool state = ParseParen(chain->Root(), chain);
-		if (state) state = ParseOperator(chain->Root(), chain);
+		if (state) state = ParseOperator(chain->Root());
 		if (!state) {
 			chain->~Nchain();
 		}
 		return state;
 	}
 
-	void ParseBlockStatements_CPL(Nnode* beg_nod); void ParseBlockStatements_CPL() { ParseBlockStatements_CPL(chain->Root()); }
+	void ParseStatements_CPL(Nnode* beg_nod); void ParseStatements_CPL() { ParseStatements_CPL(chain->Root()); }
 
+
+public:
+	// Process current and child : () and []
+	bool ParseParen(Nnode* tnod, bool merge_parensd = true);
+	
+	// Process Current Operator
+	bool ParseOperator(Nnode* pare);
 
 protected:
-	// Process current and child : () and []
-	bool ParseParen(Nnode* tnod, NnodeChain* chain, bool merge_parensd = true);
 	
 	// [OLD] Process: () [] and operators
 	bool NnodeParse(Nnode* tnod, NnodeChain* chain, bool merge_parensd = true);
-	// Process Current Operator
-	bool ParseOperator(Nnode* pare, NnodeChain* nc);
 };
 
 

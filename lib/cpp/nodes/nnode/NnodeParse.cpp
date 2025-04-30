@@ -39,8 +39,9 @@ namespace uni {
 		if (auto crttn = (Tnode*)tchain.Root()) do chain->Append(crttn); while (crttn = crttn->next);
 	}
 
-	bool NestedParseUnit::ParseParen(Nnode* tnod, NnodeChain* chain, bool merge_parensd) {
+	bool NestedParseUnit::ParseParen(Nnode* tnod, bool merge_parensd) {
 		if (!tnod) return true;
+		NnodeChain* chain = this->chain;
 		bool state = true;
 		Nnode* crt = tnod;
 		bool exist_sym{ false };
@@ -58,13 +59,13 @@ namespace uni {
 		while (crt) {
 			if (crt->type == tok_symbol) for0(i, StrLength(crt->addr)) {
 				c = crt->addr[i];
-				if (!crtnest_type && (c == '(' || c == '[') || (c == crtnest_type))
+				if (!crtnest_type && (c == '(' || c == '[' || c == '{') || (c == crtnest_type))
 				{
 					crtnest++;
 					if (crtnest == 1) {
 						last_parens = crt;
 						crtnest_type = c;
-						crtnest_endp = (c == '(') ? ')' : ']';
+						crtnest_endp = (c == '(') ? ')' : (c == '[') ? ']' : '}';
 						//
 						cases = chain->DivideSymbols(crt, 1, i);
 						if (crtnest == 1 && (cases == NNODE_DIVSYM_TAIL || cases == NNODE_DIVSYM_MIDD))
@@ -92,7 +93,7 @@ namespace uni {
 							chain->Remove(last_parens); if (last_parens == tnod) tnod = fn;
 							chain->Remove(crt);
 						}
-						else {// ]
+						else if (c == ']') {
 							// [], +[a] => fn(NULL,a), a [ b ] => fn( a b )
 							// e,g, (-a[1][2])[3], [a]([b][v]), ([(a)])
 							bool valued = (last_parens->getLeft() && last_parens->getLeft()->type == tok_func);
@@ -102,6 +103,15 @@ namespace uni {
 							srs(last_parens->addr, StrHeap("operator[]"));
 							chain->Remove(crt);
 							fn = last_parens;
+						}
+						else {// {}
+							Nnode* fn = chain->Append(nullptr, true, last_parens);
+							NnodeBlock(fn, last_parens->next, crt->getLeft())->type = tok_block;// chain->Adopt
+							fn->GetTnodeField()->col = last_parens->GetTnodeField()->col;
+							fn->GetTnodeField()->row = last_parens->GetTnodeField()->row;
+							chain->Remove(last_parens);
+							if (last_parens == crt) crt = fn;
+							chain->Remove(crt);
 						}
 						crt = fn;
 						if (!ParseParen(fn->subf, chain))

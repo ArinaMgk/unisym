@@ -67,14 +67,15 @@ static void ParseStatements_CPL(Nchain& nchain, Nnode* beg_nod) {
 		}
 	}
 	// [may Just a Value]
-	//if (left0_nod && left0_nod != beg_nod && left0_nod->next) {
-	//	Nnode* fn = nchain.Append(nullptr, true, left0_nod);
-	//	NnodeBlock(fn, left0_nod, left0_nod->Tail())->type = tok_statement;// chain->Adopt
-	//	fn->GetTnodeField()->col = left0_nod->GetTnodeField()->col;
-	//	fn->GetTnodeField()->row = left0_nod->GetTnodeField()->row;
-	//}
+	if (left0_nod && left0_nod != beg_nod && left0_nod->next) {
+		Nnode* fn = nchain.Append(nullptr, true, left0_nod);
+		NnodeBlock(fn, left0_nod, left0_nod->Tail())->type = tok_statement;// chain->Adopt
+		fn->GetTnodeField()->col = left0_nod->GetTnodeField()->col;
+		fn->GetTnodeField()->row = left0_nod->GetTnodeField()->row;
+	}
 }
 
+#if 0 // outdated
 static void ParseBlocks_CPL(Nchain& nchain, Nnode* beg_nod) {
 	// Process { and }
 	stduint crt_nest = 0;
@@ -104,6 +105,7 @@ static void ParseBlocks_CPL(Nchain& nchain, Nnode* beg_nod) {
 		}
 	}
 }
+#endif
 
 static void ParseStatements_Sub(Nchain& nchain, Nnode* beg_nod) {
 	Nnode* crt = beg_nod;
@@ -114,10 +116,9 @@ static void ParseStatements_Sub(Nchain& nchain, Nnode* beg_nod) {
 	ParseStatements_CPL(nchain, beg_nod);
 }
 
-void uni::NestedParseUnit::ParseBlockStatements_CPL(Nnode* beg_nod) {
+void uni::NestedParseUnit::ParseStatements_CPL(Nnode* beg_nod) {
 	Nchain& nchain = *self.GetNetwork();
-	ParseBlocks_CPL(nchain, beg_nod);
-	//{} - ( ) Parens and [ ] Brackets
+	// ParseBlocks_CPL(nchain, beg_nod);
 	ParseStatements_Sub(nchain, beg_nod);
 }
 

@@ -271,8 +271,8 @@ NestedParseUnit, TokenOperator, TokenOperatorGroup ...
 \begin{lstlisting}[language=C++]
 // Heap String Dchain, @dosconio at 20250115
 Dchain chn(DnodeHeapFreeSimple);
-chn.Append((char*)"a");
-chn.Append((char*)"b");
+chn.AppendHeapstr((char*)"a");
+chn.AppendHeapstr((char*)"b");
 fori(i, chn) {
 	forhead(i, Dnode);
 	Console.OutFormat("%s\n", i.addr);

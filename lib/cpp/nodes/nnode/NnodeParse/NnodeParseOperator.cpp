@@ -59,12 +59,19 @@ inline static bool ismiddle(uni::Nnode* crt) {
 
 typedef bool (*ParseOperatorFunction_t)(uni::Nnode*, uni::NnodeChain*, bool&);
 
-const char* uni::StrIndexOperator(const char* str, uni::TokenOperator** operators, size_t count, bool left_to_right) {
+const char* uni::StrIndexOperator(const char* str, uni::TokenOperator** operators, size_t count, bool left_to_right, stduint cond) {
 	const char* idx;
-	for0(i, count) {
-		if (idx = (left_to_right ? StrIndexString : StrIndexStringRight)(str, (*operators)->idnop))
-			return idx;
+	if (cond == 2) {
+		for0(i, count) if (!StrCompare(str, (*operators)->idnop))
+			return str;
 		else ++ * operators;
+	}
+	else if (cond == 1) {
+		for0(i, count) {
+			if (idx = (left_to_right ? StrIndexString : StrIndexStringRight)(str, (*operators)->idnop))
+				return idx;
+			else ++ * operators;
+		}
 	}
 	return nullptr;
 }
@@ -85,7 +92,7 @@ static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::Toke
 		if ((crt->type == tok_symbol) && (exist_sym = true)) {
 			tmpop = tog->operators;
 			uni::TokenOperator* tmpend = tmpop + tog->count;
-			idx = StrIndexOperator(crt->addr, &tmpop, tog->count, LR_but_RL);
+			idx = StrIndexOperator(crt->addr, &tmpop, tog->count, LR_but_RL, condi);
 			bool cont = true;
 			if (tmpop) while (tmpop < tmpend && cont) {
 				uni::Nnode* judge = 0;

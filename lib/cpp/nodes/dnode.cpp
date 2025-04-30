@@ -46,7 +46,7 @@ namespace uni {
 			fastab.midl_node = LocateNode(node_count >> 1);
 	}
 
-	Dchain::Dchain() {
+	Dchain::Dchain(_tofree_ft fn_free) {
 		root_node = nullptr;
 		last_node = nullptr;
 		fastab.midl_node = nullptr;
@@ -54,6 +54,7 @@ namespace uni {
 		extn_field = nil;
 		func_free = nullptr;
 		state.been_sorted = true;// empty chain
+		func_free = fn_free;
 	}
 
 	Dchain::~Dchain() {

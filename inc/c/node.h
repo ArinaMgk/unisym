@@ -98,7 +98,7 @@ protected:
 public:
 	_tofree_ft func_free; // nullptr for not-auto sort, for `Append`
 
-	Chain(_tofree_ft free = 0);// old Chain(bool defa_free = false);
+	Chain(_tofree_ft free = NodeHeapFreeSimple);// old Chain(bool defa_free = false);
 
 	~Chain();
 	// ---- T: Iterate

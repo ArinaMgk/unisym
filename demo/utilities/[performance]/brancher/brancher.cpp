@@ -212,7 +212,7 @@ int main(int argc, char** argv) {
 			continue;
 		}
 		if (crtmode == crtmode_e::function) {
-			want_trace.Append((char*) argv[i])->lens = -2;
+			want_trace.AppendHeapstr(argv[i])->lens = -2;//{unchked}
 		}
 		else if (crtmode == crtmode_e::logfile) {
 		    file_trace = argv[i];

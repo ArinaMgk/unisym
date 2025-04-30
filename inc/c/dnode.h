@@ -152,8 +152,7 @@ protected:
 public:
 	_tofree_ft func_free;
 	//
-	Dchain(); ~Dchain();
-	Dchain(_tofree_ft fn_free) : Dchain() { func_free = fn_free; }
+	Dchain(_tofree_ft fn_free = DnodeHeapFreeSimple); ~Dchain();
 	// ---- T: Iterate
 	virtual void Iterate();
 	// ---- T: Array
@@ -176,21 +175,24 @@ public:
 	stduint Count() { return Length(); }
 	//
 	virtual bool Insert(stduint idx, pureptr_t dat);
-	Dnode* Append(const char* addr);
-	toheap Dnode* Append(char* addr);
+	//
+	Dnode* Append(pureptr_t addr, bool onleft = false, Dnode* nod = 0);
+
+	toheap Dnode* AppendHeapstr(char* addr);
 	// Priority: {nod > order > default_ends}
-	Dnode* Append(pureptr_t addr, bool onleft, Dnode* nod = 0);
 	template <typename type1> inline Dchain& operator<<(type1* obj) {
 		Append((pureptr_t)obj, false);
 		return *this;
 	}
+
+
 	template <typename type1> inline Dchain& operator<<(const type1& obj) {
 		Append((pureptr_t)&obj, false);
 		return *this;
 	}
 	// DO NOT << for heapping rostr
 	inline Dchain& operator<<(const char* addr) {
-		Append(addr);
+		Append((pureptr_t)addr);
 		return *this;
 	}
 	//

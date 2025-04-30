@@ -55,7 +55,7 @@ namespace uni {
 		fastab.midl_node = nullptr;
 		node_count = nil;
 		extn_field = nil;
-		this->func_free = free ? free : NodeHeapFreeSimple;
+		this->func_free = free;
 		state.been_sorted = true;// empty chain
 	}
 

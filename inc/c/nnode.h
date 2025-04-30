@@ -278,7 +278,7 @@ public:
 	}
 };// usually arranged by levels for its array/chain
 
-const char* StrIndexOperator(const char* str, uni::TokenOperator** operators, size_t count, bool left_to_right);
+const char* StrIndexOperator(const char* str, uni::TokenOperator** operators, size_t count, bool left_to_right, stduint cond);
 
 } // C++ END
 #else

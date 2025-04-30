@@ -16,8 +16,9 @@ Kasha Macro Library
 
 (20241228 -> 20251227)
 
-20250212: `_PROPERTY_STRING_OFF` -> `_USE_PROPERTY`
+20250430: `Dchain.Append` Optimize Naming of Append
 20250427: `Chain.Append` Optimize Naming
+20250212: `_PROPERTY_STRING_OFF` -> `_USE_PROPERTY`
 
 Azusa participated in.
 

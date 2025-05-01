@@ -71,10 +71,10 @@ void fn_assign(uni::DnodeChain* io) {
 
 static uni::TokenOperator
 // 1
-sufmem{ ".","SUFMEMB" },
-sufmep{ "->","SUFMEMP" },
-sufadd{ "++","SUFADD" },
-sufsub{ "--","SUFSUB" },
+sufmem{ ".","OP@SUFMEMB" },
+sufmep{ "->","OP@SUFMEMP" },
+sufadd{ "++","OP@SUFADD" },
+sufsub{ "--","OP@SUFSUB" },
 //    ---- (Compound literal)
 // 
 // 2

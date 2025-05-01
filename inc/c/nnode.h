@@ -243,8 +243,9 @@ public:
 	}
 
 	void ParseStatements_CPL(Nnode* beg_nod); void ParseStatements_CPL() { ParseStatements_CPL(chain->Root()); }
-
-
+	//
+	void ParseStatements_COT(Nnode* beg_nod); void ParseStatements_COT() { ParseStatements_COT(chain->Root()); }
+	void ParseBlocks_COT(Nnode* beg_nod); void ParseBlocks_COT() { ParseBlocks_COT(chain->Root()); }
 public:
 	// Process current and child : () and []
 	bool ParseParen(Nnode* tnod, bool merge_parensd = true);

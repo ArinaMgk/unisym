@@ -45,15 +45,15 @@ using namespace uni;
 // size_t rrightt = crt->next->next ? crt->next->next->type :tok_any;
 
 inline static bool issuffix(uni::Nnode* crt) {
-	return sepawith(crt, crt->next) && parawith(crt, crt->getLeft()) && sepawith(crt, crt->getLeft()->getLeft());
+	return sepawith(crt, crt->next) && parawith(crt, crt->getLeft());// && sepawith(crt, crt->getLeft()->getLeft());
 }
 inline static bool isprefix(uni::Nnode* crt) {
-	return sepawith(crt, crt->getLeft()) && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
+	return sepawith(crt, crt->getLeft()) && parawith(crt, crt->next);// && sepawith(crt, crt->next->next);
 }
 inline static bool ismiddle(uni::Nnode* crt) {
 	auto crtleft = crt->getLeft();
 	bool a = parawith(crt, crtleft);
-	if (a) a = sepawith(crt, crtleft->getLeft());
+	// if (a) a = sepawith(crt, crtleft->getLeft());
 	return a && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
 }
 

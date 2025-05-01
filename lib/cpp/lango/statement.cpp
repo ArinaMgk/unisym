@@ -115,10 +115,68 @@ static void ParseStatements_Sub(Nchain& nchain, Nnode* beg_nod) {
 	}
 	ParseStatements_CPL(nchain, beg_nod);
 }
+static bool ParseBlocks_COT_Sub(Nchain& nchain, Nnode* beg_nod, stduint nest) {
+	Nnode* first_nod = nullptr;
+	for (Nnode* crt = beg_nod; crt; crt = crt->next) {
+		stduint col = crt->GetTnodeField()->col;
+		if ((crt->type == tok_statement || crt->type == tok_block) && col == nest) {
+			if (first_nod && first_nod != crt->getLeft()) {
+				Nnode* fn = nchain.Append(nullptr, true, first_nod);
+				NnodeBlock(fn, first_nod, crt->getLeft())->type = tok_block;// chain->Adopt
+				fn->GetTnodeField()->col = first_nod->GetTnodeField()->col;
+				fn->GetTnodeField()->row = first_nod->GetTnodeField()->row;
+				if (fn->getParent() && fn->getParent()->GetTnodeField()->col != nest - 1)
+					return false;
+				first_nod = crt;
+				if (fn->subf) ParseBlocks_COT_Sub(nchain, fn->subf, nest + 1);
+			}
+			else first_nod = crt;
+		}
+	}
+	if (first_nod && first_nod != first_nod->Tail()) {
+		Nnode* fn = nchain.Append(nullptr, true, first_nod);
+		NnodeBlock(fn, first_nod, first_nod->Tail())->type = tok_block;// chain->Adopt
+		fn->GetTnodeField()->col = first_nod->GetTnodeField()->col;
+		fn->GetTnodeField()->row = first_nod->GetTnodeField()->row;
+		if (fn->subf)
+			ParseBlocks_COT_Sub(nchain, fn->subf, nest + 1);
+	}
+	return true;
+}
 
 void uni::NestedParseUnit::ParseStatements_CPL(Nnode* beg_nod) {
 	Nchain& nchain = *self.GetNetwork();
 	// ParseBlocks_CPL(nchain, beg_nod);
 	ParseStatements_Sub(nchain, beg_nod);
+}
+void uni::NestedParseUnit::ParseStatements_COT(Nnode* beg_nod) {
+	Nchain& nchain = *self.GetNetwork();
+	// Linear
+	stduint last_line = 0;
+	Nnode* first_nod = nullptr;
+	for (Nnode* crt = beg_nod; crt; crt = crt->next) {
+		if (crt->GetTnodeField()->row != last_line) {
+			last_line = crt->GetTnodeField()->row;
+			if (first_nod) {
+				Nnode* fn = nchain.Append(nullptr, true, first_nod);
+				NnodeBlock(fn, first_nod, crt->getLeft())->type = tok_statement;// chain->Adopt
+				fn->GetTnodeField()->col = first_nod->GetTnodeField()->col;
+				fn->GetTnodeField()->row = first_nod->GetTnodeField()->row;
+				crt = fn;
+				first_nod = crt->next;
+			}
+			else first_nod = crt;
+		}
+	}
+	if (first_nod) {
+		Nnode* fn = nchain.Append(nullptr, true, first_nod);
+		NnodeBlock(fn, first_nod, first_nod->Tail())->type = tok_statement;// chain->Adopt
+		fn->GetTnodeField()->col = first_nod->GetTnodeField()->col;
+		fn->GetTnodeField()->row = first_nod->GetTnodeField()->row;
+	}
+}
+void uni::NestedParseUnit::ParseBlocks_COT(Nnode* beg_nod) {
+	Nchain& nchain = *self.GetNetwork();
+	ParseBlocks_COT_Sub(nchain, beg_nod, beg_nod->GetTnodeField()->row);
 }
 

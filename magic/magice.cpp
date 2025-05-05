@@ -23,6 +23,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+#define _CRT_SECURE_NO_WARNINGS 1
 
 #include "./magice.hpp"
 
@@ -32,7 +33,7 @@
 #include "../inc/cpp/parse.hpp"
 #include "../inc/c/compile/asmcode.h"
 
-uni::NodeChain* ele_stack;
+
 
 uni::OstreamTrait* dst;// to be a HostFile or ConsoleLine
 uni::IstreamTrait* src;
@@ -151,11 +152,11 @@ static bool NnodeProcess(uni::Nnode* nnod, uni::Nchain* nchan)
 			if (tmpnode->addr) {
 				magnod = (mag_node_t*)getExfield(*tmpnode);
 				asserv(magnod->bind)((Dchain*)tmpnode);
-				else {
-					tn.col = ((mag_node_t*)getExfield(*tmpnode))->col;
-					tn.col = ((mag_node_t*)getExfield(*tmpnode))->row;
-					mag_erro(arg_v[1], __LINE__, &tn, "bad operator %s", tmpnode->addr);
-				}
+			else {
+				tn.col = ((mag_node_t*)getExfield(*tmpnode))->col;
+				tn.col = ((mag_node_t*)getExfield(*tmpnode))->row;
+				mag_erro(arg_v[1], __LINE__, &tn, "bad operator %s", tmpnode->addr);
+			}
 			}
 			if (tmpnode->getLeft()) {
 				push();
@@ -208,7 +209,7 @@ int magic(int argc, char** argv) {
 
 	dst = &Console;
 	src = &minn;
-	ele_stack = new NodeChain(NULL);
+
 
 	if (!dst || !src) {
 		plogerro("expected input and output streams.");
@@ -283,7 +284,7 @@ int magic(int argc, char** argv) {
 
 endo:
 
-	delete ele_stack;
+
 	return state;
 }
 
@@ -291,18 +292,29 @@ int main(int argc, char** argv)
 {
 	using namespace uni;
 	arg_v = argv;
-	//Letvar(buf, char*, malc(0x1000));
 	int stat = 0;
 
 	FILE* file = 0;
+	bool is_mark = false;
 
-	if (argc > 1 && 0) {
+	if (argc == 2) {
 		// judge "mgc XXX.mgc"
-
+		file = fopen(argv[1], "r");
+		if (file) {
+			String buf(22);
+			for (stduint i = 0; i < 21; i++) {
+				int ch = fgetc(file);
+				if (ch == EOF) break;
+				else buf << ch;
+			}
+			if (!StrCompare(buf.reference(), "#UTF-8 MAgicRK(1) . ."))
+				is_mark = true;
+			fclose(file); file = nullptr;
+		}
 		stat;
 	}
-	else stat = magic(argc, argv);
-	//memf(buf);
+	if (!is_mark) stat = magic(argc, argv);
+	else mark(argc, argv);
 	if (malc_count) plogerro("Memory Leak %[u]", malc_count);
 	return stat;
 }

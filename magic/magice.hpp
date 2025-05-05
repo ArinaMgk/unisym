@@ -38,7 +38,7 @@ enum magic_token {
 // ---- Magice for MarkLike
 
 enum magrk_token {
-	magrkt_TODO = magict__continue,
+	magrkt_Text = magict__continue,
 
 	magrkt__continue
 };

@@ -1,8 +1,20 @@
 
+OS?=l64d
 
-DEFS=-D_Linux -D__BITS__=64 -D_DEBUG -ll64d 
 
+ifeq ($(OS),l64d)
+MAC=_Linux
+else
+MAC=_Win64
+endif
+
+DEFS=-D$(MAC) -D__BITS__=64 -D_DEBUG -l$(OS)
+
+ifeq ($(OS),l64d)
 DSTPATH=$(ubinpath)/ELF64
+else
+DSTPATH=$(ubinpath)
+endif
 
 CXXFLAGS=$(DEFS)
 

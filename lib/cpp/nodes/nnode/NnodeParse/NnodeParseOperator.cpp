@@ -54,7 +54,7 @@ inline static bool ismiddle(uni::Nnode* crt) {
 	auto crtleft = crt->getLeft();
 	bool a = parawith(crt, crtleft);
 	// if (a) a = sepawith(crt, crtleft->getLeft());
-	return a && parawith(crt, crt->next) && sepawith(crt, crt->next->next);
+	return a && parawith(crt, crt->next);// && sepawith(crt, crt->next->next);
 }
 
 typedef bool (*ParseOperatorFunction_t)(uni::Nnode*, uni::NnodeChain*, bool&);

@@ -1,3 +1,5 @@
 UTF-8 TEXT . .
 
 判断规则 含"*" 且有地址
+
+20250514 TILL: v2.1 accept receive function name parameter.

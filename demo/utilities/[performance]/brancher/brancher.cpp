@@ -185,8 +185,9 @@ int main(int argc, char** argv) {
 	want_trace->func_free = DnodeHeapFreeSimple;
 	linksym_lists = new Dchain();
 	linksym_lists->func_free = BrancherFree_Linksym;
-	file_trace = new String();
-	file_symbols = new String();
+	// Brancher Default Filename inherit from v1.0
+	file_trace = new String("perf.txt");
+	file_symbols = new String("perf.name");
 
 	if (argc < 2) {
 		plogwarn("Usage for perf script:\n\t%s filter -f <logfile> -l <symfile> (<funcs...>)\n\t%s", argv[0],

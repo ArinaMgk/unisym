@@ -207,6 +207,9 @@ namespace uni {
 						inline const char* Index(const String& str) {
 							return StrIndexString(this->addr, str.reference());
 						}
+						inline const char* Index(const char& ch) {
+							return StrIndexChar(this->addr, ch);
+						}
 
 						// ----
 

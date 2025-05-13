@@ -64,5 +64,16 @@ namespace uni {
 		}
 		return true;
 	}
+
+	//
+
+	bool HostFile::FetchLine(char* buf, stduint len) {
+		return fgets(buf, len, (FILE*)fptr);
+	}
+
+
+
+	//
+
 #endif
 };

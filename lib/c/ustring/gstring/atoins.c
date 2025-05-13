@@ -33,6 +33,21 @@ static void setsym(const char**const inp) {
 	else if (**inp == '+') (*inp)++;
 }
 
+stduint atohex(const char* str) {
+	stduint ret = 0;
+	char ch;
+	while (ch = *str++) {
+		if (ch == '0') {
+			ret <<= 4;
+			continue;
+		}
+		ch = _MAP_ALNUM_DIGIT(ch);
+		if (ch) ret <<= 4, ret += ch;
+		else break;
+	}
+	return ret;
+}
+
 ptrdiff_t atoins(const char* str) // hosted-dep
 {
 	if (!str || !*str) return 0;

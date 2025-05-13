@@ -61,6 +61,10 @@ namespace uni {
 		bool operator<< (byte B);
 		//
 		bool operator<< (const String& str);
+		//
+		// ---
+		//
+		bool FetchLine(char* buf, stduint len);
 	};
 
 	

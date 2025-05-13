@@ -14,26 +14,33 @@ nonexist:
 
 [workbench] (all x64)
 	compiler: CodeStitcher on Ubuntu 18 LTS
-	sampiler: Intel PT on neu-xeon-e5 Ubuntu 16.04.1
+	sampiler: Intel PT on xeon-e5 Ubuntu 16.04.1
 	building: Ubuntu Jammy LTS
 */
 
-// 20250303 fix calling function jumpings
+// 20250513
+//          - auto detect user area below 0x40000000
+//          - restructure and adapt for c++
 
-#define _STYLE_RUST
-#include <c/consio.h>
+#include "brancher.hpp"
 #include <stdio.h>
-#include <unistd.h>
+#include "c/mnode.h"
 
 extern "C" int system (const char *__command);
 
 use crate uni;
 
-Dchain want_trace;
-String file_trace;// logfile name
+Dchain* want_trace;
+Dchain* linksym_lists;
+
+String* file_trace;// logfile name
+String* file_symbols;// symbolfile name
+
+
+// [FILTER]
+bool autofuncs_list = true;//{TODO} specified functions
 
 _Comment("[TODO] Multidoc Support.");
-_Comment("[TODO] FUNC*0 maybe not exist.");
 
 
 int get_basicblock_id(const char* bb_iden, const char* bb_name) {
@@ -46,140 +53,148 @@ int get_basicblock_id(const char* bb_iden, const char* bb_name) {
 	return id;
 }
 
-bool exist_intel_pt() {
-    return (access("/sys/bus/event_source/devices/intel_pt", F_OK) != -1);
+// for Mnode
+static int my_compare(pureptr_t a, pureptr_t b) {
+	return StrCompare((const char*)a, (const char*)b);
 }
-
-void hard_list() {
-	if (exist_intel_pt())
-		ploginfo("Intel PT OK."); 
-	else 
-		plogerro("Intel PT not exist.");
-
+static void my_free(pureptr_t c) {
+	Letvar(cc, Dnode*, c);
+	mfree(cc->addr);
+	mfree(cc->type);
 }
 
 void brancher() {
-	ploginfo("Brancher 1.0");
+	//ploginfo("Brancher 2.0");
+	String crtfunc = "";
 
 	static int last_idx = -1;// avoid calling
 	static int last_bid = -1;
 
-	FILE* file = fopen(file_trace.reference(), "r");
+	HostFile file (file_trace->reference());
 	if (!file) {
-		plogerro("file not exist.");
+		plogerro("log-file %s not exist.", file_trace->reference());
 		return;
 	}
-	char* buffer = (char*) malc(2048);
 
-	while (fgets(buffer, 2048, file) != NULL) {
-		//branches:u:      7f4b164c06f3 do_lookup_x (/lib/x86_64-linux-gnu/ld-2.27.so)
-		//=>     7f4b164c0706 do_lookup_x (/lib/x86_64-linux-gnu/ld-2.27.so)
-		rostr flg1 = "branches:u:";
-		char* p1 = (char*) StrIndexString(buffer, flg1);
-		char* p2 = (char*) StrIndexString(buffer, "=>");
-		if (!p1 || !p2) continue;
-		p1 += StrLength(flg1);
-		*p2 = 0;
-		p2 += 2;
-		p2[StrLength(p2) - 1] = 0;// remove \n
-		// remove prefix spaces
-		StrDeprefixSpaces(p1);
-		StrDeprefixSpaces(p2);
-		// then remove a UID
-		p1 = (char*) StrIndexChar(p1, ' ') + 1;
-		p2 = (char*) StrIndexChar(p2, ' ') + 1;
-		// skip unknown related
-		if (StrIndexString(p1, "[unknown] ([unknown])") || StrIndexString(p2, "[unknown] ([unknown])")) continue;
-		// _TEMP skip .so
-		if (StrIndexString(p1, ".so)") && StrIndexString(p2, ".so)")) continue;
-		// remove parens
-		*(char*)StrIndexChar(p1, ' ') = 0;
-		*(char*)StrIndexChar(p2, ' ') = 0;
-		// _TEMP skip if no need
-		bool good1 = false;
-		bool good2 = false;
-		unsigned idx1, idx2;
-		for0 (i, want_trace.Count()) {
-			Dnode* nod = want_trace[i];
-			stduint cmplen = StrLength(nod->addr);
-			if (!good1 && !StrCompareN(p1, nod->addr, cmplen) &&
-				(p1[cmplen] == '\0' || p1[cmplen] == '*'))
-				good1 = true, idx1 = i;
-			if (!good2 && !StrCompareN(p2, nod->addr, cmplen) &&
-				(p2[cmplen] == '\0' || p2[cmplen] == '*'))
-				good2 = true, idx2 = i;
-			if (good1 && good2) break;
-		}
-		if (!good1 && !good2) continue;
-		// jump (Bottom->Top) from "main*5" to "main*2", we count 2,3,4,5
-		//     static int main_last = -2;// -1 for main, 0 for main*0-...
-		
-		// ("--- (%s, %s)\n", p1, p2);
-		
-		// If function leave (enter), set lens -2. ???->known-head
-		if (!good1 && good2) {
-			Dnode* nod = want_trace[idx2];
-			if (!StrCompare(p2, nod->addr)) {
-				nod->lens = -2;
-			}
-			auto p2id = get_basicblock_id(p2, want_trace[idx2]->addr);
-			if (last_idx != idx2 || (last_bid != p2id))
-				outsfmt(p2id >= 0 ? "%s*%d\n" : "%s\n", want_trace[idx2]->addr, p2id);
-			last_idx = idx2, last_bid = p2id;
-		}
-		else if (good1) {
-			// ("(%s, %s)\n", p1, p2);
-			int crt_id = get_basicblock_id(p1, want_trace[idx1]->addr);
-			if (crt_id - (int)want_trace[idx1]->lens) {
-				// ("pass %d ids\n", crt_id - main_last);
-				for0(i, crt_id - (int)want_trace[idx1]->lens) {
-					int p1id = want_trace[idx1]->lens + i + 1;
-					if (last_idx != idx1 || (last_bid != p1id))
-						outsfmt("%s*%d\n", want_trace[idx1]->addr, p1id);
-					last_idx = idx1, last_bid = p1id;
-				}
-				if (good2) {
-					auto p2id = get_basicblock_id(p2, want_trace[idx2]->addr);
-					if (last_idx != idx2 || (last_bid != p2id))
-						outsfmt("%s*%d\n", want_trace[idx2]->addr, p2id);
-					last_idx = idx2, last_bid = p2id;
-				}
-			}
-			else {
-				if (good2 && get_basicblock_id(p1, want_trace[idx1]->addr) == (int)want_trace[idx1]->lens) {
-					auto p2id = get_basicblock_id(p2, want_trace[idx2]->addr);
-					if (last_idx != idx2 || (last_bid != p2id))
-						outsfmt("%s*%d\n", want_trace[idx2]->addr, p2id);
-					last_idx = idx2, last_bid = p2id;
-				}
-				// else (">>> (%s, %s)\n", p1, p2);
-			}
-		}
-		if (good2) want_trace[idx2]->lens = get_basicblock_id(p2, want_trace[idx2]->addr);
+	Mchain mc1;
+	mc1.func_comp = my_compare;
+	mc1.refChain().func_free = DnodeHeapFreeSimple;
 
-		
-		
+	char* buffer = (char*)malc(2048);
+	while (file.FetchLine(buffer, 2048)) {
+		//            49b4a2 =>           49b4ad
+		if (buffer[0] != ' ') continue;
+		char* p = buffer;
+		while (*p == ' ') p++;
+		uint64 src = atohex(p);
+		p = (char*)StrIndexString(p, "=>");
+		if (!p) continue;
+		p += 2;
+		while (*p == ' ') p++;
+		uint64 dst = atohex(p);
+
+		// Console.OutFormat("%s%[64H] -> %[64H]\n\n", buffer, src, dst);
+
+		if (crtfunc.length() && src) {
+			stduint prev_start = mc1[(pureptr_t)crtfunc.reference()].lens;
+			stduint last_start = prev_start;
+			stduint last_addr = Linksyms::Index(*linksym_lists, crtfunc.reference(), last_start);
+			while (last_addr < src) {
+				Console.OutFormat("%s*%[u]\n", crtfunc.reference(), last_start);
+				last_start++;
+				last_addr = Linksyms::Index(*linksym_lists, crtfunc.reference(), last_start);
+				if (last_addr == 0) break;
+			}
+			mc1[(pureptr_t)crtfunc.reference()].lens = last_start - 1;
+			// ploginfo("OwO %s(%[u]~%[u])", crtfunc.reference(), prev_start, last_start - 1);
+		}
+
+		if (dst) {
+			bool found = false;
+			stduint last_off = 0;
+			for (auto var = linksym_lists->Root(); var; var = var->next) {
+				Linksym* linksym = (Linksym*)var->offs;
+				if (dst == linksym->offs) {
+					String tmp = linksym->name;
+					char* tmp2 = NULL;
+					stduint now_start = 0;
+					if (tmp2 = (char*)tmp.Index('*')) {
+						now_start = atoins(tmp2 + 1);
+						*tmp2 = '\0';
+						tmp.Refresh();
+					}
+					crtfunc = tmp;
+					Letvar(res, Mnode*, mc1.refChain().LocateNode((pureptr_t)crtfunc.reference(), my_compare));
+					if (!res) {
+						mc1.Map(StrHeap(crtfunc.reference()), nullptr);
+					}
+					mc1[(pureptr_t)crtfunc.reference()].lens = now_start;
+					found = true;
+					// ploginfo("Enter Block: (%s) of func (%s)(%[u])", linksym->name, crtfunc.reference(), now_start);
+					break;
+				}
+				else if (last_off && dst < linksym->offs && dst > last_off) {
+					stduint mustlen = StrIndexChar(linksym->name, '*') - linksym->name;
+					if (!StrCompareN(linksym->name,
+						((Linksym*)(var->left->offs))->name,
+						mustlen
+					)) {
+						String tmp = ((Linksym*)(var->left->offs))->name;
+						char* tmp2 = NULL;
+						stduint now_start = 0;
+						if (tmp2 = (char*)tmp.Index('*')) {
+							now_start = atoins(tmp2 + 1);
+							*tmp2 = '\0';
+							tmp.Refresh();
+						}
+						crtfunc = tmp;
+						Letvar(res, Mnode*, mc1.refChain().LocateNode((pureptr_t)crtfunc.reference(), my_compare));
+						if (!res) {
+							mc1.Map(StrHeap(crtfunc.reference()), nullptr);
+						}
+						mc1[(pureptr_t)crtfunc.reference()].lens = now_start;
+						found = true;
+						// ploginfo("Enter Block: (%s) of func (%s)(%[u])", ((Linksym*)(var->left->offs))->name, crtfunc.reference(), now_start);
+						break;
+					}
+				}
+				last_off = linksym->offs;
+			}
+			if (!found) crtfunc = "";
+		}
+		else crtfunc = "";
 
 	}
+
+
 	puts("");
 	mfree(buffer);
-	fclose(file);
-
-	
-	
 }
+
+
 int main(int argc, char** argv) {
 	enum class crtmode_e {
-		logfile, function
+		logfile,// output of `perf script` aka `brancher record`
+		symfile,// output of `nm ./a.out`
+		function
 	};
 	crtmode_e crtmode = crtmode_e::function;
+	_logstyle = _LOG_STYLE_GCC;
+	//
+	want_trace = new Dchain();
+	want_trace->func_free = DnodeHeapFreeSimple;
+	linksym_lists = new Dchain();
+	linksym_lists->func_free = BrancherFree_Linksym;
+	file_trace = new String();
+	file_symbols = new String();
+
 	if (argc < 2) {
-		plogerro("Usage for perf script:\n\t%s filter -f <logfile> <funcs...>", argv[0]);
-		plogerro("Usage for perf branch:\n\tsudo %s record <filepath>", argv[0]);
+		plogwarn("Usage for perf script:\n\t%s filter -f <logfile> -l <symfile> (<funcs...>)\n\t%s", argv[0],
+			"# If <funcs> not specified, all user functions will be considered.");
+		plogwarn("Usage for perf branch:\n\tsudo %s record <filepath>", argv[0]);
 		goto endo;
 	}
 
-	want_trace.func_free = DnodeHeapFreeSimple;
 
 	if (!StrCompare(argv[1], "record") && argc == 3)// brancher record test.exe
 	{
@@ -191,7 +206,8 @@ int main(int argc, char** argv) {
 		if (status == 0)
 		{
 			ploginfo(String::newFormat("Some information stored in %s.", out_perf).reference());
-			system("perf script -i perf.data > perf.txt");
+			rostr opt = "ip,addr";// "addr,sym"
+			system(String::newFormat("perf script -F %s -i %s > perf.txt", opt, out_perf).reference());
 		}
 		else {
 			plogerro("Bad %d!", status);
@@ -211,23 +227,45 @@ int main(int argc, char** argv) {
 			crtmode = crtmode_e::logfile;
 			continue;
 		}
+		if (!StrCompare(argv[i], "-l")) {
+			crtmode = crtmode_e::symfile;
+			continue;
+		}
+		//
 		if (crtmode == crtmode_e::function) {
-			want_trace.AppendHeapstr(argv[i])->lens = -2;//{unchked}
+			want_trace->AppendHeapstr(argv[i])->lens = -2;
+			autofuncs_list = false;
 		}
 		else if (crtmode == crtmode_e::logfile) {
-		    file_trace = argv[i];
+		    *file_trace = argv[i];
+			crtmode = crtmode_e::function;
+		}
+		else if (crtmode == crtmode_e::symfile) {
+			*file_symbols = argv[i];
 			crtmode = crtmode_e::function;
 		}
 	}
 
-	ploginfo("we will read from %s and filter %d functions", 
-		file_trace.reference(),
-		want_trace.Count());
+	if (0) ploginfo("we will read from %s and filter %d functions", 
+		file_trace->reference(),
+		want_trace->Count());
 
-	//{TEMP} assume this PT script
-
-	if (want_trace.Count()) brancher();//{TODO} if count zero, print all blocks
+	{
+		//{TEMP} assume this PT script
+		HostFile symf(file_symbols->reference());
+		if (!bool(symf)) {
+			plogerro("sym-file %s not exist.", file_symbols->reference());
+			return -1;
+		}
+		Linksyms::StructSymbols(*linksym_lists, symf);
+		//if (want_trace->Count()) brancher();//{TODO} if count zero, print all blocks
+		brancher();
+	}
 endo:
-	want_trace.~Dchain();
+	delete file_symbols;
+	delete file_trace;
+	delete linksym_lists;
+	delete want_trace;
+	if (malc_count) plogerro("exallot %d times", malc_count);
 	return malc_count;
 }

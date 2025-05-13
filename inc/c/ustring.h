@@ -593,6 +593,8 @@ static inline char* StrToUpper(char* str)
 //
 char* instob(ptrdiff_t num, char* buf);
 
+stduint atohex(const char* str);
+
 //
 ptrdiff_t atoins(const char* str);
 

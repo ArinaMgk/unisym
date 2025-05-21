@@ -36,10 +36,6 @@ Dchain* linksym_lists;
 String* file_trace;// logfile name
 String* file_symbols;// symbolfile name
 
-
-// [FILTER]
-bool autofuncs_list = true;//{TODO} specified functions
-
 _Comment("[TODO] Multidoc Support.");
 
 
@@ -64,7 +60,7 @@ static void my_free(pureptr_t c) {
 }
 
 void brancher() {
-	//ploginfo("Brancher 2.0");
+	//ploginfo("Brancher 2.2");
 	String crtfunc = "";
 
 	static int last_idx = -1;// avoid calling
@@ -99,7 +95,8 @@ void brancher() {
 			stduint prev_start = mc1[(pureptr_t)crtfunc.reference()].lens;
 			stduint last_start = prev_start;
 			stduint last_addr = Linksyms::Index(*linksym_lists, crtfunc.reference(), last_start);
-			while (last_addr < src) {
+			if (!last_addr); 
+			else while (last_addr < src) {
 				Console.OutFormat("%s*%[u]\n", crtfunc.reference(), last_start);
 				last_start++;
 				last_addr = Linksyms::Index(*linksym_lists, crtfunc.reference(), last_start);
@@ -128,7 +125,8 @@ void brancher() {
 					if (!res) {
 						mc1.Map(StrHeap(crtfunc.reference()), nullptr);
 					}
-					mc1[(pureptr_t)crtfunc.reference()].lens = now_start;
+					Console.OutFormat("%s*%[u]\n", crtfunc.reference(), now_start);
+					mc1[(pureptr_t)crtfunc.reference()].lens = now_start + 1;// avoid repeated call
 					found = true;
 					// ploginfo("Enter Block: (%s) of func (%s)(%[u])", linksym->name, crtfunc.reference(), now_start);
 					break;
@@ -151,8 +149,11 @@ void brancher() {
 						Letvar(res, Mnode*, mc1.refChain().LocateNode((pureptr_t)crtfunc.reference(), my_compare));
 						if (!res) {
 							mc1.Map(StrHeap(crtfunc.reference()), nullptr);
+							Console.OutFormat("%s*%[u]\n", crtfunc.reference(), now_start);
 						}
-						mc1[(pureptr_t)crtfunc.reference()].lens = now_start;
+						else if (mc1[(pureptr_t)crtfunc.reference()].lens != now_start)
+							Console.OutFormat("%s*%[u]\n", crtfunc.reference(), now_start);
+						mc1[(pureptr_t)crtfunc.reference()].lens = now_start + 1;
 						found = true;
 						// ploginfo("Enter Block: (%s) of func (%s)(%[u])", ((Linksym*)(var->left->offs))->name, crtfunc.reference(), now_start);
 						break;
@@ -197,7 +198,7 @@ int main(int argc, char** argv) {
 	}
 
 
-	if (!StrCompare(argv[1], "record") && argc == 3)// brancher record test.exe
+	if (!StrCompare(argv[1], "record") && argc == 3)// brancher record './test.exe'
 	{
 		rostr out_perf = "perf.data";
 		ploginfo("Please use SUDO mode running this. like sudo ./brancher record ./test");
@@ -220,7 +221,7 @@ int main(int argc, char** argv) {
 		goto endo;
 	}
 
-	//{} below are filter
+	// below are filter
 
 	argv += 2; argc -= 2;
 	for0(i, argc) {
@@ -235,7 +236,6 @@ int main(int argc, char** argv) {
 		//
 		if (crtmode == crtmode_e::function) {
 			want_trace->AppendHeapstr(argv[i])->lens = -2;
-			autofuncs_list = false;
 		}
 		else if (crtmode == crtmode_e::logfile) {
 		    *file_trace = argv[i];

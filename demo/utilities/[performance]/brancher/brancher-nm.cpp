@@ -16,7 +16,6 @@ static rostr black_list[] = {
 
 extern Dchain* want_trace;
 bool Linksyms::StructSymbols(uni::Dchain& dc, HostFile& symfile) {
-	//{TODO} specified symbol names
 	if (!bool(symfile)) return false;
 	char* buffer = (char*)malc(2048);
 	while (symfile.FetchLine(buffer, _TEMP 2048)) {

@@ -121,6 +121,9 @@ namespace uni {
 			Preorder,
 			Inorder,
 			Postorder,
+			//
+			Levelorder,
+			LevelorderWithNull,// counts power of 2 for each level
 		};
 		//
 		template <typename type0> void Remove(Bnode* item = (Bnode*)None) {

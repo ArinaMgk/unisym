@@ -34,7 +34,7 @@ Dchain* want_trace;
 Dchain* linksym_lists;
 
 String* file_trace;// logfile name
-String* file_symbols;// symbolfile name
+String* file_symbols;// symbolfile name, please use -n, -v or --numeric-sort option
 
 _Comment("[TODO] Multidoc Support.");
 

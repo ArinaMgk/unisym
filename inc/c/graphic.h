@@ -40,6 +40,8 @@ namespace uni {
 		stdint x, y, z, t;
 	};
 
+	typedef double Line2[3];// x*[0] + y*[1] + [2] {=, <, <=} 0
+
 	struct Rectangle {
 		stduint x, y;// of vertex
 		stduint width, height;

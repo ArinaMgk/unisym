@@ -1,4 +1,4 @@
-// ASCII CPP TAB4 CRLF
+﻿// ASCII CPP TAB4 CRLF
 // Docutitle: Binary Tree Node Chain, not Token-Node-Chain!
 // Datecheck: 20240416 ~ 20240421
 // Developer: @dosconio @ UNISYM
@@ -27,23 +27,45 @@
 #if !defined(_MCCA)
 
 namespace uni {
+	void TraversalLevelorder(bool (*procfunc)(Bnode*), Bnode* nod) {
+		Dchain dc(NULL);
+		if (!nod || !procfunc) return;
+		dc.Append(nod);
+		while (auto crt = dc.Root()) {
+			if (auto crtnod = (Bnode*)crt->offs) {
+				if (procfunc) if (!procfunc(crtnod)) break;
+				dc.Append(crtnod->left);
+				dc.Append(crtnod->next);
+			}
+			dc.Remove(crt);
+		}
+	}
+
 	void BnodeChain::Traversal(TraversalOrder order, bool (*procfunc)(Bnode*), Bnode* starter) {
-		nulrecurs(starter, Root(), );
+		if (!starter) return; //nulrecurs(starter, Root(), );
 		switch (order) {
 		case Preorder:
+			// another not-recursion Stack Method: output, push right, push left, pop output...
+			// another simulate calling stack
 			if (procfunc) if (!procfunc(starter)) break;
 			Traversal(order, procfunc, starter->left);
 			Traversal(order, procfunc, starter->next);
 			break;
 		case Inorder:
+			// another simulate calling stack
+			// another ...
 			Traversal(order, procfunc, starter->left);
 			if (procfunc) if (!procfunc(starter)) break;
 			Traversal(order, procfunc, starter->next);
 			break;
 		case Postorder:
+			// another simulate calling stack
 			Traversal(order, procfunc, starter->left);
 			Traversal(order, procfunc, starter->next);
 			if (procfunc) if (!procfunc(starter)) break;
+			break;
+		case Levelorder:
+			TraversalLevelorder(procfunc, starter);
 			break;
 		default:
 			break;

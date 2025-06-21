@@ -123,7 +123,6 @@ namespace uni {
 			Postorder,
 			//
 			Levelorder,
-			LevelorderWithNull,// counts power of 2 for each level
 		};
 		//
 		template <typename type0> void Remove(Bnode* item = (Bnode*)None) {
@@ -152,7 +151,13 @@ namespace uni {
 
 		// just print them on stdio
 		// - procfunc return whether to continue
-		void Traversal(TraversalOrder order = Preorder, bool (*procfunc)(Bnode*) = 0, Bnode* starter = (Bnode*)None);
+		static void Traversal(TraversalOrder order = Preorder, bool (*procfunc)(Bnode*) = 0, Bnode* starter = (Bnode*)None);
+
+		//{TODO} TraversalWithIndex
+		//{THEN} TraversalWithNullptr
+		//	// counts power of 2 for each level
+
+
 		//
 		stduint Leaves(Bnode* starter = (Bnode*)None);
 		//

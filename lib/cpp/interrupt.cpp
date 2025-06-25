@@ -33,7 +33,7 @@ namespace uni {
 #if defined(_MCCA) && _MCCA == 0x8632
 #include "../../inc/c/driver/i8259A.h"
 
-//{TODO}
+//{TODO} Implement in Magice/AASM, because GCC compile this may be bad for different version or optimization level.
 void Divide_By_Zero_ERQHandler() {}
 void Step_ERQHandler() {}
 void NMI_ERQHandler() {}

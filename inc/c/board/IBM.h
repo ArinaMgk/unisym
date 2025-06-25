@@ -26,8 +26,13 @@
 #define _VIDEO_ADDR_BUFFER 0xB8000
 #define BYTE_EOI 0x20
 
+// ---- ---- ---- ---- INTERRUPT ---- ---- ---- ----
+// same (compatible) with the younger boards: AT ATX ITX (?)
+
+
 typedef enum
 {
+// ---- x86 Instuction Set Architecture Definitions
 	// The former 20 is for exceptions request handlers
 	ERQ_Divide_By_Zero = 0,
 	ERQ_Step = 1,
@@ -66,7 +71,7 @@ typedef enum
 	IRQ_0x75 = 0x75,
 	IRQ_0x76 = 0x76,
 	IRQ_0x77 = 0x77,
-// ----
+// ---- IBM Specific Definitions
 
 
 } Request_t;

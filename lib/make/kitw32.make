@@ -5,18 +5,18 @@
 # ModuTitle: Makefile for utilities of UniSym
 # Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
-export PATH := $(yanopath)/i686/bin;$(PATH)
+export PATH := $(ubinpath)/I686/Win32/bin;$(PATH)
 
 INCC_DIR=$(uincpath)/c/
 LIBC_DIR=$(ulibpath)/c/
-DEST_BIN=$(ubinpath)/
+DEST_BIN=$(ubinpath)/I686/Win32/bin
 #{TODO} DEST_BIN=$(ubinpath)/WIN32/
 DEMO_DIR=../../demo/utilities/
 OPT=-O3 -s -D_WinNT -L$(ubinpath) -lw32d
-CC32=$(yanopath)/i686/bin/gcc.exe -m32
+CC32=$(DEST_BIN)/gcc.exe -m32
 
 CSC4=C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe
-PREF=-I${INCC_DIR} -o ${DEST_BIN}
+PREF=-I${INCC_DIR} -o ${DEST_BIN}/
 
 all:\
 args\

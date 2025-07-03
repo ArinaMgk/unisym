@@ -73,9 +73,17 @@ Below are disappearing:
 - `ulibpath`, points to LIB, optional
 - `ubinpath`, points to BIN, a must for user
 - `uobjpath`, points to OBJ, temporary folder
-- `yanopath`, points to GCC cross-compilers and others
 - `msvcpath`, points to Microsoft Visual C++ SDK
 - `hostarget`, like `_OPT_RISCV64`, define when no target is specified
+
+Where is msvcpath:
+
+```cmd
+C:\Program Files\Microsoft Visual Studio\2022\Enterprise>which cl.exe
+C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/HostX64/x64/cl.exe
+```
+
+Then we use `="C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207"`
 
 **Covenants**
 - Binary Processor

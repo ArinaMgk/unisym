@@ -88,9 +88,11 @@ cppobjs=$(patsubst %cpp, %o, $(cppfile))
 text_gcc_win32 += comhead + """
 attr = -D_DEBUG -O3 -D_Win32
 dest_obj=$(uobjpath)/CGWin32
-CC = $(yanopath)/i686/bin/gcc.exe -m32
-CX = $(yanopath)/i686/bin/g++.exe -m32
-AR = $(yanopath)/i686/bin/ar.exe
+BN = $(ubinpath)/I686/Win32/bin
+CC = $(BN)/gcc.exe -m32
+CX = $(BN)/g++.exe -m32
+AR = $(BN)/ar.exe
+MKDIR=$(shell which mkdir.exe)
 aattr = -fwin32
 dest_abs = $(ubinpath)/libw32d.a
 dest_dll = $(ubinpath)/libw32d.so.""" + __LibVersion
@@ -98,15 +100,17 @@ dest_dll = $(ubinpath)/libw32d.so.""" + __LibVersion
 text_gcc_win64 += comhead + """
 attr = -D_DEBUG -O3 -D_Win64
 dest_obj=$(uobjpath)/CGWin64
-CC = $(yanopath)/x64/bin/gcc.exe  -m64
-CX = $(yanopath)/x64/bin/g++.exe  -m64
-AR = $(yanopath)/x64/bin/ar.exe
+BN = $(ubinpath)/AMD64/Win64/bin
+CC = $(BN)/gcc.exe  -m64
+CX = $(BN)/g++.exe  -m64
+AR = $(BN)/ar.exe
+MKDIR=$(shell which mkdir.exe)
 aattr = -fwin64
 dest_abs = $(ubinpath)/libw64d.a
 dest_dll = $(ubinpath)/libw64d.so.""" + __LibVersion
 
 text_gcc_lin32 += comhead + """
-attr = -D_DEBUG -D_Linux -O3
+attr = -D_DEBUG -D_Linux -D__BITS__=32 -O3
 aattr = -felf
 dest_obj=$(uobjpath)/CGLin32
 dest_abs=$(ubinpath)/libl32d.a
@@ -153,13 +157,15 @@ dest_obj=$(uobjpath)/CVWin32
 CC = ${msvcpath}/bin/Hostx86/x86/cl.exe
 CX = ${CC}
 AR = ${msvcpath}/bin/Hostx86/x86/lib.exe
+MKDIR=$(shell which mkdir.exe)
 # contain x86 - x64 can run this
 aattr = -fwin32
 dest_abs = $(ubinpath)/libw32d.lib
 dest_dll=...
 KitWin=C:/Program Files (x86)/Windows Kits/10
-VLIB_64=/LIBPATH:"${msvcpath}/lib/x86/" /LIBPATH:"${msvcpath}/lib/onecore/x86" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/um/x86" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/ucrt/x86"
-KitInc=$(KitWin)/Include/10.0.19041.0
+SubVer=$(shell ls '$(KitWin)/Include' | head -n 1)
+VLIB_64=/LIBPATH:"${msvcpath}/lib/x86/" /LIBPATH:"${msvcpath}/lib/onecore/x86" /LIBPATH:"$(KitWin)/Lib/$(SubVer)/um/x86" /LIBPATH:"$(KitWin)/Lib/$(SubVer)/ucrt/x86"
+KitInc=$(KitWin)/Include/$(SubVer)
 VI_SYS="$(KitInc)/ucrt/"
 VI_64=${msvcpath}/include/ /I${VI_SYS} /I"$(KitInc)/um/" /I"$(KitInc)/shared/"
 """
@@ -172,14 +178,16 @@ dest_obj=$(uobjpath)/CVWin64
 CC = ${msvcpath}/bin/Hostx64/x64/cl.exe
 CX = ${CC}
 AR = ${msvcpath}/bin/Hostx64/x64/lib.exe
+MKDIR=$(shell which mkdir.exe)
 aattr = -fwin64
 dest_abs = $(ubinpath)/libw64d.lib
 dest_dll = $(ubinpath)/libw64d.so.""" + __LibVersion
 
 text_msv_win64 += """
 KitWin=C:/Program Files (x86)/Windows Kits/10
-VLIB_64=/LIBPATH:"${msvcpath}/lib/x64/" /LIBPATH:"${msvcpath}/lib/onecore/x64" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/um/x64" /LIBPATH:"$(KitWin)/Lib/10.0.19041.0/ucrt/x64"
-KitInc=$(KitWin)/Include/10.0.19041.0
+SubVer=$(shell ls '$(KitWin)/Include' | head -n 1)
+VLIB_64=/LIBPATH:"${msvcpath}/lib/x64/" /LIBPATH:"${msvcpath}/lib/onecore/x64" /LIBPATH:"$(KitWin)/Lib/$(SubVer)/um/x64" /LIBPATH:"$(KitWin)/Lib/$(SubVer)/ucrt/x64"
+KitInc=$(KitWin)/Include/$(SubVer)
 VI_SYS="$(KitInc)/ucrt/"
 VI_64=${msvcpath}/include/ /I${VI_SYS} /I"$(KitInc)/um/" /I"$(KitInc)/shared/"
 """
@@ -196,8 +204,8 @@ text_gcc_mecocoa += tmp
 text_gcc_lin64 += tmp
 tmp = ".PHONY: all\n"+\
 	"\nall:\n"+\
-	'\t-@mkdir.exe -p ${dest_obj}\n'+\
-	'\t-@mkdir.exe -p ${dest_obj}-DLL\n'+\
+	'\t-@$(MKDIR) -p ${dest_obj}\n'+\
+	'\t-@$(MKDIR) -p ${dest_obj}-DLL\n'+\
 	'\t-@rm -f ${dest_obj}/*\n'+\
 	'\t-@rm -f ${dest_obj}-DLL/*\n'
 text_msv_win32 += tmp

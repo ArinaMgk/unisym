@@ -7,7 +7,7 @@
 
 INCC_DIR=$(uincpath)/c/
 LIBC_DIR=$(ulibpath)/c/
-DEST_BIN=$(ubinpath)/ELF64/
+DEST_BIN=$(ubinpath)/AMD64/Lin64/
 DEMO_DIR=../../demo/utilities/
 OPT=-O3 -s -D_Linux -L$(ubinpath) -ll64d
 CC32=gcc -m64

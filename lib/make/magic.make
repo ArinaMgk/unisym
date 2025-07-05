@@ -11,7 +11,7 @@ endif
 DEFS=-D$(MAC) -D__BITS__=64 -D_DEBUG -l$(OS)
 
 ifeq ($(OS),l64d)
-DSTPATH=$(ubinpath)/ELF64
+DSTPATH=$(ubinpath)/AMD64/Lin64
 else
 DSTPATH=$(ubinpath)
 endif

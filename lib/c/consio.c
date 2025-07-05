@@ -31,21 +31,24 @@
 //{TO-MOVE}
 #if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
 #include "../../inc/c/proctrl/x86/x86.h"
+
+// ----
+
 void curset(word posi)
 {
-	outpb(0x03D4, 0x0E);
-	outpb(0x03D5, posi >> 8);
-	outpb(0x03D4, 0x0F);
-	outpb(0x03D5, posi & 0xFF);
+	outpb(CRT_CR_AR, CRT_CDR_CursorLocationHigh);
+	outpb(CRT_CR_DR, posi >> 8);
+	outpb(CRT_CR_AR, CRT_CDR_CursorLocationLow);
+	outpb(CRT_CR_DR, posi & 0xFF);
 }
 
 word curget(void)
 {
 	word ret;
-	outpb(0x03D4, 0x0E);
-	ret = innpb(0x03D5) << 8;
-	outpb(0x03D4, 0x0F);
-	ret |= innpb(0x03D5);
+	outpb(CRT_CR_AR, CRT_CDR_CursorLocationHigh);
+	ret = innpb(CRT_CR_DR) << 8;
+	outpb(CRT_CR_AR, CRT_CDR_CursorLocationLow);
+	ret |= innpb(CRT_CR_DR);
 	return ret;
 }
 

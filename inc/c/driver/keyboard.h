@@ -33,6 +33,22 @@ typedef struct {
 	rostr label_prefE0;
 } keymap_element_t;
 
+struct keyboard_state_t {
+	byte l_ctrl : 1;
+	byte r_ctrl : 1;
+	byte l_shift : 1;
+	byte r_shift : 1;
+	byte l_alt : 1;
+	byte r_alt : 1;
+	byte l_logo : 1;// e.g. Windows key
+	byte r_logo : 1;
+	//
+	byte lock_number : 1;
+	byte lock_caps : 1;
+	byte lock_scroll : 1;
+	//
+};
+
 extern keymap_element_t _tab_keycode2ascii[0x80];
 
 void Keyboard_Init();

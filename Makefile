@@ -4,6 +4,12 @@
 # AllAuthor: @dosconio
 # ModuTitle: Makefile for UniSym
 # Copyright: ArinaMgk UniSym, Apache License Version 2.0
+# Dependens:
+# - TexLive
+# - Perl, Python
+# - GNU gcc, make
+# - gcc-arm-none-eabi
+
 
 make_dir=./lib/make/
 ulibpath?=./lib

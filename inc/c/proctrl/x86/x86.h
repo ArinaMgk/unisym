@@ -169,6 +169,41 @@ void _popfd(void);
 void delay001s();
 void delay001ms();
 
+// ---- ---- VGA
+
+// ---- CRT Control Registers
+#define CRT_CR_AR 0x03D4 // Address Register
+#define CRT_CR_DR 0x03D5 // Data Register
+
+enum {
+	CRT_CDR_HorizonalTotal,
+	CRT_CDR_HorizonalDisplayEnd,
+	CRT_CDR_HorizonalBlankingStart,
+	CRT_CDR_HorizonalBlankingEnd,
+	CRT_CDR_HorizonalRetraceStart,
+	CRT_CDR_HorizonalRetraceEnd,
+	//
+	CRT_CDR_VerticalTotal,
+	CRT_CDR_Overflow,
+	CRT_CDR_PresetRowScan,// 0x08
+	CRT_CDR_MaxScanLine,
+	CRT_CDR_CursorStart,
+	CRT_CDR_CursorEnd,
+	CRT_CDR_StartAddressHigh,
+	CRT_CDR_StartAddressLow,
+	CRT_CDR_CursorLocationHigh,
+	CRT_CDR_CursorLocationLow,
+	CRT_CDR_VerticalRetraceStart,// 0x10
+	CRT_CDR_VerticalRetraceEnd,
+	CRT_CDR_DisplayEnd,
+	CRT_CDR_Offset,
+	CRT_CDR_UnderlineLocation,
+	CRT_CDR_VerticalBlankingStart,
+	CRT_CDR_VerticalBlankingEnd,
+	CRT_CDR_ModeControl,// CRTC Mode Control Register 0x17
+	CRT_CDR_LineCompare,
+};// CRT Controller Data Registers
+
 #ifdef _INC_CPP
 }
 #endif

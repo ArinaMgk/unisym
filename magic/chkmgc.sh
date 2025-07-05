@@ -5,13 +5,14 @@
 # AllAuthor: @dosconio
 # ModuTitle: Makefile for Magice
 # Copyright: ArinaMgk UniSym, Apache License Version 2.0
+# Dependens: gcc-riscv64-linux-gnu-gcc (used riscv64-unknown-linux-gnu-gcc)
 
 check()
 {
 	arguments="$1"
 	expectation="$2"
-	$ubinpath/ELF64/mgc "$arguments" > ~/_obj/check.s || exit
-	riscv64-unknown-linux-gnu-gcc -static -o ~/_obj/check ~/_obj/check.s
+	mgc "$arguments" > ~/_obj/check.s || exit
+	riscv64-linux-gnu-gcc -static -o ~/_obj/check ~/_obj/check.s
 	qemu-riscv64 -L $RISCV/sysroot ~/_obj/check
 	feekback="$?"
 

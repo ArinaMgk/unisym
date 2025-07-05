@@ -181,6 +181,76 @@ namespace uni {
 		}
 	#endif
 	};
+
+#if defined(_MCCA)
+
+	enum class TTY_Mode {
+		Console,
+		Graphic,
+		None
+	};
+	struct TTY {
+		TTY_Mode mode;
+		void* body;// BareConsole or ...
+		stduint fore_id;// foreid < nums
+		stduint nums;// of tasks this have been binded
+	};// May need a array for multiple tasks. bind_task[nums]
+
+	// |----------|
+	// |area|area | area_show  ( left:0 , top, width =columns , height , filled=bgcolor_enable, (bg)color )
+	// |show|total| area_total ( columns , lines_total )
+	// |----|     |
+	// |          |
+	// |----------|
+	class BareConsole : public Console_t {
+	public:
+		virtual int out(const char* str, stduint len);
+		virtual int inn();
+	public:
+		Rectangle area_show;// relatived to Screen
+		Size2 area_total;// relatived to Memory
+		pureptr_t vga_loc_addr; // Locale VGA buffer
+		byte unit = 2;// 2 for a WORD
+		stduint crtline = 0;// should be in [0, area_total.y - area_show.height]
+		stduint topline;// 
+		stduint last_curposi;// user set, should be in [width*topline, width*(topline+area_show.height)-1]
+		// - out
+		byte attr = 0;
+		bool attr_enable = 0;
+		//
+		// - use global cursor position function
+		//
+		BareConsole(stduint columns, stduint lines_total, stduint address, stduint topline = 0)// e.g. BareConsole(80,25,0xB8000)
+			: area_show(0, 0, columns, lines_total), area_total(columns, lines_total), vga_loc_addr((pureptr_t)address), topline(topline)
+		{
+			last_curposi = topline * columns;// next char will be written at vga_loc_addr[unit*crt_curposi]
+		}
+
+		void setShowY(stduint top, stduint height) {
+			area_show.y = top;
+			area_show.height = height;
+		}// e.g. (0,24), (1,24), ...
+
+		void Scroll(stdsint dif, word& posi);// positive for up, negative for down
+
+
+		static void setStartPosition(word pos);
+	};
+	// Compatible:
+	// - TEXT 80x25
+	// Current:
+	// - Flush Immediately
+	// - Range: [width*topline, width*(topline+area_show.height)-1]
+	//{unchk} when left!=0 or width!=columns
+	//{todo} bgcolor
+	//{todo} scroll down
+	//{todo} for area_show.height < screen.height
+
+
+
+#endif
+
+
 #if defined(_WinNT) || defined(_Linux) || defined(_MCCA)
 	extern HostConsole Console;
 #endif

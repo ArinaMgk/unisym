@@ -91,8 +91,13 @@ namespace uni {
 				}
 				if (!chr) break;
 				// posi includes the crtline (aka. begin-addr)
-				while (posi - unit * area_total.x * crtline >= _Offset + _BytesPerLine * area_show.height) {
+				//while (posi - unit * area_total.x * crtline >= _Offset + _BytesPerLine * area_show.height)
+				while (posi >= _BytesPerLine * (topline + area_total.y))
+				{
 					Scroll(+1, posi);
+				}
+				if (posi / _BytesPerLine == crtline + area_show.height) {
+					setStartLine(++crtline);
 				}
 			}
 			curset(posi / 2);
@@ -104,7 +109,6 @@ namespace uni {
 	int BareConsole::inn() {
 
 	}
-
 	void BareConsole::Scroll(stdsint lines, word& posi) {
 		//{} The fact may be ContinPage + MemAbsolute
 		const stduint _BytesPerLine = unit * area_total.x;
@@ -112,28 +116,14 @@ namespace uni {
 		//__asm("cli");
 		//{TODO} 
 		if (!lines) return;
-		if (crtline > area_total.y - area_show.height) {
-			// BAD
-			plogerro("Scrrol"); while(1);
-			return;
-		}
-		else if (crtline == area_total.y - area_show.height)// just scroll by memmov-series
-		{
-			//MIN(lines, _LinesPerScreen);
-			word* sors = (word*)(_VideoBuf + _BytesPerLine * lines);// Add for Pointer!
-			word* dest = (word*)_VideoBuf;
-			forp(dest, _BytesPerLine * (area_total.y - lines))* dest = *sors++;
-			forp(dest, _BytesPerLine * lines)
-				* dest = 0x0720;//{TEMP} the new lines are of 'white on black' color
-			posi -= _BytesPerLine * lines ;//{TEMP}! assume lines always equals 1
-		}
-		else {
-			//{} assume lines always equals 1
-			crtline++;
-			word begposi = crtline * area_total.x;
-			setStartPosition(begposi);
-		}
-		//__asm("sti");// if you previously open STI
+		// lines > 0 :
+		//MIN(lines, _LinesPerScreen);
+		word* sors = (word*)(_VideoBuf + _BytesPerLine * lines);// Add for Pointer!
+		word* dest = (word*)_VideoBuf;
+		forp(dest, area_total.x * (area_total.y - lines))* dest = *sors++;
+		forp(dest, area_total.x * lines)
+			* dest = 0x0720;//{TEMP} the new lines are of 'white on black' color
+		posi -= _BytesPerLine * lines ;//{TEMP}! assume lines always equals 1
 	}
 
 	void BareConsole::setStartPosition(word begposi) {
@@ -143,6 +133,11 @@ namespace uni {
 		outpb(CRT_CR_DR, begposi & 0xFF);
 	}
 
+}
+
+extern uni::BareConsole* BCONS0;
+void outtxt(const char* str, stduint len) {
+	asserv (BCONS0)->out(str, len);
 }
 
 #endif

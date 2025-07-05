@@ -86,7 +86,7 @@ void scrrol(word lines)
 
 #if defined(_WinNT) || defined(_Linux)
 #include <stdio.h>
-void outtxt(const char* str, stduint len)
+void _WEAK outtxt(const char* str, stduint len)
 {
 	for0(i, len) {
 		putchar(*str++);
@@ -94,54 +94,7 @@ void outtxt(const char* str, stduint len)
 	_crt_out_cnt += len;
 }
 
-#elif defined(_MCCA) && _MCCA==0x8632
-void outtxt(const char* str, stduint len) {
-	static byte attr = 0;
-	static byte attr_enable = 0;
-	word posi = curget() * 2;
-	byte chr;
-	// MIN(len, StrLength(str));
-	for0(i, len) {
-		chr = (byte)*str++;
-		switch (chr)
-		{
-		case (byte)'\xFF':// 20240217-ALICE's FF Method
-			attr = *str++;
-			attr_enable = (attr != (byte)'\xFF');
-			_LIMIT--;
-			break;
-		case '\r':
-			posi -= posi % _BytesPerLine; //= posi / _BytesPerLine * _BytesPerLine;
-			break;
-		case '\n':// down
-			posi += _BytesPerLine;
-			break;
-		case '\b':// left
-			posi -= 2;
-			break;
-		case '\x01':// next
-			posi += 2;
-			break;
-		case '\x02':// up
-			posi -= _BytesPerLine;
-			break;
-		default:
-			_VideoBuf[posi++] = chr;
-			if (attr_enable)
-				_VideoBuf[posi++] = attr;
-			else
-				posi++;
-			break;
-		}
-		if (!chr) break;
-		while (posi >= _ScreenSize) {
-			scrrol(1);
-			posi -= _BytesPerLine;
-		}
-	}
-	curset(posi / 2);
-	_crt_out_cnt += len;
-}
+#elif defined(_MCCA) && _MCCA==0x8632// in consio.cpp
 #endif
 
 void ConStyleAbnormal(void)

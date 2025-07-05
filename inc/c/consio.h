@@ -235,6 +235,9 @@ namespace uni {
 
 
 		static void setStartPosition(word pos);
+		void setStartLine(word lineno) {
+			setStartPosition(lineno * area_total.x);
+		}
 	};
 	// Compatible:
 	// - TEXT 80x25

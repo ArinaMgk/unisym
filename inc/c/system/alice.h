@@ -87,6 +87,7 @@ extern "C++" {
 #define _ASM __asm
 //#undef _CALL_C
 //#define _CALL_C __cdecl
+#define _WEAK
 
 #elif defined(__GNUC__)
 #define _DEV_GCC

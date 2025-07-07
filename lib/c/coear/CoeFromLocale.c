@@ -53,7 +53,7 @@ loop: switch (c = *str++)
 			goto loopend;
 		}
 
-		if (!ParB || ParA == ParB || !LenB)// only interger
+		if (!ParB || ParA == ParB || !LenB)// only integer
 		{
 			co->coff = StrHeapN(ParA, LenA);
 			if (*co->coff != '+' && *co->coff != '-')

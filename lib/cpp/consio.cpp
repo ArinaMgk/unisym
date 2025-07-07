@@ -51,10 +51,10 @@ namespace uni {
 	int BareConsole::out(const char* str, stduint len) {
 		const stduint _BytesPerLine = unit * area_total.x;
 		const stduint _Offset = unit * area_show.y * area_total.x;// Top Area
-		volatile byte* _VideoBuf = (volatile byte*)vga_loc_addr + topline * _BytesPerLine;
+		volatile byte* _VideoBuf0 = (volatile byte*)vga_loc_addr;
 		if (!count_mode)// outtxt(str, len);
 		{
-			word posi = curget() * unit;
+			word posi = last_curposi * unit;
 			byte chr;
 			// MIN(len, StrLength(str));
 			for0(i, len) {
@@ -82,9 +82,9 @@ namespace uni {
 					posi -= _BytesPerLine;
 					break;
 				default:
-					_VideoBuf[posi++] = chr;//{}
+					_VideoBuf0[posi++] = chr;//{}
 					if (attr_enable)
-						_VideoBuf[posi++] = attr;//{}
+						_VideoBuf0[posi++] = attr;//{}
 					else
 						posi++;
 					break;
@@ -96,11 +96,14 @@ namespace uni {
 				{
 					Scroll(+1, posi);
 				}
-				if (posi / _BytesPerLine == crtline + area_show.height) {
+				if (auto_incbegaddr && posi / _BytesPerLine == topline + crtline + area_show.height) {
 					setStartLine(++crtline);
 				}
 			}
-			curset(posi / 2);
+			last_curposi = posi / 2;
+			auto po = curget();
+			if (Ranglin(po, topline * area_total.x, area_total.x * area_total.y))
+				curset(last_curposi);
 			_crt_out_cnt += len;
 		}
 		out_count += len;
@@ -123,7 +126,8 @@ namespace uni {
 		forp(dest, area_total.x * (area_total.y - lines))* dest = *sors++;
 		forp(dest, area_total.x * lines)
 			* dest = 0x0720;//{TEMP} the new lines are of 'white on black' color
-		posi -= _BytesPerLine * lines ;//{TEMP}! assume lines always equals 1
+		posi -= _BytesPerLine * lines;//{TEMP}! assume lines always equals 1
+		stat_lines += lines;
 	}
 
 	void BareConsole::setStartPosition(word begposi) {

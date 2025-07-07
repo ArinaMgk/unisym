@@ -217,6 +217,8 @@ namespace uni {
 		// - out
 		byte attr = 0;
 		bool attr_enable = 0;
+		bool auto_incbegaddr = 1;
+		stduint stat_lines = 0;// inc by scroll
 		//
 		// - use global cursor position function
 		//

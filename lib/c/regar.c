@@ -1394,7 +1394,7 @@ Rfnar_t* _Need_free RedFromLocaleClassic(const char* str)
 //			goto loopend;
 //		}
 //
-//		if (!ParB || ParA == ParB || !LenB)// only interger
+//		if (!ParB || ParA == ParB || !LenB)// only integer
 //		{
 //			co->coff = StrHeapN(ParA, LenA);
 //			if (*co->coff != '+' && *co->coff != '-')

@@ -108,7 +108,8 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 	show_weekid = 1;
-	ConClear();
+	ConClear(); ConCursor(0, 0);
+	DrawCalendar(1900 + tmp->tm_year, 1 + tmp->tm_mon, (CrtM == tmp->tm_mon && CrtY == tmp->tm_year) ? tmp->tm_mday : 0);
 	while (chr = getch())
 		switch (chr)
 		{

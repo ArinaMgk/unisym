@@ -86,7 +86,7 @@ void scrrol(word lines)
 
 #if defined(_WinNT) || defined(_Linux)
 #include <stdio.h>
-void _WEAK outtxt(const char* str, stduint len)
+void outtxt(const char* str, stduint len)
 {
 	for0(i, len) {
 		putchar(*str++);

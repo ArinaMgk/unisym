@@ -25,6 +25,7 @@
 
 byte keystate_receive_0xE0 = 0;
 // ---- Keymap for US MF-2 keyboard ----
+// 2 bytes at most
 keymap_element_t _tab_keycode2ascii[0x80] =
 { // {SCAN CODE 1}
 { 0  ,  0  , "NUL", "NUL-SHIFT"}, // 0x00
@@ -159,6 +160,10 @@ keymap_element_t _tab_keycode2ascii[0x80] =
 * AC stands for ACPI Scan Codes
 * WM stands for Windows Multimedia Scan Codes
 */
+
+//{TODO} Multi-bytes key strategy
+
+
 
 #ifdef _SUPPORT_Port8
 void Keyboard_Init()

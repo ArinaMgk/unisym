@@ -83,7 +83,7 @@ typedef struct
 	dword entry;
 	void* IOMap;//{unused} //[Com-Covenant] usually after TSS in memory
 	stduint TSSBlockLength;//{unused} from beginning off TSS to end of IOMap
-} TaskFlat_t;
+} TaskFlat_t;// for passing paras to func TaskFlatRegister()
 
 #if defined(_INC_CPP)
 extern "C" {

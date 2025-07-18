@@ -51,6 +51,14 @@ struct keyboard_state_t {
 
 extern keymap_element_t _tab_keycode2ascii[0x80];
 
-void Keyboard_Init();
+_ESYM_C void Keyboard_Init();
+
+// stat: B2 Caps, B1 Num, B0 Scroll
+_ESYM_C void KbdSetLED(byte stat);
+
+#if 1
+
+
+#endif
 
 #endif

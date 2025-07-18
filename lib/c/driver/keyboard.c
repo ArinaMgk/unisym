@@ -99,19 +99,19 @@ keymap_element_t _tab_keycode2ascii[0x80] =
 {  1 ,   1 ,  "F10", "F10"},
 {  1 ,   1 ,  "LOCK_NUM", "LOCK_NUM" },
 {  1 ,   1 ,  "LOCK_SCROLL", "LOCK_SCROLL"},
-{  1 ,  '7',  "PAD_HOME", NULL, "HOME" },
+{  1 ,  '7',  "PAD_HOME", NULL, "HOME" },// 0x47
 {  1 ,  '8',  "PAD_UP", NULL, "UP" },
 {  1 ,  '9',  "PAD_PAGEUP", NULL, "PAGEUP"},
-{  1 ,  '-',  "PAD_MINUS", NULL },
+{  '-' ,  '-',  "PAD_MINUS", NULL },
 {  1 ,  '4',  "PAD_LEFT", NULL, "LEFT"  },
 {  1 ,  '5',  "PAD_MID", NULL, "MIDDLE"   },
 {  1 ,  '6',  "PAD_RIGHT", NULL, "RIGHT" },
-{  1 ,  '+',  "PAD_PLUS", NULL  },
+{  '+' ,  '+',  "PAD_PLUS", NULL  },
 {  1 ,  '1',  "PAD_END", NULL, "END"   },
 {  1 ,  '2',  "PAD_DOWN", NULL, "DOWN"  }, // 0x50
 {  1 ,  '3',  "PAD_PAGEDOWN", NULL, "PAGEDOWN"},
 {  1 ,  '0',  "PAD_INS", NULL, "INSERT"   },
-{  1 ,  '.',  "PAD_DOT", NULL, "DELETE" },
+{  1 ,  '.',  "PAD_DOT", NULL, "DELETE" },// 0x53
 {  0 ,   0 ,  NULL ,  NULL},
 {  0 ,   0 ,  NULL ,  NULL},
 {  0 ,   0 ,  NULL ,  NULL},
@@ -170,4 +170,32 @@ void Keyboard_Init()
 {
 	i8259Master_Enable(1);// Master1 is linked with RTC
 }
+
+// AT keyboard
+// 8042 controller
+#define KEYBOARD_DAT 0x60// R(Buffer), W(Buffer, 8042 Data & 8048 Command)
+#define KEYBOARD_CMD 0x64// R(Status), W(8042 Command)
+#define KEYBOARD_LED 0xED
+#define KEYBOARD_ACK 0xFA
+
+
+static void Keyboard_Wait()// for buffer empty
+{
+	while (innpb(KEYBOARD_CMD) & 0x02);
+}
+static void Keyboard_Acknowledge()
+{
+	innpb(KEYBOARD_DAT);// == KEYBOARD_ACK
+}
+
+void KbdSetLED(byte stat)
+{
+	Keyboard_Wait();
+	outpb(KEYBOARD_DAT, KEYBOARD_LED);
+	Keyboard_Acknowledge();
+	Keyboard_Wait();
+	outpb(KEYBOARD_DAT, stat);
+	Keyboard_Acknowledge();
+}
+
 #endif

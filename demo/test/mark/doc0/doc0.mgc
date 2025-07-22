@@ -1,34 +1,27 @@
 #UTF-8 MAgicRK(1) . .
+# Magic HTML
 
-static serial Page {
+static serial Page(.Margin = default) {
 	// 'serial' for text-logical, parallel for order-irrelevant
 	// a { } block is a subsection in section or page
-	.Margin = default;
 
-	#[1] { // The default one in Page is #[1]
-		.Title = (String) "chapter" #[Lango:Cn] "一级标题" #[Lango:Nh] "レベル1の見出し";// "chapter" is of #[Lango:En], String can be omitted
+	Block(.Level = 1, .Title = (String) "chapter" #[Lango:Cn] "一级标题" #[Lango:Nh] "レベル1の見出し") 
+	{
 		// ---- Below will be received by #[1] section special parser ----
 		Format("%s\n", "doc0");
-		#[] { // #[2], increment by 1
-			.Title = "中文测试(中文測試)";// section 二级标题, for any lango
-		
-			#[] { // #[3]
-				.Title = "T3";// subsection 三级标题
+		Block(.Title = "section")
+		{ // #[2], increment by 1. 二级标题, for any lango
+			"中文测试(中文測試)";
+			Block(.Title = "T3") { // #[3]. subsection 三级标题
 				"日本語テスト";
-
-				#[] { // #[4]
-					.Title = "T4";// subsubsection 四级标题
+				Block(.Title = "subsubsection";) { // #[4] 四级标题
 					#[B]"粗体"; #[I]"斜体"; #[B,I,U]"粗体斜体下划线";
 					#[D]"删除线"; #[up]"上标"; #[dn]"下标";
 					Markup("文本", "正上标");// <ruby>
-
-					#[] { // #[5]
-						.Title = "T5";// paragraph 五级标题
-						#[] { // #[6]
-							.Title = "T6";// subparagraph, markdown 上限 : 六级标题
+					Block(.Title = "paragraph") { // #[5] 五级标题
+						Block(.Title = "T6") { // #[6] subparagraph, markdown 上限 : 六级标题
 							Picture iden(path);
-							#[] {
-								.Title = "T7";// subsubparagraph 七级标题
+							Block(.Title = "T7") { // subsubparagraph 七级标题
 								#include("./a.mgc") // parse and replace this node
 							}
 						}

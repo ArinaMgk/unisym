@@ -26,29 +26,40 @@
 namespace uni {
 #if defined(_ARC_x86)
 
-	PageDirectory* Paging::page_directory;
-
 	// return PD address
-	PageEntry* PageDirectory::ref() { return (PageEntry*)_IMM(Paging::page_directory); }
-	// position self address in PD, pointer to array of pointers of pages
-	PageEntry* PageTable::ref() {
-		return (PageEntry*)(_IMM(getParent().ref()[getID()].address) << 12);
+	PageEntry* PageDirectory::Index() { return (PageEntry*)_IMM(this); }
+	// pointer to array of pointers of pages
+	PageEntry* PageTable::Index(Paging& pg2) {
+		return (PageEntry*)(_IMM(getParent(pg2).Index()[getID()].address) << 12);
+	}
+	
+	// pointer to entry in the PD
+	PageEntry* PageTable::getEntry(Paging& pg2) {
+		return &getParent(pg2).Index()[getID()];
 	}
 	// position self address in PT, pointer to a real page
-	PageEntry* Page::ref() {
-		return &getParent().ref()[getID()];
+	PageEntry* Page::getEntry(Paging& pg2) {
+		return &getParent().Index(pg2)[getID()];
 	}
-
-
 	
-	bool Page::isPresent() const {
-		return getParent().isPresent() && getParent().ref()[getID()].P;
+	PageDirectory& PageTable::getParent(Paging& pg2) const {
+		return pg2.page_directory;// not _IMM(this) >> 10
+	}
+	PageTable& Page::getParent() const {
+		return *(PageTable*)(_IMM(this) >> 10);
 	}
 
-	void PageTable::setMode(bool present, bool writable, bool user_but_superv) {
+	bool PageTable::isPresent(Paging& pg2) const {
+		return getParent(pg2)[getID()].getEntry(pg2)->P;
+	}
+	bool Page::isPresent(Paging& pg2) const {
+		return getParent().isPresent(pg2) && getParent()[getID()].getEntry(pg2)->P;
+	}
+
+	void Paging::setMode(PageTable& l1p, bool present, bool writable, bool user_but_superv) {
 		// if not present, allocate it then set property.
-		PageEntry& v = getParent().ref()[getID()];
-		if (!isPresent()) {
+		PageEntry& v = *l1p.getParent(self)[l1p.getID()].getEntry(self);
+		if (!l1p.isPresent(self)) {
 			v.address = _IMM(_physical_allocate(0x1000)) >> 12;
 			MemSet((void*)(_IMM(v.address) << 12), 0, 0x1000);
 		}
@@ -56,39 +67,77 @@ namespace uni {
 		v.R_W = writable;
 		v.U_S = user_but_superv;
 	}
-	
-	void Page::setMode(bool present, bool writable, bool user_but_superv, stduint link_to_phy) {
+	void Paging::setMode(Page& l0p, bool present, bool writable, bool user_but_superv, stduint link_to_phy) {
 		// if not present, allocate it then set property.
-		if (!getParent().isPresent()) {
-			getParent().setMode(present, writable, user_but_superv);
+		if (!l0p.getParent().isPresent(self)) {
+			setMode(l0p.getParent(), present, writable, user_but_superv);
 		}
 		// if (!isPresent())
-		ref()->address = link_to_phy >> 12;
-		ref()->P = present;
-		ref()->R_W = writable;
-		ref()->U_S = user_but_superv;
+		l0p.getEntry(self)->address = link_to_phy >> 12;
+		l0p.getEntry(self)->P = present;
+		l0p.getEntry(self)->R_W = writable;
+		l0p.getEntry(self)->U_S = user_but_superv;
 	}
-
-
-	PageDirectory& PageTable::getParent() const {
-		return *Paging::page_directory;// not _IMM(this) >> 10
-	}
-	PageTable& Page::getParent() const {
-		return *(PageTable*)(_IMM(this) >> 10);
-	}
-
-
-
-	bool PageTable::isPresent() const {
-		return getParent().ref()[getID()].P;
-	}
-
 	
 	void Paging::Reset() {
-		MemSet(page_directory, 0, 0x1000);
+		MemSet(&page_directory, 0, 0x1000);
 	}
 
-	
+	//{unchk} ---↓
+
+
+	void* Paging::operator[](stduint address) const {
+		stduint id_l1p = address; id_l1p >>= 12 + 10; id_l1p &= 0x3FF; // index of page table
+		auto l1p = *page_directory[id_l1p].getEntry(*(Paging*)this);// level-1 page
+		if (!l1p.P) return (void*)~_IMM0;
+		//
+		stduint id_l0p = address; id_l0p >>= 12; id_l0p &= 0x3FF;// index of page
+		auto l0p = *page_directory[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
+		if (!l0p.P) return (void*)~_IMM0;
+		return (void*)(_IMM(l0p.address) << 12);
+	}
+
+	bool Paging::isMapped(stduint address) const {
+		stduint id_l1p = address; id_l1p >>= 12 + 10; id_l1p &= 0x3FF; // index of page table
+		auto l1p = *page_directory[id_l1p].getEntry(*(Paging*)this);// level-1 page
+		if (!l1p.P) return false;
+		//
+		stduint id_l0p = address; id_l0p >>= 12; id_l0p &= 0x3FF;// index of page
+		auto l0p = *page_directory[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
+		//{} check 0ptr?
+		if (!l0p.P) return false;
+		return true;
+	}
+
+	static void PageMap(Paging& pg2, stduint address, stduint physical_address, bool writable, bool user_but_superv) {
+		stduint idx_p1 = address; idx_p1 >>= 12 + 10; idx_p1 &= 0x3FF; // index of page table
+		stduint idx_p0 = address; idx_p0 >>= 12; idx_p0 &= 0x3FF; // index of page
+		pg2.setMode(pg2.page_directory[idx_p1][idx_p0], true, writable, user_but_superv);
+	}
+
+	// [ ge | page | page | pa ]
+	bool Paging::Map(stduint address, stduint physical_address, stduint length, bool writable, bool user_but_superv) {
+		// assert !(address % 0x1000)
+		// assert !(length % 0x1000)
+		// assert !(physical_address % 0x1000)
+		if (address >= address + length) return false;
+		while (length) {
+			stduint idx_p1 = address; idx_p1 >>= 12 + 10; idx_p1 &= 0x3FF; // index of page table
+			stduint idx_p0 = address; idx_p0 >>= 12; idx_p0 &= 0x3FF; // index of page
+			stduint unit = 0x1000;
+			PageMap(self, address & ~_IMM(0xFFF), physical_address & ~_IMM(0xFFF), writable, user_but_superv);
+			MIN(unit, length);
+			address += unit;
+			physical_address += unit;
+			length -= unit;
+		}
+		return true;
+	}
+
+
+
+
+
 #endif
 }
 

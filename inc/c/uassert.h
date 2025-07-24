@@ -25,4 +25,7 @@
 
 #define assert(expression) ((expression)?(char*)(expression):(exit(1),(char*)0))
 
+//{} Advanced
+// - __FILE__  __BASE_FILE__ __LINE__ __FUNCIDEN__
+
 #endif // !_INC_UASSERT

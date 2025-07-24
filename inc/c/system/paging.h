@@ -51,47 +51,46 @@ namespace uni {
 #define _NUM_pg_table_entries  (0x1000 / byteof(dword))
 #define _NUM_pd_table_entries  (0x1000 / byteof(dword))
 
+	struct Paging;
+
 	struct PageTable;
 	struct PageDirectory;
 	struct Page {
-		PageEntry* ref();
+		PageEntry* getEntry(Paging& pg2);
 		// return virtual linear address
 		operator stduint() const {
 			return _IMM(this) << 12;
 		}
-		// set usual properties
-		void setMode(bool present = true, bool writable = true, bool user_but_superv = true, stduint link_to_phy = 0);
 		//
 		PageTable& getParent() const;
-		bool isPresent() const;
-		stduint getID() const {
+		bool isPresent(Paging& pg2) const;
+		inline stduint getID() const {
 			return _IMM(this) & 0x3FF;// 0x003FF000
 		}
-	//{} MapPhysical ...
 	};
 
 	// below are virtual entity
 
 	extern void(*(*_physical_allocate)(stduint size));
 	struct PageTable {
-		PageEntry* ref();
+		PageEntry* Index(Paging& pg2);
 		Page& operator[](stduint pg_id) const {
 			if (pg_id >= _NUM_pg_table_entries)
 				return *(Page*)~_IMM0;
 			return *(Page*)((_IMM(this) << 10) | pg_id);
 		}
-		// set usual properties
-		void setMode(bool present = true, bool writable = true, bool user_but_superv = true);
+		
 		//
-		PageDirectory& getParent() const;
-		bool isPresent() const;
+		PageDirectory& getParent(Paging& pg2) const;
+		bool isPresent(Paging& pg2) const;
 		stduint getID() const {
 			return _IMM(this) & 0x3FF;// 0xFFC00000
 		}
-	};
+		PageEntry* getEntry(Paging& pg2);
+	};// this = 0xFFC00 | id(0x000 ~ 0x3FF)
 
 	struct PageDirectory {
-		PageEntry* ref();
+		PageEntry* Index();
 		PageTable& operator[](stduint pt_id) const {
 			if (pt_id >= _NUM_pd_table_entries)
 				return *(PageTable*)~_IMM0;
@@ -100,26 +99,25 @@ namespace uni {
 	};
 
 	struct Paging {
-		static PageDirectory* page_directory;
-		// return phyical address
-		void* operator[](stduint address) const {
+		PageDirectory page_directory;
 
 
-			return (void*)0;
-		}
+		// return phyical address, ~0 for unmapped
+		void* operator[](stduint address) const;
 
-		bool isMapped(stduint address) const {
-			return false;//{TODO}
-		}
+		bool isMapped(stduint address) const;
 
-		bool Map(stduint address, stduint physical_address, bool writable) const {
-			// assert !(address % 0x1000)
-			// assert !(physical_address % 0x1000)
-			_TODO
-				return false;
-		}
+		bool Map(stduint address, stduint physical_address, stduint length, bool writable, bool user_but_superv);
 
 		void Reset();
+
+		// ---- Platform Related ----
+
+		//
+		// set usual properties
+		void setMode(PageTable& l1p, bool present = true, bool writable = true, bool user_but_superv = true);
+		void setMode(Page& pag, bool present = true, bool writable = true, bool user_but_superv = true, stduint link_to_phy = 0);
+
 
 	};
 

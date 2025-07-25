@@ -99,15 +99,17 @@ namespace uni {
 	};
 
 	struct Paging {
-		PageDirectory page_directory;
+		PageDirectory* page_directory;
 
 
 		// return phyical address, ~0 for unmapped
 		void* operator[](stduint address) const;
 
-		bool isMapped(stduint address) const;
+		// return ~0 for unmapped
+		PageEntry* getEntry(stduint address) const;
 
 		bool Map(stduint address, stduint physical_address, stduint length, bool writable, bool user_but_superv);
+		bool MapWeak(stduint address, stduint physical_address, stduint length, bool writable, bool user_but_superv);
 
 		void Reset();
 

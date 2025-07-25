@@ -55,6 +55,7 @@ namespace uni {
 	class InterruptControl {
 		// FLAP32
 	protected:
+		// 0x400 at least.
 		GateInterrupt* IVT_SEL_ADDR;
 	public:
 		InterruptControl(stduint _ivt_sel_addr) : IVT_SEL_ADDR((GateInterrupt*)_ivt_sel_addr) {}

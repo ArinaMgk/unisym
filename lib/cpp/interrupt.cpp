@@ -34,66 +34,144 @@ namespace uni {
 #include "../../inc/c/driver/i8259A.h"
 
 //{TODO} Implement in Magice/AASM, because GCC compile this may be bad for different version or optimization level.
-void Divide_By_Zero_ERQHandler() {}
-void Step_ERQHandler() {}
-void NMI_ERQHandler() {}
-void Breakpoint_ERQHandler() {}
-void Overflow_ERQHandler() {}
-void Bound_ERQHandler_() {
-	__asm("Bound_ERQHandler:");
+// __attribute__((interrupt)) is useless
+
+#define ENTER __asm("push %ebp; mov %esp, %ebp")
+
+void Divide_By_Zero_ERQHandler_() {
+	__asm("Divide_By_Zero_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler(~_IMM(0x00));
+}
+void Step_ERQHandler_() {
+	__asm("Step_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler(~_IMM(0x01));
+}
+void NMI_ERQHandler_() {
+	__asm("NMI_ERQHandler:");// G++ Head
+	
+	ENTER;
+	ERQ_Handler(~_IMM(0x02));
+}
+void Breakpoint_ERQHandler_() {
+	__asm("Breakpoint_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler(~_IMM(0x03));
+}
+void Overflow_ERQHandler_() {
+	__asm("Overflow_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler(~_IMM(0x04));
+}
+void Bound_ERQHandler_() { // 0x05
+	__asm("Bound_ERQHandler:");// G++
+	
+	ENTER;
+	ERQ_Handler(~_IMM(0x05));
 	_TODO;
 }
 void Invalid_Opcode_ERQHandler_(void) { // 0x06
-	// __attribute__((interrupt)) is useless
 	__asm("Invalid_Opcode_ERQHandler:");
-	__asm("push       %ebp");
-	__asm("mov  %esp, %ebp");
+	ENTER;
 	ERQ_Handler(~_IMM(0x06));
-	__asm("mov  %ebp, %esp");// leave
-	__asm("pop  %ebp      ");
-	__asm("pop  %eax      ");// eip
-	__asm("add  $2  , %eax");// skip UD2, {0x0F,0x0B}
-	__asm("push %eax      ");
+	__asm("leave");
+	//__asm("pop  %eax      ");// eip
+	//__asm("add  $2  , %eax");// skip UD2, {0x0F,0x0B}
+	//__asm("push %eax      ");
+	__asm("addl  $2  , 0(%esp)");
 	__asm("iret");
 }
-void Coprocessor_Not_Available_ERQHandler() {}
-void Double_Fault_ERQHandler(dword ErrorCode) {}
-void Coprocessor_Segment_Overrun_ERQHandler() {}
-void Invalid_TSS_ERQHandler(dword ErrorCode) {}
-void x0B_ERQHandler(dword ErrorCode) {}
-void x0C_ERQHandler(dword ErrorCode) {}
-void x0D_ERQHandler(dword ErrorCode) {}
-void Page_Fault_ERQHandler(dword ErrorCode) { // 0x0E
-	ERQ_Handler(0x0E, ErrorCode);
+void Coprocessor_Not_Available_ERQHandler_() {
+	__asm("Coprocessor_Not_Available_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler(~_IMM(0x07));
+}
+void Double_Fault_ERQHandler_(dword ErrorCode) {
+	__asm("Double_Fault_ERQHandler:");
+
+	ENTER;
+	ERQ_Handler((0x08), ErrorCode);
+}
+void Coprocessor_Segment_Overrun_ERQHandler_() {
+	__asm("Coprocessor_Segment_Overrun_ERQHandler:");
+	ENTER;
+	ERQ_Handler(~_IMM(0x09));
+}
+void Invalid_TSS_ERQHandler_(dword ErrorCode) {
+	__asm("Invalid_TSS_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler((0x0A), ErrorCode);
+}
+void x0B_ERQHandler_(dword ErrorCode) {
+	__asm("x0B_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler((0x0B), ErrorCode);
+}
+void x0C_ERQHandler_(dword ErrorCode) {
+	__asm("x0C_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler((0x0C), ErrorCode);
+}
+void x0D_ERQHandler_(dword ErrorCode) {
+	__asm("x0D_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler((0x0D), ErrorCode);
 	//{} IRET
 }
-void x0F_ERQHandler() {}
-void X87_FPU_Floating_Point_Error_ERQHandler() { // 0x10
+void Page_Fault_ERQHandler_(dword ErrorCode) { // 0x0E
+	__asm("Page_Fault_ERQHandler:");
+	
+	ENTER;
+	ERQ_Handler((0x0E), ErrorCode);
+	//{} IRET
+}
+void x0F_ERQHandler_() {
+	__asm("x0F_ERQHandler:");
+	ENTER;
+	ERQ_Handler(~_IMM(0x0F));
+}
+void X87_FPU_Floating_Point_Error_ERQHandler_() { // 0x10
+	__asm("X87_FPU_Floating_Point_Error_ERQHandler:");
+	
+	ENTER;
 	ERQ_Handler(~_IMM(0x10));
 	//{} IRET
 }
-void Else_ERQHandler() { // 0x20
+void Else_ERQHandler_() { // 0x20
+	__asm("Else_ERQHandler:");
+	
+	ENTER;
 	ERQ_Handler(~_IMM(0x20));
 	//{} IRET
 }
 
 static stduint ERQ_Handlers[0x20]{
-	_IMM(Divide_By_Zero_ERQHandler),
-	_IMM(Step_ERQHandler),
-	_IMM(NMI_ERQHandler),
-	_IMM(Breakpoint_ERQHandler),
-	_IMM(Overflow_ERQHandler),
-	_IMM(Bound_ERQHandler),
+	_TODO _IMM(Divide_By_Zero_ERQHandler),
+	_TODO _IMM(Step_ERQHandler),
+	_TODO _IMM(NMI_ERQHandler),
+	_TODO _IMM(Breakpoint_ERQHandler),
+	_TODO _IMM(Overflow_ERQHandler),
+	_TODO _IMM(Bound_ERQHandler),
 	_IMM(Invalid_Opcode_ERQHandler),
-	_IMM(Coprocessor_Not_Available_ERQHandler),
-	_IMM(Double_Fault_ERQHandler),
-	_IMM(Coprocessor_Segment_Overrun_ERQHandler),
-	_IMM(Invalid_TSS_ERQHandler),
-	_IMM(x0B_ERQHandler),
-	_IMM(x0C_ERQHandler),
-	_IMM(x0D_ERQHandler),
-	_IMM(Page_Fault_ERQHandler),
-	_IMM(x0F_ERQHandler),
+	_TODO _IMM(Coprocessor_Not_Available_ERQHandler),
+	_TODO _IMM(Double_Fault_ERQHandler),
+	_TODO _IMM(Coprocessor_Segment_Overrun_ERQHandler),
+	_TODO _IMM(Invalid_TSS_ERQHandler),
+	_TODO _IMM(x0B_ERQHandler),
+	_TODO _IMM(x0C_ERQHandler),
+	_TODO _IMM(x0D_ERQHandler),
+	_TODO _IMM(Page_Fault_ERQHandler),
+	_TODO _IMM(x0F_ERQHandler),
 	// 0x10
 	_IMM(X87_FPU_Floating_Point_Error_ERQHandler),
 	_IMM(Else_ERQHandler),// 0x11
@@ -119,9 +197,12 @@ extern "C" void General_IRQHandler() {
 	__asm("mov $0x20, %al");
 	__asm("out %al, $0xA0");// outpb(_i8259A_SLV, BYTE_EOI);
 	__asm("out %al, $0x20");// outpb(_i8259A_SLV, BYTE_EOI);
+
+
+
 	__asm("pop  %eax");
 	// __asm("sti");
-	__asm("iret");
+	__asm("iretl");
 }
 
 void uni::InterruptControl::enAble(bool enable) {
@@ -140,24 +221,22 @@ void uni::InterruptControl::enAble(bool enable) {
 		Slv.ICW2.IntNo = 0x70;
 		Slv.ICW3.CasPortIdn = 2;
 		Slv.ICW4.Not8b = 1;
-		InterruptEnable();
 		i8259A_init(&Mas);
 		i8259A_init(&Slv);
+		InterruptEnable();
 	}
 	else
 		InterruptDisable();
 }
 
 void uni::InterruptControl::Reset(word SegCode) {
-	_PACKED(struct)  { uint16 u_16fore; uint32 u_32back; } tmp48_le;
 	for0a(i, ERQ_Handlers) {
 		GateStructInterruptR0(&self[i], ERQ_Handlers[i], SegCode, 0);
 	}
-	tmp48_le = { 256 * sizeof(gate_t) - 1, _IMM(IVT_SEL_ADDR) };
 	for (stduint i = 0x20; i < 256; i++) {
 		GateStructInterruptR0(&self[i], _IMM(General_IRQHandler), SegCode, 0);
 	}
-	InterruptDTabLoad(&tmp48_le);// ("lidt %0" :: "m" (tmp48_le));
+	loadIDT(_IMM(IVT_SEL_ADDR), 256 * sizeof(gate_t) - 1);
 }
 	
 #elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)

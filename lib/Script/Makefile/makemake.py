@@ -77,7 +77,7 @@ def apd_gnu_item(text):
 # ---- make list by win
 comhead = """
 AASM = aasm
-aat=-I$(uincpath)/Kasha/n_ -I$(uincpath)/naasm/n_
+aat=-I$(uincpath)/Kasha/n_ -I$(uincpath)/naasm/n_ -D_MCCA=0x8632
 cplpref=_cc_
 cplfile=$(wildcard lib/c/*.c) $(wildcard lib/c/**/*.c) $(wildcard lib/c/**/**/*.c) $(wildcard lib/c/**/**/**/*.c)
 cplobjs=$(patsubst %c, %o, $(cplfile))

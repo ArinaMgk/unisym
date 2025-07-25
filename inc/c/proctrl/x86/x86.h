@@ -148,6 +148,13 @@ static inline void enInterrupt(int enable) {
 }
 
 void InterruptDTabLoad(void* addr);
+
+inline static void loadIDT(uint32 address, uint16 length) {
+	_PACKED(struct) { uint16 u_16fore; uint32 u_32back; } tmp48_le;
+	tmp48_le.u_32back = address;
+	tmp48_le.u_16fore = length;
+	InterruptDTabLoad(&tmp48_le);// AAS(LIDT tmp48_le), GAS("lidt %0" :: "m" (tmp48_le))
+}
 dword getCR3();
 dword getEflags();
 void jmpFar(dword offs, dword selc);//{TODO} JumpFar

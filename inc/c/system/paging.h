@@ -108,6 +108,12 @@ namespace uni {
 		// return ~0 for unmapped
 		PageEntry* getEntry(stduint address) const;
 
+		inline Page* IndexPage(stduint address) {
+			stduint idx_p1 = address; idx_p1 >>= 12 + 10; idx_p1 &= 0x3FF; // index of page table
+			stduint idx_p0 = address; idx_p0 >>= 12; idx_p0 &= 0x3FF; // index of page
+			return &(*page_directory)[idx_p1][idx_p0];
+		}
+
 		bool Map(stduint address, stduint physical_address, stduint length, bool writable, bool user_but_superv);
 		bool MapWeak(stduint address, stduint physical_address, stduint length, bool writable, bool user_but_superv);
 

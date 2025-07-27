@@ -162,7 +162,7 @@ extern "C++" {
 #define nulrecurs(inp, root, rets) do {if (!inp) return rets; else if (!~(stduint)inp) inp = root; } while (0)
 
 #define Castype(des,val) *(des*)&(val)
-#define Letvar(iden,type,init) type iden = (type)init
+#define Letvar(iden,type,init) type iden = (type)(init)
 #define floorAlign(align,val) ((val/align)*align)
 #define ceilAlign(align,val)  floorAlign(align,val+(align-1))
 

@@ -322,6 +322,7 @@ const char* getLiteral_ELFSectionFlags(byte typ)
 }
 
 #if __BITS__ == 32
+_Comment(Sample)
 stduint ELF32_LoadExecFromMemory(const void* memsrc, void** p_entry)
 {
 	struct ELF_Header_t* header = (struct ELF_Header_t*)memsrc;

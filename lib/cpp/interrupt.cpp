@@ -128,9 +128,9 @@ void x0D_ERQHandler_(dword ErrorCode) {
 	ERQ_Handler((0x0D), ErrorCode);
 	//{} IRET
 }
-void Page_Fault_ERQHandler_(dword ErrorCode) { // 0x0E
-	__asm("Page_Fault_ERQHandler:");
-	
+void Page_Fault_ERQHandler(dword ErrorCode) { // 0x0E
+	//__asm("Page_Fault_ERQHandler:");
+	// CR2 is virtual address
 	ENTER;
 	ERQ_Handler((0x0E), ErrorCode);
 	//{} IRET
@@ -223,18 +223,18 @@ void uni::InterruptControl::enAble(bool enable) {
 		Slv.ICW4.Not8b = 1;
 		i8259A_init(&Mas);
 		i8259A_init(&Slv);
-		InterruptEnable();
+		// InterruptEnable();
 	}
 	else
 		InterruptDisable();
 }
 
-void uni::InterruptControl::Reset(word SegCode) {
+void uni::InterruptControl::Reset(word SegCode, stduint Offset) {
 	for0a(i, ERQ_Handlers) {
-		GateStructInterruptR0(&self[i], ERQ_Handlers[i], SegCode, 0);
+		GateStructInterruptR0(&self[i], ERQ_Handlers[i] + Offset, SegCode, 0);
 	}
 	for (stduint i = 0x20; i < 256; i++) {
-		GateStructInterruptR0(&self[i], _IMM(General_IRQHandler), SegCode, 0);
+		GateStructInterruptR0(&self[i], _IMM(General_IRQHandler) + Offset, SegCode, 0);
 	}
 	loadIDT(_IMM(IVT_SEL_ADDR), 256 * sizeof(gate_t) - 1);
 }

@@ -108,9 +108,7 @@ namespace uni {
 	}
 
 	static void PageMap(Paging& pg2, stduint address, stduint physical_address, bool writable, bool user_but_superv) {
-		stduint idx_p1 = address; idx_p1 >>= 12 + 10; idx_p1 &= 0x3FF; // index of page table
-		stduint idx_p0 = address; idx_p0 >>= 12; idx_p0 &= 0x3FF; // index of page
-		pg2.setMode((*pg2.page_directory)[idx_p1][idx_p0], true, writable, user_but_superv, physical_address);
+		pg2.setMode(*pg2.IndexPage(address), true, writable, user_but_superv, physical_address);
 	}
 
 	// [ ge | page | page | pa ]

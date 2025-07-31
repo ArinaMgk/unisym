@@ -95,7 +95,7 @@ namespace uni {
 		stduint id_l0p = address; id_l0p >>= 12; id_l0p &= 0x3FF;// index of page
 		auto l0p = *(*page_directory)[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
 		if (!l0p.P) return (void*)~_IMM0;
-		return (void*)(_IMM(l0p.address) << 12);
+		return (void*)((_IMM(l0p.address) << 12) + (address & 0xFFF));
 	}
 
 	PageEntry* Paging::getEntry(stduint address) const {
@@ -146,7 +146,40 @@ namespace uni {
 		return true;
 	}
 
+	//{unchk} 20250730
+	stduint MemCopyP(void* dest, Paging& pg_d, const void* sors, Paging& pg_s, size_t length)
+	{
+		stduint offset_d = _IMM(dest) & 0xFFF;
+		stduint offset_s = _IMM(sors) & 0xFFF;
 
+		Page* crtpage_d = pg_d.IndexPage(_IMM(dest));
+		Page* crtpage_s = pg_s.IndexPage(_IMM(sors));
+		stduint ret = 0;
+
+		while (length) {
+			if (!crtpage_d->isPresent(pg_d)) return 0;
+			if (!crtpage_s->isPresent(pg_s)) return 0;
+			stduint phy_d = _IMM(crtpage_d->getEntry(pg_d)->address) << 12;
+			phy_d += offset_d;
+			stduint phy_s = _IMM(crtpage_s->getEntry(pg_s)->address) << 12;
+			phy_s += offset_s;
+			stduint unit = 0x1000;
+			MIN(unit, length);
+			MIN(unit, 0x1000 - offset_d);
+			MIN(unit, 0x1000 - offset_s);
+			MemCopyN((void*)(phy_d), (void*)(phy_s), unit);
+			// ploginfo("MemCopyP: %[32H] -> %[32H] (%d bytes)", phy_d, phy_s, unit);
+			*(char**)(&dest) += unit;
+			*(char**)(&sors) += unit;
+			length -= unit;
+			ret += unit;
+			offset_d = _IMM(dest) & 0xFFF;
+			offset_s = _IMM(sors) & 0xFFF;
+			crtpage_d = pg_d.IndexPage(_IMM(dest));
+			crtpage_s = pg_s.IndexPage(_IMM(sors));
+		}
+		return ret;
+	}
 
 
 

@@ -129,6 +129,9 @@ namespace uni {
 
 	};
 
+	// Memory Copy by page
+	// return the data moved
+	extern "C" stduint MemCopyP(void* dest, Paging& pg_d, const void* sors, Paging& pg_s, size_t n);
 
 	
 #endif

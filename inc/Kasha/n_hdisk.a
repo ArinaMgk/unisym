@@ -21,6 +21,8 @@
 ;  DiskReadLBA28(eax logi, cl sectors=1);
 ;---
 
+; ATA(aka IDE, Parallel-ATA) Disk
+; not for Serial-ATA
 %imacro HdiskLoadLBA28 1-2 1
 	PUSH EAX
 	PUSH ECX

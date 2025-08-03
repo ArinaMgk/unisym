@@ -28,13 +28,12 @@
 #ifndef _INCPP_TRAIT_Storage
 #define _INCPP_TRAIT_Storage
 #include "../unisym"
+#include "../trait/BlockTrait.hpp"
 namespace uni {
-	class StorageTrait {
+	class StorageTrait : public BlockTrait {
 	public:
-		stduint Block_Size;
 		void* Block_buffer;// for byte access
-		virtual bool Read(stduint BlockIden, void* Dest) = 0;
-		virtual bool Write(stduint BlockIden, const void* Sors) = 0;
+		
 		// byte read
 		virtual byte operator[](uint64 bytid) = 0;
 

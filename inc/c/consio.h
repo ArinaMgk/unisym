@@ -144,8 +144,9 @@ namespace uni {
 	class Console_t : public OstreamTrait, public IstreamTrait
 	{
 	public:
-		virtual int out(const char* str, stduint len) { _TEMP return 0; }
-		virtual int inn() { _TEMP return 0; }
+		//virtual int out(const char* str, stduint len) { _TEMP return 0; }
+		//virtual int inn() { _TEMP return 0; }
+		
 		// print string with format at cursor
 		// C Style printf
 		// // virtual int FormatShow(const char* fmt, ...) = 0;

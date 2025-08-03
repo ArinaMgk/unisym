@@ -1,8 +1,8 @@
-// ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Trait) Block
+// ASCII C TAB4 CRLF
+// Docutitle: (Format/FileSystem) FAT12 
 // Codifiers: @ArinaMgk
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,26 +19,9 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-#include "../unisym"
-//{TODO} ! Below are included by HEREPIC ! //
 
-#ifndef _INCPP_TRAIT_BLOCK
-#define _INCPP_TRAIT_BLOCK
-namespace uni {
-
-	class BlockTrait {
-	public:
-		bool readable;
-		bool writable;
-		stduint Block_Size;// usual: 1 or 512
-		virtual bool Read(stduint BlockIden, void* Dest) = 0;
-		virtual bool Write(stduint BlockIden, const void* Sors) = 0;
-		virtual stduint getUnits() = 0;
-
-	};
+#include "../../../inc/c/format/FAT12.h"
 
 
 
 
-}
-#endif

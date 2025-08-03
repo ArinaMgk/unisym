@@ -23,6 +23,24 @@
 #ifndef _INC_FAT12
 #define _INC_FAT12
 
-//{} use StorageTrait
+#include "../../cpp/trait/StorageTrait.hpp"
+#include "../../cpp/trait/FilesysTrait.hpp"
+
+#ifdef _INC_CPP
+
+namespace uni {
+
+	class FilesysFAT12 : public FilesysTrait
+	{
+		StorageTrait* storage;
+
+	public:
+
+	};
+
+	
+}
+
+#endif
 
 #endif

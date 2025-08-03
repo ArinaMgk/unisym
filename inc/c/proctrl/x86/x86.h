@@ -211,6 +211,74 @@ enum {
 	CRT_CDR_LineCompare,
 };// CRT Controller Data Registers
 
+
+// 0x00400
+// 20250802 fo https://stanislavs.org/helppc/bios_data_area.html
+_PACKED(struct) BIOS_DataArea {
+	// 0x00
+	word port_address_COM1;
+	word port_address_COM2;
+	word port_address_COM3;
+	word port_address_COM4;
+	word port_address_LPT1;
+	word port_address_LPT2;
+	word port_address_LPT3;
+	word port_address_LPT4;// (except PS/2)
+	// 0x10
+	byte equipment_list_flags[2];//{} (see INT 11)
+	byte PCjr;// infrared keyboard link error count
+	word memory_size;// KB (see INT 12)
+	byte RESERVED_0;
+	byte PS2_BIOS_cflag;// PS/2 BIOS control flags
+	byte keyboard_flags[2];//{}
+	byte keypad_entry;// Storage for alternate keypad entry
+	word kbd_buff_head;// Offset from 40:00 to keyboard buffer head
+	word kbd_buff_tail;// Offset from 40:00 to keyboard buffer tail
+	byte kbd_buff[32];// (circular queue buffer)
+	byte drv_recalibration_status;// Drive recalibration status
+	byte diskette_motor_status;// Diskette motor status
+	// 0x40
+	byte motor_shutoff_counter;// Motor shutoff counter (decremented by INT 8)
+	byte diskette_operation_status;// Status of last diskette operation (see INT 13,1)
+	byte NEC_diskette_cflags[7];// NEC diskette controller status (see FDC)
+	byte crt_video_mode;// (see VIDEO MODE)
+	word screen_columns;
+	word crt_video_buflen;// Size of current video regen buffer in bytes
+	word crt_video_bufptr;// Offset of current video page in video regen buffer
+	// 0x50
+	word curposis[8];// Cursor position of pages 1-8, high order byte=row low order byte=column; changing this data isn't reflected immediately on the display
+	// 0x60
+	byte cur_scanline_btm;// Cursor ending (bottom) scan line (don't modify)
+	byte cur_scanline_top;// Cursor starting (top) scan line (don't modify)
+	byte crt_video_pgnumber;// Active display page number
+	word port_address_6845;// Port address of 6845 CRT controller (3B4h = mono, 3D4h = color)
+	byte cr_6845;// 6845 CRT mode control register value (port 3x8h); EGA/VGA values emulate those of the MDA/CGA
+	byte crt_CGA_color_palette;// CGA current color palette mask setting (port 3d9h); EGA and VGA values emulate the CGA
+	_PACKED(union) {
+		dword pointer_back_pe;// CS:IP for 286 return from protected mode
+		dword pointer_shutdown;// Temp storage for SS:SP during shutdown
+		dword days;// Day counter on all products after AT
+		dword reset_code_ps2;// PS/2 Pointer to reset code with memory preserved
+		byte cassette_tape_controls[5];// Cassette tape control (before AT)
+	} pointers;
+	dword count_daily_timer;// Daily timer counter, equal to zero at midnight; incremented by INT 8; read/set by INT 1A
+	// 0x70
+	byte clock_rollover_flag;// Clock rollover flag, set when 40:6C exceeds 24hrs
+	byte BIOS_break_code;// BIOS break flag, bit 7 is set if Ctrl-Break was *ever* hit; set by INT 9
+	word soft_reset_flag;// via Ctl-Alt-Del or JMP FFFF:0
+	//	1234h  Bypass memory tests & CRT initialization
+	//	4321h  Preserve memory
+	//	5678h  System suspend
+	//	9ABCh  Manufacturer test
+	//	ABCDh  Convertible POST loop
+	//	????h  many other values are used during POST
+	byte hdisk_opstatus;// Status of last hard disk operation (see INT 13,1)
+	byte hdisk_number;// Number of hard disks attached
+
+	_TODO
+};
+
+
 #ifdef _INC_CPP
 }
 #endif

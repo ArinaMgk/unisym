@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Trait) Block
+// Docutitle: (Trait) File System
 // Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -22,18 +22,13 @@
 #include "../unisym"
 //{TODO} ! Below are included by HEREPIC ! //
 
-#ifndef _INCPP_TRAIT_BLOCK
-#define _INCPP_TRAIT_BLOCK
+#ifndef _INCPP_TRAIT_FILESYSTEM
+#define _INCPP_TRAIT_FILESYSTEM
 namespace uni {
 
-	class BlockTrait {
+	class FilesysTrait {
 	public:
-		bool readable;
-		bool writable;
-		stduint Block_Size;// usual: 1 or 512
-		virtual bool Read(stduint BlockIden, void* Dest) = 0;
-		virtual bool Write(stduint BlockIden, const void* Sors) = 0;
-		virtual stduint getUnits() = 0;
+		_TODO
 
 	};
 

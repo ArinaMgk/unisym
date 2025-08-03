@@ -1,8 +1,8 @@
-// ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Stroage) Harddisk
-// Codifiers: @dosconio: 20250107
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0
+// ASCII C TAB4 CRLF
+// Docutitle: (Format.Data) Virtual-Disk-File
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,40 +20,50 @@
 	limitations under the License.
 */
 
-#ifndef _INCPP_Storage_Harddisk
-#define _INCPP_Storage_Harddisk
+#ifndef _INC_Format_Data_VHD
+#define _INC_Format_Data_VHD
 
-#include "../stdinc.h"
+#include "../../stdinc.h"
+
+typedef struct {
+	char cookie[8];
+	uint32 feature;
+	uint32 filefmt_ver;
+	uint64 data_offset;
+	uint32 time_stamp;
+	char creator_app[4];
+	uint32 creator_ver;
+	char creator_host[4];
+	uint64 orig_size;
+	uint64 curr_size;
+	uint32 disk_geometry;
+	uint32 disk_type;
+	uint32 checksum;
+	char unique_id[16];
+	uint8 saved_state;
+	uint8 RESERVED[427];
+} VHD_Footer;
 
 #ifdef _INC_CPP
-
-#include "../../cpp/trait/StorageTrait.hpp"
-
-#define ATA_READ     0x20
-#define ATA_WRITE    0x30
-#define ATA_IDENTIFY 0xEC
+#include "../../../cpp/trait/StorageTrait.hpp"
 
 namespace uni {
-	class Harddisk_PATA : public StorageTrait {
+
+	class VirtualDisk_VHD : public StorageTrait
+	{
 	public:
-		enum class HarddiskType {
-			LBA28
-		};
-	public:
-		// heritance
-		// - stduint Block_Size;
-		// - void* Block_buffer;
-		HarddiskType type;
-		Harddisk_PATA(HarddiskType type) : type(type) {}
 		virtual bool Read(stduint BlockIden, void* Dest);
 		virtual bool Write(stduint BlockIden, const void* Sors) { return _TODO false; }
 		virtual stduint getUnits() { return _TODO 0; }
 		// byte read
 		virtual byte operator[](uint64 bytid) { return _TODO 0; }
+	public:
+
 
 	};
 
-}
-#endif
 
+}
+
+#endif
 #endif

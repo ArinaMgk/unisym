@@ -74,6 +74,8 @@ namespace uni {
 		// //{TODO} Constantly Read/Write
 		virtual bool Read(stduint BlockIden, void* Dest);
 		virtual bool Write(stduint BlockIden, const void* Sors);
+		virtual stduint getUnits() { return _TODO 0; }
+		//
 		virtual byte operator[](uint64 bytid) { return _TODO false; }// byte read
 		// ---- RuptTrait ----
 		virtual void setInterrupt(Handler_t _func) const override { _TODO }

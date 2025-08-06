@@ -559,6 +559,17 @@ static inline char* StrTokenOnce(char* s1, const char* s2)
 inline static void MemReverse(char* str, stduint len) {
 	for0(i, len >> 1) xchg(str[i], str[len - i - 1]);
 }
+#ifdef _INC_CPP
+// reverse for little endian
+_ESYM_CPP template <typename type0>
+inline type0 MemReverseL(type0 _num) {
+	type0 num = _num;
+#if !__ENDIAN__
+	MemReverse((char*)&num, byteof(num));
+#endif
+	return num;
+}
+#endif
 
 // RFV30 GHC. Param:order[0:little>big 1:big>little]
 //{TODO} 2 Ver

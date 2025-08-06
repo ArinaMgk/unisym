@@ -31,11 +31,8 @@
 
 using namespace uni;
 
-VHD_Footer footer;
 
-//{TODO} Abstract VHD as a BlockTr for being used by FSys. 
-
-rostr text_size(uni::String& ker_buf, stduint m) {
+String text_size(stduint m) {
 	char unit[]{ ' ', 'K', 'M', 'G', 'T' };
 	int level = 0;
 	double mem = m;
@@ -43,33 +40,23 @@ rostr text_size(uni::String& ker_buf, stduint m) {
 		level++;
 		mem /= 1024;
 	}
-	ker_buf.Format("%lf %cB", mem, unit[level]);
-	return ker_buf.reference();
+	return String::newFormat("%lf %cB", mem, unit[level]);
 }
 
-static rostr vhd_disk_type[] = {
-	"None",
-	"Reserved (deprecated)",
-	"Fixed",
-	"Dynamic",
-	"Differencing",
-	"Reserved (deprecated)",
-	"Reserved (deprecated)"
-};
 
-int print_vhd(OstreamTrait* cons, rostr filename)
+
+int print_vhd(OstreamTrait* cons, rostr filename, VirtualDisk_VHD& vhd)
 {
 	String str;
+	if (!vhd) return -1;
+	VHD_Footer& footer = *vhd.getFooter();
 
 	cons->OutFormat("FIRST CREATOR ");
 	for0(i, 8) if (!footer.cookie[i]) break; else cons->OutChar(footer.cookie[i]);
 	cons->OutChar('\n');
 
 	cons->OutFormat("FEATURES      ");// big endian
-	uint32 feature = footer.feature;
-#if !__ENDIAN__
-	MemReverse((char*)&feature, byteof(feature));
-#endif
+	uint32 feature = MemReverseL(footer.feature);
 	if (feature & 0b10); else {
 		plogerro("Bad feature in %s", filename);
 		return -1;
@@ -79,14 +66,6 @@ int print_vhd(OstreamTrait* cons, rostr filename)
 	if (feature & 0b01) cons->OutFormat("[Temp]");
 	cons->OutChar('\n');
 
-	uint32 ffmtver = footer.filefmt_ver;
-#if !__ENDIAN__
-	MemReverse((char*)&ffmtver, byteof(ffmtver));
-#endif
-	if (ffmtver != 0x00010000) {
-		plogerro("Not a supported VHD version");
-		return -1;
-	}
 
 	uint64 data_offset = footer.data_offset;
 #if !__ENDIAN__
@@ -119,17 +98,11 @@ int print_vhd(OstreamTrait* cons, rostr filename)
 	for0(i, 4) cons->OutChar(footer.creator_host[i]);
 	cons->OutChar('\n');
 
-	uint64 origin_size = footer.orig_size;
-#if !__ENDIAN__
-	MemReverse((char*)&origin_size, byteof(origin_size));
-#endif
-	cons->OutFormat("ORIGIN  SIZE  0x%[32H] B\n", origin_size);
 
-	uint64 current_size = footer.curr_size;
-#if !__ENDIAN__
-	MemReverse((char*)&current_size, byteof(current_size));
-#endif
-	cons->OutFormat("CURRENT SIZE  %s\n", text_size(str, current_size));
+	cons->OutFormat("CURRENT SIZE  %s (Origin %s) \n",
+		text_size(vhd.getUnits() * vhd.Block_Size).reference(),
+		text_size(MemReverseL(footer.orig_size)).reference()
+	);
 
 	word cylinder = *(word*)&footer.disk_geometry;
 	byte heads = ((byte*)&footer.disk_geometry)[2];
@@ -137,22 +110,10 @@ int print_vhd(OstreamTrait* cons, rostr filename)
 	cons->OutFormat("GEOMETRY      CYLN=%u, HEAD=%u, SEC/C=%u\n",
 		cylinder, heads, sectorspc);
 
-	auto disk_type = footer.disk_type;
-#if !__ENDIAN__
-	MemReverse((char*)&disk_type, byteof(disk_type));
-#endif
-	if (disk_type >= numsof(vhd_disk_type)) {
-		plogerro("Bad Disk Type");
-		return -1;
-	}
-	cons->OutFormat("DISK    TYPE  %s\n", vhd_disk_type[disk_type]);
-	bool want_fixed = true;
 
-	auto check_sum = footer.checksum;
-#if !__ENDIAN__
-	MemReverse((char*)&check_sum, byteof(check_sum));
-#endif
-	cons->OutFormat("CHECK SUM     0x%[32H]\n", check_sum);
+	cons->OutFormat("DISK    TYPE  %s\n", vhd.getTypeIdentifier());
+
+	cons->OutFormat("CHECK SUM     0x%[32H]\n", MemReverseL(footer.checksum));
 
 	auto unique_id = footer.unique_id;
 	cons->OutFormat("UUID          ");
@@ -170,33 +131,15 @@ int main(int _c, char** _v)
 		plogerro("Bad command");
 		return -1;
 	}
-	FILE* pf = fopen(_v[1], "rb+");
-	if (!pf) {
+	VirtualDisk_VHD vhd(_v[1]);
+	if (!vhd) {
 		plogerro("Bad file %s", _v[1]);
 		return -1;
 	}
-	fseek(pf, 0, SEEK_END);
-	stduint total_size = ftell(pf);
-	if (total_size < 512) {
-		plogerro("Bad content in %s", _v[1]);
-		return -1;
-	}
-	stduint avail_size = (total_size - 511) & ~_IMM(512);
-	// cons->OutFormat("AVAIL   SIZE  %[u]B (%s)\n", avail_size, text_size(str, avail_size));
 
-	fseek(pf, -long(total_size - avail_size + 1), SEEK_END);
-	fread(&footer, sizeof(footer), 1, pf);
+	if (!print_vhd(&Console, _v[1], vhd));
+	Console.OutFormat("0x%[8H]", vhd[0x1002]);
 
-	if (!print_vhd(&Console, _v[1]));
-
-
-
-
-
-
-
-
-
-	fclose(pf); pf = nullptr;
+	vhd.~VirtualDisk_VHD();
 	return malc_count;
 }

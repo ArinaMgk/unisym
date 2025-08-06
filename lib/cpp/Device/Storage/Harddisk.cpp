@@ -21,9 +21,41 @@
 */
 
 #include "../../../../inc/c/storage/harddisk.h"
+#include "../../../../inc/c/driver/i8259A.h"
 
-namespace uni {
 #if defined(_DEV_GCC) && defined(_MCCA) && _MCCA == 0x8632
+#include "../../../../inc/cpp/Device/Storage/HD-DEPEND.h"
+namespace uni {
+
+	bool Harddisk_PATA::Hdisk_OUT(HdiskCommand* hd_cmd, bool (*hd_cmd_wait)()) {
+		if (!hd_cmd_wait()) return false;
+		// Interrupt Enable (nIEN)
+		outpb(REG_DEV_CTRL, 0);
+		// Load required parameters in the Command Block Registers
+		outpb(REG_FEATURES, hd_cmd->feature);
+		outpb(REG_NSECTOR, hd_cmd->count);
+		for0(i, 3) outpb(REG_LBA_LOW + i, hd_cmd->LBA[i]);
+		outpb(REG_DEVICE, hd_cmd->device);
+		// Write the command code to the Command Register
+		outpb(REG_CMD, hd_cmd->command);
+		return true;
+	}
+	
+	void Harddisk_PATA::setInterruptPriority(byte preempt, byte sub_priority) const {
+		// EMPTY
+	}
+	void Harddisk_PATA::enInterrupt(bool enable) const {
+		// EMPTY
+	}
+
+	void Harddisk_PATA::setInterrupt(Handler_t unused_func) const {
+		if (id >= 2) return;
+		i8259Slaver_Enable(_IMM(IRQ_ATA_DISK0) + id - _i8259A_SLV_IDSTART);
+		i8259Master_Enable(2);
+	}
+
+
+
 	bool Harddisk_PATA::Read(stduint BlockIden, void* Dest) {
 		stduint C, B;
 		__asm volatile("mov %%ecx, %0" : "=r" (C));// will break GNU stack judge: __asm ("push %ecx");
@@ -36,5 +68,14 @@ namespace uni {
 		__asm volatile("mov %0, %%ecx" : : "r" (C));// rather __asm ("pop %ecx");
 		return true;
 	}
-#endif
+
+
+
+
+
+
+
+	
+
 }
+#endif

@@ -28,30 +28,63 @@
 #ifdef _INC_CPP
 
 #include "../../cpp/trait/StorageTrait.hpp"
+#include "../../cpp/interrupt"
 
 #define ATA_READ     0x20
 #define ATA_WRITE    0x30
 #define ATA_IDENTIFY 0xEC
 
 namespace uni {
-	class Harddisk_PATA : public StorageTrait {
+
+#if defined(_DEV_GCC) && defined(_MCCA) && _MCCA == 0x8632
+
+	struct HdiskCommand {
+		byte feature;
+		byte count;
+		byte LBA[3];// LE
+		byte device;
+		byte command;
+	};
+
+
+#endif
+
+
+	class Harddisk_PATA : public StorageTrait, public RuptTrait
+	{
 	public:
 		enum class HarddiskType {
-			LBA28
+			ATA// LBA28
 		};
 	public:
 		// heritance
 		// - stduint Block_Size;
 		// - void* Block_buffer;
 		HarddiskType type;
-		Harddisk_PATA(HarddiskType type) : type(type) {}
+		byte id;
+		Harddisk_PATA(byte id = 0, HarddiskType type = HarddiskType::ATA) : id(id), type(type) {
+			Block_buffer = nullptr;
+			Block_Size = 512;
+		}
 		virtual bool Read(stduint BlockIden, void* Dest);
 		virtual bool Write(stduint BlockIden, const void* Sors) { return _TODO false; }
 		virtual stduint getUnits() { return _TODO 0; }
 		// byte read
-		virtual byte operator[](uint64 bytid) { return _TODO 0; }
+		virtual int operator[](uint64 bytid) { return _TODO 0; }
+		//
+		virtual void setInterrupt(Handler_t _func) const;
+		virtual void setInterruptPriority(byte preempt, byte sub_priority) const;
+		virtual void enInterrupt(bool enable = true) const;
+
+
+		#if defined(_DEV_GCC) && defined(_MCCA) && _MCCA == 0x8632
+		static bool Hdisk_OUT(HdiskCommand* hd_cmd, bool (*hd_cmd_wait)());
+		#endif
 
 	};
+
+
+
 
 }
 #endif

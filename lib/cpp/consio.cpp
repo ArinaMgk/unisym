@@ -111,6 +111,7 @@ namespace uni {
 	}
 	int BareConsole::inn() {
 
+		return _TODO - 1;
 	}
 	void BareConsole::Scroll(stdsint lines, word& posi) {
 		//{} The fact may be ContinPage + MemAbsolute

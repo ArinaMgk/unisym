@@ -32,7 +32,9 @@ namespace uni {
 		virtual void setInterrupt(Handler_t _func) const = 0;
 		virtual void setInterruptPriority(byte preempt, byte sub_priority) const = 0;
 		virtual void enInterrupt(bool enable = true) const = 0;
+	#ifndef _MCCA
 		virtual ~RuptTrait() = default; // avoid [-Wnon-virtual-dtor]
+	#endif
 		inline void enInterrupt(Handler_t _func) const {
 			setInterrupt(_func);
 			enInterrupt(true);

@@ -22,13 +22,18 @@
 #include "../unisym"
 //{TODO} ! Below are included by HEREPIC ! //
 
+#include "../trait/BlockTrait.hpp"
+
 #ifndef _INCPP_TRAIT_FILESYSTEM
 #define _INCPP_TRAIT_FILESYSTEM
 namespace uni {
 
-	class FilesysTrait {
+	class FilesysTrait
+	{
+	protected:
+		StorageTrait* storage;
 	public:
-		_TODO
+		
 
 	};
 

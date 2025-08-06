@@ -55,7 +55,7 @@ typedef enum
 #define _i8259A_MAS_IMR 0X21
 	IRQ_PIT = 0x20, // 8253/8254 PIT (Programmable Interval Timer)
 	IRQ_Keyboard = 0x21,
-	IRQ_Cascade = 0x22, // 8259A Cascade
+	IRQ_Cascade = 0x22, // 8259A Cascade --> _i8259A_SLV
 	IRQ_Serial = 0x23, // default ethernet interrupt vector, or RS232 interrupt vector for port 2 {??? 16450 Serial Port}
 	IRQ_RS232_Port1 = 0x24, //  RS232 interrupt vector for port 1
 	IRQ_XT_WINI = 0x25, // ???
@@ -63,14 +63,15 @@ typedef enum
 	IRQ_LPT1 = 0x27, // 8255 Parallel Port
 #define _i8259A_SLV     0XA0
 #define _i8259A_SLV_IMR 0XA1
+#define _i8259A_SLV_IDSTART     0X70
 	IRQ_RTC = 0x70,// Realtime Clock
 	IRQ_0x71 = 0x71,
 	IRQ_0x72 = 0x72,
 	IRQ_0x73 = 0x73,
-	IRQ_0x74 = 0x74,
-	IRQ_0x75 = 0x75,
-	IRQ_0x76 = 0x76,
-	IRQ_0x77 = 0x77,
+	IRQ_PS2_Mouse = 0x74,// PS2 Mouse
+	IRQ_Coprocessor = 0x75,// FPU / Coprocessor / Inter-processor
+	IRQ_ATA_DISK0 = 0x76,// Primary ATA Hard Disk
+	IRQ_ATA_DISK1 = 0x77,// Secondary ATA Hard Disk
 // ---- IBM Specific Definitions
 
 

@@ -49,16 +49,28 @@ typedef struct {
 
 namespace uni {
 
+	//{} now only for FIXED
 	class VirtualDisk_VHD : public StorageTrait
 	{
 	public:
-		virtual bool Read(stduint BlockIden, void* Dest);
-		virtual bool Write(stduint BlockIden, const void* Sors) { return _TODO false; }
-		virtual stduint getUnits() { return _TODO 0; }
-		// byte read
-		virtual byte operator[](uint64 bytid) { return _TODO 0; }
+		void* fp;
 	public:
+		virtual bool Read(stduint BlockIden, void* Dest);
+		virtual bool Write(stduint BlockIden, const void* Sors);
+		virtual stduint getUnits();
+		// byte read
+		virtual int operator[](uint64 bytid);
 
+		bool valid = false;
+		VHD_Footer* footer;
+
+		stduint total_size;
+	public:
+		operator bool() { return valid; }
+		VirtualDisk_VHD(rostr hostfile);//{TODO} BlockTr. or Hostfile
+		~VirtualDisk_VHD();
+		VHD_Footer* getFooter() { return footer; }
+		rostr getTypeIdentifier();
 
 	};
 

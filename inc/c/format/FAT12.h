@@ -32,10 +32,14 @@ namespace uni {
 
 	class FilesysFAT12 : public FilesysTrait
 	{
-		StorageTrait* storage;
+		
 
 	public:
+		FilesysFAT12(StorageTrait& s) {
+			storage = &s;
+		}
 
+		
 	};
 
 	

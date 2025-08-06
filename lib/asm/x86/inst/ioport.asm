@@ -11,6 +11,7 @@ GLOBAL _OUT_b, _IN_b; out dx, al; in al, dx;
 GLOBAL OUT_b, IN_b;
 GLOBAL _OUT_w, _IN_w; out dx, ax; in ax, dx;
 GLOBAL OUT_w, IN_w;
+GLOBAL IN_wn, _IN_wn;
 
 [CPU 386]
 
@@ -113,4 +114,15 @@ IN_w:
 	MOV ESP, EBP
 	POP EBP
 RET
-	
+
+IN_wn:
+_IN_wn:
+; void IN_wn(word Port, word* Data, unsigned n);
+	MOV EDX, [ESP + 4]
+	MOV EDI, [ESP + 8]
+	MOV ECX, [ESP + 12]
+	SHR ECX, 1
+	CLD
+	REP INSW
+	RET
+

@@ -34,8 +34,8 @@ namespace uni {
 	public:
 		void* Block_buffer;// for byte access
 		
-		// byte read
-		virtual byte operator[](uint64 bytid) = 0;
+		// byte read. -1 for error
+		virtual int operator[](uint64 bytid) = 0;
 
 	};
 

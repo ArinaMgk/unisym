@@ -29,6 +29,21 @@
 #define _INCPP_TRAIT_Storage
 #include "../unisym"
 #include "../trait/BlockTrait.hpp"
+
+// x86
+struct PartitionTableX86 {
+	byte status;
+	byte head_start;
+	word sector_start : 6;
+	word cylinder_start : 10;
+	byte type;// system id
+	byte head_end;
+	word sector_end : 6;
+	word cylinder_end : 10;
+	uint32 lba_start;
+	uint32 lba_count;
+};
+
 namespace uni {
 	class StorageTrait : public BlockTrait {
 	public:

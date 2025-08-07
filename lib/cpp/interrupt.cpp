@@ -88,9 +88,10 @@ void Invalid_Opcode_ERQHandler_(void) { // 0x06
 }
 void Coprocessor_Not_Available_ERQHandler_() {
 	__asm("Coprocessor_Not_Available_ERQHandler:");
-	
 	ENTER;
 	ERQ_Handler(~_IMM(0x07));
+	__asm("leave");
+	__asm("iret");
 }
 void Double_Fault_ERQHandler_(dword ErrorCode) {
 	__asm("Double_Fault_ERQHandler:");

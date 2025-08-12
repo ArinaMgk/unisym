@@ -57,6 +57,8 @@ namespace uni {
 
 
 	bool Harddisk_PATA::Read(stduint BlockIden, void* Dest) {
+		// if (f) { return f(self)...; } <--- def these for interface
+		//{TODO} above
 		stduint C, B;
 		__asm volatile("mov %%ecx, %0" : "=r" (C));// will break GNU stack judge: __asm ("push %ecx");
 		__asm volatile("mov %%ebx, %0" : "=r" (B));// will break GNU stack judge: __asm ("push %ebx");

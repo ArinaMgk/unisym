@@ -129,6 +129,7 @@ word IN_b(word Port);
 void OUT_w(word Port, word Data);
 word IN_w(word Port);
 void IN_wn(word Port, word* Data, unsigned n_bytes);
+void OUT_wn(word Port, word* Data, unsigned n);
 #define outpi// Out to Port's Pin
 #define outpb OUT_b
 #define outpw OUT_w

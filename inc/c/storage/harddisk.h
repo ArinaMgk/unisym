@@ -56,19 +56,19 @@ namespace uni {
 		enum class HarddiskType {
 			ATA// LBA28
 		};
+		byte id;// 0x00=0:0(primary master), 0x11=1:1(secondary slave) ...
 	public:
 		// heritance
 		// - stduint Block_Size;
 		// - void* Block_buffer;
 		HarddiskType type;
-		byte id;
 		Harddisk_PATA(byte id = 0, HarddiskType type = HarddiskType::ATA) : id(id), type(type) {
 			Block_buffer = nullptr;
 			Block_Size = 512;
 		}
 		virtual bool Read(stduint BlockIden, void* Dest);
 		virtual bool Write(stduint BlockIden, const void* Sors) { return _TODO false; }
-		virtual stduint getUnits() { return _TODO 0; }
+		virtual stduint getUnits() const { return _TEMP 512; }
 		// byte read
 		virtual int operator[](uint64 bytid) { return _TODO 0; }
 		//
@@ -76,6 +76,9 @@ namespace uni {
 		virtual void setInterruptPriority(byte preempt, byte sub_priority) const;
 		virtual void enInterrupt(bool enable = true) const;
 
+		byte getID() const { return id; }
+		byte getHigID() const { return id >> 4; }
+		byte getLowID() const { return id & 0x0F; }
 
 		#if defined(_DEV_GCC) && defined(_MCCA) && _MCCA == 0x8632
 		static bool Hdisk_OUT(HdiskCommand* hd_cmd, bool (*hd_cmd_wait)());

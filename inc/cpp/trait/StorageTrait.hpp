@@ -32,17 +32,21 @@
 
 // x86
 struct PartitionTableX86 {
+	// boot indicator
+	// bits 6-0 are zero: Bit 7 is the active partition flag
+	// else: the drive number of the drive to boot so the active partition is always found on drive 80H, the first hdisk
 	byte status;
+	//
 	byte head_start;
 	word sector_start : 6;
 	word cylinder_start : 10;
-	byte type;// system id
+	byte type;// system id, {} can list an enum class
 	byte head_end;
 	word sector_end : 6;
 	word cylinder_end : 10;
 	uint32 lba_start;
 	uint32 lba_count;
-};
+};//{TODO} details
 
 namespace uni {
 	class StorageTrait : public BlockTrait {

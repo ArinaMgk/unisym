@@ -54,6 +54,7 @@ getEflags:
 	POP EAX
 RET
 
+;struct __attribute__((packed)) tmp48be_t { uint32 u_32fore; uint16 u_16back; };
 jmpFar:; + TSS_ID_inGDT
 	; - [EBP+4*0]=BP
 	; - [EBP+4*1]=Return Address

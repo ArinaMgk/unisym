@@ -170,6 +170,9 @@ enum Architecture_ARMv_t {
 	#define __ARCH__ Architecture_Unknown
 #elif defined(_OPT_RISCV64)
 	#include "../architect/arcriscv_64.h"
+#elif defined(_OPT_RISCV32) || defined(_MCCA) && _MCCA==0x1032
+	#define __BITS__ 32
+	#include "../architect/arcriscv_32.h"
 #else // if unknown architecture, UNISYM will not define any
 	#define _INC_DEPEND_STDINT
 	#include <stdint.h> // try

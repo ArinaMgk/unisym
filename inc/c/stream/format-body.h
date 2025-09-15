@@ -80,7 +80,7 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 			if (sizlevel == 1)
 				out_floating(pnext(double));
 			else if (sizlevel == 0)
-				out_floating(pnext(float));
+				out_floating(para_next_float(paras));
 			sizlevel = 0;
 			break;
 		case 'p':
@@ -99,7 +99,7 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 		case '[': // alicee extend
 			if (!StrCompareN(fmt + i, "[2c]", 4)) // Print 2-byte Character
 			{
-				uint16 tmp = pnext(uint16);
+				uint16 tmp = para_next_u16(paras);
 				const char* ptmp = (char*)&tmp;
 				outc(ptmp[0]);
 				outc(ptmp[1]);
@@ -118,12 +118,12 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 			}
 			else if (!StrCompareN(fmt + i, "[8H]", 4)) // Print Hex STDUINT 8 bit
 			{
-				out_integer(pnext(uint8), 16, false, false, byteof(uint8) << 1, true, intlog2_iexpo(byteof(uint8)));
+				out_integer(para_next_u8(paras), 16, false, false, byteof(uint8) << 1, true, intlog2_iexpo(byteof(uint8)));
 				i += 4 - 1;
 			}
 			else if (!StrCompareN(fmt + i, "[16H]", 5)) // Print Hex STDSINT 16 bit
 			{
-				out_integer(pnext(uint16), 16, false, false, byteof(uint16) << 1, true, intlog2_iexpo(byteof(uint16)));
+				out_integer(para_next_u16(paras), 16, false, false, byteof(uint16) << 1, true, intlog2_iexpo(byteof(uint16)));
 				i += 5 - 1;
 			}
 			else if (!StrCompareN(fmt + i, "[32H]", 5)) // Print Hex STDSINT 32 bit

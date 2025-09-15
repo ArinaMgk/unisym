@@ -242,7 +242,8 @@ namespace uni {
 	extern UART_t  XART4, XART5, XART7, XART8;
 }
 
-#elif defined(_WinNT) || defined(_Linux) // Any Hosted
+#elif defined(_WinNT) || defined(_Linux) || \
+	( defined(_MCCA) && _MCCA == 0x1032 ) // Any Hosted
 
 #ifdef _WinNT
 #define UNICODE
@@ -259,6 +260,13 @@ namespace uni {
 
 #endif
 #include "../../cpp/string"
+#include "../../cpp/trait/XstreamTrait.hpp"
+
+#if defined(_WinNT) || defined(_Linux)
+#define PORTNAME_TYPE String
+#else
+#define PORTNAME_TYPE stduint
+#endif
 
 namespace uni {
 	enum class UARTCheck {
@@ -267,23 +275,84 @@ namespace uni {
 	enum class UARTStopBit {
 		One, OneHalf, Two
 	};
-	class UART_t {
+	#if defined(_MCCA) && _MCCA == 0x1032
+	enum XARTReg {
+		RHR = 0, // Receive Holding Register (read mode)
+		THR = 0, // Transmit Holding Register (write mode)
+		DLL = 0, // LSB of Divisor Latch (write mode)
+		IER = 1, // Interrupt Enable Register (write mode)
+		DLM = 1, // MSB of Divisor Latch (write mode)
+		FCR = 2, // FIFO Control Register (write mode)
+		ISR = 2, // Interrupt Status Register (read mode)
+		LCR = 3, // Line Control Register
+		MCR = 4, // Modem Control Register
+
+		// LSR BIT 0:
+		// 0 = no data in receive holding register or FIFO.
+		// 1 = data has been receive and saved in the receive holding register or FIFO.
+		//...
+		// LSR BIT 5:
+		// 0 = transmit holding register is full. 16550 will not accept any data for transmission.
+		// 1 = transmitter hold register (or FIFO) is empty. CPU can load the next character.
+		LSR = 5, // Line Status Register
+		#define _BITPOS_LSR_RX_READY 0
+		#define _BITPOS_LSR_TX_IDLE  5
+		
+
+		MSR = 6, // Modem Status Register
+		SPR = 7, // ScratchPad Register
+	};// refer: TECHNICAL DATA ON 16550, http://byterunner.com/16550.html
+	/*** POWER UP DEFAULTS
+	* IER   = 0: TX/RX holding register interrupts are both disabled
+	* ISR   = 1: no interrupt penting
+	* LCR   = 0
+	* MCR   = 0
+	* LSR   = 60 HEX
+	* MSR   = BITS 0-3 = 0, BITS 4-7 = inputs
+	* FCR   = 0
+	* TX    = High
+	* OP1   = High
+	* OP2   = High
+	* RTS   = High
+	* DTR   = High
+	* RXRDY = High
+	* TXRDY = Low
+	* INT   = Low
+	*/
+	#endif
+
+	#if defined(_MCCA) && _MCCA == 0x1032// for QEMUVIRT-R32 UART0
+	#define ADDR_UART0 0x10000000L
+	#endif
+
+	class UART_t : public IstreamTrait, public OstreamTrait
+	{
 		stduint baudrate;
 		bool state;
-		String portname;// "\\\\.\\COM10" or "ttyUSB0"
 		stduint databits;
 		UARTCheck parity;
 		UARTStopBit stopbits;
-	#ifdef _WinNT
+
+		PORTNAME_TYPE portname;// "\\\\.\\COM10" or "ttyUSB0"
+
+		#ifdef _WinNT
 		HANDLE pHandle;
-	#elif defined(_Linux)
+		#elif defined(_Linux)
 		int pHandle;
-	#endif
+		#endif
+
+	protected:
+		virtual int inn() override;
+		virtual int out(const char* str, stduint len) override;
 	public:
 		bool sync;
-		UART_t(String portname) :
-			baudrate(baudrate), state(false), portname(portname), databits(8), parity(UARTCheck::None), stopbits(UARTStopBit::One),
-			sync(true) {}
+
+		UART_t(PORTNAME_TYPE portname, stduint baudrate = 115200) :
+			baudrate(baudrate), state(false), databits(8), parity(UARTCheck::None), stopbits(UARTStopBit::One)
+			, portname(portname)
+			, sync(true)
+		{
+		}
 		~UART_t();
 		bool setMode(stduint _baudrate = 115200);
 		bool operator>> (int& res);// return if new data received
@@ -292,7 +361,18 @@ namespace uni {
 			while (*p) self << stduint(*p++);
 			return self;
 		}
+
+		#if defined(_MCCA) && _MCCA == 0x1032
+		constexpr // constexpr & consteval(C++20?)
+			byte& operator[](XARTReg reg) {
+			return *((byte*)ADDR_UART0 + _IMM(reg));
+		}
+		#endif
 	};
+
+	#if defined(_MCCA) && _MCCA == 0x1032// for QEMUVIRT-R32 UART0
+	extern UART_t UART0;
+	#endif
 }
 
 #endif

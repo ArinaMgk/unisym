@@ -53,7 +53,7 @@ namespace uni {
 			valid = false;
 			return;
 		}
-		(void)fread(footer, sizeof(VHD_Footer), 1, pf);
+		auto _unuse_size = fread(footer, sizeof(VHD_Footer), 1, pf);
 		//
 		bool want_fixed = MemReverseL(footer->disk_type) == 2;// FIXED
 		//
@@ -94,7 +94,7 @@ namespace uni {
 	{
 		if (BlockIden >= getUnits()) return false;
 		fseek((FILE*)fp, Block_Size * BlockIden, SEEK_SET);//{stdc} long-limit
-		(void)fread(Dest, 512, 1, (FILE*)fp);
+		auto _unuse_size = fread(Dest, 512, 1, (FILE*)fp);
 		return false;
 	}
 

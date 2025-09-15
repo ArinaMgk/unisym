@@ -20,7 +20,13 @@
 */
 
 #include "../../inc/cpp/unisym"
+
+#if defined(_MCCA) && _MCCA == 0x1032
+inline void* operator new(size_t, void* __p) { return __p; }// #include <new>
+#else
 #include "new"
+#endif
+
 #include "../../inc/c/consio.h"
 #include "../../inc/c/arith.h"
 

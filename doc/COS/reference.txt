@@ -22,4 +22,5 @@ Item are listed in the order of TIME, of each group.
 	- CW Manual and EXs CW32F010 (1.0.2)
 
 - [Hosted System] Mecocoa ...
-	- unicornx/riscv-operating-system-mooc
+	- [ix86] x86Asm-Realfo-Protto., OrangeS.,
+	- [rv32] unicornx/riscv-operating-system-mooc

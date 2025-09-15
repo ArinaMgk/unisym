@@ -11,15 +11,16 @@
 	}
 	if (_IMM1S(bytexpo) < byteof(stduint)) // use if to avoid MSVC ROL discovered at 20250227
 		val &= _IMM1S(_IMM1S(bytexpo + 3)) - 1;// <=> case 0: val = (uint8)val; break ...
-	// #if defined(_MCCA) && _MCCA == 0x8632
-	// uint64 valquo = 0, valrem = 0;
-	// do {
-	// 	valquo = udivmoddi4(val, base, &valrem);
-	// 	*--bufp = _tab_HEXA[valrem];
-	// } while (val = valquo);
-	// #else
+	if (base < 0) base = -base;
+	#if defined(_MCCA) && _MCCA == 0x1032
+	uint64 valquo = 0, valrem = 0;
+	do {
+		valquo = udivmoddi4(val, base, &valrem);
+		*--bufp = _tab_HEXA[valrem];
+	} while (val = valquo);
+	#else
 	do *--bufp = _tab_HEXA[val % base]; while (val /= base);
-	// #endif
+	#endif
 	// ---- PRINT ----
 	if (sign_show) out(neg ? "-" : "+", 1);
 	stdsint num_to_print = StrLength(bufp);

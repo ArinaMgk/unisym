@@ -177,6 +177,45 @@ namespace uni {
 
 }
 
+#elif defined(_MCCA) && _MCCA == 0x1032// for QEMUVIRT-R32 UART0
+namespace uni {
+	UART_t UART0(0, _TEMP 115200);
+	
+	UART_t::~UART_t() {}
+
+	int UART_t::inn() { int ch; return operator>>(ch) ? ch : -1; }
+	int UART_t::out(const char* str, stduint len) {
+		for0(i, len) operator<<(str[i]);
+		return len;
+	}
+
+	_TEMP
+	bool UART_t::setMode(stduint _baudrate) {
+		self[XARTReg::IER] = 0x00;// disable interrupts
+		// Setting baud rate
+		// Some registers have same address. To change what the base address points to,  open the "divisor latch" by writing 1 into the Divisor Latch Access Bit (DLAB), which is bit index 7 of the Line Control Register (LCR).
+		//{TEMP} use 38.4K when 1.8432 MHZ crystal (0x0003)
+		self[XARTReg::LCR] |= _IMM1S(7);
+		self[XARTReg::DLL] = 0x03;// Low
+		self[XARTReg::DLM] = 0x00;// Hig
+		// Setting the asynchronous data communication format
+		//{TEMP} 8 bits word-length, stop bits：1 bit when word length is 8 bits, no parity, no break control, disabled baud latch
+		self[XARTReg::LCR] = 3;
+		return true;
+	}
+
+	bool UART_t::operator>> (int& res) {
+		return _TODO false;
+	}
+
+	bool UART_t::operator<< (stduint dat) {
+		while (!(self[XARTReg::LSR] & _IMM1S(_BITPOS_LSR_TX_IDLE)));
+		self[XARTReg::THR] = dat;
+		return true;
+	}
+
+
+}
 #endif
 
 _Comment("Interrupt") namespace uni {

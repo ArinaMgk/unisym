@@ -52,24 +52,28 @@ text_msv_win32 =  "# UNISYM for MSVC-Win32 built-" + str(__BuildTime) + '\n'
 text_msv_win64 = "# UNISYM for MSVC-Win64 built-" + str(__BuildTime) + '\n'
 text_gcc_lin32 = "# UNISYM for GCC-Lin32 built-" + str(__BuildTime) + '\n'
 text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
+text_gcc_mccar32 = "# UNISYM for MECOCOA-r32 built-" + str(__BuildTime) + '\n'
 text_gcc_lin64 = "# UNISYM for GCC-Lin64 built-" + str(__BuildTime) + '\n'
 print(text_gcc_win32, text_gcc_win64, text_msv_win32, text_msv_win64, text_gcc_lin32, text_gcc_lin64, sep="")
-print(text_gcc_mecocoa)
+print(text_gcc_mecocoa, text_gcc_mccar32, sep="")
 
 text_gcc_win32 += "ENVIDEN=cgw32" + "\n"
 text_gcc_win64 += "ENVIDEN=cgw64" + "\n"
 text_gcc_lin32 += "ENVIDEN=cgl32" + "\n"
 text_gcc_mecocoa += "ENVIDEN=cgmx86" + "\n"
+text_gcc_mccar32 += "ENVIDEN=cgmr32" + "\n"
 text_gcc_lin64 += "ENVIDEN=cgl64" + "\n"
 text_msv_win32 += "ENVIDEN=cvw32" + "\n"
 text_msv_win64 += "ENVIDEN=cvw64" + "\n"
 
 def apd_gnu_item(text):
 	global text_gcc_win32, text_gcc_win64, text_gcc_lin32, text_gcc_mecocoa, text_gcc_lin64
+	global text_gcc_mccar32
 	text_gcc_win32 += text
 	text_gcc_win64 += text
 	text_gcc_lin32 += text
 	text_gcc_mecocoa += text
+	text_gcc_mccar32 += text
 	text_gcc_lin64 += text
 
 #[TEMP] ASM cannot make PIC
@@ -131,6 +135,8 @@ CC=gcc $(COMFLG)
 CX=g++ $(COMFLG) -std=c++2a -fno-exceptions  -fno-unwind-tables -fno-rtti -Wno-volatile
 LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libm32d.so.""" + __LibVersion
+
+# text_gcc_mccar32 {HERE} unfinished
 
 text_gcc_lin64 += comhead + """
 attr = -D_DEBUG -D_Linux -D__BITS__=64 -O3

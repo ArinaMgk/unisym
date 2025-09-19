@@ -44,10 +44,18 @@
 	#define zalc(size) (void*)(_MALCOUNT++,calloc(size,1))
 #endif
 
+
+
 void memf(void* m);// non-side-effect version, with null-check
 #define mfree(x) do{memfree(x);(x)=0;}while(0)
 
 #ifdef _INC_CPP
+
+#if defined(_DEV_GCC) && defined(_MCCA) && _MCCA==0x1032
+inline void* operator new(size_t, void* __p) { return __p; }// #include <new>
+#endif
+
+
 extern "C" {
 #endif
 	

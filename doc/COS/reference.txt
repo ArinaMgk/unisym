@@ -1,5 +1,6 @@
-"-" for un finished and "+" for finished.
-Item are listed in the order of TIME, of each group.
+// UTF-8 TEXT TAB4 CRLF
+// ありがとうございました！-- 三葉あさみ (Phina Ren)
+// "-" for un finished and "+" for finished.
 
 - [CPL Compiler]
 	- `sunshaoce/rvcc` : `Rui/chibicc`
@@ -12,6 +13,7 @@ Item are listed in the order of TIME, of each group.
 	- [PACK] Kasha Macro Library
 		- `www.ic.unicamp.br/~ducatte/mc404/Lampiao/docs/dosints.pdf` or `M:\book\MANUAL\Intel\USED\dos_ints.pdf`, 117 pages
 
+// Item are listed in the order of TIME.
 - [PACK] Embedded Device Abstraction Layer
 	- ST Manual and HAL STM32F1x (2017 May)
 	- ST Manual and HAL STM32F4x (2017)
@@ -23,4 +25,5 @@ Item are listed in the order of TIME, of each group.
 
 - [Hosted System] Mecocoa ...
 	- [ix86] x86Asm-Realfo-Protto., OrangeS.,
-	- [rv32] unicornx/riscv-operating-system-mooc
+	- [ix64] [ゼロからのOS.](https://github.com/uchan-nos), 
+	- [rv32] [](unicornx/riscv-operating-system-mooc)

@@ -82,6 +82,8 @@ _ESYM_C void* memallocate(stduint siz);
 _ESYM_C void    memrelease();
 
 // : International Standard Interface [user - def]
+#if !defined(_MCCA)
+
 #ifdef _DEV_MSVC
 // #define _memory_midfix __cdecl
 // #define _memory_prefix
@@ -98,5 +100,6 @@ _memory_prefix void*  realloc(void* ptr, size_t size);
 #undef _memory_prefix
 #endif
 
+#endif// !_MCCA
 
 #endif

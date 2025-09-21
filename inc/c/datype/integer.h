@@ -331,7 +331,7 @@ typedef void (*outbyte_t)(const char* str, stduint len);
 #endif
 #ifndef absof//(a,b)
 #define absof(a) ((a)<0?-(a):(a))
-#define ABS(a,b) ((a)<(b)?(b-a):(a-b))
+#define ABS(a) (a=absof(a))
 #endif
 
 #define nil 0

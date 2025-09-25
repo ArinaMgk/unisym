@@ -82,7 +82,7 @@ _ESYM_C void* memallocate(stduint siz);
 _ESYM_C void    memrelease();
 
 // : International Standard Interface [user - def]
-#if !defined(_MCCA)
+#if !defined(_MCCA) || _MCCA==0x8632
 
 #ifdef _DEV_MSVC
 // #define _memory_midfix __cdecl

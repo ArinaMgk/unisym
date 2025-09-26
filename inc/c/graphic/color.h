@@ -36,8 +36,8 @@ namespace uni {
 		class
 		#endif
 		PixelFormat {
-		ARGB8888 = 0x00,
-		ABGR8888 = 0x01,
+		ARGB8888 = 0x00,// DB B,G,R,A <=> DD 0xAARRGGBB
+		ABGR8888 = 0x01,// DB R,G,B,A <=> DD 0xAABBGGRR
 		RGBA8888 = 0x02,
 		BGRA8888 = 0x03,
 		//
@@ -63,7 +63,10 @@ namespace uni {
 	
 	//[ATTR] little-endian, argb
 	struct alignas(byteof(uint32)) Color {
-		byte b, g, r, a; // union {x y z i}
+		union {
+			byte b, g, r, a; // union {x y z i}
+			uint32 val;
+		};
 		#ifdef _INC_CPP
 		enum ColorIdentifier : uint32 {
 			// ❤

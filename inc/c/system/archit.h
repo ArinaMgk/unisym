@@ -106,6 +106,10 @@ enum Architecture_ARMv_t {
 		#endif
 	#define __BITS__ 64
 // [Special for Mecocoa]
+#elif defined(_MCCA) && _MCCA==0x8664// defined(_ARC_x64)
+	#define _Intelx64_Mcca_64
+	#define __ARCH__ Architecture_x86_64
+	#define __BITS__ 64
 #elif defined(_MCCA) && _MCCA==0x8632// defined(_ARC_x86)
 	#define _Intelx86_Mcca_32
 	#define __ARCH__ Architecture_x86

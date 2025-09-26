@@ -60,10 +60,11 @@ typedef const char* rostr;// read-only string
 extern "C++" {
 	namespace uni {
 		// [TEST] let var float a = 2.0; then Castype(int, a) <=> cast<int>(a)
-		template<typename typed, typename types> inline static typed& cast(types& value) {
+		template<typename typed, typename types> constexpr inline static typed& cast(types& value) {
 			return *(typed*)(&value);
 		}
-		template<typename typed, typename types> inline static typed& treat(types addr) {
+		// Treat the address as a type
+		template<typename typed, typename types> constexpr inline static typed& treat(types addr) {
 			return *(typed*)addr;
 		}
 	}

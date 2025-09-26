@@ -60,6 +60,8 @@ namespace uni {
 	// Do not use pure virtual for PCU, must be entity
 	class VideoControlInterface {
 	public:
+		virtual ~VideoControlInterface() { }
+	public:
 		virtual void SetCursor(const Point& disp) const = 0;
 		virtual Point GetCursor() const = 0;
 		virtual void DrawPoint(const Point& disp, Color color) const = 0;
@@ -73,12 +75,15 @@ namespace uni {
 	class VideoControlBlock {
 	protected:
 		pureptr_t buffer_addr;
-		stduint pix_size = 4;
+		PixelFormat pixel_fmt = PixelFormat::ARGB8888;// decide the size of the element
 		stduint cols = 0, rows = 0;
 		onPressed_t onPressed;// callback event
 		const VideoControlInterface& vci;
 		Color back_color;
-		// color can be past
+		// Curret Model:
+		// 1. The Video buffer is organized in one memory area;
+		// 2. The address of next line equals: addr + cols * pixel_fmt.getSize();
+		//{MAYBE TODO} padding after row-end (?)
 	public:
 		~VideoControlBlock() { }
 		VideoControlBlock(pureptr_t addr, const VideoControlInterface& vci) : 
@@ -86,8 +91,8 @@ namespace uni {
 		VideoControlBlock(const VideoControlInterface& vci, const Size2& siz, const Color& bcolor) : 
 			buffer_addr(nullptr), vci(vci), cols(siz.x), rows(siz.y), back_color(bcolor) { }
 		// here: public objects
-		inline void setMode(stduint psiz, stduint cols, stduint rows, onPressed_t onpress = 0) {
-			pix_size = psiz;
+		inline void setMode(PixelFormat pfmt, stduint cols, stduint rows, onPressed_t onpress = 0) {
+			pixel_fmt = pfmt;
 			this->cols = cols;
 			this->rows = rows;
 			onPressed = onpress;

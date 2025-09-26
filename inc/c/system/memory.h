@@ -51,8 +51,8 @@ void memf(void* m);// non-side-effect version, with null-check
 
 #ifdef _INC_CPP
 
-#if defined(_DEV_GCC) && defined(_MCCA) && _MCCA==0x1032
-inline void* operator new(size_t, void* __p) { return __p; }// #include <new>
+#if defined(_DEV_GCC) && defined(_MCCA) && (_MCCA==0x1032 || _MCCA==0x8664)
+inline void* operator new(size_t, void* p) { return p; }// #include <new>
 #endif
 
 
@@ -82,7 +82,7 @@ _ESYM_C void* memallocate(stduint siz);
 _ESYM_C void    memrelease();
 
 // : International Standard Interface [user - def]
-#if !defined(_MCCA) || _MCCA==0x8632
+#if !defined(_MCCA) || (_MCCA!=0x1032)// use GCC
 
 #ifdef _DEV_MSVC
 // #define _memory_midfix __cdecl

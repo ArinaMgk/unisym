@@ -23,11 +23,15 @@
 
 // Convert all operators into function calling form;
 
-#include <new>
+
 #include "../../../../../inc/cpp/unisym"
 #include "../../../../../inc/cpp/string"
 #include "../../../../../inc/cpp/dnode"
 #include "../../../../../inc/cpp/nnode"
+
+#ifndef _MCCA
+#include <new>
+#endif
 
 using namespace uni;
 

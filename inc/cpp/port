@@ -23,9 +23,7 @@
 #ifndef _INC_PORT_X
 #define _INC_PORT_X
 
-#include "cinc"
 #include "../c/stdinc.h"
-#include "cinc"
 
 namespace uni {
 	class Port {

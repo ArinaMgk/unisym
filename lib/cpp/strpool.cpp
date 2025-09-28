@@ -20,9 +20,7 @@
 	limitations under the License.
 */
 
-#include "../../inc/cpp/cinc"
 #include "../../inc/c/ustring.h"
-#include "../../inc/cpp/cinc"
 #include "../../inc/cpp/strpool"
 
 namespace uni {

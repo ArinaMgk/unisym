@@ -21,7 +21,7 @@
 
 #include "../../inc/cpp/unisym"
 
-#if defined(_MCCA) && _MCCA == 0x1032
+#if defined(_MCCA)
 #else
 #include "new"
 #endif

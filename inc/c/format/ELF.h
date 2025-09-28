@@ -162,7 +162,7 @@ enum p_type_t {
 	// PHT [e_phoff ~ e_phoff + e_phnum*e_phentsize *] (suf-* means not including)
 #elif __BITS__ == 64
 	#define EI_NIDENT 16
-	typedef uintptr_t Elf64_Addr;
+	typedef stduint   Elf64_Addr;// uintptr_t
 	typedef uint64_t  Elf64_Off;
 	typedef uint16_t  Elf64_Half;
 	typedef uint32_t  Elf64_Word;

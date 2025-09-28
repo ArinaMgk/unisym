@@ -33,20 +33,32 @@ namespace uni {
 
 #if defined(_ARC_x86)
 
-	struct PageEntry {
-		byte P : 1;
-		byte R_W : 1;
-		byte U_S : 1;
-		byte PWT : 1;
-		byte PCD : 1;
-		byte A : 1;
-		byte D : 1;
-		byte PAT : 1;
-		byte G : 1;
-		byte AVL : 3;
+#ifdef _DEV_MSVC
+#pragma pack(push, 1)
+	struct
+#else
+	_PACKED(struct)
+#endif
+	 PageEntry {
+		stduint P : 1;
+		stduint R_W : 1;
+		stduint U_S : 1;
+		stduint PWT : 1;
+		stduint PCD : 1;
+		stduint A : 1;
+		stduint D : 1;
+		stduint PAT : 1;
+		stduint G : 1;
+		stduint AVL : 3;
 		stduint address : 20;
 	};// both page table and page directory
+
+#ifdef _DEV_MSVC
+#pragma pack(pop)
+#else
 	
+#endif
+
 // 0 .. 0x400
 #define _NUM_pg_table_entries  (0x1000 / byteof(dword))
 #define _NUM_pd_table_entries  (0x1000 / byteof(dword))

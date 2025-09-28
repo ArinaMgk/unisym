@@ -22,9 +22,7 @@
 
 #include "../../../../inc/cpp/unisym"
 #include "../../../../inc/c/node.h"
-#include "../../../../inc/cpp/cinc"
 #include "../../../../inc/c/ustring.h"
-#include "../../../../inc/cpp/cinc"
 namespace uni {
 	Node* Chain::Push(pureptr_t off, bool end_left) {
 		Node* new_nod = nullptr;

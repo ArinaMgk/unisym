@@ -64,7 +64,7 @@ namespace uni {
 	//[ATTR] little-endian, argb
 	struct alignas(byteof(uint32)) Color {
 		union {
-			byte b, g, r, a; // union {x y z i}
+			struct { byte b, g, r, a; }; // union {x y z i}
 			uint32 val;
 		};
 		#ifdef _INC_CPP

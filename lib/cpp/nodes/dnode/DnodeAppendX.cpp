@@ -22,9 +22,7 @@
 
 #include "../../../../inc/cpp/unisym"
 #include "../../../../inc/c/dnode.h"
-#include "../../../../inc/cpp/cinc"
 #include "../../../../inc/c/ustring.h"
-#include "../../../../inc/cpp/cinc"
 
 
 namespace uni {

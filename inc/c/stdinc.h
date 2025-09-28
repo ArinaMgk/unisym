@@ -27,7 +27,17 @@
 extern "C" {
 #endif
 #include "proctrl/proctrl.h"
+
+#if defined(_INC_CPP) || defined(__cplusplus)
+}
+#endif
+
 #include "system/host.h"
+
+#if defined(_INC_CPP) || defined(__cplusplus)
+extern "C" {
+#endif
+
 #include "system/supple.h"
 #if defined(_dbg) || defined(_DEBUG)
 #include "system/debug.h"

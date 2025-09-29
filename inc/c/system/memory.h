@@ -90,7 +90,7 @@ _ESYM_C void* memallocate(stduint siz);
 _ESYM_C void    memrelease();
 
 // : International Standard Interface [user - def]
-#if !defined(_MCCA) || (_MCCA!=0x1032)// use GCC
+#if !defined(_MCCA) || defined(_DEV_GCC)// avoid env-EDK2
 
 #ifdef _DEV_MSVC
 // #define _memory_midfix __cdecl

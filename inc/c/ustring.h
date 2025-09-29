@@ -187,7 +187,7 @@ static inline char* StrCopy(char* dest, const char* sors)
 #define StrCopy strcpy ///{TODO}
 #endif
 
-#ifdef _INC_USTRING_INLINE
+#ifndef _INC_MEMSET_INLINE
 static inline void* MemSet(void* d, int c, size_t n)
 {
 	while (n) ((char*)d)[--n] = (char)c;
@@ -199,7 +199,7 @@ void* MemSet(void* d, int c, size_t n);
 #define MetSetof(arr,c) MemSet(arr,c,sizeof(arr))
 
 // RFB31 changed from `static inline char* MemCopyN(char* dest, const char* sors, size_t n)`
-#ifdef _INC_USTRING_INLINE
+#ifndef _INC_MEMCOPY_INLINE
 static inline void* MemCopyN(void* dest, const void* sors, size_t n)
 {
 	_REGISTER char* d = (char*)dest;

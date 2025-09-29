@@ -93,12 +93,32 @@ namespace uni {
 		else if (str[i] == '\r') {
 			crt_self->cursor.x = nil;
 		}
+		else if ((byte)str[i] == (byte)'\xFF' && _LIMIT - i > 1) {// Mecocoa Style II since 20250929
+			byte color = str[++i];
+			if (color == (byte)0xFF) {
+				crt_self->backcolor = crt_self->window.color;
+				crt_self->forecolor = ~crt_self->window.color;
+				continue;
+			}
+			Color col;
+			col.a = 0xFF;
+			col.b = (color & 0b00010000) ? 0xFA : 0;// stands for PHinA
+			col.g = (color & 0b00100000) ? 0xFA : 0;
+			col.r = (color & 0b01000000) ? 0xFA : 0;
+			crt_self->backcolor = col;
+			col.b = (color & 0b00000001) ? 0xFA : 0;
+			col.g = (color & 0b00000010) ? 0xFA : 0;
+			col.r = (color & 0b00000100) ? 0xFA : 0;
+			crt_self->forecolor = col;
+		}
 		else {
-			(crt_self->*draw_f) (
-				Point(
-					crt_self->cursor.x * FontSizeWidth[crt_self->typ],
-					crt_self->cursor.y * FontSizeHeight[crt_self->typ]),
-				crt_self->forecolor, str[i]);
+			Size2 fontsize(FontSizeWidth[crt_self->typ], FontSizeHeight[crt_self->typ]);
+			Point point(
+				crt_self->cursor.x * fontsize.x,
+				crt_self->cursor.y * fontsize.y);
+			Rectangle fontblock(point, fontsize, crt_self->backcolor);
+			crt_self->vci.DrawRectangle(fontblock);
+			(crt_self->*draw_f) (point, crt_self->forecolor, str[i]);
 			crt_self->curinc();
 		}
 		#undef crt_self

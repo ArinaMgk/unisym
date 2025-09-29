@@ -50,18 +50,18 @@ switch (level)
 #if defined(_MCCA) && _MCCA==0x8632
 	{
 	case _LOG_FATAL:// better into STDERR
-		outsfmt("\xFF\x47%s\xFF\x04", _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
+		outsfmt("\xFF\x40%s\xFF\x74", _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
 		break;
 	case _LOG_PANIC:// better into STDERR
-		outsfmt("\xFF\x47%s\xFF\x04", _logstyle == _LOG_STYLE_NONE ? _pref_pani : "panic: ");
+		outsfmt("\xFF\x40%s\xFF\x74", _logstyle == _LOG_STYLE_NONE ? _pref_pani : "panic: ");
 		break;
 	case _LOG_ERROR:// better into STDERR
-		outsfmt("\xFF\x47%s\xFF\x04", _logstyle == _LOG_STYLE_NONE ? _pref_erro : "error: ");
+		outsfmt("\xFF\x40%s\xFF\x74", _logstyle == _LOG_STYLE_NONE ? _pref_erro : "error: ");
 		break;
 	case _LOG_WARN:
-		outsfmt("\xFF\x67%s\xFF\x06", _logstyle == _LOG_STYLE_NONE ? _pref_warn : "warning: "); break;
+		outsfmt("\xFF\x60%s\xFF\x06", _logstyle == _LOG_STYLE_NONE ? _pref_warn : "warning: "); break;
 	case _LOG_INFO:
-		outsfmt("\xFF\x03%s", _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
+		outsfmt("\xFF\x73%s", _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
 	case _LOG_DEBUG:
 		outsfmt("%s", _logstyle == _LOG_STYLE_NONE ? _pref_dbug : "debug: "); break;
 	case _LOG_TRACE:
@@ -98,7 +98,7 @@ switch (level)
 
 static void printsuff(loglevel_t level) {
 #if defined(_MCCA) && _MCCA==0x8632
-	outs("\xFF\x07\n\r");
+	outs("\xFF\xFF\n\r");
 #elif defined(_Linux) || 1
 	if (level != _LOG_STDOUT)
 		outs("\x1b[0m\n");

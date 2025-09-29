@@ -140,9 +140,9 @@ namespace uni {
 
 }
 
-extern uni::BareConsole* BCONS0;
+extern uni::OstreamTrait* con0_out;
 void outtxt(const char* str, stduint len) {
-	asserv (BCONS0)->out(str, len);
+	asserv (con0_out)->out(str, len);
 }
 
 #endif

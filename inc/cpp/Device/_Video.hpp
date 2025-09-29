@@ -142,14 +142,17 @@ namespace uni {
 
 	// inherit Console_t to make a console with self-defined font.
 	class VideoConsole : public Console_t {
-		const VideoControlInterface& vci;
-		Point cursor;
-		Size2 size;// char size but pixel size
+	public: const VideoControlInterface& vci;
+	protected:
+		Point cursor = { 0,0 };
+		byte* buffer = nullptr;// pixels buffer
+		Size2 size;// char unit but pixel
 		stduint typ;// 0: inner_8x5, 1:inner_16x8
 	public:
 		
 		Color forecolor;
-		Color backcolor;
+		Color backcolor;// for next font's, but background, while background use window.color.
+		Rectangle window;//{TODO}
 	protected:
 		static void (VideoConsole::* DrawCharPosition_f[])(uni::Point, uni::Color, char);
 		static VideoConsole* crt_self;
@@ -157,12 +160,23 @@ namespace uni {
 		void DrawCharPosition_8x5(Point disp, Color color, char ch);
 		void DrawCharPosition_16x8(Point disp, Color color, char ch);
 		void FeedLine();
+
+		void Refresh();//{TODO} according to (buffer)
 	public:
 		VideoConsole(const VideoControlInterface& vci,
-			Size2 siz,
+			const Rectangle& win,
 			const Color& fore_color = Color::White,
 			const Color& back_color = Color::Black) :
-			vci(vci), cursor({ 0,0 }), size(siz), typ(1), forecolor(fore_color), backcolor(back_color) { }
+			vci(vci), size(0), typ(1), forecolor(fore_color), backcolor(back_color),
+			window(win)
+		{
+			size.x = window.width / (typ ? 8 : 5);
+			size.y = window.height / (typ ? 16 : 8);
+		}
+
+		inline void Clear() {
+			vci.DrawRectangle(window);
+		}
 	public:
 		virtual int out(const char* str, stduint len);
 		virtual int inn() _TODO;

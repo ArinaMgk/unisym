@@ -28,7 +28,7 @@
 #include "../unisym"
 #include "../../c/graphic.h"
 #include "../../c/consio.h"
-
+#include "../../c/driver/Video/video.h"
 
 namespace uni {
 

@@ -47,7 +47,7 @@ const char** _tab_pref[] = {
 
 static void printpref(loglevel_t level) {
 switch (level)
-#if defined(_MCCA) && _MCCA==0x8632
+#if defined(_MCCA) && (_MCCA==0x8632 || _MCCA==0x8664)
 	{
 	case _LOG_FATAL:// better into STDERR
 		outsfmt("\xFF\x40%s\xFF\x74", _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
@@ -97,7 +97,7 @@ switch (level)
 }
 
 static void printsuff(loglevel_t level) {
-#if defined(_MCCA) && _MCCA==0x8632
+#if defined(_MCCA) && (_MCCA==0x8632 || _MCCA==0x8664)
 	outs("\xFF\xFF\n\r");
 #elif defined(_Linux) || 1
 	if (level != _LOG_STDOUT)

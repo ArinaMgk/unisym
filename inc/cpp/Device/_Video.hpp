@@ -32,6 +32,39 @@
 
 namespace uni {
 
+// VBE Video Modes (common selection, QEMU compatible)
+// Reference: VESA VBE Core Functions 3.0
+// Mode numbers are standard VBE IDs, but availability depends on BIOS/QEMU build.
+
+	enum class VideoMode : uint16_t {
+		// 640×480 modes
+		INDEXED8_640x480 = 0x101, // VGA standard, 8bpp (256 colors, palette indexed)
+		RGB555_640x480 = 0x110, // VGA standard, 15bpp (5:5:5 direct color)
+		RGB565_640x480 = 0x111, // VGA standard, 16bpp (5:6:5 direct color)
+		RGB888_640x480 = 0x112, // VGA standard, 24bpp, 0xRRGGBB (memory: B,G,R)
+		RGBA8888_640x480 = 0x11A, // VGA standard, 32bpp, 0xAARRGGBB (memory: B,G,R,A)
+
+		// 800×600 modes
+		INDEXED8_800x600 = 0x103, // SVGA, 8bpp (256 colors, palette indexed)
+		RGB555_800x600 = 0x113, // SVGA, 15bpp (5:5:5 direct color)
+		RGB565_800x600 = 0x114, // SVGA, 16bpp (5:6:5 direct color)
+		RGB888_800x600 = 0x115, // SVGA, 24bpp, 0xRRGGBB (memory: B,G,R)
+		RGBA8888_800x600 = 0x118, // SVGA, 32bpp, 0xAARRGGBB (memory: B,G,R,A)
+
+		// 1024×768 modes
+		INDEXED8_1024x768 = 0x105, // SVGA, 8bpp
+		RGB565_1024x768 = 0x117, // SVGA, 16bpp (5:6:5 direct color)
+		RGB888_1024x768 = 0x116, // SVGA, 24bpp
+		RGBA8888_1024x768 = 0x11B, // SVGA, 32bpp
+
+		// 1280×1024 modes
+		INDEXED8_1280x1024 = 0x107, // UXGA, 8bpp
+		RGB565_1280x1024 = 0x119, // UXGA, 16bpp (5:6:5 direct color)
+		RGB888_1280x1024 = 0x11A, // UXGA, 24bpp
+		RGBA8888_1280x1024 = 0x11C  // UXGA, 32bpp
+	};
+
+
 	#define GrafColor32(c) Color::FromRGB888(c)
 
 	static inline Rectangle GrafRect(stduint x, stduint y, stduint w, stduint h, Color color, bool hollow = false) {

@@ -26,18 +26,22 @@
 #include "../c/stdinc.h"
 
 namespace uni {
+	template<typename typeUint>
 	class Port {
 	public:
 		Port(unsigned port_id) : port_iden(port_id) {}
-
-		//Port& operator[] (int port_id) const;
-		// operator=
-		// operator pword ({} pword: PortWord NamedByDscn)
+		operator= (typeUint);
+		operator typeUint() const;
 	protected:
 		unsigned port_iden;
 	};
+
+	template<word portaddr>
+	class Port8 {
+		_TODO
+	};
 }
 
-extern "C++" uni::Port _PORT;
+// extern "C++" uni::Port _PORT;
 
 #endif

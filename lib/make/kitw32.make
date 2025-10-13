@@ -54,7 +54,7 @@ ret:
 segsel:
 	@echo 'MK OSDEV/SegmentSelector powered by .NetFx4:C#'
 	@cd ${DEMO_DIR}SegmentSelector && ${CSC4} /nologo /t:winexe /out:SegSel.exe *.cs
-	@mv ${DEMO_DIR}SegmentSelector/SegSel.exe ${DEST_BIN}SegSel.exe
+	@mv ${DEMO_DIR}SegmentSelector/SegSel.exe ${DEST_BIN}/SegSel.exe
 
 elf:
 	@echo MK readelf

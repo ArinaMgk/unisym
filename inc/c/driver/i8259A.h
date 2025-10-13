@@ -33,7 +33,7 @@ typedef struct _i8259A_ICW
 	struct
 	{
 		byte ICW4_USED : 1;
-		byte CAS : 1;// for MAS and SLV
+		byte No_CAS : 1;// for MAS and SLV
 		byte ADI : 1;
 		byte NotEdge : 1;
 		byte ENA : 1; // [1]

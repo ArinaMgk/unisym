@@ -195,12 +195,10 @@ static stduint ERQ_Handlers[0x20]{
 
 _ESYM_C __attribute__((interrupt, target("general-regs-only")))
 void General_IRQHandler(void* frame) {
-	outpb(_i8259A_SLV, BYTE_EOI);
-	outpb(_i8259A_SLV, BYTE_EOI);
 	// __asm("push %eax");
 	// __asm("mov $0x20, %al");
-	// __asm("out %al, $0xA0");
-	// __asm("out %al, $0x20");
+	outpb(_i8259A_SLV, BYTE_EOI);// __asm("out %al, $0xA0");
+	outpb(_i8259A_MAS, BYTE_EOI);// __asm("out %al, $0x20");
 	// __asm("pop  %eax");
 	// __asm("iretl");
 }

@@ -105,11 +105,11 @@ namespace uni {
 			col.b = (color & 0b00010000) ? 0xFA : 0;// stands for PHinA
 			col.g = (color & 0b00100000) ? 0xFA : 0;
 			col.r = (color & 0b01000000) ? 0xFA : 0;
-			crt_self->backcolor = col;
+			crt_self->forecolor = col;
 			col.b = (color & 0b00000001) ? 0xFA : 0;
 			col.g = (color & 0b00000010) ? 0xFA : 0;
 			col.r = (color & 0b00000100) ? 0xFA : 0;
-			crt_self->forecolor = col;
+			crt_self->backcolor = col;
 		}
 		else {
 			Size2 fontsize(FontSizeWidth[crt_self->typ], FontSizeHeight[crt_self->typ]);

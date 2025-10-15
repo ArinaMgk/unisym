@@ -56,7 +56,8 @@ namespace uni {
 	}
 
 
-
+	//{} IDE0:0 only
+	__attribute__((optimize("O0")))// NO OPTIMIZE
 	_WEAK bool Harddisk_PATA::Read(stduint BlockIden, void* Dest) {
 		stduint C, B;
 		__asm volatile("mov %%ecx, %0" : "=r" (C));// will break GNU stack judge: __asm ("push %ecx");

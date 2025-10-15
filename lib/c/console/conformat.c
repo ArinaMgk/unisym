@@ -84,13 +84,13 @@ static void outfloat(float val, outbyte_t localout)
 
 int outsfmtlst(const char* fmt, para_list paras)
 {
-	while (local_out_lock);
-	local_out_lock = 1;//{TODO} add multitask lock
+	// while (local_out_lock);
+	// local_out_lock = 1;//{TODO} add multitask lock
 	outbyte_t localout = local_out;
 	_crt_out_cnt = 0;
 	#define _STREAM_FORMAT_C
 	#include "../../../inc/c/stream/format-body.h"
-	_TEMP local_out_lock = 0;// leave lock
+	// _TEMP local_out_lock = 0;// leave lock
 	return _crt_out_cnt;
 }
 

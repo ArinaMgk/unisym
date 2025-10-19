@@ -92,6 +92,7 @@ void printlog(loglevel_t level, const char* fmt, ...);
 #define ploginfo(...) printlog(_LOG_INFO, __VA_ARGS__)
 #define plogwarn(...) printlog(_LOG_WARN, __VA_ARGS__)
 #define plogerro(...) printlog(_LOG_ERROR, __VA_ARGS__)
+#define plogtrac(...) printlog(_LOG_TRACE, __VA_ARGS__)
 
 #endif
 

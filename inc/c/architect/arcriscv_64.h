@@ -28,8 +28,8 @@ typedef unsigned short uint16_t;
 typedef signed int int32_t;
 typedef unsigned int uint32_t;
 // long is 64-bit on Linux-GCC-Devk and RISCV64
-typedef signed long long int64_t;
-typedef unsigned long long uint64_t;
+typedef signed long int64_t;
+typedef unsigned long uint64_t;
 
 // limits.h
 #define MB_LEN_MAX    5 //{TEMP} AyanoChan did know, is it right?

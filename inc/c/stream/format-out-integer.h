@@ -12,7 +12,7 @@
 	if (_IMM1S(bytexpo) < byteof(stduint)) // use if to avoid MSVC ROL discovered at 20250227
 		val &= _IMM1S(_IMM1S(bytexpo + 3)) - 1;// <=> case 0: val = (uint8)val; break ...
 	if (base < 0) base = -base;
-	#if defined(_MCCA) && _MCCA == 0x1032
+	#if defined(_MCCA) && (_MCCA == 0x1032 || _MCCA == 0x1064)
 	uint64 valquo = 0, valrem = 0;
 	do {
 		valquo = udivmoddi4(val, base, &valrem);

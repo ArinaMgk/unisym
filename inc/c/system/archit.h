@@ -172,7 +172,8 @@ enum Architecture_ARMv_t {
 	#include "../architect/arcintel_8051.h"
 	#define __BITS__ 8
 	#define __ARCH__ Architecture_Unknown
-#elif defined(_OPT_RISCV64)
+#elif defined(_OPT_RISCV64) || defined(_MCCA) && _MCCA==0x1064
+	#define __BITS__ 64
 	#include "../architect/arcriscv_64.h"
 #elif defined(_OPT_RISCV32) || defined(_MCCA) && _MCCA==0x1032
 	#define __BITS__ 32

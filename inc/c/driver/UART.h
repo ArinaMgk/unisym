@@ -243,7 +243,7 @@ namespace uni {
 }
 
 #elif defined(_WinNT) || defined(_Linux) || \
-	( defined(_MCCA) && _MCCA == 0x1032 ) // Any Hosted
+	defined(_MCCA) && (_MCCA == 0x1032 || _MCCA == 0x1064) // Any Hosted
 
 #ifdef _WinNT
 #define UNICODE
@@ -275,7 +275,7 @@ namespace uni {
 	enum class UARTStopBit {
 		One, OneHalf, Two
 	};
-	#if defined(_MCCA) && _MCCA == 0x1032
+	#if defined(_MCCA) && (_MCCA == 0x1032 || _MCCA == 0x1064)
 	enum XARTReg {
 		RHR = 0, // Receive Holding Register (read mode)
 		THR = 0, // Transmit Holding Register (write mode)
@@ -321,7 +321,7 @@ namespace uni {
 	*/
 	#endif
 
-	#if defined(_MCCA) && _MCCA == 0x1032// for QEMUVIRT-R32 UART0
+	#if defined(_MCCA) && (_MCCA == 0x1032 || _MCCA == 0x1064)// for QEMUVIRT-RV UART0
 	#define ADDR_UART0 0x10000000L
 	#endif
 
@@ -362,7 +362,7 @@ namespace uni {
 			return self;
 		}
 
-		#if defined(_MCCA) && _MCCA == 0x1032
+		#if defined(_MCCA) && (_MCCA == 0x1032 || _MCCA == 0x1064)
 		constexpr // constexpr & consteval(C++20?)
 			byte& operator[](XARTReg reg) {
 			return *((byte*)ADDR_UART0 + _IMM(reg));
@@ -370,7 +370,7 @@ namespace uni {
 		#endif
 	};
 
-	#if defined(_MCCA) && _MCCA == 0x1032// for QEMUVIRT-R32 UART0
+	#if defined(_MCCA) && (_MCCA == 0x1032 || _MCCA == 0x1064)// for QEMUVIRT-RV UART0
 	extern UART_t UART0;
 	#endif
 }

@@ -1,37 +1,40 @@
 #UTF-8 MAgicRK(1) . .
-# Magic HTML
+// Generate: partial code of TeX, HTML, Markdown
 
-static serial Page(.Margin = default) {
-	// 'serial' for text-logical, parallel for order-irrelevant
-	// a { } block is a subsection in section or page
+Data<String> string0 = chapter; // default Lango:En
+string0[Lango:Zh] = "一级标题"; // 中文
+string0[Lango:Nh] = "レベル1の見出し"; // Nihongo
+// 缺省的语言按照 En 处理
 
-	Block(.Level = 1, .Title = (String) "chapter" #[Lango:Cn] "一级标题" #[Lango:Nh] "レベル1の見出し") 
-	{
-		// ---- Below will be received by #[1] section special parser ----
-		Format("%s\n", "doc0");
-		Block(.Title = "section")
-		{ // #[2], increment by 1. 二级标题, for any lango
-			"中文测试(中文測試)";
-			Block(.Title = "T3") { // #[3]. subsection 三级标题
-				"日本語テスト";
-				Block(.Title = "subsubsection";) { // #[4] 四级标题
-					#[B]"粗体"; #[I]"斜体"; #[B,I,U]"粗体斜体下划线";
-					#[D]"删除线"; #[up]"上标"; #[dn]"下标";
-					Markup("文本", "正上标");// <ruby>
-					Block(.Title = "paragraph") { // #[5] 五级标题
-						Block(.Title = "T6") { // #[6] subparagraph, markdown 上限 : 六级标题
-							Picture iden(path);
-							Block(.Title = "T7") { // subsubparagraph 七级标题
-								#include("./a.mgc") // parse and replace this node
-							}
-						}
-					}
-				}
-			}
-		}
-	}
+Title(1, string0);
+Format("%s\n", "doc0");
 
-	// HERE: normally invisible
-}// The return value.
+Title(2, "section");
+Out("中文测试(中文測試)");
 
-// Version: First, in 2025
+Title t3(3, "T3");// subsection
+Out("日本語テスト");
+
+Title(t3.level + 1, "subsubsection");
+Format("^B", "打开粗体");
+Format("^b", "关闭粗体");
+Format("%I", "斜体");
+Format("%U", "下划线");
+Format("%D", "删除线");
+Format("%up", "正文" ,"上标");
+Format("%dn", "正文" ,"下标");
+Format("%%", "清除格式");
+
+Title(5, "paragraph");
+Title(6, "subparagraph");// markdown 上限 : 六级标题
+
+Picture iden(path);
+
+Title(7, "subsubparagraph");
+Include("./a.mgc"); // parse and replace this node
+
+// Version: Second, in 2025, updated 20251112
+// TODO:
+// - [ ] Unicode
+// - [ ] Multilango Option
+// - [ ] Fullver Epic Release and Partial Epic Release

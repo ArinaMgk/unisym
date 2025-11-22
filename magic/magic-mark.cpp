@@ -52,11 +52,11 @@ void mark(int argc, char** argv) {
 	//{} UTF-8 Support in String
 	// Process by LINE
 
-	char* _Heap texname = StrReplace(filename.reference(), ".mgc", ".tex", NULL);
+	char* _Heap texname = StrReplace(filename.reference(), ".mgc", ".mgc.tex", NULL);
 	ploginfo(".tex \t=> %s", texname);
-	char* _Heap mdname = StrReplace(filename.reference(), ".mgc", ".md", NULL);
+	char* _Heap mdname = StrReplace(filename.reference(), ".mgc", ".mgc.md", NULL);
 	ploginfo(".md  \t=> %s", mdname);
-	char* _Heap htmlname = StrReplace(filename.reference(), ".mgc", ".html", NULL);
+	char* _Heap htmlname = StrReplace(filename.reference(), ".mgc", ".mgc.html", NULL);
 	ploginfo(".html\t=> %s", htmlname);
 	mfree(texname);
 	mfree(mdname);

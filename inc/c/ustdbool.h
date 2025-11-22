@@ -25,7 +25,8 @@
 
 #define immed_tobool(i) !!(i) // != 0
 
-#if !defined(__cplusplus) && !defined(_INC_CPP)
+#if !(defined(__cplusplus) || defined(_INC_CPP)) && \
+	(defined(__STDC_VERSION__) && __STDC_VERSION__ < 202300L)// Solve new-GCC appended error.
 typedef enum boolean { false, true } bool, boolean;// use immed_tobool() to convert with this
 #else
 typedef bool boolean;

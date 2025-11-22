@@ -164,8 +164,11 @@ extern "C++" {
 
 #define Castype(des,val) *(des*)&(val)
 #define Letvar(iden,type,init) type iden = (type)(init)
+
 #define floorAlign(align,val) ((val/align)*align)
-#define ceilAlign(align,val)  floorAlign(align,val+(align-1))
+#define vaultAlign(align,val)  floorAlign(align,val+(align-1))
+#define ceilAlign vaultAlign
+#define vaultAlignHexpow(align,val) ((val+_IMM(align-1))&~_IMM(align-1))
 
 #define foreach_str(iden,x) for(char iden, *_pointer=(char*)(x);iden=*_pointer;_pointer++)
 #define foreach_byt(iden,x) for(byte iden, *_pointer=(byte*)(x);iden=*_pointer;_pointer++)

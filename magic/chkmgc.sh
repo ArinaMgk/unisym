@@ -11,9 +11,9 @@ check()
 {
 	arguments="$1"
 	expectation="$2"
-	mgc "$arguments" > ~/_obj/check.s || exit
-	riscv64-linux-gnu-gcc -static -o ~/_obj/check ~/_obj/check.s
-	qemu-riscv64 -L $RISCV/sysroot ~/_obj/check
+	mgc "$arguments" > $uobjpath/check.s || exit
+	riscv64-linux-gnu-gcc -static -o $uobjpath/check $uobjpath/check.s
+	qemu-riscv64 -L $RISCV/sysroot $uobjpath/check
 	feekback="$?"
 
 	if [ "$feekback" = "$expectation" ]; then

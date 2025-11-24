@@ -68,7 +68,7 @@ namespace uni {
 		}
 		virtual bool Read(stduint BlockIden, void* Dest);
 		virtual bool Write(stduint BlockIden, const void* Sors);
-		virtual stduint getUnits() const { return _TEMP 512; }
+		virtual stduint getUnits();
 		// byte read
 		virtual int operator[](uint64 bytid) { return _TODO 0; }
 		//

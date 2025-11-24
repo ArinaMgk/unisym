@@ -33,7 +33,7 @@ namespace uni {
 		stduint Block_Size;// usual: 1 or 512
 		virtual bool Read(stduint BlockIden, void* Dest) = 0;
 		virtual bool Write(stduint BlockIden, const void* Sors) = 0;
-		virtual stduint getUnits() const = 0;
+		virtual stduint getUnits() = 0;
 
 	};
 

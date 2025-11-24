@@ -11,6 +11,8 @@ magic/.vscode
 *.log
 *.toc
 *.run.xml
+*.fdb_latexmk
+*.fls
 obj/
 # Locale Makefiles : code `make list` to generate
 lib/make/c*

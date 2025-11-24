@@ -167,6 +167,8 @@ extern "C++" {
 
 #define floorAlign(align,val) ((val/align)*align)
 #define vaultAlign(align,val)  floorAlign(align,val+(align-1))
+#define alignf floorAlign
+#define alignc vaultAlign
 #define ceilAlign vaultAlign
 #define vaultAlignHexpow(align,val) ((val+_IMM(align-1))&~_IMM(align-1))
 

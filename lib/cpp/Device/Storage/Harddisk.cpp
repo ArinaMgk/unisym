@@ -75,7 +75,9 @@ namespace uni {
 		return _TODO false;
 	}
 
-
+	_WEAK stduint Harddisk_PATA::getUnits() {
+		return _TODO 0;
+	}
 
 
 

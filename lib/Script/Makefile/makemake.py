@@ -323,7 +323,6 @@ FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m3 -mthumb $(FPU) $(FLOAT-ABI)
 STM32F4   += """IDEN=STM32F4
 FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 """
-#{unchk}: -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
 STM32H7   += """IDEN=STM32H7
 FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
 """

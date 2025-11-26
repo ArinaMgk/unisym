@@ -51,8 +51,8 @@ namespace uni {
 		HostFile(rostr filepath, FileOpenType fopen_type = FileOpenType::Read);
 		explicit operator bool() const { return nullptr != fptr; }
 		//
-		virtual int inn() { return _TODO - 1; }
-		virtual int out(const char* str, stduint len) { return _TODO - 1; }
+		virtual int inn();
+		virtual int out(const char* str, stduint len);
 		//
 		bool operator>> (byte& B);
 		// will check available zone of String.

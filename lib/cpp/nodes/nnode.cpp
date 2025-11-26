@@ -27,6 +27,19 @@
 #define ON_LEFT  0
 #define ON_RIGHT 1
 
+static stduint NnodeWalkN(uni::Nnode* nnod)
+{
+	stduint n = 0;
+	uni::Nnode* tmpnode = nnod;
+	if (!nnod) return 0;
+	while (tmpnode) {
+		n++;
+		if (tmpnode->subf) n += NnodeWalkN(tmpnode->subf);
+		tmpnode = tmpnode->next;
+	}
+	return n;
+}
+
 namespace uni {
 
 	bool Nnode::isEldest(Nnode* nod) {
@@ -38,7 +51,7 @@ namespace uni {
 #define tmpl(...) __VA_ARGS__ NnodeChain
 
 	tmpl(stduint)::Length() const {
-		_TODO return nil;
+		return NnodeWalkN(root_node);
 	}
 
 	tmpl()::Nchain(bool defa_free) {

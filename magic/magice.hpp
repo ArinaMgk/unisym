@@ -50,4 +50,4 @@ struct MagrkText {
 	// Underline, Deleteline are functions...
 };
 
-void mark(int argc, char** argv);
+int mark(int argc, char** argv);

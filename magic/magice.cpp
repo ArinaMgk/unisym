@@ -314,7 +314,7 @@ int main(int argc, char** argv)
 		stat;
 	}
 	if (!is_mark) stat = magic(argc, argv);
-	else mark(argc, argv);
+	else stat = mark(argc, argv);
 	if (malc_count) plogerro("Memory Leak %[u]", malc_count);
 	return stat;
 }

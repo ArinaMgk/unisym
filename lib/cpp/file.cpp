@@ -2,6 +2,7 @@
 // Docutitle: File
 // Codifiers: @dosconio: 20240422 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Dependens: stdc(++)
 // Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -46,6 +47,17 @@ namespace uni {
 		};
 		fptr = (void*)fopen(filepath, fop_iden[_IMM(fopen_type)]);
 	}
+
+	//
+
+	int HostFile::inn() {
+		return fgetc((FILE*)fptr);
+	}
+	int HostFile::out(const char* str, stduint len) {
+		return _TODO - 1;
+	}
+
+	//
 
 	bool HostFile::operator>> (byte& B) {
 		int ch = fgetc((FILE*)fptr);

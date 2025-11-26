@@ -44,6 +44,7 @@ namespace uni {
 		byte LBA[3];// LE
 		byte device;
 		byte command;
+		#define	MAKE_DEVICE_REG(lba_mode,drv,lba_highest) (((lba_mode) << 6) | ((drv) << 4) | ((lba_highest) & 0xF) | 0xA0)
 	};
 
 

@@ -14,6 +14,11 @@ typedef struct {
 	byte Underline;
 } ConsoleCharPropertyColor8;
 
+#if 0
+#elif defined(_Linux) || 1 // VT100
+#define ConForecolor "\x1b[%dm"
+#endif
+
 enum CON_FORECOLOR {
 #if 0
 #elif defined(_Linux) || 1 // VT100

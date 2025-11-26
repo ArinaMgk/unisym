@@ -50,18 +50,18 @@ switch (level)
 #if defined(_MCCA) && (_MCCA==0x8632 || _MCCA==0x8664)
 	{
 	case _LOG_FATAL:// better into STDERR
-		outsfmt("\xFF\x04%s\xFF\x47", _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
+		outsfmt("\xFF\x04%s\xFF\x47 ", _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
 		break;
 	case _LOG_PANIC:// better into STDERR
-		outsfmt("\xFF\x04%s\xFF\x47", _logstyle == _LOG_STYLE_NONE ? _pref_pani : "panic: ");
+		outsfmt("\xFF\x04%s\xFF\x47 ", _logstyle == _LOG_STYLE_NONE ? _pref_pani : "panic: ");
 		break;
 	case _LOG_ERROR:// better into STDERR
-		outsfmt("\xFF\x04%s\xFF\x47", _logstyle == _LOG_STYLE_NONE ? _pref_erro : "error: ");
+		outsfmt("\xFF\x04%s\xFF\x47 ", _logstyle == _LOG_STYLE_NONE ? _pref_erro : "error: ");
 		break;
 	case _LOG_WARN:
-		outsfmt("\xFF\x06%s\xFF\x60", _logstyle == _LOG_STYLE_NONE ? _pref_warn : "warning: "); break;
+		outsfmt("\xFF\x06%s\xFF\x60 ", _logstyle == _LOG_STYLE_NONE ? _pref_warn : "warning: "); break;
 	case _LOG_INFO:
-		outsfmt("\xFF\x37%s\xFF\x73", _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
+		outsfmt("\xFF\x37%s\xFF\x73 ", _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
 	case _LOG_DEBUG:
 		outsfmt("%s", _logstyle == _LOG_STYLE_NONE ? _pref_dbug : "debug: "); break;
 	case _LOG_TRACE:

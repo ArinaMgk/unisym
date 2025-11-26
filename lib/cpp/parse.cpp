@@ -228,7 +228,7 @@ namespace uni
 				{
 					setChar(EscSeq[(i << 1) + 1]);
 					listlen = 0;
-					return false;
+					return true;
 				}
 			}
 			if (!listlen) return true;

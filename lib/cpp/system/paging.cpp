@@ -84,7 +84,7 @@ namespace uni {
 		MemSet(page_directory, 0, 0x1000);
 	}
 
-	//{unchk} ---↓
+	// ---↓
 
 
 	void* Paging::operator[](stduint address) const {

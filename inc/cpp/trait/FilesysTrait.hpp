@@ -26,6 +26,10 @@
 
 #ifndef _INCPP_TRAIT_FILESYSTEM
 #define _INCPP_TRAIT_FILESYSTEM
+
+// 20251121 Phina: /http -> /lnk/http, use /http/phina.net for http(s)://phina.net
+
+
 namespace uni {
 
 /*
@@ -62,7 +66,7 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		virtual bool makefs() = 0;
 		virtual bool loadfs() { return false; }
 		virtual bool create(rostr fullpath, stduint flags, stduint* exinfo, rostr linkdest = 0) = 0;// create file/folder. usize{isfolder}
-		virtual bool remove() = 0;// remove file/folder
+		virtual bool remove(rostr pathname) = 0;// remove file/folder
 		virtual bool search(rostr fullpath, stduint* retback) = 0;// get proper
 		virtual bool proper() = 0;// set proper
 		virtual bool enumer() = 0;

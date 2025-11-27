@@ -25,22 +25,9 @@
 
 #include "magice.hpp"
 #include "../inc/c/file.h"
-#include "../inc/cpp/parse.hpp"
-
+#include "include/markproc.hpp"
 
 using namespace uni;
-
-//{TODO} move into file-format modules
-bool OutputMarkdown(OstreamTrait& out) {
-
-	return _TODO false;
-}
-bool OutputHTML(OstreamTrait& out) {
-	return _TODO false;
-}
-bool OutputLaTeX(OstreamTrait& out) {
-	return _TODO false;
-}
 
 OstreamTrait* out;
 static void NnodeWalk(uni::Nnode* nnod, stduint level = 0)
@@ -69,6 +56,11 @@ static void NnodeWalk(uni::Nnode* nnod, stduint level = 0)
 	}
 }
 
+enum class datatype {
+	Number,// double
+	String,
+};
+
 ///her/unisym/magic$ ./makmgc.sh && mgc /her/unisym/demo/test/mark/doc0/doc0.mgc
 int mark(int argc, char** argv) {
 	ploginfo("process %s into .tex, .md, .html", argv[1]);
@@ -96,7 +88,11 @@ int mark(int argc, char** argv) {
 	npu.GetNetwork()->func_free = NnodeHeapFreeSimple;
 	npu.ParseStatements_CPL();
 	
-
+	// Table of Variables
+	// // str[en] -> "str"
+	// // str[nh] -> "str:nh"
+	// // str[cn] -> "str:cn"
+	TagChain<datatype> variables;
 
 
 	// END

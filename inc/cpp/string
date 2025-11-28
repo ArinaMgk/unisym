@@ -31,7 +31,6 @@
 #include "cinc"// C End
 #if defined(_USE_PROPERTY)
 #include "property"
-// #include <iostream>//{TEMP}
 #endif
 
 /*TODO
@@ -44,7 +43,6 @@
 
  //{} Append property-call for += ... operator
 namespace uni {
-	//{TODO} Slice_T
 	template <typename type0>
 	struct Slice_T {
 		stduint address;

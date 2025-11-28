@@ -1,10 +1,9 @@
 #UTF-8 MAgicRK(1) . .
 // Generate: partial code of TeX, HTML, Markdown
 
-Data<String> string0 = chapter; // default Lango:En
-string0[Lango:Zh] = "一级标题"; // 中文
-string0[Lango:Nh] = "レベル1の見出し"; // Nihongo
-// 缺省的语言按照 En 处理
+Set(string0, String, "chapter"); // default Lango:En
+Append(string0, Zh, "一级标题") // 中文
+Append(string0, Nh, "レベル1の見出し") // 日本語
 
 Title(1, string0);
 Format("%s\n", "doc0");

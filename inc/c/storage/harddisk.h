@@ -56,6 +56,11 @@ namespace uni {
 	public:
 		enum class HarddiskType {
 			ATA// LBA28
+		};//{} ControllerType. Move out and into class `Harddisk`
+		enum class ReactType {
+			None,// invalid mode
+			Loop,
+			Rupt,// ! need bind 3 functions
 		};
 		byte id;// 0x00=0:0(primary master), 0x11=1:1(secondary slave) ...
 	public:
@@ -63,9 +68,17 @@ namespace uni {
 		// - stduint Block_Size;
 		// - void* Block_buffer;
 		HarddiskType type;
+		ReactType react_type;
+		bool (*fn_cmd_wait)() = 0;
+		void (*fn_int_wait)() = 0;
+		bool (*fn_lup_wait)(stduint mask, stduint val, stduint timeout_second) = 0;
+		void (*fn_feedback)();// optional RW precalling
+	public:
+		
 		Harddisk_PATA(byte id = 0, HarddiskType type = HarddiskType::ATA) : id(id), type(type) {
 			Block_buffer = nullptr;
 			Block_Size = 512;
+			react_type = ReactType::Loop;
 		}
 		virtual bool Read(stduint BlockIden, void* Dest);
 		virtual bool Write(stduint BlockIden, const void* Sors);

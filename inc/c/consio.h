@@ -153,12 +153,7 @@ namespace uni {
 		// [Update] Please Use Console.OutFormat but Console.OutFormat
 	};
 	
-	class HostConsole
-	#if 1 // !defined(_MCCA)
-		: public Console_t // single instance
-	#else
-		#define virtual
-	#endif
+	class HostConsole : public Console_t // single instance
 	{
 	public:
 		virtual int out(const char* str, stduint len);
@@ -172,10 +167,7 @@ namespace uni {
 		int WriteLine(const char* fmt = "", ...);
 		int WriteLine(const String& str);
 	#endif
-	#if 0 && !defined(_MCCA)
-		#undef virtual
-	#endif
-	#if defined(_WinNT) || defined(_Linux)
+	#if defined(_WinNT) || defined(_Linux)//{} remove the condition
 		void Clear() {
 			//{TODO} buffers for
 			ConClearScreen();
@@ -203,7 +195,9 @@ namespace uni {
 	// |----|     |
 	// |          |
 	// |----------|
-	class BareConsole : public Console_t {
+	class BareConsole
+		: public Console_t
+	{
 	public:
 		virtual int out(const char* str, stduint len);
 		virtual int inn();

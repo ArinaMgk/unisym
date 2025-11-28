@@ -58,7 +58,7 @@ namespace uni {
 
 	//{} IDE0:0 only
 	__attribute__((optimize("O0")))// NO OPTIMIZE
-	_WEAK bool Harddisk_PATA::Read(stduint BlockIden, void* Dest) {
+	static bool CallRead(stduint BlockIden, void* Dest) {
 		stduint C, B;
 		__asm volatile("mov %%ecx, %0" : "=r" (C));// will break GNU stack judge: __asm ("push %ecx");
 		__asm volatile("mov %%ebx, %0" : "=r" (B));// will break GNU stack judge: __asm ("push %ebx");
@@ -70,9 +70,73 @@ namespace uni {
 		__asm volatile("mov %0, %%ecx" : : "r" (C));// rather __asm ("pop %ecx");
 		return true;
 	}
-
+	__attribute__((optimize("O0")))// NO OPTIMIZE
+	_WEAK bool Harddisk_PATA::Read(stduint BlockIden, void* Dest) {
+		// ploginfo("Harddisk_PATA::Read %d(%d, %[32H])", _IMM(react_type), BlockIden, Dest);
+		switch (react_type) {
+		case ReactType::Loop:
+		{
+			return CallRead(BlockIden, Dest);
+		}
+		case ReactType::Rupt:
+		{
+			HdiskCommand cmd;
+			cmd.feature = 0;
+			cmd.count = 1;// number of sectors: slice.length
+			for0(i, 3) cmd.LBA[i] = (BlockIden >> (i * 8));
+			cmd.device = MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF);
+			cmd.command = ATA_READ;
+			asserv(fn_feedback)();// foreback
+			Harddisk_PATA::Hdisk_OUT(&cmd, fn_cmd_wait);
+			if (fn_int_wait && fn_lup_wait) {
+				fn_int_wait();
+				if (!fn_lup_wait(STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT)) {
+					return false;
+				}
+				IN_wn(REG_DATA, (word*)Dest, Block_Size);
+				return true;
+				// repeat the block to RW multi-sectors
+			}
+			else return false;
+		}
+		default:
+			return false;
+		}
+		return true;
+	}
+	__attribute__((optimize("O0")))// NO OPTIMIZE
 	_WEAK bool Harddisk_PATA::Write(stduint BlockIden, const void* Sors) {
-		return _TODO false;
+		// ploginfo("Harddisk_PATA::Write(%d, %[32H])", BlockIden, Sors);
+		switch (react_type) {
+		case ReactType::Loop:
+		{
+			return _TODO false;
+		}
+		case ReactType::Rupt:
+		{
+			HdiskCommand cmd;
+			cmd.feature = 0;
+			cmd.count = 1;// number of sectors: slice.length
+			for0(i, 3) cmd.LBA[i] = (BlockIden >> (i * 8));
+			cmd.device = MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF);
+			cmd.command = ATA_WRITE;
+			asserv(fn_feedback)();// foreback
+			Harddisk_PATA::Hdisk_OUT(&cmd, fn_cmd_wait);
+			if (fn_int_wait && fn_lup_wait) {
+				if (!fn_lup_wait(STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT)) {
+					return false;
+				}
+				OUT_wn(REG_DATA, (word*)Sors, Block_Size);
+				fn_int_wait();
+				return true;
+				// repeat the block to RW multi-sectors
+			}
+			else return false;
+		}
+		default:
+			return false;
+		}
+		return true;
 	}
 
 	_WEAK stduint Harddisk_PATA::getUnits() {

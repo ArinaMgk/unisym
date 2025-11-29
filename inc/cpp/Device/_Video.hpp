@@ -174,7 +174,8 @@ namespace uni {
 	};// Single Layer
 
 	// inherit Console_t to make a console with self-defined font.
-	class VideoConsole : public Console_t {
+	class VideoConsole : public Console_t, public SheetTrait
+	{
 	public: const VideoControlInterface& vci;
 	protected:
 		Point cursor = { 0,0 };
@@ -213,6 +214,7 @@ namespace uni {
 	public:
 		virtual int out(const char* str, stduint len);
 		virtual int inn() _TODO;
+		virtual void doshow() override;
 	public:
 
 		void curinc();

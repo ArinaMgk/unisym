@@ -135,8 +135,10 @@ void ConStyleNormal(void);
 #ifdef _INC_CPP
 }
 
+#include "../cpp/queue"
 #include "../cpp/stream"
 #include "../cpp/string"
+#include "../cpp/trait/SheetTrait.hpp"
 #include "../c/graphic.h"
 
 namespace uni {
@@ -196,11 +198,12 @@ namespace uni {
 	// |          |
 	// |----------|
 	class BareConsole
-		: public Console_t
+		: public Console_t, public SheetTrait
 	{
 	public:
 		virtual int out(const char* str, stduint len);
 		virtual int inn();
+		virtual void doshow() override;
 	public:
 		Rectangle area_show;// relatived to Screen
 		Size2 area_total;// relatived to Memory
@@ -214,6 +217,10 @@ namespace uni {
 		bool attr_enable = 0;
 		bool auto_incbegaddr = 1;
 		stduint stat_lines = 0;// inc by scroll
+		#ifdef _MCCA
+		//[TEMP] no output buffer, user library can make it in their level.
+		QueueLimited input_queue = (Slice){0, 0};
+		#endif
 		//
 		// - use global cursor position function
 		//

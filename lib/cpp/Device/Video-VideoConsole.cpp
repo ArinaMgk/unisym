@@ -74,6 +74,9 @@ namespace uni {
 	int VideoConsole::inn() {
 		return _TEMP 0;
 	}
+	void VideoConsole::doshow() {
+		_TEMP 0;
+	}
 
 
 	
@@ -92,6 +95,13 @@ namespace uni {
 		}
 		else if (str[i] == '\r') {
 			crt_self->cursor.x = nil;
+		}
+		else if (str[i] == '\b') {
+			if (crt_self->cursor.x > 0) crt_self->cursor.x--;
+			else if (crt_self->cursor.y > 0) {
+				crt_self->cursor.y--;
+				crt_self->cursor.x = crt_self->size.x - 1;
+			}
 		}
 		else if ((byte)str[i] == (byte)'\xFF' && _LIMIT - i > 1) {// Mecocoa Style II since 20250929
 			byte color = str[++i];

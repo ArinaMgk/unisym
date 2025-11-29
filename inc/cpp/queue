@@ -27,6 +27,7 @@
 #define _INC_Queue_X
 
 #include "unisym"
+#include "trait/XstreamTrait.hpp"
 
 //{TODO} make a pointer to front and distance from the rear
 
@@ -34,8 +35,8 @@ namespace uni {
 	template <typename type0> class Queue {
 	private:
 	protected:
-		studint limit;
-		studint count;
+		stduint limit;
+		stduint count;
 		type0* offss;
 		// do not use double pointer, but the index 0 is always what to be read.
 	public:
@@ -65,6 +66,39 @@ namespace uni {
 		}
 		bool isEmpty() { return !count; }
 		bool isFull() { return count >= limit; }
+	};
+
+	class QueueLimited
+		: public IstreamTrait, public OstreamTrait
+	{
+	public:
+		Slice slice;
+		char* _Comment(W) p = 0; char* _Comment(R) q = 0;
+		QueueLimited(Slice _slice) : slice(_slice) {
+			p = (char*)slice.address;
+		}
+		virtual int inn() {
+			if (is_empty()) return -1;
+			int ret = (unsigned)*q++;
+			if (q >= (char*)slice.address + slice.length) q = (char*)slice.address;
+			if (p == q) q = nullptr, p = (char*)slice.address;
+			return ret;
+		}
+		virtual int out(const char* str, stduint len)// put_inn
+		{
+			int cnt = 0;
+			for0(i, len) {
+				if (is_full()) break;
+				if (q == nullptr) q = p;
+				*p++ = str[i];
+				if (p >= (char*)slice.address + slice.length) p = (char*)slice.address;
+				cnt++;
+			}
+			return cnt;
+		}
+		//
+		inline bool is_full() const { return q && p == q; }
+		inline bool is_empty() const { return q == nullptr; }
 	};
 }
 

@@ -113,6 +113,7 @@ namespace uni {
 
 		return _TODO - 1;
 	}
+	_WEAK void BareConsole::doshow() { }
 	void BareConsole::Scroll(stdsint lines, word& posi) {
 		//{} The fact may be ContinPage + MemAbsolute
 		const stduint _BytesPerLine = unit * area_total.x;

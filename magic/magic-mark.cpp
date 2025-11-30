@@ -22,6 +22,7 @@
 // .mgc ---> .html
 //       |-> .tex
 //       |-> .md
+//       |-> stdout
 
 #include "magice.hpp"
 #include "../inc/c/file.h"
@@ -29,17 +30,16 @@
 
 using namespace uni;
 
+
+
 OstreamTrait* out;
 static void NnodeWalk(uni::Nnode* nnod, stduint level = 0)
 {
 	Nnode* tmpnode = nnod;
 	if (!nnod) return;
-	for0(i, level) out->OutFormat("-> ");
 	while (tmpnode) {
-		if (tmpnode->subf) {
-			out->OutFormat("\n");
-			NnodeWalk(tmpnode->subf, level + 1);
-		}
+		if (level) for0(i, level) out->OutFormat("-> ");
+		else out->OutFormat("---");
 		if (tmpnode->addr) {
 			if (tmpnode->type == tok_identy) {
 				out->OutFormat(ConForecolor "%s" ConForecolor, CON_FORE_YELLOW, tmpnode->addr, 0);
@@ -52,18 +52,28 @@ static void NnodeWalk(uni::Nnode* nnod, stduint level = 0)
 			}
 			else out->OutFormat(" %s ", tmpnode->addr);
 		}
+		out->OutFormat("\n");
+		if (tmpnode->subf) {
+			
+			NnodeWalk(tmpnode->subf, level + 1);
+		}
 		tmpnode = tmpnode->next;
 	}
 }
+void DnodeHeapFreeMagice(pureptr_t offs) {
+	Letvar(obj, uni::Dnode*, offs);
+	// ploginfo(": %s %s", obj->addr, ((TagObject<mgc_datatype>*)obj->type)->offs);
+	mfree(obj->addr);// iden
+	mfree(((TagObject<mgc_datatype>*)obj->type)->offs);
+	mfree(obj->type);// IdenObject
+}
 
-enum class datatype {
-	Number,// double
-	String,
-};
+bool mark_debug = false;
 
+//{issue}!!! why level-0 are not only one
 ///her/unisym/magic$ ./makmgc.sh && mgc /her/unisym/demo/test/mark/doc0/doc0.mgc
 int mark(int argc, char** argv) {
-	ploginfo("process %s into .tex, .md, .html", argv[1]);
+	//ploginfo("process %s into .tex, .md, .html", argv[1]);
 	String filename = argv[1];
 	HostFile file(filename.reference());
 	byte ch;
@@ -87,34 +97,37 @@ int mark(int argc, char** argv) {
 	NestedParseUnit npu(dc, 0);
 	npu.GetNetwork()->func_free = NnodeHeapFreeSimple;
 	npu.ParseStatements_CPL();
+	npu.ParseParen(npu.GetNetwork()->Root(), false);
+
+	////mark_debug = true;
+
+	//{} ProcessorHTML
+
+	HostFile outfile("D:/tmp/tmp.txt", FileOpenType::Write);
+	ProcessorTex out_tex(&outfile);
 	
-	// Table of Variables
-	// // str[en] -> "str"
-	// // str[nh] -> "str:nh"
-	// // str[cn] -> "str:cn"
-	TagChain<datatype> variables;
+	//{} ProcessorMarkdown
 
-
-	// END
-
+	ProcessorStdout out_stdout(&Console);
+	out_stdout.variables.chn.func_comp = (_tocomp_ft)StrCompare;
+	out_stdout.variables.chn.refChain().func_free = DnodeHeapFreeMagice;
+	for (auto nod = npu.GetNetwork()->Root(); nod; nod = nod->next) {
+		for (auto nnod = nod->subf; nnod; nnod = nnod->next) out_stdout.proc(nnod);
+	}
 	
-	out->OutFormat("There are %u nodes\n", npu.GetNetwork()->Count());
-	//auto nod = dc.Root();
-	//while (nod) {
-	//	if (nod->addr) out->OutFormat(nod->addr);
-	//	nod = nod->next;
-	//}
-	NnodeWalk(npu.GetNetwork()->Root());
-	out->OutChar('\n');
-	char* _Heap texname = StrReplace(filename.reference(), ".mgc", ".mgc.tex", NULL);
-	ploginfo(".tex \t=> %s", texname);
-	char* _Heap mdname = StrReplace(filename.reference(), ".mgc", ".mgc.md", NULL);
-	ploginfo(".md  \t=> %s", mdname);
-	char* _Heap htmlname = StrReplace(filename.reference(), ".mgc", ".mgc.html", NULL);
-	ploginfo(".html\t=> %s", htmlname);
-	mfree(texname);
-	mfree(mdname);
-	mfree(htmlname);
+
+	// NnodeWalk(npu.GetNetwork()->Root());
+
+	// ---- END ----
+	// char* _Heap texname = StrReplace(filename.reference(), ".mgc", ".mgc.tex", NULL);
+	// ploginfo(".tex \t=> %s", texname);
+	// char* _Heap mdname = StrReplace(filename.reference(), ".mgc", ".mgc.md", NULL);
+	// ploginfo(".md  \t=> %s", mdname);
+	// char* _Heap htmlname = StrReplace(filename.reference(), ".mgc", ".mgc.html", NULL);
+	// ploginfo(".html\t=> %s", htmlname);
+	// mfree(texname);
+	// mfree(mdname);
+	// mfree(htmlname);
 
 
 	return nil;

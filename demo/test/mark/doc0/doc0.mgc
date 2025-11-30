@@ -8,26 +8,26 @@ Append(string0, Nh, "レベル1の見出し") // 日本語
 Title(1, string0);
 Format("%s\n", "doc0");
 
-Title(2, "section");
+Title((2), "section");
 Out("中文测试(中文測試)");
 
-Title t3(3, "T3");// subsection
+Title(3, "T3");// subsection
 Out("日本語テスト");
 
-Title(t3.level + 1, "subsubsection");
-Format("^B", "打开粗体");
-Format("^b", "关闭粗体");
-Format("%I", "斜体");
-Format("%U", "下划线");
-Format("%D", "删除线");
-Format("%up", "正文" ,"上标");
-Format("%dn", "正文" ,"下标");
-Format("%%", "清除格式");
+Title(4, "subsubsection");// t3.level + 1
+Format("^B%s\n", "打开粗体");
+Format("^b%s\n", "关闭粗体");
+Format("^I%s\n", "斜体");
+Format("^U%s\n", "下划线");
+//{} Format("^D%s", "删除线");
+//{} Format("%up", "正文" ,"上标");
+//{} Format("%dn", "正文" ,"下标");
+Format("^^%s\n", "清除格式");
 
 Title(5, "paragraph");
 Title(6, "subparagraph");// markdown 上限 : 六级标题
 
-Picture iden(path);
+Picture(path);
 
 Title(7, "subsubparagraph");
 Include("./a.mgc"); // parse and replace this node

@@ -1,6 +1,6 @@
 // ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Compile) Mark Layer
-// Codifiers: @dosconio
+// Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -24,6 +24,7 @@
 #define _INCX_MARKPROC
 
 #include "../../inc/c/mnode.h"
+#include "../../inc/c/nnode.h"
 #include "../../inc/cpp/parse.hpp"
 #include "../../inc/c/graphic/color.h"
 
@@ -76,37 +77,96 @@ struct TagChain {
 
 //// ---- ---- . ---- ---- ////
 
-class MarkProcessor
-	: public uni::IstreamTrait, public uni::OstreamTrait
+namespace uni {
+	struct SupertextFormat {
+		bool B = false;// bold
+		bool I = false;// italic
+		bool U = false;// underline
+		bool DeleteLine = false;// delete line
+		uni::Color Forecolor = uni::Color::Black;
+		uni::Color Backcolor = uni::Color::White;
+		bool _up = false;// <sup>
+		bool _dn = false;// <sub>
+	};
+
+}
+
+enum class mgc_datatype {
+	None,
+	Number,// double
+	String,
+
+};
+
+class MarkProcessor : public uni::OstreamTrait
 {
 protected:
-	virtual int inn() override;
-	virtual int out(const char* str, stduint len) override;
+	virtual int out(const char* str, stduint len) { return nil; }
 public:
-	MarkProcessor() {
-		
-	}
-	bool B = false;// bold
-	bool I = false;// italic
-	bool U = false;// underline
-	bool DeleteLine = false;// delete line
-	uni::Color Forecolor = uni::Color::Black;
-	uni::Color Backcolor = uni::Color::White;
-	bool _up = false;// <sup>
-	bool _dn = false;// <sub>
-
-	// through Ostream
-
-	//
-	bool OutputMarkdown();
-	//
-	bool OutputHTML();
-	//
-	bool OutputLaTeX();
-	//
-	bool OutputStdout();
-
-
+	enum class TextFormat {
+		None,
+		HTML,
+		Tex,
+		Markdown,
+		STDOUT,
+	};
+	MarkProcessor() {}
+	uni::SupertextFormat fmt;
+	uni::SupertextFormat fmt_last;// set by inn() usually
+	bool fmt_valid = true;
+	// Table of Variables
+	// // str[en] -> "str"
+	// // str[nh] -> "str:nh"
+	// // str[cn] -> "str:cn"
+	TagChain<mgc_datatype> variables;
+	// [0]HTML [1]Tex [2]Md [3]STDOUT
+	TextFormat txtfmt = TextFormat::None;
+	virtual bool proc(uni::Nnode* nod) = 0;
+	virtual void endo() {}// Cancel potential fmt, e.g. <b>...|</b>
 };// line-unit
+
+struct ProcessorHTML : public MarkProcessor {
+	uni::OstreamTrait* pout;
+	ProcessorHTML(uni::OstreamTrait* o) : pout(o) {
+		txtfmt = TextFormat::HTML;
+	}
+	virtual int out(const char* str, stduint len) override; // for its subnodes
+	virtual bool proc(uni::Nnode* nod) override;
+};
+struct ProcessorTex : public MarkProcessor {
+	uni::OstreamTrait* pout;
+	ProcessorTex(uni::OstreamTrait* o) : pout(o) {
+		txtfmt = TextFormat::Tex;
+	}
+	virtual int out(const char* str, stduint len) override;
+	virtual bool proc(uni::Nnode* nod) override;
+};
+struct ProcessorMarkdown : public MarkProcessor {
+	uni::OstreamTrait* pout;
+	ProcessorMarkdown(uni::OstreamTrait* o) : pout(o) {
+		txtfmt = TextFormat::Markdown;
+	}
+	virtual int out(const char* str, stduint len) override;
+	virtual bool proc(uni::Nnode* nod) override;
+};
+struct ProcessorStdout : public MarkProcessor {
+	uni::OstreamTrait* pout;
+	ProcessorStdout(uni::OstreamTrait* o) : pout(o) {
+		txtfmt = TextFormat::STDOUT;
+	}
+	virtual int out(const char* str, stduint len) override;
+	virtual bool proc(uni::Nnode* nod) override;
+};
+
+// Set(obj: iden, typ, val) -> none
+void GF_Set(uni::Dchain* chain, MarkProcessor* proc);
+// Append(obj: iden, lango, val) -> none
+void GF_Append(uni::Dchain* chain, MarkProcessor* proc);
+// Title(lev: int, content: iden/string)
+void GF_Title(uni::Dchain* chain, MarkProcessor* proc);
+// Out( str: iden/string , ... )
+void GF_Out(uni::Dchain* chain, MarkProcessor* proc);
+// Format( str: iden/string , ... )
+void GF_Format(uni::Dchain* chain, MarkProcessor* proc);
 
 #endif

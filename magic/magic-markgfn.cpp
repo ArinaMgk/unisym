@@ -36,7 +36,7 @@ static rostr SeekString(uni::Dnode* n, MarkProcessor* proc)
 	rostr txt = nullptr;
 	if (n->type == tok_identy) {
 		//{} chk type string then:
-		txt = (rostr)proc->variables[n->addr]->offs;
+		txt = proc->variables[n->addr] ? (rostr)proc->variables[n->addr]->offs : NULL;
 	}
 	else if (n->type == tok_string) {
 		txt = n->addr;
@@ -103,8 +103,9 @@ void GF_Title(uni::Dchain* chain, MarkProcessor* proc)
 		break;
 	case MarkProcessor::TextFormat::Markdown:
 	case MarkProcessor::TextFormat::STDOUT:
+		proc->OutChar('\n');
 		for0(i, atoins(dc[0]->addr)) proc->OutChar('#');
-		proc->OutFormat(" %s\n", title);
+		proc->OutFormat(" %s\n\n", title);
 		break;
 	default:
 		break;
@@ -121,7 +122,7 @@ void GF_Out(uni::Dchain* chain, MarkProcessor* proc)
 			// plogerro
 			return;
 		}
-		proc->OutFormat(" %s\n", txt);
+		proc->OutFormat("%s\n", txt);
 	}
 }
 
@@ -219,5 +220,46 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
 	}
 }
 
+void GF_Picture(uni::Dchain* chain, MarkProcessor* proc)
+{
+	using namespace uni;
+	rostr txt;
+	for (auto n = chain->Root(); n; n = n->next) {
+		if (txt = SeekString(n, proc));
+		else {
+			// plogerro
+			return;
+		}
+		switch (proc->txtfmt) {
+		case MarkProcessor::TextFormat::HTML:
+			//{TODO}
+			break;
+		case MarkProcessor::TextFormat::Tex:
+			//{TODO}
+			break;
+		case MarkProcessor::TextFormat::Markdown:
+		case MarkProcessor::TextFormat::STDOUT:
+			proc->OutFormat("🖼️（%s）\n", txt);
+			break;
+		default:
+			break;
+		}
+		
+	}
+}
 
+void GF_Include(uni::Dchain* chain, MarkProcessor* proc)
+{
+	using namespace uni;
+	rostr txt;
+	for (auto n = chain->Root(); n; n = n->next) {
+		if (txt = SeekString(n, proc));
+		else {
+			// plogerro
+			return;
+		}
 
+		//TODO
+
+	}
+}

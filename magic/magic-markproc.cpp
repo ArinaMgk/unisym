@@ -34,6 +34,7 @@ static const gfnmap_entry gfnmap[] = {
 	{"Title", GF_Title },
 	{"Out", GF_Out },
 	{"Format", GF_Format },
+	{"Picture", GF_Picture },
 };
 
 

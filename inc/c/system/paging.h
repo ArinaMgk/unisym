@@ -130,6 +130,7 @@ namespace uni {
 		bool MapWeak(stduint address, stduint physical_address, stduint length, bool writable, bool user_but_superv);
 
 		void Reset();
+		void Reset(Paging& pg_another);
 
 		// ---- Platform Related ----
 

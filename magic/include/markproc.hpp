@@ -168,5 +168,9 @@ void GF_Title(uni::Dchain* chain, MarkProcessor* proc);
 void GF_Out(uni::Dchain* chain, MarkProcessor* proc);
 // Format( str: iden/string , ... )
 void GF_Format(uni::Dchain* chain, MarkProcessor* proc);
+// Picture( path: iden/string )
+void GF_Picture(uni::Dchain* chain, MarkProcessor* proc);
+// Include( path: iden/string )
+void GF_Include(uni::Dchain* chain, MarkProcessor* proc);
 
 #endif

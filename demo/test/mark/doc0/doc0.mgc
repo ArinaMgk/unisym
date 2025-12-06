@@ -27,7 +27,7 @@ Format("^^%s\n", "清除格式");
 Title(5, "paragraph");
 Title(6, "subparagraph");// markdown 上限 : 六级标题
 
-Picture(path);
+Picture("../../../../.picture/unisym.20240306.png");//TODO: path,iden,show_no
 
 Title(7, "subsubparagraph");
 Include("./a.mgc"); // parse and replace this node

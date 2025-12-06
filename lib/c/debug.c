@@ -61,7 +61,7 @@ switch (level)
 	case _LOG_WARN:
 		outsfmt("\xFF\x06%s\xFF\x60 ", _logstyle == _LOG_STYLE_NONE ? _pref_warn : "warning: "); break;
 	case _LOG_INFO:
-		outsfmt("\xFF\x37%s\xFF\x73 ", _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
+		outsfmt("\xFF\x37%s\xFF\x03 ", _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
 	case _LOG_DEBUG:
 		outsfmt("%s", _logstyle == _LOG_STYLE_NONE ? _pref_dbug : "debug: "); break;
 	case _LOG_TRACE:

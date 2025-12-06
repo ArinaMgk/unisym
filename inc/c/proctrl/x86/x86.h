@@ -185,6 +185,40 @@ void _popfd(void);
 void delay001s();
 void delay001ms();
 
+// ---- ---- Registers
+
+#include <stdint.h>
+
+typedef struct {
+    uint32_t CF  : 1;  // Carry Flag — bit 0
+    uint32_t _r1 : 1;  // reserved (always 1 in EFLAGS low-word for FLAGS) – bit 1
+    uint32_t PF  : 1;  // Parity Flag — bit 2
+    uint32_t _r3 : 1;  // reserved — bit 3
+    uint32_t AF  : 1;  // Auxiliary / Adjust Flag — bit 4
+    uint32_t _r5 : 1;  // reserved — bit 5
+    uint32_t ZF  : 1;  // Zero Flag — bit 6
+    uint32_t SF  : 1;  // Sign Flag — bit 7
+    uint32_t TF  : 1;  // Trap Flag — bit 8
+    uint32_t IF  : 1;  // Interrupt enable Flag — bit 9
+    uint32_t DF  : 1;  // Direction Flag — bit 10
+    uint32_t OF  : 1;  // Overflow Flag — bit 11
+
+    uint32_t IOPL: 2;  // I/O Privilege Level — bits 12–13
+    uint32_t NT  : 1;  // Nested Task — bit 14
+
+    uint32_t _r15 : 1; // reserved — bit 15
+
+    uint32_t RF  : 1;  // Resume Flag — bit 16
+    uint32_t VM  : 1;  // Virtual-8086 Mode flag — bit 17
+    uint32_t AC  : 1;  // Alignment Check / Access Control — bit 18 (486+)  
+    uint32_t VIF : 1;  // Virtual Interrupt Flag — bit 19  
+    uint32_t VIP : 1;  // Virtual Interrupt Pending — bit 20  
+    uint32_t ID  : 1;  // ID flag — bit 21
+
+    uint32_t _reserved : 10; // bits 22–31: reserved / unused / future
+} REG_FLAG_t;
+
+
 // ---- ---- VGA
 
 // ---- CRT Control Registers

@@ -23,15 +23,14 @@ including not only implementation, library, tool-kits, chroming engine and demon
 - Hierarchical Data System: `HERNOT` and public `HEREPC`
     - Herepic
         - Style Color: <font color="#FF619D">Herpink</font> <!-- (R255, G97, B157, #double-0.618)  -->
-        - `{now} request MAGIC-MARK`
         - (OK)TeX&PDF, ( )HTML, ( )Markdown
 - `HERPRO` and static `HERDAT`
     - opensrc **UNISYM** (this Abstract Centre, Apache), up-to chip-level `arch-objfmt-env`
 		- **Kasha** Static BIOS Assembly Macro Package (UNDONE.SUSPEND)
 		- Magice with AASM (, Linker)
+			- doscon.io/COTLAB (Command-Line Interface)
 		- (Wel)
 		- Kits
-	- COTLAB (Command-Line Interface)
 	- Dinah (Processor and Controller Chip)
 	- Mecocoa (General Hosted Environment), up-to board-level `board-arch-mode`
 	- Websec (Webnet Server&Client and Secure) 
@@ -113,13 +112,18 @@ To reduce the size of basic header, you can remove some support like STM32Fx.
 
 - ![Contributor ArinaMgk (Phina)](./.picture/phina.head.bmp) <del> ***Phina Ren***</del>, ***Azusa***(Ren's successor)
 
+    - **Boudoir.**: http://phina.net, http://alice.wiki
+    - **Nickname**: Azusa
+    - **GitHubId**: `ArinaMgk` 
+    - **EAddress**: arinachan@foxmail.com 
+
 - ![Contributor Doshou Haruno](./.picture/haruno.head.jpg) ***Doshou Haruno*** 
 
-    - **Boudoir**: http://doscon.io and dosconio series
+    - **Homepage**: http://doscon.io and dosconio series
     - **Nickname**: Ayano
-    - **GitHub**: `dosconio` 
-    - **Mail**: dosconyo@gmail.com 
-    - **Fork**: [Dosconio-derived USYM](http://github.com/dosconio/unisym) 
+    - **GitHubId**: `dosconio` 
+    - **EAddress**: dosconyo@gmail.com 
+    - **Forkrepo**: [Dosconio-derived USYM](http://github.com/dosconio/unisym) 
 
 - 皆さん～
 

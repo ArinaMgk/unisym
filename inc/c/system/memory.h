@@ -25,7 +25,7 @@
 
 #include "../stdinc.h"
 
-#ifdef _STDLIB_H
+#ifndef _STDLIB_H
 	#define _STDLIB_H
 	#endif
 //#define __stdlib_h

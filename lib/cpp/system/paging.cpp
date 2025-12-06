@@ -80,8 +80,20 @@ namespace uni {
 	}
 	
 	void Paging::Reset() {
-		page_directory = (uni::PageDirectory *)_physical_allocate(0x1000);
+		page_directory = (uni::PageDirectory*)_physical_allocate(0x1000);
 		MemSet(page_directory, 0, 0x1000);
+	}
+	void Paging::Reset(Paging& pg_another) {
+		// use 2-level paging (0x400 x 0x400 x 0x1000)
+		page_directory = (uni::PageDirectory*)_physical_allocate(0x1000);
+		MemSet(page_directory, 0, 0x1000);
+		for0(i, _NUM_pd_table_entries) {
+			PageEntry* p1entry = (*pg_another.page_directory)[i].getEntry(pg_another);
+			if (p1entry->P) {
+				// PageMap(self, )
+				//{TODO}
+			}
+		}
 	}
 
 	// ---↓
@@ -157,8 +169,14 @@ namespace uni {
 		stduint ret = 0;
 
 		while (length) {
-			if (!crtpage_d->isPresent(pg_d)) return 0;
-			if (!crtpage_s->isPresent(pg_s)) return 0;
+			if (!crtpage_d->isPresent(pg_d)) {
+				plogerro("MemCopyP: dest page is not present");
+				return 0;
+			}
+			if (!crtpage_s->isPresent(pg_s)) {
+				plogerro("MemCopyP: sors page is not present");
+				return 0;
+			}
 			stduint phy_d = _IMM(crtpage_d->getEntry(pg_d)->address) << 12;
 			phy_d += offset_d;
 			stduint phy_s = _IMM(crtpage_s->getEntry(pg_s)->address) << 12;

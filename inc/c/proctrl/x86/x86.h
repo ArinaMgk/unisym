@@ -166,9 +166,13 @@ inline static void loadIDT(uint32 address, uint16 length) {
 }
 dword getCR3();
 dword getEflags();
-void jmpFar(dword offs, dword selc);//{TODO} JumpFar
-void CallFar(dword offs, dword selc);
-void returnfar(void);
+
+// ---- ---- JMPs ---- ---- //
+void jmpFar(dword offs, dword selc);// <=> jmpf : jmp far
+void jmpTask(dword tss_no/*, dword old_no*/);// <=> advanced JMP GDT:TSS
+void CallFar(dword offs, dword selc);// <=> callf : call far
+
+void returnfar(void);// <=> retf
 
 void TaskReturn();
 

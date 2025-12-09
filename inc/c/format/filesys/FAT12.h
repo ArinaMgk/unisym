@@ -23,8 +23,8 @@
 #ifndef _INC_FAT12
 #define _INC_FAT12
 
-#include "../../cpp/trait/StorageTrait.hpp"
-#include "../../cpp/trait/FilesysTrait.hpp"
+#include "../../../cpp/trait/StorageTrait.hpp"
+#include "../../../cpp/trait/FilesysTrait.hpp"
 
 #ifdef _INC_CPP
 

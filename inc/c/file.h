@@ -44,6 +44,7 @@ namespace uni {
 	class HostFile : public OstreamTrait, public IstreamTrait
 	// not inherited from File(FileSystem(BlockTraitObject))
 	{
+	public:
 		void* fptr;
 	public:
 		~HostFile();

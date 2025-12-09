@@ -179,6 +179,7 @@ static void parse_cmdline(int argc, char** argv)
 
 
 void mainx();
+_ESYM_C void usage();
 int drop();
 int* handlog(void* _serious, ...);
 void define_macros_early(time_t* startup_time);
@@ -194,11 +195,19 @@ int main(int argc, char** argv) {
 
 	mainx();
 	// return drop();
+	// : contain 5 leaks
 	define_macros_early(&startup_time);
 
 
-	//contain 5 leaks
 	parse_cmdline(argc, argv);
+	if (terminate_after_phase) {
+		if (want_usage)
+			usage();
+		want_usage = 0;
+		drop();
+		return 1;
+	}
+
 	main2(argc, argv);
 
 
@@ -209,7 +218,7 @@ int main(int argc, char** argv) {
 	return drop() - _TEMP 5;
 }
 
-_ESYM_C void usage();
+
 
 int drop() {
 	if (want_usage) usage();

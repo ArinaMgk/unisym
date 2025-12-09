@@ -26,7 +26,7 @@
 #include <cpp/unisym>
 #include <c/consio.h>
 #include <c/datime.h>
-#include <c/format/FAT12.h>
+#include <c/format/filesys/FAT12.h>
 #include <c/format/data/VHD.h>
 
 using namespace uni;

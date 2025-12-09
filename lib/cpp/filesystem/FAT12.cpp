@@ -20,7 +20,7 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/format/FAT12.h"
+#include "../../../inc/c/format/filesys/FAT12.h"
 
 
 

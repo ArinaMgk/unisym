@@ -19,7 +19,9 @@ ADDR_KERNEL EQU 0x0200
 	DRV_ID EQU 0x80
 %endif
 
-;{TODO Solve} Load from Floppy or Harddisk ?
+; BIOS MBR: now DL = DRV_ID
+;{} Multi-partition
+
 
 [CPU 386]
 

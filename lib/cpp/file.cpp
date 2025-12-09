@@ -43,7 +43,7 @@ namespace uni {
 
 	HostFile::HostFile(rostr filepath, FileOpenType fopen_type) {
 		static rostr fop_iden[]{
-			"r", "w", "a"
+			"rb", "wb", "ab"
 		};
 		fptr = (void*)fopen(filepath, fop_iden[_IMM(fopen_type)]);
 	}
@@ -77,10 +77,27 @@ namespace uni {
 		return true;
 	}
 
+	bool HostFile::operator<< (byte B) {
+		int ch = fputc(B, (FILE*)fptr);
+		return (ch != EOF);
+	}
+
 	//
 
 	bool HostFile::FetchLine(char* buf, stduint len) {
-		return fgets(buf, len, (FILE*)fptr);
+		bool state = fgets(buf, len, (FILE*)fptr);
+		for (stduint i = 0; buf[i]; i++) {
+			if (buf[i] == '\n') {
+				buf[i + 1] = '\0';
+				break;
+			}
+			if (buf[i] == '\r') {
+				buf[i] = '\n';
+				buf[i + 1] = '\0';
+				break;
+			}
+		}// \n \r \n\r \r\n -> \n
+		return state;
 	}
 
 

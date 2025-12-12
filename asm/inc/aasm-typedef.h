@@ -9,10 +9,16 @@
 
 // [x86]
 struct location {
-    int64_t offset;
-    int32_t segment;
-    int known;
+	int64_t offset;
+	int32_t segment;
+	int known;
 };
+
+// Linked list of strings
+typedef struct string_list {
+    struct string_list *next;
+    char str[1];
+} StrList;
 
 // Token types returned by the scanner, in addition to ordinary ASCII character values, and zero for end-of-string
 enum token_type {		/* token types, other than chars */
@@ -52,8 +58,8 @@ typedef int (*scanner) (void *private_data, struct tokenval * tv);
 
 // Expression-evaluator datatype. Expressions, within the evaluator, are stored as an array of these beasts, terminated by a record with type==0. Mostly, it's a vector type: each type denotes some kind of a component, and the value denotes the multiple of that component present in the expression. The exception is the WRT type, whose `value' field denotes the segment to which the expression is relative. These segments will be segment-base types, i.e. either odd segment values or SEG_ABS types. So it is still valid to assume that anything with a `value' field of zero is insignificant.
 typedef struct {
-    int32_t type; // a register, or EXPR_xxx
-    int64_t value; // must be >= 32 bits
+	int32_t type; // a register, or EXPR_xxx
+	int64_t value; // must be >= 32 bits
 } expr;
 
 //{} ?: give an example?
@@ -64,7 +70,7 @@ struct eval_hints {
 };
 
 
-/// ---- FILE ----
+/// ---- ---- File ---- ----
 struct dbgffmt;
 struct outffmt;
 
@@ -146,7 +152,7 @@ struct outffmt {
 	// Note: `is_global' are: 0 means the symbol is local; 1 means the symbol is global; 2 means the symbol is common (in which case `offset' holds the _size_ of the variable). Anything else is available for the output driver to use internally.
 	// This routine explicitly _is_ allowed to call the label manager to define further symbols, if it wants to, even though it's been called _from_ the label manager.  That much re-entrancy is guaranteed in the label manager. However, the label manager will in turn call this routine, so it should be prepared to be re-entrant itself.
 	// The `special' parameter contains special information passed through from the command that defined the label: it may have been an EXTERN, a COMMON or a GLOBAL. The distinction should be obvious to the output format from the other parameters.
-    void (*symdef) (char *name, int32_t segment, int64_t offset, int is_global, char *special);
+	void (*symdef) (char *name, int32_t segment, int64_t offset, int is_global, char *special);
 	// This procedure is called when the source code requests a segment change. It should return the corresponding segment _number_ for the name, or NO_SEG if the name is not a valid segment name.
 	// It may also be called with NULL, in which case it is to return the _default_ section number for starting assembly in.
 	// It is allowed to modify the string it is given a pointer to.
@@ -172,13 +178,88 @@ struct outffmt {
 	
 };// AKA ofmt
 
+typedef struct {
+    /*
+     * Called to initialize the listing file generator. Before this
+     * is called, the other routines will silently do nothing when
+     * called. The `char *' parameter is the file name to write the
+     * listing to.
+     */
+    void (*init) (char *);
+
+    /*
+     * Called to clear stuff up and close the listing file.
+     */
+    void (*cleanup) (void);
+
+    /*
+     * Called to output binary data. Parameters are: the offset;
+     * the data; the data type. Data types are similar to the
+     * output-format interface, only OUT_ADDRESS will _always_ be
+     * displayed as if it's relocatable, so ensure that any non-
+     * relocatable address has been converted to OUT_RAWDATA by
+     * then. Note that OUT_RAWDATA,0 is a valid data type, and is a
+     * dummy call used to give the listing generator an offset to
+     * work with when doing things like uplevel(LIST_TIMES) or
+     * uplevel(LIST_INCBIN).
+     */
+    void (*output) (int32_t, const void *, enum out_type, uint64_t);
+
+    /*
+     * Called to send a text line to the listing generator. The
+     * `int' parameter is LIST_READ or LIST_MACRO depending on
+     * whether the line came directly from an input file or is the
+     * result of a multi-line macro expansion.
+     */
+    void (*line) (int, char *);
+
+    /*
+     * Called to change one of the various levelled mechanisms in
+     * the listing generator. LIST_INCLUDE and LIST_MACRO can be
+     * used to increase the nesting level of include files and
+     * macro expansions; LIST_TIMES and LIST_INCBIN switch on the
+     * two binary-output-suppression mechanisms for large-scale
+     * pseudo-instructions.
+     *
+     * LIST_MACRO_NOLIST is synonymous with LIST_MACRO except that
+     * it indicates the beginning of the expansion of a `nolist'
+     * macro, so anything under that level won't be expanded unless
+     * it includes another file.
+     */
+    void (*uplevel) (int);
+
+    /*
+     * Reverse the effects of uplevel.
+     */
+    void (*downlevel) (int);
+
+    /*
+     * Called on a warning or error, with the error message.
+     */
+    void (*error)(int severity, const char *pfx, const char *msg);
+} ListGen;
 
 
+/// ---- ---- ? ---- ----
+enum geninfo { GI_SWITCH };
 
+/// ---- ---- Preproc ---- ----
+typedef struct preproc_ops {
+	// Called at the start of a pass
+	void (*reset) (char* filename, int nof_pass, evalfunc, ListGen* evaluator_fn, StrList** listing_generator);
 
+	/*
+	 * Called to fetch a line of preprocessed source. The line
+	 * returned has been malloc'ed, and so should be freed after
+	 * use.
+	 */
+	char *(*getline) (void);
 
-
-
-
+	/*
+	 * Called at the end of a pass.
+	 */
+	void (*cleanup) (int);
+} Preproc;
+extern Preproc nasmpp;
 
 #endif /* _AASM_TYPEDEF */

@@ -2,7 +2,7 @@
 
 #include <c/stdinc.h>
 
-#include "aasm-main.h"
+#include "inc/aasm-main.h"
 #include <../../demo/template/version/version.h>
 #include <time.h>
 #include <stdio.h>

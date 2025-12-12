@@ -2,7 +2,7 @@
 // @ArinaMgk
 // OutFileFormat
 
-#include "aasm.h"
+#include "inc/aasm.h"
 
 outffmt* OutfileFormat::crt_format = NULL;
 

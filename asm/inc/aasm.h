@@ -28,8 +28,9 @@
 #define __LICENSE__ "Apache License 2"
 
 #include "../inc/c/stdinc.h"
-#include "aasm-main.h"
-#include "aasm-typedef.h"
+#include "inc/aasm-main.h"
+#include "inc/aasm-typedef.h"
+#include "inc/aasm-limits.h"
 
 typedef struct {
 	//: Called at the start of a pass
@@ -44,11 +45,17 @@ extern Prepro _pp;
 typedef const unsigned char macros_t;
 
 // Single Processor Logging
-extern int log_pass1;
-extern int log_pass2;
-extern int log_0file;
-extern int log_0severity;
-extern int want_usage;// bool
+# ifdef _INC_CPP
+extern "C" {
+# endif
+	extern int log_pass1;
+	extern int log_pass2;
+	extern int log_0file;
+	extern int log_0severity;
+	extern int want_usage;// bool
+# ifdef _INC_CPP
+}
+# endif
 
 enum warn_t {
 	ERR_WARN_NONE,
@@ -79,7 +86,14 @@ struct OutfileFormat {
 	static void setMode();
 };
 
+extern "C" {
 #endif
-
-
+	// ---- cmdparam ---- //
+	bool process_arg(char* p, char* q);
+	void process_args(char* args);
+	void parse_cmdline(int argc, char** argv);
+	
+#ifdef _INC_CPP
+}
+#endif
 #endif

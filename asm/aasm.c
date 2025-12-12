@@ -33,7 +33,7 @@
 #include <time.h>
 #include <c/strpage.h>
 #include <c/strbuff.h>
-//#include "aasm.h"
+//#include "inc/aasm.h"
 
 
 //_ESYM_C{
@@ -88,96 +88,6 @@ _ESYM_C void getcrt(_Need_free char** const pname, stduint* const plineno)
 
 bool stopoptions = false;
 
-
-// static subfunc:
-bool process_arg(char* p, char* q);
-void process_respfile(FILE* rfile);
-void process_args(char* args);
-void process_response_file(const char* file);
-char* get_param(char* p, char* q, bool* advance);
-// Parse paths of necessary files and options
-static void parse_cmdline(int argc, char** argv)
-{
-	FILE* rfile;
-	char* envreal, * envcopy = NULL, * p, * arg;
-	int i;
-
-	*inname = *outname = *listname = *errname = '\0';
-	for0(i, numsof(warning_on_global)) warning_on_global[i] = warnings[i].enabled;// init
-
-	// AASM adapt for NASM
-	envreal = getenv("NASMENV");
-	arg = NULL;
-	if (envreal) {
-		envcopy = StrHeap(envreal);
-		process_args(envcopy);
-		memf(envcopy);
-	}
-
-	// process the actual command line
-	while (--argc) {
-		bool advance;
-		argv++;
-		// response file: use the text of a textfile as part of command
-		// @resp
-		if (argv[0][0] == '@') {
-			// allow multiple arguments on a single line
-			process_response_file(argv[0] + 1);
-			//{} why advance here: ...
-			argc--; argv++;
-		}
-		// -@resp
-		if (!stopoptions && argv[0][0] == '-' && argv[0][1] == '@') {
-			p = get_param(argv[0], argc > 1 ? argv[1] : NULL, &advance);
-			if (p) {
-				rfile = fopen(p, "r");
-				if (rfile) {
-					process_respfile(rfile);
-					fclose(rfile);
-				}
-				else {
-					log_0file = 1;
-					want_usage = 1;
-					aasm_log(_LOG_ERROR, "unable to open response file `%s'", p);
-				}
-			}
-		}
-		// other args
-		else
-			advance = process_arg(argv[0], argc > 1 ? argv[1] : NULL);
-		argv += advance, argc -= advance;
-	}
-
-	/* Look for basic command line typos.  This definitely doesn't
-	   catch all errors, but it might help cases of fumbled fingers. */
-	if (!*inname) {
-		//--auto clean flag
-		log_0file = 1;
-		want_usage = 1;
-		aasm_log(_LOG_ERROR, "no input file specified");
-	}
-	else if (
-		!StrCompare(inname, errname) ||
-		!StrCompare(inname, outname) ||
-		!StrCompare(inname, listname) ||
-		(depend_file && !StrCompare(inname, depend_file))) {
-		log_0file = 1;
-		want_usage = 1;
-		aasm_log(_LOG_FATAL, "file `%s' is both input and output file", inname);
-	}
-
-	if (*errname) {
-		error_file = fopen(errname, "w");
-		if (!error_file) {
-			error_file = stderr;        /* Revert to default! */
-			log_0file = 1;
-			want_usage = 1;
-			aasm_log(_LOG_FATAL, "cannot open file `%s' for error messages", errname);
-		}
-	}
-}
-
-
 void mainx();
 _ESYM_C void usage();
 int drop();
@@ -215,7 +125,7 @@ int main(int argc, char** argv) {
 
 
 	//{} {} {}
-	return drop() - _TEMP 5;
+	return drop() _TEMP - 5 - 3;
 }
 
 

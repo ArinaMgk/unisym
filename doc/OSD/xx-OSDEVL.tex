@@ -1,43 +1,38 @@
 
 The contents are hard-independent. For example, the paging is provided as a interface here and implemented in Chapter 1.
 
-\section{OS Development and Mecocoa}
+Relative sub-project:
+\begin{itemize}
+\item \B{MECOCOA} Mecocoa is a tutorial-original operating system project, following UNISYM.
+\end{itemize}
 
-Mecocoa is a tutorial-original operating system project, following UNISYM.
-
-\section{Bootstrap}
-\input{OSD/Boot}
-
-\section{8086-BIOS Interrupt Macro Package : Kasha}
-
-Package Name: \verb|Kasha| % for her cherishing <Yuuki Yuuna ha Yuusha de Aru>
-
-Mode: Real16
-
-\input{OSD/Kasha/xx-Kasha}
+Mind about \It{mixed kernel}: The static \verb|syscall| can be made for Monolithic Kernel, and dynamic \verb|syscomm| can be made for Micro Kernel.
 
 \section{Memory Management}
 \B{Header}: memory.h, auto-inc-by stdinc.
+\B{Module}: \verb|mcca/memoman.cpp|
 
 \subsection{Paging}
 \labex{Paging}
 
 \B{Header}: c/system/paging.h
 
-\section{Multi-task}
+\section{Task Management}
 \B{Header}: \verb|c/task.h|
+\B{Module}: \verb|mcca/taskman.cpp|
 
-\section{Priority}
+\subsection{Inter-process Communication}
 
-% for x86 ...
+\section{Interrupt and Exception}
+\B{Module}: \verb|mcca/handler.cpp|
 
+\section{System Calling}
+\B{Module}: \verb|mcca/syscall.cpp|
 
-% for ARM ...
+\section{File System}
+\B{Module}: \verb|mcca/fileman*.cpp|
 
+\section{IO System}
+\B{Module}: \verb|mcca/console.cpp|
 
-
-\section{Linkage and Application Loading}
-
-%COFF
-%ELF
 

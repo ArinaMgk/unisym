@@ -77,14 +77,14 @@ namespace uni {
 		QueueLimited(Slice _slice) : slice(_slice) {
 			p = (char*)slice.address;
 		}
-		virtual int inn() {
+		virtual int inn() override {
 			if (is_empty()) return -1;
 			int ret = (unsigned)*q++;
 			if (q >= (char*)slice.address + slice.length) q = (char*)slice.address;
 			if (p == q) q = nullptr, p = (char*)slice.address;
 			return ret;
 		}
-		virtual int out(const char* str, stduint len)// put_inn
+		virtual int out(const char* str, stduint len) override// put_inn
 		{
 			int cnt = 0;
 			for0(i, len) {
@@ -96,6 +96,7 @@ namespace uni {
 			}
 			return cnt;
 		}
+		void clear() { p = (char*)slice.address; q = 0; }
 		//
 		inline bool is_full() const { return q && p == q; }
 		inline bool is_empty() const { return q == nullptr; }

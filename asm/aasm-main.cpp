@@ -5,7 +5,7 @@
 
 #include <time.h>
 
-#include "aasm.h"
+#include "inc/aasm.h"
 
 _ESYM_C{
 	void pp_pre_define(char* definition);

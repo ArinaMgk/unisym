@@ -1,11 +1,7 @@
 // ASCII C99 TAB4 CRLF
 // Docutitle: (Common) Instructions
-// Codifiers: @dosconio: 20240423 ~ 20240423
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence 
 // Copyright: (Borrow-Data-from) NASM(1996-2009), under the 2-clause BSD license
 // Descripts: This file is supplementary for C/C++, while Magice builds these in.
-
-//{TODO} try generate from insns.dat by "insns.pl"
 
 #ifndef _INC_AASM_LIST_INSTRUCTION
 #define _INC_AASM_LIST_INSTRUCTION
@@ -36,6 +32,7 @@ enum _asm_opcode {
 	I_ANDNPS,
 	I_ANDPD,
 	I_ANDPS,
+	I_ARINA,
 	I_ARPL,
 	I_BB0_RESET,
 	I_BB1_RESET,
@@ -1592,12 +1589,11 @@ enum _asm_opcode {
 	I_CMOVcc,
 	I_Jcc,
 	I_SETcc,
-	
-	I_ARINA/* = 0x1227 */,
 	I_none = -1
+
 };
 
 #define _AASM_INST_MAX_INSLEN 16
-#define _AASM_INST_FIRST_COND_OPCODE I_CMOVcc //{ISSUE} should we mix them together ?
+#define _AASM_INST_FIRST_COND_OPCODE I_CMOVcc
 
 #endif

@@ -32,6 +32,9 @@
 #include "inc/aasm-typedef.h"
 #include "inc/aasm-limits.h"
 
+#define MAX_OPERANDS 5
+typedef uint32_t opflags_t;
+
 typedef struct {
 	//: Called at the start of a pass
 	//{TODO} void (*reset) (char*, int, efunc, evalfunc, ListGen*, StrList**);
@@ -78,6 +81,9 @@ void printinfo(void);
 void printl(loglevel_t level, const char* fmt, ...);
 int* handlog(void* _serious, ...);
 
+#include "insns.h"
+
+
 #ifdef _INC_CPP
 
 // Outfile Format
@@ -85,6 +91,7 @@ struct OutfileFormat {
 	static outffmt* crt_format;
 	static void setMode();
 };
+
 
 extern "C" {
 #endif

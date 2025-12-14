@@ -1,13 +1,6 @@
 // ASCII C99 TAB4 CRLF
 // Docutitle: (Common) Instructions
-// Codifiers: @dosconio: 20240423 ~ 20240423
-// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence 
 // Copyright: (Borrow-Data-from) NASM(1996-2009), under the 2-clause BSD license
-// Descripts: This file is supplementary for C/C++, while Magice builds these in.
-
-//{TODO} try generate from insns.dat by "insns.pl"
-//{TODO} Directive Instruction : ARINA
-
 const char * const _asm_inst_literal_list[] = {
 	"aaa",
 	"aad",
@@ -32,6 +25,7 @@ const char * const _asm_inst_literal_list[] = {
 	"andnps",
 	"andpd",
 	"andps",
+	"arina",
 	"arpl",
 	"bb0_reset",
 	"bb1_reset",
@@ -1587,6 +1581,5 @@ const char * const _asm_inst_literal_list[] = {
 	"xstore",
 	"cmov",
 	"j",
-	"set",
-	"arina"
+	"set"
 };

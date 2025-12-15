@@ -23,6 +23,7 @@
 //       |-> .tex
 //       |-> .md
 //       |-> stdout
+//       |-> Unix Manual Page
 
 #include "magice.hpp"
 #include "../inc/c/file.h"

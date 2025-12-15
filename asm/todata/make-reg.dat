@@ -1,0 +1,86 @@
+#
+# List of registers and their classes; classes are defined in nasm.h
+#
+# The columns are:
+#
+# register name, assembler class, disassembler class(es), x86 register number
+#
+# If the register name ends in two numbers separated by a dash, then it is
+# repeated as many times as indicated, and the register number is
+# updated with it.
+#
+
+# General-purpose registers
+al	REG_AL		reg8,reg8_rex	0
+ah	REG_HIGH	reg8		4
+ax	REG_AX		reg16		0
+eax	REG_EAX		reg32		0
+rax	REG_RAX		reg64		0
+bl	REG8NA		reg8,reg8_rex	3
+bh	REG_HIGH	reg8		7
+bx	REG16NA		reg16		3
+ebx	REG32NA		reg32		3
+rbx	REG64NA		reg64		3
+cl	REG_CL		reg8,reg8_rex	1
+ch	REG_HIGH	reg8		5
+cx	REG_CX		reg16		1
+ecx	REG_ECX		reg32		1
+rcx	REG_RCX		reg64		1
+dl	REG_DL		reg8,reg8_rex	2
+dh	REG_HIGH	reg8		6
+dx	REG_DX		reg16		2
+edx	REG_EDX		reg32		2
+rdx	REG_RDX		reg64		2
+spl	REG8NA		reg8_rex	4
+sp	REG16NA		reg16		4
+esp	REG32NA		reg32		4
+rsp	REG64NA		reg64		4
+bpl	REG8NA		reg8_rex	5
+bp	REG16NA		reg16		5
+ebp	REG32NA		reg32		5
+rbp	REG64NA		reg64		5
+sil	REG8NA		reg8_rex	6
+si	REG16NA		reg16		6
+esi	REG32NA		reg32		6
+rsi	REG64NA		reg64		6
+dil	REG8NA		reg8_rex	7
+di	REG16NA		reg16		7
+edi	REG32NA		reg32		7
+rdi	REG64NA		reg64		7
+r8-15b	REG8NA		reg8_rex	8
+r8-15w	REG16NA		reg16		8
+r8-15d	REG32NA		reg32		8
+r8-15	REG64NA		reg64		8
+
+# Segment registers
+cs	REG_CS		sreg		1
+ds	REG_DESS	sreg		3
+es	REG_DESS	sreg		0
+ss	REG_DESS	sreg		2
+fs	REG_FSGS	sreg		4
+gs	REG_FSGS	sreg		5
+segr6-7	REG_SEG67	sreg		6
+
+# Control registers
+cr0-15	REG_CREG	creg		0
+
+# Debug registers
+dr0-15	REG_DREG	dreg		0
+
+# Test registers
+tr0-7	REG_TREG	treg		0
+
+# Floating-point registers
+st0	FPU0		fpureg		0
+st1-7	FPUREG		fpureg		1
+
+# MMX registers
+mm0-7	MMXREG		mmxreg		0
+
+# SSE registers
+xmm0	XMM0		xmmreg		0
+xmm1-15	XMMREG		xmmreg		1
+
+# AVX registers
+ymm0	YMM0		ymmreg		0
+ymm1-15	YMMREG		ymmreg		1

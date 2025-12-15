@@ -155,7 +155,7 @@ undef @bytecode_list;
 if ( !defined($output) || $output eq 'b') {
     print STDERR "Writing insnsb.c...\n";
 
-    open B, ">insnsb.c";
+    open B, ">../data/insnsb.c";
 
     print B "/* This file auto-generated from make-ins.dat by make-ins.pl" .
         " - don't edit it */\n\n";
@@ -196,7 +196,7 @@ if ( !defined($output) || $output eq 'b') {
 if ( !defined($output) || $output eq 'a' ) {
     print STDERR "Writing insnsa.c...\n";
 
-    open A, ">insnsa.c";
+    open A, ">../data/insnsa.c";
 
     print A "/* This file auto-generated from make-ins.dat by make-ins.pl" .
         " - don't edit it */\n\n";
@@ -224,7 +224,7 @@ if ( !defined($output) || $output eq 'a' ) {
 if ( !defined($output) || $output eq 'd' ) {
     print STDERR "Writing insnsd.c...\n";
 
-    open D, ">insnsd.c";
+    open D, ">../data/insnsd.c";
 
     print D "/* This file auto-generated from make-ins.dat by make-ins.pl" .
         " - don't edit it */\n\n";
@@ -310,7 +310,7 @@ if ( !defined($output) || $output eq 'd' ) {
 if ( !defined($output) || $output eq 'i' ) {
     print STDERR "Writing _asm_inst.h...\n";
 
-    open I, ">_asm_inst.h";
+    open I, ">../data/_asm_inst.h";
 
     print I "// ASCII C99 TAB4 CRLF\n";
     print I "// Docutitle: (Common) Instructions\n";
@@ -342,7 +342,7 @@ if ( !defined($output) || $output eq 'i' ) {
 if ( !defined($output) || $output eq 'n' ) {
     print STDERR "Writing _asm_inst.c...\n";
 
-    open N, ">_asm_inst.c";
+    open N, ">../data/_asm_inst.c";
 
     print N "// ASCII C99 TAB4 CRLF\n";
     print N "// Docutitle: (Common) Instructions\n";

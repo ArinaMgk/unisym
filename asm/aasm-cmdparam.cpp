@@ -18,11 +18,11 @@ _ESYM_C{
 
 // ver.c
 _ESYM_C{
-	extern const char nasm_version[];
-	extern const char nasm_date[];
-	extern const char nasm_compile_options[];
-	extern const char nasm_comment[];
-	extern const char nasm_signature[];
+	extern const char aasm_version[];
+	extern const char aasm_date[];
+	extern const char aasm_compile_options[];
+	extern const char aasm_comment[];
+	extern const char aasm_signature[];
 }
 
 // preproc.h
@@ -413,7 +413,7 @@ bool process_arg(char* p, char* q)
 
 		case 'v':
 			printf("NASMANL version %s compiled on %s%s\n",
-				nasm_version, nasm_date, nasm_compile_options);
+				aasm_version, aasm_date, aasm_compile_options);
 			drop(); exit(0);        /* never need usage message here */
 			break;
 

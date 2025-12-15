@@ -18,6 +18,11 @@ obj/
 lib/make/c*
 lib/c/auxiliary/*
 asm/data/insns*
+asm/data/macros.c
+asm/data/tok*
+asm/data/reg*
+asm/data/pp*
+asm/todata/perllib/pptok.ph
 # .Net Class Library
 lib/dotNet/udotnet/.vs
 lib/dotNet/udotnet/obj

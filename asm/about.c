@@ -24,4 +24,19 @@
 #include "inc/aasm.h"
 #include <../../demo/template/version/version.h>
 
+//
+#define AASM_VER "1.00"
 
+const char aasm_version[] = AASM_VER;// aka NASM 2.07
+const char aasm_date[] = __DATE__;
+const char aasm_compile_options[] = ""
+#ifdef _DEBUG
+" with -D_DEBUG"
+#endif
+;
+
+const char aasm_comment[] =
+"The Arinae Assembler " AASM_VER;
+
+const char aasm_signature[] =
+"NASMANL " AASM_VER;

@@ -1,0 +1,7 @@
+;{TODO} Gen by pl
+%define __AASM_MAJOR__ 1
+%define __AASM_MINOR__ 0
+%define __AASM_SUBMINOR__ 0
+%define __AASM_PATCHLEVEL__ 0
+%define __AASM_VERSION_ID__ 001000000h
+%define __AASM_VER__ "1.00"

@@ -1,9 +1,11 @@
 
-\subsubsection{ASCIZ String}
+\subsection{(Derived) String and StringTrait}
+
+%%% ASCIZ
 
 \B{Header}: \verb`c/ustring.h`
 
-\subsubsection{Array}
+\subsection{(Derived) Array}
 
 An array owns the feature of the pointer (such as participating in pointer-arithmetic). But it can be re-point as a pointer object (because it provides spaces for elements), the array exists actually a `label' in reflected Assembly except the elements information it carried. \It{Many users fight about whether (identifier of) array is a pointer. That is a meaningless question and it depends on they consider pointer an object or a feature.}
 
@@ -48,7 +50,7 @@ Keyword \verb`near` and \verb`far` can decide the length in some cases.
 while \verb`far` can be used to assign 32 or 48 bits offset with its segment.
 
 
-\subsubsection{Enumeration, Structure and Union}
+\subsection{(Derived) Union and Structure}
 
 \paragraph{for Macro Assembler} \
 
@@ -92,7 +94,7 @@ Unwritten content in Angle brackets can be ignored, written content can be overw
 
 \verb|worker.IdenNum|; \verb|(Empolyee ptr [esi]).Years|;
 
-\subsubsection{Class}
+\subsection{(Derived) Class}
 \subimport{.}{Class}
 
 

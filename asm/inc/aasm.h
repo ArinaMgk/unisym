@@ -75,7 +75,7 @@ enum warn_t {
 	ERR_WARN_USER
 };
 #define ERR_WARN_MAX		11
-extern enum warn_t log_warnt;
+_ESYM_C enum warn_t log_warnt;
 
 void printinfo(void);
 void printl(loglevel_t level, const char* fmt, ...);
@@ -92,13 +92,30 @@ struct OutfileFormat {
 	static void setMode();
 };
 
+struct Preprocessor {
+	static void include_path(char*);
+	static void pre_include(char*);
+	static void pre_define(char*);
+	static void pre_undefine(char*);
+	static void runtime(char*);
+	static void extra_stdmac(macros_t*);
+};
+
 
 extern "C" {
 #endif
+	// ---- pptok.c ---- //
+	extern const char * const pp_directives[];
+	extern const uint8_t pp_directives_len[];
+#include "pptok.h"
+
 	// ---- cmdparam ---- //
 	bool process_arg(char* p, char* q);
 	void process_args(char* args);
 	void parse_cmdline(int argc, char** argv);
+
+
+
 	
 #ifdef _INC_CPP
 }

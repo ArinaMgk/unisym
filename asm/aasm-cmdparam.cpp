@@ -28,12 +28,6 @@ _ESYM_C{
 // preproc.h
 _ESYM_C{
 	enum preproc_token pp_token_hash(const char* token);
-	void pp_include_path(char*);
-	void pp_pre_include(char*);
-	void pp_pre_define(char*);
-	void pp_pre_undefine(char*);
-	void pp_runtime(char*);
-	void pp_extra_stdmac(macros_t*);
 }
 
 // label.h
@@ -299,25 +293,14 @@ bool process_arg(char* p, char* q)
 			break;
 		}
 
-		case 'p':			/* pre-include */
-		case 'P':
-			pp_pre_include(param);
-			break;
-
-		case 'd':			/* pre-define */
-		case 'D':
-			pp_pre_define(param);
-			break;
-
-		case 'u':			/* un-define */
-		case 'U':
-			pp_pre_undefine(param);
-			break;
-
-		case 'i':			/* include search path */
-		case 'I':
-			pp_include_path(param);
-			break;
+		case 'p': case 'P':
+			Preprocessor::pre_include(param); break;
+		case 'd': case 'D':
+			Preprocessor::pre_define(param); break;
+		case 'u': case 'U':
+			Preprocessor::pre_undefine(param); break;
+		case 'i': case 'I':
+			Preprocessor::include_path(param); break;
 
 		case 'l':			/* listing file */
 			copy_filename(listname, param);

@@ -1,19 +1,15 @@
-; from NASM 2.7
-;
-; table of instructions for the Netwide Assembler
-;
-; Format of file: All four fields must be present on every functional
-; line. Hence `void' for no-operand instructions, and `\0' for such
-; as EQU. If the last three fields are all `ignore', no action is
-; taken except to register the opcode as being present.
-;
-; For a detailed description of the code string (third field), please
-; see the comment at the top of assemble.c.  For a detailed description
-; of the flags (fourth field), please see insns.h.
-;
-; Comments with a pound sign after the semicolon generate section
-; subheaders in the NASM documentation.
-;
+; ASCII C99 TAB8 CRLF
+; Docutitle: (Common) Instructions
+; Codifiers: @dosconio: 20240426
+; Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence 
+; Copyright: (Borrow-Data-from) NASM(1996-2009), under the 2-clause BSD license
+; Descripts: This file is supplementary for C/C++, while Magice builds these in.
+
+; - NASM (2.7) style
+; -- each line have 4 fields
+; -- `void` for no-operand instructions
+; -- No action is taken except to register the opcode as being present: `\0`
+; - AASM style
 
 ;# Special instructions...
 DB		ignore				ignore						ignore

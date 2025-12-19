@@ -45,12 +45,12 @@
 //{} int fprintf(FILE restrict stream, const char restrict format, ...);
 //{} int fscanf(FILE restrict stream, const char restrict format, ...);
 
-//   int printf(const char* restrict format, ...);
+// int printf(const char* restrict format, ...);
 #define printf outsfmt
 
 //{} int scanf(const char* restrict format, ...);
 
-//{} int sprintf(char* restrict s, const char* restrict format, ...);
+// int sprintf(char* restrict s, const char* restrict format, ...);
 #define sprintf outsfmtbuf
 
 
@@ -58,17 +58,19 @@
 //{} int vfprintf(FILE* restrict stream, const char* restrict format, va_list arg);
 //{} int vfscanf(FILE* restrict stream, const char* restrict format, va_list arg);
 
-//{} int vprintf(const char* restrict format, va_list arg);
+// int vprintf(const char* restrict format, va_list arg);
 #define vprintf outsfmtlst
 
 //{} int vscanf(const char* restrict format, va_list arg);
 
 
-//{} int snprintf(char* restrict s, size_t n, const char* restrict format, ...);
-//{} int vsnprintf(char* restrict s, size_t n, const char* restrict format, va_list arg);
+// int snprintf(char* restrict s, size_t n, const char* restrict format, ...);
+#define snprintf outsfmtbufn
 
+// int vsnprintf(char* restrict s, size_t n, const char* restrict format, va_list arg);
+#define vsnprintf outsfmtlstbufn
 
-//{} int vsprintf(char* restrict s, const char* restrict format, va_list arg);
+// int vsprintf(char* restrict s, const char* restrict format, va_list arg);
 #define vsprintf outsfmtlstbuf
 
 //{} int vsscanf(const char* restrict s, const char* restrict format, va_list arg);
@@ -83,10 +85,10 @@
 //{} char* gets(char* s);
 //{} int putc(int c, FILE* stream);
 
-//{} int putchar(int c);
+// int putchar(int c);
 #define putchar outc
 
-//{} int puts(const char* s);
+// int puts(const char* s);
 #define puts outs
 
 //{} int ungetc(int c, FILE* stream);

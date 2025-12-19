@@ -52,7 +52,7 @@ void outtxt(const char* str, stduint len);
 #define outs(a) outtxt(a, StrLength(a))
 void outc(const char chr);
 
-extern stduint _crt_out_cnt;
+extern stduint _crt_out_cnt, _crt_out_lim;
 
 bool outinteger(uint64 val, int base, bool sign_show, bool sign_have, byte least_digits, bool zero_padding, byte bytexpo, outbyte_t out);
 

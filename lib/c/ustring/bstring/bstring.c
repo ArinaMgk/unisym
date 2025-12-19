@@ -22,6 +22,11 @@
 char* p_outsfmtbuf = 0;
 static void outtxtbuf_endo() { *p_outsfmtbuf = 0; }
 static void outtxtbuf(const char* str, stduint len) {
+	if (_crt_out_lim + 1) {
+		if (!_crt_out_lim) return;
+		MIN(len, _crt_out_lim);
+		_crt_out_lim -= len;
+	}
 	for0(i, len)* p_outsfmtbuf++ = str[i];
 }
 
@@ -34,11 +39,33 @@ int outsfmtbuf(char* buf, const char* fmt, ...) {
 // like vsprintf
 int outsfmtlstbuf(char* buf, const char* fmt, para_list lst) {
 	p_outsfmtbuf = buf;
+	_crt_out_lim = ~_IMM0;
 	outbyte_t last = outredirect(outtxtbuf);
 	int ret = outsfmtlst(fmt, lst);
 	outsfmt("%c", nil);
 	outredirect(last);
 	p_outsfmtbuf = 0;
+	return ret;
+}
+
+// like snprintf
+int outsfmtbufn(char* buf, stduint len, const char* fmt, ...) {
+	Letpara(args, fmt);
+	return outsfmtlstbufn(buf, len, fmt, args);
+}
+
+// like vsnprintf
+int outsfmtlstbufn(char* buf, stduint len, const char* fmt, para_list lst) {
+	if (len <= 1) return 0;
+	p_outsfmtbuf = buf;
+	_crt_out_lim = len - 1;
+	outbyte_t last = outredirect(outtxtbuf);
+	int ret = outsfmtlst(fmt, lst);
+	_crt_out_lim = 1;
+	outsfmt("%c", nil);
+	outredirect(last);
+	p_outsfmtbuf = 0;
+	_crt_out_lim = ~_IMM0;
 	return ret;
 }
 

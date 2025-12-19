@@ -74,7 +74,7 @@ It uses \verb`BYTE`, \verb`WORD` and \verb`DWORD` for integer types, and each of
 
 Compared to A.N.Y., integers in MASM includes the sign property.
 
-\subsubsection{Pointer}
+\subsubsection{(Derived) Pointer}
 
 M, C, C++ support pointer (add \verb`*`after the destination-type to express its type) to realize the access of memory like Assembly.
 
@@ -107,5 +107,5 @@ When designing a parser, there are also different processes for literal immediat
 
 For example, if you code \verb|DW 'ab'|, it will become \verb"0x61,0x62 (0x6261)" in NASM, while \verb"(0x6162)" in MASM. The former has considered same results from \verb|DB 'ab'|. % Expi. Haruno RFC10
 
-
+\subsubsection{Enumeration}
 

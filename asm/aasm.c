@@ -88,11 +88,16 @@ _ESYM_C void getcrt(_Need_free char** const pname, stduint* const plineno)
 
 bool stopoptions = false;
 
+struct location location;//{TODO} static
+
+
+struct outffmt** ofmt_f();
 void mainx();
 _ESYM_C void usage();
 int drop();
 int* handlog(void* _serious, ...);
 void define_macros_early(time_t* startup_time);
+void Preprocessor_extra_stdmac(macros_t* macros);
 int main(int argc, char** argv) {
 	time(&startup_time);
 	error_file = stderr;
@@ -117,6 +122,16 @@ int main(int argc, char** argv) {
 		drop();
 		return 1;
 	}
+
+	if (!using_debug_info)// If debugging info is disabled, suppress any debug calls
+		(*ofmt_f())->current_dfmt = &null_debug_form;
+
+	if ((*ofmt_f())->stdmac)
+		Preprocessor_extra_stdmac((*ofmt_f())->stdmac);
+	parser_global_info((*ofmt_f()), &location);
+	eval_global_info((*ofmt_f()), lookup_label, &location);
+
+	define_macros_late((*ofmt_f())->shortname);
 
 	main2(argc, argv);
 

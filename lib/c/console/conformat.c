@@ -38,6 +38,7 @@
 static outbyte_t local_out = outtxt;
 _TODO byte local_out_lock = 0;// 0 for accessable
 stduint _crt_out_cnt;
+stduint _crt_out_lim;// for StringN Series, ~0 for no limit
 
 void outc(const char chr)
 {

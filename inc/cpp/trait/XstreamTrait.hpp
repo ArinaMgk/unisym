@@ -54,6 +54,10 @@ namespace uni {
 	public:
 		int OutFormatPack(const char* fmt, para_list plst);
 		int OutFormat(const char* fmt, ...);
+
+		// unnecessary:
+		// - int OutFormatNPack(const char* fmt, para_list plst);
+		// - int OutFormatN(const char* fmt, ...);
 		//static
 		stduint CountFormat(const char* fmt, ...);
 		int operator<< (const Slice& slice) { return out((char*)slice.address, slice.length); }

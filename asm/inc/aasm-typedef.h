@@ -260,6 +260,8 @@ typedef struct preproc_ops {
 	 */
 	void (*cleanup) (int);
 } Preproc;
-extern Preproc nasmpp;
+_ESYM_C Preproc nasmpp;
+
+//{TODO} AASM::PrepTrait
 
 #endif /* _AASM_TYPEDEF */

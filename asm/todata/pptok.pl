@@ -148,7 +148,6 @@ if ($what eq 'c') {
     print OUT "#include <ctype.h>\n";
     print OUT "#include \"nasmlib.h\"\n";
     print OUT "#include \"hashtbl.h\"\n";
-    print OUT "#include \"preproc.h\"\n";
     print OUT "\n";
 
     # Note that this is global.

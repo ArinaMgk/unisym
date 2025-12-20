@@ -528,7 +528,6 @@ void Preprocessor::runtime(char* definition) {
 void Preprocessor::extra_stdmac(macros_t* macros) {
 	extrastdmac = macros;
 }
-extern "C" void Preprocessor_extra_stdmac(macros_t* macros) { Preprocessor::extra_stdmac(macros); }//{TEMP}
 
 // ---- ---- STATIC ---- ---- //
 
@@ -780,7 +779,7 @@ static Token *tokenize(char *line)
 			while (*r == '_')
 			r++;
 
-			if (ascii_isdigit(*r) || (is_hex && nasm_isxdigit(*r)) ||
+			if (ascii_isdigit(*r) || (is_hex && aasm_isxdigit(*r)) ||
 			(!is_hex && (*r == 'e' || *r == 'E')) ||
 			(*r == 'p' || *r == 'P')) {
 			p = r;
@@ -1090,7 +1089,7 @@ static int ppscan(void* private_data, struct tokenval* tokval)
 	}
 
 	if (tline->type == TOK_NUMBER) {
-		union { bool rn_error; int _X; };
+		bool rn_error;
 		tokval->t_integer = readnum(tline->text, &rn_error);
 		tokval->t_charptr = tline->text;
 		if (rn_error)
@@ -1165,7 +1164,7 @@ static Token* expand_id(Token* tline);
 static bool if_condition(Token* tline, enum preproc_token ct)
 {
 	enum pp_conditional i = PP_COND(ct);
-	union { bool j; int _X; };
+	bool j;
 	Token* t, * tt, ** tptr, * origline;
 	struct tokenval tokval;
 	expr* evalresult;
@@ -4099,9 +4098,7 @@ static Token* expand_id(Token* tline)
  */
 static bool parse_mmacro_spec(Token* tline, MMacro* def, const char* directive)
 {
-	union {
-		bool err; int _X;
-	};//{TEMP}
+	bool err;
 
 	tline = tline->next;
 	skip_white_(tline);

@@ -27,25 +27,85 @@
 #define __AUTHOR__ "@dosconio"
 #define __LICENSE__ "Apache License 2"
 
+#define MAX_OPERANDS 5
+
+
 #include "../inc/c/stdinc.h"
 #include "inc/aasm-main.h"
 #include "inc/aasm-typedef.h"
 #include "inc/aasm-limits.h"
 
-#define MAX_OPERANDS 5
 typedef uint32_t opflags_t;
 
-typedef struct {
-	//: Called at the start of a pass
-	//{TODO} void (*reset) (char*, int, efunc, evalfunc, ListGen*, StrList**);
-	//: Called to fetch a line of preprocessed source.
-	_Need_free char* (*getline) (void);
-	//: Called at the end of a pass.
-	void (*cleanup) (int);
-} Prepro;
-extern Prepro _pp;
+#define aasm_isalpha(x)  ascii_isalpha((unsigned char)(x))
+#define aasm_isdigit(x)  ascii_isdigit((unsigned char)(x))
+#define aasm_isalnum(x)  ascii_isalnum((unsigned char)(x))
+#define aasm_isxdigit(x) ascii_isxdigit((unsigned char)(x))
+
+/*
+ * isidstart matches any character that may start an identifier, and isidchar
+ * matches any character that may appear at places other than the start of an
+ * identifier. E.g. a period may only appear at the start of an identifier
+ * (for local labels), whereas a number may appear anywhere *but* at the
+ * start.
+ */
+
+#define isidstart(c) ( aasm_isalpha(c) || (c)=='_' || (c)=='.' || (c)=='?' \
+								  || (c)=='@' )
+#define isidchar(c)  ( isidstart(c) || aasm_isdigit(c) || \
+			   (c)=='$' || (c)=='#' || (c)=='~' )
+
+/* Ditto for numeric constants. */
+
+#define isnumstart(c)  ( aasm_isdigit(c) || (c)=='$' )
+#define isnumchar(c)   ( aasm_isalnum(c) || (c)=='_' )
+
+/* This returns the numeric value of a given 'digit'. */
+
+#define numvalue(c)  ((c)>='a' ? (c)-'a'+10 : (c)>='A' ? (c)-'A'+10 : (c)-'0')
+
+// typedef struct {
+// 	//: Called at the start of a pass
+// 	//{TODO} void (*reset) (char*, int, efunc, evalfunc, ListGen*, StrList**);
+// 	//: Called to fetch a line of preprocessed source.
+// 	_Need_free char* (*getline) (void);
+// 	//: Called at the end of a pass.
+// 	void (*cleanup) (int);
+// } Prepro;
+// extern Prepro _pp;
 
 typedef const unsigned char macros_t;
+
+
+/*
+ * This declaration passes the "pass" number to all other modules
+ * "pass0" assumes the values: 0, 0, ..., 0, 1, 2
+ * where 0 = optimizing pass
+ *       1 = pass 1
+ *       2 = pass 2
+ */
+# ifdef _INC_CPP
+extern "C" {
+# endif
+
+extern int pass0;
+extern int passn;		/* Actual pass number */
+extern bool tasm_compatible_mode;
+extern int optimizing;
+extern int globalbits;          /* 16, 32 or 64-bit mode */
+extern int globalrel;		/* default to relative addressing? */
+extern int maxbits;		/* max bits supported by output */
+
+// version-relative
+extern const char aasm_version[];
+extern const char aasm_date[];
+extern const char aasm_compile_options[];
+extern const char aasm_comment[];
+extern const char aasm_signature[];
+
+# ifdef _INC_CPP
+}
+# endif
 
 // Single Processor Logging
 # ifdef _INC_CPP
@@ -77,12 +137,16 @@ enum warn_t {
 #define ERR_WARN_MAX		11
 _ESYM_C enum warn_t log_warnt;
 
-void printinfo(void);
-void printl(loglevel_t level, const char* fmt, ...);
-int* handlog(void* _serious, ...);
 
 #include "insns.h"
 
+#define CRITICAL 0x100
+// The actual expression evaluator function looks like this. When called, it expects the first token of its expression to already be in `*tv'; if it is not, set tv->t_type to TOKEN_INVALID and it will start by calling the scanner.
+// If a forward reference happens during evaluation, the evaluator must set `*fwref' to true if `fwref' is non-NULL.
+// `critical' is non-zero if the expression may not contain forward references. The evaluator will report its own error if this occurs; if `critical' is 1, the error will be "symbol not defined before use", whereas if `critical' is 2, the error will be "symbol undefined".
+// If `critical' has bit 8 set (in addition to its main value: 0x101 and 0x102 correspond to 1 and 2) then an extended expression syntax is recognised, in which relational operators such as =, < and >= are accepted, as well as low-precedence logical operators &&, ^^ and ||.
+// If `hints' is non-NULL, it gets filled in with some hints as to the base register in complex effective addresses.
+typedef expr *(*evalfunc) (scanner sc, void *scprivate, struct tokenval * tv, int *fwref, int critical, struct eval_hints * hints);
 
 #ifdef _INC_CPP
 
@@ -104,8 +168,32 @@ struct Preprocessor {
 
 extern "C" {
 #endif
+
+	// ---- main ---- //
+	int drop();
+	void usage(void);
+	void printinfo(void);
+	void printl(loglevel_t level, const char* fmt, ...);
+	int* handlog(void* _serious, ...);
+	void aasm_log(loglevel_t level, const char* fmt, ...);
+	
+	int is_reloc(expr*);
+	int is_simple(expr *);
+	int is_really_simple(expr *);
+	int is_unknown(expr *);
+	int is_just_unknown(expr *);
+	int64_t reloc_value(expr *);
+	int32_t reloc_seg(expr *);
+	int32_t reloc_wrt(expr*);
+
+	// Convert a string into a number
+	int64_t readnum(char *str, bool *error);
+
+	// Convert a character constant into a number. Sets `*warn' to true if an overflow occurs. str points to and length covers the middle of the string, without the quotes.
+	int64_t readstrnum(char *str, int length, bool *warn);
+
 	// ---- pptok.c ---- //
-	extern const char * const pp_directives[];
+	extern const char* const pp_directives[];
 	extern const uint8_t pp_directives_len[];
 #include "pptok.h"
 
@@ -113,8 +201,10 @@ extern "C" {
 	bool process_arg(char* p, char* q);
 	void process_args(char* args);
 	void parse_cmdline(int argc, char** argv);
-
-
+	
+	// ---- list ---- //
+	extern ListGen nasmlist;
+	extern int user_nolist; // fbk - 9/1/00
 
 	
 #ifdef _INC_CPP

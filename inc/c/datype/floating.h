@@ -68,6 +68,37 @@ typedef struct {
 #include "../msgface.h"
 #endif
 
+// borrow from NASM
+
+#ifdef _INC_CPP
+namespace uni {
+#endif
+
+	enum float_round_t {
+		FLOAT_RC_NEAR,
+		FLOAT_RC_ZERO,
+		FLOAT_RC_DOWN,
+		FLOAT_RC_UP,
+	};
+
+#ifdef _INC_CPP
+}
+extern "C" {
+#endif
+
+int float_const(const char* string, int sign, uint8_t* result, int bytes);
+int float_option(const char* option);
+
+extern void (*fp_normal)(rostr);
+extern Handler_t fp_over_digits;
+extern Handler_t fp_fn1;
+extern Handler_t fp_fn_underflow, fp_fn_overflow, fp_fn_denormal;
+
+#ifdef _INC_CPP
+}
+#endif
+
+
 /* AASM
  test   i via rax self
  JNS {

@@ -593,11 +593,11 @@ void process_args(char* args)
 		process_arg(arg, NULL);
 }
 
-_ESYM_C{
+_ESYM_CPP{
 void process_respfile(FILE* rfile);
 void process_response_file(const char* file);
-
 }
+
 // Parse paths of necessary files and options
 void parse_cmdline(int argc, char** argv)
 {

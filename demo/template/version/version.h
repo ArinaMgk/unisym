@@ -25,7 +25,7 @@
 #ifndef _LIB_VERSION
 #define _LIB_VERSION
 
-extern const char __PROJ_INFO__[];
+_ESYM_C const char __PROJ_INFO__[];
 
 #ifdef _AUTO_INCLUDE
 	#include "version.c"

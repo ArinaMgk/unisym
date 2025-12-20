@@ -1,25 +1,30 @@
-﻿#include "tmp.h"
+﻿#include <c/stdinc.h>
 
-#include <c/stdinc.h>
-
-#include "inc/aasm-main.h"
-#include <../../demo/template/version/version.h>
 #include <time.h>
 #include <stdio.h>
+#include "inc/aasm-main.h"
+#include <../../demo/template/version/version.h>
+#include "inc/aasm.h"
 
 
 static time_t temp_time;
-time_t startup_time;
 
+_ESYM_C{
+time_t startup_time;
 extern bool terminate_after_phase;
 extern bool treat_warn_as_erro;
 extern bool enable_warning;
-
 #define FILENAME_MAX 260
 extern FILE* outfile;
 extern char  outname[FILENAME_MAX];
+void exit(int);
+}
+
+
+
 
 // NASM-style warning
+_ESYM_C
 const struct warning warnings[] = {
 	{"error",           "treat warnings as errors", false},
 	{"macro-params",    "macro calls with wrong parameter count", true},
@@ -35,6 +40,7 @@ const struct warning warnings[] = {
 	{"gnu-elf-extensions", "using 8- or 16-bit relocation in ELF32, a GNU extension", false},
 };
 
+_ESYM_C
 void getcrt(_Need_free char** const pname, stduint* const plineno);
 
 void printinfo(void) {
@@ -64,7 +70,7 @@ void printl(loglevel_t level, const char* fmt, ...)
 	memf(crtfile);
 }
 
-FILE* error_file;
+_ESYM_C FILE* error_file = NULL;
 void usage(void) { fputs("type `aasm -h' for help\n", error_file); }
 
 
@@ -82,7 +88,7 @@ enum warn_t log_warnt;
 
 int* handlog(void* _serious, ...)
 {
-	Letvar(serious, loglevel_t, _serious);
+	Letvar(serious, loglevel_t, _IMM(_serious));
 	switch (serious)
 	{
 	case _LOG_WARN:
@@ -106,15 +112,16 @@ int* handlog(void* _serious, ...)
 	return NULL;
 }
 
-extern char listname[];
+_ESYM_C char listname[];
 
-extern bool warning_on[ERR_WARN_MAX + 1];
+_ESYM_C bool warning_on[ERR_WARN_MAX + 1];
 static bool is_suppressed_warning(loglevel_t severity)
 {
 	return severity == _LOG_WARN &&
 		((log_warnt && !warning_on[log_warnt]) || (log_pass1 && pass0 != 1) || (log_pass2 && pass0 != 2));
 }
 
+_ESYM_C int src_get(int32_t* xline, char** xname);
 void aasm_log(loglevel_t level, const char* fmt, ...) {
 	Letpara(paras, fmt);
 	{
@@ -129,7 +136,7 @@ void aasm_log(loglevel_t level, const char* fmt, ...) {
 			src_get(&lineno, &currentfile);
 
 		if (currentfile) {
-			fprintf(error_file, "%s:%"PRId32": ", currentfile, lineno);
+			fprintf(error_file, "%s:%" PRId32 ": ", currentfile, lineno);
 			memf(currentfile);
 		}
 		else {

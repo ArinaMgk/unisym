@@ -83,6 +83,7 @@ extern const char* _pref_trac;
 extern const char** _tab_pref[];
 extern _tocall_ft _call_serious;// if error, panic or fatal
 extern _tocall_ft _befo_logging;// after prefix, before context
+extern void (*_f_printlog)(loglevel_t lev, const char* fmt, ...);
 
 void printlogx(loglevel_t level, const char* fmt, para_list paras);
 typedef void (*_printlog_t)(loglevel_t level, const char* fmt, ...);

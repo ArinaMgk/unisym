@@ -122,7 +122,9 @@ static bool is_suppressed_warning(loglevel_t severity)
 }
 
 _ESYM_C int src_get(int32_t* xline, char** xname);
-void aasm_log(loglevel_t level, const char* fmt, ...) {
+
+void printlog0(loglevel_t level, const char* fmt, ...)
+{
 	Letpara(paras, fmt);
 	{
 		Letpara(ap, fmt);
@@ -140,7 +142,7 @@ void aasm_log(loglevel_t level, const char* fmt, ...) {
 			memf(currentfile);
 		}
 		else {
-			fputs("nasm: ", error_file);
+			fputs("aasm: ", error_file);
 		}
 
 	}
@@ -150,9 +152,7 @@ void aasm_log(loglevel_t level, const char* fmt, ...) {
 
 		snprintf(msg, sizeof msg, "%s", fmt);
 		if (*listname)
-			nasmlist.error(level, *_tab_pref[_IMM(level)], msg);
+			aasmlist.error(level, *_tab_pref[_IMM(level)], msg);
 	}
-
-
 	printlogx(level, fmt, paras);
 }

@@ -143,11 +143,10 @@ if ($what eq 'c') {
 
     die if ($n & ($n-1));
 
-    print OUT "#include \"compiler.h\"\n";
-    print OUT "#include <inttypes.h>\n";
-    print OUT "#include <ctype.h>\n";
-    print OUT "#include \"nasmlib.h\"\n";
-    print OUT "#include \"hashtbl.h\"\n";
+    print OUT "#include \"../../inc/c/ustring.h\"\n";
+    print OUT "#include \"pptok.h\"\n";
+    print OUT "uint64_t crc64(uint64_t crc, const char* string);\n";
+    print OUT "uint64_t crc64i(uint64_t crc, const char* string);\n";
     print OUT "\n";
 
     # Note that this is global.

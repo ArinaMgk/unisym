@@ -1,8 +1,7 @@
 #
-# List of registers and their classes; classes are defined in nasm.h
+# List of registers and their classes
 #
-# The columns are:
-#
+# [fmt]
 # register name, assembler class, disassembler class(es), x86 register number
 #
 # If the register name ends in two numbers separated by a dash, then it is

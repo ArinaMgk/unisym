@@ -40,6 +40,7 @@ const char* _pref_dbug = "[DEBUG]";
 const char* _pref_trac = "[TRACE]";
 _tocall_ft _call_serious;
 _tocall_ft _befo_logging;
+void (*_f_printlog)(loglevel_t lev, const char* fmt, ...) = printlog;
 
 const char** _tab_pref[] = {
 	&_pref_null,& _pref_fata,& _pref_pani,& _pref_erro,& _pref_warn,& _pref_info,& _pref_dbug,& _pref_trac
@@ -105,7 +106,7 @@ static void printsuff(loglevel_t level) {
 #endif
 }
 
-void printlogx(loglevel_t level, const char* fmt, para_list paras)
+_WEAK void printlogx(loglevel_t level, const char* fmt, para_list paras)
 {
 #if defined(_Linux) || 1
 	printpref(level);
@@ -117,7 +118,7 @@ void printlogx(loglevel_t level, const char* fmt, para_list paras)
 		asserv(_call_serious)((void*)level);
 }
 
-void printlog(loglevel_t level, const char* fmt, ...)
+_WEAK void printlog(loglevel_t level, const char* fmt, ...)
 {
 	Letpara(paras, fmt);
 	printlogx(level, fmt, paras);

@@ -22,7 +22,7 @@
 #ifndef _AASM_MAIN_HEAD
 #define _AASM_MAIN_HEAD
 
-#include <c/ustdbool.h>
+#include "../../inc/c/ustdbool.h"
 
 struct warning {
 	rostr name;

@@ -6,43 +6,12 @@
 #include "../inc/c/stdinc.h"
 #include <stdlib.h>
 
-// outform.h
-_ESYM_C{
-	struct outffmt* ofmt_find(char*);
-	struct dbgffmt* dfmt_find(struct outffmt*, char*);
-	void ofmt_list(struct outffmt*, FILE*);
-	void dfmt_list(struct outffmt* ofmt, FILE* fp);
-	struct outffmt* ofmt_register(void);
-	extern struct dbgffmt null_debug_form;
-}
-
-// ver.c
-_ESYM_C{
-	extern const char aasm_version[];
-	extern const char aasm_date[];
-	extern const char aasm_compile_options[];
-	extern const char aasm_comment[];
-	extern const char aasm_signature[];
-}
 
 // preproc.h
 _ESYM_C{
 	enum preproc_token pp_token_hash(const char* token);
 }
 
-// label.h
-_ESYM_C{
-	extern char lprefix[PREFIX_MAX];
-	extern char lpostfix[PREFIX_MAX];
-}
-
-
-
-
-
-
-_ESYM_C
-void aasm_log(loglevel_t level, const char* fmt, ...);
 
 static void copy_filename(char* dst, const char* src)
 {

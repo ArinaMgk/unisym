@@ -163,7 +163,7 @@ if ( !defined($output) || $output eq 'b') {
     print B "#include \"inc/aasm.h\"\n";
     print B "#include \"data/_asm_inst.h\"\n\n";
 
-    print B "const uint8_t nasm_bytecodes[$bytecode_next] = {\n";
+    print B "const uint8_t aasm_bytecodes[$bytecode_next] = {\n";
 
     $p = 0;
     foreach $bl (@bytecode_array) {
@@ -436,7 +436,7 @@ sub format_insn($$$$$) {
 
 #
 # Look for @@CODES-xxx@@ sequences and replace them with the appropriate
-# offset into nasm_bytecodes
+# offset into aasm_bytecodes
 #
 sub codesubst($) {
     my($s) = @_;
@@ -447,7 +447,7 @@ sub codesubst($) {
 	if (!defined($pos)) {
 	    die "$fname: no position assigned to byte code $1\n";
 	}
-	$s = $` . "nasm_bytecodes+${pos}" . "$'";
+	$s = $` . "aasm_bytecodes+${pos}" . "$'";
     }
     return $s;
 }

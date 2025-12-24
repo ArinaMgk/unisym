@@ -30,9 +30,11 @@
 #include <time.h>
 
 
-#include <insns.h>
+#include <inc/inst.h>
+
 
 _ESYM_C uint64_t _crc64_tab_nasm[256];
+_ESYM_C int globalbits = 0;
 
 struct cpu_list_t { rostr idn; uint32 val; };
 cpu_list_t cpu_list[] = {
@@ -56,7 +58,7 @@ cpu_list_t cpu_list[] = {
 
 // segment-number allocator
 extern "C" stdint next_seg = 0;
-extern "C" stdint SegAlloc();
+
 extern "C" void SegInit();
 stdint SegAlloc() { // SegAlloc
 	return (next_seg += 2) - 2;
@@ -365,9 +367,429 @@ int64_t readstrnum(char* str, int length, bool* warn)
 }
 
 
-// ---- * ----
+// ---- nulldbg ----
+
+_ESYM_C{
+void null_debug_init(struct outffmt* of, void* id, FILE* fp) {}
+void null_debug_linenum(const char* filename, int32_t linenumber, int32_t segto) {}
+void null_debug_deflabel(char* name, int32_t segment, int64_t offset, int is_global, char* special) {}
+void null_debug_routine(const char* directive, const char* params) {}
+void null_debug_typevalue(int32_t type) {}
+void null_debug_output(int type, void* param) {}
+void null_debug_cleanup(void) {}
+}
 _ESYM_C
-void* nasm_realloc(void* q, size_t size)
+struct dbgffmt null_debug_form = {
+    "Null debug format",
+    "null",
+    null_debug_init,
+    null_debug_linenum,
+    null_debug_deflabel,
+    null_debug_routine,
+    null_debug_typevalue,
+    null_debug_output,
+    null_debug_cleanup
+};
+
+_ESYM_C
+struct dbgffmt* null_debug_arr[2] = { &null_debug_form, NULL };
+
+
+
+// ---- exprlib ----
+
+/*
+ * Return true if the argument is a simple scalar. (Or a far-
+ * absolute, which counts.)
+ */
+int is_simple(expr * vect)
+{
+    while (vect->type && !vect->value)
+        vect++;
+    if (!vect->type)
+        return 1;
+    if (vect->type != EXPR_SIMPLE)
+        return 0;
+    do {
+        vect++;
+    } while (vect->type && !vect->value);
+    if (vect->type && vect->type < EXPR_SEGBASE + SEG_ABS)
+        return 0;
+    return 1;
+}
+
+/*
+ * Return true if the argument is a simple scalar, _NOT_ a far-
+ * absolute.
+ */
+int is_really_simple(expr * vect)
+{
+    while (vect->type && !vect->value)
+        vect++;
+    if (!vect->type)
+        return 1;
+    if (vect->type != EXPR_SIMPLE)
+        return 0;
+    do {
+        vect++;
+    } while (vect->type && !vect->value);
+    if (vect->type)
+        return 0;
+    return 1;
+}
+
+/*
+ * Return true if the argument is relocatable (i.e. a simple
+ * scalar, plus at most one segment-base, plus possibly a WRT).
+ */
+int is_reloc(expr * vect)
+{
+    while (vect->type && !vect->value)  /* skip initial value-0 terms */
+        vect++;
+    if (!vect->type)            /* trivially return true if nothing */
+        return 1;               /* is present apart from value-0s */
+    if (vect->type < EXPR_SIMPLE)       /* false if a register is present */
+        return 0;
+    if (vect->type == EXPR_SIMPLE) {    /* skip over a pure number term... */
+        do {
+            vect++;
+        } while (vect->type && !vect->value);
+        if (!vect->type)        /* ...returning true if that's all */
+            return 1;
+    }
+    if (vect->type == EXPR_WRT) {       /* skip over a WRT term... */
+        do {
+            vect++;
+        } while (vect->type && !vect->value);
+        if (!vect->type)        /* ...returning true if that's all */
+            return 1;
+    }
+    if (vect->value != 0 && vect->value != 1)
+        return 0;               /* segment base multiplier non-unity */
+    do {                        /* skip over _one_ seg-base term... */
+        vect++;
+    } while (vect->type && !vect->value);
+    if (!vect->type)            /* ...returning true if that's all */
+        return 1;
+    return 0;                   /* And return false if there's more */
+}
+
+/*
+ * Return true if the argument contains an `unknown' part.
+ */
+int is_unknown(expr * vect)
+{
+    while (vect->type && vect->type < EXPR_UNKNOWN)
+        vect++;
+    return (vect->type == EXPR_UNKNOWN);
+}
+
+/*
+ * Return true if the argument contains nothing but an `unknown'
+ * part.
+ */
+int is_just_unknown(expr * vect)
+{
+    while (vect->type && !vect->value)
+        vect++;
+    return (vect->type == EXPR_UNKNOWN);
+}
+
+/*
+ * Return the scalar part of a relocatable vector. (Including
+ * simple scalar vectors - those qualify as relocatable.)
+ */
+int64_t reloc_value(expr * vect)
+{
+    while (vect->type && !vect->value)
+        vect++;
+    if (!vect->type)
+        return 0;
+    if (vect->type == EXPR_SIMPLE)
+        return vect->value;
+    else
+        return 0;
+}
+
+/*
+ * Return the segment number of a relocatable vector, or NO_SEG for
+ * simple scalars.
+ */
+int32_t reloc_seg(expr * vect)
+{
+    while (vect->type && (vect->type == EXPR_WRT || !vect->value))
+        vect++;
+    if (vect->type == EXPR_SIMPLE) {
+        do {
+            vect++;
+        } while (vect->type && (vect->type == EXPR_WRT || !vect->value));
+    }
+    if (!vect->type)
+        return NO_SEG;
+    else
+        return vect->type - EXPR_SEGBASE;
+}
+
+/*
+ * Return the WRT segment number of a relocatable vector, or NO_SEG
+ * if no WRT part is present.
+ */
+int32_t reloc_wrt(expr * vect)
+{
+    while (vect->type && vect->type < EXPR_WRT)
+        vect++;
+    if (vect->type == EXPR_WRT) {
+        return vect->value;
+    } else
+        return NO_SEG;
+}
+
+
+// ---- stdscan ----
+
+
+/*
+ * Standard scanner routine used by parser.c and some output
+ * formats. It keeps a succession of temporary-storage strings in
+ * stdscan_tempstorage, which can be cleared using stdscan_reset.
+ */
+static char **stdscan_tempstorage = NULL;
+static int stdscan_tempsize = 0, stdscan_templen = 0;
+#define STDSCAN_TEMP_DELTA 256
+
+static void stdscan_pop(void)
+{
+	memf(stdscan_tempstorage[--stdscan_templen]);
+}
+
+void stdscan_reset(void)
+{
+	while (stdscan_templen > 0)
+		stdscan_pop();
+}
+
+/*
+ * Unimportant cleanup is done to avoid confusing people who are trying
+ * to debug real memory leaks
+ */
+void stdscan_cleanup(void)
+{
+	stdscan_reset();
+	memf(stdscan_tempstorage);
+}
+
+static char *stdscan_copy(char *p, int len)
+{
+	char *text;
+
+	text = (char*)malc(len + 1);
+	MemCopyN(text, p, len);
+	text[len] = '\0';
+
+	if (stdscan_templen >= stdscan_tempsize) {
+		stdscan_tempsize += STDSCAN_TEMP_DELTA;
+		stdscan_tempstorage = (char**)aasm_realloc(stdscan_tempstorage, stdscan_tempsize * sizeof(char *));
+	}
+	stdscan_tempstorage[stdscan_templen++] = text;
+
+	return text;
+}
+
+char *stdscan_bufptr = NULL;
+int stdscan(void* private_data, struct tokenval* tv)
+{
+	char ourcopy[MAX_KEYWORD + 1], * r, * s;
+
+	(void)private_data;         /* Don't warn that this parameter is unused */
+
+	while (ascii_isspace(*stdscan_bufptr))
+		stdscan_bufptr++;
+	if (!*stdscan_bufptr)
+		return tv->t_type = (token_type)0;
+
+	/* we have a token; either an id, a number or a char */
+	if (isidstart(*stdscan_bufptr) ||
+		(*stdscan_bufptr == '$' && isidstart(stdscan_bufptr[1]))) {
+		/* now we've got an identifier */
+		bool is_sym = false;
+
+		if (*stdscan_bufptr == '$') {
+			is_sym = true;
+			stdscan_bufptr++;
+		}
+
+		r = stdscan_bufptr++;
+		/* read the entire buffer to advance the buffer pointer but... */
+		while (isidchar(*stdscan_bufptr))
+			stdscan_bufptr++;
+
+		/* ... copy only up to IDLEN_MAX-1 characters */
+		tv->t_charptr = stdscan_copy(r, stdscan_bufptr - r < IDLEN_MAX ?
+			stdscan_bufptr - r : IDLEN_MAX - 1);
+
+		if (is_sym || stdscan_bufptr - r > MAX_KEYWORD)
+			return tv->t_type = TOKEN_ID;       /* bypass all other checks */
+
+		for (s = tv->t_charptr, r = ourcopy; *s; s++)
+			*r++ = ascii_tolower(*s);
+		*r = '\0';
+		/* right, so we have an identifier sitting in temp storage. now,
+		 * is it actually a register or instruction name, or what? */
+		return nasm_token_hash(ourcopy, tv);
+	}
+	else if (*stdscan_bufptr == '$' && !isnumchar(stdscan_bufptr[1])) {
+	 /*
+	  * It's a $ sign with no following hex number; this must
+	  * mean it's a Here token ($), evaluating to the current
+	  * assembly location, or a Base token ($$), evaluating to
+	  * the base of the current segment.
+	  */
+		stdscan_bufptr++;
+		if (*stdscan_bufptr == '$') {
+			stdscan_bufptr++;
+			return tv->t_type = TOKEN_BASE;
+		}
+		return tv->t_type = TOKEN_HERE;
+	}
+	else if (isnumstart(*stdscan_bufptr)) {   /* now we've got a number */
+		bool rn_error = 0;
+		bool is_hex = false;
+		bool is_float = false;
+		bool has_e = false;
+		char c;
+
+		r = stdscan_bufptr;
+
+		if (*stdscan_bufptr == '$') {
+			stdscan_bufptr++;
+			is_hex = true;
+		}
+
+		for (;;) {
+			c = *stdscan_bufptr++;
+
+			if (!is_hex && (c == 'e' || c == 'E')) {
+				has_e = true;
+				if (*stdscan_bufptr == '+' || *stdscan_bufptr == '-') {
+					/* e can only be followed by +/- if it is either a
+					   prefixed hex number or a floating-point number */
+					is_float = true;
+					stdscan_bufptr++;
+				}
+			}
+			else if (c == 'H' || c == 'h' || c == 'X' || c == 'x') {
+				is_hex = true;
+			}
+			else if (c == 'P' || c == 'p') {
+				is_float = true;
+				if (*stdscan_bufptr == '+' || *stdscan_bufptr == '-')
+					stdscan_bufptr++;
+			}
+			else if (isnumchar(c) || c == '_')
+				; /* just advance */
+			else if (c == '.')
+				is_float = true;
+			else
+				break;
+		}
+		stdscan_bufptr--;	/* Point to first character beyond number */
+
+		if (has_e && !is_hex) {
+			/* 1e13 is floating-point, but 1e13h is not */
+			is_float = true;
+		}
+
+		if (is_float) {
+			tv->t_charptr = stdscan_copy(r, stdscan_bufptr - r);
+			return tv->t_type = TOKEN_FLOAT;
+		}
+		else {
+			r = stdscan_copy(r, stdscan_bufptr - r);
+			tv->t_integer = readnum(r, &rn_error);
+			stdscan_pop();
+			if (rn_error) {
+			/* some malformation occurred */
+				return tv->t_type = TOKEN_ERRNUM;
+			}
+			tv->t_charptr = NULL;
+			return tv->t_type = TOKEN_NUM;
+		}
+	}
+	else if (*stdscan_bufptr == '\'' || *stdscan_bufptr == '"' ||
+		*stdscan_bufptr == '`') {
+ /* a quoted string */
+		char start_quote = *stdscan_bufptr;
+		tv->t_charptr = stdscan_bufptr;
+		tv->t_inttwo = nasm_unquote(tv->t_charptr, &stdscan_bufptr);
+		if (*stdscan_bufptr != start_quote)
+			return tv->t_type = TOKEN_ERRSTR;
+		stdscan_bufptr++;	/* Skip final quote */
+		return tv->t_type = TOKEN_STR;
+	}
+	else if (*stdscan_bufptr == ';') {
+	 /* a comment has happened - stay */
+		return tv->t_type = (token_type)0;
+	}
+	else if (stdscan_bufptr[0] == '>' && stdscan_bufptr[1] == '>') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_SHR;
+	}
+	else if (stdscan_bufptr[0] == '<' && stdscan_bufptr[1] == '<') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_SHL;
+	}
+	else if (stdscan_bufptr[0] == '/' && stdscan_bufptr[1] == '/') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_SDIV;
+	}
+	else if (stdscan_bufptr[0] == '%' && stdscan_bufptr[1] == '%') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_SMOD;
+	}
+	else if (stdscan_bufptr[0] == '=' && stdscan_bufptr[1] == '=') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_EQ;
+	}
+	else if (stdscan_bufptr[0] == '<' && stdscan_bufptr[1] == '>') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_NE;
+	}
+	else if (stdscan_bufptr[0] == '!' && stdscan_bufptr[1] == '=') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_NE;
+	}
+	else if (stdscan_bufptr[0] == '<' && stdscan_bufptr[1] == '=') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_LE;
+	}
+	else if (stdscan_bufptr[0] == '>' && stdscan_bufptr[1] == '=') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_GE;
+	}
+	else if (stdscan_bufptr[0] == '&' && stdscan_bufptr[1] == '&') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_DBL_AND;
+	}
+	else if (stdscan_bufptr[0] == '^' && stdscan_bufptr[1] == '^') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_DBL_XOR;
+	}
+	else if (stdscan_bufptr[0] == '|' && stdscan_bufptr[1] == '|') {
+		stdscan_bufptr += 2;
+		return tv->t_type = TOKEN_DBL_OR;
+	}
+	else                      /* just an ordinary char */
+		return tv->t_type = (token_type)(uint8_t)(*stdscan_bufptr++);
+}
+
+
+// ---- * ----
+
+/* Uninitialized -> all zero by C spec */
+const uint8_t zero_buffer[ZERO_BUF_SIZE] = {0};
+
+_ESYM_C
+void* aasm_realloc(void* q, size_t size)
 {
 	void* p = q ? realloc(q, size) : malc(size);
 	if (!p) {
@@ -377,3 +799,178 @@ void* nasm_realloc(void* q, size_t size)
 	}
 	return p;
 }
+
+/*
+ * Common list of prefix names
+ */
+static const char *prefix_names[] = {
+	"a16", "a32", "a64", "asp", "lock", "o16", "o32", "o64", "osp",
+	"rep", "repe", "repne", "repnz", "repz", "times", "wait"
+};
+const char *prefix_name(int token)
+{
+	unsigned int prefix = token-PREFIX_ENUM_START;
+	if (prefix > numsof(prefix_names))
+	return NULL;
+
+	return prefix_names[prefix];
+}
+
+_ESYM_C void exit(int);
+void assert_failed(const char *file, int line, const char *msg)
+{
+	//--auto clean flag
+	aasm_log(_LOG_FATAL, "assertion %s failed at %s:%d", msg, file, line);
+	exit(1);
+}
+
+char* aasm_strsep(char** stringp, const char* delim)
+{
+	char* s = *stringp;
+	char* e;
+	if (!s) return NULL;
+	e = (char*)StrIndexChars(s, delim);
+	if (e)
+		*e++ = '\0';
+	*stringp = e;
+	return s;
+}
+
+void fwriteint16_t(uint16_t data, FILE * fp)
+{
+	MemReverseL(data);
+	fwrite(&data, 1, 2, fp);
+}
+
+void fwriteint32_t(uint32_t data, FILE * fp)
+{
+	MemReverseL(data);
+	fwrite(&data, 1, 4, fp);
+}
+
+void fwriteint64_t(uint64_t data, FILE * fp)
+{
+	MemReverseL(data);
+	fwrite(&data, 1, 8, fp);
+}
+
+void fwriteaddr(uint64_t data, int size, FILE * fp)
+{
+	MemReverseL(data);
+	fwrite(&data, 1, size, fp);
+}
+
+size_t fwritezero(size_t bytes, FILE *fp)
+{
+	size_t count = 0;
+	size_t blksize;
+	size_t rv;
+	while (bytes) {
+	blksize = (bytes < ZERO_BUF_SIZE) ? bytes : ZERO_BUF_SIZE;
+	rv = fwrite(zero_buffer, 1, blksize, fp);
+	if (!rv)
+		break;
+	count += rv;
+	bytes -= rv;
+	}
+	return count;
+}
+
+void standard_extension(char* inname, char* outname, rostr extension)
+{
+	char* p, * q;
+
+	if (*outname)               /* file name already exists, */
+		return;                 /* so do nothing */
+	q = inname;
+	p = outname;
+	while (*q)
+		*p++ = *q++;            /* copy, and find end of string */
+	*p = '\0';                  /* terminate it */
+	while (p > outname && *--p != '.');        /* find final period (or whatever) */
+	if (*p != '.')
+		while (*p)
+			p++;                /* go back to end if none found */
+	if (!StrCompare(p, extension)) {        /* is the extension already there? */
+		//--auto clean flag
+		log_0file = 1;
+		if (*extension)
+			aasm_log(_LOG_WARN, "file name already ends in `%s': output will be in `nasm.out'", extension);
+		else
+			aasm_log(_LOG_WARN, "file name already has no extension: output will be in `nasm.out'");
+		StrCopy(outname, "nasm.out");
+	}
+	else
+		StrCopy(p, extension);
+}
+
+int bsi(const char *string, const char **array, int size)// Binary search
+{
+	int i = -1, j = size;       /* always, i < index < j */
+	while (j - i >= 2) {
+		int k = (i + j) / 2;
+		int l = StrCompare(string, array[k]);
+		if (l < 0)              /* it's in the first half */
+			j = k;
+		else if (l > 0)         /* it's in the second half */
+			i = k;
+		else                    /* we've got it :) */
+			return k;
+	}
+	return -1;                  /* we haven't got it :( */
+}
+int bsii(const char *string, const char **array, int size)
+{
+	int i = -1, j = size;       /* always, i < index < j */
+	while (j - i >= 2) {
+		int k = (i + j) / 2;
+		int l = StrCompareInsensitive(string, array[k]);
+		if (l < 0)              /* it's in the first half */
+			j = k;
+		else if (l > 0)         /* it's in the second half */
+			i = k;
+		else                    /* we've got it :) */
+			return k;
+	}
+	return -1;                  /* we haven't got it :( */
+}
+
+static char *file_name = NULL;
+static int32_t line_number = 0;
+
+char *src_set_fname(char *newname)
+{
+	char *oldname = file_name;
+	file_name = newname;
+	return oldname;
+}
+
+int32_t src_set_linnum(int32_t newline)
+{
+	int32_t oldline = line_number;
+	line_number = newline;
+	return oldline;
+}
+
+int32_t src_get_linnum(void)
+{
+	return line_number;
+}
+
+int src_get(int32_t *xline, char **xname)
+{
+	if (!file_name || !*xname || StrCompare(*xname, file_name)) {
+		memf(*xname);
+		*xname = file_name ? StrHeap(file_name) : NULL;
+		*xline = line_number;
+		return -2;
+	}
+	if (*xline != line_number) {
+		int32_t tmp = line_number - *xline;
+		*xline = line_number;
+		return tmp;
+	}
+	return 0;
+}
+
+

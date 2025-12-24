@@ -19,12 +19,54 @@
 	limitations under the License.
 */
 
-#ifdef _INC_AASM_INST
-#error _INC_AASM_INST
-#endif
+#ifndef _INC_AASM_INST
+
+
 #define _INC_AASM_INST
 
 #include "../../inc/c/instruction.h"
+
+#ifdef _INC_CPP
+extern "C" {
+#endif
+
+#include "./aasm.h"
+#include "../data/_asm_inst.h"
+#include "../data/tokens.h"
+
+	struct itemplate {
+		enum _asm_opcode opcode;		/* the token, passed from "parser.c" */
+		int operands;		/* number of operands */
+		opflags_t opd[MAX_OPERANDS]; /* bit flags for operand types */
+		const uint8_t* code;	/* the code it assembles to */
+		uint32_t flags;		/* some flags */
+	};
+
+	/* Disassembler table structure */
+	/* If n == -1, then p points to another table of 256
+	   struct disasm_index, otherwise p points to a list of n
+	   struct itemplates to consider. */
+	struct disasm_index {
+		const void* p;
+		int n;
+	};
+
+
+
+	/* Tables for the assembler and disassembler, respectively */
+	extern const struct itemplate* const nasm_instructions[];
+	extern const struct disasm_index itable[256];
+	extern const struct disasm_index* const itable_vex[2][32][8];
+
+	/* Common table for the byte codes */
+	extern const uint8_t aasm_bytecodes[];
+
+#ifdef _INC_CPP
+}
+#endif
+
+// signify the end of an itemplate
+#define ITEMPLATE_END {-1,-1,{-1,-1,-1},NULL,0}
 
 extern const uint8_t _asm_inst_bytes_list[];
 extern struct instruction_t instruction_table[];//{TODO}
@@ -92,3 +134,5 @@ extern struct instruction_t instruction_table[];//{TODO}
 #define IF_IA64   0x0F000000UL  /* IA64 instructions (in x86 mode) */
 #define IF_CYRIX  0x10000000UL  /* Cyrix-specific instruction */
 #define IF_AMD    0x20000000UL  /* AMD-specific instruction */
+
+#endif

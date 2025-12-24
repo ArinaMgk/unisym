@@ -27,7 +27,14 @@
 
 #if !(defined(__cplusplus) || defined(_INC_CPP)) && \
 	(defined(_DEV_MSVC) || defined(__STDC_VERSION__) && __STDC_VERSION__ < 202300L)// Solve new-GCC appended error.
-typedef enum boolean { false, true } bool, boolean;// use immed_tobool() to convert with this
+
+	typedef enum boolean { false, true } bool, boolean;// use immed_tobool() to convert with this
+	// keep C and C++ all same
+	// #define bool byte
+	// #define boolean byte
+	// #define true 1
+	// #define false 0
+
 #else
 typedef bool boolean;
 #endif

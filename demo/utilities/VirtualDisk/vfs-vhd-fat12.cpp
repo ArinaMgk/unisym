@@ -56,7 +56,7 @@ int print_vhd(OstreamTrait* cons, rostr filename, VirtualDisk_VHD& vhd)
 	cons->OutChar('\n');
 
 	cons->OutFormat("FEATURES      ");// big endian
-	uint32 feature = MemReverseL(footer.feature);
+	uint32 feature = MemReverseB(footer.feature);
 	if (feature & 0b10); else {
 		plogerro("Bad feature in %s", filename);
 		return -1;
@@ -101,7 +101,7 @@ int print_vhd(OstreamTrait* cons, rostr filename, VirtualDisk_VHD& vhd)
 
 	cons->OutFormat("CURRENT SIZE  %s (Origin %s) \n",
 		text_size(vhd.getUnits() * vhd.Block_Size).reference(),
-		text_size(MemReverseL(footer.orig_size)).reference()
+		text_size(MemReverseB(footer.orig_size)).reference()
 	);
 
 	word cylinder = *(word*)&footer.disk_geometry;
@@ -113,7 +113,7 @@ int print_vhd(OstreamTrait* cons, rostr filename, VirtualDisk_VHD& vhd)
 
 	cons->OutFormat("DISK    TYPE  %s\n", vhd.getTypeIdentifier());
 
-	cons->OutFormat("CHECK SUM     0x%[32H]\n", MemReverseL(footer.checksum));
+	cons->OutFormat("CHECK SUM     0x%[32H]\n", MemReverseB(footer.checksum));
 
 	auto unique_id = footer.unique_id;
 	cons->OutFormat("UUID          ");

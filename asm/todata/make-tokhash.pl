@@ -170,11 +170,10 @@ if ($output eq 'h') {
     print "\n";
 
     print "#include <c/stdinc.h>\n";
-    print "#include \"compiler.h\"\n";
     print "#include <string.h>\n";
-    print "#include \"nasm.h\"\n";
-    print "#include \"hashtbl.h\"\n";
-    print "#include \"insns.h\"\n";
+    print "#include \"inc/inst.h\"\n";
+    print "uint64_t crc64(uint64_t crc, const char* string);\n";
+    print "uint64_t crc64i(uint64_t crc, const char* string);\n";
     print "\n";
 
     # These somewhat odd sizes and ordering thereof are due to the

@@ -20,9 +20,6 @@
 */
 // end in aasm.c
 #define _CRT_SECURE_NO_WARNINGS
-//extern "C" {
-#include "tmp.h"
-//}
 
 #define _INC_DNODE//{}
 #include <c/stdinc.h>
@@ -204,7 +201,7 @@ void process_respfile(FILE* rfile)
 				int offset;
 				offset = p - buffer;
 				bufsize += ARG_BUF_DELTA;
-				buffer = (char*)nasm_realloc(buffer, bufsize);
+				buffer = (char*)aasm_realloc(buffer, bufsize);
 				p = buffer + offset;
 			}
 		}
@@ -235,7 +232,7 @@ void process_respfile(FILE* rfile)
 
 		if ((int)StrLength(p) > prevargsize - 10) {
 			prevargsize += ARG_BUF_DELTA;
-			prevarg = (char*)nasm_realloc(prevarg, prevargsize);
+			prevarg = (char*)aasm_realloc(prevarg, prevargsize);
 		}
 		StrCopyN(prevarg, p, prevargsize);
 	}
@@ -263,11 +260,14 @@ _ESYM_C void define_macros_early(time_t* startup_time);
 
 _ESYM_C void define_macros_late(rostr ofmt_shortname);
 _ESYM_C void pp_include_path(char*);
+void printlog0(loglevel_t level, const char* fmt, ...);
 int main(int argc, char** argv) {
 	time(&startup_time);
 	error_file = stderr;
 	_call_serious = handlog;
 	_logstyle = _LOG_STYLE_GCC;
+	_f_printlog = printlog0;
+	//
 	SegInit();
 	pass0 = 0;
 	preproc = &nasmpp;
@@ -296,7 +296,7 @@ int main(int argc, char** argv) {
 
 	if ((*ofmt_f())->stdmac)
 		Preprocessor::extra_stdmac((*ofmt_f())->stdmac);
-	parser_global_info((*ofmt_f()), &location);
+	Parser::parser_global_info((*ofmt_f()), &location);
 	eval_global_info((*ofmt_f()), lookup_label, &location);
 
 	define_macros_late((*ofmt_f())->shortname);
@@ -315,7 +315,7 @@ int main(int argc, char** argv) {
 		if (depend_missing_ok)
 			pp_include_path(NULL);	/* "assume generated" */
 
-		preproc->reset(inname, 0, evaluate, &nasmlist,
+		preproc->reset(inname, 0, eval_evaluate, &aasmlist,
 			depend_ptr);
 		if (outname[0] == '\0')
 			(*ofmt_f())->filename(inname, outname);
@@ -347,7 +347,7 @@ int main(int argc, char** argv) {
 		location.known = false;
 
 		/* pass = 1; */
-		preproc->reset(inname, 3, evaluate, &nasmlist,
+		preproc->reset(inname, 3, eval_evaluate, &aasmlist,
 			depend_ptr);
 
 		while ((line = preproc->getline())) {
@@ -404,7 +404,7 @@ int main(int argc, char** argv) {
 		 */
 		init_labels();
 
-		(*ofmt_f())->init(outfile, define_label, evaluate);
+		(*ofmt_f())->init(outfile, define_label, eval_evaluate);
 		(*ofmt_f())->current_dfmt->init((*ofmt_f()), NULL, outfile);
 
 		assemble_file(inname, depend_ptr);
@@ -445,7 +445,7 @@ static const char* directives[] = {
 };
 static enum directives getkw(char** directive, char** value);
 
-extern "C" stdint SegAlloc();
+
 static void assemble_file(char* fname, StrList** depend_ptr)
 {
 	char* directive, * value, * p, * q, * special, * line, debugid[80];
@@ -478,7 +478,7 @@ static void assemble_file(char* fname, StrList** depend_ptr)
 		cpu = cmd_cpu;
 		if (pass0 == 2) {
 			if (*listname)
-				nasmlist.init(listname);
+				aasmlist.init(listname);
 		}
 		in_abs_seg = false;
 		global_offset_changed = 0;  /* set by redefine_label */
@@ -490,7 +490,7 @@ static void assemble_file(char* fname, StrList** depend_ptr)
 			StrpageFree(offsets);
 			offsets = StrpageNew();
 		}
-		preproc->reset(fname, pass1, evaluate, &nasmlist,
+		preproc->reset(fname, pass1, eval_evaluate, &aasmlist,
 			pass1 == 2 ? depend_ptr : NULL);
 		MemCopyN(warning_on, warning_on_global, (ERR_WARN_MAX + 1) * sizeof(bool));
 
@@ -668,7 +668,7 @@ static void assemble_file(char* fname, StrList** depend_ptr)
 					stdscan_reset();
 					stdscan_bufptr = value;
 					tokval.t_type = TOKEN_INVALID;
-					e = evaluate(stdscan, NULL, &tokval, NULL, pass2
+					e = eval_evaluate(stdscan, NULL, &tokval, NULL, pass2
 						, NULL);
 					if (e) {
 						if (!is_reloc(e)) {
@@ -801,9 +801,7 @@ static void assemble_file(char* fname, StrList** depend_ptr)
 				}
 			}
 			else {            /* it isn't a directive */
-
-				parse_line(pass1, line, &output_ins
-					, evaluate, def_label);
+				Parser::parse_line(pass1, line, &output_ins , eval_evaluate, def_label);
 
 				if (optimizing > 0) {
 					if (forwref != NULL && globallineno == forwref->lineno) {
@@ -1011,12 +1009,12 @@ static void assemble_file(char* fname, StrList** depend_ptr)
 					else {
 						offs += assemble(location.segment, offs, sb, cpu,
 							&output_ins, (*ofmt_f()),
-							&nasmlist);
+							&aasmlist);
 						SET_CURR_OFFS(offs);
 
 					}
-				}               /* not an EQU */
-				cleanup_insn(&output_ins);
+				} // not an EQU
+				Parser::cleanup_insn(&output_ins);
 			}
 			memf(line);
 			location.offset = offs = GET_CURR_OFFS;
@@ -1057,7 +1055,7 @@ static void assemble_file(char* fname, StrList** depend_ptr)
 	}
 
 	preproc->cleanup(0);
-	nasmlist.cleanup();
+	aasmlist.cleanup();
 	if (!terminate_after_phase && opt_verbose_info) {
 		/*  -On and -Ov switches */
 		fprintf(stdout, "info: assembly required 1+%d+1 passes\n", passn - 3);
@@ -1217,7 +1215,7 @@ char* no_pp_getline(void)
 				int offset;
 				offset = p - buffer;
 				bufsize += BUF_DELTA;
-				buffer = (char*)nasm_realloc(buffer, bufsize);
+				buffer = (char*)aasm_realloc(buffer, bufsize);
 				p = buffer + offset;
 			}
 		}

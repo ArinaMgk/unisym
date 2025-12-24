@@ -55,9 +55,9 @@ namespace uni {
 		}
 		auto _unuse_size = fread(footer, sizeof(VHD_Footer), 1, pf);
 		//
-		bool want_fixed = MemReverseL(footer->disk_type) == 2;// FIXED
+		bool want_fixed = MemReverseB(footer->disk_type) == 2;// FIXED
 		//
-		if (0 && MemReverseL(footer->filefmt_ver) != 0x00010000) {
+		if (0 && MemReverseB(footer->filefmt_ver) != 0x00010000) {
 			//plogerro("Not a supported VHD version");
 			return;
 		}
@@ -74,7 +74,7 @@ namespace uni {
 
 	stduint VirtualDisk_VHD::getUnits() {
 		if (!valid) return 0;
-		return MemReverseL(footer->curr_size) / Block_Size;
+		return MemReverseB(footer->curr_size) / Block_Size;
 	}
 	static rostr vhd_disk_type[] = {
 	"None",
@@ -86,8 +86,8 @@ namespace uni {
 	"Reserved (deprecated)"
 	};
 	rostr VirtualDisk_VHD::getTypeIdentifier() {
-		if (!valid || MemReverseL(footer->disk_type) >= numsof(vhd_disk_type)) return 0;
-		return vhd_disk_type[MemReverseL(footer->disk_type)];
+		if (!valid || MemReverseB(footer->disk_type) >= numsof(vhd_disk_type)) return 0;
+		return vhd_disk_type[MemReverseB(footer->disk_type)];
 	}
 
 	bool VirtualDisk_VHD::Read(stduint BlockIden, void* Dest)//{TEMP} only for FIXED

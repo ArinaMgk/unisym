@@ -103,7 +103,6 @@ if ( $fmt eq 'h' ) {
 } elsif ( $fmt eq 'c' ) {
     # Output regs.c
     print "/* automatically generated from $file - do not edit */\n\n";
-    print "#include \"tables.h\"\n\n";
     print "const char * const nasm_reg_names[] = "; $ch = '{';
     # This one has no dummy entry for 0
     foreach $reg ( sort(keys(%regs)) ) {
@@ -114,8 +113,7 @@ if ( $fmt eq 'h' ) {
 } elsif ( $fmt eq 'fc' ) {
     # Output regflags.c
     print "/* automatically generated from $file - do not edit */\n\n";
-    print "#include \"tables.h\"\n";
-    print "#include \"nasm.h\"\n\n";
+    print "#include \"inc/aasm.h\"\n\n";
     print "const int32_t nasm_reg_flags[] = {\n";
     printf "    0,\n";		# Dummy entry for 0
     foreach $reg ( sort(keys(%regs)) ) {
@@ -127,7 +125,6 @@ if ( $fmt eq 'h' ) {
 } elsif ( $fmt eq 'vc' ) {
     # Output regvals.c
     print "/* automatically generated from $file - do not edit */\n\n";
-    print "#include \"tables.h\"\n\n";
     print "const int nasm_regvals[] = {\n";
     print "    -1,\n";		# Dummy entry for 0
     foreach $reg ( sort(keys(%regs)) ) {

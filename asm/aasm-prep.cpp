@@ -1,19 +1,14 @@
 // UTF-8 
 // @ArinaMgk
 // AASM: Preprocessor
-
-#include "inc/aasm.h"
 #include "../inc/c/stdinc.h"
 
+#include "inc/aasm.h"
+#include <stdarg.h>
 #include <ctype.h>
+#include "inc/hashtbl.hpp"
 _ESYM_C char* getenv(const char* name);
-_ESYM_C{
-#include "hashtbl.h"
-#include "quote.h"
-#include "tables.h"
-#include "eval.h"
-#include "stdscan.h"
-}
+
 // ---- ---- LOC DEF ---- ---- //
 
 /* Typical flow of text through preproc
@@ -256,7 +251,7 @@ enum {
 
  /*
   * Condition codes. Note that we use c_ prefix not C_ because C_ is
-  * used in nasm.h for the "real" condition codes. At _this_ level,
+  * used in aasm.h for the "real" condition codes. At _this_ level,
   * we treat CXZ and ECXZ as condition codes, albeit non-invertible
   * ones, so we need a different enum...
   */
@@ -1019,7 +1014,8 @@ static void** hash_findi_add(struct hash_table* hash, const char* str)
 	void** r;
 	char* strx;
 
-	r = hash_findi(hash, str, &hi);
+	r = hash->hash_findi(str, &hi);
+	//r = hash_findi(hash, str, &hi);
 	if (r)
 		return r;
 
@@ -1034,7 +1030,7 @@ static void** hash_findi_add(struct hash_table* hash, const char* str)
  */
 static void* hash_findix(struct hash_table* hash, const char* str)
 {
-	void** p = hash_findi(hash, str, NULL);
+	void** p = hash->hash_findi(str, NULL);
 	return p ? *p : NULL;
 }
 
@@ -1476,7 +1472,7 @@ static void free_smacro_table(struct hash_table* smt)
 	const char* key;
 	struct hash_tbl_node* it = NULL;
 
-	while ((s = (SMacro*)hash_iterate(smt, &it, &key)) != NULL) {
+	while ((s = (SMacro*)smt->hash_iterate(&it, &key)) != NULL) {
 		memf((void*)key);
 		while (s) {
 			SMacro* ns = s->next;
@@ -1486,7 +1482,7 @@ static void free_smacro_table(struct hash_table* smt)
 			s = ns;
 		}
 	}
-	hash_free(smt);
+	smt->hash_free();
 }
 
 static void free_mmacro_table(hash_table* mmt)
@@ -1495,7 +1491,8 @@ static void free_mmacro_table(hash_table* mmt)
 	const char* key;
 	hash_tbl_node* it = NULL;
 
-	while ((m = (MMacro*)hash_iterate(mmt, &it, &key)) != NULL) {
+	while ((m = (MMacro*)mmt->hash_iterate(&it, &key)) != NULL) {
+	//while ((m = (MMacro*)hash_iterate(mmt , &it, &key)) != NULL) {
 		memf((void*)key);
 		while (m) {
 			MMacro* nm = m->next;
@@ -1503,13 +1500,14 @@ static void free_mmacro_table(hash_table* mmt)
 			m = nm;
 		}
 	}
-	hash_free(mmt);
+	mmt->hash_free();
+	//hash_free(mmt);
 }
 
 static void init_macros(void)
 {
-	hash_init(&smacros, HASH_LARGE);
-	hash_init(&mmacros, HASH_LARGE);
+	smacros.hash_init(HASH_LARGE);
+	mmacros.hash_init(HASH_LARGE);
 }
 static void free_macros(void)
 {
@@ -1574,7 +1572,8 @@ static void undef_smacro(Context* ctx, const char* mname)
 	struct hash_table* smtbl;
 
 	smtbl = ctx ? &ctx->localmac : &smacros;
-	smhead = (SMacro**)hash_findi(smtbl, mname, NULL);
+	smhead = (SMacro**)smtbl->hash_findi(mname, NULL);
+	//smhead = (SMacro**)hash_findi(smtbl, mname, NULL);
 
 	if (smhead) {
 		/*
@@ -2231,7 +2230,7 @@ static int do_directive(Token* tline)
 		}
 		if (tline->type == TOK_STRING)
 			nasm_unquote(tline->text, NULL);
-		use_pkg = nasm_stdmac_find_package(tline->text);
+		use_pkg = aasm_stdmac_find_package(tline->text);
 		if (!use_pkg) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "unknown `%%use' package: %s", tline->text);
@@ -2272,7 +2271,8 @@ static int do_directive(Token* tline)
 		if (i == PP_PUSH) {
 			ctx = malcof(Context);
 			ctx->next = cstk;
-			hash_init(&ctx->localmac, HASH_SMALL);
+			ctx->localmac.hash_init(HASH_SMALL);
+			//hash_init(&ctx->localmac, HASH_SMALL);
 			ctx->name = p;
 			ctx->number = unique++;
 			cstk = ctx;
@@ -2501,7 +2501,8 @@ static int do_directive(Token* tline)
 		if (!parse_mmacro_spec(tline, &spec, pp_directives[i])) {
 			return DIRECTIVE_FOUND;
 		}
-		mmac_p = (MMacro**)hash_findi(&mmacros, spec.name, NULL);
+		mmac_p = (MMacro**)mmacros.hash_findi(spec.name, NULL);
+		//mmac_p = (MMacro**)hash_findi(&mmacros, spec.name, NULL);
 		while (mmac_p && *mmac_p) {
 			mmac = *mmac_p;
 			if (mmac->casesense == spec.casesense &&
@@ -3430,7 +3431,7 @@ static MMacro* is_mmacro(Token* tline, Token*** params_array)
 			 * parameters to the end of our list if necessary.
 			 */
 			if (m->defaults && nparam < m->nparam_min + m->ndefs) {
-				params = (Token**)nasm_realloc(params, ((m->nparam_min + m->ndefs + 1) * sizeof(*params)));
+				params = (Token**)aasm_realloc(params, ((m->nparam_min + m->ndefs + 1) * sizeof(*params)));
 				while (nparam < m->nparam_min + m->ndefs) {
 					params[nparam] = m->defaults[nparam - m->nparam_min];
 					nparam++;
@@ -3494,7 +3495,7 @@ static void count_mmac_params(Token* t, int* nparam, Token*** params)
 		/* +1: we need space for the final NULL */
 		if (*nparam + 1 >= paramsize) {
 			paramsize += PARAM_DELTA;
-			*params = (Token**)nasm_realloc(*params, sizeof(**params) * paramsize);
+			*params = (Token**)aasm_realloc(*params, sizeof(**params) * paramsize);
 		}
 		skip_white_(t);
 		brace = false;
@@ -3857,9 +3858,9 @@ again:
 								if (ch == ',' && !paren && brackets <= 0) {
 									if (++nparam >= sparam) {
 										sparam += PARAM_DELTA;
-										params = (Token**)nasm_realloc(params, sparam * sizeof(Token*));
+										params = (Token**)aasm_realloc(params, sparam * sizeof(Token*));
 										paramsize = (int*)
-											nasm_realloc(paramsize, sparam * sizeof(int));
+											aasm_realloc(paramsize, sparam * sizeof(int));
 									}
 									params[nparam] = tline->next;
 									paramsize[nparam] = 0;
@@ -4412,7 +4413,7 @@ static char* read_line(void)
 		if (p - buffer > bufsize - 10) {
 			int32_t offset = p - buffer;
 			bufsize += BUF_DELTA;
-			buffer = (char*)nasm_realloc(buffer, bufsize);
+			buffer = (char*)aasm_realloc(buffer, bufsize);
 			p = buffer + offset;        /* prevent stale-pointer problems */
 		}
 	}

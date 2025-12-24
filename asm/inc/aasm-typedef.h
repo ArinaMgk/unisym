@@ -2,9 +2,10 @@
 #ifndef _AASM_TYPEDEF
 #define _AASM_TYPEDEF
 
-#include "../inc/c/ustdbool.h"
-#include "../inc/c/ustring.h"
-#include "data/regs.h"
+#include "../../inc/c/ustdbool.h"
+#include "../../inc/c/ustring.h"
+#include "../data/_asm_inst.h"
+#include "../data/regs.h"
 #include "stdio.h"
 
 // [x86]
@@ -84,6 +85,12 @@ struct tokenval {
 	int64_t t_integer, t_inttwo;
 };
 
+
+enum eval_hint {                /* values for `hinttype' */
+	EAH_NOHINT   = 0,           /* no hint at all - our discretion */
+	EAH_MAKEBASE = 1,           /* try to make given reg the base */
+	EAH_NOTBASE  = 2            /* try _not_ to make reg the base */
+};
 typedef struct operand {	/* operand to an instruction */
 	int32_t type;               /* type of operand */
 	int disp_size;              /* 0 means default; 16; 32; 64 */
@@ -103,6 +110,12 @@ typedef struct operand {	/* operand to an instruction */
 #define OPFLAG_UNKNOWN		4	/* operand is an unknown reference */
 					/* (always a forward reference also) */
 
+enum extop_type {		/* extended operand types */
+	EOT_NOTHING,
+	EOT_DB_STRING,		/* Byte string */
+	EOT_DB_STRING_FREE,		/* Byte string which should be nasm_free'd*/
+	EOT_DB_NUMBER,		/* Integer */
+};
 typedef struct extop {          /* extended operand */
 	struct extop *next;         /* linked list */
 	char *stringval;	        /* if it's a string, then here it is */
@@ -179,12 +192,7 @@ struct eval_hints {
 #define TYS_ELEMENTS(x)  ((x) << 8)
 
 
-enum extop_type {		/* extended operand types */
-	EOT_NOTHING,
-	EOT_DB_STRING,		/* Byte string */
-	EOT_DB_STRING_FREE,		/* Byte string which should be nasm_free'd*/
-	EOT_DB_NUMBER,		/* Integer */
-};
+
 
 enum ea_flags {			/* special EA flags */
 	EAF_BYTEOFFS =  1,          /* force offset part to byte size */
@@ -195,11 +203,6 @@ enum ea_flags {			/* special EA flags */
 	EAF_FSGS	 = 32		/* fs/gs segment override present */
 };
 
-enum eval_hint {                /* values for `hinttype' */
-	EAH_NOHINT   = 0,           /* no hint at all - our discretion */
-	EAH_MAKEBASE = 1,           /* try to make given reg the base */
-	EAH_NOTBASE  = 2            /* try _not_ to make reg the base */
-};
 
 /*
  * Data-type flags that get passed to listing-file routines.
@@ -221,7 +224,7 @@ typedef bool (*lfunc) (char *label, int32_t *segment, int64_t *offset);
  * should affect the local-label system), or something odder like
  * an EQU or a segment-base symbol, which shouldn't.
  */
-typedef void (*ldfunc) (char *label, int32_t segment, int64_t offset, char *special, bool is_norm, bool isextrn, struct outffmt * ofmt);
+typedef void (*ldfunc) (rostr label, int32_t segment, int64_t offset, char *special, bool is_norm, bool isextrn, struct outffmt * ofmt);
 
 
 /// ---- ---- File ---- ----
@@ -229,8 +232,6 @@ struct dbgffmt;
 struct outffmt;
 
 typedef const unsigned char macros_t;
-typedef void (*ldfunc)
-(char* label, int32_t segment, int64_t offset, char* special, bool is_norm, bool isextrn, struct outffmt* ofmt);
 typedef expr* (*evalfunc)
 (scanner sc, void* scprivate, struct tokenval* tv, int* fwref, int critical, struct eval_hints* hints);
 
@@ -260,6 +261,36 @@ struct dbgffmt {
 
 // OutFileFormat
 #define OFMT_TEXT 1 /* Text file format */
+
+enum geninfo { GI_SWITCH };
+
+/*
+ * values for the `type' parameter to an output function.
+ *
+ * Exceptions are OUT_RELxADR, which denote an x-byte relocation
+ * which will be a relative jump. For this we need to know the
+ * distance in bytes from the start of the relocated record until
+ * the end of the containing instruction. _This_ is what is stored
+ * in the size part of the parameter, in this case.
+ *
+ * Also OUT_RESERVE denotes reservation of N bytes of BSS space,
+ * and the contents of the "data" parameter is irrelevant.
+ *
+ * The "data" parameter for the output function points to a "int32_t",
+ * containing the address in question, unless the type is
+ * OUT_RAWDATA, in which case it points to an "uint8_t"
+ * array.
+ */
+enum out_type {
+	OUT_RAWDATA,		/* Plain bytes */
+	OUT_ADDRESS,		/* An address (symbol value) */
+	OUT_RESERVE,		/* Reserved bytes (RESB et al) */
+	OUT_REL2ADR,		/* 2-byte relative address */
+	OUT_REL4ADR,		/* 4-byte relative address */
+	OUT_REL8ADR,		/* 8-byte relative address */
+};
+
+
 struct outffmt {
 	//
 	rostr    fullname;
@@ -311,7 +342,7 @@ struct outffmt {
 	// It may also be called with NULL, in which case it is to return the _default_ section number for starting assembly in.
 	// It is allowed to modify the string it is given a pointer to.
 	// It is also allowed to specify a default instruction size for the segment, by setting `*bits' to 16 or 32. Or, if it doesn't wish to define a default, it can leave `bits' alone.
-	int32_t (*section) (char *name, int pass, int *bits);
+	int32_t (*section) (rostr name, int pass, int *bits);
 	// called to modify the segment base values
 	// returned from the SEG operator. It is given a segment base value (i.e. a segment value with the low bit set), and is required to produce in return a segment value which may be different. It can map segment bases to absolute numbers by means of returning SEG_ABS types.
 	// It should return NO_SEG if the segment base cannot be determined; the evaluator (which calls this routine) is responsible for throwing an error condition if that occurs in pass two or in a critical expression.
@@ -390,12 +421,10 @@ typedef struct {
 	/*
 	 * Called on a warning or error, with the error message.
 	 */
-	void (*error)(int severity, const char *pfx, const char *msg);
+	void (*error)(loglevel_t severity, const char *pfx, const char *msg);
 } ListGen;
 
 
-/// ---- ---- ? ---- ----
-enum geninfo { GI_SWITCH };
 
 /// ---- ---- Preproc ---- ----
 typedef struct preproc_ops {
@@ -420,11 +449,16 @@ _ESYM_C Preproc nasmpp;
 
 /// ---- ---- Inst ---- ----
 
-
+enum ccode {			/* condition code names */
+	C_A, C_AE, C_B, C_BE, C_C, C_E, C_G, C_GE, C_L, C_LE, C_NA, C_NAE,
+	C_NB, C_NBE, C_NC, C_NE, C_NG, C_NGE, C_NL, C_NLE, C_NO, C_NP,
+	C_NS, C_NZ, C_O, C_P, C_PE, C_PO, C_S, C_Z,
+	C_none = -1
+};
 typedef struct insn {		/* an instruction itself */
 	char *label;		/* the label defined, or NULL */
 	enum prefixes prefixes[MAXPREFIX]; /* instruction prefixes, if any */
-	enum opcode opcode;         /* the opcode - not just the string */
+	enum _asm_opcode opcode;         /* the opcode - not just the string */
 	enum ccode condition;       /* the condition code, if Jcc/SETcc */
 	int operands;               /* how many operands? 0-3
 								 * (more if db et al) */
@@ -641,15 +675,7 @@ typedef struct insn {		/* an instruction itself */
 /* special flags */
 #define SAME_AS		0x40000000U
 
-/* Register names automatically generated from regs.dat */
-#include "regs.h"
 
-enum ccode {			/* condition code names */
-	C_A, C_AE, C_B, C_BE, C_C, C_E, C_G, C_GE, C_L, C_LE, C_NA, C_NAE,
-	C_NB, C_NBE, C_NC, C_NE, C_NG, C_NGE, C_NL, C_NLE, C_NO, C_NP,
-	C_NS, C_NZ, C_O, C_P, C_PE, C_PO, C_S, C_Z,
-	C_none = -1
-};
 
 /*
  * REX flags
@@ -673,6 +699,18 @@ enum ccode {			/* condition code names */
 enum vex_class {
 	RV_VEX		= 0,	/* C4/C5 */
 	RV_XOP		= 1	/* 8F */
+};
+
+
+enum floatize {
+	FLOAT_8,
+	FLOAT_16,
+	FLOAT_32,
+	FLOAT_64,
+	FLOAT_80M,
+	FLOAT_80E,
+	FLOAT_128L,
+	FLOAT_128H,
 };
 
 

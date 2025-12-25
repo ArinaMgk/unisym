@@ -105,7 +105,7 @@ typedef const unsigned char macros_t;
 #define WRITEADDR(p,v,s)			\
 	do {					\
 	uint64_t _wa_v = (v);			\
-	memcpy((p), &_wa_v, (s));		\
+	MemCopyN((p), &_wa_v, (s));		\
 	(p) += (s);				\
 	} while (0)
 
@@ -275,6 +275,26 @@ _ESYM_C struct outffmt of_macho;
 _ESYM_C struct outffmt of_macho64;
 _ESYM_C struct outffmt of_dbg;
 
+/* --- From standard.mac via macros.pl: --- */
+
+/* macros.c */
+_ESYM_C const unsigned char aasm_stdmac[];
+_ESYM_C const unsigned char* const aasm_stdmac_after_tasm;
+_ESYM_C const unsigned char* aasm_stdmac_find_package(const char*);
+
+/* --- From insns.dat via insns.pl: --- */
+
+/* insnsn.c */
+_ESYM_C const char* const _asm_inst_literal_list[];
+
+/* --- From regs.dat via regs.pl: --- */
+
+/* regs.c */
+_ESYM_C const char* const aasm_reg_names[];
+/* regflags.c */
+_ESYM_C const int32_t aasm_reg_flags[];
+/* regvals.c */
+_ESYM_C const int aasm_regvals[];
 
 #ifdef _INC_CPP
 
@@ -299,27 +319,6 @@ struct Parser {
 	static insn *parse_line(int pass, char *buffer, insn * result, evalfunc evaluate, ldfunc ldef);
 	static void cleanup_insn(insn * instruction);
 };
-
-/* --- From standard.mac via macros.pl: --- */
-
-/* macros.c */
-_ESYM_C const unsigned char nasm_stdmac[];
-_ESYM_C const unsigned char * const nasm_stdmac_after_tasm;
-_ESYM_C const unsigned char *aasm_stdmac_find_package(const char *);
-
-/* --- From insns.dat via insns.pl: --- */
-
-/* insnsn.c */
-_ESYM_C const char * const _asm_inst_literal_list[];
-
-/* --- From regs.dat via regs.pl: --- */
-
-/* regs.c */
-_ESYM_C const char * const nasm_reg_names[];
-/* regflags.c */
-_ESYM_C const int32_t nasm_reg_flags[];
-/* regvals.c */
-_ESYM_C const int nasm_regvals[];
 
 
 extern "C" {
@@ -417,16 +416,16 @@ extern "C" {
 
 	// ---- quote ---- //
 
-	char *nasm_quote(char *str, size_t len);
-	size_t nasm_unquote(char *str, char **endptr);
-	char *nasm_skip_string(char *str);
+	char *aasm_quote(char *str, size_t len);
+	size_t aasm_unquote(char *str, char **endptr);
+	char *aasm_skip_string(char *str);
 
 	// ---- stdscan ---- //
 
 	extern char* stdscan_bufptr;
 	void stdscan_reset(void);
 	int stdscan(void* private_data, struct tokenval* tv);
-	int nasm_token_hash(const char* token, struct tokenval* tv);
+	int aasm_token_hash(const char* token, struct tokenval* tv);
 	void stdscan_cleanup(void);
 
 	// ---- lib ---- //

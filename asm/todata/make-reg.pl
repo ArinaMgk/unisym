@@ -103,7 +103,7 @@ if ( $fmt eq 'h' ) {
 } elsif ( $fmt eq 'c' ) {
     # Output regs.c
     print "/* automatically generated from $file - do not edit */\n\n";
-    print "const char * const nasm_reg_names[] = "; $ch = '{';
+    print "const char * const aasm_reg_names[] = "; $ch = '{';
     # This one has no dummy entry for 0
     foreach $reg ( sort(keys(%regs)) ) {
 	print "$ch\n    \"${reg}\"";
@@ -113,8 +113,8 @@ if ( $fmt eq 'h' ) {
 } elsif ( $fmt eq 'fc' ) {
     # Output regflags.c
     print "/* automatically generated from $file - do not edit */\n\n";
-    print "#include \"inc/aasm.h\"\n\n";
-    print "const int32_t nasm_reg_flags[] = {\n";
+    print "#include \"../inc/aasm.h\"\n\n";
+    print "const int32_t aasm_reg_flags[] = {\n";
     printf "    0,\n";		# Dummy entry for 0
     foreach $reg ( sort(keys(%regs)) ) {
 	# Print the class of the register
@@ -125,7 +125,7 @@ if ( $fmt eq 'h' ) {
 } elsif ( $fmt eq 'vc' ) {
     # Output regvals.c
     print "/* automatically generated from $file - do not edit */\n\n";
-    print "const int nasm_regvals[] = {\n";
+    print "const int aasm_regvals[] = {\n";
     print "    -1,\n";		# Dummy entry for 0
     foreach $reg ( sort(keys(%regs)) ) {
 	# Print the x86 value of the register
@@ -137,7 +137,7 @@ if ( $fmt eq 'h' ) {
     print "/* automatically generated from $file - do not edit */\n\n";
     print "#include \"regdis.h\"\n\n";
     foreach $class ( sort(keys(%disclass)) ) {
-	printf "const enum reg_enum nasm_rd_%-8s[%2d] = {",
+	printf "const enum reg_enum aasm_rd_%-8s[%2d] = {",
 		$class, scalar @{$disclass{$class}};
 	@foo = @{$disclass{$class}};
 	@bar = ();
@@ -157,7 +157,7 @@ if ( $fmt eq 'h' ) {
     print "#define NASM_REGDIS_H\n\n";
     print "#include \"regs.h\"\n\n";
     foreach $class ( sort(keys(%disclass)) ) {
-	printf "extern const enum reg_enum nasm_rd_%-8s[%2d];\n",
+	printf "extern const enum reg_enum aasm_rd_%-8s[%2d];\n",
 		$class, scalar @{$disclass{$class}};
     }
     print "\n#endif /* NASM_REGDIS_H */\n";

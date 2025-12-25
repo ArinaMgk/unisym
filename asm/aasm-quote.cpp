@@ -24,7 +24,7 @@
 
 #define numvalue(c)  ((c)>='a' ? (c)-'a'+10 : (c)>='A' ? (c)-'A'+10 : (c)-'0')
 
-char *nasm_quote(char *str, size_t len)
+char *aasm_quote(char *str, size_t len)
 {
 	char c, c1, *p, *q, *nstr, *ep;
 	unsigned char uc;
@@ -205,7 +205,7 @@ static char *emit_utf8(char *q, int32_t v)
  *
  * *ep points to the final quote, or to the null if improperly quoted.
  */
-size_t nasm_unquote(char* str, char** ep)
+size_t aasm_unquote(char* str, char** ep)
 {
 	char bq;
 	char* p, * q;
@@ -407,7 +407,7 @@ size_t nasm_unquote(char* str, char** ep)
  * Find the end of a quoted string; returns the pointer to the terminating
  * character (either the ending quote or the null character, if unterminated.)
  */
-char* nasm_skip_string(char* str)
+char* aasm_skip_string(char* str)
 {
 	char bq;
 	char* p;

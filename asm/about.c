@@ -22,7 +22,7 @@
 #define _AUTO_INCLUDE
 #define __BUILDENV__
 #include "inc/aasm.h"
-#include <../../demo/template/version/version.h>
+#include "../demo/template/version/version.h"
 
 //
 #define AASM_VER "1.00"
@@ -39,4 +39,4 @@ const char aasm_comment[] =
 "The Arinae Assembler " AASM_VER;
 
 const char aasm_signature[] =
-"NASMANL " AASM_VER;
+"AASM " AASM_VER;

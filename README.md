@@ -10,7 +10,7 @@ also known as ゆにッシンボル, or as 統象庫,
 a lossless abstract system of programming and engineering,
 including not only implementation, library, tool-kits, chroming engine and demonstrations.
 
-![LasRelease](https://img.shields.io/badge/release-U2024ULTIMATE-aliceblue.svg)
+![LasRelease](https://img.shields.io/badge/release-U2025ULTIMATE-aliceblue.svg)
 ![Supervisor](https://img.shields.io/badge/supervisor-azusa-violet.svg)
 ![Generation](https://img.shields.io/badge/generation-3:Public-pink.svg)
 ![DynamicVer](https://img.shields.io/badge/libversion-0.1-green.svg)

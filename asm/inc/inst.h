@@ -54,7 +54,7 @@ extern "C" {
 
 
 	/* Tables for the assembler and disassembler, respectively */
-	extern const struct itemplate* const nasm_instructions[];
+	extern const struct itemplate* const aasm_instructions[];
 	extern const struct disasm_index itable[256];
 	extern const struct disasm_index* const itable_vex[2][32][8];
 

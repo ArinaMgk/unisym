@@ -86,6 +86,10 @@ test:
 boot:
 	@make -f ${make_dir}boot.make --no-print-directory
 
+aasm: # for linux64 [no use O3]
+	cc asm/data/*.c asm/about.c asm/aasm*.cpp $(ulibpath)/cpp/fileformat/execute/*.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -o $(ubinpath)/AMD64/Lin64/aasm -w
+	cc asm/data/_*.c asm/data/insnsb.c asm/data/insnsd.c asm/data/regs.c asm/data/regdis.c asm/about.c asm/dasm*.cpp asm/aasm-lib.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -DNO_STDSCAN -o $(ubinpath)/AMD64/Lin64/dasm -w
+
 # ---- ---- ---- ---- [GENE3 STYLE] ---- ---- ---- ----
 # Win and Lin unified by Target Triple Cross-Compiles 
 i8086-CG-IBMPC:

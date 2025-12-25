@@ -21,7 +21,7 @@
 #include "inc/aasm.h"
 #include "../inc/c/stdinc.h"
 
-#include "_asm_inst.h"
+#include "data/_asm_inst.h"
 
 
 
@@ -195,7 +195,7 @@ restart_parse:
 		return result;
 	}
 	if (i != TOKEN_ID && i != TOKEN_INSN && i != TOKEN_PREFIX &&
-		(i != TOKEN_REG || (REG_SREG & ~nasm_reg_flags[tokval.t_integer]))) {
+		(i != TOKEN_REG || (REG_SREG & ~aasm_reg_flags[tokval.t_integer]))) {
 		//--auto clean flag
 		aasm_log(_LOG_ERROR, "label or instruction expected at start of line");
 		result->opcode = I_none;
@@ -239,7 +239,7 @@ restart_parse:
 	result->times = 1L;
 
 	while (i == TOKEN_PREFIX ||
-		(i == TOKEN_REG && !(REG_SREG & ~nasm_reg_flags[tokval.t_integer])))
+		(i == TOKEN_REG && !(REG_SREG & ~aasm_reg_flags[tokval.t_integer])))
 	{
 		first = false;
 
@@ -671,7 +671,7 @@ restart_parse:
 			 * Process the segment override.
 			 */
 			if (value[1].type != 0 || value->value != 1 ||
-				REG_SREG & ~nasm_reg_flags[value->type]) {
+				REG_SREG & ~aasm_reg_flags[value->type]) {
 				//--auto clean flag
 				aasm_log(_LOG_ERROR, "invalid segment override");
 			}
@@ -681,7 +681,7 @@ restart_parse:
 			}
 			else {
 				result->prefixes[PPS_SEG] = (prefixes)value->type;
-				if (!(REG_FSGS & ~nasm_reg_flags[value->type]))
+				if (!(REG_FSGS & ~aasm_reg_flags[value->type]))
 					result->oprs[operand].eaflags |= EAF_FSGS;
 			}
 
@@ -932,7 +932,7 @@ restart_parse:
 
 				result->oprs[operand].type &= TO;
 				result->oprs[operand].type |= REGISTER;
-				result->oprs[operand].type |= nasm_reg_flags[value->type];
+				result->oprs[operand].type |= aasm_reg_flags[value->type];
 				result->oprs[operand].basereg = (reg_enum)value->type;
 
 				if (rs && (result->oprs[operand].type & SIZE_MASK) != rs) {

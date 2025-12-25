@@ -20,13 +20,12 @@
 */
 // end in aasm.c
 #define _CRT_SECURE_NO_WARNINGS
-
-#define _INC_DNODE//{}
+#define _HIS_TIME_H
 #include <c/stdinc.h>
-//{} #include <ustdbool.h>
 #include <c/ustring.h>
-//#include <stdio.h>
-//#include <stdlib.h>
+#include <cpp/string>
+
+#include <c/datime.h>
 #include <time.h>
 #include <c/strpage.h>
 #include <c/strbuff.h>
@@ -98,7 +97,6 @@ int32_t abs_offset;                /* ABSOLUTE offset */
 static const forwrefinfo* forwref;
 //bool want_usage;
 int user_nolist = 0;            /* fbk 9/2/00 */
-extern enum op_type operating_mode;
 
 }
 
@@ -123,6 +121,8 @@ enum op_type {
 	op_preprocess, // Preprocess only
 	op_depend,     // Generate dependencies
 };
+_ESYM_C enum op_type operating_mode;
+
 
 inline static void aasm_puts(const char* line, FILE* outfile)
 {
@@ -255,10 +255,54 @@ void process_response_file(const char* file)
 _ESYM_C struct outffmt** ofmt_f();
 void mainx();
 
+//{TODO} UNI DATIME
+void define_macros_early(time_t* startup_time)
+{
+	char temp[128];
+	tm lt, * lt_p, gm, * gm_p;
+	int64_t posix_time = 0;
 
-_ESYM_C void define_macros_early(time_t* startup_time);
+	if (lt_p = localtime(startup_time)) {
+		lt = *lt_p;
 
-_ESYM_C void define_macros_late(rostr ofmt_shortname);
+		strftime(temp, sizeof temp, "__DATE__=\"%Y-%m-%d\"", &lt);
+		Preprocessor::pre_define(temp);
+		strftime(temp, sizeof temp, "__DATE_NUM__=%Y%m%d", &lt);
+		Preprocessor::pre_define(temp);
+		strftime(temp, sizeof temp, "__TIME__=\"%H:%M:%S\"", &lt);
+		Preprocessor::pre_define(temp);
+		strftime(temp, sizeof temp, "__TIME_NUM__=%H%M%S", &lt);
+		Preprocessor::pre_define(temp);
+	}
+
+	if (gm_p = gmtime(startup_time)) {
+		gm = *gm_p;
+
+		strftime(temp, sizeof temp, "__UTC_DATE__=\"%Y-%m-%d\"", &gm);
+		Preprocessor::pre_define(temp);
+		strftime(temp, sizeof temp, "__UTC_DATE_NUM__=%Y%m%d", &gm);
+		Preprocessor::pre_define(temp);
+		strftime(temp, sizeof temp, "__UTC_TIME__=\"%H:%M:%S\"", &gm);
+		Preprocessor::pre_define(temp);
+		strftime(temp, sizeof temp, "__UTC_TIME_NUM__=%H%M%S", &gm);
+		Preprocessor::pre_define(temp);
+	}
+
+	if (gm_p)
+		posix_time = POSIXGetSeconds(&gm);
+	else if (lt_p)
+		posix_time = POSIXGetSeconds(&lt);
+
+	if (posix_time) {
+		Preprocessor::pre_define(uni::String::newFormat("__POSIX_TIME__=%[64I]", posix_time).reflect());
+	}
+}
+
+void define_macros_late(rostr ofmt_shortname)
+{
+	Preprocessor::pre_define(uni::String::newFormat("__OUTPUT_FORMAT__=%s\n", ofmt_shortname).reflect());
+}
+
 _ESYM_C void pp_include_path(char*);
 void printlog0(loglevel_t level, const char* fmt, ...);
 int main(int argc, char** argv) {
@@ -432,7 +476,8 @@ int main(int argc, char** argv) {
 	eval_cleanup();
 	stdscan_cleanup();
 	//{} {} {} return terminate_after_phase;
-	return drop() _TEMP - 5 - 3;
+	//return drop() _TEMP - 5 - 3;
+	return drop() & 0;
 }
 
 enum directives {
@@ -1262,7 +1307,7 @@ void no_pp_cleanup(int pass)
 int drop() {
 	if (want_usage) usage();
 #ifdef _DEBUG
-	// printinfo();
+	 //printinfo();
 #endif
 	StrpageFree(offsets);
 	StrbuffFree(forwrefs);

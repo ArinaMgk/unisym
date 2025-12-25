@@ -4,8 +4,9 @@
 
 #include "inc/aasm.h"
 #include "../inc/c/stdinc.h"
-#include <stdlib.h>
 
+// #include <stdlib.h>
+_ESYM_C char* getenv(const char* name);
 
 // preproc.h
 _ESYM_C{
@@ -364,7 +365,7 @@ bool process_arg(char* p, char* q)
 			break;
 
 		case 'v':
-			printf("NASMANL version %s compiled on %s%s\n",
+			printf("AASM version %s, compiled on %s%s\n",
 				aasm_version, aasm_date, aasm_compile_options);
 			drop(); exit(0);        /* never need usage message here */
 			break;

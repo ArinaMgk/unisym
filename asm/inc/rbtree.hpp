@@ -50,7 +50,7 @@ struct rbtree {
 
 	bool is_red()
 	{
-		return this->red;
+		return asrtand(this)->red;
 	}
 
 	rbtree* rotate_left()

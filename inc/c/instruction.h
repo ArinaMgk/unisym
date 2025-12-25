@@ -52,7 +52,7 @@ struct instruction_t
 	struct instruction_property_t property;
 };
 
-_TEMP struct _nasm_instruction_t {
+_TEMP struct _aasm_instruction_t {
 	enum _asm_opcode opcode; 
 	byte numof_operands;
 	struct operand_t operands[_ASM_OPERANDS_MAXNUM];
@@ -60,7 +60,7 @@ _TEMP struct _nasm_instruction_t {
 	uint32 flags;
 };
 
-_TODO inline static void make_inst(struct instruction_t* dst, const struct _nasm_instruction_t* src) {
+_TODO inline static void make_inst(struct instruction_t* dst, const struct _aasm_instruction_t* src) {
 
 }
 

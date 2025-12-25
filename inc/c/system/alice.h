@@ -48,7 +48,8 @@ typedef const char* rostr;// read-only string
 #endif
 
 #ifndef _INC_CPP
-	#define _ESYM_C
+	// #define _ESYM_C
+	#define _ESYM_C   extern
 	#define pointer_t(_typ) _typ * 
 	#define pointerf_t(_ret_typ) _ret_typ(*) // e.g. `int x = sizeof(pointerf(void)(int));` 
 	// compatible with Magice pointer: "pointer(pointer(void)) pp"

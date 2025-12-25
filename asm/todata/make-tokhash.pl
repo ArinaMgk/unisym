@@ -171,7 +171,7 @@ if ($output eq 'h') {
 
     print "#include <c/stdinc.h>\n";
     print "#include <string.h>\n";
-    print "#include \"inc/inst.h\"\n";
+    print "#include \"../inc/inst.h\"\n";
     print "uint64_t crc64(uint64_t crc, const char* string);\n";
     print "uint64_t crc64i(uint64_t crc, const char* string);\n";
     print "\n";
@@ -187,7 +187,7 @@ if ($output eq 'h') {
     print "};\n";
     print "\n";
 
-    print "int nasm_token_hash(const char *token, struct tokenval *tv)\n";
+    print "int aasm_token_hash(const char *token, struct tokenval *tv)\n";
     print "{\n";
 
     # Put a large value in unused slots.  This makes it extremely unlikely

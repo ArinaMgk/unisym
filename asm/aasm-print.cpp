@@ -3,7 +3,7 @@
 #include <time.h>
 #include <stdio.h>
 #include "inc/aasm-main.h"
-#include <../../demo/template/version/version.h>
+#include "../demo/template/version/version.h"
 #include "inc/aasm.h"
 
 

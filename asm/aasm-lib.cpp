@@ -28,9 +28,7 @@
 #include <c/multichar.h>
 //#include <c/uctype.h>
 #include <time.h>
-
-
-#include <inc/inst.h>
+#include "inc/inst.h"
 
 
 _ESYM_C uint64_t _crc64_tab_nasm[256];
@@ -65,56 +63,6 @@ stdint SegAlloc() { // SegAlloc
 }
 void SegInit() { next_seg = 0; }
 
-
-// ---- floating handler ----
-
-//{TODO} UNI DATIME
-extern "C" void define_macros_early(time_t* startup_time)
-{
-	char temp[128];
-	tm lt, * lt_p, gm, * gm_p;
-	int64_t posix_time = 0;
-
-	if (lt_p = localtime(startup_time)) {
-		lt = *lt_p;
-
-		strftime(temp, sizeof temp, "__DATE__=\"%Y-%m-%d\"", &lt);
-		Preprocessor::pre_define(temp);
-		strftime(temp, sizeof temp, "__DATE_NUM__=%Y%m%d", &lt);
-		Preprocessor::pre_define(temp);
-		strftime(temp, sizeof temp, "__TIME__=\"%H:%M:%S\"", &lt);
-		Preprocessor::pre_define(temp);
-		strftime(temp, sizeof temp, "__TIME_NUM__=%H%M%S", &lt);
-		Preprocessor::pre_define(temp);
-	}
-
-	if (gm_p = gmtime(startup_time)) {
-		gm = *gm_p;
-
-		strftime(temp, sizeof temp, "__UTC_DATE__=\"%Y-%m-%d\"", &gm);
-		Preprocessor::pre_define(temp);
-		strftime(temp, sizeof temp, "__UTC_DATE_NUM__=%Y%m%d", &gm);
-		Preprocessor::pre_define(temp);
-		strftime(temp, sizeof temp, "__UTC_TIME__=\"%H:%M:%S\"", &gm);
-		Preprocessor::pre_define(temp);
-		strftime(temp, sizeof temp, "__UTC_TIME_NUM__=%H%M%S", &gm);
-		Preprocessor::pre_define(temp);
-	}
-
-	if (gm_p)
-		posix_time = POSIXGetSeconds(&gm);
-	else if (lt_p)
-		posix_time = POSIXGetSeconds(&lt);
-
-	if (posix_time) {
-		Preprocessor::pre_define(uni::String::newFormat("__POSIX_TIME__=%[64I]", posix_time).reflect());
-	}
-}
-
-extern "C" void define_macros_late(rostr ofmt_shortname)
-{
-	Preprocessor::pre_define(uni::String::newFormat("__OUTPUT_FORMAT__=%s\n", ofmt_shortname).reflect());
-}
 
 // ---- floating handler ----
 
@@ -197,7 +145,7 @@ uint32 get_cpu_id(rostr iden) {
 
 // ---- Char ----
 _ESYM_C{
-	//{UNCHK} Apply a specific string transform and return it in a nasm_malloc'd buffer, returning the length.  On error, returns (size_t)-1 and no buffer is allocated.
+	//{UNCHK} Apply a specific string transform and return it in a aasm_malloc'd buffer, returning the length.  On error, returns (size_t)-1 and no buffer is allocated.
 	size_t string_transform(char* str, size_t len, char** out, enum strfunc func)
 	{
 		if (func == 0)
@@ -547,6 +495,7 @@ int32_t reloc_wrt(expr * vect)
 
 // ---- stdscan ----
 
+#ifndef NO_STDSCAN
 
 /*
  * Standard scanner routine used by parser.c and some output
@@ -635,7 +584,7 @@ int stdscan(void* private_data, struct tokenval* tv)
 		*r = '\0';
 		/* right, so we have an identifier sitting in temp storage. now,
 		 * is it actually a register or instruction name, or what? */
-		return nasm_token_hash(ourcopy, tv);
+		return aasm_token_hash(ourcopy, tv);
 	}
 	else if (*stdscan_bufptr == '$' && !isnumchar(stdscan_bufptr[1])) {
 	 /*
@@ -720,7 +669,7 @@ int stdscan(void* private_data, struct tokenval* tv)
  /* a quoted string */
 		char start_quote = *stdscan_bufptr;
 		tv->t_charptr = stdscan_bufptr;
-		tv->t_inttwo = nasm_unquote(tv->t_charptr, &stdscan_bufptr);
+		tv->t_inttwo = aasm_unquote(tv->t_charptr, &stdscan_bufptr);
 		if (*stdscan_bufptr != start_quote)
 			return tv->t_type = TOKEN_ERRSTR;
 		stdscan_bufptr++;	/* Skip final quote */
@@ -782,6 +731,7 @@ int stdscan(void* private_data, struct tokenval* tv)
 		return tv->t_type = (token_type)(uint8_t)(*stdscan_bufptr++);
 }
 
+#endif
 
 // ---- * ----
 

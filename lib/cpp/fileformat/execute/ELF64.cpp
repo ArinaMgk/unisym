@@ -19,6 +19,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+#ifndef _MCCA
 
 // ---- ---- AASM ---- ---- //
 #define ELFBIT 64
@@ -2311,4 +2312,4 @@ static void dwarf64_findsect(const int index)
 		}
 	}
 }
-
+#endif

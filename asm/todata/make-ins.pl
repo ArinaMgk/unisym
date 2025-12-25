@@ -160,8 +160,8 @@ if ( !defined($output) || $output eq 'b') {
     print B "/* This file auto-generated from make-ins.dat by make-ins.pl" .
         " - don't edit it */\n\n";
 
-    print B "#include \"inc/aasm.h\"\n";
-    print B "#include \"data/_asm_inst.h\"\n\n";
+    print B "#include \"../inc/aasm.h\"\n";
+    print B "#include \"_asm_inst.h\"\n\n";
 
     print B "const uint8_t aasm_bytecodes[$bytecode_next] = {\n";
 
@@ -201,8 +201,8 @@ if ( !defined($output) || $output eq 'a' ) {
     print A "/* This file auto-generated from make-ins.dat by make-ins.pl" .
         " - don't edit it */\n\n";
 
-    print A "#include \"inc/aasm.h\"\n";
-    print A "#include \"data/_asm_inst.h\"\n\n";
+    print A "#include \"../inc/aasm.h\"\n";
+    print A "#include \"_asm_inst.h\"\n\n";
 
     foreach $i (@opcodes, @opcodes_cc) {
 	print A "static const struct itemplate instrux_${i}[] = {\n";
@@ -212,7 +212,7 @@ if ( !defined($output) || $output eq 'a' ) {
 	}
 	print A "    ITEMPLATE_END\n};\n\n";
     }
-    print A "const struct itemplate * const nasm_instructions[] = {\n";
+    print A "const struct itemplate * const aasm_instructions[] = {\n";
     foreach $i (@opcodes, @opcodes_cc) {
 	print A "    instrux_${i},\n";
     }
@@ -229,8 +229,8 @@ if ( !defined($output) || $output eq 'd' ) {
     print D "/* This file auto-generated from make-ins.dat by make-ins.pl" .
         " - don't edit it */\n\n";
 
-    print D "#include \"inc/aasm.h\"\n";
-    print D "#include \"data/_asm_inst.h\"\n\n";
+    print D "#include \"../inc/aasm.h\"\n";
+    print D "#include \"_asm_inst.h\"\n\n";
 
     print D "static const struct itemplate instrux[] = {\n";
     $n = 0;

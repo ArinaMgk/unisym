@@ -113,7 +113,7 @@ typedef struct operand {	/* operand to an instruction */
 enum extop_type {		/* extended operand types */
 	EOT_NOTHING,
 	EOT_DB_STRING,		/* Byte string */
-	EOT_DB_STRING_FREE,		/* Byte string which should be nasm_free'd*/
+	EOT_DB_STRING_FREE,		/* Byte string which should be aasm_free'd*/
 	EOT_DB_NUMBER,		/* Integer */
 };
 typedef struct extop {          /* extended operand */
@@ -212,6 +212,8 @@ enum {
 	LIST_INCBIN, LIST_TIMES
 };
 
+struct dbgffmt;
+struct outffmt;
 
 /*
  * A label-lookup function should look like this.
@@ -228,8 +230,6 @@ typedef void (*ldfunc) (rostr label, int32_t segment, int64_t offset, char *spec
 
 
 /// ---- ---- File ---- ----
-struct dbgffmt;
-struct outffmt;
 
 typedef const unsigned char macros_t;
 typedef expr* (*evalfunc)

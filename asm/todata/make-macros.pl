@@ -45,7 +45,7 @@ print OUT " *   ", join("\n *   ", @ARGV), "\n";
 print OUT " */\n";
 print OUT "#include \"../inc/aasm.h\"\n";
 print OUT "#if 1\n";
-print OUT "const unsigned char nasm_stdmac[] = {";
+print OUT "const unsigned char aasm_stdmac[] = {";
 
 my $npkg = 0;
 my @pkg_list   = ();
@@ -96,7 +96,7 @@ foreach $fname ( @ARGV ) {
 	    print OUT "};\n#endif\n";
 	    $index = 0;
 	    print OUT "\n#if 1\n";
-	    printf OUT "static const unsigned char nasm_stdmac_%s[] = {\n", $pkg;
+	    printf OUT "static const unsigned char aasm_stdmac_%s[] = {\n", $pkg;
 	    print  OUT "    /* From $fname */\n";
 	    $lastname = $fname;
 	    push(@pkg_list, $pkg);
@@ -137,8 +137,8 @@ foreach $fname ( @ARGV ) {
     close(INPUT);
 }
 printf OUT "        /* %4d */ 0\n};\n#endif\n\n", $index++;
-print OUT "const unsigned char * const nasm_stdmac_after_tasm = ",
-    "&nasm_stdmac[$tasm_count];\n\n";
+print OUT "const unsigned char * const aasm_stdmac_after_tasm = ",
+    "&aasm_stdmac[$tasm_count];\n\n";
 
 my @hashinfo = gen_perfect_hash(\%pkg_number);
 if (!@hashinfo) {
@@ -156,7 +156,7 @@ print OUT "         const char *package;\n";
 print OUT "         const unsigned char *macros;\n";
 print OUT "    } packages[$npkg] = {\n";
 foreach $pkg (@pkg_list) {
-    printf OUT "        { \"%s\", nasm_stdmac_%s },\n",
+    printf OUT "        { \"%s\", aasm_stdmac_%s },\n",
 	$pkg, $pkg;
 }
 print OUT "    };\n";

@@ -323,7 +323,7 @@ uint64_t nested_rep_count;
 #define PARAM_DELTA 16
 
  /*
-  * The standard macro set: defined in macros.c in the array nasm_stdmac.
+  * The standard macro set: defined in macros.c in the array aasm_stdmac.
   * This gives our position in the macro set, when we're processing it.
   */
   //{TODO} static
@@ -668,7 +668,7 @@ static Token *tokenize(char *line)
 			case '\'':
 			case '\"':
 			case '`':
-			p = nasm_skip_string(p)+1;
+			p = aasm_skip_string(p)+1;
 			break;
 			default:
 			break;
@@ -712,7 +712,7 @@ static Token *tokenize(char *line)
 			 * A string token.
 			 */
 			type = TOK_STRING;
-		p = nasm_skip_string(p);
+		p = aasm_skip_string(p);
 
 			if (*p) {
 				p++;
@@ -1081,7 +1081,7 @@ static int ppscan(void* private_data, struct tokenval* tokval)
 		*s = '\0';
 		/* right, so we have an identifier sitting in temp storage. now,
 		 * is it actually a register or instruction name, or what? */
-		return nasm_token_hash(ourcopy, tokval);
+		return aasm_token_hash(ourcopy, tokval);
 	}
 
 	if (tline->type == TOK_NUMBER) {
@@ -1103,7 +1103,7 @@ static int ppscan(void* private_data, struct tokenval* tokval)
 
 		bq = tline->text[0];
 		tokval->t_charptr = tline->text;
-		tokval->t_inttwo = nasm_unquote(tline->text, &ep);
+		tokval->t_inttwo = aasm_unquote(tline->text, &ep);
 
 		if (ep[0] != bq || ep[1] != '\0')
 			return tokval->t_type = TOKEN_ERRSTR;
@@ -1237,8 +1237,8 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 			}
 			/* When comparing strings, need to unquote them first */
 			if (t->type == TOK_STRING) {
-				size_t l1 = nasm_unquote(t->text, NULL);
-				size_t l2 = nasm_unquote(tt->text, NULL);
+				size_t l1 = aasm_unquote(t->text, NULL);
+				size_t l2 = aasm_unquote(tt->text, NULL);
 
 				if (l1 != l2) {
 					j = false;
@@ -2157,7 +2157,7 @@ static int do_directive(Token* tline)
 		}
 		p = t->text;
 		if (t->type != TOK_INTERNAL_STRING)
-			nasm_unquote(p, NULL);
+			aasm_unquote(p, NULL);
 		if (dephead && !in_list(*dephead, p)) {
 			StrList* sl = (StrList*)malc(StrLength(p) + 1 + sizeof sl->next);
 			sl->next = NULL;
@@ -2185,7 +2185,7 @@ static int do_directive(Token* tline)
 		}
 		p = t->text;
 		if (t->type != TOK_INTERNAL_STRING)
-			nasm_unquote(p, NULL);
+			aasm_unquote(p, NULL);
 		inc = malcof(Include);
 		inc->next = istk;
 		inc->conds = NULL;
@@ -2229,7 +2229,7 @@ static int do_directive(Token* tline)
 			aasm_log(_LOG_WARN, "trailing garbage after `%%use' ignored");
 		}
 		if (tline->type == TOK_STRING)
-			nasm_unquote(tline->text, NULL);
+			aasm_unquote(tline->text, NULL);
 		use_pkg = aasm_stdmac_find_package(tline->text);
 		if (!use_pkg) {
 			//--auto clean flag
@@ -2327,7 +2327,7 @@ static int do_directive(Token* tline)
 			if (tok_type_(tline, TOK_STRING) && !t) {
 				/* The line contains only a quoted string */
 				p = tline->text;
-				nasm_unquote(p, NULL);
+				aasm_unquote(p, NULL);
 				aasm_log((loglevel_t)severity, "%s", p);
 			}
 			else {
@@ -2828,7 +2828,7 @@ static int do_directive(Token* tline)
 		p = detoken(tline, false);
 		macro_start = malcof(Token);
 		macro_start->next = NULL;
-		macro_start->text = nasm_quote(p, StrLength(p));
+		macro_start->text = aasm_quote(p, StrLength(p));
 		macro_start->type = TOK_STRING;
 		macro_start->a.mac = NULL;
 		memf(p);
@@ -2885,7 +2885,7 @@ static int do_directive(Token* tline)
 		}
 		p = t->text;
 		if (t->type != TOK_INTERNAL_STRING)
-			nasm_unquote(p, NULL);
+			aasm_unquote(p, NULL);
 
 		fp = inc_fopen(p, &xsl, &xst, true);
 		if (fp) {
@@ -2894,7 +2894,7 @@ static int do_directive(Token* tline)
 		}
 		macro_start = malcof(Token);
 		macro_start->next = NULL;
-		macro_start->text = nasm_quote(p, StrLength(p));
+		macro_start->text = aasm_quote(p, StrLength(p));
 		macro_start->type = TOK_STRING;
 		macro_start->a.mac = NULL;
 		if (xsl)
@@ -2944,7 +2944,7 @@ static int do_directive(Token* tline)
 
 		macro_start = malcof(Token);
 		macro_start->next = NULL;
-		make_tok_num(macro_start, nasm_unquote(t->text, NULL));
+		make_tok_num(macro_start, aasm_unquote(t->text, NULL));
 		macro_start->a.mac = NULL;
 
 		/*
@@ -2982,7 +2982,7 @@ static int do_directive(Token* tline)
 			case TOK_WHITESPACE:
 				break;
 			case TOK_STRING:
-				len += t->a.len = nasm_unquote(t->text, NULL);
+				len += t->a.len = aasm_unquote(t->text, NULL);
 				break;
 			case TOK_OTHER:
 				if (!StrCompare(t->text, ",")) /* permit comma separators */
@@ -3012,7 +3012,7 @@ static int do_directive(Token* tline)
 		 * and store an SMacro.
 		 */
 		macro_start = new_Token(NULL, TOK_STRING, NULL, 0);
-		macro_start->text = nasm_quote(pp, len);
+		macro_start->text = aasm_quote(pp, len);
 		memf(pp);
 		define_smacro(ctx, mname, casesense, 0, macro_start);
 		free_tlist(tline);
@@ -3097,7 +3097,7 @@ static int do_directive(Token* tline)
 			a2 = evalresult->value;
 		}
 
-		len = nasm_unquote(t->text, NULL);
+		len = aasm_unquote(t->text, NULL);
 		if (a2 < 0)
 			a2 = a2 + 1 + len - a1;
 		if (a1 + a2 > (int64_t)len)
@@ -3105,7 +3105,7 @@ static int do_directive(Token* tline)
 
 		macro_start = malcof(Token);
 		macro_start->next = NULL;
-		macro_start->text = nasm_quote((a1 < 0) ? (char*)"" : t->text + a1, a2);
+		macro_start->text = aasm_quote((a1 < 0) ? (char*)"" : t->text + a1, a2);
 		macro_start->type = TOK_STRING;
 		macro_start->a.mac = NULL;
 
@@ -3769,7 +3769,7 @@ again:
 							int32_t num = 0;
 							char* file = NULL;
 							src_get(&num, &file);
-							tline->text = nasm_quote(file, StrLength(file));
+							tline->text = aasm_quote(file, StrLength(file));
 							tline->type = TOK_STRING;
 							memf(file);
 							continue;
@@ -4238,10 +4238,10 @@ pp_reset(char* file, int apass, evalfunc eval, ListGen* listgen, StrList** depli
 	init_macros();
 	unique = 0;
 	if (tasm_compatible_mode) {
-		stdmacpos = nasm_stdmac;
+		stdmacpos = aasm_stdmac;
 	}
 	else {
-		stdmacpos = nasm_stdmac_after_tasm;
+		stdmacpos = aasm_stdmac_after_tasm;
 	}
 	any_extrastdmac = extrastdmac && *extrastdmac;
 	do_predef = true;

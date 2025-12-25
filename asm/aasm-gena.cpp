@@ -477,7 +477,7 @@ int64_t assemble(int32_t segment, int64_t offset, int bits, uint32_t cp,
 
 	size_prob = 0;
 
-	for (temp = nasm_instructions[instruction->opcode]; temp->opcode != -1; temp++) {
+	for (temp = aasm_instructions[instruction->opcode]; temp->opcode != -1; temp++) {
 		int m = matches(temp, instruction, bits);
 		if (m == 100 ||
 			(m == 99 && jmp_match(segment, offset, bits,
@@ -736,7 +736,7 @@ int64_t insn_size(int32_t segment, int64_t offset, int bits, uint32_t cp,
 	/* Check to see if we need an address-size prefix */
 	add_asp(instruction, bits);
 
-	for (temp = nasm_instructions[instruction->opcode]; temp->opcode != -1; temp++) {
+	for (temp = aasm_instructions[instruction->opcode]; temp->opcode != -1; temp++) {
 		int m = matches(temp, instruction, bits);
 		if (m == 100 ||
 			(m == 99 && jmp_match(segment, offset, bits,
@@ -1123,7 +1123,7 @@ static int64_t calcsize(int32_t segment, int64_t offset, int bits,
 				if (c <= 0177) {
 					/* pick rfield from operand b (opx) */
 					rflags = regflag(opx);
-					rfield = nasm_regvals[opx->basereg];
+					rfield = aasm_regvals[opx->basereg];
 				}
 				else {
 					rflags = 0;
@@ -1543,7 +1543,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 0172:
 			c = *codes++;
 			opx = &ins->oprs[c >> 3];
-			bytes[0] = nasm_regvals[opx->basereg] << 4;
+			bytes[0] = aasm_regvals[opx->basereg] << 4;
 			opx = &ins->oprs[c & 7];
 			if (opx->segment != NO_SEG || opx->wrt != NO_SEG) {
 				//--auto clean flag
@@ -1565,7 +1565,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 0173:
 			c = *codes++;
 			opx = &ins->oprs[c >> 4];
-			bytes[0] = nasm_regvals[opx->basereg] << 4;
+			bytes[0] = aasm_regvals[opx->basereg] << 4;
 			bytes[0] |= c & 15;
 			out(offset, segment, bytes, OUT_RAWDATA, 1, NO_SEG, NO_SEG);
 			offset++;
@@ -1574,7 +1574,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 0174:
 			c = *codes++;
 			opx = &ins->oprs[c];
-			bytes[0] = nasm_regvals[opx->basereg] << 4;
+			bytes[0] = aasm_regvals[opx->basereg] << 4;
 			out(offset, segment, bytes, OUT_RAWDATA, 1, NO_SEG, NO_SEG);
 			offset++;
 			break;
@@ -1890,7 +1890,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				if (c <= 0177) {
 			/* pick rfield from operand b (opx) */
 					rflags = regflag(opx);
-					rfield = nasm_regvals[opx->basereg];
+					rfield = aasm_regvals[opx->basereg];
 				}
 				else {
 				 /* rfield is constant */
@@ -1979,7 +1979,7 @@ static int32_t regflag(const operand * o)
 		//--auto clean flag
 		aasm_log(_LOG_PANIC, "invalid operand passed to regflag()");
 	}
-	return nasm_reg_flags[o->basereg];
+	return aasm_reg_flags[o->basereg];
 }
 
 static int32_t regval(const operand * o)
@@ -1988,7 +1988,7 @@ static int32_t regval(const operand * o)
 		//--auto clean flag
 		aasm_log(_LOG_PANIC, "invalid operand passed to regval()");
 	}
-	return nasm_regvals[o->basereg];
+	return aasm_regvals[o->basereg];
 }
 
 static int op_rexflags(const operand * o, int mask)
@@ -2001,8 +2001,8 @@ static int op_rexflags(const operand * o, int mask)
 		aasm_log(_LOG_PANIC, "invalid operand passed to op_rexflags()");
 	}
 
-	flags = nasm_reg_flags[o->basereg];
-	val = nasm_regvals[o->basereg];
+	flags = aasm_reg_flags[o->basereg];
+	val = aasm_regvals[o->basereg];
 
 	return rexflags(val, flags, mask);
 }
@@ -2219,7 +2219,7 @@ static ea *process_ea(operand * input, ea * output, int bits,
 			|| input->basereg >= REG_ENUM_LIMIT)
 			return NULL;
 	f = regflag(input);
-		i = nasm_regvals[input->basereg];
+		i = aasm_regvals[input->basereg];
 
 	if (REG_EA & ~f)
 		return NULL;	/* Invalid EA register */
@@ -2261,16 +2261,16 @@ static ea *process_ea(operand * input, ea * output, int bits,
 				i = -1;         /* make this easy, at least */
 
 			if (i >= EXPR_REG_START && i < REG_ENUM_LIMIT) {
-				it = nasm_regvals[i];
-		ix = nasm_reg_flags[i];
+				it = aasm_regvals[i];
+		ix = aasm_reg_flags[i];
 		} else {
 				it = -1;
 		ix = 0;
 		}
 
 		if (b >= EXPR_REG_START && b < REG_ENUM_LIMIT) {
-				bt = nasm_regvals[b];
-		bx = nasm_reg_flags[b];
+				bt = aasm_regvals[b];
+		bx = aasm_reg_flags[b];
 		} else {
 				bt = -1;
 		bx = 0;
@@ -2543,14 +2543,14 @@ static void add_asp(insn* ins, int addrbits)
 				|| ins->oprs[j].indexreg >= REG_ENUM_LIMIT)
 				i = 0;
 			else
-				i = nasm_reg_flags[ins->oprs[j].indexreg];
+				i = aasm_reg_flags[ins->oprs[j].indexreg];
 
 				/* Verify as Register */
 			if (ins->oprs[j].basereg < EXPR_REG_START
 				|| ins->oprs[j].basereg >= REG_ENUM_LIMIT)
 				b = 0;
 			else
-				b = nasm_reg_flags[ins->oprs[j].basereg];
+				b = aasm_reg_flags[ins->oprs[j].basereg];
 
 			if (ins->oprs[j].scale == 0)
 				i = 0;

@@ -448,6 +448,7 @@ static inline const char* StrIndexStringRight(const char* dest, const char* sub)
 	while ((ptr >= dest) && !(ret = StrIndexString(ptr--, sub)));
 	return ret;
 }
+// #define StrIndexStringRight strrstr ///{TODO}
 
 #ifdef _INC_USTRING_INLINE
 static inline size_t StrSpanInclude(const char* s1, const char* s2)
@@ -632,11 +633,11 @@ unsigned long int StrTokenULong(const char* restrict inp, char** restrict endptr
 //{TODO} rename atodbl
 //#define atof atoflt
 double atoflt(const char* astr);
-//#define StrTokenDouble strtod
+//#define strtod StrTokenDouble
 double StrTokenDouble(const char* restrict inp, char** restrict endptr);
-//#define StrTokenFloat strtof
+//#define strtof StrTokenFloat
 float StrTokenFloat(const char* restrict inp, char** restrict endptr);
-//#define StrTokenLDouble strtold
+//#define strtold StrTokenLDouble
 long double StrTokenLDouble(const char* restrict inp, char** restrict endptr);
 
 #ifdef _BIT_SUPPORT_64

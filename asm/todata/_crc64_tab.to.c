@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 
 #define POLY64REV 0x95AC9329AC4BC9B5ULL; // NASM 2.7 uses this
@@ -31,7 +32,11 @@ int main()
 	uint64_t crc64_tab[256] = { 0 };
 	FILE* fptr = NULL;
 	init_crc64_tab(&crc64_tab[0]);// also passing `[0]` to avoid warning `expected 'uint64_t *'`
+#ifdef __GNUC__
+	fptr = fopen("_crc64_tab.c", "w");
+#else
 	fopen_s(&fptr, "_crc64_tab.c", "w");
+#endif
 	//
 	fprintf(fptr, "// ASCII C99 TAB4 CRLF\n");
 	fprintf(fptr, "// Attribute: Wo(USYM/asm/data/_crc64_tab.to.c)\n");

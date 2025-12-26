@@ -25,7 +25,7 @@ data: asm/data/_crc64_tab.c
 
 asm/data/_crc64_tab.c: asm/todata/_crc64_tab.to.c
 	gcc -o asm/data/a.exe $<
-	cd asm/data/ && asm/a.exe
+	cd asm/data/ && ./a.exe
 	rm asm/data/a.exe
 
 clean:

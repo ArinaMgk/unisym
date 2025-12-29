@@ -90,11 +90,16 @@ typedef enum
 } Request_Master_t;
 
 
-#define PORT_KBD_BUFFER 0x60 // R:Buffer W:Buffer(8042 Data&8048 Command)
 
 
 #define PIT_TIMER0     0x40 // I/O port for timer channel 0
 #define TIMER_MODE     0x43 // I/O port for timer mode control
+
+// AT keyboard
+// 8042 controller
+#define PORT_KBD_BUFFER 0x60 // R:Buffer W:Buffer(8042 Data&8048 Command)
+#define KEYBOARD_DAT 0x60// R(Buffer), W(Buffer, 8042 Data & 8048 Command)
+#define KEYBOARD_CMD 0x64// R(Status), W(8042 Command)
 
 #ifdef _INC_CPP
 extern "C" {

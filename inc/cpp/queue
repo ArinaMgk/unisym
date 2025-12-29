@@ -82,13 +82,15 @@ namespace uni {
 			int ret = (unsigned)*q++;
 			if (q >= (char*)slice.address + slice.length) q = (char*)slice.address;
 			if (p == q) q = nullptr, p = (char*)slice.address;
-			return ret;
+			return ret & 0xFF;
 		}
 		virtual int out(const char* str, stduint len) override// put_inn
 		{
 			int cnt = 0;
 			for0(i, len) {
-				if (is_full()) break;
+				if (is_full()) {
+					break;
+				}
 				if (q == nullptr) q = p;
 				*p++ = str[i];
 				if (p >= (char*)slice.address + slice.length) p = (char*)slice.address;

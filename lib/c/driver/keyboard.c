@@ -1,5 +1,5 @@
 // ASCII CPL TAB4 CRLF
-// Docutitle: (Module) Keyboard
+// Docutitle: (Device) Keyboard
 // Codifiers: @dosconio: 20240502 ~ 20240502
 // Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
@@ -163,29 +163,31 @@ keymap_element_t _tab_keycode2ascii[0x80] =
 
 //{TODO} Multi-bytes key strategy
 
-
-
 #ifdef _SUPPORT_Port8
-void Keyboard_Init()
-{
-	i8259Master_Enable(1);// Master1 is linked with RTC
-}
 
-// AT keyboard
-// 8042 controller
-#define KEYBOARD_DAT 0x60// R(Buffer), W(Buffer, 8042 Data & 8048 Command)
-#define KEYBOARD_CMD 0x64// R(Status), W(8042 Command)
-#define KEYBOARD_LED 0xED
-#define KEYBOARD_ACK 0xFA
+#define KEYCMD_WRITE_MODE 0x60
+#define KBC_MODE 0x47// support mouse
 
-
-static void Keyboard_Wait()// for buffer empty
+void Keyboard_Wait()// for buffer empty
 {
 	while (innpb(KEYBOARD_CMD) & 0x02);
 }
 static void Keyboard_Acknowledge()
 {
 	innpb(KEYBOARD_DAT);// == KEYBOARD_ACK
+}
+
+//
+
+void Keyboard_Init()
+{
+	i8259Master_Enable(1);// Master1 is linked with RTC
+	//
+	// ---- make support for mouse
+	Keyboard_Wait();
+	outpb(KEYBOARD_CMD, KEYCMD_WRITE_MODE);
+	Keyboard_Wait();
+	outpb(KEYBOARD_DAT, KBC_MODE);
 }
 
 void KbdSetLED(byte stat)

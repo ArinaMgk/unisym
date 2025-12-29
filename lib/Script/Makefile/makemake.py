@@ -128,7 +128,7 @@ aattr = -felf
 dest_obj=$(uobjpath)/CGMin32
 dest_abs=$(ubinpath)/libm32d.a
 COMWAN = -Wno-builtin-declaration-mismatch
-COMFLG = -m32 -static -fno-builtin -nostdlib -O3 $(COMWAN)
+COMFLG = -m32 -static -fno-builtin -nostdlib -fno-stack-protector -O3 $(COMWAN)
 #  -fno-stack-protector -fno-pic
 CC=gcc $(COMFLG)
 CX=g++ $(COMFLG) -std=c++2a -fno-exceptions  -fno-unwind-tables -fno-rtti -Wno-volatile

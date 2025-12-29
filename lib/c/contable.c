@@ -25,11 +25,11 @@
 #ifndef _MCCA // Bare Metal C
 #include <stdio.h>
 
-#ifdef _Linux
-//{TEMP}{No Check}
-inline static int _getch() { char ch = getchar(); printf("\b "); return ch;}
-#elif defined(_WinNT)
+#if defined(_WinNT)
 #include <conio.h>
+#else // ifdef _Linux
+inline static int _getch() { char ch = getchar(); printf("\b "); return ch; }
+char *gets_s(char *buffer, size_t sizeInCharacters);
 #endif
 #include "../../inc/c/graphic/contable.h"
 #include "../../inc/c/stdinc.h"
@@ -198,7 +198,7 @@ int CtabLoop(struct Contab* ctab)
 		if (ord == CtabExKey) break;
 		else if (ord == CtabEdKey && (!ctab->CtabItemEnterEdit || (ctab->CtabItemEnterEdit(ctab->curc, ctab->curr))))
 		{
-			char* buf;// Î´¶¨
+			char* buf;// Î´ï¿½ï¿½
 			memalloc(buf, 128);
 			char* p = buf;
 			rewind(stdin);

@@ -1,5 +1,5 @@
 // ASCII CPL TAB4 CRLF
-// Docutitle: (Module) Keyboard
+// Docutitle: (Device) Keyboard
 // Codifiers: @dosconio: 20240502 ~ 20240502
 // Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
@@ -49,9 +49,13 @@ struct keyboard_state_t {
 	//
 };
 
+#define KEYBOARD_LED 0xED
+#define KEYBOARD_ACK 0xFA
+
 extern keymap_element_t _tab_keycode2ascii[0x80];
 
 _ESYM_C void Keyboard_Init();
+_ESYM_C void Keyboard_Wait();
 
 // stat: B2 Caps, B1 Num, B0 Scroll
 _ESYM_C void KbdSetLED(byte stat);

@@ -3,7 +3,7 @@
 // Command Line Parameter Parsing and Processing
 
 #include "inc/aasm.h"
-#include "../inc/c/stdinc.h"
+#include "../inc/cpp/string"
 
 // #include <stdlib.h>
 _ESYM_C char* getenv(const char* name);
@@ -579,12 +579,25 @@ void parse_cmdline(int argc, char** argv)
 	for0(i, numsof(warning_on_global)) warning_on_global[i] = warnings[i].enabled;// init
 
 	// AASM adapt for NASM
-	envreal = getenv("NASMENV");
 	arg = NULL;
-	if (envreal) {
-		envcopy = StrHeap(envreal);
-		process_args(envcopy);
-		memf(envcopy);
+	if (envreal = getenv("NASMENV")) {
+		uni::String nasmenv(envreal);
+		process_args(nasmenv.reflect());
+	}
+
+	// Default using $uincpath/Kasha/n_ and $uincpath/naasm/n_ if
+	// - uincpath is defined
+	if (envreal = getenv("uincpath")) {
+		uni::String uinc = "-I ";
+		uinc += envreal;
+		uinc += "/Kasha/n_";
+		process_args(uinc.reflect());
+	}
+	if (envreal = getenv("uincpath")) {
+		uni::String uinc = "-I ";
+		uinc += envreal;
+		uinc += "/naasm/n_";
+		process_args(uinc.reflect());
 	}
 
 	// process the actual command line

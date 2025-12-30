@@ -80,7 +80,7 @@ def apd_gnu_item(text):
 # ---- make list by win
 comhead = """
 AASM = aasm
-aat=-I$(uincpath)/Kasha/n_ -I$(uincpath)/naasm/n_ -D_MCCA=0x8632
+aat=-D_MCCA=0x8632
 cplpref=_cc_
 cplfile=$(wildcard lib/c/*.c) $(wildcard lib/c/**/*.c) $(wildcard lib/c/**/**/*.c) $(wildcard lib/c/**/**/**/*.c)
 cplobjs=$(patsubst %c, %o, $(cplfile))
@@ -128,8 +128,7 @@ aattr = -felf
 dest_obj=$(uobjpath)/CGMin32
 dest_abs=$(ubinpath)/libm32d.a
 COMWAN = -Wno-builtin-declaration-mismatch
-COMFLG = -m32 -static -fno-builtin -nostdlib -fno-stack-protector -O3 $(COMWAN)
-#  -fno-stack-protector -fno-pic
+COMFLG = -m32 -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4 -static -fno-builtin -nostdlib -fno-stack-protector -O3 $(COMWAN) #  -fno-pic
 CC=gcc $(COMFLG)
 CX=g++ $(COMFLG) -std=c++2a -fno-exceptions  -fno-unwind-tables -fno-rtti -Wno-volatile
 LD=ld -m elf_i386

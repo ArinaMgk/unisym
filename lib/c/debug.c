@@ -106,7 +106,7 @@ static void printsuff(loglevel_t level) {
 #endif
 }
 
-_WEAK void printlogx(loglevel_t level, const char* fmt, para_list paras)
+void printlogx(loglevel_t level, const char* fmt, para_list paras)
 {
 #if defined(_Linux) || 1
 	printpref(level);

@@ -7,6 +7,11 @@ build: data # for linux64 [no use O3]
 	cc asm/data/*.c asm/about.c asm/aasm*.cpp $(ulibpath)/cpp/fileformat/execute/*.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -o $(ubinpath)/AMD64/Lin64/aasm --static -w
 	cc asm/data/_*.c asm/data/insnsb.c asm/data/insnsd.c asm/data/regs.c asm/data/regdis.c asm/about.c asm/dasm*.cpp asm/aasm-lib.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -DNO_STDSCAN -o $(ubinpath)/AMD64/Lin64/dasm --static -w
 
+#{TEMP}
+build-win64:
+	cc asm/data/*.c asm/about.c asm/aasm*.cpp $(ulibpath)/cpp/fileformat/execute/*.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -o $(ubinpath)/AMD64/Win64/aasm --static -w
+	cc asm/data/_*.c asm/data/insnsb.c asm/data/insnsd.c asm/data/regs.c asm/data/regdis.c asm/about.c asm/dasm*.cpp asm/aasm-lib.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -DNO_STDSCAN -o $(ubinpath)/AMD64/Win64/dasm --static -w
+
 data: asm/data/_crc64_tab.c
 	cd asm/todata && perl make-ins.pl
 	cd asm/todata && perl pptok.pl        h  pptok.dat ../data/pptok.h

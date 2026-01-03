@@ -20,6 +20,7 @@
 	limitations under the License.
 */
 #include "../unisym"
+#include "../string"
 //{TODO} ! Below are included by HEREPIC ! //
 
 #include "../trait/BlockTrait.hpp"
@@ -63,17 +64,33 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 	{
 	public:
 		StorageTrait* storage;// set a partition(device)
-		virtual bool makefs() = 0;
-		virtual bool loadfs() { return false; }
-		virtual bool create(rostr fullpath, stduint flags, stduint* exinfo, rostr linkdest = 0) = 0;// create file/folder. usize{isfolder}
-		virtual bool remove(rostr pathname) = 0;// remove file/folder
-		virtual bool search(rostr fullpath, stduint* retback) = 0;// get proper
-		virtual bool proper() = 0;// set proper
-		virtual bool enumer() = 0;
-		virtual bool readfl() = 0;// read file
-		virtual bool writfl() = 0;// write file
+		stduint error_number = 0;
+
+		virtual bool makefs(rostr vol_label, void* moreinfo = 0) = 0;
+
+		virtual bool loadfs(void* moreinfo = 0) { return false; }
+
+		// create file/folder. usize{isfolder}
+		virtual bool create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest = 0) = 0;
+
+		// remove file/folder
+		virtual bool remove(rostr pathname) = 0;
+
+		// return the handler of the path/file (nullptr for failure) , `moreinfo` will get the proper
+		virtual void* search(rostr fullpath, void* moreinfo) = 0;
+
+		virtual bool proper(rostr path, stduint cmd, const void* moreinfo = 0) = 0;// set proper
+
+		virtual bool enumer(void* dir_handler, stduint index, void* info) = 0;
+
+		// return the bytes read
+		// limit(<= ~0, <= ~0)
+		virtual stduint readfl(void* fil_handler, Slice file_slice, byte*) = 0;// read file
+
+		// return the bytes written
+		virtual stduint writfl(void* fil_handler, Slice file_slice, const byte*) = 0;// write file
 		//
-		virtual rostr nextlink() { return NULL; }
+		virtual rostr nextlink(rostr fullpath) { return NULL; }// if a hard/soft link
 	};
 
 

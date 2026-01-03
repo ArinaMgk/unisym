@@ -23,7 +23,10 @@
 	- CW Manual and EXs CW32F030 & CW32F003 (0.1)
 	- CW Manual and EXs CW32F010 (1.0.2)
 
+- [Data] Standards
+	- Microsoft: Microsoft Extensible Firmware Initiative **FAT32** File System Specification (2000)
+
 - [Hosted System] Mecocoa ...
-	- [ix86] x86Asm-Realfo-Protto., OrangeS.,
+	- [ix86] x86Asm-Realfo-Protto., OrangeS., 30Days., 
 	- [ix64] [ゼロからのOS.](https://github.com/uchan-nos), 
 	- [rv32] [](unicornx/riscv-operating-system-mooc)

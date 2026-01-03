@@ -1,8 +1,8 @@
-// ASCII C TAB4 CRLF
-// Docutitle: (Format/FileSystem) FAT12 
+// ASCII C/C++ TAB4 CRLF
+// Docutitle: (Format) Filesys
 // Codifiers: @ArinaMgk
-// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
-// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
+// Attribute: Arn-Covenant Any-Architect <Environment> <Reference/Dependence>
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -20,8 +20,17 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/format/filesys/FAT12.h"
+#ifndef _INC_FILESYS
+#define _INC_FILESYS
+
+#ifdef _INC_CPP
+#include "../../cpp/trait/FilesysTrait.hpp"
+#endif
+
+enum FilesysType {
+	FILESYS_FAT32_LBA = 0x0c,
+};
 
 
 
-
+#endif

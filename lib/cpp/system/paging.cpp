@@ -170,7 +170,12 @@ namespace uni {
 
 		while (length) {
 			if (!crtpage_d->isPresent(pg_d)) {
-				plogerro("MemCopyP: dest page is not present");
+				plogerro(" at %s(dest %[32H], %[32H], sors %[32H], %[32H], length %[u])",
+					__FUNCIDEN__, dest, pg_d.page_directory, sors, pg_s.page_directory, length
+				);
+				plogerro("MemCopyP: dest page %[32H] is not present. rest %[u]B",
+					crtpage_d, length
+				);
 				return 0;
 			}
 			if (!crtpage_s->isPresent(pg_s)) {

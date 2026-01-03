@@ -111,6 +111,12 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 				out_integer(uuu, 10, false, false, 0, false, intlog2_iexpo(byteof(stduint)));
 				i += 3 - 1;
 			}
+			else if (!StrCompareN(fmt + i, "[x]", 3)) // Print Decimal STDUINT
+			{
+				stduint uuu = pnext(stduint);
+				out_integer(uuu, 16, false, false, 0, false, intlog2_iexpo(byteof(stduint)));
+				i += 3 - 1;
+			}
 			else if (!StrCompareN(fmt + i, "[i]", 3)) // Print Decimal STDSINT
 			{
 				out_integer(pnext(stdsint), 10, false, true, 0, false, intlog2_iexpo(byteof(stdsint)));

@@ -102,6 +102,7 @@ namespace uni {
 		//
 		inline bool is_full() const { return q && p == q; }
 		inline bool is_empty() const { return q == nullptr; }
+		inline stduint get_number_innable() const { return !q ? nil : p > q ? p - q : slice.length - (q - p); }
 	};
 }
 

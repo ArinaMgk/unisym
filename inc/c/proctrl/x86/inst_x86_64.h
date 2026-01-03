@@ -31,7 +31,8 @@
 
 #define _MOV_EAX_imm 0xB8
 
-#define _JMP_dimm 0xE9
+#define _JMP_imm_d 0xE9
+#define _JMP_imm_sid 0xEB
 
 #define _BIT_64 0x48 // e.g. _MOV_RAX_imm {0x48, 0xB8, imm64}
 

@@ -57,26 +57,33 @@ namespace uni {
 
 
 	//{} IDE0:0 only
-	__attribute__((optimize("O0")))// NO OPTIMIZE
-	static bool CallRead(stduint BlockIden, void* Dest) {
-		stduint C, B;
-		__asm volatile("mov %%ecx, %0" : "=r" (C));// will break GNU stack judge: __asm ("push %ecx");
-		__asm volatile("mov %%ebx, %0" : "=r" (B));// will break GNU stack judge: __asm ("push %ebx");
-		__asm volatile("mov %0, %%ebx" : : "r" _IMM(Dest));// gcc use mov %eax->%ebx to assign
-		__asm volatile("mov %0, %%eax": : "r" (BlockIden));
-		__asm volatile("mov $1, %ecx");
-		__asm volatile("call HdiskLBA28Load");
-		__asm volatile("mov %0, %%ebx" : : "r" (B));// rather __asm ("pop %ebx");
-		__asm volatile("mov %0, %%ecx" : : "r" (C));// rather __asm ("pop %ecx");
-		return true;
-	}
+	// __attribute__((optimize("O0")))// NO OPTIMIZE
+	// static bool CallRead(stduint BlockIden, void* Dest) {
+	// 	stduint C, B;
+	// 	__asm volatile("mov %%ecx, %0" : "=r" (C));// will break GNU stack judge: __asm ("push %ecx");
+	// 	__asm volatile("mov %%ebx, %0" : "=r" (B));// will break GNU stack judge: __asm ("push %ebx");
+	// 	__asm volatile("mov %0, %%ebx" : : "r" _IMM(Dest));// gcc use mov %eax->%ebx to assign
+	// 	__asm volatile("mov %0, %%eax": : "r" (BlockIden));
+	// 	__asm volatile("mov $1, %ecx");
+	// 	__asm volatile("call HdiskLBA28Load");
+	// 	__asm volatile("mov %0, %%ebx" : : "r" (B));// rather __asm ("pop %ebx");
+	// 	__asm volatile("mov %0, %%ecx" : : "r" (C));// rather __asm ("pop %ecx");
+	// 	return true;
+	// }
 	__attribute__((optimize("O0")))// NO OPTIMIZE
 	_WEAK bool Harddisk_PATA::Read(stduint BlockIden, void* Dest) {
 		// ploginfo("Harddisk_PATA::Read %d(%d, %[32H])", _IMM(react_type), BlockIden, Dest);
 		switch (react_type) {
 		case ReactType::Loop:
 		{
-			return CallRead(BlockIden, Dest);
+			// return CallRead(BlockIden, Dest);
+			outpb(REG_NSECTOR, 1);// 1 sector
+			for0(i, 3) outpb(REG_LBA_LOW + i, ((byte*)(&BlockIden))[i]);// [LiE]
+			outpb(REG_DEVICE, MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF));
+			outpb(REG_CMD, 0x20);// read
+			while ((innpb(REG_STATUS) & 0x88) != 0x08);
+			IN_wn(REG_DATA, (word*)Dest, Block_Size);
+			return true;
 		}
 		case ReactType::Rupt:
 		{

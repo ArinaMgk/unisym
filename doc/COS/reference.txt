@@ -2,8 +2,8 @@
 // ありがとうございました！-- 三葉あさみ (Phina Ren)
 // "-" for un finished and "+" for finished.
 
-- [CPL Compiler]
-	- `sunshaoce/rvcc` : `Rui/chibicc`
+- [Compiler]
+	- [CPL] `sunshaoce/rvcc` : `Rui/chibicc`
 
 - [Midfile Optimizer]
 	- _NONE_
@@ -30,3 +30,6 @@
 	- [ix86] x86Asm-Realfo-Protto., OrangeS., 30Days., 
 	- [ix64] [ゼロからのOS.](https://github.com/uchan-nos), 
 	- [rv32] [](unicornx/riscv-operating-system-mooc)
+
+- [Linking]
+	- GNU Grub: The Multiboot2 Specification version 2.0

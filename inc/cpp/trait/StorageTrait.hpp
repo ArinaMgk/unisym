@@ -28,6 +28,7 @@
 #ifndef _INCPP_TRAIT_Storage
 #define _INCPP_TRAIT_Storage
 #include "../unisym"
+#include "../string"
 #include "../trait/BlockTrait.hpp"
 
 // x86
@@ -57,6 +58,31 @@ namespace uni {
 		virtual int operator[](uint64 bytid) = 0;
 
 	};
+
+	struct DiscPartition : public StorageTrait
+	{
+		StorageTrait* base;
+		stdsint device;
+		stduint flag;
+		Slice slice = { 0 };
+		//
+		DiscPartition(StorageTrait& storage, int dev) : base(&storage), device(dev) { Block_Size = storage.Block_Size; }
+		virtual bool Read(stduint BlockIden, void* Dest) override;
+		virtual bool Write(stduint BlockIden, const void* Sors) override;
+		virtual stduint getUnits() override {
+			if (!slice.address && !slice.length) renew_slice();
+			return slice.length;
+		}
+		Slice getSlice() {
+			if (!slice.address && !slice.length) renew_slice();
+			return slice;
+		}
+		virtual int operator[](uint64 bytid) override { _TODO return 0; }
+		//
+	protected:
+		void renew_slice();
+	};
+
 
 }
 

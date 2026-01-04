@@ -79,9 +79,10 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		// return the handler of the path/file (nullptr for failure) , `moreinfo` will get the proper
 		virtual void* search(rostr fullpath, void* moreinfo) = 0;
 
-		virtual bool proper(rostr path, stduint cmd, const void* moreinfo = 0) = 0;// set proper
+		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) = 0;// set proper
 
-		virtual bool enumer(void* dir_handler, stduint index, void* info) = 0;
+		// _fn(is_folder, flinfo)
+		virtual bool enumer(void* dir_handler, _tocall_ft _fn) = 0;
 
 		// return the bytes read
 		// limit(<= ~0, <= ~0)

@@ -149,6 +149,7 @@ namespace uni {
 	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster);
 	void* FilesysFAT::search(rostr fullpath, void* moreinfo) {
 		// moreinfo[0] --> FAT_FileHandle
+		// moreinfo[1] --> FAT_DirInfo? (? means optional, set nullptr if not used)
 		//
 		if (fat_type != 32) return nullptr;
 		if (!storage || !buffer_sector) {
@@ -159,6 +160,9 @@ namespace uni {
 		FAT_FileHandle hand_body;
 		FAT_FileHandle* phandle = path_to_handle(self, hand_body, fullpath);
 		*handle = *phandle;
+		if (!StrCompare("/", fullpath)) {
+			return handle;
+		}
 		// Seek the file
 		uint32_t cluster = handle->start_cluster;
 		while (cluster < 0xFFFFFFF8) {
@@ -202,14 +206,13 @@ namespace uni {
 					handle->dir_sector = sector;
 					handle->dir_index = i;
 					
-					if (_TEMP 0 && moreinfo) {
-						FAT_DirInfo* info = (FAT_DirInfo*)moreinfo;
+					if (((stduint*)moreinfo)[1]) {
+						FAT_DirInfo* info = (FAT_DirInfo*)((stduint*)moreinfo)[1];
 						StrCopy(info->name, short_name);
 						info->size = entry->file_size;
 						info->attr = entry->attr;
 						info->start_cluster = handle->start_cluster;
 					}
-					ploginfo("found %x", handle);
 					return handle;
 				}
 			}
@@ -218,12 +221,30 @@ namespace uni {
 		return nullptr;
 	}
 
-	bool FilesysFAT::proper(rostr path, stduint cmd, const void* moreinfo) {
-		
+	bool FilesysFAT::proper(void* handler, stduint cmd, const void* moreinfo) {
+		_TODO
 	}
 
-	bool FilesysFAT::enumer(void* dir_handler, stduint index, void* info) {
-		
+	bool FilesysFAT::enumer(void* dir_handler, _tocall_ft _fn) {
+		FAT_FileHandle* fh = (FAT_FileHandle*)dir_handler;
+		if (!fh->is_dir) return false;
+		uint32_t cluster = fh->start_cluster;
+		uint32_t count = 0;
+		while (cluster < 0xFFFFFFF8) {
+			uint32_t sector = cluster_to_sector(self, cluster);	
+			if (!storage->Read(sector, buffer_sector)) return false;
+			for0 (i, 16) {
+				FAT_DirEntry* entry = &cast<FAT_DirEntry*>(buffer_sector)[i];
+				if (entry->name[0] == 0) return true; // end of dir
+				if (entry->name[0] == 0xE5) continue; // removed
+				if (entry->attr == 0x0F) continue; //{} FAT_LongDirEntry
+				ploginfo("FilesysFAT::enumer %s", entry->name);
+				if (_fn) _fn((void*)_IMM(entry->_attr.directory), entry);
+				count++;
+			}
+			cluster = get_fat_entry(cluster);
+		}
+		return true;
 	}
 
 	stduint FilesysFAT::readfl(void* fil_handler, Slice file_slice, byte* dest) {
@@ -234,7 +255,7 @@ namespace uni {
 		uint64_t to_read = file_slice.length;
 		uint64_t total_read = 0;// ret
 		MIN(to_read, offset + fh->size);
-		// ploginfo("FilesysFAT::readfl (0x%[64H],0x%[64H])", offset, to_read);
+		// ploginfo("FilesysFAT::readfl %uBlks(0x%[64H],0x%[64H])", sectors_per_cluster, offset, to_read);
 
 		// evaluate the start cluster
 		uint32_t cluster = fh->start_cluster;
@@ -242,6 +263,7 @@ namespace uni {
 
 		// skip the start cluster
 		while (offset >= cluster_size) {
+			ploginfo("offset >= cluster_size");
 			offset -= cluster_size;
 			cluster = get_fat_entry(cluster);
 			if (cluster >= 0xFFFFFFF8) return total_read; // over the file
@@ -251,8 +273,12 @@ namespace uni {
 			uint32_t sector = cluster_to_sector(self, cluster);
 			uint32_t sector_offset = offset % storage->Block_Size;
 			uint32_t sector_index = offset / storage->Block_Size;
+			if (sector + sector_index == 0) {
+				plogerro("[%s:%u] Bad sec id", __FILE__, __LINE__);
+				return total_read;
+			}
+
 			if (!storage->Read(sector + sector_index, buffer_sector)) return 0;
-			
 			uint32_t can_read = storage->Block_Size - sector_offset;
 			if (can_read > to_read) can_read = (uint32_t)to_read;
 			
@@ -264,6 +290,7 @@ namespace uni {
 			
 			if (offset >= cluster_size) {
 				offset = 0;
+				auto old = cluster;
 				cluster = get_fat_entry(cluster);
 				if (cluster >= 0xFFFFFFF8 && to_read > 0) {
 					return can_read;// not a error
@@ -317,16 +344,16 @@ namespace uni {
 		}
 		
 		if (current_sector != fat_sector) {
-			storage->Read(fat_sector, buffer_sector);
+			storage->Read(fat_sector, buffer_fatable);
 			current_sector = fat_sector;
 		}
 		
 		if (fat_type == 32) {
-			return *(uint32_t*)&buffer_sector[ent_offset] & 0x0FFFFFFF;
+			return *(uint32_t*)&buffer_fatable[ent_offset] & 0x0FFFFFFF;
 		} else if (fat_type == 16) {
-			return *(uint16_t*)&buffer_sector[ent_offset];
+			return *(uint16_t*)&buffer_fatable[ent_offset];
 		} else {// 12
-			uint16_t value = *(uint16_t*)&buffer_sector[ent_offset];
+			uint16_t value = *(uint16_t*)&buffer_fatable[ent_offset];
 			if (cluster & 0x01)
 				return value >> 4;
 			else

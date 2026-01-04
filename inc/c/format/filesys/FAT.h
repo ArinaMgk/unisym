@@ -73,10 +73,21 @@ _PACKED(struct) FAT_BootSector32 {
 	// uint16_t boot_signature_55aa;
 };
 
+_PACKED(struct) FAT_Attributes {
+	byte read_only    : 1;
+	byte hidden       : 1;
+	byte system_file  : 1;
+	byte volume_id    : 1;
+	byte directory    : 1;
+	byte archive      : 1;
+	byte reserved1    : 1;
+	byte reserved2    : 1;
+};
+
 _PACKED(struct) FAT_DirEntry {
 	char     name[8];
 	char     ext[3];
-	uint8_t  attr;
+	union { uint8_t  attr; FAT_Attributes _attr; };
 	uint8_t  nt_reserved;
 	uint8_t  create_time_tenth;
 	uint16_t create_time;
@@ -148,6 +159,7 @@ namespace uni {
 		// std::map<void*, FAT_FileHandle> open_files;
 		uint32_t next_handle_id = 1;
 		uint32_t total_clusters;// = data_sectors / sectors_per_cluster
+		byte* buffer_fatable;
 	public:
 		FilesysFAT(uint32_t fatype, StorageTrait& s, byte* buffer, unsigned dev)
 			: fat_type(fatype), buffer_sector(buffer), partid(dev)
@@ -174,9 +186,9 @@ namespace uni {
 		// return the handler of the path/file (nullptr for failure) , `moreinfo` will get the proper
 		virtual void* search(rostr fullpath, void* moreinfo) override;
 
-		virtual bool proper(rostr path, stduint cmd, const void* moreinfo = 0) override;// set proper
+		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) override;// set proper
 
-		virtual bool enumer(void* dir_handler, stduint index, void* info) override;
+		virtual bool enumer(void* dir_handler, _tocall_ft _fn) override;
 
 		virtual stduint readfl(void* fil_handler, Slice file_slice, byte*) override;// read file
 

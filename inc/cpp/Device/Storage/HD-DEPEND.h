@@ -1,5 +1,9 @@
 // INCLUDE FROM {Forrest Y. Yu: OrangeS ...}
 
+// Part Type
+#define NO_PART 0x00
+#define EX_PART 0x05
+
 #define	HD_TIMEOUT		10000	/* in millisec */
 #define	PARTITION_TABLE_OFFSET	0x1BE
 

@@ -32,7 +32,7 @@
 #include "../trait/BlockTrait.hpp"
 
 // x86
-struct PartitionTableX86 {
+_PACKED(struct) PartitionTableX86 {
 	// boot indicator
 	// bits 6-0 are zero: Bit 7 is the active partition flag
 	// else: the drive number of the drive to boot so the active partition is always found on drive 80H, the first hdisk
@@ -48,6 +48,19 @@ struct PartitionTableX86 {
 	uint32 lba_start;
 	uint32 lba_count;
 };//{TODO} details
+
+// Part Type
+#define Part_NO_PART 0x00
+#define Part_EX_PART 0x05
+
+#define NR_PART_PER_DRIVE    4 // 4 primary partitions per drive
+#define NR_SUB_PER_PART     16 // 16 logical partitions per primary partition
+#define NR_SUB_PER_DRIVE    (NR_SUB_PER_PART * NR_PART_PER_DRIVE)// 64
+#define NR_PRIM_PER_DRIVE    (NR_PART_PER_DRIVE + 1) // 5
+struct HD_Info {
+    uni::Slice primary[NR_PRIM_PER_DRIVE];
+    uni::Slice logical[NR_SUB_PER_DRIVE];
+};
 
 namespace uni {
 	class StorageTrait : public BlockTrait {
@@ -78,6 +91,8 @@ namespace uni {
 			return slice;
 		}
 		virtual int operator[](uint64 bytid) override { _TODO return 0; }
+
+		void Partition(HD_Info& hdi, byte* psector, unsigned device, bool primary_but_logical = true);
 		//
 	protected:
 		void renew_slice();

@@ -88,7 +88,7 @@ namespace uni {
 	}
 
 	bool FilesysFAT::loadfs(void* moreinfo) {
-		ploginfo("loadfs buffer_sector=%[x]", buffer_sector);
+		// ploginfo("loadfs buffer_sector=%[x]", buffer_sector);
 		if (!storage || !buffer_sector) {
 			error_number = 1;
 			return false;
@@ -102,6 +102,11 @@ namespace uni {
 			return false;
 		}
 		FAT_BootSector32& bs = *(FAT_BootSector32*)buffer_sector;
+		if (!bs.sectors_per_cluster) {
+			error_number = 4;
+			plogerro("[%s] Zero sectors_per_cluster", __FILE__);
+			return false;
+		}
 		self.total_sectors = bs.total_sectors_16 ? bs.total_sectors_16 : bs.total_sectors_32;
 
 		sectors_per_fat = (fat_type == 32 || bs.sectors_per_fat_32) ? bs.sectors_per_fat_32 : bs.sectors_per_fat_16;
@@ -110,7 +115,7 @@ namespace uni {
 				fat_type = 32;
 			} else if (bs.sectors_per_fat_16 != 0) {
 				uint32_t root_dir_sectors = ((bs.root_entries * 32) + 
-					(bs.bytes_per_sector - 1)) / bs.bytes_per_sector;
+					(storage->Block_Size - 1)) / storage->Block_Size;
 				uint32_t data_sectors = total_sectors - 
 					(bs.reserved_sectors + bs.fat_count * sectors_per_fat + root_dir_sectors);
 				total_clusters = data_sectors / bs.sectors_per_cluster;
@@ -126,7 +131,7 @@ namespace uni {
 			root_dir_sectors = 0;
 			first_data_sector = bs.reserved_sectors + (bs.fat_count * sectors_per_fat);
 		} else {
-			root_dir_sectors = ((bs.root_entries * 32) + (bs.bytes_per_sector - 1)) / bs.bytes_per_sector;
+			root_dir_sectors = ((bs.root_entries * 32) + (storage->Block_Size - 1)) / storage->Block_Size;
 			first_data_sector = bs.reserved_sectors + (bs.fat_count * sectors_per_fat) + root_dir_sectors;
 		}
 		data_sectors = total_sectors - first_data_sector;

@@ -26,6 +26,9 @@
 #include "../../../inc/c/consio.h"
 namespace uni {
 
+	static FAT_FileHandle* path_to_handle(FilesysFAT& fs, FAT_FileHandle& handle, rostr fullpath);
+	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster);
+
 	bool FilesysFAT::makefs(rostr vol_label, void* moreinfo) {
 		if (!storage) {
 			plogerro("No storage"); return false;
@@ -142,16 +145,6 @@ namespace uni {
 		return fs_loaded = true;
 	}
 
-	bool FilesysFAT::create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest) {
-		
-	}
-
-	bool FilesysFAT::remove(rostr pathname) {
-		
-	}
-
-	static FAT_FileHandle* path_to_handle(FilesysFAT& fs, FAT_FileHandle& handle, rostr fullpath);
-	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster);
 	void* FilesysFAT::search(rostr fullpath, void* moreinfo) {
 		// moreinfo[0] --> FAT_FileHandle
 		// moreinfo[1] --> FAT_DirInfo? (? means optional, set nullptr if not used)
@@ -227,7 +220,7 @@ namespace uni {
 	}
 
 	bool FilesysFAT::proper(void* handler, stduint cmd, const void* moreinfo) {
-		_TODO
+		_TODO return false;
 	}
 
 	bool FilesysFAT::enumer(void* dir_handler, _tocall_ft _fn) {
@@ -305,9 +298,6 @@ namespace uni {
 		return total_read;
 	}
 
-	stduint FilesysFAT::writfl(void* fil_handler, Slice file_slice, const byte*) {
-		
-	}
 
 	// ----
 

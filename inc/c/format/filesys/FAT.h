@@ -136,6 +136,11 @@ namespace uni {
 		uint32_t start_cluster;
 	};
 
+	enum class FilesysFAT_Error {
+		InputNullptr,
+		_TODO
+	};
+
 	// ----
 
 	class FilesysFAT : public FilesysTrait
@@ -177,9 +182,11 @@ namespace uni {
 		// - root_dir_sectors may be 0
 		virtual bool loadfs(void* moreinfo = 0) override;
 
+		//{unchk}
 		// create file/folder. usize{isfolder}
 		virtual bool create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest = 0) override;
 
+		//{unchk}
 		// remove file/folder
 		virtual bool remove(rostr pathname) override;
 
@@ -192,12 +199,22 @@ namespace uni {
 
 		virtual stduint readfl(void* fil_handler, Slice file_slice, byte*) override;// read file
 
+		//{unchk}
 		virtual stduint writfl(void* fil_handler, Slice file_slice, const byte*) override;// write file
 		//
 		virtual rostr nextlink(rostr fullpath) override { return NULL; }// if a hard/soft link
 
 	public:
 		uint32_t get_fat_entry(uint32_t cluster);
+
+		bool set_fat_entry(uint32_t cluster, uint32_t value) { return false _TODO; }
+
+		stduint find_free_cluster() {
+			for (uint32_t i = 2; i < total_clusters; i++) {
+				if (get_fat_entry(i) == 0) return i;
+			}
+			return 0; // the part is full
+		}
 	};
 
 

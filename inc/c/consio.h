@@ -224,7 +224,7 @@ namespace uni {
 		//
 		// - use global cursor position function
 		//
-		BareConsole(stduint columns, stduint lines_total, stduint address, stduint topline = 0)// e.g. BareConsole(80,25,0xB8000)
+		BareConsole(stduint columns, stduint lines_total, stduint address, stduint topline = 0)// e.g. BareConsole(80,25,_VIDEO_ADDR_BUFFER)
 			: area_show(0, 0, columns, lines_total), area_total(columns, lines_total), vga_loc_addr((pureptr_t)address), topline(topline)
 		{
 			last_curposi = topline * columns;// next char will be written at vga_loc_addr[unit*crt_curposi]

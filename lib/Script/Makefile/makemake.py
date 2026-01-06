@@ -88,7 +88,27 @@ cpppref=_cx_
 cppfile=$(wildcard lib/cpp/*.cpp) $(wildcard lib/cpp/**/*.cpp) $(wildcard lib/cpp/**/**/*.cpp) $(wildcard lib/cpp/**/**/**/*.cpp)
 cppobjs=$(patsubst %cpp, %o, $(cppfile))
 """
-text_gcc_win32 += comhead + """
+comhead2 = """
+AASM = aasm
+aat=-D_MCCA=0x8632
+cplpref=_cc_
+cpppref=_cx_
+
+define c_to_o
+$(dest_obj)/$(cplpref)$(notdir $(1:.c=.o)): $(1)
+endef
+define cpp_to_o
+$(dest_obj)/$(cpppref)$(notdir $(1:.cpp=.o)): $(1)
+endef
+
+cplfile=$(wildcard lib/c/*.c) $(wildcard lib/c/**/*.c) $(wildcard lib/c/**/**/*.c) $(wildcard lib/c/**/**/**/*.c)
+cplobjs=$(addprefix $(dest_obj)/$(cplpref),$(patsubst %c,%o,$(notdir $(cplfile))))
+cppfile=$(wildcard lib/cpp/*.cpp) $(wildcard lib/cpp/**/*.cpp) $(wildcard lib/cpp/**/**/*.cpp) $(wildcard lib/cpp/**/**/**/*.cpp)
+cppobjs=$(addprefix $(dest_obj)/$(cpppref),$(patsubst %cpp,%o,$(notdir $(cppfile))))
+"""
+
+
+text_gcc_win32 += comhead2 + """
 attr = -D_DEBUG -O3 -D_Win32
 dest_obj=$(uobjpath)/CGWin32
 BN = $(ubinpath)/I686/Win32/bin
@@ -100,7 +120,7 @@ aattr = -fwin32
 dest_abs = $(ubinpath)/libw32d.a
 dest_dll = $(ubinpath)/libw32d.so.""" + __LibVersion
 
-text_gcc_win64 += comhead + """
+text_gcc_win64 += comhead2 + """
 attr = -D_DEBUG -O3 -D_Win64
 dest_obj=$(uobjpath)/CGWin64
 BN = $(ubinpath)/AMD64/Win64/bin
@@ -112,7 +132,7 @@ aattr = -fwin64
 dest_abs = $(ubinpath)/libw64d.a
 dest_dll = $(ubinpath)/libw64d.so.""" + __LibVersion
 
-text_gcc_lin32 += comhead + """
+text_gcc_lin32 += comhead2 + """
 attr = -D_DEBUG -D_Linux -D__BITS__=32 -O3
 aattr = -felf
 dest_obj=$(uobjpath)/CGLin32
@@ -122,7 +142,7 @@ CX=g++ -m32
 LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libl32d.so.""" + __LibVersion
 
-text_gcc_mecocoa += comhead + """
+text_gcc_mecocoa += comhead2 + """
 attr = -D_DEBUG -D_MCCA=0x8632
 aattr = -felf
 dest_obj=$(uobjpath)/CGMin32
@@ -135,7 +155,7 @@ LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libm32d.so.""" + __LibVersion
 
 
-text_gcc_lin64 += comhead + """
+text_gcc_lin64 += comhead2 + """
 attr = -D_DEBUG -D_Linux -D__BITS__=64 -O3
 aattr = -felf
 dest_obj=$(uobjpath)/CGLin64
@@ -249,7 +269,7 @@ for val in list_cpp_file:
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
 tmp = """\t@echo AR ${dest_abs}
-\t@${AR} -rcs ${dest_abs} ${dest_obj}/*
+\t@${AR} -rcs ${dest_abs} ${dest_obj}/*.o*
 \t@echo AR ${dest_dll}
 \t@rm -f ${dest_dll}
 """
@@ -277,18 +297,45 @@ tmp = """
 	@$(CX) -fpic $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@)
 
 """
-text_gcc_win32 += tmp
-text_gcc_win64 += tmp
-text_gcc_lin32 += tmp
-text_gcc_lin64 += tmp
+
+tmp2 = """
+$(foreach src,$(cplfile),$(eval $(call c_to_o,$(src))))
+$(foreach src,$(cppfile),$(eval $(call cpp_to_o,$(src))))
+
+_cc_%.o:
+	@echo "CC $(<)" #  with shared
+	@$(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$(notdir $@)) -MT $@"
+#	@$(CC) -fpic $(attr) -c $< -o $@
+_cx_%.o: 
+	@echo "CX $(<)" #  with shared
+	@$(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$(notdir $@)) -MT $@"
+#	@$(CX) -fpic $(attr) -c $< -o $@
+
+clean:
+	@-rm -rf $(dest_obj)/*
+-include $(dest_obj)/*.d
+"""
+
+text_gcc_win32 += tmp2
+text_gcc_win64 += tmp2
+text_gcc_lin32 += tmp2
+text_gcc_lin64 += tmp2
 tmp = """
 
-%.o: %.c
+$(foreach src,$(cplfile),$(eval $(call c_to_o,$(src))))
+$(foreach src,$(cppfile),$(eval $(call cpp_to_o,$(src))))
+
+_cc_%.o:
 	@echo "CC $(<)"
-	@$(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
-%.o: %.cpp
-	@echo "CX $(<)"
-	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
+	@$(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$(notdir $@)) -MT $@"
+
+_cx_%.o: 
+	@echo "CX $(<)" 
+	@$(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$(notdir $@)) -MT $@"
+
+clean:
+	@-rm -rf $(dest_obj)/*
+-include $(dest_obj)/*.d
 
 """
 text_gcc_mecocoa += tmp

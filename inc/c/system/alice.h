@@ -90,6 +90,7 @@ extern "C++" {
 //#undef _CALL_C
 //#define _CALL_C __cdecl
 #define _WEAK
+#define _PACKED(x) x //{unchk}
 
 #elif defined(__GNUC__)
 #define _DEV_GCC
@@ -97,6 +98,7 @@ extern "C++" {
 #define _ALIGN(n) __attribute__((aligned(n)))
 #define _ASM __asm__
 #define _WEAK __attribute__((weak))
+#define _PACKED(x) x __attribute__((packed))
 
 #elif defined(__UVISION_VERSION)
 #define _DEV_KEIL
@@ -104,10 +106,10 @@ extern "C++" {
 #define __FUNCIDEN__ 
 #define _ALIGN
 #define _ASM
+#define _PACKED(x) x __attribute__((packed))
 
 #endif
 
-#define _PACKED(x) x __attribute__((packed))
 
 #define _ENDIAN_LOW // little endian for bit-field, ...
 #define _ENDIAN_BIG //    big endian for bit-field, ...

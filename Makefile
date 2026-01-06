@@ -96,7 +96,7 @@ i8086-CG-IBMPC:
 x86-CG-Win32: list
 	-@mkdir.exe -p $(uobjpath)/CGWin32
 	-@mkdir.exe -p $(uobjpath)/CGWin32-DLL
-	-@rm -f $(uobjpath)/CGWin32/*
+#	-@rm -f $(uobjpath)/CGWin32/*
 	-@rm -f $(ubinpath)/libw32d.a
 	make -f ${make_dir}cgw32.make all
 	cd ${make_dir} && make -f kitw32.make all
@@ -109,7 +109,7 @@ x86-CL-Win32: #{} clw32
 x64-CG-Win64: list
 	-@mkdir.exe -p $(uobjpath)/CGWin64
 	-@mkdir.exe -p $(uobjpath)/CGWin64-DLL
-	-@rm -f $(uobjpath)/CGWin64/*
+# 	-@rm -f $(uobjpath)/CGWin64/*
 	-@rm -f $(ubinpath)/libw64d.a
 	make -f ${make_dir}cgw64.make all # x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
 x64-CV-Win64: list
@@ -122,14 +122,14 @@ x64-CL-Win64: #{} clw64
 x86-EG-Lin32: list
 	-@mkdir -p $(uobjpath)/CGLin32
 	-@mkdir -p $(uobjpath)/CGLin32-DLL
-	-@rm -f $(uobjpath)/CGLin32/*
+# 	-@rm -f $(uobjpath)/CGLin32/*
 	-@rm -f $(ubinpath)/libl32d.a
 	make -f ${make_dir}cgl32.make all
 # [Static + Dynamic]
 x64-EG-Lin64: list
 	-@mkdir -p $(uobjpath)/CGLin64
 	-@mkdir -p $(uobjpath)/CGLin64-DLL
-	-@rm -f $(uobjpath)/CGLin64/*
+# 	-@rm -f $(uobjpath)/CGLin64/*
 	-@rm -f $(ubinpath)/libl64d.a
 	make -f ${make_dir}cgl64.make all
 	cd ${make_dir} && make -f kitl64.make all
@@ -138,8 +138,7 @@ x64-EM-Lin64:
 x64-EL-Lin64: x64-EG-Lin64
 x86-EG-MCCA: list
 	-@mkdir -p $(uobjpath)/CGMin32
-	#-@mkdir -p $(uobjpath)/CGMin32-DLL
-	-@rm -f $(uobjpath)/CGMin32/*
+#	-@rm -f $(uobjpath)/CGMin32/*
 	-@rm -f $(ubinpath)/libm32d.a
 	make -f ${make_dir}cgmx86.make all
 riscv64-EG-MCCA:
@@ -189,3 +188,8 @@ cortexa7-Keil-STM32MP13:
 clean:
 	-cd ./inc/Python/ && rmdir __pycache__ /S /Q
 	-cd ./lib/Rust/unisym && cargo clean
+	-rm -f $(uobjpath)/CGWin32/*
+	-rm -f $(uobjpath)/CGWin64/*
+	-rm -f $(uobjpath)/CGLin32/*
+	-rm -f $(uobjpath)/CGLin64/*
+	-rm -f $(uobjpath)/CGMin32/*

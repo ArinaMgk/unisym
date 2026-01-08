@@ -34,6 +34,8 @@ extern "C" {
 
 void RTC_Init();
 
+void CMOS_Readtime(struct tm* time);
+
 #ifdef _INC_CPP
 }
 #endif

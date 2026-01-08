@@ -86,9 +86,19 @@ typedef enum
 	DEV_MAS_RS232_Port1 = IRQ_RS232_Port1 - 0x20, 
 	DEV_MAS_XT_WINI = IRQ_XT_WINI - 0x20, 
 	DEV_MAS_Floppy = IRQ_Floppy - 0x20, 
-	_TODO
+	DEV_MAS_LPT1 = IRQ_LPT1 - 0x20,
 } Request_Master_t;
-
+typedef enum
+{
+	DEV_SLV_RTC = IRQ_RTC - 0x70,
+	DEV_SLV_0x71 = IRQ_0x71 - 0x70,
+	DEV_SLV_0x72 = IRQ_0x72 - 0x70,
+	DEV_SLV_0x73 = IRQ_0x73 - 0x70,
+	DEV_SLV_PS2_Mouse = IRQ_PS2_Mouse - 0x70,
+	DEV_SLV_Coprocessor = IRQ_Coprocessor - 0x70,
+	DEV_SLV_ATA_DISK0 = IRQ_ATA_DISK0 - 0x70,
+	DEV_SLV_ATA_DISK1 = IRQ_ATA_DISK1 - 0x70,
+} Request_Slave_t;
 
 
 
@@ -100,6 +110,57 @@ typedef enum
 #define PORT_KBD_BUFFER 0x60 // R:Buffer W:Buffer(8042 Data&8048 Command)
 #define KEYBOARD_DAT 0x60// R(Buffer), W(Buffer, 8042 Data & 8048 Command)
 #define KEYBOARD_CMD 0x64// R(Status), W(8042 Command)
+
+#define PORT_CMOS_ADDR 0x70
+#define PORT_CMOS_DATA 0x71
+
+
+
+
+// [CMOS] ---- 0x70~0x71 ----
+
+#define CMOS_SECOND 0x00  // (0 ~ 59)
+#define CMOS_SECOND_ALARM 0x01
+#define CMOS_MINUTE 0x02  // (0 ~ 59)
+#define CMOS_MINUTE_ALARM 0x03 
+#define CMOS_HOUR   0x04  // (0 ~ 23)
+#define CMOS_HOUR_ALARM 0x05
+//
+#define CMOS_WDAY  0x06   // (1 ~ 7), 1 for Sunday
+#define CMOS_MDAY  0x07   // (1 ~ 31)
+#define CMOS_MONTH 0x08   // (1 ~ 12)
+#define CMOS_YEAR  0x09   // (0 ~ 99)
+//
+#define CMOS_STATUS_A 0x0A
+#define CMOS_STATUS_B 0x0B
+#define CMOS_STATUS_C 0x0C
+#define CMOS_STATUS_D 0x0D
+#define CMOS_POST_DIAGNOSTIC 0x0E
+#define CMOS_SHUT_DIAGNOSTIC 0x0F
+#define CMOS_FLOPPY_TYPE     0x10
+#define CMOS_SYS_CONFIG      0x11
+#define CMOS_HDD_TYPE        0x12
+#define CMOS_EQUIPMENT       0x14
+#define CMOS_BASE_MEM_LOW    0x15
+#define CMOS_BASE_MEM_HIGH   0x16
+#define CMOS_EXT_MEM_LOW     0x17
+#define CMOS_EXT_MEM_HIGH    0x18
+#define CMOS_HDD_1_TYPE      0x19
+#define CMOS_HDD_2_TYPE      0x1A
+#define CMOS_EXT_MEM_2_LOW   0x30
+#define CMOS_EXT_MEM_2_HIGH  0x31
+#define CMOS_CENTURY 0x32
+#define CMOS_NMI 0x80
+
+
+
+
+
+
+
+
+
+
 
 #ifdef _INC_CPP
 extern "C" {

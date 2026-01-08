@@ -4,11 +4,9 @@
 // AllAuthor: @dosconio since RFT15
 // ProjTitle: Console Calendar Shell
 
-#define tm _tmp_tm_
+#define _HIS_TIME_H
 #include <time.h>
-#undef tm
 #include <datime.h>
-#define tm _tmp_tm_
 #include <stdio.h>
 #ifndef _Linux
 	#include <conio.h>

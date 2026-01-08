@@ -30,10 +30,6 @@
 // Compatible with `time.h`
 #define __time_h
 
-#ifdef _INC_CPP
-	_ESYM_C {
-#endif
-
 struct datime_t {
 	// time
 	byte second;// [0 60], heap-second accepted
@@ -60,7 +56,7 @@ struct tm {
 	int tm_hour;
 	int tm_mday;
 	int tm_mon;
-	int tm_year;
+	int tm_year;// since 1900
 	int tm_wday;
 	int tm_yday;
 	int tm_isdst;
@@ -86,12 +82,13 @@ struct tm {
 #define getYearWeekNumber(y,m,d)(getHerWeekNumber(y,m,d)-getHerWeekNumber(y,1,1)+1)
 
 // What is the day{`0~6`} of the day{`01~31`} in the month{`01~12`} of the year{`0000~9999`}
-unsigned weekday(word year, word month, word day);
+_ESYM_C unsigned weekday(word year, word month, word day);
 
 // `[MACRO]` How many days in the month{01~12}
 #define moondays(year, month) (30 + (((month)&1) ^ ((month)>7)) - ((month)==2?2-isLeapYear(year):0))
 
 //
+_ESYM_C
 #ifdef _BIT_SUPPORT_64
 uint64
 #else
@@ -100,15 +97,18 @@ uint32
 POSIXGetSeconds(struct tm* tm);
 
 // Reverse function of herspan()
-void fromherp(stdint herspans, word* year, word* month, word* day);
+_ESYM_C void fromherp(stdint herspans, word* year, word* month, word* day);
 
 typedef struct {
 	stduint sec; //  s: second
 	stduint mic; // us: microsecond
 } timeval_t;
 
-#ifdef _INC_CPP
-	}
-#endif
+//{TODO}
+// void localtime(time_t stamp, tm* time);
+
+//{unchk}
+// typedef stdsint time_t;
+// _ESYM_C time_t mktime(struct tm* time);
 
 #endif

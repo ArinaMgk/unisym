@@ -198,5 +198,21 @@ namespace uni {
 
 }
 
+#elif defined(_MCCA) && _MCCA == 0x8632
+
+namespace uni {
+
+	void Cache_t::enAble(bool ena)
+	{
+		if (ena)
+		{
+			_ASM("mov %cr0, %eax");
+			_ASM("btr $29, %eax");// NW
+			_ASM("btr $30, %eax");// CD
+			_ASM("mov %eax, %cr0");
+		}
+	}
+
+}
 
 #endif

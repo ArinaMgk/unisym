@@ -99,6 +99,13 @@ namespace uni {
 	typedef Cache_t L1C_t;// Level 1 Cache
 	extern Cache_t L1C;
 	
+#elif defined(_MCCA) && _MCCA == 0x8632
+
+	class Cache_t {
+	public:
+		static void enAble(bool ena = true);
+	};
+
 #endif
 }
 

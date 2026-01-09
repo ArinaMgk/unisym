@@ -83,7 +83,7 @@ void CMOS_Readtime(struct tm* time)
 
 //{unchk}
 // Book a interrupt after n seconds
-void set_alarm(uint32 secs)
+void RTC_SetAlarm(uint32 secs)
 {
 	struct tm time;
 	CMOS_Readtime(&time);

@@ -32,9 +32,11 @@
 extern "C" {
 #endif
 
+void CMOS_Readtime(struct tm* time);
+
 void RTC_Init();
 
-void CMOS_Readtime(struct tm* time);
+void RTC_SetAlarm(uint32 secs);
 
 #ifdef _INC_CPP
 }

@@ -17,6 +17,8 @@ uincpath?=./inc
 ubinpath?=../_bin
 uobjpath?=../_obj
 
+filelist=./lib/Script/Makefile/makemake.py
+
 .PHONY: local list manual clean \
 	mx86 cgw16 cgw32 cgw64 cvw32 cvw64 cgl32 cgl64\
 	\
@@ -136,11 +138,14 @@ x64-EG-Lin64: list
 x64-EV-Lin64:
 x64-EM-Lin64:
 x64-EL-Lin64: x64-EG-Lin64
-x86-EG-MCCA: list
+x86-EG-MCCA: ./lib/make/cgmx86.make
 	-@mkdir -p $(uobjpath)/CGMin32
 #	-@rm -f $(uobjpath)/CGMin32/*
 	-@rm -f $(ubinpath)/libm32d.a
 	make -f ${make_dir}cgmx86.make all
+./lib/make/cgmx86.make: $(filelist)
+	@perl ./lib/Script/Makefile/makemake.pl
+
 riscv64-EG-MCCA:
 	@echo TODO
 i8051-Keil-AT89C5:

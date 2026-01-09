@@ -142,15 +142,23 @@ CX=g++ -m32
 LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libl32d.so.""" + __LibVersion
 
+
 text_gcc_mecocoa += comhead2 + """
 attr = -D_DEBUG -D_MCCA=0x8632
 aattr = -felf
 dest_obj=$(uobjpath)/CGMin32
 dest_abs=$(ubinpath)/libm32d.a
+
+CXF1=-m32 -mno-red-zone -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4 # -mgeneral-regs-only
+CXF2=-fno-stack-protector -fno-pic -fno-exceptions -fno-unwind-tables -fno-builtin
 COMWAN = -Wno-builtin-declaration-mismatch
-COMFLG = -m32 -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4 -static -fno-builtin -nostdlib -fno-stack-protector -O0 $(COMWAN) #  -fno-pic
+COMFLG=$(CXF1) $(CXF2) -static -nostdlib $(COMWAN) -O0
+
+# -fno-stack-protector: avoid undefined reference to `__stack_chk_fail_local'
+# -mno-*sse*          : movdqa-series need more setting
+
 CC=gcc $(COMFLG)
-CX=g++ $(COMFLG) -std=c++2a -fno-exceptions  -fno-unwind-tables -fno-rtti -Wno-volatile
+CX=g++ $(COMFLG) -std=c++2a -fno-rtti -Wno-volatile
 LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libm32d.so.""" + __LibVersion
 

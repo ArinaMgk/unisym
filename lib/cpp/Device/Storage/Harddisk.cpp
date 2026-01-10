@@ -55,22 +55,7 @@ namespace uni {
 		i8259Master_Enable(2);
 	}
 
-
-	//{} IDE0:0 only
 	// __attribute__((optimize("O0")))// NO OPTIMIZE
-	// static bool CallRead(stduint BlockIden, void* Dest) {
-	// 	stduint C, B;
-	// 	__asm volatile("mov %%ecx, %0" : "=r" (C));// will break GNU stack judge: __asm ("push %ecx");
-	// 	__asm volatile("mov %%ebx, %0" : "=r" (B));// will break GNU stack judge: __asm ("push %ebx");
-	// 	__asm volatile("mov %0, %%ebx" : : "r" _IMM(Dest));// gcc use mov %eax->%ebx to assign
-	// 	__asm volatile("mov %0, %%eax": : "r" (BlockIden));
-	// 	__asm volatile("mov $1, %ecx");
-	// 	__asm volatile("call HdiskLBA28Load");
-	// 	__asm volatile("mov %0, %%ebx" : : "r" (B));// rather __asm ("pop %ebx");
-	// 	__asm volatile("mov %0, %%ecx" : : "r" (C));// rather __asm ("pop %ecx");
-	// 	return true;
-	// }
-	__attribute__((optimize("O0")))// NO OPTIMIZE
 	_WEAK bool Harddisk_PATA::Read(stduint BlockIden, void* Dest) {
 		// ploginfo("Harddisk_PATA::Read %d(%d, %[32H])", _IMM(react_type), BlockIden, Dest);
 		switch (react_type) {
@@ -111,7 +96,7 @@ namespace uni {
 		}
 		return true;
 	}
-	__attribute__((optimize("O0")))// NO OPTIMIZE
+	// __attribute__((optimize("O0")))// NO OPTIMIZE
 	_WEAK bool Harddisk_PATA::Write(stduint BlockIden, const void* Sors) {
 		// ploginfo("Harddisk_PATA::Write(%d, %[32H])", BlockIden, Sors);
 		switch (react_type) {

@@ -27,9 +27,10 @@
 
 namespace uni {
 	class Bitmap {
-	protected:
+	public:
 		pureptr_t offs;// align by byte
 		stduint size;
+	protected:
 		bool alloc;
 	public:
 		Bitmap(pureptr_t offs, stduint size) : offs(offs), size(size), alloc(false) {}

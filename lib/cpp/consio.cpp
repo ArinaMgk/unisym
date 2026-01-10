@@ -45,6 +45,7 @@ namespace uni {
 }
 #endif
 #if defined(_MCCA) && _MCCA==0x8632
+#include "../../inc/cpp/Device/Buzzer.hpp"
 
 namespace uni {
 	//[sync(outtxt)]
@@ -71,6 +72,11 @@ namespace uni {
 					break;
 				case '\n':// down
 					posi += _BytesPerLine;
+					break;
+				case '\a':
+					Buzzer::Buzz(true);
+					for (volatile size_t i = 0, _LIMIT = (100);i < (_LIMIT);i++);
+					Buzzer::Buzz(false);
 					break;
 				case '\b':// left
 					posi -= 2;

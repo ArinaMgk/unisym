@@ -81,6 +81,7 @@ def apd_gnu_item(text):
 comhead = """
 AASM = aasm
 aat=-D_MCCA=0x8632
+# asmpref=_ae_
 cplpref=_cc_
 cplfile=$(wildcard lib/c/*.c) $(wildcard lib/c/**/*.c) $(wildcard lib/c/**/**/*.c) $(wildcard lib/c/**/**/**/*.c)
 cplobjs=$(patsubst %c, %o, $(cplfile))
@@ -91,9 +92,13 @@ cppobjs=$(patsubst %cpp, %o, $(cppfile))
 comhead2 = """
 AASM = aasm
 aat=-D_MCCA=0x8632
+asmpref=_ae_
 cplpref=_cc_
 cpppref=_cx_
 
+define asm_to_o
+$(dest_obj)/$(asmpref)$(notdir $(1:.asm=.o)): $(1)
+endef
 define c_to_o
 $(dest_obj)/$(cplpref)$(notdir $(1:.c=.o)): $(1)
 endef
@@ -144,6 +149,9 @@ dest_dll=$(ubinpath)/libl32d.so.""" + __LibVersion
 
 
 text_gcc_mecocoa += comhead2 + """
+asmfile=$(wildcard lib/asm/x86/*.asm) $(wildcard lib/asm/x86/**/*.asm)
+asmobjs=$(addprefix $(dest_obj)/$(asmpref),$(patsubst %asm,%o,$(notdir $(asmfile))))
+
 attr = -D_DEBUG -D_MCCA=0x8632
 aattr = -felf
 dest_obj=$(uobjpath)/CGMin32
@@ -252,7 +260,7 @@ for val in list_asm_free86:
 	text_gcc_win32 += tmp
 	text_msv_win32 += tmp
 	text_gcc_lin32 += tmp
-	text_gcc_mecocoa += tmp
+	# text_gcc_mecocoa += tmp
 for val in list_asm_free64:
 	tmp = '\t@echo AS ' + val.replace("./lib", "lib") + "\n\t@${AASM} ${aattr} ${aat} " + val + " -o ${dest_obj}/_ax_" + get_outfilename(val) + ".o" + '\n'
 	text_gcc_win64 += tmp
@@ -307,8 +315,12 @@ tmp = """
 """
 
 tmp2 = """
+
 $(foreach src,$(cplfile),$(eval $(call c_to_o,$(src))))
 $(foreach src,$(cppfile),$(eval $(call cpp_to_o,$(src))))
+
+_ae_%.o:
+	@echo nothing
 
 _cc_%.o:
 	@echo "CC $(<)" #  with shared
@@ -329,9 +341,13 @@ text_gcc_win64 += tmp2
 text_gcc_lin32 += tmp2
 text_gcc_lin64 += tmp2
 tmp = """
-
+$(foreach src,$(asmfile),$(eval $(call asm_to_o,$(src))))
 $(foreach src,$(cplfile),$(eval $(call c_to_o,$(src))))
 $(foreach src,$(cppfile),$(eval $(call cpp_to_o,$(src))))
+
+_ae_%.o:
+	@echo AS $<
+	@${AASM} ${aattr} ${aat} $< -o $@ -MD $(patsubst %.o,%.d,$@)
 
 _cc_%.o:
 	@echo "CC $(<)"

@@ -168,7 +168,7 @@ extern "C++" {
 #define Castype(des,val) *(des*)&(val)
 #define Letvar(iden,type,init) type iden = (type)(init)
 
-#define floorAlign(align,val) ((val/align)*align)
+#define floorAlign(align,val) (((val)/(align))*align)
 #define vaultAlign(align,val)  floorAlign(align,val+(align-1))
 #define alignf floorAlign
 #define alignc vaultAlign

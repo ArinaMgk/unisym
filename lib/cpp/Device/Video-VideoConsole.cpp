@@ -23,7 +23,9 @@
 #include "../../../inc/cpp/Device/_Video.hpp"
 #include "../../../inc/cpp/reference"
 #include "../../../inc/c/data.h"
-
+#if defined(_MCCA) && _MCCA==0x8632
+#include "../../../inc/cpp/Device/Buzzer.hpp"
+#endif
 
 namespace uni {
 	void (VideoConsole::* (VideoConsole::DrawCharPosition_f)[])(uni::Point, uni::Color, char) {
@@ -95,6 +97,14 @@ namespace uni {
 		}
 		else if (str[i] == '\r') {
 			crt_self->cursor.x = nil;
+		}
+		else if (str[i] == '\a') {
+			#if defined(_MCCA) && _MCCA==0x8632
+			Buzzer::Buzz(true);
+			for (volatile size_t i = 0, _LIMIT = (0x1000);i < (_LIMIT);i++)
+				for (volatile size_t j = 0, _LIMIT2 = (0x1000);j < (_LIMIT2);j++);
+			Buzzer::Buzz(false);
+			#endif
 		}
 		else if (str[i] == '\b') {
 			if (crt_self->cursor.x > 0) crt_self->cursor.x--;

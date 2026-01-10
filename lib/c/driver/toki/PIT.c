@@ -27,13 +27,22 @@
 
 #define RATE_GENERATOR 0x34 // 00-11-010-0 : {Counter0 - LSB then MSB - rate generator - binary}
 #define TIMER_FREQ     1193182L // clock frequency for timer in PC and AT */
-#define HZ             1000  // clock freq (software settable on IBM-PC) */
+#define kHZ             1000  // clock freq (software settable on IBM-PC) */
+
+#define BEEP_HZ 440
+#define BEEP_COUNTER (TIMER_FREQ / BEEP_HZ)
 
 void PIT_Init()
 {
-	outpb(TIMER_MODE, RATE_GENERATOR);
-	outpb(PIT_TIMER0, (byte)(TIMER_FREQ / HZ));
-	outpb(PIT_TIMER0, (byte)((TIMER_FREQ / HZ) >> 8));
+	// 1kHz
+	outpb(PORT_TIMER_MODE, RATE_GENERATOR);
+	outpb(PORT_PIT_TIMER0, (byte)(TIMER_FREQ / kHZ));
+	outpb(PORT_PIT_TIMER0, (byte)((TIMER_FREQ / kHZ) >> 8));
+	// Chan 2: for PC Speaker
+	outpb(PORT_TIMER_MODE, 0b10110110);
+	outpb(PORT_PIT_TIMER2, (byte)(TIMER_FREQ / BEEP_COUNTER));
+	outpb(PORT_PIT_TIMER2, (byte)((TIMER_FREQ / BEEP_COUNTER) >> 8));
+	//
 	i8259Master_Enable(DEV_MAS_PIT);
 }
 

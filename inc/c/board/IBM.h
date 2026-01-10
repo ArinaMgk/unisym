@@ -102,14 +102,17 @@ typedef enum
 
 
 
-#define PIT_TIMER0     0x40 // I/O port for timer channel 0
-#define TIMER_MODE     0x43 // I/O port for timer mode control
+#define PORT_PIT_TIMER0     0x40 // I/O port for timer channel 0
+#define PORT_PIT_TIMER1     0x41 // I/O port for timer channel 1
+#define PORT_PIT_TIMER2     0x42 // I/O port for timer channel 2
+#define PORT_TIMER_MODE     0x43 // I/O port for timer mode control
 
 // AT keyboard
 // 8042 controller
-#define PORT_KBD_BUFFER 0x60 // R:Buffer W:Buffer(8042 Data&8048 Command)
-#define KEYBOARD_DAT 0x60// R(Buffer), W(Buffer, 8042 Data & 8048 Command)
-#define KEYBOARD_CMD 0x64// R(Status), W(8042 Command)
+#define PORT_KBD_BUFFER  0x60 // R:Buffer W:Buffer(8042 Data&8048 Command)
+#define KEYBOARD_DAT     0x60 // R(Buffer), W(Buffer, 8042 Data & 8048 Command)
+#define PORT_SPEAKER     0x61
+#define KEYBOARD_CMD     0x64 // R(Status), W(8042 Command)
 
 #define PORT_CMOS_ADDR 0x70
 #define PORT_CMOS_DATA 0x71

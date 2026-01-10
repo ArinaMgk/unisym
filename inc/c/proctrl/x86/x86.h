@@ -149,6 +149,13 @@ static inline void enInterrupt(int enable) {
 		InterruptDisable();
 }
 
+static inline
+void PagingEnable(void) {
+	__asm("movl %cr0, %eax\n");
+	__asm("or   $0x80000000, %eax\n");// enable paging
+	__asm("movl %eax, %cr0\n");
+}
+
 void InterruptDTabLoad(void* addr);
 
 
@@ -165,6 +172,12 @@ inline static void loadIDT(uint32 address, uint16 length) {
 	InterruptDTabLoad(&tmp48_le);// AAS(LIDT tmp48_le), GAS("lidt %0" :: "m" (tmp48_le))
 }
 dword getCR3();
+inline static
+void setCR3(dword cr3)
+{
+	__asm("movl %0, %%eax\n" : : "r"(cr3));
+	__asm("movl %eax, %cr3\n");
+}
 dword getEflags();
 
 // ---- ---- JMPs ---- ---- //

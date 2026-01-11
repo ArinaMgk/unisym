@@ -44,6 +44,7 @@ extern "C" {
 #endif
 	extern char _tab_HEXA[16];
 	extern char _tab_hexa[16];
+	void _preprocess();
 //	
 #if defined(_INC_CPP) || defined(__cplusplus)
 }

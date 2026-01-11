@@ -35,7 +35,7 @@ enum Procontroller_t // work with Architecture_t
 	#include "../board/IBM.h"
 	#define _SUPPORT_Port8
 #elif defined(_ARC_RISCV_64)
-	#include "RISCV/riscv64.h"
+	#include "RISCV/riscv.h"
 #else
 	//...
 #endif

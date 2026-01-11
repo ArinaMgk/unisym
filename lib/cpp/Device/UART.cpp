@@ -177,7 +177,7 @@ namespace uni {
 
 }
 
-#elif defined(_MCCA) && (_MCCA == 0x1032 || _MCCA == 0x1064)// for QEMUVIRT-RV UART0
+#elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000) // for QEMUVIRT-RV UART0
 namespace uni {
 	UART_t UART0(0, _TEMP 115200);
 	

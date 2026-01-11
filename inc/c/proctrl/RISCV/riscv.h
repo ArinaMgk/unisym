@@ -1,18 +1,14 @@
 // ASCII GNU-C99 TAB4 CRLF
 // Attribute: Little-Endian(Byte, Bit)
-// LastCheck: 20240523
-// AllAuthor: @dosconio
+// AllAuthor: @ArinaMgk
 // ModuTitle: General Header for x86 CPU
+#ifndef _INC_RISCV
+#define _INC_RISCV
 
-#ifndef _INC_RISCV_64
-#define _INC_RISCV_64
+#include "../../stdinc.h"
 
-#ifndef _OPT_RISCV64
-	#define _OPT_RISCV64
-	#endif
-	#include "../../stdinc.h"
-
-// Machine Status Register, mstatus
+//[mstatus]
+// ---- Machine Status Register ----
 
 #define _MSTATUS_MPP_MASK (3L << 11) // previous mode.
 #define _MSTATUS_MPP_M    (3L << 11)
@@ -20,23 +16,25 @@
 #define _MSTATUS_MPP_U    (0L << 11)
 #define _MSTATUS_MIE      (1L << 3 ) // machine-mode interrupt enable.
 
-static inline uint64 getMSTATUS() {
-	uint64 x;
+static inline stduint getMSTATUS() {
+	stduint x;
 	asm volatile("csrr %0, mstatus" : "=r"(x));
 	return x;
 }
 
-static inline void setMSTATUS(uint64 x) {
+static inline void setMSTATUS(stduint x) {
 	asm volatile("csrw mstatus, %0" : : "r"(x));
 }
 
-// machine exception program counter
+//[MPEC]
+// ---- machine exception program counter ----
 // holds code address to go after exception
-static inline void setMEPC(uint64 x) {
+static inline void setMEPC(stduint x) {
 	asm volatile("csrw mepc, %0" : : "r"(x));
 }
 
-// Supervisor Status Register, sstatus
+//[sstatus]
+// ---- Supervisor Status Register ----
 
 #define _SSTATUS_SPP  (1L << 8) // Previous mode, 1=Supervisor, 0=User
 #define _SSTATUS_SPIE (1L << 5) // Supervisor Previous Interrupt Enable
@@ -44,112 +42,150 @@ static inline void setMEPC(uint64 x) {
 #define _SSTATUS_SIE  (1L << 1) // Supervisor Interrupt Enable
 #define _SSTATUS_UIE  (1L << 0) // User Interrupt Enable
 
-static inline uint64 getSSTATUS() {
-	uint64 x;
+static inline stduint getSSTATUS() {
+	stduint x;
 	asm volatile("csrr %0, sstatus" : "=r"(x));
 	return x;
 }
 
-static inline void setSSTATUS(uint64 x) {
+static inline void setSSTATUS(stduint x) {
 	asm volatile("csrw sstatus, %0" : : "r"(x));
 }
 
+// ---- ---- ---- ---- TRAP ---- ---- ---- ---- //
 
-// Supervisor Interrupt Pending
-static inline uint64 getSIP() {
-	uint64 x;
+//[SIP]
+// ---- Supervisor Interrupt Pending ----
+static inline stduint getSIP() {
+	stduint x;
 	asm volatile("csrr %0, sip" : "=r"(x));
 	return x;
 }
 
-static inline void setSIP(uint64 x) {
+static inline void setSIP(stduint x) {
 	asm volatile("csrw sip, %0" : : "r"(x));
 }
 
-// Supervisor Interrupt Enable
+//[SIE]
+// ---- Supervisor Interrupt Enable ----
 #define _SIE_SEIE (1L << 9) // external
 #define _SIE_STIE (1L << 5) // timer
 #define _SIE_SSIE (1L << 1) // software
 
-static inline uint64 getSIE() {
-	uint64 x;
+static inline stduint getSIE() {
+	stduint x;
 	asm volatile("csrr %0, sie" : "=r"(x));
 	return x;
 }
 
-static inline void setSIE(uint64 x) {
+static inline void setSIE(stduint x) {
 	asm volatile("csrw sie, %0" : : "r"(x));
 }
 
-// Machine-mode Interrupt Enable
+//[MIE]
+// ---- Machine-mode Interrupt Enable ----
 #define _MIE_MEIE (1L << 11) // external
 #define _MIE_MTIE (1L << 7) // timer
 #define _MIE_MSIE (1L << 3) // software
 
-static inline uint64 getMIE() {
-	uint64 x;
+static inline stduint getMIE() {
+	stduint x;
 	asm volatile("csrr %0, mie" : "=r"(x));
 	return x;
 }
 
-static inline void setMIE(uint64 x) {
+static inline void setMIE(stduint x) {
 	asm volatile("csrw mie, %0" : : "r"(x));
 }
 
-// machine exception program counter
+//[SEPC]
+// ---- machine exception program counter ----
 // holds the code instruction address to go after exception
 
-static inline uint64 getSEPC() {
-	uint64 x;
+static inline stduint getSEPC() {
+	stduint x;
 	asm volatile("csrr %0, sepc" : "=r"(x));
 	return x;
 }
 
-static inline void setSEPC(uint64 x) {
+static inline void setSEPC(stduint x) {
 	asm volatile("csrw sepc, %0" : : "r"(x));
 }
 
+//[medeleg]
+// ---- Machine Exception Delegation ----
 
-// Machine Exception Delegation
-
-static inline uint64 getMEDELEG() {
-	uint64 x;
+static inline stduint getMEDELEG() {
+	stduint x;
 	asm volatile("csrr %0, medeleg" : "=r"(x));
 	return x;
 }
 
-static inline void setMEDELEG(uint64 x) {
+static inline void setMEDELEG(stduint x) {
 	asm volatile("csrw medeleg, %0" : : "r"(x));
 }
 
-// Machine Interrupt Delegation
-static inline uint64 getMIDELEG() {
-	uint64 x;
+//[mideleg]
+// ---- Machine Interrupt Delegation ----
+static inline stduint getMIDELEG() {
+	stduint x;
 	asm volatile("csrr %0, mideleg" : "=r"(x));
 	return x;
 }
 
-static inline void setMIDELEG(uint64 x) {
+static inline void setMIDELEG(stduint x) {
 	asm volatile("csrw mideleg, %0" : : "r"(x));
 }
 
-// Supervisor Trap-Vector Base Address
+//[stvec]
+// ---- Supervisor Trap-Vector Base Address ----
 // low two bits are mode.
 
-static inline uint64 getSTVEC() {
-	uint64 x;
+static inline stduint getSTVEC() {
+	stduint x;
 	asm volatile("csrr %0, stvec" : "=r"(x));
 	return x;
 }
 
-static inline void setSTVEC(uint64 x) {
+static inline void setSTVEC(stduint x) {
 	asm volatile("csrw stvec, %0" : : "r"(x));
 }
 
-// Machine-mode interrupt vector
-static inline void setMTVEC(uint64 x) {
+//[mtvec]
+// ---- Machine-mode interrupt vector ----
+static inline void setMTVEC(stduint x) {
 	asm volatile("csrw mtvec, %0" : : "r"(x));
 }
+
+//[SCAUSE]
+// Supervisor Trap Cause
+static inline uint64 getSCAUSE() {
+	uint64 x;
+	asm volatile("csrr %0, scause" : "=r"(x));
+	return x;
+}
+
+//[STVAL]
+// Supervisor Trap Value
+static inline uint64 getSTVAL() {
+	uint64 x;
+	asm volatile("csrr %0, stval" : "=r"(x));
+	return x;
+}
+
+// en/disable device interrupts
+static inline void enInterrupt(int enable) {
+	if (enable)
+		setSSTATUS(getSSTATUS() | _SSTATUS_SIE);
+	else
+		setSSTATUS(getSSTATUS() & ~_SSTATUS_SIE);
+}
+
+static inline int getInterrupt() {
+	return (getSSTATUS() & _SSTATUS_SIE) != 0;
+}
+
+// ---- ---- ---- ---- . ---- ---- ---- ---- //
 
 // use riscv's sv39 page table scheme.
 #define _SATP_SV39 (8L << 60)
@@ -177,19 +213,7 @@ static inline void setMSCRATCH(uint64 x) {
 	asm volatile("csrw mscratch, %0" : : "r"(x));
 }
 
-// Supervisor Trap Cause
-static inline uint64 getSCAUSE() {
-	uint64 x;
-	asm volatile("csrr %0, scause" : "=r"(x));
-	return x;
-}
 
-// Supervisor Trap Value
-static inline uint64 getSTVAL() {
-	uint64 x;
-	asm volatile("csrr %0, stval" : "=r"(x));
-	return x;
-}
 
 // Machine-mode Counter-Enable
 static inline uint64 getMCOUNTEREN() {
@@ -209,17 +233,6 @@ static inline uint64 getTIME() {
 	return x;
 }
 
-// en/disable device interrupts
-static inline void enInterrupt(int enable) {
-	if (enable)
-		setSSTATUS(getSSTATUS() | _SSTATUS_SIE);
-	else
-		setSSTATUS(getSSTATUS() & ~_SSTATUS_SIE);
-}
-
-static inline int getInterrupt() {
-	return (getSSTATUS() & _SSTATUS_SIE) != 0;
-}
 
 static inline uint64 getSP() {
 	uint64 x;
@@ -285,5 +298,6 @@ static inline uint64 getR0() {
 	asm volatile("mv %0, x10" : "=r"(x));
 	return x;
 }
+
 
 #endif

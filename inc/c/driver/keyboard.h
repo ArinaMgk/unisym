@@ -49,6 +49,8 @@ struct keyboard_state_t {
 	//
 };
 
+// ---- ATX PS/2 Keyboard ---- //
+
 #define KEYBOARD_LED 0xED
 #define KEYBOARD_ACK 0xFA
 
@@ -60,8 +62,36 @@ _ESYM_C void Keyboard_Wait();
 // stat: B2 Caps, B1 Num, B0 Scroll
 _ESYM_C void KbdSetLED(byte stat);
 
-#if 1
+// ---- ATX USB Keyboard ---- //
 
+#if defined(_INC_CPP) && (defined(_MCCA) && ((_MCCA)==0x8664))
+#include "../../../inc/c/msgface.h"
+#include <functional>
+#include "../../cpp/Device/USB/USB.hpp"
+#include "../../cpp/Device/USB/USB-Header.hpp"
+
+
+namespace usb {
+	class HIDKeyboardDriver : public HIDBaseDriver {
+	public:
+		HIDKeyboardDriver(Device* dev, int interface_index);
+
+		void* operator new(size_t size);
+		void operator delete(void* ptr) noexcept;
+
+		Error OnDataReceived() override;
+
+		using ObserverType = void(uint8_t keycode);
+		void SubscribeKeyPush(std::function<ObserverType> observer);
+		static std::function<ObserverType> default_observer;
+
+	private:
+		std::array<std::function<ObserverType>, 4> observers_;
+		int num_observers_ = 0;
+
+		void NotifyKeyPush(uint8_t keycode);
+	};
+}
 
 #endif
 

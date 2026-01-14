@@ -137,6 +137,8 @@ namespace uni {
 		inline void setCursor(Point disp) { vci.SetCursor(disp); }
 		inline Point getCursor() { return vci.GetCursor(); { return Point(); } }
 
+		inline VideoControlInterface& getVCI() const { return *(VideoControlInterface*)&vci; }
+
 		// draw
 		void DrawLine(Point disp, Size2 size, Color color, bool negSizy = false);
 		void Draw(Rectangle rect);

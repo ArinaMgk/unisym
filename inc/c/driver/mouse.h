@@ -23,6 +23,8 @@
 #ifndef _INC_DEVICE_Mouse
 #define _INC_DEVICE_Mouse
 
+
+
 #include "../stdinc.h"
 
 // x86
@@ -44,6 +46,34 @@ struct MouseMessage {
 // pres: init keyboard
 _ESYM_C void Mouse_Init();
 
+#if defined(_INC_CPP) && (defined(_MCCA) && ((_MCCA)==0x8664))
+#include "../../../inc/c/msgface.h"
+#include <functional>
+#include "../../cpp/Device/USB/USB.hpp"
+#include "../../cpp/Device/USB/USB-Header.hpp"
 
+namespace usb {
+	class HIDMouseDriver : public HIDBaseDriver {
+	public:
+		HIDMouseDriver(Device* dev, int interface_index);
+
+		void* operator new(size_t size);
+		void operator delete(void* ptr) noexcept;
+
+		Error OnDataReceived() override;
+
+		using ObserverType = void(int8_t displacement_x, int8_t displacement_y);
+		void SubscribeMouseMove(std::function<ObserverType> observer);
+		static std::function<ObserverType> default_observer;
+
+	private:
+		std::array<std::function<ObserverType>, 4> observers_;
+		int num_observers_ = 0;
+
+		void NotifyMouseMove(int8_t displacement_x, int8_t displacement_y);
+	};
+}
+
+#endif
 
 #endif

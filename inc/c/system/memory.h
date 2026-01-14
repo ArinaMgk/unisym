@@ -25,10 +25,13 @@
 
 #include "../stdinc.h"
 
-#ifndef _STDLIB_H
-	#define _STDLIB_H
-	#endif
+// #ifndef _STDLIB_H
+// 	#define _STDLIB_H
+// 	#endif
 //#define __stdlib_h
+// #define _BITS_ERRNO_H
+
+// ---- above ---- stdlib.h
 
 #if !defined(_DEBUG) && !defined(_dbg)
 	#define memalloc(dest,size)\
@@ -53,16 +56,25 @@ _ESYM_C void memf(void* m);// non-side-effect version, with null-check
 
 #ifdef _INC_CPP
 
-#if defined(_DEV_GCC) && defined(_MCCA)
-#if _MCCA != 0x8632
+#if defined(_DEV_GCC) && defined(_MCCA) && !defined(_NEW)
+
 // ---- std.new
+_ESYM_CPP
 inline void* operator new(size_t, void* p) { return p; }// #include <new>
-#define _NEW// GCC Header Guard
-#else
-_ESYM_CPP{
-	#include <new>
+
+
+namespace std {
+	struct nothrow_t {
+		#if __cplusplus >= 201103L
+		explicit nothrow_t() = default;
+		#endif
+	};
+	extern const nothrow_t nothrow;
 }
-#endif
+_ESYM_CPP
+void* operator new(size_t size, const std::nothrow_t&) noexcept;
+
+#define _NEW// GCC Header Guard
 #endif
 
 
@@ -99,7 +111,14 @@ _ESYM_C void    memrelease();
 // #define _memory_prefix
 #include "corecrt_malloc.h"
 #elif defined(__stdlib_h)// ARMGCC
-#else
+// #elif defined(_STDLIB_H)
+#elif defined(_Linux)
+#include <stdlib.h>
+#else 
+#if defined(_MCCA) && ((_MCCA & 0xFF00) != 0x1000)
+#include <stdlib.h>
+#endif
+
 #define _memory_midfix
 #define _memory_prefix _ESYM_C
 _memory_prefix void*  calloc(size_t nmemb, size_t size);

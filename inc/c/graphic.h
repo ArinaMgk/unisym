@@ -30,14 +30,24 @@
 namespace uni {
 #endif
 
-	typedef struct PointD {
+	typedef struct Point2 {
 		stduint x, y;
 	public:
-		PointD(stduint x = 0, stduint y = 0) : x(x), y(y) {}
+		Point2(stduint x = 0, stduint y = 0) : x(x), y(y) {}
+
+		Point2& operator +=(const Point2& p) {
+			x += p.x;
+			y += p.y;
+			return self;
+		}
 	} Point, Size2;
 
 	struct Position {
 		stdint x, y, z, t;
+	};
+
+	struct Size2dif {
+		stdsint x, y;
 	};
 
 	typedef double Line2[3];// x*[0] + y*[1] + [2] {=, <, <=} 0

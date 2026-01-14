@@ -24,6 +24,7 @@
 #define _INC_INTEGER_X
 
 #include "unisym"
+#include <stdlib.h>
 #include "property"
 
 namespace uni {

@@ -23,17 +23,38 @@
 #ifndef _INC_PORT_X
 #define _INC_PORT_X
 
-#include "../c/stdinc.h"
+#include "../c/stdinc.h"// unicpp
+// , stlcpp, modcpp
+
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 
 namespace uni {
 	template<typename typeUint>
-	class Port {
+	class Port // : IstreamT, OstreamT
+	{
 	public:
-		Port(unsigned port_id) : port_iden(port_id) {}
-		operator= (typeUint);
-		operator typeUint() const;
+		Port(stduint port_id) : port_iden(port_id) {}
+		Port& operator= (typeUint data) {
+			switch (sizeof(typeUint))
+			{
+			case 1: outpb(port_iden, (byte)data); break;
+			case 2: outpw(port_iden, (word)data); break;
+			case 4: outpd(port_iden, (dword)data); break;
+			default: break;
+			}
+			return self;
+		}
+		operator typeUint() const {
+			switch (sizeof(typeUint))
+			{
+			case 1: return innpb(port_iden);
+			case 2: return innpw(port_iden);
+			case 4: return innpd(port_iden);
+			default: return 0;
+			}
+		}
 	protected:
-		unsigned port_iden;
+		stduint port_iden;
 	};
 
 	template<word portaddr>
@@ -41,6 +62,7 @@ namespace uni {
 		_TODO
 	};
 }
+#endif
 
 // extern "C++" uni::Port _PORT;
 

@@ -21,7 +21,7 @@
 */
 
 #include "../../inc/c/ISO_IEC_STD/stdlib.h"
-
+#if 0
 unchecked //{TODO} implementation by ASMx86(Hard) and (Soft) <- Decide by ARCHITECTURE
 
 struct div_t div(int numer, int denom)
@@ -47,3 +47,4 @@ struct lldiv_t lldiv(long long int numer, long long int denom)
 	result.rem = numer % denom;
 	return result;
 }
+#endif

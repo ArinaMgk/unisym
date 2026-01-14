@@ -11,6 +11,8 @@ GLOBAL _OUT_b, _IN_b; out dx, al; in al, dx;
 GLOBAL OUT_b, IN_b;
 GLOBAL _OUT_w, _IN_w; out dx, ax; in ax, dx;
 GLOBAL OUT_w, IN_w;
+GLOBAL OUT_d, IN_d;
+
 GLOBAL IN_wn, _IN_wn;
 GLOBAL OUT_wn, _OUT_wn;
 
@@ -115,6 +117,54 @@ IN_w:
 	MOV ESP, EBP
 	POP EBP
 RET
+
+
+; __fastcall void OUT_d(word Port, dword Data);
+; VOID <<< _OUT_d <<< ECX(Port), EDX(Data)
+OUT_d:
+;	XCHG CX, DX
+;	XCHG CX, AX
+;	OUT DX, AX
+;	XCHG CX, AX
+;	XCHG CX, DX
+	;{TEMP} Linux did not accept __fastcall, so use CDECL
+	; - [EBP+4*0]=BP
+	; - [EBP+4*1]=Return Address
+	; - [EBP+4*2]=Port
+	; - [EBP+4*3]=Data
+	PUSH EBP
+	MOV EBP, ESP
+	PUSH DX
+	PUSH EAX
+	MOV DX, [EBP+4*2]
+	MOV EAX, [EBP+4*3]
+	OUT DX, EAX
+	POP EAX
+	POP DX
+	MOV ESP, EBP
+	POP EBP
+RET
+
+; __fastcall word IN_d(word Port);
+; WORD <<< _IN_d <<< ECX(Port)
+IN_d:
+;	XCHG CX, DX
+;	IN AX, DX
+;	XCHG CX, DX
+	;{TEMP} Linux did not accept __fastcall, so use CDECL
+	; - [EBP+4*0]=BP
+	; - [EBP+4*1]=Return Address
+	; - [EBP+4*2]=Port
+	PUSH EBP
+	MOV EBP, ESP
+	PUSH DX
+	MOV DX, [EBP+4*2]
+	IN EAX, DX
+	POP DX
+	MOV ESP, EBP
+	POP EBP
+RET
+
 
 IN_wn:
 _IN_wn:

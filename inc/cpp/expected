@@ -1,0 +1,69 @@
+// ASCII C++-ISO11 TAB4 CRLF
+// Docutitle: (Interface) Excepted
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+// Parallels: Option<T> Result<T,E>
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+// compatible with
+// - C++23 excepted<T,E>
+// - Rust  Result<T,E>
+
+namespace uni {
+	template <class type0, class typeError>
+	struct expected {
+		type0* pvalue;
+		typeError error;
+		byte value_value[sizeof(type0)];
+		//
+		expected(type0 value, typeError error, bool is_expected) {
+			pvalue = !is_expected ? nullptr : new (value_value) type0(value);
+			if (!is_expected) {
+				this->error = error;
+			}
+		}
+		expected(const type0& value) {
+			pvalue = new (value_value) type0(value);
+		}
+		expected(const typeError& err)
+			: pvalue(nullptr), error(err) {
+		}
+		template<class OtherType0>
+		expected(const expected<OtherType0, typeError>& other) {
+			if (other.pvalue);
+			else {
+				pvalue = nullptr;
+				error = other.error;
+			}
+		}
+
+		~expected() {
+			if (pvalue) {
+				pvalue->~type0();
+			}
+		}
+	};
+
+	template<class typeError>
+	auto unexpected(typeError error) {
+		// return expected<decltype(error){}, typeError> (decltype(error){}, error);
+		struct void_type {} _;
+		return expected<void_type, typeError>(_, error, false);
+	}
+}

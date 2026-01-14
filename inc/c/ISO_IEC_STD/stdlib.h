@@ -22,10 +22,15 @@
 
 #ifndef _INC_STDLIB
 #define _INC_STDLIB
+#include <stdlib.h>
+#endif
 
-#define _STDLIB_H// GCC
-#define _CSTDLIB_// MSVC
-#define _GLIBCXX_CSTDLIB
+#ifndef _INC_STDLIB
+#define _INC_STDLIB
+
+// #define _STDLIB_H// GCC
+// #define _CSTDLIB_// MSVC
+// #define _GLIBCXX_CSTDLIB
 
 #include "../stdinc.h"// {archit.h}
 #include "../widechar.h"
@@ -42,6 +47,7 @@
 
 
 #if defined(_INC_CPP)
+/*
 namespace std {
 	//declare in random.h
 	int rand(void);
@@ -54,7 +60,7 @@ namespace std {
 	long long int strtoll(const char* inp, char** endptr, int base);
 	unsigned long long int strtoull(const char* inp, char** endptr, int base);
 }
-
+*/
 //namespace uni {
 extern "C" {
 #endif
@@ -63,6 +69,7 @@ extern "C" {
 // - size_t よ archit.h
 // - wchar_t よ widechar.h
 // - div_t
+
 typedef struct div_t {
 	int quot; // EAX
 	int rem;  // EDX

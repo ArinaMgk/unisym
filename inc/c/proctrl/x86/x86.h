@@ -8,6 +8,18 @@
 #ifndef _INC_X86
 #define _INC_X86
 
+// ---- ATX Board
+
+enum PORT_ATX_X86
+#ifdef _INC_CPP
+	: uint16
+#endif
+{
+	PORT_PCI_CONFIG_ADDR = 0x0CF8,//? dword
+	PORT_PCI_CONFIG_DATA = 0x0CFC,//? dword
+};
+
+
 enum _CPU_x86_descriptor_type
 {
 	_Dptr_TSS286_Available = 1,
@@ -128,14 +140,18 @@ void OUT_b(word Port, byte Data);
 word IN_b(word Port);
 void OUT_w(word Port, word Data);
 word IN_w(word Port);
+void OUT_d(word Port, dword Data);
+dword IN_d(word Port);
 void IN_wn(word Port, word* Data, unsigned n_bytes);
 void OUT_wn(word Port, word* Data, unsigned n);
 #define outpi// Out to Port's Pin
 #define outpb OUT_b
 #define outpw OUT_w
+#define outpd OUT_d
 #define innpi// In from Port's Pin
 #define innpb IN_b
 #define innpw IN_w
+#define innpd IN_d
 
 // ---- lib/asm/x86/inst/manage.asm ----
 void HALT(void);

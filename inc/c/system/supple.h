@@ -87,6 +87,19 @@ extern void JumpPoint(const Retpoint* buf, pureptr_t val);
 //#define setjmp MarkPoint
 //inline static void longjmp(jmp_buf buf, int v) { JumpPoint(&buf, v); }
 
+#if defined(_DEV_GCC) && defined(_MCCA) && ((_MCCA & 0xFF00) != 0x1000)
+
+# if __WORDSIZE == 64
+typedef long int __jmp_buf[8];
+# elif defined  __x86_64__
+__extension__ typedef long long int __jmp_buf[8];
+# else
+typedef int __jmp_buf[6];
+# endif
+#include <setjmp.h>
+
+#endif
+
 // ---- { MORE } ----
 
 #endif

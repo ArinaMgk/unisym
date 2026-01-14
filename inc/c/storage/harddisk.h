@@ -59,7 +59,7 @@ namespace uni {
 		};//{} ControllerType. Move out and into class `Harddisk`
 		enum class ReactType {
 			None,// invalid mode
-			Loop,
+			Loop,// Polling
 			Rupt,// ! need bind 3 functions
 		};
 		byte id;// 0x00=0:0(primary master), 0x11=1:1(secondary slave) ...

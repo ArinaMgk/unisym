@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Module) Mempool
+// Docutitle: (Trait) Memory Allocator
 // Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -20,35 +20,34 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MEMPOOL
-#define _INC_MEMPOOL
+// Application
+// - mempool
 
-#include "./stdinc.h"
-
-#if defined(_INC_CPP)
-#include "../cpp/trait/MallocTrait.hpp"
-extern "C" {
-#endif
-
-
-#if defined(_INC_CPP)
-} //: C++ Area
-
-
+#ifndef _INCPP_TRAIT_Malloc
+#define _INCPP_TRAIT_Malloc
+#include "../unisym"
+#include "../string"
 namespace uni {
-	class Mempool : public trait::Malloc {
-		// Slice[0] = { nextpool, leftpool }
-		// Slice[1] = { owner_id, slicecnt } slicecnt is for this pool
-		// Slice[2..] are real memory slices
-		Slice pool_allocated[0x1000 / sizeof(Slice)];
-		Slice pool_available[0x1000 / sizeof(Slice)];
-		//
+	namespace trait {
+		class Malloc {
+		public:
+			byte alignment;// exponent of two. 0 for no alignment.
+		public:
+			~Malloc() noexcept = default;
+			//
+			virtual void* allocate(stduint size) = 0;
+			virtual bool deallocate(void* ptr, stduint size = 0 _Comment(zero_for_block)) = 0;
+			virtual void* reallocate(void* ptr, stduint old_size, stduint size) {
+				// general method
+				if (void* newptr = allocate(size)) {
+					MemCopyN(newptr, ptr, old_size);
+					deallocate(ptr);
+				}
+				else return nullptr;
+			}
+		};
+	}
+}
 
-	};
 
-} //END C++ Area
-#else//: C Area
-
-//END C Area
-#endif
-#endif
+#endif // _INCPP_TRAIT_Malloc

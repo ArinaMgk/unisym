@@ -30,11 +30,13 @@ namespace uni {
 	void RuptTrait::enInterrupt(bool enable) const { (void)enable; }
 }
 
-#if defined(_MCCA) && _MCCA == 0x8632
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 #include "../../inc/c/driver/i8259A.h"
 
 //{TODO} Implement in Magice/AASM, because GCC compile this may be bad for different version or optimization level.
 // __attribute__((interrupt)) is useless
+
+#if _MCCA == 0x8632
 
 #define ENTER __asm("push %ebp; mov %esp, %ebp")
 
@@ -192,8 +194,10 @@ static stduint ERQ_Handlers[0x20]{
 	_IMM(Else_ERQHandler),// 0x1F
 };
 
+#endif
 
 _ESYM_C __attribute__((interrupt, target("general-regs-only")))
+#if _MCCA == 0x8632
 void General_IRQHandler(void* frame) {
 	// __asm("push %eax");
 	// __asm("mov $0x20, %al");
@@ -202,6 +206,15 @@ void General_IRQHandler(void* frame) {
 	// __asm("pop  %eax");
 	// __asm("iretl");
 }
+#elif _MCCA == 0x8664
+void General_IRQHandler(InterruptFrame* frame) {
+	sendEOI();
+}
+#else
+#error unknown mcca
+#endif
+
+#if _MCCA == 0x8632
 
 void uni::InterruptControl::enAble(bool enable) {
 	if (enable) {
@@ -229,14 +242,15 @@ void uni::InterruptControl::enAble(bool enable) {
 
 void uni::InterruptControl::Reset(word SegCode, stduint Offset) {
 	for0a(i, ERQ_Handlers) {
-		GateStructInterruptR0(&self[i], ERQ_Handlers[i] + Offset, SegCode, 0);
+		self[i].gate_t::setModeRupt(ERQ_Handlers[i] + Offset, SegCode);
 	}
 	for (stduint i = 0x20; i < 256; i++) {
-		GateStructInterruptR0(&self[i], _IMM(General_IRQHandler) + Offset, SegCode, 0);
+		self[i].gate_t::setModeRupt(_IMM(General_IRQHandler) + Offset, SegCode);
 	}
 	loadIDT(_IMM(IVT_SEL_ADDR), 256 * sizeof(gate_t) - 1);
 }
-	
+#endif
+
 #elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
 namespace uni {

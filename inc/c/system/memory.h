@@ -59,10 +59,13 @@ _ESYM_C void memf(void* m);// non-side-effect version, with null-check
 #if defined(_DEV_GCC) && defined(_MCCA) && !defined(_NEW)
 
 // ---- std.new
+#if !((_MCCA & 0xFF00) == 0x1000)
+_ESYM_CPP{
+#include <new>
+}
+#else
 _ESYM_CPP
 inline void* operator new(size_t, void* p) { return p; }// #include <new>
-
-
 namespace std {
 	struct nothrow_t {
 		#if __cplusplus >= 201103L
@@ -73,8 +76,8 @@ namespace std {
 }
 _ESYM_CPP
 void* operator new(size_t size, const std::nothrow_t&) noexcept;
-
 #define _NEW// GCC Header Guard
+#endif
 #endif
 
 

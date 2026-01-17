@@ -8,40 +8,16 @@
 #ifndef _INC_X86
 #define _INC_X86
 
-// ---- ATX Board
-
-enum PORT_ATX_X86
-#ifdef _INC_CPP
-	: uint16
-#endif
-{
-	PORT_PCI_CONFIG_ADDR = 0x0CF8,//? dword
-	PORT_PCI_CONFIG_DATA = 0x0CFC,//? dword
-};
+#include "../IAx86_64.h"
 
 
-enum _CPU_x86_descriptor_type
-{
-	_Dptr_TSS286_Available = 1,
-	_Dptr_LDT = 2,
-	_Dptr_TSS286_Busy = 3,
-	_Dptr_CallGate286 = 4,
-	_Dptr_TaskGate = 5,
-	_Dptr_InterruptGate286 = 6,
-	_Dptr_TrapGate286 = 7,
-	//
-	_Dptr_TSS386_Available = 9,
-	_Dptr_TSS386_Busy = 0xB,
-	_Dptr_CallGate386 = 0xC,
-	_Dptr_InterruptGate386 = 0xE,
-	_Dptr_TrapGate386 = 0xF,
-};
+
 typedef struct _CPU_x86_descriptor
 {
 	word limit_low;
 	word base_low;
 	byte base_middle;
-	byte typ : 4;
+	_CPU_descriptor_type typ : 4;
 	byte notsys : 1;
 	byte DPL : 2;
 	byte present : 1;
@@ -63,7 +39,7 @@ typedef struct _CPU_x86_descriptor
 } descriptor_t;
 
 // return nothing
-static inline void GlobalDescriptor32Set(descriptor_t* gdte, dword base, dword limit, byte typ, byte DPL, byte not_sys, byte db, byte gran)
+static inline void GlobalDescriptor32Set(descriptor_t* gdte, dword base, dword limit, _CPU_descriptor_type typ, byte DPL, byte not_sys, byte db, byte gran)
 {
 	gdte->limit_low = limit & 0xFFFF;
 	gdte->limit_high = (limit >> 16) & 0xF;
@@ -78,92 +54,21 @@ static inline void GlobalDescriptor32Set(descriptor_t* gdte, dword base, dword l
 	gdte->granularity = gran;
 }
 
-typedef struct _CPU_x86_gate
-{
-	word offset_low;
-	word selector;
-	byte param_count : 5;
-	byte zero : 3;
-	byte type : 4;
-	byte notsys : 1;
-	byte DPL : 2;
-	byte present : 1;
-	word offset_high;
-#ifdef _INC_CPP
-	void setRange(dword addr, word segsel) {
-		offset_low = addr;
-		offset_high = addr >> 16;
-		selector = segsel;
-	}
-	// default (1_11_01100_00000000)
-	// - zero parameter
-	// - ring 3
-	void setModeCall(dword addr, word segsel) {
-		setRange(addr, segsel);
-		param_count = 0;
-		zero = 0;
-		type = 0b1100;
-		notsys = 0;
-		DPL = 3;
-		present = 1;
-	}
-#endif
-} gate_t;
+
 
 #ifdef _INC_CPP
 extern "C" {
 #endif
 
-static inline dword DescriptorBaseGet(descriptor_t* desc)
+static inline 
+dword DescriptorBaseGet(descriptor_t* desc)
 {
 	return desc->base_low | (desc->base_middle << 16) | (desc->base_high << 24);
 }
 
-static inline gate_t* GateStructInterruptR0(gate_t* gate, dword addr, word segm, byte paracnt)
-{
-	gate->offset_low = addr & 0xFFFF;
-	gate->selector = segm;
-	gate->param_count = paracnt;
-	gate->type = 0xE;// interrupt gate
-	gate->notsys = 0;
-	gate->DPL = 0;
-	gate->present = 1;
-	gate->offset_high = (addr >> 16) & 0xFFFF;
-	return gate;
-}
 
-// lib/asm/x86/inst/inst.asm
-int setA32(int);
-
-// lib/asm/x86/inst/ioport.asm
-void OUT_b(word Port, byte Data);
-word IN_b(word Port);
-void OUT_w(word Port, word Data);
-word IN_w(word Port);
-void OUT_d(word Port, dword Data);
-dword IN_d(word Port);
-void IN_wn(word Port, word* Data, unsigned n_bytes);
-void OUT_wn(word Port, word* Data, unsigned n);
-#define outpi// Out to Port's Pin
-#define outpb OUT_b
-#define outpw OUT_w
-#define outpd OUT_d
-#define innpi// In from Port's Pin
-#define innpb IN_b
-#define innpw IN_w
-#define innpd IN_d
 
 // ---- lib/asm/x86/inst/manage.asm ----
-void HALT(void);
-
-void InterruptEnable(void);
-void InterruptDisable(void);
-static inline void enInterrupt(int enable) {
-	if (enable)
-		InterruptEnable();
-	else
-		InterruptDisable();
-}
 
 static inline
 void PagingEnable(void) {
@@ -171,30 +76,6 @@ void PagingEnable(void) {
 	__asm("or   $0x80000000, %eax\n");// enable paging
 	__asm("movl %eax, %cr0\n");
 }
-
-void InterruptDTabLoad(void* addr);
-
-
-inline static void loadGDT(uint32 address, uint16 length) {
-	_PACKED(struct) { uint16 u_16fore; uint32 u_32back; } tmp48_le;
-	tmp48_le.u_32back = address;
-	tmp48_le.u_16fore = length;
-	__asm("lgdt %0" : "=m" (tmp48_le));
-}
-inline static void loadIDT(uint32 address, uint16 length) {
-	_PACKED(struct) { uint16 u_16fore; uint32 u_32back; } tmp48_le;
-	tmp48_le.u_32back = address;
-	tmp48_le.u_16fore = length;
-	InterruptDTabLoad(&tmp48_le);// AAS(LIDT tmp48_le), GAS("lidt %0" :: "m" (tmp48_le))
-}
-dword getCR3();
-inline static
-void setCR3(dword cr3)
-{
-	__asm("movl %0, %%eax\n" : : "r"(cr3));
-	__asm("movl %eax, %cr3\n");
-}
-dword getEflags();
 
 // ---- ---- JMPs ---- ---- //
 void jmpFar(dword offs, dword selc);// <=> jmpf : jmp far

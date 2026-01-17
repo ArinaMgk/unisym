@@ -1,5 +1,5 @@
 // UTF-8 CPP TAB4 CRLF
-// Docutitle: Interrupt / 中斷 / 割り込み
+// Docutitle: Interrupt / 中斷 / 割り込み / Trap (in RISCV)
 // Codifiers: @dosconio: 20240420 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -22,6 +22,14 @@
 
 #ifndef _INC_Interrupt_X
 #define _INC_Interrupt_X
+
+/* Interrupt Controllers
+x86        PIC: Programmable Interrupt Controller
+x64       APIC: Advanced Programmable Interrupt Controller
+RISCV     PLIC: Platform-Level Interrupt Controller
+CortexM   NVIC: Nested Vectored Interrupt Controller
+CortexA    GIC: General Interrupt Controller
+*/
 
 #include "unisym"
 #include "Device/Interrupt/interrupt_tab.h"
@@ -47,7 +55,7 @@ virtual void setInterrupt(Handler_t _func) const override;\
 virtual void setInterruptPriority(byte preempt, byte sub_priority) const override;\
 virtual void enInterrupt(bool enable = true) const override // you need add colon when using
 
-#if defined(_MCCA) && _MCCA == 0x8632
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 
 namespace uni {
 	class GateInterrupt : public gate_t {
@@ -55,11 +63,11 @@ namespace uni {
 		
 	};
 	class InterruptControl {
-		// FLAP32
 	protected:
 		// 0x400 at least.
 		GateInterrupt* IVT_SEL_ADDR;
 	public:
+		// @param _ivt_sel_addr: linear address but physical
 		InterruptControl(stduint _ivt_sel_addr) : IVT_SEL_ADDR((GateInterrupt*)_ivt_sel_addr) {}
 		GateInterrupt& operator[](uint8 index) {
 			return IVT_SEL_ADDR[index];

@@ -144,6 +144,7 @@ dest_obj=$(uobjpath)/CGLin32
 dest_abs=$(ubinpath)/libl32d.a
 CC=gcc -m32
 CX=g++ -m32
+AR=ar
 LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libl32d.so.""" + __LibVersion
 
@@ -167,6 +168,7 @@ COMFLG=$(CXF1) $(CXF2) -static -nostdlib $(COMWAN) -O0
 
 CC=gcc $(COMFLG)
 CX=g++ $(COMFLG) -std=c++2a -fno-rtti -Wno-volatile
+AR=ar
 LD=ld -m elf_i386
 dest_dll=$(ubinpath)/libm32d.so.""" + __LibVersion
 
@@ -178,6 +180,7 @@ dest_obj=$(uobjpath)/CGLin64
 dest_abs=$(ubinpath)/libl64d.a
 CC=gcc -m64
 CX=g++ -m64
+AR=ar
 LD=ld -m elf_x86_64
 dest_dll=$(ubinpath)/libl64d.so.""" + __LibVersion
 

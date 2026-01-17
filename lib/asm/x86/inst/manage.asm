@@ -8,7 +8,9 @@
 GLOBAL _HALT, HALT
 GLOBAL _InterruptDisable, InterruptDTabLoad
 GLOBAL  InterruptEnable,  InterruptDisable
-GLOBAL getCR3, getEflags
+GLOBAL getCR3, getFlags
+GLOBAL setA
+
 GLOBAL jmpFar, jmpTask, CallFar
 GLOBAL _returnfar
 GLOBAL returnfar
@@ -52,9 +54,19 @@ getCR3:
 	MOV EAX, CR3
 RET
 
-getEflags:
+getFlags:
 	PUSHFD
 	POP EAX
+RET
+
+setA:
+	; - [EBP+4*0]=EBP
+	; - [EBP+4*1]=Return Address
+	; - [EBP+4*2]=Parameter
+	PUSH EBP
+	MOV EBP, ESP
+	MOV EAX, [EBP+8]
+	POP EBP
 RET
 
 ; ---- ---- JMPs ---- ---- ;

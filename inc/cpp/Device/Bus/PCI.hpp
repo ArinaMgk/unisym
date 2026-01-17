@@ -44,7 +44,9 @@ namespace uni {
 			Full,
 			Empty,
 			IndexOutOfRange,
-			LastOfCode,
+			NoPCIMSI,
+			NotImplemented,
+			LastOfCode
 		};
 
 		PCI_Result(Code code) : code_{ code } {}
@@ -58,11 +60,13 @@ namespace uni {
 		}
 
 	private:
-		static constexpr std::array<const char*, 4> code_names_ = {
+		static constexpr std::array<const char*, 6> code_names_ = {
 			"Success",
 			"Full",
 			"Empty",
 			"IndexOutOfRange",
+			"NoPCIMSI",
+			"NotImplemented",
 		};
 		Code code_;
 	};
@@ -163,12 +167,83 @@ namespace uni {
 		// std::expected<uint64, PCI_Result> ReadBar(Device& device, unsigned bar_index);
 		::uni::expected<uint64, PCI_Result::Code> ReadBar(Device& device, unsigned bar_index);
 
+	public:
+		// PCI ケーパビリティレジスタの共通ヘッダ
+		_PACKED(union) CapabilityHeader {
+			uint32_t data;
+			_PACKED(struct) {
+				uint32_t cap_id : 8;
+				uint32_t next_ptr : 8;
+				uint32_t cap : 16;
+			} bits;
+		};
+		const uint8 kCapabilityMSI = 0x05;
+		const uint8 kCapabilityMSIX = 0x11;
+
+		CapabilityHeader read_capability_header(const Device& dev, uint8 addr);
+
+		// MSI ケーパビリティ構造
+		//    は 64 ビットサポートの有無などで亜種が沢山ある．この構造体は各亜種に対応するために最大の亜種に合わせてメンバを定義してある．
+		_PACKED(struct) MSICapability {
+			_PACKED(union) {
+				uint32_t data;
+				_PACKED(struct) {
+					uint32_t cap_id : 8;
+					uint32_t next_ptr : 8;
+					uint32_t msi_enable : 1;
+					uint32_t multi_msg_capable : 3;
+					uint32_t multi_msg_enable : 3;
+					uint32_t addr_64_capable : 1;
+					uint32_t per_vector_mask_capable : 1;
+					uint32_t : 7;
+				} bits;
+			} header;
+			uint32_t msg_addr;
+			uint32_t msg_upper_addr;
+			uint32_t msg_data;
+			uint32_t mask_bits;
+			uint32_t pending_bits;
+		};
+
+		/** MSI または MSI-X 割り込みを設定する
+		 * @param msg_addr  割り込み発生時にメッセージを書き込む先のアドレス
+		 * @param msg_data  割り込み発生時に書き込むメッセージの値
+		 * @param num_vector_exponent  割り当てるベクタ数（2^n の n を指定）
+		 */
+		PCI_Result configure_MSI(const Device& dev, uint32 msg_addr, uint32 msg_data, unsigned num_vector_exponent);
+
+		enum class MSITriggerMode {
+			Edge = 0,
+			Level = 1
+		};
+		enum class MSIDeliveryMode {
+			Fixed          = 0b000,
+			LowestPriority = 0b001,
+			SMI            = 0b010,
+			NMI            = 0b100,
+			INIT           = 0b101,
+			ExtINT         = 0b111,
+		};
+
+		PCI_Result configure_MSI_fixed_destination(const Device& dev,
+			uint8 apic_id,
+			MSITriggerMode trigger_mode,
+			MSIDeliveryMode delivery_mode,
+			uint8 vector,
+			unsigned num_vector_exponent
+		);
+
 	protected:
 		PCI_Result ScanBus(uint8 bus);
 		PCI_Result ScanDevice(uint8 bus, uint8 device);
 		PCI_Result ScanFunction(uint8 bus, uint8 device, uint8 function);
 		//
 		PCI_Result AddDevice(const Device& dev);
+	protected:
+		MSICapability read_MSI_capability(const Device& dev, uint8 cap_addr);
+		void write_MSI_capability(const Device& dev, uint8 cap_addr, const MSICapability& msi_cap);
+		PCI_Result configure_MSI_register(const Device& dev, uint8_t cap_addr, uint32 msg_addr, uint32 msg_data, unsigned num_vector_exponent);
+		PCI_Result configure_MSIX_register(const Device& dev, uint8_t cap_addr, uint32 msg_addr, uint32 msg_data, unsigned num_vector_exponent);
 
 	};
 

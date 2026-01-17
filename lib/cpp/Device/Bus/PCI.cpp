@@ -121,4 +121,104 @@ expected<uint64, PCI_Result::Code> PCI::ReadBar(Device& device, unsigned bar_ind
 	return bar | (static_cast<uint64_t>(bar_upper) << 32);
 }
 
+PCI::MSICapability PCI::read_MSI_capability(const Device& dev, uint8 cap_addr) {
+	MSICapability msi_cap{};
+	msi_cap.header.data = read_config_register(dev, cap_addr);
+	msi_cap.msg_addr = read_config_register(dev, cap_addr + 4);
+	uint8_t msg_data_addr = cap_addr + 8;
+	if (msi_cap.header.bits.addr_64_capable) {
+		msi_cap.msg_upper_addr = read_config_register(dev, cap_addr + 8);
+		msg_data_addr = cap_addr + 12;
+	}
+	msi_cap.msg_data = read_config_register(dev, msg_data_addr);
+	if (msi_cap.header.bits.per_vector_mask_capable) {
+		msi_cap.mask_bits = read_config_register(dev, msg_data_addr + 4);
+		msi_cap.pending_bits = read_config_register(dev, msg_data_addr + 8);
+	}
+	return msi_cap;
+}
+
+void PCI::write_MSI_capability(const Device& dev, uint8 cap_addr, const PCI::MSICapability& msi_cap) {
+	write_config_register(dev, cap_addr, msi_cap.header.data);
+	write_config_register(dev, cap_addr + 4, msi_cap.msg_addr);
+	uint8_t msg_data_addr = cap_addr + 8;
+	if (msi_cap.header.bits.addr_64_capable) {
+		write_config_register(dev, cap_addr + 8, msi_cap.msg_upper_addr);
+		msg_data_addr = cap_addr + 12;
+	}
+	write_config_register(dev, msg_data_addr, msi_cap.msg_data);
+	if (msi_cap.header.bits.per_vector_mask_capable) {
+		write_config_register(dev, msg_data_addr + 4, msi_cap.mask_bits);
+		write_config_register(dev, msg_data_addr + 8, msi_cap.pending_bits);
+	}
+}
+
+PCI_Result PCI::configure_MSI_register(const Device& dev, uint8_t cap_addr,
+	uint32 msg_addr, uint32 msg_data, unsigned num_vector_exponent) {
+	auto msi_cap = read_MSI_capability(dev, cap_addr);
+	if (msi_cap.header.bits.multi_msg_capable <= num_vector_exponent) {
+		msi_cap.header.bits.multi_msg_enable =
+			msi_cap.header.bits.multi_msg_capable;
+	}
+	else {
+		msi_cap.header.bits.multi_msg_enable = num_vector_exponent;
+	}
+	msi_cap.header.bits.msi_enable = 1;
+	msi_cap.msg_addr = msg_addr;
+	msi_cap.msg_data = msg_data;
+	write_MSI_capability(dev, cap_addr, msi_cap);
+	return (PCI_Result::Success);
+}
+
+PCI_Result PCI::configure_MSIX_register(const Device& dev, uint8_t cap_addr, uint32 msg_addr, uint32 msg_data, unsigned num_vector_exponent) {
+	return (PCI_Result::NotImplemented);
+}
+
+PCI::CapabilityHeader PCI::read_capability_header(const Device& dev, uint8 addr)
+{
+	CapabilityHeader header;
+	header.data = read_config_register(dev, addr);
+	return header;
+}
+
+PCI_Result PCI::configure_MSI(const Device& dev, uint32 msg_addr, uint32 msg_data, unsigned num_vector_exponent)
+{
+	uint8_t cap_addr = read_config_register(dev, 0x34) & 0xffu;
+	uint8_t msi_cap_addr = 0, msix_cap_addr = 0;
+	while (cap_addr != 0) {
+		auto header = read_capability_header(dev, cap_addr);
+		if (header.bits.cap_id == kCapabilityMSI) {
+			msi_cap_addr = cap_addr;
+		}
+		else if (header.bits.cap_id == kCapabilityMSIX) {
+			msix_cap_addr = cap_addr;
+		}
+		cap_addr = header.bits.next_ptr;
+	}
+	if (msi_cap_addr) {
+		return configure_MSI_register(dev, msi_cap_addr, msg_addr, msg_data, num_vector_exponent);
+	}
+	else if (msix_cap_addr) {
+		return configure_MSIX_register(dev, msix_cap_addr, msg_addr, msg_data, num_vector_exponent);
+	}
+	return (PCI_Result::NoPCIMSI);
+}
+
+PCI_Result PCI::configure_MSI_fixed_destination(const Device& dev,
+	uint8 apic_id,
+	MSITriggerMode trigger_mode,
+	MSIDeliveryMode delivery_mode,
+	uint8 vector,
+	unsigned num_vector_exponent
+)
+{
+	uint32_t msg_addr = 0xfee00000u | (apic_id << 12);
+	uint32_t msg_data = (static_cast<uint32_t>(delivery_mode) << 8) | vector;
+	if (trigger_mode == MSITriggerMode::Level) {
+		msg_data |= 0xc000;
+	}
+	return configure_MSI(dev, msg_addr, msg_data, num_vector_exponent);
+}
+
+
 #endif

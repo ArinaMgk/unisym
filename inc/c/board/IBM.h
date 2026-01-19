@@ -29,9 +29,10 @@
 // ---- ---- ---- ---- INTERRUPT ---- ---- ---- ----
 // same (compatible) with the younger boards: AT ATX ITX (?)
 
-
+// from ISA Bus
 typedef enum
 {
+// Less the number is, the higher the priority is.
 // ---- x86 Instuction Set Architecture Definitions
 	// The former 20 is for exceptions request handlers
 	ERQ_Divide_By_Zero = 0,
@@ -53,14 +54,14 @@ typedef enum
 	// The latter 16 is for IRQ request handlers
 #define _i8259A_MAS     0X20
 #define _i8259A_MAS_IMR 0X21
-	IRQ_PIT = 0x20, // 8253/8254 PIT (Programmable Interval Timer)
+	IRQ_PIT = 0x20,      // 8253/8254 PIT (Programmable Interval Timer)
 	IRQ_Keyboard = 0x21,
-	IRQ_Cascade = 0x22, // 8259A Cascade --> _i8259A_SLV
-	IRQ_Serial = 0x23, // default ethernet interrupt vector, or RS232 interrupt vector for port 2 {??? 16450 Serial Port}
-	IRQ_RS232_Port1 = 0x24, //  RS232 interrupt vector for port 1
-	IRQ_XT_WINI = 0x25, // ???
-	IRQ_Floppy = 0x26, // 8250 Floppy Disk Controller
-	IRQ_LPT1 = 0x27, // 8255 Parallel Port
+	IRQ_Cascade = 0x22,  // 8259A Cascade --> _i8259A_SLV
+	IRQ_Serial = 0x23,   // COM2 or default ethernet interrupt vector, or RS232 interrupt vector for port 2 {??? 16450 Serial Port}
+	IRQ_RS232_P1 = 0x24, // COM1 or RS232 interrupt vector for port 1
+	IRQ_XT_WINI = 0x25,  // or LPT2
+	IRQ_Floppy = 0x26,   // 8250 Floppy Disk Controller
+	IRQ_LPT1 = 0x27,     // 8255 Parallel Port
 #define _i8259A_SLV     0XA0
 #define _i8259A_SLV_IMR 0XA1
 #define _i8259A_SLV_IDSTART     0X70
@@ -68,10 +69,10 @@ typedef enum
 	IRQ_0x71 = 0x71,
 	IRQ_0x72 = 0x72,
 	IRQ_0x73 = 0x73,
-	IRQ_PS2_Mouse = 0x74,// PS2 Mouse
+	IRQ_PS2_Mouse = 0x74,  // PS2 Mouse
 	IRQ_Coprocessor = 0x75,// FPU / Coprocessor / Inter-processor
-	IRQ_ATA_DISK0 = 0x76,// Primary ATA Hard Disk
-	IRQ_ATA_DISK1 = 0x77,// Secondary ATA Hard Disk
+	IRQ_ATA_DISK0 = 0x76,  // Primary ATA Hard Disk
+	IRQ_ATA_DISK1 = 0x77,  // Secondary ATA Hard Disk
 // ---- IBM Specific Definitions
 
 
@@ -83,7 +84,7 @@ typedef enum
 	DEV_MAS_Keyboard = IRQ_Keyboard - 0x20,
 	DEV_MAS_Cascade = IRQ_Cascade - 0x20,
 	DEV_MAS_Serial = IRQ_Serial - 0x20, 
-	DEV_MAS_RS232_Port1 = IRQ_RS232_Port1 - 0x20, 
+	DEV_MAS_RS232_Port1 = IRQ_RS232_P1 - 0x20, 
 	DEV_MAS_XT_WINI = IRQ_XT_WINI - 0x20, 
 	DEV_MAS_Floppy = IRQ_Floppy - 0x20, 
 	DEV_MAS_LPT1 = IRQ_LPT1 - 0x20,

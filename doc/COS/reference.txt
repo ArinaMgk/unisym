@@ -25,6 +25,7 @@
 
 - [Data] Standards
 	- Microsoft: Microsoft Extensible Firmware Initiative **FAT32** File System Specification (2000)
+	- VESA VBE Core Functions 3.0
 
 - [Hosted System] Mecocoa ...
 	- [ix86] x86Asm-Realfo-Protto., OrangeS., 30Days., 

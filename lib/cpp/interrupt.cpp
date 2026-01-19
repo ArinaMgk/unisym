@@ -30,8 +30,12 @@ namespace uni {
 	void RuptTrait::enInterrupt(bool enable) const { (void)enable; }
 }
 
-#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+#if defined(_MCCA)
+#if _MCCA == 0x8632
 #include "../../inc/c/driver/i8259A.h"
+#elif (_MCCA & 0xFF00) == 0x1000
+#include "../../inc/c/proctrl/RISCV/riscv.h"
+#endif
 
 //{TODO} Implement in Magice/AASM, because GCC compile this may be bad for different version or optimization level.
 // __attribute__((interrupt)) is useless
@@ -196,8 +200,9 @@ static stduint ERQ_Handlers[0x20]{
 
 #endif
 
-_ESYM_C __attribute__((interrupt, target("general-regs-only")))
+// General_IRQHandler
 #if _MCCA == 0x8632
+_ESYM_C __attribute__((interrupt, target("general-regs-only")))
 void General_IRQHandler(void* frame) {
 	// __asm("push %eax");
 	// __asm("mov $0x20, %al");
@@ -207,39 +212,69 @@ void General_IRQHandler(void* frame) {
 	// __asm("iretl");
 }
 #elif _MCCA == 0x8664
+_ESYM_C __attribute__((interrupt, target("general-regs-only")))
 void General_IRQHandler(InterruptFrame* frame) {
 	sendEOI();
 }
 #else
-#error unknown mcca
+
 #endif
 
 #if _MCCA == 0x8632
+void uni::InterruptControl::Init() {
+	_8259A_init_t Mas = { 0 };
+	Mas.port = _i8259A_MAS;
+	Mas.ICW1.ICW4_USED = 1;
+	Mas.ICW1.ENA = 1;
+	Mas.ICW2.IntNo = 0x20;
+	Mas.ICW3.CasPortMap = 0b00000100;
+	Mas.ICW4.Not8b = 1;
+	_8259A_init_t Slv = { 0 };
+	Slv.port = _i8259A_SLV;
+	Slv.ICW1.ICW4_USED = 1;
+	Slv.ICW1.ENA = 1;
+	Slv.ICW2.IntNo = 0x70;
+	Slv.ICW3.CasPortIdn = 2;
+	Slv.ICW4.Not8b = 1;
+	i8259A_init(&Mas);
+	i8259A_init(&Slv);
+}
+#endif
 
+// InterruptControl::enAble
+#if (_MCCA & 0xFF00) == 0x8600
+void uni::InterruptControl::enAble(bool enable) {
+	::enInterrupt(enable);
+}
+#elif (_MCCA & 0xFF00) == 0x1000// RV
 void uni::InterruptControl::enAble(bool enable) {
 	if (enable) {
-		_8259A_init_t Mas = { 0 };
-		Mas.port = _i8259A_MAS;
-		Mas.ICW1.ICW4_USED = 1;
-		Mas.ICW1.ENA = 1;
-		Mas.ICW2.IntNo = 0x20;
-		Mas.ICW3.CasPortMap = 0b00000100;
-		Mas.ICW4.Not8b = 1;
-		_8259A_init_t Slv = { 0 };
-		Slv.port = _i8259A_SLV;
-		Slv.ICW1.ICW4_USED = 1;
-		Slv.ICW1.ENA = 1;
-		Slv.ICW2.IntNo = 0x70;
-		Slv.ICW3.CasPortIdn = 2;
-		Slv.ICW4.Not8b = 1;
-		i8259A_init(&Mas);
-		i8259A_init(&Slv);
-		// InterruptEnable();
+		auto hart = getTP();
+		setPriorityThreshold(hart, 0);
 	}
-	else
-		InterruptDisable();
+	// enable machine-mode external interrupts.
+	if (enable) setMIE(getMIE() | _MIE_MEIE);
+	else setMIE(getMIE() & ~_MIE_MEIE);
+	// machine-mode global interrupts.
+	if (enable) setMSTATUS(getMSTATUS() | _MSTATUS_MIE);
+	else setMSTATUS(getMSTATUS() & ~_MSTATUS_MIE);
 }
+/*
+void EnableLocalAPIC() {
+	// SVR
+	volatile uint32_t* svr = reinterpret_cast<volatile uint32_t*>(0xFEE000F0);
+	uint32_t value = *svr;
+	// set Bit 8 (Enable) and Bits 0-7 (Spurious Vector = 0xFF)
+	value |= 0x100; // Bit 8: Software Enable
+	value |= 0xFF;  // Vector 0xFF for spurious interrupts
+	*svr = value;
+	// ploginfo("Local APIC Software Enabled via SVR.");
+}
+*/
+#endif
 
+// InterruptControl::Reset
+#if _MCCA == 0x8632
 void uni::InterruptControl::Reset(word SegCode, stduint Offset) {
 	for0a(i, ERQ_Handlers) {
 		self[i].gate_t::setModeRupt(ERQ_Handlers[i] + Offset, SegCode);
@@ -248,6 +283,18 @@ void uni::InterruptControl::Reset(word SegCode, stduint Offset) {
 		self[i].gate_t::setModeRupt(_IMM(General_IRQHandler) + Offset, SegCode);
 	}
 	loadIDT(_IMM(IVT_SEL_ADDR), 256 * sizeof(gate_t) - 1);
+}
+#elif _MCCA == 0x8664
+void uni::InterruptControl::Reset(word SegCode, stduint _0) {
+	//{TODO} exceptions
+	for0(i, 0x1000 / sizeof(gate_t)) {
+		auto& idt_entry = IVT_SEL_ADDR[i];
+		idt_entry.setModeRupt(reinterpret_cast<uint64>(General_IRQHandler), SegCode);
+	}
+}
+#elif (_MCCA & 0xFF00) == 0x1000
+void uni::InterruptControl::Reset() {
+	setMTVEC(_IMM(IVT_SEL_ADDR));
 }
 #endif
 

@@ -28,6 +28,35 @@
 
 #include "../../../c/board/IBM.h"
 
+#elif defined(_MCCA) && ((_MCCA & 0xFF00)==0x1000)// qemuvirt-riscv
+
+namespace uni {
+	// see https://github.com/qemu/qemu/blob/master/include/hw/riscv/virt.h
+	enum Request_t {
+		IRQ_VIRTIO_1 = 1,
+		IRQ_VIRTIO_2 = 2,
+		IRQ_VIRTIO_3 = 3,
+		IRQ_VIRTIO_4 = 4,
+		IRQ_VIRTIO_5 = 5,
+		IRQ_VIRTIO_6 = 6,
+		IRQ_VIRTIO_7 = 7,
+		IRQ_VIRTIO_8 = 8,
+
+		IRQ_UART0 = 10,
+		IRQ_RTC = 11,
+
+		IRQ_PCIE_1 = 32,
+		IRQ_PCIE_2 = 33,
+		IRQ_PCIE_3 = 34,
+		IRQ_PCIE_4 = 35,
+		IRQ_IOMMU_SYS_1 = 36,
+		IRQ_IOMMU_SYS_2 = 37,
+		IRQ_IOMMU_SYS_3 = 38,
+		IRQ_IOMMU_SYS_4 = 39,
+
+		IRQ_VIRT_PLATFORM_BUS_1 = 64,// 64~95
+	};
+}
 
 #elif defined(_MCU_STM32F1x)
 

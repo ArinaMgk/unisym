@@ -188,8 +188,18 @@ namespace uni {
 		for0(i, len) operator<<(str[i]);
 		return len;
 	}
+	void UART_t::setInterrupt(Handler_t _func) const { _TODO }
+	void UART_t::setInterruptPriority(byte preempt, byte sub_priority) const {
+		InterruptControl::setPriority(IRQ_UART0, preempt);
+	}
+	void UART_t::enInterrupt(bool enable) const {
+		// receive interrupts
+		Reference_T<uint8> ier(&(self[XARTReg::IER]));
+		ier.setof(0, enable);
+		//
+		InterruptControl::setAble(IRQ_UART0, enable);
+	}
 
-	_TEMP
 	bool UART_t::setMode(stduint _baudrate) {
 		self[XARTReg::IER] = 0x00;// disable interrupts
 		// Setting baud rate
@@ -204,10 +214,14 @@ namespace uni {
 		return true;
 	}
 
+	// waiting-method. another method return false when no data
 	bool UART_t::operator>> (int& res) {
-		return _TODO false;
+		while (!(self[XARTReg::LSR] & _IMM1S(_BITPOS_LSR_RX_READY)));
+		res = self[XARTReg::RHR];
+		return true;
 	}
 
+	// waiting-method
 	bool UART_t::operator<< (stduint dat) {
 		while (!(self[XARTReg::LSR] & _IMM1S(_BITPOS_LSR_TX_IDLE)));
 		self[XARTReg::THR] = dat;

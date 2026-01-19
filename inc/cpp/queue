@@ -32,41 +32,61 @@
 //{TODO} make a pointer to front and distance from the rear
 
 namespace uni {
+	// empty:         q==nullptr (not readable)
+	//  full: p==q && q!=nullptr (not writable)
+	// only for basic types
 	template <typename type0> class Queue {
-	private:
-	protected:
-		stduint limit;
-		stduint count;
-		type0* offss;
-		// do not use double pointer, but the index 0 is always what to be read.
 	public:
-		//{TODO} Move into another .cpp file
-		Queue(stdint limit) : limit(limit), count(0) {
+		stduint limit;
+		type0* offss;
+	protected:
+		bool allocated;
+		type0* _Comment(W) p, * _Comment(R) q = 0;
+	public:
+		Queue(stdint limit) : limit(limit) {
 			offss = new type0[limit];
+			allocated = true;
+			p = offss;
 		}
-		~Queue() {
-			delete[] offss;
-			offss = nullptr;
-			limit = 0;
-			count = 0;
+		Queue(type0* offss, stduint limit) : limit(limit), offss(offss), allocated(false) {
+			p = offss;
 		}
-		stduint Enqueue(const type0& item) {
-			if (isFull()) return None;
-			offss[count++] = item;
-			return count;// how many data in the queue
-		}
-		stduint Dequeue(type0& item) {
-			if (isEmpty()) return None;
-			item = offss[0];
-			for (int i = 0; i < count - 1; i++) {
-				offss[i] = offss[i + 1];
-			}
-			count--;
-			return count;// how many data in the queue
-		}
-		bool isEmpty() { return !count; }
-		bool isFull() { return count >= limit; }
+		//
+		~Queue();
+		//
+		bool Enqueue(const type0& item);
+		bool Dequeue(type0& item);
+		stduint Count();// how many data in the queue
+		bool isEmpty() { return q == nullptr; }
+		bool isFull() { return q && p == q; }
 	};
+	template <typename type0>
+	Queue<type0>::~Queue() {
+		if (allocated) delete[] offss;
+		offss = nullptr;
+		limit = 0;
+	}
+	template <typename type0>
+	bool Queue<type0>::Enqueue(const type0& item) {
+		if (isFull()) return false;
+		if (q == nullptr) q = p;
+		*p++ = item;
+		if (p >= offss + limit) p = offss;
+		return true;
+	}
+	template <typename type0>
+	bool Queue<type0>::Dequeue(type0& item) {
+		if (isEmpty()) return false;
+		item = *q++;
+		if (q >= offss + limit) q = offss;
+		if (p == q) q = nullptr;// , p = offss;
+		return true;
+	}
+	template <typename type0>
+	stduint Queue<type0>::Count() {
+		return !q ? nil : p > q ? p - q : limit - (q - p);
+		// p - q <=> (_IMM(p) - _IMM(q)) / sizeof(type0)
+	}
 
 	class QueueLimited
 		: public IstreamTrait, public OstreamTrait

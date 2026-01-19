@@ -242,8 +242,7 @@ namespace uni {
 	extern UART_t  XART4, XART5, XART7, XART8;
 }
 
-#elif defined(_WinNT) || defined(_Linux) || \
-	defined(_MCCA) && (_MCCA == 0x1032 || _MCCA == 0x1064) // Any Hosted
+#elif defined(_WinNT) || defined(_Linux)
 
 #ifdef _WinNT
 #define UNICODE
@@ -275,7 +274,63 @@ namespace uni {
 	enum class UARTStopBit {
 		One, OneHalf, Two
 	};
-	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000) // RISCV Qemuvirt
+
+	class UART_t : public IstreamTrait, public OstreamTrait
+	{
+		stduint baudrate;
+		bool state;
+		stduint databits;
+		UARTCheck parity;
+		UARTStopBit stopbits;
+
+		PORTNAME_TYPE portname;// "\\\\.\\COM10" or "ttyUSB0"
+
+		#ifdef _WinNT
+		HANDLE pHandle;
+		#elif defined(_Linux)
+		int pHandle;
+		#endif
+
+	protected:
+		virtual int inn() override;
+		virtual int out(const char* str, stduint len) override;
+	public:
+		bool sync;
+
+		UART_t(PORTNAME_TYPE portname, stduint baudrate = 115200) :
+			baudrate(baudrate), state(false), databits(8), parity(UARTCheck::None), stopbits(UARTStopBit::One)
+			, portname(portname)
+			, sync(true)
+		{
+		}
+		~UART_t();
+		bool setMode(stduint _baudrate = 115200);
+		bool operator>> (int& res);// return if new data received
+		bool operator<< (stduint dat);
+		inline UART_t& operator<< (const char* p) {
+			while (*p) self << stduint(*p++);
+			return self;
+		}
+
+	};
+}
+#elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)
+#include "../../cpp/string"
+#include "../../cpp/interrupt"
+#include "../../cpp/trait/XstreamTrait.hpp"
+
+#include "../../c/board/QemuVirt-Riscv.h"
+
+#define PORTNAME_TYPE stduint
+
+namespace uni {
+	enum class UARTCheck {
+		None, Odd, Even, Mark
+	};
+	enum class UARTStopBit {
+		One, OneHalf, Two
+	};
+	// RISCV Qemuvirt
 	enum XARTReg {
 		RHR = 0, // Receive Holding Register (read mode)
 		THR = 0, // Transmit Holding Register (write mode)
@@ -319,13 +374,9 @@ namespace uni {
 	* TXRDY = Low
 	* INT   = Low
 	*/
-	#endif
 
-	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)// for QEMUVIRT-RV UART0
-	#define ADDR_UART0 0x10000000L
-	#endif
 
-	class UART_t : public IstreamTrait, public OstreamTrait
+	class UART_t : public IstreamTrait, public OstreamTrait, public RuptTrait
 	{
 		stduint baudrate;
 		bool state;
@@ -335,15 +386,12 @@ namespace uni {
 
 		PORTNAME_TYPE portname;// "\\\\.\\COM10" or "ttyUSB0"
 
-		#ifdef _WinNT
-		HANDLE pHandle;
-		#elif defined(_Linux)
-		int pHandle;
-		#endif
-
-	protected:
+	public:
 		virtual int inn() override;
 		virtual int out(const char* str, stduint len) override;
+		virtual void setInterrupt(Handler_t _func) const override;
+		virtual void setInterruptPriority(byte preempt, byte sub_priority) const override;
+		virtual void enInterrupt(bool enable = true) const override;
 	public:
 		bool sync;
 
@@ -362,17 +410,17 @@ namespace uni {
 			return self;
 		}
 
-		#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)
+
 		constexpr // constexpr & consteval(C++20?)
-			byte& operator[](XARTReg reg) {
-			return *((byte*)ADDR_UART0 + _IMM(reg));
+			byte& operator[](XARTReg reg) const {
+			return *((byte*)ADDR_VIRT_UART0 + _IMM(reg));
 		}
-		#endif
+
 	};
 
-	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)// for QEMUVIRT-RV UART0
+	// for QEMUVIRT-RV UART0
 	extern UART_t UART0;
-	#endif
+
 }
 
 #endif

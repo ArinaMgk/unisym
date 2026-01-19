@@ -55,10 +55,14 @@ virtual void setInterrupt(Handler_t _func) const override;\
 virtual void setInterruptPriority(byte preempt, byte sub_priority) const override;\
 virtual void enInterrupt(bool enable = true) const override // you need add colon when using
 
-#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600 || (_MCCA & 0xFF00) == 0x1000)
 
 namespace uni {
-	class GateInterrupt : public gate_t {
+	class GateInterrupt
+		#if (_MCCA & 0xFF00) == 0x8600
+		: public gate_t
+		#endif
+	{
 	public:
 		
 	};
@@ -72,13 +76,27 @@ namespace uni {
 		GateInterrupt& operator[](uint8 index) {
 			return IVT_SEL_ADDR[index];
 		}
+
+		void Init();
+
+		//{TODO} make enAble enInterrupt but init the icontroller
 		void enAble(bool enable = true);
 
+		#if (_MCCA & 0xFF00) == 0x8600
 		void Reset(word SegCode, stduint Offset = 0x80000000);
+		#else
+		void Reset();
+		#endif
+		#if (_MCCA & 0xFF00) == 0x1000
+		static void setPriority(Request_t req, uint32 priority);
+		static void setPriorityThreshold(uint32 core, uint32 threshold);
+		static void setAble(Request_t req, bool ena = true);
 
-		inline stduint operator&() {
-			return (stduint)IVT_SEL_ADDR;
-		}
+		static Request_t getLastRequest();// of crt core
+		static void setLastRequest(Request_t req);// of crt core
+		#endif
+
+		inline stduint operator&() { return _IMM(IVT_SEL_ADDR); };
 
 	};
 }

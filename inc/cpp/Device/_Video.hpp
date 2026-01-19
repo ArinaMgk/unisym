@@ -32,37 +32,68 @@
 
 namespace uni {
 
-// VBE Video Modes (common selection, QEMU compatible)
+// VBE Video Modes
 // Reference: VESA VBE Core Functions 3.0
 // Mode numbers are standard VBE IDs, but availability depends on BIOS/QEMU build.
+	
+	enum class VideoModeVBE3 : uint16_t {
+		// text modes
+		TEXT_80x60 = 0x108,
+		TEXT_132x25 = 0x109,
+		TEXT_132x43 = 0x10A,
+		TEXT_132x50 = 0x10B,
+		TEXT_132x60 = 0x10C,
 
-	enum class VideoMode : uint16_t {
+		// 320x200 modes
+		RGB555_320x200 = 0x10D,    // VBE3, 1:5:5:5
+		RGB565_320x200 = 0x10E,    // VBE3,   5:6:5
+		RGB888_320x200 = 0x10F,    // VBE3, 24bpp, 0xRRGGBB (memory: B,G,R)
+
+		// 640x400 modes
+		INDEXED8_640x400 = 0x100,  // VBE3, 8bpp (256 colors, palette indexed)
+
 		// 640×480 modes
-		INDEXED8_640x480 = 0x101, // VGA standard, 8bpp (256 colors, palette indexed)
-		RGB555_640x480 = 0x110, // VGA standard, 15bpp (5:5:5 direct color)
-		RGB565_640x480 = 0x111, // VGA standard, 16bpp (5:6:5 direct color)
-		RGB888_640x480 = 0x112, // VGA standard, 24bpp, 0xRRGGBB (memory: B,G,R)
-		RGBA8888_640x480 = 0x11A, // VGA standard, 32bpp, 0xAARRGGBB (memory: B,G,R,A)
+		INDEXED8_640x480 = 0x101,  // VBE3, 8bpp (256 colors, palette indexed)
+		RGB555_640x480 = 0x110,    // VBE3, 15bpp (1:5:5:5 direct color)
+		RGB565_640x480 = 0x111,    // VBE3, 16bpp (5:6:5 direct color)
+		RGB888_640x480 = 0x112,    // VBE3, 24bpp, 0xRRGGBB (memory: B,G,R)
+		ARGB8888_640x480 = 0x11A,  // VGA , 32bpp, 0xAARRGGBB (memory: B,G,R,A)
 
 		// 800×600 modes
-		INDEXED8_800x600 = 0x103, // SVGA, 8bpp (256 colors, palette indexed)
-		RGB555_800x600 = 0x113, // SVGA, 15bpp (5:5:5 direct color)
-		RGB565_800x600 = 0x114, // SVGA, 16bpp (5:6:5 direct color)
-		RGB888_800x600 = 0x115, // SVGA, 24bpp, 0xRRGGBB (memory: B,G,R)
-		RGBA8888_800x600 = 0x118, // SVGA, 32bpp, 0xAARRGGBB (memory: B,G,R,A)
+		INDEXED4_800x600 = 0x102,  // VBE3, 4bpp (16 colors, palette indexed)
+		INDEXED8_800x600 = 0x103,  // VBE3, 8bpp (256 colors, palette indexed)
+		RGB555_800x600 = 0x113,    // SVGA, 15bpp (1:5:5:5 direct color)
+		RGB565_800x600 = 0x114,    // SVGA, 16bpp (5:6:5 direct color)
+		RGB888_800x600 = 0x115,    // SVGA, 24bpp, 0xRRGGBB (memory: B,G,R)
+		ARGB8888_800x600 = 0x118,  // SVGA, 32bpp, 0xAARRGGBB (memory: B,G,R,A)
 
 		// 1024×768 modes
-		INDEXED8_1024x768 = 0x105, // SVGA, 8bpp
-		RGB565_1024x768 = 0x117, // SVGA, 16bpp (5:6:5 direct color)
-		RGB888_1024x768 = 0x116, // SVGA, 24bpp
-		RGBA8888_1024x768 = 0x11B, // SVGA, 32bpp
+		INDEXED4_1024x768 = 0x104, // VBE3, 4bpp (16 colors, palette indexed)
+		INDEXED8_1024x768 = 0x105, // VBE3, 8bpp
+		RGB555_1024x768 = 0x116,   // SVGA, 15bpp (1:5:5:5 direct color)
+		RGB565_1024x768 = 0x117,   // SVGA, 16bpp (5:6:5 direct color)
+		RGB888_1024x768 = 0x118,   // SVGA, 24bpp
+		ARGB8888_1024x768 = 0x11B, // SVGA, 32bpp (0x144)
+
+		// ---- BELOW: Use dynamic checking the mode information ----
 
 		// 1280×1024 modes
-		INDEXED8_1280x1024 = 0x107, // UXGA, 8bpp
-		RGB565_1280x1024 = 0x119, // UXGA, 16bpp (5:6:5 direct color)
-		RGB888_1280x1024 = 0x11A, // UXGA, 24bpp
-		RGBA8888_1280x1024 = 0x11C  // UXGA, 32bpp
+		INDEXED4_1280x1024 = 0x106, // VBE3, 4bpp (16 colors, palette indexed)
+		INDEXED8_1280x1024 = 0x107, // VBE3, 8bpp
+		RGB555_1280x1024 = 0x119,   // VBE3, 15bpp (1:5:5:5 direct color)
+		RGB565_1280x1024 = 0x11A,   // VBE3, 16bpp (5:6:5 direct color)
+		//               = 0x119,   // UXGA, 16bpp (5:6:5 direct color) (?)
+		RGB888_1280x1024 = 0x11B,   // VBE3, 24bpp
+		//               = 0x11A,   // UXGA, 24bpp (?)
+		ARGB8888_1280x1024 = 0x11C, // UXGA, 32bpp
+
+		// 1440x900 modes
+		ARGB8888_1440x900 = 0x180, // SVGA, 32bpp
+
 	};
+	typedef VideoModeVBE3 VideoMode;
+	// ...
+	// 0x0143 1280x960 for vmware, 800x600 for qemu and bochs
 
 
 	#define GrafColor32(c) Color::FromRGB888(c)

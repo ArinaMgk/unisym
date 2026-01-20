@@ -486,9 +486,9 @@ struct elf_known_section {
 
 #elif ELFBIT == 64
 
-	typedef stduint   Elf64_Addr;// uintptr_t
+	typedef uint64_t  Elf64_Addr;// uintptr_t
 	typedef uint64_t  Elf64_Off;
-	typedef uint16_t Elf64_Section;
+	typedef uint16_t  Elf64_Section;
 	//
 	typedef uint16_t  Elf64_Half;
 	typedef uint32_t  Elf64_Word;
@@ -660,6 +660,7 @@ extern "C" {
 //{TEMP} no check for validation
 // return how many PHBlock has been loaded
 stduint ELF32_LoadExecFromMemory(const void* memsrc, void** p_entry);
+stduint ELF64_LoadExecFromMemory(const void* memsrc, void** p_entry);
 
 #ifdef _INC_CPP
 }

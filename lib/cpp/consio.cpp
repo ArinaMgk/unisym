@@ -139,10 +139,10 @@ namespace uni {
 	}
 
 	void BareConsole::setStartPosition(word begposi) {
-		outpb(CRT_CR_AR, CRT_CDR_StartAddressHigh);
-		outpb(CRT_CR_DR, begposi >> 8);
-		outpb(CRT_CR_AR, CRT_CDR_StartAddressLow);
-		outpb(CRT_CR_DR, begposi & 0xFF);
+		outpb(PORT_CRT_CRAR, CRT_CDR_StartAddressHigh);
+		outpb(PORT_CRT_DRAR, begposi >> 8);
+		outpb(PORT_CRT_CRAR, CRT_CDR_StartAddressLow);
+		outpb(PORT_CRT_DRAR, begposi & 0xFF);
 	}
 
 }

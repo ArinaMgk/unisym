@@ -50,7 +50,6 @@ typedef enum _CPU_descriptor_type
 	_Dptr_TaskGate = 5,
 	_Dptr_InterruptGate286 = 6,
 	_Dptr_TrapGate286 = 7,
-	//
 	_Dptr_TSS386_Available = 9,
 	_Dptr_TSS386_Busy = 0xB,
 	_Dptr_CallGate386 = 0xC,
@@ -58,7 +57,38 @@ typedef enum _CPU_descriptor_type
 	_Dptr_TrapGate386 = 0xF,
 } _CPU_descriptor_type;
 
-//{} _CPU_x86_descriptor
+typedef _PACKED(union) _CPU_descriptor
+{
+	uint64 _data;
+	struct {
+		word limit_low;
+		word base_low;
+		byte base_middle;
+		_CPU_descriptor_type typ : 4;
+		byte notsys : 1;
+		byte DPL : 2;
+		byte present : 1;
+		byte limit_high : 4;
+		byte available : 1;
+		byte Mod64 : 1;// only for 64-bitmode code segment
+		byte DB : 1; // 32-bitmode, reset if in Mod64 Code
+		byte granularity : 1; // 4k-times, not for 64-bitmode code/data
+		byte base_high;
+	};
+	// 64-bitmode: base and limit is useless, the value can be any number
+	#ifdef _INC_CPP
+	stduint constexpr getAddress(void) {
+	    return _IMM(base_low) | (_IMM(base_middle) << 16) | (_IMM(base_high) << 24);
+	}
+	void setRange(dword addr, dword limit) {
+		limit_low = limit;
+		limit_high = limit >> 16;
+		base_low = addr;
+		base_middle = addr >> 16;
+		base_high = addr >> 24;
+	}
+	#endif
+} descriptor_t;
 
 typedef _PACKED(struct) _CPU_gate_type
 {
@@ -139,6 +169,37 @@ typedef _PACKED(struct) _CPU_gate_type
 	#endif
 } gate_t;
 
+// ---- ---- Registers
+
+typedef struct {
+    uint32_t CF  : 1;  // Carry Flag — bit 0
+    uint32_t _r1 : 1;  // reserved (always 1 in EFLAGS low-word for FLAGS) – bit 1
+    uint32_t PF  : 1;  // Parity Flag — bit 2
+    uint32_t _r3 : 1;  // reserved — bit 3
+    uint32_t AF  : 1;  // Auxiliary / Adjust Flag — bit 4
+    uint32_t _r5 : 1;  // reserved — bit 5
+    uint32_t ZF  : 1;  // Zero Flag — bit 6
+    uint32_t SF  : 1;  // Sign Flag — bit 7
+    uint32_t TF  : 1;  // Trap Flag — bit 8
+    uint32_t IF  : 1;  // Interrupt enable Flag — bit 9
+    uint32_t DF  : 1;  // Direction Flag — bit 10
+    uint32_t OF  : 1;  // Overflow Flag — bit 11
+
+    uint32_t IOPL: 2;  // I/O Privilege Level — bits 12–13
+    uint32_t NT  : 1;  // Nested Task — bit 14
+
+    uint32_t _r15 : 1; // reserved — bit 15
+
+    uint32_t RF  : 1;  // Resume Flag — bit 16
+    uint32_t VM  : 1;  // Virtual-8086 Mode flag — bit 17
+    uint32_t AC  : 1;  // Alignment Check / Access Control — bit 18 (486+)  
+    uint32_t VIF : 1;  // Virtual Interrupt Flag — bit 19  
+    uint32_t VIP : 1;  // Virtual Interrupt Pending — bit 20  
+    uint32_t ID  : 1;  // ID flag — bit 21
+
+    uint32_t _reserved : 10; // bits 22–31: reserved / unused / future
+} REG_FLAG_t;
+
 
 // ---- Calling Convention
 
@@ -214,7 +275,7 @@ inline static
 void setCR3(stduint cr3)
 {
 	_ASM volatile("movq %0, %%rax\n" : : "r"(cr3));
-	_ASM volatile("movq %rax, %cr3\n" : : : "memory");
+	_ASM volatile("movq %%rax, %%cr3\n" : : : "memory");
 }
 #endif
 

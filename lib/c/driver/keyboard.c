@@ -170,11 +170,11 @@ keymap_element_t _tab_keycode2ascii[0x80] =
 
 void Keyboard_Wait()// for buffer empty
 {
-	while (innpb(KEYBOARD_CMD) & 0x02);
+	while (innpb(PORT_KEYBOARD_CMD) & 0x02);
 }
 static void Keyboard_Acknowledge()
 {
-	innpb(KEYBOARD_DAT);// == KEYBOARD_ACK
+	innpb(PORT_KEYBOARD_DAT);// == KEYBOARD_ACK
 }
 
 //
@@ -185,18 +185,18 @@ void Keyboard_Init()
 	//
 	// ---- make support for mouse
 	Keyboard_Wait();
-	outpb(KEYBOARD_CMD, KEYCMD_WRITE_MODE);
+	outpb(PORT_KEYBOARD_CMD, KEYCMD_WRITE_MODE);
 	Keyboard_Wait();
-	outpb(KEYBOARD_DAT, KBC_MODE);
+	outpb(PORT_KEYBOARD_DAT, KBC_MODE);
 }
 
 void KbdSetLED(byte stat)
 {
 	Keyboard_Wait();
-	outpb(KEYBOARD_DAT, KEYBOARD_LED);
+	outpb(PORT_KEYBOARD_DAT, KEYBOARD_LED);
 	Keyboard_Acknowledge();
 	Keyboard_Wait();
-	outpb(KEYBOARD_DAT, stat);
+	outpb(PORT_KEYBOARD_DAT, stat);
 	Keyboard_Acknowledge();
 }
 

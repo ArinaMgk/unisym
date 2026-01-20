@@ -35,12 +35,12 @@ _ESYM_C void Mouse_Init()
 	i8259Slaver_Enable(4);// KBD
 	//
 	// Keyboard_Wait();
-	// outpb(KEYBOARD_CMD, 0xA8); // enable aux device
+	// outpb(PORT_KEYBOARD_CMD, 0xA8); // enable aux device
 	//
 	Keyboard_Wait();
-	outpb(KEYBOARD_CMD, KEYCMD_SENDTO_MOUSE);
+	outpb(PORT_KEYBOARD_CMD, KEYCMD_SENDTO_MOUSE);
 	Keyboard_Wait();
-	outpb(KEYBOARD_DAT, MOUSECMD_ENABLE);
+	outpb(PORT_KEYBOARD_DAT, MOUSECMD_ENABLE);
 	return; /* うまくいくとACK(0xfa)が送信されてくる */
 }
 

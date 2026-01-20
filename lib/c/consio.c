@@ -36,19 +36,19 @@
 
 void curset(word posi)
 {
-	outpb(CRT_CR_AR, CRT_CDR_CursorLocationHigh);
-	outpb(CRT_CR_DR, posi >> 8);
-	outpb(CRT_CR_AR, CRT_CDR_CursorLocationLow);
-	outpb(CRT_CR_DR, posi & 0xFF);
+	outpb(PORT_CRT_CRAR, CRT_CDR_CursorLocationHigh);
+	outpb(PORT_CRT_DRAR, posi >> 8);
+	outpb(PORT_CRT_CRAR, CRT_CDR_CursorLocationLow);
+	outpb(PORT_CRT_DRAR, posi & 0xFF);
 }
 
 word curget(void)
 {
 	word ret;
-	outpb(CRT_CR_AR, CRT_CDR_CursorLocationHigh);
-	ret = innpb(CRT_CR_DR) << 8;
-	outpb(CRT_CR_AR, CRT_CDR_CursorLocationLow);
-	ret |= innpb(CRT_CR_DR);
+	outpb(PORT_CRT_CRAR, CRT_CDR_CursorLocationHigh);
+	ret = innpb(PORT_CRT_DRAR) << 8;
+	outpb(PORT_CRT_CRAR, CRT_CDR_CursorLocationLow);
+	ret |= innpb(PORT_CRT_DRAR);
 	return ret;
 }
 

@@ -26,6 +26,9 @@
 #define _INC_System_Paging
 // #include "../bitmap.h"
 
+// 1 [ none   | l1p-id | l0p-id    ]
+// 2 [ l1p-id | l0p-id | crt-level ] since 20260119
+
 namespace uni {
 
 	struct Page;

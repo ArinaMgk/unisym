@@ -10,42 +10,11 @@
 
 #include "../IAx86_64.h"
 
-
-
-typedef struct _CPU_x86_descriptor
-{
-	word limit_low;
-	word base_low;
-	byte base_middle;
-	_CPU_descriptor_type typ : 4;
-	byte notsys : 1;
-	byte DPL : 2;
-	byte present : 1;
-	byte limit_high : 4;
-	byte available : 1;
-	byte Mod64 : 1;
-	byte DB : 1; // 32-bitmode
-	byte granularity : 1; // 4k-times
-	byte base_high;
 #ifdef _INC_CPP
-	void setRange(dword addr, dword limit) {
-		limit_low = limit;
-		limit_high = limit >> 16;
-		base_low = addr;
-		base_middle = addr >> 16;
-		base_high = addr >> 24;
-	}
-#endif
-} descriptor_t;
 
-// return nothing
-static inline void GlobalDescriptor32Set(descriptor_t* gdte, dword base, dword limit, _CPU_descriptor_type typ, byte DPL, byte not_sys, byte db, byte gran)
+static inline void Descriptor32Set(descriptor_t* gdte, dword base, dword limit, _CPU_descriptor_type typ, byte DPL, byte not_sys, byte db, byte gran)
 {
-	gdte->limit_low = limit & 0xFFFF;
-	gdte->limit_high = (limit >> 16) & 0xF;
-	gdte->base_low = base & 0xFFFF;
-	gdte->base_middle = (base >> 16) & 0xFF;
-	gdte->base_high = (base >> 24) & 0xFF;
+	gdte->setRange(base, limit);
 	gdte->typ = typ;
 	gdte->notsys = not_sys;
 	gdte->DPL = DPL;
@@ -54,18 +23,8 @@ static inline void GlobalDescriptor32Set(descriptor_t* gdte, dword base, dword l
 	gdte->granularity = gran;
 }
 
-
-
-#ifdef _INC_CPP
 extern "C" {
 #endif
-
-static inline 
-dword DescriptorBaseGet(descriptor_t* desc)
-{
-	return desc->base_low | (desc->base_middle << 16) | (desc->base_high << 24);
-}
-
 
 
 // ---- lib/asm/x86/inst/manage.asm ----
@@ -99,141 +58,6 @@ void _popfd(void);
 void delay001s();
 void delay001ms();
 
-// ---- ---- Registers
-
-#include <stdint.h>
-
-typedef struct {
-    uint32_t CF  : 1;  // Carry Flag — bit 0
-    uint32_t _r1 : 1;  // reserved (always 1 in EFLAGS low-word for FLAGS) – bit 1
-    uint32_t PF  : 1;  // Parity Flag — bit 2
-    uint32_t _r3 : 1;  // reserved — bit 3
-    uint32_t AF  : 1;  // Auxiliary / Adjust Flag — bit 4
-    uint32_t _r5 : 1;  // reserved — bit 5
-    uint32_t ZF  : 1;  // Zero Flag — bit 6
-    uint32_t SF  : 1;  // Sign Flag — bit 7
-    uint32_t TF  : 1;  // Trap Flag — bit 8
-    uint32_t IF  : 1;  // Interrupt enable Flag — bit 9
-    uint32_t DF  : 1;  // Direction Flag — bit 10
-    uint32_t OF  : 1;  // Overflow Flag — bit 11
-
-    uint32_t IOPL: 2;  // I/O Privilege Level — bits 12–13
-    uint32_t NT  : 1;  // Nested Task — bit 14
-
-    uint32_t _r15 : 1; // reserved — bit 15
-
-    uint32_t RF  : 1;  // Resume Flag — bit 16
-    uint32_t VM  : 1;  // Virtual-8086 Mode flag — bit 17
-    uint32_t AC  : 1;  // Alignment Check / Access Control — bit 18 (486+)  
-    uint32_t VIF : 1;  // Virtual Interrupt Flag — bit 19  
-    uint32_t VIP : 1;  // Virtual Interrupt Pending — bit 20  
-    uint32_t ID  : 1;  // ID flag — bit 21
-
-    uint32_t _reserved : 10; // bits 22–31: reserved / unused / future
-} REG_FLAG_t;
-
-
-// ---- ---- VGA
-
-// ---- CRT Control Registers
-#define CRT_CR_AR 0x03D4 // Address Register
-#define CRT_CR_DR 0x03D5 // Data Register
-
-enum {
-	CRT_CDR_HorizonalTotal,
-	CRT_CDR_HorizonalDisplayEnd,
-	CRT_CDR_HorizonalBlankingStart,
-	CRT_CDR_HorizonalBlankingEnd,
-	CRT_CDR_HorizonalRetraceStart,
-	CRT_CDR_HorizonalRetraceEnd,
-	//
-	CRT_CDR_VerticalTotal,
-	CRT_CDR_Overflow,
-	CRT_CDR_PresetRowScan,// 0x08
-	CRT_CDR_MaxScanLine,
-	CRT_CDR_CursorStart,
-	CRT_CDR_CursorEnd,
-	CRT_CDR_StartAddressHigh,
-	CRT_CDR_StartAddressLow,
-	CRT_CDR_CursorLocationHigh,
-	CRT_CDR_CursorLocationLow,
-	CRT_CDR_VerticalRetraceStart,// 0x10
-	CRT_CDR_VerticalRetraceEnd,
-	CRT_CDR_DisplayEnd,
-	CRT_CDR_Offset,
-	CRT_CDR_UnderlineLocation,
-	CRT_CDR_VerticalBlankingStart,
-	CRT_CDR_VerticalBlankingEnd,
-	CRT_CDR_ModeControl,// CRTC Mode Control Register 0x17
-	CRT_CDR_LineCompare,
-};// CRT Controller Data Registers
-
-
-// 0x00400
-// 20250802 fo https://stanislavs.org/helppc/bios_data_area.html
-_PACKED(struct) BIOS_DataArea {
-	// 0x00
-	word port_address_COM1;
-	word port_address_COM2;
-	word port_address_COM3;
-	word port_address_COM4;
-	word port_address_LPT1;
-	word port_address_LPT2;
-	word port_address_LPT3;
-	word port_address_LPT4;// (except PS/2)
-	// 0x10
-	byte equipment_list_flags[2];//{} (see INT 11)
-	byte PCjr;// infrared keyboard link error count
-	word memory_size;// KB (see INT 12)
-	byte RESERVED_0;
-	byte PS2_BIOS_cflag;// PS/2 BIOS control flags
-	byte keyboard_flags[2];//{}
-	byte keypad_entry;// Storage for alternate keypad entry
-	word kbd_buff_head;// Offset from 40:00 to keyboard buffer head
-	word kbd_buff_tail;// Offset from 40:00 to keyboard buffer tail
-	byte kbd_buff[32];// (circular queue buffer)
-	byte drv_recalibration_status;// Drive recalibration status
-	byte diskette_motor_status;// Diskette motor status
-	// 0x40
-	byte motor_shutoff_counter;// Motor shutoff counter (decremented by INT 8)
-	byte diskette_operation_status;// Status of last diskette operation (see INT 13,1)
-	byte NEC_diskette_cflags[7];// NEC diskette controller status (see FDC)
-	byte crt_video_mode;// (see VIDEO MODE)
-	word screen_columns;
-	word crt_video_buflen;// Size of current video regen buffer in bytes
-	word crt_video_bufptr;// Offset of current video page in video regen buffer
-	// 0x50
-	word curposis[8];// Cursor position of pages 1-8, high order byte=row low order byte=column; changing this data isn't reflected immediately on the display
-	// 0x60
-	byte cur_scanline_btm;// Cursor ending (bottom) scan line (don't modify)
-	byte cur_scanline_top;// Cursor starting (top) scan line (don't modify)
-	byte crt_video_pgnumber;// Active display page number
-	word port_address_6845;// Port address of 6845 CRT controller (3B4h = mono, 3D4h = color)
-	byte cr_6845;// 6845 CRT mode control register value (port 3x8h); EGA/VGA values emulate those of the MDA/CGA
-	byte crt_CGA_color_palette;// CGA current color palette mask setting (port 3d9h); EGA and VGA values emulate the CGA
-	_PACKED(union) {
-		dword pointer_back_pe;// CS:IP for 286 return from protected mode
-		dword pointer_shutdown;// Temp storage for SS:SP during shutdown
-		dword days;// Day counter on all products after AT
-		dword reset_code_ps2;// PS/2 Pointer to reset code with memory preserved
-		byte cassette_tape_controls[5];// Cassette tape control (before AT)
-	} pointers;
-	dword count_daily_timer;// Daily timer counter, equal to zero at midnight; incremented by INT 8; read/set by INT 1A
-	// 0x70
-	byte clock_rollover_flag;// Clock rollover flag, set when 40:6C exceeds 24hrs
-	byte BIOS_break_code;// BIOS break flag, bit 7 is set if Ctrl-Break was *ever* hit; set by INT 9
-	word soft_reset_flag;// via Ctl-Alt-Del or JMP FFFF:0
-	//	1234h  Bypass memory tests & CRT initialization
-	//	4321h  Preserve memory
-	//	5678h  System suspend
-	//	9ABCh  Manufacturer test
-	//	ABCDh  Convertible POST loop
-	//	????h  many other values are used during POST
-	byte hdisk_opstatus;// Status of last hard disk operation (see INT 13,1)
-	byte hdisk_number;// Number of hard disks attached
-
-	_TODO
-};
 
 
 #ifdef _INC_CPP

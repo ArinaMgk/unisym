@@ -1,4 +1,4 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+// UTF-8 CPP-ISO11 TAB4 CRLF
 // Docutitle: (Board) IBM Compatible 
 // Codifiers: @dosconio: 20240804
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -22,6 +22,8 @@
 
 #ifndef _INC_Board_IBMCompatible
 #define _INC_Board_IBMCompatible
+
+#include "../stdinc.h"
 
 #define _VIDEO_ADDR_BUFFER 0xB8000
 #define BYTE_EOI 0x20
@@ -52,19 +54,16 @@ typedef enum
 	ERQ_Page_Fault = 14,
 	ERQ_x0F = 15,
 	// The latter 16 is for IRQ request handlers
-#define _i8259A_MAS     0X20
-#define _i8259A_MAS_IMR 0X21
+	#define PIC_MAS_IDSTART     0X20
 	IRQ_PIT = 0x20,      // 8253/8254 PIT (Programmable Interval Timer)
 	IRQ_Keyboard = 0x21,
-	IRQ_Cascade = 0x22,  // 8259A Cascade --> _i8259A_SLV
+	IRQ_Cascade = 0x22,  // 8259A Cascade --> PORT_i8259A_SLV_A
 	IRQ_Serial = 0x23,   // COM2 or default ethernet interrupt vector, or RS232 interrupt vector for port 2 {??? 16450 Serial Port}
 	IRQ_RS232_P1 = 0x24, // COM1 or RS232 interrupt vector for port 1
 	IRQ_XT_WINI = 0x25,  // or LPT2
 	IRQ_Floppy = 0x26,   // 8250 Floppy Disk Controller
 	IRQ_LPT1 = 0x27,     // 8255 Parallel Port
-#define _i8259A_SLV     0XA0
-#define _i8259A_SLV_IMR 0XA1
-#define _i8259A_SLV_IDSTART     0X70
+	#define PIC_SLV_IDSTART     0X70
 	IRQ_RTC = 0x70,// Realtime Clock
 	IRQ_0x71 = 0x71,
 	IRQ_0x72 = 0x72,
@@ -101,25 +100,51 @@ typedef enum
 	DEV_SLV_ATA_DISK1 = IRQ_ATA_DISK1 - 0x70,
 } Request_Slave_t;
 
+enum _PORT {
+	//{} 0x0000 - 0x000F	DMA (8237A)
 
+	// PIC i8259A Master
+	PORT_i8259A_MAS_A = 0X20,
+	PORT_i8259A_MAS_B = 0X21,
 
-#define PORT_PIT_TIMER0     0x40 // I/O port for timer channel 0
-#define PORT_PIT_TIMER1     0x41 // I/O port for timer channel 1
-#define PORT_PIT_TIMER2     0x42 // I/O port for timer channel 2
-#define PORT_TIMER_MODE     0x43 // I/O port for timer mode control
+	// PIT i8254A
+	PORT_PIT_TIMER0 = 0x40, // timer channel 0
+	PORT_PIT_TIMER1 = 0x41, // timer channel 1
+	PORT_PIT_TIMER2 = 0x42, // timer channel 2
+	PORT_TIMER_MODE = 0x43, // timer mode control
 
-// AT keyboard
-// 8042 controller
-#define PORT_KBD_BUFFER  0x60 // R:Buffer W:Buffer(8042 Data&8048 Command)
-#define KEYBOARD_DAT     0x60 // R(Buffer), W(Buffer, 8042 Data & 8048 Command)
-#define PORT_SPEAKER     0x61
-#define KEYBOARD_CMD     0x64 // R(Status), W(8042 Command)
+	// 8042 PS/2 and Speaker
+	PORT_KEYBOARD_DAT = 0x60, // R:Buffer W:Buffer(8042 Data&8048 Command)
+	PORT_SPEAKER = 0x61,
+	PORT_KEYBOARD_CMD = 0x64, // R(Status), W(8042 Command)
 
-#define PORT_CMOS_ADDR 0x70
-#define PORT_CMOS_DATA 0x71
+	// CMOS / RTC
+	PORT_CMOS_ADDR = 0x70,  // CMOS address register
+	PORT_CMOS_DATA = 0x71,  // CMOS data register
 
+	//{} 0x0080 - 0x008F	DMA Page
 
+	// PIC i8259A Slave
+	PORT_i8259A_SLV_A = 0XA0,
+	PORT_i8259A_SLV_B = 0XA1,
 
+	//{} 0x0170 - 0x0177	第二IDE通道
+	//{} 0x01F0 - 0x01F7	第一IDE通道
+	//{} 0x02E8, 0x02E9	COM4（串口4）
+	//{} 0x02F8, 0x02F9	COM2（串口2）
+
+	// CRT Control Registers
+	PORT_CRT_CRAR = 0x03D4, // CRT Control Address Register
+	PORT_CRT_DRAR = 0x03D5, // CRT Control Data Register
+
+	//{} 0x03B0 - 0x03BB	MDA（单显适配器）
+	//{} 0x03C0 - 0x03CF	EGA/VGA
+	//{} 0x03D0 - 0x03DF	CGA（彩显图形适配器）
+	//{} 0x03E8, 0x03E9	COM3（串口3）
+	//{} 0x03F8, 0x03F9	COM1（串口1）
+	//{} 0x0CF8, 0x0CFC	PCI配置空间访问
+	//{} 0x0378, 0x0379	LPT1（并口1）
+};
 
 // [CMOS] ---- 0x70~0x71 ----
 
@@ -156,13 +181,102 @@ typedef enum
 #define CMOS_CENTURY 0x32
 #define CMOS_NMI 0x80
 
+// at 0x00400
+// 20250802 fo https://stanislavs.org/helppc/bios_data_area.html
+_PACKED(struct) BIOS_DataArea {
+	// 0x00
+	word port_address_COM1;
+	word port_address_COM2;
+	word port_address_COM3;
+	word port_address_COM4;
+	word port_address_LPT1;
+	word port_address_LPT2;
+	word port_address_LPT3;
+	word port_address_LPT4;// (except PS/2)
+	// 0x10
+	byte equipment_list_flags[2];//{} (see INT 11)
+	byte PCjr;// infrared keyboard link error count
+	word memory_size;// KB (see INT 12)
+	byte RESERVED_0;
+	byte PS2_BIOS_cflag;// PS/2 BIOS control flags
+	byte keyboard_flags[2];//{}
+	byte keypad_entry;// Storage for alternate keypad entry
+	word kbd_buff_head;// Offset from 40:00 to keyboard buffer head
+	word kbd_buff_tail;// Offset from 40:00 to keyboard buffer tail
+	byte kbd_buff[32];// (circular queue buffer)
+	byte drv_recalibration_status;// Drive recalibration status
+	byte diskette_motor_status;// Diskette motor status
+	// 0x40
+	byte motor_shutoff_counter;// Motor shutoff counter (decremented by INT 8)
+	byte diskette_operation_status;// Status of last diskette operation (see INT 13,1)
+	byte NEC_diskette_cflags[7];// NEC diskette controller status (see FDC)
+	byte crt_video_mode;// (see VIDEO MODE)
+	word screen_columns;
+	word crt_video_buflen;// Size of current video regen buffer in bytes
+	word crt_video_bufptr;// Offset of current video page in video regen buffer
+	// 0x50
+	word curposis[8];// Cursor position of pages 1-8, high order byte=row low order byte=column; changing this data isn't reflected immediately on the display
+	// 0x60
+	byte cur_scanline_btm;// Cursor ending (bottom) scan line (don't modify)
+	byte cur_scanline_top;// Cursor starting (top) scan line (don't modify)
+	byte crt_video_pgnumber;// Active display page number
+	word port_address_6845;// Port address of 6845 CRT controller (3B4h = mono, 3D4h = color)
+	byte cr_6845;// 6845 CRT mode control register value (port 3x8h); EGA/VGA values emulate those of the MDA/CGA
+	byte crt_CGA_color_palette;// CGA current color palette mask setting (port 3d9h); EGA and VGA values emulate the CGA
+	_PACKED(union) {
+		dword pointer_back_pe;// CS:IP for 286 return from protected mode
+		dword pointer_shutdown;// Temp storage for SS:SP during shutdown
+		dword days;// Day counter on all products after AT
+		dword reset_code_ps2;// PS/2 Pointer to reset code with memory preserved
+		byte cassette_tape_controls[5];// Cassette tape control (before AT)
+	} pointers;
+	dword count_daily_timer;// Daily timer counter, equal to zero at midnight; incremented by INT 8; read/set by INT 1A
+	// 0x70
+	byte clock_rollover_flag;// Clock rollover flag, set when 40:6C exceeds 24hrs
+	byte BIOS_break_code;// BIOS break flag, bit 7 is set if Ctrl-Break was *ever* hit; set by INT 9
+	word soft_reset_flag;// via Ctl-Alt-Del or JMP FFFF:0
+	//	1234h  Bypass memory tests & CRT initialization
+	//	4321h  Preserve memory
+	//	5678h  System suspend
+	//	9ABCh  Manufacturer test
+	//	ABCDh  Convertible POST loop
+	//	????h  many other values are used during POST
+	byte hdisk_opstatus;// Status of last hard disk operation (see INT 13,1)
+	byte hdisk_number;// Number of hard disks attached
 
+	_TODO
+};
 
+// ---- ---- VGA
 
-
-
-
-
+enum {
+	CRT_CDR_HorizonalTotal,
+	CRT_CDR_HorizonalDisplayEnd,
+	CRT_CDR_HorizonalBlankingStart,
+	CRT_CDR_HorizonalBlankingEnd,
+	CRT_CDR_HorizonalRetraceStart,
+	CRT_CDR_HorizonalRetraceEnd,
+	//
+	CRT_CDR_VerticalTotal,
+	CRT_CDR_Overflow,
+	CRT_CDR_PresetRowScan,// 0x08
+	CRT_CDR_MaxScanLine,
+	CRT_CDR_CursorStart,
+	CRT_CDR_CursorEnd,
+	CRT_CDR_StartAddressHigh,
+	CRT_CDR_StartAddressLow,
+	CRT_CDR_CursorLocationHigh,
+	CRT_CDR_CursorLocationLow,
+	CRT_CDR_VerticalRetraceStart,// 0x10
+	CRT_CDR_VerticalRetraceEnd,
+	CRT_CDR_DisplayEnd,
+	CRT_CDR_Offset,
+	CRT_CDR_UnderlineLocation,
+	CRT_CDR_VerticalBlankingStart,
+	CRT_CDR_VerticalBlankingEnd,
+	CRT_CDR_ModeControl,// CRTC Mode Control Register 0x17
+	CRT_CDR_LineCompare,
+};// CRT Controller Data Registers
 
 
 

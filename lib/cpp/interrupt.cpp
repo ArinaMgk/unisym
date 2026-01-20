@@ -206,8 +206,8 @@ _ESYM_C __attribute__((interrupt, target("general-regs-only")))
 void General_IRQHandler(void* frame) {
 	// __asm("push %eax");
 	// __asm("mov $0x20, %al");
-	outpb(_i8259A_SLV, BYTE_EOI);// __asm("out %al, $0xA0");
-	outpb(_i8259A_MAS, BYTE_EOI);// __asm("out %al, $0x20");
+	outpb(PORT_i8259A_SLV_A, BYTE_EOI);// __asm("out %al, $0xA0");
+	outpb(PORT_i8259A_MAS_A, BYTE_EOI);// __asm("out %al, $0x20");
 	// __asm("pop  %eax");
 	// __asm("iretl");
 }
@@ -223,14 +223,14 @@ void General_IRQHandler(InterruptFrame* frame) {
 #if _MCCA == 0x8632
 void uni::InterruptControl::Init() {
 	_8259A_init_t Mas = { 0 };
-	Mas.port = _i8259A_MAS;
+	Mas.port = PORT_i8259A_MAS_A;
 	Mas.ICW1.ICW4_USED = 1;
 	Mas.ICW1.ENA = 1;
 	Mas.ICW2.IntNo = 0x20;
 	Mas.ICW3.CasPortMap = 0b00000100;
 	Mas.ICW4.Not8b = 1;
 	_8259A_init_t Slv = { 0 };
-	Slv.port = _i8259A_SLV;
+	Slv.port = PORT_i8259A_SLV_A;
 	Slv.ICW1.ICW4_USED = 1;
 	Slv.ICW1.ENA = 1;
 	Slv.ICW2.IntNo = 0x70;

@@ -51,7 +51,7 @@ namespace uni {
 	void Harddisk_PATA::setInterrupt(Handler_t unused_func) const {
 		if (id >= 4) return;// ide00 ide01 ide10 ide11
 		// ploginfo("Harddisk_PATA::setInterrupt(%d)", id);
-		i8259Slaver_Enable(_IMM(IRQ_ATA_DISK0) + (id >> 1) - _i8259A_SLV_IDSTART);
+		i8259Slaver_Enable(_IMM(IRQ_ATA_DISK0) + (id >> 1) - PIC_SLV_IDSTART);
 		i8259Master_Enable(2);
 	}
 

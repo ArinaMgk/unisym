@@ -67,7 +67,7 @@ extern "C" {
 #ifdef _INC_CPP
 }
 #endif
-#define i8259Master_Enable(x) outpb(_i8259A_MAS_IMR | 1, innpb(_i8259A_MAS_IMR) & ~(byte)(1 <<(x)));
-#define i8259Slaver_Enable(x) outpb(_i8259A_SLV_IMR | 1, innpb(_i8259A_SLV_IMR) & ~(byte)(1 <<(x)));
+#define i8259Master_Enable(x) outpb(PORT_i8259A_MAS_B | 1, innpb(PORT_i8259A_MAS_B) & ~(byte)(1 <<(x)));
+#define i8259Slaver_Enable(x) outpb(PORT_i8259A_SLV_B | 1, innpb(PORT_i8259A_SLV_B) & ~(byte)(1 <<(x)));
 
 #endif

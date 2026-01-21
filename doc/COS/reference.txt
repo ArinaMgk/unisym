@@ -22,6 +22,7 @@
 	- TI Manual and Simplelink_msp432p4_sdk_3_40_01_02/source/
 	- CW Manual and EXs CW32F030 & CW32F003 (0.1)
 	- CW Manual and EXs CW32F010 (1.0.2)
+	- Intel® 64 and IA-32 Architectures Software Developer’s Manual (2021 Dec)
 
 - [Data] Standards
 	- Microsoft: Microsoft Extensible Firmware Initiative **FAT32** File System Specification (2000)

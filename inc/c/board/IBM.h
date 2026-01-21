@@ -304,6 +304,10 @@ void x0D_ERQHandler(dword ErrorCode);
 void Page_Fault_ERQHandler(dword ErrorCode);
 void x0F_ERQHandler();
 void X87_FPU_Floating_Point_Error_ERQHandler();
+void Alignment_Check_ERQHandler();
+void Machine_Check_ERQHandler();
+void SIMD_Floating_Point_Exception_ERQHandler();
+void Virtualization_Exception_ERQHandler();
 
 // User Defined
 void ERQ_Handler(sdword iden, dword para

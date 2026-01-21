@@ -26,41 +26,54 @@
 #define _INC_System_Paging
 // #include "../bitmap.h"
 
-// 1 [ none   | l1p-id | l0p-id    ]
+// 1 [ none   | l1p-id | l0p-id    ] until Commit 6f9dbef7
 // 2 [ l1p-id | l0p-id | crt-level ] since 20260119
+#if defined(_ARC_x86)
+namespace uni {
+	#ifdef _DEV_MSVC
+	#pragma pack(push, 1)
+	struct
+		#else
+	_PACKED(struct)
+		#endif
+		PageEntry{
+			stduint P : 1;
+			stduint R_W : 1;
+			stduint U_S : 1;
+			stduint PWT : 1;
+			stduint PCD : 1;
+			stduint A : 1;
+			stduint D : 1;
+			stduint PAT : 1;
+			stduint G : 1;
+			stduint AVL : 3;
+			stduint address : 20;
+			//
+	#ifdef _INC_CPP
+			bool isPresent() const { return P; }
+	#endif
+	};// both page table and page directory
+
+
+	#ifdef _DEV_MSVC
+	#pragma pack(pop)
+	#else
+
+	#endif
+}
+#endif
+
+
+
+
+
+
 
 namespace uni {
 
 	struct Page;
 	
-
 #if defined(_ARC_x86)
-
-#ifdef _DEV_MSVC
-#pragma pack(push, 1)
-	struct
-#else
-	_PACKED(struct)
-#endif
-	 PageEntry {
-		stduint P : 1;
-		stduint R_W : 1;
-		stduint U_S : 1;
-		stduint PWT : 1;
-		stduint PCD : 1;
-		stduint A : 1;
-		stduint D : 1;
-		stduint PAT : 1;
-		stduint G : 1;
-		stduint AVL : 3;
-		stduint address : 20;
-	};// both page table and page directory
-
-#ifdef _DEV_MSVC
-#pragma pack(pop)
-#else
-	
-#endif
 
 // 0 .. 0x400
 #define _NUM_pg_table_entries  (0x1000 / byteof(dword))
@@ -113,8 +126,21 @@ namespace uni {
 		}
 	};
 
+	_PACKED(struct) pageint {
+		stduint crt_level : 12;
+		stduint l0p_index : 10;
+		stduint l1p_index : 10;
+		//
+		pageint(stduint address) {
+			treat<stduint>(this) = address;
+		}
+		operator stduint() {
+			return treat<stduint>(this);
+		}
+	};
+
 	struct Paging {
-		PageDirectory* page_directory;
+		PageDirectory* root_level_page;
 
 
 		// return phyical address, ~0 for unmapped
@@ -126,8 +152,13 @@ namespace uni {
 		inline Page* IndexPage(stduint address) {
 			stduint idx_p1 = address; idx_p1 >>= 12 + 10; idx_p1 &= 0x3FF; // index of page table
 			stduint idx_p0 = address; idx_p0 >>= 12; idx_p0 &= 0x3FF; // index of page
-			return &(*page_directory)[idx_p1][idx_p0];
+			return &(*root_level_page)[idx_p1][idx_p0];
 		}
+
+		// ----
+
+		// return ~0 for unmapped
+		PageEntry* refEntry(pageint p);
 
 		bool Map(stduint address, stduint physical_address, stduint length, bool writable, bool user_but_superv);
 		bool MapWeak(stduint address, stduint physical_address, stduint length, bool writable, bool user_but_superv);
@@ -150,7 +181,6 @@ namespace uni {
 	extern "C" stduint MemCopyP(void* dest, Paging& pg_d, const void* sors, Paging& pg_s, size_t n);
 	extern "C" stduint StrCopyP(char* dest, Paging& pg_d, const char* sors, Paging& pg_s, size_t length);
 
-	
 #endif
 
 }

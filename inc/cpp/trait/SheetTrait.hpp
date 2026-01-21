@@ -24,13 +24,24 @@
 
 #ifndef _INCPP_TRAIT_SHEET
 #define _INCPP_TRAIT_SHEET
+// - The superior diverts the subordinate, the subordinate triggers the superior
+// - the page, form, and control are all sheets
 namespace uni {
+	
+	enum class SheetEvent {
+		onFocus,// Activated
+		onEnter,// Mouse Move In
+		onLeave,// Mouse Move Out
+		onMoved,// Mouse Move or Finger Move
+		onClick,// Mouse Click or Finger Touch
+	};
 
 	class SheetTrait {
 	public:
 		bool EnableChrome;
 		byte* BufferChrome;
 		virtual void doshow() = 0;
+		// virtual void onrupt(SheetEvent, Point, ...) = 0;
 	};
 
 

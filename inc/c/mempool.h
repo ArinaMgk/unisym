@@ -36,12 +36,18 @@ extern "C" {
 
 
 namespace uni {
+	const unsigned CNT_SLICES_PER_POOL = (0x1000 / sizeof(Slice)) - 2;
+	struct SinglePool {
+		SinglePool* nextpool;
+		SinglePool* leftpool;
+		stduint owner_id;
+		stduint slicecnt;// for this pool
+		Slice slices[CNT_SLICES_PER_POOL];
+	};
+	
 	class Mempool : public trait::Malloc {
-		// Slice[0] = { nextpool, leftpool }
-		// Slice[1] = { owner_id, slicecnt } slicecnt is for this pool
-		// Slice[2..] are real memory slices
-		Slice pool_allocated[0x1000 / sizeof(Slice)];
-		Slice pool_available[0x1000 / sizeof(Slice)];
+		SinglePool pool_allocated;
+		SinglePool pool_available;
 		//
 
 	};

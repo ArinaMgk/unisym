@@ -30,30 +30,60 @@ namespace uni {
 	PageEntry* PageDirectory::Index() { return (PageEntry*)_IMM(this); }
 	// pointer to array of pointers of pages
 	PageEntry* PageTable::Index(Paging& pg2) {
-		return (PageEntry*)(_IMM(getParent(pg2).Index()[getID()].address) << 12);
+		// auto a = (PageEntry*)(_IMM(getParent(pg2).Index()[getID()].address) << 12);
+		auto b = pg2.refEntry((_IMM(this) << (12 + 10)) | 0);// aka entry of first item in PT
+		// if (a != b) plogerro("PageTable::Index this=%[x] a=%[x], b=%[x]", this, a, b);
+		return b;
 	}
-	
+
 	// pointer to entry in the PD
 	PageEntry* PageTable::getEntry(Paging& pg2) {
-		return &getParent(pg2).Index()[getID()];
+		// auto a = &getParent(pg2).Index()[getID()];
+		auto b = pg2.refEntry((_IMM(this) << (12 + 10)) | 1);
+		// if (a != b) plogerro("PageTable::getEntry this=%[x] a=%[x], b=%[x]", this, a, b);
+		return b;
 	}
 	// position self address in PT, pointer to a real page
 	PageEntry* Page::getEntry(Paging& pg2) {
-		return &getParent().Index(pg2)[getID()];
+		// auto a = &getParent().Index(pg2)[getID()];
+		auto b = pg2.refEntry((_IMM(this) << 12) | 0);
+		// if (a != b) plogerro("Page::getEntry this=%[x] a=%[x], b=%[x]", this, a, b);
+		return b;
 	}
-	
+
+	PageEntry* Paging::refEntry(pageint p) {
+		if (p.crt_level > 1) return (PageEntry*)~_IMM0;
+		auto pe = (PageEntry*)root_level_page + p.l1p_index;
+		stduint lev = 1 - p.crt_level;
+		for0(i, lev) {
+			const stduint index = p.l0p_index;
+			if (!pe->isPresent()) return (PageEntry*)~_IMM0;
+			const stduint addr = _IMM(pe->address) << 12;
+			pe = (PageEntry*)addr + index;
+		}
+		return pe;
+	}
+
+
+
 	PageDirectory& PageTable::getParent(Paging& pg2) const {
-		return *pg2.page_directory;// not _IMM(this) >> 10
+		return *pg2.root_level_page;// not _IMM(this) >> 10
 	}
 	PageTable& Page::getParent() const {
 		return *(PageTable*)(_IMM(this) >> 10);
 	}
 
+	
+
 	bool PageTable::isPresent(Paging& pg2) const {
-		return getParent(pg2)[getID()].getEntry(pg2)->P;
+		// auto a = getParent(pg2)[getID()].getEntry(pg2);
+		auto b = pg2.refEntry((_IMM(this) << (12 + 10)) | 1);
+		// if (a != b) plogerro("PageTable::isPresent this=%[x] a=%[x], b=%[x]", this, a, b);
+		return b->P;
 	}
 	bool Page::isPresent(Paging& pg2) const {
-		return getParent().isPresent(pg2) && getParent()[getID()].getEntry(pg2)->P;
+		return pg2.refEntry((_IMM(this) << 12) | 1)->P &&
+			pg2.refEntry((_IMM(this) << 12) | 0)->P;
 	}
 
 	void Paging::setMode(PageTable& l1p, bool present, bool writable, bool user_but_superv) {
@@ -80,15 +110,15 @@ namespace uni {
 	}
 	
 	void Paging::Reset() {
-		page_directory = (uni::PageDirectory*)_physical_allocate(0x1000);
-		MemSet(page_directory, 0, 0x1000);
+		root_level_page = (uni::PageDirectory*)_physical_allocate(0x1000);
+		MemSet(root_level_page, 0, 0x1000);
 	}
 	void Paging::Reset(Paging& pg_another) {
 		// use 2-level paging (0x400 x 0x400 x 0x1000)
-		page_directory = (uni::PageDirectory*)_physical_allocate(0x1000);
-		MemSet(page_directory, 0, 0x1000);
+		root_level_page = (uni::PageDirectory*)_physical_allocate(0x1000);
+		MemSet(root_level_page, 0, 0x1000);
 		for0(i, _NUM_pd_table_entries) {
-			PageEntry* p1entry = (*pg_another.page_directory)[i].getEntry(pg_another);
+			PageEntry* p1entry = (*pg_another.root_level_page)[i].getEntry(pg_another);
 			if (p1entry->P) {
 				// PageMap(self, )
 				//{TODO}
@@ -101,22 +131,22 @@ namespace uni {
 
 	void* Paging::operator[](stduint address) const {
 		stduint id_l1p = address; id_l1p >>= 12 + 10; id_l1p &= 0x3FF; // index of page table
-		auto l1p = *(*page_directory)[id_l1p].getEntry(*(Paging*)this);// level-1 page
+		auto l1p = *(*root_level_page)[id_l1p].getEntry(*(Paging*)this);// level-1 page
 		if (!l1p.P) return (void*)~_IMM0;
 		//
 		stduint id_l0p = address; id_l0p >>= 12; id_l0p &= 0x3FF;// index of page
-		auto l0p = *(*page_directory)[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
+		auto l0p = *(*root_level_page)[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
 		if (!l0p.P) return (void*)~_IMM0;
 		return (void*)((_IMM(l0p.address) << 12) + (address & 0xFFF));
 	}
 
 	PageEntry* Paging::getEntry(stduint address) const {
 		stduint id_l1p = address; id_l1p >>= 12 + 10; id_l1p &= 0x3FF; // index of page table
-		auto l1p = *(*page_directory)[id_l1p].getEntry(*(Paging*)this);// level-1 page
+		auto l1p = *(*root_level_page)[id_l1p].getEntry(*(Paging*)this);// level-1 page
 		if (!l1p.P) return (PageEntry*)~_IMM0;
 		//
 		stduint id_l0p = address; id_l0p >>= 12; id_l0p &= 0x3FF;// index of page
-		return (*page_directory)[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
+		return (*root_level_page)[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
 	}
 
 	static void PageMap(Paging& pg2, stduint address, stduint physical_address, bool writable, bool user_but_superv) {
@@ -171,7 +201,7 @@ namespace uni {
 		while (length) {
 			if (!crtpage_d->isPresent(pg_d)) {
 				plogerro(" at %s(dest %[32H], %[32H], sors %[32H], %[32H], length %[u])",
-					__FUNCIDEN__, dest, pg_d.page_directory, sors, pg_s.page_directory, length
+					__FUNCIDEN__, dest, pg_d.root_level_page, sors, pg_s.root_level_page, length
 				);
 				plogerro("MemCopyP: dest page %[32H] is not present. rest %[u]B",
 					crtpage_d, length

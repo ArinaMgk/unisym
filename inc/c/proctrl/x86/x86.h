@@ -39,7 +39,6 @@ void PagingEnable(void) {
 unsigned IfSupport_IA32E();
 
 // ---- ---- JMPs ---- ---- //
-void jmpFar(dword offs, dword selc);// <=> jmpf : jmp far
 void jmpTask(dword tss_no/*, dword old_no*/);// <=> advanced JMP GDT:TSS
 void CallFar(dword offs, dword selc);// <=> callf : call far
 

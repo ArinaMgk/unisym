@@ -20,6 +20,7 @@
 	limitations under the License.
 */
 #include "../unisym"
+#include "../../c/graphic.h"
 //{TODO} ! Below are included by HEREPIC ! //
 
 #ifndef _INCPP_TRAIT_SHEET
@@ -36,15 +37,34 @@ namespace uni {
 		onClick,// Mouse Click or Finger Touch
 	};
 
+	class LayerManager;
 	class SheetTrait {
 	public:
-		bool EnableChrome;
-		byte* BufferChrome;
-		virtual void doshow() = 0;
-		// virtual void onrupt(SheetEvent, Point, ...) = 0;
+		LayerManager* parent = nullptr;
+		SheetTrait* pnext = nullptr;
+		Rectangle area;
+		// byte* buffer = nullptr;
+	public:
+		SheetTrait() = default;
+
+		void Initialize(LayerManager& _parent, Point vertex, Size2 size, byte* buf) {
+			parent = &_parent;
+			pnext = nullptr;
+			area = Rectangle{ vertex, size, Color::White, false };
+			// buffer = buf;
+		}
+
+		virtual Color getPoint(Point p) { return Color::Black; }
+
+		// [optional] if using buffer
+		virtual void doshow(void*) = 0;
+
+		virtual bool isEntity(Point rel_p) {
+			return rel_p.x < area.width && rel_p.y < area.height;
+		}
+
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) {}
 	};
-
-
 
 
 }

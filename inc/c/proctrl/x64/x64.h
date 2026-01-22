@@ -37,9 +37,6 @@ static inline void Descriptor64SetData(descriptor_t* gdte, _CPU_descriptor_type 
 
 #endif
 
-// ---- memoman ----
-
-void GDT_Init();
 
 // ---- interrupt.asm ----
 

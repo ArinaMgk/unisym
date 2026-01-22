@@ -74,17 +74,11 @@ RET
 ; ---- ---- JMPs ---- ---- ;
 
 ;struct __attribute__((packed)) tmp48be_t { uint32 u_32fore; uint16 u_16back; };
+;VER 1 may break the stack
+;VER 2 since 20250122
 jmpFar:; + TSS_ID_inGDT
-	; - [EBP+4*0]=BP
-	; - [EBP+4*1]=Return Address
-	; - [EBP+4*2]=Address
-	; - [EBP+4*3]=Segment(word-eff, dword-len)
-	PUSH EBP
-	MOV EBP, ESP
-	JMP FAR [EBP+4*2]
-	MOV ESP, EBP
-	POP EBP
-RET
+	POP EAX; noreturn
+RETF; eat 2 dwords
 
 CallFar:
 	PUSH EBP

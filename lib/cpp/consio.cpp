@@ -63,7 +63,7 @@ namespace uni {
 				switch (chr)
 				{
 				case (byte)'\xFF':// 20240217-ALICE's FF Method
-					attr = *str++;
+					attr = *(byte*)str++;
 					attr_enable = (attr != (byte)'\xFF');
 					_LIMIT--;
 					break;
@@ -119,7 +119,7 @@ namespace uni {
 
 		return _TODO - 1;
 	}
-	_WEAK void BareConsole::doshow() { }
+	_WEAK void BareConsole::doshow(void* _) { }
 	void BareConsole::Scroll(stdsint lines, word& posi) {
 		//{} The fact may be ContinPage + MemAbsolute
 		const stduint _BytesPerLine = unit * area_total.x;

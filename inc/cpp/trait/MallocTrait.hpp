@@ -42,6 +42,7 @@ namespace uni {
 				if (void* newptr = allocate(size)) {
 					MemCopyN(newptr, ptr, old_size);
 					deallocate(ptr);
+					return newptr;
 				}
 				else return nullptr;
 			}

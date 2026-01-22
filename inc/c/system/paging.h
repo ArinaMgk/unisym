@@ -73,11 +73,11 @@ namespace uni {
 
 	struct Page;
 	
-#if defined(_ARC_x86)
+	#if defined(_ARC_x86)
 
-// 0 .. 0x400
-#define _NUM_pg_table_entries  (0x1000 / byteof(dword))
-#define _NUM_pd_table_entries  (0x1000 / byteof(dword))
+	// 0 .. 0x400
+	#define _NUM_pg_table_entries  (0x1000 / byteof(dword))
+	#define _NUM_pd_table_entries  (0x1000 / byteof(dword))
 
 	struct Paging;
 
@@ -181,7 +181,13 @@ namespace uni {
 	extern "C" stduint MemCopyP(void* dest, Paging& pg_d, const void* sors, Paging& pg_s, size_t n);
 	extern "C" stduint StrCopyP(char* dest, Paging& pg_d, const char* sors, Paging& pg_s, size_t length);
 
-#endif
+	#elif defined(_MCCA) && _MCCA == 0x8664//{} should _ARC_x64 // IA32e
+
+	struct Paging {
+		int _;
+	};
+
+	#endif
 
 }
 

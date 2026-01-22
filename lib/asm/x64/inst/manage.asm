@@ -10,7 +10,7 @@ GLOBAL InterruptDTabLoad
 GLOBAL getCR3, getFlags
 GLOBAL getCS
 GLOBAL setA
-; GLOBAL jmpFar, CallFar
+GLOBAL jmpFar;, CallFar
 ; GLOBAL returnfar
 ; GLOBAL TaskReturn
 
@@ -58,5 +58,11 @@ setA:
 RET
 
 ; ---- ---- JMPs ---- ---- ;
-
+; void jmpFar(addr RDI, seg RSI);
+jmpFar:
+	ADD RSP, 0x8
+	MOVZX RSI, SI
+	PUSH RSI
+	PUSH RDI
+O64 RETF
 

@@ -133,7 +133,25 @@ namespace uni {
 		virtual void DrawFont(const Point& disp, const DisplayFont& font) const = 0;
 		virtual Color GetColor(Point p) const = 0;
 	};
-	
+
+	class LayerManager {
+	public:
+		SheetTrait* subf = nullptr, * subl = nullptr;
+		VideoControlInterface* pvci;
+	public:
+		LayerManager(VideoControlInterface* p) : pvci(p) { }
+
+		void Append(SheetTrait* sheet) {
+			if (subf == nullptr) {
+				subl = subf = sheet;
+			}
+			else {
+				subl->pnext = sheet;
+				subl = sheet;
+			}
+		}
+	};
+
 	// general
 	typedef void (*onPressed_t)(Point disp, stduint pressure, stduint range_radius);
 	class VideoControlBlock {
@@ -247,7 +265,7 @@ namespace uni {
 	public:
 		virtual int out(const char* str, stduint len);
 		virtual int inn() _TODO;
-		virtual void doshow() override;
+		virtual void doshow(void*) override;
 	public:
 
 		void curinc();

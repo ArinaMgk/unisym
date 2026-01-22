@@ -76,7 +76,7 @@ namespace uni {
 	int VideoConsole::inn() {
 		return _TEMP 0;
 	}
-	void VideoConsole::doshow() {
+	void VideoConsole::doshow(void*_) {
 		_TEMP 0;
 	}
 
@@ -129,6 +129,13 @@ namespace uni {
 			col.b = (color & 0b00000001) ? 0xFA : 0;
 			col.g = (color & 0b00000010) ? 0xFA : 0;
 			col.r = (color & 0b00000100) ? 0xFA : 0;
+			crt_self->backcolor = col;
+		}
+		else if ((byte)str[i] == (byte)'\xFE' && _LIMIT - i > 3) {// set backcolor 32bit
+			Color col; col.a = 0xFF;
+			col.b = str[++i];
+			col.g = str[++i];
+			col.r = str[++i];
 			crt_self->backcolor = col;
 		}
 		else {

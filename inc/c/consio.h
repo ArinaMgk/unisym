@@ -203,7 +203,7 @@ namespace uni {
 	public:
 		virtual int out(const char* str, stduint len);
 		virtual int inn();
-		virtual void doshow() override;
+		virtual void doshow(void*) override;
 	public:
 		Rectangle area_show;// relatived to Screen
 		Size2 area_total;// relatived to Memory

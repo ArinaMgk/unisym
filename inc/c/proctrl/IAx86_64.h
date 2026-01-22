@@ -146,11 +146,10 @@ typedef _PACKED(struct) _CPU_gate_type
 	}
 
 	// Make a Interupt Gate with Ring 0
-	_CPU_gate_type* setModeRupt(dword addr, word segm)
+	_CPU_gate_type* setModeRupt(stduint addr, word segm)
 	{
 		auto gate = this;
-		gate->offset_low = addr & 0xFFFF;
-		gate->selector = segm;
+		setRange(addr, segm);
 		#if __BITS__ == 32
 		gate->param_count = 0;
 		#elif __BITS__ == 64
@@ -161,7 +160,6 @@ typedef _PACKED(struct) _CPU_gate_type
 		gate->notsys = 0;
 		gate->DPL = 0;
 		gate->present = 1;
-		gate->offset_high = (addr >> 16) & 0xFFFF;
 		return gate;
 	}
 	
@@ -287,5 +285,9 @@ uint16 getCS(void);//{TODO} x86
 
 // GEN [A]
 stduint setA(stduint);// eax/rax
+
+// ---- ---- JMPs ---- ---- //
+void jmpFar(stduint offs, stduint selc);
+
 
 #endif

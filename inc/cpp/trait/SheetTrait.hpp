@@ -40,18 +40,18 @@ namespace uni {
 	class LayerManager;
 	class SheetTrait {
 	public:
-		LayerManager* parent = nullptr;
-		SheetTrait* pnext = nullptr;
-		Rectangle area;
-		// byte* buffer = nullptr;
+		LayerManager* sheet_parent = nullptr;
+		SheetTrait* sheet_pnext = nullptr;
+		Rectangle sheet_area;
+		Color* sheet_buffer = nullptr;// if set, the LayMan will fetch the uni.Color from the buffer
 	public:
 		SheetTrait() = default;
 
-		void Initialize(LayerManager& _parent, Point vertex, Size2 size, byte* buf) {
-			parent = &_parent;
-			pnext = nullptr;
-			area = Rectangle{ vertex, size, Color::White, false };
-			// buffer = buf;
+		void InitializeSheet(LayerManager& _parent, Point vertex, Size2 size, Color* buf) {
+			sheet_parent = &_parent;
+			sheet_pnext = nullptr;
+			sheet_area = Rectangle{ vertex, size, Color::White, false };
+			sheet_buffer = buf;
 		}
 
 		virtual Color getPoint(Point p) { return Color::Black; }
@@ -60,10 +60,11 @@ namespace uni {
 		virtual void doshow(void*) = 0;
 
 		virtual bool isEntity(Point rel_p) {
-			return rel_p.x < area.width && rel_p.y < area.height;
-		}
+			return rel_p.x < sheet_area.width && rel_p.y < sheet_area.height;
+		}// for shape which is not rect
 
-		virtual void onrupt(SheetEvent event, Point rel_p, ...) {}
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) = 0;
+
 	};
 
 

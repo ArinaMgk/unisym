@@ -27,14 +27,14 @@ stduint ELF64_LoadExecFromMemory(const void* memsrc, void** p_entry)
 {
 	struct ELF_Header_t* header = (struct ELF_Header_t*)memsrc;
 	stduint retval = 0;
-	void* entry = (void*)header->e_entry;
+	void* entry = (void*)_IMM(header->e_entry);// if now flap32, omit higher 32 bits
 	for0(i, header->e_phnum)
 	{
 		struct ELF_PHT_t* ph = (struct ELF_PHT_t*)((byte*)memsrc + header->e_phoff + header->e_phentsize * i);
 		if (ph->p_type == PT_LOAD && (++retval))//{TEMP}VAddress
 		{
 			// ploginfo("ELF64_LoadExecFromMemory: %[64H]->%[64H]", ph->p_vaddr, (byte*)memsrc + ph->p_offset);
-			MemCopyN((pureptr_t)ph->p_vaddr, (byte*)memsrc + ph->p_offset, ph->p_memsz);
+			MemCopyN((pureptr_t)_IMM(ph->p_vaddr), (byte*)memsrc + ph->p_offset, ph->p_memsz);
 		}
 	}
 	if (p_entry) *p_entry = entry;

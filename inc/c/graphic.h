@@ -48,6 +48,8 @@ namespace uni {
 
 	struct Size2dif {
 		stdsint x, y;
+	public:
+		Size2dif(stdsint x = 0, stdsint y = 0) : x(x), y(y) {}
 	};
 
 	typedef double Line2[3];// x*[0] + y*[1] + [2] {=, <, <=} 0

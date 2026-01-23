@@ -132,23 +132,62 @@ namespace uni {
 		virtual void DrawRectangle(const Rectangle& rect) const = 0;
 		virtual void DrawFont(const Point& disp, const DisplayFont& font) const = 0;
 		virtual Color GetColor(Point p) const = 0;
+	public:
+		void RollUp(stduint height, const Rectangle& rect) const {
+			MIN(height, rect.height);
+			for (stduint y = 0; y < rect.height - height; y++) {
+				for (stduint x = 0; x < rect.width; x++) {
+					DrawPoint(Point(x, y), GetColor(Point(x, y + height)));
+				}
+			}
+			DrawRectangle(Rectangle(
+				Point(0, rect.height - height),
+				Size2(rect.width, height),
+				rect.color
+			));
+		}
 	};
 
+	/*
+	* 请求上级刷新：sheet_parent->Update...(目标区域)
+	*/
 	class LayerManager {
 	public:
-		SheetTrait* subf = nullptr, * subl = nullptr;
+		SheetTrait* subf = nullptr,// top
+			* subl = nullptr;// bottom
 		VideoControlInterface* pvci;
+	protected:
+		Rectangle window;
 	public:
-		LayerManager(VideoControlInterface* p) : pvci(p) { }
+		LayerManager(VideoControlInterface* p, const Rectangle rect) : pvci(p), window(rect) { }
 
 		void Append(SheetTrait* sheet) {
 			if (subf == nullptr) {
 				subl = subf = sheet;
 			}
 			else {
-				subl->pnext = sheet;
+				subl->sheet_pnext = sheet;
 				subl = sheet;
 			}
+		}
+
+		stduint Count() {
+			stduint cnt = 0;
+			SheetTrait* crt = subf;
+			while (crt) {
+				cnt++;
+				crt = crt->sheet_pnext;
+			}
+			return cnt;
+		}
+
+		
+		void Update(SheetTrait* who, const Rectangle& rect);
+		
+		void Domove(SheetTrait* who, Size2dif dif);
+
+		inline constexpr Color& getPoint(SheetTrait* whom, const Point& p) {
+			return whom->sheet_buffer[(p.y) * whom->sheet_area.width + p.x];
 		}
 	};
 
@@ -209,18 +248,6 @@ namespace uni {
 		virtual void Draw_2Points(Point disp, Color colors[4]);
 		virtual void Draw_4Points(Point disp, Color colors[4]);
 
-		void RollUp(stduint height) {
-			for (stduint y = 0; y < rows - height; y++) {
-				for (stduint x = 0; x < cols; x++) {
-					Draw(Point(x, y), vci.GetColor(Point(x, y + height)));
-				}
-			}
-			for (stduint y = rows - height; y < rows; y++) {
-				for (stduint x = 0; x < cols; x++) {
-					Draw(Point(x, y), back_color);
-				}
-			}
-		}
 
 	};// Single Layer
 
@@ -230,7 +257,7 @@ namespace uni {
 	public: const VideoControlInterface& vci;
 	protected:
 		Point cursor = { 0,0 };
-		byte* buffer = nullptr;// pixels buffer
+		Color* buffer = nullptr;// pixels/words buffer, not sheet_buffer
 		Size2 size;// char unit but pixel
 		stduint typ;// 0: inner_8x5, 1:inner_16x8
 	public:
@@ -246,7 +273,6 @@ namespace uni {
 		void DrawCharPosition_16x8(Point disp, Color color, char ch);
 		void FeedLine();
 
-		void Refresh();//{TODO} according to (buffer)
 	public:
 		VideoConsole(const VideoControlInterface& vci,
 			const Rectangle& win,
@@ -257,19 +283,34 @@ namespace uni {
 		{
 			size.x = window.width / (typ ? 8 : 5);
 			size.y = window.height / (typ ? 16 : 8);
+			window.color = fore_color;
 		}
 
 		inline void Clear() {
-			vci.DrawRectangle(window);
+			if (buffer) {
+				Color* p0 = buffer;
+				for0(y, window.height * window.width) {
+					*p0++ = backcolor;
+				}
+				sheet_parent->Update(this, window);
+			}
+			else vci.DrawRectangle(window);
 		}
+		void setModeBuffer(Color* buf) { buffer = buf; }
+
 	public:
 		virtual int out(const char* str, stduint len);
 		virtual int inn() _TODO;
 		virtual void doshow(void*) override;
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
+
 	public:
 
 		void curinc();
-
+	protected:
+		void thisDrawPoint(const Point& disp, Color color);
+		void thisDrawRectangle(const Rectangle& rect);
+		void thisRollup(stduint height);
 
 	};
 

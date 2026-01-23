@@ -204,6 +204,7 @@ namespace uni {
 		virtual int out(const char* str, stduint len);
 		virtual int inn();
 		virtual void doshow(void*) override;
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
 	public:
 		Rectangle area_show;// relatived to Screen
 		Size2 area_total;// relatived to Memory

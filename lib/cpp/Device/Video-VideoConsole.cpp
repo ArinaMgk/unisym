@@ -44,7 +44,7 @@ namespace uni {
 				dat = datptr[i];
 				for0r(j, 8) {
 					if (dat_bmap.bitof(j))// else if (fill) ...
-						vci.DrawPoint(Point(disp.x, disp.y + j), color);
+						thisDrawPoint(Point(disp.x, disp.y + j), color);
 				}
 				disp.x++;
 			}
@@ -62,7 +62,7 @@ namespace uni {
 				dat = datptr[i];
 				for0r(j, 16) {
 					if (dat_bmap.bitof(j))// else if (fill) ...
-						vci.DrawPoint(Point(disp.x, disp.y + (j ^ 0b111)), color);
+						thisDrawPoint(Point(disp.x, disp.y + (j ^ 0b111)), color);
 				}
 				disp.x++;
 			}
@@ -94,6 +94,10 @@ namespace uni {
 		else if (str[i] == '\n') {
 			crt_self->cursor.y++;
 			crt_self->FeedLine();
+			Rectangle rect = crt_self->window;
+			rect.y = (crt_self->cursor.y - 1) * FontSizeHeight[crt_self->typ];
+			rect.height = FontSizeHeight[crt_self->typ];
+			crt_self->sheet_parent->Update(crt_self, rect);
 		}
 		else if (str[i] == '\r') {
 			crt_self->cursor.x = nil;
@@ -144,10 +148,11 @@ namespace uni {
 				crt_self->cursor.x * fontsize.x,
 				crt_self->cursor.y * fontsize.y);
 			Rectangle fontblock(point, fontsize, crt_self->backcolor);
-			crt_self->vci.DrawRectangle(fontblock);
+			crt_self->thisDrawRectangle(fontblock);
 			(crt_self->*draw_f) (point, crt_self->forecolor, str[i]);
 			crt_self->curinc();
 		}
+		// crt_self->sheet_parent->Update(crt_self, crt_self->window);
 		#undef crt_self
 	}
 	int VideoConsole::out(const char* str, stduint len) {
@@ -156,11 +161,43 @@ namespace uni {
 		return 0 _TEMP;
 	}
 
+
+	void VideoConsole::thisDrawPoint(const Point& disp, Color color) {
+		if (buffer) {
+			Color* p0 = buffer + window.width * disp.y + disp.x;
+			*p0 = color;
+		}
+		else vci.DrawPoint(disp, color);
+	}
+	void VideoConsole::thisDrawRectangle(const Rectangle& rect) {
+		if (buffer) {
+			for0(y, rect.height) {
+				Color* p0 = buffer + window.width * (rect.y + y) + rect.x;
+				for0(x, rect.width) *p0++ = rect.color;
+			}
+		}
+		else vci.DrawRectangle(rect);
+	}
+	void VideoConsole::thisRollup(stduint height) {
+		const Size2 scr(size.x * FontSizeWidth[crt_self->typ], size.y * FontSizeHeight[crt_self->typ]);
+		if (buffer) {
+			stduint h_dif = minof(height, window.height);
+			Color* p0 = buffer;
+			Color* p = buffer + h_dif * window.width;
+			for0(i, (window.height - h_dif) * window.width) {
+				*p0++ = *p++;
+			}
+			for0(i, h_dif* window.width) {
+				*p0++ = backcolor;
+			}
+			sheet_parent->Update(this, window);
+		}// quick method
+		else vci.RollUp(FontSizeHeight[crt_self->typ], window);
+	}
 	void VideoConsole::FeedLine() {
 		while (cursor.y >= size.y) {
 			cursor.y--;
-			Size2 scr(size.x * FontSizeWidth[crt_self->typ], size.y * FontSizeHeight[crt_self->typ]);
-			VideoControlBlock(vci, scr, backcolor).RollUp(FontSizeHeight[crt_self->typ]);
+			thisRollup(FontSizeHeight[crt_self->typ]);
 		}
 	}
 	

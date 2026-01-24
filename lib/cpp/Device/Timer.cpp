@@ -48,6 +48,33 @@ void PIT_Init()
 	i8259Master_Enable(DEV_MAS_PIT);
 }
 
+#elif _MCCA == 0x8664
+using namespace uni;
+LocalAPICTimer lapic_timer;
+
+namespace {
+	const uint32 CountMax = 0xFFFFFFFFu;
+	volatile uint32* lvt_timer = (uint32*)(0xFEE00320);
+	volatile uint32* initial_count = (uint32*)(0xFEE00380);
+	volatile uint32* current_count = (uint32*)(0xFEE00390);
+	volatile uint32* divide_config = (uint32*)(0xFEE003E0);
+}
+
+void LocalAPICTimer::Reset() {
+	//{} TEMP
+	*divide_config = 0b1011; // divide 1:1
+	*lvt_timer = _IMM(0b001 << 16) | 32; // masked, one-shot
+}
+void LocalAPICTimer::Ento() {
+	*initial_count = CountMax;
+}
+void LocalAPICTimer::Endo() {
+	*initial_count = 0;
+}
+stduint LocalAPICTimer::Read() {
+	return CountMax - *current_count;
+}
+
 #elif (_MCCA & 0xFF00) == 0x1000
 #include "../../../inc/c/proctrl/RISCV/riscv.h"
 #include "../../../inc/c/board/QemuVirt-Riscv.h"

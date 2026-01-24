@@ -194,9 +194,9 @@ namespace uni {
 	// |----------|
 	// |area|area | area_show  ( left:0 , top, width =columns , height , filled=bgcolor_enable, (bg)color )
 	// |show|total| area_total ( columns , lines_total )
-	// |----|     |
+	// |____|     |
 	// |          |
-	// |----------|
+	// |__________|
 	class BareConsole
 		: public Console_t, public SheetTrait
 	{

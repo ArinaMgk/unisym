@@ -130,6 +130,7 @@ namespace uni {
 	// ---- LayerManager ---- //
 	void LayerManager::Update(SheetTrait* who, const Rectangle& rect) {
 		// auto p = who->sheet_buffer; if (!p) return;
+		if (!this) return;
 		Rectangle abs_rect = who ? who->sheet_area : window;
 		abs_rect.x += rect.x;
 		abs_rect.y += rect.y;
@@ -154,6 +155,8 @@ namespace uni {
 		Rectangle old_rect = who->sheet_area;
 		who->sheet_area.x = _x;
 		who->sheet_area.y = _y;
+		asserv (old_rect.x)--; if (old_rect.x + old_rect.width + 2 < window.width) old_rect.width += 2;
+		asserv (old_rect.y)--; if (old_rect.y + old_rect.height + 2 < window.height) old_rect.height += 2;
 		Update(NULL, old_rect);
 		Update(who, Rectangle(Point(0,0), who->sheet_area.getSize()));
 	}
@@ -170,11 +173,14 @@ namespace uni {
 			if (pp->a == 0xFFu) col = *pp;
 			else if (!pp->a);
 			else {
-				double rate = (double)pp->a / 255.0;
-				double r = pp->r * rate + col.r * (1 - rate);
-				double g = pp->g * rate + col.g * (1 - rate);
-				double b = pp->b * rate + col.b * (1 - rate);
-				col.r = (byte)r; col.g = (byte)g; col.b = (byte)b;
+				// uint32 r = pp->r * pp->a + col.r * (255 - pp->a); r /= 0xFF;
+				// sint32 r = ((sint32)pp->r - (sint32)col.r) * pp->a / 0xFF + col.r;
+				sint32 r = (((sint32)pp->r - col.r) * pp->a >> 8) + col.r;
+				sint32 g = (((sint32)pp->g - col.g) * pp->a >> 8) + col.g;
+				sint32 b = (((sint32)pp->b - col.b) * pp->a >> 8) + col.b;
+				if (r < 0) r = 0; col.r = minof((uint32)r, 0xFFu);
+				if (g < 0) g = 0; col.g = minof((uint32)g, 0xFFu);
+				if (b < 0) b = 0; col.b = minof((uint32)b, 0xFFu);
 			}
 		} while (crt = crt->sheet_pleft);
 		col.a = 0xFF;

@@ -59,8 +59,21 @@ namespace uni {
 	};
 }
 extern uni::Timer clint;
-#endif
 
+#elif _MCCA == 0x8664
+
+namespace uni {
+	class LocalAPICTimer {
+	public:
+		void Reset();
+		void Ento();
+		void Endo();
+		stduint Read();
+	};
+}
+extern uni::LocalAPICTimer lapic_timer;
+
+#endif
 #elif defined(_MCU_Intel8051)
 extern void (*RoutineINT0)(void);// Keil will consider this as a define but a declaration? Haruno RFR19.
 void Timer0Init(void);

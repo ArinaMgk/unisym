@@ -97,7 +97,8 @@ namespace uni {
 			Rectangle rect = crt_self->window;
 			rect.y = (crt_self->cursor.y - 1) * FontSizeHeight[crt_self->typ];
 			rect.height = FontSizeHeight[crt_self->typ];
-			if (crt_self->buffer) crt_self->sheet_parent->Update(crt_self, rect);
+			// cannot change rect.width because \n and \r are separated
+			if (crt_self->sheet_parent && crt_self->buffer) crt_self->sheet_parent->Update(crt_self, rect);
 		}
 		else if (str[i] == '\r') {
 			crt_self->cursor.x = nil;

@@ -309,6 +309,10 @@ namespace uni {
 			else vci.DrawRectangle(window);
 		}
 		void setModeBuffer(Color* buf) { buffer = buf; }
+		void setBackcolor(Color bkcolor) {
+			byte buf[4] = { (byte)'\xFE', bkcolor.b, bkcolor.g, bkcolor.r };
+			out((rostr)buf, 4);
+		}
 
 	public:
 		virtual int out(const char* str, stduint len);

@@ -70,6 +70,9 @@ namespace uni {
 		Size2 getSize() const {
 			return Size2(width, height);
 		}
+		bool ifContain(const Point& p) const {
+			return p.x >= x && p.x < x + width && p.y >= y && p.y < y + height;
+		}
 	};
 
 	struct Circle {

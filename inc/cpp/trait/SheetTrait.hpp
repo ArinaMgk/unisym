@@ -40,16 +40,20 @@ namespace uni {
 	class LayerManager;
 	class SheetTrait {
 	public:
+		friend class LayerManager;
+	protected:
+	
 		LayerManager* sheet_parent = nullptr;
+		SheetTrait* sheet_pleft = nullptr;
 		SheetTrait* sheet_pnext = nullptr;
 		Rectangle sheet_area;
+	public:
 		Color* sheet_buffer = nullptr;// if set, the LayMan will fetch the uni.Color from the buffer
 	public:
 		SheetTrait() = default;
 
 		void InitializeSheet(LayerManager& _parent, Point vertex, Size2 size, Color* buf) {
 			sheet_parent = &_parent;
-			sheet_pnext = nullptr;
 			sheet_area = Rectangle{ vertex, size, Color::White, false };
 			sheet_buffer = buf;
 		}

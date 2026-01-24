@@ -234,26 +234,33 @@ static inline uint64 getTIME() {
 }
 
 
-static inline uint64 getSP() {
-	uint64 x;
+static inline stduint getSP() {
+	stduint x;
 	asm volatile("mv %0, sp" : "=r"(x));
 	return x;
 }
 
 // read and write tp, the thread pointer, which holds
 // this core's hartid (core number), the index into cpus[].
-static inline uint64 getTP() {
-	uint64 x;
+static inline stduint getTP() {
+	stduint x;
 	asm volatile("mv %0, tp" : "=r"(x));
 	return x;
 }
 
-static inline void setTP(uint64 x) {
+static inline void setTP(stduint x) {
 	asm volatile("mv tp, %0" : : "r"(x));
 }
 
-static inline uint64 getRA() {
-	uint64 x;
+static inline stduint getMHARTID()
+{
+	stduint x;
+	asm volatile("csrr %0, mhartid" : "=r" (x) );
+	return x;
+}
+
+static inline stduint getRA() {
+	stduint x;
 	asm volatile("mv %0, ra" : "=r"(x));
 	return x;
 }
@@ -293,8 +300,8 @@ typedef uint64 pte_t;
 typedef uint64* pagetable_t; // 512 PTEs
 
 //{UNCHK}
-static inline uint64 getR0() {
-	uint64 x;
+static inline stduint getR0() {
+	stduint x;
 	asm volatile("mv %0, x10" : "=r"(x));
 	return x;
 }

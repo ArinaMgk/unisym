@@ -24,12 +24,44 @@
 #ifndef _INC_DEVICE_Timer
 #define _INC_DEVICE_Timer
 
-// Category
+// [Category]
 #include "RealtimeClock.h"// RTC
 // PIT
 // TSC
 
-#ifdef _MCU_Intel8051
+#ifdef _INC_CPP
+#include "../../cpp/interrupt"
+#endif
+
+#if defined(_MCCA)
+
+#if (_MCCA & 0xFF00) == 0x1000
+
+#define TIMER_INTERVAL CLINT_TIMEBASE_FREQ // interval ~= 1s
+
+namespace uni {
+	enum class MSIP_Type : byte {
+		AckRupt = 0,
+		SofRupt = 1,
+	};
+	class Timer : public RuptTrait
+	{
+	public:
+		virtual void setInterrupt(Handler_t _func) const override {}
+		virtual void setInterruptPriority(byte preempt, byte sub_priority) const override {}
+		virtual void enInterrupt(bool enable = true) const override;
+	public:
+		uint64 Read();
+		void MSIP(stduint mhartid, MSIP_Type);
+		void Load(stduint mhartid, uint64 timepoint);
+	protected:
+
+	};
+}
+extern uni::Timer clint;
+#endif
+
+#elif defined(_MCU_Intel8051)
 extern void (*RoutineINT0)(void);// Keil will consider this as a define but a declaration? Haruno RFR19.
 void Timer0Init(void);
 void Timer0SetCounter(unsigned int Value);
@@ -42,6 +74,7 @@ void RINT0(void)
 	//
 } void (*RoutineINT0)(void) = RINT0;
 */
+
 #endif
 
 #endif

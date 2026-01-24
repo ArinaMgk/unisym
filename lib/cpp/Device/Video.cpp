@@ -128,32 +128,18 @@ namespace uni {
 	}
 
 	// ---- LayerManager ---- //
-
 	void LayerManager::Update(SheetTrait* who, const Rectangle& rect) {
-		auto p = who->sheet_buffer;
-		if (!p) return;
-		Rectangle abs_rect = who->sheet_area;
+		// auto p = who->sheet_buffer; if (!p) return;
+		Rectangle abs_rect = who ? who->sheet_area : window;
 		abs_rect.x += rect.x;
 		abs_rect.y += rect.y;
-		MIN(abs_rect.width, rect.width);
-		MIN(abs_rect.height, rect.height);
-		for0(i, abs_rect.height) {
-			auto pp = p + (rect.y + i) * who->sheet_area.width + rect.x;
-			for0(j, abs_rect.width) {
-				_TEMP if (pp->a != 0xFF && subl) { // assume 2 layers
-					Color col = getPoint(subl, _TEMP Point(abs_rect.x + j, abs_rect.y + i));// 0,0..m,n
-					double r = pp->r * ((double)pp->a / 255.0) +
-						col.r * ((double)(255 - pp->a) / 255.0);
-					double g = pp->g * ((double)pp->a / 255.0) +
-						col.g * ((double)(255 - pp->a) / 255.0);
-					double b = pp->b * ((double)pp->a / 255.0) +
-						col.b * ((double)(255 - pp->a) / 255.0);
-					col.r = (stduint)r; col.g = (stduint)g; col.b = (stduint)b;
-					pvci->DrawPoint(Point(abs_rect.x + j, abs_rect.y + i), col);
-					pp++;
-				}
-				else
-					pvci->DrawPoint(Point(abs_rect.x + j, abs_rect.y + i), *pp++);
+		for0(i, rect.height) {
+			// auto pp = p + (rect.y + i) * who->sheet_area.width + rect.x;
+			Point point(abs_rect.x + 0, abs_rect.y + i);
+			for0(j, rect.width) {
+				pvci->DrawPoint(point, EvaluateColor(point));
+				point.x++;
+				if (point.x >= window.width) break;
 			}
 		}
 	}
@@ -165,18 +151,44 @@ namespace uni {
 		else { MAX(_x, 0); }
 		if (dif.y >= 0) { MIN(_y, window.height - 1); }
 		else { MAX(_y, 0); }
-		//{TODO} seek lower: Refresh Diff Area
-		if (subl) {
-			Update(subl,
-				_TEMP Rectangle(who->sheet_area.getVertex(),
-					who->sheet_area.getSize()));
-		}
-		// Update who->sheet_area by _x _y
+		Rectangle old_rect = who->sheet_area;
 		who->sheet_area.x = _x;
 		who->sheet_area.y = _y;
+		Update(NULL, old_rect);
 		Update(who, Rectangle(Point(0,0), who->sheet_area.getSize()));
 	}
 
+	Color LayerManager::EvaluateColor(const Point& glb_p) {
+		SheetTrait* crt = subl;
+		Color col = window.color;
+		if (crt) do {
+			auto& rect = crt->sheet_area;
+			if (!crt->sheet_buffer || !rect.ifContain(glb_p)) continue;
+			auto pp = crt->sheet_buffer + (glb_p.y - rect.y) * crt->sheet_area.width + (glb_p.x - rect.x);
+			
+			// return *pp;
+			if (pp->a == 0xFFu) col = *pp;
+			else if (!pp->a);
+			else {
+				double rate = (double)pp->a / 255.0;
+				double r = pp->r * rate + col.r * (1 - rate);
+				double g = pp->g * rate + col.g * (1 - rate);
+				double b = pp->b * rate + col.b * (1 - rate);
+				col.r = (byte)r; col.g = (byte)g; col.b = (byte)b;
+			}
+		} while (crt = crt->sheet_pleft);
+		col.a = 0xFF;
+		return col;
+	}
 
+	SheetTrait* LayerManager::getTop(const Point& p, stduint skip) {
+		SheetTrait* crt = subf;
+		if (crt) do {
+			if (skip) { skip--; continue; }
+			auto& area = crt->sheet_area;
+			if (area.ifContain(p)) return crt;
+		} while (crt = crt->sheet_pnext);
+		return nullptr;
+	}
 
 }

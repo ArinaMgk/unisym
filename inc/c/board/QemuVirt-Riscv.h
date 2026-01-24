@@ -76,4 +76,14 @@ static const MemMapEntry virt_memmap[] = {
 #define ADDR_VIRT_PCIE_MMIO 0x40000000
 #define ADDR_VIRT_DRAM 0x80000000
 
+#define ADDR_CLINT_BASE 0x2000000L
+#define ADDR_CLINT_MSIP(hartid) (ADDR_CLINT_BASE + 4 * (hartid))
+#define ADDR_CLINT_MTIMECMP(hartid) (ADDR_CLINT_BASE + 0x4000 + 8 * (hartid))
+#define ADDR_CLINT_MTIME (ADDR_CLINT_BASE + 0xBFF8) // cycles since boot.
+
+// ---- ---- CLINT ---- ---- //
+// https://gitee.com/qemu/qemu/blob/master/include/hw/riscv/sifive_clint.h
+#define CLINT_TIMEBASE_FREQ 10000000
+
+
 #endif // _INC_Board_QEMUVIRT_RISCV

@@ -164,9 +164,13 @@ namespace uni {
 		void Append(SheetTrait* sheet) {
 			if (subf == nullptr) {
 				subl = subf = sheet;
+				sheet->sheet_pnext = nullptr;
+				sheet->sheet_pleft = nullptr;
 			}
 			else {
 				subl->sheet_pnext = sheet;
+				sheet->sheet_pleft = subl;
+				sheet->sheet_pnext = nullptr;
 				subl = sheet;
 			}
 		}
@@ -189,6 +193,12 @@ namespace uni {
 		inline constexpr Color& getPoint(SheetTrait* whom, const Point& p) {
 			return whom->sheet_buffer[(p.y) * whom->sheet_area.width + p.x];
 		}
+
+		// The layers may use translucent color.
+		Color EvaluateColor(const Point& p);
+
+		SheetTrait* getTop(const Point& p, stduint skip = 0);
+
 	};
 
 	// general
@@ -278,7 +288,9 @@ namespace uni {
 			const Rectangle& win,
 			const Color& fore_color = Color::White,
 			const Color& back_color = Color::Black) :
-			vci(vci), size(0), typ(1), forecolor(fore_color), backcolor(back_color),
+			SheetTrait(),
+			vci(vci),
+			buffer(nullptr), size(0), typ(1), forecolor(fore_color), backcolor(back_color),
 			window(win)
 		{
 			size.x = window.width / (typ ? 8 : 5);

@@ -97,7 +97,7 @@ namespace uni {
 			Rectangle rect = crt_self->window;
 			rect.y = (crt_self->cursor.y - 1) * FontSizeHeight[crt_self->typ];
 			rect.height = FontSizeHeight[crt_self->typ];
-			crt_self->sheet_parent->Update(crt_self, rect);
+			if (crt_self->buffer) crt_self->sheet_parent->Update(crt_self, rect);
 		}
 		else if (str[i] == '\r') {
 			crt_self->cursor.x = nil;
@@ -122,6 +122,7 @@ namespace uni {
 			if (color == (byte)0xFF) {
 				crt_self->backcolor = crt_self->window.color;
 				crt_self->forecolor = ~crt_self->window.color;
+				crt_self->forecolor.a = ~crt_self->forecolor.a;
 				continue;
 			}
 			Color col;
@@ -202,6 +203,7 @@ namespace uni {
 	}
 	
 	void VideoConsole::curinc() {
+		if (!size.x || !size.y) return;
 		cursor.x++;
 		if (cursor.x >= size.x) {
 			cursor.x -= size.x;

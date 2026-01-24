@@ -20,10 +20,12 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/c/driver/i8259A.h"
-#include "../../../../inc/c/driver/PIT.h"
+#include "../../../inc/c/driver/i8259A.h"
+#include "../../../inc/c/driver/PIT.h"
+#include "../../../inc/c/driver/timer.h"
 
-#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
+#if defined(_MCCA)
+#if (_MCCA==0x8616||_MCCA==0x8632)
 
 #define RATE_GENERATOR 0x34 // 00-11-010-0 : {Counter0 - LSB then MSB - rate generator - binary}
 #define TIMER_FREQ     1193182L // clock frequency for timer in PC and AT */
@@ -46,4 +48,24 @@ void PIT_Init()
 	i8259Master_Enable(DEV_MAS_PIT);
 }
 
+#elif (_MCCA & 0xFF00) == 0x1000
+#include "../../../inc/c/proctrl/RISCV/riscv.h"
+#include "../../../inc/c/board/QemuVirt-Riscv.h"
+using namespace uni;
+Timer clint;
+void Timer::enInterrupt(bool enable) const {
+	if (enable) setMIE(getMIE() | _MIE_MTIE);
+	else setMIE(getMIE() & ~_MIE_MTIE);
+}
+uint64 Timer::Read() {
+	return treat<uint64>ADDR_CLINT_MTIME;
+}
+void Timer::MSIP(stduint mhartid, MSIP_Type type) {
+	treat<uint32>ADDR_CLINT_MSIP(mhartid) = (uint32)type;
+}
+void Timer::Load(stduint mhartid, uint64 timepoint) {
+	treat<uint64>ADDR_CLINT_MTIMECMP(mhartid) = timepoint;
+}
+
+#endif
 #endif

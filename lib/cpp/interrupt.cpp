@@ -31,7 +31,7 @@ namespace uni {
 }
 
 #if defined(_MCCA)
-#if _MCCA == 0x8632
+#if (_MCCA & 0xFF00) == 0x8600
 #include "../../inc/c/driver/i8259A.h"
 #elif (_MCCA & 0xFF00) == 0x1000
 #include "../../inc/c/proctrl/RISCV/riscv.h"
@@ -40,42 +40,42 @@ namespace uni {
 //{TODO} Implement in Magice/AASM, because GCC compile this may be bad for different version or optimization level.
 // __attribute__((interrupt)) is useless
 
-#if _MCCA == 0x8632
+#if (_MCCA & 0xFF00) == 0x8600
 
 static stduint ERQ_Handlers[0x20]{
-	_TODO _IMM(Divide_By_Zero_ERQHandler),
-	_TODO _IMM(Step_ERQHandler),
-	_IMM(NMI_ERQHandler),
-	_TODO _IMM(Breakpoint_ERQHandler),
-	_TODO _IMM(Overflow_ERQHandler),
-	_TODO _IMM(Bound_ERQHandler),
-	_IMM(Invalid_Opcode_ERQHandler),
-	_IMM(Coprocessor_Not_Available_ERQHandler),
-	_TODO _IMM(Double_Fault_ERQHandler),
-	_TODO _IMM(Coprocessor_Segment_Overrun_ERQHandler),
-	_TODO _IMM(Invalid_TSS_ERQHandler),
-	_TODO _IMM(x0B_ERQHandler),
-	_TODO _IMM(x0C_ERQHandler),
-	_TODO _IMM(x0D_ERQHandler),
-	_TODO _IMM(Page_Fault_ERQHandler),
-	_TODO _IMM(x0F_ERQHandler),
+	_IMM(Divide_By_Zero_ERQHandler),
+	_IMM(Step_ERQHandler),
+	_IMM(NMI_ERQHandler),// x86 x64
+	_IMM(Breakpoint_ERQHandler),
+	_IMM(Overflow_ERQHandler),
+	_IMM(Bound_ERQHandler),
+	_IMM(Invalid_Opcode_ERQHandler),// x86
+	_IMM(Coprocessor_Not_Available_ERQHandler),// x86
+	_IMM(Double_Fault_ERQHandler),
+	_IMM(Coprocessor_Segment_Overrun_ERQHandler),
+	_IMM(Invalid_TSS_ERQHandler),
+	_IMM(x0B_ERQHandler),
+	_IMM(x0C_ERQHandler),
+	_IMM(x0D_ERQHandler),
+	_IMM(Page_Fault_ERQHandler),
+	_IMM(x0F_ERQHandler),
 	// 0x10
-	_TODO _IMM(X87_FPU_Floating_Point_Error_ERQHandler),
-	_TODO _IMM(Alignment_Check_ERQHandler),// 0x11
-	_TODO _IMM(Machine_Check_ERQHandler),// 0x12
-	_TODO _IMM(SIMD_Floating_Point_Exception_ERQHandler),// 0x13
-	_TODO _IMM(Virtualization_Exception_ERQHandler),// 0x14
-	_TODO _IMM(Else_ERQHandler),// 0x15
-	_TODO _IMM(Else_ERQHandler),// 0x16
-	_TODO _IMM(Else_ERQHandler),// 0x17
-	_TODO _IMM(Else_ERQHandler),// 0x18
-	_TODO _IMM(Else_ERQHandler),// 0x19
-	_TODO _IMM(Else_ERQHandler),// 0x1A
-	_TODO _IMM(Else_ERQHandler),// 0x1B
-	_TODO _IMM(Else_ERQHandler),// 0x1C
-	_TODO _IMM(Else_ERQHandler),// 0x1D
-	_TODO _IMM(Else_ERQHandler),// 0x1E
-	_TODO _IMM(Else_ERQHandler),// 0x1F
+	_IMM(X87_FPU_Floating_Point_Error_ERQHandler),
+	_IMM(Alignment_Check_ERQHandler),// 0x11
+	_IMM(Machine_Check_ERQHandler),// 0x12
+	_IMM(SIMD_Floating_Point_Exception_ERQHandler),// 0x13
+	_IMM(Virtualization_Exception_ERQHandler),// 0x14
+	_IMM(Else_ERQHandler),// 0x15
+	_IMM(Else_ERQHandler),// 0x16
+	_IMM(Else_ERQHandler),// 0x17
+	_IMM(Else_ERQHandler),// 0x18
+	_IMM(Else_ERQHandler),// 0x19
+	_IMM(Else_ERQHandler),// 0x1A
+	_IMM(Else_ERQHandler),// 0x1B
+	_IMM(Else_ERQHandler),// 0x1C
+	_IMM(Else_ERQHandler),// 0x1D
+	_IMM(Else_ERQHandler),// 0x1E
+	_IMM(Else_ERQHandler),// 0x1F
 };
 
 #endif
@@ -150,7 +150,8 @@ void EnableLocalAPIC() {
 #endif
 
 // InterruptControl::Reset
-#if _MCCA == 0x8632
+#if (_MCCA & 0xFF00) == 0x8600
+// Use Interrupt or Trap Gate? RPL = 0 or 3? 
 void uni::InterruptControl::Reset(word SegCode, stduint Offset) {
 	for0a(i, ERQ_Handlers) {
 		self[i].gate_t::setModeRupt(ERQ_Handlers[i] + Offset, SegCode);
@@ -160,14 +161,7 @@ void uni::InterruptControl::Reset(word SegCode, stduint Offset) {
 	}
 	loadIDT(_IMM(IVT_SEL_ADDR), 256 * sizeof(gate_t) - 1);
 }
-#elif _MCCA == 0x8664
-void uni::InterruptControl::Reset(word SegCode, stduint _0) {
-	//{TODO} exceptions
-	for0(i, 0x1000 / sizeof(gate_t)) {
-		auto& idt_entry = IVT_SEL_ADDR[i];
-		idt_entry.setModeRupt(reinterpret_cast<uint64>(General_IRQHandler), SegCode);
-	}
-}
+
 #elif (_MCCA & 0xFF00) == 0x1000
 void uni::InterruptControl::Reset() {
 	setMTVEC(_IMM(IVT_SEL_ADDR));

@@ -158,6 +158,7 @@ namespace uni {
 		VideoControlInterface* pvci;
 	protected:
 		Rectangle window;
+		// stduint sheet_count;//{} Dchain
 	public:
 		LayerManager(VideoControlInterface* p, const Rectangle rect) : pvci(p), window(rect) { }
 
@@ -275,6 +276,7 @@ namespace uni {
 		Color forecolor;
 		Color backcolor;// for next font's, but background, while background use window.color.
 		Rectangle window;//{TODO}
+		byte update_method = 2;// 0: no update, 1: update all, 2: update line
 	protected:
 		static void (VideoConsole::* DrawCharPosition_f[])(uni::Point, uni::Color, char);
 		static VideoConsole* crt_self;
@@ -308,6 +310,7 @@ namespace uni {
 			}
 			else vci.DrawRectangle(window);
 		}
+
 		void setModeBuffer(Color* buf) { buffer = buf; }
 		void setBackcolor(Color bkcolor) {
 			byte buf[4] = { (byte)'\xFE', bkcolor.b, bkcolor.g, bkcolor.r };
@@ -323,11 +326,14 @@ namespace uni {
 	public:
 
 		void curinc();
+
+	// Sheet:
 	protected:
 		void thisDrawPoint(const Point& disp, Color color);
 		void thisDrawRectangle(const Rectangle& rect);
 		void thisRollup(stduint height);
-
+	public:
+		void RefreshLine();
 	};
 
 }

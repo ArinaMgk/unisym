@@ -62,6 +62,8 @@ namespace uni {
 				chr = (byte)*str++;
 				switch (chr)
 				{
+				case 0:
+					break;
 				case (byte)'\xFF':// 20240217-ALICE's FF Method
 					attr = *(byte*)str++;
 					attr_enable = (attr != (byte)'\xFF');

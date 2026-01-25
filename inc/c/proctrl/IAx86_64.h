@@ -258,6 +258,12 @@ inline static void loadIDT(stduint address, uint16 length) {
 	tmpxx_le.u_16fore = length;
 	InterruptDTabLoad(&tmpxx_le);
 }
+#if __BITS__ == 32
+inline static void loadTask(stduint sel) {
+	__asm("mov  %0, %%eax" : : "m"(sel));
+	__asm("ltr  %ax");
+}
+#endif
 
 // [CR3]
 stduint getCR3();

@@ -90,7 +90,14 @@ namespace uni {
 			draw_f = VideoConsole::DrawCharPosition_f[crt_self->typ];
 		}
 		else return;
-		for0(i, len) if (false);
+		for0(i, len) if (!str[i]) {
+			Rectangle rect;
+			rect.x = crt_self->cursor.x * FontSizeWidth[crt_self->typ];
+			rect.y = crt_self->cursor.y * FontSizeHeight[crt_self->typ];
+			rect.width = FontSizeWidth[crt_self->typ];
+			rect.height = FontSizeHeight[crt_self->typ];
+			crt_self->sheet_parent->Update(crt_self, crt_self->window);
+		}
 		else if (str[i] == '\n') {
 			crt_self->cursor.y++;
 			crt_self->FeedLine();
@@ -98,7 +105,8 @@ namespace uni {
 			rect.y = (crt_self->cursor.y - 1) * FontSizeHeight[crt_self->typ];
 			rect.height = FontSizeHeight[crt_self->typ];
 			// cannot change rect.width because \n and \r are separated
-			if (crt_self->sheet_parent && crt_self->buffer) crt_self->sheet_parent->Update(crt_self, rect);
+			if (crt_self->sheet_parent && crt_self->update_method == 2)
+				crt_self->sheet_parent->Update(crt_self, rect);
 		}
 		else if (str[i] == '\r') {
 			crt_self->cursor.x = nil;
@@ -152,9 +160,16 @@ namespace uni {
 			Rectangle fontblock(point, fontsize, crt_self->backcolor);
 			crt_self->thisDrawRectangle(fontblock);
 			(crt_self->*draw_f) (point, crt_self->forecolor, str[i]);
+			// if (crt_self->update_method == 1) {
+			// 	Rectangle rect;
+			// 	rect.x = crt_self->cursor.x * FontSizeWidth[crt_self->typ];
+			// 	rect.y = crt_self->cursor.y * FontSizeHeight[crt_self->typ];
+			// 	rect.width = FontSizeWidth[crt_self->typ];
+			// 	rect.height = FontSizeHeight[crt_self->typ];
+			// 	crt_self->sheet_parent->Update(crt_self, crt_self->window);
+			// }
 			crt_self->curinc();
 		}
-		// crt_self->sheet_parent->Update(crt_self, crt_self->window);
 		#undef crt_self
 	}
 	int VideoConsole::out(const char* str, stduint len) {
@@ -196,6 +211,15 @@ namespace uni {
 		}// quick method
 		else vci.RollUp(FontSizeHeight[crt_self->typ], window);
 	}
+	void VideoConsole::RefreshLine() {
+		if (buffer) {
+			Rectangle rect = crt_self->window;
+			rect.y = crt_self->cursor.y * FontSizeHeight[crt_self->typ];
+			rect.height = FontSizeHeight[crt_self->typ];
+			sheet_parent->Update(this, rect);
+		}
+	}
+		
 	void VideoConsole::FeedLine() {
 		while (cursor.y >= size.y) {
 			cursor.y--;

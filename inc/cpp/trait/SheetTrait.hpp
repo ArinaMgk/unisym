@@ -42,7 +42,7 @@ namespace uni {
 	public:
 		friend class LayerManager;
 	protected:
-	
+		// {?} use Dnode (?)
 		LayerManager* sheet_parent = nullptr;
 		SheetTrait* sheet_pleft = nullptr;
 		SheetTrait* sheet_pnext = nullptr;

@@ -52,6 +52,16 @@ namespace uni {
 		//
 		bool operator[](stduint idx) const { return bitof(idx); }
 	};
+
+	struct BmMemoman : public Bitmap {
+		stduint avail_pointer = ~_IMM0;// to the lowest available page
+		BmMemoman(pureptr_t offs, stduint size) : Bitmap(offs, size) {}
+		//
+		// e.g. add_range(0x1, 0x2) for 0x1000 ~ 0x1FFF
+		void add_range(stduint head_pos, stduint last_pos, bool what);
+		//
+		void dump_avail_memory();
+	};
 }
 
 #else

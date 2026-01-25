@@ -1,116 +1,81 @@
 ; ASCII NASM TAB4 CRLF
-; Attribute: CPU(x86)
+; Attribute: CPU(x64)
 ; AllAuthor: @ArinaMgk
 ; ModuTitle: Interrupt
 ; Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
-[BITS 32]
+[BITS 64]
 
 %macro DefExc 1
-	POP  EAX
-	PUSH EBP
-	MOV  EBP, ESP
-	PUSHAD
-	PUSH EAX
-	PUSH DWORD %1
-	JMP  ERQ_Handler
+	PUSH %1
+	JMP ERQ_Handler
 %endmacro
 %macro DefExc_nopara 1
-	PUSH EBP
-	MOV  EBP, ESP
-	PUSHAD
-	PUSH DWORD 0
-	PUSH DWORD ~%1
-	JMP  ERQ_Handler
+	PUSH RAX; store a meaningless value to occupy
+	PUSH %1
+	JMP ERQ_Handler
 %endmacro
 
 %ifdef _MCCA
-%if _MCCA==0x8632
+%if _MCCA==0x8664
 EXTERN exception_handler
-GLOBAL PG_PUSH, PG_POP; PUSH 6*DWORD
+; EXTERN PG_PUSH, PG_POP; PUSH 6*DWORD
 
-ROOT_PAGING EQU 0x00001000
-SegData EQU 8*1
-
-PG_PUSH:
-	POP ESI
-	MOV EAX, DS
-	PUSH EAX
-	MOV EAX, SS
-	PUSH EAX
-	;
-	MOV EAX, SegData
-	MOV DS, EAX
-	MOV ES, EAX
-	MOV FS, EAX
-	MOV GS, EAX
-	MOV SS, EAX
-	;
-	MOV EDX, CR3
-	MOV ECX, ESP
-	SUB ECX, 4 * 3; ecx and edx and ebp
-	PUSH EDX
-	PUSH ECX
-		PUSH EBP
-	MOV EAX, ROOT_PAGING
-	MOV CR3, EAX
-	;MOV ESP, 0x7000; INTERRUPT STACK
-	CALL ConvertStackPointer
-	MOV ESP, EAX
-		MOV ECX, EBP
-		CALL ConvertStackPointer
-		MOV EBP, EAX
-	PUSH ESI
-	RET
-PG_POP:
-	POP ESI
-	    POP EBX
-	POP ECX
-	POP EDX
-	ADD ECX, 4 * (2+1)
-	MOV CR3, EDX
-	MOV ESP, ECX
-	POP EAX
-	MOV SS, EAX
-	POP EAX
-	MOV DS, EAX
-	MOV ES, EAX
-	MOV FS, EAX
-	MOV GS, EAX
-	PUSH ESI
-	RET
-
-ConvertStackPointer:; (ECX:ESP, EDX:CR3)->ESP
-	PUSH EBX
-	MOV EBX, ECX
-	SHR EBX, 22; 22 for L1P_ID
-	MOV EAX, [EDX + EBX * 4]
-	AND EAX, 0xFFFFF000
-	MOV EBX, ECX
-	SHR EBX, 12; 12 for L0P_ID
-	AND EBX, 0x3FF
-	MOV EAX, [EAX + EBX * 4]
-	AND EAX, 0xFFFFF000
-	MOV EBX, ECX
-	AND EBX, 0xFFF
-	OR  EAX, EBX
-	OR  EAX, 0x8000_0000; MCCA Design
-	; ADD EAX, 4; Skip Ret-address
-	POP EBX
-	RET
-	; no use kernel stack
+OFF_R15 EQU 0x00
+OFF_R14 EQU 0x08
+OFF_R13 EQU 0x10
+OFF_R12 EQU 0x18
+OFF_R11 EQU 0x20
+OFF_R10 EQU 0x28
+OFF_R9  EQU 0x30
+OFF_R8  EQU 0x38
+OFF_RBX EQU 0x40
+OFF_RCX EQU 0x48
+OFF_RDX EQU 0x50
+OFF_RSI EQU 0x58
+OFF_RDI EQU 0x60
+OFF_RBP EQU 0x68
+OFF_DS  EQU 0x70
+OFF_ES  EQU 0x78
+OFF_RAX EQU 0x80
+;
+OFF_FUN EQU 0x88
+OFF_ERR EQU 0x90
+OFF_RIP EQU 0x98
+OFF_CS  EQU 0xA0
+OFF_FLG EQU 0xA8
+OFF_RSP EQU 0xB0
+OFF_SS  EQU 0xB8
 
 ERQ_Handler:
-	POP  EBX
-	POP  EDI
-	CALL PG_PUSH
-	PUSH EDI
-	PUSH EBX
+	PUSH RAX
+	MOV EAX, ES
+	PUSH RAX
+	MOV EAX, DS
+	PUSH RAX
+	PUSH RBP
+	PUSH RDI
+	PUSH RSI
+	PUSH RDX
+	PUSH RCX
+	PUSH RBX
+	PUSH R8
+	PUSH R9
+	PUSH R10
+	PUSH R11
+	PUSH R12
+	PUSH R13
+	PUSH R14
+	PUSH R15
+	CLD
+	;{} PG_PUSH
+	; CALL: x64 System VCall
+	MOV RDI, [RSP + OFF_FUN]
+	MOV RSI, [RSP + OFF_ERR]
 	CALL exception_handler
-	ADD  ESP, 4*2
-	CALL PG_POP
-	POPAD
-	LEAVE
+	;{unchk} RET from EXC
+HLT
+
 IRET
 
 GLOBAL Divide_By_Zero_ERQHandler; 0x00
@@ -123,11 +88,12 @@ Step_ERQHandler:
 
 GLOBAL NMI_ERQHandler; 0x02
 NMI_ERQHandler:
-	CALL PG_PUSH
-	PUSH DWORD ~0x02
+	; CALL PG_PUSH
+	MOV  EAX, 0x02
+	NOT  RAX
+	PUSH RAX
 	CALL exception_handler
 HLT
-
 
 GLOBAL Breakpoint_ERQHandler; 0x03
 Breakpoint_ERQHandler:
@@ -143,15 +109,7 @@ Bound_ERQHandler:
 
 GLOBAL Invalid_Opcode_ERQHandler; 0x06
 Invalid_Opcode_ERQHandler:
-	PUSHAD
-	CALL PG_PUSH
-	PUSH DWORD ~0x06
-	CALL exception_handler
-	POP  EAX
-	CALL PG_POP
-	POPAD
-	ADD  DWORD[ESP], 2; length of UD
-IRET
+	DefExc_nopara 0x06
 
 GLOBAL Coprocessor_Not_Available_ERQHandler; 0x07
 Coprocessor_Not_Available_ERQHandler:

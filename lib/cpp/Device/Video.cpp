@@ -137,10 +137,11 @@ namespace uni {
 		for0(i, rect.height) {
 			// auto pp = p + (rect.y + i) * who->sheet_area.width + rect.x;
 			Point point(abs_rect.x + 0, abs_rect.y + i);
+			if (point.y >= window.height) break;
 			for0(j, rect.width) {
+				if (point.x >= window.width) break;
 				pvci->DrawPoint(point, EvaluateColor(point));
 				point.x++;
-				if (point.x >= window.width) break;
 			}
 		}
 	}
@@ -148,10 +149,8 @@ namespace uni {
 	void LayerManager::Domove(SheetTrait* who, Size2dif dif) {
 		stdsint _x = who->sheet_area.x; _x += dif.x;
 		stdsint _y = who->sheet_area.y; _y += dif.y;
-		if (dif.x >= 0) { MIN(_x, window.width - 1); }
-		else { MAX(_x, 0); }
-		if (dif.y >= 0) { MIN(_y, window.height - 1); }
-		else { MAX(_y, 0); }
+		MIN(_x, (stdsint)window.width - 1); MAX(_x, 0);
+		MIN(_y, (stdsint)window.height - 1); MAX(_y, 0);
 		Rectangle old_rect = who->sheet_area;
 		who->sheet_area.x = _x;
 		who->sheet_area.y = _y;

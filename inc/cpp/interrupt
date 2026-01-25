@@ -83,7 +83,7 @@ namespace uni {
 		void enAble(bool enable = true);
 
 		#if (_MCCA & 0xFF00) == 0x8600
-		void Reset(word SegCode, stduint Offset = 0x80000000);
+		void Reset(word SegCode, stduint Offset = 0x00000000);
 		#else
 		void Reset();
 		#endif

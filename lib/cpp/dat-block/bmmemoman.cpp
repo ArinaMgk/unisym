@@ -25,6 +25,8 @@
 
 using namespace uni;
 
+#define page_cnt 0x100000
+
 static void update_avail_pointer(BmMemoman& bm, stduint head_pos, stduint last_pos, bool what) {
 	// ploginfo("update_avail_pointer(0x%[32H], 0x%[32H], %d)", head_pos, last_pos, what);
 	if (what) {
@@ -44,7 +46,7 @@ static void update_avail_pointer(BmMemoman& bm, stduint head_pos, stduint last_p
 
 void BmMemoman::add_range(stduint head_pos, stduint last_pos, bool what) {
 	// ploginfo("add_range(0x%[32H], 0x%[32H])", head_pos, last_pos);
-	if (head_pos >= last_pos || head_pos >= 0x100000 || last_pos >= 0x100000) return;
+	if (head_pos >= last_pos || head_pos >= page_cnt || last_pos >= page_cnt) return;
 	stduint times = last_pos - head_pos;
 	stduint curr_pos = head_pos;
 	while (times && (curr_pos & 0b111)) {
@@ -69,20 +71,20 @@ void BmMemoman::dump_avail_memory()
 	bool last_stat = false;
 	stduint last_index = 0;
 	outsfmt("[Memoman] dump avail memory:\n\r");
-	for0(i, 0x10000) {
+	for0(i, page_cnt) {
 		bool b = this->bitof(i);
 		if (b != last_stat) {
 			if (!last_stat) {
 				last_index = i;
-				last_stat = b;
+				last_stat = 1;
 			}
 			else {
 				outsfmt("- 0x%[x]..0x%[x] \n\r", last_index * 0x1000, i * 0x1000);
-				last_stat = b;
+				last_stat = 0;
 			}
 		}
 	}
 	if (last_stat == 1) {
-		outsfmt("- 0x%[x]..0x%[x] \n\r", last_index * 0x1000, 0x2000 * 0x1000);
+		outsfmt("- 0x%[x]..0x%[x] \n\r", last_index * 0x1000, 0x100000000ull);
 	}
 }

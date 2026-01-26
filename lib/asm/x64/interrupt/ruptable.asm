@@ -8,12 +8,16 @@
 
 %macro DefExc 1
 	PUSH %1
-	JMP ERQ_Handler
+	CALL ERQ_Handler
+	ADD RSP, 8*2
+	HLT
 %endmacro
 %macro DefExc_nopara 1
 	PUSH RAX; store a meaningless value to occupy
 	PUSH %1
-	JMP ERQ_Handler
+	CALL ERQ_Handler
+	ADD RSP, 8*2
+	HLT
 %endmacro
 
 %ifdef _MCCA
@@ -39,13 +43,14 @@ OFF_DS  EQU 0x70
 OFF_ES  EQU 0x78
 OFF_RAX EQU 0x80
 ;
-OFF_FUN EQU 0x88
-OFF_ERR EQU 0x90
-OFF_RIP EQU 0x98
-OFF_CS  EQU 0xA0
-OFF_FLG EQU 0xA8
-OFF_RSP EQU 0xB0
-OFF_SS  EQU 0xB8
+OFF_RET EQU 0x88
+OFF_FUN EQU 0x90
+OFF_ERR EQU 0x98
+OFF_RIP EQU 0xA0
+OFF_CS  EQU 0xA8
+OFF_FLG EQU 0xB0
+OFF_RSP EQU 0xB8
+OFF_SS  EQU 0xC0
 
 ERQ_Handler:
 	PUSH RAX
@@ -73,10 +78,29 @@ ERQ_Handler:
 	MOV RDI, [RSP + OFF_FUN]
 	MOV RSI, [RSP + OFF_ERR]
 	CALL exception_handler
-	;{unchk} RET from EXC
-HLT
+RET_EXCEPTION:
+	;{} PG_POP
+	POP R15
+	POP R14
+	POP R13
+	POP R12
+	POP R11
+	POP R10
+	POP R9
+	POP R8
+	POP RBX
+	POP RCX
+	POP RDX
+	POP RSI
+	POP RDI
+	POP RBP
+	POP RAX
+	MOV DS, EAX
+	POP RAX
+	MOV ES, EAX
+	POP RAX
+RET
 
-IRET
 
 GLOBAL Divide_By_Zero_ERQHandler; 0x00
 Divide_By_Zero_ERQHandler:
@@ -109,7 +133,12 @@ Bound_ERQHandler:
 
 GLOBAL Invalid_Opcode_ERQHandler; 0x06
 Invalid_Opcode_ERQHandler:
-	DefExc_nopara 0x06
+	PUSH RAX; store a meaningless value to occupy
+	PUSH 0x06
+	CALL ERQ_Handler
+	ADD  RSP, 8*2
+	ADD  QWORD[RSP], 2
+IRETQ
 
 GLOBAL Coprocessor_Not_Available_ERQHandler; 0x07
 Coprocessor_Not_Available_ERQHandler:

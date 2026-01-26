@@ -265,6 +265,15 @@ inline static void loadTask(stduint sel) {
 }
 #endif
 
+// [CR0]
+stduint getCR0();
+
+// [CR1]
+// stduint getCR1();
+
+// [CR2]
+stduint getCR2();
+
 // [CR3]
 stduint getCR3();
 #if __BITS__ == 32

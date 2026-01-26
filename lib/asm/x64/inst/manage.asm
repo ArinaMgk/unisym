@@ -7,7 +7,8 @@
 GLOBAL HALT
 GLOBAL InterruptEnable, InterruptDisable
 GLOBAL InterruptDTabLoad
-GLOBAL getCR3, getFlags
+GLOBAL getCR0,getCR2,getCR3
+GLOBAL getFlags
 GLOBAL getCS
 GLOBAL setA
 GLOBAL jmpFar;, CallFar
@@ -38,7 +39,13 @@ InterruptDTabLoad:
 RET
 
 ; ---- ---- G/SETs (Management Registers) ---- ---- ;
-
+getCR0:
+	MOV RAX, CR0
+; getCR1:
+; 	MOV RAX, CR1
+getCR2:
+	MOV RAX, CR2
+RET
 getCR3:
 	MOV RAX, CR3
 RET

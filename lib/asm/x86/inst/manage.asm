@@ -8,7 +8,8 @@
 GLOBAL _HALT, HALT
 GLOBAL _InterruptDisable, InterruptDTabLoad
 GLOBAL  InterruptEnable,  InterruptDisable
-GLOBAL getCR3, getFlags
+GLOBAL getCR0,getCR2,getCR3
+GLOBAL getFlags
 GLOBAL setA
 
 GLOBAL jmpFar, CallFar
@@ -52,6 +53,12 @@ InterruptDTabLoad:
 	POP  EBX
 RET
 
+getCR0:
+	MOV EAX, CR0
+; getCR1:
+; 	MOV EAX, CR1
+getCR2:
+	MOV EAX, CR2
 getCR3:
 	MOV EAX, CR3
 RET

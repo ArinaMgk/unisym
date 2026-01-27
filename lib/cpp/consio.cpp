@@ -44,7 +44,7 @@ namespace uni {
 
 }
 #endif
-#if defined(_MCCA) && _MCCA==0x8632
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 #include "../../inc/cpp/Device/Buzzer.hpp"
 
 namespace uni {
@@ -76,9 +76,11 @@ namespace uni {
 					posi += _BytesPerLine;
 					break;
 				case '\a':
+					#ifndef _UEFI
 					Buzzer::Buzz(true);
 					for (volatile size_t i = 0, _LIMIT = (100);i < (_LIMIT);i++);
 					Buzzer::Buzz(false);
+					#endif
 					break;
 				case '\b':// left
 					posi -= 2;

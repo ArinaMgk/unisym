@@ -94,7 +94,7 @@ namespace uni {
 
 		uint8_t  ReservedTail[189];           // offset 0x42 ~ 0xFF : reserved / padding to make total size = 256 bytes
 	};
-
+	// first 64 bytes are enough
 
 	#ifdef _INC_CPP
 }

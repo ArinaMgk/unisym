@@ -97,7 +97,27 @@ void TaskFlatRegister(TaskFlat_t* TaskFlat, descriptor_t* GDT);
 
 
 #endif
-#else
-//
+#elif defined(_MCCA) && _MCCA == 0x8664
+
+typedef _PACKED(struct) TaskStateSegmentx64
+{
+	uint32 _reserved0;
+	uint64 RSP0;
+	uint64 RSP1;
+	uint64 RSP2;
+	uint64 _reserved1;
+	uint64 IST1;
+	uint64 IST2;
+	uint64 IST3;
+	uint64 IST4;
+	uint64 IST5;
+	uint64 IST6;
+	uint64 IST7;
+	uint64 _reserved2;
+	uint16 _reserved3;
+	uint16 IOMapBase;
+} TSS_t;
+
+
 #endif // _ARC_x86
 #endif

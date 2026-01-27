@@ -29,7 +29,7 @@
 #include "../../inc/c/ISO_IEC_STD/stdlib.h"
 
 //{TO-MOVE}
-#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
+#if defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600)
 #include "../../inc/c/proctrl/x86/x86.h"
 
 // ----

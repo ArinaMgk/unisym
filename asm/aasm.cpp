@@ -477,7 +477,8 @@ int main(int argc, char** argv) {
 	stdscan_cleanup();
 	//{} {} {} return terminate_after_phase;
 	//return drop() _TEMP - 5 - 3;
-	return drop() & 0;
+	// return drop() & 0;
+	return terminate_after_phase;
 }
 
 enum directives {

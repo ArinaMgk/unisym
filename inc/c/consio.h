@@ -237,7 +237,7 @@ namespace uni {
 		}// e.g. (0,24), (1,24), ...
 
 		void Scroll(stdsint dif, word& posi);// positive for up, negative for down
-
+		inline void Scroll(stdsint dif) { word posi; Scroll(dif, posi); }
 
 		static void setStartPosition(word pos);
 		void setStartLine(word lineno) {

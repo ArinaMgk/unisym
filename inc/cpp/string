@@ -255,14 +255,15 @@ namespace uni {
 typedef class uni::String ustring;
 
 // C++ ISO11 User-Defined Literals
+// C++ ISO23 space between quotes and suffix is deprecated in C++23
 #if defined(__cplusplus) && (defined(_DEV_MSVC) || __cplusplus >= 201103L)
-constexpr inline static void* operator "" _offs(unsigned long long i) {
+constexpr inline static void* operator ""_offs(unsigned long long i) {
 	return (void*)i;
 }
-constexpr inline static byte* operator "" _addr(unsigned long long i) {
+constexpr inline static byte* operator ""_addr(unsigned long long i) {
 	return (byte*)i;
 }
-inline static uni::String operator "" _ustr(const char* str, size_t len) {
+inline static uni::String operator ""_ustr(const char* str, size_t len) {
 	return uni::String(str);
 }
 #endif

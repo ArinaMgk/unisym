@@ -23,7 +23,7 @@
 #include "../../../inc/cpp/Device/Buzzer.hpp"
 #include "../../../inc/cpp/reference"
 
-#if defined(_MCCA) && _MCCA == 0x8632
+#if defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
 
 void uni::Buzzer::Buzz(bool on) {
 	byte b = innpb(PORT_SPEAKER);

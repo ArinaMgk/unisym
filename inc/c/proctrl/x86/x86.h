@@ -36,8 +36,6 @@ void PagingEnable(void) {
 	__asm("movl %eax, %cr0\n");
 }
 
-unsigned IfSupport_IA32E();
-
 // ---- ---- JMPs ---- ---- //
 void jmpTask(dword tss_no/*, dword old_no*/);// <=> advanced JMP GDT:TSS
 void CallFar(dword offs, dword selc);// <=> callf : call far

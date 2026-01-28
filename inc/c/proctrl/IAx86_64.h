@@ -302,7 +302,14 @@ uint16 getCS(void);//{TODO} x86
 stduint setA(stduint);// eax/rax
 
 // ---- ---- JMPs ---- ---- //
+
 void jmpFar(stduint offs, stduint selc);
 
+
+// ---- ---- SYSMAN ---- ---- //
+
+void EnableSSE();
+
+unsigned IfSupport_IA32E();
 
 #endif

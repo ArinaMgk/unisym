@@ -78,7 +78,9 @@ namespace uni {
 				case '\a':
 					#ifndef _UEFI
 					Buzzer::Buzz(true);
-					for (volatile size_t i = 0, _LIMIT = (100);i < (_LIMIT);i++);
+					for (size_t i = 0, _LIMIT = (100);i < (_LIMIT);i++) {
+						_ASM volatile("nop"::: "memory");// "pause"
+					}
 					Buzzer::Buzz(false);
 					#endif
 					break;

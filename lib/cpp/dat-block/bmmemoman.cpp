@@ -70,7 +70,7 @@ void BmMemoman::dump_avail_memory()
 {
 	bool last_stat = false;
 	stduint last_index = 0;
-	outsfmt("[Memoman] dump avail memory:\n\r");
+	outsfmt("[Memoman] dump avail memory:\r\n\r");
 	for0(i, page_cnt) {
 		bool b = this->bitof(i);
 		if (b != last_stat) {
@@ -79,12 +79,12 @@ void BmMemoman::dump_avail_memory()
 				last_stat = 1;
 			}
 			else {
-				outsfmt("- 0x%[x]..0x%[x] \n\r", last_index * 0x1000, i * 0x1000);
+				outsfmt("- 0x%[x]..0x%[x] \r\n\r", last_index * 0x1000, i * 0x1000);
 				last_stat = 0;
 			}
 		}
 	}
 	if (last_stat == 1) {
-		outsfmt("- 0x%[x]..0x%[x] \n\r", last_index * 0x1000, 0x100000000ull);
+		outsfmt("- 0x%[x]..0x%[x] \r\n\r", last_index * 0x1000, 0x100000000ull);
 	}
 }

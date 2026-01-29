@@ -184,7 +184,7 @@ namespace uni {
 			Color* p0 = buffer + window.width * disp.y + disp.x;
 			*p0 = color;
 		}
-		else vci.DrawPoint(disp, color);
+		else vci->DrawPoint(disp, color);
 	}
 	void VideoConsole::thisDrawRectangle(const Rectangle& rect) {
 		if (buffer) {
@@ -193,7 +193,7 @@ namespace uni {
 				for0(x, rect.width) *p0++ = rect.color;
 			}
 		}
-		else vci.DrawRectangle(rect);
+		else vci->DrawRectangle(rect);
 	}
 	void VideoConsole::thisRollup(stduint height) {
 		const Size2 scr(size.x * FontSizeWidth[crt_self->typ], size.y * FontSizeHeight[crt_self->typ]);
@@ -209,7 +209,7 @@ namespace uni {
 			}
 			sheet_parent->Update(this, window);
 		}// quick method
-		else vci.RollUp(FontSizeHeight[crt_self->typ], window);
+		else vci->RollUp(FontSizeHeight[crt_self->typ], window);
 	}
 	void VideoConsole::RefreshLine() {
 		if (buffer) {

@@ -37,6 +37,7 @@ enum Procontroller_t // work with Architecture_t
 #elif (defined(_MCCA) && (_MCCA==0x8664))
 	#include "x64/x64.h"
 	#include "../board/IBM.h"
+	#define _SUPPORT_Port8
 #elif defined(_ARC_RISCV_64)
 	#include "RISCV/riscv.h"
 #else

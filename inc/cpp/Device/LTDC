@@ -144,7 +144,7 @@ namespace uni {
 		bool setMode(LayerPara& param) const;
 
 		Rectangle getWindow() const;
-		VideoControlBlock getControlBlock() const;
+		
 		// VideoControlInterface
 		virtual void SetCursor(const Point& disp) const;
 		virtual Point GetCursor() const;

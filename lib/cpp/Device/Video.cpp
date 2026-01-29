@@ -25,8 +25,8 @@
 #include "../../../inc/c/data.h"
 
 namespace uni {
-	void VideoControlBlock::Draw(Rectangle rect) {
-		if (rect.filled) vci.DrawRectangle(rect);
+	void LayerManager::Draw(Rectangle rect) {
+		if (rect.filled) pvci->DrawRectangle(rect);
 		else {
 			self.DrawLine(rect.getVertex(),
 				Size2(rect.width, 1), rect.color);
@@ -38,7 +38,8 @@ namespace uni {
 				Size2(1, rect.height), rect.color);
 		}
 	}
-	void VideoControlBlock::Draw(const Circle& circ) {
+	void LayerManager::Draw(const Circle& circ) {
+		auto& vci = *pvci;
 		stduint x = 0, y = circ.radius;
 		stdsint delta, tmp;
 		delta = 3 - (circ.radius << 1);
@@ -83,7 +84,7 @@ namespace uni {
 	}
 
 	//{unchk} negSizy
-	void VideoControlBlock::DrawLine(Point disp, Size2 size, Color color, bool negSizy) {
+	void LayerManager::DrawLine(Point disp, Size2 size, Color color, bool negSizy) {
 		if (!size.x || !size.y) return;
 		if (1 == size.x) for0(i, size.y) {
 			Draw(disp, color);// can also use "DrawRect"
@@ -115,17 +116,6 @@ namespace uni {
 		}
 	}
 
-	void VideoControlBlock::Draw_2Points(Point disp, Color colors[4]) {
-		vci.DrawPoint(disp, colors[0]);
-		disp.x++;
-		if (disp.x < cols) vci.DrawPoint(disp, colors[1]);
-	}
-	void VideoControlBlock::Draw_4Points(Point disp, Color colors[4]) {
-		for0(i, 4) {
-			vci.DrawPoint(disp, colors[i]);
-			disp.x++; if (disp.x >= cols) { disp.x = 0; disp.y++; }
-		}
-	}
 
 	// ---- LayerManager ---- //
 	void LayerManager::Update(SheetTrait* who, const Rectangle& rect) {
@@ -140,7 +130,7 @@ namespace uni {
 			if (point.y >= window.height) break;
 			for0(j, rect.width) {
 				if (point.x >= window.width) break;
-				pvci->DrawPoint(point, EvaluateColor(point));
+				if (pvci) pvci->DrawPoint(point, EvaluateColor(point));
 				point.x++;
 			}
 		}

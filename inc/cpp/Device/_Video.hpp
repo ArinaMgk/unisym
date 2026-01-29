@@ -156,11 +156,16 @@ namespace uni {
 		SheetTrait* subf = nullptr,// top
 			* subl = nullptr;// bottom
 		VideoControlInterface* pvci;
-	protected:
 		Rectangle window;
+	public:// User Using
+		PixelFormat pixel_fmt = PixelFormat::ARGB8888;// decide the size of the element
+		stduint video_memory = 0;
+		stduint video_mode = 0;
 		// stduint sheet_count;//{} Dchain
 	public:
-		LayerManager(VideoControlInterface* p, const Rectangle rect) : pvci(p), window(rect) { }
+		LayerManager() {}
+		LayerManager(VideoControlInterface* p, const Rectangle& rect) : pvci(p), window(rect) {}
+		inline void Reset(VideoControlInterface* p, const Rectangle& rect) {  pvci = p; window = rect; }
 
 		void Append(SheetTrait* sheet) {
 			if (subf == nullptr) {
@@ -191,81 +196,37 @@ namespace uni {
 		
 		void Domove(SheetTrait* who, Size2dif dif);
 
+		inline VideoControlInterface& getVCI() const { return *pvci; }
 		inline constexpr Color& getPoint(SheetTrait* whom, const Point& p) {
 			return whom->sheet_buffer[(p.y) * whom->sheet_area.width + p.x];
 		}
+		inline void setCursor(Point disp) { pvci->SetCursor(disp); }
+		inline Point getCursor() { return pvci->GetCursor(); }
 
 		// The layers may use translucent color.
 		Color EvaluateColor(const Point& p);
 
 		SheetTrait* getTop(const Point& p, stduint skip = 0);
 
-	};
-
-	// general
-	typedef void (*onPressed_t)(Point disp, stduint pressure, stduint range_radius);
-	class VideoControlBlock {
-	protected:
-		pureptr_t buffer_addr;
-		PixelFormat pixel_fmt = PixelFormat::ARGB8888;// decide the size of the element
-		stduint cols = 0, rows = 0;
-		onPressed_t onPressed;// callback event
-		const VideoControlInterface& vci;
-		Color back_color;
-		// Curret Model:
-		// 1. The Video buffer is organized in one memory area;
-		// 2. The address of next line equals: addr + cols * pixel_fmt.getSize();
-		//{MAYBE TODO} padding after row-end (?)
-	public:
-		~VideoControlBlock() { }
-		VideoControlBlock(pureptr_t addr, const VideoControlInterface& vci) : 
-			buffer_addr(addr), vci(vci) { }
-		VideoControlBlock(const VideoControlInterface& vci, const Size2& siz, const Color& bcolor) : 
-			buffer_addr(nullptr), vci(vci), cols(siz.x), rows(siz.y), back_color(bcolor) { }
-		// here: public objects
-		inline void setMode(PixelFormat pfmt, stduint cols, stduint rows, onPressed_t onpress = 0) {
-			pixel_fmt = pfmt;
-			this->cols = cols;
-			this->rows = rows;
-			onPressed = onpress;
-		}
-		inline stduint getLimitX() { return cols; }
-		inline stduint getLimitY() { return rows; }
-
-		// basic
-		inline void setCursor(Point disp) { vci.SetCursor(disp); }
-		inline Point getCursor() { return vci.GetCursor(); { return Point(); } }
-
-		inline VideoControlInterface& getVCI() const { return *(VideoControlInterface*)&vci; }
+		//
 
 		// draw
 		void DrawLine(Point disp, Size2 size, Color color, bool negSizy = false);
-		void Draw(Rectangle rect);
-		void Draw(const Circle& circ);
-
-		//
-		inline void Draw(Point disp, Color color) { vci.DrawPoint(disp, color); }
-		inline void Draw(Point disp, DisplayFont font) { vci.DrawFont(disp, font); }
+		inline void Draw(Point disp, Color color) { pvci->DrawPoint(disp, color); }
+		inline void Draw(Point disp, DisplayFont font) { pvci->DrawFont(disp, font); }
 		inline void Draw(Point disp, const char* addr, Color col = 0, Size2 siz = Size2(8, 16)) {
-			vci.DrawFont(disp, { (pureptr_t)addr , nullptr, StrLength(addr), col, siz });
+			pvci->DrawFont(disp, { (pureptr_t)addr , nullptr, StrLength(addr), col, siz });
 		}
-		inline void Draw(stdint x, stdint y, const char* str) {
-			while (x < 0) x += cols;
-			while (y < 0) y += rows;
-			DisplayFont f = { (pureptr_t)str };
-			Draw(Point(x, y), f);
-		}
-		// override this if needed
-		virtual void Draw_2Points(Point disp, Color colors[4]);
-		virtual void Draw_4Points(Point disp, Color colors[4]);
+		void Draw(Rectangle rect);
+		void Draw(const Circle& circ);		
 
-
-	};// Single Layer
+	};
+	using VideoControlBlock = LayerManager;
 
 	// inherit Console_t to make a console with self-defined font.
 	class VideoConsole : public Console_t, public SheetTrait
 	{
-	public: const VideoControlInterface& vci;
+	public: const VideoControlInterface* vci;
 	protected:
 		Point cursor = { 0,0 };
 		Color* buffer = nullptr;// pixels/words buffer, not sheet_buffer
@@ -286,7 +247,7 @@ namespace uni {
 		void FeedLine();
 
 	public:
-		VideoConsole(const VideoControlInterface& vci,
+		VideoConsole(const VideoControlInterface* vci,
 			const Rectangle& win,
 			const Color& fore_color = Color::White,
 			const Color& back_color = Color::Black) :
@@ -308,7 +269,7 @@ namespace uni {
 				}
 				sheet_parent->Update(this, window);
 			}
-			else vci.DrawRectangle(window);
+			else vci->DrawRectangle(window);
 		}
 
 		void setModeBuffer(Color* buf) { buffer = buf; }

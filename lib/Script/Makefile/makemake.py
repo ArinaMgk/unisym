@@ -78,17 +78,7 @@ def apd_gnu_item(text):
 #[TEMP] ASM cannot make PIC
 
 # ---- make list by win
-comhead = """
-AASM = aasm
-aat=-D_MCCA=0x8632
-# asmpref=_ae_
-cplpref=_cc_
-cplfile=$(wildcard lib/c/*.c) $(wildcard lib/c/**/*.c) $(wildcard lib/c/**/**/*.c) $(wildcard lib/c/**/**/**/*.c)
-cplobjs=$(patsubst %c, %o, $(cplfile))
-cpppref=_cx_
-cppfile=$(wildcard lib/cpp/*.cpp) $(wildcard lib/cpp/**/*.cpp) $(wildcard lib/cpp/**/**/*.cpp) $(wildcard lib/cpp/**/**/**/*.cpp)
-cppobjs=$(patsubst %cpp, %o, $(cppfile))
-"""
+
 comhead2 = """
 AASM = aasm
 aat=-D_MCCA=0x8632
@@ -114,6 +104,9 @@ cppobjs=$(addprefix $(dest_obj)/$(cpppref),$(patsubst %cpp,%o,$(notdir $(cppfile
 
 
 text_gcc_win32 += comhead2 + """
+asmfile=$(wildcard lib/asm/x86/*.asm) $(wildcard lib/asm/x86/**/*.asm)
+asmobjs=$(addprefix $(dest_obj)/$(asmpref),$(patsubst %asm,%o,$(notdir $(asmfile))))
+
 attr = -D_DEBUG -O3 -D_Win32
 dest_obj=$(uobjpath)/CGWin32
 BN = $(ubinpath)/I686/Win32/bin
@@ -126,6 +119,9 @@ dest_abs = $(ubinpath)/libw32d.a
 dest_dll = $(ubinpath)/libw32d.so.""" + __LibVersion
 
 text_gcc_win64 += comhead2 + """
+asmfile=$(wildcard lib/asm/x64/*.asm) $(wildcard lib/asm/x64/**/*.asm)
+asmobjs=$(addprefix $(dest_obj)/$(asmpref),$(patsubst %asm,%o,$(notdir $(asmfile))))
+
 attr = -D_DEBUG -O3 -D_Win64
 dest_obj=$(uobjpath)/CGWin64
 BN = $(ubinpath)/AMD64/Win64/bin
@@ -138,6 +134,9 @@ dest_abs = $(ubinpath)/libw64d.a
 dest_dll = $(ubinpath)/libw64d.so.""" + __LibVersion
 
 text_gcc_lin32 += comhead2 + """
+asmfile=$(wildcard lib/asm/x86/*.asm) $(wildcard lib/asm/x86/**/*.asm)
+asmobjs=$(addprefix $(dest_obj)/$(asmpref),$(patsubst %asm,%o,$(notdir $(asmfile))))
+
 attr = -D_DEBUG -D_Linux -D__BITS__=32 -O3
 aattr = -felf
 dest_obj=$(uobjpath)/CGLin32
@@ -174,8 +173,11 @@ dest_dll=$(ubinpath)/libm32d.so.""" + __LibVersion
 
 
 text_gcc_lin64 += comhead2 + """
+asmfile=$(wildcard lib/asm/x64/*.asm) $(wildcard lib/asm/x64/**/*.asm)
+asmobjs=$(addprefix $(dest_obj)/$(asmpref),$(patsubst %asm,%o,$(notdir $(asmfile))))
+
 attr = -D_DEBUG -D_Linux -D__BITS__=64 -O3
-aattr = -felf
+aattr = -felf64
 dest_obj=$(uobjpath)/CGLin64
 dest_abs=$(ubinpath)/libl64d.a
 CC=gcc -m64
@@ -191,7 +193,7 @@ dest_dll=$(ubinpath)/libl64d.so.""" + __LibVersion
 #  warn4010: Linefeed in Line Comment
 #  warn4005: Macro Redefinition
 #{TODO}:
-text_msv_win32 += comhead + """
+text_msv_win32 += comhead2 + """
 attr = /D_DEBUG /D_Win32 /nologo /wd4819 /wd4010 /wd4005
 cplpref=_uvc_
 cpppref=_uxxvc_
@@ -212,7 +214,7 @@ VI_SYS="$(KitInc)/ucrt/"
 VI_64=${msvcpath}/include/ /I${VI_SYS} /I"$(KitInc)/um/" /I"$(KitInc)/shared/"
 """
 #{TODO}:
-text_msv_win64 += comhead + """
+text_msv_win64 += comhead2 + """
 attr = /D_DEBUG /D_Win64 /nologo /wd4819 /wd4010 /wd4005
 cplpref=_uvc_
 cpppref=_uxxvc_
@@ -258,16 +260,7 @@ tmp = "\t@$(CC) -E ./lib/c/empty.c $(attr) -o $(ubinpath)/std$(ENVIDEN).h\n"
 apd_gnu_item(tmp)
 #{TODO} for MSVC
 
-for val in list_asm_free86:
-	tmp = '\t@echo AS ' + val.replace("./lib", "lib") + "\n\t@${AASM} ${aattr} ${aat} " + val + " -o ${dest_obj}/_ae_" + get_outfilename(val) + ".o" + '\n'
-	text_gcc_win32 += tmp
-	text_msv_win32 += tmp
-	text_gcc_lin32 += tmp
-	# text_gcc_mecocoa += tmp
-for val in list_asm_free64:
-	tmp = '\t@echo AS ' + val.replace("./lib", "lib") + "\n\t@${AASM} ${aattr} ${aat} " + val + " -o ${dest_obj}/_ax_" + get_outfilename(val) + ".o" + '\n'
-	text_gcc_win64 += tmp
-	text_msv_win64 += tmp
+
 if True:
 	tmp = """
 	@echo "CC  = $(CC)"
@@ -304,45 +297,8 @@ tmp = """\t@echo AR ${dest_abs}
 text_msv_win32 += tmp
 text_msv_win64 += tmp
 
-tmp = """
 
-%.o: %.c
-	@echo "CC $(<) with shared"
-	@$(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@) || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
-	@$(CC) -fpic $(attr) -c $< -o $(dest_obj)-DLL/$(cplpref)$(notdir $@)
-%.o: %.cpp
-	@echo "CX $(<) with shared"
-	@$(CX) $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@) || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $(dest_obj)/$(cplpref)$(notdir $@)"
-	@$(CX) -fpic $(attr) -c $< -o $(dest_obj)/$(cpppref)$(notdir $@)
 
-"""
-
-tmp2 = """
-
-$(foreach src,$(cplfile),$(eval $(call c_to_o,$(src))))
-$(foreach src,$(cppfile),$(eval $(call cpp_to_o,$(src))))
-
-_ae_%.o:
-	@echo nothing
-
-_cc_%.o:
-	@echo "CC $(<)" #  with shared
-	@$(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$(notdir $@)) -MT $@"
-#	@$(CC) -fpic $(attr) -c $< -o $@
-_cx_%.o: 
-	@echo "CX $(<)" #  with shared
-	@$(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$(notdir $@)) -MT $@"
-#	@$(CX) -fpic $(attr) -c $< -o $@
-
-clean:
-	@-rm -rf $(dest_obj)/*
--include $(dest_obj)/*.d
-"""
-
-text_gcc_win32 += tmp2
-text_gcc_win64 += tmp2
-text_gcc_lin32 += tmp2
-text_gcc_lin64 += tmp2
 tmp = """
 $(foreach src,$(asmfile),$(eval $(call asm_to_o,$(src))))
 $(foreach src,$(cplfile),$(eval $(call c_to_o,$(src))))
@@ -354,17 +310,21 @@ _ae_%.o:
 
 _cc_%.o:
 	@echo "CC $(<)"
-	@$(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$(notdir $@)) -MT $@"
+	@$(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CC) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@"
 
 _cx_%.o: 
 	@echo "CX $(<)" 
-	@$(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$(notdir $@)) -MT $@"
+	@$(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@ || ret 1 "!! Panic When: $(CX) $(attr) -c $< -o $@ -MMD -MF $(patsubst %.o,%.d,$@) -MT $@"
 
 clean:
 	@-rm -rf $(dest_obj)/*
 -include $(dest_obj)/*.d
 
 """
+text_gcc_win32 += tmp
+text_gcc_win64 += tmp
+text_gcc_lin32 += tmp
+text_gcc_lin64 += tmp
 text_gcc_mecocoa += tmp
 
 

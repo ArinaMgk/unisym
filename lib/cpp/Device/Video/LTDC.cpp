@@ -443,9 +443,6 @@ namespace uni {
 		return _TEMP Rectangle(Point(0, 0), Size2(800, 480));
 	}
 	
-	VideoControlBlock LTDC_LAYER_t::getControlBlock() const {
-		return VideoControlBlock(nullptr, self);
-	}
 
 	void LTDC_LAYER_t::SetCursor(const Point& disp) const {
 		cursor[getID() - 1] = disp;

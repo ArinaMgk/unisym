@@ -30,7 +30,7 @@
 namespace uni {
 	
 	enum class SheetEvent {
-		onFocus,// Activated
+		onFocus,// Activated  (Point, pressure, range_radius)
 		onEnter,// Mouse Move In
 		onLeave,// Mouse Move Out
 		onMoved,// Mouse Move or Finger Move

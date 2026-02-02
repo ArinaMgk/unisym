@@ -378,8 +378,8 @@ OPATH=$(uobjpath)/$(IDEN)
 
 cplfile=$(wildcard lib/c/data/**/*.c) $(wildcard lib/c/console/*.c) lib/c/mcore.c
 cplobjs=$(patsubst %c, %o, $(cplfile))
-cppfile=$(wildcard lib/cpp/Device/*.cpp) $(wildcard lib/cpp/Device/**/*.cpp) $(wildcard lib/cpp/Device/**/**/*.cpp) lib/cpp/color.cpp
-cppfile+= lib/cpp/interrupt.cpp lib/cpp/MCU/$(IDEN).cpp
+cppfile=$(wildcard lib/cpp/*.cpp) $(wildcard lib/cpp/Device/*.cpp) $(wildcard lib/cpp/Device/**/*.cpp) $(wildcard lib/cpp/Device/**/**/*.cpp)
+cppfile+= lib/cpp/MCU/$(IDEN).cpp
 cppobjs=$(patsubst %cpp, %o, $(cppfile))
 
 all: init $(cplobjs) $(cppobjs)

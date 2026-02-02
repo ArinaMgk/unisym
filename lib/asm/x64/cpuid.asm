@@ -10,23 +10,19 @@
 	DB "UNISYM DOSCON.IO", "CPUID"
 
 [SECTION .code]
-	GLOBAL @CpuBrand@4 
-	GLOBAL CpuBrand
+	GLOBAL CpuBrand    ; GCC's
 	[BITS 64]
 
 ; ____________________________________________________________________________
 
 ; Get CPU Brand Informatiom
-; [__fastcall] CpuBrand <<< ECX(char* BufAddr)
-@CpuBrand@4:
+; CpuBrand <<< RDI(char* BufAddr)
 CpuBrand:
 	PUSH RSI
-	PUSH RDI
-	PUSH RAX
 	PUSH RCX
 	PUSH RDX
 	PUSH RBX
-	MOV RSI, RCX
+	MOV RSI, RDI
 	; M_CpuBrand
 		MOV RDI,0X80000002
 		lup:
@@ -43,7 +39,5 @@ CpuBrand:
 	POP RBX
 	POP RDX
 	POP RCX
-	POP RAX
-	POP RDI
 	POP RSI
 RET

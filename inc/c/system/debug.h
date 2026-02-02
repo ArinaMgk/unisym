@@ -44,7 +44,8 @@ extern size_t _MALLIMIT;// <IN>
 
 // ---- { logging } ----
 
-extern void erro(char* erromsg
+_ESYM_C
+void erro(char* erromsg
 #ifdef _INC_CPP
 	= NULL
 #endif
@@ -94,6 +95,15 @@ void printlog(loglevel_t level, const char* fmt, ...);
 #define plogwarn(...) printlog(_LOG_WARN, __VA_ARGS__)
 #define plogerro(...) printlog(_LOG_ERROR, __VA_ARGS__)
 #define plogtrac(...) printlog(_LOG_TRACE, __VA_ARGS__)
+
+#else
+
+_ESYM_C
+void erro(char* erromsg
+#ifdef _INC_CPP
+	= NULL
+#endif
+);
 
 #endif
 

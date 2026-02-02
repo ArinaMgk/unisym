@@ -39,9 +39,8 @@ extern "C" {
 #endif
 
 #include "system/supple.h"
-#if defined(_dbg) || defined(_DEBUG)
 #include "system/debug.h"
-#endif
+
 	extern char _tab_HEXA[16];
 	extern char _tab_hexa[16];
 	void _preprocess();

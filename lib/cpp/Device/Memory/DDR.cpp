@@ -79,9 +79,9 @@ namespace uni {
 	
 	bool DDR_t::ddr_clk_enable(stduint spd) {
 		enClock(true);
-		stduint mem_speed_hz = spd * 1000U;
-		stduint ddrphy_clk = getFrequency();
-		stduint ddr_clk = ABS(ddrphy_clk, mem_speed_hz);
+		stdsint mem_speed_hz = spd * 1000U;
+		stdsint ddrphy_clk = getFrequency() - mem_speed_hz;
+		stduint ddr_clk = absof(ddrphy_clk);
 		// Max 10% frequency delta
 		return ddr_clk <= (mem_speed_hz / 10);
 	}

@@ -20,10 +20,6 @@
 	limitations under the License.
 */
 
-#ifndef _DEBUG
-#define _DEBUG// for erro()
-#endif
-
 #include "../../../../inc/cpp/interrupt"
 #include "../../../../inc/cpp/Device/EXTI"
 

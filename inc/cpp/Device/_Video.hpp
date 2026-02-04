@@ -153,7 +153,7 @@ namespace uni {
 	*/
 	class LayerManager {
 	public:
-		SheetTrait* subf = nullptr,// top
+		Nnode* subf = nullptr,// top
 			* subl = nullptr;// bottom
 		VideoControlInterface* pvci;
 		Rectangle window;
@@ -168,25 +168,27 @@ namespace uni {
 		inline void Reset(VideoControlInterface* p, const Rectangle& rect) {  pvci = p; window = rect; }
 
 		void Append(SheetTrait* sheet) {
+			sheet->sheet_node.offs = sheet;
 			if (subf == nullptr) {
-				subl = subf = sheet;
-				sheet->sheet_pnext = nullptr;
-				sheet->sheet_pleft = nullptr;
+				sheet->sheet_node.next = nullptr;
+				sheet->sheet_node.left = nullptr;
+				subl = subf = &sheet->sheet_node;
 			}
 			else {
-				subl->sheet_pnext = sheet;
-				sheet->sheet_pleft = subl;
-				sheet->sheet_pnext = nullptr;
-				subl = sheet;
+				subl->next = &sheet->sheet_node;
+				sheet->sheet_node.left = subl;
+				sheet->sheet_node.next = nullptr;
+				subl = &sheet->sheet_node;
 			}
 		}
 
+		// Parallel Sheets
 		stduint Count() {
 			stduint cnt = 0;
-			SheetTrait* crt = subf;
+			auto crt = subf;
 			while (crt) {
 				cnt++;
-				crt = crt->sheet_pnext;
+				crt = crt->next;
 			}
 			return cnt;
 		}

@@ -1,9 +1,8 @@
 // ASCII C++ TAB4 CRLF
 // Attribute: 
-// LastCheck: 20240412
-// AllAuthor: @dosconio
+// AllAuthor: @ArinaMgk
 // ModuTitle: uni.Witch.Form
-// Reference: (.C#)System.Windows.Forms
+// Reference: (.C#)System.Windows.Controls.Control
 // Copyright: ArinaMgk UniSym, Apache License Version 2.0
 /*
 	Copyright 2023 ArinaMgk
@@ -27,26 +26,13 @@
 
 #include "../unisym"
 #include "../node"
+#include "../trait/SheetTrait.hpp"
 
-namespace uni {	namespace Witch {
+namespace uni::Witch {
 	//
 	class Control;
 
-	class Form {
-	private:
-
-	protected:
-		stduint width;
-		stduint height;
-	public:
-		NodeChain Controls;
-		Form(stduint width, stduint height) : width(width), height(height), Controls(false) {
-
-		};
-		void Show();
-		int Loop();
-	};
-	
+	class Form;
 	class Control {
 	private:
 
@@ -55,23 +41,23 @@ namespace uni {	namespace Witch {
 		stduint top;
 		stduint width;
 		stduint height;
-		Form* pare;
+		// Form* pare;
 	public:
 		friend class Form;
-		Control(Form* pare, stduint left, stduint top, stduint width, stduint height) : 
-			left(left), top(top), width(width), height(height), pare(pare) {
-			if(pare) pare->Controls.Append(this);
+		Control(stduint left, stduint top, stduint width, stduint height) : 
+			left(left), top(top), width(width), height(height) {
+			// if(pare) pare->Controls.Append(this);
 		}
 		~Control() {
-			if (pare) pare->Controls.Remove((void*)this);
+			// if (pare) pare->Controls.Remove((void*)this);
 		}
 		virtual void Show() = 0;
 		virtual void Event(void* event) = 0;
 		virtual void Render() = 0;
-	};
+	};// SheetT
 
 
 	//
-} }
+}
 
 #endif

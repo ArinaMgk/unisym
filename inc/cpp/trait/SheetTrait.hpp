@@ -21,6 +21,7 @@
 */
 #include "../unisym"
 #include "../../c/graphic.h"
+#include "../../c/nnode.h"
 //{TODO} ! Below are included by HEREPIC ! //
 
 #ifndef _INCPP_TRAIT_SHEET
@@ -42,17 +43,15 @@ namespace uni {
 	public:
 		friend class LayerManager;
 	protected:
-		// {?} use Dnode (?)
 		LayerManager* sheet_parent = nullptr;
-		SheetTrait* sheet_pleft = nullptr;
-		SheetTrait* sheet_pnext = nullptr;
-		Rectangle sheet_area;
+		Nnode sheet_node = {0};// all pointers point to SheetTrait but the start of child class
 	public:
+		Rectangle sheet_area;
 		Color* sheet_buffer = nullptr;// if set, the LayMan will fetch the uni.Color from the buffer
 	public:
 		SheetTrait() = default;
 
-		void InitializeSheet(LayerManager& _parent, Point vertex, Size2 size, Color* buf) {
+		void InitializeSheet(LayerManager& _parent, Point vertex, Size2 size, Color* buf = nullptr) {
 			sheet_parent = &_parent;
 			sheet_area = Rectangle{ vertex, size, Color::White, false };
 			sheet_buffer = buf;

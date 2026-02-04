@@ -151,38 +151,37 @@ namespace uni {
 	}
 
 	Color LayerManager::EvaluateColor(const Point& glb_p) {
-		SheetTrait* crt = subl;
-		Color col = window.color;
-		if (crt) do {
-			auto& rect = crt->sheet_area;
-			if (!crt->sheet_buffer || !rect.ifContain(glb_p)) continue;
-			auto pp = crt->sheet_buffer + (glb_p.y - rect.y) * crt->sheet_area.width + (glb_p.x - rect.x);
-			
-			// return *pp;
-			if (pp->a == 0xFFu) col = *pp;
-			else if (!pp->a);
-			else {
-				// uint32 r = pp->r * pp->a + col.r * (255 - pp->a); r /= 0xFF;
-				// sint32 r = ((sint32)pp->r - (sint32)col.r) * pp->a / 0xFF + col.r;
-				sint32 r = (((sint32)pp->r - col.r) * pp->a >> 8) + col.r;
-				sint32 g = (((sint32)pp->g - col.g) * pp->a >> 8) + col.g;
-				sint32 b = (((sint32)pp->b - col.b) * pp->a >> 8) + col.b;
-				if (r < 0) r = 0; col.r = minof((uint32)r, 0xFFu);
-				if (g < 0) g = 0; col.g = minof((uint32)g, 0xFFu);
-				if (b < 0) b = 0; col.b = minof((uint32)b, 0xFFu);
-			}
-		} while (crt = crt->sheet_pleft);
-		col.a = 0xFF;
+		Nnode* crt = subf;
+		Color col = 0;
+		if (crt && crt->offs) do {
+			auto& crt_sheet = treat<SheetTrait>(crt->offs);
+			auto& rect = crt_sheet.sheet_area;
+			if (!rect.ifContain(glb_p)) continue;
+			const Point pt{ (glb_p.x - rect.x), (glb_p.y - rect.y) };
+			auto pp = !crt_sheet.sheet_buffer ? crt_sheet.getPoint(pt) :
+				crt_sheet.sheet_buffer[pt.y * crt_sheet.sheet_area.width + pt.x];
+			constexpr const sint32 dv = 0xFF * 0xFF;
+			col.r += (sint32)pp.r * pp.a * (0xFF - col.a) / dv;
+			col.g += (sint32)pp.g * pp.a * (0xFF - col.a) / dv;
+			col.b += (sint32)pp.b * pp.a * (0xFF - col.a) / dv;
+			col.a += (sint32)pp.a * (0xFF - col.a) / 0xFF;
+		} while (col.a <= 0xFEu && (crt = crt->next) && crt->offs);
+		if (col.a != 0xFFu) {
+			col.r += (sint32)window.color.r * (0xFF - col.a) / 0xFF;
+			col.g += (sint32)window.color.g * (0xFF - col.a) / 0xFF;
+			col.b += (sint32)window.color.b * (0xFF - col.a) / 0xFF;
+		}
+		col.a = 0xFFu;
 		return col;
 	}
 
 	SheetTrait* LayerManager::getTop(const Point& p, stduint skip) {
-		SheetTrait* crt = subf;
+		auto crt = subf;
 		if (crt) do {
 			if (skip) { skip--; continue; }
-			auto& area = crt->sheet_area;
-			if (area.ifContain(p)) return crt;
-		} while (crt = crt->sheet_pnext);
+			auto& area = treat<SheetTrait>(crt->offs).sheet_area;
+			if (area.ifContain(p)) return cast<SheetTrait*>(crt->offs);
+		} while (crt = crt->next);
 		return nullptr;
 	}
 

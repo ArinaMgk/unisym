@@ -24,7 +24,7 @@
 #ifndef _INC_WITCH_CTRL_Button_X
 #define _INC_WITCH_CTRL_Button_X
 
-#include "../Form"
+#include "../Control.hpp"
 #include "../../cpp/string"
 
 namespace uni {	namespace Witch {
@@ -33,7 +33,7 @@ namespace uni {	namespace Witch {
 	public:
 		uint32 backcolor;
 		String text;
-		Button(Form* pare, stduint left, stduint top, stduint width, stduint height) : Control(pare, left, top, width, height) {
+		Button(stduint left, stduint top, stduint width, stduint height) : Control(left, top, width, height) {
 
 		}
 		~Button() {

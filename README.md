@@ -26,8 +26,9 @@ including not only implementation, library, tool-kits, chroming engine and demon
         - (OK)TeX&PDF, ( )HTML, ( )Markdown
 - `HERPRO` and static `HERDAT`
     - opensrc **UNISYM** (this Abstract Centre, Apache), up-to chip-level `arch-objfmt-env`
-		- **Kasha** Static BIOS Assembly Macro Package (UNDONE.SUSPEND)
-		- Magice(`mgc`) with AASM(`aasm`)
+		- `IBM.BIOS` **Kasha** Static BIOS Assembly Macro Package (UNDONE.SUSPEND)
+		- `Embedded` HAL for Cortex Series MCU/MPU
+		- `Compiler` Magice(`mgc`) with AASM(`aasm`)
 			- doscon.io/COTLAB(`cot`)
 		- (Linker)
 		- (Wel)

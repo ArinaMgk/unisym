@@ -19,7 +19,7 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
-#define _HIS_TIME_H
+
 #include <time.h>
 #include "../../../inc/c/datime.h"
 

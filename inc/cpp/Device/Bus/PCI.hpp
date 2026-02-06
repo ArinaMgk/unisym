@@ -36,6 +36,11 @@
 
 #define ClassCodeGroup_xHC 0x0C, 0x03, 0x30
 
+#define ClassBase_SerialBusController 0x0C
+#define ClassSub_UniversalSerialBusController 0x03
+#define ClassInterface_EHCI 0x20// 2.x
+#define ClassInterface_XHCI 0x30// 3.x
+
 namespace uni {
 	class PCI_Result {
 	public:
@@ -160,6 +165,9 @@ namespace uni {
 			send_data(data);
 		}
 
+		// set Memory Space (bit1) and Bus Master (bit2) in PCI command
+		void enable_MMIO(const Device& xhc_dev);
+
 		constexpr uint8 calculate_bar_address(unsigned int bar_index) {
 			return 0x10 + 4 * bar_index;
 		}
@@ -233,6 +241,9 @@ namespace uni {
 			unsigned num_vector_exponent
 		);
 
+	public:
+		bool ConvertFromEhci(const PCI::Device& xhc_dev);
+
 	protected:
 		PCI_Result ScanBus(uint8 bus);
 		PCI_Result ScanDevice(uint8 bus, uint8 device);
@@ -249,6 +260,10 @@ namespace uni {
 
 	
 } // namespace uni
+
+// return the devices detected on the PCI bus
+_ESYM_C int PCI_Init(uni::PCI& pci);
+
 #endif
 
 #endif

@@ -20,7 +20,7 @@
 	limitations under the License.
 */
 
-#define _HIS_TIME_H
+
 #include <c/stdinc.h>
 //
 #include <c/datime.h>

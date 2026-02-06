@@ -53,7 +53,8 @@ typedef enum
 	ERQ_x0D = 13,
 	ERQ_Page_Fault = 14,
 	ERQ_x0F = 15,
-	// The latter 16 is for IRQ request handlers
+	// [0x00..0x20] The latter 16 is for IRQ request handlers
+
 	#define PIC_MAS_IDSTART     0X20
 	IRQ_PIT = 0x20,      // 8253/8254 PIT (Programmable Interval Timer)
 	IRQ_Keyboard = 0x21,
@@ -63,6 +64,9 @@ typedef enum
 	IRQ_XT_WINI = 0x25,  // or LPT2
 	IRQ_Floppy = 0x26,   // 8250 Floppy Disk Controller
 	IRQ_LPT1 = 0x27,     // 8255 Parallel Port
+
+	IRQ_xHCI = 0x40,     // USB 3.0
+
 	#define PIC_SLV_IDSTART     0X70
 	IRQ_RTC = 0x70,// Realtime Clock
 	IRQ_0x71 = 0x71,

@@ -20,7 +20,7 @@
 */
 // end in aasm.c
 #define _CRT_SECURE_NO_WARNINGS
-#define _HIS_TIME_H
+
 #include <c/stdinc.h>
 #include <c/ustring.h>
 #include <cpp/string>

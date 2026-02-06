@@ -885,6 +885,18 @@ namespace {
 			return ResetPort(xhc, port);
 		case ConfigPhase::kResettingPort:
 			return EnableSlot(xhc, port);
+		case ConfigPhase::kWaitingAddressed:
+		case ConfigPhase::kEnablingSlot:
+			// Before the Enable Slot command is completed, the controller/virtual machine may continue to report port status changes.
+			if (!port.IsConnected()) {
+				// restore state
+				port_config_phase[port_id] = ConfigPhase::kNotConnected;
+				if (addressing_port == port_id) addressing_port = 0;
+				ploginfo("Port %u disconnected while enabling slot, reset state", port_id);
+			} else {
+				// ploginfo("Port %u: PSC arrived during kEnablingSlot -- ignoring", port_id);// ignore
+			}
+			return MAKE_ERROR(Error::kSuccess);
 		default:
 			plogerro("OnEvent kInvalidPhase %u", port_config_phase[port_id]);
 			return MAKE_ERROR(Error::kInvalidPhase);
@@ -1099,6 +1111,15 @@ namespace usb::xhci {
 
 	DoorbellRegister* Controller::DoorbellRegisterAt(uint8_t index) {
 		return &DoorbellRegisters()[index];
+	}
+
+	Error Controller::ProcessEvents() {
+		while (this->PrimaryEventRing()->HasFront()) {
+			if (auto err = ProcessEvent(self)) {
+				return err;
+			}
+		}
+		return MAKE_ERROR(Error::kSuccess);
 	}
 
 	Error ConfigurePort(Controller& xhc, Port& port) {

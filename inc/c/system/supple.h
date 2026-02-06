@@ -32,7 +32,7 @@ typedef struct {
 
 #define _para_align(type) (((sizeof(type) + sizeof(stduint) - 1) / sizeof(stduint)) * sizeof(stduint))
 
-#if (defined(_Linux) && __BITS__ == 64) || defined(_OPT_RISCV64) || defined(_HIS_IMPLEMENT)
+#if (defined(_Linux) && __BITS__ == 64) || defined(_OPT_RISCV64) || defined(_HIS_IMPLEMENT) || 1
 //#define para_ento(ap, param) (ap.stack_ptr = (byte*)&param + ...)// by dscn trial, 20240908
 #if defined(_DEV_GCC)//{TEMP} System V AMD64 ABI
 	#define va_start(ap,last) (__builtin_va_start(ap, last))

@@ -23,13 +23,14 @@
 #include <stdlib.h>
 #include "../../../inc/c/driver/mouse.h"
 #include "../../../inc/c/driver/i8259A.h"
+#include "../../../inc/c/board/IBM.h"
 
 #ifdef _SUPPORT_Port8
 
 #define KEYCMD_SENDTO_MOUSE 0xD4
 #define MOUSECMD_ENABLE     0xF4
 
-_ESYM_C void Mouse_Init()
+void Mouse_Init()
 {
 	i8259Master_Enable(2);
 	i8259Slaver_Enable(4);// KBD
@@ -46,8 +47,61 @@ _ESYM_C void Mouse_Init()
 
 #endif
 
-#if defined(_INC_CPP) && (defined(_MCCA) && ((_MCCA)==0x8664))
+#if defined(_INC_CPP) && (defined(_UEFI))
 #include <algorithm>
+
+//{TEMP} version
+uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, usb::xhci::Controller* xhc) {
+	using namespace uni;
+	// seek an Intel xHC.
+	// VMware: USB 3.1, 显示所有设备
+	PCI::Device* xhc_dev = nullptr;// mouse
+	uint64_t xhc_mmio_base = nil;
+	for0(i, pci.num_device) {
+		if (pci.devices[i].class_code.Match(ClassCodeGroup_xHC)) {
+			xhc_dev = &pci.devices[i];
+			auto vendor_id = pci.read_vendor_id(*xhc_dev);
+			if (0x8086 == vendor_id) {
+				break;
+			}
+		}
+	}
+	if (!xhc_dev) return nullptr;
+	pci.enable_MMIO(*xhc_dev);
+	auto xhc_bar = pci.ReadBar(*xhc_dev, 0);
+	if (!xhc_bar.pvalue) {
+		plogerro("xHC BAR0 is not valid.");
+	}
+	// config MSI
+	const uint8_t bsp_local_apic_id = treat<uint32>_IMM(0xFEE00020) >> 24;// or STI is useless -- Phina 20260117
+	pci.configure_MSI_fixed_destination(
+		*xhc_dev, bsp_local_apic_id,
+		PCI::MSITriggerMode::Edge,
+		PCI::MSIDeliveryMode::Fixed,
+		IRQ_xHCI, 0);
+	//
+	xhc_mmio_base = *xhc_bar.pvalue & ~_IMM(0xF);
+	if (!xhc_mmio_base) return nullptr;
+	new (xhc) usb::xhci::Controller(xhc_mmio_base);
+	pci.ConvertFromEhci(*xhc_dev);
+	if (auto err = xhc->Initialize()) {
+		ploginfo("xhc.Initialize: %s", err.Name());
+	}
+	//
+	xhc->Run();
+	for1(i, xhc->MaxPorts()) {
+		auto port = xhc->PortAt(i);
+		// ploginfo("Port %d: IsConnected=%d", i, port.IsConnected());
+		if (port.IsConnected()) {
+			if (auto err = ConfigurePort(*xhc, port)) {
+				plogerro("Failed to configure port: %s at %s:%d", err.Name(), err.File(), err.Line());
+				continue;
+			}
+		}
+	}
+	//
+	return xhc_dev;
+}
 
 namespace usb {
 	HIDMouseDriver::HIDMouseDriver(Device* dev, int interface_index)
@@ -55,31 +109,22 @@ namespace usb {
 	}
 
 	Error HIDMouseDriver::OnDataReceived() {
-		int8_t displacement_x = Buffer()[1];
-		int8_t displacement_y = Buffer()[2];
-		NotifyMouseMove(displacement_x, displacement_y);
-		// Log(kDebug, "%02x,(%3d,%3d)\n", Buffer()[0], displacement_x, displacement_y);
+		MouseMessage mmsg;
+		MemCopyN(&mmsg, (const void*)&Buffer()[0], sizeof(MouseMessage));
+		NotifyMouseMove(mmsg);
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	void* HIDMouseDriver::operator new(size_t size) {
-		return AllocMem(sizeof(HIDMouseDriver), 0, 0);
-	}
-
-	void HIDMouseDriver::operator delete(void* ptr) noexcept {
-		// FreeMem(ptr);
-	}
-
 	void HIDMouseDriver::SubscribeMouseMove(
-		std::function<void(int8_t displacement_x, int8_t displacement_y)> observer) {
+		std::function<ObserverType> observer) {
 		observers_[num_observers_++] = observer;
 	}
 
 	std::function<HIDMouseDriver::ObserverType> HIDMouseDriver::default_observer;
 
-	void HIDMouseDriver::NotifyMouseMove(int8_t displacement_x, int8_t displacement_y) {
+	void HIDMouseDriver::NotifyMouseMove(MouseMessage mmsg) {
 		for (int i = 0; i < num_observers_; ++i) {
-			observers_[i](displacement_x, displacement_y);
+			observers_[i](mmsg);
 		}
 	}
 }

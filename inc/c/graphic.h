@@ -40,6 +40,11 @@ namespace uni {
 			y += p.y;
 			return self;
 		}
+		Point2& operator -=(const Point2& p) {
+			x -= p.x;
+			y -= p.y;
+			return self;
+		}
 	} Point, Size2;
 
 	struct Position {
@@ -74,7 +79,7 @@ namespace uni {
 			return width * height;
 		}
 		bool ifContain(const Point& p) const {
-			return p.x >= x && p.x < x + width && p.y >= y && p.y < y + height;
+			return (p.x >= x) && (p.x < x + width) && (p.y >= y) && (p.y < y + height);
 		}
 	};
 

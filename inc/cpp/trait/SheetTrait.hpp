@@ -31,12 +31,13 @@
 namespace uni {
 	
 	enum class SheetEvent {
-		onFocus,// Activated  (Point, pressure, range_radius)
-		onEnter,// Mouse Move In
-		onLeave,// Mouse Move Out
-		onMoved,// Mouse Move or Finger Move
-		onClick,// Mouse Click or Finger Touch
+		onEnter,// Mouse Move In  =  Get Focus (Point)
+		onLeave,// Mouse Move Out = Lose Focus (Point)
+		onMoved,// Mouse Move  or Finger Move  (Point, pressure, range_radius)
+		onClick,// Mouse Click or Finger Touch (Point, byte 0RML0RML)
 	};
+	// once Click trigger two onClicks
+	// 0RML0RML: Lower 0RML for change, Upper 0RML for last state
 
 	class LayerManager;
 	class SheetTrait {

@@ -30,7 +30,7 @@
 // x86
 #include "./keyboard.h"
 
-struct MouseMessage {
+_PACKED(struct) MouseMessage {
 	byte BtnLeft : 1;
 	byte BtnRight : 1;
 	byte BtnMiddle : 1;
@@ -39,18 +39,22 @@ struct MouseMessage {
 	byte DirY : 1;
 	byte OvfX : 1;
 	byte OvfY : 1;
-	byte X;
-	byte Y;
+	int8 X;
+	int8 Y;
 };
 
 // pres: init keyboard
 _ESYM_C void Mouse_Init();
 
-#if defined(_INC_CPP) && (defined(_MCCA) && ((_MCCA)==0x8664))
+#if defined(_INC_CPP) && (defined(_UEFI))
 #include "../../../inc/c/msgface.h"
 #include <functional>
 #include "../../cpp/Device/USB/USB.hpp"
 #include "../../cpp/Device/USB/USB-Header.hpp"
+#include "../../cpp/Device/USB/xHCI/xHCI.hpp"
+#include "../../cpp/Device/Bus/PCI.hpp"
+
+_ESYM_C uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, usb::xhci::Controller* xhc);
 
 namespace usb {
 	class HIDMouseDriver : public HIDBaseDriver {
@@ -62,7 +66,7 @@ namespace usb {
 
 		Error OnDataReceived() override;
 
-		using ObserverType = void(int8_t displacement_x, int8_t displacement_y);
+		using ObserverType = void(MouseMessage mmsg);
 		void SubscribeMouseMove(std::function<ObserverType> observer);
 		static std::function<ObserverType> default_observer;
 
@@ -70,7 +74,7 @@ namespace usb {
 		std::array<std::function<ObserverType>, 4> observers_;
 		int num_observers_ = 0;
 
-		void NotifyMouseMove(int8_t displacement_x, int8_t displacement_y);
+		void NotifyMouseMove(MouseMessage mmsg);
 	};
 }
 

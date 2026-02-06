@@ -45,12 +45,13 @@ extern size_t _MALLIMIT;// <IN>
 // ---- { logging } ----
 
 _ESYM_C
-void erro(char* erromsg
+void erro(const char* erromsg
 #ifdef _INC_CPP
 	= NULL
 #endif
 );
-extern void warn(char* warnmsg);
+_ESYM_C void warn(const char* warnmsg);
+
 extern size_t malc_occupy;
 extern size_t arna_precise;
 
@@ -99,11 +100,13 @@ void printlog(loglevel_t level, const char* fmt, ...);
 #else
 
 _ESYM_C
-void erro(char* erromsg
+void erro(const char* erromsg
 #ifdef _INC_CPP
 	= NULL
 #endif
 );
+
+_ESYM_C void warn(const char* warnmsg);
 
 #endif
 

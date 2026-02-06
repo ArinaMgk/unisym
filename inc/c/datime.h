@@ -49,7 +49,7 @@ struct datimex_t {
 	byte isDaylightSavingTime;
 };
 
-#ifndef _HIS_TIME_H //{}: will remove after unisym realize time.h 
+#ifdef _HER_TIME_H //{}: will remove after unisym realize time.h 
 struct tm {
 	int tm_sec;
 	int tm_min;

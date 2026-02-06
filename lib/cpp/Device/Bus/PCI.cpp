@@ -27,6 +27,22 @@
 // #include <array>
 using namespace uni;
 
+int PCI_Init(PCI& pci) {
+	auto err = pci.scan_all_bus();
+	if (err != PCI_Result::Success) {
+		plogwarn("[Devices] (%s) PCI: Detect %u devices.", err.Name(), pci.num_device);
+		return pci.num_device;
+	}
+	for0(i, pci.num_device) {
+		const auto& dev = pci.devices[i];
+		auto class_code = pci.read_class_code(dev.bus, dev.device, dev.function);
+		// vcon0->OutFormat("%[8H].%[8H].%[8H]: vend 0x%[16H], class 0x%[32H], head 0x%[8H]\n\r",
+		// 	dev.bus, dev.device, dev.function, vendor_id, class_code, dev.header_type);
+	}
+	return pci.num_device;
+}
+
+
 PCI_Result PCI::AddDevice(const Device& dev) {
 	// ploginfo("PCI::AddDevice");
 	if (num_device == devices.size()) {
@@ -99,6 +115,18 @@ PCI_Result PCI::scan_all_bus() {
 		}
 	}
 	return PCI_Result::Success;
+}
+
+//{unchk}
+void PCI::enable_MMIO(const Device& xhc_dev) {
+	uint16_t cmd = self.read_config_register(xhc_dev, 0x04);
+	bool changed = false;
+	if (!(cmd & 0x2)) { cmd |= 0x2; changed = true; } // Memory Space
+	if (!(cmd & 0x4)) { cmd |= 0x4; changed = true; } // Bus Master
+	if (changed) {
+		self.write_config_register(xhc_dev, 0x04, cmd);
+		// ploginfo("Enabled PCI Command memory+bus-master: 0x%04x", cmd);
+	}
 }
 
 expected<uint64, PCI_Result::Code> PCI::ReadBar(Device& device, unsigned bar_index) {
@@ -212,12 +240,42 @@ PCI_Result PCI::configure_MSI_fixed_destination(const Device& dev,
 	unsigned num_vector_exponent
 )
 {
-	uint32_t msg_addr = 0xfee00000u | (apic_id << 12);
+	uint32_t msg_addr = 0xfee00000u | (_IMM(apic_id) << 12);
 	uint32_t msg_data = (static_cast<uint32_t>(delivery_mode) << 8) | vector;
 	if (trigger_mode == MSITriggerMode::Level) {
 		msg_data |= 0xc000;
 	}
 	return configure_MSI(dev, msg_addr, msg_data, num_vector_exponent);
+}
+
+// To xHCI
+//{TEMP} Intel only
+bool PCI::ConvertFromEhci(const PCI::Device& xhc_dev) {
+	bool intel_ehc_exist = false;
+	for0 (i, self.num_device) {
+		if (self.devices[i].class_code.Match(0x0Cu, 0x03u, 0x20u) /* EHCI */ &&
+			0x8086 == self.read_vendor_id(self.devices[i])) {
+			intel_ehc_exist = true;
+			break;
+		}
+	}
+	if (!intel_ehc_exist) {
+		return false;
+	}
+	uint32_t superspeed_ports = self.read_config_register(xhc_dev, 0xdc); // USB3PRM
+	if (superspeed_ports == 0xFFFFFFFFu) {
+		plogwarn("SwitchEhci2Xhci: USB3PRM (0xDC) not present, skipping.");
+		return false;
+	}
+	self.write_config_register(xhc_dev, 0xd8, superspeed_ports); // USB3_PSSEN
+	uint32_t ehci2xhci_ports = self.read_config_register(xhc_dev, 0xd4); // XUSB2PRM
+	if (ehci2xhci_ports == 0xFFFFFFFFu) {
+		plogwarn("SwitchEhci2Xhci: XUSB2PRM (0xD4) not present, skipping.");
+		return false;
+	}
+	self.write_config_register(xhc_dev, 0xd0, ehci2xhci_ports); // XUSB2PR
+	// ploginfo("%s: SS = %02, xHCI = %02x\n", __FUNCIDEN__, superspeed_ports, ehci2xhci_ports);
+	return true;
 }
 
 

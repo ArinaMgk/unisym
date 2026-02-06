@@ -38,7 +38,7 @@ void _cast_panic() {
 	//abort();
 }
 
-void erro(char* erromsg)
+void erro(const char* erromsg)
 {
 	if (&_ERRO_JUMP) JumpPoint(&_ERRO_JUMP, (pureptr_t)erromsg);
 	else
@@ -49,7 +49,7 @@ void erro(char* erromsg)
 	}
 }
 
-void warn(char* warnmsg)
+void warn(const char* warnmsg)
 {
 	/*
 	if (_WARN_CHAIN) NodeAppend(_WARN_CHAIN, warnmsg);

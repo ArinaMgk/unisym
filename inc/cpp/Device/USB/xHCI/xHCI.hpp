@@ -1391,7 +1391,8 @@ namespace usb::xhci {
 		}
 		uint8_t MaxPorts() const { return max_ports_; }
 		DeviceManager* GetDeviceManager() { return &devmgr_; }
-
+	public:
+		Error ProcessEvents();
 	private:
 		static const size_t kDeviceSize = 8;
 

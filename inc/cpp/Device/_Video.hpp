@@ -150,6 +150,7 @@ namespace uni {
 
 	/*
 	* 请求上级刷新：sheet_parent->Update...(目标区域)
+	* 点击事件分发：getTop
 	*/
 	class LayerManager {
 	public:
@@ -197,6 +198,8 @@ namespace uni {
 		void Update(SheetTrait* who, const Rectangle& rect);
 		
 		void Domove(SheetTrait* who, Size2dif dif);
+
+		void Dorupt(SheetTrait* who, SheetEvent event, Point rel_p, para_list args);
 
 		inline VideoControlInterface& getVCI() const { return *pvci; }
 		inline constexpr Color& getPoint(SheetTrait* whom, const Point& p) {

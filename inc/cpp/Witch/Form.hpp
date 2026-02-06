@@ -24,7 +24,7 @@
 #ifndef _INC_WITCH_Form_X
 #define _INC_WITCH_Form_X
 
-#include "../unisym"
+#include "../string"
 #include "../node"
 #include "../trait/SheetTrait.hpp"
 
@@ -51,6 +51,9 @@ namespace uni::Witch {
 	//{TODO} Form Style: 0 default, 1 win98(default)
 	//{TODO} Min Size, Max Size (0 for no limit)
 	//{TODO} (uni.String) UTF-8 Title
+	//{} title bar buffer
+	//{} doshow fill its buffer
+
 	class Form : public SheetTrait
 	{
 	private:
@@ -59,10 +62,12 @@ namespace uni::Witch {
 		// subsheet1: Title Bar
 		Form_TitleBar title_bar;
 		// subsheet2: Client Area
+		// ...
 
 	protected:
 
 	public:
+		String Title = nullptr;
 		// NodeChain Controls = (nullptr);
 		Form() : SheetTrait() {
 		}
@@ -83,27 +88,17 @@ namespace uni::Witch {
 		}
 
 		// [optional] if using buffer
-		virtual void doshow(void*) override
-		{
-			
-		}
+		virtual void doshow(void*) override;
 
-		virtual void onrupt(SheetEvent event, Point rel_p, ...) override
-		{
-			
-		}
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) override;
 
 		//
 
-		void setSheet(LayerManager& layman, const Rectangle& rect) {
-			InitializeSheet(layman, rect.getVertex(), rect.getSize());
-			close_btn.sheet_area = Rectangle(Point(rect.width - 17, 2), Size2(15, 15));
-			close_btn.sheet_node.offs = dynamic_cast<SheetTrait*>(&close_btn);
-			sheet_node.subf = &close_btn.sheet_node;
-			title_bar.sheet_area = Rectangle(Point(1, 1), Size2(rect.width - 2, 17));
-			title_bar.sheet_node.offs = dynamic_cast<SheetTrait*>(&title_bar);
-			sheet_node.subf->Tail()->next = &title_bar.sheet_node;
-		}
+		void setSheet(LayerManager& layman, const Rectangle& rect, Color* buffer = nullptr);
+
+		Rectangle getClientArea(void); //_TODO
+
+		void DrawString_16(const Point2& p, const String& str, Color col = Color::Black);
 
 
 	};// SheetT

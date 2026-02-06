@@ -4,7 +4,6 @@
 // AllAuthor: @dosconio since RFT15
 // ProjTitle: Console Calendar Shell
 
-#define _HIS_TIME_H
 #include <time.h>
 #include <datime.h>
 #include <stdio.h>

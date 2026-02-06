@@ -47,11 +47,9 @@ extern char* _ERRO_MESSAGE;
 		return (exitcode);\
 	}
 
-//
-void erro(char* erromsg);
+// void erro(const char* erromsg);
 
-//
-void warn(char* warnmsg);
+// void warn(const char* warnmsg);
 
 void _cast_panic();
 

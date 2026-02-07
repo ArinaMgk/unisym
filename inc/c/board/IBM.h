@@ -65,7 +65,8 @@ typedef enum
 	IRQ_Floppy = 0x26,   // 8250 Floppy Disk Controller
 	IRQ_LPT1 = 0x27,     // 8255 Parallel Port
 
-	IRQ_xHCI = 0x40,     // USB 3.0
+	IRQ_xHCI = 0x40,      // USB 3.0
+	IRQ_LAPICTimer = 0x41,
 
 	#define PIC_SLV_IDSTART     0X70
 	IRQ_RTC = 0x70,// Realtime Clock

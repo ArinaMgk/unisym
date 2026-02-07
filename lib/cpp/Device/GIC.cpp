@@ -91,7 +91,7 @@ namespace uni {
 	}
 
 	void GIC_t::setHandler(Request_t id, Handler_t handler) const {
-		if (id < 0 || id >= IRQ_GIC_LINE_COUNT) return;
+		if (id >= IRQ_GIC_LINE_COUNT) return;
 		IRQ_Vector_Table[id] = handler;
 	}
 
@@ -103,7 +103,7 @@ namespace uni {
 
 	// AKA GIC_EnableIRQ + GIC_DisableIRQ
 	void GIC_t::enInterrupt(Request_t id, bool ena) const {
-		if (id < 0 || id >= IRQ_GIC_LINE_COUNT) return;
+		if (id >= IRQ_GIC_LINE_COUNT) return;
 		uint32* addr = (uint32*)_IMM(&self
 			[ena ? GICDistributor::ISENABLER : GICDistributor::ICENABLER]);
 		stduint IRQn = _IMM(id);
@@ -112,7 +112,7 @@ namespace uni {
 
 	// AKA GIC_GetEnableIRQ
 	bool GIC_t::ifInterrupt(Request_t id) const {
-		if (id < 0 || id >= IRQ_GIC_LINE_COUNT) return false;
+		if (id >= IRQ_GIC_LINE_COUNT) return false;
 		uint32* addr = (uint32*)_IMM(&self[GICDistributor::ISENABLER]);
 		stduint IRQn = _IMM(id);
 		return (addr[IRQn / 32U] >> (IRQn % 32U)) & _IMM1;
@@ -244,7 +244,7 @@ stdsint IRQ_Initialize(void) {
 }
 
 int32_t IRQ_SetHandler(Request_t id, Handler_t handler) {
-	if (id < 0 || id >= IRQ_GIC_LINE_COUNT) return -1;
+	if (id >= IRQ_GIC_LINE_COUNT) return -1;
 	uni::GIC.setHandler(id, handler);
 	return 0;
 }
@@ -254,19 +254,19 @@ Handler_t IRQ_GetHandler(Request_t irqn) {
 }
 
 int32_t IRQ_Enable(Request_t id) {
-	if (id < 0 || id >= IRQ_GIC_LINE_COUNT) return -1;
+	if (id >= IRQ_GIC_LINE_COUNT) return -1;
 	uni::GIC.enInterrupt(id, true);
 	return 0;
 }
 int32_t IRQ_Disable(Request_t irqn) {
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return -1;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return -1;
 	uni::GIC.enInterrupt(irqn, false);
 	return 0;
 }
 
 /// Get interrupt enable state.
 uint32_t IRQ_GetEnableState(Request_t irqn) {
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return 0;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return 0;
 	return uni::GIC.ifInterrupt(irqn);
 }
 
@@ -280,7 +280,7 @@ int32_t IRQ_SetMode(Request_t irqn, uint32_t mode) {
 	uint8_t secure;
 	uint8_t cpu;
 	int32_t status = 0;
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return status;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return status;
 	//
 	// Check triggering mode
 	val = (mode & IRQ_MODE_TRIG_Msk);
@@ -345,7 +345,7 @@ uint32_t IRQ_GetMode(Request_t irqn) {
 	using namespace uni;
 	uint32_t mode;
 	uint32_t val;
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return mode = IRQ_MODE_ERROR;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return mode = IRQ_MODE_ERROR;
 	//
 	mode = IRQ_MODE_TYPE_IRQ;
 	// Get trigger mode
@@ -406,7 +406,7 @@ Request_t IRQ_GetActiveFIQ(void) {
 /// Signal end of interrupt processing.
 int32_t IRQ_EndOfInterrupt(Request_t irqn) {
 	using namespace uni;
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return -1;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return -1;
 	GIC.EndOfInterrupt(irqn);
 	if (irqn == 0) GIC_t::IRQ_ID0 = 0U;
 	return 0;
@@ -415,21 +415,21 @@ int32_t IRQ_EndOfInterrupt(Request_t irqn) {
 
 /// Set interrupt pending flag.
 int32_t IRQ_SetPending(Request_t irqn) {
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return -1;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return -1;
 	uni::GIC[irqn].setPending();
 	return 0;
 }
 
 /// Get interrupt pending flag.
 uint32_t IRQ_GetPending(Request_t irqn) {
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return 0;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return 0;
 	else return uni::GIC[irqn].getPending();
 }
 
 
 /// Clear interrupt pending flag.
 int32_t IRQ_ClearPending(Request_t irqn) {
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return -1;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return -1;
 	uni::GIC[irqn].setPending(false);
 	return 0;
 }
@@ -437,14 +437,14 @@ int32_t IRQ_ClearPending(Request_t irqn) {
 
 /// Set interrupt priority value.
 int32_t IRQ_SetPriority(Request_t irqn, uint32_t priority) {
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return -1;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return -1;
 	uni::GIC.setPriority(irqn, priority);
 	return 0;
 }
 
 /// Get interrupt priority.
 uint32_t IRQ_GetPriority(Request_t irqn) {
-	if (irqn < 0 || irqn >= IRQ_GIC_LINE_COUNT) return IRQ_PRIORITY_ERROR;
+	if (irqn >= IRQ_GIC_LINE_COUNT) return IRQ_PRIORITY_ERROR;
 	return uni::GIC.getPriority(irqn);
 }
 

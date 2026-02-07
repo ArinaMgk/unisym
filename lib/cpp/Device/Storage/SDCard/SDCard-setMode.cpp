@@ -141,9 +141,9 @@ namespace uni {
 	#if (USE_SD_TRANSCEIVER != 0U)//{TEMP} no-use
 		Init.TranceiverPresent = hsd->Init.TranceiverPresent;
 		if (hsd->Init.TranceiverPresent == SDMMC_TRANSCEIVER_PRESENT)
-			self[SDReg::POWER |= SDMMC_POWER_DIRPOL;
+			self[SDReg::POWER] |= SDMMC_POWER_DIRPOL;
 	#elif defined (USE_SD_DIRPOL)//{TEMP} no-use
-		self[SDReg::POWER |= SDMMC_POWER_DIRPOL;
+		self[SDReg::POWER] |= SDMMC_POWER_DIRPOL;
 	#endif /* USE_SD_TRANSCEIVER  */
 		// AKA SDMMC_Init, Initialize SDMMC peripheral interface with default configuration
 		{

@@ -67,7 +67,7 @@ void _cast_panic();
  __attribute__((__dllimport__))
 #endif
 extern int*
-#if __BITS__ == 32
+#if defined(_Linux) && (__BITS__ == 32)
 __attribute__((__cdecl__)) 
 #endif
 _errno(void);

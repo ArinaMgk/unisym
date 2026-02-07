@@ -112,7 +112,7 @@ namespace uni {
 	class LTDC_t;
 	class LTDC_LAYER_t : public VideoControlInterface {
 	public:
-		struct LayerPara {
+		struct alignas(4) LayerPara {
 			pureptr_t roleaddr;
 			Color backcolor;
 			Rectangle window;
@@ -121,6 +121,7 @@ namespace uni {
 			PixelFormat pixel_format = PixelFormat::ARGB8888;
 			byte Alpha0;
 			// ? /*T:PAxCA*/(0b110<<8) : /*F:CA*/(0b100<<8)
+			uint8  _pad;// for ARM-O2 store combining
 			bool factor1_mode;
 			// ? /*T:PAxCA*/(0b111)    : /*F:CA*/(0b101)
 			bool factor2_mode;

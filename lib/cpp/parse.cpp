@@ -23,7 +23,7 @@
 #include "../../inc/cpp/parse.hpp"
 #include <new>
 
-static toktype getctype(char chr)// Excluding Number
+static toktype getctype(signed char chr)// Excluding Number
 {
 	if (ascii_isalnum(chr))
 		return tok_identy;
@@ -89,23 +89,24 @@ namespace uni
 		} while (0)
 
 	// CRLF LFCR CR LF, c is the first char
-	inline static void EatLinefeed(LinearParser& lp, char c) {
+	inline static void EatLinefeed(LinearParser& lp, signed char c) {
 		int cc = lp.getChar();
-		if (cc == '\n' || cc == '\r')
-			if (c == cc) lp.backChar(cc); else;
+		if (cc == '\n' || cc == '\r') {
+			if (c == cc) lp.backChar(cc);
+		}
 		else if (cc != EOF) lp.backChar(cc);
 	}
 
 	stduint LineParse_NumChk_Default(LinearParser& lp) {
 		size_t res = 0;
-		int c, lastc;
+		int c, lastc = nil;
 		int last_zo_num = 0;
 		struct OnceOccur {
 			unsigned bodx : 1;
 			unsigned e : 1;
 			unsigned dot : 1;
 			unsigned sign : 1;
-		} OnceO = { 0 };
+		} OnceO = {};
 		while ((c = lp.getChar()) != EOF) {
 			if (StrIndexChar("bodxij", c))// 'i' and 'j' for imagine, appended Haruno RFC05
 				if (OnceO.bodx)
@@ -164,7 +165,7 @@ namespace uni
 
 	// return true for continue, false for break
 	bool LinearParser::handler_escape_sequence() {
-		char c;
+		signed char c;
 		if ((c = getChar()) == EOF) return false;
 		if (ascii_isdigit(c))
 		{
@@ -241,7 +242,7 @@ namespace uni
 		toktype CrtTType = tok_any;
 		stduint crtline_ento = pos.x, crtcol_ento = pos.y;
 		int YoString = 0;
-		char strtok;
+		signed char strtok;
 		int c;
 
 		this->linebuf = buf ? buf : (String*)&static_lnbuf;

@@ -90,14 +90,14 @@ namespace uni {
 		};
 		//
 
-		Color(uint32 i = 0) { *(uint32*)this = i; }
+		Color(uint32 i = 0) : val(i){ }
 
 		static Color FromRGB888(uint32 argb);
 		static Color FromBGR565(uint16 col);
 
 		//{TODO} static HSLA
 
-		operator uint32() const { return *(uint32*)this; }
+		operator uint32() const { return self.val; }
 
 		uint16 ToRGB565() const {
 			// R5[11] G6[5] B5[0]

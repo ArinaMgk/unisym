@@ -42,7 +42,7 @@ namespace uni {
 	{
 		unsigned drive = DRV_OF_DEV(device);
 		// ploginfo("%s: drive%u", __FUNCIDEN__, drive);
-		PartitionTableX86 part_tbl[4] = { 0 };
+		PartitionTableX86 part_tbl[4] = {};
 		if (primary_but_logical) {
 			// get_partition_table(drv, 0, part_tbl);
 			base->Read(0, psector);

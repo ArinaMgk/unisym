@@ -78,7 +78,7 @@ namespace uni {
 	void IIC_SOFT::Send(byte* txtp, stduint len, bool auto_wait_ack) {
 		if (push_pull) SDA.setMode(GPIOMode::OUT_PushPull);
 		SCL = false;
-		byte txt;
+		byte txt = nil;
 		for0(i, len) {
 			if (!(i & 0b111)) txt = *txtp++;
 			SDA = txt & 0x80;

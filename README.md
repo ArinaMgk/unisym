@@ -91,9 +91,14 @@ C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.352
 Then we use `="C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207"`
 
 **Covenants**
+
 - Binary Processor
 - Little Endian
 
+**Optimization**
+
+`-O2 -Wextra` for normal targets
+- `-Os` for lite system, like `STM32F1`
 
 **Consideration** these if going to modify or using the code:
 

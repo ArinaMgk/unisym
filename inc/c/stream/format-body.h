@@ -13,7 +13,7 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 	char tmp_percent_feed = 0;
 	// 0 float, 1 double, 2 long double
 	// -2 byte, -1 short, 0 int, 1 long, 2 long long
-	char sizlevel = 0;
+	signed char sizlevel = 0;
 	stduint ent = 0;
 	stduint end = 0;
 	char dotted = 0;

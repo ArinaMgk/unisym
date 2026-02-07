@@ -109,7 +109,7 @@ namespace uni {
 	// 
 
 
-
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SD_PowerON(uint32* feedback) {
 		uint32 error_state;
 		// CMD0: GO_IDLE_STATE
@@ -224,6 +224,7 @@ namespace uni {
 		return true;
 	}
 	
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SD_InitCard(uint32* feedback) {
 		uint16& sd_rca = SD_InitCard_sd_rca;// = 0
 		uint32 tickstart = SysTick::getTick();
@@ -280,6 +281,7 @@ namespace uni {
 		return true;
 	}
 
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SDMMC_CmdGoIdleState() const {
 		CmdInitType cit;
 		cit.argument = 0;
@@ -291,6 +293,8 @@ namespace uni {
 		asrtret(SDMMC_GetCmdError());
 		return true;
 	}
+
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SDMMC_SendCommand(const CmdInitType& cit) const {
 		Reflocal(cmd) = self[SDReg::CMD];
 		asrtret(cit.CmdIndex < 0x40U);
@@ -304,6 +308,8 @@ namespace uni {
 		self[SDReg::CMD] = cmd;
 		return true;
 	}
+
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SDMMC_SendCommand(stduint argument, stduint cmdindex, byte response, WaitForInterrupt_E waitforinterrupt, bool cpsm) const {
 		Reflocal(cmd) = self[SDReg::CMD];
 		asrtret(cmdindex < 0x40U);
@@ -340,6 +346,7 @@ namespace uni {
 		return true;
 	}
 
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::HAL_SD_GetCardCSD(HAL_SD_CardCSDTypeDef* pCSD) {
 		pCSD->CSDStruct = (uint8_t)((CSD[0] & 0xC0000000U) >> 30U);
 		pCSD->SysSpecVersion = (uint8_t)((CSD[0] & 0x3C000000U) >> 26U);
@@ -411,6 +418,7 @@ namespace uni {
 		return true;
 	}
 
+	__attribute((optimize("O0")))
 	void SecureDigitalCard_t::HAL_SD_GetCardCID(HAL_SD_CardCIDTypeDef* pCID)
 	{
 		pCID->ManufacturerID = ((CID[0] & 0xFF000000U) >> 24U);
@@ -425,6 +433,7 @@ namespace uni {
 		pCID->Reserved2 = 1U;
 	}
 
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SDMMC_CmdSendCID(uint32* feedback) const {
 		CmdInitType cit;
 		cit.argument = 0;
@@ -436,6 +445,8 @@ namespace uni {
 		asrtret(SDMMC_GetCmdResp2(feedback));
 		return true;
 	}
+
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SDMMC_CmdSendCSD(uint32 Argument, uint32* feedback) const {
 		// Send CMD9 SEND_CSD
 		CmdInitType cit;
@@ -499,6 +510,7 @@ namespace uni {
 	}
 
 	// Send the Stop Transfer command and check the response
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SDMMC_CmdStopTransfer(uint32* feedback) {
 		// Send CMD12 STOP_TRANSMISSION
 		self[SDReg::CMD].setof(7);// __SDMMC_CMDSTOP_ENABLE: CMDSTOP
@@ -603,6 +615,7 @@ namespace uni {
 
 
 	// Send the Application command to verify that that the next command is an application specific com-mand rather than a standard command and check the response.
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SDMMC_CmdAppCommand(uint32 Argument, uint32* feedback) const {
 		CmdInitType cit;
 		cit.argument = Argument;
@@ -619,6 +632,7 @@ namespace uni {
 		return error_state == SDMMC_ERROR_NONE;
 	}
 	// Send the command asking the accessed card to send its operating condition register (OCR)
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SDMMC_CmdAppOperCommand(uint32 Argument, uint32* feedback) const {
 		CmdInitType cit;
 		cit.argument = Argument;
@@ -634,6 +648,7 @@ namespace uni {
 	}
 
 	// Configure the SDMMC data path according to the specified parameters in the SDMMC_DataInitTypeDef.
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SDMMC_ConfigData(const SDMMC_DataInitTypeDef& Data) {
 		asrtret(Data.DataLength <= 0x01FFFFFFU);
 		asrtret(Data.DataBlockSize < 0b1111);// SDMMC_DATABLOCK_SIZE_xB x=2**DataBlockSize
@@ -648,7 +663,7 @@ namespace uni {
 		return true;
 	}
 
-	
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SD_SendSDStatus(uint32* pSDstatus, uint32* write_times, uint32* feedback) {
 		uint32* pData = pSDstatus;
 		uint32 tickstart = SysTick::getTick();
@@ -721,6 +736,7 @@ namespace uni {
 		return true;
 	}
 
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::HAL_SD_GetCardStatus(HAL_SD_CardStatusTypeDef* pStatus, uint32* feedback) {
 		bool state;
 		uint32 sd_status[16];
@@ -773,6 +789,7 @@ namespace uni {
 	}
 
 	// Finds the SD card SCR register value
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SD_FindSCR(uint32* pSCR, uint32* feedback) {
 		uint32 tickstart = SysTick::getTick();
 		uint32 index = 0U;
@@ -833,6 +850,7 @@ namespace uni {
 	}
 	
 	// Enable/Disable the SDMMC wide bus mode.
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SD_WideBus_Enable(bool ena, uint32* feedback) {
 		uint32 scr[2U] = { 0UL, 0UL };
 		if (bitmatch(SDMMC_GetResponse(self, 1), SDMMC_CARD_LOCKED)) {
@@ -870,6 +888,7 @@ namespace uni {
 		return true;
 	}
 	
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::HAL_SD_ConfigWideBusOperation(bool clock_edge, bool powersave_enable, SDMMC_BusWidth bus_width, bool hardware_flow_control_enable, uint32* feedback) {
 		//{} Busy Check
 		uint32 tempback = nil;
@@ -969,12 +988,14 @@ namespace uni {
 	}
 
 
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SD_SendStatus(uint32* pCardStatus, uint32* feedback) {
 		// Send Status command
 		asrtret(SDMMC_CmdSendStatus(CardInfo.RelCardAdd << 16, feedback));
 		*pCardStatus = SDMMC_GetResponse(self, 1);
 		return true;
 	}
+	__attribute((optimize("O0")))
 	HAL_SD_CardStateTypeDef SecureDigitalCard_t::HAL_SD_GetCardState() {
 		uint32 cardstate;
 		uint32 errorstate;
@@ -985,6 +1006,7 @@ namespace uni {
 	}
 
 
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::HAL_SD_Abort()
 	{
 		uint32 error_code = SDMMC_ERROR_NONE;
@@ -1063,6 +1085,7 @@ namespace uni {
 		return true;
 	}
 
+	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::HAL_SD_Abort_IT()
 	{
 		HAL_SD_CardStateTypeDef CardState;

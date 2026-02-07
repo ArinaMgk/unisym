@@ -349,19 +349,22 @@ STM32MP13 = "# UNISYM for GCC-STM32MP13 built-" + str(__BuildTime) + '\n'
 print(STM32F1, STM32F4, STM32H7, STM32MP13, sep="")
 
 STM32F1   += """IDEN=STM32F1
-FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m3 -mthumb $(FPU) $(FLOAT-ABI)
+FLAG=-Os -D_MCU_$(IDEN)x -mcpu=cortex-m3 -mthumb $(FPU) $(FLOAT-ABI)
 """
 STM32F4   += """IDEN=STM32F4
-FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+FLAG=-O2 -D_MCU_$(IDEN)x -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 """
 STM32H7   += """IDEN=STM32H7
-FLAG=-I$(uincpath) -D_MCU_$(IDEN)x -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
+FLAG=-O2 -D_MCU_$(IDEN)x -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
 """
 STM32MP13 += """IDEN=STM32MP13
-FLAG=-I$(uincpath) -D_MPU_$(IDEN)  -mcpu=cortex-a7 -mthumb -mfpu=vfpv4-d16   -mfloat-abi=hard
+FLAG=-O2 -D_MPU_$(IDEN)  -mcpu=cortex-a7 -mthumb -mfpu=vfpv4-d16   -mfloat-abi=hard
 """
 tmp = '''
-FLAG+=-fdata-sections -ffunction-sections
+FLAG+=-I$(uincpath)
+FLAG+=-fdata-sections -ffunction-sections -fno-strict-aliasing -fno-exceptions
+FLAG+=-Wextra
+FLAX=$(FLAG) -fno-rtti -fno-use-cxa-atexit 
 PREF=arm-none-eabi-
 DEST=$(ubinpath)/lib$(IDEN).a
 AS=$(PREF)as
@@ -391,7 +394,7 @@ init:
 	@$(CC) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CC) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"	
 %.o: %.cpp
 	@echo CX $(<)
-	@$(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CX) $(FLAG) $< -o $(OPATH)/_g_$(notdir $@)"
+	@$(CX) $(FLAX) $< -o $(OPATH)/_g_$(notdir $@) || ret 1 "!! Panic When: $(CX) $(FLAX) $< -o $(OPATH)/_g_$(notdir $@)"
 '''
 STM32F1   += tmp
 STM32F4   += tmp

@@ -77,7 +77,7 @@ namespace uni {
 		StorageTrait* base;
 		stdsint device;
 		stduint flag;
-		Slice slice = { 0 };
+		Slice slice = {};
 		//
 		DiscPartition(StorageTrait& storage, int dev) : base(&storage), device(dev) { Block_Size = storage.Block_Size; }
 		virtual bool Read(stduint BlockIden, void* Dest) override;

@@ -45,7 +45,7 @@ namespace uni {
 		friend class LayerManager;
 	protected:
 		LayerManager* sheet_parent = nullptr;
-		Nnode sheet_node = {0};// all pointers point to SheetTrait but the start of child class
+		Nnode sheet_node = {};// all pointers point to SheetTrait but the start of child class
 	public:
 		Rectangle sheet_area;
 		Color* sheet_buffer = nullptr;// if set, the LayMan will fetch the uni.Color from the buffer
@@ -58,7 +58,7 @@ namespace uni {
 			sheet_buffer = buf;
 		}
 
-		virtual Color getPoint(Point p) { return Color::Black; }
+		virtual Color getPoint(Point p) { p; return Color::Black; }
 
 		// [optional] if using buffer
 		virtual void doshow(void*) = 0;

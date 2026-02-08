@@ -77,10 +77,7 @@ int outsfmtlst(outbyte_t local_out, const char* fmt, para_list paras) {
 
 
 		case 'f':
-			if (sizlevel == 1)
-				out_floating(pnext(double));
-			else if (sizlevel == 0)
-				out_floating(para_next_float(paras));
+			out_floating_0(sizlevel, paras);
 			sizlevel = 0;
 			break;
 		case 'p':

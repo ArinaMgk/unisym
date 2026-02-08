@@ -65,7 +65,7 @@ extern uni::Timer clint;
 namespace uni {
 	class LocalAPICTimer {
 	public:
-		void Reset();
+		void Reset(stduint init_count);
 		void Ento();
 		void Endo();
 		stduint Read();

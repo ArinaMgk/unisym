@@ -92,7 +92,7 @@ namespace uni {
 		}
 		virtual int operator[](uint64 bytid) override { _TODO return 0; }
 
-		void Partition(HD_Info& hdi, byte* psector, unsigned device, bool primary_but_logical = true);
+		static void Partition(StorageTrait& base, HD_Info& hdi, byte* psector, unsigned device, bool primary_but_logical = true);
 		//
 	protected:
 		void renew_slice();

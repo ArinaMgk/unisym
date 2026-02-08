@@ -60,10 +60,14 @@ namespace {
 	volatile uint32* divide_config = (uint32*)(0xFEE003E0);
 }
 
-void LocalAPICTimer::Reset() {
+void LocalAPICTimer::Reset(stduint init_count) {
 	//{} TEMP
 	*divide_config = 0b1011; // divide 1:1
-	*lvt_timer = _IMM(0b001 << 16) | 32; // masked, one-shot
+	if (!init_count) *lvt_timer = _IMM(0b001 << 16) | 32; // masked, one-shot
+	else {
+		*lvt_timer = _IMM(0b010 << 16) | IRQ_LAPICTimer; // !masked, periodic
+		*initial_count = init_count;
+	}
 }
 void LocalAPICTimer::Ento() {
 	*initial_count = CountMax;

@@ -84,6 +84,9 @@ namespace uni {
 	}
 
 	//{unchk} negSizy
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+	__attribute__((target("sse2")))
+	#endif
 	void LayerManager::DrawLine(Point disp, Size2 size, Color color, bool negSizy) {
 		if (!size.x || !size.y) return;
 		if (1 == size.x) for0(i, size.y) {
@@ -118,6 +121,7 @@ namespace uni {
 
 
 	// ---- LayerManager ---- //
+	__attribute__((target("general-regs-only")))
 	void LayerManager::Update(SheetTrait* who, const Rectangle& rect) {
 		// auto p = who->sheet_buffer; if (!p) return;
 		if (!this) return;
@@ -150,6 +154,7 @@ namespace uni {
 		Update(who, Rectangle(Point(0,0), who->sheet_area.getSize()));
 	}
 
+	__attribute__((target("general-regs-only")))
 	Color LayerManager::EvaluateColor(const Point& glb_p) {
 		Nnode* crt = subf;
 		Color col = 0;

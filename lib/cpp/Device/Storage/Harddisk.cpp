@@ -61,9 +61,8 @@ namespace uni {
 		switch (react_type) {
 		case ReactType::Loop:
 		{
-			// return CallRead(BlockIden, Dest);
 			outpb(REG_NSECTOR, 1);// 1 sector
-			for0(i, 3) outpb(REG_LBA_LOW + i, ((byte*)(&BlockIden))[i]);// [LiE]
+			for0(i, 3) outpb(REG_LBA_LOW + i, (BlockIden >> (i * 8)));// [LiE]
 			outpb(REG_DEVICE, MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF));
 			outpb(REG_CMD, 0x20);// read
 			while ((innpb(REG_STATUS) & 0x88) != 0x08);

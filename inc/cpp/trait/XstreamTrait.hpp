@@ -51,6 +51,9 @@ namespace uni {
 		void OutFloating(double);
 		inline void OutChar(char ch) { out(&ch, 1); }
 
+	protected:
+		void out_floating_0(stduint sizlevel, para_list plist);
+
 	public:
 		int OutFormatPack(const char* fmt, para_list plst);
 		int OutFormat(const char* fmt, ...);

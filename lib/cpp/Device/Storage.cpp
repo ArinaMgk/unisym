@@ -38,14 +38,14 @@ namespace uni {
 		return base->Write(BlockIden + slice.address, Sors);
 	}
 
-	void DiscPartition::Partition(HD_Info& hdi, byte* psector, unsigned device, bool primary_but_logical)
+	void DiscPartition::Partition(StorageTrait& base, HD_Info& hdi, byte* psector, unsigned device, bool primary_but_logical)
 	{
 		unsigned drive = DRV_OF_DEV(device);
 		// ploginfo("%s: drive%u", __FUNCIDEN__, drive);
 		PartitionTableX86 part_tbl[4] = {};
 		if (primary_but_logical) {
 			// get_partition_table(drv, 0, part_tbl);
-			base->Read(0, psector);
+			base.Read(0, psector);
 			MemCopyN(part_tbl, psector + PARTITION_TABLE_OFFSET, sizeof(part_tbl));
 			int nr_prim_parts = 0;
 			for0(i, NR_PART_PER_DRIVE) {
@@ -56,7 +56,7 @@ namespace uni {
 				hdi.primary[i + 1].length = part_tbl[i].lba_count;
 				// plogwarn("p %u: %u-%u", i + 1, part_tbl[i].lba_start, part_tbl[i].lba_count);
 				if (part_tbl[i].type ==Part_EX_PART)
-					Partition(hdi, psector, device + i + 1, false);
+					Partition(base, hdi, psector, device + i + 1, false);
 			}
 			// assert(nr_prim_parts != 0);
 		}
@@ -67,7 +67,7 @@ namespace uni {
 			int nr_1st_sub = (j - 1) * NR_SUB_PER_PART; /* 0/16/32/48 */
 			for0(i, NR_SUB_PER_PART) {
 				// get_partition_table(drv, s, part_tbl);
-				base->Read(s, psector);
+				base.Read(s, psector);
 				MemCopyN(part_tbl, psector + PARTITION_TABLE_OFFSET, sizeof(part_tbl));
 				int dev_nr = nr_1st_sub + i;/* 0~15/16~31/32~47/48~63 */
 				hdi.logical[dev_nr].address = s + part_tbl[0].lba_start;

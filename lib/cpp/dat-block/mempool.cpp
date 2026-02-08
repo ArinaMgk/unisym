@@ -1,6 +1,6 @@
 // ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Module) Mempool
-// Codifiers: ArinaMgk
+// Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -24,7 +24,12 @@
 
 namespace uni {
 
-
+	void* Mempool::allocate(stduint size, stduint alignment) {
+		// SinglePool* crtpool = &pool_available;
+	}
+	bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
+		_TODO
+	}
 
 
 

@@ -31,13 +31,13 @@ namespace uni {
 	namespace trait {
 		class Malloc {
 		public:
-			byte alignment;// exponent of two. 0 for no alignment.
+			// alignment: exponent of two. 0 for no alignment.
 		public:
 			~Malloc() noexcept = default;
 			//
-			virtual void* allocate(stduint size) = 0;
+			virtual void* allocate(stduint size, stduint alignment = 0) = 0;
 			virtual bool deallocate(void* ptr, stduint size = 0 _Comment(zero_for_block)) = 0;
-			virtual void* reallocate(void* ptr, stduint old_size, stduint size) {
+			virtual void* reallocate(void* ptr, stduint old_size, stduint size, stduint alignment = 0) {
 				// general method
 				if (void* newptr = allocate(size)) {
 					MemCopyN(newptr, ptr, old_size);

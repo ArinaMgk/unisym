@@ -453,8 +453,9 @@ namespace uni {
 	void LTDC_LAYER_t::DrawPoint(const Point& disp, Color color) const {
 		auto win = getWindow().getSize();
 		if (disp.x >= win.x || disp.y >= win.y) return;
-		Letvar(p, uint16*, _TEMP 0xC0000000);
+		Letvar(p, uint16*, _IMM(roleaddr));
 		p += disp.x + disp.y * win.x;
+		// RGB565
 		if (_IMM(p) & 0b11) *p = color.ToRGB565();
 		else *(uint32_t*)p = (*(uint32_t*)p & 0xFFFF0000) | _TEMP color.ToRGB565();
 	}
@@ -473,7 +474,7 @@ namespace uni {
 		union {
 			uint32* p32; uint16* p16; uint64* p64;
 		};
-		p16 = (uint16*)(_TEMP 0xC0000000 & ~_IMM(0b11));
+		p16 = (uint16*)(_IMM(roleaddr) & ~_TEMP _IMM(0b11));
 		p16 += rect.x + rect.y * win.x;
 		stduint hei = 0;
 		if (rect.height) {
@@ -502,7 +503,17 @@ namespace uni {
 			} while (hei < rect.height);
 		}
 	}
-	Color LTDC_LAYER_t::GetColor(Point p) const { return Color(0); }
+	Color LTDC_LAYER_t::GetColor(Point p) const {
+		Letvar(p, uint16*, _IMM(roleaddr));
+		p += disp.x + disp.y * win.x;
+		//{} RGB565
+		uint16 color = *p;
+		Color color = 0xFF000000;
+		color.b = (color >> 0) & 0xFF;
+		color.g = (color >> 5) & 0xFF;
+		color.r = (color >> 11) & 0xFF;
+		return color;
+	}
 
 
 	///

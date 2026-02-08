@@ -70,13 +70,16 @@ namespace uni {
 	}
 	int OstreamTrait::OutFormat(const char* fmt, ...) {
 		Letpara(paras, fmt);
-		return OutFormatPack(fmt, paras);
+		auto ret = OutFormatPack(fmt, paras);
+		para_endo(paras);
+		return ret;
 	}
 	stduint OstreamTrait::CountFormat(const char* fmt, ...) {
 		Letpara(paras, fmt);
 		count_mode = true;
 		stduint ret = OutFormatPack(fmt, paras);
 		count_mode = false;
+		para_endo(paras);
 		return ret;
 	}
 
@@ -85,8 +88,16 @@ namespace uni {
 		#include "../../inc/c/stream/format-out-integer.h"
 	}
 
+	__attribute__((target("sse2")))
 	void OstreamTrait::OutFloating(double val) {
 		#include "../../inc/c/stream/format-out-floating.h"
+	}
+	__attribute__((target("sse2")))
+	void OstreamTrait::out_floating_0(stduint sizlevel, para_list paras) {
+		if (sizlevel == 1)
+			out_floating(pnext(double));
+		else if (sizlevel == 0)
+			out_floating(para_next_float(paras));
 	}
 
 

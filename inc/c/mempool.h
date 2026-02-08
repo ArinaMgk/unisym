@@ -43,14 +43,39 @@ namespace uni {
 		stduint owner_id;
 		stduint slicecnt;// for this pool
 		Slice slices[CNT_SLICES_PER_POOL];
+		//
+		bool ifContainAll(const Slice& slice) {
+			_TODO
+		}
+		bool ifContainAny(const Slice& slice) {
+			_TODO
+		}
+		bool Append(const Slice& slice) {
+			_TODO
+		}
+		bool Remove(const Slice& slice) {
+		    _TODO
+		}
 	};
 	
 	class Mempool : public trait::Malloc {
-		SinglePool pool_allocated;
-		SinglePool pool_available;
+		SinglePool pool_allocated = {};
+		SinglePool pool_available = {};
 		//
+	public:
+		Mempool() {}
+		void Reset(const Slice& slice) {
+			MemSet(&pool_allocated, 0, sizeof(pool_allocated));
+			MemSet(&pool_available, 0, sizeof(pool_available));
+			pool_allocated.Append(slice);
+			pool_available.Append(slice);
+		}
 
-	};
+	public:// trait
+		virtual void* allocate(stduint size, stduint alignment = 0) override;
+		virtual bool deallocate(void* ptr, stduint size = 0 _Comment(zero_for_block)) override;
+
+	};// store virtual addresses
 
 } //END C++ Area
 #else//: C Area

@@ -78,9 +78,22 @@ bool outinteger(uint64 val, int base, bool sign_show, bool sign_have, byte least
 #else
 #endif
 
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+__attribute__((target("sse2")))
+#endif
 static void outfloat(float val, outbyte_t localout)
 {
 	#include "../../../inc/c/stream/format-out-floating.h"
+}
+
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+__attribute__((target("sse2")))
+#endif
+static void out_floating_0(stduint sizlevel, para_list paras) {
+	if (sizlevel == 1)
+		out_floating(pnext(double));
+	else if (sizlevel == 0)
+		out_floating(para_next_float(paras));
 }
 
 int outsfmtlst(const char* fmt, para_list paras)

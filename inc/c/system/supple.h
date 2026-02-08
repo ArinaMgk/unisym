@@ -32,17 +32,17 @@ typedef struct {
 
 #define _para_align(type) (((sizeof(type) + sizeof(stduint) - 1) / sizeof(stduint)) * sizeof(stduint))
 
-#if (defined(_Linux) && __BITS__ == 64) || defined(_OPT_RISCV64) || defined(_HIS_IMPLEMENT) || 1
+#if defined(_HIS_IMPLEMENT) || 1
 //#define para_ento(ap, param) (ap.stack_ptr = (byte*)&param + ...)// by dscn trial, 20240908
-#if defined(_DEV_GCC)//{TEMP} System V AMD64 ABI
-	#define va_start(ap,last) (__builtin_va_start(ap, last))
-	#define va_arg(ap,type) (__builtin_va_arg(ap, type))
-	#define va_end(ap) (__builtin_va_end(ap))
-	#define va_copy(d,s) (__builtin_va_copy(d, s))
-	typedef __builtin_va_list va_list;
-#else
+// #if defined(_DEV_GCC)//{TEMP} System V AMD64 ABI
+	// #define va_start(ap,last) (__builtin_va_start(ap, last))
+	// #define va_arg(ap,type) (__builtin_va_arg(ap, type))
+	// #define va_end(ap) (__builtin_va_end(ap))
+	// #define va_copy(d,s) (__builtin_va_copy(d, s))
+	// typedef __builtin_va_list va_list;
+// #else
 	#include <stdarg.h>
-#endif
+// #endif
 #define para_ento(ap, param) va_start(ap, param)
 #define para_next(ap, type) va_arg(ap, type)
 #define para_endo(ap) va_end(ap)
@@ -60,7 +60,9 @@ typedef struct {
 #define para_next_char(ap) (char)para_next(ap, int)
 #define para_next_u8(ap) (byte)para_next(ap, int)
 #define para_next_u16(ap) (uint16)para_next(ap, int)
-#define para_next_float(ap) (float)para_next(ap, int)
+#define para_next_float(ap) (float)para_next(ap, double)
+
+// #define para_next_u32(ap) (uint32)para_next(ap, stduint)//
 
 
 #define para_copy(dest, src, type) MemCopyN((void *)&dest, (void *)&src, _para_align(type))

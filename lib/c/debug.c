@@ -122,6 +122,7 @@ _WEAK void printlog(loglevel_t level, const char* fmt, ...)
 {
 	Letpara(paras, fmt);
 	printlogx(level, fmt, paras);
+	para_endo(paras);
 }
 
 #endif

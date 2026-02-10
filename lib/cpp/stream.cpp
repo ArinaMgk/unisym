@@ -88,11 +88,15 @@ namespace uni {
 		#include "../../inc/c/stream/format-out-integer.h"
 	}
 
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("sse2")))
+	#endif
 	void OstreamTrait::OutFloating(double val) {
 		#include "../../inc/c/stream/format-out-floating.h"
 	}
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("sse2")))
+	#endif
 	void OstreamTrait::out_floating_0(stduint sizlevel, para_list paras) {
 		if (sizlevel == 1)
 			out_floating(pnext(double));

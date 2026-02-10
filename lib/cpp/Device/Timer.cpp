@@ -69,8 +69,8 @@ void LocalAPICTimer::Reset(stduint init_count) {
 		*initial_count = init_count;
 	}
 }
-void LocalAPICTimer::Ento() {
-	*initial_count = CountMax;
+void LocalAPICTimer::Ento(stduint count) {
+	*initial_count = count;
 }
 void LocalAPICTimer::Endo() {
 	*initial_count = 0;

@@ -42,7 +42,6 @@ namespace uni {
 extern "C" {
 #else
 #include "ustdbool.h"
-#include "../c/trait/ArrayTrait.h"
 #endif
 
 // always pass pointer to Node but offs
@@ -87,7 +86,7 @@ typedef struct NodeChain_t {
 
 #if defined(_INC_CPP)
 } // C++ Area
-class Chain : public ArrayTrait, public IterateTrait {
+class Chain : public trait::Array, public IterateTrait {
 protected:
 	_MACRO_CHAIN_MEMBER
 	//

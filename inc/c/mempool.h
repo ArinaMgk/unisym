@@ -26,6 +26,7 @@
 #include "./stdinc.h"
 
 #if defined(_INC_CPP)
+#include "../cpp/trait/ArrayTrait.hpp"
 #include "../cpp/trait/MallocTrait.hpp"
 extern "C" {
 #endif
@@ -36,26 +37,44 @@ extern "C" {
 
 
 namespace uni {
-	const unsigned CNT_SLICES_PER_POOL = (0x1000 / sizeof(Slice)) - 2;
-	struct SinglePool {
+	const unsigned CNT_SLICES_PER_POOL = (0x1000 / sizeof(Slice)) - 3;
+	_PACKED(struct) SinglePool
+		: public trait::Array
+	{
 		SinglePool* nextpool;
 		SinglePool* leftpool;
 		stduint owner_id;
 		stduint slicecnt;// for this pool
-		Slice slices[CNT_SLICES_PER_POOL];
+		Slice slices[CNT_SLICES_PER_POOL];// ordered
+		// ---- The first pool using ----
+		// return the id of the slice, -1 for failure. if all part of slice exists in the pool
+		stdsint ifContainAll(const Slice& slice);
+		// if any part of slice exists in the pool
+		bool ifContainAny(const Slice& slice);
 		//
-		bool ifContainAll(const Slice& slice) {
-			_TODO
-		}
-		bool ifContainAny(const Slice& slice) {
-			_TODO
-		}
 		bool Append(const Slice& slice) {
+			if (ifContainAny(slice)) return false;
+
+
 			_TODO
 		}
 		bool Remove(const Slice& slice) {
-		    _TODO
+			// e.g. remove {1,2} from {0,10} -> {0,1}&{3,7}
+			//{FUTURE} left&unmap page if throw a pool
+			auto idx = ifContainAll(slice);
+			if (-1 == idx) return false;
+
+
+			_TODO
 		}
+	public:// trait
+		virtual pureptr_t Locate(stduint idx) const override;
+		virtual stduint   Locate(pureptr_t p_val, bool fromRight) const override;
+		virtual stduint   Length() const override;
+		virtual bool      Insert(stduint idx, pureptr_t dat) override;
+		virtual bool      Remove(stduint idx, stduint times) override;
+		virtual bool      Exchange(stduint idx1, stduint idx2) override;
+		inline constexpr Slice* operator[](stduint idx) { return (Slice*)Locate(idx); }
 	};
 	
 	class Mempool : public trait::Malloc {

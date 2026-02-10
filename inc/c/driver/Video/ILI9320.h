@@ -35,14 +35,15 @@ namespace uni {
 		byte lines;
 		//
 		GPIO_Pin* dat[16];
-		GPIO_Pin WR;// write
-		GPIO_Pin RD;// read
-		GPIO_Pin RS;// 
-		GPIO_Pin RST;// 
-		GPIO_Pin CS;// 
+		//{TODO} use pointers for GPIN
+		GPIO_Pin& WR;// write
+		GPIO_Pin& RD;// read
+		GPIO_Pin& RS;// 
+		GPIO_Pin& RST;// 
+		GPIO_Pin& CS;// 
 		// SPI:
-		GPIO_Pin CL;
-		GPIO_Pin DA;
+		GPIO_Pin& CL;
+		GPIO_Pin& DA;
 		//
 		stduint xlim, ylim;
 	protected:
@@ -90,7 +91,7 @@ namespace uni {
 		inline void Draw(const Point& disp, Color color) { DrawPoint(disp, color); }
 		
 		void (*func_delay_us)(stduint us);
-		ILI9320_FreePins(stduint lines, GPIO_Pin** dat, GPIO_Pin WR, GPIO_Pin RD, GPIO_Pin RS, GPIO_Pin RST, GPIO_Pin CS, GPIO_Pin CL, GPIO_Pin DA) :
+		ILI9320_FreePins(stduint lines, GPIO_Pin** dat, GPIO_Pin& WR, GPIO_Pin& RD, GPIO_Pin& RS, GPIO_Pin& RST, GPIO_Pin& CS, GPIO_Pin& CL, GPIO_Pin& DA) :
 			WR(WR), RD(RD), RS(RS), RST(RST), CS(CS), CL(CL), DA(DA) {
 			func_delay_us = 0;
 			self.lines = lines;

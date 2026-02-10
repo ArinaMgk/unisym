@@ -60,7 +60,7 @@ typedef enum _CPU_descriptor_type
 typedef _PACKED(union) _CPU_descriptor
 {
 	uint64 _data;
-	struct {
+	_PACKED(struct) {
 		word limit_low;
 		word base_low;
 		byte base_middle;
@@ -89,6 +89,18 @@ typedef _PACKED(union) _CPU_descriptor
 	}
 	#endif
 } descriptor_t;
+
+_PACKED(struct) _CPU_descriptor64 {
+	union _CPU_descriptor base;
+	uint32 offset_extn;
+	uint32 reserved;
+};
+
+#if __BITS__ == 64
+#define _CPU_descriptor_tss struct _CPU_descriptor64
+#else
+#define _CPU_descriptor_tss union _CPU_descriptor
+#endif
 
 typedef _PACKED(struct) _CPU_gate_type
 {
@@ -258,12 +270,11 @@ inline static void loadIDT(stduint address, uint16 length) {
 	tmpxx_le.u_16fore = length;
 	InterruptDTabLoad(&tmpxx_le);
 }
-#if __BITS__ == 32
+
 inline static void loadTask(stduint sel) {
 	__asm("mov  %0, %%eax" : : "m"(sel));
 	__asm("ltr  %ax");
 }
-#endif
 
 // [CR0]
 stduint getCR0();

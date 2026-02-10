@@ -66,7 +66,7 @@ namespace uni {
 	class LocalAPICTimer {
 	public:
 		void Reset(stduint init_count);
-		void Ento();
+		void Ento(stduint count = 0);
 		void Endo();
 		stduint Read();
 	};

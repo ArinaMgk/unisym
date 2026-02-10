@@ -148,7 +148,7 @@ extern "C++" {
 #define sliceof(x) x,sizeof(x)
 #define bitsof(x) (sizeof(x)*_BYTE_BITS_)
 #define numsof(x) (sizeof(x)/sizeof(*(x)))
-#define offsof    _BYTE_BITS_*offsetof
+#define offsof    _BYTE_BITS_*offsetof// should show bitfield
 
 #define zalloc(x) zalc(x)// Zero Alloc
 #define zalcof(x) (x*)zalc(sizeof(x))

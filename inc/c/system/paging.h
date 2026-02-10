@@ -24,7 +24,13 @@
 
 #if !defined(_INC_System_Paging) && defined(_INC_CPP)
 #define _INC_System_Paging
-// #include "../bitmap.h"
+
+
+// x86 Lev2: 00000000~FFFFFFFF
+//     4KB 4MB
+// x64 Lev4: 000000000000~FFFFFFFFFFFF
+//     4KB 2MB 1GB ---
+
 
 // 1 [ none   | l1p-id | l0p-id    ] until Commit 6f9dbef7
 // 2 [ l1p-id | l0p-id | crt-level ] since 20260119

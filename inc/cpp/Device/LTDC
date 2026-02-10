@@ -129,6 +129,7 @@ namespace uni {
 		static LayerPara* layer_param_refer(LayerPara*);
 	protected:
 		byte id;
+		LayerPara layer_param;
 
 		// AKA LTDC_SetConfig
 		bool setMode_sub(LayerPara& param) const;
@@ -142,7 +143,7 @@ namespace uni {
 		Reference operator[](LTDCLayerReg trt) const { return 0x5A001000 + getID() * 0x100 + _IMMx4(trt); }
 
 		// AKA HAL_LTDC_ConfigLayer
-		bool setMode(LayerPara& param) const;
+		bool setMode(LayerPara& param);
 
 		Rectangle getWindow() const;
 		

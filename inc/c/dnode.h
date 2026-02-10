@@ -44,7 +44,6 @@ extern "C" {
 	struct TnodeField;
 #else
 #include "ustdbool.h"
-#include "../c/trait/ArrayTrait.h"
 #endif
 
 // always pass pointer to Node but offs
@@ -141,7 +140,7 @@ typedef struct DnodeChain_t {
 #if defined(_INC_CPP)
 } // C++ Area
 extern "C++" {
-class Dchain : public ArrayTrait, public IterateTrait {
+class Dchain : public trait::Array, public IterateTrait {
 protected:
 	_MACRO_DCHAIN_MEMBER
 	//

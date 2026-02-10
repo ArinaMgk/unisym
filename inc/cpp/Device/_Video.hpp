@@ -95,6 +95,13 @@ namespace uni {
 	// ...
 	// 0x0143 1280x960 for vmware, 800x600 for qemu and bochs
 
+	// [Methods]
+	// STM32H7  : LTDC + DMA2D
+	// STM32MP13: LTDC
+	struct VideoManager {
+		stduint id;
+	};
+
 
 	#define GrafColor32(c) Color::FromRGB888(c)
 

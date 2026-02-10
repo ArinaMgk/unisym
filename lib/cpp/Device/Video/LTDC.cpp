@@ -432,8 +432,9 @@ namespace uni {
 
 	LTDC_t& LTDC_LAYER_t::getParent() const { return LTDC; }
 
-	bool LTDC_LAYER_t::setMode(LayerPara& param) const {
+	bool LTDC_LAYER_t::setMode(LayerPara& param) {
 		asrtret(assert_param(param));
+		layer_param = param;
 		asrtret(setMode_sub(param));
 		getParent()[LTDCReg::SRCR] = _IMM1S(0);// IMR
 		return true;
@@ -453,7 +454,7 @@ namespace uni {
 	void LTDC_LAYER_t::DrawPoint(const Point& disp, Color color) const {
 		auto win = getWindow().getSize();
 		if (disp.x >= win.x || disp.y >= win.y) return;
-		Letvar(p, uint16*, _IMM(roleaddr));
+		Letvar(p, uint16*, _IMM(layer_param.roleaddr));
 		p += disp.x + disp.y * win.x;
 		// RGB565
 		if (_IMM(p) & 0b11) *p = color.ToRGB565();
@@ -474,7 +475,7 @@ namespace uni {
 		union {
 			uint32* p32; uint16* p16; uint64* p64;
 		};
-		p16 = (uint16*)(_IMM(roleaddr) & ~_TEMP _IMM(0b11));
+		p16 = (uint16*)(_IMM(layer_param.roleaddr) & ~_TEMP _IMM(0b11));
 		p16 += rect.x + rect.y * win.x;
 		stduint hei = 0;
 		if (rect.height) {
@@ -503,15 +504,16 @@ namespace uni {
 			} while (hei < rect.height);
 		}
 	}
-	Color LTDC_LAYER_t::GetColor(Point p) const {
-		Letvar(p, uint16*, _IMM(roleaddr));
+	Color LTDC_LAYER_t::GetColor(Point disp) const {
+		auto win = getWindow().getSize();
+		Letvar(p, uint16*, _IMM(layer_param.roleaddr));
 		p += disp.x + disp.y * win.x;
 		//{} RGB565
-		uint16 color = *p;
+		uint16 c = *p;
 		Color color = 0xFF000000;
-		color.b = (color >> 0) & 0xFF;
-		color.g = (color >> 5) & 0xFF;
-		color.r = (color >> 11) & 0xFF;
+		color.b = (c >> 0) & 0xFF;
+		color.g = (c >> 5) & 0xFF;
+		color.r = (c >> 11) & 0xFF;
 		return color;
 	}
 

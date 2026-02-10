@@ -98,6 +98,13 @@ DDRConfig localcfg = {
 	//.PCFGQOS1_1 = DDR_PCFGQOS1_1,
 	//.PCFGWQOS0_1 = DDR_PCFGWQOS0_1,
 	//.PCFGWQOS1_1 = DDR_PCFGWQOS1_1
+	//{TEMP}
+	.PCFGR_1 = nil,
+	.PCFGW_1 = nil,
+	.PCFGQOS0_1 = nil,
+	.PCFGQOS1_1 = nil,
+	.PCFGWQOS0_1 = nil,
+	.PCFGWQOS1_1 = nil
 	},
 	.p_reg = {
 	.PGCR = 0x01442E02U,
@@ -124,8 +131,7 @@ DDRConfig localcfg = {
 	.MR1 = 0x00000000U,
 	.MR2 = 0x00000208U,
 	.MR3 = 0x00000000U
-	}
-	
+}
 };// AKA static_ddr_config
 }
 

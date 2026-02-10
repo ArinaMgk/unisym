@@ -29,9 +29,9 @@
 
 #ifndef _INCPP_TRAIT_ARRAY
 #define _INCPP_TRAIT_ARRAY
-namespace uni {
+namespace uni::trait {
 
-class ArrayTrait {
+class Array {
 public:
 	virtual pureptr_t Locate(stduint idx) const = 0; //  operator[]
 
@@ -51,8 +51,11 @@ public:
 
 	_tocomp_ft Compare_f;
 	
-	ArrayTrait() : Compare_f(nullptr) {}
+	Array() : Compare_f(nullptr) {}
 
 };
 }
+
+namespace uni { using ArrayTrait = uni::trait::Array; }
+
 #endif

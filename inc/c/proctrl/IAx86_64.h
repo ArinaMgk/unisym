@@ -90,11 +90,23 @@ typedef _PACKED(union) _CPU_descriptor
 	#endif
 } descriptor_t;
 
+#if __BITS__ == 64
 _PACKED(struct) _CPU_descriptor64 {
 	union _CPU_descriptor base;
 	uint32 offset_extn;
 	uint32 reserved;
+	//
+	#ifdef _INC_CPP
+	stduint constexpr getAddress(void) {
+	    return base.getAddress() | (_IMM(offset_extn) << 32);
+	}
+	void setRange(uint64 addr, dword limit) {
+		base.setRange((uint32)addr, limit);
+		offset_extn = addr >> 32;
+	}
+	#endif
 };
+#endif
 
 #if __BITS__ == 64
 #define _CPU_descriptor_tss struct _CPU_descriptor64

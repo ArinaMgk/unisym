@@ -55,6 +55,8 @@ typedef enum
 	ERQ_x0F = 15,
 	// [0x00..0x20] The latter 16 is for IRQ request handlers
 
+// ---- IBM Specific Definitions
+
 	#define PIC_MAS_IDSTART     0X20
 	IRQ_PIT = 0x20,      // 8253/8254 PIT (Programmable Interval Timer)
 	IRQ_Keyboard = 0x21,
@@ -77,7 +79,6 @@ typedef enum
 	IRQ_Coprocessor = 0x75,// FPU / Coprocessor / Inter-processor
 	IRQ_ATA_DISK0 = 0x76,  // Primary ATA Hard Disk
 	IRQ_ATA_DISK1 = 0x77,  // Secondary ATA Hard Disk
-// ---- IBM Specific Definitions
 
 
 } Request_t;
@@ -130,13 +131,19 @@ enum _PORT {
 	//{} 0x0080 - 0x008F	DMA Page
 
 	// PIC i8259A Slave
-	PORT_i8259A_SLV_A = 0XA0,
-	PORT_i8259A_SLV_B = 0XA1,
+	PORT_i8259A_SLV_A = 0xA0,
+	PORT_i8259A_SLV_B = 0xA1,
 
-	//{} 0x0170 - 0x0177	第二IDE通道
-	//{} 0x01F0 - 0x01F7	第一IDE通道
+	// 0x0170 - 0x0177 2nd IDE Pipeline
+	PORT_IDE_CommandBlock_1 = 0x0170,
+
+	// 0x01F0 - 0x01F7	1st IDE Pipeline
+	PORT_IDE_CommandBlock_0 = 0x01F0,
+
 	//{} 0x02E8, 0x02E9	COM4（串口4）
 	//{} 0x02F8, 0x02F9	COM2（串口2）
+
+	PORT_IDE_ControlBlock_1 = 0x0376,
 
 	// CRT Control Registers
 	PORT_CRT_CRAR = 0x03D4, // CRT Control Address Register
@@ -146,6 +153,9 @@ enum _PORT {
 	//{} 0x03C0 - 0x03CF	EGA/VGA
 	//{} 0x03D0 - 0x03DF	CGA（彩显图形适配器）
 	//{} 0x03E8, 0x03E9	COM3（串口3）
+
+	PORT_IDE_ControlBlock_0 = 0x03F6,
+
 	//{} 0x03F8, 0x03F9	COM1（串口1）
 	//{} 0x0CF8, 0x0CFC	PCI配置空间访问
 	//{} 0x0378, 0x0379	LPT1（并口1）

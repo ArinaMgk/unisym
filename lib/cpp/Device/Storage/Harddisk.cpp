@@ -23,24 +23,29 @@
 #include "../../../../inc/c/storage/harddisk.h"
 #include "../../../../inc/c/driver/i8259A.h"
 
-#if defined(_DEV_GCC) && defined(_MCCA) && _MCCA == 0x8632
+#if defined(_DEV_GCC) && defined(_MCCA)
 #include "../../../../inc/cpp/Device/Storage/HD-DEPEND.h"
+#include "../../../../inc/c/board/IBM.h"
+
 namespace uni {
 
-	bool Harddisk_PATA::Hdisk_OUT(HdiskCommand* hd_cmd, bool (*hd_cmd_wait)()) {
-		if (!hd_cmd_wait()) return false;
+	bool Harddisk_PATA::Hdisk_OUT(HdiskCommand* hd_cmd) {
+		if (fn_cmd_wait && !fn_cmd_wait(this)) return false;
 		// Interrupt Enable (nIEN)
-		outpb(REG_DEV_CTRL, 0);
+		outpb(ctrl_base, 0);
 		// Load required parameters in the Command Block Registers
-		outpb(REG_FEATURES, hd_cmd->feature);
-		outpb(REG_NSECTOR, hd_cmd->count);
-		for0(i, 3) outpb(REG_LBA_LOW + i, hd_cmd->LBA[i]);
-		outpb(REG_DEVICE, hd_cmd->device);
+		outpb(io_base + REG_FEATURES, hd_cmd->feature);
+		outpb(io_base + REG_NSECTOR, hd_cmd->count);
+		for0(i, 3) outpb(io_base + REG_LBA_LOW + i, hd_cmd->LBA[i]);
+		outpb(io_base + REG_DEVICE, hd_cmd->device);
 		// Write the command code to the Command Register
-		outpb(REG_CMD, hd_cmd->command);
+		outpb(io_base + REG_CMD, hd_cmd->command);
 		return true;
 	}
-	
+	byte Harddisk_PATA::getStatus() {
+		return innpb(io_base + REG_STATUS);
+	}
+
 	void Harddisk_PATA::setInterruptPriority(byte preempt, byte sub_priority) const {
 		// EMPTY
 	}
@@ -61,12 +66,12 @@ namespace uni {
 		switch (react_type) {
 		case ReactType::Loop:
 		{
-			outpb(REG_NSECTOR, 1);// 1 sector
-			for0(i, 3) outpb(REG_LBA_LOW + i, (BlockIden >> (i * 8)));// [LiE]
-			outpb(REG_DEVICE, MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF));
-			outpb(REG_CMD, 0x20);// read
-			while ((innpb(REG_STATUS) & 0x88) != 0x08);
-			IN_wn(REG_DATA, (word*)Dest, Block_Size);
+			outpb(io_base + REG_NSECTOR, 1);// 1 sector
+			for0(i, 3) outpb(io_base + REG_LBA_LOW + i, (BlockIden >> (i * 8)));// [LiE]
+			outpb(io_base + REG_DEVICE, MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF));
+			outpb(io_base + REG_CMD, 0x20);// read
+			while ((innpb(io_base + REG_STATUS) & 0x88) != 0x08);
+			IN_wn(io_base + REG_DATA, (word*)Dest, Block_Size);
 			return true;
 		}
 		case ReactType::Rupt:
@@ -78,13 +83,13 @@ namespace uni {
 			cmd.device = MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF);
 			cmd.command = ATA_READ;
 			asserv(fn_feedback)();// foreback
-			Harddisk_PATA::Hdisk_OUT(&cmd, fn_cmd_wait);
+			Harddisk_PATA::Hdisk_OUT(&cmd);
 			if (fn_int_wait && fn_lup_wait) {
 				fn_int_wait();
-				if (!fn_lup_wait(STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT)) {
+				if (!fn_lup_wait(this, STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT)) {
 					return false;
 				}
-				IN_wn(REG_DATA, (word*)Dest, Block_Size);
+				IN_wn(io_base + REG_DATA, (word*)Dest, Block_Size);
 				return true;
 				// repeat the block to RW multi-sectors
 			}
@@ -112,12 +117,12 @@ namespace uni {
 			cmd.device = MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF);
 			cmd.command = ATA_WRITE;
 			asserv(fn_feedback)();// foreback
-			Harddisk_PATA::Hdisk_OUT(&cmd, fn_cmd_wait);
+			Harddisk_PATA::Hdisk_OUT(&cmd);
 			if (fn_int_wait && fn_lup_wait) {
-				if (!fn_lup_wait(STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT)) {
+				if (!fn_lup_wait(this, STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT)) {
 					return false;
 				}
-				OUT_wn(REG_DATA, (word*)Sors, Block_Size);
+				OUT_wn(io_base + REG_DATA, (word*)Sors, Block_Size);
 				fn_int_wait();
 				return true;
 				// repeat the block to RW multi-sectors
@@ -134,7 +139,29 @@ namespace uni {
 		return _TODO 0;
 	}
 
-
+	#define ATA_CTRL_SRST  (1 << 2)
+	#define ATA_CTRL_nIEN (1 << 1)
+	void Harddisk_PATA::Reset() {
+		outpb(ctrl_base, ATA_CTRL_SRST | ATA_CTRL_nIEN);
+		for (volatile int i = 0; i < 1000; i = i + 1) _TEMP;//{} delay010us();
+		outpb(ctrl_base, ATA_CTRL_nIEN);
+		for (volatile int i = 0; i < 100000; i = i + 1) _TEMP;//{}
+		//
+		stduint timeout = 1000000;
+		bool error = false;
+		while (true) {
+			byte status = innpb(io_base + REG_STATUS);
+			if (!(status & STATUS_BSY)) {
+				break;
+			}
+			timeout = timeout - 1;
+			if (!timeout) {
+				error = true;
+				break;
+			}
+		}
+		outpb(io_base + REG_DEVICE, 0xE0 | (getLowID() << 4));
+	}
 
 	
 

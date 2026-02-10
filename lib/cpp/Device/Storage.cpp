@@ -23,7 +23,6 @@
 #include "../../../inc/cpp/unisym"
 #include "../../../inc/cpp/string"
 #include "../../../inc/cpp/trait/StorageTrait.hpp"
-#include "../../../inc/cpp/Device/Storage/HD-DEPEND.h"
 
 #define DRV_OF_DEV
 namespace uni {
@@ -46,7 +45,7 @@ namespace uni {
 		if (primary_but_logical) {
 			// get_partition_table(drv, 0, part_tbl);
 			base.Read(0, psector);
-			MemCopyN(part_tbl, psector + PARTITION_TABLE_OFFSET, sizeof(part_tbl));
+			MemCopyN(part_tbl, psector + MBR_PARTITION_TABLE_OFFSET, sizeof(part_tbl));
 			int nr_prim_parts = 0;
 			for0(i, NR_PART_PER_DRIVE) {
 				if (part_tbl[i].type == Part_NO_PART)
@@ -68,7 +67,7 @@ namespace uni {
 			for0(i, NR_SUB_PER_PART) {
 				// get_partition_table(drv, s, part_tbl);
 				base.Read(s, psector);
-				MemCopyN(part_tbl, psector + PARTITION_TABLE_OFFSET, sizeof(part_tbl));
+				MemCopyN(part_tbl, psector + MBR_PARTITION_TABLE_OFFSET, sizeof(part_tbl));
 				int dev_nr = nr_1st_sub + i;/* 0~15/16~31/32~47/48~63 */
 				hdi.logical[dev_nr].address = s + part_tbl[0].lba_start;
 				hdi.logical[dev_nr].length = part_tbl[0].lba_count;

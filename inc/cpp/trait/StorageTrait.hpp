@@ -72,6 +72,8 @@ namespace uni {
 
 	};
 
+	#define	MBR_PARTITION_TABLE_OFFSET 0x1BE
+
 	struct DiscPartition : public StorageTrait
 	{
 		StorageTrait* base;

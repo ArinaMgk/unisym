@@ -35,7 +35,8 @@ extern "C" {
 #if defined(_INC_CPP)
 } //: C++ Area
 
-
+extern
+::uni::trait::Malloc* uni_default_allocator;
 namespace uni {
 	const unsigned CNT_SLICES_PER_POOL = (0x1000 / sizeof(Slice)) - 3;
 	_PACKED(struct) SinglePool
@@ -49,24 +50,12 @@ namespace uni {
 		// ---- The first pool using ----
 		// return the id of the slice, -1 for failure. if all part of slice exists in the pool
 		stdsint ifContainAll(const Slice& slice);
-		// if any part of slice exists in the pool
-		bool ifContainAny(const Slice& slice);
+		// if any part of slice exists in the pool. return the id of the slice if need inserting, -1 for contain any.
+		stdsint ifContainNon(const Slice& slice);
 		//
-		bool Append(const Slice& slice) {
-			if (ifContainAny(slice)) return false;
-
-
-			_TODO
-		}
-		bool Remove(const Slice& slice) {
-			// e.g. remove {1,2} from {0,10} -> {0,1}&{3,7}
-			//{FUTURE} left&unmap page if throw a pool
-			auto idx = ifContainAll(slice);
-			if (-1 == idx) return false;
-
-
-			_TODO
-		}
+		bool Append(const Slice& slice);
+		//
+		bool Remove(const Slice& slice);
 	public:// trait
 		virtual pureptr_t Locate(stduint idx) const override;
 		virtual stduint   Locate(pureptr_t p_val, bool fromRight) const override;
@@ -74,19 +63,19 @@ namespace uni {
 		virtual bool      Insert(stduint idx, pureptr_t dat) override;
 		virtual bool      Remove(stduint idx, stduint times) override;
 		virtual bool      Exchange(stduint idx1, stduint idx2) override;
-		inline constexpr Slice* operator[](stduint idx) { return (Slice*)Locate(idx); }
+		inline Slice* operator[](stduint idx) { return (Slice*)Locate(idx); }
 	};
 	
 	class Mempool : public trait::Malloc {
-		SinglePool pool_allocated = {};
+		SinglePool pool_registerd = {};
 		SinglePool pool_available = {};
 		//
 	public:
 		Mempool() {}
 		void Reset(const Slice& slice) {
-			MemSet(&pool_allocated, 0, sizeof(pool_allocated));
-			MemSet(&pool_available, 0, sizeof(pool_available));
-			pool_allocated.Append(slice);
+			new (&pool_registerd) SinglePool();
+			new (&pool_available) SinglePool();
+			pool_registerd.Append(slice);
 			pool_available.Append(slice);
 		}
 

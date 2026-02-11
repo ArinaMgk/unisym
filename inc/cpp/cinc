@@ -33,11 +33,15 @@
 
 extern "C" {
 	///#define class Class
+	#ifndef _MSC_VER//_DEV_MSVC
 	#define register//                    ISO C++17 does not allow 'register' storage class specifier
-#else
+	#endif
+	#else
 #undef _INC_HEAD_CPP
 	///#undef class
+	#ifndef _MSC_VER//_DEV_MSVC
 	#undef  register// MSVC/*/xkeycheck.h The C++ Standard Library forbids macroizing the keyword "register"
+	#endif
 }
 
 #endif

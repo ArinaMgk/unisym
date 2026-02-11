@@ -78,6 +78,10 @@ _ESYM_CPP
 void* operator new(size_t size, const std::nothrow_t&) noexcept;
 #define _NEW// GCC Header Guard
 #endif
+#else
+
+#include <new>
+
 #endif
 
 

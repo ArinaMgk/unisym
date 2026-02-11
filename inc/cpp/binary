@@ -20,6 +20,4 @@
 	limitations under the License.
 */
 
-#include "cinc"
 #include "../c/binary.h"
-#include "cinc"

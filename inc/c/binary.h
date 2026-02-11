@@ -40,9 +40,11 @@
 
 
 // [Linux does not use this!] Reflect bits of a value like a mirror.
+_ESYM_C
 size_t _CALL_FAST BitReflect(size_t times, size_t val);
 
-// 
+//
+_ESYM_C
 uint64_t _CALL_CPL BitReflect64(size_t times, uint64_t val);
 
 #endif

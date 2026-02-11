@@ -511,9 +511,9 @@ namespace uni {
 		//{} RGB565
 		uint16 c = *p;
 		Color color = 0xFF000000;
-		color.b = (c >> 0) & 0xFF;
-		color.g = (c >> 5) & 0xFF;
-		color.r = (c >> 11) & 0xFF;
+		color.b = ((c >> 0) & 0xFF) << 3;
+		color.g = ((c >> 5) & 0xFF) << 2;
+		color.r = ((c >> 11) & 0xFF) << 3;
 		return color;
 	}
 

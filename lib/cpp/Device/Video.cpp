@@ -121,7 +121,9 @@ namespace uni {
 
 
 	// ---- LayerManager ---- //
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("general-regs-only")))
+	#endif
 	void LayerManager::Update(SheetTrait* who, const Rectangle& rect) {
 		// auto p = who->sheet_buffer; if (!p) return;
 		if (!this) return;
@@ -154,7 +156,9 @@ namespace uni {
 		Update(who, Rectangle(Point(0,0), who->sheet_area.getSize()));
 	}
 
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("general-regs-only")))
+	#endif
 	Color LayerManager::EvaluateColor(const Point& glb_p) {
 		Nnode* crt = subf;
 		Color col = 0;

@@ -26,9 +26,7 @@
 #ifndef _INCX_STRING
 #define _INCX_STRING
 
-#include "cinc"// C Begin
 #include "../c/ustring.h"
-#include "cinc"// C End
 #if defined(_USE_PROPERTY)
 #include "property"
 #endif
@@ -49,6 +47,7 @@ namespace uni {
 		stduint length;
 		//
 		stduint getLength() const { return length * sizeof(type0); }
+		type0* getEndoaddr() const { return (type0*)(address + length); }
 	};
 
 	typedef Slice_T<byte> Slice;

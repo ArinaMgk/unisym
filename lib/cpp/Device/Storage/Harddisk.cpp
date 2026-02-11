@@ -23,7 +23,7 @@
 #include "../../../../inc/c/storage/harddisk.h"
 #include "../../../../inc/c/driver/i8259A.h"
 
-#if defined(_DEV_GCC) && defined(_MCCA)
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 #include "../../../../inc/cpp/Device/Storage/HD-DEPEND.h"
 #include "../../../../inc/c/board/IBM.h"
 

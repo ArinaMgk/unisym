@@ -220,7 +220,7 @@ cplpref=_uvc_
 cpppref=_uxxvc_
 dest_obj=$(uobjpath)/CVWin64
 CC = ${msvcpath}/bin/Hostx64/x64/cl.exe
-CX = ${CC}
+CX = ${CC} /std:c++17
 AR = ${msvcpath}/bin/Hostx64/x64/lib.exe
 MKDIR:=$(shell which mkdir.exe)
 aattr = -fwin64
@@ -293,6 +293,7 @@ text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp
 tmp = """\t@echo AR ${dest_abs}
 \t@${AR} /OUT:${dest_abs} ${dest_obj}/* /nologo
+\t@echo CC at ${CC}
 """
 text_msv_win32 += tmp
 text_msv_win64 += tmp

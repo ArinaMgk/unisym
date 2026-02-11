@@ -29,10 +29,8 @@
 #include <new>
 #include "trait/ArrayTrait.hpp"
 #include "trait/IterateTrait.hpp"
-#include "cinc"
 #include "../c/algorithm/sort.h"
 #include "../c/algorithm/search.h"
-#include "cinc"
 
 namespace uni {
 

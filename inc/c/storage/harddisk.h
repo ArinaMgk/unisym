@@ -36,7 +36,7 @@
 
 namespace uni {
 
-#if defined(_DEV_GCC) && defined(_MCCA)
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 
 	struct HdiskCommand {
 		byte feature;
@@ -82,8 +82,10 @@ namespace uni {
 		Harddisk_PATA(byte id = 0, HarddiskType type = HarddiskType::ATA) : id(id), type(type) {
 			Block_buffer = nullptr;
 			Block_Size = 512;
+			#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 			io_base = id < 2 ? PORT_IDE_CommandBlock_0 : PORT_IDE_CommandBlock_1;
 			ctrl_base = id < 2 ? PORT_IDE_ControlBlock_0 : PORT_IDE_ControlBlock_1;
+			#endif
 		}
 		virtual bool Read(stduint BlockIden, void* Dest);
 		virtual bool Write(stduint BlockIden, const void* Sors);

@@ -16,19 +16,41 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/c/ustring.h"
-#include "../../../../inc/c/consio.h"
+#include "../../../inc/c/ustring.h"
+#include "../../../inc/c/consio.h"
 
-char* p_outsfmtbuf = 0;
-static void outtxtbuf_endo() { *p_outsfmtbuf = 0; }
-static void outtxtbuf(const char* str, stduint len) {
-	if (_crt_out_lim + 1) {
-		if (!_crt_out_lim) return;
-		MIN(len, _crt_out_lim);
-		_crt_out_lim -= len;
+// [Single Thread]
+// keep the 4 not nested!
+// 1> Screen / Device{Console...}
+// 1> Buffer / Stream{File...}
+// 2> String.Format(...) : (1)getlen (2)getval
+// can be empty fucntion but nullptr
+//[OLD] static outbyte_t local_out = outtxt;
+//[OLD] _TODO byte local_out_lock = 0;// 0 for accessable
+//[OLD] stduint _crt_out_cnt;
+//[OLD] stduint _crt_out_lim;// for StringN Series, ~0 for no limit
+
+using namespace uni;
+class StringStream : public OstreamTrait {
+	char* p_outsfmtbuf;
+	stduint _crt_out_lim;
+public:
+	virtual int out(const char* str, stduint len) override {
+		if (!str) {
+			*p_outsfmtbuf = nil;
+			return 0;
+		}
+		if (_crt_out_lim + 1) {
+			if (!_crt_out_lim) return 0;
+			MIN(len, _crt_out_lim);
+			_crt_out_lim -= len;
+		}
+		out_count += len;
+		for0(i, len)* p_outsfmtbuf++ = str[i];
+		return len;
 	}
-	for0(i, len)* p_outsfmtbuf++ = str[i];
-}
+	StringStream(char* buf, stduint lim = ~_IMM0) : p_outsfmtbuf(buf), _crt_out_lim(lim) { }
+};
 
 // like sprintf
 int outsfmtbuf(char* buf, const char* fmt, ...) {
@@ -38,13 +60,9 @@ int outsfmtbuf(char* buf, const char* fmt, ...) {
 
 // like vsprintf
 int outsfmtlstbuf(char* buf, const char* fmt, para_list lst) {
-	p_outsfmtbuf = buf;
-	_crt_out_lim = ~_IMM0;
-	outbyte_t last = outredirect(outtxtbuf);
-	int ret = outsfmtlst(fmt, lst);
-	outsfmt("%c", nil);
-	outredirect(last);
-	p_outsfmtbuf = 0;
+	StringStream ss(buf);
+	int ret = ss.OutFormatPack(fmt, lst);
+	ss.out(nullptr, 0);
 	return ret;
 }
 
@@ -57,26 +75,18 @@ int outsfmtbufn(char* buf, stduint len, const char* fmt, ...) {
 // like vsnprintf
 int outsfmtlstbufn(char* buf, stduint len, const char* fmt, para_list lst) {
 	if (len <= 1) return 0;
-	p_outsfmtbuf = buf;
-	_crt_out_lim = len - 1;
-	outbyte_t last = outredirect(outtxtbuf);
-	int ret = outsfmtlst(fmt, lst);
-	_crt_out_lim = 1;
-	outsfmt("%c", nil);
-	outredirect(last);
-	p_outsfmtbuf = 0;
-	_crt_out_lim = ~_IMM0;
+	StringStream ss(buf, len - 1);
+	int ret = ss.OutFormatPack(fmt, lst);
+	ss.out(nullptr, 0);
 	return ret;
 }
 
 // for length
-static void outtxtlen(const char* str, stduint len) { _crt_out_cnt += len; }
+
 int outsfmtlstlen(const char* fmt, para_list lst)
 {
-	outbyte_t last = outredirect(outtxtlen);
-	int ret = outsfmtlst(fmt, lst);
-	outredirect(last);
-	return ret;
+	uni::OstreamInstance_t oi;
+	return oi.OutFormatPack(fmt, lst);
 }
 int lensfmt(const char* fmt, ...) {
 	Letpara(args, fmt);

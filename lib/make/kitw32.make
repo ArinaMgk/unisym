@@ -12,7 +12,7 @@ LIBC_DIR=$(ulibpath)/c/
 DEST_BIN=$(ubinpath)/I686/Win32/bin
 #{TODO} DEST_BIN=$(ubinpath)/WIN32/
 DEMO_DIR=../../demo/utilities/
-OPT=-O3 -s -D_WinNT -L$(ubinpath) -lw32d
+OPT=-O3 -s -D_WinNT -L$(ubinpath) -lw32d -lstdc++
 CC32=$(DEST_BIN)/gcc.exe -m32
 
 CSC4=C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe
@@ -43,7 +43,7 @@ cpuid:
 	@$(CC32) ${DEMO_DIR}cpuid.c $(PREF)cpuid.exe ${OPT}
 fdump:
 	@echo 'MK fdump'
-	@$(CC32) ${DEMO_DIR}filedump.c ${LIBC_DIR}consio.c $(PREF)fdump.exe ${OPT}
+	@$(CC32) ${DEMO_DIR}filedump.c $(PREF)fdump.exe ${OPT}
 ffset:
 	@echo 'MK ffset'
 	@$(CC32) ${DEMO_DIR}VirtualDiskCopier/ffset.c $(PREF)ffset.exe ${OPT}

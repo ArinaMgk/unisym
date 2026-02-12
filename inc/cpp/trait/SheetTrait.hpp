@@ -58,7 +58,7 @@ namespace uni {
 			sheet_buffer = buf;
 		}
 
-		virtual Color getPoint(Point p) { p; return Color::Black; }
+		virtual Color getPoint(Point p) { (void)p; return Color::Black; }
 
 		// [optional] if using buffer
 		virtual void doshow(void*) = 0;

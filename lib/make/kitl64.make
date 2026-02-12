@@ -7,9 +7,10 @@
 
 INCC_DIR=$(uincpath)/c/
 LIBC_DIR=$(ulibpath)/c/
+LIBX_DIR=$(ulibpath)/cpp/
 DEST_BIN=$(ubinpath)/AMD64/Lin64/
 DEMO_DIR=../../demo/utilities/
-OPT=-O3 -s -D_Linux -L$(ubinpath) -ll64d
+OPT=-D_Linux -L$(ubinpath) -ll64d -lstdc++
 CC32=gcc -m64
 
 CSC4=echo 
@@ -42,7 +43,7 @@ cpuid:
 
 fdump:
 	@echo 'MK fdump'
-	@$(CC32) ${DEMO_DIR}filedump.c ${LIBC_DIR}consio.c $(PREF)fdump ${OPT}
+	@$(CC32) ${DEMO_DIR}filedump.c $(PREF)fdump ${OPT}
 ffset:
 	@echo 'MK ffset'
 	@$(CC32) ${DEMO_DIR}VirtualDiskCopier/ffset.c $(PREF)ffset ${OPT}

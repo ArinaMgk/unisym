@@ -104,7 +104,7 @@ namespace uni {
 		// Initialize()
 		void Reset();
 
-		#if defined(_DEV_GCC) && defined(_MCCA)
+		#if defined(_DEV_GCC) && defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 		bool Hdisk_OUT(HdiskCommand* hd_cmd);
 		byte getStatus();
 		#endif

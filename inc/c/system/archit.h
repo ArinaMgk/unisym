@@ -73,8 +73,8 @@ enum Architecture_ARMv_t {
 	#define _WinNT 64
 	#define _Intelx86o64_Windows_64
 	#define __ARCH__ Architecture_x86
-	#ifndef _ARC_x86
-		#define _ARC_x86 0
+	#ifndef _ARC_x64
+		#define _ARC_x64 0
 		#endif
 	#define __BITS__ 64
 #elif defined(_Win16)
@@ -109,6 +109,9 @@ enum Architecture_ARMv_t {
 #elif (defined(_MCCA) && _MCCA==0x8664) || (defined(_ACCM) && _ACCM==0x8664)// defined(_ARC_x64)
 	#define _Intelx64_Mcca_64
 	#define __ARCH__ Architecture_x86_64
+	#ifndef _ARC_x64
+		#define _ARC_x64 1
+		#endif
 	#define __BITS__ 64
 #elif (defined(_MCCA) && _MCCA==0x8632) || (defined(_ACCM) && _ACCM==0x8632)// defined(_ARC_x86)
 	#define _Intelx86_Mcca_32

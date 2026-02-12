@@ -79,11 +79,11 @@ namespace uni {
 		// auto a = getParent(pg2)[getID()].getEntry(pg2);
 		auto b = pg2.refEntry((_IMM(this) << (12 + 10)) | 1);
 		// if (a != b) plogerro("PageTable::isPresent this=%[x] a=%[x], b=%[x]", this, a, b);
-		return b->P;
+		return b->isPresent();
 	}
 	bool Page::isPresent(Paging& pg2) const {
-		return pg2.refEntry((_IMM(this) << 12) | 1)->P &&
-			pg2.refEntry((_IMM(this) << 12) | 0)->P;
+		return pg2.refEntry((_IMM(this) << 12) | 1)->isPresent() &&
+			pg2.refEntry((_IMM(this) << 12) | 0)->isPresent();
 	}
 
 	void Paging::setMode(PageTable& l1p, bool present, bool writable, bool user_but_superv) {
@@ -93,20 +93,19 @@ namespace uni {
 			v.address = _IMM(_physical_allocate(0x1000)) >> 12;
 			MemSet((void*)(_IMM(v.address) << 12), 0, 0x1000);
 		}
-		v.P = present;
-		v.R_W = writable;
-		v.U_S = user_but_superv;
+		v.present = present;
+		v.writable = writable;
+		v.user_access = user_but_superv;
 	}
 	void Paging::setMode(Page& l0p, bool present, bool writable, bool user_but_superv, stduint link_to_phy) {
 		// if not present, allocate it then set property.
 		if (!l0p.getParent().isPresent(self)) {
 			setMode(l0p.getParent(), present, writable, user_but_superv);
 		}
-		// if (!isPresent())
 		l0p.getEntry(self)->address = link_to_phy >> 12;
-		l0p.getEntry(self)->P = present;
-		l0p.getEntry(self)->R_W = writable;
-		l0p.getEntry(self)->U_S = user_but_superv;
+		l0p.getEntry(self)->present = present;
+		l0p.getEntry(self)->writable = writable;
+		l0p.getEntry(self)->user_access = user_but_superv;
 	}
 	
 	void Paging::Reset() {
@@ -119,7 +118,7 @@ namespace uni {
 		MemSet(root_level_page, 0, 0x1000);
 		for0(i, _NUM_pd_table_entries) {
 			PageEntry* p1entry = (*pg_another.root_level_page)[i].getEntry(pg_another);
-			if (p1entry->P) {
+			if (p1entry->isPresent()) {
 				// PageMap(self, )
 				//{TODO}
 			}
@@ -132,18 +131,18 @@ namespace uni {
 	void* Paging::operator[](stduint address) const {
 		stduint id_l1p = address; id_l1p >>= 12 + 10; id_l1p &= 0x3FF; // index of page table
 		auto l1p = *(*root_level_page)[id_l1p].getEntry(*(Paging*)this);// level-1 page
-		if (!l1p.P) return (void*)~_IMM0;
+		if (!l1p.isPresent()) return (void*)~_IMM0;
 		//
 		stduint id_l0p = address; id_l0p >>= 12; id_l0p &= 0x3FF;// index of page
 		auto l0p = *(*root_level_page)[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
-		if (!l0p.P) return (void*)~_IMM0;
+		if (!l0p.isPresent()) return (void*)~_IMM0;
 		return (void*)((_IMM(l0p.address) << 12) + (address & 0xFFF));
 	}
 
 	PageEntry* Paging::getEntry(stduint address) const {
 		stduint id_l1p = address; id_l1p >>= 12 + 10; id_l1p &= 0x3FF; // index of page table
 		auto l1p = *(*root_level_page)[id_l1p].getEntry(*(Paging*)this);// level-1 page
-		if (!l1p.P) return (PageEntry*)~_IMM0;
+		if (!l1p.isPresent()) return (PageEntry*)~_IMM0;
 		//
 		stduint id_l0p = address; id_l0p >>= 12; id_l0p &= 0x3FF;// index of page
 		return (*root_level_page)[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
@@ -177,7 +176,7 @@ namespace uni {
 		while (length) {
 			stduint unit = 0x1000;
 			auto entry = getEntry(ln_address);
-			if (_IMM(entry) == ~_IMM0 || !entry->P) {
+			if (_IMM(entry) == ~_IMM0 || !entry->isPresent()) {
 				PageMap(self, ln_address, physical_address, writable, user_but_superv);
 			}
 			MIN(unit, length);
@@ -280,8 +279,11 @@ namespace uni {
 		return ret;
 	}
 
+#elif defined(_ARC_x64)// IA32e
 
-
+	auto Paging::Map(stduint linear_address, stduint physical_address, stduint length, stduint pgsize, stduint pgporp) -> bool {
+		return _TODO false;
+	}
 
 #endif
 }

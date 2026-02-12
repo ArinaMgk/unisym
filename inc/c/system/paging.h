@@ -21,20 +21,23 @@
 */
 
 #include "../stdinc.h"
+#if defined(_INC_CPP)
+#include "../../cpp/trait/MallocTrait.hpp"
+#endif
 
 #if !defined(_INC_System_Paging) && defined(_INC_CPP)
 #define _INC_System_Paging
 
 
 // x86 Lev2: 00000000~FFFFFFFF
-//     4KB 4MB
+//     [v]4KB [ ]4MB
 // x64 Lev4: 000000000000~FFFFFFFFFFFF
-//     4KB 2MB 1GB ---
+//     [ ]4KB [ ]2MB [ ]1GB ---
 
 
 // 1 [ none   | l1p-id | l0p-id    ] until Commit 6f9dbef7
 // 2 [ l1p-id | l0p-id | crt-level ] since 20260119
-#if defined(_ARC_x86)
+#if defined(_ARC_x86) || defined(_ARC_x64)
 namespace uni {
 	#ifdef _DEV_MSVC
 	#pragma pack(push, 1)
@@ -43,20 +46,23 @@ namespace uni {
 	_PACKED(struct)
 		#endif
 		PageEntry{
-			stduint P : 1;
-			stduint R_W : 1;
-			stduint U_S : 1;
-			stduint PWT : 1;
-			stduint PCD : 1;
-			stduint A : 1;
-			stduint D : 1;
-			stduint PAT : 1;
-			stduint G : 1;
-			stduint AVL : 3;
-			stduint address : 20;
+			stduint present : 1; // P
+			stduint writable : 1;// R_W
+			stduint user_access : 1;  // U_S
+			stduint write_through : 1;// PWT
+			stduint cache_disable : 1;// PCD
+			stduint accessed : 1; // A
+			stduint dirty : 1;    // D
+			stduint huge_page : 1;// PAT
+			stduint global : 1;   // G
+			stduint available : 3;// AVL
+			stduint address : 5 * sizeof(stduint);
+			#if defined(_ARC_x64)
+			stduint sign_bits : 12;
+			#endif
 			//
 	#ifdef _INC_CPP
-			bool isPresent() const { return P; }
+			inline bool isPresent() const { return present; }
 	#endif
 	};// both page table and page directory
 
@@ -69,11 +75,45 @@ namespace uni {
 }
 #endif
 
+enum {
+	PGPORP_present = 0b1,
+	PGPORP_writable = 0b10,
+	PGPORP_user_access = 0b100,
+	//
+	PGPORP_global = 0b1000,
+	PGPORP_weak = 0x10,
+};
 
 
+#if defined(_ARC_x86) || defined(_ARC_x64)
+namespace uni {
+	_PACKED(struct) pageint {
+		stduint crt_level : 12;
+		#if defined(_ARC_x86)
+		stduint l0p_index : 10;
+		stduint l1p_index : 10;
+		#else
+		stduint l0p_index : 9;
+		stduint l1p_index : 9;
+		stduint l2p_index : 9;
+		stduint l3p_index : 9;
+		stduint pg_size : 16;// expo, 12 or 21 or 30
+		#endif
+		//
+		pageint(stduint address) {
+			treat<stduint>(this) = address;
+		}
+		operator stduint() {
+			return treat<stduint>(this);
+		}
+	};
+}
+#endif
 
-
-
+#if defined(_INC_CPP)
+extern
+::uni::trait::Malloc* uni_default_allocator;
+#endif
 
 namespace uni {
 
@@ -132,18 +172,7 @@ namespace uni {
 		}
 	};
 
-	_PACKED(struct) pageint {
-		stduint crt_level : 12;
-		stduint l0p_index : 10;
-		stduint l1p_index : 10;
-		//
-		pageint(stduint address) {
-			treat<stduint>(this) = address;
-		}
-		operator stduint() {
-			return treat<stduint>(this);
-		}
-	};
+
 
 	struct Paging {
 		PageDirectory* root_level_page;
@@ -187,10 +216,20 @@ namespace uni {
 	extern "C" stduint MemCopyP(void* dest, Paging& pg_d, const void* sors, Paging& pg_s, size_t n);
 	extern "C" stduint StrCopyP(char* dest, Paging& pg_d, const char* sors, Paging& pg_s, size_t length);
 
-	#elif defined(_MCCA) && _MCCA == 0x8664//{} should _ARC_x64 // IA32e
+// ----
+	#elif defined(_ARC_x64)// IA32e
 
 	struct Paging {
-		int _;
+		pureptr_t root_level_page;
+
+		// default: writable
+		auto
+			Map(stduint linear_address,
+				stduint physical_address,
+				stduint length,
+				stduint pgsize,
+				stduint pgporp
+			) -> bool;
 	};
 
 	#endif

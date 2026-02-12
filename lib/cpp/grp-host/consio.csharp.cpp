@@ -39,17 +39,13 @@ namespace uni {
 
 	int HostConsole::WriteLine(const char* fmt, ...) {
 		Letpara(args, fmt);
-		outbyte_t last = outredirect(outtxt);
-		int ret = outsfmtlst(fmt, args);
-		if (ret >= 0) ret += outsfmt(_NEWLINE);
-		outredirect(last);
+		int ret = Console.OutFormatPack(fmt, args);
+		if (ret >= 0) ret += Console.OutFormat(_NEWLINE);
 		return ret;
 	}
 	int HostConsole::WriteLine(const String& str) {
-		outbyte_t last = outredirect(outtxt);
-		int ret = outsfmt("%s", str.reference());
-		if (ret >= 0) ret += outsfmt(_NEWLINE);
-		outredirect(last);
+		int ret = Console.OutFormat("%s", str.reference());
+		if (ret >= 0) ret += Console.OutFormat(_NEWLINE);
 		return ret;
 	}
 	

@@ -281,8 +281,122 @@ namespace uni {
 
 #elif defined(_ARC_x64)// IA32e
 
-	auto Paging::Map(stduint linear_address, stduint physical_address, stduint length, stduint pgsize, stduint pgporp) -> bool {
-		return _TODO false;
+	// static byte getLevel(stduint lnaddr) {}
+	
+	auto Paging::refEntry(pageint p) -> PageEntry* {
+		const unsigned X64_MAXLEV = 4;
+		if (p.crt_level > X64_MAXLEV - 1) return (PageEntry*)~_IMM0;
+		auto pe = root_level_page + p.l3p_index;
+		const stduint indexes[X64_MAXLEV - 1] = {
+			p.l0p_index, p.l1p_index, p.l2p_index
+		};
+		stduint lev = X64_MAXLEV - 1 - p.crt_level;
+		for0r(i, lev) {
+			const stduint index = indexes[i - 1];
+			if (!pe->isPresent()) return (PageEntry*)~_IMM0;
+			const stduint addr = _IMM(pe->address) << 12;
+			pe = (PageEntry*)addr + index;
+		}
+		return pe;
+	}
+	
+	auto Paging::getEntry(stduint address) const -> PageEntry* {
+		if (address >= (_IMM1 << 48)) return (PageEntry*)~_IMM0;
+
+		pageint p = address;
+		const unsigned X64_MAXLEV = 4;
+
+		// Level 4: PML4
+		auto pe = (PageEntry*)root_level_page + p.l3p_index;
+		if (!pe->isPresent()) return (PageEntry*)~_IMM0; // unmap
+
+		// Level 3: PDP
+		pe = (PageEntry*)(_IMM(pe->address) << 12) + p.l2p_index;
+		if (!pe->isPresent()) return (PageEntry*)~_IMM0;
+		if (pe->huge_page) return pe; // 1GB
+
+		// Level 2: PD
+		pe = (PageEntry*)(_IMM(pe->address) << 12) + p.l1p_index;
+		if (!pe->isPresent()) return (PageEntry*)~_IMM0;
+		if (pe->huge_page) return pe; // 2MB
+
+		// Level 1: PT
+		pe = (PageEntry*)(_IMM(pe->address) << 12) + p.l0p_index;
+		return pe;
+
+	}
+
+	auto Paging::PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool {
+		// pgporp is for multi-level page tables.
+		if (pgsize == 12 || pgsize == 21 || pgsize == 30); else return false;
+		pageint p = laddr;
+		p.pg_size = pgsize;
+		p.crt_level =
+			pgsize == 12 ? 0 : pgsize == 21 ? 1 : 2;
+		//
+		const unsigned X64_MAXLEV = 4;
+		// if (p.crt_level > X64_MAXLEV - 1) return (PageEntry*)~_IMM0;
+		auto pe = root_level_page + p.l3p_index;
+		const stduint indexes[X64_MAXLEV - 1] = {
+			p.l2p_index, p.l1p_index, p.l0p_index
+		};
+		stduint lev = X64_MAXLEV - 1 - p.crt_level;
+		for0(i, lev) {
+			const stduint index = indexes[i];
+			if (!pe->isPresent()) {
+				if (!uni_default_allocator) return false;
+				auto new_pg = uni_default_allocator->allocate(0x1000, 0x1000);
+				if (!new_pg) return false;
+				MemSet(pe, 0, sizeof(PageEntry));
+				MemSet(new_pg, 0, 0x1000);
+				pe->address = _IMM(new_pg) >> 12;
+				pe->present = _TEMP 1;
+				pe->writable = true; // pgporp & PGPROP_writable;
+				pe->user_access = true; // pgporp& PGPROP_user_access;
+				pe->global = nil; // pgporp& PGPROP_global; (only for leaf)
+			}
+			const stduint addr = _IMM(pe->address) << 12;
+			pe = (PageEntry*)addr + index;
+		}
+		// proc huge page
+		if (p.crt_level) {
+			pe->huge_page = true;
+		}
+		pe->address = _IMM(paddr) >> 12;
+		pe->present = _TEMP 1;
+		pe->writable = !!(pgporp & PGPROP_writable);
+		pe->user_access = !!(pgporp & PGPROP_user_access);
+		pe->global = !!(pgporp & PGPROP_global);
+		return true;
+	}
+	
+	auto Paging::Map(stduint ln_address, stduint ph_address, stduint length, stduint pgsize, stduint pgporp) -> bool {
+		if (pgsize == 12 || pgsize == 21 || pgsize == 30); else return false;
+		if (!length) return true;
+		stduint alignmask = (_IMM1 << pgsize) - 1;
+		ph_address &= ~alignmask;
+		if (ln_address >= ln_address + length) return false;
+		length += ln_address & alignmask;
+		ln_address &= ~alignmask;
+		const stduint unit = alignmask + 1;
+		if (pgporp & PGPROP_weak) do {
+			auto entry = getEntry(ln_address);
+			if (_IMM(entry) == ~_IMM0 || !entry->isPresent())
+				PageMap(ln_address, ph_address, pgsize, pgporp);
+			ln_address += unit, ph_address += unit;
+			length -= minof(unit, length);
+		} while (length);
+		else do {
+			PageMap(ln_address, ph_address, pgsize, pgporp);
+			ln_address += unit, ph_address += unit;
+			length -= minof(unit, length);
+		} while (length);
+		return true;
+	}
+
+	void Paging::Reset() {
+		root_level_page = (uni::PageEntry*)uni_default_allocator->allocate(0x1000, 0x1000);
+		MemSet(root_level_page, 0, 0x1000);
 	}
 
 #endif

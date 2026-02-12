@@ -32,8 +32,15 @@
 // x86 Lev2: 00000000~FFFFFFFF
 //     [v]4KB [ ]4MB
 // x64 Lev4: 000000000000~FFFFFFFFFFFF
-//     [ ]4KB [ ]2MB [ ]1GB ---
+//     [v]4KB [v]2MB [v]1GB ---
 
+// x86 4MB
+// - set CR4.PSE
+// - set PDE.PAT of l1p_index
+
+// x64 2MB/1GB
+// - enable PAE
+// - set PDE.PAT of l1p_index(2M) or l2p_index(1G)
 
 // 1 [ none   | l1p-id | l0p-id    ] until Commit 6f9dbef7
 // 2 [ l1p-id | l0p-id | crt-level ] since 20260119
@@ -76,12 +83,12 @@ namespace uni {
 #endif
 
 enum {
-	PGPORP_present = 0b1,
-	PGPORP_writable = 0b10,
-	PGPORP_user_access = 0b100,
+	PGPROP_present = 0b1,
+	PGPROP_writable = 0b10,
+	PGPROP_user_access = 0b100,
 	//
-	PGPORP_global = 0b1000,
-	PGPORP_weak = 0x10,
+	PGPROP_global = 0b1000,
+	PGPROP_weak = 0x10,
 };
 
 
@@ -90,13 +97,13 @@ namespace uni {
 	_PACKED(struct) pageint {
 		stduint crt_level : 12;
 		#if defined(_ARC_x86)
-		stduint l0p_index : 10;
-		stduint l1p_index : 10;
+		stduint l0p_index : 10;// PT
+		stduint l1p_index : 10;// PD, the entries contains the pgsize
 		#else
 		stduint l0p_index : 9;
 		stduint l1p_index : 9;
-		stduint l2p_index : 9;
-		stduint l3p_index : 9;
+		stduint l2p_index : 9;// PDPT
+		stduint l3p_index : 9;// PML4
 		stduint pg_size : 16;// expo, 12 or 21 or 30
 		#endif
 		//
@@ -220,9 +227,19 @@ namespace uni {
 	#elif defined(_ARC_x64)// IA32e
 
 	struct Paging {
-		pureptr_t root_level_page;
+		PageEntry* root_level_page;
+
+		// return ~0 for unmapped
+		// do not consider huge-page
+		PageEntry* refEntry(pageint p);
+
+		// return ~0 for unmapped
+		PageEntry* getEntry(stduint address) const;
+
+		//
 
 		// default: writable
+		//{unchk} unmap
 		auto
 			Map(stduint linear_address,
 				stduint physical_address,
@@ -230,6 +247,11 @@ namespace uni {
 				stduint pgsize,
 				stduint pgporp
 			) -> bool;
+
+		void Reset();
+
+	protected:
+		auto PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool;
 	};
 
 	#endif

@@ -23,6 +23,7 @@
 #include "../../../inc/c/driver/i8259A.h"
 #include "../../../inc/c/driver/PIT.h"
 #include "../../../inc/c/driver/timer.h"
+#include "../../../inc/cpp/Device/ACPI.hpp"
 
 #if defined(_MCCA)
 #if (_MCCA==0x8616||_MCCA==0x8632)
@@ -60,8 +61,15 @@ namespace {
 	volatile uint32* divide_config = (uint32*)(0xFEE003E0);
 }
 
+void LocalAPICTimer::Reset() {
+	Reset(0);
+	Ento(CountMax);
+	ACPI::Delay_ms(100);// 0.1s
+	auto elapsed = CountMax - Read();
+	Endo();
+	Frequency = elapsed * 10;
+}
 void LocalAPICTimer::Reset(stduint init_count) {
-	//{} TEMP
 	*divide_config = 0b1011; // divide 1:1
 	if (!init_count) *lvt_timer = _IMM(0b001 << 16) | 32; // masked, one-shot
 	else {
@@ -76,7 +84,7 @@ void LocalAPICTimer::Endo() {
 	*initial_count = 0;
 }
 stduint LocalAPICTimer::Read() {
-	return CountMax - *current_count;
+	return *current_count; // CountMax - *current_count;
 }
 
 #elif (_MCCA & 0xFF00) == 0x1000

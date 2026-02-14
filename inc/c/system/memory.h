@@ -59,7 +59,7 @@ _ESYM_C void memf(void* m);// non-side-effect version, with null-check
 #if defined(_DEV_GCC) && defined(_MCCA) && !defined(_NEW)
 
 // ---- std.new
-#if !((_MCCA & 0xFF00) == 0x1000)
+#if __has_include(<new>)
 _ESYM_CPP{
 #include <new>
 }
@@ -78,10 +78,9 @@ _ESYM_CPP
 void* operator new(size_t size, const std::nothrow_t&) noexcept;
 #define _NEW// GCC Header Guard
 #endif
-#else
 
+#elif __has_include(<new>)
 #include <new>
-
 #endif
 
 

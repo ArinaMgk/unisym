@@ -9,6 +9,7 @@
 # - Perl, Python
 # - GNU gcc, make
 # - gcc-arm-none-eabi
+# - gcc-arm-none-linux-gnueabihf
 
 
 make_dir=./lib/make/

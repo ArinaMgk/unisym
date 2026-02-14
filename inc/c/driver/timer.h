@@ -65,10 +65,13 @@ extern uni::Timer clint;
 namespace uni {
 	class LocalAPICTimer {
 	public:
+		void Reset();// will test ACPI-PM Timer
 		void Reset(stduint init_count);
 		void Ento(stduint count = 0);
 		void Endo();
 		stduint Read();
+	public:
+		uint64 Frequency = 0;
 	};
 }
 extern uni::LocalAPICTimer lapic_timer;

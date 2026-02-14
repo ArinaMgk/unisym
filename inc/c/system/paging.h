@@ -65,7 +65,7 @@ namespace uni {
 			stduint available : 3;// AVL
 			stduint address : 5 * sizeof(stduint);
 			#if defined(_ARC_x64)
-			stduint sign_bits : 12;
+			stduint : 12;
 			#endif
 			//
 	#ifdef _INC_CPP

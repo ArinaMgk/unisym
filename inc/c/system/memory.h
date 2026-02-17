@@ -135,6 +135,11 @@ _memory_prefix void*  realloc(void* ptr, size_t size);
 #undef _memory_prefix
 #endif
 
+/*
+- uni_default_allocator: for memoman is just simple, e.g. BitmapMM
+- uni_hostenv_allocator: for memoman having been ready
+*/
+
 #endif// !_MCCA
 
 #endif

@@ -24,7 +24,7 @@ namespace {
 		template <class T>
 		const T* Next() {
 			while (auto n = Next()) {
-				if (auto d = usb::DescriptorDynamicCast<T>(n)) {
+				if (auto d = uni::device::SpaceUSB::DescriptorDynamicCast<T>(n)) {
 					return d;
 				}
 			}
@@ -37,32 +37,33 @@ namespace {
 		const uint8_t* p_;
 	};
 
-	usb::EndpointConfig MakeEPConfig(const usb::EndpointDescriptor& ep_desc) {
-		usb::EndpointConfig conf;
-		conf.ep_id = usb::EndpointID{
+	uni::device::SpaceUSB::EndpointConfig MakeEPConfig(const uni::device::SpaceUSB::EndpointDescriptor& ep_desc) {
+		uni::device::SpaceUSB::EndpointConfig conf;
+		conf.ep_id = uni::device::SpaceUSB::EndpointID{
 		  ep_desc.endpoint_address.bits.number,
 		  ep_desc.endpoint_address.bits.dir_in == 1
 		};
-		conf.ep_type = static_cast<usb::EndpointType>(ep_desc.attributes.bits.transfer_type);
+		conf.ep_type = static_cast<uni::device::SpaceUSB::EndpointType>(ep_desc.attributes.bits.transfer_type);
 		conf.max_packet_size = ep_desc.max_packet_size;
 		conf.interval = ep_desc.interval;
 		return conf;
 	}
 
-	usb::ClassDriver* NewClassDriver(usb::Device* dev, const usb::InterfaceDescriptor& if_desc) {
+	uni::device::SpaceUSB::ClassDriver* NewClassDriver(uni::device::SpaceUSB::DeviceUSB* dev, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc)
+	{
 		if (if_desc.interface_class == 3 &&
 			if_desc.interface_sub_class == 1) {  // HID boot interface
 			if (if_desc.interface_protocol == 1) {  // keyboard
-				auto keyboard_driver = new usb::HIDKeyboardDriver{ dev, if_desc.interface_number };
-				if (usb::HIDKeyboardDriver::default_observer) {
-					keyboard_driver->SubscribeKeyPush(usb::HIDKeyboardDriver::default_observer);
+				auto keyboard_driver = new uni::device::SpaceUSB::HIDKeyboardDriver{ dev, if_desc.interface_number };
+				if (uni::device::SpaceUSB::HIDKeyboardDriver::default_observer) {
+					keyboard_driver->SubscribeKeyPush(uni::device::SpaceUSB::HIDKeyboardDriver::default_observer);
 				}
 				return keyboard_driver;
 			}
 			else if (if_desc.interface_protocol == 2) {  // mouse
-				auto mouse_driver = new usb::HIDMouseDriver{ dev, if_desc.interface_number };
-				if (usb::HIDMouseDriver::default_observer) {
-					mouse_driver->SubscribeMouseMove(usb::HIDMouseDriver::default_observer);
+				auto mouse_driver = new uni::device::SpaceUSB::HIDMouseDriver{ dev, if_desc.interface_number };
+				if (uni::device::SpaceUSB::HIDMouseDriver::default_observer) {
+					mouse_driver->SubscribeMouseMove(uni::device::SpaceUSB::HIDMouseDriver::default_observer);
 				}
 				return mouse_driver;
 			}
@@ -70,21 +71,21 @@ namespace {
 		return nullptr;
 	}
 
-	void Log(LogLevel level, const usb::InterfaceDescriptor& if_desc) {
+	void Log(LogLevel level, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc) {
 		Log(level, "Interface Descriptor: class=%d, sub=%d, protocol=%d\n",
 			if_desc.interface_class,
 			if_desc.interface_sub_class,
 			if_desc.interface_protocol);
 	}
 
-	void Log(LogLevel level, const usb::EndpointConfig& conf) {
+	void Log(LogLevel level, const uni::device::SpaceUSB::EndpointConfig& conf) {
 
 		// Log(level, "EndpointConf: ep_id=%d, ep_type=%d, max_packet_size=%d, interval=%d\n",
 		// 	conf.ep_id.Address(), conf.ep_type,
 		// 	conf.max_packet_size, conf.interval);
 	}
 
-	void Log(LogLevel level, const usb::HIDDescriptor& hid_desc) {
+	void Log(LogLevel level, const uni::device::SpaceUSB::HIDDescriptor& hid_desc) {
 		Log(level, "HID Descriptor: release=0x%02x, num_desc=%d",
 			hid_desc.hid_release,
 			hid_desc.num_descriptors);
@@ -97,11 +98,11 @@ namespace {
 	}
 }
 
-namespace usb {
-	Device::~Device() {
+namespace uni::device::SpaceUSB {
+	DeviceUSB::~DeviceUSB() {
 	}
 
-	Error Device::ControlIn(EndpointID ep_id, SetupData setup_data,
+	Error DeviceUSB::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
 		if (issuer) {
 			event_waiters_.Put(setup_data, issuer);
@@ -109,7 +110,7 @@ namespace usb {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error Device::ControlOut(EndpointID ep_id, SetupData setup_data,
+	Error DeviceUSB::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
 		if (issuer) {
 			event_waiters_.Put(setup_data, issuer);
@@ -117,22 +118,22 @@ namespace usb {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error Device::InterruptIn(EndpointID ep_id, void* buf, int len) {
+	Error DeviceUSB::InterruptIn(EndpointID ep_id, void* buf, int len) {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error Device::InterruptOut(EndpointID ep_id, void* buf, int len) {
+	Error DeviceUSB::InterruptOut(EndpointID ep_id, void* buf, int len) {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error Device::StartInitialize() {
+	Error DeviceUSB::StartInitialize() {
 		is_initialized_ = false;
 		initialize_phase_ = 1;
 		return GetDescriptor(*this, kDefaultControlPipeID, DeviceDescriptor::kType, 0,
 			buf_.data(), buf_.size(), true);
 	}
 
-	Error Device::OnEndpointsConfigured() {
+	Error DeviceUSB::OnEndpointsConfigured() {
 		for (auto class_driver : class_drivers_) {
 			if (class_driver != nullptr) {
 				if (auto err = class_driver->OnEndpointsConfigured()) {
@@ -143,7 +144,7 @@ namespace usb {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error Device::OnControlCompleted(EndpointID ep_id, SetupData setup_data,
+	Error DeviceUSB::OnControlCompleted(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len) {
 		// Log(kDebug, "Device::OnControlCompleted: buf 0x%08x, len %d, dir %d", buf, len, setup_data.request_type.bits.direction);
 		if (is_initialized_) {
@@ -178,7 +179,7 @@ namespace usb {
 		return MAKE_ERROR(Error::kNotImplemented);
 	}
 
-	Error Device::OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) {
+	Error DeviceUSB::OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) {
 		// Log(kDebug, "Device::OnInterruptCompleted: ep addr %d\n", ep_id.Address());
 		if (auto w = class_drivers_[ep_id.Number()]) {
 			return w->OnInterruptCompleted(ep_id, buf, len);
@@ -186,7 +187,7 @@ namespace usb {
 		return MAKE_ERROR(Error::kNoWaiter);
 	}
 
-	Error Device::InitializePhase1(const uint8_t* buf, int len) {
+	Error DeviceUSB::InitializePhase1(const uint8_t* buf, int len) {
 		const auto device_desc = DescriptorDynamicCast<DeviceDescriptor>(buf);
 		num_configurations_ = device_desc->num_configurations;
 		config_index_ = 0;
@@ -197,7 +198,7 @@ namespace usb {
 			buf_.data(), buf_.size(), true);
 	}
 
-	Error Device::InitializePhase2(const uint8_t* buf, int len) {
+	Error DeviceUSB::InitializePhase2(const uint8_t* buf, int len) {
 		auto conf_desc = DescriptorDynamicCast<ConfigurationDescriptor>(buf);
 		if (conf_desc == nullptr) {
 			return MAKE_ERROR(Error::kInvalidDescriptor);
@@ -244,7 +245,7 @@ namespace usb {
 			conf_desc->configuration_value, true);
 	}
 
-	Error Device::InitializePhase3(uint8_t config_value) {
+	Error DeviceUSB::InitializePhase3(uint8_t config_value) {
 		for (int i = 0; i < num_ep_configs_; ++i) {
 			class_drivers_[ep_configs_[i].ep_id.Number()]->SetEndpoint(ep_configs_[i]);
 		}
@@ -253,7 +254,7 @@ namespace usb {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error GetDescriptor(Device& dev, EndpointID ep_id,
+	Error GetDescriptor(DeviceUSB& dev, EndpointID ep_id,
 		uint8_t desc_type, uint8_t desc_index,
 		void* buf, int len, bool debug) {
 		SetupData setup_data{};
@@ -267,7 +268,7 @@ namespace usb {
 		return dev.ControlIn(ep_id, setup_data, buf, len, nullptr);
 	}
 
-	Error SetConfiguration(Device& dev, EndpointID ep_id,
+	Error SetConfiguration(DeviceUSB& dev, EndpointID ep_id,
 		uint8_t config_value, bool debug) {
 		SetupData setup_data{};
 		setup_data.request_type.bits.direction = request_type::kOut;

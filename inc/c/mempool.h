@@ -35,8 +35,10 @@ extern "C" {
 #if defined(_INC_CPP)
 } //: C++ Area
 
-extern
-::uni::trait::Malloc* uni_default_allocator;
+extern ::uni::trait::Malloc
+* uni_default_allocator,
+* uni_hostenv_allocator;
+
 namespace uni {
 	const unsigned CNT_SLICES_PER_POOL = (0x1000 / sizeof(Slice)) - 3;
 	_PACKED(struct) SinglePool
@@ -79,8 +81,13 @@ namespace uni {
 			pool_available.Append(slice);
 		}
 
+		void Append(const Slice& slice) {
+			pool_registerd.Append(slice);
+			pool_available.Append(slice);
+		}
+
 	public:// trait
-		virtual void* allocate(stduint size, stduint alignment = 0) override;
+		virtual void* allocate(stduint size, stduint alignment = 0, stduint boundary = 0) override;
 		virtual bool deallocate(void* ptr, stduint size = 0 _Comment(zero_for_block)) override;
 
 	};// store virtual addresses

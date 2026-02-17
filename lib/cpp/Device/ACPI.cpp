@@ -92,7 +92,7 @@ bool uni::ACPI::RSDP::isValid() const {
 
 bool uni::ACPI::DescriptionHeader::isValid(const char* expected_signature) const {
 	if (StrCompareN(this->signature, expected_signature, 4) != 0) {
-		plogerro("invalid signature: %.4s\n", this->signature);
+		// plogerro("invalid signature: %s != %.4s", expected_signature, this->signature);
 		return false;
 	}
 	if (auto sum = SumBytes(this, this->length); sum != 0) {

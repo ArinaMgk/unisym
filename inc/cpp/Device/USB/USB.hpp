@@ -48,12 +48,14 @@
 #include "./USB-Header.hpp"
 #include <algorithm>
 
-namespace usb {
-	class Device;
+#include "./USB-Device.hpp"
+
+namespace uni::device::SpaceUSB {
+	class DeviceUSB;
 
 	class ClassDriver {
 	public:
-		ClassDriver(Device* dev) : dev_{ dev } {}
+		ClassDriver(DeviceUSB* dev) : dev_{ dev } {}
 		// virtual ~ClassDriver();
 
 		virtual Error Initialize() = 0;
@@ -63,17 +65,15 @@ namespace usb {
 		virtual Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) = 0;
 
 		/** このクラスドライバを保持する USB デバイスを返す． */
-		Device* ParentDevice() const { return dev_; }
+		DeviceUSB* ParentDevice() const { return dev_; }
 
 	private:
-		Device* dev_;
+		DeviceUSB* dev_;
 	};
-}
 
-namespace usb {
 	class HIDBaseDriver : public ClassDriver {
 	public:
-		HIDBaseDriver(Device* dev, int interface_index, int in_packet_size)
+		HIDBaseDriver(DeviceUSB* dev, int interface_index, int in_packet_size)
 			: ClassDriver{ dev }, interface_index_{ interface_index },
 			in_packet_size_{ in_packet_size }
 		{ }

@@ -41,11 +41,8 @@
 #define _INCPP_Device_USB_Header
 #include "../../unisym"
 #include "../../../c/consio.h"
+#include "../../../cpp/trait/MallocTrait.hpp"
 
-// x86_64 part of USB Driver is borrowed from uchan-nos/mikanos
-// - https://github.com/uchan-nos/mikanos
-// cited sincerely.
-// NOW run bad on vmware vmbox
 #if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 
 #include <array>
@@ -70,102 +67,14 @@ inline static int Log(LogLevel level, const char* fmt, ...) {
 	return 0;
 }
 
-// ---- ---- ---- ---- error.hpp ---- ---- ---- ---- //
-
-class Error {
-public:
-	enum Code {
-		kSuccess,
-		kFull,
-		kEmpty,
-		kNoEnoughMemory,
-		kIndexOutOfRange,
-		kHostControllerNotHalted,
-		kInvalidSlotID,
-		kPortNotConnected,
-		kInvalidEndpointNumber,
-		kTransferRingNotSet,
-		kAlreadyAllocated,
-		kNotImplemented,
-		kInvalidDescriptor,
-		kBufferTooSmall,
-		kUnknownDevice,
-		kNoCorrespondingSetupStage,
-		kTransferFailed,
-		kInvalidPhase,
-		kUnknownXHCISpeedID,
-		kNoWaiter,
-		kLastOfCode,  // この列挙子は常に最後に配置する
-	};
-
-private:
-	static constexpr std::array code_names_ {
-	  "kSuccess",
-	  "kFull",
-	  "kEmpty",
-	  "kNoEnoughMemory",
-	  "kIndexOutOfRange",
-	  "kHostControllerNotHalted",
-	  "kInvalidSlotID",
-	  "kPortNotConnected",
-	  "kInvalidEndpointNumber",
-	  "kTransferRingNotSet",
-	  "kAlreadyAllocated",
-	  "kNotImplemented",
-	  "kInvalidDescriptor",
-	  "kBufferTooSmall",
-	  "kUnknownDevice",
-	  "kNoCorrespondingSetupStage",
-	  "kTransferFailed",
-	  "kInvalidPhase",
-	  "kUnknownXHCISpeedID",
-	  "kNoWaiter",
-	};
-	static_assert(Error::Code::kLastOfCode == code_names_.size());
-
-public:
-	Error(Code code, const char* file, int line) : code_{ code }, line_{ line }, file_{ file } {}
-
-	Code Cause() const {
-		return this->code_;
-	}
-
-	operator bool() const {
-		return this->code_ != kSuccess;
-	}
-
-	const char* Name() const {
-		return code_names_[static_cast<int>(this->code_)];
-	}
-
-	const char* File() const {
-		return this->file_;
-	}
-
-	int Line() const {
-		return this->line_;
-	}
-
-private:
-	Code code_;
-	int line_;
-	const char* file_;
-};
-
-#define MAKE_ERROR(code) Error((code), __FILE__, __LINE__)
-
-template <class T>
-struct WithError {
-	T value;
-	Error error;
-};
+#include "./xHCI/xHCI-Error.hpp"
 
 
 
 // ---- ---- ---- ---- setupdata.hpp ---- ---- ---- ---- //
 
 
-namespace usb {
+namespace uni::device::SpaceUSB {
 	namespace request_type {
 	  // bmRequestType recipient
 		const int kDevice = 0;
@@ -259,11 +168,10 @@ namespace usb {
 // ---- ---- ---- ---- memory.hpp ---- ---- ---- ---- //
 
 static const size_t kMemoryPoolSize = 4096 * 32;
-void* AllocMem(size_t size, unsigned int alignment, unsigned int boundary);
 
 // ---- ---- ---- ---- endpoint.hpp ---- ---- ---- ---- //
 
-namespace usb {
+namespace uni::device::SpaceUSB {
 	enum class EndpointType {
 		kControl = 0,
 		kIsochronous = 1,
@@ -322,7 +230,7 @@ namespace usb {
 // ---- ---- ---- ---- arraymap.hpp ---- ---- ---- ---- //
 
 
-namespace usb {
+namespace uni::device::SpaceUSB {
 	template <class K, class V, size_t N = 16>
 	class ArrayMap {
 	public:
@@ -363,7 +271,7 @@ namespace usb {
 // ---- ---- ---- ---- descriptor.hpp ---- ---- ---- ---- //
 
 
-namespace usb {
+namespace uni::device::SpaceUSB {
 	struct DeviceDescriptor {
 		static const uint8_t kType = 1;
 
@@ -489,76 +397,16 @@ namespace usb {
 	}
 }
 
-
-// ---- ---- ---- ---- device.hpp ---- ---- ---- ---- //
-
-
-namespace usb {
-	class ClassDriver;
-
-	class Device {
-	public:
-		virtual ~Device();
-		virtual Error ControlIn(EndpointID ep_id, SetupData setup_data,
-			void* buf, int len, ClassDriver* issuer);
-		virtual Error ControlOut(EndpointID ep_id, SetupData setup_data,
-			const void* buf, int len, ClassDriver* issuer);
-		virtual Error InterruptIn(EndpointID ep_id, void* buf, int len);
-		virtual Error InterruptOut(EndpointID ep_id, void* buf, int len);
-
-		Error StartInitialize();
-		bool IsInitialized() { return is_initialized_; }
-		EndpointConfig* EndpointConfigs() { return ep_configs_.data(); }
-		int NumEndpointConfigs() { return num_ep_configs_; }
-		Error OnEndpointsConfigured();
-
-		uint8_t* Buffer() { return buf_.data(); }
-
-	protected:
-		Error OnControlCompleted(EndpointID ep_id, SetupData setup_data,
-			const void* buf, int len);
-		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len);
-
-	private:
-	 /** @brief エンドポイントに割り当て済みのクラスドライバ．
-	  *
-	  * 添字はエンドポイント番号（0 - 15）．
-	  * 添字 0 はどのクラスドライバからも使われないため，常に未使用．
-	  */
-		std::array<ClassDriver*, 16> class_drivers_{};
-
-		std::array<uint8_t, 256> buf_{};
-
-		// following fields are used during initialization
-		uint8_t num_configurations_;
-		uint8_t config_index_;
-
-		Error OnDeviceDescriptorReceived(const uint8_t* buf, int len);
-		Error OnConfigurationDescriptorReceived(const uint8_t* buf, int len);
-		Error OnSetConfigurationCompleted(uint8_t config_value);
-
-		bool is_initialized_ = false;
-		int initialize_phase_ = 0;
-		std::array<EndpointConfig, 16> ep_configs_;
-		int num_ep_configs_;
-		Error InitializePhase1(const uint8_t* buf, int len);
-		Error InitializePhase2(const uint8_t* buf, int len);
-		Error InitializePhase3(uint8_t config_value);
-		Error InitializePhase4();
-
-		/** OnControlCompleted の中で要求の発行元を特定するためのマップ構造．
-		 * ControlOut または ControlIn を発行したときに発行元が登録される．
-		 */
-		ArrayMap<SetupData, ClassDriver*, 4> event_waiters_{};
-	};
-
-	Error GetDescriptor(Device& dev, EndpointID ep_id,
-		uint8_t desc_type, uint8_t desc_index,
-		void* buf, int len, bool debug = false);
-	Error SetConfiguration(Device& dev, EndpointID ep_id,
-		uint8_t config_value, bool debug = false);
+namespace uni::device::SpaceUSB3 {
+	const int kFullSpeed = 1;
+	const int kLowSpeed = 2;
+	const int kHighSpeed = 3;
+	const int kSuperSpeed = 4;
+	const int kSuperSpeedPlus = 5;
 }
 
+extern
+::uni::trait::Malloc* uni_hostenv_allocator;
 
 #endif
 

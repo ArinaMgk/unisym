@@ -47,11 +47,11 @@ void Mouse_Init()
 
 #endif
 
-#if defined(_INC_CPP) && (defined(_UEFI))
+#if defined(_INC_CPP) && (defined(_UEFI)) && (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 #include <algorithm>
 
 //{TEMP} version
-uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, usb::xhci::Controller* xhc) {
+uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, uni::device::SpaceUSB3::HostController* xhc) {
 	using namespace uni;
 	// seek an Intel xHC.
 	// VMware: USB 3.1, 显示所有设备
@@ -82,7 +82,7 @@ uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, usb::xhci::Controller* xhc) {
 	//
 	xhc_mmio_base = *xhc_bar.pvalue & ~_IMM(0xF);
 	if (!xhc_mmio_base) return nullptr;
-	new (xhc) usb::xhci::Controller(xhc_mmio_base);
+	new (xhc) uni::device::SpaceUSB3::HostController(xhc_mmio_base);
 	pci.ConvertFromEhci(*xhc_dev);
 	if (auto err = xhc->Initialize()) {
 		ploginfo("xhc.Initialize: %s", err.Name());
@@ -93,7 +93,7 @@ uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, usb::xhci::Controller* xhc) {
 		auto port = xhc->PortAt(i);
 		// ploginfo("Port %d: IsConnected=%d", i, port.IsConnected());
 		if (port.IsConnected()) {
-			if (auto err = ConfigurePort(*xhc, port)) {
+			if (auto err = xhc->ConfigurePort(port)) {
 				plogerro("Failed to configure port: %s at %s:%d", err.Name(), err.File(), err.Line());
 				continue;
 			}
@@ -103,8 +103,17 @@ uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, usb::xhci::Controller* xhc) {
 	return xhc_dev;
 }
 
-namespace usb {
-	HIDMouseDriver::HIDMouseDriver(Device* dev, int interface_index)
+void* uni::device::SpaceUSB::HIDMouseDriver::operator new(size_t size) {
+	auto ret = uni_hostenv_allocator->allocate(sizeof(HIDMouseDriver));
+	return ret;
+}
+
+void uni::device::SpaceUSB::HIDMouseDriver::operator delete(void* ptr) noexcept {
+	uni_hostenv_allocator->deallocate(ptr);
+}
+
+namespace uni::device::SpaceUSB {
+	HIDMouseDriver::HIDMouseDriver(DeviceUSB* dev, int interface_index)
 		: HIDBaseDriver{ dev, interface_index, 3 } {
 	}
 

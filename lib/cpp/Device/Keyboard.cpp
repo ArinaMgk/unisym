@@ -5,8 +5,17 @@
 
 
 #if defined(_INC_CPP) && (defined(_MCCA) && ((_MCCA)==0x8664))
-namespace usb {
-	HIDKeyboardDriver::HIDKeyboardDriver(Device* dev, int interface_index)
+namespace uni::device::SpaceUSB {
+	void* HIDKeyboardDriver::operator new(size_t size) {
+		return uni_hostenv_allocator->allocate(sizeof(HIDKeyboardDriver));
+	}
+
+	void HIDKeyboardDriver::operator delete(void* ptr) noexcept {
+		uni_hostenv_allocator->deallocate(ptr);
+	}
+}
+namespace uni::device::SpaceUSB {
+	HIDKeyboardDriver::HIDKeyboardDriver(DeviceUSB* dev, int interface_index)
 		: HIDBaseDriver{ dev, interface_index, 8 } {
 	}
 
@@ -23,14 +32,6 @@ namespace usb {
 			NotifyKeyPush(key);
 		}
 		return MAKE_ERROR(Error::kSuccess);
-	}
-
-	void* HIDKeyboardDriver::operator new(size_t size) {
-		return AllocMem(sizeof(HIDKeyboardDriver), 0, 0);
-	}
-
-	void HIDKeyboardDriver::operator delete(void* ptr) noexcept {
-		// FreeMem(ptr);
 	}
 
 	void HIDKeyboardDriver::SubscribeKeyPush(

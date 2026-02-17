@@ -26,6 +26,8 @@ using namespace uni;
 
 ::uni::trait::Malloc* uni_default_allocator
 = nullptr;
+::uni::trait::Malloc* uni_hostenv_allocator
+= nullptr;
 
 stdsint SinglePool::ifContainAll(const Slice& slice) {
 	stduint lev = 0;
@@ -244,9 +246,12 @@ _PACKED(struct) Header {
 	stduint prop;
 };
 
-void* Mempool::allocate(stduint size, stduint alignment) {
+void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 	stduint align = _IMM1 << alignment;
+	if (boundary <= alignment) boundary = nil;
+	stduint bound = boundary ? (_IMM1 << boundary) : 0;
 	if (!size) return nullptr;
+	if (bound > 0 && size > bound) return nullptr;
 	const stduint total_size = sizeof(Header) + size;
 	auto crtpool = &pool_available;
 	while (crtpool && crtpool->slicecnt) {
@@ -257,10 +262,25 @@ void* Mempool::allocate(stduint size, stduint alignment) {
 			}
 			Header* header;
 			pureptr_t ret;
-			const stduint next_align = ceilAlign(align, p->address + sizeof(Header));
+			stduint next_align = ceilAlign(align, p->address + sizeof(Header));
+			//
+			if (bound > 1) {
+				stduint mask = ~(bound - 1);
+				if ((next_align & mask) != ((next_align + size - 1) & mask)) {
+					next_align = (next_align & mask) + bound;// over bound
+				}
+			}
+			//
 			if (align <= 1) {
-				header = (Header*)p->address;
-				ret = (void*)_IMM(header + 1);
+				if (next_align == p->address + sizeof(Header)) {
+					header = (Header*)p->address;
+					ret = (void*)_IMM(header + 1);
+				}
+				else if (next_align + size <= (stduint)p->getEndoaddr()) {
+					header = (Header*)(next_align - sizeof(Header));
+					ret = (void*)next_align;
+				}
+				else continue;
 			}
 			else if (next_align + size <= (stduint)p->getEndoaddr()) {
 				header = (Header*)(next_align - sizeof(Header));
@@ -275,6 +295,7 @@ void* Mempool::allocate(stduint size, stduint alignment) {
 			if (!succ) {
 				plogerro("Remove failed in Mempool::allocate");
 			}
+			// ploginfo("Mempool::allocate %u a%u b%u -> %[x]", size, alignment, boundary, ret);
 			return ret;
 		}
 		crtpool = crtpool->nextpool;

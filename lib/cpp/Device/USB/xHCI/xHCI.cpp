@@ -1,22 +1,20 @@
 #if defined(_MCCA) && _MCCA == 0x8664
 #include "../../../../../inc/c/msgface.h"
+#include "../../../../../inc/cpp/Device/USB/xHCI/xHCI-registers.hpp"
 #include "../../../../../inc/cpp/Device/USB/xHCI/xHCI.hpp"
 #include <algorithm>
 
-template <class T>
-T* AllocArray(size_t num_obj, unsigned int alignment, unsigned int boundary) {
-	return reinterpret_cast<T*>(
-		AllocMem(sizeof(T) * num_obj, alignment, boundary));
-}
 
-#define FreeMem(x)
+
+using namespace uni::device::SpaceUSB;
+using namespace uni::device::SpaceUSB3;
+
 
 // ---- ---- ---- ---- device.cpp ---- ---- ---- ---- //
 
 namespace {
-	using namespace usb::xhci;
 
-	SetupStageTRB MakeSetupStageTRB(usb::SetupData setup_data, int transfer_type) {
+	SetupStageTRB MakeSetupStageTRB(SetupData setup_data, int transfer_type) {
 		SetupStageTRB setup{};
 		setup.bits.request_type = setup_data.request_type.data;
 		setup.bits.request = setup_data.request;
@@ -86,12 +84,12 @@ namespace {
 	}
 }
 
-namespace usb::xhci {
-	Device::Device(uint8_t slot_id, DoorbellRegister* dbreg)
+namespace uni::device::SpaceUSB3 {
+	DeviceUSB3::DeviceUSB3(uint8 slot_id, DoorbellRegister* dbreg)
 		: slot_id_{ slot_id }, dbreg_{ dbreg } {
 	}
 
-	Error Device::Initialize() {
+	Error DeviceUSB3::Initialize() {
 		state_ = State::kBlank;
 		for (size_t i = 0; i < 31; ++i) {
 			const DeviceContextIndex dci(i + 1);
@@ -100,11 +98,11 @@ namespace usb::xhci {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	void Device::SelectForSlotAssignment() {
+	void DeviceUSB3::SelectForSlotAssignment() {
 		state_ = State::kSlotAssigning;
 	}
 
-	Ring* Device::AllocTransferRing(DeviceContextIndex index, size_t buf_size) {
+	Ring* DeviceUSB3::AllocTransferRing(DeviceContextIndex index, size_t buf_size) {
 		int i = index.value - 1;
 		auto tr = AllocArray<Ring>(1, 64, 4096);
 		if (tr) {
@@ -114,9 +112,9 @@ namespace usb::xhci {
 		return tr;
 	}
 
-	Error Device::ControlIn(EndpointID ep_id, SetupData setup_data,
+	Error DeviceUSB3::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
-		if (auto err = usb::Device::ControlIn(ep_id, setup_data, buf, len, issuer)) {
+		if (auto err = DeviceUSB::ControlIn(ep_id, setup_data, buf, len, issuer)) {
 			return err;
 		}
 
@@ -162,9 +160,9 @@ namespace usb::xhci {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error Device::ControlOut(EndpointID ep_id, SetupData setup_data,
+	Error DeviceUSB3::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
-		if (auto err = usb::Device::ControlOut(ep_id, setup_data, buf, len, issuer)) {
+		if (auto err = DeviceUSB::ControlOut(ep_id, setup_data, buf, len, issuer)) {
 			return err;
 		}
 
@@ -209,8 +207,8 @@ namespace usb::xhci {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error Device::InterruptIn(EndpointID ep_id, void* buf, int len) {
-		if (auto err = usb::Device::InterruptIn(ep_id, buf, len)) {
+	Error DeviceUSB3::InterruptIn(EndpointID ep_id, void* buf, int len) {
+		if (auto err = DeviceUSB::InterruptIn(ep_id, buf, len)) {
 			return err;
 		}
 
@@ -233,8 +231,8 @@ namespace usb::xhci {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error Device::InterruptOut(EndpointID ep_id, void* buf, int len) {
-		if (auto err = usb::Device::InterruptOut(ep_id, buf, len)) {
+	Error DeviceUSB3::InterruptOut(EndpointID ep_id, void* buf, int len) {
+		if (auto err = DeviceUSB::InterruptOut(ep_id, buf, len)) {
 			return err;
 		}
 
@@ -243,7 +241,7 @@ namespace usb::xhci {
 		return MAKE_ERROR(Error::kNotImplemented);
 	}
 
-	Error Device::OnTransferEventReceived(const TransferEventTRB& trb) {
+	Error DeviceUSB3::OnTransferEventReceived(const TransferEventTRB& trb) {
 		const auto residual_length = trb.bits.trb_transfer_length;
 
 		if (trb.bits.completion_code != 1 /* Success */ &&
@@ -300,18 +298,18 @@ namespace usb::xhci {
 
 // ---- ---- ---- ---- devmgr.cpp ---- ---- ---- ---- //
 
-namespace usb::xhci {
+namespace uni::device::SpaceUSB3 {
 	Error DeviceManager::Initialize(size_t max_slots) {
 		max_slots_ = max_slots;
 
-		devices_ = AllocArray<Device*>(max_slots_ + 1, 0, 0);
+		devices_ = AllocArray<DeviceUSB3*>(max_slots_ + 1, 0, 0);
 		if (devices_ == nullptr) {
 			return MAKE_ERROR(Error::kNoEnoughMemory);
 		}
 
 		device_context_pointers_ = AllocArray<DeviceContext*>(max_slots_ + 1, 64, 4096);
 		if (device_context_pointers_ == nullptr) {
-			FreeMem(devices_);
+			uni_hostenv_allocator->deallocate(devices_);
 			return MAKE_ERROR(Error::kNoEnoughMemory);
 		}
 
@@ -327,7 +325,7 @@ namespace usb::xhci {
 		return device_context_pointers_;
 	}
 
-	Device* DeviceManager::FindByPort(uint8_t port_num, uint32_t route_string) const {
+	DeviceUSB3* DeviceManager::FindByPort(uint8 port_num, uint32_t route_string) const {
 		for (size_t i = 1; i <= max_slots_; ++i) {
 			auto dev = devices_[i];
 			if (dev == nullptr) continue;
@@ -338,7 +336,7 @@ namespace usb::xhci {
 		return nullptr;
 	}
 
-	Device* DeviceManager::FindByState(enum Device::State state) const {
+	DeviceUSB3* DeviceManager::FindByState(enum DeviceUSB3::State state) const {
 		for (size_t i = 1; i <= max_slots_; ++i) {
 			auto dev = devices_[i];
 			if (dev == nullptr) continue;
@@ -349,7 +347,7 @@ namespace usb::xhci {
 		return nullptr;
 	}
 
-	Device* DeviceManager::FindBySlot(uint8_t slot_id) const {
+	DeviceUSB3* DeviceManager::FindBySlot(uint8 slot_id) const {
 		if (slot_id > max_slots_) {
 			return nullptr;
 		}
@@ -357,7 +355,7 @@ namespace usb::xhci {
 	}
 
 	/*
-	WithError<Device*> DeviceManager::Get(uint8_t device_id) const {
+	WithError<Device*> DeviceManager::Get(uint8 device_id) const {
 	  if (device_id >= num_devices_) {
 		return {nullptr, Error::kInvalidDeviceId};
 	  }
@@ -365,7 +363,7 @@ namespace usb::xhci {
 	}
 	*/
 
-	Error DeviceManager::AllocDevice(uint8_t slot_id, DoorbellRegister* dbreg) {
+	Error DeviceManager::AllocDevice(uint8 slot_id, DoorbellRegister* dbreg) {
 		if (slot_id > max_slots_) {
 			return MAKE_ERROR(Error::kInvalidSlotID);
 		}
@@ -374,12 +372,12 @@ namespace usb::xhci {
 			return MAKE_ERROR(Error::kAlreadyAllocated);
 		}
 
-		devices_[slot_id] = AllocArray<Device>(1, 64, 4096);
-		new(devices_[slot_id]) Device(slot_id, dbreg);
+		devices_[slot_id] = AllocArray<DeviceUSB3>(1, 64, 4096);
+		new(devices_[slot_id]) DeviceUSB3(slot_id, dbreg);
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceManager::LoadDCBAA(uint8_t slot_id) {
+	Error DeviceManager::LoadDCBAA(uint8 slot_id) {
 		if (slot_id > max_slots_) {
 			return MAKE_ERROR(Error::kInvalidSlotID);
 		}
@@ -389,9 +387,9 @@ namespace usb::xhci {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceManager::Remove(uint8_t slot_id) {
+	Error DeviceManager::Remove(uint8 slot_id) {
 		device_context_pointers_[slot_id] = nullptr;
-		FreeMem(devices_[slot_id]);
+		uni_hostenv_allocator->deallocate(devices_[slot_id]);
 		devices_[slot_id] = nullptr;
 		return MAKE_ERROR(Error::kSuccess);
 	}
@@ -399,8 +397,8 @@ namespace usb::xhci {
 
 // ---- ---- ---- ---- port.cpp ---- ---- ---- ---- //
 
-namespace usb::xhci {
-	uint8_t Port::Number() const {
+namespace uni::device::SpaceUSB3 {
+	uint8 Port::Number() const {
 		return port_num_;
 	}
 
@@ -433,7 +431,7 @@ namespace usb::xhci {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Device* Port::Initialize() {
+	DeviceUSB3* Port::Initialize() {
 		return nullptr;
 	}
 }
@@ -447,7 +445,7 @@ namespace {
 	}
 }
 
-namespace usb::xhci {
+namespace uni::device::SpaceUSB3 {
 	ExtendedRegisterList::Iterator& ExtendedRegisterList::Iterator::operator++() {
 		if (reg_) {
 			reg_ = AddOrNull(reg_, reg_->Read().bits.next_pointer);
@@ -457,129 +455,14 @@ namespace usb::xhci {
 	}
 
 	ExtendedRegisterList::ExtendedRegisterList(uint64_t mmio_base,
-		HCCPARAMS1_Bitmap hccp)
+		HCCPARAMS1_t hccp)
 		: first_{ AddOrNull(reinterpret_cast<ValueType*>(mmio_base), hccp.bits.xhci_extended_capabilities_pointer) } {
-	}
-}
-
-
-// ---- ---- ---- ---- ring.cpp ---- ---- ---- ---- //
-
-
-namespace usb::xhci {
-	Ring::~Ring() {
-		if (buf_ != nullptr) {
-			FreeMem(buf_);
-		}
-	}
-
-	Error Ring::Initialize(size_t buf_size) {
-		if (buf_ != nullptr) {
-			FreeMem(buf_);
-		}
-
-		cycle_bit_ = true;
-		write_index_ = 0;
-		buf_size_ = buf_size;
-
-		buf_ = AllocArray<TRB>(buf_size_, 64, 64 * 1024);
-		if (buf_ == nullptr) {
-			return MAKE_ERROR(Error::kNoEnoughMemory);
-		}
-		MemSet(buf_, 0, buf_size_ * sizeof(TRB));
-		return MAKE_ERROR(Error::kSuccess);
-	}
-
-	void Ring::CopyToLast(const std::array<uint32_t, 4>& data) {
-		for (int i = 0; i < 3; ++i) {
-		  // data[0..2] must be written prior to data[3].
-			buf_[write_index_].data[i] = data[i];
-		}
-		buf_[write_index_].data[3]
-			= (data[3] & 0xfffffffeu) | static_cast<uint32_t>(cycle_bit_);
-	}
-
-	TRB* Ring::Push(const std::array<uint32_t, 4>& data) {
-		auto trb_ptr = &buf_[write_index_];
-		CopyToLast(data);
-
-		++write_index_;
-		if (write_index_ == buf_size_ - 1) {
-			LinkTRB link{ buf_ };
-			link.bits.toggle_cycle = true;
-			CopyToLast(link.data);
-
-			write_index_ = 0;
-			cycle_bit_ = !cycle_bit_;
-		}
-
-		return trb_ptr;
-	}
-
-	Error EventRing::Initialize(size_t buf_size,
-		InterrupterRegisterSet* interrupter) {
-		if (buf_ != nullptr) {
-			FreeMem(buf_);
-		}
-
-		cycle_bit_ = true;
-		buf_size_ = buf_size;
-		interrupter_ = interrupter;
-
-		buf_ = AllocArray<TRB>(buf_size_, 64, 64 * 1024);
-		if (buf_ == nullptr) {
-			return MAKE_ERROR(Error::kNoEnoughMemory);
-		}
-		MemSet(buf_, 0, buf_size_ * sizeof(TRB));
-
-		erst_ = AllocArray<EventRingSegmentTableEntry>(1, 64, 64 * 1024);
-		if (erst_ == nullptr) {
-			FreeMem(buf_);
-			return MAKE_ERROR(Error::kNoEnoughMemory);
-		}
-		MemSet(erst_, 0, 1 * sizeof(EventRingSegmentTableEntry));
-
-		erst_[0].bits.ring_segment_base_address = reinterpret_cast<uint64_t>(buf_);
-		erst_[0].bits.ring_segment_size = buf_size_;
-
-		ERSTSZ_Bitmap erstsz = interrupter_->ERSTSZ.Read();
-		erstsz.SetSize(1);
-		interrupter_->ERSTSZ.Write(erstsz);
-
-		WriteDequeuePointer(&buf_[0]);
-
-		ERSTBA_Bitmap erstba = interrupter_->ERSTBA.Read();
-		erstba.SetPointer(reinterpret_cast<uint64_t>(erst_));
-		interrupter_->ERSTBA.Write(erstba);
-
-		return MAKE_ERROR(Error::kSuccess);
-	}
-
-	void EventRing::WriteDequeuePointer(TRB* p) {
-		auto erdp = interrupter_->ERDP.Read();
-		erdp.SetPointer(reinterpret_cast<uint64_t>(p));
-		interrupter_->ERDP.Write(erdp);
-	}
-
-	void EventRing::Pop() {
-		auto p = ReadDequeuePointer() + 1;
-
-		TRB* segment_begin
-			= reinterpret_cast<TRB*>(erst_[0].bits.ring_segment_base_address);
-		TRB* segment_end = segment_begin + erst_[0].bits.ring_segment_size;
-
-		if (p == segment_end) {
-			p = segment_begin;
-			cycle_bit_ = !cycle_bit_;
-		}
-
-		WriteDequeuePointer(p);
 	}
 }
 
 // ---- ---- ---- ---- trb.cpp ---- ---- ---- ---- //
 
-namespace usb::xhci {
+namespace uni::device::SpaceUSB3 {
 	const std::array<const char*, 37> kTRBCompletionCodeToName{
 		"Invalid",
 		"Success",
@@ -691,17 +574,8 @@ namespace usb::xhci {
 // ---- ---- ---- ---- xHCI.cpp ---- ---- ---- ---- //
 
 namespace {
-	using namespace usb::xhci;
 
-	Error RegisterCommandRing(Ring* ring, MemMapRegister<CRCR_Bitmap>* crcr) {
-		CRCR_Bitmap value = crcr->Read();
-		value.bits.ring_cycle_state = true;
-		value.bits.command_stop = false;
-		value.bits.command_abort = false;
-		value.SetPointer(reinterpret_cast<uint64_t>(ring->Buffer()));
-		crcr->Write(value);
-		return MAKE_ERROR(Error::kSuccess);
-	}
+
 
 	enum class ConfigPhase {
 		kNotConnected,
@@ -724,7 +598,7 @@ namespace {
 	/** kResettingPort から kAddressingDevice までの処理を実行中のポート番号．
 	 * 0 ならその状態のポートがないことを示す．
 	 */
-	uint8_t addressing_port{ 0 };
+	uint8 addressing_port{ 0 };
 
 	void InitializeSlotContext(SlotContext& ctx, Port& port) {
 		ctx.bits.route_string = 0;
@@ -769,7 +643,7 @@ namespace {
 		ctx.bits.error_count = 3;
 	}
 
-	Error ResetPort(Controller& xhc, Port& port) {
+	Error ResetPort(HostController& xhc, Port& port) {
 		const bool is_connected = port.IsConnected();
 		Log(kDebug, "ResetPort: port.IsConnected() = %s\n",
 			is_connected ? "true" : "false");
@@ -794,7 +668,7 @@ namespace {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error EnableSlot(Controller& xhc, Port& port) {
+	Error EnableSlot(HostController& xhc, Port& port) {
 		const bool is_enabled = port.IsEnabled();
 		const bool reset_completed = port.IsPortResetChanged();
 		Log(kDebug, "EnableSlot: port.IsEnabled() = %s, port.IsPortResetChanged() = %s\n",
@@ -813,12 +687,12 @@ namespace {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error AddressDevice(Controller& xhc, uint8_t port_id, uint8_t slot_id) {
+	Error AddressDevice(HostController& xhc, uint8 port_id, uint8 slot_id) {
 		Log(kDebug, "AddressDevice: port_id = %d, slot_id = %d\n", port_id, slot_id);
 
 		xhc.GetDeviceManager()->AllocDevice(slot_id, xhc.DoorbellRegisterAt(slot_id));
 
-		Device* dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
+		DeviceUSB3* dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
 		if (dev == nullptr) {
 			return MAKE_ERROR(Error::kInvalidSlotID);
 		}
@@ -847,7 +721,7 @@ namespace {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error InitializeDevice(Controller& xhc, uint8_t port_id, uint8_t slot_id) {
+	Error InitializeDevice(HostController& xhc, uint8 port_id, uint8 slot_id) {
 		// Log(kDebug, "InitializeDevice: port_id = %d, slot_id = %d", port_id, slot_id);
 
 		auto dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
@@ -861,7 +735,7 @@ namespace {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error CompleteConfiguration(Controller& xhc, uint8_t port_id, uint8_t slot_id) {
+	Error CompleteConfiguration(HostController& xhc, uint8 port_id, uint8 slot_id) {
 		// Log(kDebug, "CompleteConfiguration: port_id = %d, slot_id = %d\n", port_id, slot_id);
 
 		auto dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
@@ -875,7 +749,7 @@ namespace {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error OnEvent(Controller& xhc, PortStatusChangeEventTRB& trb) {
+	Error OnEvent(HostController& xhc, PortStatusChangeEventTRB& trb) {
 		// Log(kDebug, "PortStatusChangeEvent: port_id = %d", trb.bits.port_id);
 		auto port_id = trb.bits.port_id;
 		auto port = xhc.PortAt(port_id);
@@ -903,8 +777,8 @@ namespace {
 		}
 	}
 
-	Error OnEvent(Controller& xhc, TransferEventTRB& trb) {
-		const uint8_t slot_id = trb.bits.slot_id;
+	Error OnEvent(HostController& xhc, TransferEventTRB& trb) {
+		const uint8 slot_id = trb.bits.slot_id;
 		auto dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
 		if (dev == nullptr) {
 			return MAKE_ERROR(Error::kInvalidSlotID);
@@ -916,12 +790,12 @@ namespace {
 		const auto port_id = dev->GetDeviceContext()->slot_context.bits.root_hub_port_num;
 		if (dev->IsInitialized() &&
 			port_config_phase[port_id] == ConfigPhase::kInitializingDevice) {
-			return ConfigureEndpoints(xhc, *dev);
+			return xhc.ConfigureEndpoints(*dev);
 		}
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error OnEvent(Controller& xhc, CommandCompletionEventTRB& trb) {
+	Error OnEvent(HostController& xhc, CommandCompletionEventTRB& trb) {
 		const auto issuer_type = trb.Pointer()->bits.trb_type;
 		const auto slot_id = trb.bits.slot_id;
 		// Log(kDebug, "CommandCompletionEvent: slot_id = %d, issuer = %s",
@@ -979,125 +853,16 @@ namespace {
 		return MAKE_ERROR(Error::kInvalidPhase);
 	}
 
-	void RequestHCOwnership(uintptr_t mmio_base, HCCPARAMS1_Bitmap hccp) {
-		ExtendedRegisterList extregs{ mmio_base, hccp };
 
-		auto ext_usblegsup = std::find_if(
-			extregs.begin(), extregs.end(),
-			[](auto& reg) { return reg.Read().bits.capability_id == 1; });
-
-		if (ext_usblegsup == extregs.end()) {
-			return;
-		}
-
-		auto& reg =
-			reinterpret_cast<MemMapRegister<USBLEGSUP_Bitmap>&>(*ext_usblegsup);
-		auto r = reg.Read();
-		if (r.bits.hc_os_owned_semaphore) {
-			return;
-		}
-
-		r.bits.hc_os_owned_semaphore = 1;
-		Log(kDebug, "waiting until OS owns xHC...\n");
-		reg.Write(r);
-
-		do {
-			r = reg.Read();
-		} while (r.bits.hc_bios_owned_semaphore ||
-			!r.bits.hc_os_owned_semaphore);
-		Log(kDebug, "OS has owned xHC\n");
-	}
 }
 
-namespace usb::xhci {
+namespace uni::device::SpaceUSB3 {
 
-	Controller::Controller(uintptr_t mmio_base)
-		: mmio_base_{ mmio_base },
-		cap_{ reinterpret_cast<CapabilityRegisters*>(mmio_base) },
-		op_{ reinterpret_cast<OperationalRegisters*>(
-			mmio_base + cap_->CAPLENGTH.Read()) },
-		max_ports_{ static_cast<uint8_t>(
-			cap_->HCSPARAMS1.Read().bits.max_ports) } {
-	}
 
-	Error Controller::Initialize() {
-		if (auto err = devmgr_.Initialize(kDeviceSize)) {
-			return err;
-		}
 
-		RequestHCOwnership(mmio_base_, cap_->HCCPARAMS1.Read());
 
-		auto usbcmd = op_->USBCMD.Read();
-		usbcmd.bits.interrupter_enable = false;
-		usbcmd.bits.host_system_error_enable = false;
-		usbcmd.bits.enable_wrap_event = false;
-		// Host controller must be halted before resetting it.
-		if (!op_->USBSTS.Read().bits.host_controller_halted) {
-			usbcmd.bits.run_stop = false;  // stop
-		}
 
-		op_->USBCMD.Write(usbcmd);
-		while (!op_->USBSTS.Read().bits.host_controller_halted);
-
-		// Reset controller
-		usbcmd = op_->USBCMD.Read();
-		usbcmd.bits.host_controller_reset = true;
-		op_->USBCMD.Write(usbcmd);
-		while (op_->USBCMD.Read().bits.host_controller_reset);
-		while (op_->USBSTS.Read().bits.controller_not_ready);
-
-		Log(kDebug, "MaxSlots: %u", cap_->HCSPARAMS1.Read().bits.max_device_slots);
-		// Set "Max Slots Enabled" field in CONFIG.
-		auto config = op_->CONFIG.Read();
-		config.bits.max_device_slots_enabled = kDeviceSize;
-		op_->CONFIG.Write(config);
-
-		auto hcsparams2 = cap_->HCSPARAMS2.Read();
-		const uint16_t max_scratchpad_buffers =
-			hcsparams2.bits.max_scratchpad_buffers_low
-			| (hcsparams2.bits.max_scratchpad_buffers_high << 5);
-		if (max_scratchpad_buffers > 0) {
-			auto scratchpad_buf_arr = AllocArray<void*>(max_scratchpad_buffers, 64, 4096);
-			for (int i = 0; i < max_scratchpad_buffers; ++i) {
-				scratchpad_buf_arr[i] = AllocMem(4096, 4096, 4096);
-				Log(kDebug, "scratchpad buffer array %d = %p\n",
-					i, scratchpad_buf_arr[i]);
-			}
-			devmgr_.DeviceContexts()[0] = reinterpret_cast<DeviceContext*>(scratchpad_buf_arr);
-			Log(kInfo, "wrote scratchpad buffer array %p to dev ctx array 0\n",
-				scratchpad_buf_arr);
-		}
-
-		DCBAAP_Bitmap dcbaap{};
-		dcbaap.SetPointer(reinterpret_cast<uint64_t>(devmgr_.DeviceContexts()));
-		op_->DCBAAP.Write(dcbaap);
-
-		auto primary_interrupter = &InterrupterRegisterSets()[0];
-		if (auto err = cr_.Initialize(32)) {
-			return err;
-		}
-		if (auto err = RegisterCommandRing(&cr_, &op_->CRCR)) {
-			return err;
-		}
-		if (auto err = er_.Initialize(32, primary_interrupter)) {
-			return err;
-		}
-
-		// Enable interrupt for the primary interrupter
-		auto iman = primary_interrupter->IMAN.Read();
-		iman.bits.interrupt_pending = true;
-		iman.bits.interrupt_enable = true;
-		primary_interrupter->IMAN.Write(iman);
-
-		// Enable interrupt for the controller
-		usbcmd = op_->USBCMD.Read();
-		usbcmd.bits.interrupter_enable = true;
-		op_->USBCMD.Write(usbcmd);
-
-		return MAKE_ERROR(Error::kSuccess);
-	}
-
-	Error Controller::Run() {
+	Error HostController::Run() {
 	  // Run the controller
 		auto usbcmd = op_->USBCMD.Read();
 		usbcmd.bits.run_stop = true;
@@ -1109,110 +874,254 @@ namespace usb::xhci {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	DoorbellRegister* Controller::DoorbellRegisterAt(uint8_t index) {
+	DoorbellRegister* HostController::DoorbellRegisterAt(uint8 index) {
 		return &DoorbellRegisters()[index];
 	}
 
-	Error Controller::ProcessEvents() {
+	Error HostController::ProcessEvents() {
 		while (this->PrimaryEventRing()->HasFront()) {
-			if (auto err = ProcessEvent(self)) {
+			if (auto err = ProcessEvent()) {
 				return err;
 			}
 		}
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error ConfigurePort(Controller& xhc, Port& port) {
-		if (port_config_phase[port.Number()] == ConfigPhase::kNotConnected) {
-			return ResetPort(xhc, port);
-		}
-		return MAKE_ERROR(Error::kSuccess);
+
+
+
+
+
+}
+
+
+Error HostController::ConfigurePort(Port& port) {
+	if (port_config_phase[port.Number()] == ConfigPhase::kNotConnected) {
+		return ResetPort(self, port);
+	}
+	return MAKE_ERROR(Error::kSuccess);
+}
+
+Error HostController::ConfigureEndpoints(DeviceUSB3& dev) {
+	auto& xhc = self;
+	const auto configs = dev.EndpointConfigs();
+	const auto len = dev.NumEndpointConfigs();
+
+	MemSet(&dev.GetInputContext()->input_control_context, 0, sizeof(InputControlContext));
+	MemCopyN(&dev.GetInputContext()->slot_context, &dev.GetDeviceContext()->slot_context, sizeof(SlotContext));
+
+	auto slot_ctx = dev.GetInputContext()->EnableSlotContext();
+	slot_ctx->bits.context_entries = 31;
+	const auto port_id{ dev.GetDeviceContext()->slot_context.bits.root_hub_port_num };
+	const int port_speed{ xhc.PortAt(port_id).Speed() };
+	if (port_speed == 0 || port_speed > kSuperSpeedPlus) {
+		return MAKE_ERROR(Error::kUnknownXHCISpeedID);
 	}
 
-	Error ConfigureEndpoints(Controller& xhc, Device& dev) {
-		const auto configs = dev.EndpointConfigs();
-		const auto len = dev.NumEndpointConfigs();
+	auto convert_interval{
+	  (port_speed == kFullSpeed || port_speed == kLowSpeed)
+	  ? [](EndpointType type, int interval) { // for FS, LS
+		if (type == EndpointType::kIsochronous) return interval + 2;
+		else return MostSignificantBit(interval) + 3;
+	  }
+	  : [](EndpointType type, int interval) { // for HS, SS, SSP
+		return interval - 1;
+	  } };
 
-		MemSet(&dev.GetInputContext()->input_control_context, 0, sizeof(InputControlContext));
-		MemCopyN(&dev.GetInputContext()->slot_context, &dev.GetDeviceContext()->slot_context, sizeof(SlotContext));
-
-		auto slot_ctx = dev.GetInputContext()->EnableSlotContext();
-		slot_ctx->bits.context_entries = 31;
-		const auto port_id{ dev.GetDeviceContext()->slot_context.bits.root_hub_port_num };
-		const int port_speed{ xhc.PortAt(port_id).Speed() };
-		if (port_speed == 0 || port_speed > kSuperSpeedPlus) {
-			return MAKE_ERROR(Error::kUnknownXHCISpeedID);
+	for (int i = 0; i < len; ++i) {
+		const DeviceContextIndex ep_dci{ configs[i].ep_id };
+		auto ep_ctx = dev.GetInputContext()->EnableEndpoint(ep_dci);
+		switch (configs[i].ep_type) {
+		case EndpointType::kControl:
+			ep_ctx->bits.ep_type = 4;
+			break;
+		case EndpointType::kIsochronous:
+			ep_ctx->bits.ep_type = configs[i].ep_id.IsIn() ? 5 : 1;
+			break;
+		case EndpointType::kBulk:
+			ep_ctx->bits.ep_type = configs[i].ep_id.IsIn() ? 6 : 2;
+			break;
+		case EndpointType::kInterrupt:
+			ep_ctx->bits.ep_type = configs[i].ep_id.IsIn() ? 7 : 3;
+			break;
 		}
+		ep_ctx->bits.max_packet_size = configs[i].max_packet_size;
+		ep_ctx->bits.interval = convert_interval(configs[i].ep_type, configs[i].interval);
+		ep_ctx->bits.average_trb_length = 1;
 
-		auto convert_interval{
-		  (port_speed == kFullSpeed || port_speed == kLowSpeed)
-		  ? [](EndpointType type, int interval) { // for FS, LS
-			if (type == EndpointType::kIsochronous) return interval + 2;
-			else return MostSignificantBit(interval) + 3;
-		  }
-		  : [](EndpointType type, int interval) { // for HS, SS, SSP
-			return interval - 1;
-		  } };
+		auto tr = dev.AllocTransferRing(ep_dci, 32);
+		ep_ctx->SetTransferRingBuffer(tr->Buffer());
 
-		for (int i = 0; i < len; ++i) {
-			const DeviceContextIndex ep_dci{ configs[i].ep_id };
-			auto ep_ctx = dev.GetInputContext()->EnableEndpoint(ep_dci);
-			switch (configs[i].ep_type) {
-			case EndpointType::kControl:
-				ep_ctx->bits.ep_type = 4;
-				break;
-			case EndpointType::kIsochronous:
-				ep_ctx->bits.ep_type = configs[i].ep_id.IsIn() ? 5 : 1;
-				break;
-			case EndpointType::kBulk:
-				ep_ctx->bits.ep_type = configs[i].ep_id.IsIn() ? 6 : 2;
-				break;
-			case EndpointType::kInterrupt:
-				ep_ctx->bits.ep_type = configs[i].ep_id.IsIn() ? 7 : 3;
-				break;
-			}
-			ep_ctx->bits.max_packet_size = configs[i].max_packet_size;
-			ep_ctx->bits.interval = convert_interval(configs[i].ep_type, configs[i].interval);
-			ep_ctx->bits.average_trb_length = 1;
-
-			auto tr = dev.AllocTransferRing(ep_dci, 32);
-			ep_ctx->SetTransferRingBuffer(tr->Buffer());
-
-			ep_ctx->bits.dequeue_cycle_state = 1;
-			ep_ctx->bits.max_primary_streams = 0;
-			ep_ctx->bits.mult = 0;
-			ep_ctx->bits.error_count = 3;
-		}
-
-		port_config_phase[port_id] = ConfigPhase::kConfiguringEndpoints;
-
-		ConfigureEndpointCommandTRB cmd{ dev.GetInputContext(), dev.SlotID() };
-		xhc.CommandRing()->Push(cmd);
-		xhc.DoorbellRegisterAt(0)->Ring(0);
-
-		return MAKE_ERROR(Error::kSuccess);
+		ep_ctx->bits.dequeue_cycle_state = 1;
+		ep_ctx->bits.max_primary_streams = 0;
+		ep_ctx->bits.mult = 0;
+		ep_ctx->bits.error_count = 3;
 	}
 
-	Error ProcessEvent(Controller& xhc) {
-		if (!xhc.PrimaryEventRing()->HasFront()) {
-			return MAKE_ERROR(Error::kSuccess);
-		}
+	port_config_phase[port_id] = ConfigPhase::kConfiguringEndpoints;
 
-		Error err = MAKE_ERROR(Error::kNotImplemented);
-		auto event_trb = xhc.PrimaryEventRing()->Front();
-		if (auto trb = TRBDynamicCast<TransferEventTRB>(event_trb)) {
-			err = OnEvent(xhc, *trb);
-		}
-		else if (auto trb = TRBDynamicCast<PortStatusChangeEventTRB>(event_trb)) {
-			err = OnEvent(xhc, *trb);
-		}
-		else if (auto trb = TRBDynamicCast<CommandCompletionEventTRB>(event_trb)) {
-			err = OnEvent(xhc, *trb);
-		}
-		xhc.PrimaryEventRing()->Pop();
+	ConfigureEndpointCommandTRB cmd{ dev.GetInputContext(), dev.SlotID() };
+	xhc.CommandRing()->Push(cmd);
+	xhc.DoorbellRegisterAt(0)->Ring(0);
 
+	return MAKE_ERROR(Error::kSuccess);
+}
+
+Error HostController::ProcessEvent() {
+	auto& xhc = self;
+	if (!xhc.PrimaryEventRing()->HasFront()) {
+		return MAKE_ERROR(Error::kSuccess);
+	}
+	Error err = MAKE_ERROR(Error::kNotImplemented);
+	auto event_trb = xhc.PrimaryEventRing()->Front();
+	if (auto trb = TRBDynamicCast<TransferEventTRB>(event_trb)) {
+		err = OnEvent(xhc, *trb);
+	}
+	else if (auto trb = TRBDynamicCast<PortStatusChangeEventTRB>(event_trb)) {
+		err = OnEvent(xhc, *trb);
+	}
+	else if (auto trb = TRBDynamicCast<CommandCompletionEventTRB>(event_trb)) {
+		err = OnEvent(xhc, *trb);
+	}
+	xhc.PrimaryEventRing()->Pop();
+	return err;
+}
+
+
+// 1. locate Operational Registers
+
+HostController::HostController(uintptr_t mmio_base)
+	: mmio_base_{ mmio_base },
+	cap_{ reinterpret_cast<CapabilityRegisters*>(mmio_base) },
+	op_{ reinterpret_cast<OperationalRegisters*>(mmio_base + cap_->CAPLENGTH.Read()) },
+	max_ports_{ static_cast<uint8>(cap_->HCSPARAMS1.Read().bits.max_ports) }
+{
+}
+
+// 2. OS Ownership Handoff
+
+static void RequestHCOwnership(uintptr_t mmio_base, HCCPARAMS1_t hccp) {
+	ExtendedRegisterList extregs{ mmio_base, hccp };
+	auto ext_usblegsup = std::find_if(
+		extregs.begin(), extregs.end(),
+		[](auto& reg) { return reg.Read().bits.capability_id == 1; });
+
+	if (ext_usblegsup == extregs.end()) {
+		return;
+	}
+	auto& reg = reinterpret_cast<MemMapRegister<USBLEGSUP_t>&>(*ext_usblegsup);
+	auto r = reg.Read();
+	if (r.bits.hc_os_owned_semaphore) {
+		return;
+	}
+	r.bits.hc_os_owned_semaphore = 1;
+	// Log(kDebug, "waiting until OS owns xHC...\n");
+	reg.Write(r);
+	do {
+		r = reg.Read();
+	} while (r.bits.hc_bios_owned_semaphore ||
+		!r.bits.hc_os_owned_semaphore);
+	// Log(kDebug, "OS has owned xHC\n");
+}
+
+// 3. Halt & Reset
+
+static Error RegisterCommandRing(Ring* ring, MemMapRegister<CRCR_t>* crcr) {
+	CRCR_t value = crcr->Read();
+	value.bits.ring_cycle_state = true;
+	value.bits.command_stop = false;
+	value.bits.command_abort = false;
+	value.SetPointer(reinterpret_cast<uint64_t>(ring->Buffer()));
+	crcr->Write(value);
+	return MAKE_ERROR(Error::kSuccess);
+}
+
+Error HostController::Initialize() {
+	if (auto err = devmgr_.Initialize(kDeviceSize)) {
 		return err;
 	}
+
+	RequestHCOwnership(mmio_base_, cap_->HCCPARAMS1.Read());
+	// Stop Controller
+	auto usbcmd = op_->USBCMD.Read();
+	usbcmd.bits.interrupter_enable = false;
+	usbcmd.bits.host_system_error_enable = false;
+	usbcmd.bits.enable_wrap_event = false;
+	// Host controller must be halted before resetting it.
+	if (!op_->USBSTS.Read().bits.host_controller_halted) {
+		usbcmd.bits.run_stop = false;  // stop
+	}
+	// Loop wait for HCHalted set
+	op_->USBCMD.Write(usbcmd);
+	while (!op_->USBSTS.Read().bits.host_controller_halted);
+	// Reset controller
+	usbcmd = op_->USBCMD.Read();
+	usbcmd.bits.host_controller_reset = true;
+	op_->USBCMD.Write(usbcmd);
+	// Loop wait for HCHalted set
+	while (op_->USBCMD.Read().bits.host_controller_reset);
+	// Loop wait for Controller Not Ready clear
+	while (op_->USBSTS.Read().bits.controller_not_ready);
+
+	// Log(kDebug, "MaxSlots: %u", cap_->HCSPARAMS1.Read().bits.max_device_slots);
+	// Set "Max Slots Enabled" field in CONFIG.
+	auto config = op_->CONFIG.Read();
+	config.bits.max_device_slots_enabled = kDeviceSize;
+	op_->CONFIG.Write(config);
+
+	// Aloc Scratchpad Buffers) , set DCBAAP "Address Book"
+	auto hcsparams2 = cap_->HCSPARAMS2.Read();
+	// 拼接获取暂存器数量需求 (高 5 位和低 5 位组合)
+	const uint16_t max_scratchpad_buffers =
+		hcsparams2.bits.max_scratchpad_buffers_low
+		| (hcsparams2.bits.max_scratchpad_buffers_high << 5);
+	if (max_scratchpad_buffers > 0) {
+		auto scratchpad_buf_arr = AllocArray<void*>(max_scratchpad_buffers, 64, 4096);
+		for (int i = 0; i < max_scratchpad_buffers; ++i) {
+			scratchpad_buf_arr[i] = uni_hostenv_allocator->allocate(0x1000, 12, 12);
+			Log(kDebug, "scratchpad buffer array %d = %p\n",
+				i, scratchpad_buf_arr[i]);
+		}
+		// 将指针数组的物理地址，存入 DCBAAP 数组的第 0 项
+		devmgr_.DeviceContexts()[0] = reinterpret_cast<DeviceContext*>(scratchpad_buf_arr);
+		Log(kInfo, "wrote scratchpad buffer array %p to dev ctx array 0\n",
+			scratchpad_buf_arr);
+	}
+
+	DCBAAP_t dcbaap{};
+	// 将通讯簿数组的基地址填入 64 位的 DCBAAP 结构中
+	dcbaap.SetPointer(reinterpret_cast<uint64_t>(devmgr_.DeviceContexts()));
+	// 写入运营寄存器
+	op_->DCBAAP.Write(dcbaap);
+
+	// 硬件现在处于待命状态、以下は建立动态交互通道で
+
+	// Register 32 Command Rings
+	auto primary_interrupter = &InterrupterRegisterSets()[0];
+	if (auto err = cr_.Initialize(32)) {
+		return err;
+	}
+	if (auto err = RegisterCommandRing(&cr_, &op_->CRCR)) {
+		return err;
+	}
+	// init ring and bind it to the primary interrupter
+	if (auto err = er_.Initialize(32, primary_interrupter)) {
+		return err;
+	}
+
+	// Enable interrupt for the primary interrupter
+	auto iman = primary_interrupter->IMAN.Read();
+	iman.bits.interrupt_pending = true;
+	iman.bits.interrupt_enable = true;
+	primary_interrupter->IMAN.Write(iman);
+
+	// Enable interrupt for the controller
+	usbcmd = op_->USBCMD.Read();
+	usbcmd.bits.interrupter_enable = true;
+	op_->USBCMD.Write(usbcmd);
+
+	return MAKE_ERROR(Error::kSuccess);
 }
+
 
 #endif

@@ -71,10 +71,10 @@ _ESYM_C void KbdSetLED(byte stat);
 #include "../../cpp/Device/USB/USB-Header.hpp"
 
 
-namespace usb {
+namespace uni::device::SpaceUSB {
 	class HIDKeyboardDriver : public HIDBaseDriver {
 	public:
-		HIDKeyboardDriver(Device* dev, int interface_index);
+		HIDKeyboardDriver(DeviceUSB* dev, int interface_index);
 
 		void* operator new(size_t size);
 		void operator delete(void* ptr) noexcept;

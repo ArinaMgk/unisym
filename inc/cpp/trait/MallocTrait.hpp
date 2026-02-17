@@ -35,7 +35,7 @@ namespace uni {
 		public:
 			~Malloc() noexcept = default;
 			//
-			virtual void* allocate(stduint size, stduint alignment = 0) = 0;
+			virtual void* allocate(stduint size, stduint alignment = 0, stduint boundary = 0) = 0;
 			virtual bool deallocate(void* ptr, stduint size = 0 _Comment(zero_for_block)) = 0;
 			virtual void* reallocate(void* ptr, stduint old_size, stduint size, stduint alignment = 0) {
 				// general method

@@ -226,6 +226,7 @@ bool      SinglePool::Remove(stduint idx, stduint times) {
 			src_pool = src_pool->nextpool;
 			src = &src_pool->slices[0];
 		}
+		else src++;
 	}
 	// Update slicecnt
 	dst_pool->slicecnt = cnt_dst;
@@ -293,7 +294,9 @@ void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 			header->prop = _IMM(0xFEDC5AA5);
 			auto succ = pool_available.Remove(Slice{ _IMM(header), total_size });
 			if (!succ) {
-				plogerro("Remove failed in Mempool::allocate");
+				plogerro("Remove failed in Mempool::allocate %u a%u b%u", size, alignment, boundary);
+				plogerro("\t Remove(Slice{ %[x], %[x] })", _IMM(header), total_size);
+				plogerro("\t Current Slice{ %[x], %[x] }", p->address, p->length);
 			}
 			// ploginfo("Mempool::allocate %u a%u b%u -> %[x]", size, alignment, boundary, ret);
 			return ret;
@@ -303,6 +306,7 @@ void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 	return nullptr;
 }
 bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
+	// ploginfo("Mempool::deallocate %p s%u", ptr, size);
 	if (_IMM(ptr) < sizeof(Header)) return false;
 	Header* header = (Header*)ptr - 1;
 	if (header->prop != _IMM(0xFEDC5AA5) || !header->size) {

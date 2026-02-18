@@ -33,21 +33,51 @@ typedef struct {
 	rostr label_prefE0;
 } keymap_element_t;
 
-struct keyboard_state_t {
+_PACKED(struct) keyboard_modifier_t {
 	byte l_ctrl : 1;
-	byte r_ctrl : 1;
 	byte l_shift : 1;
-	byte r_shift : 1;
 	byte l_alt : 1;
-	byte r_alt : 1;
 	byte l_logo : 1;// e.g. Windows key
+	byte r_ctrl : 1;
+	byte r_shift : 1;
+	byte r_alt : 1;
 	byte r_logo : 1;
-	//
+};
+
+#ifdef _INC_CPP
+#ifdef _DEV_GCC
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#endif
+_PACKED(struct) keyboard_state_t
+	: public keyboard_modifier_t
+{
 	byte lock_number : 1;
 	byte lock_caps : 1;
 	byte lock_scroll : 1;
-	//
 };
+
+_PACKED(struct) keyboard_event_t
+{
+	union {
+		byte mod_val;
+		keyboard_modifier_t mod;
+	};
+	byte resv;
+	enum class method_t : byte {
+		keydown,
+		keyup,
+		keyrepeat,
+	} method;
+	byte keycode;
+};
+
+static_assert(sizeof(keyboard_event_t) == 4);
+static_assert(offsetof(keyboard_event_t, keycode) == 3);
+#ifdef _DEV_GCC
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 // ---- ATX PS/2 Keyboard ---- //
 
@@ -81,7 +111,7 @@ namespace uni::device::SpaceUSB {
 
 		Error OnDataReceived() override;
 
-		using ObserverType = void(uint8_t keycode);
+		using ObserverType = void(keyboard_event_t keyevent);
 		void SubscribeKeyPush(std::function<ObserverType> observer);
 		static std::function<ObserverType> default_observer;
 
@@ -89,7 +119,7 @@ namespace uni::device::SpaceUSB {
 		std::array<std::function<ObserverType>, 4> observers_;
 		int num_observers_ = 0;
 
-		void NotifyKeyPush(uint8_t keycode);
+		void NotifyKeyPush(keyboard_event_t keyevent);
 	};
 }
 

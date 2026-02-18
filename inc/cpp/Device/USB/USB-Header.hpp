@@ -165,10 +165,6 @@ namespace uni::device::SpaceUSB {
 	}
 }
 
-// ---- ---- ---- ---- memory.hpp ---- ---- ---- ---- //
-
-static const size_t kMemoryPoolSize = 4096 * 32;
-
 // ---- ---- ---- ---- endpoint.hpp ---- ---- ---- ---- //
 
 namespace uni::device::SpaceUSB {

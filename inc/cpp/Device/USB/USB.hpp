@@ -40,7 +40,7 @@
 #ifndef _INCPP_Device_USB
 #define _INCPP_Device_USB
 
-// x86_64 part of USB Driver is borrowed from uchan-nos/mikanos
+// x86_64 part of USB&xHCI Drivers are borrowed from uchan-nos/mikanos
 // - https://github.com/uchan-nos/mikanos
 // cited sincerely.
 #if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))

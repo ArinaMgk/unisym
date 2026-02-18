@@ -96,7 +96,7 @@ namespace uni {
 		static void setLastRequest(Request_t req);// of crt core
 		#endif
 
-		inline stduint operator&() { return _IMM(IVT_SEL_ADDR); };
+		// inline stduint operator&() { return _IMM(IVT_SEL_ADDR); };
 
 	};
 }

@@ -145,12 +145,18 @@ namespace uni {
 #elif defined(_MCU_MSP432P4)
 #include "../../c/driver/GPIO/GPIO_MSP432.hpp"
 #endif
-	
+
+// 20260221's phina: 
+// Shift ID left 8 bits to evade pointer alignment assumptions in Keil O2.
+// Reason: Inheritance (e.g., RuptTrait) forces object alignment. 
+// Modern compilers may optimize away low-bit masks of 'this' assuming they must be zero.
+// Shifting to 0x100 range ensures 'this' remains in a "safe" virtual address area.
+
 	// Abstract Layer, should take no space. We use const to confirm, which is friendly to Rust.
 	class GeneralPurposeInputOutputPin final : public RuptTrait {
 	public:
-		inline SelfGpor getParent() const { return treat<GPIO_Port>(_IMM(this) & ~_IMM(0xF)); }
-		inline byte getID() const { return _IMM(this) & 0xF; }
+		inline SelfGpor getParent() const { return treat<GPIO_Port>(_IMM(this) & ~_IMM(0xFFF)); }
+		inline byte getID() const { return (_IMM(this) >> 8) & 0xF; }
 		SelfGpin operator=(bool val) const;
 		SelfGpin operator=(SelfGpin pin) const { return self = bool(pin); }
 		operator bool() const;
@@ -175,10 +181,10 @@ namespace uni {
 
 	class GeneralPurposeInputOutputPort {
 	public:
-		stduint getID() const { return (_IMM(this) & 0xF0) >> 4; }
+		stduint getID() const { return (_IMM(this) & ~_IMM(0xFFF)) >> 12; }
 		void enClock(bool enable = true) const;
 		operator stduint() const;
-		constexpr SelfGpin operator[](int pinid) const { return treat<GPIO_Pin>((_IMM(this) & 0xF0) + (pinid & 0xF)); }
+		constexpr SelfGpin operator[](int pinid) const { return treat<GPIO_Pin>((_IMM(this) & ~_IMM(0xFFF)) + ((pinid & 0xF) << 8)); }
 		SelfGpor operator=(SelfGpor pot) const { return self = stduint(pot); }
 		SelfGpor operator=(stduint val) const;
 	#if defined(_MCU_MSP432P4)

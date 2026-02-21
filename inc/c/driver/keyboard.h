@@ -50,8 +50,12 @@ _PACKED(struct) keyboard_modifier_t {
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 _PACKED(struct) keyboard_state_t
-	: public keyboard_modifier_t
+	// : public keyboard_modifier_t
 {
+	union {
+		byte mod_val;
+		keyboard_modifier_t mod;
+	};
 	byte lock_number : 1;
 	byte lock_caps : 1;
 	byte lock_scroll : 1;

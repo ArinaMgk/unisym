@@ -20,12 +20,12 @@
 	limitations under the License.
 */
 
-#ifndef _INC_MCU_DELAY
-#define _INC_MCU_DELAY
+#ifndef _INC_DELAY
+#define _INC_DELAY
 
-void delay010us(void);
-void delay100us(void);
-void delay500us(void);
-void delay001ms(void);
+_ESYM_C void delay010us(void);
+_ESYM_C void delay100us(void);
+_ESYM_C void delay500us(void);
+_ESYM_C void delay001ms(void);
 
 #endif

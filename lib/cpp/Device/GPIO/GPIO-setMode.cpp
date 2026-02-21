@@ -92,7 +92,7 @@ namespace uni {
 		EXTI::TriggerFalling.setof(getID(), edg != GPIORupt::Posedge);
 		EXTI::MaskInterrupt.setof(getID()); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
 	#elif defined(_MCU_STM32H7x)
-		RCC_APB4ENR_SYSCFGEN = 1; stduint tmp = RCC_APB4ENR_SYSCFGEN;
+		RCC_APB4ENR_SYSCFGEN = 1; volatile stduint tmp = RCC_APB4ENR_SYSCFGEN;
 		Reference(&SYSCFG->EXTICR[getID() / 4]).maset(_IMMx4(getID()), 4, getParent().getID());
 		// Set IMR but EMR (EMR similar)
 		EXTI[EXTICore::D1][EXTICoreReg::IMR1].setof(getID());

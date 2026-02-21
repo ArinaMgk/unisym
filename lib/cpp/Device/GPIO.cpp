@@ -188,14 +188,14 @@ namespace uni
 	#ifdef _MCU_MSP432P4
 		static byte maps_caps[] = {1,3,5,7,9};//A B C D E
 		return treat<GeneralPurposeInputOutputPort>(
-			portid <= 10 ? (portid << 4) :
-			portid == 'J' ? (11 << 4) :
+			portid <= 10 ? (portid << 12) :
+			portid == 'J' ? (11 << 12) :
 			portid > 'E' ? 0xBAD :
-			(portid >= '0' && portid <= '9') ? ((portid - '0') << 4) :
-			ascii_isupper(portid) ? _IMM(maps_caps[portid - 'A'] << 4) : 0xBAD
+			(portid >= '0' && portid <= '9') ? ((portid - '0') << 12) :
+			ascii_isupper(portid) ? _IMM(maps_caps[portid - 'A'] << 12) : 0xBAD
 			);
 	#else
-		return treat<GeneralPurposeInputOutputPort>_IMM((portid - 'A') << 4);
+		return treat<GeneralPurposeInputOutputPort>_IMM((portid - 'A') << 12);
 	#endif
 	}
 

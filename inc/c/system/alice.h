@@ -100,6 +100,10 @@ extern "C++" {
 #define _WEAK __attribute__((weak))
 #define _PACKED(x) x __attribute__((packed))
 
+#ifdef __UVISION_VERSION
+#define _DEV_KEIL
+#endif
+
 #elif defined(__UVISION_VERSION)
 #define _DEV_KEIL
 //{TODO}:

@@ -291,8 +291,8 @@ namespace uni {
 		}
 
 	public:
-		virtual int out(const char* str, stduint len);
-		virtual int inn() _TODO;
+		virtual int out(const char* str, stduint len) override;
+		virtual int inn() override _TODO;
 		virtual void doshow(void*) override;
 		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
 

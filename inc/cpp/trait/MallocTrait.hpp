@@ -46,9 +46,26 @@ namespace uni {
 				}
 				else return nullptr;
 			}
+
 		};
 	}
 }
 
+inline void* operator new(stduint size, uni::trait::Malloc& mem) {
+    return mem.allocate(size);
+}
+
+inline void* operator new[](stduint size, uni::trait::Malloc& mem) {
+    return mem.allocate(size);
+}
+
+// The defined deletes only for exceptions from Stucture Methods
+inline void operator delete(void* ptr, uni::trait::Malloc& mem) noexcept {
+    mem.deallocate(ptr);
+}
+
+inline void operator delete[](void* ptr, uni::trait::Malloc& mem) noexcept {
+    mem.deallocate(ptr);
+}
 
 #endif // _INCPP_TRAIT_Malloc

@@ -26,7 +26,7 @@
 
 #if defined(_HD44780_PORT_CMD) && defined(_HD44780_PORT_DAT) && defined(_HD44780_PIN_RS) && defined(_HD44780_PIN_RW) && defined(_HD44780_PIN_EN)// && defined(_HD44780_BIT4)
 
-#include "../../../inc/c/MCU/delay.h"
+#include "../../../inc/c/delay.h"
 #include "../../../inc/c/driver/HD44780.h"
 
 void HD44780_Out(byte cmddat, byte notcmd)

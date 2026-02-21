@@ -23,7 +23,7 @@
 #include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/cpp/Device/SysTick"
 #include "../../../inc/cpp/Device/NVIC"
-
+#include "../../../inc/c/proctrl/ARM.h"
 
 #define SysTick_CTRL_CLKSOURCE (1UL << 2)
 #define SysTick_CTRL_TICKINT   (1UL << 1) 
@@ -133,28 +133,15 @@ void SysTick_Handler(void) {
 }
 void SysDelay(stduint unit) {
 #if defined(_MPU_STM32MP13)
+	//{TORM}
 	using namespace uni;
 	uint64 endo = SysTick::getTick() + unit;
 	while (true) if (SysTick::getTick() >= endo) break;
-#elif defined(_MCU_STM32H7x)
-	uint32 tcnt = 0;
-	uint32 tick_load = uni::SysTick::ref().LOAD;
-	uint32 tick_prev = uni::SysTick::ref().VAL;
-	uint64 dest = (uint64)unit * (SystemCoreClock / SysTickHz);
-	while (true) {
-		uint32 tick_last = uni::SysTick::ref().VAL;
-		if (tick_last != tick_prev) {
-			if (tick_last < tick_prev) tcnt += tick_prev - tick_last;
-			else tcnt += tick_load - tick_last + tick_prev;
-			tick_prev = tick_last;
-			if (tcnt >= dest) break;
-		}
-	}
 
 #else
 	//{ISSUE} append systick-enable check?
 	delay_count = unit;
-	while (delay_count);
+	while (delay_count);// HALT(); will make Flash Hard
 #endif
 }
 void SysDelay_ms(stduint ms) {

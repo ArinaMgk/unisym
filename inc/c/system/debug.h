@@ -102,7 +102,7 @@ void printlog(loglevel_t level, const char* fmt, ...);
 _ESYM_C
 void erro(const char* erromsg
 #ifdef _INC_CPP
-	= NULL
+	= nullptr
 #endif
 );
 

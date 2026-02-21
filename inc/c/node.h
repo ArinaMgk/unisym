@@ -1,4 +1,4 @@
-﻿// ASCII C99/C++11 TAB4 CRLF
+// ASCII C99/C++11 TAB4 CRLF
 // Docutitle: Node
 // Codifiers: @ArinaMgk(~RFA03) @dosconio(20240409)
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -144,12 +144,16 @@ public:
 	//
 	Node* Root() const { return root_node; }
 	template <typename type1> inline type1& Head() {
+		#ifndef _DEV_KEIL
 		if (!root_node) throw "NODE ROOT EMPTY";
+		#endif
 		return *(type1*)root_node->offs;
 	}
 	Node* Last() const { return last_node; }// Reference version: Tail() , which fits at least 1 item
 	template <typename type1> inline type1& Tail() {
+		#ifndef _DEV_KEIL
 		if (!last_node) throw "NODE TAIL EMPTY";
+		#endif
 		return *(type1*)last_node->offs;
 	}
 

@@ -3,6 +3,7 @@
 #include "../../../inc/c/msgface.h"
 #include <algorithm>
 
+_ESYM_CPP
 const char key_map[256] = {
 // #embed "../../c/data/keyboard-USBIF_ASCII-ENUS-normal.dat"
 0,    0,    0,    0,    'a',  'b',  'c',  'd', // 0x00
@@ -20,6 +21,7 @@ const char key_map[256] = {
 '8',  '9',  '0',  '.', '\\',  0,    0,    '=', // 0x60
 };
 
+_ESYM_CPP
 const char key_map_shift[256] = {
 0,    0,    0,    0,    'A',  'B',  'C',  'D', // 0x00
 'E',  'F',  'G',  'H',  'I',  'J',  'K',  'L', 

@@ -198,15 +198,8 @@ namespace uni {
 	void VideoConsole::thisRollup(stduint height) {
 		const Size2 scr(size.x * FontSizeWidth[crt_self->typ], size.y * FontSizeHeight[crt_self->typ]);
 		if (buffer) {
-			stduint h_dif = minof(height, window.height);
-			Color* p0 = buffer;
-			Color* p = buffer + h_dif * window.width;
-			for0(i, (window.height - h_dif) * window.width) {
-				*p0++ = *p++;
-			}
-			for0(i, h_dif* window.width) {
-				*p0++ = backcolor;
-			}
+			VideoControlInterfaceMARGB8888 bvim(buffer, window.getSize());
+			bvim.RollUp(height, window);
 			sheet_parent->Update(this, window);
 		}// quick method
 		else vci->RollUp(FontSizeHeight[crt_self->typ], window);

@@ -69,6 +69,8 @@ namespace uni {
 
 		virtual void onrupt(SheetEvent event, Point rel_p, ...) = 0;
 
+		Nnode& refSheetNode() { return sheet_node; }
+		auto refSheetParent() -> LayerManager*& { return sheet_parent; }
 	};
 
 

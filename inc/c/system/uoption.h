@@ -31,6 +31,7 @@
 	#define __BITS__ 32
 	#endif
 	#define Architecture_Value Architecture_ARM
+	#include "../proctrl/ARM.h"
 #elif defined(_MCU_CW32F030) || defined(_MCU_CW32F003)
 	#define _MCU_CW32
 	#ifndef __BITS__

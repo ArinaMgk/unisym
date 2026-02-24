@@ -109,7 +109,7 @@ extern "C++" {
 //{TODO}:
 #define __FUNCIDEN__ 
 #define _ALIGN
-#define _ASM
+#define _ASM __asm
 #define _PACKED(x) x __attribute__((packed))
 
 #endif

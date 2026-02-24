@@ -84,12 +84,20 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 
 void uni::Witch::Form::setSheet(LayerManager& layman, const Rectangle& rect, Color* buffer) {
 	InitializeSheet(layman, rect.getVertex(), rect.getSize());
+	window = rect;
 	close_btn.sheet_area = Rectangle(Point(rect.width - 17, 2), Size2(CloseButtonWidth, CloseButtonHeight));
 	close_btn.sheet_node.offs = dynamic_cast<SheetTrait*>(&close_btn);
 	sheet_node.subf = &close_btn.sheet_node;
 	title_bar.sheet_area = Rectangle(Point(1, 1), Size2(rect.width - 2, 17));
 	title_bar.sheet_node.offs = dynamic_cast<SheetTrait*>(&title_bar);
 	sheet_node.subf->Tail()->next = &title_bar.sheet_node;
+	client_area.refSheetParent() = this;
+	client_area.sheet_area = Rectangle(Point(1, 18), Size2(rect.width - 2, rect.height - 19));
+	client_area.window = client_area.sheet_area;
+	client_area.refSheetNode().offs = dynamic_cast<SheetTrait*>(&client_area);
+	sheet_node.subf->Tail()->next = &client_area.refSheetNode();
+
+	client_area.window.color = 0xFFC6C6C6;
 
 	if (buffer) {
 		Color* p = buffer;
@@ -97,30 +105,12 @@ void uni::Witch::Form::setSheet(LayerManager& layman, const Rectangle& rect, Col
 			*p++ = getPoint(Point(i, j));
 		}
 		sheet_buffer = buffer;
-		if (Title.reference()) DrawString_16(Point2(3, 3), Title, Color::Black);
-		if (Title.reference()) DrawString_16(Point2(2, 2), Title, Color::White);
+		if (Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
+		if (Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
 
 	}
 
 }
 
-void uni::Witch::Form::DrawString_16(const Point2& p, const String& str, Color col) {
-	//{} ASCII only
-	Point2 pp = p;
-	if (!sheet_buffer) return;
-	for (const char* pstr = str.reference(); *pstr; pstr++) {
-		byte ch = *pstr;
-		if (!ascii_isprint(*pstr)) continue;
-		const uint16(*datptr) = (const uint16(*)) & _BITFONT_ASCII_16x8[ch - 0x20];
-		uint16 dat = 0; Reference_T<uint16> dat_bmap _IMM(&dat);
-		for0(i, 8) {
-			dat = datptr[i];
-			for0r(j, 16) {
-				if (dat_bmap.bitof(j)) sheet_buffer[pp.x + (pp.y + (j ^ 0b111)) * sheet_area.width] = col;
-			}
-			pp.x++;
-		}
-		if (pp.x >= sheet_area.width) break;
-	}
-}
+
 

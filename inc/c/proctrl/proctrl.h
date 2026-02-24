@@ -15,6 +15,7 @@
 #define _BIT_SUPPORT_DFLOAT
 #endif
 
+#include "../system/alice.h"
 #include "../system/uoption.h"
 #include "../datype/floating.h"
 

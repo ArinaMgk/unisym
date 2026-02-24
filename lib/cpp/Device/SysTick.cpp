@@ -23,7 +23,6 @@
 #include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/cpp/Device/SysTick"
 #include "../../../inc/cpp/Device/NVIC"
-#include "../../../inc/c/proctrl/ARM.h"
 
 #define SysTick_CTRL_CLKSOURCE (1UL << 2)
 #define SysTick_CTRL_TICKINT   (1UL << 1) 

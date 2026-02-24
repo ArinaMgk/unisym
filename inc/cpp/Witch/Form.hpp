@@ -27,6 +27,7 @@
 #include "../string"
 #include "../node"
 #include "../trait/SheetTrait.hpp"
+#include "../Device/_Video.hpp"
 
 namespace uni::Witch {
 	//
@@ -54,22 +55,22 @@ namespace uni::Witch {
 	//{} title bar buffer
 	//{} doshow fill its buffer
 
-	class Form : public SheetTrait
+	class Form : public LayerManager
 	{
 	private:
 		// subsheet0: Close Button
 		Form_CloseButton close_btn;
 		// subsheet1: Title Bar
 		Form_TitleBar title_bar;
-		// subsheet2: Client Area
-		// ...
+		// subsheetN: Client Area
+		LayerManager client_area;// controls
 
 	protected:
 
 	public:
 		String Title = nullptr;
 		// NodeChain Controls = (nullptr);
-		Form() : SheetTrait() {
+		Form() : LayerManager() {
 		}
 
 		virtual Color getPoint(Point p) override
@@ -98,8 +99,22 @@ namespace uni::Witch {
 
 		Rectangle getClientArea(void); //_TODO
 
-		void DrawString_16(const Point2& p, const String& str, Color col = Color::Black);
+		bool AppendControl(SheetTrait* sheet) {
+			client_area.Append(sheet);
+			return true;
+		}
 
+		virtual void Update(SheetTrait* who, const Rectangle& rect) {
+			if (sheet_buffer) {
+				Color* p = sheet_buffer;
+				for0(j, sheet_area.height) for0(i, sheet_area.width) {
+					*p++ = getPoint(Point(i, j));
+				}
+				if (Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
+				if (Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
+			}
+			if (sheet_parent) sheet_parent->Update(this, who->sheet_area);
+		}
 
 	};// SheetT
 

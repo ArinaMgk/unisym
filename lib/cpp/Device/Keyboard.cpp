@@ -5,7 +5,9 @@
 
 _ESYM_CPP
 const char key_map[256] = {
-// #embed "../../c/data/keyboard-USBIF_ASCII-ENUS-normal.dat"
+	#if (defined(_DEV_GCC) && __GNUC__ >= 15)
+	#embed "../../c/data/keyboard-USBIF_ASCII-ENUS-normal.dat"
+	#else
 0,    0,    0,    0,    'a',  'b',  'c',  'd', // 0x00
 'e',  'f',  'g',  'h',  'i',  'j',  'k',  'l', 
 'm',  'n',  'o',  'p',  'q',  'r',  's',  't', // 0x10
@@ -18,7 +20,8 @@ const char key_map[256] = {
 0,    0,    0,    0,    0,    0,    0,    0,   
 0,    0,    0,    0,    '/',  '*',  '-',  '+', // 0x50
 '\n', '1',  '2',  '3',  '4',  '5',  '6',  '7', 
-'8',  '9',  '0',  '.', '\\',  0,    0,    '=', // 0x60
+'8', '9', '0', '.', '\\', 0, 0, '=', // 0x60
+	#endif
 };
 
 _ESYM_CPP

@@ -140,26 +140,43 @@ namespace uni {
 		virtual void DrawFont(const Point& disp, const DisplayFont& font) const = 0;
 		virtual Color GetColor(Point p) const = 0;
 	public:
-		void RollUp(stduint height, const Rectangle& rect) const {
-			MIN(height, rect.height);
-			for (stduint y = 0; y < rect.height - height; y++) {
-				for (stduint x = 0; x < rect.width; x++) {
-					DrawPoint(Point(x, y), GetColor(Point(x, y + height)));
-				}
-			}
-			DrawRectangle(Rectangle(
-				Point(0, rect.height - height),
-				Size2(rect.width, height),
-				rect.color
-			));
+		virtual void RollUp(stduint height, const Rectangle& rect) const;
+	};
+
+	class VideoControlInterfaceMARGB8888 : public VideoControlInterface {
+		Color* p;
+		Size2 size;
+	public:
+		VideoControlInterfaceMARGB8888(Color* buf, Size2 siz) : p(buf), size(siz) {}
+	public:
+		virtual void SetCursor(const Point&) const override {}
+		virtual Point GetCursor() const override { return Point(0, 0); }
+		virtual void DrawPoint(const Point& disp, Color color) const override {
+			if (disp < size) p[disp.y * size.x + disp.x] = color;
 		}
+		virtual void DrawRectangle(const Rectangle& rect) const override {
+			if (size.y < rect.y || size.x < rect.x) return;
+			for0(y, minof(rect.height, size.y - rect.y)) {
+				Color* p0 = p + size.x * (rect.y + y) + rect.x;
+				for0(x, minof(rect.width, size.x - rect.x))* p0++ = rect.color;
+			}
+		}
+		virtual void DrawFont(const Point& disp, const DisplayFont& font) const override {}
+		virtual Color GetColor(Point disp) const override {
+			return (disp < size) ? p[disp.y * size.x + disp.x] : Color::Black;
+		}
+	public:
+		virtual void RollUp(stduint height, const Rectangle& rect) const override;
 	};
 
 	/*
 	* 请求上级刷新：sheet_parent->Update...(目标区域)
 	* 点击事件分发：getTop
 	*/
-	class LayerManager {
+	class LayerManager
+		: public SheetTrait
+		// Add LayerManagerTrait Here ?
+	{
 	public:
 		Nnode* subf = nullptr,// top
 			* subl = nullptr;// bottom
@@ -171,12 +188,13 @@ namespace uni {
 		stduint video_mode = 0;
 		// stduint sheet_count;//{} Dchain
 	public:
-		LayerManager() {}
-		LayerManager(VideoControlInterface* p, const Rectangle& rect) : pvci(p), window(rect) {}
+		LayerManager() : SheetTrait() {}
+		LayerManager(VideoControlInterface* p, const Rectangle& rect) : SheetTrait(), pvci(p), window(rect) {}
 		inline void Reset(VideoControlInterface* p, const Rectangle& rect) {  pvci = p; window = rect; }
 
 		void Append(SheetTrait* sheet) {
 			sheet->sheet_node.offs = sheet;
+			sheet->sheet_parent = this;
 			if (subf == nullptr) {
 				sheet->sheet_node.next = nullptr;
 				sheet->sheet_node.left = nullptr;
@@ -202,11 +220,19 @@ namespace uni {
 		}
 
 		
-		void Update(SheetTrait* who, const Rectangle& rect);
+		virtual void Update(SheetTrait* who, const Rectangle& rect);
 		
 		void Domove(SheetTrait* who, Size2dif dif);
 
-		void Dorupt(SheetTrait* who, SheetEvent event, Point rel_p, para_list args);
+		static void Dorupt(SheetTrait* who, SheetEvent event, Point rel_p, para_list args);
+
+		virtual Color getPoint(Point p) override;
+
+		// [trait::sheet]
+		virtual void doshow(void*) override;
+
+		// [trait::sheet]
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) override;
 
 		inline VideoControlInterface& getVCI() const { return *pvci; }
 		inline constexpr Color& getPoint(SheetTrait* whom, const Point& p) {
@@ -308,6 +334,9 @@ namespace uni {
 	public:
 		void RefreshLine();
 	};
+
+
+	void DrawString_16(SheetTrait& st, const Point2& p, const String& str, Color col);
 
 }
 

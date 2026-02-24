@@ -76,9 +76,9 @@ _PACKED(struct) keyboard_event_t
 	byte keycode;
 };
 
-static_assert(sizeof(keyboard_event_t) == 4);
-static_assert(offsetof(keyboard_event_t, keycode) == 3);
 #ifdef _DEV_GCC
+static_assert(sizeof(keyboard_event_t) == 4);
+static_assert(__builtin_offsetof(keyboard_event_t, keycode) == 3);
 #pragma GCC diagnostic pop
 #endif
 #endif

@@ -45,6 +45,13 @@ namespace uni {
 			y -= p.y;
 			return self;
 		}
+		const Point2 operator+(const Point2& point) const {
+			return Point2(x + point.x, y + point.y);
+		}
+		const Point2 operator-(const Point2& point) const {
+			return Point2(x - point.x, y - point.y);
+		}
+		bool operator<(const Point2& a) const { return (x < a.x) && (y < a.y); }
 	} Point, Size2;
 
 	struct Position {

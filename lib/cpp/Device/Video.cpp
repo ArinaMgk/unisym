@@ -25,6 +25,65 @@
 #include "../../../inc/c/data.h"
 
 namespace uni {
+	void VideoControlInterface::RollUp(stduint height, const Rectangle& rect) const {
+		MIN(height, rect.height);
+		for (stduint y = 0; y < rect.height - height; y++) {
+			for (stduint x = 0; x < rect.width; x++) {
+				DrawPoint(
+					Point(rect.x + x, rect.y + y),
+					GetColor(Point(rect.x + x, rect.y + y + height))
+				);
+			}
+		}
+		DrawRectangle(Rectangle(
+			Point(rect.x, rect.y + rect.height - height),
+			Size2(rect.width, height),
+			rect.color
+		));
+	}
+	void VideoControlInterfaceMARGB8888::RollUp(stduint height, const Rectangle& rect) const {
+		Point2 p_right_dn = rect.getVertex() + rect.getSize();
+		stduint siz_w = rect.width;
+		stduint siz_h = rect.height;
+		if (p_right_dn.x > size.x) {
+			if (rect.x >= size.x) return;
+			siz_w = size.x - rect.x;
+		}
+		if (p_right_dn.y > size.y) {
+			if (rect.y >= size.y) return;
+			siz_h = size.y - rect.y;
+		}
+		stduint h_dif = minof(height, siz_h);
+		if (h_dif == 0) return;
+		Color* p0 = this->p + size.x * rect.y + rect.x;
+		Color* p1 = this->p + size.x * (rect.y + h_dif) + rect.x;
+		for0(i, siz_h - h_dif) {
+			for0(j, siz_w) {
+				p0[j] = p1[j];
+			}
+			p0 += size.x;
+			p1 += size.x;
+		}
+		DrawRectangle(Rectangle(
+			Point(rect.x, rect.y + siz_h - h_dif),
+			Size2(siz_w, h_dif),
+			rect.color
+		));
+	}
+	/*
+		stduint h_dif = minof(height, window.height);
+		Color* p0 = buffer;
+		Color* p = buffer + h_dif * window.width;
+		for0(i, (window.height - h_dif) * window.width) {
+			*p0++ = *p++;
+		}
+		for0(i, h_dif* window.width) {
+			*p0++ = backcolor;
+		}
+	*/
+}
+
+namespace uni {
 	void LayerManager::Draw(Rectangle rect) {
 		if (rect.filled) pvci->DrawRectangle(rect);
 		else {
@@ -119,14 +178,13 @@ namespace uni {
 		}
 	}
 
-
-	// ---- LayerManager ---- //
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("general-regs-only")))
 	#endif
 	void LayerManager::Update(SheetTrait* who, const Rectangle& rect) {
 		// auto p = who->sheet_buffer; if (!p) return;
 		if (!this) return;
+		VideoControlInterfaceMARGB8888 vcim(sheet_buffer, window.getSize());
 		Rectangle abs_rect = who ? who->sheet_area : window;
 		abs_rect.x += rect.x;
 		abs_rect.y += rect.y;
@@ -136,10 +194,17 @@ namespace uni {
 			if (point.y >= window.height) break;
 			for0(j, rect.width) {
 				if (point.x >= window.width) break;
-				if (pvci) pvci->DrawPoint(point, EvaluateColor(point));
+				if (sheet_buffer) {
+					vcim.DrawPoint(point, EvaluateColor(point));
+				}
+				else if (pvci) pvci->DrawPoint(point, EvaluateColor(point));
 				point.x++;
 			}
 		}
+		if (sheet_parent) sheet_parent->Update(this, Rectangle(
+			Point(abs_rect.x, abs_rect.y),
+			Size2(rect.width, rect.height)
+		));
 	}
 
 	void LayerManager::Domove(SheetTrait* who, Size2dif dif) {
@@ -156,6 +221,21 @@ namespace uni {
 		Update(who, Rectangle(Point(0,0), who->sheet_area.getSize()));
 	}
 
+	auto LayerManager::getPoint(Point p) -> Color {
+		return EvaluateColor(p);
+	}
+
+	// [trait::sheet]
+	void LayerManager::doshow(void*) {
+		_TODO
+	}
+
+	// [trait::sheet]
+	void LayerManager::onrupt(SheetEvent event, Point rel_p, ...) {
+		auto top = getTop(rel_p);
+		asserv(top)->onrupt(event, rel_p - top->sheet_area.getVertex());
+	}
+
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("general-regs-only")))
 	#endif
@@ -166,7 +246,7 @@ namespace uni {
 			auto& crt_sheet = treat<SheetTrait>(crt->offs);
 			auto& rect = crt_sheet.sheet_area;
 			if (!rect.ifContain(glb_p)) continue;
-			const Point pt{ (glb_p.x - rect.x), (glb_p.y - rect.y) };
+			const Point pt{ glb_p - rect.getVertex() };
 			auto pp = !crt_sheet.sheet_buffer ? crt_sheet.getPoint(pt) :
 				crt_sheet.sheet_buffer[pt.y * crt_sheet.sheet_area.width + pt.x];
 			constexpr const sint32 dv = 0xFF * 0xFF;
@@ -195,4 +275,27 @@ namespace uni {
 		return nullptr;
 	}
 
+}
+
+namespace uni {
+	void DrawString_16(SheetTrait& st, const Point2& p, const String& str, Color col) {
+	//{} ASCII only
+	Point2 pp = p;
+	if (!st.sheet_buffer) return;
+	for (const char* pstr = str.reference(); *pstr; pstr++) {
+		byte ch = *pstr;
+		if (!ascii_isprint(*pstr)) continue;
+		const uint16(*datptr) = (const uint16(*)) & _BITFONT_ASCII_16x8[ch - 0x20];
+		uint16 dat = 0; Reference_T<uint16> dat_bmap _IMM(&dat);
+		for0(i, 8) {
+			dat = datptr[i];
+			for0r(j, 16) {
+				if (dat_bmap.bitof(j))
+					st.sheet_buffer[pp.x + (pp.y + (j ^ 0b111)) * st.sheet_area.width] = col;
+			}
+			pp.x++;
+		}
+		if (pp.x >= st.sheet_area.width) break;
+	}
+}
 }

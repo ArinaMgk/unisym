@@ -1,11 +1,9 @@
-// ASCII C++ TAB4 CRLF
-// Attribute: 
-// LastCheck: 20240512
-// AllAuthor: @dosconio
-// ModuTitle: uni.Witch.Form
-// Reference: (.C#)System.Windows.Forms
-// Parallel : Electron Engine, Flutter
-// Copyright: ArinaMgk UniSym, Apache License Version 2.0
+
+// ASCII CPP TAB4 CRLF
+// Docutitle: (Module) Timer
+// Codifiers: @dosconio: 20240516
+// Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 /*
 	Copyright 2023 ArinaMgk
 
@@ -23,20 +21,21 @@
 	limitations under the License.
 */
 
-//{ISSUE} (Draw-by-point or depend-on-SysControls)
+#ifndef _INC_DEVICE_Timer_X
+#define _INC_DEVICE_Timer_X
 
-#ifndef _INC_WITCH_X
-#define _INC_WITCH_X
+#include "../../c/nnode.h"
+#include "./_Video.hpp"
+#include "./_Touch.hpp"
 
-#include "../../cpp/Device/_Video.hpp"
-#include "../unisym"
+namespace uni {
 
-// Witch needs the Screen(Video + Touch)
+	struct SysTimer {
+		static void Initialize();
+		static void Append(stduint timeout, stduint iden, _tocall_ft hand = 0);
+	};
 
-namespace uni { namespace Witch {
+}
 
-
-
-} }
 
 #endif

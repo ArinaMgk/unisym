@@ -60,6 +60,7 @@ namespace uni {
 		// e.g. add_range(0x1, 0x2) for 0x1000 ~ 0x1FFF
 		void add_range(stduint head_pos, stduint last_pos, bool what);
 		//
+		stduint Count() const;
 		void dump_avail_memory();
 	};
 }

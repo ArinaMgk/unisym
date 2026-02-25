@@ -25,6 +25,39 @@
 
 #include "stdinc.h"
 
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+// alignas(16)
+_PACKED(struct) NormalTaskContext {
+	// x64 0x00
+	_PACKED(union) {
+		_PACKED(struct) {
+			stduint AX;
+			stduint CX;
+			stduint DX;
+			stduint BX;
+			stduint SP;
+			stduint BP;
+			stduint SI;
+			stduint DI;
+		};
+		stduint GPR[16];// R0~R15
+	};
+	// x64 0x80
+	stduint IP;// PC
+	stduint FLAG;
+	stduint CR3;
+	stduint RING;
+	// x64 0xA0
+	uint16 CS, DS, ES, SS, FS, GS, _NS0, _NS1;
+	// x64 0xB0
+	byte floating_point_context[512];
+	// x64 0x2B0
+};
+
+// task.asm
+_ESYM_C void SwitchTaskContext(struct NormalTaskContext* nex, struct NormalTaskContext* crt);
+#endif
+
 #if defined(_ARC_x86)
 #if _ARC_x86 >= 3
 

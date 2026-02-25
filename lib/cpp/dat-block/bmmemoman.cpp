@@ -66,6 +66,29 @@ void BmMemoman::add_range(stduint head_pos, stduint last_pos, bool what) {
 	}
 	update_avail_pointer(self, head_pos, last_pos, what);
 }
+
+stduint BmMemoman::Count() const {
+	bool last_stat = false;
+	stduint last_index = 0;
+	stduint ret = 0;
+	for0(i, page_cnt) {
+		bool b = this->bitof(i);
+		if (b != last_stat) {
+			if (!last_stat) {
+				last_index = i;
+				last_stat = 1;
+			}
+			else {
+				ret += i - last_index;
+				last_stat = 0;
+			}
+		}
+	}
+	if (last_stat == 1) {
+		ret += 0x100000 - last_index;
+	}
+	return ret <<= 12;
+}
 void BmMemoman::dump_avail_memory()
 {
 	bool last_stat = false;

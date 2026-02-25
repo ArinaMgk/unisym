@@ -51,6 +51,7 @@ namespace uni::witch::control {
 			vcim.DrawRectangle(Rectangle(Point(3, 0), Size2(sheet_area.width - 6, 3), 0xFF7F7F7F));
 			vcim.DrawRectangle(Rectangle(Point(sheet_area.width - 3, 0), Size2(3, sheet_area.height), 0xFFDDDFE1));
 			vcim.DrawRectangle(Rectangle(Point(3, sheet_area.height - 3), Size2(sheet_area.width - 6, 3), 0xFFDDDFE1));
+			// Clear Origin Text ()
 			DrawString_16(self, Point(3, 3), text, Color::Black);
 			if (sheet_parent) sheet_parent->Update(this, Rectangle(Point(0,0), sheet_area.getSize()));
 		}

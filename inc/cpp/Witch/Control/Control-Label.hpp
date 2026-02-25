@@ -45,7 +45,9 @@ namespace uni::witch::control {
 		virtual void doshow(void*) override {
 			if (!sheet_buffer) sheet_buffer = (Color*)calloc(sheet_area.getArea(), sizeof(Color));
 			//{now} only consider single line
+			MemSet(sheet_buffer, 0, sheet_area.getArea() * sizeof(Color));
 			DrawString_16(self, Point(0, 0), text, Color::Black);
+			if (sheet_parent) sheet_parent->Update(this, Rectangle(Point(0,0), sheet_area.getSize()));
 		}
 
 		virtual void onrupt(SheetEvent event, Point rel_p, ...) override { }

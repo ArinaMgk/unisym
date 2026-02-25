@@ -35,6 +35,7 @@ namespace uni {
 		onLeave,// Mouse Move Out = Lose Focus (Point)
 		onMoved,// Mouse Move  or Finger Move  (Point, pressure, range_radius)
 		onClick,// Mouse Click or Finger Touch (Point, byte 0RML0RML)
+		onTimer,// Systimer -> (timeout, {SheetT*, type}) -> this(unused Point, type)
 	};
 	// once Click trigger two onClicks
 	// 0RML0RML: Lower 0RML for change, Upper 0RML for last state

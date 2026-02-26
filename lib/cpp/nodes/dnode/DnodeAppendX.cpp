@@ -28,8 +28,13 @@
 namespace uni {
 	Dnode* Dchain::Push(pureptr_t off, bool end_left) {
 		Dnode* new_nod = nullptr;
+		if (!root_node) {
+			new_nod = DnodeInsert(nullptr, off, nil, extn_field, 0);
+			DnodeChainAdapt(new_nod, new_nod, +1);
+			return new_nod;
+		}
 		if (end_left) {
-			(new_nod = DnodeInsert(nullptr, off, nil, extn_field, 1/*ON_RIGHT*/))->next = root_node;
+			(new_nod = DnodeInsert(root_node, off, nil, extn_field, 0/*ON_LEFT*/));
 			DnodeChainAdapt(new_nod, last_node, +1);
 		}
 		else {
@@ -46,7 +51,7 @@ namespace uni {
 		Dnode* new_nod = 0;
 
 		if (nod) {
-			new_nod = DnodeInsert(onleft ? nod->left : nod, addr, nil, extn_field, 1/*ON_RIGHT*/);
+			new_nod = DnodeInsert(nod, addr, nil, extn_field, onleft ? 0 : 1);
 			Dnode* const ro = !root_node || onleft && (nod == root_node) ? new_nod : root_node;
 			Dnode* const la = !last_node || !onleft && (nod == last_node) ? new_nod : last_node;
 			DnodeChainAdapt(ro, la, +1);
@@ -74,11 +79,11 @@ namespace uni {
 			while (cmp((pureptr_t)&tmp_nod, (pureptr_t)crt) > 0 && (crt = crt->next));
 			if (!crt) {
 				new_nod = DnodeInsert(last_node, addr, nil, extn_field, 1/*ON_RIGHT*/);
-				DnodeChainAdapt(root_node, new_nod, +1);
+				DnodeChainAdapt(root_node ? root_node : new_nod, new_nod, +1);
 			}
 			else {
-				new_nod = DnodeInsert(crt->left, addr, nil, extn_field, 1/*ON_RIGHT*/);
-				DnodeChainAdapt(root_node, last_node, +1);
+				new_nod = DnodeInsert(crt, addr, nil, extn_field, 0/*ON_LEFT*/);
+				DnodeChainAdapt(crt == root_node ? new_nod : root_node, last_node, +1);
 			}
 		}
 		else new_nod = Push(addr, onleft);

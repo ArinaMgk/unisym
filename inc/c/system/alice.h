@@ -38,7 +38,7 @@
 typedef void* pureptr_t;
 typedef void(*_tofree_ft)(pureptr_t);
 typedef  int(*_tocomp_ft)(pureptr_t, pureptr_t);
-typedef int*(*_tocall_ft)(void*, ...);
+typedef void(*_tocall_ft)(void*, ...);
 typedef void(symbol_t)(void);
 typedef void(*Handler_t)(void);
 typedef const char* rostr;// read-only string

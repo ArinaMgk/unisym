@@ -310,7 +310,7 @@ bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
 	if (_IMM(ptr) < sizeof(Header)) return false;
 	Header* header = (Header*)ptr - 1;
 	if (header->prop != _IMM(0xFEDC5AA5) || !header->size) {
-		plogerro("Invalid pointer in Mempool::deallocate");
+		plogerro("Invalid pointer in Mempool::deallocate, %[x]", ptr);
 		return false;
 	}
 	if (!size) size = header->size;

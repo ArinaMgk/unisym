@@ -54,10 +54,13 @@ RET
 
 getCR0:
 	MOV EAX, CR0
+RET
 ; getCR1:
 ; 	MOV EAX, CR1
+; RET
 getCR2:
 	MOV EAX, CR2
+RET
 getCR3:
 	MOV EAX, CR3
 RET

@@ -118,13 +118,21 @@ jmpTask:; (TSS_ID(times of 8) )
 		AND ECX, 0x3
 		CMP EAX, ECX
 		JZ paral_jump
+		MOV EAX, jmpTask_stack_top
+		OR EAX, 0x80000000; MCCA-USED
+		MOV ESP, EAX
 		PUSH DWORD [EBX+80]; SS
 		PUSH DWORD [EBX+56]; ESP
-		JMP jtask_end
+		MOV EAX, jtask_end
+			OR  EAX, 0x80000000; MCCA-USED
+			JMP EAX
 		paral_jump:
 		MOV ECX, [EBX+80]
 		MOV SS, ECX
 		MOV ESP, [EBX+56]
+		MOV EAX, jtask_end
+			OR  EAX, 0x80000000; MCCA-USED
+			JMP EAX
 		jtask_end:
 		PUSH DWORD [EBX+36]; EFLAGS
 		PUSH DWORD [EBX+76]; CS
@@ -146,3 +154,6 @@ ALIGN 16
 
 jmpTask_var: DD 0,0,0,0, 0,0,0,0; do not access after change page
 
+ALIGN 16
+jmpTask_stack: TIMES 8 DD 0
+jmpTask_stack_top; for cpu0

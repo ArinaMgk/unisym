@@ -41,8 +41,10 @@ RET
 ; ---- ---- G/SETs (Management Registers) ---- ---- ;
 getCR0:
 	MOV RAX, CR0
+RET
 ; getCR1:
 ; 	MOV RAX, CR1
+; RET
 getCR2:
 	MOV RAX, CR2
 RET

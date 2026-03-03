@@ -88,7 +88,8 @@ static_assert(__builtin_offsetof(keyboard_event_t, keycode) == 3);
 #define KEYBOARD_LED 0xED
 #define KEYBOARD_ACK 0xFA
 
-extern keymap_element_t _tab_keycode2ascii[0x80];
+extern const byte key_ps2set1_usb[128];
+extern const uint8_t key_ps2set1_usb_E0[128];
 
 _ESYM_C void Keyboard_Init();
 _ESYM_C void Keyboard_Wait();

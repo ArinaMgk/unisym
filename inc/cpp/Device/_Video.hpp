@@ -141,6 +141,7 @@ namespace uni {
 		virtual Color GetColor(Point p) const = 0;
 	public:
 		virtual void RollUp(stduint height, const Rectangle& rect) const;
+		virtual void DrawPoints(const Rectangle& rect, const Color* base) const { }
 	};
 
 	class VideoControlInterfaceMARGB8888 : public VideoControlInterface {
@@ -167,6 +168,9 @@ namespace uni {
 		}
 	public:
 		virtual void RollUp(stduint height, const Rectangle& rect) const override;
+		virtual void DrawPoints(const Rectangle& rect, const Color* base) const override {
+			
+		}
 	};
 
 	/*
@@ -181,7 +185,39 @@ namespace uni {
 		Nnode* subf = nullptr,// top
 			* subl = nullptr;// bottom
 		VideoControlInterface* pvci;
-		Rectangle window;
+		Rectangle window;//[duplicate] sheet_area
+		volatile bool is_dirty = true;
+		Rectangle dirty_area = {};
+		
+		void AddDirty(const Rectangle& rect) {
+			stduint x0 = maxof(rect.x, 0);
+			stduint y0 = maxof(rect.y, 0);
+			stduint x1 = rect.x + rect.width;
+			stduint y1 = rect.y + rect.height;
+			
+			if (window.width) { x1 = minof((stduint)x1, window.width); }
+			if (window.height) { y1 = minof((stduint)y1, window.height); }
+			if (x0 >= x1 || y0 >= y1) return;
+
+			if (!is_dirty || dirty_area.width == 0 || dirty_area.height == 0) {
+				dirty_area.x = x0;
+				dirty_area.y = y0;
+				dirty_area.width = x1 - x0;
+				dirty_area.height = y1 - y0;
+				is_dirty = true;
+			} else {
+				stdsint min_x = minof(dirty_area.x, x0);
+				stdsint min_y = minof(dirty_area.y, y0);
+				stdsint max_x = maxof(dirty_area.x + dirty_area.width, x1);
+				stdsint max_y = maxof(dirty_area.y + dirty_area.height, y1);
+				dirty_area.x = min_x;
+				dirty_area.y = min_y;
+				dirty_area.width = max_x - min_x;
+				dirty_area.height = max_y - min_y;
+				is_dirty = true;///
+			}
+		}
+
 	public:// User Using
 		PixelFormat pixel_fmt = PixelFormat::ARGB8888;// decide the size of the element
 		stduint video_memory = 0;
@@ -219,7 +255,6 @@ namespace uni {
 			return cnt;
 		}
 
-		
 		virtual void Update(SheetTrait* who, const Rectangle& rect);
 		
 		void Domove(SheetTrait* who, Size2dif dif);

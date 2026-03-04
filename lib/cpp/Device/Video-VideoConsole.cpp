@@ -92,17 +92,19 @@ namespace uni {
 		else return;
 		for0(i, len) if (!str[i]) {
 			Rectangle rect;
-			rect.x = crt_self->cursor.x * FontSizeWidth[crt_self->typ];
+			rect.x = (crt_self->cursor.x - 1) * FontSizeWidth[crt_self->typ];
 			rect.y = crt_self->cursor.y * FontSizeHeight[crt_self->typ];
 			rect.width = FontSizeWidth[crt_self->typ];
 			rect.height = FontSizeHeight[crt_self->typ];
-			crt_self->sheet_parent->Update(crt_self, crt_self->window);
+			crt_self->sheet_parent->Update(crt_self, rect);
 		}
 		else if (str[i] == '\n') {
 			crt_self->cursor.y++;
 			crt_self->FeedLine();
-			Rectangle rect = crt_self->window;
+			Rectangle rect;
+			rect.x = 0;
 			rect.y = (crt_self->cursor.y - 1) * FontSizeHeight[crt_self->typ];
+			rect.width = crt_self->window.width;
 			rect.height = FontSizeHeight[crt_self->typ];
 			// cannot change rect.width because \n and \r are separated
 			if (crt_self->sheet_parent && crt_self->update_method == 2)
@@ -199,15 +201,19 @@ namespace uni {
 		const Size2 scr(size.x * FontSizeWidth[crt_self->typ], size.y * FontSizeHeight[crt_self->typ]);
 		if (buffer) {
 			VideoControlInterfaceMARGB8888 bvim(buffer, window.getSize());
-			bvim.RollUp(height, window);
-			sheet_parent->Update(this, window);
+			Rectangle zero_rect = window;
+			zero_rect.x = zero_rect.y = 0;
+			bvim.RollUp(height, zero_rect);
+			sheet_parent->Update(this, zero_rect);
 		}// quick method
 		else vci->RollUp(FontSizeHeight[crt_self->typ], window);
 	}
 	void VideoConsole::RefreshLine() {
 		if (buffer) {
-			Rectangle rect = crt_self->window;
+			Rectangle rect;
+			rect.x = 0;
 			rect.y = crt_self->cursor.y * FontSizeHeight[crt_self->typ];
+			rect.width = crt_self->window.width;
 			rect.height = FontSizeHeight[crt_self->typ];
 			sheet_parent->Update(this, rect);
 		}

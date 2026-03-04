@@ -205,6 +205,11 @@ namespace uni {
 			Point(abs_rect.x, abs_rect.y),
 			Size2(rect.width, rect.height)
 		));
+		else {
+			// Ensure dirty area spans the actual affected absolute rect
+			// this->AddDirty(window);
+			this->AddDirty(Rectangle(Point(abs_rect.x, abs_rect.y), Size2(rect.width, rect.height)));
+		}
 	}
 
 	void LayerManager::Domove(SheetTrait* who, Size2dif dif) {
@@ -249,11 +254,25 @@ namespace uni {
 			const Point pt{ glb_p - rect.getVertex() };
 			auto pp = !crt_sheet.sheet_buffer ? crt_sheet.getPoint(pt) :
 				crt_sheet.sheet_buffer[pt.y * crt_sheet.sheet_area.width + pt.x];
-			constexpr const sint32 dv = 0xFF * 0xFF;
-			col.r += (sint32)pp.r * pp.a * (0xFF - col.a) / dv;
-			col.g += (sint32)pp.g * pp.a * (0xFF - col.a) / dv;
-			col.b += (sint32)pp.b * pp.a * (0xFF - col.a) / dv;
-			col.a += (sint32)pp.a * (0xFF - col.a) / 0xFF;
+
+			if (pp.a == 0xFF) {
+				if (col.a == 0) return pp;
+				else {
+					stduint inv_a = 0xFF - col.a;
+					col.r += (sint32)pp.r * inv_a / 0xFF;
+					col.g += (sint32)pp.g * inv_a / 0xFF;
+					col.b += (sint32)pp.b * inv_a / 0xFF;
+					col.a = 0xFF;
+					break;
+				}
+			} else if (pp.a > 0) {
+				stduint factor = pp.a * (0xFF - col.a);
+				constexpr const sint32 dv = 0xFF * 0xFF;
+				col.r += (sint32)pp.r * factor / dv;
+				col.g += (sint32)pp.g * factor / dv;
+				col.b += (sint32)pp.b * factor / dv;
+				col.a += (sint32)pp.a * (0xFF - col.a) / 0xFF;
+			}
 		} while (col.a <= 0xFEu && (crt = crt->next) && crt->offs);
 		if (col.a != 0xFFu) {
 			col.r += (sint32)window.color.r * (0xFF - col.a) / 0xFF;

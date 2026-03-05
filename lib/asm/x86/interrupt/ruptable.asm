@@ -29,8 +29,31 @@
 EXTERN exception_handler
 GLOBAL PG_PUSH, PG_POP; PUSH 6*DWORD
 
-ROOT_PAGING EQU 0x00001000
+ROOT_PAGING EQU 0x00100000
 SegData EQU 8*1
+
+; should keep user stack for R0 constant
+;{TEMP} 2-lev paging
+%macro ConvertStackPointer 0; (ECX:ESP, EDX:CR3)->ESP
+	; PUSH EBX
+	MOV EBX, ECX
+	SHR EBX, 22; 22 for L1P_ID
+	MOV EAX, [EDX + EBX * 4]
+	AND EAX, 0xFFFFF000
+	MOV EBX, ECX
+	SHR EBX, 12; 12 for L0P_ID
+	AND EBX, 0x3FF
+	MOV EAX, [EAX + EBX * 4]
+	AND EAX, 0xFFFFF000
+	MOV EBX, ECX
+	AND EBX, 0xFFF
+	OR  EAX, EBX
+	OR  EAX, 0x8000_0000; MCCA Design
+	; ADD EAX, 4; Skip Ret-address
+	; POP EBX
+	; RET
+	; no use kernel stack
+%endmacro
 
 PG_PUSH:
 	POP ESI
@@ -48,18 +71,20 @@ PG_PUSH:
 	;
 	MOV EDX, CR3
 	MOV ECX, ESP
-	SUB ECX, 4 * 3; ecx and edx and ebp
+	SUB ECX, 4 * 4; ecx and edx and ebp
 	PUSH EDX
 	PUSH ECX
 		PUSH EBP
+	PUSH EBX
 	MOV EAX, ROOT_PAGING
 	MOV CR3, EAX
 	;MOV ESP, 0x7000; INTERRUPT STACK
-	CALL ConvertStackPointer
+	ConvertStackPointer
 	MOV ESP, EAX
 		MOV ECX, EBP
-		CALL ConvertStackPointer
+		ConvertStackPointer
 		MOV EBP, EAX
+	POP  EBX
 	PUSH ESI
 	RET
 PG_POP:
@@ -67,7 +92,7 @@ PG_POP:
 	    POP EBX
 	POP ECX
 	POP EDX
-	ADD ECX, 4 * (2+1)
+	ADD ECX, 4 * 4
 	MOV CR3, EDX
 	MOV ESP, ECX
 	POP EAX
@@ -79,26 +104,6 @@ PG_POP:
 	MOV GS, EAX
 	PUSH ESI
 	RET
-
-ConvertStackPointer:; (ECX:ESP, EDX:CR3)->ESP
-	PUSH EBX
-	MOV EBX, ECX
-	SHR EBX, 22; 22 for L1P_ID
-	MOV EAX, [EDX + EBX * 4]
-	AND EAX, 0xFFFFF000
-	MOV EBX, ECX
-	SHR EBX, 12; 12 for L0P_ID
-	AND EBX, 0x3FF
-	MOV EAX, [EAX + EBX * 4]
-	AND EAX, 0xFFFFF000
-	MOV EBX, ECX
-	AND EBX, 0xFFF
-	OR  EAX, EBX
-	OR  EAX, 0x8000_0000; MCCA Design
-	; ADD EAX, 4; Skip Ret-address
-	POP EBX
-	RET
-	; no use kernel stack
 
 ERQ_Handler:
 	POP  EBX

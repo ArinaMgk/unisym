@@ -289,6 +289,7 @@ static inline int MemCompareInsensitive(const char* a, const char* b, size_t n)
 static inline int StrCompare(const char* a, const char* b)
 {
 	int tmp = 0;
+	if (!a || !b) return (int)(a - b);
 	while (!(tmp = (*a - *b)) && *a++ && *b++);
 	return tmp;
 }

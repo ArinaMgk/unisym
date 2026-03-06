@@ -62,8 +62,13 @@ uni::Color uni::Witch::Form_CloseButton::getPoint(Point p)
 uni::Color uni::Witch::Form_TitleBar::getPoint(Point p)
 {
 	Color c = 0xFF000000;
-	c.b = 0x7F + ((uint32)p.x * 0x40) / sheet_area.width;
-	c.g = 0x00 + ((uint32)p.x * 0x80) / sheet_area.width;
+	if (!active) {
+		c.r = c.b = c.g = 0x80 + ((uint32)p.x * 0x30) / sheet_area.width;
+	}
+	else {
+		c.b = 0x7F + ((uint32)p.x * 0x40) / sheet_area.width;
+		c.g = 0x00 + ((uint32)p.x * 0x80) / sheet_area.width;
+	}
 	return c;
 }
 
@@ -74,11 +79,38 @@ void uni::Witch::Form::doshow(void* _)
 
 void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 {
+	bool redraw = false;
+	auto update_title_bar = [this]() {
+		if (!this->sheet_buffer) return;
+		for0(j, title_bar.sheet_area.height) {
+			Color* p = this->sheet_buffer + (title_bar.sheet_area.y + j) * this->sheet_area.width + title_bar.sheet_area.x;
+			for0(i, title_bar.sheet_area.width) {
+				*p++ = this->getPoint(Point(title_bar.sheet_area.x + i, title_bar.sheet_area.y + j));
+			}
+		}
+	};
 	Letpara(args, rel_p);
 	// notice layman if button_dn the title bar
-	if (sheet_parent && title_bar.sheet_area.ifContain(rel_p) &&
-		!close_btn.sheet_area.ifContain(rel_p)) {
-		sheet_parent->Dorupt(this, event, rel_p, args);
+	if (event == SheetEvent::onLeave && para_next(args, int) == 1) {
+		active = false, title_bar.active = false;
+		update_title_bar();
+		redraw = true;
+	}
+	else if (event == SheetEvent::onClick) {
+		if (!active) {
+			active = true, title_bar.active = true;
+			update_title_bar();
+			redraw = true;
+		}
+		if (sheet_parent && title_bar.sheet_area.ifContain(rel_p) &&
+			!close_btn.sheet_area.ifContain(rel_p)) {
+			sheet_parent->Dorupt(this, event, rel_p, args);
+		}
+	}
+	if (redraw) {
+		if (Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
+		if (Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
+		if (sheet_parent) sheet_parent->Update(this, title_bar.sheet_area);
 	}
 }
 

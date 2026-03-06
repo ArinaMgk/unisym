@@ -40,6 +40,13 @@ namespace uni {
 		}
 	}
 	String::String(const String& str) {
+		if (!str.addr) {
+			counts = 0;
+			addr = NULL;
+			limits = 0;
+			allocated = false;
+			return;
+		}
 		this->addr = StrHeap(str.addr);
 		this->counts = StrLength(this->addr);
 		limits = 0;
@@ -65,6 +72,11 @@ namespace uni {
 			this->limits = counts + 1;
 			this->addr = (char*)malc(limits);
 			StrCopy(this->addr, str);
+		}
+		else {
+			this->counts = 0;
+			this->limits = 0;
+			this->allocated = false;
 		}
 		this->charset = charset;
 	}
@@ -137,8 +149,14 @@ namespace uni {
 				this->counts = StrLength(this->addr);
 				this->limits = this->counts + 1;
 			}
-			else {
+			else if (limits) {
 				StrCopyN(this->addr, str.addr, this->limits);
+			}
+			else {
+				this->addr = StrHeap(str.addr);
+				this->counts = StrLength(this->addr);
+				this->limits = this->counts + 1;
+				this->allocated = true;
 			}
 		case Charset::Memory:
 			//{TODO}
@@ -163,8 +181,14 @@ namespace uni {
 				this->counts = StrLength(this->addr);
 				this->limits = this->counts + 1;
 			}
-			else {
+			else if (limits) {
 				StrCopyN(this->addr, addr, this->limits);
+			}
+			else {
+				this->addr = StrHeap(addr);
+				this->counts = StrLength(this->addr);
+				this->limits = this->counts + 1;
+				this->allocated = true;
 			}
 		case Charset::Memory:
 			//{TODO}

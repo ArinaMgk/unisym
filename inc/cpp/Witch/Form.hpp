@@ -42,6 +42,7 @@ namespace uni::Witch {
 		virtual Color getPoint(Point p) override;
 	};
 	struct Form_TitleBar : public SheetTrait {
+		bool active = false;
 		friend class Form;
 		Form_TitleBar() = default;
 		virtual void doshow(void*) override {}
@@ -66,6 +67,7 @@ namespace uni::Witch {
 		LayerManager client_area;// controls
 
 	protected:
+		bool active = false;
 
 	public:
 		String Title = nullptr;

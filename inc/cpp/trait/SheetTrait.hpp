@@ -32,10 +32,11 @@ namespace uni {
 	
 	enum class SheetEvent {
 		onEnter,// Mouse Move In  =  Get Focus (Point)
-		onLeave,// Mouse Move Out = Lose Focus (Point)
-		onMoved,// Mouse Move  or Finger Move  (Point, pressure, range_radius)
+		onLeave,// Mouse Move Out = Lose Focus (Point, Type)
+				//    Type: 0=leave, 1=click_others_after_leave (aka lose focus)
+		onMoved,// Mouse Move  or Finger Move  (Point, Pressure, RangeRadius)
 		onClick,// Mouse Click or Finger Touch (Point, byte 0RML0RML)
-		onTimer,// Systimer -> (timeout, {SheetT*, type}) -> this(unused Point, type)
+		onTimer,// Systimer -> (timeout, {SheetT*, type}) -> this(unused Point, Type)
 	};
 	// once Click trigger two onClicks
 	// 0RML0RML: Lower 0RML for change, Upper 0RML for last state

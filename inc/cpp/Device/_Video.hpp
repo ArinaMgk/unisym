@@ -29,6 +29,7 @@
 #include "../../c/graphic.h"
 #include "../../c/consio.h"
 #include "../../c/driver/Video/video.h"
+#include "../vector"
 
 namespace uni {
 
@@ -188,6 +189,13 @@ namespace uni {
 		Rectangle window;//[duplicate] sheet_area
 		volatile bool is_dirty = true;
 		Rectangle dirty_area = {};
+		stduint sys_tick = 0;
+		
+		uni::Vector<SheetTrait*> timer_sheets;
+
+		void RegisterTimer(SheetTrait* sheet);
+
+		void CheckTimers(stduint crt_tick);
 		
 		void AddDirty(const Rectangle& rect) {
 			stduint x0 = maxof(rect.x, 0);

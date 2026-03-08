@@ -90,11 +90,13 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 		}
 	};
 	Letpara(args, rel_p);
+	stduint para1 = para_next(args, stduint);
 	// notice layman if button_dn the title bar
-	if (event == SheetEvent::onLeave && para_next(args, int) == 1) {
+	if (event == SheetEvent::onLeave && para1 == 1) {
 		active = false, title_bar.active = false;
 		update_title_bar();
 		redraw = true;
+		client_area.onrupt(event, rel_p - client_area.sheet_area.getVertex(), para1);
 	}
 	else if (event == SheetEvent::onClick) {
 		if (!active) {
@@ -104,7 +106,11 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 		}
 		if (sheet_parent && title_bar.sheet_area.ifContain(rel_p) &&
 			!close_btn.sheet_area.ifContain(rel_p)) {
+			para_ento(args, rel_p);
 			sheet_parent->Dorupt(this, event, rel_p, args);
+		}
+		if (client_area.sheet_area.ifContain(rel_p)) {
+			client_area.onrupt(event, rel_p - client_area.sheet_area.getVertex(), para1);
 		}
 	}
 	if (redraw) {

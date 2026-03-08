@@ -145,8 +145,8 @@ namespace uni {
 	//{unchk} negSizy
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("sse2")))
-	#endif
-	void LayerManager::DrawLine(Point disp, Size2 size, Color color, bool negSizy) {
+		#endif
+		void LayerManager::DrawLine(Point disp, Size2 size, Color color, bool negSizy) {
 		if (!size.x || !size.y) return;
 		if (1 == size.x) for0(i, size.y) {
 			Draw(disp, color);// can also use "DrawRect"
@@ -180,9 +180,9 @@ namespace uni {
 
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("general-regs-only")))
-	#endif
-	void LayerManager::Update(SheetTrait* who, const Rectangle& rect) {
-		// auto p = who->sheet_buffer; if (!p) return;
+		#endif
+		void LayerManager::Update(SheetTrait* who, const Rectangle& rect) {
+			// auto p = who->sheet_buffer; if (!p) return;
 		if (!this) return;
 		VideoControlInterfaceMARGB8888 vcim(sheet_buffer, window.getSize());
 		Rectangle abs_rect = who ? who->sheet_area : window;
@@ -220,10 +220,10 @@ namespace uni {
 		Rectangle old_rect = who->sheet_area;
 		who->sheet_area.x = _x;
 		who->sheet_area.y = _y;
-		asserv (old_rect.x)--; if (old_rect.x + old_rect.width + 2 < window.width) old_rect.width += 2;
-		asserv (old_rect.y)--; if (old_rect.y + old_rect.height + 2 < window.height) old_rect.height += 2;
+		asserv(old_rect.x)--; if (old_rect.x + old_rect.width + 2 < window.width) old_rect.width += 2;
+		asserv(old_rect.y)--; if (old_rect.y + old_rect.height + 2 < window.height) old_rect.height += 2;
 		Update(NULL, old_rect);
-		Update(who, Rectangle(Point(0,0), who->sheet_area.getSize()));
+		Update(who, Rectangle(Point(0, 0), who->sheet_area.getSize()));
 	}
 
 	auto LayerManager::getPoint(Point p) -> Color {
@@ -237,14 +237,23 @@ namespace uni {
 
 	// [trait::sheet]
 	void LayerManager::onrupt(SheetEvent event, Point rel_p, ...) {
+		Letpara(args, rel_p);
 		auto top = getTop(rel_p);
-		asserv(top)->onrupt(event, rel_p - top->sheet_area.getVertex());
+		stduint para1 = para_next(args, stduint);
+		if (event == SheetEvent::onLeave && para1 == 1) {
+			for (auto n = subf; n; n = n->next) {
+				auto& sheet = treat<SheetTrait>(n->offs);
+				sheet.onrupt(event, Point(0, 0), para1);
+			}
+			return;
+		}
+		asserv(top)->onrupt(event, rel_p - top->sheet_area.getVertex(), para1);
 	}
-
+	
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("general-regs-only")))
-	#endif
-	Color LayerManager::EvaluateColor(const Point& glb_p) {
+		#endif
+		Color LayerManager::EvaluateColor(const Point& glb_p) {
 		Nnode* crt = subf;
 		Color col = 0;
 		if (crt && crt->offs) do {
@@ -265,7 +274,8 @@ namespace uni {
 					col.a = 0xFF;
 					break;
 				}
-			} else if (pp.a > 0) {
+			}
+			else if (pp.a > 0) {
 				stduint factor = pp.a * (0xFF - col.a);
 				constexpr const sint32 dv = 0xFF * 0xFF;
 				col.r += (sint32)pp.r * factor / dv;
@@ -292,6 +302,26 @@ namespace uni {
 			if (area.ifContain(p)) return cast<SheetTrait*>(crt->offs);
 		} while (crt = crt->next);
 		return nullptr;
+	}
+
+	void LayerManager::RegisterTimer(SheetTrait* sheet) {
+		if (sheet_parent) {
+			sheet_parent->RegisterTimer(sheet);
+		} else {
+			sheet->timer_timeout_period = 0;
+			timer_sheets.Append(sheet);
+		}
+	}
+
+	void LayerManager::CheckTimers(stduint crt_tick) {
+		sys_tick = crt_tick;
+		for (stduint i = 0; i < timer_sheets.Count(); i++) {
+			SheetTrait* sheet = timer_sheets[i];
+			if (sheet->timer_timeout_period && sys_tick >= sheet->timer_timeout_tick) {
+				sheet->timer_timeout_tick = sys_tick + sheet->timer_timeout_period;
+				sheet->onrupt(SheetEvent::onTimer, Point(0, 0), 0, sys_tick);
+			}
+		}
 	}
 
 }

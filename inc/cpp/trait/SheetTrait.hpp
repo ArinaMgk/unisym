@@ -36,7 +36,7 @@ namespace uni {
 				//    Type: 0=leave, 1=click_others_after_leave (aka lose focus)
 		onMoved,// Mouse Move  or Finger Move  (Point, Pressure, RangeRadius)
 		onClick,// Mouse Click or Finger Touch (Point, byte 0RML0RML)
-		onTimer,// Systimer -> (timeout, {SheetT*, type}) -> this(unused Point, Type)
+		onTimer,// Systimer -> (timeout, {SheetT*, type}) -> this(unused Point, Type, timeout)
 	};
 	// once Click trigger two onClicks
 	// 0RML0RML: Lower 0RML for change, Upper 0RML for last state
@@ -51,6 +51,9 @@ namespace uni {
 	public:
 		Rectangle sheet_area;
 		Color* sheet_buffer = nullptr;// if set, the LayMan will fetch the uni.Color from the buffer
+	public:
+		stduint timer_timeout_tick = 0;
+		stduint timer_timeout_period = 0;
 	public:
 		SheetTrait() = default;
 

@@ -33,6 +33,7 @@ namespace uni::witch::control {
 	class TextBox : public SheetTrait {
 	public:
 		String text = "";
+		bool cursor_visible = false;
 		TextBox() : SheetTrait() {}
 		~TextBox() = default;
 
@@ -53,10 +54,53 @@ namespace uni::witch::control {
 			vcim.DrawRectangle(Rectangle(Point(3, sheet_area.height - 3), Size2(sheet_area.width - 6, 3), 0xFFDDDFE1));
 			// Clear Origin Text ()
 			DrawString_16(self, Point(3, 3), text, Color::Black);
+			if (cursor_visible) {
+				stduint cur_x = 3 + text.length() * 8;
+				vcim.DrawRectangle(Rectangle(Point(cur_x, 3), Size2(8, 16), Color::Black));
+			}
 			if (sheet_parent) sheet_parent->Update(this, Rectangle(Point(0,0), sheet_area.getSize()));
 		}
 
-		virtual void onrupt(SheetEvent event, Point rel_p, ...) override { }
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {
+			if (event == SheetEvent::onClick) {
+				para_list args;
+				para_ento(args, rel_p);
+				unsigned state = para_next(args, unsigned);
+				para_endo(args);
+				// To only trigger the focus change on left click down:
+				if (state & 0b00010000) {
+					cursor_visible = true;
+					timer_timeout_period = 100;// 1s
+					doshow(nullptr);
+				}
+			}
+			else if (event == SheetEvent::onLeave) {
+				para_list args;
+				para_ento(args, rel_p);
+				int type = para_next(args, int);
+				para_endo(args);
+				if (type == 1) {
+					if (sheet_parent) timer_timeout_period = 0;// stop timer
+					cursor_visible = false;
+					doshow(nullptr);
+				}
+			}
+			else if (event == SheetEvent::onTimer) {
+				para_list args;
+				para_ento(args, rel_p);
+				stduint current_tick = para_next(args, stduint);
+				int type = para_next(args, int);
+				para_endo(args);
+				(void)current_tick; (void)type; // unused for now but parsed correctly
+				
+				cursor_visible = !cursor_visible;
+				doshow(nullptr); // this will redraw with updated cursor_visible state, resulting in blink
+			}
+		}
+
+		void Start() {
+			if (sheet_parent) sheet_parent->RegisterTimer(this);
+		}
 	};
 
 }

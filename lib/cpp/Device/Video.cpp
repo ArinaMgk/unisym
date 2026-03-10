@@ -188,6 +188,7 @@ namespace uni {
 		Rectangle abs_rect = who ? who->sheet_area : window;
 		abs_rect.x += rect.x;
 		abs_rect.y += rect.y;
+		//{TEMP} | then —
 		for0(i, rect.height) {
 			// auto pp = p + (rect.y + i) * who->sheet_area.width + rect.x;
 			Point point(abs_rect.x + 0, abs_rect.y + i);

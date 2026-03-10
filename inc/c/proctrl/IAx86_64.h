@@ -284,8 +284,7 @@ inline static void loadIDT(stduint address, uint16 length) {
 }
 
 inline static void loadTask(stduint sel) {
-	__asm("mov  %0, %%eax" : : "m"(sel));
-	__asm("ltr  %ax");
+	__asm volatile("ltr %%ax" : : "a"(sel));
 }
 
 // [CR0]
@@ -303,15 +302,13 @@ stduint getCR3();
 inline static
 void setCR3(stduint cr3)
 {
-	_ASM volatile("movl %0, %%eax\n" : : "r"(cr3));
-	_ASM volatile("movl %eax, %cr3\n");
+	_ASM volatile("movl %0, %%cr3\n" : : "r"(cr3));
 }
 #elif __BITS__ == 64
 inline static
 void setCR3(stduint cr3)
 {
-	_ASM volatile("movq %0, %%rax\n" : : "r"(cr3));
-	_ASM volatile("movq %%rax, %%cr3\n" : : : "memory");
+	_ASM volatile("movq %0, %%cr3\n" : : "r"(cr3) : "memory");
 }
 #endif
 

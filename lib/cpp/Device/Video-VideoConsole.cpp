@@ -76,8 +76,18 @@ namespace uni {
 	int VideoConsole::inn() {
 		return _TEMP 0;
 	}
-	void VideoConsole::doshow(void*_) {
-		_TEMP 0;
+	void VideoConsole::doshow(void* _) {
+		if (!sheet_buffer && !vci) return;
+		VideoControlInterfaceMARGB8888 vcim(sheet_buffer, window.getSize());
+		Size2 fontsize(FontSizeWidth[typ], FontSizeHeight[typ]);
+		Point posi = cursor;
+		// if (cursor.x++ > size.x) {
+		// 	cursor.x = 0;
+		// 	cursor.y++;
+		// }
+		Rectangle cursor_rect(posi * fontsize, fontsize, cursor_visible ? forecolor : backcolor);
+		(sheet_buffer ? vcim : *vci).DrawRectangle(cursor_rect);
+		if (sheet_parent) sheet_parent->Update(this, cursor_rect);
 	}
 
 
@@ -179,6 +189,47 @@ namespace uni {
 		_VideoConsoleOut(str, len);
 		return 0 _TEMP;
 	}
+	void VideoConsole::onrupt(SheetEvent event, Point rel_p, ...) {
+			if (event == SheetEvent::onClick) {
+				para_list args;
+				para_ento(args, rel_p);
+				unsigned state = para_next(args, unsigned);
+				para_endo(args);
+				// To only trigger the focus change on left click down:
+				if (state & 0b00010000) {
+					cursor_visible = true;
+					timer_timeout_period = 50;// 0.5s
+					doshow(nullptr);
+				}
+			}
+			else if (event == SheetEvent::onEnter) {
+				cursor_visible = true;
+				timer_timeout_period = 50;// 0.5s
+				doshow(nullptr);
+			}
+			else if (event == SheetEvent::onLeave) {
+				para_list args;
+				para_ento(args, rel_p);
+				int type = para_next(args, int);
+				para_endo(args);
+				if (type == 1) {
+					if (sheet_parent) timer_timeout_period = 0;// stop timer
+					cursor_visible = false;
+					doshow(nullptr);
+				}
+			}
+			else if (event == SheetEvent::onTimer) {
+				para_list args;
+				para_ento(args, rel_p);
+				stduint current_tick = para_next(args, stduint);
+				int type = para_next(args, int);
+				para_endo(args);
+				(void)current_tick; (void)type; // unused for now but parsed correctly
+				
+				cursor_visible = !cursor_visible;
+				doshow(nullptr); // this will redraw with updated cursor_visible state, resulting in blink
+			}
+	}
 
 
 	void VideoConsole::thisDrawPoint(const Point& disp, Color color) {
@@ -198,7 +249,7 @@ namespace uni {
 		else vci->DrawRectangle(rect);
 	}
 	void VideoConsole::thisRollup(stduint height) {
-		const Size2 scr(size.x * FontSizeWidth[crt_self->typ], size.y * FontSizeHeight[crt_self->typ]);
+		const Size2 scr(size.x * FontSizeWidth[typ], size.y * FontSizeHeight[typ]);
 		if (buffer) {
 			VideoControlInterfaceMARGB8888 bvim(buffer, window.getSize());
 			Rectangle zero_rect = window;
@@ -206,15 +257,15 @@ namespace uni {
 			bvim.RollUp(height, zero_rect);
 			sheet_parent->Update(this, zero_rect);
 		}// quick method
-		else vci->RollUp(FontSizeHeight[crt_self->typ], window);
+		else vci->RollUp(FontSizeHeight[typ], window);
 	}
 	void VideoConsole::RefreshLine() {
 		if (buffer) {
 			Rectangle rect;
 			rect.x = 0;
-			rect.y = crt_self->cursor.y * FontSizeHeight[crt_self->typ];
-			rect.width = crt_self->window.width;
-			rect.height = FontSizeHeight[crt_self->typ];
+			rect.y = cursor.y * FontSizeHeight[typ];
+			rect.width = window.width;
+			rect.height = FontSizeHeight[typ];
 			sheet_parent->Update(this, rect);
 		}
 	}
@@ -222,10 +273,14 @@ namespace uni {
 	void VideoConsole::FeedLine() {
 		while (cursor.y >= size.y) {
 			cursor.y--;
-			thisRollup(FontSizeHeight[crt_self->typ]);
+			thisRollup(FontSizeHeight[typ]);
 		}
 	}
-	
+
+	void VideoConsole::Start() {
+		if (sheet_parent) sheet_parent->RegisterTimer(this);
+	}
+
 	void VideoConsole::curinc() {
 		if (!size.x || !size.y) return;
 		cursor.x++;

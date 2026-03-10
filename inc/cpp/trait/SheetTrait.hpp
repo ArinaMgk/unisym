@@ -32,6 +32,7 @@ namespace uni {
 	
 	enum class SheetEvent {
 		onEnter,// Mouse Move In  =  Get Focus (Point)
+				//   parent notice the sheet get focus
 		onLeave,// Mouse Move Out = Lose Focus (Point, Type)
 				//    Type: 0=leave, 1=click_others_after_leave (aka lose focus)
 		onMoved,// Mouse Move  or Finger Move  (Point, Pressure, RangeRadius)

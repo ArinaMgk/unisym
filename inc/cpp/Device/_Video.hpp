@@ -319,6 +319,7 @@ namespace uni {
 		Color backcolor;// for next font's, but background, while background use window.color.
 		Rectangle window;//{TODO}
 		byte update_method = 2;// 0: no update, 1: update all, 2: update line
+		bool cursor_visible = false;
 	protected:
 		static void (VideoConsole::* DrawCharPosition_f[])(uni::Point, uni::Color, char);
 		static VideoConsole* crt_self;
@@ -339,7 +340,7 @@ namespace uni {
 		{
 			size.x = window.width / (typ ? 8 : 5);
 			size.y = window.height / (typ ? 16 : 8);
-			window.color = fore_color;
+			window.color = back_color;
 		}
 
 		inline void Clear() {
@@ -353,6 +354,8 @@ namespace uni {
 			else vci->DrawRectangle(window);
 		}
 
+		void Start();
+
 		void setModeBuffer(Color* buf) { buffer = buf; }
 		void setBackcolor(Color bkcolor) {
 			byte buf[4] = { (byte)'\xFE', bkcolor.b, bkcolor.g, bkcolor.r };
@@ -363,7 +366,7 @@ namespace uni {
 		virtual int out(const char* str, stduint len) override;
 		virtual int inn() override _TODO;
 		virtual void doshow(void*) override;
-		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) override;
 
 	public:
 
@@ -376,6 +379,8 @@ namespace uni {
 		void thisRollup(stduint height);
 	public:
 		void RefreshLine();
+	public:
+		inline auto getCursor() const { return cursor; }
 	};
 
 

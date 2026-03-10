@@ -65,6 +65,7 @@ namespace uni::Witch {
 		Form_TitleBar title_bar;
 		// subsheetN: Client Area
 		LayerManager client_area;// controls
+		SheetTrait* focus_sheet = nullptr;
 
 	protected:
 		bool active = false;
@@ -99,6 +100,13 @@ namespace uni::Witch {
 
 		void setSheet(LayerManager& layman, const Rectangle& rect, Color* buffer = nullptr);
 
+		bool setFocus(SheetTrait* sheet) {
+			//{TODO} check if in client area
+			if (sheet == focus_sheet) return true;
+			focus_sheet = sheet;
+			return true;
+		}
+
 		Rectangle getClientArea(void); //_TODO
 
 		bool AppendControl(SheetTrait* sheet) {
@@ -106,7 +114,7 @@ namespace uni::Witch {
 			return true;
 		}
 
-		virtual void Update(SheetTrait* who, const Rectangle& rect) {
+		virtual void Update(SheetTrait* who, const Rectangle& rect) override {
 			if (sheet_buffer) {
 				Color* p = sheet_buffer;
 				for0(j, sheet_area.height) for0(i, sheet_area.width) {

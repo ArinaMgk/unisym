@@ -96,7 +96,12 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 		active = false, title_bar.active = false;
 		update_title_bar();
 		redraw = true;
-		client_area.onrupt(event, rel_p - client_area.sheet_area.getVertex(), para1);
+		if (client_area.sheet_area.ifContain(rel_p)) {
+			client_area.onrupt(event, rel_p - client_area.sheet_area.getVertex(), para1);
+		}
+		else if (focus_sheet) {
+			focus_sheet->onrupt(event, Point(0, 0), para1);
+		}
 	}
 	else if (event == SheetEvent::onClick) {
 		if (!active) {
@@ -111,6 +116,9 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 		}
 		if (client_area.sheet_area.ifContain(rel_p)) {
 			client_area.onrupt(event, rel_p - client_area.sheet_area.getVertex(), para1);
+		}
+		else if (focus_sheet) {
+			focus_sheet->onrupt(SheetEvent::onEnter, Point(0, 0));
 		}
 	}
 	if (redraw) {

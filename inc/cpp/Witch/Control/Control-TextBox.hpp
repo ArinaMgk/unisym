@@ -70,9 +70,14 @@ namespace uni::witch::control {
 				// To only trigger the focus change on left click down:
 				if (state & 0b00010000) {
 					cursor_visible = true;
-					timer_timeout_period = 100;// 1s
+					timer_timeout_period = 50;// 0.5s
 					doshow(nullptr);
 				}
+			}
+			else if (event == SheetEvent::onEnter) {
+				cursor_visible = true;
+				timer_timeout_period = 50;// 0.5s
+				doshow(nullptr);
 			}
 			else if (event == SheetEvent::onLeave) {
 				para_list args;

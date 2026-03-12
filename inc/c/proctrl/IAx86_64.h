@@ -312,6 +312,22 @@ void setCR3(stduint cr3)
 }
 #endif
 
+// [CR4]
+stduint getCR4();
+#if __BITS__ == 32
+inline static
+void setCR4(stduint cr4)
+{
+	_ASM volatile("movl %0, %%cr4\n" : : "r"(cr4));
+}
+#elif __BITS__ == 64
+inline static
+void setCR4(stduint cr4)
+{
+	_ASM volatile("movq %0, %%cr4\n" : : "r"(cr4) : "memory");
+}
+#endif
+
 // SPE [xFLAG]
 stduint getFlags();
 

@@ -7,7 +7,7 @@
 GLOBAL HALT
 GLOBAL InterruptEnable, InterruptDisable
 GLOBAL InterruptDTabLoad
-GLOBAL getCR0,getCR2,getCR3
+GLOBAL getCR0,getCR2,getCR3,getCR4
 GLOBAL getFlags
 GLOBAL getCS
 GLOBAL setA
@@ -50,6 +50,9 @@ getCR2:
 RET
 getCR3:
 	MOV RAX, CR3
+RET
+getCR4:
+	MOV RAX, CR4
 RET
 
 getFlags:

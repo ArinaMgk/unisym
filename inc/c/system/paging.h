@@ -92,6 +92,13 @@ enum {
 	PGPROP_weak = 0x10,
 };
 
+enum PageSizeShift : stduint {
+	PAGESIZE_4KB  = 12,
+	PAGESIZE_2MB  = 21,
+	PAGESIZE_4MB  = 22,
+	PAGESIZE_1GB  = 30
+};
+
 
 #if defined(_ARC_x86) || defined(_ARC_x64)
 namespace uni {
@@ -148,21 +155,17 @@ namespace uni {
 		void* operator[](stduint address) const;
 
 		// default: writable
-		//{unchk} unmap
 		auto
 			Map(stduint linear_address,
 				stduint physical_address,
 				stduint length,
-				stduint pgsize,
+				PageSizeShift pgsize,
 				stduint pgporp
 			) -> bool;
 
+		//{unchk} unmap
 		auto
-			Unmap(stduint ln_address,
-				stduint ph_address,
-				stduint length,
-				stduint pgsize
-			) -> bool;
+			Unmap(stduint ln_address, stduint length) -> bool;
 
 		void Reset();
 

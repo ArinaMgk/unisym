@@ -8,7 +8,7 @@
 GLOBAL _HALT, HALT
 GLOBAL _InterruptDisable, InterruptDTabLoad
 GLOBAL  InterruptEnable,  InterruptDisable
-GLOBAL getCR0,getCR2,getCR3
+GLOBAL getCR0,getCR2,getCR3,getCR4
 GLOBAL getFlags
 GLOBAL setA
 
@@ -63,6 +63,9 @@ getCR2:
 RET
 getCR3:
 	MOV EAX, CR3
+RET
+getCR4:
+	MOV EAX, CR4
 RET
 
 getFlags:

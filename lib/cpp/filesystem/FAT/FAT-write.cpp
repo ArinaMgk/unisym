@@ -25,8 +25,6 @@
 
 namespace uni {
 
-	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster);
-
 	stduint FilesysFAT::writfl(void* fil_handler, Slice file_slice, const byte* sors) {
 		FAT_FileHandle* fh = (FAT_FileHandle*)fil_handler;
 		if (fh->is_dir) return false;
@@ -61,7 +59,7 @@ namespace uni {
 		}
 		
 		while (to_write > 0) {
-			uint32_t sector = cluster_to_sector(self, cluster);
+			uint32_t sector = getSector_foCluster(cluster);
 			uint32_t sector_offset = offset % bytes_per_sector;
 			uint32_t sector_index = offset / bytes_per_sector;
 			uint32_t can_write = bytes_per_sector - sector_offset;
@@ -96,14 +94,5 @@ namespace uni {
 		return true;
 	}
 
-
-
-	// ----
-
-	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster)
-	{
-		if (cluster < 2) return 0;
-		return ((cluster - 2) * fs.sectors_per_cluster) + fs.first_data_sector;
-	}
 
 }

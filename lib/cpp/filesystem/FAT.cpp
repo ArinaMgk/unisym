@@ -27,7 +27,6 @@
 namespace uni {
 
 	static FAT_FileHandle* path_to_handle(FilesysFAT& fs, FAT_FileHandle& handle, rostr fullpath);
-	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster);
 
 	bool FilesysFAT::makefs(rostr vol_label, void* moreinfo) {
 		if (!storage) {
@@ -35,7 +34,7 @@ namespace uni {
 		}
 		if (_TEMP fat_type != 32) return false;
 		bool state = false;
-		ploginfo("Making FAT%u on part %u (buffer %[x])", fat_type, partid, buffer_sector);
+		ploginfo("Making FAT%u (buffer %[x])", fat_type, buffer_sector);
 		stduint cluster_sz = moreinfo ? *(stduint*)(_IMM(moreinfo)) : nil;
 		stduint secPerClus = (!cluster_sz) ? 8 : (cluster_sz / storage->Block_Size);
 		// sector 0
@@ -164,17 +163,17 @@ namespace uni {
 		// Seek the file
 		uint32_t cluster = handle->start_cluster;
 		while (cluster < 0xFFFFFFF8) {
-			uint32_t sector = cluster_to_sector(self, cluster);
+			uint32_t sector = getSector_foCluster(cluster);
 			if (!storage->Read(sector, buffer_sector)) {
 				error_number = 2;
 				return nullptr;
 			}
 			for (int i = 0; i < 16; i++) {
 				FAT_DirEntry* entry = (FAT_DirEntry*)&buffer_sector[i * 32];
-				if (entry->name[0] == 0) { // end of dir
+				if ((byte)entry->name[0] == 0x00u) { // end of dir
 					return nullptr;
 				}
-				if (entry->name[0] == 0xE5) continue; // deleted
+				if ((byte)entry->name[0] == 0xE5u) continue; // deleted
 				// ploginfo("%x %s", entry->name, entry->name);
 				// cmp name
 				char short_name[13];
@@ -197,10 +196,10 @@ namespace uni {
 				const char* target = StrIndexCharRight(fullpath, '/');
 				if (!target) target = fullpath;
 				if (!StrCompareInsensitive(short_name, target)) {
-					handle->start_cluster = (entry->cluster_high << 16) | entry->cluster_low;
+					handle->start_cluster = entry->getFirstClusterNumber();
 					handle->current_cluster = handle->start_cluster;
 					handle->size = entry->file_size;
-					handle->is_dir = (entry->attr & 0x10) != 0;
+					handle->is_dir = (entry->attribute.attr & 0x10) != 0;
 					handle->dir_sector = sector;
 					handle->dir_index = i;
 					
@@ -208,7 +207,7 @@ namespace uni {
 						FAT_DirInfo* info = (FAT_DirInfo*)((stduint*)moreinfo)[1];
 						StrCopy(info->name, short_name);
 						info->size = entry->file_size;
-						info->attr = entry->attr;
+						info->attr = entry->attribute.attr;
 						info->start_cluster = handle->start_cluster;
 					}
 					return handle;
@@ -229,15 +228,16 @@ namespace uni {
 		uint32_t cluster = fh->start_cluster;
 		uint32_t count = 0;
 		while (cluster < 0xFFFFFFF8) {
-			uint32_t sector = cluster_to_sector(self, cluster);	
+			uint32_t sector = getSector_foCluster(cluster);
 			if (!storage->Read(sector, buffer_sector)) return false;
 			for0 (i, 16) {
 				FAT_DirEntry* entry = &cast<FAT_DirEntry*>(buffer_sector)[i];
-				if (entry->name[0] == 0) return true; // end of dir
-				if (entry->name[0] == 0xE5) continue; // removed
-				if (entry->attr == 0x0F) continue; //{} FAT_LongDirEntry
+				if ((byte)entry->name[0] == 0x00u) return true; // end of dir
+				if ((byte)entry->name[0] == 0xE5u) continue; // removed
+				if ((byte)entry->name[0] == 0x05u) continue; // removed
+				if (entry->attribute.isLongName()) continue; //{} FAT_LongDirEntry
 				ploginfo("FilesysFAT::enumer %s", entry->name);
-				if (_fn) _fn((void*)_IMM(entry->_attr.directory), entry);
+				if (_fn) _fn((void*)_IMM(entry->attribute.directory), entry);
 				count++;
 			}
 			cluster = get_fat_entry(cluster);
@@ -248,9 +248,7 @@ namespace uni {
 	stduint FilesysFAT::readfl(void* fil_handler, Slice file_slice, byte* dest) {
 		FAT_FileHandle* fh = (FAT_FileHandle*)fil_handler;
 		if (fh->is_dir) return 0;
-		
-		uint64_t offset = file_slice.address;
-		uint64_t to_read = file_slice.length;
+		auto [offset, to_read] = file_slice;// C++17 structured binding
 		uint64_t total_read = 0;// ret
 		MIN(to_read, offset + fh->size);
 		// ploginfo("FilesysFAT::readfl %uBlks(0x%[64H],0x%[64H])", sectors_per_cluster, offset, to_read);
@@ -268,7 +266,7 @@ namespace uni {
 		}
 		
 		while (to_read > 0) {
-			uint32_t sector = cluster_to_sector(self, cluster);
+			uint32_t sector = getSector_foCluster(cluster);
 			uint32_t sector_offset = offset % storage->Block_Size;
 			uint32_t sector_index = offset / storage->Block_Size;
 			if (sector + sector_index == 0) {
@@ -311,11 +309,6 @@ namespace uni {
 		return &handle;
 	}
 
-	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster)
-	{
-		if (cluster < 2) return 0;
-		return ((cluster - 2) * fs.sectors_per_cluster) + fs.first_data_sector;
-	}
 
 	uint32_t FilesysFAT::get_fat_entry(uint32_t cluster)
 	{

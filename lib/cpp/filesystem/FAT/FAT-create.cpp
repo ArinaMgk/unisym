@@ -26,7 +26,6 @@
 namespace uni {
 
 	static FAT_FileHandle* path_to_handle(FilesysFAT& fs, FAT_FileHandle& handle, rostr fullpath);
-	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster);
 
 	bool FilesysFAT::create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest) {
 		if (!fs_loaded) return false;
@@ -69,13 +68,13 @@ namespace uni {
 		for (int i = 0; i < 8; i++) entry.name[i] = ascii_toupper(entry.name[i]);
 		for (int i = 0; i < 3; i++) entry.ext[i] = ascii_toupper(entry.ext[i]);
 		
-		entry.attr = (flags & 1) ? 0x10 : 0x20; // dir or file
+		entry.attribute.attr = (flags & 1) ? 0x10 : 0x20; // dir or file
 		entry.cluster_high = (uint16_t)(new_cluster >> 16);
 		entry.cluster_low = (uint16_t)(new_cluster & 0xFFFF);
 		
 		//{} simple impl
 		uint32_t parent_cluster = root_cluster ? root_cluster : 2;
-		uint32_t sector = cluster_to_sector(self, parent_cluster);
+		uint32_t sector = getSector_foCluster(parent_cluster);
 		uint8_t dir_buffer[512];
 		if (!storage->Read(sector, dir_buffer))// parent's sector
 			return false;
@@ -83,7 +82,7 @@ namespace uni {
 		// seek free entry
 		for0 (i, 16) { // 16 entries per sector
 			FAT_DirEntry* dir_entry = (FAT_DirEntry*)&dir_buffer[i * 32];
-			if (dir_entry->name[0] == 0 || dir_entry->name[0] == 0xE5) {
+			if (dir_entry->name[0] == 0 || (byte)dir_entry->name[0] == 0xE5u) {
 				// free or deleted
 				MemCopyN(dir_entry, &entry, sizeof(FAT_DirEntry));
 				return storage->Write(sector, dir_buffer);
@@ -91,16 +90,6 @@ namespace uni {
 		}
 		error_number = 4; // Dir Full
 		return false;
-	}
-
-
-
-	// ----
-
-	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster)
-	{
-		if (cluster < 2) return 0;
-		return ((cluster - 2) * fs.sectors_per_cluster) + fs.first_data_sector;
 	}
 
 

@@ -24,39 +24,19 @@
 #include "../../../inc/c/ustring.h"
 
 namespace uni {
+
 #if defined(_ARC_x86)
 
-	// return PD address
-	PageEntry* PageDirectory::Index() { return (PageEntry*)_IMM(this); }
-	// pointer to array of pointers of pages
-	PageEntry* PageTable::Index(Paging& pg2) {
-		// auto a = (PageEntry*)(_IMM(getParent(pg2).Index()[getID()].address) << 12);
-		auto b = pg2.refEntry((_IMM(this) << (12 + 10)) | 0);// aka entry of first item in PT
-		// if (a != b) plogerro("PageTable::Index this=%[x] a=%[x], b=%[x]", this, a, b);
-		return b;
-	}
-
-	// pointer to entry in the PD
-	PageEntry* PageTable::getEntry(Paging& pg2) {
-		// auto a = &getParent(pg2).Index()[getID()];
-		auto b = pg2.refEntry((_IMM(this) << (12 + 10)) | 1);
-		// if (a != b) plogerro("PageTable::getEntry this=%[x] a=%[x], b=%[x]", this, a, b);
-		return b;
-	}
-	// position self address in PT, pointer to a real page
-	PageEntry* Page::getEntry(Paging& pg2) {
-		// auto a = &getParent().Index(pg2)[getID()];
-		auto b = pg2.refEntry((_IMM(this) << 12) | 0);
-		// if (a != b) plogerro("Page::getEntry this=%[x] a=%[x], b=%[x]", this, a, b);
-		return b;
-	}
-
-	PageEntry* Paging::refEntry(pageint p) {
-		if (p.crt_level > 1) return (PageEntry*)~_IMM0;
-		auto pe = (PageEntry*)root_level_page + p.l1p_index;
-		stduint lev = 1 - p.crt_level;
-		for0(i, lev) {
-			const stduint index = p.l0p_index;
+	auto Paging::refEntry(pageint p) -> PageEntry* {
+		const unsigned X86_MAXLEV = 2;
+		if (p.crt_level > X86_MAXLEV - 1) return (PageEntry*)~_IMM0;
+		auto pe = root_level_page + p.l1p_index;
+		const stduint indexes[X86_MAXLEV - 1] = {
+			p.l0p_index
+		};
+		stduint lev = X86_MAXLEV - 1 - p.crt_level;
+		for0r(i, lev) {
+			const stduint index = indexes[i - 1];
 			if (!pe->isPresent()) return (PageEntry*)~_IMM0;
 			const stduint addr = _IMM(pe->address) << 12;
 			pe = (PageEntry*)addr + index;
@@ -64,219 +44,145 @@ namespace uni {
 		return pe;
 	}
 
+	auto Paging::getEntry(stduint address) const -> PageEntry* {
+		if (sizeof(stduint) == 8 && address >= (_IMM1 << 48)) return (PageEntry*)~_IMM0;
 
+		pageint p = address;
 
-	PageDirectory& PageTable::getParent(Paging& pg2) const {
-		return *pg2.root_level_page;// not _IMM(this) >> 10
-	}
-	PageTable& Page::getParent() const {
-		return *(PageTable*)(_IMM(this) >> 10);
-	}
+		// Level 1: PD
+		auto pe = (PageEntry*)root_level_page + p.l1p_index;
+		if (!pe->isPresent()) return (PageEntry*)~_IMM0; // unmap
+		if (pe->huge_page) return pe; // 4MB
 
-	
-
-	bool PageTable::isPresent(Paging& pg2) const {
-		// auto a = getParent(pg2)[getID()].getEntry(pg2);
-		auto b = pg2.refEntry((_IMM(this) << (12 + 10)) | 1);
-		// if (a != b) plogerro("PageTable::isPresent this=%[x] a=%[x], b=%[x]", this, a, b);
-		return b->isPresent();
+		// Level 0: PT
+		pe = (PageEntry*)(_IMM(pe->address) << 12) + p.l0p_index;
+		return pe;
 	}
-	bool Page::isPresent(Paging& pg2) const {
-		return pg2.refEntry((_IMM(this) << 12) | 1)->isPresent() &&
-			pg2.refEntry((_IMM(this) << 12) | 0)->isPresent();
-	}
-
-	void Paging::setMode(PageTable& l1p, bool present, bool writable, bool user_but_superv) {
-		// if not present, allocate it then set property.
-		PageEntry& v = *l1p.getParent(self)[l1p.getID()].getEntry(self);
-		if (!l1p.isPresent(self)) {
-			v.address = _IMM(_physical_allocate(0x1000)) >> 12;
-			MemSet((void*)(_IMM(v.address) << 12), 0, 0x1000);
-		}
-		v.present = present;
-		v.writable = writable;
-		v.user_access = user_but_superv;
-	}
-	void Paging::setMode(Page& l0p, bool present, bool writable, bool user_but_superv, stduint link_to_phy) {
-		// if not present, allocate it then set property.
-		if (!l0p.getParent().isPresent(self)) {
-			setMode(l0p.getParent(), present, writable, user_but_superv);
-		}
-		l0p.getEntry(self)->address = link_to_phy >> 12;
-		l0p.getEntry(self)->present = present;
-		l0p.getEntry(self)->writable = writable;
-		l0p.getEntry(self)->user_access = user_but_superv;
-	}
-	
-	void Paging::Reset() {
-		root_level_page = (uni::PageDirectory*)_physical_allocate(0x1000);
-		MemSet(root_level_page, 0, 0x1000);
-	}
-	void Paging::Reset(Paging& pg_another) {
-		// use 2-level paging (0x400 x 0x400 x 0x1000)
-		root_level_page = (uni::PageDirectory*)_physical_allocate(0x1000);
-		MemSet(root_level_page, 0, 0x1000);
-		for0(i, _NUM_pd_table_entries) {
-			PageEntry* p1entry = (*pg_another.root_level_page)[i].getEntry(pg_another);
-			if (p1entry->isPresent()) {
-				// PageMap(self, )
-				//{TODO}
-			}
-		}
-	}
-
-	// ---↓
-
 
 	void* Paging::operator[](stduint address) const {
-		stduint id_l1p = address; id_l1p >>= 12 + 10; id_l1p &= 0x3FF; // index of page table
-		auto l1p = *(*root_level_page)[id_l1p].getEntry(*(Paging*)this);// level-1 page
-		if (!l1p.isPresent()) return (void*)~_IMM0;
-		//
-		stduint id_l0p = address; id_l0p >>= 12; id_l0p &= 0x3FF;// index of page
-		auto l0p = *(*root_level_page)[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
-		if (!l0p.isPresent()) return (void*)~_IMM0;
-		return (void*)((_IMM(l0p.address) << 12) + (address & 0xFFF));
-	}
-
-	PageEntry* Paging::getEntry(stduint address) const {
-		stduint id_l1p = address; id_l1p >>= 12 + 10; id_l1p &= 0x3FF; // index of page table
-		auto l1p = *(*root_level_page)[id_l1p].getEntry(*(Paging*)this);// level-1 page
-		if (!l1p.isPresent()) return (PageEntry*)~_IMM0;
-		//
-		stduint id_l0p = address; id_l0p >>= 12; id_l0p &= 0x3FF;// index of page
-		return (*root_level_page)[id_l1p][id_l0p].getEntry(*(Paging*)this);// level-0 page
-	}
-
-	static void PageMap(Paging& pg2, stduint address, stduint physical_address, bool writable, bool user_but_superv) {
-		pg2.setMode(*pg2.IndexPage(address), true, writable, user_but_superv, physical_address);
-	}
-
-	// [ ge | page | page | pa ]
-	bool Paging::Map(stduint ln_address, stduint physical_address, stduint length, bool writable, bool user_but_superv) {
-		physical_address &= ~_IMM(0xFFF);// assert !(physical_address % 0x1000)
-		if (ln_address >= ln_address + length) return false;
-		length += ln_address & _IMM(0xFFF);
-		ln_address &= ~_IMM(0xFFF);
-		while (length) {
-			stduint unit = 0x1000;
-			PageMap(self, ln_address & ~_IMM(0xFFF), physical_address & ~_IMM(0xFFF), writable, user_but_superv);
-			MIN(unit, length);
-			ln_address += unit;
-			physical_address += unit;
-			length -= unit;
+		auto entry = getEntry(address);
+		if (_IMM(entry) == ~_IMM0 || !entry->isPresent()) return (void*)~_IMM0;
+		if (entry->huge_page) {
+			stduint mask = (1ULL << (sizeof(stduint) == 4 ? 22 : 21)) - 1; 
+			return (void*)((_IMM(entry->address) << 12) + (address & mask));
 		}
-		return true;
+		return (void*)((_IMM(entry->address) << 12) + (address & 0xFFF));
 	}
-	bool Paging::MapWeak(stduint ln_address, stduint physical_address, stduint length, bool writable, bool user_but_superv) {
-		physical_address &= ~_IMM(0xFFF);// assert !(physical_address % 0x1000)
-		if (ln_address >= ln_address + length) return false;
-		length += ln_address & _IMM(0xFFF);
-		ln_address &= ~_IMM(0xFFF);
-		while (length) {
-			stduint unit = 0x1000;
-			auto entry = getEntry(ln_address);
-			if (_IMM(entry) == ~_IMM0 || !entry->isPresent()) {
-				PageMap(self, ln_address, physical_address, writable, user_but_superv);
+
+	auto Paging::PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool {
+		// pgporp is for multi-level page tables.
+		if (pgsize == 12 || pgsize == 22); else return false;
+		pageint p = laddr;
+		
+		stduint level = pgsize == 12 ? 0 : 1; 
+		const unsigned X86_MAXLEV = 2;
+		
+		auto pe = root_level_page + p.l1p_index;
+		const stduint indexes[X86_MAXLEV - 1] = {
+			p.l0p_index
+		};
+		stduint lev = X86_MAXLEV - 1 - level;
+
+		PageEntry* path[X86_MAXLEV];
+		PageEntry* tables[X86_MAXLEV];
+		tables[1] = (PageEntry*)root_level_page;
+		path[1] = pe;
+
+		for0(i, lev) {
+			const stduint index = indexes[i];
+			if (!pe->isPresent()) {
+				if (!(pgporp & PGPROP_present)) return true; // Already unmapped
+				stduint new_pg_addr = 0;
+				if (uni_default_allocator) {
+					new_pg_addr = _IMM(uni_default_allocator->allocate(0x1000, 0x1000));
+				} else if (_physical_allocate) {
+					new_pg_addr = _IMM(_physical_allocate(0x1000));
+				} else return false;
+				if (!new_pg_addr) return false;
+				auto new_pg = (void*)new_pg_addr;
+				MemSet(pe, 0, sizeof(PageEntry));
+				MemSet(new_pg, 0, 0x1000);
+				pe->address = _IMM(new_pg) >> 12;
+				pe->present = _TEMP 1;
+				pe->writable = true; 
+				pe->user_access = true; 
+				pe->global = nil; 
 			}
-			MIN(unit, length);
-			ln_address += unit;
-			physical_address += unit;
-			length -= unit;
+			const stduint addr = _IMM(pe->address) << 12;
+			tables[0 - i] = (PageEntry*)addr;
+			pe = tables[0 - i] + index;
+			path[0 - i] = pe;
 		}
-		return true;
-	}
 
-	// 20250730
-	stduint MemCopyP(void* dest, Paging& pg_d, const void* sors, Paging& pg_s, size_t length)
-	{
-		stduint offset_d = _IMM(dest) & 0xFFF;
-		stduint offset_s = _IMM(sors) & 0xFFF;
-
-		Page* crtpage_d = pg_d.IndexPage(_IMM(dest));
-		Page* crtpage_s = pg_s.IndexPage(_IMM(sors));
-		stduint ret = 0;
-
-		while (length) {
-			if (!crtpage_d->isPresent(pg_d)) {
-				plogerro(" at %s(dest %[32H], %[32H], sors %[32H], %[32H], length %[u])",
-					__FUNCIDEN__, dest, pg_d.root_level_page, sors, pg_s.root_level_page, length
-				);
-				plogerro("MemCopyP: dest page %[32H] is not present. rest %[u]B",
-					crtpage_d, length
-				);
-				return 0;
+		if (pgporp & PGPROP_present) {
+			// proc huge page
+			if (level) {
+				pe->huge_page = true;
 			}
-			if (!crtpage_s->isPresent(pg_s)) {
-				plogerro("MemCopyP: sors page is not present");
-				return 0;
-			}
-			stduint phy_d = _IMM(crtpage_d->getEntry(pg_d)->address) << 12;
-			phy_d += offset_d;
-			stduint phy_s = _IMM(crtpage_s->getEntry(pg_s)->address) << 12;
-			phy_s += offset_s;
-			stduint unit = 0x1000;
-			MIN(unit, length);
-			MIN(unit, 0x1000 - offset_d);
-			MIN(unit, 0x1000 - offset_s);
-			MemCopyN((void*)(phy_d), (void*)(phy_s), unit);
-			// ploginfo("MemCopyP: %[32H] -> %[32H] (%d bytes)", phy_d, phy_s, unit);
-			cast<char*>(dest) += unit;
-			cast<char*>(sors) += unit;
-			length -= unit;
-			ret += unit;
-			offset_d = _IMM(dest) & 0xFFF;
-			offset_s = _IMM(sors) & 0xFFF;
-			crtpage_d = pg_d.IndexPage(_IMM(dest));
-			crtpage_s = pg_s.IndexPage(_IMM(sors));
-		}
-		return ret;
-	}
-	stduint StrCopyP(char* dest, Paging& pg_d, const char* sors, Paging& pg_s, size_t length)
-	{
-		stduint offset_d = _IMM(dest) & 0xFFF;
-		stduint offset_s = _IMM(sors) & 0xFFF;
-
-		Page* crtpage_d = pg_d.IndexPage(_IMM(dest));
-		Page* crtpage_s = pg_s.IndexPage(_IMM(sors));
-		stduint ret = 0;
-
-		while (length) {
-			if (!crtpage_d->isPresent(pg_d)) return 0;
-			if (!crtpage_s->isPresent(pg_s)) return 0;
-			stduint phy_d = _IMM(crtpage_d->getEntry(pg_d)->address) << 12;
-			phy_d += offset_d;
-			stduint phy_s = _IMM(crtpage_s->getEntry(pg_s)->address) << 12;
-			phy_s += offset_s;
-			stduint unit = 0x1000;
-			MIN(unit, length);
-			MIN(unit, 0x1000 - offset_d);
-			MIN(unit, 0x1000 - offset_s);
-			MemCopyN((void*)(phy_d), (void*)(phy_s), unit);
-			// ploginfo("StrCopyP: %[32H] -> %[32H] (%d bytes)", phy_d, phy_s, unit);
-			for0(i, unit) {
-				char ch = cast<char*>(phy_s)[i];
-				if (!ch) {
-					cast<char*>(phy_d)[i] = nil;// zero-terminate of ASCIZ
-					return ret += i;
+			pe->address = _IMM(paddr) >> 12;
+			pe->present = _TEMP 1;
+			pe->writable = !!(pgporp & PGPROP_writable);
+			pe->user_access = !!(pgporp & PGPROP_user_access);
+			pe->global = !!(pgporp & PGPROP_global);
+		} else {
+			pe->present = 0;
+			pe->address = 0;
+			for (stduint i = level; i < X86_MAXLEV - 1; i++) {
+				bool empty = true;
+				PageEntry* table = tables[i];
+				for (int j = 0; j < 1024; j++) {
+					if (table[j].present) {
+						empty = false;
+						break;
+					}
 				}
-				cast<char*>(phy_d)[i] = ch;
+				if (empty) {
+					if (uni_default_allocator) uni_default_allocator->deallocate(table, 0x1000); 
+					path[i + 1]->present = 0;
+					path[i + 1]->address = 0;
+				} else {
+					break;
+				}
 			}
-			dest += unit, sors += unit;
-			length -= unit;
-			ret += unit;
-			offset_d = _IMM(dest) & 0xFFF;
-			offset_s = _IMM(sors) & 0xFFF;
-			crtpage_d = pg_d.IndexPage(_IMM(dest));
-			crtpage_s = pg_s.IndexPage(_IMM(sors));
 		}
-		if (1) {
-			if (!crtpage_d->isPresent(pg_d)) return 0;
-			stduint phy_d = _IMM(crtpage_d->getEntry(pg_d)->address) << 12;
-			phy_d += offset_d;
-			treat<char>(phy_d) = nil;// zero-terminate of ASCIZ
+		return true;
+	}
+	
+	auto Paging::Map(stduint ln_address, stduint ph_address, stduint length, stduint pgsize, stduint pgporp) -> bool {
+		if (pgsize == 12 || pgsize == 22); else return false;
+		if (!length) return true;
+		stduint alignmask = (_IMM1 << pgsize) - 1;
+		ph_address &= ~alignmask;
+		if (ln_address >= ln_address + length) return false;
+		length += ln_address & alignmask;
+		ln_address &= ~alignmask;
+		const stduint unit = alignmask + 1;
+		if (pgporp & PGPROP_weak) do {
+			auto entry = getEntry(ln_address);
+			if (_IMM(entry) == ~_IMM0 || !entry->isPresent())
+				PageMap(ln_address, ph_address, pgsize, pgporp);
+			ln_address += unit, ph_address += unit;
+			length -= minof(unit, length);
+		} while (length);
+		else do {
+			PageMap(ln_address, ph_address, pgsize, pgporp);
+			ln_address += unit, ph_address += unit;
+			length -= minof(unit, length);
+		} while (length);
+		return true;
+	}
+
+	auto Paging::Unmap(stduint ln_address, stduint ph_address, stduint length, stduint pgsize) -> bool {
+		return Map(ln_address, ph_address, length, pgsize, 0);
+	}
+
+	void Paging::Reset() {
+		if (uni_default_allocator) {
+			root_level_page = (uni::PageEntry*)uni_default_allocator->allocate(0x1000, 0x1000);
+		} else if (_physical_allocate) {
+			root_level_page = (uni::PageEntry*)_physical_allocate(0x1000);
 		}
-		return ret;
+		if (root_level_page) MemSet(root_level_page, 0, 0x1000);
 	}
 
 #elif defined(_ARC_x64)// IA32e
@@ -326,6 +232,26 @@ namespace uni {
 
 	}
 
+	void* Paging::operator[](stduint address) const {
+		auto entry = getEntry(address);
+		if (_IMM(entry) == ~_IMM0 || !entry->isPresent()) return (void*)~_IMM0;
+		if (entry->huge_page) {
+			stduint pgsize = 0;
+			if (address >= (_IMM1 << 48)) return (void*)~_IMM0;
+			pageint p = address;
+			auto pe = (PageEntry*)root_level_page + p.l3p_index;
+			if (!pe->isPresent()) return (void*)~_IMM0;
+			pe = (PageEntry*)(_IMM(pe->address) << 12) + p.l2p_index;
+			if (!pe->isPresent()) return (void*)~_IMM0;
+			if (pe->huge_page) pgsize = 30; // 1GB 
+			else pgsize = 21; // 2MB
+			
+			stduint mask = (1ULL << pgsize) - 1; 
+			return (void*)((_IMM(entry->address) << 12) + (address & mask));
+		}
+		return (void*)((_IMM(entry->address) << 12) + (address & 0xFFF));
+	}
+
 	auto Paging::PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool {
 		// pgporp is for multi-level page tables.
 		if (pgsize == 12 || pgsize == 21 || pgsize == 30); else return false;
@@ -341,9 +267,16 @@ namespace uni {
 			p.l2p_index, p.l1p_index, p.l0p_index
 		};
 		stduint lev = X64_MAXLEV - 1 - p.crt_level;
+
+		PageEntry* path[X64_MAXLEV];
+		PageEntry* tables[X64_MAXLEV];
+		tables[3] = (PageEntry*)root_level_page;
+		path[3] = pe;
+
 		for0(i, lev) {
 			const stduint index = indexes[i];
 			if (!pe->isPresent()) {
+				if (!(pgporp & PGPROP_present)) return true; // Already unmapped
 				if (!uni_default_allocator) return false;
 				auto new_pg = uni_default_allocator->allocate(0x1000, 0x1000);
 				if (!new_pg) return false;
@@ -356,17 +289,42 @@ namespace uni {
 				pe->global = nil; // pgporp& PGPROP_global; (only for leaf)
 			}
 			const stduint addr = _IMM(pe->address) << 12;
-			pe = (PageEntry*)addr + index;
+			tables[2 - i] = (PageEntry*)addr;
+			pe = tables[2 - i] + index;
+			path[2 - i] = pe;
 		}
-		// proc huge page
-		if (p.crt_level) {
-			pe->huge_page = true;
+
+		if (pgporp & PGPROP_present) {
+			// proc huge page
+			if (p.crt_level) {
+				pe->huge_page = true;
+			}
+			pe->address = _IMM(paddr) >> 12;
+			pe->present = _TEMP 1;
+			pe->writable = !!(pgporp & PGPROP_writable);
+			pe->user_access = !!(pgporp & PGPROP_user_access);
+			pe->global = !!(pgporp & PGPROP_global);
+		} else {
+			pe->present = 0;
+			pe->address = 0;
+			for (stduint i = p.crt_level; i < X64_MAXLEV - 1; i++) {
+				bool empty = true;
+				PageEntry* table = tables[i];
+				for (int j = 0; j < 512; j++) {
+					if (table[j].present) {
+						empty = false;
+						break;
+					}
+				}
+				if (empty && uni_default_allocator) {
+					uni_default_allocator->deallocate(table, 0x1000);
+					path[i + 1]->present = 0;
+					path[i + 1]->address = 0;
+				} else {
+					break;
+				}
+			}
 		}
-		pe->address = _IMM(paddr) >> 12;
-		pe->present = _TEMP 1;
-		pe->writable = !!(pgporp & PGPROP_writable);
-		pe->user_access = !!(pgporp & PGPROP_user_access);
-		pe->global = !!(pgporp & PGPROP_global);
 		return true;
 	}
 	
@@ -394,10 +352,153 @@ namespace uni {
 		return true;
 	}
 
+	auto Paging::Unmap(stduint ln_address, stduint ph_address, stduint length, stduint pgsize) -> bool {
+		return Map(ln_address, ph_address, length, pgsize, 0);
+	}
+
 	void Paging::Reset() {
 		root_level_page = (uni::PageEntry*)uni_default_allocator->allocate(0x1000, 0x1000);
 		MemSet(root_level_page, 0, 0x1000);
 	}
 
 #endif
+
+#if defined(_ARC_x86) || defined(_ARC_x64)
+
+	stduint MemCopyP(void* dest, Paging& pg_d, const void* sors, Paging& pg_s, size_t length)
+	{
+		stduint offset_d = _IMM(dest) & 0xFFF;
+		stduint offset_s = _IMM(sors) & 0xFFF;
+
+		stduint ret = 0;
+
+		while (length) {
+			auto crtpage_d = pg_d.getEntry(_IMM(dest));
+			auto crtpage_s = pg_s.getEntry(_IMM(sors));
+
+			if (_IMM(crtpage_d) == ~_IMM0 || !crtpage_d->isPresent()) {
+				plogerro(" at %s(dest %[32H], %[32H], sors %[32H], %[32H], length %[u])",
+					__FUNCIDEN__, dest, pg_d.root_level_page, sors, pg_s.root_level_page, length
+				);
+				plogerro("MemCopyP: dest page is not present. rest %[u]B", length);
+				return 0;
+			}
+			if (_IMM(crtpage_s) == ~_IMM0 || !crtpage_s->isPresent()) {
+				plogerro("MemCopyP: sors page is not present");
+				return 0;
+			}
+			
+			stduint pg_offset_d = offset_d;
+			stduint pg_offset_s = offset_s;
+			stduint phy_d = 0;
+			stduint phy_s = 0;
+
+			if (crtpage_d->huge_page) {
+				stduint mask = (1ULL << (sizeof(stduint) == 4 ? 22 : 21)) - 1; 
+				pg_offset_d = _IMM(dest) & mask;
+				phy_d = (_IMM(crtpage_d->address) << 12) + pg_offset_d;
+			} else {
+				phy_d = (_IMM(crtpage_d->address) << 12) + pg_offset_d;
+			}
+
+			if (crtpage_s->huge_page) {
+				stduint mask = (1ULL << (sizeof(stduint) == 4 ? 22 : 21)) - 1;
+				pg_offset_s = _IMM(sors) & mask;
+				phy_s = (_IMM(crtpage_s->address) << 12) + pg_offset_s;
+			} else {
+				phy_s = (_IMM(crtpage_s->address) << 12) + pg_offset_s;
+			}
+
+			stduint page_bound_d = crtpage_d->huge_page ? (sizeof(stduint) == 4 ? 0x400000 : 0x200000) : 0x1000;
+			stduint page_bound_s = crtpage_s->huge_page ? (sizeof(stduint) == 4 ? 0x400000 : 0x200000) : 0x1000;
+
+			stduint unit = length;
+			MIN(unit, page_bound_d - pg_offset_d);
+			MIN(unit, page_bound_s - pg_offset_s);
+
+			MemCopyN((void*)(phy_d), (void*)(phy_s), unit);
+			cast<char*>(dest) += unit;
+			cast<char*>(sors) += unit;
+			length -= unit;
+			ret += unit;
+			offset_d = _IMM(dest) & 0xFFF;
+			offset_s = _IMM(sors) & 0xFFF;
+		}
+		return ret;
+	}
+
+	stduint StrCopyP(char* dest, Paging& pg_d, const char* sors, Paging& pg_s, size_t length)
+	{
+		stduint offset_d = _IMM(dest) & 0xFFF;
+		stduint offset_s = _IMM(sors) & 0xFFF;
+
+		stduint ret = 0;
+
+		while (length) {
+			auto crtpage_d = pg_d.getEntry(_IMM(dest));
+			auto crtpage_s = pg_s.getEntry(_IMM(sors));
+
+			if (_IMM(crtpage_d) == ~_IMM0 || !crtpage_d->isPresent()) return 0;
+			if (_IMM(crtpage_s) == ~_IMM0 || !crtpage_s->isPresent()) return 0;
+			
+			stduint pg_offset_d = offset_d;
+			stduint pg_offset_s = offset_s;
+			stduint phy_d = 0;
+			stduint phy_s = 0;
+
+			if (crtpage_d->huge_page) {
+				stduint mask = (1ULL << (sizeof(stduint) == 4 ? 22 : 21)) - 1; 
+				pg_offset_d = _IMM(dest) & mask;
+				phy_d = (_IMM(crtpage_d->address) << 12) + pg_offset_d;
+			} else {
+				phy_d = (_IMM(crtpage_d->address) << 12) + pg_offset_d;
+			}
+
+			if (crtpage_s->huge_page) {
+				stduint mask = (1ULL << (sizeof(stduint) == 4 ? 22 : 21)) - 1;
+				pg_offset_s = _IMM(sors) & mask;
+				phy_s = (_IMM(crtpage_s->address) << 12) + pg_offset_s;
+			} else {
+				phy_s = (_IMM(crtpage_s->address) << 12) + pg_offset_s;
+			}
+
+			stduint page_bound_d = crtpage_d->huge_page ? (sizeof(stduint) == 4 ? 0x400000 : 0x200000) : 0x1000;
+			stduint page_bound_s = crtpage_s->huge_page ? (sizeof(stduint) == 4 ? 0x400000 : 0x200000) : 0x1000;
+
+			stduint unit = length;
+			MIN(unit, page_bound_d - pg_offset_d);
+			MIN(unit, page_bound_s - pg_offset_s);
+			
+			MemCopyN((void*)(phy_d), (void*)(phy_s), unit);
+			for0(i, unit) {
+				char ch = cast<char*>(phy_s)[i];
+				if (!ch) {
+					cast<char*>(phy_d)[i] = nil;// zero-terminate of ASCIZ
+					return ret += i;
+				}
+				cast<char*>(phy_d)[i] = ch;
+			}
+			dest += unit, sors += unit;
+			length -= unit;
+			ret += unit;
+			offset_d = _IMM(dest) & 0xFFF;
+			offset_s = _IMM(sors) & 0xFFF;
+		}
+		if (1) {
+			auto crtpage_d = pg_d.getEntry(_IMM(dest));
+			if (_IMM(crtpage_d) == ~_IMM0 || !crtpage_d->isPresent()) return 0;
+			stduint pg_offset_d = _IMM(dest) & 0xFFF;
+			stduint phy_d = 0;
+			if (crtpage_d->huge_page) {
+				stduint mask = (1ULL << (sizeof(stduint) == 4 ? 22 : 21)) - 1; 
+				pg_offset_d = _IMM(dest) & mask;
+			}
+			phy_d = (_IMM(crtpage_d->address) << 12) + pg_offset_d;
+			treat<char>(phy_d) = nil;// zero-terminate of ASCIZ
+		}
+		return ret;
+	}
+
+#endif
+
 }

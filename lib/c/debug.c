@@ -118,7 +118,8 @@ void printlogx(loglevel_t level, const char* fmt, para_list paras)
 		asserv(_call_serious)((void*)level);
 }
 
-_WEAK void printlog(loglevel_t level, const char* fmt, ...)
+// _WEAK
+void printlog(loglevel_t level, const char* fmt, ...)
 {
 	Letpara(paras, fmt);
 	printlogx(level, fmt, paras);

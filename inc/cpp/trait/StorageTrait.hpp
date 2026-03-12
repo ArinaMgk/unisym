@@ -72,6 +72,39 @@ namespace uni {
 
 	};
 
+	class MemoryBlockDevice : public StorageTrait {
+	protected:
+		byte* address;
+		stduint total_units;
+	public:
+		MemoryBlockDevice(Slice src, byte* block_buffer, stduint unit = 512) {
+			Block_Size = unit;
+			Block_buffer = block_buffer;
+			address = (byte*)src.address;
+			total_units = src.length / unit;
+		}
+	public:
+		virtual bool Read(stduint BlockIden, void* Dest) override {
+			if (BlockIden >= total_units) return false;
+			MemCopyN(Dest, address + BlockIden * Block_Size, Block_Size);
+			return true;
+		}
+		virtual bool Write(stduint BlockIden, const void* Sors) override {
+			if (BlockIden >= total_units) return false;
+			MemCopyN(address + BlockIden * Block_Size, Sors, Block_Size);
+			return true;
+		}
+		virtual stduint getUnits() override {
+			return total_units;
+		}
+		virtual int operator[](uint64 bytid) override {
+			if (bytid >= total_units * Block_Size) return -1;
+			return address[bytid];
+		}
+	};
+
+	// ---- Partition ---- //
+
 	#define	MBR_PARTITION_TABLE_OFFSET 0x1BE
 
 	struct DiscPartition : public StorageTrait

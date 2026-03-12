@@ -25,12 +25,10 @@
 
 namespace uni {
 
-	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster);
-
 	bool FilesysFAT::remove(rostr pathname) {
 		// seek the entry and mark as 'removed'
 		uint32_t parent_cluster = root_cluster ? root_cluster : 2;
-		uint32_t sector = cluster_to_sector(self, parent_cluster);
+		uint32_t sector = getSector_foCluster(parent_cluster);
 		if (!storage->Read(sector, buffer_sector)) {
 			return false;
 		}
@@ -57,13 +55,6 @@ namespace uni {
 			}
 		}
 		return false;
-	}
-	// ----
-
-	static uint32_t cluster_to_sector(FilesysFAT& fs, uint32_t cluster)
-	{
-		if (cluster < 2) return 0;
-		return ((cluster - 2) * fs.sectors_per_cluster) + fs.first_data_sector;
 	}
 
 }

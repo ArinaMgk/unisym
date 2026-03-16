@@ -342,6 +342,19 @@ stduint setA(stduint);// eax/rax
 void jmpFar(stduint offs, stduint selc);
 
 
+// ---- ---- . ---- ---- //
+#ifdef _INC_CPP
+enum class x86MSR : stduint {
+	EFER  = 0xC0000080,
+	STAR  = 0xC0000081,
+	LSTAR = 0xC0000082,
+	FMASK = 0xC0000084,
+};
+// Model Specific Register
+void setMSR(x86MSR offset, stduint value);
+#endif
+
+
 // ---- ---- SYSMAN ---- ---- //
 
 void EnableSSE();

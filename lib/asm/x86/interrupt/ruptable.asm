@@ -30,7 +30,7 @@ EXTERN exception_handler
 GLOBAL PG_PUSH, PG_POP; PUSH 6*DWORD
 
 ROOT_PAGING EQU 0x00100000
-SegData EQU 8*1
+SegData EQU 8*3
 
 ; should keep user stack for R0 constant
 ;{TEMP} 2-lev paging
@@ -101,7 +101,7 @@ PG_PUSH:
 	RET
 PG_POP:
 	POP ESI
-	    POP EBX
+	    POP EBP
 	POP ECX
 	POP EDX
 	ADD ECX, 4 * 4

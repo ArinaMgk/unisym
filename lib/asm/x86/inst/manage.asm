@@ -105,12 +105,15 @@ returnfar:
 	RETF
 RET
 ALIGN 16
+
+SegTSS EQU 8*8; 32 bit
+
 TaskReturn:
 	PUSHFD
 	POP EDX
 	TEST DX, 0100_0000_0000_0000B
 	JNZ NESTED_TASK
-	JMP 8*5:0; 8*5 TEMP
+	JMP SegTSS:0
 RET
 	NESTED_TASK: IRETD
 RET; for next calling the subapp

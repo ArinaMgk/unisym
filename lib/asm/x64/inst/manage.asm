@@ -14,6 +14,7 @@ GLOBAL setA
 GLOBAL jmpFar;, CallFar
 ; GLOBAL returnfar
 ; GLOBAL TaskReturn
+GLOBAL setMSR;(OFFSET, VALUE)
 
 ; [CPU 386]
 
@@ -77,4 +78,14 @@ jmpFar:
 	PUSH RSI
 	PUSH RDI
 O64 RETF
+
+;
+
+setMSR:
+	MOV RDX, RSI
+	SHR RDX, 32
+	MOV EAX, ESI
+	MOV ECX, EDI
+	WRMSR
+RET
 

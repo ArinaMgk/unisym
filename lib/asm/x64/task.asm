@@ -41,6 +41,8 @@ SwitchTaskContext:
 	MOV [RSI + 0xAA], AX
 	FXSAVE [RSI + 0xB0]
 	; IRET Stack Frame
+	; CPU0
+	MOV RSP, 0xFFFF_FFFFFFFFFFF8
 	XOR RAX, RAX
 	MOV AX, [RDI + 0xA6]
 	PUSH RAX; SS

@@ -159,7 +159,11 @@ PG_POP:
 	POP R10
 	POP RBX; RSP
 	POP RAX; CR3
+	MOV RCX, CR3
+	CMP RCX, RAX
+	JZ  PG_POP_ENDO
 	MOV CR3, RAX
+	PG_POP_ENDO:
 	MOV RSP, RBX
 	PUSH R10
 RET
@@ -283,7 +287,12 @@ x0D_ERQHandler:
 GLOBAL Page_Fault_ERQHandler; 0x0E
 Page_Fault_ERQHandler:
 ; CR2 is virtual address
-	DefExc 0x0E
+	;PUSH R15
+	PUSH 0x0E
+	MOV R15, CR3
+	CALL ERQ_Handler
+	ADD RSP, 8*2
+	HLT
 
 GLOBAL x0F_ERQHandler; 0x0F
 x0F_ERQHandler:

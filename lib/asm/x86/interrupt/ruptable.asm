@@ -201,7 +201,24 @@ x0D_ERQHandler:
 GLOBAL Page_Fault_ERQHandler; 0x0E
 Page_Fault_ERQHandler:
 ; CR2 is virtual address
-	DefExc 0x0E
+	POP  EAX
+	PUSH EBP
+	MOV  EBP, ESP
+	PUSHAD
+	PUSH EAX
+	PUSH DWORD 0x0E
+	POP  EBX
+	POP  EDI
+	CALL PG_PUSH
+	PUSH EDI
+	PUSH EBX
+	MOV  EDI, CR3
+	CALL exception_handler
+	ADD  ESP, 4*2
+	CALL PG_POP
+	POPAD
+	LEAVE
+IRET
 
 GLOBAL x0F_ERQHandler; 0x0F
 x0F_ERQHandler:

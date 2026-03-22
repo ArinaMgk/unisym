@@ -56,6 +56,11 @@ _PACKED(struct) NormalTaskContext {
 
 // task.asm
 _ESYM_C void SwitchTaskContext(struct NormalTaskContext* nex, struct NormalTaskContext* crt);
+
+#else
+
+_PACKED(struct) NormalTaskContext { int _; };
+
 #endif
 
 #if defined(_ARC_x86)

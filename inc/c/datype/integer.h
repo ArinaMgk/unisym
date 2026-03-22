@@ -345,8 +345,17 @@ typedef void (*outbyte_t)(const char* str, stduint len);
 #define MIN(d,s,...) if((d)>(s)){(d)=(s);__VA_ARGS__;}
 // - e.g. for0(i, n) MAX(max_len, StrLength(arr[i]), id = i);// get longest string
 
+#ifndef _INC_CPP
 #define isodd(x) ((x)&1)
-#define iseven(x) !((x)&1)
+#else
+_ESYM_CPP{
+template <typename Int> //{} <std::integral Int>
+inline static
+bool isodd(Int num) { return num & 1; }
+bool isodd(double) = delete;
+}
+#endif
+#define iseven(x) !isodd(x)
 
 #define ondiv_m(sr,dv,qo,rm) ((qo)=(sr)/(dv),(rm)=(sr)%(dv))
 

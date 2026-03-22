@@ -225,12 +225,21 @@ typedef struct {
 
 // ---- Calling Convention
 
-struct InterruptFrame {
+_PACKED(struct) InterruptFrame {
 	stduint ip;
 	stduint cs;
 	stduint flags;
 	stduint sp;
 	stduint ss;
+};
+
+_PACKED(struct) CallgateFrame {
+	stduint di, si, bp, sp, bx, dx, cx, ax;
+	stduint flags;
+	stduint ip;
+	stduint cs;
+	// Ring>0:
+	stduint sp0, ss0;
 };
 
 // -- lib/asm/*/inst/ioport.asm

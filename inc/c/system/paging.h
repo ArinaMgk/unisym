@@ -81,6 +81,13 @@ namespace uni {
 
 	#endif
 }
+#else
+namespace uni {
+	_PACKED(struct) PageEntry {
+		int TODO;
+	};
+}
+
 #endif
 
 enum {
@@ -123,6 +130,8 @@ namespace uni {
 		}
 	};
 }
+#else
+namespace uni { _PACKED(struct) pageint { stduint default_value; }; }
 #endif
 
 #if defined(_INC_CPP)
@@ -132,7 +141,7 @@ extern
 
 namespace uni {
 
-#if defined(_ARC_x86) || defined(_ARC_x64)
+#if 1
 
 	#if defined(_ARC_x86)
 	// 0 .. 0x400

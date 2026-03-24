@@ -288,12 +288,16 @@ namespace uni {
 
 }
 
+#endif
+#if defined(_MCCA)
+
 extern uni::OstreamTrait* con0_out;
 void outtxt(const char* str, stduint len) {
 	asserv (con0_out)->out(str, len);
 }
 
 #endif
+
 #if 0
 
 size_t ConScanLine(char* innbuf, size_t limit) {

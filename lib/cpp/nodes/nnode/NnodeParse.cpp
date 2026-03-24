@@ -120,13 +120,28 @@ namespace uni {
 						}
 						if (c == ')' && merge_parensd && fn->type == tok_func && !fn->addr) {
 							if (fn->subf && fn->subf->next == 0) {
-								// assert fn->subf->getLeft() == 0
-								//{TODO} fn->subf->pare = fn->pare;
-								if (fn->subf->next = fn->next)
-									fn->next->left = fn->subf;
-								fn->next = fn->subf;
-								fn->subf = 0;
-								crt = chain->Remove(fn);
+								Nnode* child = fn->subf;
+
+								if (fn->isEldest()) {
+									if (fn->pare) {
+										fn->pare->subf = child;
+									}
+									else if (chain->Root() == fn) {
+										chain->RootRef() = child;
+									}
+								}
+								else {
+									if (fn->left) fn->left->next = child; // 哥哥认弟弟
+								}
+
+								asserv(fn->next)->left = child;
+
+								child->left = fn->left;
+								child->next = fn->next;
+								fn->subf = 0;// cut connection
+								fn->left = fn->next = 0;// cut connection
+								chain->Remove(fn);
+								crt = child;
 								if (fn == tnod) tnod = crt;
 							}
 						}

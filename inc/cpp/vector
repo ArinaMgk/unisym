@@ -24,9 +24,7 @@
 
 #ifndef _INCPP_Vector
 #define _INCPP_Vector
-#include "unisym"
-#include "./string"
-#include <new>
+#include "string"
 #include "trait/ArrayTrait.hpp"
 #include "trait/IterateTrait.hpp"
 #include "../c/algorithm/sort.h"

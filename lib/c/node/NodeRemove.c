@@ -51,7 +51,7 @@ void NodesRelease(Node* nod, Node* left, _tofree_ft _node_freefunc)
 		}
 		crt = next;
 	}
-	left->next = 0;
+	asserv(left)->next = 0;
 	//_node_crt = 0;
 	//aflaga.zero = 1;
 	//aflaga.one = 0;

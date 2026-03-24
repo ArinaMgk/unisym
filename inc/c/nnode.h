@@ -238,7 +238,7 @@ public:
 		bool state = ParseParen(chain->Root(), chain);
 		if (state) state = ParseOperator(chain->Root());
 		if (!state) {
-			chain->~Nchain();
+			// chain->~Nchain(); // called by ~NestedParseUnit
 		}
 		return state;
 	}

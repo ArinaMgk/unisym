@@ -26,6 +26,11 @@
 namespace uni {
 	Node* Chain::Push(pureptr_t off, bool end_left) {
 		Node* new_nod = nullptr;
+		if (!root_node) {
+			Node* new_nod = NodeInsert(nullptr, off, extn_field);
+			NodeChainAdapt(new_nod, new_nod, +1);
+			return new_nod;
+		}
 		if (end_left) {
 			(new_nod = NodeInsert(nullptr, off, extn_field))->next = root_node;
 			NodeChainAdapt(new_nod, last_node, +1);
@@ -47,6 +52,9 @@ namespace uni {
 		int rstate;// return state
 
 		if (nod) {
+			if (onleft && nod == root_node) {
+				return Push(addr, true);
+			}
 			new_nod = NodeInsert(onleft ? getLeft(nod, tmp_dir) : nod, addr, extn_field);
 			Node* const ro = !root_node || onleft && (nod == root_node) ? new_nod : root_node;
 			Node* const la = !last_node || !onleft && (nod == last_node) ? new_nod : last_node;
@@ -69,7 +77,7 @@ namespace uni {
 				tmp_nod.offs = addr;
 			}
 			if (cmp((pureptr_t)&tmp_nod, (pureptr_t)root_node) <= 0) { // less than any
-				return Push(*(pureptr_t*)addr);
+				return Push(addr);
 			}
 			Node* crt = root_node;
 			while (cmp((pureptr_t)&tmp_nod, (pureptr_t)crt) > 0 && (crt = crt->next));
@@ -83,9 +91,7 @@ namespace uni {
 			}
 		}
 		else {
-			if (onleft)
-				Push(addr);
-			else Push(addr, false);
+			new_nod = Push(addr, onleft);
 		}
 		return new_nod;
 	}

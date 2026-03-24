@@ -64,7 +64,7 @@ Dnode* DchainAppend(dchain_t* chn, pureptr_t addr, bool onleft, Dnode* nod) {
 			tmp_nod.offs = addr;
 		}
 		if (cmp((pureptr_t)&tmp_nod, (pureptr_t)root_node) <= 0) { // less than any
-			return Push(*(pureptr_t*)addr);
+			return Push(addr);
 		}
 		Dnode* crt = root_node;
 		while (cmp((pureptr_t)&tmp_nod, (pureptr_t)crt) > 0 && (crt = crt->next));

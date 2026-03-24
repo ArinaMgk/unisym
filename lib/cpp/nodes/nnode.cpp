@@ -76,7 +76,7 @@ namespace uni {
 		}
 		else {
 			tmp = NnodeInsert(onleft ? root_node : Youngest(), 0, 0, extn_field, onleft ? 0 : 1);
-			if (!root_node) root_node = tmp;
+			if (!root_node || onleft) root_node = tmp;
 		}
 		tmp->offs = addr;
 		return tmp;

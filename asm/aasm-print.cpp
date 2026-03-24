@@ -86,7 +86,7 @@ int log_0file;
 int log_0severity;
 enum warn_t log_warnt;
 
-int* handlog(void* _serious, ...)
+void handlog(void* _serious, ...)
 {
 	Letvar(serious, loglevel_t, _IMM(_serious));
 	switch (serious)
@@ -109,7 +109,6 @@ int* handlog(void* _serious, ...)
 		exit(3); // exit(drop());
 	}
 	log_pass1 = 0, log_pass2 = 0, log_0file = 0, log_0severity = 0, log_warnt = ERR_WARN_NONE;//--auto clean flag
-	return NULL;
 }
 
 _ESYM_C char listname[];

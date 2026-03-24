@@ -57,6 +57,52 @@ _PACKED(struct) NormalTaskContext {
 // task.asm
 _ESYM_C void SwitchTaskContext(struct NormalTaskContext* nex, struct NormalTaskContext* crt);
 
+#elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)// RISCV
+
+_PACKED(struct) NormalTaskContext {
+	// ignore x0
+	stduint ra;   // [0]  x1
+	stduint sp;   // [1]  x2
+	stduint gp;   // [2]  x3
+	stduint tp;   // [3]  x4
+	stduint t0;   // [4]  x5
+	stduint t1;   // [5]  x6
+	stduint t2;   // [6]  x7
+	stduint s0;   // [7]  x8
+	stduint s1;   // [8]  x9
+	stduint a0;   // [9]  x10
+	stduint a1;   // [10] x11
+	stduint a2;   // [11] x12
+	stduint a3;   // [12] x13
+	stduint a4;   // [13] x14
+	stduint a5;   // [14] x15
+	stduint a6;   // [15] x16
+	stduint a7;   // [16] x17
+	stduint s2;   // [17] x18
+	stduint s3;   // [18] x19
+	stduint s4;   // [19] x20
+	stduint s5;   // [20] x21
+	stduint s6;   // [21] x22
+	stduint s7;   // [22] x23
+	stduint s8;   // [23] x24
+	stduint s9;   // [24] x25
+	stduint s10;  // [25] x26
+	stduint s11;  // [26] x27
+	stduint t3;   // [27] x28
+	stduint t4;   // [28] x29
+	stduint t5;   // [29] x30
+	stduint t6;   // [30] x31
+	//
+	stduint mepc;// [31]
+	stduint mstatus;// [32] mret to S/U
+	stduint satp;// [33] cr3
+#if __BITS__ == 32
+	// In RV32, 34 elements * 4 bytes = 136 bytes.
+	// Which is not a multiple of 16. The next multiple of 16 (alignment) is 144.
+	stduint _paddings[2];
+#endif
+};
+
 #else
 
 _PACKED(struct) NormalTaskContext { int _; };

@@ -14,6 +14,7 @@
 #define _MSTATUS_MPP_M    (3L << 11)
 #define _MSTATUS_MPP_S    (1L << 11)
 #define _MSTATUS_MPP_U    (0L << 11)
+#define _MSTATUS_MPIE      (1L << 7 ) // 
 #define _MSTATUS_MIE      (1L << 3 ) // machine-mode interrupt enable.
 
 static inline stduint getMSTATUS() {
@@ -305,6 +306,14 @@ static inline stduint getR0() {
 	asm volatile("mv %0, x10" : "=r"(x));
 	return x;
 }
+
+// ---- . ---- //
+
+static inline void HALT()
+{
+	_ASM volatile("wfi");
+}
+
 
 
 #endif

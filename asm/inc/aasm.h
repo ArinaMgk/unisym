@@ -329,7 +329,7 @@ extern "C" {
 	void usage(void);
 	void printinfo(void);
 	void printl(loglevel_t level, const char* fmt, ...);
-	int* handlog(void* _serious, ...);
+	void handlog(void* _serious, ...);
 	#define aasm_log _f_printlog// void aasm_log(loglevel_t level, const char* fmt, ...);
 	extern FILE* error_file;
 	void SegInit();

@@ -36,6 +36,9 @@ Node* ChainAppend(chain_t* chn, pureptr_t addr, bool onleft, Node* nod)
 
 	if (nod) {
 		new_nod = NodeInsert(onleft ? Node_getLeft(chn, nod, tmp_dir) : nod, addr, extn_field);
+		if (onleft && nod == root_node) {
+			root_node = new_nod;
+		}
 		Node* const ro = !root_node || onleft && (nod == root_node) ? new_nod : root_node;
 		Node* const la = !last_node || !onleft && (nod == last_node) ? new_nod : last_node;
 		NodeChainAdapt(ro, la, +1);
@@ -57,7 +60,7 @@ Node* ChainAppend(chain_t* chn, pureptr_t addr, bool onleft, Node* nod)
 			tmp_nod.offs = addr;
 		}
 		if (cmp((pureptr_t)&tmp_nod, (pureptr_t)root_node) <= 0) { // less than any
-			// return &Push(*(pureptr_t*)addr);
+			// return &Push(addr);
 			(new_nod = NodeInsert(0, addr, extn_field))->next = root_node;
 			NodeChainAdapt(new_nod, last_node, +1);
 			return new_nod;
@@ -75,12 +78,12 @@ Node* ChainAppend(chain_t* chn, pureptr_t addr, bool onleft, Node* nod)
 	}
 	else {
 		if (onleft) {
-			// Push(*(pureptr_t*)addr);
+			// Push(addr);
 			(new_nod = NodeInsert(0, addr, extn_field))->next = root_node;
 			NodeChainAdapt(new_nod, last_node, +1);
 			return new_nod;
 		}
-		else NodeChainAdapt(root_node, new_nod = NodeInsert(last_node, addr, extn_field), +1);//Push(*(pureptr_t*)addr, false);
+		else NodeChainAdapt(root_node, new_nod = NodeInsert(last_node, addr, extn_field), +1);//Push(addr, false);
 	}
 	return new_nod;
 }

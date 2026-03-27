@@ -26,6 +26,30 @@
 
 #define DRV_OF_DEV
 namespace uni {
+
+	stduint BlockTrait::Read(stduint linear_offset, void* dest, stduint length, byte* buffer) {
+		stduint block_size = Block_Size ? Block_Size : 512;
+		stduint crt_block = linear_offset / block_size;
+		stduint block_offset = linear_offset % block_size;
+		byte* out = cast<byte*>(dest);
+		stduint ret = 0;
+		while (length) {
+			bool state = Read(crt_block, buffer);
+			if (!state) return ret;
+			stduint copy_size = block_size - block_offset;
+			if (copy_size > length) {
+				copy_size = length;
+			}
+			MemCopyN(out, buffer + block_offset, copy_size);
+			out += copy_size;
+			ret += copy_size;
+			length -= copy_size;
+			crt_block++;
+			block_offset = 0; // read from 0 at 
+		}
+		return ret;
+	}
+
 	bool DiscPartition::Read(stduint BlockIden, void* Dest) {
 		if (!slice.address && !slice.length) renew_slice();
 		// ploginfo("DiscPartition::Read %u:%u -> %[x]", DRV_OF_DEV(self.device), BlockIden + slice.address, Dest);

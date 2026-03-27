@@ -129,6 +129,10 @@ enum Architecture_ARMv_t {
 		#endif
 	#define __BITS__ 16
 */
+#elif defined(_OPT_RISCV32)
+	#define __ARCH__ Architecture_RISCV32
+	#define _ARC_RISCV_32
+	#define __BITS__ 32
 #elif defined(_OPT_RISCV64)
 	#define __ARCH__ Architecture_RISCV64
 	#define _ARC_RISCV_64

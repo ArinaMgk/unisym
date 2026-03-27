@@ -95,5 +95,63 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 	};
 
 
+		// Loopback Device
+	class FileBlockBridge : public BlockTrait {
+	private:
+		FilesysTrait* fs;
+		void* file_handle;
+		stduint file_size;
+
+	public:
+		FileBlockBridge(FilesysTrait* filesystem, void* handle, stduint f_size, stduint block_size = 512) {
+			this->fs = filesystem;
+			this->file_handle = handle;
+			this->file_size = f_size;
+			this->Block_Size = block_size;
+			this->readable = true;
+			this->writable = true;
+		}
+
+		virtual bool Read(stduint BlockIden, void* Dest) override {
+			if (!fs || !file_handle) return false;
+
+			stduint offset = BlockIden * Block_Size;
+			if (offset >= file_size) return false;
+
+			stduint to_read = Block_Size;
+			if (offset + to_read > file_size) {
+				to_read = file_size - offset;
+			}
+
+			stduint bytes_read = fs->readfl(file_handle, Slice{ offset, to_read }, (byte*)Dest);
+
+			// Safety Erase
+			if (bytes_read < Block_Size) {
+				MemSet((byte*)Dest + bytes_read, 0, Block_Size - bytes_read);
+			}
+
+			return bytes_read > 0;
+		}
+
+		virtual bool Write(stduint BlockIden, const void* Sors) override {
+			if (!writable || !fs || !file_handle) return false;
+
+			stduint offset = BlockIden * Block_Size;
+			if (offset >= file_size) return false;
+
+			stduint to_write = Block_Size;
+			if (offset + to_write > file_size) {
+				to_write = file_size - offset;
+			}
+
+			stduint bytes_written = fs->writfl(file_handle, Slice{ offset, to_write }, (const byte*)Sors);
+
+			return bytes_written > 0;
+		}
+
+		virtual stduint getUnits() override {
+			return vaultAlign(Block_Size, file_size);
+		}
+	};
 }
 #endif

@@ -35,6 +35,7 @@ namespace uni {
 		virtual bool Write(stduint BlockIden, const void* Sors) = 0;
 		virtual stduint getUnits() = 0;
 
+		stduint Read(stduint linear_offset, void* dest, stduint length, byte* buffer);
 	};
 
 

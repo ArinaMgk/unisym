@@ -259,7 +259,7 @@ namespace uni {
 
 		// skip the start cluster
 		while (offset >= cluster_size) {
-			ploginfo("offset >= cluster_size");
+			// ploginfo("offset >= cluster_size");
 			offset -= cluster_size;
 			cluster = get_fat_entry(cluster);
 			if (cluster >= 0xFFFFFFF8) return total_read; // over the file
@@ -312,6 +312,9 @@ namespace uni {
 
 	uint32_t FilesysFAT::get_fat_entry(uint32_t cluster)
 	{
+		if (!buffer_fatable) {
+			plogerro("[%s:%u] buffer_fatable is null", __FILE__, __LINE__);
+		}
 		uint32_t fat_offset = 0;
 		uint32_t fat_sector = 0;
 		uint32_t ent_offset = 0;

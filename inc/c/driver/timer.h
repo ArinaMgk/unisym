@@ -37,8 +37,6 @@
 
 #if (_MCCA & 0xFF00) == 0x1000
 
-#define TIMER_INTERVAL CLINT_TIMEBASE_FREQ // interval ~= 1s
-
 namespace uni {
 	enum class MSIP_Type : byte {
 		AckRupt = 0,

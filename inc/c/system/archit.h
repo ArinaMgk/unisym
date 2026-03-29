@@ -129,14 +129,22 @@ enum Architecture_ARMv_t {
 		#endif
 	#define __BITS__ 16
 */
+#elif defined(_OPT_ARM32)
+	#define __ARCH__ Architecture_ARM
+	#define _ARC_ARM_32
+	#define __BITS__ 32
+#elif defined(_OPT_ARM64)
+	#define __ARCH__ Architecture_ARM64
+	#define _ARC_ARM_64
+	#define __BITS__ 64
 #elif defined(_OPT_RISCV32)
 	#define __ARCH__ Architecture_RISCV32
 	#define _ARC_RISCV_32
-	#define __BITS__ 32
+	#define __BITS__   32
 #elif defined(_OPT_RISCV64)
 	#define __ARCH__ Architecture_RISCV64
 	#define _ARC_RISCV_64
-	#define __BITS__ 64
+	#define __BITS__   64
 #endif
 // ---- ---- ---- ---- stdint.h fixed ---- ---- ---- ----
 #if defined(_STDINT) || defined(_STDINT_H_) || defined(_STDINT_H)

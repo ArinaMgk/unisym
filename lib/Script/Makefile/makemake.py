@@ -137,7 +137,7 @@ text_gcc_lin32 += comhead2 + """
 asmfile=$(wildcard lib/asm/x86/*.asm) $(wildcard lib/asm/x86/**/*.asm)
 asmobjs=$(addprefix $(dest_obj)/$(asmpref),$(patsubst %asm,%o,$(notdir $(asmfile))))
 
-attr = -D_DEBUG -D_Linux -D__BITS__=32 -O3
+attr = -D_DEBUG -D_Linux32 -O3
 aattr = -felf
 dest_obj=$(uobjpath)/CGLin32
 dest_abs=$(ubinpath)/libl32d.a
@@ -176,7 +176,7 @@ text_gcc_lin64 += comhead2 + """
 asmfile=$(wildcard lib/asm/x64/*.asm) $(wildcard lib/asm/x64/**/*.asm)
 asmobjs=$(addprefix $(dest_obj)/$(asmpref),$(patsubst %asm,%o,$(notdir $(asmfile))))
 
-attr = -D_DEBUG -D_Linux -D__BITS__=64 -O3
+attr = -D_DEBUG -D_Linux64 -O3
 aattr = -felf64
 dest_obj=$(uobjpath)/CGLin64
 dest_abs=$(ubinpath)/libl64d.a

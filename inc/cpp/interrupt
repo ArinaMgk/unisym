@@ -55,7 +55,7 @@ virtual void setInterrupt(Handler_t _func) const override;\
 virtual void setInterruptPriority(byte preempt, byte sub_priority) const override;\
 virtual void enInterrupt(bool enable = true) const override // you need add colon when using
 
-#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600 || (_MCCA & 0xFF00) == 0x1000)
+#if defined(_MCCA)
 
 namespace uni {
 	class GateInterrupt

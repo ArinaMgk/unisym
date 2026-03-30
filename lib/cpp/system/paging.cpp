@@ -24,13 +24,13 @@
 #include "../../../inc/c/ustring.h"
 
 // a32 (unchk)
-// r64 (unchk)
+
 // a64 (unchk)
 
 
 #if defined(_ARC_x86) || defined(_ARC_RISCV_32)
 // x86 Lev2: 00000000~FFFFFFFF
-// r32 Lev2: 00000000~FFFFFFFF (unchk)
+// r32 Lev2: 00000000~FFFFFFFF
 //     [v]4KB [v]4MB
 // [x86] 4MB
 // - set CR4.PSE
@@ -52,6 +52,7 @@ constexpr stduint VPN_SHIFTS[] = {12, 21, 30, 39};
 constexpr stduint VPN_MASKS[] = { 0x1FF, 0x1FF, 0x1FF, 0x1FF };
 
 #elif defined(_ARC_RISCV_64) 
+// r64 
 
 constexpr stduint PAGE_LEVELS = 3;
 constexpr stduint VPN_SHIFTS[] = {12, 21, 30};
@@ -178,8 +179,8 @@ namespace uni {
 	}
 
 	auto Paging::getEntry(stduint address) const -> PageEntry* {
-		if (sizeof(stduint) == 8 && address >= (_IMM1 << (12 + PAGE_LEVELS * VPN_SHIFTS[0])))
-			return (PageEntry*)~_IMM0;
+		// if (sizeof(stduint) == 8 && address >= (_IMM1 << (12 + PAGE_LEVELS * VPN_SHIFTS[0])))
+		// 	return (PageEntry*)~_IMM0;
 		PageEntry* table = root_level_page;
 		PageEntry* pe = nullptr;
 		for (int level = PAGE_LEVELS - 1; level >= 0; --level) {

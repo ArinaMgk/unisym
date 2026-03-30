@@ -156,4 +156,4 @@ jmpTask_var: DD 0,0,0,0, 0,0,0,0; do not access after change page
 
 ALIGN 16
 jmpTask_stack: TIMES 8 DD 0
-jmpTask_stack_top; for cpu0
+jmpTask_stack_top:; for cpu0

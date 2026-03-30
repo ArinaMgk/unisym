@@ -93,7 +93,7 @@ _PACKED(struct) NormalTaskContext {
 	stduint t5;   // [29] x30
 	stduint t6;   // [30] x31
 	//
-	stduint mepc;// [31]
+	union { stduint mepc, IP; };// [31]
 	stduint mstatus;// [32] mret to S/U
 	stduint satp;// [33] cr3
 #if __BITS__ == 32

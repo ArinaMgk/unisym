@@ -23,7 +23,7 @@
 #include "../../../inc/c/driver/keyboard.h"
 #include "../../../inc/c/driver/i8259A.h"
 
-_ESYM_C
+// _ESYM_C
 // (PS/2 Set 1 scancode & 0x7F) -> USB-IF HID VKC
 const byte key_ps2set1_usb[128] = {
 	// 0x00 - 0x07 (0x01=Esc, 0x02~0x07=NUM 1~6)
@@ -58,7 +58,7 @@ const byte key_ps2set1_usb[128] = {
 0x73 -> 0x87 (Ro/下劃線), 0x79 -> 0x8A (Henkan/变换), 0x7B -> 0x8B (Muhenkan/无变换), 0x7D -> 0x89 (Yen/竖线)
 */
 
-_ESYM_C
+// _ESYM_C
 const uint8_t key_ps2set1_usb_E0[128] = {
 	[0x1C] = 0x58, // PAD Enter
 	[0x1D] = 0xE4, // Right Ctrl

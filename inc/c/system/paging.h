@@ -32,6 +32,7 @@ enum {
 	PGPROP_present = 0b1,
 	PGPROP_writable = 0b10,
 	PGPROP_user_access = 0b100,
+	// PGPROP_executable
 	//
 	PGPROP_global = 0b1000,
 	PGPROP_weak = 0x10,
@@ -132,6 +133,9 @@ namespace uni {
 			this->execute = 1;
 			this->write = !!(prop & PGPROP_writable);
 			this->user = !!(prop & PGPROP_user_access);
+
+			this->accessed = 1;
+			this->dirty = !!(prop & PGPROP_writable);
 		}
 		#endif
 	};

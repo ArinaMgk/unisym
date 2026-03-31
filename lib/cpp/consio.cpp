@@ -27,7 +27,7 @@
 #include <stdio.h>
 #endif
 
-#if defined(_WinNT) || defined(_Linux) ||  defined(_MCCA)
+#if 1 // defined(_WinNT) || defined(_Linux) ||  defined(_MCCA)
 namespace uni {
 	HostConsole Console;
 

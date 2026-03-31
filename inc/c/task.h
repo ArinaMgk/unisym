@@ -42,14 +42,14 @@ _PACKED(struct) NormalTaskContext {
 		};
 		stduint GPR[16];// R0~R15
 	};
-	// x64 0x80
+	// x64 0x80, x86 0x40
 	stduint IP;// PC
 	stduint FLAG;
 	stduint CR3;
 	stduint RING;
-	// x64 0xA0
+	// x64 0xA0, x86 0x50
 	uint16 CS, DS, ES, SS, FS, GS, _NS0, _NS1;
-	// x64 0xB0
+	// x64 0xB0, x86 0x60
 	byte floating_point_context[512];
 	// x64 0x2B0
 };
@@ -154,6 +154,9 @@ typedef struct TaskStateSegmentx86
 	word IO_MAP; // (102D) default 103
 	// ---- 0104d:
 } TSS_t;
+// [TSS descriptor]
+// Type = 10x1 + L=0 +  D/B=0 + 16B  64-bit TSS
+//             + L=1 OR D/B=1        32-bit TSS
 
 typedef struct
 {

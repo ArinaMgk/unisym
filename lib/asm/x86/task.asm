@@ -5,9 +5,10 @@
 ; ModuTitle: 
 ; Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
-GLOBAL jmpTask
+GLOBAL SwitchTaskContext
 
-[CPU 386]
+;[CPU 386]
+[CPU 686]
 
 [BITS 32]
 
@@ -26,6 +27,8 @@ __GET_DESC_BASE:; EAX(&DESC)->EBX(BASE). USE CB
 	SHR  ECX, 16     ; C           [baSE16   ]
 	OR   EBX, ECX
 RET
+
+%if 0; outdated
 jmpTask:; (TSS_ID(times of 8) )
 	; - [EBP+4*0]=TSS.EBP
 	; - [EBP+4*1]=TSS.EIP
@@ -148,6 +151,102 @@ jmpTask:; (TSS_ID(times of 8) )
 	MOV  ESP, EBP
 	POP  EBP
 RET
+%endif
+
+SwitchTaskContext:; (* nex, * crt)
+	PUSH EAX
+	; ---- STACK ----
+	; ESP[ 0] Origin EAX
+	; ESP[ 4] crt IP
+	; ESP[ 8] pointer nex
+	; ESP[12] pointer crt
+	MOV EAX, [ESP + 12]; EAX -> CRT
+	; SKIP EAX FOR IT STANDING FOR POINTER
+	MOV [EAX + 0x04], ECX
+	MOV [EAX + 0x08], EDX
+	MOV [EAX + 0x0C], EBX
+	MOV ECX, [ESP]
+	MOV [EAX + 0x00], ECX; EAX
+	LEA ECX, [ESP + 8]; SKIP EAX & RETADDR
+	MOV [EAX + 0x10], ECX; ESP
+	MOV [EAX + 0x14], EBP
+	MOV [EAX + 0x18], ESI
+	MOV [EAX + 0x1C], EDI
+	; IP 0x40
+	MOV ECX, [ESP + 4]
+	MOV [EAX + 0x40], ECX
+	; FLAG
+	PUSHFD
+	POP ECX
+	MOV [EAX + 0x44], ECX
+	; CR3
+	MOV ECX, CR3
+	MOV [EAX + 0x48], ECX
+	; CDESFG
+	MOV ECX, CS
+	MOV [EAX + 0x50], CX
+	MOV ECX, DS
+	MOV [EAX + 0x52], CX
+	MOV ECX, ES
+	MOV [EAX + 0x54], CX
+	MOV ECX, SS
+	MOV [EAX + 0x56], CX
+	MOV ECX, FS
+	MOV [EAX + 0x58], CX
+	MOV ECX, GS
+	MOV [EAX + 0x5A], CX
+	;;FXSAVE [EAX + 0x60]
+	;
+	MOV EAX, [ESP + 8]; -> nex
+	MOV CX, [EAX + 0x50]
+	AND CX, 3
+	JZ .switch_to_ring0
+
+.switch_to_ring3:; r1 r2 r3
+	MOV ESP, 0xFFFFFFF8
+	PUSH DWORD [EAX + 0x00] ; EAX
+	MOVZX ECX, WORD [EAX + 0x56]
+	PUSH ECX                ; SS
+	PUSH DWORD [EAX + 0x10] ; SP (用户栈)
+	PUSH DWORD [EAX + 0x44] ; FLAG
+	MOVZX ECX, WORD [EAX + 0x50]
+	PUSH ECX                ; CS
+	PUSH DWORD [EAX + 0x40] ; IP
+	JMP .restore_common
+
+.switch_to_ring0:
+	; 0x8632 IRETD won't pop ESP/SS
+	MOV ESP, [EAX + 0x10]
+	PUSH DWORD [EAX + 0x00] ; EAX
+	PUSH DWORD [EAX + 0x44] ; FLAG
+	MOVZX ECX, WORD [EAX + 0x50]
+	PUSH ECX                ; CS
+	PUSH DWORD [EAX + 0x40] ; IP
+
+
+.restore_common:
+	; Floating DEFG
+	;;FXRSTOR [EAX + 0x60]
+	MOV CX, [EAX + 0x52]
+	MOV DS, CX
+	MOV CX, [EAX + 0x54]
+	MOV ES, CX
+	MOV CX, [EAX + 0x58]
+	MOV FS, CX
+	MOV CX, [EAX + 0x5A]
+	MOV GS, CX
+	; GPR and CR3
+	PUSH DWORD[EAX + 0x00]; EAX
+	MOV ECX, [EAX + 0x04]
+	MOV EDX, [EAX + 0x08]
+	MOV EBX, [EAX + 0x0C]
+	MOV EBP, [EAX + 0x14]
+	MOV ESI, [EAX + 0x18]
+	MOV EDI, [EAX + 0x1C]
+	MOV EAX, [EAX + 0x48]; CR3
+	MOV CR3, EAX
+	POP EAX
+IRETD
 
 section .data
 ALIGN 16

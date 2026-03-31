@@ -193,7 +193,7 @@ typedef _PACKED(struct) _CPU_gate_type
 
 // ---- ---- Registers
 
-typedef struct {
+typedef _PACKED(struct) {
     uint32_t CF  : 1;  // Carry Flag — bit 0
     uint32_t _r1 : 1;  // reserved (always 1 in EFLAGS low-word for FLAGS) – bit 1
     uint32_t PF  : 1;  // Parity Flag — bit 2

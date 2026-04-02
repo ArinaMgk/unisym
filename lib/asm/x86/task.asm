@@ -195,7 +195,7 @@ SwitchTaskContext:; (* nex, * crt)
 	MOV [EAX + 0x58], CX
 	MOV ECX, GS
 	MOV [EAX + 0x5A], CX
-	;;FXSAVE [EAX + 0x60]
+	FXSAVE [EAX + 0x60]
 	;
 	MOV EAX, [ESP + 8]; -> nex
 	MOV CX, [EAX + 0x50]
@@ -226,7 +226,7 @@ SwitchTaskContext:; (* nex, * crt)
 
 .restore_common:
 	; Floating DEFG
-	;;FXRSTOR [EAX + 0x60]
+	FXRSTOR [EAX + 0x60]
 	MOV CX, [EAX + 0x52]
 	MOV DS, CX
 	MOV CX, [EAX + 0x54]

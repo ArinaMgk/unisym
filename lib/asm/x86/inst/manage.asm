@@ -9,7 +9,7 @@ GLOBAL _HALT, HALT
 GLOBAL _InterruptDisable, InterruptDTabLoad
 GLOBAL  InterruptEnable,  InterruptDisable
 GLOBAL getCR0,getCR2,getCR3,getCR4
-GLOBAL getFlags
+GLOBAL getFlags, setFlags
 GLOBAL setA
 
 GLOBAL jmpFar, CallFar
@@ -71,6 +71,11 @@ RET
 getFlags:
 	PUSHFD
 	POP EAX
+RET
+setFlags:
+	MOV EAX, [ESP+4]
+	PUSH EAX
+	POPFD
 RET
 
 setA:

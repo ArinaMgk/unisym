@@ -106,6 +106,7 @@ namespace uni::device::SpaceUSB3 {
 		int i = index.value - 1;
 		auto tr = AllocArray<Ring>(1, 64, 4096);
 		if (tr) {
+			// Ring* tr = new(tr) Ring();
 			tr->Initialize(buf_size);
 		}
 		transfer_rings_[i] = tr;

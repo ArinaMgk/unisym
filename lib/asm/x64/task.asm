@@ -53,13 +53,11 @@ SwitchTaskContext:
     PUSH QWORD [RDI + 0x80] ; RIP
 	;
 	FXRSTOR [RDI + 0xB0]
-	MOV AX, [RDI + 0xA2]
+	; LONG64 take DEFG zero OK
+	MOV AX, 0
 	MOV DS, AX
-	MOV AX, [RDI + 0xA4]
 	MOV ES, AX
-	MOV AX, [RDI + 0xA8]
 	MOV FS, AX
-	MOV AX, [RDI + 0xAA]
 	MOV GS, AX
 	;
 	MOV RAX, [RDI + 0x00]

@@ -164,6 +164,9 @@ bool      SinglePool::Insert(stduint idx, pureptr_t dat _Comment(pointer to a sl
 	while (last_pool->nextpool && last_pool->slicecnt >= CNT_SLICES_PER_POOL)
 		last_pool = last_pool->nextpool;
 	if (last_pool->slicecnt >= CNT_SLICES_PER_POOL) { // > is for safety, last_pool->nextpool should be nullptr
+		if (!uni_default_allocator) {
+			plogerro("uni_default_allocator is nullptr");
+		}
 		SinglePool* new_pool = (SinglePool*)(uni_default_allocator ?
 			uni_default_allocator->allocate(sizeof(SinglePool)) :
 			malloc(sizeof(SinglePool)));
@@ -253,6 +256,10 @@ void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 	stduint bound = boundary ? (_IMM1 << boundary) : 0;
 	if (!size) return nullptr;
 	if (bound > 0 && size > bound) return nullptr;
+	#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
+	auto flag = getFlags();
+	// if (flag & 0x200) InterruptDisable();
+	#endif
 	const stduint total_size = sizeof(Header) + size;
 	auto crtpool = &pool_available;
 	while (crtpool && crtpool->slicecnt) {
@@ -299,24 +306,39 @@ void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 				plogerro("\t Current Slice{ %[x], %[x] }", p->address, p->length);
 			}
 			// ploginfo("Mempool::allocate %u a%u b%u -> %[x]", size, alignment, boundary, ret);
+			#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
+			setFlags(flag);
+			#endif
 			return ret;
 		}
 		crtpool = crtpool->nextpool;
 	}
+	#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
+	setFlags(flag);
+	#endif
 	return nullptr;
 }
 bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
 	// ploginfo("Mempool::deallocate %p s%u", ptr, size);
 	if (_IMM(ptr) < sizeof(Header)) return false;
+	#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
+	auto flag = getFlags();
+	// if (flag & 0x200) InterruptDisable();
+	#endif
 	Header* header = (Header*)ptr - 1;
 	if (header->prop != _IMM(0xFEDC5AA5) || !header->size) {
-		plogerro("Invalid pointer in Mempool::deallocate, %[x]", ptr);
+		plogerro("Mempool::deallocate, %[x]\n\rsiz%[x] pro%[32H]",
+			ptr, header->size, header->prop);
+		#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
+		setFlags(flag);
+		#endif
 		return false;
 	}
 	if (!size) size = header->size;
-	Slice recovered = {_IMM(header) , sizeof(Header) + size};
+	Slice recovered = { _IMM(header) , sizeof(Header) + size };
+	bool state;
 	if (size == header->size) {
-		return pool_available.Append(recovered);
+		state = pool_available.Append(recovered);
 	}
 	else {
 		// moving the header before the rest of the block
@@ -326,6 +348,39 @@ bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
 		new_header->size = header->size - dealloc_size;
 		new_header->prop = _IMM(0xFEDC5AA5);
 		recovered.length = dealloc_size;
-		return pool_available.Append(recovered);
+		state = pool_available.Append(recovered);
 	}
+	#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
+	setFlags(flag);
+	#endif
+	return state;
+}
+
+void Mempool::dump_available() {
+	ploginfo("=== Mempool Available Slices Report ===");
+	stduint total_free = 0;
+	stduint slice_index = 0;
+	SinglePool* crtpool = &pool_available;
+
+	while (crtpool) {
+		for (stduint i = 0; i < crtpool->slicecnt; ++i) {
+			Slice* s = &crtpool->slices[i];
+			ploginfo("  [%u] 0x%[x] -> 0x%[x] | Size: 0x%[x] (%u bytes)", 
+				slice_index++, 
+				s->address, 
+				s->address + s->length, 
+				s->length, 
+				s->length
+			);
+			total_free += s->length;
+		}
+		crtpool = crtpool->nextpool;
+	}
+
+	if (slice_index == 0) {
+		plogwarn("  (No available memory slices!)");
+	}
+
+	ploginfo("  Summary: %u slices, Total free: %u bytes", slice_index, total_free);
+	ploginfo("========================================");
 }

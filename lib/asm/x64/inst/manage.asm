@@ -8,7 +8,7 @@ GLOBAL HALT
 GLOBAL InterruptEnable, InterruptDisable
 GLOBAL InterruptDTabLoad
 GLOBAL getCR0,getCR2,getCR3,getCR4
-GLOBAL getFlags
+GLOBAL getFlags, setFlags
 GLOBAL getCS
 GLOBAL setA
 GLOBAL jmpFar;, CallFar
@@ -59,6 +59,10 @@ RET
 getFlags:
 	PUSHFQ
 	POP RAX
+RET
+setFlags:
+	PUSH RDI
+	POPFQ
 RET
 
 getCS:

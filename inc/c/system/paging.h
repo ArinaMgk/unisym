@@ -328,6 +328,19 @@ namespace uni {
 		auto getPageSizeShift(stduint address) const -> stduint;
 	protected:
 		auto PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool;
+
+	public:
+		#if defined(_ARC_RISCV_32) || defined(_ARC_RISCV_64)
+		inline stduint MakeSATP() {
+			if (!root_level_page) return 0;
+			stduint ppn = _IMM(root_level_page) >> 12;
+			#if defined(_ARC_RISCV_32)
+			return (1ULL << 31) | ppn; // Sv32 Mode
+			#elif defined(_ARC_RISCV_64)
+			return (8ULL << 60) | ppn; // Sv39 Mode
+			#endif
+			};
+		#endif
 	};
 
 	// Memory Copy by page

@@ -158,6 +158,7 @@ namespace uni {
 				this->limits = this->counts + 1;
 				this->allocated = true;
 			}
+			break;
 		case Charset::Memory:
 			//{TODO}
 		default:
@@ -270,11 +271,13 @@ namespace uni {
 		Letpara(args, fmt);
 		{
 			ret.counts = outsfmtlstlen(fmt, args);
+			para_endo(args);
 			// ret.counts = OstreamTrait::CountFormat(fmt, args); -- C++ MSVC64 class static method -- paralist span a stduint, 20250329
 			ret.limits = ret.counts + 1;
 			srs(ret.addr, salc(ret.limits));
 			para_ento(args, fmt);
 			outsfmtlstbuf(ret.addr, fmt, args);
+			para_endo(args);
 		}
 		return ret;
 	}

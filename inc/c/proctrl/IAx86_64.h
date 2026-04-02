@@ -219,7 +219,10 @@ typedef _PACKED(struct) {
     uint32_t VIP : 1;  // Virtual Interrupt Pending — bit 20  
     uint32_t ID  : 1;  // ID flag — bit 21
 
-    uint32_t _reserved : 10; // bits 22–31: reserved / unused / future
+	uint32_t _reserved : 10; // bits 22–31: reserved / unused / future
+	#if __BITS__ == 64
+	uint32_t _reservedx;
+	#endif
 } REG_FLAG_t;
 
 
@@ -339,6 +342,7 @@ void setCR4(stduint cr4)
 
 // SPE [xFLAG]
 stduint getFlags();
+stduint setFlags(stduint flags);
 
 // SEG [CS]
 uint16 getCS(void);//{TODO} x86

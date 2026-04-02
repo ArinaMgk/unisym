@@ -90,6 +90,8 @@ namespace uni {
 		virtual void* allocate(stduint size, stduint alignment = 0, stduint boundary = 0) override;
 		virtual bool deallocate(void* ptr, stduint size = 0 _Comment(zero_for_block)) override;
 
+	public:// debug
+		void dump_available();
 	};// store virtual addresses
 
 } //END C++ Area

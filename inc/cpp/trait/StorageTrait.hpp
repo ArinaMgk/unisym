@@ -79,7 +79,7 @@ namespace uni {
 	public:
 		MemoryBlockDevice(Slice src, byte* block_buffer, stduint unit = 512) {
 			Block_Size = unit;
-			Block_buffer = block_buffer;
+			// Block_buffer = block_buffer;
 			address = (byte*)src.address;
 			total_units = src.length / unit;
 		}

@@ -10,12 +10,14 @@ namespace uni::device::SpaceUSB3 {
 	Ring::~Ring() {
 		if (buf_ != nullptr) {
 			uni_hostenv_allocator->deallocate(buf_);
+			buf_ = nullptr;
 		}
 	}
 
 	Error Ring::Initialize(size_t buf_size) {
 		if (buf_ != nullptr) {
 			uni_hostenv_allocator->deallocate(buf_);
+			// plogwarn(">> %[x]", buf_);
 		}
 
 		cycle_bit_ = true;
@@ -35,6 +37,9 @@ namespace uni::device::SpaceUSB3 {
 		  // data[0..2] must be written prior to data[3].
 			buf_[write_index_].data[i] = data[i];
 		}
+		#if defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
+		// _ASM("sfence" ::: "memory");
+		#endif
 		buf_[write_index_].data[3]
 			= (data[3] & 0xfffffffeu) | static_cast<uint32_t>(cycle_bit_);
 	}

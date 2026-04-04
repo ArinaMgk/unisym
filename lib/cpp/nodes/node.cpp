@@ -86,6 +86,7 @@ namespace uni {
 		if (crt) do; while ((idx--) && (crt = crt->next));
 		return crt; // if not found, crt is nullptr
 	}
+	//{} need Node* -> index
 	// 
 	stduint Chain::Locate(pureptr_t p_val, bool fromRight) const {
 		// Left: Linked, Right: Iterated

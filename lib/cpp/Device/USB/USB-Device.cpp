@@ -1,8 +1,9 @@
+#if (defined(_MCCA) && _MCCA == 0x8664)
+
 #include "../../../../inc/cpp/Device/USB/USB-Header.hpp"
 #include "../../../../inc/c/driver/keyboard.h"
 #include "../../../../inc/c/driver/mouse.h"
 
-#if (defined(_MCCA) && _MCCA == 0x8664)
 
 namespace {
 	class ConfigurationDescriptorReader {

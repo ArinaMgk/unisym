@@ -22,7 +22,7 @@
 
 // Abandoned
 
-#if !defined(_INC_PROPERTY)
+#if !defined(_INC_PROPERTY) && !defined(_MCCA)// 0x8632
 #define _INC_PROPERTY
 
 #include "../c/stdinc.h"

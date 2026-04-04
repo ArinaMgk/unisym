@@ -157,10 +157,11 @@ aattr = -felf
 dest_obj=$(uobjpath)/CGMin32
 dest_abs=$(ubinpath)/libm32d.a
 
-CXF1=-m32 -mno-red-zone -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4 # -mgeneral-regs-only
-CXF2=-fno-stack-protector -fno-pic -fno-exceptions -fno-unwind-tables -fno-builtin -ffunction-sections
+CXF1=-m32 -mno-red-zone -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4
+# -mgeneral-regs-only
+CXF2=-ffreestanding -fno-stack-protector -fno-pic -fno-pie -fno-exceptions -fno-unwind-tables -fno-builtin -ffunction-sections -fno-tree-loop-distribute-patterns -fno-schedule-insns
 COMWAN = -Wno-builtin-declaration-mismatch
-COMFLG=$(CXF1) $(CXF2) -static -nostdlib $(COMWAN) -O0
+COMFLG=$(CXF1) $(CXF2) -static -nostdlib $(COMWAN) -O2
 
 # -fno-stack-protector: avoid undefined reference to `__stack_chk_fail_local'
 # -mno-*sse*          : movdqa-series need more setting

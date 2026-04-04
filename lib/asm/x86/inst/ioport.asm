@@ -20,8 +20,9 @@ GLOBAL OUT_wn, _OUT_wn;
 
 [BITS 32]
 
-; __fastcall void OUT_b(word Port, word Data);
+; void OUT_b(word Port, word Data);
 ; VOID <<< _OUT_b <<< ECX(DX Port), EDX(AX Data)
+; EAX, ECX, EDX are free to use
 _OUT_b:
 OUT_b:
 ;	XCHG CX, DX
@@ -35,19 +36,16 @@ OUT_b:
 	; - [EBP+4*2]=Port
 	; - [EBP+4*3]=Data
 	PUSH EBP
-	MOV EBP, ESP
-	PUSH DX
-	PUSH AX
-	MOV DX, [EBP+4*2]
-	MOV AX, [EBP+4*3]
-	OUT DX, AL
-	POP AX
-	POP DX
-	MOV ESP, EBP
-	POP EBP
+    MOV EBP, ESP
+    MOV EDX, [EBP + 8]   ; Port
+    MOV EAX, [EBP + 12]  ; Data
+    OUT DX, AL
+    MOV ESP, EBP
+    POP EBP
+    RET
 RET
 
-; __fastcall word IN_b(word Port);
+; word IN_b(word Port);
 ; BYTE <<< _IN_b <<< ECX(Port)
 _IN_b:
 IN_b:
@@ -60,14 +58,12 @@ IN_b:
 	; - [EBP+4*1]=Return Address
 	; - [EBP+4*2]=Port
 	PUSH EBP
-	MOV EBP, ESP
-	PUSH DX
-	MOV DX, [EBP+4*2]
-	IN AL, DX
-	MOVZX EAX, AL
-	POP DX
-	MOV ESP, EBP
-	POP EBP
+    MOV EBP, ESP
+    MOV EDX, [EBP + 8]   ; Port
+    XOR EAX, EAX
+    IN AL, DX
+    MOV ESP, EBP
+    POP EBP
 RET
 
 ; __fastcall void OUT_w(word Port, word Data);
@@ -85,16 +81,12 @@ OUT_w:
 	; - [EBP+4*2]=Port
 	; - [EBP+4*3]=Data
 	PUSH EBP
-	MOV EBP, ESP
-	PUSH DX
-	PUSH AX
-	MOV DX, [EBP+4*2]
-	MOV AX, [EBP+4*3]
-	OUT DX, AX
-	POP AX
-	POP DX
-	MOV ESP, EBP
-	POP EBP
+    MOV EBP, ESP
+    MOV EDX, [EBP + 8]   ; Port
+    MOV EAX, [EBP + 12]  ; Data
+    OUT DX, AX
+    MOV ESP, EBP
+    POP EBP
 RET
 
 ; __fastcall word IN_w(word Port);
@@ -109,40 +101,30 @@ IN_w:
 	; - [EBP+4*1]=Return Address
 	; - [EBP+4*2]=Port
 	PUSH EBP
-	MOV EBP, ESP
-	PUSH DX
-	MOV DX, [EBP+4*2]
-	IN AX, DX
-	POP DX
-	MOV ESP, EBP
-	POP EBP
+    MOV EBP, ESP
+    MOV EDX, [EBP + 8]   ; Port
+    XOR EAX, EAX
+    IN AX, DX
+    MOV ESP, EBP
+    POP EBP
 RET
 
 
 ; __fastcall void OUT_d(word Port, dword Data);
 ; VOID <<< _OUT_d <<< ECX(Port), EDX(Data)
 OUT_d:
-;	XCHG CX, DX
-;	XCHG CX, AX
-;	OUT DX, AX
-;	XCHG CX, AX
-;	XCHG CX, DX
 	;{TEMP} Linux did not accept __fastcall, so use CDECL
 	; - [EBP+4*0]=BP
 	; - [EBP+4*1]=Return Address
 	; - [EBP+4*2]=Port
 	; - [EBP+4*3]=Data
 	PUSH EBP
-	MOV EBP, ESP
-	PUSH DX
-	PUSH EAX
-	MOV DX, [EBP+4*2]
-	MOV EAX, [EBP+4*3]
-	OUT DX, EAX
-	POP EAX
-	POP DX
-	MOV ESP, EBP
-	POP EBP
+    MOV EBP, ESP
+    MOV EDX, [EBP + 8]   ; Port
+    MOV EAX, [EBP + 12]  ; Data
+    OUT DX, EAX
+    MOV ESP, EBP
+    POP EBP
 RET
 
 ; __fastcall word IN_d(word Port);
@@ -157,10 +139,10 @@ IN_d:
 	; - [EBP+4*2]=Port
 	PUSH EBP
 	MOV EBP, ESP
-	PUSH DX
+	PUSH EDX
 	MOV DX, [EBP+4*2]
 	IN EAX, DX
-	POP DX
+	POP EDX
 	MOV ESP, EBP
 	POP EBP
 RET
@@ -169,22 +151,40 @@ RET
 IN_wn:
 _IN_wn:
 ; void IN_wn(word Port, word* Data, unsigned n);
-	MOV EDX, [ESP + 4]
-	MOV EDI, [ESP + 8]
-	MOV ECX, [ESP + 12]
-	SHR ECX, 1
+	PUSH EBP
+	MOV EBP, ESP
+	PUSH EDI 
+	PUSH ECX
+	PUSH EDX
+	MOV EDX, [EBP + 8]   ; Port
+	MOV EDI, [EBP + 12]  ; Data (Buffer)
+	MOV ECX, [EBP + 16]  ; n (Bytes count)
+	SHR ECX, 1           ; Bytes -> Words
 	CLD
 	REP INSW
+	POP EDX
+	POP ECX
+	POP EDI
+	POP EBP
 	RET
 
 OUT_wn:
 _OUT_wn:
 ; void OUT_wn(word Port, word* Data, unsigned n);
-	MOV EDX, [ESP + 4]
-	MOV ESI, [ESP + 8]
-	MOV ECX, [ESP + 12]
+	PUSH EBP
+	MOV EBP, ESP
+	PUSH ESI
+	PUSH ECX
+	PUSH EDX
+	MOV EDX, [EBP + 8]   ; Port
+	MOV ESI, [EBP + 12]  ; Data (Source)
+	MOV ECX, [EBP + 16]  ; n (Bytes count)
 	SHR ECX, 1
 	CLD
 	REP OUTSW
+	POP EDX
+	POP ECX
+	POP ESI
+	MOV ESP, EBP
+	POP EBP
 	RET
-

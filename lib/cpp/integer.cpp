@@ -21,6 +21,7 @@
 */
 
 
+#ifndef _MCCA
 #include "../../inc/cpp/integer"
 #include "../../inc/cpp/string"
 
@@ -31,3 +32,4 @@ namespace uni {
 		return str;
 	}
 }
+#endif

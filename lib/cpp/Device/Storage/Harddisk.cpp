@@ -26,7 +26,7 @@
 #if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 #include "../../../../inc/cpp/Device/Storage/HD-DEPEND.h"
 #include "../../../../inc/c/board/IBM.h"
-
+#pragma GCC optimize("O0")
 namespace uni {
 
 	bool Harddisk_PATA::Hdisk_OUT(HdiskCommand* hd_cmd) {

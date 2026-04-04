@@ -214,10 +214,6 @@ namespace uni {
 		bool attr_enable = 0;
 		bool auto_incbegaddr = 1;
 		stduint stat_lines = 0;// inc by scroll
-		#ifdef _MCCA
-		//[TEMP] no output buffer, user library can make it in their level.
-		QueueLimited input_queue = (Slice){0, 0};
-		#endif
 		//
 		// - use global cursor position function
 		//

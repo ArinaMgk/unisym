@@ -73,6 +73,9 @@ namespace uni {
 		SinglePool pool_available = {};
 		//
 	public:
+		bool enable_auto_expand = true;
+		stduint auto_expand_step = 0x40000;
+	public:
 		Mempool() {}
 		void Reset(const Slice& slice) {
 			new (&pool_registerd) SinglePool();
@@ -85,6 +88,8 @@ namespace uni {
 			pool_registerd.Append(slice);
 			pool_available.Append(slice);
 		}
+
+		bool Expand(stduint min_size = 0);
 
 	public:// trait
 		virtual void* allocate(stduint size, stduint alignment = 0, stduint boundary = 0) override;

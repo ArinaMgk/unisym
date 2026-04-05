@@ -1,4 +1,4 @@
-﻿// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Trait) Stream
 // Codifiers: @dosconio: 20240603
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -52,14 +52,14 @@ namespace uni {
 		inline void OutChar(char ch) { out(&ch, 1); }
 
 	protected:
-		void out_floating_0(stduint sizlevel, para_list plist);
+		void out_floating_0(stduint sizlevel, para_list& plist);
 
 	public:
 		int OutFormatPack(const char* fmt, para_list plst);
 		int OutFormat(const char* fmt, ...);
 
 		// unnecessary:
-		// - int OutFormatNPack(const char* fmt, para_list plst);
+		// - int OutFormatNPack(const char* fmt, para_list* plst);
 		// - int OutFormatN(const char* fmt, ...);
 		//static
 		stduint CountFormat(const char* fmt, ...);

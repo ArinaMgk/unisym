@@ -250,6 +250,29 @@ _PACKED(struct) Header {
 	stduint prop;
 };
 
+bool Mempool::Expand(stduint min_size) {
+	if (!uni_default_allocator) {
+		plogerro("Mempool::Expand failed: uni_default_allocator is nullptr");
+		return false;
+	}
+	stduint req_size = maxof(min_size, auto_expand_step);
+	req_size = ceilAlign(auto_expand_step, req_size);
+	void* raw_mem = uni_default_allocator->allocate(req_size);
+	if (!raw_mem) {
+		req_size = maxof(min_size, auto_expand_step);
+		req_size = ceilAlign(0x1000, req_size);
+		raw_mem = uni_default_allocator->allocate(req_size);
+	}
+	if (!raw_mem) {
+		plogerro("Mempool::Expand failed: Host environment OOM (%u bytes)", req_size);
+		return false;
+	}
+	Slice new_slice = { _IMM(raw_mem), req_size };
+	this->Append(new_slice);
+	ploginfo("Mempool Expanded by %u bytes at 0x%[x]", req_size, _IMM(raw_mem));
+	return true;
+}
+
 void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 	stduint align = _IMM1 << alignment;
 	if (boundary <= alignment) boundary = nil;
@@ -261,6 +284,8 @@ void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 	// if (flag & 0x200) InterruptDisable();
 	#endif
 	const stduint total_size = sizeof(Header) + size;
+	int retry_count = 0;
+_RETRY_ALLOC:
 	auto crtpool = &pool_available;
 	while (crtpool && crtpool->slicecnt) {
 		for0(i, crtpool->slicecnt) {
@@ -313,6 +338,15 @@ void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 		}
 		crtpool = crtpool->nextpool;
 	}
+	if (enable_auto_expand && retry_count == 0) {
+		retry_count++;
+		stduint worst_padding = (bound > align ? bound : align);
+		stduint safe_request = total_size + worst_padding;
+		if (Expand(safe_request)) {
+			goto _RETRY_ALLOC;
+		}
+	}
+
 	#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
 	setFlags(flag);
 	#endif

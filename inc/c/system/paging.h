@@ -32,10 +32,10 @@ enum {
 	PGPROP_present = 0b1,
 	PGPROP_writable = 0b10,
 	PGPROP_user_access = 0b100,
-	// PGPROP_executable
 	//
 	PGPROP_global = 0b1000,
 	PGPROP_weak = 0x10,
+	PGPROP_nonexecutable = 0x20,
 };
 
 enum PageSizeShift : stduint {
@@ -130,7 +130,7 @@ namespace uni {
 			this->ppn = _IMM(paddr) >> 12;
 			this->valid = 1;
 			this->read = 1;
-			this->execute = 1;
+			this->execute = !(prop & PGPROP_nonexecutable);
 			this->write = !!(prop & PGPROP_writable);
 			this->user = !!(prop & PGPROP_user_access);
 

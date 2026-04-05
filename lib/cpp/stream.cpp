@@ -1,4 +1,4 @@
-﻿// ASCII C++-STD11 TAB4 CRLF
+// ASCII C++-STD11 TAB4 CRLF
 // LastCheck: 20240229
 // AllAuthor: @dosconio
 // ModuTitle: Stream
@@ -44,6 +44,20 @@
 #define out_integer  OutInteger
 #define out_floating OutFloating
 
+namespace uni {
+	template<typename T>
+	struct is_va_array {
+		static const bool value = false; // RISC-V, Win64...
+	};
+	template<typename T, stduint N>
+	struct is_va_array<T[N]> {
+		static const bool value = true;  // Linux x64
+	};
+	// (Tag Dispatch)
+	template <bool IsArray>
+	struct FloatCaller;
+
+}
 
 // Console: consio.cpp
 //    File: ...
@@ -139,7 +153,9 @@ namespace uni {
 
 
 			case 'f':
-				out_floating_0(sizlevel, paras);
+				if constexpr (is_va_array<para_list>::value)
+					out_floating_0(sizlevel, *(para_list*)paras);
+				else out_floating_0(sizlevel, *(para_list*)&paras);
 				sizlevel = 0;
 				break;
 			case 'p':
@@ -292,11 +308,11 @@ namespace uni {
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("sse2")))
 	#endif
-	void OstreamTrait::out_floating_0(stduint sizlevel, para_list paras) {
+	void OstreamTrait::out_floating_0(stduint sizlevel, para_list& pparas) {
 		if (sizlevel == 1)
-			out_floating(pnext(double));
+			out_floating(para_next(pparas, double));
 		else if (sizlevel == 0)
-			out_floating(para_next_float(paras));
+			out_floating(para_next_float(pparas));
 	}
 
 

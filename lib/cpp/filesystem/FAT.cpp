@@ -235,6 +235,7 @@ namespace uni {
 				if ((byte)entry->name[0] == 0x00u) return true; // end of dir
 				if ((byte)entry->name[0] == 0xE5u) continue; // removed
 				if ((byte)entry->name[0] == 0x05u) continue; // removed
+				if (entry->attribute.volume_id) continue; // volume id
 				if (entry->attribute.isLongName()) continue; //{} FAT_LongDirEntry
 				ploginfo("FilesysFAT::enumer %s", entry->name);
 				if (_fn) _fn((void*)_IMM(entry->attribute.directory), entry);

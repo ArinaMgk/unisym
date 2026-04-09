@@ -77,9 +77,12 @@ namespace uni {
 		stduint auto_expand_step = 0x40000;
 	public:
 		Mempool() {}
-		void Reset(const Slice& slice) {
+		void Reset() {
 			new (&pool_registerd) SinglePool();
 			new (&pool_available) SinglePool();
+		}
+		void Reset(const Slice& slice) {
+			Reset();
 			pool_registerd.Append(slice);
 			pool_available.Append(slice);
 		}

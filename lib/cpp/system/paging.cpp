@@ -314,42 +314,54 @@ namespace uni {
 	}
 
 
-
 	stduint MemCopyP(void* dest, Paging& pg_d, const void* sors, Paging& pg_s, size_t length)
 	{
 		stduint ret = 0;
 
 		while (length) {
-			auto crtpage_d = pg_d.getEntry(_IMM(dest));
-			auto crtpage_s = pg_s.getEntry(_IMM(sors));
-
-			if (_IMM(crtpage_d) == ~_IMM0 || !crtpage_d->isPresent()) {
-				plogerro(" at %s(dest %[32H], %[32H], sors %[32H], %[32H], length %[u])",
-					__FUNCIDEN__, dest, pg_d.root_level_page, sors, pg_s.root_level_page, length
-				);
-				plogerro("MemCopyP: dest page is not present. rest %[u]B", length);
-				return 0;
-			}
-			if (_IMM(crtpage_s) == ~_IMM0 || !crtpage_s->isPresent()) {
-				plogerro("MemCopyP: sors page is not present");
-				return 0;
-			}
-
-			stduint pgsize_d = pg_d.getPageSizeShift(_IMM(dest));
-			stduint mask_d = (1ULL << pgsize_d) - 1;
-			stduint pg_offset_d = _IMM(dest) & mask_d;
-			stduint phy_d = crtpage_d->getAddress() + pg_offset_d;
-			stduint page_bound_d = 1ULL << pgsize_d;
-
-			stduint pgsize_s = pg_s.getPageSizeShift(_IMM(sors));
-			stduint mask_s = (1ULL << pgsize_s) - 1;
-			stduint pg_offset_s = _IMM(sors) & mask_s;
-			stduint phy_s = crtpage_s->getAddress() + pg_offset_s;
-			stduint page_bound_s = 1ULL << pgsize_s;
-
+			stduint phy_d, phy_s;
 			stduint unit = length;
-			MIN(unit, page_bound_d - pg_offset_d);
-			MIN(unit, page_bound_s - pg_offset_s);
+
+			// --- Process Destination ---
+
+			if (pg_d.root_level_page) {
+				auto crt = pg_d.getEntry(_IMM(dest));
+				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) {
+					plogerro(" at %s(dest %[x], %[x], sors %[x], %[x], length %[u])",
+						__FUNCIDEN__, dest, pg_d.root_level_page, sors, pg_s.root_level_page, length
+					);
+					plogerro("MemCopyP: dest page is not present. rest %[u]B", length);
+					return 0;
+				}
+				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
+				stduint mask = (1ULL << shift) - 1;
+				stduint offset = _IMM(dest) & mask;
+				phy_d = crt->getAddress() + offset;
+				MIN(unit, (1ULL << shift) - offset);
+			}
+			else {
+				// Treat as raw physical address
+				phy_d = _IMM(dest);
+			}
+
+			// --- Process Source ---
+			if (pg_s.root_level_page) {
+				auto crt = pg_s.getEntry(_IMM(sors));
+				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) {
+					plogerro("MemCopyP: sors page is not present");
+					return 0;
+				}
+				stduint shift = pg_s.getPageSizeShift(_IMM(sors));
+				stduint mask = (1ULL << shift) - 1;
+				stduint offset = _IMM(sors) & mask;
+				phy_s = crt->getAddress() + offset;
+				MIN(unit, (1ULL << shift) - offset);
+			}
+			else {
+				// Treat as raw physical address
+				phy_s = _IMM(sors);
+			}
+			// plogwarn("= %x %x %x", phy_d, phy_s, unit);
 
 			MemCopyN((void*)(phy_d), (void*)(phy_s), unit);
 			cast<char*>(dest) += unit;
@@ -365,27 +377,37 @@ namespace uni {
 		stduint ret = 0;
 
 		while (length) {
-			auto crtpage_d = pg_d.getEntry(_IMM(dest));
-			auto crtpage_s = pg_s.getEntry(_IMM(sors));
-
-			if (_IMM(crtpage_d) == ~_IMM0 || !crtpage_d->isPresent()) return 0;
-			if (_IMM(crtpage_s) == ~_IMM0 || !crtpage_s->isPresent()) return 0;
-
-			stduint pgsize_d = pg_d.getPageSizeShift(_IMM(dest));
-			stduint mask_d = (1ULL << pgsize_d) - 1;
-			stduint pg_offset_d = _IMM(dest) & mask_d;
-			stduint phy_d = crtpage_d->getAddress() + pg_offset_d;
-			stduint page_bound_d = 1ULL << pgsize_d;
-
-			stduint pgsize_s = pg_s.getPageSizeShift(_IMM(sors));
-			stduint mask_s = (1ULL << pgsize_s) - 1;
-			stduint pg_offset_s = _IMM(sors) & mask_s;
-			stduint phy_s = crtpage_s->getAddress() + pg_offset_s;
-			stduint page_bound_s = 1ULL << pgsize_s;
-
+			stduint phy_d, phy_s;
 			stduint unit = length;
-			MIN(unit, page_bound_d - pg_offset_d);
-			MIN(unit, page_bound_s - pg_offset_s);
+
+			// --- Process Destination ---
+
+			if (pg_d.root_level_page) {
+				auto crt = pg_d.getEntry(_IMM(dest));
+				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return 0;
+				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
+				stduint mask = (1ULL << shift) - 1;
+				stduint offset = _IMM(dest) & mask;
+				phy_d = crt->getAddress() + offset;
+				MIN(unit, (1ULL << shift) - offset);
+			}
+			else {
+				phy_d = _IMM(dest);
+			}
+
+			// --- Process Source ---
+			if (pg_s.root_level_page) {
+				auto crt = pg_s.getEntry(_IMM(sors));
+				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return 0;
+				stduint shift = pg_s.getPageSizeShift(_IMM(sors));
+				stduint mask = (1ULL << shift) - 1;
+				stduint offset = _IMM(sors) & mask;
+				phy_s = crt->getAddress() + offset;
+				MIN(unit, (1ULL << shift) - offset);
+			}
+			else {
+				phy_s = _IMM(sors);
+			}
 
 			for0(i, unit) {
 				char ch = cast<char*>(phy_s)[i];
@@ -400,15 +422,19 @@ namespace uni {
 			ret += unit;
 		}
 
+		// --- Handle Trailing Null ---
 		if (1) {
-			auto crtpage_d = pg_d.getEntry(_IMM(dest));
-			if (_IMM(crtpage_d) == ~_IMM0 || !crtpage_d->isPresent()) return 0;
-
-			stduint pgsize_d = pg_d.getPageSizeShift(_IMM(dest));
-			stduint mask_d = (1ULL << pgsize_d) - 1;
-			stduint pg_offset_d = _IMM(dest) & mask_d;
-			stduint phy_d = crtpage_d->getAddress() + pg_offset_d;
-			treat<char>(phy_d) = nil; // ASCIZ zero-termination
+			stduint phy_d;
+			if (pg_d.root_level_page) {
+				auto crt = pg_d.getEntry(_IMM(dest));
+				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return 0;
+				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
+				phy_d = crt->getAddress() + (_IMM(dest) & ((1ULL << shift) - 1));
+			}
+			else {
+				phy_d = _IMM(dest);
+			}
+			treat<char>(phy_d) = nil;
 		}
 		return ret;
 	}

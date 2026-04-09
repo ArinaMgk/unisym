@@ -481,21 +481,24 @@ namespace uni {
 		uint16* tmp = (uint16*)(rx_buffer.address + rx_pointer);
 		/* Check that a Rx process is ongoing */
 		if (lock_r) {
-			if (wordlen == WordLength_E::Bits9 && !parity_enable) {
-				*tmp = inn();
-				rx_pointer += 2;
+			if (rx_pointer < rx_buffer.length) {
+				if (wordlen == WordLength_E::Bits9 && !parity_enable) {
+					*tmp = inn();
+					rx_pointer += 2;
+				}
+				else {
+					*(uint8*)tmp = inn();
+					rx_pointer++;
+				}
+				// now *tmp is the data received
 			}
 			else {
-				*(uint8*)tmp = inn();
-				rx_pointer++;
-			}
-			// now *tmp is the data received
-			if (rx_pointer >= rx_buffer.length) {
+				inn();// drop
 				// Disable the UART Parity Error Interrupt and RXNE interrupt
-				USART_CR1_RXNEIE(self) = 0;
-				USART_CR1_PEIE(self) = 0;
+				//USART_CR1_RXNEIE(self) = 0;
+				//USART_CR1_PEIE(self) = 0;
 				// Disable the UART Error Interrupt: (Frame error, noise error, overrun error)
-				USART_CR3_EIE(self) = 0;
+				//USART_CR3_EIE(self) = 0;
 				// no consider HAL_UART_RxCpltCallback
 			}
 			lock_r = false;

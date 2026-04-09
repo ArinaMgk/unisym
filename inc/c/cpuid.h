@@ -34,7 +34,7 @@
 // m64: GCC CALLCONV
 _ESYM_C
 void
-#if __BITS__ == 32
+#ifdef _ARC_x86
 _CALL_FAST
 #endif
 CpuBrand(char*);

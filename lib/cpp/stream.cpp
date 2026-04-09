@@ -153,9 +153,13 @@ namespace uni {
 
 
 			case 'f':
+				#ifdef _DEV_KEIL
+				out_floating_0(sizlevel, *(para_list*)&paras);//{unchk}
+				#else
 				if constexpr (is_va_array<para_list>::value)
 					out_floating_0(sizlevel, *(para_list*)paras);
 				else out_floating_0(sizlevel, *(para_list*)&paras);
+				#endif
 				sizlevel = 0;
 				break;
 			case 'p':

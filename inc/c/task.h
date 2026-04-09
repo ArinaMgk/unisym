@@ -54,9 +54,6 @@ _PACKED(struct) NormalTaskContext {
 	// x64 0x2B0
 };
 
-// task.asm
-_ESYM_C void SwitchTaskContext(struct NormalTaskContext* nex, struct NormalTaskContext* crt);
-
 #elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)// RISCV
 
 _PACKED(struct) NormalTaskContext {
@@ -96,10 +93,12 @@ _PACKED(struct) NormalTaskContext {
 	union { stduint mepc, IP; };// [31]
 	stduint mstatus;// [32] mret to S/U
 	stduint satp;// [33] cr3
-#if __BITS__ == 32
-	// In RV32, 34 elements * 4 bytes = 136 bytes.
+	stduint kernel_sp;// [34]
+	stduint kernel_ra;// [35] by SwitchTaskContext
+	#if __BITS__ == 32 || __BITS__ == 64
+	// In RV32, 35 elements * 4 bytes = 140 bytes.
 	// Which is not a multiple of 16. The next multiple of 16 (alignment) is 144.
-	stduint _paddings[2];
+	// stduint _paddings[1];
 #endif
 };
 
@@ -108,6 +107,10 @@ _PACKED(struct) NormalTaskContext {
 _PACKED(struct) NormalTaskContext { int _; };
 
 #endif
+
+// task.asm
+_ESYM_C void SwitchTaskContext(struct NormalTaskContext* nex, struct NormalTaskContext* crt);
+_ESYM_C void DirectTaskContext(struct NormalTaskContext* nex);
 
 #if defined(_ARC_x86)
 #if _ARC_x86 >= 3

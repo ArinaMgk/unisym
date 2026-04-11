@@ -26,7 +26,7 @@
 #include "../../../inc/c/consio.h"
 namespace uni {
 
-	static FAT_FileHandle* path_to_handle(FilesysFAT& fs, FAT_FileHandle& handle, rostr fullpath);
+
 
 	bool FilesysFAT::makefs(rostr vol_label, void* moreinfo) {
 		if (!storage) {
@@ -144,78 +144,172 @@ namespace uni {
 		return fs_loaded = true;
 	}
 
+	enum DirWalkResult { WALK_CONTINUE, WALK_FOUND, WALK_END };
+
+	bool FilesysFAT::find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index) {
+		char lfn_buf[256];
+		int lfn_expected_order = 0;
+		
+		auto process_sector = [&](uint32_t sector) -> DirWalkResult {
+			if (!storage->Read(sector, buffer_sector)) return WALK_END;
+			for (int i = 0; i < 16; i++) {
+				FAT_DirEntry* entry = (FAT_DirEntry*)&buffer_sector[i * 32];
+				if ((byte)entry->name[0] == 0x00u) return WALK_END; // End of dir
+				if ((byte)entry->name[0] == 0xE5u || (byte)entry->name[0] == 0x05u) {
+					lfn_expected_order = 0; continue; // Deleted
+				}
+				
+				if (entry->attribute.isLongName()) {
+					FAT_LongDirEntry* lfn = (FAT_LongDirEntry*)entry;
+					if (lfn->type != 0) continue;
+					int order = lfn->order & 0x1F;
+					if (lfn->order & 0x40) { // First logical piece (last physical)
+						lfn_expected_order = order;
+						MemSet(lfn_buf, 0, 256);
+					} else if (order != lfn_expected_order - 1 || order == 0) {
+						lfn_expected_order = 0;
+						continue;
+					}
+					lfn_expected_order = order;
+					int offset = (order - 1) * 13;
+					if (offset < 0 || offset >= 256 - 14) { lfn_expected_order = 0; continue; }
+					auto put_c = [&](uint16_t c) {
+						if (c == 0x0000 || c == 0xFFFF) lfn_buf[offset++] = 0;
+						else lfn_buf[offset++] = (char)(c & 0xFF);
+					};
+					for (int j = 0; j < 5; j++) put_c(lfn->name1[j]);
+					for (int j = 0; j < 6; j++) put_c(lfn->name2[j]);
+					for (int j = 0; j < 2; j++) put_c(lfn->name3[j]);
+					continue;
+				}
+				
+				if (entry->attribute.volume_id && !entry->attribute.directory) {
+					lfn_expected_order = 0; continue;
+				}
+				
+				char short_name[13];
+				int name_len = 0;
+				for (int k = 0; k < 8 && entry->name[k] != ' '; k++) short_name[name_len++] = entry->name[k];
+				if (entry->ext[0] != ' ') {
+					short_name[name_len++] = '.';
+					for (int k = 0; k < 3 && entry->ext[k] != ' '; k++) short_name[name_len++] = entry->ext[k];
+				}
+				short_name[name_len] = 0;
+				
+				char* final_name = short_name;
+				if (lfn_expected_order == 1) final_name = lfn_buf;
+				
+				// Sanity check to prevent explosive DFS traversal on garbage clusters
+				bool is_valid_name = true;
+				for (int n = 0; final_name[n]; n++) {
+					unsigned char fn_c = (unsigned char)final_name[n];
+					if (fn_c < 0x20 || fn_c == 0x7F) {
+						is_valid_name = false; break;
+					}
+				}
+				if (!is_valid_name) { lfn_expected_order = 0; continue; }
+
+				if (!StrCompareInsensitive(final_name, target_name)) {
+					if (out_entry) *out_entry = *entry;
+					if (out_sector) *out_sector = sector;
+					if (out_index) *out_index = i;
+					return WALK_FOUND;
+				}
+				lfn_expected_order = 0;
+			}
+			return WALK_CONTINUE;
+		};
+
+		if (dir_cluster == 0 && fat_type != 32) {
+			uint32_t start_sec = first_data_sector - root_dir_sectors;
+			for (uint32_t s = 0; s < root_dir_sectors; s++) {
+				DirWalkResult res = process_sector(start_sec + s);
+				if (res == WALK_FOUND) return true;
+				if (res == WALK_END) break;
+			}
+		} else {
+			uint32_t cluster = dir_cluster;
+			if (cluster == 0 && fat_type == 32) cluster = root_cluster;
+			int limit = 100000;
+			while (cluster >= 2 && cluster < 0xFFFFFFF8 && limit-- > 0) {
+				uint32_t cluster_sec = getSector_foCluster(cluster);
+				for (uint32_t s = 0; s < sectors_per_cluster; s++) {
+					DirWalkResult res = process_sector(cluster_sec + s);
+					if (res == WALK_FOUND) return true;
+					if (res == WALK_END) return false;
+				}
+				cluster = get_fat_entry(cluster);
+			}
+		}
+		return false;
+	}
+
 	void* FilesysFAT::search(rostr fullpath, void* moreinfo) {
 		// moreinfo[0] --> FAT_FileHandle
 		// moreinfo[1] --> FAT_DirInfo? (? means optional, set nullptr if not used)
 		//
-		if (fat_type != 32) return nullptr;
 		if (!storage || !buffer_sector) {
 			error_number = 1;
 			return nullptr;
 		}
 		FAT_FileHandle* handle = (FAT_FileHandle*)((stduint*)moreinfo)[0];
-		FAT_FileHandle hand_body;
-		FAT_FileHandle* phandle = path_to_handle(self, hand_body, fullpath);
-		*handle = *phandle;
-		if (!StrCompare("/", fullpath)) {
+
+		*handle = FAT_FileHandle{};
+		handle->is_dir = true;
+		handle->start_cluster = (fat_type == 32) ? root_cluster : 0;
+		handle->current_cluster = handle->start_cluster;
+
+		if (!fullpath || !*fullpath || !StrCompare("/", fullpath)) {
 			return handle;
 		}
-		// Seek the file
-		uint32_t cluster = handle->start_cluster;
-		while (cluster < 0xFFFFFFF8) {
-			uint32_t sector = getSector_foCluster(cluster);
-			if (!storage->Read(sector, buffer_sector)) {
-				error_number = 2;
-				return nullptr;
+
+		const char* path_p = fullpath;
+		if (*path_p == '/') path_p++;
+
+		while (*path_p) {
+			char segment[256];
+			int seg_len = 0;
+			while (*path_p && *path_p != '/' && seg_len < 255) {
+				segment[seg_len++] = *path_p++;
 			}
-			for (int i = 0; i < 16; i++) {
-				FAT_DirEntry* entry = (FAT_DirEntry*)&buffer_sector[i * 32];
-				if ((byte)entry->name[0] == 0x00u) { // end of dir
-					return nullptr;
-				}
-				if ((byte)entry->name[0] == 0xE5u) continue; // deleted
-				// ploginfo("%x %s", entry->name, entry->name);
-				// cmp name
-				char short_name[13];
-				MemSet(short_name, ' ', 12);
-				//
-				int name_len = 0;
-				while (name_len < 8 && entry->name[name_len] != ' ') {
-					short_name[name_len] = entry->name[name_len];
-					name_len++;
-				}
-				
-				if (entry->ext[0] != ' ') {
-					short_name[name_len++] = '.';
-					for (int j = 0; j < 3; j++) {
-						short_name[name_len++] = entry->ext[j];
-					}
-				}
-				short_name[name_len++] = 0;
-				
-				const char* target = StrIndexCharRight(fullpath, '/');
-				if (!target) target = fullpath;
-				if (!StrCompareInsensitive(short_name, target)) {
-					handle->start_cluster = entry->getFirstClusterNumber();
-					handle->current_cluster = handle->start_cluster;
-					handle->size = entry->file_size;
-					handle->is_dir = (entry->attribute.attr & 0x10) != 0;
-					handle->dir_sector = sector;
-					handle->dir_index = i;
-					
-					if (((stduint*)moreinfo)[1]) {
-						FAT_DirInfo* info = (FAT_DirInfo*)((stduint*)moreinfo)[1];
-						StrCopy(info->name, short_name);
-						info->size = entry->file_size;
-						info->attr = entry->attribute.attr;
-						info->start_cluster = handle->start_cluster;
-					}
-					return handle;
+			segment[seg_len] = '\0';
+			while (*path_p == '/') path_p++; // skip consecutive slashes
+
+			if (seg_len == 0) break;
+
+			FAT_DirEntry entry;
+			uint32_t found_sector, found_index;
+			if (!find_entry_in_dir(handle->start_cluster, segment, &entry, &found_sector, &found_index)) {
+				return nullptr; // segment not found
+			}
+
+			handle->start_cluster = entry.getFirstClusterNumber();
+			handle->current_cluster = handle->start_cluster;
+			handle->size = entry.file_size;
+			handle->is_dir = (entry.attribute.attr & 0x10) != 0;
+			handle->dir_sector = found_sector;
+			handle->dir_index = found_index;
+
+			if (handle->is_dir) {
+				bool is_dot = (segment[0] == '.' && (segment[1] == '\0' || (segment[1] == '.' && segment[2] == '\0')));
+				uint32_t root_cl = (fat_type == 32) ? root_cluster : 0;
+				if (!is_dot && handle->start_cluster == root_cl) {
+					return nullptr; // Broken FAT structure (sub-directory pointing to root)
 				}
 			}
-			cluster = get_fat_entry(cluster);
+
+			if (*path_p && !handle->is_dir) return nullptr; // trying to traverse into file
 		}
-		return nullptr;
+
+		if (((stduint*)moreinfo)[1]) {
+			FAT_DirInfo* info = (FAT_DirInfo*)((stduint*)moreinfo)[1];
+			// Populate directory info if requested
+			info->size = handle->size;
+			// Attr omitted since we don't carry full block here cleanly without refetch.
+			info->start_cluster = handle->start_cluster;
+		}
+
+		return handle;
 	}
 
 	bool FilesysFAT::proper(void* handler, stduint cmd, const void* moreinfo) {
@@ -225,23 +319,95 @@ namespace uni {
 	bool FilesysFAT::enumer(void* dir_handler, _tocall_ft _fn) {
 		FAT_FileHandle* fh = (FAT_FileHandle*)dir_handler;
 		if (!fh->is_dir) return false;
-		uint32_t cluster = fh->start_cluster;
-		uint32_t count = 0;
-		while (cluster < 0xFFFFFFF8) {
-			uint32_t sector = getSector_foCluster(cluster);
+
+		char lfn_buf[256];
+		int lfn_expected_order = 0;
+
+		auto process_sector = [&](uint32_t sector) -> bool {
 			if (!storage->Read(sector, buffer_sector)) return false;
-			for0 (i, 16) {
+			for (int i = 0; i < 16; i++) {
 				FAT_DirEntry* entry = &cast<FAT_DirEntry*>(buffer_sector)[i];
-				if ((byte)entry->name[0] == 0x00u) return true; // end of dir
-				if ((byte)entry->name[0] == 0xE5u) continue; // removed
-				if ((byte)entry->name[0] == 0x05u) continue; // removed
-				if (entry->attribute.volume_id) continue; // volume id
-				if (entry->attribute.isLongName()) continue; //{} FAT_LongDirEntry
-				ploginfo("FilesysFAT::enumer %s", entry->name);
-				if (_fn) _fn((void*)_IMM(entry->attribute.directory), entry);
-				count++;
+				if ((byte)entry->name[0] == 0x00u) return false; // end of dir
+				if ((byte)entry->name[0] == 0xE5u || (byte)entry->name[0] == 0x05u) {
+					lfn_expected_order = 0; continue;
+				}
+
+				if (entry->attribute.isLongName()) {
+					FAT_LongDirEntry* lfn = (FAT_LongDirEntry*)entry;
+					if (lfn->type != 0) continue;
+					int order = lfn->order & 0x1F;
+					if (lfn->order & 0x40) {
+						lfn_expected_order = order;
+						MemSet(lfn_buf, 0, 256);
+					}
+					else if (order != lfn_expected_order - 1 || order == 0) {
+						lfn_expected_order = 0; continue;
+					}
+					lfn_expected_order = order;
+					int offset = (order - 1) * 13;
+					if (offset < 0 || offset >= 256 - 14) { lfn_expected_order = 0; continue; }
+					auto put_c = [&](uint16_t c) {
+						if (c == 0x0000 || c == 0xFFFF) lfn_buf[offset++] = 0;
+						else lfn_buf[offset++] = (char)(c & 0xFF);
+					};
+					for (int j = 0; j < 5; j++) put_c(lfn->name1[j]);
+					for (int j = 0; j < 6; j++) put_c(lfn->name2[j]);
+					for (int j = 0; j < 2; j++) put_c(lfn->name3[j]);
+					continue;
+				}
+
+				if (entry->attribute.volume_id && !entry->attribute.directory) {
+					lfn_expected_order = 0; continue;
+				}
+
+				char short_name[13];
+				int name_len = 0;
+				for (int k = 0; k < 8 && entry->name[k] != ' '; k++) short_name[name_len++] = entry->name[k];
+				if (entry->ext[0] != ' ') {
+					short_name[name_len++] = '.';
+					for (int k = 0; k < 3 && entry->ext[k] != ' '; k++) short_name[name_len++] = entry->ext[k];
+				}
+				short_name[name_len] = 0;
+
+				char* final_name = short_name;
+				if (lfn_expected_order == 1) final_name = lfn_buf;
+
+				bool is_valid_name = true;
+				for (int n = 0; final_name[n]; n++) {
+					unsigned char fn_c = (unsigned char)final_name[n];
+					if (fn_c < 0x20 || fn_c == 0x7F) {
+						is_valid_name = false; break;
+					}
+				}
+				if (!is_valid_name) { lfn_expected_order = 0; continue; }
+
+				ploginfo("FilesysFAT::enumer %s", final_name);
+				if (_fn) _fn((void*)_IMM(entry->attribute.directory), (void*)final_name);
+
+				lfn_expected_order = 0;
 			}
-			cluster = get_fat_entry(cluster);
+			return true;
+			};
+
+		if (fh->start_cluster == 0 && fat_type != 32) {
+			uint32_t start_sec = first_data_sector - root_dir_sectors;
+			for (uint32_t s = 0; s < root_dir_sectors; s++) {
+				if (!process_sector(start_sec + s)) break;
+			}
+		}
+		else {
+			uint32_t cluster = fh->start_cluster;
+			if (cluster == 0 && fat_type == 32) cluster = root_cluster;
+			int limit = 100000;
+			while (cluster >= 2 && cluster < 0xFFFFFFF8 && limit-- > 0) {
+				uint32_t cluster_sec = getSector_foCluster(cluster);
+				bool cont = true;
+				for (uint32_t s = 0; s < sectors_per_cluster; s++) {
+					if (!process_sector(cluster_sec + s)) { cont = false; break; }
+				}
+				if (!cont) break;
+				cluster = get_fat_entry(cluster);
+			}
 		}
 		return true;
 	}
@@ -300,15 +466,7 @@ namespace uni {
 
 	// ----
 
-	static FAT_FileHandle* path_to_handle(FilesysFAT& fs, FAT_FileHandle& handle, rostr fullpath)
-	{
-		_TEMP; // ploginfo("path_to_handle %[x]", &handle);
-		handle.start_cluster = fs.root_cluster ? fs.root_cluster : 2;
-		handle.current_cluster = handle.start_cluster;
-		handle.current_offset = 0;
-		handle.is_dir = true;
-		return &handle;
-	}
+
 
 
 	uint32_t FilesysFAT::get_fat_entry(uint32_t cluster)
@@ -343,13 +501,14 @@ namespace uni {
 		if (fat_type == 32) {
 			return *(uint32_t*)&buffer_fatable[ent_offset] & 0x0FFFFFFF;
 		} else if (fat_type == 16) {
-			return *(uint16_t*)&buffer_fatable[ent_offset];
+			uint16_t val = *(uint16_t*)&buffer_fatable[ent_offset];
+			if (val >= 0xFFF8) return 0xFFFFFFF8;
+			return val;
 		} else {// 12
 			uint16_t value = *(uint16_t*)&buffer_fatable[ent_offset];
-			if (cluster & 0x01)
-				return value >> 4;
-			else
-				return value & 0x0FFF;
+			uint16_t val = (cluster & 0x01) ? (value >> 4) : (value & 0x0FFF);
+			if (val >= 0x0FF8) return 0xFFFFFFF8;
+			return val;
 		}
 	}
 

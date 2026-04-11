@@ -331,13 +331,17 @@ namespace uni {
 			Color* p = buffer;
 			for0(i, total) *p++ = backcolor;
 			if (sheet_parent) sheet_parent->Update(this, window);
-		}
-		else if (vci) {
-			Rectangle r = window; r.color = backcolor;
-			vci->DrawRectangle(r);
+			else if (vci) { Rectangle r = window; r.color = backcolor; vci->DrawRectangle(r); }
 		}
 		else if (sheet_parent) {
+			// getPoint mode: text_buf is already blanked above.
+			// Ask the LayerManager to re-composite the full area via getPoint().
 			sheet_parent->Update(this, window);
+		}
+		else if (vci) {
+			// Standalone mode (no LayerManager): draw directly.
+			Rectangle r = window; r.color = backcolor;
+			vci->DrawRectangle(r);
 		}
 	}
 
@@ -475,7 +479,7 @@ namespace uni {
 
 		// Cursor overlay: when cursor is visible, the cursor character cell is
 		// filled solid with forecolor (standard block cursor appearance).
-		if (cursor_visible && (stdsint)cx == cursor.x && (stdsint)cy == cursor.y)
+		if (cursor_visible && cx == cursor.x && cy == cursor.y)
 			return forecolor;
 
 		return result;
@@ -575,7 +579,16 @@ namespace uni {
 				full.width = window.width; full.height = (stduint)(rows * font_h);
 				if (sheet_parent) sheet_parent->Update(this, full);
 			}
+			else if (sheet_parent) {
+				// getPoint mode: text_buf already shifted; ask LayerManager to
+				// re-composite the whole console area via getPoint().
+				Rectangle full;
+				full.x = 0; full.y = 0;
+				full.width = window.width; full.height = (stduint)(rows * font_h);
+				sheet_parent->Update(this, full);
+			}
 			else if (vci) {
+				// Standalone VCI (no LayerManager): push rows directly.
 				if (line_buf) {
 					for0(r, rows) {
 						EnsureLineBuffer(r);
@@ -595,12 +608,6 @@ namespace uni {
 					vci->DrawRectangle(clr);
 				}
 			}
-			else if (sheet_parent) {
-				Rectangle full;
-				full.x = 0; full.y = 0;
-				full.width = window.width; full.height = (stduint)(rows * font_h);
-				sheet_parent->Update(this, full);
-			}
 		}
 		else {
 			if (buffer) {
@@ -616,7 +623,7 @@ namespace uni {
 	}
 
 	void VideoConsole2::FeedLine() {
-		while (cursor.y >= (stdsint)rows) {
+		while (cursor.y >= rows) {
 			cursor.y--;
 			thisRollup(_VC2FontH[typ]);
 		}
@@ -625,8 +632,8 @@ namespace uni {
 	void VideoConsole2::curinc() {
 		if (!cols || !rows) return;
 		cursor.x++;
-		if (cursor.x >= (stdsint)cols) { cursor.x = 0; cursor.y++; }
-		if (cursor.y >= (stdsint)rows) FeedLine();
+		if (cursor.x >= cols) { cursor.x = 0; cursor.y++; }
+		if (cursor.y >= rows) FeedLine();
 	}
 
 	// -------------------------------------------------------------------------

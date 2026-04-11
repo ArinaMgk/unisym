@@ -172,7 +172,7 @@ namespace uni {
 		uint32_t root_cluster;
 		uint32_t sectors_per_cluster;
 		byte* buffer_sector;
-		uint32_t current_sector;
+		uint32_t current_sector = 0xFFFFFFFF;
 		// std::map<void*, FAT_FileHandle> open_files;
 		uint32_t next_handle_id = 1;
 		uint32_t total_clusters;// = data_sectors / sectors_per_cluster
@@ -232,6 +232,9 @@ namespace uni {
 			}
 			return 0; // the part is full
 		}
+	protected:
+		// Walk a cluster directory looking for `target_name`.
+		bool find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index);
 	};
 
 

@@ -23,7 +23,7 @@
 #include "../string"
 //{TODO} ! Below are included by HEREPIC ! //
 
-#include "../trait/BlockTrait.hpp"
+#include "StorageTrait.hpp"
 
 #ifndef _INCPP_TRAIT_FILESYSTEM
 #define _INCPP_TRAIT_FILESYSTEM

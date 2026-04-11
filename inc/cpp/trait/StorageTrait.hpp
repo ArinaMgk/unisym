@@ -31,6 +31,12 @@
 #include "../string"
 #include "../trait/BlockTrait.hpp"
 
+namespace uni {
+	struct PartitionSlice : public Slice {
+		byte sys_id;
+	};
+}
+
 // x86
 _PACKED(struct) PartitionTableX86 {
 	// boot indicator
@@ -58,8 +64,8 @@ _PACKED(struct) PartitionTableX86 {
 #define NR_SUB_PER_DRIVE    (NR_SUB_PER_PART * NR_PART_PER_DRIVE)// 64
 #define NR_PRIM_PER_DRIVE    (NR_PART_PER_DRIVE + 1) // 5
 struct HD_Info {
-    uni::Slice primary[NR_PRIM_PER_DRIVE];
-    uni::Slice logical[NR_SUB_PER_DRIVE];
+    uni::PartitionSlice primary[NR_PRIM_PER_DRIVE];
+    uni::PartitionSlice logical[NR_SUB_PER_DRIVE];
 };
 
 namespace uni {
@@ -112,7 +118,7 @@ namespace uni {
 		StorageTrait* base;
 		stdsint device;
 		stduint flag;
-		Slice slice = {};
+		PartitionSlice slice = {};
 		//
 		DiscPartition(StorageTrait& storage, int dev) : base(&storage), device(dev) { Block_Size = storage.Block_Size; }
 		virtual bool Read(stduint BlockIden, void* Dest) override;
@@ -121,7 +127,7 @@ namespace uni {
 			if (!slice.address && !slice.length) renew_slice();
 			return slice.length;
 		}
-		Slice getSlice() {
+		PartitionSlice getSlice() {
 			if (!slice.address && !slice.length) renew_slice();
 			return slice;
 		}

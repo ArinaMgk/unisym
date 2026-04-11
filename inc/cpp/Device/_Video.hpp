@@ -384,7 +384,118 @@ namespace uni {
 	};
 
 
+	// One cell of the VideoConsole2 text buffer.
+	struct BufferChar {
+		Color   back_color;    // background color of this cell
+		Color   fore_color;    // foreground (glyph) color
+		uint32  attr;          // attributes: bold/underline/blink/reverse (reserved)
+		uint32  unicode_char;  // character code (currently ASCII; lower byte used)
+	};
+
+	// VideoConsole2: character-unit console with lazy line-buffer rendering.
+	// Follows the same interface and usage pattern as VideoConsole, but maintains
+	// a BufferChar text buffer (cols x rows) as primary state instead of pixels.
+	//
+	// On RollUp: shift text_buf up by one row (cheap), invalidate line_buf.
+	// On draw  : rasterize one char-row into line_buf on demand, blit via DrawPoints.
+	class VideoConsole2 : public Console_t, public SheetTrait {
+	public:
+		const VideoControlInterface* vci;
+	protected:
+		Point   cursor  = { 0, 0 };
+		Color*  buffer  = nullptr; // pixel buffer (same role as VideoConsole::buffer)
+		Size2   size;              // char grid dimensions (cols, rows)
+		stduint typ;               // 0: 8x5,  1: 16x8
+	public:
+		Color     forecolor;
+		Color     backcolor;
+		Rectangle window;
+		byte      update_method  = 2;    // 0: none, 1: all, 2: line
+		bool      cursor_visible = false;
+	protected:
+		// Character text buffer (authoritative content store): one BufferChar per cell.
+		BufferChar* text_buf   = nullptr; // [rows * cols]
+		// Pixel cache for one character row: [font_h * cols * font_w].
+		Color*  line_buf       = nullptr;
+		stdsint line_buf_row   = -1;     // cached row index; -1 = invalid
+		bool    line_buf_valid = false;
+		stduint cols           = 0;
+		stduint rows           = 0;
+		// ANSI SGR parser state (persists across out() calls so that sequences
+		// like "\x1b[3" + "2m" across two calls are handled correctly).
+		//   0 = idle
+		//   1 = ESC received, waiting for '['
+		//   2 = inside CSI parameter string (collecting digits / ';')
+		uint8  esc_state           = 0;
+		int    esc_params[8]       = {};  // accumulator for up to 8 numeric params
+		int    esc_nparams         = 0;   // index of the param slot being written
+
+	public:
+		VideoConsole2(const VideoControlInterface* vci,
+			const Rectangle& win,
+			const Color& fore_color = Color::White,
+			const Color& back_color = Color::Black);
+
+		// Attach external storage.
+		// pixel_buf    : pixel buffer (width * height Colors), or nullptr for VCI-direct.
+		// text_storage : at least cols * rows BufferChar elements.
+		// line_storage : at least (cols * font_w) * font_h Color elements, or nullptr.
+		void setBuffers(Color* pixel_buf, BufferChar* text_storage, Color* line_storage);
+
+		// Clear console: blank both buffers, reset cursor.
+		void Clear();
+
+		void Start();
+
+		inline auto getCursor() const { return cursor; }
+		inline void setModeBuffer(Color* buf) { buffer = buf; }
+
+		inline stduint getCols() const { return cols; }
+		inline stduint getRows() const { return rows; }
+		// Number of Color elements required for the line buffer allocation.
+		// line_buf must hold one character row: cols * font_w * font_h pixels.
+		inline stduint getLineBufferSize() const {
+			return cols * (typ ? 8u : 5u) * (typ ? 16u : 8u);
+		}
+
+	public:
+		virtual int  out(const char* str, stduint len) override;
+		virtual int  inn() override _TODO;
+		virtual void doshow(void*) override;
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) override;
+		// Called by LayerManager per-pixel when sheet_buffer == nullptr.
+		// Looks up the CharCell in text_buf and returns the fg or bg color.
+		// Uses line_buf as a row-level cache when available.
+		virtual Color getPoint(Point p) override;
+
+	protected:
+		// Invalidate the line buffer (called on RollUp / content change).
+		inline void InvalidateLineBuffer() { line_buf_valid = false; }
+
+		// Render char-row `row` into line_buf if not already cached.
+		void EnsureLineBuffer(stduint row);
+
+		// Blit line_buf to pixel buffer / VCI at char-row `row`.
+		void BlitLineBuffer(stduint row);
+
+		// Scroll up by one char row: shift text buffer, invalidate line cache.
+		void thisRollup(stduint height);
+
+		// Advance cursor past bottom, rolling up as needed.
+		void FeedLine();
+
+		// Write one BufferChar into text_buf; invalidate line cache for that row.
+		void Putchar(stduint cx, stduint cy, BufferChar cell);
+
+		// Advance cursor by one character cell.
+		void curinc();
+
+		friend void _VideoConsole2Out(const char* str, stduint len);
+		static VideoConsole2* crt_self2;
+	};
+
 	void DrawString_16(SheetTrait& st, const Point2& p, const String& str, Color col);
+
 
 }
 

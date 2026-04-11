@@ -78,6 +78,7 @@ namespace uni {
 				nr_prim_parts++;
 				hdi.primary[i + 1].address = part_tbl[i].lba_start;
 				hdi.primary[i + 1].length = part_tbl[i].lba_count;
+				hdi.primary[i + 1].sys_id = part_tbl[i].type;
 				// plogwarn("p %u: %u-%u", i + 1, part_tbl[i].lba_start, part_tbl[i].lba_count);
 				if (part_tbl[i].type ==Part_EX_PART)
 					Partition(base, hdi, psector, device + i + 1, false);
@@ -96,6 +97,7 @@ namespace uni {
 				int dev_nr = nr_1st_sub + i;/* 0~15/16~31/32~47/48~63 */
 				hdi.logical[dev_nr].address = s + part_tbl[0].lba_start;
 				hdi.logical[dev_nr].length = part_tbl[0].lba_count;
+				hdi.logical[dev_nr].sys_id = part_tbl[0].type;
 				// plogwarn("l %u: %u-%u", dev_nr, hdi.logical[dev_nr].address, hdi.logical[dev_nr].address + hdi.logical[dev_nr].length);
 				s = ext_start_sect + part_tbl[1].lba_start;
 				if (part_tbl[1].type == Part_NO_PART) {

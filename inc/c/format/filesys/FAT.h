@@ -167,6 +167,7 @@ namespace uni {
 		uint32_t first_data_sector;
 		uint32_t first_fat_sector;
 		uint32_t data_sectors;
+		uint32_t fat_count; // FIX: Added fat_count required for writing
 		bool     fs_loaded = false;
 		//
 		uint32_t root_cluster;
@@ -203,7 +204,7 @@ namespace uni {
 		virtual bool remove(rostr pathname) override;
 
 		// return the handler of the path/file (nullptr for failure) , `moreinfo` will get the proper
-		virtual void* search(rostr fullpath, void* moreinfo) override;
+		virtual void* search(rostr fullpath, FilesysSearchArgs* args) override;
 
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) override;// set proper
 
@@ -224,7 +225,8 @@ namespace uni {
 	public:
 		uint32_t get_fat_entry(uint32_t cluster);
 
-		bool set_fat_entry(uint32_t cluster, uint32_t value) { return false _TODO; }
+		// FIX: Remove inline _TODO to allow proper definition
+		bool set_fat_entry(uint32_t cluster, uint32_t value);
 
 		stduint find_free_cluster() {
 			for (uint32_t i = 2; i < total_clusters; i++) {

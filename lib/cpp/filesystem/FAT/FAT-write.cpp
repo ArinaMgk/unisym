@@ -27,71 +27,112 @@ namespace uni {
 
 	stduint FilesysFAT::writfl(void* fil_handler, Slice file_slice, const byte* sors) {
 		FAT_FileHandle* fh = (FAT_FileHandle*)fil_handler;
-		if (fh->is_dir) return false;
-		uint64_t offset = file_slice.address;
+		if (fh->is_dir) return 0;
+		
+		uint64_t start_offset = file_slice.address;
 		uint64_t to_write = file_slice.length;
 		uint64_t total_written = 0;
-		stduint& bytes_per_sector = storage->Block_Size;
-		uint32_t cluster = fh->start_cluster;
+		
+		stduint bytes_per_sector = storage->Block_Size;
 		uint32_t cluster_size = sectors_per_cluster * bytes_per_sector;
 		
-		// Ext file
-		uint64_t needed_clusters = (offset + to_write + cluster_size - 1) / cluster_size;
-		uint64_t current_clusters = (fh->size + cluster_size - 1) / cluster_size;
+		// Ensure enough clusters are allocated
+		uint64_t end_pos = start_offset + to_write;
+		uint32_t cluster = fh->start_cluster;
 		
-		if (needed_clusters > current_clusters) {
-			// 分配新簇
-			uint32_t last_cluster = cluster;
-			for (uint32_t i = 1; i < current_clusters; i++) {
-				last_cluster = get_fat_entry(last_cluster);
-			}
-			
-			for (uint64_t i = current_clusters; i < needed_clusters; i++) {
-				uint32_t new_cluster = find_free_cluster();
-				if (new_cluster == 0) {
-					error_number = 3; // part is full
-					return false;
-				}
-				set_fat_entry(last_cluster, new_cluster);
-				set_fat_entry(new_cluster, 0xFFFFFFF);
-				last_cluster = new_cluster;
+		// If it's a new empty file, allocate first cluster
+		if (cluster == 0 || cluster >= 0x0FFFFFF8) {
+			cluster = find_free_cluster();
+			if (cluster == 0) return 0;
+			set_fat_entry(cluster, 0x0FFFFFFF);
+			fh->start_cluster = cluster;
+			fh->current_cluster = cluster;
+			// Update directory entry immediately for the new start cluster
+			byte dir_buf[512];
+			if (storage->Read(fh->dir_sector, dir_buf)) {
+				FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
+				entry->cluster_low = (uint16_t)(cluster & 0xFFFF);
+				entry->cluster_high = (uint16_t)(cluster >> 16);
+				storage->Write(fh->dir_sector, dir_buf);
 			}
 		}
-		
-		while (to_write > 0) {
-			uint32_t sector = getSector_foCluster(cluster);
-			uint32_t sector_offset = offset % bytes_per_sector;
-			uint32_t sector_index = offset / bytes_per_sector;
-			uint32_t can_write = bytes_per_sector - sector_offset;
-			storage->Read(sector + sector_index, buffer_sector);
-			if (can_write > to_write) can_write = (uint32_t)to_write;
-			MemCopyN(buffer_sector + sector_offset, sors + total_written, can_write);
-			if (!storage->Write(sector + sector_index, buffer_sector))
-				return false;
 
-			total_written += can_write;
-			to_write -= can_write;
-			offset += can_write;
+		// Calculate how many clusters we need in total
+		uint32_t clusters_needed = (uint32_t)((end_pos + cluster_size - 1) / cluster_size);
+		uint32_t current_cluster_count = (fh->size + cluster_size - 1) / cluster_size;
+		if (current_cluster_count == 0 && fh->size == 0 && fh->start_cluster != 0) current_cluster_count = 1;
+		
+		if (clusters_needed > current_cluster_count) {
+			// Find the last cluster of the current chain
+			uint32_t last = fh->start_cluster;
+			while (true) {
+				uint32_t next = get_fat_entry(last);
+				if (next >= 0x0FFFFFF8) break;
+				last = next;
+			}
+			// Allocate more
+			for (uint32_t i = current_cluster_count; i < clusters_needed; i++) {
+				uint32_t next = find_free_cluster();
+				if (next == 0) break; // disk full
+				set_fat_entry(last, next);
+				set_fat_entry(next, 0x0FFFFFFF);
+				last = next;
+			}
+		}
+
+		// Start writing
+		uint64_t current_pos = start_offset;
+		
+		// Seek to the correct cluster for start_offset
+		cluster = fh->start_cluster;
+		uint64_t seek_pos = current_pos;
+		while (seek_pos >= cluster_size) {
+			cluster = get_fat_entry(cluster);
+			if (cluster >= 0x0FFFFFF8) break;
+			seek_pos -= cluster_size;
+		}
+
+		while (total_written < to_write && cluster < 0x0FFFFFF8) {
+			uint32_t cluster_offset = (uint32_t)(current_pos % cluster_size);
+			uint32_t sector_in_cluster = cluster_offset / bytes_per_sector;
+			uint32_t offset_in_sector = cluster_offset % bytes_per_sector;
 			
-			if (offset >= cluster_size) {
-				offset = 0;
+			uint32_t target_sector = getSector_foCluster(cluster) + sector_in_cluster;
+			uint32_t can_write_in_sector = bytes_per_sector - offset_in_sector;
+			if (can_write_in_sector > (to_write - total_written)) 
+				can_write_in_sector = (uint32_t)(to_write - total_written);
+			
+			if (offset_in_sector == 0 && can_write_in_sector == bytes_per_sector) {
+				// Full sector write, no need to read first
+				MemCopyN(buffer_sector, sors + total_written, bytes_per_sector);
+			} else {
+				storage->Read(target_sector, buffer_sector);
+				MemCopyN(buffer_sector + offset_in_sector, sors + total_written, can_write_in_sector);
+			}
+			
+			if (!storage->Write(target_sector, buffer_sector)) break;
+			
+			total_written += can_write_in_sector;
+			current_pos += can_write_in_sector;
+			
+			// If we crossed a cluster boundary, move to the next cluster
+			if ((current_pos % cluster_size) == 0 && total_written < to_write) {
 				cluster = get_fat_entry(cluster);
 			}
 		}
-		
-		// update size of the file
-		if (offset + total_written > fh->size) {
-			fh->size = (uint32_t)(offset + total_written);
-			// update new entry
-			uint8_t dir_buffer[512];
-			if (storage->Read(fh->dir_sector, dir_buffer)) {
-				FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buffer[fh->dir_index * 32];
+
+		// Update size if expanded
+		if (current_pos > fh->size) {
+			fh->size = (uint32_t)current_pos;
+			byte dir_buf[512];
+			if (storage->Read(fh->dir_sector, dir_buf)) {
+				FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 				entry->file_size = fh->size;
-				storage->Write(fh->dir_sector, dir_buffer);
+				storage->Write(fh->dir_sector, dir_buf);
 			}
 		}
-		
-		return true;
+
+		return (stduint)total_written;
 	}
 
 

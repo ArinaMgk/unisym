@@ -29,6 +29,7 @@ namespace uni {
 
 	bool FilesysFAT::create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest) {
 		if (!fs_loaded) return false;
+		ploginfo("FAT: create %s", fullpath);
 		
 		// seek parent dir
 		const char* filename = StrIndexCharRight(fullpath, '/');
@@ -49,8 +50,13 @@ namespace uni {
 		// create dir entry
 		FAT_DirEntry entry;
 		MemSet(&entry, 0, sizeof(FAT_DirEntry));
+		MemSet(entry.name, ' ', 8);
+		MemSet(entry.ext, ' ', 3);
 		
 		// parse 8.3 filename
+		const char* slash = StrIndexCharRight(filename, '/');
+		if (slash) filename = slash + 1;
+		
 		const char* dot = StrIndexCharRight(filename, '.');
 		if (dot) {
 			int name_len = dot - filename;
@@ -72,22 +78,45 @@ namespace uni {
 		entry.cluster_high = (uint16_t)(new_cluster >> 16);
 		entry.cluster_low = (uint16_t)(new_cluster & 0xFFFF);
 		
-		//{} simple impl
-		uint32_t parent_cluster = root_cluster ? root_cluster : 2;
-		uint32_t sector = getSector_foCluster(parent_cluster);
-		uint8_t dir_buffer[512];
-		if (!storage->Read(sector, dir_buffer))// parent's sector
+		FAT_FileHandle* p_fh = (FAT_FileHandle*)exinfo;
+		uint32_t parent_cluster = p_fh ? p_fh->start_cluster : root_cluster;
+		
+		auto try_sector = [&](uint32_t sector) -> bool {
+			ploginfo("FAT: scanning sector %u", sector);
+			if (!storage->Read(sector, buffer_sector)) return false;
+			for (int i = 0; i < 16; i++) {
+				FAT_DirEntry* dir_entry = (FAT_DirEntry*)&buffer_sector[i * 32];
+				if (dir_entry->name[0] == 0 || (byte)dir_entry->name[0] == 0xE5u) {
+					MemCopyN(dir_entry, &entry, sizeof(FAT_DirEntry));
+					ploginfo("FAT: sector %u writing entry...", sector);
+					return storage->Write(sector, buffer_sector);
+				}
+			}
 			return false;
+		};
 
-		// seek free entry
-		for0 (i, 16) { // 16 entries per sector
-			FAT_DirEntry* dir_entry = (FAT_DirEntry*)&dir_buffer[i * 32];
-			if (dir_entry->name[0] == 0 || (byte)dir_entry->name[0] == 0xE5u) {
-				// free or deleted
-				MemCopyN(dir_entry, &entry, sizeof(FAT_DirEntry));
-				return storage->Write(sector, dir_buffer);
+		if (parent_cluster == 0 && fat_type != 32) {
+			// FAT12/16 Root Directory
+			uint32_t start_sec = first_data_sector - root_dir_sectors;
+			for (uint32_t s = 0; s < root_dir_sectors; s++) {
+				if (try_sector(start_sec + s)) return true;
+			}
+		} else {
+			// FAT32 or Subdirectory
+			uint32_t cluster = parent_cluster;
+			if (cluster == 0 && fat_type == 32) cluster = root_cluster;
+			
+			int limit = 10000;
+			while (cluster >= 2 && cluster < 0xFFFFFFF8 && limit-- > 0) {
+				uint32_t cluster_sec = getSector_foCluster(cluster);
+				for (uint32_t s = 0; s < sectors_per_cluster; s++) {
+					if (try_sector(cluster_sec + s)) return true;
+				}
+				cluster = get_fat_entry(cluster);
+				//{} TODO: Allocate new cluster for dir if full
 			}
 		}
+
 		error_number = 4; // Dir Full
 		return false;
 	}

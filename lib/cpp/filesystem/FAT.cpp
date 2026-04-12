@@ -111,21 +111,20 @@ namespace uni {
 		}
 		self.total_sectors = bs.total_sectors_16 ? bs.total_sectors_16 : bs.total_sectors_32;
 
-		sectors_per_fat = (fat_type == 32 || bs.sectors_per_fat_32) ? bs.sectors_per_fat_32 : bs.sectors_per_fat_16;
+		// If it's 0, then it must be FAT32, so we can safely read sectors_per_fat_32.
+		sectors_per_fat = bs.sectors_per_fat_16 ? bs.sectors_per_fat_16 : bs.sectors_per_fat_32;
+
 		if (!fat_type) {
-			if (bs.sectors_per_fat_32) {
-				fat_type = 32;
-			} else if (bs.sectors_per_fat_16 != 0) {
-				uint32_t root_dir_sectors = ((bs.root_entries * 32) + 
-					(storage->Block_Size - 1)) / storage->Block_Size;
-				uint32_t data_sectors = total_sectors - 
-					(bs.reserved_sectors + bs.fat_count * sectors_per_fat + root_dir_sectors);
-				total_clusters = data_sectors / bs.sectors_per_cluster;
-				//
-				if (total_clusters < 4085) fat_type = 12;
-				else if (total_clusters < 65525) fat_type = 16;
-				else fat_type = 32;
-			}
+			// Calculate cluster count to properly identify FAT type
+			uint32_t root_dir_sectors = ((bs.root_entries * 32) + 
+				(storage->Block_Size - 1)) / storage->Block_Size;
+			uint32_t data_sectors = self.total_sectors - 
+				(bs.reserved_sectors + bs.fat_count * sectors_per_fat + root_dir_sectors);
+			total_clusters = data_sectors / bs.sectors_per_cluster;
+			//
+			if (total_clusters < 4085) fat_type = 12;
+			else if (total_clusters < 65525) fat_type = 16;
+			else fat_type = 32;
 		}
 
 		first_fat_sector = bs.reserved_sectors;
@@ -136,11 +135,13 @@ namespace uni {
 			root_dir_sectors = ((bs.root_entries * 32) + (storage->Block_Size - 1)) / storage->Block_Size;
 			first_data_sector = bs.reserved_sectors + (bs.fat_count * sectors_per_fat) + root_dir_sectors;
 		}
-		data_sectors = total_sectors - first_data_sector;
+		
+		data_sectors = self.total_sectors - first_data_sector;
 		total_clusters = data_sectors / bs.sectors_per_cluster;
-		// storage->Block_Size is followed by hardware, not _bytesPerSector
+		
 		root_cluster = bs.root_cluster;
 		sectors_per_cluster = bs.sectors_per_cluster;
+		fat_count = bs.fat_count; // FIX: Added to avoid memory overwrite when setting fat table
 		return fs_loaded = true;
 	}
 
@@ -244,15 +245,15 @@ namespace uni {
 		return false;
 	}
 
-	void* FilesysFAT::search(rostr fullpath, void* moreinfo) {
-		// moreinfo[0] --> FAT_FileHandle
-		// moreinfo[1] --> FAT_DirInfo? (? means optional, set nullptr if not used)
+	void* FilesysFAT::search(rostr fullpath, FilesysSearchArgs* args) {
+		// args->handle_buffer --> FAT_FileHandle
+		// args->dir_info      --> FAT_DirInfo? (? means optional, set nullptr if not used)
 		//
-		if (!storage || !buffer_sector) {
+		if (!storage || !buffer_sector || !args) {
 			error_number = 1;
 			return nullptr;
 		}
-		FAT_FileHandle* handle = (FAT_FileHandle*)((stduint*)moreinfo)[0];
+		FAT_FileHandle* handle = (FAT_FileHandle*)args->handle_buffer;
 
 		*handle = FAT_FileHandle{};
 		handle->is_dir = true;
@@ -284,11 +285,15 @@ namespace uni {
 			}
 
 			handle->start_cluster = entry.getFirstClusterNumber();
+			// FIX: FAT12/16 cluster_high might have garbage (EAs). Only keep LOW bits!
+			if (fat_type != 32) handle->start_cluster &= 0xFFFF;
+			
 			handle->current_cluster = handle->start_cluster;
 			handle->size = entry.file_size;
 			handle->is_dir = (entry.attribute.attr & 0x10) != 0;
 			handle->dir_sector = found_sector;
 			handle->dir_index = found_index;
+
 
 			if (handle->is_dir) {
 				bool is_dot = (segment[0] == '.' && (segment[1] == '\0' || (segment[1] == '.' && segment[2] == '\0')));
@@ -298,11 +303,19 @@ namespace uni {
 				}
 			}
 
+			// Invoke callback for VFS caching if provided
+			if (args->on_segment) {
+				if (!args->on_segment(handle, segment, (stduint)handle->is_dir, (stduint)handle->size, args->user_data)) {
+					// Callback requested to stop the search (e.g., crossed mount point)
+					return handle;
+				}
+			}
+
 			if (*path_p && !handle->is_dir) return nullptr; // trying to traverse into file
 		}
 
-		if (((stduint*)moreinfo)[1]) {
-			FAT_DirInfo* info = (FAT_DirInfo*)((stduint*)moreinfo)[1];
+		if (args->dir_info) {
+			FAT_DirInfo* info = (FAT_DirInfo*)args->dir_info;
 			// Populate directory info if requested
 			info->size = handle->size;
 			// Attr omitted since we don't carry full block here cleanly without refetch.
@@ -313,7 +326,19 @@ namespace uni {
 	}
 
 	bool FilesysFAT::proper(void* handler, stduint cmd, const void* moreinfo) {
-		_TODO return false;
+		FAT_FileHandle* fh = (FAT_FileHandle*)handler;
+		if (!fh || !moreinfo) return false;
+
+		switch ((FilesysCmd)cmd) {
+		case FilesysCmd::FS_CMD_GET_SIZE:
+			*(stduint*)moreinfo = fh->size;
+			return true;
+		case FilesysCmd::FS_CMD_GET_ISDIR:
+			*(bool*)moreinfo = fh->is_dir;
+			return true;
+		default:
+			return false;
+		}
 	}
 
 	bool FilesysFAT::enumer(void* dir_handler, _tocall_ft _fn) {
@@ -381,7 +406,7 @@ namespace uni {
 				}
 				if (!is_valid_name) { lfn_expected_order = 0; continue; }
 
-				ploginfo("FilesysFAT::enumer %s", final_name);
+				// ploginfo("FilesysFAT::enumer %s", final_name);
 				if (_fn) _fn((void*)_IMM(entry->attribute.directory), (void*)final_name);
 
 				lfn_expected_order = 0;
@@ -466,9 +491,6 @@ namespace uni {
 
 	// ----
 
-
-
-
 	uint32_t FilesysFAT::get_fat_entry(uint32_t cluster)
 	{
 		if (!buffer_fatable) {
@@ -498,6 +520,7 @@ namespace uni {
 			current_sector = fat_sector;
 		}
 		
+		// FIX: Replaced *(uint32_t*)& cast which gets skipped by the optimizer due to Strict Aliasing rules (causes magic read fail!)
 		if (fat_type == 32) {
 			return *(uint32_t*)&buffer_fatable[ent_offset] & 0x0FFFFFFF;
 		} else if (fat_type == 16) {
@@ -505,12 +528,66 @@ namespace uni {
 			if (val >= 0xFFF8) return 0xFFFFFFF8;
 			return val;
 		} else {// 12
-			uint16_t value = *(uint16_t*)&buffer_fatable[ent_offset];
+			uint16_t value = ((uint16_t)buffer_fatable[ent_offset]) | 
+							 ((uint16_t)buffer_fatable[ent_offset + 1] << 8);
 			uint16_t val = (cluster & 0x01) ? (value >> 4) : (value & 0x0FFF);
 			if (val >= 0x0FF8) return 0xFFFFFFF8;
 			return val;
 		}
 	}
 
-
+	// FIX: Implement set_fat_entry correctly
+	bool FilesysFAT::set_fat_entry(uint32_t cluster, uint32_t value) {
+		if (cluster < 2) return false;
+		uint32_t fat_offset = 0;
+		uint32_t fat_sector = 0;
+		uint32_t ent_offset = 0;
+		const uint32_t bytes_per_sector = storage->Block_Size;
+		
+		if (fat_type == 32) {
+			fat_offset = cluster * 4;
+			fat_sector = first_fat_sector + (fat_offset / bytes_per_sector);
+			ent_offset = fat_offset % bytes_per_sector;
+		} else if (fat_type == 16) {
+			fat_offset = cluster * 2;
+			fat_sector = first_fat_sector + (fat_offset / bytes_per_sector);
+			ent_offset = fat_offset % bytes_per_sector;
+		} else { // FAT12
+			fat_offset = cluster * 3 / 2;
+			fat_sector = first_fat_sector + (fat_offset / bytes_per_sector);
+			ent_offset = fat_offset % bytes_per_sector;
+		}
+		
+		if (current_sector != fat_sector) {
+			storage->Read(fat_sector, buffer_fatable);
+			current_sector = fat_sector;
+		}
+		
+		if (fat_type == 32) {
+			value &= 0x0FFFFFFF;
+			buffer_fatable[ent_offset] = (byte)(value & 0xFF);
+			buffer_fatable[ent_offset + 1] = (byte)((value >> 8) & 0xFF);
+			buffer_fatable[ent_offset + 2] = (byte)((value >> 16) & 0xFF);
+			buffer_fatable[ent_offset + 3] = (byte)((buffer_fatable[ent_offset + 3] & 0xF0) | ((value >> 24) & 0x0F));
+		} else if (fat_type == 16) {
+			buffer_fatable[ent_offset] = (byte)(value & 0xFF);
+			buffer_fatable[ent_offset + 1] = (byte)((value >> 8) & 0xFF);
+		} else {// 12
+			uint32_t cur = ((uint32_t)buffer_fatable[ent_offset]) | ((uint32_t)buffer_fatable[ent_offset + 1] << 8);
+			if (cluster & 0x01) {
+				value = value << 4;
+				cur = (cur & 0x000F) | (value & 0xFFF0);
+			} else {
+				cur = (cur & 0xF000) | (value & 0x0FFF);
+			}
+			buffer_fatable[ent_offset] = (byte)(cur & 0xFF);
+			buffer_fatable[ent_offset + 1] = (byte)((cur >> 8) & 0xFF);
+		}
+		
+		for (uint32_t i = 0; i < fat_count; i++) {
+			uint32_t sec = fat_sector + (i * sectors_per_fat);
+			storage->Write(sec, buffer_fatable);
+		}
+		return true;
+	}
 }

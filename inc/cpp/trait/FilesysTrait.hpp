@@ -36,7 +36,7 @@ namespace uni {
 /*
 20251121 PhinaThink:
 fileman --- FilesysT(in: StorageT<Partition>)
-        --- StorageT<Device>
+		--- StorageT<Device>
 (v)disk[BUSLINES/HOSTFILE]   drive   {
 	partitions[] each device {
 		interf fs {
@@ -60,6 +60,18 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 * MBR */
 
 
+	enum class FilesysCmd {
+		FS_CMD_GET_SIZE = 0x01,  // moreinfo points to stduint for output
+		FS_CMD_GET_ISDIR = 0x02, // moreinfo points to bool for output
+	};
+
+	struct FilesysSearchArgs {
+		void* handle_buffer;     // formerly moreinfo[0]
+		void* dir_info;          // formerly moreinfo[1]
+		stduint (*on_segment)(void* handle, const char* name, stduint is_dir, stduint size, void* user_data);
+		void* user_data;
+	};
+
 	class FilesysTrait
 	{
 	public:
@@ -76,8 +88,8 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		// remove file/folder
 		virtual bool remove(rostr pathname) = 0;
 
-		// return the handler of the path/file (nullptr for failure) , `moreinfo` will get the proper
-		virtual void* search(rostr fullpath, void* moreinfo) = 0;
+		// return the handler of the path/file (nullptr for failure) , `args` will contain results or callbacks
+		virtual void* search(rostr fullpath, FilesysSearchArgs* args) = 0;
 
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) = 0;// set proper
 

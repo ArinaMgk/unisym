@@ -1,5 +1,5 @@
 // ASCII C TAB4 CRLF
-// Docutitle: (Format/FileSystem) FAT12 
+// Docutitle: (Format/FileSystem) FAT Deletion
 // Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Bit-32mode Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
@@ -26,35 +26,65 @@
 namespace uni {
 
 	bool FilesysFAT::remove(rostr pathname) {
-		// seek the entry and mark as 'removed'
-		uint32_t parent_cluster = root_cluster ? root_cluster : 2;
-		uint32_t sector = getSector_foCluster(parent_cluster);
-		if (!storage->Read(sector, buffer_sector)) {
+		if (!fs_loaded) return false;
+		plogwarn("FATRemove: %s", pathname);
+		FAT_DirEntry entry;
+		uint32_t entry_sector, entry_index;
+
+		// Split path to find parent directory
+		char parent_path[256];
+		const char* filename = StrIndexCharRight(pathname, '/');
+		if (!filename) {
+			StrCopy(parent_path, "/");
+			filename = pathname;
+		}
+		else {
+			stduint len = filename - pathname;
+			if (len == 0) len = 1;
+			MemCopyN(parent_path, pathname, len);
+			parent_path[len] = '\0';
+			filename++; // skip the slash
+		}
+
+		FAT_FileHandle parent_h;
+		FilesysSearchArgs search_args = { &parent_h, nullptr, nullptr, nullptr };
+
+		// Fallback to FAT root if VFS absolute path (e.g., /mnt) is not found internally
+		if (!this->search(parent_path, &search_args)) {
+			StrCopy(parent_path, "/");
+			if (!this->search(parent_path, &search_args)) return false;
+		}
+
+		if (!parent_h.is_dir) return false;
+
+		// Find the entry in the parent directory
+		if (!find_entry_in_dir(parent_h.start_cluster, filename, &entry, &entry_sector, &entry_index)) {
 			return false;
 		}
-		const char* filename = StrIndexCharRight(pathname, '/');
-		if (!filename) filename = pathname;
-		for0 (i, 16) {
-			FAT_DirEntry* entry = (FAT_DirEntry*)&buffer_sector[i * 32];
-			char short_name[13]; MemSet(short_name, ' ', 12);
-			int name_len = 0;
-			while (name_len < 8 && entry->name[name_len] != ' ') {
-				short_name[name_len] = entry->name[name_len];
-				name_len++;
-			}
-			if (entry->ext[0] != ' ') {
-				short_name[8] = '.';
-				for (int j = 0; j < 3; j++) {
-					short_name[9 + j] = entry->ext[j];
-				}
-			}
-			short_name[12] = 0;
-			if (!StrCompare(short_name, filename)) {
-				entry->name[0] = 0xE5;
-				return storage->Write(sector, buffer_sector);
-			}
+
+		// Free cluster chain if it's a file or non-empty directory
+		uint32_t cluster = entry.getFirstClusterNumber();
+
+		// In FAT12/16, cluster_high can contain garbage data
+		if (this->fat_type != 32) cluster &= 0xFFFF;
+
+		while (cluster >= 2 && cluster < 0xFFFFFFF8) {
+			uint32_t next = get_fat_entry(cluster);
+			set_fat_entry(cluster, 0); // Mark cluster as free
+			cluster = next;
 		}
-		return false;
+
+		// Mark directory entry as deleted
+		// Reuse global persistent buffer_sector to prevent Use-After-Free during async HDD writes
+		if (storage->Read(entry_sector, buffer_sector)) {
+			FAT_DirEntry* d_entry = (FAT_DirEntry*)&buffer_sector[entry_index * 32];
+
+			d_entry->name[0] = 0xE5;
+
+			storage->Write(entry_sector, buffer_sector);
+		}
+
+		return true;
 	}
 
 }

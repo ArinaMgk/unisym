@@ -202,6 +202,11 @@ void* MemSet(void* d, int c, size_t n);
 #ifndef _INC_MEMCOPY_INLINE
 static inline void* MemCopyN(void* dest, const void* sors, size_t n)
 {
+	// #if defined(_MCCA) && defined(_DEBUG)
+	// if (dest == sors) {
+		
+	// }
+	// #endif
 	_REGISTER char* d = (char*)dest;
 	while (n--) *d++ = *(*((const char**)&sors))++;
 	return dest;

@@ -38,7 +38,7 @@ including not only implementation, library, tool-kits, chroming engine and demon
 	- Websec (Webnet Server&Client and Secure) 
 	- Witch and Nova (Graphics Rendering and Gaming)
 
-<font color="magenta">⚠︎ All the code are by hands, so these big changes and mistakes in codes may be forgiven.</font>
+<font color="magenta">⚠︎ Before 2026-April, All the code are by hands, so these big changes and mistakes in codes may be forgiven.</font>
 
 For example, there are harmonious identifications for linkage-identifiers and calling-parameters:
 

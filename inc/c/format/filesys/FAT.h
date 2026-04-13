@@ -229,7 +229,7 @@ namespace uni {
 		bool set_fat_entry(uint32_t cluster, uint32_t value);
 
 		stduint find_free_cluster() {
-			for (uint32_t i = 2; i < total_clusters; i++) {
+			for (uint32_t i = 2; i < total_clusters + 2; i++) {
 				if (get_fat_entry(i) == 0) return i;
 			}
 			return 0; // the part is full

@@ -116,11 +116,11 @@ namespace uni {
 
 		if (!fat_type) {
 			// Calculate cluster count to properly identify FAT type
-			uint32_t root_dir_sectors = ((bs.root_entries * 32) + 
+			uint32_t root_dir_sectors_tmp = ((bs.root_entries * 32) + 
 				(storage->Block_Size - 1)) / storage->Block_Size;
-			uint32_t data_sectors = self.total_sectors - 
-				(bs.reserved_sectors + bs.fat_count * sectors_per_fat + root_dir_sectors);
-			total_clusters = data_sectors / bs.sectors_per_cluster;
+			uint32_t data_sectors_tmp = self.total_sectors - 
+				(bs.reserved_sectors + bs.fat_count * sectors_per_fat + root_dir_sectors_tmp);
+			total_clusters = data_sectors_tmp / bs.sectors_per_cluster;
 			//
 			if (total_clusters < 4085) fat_type = 12;
 			else if (total_clusters < 65525) fat_type = 16;
@@ -139,9 +139,9 @@ namespace uni {
 		data_sectors = self.total_sectors - first_data_sector;
 		total_clusters = data_sectors / bs.sectors_per_cluster;
 		
-		root_cluster = bs.root_cluster;
+		root_cluster = (fat_type == 32) ? bs.root_cluster : 0;
 		sectors_per_cluster = bs.sectors_per_cluster;
-		fat_count = bs.fat_count; // FIX: Added to avoid memory overwrite when setting fat table
+		fat_count = bs.fat_count;
 		return fs_loaded = true;
 	}
 
@@ -440,10 +440,11 @@ namespace uni {
 	stduint FilesysFAT::readfl(void* fil_handler, Slice file_slice, byte* dest) {
 		FAT_FileHandle* fh = (FAT_FileHandle*)fil_handler;
 		if (fh->is_dir) return 0;
-		auto [offset, to_read] = file_slice;// C++17 structured binding
-		uint64_t total_read = 0;// ret
-		MIN(to_read, offset + fh->size);
-		// ploginfo("FilesysFAT::readfl %uBlks(0x%[64H],0x%[64H])", sectors_per_cluster, offset, to_read);
+		auto [offset, to_read] = file_slice; // C++17 structured binding
+		uint64_t total_read = 0; // ret
+
+		if (offset >= fh->size) return 0;
+		MIN(to_read, fh->size - offset);
 
 		// evaluate the start cluster
 		uint32_t cluster = fh->start_cluster;
@@ -451,12 +452,11 @@ namespace uni {
 
 		// skip the start cluster
 		while (offset >= cluster_size) {
-			// ploginfo("offset >= cluster_size");
 			offset -= cluster_size;
 			cluster = get_fat_entry(cluster);
 			if (cluster >= 0xFFFFFFF8) return total_read; // over the file
 		}
-		
+
 		while (to_read > 0) {
 			uint32_t sector = getSector_foCluster(cluster);
 			uint32_t sector_offset = offset % storage->Block_Size;
@@ -469,19 +469,20 @@ namespace uni {
 			if (!storage->Read(sector + sector_index, buffer_sector)) return 0;
 			uint32_t can_read = storage->Block_Size - sector_offset;
 			if (can_read > to_read) can_read = (uint32_t)to_read;
-			
+
 			MemCopyN(dest + total_read, buffer_sector + sector_offset, can_read);
-			
+
 			total_read += can_read;
 			to_read -= can_read;
 			offset += can_read;
-			
+
 			if (offset >= cluster_size) {
 				offset = 0;
 				auto old = cluster;
 				cluster = get_fat_entry(cluster);
 				if (cluster >= 0xFFFFFFF8 && to_read > 0) {
-					return can_read;// not a error
+					// Fix 3: Return the total accumulated bytes, not the last chunk
+					return total_read;
 				}
 			}
 		}
@@ -500,43 +501,59 @@ namespace uni {
 		uint32_t fat_sector = 0;
 		uint32_t ent_offset = 0;
 		const uint32_t bytes_per_sector = storage->Block_Size;
-		
+
 		if (fat_type == 32) {
 			fat_offset = cluster * 4;
 			fat_sector = first_fat_sector + (fat_offset / bytes_per_sector);
 			ent_offset = fat_offset % bytes_per_sector;
-		} else if (fat_type == 16) {
+		}
+		else if (fat_type == 16) {
 			fat_offset = cluster * 2;
 			fat_sector = first_fat_sector + (fat_offset / bytes_per_sector);
 			ent_offset = fat_offset % bytes_per_sector;
-		} else { // FAT12
+		}
+		else { // FAT12
 			fat_offset = cluster * 3 / 2;
 			fat_sector = first_fat_sector + (fat_offset / bytes_per_sector);
 			ent_offset = fat_offset % bytes_per_sector;
 		}
-		
+
 		if (current_sector != fat_sector) {
 			storage->Read(fat_sector, buffer_fatable);
 			current_sector = fat_sector;
 		}
-		
-		// FIX: Replaced *(uint32_t*)& cast which gets skipped by the optimizer due to Strict Aliasing rules (causes magic read fail!)
+
 		if (fat_type == 32) {
-			return *(uint32_t*)&buffer_fatable[ent_offset] & 0x0FFFFFFF;
-		} else if (fat_type == 16) {
+			uint32_t val = *(uint32_t*)&buffer_fatable[ent_offset] & 0x0FFFFFFF;
+			if (val >= 0x0FFFFFF8) return 0xFFFFFFF8;
+			return val;
+		}
+		else if (fat_type == 16) {
 			uint16_t val = *(uint16_t*)&buffer_fatable[ent_offset];
 			if (val >= 0xFFF8) return 0xFFFFFFF8;
 			return val;
-		} else {// 12
-			uint16_t value = ((uint16_t)buffer_fatable[ent_offset]) | 
-							 ((uint16_t)buffer_fatable[ent_offset + 1] << 8);
+		}
+		else { // FAT12
+			uint16_t value;
+			if (ent_offset == bytes_per_sector - 1) {
+				uint8_t byte_low = buffer_fatable[ent_offset];
+				// Read the next sector to fetch the higher byte
+				storage->Read(fat_sector + 1, buffer_fatable);
+				current_sector = fat_sector + 1; // Update sector state for cache coherency
+				uint8_t byte_high = buffer_fatable[0];
+				value = ((uint16_t)byte_low) | ((uint16_t)byte_high << 8);
+			}
+			else {
+				value = ((uint16_t)buffer_fatable[ent_offset]) |
+					((uint16_t)buffer_fatable[ent_offset + 1] << 8);
+			}
+
 			uint16_t val = (cluster & 0x01) ? (value >> 4) : (value & 0x0FFF);
 			if (val >= 0x0FF8) return 0xFFFFFFF8;
 			return val;
-		}
+		};
 	}
 
-	// FIX: Implement set_fat_entry correctly
 	bool FilesysFAT::set_fat_entry(uint32_t cluster, uint32_t value) {
 		if (cluster < 2) return false;
 		uint32_t fat_offset = 0;

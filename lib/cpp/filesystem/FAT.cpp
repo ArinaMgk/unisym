@@ -57,8 +57,8 @@ namespace uni {
 			bs.hidden_sectors = 0;
 			bs.total_sectors_32 = storage->getUnits();
 			// Tail
-			bs.drive_number;
-			bs.reserved1;
+			(void)bs.drive_number;
+			(void)bs.reserved1;
 			bs.boot_signature = 0x29;
 			bs.volume_id = 0x12345678;
 			MemCopyN(bs.volume_label, vol_label, byteof(bs.volume_label));

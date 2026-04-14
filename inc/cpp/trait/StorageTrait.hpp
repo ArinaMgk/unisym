@@ -76,6 +76,14 @@ namespace uni {
 		// byte read. -1 for error
 		virtual int operator[](uint64 bytid) = 0;
 
+		// for storage device with Partitions
+		virtual PartitionSlice getSlice(stduint dev) {
+			PartitionSlice default_slice;
+			default_slice.address = 0;
+			default_slice.length = dev ? 0 : this->getUnits();
+			default_slice.sys_id = 0x00;
+			return default_slice;
+		}
 	};
 
 	class MemoryBlockDevice : public StorageTrait {
@@ -115,6 +123,8 @@ namespace uni {
 
 	struct DiscPartition : public StorageTrait
 	{
+		using StorageTrait::getSlice;
+		
 		StorageTrait* base;
 		stdsint device;
 		stduint flag;
@@ -136,7 +146,7 @@ namespace uni {
 		static void Partition(StorageTrait& base, HD_Info& hdi, byte* psector, unsigned device, bool primary_but_logical = true);
 		//
 	protected:
-		void renew_slice();
+		void renew_slice() { if (base) self.slice = base->getSlice(self.device); }
 	};
 
 

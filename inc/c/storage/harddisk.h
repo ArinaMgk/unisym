@@ -97,6 +97,8 @@ namespace uni {
 		virtual void setInterruptPriority(byte preempt, byte sub_priority) const;
 		virtual void enInterrupt(bool enable = true) const;
 
+		virtual PartitionSlice getSlice(stduint dev) override;
+
 		byte getID() const { return id; }
 		byte getHigID() const { return id >> 4; }
 		byte getLowID() const { return id & 0x0F; }

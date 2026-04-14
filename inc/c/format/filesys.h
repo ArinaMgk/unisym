@@ -29,10 +29,13 @@
 
 enum FilesysType {
 	FILESYS_FAT12		= 0x01,		// FAT12 (Usually for floppy disks)
-	FILESYS_FAT16		= 0x06,		// FAT16B (Partitions 32MB to 2GB)
+	FILESYS_FAT16_CHS	= 0x04,		// FAT16B (Partitions 32MB below)
+	FILESYS_EXT         = 0x05,		// Extended partition
+	FILESYS_FAT16_CHSX  = 0x06,		// FAT16B (Partitions 32MB to 2GB)
 	FILESYS_NTFS		= 0x07,		// Windows NTFS or exFAT
 	FILESYS_FAT32_CHS	= 0x0B,		// FAT32 using CHS addressing
 	FILESYS_FAT32_LBA	= 0x0C,		// FAT32 using Logical Block Addressing (LBA)
+	FILESYS_FAT16_LBA	= 0x0E,		//
 	FILESYS_LINUX_SWAP	= 0x82,		// Linux Swap partition
 	FILESYS_LINUX_NATIVE= 0x83,		// Linux Native (Ext2, Ext3, Ext4)
 	FILESYS_EFI_SYS		= 0xEF,		// EFI System Partition (ESP)

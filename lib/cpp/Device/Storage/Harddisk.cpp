@@ -163,7 +163,11 @@ namespace uni {
 		outpb(io_base + REG_DEVICE, 0xE0 | (getLowID() << 4));
 	}
 
-	
+	_WEAK PartitionSlice Harddisk_PATA::getSlice(stduint dev) {
+		plogerro("using empty Harddisk_PATA::getSlice(%d)", dev);
+		PartitionSlice slice;
+		return slice;
+	}
 
 }
 #endif

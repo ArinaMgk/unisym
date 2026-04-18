@@ -59,7 +59,7 @@ _PACKED(struct) NormalTaskContext {
 _PACKED(struct) NormalTaskContext {
 	// ignore x0
 	stduint ra;   // [0]  x1
-	stduint sp;   // [1]  x2
+	union { stduint sp, SP; };   // [1]  x2
 	stduint gp;   // [2]  x3
 	stduint tp;   // [3]  x4
 	stduint t0;   // [4]  x5

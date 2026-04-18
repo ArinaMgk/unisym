@@ -82,10 +82,10 @@ namespace uni
 		return ch;
 	}
 
-#define apd() do { \
+	#define apd() do { \
 		if (!(method_omit_spaces && CrtTType == tok_spaces || method_omit_comment && CrtTType == tok_comment)) \
-			TokenAppend(dc, linebuf->reference(), linebuf->getCharCount(), CrtTType, crtline_ento, crtcol_ento); \
-			linebuf->Clear();\
+		{ TokenAppend(dc, linebuf->reference(), linebuf->getCharCount(), CrtTType, crtline_ento, crtcol_ento); } \
+		linebuf->Clear();\
 		} while (0)
 
 	// CRLF LFCR CR LF, c is the first char

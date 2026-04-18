@@ -107,7 +107,7 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 	};
 
 
-		// Loopback Device
+	// Loopback Device
 	class FileBlockBridge : public BlockTrait {
 	private:
 		FilesysTrait* fs;
@@ -123,6 +123,8 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 			this->readable = true;
 			this->writable = true;
 		}
+
+		using BlockTrait::Read;
 
 		virtual bool Read(stduint BlockIden, void* Dest) override {
 			if (!fs || !file_handle) return false;

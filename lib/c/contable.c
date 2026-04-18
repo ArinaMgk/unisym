@@ -46,8 +46,8 @@ struct Contab* CtabMakeQuick(const char*** strs, unsigned* rows, unsigned* cols)
 {
 	int automake = strs == 0;
 	size_t colnum = 1, rownum = 1;
-	while (rows[rownum]) rownum++; rownum--;
-	while (cols[colnum]) colnum++; colnum--;
+	while (rows[rownum]) { rownum++; } rownum--;
+	while (cols[colnum]) { colnum++; } colnum--;
 	struct Contab* dest; memalloc(dest, sizeof(struct Contab));
 	if (!dest) return 0;
 	// at least an item
@@ -144,14 +144,14 @@ void CtabCursor(struct Contab* ct)
 unsigned CtabRowCount(struct Contab* ct)
 {
 	size_t rownum = 1;
-	while (ct->rows[rownum]) rownum++; rownum--;
+	while (ct->rows[rownum]) { rownum++; } rownum--;
 	return rownum;
 }
 
 unsigned CtabColCount(struct Contab* ct)
 {
 	size_t colnum = 1;
-	while (ct->cols[colnum]) colnum++; colnum--;
+	while (ct->cols[colnum]) { colnum++; } colnum--;
 	return colnum;
 }
 

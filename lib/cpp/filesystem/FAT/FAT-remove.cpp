@@ -27,7 +27,7 @@ namespace uni {
 
 	bool FilesysFAT::remove(rostr pathname) {
 		if (!fs_loaded) return false;
-		plogwarn("FATRemove: %s", pathname);
+		ploginfo("FATRemove: %s", pathname);
 		FAT_DirEntry entry;
 		uint32_t entry_sector, entry_index;
 

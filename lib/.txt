@@ -1,14 +1,17 @@
 [lang]
-- c
+- c (=> cpp )
 - cpp
+- cpp-mod
 - dotNet
 - Rust
-- Script/
+[script Script/]
+- AutoHotkey
+- batch (win cmd)
+- Cotoba
+- Makefile (make/python)
 [ide]
 - keil
 [doc]
 - Tex
-[class]
-- Analog
-- Model
-[utility] witch
+[class Model/]
+- Printed Circuit Component

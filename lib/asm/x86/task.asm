@@ -244,7 +244,11 @@ SwitchTaskContext:; (* nex, * crt)
 	MOV ESI, [EAX + 0x18]
 	MOV EDI, [EAX + 0x1C]
 	MOV EAX, [EAX + 0x48]; CR3
+	MOV ECX, CR3
+	CMP EAX, ECX
+	JE .skip_cr3
 	MOV CR3, EAX
+.skip_cr3:
 	POP EAX
 IRETD
 

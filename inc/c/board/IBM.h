@@ -61,8 +61,8 @@ typedef enum
 	IRQ_PIT = 0x20,      // 8253/8254 PIT (Programmable Interval Timer)
 	IRQ_Keyboard = 0x21,
 	IRQ_Cascade = 0x22,  // 8259A Cascade --> PORT_i8259A_SLV_A
-	IRQ_Serial = 0x23,   // COM2 or default ethernet interrupt vector, or RS232 interrupt vector for port 2 {??? 16450 Serial Port}
-	IRQ_RS232_P1 = 0x24, // COM1 or RS232 interrupt vector for port 1
+	IRQ_COM24_Serial = 0x23,   // COM2/4 or default ethernet interrupt vector, or RS232 interrupt vector for port 2 {??? 16450 Serial Port}
+	IRQ_COM13_RS232_P1 = 0x24, // COM1/3 or RS232 interrupt vector for port 1
 	IRQ_XT_WINI = 0x25,  // or LPT2
 	IRQ_Floppy = 0x26,   // 8250 Floppy Disk Controller
 	IRQ_LPT1 = 0x27,     // 8255 Parallel Port
@@ -88,8 +88,8 @@ typedef enum
 	DEV_MAS_PIT = IRQ_PIT - 0x20, 
 	DEV_MAS_Keyboard = IRQ_Keyboard - 0x20,
 	DEV_MAS_Cascade = IRQ_Cascade - 0x20,
-	DEV_MAS_Serial = IRQ_Serial - 0x20, 
-	DEV_MAS_RS232_Port1 = IRQ_RS232_P1 - 0x20, 
+	DEV_MAS_Serial = IRQ_COM24_Serial - 0x20, 
+	DEV_MAS_RS232_Port1 = IRQ_COM13_RS232_P1 - 0x20, 
 	DEV_MAS_XT_WINI = IRQ_XT_WINI - 0x20, 
 	DEV_MAS_Floppy = IRQ_Floppy - 0x20, 
 	DEV_MAS_LPT1 = IRQ_LPT1 - 0x20,
@@ -156,7 +156,17 @@ enum _PORT {
 
 	PORT_IDE_ControlBlock_0 = 0x03F6,
 
-	//{} 0x03F8, 0x03F9	COM1（串口1）
+	// Serial Port 1
+	PORT_COM1_DATA = 0x03F8, // COM1 Data Register,  or Divisor Latch LSB (LCR&0x80==1)
+	PORT_COM1_IER = 0x03F9,  // COM1 Interrupt Enable Register,  or Divisor Latch MSB (LCR&0x80==1)
+	PORT_COM1_IIR  = 0x03FA, // COM1 Interrupt Identification Register (Read only)
+	PORT_COM1_FCR  = 0x03FA, // COM1 FIFO Control Register (Write only)
+	PORT_COM1_LCR  = 0x03FB, // COM1 Line Control Register
+	PORT_COM1_MCR  = 0x03FC, // COM1 Modem Control Register
+	PORT_COM1_LSR  = 0x03FD, // COM1 Line Status Register
+	PORT_COM1_MSR  = 0x03FE, // COM1 Modem Status Register
+	PORT_COM1_SR   = 0x03FF, // COM1 Scratch Register
+
 	//{} 0x0CF8, 0x0CFC	PCI配置空间访问
 	//{} 0x0378, 0x0379	LPT1（并口1）
 };

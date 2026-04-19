@@ -314,6 +314,27 @@ namespace uni {
 
 	};
 }
+#elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+#include "../../c/consio.h"
+
+namespace uni {
+	class x86_COM : public Console_t
+	{
+	public:
+		virtual int out(const char* str, stduint len) {
+			for0(i, len) {
+				while (!is_transmit_empty());
+				outpb(PORT_COM1_DATA, str[i]);
+			}
+			return len;
+		}
+		virtual int inn();
+	public:
+		bool is_transmit_empty() { return innpb(0x3F8 + 5) & 0x20; }
+	};
+
+}
+
 #elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)
 #include "../../cpp/string"
 #include "../../cpp/interrupt"

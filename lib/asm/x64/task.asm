@@ -77,7 +77,15 @@ SwitchTaskContext:
 	PUSH RAX
 	MOV RAX, [RDI + 0x90]; CR3
 	MOV RDI, [RDI + 0x38]
+	
+	PUSH RCX
+	MOV RCX, CR3
+	CMP RCX, RAX
+	POP RCX
+	JE .skip_cr3
 	MOV CR3, RAX
+.skip_cr3:
+	
 	POP RAX; Common Kernel Stack Mapping
 	O64 IRET
 

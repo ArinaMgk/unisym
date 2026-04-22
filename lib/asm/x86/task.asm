@@ -197,6 +197,8 @@ SwitchTaskContext:; (* nex, * crt)
 	MOV [EAX + 0x5A], CX
 	FXSAVE [EAX + 0x60]
 	;
+	MOV DWORD [EAX + 0x26C], 0 ; clear crt->just_schedule
+	;
 	MOV EAX, [ESP + 8]; -> nex
 	MOV CX, [EAX + 0x50]
 	AND CX, 3

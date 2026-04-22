@@ -43,8 +43,8 @@ namespace uni {
 		bool allocated;
 		type0* _Comment(W) p, * _Comment(R) q = 0;
 	public:
-		Queue(stdint limit) : limit(limit) {
-			offss = new type0[limit];
+		Queue(stdint limit = 0) : limit(limit) {
+			offss = limit ? new type0[limit] : 0;
 			allocated = true;
 			p = offss;
 		}
@@ -57,18 +57,24 @@ namespace uni {
 		bool Enqueue(const type0& item);
 		bool Dequeue(type0& item);
 		stduint Count();// how many data in the queue
+		bool Resize(stduint new_limit);
 		bool isEmpty() { return q == nullptr; }
 		bool isFull() { return q && p == q; }
 	};
 	template <typename type0>
 	Queue<type0>::~Queue() {
-		if (allocated) delete[] offss;
+		if (allocated && offss) delete[] offss;
 		offss = nullptr;
 		limit = 0;
 	}
 	template <typename type0>
 	bool Queue<type0>::Enqueue(const type0& item) {
-		if (isFull()) return false;
+		if (!limit || isFull()) {
+			stduint new_limit = limit > 0 ? (limit + 1) * 2 : 4;
+			if (!Resize(new_limit)) {
+				return false;
+			}
+		}
 		if (q == nullptr) q = p;
 		*p++ = item;
 		if (p >= offss + limit) p = offss;
@@ -86,6 +92,37 @@ namespace uni {
 	stduint Queue<type0>::Count() {
 		return !q ? nil : p > q ? p - q : limit - (q - p);
 		// p - q <=> (_IMM(p) - _IMM(q)) / sizeof(type0)
+	}
+
+	template <typename type0>
+	bool Queue<type0>::Resize(stduint new_limit) {
+		if (!allocated) return false;
+
+		type0* new_offss = new type0[new_limit];
+		stduint count = Count();
+
+		if (count > 0) {
+			type0* curr = q;
+			for (stduint i = 0; i < count; ++i) {
+				new_offss[i] = *curr++;
+				if (curr >= offss + limit) curr = offss;
+			}
+		}
+
+		if (offss) delete[] offss;
+		offss = new_offss;
+		limit = new_limit;
+
+		if (count > 0) {
+			q = offss;
+			p = offss + count;
+		}
+		else {
+			q = nullptr;
+			p = offss;
+		}
+
+		return true;
 	}
 
 	class QueueLimited

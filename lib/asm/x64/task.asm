@@ -40,6 +40,9 @@ SwitchTaskContext:
 	MOV AX, GS
 	MOV [RSI + 0xAA], AX
 	FXSAVE [RSI + 0xB0]
+	;
+	MOV QWORD [RSI + 0x2C8], 0 ; clear crt->just_schedule
+	;
 	; IRET Stack Frame
 	; CPU0
 	MOV RSP, 0xFFFF_FFFFFFFFFFF8

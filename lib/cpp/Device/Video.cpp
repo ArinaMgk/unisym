@@ -252,7 +252,7 @@ namespace uni {
 	}
 	
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
-	__attribute__((target("general-regs-only")))
+	__attribute__((target("sse,sse2")))// ,avx,avx2
 		#endif
 		Color LayerManager::EvaluateColor(const Point& glb_p) {
 		Nnode* crt = subf;

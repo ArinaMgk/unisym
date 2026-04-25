@@ -236,6 +236,27 @@ _PACKED(struct) InterruptFrame {
 	stduint ss;
 };
 
+#if __BITS__ == 64
+_PACKED(struct) CallgateFrame {
+	union { stduint cx, ip; };
+	stduint dx;
+	stduint bx;
+	stduint bp;
+	stduint si;
+	stduint di;
+	stduint r8;
+	stduint r9;
+	stduint r10;
+	union { stduint r11, flags; };
+	stduint r12;
+	stduint r13;
+	stduint r14;
+	stduint r15;
+	stduint ax;
+	stduint sp0;
+	// ax for ret-val
+};
+#else // 32
 _PACKED(struct) CallgateFrame {
 	stduint di, si, bp, sp, bx, dx, cx, ax;
 	stduint flags;
@@ -244,6 +265,7 @@ _PACKED(struct) CallgateFrame {
 	// Ring>0:
 	stduint sp0, ss0;
 };
+#endif
 
 // -- lib/asm/*/inst/ioport.asm
 

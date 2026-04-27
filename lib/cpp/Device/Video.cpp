@@ -147,31 +147,46 @@ namespace uni {
 	__attribute__((target("sse2")))
 		#endif
 		void LayerManager::DrawLine(Point disp, Size2 size, Color color, bool negSizy) {
+		// Bresenham 
 		if (!size.x || !size.y) return;
 		if (1 == size.x) for0(i, size.y) {
-			Draw(disp, color);// can also use "DrawRect"
+			Draw(disp, color);
 			disp.y++;// vertical
 		}
 		else if (1 == size.y) for0(i, size.x) {
-			Draw(disp, color);// can also use "DrawRect"
+			Draw(disp, color);
 			disp.x++;// horizontal
 		}
 		else if (size.y >= size.x) {
-			Point orig = disp;
+			stduint dx = size.x - 1;
+			stduint dy = size.y - 1;
+			stduint y_acc = dx / 2; // Error accumulator for rounding
 			for0(i, size.x) {
-				for0(j, _IMM((double)orig.y + i * (size.y - 1) / (size.x - 1) + 0.5) - disp.y) {
-					Draw(disp, color);
-					if (negSizy) disp.y--; else disp.y++;
+				Draw(disp, color);
+				if (i < dx) {
+					y_acc += dy;
+					while (y_acc >= dx) {
+						if (negSizy) disp.y--; else disp.y++;
+						Draw(disp, color);
+						y_acc -= dx;
+					}
 				}
 				disp.x++;
 			}
 		}
 		else {
-			Point orig = disp;
+			stduint dx = size.x - 1;
+			stduint dy = size.y - 1;
+			stduint x_acc = dy / 2; // Error accumulator for rounding
 			for0(i, size.y) {
-				for0(j, _IMM((double)orig.x + i * (size.x - 1) / (size.y - 1) + 0.5) - disp.x) {
-					Draw(disp, color);
-					disp.x++;
+				Draw(disp, color);
+				if (i < dy) {
+					x_acc += dx;
+					while (x_acc >= dy) {
+						disp.x++;
+						Draw(disp, color);
+						x_acc -= dy;
+					}
 				}
 				if (negSizy) disp.y--; else disp.y++;
 			}

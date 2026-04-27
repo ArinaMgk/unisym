@@ -183,6 +183,47 @@ void scrrol(word lines)
 }
 
 namespace uni {
+	static byte AnsiToVgaColor(int ansi) {
+		static const byte map[] = { 0, 4, 2, 6, 1, 5, 3, 7 };
+		if (ansi >= 0 && ansi <= 7) return map[ansi];
+		if (ansi >= 8 && ansi <= 15) return map[ansi - 8] | 8;
+		return 7;
+	}
+
+	static void bcApplySGR(BareConsole* con, int* params, int nparams) {
+		for (int pi = 0; pi < nparams; pi++) {
+			int p = params[pi];
+			if (p == 0) { // Reset
+				con->attr = 0x07;
+				con->attr_enable = true;
+			}
+			else if (p >= 30 && p <= 37) { // FG
+				con->attr = (con->attr & 0xF0) | AnsiToVgaColor(p - 30);
+				con->attr_enable = true;
+			}
+			else if (p == 39) { // Default FG
+				con->attr = (con->attr & 0xF0) | 7;
+				con->attr_enable = true;
+			}
+			else if (p >= 40 && p <= 47) { // BG
+				con->attr = (con->attr & 0x0F) | (AnsiToVgaColor(p - 40) << 4);
+				con->attr_enable = true;
+			}
+			else if (p == 49) { // Default BG
+				con->attr = (con->attr & 0x0F) | 0;
+				con->attr_enable = true;
+			}
+			else if (p >= 90 && p <= 97) { // Bright FG
+				con->attr = (con->attr & 0xF0) | AnsiToVgaColor(p - 90 + 8);
+				con->attr_enable = true;
+			}
+			else if (p >= 100 && p <= 107) { // Bright BG
+				con->attr = (con->attr & 0x0F) | (AnsiToVgaColor(p - 100 + 8) << 4);
+				con->attr_enable = true;
+			}
+		}
+	}
+
 	//[sync(outtxt)]
 	int BareConsole::out(const char* str, stduint len) {
 		const stduint _BytesPerLine = unit * area_total.x;
@@ -195,6 +236,37 @@ namespace uni {
 			// MIN(len, StrLength(str));
 			for0(i, len) {
 				chr = (byte)*str++;
+
+				// ANSI SGR parser state machine
+				bool consumed = false;
+				if (esc_state == 1) {
+					if (chr == '[') {
+						esc_state = 2;
+						esc_nparams = 0;
+						for (int k = 0; k < 8; k++) esc_params[k] = 0;
+						consumed = true;
+					}
+					else {
+						esc_state = 0;
+					}
+				}
+				else if (esc_state == 2) {
+					consumed = true;
+					if (chr >= '0' && chr <= '9') {
+						if (esc_nparams < 8)
+							esc_params[esc_nparams] = esc_params[esc_nparams] * 10 + (chr - '0');
+					}
+					else if (chr == ';') {
+						if (esc_nparams < 7) esc_nparams++;
+					}
+					else {
+						esc_nparams++;
+						if (chr == 'm') bcApplySGR(this, esc_params, esc_nparams);
+						esc_state = 0;
+					}
+				}
+				if (consumed) continue;
+
 				switch (chr)
 				{
 				case 0:
@@ -227,6 +299,9 @@ namespace uni {
 					break;
 				case '\x02':// up
 					posi -= _BytesPerLine;
+					break;
+				case '\x1b':// ESC
+					esc_state = 1;
 					break;
 				default:
 					_VideoBuf0[posi++] = chr;//{}

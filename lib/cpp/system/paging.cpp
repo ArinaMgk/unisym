@@ -348,7 +348,7 @@ namespace uni {
 			if (pg_s.root_level_page) {
 				auto crt = pg_s.getEntry(_IMM(sors));
 				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) {
-					plogerro("MemCopyP: sors page is not present");
+					plogerro("MemCopyP: sors page is not present for %[x] in %[x]", sors, pg_s.root_level_page);
 					return 0;
 				}
 				stduint shift = pg_s.getPageSizeShift(_IMM(sors));

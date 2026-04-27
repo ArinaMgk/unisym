@@ -215,6 +215,11 @@ namespace uni {
 		bool auto_incbegaddr = 1;
 		stduint stat_lines = 0;// inc by scroll
 		//
+		// - ANSI SGR parser state
+		uint8  esc_state = 0;
+		int    esc_params[8] = {};
+		int    esc_nparams = 0;
+		//
 		// - use global cursor position function
 		//
 		BareConsole() {}
@@ -222,6 +227,8 @@ namespace uni {
 			: SheetTrait(), area_show(0, 0, columns, lines_total), area_total(columns, lines_total), vga_loc_addr((pureptr_t)address), topline(topline)
 		{
 			last_curposi = topline * columns;// next char will be written at vga_loc_addr[unit*crt_curposi]
+			esc_state = 0;
+			esc_nparams = 0;
 		}
 		void Reset(stduint columns, stduint lines_total, stduint address, stduint topline = 0) {
 			area_show = Rectangle(0, 0, columns, lines_total);
@@ -229,6 +236,8 @@ namespace uni {
 			vga_loc_addr = (pureptr_t)address;
 			this->topline = topline;
 			last_curposi = topline * columns;// next char will be written at vga_loc_addr[unit*crt_curposi]
+			esc_state = 0;
+			esc_nparams = 0;
 		}
 
 		void setShowY(stduint top, stduint height) {

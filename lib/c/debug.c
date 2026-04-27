@@ -102,7 +102,7 @@ static void printsuff(loglevel_t level) {
 	outs("\xFF\xFF\n\r");
 #elif defined(_Linux) || 1
 	if (level != _LOG_STDOUT)
-		outs("\x1b[0m\n");
+		outs("\x1b[0m\n\r");
 #endif
 }
 

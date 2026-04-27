@@ -170,8 +170,9 @@ namespace uni {
 	public:
 		virtual void RollUp(stduint height, const Rectangle& rect) const override;
 		virtual void DrawPoints(const Rectangle& rect, const Color* base) const override {
-			
+			//{TODO}	
 		}
+		// void DrawLine(Point disp, Size2 size, Color color, bool negSizy = false);
 	};
 
 	/*

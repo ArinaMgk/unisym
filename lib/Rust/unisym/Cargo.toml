@@ -1,13 +1,18 @@
 [package]
 name = "unisym"
 authors = ["dosconio <dosconyo@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 homepage = "https://unisym.org"
 description = "Hosted library of unisym"
 license = "Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+members = [
+	"unisym_x86_64"
+]
 
 [dependencies]
 

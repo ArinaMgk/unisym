@@ -26,6 +26,7 @@
 
 #include "../string"
 #include "../node"
+#include "../queue"
 #include "../trait/SheetTrait.hpp"
 #include "../Device/_Video.hpp"
 
@@ -72,8 +73,13 @@ namespace uni::Witch {
 
 	public:
 		String Title = nullptr;
+		Queue<SheetMessage> msg_queue;
 		// NodeChain Controls = (nullptr);
-		Form() : LayerManager() {
+		Form() : LayerManager(), msg_queue(0) {
+		}
+
+		virtual void PushMessage(const SheetMessage& msg) override {
+			msg_queue.Enqueue(msg);
 		}
 
 		virtual Color getPoint(Point p) override

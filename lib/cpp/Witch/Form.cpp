@@ -25,6 +25,7 @@
 #include "../../../inc/c/data.h"
 #include "../../../inc/cpp/reference"
 #include "../../../inc/cpp/Device/_Video.hpp"
+#include "../../../inc/c/driver/keyboard.h"
 
 static const int CloseButtonWidth = 15;
 static const int CloseButtonHeight = 15;
@@ -120,6 +121,21 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 		else if (focus_sheet) {
 			focus_sheet->onrupt(SheetEvent::onEnter, Point(0, 0));
 		}
+		// Dispatch cursor message to queue
+		SheetMessage smsg;
+		smsg.event = event;
+		smsg.args[0] = rel_p.x;
+		smsg.args[1] = rel_p.y;
+		smsg.args[2] = para1;
+		this->PushMessage(smsg);
+	}
+	else if (event == SheetEvent::onKeybd) {
+		// Dispatch keyboard message to queue
+		SheetMessage smsg;
+		smsg.event = event;
+		// para1 has already consumed the first argument, which is the pointer to event
+		*(keyboard_event_t*)smsg.args = *(keyboard_event_t*)para1;
+		this->PushMessage(smsg);
 	}
 	if (redraw) {
 		if (Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);

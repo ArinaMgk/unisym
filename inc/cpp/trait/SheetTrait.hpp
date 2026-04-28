@@ -38,9 +38,18 @@ namespace uni {
 		onMoved,// Mouse Move  or Finger Move  (Point, Pressure, RangeRadius)
 		onClick,// Mouse Click or Finger Touch (Point, byte 0RML0RML)
 		onTimer,// Systimer -> (timeout, {SheetT*, type}) -> this(unused Point, Type, timeout)
+		onKeybd,// Keyboard Event -> (unused Point, keyboard_event_t)
 	};
 	// once Click trigger two onClicks
-	// 0RML0RML: Lower 0RML for change, Upper 0RML for last state
+	// 0RML0RML: Lower 0RML for change, Upper 0RML0RML: last state
+
+	struct SheetMessage {
+		SheetEvent event;
+		union {
+			stduint args[4];
+			// keyboard_event_t
+		};
+	};
 
 	class LayerManager;
 	class SheetTrait {
@@ -57,6 +66,7 @@ namespace uni {
 		stduint timer_timeout_period = 0;
 	public:
 		SheetTrait() = default;
+		virtual ~SheetTrait() = default;
 
 		void InitializeSheet(LayerManager& _parent, Point vertex, Size2 size, Color* buf = nullptr) {
 			sheet_parent = &_parent;
@@ -74,6 +84,8 @@ namespace uni {
 		}// for shape which is not rect
 
 		virtual void onrupt(SheetEvent event, Point rel_p, ...) = 0;
+
+		virtual void PushMessage(const SheetMessage& msg) { (void)msg; }
 
 		Nnode& refSheetNode() { return sheet_node; }
 		auto refSheetParent() -> LayerManager*& { return sheet_parent; }

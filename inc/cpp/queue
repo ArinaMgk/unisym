@@ -60,6 +60,7 @@ namespace uni {
 		bool Resize(stduint new_limit);
 		bool isEmpty() { return q == nullptr; }
 		bool isFull() { return q && p == q; }
+		type0& refTail();
 	};
 	template <typename type0>
 	Queue<type0>::~Queue() {
@@ -92,6 +93,13 @@ namespace uni {
 	stduint Queue<type0>::Count() {
 		return !q ? nil : p > q ? p - q : limit - (q - p);
 		// p - q <=> (_IMM(p) - _IMM(q)) / sizeof(type0)
+	}
+
+	template <typename type0>
+	type0& Queue<type0>::refTail() {
+		type0* last = p - 1;
+		if (last < offss) last = offss + limit - 1;
+		return *last;
 	}
 
 	template <typename type0>

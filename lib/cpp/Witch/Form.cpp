@@ -104,16 +104,18 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 			focus_sheet->onrupt(event, Point(0, 0), para1);
 		}
 	}
-	else if (event == SheetEvent::onClick) {
-		if (!active) {
-			active = true, title_bar.active = true;
-			update_title_bar();
-			redraw = true;
-		}
-		if (sheet_parent && title_bar.sheet_area.ifContain(rel_p) &&
-			!close_btn.sheet_area.ifContain(rel_p)) {
-			para_ento(args, rel_p);
-			sheet_parent->Dorupt(this, event, rel_p, args);
+	else if (event == SheetEvent::onMoved || event == SheetEvent::onClick) {
+		if (event == SheetEvent::onClick) {
+			if (!active) {
+				active = true, title_bar.active = true;
+				update_title_bar();
+				redraw = true;
+			}
+			if (sheet_parent && title_bar.sheet_area.ifContain(rel_p) &&
+				!close_btn.sheet_area.ifContain(rel_p)) {
+				para_ento(args, rel_p);
+				sheet_parent->Dorupt(this, event, rel_p, args);
+			}
 		}
 		if (client_area.sheet_area.ifContain(rel_p)) {
 			client_area.onrupt(event, rel_p - client_area.sheet_area.getVertex(), para1);
@@ -121,13 +123,32 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 		else if (focus_sheet) {
 			focus_sheet->onrupt(SheetEvent::onEnter, Point(0, 0));
 		}
-		// Dispatch cursor message to queue
-		SheetMessage smsg;
-		smsg.event = event;
-		smsg.args[0] = rel_p.x;
-		smsg.args[1] = rel_p.y;
-		smsg.args[2] = para1;
-		this->PushMessage(smsg);
+		
+		// Handle message queueing with merging and limiting
+		if (event == SheetEvent::onMoved && !msg_queue.isEmpty() && msg_queue.refTail().event == SheetEvent::onMoved) {
+			// Merge sequential moving events
+			SheetMessage& last = msg_queue.refTail();
+			last.args[0] = rel_p.x;
+			last.args[1] = rel_p.y;
+			last.args[2] = para1;
+		}
+		else {
+			// Limit congestion for non-critical events
+			if (event == SheetEvent::onMoved && msg_queue.Count() >= 32) {
+				return;
+			}
+			// Dispatch new message
+			SheetMessage smsg;
+			smsg.event = event;
+			smsg.args[0] = rel_p.x;
+			smsg.args[1] = rel_p.y;
+			smsg.args[2] = para1;
+			// Determine Component ID
+			if (close_btn.sheet_area.ifContain(rel_p)) smsg.args[3] = 1; // Close Button
+			else if (title_bar.sheet_area.ifContain(rel_p)) smsg.args[3] = 2; // Title Bar
+			else smsg.args[3] = 0; // Client Area (Default)
+			this->PushMessage(smsg);
+		}
 	}
 	else if (event == SheetEvent::onKeybd) {
 		// Dispatch keyboard message to queue

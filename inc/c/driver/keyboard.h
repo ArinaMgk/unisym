@@ -76,6 +76,11 @@ _PACKED(struct) keyboard_event_t
 	byte keycode;
 };
 
+enum _USB_IF_KEYENUM {
+	_UKEY_F4 = 0x3D,
+	//{} /// MORE
+};
+
 #ifdef _DEV_GCC
 static_assert(sizeof(keyboard_event_t) == 4);
 static_assert(__builtin_offsetof(keyboard_event_t, keycode) == 3);

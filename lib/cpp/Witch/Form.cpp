@@ -133,10 +133,10 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 			last.args[2] = para1;
 		}
 		else {
-			// Limit congestion for non-critical events
-			if (event == SheetEvent::onMoved && msg_queue.Count() >= 32) {
-				return;
-			}
+			// Limit congestion: 32 for onMoved, 510 for all events
+			if (event == SheetEvent::onMoved && msg_queue.Count() >= 32) return;
+			if (msg_queue.Count() >= 510) return;
+
 			// Dispatch new message
 			SheetMessage smsg;
 			smsg.event = event;
@@ -152,11 +152,13 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 	}
 	else if (event == SheetEvent::onKeybd) {
 		// Dispatch keyboard message to queue
-		SheetMessage smsg;
-		smsg.event = event;
-		// para1 has already consumed the first argument, which is the pointer to event
-		*(keyboard_event_t*)smsg.args = *(keyboard_event_t*)para1;
-		this->PushMessage(smsg);
+		if (msg_queue.Count() < 510) {
+			SheetMessage smsg;
+			smsg.event = event;
+			// para1 has already consumed the first argument, which is the pointer to event
+			*(keyboard_event_t*)smsg.args = *(keyboard_event_t*)para1;
+			this->PushMessage(smsg);
+		}
 	}
 	if (redraw) {
 		if (Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);

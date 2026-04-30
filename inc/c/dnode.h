@@ -171,7 +171,7 @@ public:
 		return res;
 	}
 	//
-	stduint Count() { return Length(); }
+	stduint Count() const { return Length(); }
 	//
 	virtual bool Insert(stduint idx, pureptr_t dat);
 	//

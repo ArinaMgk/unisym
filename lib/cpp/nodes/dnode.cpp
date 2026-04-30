@@ -91,7 +91,24 @@ namespace uni {
 	//
 	tmpl(stduint)::Locate(pureptr_t p_val, bool fromRight) const {
 		// Left: Linked, Right: Iterated
-		return nil;//{TODO}
+		stduint ret = ~_IMM0;
+		if (fromRight) {
+			Dnode* crt = last_node;
+			stduint index = Count() - 1;
+			while (crt) {
+				if (crt->offs == p_val) { ret = index; break; }
+				else crt = crt->left, index--;
+			}
+		}
+		else {
+			Dnode* crt = root_node;
+			stduint index = 0;
+			while (crt) {
+				if (crt->offs == p_val) { ret = index; break; }
+				else crt = crt->next, index++;
+			}
+		}
+		return ret;
 	}
 	//
 	tmpl(stduint)::Length() const {

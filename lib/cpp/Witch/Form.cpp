@@ -124,17 +124,14 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 			focus_sheet->onrupt(SheetEvent::onEnter, Point(0, 0));
 		}
 		
-		// Handle message queueing with merging and limiting
-		if (event == SheetEvent::onMoved && !msg_queue.isEmpty() && msg_queue.refTail().event == SheetEvent::onMoved) {
-			// Merge sequential moving events
-			SheetMessage& last = msg_queue.refTail();
-			last.args[0] = rel_p.x;
-			last.args[1] = rel_p.y;
-			last.args[2] = para1;
-		}
-		else {
+		// Only dispatch messages to the application queue if the event occurs within the client area,
+		// or if it's a click on the close button (to allow the application to handle window closing).
+		bool is_client_area = client_area.sheet_area.ifContain(rel_p);
+		bool is_close_click = (event == SheetEvent::onClick) && close_btn.sheet_area.ifContain(rel_p);
+
+		if (is_client_area || is_close_click) {
 			// Limit congestion: 32 for onMoved, 510 for all events
-			if (event == SheetEvent::onMoved && msg_queue.Count() >= 32) return;
+			if (event == SheetEvent::onMoved && msg_queue.Count() >= 64) return; // Increased limit for smoother drawing
 			if (msg_queue.Count() >= 510) return;
 
 			// Dispatch new message
@@ -143,10 +140,9 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 			smsg.args[0] = rel_p.x;
 			smsg.args[1] = rel_p.y;
 			smsg.args[2] = para1;
-			// Determine Component ID
-			if (close_btn.sheet_area.ifContain(rel_p)) smsg.args[3] = 1; // Close Button
-			else if (title_bar.sheet_area.ifContain(rel_p)) smsg.args[3] = 2; // Title Bar
-			else smsg.args[3] = 0; // Client Area (Default)
+			// Component ID: 1 for Close Button, 0 for Client Area (Default)
+			if (is_close_click) smsg.args[3] = 1;
+			else smsg.args[3] = 0; 
 			this->PushMessage(smsg);
 		}
 	}

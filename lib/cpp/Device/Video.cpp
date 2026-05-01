@@ -88,13 +88,13 @@ namespace uni {
 		if (rect.filled) pvci->DrawRectangle(rect);
 		else {
 			self.DrawLine(rect.getVertex(),
-				Size2(rect.width, 1), rect.color);
+				Size2dif(rect.width, 1), rect.color);
 			self.DrawLine(Point(rect.x, rect.y + rect.height - 1),
-				Size2(rect.width, 1), rect.color);
+				Size2dif(rect.width, 1), rect.color);
 			self.DrawLine(rect.getVertex(),
-				Size2(1, rect.height), rect.color);
+				Size2dif(1, rect.height), rect.color);
 			self.DrawLine(Point(rect.x + rect.width - 1, rect.y),
-				Size2(1, rect.height), rect.color);
+				Size2dif(1, rect.height), rect.color);
 		}
 	}
 	void LayerManager::Draw(const Circle& circ) {
@@ -146,49 +146,35 @@ namespace uni {
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("sse2")))
 		#endif
-		void LayerManager::DrawLine(Point disp, Size2 size, Color color, bool negSizy) {
-		// Bresenham 
-		if (!size.x || !size.y) return;
-		if (1 == size.x) for0(i, size.y) {
-			Draw(disp, color);
-			disp.y++;// vertical
-		}
-		else if (1 == size.y) for0(i, size.x) {
-			Draw(disp, color);
-			disp.x++;// horizontal
-		}
-		else if (size.y >= size.x) {
-			stduint dx = size.x - 1;
-			stduint dy = size.y - 1;
-			stduint y_acc = dx / 2; // Error accumulator for rounding
-			for0(i, size.x) {
+	void LayerManager::DrawLine(Point disp, Size2dif size, Color color) {
+		stdsint dx = size.x;
+		stdsint dy = size.y;
+		stdsint abs_dx = (dx < 0) ? -dx : dx;
+		stdsint abs_dy = (dy < 0) ? -dy : dy;
+		stdsint sx = (dx < 0) ? -1 : 1;
+		stdsint sy = (dy < 0) ? -1 : 1;
+
+		if (abs_dx >= abs_dy) {
+			stdsint err = abs_dx / 2;
+			for0(i, abs_dx + 1) {
 				Draw(disp, color);
-				if (i < dx) {
-					y_acc += dy;
-					while (y_acc >= dx) {
-						if (negSizy) disp.y--; else disp.y++;
-						Draw(disp, color);
-						y_acc -= dx;
-					}
+				err -= abs_dy;
+				if (err < 0) {
+					disp.y += sy;
+					err += abs_dx;
 				}
-				disp.x++;
+				disp.x += sx;
 			}
-		}
-		else {
-			stduint dx = size.x - 1;
-			stduint dy = size.y - 1;
-			stduint x_acc = dy / 2; // Error accumulator for rounding
-			for0(i, size.y) {
+		} else {
+			stdsint err = abs_dy / 2;
+			for0(i, abs_dy + 1) {
 				Draw(disp, color);
-				if (i < dy) {
-					x_acc += dx;
-					while (x_acc >= dy) {
-						disp.x++;
-						Draw(disp, color);
-						x_acc -= dy;
-					}
+				err -= abs_dx;
+				if (err < 0) {
+					disp.x += sx;
+					err += abs_dy;
 				}
-				if (negSizy) disp.y--; else disp.y++;
+				disp.y += sy;
 			}
 		}
 	}

@@ -294,7 +294,7 @@ namespace uni {
 		//
 
 		// draw
-		void DrawLine(Point disp, Size2 size, Color color, bool negSizy = false);
+		void DrawLine(Point disp, Size2dif size, Color color);
 		inline void Draw(Point disp, Color color) { pvci->DrawPoint(disp, color); }
 		inline void Draw(Point disp, DisplayFont font) { pvci->DrawFont(disp, font); }
 		inline void Draw(Point disp, const char* addr, Color col = 0, Size2 siz = Size2(8, 16)) {

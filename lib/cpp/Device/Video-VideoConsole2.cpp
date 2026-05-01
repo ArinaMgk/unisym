@@ -353,6 +353,15 @@ namespace uni {
 	}
 
 	// -------------------------------------------------------------------------
+	// Stop
+	// -------------------------------------------------------------------------
+	void VideoConsole2::Stop() {
+		if (sheet_parent) sheet_parent->UnregisterTimer(this);
+		if (text_buf) { free(text_buf); text_buf = nullptr; }
+		if (line_buf) { free(line_buf); line_buf = nullptr; }
+	}
+
+	// -------------------------------------------------------------------------
 	// doshow
 	// -------------------------------------------------------------------------
 	void VideoConsole2::doshow(void*) {

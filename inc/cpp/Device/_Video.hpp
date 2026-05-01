@@ -195,6 +195,7 @@ namespace uni {
 		uni::Vector<SheetTrait*> timer_sheets;
 
 		void RegisterTimer(SheetTrait* sheet);
+		void UnregisterTimer(SheetTrait* sheet);
 
 		void CheckTimers(stduint crt_tick);
 		
@@ -447,6 +448,7 @@ namespace uni {
 		void Clear();
 
 		void Start();
+		void Stop();
 
 		inline auto getCursor() const { return cursor; }
 		inline void setModeBuffer(Color* buf) { buffer = buf; }

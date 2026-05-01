@@ -329,6 +329,19 @@ namespace uni {
 		}
 	}
 
+	void LayerManager::UnregisterTimer(SheetTrait* sheet) {
+		if (sheet_parent) {
+			sheet_parent->UnregisterTimer(sheet);
+		} else {
+			for (stduint i = 0; i < timer_sheets.Count(); i++) {
+				if (timer_sheets[i] == sheet) {
+					timer_sheets.Remove(i);
+					break;
+				}
+			}
+		}
+	}
+
 	void LayerManager::CheckTimers(stduint crt_tick) {
 		sys_tick = crt_tick;
 		for (stduint i = 0; i < timer_sheets.Count(); i++) {

@@ -254,6 +254,18 @@ namespace uni {
 			}
 		}
 
+		bool Remove(SheetTrait* sheet) {
+			if (!sheet || sheet->sheet_parent != this) return false;
+			Nnode* node = &sheet->sheet_node;
+			if (node->left) node->left->next = node->next;
+			else subf = node->next;
+			if (node->next) node->next->left = node->left;
+			else subl = node->left;
+			node->next = node->left = nullptr;
+			sheet->sheet_parent = nullptr;
+			return true;
+		}
+
 		// Parallel Sheets
 		stduint Count() {
 			stduint cnt = 0;

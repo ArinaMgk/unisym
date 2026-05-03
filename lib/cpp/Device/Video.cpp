@@ -300,6 +300,10 @@ namespace uni {
 		auto crt = subf;
 		if (crt) do {
 			if (skip) { skip--; continue; }
+			if (!crt->offs) {
+				plogwarn("LayerManager::getTop: Invalid sheet pointer");
+				continue;
+			}
 			auto& area = treat<SheetTrait>(crt->offs).sheet_area;
 			if (area.ifContain(p)) return cast<SheetTrait*>(crt->offs);
 		} while (crt = crt->next);

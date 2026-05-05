@@ -24,6 +24,19 @@ extern "C" {
 	/// @return: process id
 	pid_t getpid(void);
 
+	/// @brief  execute a file
+	/// @param  path: path to the executable
+	/// @param  argv: argument vector
+	/// @param  envp: environment vector
+	/// @return -1 if error
+	int execve(const char* path, char* const argv[], char* const envp[]);
+
+	/// @brief  execute a file
+	/// @param  path: path to the executable
+	/// @param  argv: argument vector
+	/// @return -1 if error
+	int execv(const char* path, char* const argv[]);
+
 
 // ---- FILEMAN
 

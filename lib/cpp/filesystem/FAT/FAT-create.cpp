@@ -22,6 +22,7 @@
 
 #include "../../../../inc/c/format/filesys/FAT.h"
 #include "../../../../inc/c/proctrl/x86/inst_x86_64.h"
+#include "../../../../inc/c/API-POSIX/fcntl.h"
 
 namespace uni {
 
@@ -42,8 +43,8 @@ namespace uni {
 		// If VFS passed a valid parent, use its cluster. Otherwise fallback to root.
 		uint32_t parent_cluster = parent_h ? parent_h->start_cluster : root_cluster;
 
-		// 3. Resolve Flags (Ensure O_DIRECTORY is 0b1000 or your specific macro)
-		bool create_as_dir = (flags & 0b1000) != 0;
+		// 3. Resolve Flags
+		bool create_as_dir = (flags & O_DIRECTORY) != 0;
 		uint32_t new_cluster = 0;
 
 		if (create_as_dir) {

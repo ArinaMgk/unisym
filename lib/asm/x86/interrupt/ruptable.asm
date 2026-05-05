@@ -212,7 +212,7 @@ Page_Fault_ERQHandler:
 	CALL PG_PUSH
 	PUSH EDI
 	PUSH EBX
-	MOV  EDI, CR3
+	; MOV  EDI, CR3
 	CALL exception_handler
 	ADD  ESP, 4*2
 	CALL PG_POP

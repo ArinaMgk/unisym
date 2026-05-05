@@ -367,7 +367,7 @@ namespace uni {
 #if defined(_MCCA)
 
 extern uni::OstreamTrait* con0_out;
-void outtxt(const char* str, stduint len) {
+_WEAK void outtxt(const char* str, stduint len) {
 	asserv (con0_out)->out(str, len);
 }
 

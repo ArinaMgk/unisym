@@ -22,20 +22,53 @@ namespace ext {
 	 * with specific bit width. The bit width will be deduced from the type of
 	 * T::data. T is the template parameter. T::data should be an array.
 	 */
+	// 20260528: use inline assembly to avoid over OPTIMIZATION by GCC 16.1.1+
 	template <typename T>
 	class MemMapRegister {
 	public:
 		T Read() const {
 			T tmp;
-			for (size_t i = 0; i < len_; ++i) {
-				tmp.data[i] = value_.data[i];
+			if constexpr (sizeof(T) == 1) {
+				uint8_t val;
+				asm volatile ("movb %1, %0" : "=r"(val) : "m"(*(volatile uint8_t*)&value_) : "memory");
+				*(uint8_t*)&tmp = val;
+			} else if constexpr (sizeof(T) == 2) {
+				uint16_t val;
+				asm volatile ("movw %1, %0" : "=r"(val) : "m"(*(volatile uint16_t*)&value_) : "memory");
+				*(uint16_t*)&tmp = val;
+			} else if constexpr (sizeof(T) == 4) {
+				uint32_t val;
+				asm volatile ("movl %1, %0" : "=r"(val) : "m"(*(volatile uint32_t*)&value_) : "memory");
+				*(uint32_t*)&tmp = val;
+			} else if constexpr (sizeof(T) == 8) {
+				uint64_t val;
+				asm volatile ("movq %1, %0" : "=r"(val) : "m"(*(volatile uint64_t*)&value_) : "memory");
+				*(uint64_t*)&tmp = val;
+			} else {
+				for (size_t i = 0; i < len_; ++i) {
+					tmp.data[i] = value_.data[i];
+				}
 			}
 			return tmp;
 		}
 
 		void Write(const T& value) {
-			for (size_t i = 0; i < len_; ++i) {
-				value_.data[i] = value.data[i];
+			if constexpr (sizeof(T) == 1) {
+				uint8_t val = *(uint8_t*)&value;
+				asm volatile ("movb %0, %1" : : "r"(val), "m"(*(volatile uint8_t*)&value_) : "memory");
+			} else if constexpr (sizeof(T) == 2) {
+				uint16_t val = *(uint16_t*)&value;
+				asm volatile ("movw %0, %1" : : "r"(val), "m"(*(volatile uint16_t*)&value_) : "memory");
+			} else if constexpr (sizeof(T) == 4) {
+				uint32_t val = *(uint32_t*)&value;
+				asm volatile ("movl %0, %1" : : "r"(val), "m"(*(volatile uint32_t*)&value_) : "memory");
+			} else if constexpr (sizeof(T) == 8) {
+				uint64_t val = *(uint64_t*)&value;
+				asm volatile ("movq %0, %1" : : "r"(val), "m"(*(volatile uint64_t*)&value_) : "memory");
+			} else {
+				for (size_t i = 0; i < len_; ++i) {
+					value_.data[i] = value.data[i];
+				}
 			}
 		}
 

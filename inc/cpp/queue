@@ -139,7 +139,7 @@ namespace uni {
 	public:
 		Slice slice;
 		char* _Comment(W) p = 0; char* _Comment(R) q = 0;
-		QueueLimited(Slice _slice) : slice(_slice) {
+		QueueLimited(Slice _slice = {0, 0}) : slice(_slice) {
 			p = (char*)slice.address;
 		}
 		virtual int inn() override {

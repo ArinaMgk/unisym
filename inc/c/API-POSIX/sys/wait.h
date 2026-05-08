@@ -27,10 +27,15 @@ extern "C" {
 	} siginfo_t;
 
 	// Options for waitid
+	#undef WEXITED
 	#define WEXITED   0x00000004
+	#undef WSTOPPED
 	#define WSTOPPED  0x00000008
+	#undef WCONTINUED
 	#define WCONTINUED 0x00000010
+	#undef WNOHANG
 	#define WNOHANG   0x00000001
+	#undef WNOWAIT
 	#define WNOWAIT   0x00000100
 
 	/// @brief  wait for subprocess to terminate

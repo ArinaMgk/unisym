@@ -231,7 +231,7 @@ namespace uni::device::SpaceUSB {
 	class ArrayMap {
 	public:
 		std::optional<V> Get(const K& key) const {
-			for (int i = 0; i < table_.size(); ++i) {
+			for (size_t i = 0; i < table_.size(); ++i) {
 				if (auto opt_k = table_[i].first; opt_k && opt_k.value() == key) {
 					return table_[i].second;
 				}
@@ -240,7 +240,7 @@ namespace uni::device::SpaceUSB {
 		}
 
 		void Put(const K& key, const V& value) {
-			for (int i = 0; i < table_.size(); ++i) {
+			for (size_t i = 0; i < table_.size(); ++i) {
 				if (!table_[i].first) {
 					table_[i].first = key;
 					table_[i].second = value;
@@ -250,7 +250,7 @@ namespace uni::device::SpaceUSB {
 		}
 
 		void Delete(const K& key) {
-			for (int i = 0; i < table_.size(); ++i) {
+			for (size_t i = 0; i < table_.size(); ++i) {
 				if (auto opt_k = table_[i].first; opt_k && opt_k.value() == key) {
 					table_[i].first = std::nullopt;
 					break;

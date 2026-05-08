@@ -825,7 +825,7 @@ namespace {
 			}
 
 			addressing_port = 0;
-			for (int i = 0; i < port_config_phase.size(); ++i) {
+			for (size_t i = 0; i < port_config_phase.size(); ++i) {
 				if (port_config_phase[i] == ConfigPhase::kWaitingAddressed) {
 					auto port = xhc.PortAt(i);
 					if (auto err = ResetPort(xhc, port); err) {

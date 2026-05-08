@@ -57,6 +57,7 @@ namespace uni {
 		friend class LayerManager;
 	protected:
 		LayerManager* sheet_parent = nullptr;
+		LayerManager* timer_root_manager = nullptr;
 		Nnode sheet_node = {};// all pointers point to SheetTrait but the start of child class
 	public:
 		Rectangle sheet_area;

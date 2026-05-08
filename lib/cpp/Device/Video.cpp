@@ -316,6 +316,7 @@ namespace uni {
 		} else {
 			sheet->timer_timeout_period = 0;
 			timer_sheets.Append(sheet);
+			sheet->timer_root_manager = this;
 		}
 	}
 
@@ -326,6 +327,7 @@ namespace uni {
 			for (stduint i = 0; i < timer_sheets.Count(); i++) {
 				if (timer_sheets[i] == sheet) {
 					timer_sheets.Remove(i);
+					if (sheet) sheet->timer_root_manager = nullptr;// safe
 					break;
 				}
 			}

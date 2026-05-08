@@ -356,7 +356,10 @@ namespace uni {
 	// Stop
 	// -------------------------------------------------------------------------
 	void VideoConsole2::Stop() {
-		if (sheet_parent) sheet_parent->UnregisterTimer(this);
+		if (this->timer_root_manager) {
+			this->timer_root_manager->UnregisterTimer(this);
+			this->timer_root_manager = nullptr;
+		}
 		if (text_buf) { free(text_buf); text_buf = nullptr; }
 		if (line_buf) { free(line_buf); line_buf = nullptr; }
 	}
@@ -659,8 +662,7 @@ namespace uni {
 	//             csi(2) --digit-: accumulate in esc_params[esc_nparams]
 	//             csi(2) --';'--: advance esc_nparams
 	// -------------------------------------------------------------------------
-	void _VideoConsole2Out(const char* str, stduint len) {
-	#define crt_self VideoConsole2::crt_self2
+	void _VideoConsole2Out(VideoConsole2* crt_self, const char* str, stduint len) {
 		if (!crt_self) return;
 
 		stduint font_w = _VC2FontW[crt_self->typ];
@@ -711,12 +713,12 @@ namespace uni {
 			if (consumed) continue;
 
 			if (!c) {
-				if (crt_self->cursor.x > 0 && crt_self->sheet_parent) {
+				if (crt_self->cursor.x > 0 && crt_self->refSheetParent()) {
 					Rectangle rect;
 					rect.x = (crt_self->cursor.x - 1) * font_w;
 					rect.y = crt_self->cursor.y * font_h;
 					rect.width = font_w; rect.height = font_h;
-					crt_self->sheet_parent->Update(crt_self, rect);
+					crt_self->refSheetParent()->Update(crt_self, rect);
 				}
 			}
 			else if (c == '\x1b') {
@@ -734,12 +736,12 @@ namespace uni {
 				crt_self->cursor.y++;
 				crt_self->FeedLine();
 
-				if (crt_self->sheet_parent && crt_self->update_method == 2) {
+				if (crt_self->refSheetParent() && crt_self->update_method == 2) {
 					Rectangle rect;
 					rect.x = 0;
 					rect.y = (stduint)(crt_self->cursor.y - 1) * font_h;
 					rect.width = crt_self->window.width; rect.height = font_h;
-					crt_self->sheet_parent->Update(crt_self, rect);
+					crt_self->refSheetParent()->Update(crt_self, rect);
 				}
 			}
 			else if (c == '\r') {
@@ -827,25 +829,23 @@ namespace uni {
 					}
 				}
 
-				if (crt_self->sheet_parent && crt_self->update_method >= 1) {
+				if (crt_self->refSheetParent() && crt_self->update_method >= 1) {
 					Rectangle rect;
 					rect.x = cx * font_w; rect.y = cy * font_h;
 					rect.width = font_w; rect.height = font_h;
-					crt_self->sheet_parent->Update(crt_self, rect);
+					crt_self->refSheetParent()->Update(crt_self, rect);
 				}
 
 				crt_self->curinc();
 			}
 		}
-	#undef crt_self
 	}
 
 	// -------------------------------------------------------------------------
 	// out / inn
 	// -------------------------------------------------------------------------
 	int VideoConsole2::out(const char* str, stduint len) {
-		crt_self2 = this;
-		_VideoConsole2Out(str, len);
+		_VideoConsole2Out(this, str, len);
 		return 0 _TEMP;
 	}
 	int VideoConsole2::inn() {

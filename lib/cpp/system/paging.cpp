@@ -423,11 +423,11 @@ namespace uni {
 		}
 
 		// --- Handle Trailing Null ---
-		if (1) {
+		if (length) {
 			stduint phy_d;
 			if (pg_d.root_level_page) {
 				auto crt = pg_d.getEntry(_IMM(dest));
-				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return 0;
+				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return ret;
 				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
 				phy_d = crt->getAddress() + (_IMM(dest) & ((1ULL << shift) - 1));
 			}

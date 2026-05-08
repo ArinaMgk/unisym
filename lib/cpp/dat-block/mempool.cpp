@@ -279,10 +279,6 @@ void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 	stduint bound = boundary ? (_IMM1 << boundary) : 0;
 	if (!size) return nullptr;
 	if (bound > 0 && size > bound) return nullptr;
-	#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
-	auto flag = getFlags();
-	// if (flag & 0x200) InterruptDisable();
-	#endif
 	const stduint total_size = sizeof(Header) + size;
 	int retry_count = 0;
 _RETRY_ALLOC:
@@ -331,9 +327,6 @@ _RETRY_ALLOC:
 				plogerro("\t Current Slice{ %[x], %[x] }", p->address, p->length);
 			}
 			// ploginfo("Mempool::allocate %u a%u b%u -> %[x]", size, alignment, boundary, ret);
-			#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
-			setFlags(flag);
-			#endif
 			return ret;
 		}
 		crtpool = crtpool->nextpool;
@@ -347,25 +340,16 @@ _RETRY_ALLOC:
 		}
 	}
 
-	#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
-	setFlags(flag);
-	#endif
 	return nullptr;
 }
 bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
 	// ploginfo("Mempool::deallocate %p s%u", ptr, size);
 	if (_IMM(ptr) < sizeof(Header)) return false;
-	#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
-	auto flag = getFlags();
-	// if (flag & 0x200) InterruptDisable();
-	#endif
+
 	Header* header = (Header*)ptr - 1;
 	if (header->prop != _IMM(0xFEDC5AA5) || !header->size) {
 		plogerro("Mempool::deallocate, %[x]\n\rsiz%[x] pro%[32H]",
 			ptr, header->size, header->prop);
-		#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
-		setFlags(flag);
-		#endif
 		return false;
 	}
 	if (!size) size = header->size;
@@ -375,6 +359,7 @@ bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
 		state = pool_available.Append(recovered);
 	}
 	else {
+		plogwarn("Partial deallocation %u/%u", size, header->size);
 		// moving the header before the rest of the block
 		stduint dealloc_size = minof(header->size, size);
 		stduint rest_data_addr = (stduint)ptr + dealloc_size;
@@ -384,9 +369,6 @@ bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
 		recovered.length = dealloc_size;
 		state = pool_available.Append(recovered);
 	}
-	#if defined(_DEBUG) && defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
-	setFlags(flag);
-	#endif
 	return state;
 }
 

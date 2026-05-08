@@ -505,7 +505,7 @@ namespace uni {
 		// Advance cursor by one character cell.
 		void curinc();
 
-		friend void _VideoConsole2Out(const char* str, stduint len);
+		friend void _VideoConsole2Out(VideoConsole2* crt_self, const char* str, stduint len);
 		static VideoConsole2* crt_self2;
 	};
 

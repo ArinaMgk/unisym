@@ -160,6 +160,9 @@ T* AllocArray(size_t num_obj, unsigned int alignment, unsigned int boundary) {
 		uni_hostenv_allocator->allocate(sizeof(T) * num_obj,
 			intlog2_iexpo(alignment), intlog2_iexpo(boundary)));
 	if (ret) MemSet(ret, 0, sizeof(T) * num_obj);
+	else {
+		plogerro("AllocArray failed for %u objs of size %u", num_obj, sizeof(T));
+	}
 	return ret;
 }
 

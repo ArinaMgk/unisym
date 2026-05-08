@@ -206,7 +206,7 @@ SwitchTaskContext:; (* nex, * crt)
 
 .switch_to_ring3:; r1 r2 r3
 	MOV ESP, 0xFFFFFFF8
-	PUSH DWORD [EAX + 0x00] ; EAX
+	; PUSH DWORD [EAX + 0x00] ; EAX
 	MOVZX ECX, WORD [EAX + 0x56]
 	PUSH ECX                ; SS
 	PUSH DWORD [EAX + 0x10] ; SP (用户栈)
@@ -219,7 +219,7 @@ SwitchTaskContext:; (* nex, * crt)
 .switch_to_ring0:
 	; 0x8632 IRETD won't pop ESP/SS
 	MOV ESP, [EAX + 0x10]
-	PUSH DWORD [EAX + 0x00] ; EAX
+	; PUSH DWORD [EAX + 0x00] ; EAX
 	PUSH DWORD [EAX + 0x44] ; FLAG
 	MOVZX ECX, WORD [EAX + 0x50]
 	PUSH ECX                ; CS

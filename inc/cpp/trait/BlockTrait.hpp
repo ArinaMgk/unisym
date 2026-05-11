@@ -31,6 +31,7 @@ namespace uni {
 		bool readable;
 		bool writable;
 		stduint Block_Size;// usual: 1 or 512
+		virtual ~BlockTrait() = default;
 		virtual bool Read(stduint BlockIden, void* Dest) = 0;
 		virtual bool Write(stduint BlockIden, const void* Sors) = 0;
 		virtual stduint getUnits() = 0;

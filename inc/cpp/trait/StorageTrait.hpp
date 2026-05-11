@@ -71,6 +71,7 @@ struct HD_Info {
 namespace uni {
 	class StorageTrait : public BlockTrait {
 	public:
+		virtual ~StorageTrait() = default;
 		void* Block_buffer;// for byte access
 		
 		// byte read. -1 for error

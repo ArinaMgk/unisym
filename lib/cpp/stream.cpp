@@ -93,6 +93,7 @@ namespace uni {
 		stduint ent = 0;
 		stduint end = 0;
 		char dotted = 0;
+		bool tmp_zero_padding = false;
 
 		if (fmt == 0) return 0;
 
@@ -128,26 +129,37 @@ namespace uni {
 				if (sizlevel <= 0) sizlevel--;
 				c = '%'; tmp_percent_feed = 1;
 				break;
+			case '0':
+				if (!ent) {
+					tmp_zero_padding = true;
+					c = '%'; tmp_percent_feed = 1;
+					break;
+				}
+			case '1': case '2': case '3': case '4': case '5':
+			case '6': case '7': case '8': case '9':
+				ent = ent * 10 + (c - '0');
+				c = '%'; tmp_percent_feed = 1;
+				break;
 
 
 			// ---- INTEGER ---- [signed] [base] ...
 			//{TODO} use sizlevel
 			case 'o':
-				out_integer(pnext(unsigned), 8, tmp_signed, true, _TODO 0, _TODO false, intlog2_iexpo(byteof(unsigned)));
+				out_integer(pnext(unsigned), 8, tmp_signed, true, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
 				break;
 			case 'd':
-				out_integer(pnext(signed), 10, tmp_signed, true, _TODO 0, _TODO false, intlog2_iexpo(byteof(signed)));
+				out_integer(pnext(signed), 10, tmp_signed, true, ent, tmp_zero_padding, intlog2_iexpo(byteof(signed)));
 				break;
 
 			// ---- UNSIGNED ----
 			case 'b':// alicee extend
-				out_integer(pnext(unsigned), 2, false, false, _TODO 0, _TODO false, intlog2_iexpo(byteof(unsigned)));
+				out_integer(pnext(unsigned), 2, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
 				break;
 			case 'x':
-				out_integer(pnext(unsigned), -16, false, false, _TODO 0, _TODO false, intlog2_iexpo(byteof(unsigned)));
+				out_integer(pnext(unsigned), -16, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
 				break;
 			case 'u':
-				out_integer(pnext(unsigned), 10, false, false, _TODO 0, _TODO false, intlog2_iexpo(byteof(unsigned)));
+				out_integer(pnext(unsigned), 10, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
 				break;
 
 
@@ -234,6 +246,9 @@ namespace uni {
 			}
 			if (tmp_percent_feed != 1) {
 				tmp_signed = 0;
+				ent = 0;
+				tmp_zero_padding = false;
+				sizlevel = 0;
 			}
 			i++;
 		}

@@ -156,6 +156,15 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 			this->PushMessage(smsg);
 		}
 	}
+	else if (event == SheetEvent::onTimer) {
+		if (msg_queue.Count() < 510) {
+			SheetMessage smsg;
+			smsg.event = event;
+			smsg.args[3] = para_next(args, stduint); // Get sys_tick
+			this->PushMessage(smsg);
+			// ploginfo("Form onTimer pushed: %u", smsg.args[3]);
+		}
+	}
 	if (redraw) {
 		if (Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
 		if (Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);

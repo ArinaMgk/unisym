@@ -75,6 +75,7 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 	class FilesysTrait
 	{
 	public:
+		virtual ~FilesysTrait() = default;
 		StorageTrait* storage;// set a partition(device)
 		stduint error_number = 0;
 

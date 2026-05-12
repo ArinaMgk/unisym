@@ -70,6 +70,30 @@ namespace uni {
 	protected:
 		// 0x400 at least.
 		GateInterrupt* IVT_SEL_ADDR;
+		#if (_MCCA & 0xFF00) == 0x8600
+		byte typ = 0;// 0:PIC, 1:APIC, 2:x2APIC
+		#endif
+	public:// IOAPIC
+		#if (_MCCA & 0xFF00) == 0x8600
+		// RTE 64-bit
+		void IO_Writ32(byte idx, uint32 val);
+		uint32 IO_Read32(byte idx);
+		inline void IO_Writ64(byte idx, uint64 val) {
+			IO_Writ32(idx, val);
+			IO_Writ32(idx + 1, val >> 32);
+		}
+		uint64 IO_Read64(byte idx) {
+			uint64 ret = 0;
+			ret = (uint64)IO_Read32(idx + 1) << 32;
+			ret |= IO_Read32(idx);
+			return ret;
+		}
+		
+		// Read from Local APIC register
+		uint32 ReadLAPIC(uint32 mmio_offset);
+		// Write to Local APIC register
+		void WriteLAPIC(uint32 mmio_offset, uint32 val);
+		#endif
 	public:
 		// @param _ivt_sel_addr: linear address but physical
 		InterruptControl(stduint _ivt_sel_addr) : IVT_SEL_ADDR((GateInterrupt*)_ivt_sel_addr) {}
@@ -77,16 +101,22 @@ namespace uni {
 			return IVT_SEL_ADDR[index];
 		}
 
-		void Init();
+		bool Initialize(byte typ);
 
-		//{TODO} make enAble enInterrupt but init the icontroller
-		void enAble(bool enable = true);
+		// Send End of Interrupt (EOI) to the active controller
+		void SendEOI(byte irq = 0xFF);
+
+		// enInterrupt but init the icontroller nor IC's cascade interrupt
+		void enInterrupt(bool enable = true);
+
+		// enAble: for IC self
 
 		#if (_MCCA & 0xFF00) == 0x8600
 		void Reset(word SegCode, stduint Offset = 0x00000000);
 		#else
 		void Reset();
 		#endif
+
 		#if (_MCCA & 0xFF00) == 0x1000
 		static void setPriority(Request_t req, uint32 priority);
 		static void setPriorityThreshold(uint32 core, uint32 threshold);

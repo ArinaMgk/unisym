@@ -33,6 +33,7 @@ namespace uni {
 #if defined(_MCCA)
 #if (_MCCA & 0xFF00) == 0x8600
 #include "../../inc/c/driver/i8259A.h"
+#include "../../inc/c/proctrl/IAx86_64.msr.h"
 #elif (_MCCA & 0xFF00) == 0x1000
 #include "../../inc/c/proctrl/RISCV/riscv.h"
 #endif
@@ -97,7 +98,11 @@ void General_IRQHandler(InterruptFrame* frame) {
 #endif
 
 #if _MCCA == 0x8632
-void uni::InterruptControl::Init() {
+#define IA32_APIC_BASE__APIC_GLOBAL_ENABLE     (1ULL << 11)   // EN
+#define IA32_APIC_BASE__X2APIC_ENABLE          (1ULL << 10)   // EXTD
+static bool pic_set = false;//{} lock should
+static bool ioapic_set = false;//{} lock should
+static void _IC_INIT_PIC() {
 	_8259A_init_t Mas = { 0 };
 	Mas.port = PORT_i8259A_MAS_A;
 	Mas.ICW1.ICW4_USED = 1;
@@ -115,15 +120,111 @@ void uni::InterruptControl::Init() {
 	i8259A_init(&Mas);
 	i8259A_init(&Slv);
 }
+bool uni::InterruptControl::Initialize(byte typ) {
+	this->typ = typ;
+	if (typ) { // LAPIC
+		if (!pic_set) {
+			outpb(PORT_i8259A_MAS_B, 0xFF);
+			outpb(PORT_i8259A_SLV_B, 0xFF);
+			pic_set = true;
+		}
+		if (!ioapic_set) {
+			for (stduint i = 0x10; i < 0x40; i += 2)
+				IO_Writ64(i, 0x10020 + ((i - 0x10) >> 1));
+			ioapic_set = true;
+			// enable IMCR
+			outpb(0x22, 0x70);
+			outpb(0x23, 0x01);
+		}
+		// Enable APIC/x2APIC in MSR
+		uint64_t apic_base = getMSR(x86MSR::APIC_BASE);
+		uint64_t old_base = apic_base;
+		if (typ >= 1) apic_base |= IA32_APIC_BASE__APIC_GLOBAL_ENABLE;
+		if (typ >= 2) apic_base |= IA32_APIC_BASE__X2APIC_ENABLE;
+		
+		if (apic_base != old_base) {
+			setMSR(x86MSR::APIC_BASE, apic_base);
+		}
+
+		// Disable Legacy PIC
+		outpb(PORT_i8259A_MAS_B, 0xFF);
+		outpb(PORT_i8259A_SLV_B, 0xFF);
+
+		// Setup SVR (Spurious Vector Register)
+		const uint32_t vector_spurious = 0xFF;
+		const uint32_t svr_val = vector_spurious | 0x100; // Bit 8: Software Enable
+		WriteLAPIC(0xF0, svr_val);
+
+		// Mask LVT (Set basic registers only)
+		const uint32_t mask = 0x10000; // Bit 16: Masked
+		WriteLAPIC(0x320, mask); // LVT Timer
+		WriteLAPIC(0x350, mask); // LVT LINT0
+		WriteLAPIC(0x360, mask); // LVT LINT1
+		WriteLAPIC(0x370, mask); // LVT Error
+		
+		ploginfo("[IC] APIC Mode %d Initialized", typ);
+	}
+	else if (!pic_set) {
+		_IC_INIT_PIC();
+		pic_set = true;
+	}
+	return true;
+}
+
+uint32 uni::InterruptControl::ReadLAPIC(uint32 offset) {
+	if (typ == 2) return (uint32)getMSR(static_cast<x86MSR>(0x800 + (offset >> 4)));
+	return *(volatile uint32*)(0xFEE00000 + offset);
+}
+
+void uni::InterruptControl::WriteLAPIC(uint32 offset, uint32 val) {
+	if (typ == 2) setMSR(static_cast<x86MSR>(0x800 + (offset >> 4)), val);
+	else *(volatile uint32*)(0xFEE00000 + offset) = val;
+}
+
+void uni::InterruptControl::SendEOI(byte irq) {
+	if (typ == 2) {
+		// x2APIC mode
+		setMSR(x86MSR::APIC_EOI, 0);
+	} else if (typ == 1) {
+		// Standard APIC mode
+		*(volatile uint32_t*)(0xFEE000B0) = 0;
+	} else {
+		// Legacy PIC mode
+		if (irq >= 8 && irq <= 15) {
+			outpb(0xA0, 0x20); // Slave EOI
+		}
+		outpb(0x20, 0x20); // Master EOI
+	}
+}
+
+#define mfence() _ASM volatile ("mfence":::"memory")
+volatile uint32_t* const ioapic_idx = reinterpret_cast<volatile uint32_t*>(0xFEC00000);
+volatile uint32_t* const ioapic_dat = reinterpret_cast<volatile uint32_t*>(0xFEC00010);
+__attribute__((optimize("O0")))
+void uni::InterruptControl::IO_Writ32(byte idx, uint32 val) {
+	*ioapic_idx = idx;
+	mfence();
+	*ioapic_dat = val;
+	mfence();
+}
+__attribute__((optimize("O0")))
+uint32 uni::InterruptControl::IO_Read32(byte idx) {
+	uint32 ret;
+	*ioapic_idx = idx;		
+	mfence();
+	ret = *ioapic_dat;
+	mfence();
+	return ret;
+}
 #endif
 
-// InterruptControl::enAble
+// InterruptControl::enInterrupt
 #if (_MCCA & 0xFF00) == 0x8600
-void uni::InterruptControl::enAble(bool enable) {
+void uni::InterruptControl::enInterrupt(bool enable) {
 	::enInterrupt(enable);
 }
 #elif (_MCCA & 0xFF00) == 0x1000// RV
-void uni::InterruptControl::enAble(bool enable) {
+void uni::InterruptControl::enInterrupt(bool enable) {
 	if (enable) {
 		auto hart = getTP();
 		setPriorityThreshold(hart, 0);

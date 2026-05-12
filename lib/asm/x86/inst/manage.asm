@@ -17,8 +17,9 @@ GLOBAL _returnfar
 GLOBAL returnfar
 GLOBAL TaskReturn
 
+GLOBAL getMSR, setMSR;(OFFSET, VALUE)
 
-[CPU 386]
+[CPU 586]
 
 [BITS 32]
 
@@ -122,4 +123,16 @@ TaskReturn:
 RET
 	NESTED_TASK: IRETD
 RET; for next calling the subapp
+
+getMSR:; uint64 getMSR(x86MSR offset);
+	MOV ECX, [ESP + 4]
+	RDMSR
+RET
+setMSR:
+	MOV ECX, [ESP + 4]
+	MOV EAX, [ESP + 8]
+	MOV EDX, [ESP + 12]
+	WRMSR
+RET
+
 

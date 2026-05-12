@@ -85,7 +85,7 @@ switch (level)
 	case _LOG_WARN:
 		outsfmt("\x1b[%dm%s", CON_FORE_YELLOW, _logstyle == _LOG_STYLE_NONE ? _pref_warn : "warning: "); break;
 	case _LOG_INFO:
-		outsfmt("\x1b[%dm%s", CON_FORE_BLUE, _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
+		outsfmt("\x1b[%dm%s", CON_FORE_CYAN, _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
 	case _LOG_DEBUG:
 		outsfmt("\x1b[%dm%s", CON_FORE_GREEN, _logstyle == _LOG_STYLE_NONE ? _pref_dbug : "debug: "); break;
 	case _LOG_TRACE:

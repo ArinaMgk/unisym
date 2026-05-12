@@ -378,19 +378,14 @@ void jmpFar(stduint offs, stduint selc);
 
 
 // ---- ---- . ---- ---- //
-#ifdef _INC_CPP
-enum class x86MSR : stduint {
-	EFER  = 0xC0000080,
-	STAR  = 0xC0000081,
-	LSTAR = 0xC0000082,
-	FMASK = 0xC0000084,
-};
-// Model Specific Register
-void setMSR(x86MSR offset, stduint value);
-#endif
 
 
 // ---- ---- SYSMAN ---- ---- //
+
+inline void _IO_CPUID(unsigned mop, unsigned sop, unsigned* a, unsigned* b, unsigned* c, unsigned* d)
+{
+	_ASM volatile("cpuid":"=a"(*a), "=b"(*b), "=c"(*c), "=d"(*d) : "0"(mop), "2"(sop));
+}
 
 void EnableSSE();
 

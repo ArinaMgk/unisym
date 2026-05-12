@@ -14,7 +14,7 @@ GLOBAL setA
 GLOBAL jmpFar;, CallFar
 ; GLOBAL returnfar
 ; GLOBAL TaskReturn
-GLOBAL setMSR;(OFFSET, VALUE)
+GLOBAL getMSR, setMSR;(OFFSET, VALUE)
 
 ; [CPU 386]
 
@@ -85,6 +85,12 @@ O64 RETF
 
 ;
 
+getMSR:; uint64 getMSR(x86MSR offset);
+	MOV ECX, EDI
+	RDMSR
+	SHL RDX, 32
+	OR RAX, RDX
+RET
 setMSR:
 	MOV RDX, RSI
 	SHR RDX, 32

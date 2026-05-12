@@ -185,8 +185,15 @@ namespace uni {
 		#undef crt_self
 	}
 	int VideoConsole::out(const char* str, stduint len) {
+		bool old_visible = cursor_visible;
+		cursor_visible = false;
+		doshow(nullptr);
+
 		crt_self = this;
 		_VideoConsoleOut(str, len);
+
+		cursor_visible = old_visible;
+		doshow(nullptr);
 		return 0 _TEMP;
 	}
 	void VideoConsole::onrupt(SheetEvent event, Point rel_p, ...) {

@@ -64,6 +64,7 @@ typedef enum {
 	_LOG_INFO,
 	_LOG_DEBUG,
 	_LOG_TRACE,
+	_LOG_GOOD,
 } loglevel_t;
 
 typedef enum {

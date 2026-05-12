@@ -73,6 +73,8 @@ namespace uni::Witch {
 
 	public:
 		String Title = nullptr;
+		void* usrp_buffer = nullptr;
+		void* usrp_owner = nullptr;
 		Queue<SheetMessage> msg_queue;
 		// NodeChain Controls = (nullptr);
 		Form() : LayerManager(), msg_queue(0) {
@@ -89,6 +91,10 @@ namespace uni::Witch {
 					auto& rect = crt_sheet->sheet_area;
 					if (!rect.ifContain(p)) continue;
 					const Point pt{ (p.x - rect.x), (p.y - rect.y) };
+					if (crt_sheet == &client_area && usrp_buffer) {
+						// If user buffer is set, the client area pixels are authoritative in sheet_buffer
+						return sheet_buffer[p.y * sheet_area.width + p.x];
+					}
 					auto pp = !crt_sheet->sheet_buffer ? crt_sheet->getPoint(pt) :
 						crt_sheet->sheet_buffer[pt.y * crt_sheet->sheet_area.width + pt.x];
 					return pp;
@@ -113,7 +119,8 @@ namespace uni::Witch {
 			return true;
 		}
 
-		Rectangle getClientArea(void); //_TODO
+		LayerManager& getClientSheet(void) { return client_area; }
+		Rectangle getClientArea(void) { return client_area.sheet_area; }
 
 		bool AppendControl(SheetTrait* sheet) {
 			client_area.Append(sheet);

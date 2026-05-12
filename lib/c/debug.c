@@ -90,6 +90,8 @@ switch (level)
 		outsfmt("\x1b[%dm%s", CON_FORE_GREEN, _logstyle == _LOG_STYLE_NONE ? _pref_dbug : "debug: "); break;
 	case _LOG_TRACE:
 		outsfmt("\x1b[%dm%s", CON_FORE_GRAY, _logstyle == _LOG_STYLE_NONE ? _pref_trac : "trace: "); break;
+	case _LOG_GOOD:
+		outsfmt("\x1b[%dm%s", CON_FORE_GREEN, _logstyle == _LOG_STYLE_NONE ? _pref_trac : "pass: "); break;
 	case _LOG_STDOUT:
 	default:
 		break;

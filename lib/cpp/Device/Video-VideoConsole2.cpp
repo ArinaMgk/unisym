@@ -845,7 +845,14 @@ namespace uni {
 	// out / inn
 	// -------------------------------------------------------------------------
 	int VideoConsole2::out(const char* str, stduint len) {
+		bool old_visible = cursor_visible;
+		cursor_visible = false;
+		doshow(nullptr);
+
 		_VideoConsole2Out(this, str, len);
+
+		cursor_visible = old_visible;
+		doshow(nullptr);
 		return 0 _TEMP;
 	}
 	int VideoConsole2::inn() {

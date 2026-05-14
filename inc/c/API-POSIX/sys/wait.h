@@ -20,11 +20,14 @@ extern "C" {
 		P_PGID
 	} idtype_t;
 
+#ifndef _SIGINFO_T_DEFINED
+#define _SIGINFO_T_DEFINED
 	typedef struct {
 		pid_t si_pid;
 		int   si_status;
 		int   si_code;
 	} siginfo_t;
+#endif
 
 	// Options for waitid
 	#undef WEXITED

@@ -190,7 +190,8 @@ void uni::InterruptControl::SendEOI(byte irq) {
 		*(volatile uint32_t*)(0xFEE000B0) = 0;
 	} else {
 		// Legacy PIC mode
-		if (irq >= 8 && irq <= 15) {
+		// Support both IRQ index (8-15) and Vector (0x70-0x77)
+		if ((irq >= 8 && irq <= 15) || (irq >= 0x70 && irq <= 0x77)) {
 			outpb(0xA0, 0x20); // Slave EOI
 		}
 		outpb(0x20, 0x20); // Master EOI

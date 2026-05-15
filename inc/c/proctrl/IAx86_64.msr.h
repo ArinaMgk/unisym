@@ -2,7 +2,10 @@
 #ifdef _INC_CPP
 enum class x86MSR : uint32 {
 	APIC_BASE = 0x1B,
-	
+	FEATURE_CONTROL = 0x3A,
+
+	VMX_BASIC = 0x0480,
+
 	// x2APIC:
 	APIC_APICID = 0x0802,
 	APIC_VERSION     = 0x0803,
@@ -33,6 +36,8 @@ enum class x86MSR : uint32 {
 	STAR  = 0xC0000081,
 	LSTAR = 0xC0000082,
 	FMASK = 0xC0000084,
+	VM_CR = 0xC0010114,
+	VM_HSAVE_PA = 0xC0010117,// AMD
 };
 // Model Specific Register
 _ESYM_C uint64 getMSR(x86MSR offset);

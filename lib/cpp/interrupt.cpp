@@ -162,7 +162,7 @@ bool uni::InterruptControl::Initialize(byte typ) {
 		WriteLAPIC(0x360, mask); // LVT LINT1
 		WriteLAPIC(0x370, mask); // LVT Error
 		
-		ploginfo("[IC] APIC Mode %d Initialized", typ);
+		// ploginfo("[IC] APIC Mode %d Initialized", typ);
 	}
 	else if (!pic_set) {
 		_IC_INIT_PIC();

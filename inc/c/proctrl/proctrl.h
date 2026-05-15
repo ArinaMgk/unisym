@@ -22,10 +22,10 @@
 //{TODO} in uoption: _PCU_CortexM7
 enum Procontroller_t // work with Architecture_t
 {
-	PCU_Intel8086,
-	PCU_AMD_Ryzen7_5800H_Radeon, //{TODO} for `_CPU_AMDRyzen7_5800H_Radeon`
+	PCU_Unknown,
 	//
-	PCU_Unknown
+	PCU_Intel,
+	PCU_AMD, //{TODO} for `_CPU_AMDRyzen7_5800H_Radeon`
 };
 
 #if defined(_MCU_Intel8051) // Keil-C51 does not accept enum-element as macro-parameter

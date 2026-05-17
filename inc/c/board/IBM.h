@@ -155,6 +155,17 @@ enum _PORT {
 	//{} 0x03E8, 0x03E9	COM3（串口3）
 
 	PORT_IDE_ControlBlock_0 = 0x03F6,
+	// Floppy Disk
+	PORT_FDC_SRA  = 0x3F0,
+	PORT_FDC_SRB  = 0x3F1,
+	PORT_FDC_DOR  = 0x3F2, // Digital Output Register
+	PORT_FDC_TDR  = 0x3F3,
+	PORT_FDC_MSR  = 0x3F4, // Main Status Register (Read)
+	PORT_FDC_DSR  = 0x3F4, // Data Rate Select Register (Write)
+	PORT_FDC_FIFO = 0x3F5, // Data FIFO
+	//       IDE
+	PORT_FDC_DIR = 0x3F7, // Digital Input Register (Read)
+	PORT_FDC_CCR  = 0x3F7, // Configuration Control Register (Write)
 
 	// Serial Port 1
 	PORT_COM1_DATA = 0x03F8, // COM1 Data Register,  or Divisor Latch LSB (LCR&0x80==1)

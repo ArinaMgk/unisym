@@ -7,26 +7,18 @@
 [BITS 32]
 
 %macro DefExc 1
-	POP  EAX
-	PUSH EBP
-	MOV  EBP, ESP
-	PUSHAD
-	PUSH EAX
 	PUSH DWORD %1
-	JMP  ERQ_Handler
+	JMP  Handint_Common_Stub
 %endmacro
 %macro DefExc_nopara 1
-	PUSH EBP
-	MOV  EBP, ESP
-	PUSHAD
 	PUSH DWORD 0
-	PUSH DWORD ~%1
-	JMP  ERQ_Handler
+	PUSH DWORD %1
+	JMP  Handint_Common_Stub
 %endmacro
 
 %ifdef _MCCA
 %if _MCCA==0x8632
-EXTERN exception_handler
+EXTERN Handint_Common_Stub
 GLOBAL PG_PUSH, PG_POP; PUSH 6*DWORD
 
 ROOT_PAGING EQU 0x00100000
@@ -117,19 +109,6 @@ PG_POP:
 	PUSH ESI
 	RET
 
-ERQ_Handler:
-	POP  EBX
-	POP  EDI
-	CALL PG_PUSH
-	PUSH EDI
-	PUSH EBX
-	CALL exception_handler
-	ADD  ESP, 4*2
-	CALL PG_POP
-	POPAD
-	LEAVE
-IRET
-
 GLOBAL Divide_By_Zero_ERQHandler; 0x00
 Divide_By_Zero_ERQHandler:
 	DefExc_nopara 0x00
@@ -140,11 +119,7 @@ Step_ERQHandler:
 
 GLOBAL NMI_ERQHandler; 0x02
 NMI_ERQHandler:
-	CALL PG_PUSH
-	PUSH DWORD ~0x02
-	CALL exception_handler
-HLT
-
+	DefExc_nopara 0x02
 
 GLOBAL Breakpoint_ERQHandler; 0x03
 Breakpoint_ERQHandler:
@@ -160,15 +135,7 @@ Bound_ERQHandler:
 
 GLOBAL Invalid_Opcode_ERQHandler; 0x06
 Invalid_Opcode_ERQHandler:
-	PUSHAD
-	CALL PG_PUSH
-	PUSH DWORD ~0x06
-	CALL exception_handler
-	POP  EAX
-	CALL PG_POP
-	POPAD
-	ADD  DWORD[ESP], 2; length of UD
-IRET
+	DefExc_nopara 0x06
 
 GLOBAL Coprocessor_Not_Available_ERQHandler; 0x07
 Coprocessor_Not_Available_ERQHandler:
@@ -200,25 +167,7 @@ x0D_ERQHandler:
 
 GLOBAL Page_Fault_ERQHandler; 0x0E
 Page_Fault_ERQHandler:
-; CR2 is virtual address
-	POP  EAX
-	PUSH EBP
-	MOV  EBP, ESP
-	PUSHAD
-	PUSH EAX
-	PUSH DWORD 0x0E
-	POP  EBX
-	POP  EDI
-	CALL PG_PUSH
-	PUSH EDI
-	PUSH EBX
-	; MOV  EDI, CR3
-	CALL exception_handler
-	ADD  ESP, 4*2
-	CALL PG_POP
-	POPAD
-	LEAVE
-IRET
+	DefExc 0x0E
 
 GLOBAL x0F_ERQHandler; 0x0F
 x0F_ERQHandler:
@@ -244,12 +193,9 @@ GLOBAL Virtualization_Exception_ERQHandler; 0x14
 Virtualization_Exception_ERQHandler:
 	DefExc_nopara 0x14
 
-;
-
 GLOBAL Else_ERQHandler
 Else_ERQHandler:
 	DefExc_nopara 0x20
-
 
 %endif
 %endif

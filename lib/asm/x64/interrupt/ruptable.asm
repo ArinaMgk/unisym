@@ -7,22 +7,18 @@
 [BITS 64]
 
 %macro DefExc 1
-	PUSH %1
-	CALL ERQ_Handler
-	ADD RSP, 8*2
-	HLT
+	PUSH QWORD %1
+	JMP  Handint_Common_Stub_64
 %endmacro
 %macro DefExc_nopara 1
-	PUSH RAX; store a meaningless value to occupy
-	PUSH %1
-	CALL ERQ_Handler
-	ADD RSP, 8*2
-	HLT
+	PUSH QWORD 0
+	PUSH QWORD %1
+	JMP  Handint_Common_Stub_64
 %endmacro
 
 %ifdef _MCCA
 %if _MCCA==0x8664
-EXTERN exception_handler
+EXTERN Handint_Common_Stub_64
 GLOBAL PG_PUSH, PG_POP; PUSH 6*DWORD
 
 OFF_R15 EQU 0x00
@@ -168,56 +164,6 @@ PG_POP:
 	PUSH R10
 RET
 
-ERQ_Handler:
-	PUSH RAX
-	MOV EAX, ES
-	PUSH RAX
-	MOV EAX, DS
-	PUSH RAX
-	PUSH RBP
-	PUSH RDI
-	PUSH RSI
-	PUSH RDX
-	PUSH RCX
-	PUSH RBX
-	PUSH R8
-	PUSH R9
-	PUSH R10
-	PUSH R11
-	PUSH R12
-	PUSH R13
-	PUSH R14
-	PUSH R15
-	CLD
-	CALL PG_PUSH
-	; CALL: x64 System VCall
-	MOV RDI, [RSP + OFF_FUN + 8*2]
-	MOV RSI, [RSP + OFF_ERR + 8*2]
-	CALL exception_handler
-RET_EXCEPTION:
-	CALL PG_POP
-	POP R15
-	POP R14
-	POP R13
-	POP R12
-	POP R11
-	POP R10
-	POP R9
-	POP R8
-	POP RBX
-	POP RCX
-	POP RDX
-	POP RSI
-	POP RDI
-	POP RBP
-	POP RAX
-	MOV DS, EAX
-	POP RAX
-	MOV ES, EAX
-	POP RAX
-RET
-
-
 GLOBAL Divide_By_Zero_ERQHandler; 0x00
 Divide_By_Zero_ERQHandler:
 	DefExc_nopara 0x00
@@ -228,12 +174,7 @@ Step_ERQHandler:
 
 GLOBAL NMI_ERQHandler; 0x02
 NMI_ERQHandler:
-	; CALL PG_PUSH
-	MOV  EAX, 0x02
-	NOT  RAX
-	PUSH RAX
-	CALL exception_handler
-HLT
+	DefExc_nopara 0x02
 
 GLOBAL Breakpoint_ERQHandler; 0x03
 Breakpoint_ERQHandler:
@@ -249,12 +190,7 @@ Bound_ERQHandler:
 
 GLOBAL Invalid_Opcode_ERQHandler; 0x06
 Invalid_Opcode_ERQHandler:
-	PUSH RAX; store a meaningless value to occupy
-	PUSH 0x06
-	CALL ERQ_Handler
-	ADD  RSP, 8*2
-	ADD  QWORD[RSP], 2
-IRETQ
+	DefExc_nopara 0x06
 
 GLOBAL Coprocessor_Not_Available_ERQHandler; 0x07
 Coprocessor_Not_Available_ERQHandler:
@@ -286,13 +222,8 @@ x0D_ERQHandler:
 
 GLOBAL Page_Fault_ERQHandler; 0x0E
 Page_Fault_ERQHandler:
-; CR2 is virtual address
-	;PUSH R15
-	PUSH 0x0E
-	MOV R15, CR3
-	CALL ERQ_Handler
-	ADD RSP, 8*2
-	HLT
+	; MOV R15, CR3
+	DefExc 0x0E
 
 GLOBAL x0F_ERQHandler; 0x0F
 x0F_ERQHandler:

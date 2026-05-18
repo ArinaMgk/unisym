@@ -99,7 +99,8 @@ namespace uni {
 			error_number = 2;
 			return false;
 		}
-		if (buffer_sector[510] != 0x55 || buffer_sector[511] != 0xAA) {
+		if ((buffer_sector[510] != 0x55 || buffer_sector[511] != 0xAA) &&
+			(buffer_sector[storage->Block_Size - 2] != 0x55 || buffer_sector[storage->Block_Size - 1] != 0xAA)) {
 			error_number = 3;
 			return false;
 		}
@@ -153,7 +154,8 @@ namespace uni {
 		
 		auto process_sector = [&](uint32_t sector) -> DirWalkResult {
 			if (!storage->Read(sector, buffer_sector)) return WALK_END;
-			for (int i = 0; i < 16; i++) {
+			int entries_per_sector = storage->Block_Size / 32;
+			for (int i = 0; i < entries_per_sector; i++) {
 				FAT_DirEntry* entry = (FAT_DirEntry*)&buffer_sector[i * 32];
 				if ((byte)entry->name[0] == 0x00u) return WALK_END; // End of dir
 				if ((byte)entry->name[0] == 0xE5u || (byte)entry->name[0] == 0x05u) {
@@ -350,7 +352,8 @@ namespace uni {
 
 		auto process_sector = [&](uint32_t sector) -> bool {
 			if (!storage->Read(sector, buffer_sector)) return false;
-			for (int i = 0; i < 16; i++) {
+			int entries_per_sector = storage->Block_Size / 32;
+			for (int i = 0; i < entries_per_sector; i++) {
 				FAT_DirEntry* entry = &cast<FAT_DirEntry*>(buffer_sector)[i];
 				if ((byte)entry->name[0] == 0x00u) return false; // end of dir
 				if ((byte)entry->name[0] == 0xE5u || (byte)entry->name[0] == 0x05u) {

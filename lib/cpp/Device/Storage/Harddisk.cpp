@@ -169,5 +169,41 @@ namespace uni {
 		return slice;
 	}
 
+	byte Harddisk_PATA::ProbeDevice() {
+		Reset();
+		
+		// First check standard ATAPI signature (0x14EB) after reset
+		// This is the most authoritative hardware identifier.
+		// Even if status is 0x00 (e.g., VMware CD-ROM with no disc or in sleep), 
+		// if LBA_MID/LBA_HIGH signature matches 0x14EB, it is absolutely a CD-ROM device!
+		byte mid = innpb(io_base + REG_LBA_MID);
+		byte high = innpb(io_base + REG_LBA_HIGH);
+		if (mid == 0x14 && high == 0xEB) {
+			return 2; // ATAPI CD-ROM device
+		}
+		
+		// Check if status register is unasserted (0x00) or floating (0xFF)
+		// For a real ATA Hard Disk, status will never be 0x00 or 0xFF.
+		// For an empty slot (such as in QEMU), status is 0x00 or 0xFF.
+		byte status = getStatus();
+		if (status == 0x00 || status == 0xFF) {
+			return 0; // Device not present on this slot
+		}
+		
+		// Write pattern to Sector Count and LBA Low registers (for ATA Hard Disk validation)
+		outpb(io_base + REG_NSECTOR, 0x55);
+		outpb(io_base + REG_LBA_LOW, 0xAA);
+		
+		// Read back the pattern to verify device presence
+		byte nsector = innpb(io_base + REG_NSECTOR);
+		byte lba_low = innpb(io_base + REG_LBA_LOW);
+		if (nsector == 0x55 && lba_low == 0xAA) {
+			return 1; // ATA Hard Disk
+		}
+		
+		return 0; // Device not present on this slot
+	}
+
 }
 #endif
+

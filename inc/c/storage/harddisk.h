@@ -34,6 +34,9 @@
 #define ATA_WRITE    0x30
 #define ATA_IDENTIFY 0xEC
 
+#define ATAPI_CMD_PACKET 0xA0
+#define ATAPI_CMD_IDENTIFY 0xA1
+
 namespace uni {
 
 #if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
@@ -100,8 +103,10 @@ namespace uni {
 		virtual PartitionSlice getSlice(stduint dev) override;
 
 		byte getID() const { return id; }
-		byte getHigID() const { return id >> 4; }
-		byte getLowID() const { return id & 0x0F; }
+		byte getHigID() const { return id / 2; } // 0 = Primary, 1 = Secondary
+		byte getLowID() const { return id % 2; } // 0 = Master, 1 = Slave
+		
+		byte ProbeDevice(); // Returns: 0 = None, 1 = HDD, 2 = CD
 
 		// Initialize()
 		void Reset();
@@ -114,7 +119,16 @@ namespace uni {
 	};
 
 
-
+	class xCD_ATAPI : public Harddisk_PATA {
+	public:
+		xCD_ATAPI(byte id = 0) : Harddisk_PATA(id) {
+			Block_Size = 2048; // CD-ROM sector size is 2048 bytes
+		}
+		virtual bool Read(stduint BlockIden, void* Dest) override;
+		virtual bool Write(stduint BlockIden, const void* Sors) override { return false; } // CD-ROM is read-only
+		virtual stduint getUnits() override;
+		virtual PartitionSlice getSlice(stduint dev) override;
+	};
 
 }
 #endif

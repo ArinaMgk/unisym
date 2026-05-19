@@ -72,13 +72,10 @@ enum Signal {
 
 #define _NSIG 65
 
-#if !defined(__sigset_t_defined) && !defined(_SIGSET_T_DEFINED)
-#define _SIGSET_T_DEFINED
-// Signal sets
-typedef struct {
+// Use unique name to avoid conflict with system libc's sigset_t
+typedef struct _POSIX_sigset_t {
 	uint64_t sig[1];
-} sigset_t;
-#endif
+} _POSIX_sigset_t;
 
 // Internal helper to access the first 64 bits of a signal set
 #define _sigset_raw(set) (*(uint64_t*)(set))
@@ -100,13 +97,14 @@ typedef struct {
 } siginfo_t;
 #endif
 
-// sigaction structure
-struct sigaction {
+// UNISYM-specific sigaction structure
+// Use unique name to avoid conflict with system libc's struct sigaction
+struct _POSIX_sigaction {
 	union {
 		__sighandler_t sa_handler;
 		void (*sa_sigaction)(int, siginfo_t*, void*);
 	} __sigaction_handler;
-	sigset_t sa_mask;
+	_POSIX_sigset_t sa_mask;
 	int sa_flags;
 	void (*sa_restorer)(void);
 };
@@ -123,15 +121,15 @@ struct sigaction {
 #define SA_NODEFER		0x40000000
 #define SA_RESETHAND	0x80000000
 
-// Signal functions
+// Signal functions (use _POSIX_ prefixed types)
 __sighandler_t signal(int sig, __sighandler_t handler);
-int sigaction(int sig, const struct sigaction* act, struct sigaction* oact);
+int sigaction(int sig, const struct _POSIX_sigaction* act, struct _POSIX_sigaction* oact);
 int kill(pid_t pid, int sig);
-int sigemptyset(sigset_t* set);
-int sigfillset(sigset_t* set);
-int sigaddset(sigset_t* set, int signo);
-int sigdelset(sigset_t* set, int signo);
-int sigismember(const sigset_t* set, int signo);
+int sigemptyset(_POSIX_sigset_t* set);
+int sigfillset(_POSIX_sigset_t* set);
+int sigaddset(_POSIX_sigset_t* set, int signo);
+int sigdelset(_POSIX_sigset_t* set, int signo);
+int sigismember(const _POSIX_sigset_t* set, int signo);
 
 #ifdef __cplusplus
 }

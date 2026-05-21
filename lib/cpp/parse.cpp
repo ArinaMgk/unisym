@@ -1,4 +1,4 @@
-﻿// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Data) Token Node Parse Instructions and Directives
 // Codifiers: @ArinaMgk 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -84,7 +84,7 @@ namespace uni
 
 	#define apd() do { \
 		if (!(method_omit_spaces && CrtTType == tok_spaces || method_omit_comment && CrtTType == tok_comment)) \
-		{ TokenAppend(dc, linebuf->reference(), linebuf->getCharCount(), CrtTType, crtline_ento, crtcol_ento); } \
+		{ TokenAppend(dc, linebuf->reference(), linebuf->getByteCount(), CrtTType, crtline_ento, crtcol_ento); } \
 		linebuf->Clear();\
 		} while (0)
 
@@ -281,17 +281,17 @@ namespace uni
 			{
 				EatLinefeed(self, c);
 				bool line_continuation = method_line_continuation &&
-					linebuf->getCharCount() && (*linebuf)[linebuf->getCharCount() - 1] == '\\';
+					linebuf->getByteCount() && (*linebuf)[linebuf->getByteCount() - 1] == '\\';
 				// no consider: directive, comment
 				++pos.y;
 				// if (CrtTType == tok_direct); else
 				if (!line_continuation) {
-					if (linebuf->getCharCount()) apd();
+					if (linebuf->getByteCount()) apd();
 					CrtTType = tok_any;
 					crtline_ento = pos.y;
 					crtcol_ento = pos.x = 1; //_Default_Row_or_Col;
 				}
-				else if (linebuf->getCharCount() > 1) {
+				else if (linebuf->getByteCount() > 1) {
 					linebuf->inn_rear();
 				}
 				else if (dc.Count()) {
@@ -318,7 +318,7 @@ namespace uni
 					while ((c = getChar()) != EOF && c != '\n' && c != '\r')
 						setChar(c);
 					line_continuation = method_line_continuation &&
-						linebuf->getCharCount() && (*linebuf)[linebuf->getCharCount() - 1] == '\\';
+						linebuf->getByteCount() && (*linebuf)[linebuf->getByteCount() - 1] == '\\';
 					if (line_continuation) linebuf->inn_rear();
 					apd();
 					if (line_continuation) {
@@ -406,7 +406,7 @@ namespace uni
 				CrtTType = getctype(c);
 			}
 		}
-		if (linebuf->getCharCount()) apd();
+		if (linebuf->getByteCount()) apd();
 		return dc;
 	}
 

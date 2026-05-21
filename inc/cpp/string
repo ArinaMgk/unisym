@@ -52,6 +52,10 @@ namespace uni {
 
 	typedef Slice_T<byte> Slice;
 
+	// Forward declaration so String knows what StringFixed is
+	template <typename CharT>
+	class StringFixed;
+	using String32 = StringFixed<char32_t>;
 
 	// dosconio style: you need read this carefully, because the others are greatly different from this!
 	class String
@@ -63,9 +67,8 @@ namespace uni {
 	public:
 		enum class Charset {
 			Memory,
-			ASCIZ,// ASCII, the only one terminated with zero
 			UPECOrigin,
-			UTF8,
+			UTF8,// UTF-8, compatible with ASCIZ (terminated with zero)
 		};
 
 	protected:
@@ -92,12 +95,18 @@ namespace uni {
 			return -1;
 		}
 	public:
-		Charset charset = Charset::ASCIZ;
+		Charset charset = Charset::UTF8;
 
-		//////// There are 4 ASCIZ constructors
+		//////// There are 4 UTF-8 constructors
 
 		// strheap
-		String(const char* str_asciz = "");
+		String(const char* utf8_str = "");
+		String(decltype(nullptr)) {
+			this->allocated = false;
+			this->counts = 0;
+			this->addr = nullptr;
+			this->limits = 0;
+		}
 		// class-constructor
 		String(const String& str);
 		// give the [buffer_siz ? buffer : heap-in] string an alias
@@ -106,16 +115,23 @@ namespace uni {
 		// define a heap string with a fixed length, keep it zero-initialized
 		String(stduint buflen);
 
+		// Moving Constructor
+		String(String&& str) noexcept;
+		String& operator=(String&& str) noexcept;
+
 		//////// There are other constructors
 		String(Charset charset, rostr str = "");
 
 
 		~String();
 
+		// Get the number of raw bytes (O(1))
+		stduint getByteCount() const { return counts; }
+
 		// Do Refresh() after modifying this
 		// e.g. "フィーナ" is 4
 		stduint getCharCount() const;
-		_Comment(outdated) size_t length() {
+		_Comment(outdated) size_t length() const {
 			//{20250424} removed: Refresh();
 			return getCharCount();
 		}
@@ -171,9 +187,23 @@ namespace uni {
 
 		//{TODO} getChar but Byte
 		char& operator[] (stdsint idx) {
-			stduint len = length();
-			if (!len) return addr[0];
-			while (idx < 0) idx += len;
+			stduint len = counts;
+			if (!len || !addr) {
+				static char dummy = '\0';
+				return dummy;
+			}
+			idx = idx % (stdsint)len;
+			if (idx < 0) idx += len;
+			return addr[idx];
+		}
+		const char& operator[] (stdsint idx) const {
+			stduint len = counts;
+			if (!len || !addr) {
+				static const char dummy = '\0';
+				return dummy;
+			}
+			idx = idx % (stdsint)len;
+			if (idx < 0) idx += len;
 			return addr[idx];
 		}
 		String& operator<< (char chr);
@@ -211,6 +241,7 @@ namespace uni {
 		// ----
 
 		//{}  (ASCIZ)
+		// ! Call this after reflect()
 		String& Refresh() {
 			counts = minof(StrLength(addr), limits);
 			return self;
@@ -240,6 +271,102 @@ namespace uni {
 			return self;
 		}
 
+		// ---- ---- ---- ---- ----
+		// Represents a Unicode Code Point
+		using Rune = char32_t;
+
+		String(const char32_t* str_utf32);
+		String(Rune cp);
+		String(const String32& str32);
+		String32 toUTF32() const;
+
+		// UTF-8 Character Iterator
+		class Utf8Iterator {
+		private:
+			const char* ptr;
+			const char* end;
+			Rune current_rune;
+			stduint current_bytes;
+
+			// Decode the next UTF-8 sequence
+			void decode() {
+				if (ptr >= end) {
+					current_rune = 0;
+					current_bytes = 0;
+					return;
+				}
+
+				unsigned char byte_val = static_cast<unsigned char>(*ptr);
+				if (byte_val <= 0x7F) {
+					current_rune = byte_val;
+					current_bytes = 1;
+				}
+				else if ((byte_val & 0xE0) == 0xC0) {
+					current_rune = byte_val & 0x1F;
+					current_bytes = 2;
+				}
+				else if ((byte_val & 0xF0) == 0xE0) {
+					current_rune = byte_val & 0x0F;
+					current_bytes = 3;
+				}
+				else if ((byte_val & 0xF8) == 0xF0) {
+					current_rune = byte_val & 0x07;
+					current_bytes = 4;
+				}
+				else {
+				// Invalid encoding, use Replacement Character
+					current_rune = 0xFFFD;
+					current_bytes = 1;
+				}
+
+				// Read continuation bytes safely
+				for (stduint i = 1; i < current_bytes; ++i) {
+					if (ptr + i >= end) {
+						current_rune = 0xFFFD;
+						current_bytes = i;
+						break;
+					}
+					unsigned char next_val = static_cast<unsigned char>(ptr[i]);
+					if ((next_val & 0xC0) != 0x80) {
+						current_rune = 0xFFFD;
+						current_bytes = i;
+						break;
+					}
+					current_rune = (current_rune << 6) | (next_val & 0x3F);
+				}
+			}
+
+		public:
+			Utf8Iterator(const char* p, const char* e) : ptr(p), end(e) { decode(); }
+
+			// Dereference returns the Unicode Code Point
+			Rune operator*() const { return current_rune; }
+
+			// Prefix increment
+			Utf8Iterator& operator++() {
+				ptr += current_bytes;
+				decode();
+				return *this;
+			}
+
+			// Comparison
+			bool operator!=(const Utf8Iterator& other) const { return ptr != other.ptr; }
+			bool operator==(const Utf8Iterator& other) const { return ptr == other.ptr; }
+		};
+
+		// Provide iteration methods (like Rust's .chars())
+		Utf8Iterator chars_begin() const {
+			return Utf8Iterator(addr, addr + counts);
+		}
+		Utf8Iterator chars_end() const {
+			return Utf8Iterator(addr + counts, addr + counts);
+		}
+		struct CharsView {
+			const String& str;
+			Utf8Iterator begin() const { return str.chars_begin(); }
+			Utf8Iterator end() const { return str.chars_end(); }
+		};
+		CharsView chars() const { return CharsView{ *this }; }
 
 		// [Abandoned]
 		// const char* operator[] (char chr) { return StrIndexChar(addr, chr); }
@@ -248,6 +375,160 @@ namespace uni {
 		// String& operator=(char* addr) { return(self = uni::String(addr)); }
 		// not recommend: provide operator const char*()
 	};//{TODO} option for allocating extra area for chars, aka vec<char>
+
+	// Fixed-length string template, ideal for UTF-32 or pure ASCII
+	template <typename CharT>
+	class StringFixed {
+		friend class String;
+	protected:
+		CharT* addr;
+		stduint limits; // Capacity in terms of elements (CharT), including terminator
+		stduint counts; // Effective count of elements
+		bool allocated; // true if memory is managed by this object (heap)
+
+	public:
+		// Default Constructor
+		StringFixed() : addr(nullptr), limits(0), counts(0), allocated(false) {}
+
+		// Heap allocation constructor initialized with zero
+		StringFixed(stduint buflen) {
+			this->limits = buflen;
+			this->counts = 0;
+			this->allocated = true;
+			// Assuming zalc allocates zeroed memory and takes bytes
+			this->addr = (CharT*)zalc(buflen * sizeof(CharT));
+		}
+
+		// Buffer alias constructor (No heap allocation)
+		StringFixed(CharT* buffer, stduint buffer_siz, stduint current_counts = 0) {
+			this->addr = buffer;
+			this->limits = buffer_siz;
+			this->counts = current_counts;
+			this->allocated = false;
+		}
+
+		// Move Constructor
+		StringFixed(StringFixed&& str) noexcept {
+			this->addr = str.addr;
+			this->counts = str.counts;
+			this->limits = str.limits;
+			this->allocated = str.allocated;
+
+			str.addr = nullptr;
+			str.counts = 0;
+			str.limits = 0;
+			str.allocated = false;
+		}
+
+		// Move Assignment Operator
+		StringFixed& operator=(StringFixed&& str) noexcept {
+			if (this == &str) return *this;
+
+			if (this->allocated && this->addr) {
+				memf(this->addr);
+			}
+
+			this->addr = str.addr;
+			this->counts = str.counts;
+			this->limits = str.limits;
+			this->allocated = str.allocated;
+
+			str.addr = nullptr;
+			str.counts = 0;
+			str.limits = 0;
+			str.allocated = false;
+
+			return *this;
+		}
+
+		// Destructor
+		~StringFixed() {
+			if (allocated && addr) {
+				memf(addr);
+			}
+			addr = nullptr;
+			counts = 0;
+			limits = 0;
+			allocated = false;
+		}
+
+		// Copy Constructor
+		StringFixed(const StringFixed& str) {
+			this->counts = str.counts;
+			this->limits = str.limits;
+			this->allocated = str.allocated;
+			if (str.allocated && str.addr) {
+				this->addr = (CharT*)zalc(this->limits * sizeof(CharT));
+				for (stduint i = 0; i < this->counts; ++i) {
+					this->addr[i] = str.addr[i];
+				}
+			} else {
+				this->addr = str.addr;
+			}
+		}
+
+		// Copy Assignment Operator
+		StringFixed& operator=(const StringFixed& str) {
+			if (this == &str) return *this;
+
+			if (this->allocated && this->addr) {
+				memf(this->addr);
+			}
+
+			this->counts = str.counts;
+			this->limits = str.limits;
+			this->allocated = str.allocated;
+
+			if (str.allocated && str.addr) {
+				this->addr = (CharT*)zalc(this->limits * sizeof(CharT));
+				for (stduint i = 0; i < this->counts; ++i) {
+					this->addr[i] = str.addr[i];
+				}
+			} else {
+				this->addr = str.addr;
+			}
+			return *this;
+		}
+
+		// O(1) Length retrieval. Since it is fixed length, counts == real character count
+		stduint length() const {
+			return counts;
+		}
+
+		// Raw pointer access
+		const CharT* reference() const {
+			return addr;
+		}
+
+		// O(1) Random Access Operator with negative index support
+		// Completely safe because every element is exactly one character
+		CharT& operator[] (stdsint idx) {
+			stduint len = counts;
+			if (!len || !addr) {
+				static CharT dummy = 0;
+				return dummy;
+			}
+			idx = idx % (stdsint)len;
+			if (idx < 0) idx += len;
+			return addr[idx];
+		}
+
+		const CharT& operator[] (stdsint idx) const {
+			stduint len = counts;
+			if (!len || !addr) {
+				static const CharT dummy = 0;
+				return dummy;
+			}
+			idx = idx % (stdsint)len;
+			if (idx < 0) idx += len;
+			return addr[idx];
+		}
+	};
+
+	// Commonly used aliases
+	using String8 = StringFixed<uint8_t>;  // Pure ASCII or raw bytes
+	using String16 = StringFixed<uint16_t>; // UTF-16
+	using String32 = StringFixed<char32_t>; // UTF-32 (The ultimate O(1) Unicode string)
 
 }
 

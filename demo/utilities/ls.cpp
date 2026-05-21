@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 				} else if (argv[i][j] == 'h') {
 					opt_h = true;
 				} else {
-					outsfmt("ls: invalid option -- '%c'\n", argv[i][j]);
+					outsfmt("ls: invalid option -- '%c'\n\r", argv[i][j]);
 					return 1;
 				}
 			}
@@ -64,13 +64,13 @@ int main(int argc, char *argv[]) {
 			if (opt_l) {
 				char szbuf[32];
 				format_size(szbuf, st.st_size, opt_h);
-				outsfmt("-rw-r--r--  %s  %s\n", szbuf, path);
+				outsfmt("-rw-r--r--  %s  %s\n\r", szbuf, path);
 			} else {
-				outsfmt("%s\n", path);
+				outsfmt("%s\n\r", path);
 			}
 			return 0;
 		}
-		outsfmt("ls: cannot access '%s': No such file or directory\n", path);
+		outsfmt("ls: cannot access '%s': No such file or directory\n\r", path);
 		return 1;
 	}
 
@@ -99,17 +99,17 @@ int main(int argc, char *argv[]) {
 				char szbuf[32];
 				format_size(szbuf, st.st_size, opt_h);
 				const char* type_str = S_ISDIR(st.st_mode) ? "drwxr-xr-x" : "-rw-r--r--";
-				outsfmt("%s  %s  %s\n", type_str, szbuf, entry->d_name);
+				outsfmt("%s  %s  %s\n\r", type_str, szbuf, entry->d_name);
 			} else {
 				const char* type_str = (entry->d_type == DT_DIR) ? "drwxr-xr-x" : "-rw-r--r--";
-				outsfmt("%s  ?  %s\n", type_str, entry->d_name);
+				outsfmt("%s  ?  %s\n\r", type_str, entry->d_name);
 			}
 		} else {
 			outsfmt("%s  ", entry->d_name);
 		}
 	}
 	if (!opt_l) {
-		outsfmt("\n");
+		outsfmt("\n\r");
 	}
 
 	closedir(dir);

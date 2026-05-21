@@ -42,6 +42,17 @@ extern "C" {
 
 	// open in fcntl.h
 
+	/// @brief  change current working directory
+	/// @param  path: target directory path
+	/// @return 0 if successful, -1 if error
+	int chdir(const char* path);
+
+	/// @brief  get current working directory
+	/// @param  buf: destination buffer
+	/// @param  size: size of the buffer
+	/// @return pointer to buf if successful, NULL if error
+	char* getcwd(char* buf, size_t size);
+
 	/// @brief  close file
 	/// @param fd: file descriptor
 	/// @return: 0 if successful, -1 if error

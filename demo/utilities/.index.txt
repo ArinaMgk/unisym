@@ -1,2 +1,11 @@
 # UTF-8
 - cal calendar「カレンダー」
+
+---
+
+ls
+rm
+pwd
+cp
+mv
+

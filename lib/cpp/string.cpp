@@ -74,11 +74,13 @@ namespace uni {
 		limits = buffer_siz;
 		allocated = nil == buffer_siz;
 	}
-	String::String(stduint buflen) {
-		this->addr = (char*)zalc(buflen);
+	String::String(Charset charset, stduint buflen) {
+		if (!buflen) buflen = 1;
+		this->addr = buflen ? (char*)zalc(buflen) : nullptr;
 		this->counts = 0;
 		limits = buflen;
 		allocated = true;
+		this->charset = charset;
 	}
 
 	String::String(String&& str) noexcept {
@@ -121,23 +123,9 @@ namespace uni {
 		return self;
 	}
 
-	String::String(Charset charset, rostr str) {
-		allocated = str;
-		if (allocated) {
-			this->counts = StrLength(str);
-			this->limits = counts + 1;
-			this->addr = (char*)malc(limits);
-			StrCopy(this->addr, str);
-		}
-		else {
-			this->counts = 0;
-			this->limits = 0;
-			this->allocated = false;
-		}
-		this->charset = charset;
-	}
 
-// Construct from a UTF-32 string literal (C++11 U"...")
+
+	// Construct from a UTF-32 string literal (C++11 U"...")
 	String::String(const char32_t* str_utf32) {
 		this->allocated = true;
 		this->charset = Charset::UTF8;
@@ -243,7 +231,7 @@ namespace uni {
 	}
 
 	String::~String() {
-		if (allocated) memf(this->addr);
+		if (allocated && this->addr) memf(this->addr);
 		this->addr = NULL;
 		this->counts = 0;
 		limits = 0;

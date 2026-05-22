@@ -113,14 +113,12 @@ namespace uni {
 		// use this to contain (give an alias to) a string (char*) in heap
 		String(char* str, stduint buffer_siz);
 		// define a heap string with a fixed length, keep it zero-initialized
-		String(stduint buflen);
+		// add charset for avoid conflict and decide Memory or UTF-8
+		String(Charset charset, stduint buflen = 32);
 
 		// Moving Constructor
 		String(String&& str) noexcept;
 		String& operator=(String&& str) noexcept;
-
-		//////// There are other constructors
-		String(Charset charset, rostr str = "");
 
 
 		~String();

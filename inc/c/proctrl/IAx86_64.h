@@ -391,4 +391,8 @@ void EnableSSE();
 
 unsigned IfSupport_IA32E();
 
+inline static void RefreshVirtualAddress(stduint addr) {
+	__asm__ volatile("invlpg (%0)" : : "r"(addr) : "memory");
+}
+
 #endif

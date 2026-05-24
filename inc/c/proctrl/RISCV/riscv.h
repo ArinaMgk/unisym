@@ -272,6 +272,10 @@ static inline void FlushTLB() {
 	asm volatile("sfence.vma zero, zero");
 }
 
+inline static void RefreshVirtualAddress(stduint addr) {
+	asm volatile("sfence.vma zero, zero");
+}
+
 
 #define _PTE_V (1L << 0) // valid
 #define _PTE_R (1L << 1)

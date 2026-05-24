@@ -47,5 +47,9 @@ static inline void HALT_EVENT()
 	_ASM volatile("wfe");
 }
 
+inline static void RefreshVirtualAddress(stduint addr) {
+	_ASM volatile("dsb sy" : : : "memory");
+	_ASM volatile("isb" : : : "memory");
+}
 
 #endif

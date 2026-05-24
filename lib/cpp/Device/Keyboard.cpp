@@ -82,11 +82,11 @@ namespace uni::device::SpaceUSB {
 	}
 
 	void HIDKeyboardDriver::SubscribeKeyPush(
-		std::function<void(keyboard_event_t)> observer) {
+		ObserverType observer) {
 		observers_[num_observers_++] = observer;
 	}
 
-	std::function<HIDKeyboardDriver::ObserverType> HIDKeyboardDriver::default_observer;
+	HIDKeyboardDriver::ObserverType HIDKeyboardDriver::default_observer;
 
 	void HIDKeyboardDriver::NotifyKeyPush(keyboard_event_t keyevent) {
 		for (int i = 0; i < num_observers_; ++i) {

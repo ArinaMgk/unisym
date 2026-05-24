@@ -46,7 +46,6 @@
 #if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 #include <setjmp.h>
 #include <iterator>
-#include <vector>
 #include "../../../../c/arith.h"
 #include "../USB-Header.hpp"
 #include "./xHCI-registers.hpp"

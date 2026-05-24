@@ -125,11 +125,11 @@ namespace uni::device::SpaceUSB {
 	}
 
 	void HIDMouseDriver::SubscribeMouseMove(
-		std::function<ObserverType> observer) {
+		ObserverType observer) {
 		observers_[num_observers_++] = observer;
 	}
 
-	std::function<HIDMouseDriver::ObserverType> HIDMouseDriver::default_observer;
+	HIDMouseDriver::ObserverType HIDMouseDriver::default_observer;
 
 	void HIDMouseDriver::NotifyMouseMove(MouseMessage mmsg) {
 		for (int i = 0; i < num_observers_; ++i) {

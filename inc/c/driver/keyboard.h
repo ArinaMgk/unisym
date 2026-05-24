@@ -106,7 +106,6 @@ _ESYM_C void KbdSetLED(byte stat);
 
 #if defined(_INC_CPP) && (defined(_MCCA) && ((_MCCA)==0x8664))
 #include "../../../inc/c/msgface.h"
-#include <functional>
 #include "../../cpp/Device/USB/USB.hpp"
 #include "../../cpp/Device/USB/USB-Header.hpp"
 
@@ -121,12 +120,12 @@ namespace uni::device::SpaceUSB {
 
 		Error OnDataReceived() override;
 
-		using ObserverType = void(keyboard_event_t keyevent);
-		void SubscribeKeyPush(std::function<ObserverType> observer);
-		static std::function<ObserverType> default_observer;
+		using ObserverType = void(*)(keyboard_event_t keyevent);
+		void SubscribeKeyPush(ObserverType observer);
+		static ObserverType default_observer;
 
 	private:
-		std::array<std::function<ObserverType>, 4> observers_;
+		std::array<ObserverType, 4> observers_;
 		int num_observers_ = 0;
 
 		void NotifyKeyPush(keyboard_event_t keyevent);

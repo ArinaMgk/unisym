@@ -1,4 +1,3 @@
-#include <vector>
 
 class Error {
 public:

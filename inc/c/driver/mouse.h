@@ -48,7 +48,6 @@ _ESYM_C void Mouse_Init();
 
 #if defined(_INC_CPP) && (defined(_UEFI))
 #include "../../../inc/c/msgface.h"
-#include <functional>
 #include "../../cpp/Device/USB/USB.hpp"
 #include "../../cpp/Device/USB/USB-Header.hpp"
 #include "../../cpp/Device/USB/xHCI/xHCI.hpp"
@@ -66,12 +65,12 @@ namespace uni::device::SpaceUSB {
 
 		Error OnDataReceived() override;
 
-		using ObserverType = void(MouseMessage mmsg);
-		void SubscribeMouseMove(std::function<ObserverType> observer);
-		static std::function<ObserverType> default_observer;
+		using ObserverType = void(*)(MouseMessage mmsg);
+		void SubscribeMouseMove(ObserverType observer);
+		static ObserverType default_observer;
 
 	private:
-		std::array<std::function<ObserverType>, 4> observers_;
+		std::array<ObserverType, 4> observers_;
 		int num_observers_ = 0;
 
 		void NotifyMouseMove(MouseMessage mmsg);

@@ -21,8 +21,11 @@ struct stat {
 	stduint st_mode;
 };
 
+typedef stduint mode_t;
+
 int fstat(int fd, struct stat *buf);
 int stat(const char *path, struct stat *buf);
+int mkdir(const char *path, mode_t mode);
 
 #if defined(_INC_CPP) || defined(__cplusplus)
 }

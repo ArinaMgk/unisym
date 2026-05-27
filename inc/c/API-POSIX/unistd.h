@@ -72,6 +72,11 @@ extern "C" {
 	/// @return: number of bytes written, -1 if error
 	stdsint write(int fd, const void* buf, size_t nbyte);
 
+	/// @brief  delete a name and possibly the file it refers to
+	/// @param  pathname: path to the file
+	/// @return 0 if successful, -1 if error
+	int unlink(const char* pathname);
+
 // ----
 
 

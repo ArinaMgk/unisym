@@ -663,6 +663,15 @@ namespace uni {
 					for (int k = 0; k < 8; k++) crt_self->esc_params[k] = 0;
 					consumed = true;
 				}
+				else if (c == 'c') {
+					// RIS - Reset to Initial State
+					crt_self->backcolor = crt_self->window.color;
+					crt_self->forecolor = ~crt_self->window.color;
+					crt_self->forecolor.a = ~crt_self->forecolor.a;
+					crt_self->Clear();
+					crt_self->esc_state = 0;
+					consumed = true;
+				}
 				else {
 					crt_self->esc_state = 0;
 				}

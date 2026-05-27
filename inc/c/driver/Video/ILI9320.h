@@ -84,7 +84,7 @@ namespace uni {
 		virtual Point GetCursor();
 		virtual void DrawPoint(const Point& disp, Color color);
 		virtual void DrawRectangle(const Rectangle& rect);
-		virtual void DrawFont(const Point& disp, const DisplayFont& font);
+		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str);
 		virtual Color GetColor(Point p);
 	public:
 

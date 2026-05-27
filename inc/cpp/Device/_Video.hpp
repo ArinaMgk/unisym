@@ -121,9 +121,7 @@ namespace uni {
 	}
 
 	struct DisplayFont {
-		pureptr_t addr;
 		pureptr_t family;
-		stduint numbers;
 		Color forecolor;
 		Size2 size;
 	};
@@ -138,7 +136,7 @@ namespace uni {
 		virtual Point GetCursor() const = 0;
 		virtual void DrawPoint(const Point& disp, Color color) const = 0;
 		virtual void DrawRectangle(const Rectangle& rect) const = 0;
-		virtual void DrawFont(const Point& disp, const DisplayFont& font) const = 0;
+		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str) const = 0;
 		virtual Color GetColor(Point p) const = 0;
 	public:
 		virtual void RollUp(stduint height, const Rectangle& rect) const;
@@ -163,7 +161,7 @@ namespace uni {
 				for0(x, minof(rect.width, size.x - rect.x))* p0++ = rect.color;
 			}
 		}
-		virtual void DrawFont(const Point& disp, const DisplayFont& font) const override {}
+		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str) const override {}
 		virtual Color GetColor(Point disp) const override {
 			return (disp < size) ? p[disp.y * size.x + disp.x] : Color::Black;
 		}
@@ -308,9 +306,9 @@ namespace uni {
 		// draw
 		void DrawLine(Point disp, Size2dif size, Color color);
 		inline void Draw(Point disp, Color color) { pvci->DrawPoint(disp, color); }
-		inline void Draw(Point disp, DisplayFont font) { pvci->DrawFont(disp, font); }
+		inline void Draw(Point disp, DisplayFont font, const String& str) { pvci->DrawFont(disp, font, str); }
 		inline void Draw(Point disp, const char* addr, Color col = 0, Size2 siz = Size2(8, 16)) {
-			pvci->DrawFont(disp, { (pureptr_t)addr , nullptr, StrLength(addr), col, siz });
+			pvci->DrawFont(disp,  { nullptr, col, siz }, String(addr));
 		}
 		void Draw(Rectangle rect);
 		void Draw(const Circle& circ);		
@@ -397,6 +395,63 @@ namespace uni {
 		inline auto getCursor() const { return cursor; }
 	};
 
+	// Abstract font rendering engine interface
+	class FontEngine {
+	public:
+		virtual ~FontEngine() {}
+
+		// Get width and height of a single character cell in monospaced console
+		virtual Size2 GetCellSize() const = 0;
+
+		// Render character into a pixel buffer at (px_x, px_y) with specified pitch
+		virtual void DrawChar(
+			Color* pixel_buffer,
+			stduint pitch_pixels,
+			stduint px_x,
+			stduint px_y,
+			uint32 unicode_char,
+			Color fg,
+			Color bg
+		) const = 0;
+
+		// Retrieve color of a specific sub-pixel (gx, gy) within monospaced cell
+		virtual Color GetPixel(
+			uint32 unicode_char,
+			stduint gx,
+			stduint gy,
+			Color fg,
+			Color bg
+		) const = 0;
+	};
+
+	// Default bitmap font engine supporting 8x5 and 16x8 formats
+	class BitmapFontEngine : public FontEngine {
+	protected:
+		stduint typ; // 0: 8x5, 1: 16x8
+	public:
+		BitmapFontEngine(stduint type = 1) : typ(type) {}
+		virtual ~BitmapFontEngine() {}
+
+		virtual Size2 GetCellSize() const override {
+			return typ ? Size2(8, 16) : Size2(5, 8);
+		}
+		virtual void DrawChar(
+			Color* pixel_buffer,
+			stduint pitch_pixels,
+			stduint px_x,
+			stduint px_y,
+			uint32 unicode_char,
+			Color fg,
+			Color bg
+		) const override;
+		virtual Color GetPixel(
+			uint32 unicode_char,
+			stduint gx,
+			stduint gy,
+			Color fg,
+			Color bg
+		) const override;
+	};
 
 	// One cell of the VideoConsole2 text buffer.
 	struct BufferChar {
@@ -419,7 +474,7 @@ namespace uni {
 		Point   cursor  = { 0, 0 };
 		Color*  buffer  = nullptr; // pixel buffer (same role as VideoConsole::buffer)
 		Size2   size;              // char grid dimensions (cols, rows)
-		stduint typ;               // 0: 8x5,  1: 16x8
+		const FontEngine* font_engine = nullptr; // decoupled font engine
 	public:
 		Color     forecolor;
 		Color     backcolor;
@@ -450,6 +505,9 @@ namespace uni {
 			const Color& fore_color = Color::White,
 			const Color& back_color = Color::Black);
 
+		// Bind font engine dynamically
+		void setFontEngine(const FontEngine* fe);
+
 		// Attach external storage.
 		// pixel_buf    : pixel buffer (width * height Colors), or nullptr for VCI-direct.
 		// text_storage : at least cols * rows BufferChar elements.
@@ -470,7 +528,9 @@ namespace uni {
 		// Number of Color elements required for the line buffer allocation.
 		// line_buf must hold one character row: cols * font_w * font_h pixels.
 		inline stduint getLineBufferSize() const {
-			return cols * (typ ? 8u : 5u) * (typ ? 16u : 8u);
+			if (!font_engine) return 0;
+			Size2 cell_size = font_engine->GetCellSize();
+			return cols * cell_size.x * cell_size.y;
 		}
 
 	public:

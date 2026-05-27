@@ -48,17 +48,12 @@
 #include "../../../inc/cpp/Device/_Video.hpp"
 #include "../../../inc/cpp/reference"
 #include "../../../inc/c/data.h"
+#include "../../../inc/c/multichar.h"
 #if defined(_MCCA) && _MCCA==0x8632
 #include "../../../inc/cpp/Device/Buzzer.hpp"
 #endif
 
 namespace uni {
-
-	// -------------------------------------------------------------------------
-	// Font geometry (mirrors VideoConsole's static tables).
-	// -------------------------------------------------------------------------
-	static uint16 _VC2FontH[]{ 8, 16 };
-	static uint16 _VC2FontW[]{ 5, 8 };
 
 	// -------------------------------------------------------------------------
 	// ANSI 16-color palette (standard 8 + bright 8, classic xterm/VGA values).
@@ -183,21 +178,29 @@ namespace uni {
 	}
 
 	// -------------------------------------------------------------------------
-	// Rasterize one glyph column into line_buf.
+	// BitmapFontEngine Implementation
 	// -------------------------------------------------------------------------
-	static void RasterizeGlyph(
-		Color* dst_row, stduint row_px_w,
-		stduint font_w, stduint font_h,
-		stduint typ, uint32 unicode_char,
-		Color fg, Color bg)
-	{
+	void BitmapFontEngine::DrawChar(
+		Color* pixel_buffer,
+		stduint pitch_pixels,
+		stduint px_x,
+		stduint px_y,
+		uint32 unicode_char,
+		Color fg,
+		Color bg
+	) const {
+		stduint font_w = typ ? 8 : 5;
+		stduint font_h = typ ? 16 : 8;
+
 		for0(scan_y, font_h) {
-			Color* dst = dst_row + scan_y * row_px_w;
+			Color* dst = pixel_buffer + (px_y + scan_y) * pitch_pixels + px_x;
 			for0(px, font_w) dst[px] = bg;
 		}
+
 		char ch = (char)(unicode_char & 0xFF);
 		if (!ascii_isprint(ch)) return;
 		ch -= 0x20;
+
 		if (typ == 1) {
 			const uint16(*datptr) = (const uint16(*)) &_BITFONT_ASCII_16x8[(byte)ch];
 			uint16 dat = 0;
@@ -205,8 +208,9 @@ namespace uni {
 			for0(i, 8) {
 				dat = datptr[i];
 				for0r(j, 16) {
-					if (dat_bmap.bitof(j))
-						dst_row[(stduint)(j ^ 0b111) * row_px_w + i] = fg;
+					if (dat_bmap.bitof(j)) {
+						pixel_buffer[(px_y + (j ^ 0b111)) * pitch_pixels + px_x + i] = fg;
+					}
 				}
 			}
 		}
@@ -217,53 +221,32 @@ namespace uni {
 			for0(i, 5) {
 				dat = datptr[i];
 				for0r(j, 8) {
-					if (dat_bmap.bitof(j))
-						dst_row[(stduint)j * row_px_w + i] = fg;
+					if (dat_bmap.bitof(j)) {
+						pixel_buffer[(px_y + j) * pitch_pixels + px_x + i] = fg;
+					}
 				}
 			}
 		}
 	}
 
-	// -------------------------------------------------------------------------
-	// DrawGlyphDirect -- render a glyph directly into a pixel buffer.
-	// -------------------------------------------------------------------------
-	static void DrawGlyphDirect(
-		Color* buf, stduint buf_w,
-		stduint px_x, stduint px_y,
-		stduint font_w, stduint font_h,
-		stduint typ, uint32 unicode_char,
-		Color fg, Color bg)
-	{
-		for0(scan_y, font_h) {
-			Color* dst = buf + (px_y + scan_y) * buf_w + px_x;
-			for0(px, font_w) dst[px] = bg;
-		}
+	Color BitmapFontEngine::GetPixel(
+		uint32 unicode_char,
+		stduint gx,
+		stduint gy,
+		Color fg,
+		Color bg
+	) const {
 		char ch = (char)(unicode_char & 0xFF);
-		if (!ascii_isprint(ch)) return;
+		if (!ascii_isprint(ch)) return bg;
 		ch -= 0x20;
+
 		if (typ == 1) {
-			const uint16(*datptr) = (const uint16(*)) &_BITFONT_ASCII_16x8[(byte)ch];
-			uint16 dat = 0;
-			Reference_T<uint16> dat_bmap _IMM(&dat);
-			for0(i, 8) {
-				dat = datptr[i];
-				for0r(j, 16) {
-					if (dat_bmap.bitof(j))
-						buf[(px_y + (j ^ 0b111)) * buf_w + px_x + i] = fg;
-				}
-			}
+			uint16 dat = ((const uint16(*)) &_BITFONT_ASCII_16x8[(byte)ch])[gx];
+			return ((dat >> (gy ^ 0b111)) & 1) ? fg : bg;
 		}
 		else {
-			const uint8(*datptr) = (const uint8(*)) &_BITFONT_ASCII_8x5[(byte)ch];
-			uint8 dat = 0;
-			Reference_T<uint8> dat_bmap _IMM(&dat);
-			for0(i, 5) {
-				dat = datptr[i];
-				for0r(j, 8) {
-					if (dat_bmap.bitof(j))
-						buf[(px_y + j) * buf_w + px_x + i] = fg;
-				}
-			}
+			uint8 dat = ((const uint8(*)) &_BITFONT_ASCII_8x5[(byte)ch])[gx];
+			return ((dat >> gy) & 1) ? fg : bg;
 		}
 	}
 
@@ -282,15 +265,27 @@ namespace uni {
 		const Color& back_color)
 		: Console_t(), SheetTrait(),
 		vci(vci_),
-		buffer(nullptr), size(0), typ(1),
+		buffer(nullptr), size(0), font_engine(nullptr),
 		forecolor(fore_color), backcolor(back_color),
 		window(win)
 	{
-		size.x = window.width  / (typ ? 8 : 5);
-		size.y = window.height / (typ ? 16 : 8);
-		cols   = size.x;
-		rows   = size.y;
+		cols = 0;
+		rows = 0;
 		window.color = back_color;
+	}
+
+	// -------------------------------------------------------------------------
+	// setFontEngine
+	// -------------------------------------------------------------------------
+	void VideoConsole2::setFontEngine(const FontEngine* fe) {
+		font_engine = fe;
+		if (font_engine) {
+			Size2 cell_size = font_engine->GetCellSize();
+			size.x = window.width  / cell_size.x;
+			size.y = window.height / cell_size.y;
+			cols   = size.x;
+			rows   = size.y;
+		}
 	}
 
 	// -------------------------------------------------------------------------
@@ -334,12 +329,9 @@ namespace uni {
 			else if (vci) { Rectangle r = window; r.color = backcolor; vci->DrawRectangle(r); }
 		}
 		else if (sheet_parent) {
-			// getPoint mode: text_buf is already blanked above.
-			// Ask the LayerManager to re-composite the full area via getPoint().
 			sheet_parent->Update(this, window);
 		}
 		else if (vci) {
-			// Standalone mode (no LayerManager): draw directly.
 			Rectangle r = window; r.color = backcolor;
 			vci->DrawRectangle(r);
 		}
@@ -368,19 +360,18 @@ namespace uni {
 	// doshow
 	// -------------------------------------------------------------------------
 	void VideoConsole2::doshow(void*) {
-		stduint font_w = _VC2FontW[typ];
-		stduint font_h = _VC2FontH[typ];
+		if (!font_engine) return;
+		stduint font_w = font_engine->GetCellSize().x;
+		stduint font_h = font_engine->GetCellSize().y;
 		Size2 fontsize((stdsint)font_w, (stdsint)font_h);
 		Rectangle cursor_rect(cursor * fontsize, fontsize, cursor_visible ? forecolor : backcolor);
 
 		if (sheet_buffer) {
-			// SheetTrait pixel buffer (set via InitializeSheet).
 			VideoControlInterfaceMARGB8888 vcim(sheet_buffer, window.getSize());
 			vcim.DrawRectangle(cursor_rect);
 			if (sheet_parent) sheet_parent->Update(this, cursor_rect);
 		}
 		else if (buffer) {
-			// VideoConsole2's own pixel buffer.
 			Color fill = cursor_visible ? forecolor : backcolor;
 			stduint px = (stduint)cursor.x * font_w;
 			stduint py = (stduint)cursor.y * font_h;
@@ -391,12 +382,9 @@ namespace uni {
 			if (sheet_parent) sheet_parent->Update(this, cursor_rect);
 		}
 		else if (vci) {
-			// Hardware draw.
 			vci->DrawRectangle(cursor_rect);
 		}
 		else if (sheet_parent) {
-			// getPoint mode: notify parent to repaint the cursor cell.
-			// getPoint() will overlay forecolor when cursor_visible.
 			sheet_parent->Update(this, cursor_rect);
 		}
 	}
@@ -448,10 +436,10 @@ namespace uni {
 	// getPoint -- per-pixel color query for buffer-free (getPoint) mode.
 	// -------------------------------------------------------------------------
 	Color VideoConsole2::getPoint(Point p) {
-		if (!text_buf) return backcolor;
+		if (!text_buf || !font_engine) return backcolor;
 
-		stduint font_w = _VC2FontW[typ];
-		stduint font_h = _VC2FontH[typ];
+		stduint font_w = font_engine->GetCellSize().x;
+		stduint font_h = font_engine->GetCellSize().y;
 		stduint cx = (stduint)p.x / font_w;
 		stduint cy = (stduint)p.y / font_h;
 
@@ -460,7 +448,6 @@ namespace uni {
 		stduint gx = (stduint)p.x % font_w;
 		stduint gy = (stduint)p.y % font_h;
 
-		// Resolve content color from cache or font bitmap.
 		Color result;
 		const BufferChar& cell = text_buf[cy * cols + cx];
 
@@ -472,25 +459,9 @@ namespace uni {
 			result = line_buf[gy * (cols * font_w) + cx * font_w + gx];
 		}
 		else {
-			char ch = (char)(cell.unicode_char & 0xFF);
-			if (!ascii_isprint(ch)) {
-				result = cell.back_color;
-			}
-			else {
-				ch -= 0x20;
-				if (typ == 1) {
-					uint16 dat = ((const uint16(*)) &_BITFONT_ASCII_16x8[(byte)ch])[gx];
-					result = ((dat >> (gy ^ 0b111)) & 1) ? cell.fore_color : cell.back_color;
-				}
-				else {
-					uint8 dat = ((const uint8(*)) &_BITFONT_ASCII_8x5[(byte)ch])[gx];
-					result = ((dat >> gy) & 1) ? cell.fore_color : cell.back_color;
-				}
-			}
+			result = font_engine->GetPixel(cell.unicode_char, gx, gy, cell.fore_color, cell.back_color);
 		}
 
-		// Cursor overlay: when cursor is visible, the cursor character cell is
-		// filled solid with forecolor (standard block cursor appearance).
 		if (cursor_visible && cx == cursor.x && cy == cursor.y)
 			return forecolor;
 
@@ -510,17 +481,17 @@ namespace uni {
 	// EnsureLineBuffer
 	// -------------------------------------------------------------------------
 	void VideoConsole2::EnsureLineBuffer(stduint row) {
-		if (!line_buf || !text_buf) return;
+		if (!line_buf || !text_buf || !font_engine) return;
 		if (line_buf_valid && (stdsint)row == line_buf_row) return;
 
-		stduint font_w   = _VC2FontW[typ];
-		stduint font_h   = _VC2FontH[typ];
+		stduint font_w   = font_engine->GetCellSize().x;
+		stduint font_h   = font_engine->GetCellSize().y;
 		stduint row_px_w = cols * font_w;
 
 		for0(cx, cols) {
 			const BufferChar& cell = text_buf[row * cols + cx];
-			RasterizeGlyph(line_buf + cx * font_w, row_px_w, font_w, font_h,
-				typ, cell.unicode_char, cell.fore_color, cell.back_color);
+			font_engine->DrawChar(line_buf, row_px_w, cx * font_w, 0,
+				cell.unicode_char, cell.fore_color, cell.back_color);
 		}
 		line_buf_row   = (stdsint)row;
 		line_buf_valid = true;
@@ -530,10 +501,10 @@ namespace uni {
 	// BlitLineBuffer
 	// -------------------------------------------------------------------------
 	void VideoConsole2::BlitLineBuffer(stduint row) {
-		if (!line_buf || !buffer) return;
+		if (!line_buf || !buffer || !font_engine) return;
 
-		stduint font_w   = _VC2FontW[typ];
-		stduint font_h   = _VC2FontH[typ];
+		stduint font_w   = font_engine->GetCellSize().x;
+		stduint font_h   = font_engine->GetCellSize().y;
 		stduint row_px_w = cols * font_w;
 		stduint py_base  = row * font_h;
 
@@ -554,7 +525,9 @@ namespace uni {
 	// thisRollup
 	// -------------------------------------------------------------------------
 	void VideoConsole2::thisRollup(stduint /*height_px*/) {
-		stduint font_h = _VC2FontH[typ];
+		if (!font_engine) return;
+		stduint font_w = font_engine->GetCellSize().x;
+		stduint font_h = font_engine->GetCellSize().y;
 
 		if (text_buf) {
 			if (rows > 1) {
@@ -570,11 +543,6 @@ namespace uni {
 			InvalidateLineBuffer();
 
 			if (buffer) {
-				// Blit all rows into the pixel buffer in one pass, then do a
-				// SINGLE Update at the end.  BlitLineBuffer is NOT used here
-				// because it calls sheet_parent->Update per row, which would
-				// result in rows+1 Updates per scroll — far too expensive.
-				stduint font_w   = _VC2FontW[typ];
 				stduint row_px_w = cols * font_w;
 				for0(r, rows) {
 					EnsureLineBuffer(r);
@@ -592,21 +560,18 @@ namespace uni {
 				if (sheet_parent) sheet_parent->Update(this, full);
 			}
 			else if (sheet_parent) {
-				// getPoint mode: text_buf already shifted; ask LayerManager to
-				// re-composite the whole console area via getPoint().
 				Rectangle full;
 				full.x = 0; full.y = 0;
 				full.width = window.width; full.height = (stduint)(rows * font_h);
 				sheet_parent->Update(this, full);
 			}
 			else if (vci) {
-				// Standalone VCI (no LayerManager): push rows directly.
 				if (line_buf) {
 					for0(r, rows) {
 						EnsureLineBuffer(r);
 						Rectangle strip;
 						strip.x = 0; strip.y = r * font_h;
-						strip.width = cols * _VC2FontW[typ]; strip.height = font_h;
+						strip.width = cols * font_w; strip.height = font_h;
 						vci->DrawPoints(strip, line_buf);
 						line_buf_valid = false;
 					}
@@ -635,9 +600,11 @@ namespace uni {
 	}
 
 	void VideoConsole2::FeedLine() {
+		if (!font_engine) return;
+		stduint font_h = font_engine->GetCellSize().y;
 		while (cursor.y >= rows) {
 			cursor.y--;
-			thisRollup(_VC2FontH[typ]);
+			thisRollup(font_h);
 		}
 	}
 
@@ -650,34 +617,46 @@ namespace uni {
 
 	// -------------------------------------------------------------------------
 	// _VideoConsole2Out -- inner output loop.
-	//
-	// ANSI SGR parsing is a per-character, per-call state machine.
-	// The state (esc_state, esc_params, esc_nparams) lives in the
-	// VideoConsole2 object so that sequences split across multiple out()
-	// calls are handled transparently.
-	//
-	// State transitions:
-	//   idle(0) --'\x1b'--> esc(1) --'['--> csi(2) --final_byte--> idle(0)
-	//             esc(1) --other--: swallow ESC, process 'other' normally
-	//             csi(2) --digit-: accumulate in esc_params[esc_nparams]
-	//             csi(2) --';'--: advance esc_nparams
 	// -------------------------------------------------------------------------
 	void _VideoConsole2Out(VideoConsole2* crt_self, const char* str, stduint len) {
-		if (!crt_self) return;
+		if (!crt_self || !crt_self->font_engine) return;
 
-		stduint font_w = _VC2FontW[crt_self->typ];
-		stduint font_h = _VC2FontH[crt_self->typ];
+		stduint font_w = crt_self->font_engine->GetCellSize().x;
+		stduint font_h = crt_self->font_engine->GetCellSize().y;
 
-		for0(i, len) {
-			char c = str[i];
+		// Convert UTF-8 to UTF-32 (Unicode code points) using Unisym's CscUTF
+		uint32* u32_str = nullptr;
+		stduint u32_bytes = CscUTF(8, 32, (const pureptr_t)str, len, (pureptr_t*)&u32_str);
 
-			// ── ESC state machine (highest priority) ─────────────────────────
-			// `consumed`: set true when the byte is handled by the ESC machine and
-			// must NOT be passed to the normal character processing below.
+		stduint loop_len = len;
+		const uint32* src_chars = nullptr;
+		uint32* allocated_buf = nullptr;
+		bool allocated_by_csc = false;
+
+		if (u32_bytes != NONE && u32_str != nullptr) {
+			loop_len = u32_bytes / sizeof(uint32);
+			src_chars = u32_str;
+			allocated_buf = u32_str;
+			allocated_by_csc = true;
+		} else {
+			// Fallback: treat as raw Latin-1 bytes if conversion failed
+			uint32* fallback_buf = new uint32[len];
+			for0(k, len) {
+				fallback_buf[k] = (uint32)(byte)str[k];
+			}
+			loop_len = len;
+			src_chars = fallback_buf;
+			allocated_buf = fallback_buf;
+			allocated_by_csc = false;
+		}
+
+		for0(i, loop_len) {
+			uint32 u_c = src_chars[i];
+			char c = (u_c < 0x100) ? (char)u_c : '\0';
+
 			bool consumed = false;
 
 			if (crt_self->esc_state == 1) {
-				// Waiting for '[' to confirm CSI.
 				if (c == '[') {
 					crt_self->esc_state   = 2;
 					crt_self->esc_nparams = 0;
@@ -685,13 +664,10 @@ namespace uni {
 					consumed = true;
 				}
 				else {
-					// Not CSI: absorb the ESC, let c be processed normally.
 					crt_self->esc_state = 0;
-					// consumed remains false → falls through to normal path.
 				}
 			}
 			else if (crt_self->esc_state == 2) {
-				// Collecting CSI parameters; every byte here is consumed.
 				consumed = true;
 				if (c >= '0' && c <= '9') {
 					if (crt_self->esc_nparams < 8)
@@ -702,7 +678,6 @@ namespace uni {
 					if (crt_self->esc_nparams < 7) crt_self->esc_nparams++;
 				}
 				else {
-					// Final byte.
 					crt_self->esc_nparams++;
 					if (c == 'm')
 						vc2ApplySGR(crt_self, crt_self->esc_params, crt_self->esc_nparams);
@@ -712,7 +687,7 @@ namespace uni {
 
 			if (consumed) continue;
 
-			if (!c) {
+			if (u_c == 0) {
 				if (crt_self->cursor.x > 0 && crt_self->refSheetParent()) {
 					Rectangle rect;
 					rect.x = (crt_self->cursor.x - 1) * font_w;
@@ -722,9 +697,7 @@ namespace uni {
 				}
 			}
 			else if (c == '\x1b') {
-				// Start of an escape sequence; continue to accumulate in next chars.
 				crt_self->esc_state = 1;
-				// esc_params are reset when '[' is confirmed.
 			}
 			else if (c == '\n') {
 				if (crt_self->buffer && crt_self->line_buf) {
@@ -764,7 +737,6 @@ namespace uni {
 				}
 			}
 			else if ((byte)c == (byte)'\xFF' && _LIMIT - i > 1) {
-				// Mecocoa Style II color escape (retained for backward compat).
 				byte color = str[++i];
 				if (color == (byte)0xFF) {
 					crt_self->backcolor = crt_self->window.color;
@@ -788,7 +760,6 @@ namespace uni {
 				crt_self->backcolor = col;
 			}
 			else {
-				// Printable character: build BufferChar, store, rasterize, blit.
 				stduint cx = (stduint)crt_self->cursor.x;
 				stduint cy = (stduint)crt_self->cursor.y;
 
@@ -796,14 +767,14 @@ namespace uni {
 				cell.back_color   = crt_self->backcolor;
 				cell.fore_color   = crt_self->forecolor;
 				cell.attr         = 0;
-				cell.unicode_char = (uint32)(byte)c;
+				cell.unicode_char = (uint32)u_c;
 				crt_self->Putchar(cx, cy, cell);
 
 				if (crt_self->line_buf && (stdsint)cy == crt_self->line_buf_row) {
 					stduint row_px_w = crt_self->cols * font_w;
-					RasterizeGlyph(crt_self->line_buf + cx * font_w, row_px_w,
-						font_w, font_h, crt_self->typ,
-						cell.unicode_char, cell.fore_color, cell.back_color);
+					crt_self->font_engine->DrawChar(crt_self->line_buf, row_px_w,
+						cx * font_w, 0, cell.unicode_char,
+						cell.fore_color, cell.back_color);
 					crt_self->line_buf_valid = true;
 				}
 
@@ -822,21 +793,80 @@ namespace uni {
 						}
 					}
 					else {
-						DrawGlyphDirect(crt_self->buffer, crt_self->window.width,
-							cx * font_w, cy * font_h, font_w, font_h,
-							crt_self->typ, cell.unicode_char,
+						crt_self->font_engine->DrawChar(crt_self->buffer, crt_self->window.width,
+							cx * font_w, cy * font_h, cell.unicode_char,
 							cell.fore_color, cell.back_color);
 					}
 				}
 
-				if (crt_self->refSheetParent() && crt_self->update_method >= 1) {
-					Rectangle rect;
-					rect.x = cx * font_w; rect.y = cy * font_h;
-					rect.width = font_w; rect.height = font_h;
-					crt_self->refSheetParent()->Update(crt_self, rect);
-				}
+				if (u_c >= 0x100) {
+					// [Double-wide CJK character]
+					if (crt_self->refSheetParent() && crt_self->update_method >= 1) {
+						Rectangle rect;
+						rect.x = cx * font_w; rect.y = cy * font_h;
+						rect.width = font_w * 2; rect.height = font_h;
+						crt_self->refSheetParent()->Update(crt_self, rect);
+					}
 
-				crt_self->curinc();
+					// Move to next cell to place the dummy placeholder
+					crt_self->curinc();
+					stduint dummy_cx = (stduint)crt_self->cursor.x;
+					stduint dummy_cy = (stduint)crt_self->cursor.y;
+
+					BufferChar dummy_cell;
+					dummy_cell.back_color   = crt_self->backcolor;
+					dummy_cell.fore_color   = crt_self->forecolor;
+					dummy_cell.attr         = 0;
+					dummy_cell.unicode_char = 0xFFFFFFFF; // Double-wide dummy placeholder
+					crt_self->Putchar(dummy_cx, dummy_cy, dummy_cell);
+
+					if (crt_self->line_buf && (stdsint)dummy_cy == crt_self->line_buf_row) {
+						stduint row_px_w = crt_self->cols * font_w;
+						crt_self->font_engine->DrawChar(crt_self->line_buf, row_px_w,
+							dummy_cx * font_w, 0, dummy_cell.unicode_char,
+							dummy_cell.fore_color, dummy_cell.back_color);
+						crt_self->line_buf_valid = true;
+					}
+
+					if (crt_self->buffer) {
+						if (crt_self->line_buf) {
+							crt_self->EnsureLineBuffer(dummy_cy);
+							stduint row_px_w = crt_self->cols * font_w;
+							stduint py_base  = dummy_cy * font_h;
+							Color* glyph_base = crt_self->line_buf + dummy_cx * font_w;
+							for0(scan_y, font_h) {
+								Color* dst = crt_self->buffer
+									+ (py_base + scan_y) * crt_self->window.width
+									+ dummy_cx * font_w;
+								Color* src = glyph_base + scan_y * row_px_w;
+								for0(px, font_w) dst[px] = src[px];
+							}
+						}
+						else {
+							crt_self->font_engine->DrawChar(crt_self->buffer, crt_self->window.width,
+								dummy_cx * font_w, dummy_cy * font_h, dummy_cell.unicode_char,
+								dummy_cell.fore_color, dummy_cell.back_color);
+						}
+					}
+					// Finally, advance cursor past the dummy cell
+					crt_self->curinc();
+				} else {
+					// [Regular single-wide character]
+					if (crt_self->refSheetParent() && crt_self->update_method >= 1) {
+						Rectangle rect;
+						rect.x = cx * font_w; rect.y = cy * font_h;
+						rect.width = font_w; rect.height = font_h;
+						crt_self->refSheetParent()->Update(crt_self, rect);
+					}
+					crt_self->curinc();
+				}
+			}
+		}
+		if (allocated_buf) {
+			if (allocated_by_csc) {
+				memfree(allocated_buf);
+			} else {
+				delete[] allocated_buf;
 			}
 		}
 	}
@@ -845,6 +875,10 @@ namespace uni {
 	// out / inn
 	// -------------------------------------------------------------------------
 	int VideoConsole2::out(const char* str, stduint len) {
+		if (!font_engine) {
+			plogerro("VideoConsole2: Attempted to print characters without a bound FontEngine!");
+			return -1;
+		}
 		bool old_visible = cursor_visible;
 		cursor_visible = false;
 		doshow(nullptr);
@@ -853,7 +887,7 @@ namespace uni {
 
 		cursor_visible = old_visible;
 		doshow(nullptr);
-		return 0 _TEMP;
+		return 0;
 	}
 	int VideoConsole2::inn() {
 		return _TEMP 0;

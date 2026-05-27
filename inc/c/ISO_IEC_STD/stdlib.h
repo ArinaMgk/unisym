@@ -20,9 +20,11 @@
 	limitations under the License.
 */
 
-#ifndef _INC_STDLIB
-#define _INC_STDLIB
-#include <stdlib.h>
+#ifndef _INC_STDLIB_NEXT
+#define _INC_STDLIB_NEXT
+#if defined(__GNUC__) || defined(__clang__)
+#include_next <stdlib.h>
+#endif
 #endif
 
 #ifndef _INC_STDLIB
@@ -70,6 +72,7 @@ extern "C" {
 // - wchar_t よ widechar.h
 // - div_t
 
+#if !defined(_STDLIB_H) && !defined(_STDLIB_H_) && !defined(_CSTDLIB_) && !defined(_GLIBCXX_CSTDLIB)
 typedef struct div_t {
 	int quot; // EAX
 	int rem;  // EDX
@@ -84,7 +87,10 @@ typedef struct lldiv_t {
 	long long int quot; // RAX
 	long long int rem;  // RDX
 } lldiv_t;
+#endif
 
+
+#if !defined(_STDLIB_H) && !defined(_STDLIB_H_) && !defined(_CSTDLIB_) && !defined(_GLIBCXX_CSTDLIB)
 // # macro
 // - NULL よ archit.h
 // - EXIT_SUCCESS
@@ -94,6 +100,7 @@ typedef struct lldiv_t {
 // - RAND_MAX
 #define RAND_MAX 0x7FFF //{TEMP}
 //{TODO} - MB_CUR_MAX 
+#endif
 
 // # function
 
@@ -104,6 +111,7 @@ typedef struct lldiv_t {
 
 #define restrict //{TEMP}
 
+#if !defined(_STDLIB_H) && !defined(_STDLIB_H_) && !defined(_CSTDLIB_) && !defined(_GLIBCXX_CSTDLIB)
 // Communication with the environment : International Standard Interface [user - def]
 
 #ifdef _DEV_MSVC
@@ -120,6 +128,7 @@ int system(const char* string);
 struct div_t div(int numer, int denom);
 struct ldiv_t ldiv(long int numer, long int denom);
 struct lldiv_t lldiv(long long int numer, long long int denom);
+#endif
 
 #undef restrict //{TEMP}, this make error for MSVC2022(C11) at 20240819
 

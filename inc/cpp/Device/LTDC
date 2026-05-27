@@ -154,7 +154,7 @@ namespace uni {
 		virtual void DrawRectangle(const Rectangle& rect) const override;
 		virtual Color GetColor(Point p) const;
 		//:VideoControlInterface Impl by USER
-		virtual void DrawFont(const Point& disp, const DisplayFont& font) const;
+		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str) const;
 	};// Layer 0x00000001 and 0x00000002
 	class LTDC_t {
 	private:

@@ -128,7 +128,7 @@ namespace uni {
 			}
 		}
 	}
-	// USER-DEF void ILI9320_FreePins::DrawFont(const Point& disp, const DisplayFont& font);
+	// USER-DEF void ILI9320_FreePins::DrawFont(const Point& disp, const DisplayFont& font, const String& str);
 
 	//aka ili9320_GetPoint
 	Color ILI9320_FreePins::GetColor(Point p) {

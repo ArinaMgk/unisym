@@ -7,10 +7,13 @@
 [bits 32]
 [SECTION .code]
 
-GLOBAL _JumpPoint
+GLOBAL _JumpPoint; COFF
+GLOBAL JumpPoint ; ELF
 GLOBAL _MarkPoint
+GLOBAL MarkPoint
 
 _JumpPoint:; (Retpoint* rp, dword retval)
+JumpPoint:
 	MOV EAX, [ESP+ 4]
 	MOV EBX, [EAX+20]
 	MOV ESI, [EAX+ 0]; `ret`
@@ -25,6 +28,7 @@ _JumpPoint:; (Retpoint* rp, dword retval)
 	RET
 
 _MarkPoint:; (Retpoint* rp)
+MarkPoint:
 	PUSH EBX
 	MOV EBX, [ESP+0+4]
 	MOV EAX, [ESP+4+4]

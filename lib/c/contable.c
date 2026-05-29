@@ -22,7 +22,7 @@
 // RFR30 FIX MISTAKE YO _CtabPrint
 
 #define _CRT_SECURE_NO_WARNINGS
-#ifndef _MCCA // Bare Metal C
+#if !defined(_MCCA) && !defined(_ACCM) // Bare Metal / freestanding
 #include <stdio.h>
 
 #if defined(_WinNT)

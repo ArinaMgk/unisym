@@ -1,6 +1,6 @@
 
-#if defined(_MCCA)
-#include "inc/aaaaa.h"
+#if defined(_MCCA) || defined(_ACCM)
+#include "aaaaa.h"
 #include <c/ustring.h>
 // sleep [int]
 // : sleep [int] seconds

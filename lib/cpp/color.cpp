@@ -25,6 +25,7 @@
 namespace uni {
 	Color Color::FromRGB888(uint32 argb) {
 		Color color = *(Color*)&argb;
+		if (argb && !(argb & 0xFF000000)) argb |= 0xFF000000u;
 		return color;
 	}
 

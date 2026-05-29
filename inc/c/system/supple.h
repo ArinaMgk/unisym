@@ -26,12 +26,10 @@
 // ---- { STDC:: stdarg.h } 20240824 ----
 // by makeing use of stack(BP) and C calling convention
 
-typedef struct {
-	byte* stack_ptr;
-} para_list;
-
-#define _para_align(type) (((sizeof(type) + sizeof(stduint) - 1) / sizeof(stduint)) * sizeof(stduint))
-
+// typedef struct {
+// 	byte* stack_ptr;
+// } para_list;
+// #define _para_align(type) (((sizeof(type) + sizeof(stduint) - 1) / sizeof(stduint)) * sizeof(stduint))
 #if 1
 //#define para_ento(ap, param) (ap.stack_ptr = (byte*)&param + ...)// by dscn trial, 20240908
 // #if defined(_DEV_GCC)//{TEMP} System V AMD64 ABI
@@ -43,17 +41,18 @@ typedef struct {
 // #else
 	#include <stdarg.h>
 // #endif
+typedef va_list para_list;
 #define para_ento(ap, param) va_start(ap, param)
 #define para_next(ap, type) va_arg(ap, type)
 #define para_endo(ap) va_end(ap)
-#define Letpara(argiden, cdecl_iden) va_list argiden; para_ento(argiden, cdecl_iden)
-#define para_list va_list
+#define Letpara(argiden, cdecl_iden) para_list argiden; para_ento(argiden, cdecl_iden)
+// #define para_list va_list
 
 #else// Win, Lin32
-#define para_ento(ap, param) (ap.stack_ptr = (byte*)((stduint*)&param + 1))
-#define para_next(ap, type) (*(type *)((ap.stack_ptr += _para_align(type)) - _para_align(type)))
-#define para_endo(ap) (ap.stack_ptr = NULL)// optional now
-#define Letpara(argiden, cdecl_iden) para_list argiden; para_ento(argiden, cdecl_iden);// we can use as uni::Letpara
+// #define para_ento(ap, param) (ap.stack_ptr = (byte*)((stduint*)&param + 1))
+// #define para_next(ap, type) (*(type *)((ap.stack_ptr += _para_align(type)) - _para_align(type)))
+// #define para_endo(ap) (ap.stack_ptr = NULL)// optional now
+// #define Letpara(argiden, cdecl_iden) para_list argiden; para_ento(argiden, cdecl_iden);// we can use as uni::Letpara
 #endif
 
 // Type Promotion
@@ -65,7 +64,7 @@ typedef struct {
 // #define para_next_u32(ap) (uint32)para_next(ap, stduint)//
 
 
-#define para_copy(dest, src, type) MemCopyN((void *)&dest, (void *)&src, _para_align(type))
+#define para_copy(dest, src, type) va_copy(dest, src)
 
 // ---- { STDC:: setjmp.h } 20240902 (Win32) ----
 

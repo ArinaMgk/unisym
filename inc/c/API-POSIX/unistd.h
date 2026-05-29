@@ -53,6 +53,17 @@ extern "C" {
 	/// @return pointer to buf if successful, NULL if error
 	char* getcwd(char* buf, size_t size);
 
+	/// @brief  duplicate a file descriptor
+	/// @param  oldfd: original file descriptor
+	/// @param  newfd: target file descriptor to force overwrite
+	/// @return newfd if successful, -1 if error
+	int dup2(int oldfd, int newfd);
+
+	/// @brief  create an unidirectional data channel
+	/// @param  pipefd: array to hold the read and write descriptors
+	/// @return 0 if successful, -1 if error
+	int pipe(int pipefd[2]);
+
 	/// @brief  close file
 	/// @param fd: file descriptor
 	/// @return: 0 if successful, -1 if error

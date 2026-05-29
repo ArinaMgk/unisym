@@ -23,7 +23,7 @@
 #include "../../inc/c/strbuff.h"
 #include "../../inc/c/ustring.h"
 
-#if !defined(_MCCA)
+
 
 //{TEMP}
 #define likely(x)   (!!(x))
@@ -225,6 +225,8 @@ void StrbuffSendx(Strbuff* s, stduint posi, const pureptr_t src, stduint len)
 	StrbuffSend(s, src, len);
 }
 
+#if !defined(_MCCA) && !defined(_ACCM)
+#include <stdio.h>
 void StrbuffSendFile(Strbuff* s, FILE* fp)
 {
 	const char* data;
@@ -233,6 +235,7 @@ void StrbuffSendFile(Strbuff* s, FILE* fp)
 	while (len = s->total_len, (data = StrbuffRead(s, &len)) != NULL)
 		fwrite(data, 1, len, fp);
 }
+#endif
 
 //:---- Covenant Rules Little Endian ----
 
@@ -310,4 +313,4 @@ void StrbuffSendWleb128s(Strbuff* s, int value)
 	StrbuffSend(s, temp, len);
 }
 
-#endif
+

@@ -115,24 +115,44 @@
 	#endif
 
 // limits.h
-	#define MB_LEN_MAX    5 //{TEMP} AyanoChan did know, is it right?
+	#ifndef MB_LEN_MAX
+		#define MB_LEN_MAX    5 //{TEMP} AyanoChan did know, is it right?
+	#endif
 
-	#define INT_MIN     INT32_MIN
-	#define INT_MAX     INT32_MAX
-	#define UINT_MAX    UINT32_MAX
+	#ifndef INT_MIN
+		#define INT_MIN     INT32_MIN
+	#endif
+	#ifndef INT_MAX
+		#define INT_MAX     INT32_MAX
+	#endif
+	#ifndef UINT_MAX
+		#define UINT_MAX    UINT32_MAX
+	#endif
 
-	#define LONG_MIN    INT_MIN 
-	#define LONG_MAX    INT_MAX 
-	#define ULONG_MAX   UINT_MAX
+	#ifndef LONG_MIN
+		#define LONG_MIN    INT_MIN 
+	#endif
+	#ifndef LONG_MAX
+		#define LONG_MAX    INT_MAX 
+	#endif
+	#ifndef ULONG_MAX
+		#define ULONG_MAX   UINT_MAX
+	#endif
 
-	#define LLONG_MAX   INT64_MIN
-	#define LLONG_MIN   INT64_MAX
-	#define ULLONG_MAX  UINT64_MAX
+	#ifndef LLONG_MAX
+		#define LLONG_MAX   INT64_MAX
+	#endif
+	#ifndef LLONG_MIN
+		#define LLONG_MIN   INT64_MIN
+	#endif
+	#ifndef ULLONG_MAX
+		#define ULLONG_MAX  UINT64_MAX
+	#endif
 
 	
 // stddef.h
-	typedef int32_t ptrdiff_t;
-	typedef uint32_t size_t;
+typedef __PTRDIFF_TYPE__ ptrdiff_t;
+typedef __SIZE_TYPE__ size_t;
 	//{TODO} typedef unsigned long wchar_t;//{TEMP}
 
 #endif // !_HOST_WIN64_

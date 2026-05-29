@@ -1,4 +1,4 @@
-﻿// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Module) 
 // Codifiers: @dosconio: 20240906 ~ <Last-check> 
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -20,15 +20,14 @@
 	limitations under the License.
 */
 
-#if !defined(_INC_STRBUFF) && !defined(_MCCA)
+#ifndef _INC_STRBUFF
 #include "stdinc.h"
 #define _INC_STRBUFF
 
-#include <stdio.h>
 
 #ifdef _INC_CPP
 extern "C" {
-#endif
+#endif // !_INC_STRBUFF
 
 	typedef struct StrBuff {
 		stduint elm_len;
@@ -70,14 +69,17 @@ extern "C" {
 
 	void StrbuffSendx(Strbuff* s, stduint posi, const pureptr_t src, stduint len);
 
+#if !defined(_MCCA) && !defined(_ACCM)
+#include <stdio.h>
 	void StrbuffSendFile(Strbuff* s, FILE* fp);
+#endif
 
 	void StrbuffSend8(Strbuff* s, uint8 v);
 	void StrbuffSend16(Strbuff* s, uint16 v);
 	void StrbuffSend32(Strbuff* s, uint32 v);
 #ifdef _BIT_SUPPORT_64
 	void StrbuffSend64(Strbuff* s, uint64 v);
-#endif
+#endif // !_INC_STRBUFF
 	void StrbuffSendStd(Strbuff* s, stduint v);
 
 	void StrbuffSendWleb128u(Strbuff* s, int value);
@@ -87,5 +89,5 @@ extern "C" {
 
 #ifdef _INC_CPP
 }
-#endif
-#endif
+#endif // !_INC_STRBUFF
+#endif // !_INC_STRBUFF

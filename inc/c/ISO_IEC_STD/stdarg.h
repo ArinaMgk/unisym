@@ -1,6 +1,10 @@
 #ifndef _INC_STDARG_NEXT
 #define _INC_STDARG_NEXT
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__has_include_next)
+#	if __has_include_next(<stdarg.h>)
+#		include_next <stdarg.h>
+#	endif
+#elif defined(__GNUC__) || defined(__clang__)
 #include_next <stdarg.h>
 #endif
 #endif

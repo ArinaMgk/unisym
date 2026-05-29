@@ -1,4 +1,4 @@
-﻿// ASCII C++ TAB4 CRLF
+// ASCII C++ TAB4 CRLF
 // Attribute: <ArnCovenant> <Env> <bin^%> <CPU()> [Allocation]
 // LastCheck: 
 // AllAuthor: @dosconio
@@ -22,7 +22,7 @@
 
 #include "../../../inc/c/ustring.h"
 #include "../../../inc/c/nnode.h"
-#include <new>
+
 
 #define ON_LEFT  0
 #define ON_RIGHT 1

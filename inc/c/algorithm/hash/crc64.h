@@ -57,23 +57,22 @@
 #define CRC64_USB_Initial         0xFFFFFFFFFFFFFFFF// (USB)
 
 _TEMP
-#ifndef _MCCA
-
-#include <stdio.h>
 #include "../../stdinc.h"
 
 //
 uint64_t HashCRC64Bytes(const byte* data, size_t length, uint64_t crc, uint64_t polynomial, uint64_t final_xor, int refl);
 
+#if !defined(_MCCA) && !defined(_ACCM)
+#include <stdio.h>
+
 //
 uint64_t HashCRC64File(FILE* fptr, uint64_t crc, uint64_t polynomial, uint64_t final_xor, int refl);
+#endif
 
 //
 uint64_t HashCRC64Once(uint64_t last, byte data, uint64_t polynomial, int refl);
 
 //
 uint64_t HashCRC64Endo(uint64_t last, uint64_t final_xor, int refl);
-
-#endif
 
 #endif // !_INC_HASH_CRC64

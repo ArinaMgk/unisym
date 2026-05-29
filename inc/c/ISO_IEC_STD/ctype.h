@@ -28,32 +28,32 @@
 
 #include "../uctype.h"
 
-#define isalnum ascii_isalnum
+static inline int isalnum(int c) { return ascii_isalnum(c); }
 
-#define isalpha ascii_isalpha
+static inline int isalpha(int c) { return ascii_isalpha(c); }
 
-#define isblank ascii_isblank
+static inline int isblank(int c) { return ascii_isblank(c); }
 
-#define iscntrl ascii_iscontrol
+static inline int iscntrl(int c) { return ascii_iscontrol(c); }
 
-#define isdigit ascii_isdigit
+static inline int isdigit(int c) { return ascii_isdigit(c); }
 
-#define isgraph ascii_isalpha
+static inline int isgraph(int c) { return ascii_isgraph(c); }
 
-#define islower ascii_islower
+static inline int islower(int c) { return ascii_islower(c); }
 
-#define isprint ascii_isprint
+static inline int isprint(int c) { return ascii_isprint(c); }
 
-#define ispunct ascii_ispunct
+static inline int ispunct(int c) { return ascii_ispunct(c); }
 
-#define isspace ascii_isspace
+static inline int isspace(int c) { return ascii_isspace(c); }
 
-#define isupper ascii_isupper
+static inline int isupper(int c) { return ascii_isupper(c); }
 
-#define isxdigit ascii_isxdigit
+static inline int isxdigit(int c) { return ascii_isxdigit(c); }
 
-#define tolower ascii_tolower
+static inline int tolower(int c) { return ascii_tolower(c); }
 
-#define toupper ascii_toupper
+static inline int toupper(int c) { return ascii_toupper(c); }
 
 #endif

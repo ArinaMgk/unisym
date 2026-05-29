@@ -178,9 +178,8 @@ enum Architecture_ARMv_t {
 	#include <stddef.h>
 	#endif
 */
-#if 0
-// #elif defined(_MCCA) && _MCCA==0x8632 // i686-ELF
-// 	#include "../architect/arcx86.h"
+#if (defined(_MCCA) && _MCCA==0x8632) || (defined(_ACCM) && _ACCM==0x8632)
+	#include "../architect/arcx86.h"
 #elif defined(_Intelx86o64_Windows_64)
 	#include "../architect/arcx64_win64.h"
 #elif defined(_MCU_Intel8051)
@@ -255,7 +254,11 @@ enum Architecture_ARMv_t {
 	#define NULL ((void*)0)
 	#endif
 #endif
+#if defined(__GNUC__) || defined(__clang__)
+#define offsetof(s,m) __builtin_offsetof(s, m)
+#else
 #define offsetof(s,m) ((size_t)&(((s*)0)->m))
+#endif
 #endif
 
 #if !defined(__BITS__) && !defined(SIZE_MAX)

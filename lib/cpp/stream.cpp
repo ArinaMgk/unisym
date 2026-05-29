@@ -57,6 +57,15 @@ namespace uni {
 	template <bool IsArray>
 	struct FloatCaller;
 
+	static inline para_list& para_list_ref(para_list& paras) {
+		return paras;
+	}
+
+	template<typename T>
+	static inline para_list& para_list_ref(T* paras) {
+		return *(para_list*)paras;
+	}
+
 }
 
 // Console: consio.cpp
@@ -168,9 +177,7 @@ namespace uni {
 				#ifdef _DEV_KEIL
 				out_floating_0(sizlevel, *(para_list*)&paras);//{unchk}
 				#else
-				if constexpr (is_va_array<para_list>::value)
-					out_floating_0(sizlevel, *(para_list*)paras);
-				else out_floating_0(sizlevel, *(para_list*)&paras);
+				out_floating_0(sizlevel, para_list_ref(paras));
 				#endif
 				sizlevel = 0;
 				break;

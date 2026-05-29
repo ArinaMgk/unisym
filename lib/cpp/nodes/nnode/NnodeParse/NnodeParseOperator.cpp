@@ -1,4 +1,4 @@
-﻿// ASCII C++-20 TAB4 CRLF
+// ASCII C++-20 TAB4 CRLF
 // Attribute: ArnCovenant Host[Allocation]
 // LastCheck: 20240312
 // AllAuthor: @dosconio
@@ -29,9 +29,6 @@
 #include "../../../../../inc/cpp/dnode"
 #include "../../../../../inc/cpp/nnode"
 
-#ifndef _MCCA
-#include <new>
-#endif
 
 using namespace uni;
 

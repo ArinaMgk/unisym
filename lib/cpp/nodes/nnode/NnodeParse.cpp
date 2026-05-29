@@ -24,7 +24,7 @@
 #include "../../../../inc/cpp/unisym"
 #include "../../../../inc/cpp/nnode"
 #include "../../../../inc/cpp/string"
-#include <new>
+
 
 static bool NestedTokenParse(uni::NestedParseUnit* npu);
 

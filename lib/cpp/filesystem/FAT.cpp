@@ -158,7 +158,7 @@ namespace uni {
 			for (int i = 0; i < entries_per_sector; i++) {
 				FAT_DirEntry* entry = (FAT_DirEntry*)&buffer_sector[i * 32];
 				if ((byte)entry->name[0] == 0x00u) return WALK_END; // End of dir
-				if ((byte)entry->name[0] == 0xE5u || (byte)entry->name[0] == 0x05u) {
+				if ((byte)entry->name[0] == 0xE5u) {
 					lfn_expected_order = 0; continue; // Deleted
 				}
 				
@@ -192,7 +192,10 @@ namespace uni {
 				
 				char short_name[13];
 				int name_len = 0;
-				for (int k = 0; k < 8 && entry->name[k] != ' '; k++) short_name[name_len++] = entry->name[k];
+				for (int k = 0; k < 8 && entry->name[k] != ' '; k++) {
+					unsigned char ch = (unsigned char)entry->name[k];
+					short_name[name_len++] = (ch == 0x05u) ? (char)0xE5u : (char)ch;
+				}
 				if (entry->ext[0] != ' ') {
 					short_name[name_len++] = '.';
 					for (int k = 0; k < 3 && entry->ext[k] != ' '; k++) short_name[name_len++] = entry->ext[k];
@@ -356,7 +359,7 @@ namespace uni {
 			for (int i = 0; i < entries_per_sector; i++) {
 				FAT_DirEntry* entry = &cast<FAT_DirEntry*>(buffer_sector)[i];
 				if ((byte)entry->name[0] == 0x00u) return false; // end of dir
-				if ((byte)entry->name[0] == 0xE5u || (byte)entry->name[0] == 0x05u) {
+				if ((byte)entry->name[0] == 0xE5u) {
 					lfn_expected_order = 0; continue;
 				}
 
@@ -390,7 +393,10 @@ namespace uni {
 
 				char short_name[13];
 				int name_len = 0;
-				for (int k = 0; k < 8 && entry->name[k] != ' '; k++) short_name[name_len++] = entry->name[k];
+				for (int k = 0; k < 8 && entry->name[k] != ' '; k++) {
+					unsigned char ch = (unsigned char)entry->name[k];
+					short_name[name_len++] = (ch == 0x05u) ? (char)0xE5u : (char)ch;
+				}
 				if (entry->ext[0] != ' ') {
 					short_name[name_len++] = '.';
 					for (int k = 0; k < 3 && entry->ext[k] != ' '; k++) short_name[name_len++] = entry->ext[k];

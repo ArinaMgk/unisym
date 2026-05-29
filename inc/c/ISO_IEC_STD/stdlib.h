@@ -22,7 +22,11 @@
 
 #ifndef _INC_STDLIB_NEXT
 #define _INC_STDLIB_NEXT
-#if defined(__GNUC__) || defined(__clang__)
+#if !defined(_ACCM) && !defined(_MCCA) && defined(__has_include_next)
+#	if __has_include_next(<stdlib.h>)
+#		include_next <stdlib.h>
+#	endif
+#elif !defined(_ACCM) && !defined(_MCCA) && (defined(__GNUC__) || defined(__clang__))
 #include_next <stdlib.h>
 #endif
 #endif
@@ -119,10 +123,26 @@ typedef struct lldiv_t {
 #else
 void abort(void);
 #endif
+int abs(int j);
+long int labs(long int j);
+long long int llabs(long long int j);
 int atexit(void (*func)(void));
+double atof(const char* nptr);
+int atoi(const char* nptr);
+long int atol(const char* nptr);
+long long int atoll(const char* nptr);
+void* bsearch(const void* key, const void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
 void exit(int status);
 void _Exit(int status);
 char* getenv(const char* name);
+void qsort(void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
+double strtod(const char* restrict nptr, char** restrict endptr);
+float strtof(const char* restrict nptr, char** restrict endptr);
+long double strtold(const char* restrict nptr, char** restrict endptr);
+long int strtol(const char* restrict nptr, char** restrict endptr, int base);
+long long int strtoll(const char* restrict nptr, char** restrict endptr, int base);
+unsigned long int strtoul(const char* restrict nptr, char** restrict endptr, int base);
+unsigned long long int strtoull(const char* restrict nptr, char** restrict endptr, int base);
 int system(const char* string);
 
 struct div_t div(int numer, int denom);

@@ -48,6 +48,7 @@
 #endif
 
 #include "stdinc.h"
+#include "system/supple.h"
 #include "uctype.h"
 
 #ifndef EOF

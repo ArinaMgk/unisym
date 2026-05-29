@@ -56,7 +56,7 @@ _ESYM_C void memf(void* m);// non-side-effect version, with null-check
 
 #ifdef _INC_CPP
 
-#if defined(_DEV_GCC) && defined(_MCCA) && !defined(_NEW)
+#if defined(_DEV_GCC) && (defined(_MCCA) || defined(_ACCM)) && !defined(_NEW)
 
 // ---- std.new
 #if __has_include(<new>)
@@ -121,8 +121,8 @@ _ESYM_C void    memrelease();
 #elif defined(_Linux)
 #include <stdlib.h>
 #else 
-#if defined(_MCCA) && ((_MCCA & 0xFF00) != 0x1000)
-#include <stdlib.h>
+#if (defined(_ACCM) && ((_ACCM & 0xFF00) != 0x1000)) || (defined(_MCCA) && ((_MCCA & 0xFF00) != 0x1000))
+// _ACCM/_MCCA freestanding builds use local allocator declarations below; do not include host stdlib.h here.
 #endif
 
 #define _memory_midfix

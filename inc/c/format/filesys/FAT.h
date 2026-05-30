@@ -212,10 +212,13 @@ namespace uni {
 
 		virtual stduint readfl(void* fil_handler, Slice file_slice, byte*) override;// read file
 
-		//{unchk}
 		virtual stduint writfl(void* fil_handler, Slice file_slice, const byte*) override;// write file
 		//
 		virtual rostr nextlink(rostr fullpath) override { return NULL; }// if a hard/soft link
+
+		virtual bool truncate(void* fil_handler, stduint size) override;
+
+		virtual bool rename(rostr src_path, rostr dst_path) override;
 
 	public:
 		uint32_t getSector_foCluster(uint32_t cluster) {

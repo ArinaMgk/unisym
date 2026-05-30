@@ -20,8 +20,8 @@
 	limitations under the License.
 */
 
-#include "stdinc.h"
-#include "consio.h"
+#include "../../inc/c/stdinc.h"
+#include "../../inc/c/consio.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>

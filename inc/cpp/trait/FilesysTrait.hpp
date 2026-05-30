@@ -105,6 +105,12 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		virtual stduint writfl(void* fil_handler, Slice file_slice, const byte*) = 0;// write file
 		//
 		virtual rostr nextlink(rostr fullpath) { return NULL; }// if a hard/soft link
+
+		virtual bool truncate(void* fil_handler, stduint size) { return false; }// adjust file size
+
+		virtual bool rename(rostr src_path, rostr dst_path) { return false; }// rename or move file/directory
+
+		//{} extfunc()
 	};
 
 

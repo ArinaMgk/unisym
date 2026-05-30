@@ -6,6 +6,10 @@
 // size_t よ system/
 //{} FILE
 //{} fpos_t
+#if defined(_ACCM) || defined(_MCCA)
+typedef struct __mcca_FILE FILE;
+typedef long fpos_t;
+#endif
 
 // ---- MACRO
 //   NULL よ archit.h
@@ -21,6 +25,23 @@
 //{} SEEK_END
 //{} SEEK_SET
 //{} TMP_MAX
+#if defined(_ACCM) || defined(_MCCA)
+#ifndef BUFSIZ
+#define BUFSIZ 1024
+#endif
+#ifndef EOF
+#define EOF (-1)
+#endif
+#ifndef SEEK_CUR
+#define SEEK_CUR 1
+#endif
+#ifndef SEEK_END
+#define SEEK_END 2
+#endif
+#ifndef SEEK_SET
+#define SEEK_SET 0
+#endif
+#endif
 //よ _STD_SRC_t
 //   stderr
 //   stdin
@@ -103,6 +124,35 @@
 //{} int fsetpos(FILE* stream, const fpos_t* pos);
 //{} long int ftell(FILE* stream);
 //{} void rewind(FILE* stream);
+
+#if defined(_ACCM) || defined(_MCCA)
+#ifdef __cplusplus
+extern "C" {
+#endif
+	extern FILE* stderr;
+	extern FILE* stdin;
+	extern FILE* stdout;
+
+int fclose(FILE* stream);
+int fflush(FILE* stream);
+FILE* fopen(const char* filename, const char* mode);
+int fprintf(FILE* stream, const char* format, ...);
+int fgetc(FILE* stream);
+char* fgets(char* s, int n, FILE* stream);
+int fputc(int c, FILE* stream);
+int fputs(const char* s, FILE* stream);
+size_t fread(void* ptr, size_t size, size_t nmemb, FILE* stream);
+size_t fwrite(const void* ptr, size_t size, size_t nmemb, FILE* stream);
+int fgetpos(FILE* stream, fpos_t* pos);
+int fseek(FILE* stream, long offset, int whence);
+int fsetpos(FILE* stream, const fpos_t* pos);
+long int ftell(FILE* stream);
+int vfprintf(FILE* stream, const char* format, para_list arg);
+void rewind(FILE* stream);
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 // ---- { Error-handling } ----
 //{} void clearerr(FILE* stream);

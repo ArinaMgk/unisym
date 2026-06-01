@@ -61,7 +61,7 @@ SwitchTaskContext:
 	MOV DS, AX
 	MOV ES, AX
 	MOV FS, AX
-	MOV GS, AX
+	; Keep GS base pairing intact for SWAPGS-based syscall entry.
 	;
 	MOV RAX, [RDI + 0x00]
 	MOV RCX, [RDI + 0x08]
@@ -90,6 +90,10 @@ SwitchTaskContext:
 .skip_cr3:
 	
 	POP RAX; Common Kernel Stack Mapping
+	TEST QWORD [RSP + 8], 3 ; returning to Ring 3?
+	JZ .to_kernel
+	SWAPGS
+.to_kernel:
 	O64 IRET
 
 

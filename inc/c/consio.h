@@ -154,8 +154,8 @@ namespace uni {
 	class HostConsole : public Console_t // single instance
 	{
 	public:
-		virtual int out(const char* str, stduint len);
-		virtual int inn();
+		virtual int out(const char* str, stduint len) override;
+		virtual int inn() override;
 	public:
 		Point getCursor();
 		stduint getWidth();
@@ -197,8 +197,8 @@ namespace uni {
 		: public Console_t, public SheetTrait
 	{
 	public:
-		virtual int out(const char* str, stduint len);
-		virtual int inn();
+		virtual int out(const char* str, stduint len) override;
+		virtual int inn() override;
 		virtual void doshow(void*) override;
 		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
 	public:

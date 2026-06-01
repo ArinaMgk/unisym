@@ -11,7 +11,7 @@
 
 #include "../stdinc.h" // supple
 
-#if !defined(_STDARG_H) && !defined(_STDARG_H_) && !defined(_ANSI_STDARG_H_)
+#if !defined(_STDARG_H) && !defined(__STDARG_H) && !defined(_STDARG_H_) && !defined(_ANSI_STDARG_H_) && !defined(__stdarg_h)
 #define va_list para_list
 #define __va_align(type) _para_align(type)
 #define va_start para_ento

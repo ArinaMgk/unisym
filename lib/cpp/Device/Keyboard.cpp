@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include "../../../inc/c/driver/keyboard.h"
 #include "../../../inc/c/msgface.h"
-#include <algorithm>
 
 _ESYM_CPP
 const char key_map[256] = {
@@ -42,6 +41,7 @@ const char key_map_shift[256] = {
 };
 
 #if defined(_INC_CPP) && (defined(_MCCA) && ((_MCCA)==0x8664))
+#include <algorithm>
 namespace uni::device::SpaceUSB {
 	void* HIDKeyboardDriver::operator new(size_t size) {
 		return uni_hostenv_allocator->allocate(sizeof(HIDKeyboardDriver));

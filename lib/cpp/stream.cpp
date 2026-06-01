@@ -20,12 +20,6 @@
 */
 
 #include "../../inc/cpp/unisym"
-
-#if defined(_MCCA)
-#else
-#include "new"
-#endif
-
 #include "../../inc/c/consio.h"
 #include "../../inc/c/arith.h"
 

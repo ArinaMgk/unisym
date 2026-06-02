@@ -37,6 +37,7 @@ namespace uni {
 		virtual stduint getUnits() = 0;
 
 		stduint Read(stduint linear_offset, void* dest, stduint length, byte* buffer);
+		stduint Write(stduint linear_offset, const void* src, stduint length, byte* buffer);
 	};
 
 

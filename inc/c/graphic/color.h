@@ -58,7 +58,12 @@ namespace uni {
 		NV12 = 0x10,
 		NV21 = 0x11,
 		YUV420 = 0x12,
-		YVU420 = 0x13
+		YVU420 = 0x13,
+		//
+		GREY8,
+		INDEX8,
+		//
+		UNKNOWN
 	};
 	
 	//[ATTR] little-endian, argb

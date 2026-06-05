@@ -6,6 +6,22 @@
 ; Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
 GLOBAL SwitchTaskContext
+GLOBAL dbg_last_switch_ctx
+GLOBAL dbg_last_switch_stage
+GLOBAL dbg_last_switch_path
+GLOBAL dbg_last_switch_iret_esp
+GLOBAL dbg_last_switch_ip
+GLOBAL dbg_last_switch_cs
+GLOBAL dbg_last_switch_ds
+GLOBAL dbg_last_switch_es
+GLOBAL dbg_last_switch_ss
+GLOBAL dbg_last_switch_fs
+GLOBAL dbg_last_switch_gs
+EXTERN ap_lapicid_to_coreid
+EXTERN ap_ring3_iret_stack_tops
+EXTERN ap_ring3_iret_guard_hits
+EXTERN ap_ring3_iret_last_lapicid
+EXTERN ap_ring3_iret_last_coreid
 
 ;[CPU 386]
 [CPU 686]
@@ -205,12 +221,35 @@ SwitchTaskContext:; (* nex, * crt)
 	JZ .switch_to_ring0
 
 .switch_to_ring3:; r1 r2 r3
-	MOV ESP, 0xFFFFFFF8
+	MOV EDI, EAX
+	XOR ECX, ECX
+	MOV EAX, 0x0B
+	CPUID
+	MOV [ap_ring3_iret_last_lapicid], EDX
+	CMP EDX, 256
+	JAE .ring3_guard_fallback
+	MOV EDX, [ap_lapicid_to_coreid + EDX * 4]
+	MOV [ap_ring3_iret_last_coreid], EDX
+	CMP EDX, 0xFFFFFFFF
+	JE .ring3_guard_fallback
+	MOV ESP, [ap_ring3_iret_stack_tops + EDX * 4]
+	JMP .ring3_stack_ready
+
+.ring3_guard_fallback:
+	INC DWORD [ap_ring3_iret_guard_hits]
+	MOV EDX, 0
+	MOV ESP, [ap_ring3_iret_stack_tops]
+
+.ring3_stack_ready:
+	MOV EAX, EDI
 	; PUSH DWORD [EAX + 0x00] ; EAX
 	MOVZX ECX, WORD [EAX + 0x56]
 	PUSH ECX                ; SS
 	PUSH DWORD [EAX + 0x10] ; SP (用户栈)
-	PUSH DWORD [EAX + 0x44] ; FLAG
+	MOV ECX, [EAX + 0x44]   ; FLAG
+	AND ECX, 0xFFFEBFFF     ; clear NT and RF only
+	OR  ECX, 0x00000002     ; bit1 is always set
+	PUSH ECX
 	MOVZX ECX, WORD [EAX + 0x50]
 	PUSH ECX                ; CS
 	PUSH DWORD [EAX + 0x40] ; IP
@@ -220,7 +259,10 @@ SwitchTaskContext:; (* nex, * crt)
 	; 0x8632 IRETD won't pop ESP/SS
 	MOV ESP, [EAX + 0x10]
 	; PUSH DWORD [EAX + 0x00] ; EAX
-	PUSH DWORD [EAX + 0x44] ; FLAG
+	MOV ECX, [EAX + 0x44]   ; FLAG
+	AND ECX, 0xFFFEBFFF     ; clear NT and RF only
+	OR  ECX, 0x00000002     ; bit1 is always set
+	PUSH ECX
 	MOVZX ECX, WORD [EAX + 0x50]
 	PUSH ECX                ; CS
 	PUSH DWORD [EAX + 0x40] ; IP

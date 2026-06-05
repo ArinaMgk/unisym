@@ -88,7 +88,8 @@ namespace uni {
 			ret |= IO_Read32(idx);
 			return ret;
 		}
-		
+		auto getType() const { return typ; }
+
 		// Read from Local APIC register
 		uint32 ReadLAPIC(uint32 mmio_offset);
 		// Write to Local APIC register

@@ -107,6 +107,7 @@ namespace uni {
 
 	void FloppyDisk::Recalibrate() {
 		Motor(true);
+		asserv(fn_feedback)();
 		WriteCmd(FDC_CMD_RECALIBRATE);
 		WriteCmd(id);
 		
@@ -126,6 +127,7 @@ namespace uni {
 		}
 
 		// Force seek/recalibrate to clear potential false positive from recent disk swap
+		asserv(fn_feedback)();
 		WriteCmd(FDC_CMD_RECALIBRATE);
 		WriteCmd(id);
 		

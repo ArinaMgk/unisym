@@ -63,7 +63,7 @@ ConPrint Hello_String; Assembly Macro
 | INC `inc/` | / | including files |
 | LIB `lib/` | / | implementation source code (including Witch **rendering** engine) |
 | MGK `magic/` | sources => sources + list + depend + target | compiler, analyzer, translator, linker, synthesizer and modifier |
-| WEL `wel/` |  | Si/E-mulator |
+| WEL `wel/` |  | Si(T2-VM)/E(Soft)-mulator |
 
 - Constructor (Wizard) now combined into Rosemana.
 

@@ -58,7 +58,7 @@ namespace uni {
 	} Point, Size2;
 
 	struct Position {
-		stdint x, y, z, t;
+		stdint x = 0, y = 0, z = 0, t = 0;
 	};
 
 	struct Size2dif {
@@ -70,12 +70,12 @@ namespace uni {
 	typedef double Line2[3];// x*[0] + y*[1] + [2] {=, <, <=} 0
 
 	struct Rectangle {
-		stduint x, y;// of vertex
-		stduint width, height;
-		Color color;
-		bool filled; // not hollow
+		stduint x = 0, y = 0;// of vertex
+		stduint width = 0, height = 0;
+		Color color = {};
+		bool filled = true; // not hollow
 	public:
-		Rectangle() {}
+		Rectangle() = default;
 		Rectangle(Point vertex, Size2 size, Color color = Color::FromRGB888(0), bool filled = true) : x(vertex.x), y(vertex.y), width(size.x), height(size.y), color(color), filled(filled) {}
 		Point getVertex() const {
 			return Point(x, y);
@@ -94,10 +94,10 @@ namespace uni {
 	};
 
 	struct Circle {
-		Point center;
-		stduint radius;
-		Color color;
-		bool filled;
+		Point center = { 0, 0 };
+		stduint radius = 0;
+		Color color = {};
+		bool filled = true;
 	public:
 		Circle(Point centre, stduint r, Color color = Color::FromRGB888(0), bool filled = true) : center(centre), radius(r), color(color), filled(filled) {}
 		Point getVertex() const {

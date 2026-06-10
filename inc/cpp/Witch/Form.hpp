@@ -37,7 +37,7 @@ namespace uni::Witch {
 
 	struct Form_CloseButton : public SheetTrait {
 		friend class Form;
-		Form_CloseButton() = default;
+		Form_CloseButton() : SheetTrait() {}
 		virtual void doshow(void*) override {}
 		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
 		virtual Color getPoint(Point p) override;
@@ -45,7 +45,7 @@ namespace uni::Witch {
 	struct Form_TitleBar : public SheetTrait {
 		bool active = false;
 		friend class Form;
-		Form_TitleBar() = default;
+		Form_TitleBar() : SheetTrait() {}
 		virtual void doshow(void*) override {}
 		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
 		virtual Color getPoint(Point p) override;
@@ -77,7 +77,8 @@ namespace uni::Witch {
 		void* usrp_owner = nullptr;
 		Queue<SheetMessage> msg_queue;
 		// NodeChain Controls = (nullptr);
-		Form() : LayerManager(), msg_queue(0) {
+		Form() : LayerManager(), close_btn(), title_bar(), client_area(),
+			focus_sheet(nullptr), active(false), msg_queue(0) {
 		}
 
 		virtual void PushMessage(const SheetMessage& msg) override {

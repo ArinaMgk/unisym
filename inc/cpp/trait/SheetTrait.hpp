@@ -44,9 +44,9 @@ namespace uni {
 	// 0RML0RML: Lower 0RML for change, Upper 0RML0RML: last state
 
 	struct SheetMessage {
-		SheetEvent event;
+		SheetEvent event = SheetEvent::onClick;
 		union {
-			stduint args[4];
+			stduint args[4] = {};
 			// keyboard_event_t
 		};
 	};
@@ -66,7 +66,9 @@ namespace uni {
 		stduint timer_timeout_tick = 0;
 		stduint timer_timeout_period = 0;
 	public:
-		SheetTrait() = default;
+		SheetTrait() : sheet_parent(nullptr), timer_root_manager(nullptr),
+			sheet_node{}, sheet_area(), sheet_buffer(nullptr),
+			timer_timeout_tick(0), timer_timeout_period(0) {}
 		virtual ~SheetTrait() = default;
 
 		void InitializeSheet(LayerManager& _parent, Point vertex, Size2 size, Color* buf = nullptr) {

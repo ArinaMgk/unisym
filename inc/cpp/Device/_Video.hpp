@@ -100,7 +100,7 @@ namespace uni {
 	// STM32H7  : LTDC + DMA2D
 	// STM32MP13: LTDC
 	struct VideoManager {
-		stduint id;
+		stduint id = 0;
 	};
 
 
@@ -121,9 +121,9 @@ namespace uni {
 	}
 
 	struct DisplayFont {
-		pureptr_t family;
-		Color forecolor;
-		Size2 size;
+		pureptr_t family = nullptr;
+		Color forecolor = {};
+		Size2 size = { 0, 0 };
 	};
 
 
@@ -184,8 +184,8 @@ namespace uni {
 	public:
 		Nnode* subf = nullptr,// top
 			* subl = nullptr;// bottom
-		VideoControlInterface* pvci;
-		Rectangle window;//[duplicate] sheet_area
+		VideoControlInterface* pvci = nullptr;
+		Rectangle window = {};//[duplicate] sheet_area
 		volatile bool is_dirty = true;
 		Rectangle dirty_area = {};
 		stduint sys_tick = 0;
@@ -232,8 +232,8 @@ namespace uni {
 		stduint video_mode = 0;
 		// stduint sheet_count;//{} Dchain
 	public:
-		LayerManager() : SheetTrait() {}
-		LayerManager(VideoControlInterface* p, const Rectangle& rect) : SheetTrait(), pvci(p), window(rect) {}
+		LayerManager() : SheetTrait(), subf(nullptr), subl(nullptr) {}
+		LayerManager(VideoControlInterface* p, const Rectangle& rect) : SheetTrait(), subf(nullptr), subl(nullptr), pvci(p), window(rect) {}
 		inline void Reset(VideoControlInterface* p, const Rectangle& rect) {  pvci = p; window = rect; }
 
 		void Append(SheetTrait* sheet) {
@@ -319,17 +319,17 @@ namespace uni {
 	// inherit Console_t to make a console with self-defined font.
 	class VideoConsole : public Console_t, public SheetTrait
 	{
-	public: const VideoControlInterface* vci;
+	public: const VideoControlInterface* vci = nullptr;
 	protected:
 		Point cursor = { 0,0 };
 		Color* buffer = nullptr;// pixels/words buffer, not sheet_buffer
-		Size2 size;// char unit but pixel
-		stduint typ;// 0: inner_8x5, 1:inner_16x8
+		Size2 size = { 0, 0 };// char unit but pixel
+		stduint typ = 1;// 0: inner_8x5, 1:inner_16x8
 	public:
 		
-		Color forecolor;
-		Color backcolor;// for next font's, but background, while background use window.color.
-		Rectangle window;//{TODO}
+		Color forecolor = {};
+		Color backcolor = {};// for next font's, but background, while background use window.color.
+		Rectangle window = {};//{TODO}
 		byte update_method = 2;// 0: no update, 1: update all, 2: update line
 		bool cursor_visible = false;
 	protected:
@@ -455,10 +455,10 @@ namespace uni {
 
 	// One cell of the VideoConsole2 text buffer.
 	struct BufferChar {
-		Color   back_color;    // background color of this cell
-		Color   fore_color;    // foreground (glyph) color
-		uint32  attr;          // attributes: bold/underline/blink/reverse (reserved)
-		uint32  unicode_char;  // character code (currently ASCII; lower byte used)
+		Color   back_color = {};    // background color of this cell
+		Color   fore_color = {};    // foreground (glyph) color
+		uint32  attr = 0;          // attributes: bold/underline/blink/reverse (reserved)
+		uint32  unicode_char = 0;  // character code (currently ASCII; lower byte used)
 	};
 
 	// VideoConsole2: character-unit console with lazy line-buffer rendering.
@@ -469,16 +469,16 @@ namespace uni {
 	// On draw  : rasterize one char-row into line_buf on demand, blit via DrawPoints.
 	class VideoConsole2 : public Console_t, public SheetTrait {
 	public:
-		const VideoControlInterface* vci;
+		const VideoControlInterface* vci = nullptr;
 	protected:
 		Point   cursor  = { 0, 0 };
 		Color*  buffer  = nullptr; // pixel buffer (same role as VideoConsole::buffer)
-		Size2   size;              // char grid dimensions (cols, rows)
+		Size2   size = { 0, 0 };              // char grid dimensions (cols, rows)
 		const FontEngine* font_engine = nullptr; // decoupled font engine
 	public:
-		Color     forecolor;
-		Color     backcolor;
-		Rectangle window;
+		Color     forecolor = {};
+		Color     backcolor = {};
+		Rectangle window = {};
 		byte      update_method  = 2;    // 0: none, 1: all, 2: line
 		bool      cursor_visible = false;
 	protected:

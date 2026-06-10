@@ -22,6 +22,13 @@
 
 #include "../../../inc/c/mempool.h"
 
+#if !defined(SET_POISON) && defined(_DEBUG)
+#define SET_POISON 1
+#endif
+#if !defined(SET_POISON)
+#define SET_POISON 0
+#endif
+
 using namespace uni;
 
 ::uni::trait::Malloc* uni_default_allocator
@@ -277,7 +284,11 @@ void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 	stduint align = _IMM1 << alignment;
 	if (boundary <= alignment) boundary = nil;
 	stduint bound = boundary ? (_IMM1 << boundary) : 0;
-	if (!size) return nullptr;
+	// Conforming to C/C++: return a unique valid pointer for 0-byte allocations
+
+	if (!size) size = 1;
+	// if (!size) return nullptr;
+
 	if (bound > 0 && size > bound) return nullptr;
 	const stduint total_size = sizeof(Header) + size;
 	int retry_count = 0;
@@ -326,6 +337,7 @@ _RETRY_ALLOC:
 				plogerro("\t Remove(Slice{ %[x], %[x] })", _IMM(header), total_size);
 				plogerro("\t Current Slice{ %[x], %[x] }", p->address, p->length);
 			}
+			// if (1) MemSet(ret, 0, size);
 			// ploginfo("Mempool::allocate %u a%u b%u -> %[x]", size, alignment, boundary, ret);
 			return ret;
 		}
@@ -353,6 +365,9 @@ bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
 		return false;
 	}
 	if (!size) size = header->size;
+	#if SET_POISON
+	MemSet(ptr, 0xDD, size); // poison freed memory to detect use-after-free
+	#endif
 	Slice recovered = { _IMM(header) , sizeof(Header) + size };
 	bool state;
 	if (size == header->size) {

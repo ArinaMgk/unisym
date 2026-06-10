@@ -183,15 +183,12 @@ namespace uni {
 	__attribute__((target("general-regs-only")))
 		#endif
 		void LayerManager::Update(SheetTrait* who, const Rectangle& rect) {
-			// auto p = who->sheet_buffer; if (!p) return;
 		if (!this) return;
 		VideoControlInterfaceMARGB8888 vcim(sheet_buffer, window.getSize());
 		Rectangle abs_rect = who ? who->sheet_area : window;
 		abs_rect.x += rect.x;
 		abs_rect.y += rect.y;
-		//{TEMP} | then —
 		for0(i, rect.height) {
-			// auto pp = p + (rect.y + i) * who->sheet_area.width + rect.x;
 			Point point(abs_rect.x + 0, abs_rect.y + i);
 			if (point.y >= window.height) break;
 			for0(j, rect.width) {
@@ -208,8 +205,6 @@ namespace uni {
 			Size2(rect.width, rect.height)
 		));
 		else {
-			// Ensure dirty area spans the actual affected absolute rect
-			// this->AddDirty(window);
 			this->AddDirty(Rectangle(Point(abs_rect.x, abs_rect.y), Size2(rect.width, rect.height)));
 		}
 	}
@@ -251,20 +246,26 @@ namespace uni {
 		}
 		asserv(top)->onrupt(event, rel_p - top->sheet_area.getVertex(), para1);
 	}
-	
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 	__attribute__((target("sse,sse2")))// ,avx,avx2
 		#endif
 		Color LayerManager::EvaluateColor(const Point& glb_p) {
 		Nnode* crt = subf;
 		Color col = 0;
-		if (crt && crt->offs) do {
+		if (crt) do {
 			auto& crt_sheet = treat<SheetTrait>(crt->offs);
 			auto& rect = crt_sheet.sheet_area;
 			if (!rect.ifContain(glb_p)) continue;
 			const Point pt{ glb_p - rect.getVertex() };
-			auto pp = !crt_sheet.sheet_buffer ? crt_sheet.getPoint(pt) :
-				crt_sheet.sheet_buffer[pt.y * crt_sheet.sheet_area.width + pt.x];
+			Color pp;
+			if (!crt_sheet.sheet_buffer) {
+				pp = crt_sheet.getPoint(pt);
+			}
+			else {
+				Color* _rbuf = crt_sheet.sheet_buffer;
+				stduint _rw = crt_sheet.sheet_area.width;
+				pp = _rbuf[(stduint)pt.y * _rw + (stduint)pt.x];
+			}
 
 			if (pp.a == 0xFF) {
 				if (col.a == 0) return pp;
@@ -285,7 +286,7 @@ namespace uni {
 				col.b += (sint32)pp.b * factor / dv;
 				col.a += (sint32)pp.a * (0xFF - col.a) / 0xFF;
 			}
-		} while (col.a <= 0xFEu && (crt = crt->next) && crt->offs);
+		} while (col.a <= 0xFEu && (crt = crt->next));
 		if (col.a != 0xFFu) {
 			col.r += (sint32)window.color.r * (0xFF - col.a) / 0xFF;
 			col.g += (sint32)window.color.g * (0xFF - col.a) / 0xFF;

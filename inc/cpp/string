@@ -43,8 +43,8 @@
 namespace uni {
 	template <typename type0>
 	struct Slice_T {
-		stduint address;
-		stduint length;
+		stduint address = 0;
+		stduint length = 0;
 		//
 		stduint getLength() const { return length * sizeof(type0); }
 		type0* getEndoaddr() const { return (type0*)(address + length); }

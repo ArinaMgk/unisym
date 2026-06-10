@@ -245,7 +245,7 @@ SwitchTaskContext:; (* nex, * crt)
 	; PUSH DWORD [EAX + 0x00] ; EAX
 	MOVZX ECX, WORD [EAX + 0x56]
 	PUSH ECX                ; SS
-	PUSH DWORD [EAX + 0x10] ; SP (用户栈)
+	PUSH DWORD [EAX + 0x10] ; SP (User Stack)
 	MOV ECX, [EAX + 0x44]   ; FLAG
 	AND ECX, 0xFFFEBFFF     ; clear NT and RF only
 	OR  ECX, 0x00000002     ; bit1 is always set
@@ -280,8 +280,8 @@ SwitchTaskContext:; (* nex, * crt)
 	MOV CX, [EAX + 0x5A]
 	MOV GS, CX
 	; GPR and CR3
+	PUSH DWORD[EAX + 0x04]; ECX
 	PUSH DWORD[EAX + 0x00]; EAX
-	MOV ECX, [EAX + 0x04]
 	MOV EDX, [EAX + 0x08]
 	MOV EBX, [EAX + 0x0C]
 	MOV EBP, [EAX + 0x14]
@@ -294,7 +294,8 @@ SwitchTaskContext:; (* nex, * crt)
 	MOV CR3, EAX
 .skip_cr3:
 	POP EAX
-IRETD
+	POP ECX
+	IRETD
 
 section .data
 ALIGN 16

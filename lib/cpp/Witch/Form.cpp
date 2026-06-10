@@ -175,9 +175,11 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 void uni::Witch::Form::setSheet(LayerManager& layman, const Rectangle& rect, Color* buffer) {
 	InitializeSheet(layman, rect.getVertex(), rect.getSize());
 	window = rect;
+	close_btn.refSheetParent() = this;//
 	close_btn.sheet_area = Rectangle(Point(rect.width - 17, 2), Size2(CloseButtonWidth, CloseButtonHeight));
 	close_btn.sheet_node.offs = dynamic_cast<SheetTrait*>(&close_btn);
 	sheet_node.subf = &close_btn.sheet_node;
+	title_bar.refSheetParent() = this;//
 	title_bar.sheet_area = Rectangle(Point(1, 1), Size2(rect.width - 2, 17));
 	title_bar.sheet_node.offs = dynamic_cast<SheetTrait*>(&title_bar);
 	sheet_node.subf->Tail()->next = &title_bar.sheet_node;

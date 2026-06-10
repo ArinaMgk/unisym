@@ -352,8 +352,9 @@ namespace uni {
 			this->timer_root_manager->UnregisterTimer(this);
 			this->timer_root_manager = nullptr;
 		}
-		if (text_buf) { free(text_buf); text_buf = nullptr; }
-		if (line_buf) { free(line_buf); line_buf = nullptr; }
+		// Use delete[] to match new[] allocation in console initialization
+		if (text_buf) { delete[] text_buf; text_buf = nullptr; }
+		if (line_buf) { delete[] line_buf; line_buf = nullptr; }
 	}
 
 	// -------------------------------------------------------------------------

@@ -181,10 +181,10 @@ namespace uni {
 		None
 	};
 	struct TTY {
-		TTY_Mode mode;
-		void* body;// BareConsole or ...
-		stduint fore_id;// foreid < nums
-		stduint nums;// of tasks this have been binded
+		TTY_Mode mode = TTY_Mode::None;
+		void* body = nullptr;// BareConsole or ...
+		stduint fore_id = 0;// foreid < nums
+		stduint nums = 0;// of tasks this have been binded
 	};// May need a array for multiple tasks. bind_task[nums]
 
 	// |----------|

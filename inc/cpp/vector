@@ -62,7 +62,13 @@ namespace uni {
 			for0 (i, count) addr[i] = v.addr[i];
 		}
 		Vector& operator=(const Vector& v) {
-			if (this != &v) Vector(v);
+			if (this != &v) {
+				if (addr) delete[] addr;
+				limit = v.limit;
+				count = v.count;
+				addr = new type0[limit];
+				for0 (i, count) addr[i] = v.addr[i];
+			}
 			return *this;
 		}
 		static Vector<type0> From(const type0& content, stduint times) {

@@ -54,7 +54,7 @@ namespace uni {
 		return fgetc((FILE*)fptr);
 	}
 	int HostFile::out(const char* str, stduint len) {
-		return _TODO - 1;
+		return fwrite(str, len, 1, (FILE*)fptr);
 	}
 
 	//

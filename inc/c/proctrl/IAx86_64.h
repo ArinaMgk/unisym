@@ -264,6 +264,7 @@ _PACKED(struct) CallgateFrame {
 	stduint cs;
 	// Ring>0:
 	stduint sp0, ss0;
+	stduint cr3, ds, es, fs, gs, transition_frame, percore_ptr;
 };
 #endif
 

@@ -90,15 +90,15 @@ namespace uni {
 			ctrl_base = id < 2 ? PORT_IDE_ControlBlock_0 : PORT_IDE_ControlBlock_1;
 			#endif
 		}
-		virtual bool Read(stduint BlockIden, void* Dest);
-		virtual bool Write(stduint BlockIden, const void* Sors);
+		virtual bool Read(stduint BlockIden, void* Dest) override;
+		virtual bool Write(stduint BlockIden, const void* Sors) override;
 		virtual stduint getUnits();
 		// byte read
 		virtual int operator[](uint64 bytid) { return _TODO 0; }
 		//
-		virtual void setInterrupt(Handler_t _func) const;
-		virtual void setInterruptPriority(byte preempt, byte sub_priority) const;
-		virtual void enInterrupt(bool enable = true) const;
+		virtual void setInterrupt(Handler_t _func) const override;
+		virtual void setInterruptPriority(byte preempt, byte sub_priority) const override;
+		virtual void enInterrupt(bool enable = true) const override;
 
 		virtual PartitionSlice getSlice(stduint dev) override;
 

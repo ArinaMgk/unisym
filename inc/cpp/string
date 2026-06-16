@@ -42,7 +42,7 @@
  //{} Append property-call for += ... operator
 namespace uni {
 	template <typename type0>
-	struct Slice_T {
+	_PACKED(struct) Slice_T {
 		stduint address = 0;
 		stduint length = 0;
 		//

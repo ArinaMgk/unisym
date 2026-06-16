@@ -35,8 +35,8 @@ void Mouse_Init()
 	i8259Master_Enable(2);
 	i8259Slaver_Enable(4);// KBD
 	//
-	// Keyboard_Wait();
-	// outpb(PORT_KEYBOARD_CMD, 0xA8); // enable aux device
+	Keyboard_Wait();
+	outpb(PORT_KEYBOARD_CMD, 0xA8); // enable aux device
 	//
 	Keyboard_Wait();
 	outpb(PORT_KEYBOARD_CMD, KEYCMD_SENDTO_MOUSE);

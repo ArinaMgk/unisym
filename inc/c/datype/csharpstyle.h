@@ -6,7 +6,7 @@
 // #define Main main
 
 #define System uni
-#if defined(_INC_CPP) && !defined(_MCCA)
+#if defined(_INC_CPP) && !defined(_MCCA)&& !defined(_ACCM)
 // an alternative to Microsoft C++ CLI
 
 #undef  _OPT_CHARSET_UTF16

@@ -92,9 +92,9 @@ namespace uni {
 		}
 		virtual bool Read(stduint BlockIden, void* Dest) override;
 		virtual bool Write(stduint BlockIden, const void* Sors) override;
-		virtual stduint getUnits();
+		virtual stduint getUnits() override;
 		// byte read
-		virtual int operator[](uint64 bytid) { return _TODO 0; }
+		virtual int operator[](uint64 bytid) override { return _TODO 0; }
 		//
 		virtual void setInterrupt(Handler_t _func) const override;
 		virtual void setInterruptPriority(byte preempt, byte sub_priority) const override;

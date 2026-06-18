@@ -125,6 +125,9 @@ void ConStyleNormal(void);
 	#include <unistd.h>
 	#define ConGetCurrentDirectory getcwd
 	#define ConSetCurrentDirectory chdir
+#else
+	#define ConGetCurrentDirectory getcwd
+	#define ConSetCurrentDirectory chdir
 #endif
 
 
@@ -165,12 +168,10 @@ namespace uni {
 		int WriteLine(const char* fmt = "", ...);
 		int WriteLine(const String& str);
 	#endif
-	#if defined(_WinNT) || defined(_Linux)//{} remove the condition
 		void Clear() {
 			//{TODO} buffers for
 			ConClearScreen();
 		}
-	#endif
 	};
 
 #if defined(_MCCA)
@@ -268,7 +269,7 @@ namespace uni {
 #endif
 
 
-#if defined(_WinNT) || defined(_Linux) || defined(_MCCA)
+#if defined(_WinNT) || defined(_Linux) || defined(_MCCA) || defined(_ACCM)
 	extern HostConsole Console;
 #endif
 

@@ -23,7 +23,9 @@
 #ifndef _INC_STRBUFF
 #include "stdinc.h"
 #define _INC_STRBUFF
-
+#if !defined(_MCCA)
+#include <stdio.h>
+#endif
 
 #ifdef _INC_CPP
 extern "C" {
@@ -69,8 +71,7 @@ extern "C" {
 
 	void StrbuffSendx(Strbuff* s, stduint posi, const pureptr_t src, stduint len);
 
-#if !defined(_MCCA) && !defined(_ACCM)
-#include <stdio.h>
+#if !defined(_MCCA)
 	void StrbuffSendFile(Strbuff* s, FILE* fp);
 #endif
 

@@ -135,7 +135,7 @@ void ConClearScreen(void)
 #elif defined(_Linux)
 		system("clear");// <=> printf("\033[2J");
 #else
-		0; i++;
+		outsfmt("\033[2J");
 #endif
 	// cheat compiler
 }

@@ -22,11 +22,11 @@
 
 #ifndef _INC_STDLIB_NEXT
 #define _INC_STDLIB_NEXT
-#if !defined(_ACCM) && !defined(_MCCA) && defined(__has_include_next)
+#if !defined(_ACCM) && !defined(_MCCA) && defined(__has_include_next) && (!defined(_DEV_GCC) || !defined(_WinNT))
 #	if __has_include_next(<stdlib.h>)
 #		include_next <stdlib.h>
 #	endif
-#elif !defined(_ACCM) && !defined(_MCCA) && (defined(__GNUC__) || defined(__clang__))
+#elif !defined(_ACCM) && !defined(_MCCA) && (defined(__GNUC__) || defined(__clang__)) && (!defined(_DEV_GCC) || !defined(_WinNT))
 #include_next <stdlib.h>
 #endif
 #endif

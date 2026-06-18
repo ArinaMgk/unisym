@@ -34,7 +34,7 @@ static void showelf(const char* elftext)
 {
 	struct ELF_Header_t* header = (struct ELF_Header_t*)elftext;
 	// for0(i, numsof(header->MagicNumber)) printf("%c", header->MagicNumber[i]);
-	if (StrCompareN(header->MagicNumber, "\x7F" "ELF", 4))
+	if (StrCompareN((const char*)header->MagicNumber, "\x7F" "ELF", 4))
 	{
 		puts("\tNot an ELF file");
 		return;

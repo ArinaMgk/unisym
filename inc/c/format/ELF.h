@@ -497,7 +497,18 @@ struct elf_known_section {
 	typedef int64_t   Elf64_Sxword;
 
 	struct ELF_Header_t {
-		unsigned char e_ident[EI_NIDENT];
+		union {
+			unsigned char e_ident[EI_NIDENT];
+			struct {
+				byte MagicNumber[4];
+				byte Bitmode;
+				byte Endianness;
+				byte ELFVersion;
+				byte OSABI;
+				byte ABIVersion;
+				byte Pads[7];
+			};
+		};
 		Elf64_Half    e_type;
 		Elf64_Half    e_machine;
 		Elf64_Word    e_version;
@@ -526,7 +537,7 @@ struct elf_known_section {
 	};
 	typedef struct ELF_PHT_t Elf64_Phdr;
 
-	typedef struct elf64_shdr {
+	typedef struct ELF_SHT_t {
 		Elf64_Word sh_name;
 		Elf64_Word sh_type;
 		Elf64_Xword sh_flags;

@@ -31,6 +31,7 @@ stduint _EFDIGS = 6;
 // CORE of Arithmetic
 const static double _pi = _VAL_PI;
 const static double _ln2 = _VAL_L2;
+const static double _ln10 = 2.30258509299404568402;
 const static double _e = _VAL_E;
 // ln16
 const static double _4ln2 = 4 * _VAL_L2;
@@ -178,6 +179,14 @@ double dblpow_fexpo(double base, double expo)
 
 double dblabs(double inp) { return inp < 0 ? -inp : inp; }
 
+double dblfloor(double inp)
+{
+	int64 trunc = (int64)inp;
+	double res = (double)trunc;
+	if (res > inp) res -= 1.0;
+	return res;
+}
+
 double dblsqrt(double inp)
 {
 	//{TODO} fast-invsqrt-explained ?
@@ -226,7 +235,7 @@ double dblcos(double rad)
 	double res = 1;
 	if (rad < 0) return dblcos(-rad);
 	while (rad > 2 * _pi) //{TODO} f_getPartInteger, or may overlimit of stduint
-		rad -= (_IMM(rad / _pi) & ~_IMM1) * _pi;
+		rad -= (_IMM(rad / _pi) & ~_IMM(1)) * _pi;
 	if (rad > _pi)
 	{
 		res *= -1;
@@ -302,6 +311,11 @@ double dblatan(double val)
 	return dblatan_recurs(val);
 }
 
+double dbllog10(double power)
+{
+	return dbllog(power) / _ln10;
+}
+
 double dblsinh(double rad)
 {
 	return (dblexp(rad) - dblexp(-rad)) / 2;
@@ -315,5 +329,31 @@ double dblcosh(double rad)
 double dbltanh(double rad)
 {
 	return 1 - 2 / (1 + dblpow_iexpo(dblexp(rad), 2));
+}
+
+double dblasinh(double val)
+{
+	return dbllog(val + dblsqrt(val * val + 1));
+}
+
+double dblacosh(double val)
+{
+	if (val < 1)
+	{
+		double a = 0, b = 0;
+		return a / b;
+	}
+	if (val == 1) return 0;
+	return dbllog(val + dblsqrt(val * val - 1));
+}
+
+double dblatanh(double val)
+{
+	if (dblabs(val) > 1)
+	{
+		double a = 0, b = 0;
+		return a / b;
+	}
+	return dbllog((1 + val) / (1 - val)) / 2;
 }
 

@@ -155,6 +155,7 @@ double ceil(double val);
 long double ceill(long double val);
 #endif
 //{} floor
+double dblfloor(double val);
 #if defined(_USE_INNER_MATH)
 #define floorf dblfloor // TEMP no float ver
 #else
@@ -217,6 +218,7 @@ double log(double val);
 long double logl(long double val);
 #endif
 //{} log10
+double dbllog10(double power);
 #if defined(_USE_INNER_MATH)
 #define log10f dbllog10 // TEMP no float ver
 #else
@@ -357,6 +359,7 @@ long double asinl(long double val);
 #endif
 
 //{} dblasinh
+double dblasinh(double val);
 #if defined(_USE_INNER_MATH)
 #define asinhf dblasinh // TEMP no float ver
 #else
@@ -375,6 +378,7 @@ long double acosl(long double val);
 #endif
 
 //{} dblacosh
+double dblacosh(double val);
 #if defined(_USE_INNER_MATH)
 #define acoshf dblacosh // TEMP no float ver
 #else
@@ -402,6 +406,7 @@ long double atan2l(long double y, long double x);
 #endif
 
 //{} dblatanh
+double dblatanh(double val);
 #if defined(_USE_INNER_MATH)
 #define atanhf dblatanh // TEMP no float ver
 #else

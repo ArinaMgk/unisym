@@ -39,7 +39,11 @@ typedef uint32 char_utf32_t;
 // wchar_t is a keyword
 _ESYM_C{
 #elif !defined(_INC_DEPEND_STDDEF) // C
+#if defined(__WCHAR_TYPE__)
+typedef __WCHAR_TYPE__ wchar_t;
+#else
 typedef unsigned short int wchar_t;
+#endif
 #endif
 
 #if defined(_INC_CPP)

@@ -80,7 +80,7 @@ namespace uni {
 	public:
 		ReactType react_type = ReactType::Loop;
 		bool (*fn_cmd_wait)(FloppyDisk* fd) = 0;
-		void (*fn_int_wait)() = 0;
+		bool (*fn_int_wait)() = 0;// true: interrupt received; false: timeout
 		void (*fn_feedback)() = 0;
 		stdsint units = -1;
 

@@ -31,6 +31,8 @@
 #include "nnode"
 #include "../c/graphic.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
 namespace uni {
 
 	class LinearParser;
@@ -135,5 +137,6 @@ namespace uni {
 
 
 }
+#pragma GCC diagnostic pop
 
 #endif

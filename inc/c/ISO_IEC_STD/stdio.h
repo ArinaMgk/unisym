@@ -109,8 +109,9 @@ typedef long fpos_t;
 // int putchar(int c);
 #define putchar outc
 
-// int puts(const char* s);
-#define puts outs
+_ESYM_C
+int puts(const char* s);
+//OUTDATED: #define puts outs
 
 //{} int ungetc(int c, FILE* stream);
 

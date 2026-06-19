@@ -76,7 +76,7 @@ namespace uni {
 		HarddiskType type;
 		ReactType react_type = ReactType::Loop;
 		bool (*fn_cmd_wait)(Harddisk_PATA* hdd) = 0;
-		void (*fn_int_wait)() = 0;
+		bool (*fn_int_wait)() = 0;// true: interrupt received; false: timeout
 		bool (*fn_lup_wait)(Harddisk_PATA*, stduint mask, stduint val, stduint timeout_second) = 0;
 		void (*fn_feedback)();// optional RW precalling
 		stdsint units = -1;// -1 for uninit, 0 for inf

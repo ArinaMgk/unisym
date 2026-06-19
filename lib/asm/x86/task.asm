@@ -194,6 +194,7 @@ SwitchTaskContext:; (* nex, * crt)
 	; FLAG
 	PUSHFD
 	POP ECX
+	; OR ECX, 0x200;{} IF=1
 	MOV [EAX + 0x44], ECX
 	; CR3
 	MOV ECX, CR3
@@ -221,6 +222,10 @@ SwitchTaskContext:; (* nex, * crt)
 	JZ .switch_to_ring0
 
 .switch_to_ring3:; r1 r2 r3
+	MOV ECX, [EAX + 0x44]
+	OR ECX, 0x200;{} IF=1
+	MOV [EAX + 0x44], ECX
+	;
 	MOV EDI, EAX
 	XOR ECX, ECX
 	MOV EAX, 0x0B

@@ -111,7 +111,7 @@ void ConStyleNormal(void)
 
 size_t ConScanLine(char* buf, size_t limit)
 {
-#if defined(_WinNT) || defined(_Linux)
+#if defined(_WinNT) || defined(_Linux) || defined(_ACCM) 
 	size_t slen = 0;
 	char* tmp = fgets(buf, (int)limit, stdin);// tmp: cheat compiler
 	if (!*buf) return 0;

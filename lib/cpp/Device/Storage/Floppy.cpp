@@ -12,6 +12,18 @@
 #pragma GCC optimize("O0")
 namespace uni {
 
+	static bool flp_result_ready() {
+		return (innpb(PORT_FDC_MSR) & 0xC0) == 0xC0;
+	}
+
+	static bool flp_result_ready_retry() {
+		for (int retry = 0; retry < 5; retry++) {
+			for (volatile int i = 0; i < 100000; i++) _TEMP;
+			if (flp_result_ready()) return true;
+		}
+		return false;
+	}
+
 	FloppyDisk::FloppyDisk(byte id, FloppyDriveType type) : id(id), drive_type(type) {
 		Block_buffer = nullptr;
 		Block_Size = 512; // Standard Floppy Sector Size
@@ -171,7 +183,7 @@ namespace uni {
 		WriteCmd(0xFF); // DTL
 
 		if (react_type == ReactType::Rupt && fn_int_wait) {
-			fn_int_wait();
+			if (!fn_int_wait() && !flp_result_ready_retry()) return false;
 		} else {
 			for (volatile int i = 0; i < 100000; i++) _TEMP;
 		}
@@ -212,7 +224,7 @@ namespace uni {
 		WriteCmd(0xFF); 
 
 		if (react_type == ReactType::Rupt && fn_int_wait) {
-			fn_int_wait();
+			if (!fn_int_wait() && !flp_result_ready_retry()) return false;
 		}
 
 		// Read 7 Status Bytes

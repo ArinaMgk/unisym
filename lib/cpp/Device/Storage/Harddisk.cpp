@@ -46,6 +46,14 @@ namespace uni {
 		return innpb(io_base + REG_STATUS);
 	}
 
+	static bool wait_retry(Harddisk_PATA* hdd, bool (*fn_lup_wait)(Harddisk_PATA*, stduint, stduint, stduint), stduint mask, stduint val) {
+		if (!fn_lup_wait) return false;
+		for (int retry = 0; retry < 5; retry++) {
+			if (fn_lup_wait(hdd, mask, val, HD_TIMEOUT / 1000)) return true;
+		}
+		return false;
+	}
+
 	void Harddisk_PATA::setInterruptPriority(byte preempt, byte sub_priority) const {
 		// EMPTY
 	}
@@ -85,8 +93,11 @@ namespace uni {
 			asserv(fn_feedback)();// foreback
 			Harddisk_PATA::Hdisk_OUT(&cmd);
 			if (fn_int_wait && fn_lup_wait) {
-				fn_int_wait();
-				if (!fn_lup_wait(this, STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT)) {
+				const bool use_loop_fallback = !fn_int_wait();
+				if (use_loop_fallback) {
+					if (!wait_retry(this, fn_lup_wait, STATUS_DRQ, STATUS_DRQ)) return false;
+				}
+				else if (!fn_lup_wait(this, STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT / 1000)) {
 					return false;
 				}
 				IN_wn(io_base + REG_DATA, (word*)Dest, Block_Size);
@@ -119,11 +130,12 @@ namespace uni {
 			asserv(fn_feedback)();// foreback
 			Harddisk_PATA::Hdisk_OUT(&cmd);
 			if (fn_int_wait && fn_lup_wait) {
-				if (!fn_lup_wait(this, STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT)) {
-					return false;
-				}
+				if (!fn_lup_wait(this, STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT / 1000)) return false;
 				OUT_wn(io_base + REG_DATA, (word*)Sors, Block_Size);
-				fn_int_wait();
+				const bool use_loop_fallback = !fn_int_wait();
+				if (use_loop_fallback) {
+					if (!wait_retry(this, fn_lup_wait, STATUS_BSY, 0)) return false;
+				}
 				return true;
 				// repeat the block to RW multi-sectors
 			}

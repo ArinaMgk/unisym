@@ -179,7 +179,9 @@ enum Architecture_ARMv_t {
 	#endif
 */
 #if (defined(_MCCA) && _MCCA==0x8632) || (defined(_ACCM) && _ACCM==0x8632)
-	#include "../architect/arcx86.h"
+#include "../architect/arcx86.h"
+#elif (defined(_MCCA) && _MCCA==0x8664) || (defined(_ACCM) && _ACCM==0x8664)
+	#include "../architect/arcx64_mcca.h"
 #elif defined(_Intelx86o64_Windows_64)
 	#include "../architect/arcx64_win64.h"
 #elif defined(_MCU_Intel8051)

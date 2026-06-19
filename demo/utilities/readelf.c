@@ -42,7 +42,7 @@ static void showelf(const char* elftext)
 	puts("---- ELF Header ----");
 	printf("Size(%u)\n", header->e_ehsize);
 	printf("\tIs an ELF%u file\n", _Literal_ELFBitmode[header->Bitmode]);
-	printf("Endian\t%s\n", ((strtmpdef){"2'complement Little", "2'complement Big"})[header->Endianness]);
+	printf("Endian\t%s\n", ((strtmpdef){"2'complement Little", "2'complement Big"})[header->Endianness - 1]);
 	printf("Version\t%u Target 0x%x\n", header->ELFVersion, header->e_version);//{TODO}
 	printf("OS/ABI\t%s, ABI Version%u\n", _Literal_OSABI[header->OSABI], header->ABIVersion);
 	printf("Type\t%s\n", _Literal_ELFType[header->e_type]);

@@ -92,9 +92,11 @@ namespace uni {
 		xchg(idx1->type, idx2->type);
 		xchgptr(idx1->offs, idx2->offs);
 		xchgptr(idx1->subf, idx2->subf);
+		if (idx1->subf) idx1->subf->left = idx1;
+		if (idx2->subf) idx2->subf->left = idx2;
 		for0(i, extn_field) {
-			byte& b1 = *getExfield(*idx1);
-			byte& b2 = *getExfield(*idx2);
+			byte& b1 = getExfield(*idx1)[i];
+			byte& b2 = getExfield(*idx2)[i];
 			xchg(b1, b2);
 		}
 		return true;

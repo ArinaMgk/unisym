@@ -107,7 +107,19 @@ static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::Toke
 						nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
 						cont = false;
 					}
-					else tmpop++;
+					else {
+						// Advance to try a longer operator, but verify it matches at idx;
+						// otherwise revert and split the token with the original operator.
+						// e.g. token "!!" matches "!" (arfact), next char is '!' (punct),
+						// but the next operator "++" (sufadd) does not match "!!" at idx,
+						// so we must split "!!" into "!" and "!" instead of applying sufadd.
+						TokenOperator* prevop = tmpop++;
+						if (tmpop >= tmpend || StrCompareN(idx, tmpop->idnop, StrLength(tmpop->idnop))) {
+							tmpop = prevop;
+							nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
+							cont = false;
+						}
+					}
 				}
 				if (!idx) continue;
 				if (condi == 2 && ismiddle(crt)) {

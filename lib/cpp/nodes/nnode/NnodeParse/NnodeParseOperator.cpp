@@ -60,6 +60,13 @@ inline static bool ismiddle(uni::Nnode* crt) {
 
 typedef bool (*ParseOperatorFunction_t)(uni::Nnode*, uni::NnodeChain*, bool&);
 
+inline static bool should_divide_repeated_symbol(const char* idx, const uni::TokenOperator* op) {
+	return op && idx &&
+		StrLength(op->idnop) == 1 &&
+		idx[1] &&
+		idx[0] == idx[1];
+}
+
 const char* uni::StrIndexOperator(const char* str, uni::TokenOperator** operators, size_t count, bool left_to_right, stduint cond) {
 	const char* idx;
 	if (cond == 2) {
@@ -108,17 +115,13 @@ static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::Toke
 						cont = false;
 					}
 					else {
-						// Advance to try a longer operator, but verify it matches at idx;
-						// otherwise revert and split the token with the original operator.
-						// e.g. token "!!" matches "!" (arfact), next char is '!' (punct),
-						// but the next operator "++" (sufadd) does not match "!!" at idx,
-						// so we must split "!!" into "!" and "!" instead of applying sufadd.
-						TokenOperator* prevop = tmpop++;
-						if (tmpop >= tmpend || StrCompareN(idx, tmpop->idnop, StrLength(tmpop->idnop))) {
-							tmpop = prevop;
+						// Keep mixed operators like "!=" for later middle-op groups,
+						// but still split repeated unary symbols such as "!!" and "~~".
+						if (should_divide_repeated_symbol(idx, tmpop)) {
 							nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
 							cont = false;
 						}
+						else tmpop++;
 					}
 				}
 				if (!idx) continue;

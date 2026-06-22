@@ -78,7 +78,7 @@ rust:
 # ---- [utilities] ----
 
 manual:
-	@cd doc && xelatex herepc.tex && mv herepc.pdf ${ubinpath}/${@}.pdf
+	# @cd doc && xelatex herepc.tex && mv herepc.pdf ${ubinpath}/${@}.pdf
 
 magice:
 	@make -f ${make_dir}magic.make --no-print-directory

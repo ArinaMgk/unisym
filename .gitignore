@@ -2,6 +2,10 @@
 .vscode
 magic/.vscode
 # Document
+doc/*
+!doc/epic
+!doc/Makefile
+
 *.pdf
 *.out
 *.gz

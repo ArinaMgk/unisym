@@ -172,5 +172,7 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc);
 void GF_Picture(uni::Dchain* chain, MarkProcessor* proc);
 // Include( path: iden/string )
 void GF_Include(uni::Dchain* chain, MarkProcessor* proc);
+// IncludeWeak( path: iden/string )
+void GF_IncludeWeak(uni::Dchain* chain, MarkProcessor* proc);
 
 #endif

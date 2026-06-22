@@ -1,4 +1,4 @@
-﻿// ASCII C++ TAB4 LF
+// ASCII C++ TAB4 LF
 // Docutitle: Magice Compiler
 // Datecheck: 20240416 ~ .
 // Developer: @dosconio, @ArinaMgk
@@ -297,11 +297,22 @@ int main(int argc, char** argv)
 	FILE* file = 0;
 	bool is_mark = false;
 
-	if (argc == 2) {
+	int file_arg_idx = 1;
+	for (int i = 1; i < argc; i++) {
+		if (argv[i][0] == '-') {
+			if (!StrCompare(argv[i], "-f") || !StrCompare(argv[i], "-o")) {
+				i++;
+			}
+		} else {
+			file_arg_idx = i;
+			break;
+		}
+	}
+	if (file_arg_idx < argc) {
 		// judge "mgc XXX.mgc"
-		file = fopen(argv[1], "r");
+		file = fopen(argv[file_arg_idx], "r");
 		if (file) {
-			String buf(22);
+			String buf(String::Charset::UTF8, 22);
 			for (stduint i = 0; i < 21; i++) {
 				int ch = fgetc(file);
 				if (ch == EOF) break;
@@ -311,7 +322,6 @@ int main(int argc, char** argv)
 				is_mark = true;
 			fclose(file); file = nullptr;
 		}
-		stat;
 	}
 	if (!is_mark) stat = magic(argc, argv);
 	else stat = mark(argc, argv);

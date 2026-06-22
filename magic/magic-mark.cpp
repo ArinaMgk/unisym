@@ -1,4 +1,4 @@
-﻿// ASCII C++ TAB4 LF
+// ASCII C++ TAB4 LF
 // Docutitle: Magice Mark-Like Language Compiler
 // Input    : Intermediate mark-language
 // Output   : HTML, LaTeX, Markdown, ...
@@ -75,7 +75,55 @@ bool mark_debug = false;
 ///her/unisym/magic$ ./makmgc.sh && mgc /her/unisym/demo/test/mark/doc0/doc0.mgc
 int mark(int argc, char** argv) {
 	//ploginfo("process %s into .tex, .md, .html", argv[1]);
-	String filename = argv[1];
+	String filename;
+	String out_filename;
+	MarkProcessor::TextFormat out_fmt = MarkProcessor::TextFormat::None;
+
+	for (int i = 1; i < argc; i++) {
+		if (!StrCompare(argv[i], "-f") && i + 1 < argc) {
+			i++;
+			if (!StrCompare(argv[i], "html")) out_fmt = MarkProcessor::TextFormat::HTML;
+			else if (!StrCompare(argv[i], "tex")) out_fmt = MarkProcessor::TextFormat::Tex;
+			else if (!StrCompare(argv[i], "md")) out_fmt = MarkProcessor::TextFormat::Markdown;
+			else if (!StrCompare(argv[i], "stdout")) out_fmt = MarkProcessor::TextFormat::STDOUT;
+		}
+		else if (!StrCompare(argv[i], "-o") && i + 1 < argc) {
+			i++;
+			out_filename = argv[i];
+		}
+		else if (argv[i][0] != '-') {
+			filename = argv[i];
+		}
+	}
+
+	if (out_fmt == MarkProcessor::TextFormat::None) {
+		if (out_filename.reference()) {
+			stduint len = StrLength(out_filename.reference());
+			if (len >= 5 && !StrCompare(out_filename.reference() + len - 5, ".html")) out_fmt = MarkProcessor::TextFormat::HTML;
+			else if (len >= 4 && !StrCompare(out_filename.reference() + len - 4, ".tex")) out_fmt = MarkProcessor::TextFormat::Tex;
+			else if (len >= 3 && !StrCompare(out_filename.reference() + len - 3, ".md")) out_fmt = MarkProcessor::TextFormat::Markdown;
+			else out_fmt = MarkProcessor::TextFormat::STDOUT;
+		} else {
+			out_fmt = MarkProcessor::TextFormat::STDOUT;
+		}
+	}
+
+	if (!out_filename.reference() && out_fmt != MarkProcessor::TextFormat::STDOUT) {
+		if (out_fmt == MarkProcessor::TextFormat::HTML) {
+			char* tmp = StrReplace(filename.reference(), ".mgc", ".mgc.html", NULL);
+			out_filename = tmp;
+			mfree(tmp);
+		} else if (out_fmt == MarkProcessor::TextFormat::Tex) {
+			char* tmp = StrReplace(filename.reference(), ".mgc", ".mgc.tex", NULL);
+			out_filename = tmp;
+			mfree(tmp);
+		} else if (out_fmt == MarkProcessor::TextFormat::Markdown) {
+			char* tmp = StrReplace(filename.reference(), ".mgc", ".mgc.md", NULL);
+			out_filename = tmp;
+			mfree(tmp);
+		}
+	}
+
 	HostFile file(filename.reference());
 	byte ch;
 
@@ -92,29 +140,37 @@ int mark(int argc, char** argv) {
 	parser.method_string_escape_sequence = true;
 	parser.Parse(dc);
 
-	//for(auto nod = dc.Root(); nod; nod = nod->next) out->OutFormat("%s\n", nod->addr);
-
 	// divide into statements by ';'
 	NestedParseUnit npu(dc, 0);
 	npu.GetNetwork()->func_free = NnodeHeapFreeSimple;
 	npu.ParseStatements_CPL();
 	npu.ParseParen(npu.GetNetwork()->Root(), false);
 
-	////mark_debug = true;
+	MarkProcessor* proc = nullptr;
+	HostFile* outfile = nullptr;
 
-	//{} ProcessorHTML
-
-	HostFile outfile("D:/tmp/tmp.txt", FileOpenType::Write);
-	ProcessorTex out_tex(&outfile);
-	
-	//{} ProcessorMarkdown
-
-	ProcessorStdout out_stdout(&Console);
-	out_stdout.variables.chn.func_comp = (_tocomp_ft)StrCompare;
-	out_stdout.variables.chn.refChain().func_free = DnodeHeapFreeMagice;
-	for (auto nod = npu.GetNetwork()->Root(); nod; nod = nod->next) {
-		for (auto nnod = nod->subf; nnod; nnod = nnod->next) out_stdout.proc(nnod);
+	if (out_fmt == MarkProcessor::TextFormat::HTML) {
+		outfile = new HostFile(out_filename.reference(), FileOpenType::Write);
+		proc = new ProcessorHTML(outfile);
+	} else if (out_fmt == MarkProcessor::TextFormat::Tex) {
+		outfile = new HostFile(out_filename.reference(), FileOpenType::Write);
+		proc = new ProcessorTex(outfile);
+	} else if (out_fmt == MarkProcessor::TextFormat::Markdown) {
+		outfile = new HostFile(out_filename.reference(), FileOpenType::Write);
+		proc = new ProcessorMarkdown(outfile);
+	} else {
+		proc = new ProcessorStdout(&Console);
 	}
+
+	proc->variables.chn.func_comp = (_tocomp_ft)StrCompare;
+	proc->variables.chn.refChain().func_free = DnodeHeapFreeMagice;
+
+	for (auto nod = npu.GetNetwork()->Root(); nod; nod = nod->next) {
+		for (auto nnod = nod->subf; nnod; nnod = nnod->next) proc->proc(nnod);
+	}
+
+	delete proc;
+	if (outfile) delete outfile;
 	
 
 	// NnodeWalk(npu.GetNetwork()->Root());

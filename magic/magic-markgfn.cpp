@@ -90,16 +90,24 @@ void GF_Title(uni::Dchain* chain, MarkProcessor* proc)
 	}
 	switch (proc->txtfmt) {
 	case MarkProcessor::TextFormat::HTML:
-		//proc->out("<h", 2);
-		//proc->out(dc[0]->addr, StrLength(dc[0]-/>addr));
-		//proc->out(">", 1);
-		//proc->out(title, StrLength(title));
-		//proc->out("</h", 3);
-		//proc->out(dc[0]->addr, StrLength(dc[0]-/>addr));
-		//proc->out(">\n", 2);
+		{
+			int level = atoins(dc[0]->addr);
+			if (level > 6) level = 6;
+			proc->OutFormat("<h%d>%s</h%d>\n", level, title, level);
+		}
 		break;
 	case MarkProcessor::TextFormat::Tex:
-		//{TODO}
+		proc->OutFormat("\n");
+		switch (atoins(dc[0]->addr)) {
+		case 1: proc->OutFormat("\\chapter{%s}\n", title); break;
+		case 2: proc->OutFormat("\\section{%s}\n", title); break;
+		case 3: proc->OutFormat("\\subsection{%s}\n", title); break;
+		case 4: proc->OutFormat("\\subsubsection{%s}\n", title); break;
+		case 5: proc->OutFormat("\\paragraph{%s}\n", title); break;
+		case 6: proc->OutFormat("\\subparagraph{%s}\n", title); break;
+		case 7: proc->OutFormat("\\subsubparagraph{%s}\n", title); break;
+		default: proc->OutFormat("\\textbf{%s}\n", title); break;
+		}
 		break;
 	case MarkProcessor::TextFormat::Markdown:
 	case MarkProcessor::TextFormat::STDOUT:
@@ -232,12 +240,14 @@ void GF_Picture(uni::Dchain* chain, MarkProcessor* proc)
 		}
 		switch (proc->txtfmt) {
 		case MarkProcessor::TextFormat::HTML:
-			//{TODO}
+			proc->OutFormat("<img src=\"%s\" alt=\"image\" />\n", txt);
 			break;
 		case MarkProcessor::TextFormat::Tex:
-			//{TODO}
+			proc->OutFormat("\\begin{figure}[htbp]\n\\centering\n\\includegraphics[width=\\textwidth]{%s}\n\\end{figure}\n", txt);
 			break;
 		case MarkProcessor::TextFormat::Markdown:
+			proc->OutFormat("![](%s)\n", txt);
+			break;
 		case MarkProcessor::TextFormat::STDOUT:
 			proc->OutFormat("🖼️（%s）\n", txt);
 			break;
@@ -248,6 +258,11 @@ void GF_Picture(uni::Dchain* chain, MarkProcessor* proc)
 	}
 }
 
+#include "../inc/c/file.h"
+
+static const char* include_stack[64];
+static int include_depth = 0;
+
 void GF_Include(uni::Dchain* chain, MarkProcessor* proc)
 {
 	using namespace uni;
@@ -255,11 +270,95 @@ void GF_Include(uni::Dchain* chain, MarkProcessor* proc)
 	for (auto n = chain->Root(); n; n = n->next) {
 		if (txt = SeekString(n, proc));
 		else {
-			// plogerro
+			plogerro("Include: invalid path argument.");
 			return;
 		}
 
-		//TODO
+		for (int i = 0; i < include_depth; i++) {
+			if (!StrCompare(include_stack[i], txt)) {
+				plogerro("Include: Cyclic inclusion of %s", txt);
+				return;
+			}
+		}
+		if (include_depth >= 64) {
+			plogerro("Include: Max depth exceeded");
+			return;
+		}
+		include_stack[include_depth++] = txt;
 
+		HostFile file(txt);
+		if (!file) {
+			plogerro("Include: Cannot open %s", txt);
+			include_depth--;
+			continue;
+		}
+
+		bool has_sig = false;
+		String buf(String::Charset::UTF8, 22);
+		for (stduint i = 0; i < 21; i++) {
+			int ch = file.inn();
+			if (ch == EOF) break;
+			else buf << ch;
+		}
+		if (!StrCompare(buf.reference(), "#UTF-8 MAgicRK(1) . .")) {
+			has_sig = true;
+		}
+
+		HostFile file2(txt);
+		if (has_sig) {
+			for (stduint i = 0; i < 21; i++) file2.inn();
+		}
+
+		Dchain dc;
+		LinearParser parser(file2);
+		parser.GHT = false;
+		parser.method_omit_comment = true;
+		parser.handler_comment = LineParse_Comment_Cpp;
+		parser.method_string_double_quote = true;
+		parser.method_string_escape_sequence = true;
+		parser.Parse(dc);
+
+		NestedParseUnit npu(dc, 0);
+		npu.GetNetwork()->func_free = NnodeHeapFreeSimple;
+		npu.ParseStatements_CPL();
+		npu.ParseParen(npu.GetNetwork()->Root(), false);
+
+		for (auto nod = npu.GetNetwork()->Root(); nod; nod = nod->next) {
+			for (auto nnod = nod->subf; nnod; nnod = nnod->next) {
+				proc->proc(nnod);
+			}
+		}
+
+		include_depth--;
+	}
+}
+
+void GF_IncludeWeak(uni::Dchain* chain, MarkProcessor* proc)
+{
+	using namespace uni;
+	rostr txt;
+	for (auto n = chain->Root(); n; n = n->next) {
+		if (txt = SeekString(n, proc));
+		else {
+			plogerro("IncludeWeak: invalid path argument.");
+			return;
+		}
+
+		switch (proc->txtfmt) {
+		case MarkProcessor::TextFormat::HTML:
+			proc->OutFormat("<a href=\"%s\">%s</a>\n", txt, txt);
+			break;
+		case MarkProcessor::TextFormat::Tex:
+			proc->OutFormat("\\input{%s}\n", txt);
+			break;
+		case MarkProcessor::TextFormat::Markdown:
+			proc->OutFormat("[%s](%s)\n", txt, txt);
+			break;
+		case MarkProcessor::TextFormat::STDOUT:
+			proc->OutFormat("\n[Link: %s]\n", txt);
+			break;
+		default:
+			break;
+		}
 	}
 }

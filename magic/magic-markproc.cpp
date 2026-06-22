@@ -35,6 +35,8 @@ static const gfnmap_entry gfnmap[] = {
 	{"Out", GF_Out },
 	{"Format", GF_Format },
 	{"Picture", GF_Picture },
+	{"Include", GF_Include },
+	{"IncludeWeak", GF_IncludeWeak },
 };
 
 
@@ -59,9 +61,119 @@ static bool process(uni::Nnode* nod, MarkProcessor* thi) {
 	return false;
 }
 
-int ProcessorHTML::out(const char* str, stduint len) { return pout->out(str, len); }
-int ProcessorTex::out(const char* str, stduint len) { return pout->out(str, len); }
-int ProcessorMarkdown::out(const char* str, stduint len) { return pout->out(str, len); }
+int ProcessorHTML::out(const char* str, stduint len) { 
+	if (!fmt.B && !fmt.I && !fmt.U) {
+		for (stduint i = 0; i < len; i++) {
+			pout->OutChar(str[i]);
+			if (str[i] == '\n') pout->OutFormat("<br>\n");
+		}
+		return len;
+	}
+	
+	stduint start = 0;
+	for (stduint i = 0; i < len; i++) {
+		if (str[i] == '\n') {
+			if (i > start) {
+				if (fmt.U) pout->OutFormat("<u>");
+				if (fmt.B) pout->OutFormat("<b>");
+				if (fmt.I) pout->OutFormat("<i>");
+				pout->out(str + start, i - start);
+				if (fmt.I) pout->OutFormat("</i>");
+				if (fmt.B) pout->OutFormat("</b>");
+				if (fmt.U) pout->OutFormat("</u>");
+			}
+			pout->OutFormat("<br>\n");
+			start = i + 1;
+		}
+	}
+	if (start < len) {
+		if (fmt.U) pout->OutFormat("<u>");
+		if (fmt.B) pout->OutFormat("<b>");
+		if (fmt.I) pout->OutFormat("<i>");
+		pout->out(str + start, len - start);
+		if (fmt.I) pout->OutFormat("</i>");
+		if (fmt.B) pout->OutFormat("</b>");
+		if (fmt.U) pout->OutFormat("</u>");
+	}
+	
+	fmt_last = fmt;
+	fmt_valid = true;
+	return len;
+}
+int ProcessorTex::out(const char* str, stduint len) { 
+	if (!fmt.B && !fmt.I && !fmt.U) {
+		for (stduint i = 0; i < len; i++) {
+			pout->OutChar(str[i]);
+			if (str[i] == '\n') pout->OutChar('\n');
+		}
+		return len;
+	}
+	
+	stduint start = 0;
+	for (stduint i = 0; i < len; i++) {
+		if (str[i] == '\n') {
+			if (i > start) {
+				if (fmt.B) pout->OutFormat("\\textbf{");
+				if (fmt.I) pout->OutFormat("\\textit{");
+				if (fmt.U) pout->OutFormat("\\underline{");
+				pout->out(str + start, i - start);
+				if (fmt.U) pout->OutFormat("}");
+				if (fmt.I) pout->OutFormat("}");
+				if (fmt.B) pout->OutFormat("}");
+			}
+			pout->OutFormat("\n\n");
+			start = i + 1;
+		}
+	}
+	if (start < len) {
+		if (fmt.B) pout->OutFormat("\\textbf{");
+		if (fmt.I) pout->OutFormat("\\textit{");
+		if (fmt.U) pout->OutFormat("\\underline{");
+		pout->out(str + start, len - start);
+		if (fmt.U) pout->OutFormat("}");
+		if (fmt.I) pout->OutFormat("}");
+		if (fmt.B) pout->OutFormat("}");
+	}
+	
+	fmt_last = fmt;
+	fmt_valid = true;
+	return len;
+}
+int ProcessorMarkdown::out(const char* str, stduint len) { 
+	if (!fmt.B && !fmt.I && !fmt.U) {
+		return pout->out(str, len);
+	}
+	
+	stduint start = 0;
+	for (stduint i = 0; i < len; i++) {
+		if (str[i] == '\n') {
+			if (i > start) {
+				if (fmt.U) pout->OutFormat("<u>");
+				if (fmt.B) pout->OutFormat("**");
+				if (fmt.I) pout->OutFormat("*");
+				pout->out(str + start, i - start);
+				if (fmt.I) pout->OutFormat("*");
+				if (fmt.B) pout->OutFormat("**");
+				if (fmt.U) pout->OutFormat("</u>");
+			}
+			pout->OutChar('\n');
+			start = i + 1;
+		}
+	}
+	if (start < len) {
+		if (fmt.U) pout->OutFormat("<u>");
+		if (fmt.B) pout->OutFormat("**");
+		if (fmt.I) pout->OutFormat("*");
+		pout->out(str + start, len - start);
+		if (fmt.I) pout->OutFormat("*");
+		if (fmt.B) pout->OutFormat("**");
+		if (fmt.U) pout->OutFormat("</u>");
+	}
+	
+	fmt_last = fmt;
+	fmt_valid = true;
+	return len;
+}
 int ProcessorStdout::out(const char* str, stduint len) { 
 	if (!fmt_valid) { // B I U
 		uni::String str;

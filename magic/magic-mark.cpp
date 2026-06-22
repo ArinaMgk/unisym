@@ -108,7 +108,7 @@ int mark(int argc, char** argv) {
 		}
 	}
 
-	if (!out_filename.reference() && out_fmt != MarkProcessor::TextFormat::STDOUT) {
+	if (out_filename.getByteCount() == 0 && out_fmt != MarkProcessor::TextFormat::STDOUT) {
 		if (out_fmt == MarkProcessor::TextFormat::HTML) {
 			char* tmp = StrReplace(filename.reference(), ".mgc", ".mgc.html", NULL);
 			out_filename = tmp;

@@ -102,6 +102,15 @@ bool uni::ACPI::DescriptionHeader::isValid(const char* expected_signature) const
 	return true;
 }
 
+const uni::ACPI::DescriptionHeader& uni::ACPI::RSDT::operator[](size_t i) const {
+	auto entries = reinterpret_cast<const uint32_t*>(&this->header + 1);
+	return *reinterpret_cast<const DescriptionHeader*>(entries[i]);
+}
+
+size_t uni::ACPI::RSDT::Count() const {
+	return (this->header.length - sizeof(DescriptionHeader)) / sizeof(uint32_t);
+}
+
 const uni::ACPI::DescriptionHeader& uni::ACPI::XSDT::operator[](size_t i) const {
 	auto entries = reinterpret_cast<const uint64_t*>(&this->header + 1);
 	return *reinterpret_cast<const DescriptionHeader*>(entries[i]);
@@ -109,6 +118,16 @@ const uni::ACPI::DescriptionHeader& uni::ACPI::XSDT::operator[](size_t i) const 
 
 size_t uni::ACPI::XSDT::Count() const {
 	return (this->header.length - sizeof(DescriptionHeader)) / sizeof(uint64);
+}
+
+const uni::ACPI::MCFGAllocation& uni::ACPI::MCFG::operator[](size_t i) const {
+	auto entries = reinterpret_cast<const MCFGAllocation*>(&this->reserved + 1);
+	return entries[i];
+}
+
+size_t uni::ACPI::MCFG::Count() const {
+	return (this->header.length - sizeof(DescriptionHeader) - sizeof(uint64_t)) /
+		sizeof(MCFGAllocation);
 }
 
 

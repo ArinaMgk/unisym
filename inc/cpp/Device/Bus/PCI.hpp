@@ -78,6 +78,13 @@ namespace uni {
 
 	class PCI {
 	public:
+		struct ConfigSpaceAccess {
+			bool ecam_enabled;
+			uint64 ecam_base;
+			uint16 segment_group;
+			uint8 start_bus;
+			uint8 end_bus;
+		};
 		struct ClassCode {
 			uint8_t base, sub, interface;
 			// match base
@@ -96,15 +103,65 @@ namespace uni {
 		};
 		std::array<Device, 32> devices;
 		int num_device;
+		inline static ConfigSpaceAccess config_space_access_{};
 
 
 
 		PCI_Result scan_all_bus();
+		inline static void SetConfigSpaceAccess(const ConfigSpaceAccess& access) {
+			config_space_access_ = access;
+		}
+		inline static void DisableConfigSpaceAccess() {
+			config_space_access_ = {};
+		}
+		inline static const ConfigSpaceAccess& GetConfigSpaceAccess() {
+			return config_space_access_;
+		}
 
 	public:
 		inline static uint32 make_port_address(uint8 bus, uint8 dev, uint8 func, uint8 reg) {
 			auto shl = [](uint32 x, unsigned bits) {return x << bits;};
 			return shl(1, 31) _Comment(enable) | shl(bus, 16) | shl(dev, 11) | shl(func, 8) | (reg & 0xFCu);
+		}
+		inline static bool is_ecam_config_access_available(uint8 bus, uint8 dev, uint8 func, uint8 reg) {
+			const auto& access = config_space_access_;
+			if (!access.ecam_enabled) return false;
+			if (access.segment_group != 0) return false;
+			if (bus < access.start_bus || bus > access.end_bus) return false;
+			if (dev >= 32 || func >= 8) return false;
+			if ((reg & 0x3) != 0) return false;
+			const uint64 offset =
+				(uint64(bus - access.start_bus) << 20) |
+				(uint64(dev) << 15) |
+				(uint64(func) << 12) |
+				(reg & 0xFFCu);
+			const uint64 target = access.ecam_base + offset;
+			if (target < access.ecam_base) return false;
+			if (target > (uint64)~(stduint)0) return false;
+			#if _MCCA == 0x8632
+			if (target + sizeof(uint32) > 0x10000000ull) return false;
+			#endif
+			return true;
+		}
+		inline static uint32 read_ecam_register(uint8 bus, uint8 dev, uint8 func, uint8 reg) {
+			const auto& access = config_space_access_;
+			const uint64 offset =
+				(uint64(bus - access.start_bus) << 20) |
+				(uint64(dev) << 15) |
+				(uint64(func) << 12) |
+				(reg & 0xFFCu);
+			auto ptr = reinterpret_cast<volatile uint32*>(stduint(access.ecam_base + offset));
+			return *ptr;
+		}
+		inline static void write_ecam_register(uint8 bus, uint8 dev, uint8 func, uint8 reg, uint32 data) {
+			const auto& access = config_space_access_;
+			const uint64 offset =
+				(uint64(bus - access.start_bus) << 20) |
+				(uint64(dev) << 15) |
+				(uint64(func) << 12) |
+				(reg & 0xFFCu);
+			auto ptr = reinterpret_cast<volatile uint32*>(stduint(access.ecam_base + offset));
+			*ptr = data;
 		}
 		inline static void send_addr(uint32 addr) {
 			Port<uint32> paddr(PORT_PCI_CONFIG_ADDR);
@@ -117,24 +174,35 @@ namespace uni {
 		inline static uint32 read_data() {
 			return Port<uint32>(PORT_PCI_CONFIG_DATA);// innpd(PORT_PCI_CONFIG_DATA);
 		}
+		inline static uint32 read_config_register(uint8 bus, uint8 dev, uint8 func, uint8 reg_addr) {
+			if (is_ecam_config_access_available(bus, dev, func, reg_addr)) {
+				return read_ecam_register(bus, dev, func, reg_addr);
+			}
+			send_addr(make_port_address(bus, dev, func, reg_addr));
+			return read_data();
+		}
+		inline static void write_config_register(uint8 bus, uint8 dev, uint8 func, uint8 reg_addr, uint32 data) {
+			if (is_ecam_config_access_available(bus, dev, func, reg_addr)) {
+				write_ecam_register(bus, dev, func, reg_addr, data);
+				return;
+			}
+			send_addr(make_port_address(bus, dev, func, reg_addr));
+			send_data(data);
+		}
 
 		inline static uint16 read_vendor_id(uint8 bus, uint8 dev, uint8 func) {
-			send_addr(make_port_address(bus, dev, func, 0x00));
-			return read_data() & 0xFFFF;
+			return read_config_register(bus, dev, func, 0x00) & 0xFFFF;
 		}
 		inline static uint16 read_vendor_id(const Device& dev) {
-			send_addr(make_port_address(dev.bus, dev.device, dev.function, 0x00));
-			return read_data() & 0xFFFF;
+			return read_vendor_id(dev.bus, dev.device, dev.function);
 		}
 
 		inline static uint16 read_device_id(uint8 bus, uint8 dev, uint8 func) {
-			send_addr(make_port_address(bus, dev, func, 0x00));
-			return read_data() >> 16;
+			return read_config_register(bus, dev, func, 0x00) >> 16;
 		}
 
 		inline static ClassCode read_class_code(uint8 bus, uint8 dev, uint8 func) {
-			send_addr(make_port_address(bus, dev, func, 0x08));
-			uint32 class_code = read_data();
+			uint32 class_code = read_config_register(bus, dev, func, 0x08);
 			ClassCode cc;
 			cc.base = (class_code >> 24);
 			cc.sub = (class_code >> 16);
@@ -143,12 +211,10 @@ namespace uni {
 		}
 
 		inline static uint8  read_header_type(uint8 bus, uint8 dev, uint8 func) {
-			send_addr(make_port_address(bus, dev, func, 0x0C));
-			return read_data() >> 16;
+			return read_config_register(bus, dev, func, 0x0C) >> 16;
 		}
 		inline static uint32 read_bus_numbers(uint8 bus, uint8 dev, uint8 func) {
-			send_addr(make_port_address(bus, dev, func, 0x18));
-			return read_data();
+			return read_config_register(bus, dev, func, 0x18);
 		}
 
 		inline static bool IsSingleFunctionDevice(uint8 header_type) {
@@ -156,13 +222,11 @@ namespace uni {
 		}
 
 		inline static uint32 read_config_register(const Device& dev, uint8 reg_addr) {
-			send_addr(make_port_address(dev.bus, dev.device, dev.function, reg_addr));
-			return read_data();
+			return read_config_register(dev.bus, dev.device, dev.function, reg_addr);
 		}
 
 		inline static void write_config_register(const Device& dev, uint8 reg_addr, uint32 data) {
-			send_addr(make_port_address(dev.bus, dev.device, dev.function, reg_addr));
-			send_data(data);
+			write_config_register(dev.bus, dev.device, dev.function, reg_addr, data);
 		}
 
 		// set Memory Space (bit1) and Bus Master (bit2) in PCI command

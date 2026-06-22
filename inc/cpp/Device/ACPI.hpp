@@ -59,10 +59,52 @@ namespace uni {
 			//
 			bool isValid(const char* expected_signature) const;
 		};
+		_PACKED(struct) RSDT {
+			DescriptionHeader header;
+			//
+			const DescriptionHeader& operator[](size_t i) const;
+			size_t Count() const;
+		};
 		_PACKED(struct) XSDT {
 			DescriptionHeader header;
 			//
 			const DescriptionHeader& operator[](size_t i) const;
+			size_t Count() const;
+		};
+		_PACKED(struct) MADT {
+			DescriptionHeader header;
+			uint32_t lapic_address;
+			uint32_t flags;
+		};
+		_PACKED(struct) MADTEntry {
+			uint8_t type;
+			uint8_t length;
+		};
+		_PACKED(struct) MADTLocalAPIC {
+			MADTEntry entry;
+			uint8_t acpi_processor_uid;
+			uint8_t apic_id;
+			uint32_t flags;
+		};
+		_PACKED(struct) MADTLocalX2APIC {
+			MADTEntry entry;
+			uint16_t reserved;
+			uint32_t x2apic_id;
+			uint32_t flags;
+			uint32_t acpi_processor_uid;
+		};
+		_PACKED(struct) MCFGAllocation {
+			uint64_t base_address;
+			uint16_t segment_group_number;
+			uint8_t start_bus_number;
+			uint8_t end_bus_number;
+			uint32_t reserved;
+		};
+		_PACKED(struct) MCFG {
+			DescriptionHeader header;
+			uint64_t reserved;
+			//
+			const MCFGAllocation& operator[](size_t i) const;
 			size_t Count() const;
 		};
 		_PACKED(struct) FADT {

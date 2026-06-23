@@ -101,8 +101,8 @@ enum class mgc_datatype {
 class MarkProcessor : public uni::OstreamTrait
 {
 protected:
-	virtual int out(const char* str, stduint len) { return nil; }
 public:
+	virtual int out(const char* str, stduint len) { return nil; }
 	enum class TextFormat {
 		None,
 		HTML,
@@ -174,5 +174,18 @@ void GF_Picture(uni::Dchain* chain, MarkProcessor* proc);
 void GF_Include(uni::Dchain* chain, MarkProcessor* proc);
 // IncludeWeak( path: iden/string )
 void GF_IncludeWeak(uni::Dchain* chain, MarkProcessor* proc);
+
+// Expose SeekString for table processor
+rostr SeekString(uni::Dnode* n, MarkProcessor* proc);
+
+// Table macros
+void GF_TableBegin(uni::Dchain* chain, MarkProcessor* proc);
+void GF_TableEnd(uni::Dchain* chain, MarkProcessor* proc);
+void GF_Row(uni::Dchain* chain, MarkProcessor* proc);
+void GF_RowHead(uni::Dchain* chain, MarkProcessor* proc);
+void GF_Rcell(uni::Dchain* chain, MarkProcessor* proc);
+void GF_RcellSkip(uni::Dchain* chain, MarkProcessor* proc);
+void GF_LineH(uni::Dchain* chain, MarkProcessor* proc);
+void GF_TableCSV(uni::Dchain* chain, MarkProcessor* proc);
 
 #endif

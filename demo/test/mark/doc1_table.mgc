@@ -1,0 +1,39 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(1, "mgc Table Engine Test");
+
+Format("This document tests the new mgc table engine features, including multi-row, multi-column, and header rows.\n\n");
+
+TableBegin("c|c|c");
+
+    RowHead();
+        Rcell("^BHeader 1^b");
+        Rcell("^BHeader 2^b");
+        Rcell("^BHeader 3^b");
+
+    LineH();
+
+    Row();
+        Rcell("Normal Cell");
+        Rcell("This cell spans 2 columns", "2", "c|");
+
+    LineH();
+
+    Row();
+        Rcell("This cell\nspans 2 rows", "1", "", "2");
+        Rcell("R2-C2");
+        Rcell("R2-C3");
+
+    LineH("2", "3");
+
+    Row();
+        // Since the first column is spanned by the row above, 
+        // we use RcellSkip() to output an empty ` & ` in LaTeX.
+        // HTML will just ignore this skip since HTML automatically skips spanned columns.
+        RcellSkip();
+        Rcell("R3-C2");
+        Rcell("R3-C3");
+
+TableEnd();
+
+Format("\n\nEnd of test.\n");

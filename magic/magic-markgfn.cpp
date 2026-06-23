@@ -31,7 +31,7 @@ static mgc_datatype GetType(rostr str) {
 }
 
 // NULL if not found
-static rostr SeekString(uni::Dnode* n, MarkProcessor* proc)
+rostr SeekString(uni::Dnode* n, MarkProcessor* proc)
 {
 	rostr txt = nullptr;
 	if (n->type == tok_identy) {

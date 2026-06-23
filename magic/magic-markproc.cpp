@@ -37,6 +37,15 @@ static const gfnmap_entry gfnmap[] = {
 	{"Picture", GF_Picture },
 	{"Include", GF_Include },
 	{"IncludeWeak", GF_IncludeWeak },
+	// Table:
+	{"TableBegin", GF_TableBegin },
+	{"TableEnd", GF_TableEnd },
+	{"Row", GF_Row },
+	{"RowHead", GF_RowHead },
+	{"Rcell", GF_Rcell },
+	{"RcellSkip", GF_RcellSkip },
+	{"LineH", GF_LineH },
+	{"TableCSV", GF_TableCSV },
 };
 
 
@@ -61,11 +70,13 @@ static bool process(uni::Nnode* nod, MarkProcessor* thi) {
 	return false;
 }
 
+extern bool TableEngineActive();
+
 int ProcessorHTML::out(const char* str, stduint len) { 
 	if (!fmt.B && !fmt.I && !fmt.U) {
 		for (stduint i = 0; i < len; i++) {
 			pout->OutChar(str[i]);
-			if (str[i] == '\n') pout->OutFormat("<br>\n");
+			if (str[i] == '\n' && !TableEngineActive()) pout->OutFormat("<br>\n");
 		}
 		return len;
 	}
@@ -82,7 +93,7 @@ int ProcessorHTML::out(const char* str, stduint len) {
 				if (fmt.B) pout->OutFormat("</b>");
 				if (fmt.U) pout->OutFormat("</u>");
 			}
-			pout->OutFormat("<br>\n");
+			if (!TableEngineActive()) pout->OutFormat("<br>\n");
 			start = i + 1;
 		}
 	}
@@ -100,11 +111,11 @@ int ProcessorHTML::out(const char* str, stduint len) {
 	fmt_valid = true;
 	return len;
 }
-int ProcessorTex::out(const char* str, stduint len) { 
+int ProcessorTex::out(const char* str, stduint len) {
 	if (!fmt.B && !fmt.I && !fmt.U) {
 		for (stduint i = 0; i < len; i++) {
 			pout->OutChar(str[i]);
-			if (str[i] == '\n') pout->OutChar('\n');
+			if (str[i] == '\n' && !TableEngineActive()) pout->OutChar('\n');
 		}
 		return len;
 	}
@@ -113,26 +124,26 @@ int ProcessorTex::out(const char* str, stduint len) {
 	for (stduint i = 0; i < len; i++) {
 		if (str[i] == '\n') {
 			if (i > start) {
+				if (fmt.U) pout->OutFormat("\\underline{");
 				if (fmt.B) pout->OutFormat("\\textbf{");
 				if (fmt.I) pout->OutFormat("\\textit{");
-				if (fmt.U) pout->OutFormat("\\underline{");
 				pout->out(str + start, i - start);
 				if (fmt.U) pout->OutFormat("}");
-				if (fmt.I) pout->OutFormat("}");
 				if (fmt.B) pout->OutFormat("}");
+				if (fmt.I) pout->OutFormat("}");
 			}
-			pout->OutFormat("\n\n");
+			if (!TableEngineActive()) pout->OutFormat("\n\n");
 			start = i + 1;
 		}
 	}
 	if (start < len) {
+		if (fmt.U) pout->OutFormat("\\underline{");
 		if (fmt.B) pout->OutFormat("\\textbf{");
 		if (fmt.I) pout->OutFormat("\\textit{");
-		if (fmt.U) pout->OutFormat("\\underline{");
 		pout->out(str + start, len - start);
-		if (fmt.U) pout->OutFormat("}");
 		if (fmt.I) pout->OutFormat("}");
 		if (fmt.B) pout->OutFormat("}");
+		if (fmt.U) pout->OutFormat("}");
 	}
 	
 	fmt_last = fmt;

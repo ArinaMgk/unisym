@@ -9,7 +9,7 @@ MGC_SRCS = $(shell find epic -type f -name "*.mgc")
 # Generate paths for the target .tex files: map "epic/XXX.mgc" to "XXX.tex".
 TEX_OBJS = $(patsubst epic/%.mgc, %.tex, $(MGC_SRCS))
 
-.PHONY: all clean
+.PHONY: all clean diff
 
 # Default build target
 all: $(TEX_OBJS)
@@ -23,3 +23,19 @@ $(TEX_OBJS): %.tex: epic/%.mgc
 # Clean up the generated .tex files
 clean:
 	rm -f $(TEX_OBJS)
+
+# Diff target: show .tex files that do not have a corresponding .mgc file in epic/
+diff:
+	@echo "Checking for .tex files missing corresponding .mgc files in epic/..."
+	@find . -path ./epic -prune -o -type f -name "*.tex" -print | sed 's|^\./||' | { \
+		count=0; \
+		while read tex; do \
+			mgc="epic/$${tex%.tex}.mgc"; \
+			if [ ! -f "$$mgc" ]; then \
+				echo "Missing: $$tex"; \
+				count=$$((count + 1)); \
+			fi; \
+		done; \
+		echo "============================="; \
+		echo "Total missing files: $$count"; \
+	}

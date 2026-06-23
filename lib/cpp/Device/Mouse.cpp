@@ -51,39 +51,21 @@ void Mouse_Init()
 #include <algorithm>
 
 //{TEMP} version
-uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, uni::device::SpaceUSB3::HostController* xhc) {
+uni::PCI::Device* uni::device::SpaceUSB::HIDMouseDriver::Initialize(uni::PCI& pci, uni::PCI::Device& xhc_dev, uint64 xhc_mmio_base, uint8 irq_line, uint8 irq_pin, uni::device::SpaceUSB3::HostController* xhc) {
 	using namespace uni;
-	// seek an Intel xHC.
-	// VMware: USB 3.1, 显示所有设备
-	PCI::Device* xhc_dev = nullptr;// mouse
-	uint64_t xhc_mmio_base = nil;
-	for0(i, pci.num_device) {
-		if (pci.devices[i].class_code.Match(ClassCodeGroup_xHC)) {
-			xhc_dev = &pci.devices[i];
-			auto vendor_id = pci.read_vendor_id(*xhc_dev);
-			if (0x8086 == vendor_id) {
-				break;
-			}
-		}
-	}
-	if (!xhc_dev) return nullptr;
-	pci.enable_MMIO(*xhc_dev);
-	auto xhc_bar = pci.ReadBar(*xhc_dev, 0);
-	if (!xhc_bar.pvalue) {
-		plogerro("xHC BAR0 is not valid.");
-	}
+	pci.enable_MMIO(xhc_dev);
+	ploginfo("xHC resource IRQ line=%u pin=%u", (unsigned)irq_line, (unsigned)irq_pin);
 	// config MSI
 	const uint8_t bsp_local_apic_id = treat<uint32>_IMM(0xFEE00020) >> 24;// or STI is useless -- Phina 20260117
 	pci.configure_MSI_fixed_destination(
-		*xhc_dev, bsp_local_apic_id,
+		xhc_dev, bsp_local_apic_id,
 		PCI::MSITriggerMode::Edge,
 		PCI::MSIDeliveryMode::Fixed,
 		IRQ_xHCI, 0);
 	//
-	xhc_mmio_base = *xhc_bar.pvalue & ~_IMM(0xF);
 	if (!xhc_mmio_base) return nullptr;
 	new (xhc) uni::device::SpaceUSB3::HostController(xhc_mmio_base);
-	pci.ConvertFromEhci(*xhc_dev);
+	pci.ConvertFromEhci(xhc_dev);
 	if (auto err = xhc->Initialize()) {
 		ploginfo("xhc.Initialize: %s", err.Name());
 	}
@@ -100,8 +82,9 @@ uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, uni::device::SpaceUSB3::HostCont
 		}
 	}
 	//
-	return xhc_dev;
+	return &xhc_dev;
 }
+
 
 void* uni::device::SpaceUSB::HIDMouseDriver::operator new(size_t size) {
 	auto ret = uni_hostenv_allocator->allocate(sizeof(HIDMouseDriver));

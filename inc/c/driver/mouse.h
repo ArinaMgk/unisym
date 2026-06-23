@@ -53,12 +53,11 @@ _ESYM_C void Mouse_Init();
 #include "../../cpp/Device/USB/xHCI/xHCI.hpp"
 #include "../../cpp/Device/Bus/PCI.hpp"
 
-_ESYM_C uni::PCI::Device* Mouse_Init_USB(uni::PCI& pci, uni::device::SpaceUSB3::HostController* xhc);
-
 namespace uni::device::SpaceUSB {
 	class HIDMouseDriver : public HIDBaseDriver {
 	public:
 		HIDMouseDriver(DeviceUSB* dev, int interface_index);
+		static uni::PCI::Device* Initialize(uni::PCI& pci, uni::PCI::Device& xhc_dev, uint64 xhc_mmio_base, uint8 irq_line, uint8 irq_pin, uni::device::SpaceUSB3::HostController* xhc);
 
 		void* operator new(size_t size);
 		void operator delete(void* ptr) noexcept;

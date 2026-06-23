@@ -29,8 +29,8 @@
 #if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 // ---- unicpp
 #include "../../expected"
+#include "../../vector"
 // ---- stlcpp
-#include <array>
 // #include <expected>// c++23
 // ---- modcpp
 
@@ -65,7 +65,7 @@ namespace uni {
 		}
 
 	private:
-		static constexpr std::array<const char*, 6> code_names_ = {
+		static constexpr const char* code_names_[6] = {
 			"Success",
 			"Full",
 			"Empty",
@@ -100,8 +100,17 @@ namespace uni {
 		struct Device {
 			uint8 bus, device, function, header_type;
 			ClassCode class_code;
+			bool operator==(const Device& other) const {
+				return bus == other.bus &&
+					device == other.device &&
+					function == other.function &&
+					header_type == other.header_type &&
+					class_code.base == other.class_code.base &&
+					class_code.sub == other.class_code.sub &&
+					class_code.interface == other.class_code.interface;
+			}
 		};
-		std::array<Device, 32> devices;
+		uni::Vector<Device> devices;
 		int num_device;
 		inline static ConfigSpaceAccess config_space_access_{};
 

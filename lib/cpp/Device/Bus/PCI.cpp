@@ -45,10 +45,8 @@ int PCI_Init(PCI& pci) {
 
 PCI_Result PCI::AddDevice(const Device& dev) {
 	// ploginfo("PCI::AddDevice");
-	if (num_device == devices.size()) {
-		return PCI_Result::Full;
-	}
-	devices[num_device++] = dev;
+	devices.Append(dev);
+	num_device = devices.Count();
 	return PCI_Result::Success;
 }
 
@@ -60,7 +58,7 @@ PCI_Result PCI::ScanFunction(uint8 bus, uint8 device, uint8 function) {
 		return err;
 	}
 	if (class_code.Match(0x06u, 0x04u)) {
-	  // standard PCI-PCI bridge
+		// standard PCI-PCI bridge
 		auto bus_numbers = read_bus_numbers(bus, device, function);
 		uint8_t secondary_bus = (bus_numbers >> 8) & 0xffu;
 		return ScanBus(secondary_bus);
@@ -102,6 +100,7 @@ PCI_Result PCI::ScanBus(uint8 bus) {
 PCI_Result PCI::scan_all_bus() {
 	// ploginfo("PCI::scan_all_bus");
 	num_device = 0;
+	devices.Clear();
 	auto header_type = read_header_type(0, 0, 0);
 	if (IsSingleFunctionDevice(header_type)) {
 		return ScanBus(0);

@@ -161,6 +161,9 @@ namespace uni {
 			case 'x':
 				out_integer(pnext(unsigned), -16, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
 				break;
+			case 'X':
+				out_integer(pnext(unsigned), 16, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
+				break;
 			case 'u':
 				out_integer(pnext(unsigned), 10, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
 				break;
@@ -291,10 +294,10 @@ namespace uni {
 		uint64 valquo = 0, valrem = 0;
 		do {
 			valquo = udivmoddi4(val, base, &valrem);
-			*--bufp = _tab_HEXA[valrem];
+			*--bufp = alnum_tab[valrem];
 		} while (val = valquo);
 		#else
-		do *--bufp = _tab_HEXA[val % base]; while (val /= base);
+		do *--bufp = alnum_tab[val % base]; while (val /= base);
 		#endif
 		// ---- PRINT ----
 		if (sign_show) out(neg ? "-" : "+", 1);

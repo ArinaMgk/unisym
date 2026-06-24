@@ -1,0 +1,23 @@
+#UTF-8 MAgicRK(1) . .
+Title("1", "mgc Font Control Engine Test");
+
+Format("This document tests the new mgc local font and size control features.\n\n");
+
+Title("2", "Inline Font Control");
+Format("Here is some normal text. ");
+FontSize("6pt", "Here is some very tiny text in 6pt. ");
+FontFamily("sans-serif", "Here is some sans-serif text. ");
+Format("And back to normal.\n\n");
+
+Title("2", "Environment Font Control");
+FontBegin("8pt", "9.6pt");
+Format("This entire block is scaled down to 8pt, which is incredibly useful for shrinking massive tables to fit on a single page.\n");
+TableBegin("|c|c|");
+RowHead();
+Rcell("Register"); Rcell("Width");
+Row();
+Rcell("AX"); Rcell("16-bit");
+TableEnd();
+FontEnd();
+
+Format("\nEnd of test.\n");

@@ -50,6 +50,17 @@ static const gfnmap_entry gfnmap[] = {
 	{"ListBegin", GF_ListBegin },
 	{"ListEnd", GF_ListEnd },
 	{"ListItem", GF_ListItem },
+	{"CodeInclude", GF_CodeInclude },
+	// Bibliography:
+	{"BibBegin", GF_BibBegin },
+	{"BibEnd", GF_BibEnd },
+	{"Cite", GF_Cite },
+	{"BibItem", GF_BibItem },
+	// Font:
+	{"FontBegin", GF_FontBegin },
+	{"FontEnd", GF_FontEnd },
+	{"FontSize", GF_FontSize },
+	{"FontFamily", GF_FontFamily },
 };
 
 
@@ -75,8 +86,10 @@ static bool process(uni::Nnode* nod, MarkProcessor* thi) {
 }
 
 extern bool TableEngineActive();
+bool CodeEngineActive();
 
 int ProcessorHTML::out(const char* str, stduint len) { 
+	if (CodeEngineActive()) return pout->out(str, len);
 	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M) {
 		for (stduint i = 0; i < len; i++) {
 			pout->OutChar(str[i]);
@@ -120,6 +133,7 @@ int ProcessorHTML::out(const char* str, stduint len) {
 	return len;
 }
 int ProcessorTex::out(const char* str, stduint len) {
+	if (CodeEngineActive()) return pout->out(str, len);
 	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M) {
 		for (stduint i = 0; i < len; i++) {
 			pout->OutChar(str[i]);
@@ -163,6 +177,7 @@ int ProcessorTex::out(const char* str, stduint len) {
 	return len;
 }
 int ProcessorMarkdown::out(const char* str, stduint len) { 
+	if (CodeEngineActive()) return pout->out(str, len);
 	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M) {
 		return pout->out(str, len);
 	}

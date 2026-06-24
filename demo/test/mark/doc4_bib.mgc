@@ -1,0 +1,17 @@
+#UTF-8 MAgicRK(1) . .
+Title("1", "mgc Bibliography Engine Test");
+
+Format("This document tests the new mgc citations and bibliography features.\n\n");
+
+Title("2", "Content");
+Format("According to the official manual ");
+Cite("i8086");
+Format(", the CPU handles instruction encoding efficiently. Another great reference is ");
+Cite("AliceWonderland");
+Format(" which has nothing to do with CPUs but is a great read.\n\n");
+
+Title("2", "References");
+BibBegin("99");
+BibItem("i8086", "^BIntel 8086 Family User's Manual^b, October 1979");
+BibItem("AliceWonderland", "^ILewis Carroll^i, Alice's Adventures in Wonderland, 1862");
+BibEnd();

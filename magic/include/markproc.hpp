@@ -195,9 +195,24 @@ void GF_RcellSkip(uni::Dchain* chain, MarkProcessor* proc);
 void GF_LineH(uni::Dchain* chain, MarkProcessor* proc);
 void GF_TableCSV(uni::Dchain* chain, MarkProcessor* proc);
 
-// List Global Functions
+// List macros
 void GF_ListBegin(uni::Dchain* chain, MarkProcessor* proc);
 void GF_ListEnd(uni::Dchain* chain, MarkProcessor* proc);
 void GF_ListItem(uni::Dchain* chain, MarkProcessor* proc);
+
+// Code macros
+void GF_CodeInclude(uni::Dchain* chain, MarkProcessor* proc);
+
+// Bibliography macros
+void GF_BibBegin(uni::Dchain* chain, MarkProcessor* proc);
+void GF_BibEnd(uni::Dchain* chain, MarkProcessor* proc);
+void GF_Cite(uni::Dchain* chain, MarkProcessor* proc);
+void GF_BibItem(uni::Dchain* chain, MarkProcessor* proc);
+
+// Font macros
+void GF_FontBegin(uni::Dchain* chain, MarkProcessor* proc);
+void GF_FontEnd(uni::Dchain* chain, MarkProcessor* proc);
+void GF_FontSize(uni::Dchain* chain, MarkProcessor* proc);
+void GF_FontFamily(uni::Dchain* chain, MarkProcessor* proc);
 
 #endif

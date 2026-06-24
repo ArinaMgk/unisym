@@ -1,0 +1,9 @@
+#UTF-8 MAgicRK(1) . .
+Title("1", "mgc Code Engine Test");
+Format("This document tests the new mgc code block features.\n\n");
+
+Format("1. CodeInclude from an external file:\n");
+// Assuming there is a file named doc3_code.cpp in the same directory
+CodeInclude("C++", "doc3_code.cpp");
+
+Format("\nEnd of test.\n");

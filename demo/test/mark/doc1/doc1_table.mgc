@@ -32,7 +32,7 @@ TableBegin("c|c|c");
         // HTML will just ignore this skip since HTML automatically skips spanned columns.
         RcellSkip();
         Rcell("R3-C2");
-        Rcell("R3-C3");
+        Rcell("R3\nC3");
 
 TableEnd();
 

@@ -82,6 +82,7 @@ namespace uni {
 		bool B = false;// bold
 		bool I = false;// italic
 		bool U = false;// underline
+		bool M = false;// monospace
 		bool DeleteLine = false;// delete line
 		uni::Color Forecolor = uni::Color::Black;
 		uni::Color Backcolor = uni::Color::White;
@@ -180,6 +181,9 @@ rostr SeekString(uni::Dnode* n, MarkProcessor* proc);
 
 // Parse ^B...^b and \n text processing for Table and List
 void ParseAndOutputText(rostr text, MarkProcessor* proc);
+
+// Resolve relative paths based on include stack
+uni::String ResolveIncludePath(const char* path);
 
 // Table macros
 void GF_TableBegin(uni::Dchain* chain, MarkProcessor* proc);

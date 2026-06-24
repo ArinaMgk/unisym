@@ -1,3 +1,5 @@
 #UTF-8 MAgicRK(1) . .
 
 Out("TEST INCLUDE CONTENTS");
+
+Format("^M%s^m\n", "行内代码测试");

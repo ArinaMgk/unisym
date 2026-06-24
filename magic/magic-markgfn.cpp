@@ -178,6 +178,10 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
 				proc->fmt.U = false;
 				proc->fmt_valid = false;
 			}
+			if (proc->fmt.M) {
+				proc->fmt.M = false;
+				proc->fmt_valid = false;
+			}
 			break;
 		case 'B':
 			if (!proc->fmt.B) {
@@ -212,6 +216,18 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
 		case 'u':
 			if (proc->fmt.U) {
 				proc->fmt.U = false;
+				proc->fmt_valid = false;
+			}
+			break;
+		case 'M':
+			if (!proc->fmt.M) {
+				proc->fmt.M = true;
+				proc->fmt_valid = false;
+			}
+			break;
+		case 'm':
+			if (proc->fmt.M) {
+				proc->fmt.M = false;
 				proc->fmt_valid = false;
 			}
 			break;
@@ -260,8 +276,33 @@ void GF_Picture(uni::Dchain* chain, MarkProcessor* proc)
 
 #include "../inc/c/file.h"
 
-static const char* include_stack[64];
+extern const char* mgc_top_file_path;
+
+static char* include_stack[64];
 static int include_depth = 0;
+
+uni::String ResolveIncludePath(const char* path) {
+	if (!path || !path[0]) return uni::String("");
+	if (path[0] == '/' || path[0] == '\\' || (path[0] && path[1] == ':')) {
+		return uni::String(path);
+	}
+	const char* base = nullptr;
+	if (include_depth > 0) base = include_stack[include_depth - 1];
+	else if (mgc_top_file_path) base = mgc_top_file_path;
+	else return uni::String(path);
+	
+	int last_slash = -1;
+	for (int i = 0; base[i]; i++) {
+		if (base[i] == '/' || base[i] == '\\') last_slash = i;
+	}
+	if (last_slash != -1) {
+		uni::String res;
+		for (int i = 0; i <= last_slash; i++) res << base[i];
+		for (int i = 0; path[i]; i++) res << path[i];
+		return res;
+	}
+	return uni::String(path);
+}
 
 void GF_Include(uni::Dchain* chain, MarkProcessor* proc)
 {
@@ -274,9 +315,12 @@ void GF_Include(uni::Dchain* chain, MarkProcessor* proc)
 			return;
 		}
 
+		uni::String resolved_path = ResolveIncludePath(txt);
+		const char* resolved_cstr = resolved_path.reference();
+
 		for (int i = 0; i < include_depth; i++) {
-			if (!StrCompare(include_stack[i], txt)) {
-				plogerro("Include: Cyclic inclusion of %s", txt);
+			if (!StrCompare(include_stack[i], resolved_cstr)) {
+				plogerro("Include: Cyclic inclusion of %s", resolved_cstr);
 				return;
 			}
 		}
@@ -284,12 +328,16 @@ void GF_Include(uni::Dchain* chain, MarkProcessor* proc)
 			plogerro("Include: Max depth exceeded");
 			return;
 		}
-		include_stack[include_depth++] = txt;
+		include_stack[include_depth] = (char*)malc(StrLength(resolved_cstr) + 1);
+		StrCopy(include_stack[include_depth], resolved_cstr);
+		include_depth++;
 
-		HostFile file(txt);
+		HostFile file(resolved_cstr);
 		if (!file) {
-			plogerro("Include: Cannot open %s", txt);
+			plogerro("Include: Cannot open %s", resolved_cstr);
 			include_depth--;
+			memf(include_stack[include_depth]);
+			include_stack[include_depth] = nullptr;
 			continue;
 		}
 
@@ -304,7 +352,7 @@ void GF_Include(uni::Dchain* chain, MarkProcessor* proc)
 			has_sig = true;
 		}
 
-		HostFile file2(txt);
+		HostFile file2(resolved_cstr);
 		if (has_sig) {
 			for (stduint i = 0; i < 21; i++) file2.inn();
 		}
@@ -330,6 +378,8 @@ void GF_Include(uni::Dchain* chain, MarkProcessor* proc)
 		}
 
 		include_depth--;
+		memf(include_stack[include_depth]);
+		include_stack[include_depth] = nullptr;
 	}
 }
 

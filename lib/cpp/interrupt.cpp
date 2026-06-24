@@ -89,15 +89,16 @@ void General_IRQHandler(void* frame) {
 	outpb(PORT_i8259A_MAS_A, BYTE_EOI);
 }
 #elif _MCCA == 0x8664
+extern uni::InterruptControl IC;
 _ESYM_C __attribute__((interrupt, target("general-regs-only")))
 void General_IRQHandler(InterruptFrame* frame) {
-	sendEOI();
+	IC.SendEOI();
 }
 #else
 
 #endif
 
-#if _MCCA == 0x8632
+#if (_MCCA & 0xFF00) == 0x8600
 #define IA32_APIC_BASE__APIC_GLOBAL_ENABLE     (1ULL << 11)   // EN
 #define IA32_APIC_BASE__X2APIC_ENABLE          (1ULL << 10)   // EXTD
 static bool pic_set = false;//{} lock should
@@ -122,6 +123,33 @@ static void _IC_INIT_PIC() {
 }
 bool uni::InterruptControl::Initialize(byte typ) {
 	this->typ = typ;
+	#if defined(_UEFI)        && _MCCA == 0x8664
+	// return true;
+	// [Diag] Read actual IA32_APIC_BASE MSR to verify HW mode
+	{
+		uint64_t apic_base_diag = getMSR(x86MSR::APIC_BASE);
+		bool diag_en   = (apic_base_diag >> 11) & 1; // bit11: APIC Global Enable
+		bool diag_extd = (apic_base_diag >> 10) & 1; // bit10: x2APIC Enable
+		ploginfo("[IC-Diag] IA32_APIC_BASE = 0x%llX  EN=%d  EXTD(x2APIC)=%d",
+			(unsigned long long)apic_base_diag, (int)diag_en, (int)diag_extd);
+	}
+	// [Diag] Read IOAPIC Redirection Entries 0..3 (high DWORDs = APIC ID field)
+	// RTE high DWORD: bits[63:56] = destination field
+	//   xAPIC  physical: 8-bit APIC ID in bits[59:56]
+	//   x2APIC physical: 32-bit x2APIC ID in bits[63:32]
+	if (typ) {
+		for (byte _diag_i = 0; _diag_i < 4; _diag_i++) {
+			byte _rte_hi_idx = (byte)(0x11 + _diag_i * 2); // high DWORD of RTE n
+			uint32_t _rte_hi = IO_Read32(_rte_hi_idx);
+			uint8_t  _dest8  = (uint8_t)(_rte_hi >> 24);   // xAPIC dest [59:56] → bits[31:24] of high DW
+			bool     _x2mode = (_rte_hi & ~0xFF000000u) != 0; // any other bits set → x2APIC 32-bit ID
+			ploginfo("[IC-Diag] IOAPIC RTE[%u] hi=0x%08X  dest8=0x%02X  %s",
+				(unsigned)_diag_i, (unsigned)_rte_hi,
+				(unsigned)_dest8,
+				_x2mode ? "x2APIC(32b dest?)" : "xAPIC(8b dest)");
+		}
+	}
+	#endif
 	if (typ) { // LAPIC
 		if (!pic_set) {
 			outpb(PORT_i8259A_MAS_B, 0xFF);
@@ -173,14 +201,15 @@ bool uni::InterruptControl::Initialize(byte typ) {
 
 uint32 uni::InterruptControl::ReadLAPIC(uint32 offset) {
 	if (typ == 2) return (uint32)getMSR(static_cast<x86MSR>(0x800 + (offset >> 4)));
-	return *(volatile uint32*)(0xFEE00000 + offset);
+	return *(volatile uint32*)_IMM(0xFEE00000u + offset);
 }
 
 void uni::InterruptControl::WriteLAPIC(uint32 offset, uint32 val) {
 	if (typ == 2) setMSR(static_cast<x86MSR>(0x800 + (offset >> 4)), val);
-	else *(volatile uint32*)(0xFEE00000 + offset) = val;
+	else *(volatile uint32*)_IMM(0xFEE00000u + offset) = val;
 }
 
+_ESYM_C void sendEOI();
 void uni::InterruptControl::SendEOI(byte irq) {
 	if (typ == 2) {
 		// x2APIC mode

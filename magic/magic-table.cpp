@@ -175,8 +175,10 @@ void ParseAndOutputText(rostr text, MarkProcessor* proc) {
             else if (chh == 'i') { proc->fmt.I = false; proc->fmt_valid = false; }
             else if (chh == 'U') { proc->fmt.U = true; proc->fmt_valid = false; }
             else if (chh == 'u') { proc->fmt.U = false; proc->fmt_valid = false; }
+            else if (chh == 'M') { proc->fmt.M = true; proc->fmt_valid = false; }
+            else if (chh == 'm') { proc->fmt.M = false; proc->fmt_valid = false; }
             else if (chh == '^') { 
-                proc->fmt.B = proc->fmt.I = proc->fmt.U = false; 
+                proc->fmt.B = proc->fmt.I = proc->fmt.U = proc->fmt.M = false; 
                 proc->fmt_valid = false; 
             }
             
@@ -363,7 +365,9 @@ void GF_TableCSV(uni::Dchain* chain, MarkProcessor* proc) {
     
     if (!filepath) return;
     
-    FILE* fp = fopen(filepath, "r");
+    uni::String resolved_path = ResolveIncludePath(filepath);
+    
+    FILE* fp = fopen(resolved_path.reference(), "r");
     if (!fp) return;
     
     char line[4096];

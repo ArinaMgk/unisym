@@ -288,6 +288,8 @@ endo:
 	return state;
 }
 
+const char* mgc_top_file_path = nullptr;
+
 int main(int argc, char** argv)
 {
 	using namespace uni;
@@ -310,6 +312,7 @@ int main(int argc, char** argv)
 	}
 	if (file_arg_idx < argc) {
 		// judge "mgc XXX.mgc"
+		mgc_top_file_path = argv[file_arg_idx];
 		file = fopen(argv[file_arg_idx], "r");
 		if (file) {
 			String buf(String::Charset::UTF8, 22);

@@ -120,7 +120,9 @@ void printlogx(loglevel_t level, const char* fmt, para_list paras)
 		asserv(_call_serious)((void*)level);
 }
 
+#ifndef _WinNT
 _WEAK
+#endif
 void printlog(loglevel_t level, const char* fmt, ...)
 {
 	Letpara(paras, fmt);

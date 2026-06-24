@@ -34,6 +34,6 @@ Include("./doc0_inc.mgc"); // parse and replace this node
 
 // Version: Second, in 2025, updated 20251112
 // TODO:
-// - [ ] Unicode
+// - [x] Unicode
 // - [ ] Multilango Option
 // - [ ] Fullver Epic Release and Partial Epic Release

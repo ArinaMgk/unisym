@@ -46,6 +46,10 @@ static const gfnmap_entry gfnmap[] = {
 	{"RcellSkip", GF_RcellSkip },
 	{"LineH", GF_LineH },
 	{"TableCSV", GF_TableCSV },
+	// List:
+	{"ListBegin", GF_ListBegin },
+	{"ListEnd", GF_ListEnd },
+	{"ListItem", GF_ListItem },
 };
 
 

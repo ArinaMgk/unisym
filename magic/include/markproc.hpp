@@ -178,6 +178,9 @@ void GF_IncludeWeak(uni::Dchain* chain, MarkProcessor* proc);
 // Expose SeekString for table processor
 rostr SeekString(uni::Dnode* n, MarkProcessor* proc);
 
+// Parse ^B...^b and \n text processing for Table and List
+void ParseAndOutputText(rostr text, MarkProcessor* proc);
+
 // Table macros
 void GF_TableBegin(uni::Dchain* chain, MarkProcessor* proc);
 void GF_TableEnd(uni::Dchain* chain, MarkProcessor* proc);
@@ -187,5 +190,10 @@ void GF_Rcell(uni::Dchain* chain, MarkProcessor* proc);
 void GF_RcellSkip(uni::Dchain* chain, MarkProcessor* proc);
 void GF_LineH(uni::Dchain* chain, MarkProcessor* proc);
 void GF_TableCSV(uni::Dchain* chain, MarkProcessor* proc);
+
+// List Global Functions
+void GF_ListBegin(uni::Dchain* chain, MarkProcessor* proc);
+void GF_ListEnd(uni::Dchain* chain, MarkProcessor* proc);
+void GF_ListItem(uni::Dchain* chain, MarkProcessor* proc);
 
 #endif

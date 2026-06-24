@@ -36,4 +36,13 @@ TableBegin("c|c|c");
 
 TableEnd();
 
+Format("\n\nEnd of manual table test.\n\n");
+
+Title("2", "CSV Table Test");
+Format("The following table is loaded dynamically from `data.csv`:\n\n");
+
+TableBegin("c|c|c");
+    TableCSV("doc1/data.csv", "1");
+TableEnd();
+
 Format("\n\nEnd of test.\n");

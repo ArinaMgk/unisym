@@ -5,6 +5,7 @@
 // Copyright: UNISYM, under Apache License 2.0
 
 #include "include/markproc.hpp"
+#include <stdio.h>
 
 struct TableContext {
     char alignments[256];
@@ -156,7 +157,8 @@ void GF_RowHead(uni::Dchain* chain, MarkProcessor* proc) {
     }
 }
 
-static void ParseAndOutputCellText(rostr text, MarkProcessor* proc) {
+void ParseAndOutputText(rostr text, MarkProcessor* proc) {
+    if (!text) return;
     char* p = (char*)text;
     char ch;
     stduint chunk_start = 0;
@@ -244,7 +246,7 @@ void GF_Rcell(uni::Dchain* chain, MarkProcessor* proc) {
             if (cspan > 1) proc->OutFormat(" colspan=\"%d\"", cspan);
             if (align) proc->OutFormat(" style=\"text-align:%s\"", align);
             proc->OutFormat(">");
-            ParseAndOutputCellText(text, proc);
+            ParseAndOutputText(text, proc);
             proc->OutFormat("</%s>\n", tag);
         }
         break;
@@ -265,7 +267,7 @@ void GF_Rcell(uni::Dchain* chain, MarkProcessor* proc) {
             }
             if (has_newline) proc->OutFormat("\\makecell{");
             
-            ParseAndOutputCellText(text, proc);
+            ParseAndOutputText(text, proc);
             
             if (has_newline) proc->OutFormat("}");
             if (use_multicolumn) {
@@ -277,7 +279,7 @@ void GF_Rcell(uni::Dchain* chain, MarkProcessor* proc) {
         }
         break;
     default:
-        ParseAndOutputCellText(text, proc);
+        ParseAndOutputText(text, proc);
         proc->OutFormat(" | ");
         break;
     }
@@ -350,5 +352,58 @@ void GF_LineH(uni::Dchain* chain, MarkProcessor* proc) {
 
 // TableCSV(filepath, has_header)
 void GF_TableCSV(uni::Dchain* chain, MarkProcessor* proc) {
-    // TODO: implement standard file I/O for CSV
+    using namespace uni;
+    if (chain->Count() < 1) return;
+    rostr filepath = SeekString((*chain)[0], proc);
+    bool has_header = false;
+    if (chain->Count() > 1) {
+        rostr hh = SeekString((*chain)[1], proc);
+        if (hh && hh[0] != '0' && hh[0] != '\0') has_header = true;
+    }
+    
+    if (!filepath) return;
+    
+    FILE* fp = fopen(filepath, "r");
+    if (!fp) return;
+    
+    char line[4096];
+    bool is_first_line = true;
+    
+    while (fgets(line, sizeof(line), fp)) {
+        stduint len = StrLength(line);
+        if (len > 0 && line[len-1] == '\n') line[--len] = '\0';
+        if (len > 0 && line[len-1] == '\r') line[--len] = '\0';
+        
+        if (line[0] == '\0') continue;
+        
+        uni::Dchain dummy_chain;
+        if (is_first_line) {
+            if (has_header) GF_RowHead(&dummy_chain, proc);
+            else GF_Row(&dummy_chain, proc);
+        } else {
+            GF_LineH(&dummy_chain, proc);
+            GF_Row(&dummy_chain, proc);
+        }
+        is_first_line = false;
+        
+        char* start = line;
+        bool in_quotes = false;
+        for (char* p = line; *p; p++) {
+            if (*p == '"') {
+                in_quotes = !in_quotes;
+            } else if (*p == ',' && !in_quotes) {
+                *p = '\0';
+                uni::Dchain cell_chain;
+                uni::Dnode* dn = cell_chain.AppendHeapstr(start);
+                dn->type = tok_string;
+                GF_Rcell(&cell_chain, proc);
+                start = p + 1;
+            }
+        }
+        uni::Dchain cell_chain;
+        uni::Dnode* dn = cell_chain.AppendHeapstr(start);
+        dn->type = tok_string;
+        GF_Rcell(&cell_chain, proc);
+    }
+    fclose(fp);
 }

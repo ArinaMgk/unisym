@@ -1,0 +1,24 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(1, "mgc List Engine Test");
+
+Format("This document tests the new mgc list engine features, including itemize and enumerate.\n\n");
+
+Title(2, "Unordered List (itemize)");
+
+ListBegin("itemize");
+    ListItem("", "First item with no prefix.");
+    ListItem("", "Second item with ^Bbold^b text.");
+    ListItem("prefix", "Third item with a prefix.");
+    ListItem("code", "Fourth item demonstrating code-like prefix formatting.");
+ListEnd();
+
+Title(2, "Ordered List (enumerate)");
+
+ListBegin("enumerate");
+    ListItem("", "Step one.");
+    ListItem("", "Step two.");
+    ListItem("Important", "Step three has a prefix.");
+ListEnd();
+
+Format("\n\nEnd of test.\n");

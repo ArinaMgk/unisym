@@ -29,27 +29,36 @@ void GF_Math(uni::Dchain* chain, MarkProcessor* proc) {
     rostr text = SeekString((*chain)[0], proc);
     if (!text) return;
     
+    bool is_empty = (text[0] == '\0');
     in_math_block = true;
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::Tex:
-        proc->OutFormat("$");
-        proc->out(text, StrLength(text));
-        proc->OutFormat("$");
+        if (!is_empty) {
+            proc->OutFormat("$");
+            proc->out(text, StrLength(text));
+            proc->OutFormat("$");
+        }
         break;
     case MarkProcessor::TextFormat::HTML:
         InjectMathJax(proc);
-        proc->OutFormat("\\(");
-        proc->out(text, StrLength(text));
-        proc->OutFormat("\\)");
+        if (!is_empty) {
+            proc->OutFormat("\\(");
+            proc->out(text, StrLength(text));
+            proc->OutFormat("\\)");
+        }
         break;
     case MarkProcessor::TextFormat::Markdown:
     case MarkProcessor::TextFormat::STDOUT:
-        proc->OutFormat("$");
-        proc->out(text, StrLength(text));
-        proc->OutFormat("$");
+        if (!is_empty) {
+            proc->OutFormat("$");
+            proc->out(text, StrLength(text));
+            proc->OutFormat("$");
+        }
         break;
     default:
-        proc->out(text, StrLength(text));
+        if (!is_empty) {
+            proc->out(text, StrLength(text));
+        }
         break;
     }
     in_math_block = false;

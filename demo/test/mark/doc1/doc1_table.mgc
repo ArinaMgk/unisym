@@ -38,7 +38,7 @@ TableEnd();
 
 Format("\n\nEnd of manual table test.\n\n");
 
-Title("2", "CSV Table Test");
+Title(2, "CSV Table Test");
 Format("The following table is loaded dynamically from `data.csv`:\n\n");
 
 TableBegin("c|c|c");

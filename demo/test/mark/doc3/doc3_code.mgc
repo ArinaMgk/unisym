@@ -1,5 +1,5 @@
 #UTF-8 MAgicRK(1) . .
-Title("1", "mgc Code Engine Test");
+Title(1, "mgc Code Engine Test");
 Format("This document tests the new mgc code block features.\n\n");
 
 Format("1. CodeInclude from an external file:\n");

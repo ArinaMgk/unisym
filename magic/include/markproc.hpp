@@ -215,4 +215,8 @@ void GF_FontEnd(uni::Dchain* chain, MarkProcessor* proc);
 void GF_FontSize(uni::Dchain* chain, MarkProcessor* proc);
 void GF_FontFamily(uni::Dchain* chain, MarkProcessor* proc);
 
+// Math macros
+void GF_Math(uni::Dchain* chain, MarkProcessor* proc);
+void GF_MathBlock(uni::Dchain* chain, MarkProcessor* proc);
+
 #endif

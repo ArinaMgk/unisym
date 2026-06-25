@@ -31,8 +31,8 @@ void GF_CodeInclude(uni::Dchain* chain, MarkProcessor* proc) {
     // Begin block
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::HTML:
-        if (lang[0]) proc->OutFormat("<pre><code class=\"language-%s\">\n", lang);
-        else proc->OutFormat("<pre><code>\n");
+        if (lang[0]) proc->OutFormat("<pre><code class=\"language-%s\">", lang);
+        else proc->OutFormat("<pre><code>");
         break;
     case MarkProcessor::TextFormat::Tex:
         if (lang[0]) proc->OutFormat("\\begin{lstlisting}[language=%s]\n", lang);
@@ -56,7 +56,7 @@ void GF_CodeInclude(uni::Dchain* chain, MarkProcessor* proc) {
     // End block
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::HTML:
-        proc->OutFormat("</code></pre>\n");
+        proc->OutFormat("</code></pre>");
         break;
     case MarkProcessor::TextFormat::Tex:
         if (lang[0]) proc->OutFormat("\\end{lstlisting}\n");

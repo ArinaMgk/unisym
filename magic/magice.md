@@ -59,3 +59,10 @@
 | `FontEnd()` | (无) | 结束环境级局部字体/字号设定块。 |
 | `FontSize(size, text)` | `size`: 字号（如 `"6pt"`）<br>`text`: 内联文本 | 控制局部的某一段特定文本的字号。内部支持内联排版格式解析。 |
 | `FontFamily(fam, text)` | `fam`: 字体族<br>`text`: 内联文本 | 控制局部的某一段特定文本的字体。内部支持内联排版格式解析。 |
+
+## 数学符号与公式 (Math & Symbols)
+
+| 指令 | 参数说明 | 用途 |
+| :--- | :--- | :--- |
+| `Math(text)` | `text`: 数学公式或符号代码 | 生成行内数学公式或特殊符号。在 LaTeX 中生成 `$text$`，在 HTML/Markdown 中生成 `\(text\)` 或 `$text$`（兼容 MathJax）。 |
+| `MathBlock(text)` | `text`: 数学公式代码 | 生成块级（独立成行）的数学公式环境。在 LaTeX/HTML 中生成 `\[text\]`，在 Markdown 中生成 `$$text$$`。 |

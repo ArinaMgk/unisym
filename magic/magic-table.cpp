@@ -79,7 +79,7 @@ void GF_TableBegin(uni::Dchain* chain, MarkProcessor* proc) {
     
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::HTML:
-        proc->OutFormat("<table>\n");
+        proc->OutFormat("<table>");
         break;
     case MarkProcessor::TextFormat::Tex:
         if (align) proc->OutFormat("\\begin{longtable}{|%s|}\n", align);
@@ -100,7 +100,7 @@ void GF_TableEnd(uni::Dchain* chain, MarkProcessor* proc) {
     
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::HTML:
-        proc->OutFormat("</table>\n");
+        proc->OutFormat("</table>");
         break;
     case MarkProcessor::TextFormat::Tex:
         proc->OutFormat("\\hline\n\\end{longtable}\n");
@@ -129,7 +129,7 @@ void GF_Row(uni::Dchain* chain, MarkProcessor* proc) {
     tbl_ctx.current_col_index = 0;
     
     if (proc->txtfmt == MarkProcessor::TextFormat::HTML) {
-        proc->OutFormat("<tr>\n");
+        proc->OutFormat("<tr>");
     } else if (proc->txtfmt == MarkProcessor::TextFormat::Markdown || proc->txtfmt == MarkProcessor::TextFormat::STDOUT) {
         proc->OutFormat("| ");
     }
@@ -151,7 +151,7 @@ void GF_RowHead(uni::Dchain* chain, MarkProcessor* proc) {
     tbl_ctx.current_col_index = 0;
     
     if (proc->txtfmt == MarkProcessor::TextFormat::HTML) {
-        proc->OutFormat("<tr class=\"head\">\n");
+        proc->OutFormat("<tr class=\"head\">");
     } else if (proc->txtfmt == MarkProcessor::TextFormat::Markdown || proc->txtfmt == MarkProcessor::TextFormat::STDOUT) {
         proc->OutFormat("| ");
     }

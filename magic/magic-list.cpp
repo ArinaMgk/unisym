@@ -28,9 +28,10 @@ void GF_ListBegin(uni::Dchain* chain, MarkProcessor* proc) {
     
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::HTML:
-        if (!StrCompare(lst_ctx.list_type, "enumerate")) proc->OutFormat("<ol>\n");
-        else proc->OutFormat("<ul>\n");
-        break;
+        {
+            const char* tag = (!StrCompare(lst_ctx.list_type, "enumerate")) ? "ol" : "ul";
+            proc->OutFormat("<%s>", tag);
+        }break;
     case MarkProcessor::TextFormat::Tex:
         proc->OutFormat("\\begin{%s}\n", lst_ctx.list_type);
         break;
@@ -44,9 +45,10 @@ void GF_ListBegin(uni::Dchain* chain, MarkProcessor* proc) {
 void GF_ListEnd(uni::Dchain* chain, MarkProcessor* proc) {
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::HTML:
-        if (!StrCompare(lst_ctx.list_type, "enumerate")) proc->OutFormat("</ol>\n");
-        else proc->OutFormat("</ul>\n");
-        break;
+        {
+            const char* tag = (!StrCompare(lst_ctx.list_type, "enumerate")) ? "ol" : "ul";
+            proc->OutFormat("</%s>", tag);
+        }break;
     case MarkProcessor::TextFormat::Tex:
         proc->OutFormat("\\end{%s}\n", lst_ctx.list_type);
         break;
@@ -72,7 +74,7 @@ void GF_ListItem(uni::Dchain* chain, MarkProcessor* proc) {
         proc->OutFormat("<li>");
         if (prefix && prefix[0] != '\0') proc->OutFormat("<code>%s</code> : ", prefix);
         if (main_text) ParseAndOutputText(main_text, proc);
-        proc->OutFormat("</li>\n");
+        proc->OutFormat("</li>");
         break;
     case MarkProcessor::TextFormat::Tex:
         proc->OutFormat("\\item");

@@ -17,7 +17,7 @@ void GF_BibBegin(uni::Dchain* chain, MarkProcessor* proc) {
 
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::HTML:
-        proc->OutFormat("<div class=\"bibliography\">\n");
+        proc->OutFormat("<div class=\"bibliography\">");
         break;
     case MarkProcessor::TextFormat::Tex:
         proc->OutFormat("\\begin{thebibliography}{%s}\n", label);
@@ -35,7 +35,7 @@ void GF_BibBegin(uni::Dchain* chain, MarkProcessor* proc) {
 void GF_BibEnd(uni::Dchain* chain, MarkProcessor* proc) {
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::HTML:
-        proc->OutFormat("</div>\n");
+        proc->OutFormat("</div>");
         break;
     case MarkProcessor::TextFormat::Tex:
         proc->OutFormat("\\end{thebibliography}\n");
@@ -82,7 +82,7 @@ void GF_BibItem(uni::Dchain* chain, MarkProcessor* proc) {
     case MarkProcessor::TextFormat::HTML:
         proc->OutFormat("<p id=\"ref-%s\">[%s] ", id, id);
         ParseAndOutputText(text, proc);
-        proc->OutFormat("</p>\n");
+        proc->OutFormat("</p>");
         break;
     case MarkProcessor::TextFormat::Tex:
         proc->OutFormat("\\bibitem{%s} ", id);

@@ -1,0 +1,17 @@
+#UTF-8 MAgicRK(1) . .
+Title("1", "mgc Math Engine Test");
+
+Format("This document tests the new mgc Math and Symbols features.\n\n");
+
+Title("2", "Inline Math");
+Format("The arrow symbol can be written as ");
+Math("\\rightarrow");
+Format(". And a quadratic equation looks like ");
+Math("ax^2 + bx + c = 0");
+Format(".\n\n");
+
+Title("2", "Block Math");
+Format("Here is an independent block formula for the roots of a quadratic equation:\n");
+MathBlock("x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}");
+
+Format("\nEnd of test.\n");

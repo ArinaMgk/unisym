@@ -34,7 +34,7 @@ void GF_FontBegin(uni::Dchain* chain, MarkProcessor* proc) {
         proc->OutFormat("<div style=\"");
         if (size && size[0]) proc->OutFormat("font-size: %s;", size);
         if (family && family[0]) proc->OutFormat("font-family: %s;", family);
-        proc->OutFormat("\">\n");
+        proc->OutFormat("\">");
         break;
     default:
         break;
@@ -48,7 +48,7 @@ void GF_FontEnd(uni::Dchain* chain, MarkProcessor* proc) {
         proc->OutFormat("}\n");
         break;
     case MarkProcessor::TextFormat::HTML:
-        proc->OutFormat("</div>\n");
+        proc->OutFormat("</div>");
         break;
     default:
         break;

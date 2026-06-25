@@ -61,6 +61,9 @@ static const gfnmap_entry gfnmap[] = {
 	{"FontEnd", GF_FontEnd },
 	{"FontSize", GF_FontSize },
 	{"FontFamily", GF_FontFamily },
+	// Math:
+	{"Math", GF_Math },
+	{"MathBlock", GF_MathBlock },
 };
 
 
@@ -87,9 +90,10 @@ static bool process(uni::Nnode* nod, MarkProcessor* thi) {
 
 extern bool TableEngineActive();
 bool CodeEngineActive();
+bool MathEngineActive();
 
 int ProcessorHTML::out(const char* str, stduint len) { 
-	if (CodeEngineActive()) return pout->out(str, len);
+	if (CodeEngineActive() || MathEngineActive()) return pout->out(str, len);
 	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M) {
 		for (stduint i = 0; i < len; i++) {
 			pout->OutChar(str[i]);
@@ -133,7 +137,7 @@ int ProcessorHTML::out(const char* str, stduint len) {
 	return len;
 }
 int ProcessorTex::out(const char* str, stduint len) {
-	if (CodeEngineActive()) return pout->out(str, len);
+	if (CodeEngineActive() || MathEngineActive()) return pout->out(str, len);
 	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M) {
 		for (stduint i = 0; i < len; i++) {
 			pout->OutChar(str[i]);
@@ -177,7 +181,7 @@ int ProcessorTex::out(const char* str, stduint len) {
 	return len;
 }
 int ProcessorMarkdown::out(const char* str, stduint len) { 
-	if (CodeEngineActive()) return pout->out(str, len);
+	if (CodeEngineActive() || MathEngineActive()) return pout->out(str, len);
 	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M) {
 		return pout->out(str, len);
 	}

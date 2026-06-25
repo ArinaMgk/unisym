@@ -93,7 +93,7 @@ void GF_Title(uni::Dchain* chain, MarkProcessor* proc)
 		{
 			int level = atoins(dc[0]->addr);
 			if (level > 6) level = 6;
-			proc->OutFormat("<h%d>%s</h%d>\n", level, title, level);
+			proc->OutFormat("<h%d>%s</h%d>", level, title, level);
 		}
 		break;
 	case MarkProcessor::TextFormat::Tex:

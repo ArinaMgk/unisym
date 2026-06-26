@@ -1,76 +1,76 @@
-
 The chain of a node contains a series of nodes. There are usually discrete so we need not allocate them at once.
 
-\begin{center}
-\begin{longtable}{c|c|c|l}%[h!]
-		\caption{Comparison between Non-annulus Chain}
-		\labex{tab:table_na_nodes} \\
-		%\begin{tabular}{c|c|c|l} if no using longtable
-		\hline \textbf{NODE} & \textbf{DNODE} & \textbf{NNODE} & \textbf{Puts}\\
-		chain\_t Chain & dchain\_t Dchain T[2] & nchain\_t Nchain & {} \\
-		\hline
-		\endfirsthead
-		\multicolumn{4}{c}%
-		{{\bfseries \tablename\ \thetable{} (continued) -- {Comparison between Non-annulus Chain}}} \\
-		\hline \textbf{NODE} & \textbf{DNODE} & \textbf{NNODE} & \textbf{Puts}  \\  \hline  
-		\endhead
-		\hline \multicolumn{4}{r}{{Continued on the next page...}} \\
-		\endfoot
-		\hline \hline
-		\endlastfoot
-		
-		\multicolumn{2}{c|}{Linear: $ArrayTrait$, $IterateTrait$} & Nested & \textit{(Form)} \\ 
-		\hline
-		\multicolumn{3}{c}{\$::$ReheapString$} & \textit{(S.R.S.)} \\ % "{c}" means no- split
-		\hline
-		\multicolumn{3}{c}{\$::$GetExtnField()$} & {} \\
-		\hline
-		\multicolumn{3}{c|}{$\$Insert$} & {nod,off,(type),ex-field,(on-right)$\rightarrow$(*)} \\
-		\hline
-		\multicolumn{3}{c|}{$\$Remove$} & {nod,(left),fn-free$\rightarrow$(*next)} \\
-		\hline
-		\multicolumn{3}{c|}{$\$sRelease$ $\$\$Drop$} & {since,fn-free} \\
-		\hline
-		\multicolumn{3}{c|}{$\$HeapFreeSimple$} & {nod} \\
-		\hline
-		\multicolumn{3}{c|}{\$\$$Init$} & {()} \\
-		\hline
-		\multicolumn{3}{c|}{\$\$::$New$ \$$New$} & {(self) or ()$\rightarrow$(*)} \\
-		\hline
-		\multicolumn{3}{c|}{\$\$::$Count$ \$$Count$} & {count} \\
-		\hline
-		\multicolumn{3}{c|}{\$\$(::)$Append$} & {(self),off,left,nod[=0 or ,type]$\rightarrow$(*new)} \\
-		\hline
-		\multicolumn{3}{c|}{\$\$(::)$LocateNode$} & {$\rightarrow$(*) $\|$ {index};{off,fn\_cmp=0}} \\
-		\hline
-		\multicolumn{3}{c|}{\$\$::$Root$ and \$\$::$RootRef$} & {$\rightarrow$(*) or (\&*)} \\
-		\hline
-		\multicolumn{2}{c|}{\$\$::$<<$, \$\$::$[]$} & {\$\$::$<<$, \$::$[]$} & {} \\
-		\hline
-		{\$\$:$getLeft$} & \multicolumn{2}{c|}{\$:$getLeft$} & {} \\
-		\hline
-		\multicolumn{2}{c|}{\$\$::$Last$} & {\$::$Youngest$} & {(*)} \\
-		\hline
-		\multicolumn{2}{c|}{\$\$::$Head$} & {\$::$Head$} & {(*)} \\
-		\hline
-		\multicolumn{2}{c|}{\$\$::$Tail$} & {\$::$Tail$} & {(*)} \\
-		\hline
-		\multicolumn{2}{c|}{\$\$::$Sorted$ \$\$$Sort$} & {/} & {(self),fn-cmp} \\
-		\hline
-		{} & \multicolumn{2}{c|}{\$::$GetTnodeField$} & {} \\
-		\hline
+\begin{longtable}{|c|c|c|l|}
+\hline
+\caption{Comparison between Non-annulus Chain}\labex{tab:table_na_nodes} \\
+\hline \textbf{NODE} & \textbf{DNODE} & \textbf{NNODE} & \textbf{Puts}\\
+chain\_t Chain & dchain\_t Dchain T[2] & nchain\_t Nchain & {} \\
+\hline
+\endfirsthead
+\multicolumn{4}{c}{{\bfseries \tablename\ \thetable{} (continued) -- {Comparison between Non-annulus Chain}}} \\
+\hline \textbf{NODE} & \textbf{DNODE} & \textbf{NNODE} & \textbf{Puts}  \\  \hline
+\endhead
+\hline \multicolumn{4}{r}{{Continued on the next page...}} \\
+\endfoot
+\hline \hline
+\endlastfoot
+
+\multicolumn{2}{|c|}{\makecell{Linear: $ArrayTrait, IterateTrait$}} & Nested & \textit{(Form)} \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$::$ReheapString$}} & \textit{(S.R.S.)} \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$::$GetExtnField()$}} &  \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$$Insert$}} & nod,off,(type),ex-field,(on-right)$\rightarrow$(*) \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$$Remove$}} & nod,(left),fn-free$\rightarrow$(*next) \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$$sRelease$ \$\$$Drop$}} & since,fn-free \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$$HeapFreeSimple$}} & nod \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$(::)$Init$}} & () \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$::$New$ \$$New$}} & (self) or ()$\rightarrow$(*) \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$::$Count$ \$$Count$}} & count \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$(::)$Append$}} & (self),off,left,nod[=0 or ,type]$\rightarrow$(*new) \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$(::)$LocateNode$}} & \multicolumn{1}{l|}{\makecell{$\rightarrow$(*) $\|$ index;off,fn\_cmp=0}} \\
+\hline
+\multicolumn{3}{|c|}{\makecell{\$\$::$Root$ and \$\$::$RootRef$}} & \multicolumn{1}{l|}{\makecell{$\rightarrow$(*) or (\&*)}} \\
+\hline
+\multicolumn{2}{|c|}{\makecell{\$\$::$<<$, \$\$::$[]$}} & \multicolumn{1}{c|}{\makecell{\$\$::$<<$, \$::$[]$}} &  \\
+\hline
+\multicolumn{1}{|c|}{\makecell{\$\$:$getLeft$}} & \multicolumn{2}{c|}{\makecell{\$:$getLeft$}} &  \\
+\hline
+\multicolumn{2}{|c|}{\makecell{\$\$::$Last$}} & \multicolumn{1}{c|}{\makecell{\$::$Youngest$}} & (*) \\
+\hline
+\multicolumn{2}{|c|}{\makecell{\$\$::$Head$}} & \multicolumn{1}{c|}{\makecell{\$::$Head$}} & (*) \\
+\hline
+\multicolumn{2}{|c|}{\makecell{\$\$::$Tail$}} & \multicolumn{1}{c|}{\makecell{\$::$Tail$}} & (*) \\
+\hline
+\multicolumn{2}{|c|}{\makecell{\$\$::$Sorted$ \$\$$Sort$}} & / & (self),fn-cmp \\
+\hline
+ & \multicolumn{2}{c|}{\makecell{\$::$GetTnodeField$}} &  \\
+\hline
+\hline
+
 \end{longtable}
-\end{center}
 
 a `\$' stands for a node, such as `Node', `Dnode' or `Nnode', while double dollars `\$\$' stands for the respective chain, such as `Chain', `Dchain' or `Nchain'.
 
 `::' is for the class of \textit{C++} but \textit{C Programming Language}.
 
+
+
 \subsubsection{Node Chain : Single-Field Chain}
+
+
 
 \paragraph{Structure} \
 
-\lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
 	typedef struct Node {
 		struct Node* next;
@@ -81,7 +81,6 @@ a `\$' stands for a node, such as `Node', `Dnode' or `Nnode', while double dolla
 	} Node; // measures stdint[2]
 \end{lstlisting}
 
-\lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
 #define _MACRO_CHAIN_MEMBER \
 Node* root_node;\
@@ -111,10 +110,11 @@ public:
 	~Chain();
 	/*...*/
 }
-
 \end{lstlisting}
-% Node
+
 Trait:  \verb|ArrayTrait| \verb|IterateTrait|
+
+
 
 \paragraph{Common Method} \
 
@@ -124,16 +124,18 @@ In this part, the common field of the Nona-Chain will be explained.
 
 \paragraph{Method} \
 
-
 \textbf{\$\$::SortByInsertion} Sort, but by the Insertion method, which is a unique version for single linked node chain.
 
 \input{CLV/Data/NodesCommon.tex}
 
+
+
 \subsubsection{Dnode Chain : Double-Field-and-Linked Chain}
+
+
 
 \paragraph{Structure} \
 
-\lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
 typedef struct Dnode {
 	struct Dnode* next;
@@ -143,7 +145,6 @@ typedef struct Dnode {
 } Dnode; // measures stdint[4]
 \end{lstlisting}
 
-\lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
 #define _MACRO_DCHAIN_MEMBER \
 Dnode* root_node;\
@@ -176,11 +177,11 @@ public:
 	Dchain(); ~Dchain();
 	/*...*/
 }
-	
 \end{lstlisting}
 
-% Dnode
 Trait:  \verb|ArrayTrait| \verb|IterateTrait|
+
+
 
 \paragraph{Method} \
 
@@ -198,17 +199,24 @@ Trait:  \verb|ArrayTrait| \verb|IterateTrait|
 
 \textbf{TokenParseUnit}
 
+
+
 \subsubsection{Mnode Chain : Mapping Chain}
+
+
 
 \subsubsection{Bnode : Binary Tree}
 
 ...
 
+
+
 \subsubsection{Nnode Chain : Nested Chain}
+
+
 
 \paragraph{Structure} \
 
-\lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
 typedef struct Nnode
 {
@@ -222,7 +230,6 @@ typedef struct Nnode
 } Nnode, nnode;
 \end{lstlisting}
 
-\lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
 // C...
 typedef struct NnodeChain_t {
@@ -242,32 +249,30 @@ public:
 	//
 	Nchain(bool defa_free = false); ~Nchain();
 };
-	
 \end{lstlisting}
 
-% Nnode
 Trait: None
 
-\paragraph{Method} \
 
+
+\paragraph{Method} \
 
 \textbf{\$::isEldest, Nnode\_isEldest}
 
 \textbf{NnodeEldest}
+
 Get eldest node of parallel generation of the node.
 
 \textbf{\$\$::DivideSymbols}
 
 NestedParseUnit, TokenOperator, TokenOperatorGroup ...
 
-
 \textbf{\$\$::Receive}
 
-% Nnode* Receive(Nnode* insnod, DnodeChain* dnod, bool onleft = false);
+
 
 \paragraph{Template} \
 
-\lstset{style=GlobalCxx}
 \begin{lstlisting}[language=C++]
 // Heap String Dchain, @dosconio at 20250115
 Dchain chn(DnodeHeapFreeSimple);
@@ -292,11 +297,11 @@ fori(i, chn) {
 */
 \end{lstlisting}
 
+
+
 \subsubsection{Pnode Chain : Pool}
 
-\subsubsection{Gnode Chain : Graph}
 
-%\subparagraph{aaaa}
-%\subsubparagraph {aaaaa}
-%\subsubsubparagraph {bbbbb}
+
+\subsubsection{Gnode Chain : Graph}
 

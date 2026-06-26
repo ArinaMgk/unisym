@@ -1,0 +1,181 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("The chain of a node contains a series of nodes. There are usually discrete so we need not allocate them at once.\n");
+
+TableBegin("c|c|c|l");
+Inline("tex", "\\caption{Comparison between Non-annulus Chain}\\labex{tab:table_na_nodes} \\\\\n\\hline \\textbf{NODE} & \\textbf{DNODE} & \\textbf{NNODE} & \\textbf{Puts}\\\\\nchain\\_t Chain & dchain\\_t Dchain T[2] & nchain\\_t Nchain & {} \\\\\n\\hline\n\\endfirsthead\n\\multicolumn{4}{c}{{\\bfseries \\tablename\\ \\thetable{} (continued) -- {Comparison between Non-annulus Chain}}} \\\\\n\\hline \\textbf{NODE} & \\textbf{DNODE} & \\textbf{NNODE} & \\textbf{Puts}  \\\\  \\hline\n\\endhead\n\\hline \\multicolumn{4}{r}{{Continued on the next page...}} \\\\\n\\endfoot\n\\hline \\hline\n\\endlastfoot\n");
+
+Row();
+RcellBegin("2", "|c|"); Format("Linear: "); Math("ArrayTrait, IterateTrait"); RcellEnd();
+Rcell("Nested");
+Rcell("^I(Form)^i");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$::"); Math("ReheapString"); RcellEnd();
+Rcell("^I(S.R.S.)^i");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$::"); Math("GetExtnField()"); RcellEnd();
+Rcell("");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$"); Math("Insert"); RcellEnd();
+Rcell("nod,off,(type),ex-field,(on-right)"); Math("\\rightarrow"); Format("(*)");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$"); Math("Remove"); RcellEnd();
+Rcell("nod,(left),fn-free"); Math("\\rightarrow"); Format("(*next)");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$"); Math("sRelease"); Format(" $$"); Math("Drop"); RcellEnd();
+Rcell("since,fn-free");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$"); Math("HeapFreeSimple"); RcellEnd();
+Rcell("nod");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$(::)"); Math("Init"); RcellEnd();
+Rcell("()");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$::"); Math("New"); Format(" $"); Math("New"); RcellEnd();
+Rcell("(self) or ()"); Math("\\rightarrow"); Format("(*)");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$::"); Math("Count"); Format(" $"); Math("Count"); RcellEnd();
+Rcell("count");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$(::)"); Math("Append"); RcellEnd();
+Rcell("(self),off,left,nod[=0 or ,type]"); Math("\\rightarrow"); Format("(*new)");
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$(::)"); Math("LocateNode"); RcellEnd();
+RcellBegin("1", "l|"); Math("\\rightarrow"); Format("(*) "); Math("\\|"); Format(" index;off,fn_cmp=0"); RcellEnd();
+LineH();
+
+Row();
+RcellBegin("3", "|c|"); Format("$$::"); Math("Root"); Format(" and $$::"); Math("RootRef"); RcellEnd();
+RcellBegin("1", "l|"); Math("\\rightarrow"); Format("(*) or (&*)"); RcellEnd();
+LineH();
+
+Row();
+RcellBegin("2", "|c|"); Format("$$::"); Math("<<"); Format(", $$::"); Math("[]"); RcellEnd();
+RcellBegin("1", "c|"); Format("$$::"); Math("<<"); Format(", $::"); Math("[]"); RcellEnd();
+Rcell("");
+LineH();
+
+Row();
+RcellBegin("1", "|c|"); Format("$$:"); Math("getLeft"); RcellEnd();
+RcellBegin("2", "c|"); Format("$:"); Math("getLeft"); RcellEnd();
+Rcell("");
+LineH();
+
+Row();
+RcellBegin("2", "|c|"); Format("$$::"); Math("Last"); RcellEnd();
+RcellBegin("1", "c|"); Format("$::"); Math("Youngest"); RcellEnd();
+Rcell("(*)");
+LineH();
+
+Row();
+RcellBegin("2", "|c|"); Format("$$::"); Math("Head"); RcellEnd();
+RcellBegin("1", "c|"); Format("$::"); Math("Head"); RcellEnd();
+Rcell("(*)");
+LineH();
+
+Row();
+RcellBegin("2", "|c|"); Format("$$::"); Math("Tail"); RcellEnd();
+RcellBegin("1", "c|"); Format("$::"); Math("Tail"); RcellEnd();
+Rcell("(*)");
+LineH();
+
+Row();
+RcellBegin("2", "|c|"); Format("$$::"); Math("Sorted"); Format(" $$"); Math("Sort"); RcellEnd();
+Rcell("/");
+Rcell("(self),fn-cmp");
+LineH();
+
+Row();
+Rcell("");
+RcellBegin("2", "c|"); Format("$::"); Math("GetTnodeField"); RcellEnd();
+Rcell("");
+LineH();
+
+TableEnd();
+
+Format("a `$' stands for a node, such as `Node', `Dnode' or `Nnode', while double dollars `$$' stands for the respective chain, such as `Chain', `Dchain' or `Nchain'.\n");
+Format("`::' is for the class of ^IC++^i but ^IC Programming Language^i.\n");
+
+Title(4, "Node Chain : Single-Field Chain");
+
+Title(5, "Structure");
+
+CodeInclude("C", "Nodes_1.c");
+
+CodeInclude("C", "Nodes_2.c");
+
+Format("Trait:  ^MArrayTrait^m ^MIterateTrait^m\n");
+
+Title(5, "Common Method");
+
+Format("In this part, the common field of the Nona-Chain will be explained.\n");
+
+Title(5, "Method");
+
+Format("^B$$::SortByInsertion^b Sort, but by the Insertion method, which is a unique version for single linked node chain.\n");
+
+IncludeWeak("CLV/Data/NodesCommon.tex");
+
+Title(4, "Dnode Chain : Double-Field-and-Linked Chain");
+
+Title(5, "Structure");
+
+CodeInclude("C", "Nodes_3.c");
+
+CodeInclude("C", "Nodes_4.c");
+
+Format("Trait:  ^MArrayTrait^m ^MIterateTrait^m\n");
+
+Title(5, "Method");
+
+Format("^B$$::SortByInsertion^b\n^BDnodeRewind^b\n^B$$::Reverse^b\n^B$$::Match^b\n^B$$::AppendMatch^b\n^B$$::Reset^b\n^BTokenParseUnit^b\n");
+
+Title(4, "Mnode Chain : Mapping Chain");
+
+Title(4, "Bnode : Binary Tree");
+
+Format("...\n");
+
+Title(4, "Nnode Chain : Nested Chain");
+
+Title(5, "Structure");
+
+CodeInclude("C", "Nodes_5.c");
+
+CodeInclude("C", "Nodes_6.c");
+
+Format("Trait: None\n");
+
+Title(5, "Method");
+
+Format("^B$::isEldest, Nnode_isEldest^b\n^BNnodeEldest^b\nGet eldest node of parallel generation of the node.\n^B$$::DivideSymbols^b\nNestedParseUnit, TokenOperator, TokenOperatorGroup ...\n^B$$::Receive^b\n");
+
+Title(5, "Template");
+
+CodeInclude("C++", "Nodes_7.cpp");
+
+Title(4, "Pnode Chain : Pool");
+
+Title(4, "Gnode Chain : Graph");

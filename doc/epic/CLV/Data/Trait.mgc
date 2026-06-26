@@ -1,0 +1,72 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("Three base traits are:\n");
+ListBegin("itemize");
+ListItem("", "IstreamTrait : inn");
+ListItem("", "OstreamTrait : out");
+ListItem("", "BlockTrait   : ...");
+ListEnd();
+
+Title(4, "Property");
+Format("^BHeader^b: ^Mcpp/property^m\n");
+
+Format("This provides a better form of using object that allows users bind callback function.\n");
+
+Format("^TString^t is a instance class.\n");
+
+Format("^Bunibind^b: Bind a method of a class. It requires ISO/IEC C++ 17 and later standards.\n");
+
+Title(4, "Array Trait");
+
+Format("^Mclass ArrayTrait^m\n");
+
+Format("The developers should implement:\n");
+
+CodeInclude("C++", "../../../../inc/cpp/trait/ArrayTrait.hpp", "24"); // , lastline=...
+
+Title(4, "Iterate Trait");
+
+Format("^Mclass IterateTrait^m\n");
+
+Format("The developers should implement:\n");
+
+CodeInclude("C", "Trait_Iterate.c");
+
+Format("At least now, the efficient item should not be null.\n");
+
+Format("The users should use ^Mpureptr_t Iter()^m to iterate, this return null for the end.\n");
+
+Format("^BHow To Use^b, for example of ^IDnode^i,\n");
+
+CodeInclude("C", "Trait_DnodeIterate.c");
+
+Title(4, "Comparison Trait");
+// subsubsection {TODO} Sort
+// subsubsection {TODO} Search
+
+Title(4, "Interrupt Trait");
+
+Format("RuptTrait\n");
+
+// detail
+
+Title(4, "Stream Trait");
+
+Format("^MOstreamTrait^m and ^MIstreamTrait^m\n");
+
+Title(4, "Storage Trait");
+
+Format("^MStorageTrait^m\n");
+
+Format("Block buffer-like data structure, but temporary stream data structure.\n");
+
+Title(4, "Sub-Trait");
+
+Format("Console\n");
+ListBegin("itemize");
+ListItem("", "^MConsole_t^m");
+ListBegin("itemize");
+ListItem("", "entity ^MConsole^m for Standard TTY");
+ListItem("", "^MVideoConsole^m for Graphic TTY");
+ListEnd();
+ListEnd();

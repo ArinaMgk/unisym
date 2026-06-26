@@ -21,7 +21,8 @@
 | `IncludeWeak(filepath)`| `filepath`: `.mgc` 相对路径 | 弱包含，找不到文件时只触发警告而不会报错退出。底层的实现在输出为 Tex 时会自动生成 `\input{...}` 指令。 |
 | `Inline(target, text)` | `target`: 目标格式（如 `"tex"`, `"html"`, `"md"`）<br>`text`: 待输出字符串 | 靶点专用的内联输出块。只有当当前编译的目标格式匹配 `target` 时，才会将 `text` 原封不动输出并带上换行，否则忽略该指令（用来屏蔽跨格式的不兼容原生代码）。 |
 | `TexSubimport(dir, file)`| `dir`: 目录路径<br>`file`: 文件名 | (特供) 生成底层的 `\subimport{dir}{file}` LaTeX 指令。仅在输出格式为 Tex 时有效。 |
-| `CodeInclude(lang, filepath)` | `lang`: 代码语言（如 `"c++"`）<br>`filepath`: 源码文件相对路径 | 包含一个外部纯源码文件，并使用原生代码块环境（Raw）原汁原味地渲染输出。 |
+| `CodeInclude(lang, filepath, firstline, lastline)` | `lang`: 代码语言（如 `"c++"`）<br>`filepath`: 源码文件相对路径<br>`firstline`: 起始行号（可选，默认 1）<br>`lastline`: 结束行号（可选，默认 0 即一直到结尾） | 包含一个外部纯源码文件，并使用原生代码块环境（Raw）原汁原味地渲染输出。新增行号范围截取功能，且在 LaTeX 格式下会自动转换并注入原生的 `firstnumber` 属性。 |
+| `Code(lang, content)` | `lang`: 代码语言（如 `"c++"`）<br>`content`: 代码多行文本内容 | 直接在文档内输出一个内联原生多行代码块环境（Raw），无需生成外部文件。 |
 
 ## 表格 (Table)
 

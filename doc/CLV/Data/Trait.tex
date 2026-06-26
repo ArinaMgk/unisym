@@ -1,19 +1,26 @@
+Three base traits are:
 
-Three base traits are: 
 \begin{itemize}
+
 \item IstreamTrait : inn
+
 \item OstreamTrait : out
+
 \item BlockTrait   : ...
+
 \end{itemize}
 
+
+
 \subsubsection{Property}
-\B{Header}: \verb`cpp/property`
+
+\textbf{Header}: \verb|cpp/property|
 
 This provides a better form of using object that allows users bind callback function.
 
-\T{String} is a instance class.
+\texttt{String} is a instance class.
 
-\B{unibind}: Bind a method of a class. It requires ISO/IEC C++ 17 and later standards.
+\textbf{unibind}: Bind a method of a class. It requires ISO/IEC C++ 17 and later standards.
 
 
 
@@ -23,8 +30,48 @@ This provides a better form of using object that allows users bind callback func
 
 The developers should implement:
 
-\lstset{style=GlobalCxx}
-\lstinputlisting[language=C++, firstline=24]{../inc/cpp/trait/ArrayTrait.hpp}% , lastline=...
+\begin{lstlisting}[language=C++, firstnumber=24]
+
+// Sort ArrayTrait Request Mutable
+// - Chain
+// - Dchain
+// - Vector
+
+#ifndef _INCPP_TRAIT_ARRAY
+#define _INCPP_TRAIT_ARRAY
+namespace uni::trait {
+
+class Array {
+public:
+	virtual pureptr_t Locate(stduint idx) const = 0; //  operator[]
+
+	// Index One. `~0' as not-found
+	virtual stduint   Locate(pureptr_t p_val, bool fromRight) const = 0;
+
+	virtual stduint   Length() const = 0;
+
+	// After, the new item will be at idx.
+	// For example, if you have {A,B}, then insert(2,x) will result in: {A,B,x}
+	virtual bool      Insert(stduint idx, pureptr_t dat) = 0;
+
+	// You may need destructure them before calling this.
+	virtual bool      Remove(stduint idx, stduint times) = 0;
+	
+	virtual bool      Exchange(stduint idx1, stduint idx2) = 0;
+
+	_tocomp_ft Compare_f;
+	
+	Array() : Compare_f(nullptr) {}
+
+};
+}
+
+namespace uni { using ArrayTrait = uni::trait::Array; }
+
+#endif
+\end{lstlisting}
+
+
 
 \subsubsection{Iterate Trait}
 
@@ -32,7 +79,6 @@ The developers should implement:
 
 The developers should implement:
 
-\lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
 	virtual void Iterate() = 0;
 \end{lstlisting}
@@ -43,7 +89,6 @@ The users should use \verb|pureptr_t Iter()| to iterate, this return null for th
 
 \textbf{How To Use}, for example of \textit{Dnode},
 
-\lstset{style=GlobalC}
 \begin{lstlisting}[language=C]
 	fori(i, c) {
 		forhead(i, Dnode);
@@ -51,35 +96,47 @@ The users should use \verb|pureptr_t Iter()| to iterate, this return null for th
 	}
 \end{lstlisting}
 
+
+
 \subsubsection{Comparison Trait}
-%subsubsection {TODO} Sort
-%subsubsection {TODO} Search
+
+
 
 \subsubsection{Interrupt Trait}
 
 RuptTrait
 
-% detail
+
 
 \subsubsection{Stream Trait}
 
-\verb`OstreamTrait` and \verb`IstreamTrait`
+\verb|OstreamTrait| and \verb|IstreamTrait|
+
+
 
 \subsubsection{Storage Trait}
 
-\verb`StorageTrait`
+\verb|StorageTrait|
 
 Block buffer-like data structure, but temporary stream data structure.
+
+
 
 \subsubsection{Sub-Trait}
 
 Console
+
 \begin{itemize}
-\item \verb`Console_t`
-	\begin{itemize}
-	\item entity \verb`Console` for Standard TTY
-	\item \verb`VideoConsole` for Graphic TTY
-	\end{itemize}
+
+\item \verb|Console_t|
+
+\begin{itemize}
+
+\item entity \verb|Console| for Standard TTY
+
+\item \verb|VideoConsole| for Graphic TTY
+
 \end{itemize}
 
+\end{itemize}
 

@@ -215,6 +215,7 @@ void GF_ListLiumEnd(uni::Dchain* chain, MarkProcessor* proc);
 
 // Code macros
 void GF_CodeInclude(uni::Dchain* chain, MarkProcessor* proc);
+void GF_Code(uni::Dchain* chain, MarkProcessor* proc);
 
 // Bibliography macros
 void GF_BibBegin(uni::Dchain* chain, MarkProcessor* proc);

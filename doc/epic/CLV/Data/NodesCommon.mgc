@@ -1,0 +1,58 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("^B$::ReheapString^b"); Math("(str)"); Format("\n");
+Format("Treat the address of the node as a ASCIZ so re-heap it, which depends on the `"); Math("StrHeap()"); Format("'.\n");
+
+Format("^B$::GetExtnField^b"); Math("()"); Format("\n");
+Format("Get the pointer, to the end of the basic part of the node, which is the beginning of the extended part if it exists.\n");
+
+Format("^B$Insert^b"); Math("(nod,off,(typ),exf,onr)\\rightarrow*"); Format("\n");
+Format("Insert a node on the left or right on the node ^Inod^i. If ^Inod^i is null, this will return a pointer to the independent node. ^Ityp^i exists for dnode and nnode for their owning. ^Iexf^i defines the length of the extended part. ^Ionr^i decides the direction, if ^Inod^i is not null.\n");
+
+Format("^B$Remove^b"); Math("(nod,(lef),fn-free)\\rightarrow*nex"); Format("\n");
+Format("Remove the node no matter if in a chain. ^Ilef^i is only for Node for it does not link its left node. The returns the pointer to the next node for iterating.\n");
+
+Format("^B$sRelease $$Drop^b"); Math("(since,fn-free)"); Format("\n");
+Format("Remove the node and what on the right of it.\n");
+
+Format("^B$HeapFreeSimple^b\n");
+Format("A simple releasing function. If we keep the member "); Math("func_free"); Format(" null, nothing will be done for the content of the node context. If "); Math("func_free"); Format(" points to this function, the `offs' aka `addr' will be `free'.\n");
+
+Format("^B$$Init^b\n");
+Format("Initialize the chain.\n");
+
+Format("^B$$::New^b"); Math("()"); Format(" or ^B$New^b"); Math("(self)"); Format("\n");
+Format("Create a new node context and return its pointer. The context keep the information for extended part.\n");
+
+Format("^B$$::Count^b"); Math("()"); Format(" or ^B$Count^b"); Math("(self)"); Format("\n");
+Format("Count how many nodes in the chain.\n");
+
+Format("^B$$(::)Append^b"); Math("(self),off,lef,nod\\rightarrow*"); Format("\n");
+Format("Similar to `Insert' but this is for the chain. ^Ilef^i decides the left ot the right when ^Inod^i is not null, the front or the tail when null.\n");
+
+Format("^B$$(::)LocateNode ...^b\n");
+Format("Unlike `Locate', always return the pointer to the node, which may be null if found not.\n");
+
+Format("^B$$::Root and $$::RootRef^b\n");
+Format("Return the root node of the chain. `Ref' is the reflect but reference, for Reference sometimes acts as a kind of a type in the Q'RS (Embedded Electronics) area.\n");
+
+Format("^B$$::<< and $($)::[]^b\n");
+Format("Symbol style expression. ....\n");
+
+Format("^B$($)::getLeft^b\n");
+Format("Get the left node of the node in the chain, for `node', while get the left node of the node, no matter if it is in the chain.\n");
+
+Format("^B$$::Last or $:Youngest^b\n");
+Format("`Youngest' is for Nnode. Attention, Last is for the ^Bleftest^b, but youngest is for the ^Brightest^b of the generation of the root generation.\n");
+
+Format("^B$$::Head or $:Head^b\n");
+Format("This is for the current generation.\n");
+
+Format("^B$$::Tail or $:Tail^b\n");
+Format("This is also for the current generation.\n");
+
+Format("^B$$::Sorted or $$Sort^b\n");
+Format("Depends on the make interface for `Sort' trait.\n");
+
+Format("^B$::GetTnodeField^b\n");
+Format("For Dnode-compatible node. The design is for text parsing. The more to do the history commit of the git depot.\n");

@@ -57,6 +57,7 @@ static const gfnmap_entry gfnmap[] = {
 	{"ListLiumBegin", GF_ListLiumBegin },
 	{"ListLiumEnd", GF_ListLiumEnd },
 	{"CodeInclude", GF_CodeInclude },
+	{"Code", GF_Code },
 	// Bibliography:
 	{"BibBegin", GF_BibBegin },
 	{"BibEnd", GF_BibEnd },

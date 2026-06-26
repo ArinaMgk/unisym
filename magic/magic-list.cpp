@@ -15,10 +15,16 @@ struct ListContext {
     }
 };
 
-static ListContext lst_ctx;
+#define MAX_LIST_DEPTH 32
+static ListContext lst_ctx_stack[MAX_LIST_DEPTH];
+static int lst_ctx_top = 0;
 
 void GF_ListBegin(uni::Dchain* chain, MarkProcessor* proc) {
     using namespace uni;
+    if (lst_ctx_top < MAX_LIST_DEPTH - 1) {
+        lst_ctx_top++;
+    }
+    ListContext& lst_ctx = lst_ctx_stack[lst_ctx_top];
     lst_ctx.is_in_list = true;
     rostr type = nullptr;
     if (chain->Count() > 0) type = SeekString((*chain)[0], proc);
@@ -43,6 +49,7 @@ void GF_ListBegin(uni::Dchain* chain, MarkProcessor* proc) {
 }
 
 void GF_ListEnd(uni::Dchain* chain, MarkProcessor* proc) {
+    ListContext& lst_ctx = lst_ctx_stack[lst_ctx_top];
     switch (proc->txtfmt) {
     case MarkProcessor::TextFormat::HTML:
         {
@@ -59,10 +66,12 @@ void GF_ListEnd(uni::Dchain* chain, MarkProcessor* proc) {
     }
     lst_ctx.is_in_list = false;
     lst_ctx.list_type[0] = '\0';
+    if (lst_ctx_top > 0) lst_ctx_top--;
 }
 
 void GF_ListItem(uni::Dchain* chain, MarkProcessor* proc) {
     using namespace uni;
+    ListContext& lst_ctx = lst_ctx_stack[lst_ctx_top];
     rostr prefix = nullptr;
     rostr main_text = nullptr;
     
@@ -90,6 +99,46 @@ void GF_ListItem(uni::Dchain* chain, MarkProcessor* proc) {
         
         if (prefix && prefix[0] != '\0') proc->OutFormat("`%s` : ", prefix);
         if (main_text) ParseAndOutputText(main_text, proc);
+        proc->OutFormat("\n");
+        break;
+    }
+}
+
+void GF_ListLiumBegin(uni::Dchain* chain, MarkProcessor* proc) {
+    using namespace uni;
+    ListContext& lst_ctx = lst_ctx_stack[lst_ctx_top];
+    rostr prefix = nullptr;
+    
+    if (chain->Count() > 0) prefix = SeekString((*chain)[0], proc);
+    
+    switch (proc->txtfmt) {
+    case MarkProcessor::TextFormat::HTML:
+        proc->OutFormat("<li>");
+        if (prefix && prefix[0] != '\0') proc->OutFormat("<code>%s</code> : ", prefix);
+        break;
+    case MarkProcessor::TextFormat::Tex:
+        proc->OutFormat("\\item");
+        if (prefix && prefix[0] != '\0') proc->OutFormat("\\verb`%s` : ", prefix);
+        else proc->OutFormat(" ");
+        break;
+    case MarkProcessor::TextFormat::Markdown:
+    case MarkProcessor::TextFormat::STDOUT:
+        if (!StrCompare(lst_ctx.list_type, "enumerate")) proc->OutFormat("1. ");
+        else proc->OutFormat("- ");
+        
+        if (prefix && prefix[0] != '\0') proc->OutFormat("`%s` : ", prefix);
+        break;
+    }
+}
+
+void GF_ListLiumEnd(uni::Dchain* chain, MarkProcessor* proc) {
+    switch (proc->txtfmt) {
+    case MarkProcessor::TextFormat::HTML:
+        proc->OutFormat("</li>\n");
+        break;
+    case MarkProcessor::TextFormat::Tex:
+    case MarkProcessor::TextFormat::Markdown:
+    case MarkProcessor::TextFormat::STDOUT:
         proc->OutFormat("\n");
         break;
     }

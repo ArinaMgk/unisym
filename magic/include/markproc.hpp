@@ -83,6 +83,7 @@ namespace uni {
 		bool I = false;// italic
 		bool U = false;// underline
 		bool M = false;// monospace
+		bool T = false;// typewriter
 		bool DeleteLine = false;// delete line
 		uni::Color Forecolor = uni::Color::Black;
 		uni::Color Backcolor = uni::Color::White;
@@ -175,6 +176,11 @@ void GF_Picture(uni::Dchain* chain, MarkProcessor* proc);
 void GF_Include(uni::Dchain* chain, MarkProcessor* proc);
 // IncludeWeak( path: iden/string )
 void GF_IncludeWeak(uni::Dchain* chain, MarkProcessor* proc);
+// Inline( target: string, text: string )
+void GF_Inline(uni::Dchain* chain, MarkProcessor* proc);
+
+// TexSubimport( dir: string, file: string )
+void GF_TexSubimport(uni::Dchain* chain, MarkProcessor* proc);
 
 // Expose SeekString for table processor
 rostr SeekString(uni::Dnode* n, MarkProcessor* proc);
@@ -191,6 +197,8 @@ void GF_TableEnd(uni::Dchain* chain, MarkProcessor* proc);
 void GF_Row(uni::Dchain* chain, MarkProcessor* proc);
 void GF_RowHead(uni::Dchain* chain, MarkProcessor* proc);
 void GF_Rcell(uni::Dchain* chain, MarkProcessor* proc);
+void GF_RcellBegin(uni::Dchain* chain, MarkProcessor* proc);
+void GF_RcellEnd(uni::Dchain* chain, MarkProcessor* proc);
 void GF_RcellSkip(uni::Dchain* chain, MarkProcessor* proc);
 void GF_LineH(uni::Dchain* chain, MarkProcessor* proc);
 void GF_TableCSV(uni::Dchain* chain, MarkProcessor* proc);
@@ -199,6 +207,8 @@ void GF_TableCSV(uni::Dchain* chain, MarkProcessor* proc);
 void GF_ListBegin(uni::Dchain* chain, MarkProcessor* proc);
 void GF_ListEnd(uni::Dchain* chain, MarkProcessor* proc);
 void GF_ListItem(uni::Dchain* chain, MarkProcessor* proc);
+void GF_ListLiumBegin(uni::Dchain* chain, MarkProcessor* proc);
+void GF_ListLiumEnd(uni::Dchain* chain, MarkProcessor* proc);
 
 // Code macros
 void GF_CodeInclude(uni::Dchain* chain, MarkProcessor* proc);

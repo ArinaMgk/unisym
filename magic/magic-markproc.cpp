@@ -37,12 +37,16 @@ static const gfnmap_entry gfnmap[] = {
 	{"Picture", GF_Picture },
 	{"Include", GF_Include },
 	{"IncludeWeak", GF_IncludeWeak },
+	{"Inline", GF_Inline },
+	{"TexSubimport", GF_TexSubimport },
 	// Table:
 	{"TableBegin", GF_TableBegin },
 	{"TableEnd", GF_TableEnd },
 	{"Row", GF_Row },
 	{"RowHead", GF_RowHead },
 	{"Rcell", GF_Rcell },
+	{"RcellBegin", GF_RcellBegin },
+	{"RcellEnd", GF_RcellEnd },
 	{"RcellSkip", GF_RcellSkip },
 	{"LineH", GF_LineH },
 	{"TableCSV", GF_TableCSV },
@@ -50,6 +54,8 @@ static const gfnmap_entry gfnmap[] = {
 	{"ListBegin", GF_ListBegin },
 	{"ListEnd", GF_ListEnd },
 	{"ListItem", GF_ListItem },
+	{"ListLiumBegin", GF_ListLiumBegin },
+	{"ListLiumEnd", GF_ListLiumEnd },
 	{"CodeInclude", GF_CodeInclude },
 	// Bibliography:
 	{"BibBegin", GF_BibBegin },
@@ -94,7 +100,7 @@ bool MathEngineActive();
 
 int ProcessorHTML::out(const char* str, stduint len) { 
 	if (CodeEngineActive() || MathEngineActive()) return pout->out(str, len);
-	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M) {
+	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M && !fmt.T) {
 		for (stduint i = 0; i < len; i++) {
 			pout->OutChar(str[i]);
 			if (str[i] == '\n' && !TableEngineActive()) pout->OutFormat("<br>\n");
@@ -110,7 +116,9 @@ int ProcessorHTML::out(const char* str, stduint len) {
 				if (fmt.B) pout->OutFormat("<b>");
 				if (fmt.I) pout->OutFormat("<i>");
 				if (fmt.M) pout->OutFormat("<code>");
+				if (fmt.T) pout->OutFormat("<tt>");
 				pout->out(str + start, i - start);
+				if (fmt.T) pout->OutFormat("</tt>");
 				if (fmt.M) pout->OutFormat("</code>");
 				if (fmt.I) pout->OutFormat("</i>");
 				if (fmt.B) pout->OutFormat("</b>");
@@ -125,7 +133,9 @@ int ProcessorHTML::out(const char* str, stduint len) {
 		if (fmt.B) pout->OutFormat("<b>");
 		if (fmt.I) pout->OutFormat("<i>");
 		if (fmt.M) pout->OutFormat("<code>");
+		if (fmt.T) pout->OutFormat("<tt>");
 		pout->out(str + start, len - start);
+		if (fmt.T) pout->OutFormat("</tt>");
 		if (fmt.M) pout->OutFormat("</code>");
 		if (fmt.I) pout->OutFormat("</i>");
 		if (fmt.B) pout->OutFormat("</b>");
@@ -138,7 +148,7 @@ int ProcessorHTML::out(const char* str, stduint len) {
 }
 int ProcessorTex::out(const char* str, stduint len) {
 	if (CodeEngineActive() || MathEngineActive()) return pout->out(str, len);
-	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M) {
+	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M && !fmt.T) {
 		for (stduint i = 0; i < len; i++) {
 			pout->OutChar(str[i]);
 			if (str[i] == '\n' && !TableEngineActive()) pout->OutChar('\n');
@@ -154,7 +164,9 @@ int ProcessorTex::out(const char* str, stduint len) {
 				if (fmt.B) pout->OutFormat("\\textbf{");
 				if (fmt.I) pout->OutFormat("\\textit{");
 				if (fmt.M) pout->OutFormat("\\verb|");
+				if (fmt.T) pout->OutFormat("\\texttt{");
 				pout->out(str + start, i - start);
+				if (fmt.T) pout->OutFormat("}");
 				if (fmt.M) pout->OutFormat("|");
 				if (fmt.I) pout->OutFormat("}");
 				if (fmt.B) pout->OutFormat("}");
@@ -169,7 +181,9 @@ int ProcessorTex::out(const char* str, stduint len) {
 		if (fmt.B) pout->OutFormat("\\textbf{");
 		if (fmt.I) pout->OutFormat("\\textit{");
 		if (fmt.M) pout->OutFormat("\\verb|");
+		if (fmt.T) pout->OutFormat("\\texttt{");
 		pout->out(str + start, len - start);
+		if (fmt.T) pout->OutFormat("}");
 		if (fmt.M) pout->OutFormat("|");
 		if (fmt.I) pout->OutFormat("}");
 		if (fmt.B) pout->OutFormat("}");
@@ -182,7 +196,7 @@ int ProcessorTex::out(const char* str, stduint len) {
 }
 int ProcessorMarkdown::out(const char* str, stduint len) { 
 	if (CodeEngineActive() || MathEngineActive()) return pout->out(str, len);
-	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M) {
+	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M && !fmt.T) {
 		return pout->out(str, len);
 	}
 	
@@ -194,7 +208,9 @@ int ProcessorMarkdown::out(const char* str, stduint len) {
 				if (fmt.B) pout->OutFormat("**");
 				if (fmt.I) pout->OutFormat("*");
 				if (fmt.M) pout->OutFormat("`");
+				if (fmt.T) pout->OutFormat("`");
 				pout->out(str + start, i - start);
+				if (fmt.T) pout->OutFormat("`");
 				if (fmt.M) pout->OutFormat("`");
 				if (fmt.I) pout->OutFormat("*");
 				if (fmt.B) pout->OutFormat("**");
@@ -209,7 +225,9 @@ int ProcessorMarkdown::out(const char* str, stduint len) {
 		if (fmt.B) pout->OutFormat("**");
 		if (fmt.I) pout->OutFormat("*");
 		if (fmt.M) pout->OutFormat("`");
+		if (fmt.T) pout->OutFormat("`");
 		pout->out(str + start, len - start);
+		if (fmt.T) pout->OutFormat("`");
 		if (fmt.M) pout->OutFormat("`");
 		if (fmt.I) pout->OutFormat("*");
 		if (fmt.B) pout->OutFormat("**");

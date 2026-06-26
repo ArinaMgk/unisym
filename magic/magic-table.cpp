@@ -14,7 +14,11 @@ struct TableContext {
     bool is_in_table;
     int current_col_index;
     
-    TableContext() : current_row_span(1), is_in_head(false), is_in_table(false), current_col_index(0) {
+    int rcell_cspan;
+    int rcell_rspan;
+    bool rcell_has_align;
+    
+    TableContext() : current_row_span(1), is_in_head(false), is_in_table(false), current_col_index(0), rcell_cspan(1), rcell_rspan(1), rcell_has_align(false) {
         alignments[0] = '\0';
     }
 };
@@ -177,8 +181,10 @@ void ParseAndOutputText(rostr text, MarkProcessor* proc) {
             else if (chh == 'u') { proc->fmt.U = false; proc->fmt_valid = false; }
             else if (chh == 'M') { proc->fmt.M = true; proc->fmt_valid = false; }
             else if (chh == 'm') { proc->fmt.M = false; proc->fmt_valid = false; }
+            else if (chh == 'T') { proc->fmt.T = true; proc->fmt_valid = false; }
+            else if (chh == 't') { proc->fmt.T = false; proc->fmt_valid = false; }
             else if (chh == '^') { 
-                proc->fmt.B = proc->fmt.I = proc->fmt.U = proc->fmt.M = false; 
+                proc->fmt.B = proc->fmt.I = proc->fmt.U = proc->fmt.M = proc->fmt.T = false; 
                 proc->fmt_valid = false; 
             }
             
@@ -410,4 +416,97 @@ void GF_TableCSV(uni::Dchain* chain, MarkProcessor* proc) {
         GF_Rcell(&cell_chain, proc);
     }
     fclose(fp);
+}
+
+void GF_RcellBegin(uni::Dchain* chain, MarkProcessor* proc) {
+    using namespace uni;
+    int cspan = 1;
+    if (chain->Count() > 0) {
+        rostr cs = SeekString((*chain)[0], proc);
+        if (cs) cspan = atoins(cs);
+    }
+    if (cspan < 1) cspan = 1;
+    
+    rostr align = nullptr;
+    if (chain->Count() > 1) {
+        align = SeekString((*chain)[1], proc);
+        if (align && align[0] == '\0') align = nullptr;
+    }
+    
+    int rspan = tbl_ctx.current_row_span;
+    if (chain->Count() > 2) {
+        rostr rs = SeekString((*chain)[2], proc);
+        if (rs) {
+            int rs_val = atoins(rs);
+            if (rs_val > 0) rspan = rs_val;
+        }
+    }
+    
+    tbl_ctx.rcell_cspan = cspan;
+    tbl_ctx.rcell_rspan = rspan;
+    tbl_ctx.rcell_has_align = (align != nullptr);
+    
+    bool ishead = tbl_ctx.is_in_head;
+    
+    switch (proc->txtfmt) {
+    case MarkProcessor::TextFormat::HTML:
+        {
+            const char* tag = ishead ? "th" : "td";
+            proc->OutFormat("<%s", tag);
+            if (rspan > 1) proc->OutFormat(" rowspan=\"%d\"", rspan);
+            if (cspan > 1) proc->OutFormat(" colspan=\"%d\"", cspan);
+            if (align) proc->OutFormat(" style=\"text-align:%s\"", align);
+            proc->OutFormat(">");
+        }
+        break;
+    case MarkProcessor::TextFormat::Tex:
+        {
+            if (tbl_ctx.current_col_index > 0) proc->OutFormat(" & ");
+            
+            bool use_multicolumn = (cspan > 1 || align);
+            if (use_multicolumn) {
+                const char* alg = align ? align : "c";
+                if (rspan > 1) {
+                    proc->OutFormat("\\multicolumn{%d}{%s}{\\multirow{%d}{*}{", cspan, alg, rspan);
+                } else {
+                    proc->OutFormat("\\multicolumn{%d}{%s}{", cspan, alg);
+                }
+            } else if (rspan > 1) {
+                proc->OutFormat("\\multirow{%d}{*}{", rspan);
+            }
+            proc->OutFormat("\\makecell{");
+        }
+        break;
+    default:
+        break;
+    }
+    
+    tbl_ctx.current_col_index += cspan;
+}
+
+void GF_RcellEnd(uni::Dchain* chain, MarkProcessor* proc) {
+    bool ishead = tbl_ctx.is_in_head;
+    switch (proc->txtfmt) {
+    case MarkProcessor::TextFormat::HTML:
+        {
+            const char* tag = ishead ? "th" : "td";
+            proc->OutFormat("</%s>\n", tag);
+        }
+        break;
+    case MarkProcessor::TextFormat::Tex:
+        {
+            bool use_multicolumn = (tbl_ctx.rcell_cspan > 1 || tbl_ctx.rcell_has_align);
+            proc->OutFormat("}");
+            if (use_multicolumn) {
+                if (tbl_ctx.rcell_rspan > 1) proc->OutFormat("}}");
+                else proc->OutFormat("}");
+            } else if (tbl_ctx.rcell_rspan > 1) {
+                proc->OutFormat("}");
+            }
+        }
+        break;
+    default:
+        proc->OutFormat(" | ");
+        break;
+    }
 }

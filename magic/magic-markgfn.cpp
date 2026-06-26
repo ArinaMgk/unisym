@@ -182,6 +182,10 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
 				proc->fmt.M = false;
 				proc->fmt_valid = false;
 			}
+			if (proc->fmt.T) {
+				proc->fmt.T = false;
+				proc->fmt_valid = false;
+			}
 			break;
 		case 'B':
 			if (!proc->fmt.B) {
@@ -231,6 +235,18 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
 				proc->fmt_valid = false;
 			}
 			break;
+		case 'T':
+			if (!proc->fmt.T) {
+				proc->fmt.T = true;
+				proc->fmt_valid = false;
+			}
+			break;
+		case 't':
+			if (proc->fmt.T) {
+				proc->fmt.T = false;
+				proc->fmt_valid = false;
+			}
+			break;
 
 		default:
 			plogwarn("Format: Unknown format specifier ^%c", chh);
@@ -238,6 +254,22 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
 		}
 	}
 	break;
+	case '\n':
+		{
+			extern bool TableEngineActive();
+			if (TableEngineActive()) {
+				if (proc->txtfmt == MarkProcessor::TextFormat::Tex) {
+					proc->OutFormat("\\\\");
+				} else if (proc->txtfmt == MarkProcessor::TextFormat::HTML) {
+					proc->OutFormat("<br>\n");
+				} else {
+					proc->OutFormat(" ");
+				}
+			} else {
+				proc->OutChar('\n');
+			}
+		}
+		break;
 	default:
 		proc->OutChar(ch);
 		break;
@@ -302,6 +334,23 @@ uni::String ResolveIncludePath(const char* path) {
 		return res;
 	}
 	return uni::String(path);
+}
+
+void GF_TexSubimport(uni::Dchain* chain, MarkProcessor* proc)
+{
+	using namespace uni;
+	rostr dir, file;
+	if (chain->Count() == 2) {
+		dir = SeekString((*chain)[0], proc);
+		file = SeekString((*chain)[1], proc);
+		if (dir && file) {
+			if (proc->txtfmt == MarkProcessor::TextFormat::Tex) {
+				proc->OutFormat("\\subimport{%s}{%s}\n", dir, file);
+			}
+		}
+	} else {
+		plogerro("TexSubimport: Missing or invalid arguments");
+	}
 }
 
 void GF_Include(uni::Dchain* chain, MarkProcessor* proc)
@@ -410,5 +459,28 @@ void GF_IncludeWeak(uni::Dchain* chain, MarkProcessor* proc)
 		default:
 			break;
 		}
+	}
+}
+
+void GF_Inline(uni::Dchain* chain, MarkProcessor* proc)
+{
+	using namespace uni;
+	rostr target, txt;
+	if (chain->Count() == 2) {
+		target = SeekString((*chain)[0], proc);
+		txt = SeekString((*chain)[1], proc);
+		if (target && txt) {
+			bool match = false;
+			if (proc->txtfmt == MarkProcessor::TextFormat::Tex && (!StrCompare(target, "tex") || !StrCompare(target, "latex"))) match = true;
+			else if (proc->txtfmt == MarkProcessor::TextFormat::HTML && (!StrCompare(target, "html") || !StrCompare(target, "htm"))) match = true;
+			else if (proc->txtfmt == MarkProcessor::TextFormat::Markdown && (!StrCompare(target, "md") || !StrCompare(target, "markdown"))) match = true;
+			else if (proc->txtfmt == MarkProcessor::TextFormat::STDOUT && !StrCompare(target, "stdout")) match = true;
+
+			if (match) {
+				proc->OutFormat("%s\n", txt);
+			}
+		}
+	} else {
+		plogerro("Inline: Missing or invalid arguments");
 	}
 }

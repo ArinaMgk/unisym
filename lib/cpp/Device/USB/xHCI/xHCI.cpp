@@ -86,6 +86,7 @@ namespace {
 
 namespace uni::device::SpaceUSB3 {
 	ConfigurationCompleteHook g_configuration_complete_hook = nullptr;
+	DeviceDisconnectHook g_device_disconnect_hook = nullptr;
 
 	DeviceUSB3::DeviceUSB3(uint8 slot_id, DoorbellRegister* dbreg)
 		: slot_id_{ slot_id }, dbreg_{ dbreg } {
@@ -775,6 +776,25 @@ namespace {
 				ploginfo("Port %u disconnected while enabling slot, reset state", port_id);
 			} else {
 				// ploginfo("Port %u: PSC arrived during kEnablingSlot -- ignoring", port_id);// ignore
+			}
+			return MAKE_ERROR(Error::kSuccess);
+		case ConfigPhase::kAddressingDevice:
+		case ConfigPhase::kInitializingDevice:
+		case ConfigPhase::kConfiguringEndpoints:
+		case ConfigPhase::kConfigured:
+			if (!port.IsConnected()) {
+				auto dev = xhc.GetDeviceManager()->FindByPort(port_id, 0);
+				uint8 slot_id = dev ? dev->SlotID() : 0;
+				port_config_phase[port_id] = ConfigPhase::kNotConnected;
+				if (addressing_port == port_id) addressing_port = 0;
+				if (slot_id) {
+					if (g_device_disconnect_hook) {
+						g_device_disconnect_hook(xhc, port_id, slot_id);
+					}
+					xhc.GetDeviceManager()->Remove(slot_id);
+				}
+				ploginfo("Port %u disconnected, slot %u removed", port_id, slot_id);
+				return MAKE_ERROR(Error::kSuccess);
 			}
 			return MAKE_ERROR(Error::kSuccess);
 		default:

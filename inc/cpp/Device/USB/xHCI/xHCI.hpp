@@ -152,6 +152,8 @@ namespace uni::device::SpaceUSB3 {
 
 	using ConfigurationCompleteHook = void (*)(HostController& xhc, uint8 port_id, uint8 slot_id, DeviceUSB3& dev);
 	extern ConfigurationCompleteHook g_configuration_complete_hook;
+	using DeviceDisconnectHook = void (*)(HostController& xhc, uint8 port_id, uint8 slot_id);
+	extern DeviceDisconnectHook g_device_disconnect_hook;
 
 }
 

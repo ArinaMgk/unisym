@@ -1,0 +1,10 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("Class is the extension of Structure. For C++, the fields in ^Mclass^m are private in default, while in ^Mstruct^m are public in default.\n\n");
+
+Format("Feature\n");
+ListBegin("itemize");
+	ListItem("", "^Mthis^m as fixed member;");
+	ListItem("", "Constructor Method 构造函数");
+	ListItem("", "Destructor Method 解析函数"); // Named By Arina
+ListEnd();

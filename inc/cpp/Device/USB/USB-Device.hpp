@@ -23,6 +23,9 @@ namespace uni::device::SpaceUSB {
 		uint8 DeviceClass() const { return device_class_; }
 		uint8 DeviceSubClass() const { return device_sub_class_; }
 		uint8 DeviceProtocol() const { return device_protocol_; }
+		const char* ManufacturerString() const { return manufacturer_string_[0] ? manufacturer_string_.data() : nullptr; }
+		const char* ProductString() const { return product_string_[0] ? product_string_.data() : nullptr; }
+		const char* SerialString() const { return serial_string_[0] ? serial_string_.data() : nullptr; }
 
 		uint8* Buffer() { return buf_.data(); }
 
@@ -55,6 +58,13 @@ namespace uni::device::SpaceUSB {
 		uint8 device_class_ = 0;
 		uint8 device_sub_class_ = 0;
 		uint8 device_protocol_ = 0;
+		uint8 manufacturer_index_ = 0;
+		uint8 product_index_ = 0;
+		uint8 serial_index_ = 0;
+		uint16 string_lang_id_ = 0x0409;
+		std::array<char, 64> manufacturer_string_{};
+		std::array<char, 64> product_string_{};
+		std::array<char, 64> serial_string_{};
 		int initialize_phase_ = 0;
 		std::array<EndpointConfig, 16> ep_configs_;
 		int num_ep_configs_;
@@ -62,6 +72,12 @@ namespace uni::device::SpaceUSB {
 		Error InitializePhase2(const uint8* buf, int len);
 		Error InitializePhase3(uint8 config_value);
 		Error InitializePhase4();
+		Error InitializeStringPhase0(const uint8* buf, int len);
+		Error InitializeStringPhaseManufacturer(const uint8* buf, int len);
+		Error InitializeStringPhaseProduct(const uint8* buf, int len);
+		Error InitializeStringPhaseSerial(const uint8* buf, int len);
+		Error RequestStringDescriptors();
+		Error BeginConfigurationDescriptorRead();
 
 		/** OnControlCompleted の中で要求の発行元を特定するためのマップ構造．
 		 * ControlOut または ControlIn を発行したときに発行元が登録される．
@@ -71,7 +87,7 @@ namespace uni::device::SpaceUSB {
 
 	Error GetDescriptor(DeviceUSB& dev, EndpointID ep_id,
 		uint8 desc_type, uint8 desc_index,
-		void* buf, int len, bool debug = false);
+		void* buf, int len, bool debug = false, uint16 desc_lang_id = 0);
 	Error SetConfiguration(DeviceUSB& dev, EndpointID ep_id,
 		uint8 config_value, bool debug = false);
 }

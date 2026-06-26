@@ -103,9 +103,9 @@ void GF_Title(uni::Dchain* chain, MarkProcessor* proc)
 		case 2: proc->OutFormat("\\section{%s}\n", title); break;
 		case 3: proc->OutFormat("\\subsection{%s}\n", title); break;
 		case 4: proc->OutFormat("\\subsubsection{%s}\n", title); break;
-		case 5: proc->OutFormat("\\paragraph{%s}\n", title); break;
-		case 6: proc->OutFormat("\\subparagraph{%s}\n", title); break;
-		case 7: proc->OutFormat("\\subsubparagraph{%s}\n", title); break;
+		case 5: proc->OutFormat("\\paragraph{%s} \\\n", title); break;
+		case 6: proc->OutFormat("\\subparagraph{%s} \\\n", title); break;
+		case 7: proc->OutFormat("\\subsubparagraph{%s} \\\n", title); break;
 		default: proc->OutFormat("\\textbf{%s}\n", title); break;
 		}
 		break;

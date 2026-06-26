@@ -6,6 +6,19 @@
 
 
 namespace {
+	void DecodeUSBStringDescriptor(const uint8_t* buf, int len, char* out, stduint out_len) {
+		if (!out || out_len == 0) return;
+		out[0] = 0;
+		if (!buf || len < 2 || buf[1] != uni::device::SpaceUSB::descriptor_type::kString) return;
+		const int char_count = (len - 2) / 2;
+		stduint dst = 0;
+		for (int i = 0; i < char_count && dst + 1 < out_len; ++i) {
+			const uint16_t code = uint16_t(buf[2 + i * 2]) | (uint16_t(buf[3 + i * 2]) << 8);
+			out[dst++] = code < 0x80 ? char(code) : '?';
+		}
+		out[dst] = 0;
+	}
+
 	class ConfigurationDescriptorReader {
 	public:
 		ConfigurationDescriptorReader(const uint8_t* desc_buf, int len)
@@ -130,6 +143,13 @@ namespace uni::device::SpaceUSB {
 	Error DeviceUSB::StartInitialize() {
 		is_initialized_ = false;
 		initialize_phase_ = 1;
+		manufacturer_index_ = 0;
+		product_index_ = 0;
+		serial_index_ = 0;
+		string_lang_id_ = 0x0409;
+		manufacturer_string_[0] = 0;
+		product_string_[0] = 0;
+		serial_string_[0] = 0;
 		return GetDescriptor(*this, kDefaultControlPipeID, DeviceDescriptor::kType, 0,
 			buf_.data(), buf_.size(), true);
 	}
@@ -160,6 +180,30 @@ namespace uni::device::SpaceUSB {
 			if (setup_data.request == request::kGetDescriptor &&
 				DescriptorDynamicCast<DeviceDescriptor>(buf8)) {
 				return InitializePhase1(buf8, len);
+			}
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
+		else if (initialize_phase_ == 11) {
+			if (setup_data.request == request::kGetDescriptor) {
+				return InitializeStringPhase0(buf8, len);
+			}
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
+		else if (initialize_phase_ == 12) {
+			if (setup_data.request == request::kGetDescriptor) {
+				return InitializeStringPhaseManufacturer(buf8, len);
+			}
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
+		else if (initialize_phase_ == 13) {
+			if (setup_data.request == request::kGetDescriptor) {
+				return InitializeStringPhaseProduct(buf8, len);
+			}
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
+		else if (initialize_phase_ == 14) {
+			if (setup_data.request == request::kGetDescriptor) {
+				return InitializeStringPhaseSerial(buf8, len);
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
@@ -195,13 +239,12 @@ namespace uni::device::SpaceUSB {
 		device_class_ = device_desc->device_class;
 		device_sub_class_ = device_desc->device_sub_class;
 		device_protocol_ = device_desc->device_protocol;
+		manufacturer_index_ = device_desc->manufacturer;
+		product_index_ = device_desc->product;
+		serial_index_ = device_desc->serial_number;
 		num_configurations_ = device_desc->num_configurations;
 		config_index_ = 0;
-		initialize_phase_ = 2;
-		Log(kDebug, "issuing GetDesc(Config): index=%d)\n", config_index_);
-		return GetDescriptor(*this, kDefaultControlPipeID,
-			ConfigurationDescriptor::kType, config_index_,
-			buf_.data(), buf_.size(), true);
+		return RequestStringDescriptors();
 	}
 
 	Error DeviceUSB::InitializePhase2(const uint8_t* buf, int len) {
@@ -260,16 +303,92 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
+	Error DeviceUSB::InitializeStringPhase0(const uint8_t* buf, int len) {
+		if (len >= 4 && buf[1] == descriptor_type::kString) {
+			string_lang_id_ = uint16_t(buf[2]) | (uint16_t(buf[3]) << 8);
+		}
+		if (manufacturer_index_) {
+			initialize_phase_ = 12;
+			return GetDescriptor(*this, kDefaultControlPipeID,
+				descriptor_type::kString, manufacturer_index_,
+				buf_.data(), buf_.size(), true, string_lang_id_);
+		}
+		if (product_index_) {
+			initialize_phase_ = 13;
+			return GetDescriptor(*this, kDefaultControlPipeID,
+				descriptor_type::kString, product_index_,
+				buf_.data(), buf_.size(), true, string_lang_id_);
+		}
+		if (serial_index_) {
+			initialize_phase_ = 14;
+			return GetDescriptor(*this, kDefaultControlPipeID,
+				descriptor_type::kString, serial_index_,
+				buf_.data(), buf_.size(), true, string_lang_id_);
+		}
+		return BeginConfigurationDescriptorRead();
+	}
+
+	Error DeviceUSB::InitializeStringPhaseManufacturer(const uint8_t* buf, int len) {
+		DecodeUSBStringDescriptor(buf, len, manufacturer_string_.data(), manufacturer_string_.size());
+		if (product_index_) {
+			initialize_phase_ = 13;
+			return GetDescriptor(*this, kDefaultControlPipeID,
+				descriptor_type::kString, product_index_,
+				buf_.data(), buf_.size(), true, string_lang_id_);
+		}
+		if (serial_index_) {
+			initialize_phase_ = 14;
+			return GetDescriptor(*this, kDefaultControlPipeID,
+				descriptor_type::kString, serial_index_,
+				buf_.data(), buf_.size(), true, string_lang_id_);
+		}
+		return BeginConfigurationDescriptorRead();
+	}
+
+	Error DeviceUSB::InitializeStringPhaseProduct(const uint8_t* buf, int len) {
+		DecodeUSBStringDescriptor(buf, len, product_string_.data(), product_string_.size());
+		if (serial_index_) {
+			initialize_phase_ = 14;
+			return GetDescriptor(*this, kDefaultControlPipeID,
+				descriptor_type::kString, serial_index_,
+				buf_.data(), buf_.size(), true, string_lang_id_);
+		}
+		return BeginConfigurationDescriptorRead();
+	}
+
+	Error DeviceUSB::InitializeStringPhaseSerial(const uint8_t* buf, int len) {
+		DecodeUSBStringDescriptor(buf, len, serial_string_.data(), serial_string_.size());
+		return BeginConfigurationDescriptorRead();
+	}
+
+	Error DeviceUSB::RequestStringDescriptors() {
+		if (!manufacturer_index_ && !product_index_ && !serial_index_) {
+			return BeginConfigurationDescriptorRead();
+		}
+		initialize_phase_ = 11;
+		return GetDescriptor(*this, kDefaultControlPipeID,
+			descriptor_type::kString, 0,
+			buf_.data(), buf_.size(), true, 0);
+	}
+
+	Error DeviceUSB::BeginConfigurationDescriptorRead() {
+		initialize_phase_ = 2;
+		Log(kDebug, "issuing GetDesc(Config): index=%d)\n", config_index_);
+		return GetDescriptor(*this, kDefaultControlPipeID,
+			ConfigurationDescriptor::kType, config_index_,
+			buf_.data(), buf_.size(), true);
+	}
+
 	Error GetDescriptor(DeviceUSB& dev, EndpointID ep_id,
 		uint8_t desc_type, uint8_t desc_index,
-		void* buf, int len, bool debug) {
+		void* buf, int len, bool debug, uint16_t desc_lang_id) {
 		SetupData setup_data{};
 		setup_data.request_type.bits.direction = request_type::kIn;
 		setup_data.request_type.bits.type = request_type::kStandard;
 		setup_data.request_type.bits.recipient = request_type::kDevice;
 		setup_data.request = request::kGetDescriptor;
 		setup_data.value = (static_cast<uint16_t>(desc_type) << 8) | desc_index;
-		setup_data.index = 0;
+		setup_data.index = desc_lang_id;
 		setup_data.length = len;
 		return dev.ControlIn(ep_id, setup_data, buf, len, nullptr);
 	}

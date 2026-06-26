@@ -18,6 +18,11 @@ namespace uni::device::SpaceUSB {
 		EndpointConfig* EndpointConfigs() { return ep_configs_.data(); }
 		int NumEndpointConfigs() { return num_ep_configs_; }
 		Error OnEndpointsConfigured();
+		uint16 VendorID() const { return vendor_id_; }
+		uint16 ProductID() const { return product_id_; }
+		uint8 DeviceClass() const { return device_class_; }
+		uint8 DeviceSubClass() const { return device_sub_class_; }
+		uint8 DeviceProtocol() const { return device_protocol_; }
 
 		uint8* Buffer() { return buf_.data(); }
 
@@ -45,6 +50,11 @@ namespace uni::device::SpaceUSB {
 		Error OnSetConfigurationCompleted(uint8 config_value);
 
 		bool is_initialized_ = false;
+		uint16 vendor_id_ = 0;
+		uint16 product_id_ = 0;
+		uint8 device_class_ = 0;
+		uint8 device_sub_class_ = 0;
+		uint8 device_protocol_ = 0;
 		int initialize_phase_ = 0;
 		std::array<EndpointConfig, 16> ep_configs_;
 		int num_ep_configs_;

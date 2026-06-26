@@ -130,8 +130,58 @@ void GF_Out(uni::Dchain* chain, MarkProcessor* proc)
 			// plogerro
 			return;
 		}
-		proc->OutFormat("%s\n", txt);
+		EscapeAndOutputText(txt, StrLength(txt), proc);
+		proc->OutChar('\n');
 	}
+}
+
+void EscapeAndOutputText(const char* str, stduint len, MarkProcessor* proc) {
+	if (proc->fmt.M || proc->fmt.T) {
+		proc->out(str, len);
+		return;
+	}
+	if (proc->txtfmt != MarkProcessor::TextFormat::Tex && proc->txtfmt != MarkProcessor::TextFormat::Markdown) {
+		proc->out(str, len);
+		return;
+	}
+	
+	char* buf = new char[len * 20 + 1];
+	stduint out_len = 0;
+	
+	if (proc->txtfmt == MarkProcessor::TextFormat::Tex) {
+		for (stduint i = 0; i < len; i++) {
+			char ch = str[i];
+			switch (ch) {
+			case '$': case '%': case '&': case '#': case '_': case '{': case '}':
+				buf[out_len++] = '\\'; buf[out_len++] = ch; break;
+			case '~': 
+				{ const char* s = "\\textasciitilde{}"; while (*s) buf[out_len++] = *s++; } break;
+			case '^': 
+				{ const char* s = "\\textasciicircum{}"; while (*s) buf[out_len++] = *s++; } break;
+			case '\\': 
+				{ const char* s = "\\textbackslash{}"; while (*s) buf[out_len++] = *s++; } break;
+			case '<': 
+				{ const char* s = "\\textless{}"; while (*s) buf[out_len++] = *s++; } break;
+			case '>': 
+				{ const char* s = "\\textgreater{}"; while (*s) buf[out_len++] = *s++; } break;
+			default: buf[out_len++] = ch; break;
+			}
+		}
+	} else if (proc->txtfmt == MarkProcessor::TextFormat::Markdown) {
+		for (stduint i = 0; i < len; i++) {
+			char ch = str[i];
+			switch (ch) {
+			case '*': case '_': case '`': case '\\': case '$': case '<': case '>': case '[': case ']':
+				buf[out_len++] = '\\'; buf[out_len++] = ch; break;
+			default: buf[out_len++] = ch; break;
+			}
+		}
+	}
+	
+	if (out_len > 0) {
+		proc->out(buf, out_len);
+	}
+	delete[] buf;
 }
 
 void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
@@ -140,122 +190,82 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
 	Dnode* fnod_mt = chain->Root();
 	char* p = fnod_mt->addr, ch;
 	Dnode* n = fnod_mt->next;
-	rostr txt;
-	//
-	while (ch = *p++) switch (ch) {
-	case '%':
-	{
-		char chh = *p++;
-		switch (chh) {
-		case 's':
-			if (!n) {
-				plogerro("Format: Missing argument");
-				return;
-			}
-			proc->OutFormat("%s", SeekString(n, proc));
-			n = n->next;
-			break;
-		default:
-			plogwarn("Format: Unknown format specifier %%%c", chh);
-			break;
-		}
-	}
-	break;
-	case '^':
-	{
-		char chh = *p++;
-		switch (chh) {
-		case '^':// B I U
-			if (proc->fmt.B) {
-				proc->fmt.B = false;
-				proc->fmt_valid = false;
-			}
-			if (proc->fmt.I) {
-				proc->fmt.I = false;
-				proc->fmt_valid = false;
-			}
-			if (proc->fmt.U) {
-				proc->fmt.U = false;
-				proc->fmt_valid = false;
-			}
-			if (proc->fmt.M) {
-				proc->fmt.M = false;
-				proc->fmt_valid = false;
-			}
-			if (proc->fmt.T) {
-				proc->fmt.T = false;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 'B':
-			if (!proc->fmt.B) {
-				proc->fmt.B = true;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 'b':
-			if (proc->fmt.B) {
-				proc->fmt.B = false;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 'I':
-			if (!proc->fmt.I) {
-				proc->fmt.I = true;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 'i':
-			if (proc->fmt.I) {
-				proc->fmt.I = false;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 'U':
-			if (!proc->fmt.U) {
-				proc->fmt.U = true;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 'u':
-			if (proc->fmt.U) {
-				proc->fmt.U = false;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 'M':
-			if (!proc->fmt.M) {
-				proc->fmt.M = true;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 'm':
-			if (proc->fmt.M) {
-				proc->fmt.M = false;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 'T':
-			if (!proc->fmt.T) {
-				proc->fmt.T = true;
-				proc->fmt_valid = false;
-			}
-			break;
-		case 't':
-			if (proc->fmt.T) {
-				proc->fmt.T = false;
-				proc->fmt_valid = false;
-			}
-			break;
+	char* chunk_start = p;
 
-		default:
-			plogwarn("Format: Unknown format specifier ^%c", chh);
-			break;
-		}
-	}
-	break;
-	case '\n':
+	while (ch = *p++) {
+		switch (ch) {
+		case '%':
 		{
+			if (p - 1 > chunk_start) EscapeAndOutputText(chunk_start, (p - 1) - chunk_start, proc);
+			char chh = *p++;
+			switch (chh) {
+			case 's':
+				if (!n) {
+					plogerro("Format: Missing argument");
+					return;
+				}
+				proc->OutFormat("%s", SeekString(n, proc));
+				n = n->next;
+				break;
+			default:
+				plogwarn("Format: Unknown format specifier %%%c", chh);
+				break;
+			}
+			chunk_start = p;
+		}
+		break;
+		case '^':
+		{
+			if (p - 1 > chunk_start) EscapeAndOutputText(chunk_start, (p - 1) - chunk_start, proc);
+			char chh = *p++;
+			switch (chh) {
+			case '^':// B I U
+				if (proc->fmt.B) { proc->fmt.B = false; proc->fmt_valid = false; }
+				if (proc->fmt.I) { proc->fmt.I = false; proc->fmt_valid = false; }
+				if (proc->fmt.U) { proc->fmt.U = false; proc->fmt_valid = false; }
+				if (proc->fmt.M) { proc->fmt.M = false; proc->fmt_valid = false; }
+				if (proc->fmt.T) { proc->fmt.T = false; proc->fmt_valid = false; }
+				break;
+			case 'B':
+				if (!proc->fmt.B) { proc->fmt.B = true; proc->fmt_valid = false; }
+				break;
+			case 'b':
+				if (proc->fmt.B) { proc->fmt.B = false; proc->fmt_valid = false; }
+				break;
+			case 'I':
+				if (!proc->fmt.I) { proc->fmt.I = true; proc->fmt_valid = false; }
+				break;
+			case 'i':
+				if (proc->fmt.I) { proc->fmt.I = false; proc->fmt_valid = false; }
+				break;
+			case 'U':
+				if (!proc->fmt.U) { proc->fmt.U = true; proc->fmt_valid = false; }
+				break;
+			case 'u':
+				if (proc->fmt.U) { proc->fmt.U = false; proc->fmt_valid = false; }
+				break;
+			case 'M':
+				if (!proc->fmt.M) { proc->fmt.M = true; proc->fmt_valid = false; }
+				break;
+			case 'm':
+				if (proc->fmt.M) { proc->fmt.M = false; proc->fmt_valid = false; }
+				break;
+			case 'T':
+				if (!proc->fmt.T) { proc->fmt.T = true; proc->fmt_valid = false; }
+				break;
+			case 't':
+				if (proc->fmt.T) { proc->fmt.T = false; proc->fmt_valid = false; }
+				break;
+			default:
+				plogwarn("Format: Unknown format specifier ^%c", chh);
+				break;
+			}
+			chunk_start = p;
+		}
+		break;
+		case '\n':
+		{
+			if (p - 1 > chunk_start) EscapeAndOutputText(chunk_start, (p - 1) - chunk_start, proc);
 			extern bool TableEngineActive();
 			if (TableEngineActive()) {
 				if (proc->txtfmt == MarkProcessor::TextFormat::Tex) {
@@ -268,11 +278,15 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
 			} else {
 				proc->OutChar('\n');
 			}
+			chunk_start = p;
 		}
 		break;
-	default:
-		proc->OutChar(ch);
-		break;
+		default:
+			break;
+		}
+	}
+	if (p - 1 > chunk_start) {
+		EscapeAndOutputText(chunk_start, (p - 1) - chunk_start, proc);
 	}
 }
 

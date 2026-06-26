@@ -85,6 +85,8 @@ namespace {
 }
 
 namespace uni::device::SpaceUSB3 {
+	ConfigurationCompleteHook g_configuration_complete_hook = nullptr;
+
 	DeviceUSB3::DeviceUSB3(uint8 slot_id, DoorbellRegister* dbreg)
 		: slot_id_{ slot_id }, dbreg_{ dbreg } {
 	}
@@ -745,6 +747,9 @@ namespace {
 		}
 
 		dev->OnEndpointsConfigured();
+		if (g_configuration_complete_hook) {
+			g_configuration_complete_hook(xhc, port_id, slot_id, *dev);
+		}
 
 		port_config_phase[port_id] = ConfigPhase::kConfigured;
 		return MAKE_ERROR(Error::kSuccess);

@@ -190,6 +190,11 @@ namespace uni::device::SpaceUSB {
 
 	Error DeviceUSB::InitializePhase1(const uint8_t* buf, int len) {
 		const auto device_desc = DescriptorDynamicCast<DeviceDescriptor>(buf);
+		vendor_id_ = device_desc->vendor_id;
+		product_id_ = device_desc->product_id;
+		device_class_ = device_desc->device_class;
+		device_sub_class_ = device_desc->device_sub_class;
+		device_protocol_ = device_desc->device_protocol;
 		num_configurations_ = device_desc->num_configurations;
 		config_index_ = 0;
 		initialize_phase_ = 2;

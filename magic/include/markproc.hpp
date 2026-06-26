@@ -188,6 +188,9 @@ rostr SeekString(uni::Dnode* n, MarkProcessor* proc);
 // Parse ^B...^b and \n text processing for Table and List
 void ParseAndOutputText(rostr text, MarkProcessor* proc);
 
+// Escape special characters and output
+void EscapeAndOutputText(const char* str, stduint len, MarkProcessor* proc);
+
 // Resolve relative paths based on include stack
 uni::String ResolveIncludePath(const char* path);
 

@@ -169,7 +169,7 @@ void ParseAndOutputText(rostr text, MarkProcessor* proc) {
     while ((ch = *p++)) {
         if (ch == '^') {
             stduint len = (p - 1) - (text + chunk_start);
-            if (len > 0) proc->out(text + chunk_start, len);
+            if (len > 0) EscapeAndOutputText(text + chunk_start, len, proc);
             
             char chh = *p++;
             if (!chh) break;
@@ -192,7 +192,7 @@ void ParseAndOutputText(rostr text, MarkProcessor* proc) {
         }
         else if (ch == '\n') {
             stduint len = (p - 1) - (text + chunk_start);
-            if (len > 0) proc->out(text + chunk_start, len);
+            if (len > 0) EscapeAndOutputText(text + chunk_start, len, proc);
             
             if (proc->txtfmt == MarkProcessor::TextFormat::Tex) {
                 proc->OutFormat("\\\\");
@@ -205,7 +205,7 @@ void ParseAndOutputText(rostr text, MarkProcessor* proc) {
         }
     }
     stduint len = (p - 1) - (text + chunk_start);
-    if (len > 0) proc->out(text + chunk_start, len);
+    if (len > 0) EscapeAndOutputText(text + chunk_start, len, proc);
 }
 
 // Rcell(text, colspan=1, align_override="")

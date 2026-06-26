@@ -1,0 +1,68 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("Below are 2 linear abstract data modules, whose element is ^Mstduint^m.\n\n");
+
+Title(4, "Strpage : Dynamic Block Set");
+
+Format("^B$New^b"); Math("() \\rightarrow *"); Format("\n\n");
+
+Format("^B$Free^b"); Math("(*)"); Format("\n\n");
+
+Format("^B$Get^b"); Math("(*, idx) \\rightarrow stduint"); Format("\n\n");
+
+Format("Get the value in the position of Strpage.\n\n");
+
+Format("^B$Set^b"); Math("(*, idx, val) \\rightarrow *'"); Format("\n\n");
+
+Format("Set the value in the position of Strpage.\nReturn the pointer to the ultimate manager of Strpage.\nThen we should access inside data with new but old manager.\n\n");
+
+Title(4, "Strbuff");
+
+Format("^B$New^b"); Math("(elm\\_len) \\rightarrow *"); Format("\n\n");
+
+Format("^B$Free^b"); Math("(*)"); Format("\n\n");
+
+Format("^B$Rewind^b"); Math("(*)"); Format("\n\n");
+
+Format("Move the read pointer (Q) to the beginning (index zero).\n\n");
+
+Format("^B$Ealloc^b"); Math("(*) \\rightarrow pureptr"); Format("\n\n");
+
+Format("Allocate an element and return its pointer.\n\n");
+
+Format("^B$Send^b"); Math("(*, *src, len)"); Format("\n\n");
+
+Format("Send bytes but elements.\n\n");
+
+Format("^B$Sendx^b"); Math("(*, stduint pos, *src, len)"); Format("\n\n");
+
+Format("Send bytes but elements, into the position in the ^Istrbuff^i.\n\n");
+
+Format("^B$SendFile^b"); Math("(*, FILE*)"); Format("\n\n");
+
+Format("^B$Send^b^IN^i"); Math("(*, \\{N\\})"); Format("\n\n");
+
+Format("N can be:\n");
+ListBegin("itemize");
+ListItem("", "8, 16, 32");
+ListItem("", "64 if ^M_BIT_SUPPORT_64^m defined");
+ListItem("", "Std for stduint");
+ListItem("", "Wleb128u for unsigned Little-Endian Base 128 bytes");
+ListItem("", "Wleb128s for   signed Little-Endian Base 128 bytes");
+ListEnd();
+
+Format("^B$Eread^b"); Math("(*) \\rightarrow pureptr"); Format(" Element Read\n\n");
+
+Format("Read an element and return its pointer.\nThis will make read pointer advance.\n\n");
+
+Format("^B$Read^b"); Math("(*, stduint* lenp) \\rightarrow const\\ void*"); Format("\n\n");
+
+Format("^Mlenp^m cannot be a nullptr.\nRead the fixed-length(^M*lenp^m) data.\nReturn the start address and setback ^M*lenp^m for the number of bytes read.\n\n");
+
+Format("^B$Pop^b"); Math("(*, pureptr des, stduint len)"); Format("\n\n");
+
+Format("Pop enough bytes into the memory slice ^M(des,len)^m .\n\n");
+
+Format("^B$Popx^b"); Math("(*, stduint pos, pureptr des, stduint len)"); Format("\n\n");
+
+Format("Pop enough bytes into the memory slice ^M(des,len)^m ,\nsince the position.\n\n");

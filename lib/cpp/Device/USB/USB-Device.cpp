@@ -65,6 +65,9 @@ namespace {
 
 	uni::device::SpaceUSB::ClassDriver* NewClassDriver(uni::device::SpaceUSB::DeviceUSB* dev, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc)
 	{
+		if (dev->DeviceClass() == 0x09u || if_desc.interface_class == 0x09u) {
+			return new uni::device::SpaceUSB::USBHubDriver{ dev };
+		}
 		if (if_desc.interface_class == 3 &&
 			if_desc.interface_sub_class == 1) {  // HID boot interface
 			if (if_desc.interface_protocol == 1) {  // keyboard
@@ -113,6 +116,9 @@ namespace {
 }
 
 namespace uni::device::SpaceUSB {
+	HubDescriptorCompleteHook g_hub_descriptor_complete_hook = nullptr;
+	HubPortStatusHook g_hub_port_status_hook = nullptr;
+
 	DeviceUSB::~DeviceUSB() {
 	}
 
@@ -140,8 +146,16 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
+	Error DeviceUSB::OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) {
+		(void)port_num;
+		(void)status;
+		(void)change;
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
 	Error DeviceUSB::StartInitialize() {
 		is_initialized_ = false;
+		hub_num_ports_ = 0;
 		initialize_phase_ = 1;
 		manufacturer_index_ = 0;
 		product_index_ = 0;
@@ -170,8 +184,16 @@ namespace uni::device::SpaceUSB {
 		// Log(kDebug, "Device::OnControlCompleted: buf 0x%08x, len %d, dir %d", buf, len, setup_data.request_type.bits.direction);
 		if (is_initialized_) {
 			if (auto w = event_waiters_.Get(setup_data)) {
-				return w.value()->OnControlCompleted(ep_id, setup_data, buf, len);
+				auto* waiter = w.value();
+				event_waiters_.Delete(setup_data);
+				return waiter->OnControlCompleted(ep_id, setup_data, buf, len);
 			}
+			plogerro("USB control completion without waiter: req_type=%02x req=%02x value=%04x index=%04x len=%u",
+				(unsigned)setup_data.request_type.data,
+				(unsigned)setup_data.request,
+				(unsigned)setup_data.value,
+				(unsigned)setup_data.index,
+				(unsigned)setup_data.length);
 			return MAKE_ERROR(Error::kNoWaiter);
 		}
 

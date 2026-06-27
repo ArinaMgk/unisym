@@ -12,6 +12,7 @@ namespace uni::device::SpaceUSB {
 			const void* buf, int len, ClassDriver* issuer);
 		virtual Error InterruptIn(EndpointID ep_id, void* buf, int len);
 		virtual Error InterruptOut(EndpointID ep_id, void* buf, int len);
+		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change);
 
 		Error StartInitialize();
 		bool IsInitialized() { return is_initialized_; }
@@ -23,6 +24,8 @@ namespace uni::device::SpaceUSB {
 		uint8 DeviceClass() const { return device_class_; }
 		uint8 DeviceSubClass() const { return device_sub_class_; }
 		uint8 DeviceProtocol() const { return device_protocol_; }
+		uint8 HubNumPorts() const { return hub_num_ports_; }
+		void SetHubNumPorts(uint8 num_ports) { hub_num_ports_ = num_ports; }
 		const char* ManufacturerString() const { return manufacturer_string_[0] ? manufacturer_string_.data() : nullptr; }
 		const char* ProductString() const { return product_string_[0] ? product_string_.data() : nullptr; }
 		const char* SerialString() const { return serial_string_[0] ? serial_string_.data() : nullptr; }
@@ -61,6 +64,7 @@ namespace uni::device::SpaceUSB {
 		uint8 manufacturer_index_ = 0;
 		uint8 product_index_ = 0;
 		uint8 serial_index_ = 0;
+		uint8 hub_num_ports_ = 0;
 		uint16 string_lang_id_ = 0x0409;
 		std::array<char, 64> manufacturer_string_{};
 		std::array<char, 64> product_string_{};

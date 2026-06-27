@@ -85,11 +85,146 @@ namespace {
 }
 
 namespace uni::device::SpaceUSB3 {
+	namespace {
+		struct PendingHubChildAddress {
+			uint8 root_hub_port_num;
+			uint32 route_string;
+			uint8 hub_slot_id;
+			uint8 downstream_port;
+			uint8 speed;
+		};
+
+		std::array<PendingHubChildAddress, 16> pending_hub_children{};
+		stduint pending_hub_child_count = 0;
+		PendingHubChildAddress active_hub_child{};
+		bool active_hub_child_valid = false;
+
+		bool MatchesPortAndRoute(const DeviceUSB3& dev, uint8 port_num, uint32 route_string) {
+			return dev.RootHubPortNum() == port_num && dev.RouteString() == route_string;
+		}
+
+		stduint RouteDepth(uint32 route_string) {
+			stduint depth = 0;
+			for (stduint shift = 0; shift < 20; shift += 4) {
+				if (((route_string >> shift) & 0x0fu) == 0) break;
+				++depth;
+			}
+			return depth;
+		}
+
+		bool RouteHasPrefix(uint32 route_string, uint32 prefix_route_string) {
+			for (stduint shift = 0; shift < 20; shift += 4) {
+				const auto prefix = (prefix_route_string >> shift) & 0x0fu;
+				if (prefix == 0) return true;
+				if (((route_string >> shift) & 0x0fu) != prefix) return false;
+			}
+			return true;
+		}
+
+		uint32 AppendRouteString(uint32 parent_route_string, uint8 downstream_port) {
+			uint32 route_string = parent_route_string;
+			stduint shift = 0;
+			while (shift < 20 && ((route_string >> shift) & 0x0fu) != 0) {
+				shift += 4;
+			}
+			if (shift >= 20) return route_string;
+			return route_string | (uint32(downstream_port & 0x0fu) << shift);
+		}
+
+		uint8 DetermineHubChildSpeed(uint16 port_status) {
+			if ((port_status & (1u << 10)) != 0) return 3; // High Speed
+			if ((port_status & (1u << 9)) != 0) return 2;  // Low Speed
+			return 1; // Full Speed
+		}
+
+		bool QueueHubChildAddress(PendingHubChildAddress ctx) {
+			if (pending_hub_child_count >= pending_hub_children.size()) {
+				return false;
+			}
+			for (stduint i = 0; i < pending_hub_child_count; ++i) {
+				const auto& pending = pending_hub_children[i];
+				if (pending.root_hub_port_num == ctx.root_hub_port_num &&
+					pending.route_string == ctx.route_string) {
+					return true;
+				}
+			}
+			if (active_hub_child_valid &&
+				active_hub_child.root_hub_port_num == ctx.root_hub_port_num &&
+				active_hub_child.route_string == ctx.route_string) {
+				return true;
+			}
+			pending_hub_children[pending_hub_child_count++] = ctx;
+			return true;
+		}
+
+		bool PopHubChildAddress(PendingHubChildAddress& ctx) {
+			if (pending_hub_child_count == 0) return false;
+			ctx = pending_hub_children[0];
+			for (stduint i = 1; i < pending_hub_child_count; ++i) {
+				pending_hub_children[i - 1] = pending_hub_children[i];
+			}
+			--pending_hub_child_count;
+			return true;
+		}
+
+		void RemovePendingHubChildren(uint8 root_hub_port_num, uint32 route_string_prefix, bool all_routes) {
+			stduint dst = 0;
+			for (stduint src = 0; src < pending_hub_child_count; ++src) {
+				const auto& pending = pending_hub_children[src];
+				const bool matches = pending.root_hub_port_num == root_hub_port_num &&
+					(all_routes || RouteHasPrefix(pending.route_string, route_string_prefix));
+				if (!matches) {
+					pending_hub_children[dst++] = pending;
+				}
+			}
+			pending_hub_child_count = dst;
+			if (active_hub_child_valid &&
+				active_hub_child.root_hub_port_num == root_hub_port_num &&
+				(all_routes || RouteHasPrefix(active_hub_child.route_string, route_string_prefix))) {
+				active_hub_child_valid = false;
+			}
+		}
+
+		void RemoveDeviceSubtree(HostController& xhc, uint8 root_hub_port_num, uint32 route_string_prefix, bool all_routes) {
+			std::array<uint8, 256> slots{};
+			stduint slot_count = 0;
+			for (stduint slot_id = 1; slot_id <= xhc.GetDeviceManager()->MaxSlots() && slot_id < slots.size(); ++slot_id) {
+				auto* dev = xhc.GetDeviceManager()->FindBySlot(uint8(slot_id));
+				if (!dev) continue;
+				if (dev->RootHubPortNum() != root_hub_port_num) continue;
+				if (!all_routes && !RouteHasPrefix(dev->RouteString(), route_string_prefix)) continue;
+				slots[slot_count++] = uint8(slot_id);
+			}
+			for (stduint i = 0; i < slot_count; ++i) {
+				for (stduint j = i + 1; j < slot_count; ++j) {
+					auto* lhs = xhc.GetDeviceManager()->FindBySlot(slots[i]);
+					auto* rhs = xhc.GetDeviceManager()->FindBySlot(slots[j]);
+					const auto lhs_depth = lhs ? RouteDepth(lhs->RouteString()) : 0;
+					const auto rhs_depth = rhs ? RouteDepth(rhs->RouteString()) : 0;
+					if (rhs_depth > lhs_depth) {
+						auto tmp = slots[i];
+						slots[i] = slots[j];
+						slots[j] = tmp;
+					}
+				}
+			}
+			for (stduint i = 0; i < slot_count; ++i) {
+				auto* dev = xhc.GetDeviceManager()->FindBySlot(slots[i]);
+				if (!dev) continue;
+				if (g_device_disconnect_hook) {
+					g_device_disconnect_hook(xhc, root_hub_port_num, slots[i]);
+				}
+				xhc.GetDeviceManager()->Remove(slots[i]);
+			}
+			RemovePendingHubChildren(root_hub_port_num, route_string_prefix, all_routes);
+		}
+	}
+
 	ConfigurationCompleteHook g_configuration_complete_hook = nullptr;
 	DeviceDisconnectHook g_device_disconnect_hook = nullptr;
 
-	DeviceUSB3::DeviceUSB3(uint8 slot_id, DoorbellRegister* dbreg)
-		: slot_id_{ slot_id }, dbreg_{ dbreg } {
+	DeviceUSB3::DeviceUSB3(uint8 slot_id, DoorbellRegister* dbreg, HostController* host)
+		: slot_id_{ slot_id }, dbreg_{ dbreg }, host_{ host } {
 	}
 
 	Error DeviceUSB3::Initialize() {
@@ -245,6 +380,11 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kNotImplemented);
 	}
 
+	Error DeviceUSB3::OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) {
+		if (!host_) return MAKE_ERROR(Error::kNotImplemented);
+		return host_->OnHubPortStatusChanged(*this, port_num, status, change);
+	}
+
 	Error DeviceUSB3::OnTransferEventReceived(const TransferEventTRB& trb) {
 		const auto residual_length = trb.bits.trb_transfer_length;
 
@@ -333,7 +473,7 @@ namespace uni::device::SpaceUSB3 {
 		for (size_t i = 1; i <= max_slots_; ++i) {
 			auto dev = devices_[i];
 			if (dev == nullptr) continue;
-			if (dev->GetDeviceContext()->slot_context.bits.root_hub_port_num == port_num) {
+			if (MatchesPortAndRoute(*dev, port_num, route_string)) {
 				return dev;
 			}
 		}
@@ -367,7 +507,7 @@ namespace uni::device::SpaceUSB3 {
 	}
 	*/
 
-	Error DeviceManager::AllocDevice(uint8 slot_id, DoorbellRegister* dbreg) {
+	Error DeviceManager::AllocDevice(uint8 slot_id, DoorbellRegister* dbreg, HostController* host) {
 		if (slot_id > max_slots_) {
 			return MAKE_ERROR(Error::kInvalidSlotID);
 		}
@@ -377,7 +517,7 @@ namespace uni::device::SpaceUSB3 {
 		}
 
 		devices_[slot_id] = AllocArray<DeviceUSB3>(1, 64, 4096);
-		new(devices_[slot_id]) DeviceUSB3(slot_id, dbreg);
+		new(devices_[slot_id]) DeviceUSB3(slot_id, dbreg, host);
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
@@ -604,11 +744,38 @@ namespace {
 	 */
 	uint8 addressing_port{ 0 };
 
-	void InitializeSlotContext(SlotContext& ctx, Port& port) {
-		ctx.bits.route_string = 0;
-		ctx.bits.root_hub_port_num = port.Number();
+	void InitializeSlotContext(SlotContext& ctx, uint8 root_hub_port_num, uint32 route_string,
+		uint8 speed, const DeviceUSB3* parent_hub, uint8 downstream_port) {
+		ctx.bits.route_string = route_string;
+		ctx.bits.root_hub_port_num = root_hub_port_num;
 		ctx.bits.context_entries = 1;
-		ctx.bits.speed = port.Speed();
+		ctx.bits.speed = speed;
+		ctx.bits.tt_hub_slot_id = 0;
+		ctx.bits.tt_port_num = 0;
+		if (parent_hub && parent_hub->GetDeviceContext()->slot_context.bits.speed == 3 && speed < 3) {
+			ctx.bits.tt_hub_slot_id = parent_hub->SlotID();
+			ctx.bits.tt_port_num = downstream_port;
+		}
+	}
+
+	void InitializeSlotContext(SlotContext& ctx, Port& port) {
+		InitializeSlotContext(ctx, port.Number(), 0, port.Speed(), nullptr, 0);
+	}
+
+	Error TryAddressNextHubChild(HostController& xhc) {
+		if (active_hub_child_valid || addressing_port != 0) {
+			return MAKE_ERROR(Error::kSuccess);
+		}
+		PendingHubChildAddress ctx{};
+		if (!PopHubChildAddress(ctx)) {
+			return MAKE_ERROR(Error::kSuccess);
+		}
+		active_hub_child = ctx;
+		active_hub_child_valid = true;
+		EnableSlotCommandTRB cmd{};
+		xhc.CommandRing()->Push(cmd);
+		xhc.DoorbellRegisterAt(0)->Ring(0);
+		return MAKE_ERROR(Error::kSuccess);
 	}
 
 	unsigned int DetermineMaxPacketSizeForControlPipe(unsigned int slot_speed) {
@@ -656,7 +823,7 @@ namespace {
 			return MAKE_ERROR(Error::kSuccess);
 		}
 
-		if (addressing_port != 0) {
+		if (addressing_port != 0 || active_hub_child_valid) {
 			port_config_phase[port.Number()] = ConfigPhase::kWaitingAddressed;
 		}
 		else {
@@ -694,7 +861,7 @@ namespace {
 	Error AddressDevice(HostController& xhc, uint8 port_id, uint8 slot_id) {
 		Log(kDebug, "AddressDevice: port_id = %d, slot_id = %d\n", port_id, slot_id);
 
-		xhc.GetDeviceManager()->AllocDevice(slot_id, xhc.DoorbellRegisterAt(slot_id));
+		xhc.GetDeviceManager()->AllocDevice(slot_id, xhc.DoorbellRegisterAt(slot_id), &xhc);
 
 		DeviceUSB3* dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
 		if (dev == nullptr) {
@@ -709,6 +876,7 @@ namespace {
 
 		auto port = xhc.PortAt(port_id);
 		InitializeSlotContext(*slot_ctx, port);
+		dev->SetParentHubInfo(0, 0);
 
 		InitializeEP0Context(
 			*ep0_ctx, dev->AllocTransferRing(ep0_dci, 32),
@@ -725,6 +893,40 @@ namespace {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
+	Error AddressDevice(HostController& xhc, const PendingHubChildAddress& child_ctx, uint8 slot_id) {
+		xhc.GetDeviceManager()->AllocDevice(slot_id, xhc.DoorbellRegisterAt(slot_id), &xhc);
+
+		DeviceUSB3* dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
+		if (dev == nullptr) {
+			return MAKE_ERROR(Error::kInvalidSlotID);
+		}
+
+		auto* parent_hub = xhc.GetDeviceManager()->FindBySlot(child_ctx.hub_slot_id);
+		if (parent_hub == nullptr) {
+			return MAKE_ERROR(Error::kInvalidSlotID);
+		}
+
+		MemSet(&dev->GetInputContext()->input_control_context, 0, sizeof(InputControlContext));
+
+		const auto ep0_dci = DeviceContextIndex(0, false);
+		auto slot_ctx = dev->GetInputContext()->EnableSlotContext();
+		auto ep0_ctx = dev->GetInputContext()->EnableEndpoint(ep0_dci);
+		InitializeSlotContext(*slot_ctx, child_ctx.root_hub_port_num, child_ctx.route_string,
+			child_ctx.speed, parent_hub, child_ctx.downstream_port);
+		dev->SetParentHubInfo(child_ctx.hub_slot_id, child_ctx.downstream_port);
+
+		InitializeEP0Context(
+			*ep0_ctx, dev->AllocTransferRing(ep0_dci, 32),
+			DetermineMaxPacketSizeForControlPipe(slot_ctx->bits.speed));
+
+		xhc.GetDeviceManager()->LoadDCBAA(slot_id);
+
+		AddressDeviceCommandTRB addr_dev_cmd{ dev->GetInputContext(), slot_id };
+		xhc.CommandRing()->Push(addr_dev_cmd);
+		xhc.DoorbellRegisterAt(0)->Ring(0);
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
 	Error InitializeDevice(HostController& xhc, uint8 port_id, uint8 slot_id) {
 		// Log(kDebug, "InitializeDevice: port_id = %d, slot_id = %d", port_id, slot_id);
 
@@ -733,7 +935,9 @@ namespace {
 			return MAKE_ERROR(Error::kInvalidSlotID);
 		}
 
-		port_config_phase[port_id] = ConfigPhase::kInitializingDevice;
+		if (dev->RouteString() == 0) {
+			port_config_phase[port_id] = ConfigPhase::kInitializingDevice;
+		}
 		dev->StartInitialize();
 
 		return MAKE_ERROR(Error::kSuccess);
@@ -752,7 +956,15 @@ namespace {
 			g_configuration_complete_hook(xhc, port_id, slot_id, *dev);
 		}
 
-		port_config_phase[port_id] = ConfigPhase::kConfigured;
+		if (dev->RouteString() == 0) {
+			port_config_phase[port_id] = ConfigPhase::kConfigured;
+		}
+		if (active_hub_child_valid &&
+			active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
+			active_hub_child.route_string == dev->RouteString()) {
+			active_hub_child_valid = false;
+			return TryAddressNextHubChild(xhc);
+		}
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
@@ -783,17 +995,10 @@ namespace {
 		case ConfigPhase::kConfiguringEndpoints:
 		case ConfigPhase::kConfigured:
 			if (!port.IsConnected()) {
-				auto dev = xhc.GetDeviceManager()->FindByPort(port_id, 0);
-				uint8 slot_id = dev ? dev->SlotID() : 0;
 				port_config_phase[port_id] = ConfigPhase::kNotConnected;
 				if (addressing_port == port_id) addressing_port = 0;
-				if (slot_id) {
-					if (g_device_disconnect_hook) {
-						g_device_disconnect_hook(xhc, port_id, slot_id);
-					}
-					xhc.GetDeviceManager()->Remove(slot_id);
-				}
-				ploginfo("Port %u disconnected, slot %u removed", port_id, slot_id);
+				RemoveDeviceSubtree(xhc, port_id, 0, true);
+				ploginfo("Port %u disconnected, subtree removed", port_id);
 				return MAKE_ERROR(Error::kSuccess);
 			}
 			return MAKE_ERROR(Error::kSuccess);
@@ -815,7 +1020,10 @@ namespace {
 
 		const auto port_id = dev->GetDeviceContext()->slot_context.bits.root_hub_port_num;
 		if (dev->IsInitialized() &&
-			port_config_phase[port_id] == ConfigPhase::kInitializingDevice) {
+			((dev->RouteString() == 0 && port_config_phase[port_id] == ConfigPhase::kInitializingDevice) ||
+			 (active_hub_child_valid &&
+			  active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
+			  active_hub_child.route_string == dev->RouteString()))) {
 			return xhc.ConfigureEndpoints(*dev);
 		}
 		return MAKE_ERROR(Error::kSuccess);
@@ -828,10 +1036,12 @@ namespace {
 		// 	trb.bits.slot_id, kTRBTypeToName[issuer_type]);
 
 		if (issuer_type == EnableSlotCommandTRB::Type) {
+			if (active_hub_child_valid) {
+				return AddressDevice(xhc, active_hub_child, slot_id);
+			}
 			if (port_config_phase[addressing_port] != ConfigPhase::kEnablingSlot) {
 				return MAKE_ERROR(Error::kInvalidPhase);
 			}
-
 			return AddressDevice(xhc, addressing_port, slot_id);
 		}
 		else if (issuer_type == AddressDeviceCommandTRB::Type) {
@@ -841,22 +1051,23 @@ namespace {
 			}
 
 			auto port_id = dev->GetDeviceContext()->slot_context.bits.root_hub_port_num;
+			if (dev->RouteString() == 0) {
+				if (port_id != addressing_port) {
+					return MAKE_ERROR(Error::kInvalidPhase);
+				}
+				if (port_config_phase[port_id] != ConfigPhase::kAddressingDevice) {
+					return MAKE_ERROR(Error::kInvalidPhase);
+				}
 
-			if (port_id != addressing_port) {
-				return MAKE_ERROR(Error::kInvalidPhase);
-			}
-			if (port_config_phase[port_id] != ConfigPhase::kAddressingDevice) {
-				return MAKE_ERROR(Error::kInvalidPhase);
-			}
-
-			addressing_port = 0;
-			for (size_t i = 0; i < port_config_phase.size(); ++i) {
-				if (port_config_phase[i] == ConfigPhase::kWaitingAddressed) {
-					auto port = xhc.PortAt(i);
-					if (auto err = ResetPort(xhc, port); err) {
-						return err;
+				addressing_port = 0;
+				for (size_t i = 0; i < port_config_phase.size(); ++i) {
+					if (port_config_phase[i] == ConfigPhase::kWaitingAddressed) {
+						auto port = xhc.PortAt(i);
+						if (auto err = ResetPort(xhc, port); err) {
+							return err;
+						}
+						break;
 					}
-					break;
 				}
 			}
 
@@ -869,7 +1080,7 @@ namespace {
 			}
 
 			auto port_id = dev->GetDeviceContext()->slot_context.bits.root_hub_port_num;
-			if (port_config_phase[port_id] != ConfigPhase::kConfiguringEndpoints) {
+			if (dev->RouteString() == 0 && port_config_phase[port_id] != ConfigPhase::kConfiguringEndpoints) {
 				return MAKE_ERROR(Error::kInvalidPhase);
 			}
 
@@ -928,6 +1139,37 @@ Error HostController::ConfigurePort(Port& port) {
 	return MAKE_ERROR(Error::kSuccess);
 }
 
+Error HostController::OnHubPortStatusChanged(DeviceUSB3& hub_dev, uint8 downstream_port, uint16 status, uint16 change) {
+	(void)change;
+	const auto root_hub_port_num = hub_dev.RootHubPortNum();
+	const auto route_string = AppendRouteString(hub_dev.RouteString(), downstream_port);
+	auto* existing = GetDeviceManager()->FindByPort(root_hub_port_num, route_string);
+
+	if ((status & 0x0001u) == 0) {
+		if (existing) {
+			RemoveDeviceSubtree(self, root_hub_port_num, route_string, false);
+		} else {
+			RemovePendingHubChildren(root_hub_port_num, route_string, false);
+		}
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	if (existing != nullptr) {
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	PendingHubChildAddress child_ctx{};
+	child_ctx.root_hub_port_num = root_hub_port_num;
+	child_ctx.route_string = route_string;
+	child_ctx.hub_slot_id = hub_dev.SlotID();
+	child_ctx.downstream_port = downstream_port;
+	child_ctx.speed = DetermineHubChildSpeed(status);
+	if (!QueueHubChildAddress(child_ctx)) {
+		return MAKE_ERROR(Error::kNoEnoughMemory);
+	}
+	return TryAddressNextHubChild(self);
+}
+
 Error HostController::ConfigureEndpoints(DeviceUSB3& dev) {
 	auto& xhc = self;
 	const auto configs = dev.EndpointConfigs();
@@ -939,7 +1181,7 @@ Error HostController::ConfigureEndpoints(DeviceUSB3& dev) {
 	auto slot_ctx = dev.GetInputContext()->EnableSlotContext();
 	slot_ctx->bits.context_entries = 31;
 	const auto port_id{ dev.GetDeviceContext()->slot_context.bits.root_hub_port_num };
-	const int port_speed{ xhc.PortAt(port_id).Speed() };
+	const int port_speed{ dev.GetDeviceContext()->slot_context.bits.speed };
 	if (port_speed == 0 || port_speed > kSuperSpeedPlus) {
 		return MAKE_ERROR(Error::kUnknownXHCISpeedID);
 	}
@@ -984,7 +1226,9 @@ Error HostController::ConfigureEndpoints(DeviceUSB3& dev) {
 		ep_ctx->bits.error_count = 3;
 	}
 
-	port_config_phase[port_id] = ConfigPhase::kConfiguringEndpoints;
+	if (dev.RouteString() == 0) {
+		port_config_phase[port_id] = ConfigPhase::kConfiguringEndpoints;
+	}
 
 	ConfigureEndpointCommandTRB cmd{ dev.GetInputContext(), dev.SlotID() };
 	xhc.CommandRing()->Push(cmd);

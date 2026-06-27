@@ -138,6 +138,7 @@ namespace uni::device::SpaceUSB3 {
 	public:
 		Error ConfigurePort(Port& port);
 		Error ConfigureEndpoints(DeviceUSB3& dev);
+		Error OnHubPortStatusChanged(DeviceUSB3& hub_dev, uint8 downstream_port, uint16 status, uint16 change);
 
 		/** @brief イベントリングに登録されたイベントを高々1つ処理する．
 		 *

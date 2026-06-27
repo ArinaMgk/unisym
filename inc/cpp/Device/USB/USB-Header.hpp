@@ -129,6 +129,8 @@ namespace uni::device::SpaceUSB {
 		const int kString = 3;
 		const int kInterface = 4;
 		const int kEndpoint = 5;
+		const int kHub = 0x29;
+		const int kSuperSpeedHub = 0x2a;
 		const int kInterfacePower = 8;
 		const int kOTG = 9;
 		const int kDebug = 10;
@@ -338,6 +340,22 @@ namespace uni::device::SpaceUSB {
 		} attributes;               // offset 3
 		uint16_t max_packet_size;   // offset 4
 		uint8_t interval;           // offset 6
+	} __attribute__((packed));
+
+	struct HubDescriptor {
+		static const uint8_t kType = 0x29;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint8_t num_ports;
+		uint16_t characteristics;
+		uint8_t power_on_to_power_good;
+		uint8_t hub_control_current;
+	} __attribute__((packed));
+
+	struct HubPortStatus {
+		uint16_t status;
+		uint16_t change;
 	} __attribute__((packed));
 
 	struct HIDDescriptor {

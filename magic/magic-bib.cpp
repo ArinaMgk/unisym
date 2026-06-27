@@ -70,6 +70,29 @@ void GF_Cite(uni::Dchain* chain, MarkProcessor* proc) {
     }
 }
 
+// Refer(id)
+void GF_Refer(uni::Dchain* chain, MarkProcessor* proc) {
+    using namespace uni;
+    if (chain->Count() < 1) return;
+    rostr id = SeekString((*chain)[0], proc);
+    if (!id) return;
+
+    switch (proc->txtfmt) {
+    case MarkProcessor::TextFormat::HTML:
+        proc->OutFormat("<a href=\"#%s\">%s</a>", id, id);
+        break;
+    case MarkProcessor::TextFormat::Tex:
+        proc->OutFormat("\\refer{%s}", id);
+        break;
+    case MarkProcessor::TextFormat::Markdown:
+        proc->OutFormat("[%s](#%s)", id, id);
+        break;
+    case MarkProcessor::TextFormat::STDOUT:
+        proc->OutFormat("[%s]", id);
+        break;
+    }
+}
+
 // BibItem(id, text)
 void GF_BibItem(uni::Dchain* chain, MarkProcessor* proc) {
     using namespace uni;

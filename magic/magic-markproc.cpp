@@ -62,6 +62,7 @@ static const gfnmap_entry gfnmap[] = {
 	{"BibBegin", GF_BibBegin },
 	{"BibEnd", GF_BibEnd },
 	{"Cite", GF_Cite },
+	{"Refer", GF_Refer },
 	{"BibItem", GF_BibItem },
 	// Font:
 	{"FontBegin", GF_FontBegin },

@@ -104,6 +104,7 @@ class MarkProcessor : public uni::OstreamTrait
 {
 protected:
 public:
+	virtual uni::OstreamTrait* refOstream() { return 0; }
 	virtual int out(const char* str, stduint len) { return nil; }
 	enum class TextFormat {
 		None,
@@ -134,6 +135,7 @@ struct ProcessorHTML : public MarkProcessor {
 	}
 	virtual int out(const char* str, stduint len) override; // for its subnodes
 	virtual bool proc(uni::Nnode* nod) override;
+	virtual uni::OstreamTrait* refOstream() override { return pout; }
 };
 struct ProcessorTex : public MarkProcessor {
 	uni::OstreamTrait* pout;
@@ -142,6 +144,7 @@ struct ProcessorTex : public MarkProcessor {
 	}
 	virtual int out(const char* str, stduint len) override;
 	virtual bool proc(uni::Nnode* nod) override;
+	virtual uni::OstreamTrait* refOstream() override { return pout; }
 };
 struct ProcessorMarkdown : public MarkProcessor {
 	uni::OstreamTrait* pout;
@@ -150,6 +153,7 @@ struct ProcessorMarkdown : public MarkProcessor {
 	}
 	virtual int out(const char* str, stduint len) override;
 	virtual bool proc(uni::Nnode* nod) override;
+	virtual uni::OstreamTrait* refOstream() override { return pout; }
 };
 struct ProcessorStdout : public MarkProcessor {
 	uni::OstreamTrait* pout;
@@ -158,6 +162,7 @@ struct ProcessorStdout : public MarkProcessor {
 	}
 	virtual int out(const char* str, stduint len) override;
 	virtual bool proc(uni::Nnode* nod) override;
+	virtual uni::OstreamTrait* refOstream() override { return pout; }
 };
 
 // Set(obj: iden, typ, val) -> none
@@ -221,6 +226,7 @@ void GF_Code(uni::Dchain* chain, MarkProcessor* proc);
 void GF_BibBegin(uni::Dchain* chain, MarkProcessor* proc);
 void GF_BibEnd(uni::Dchain* chain, MarkProcessor* proc);
 void GF_Cite(uni::Dchain* chain, MarkProcessor* proc);
+void GF_Refer(uni::Dchain* chain, MarkProcessor* proc);
 void GF_BibItem(uni::Dchain* chain, MarkProcessor* proc);
 
 // Font macros

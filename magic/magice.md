@@ -54,6 +54,7 @@
 | 指令 | 参数说明 | 用途 |
 | :--- | :--- | :--- |
 | `Cite(id)` | `id`: 文献的唯一标识符 | 在正文中生成引用标注（例如 LaTeX 的 `\cite{id}` 或 HTML 的锚点跳转 `[id]`）。 |
+| `Refer(id)`| `id`: 引用目标的唯一标识符 | 在正文中生成内部交叉引用标注（例如 LaTeX 的 `\refer{id}` 或 HTML 的 `#id` 锚点链接）。 |
 | `BibBegin(label)` | `label`: 最宽标签（可选，默认 `"99"`） | 开启文献列表环境（例如 LaTeX 的 `\begin{thebibliography}{99}`）。 |
 | `BibEnd()` | (无) | 结束文献列表环境。 |
 | `BibItem(id, text)` | `id`: 文献的唯一标识符<br>`text`: 文献的描述内容 | 定义一条文献参考条目。必须包裹在 `BibBegin` 和 `BibEnd` 内部。 |

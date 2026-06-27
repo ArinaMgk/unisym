@@ -90,7 +90,7 @@ void GF_ListItem(uni::Dchain* chain, MarkProcessor* proc) {
         if (prefix && prefix[0] != '\0') proc->OutFormat("\\verb`%s` : ", prefix);
         else proc->OutFormat(" ");
         if (main_text) ParseAndOutputText(main_text, proc);
-        proc->OutFormat("\n");
+        proc->refOstream()->OutChar('\n');
         break;
     case MarkProcessor::TextFormat::Markdown:
     case MarkProcessor::TextFormat::STDOUT:

@@ -1,0 +1,116 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("This is for Magice, some assembly and C.\n");
+
+Title(4, "Data Model");
+
+Format("^BHeader^b: integer, auto-inc-by stdinc.\n");
+
+Format("Usually, the implementation about sizes of the fundamental types are collectively known as data model.\n");
+
+TableBegin("r|c|c|c|c|c");
+RowHead();
+Rcell("^BMIKA^b"); Rcell("^BBYTES(M)^b"); Rcell("^BSTDC^b"); Rcell("^BC-LP32^b"); Rcell("^BC-ILP32/LLP^b"); Rcell("^BC-LP64^b");
+
+Row(); Rcell("VOID"); Rcell("struct{}(0)"); Rcell("void"); RcellSkip("3"); LineH();
+Row(); Rcell("BIT/+BOOL"); Rcell("bit(0.125)"); Rcell("usually int"); RcellSkip("3"); LineH();
+Row(); Rcell("BYT(E)/+CHAR"); Rcell("1"); Rcell("char>=^B1^b"); Rcell("1"); Rcell("1"); Rcell("1"); LineH();
+Row(); Rcell("WORD/+SHORT"); Rcell("2"); Rcell("short>=^B2^b"); Rcell("2"); Rcell("2"); Rcell("2"); LineH();
+Row(); Rcell("*+INT"); Rcell("stduint"); Rcell("int>=2"); Rcell("2"); Rcell("4"); Rcell("4"); LineH();
+Row(); Rcell("DWORD"); Rcell("4"); RcellSkip("4"); LineH();
+Row(); Rcell("FWORD"); Rcell("6"); RcellSkip("4"); LineH();
+Row(); Rcell("*+LONG"); Rcell("/"); Rcell("long>=4"); Rcell("4"); Rcell("4"); Rcell("8"); LineH();
+Row(); Rcell("QWORD/+LLONG"); Rcell("8"); Rcell("long long>=^B8^b"); Rcell("8"); Rcell("8"); Rcell("8"); LineH();
+Row(); Rcell("TWORD/TBYTE"); Rcell("10"); RcellSkip("4"); LineH();
+Row(); Rcell("OWORD"); Rcell("16"); Rcell("void"); RcellSkip("3"); LineH();
+Row(); Rcell("YWORD"); Rcell("32"); Rcell("void"); RcellSkip("3"); LineH();
+Row(); Rcell("ZWORD"); Rcell("64"); Rcell("void"); RcellSkip("3"); LineH();
+Row(); 
+RcellBegin(); Format("REAL"); Math("\\%"); Format("[BITS]"); RcellEnd();
+Rcell("^IIEEE^i"); Rcell("void"); RcellSkip("3"); LineH();
+TableEnd();
+
+Format("^M*^m means the size is not stable;\n");
+Format("^M+^m means the type represent the signed data.\n");
+
+Format("`QWORD' is for Quadword.\n");
+Format("`TBYTE' is used from ^INetwide Assembler^i.\n");
+Format("`M' stands for Magice while `C' stands for CPL.\n");
+Format("`MIKA' is the General Middle Language.\n");
+
+Format("For `BYTE', a macro `OCTET' can be made to fit the habit of users.\n");
+
+Format("For `INT', the byte-size is 4 by default, but 2 for register-size less than 4.\n");
+
+Format("For `LONG', the byte-size is 4 for WinNT and Linux-32, but 8 for Linux-64.\n");
+
+Format("^IARN decided BYTE has fixed 8 binary digits.^i\n");
+
+Format("For 32 bit systems:\n");
+ListBegin();
+ListLiumBegin();
+Format("LP32 or 2/4/4 (int is 16-bit, long and pointer are 32-bit)\n");
+ListBegin();
+ListItem("", "may be for Win-16 API ?");
+ListEnd();
+ListLiumEnd();
+
+ListLiumBegin();
+Format("ILP32 or 4/4/4 (int, long, and pointer are 32-bit)\n");
+ListBegin();
+ListItem("", "Win32 API");
+ListItem("", "Unix and Unix-like systems (Linux, Mac OS X)");
+ListEnd();
+ListLiumEnd();
+ListEnd();
+
+Format("For 64 bit systems:\n");
+ListBegin();
+ListLiumBegin();
+Format("LLP64 or 4/4/8 (int and long are 32-bit, pointer is 64-bit)\n");
+ListBegin();
+ListItem("", "Win-64 API");
+ListEnd();
+ListLiumEnd();
+
+ListLiumBegin();
+Format("LP64 or 4/8/8 (int is 32-bit, long and pointer are 64-bit)\n");
+ListBegin();
+ListItem("", "Unix and Unix-like systems (Linux, Mac OS X)");
+ListEnd();
+ListLiumEnd();
+ListEnd();
+
+Format("Other models are very rare. For example, ILP64 (8/8/8: int, long, and pointer are 64-bit) only appeared in some early 64-bit Unix systems (e.g. Unicos on Cray).\n");
+
+Title(5, "for Macro Assembler");
+Format("It uses ^MBYTE^m, ^MWORD^m and ^MDWORD^m for integer types, and each of them can be prefixed with ^MS^m to become its signed type.\n");
+
+Format("Compared to A.N.Y., integers in MASM includes the sign property.\n");
+
+Title(4, "(Derived) Pointer");
+
+Format("M, C, C++ support pointer (add ^M*^m after the destination-type to express its type) to realize the access of memory like Assembly.\n");
+
+Format("The style ^Mtype0* a^m stresses that ^Ma^m is an instance of the pointer. ^Mtype0[] a^m stresses the array type, like "); Math("C\\#"); Format(".\n");
+
+Format("The style ^Mtype0 *a^m stresses the type of the destination. ^Mtype0 a[]^m stresses the basic type, like "); Math("CPL"); Format(".\n");
+
+CodeInclude("C++", "Type_Ptr.cpp");
+
+Format("And C++ provides ^Breference^b to make the form of pointers beautiful, while provides class to make passing the instance beautiful.\n");
+
+Format("The arithmetic for pointers are usually special. For plus and minus, the factor will be times by the size of the object to make it seems to have the unit. For multiply and bitwise operations, it is usually forbidden although it can be done easily in Binary Assembly.\n");
+
+Format("For the analyzer, a pointer consists at least of the information of destination type and the logical address.\n");
+Format("If a pointer contain the end so you can know the range, it becomes a ^Bfat pointer^b.\n");
+
+Title(4, "Endianness");
+
+Format("For multi-byte register, the processor should decide whether it is little or big endian.\n");
+
+Format("When designing a parser, there are also different processes for literal immediate.\n");
+
+Format("For example, if you code ^MDW 'ab'^m, it will become ^M0x61,0x62 (0x6261)^m in NASM, while ^M(0x6162)^m in MASM. The former has considered same results from ^MDB 'ab'^m.\n"); // Expi. Haruno RFC10
+
+Title(4, "Enumeration");

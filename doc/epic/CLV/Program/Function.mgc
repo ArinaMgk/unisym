@@ -1,0 +1,67 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("We usually consider procedure or sub-routine only exist in Assembly. "); // 过程
+Format("Someone call the function returning nothing procedure.\n"); //函数
+
+Title(4, "Calling Statement");
+Format("Assume ^Mf^m is a pointer to some function, or from an entity ^Mvoid f() {...}^m, then ^Mf(...)^m or ^M(*f)(...)^m can call the function, where ^M...^m stands for arguments actually. Even none-* or multi-* can call it, like ^M(*****f)()^m.\n"); // expi by dscn, 20240905
+
+Title(4, "Parameter and Argument");
+
+Title(5, "For C or C++");
+Format("Because pointers are in a size, it is OK to write ^Mf(int arr[1][2]) {...}^m as ^Mf(int arr[][2]) { ... }^m or ^Mf(int (*arr)[2]) { ... }^m. For multi arguments, the evaluation order (before calling) is decided by the compiler.\n");
+
+Format("When calling the function, the item filled in the place of the respective parameter is called `argument'. Hence parameter is formal argument.\n");
+
+Format("The form of parameter passing: reference, stack(of caller or callee), register.\n");
+
+Format("The ^Bstorage-class specifier^b for a parameter declaration is only ^Mregister^m.\n");
+
+Title(4, "Calling Convention - Prologue and Epilogue");
+Inline("tex", "\\labex{Calling}");
+
+Format("^BHeader^b: auto-inc-by stdinc.\n");
+
+Format("The registers that need to be preserved before calling a function and stored after its returning is ^BFunction Calling Context^b. The saving subject is whether caller or callee.\n");
+
+Format("^BConsideration^b\n");
+ListBegin("itemize");
+ListItem("", "Registers need to be preserved");
+ListItem("", "Passing Arguments by pointer(reference), stack or registers");
+ListItem("", "Passing Order");
+ListItem("", "Returning Method");
+ListItem("", "Recover-register Method");
+ListEnd();
+
+Title(5, "STDCALL");
+Format("The passing order of arguments is from right to left. The stack will be popped before returning.\n");
+
+Title(5, "CDECL: C Declaration");
+Format("The passing order of arguments is from right to left. The stack will be recovered by caller. Thus IP, CS, EFLAG and others will not be broken.\n");
+
+Format("The first argument is located closest to the top of the stack, according to which greedy arguments can be used more easily.\n");
+
+Title(5, "FASTCALL");
+
+// -------------------
+
+Format("^BRegister BP for Entering and Leaving Function^b\n");
+
+//{} for functions that have arguments or local variables, ...
+
+Format("^BAllocation of Stack^b\n");
+
+Format("This is for the parameters and locale variables. Whether the arguments are aligned with bytes depends on the compiler. For Visual C++ in Win32, it usually with multi-bytes (a ^Mdword^m), while it may be only one for GCC. Try like this if we want to assure:\n");
+
+Inline("tex", "\\lstset{style=GlobalC}");
+CodeInclude("C", "Function_Code1.c");
+
+Title(4, "Inline Function for $C/C++$");
+
+Format("This appeared when the keyword "); Refer("keyword.inline"); Format(" appeared. In a hosted environment, inline cannot specify function ^Imain^i.\n");
+
+Format("^BEXAMPLE - Avoid side-effect^b\n");
+Inline("tex", "\\lstset{style=GlobalC}");
+Code("C", "inline MIN(int a, int b){if (a < b)return a; else return b;}\n#define min(x,y)((x)<(y)?(x):(y))\n");
+
+Format("Assume ^Ma^m assigned \"1\". Then ^Mmin(++a,b);^m makes ^Ma^m equals 3, while ^MMIN(++a,b);^m makes ^Ma^m equals 2.\n");

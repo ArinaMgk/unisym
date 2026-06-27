@@ -1,0 +1,62 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(3, "(Derived) String and StringTrait");
+
+// ASCIZ
+
+Format("^BHeader^b: ^Mc/ustring.h^m\n");
+
+Title(3, "(Derived) Array");
+
+Format("An array owns the feature of the pointer (such as participating in pointer-arithmetic). But it can be re-point as a pointer object (because it provides spaces for elements), the array exists actually a `label' in reflected Assembly except the elements information it carried. ^IMany users fight about whether (identifier of) array is a pointer. That is a meaningless question and it depends on they consider pointer an object or a feature.^i\n");
+
+Format("There are two strategies to set the array. Assume an array ^Marr[A][B][C]^m:\n");
+Format("For Row-major, the adjacent `C' always reflect the constant element, also known as ^M(*(*(arr+A)+B)+C)^m.\n");
+ListBegin();
+ListItem("", "Magice and C");
+ListItem("", "C++");
+ListEnd();
+Format("For Column-major, the adjacent `A' always reflect the constant element, also known as ^M(*(*(arr+C)+B)+A)^m.\n");
+ListBegin();
+ListItem("", "Fortran");
+ListEnd();
+
+Format("^BEXAMPLE - Assign directly by identifier without loop or function^b\n");
+CodeInclude("C", "Typex_Code1.c");
+
+Title(5, "for Macro Assembler");
+
+Format("^BEXAMPLE - Pointer^b\n");
+Inline("tex", "\\lstset{style=GlobalASMx86}");
+CodeInclude("{[x86masm]Assembler}", "Typex_Code2.asm");
+
+Format("In the example, we assume an array ^M10h, 20h^m and define a new pointer type ^MpByte^m for it.\n");
+
+Format("Keyword ^Mnear^m and ^Mfar^m can decide the length in some cases.\n");
+Format("^Mnear^m can be used to assign 16 or 32 bits offset,\n");
+Format("while ^Mfar^m can be used to assign 32 or 48 bits offset with its segment.\n");
+
+Title(3, "(Derived) Union and Structure");
+
+Title(5, "for Macro Assembler");
+
+Format("Definition\n");
+CodeInclude("{[x86masm]Assembler}", "Typex_Code3.asm");
+
+Format("Except their mechanism from literal meanings, the only difference between structure and union is that, a union allows only one initialization value.\n");
+
+Format("^BEXAMPLE - MASM Structure^b\n");
+
+Format("Definition\n");
+CodeInclude("{[x86masm]Assembler}", "Typex_Code4.asm");
+
+Format("Declaration\n");
+CodeInclude("{[x86masm]Assembler}", "Typex_Code5.asm");
+
+Format("Unwritten content in Angle brackets can be ignored, written content can be overwritten; Using braces also works.\n");
+
+Format("Reference\n");
+Format("^Mworker.IdenNum^m; ^M(Empolyee ptr [esi]).Years^m;\n");
+
+Title(3, "(Derived) Class");
+TexSubimport(".", "Class");

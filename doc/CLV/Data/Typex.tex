@@ -1,26 +1,34 @@
 
+
 \subsection{(Derived) String and StringTrait}
 
-%%% ASCIZ
+\textbf{Header}: \verb|c/ustring.h|
 
-\B{Header}: \verb`c/ustring.h`
+
 
 \subsection{(Derived) Array}
 
-An array owns the feature of the pointer (such as participating in pointer-arithmetic). But it can be re-point as a pointer object (because it provides spaces for elements), the array exists actually a `label' in reflected Assembly except the elements information it carried. \It{Many users fight about whether (identifier of) array is a pointer. That is a meaningless question and it depends on they consider pointer an object or a feature.}
+An array owns the feature of the pointer (such as participating in pointer-arithmetic). But it can be re-point as a pointer object (because it provides spaces for elements), the array exists actually a `label' in reflected Assembly except the elements information it carried. \textit{Many users fight about whether (identifier of) array is a pointer. That is a meaningless question and it depends on they consider pointer an object or a feature.}
 
 There are two strategies to set the array. Assume an array \verb|arr[A][B][C]|:
+
 For Row-major, the adjacent `C' always reflect the constant element, also known as \verb|(*(*(arr+A)+B)+C)|.
+
 \begin{itemize}
-	\item Magice and C
-	\item C++
-\end{itemize}
-For Column-major, the adjacent `A' always reflect the constant element, also known as \verb|(*(*(arr+C)+B)+A)|.
-\begin{itemize}
-	\item Fortran
+
+\item Magice and C
+\item C++
 \end{itemize}
 
-\B{EXAMPLE - Assign directly by identifier without loop or function}
+For Column-major, the adjacent `A' always reflect the constant element, also known as \verb|(*(*(arr+C)+B)+A)|.
+
+\begin{itemize}
+
+\item Fortran
+\end{itemize}
+
+\textbf{EXAMPLE - Assign directly by identifier without loop or function}
+
 \begin{lstlisting}[language=C]
 	typedef struct newt {char newt[5];} newt;
 	int main()
@@ -31,10 +39,14 @@ For Column-major, the adjacent `A' always reflect the constant element, also kno
 	}
 \end{lstlisting}
 
+
+
 \paragraph{for Macro Assembler} \
 
-\B{EXAMPLE - Pointer}
+\textbf{EXAMPLE - Pointer}
+
 \lstset{style=GlobalASMx86}
+
 \begin{lstlisting}[language={[x86masm]Assembler}]
 	arrayA byte 10h, 20h;
 	pByte typedef ptr byte;
@@ -43,18 +55,24 @@ For Column-major, the adjacent `A' always reflect the constant element, also kno
 	mov al,[esi]
 \end{lstlisting}
 
-In the example, we assume an array \verb|10h, 20h| and define a new pointer type \verb|pByte| for it. 
+In the example, we assume an array \verb|10h, 20h| and define a new pointer type \verb|pByte| for it.
 
-Keyword \verb`near` and \verb`far` can decide the length in some cases.
-\verb`near` can be used to assign 16 or 32 bits offset,
-while \verb`far` can be used to assign 32 or 48 bits offset with its segment.
+Keyword \verb|near| and \verb|far| can decide the length in some cases.
+
+\verb|near| can be used to assign 16 or 32 bits offset,
+
+while \verb|far| can be used to assign 32 or 48 bits offset with its segment.
+
 
 
 \subsection{(Derived) Union and Structure}
 
+
+
 \paragraph{for Macro Assembler} \
 
-{Definition}
+Definition
+
 \begin{lstlisting}[language={[x86masm]Assembler}]
 	;: union
 	union_name UNION
@@ -71,9 +89,10 @@ while \verb`far` can be used to assign 32 or 48 bits offset with its segment.
 
 Except their mechanism from literal meanings, the only difference between structure and union is that, a union allows only one initialization value.
 
-\B{EXAMPLE - MASM Structure}
+\textbf{EXAMPLE - MASM Structure}
 
-{Definition}
+Definition
+
 \begin{lstlisting}[language={[x86masm]Assembler}]
 	Employee STRUCT
 	IdenNum  BYTE "000000000"
@@ -83,22 +102,21 @@ Except their mechanism from literal meanings, the only difference between struct
 	Employee ENDS
 \end{lstlisting}
 
-{Declaration}
+Declaration
+
 \begin{lstlisting}[language={[x86masm]Assembler}]
 	worker Employee <>
 \end{lstlisting}
 
 Unwritten content in Angle brackets can be ignored, written content can be overwritten; Using braces also works.
 
-{Reference}
+Reference
 
 \verb|worker.IdenNum|; \verb|(Empolyee ptr [esi]).Years|;
 
+
+
 \subsection{(Derived) Class}
+
 \subimport{.}{Class}
-
-
-
-
-
 

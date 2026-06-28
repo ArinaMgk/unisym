@@ -1,0 +1,4 @@
+#UTF-8 MAgicRK(1) . .
+
+Inline("tex", "\n");
+Format("^BHeader^b: ^Mc/graphic/color.h^m\n");

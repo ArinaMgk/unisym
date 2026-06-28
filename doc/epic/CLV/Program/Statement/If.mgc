@@ -1,0 +1,12 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("^Bfor ^IC,C++, C#^i^b\n\n");
+Format("^Mif (condition)^m ... (^Melse^m (^Mif (condition)^m) ... )\n\n");
+
+Format("^Bfor ^IVerilog^i^b is same as C/C++, except the parent`(' and parend`)' are by `begin' and `end'.\n\n");
+
+Format("^Bfor ^IPython^i^b\n");
+Code("Python", "\tif(a == 0): print(a)\n\tif a != 0 : print(a)\n\tif a == 1 :\n\tprint(\"One\")\n\telif a == 2:\n\tprint(\"Two\")\n\telse:\n\tprint(\"Else\")\n");
+
+Format("\n^Bfor ^IMATLAB^i^b\n");
+Code("MATLAB", "\tif a_condition\n\t\t% ...\n\telseif % optional\n\t\t% ...\n\telse % optional\n\t\t% ...\n\tend\n");

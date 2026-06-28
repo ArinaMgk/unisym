@@ -1,0 +1,15 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("^Bfor ^IC,C++,C#^i^b\n\n...\n\n");
+
+Format("^Bfor ^IVerilog^i^b is same as C89, except the parent`\\(' and parend`\\)' are by `begin' and `end'.\n");
+
+// for MASM
+// ; 格式 ~ para,<para_val1,para_val2,para_val3,…>;…;ENDM  （用于宏的マ）
+// ; FORC: 格式 同FOR，para是字符，<>内是字符串，FORC顺序遍历每一个字符  （用于宏的マ）
+
+Format("\n^Bfor ^IMATLAB^i^b\n");
+Code("MATLAB", "\t% obj_initial~obj_ends. step can be omitted and default one\n\tfor obj0=obj_initial:obj_step:obj_ends\n\t\t...\n\tend\n");
+
+Format("\n^Bfor ^IPython^i^b (with Enumerator)\n");
+Code("Python", "\t# String\n\tfor letter in 'Python':\n\t\tprint(\"Crt Letter: %s\" % letter)\n\t# List\n\tfruits = ['mikan', 'apple', 'mango']\n\tfor fruit in fruits:\n\t\tprint ('Crt Fruit: %s'% fruit)\n\t# Index\n\tfor var in range(1,100) : a = var;# 1~99\n\tfor i in range(10) : print(i) # 0~9\n\tfor i in range(0,2,100) : print(i) # step 2\n\t# Dictionary\n\tfor key, value in dict.items() # for \n\t\tprint(value)\n\tfor i in dict.items() : print(i) # i zo a tuple unpacked\n\tfor key in dict.keys() : print(key) # <=> for key in dict\n\t\n\t# Use ^C to break endless loop\n");

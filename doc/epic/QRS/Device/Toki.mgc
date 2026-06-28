@@ -1,0 +1,31 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(4, "Virtual Timer");
+Format("^BHeader^b: ^Mc/driver/timer.h^m\n");
+
+Title(4, "Programmable Interval Timer");
+Title(4, "Real-time Clock");
+
+Title(4, "RCC System");
+
+Title(4, "Sys-Clock and Sys-tick");
+
+Title(5, "SysTick::enClock");
+
+Format("^Bstatic^b\n");
+
+Format("^BIO^b\n");
+
+Math("(Hz) \\rightarrow successful?"); Format("\n");
+
+Title(5, "SysClock::getCoreFrequency");
+
+Format("^BIO^b\n");
+
+Math("\\rightarrow stduint"); Format("\n");
+
+Format("^BSimilar^b\n");
+ListBegin("itemize");
+	ListItem("", "ST HAL ^MHAL_RCC_GetSystemCoreClockFreq^m");
+	ListItem("", "CMSIS ^MSystemCoreClockUpdate^m");
+ListEnd();

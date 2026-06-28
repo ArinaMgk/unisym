@@ -1,0 +1,187 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("Symbolic Style\n");
+ListBegin("itemize");
+	ListItem("", "Fix style: ^MBioStrPrint = BIOS String Print^m");
+	ListItem("", "Sub style: ^MBIOS.Print^m");
+ListEnd();
+
+Format("Macro Calling Style\n");
+ListBegin("itemize");
+	ListItem("", "Direct BIN e.g. ^M_PRINTF SYMBOL^m");
+	ListItem("", "Linked OBJ e.g. ^MDIVX MACRO^m");
+ListEnd();
+
+Title(6, "n\\_arith");
+
+Title(7, "External Basic Operation");
+
+Format("^BDIVX^b\n");
+Format("^BPreset^b: DS:EBX=dest STACK\n");
+Format("^BParameter^b: BL or BX\n");
+Format("^BReturn^b: EBX+=sectors*512\n");
+Format("^BDescription^b:\n");
+Format("BL: AX/BL=AX...DL\n");
+Format("BX: DX`AX/BX=CX`AX...DX\n");
+Format("^BAttribute^b: CPU (i8086)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Title(7, "Char Code");
+
+Format("^BBCD2ASCII^b\n");
+Format("^BPreset^b: AL\n");
+Format("^BParameter^b: ^INone^i\n");
+Format("^BReturn^b: "); Math("AH`AL"); Format("\n");
+Format("^BDescription^b:\n");
+Format("^BAttribute^b: CPU (i8086)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Title(6, "n\\_cpuins");
+
+Format("^BCpuBrand^b\n");
+Format("^BPreset^b: DS:ESI=DATA48\n");
+Format("^BParameter^b: ^INone^i\n");
+Format("^BReturn^b: "); Math("VOLA(EAX,EBX,ECX,EDX,ESI,EDI)"); Format("\n");
+Format("^BDescription^b: Get CPU Brand Information\n");
+Format("^BAttribute^b: CPU (586+)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Title(6, "n\\_osdev");
+
+Format("^BAddr20Enable^b\n");
+Format("^BPreset^b:\n");
+Format("^BParameter^b:\n");
+Format("^BReturn^b: "); Math("AL=Port[0x92]"); Format("\n");
+Format("^BDescription^b: Enable A20 to avoid automatic setting zero.\n");
+Format("^BAttribute^b: CPU (i8086)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Format("^BGDTDptrStruct^b\n");
+Format("^BPreset^b:\n");
+Format("^BParameter^b: EAX BASEADDR, EBX LIMIT, ECX PROPERTY\n");
+Format("^BReturn^b: "); Math("EDX`EAX=FULL_DESCRIPTOR Vola\\{C,B\\}"); Format("\n");
+Format("^BDescription^b:\n");
+Format("^BAttribute^b: CPU (386+)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Format("^BGateStruct^b\n");
+Format("^BPreset^b:\n");
+Format("^BParameter^b: EAX=OffsetOfSegment, BX=SegDptr, CX=Property\n");
+Format("^BReturn^b: "); Math("Vola(ecx,ebx) (edx`eax=Dptr)"); Format("\n");
+Format("^BDescription^b:\n");
+Format("^BAttribute^b: CPU (386+)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Title(6, "n\\_pseudo");
+
+Format("^BFile^b\n");
+Format("^BDescription^b: Use at the beginning of the file.\n");
+
+Format("^BEndf^b\n");
+Format("^BDescription^b: Use at the end of the file.\n");
+
+Format("^BDefineStack16^b\n");
+Format("^BPreset^b:\n");
+Format("^BParameter^b: SS, SP\n");
+Format("^BReturn^b: "); Math("Vola\\{AX\\}"); Format("\n");
+Format("^BDescription^b:\n");
+Format("^BAttribute^b: BIT (16)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Title(6, "n\\_timer");
+
+Title(7, "Date");
+
+Format("^BGetMoexDayIdentity^b\n");
+Format("^BPreset^b: ax year, cx month STACK DS->DataSegm\n");
+Format("^BParameter^b: ?SI String, AH/I Style\n");
+Format("^BReturn^b: "); Math("BX=PastDays DL=HowManyDaysInTheMonth"); Format("\n");
+Format("^BDescription^b: Get the days between month 1st 00:00 through herday 24:00.\n");
+Format("^BAttribute^b: BIT (16)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Title(7, "Time");
+
+Format("^BTimerInit16^b\n");
+Format("^BPreset^b: STACK\n");
+Format("^BParameter^b: CS/I CodeSeg, RoutintINT70\n");
+Format("^BReturn^b:\n");
+Format("^BDescription^b:\n");
+Format("^BAttribute^b: BIT (16)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Format("^BTimerReadTime^b\n");
+Format("^BPreset^b: after calling TimerInit16\n");
+Format("^BParameter^b:\n");
+Format("^BReturn^b: "); Math("HH:MM:SS \\rightarrow DH:DL:AL"); Format("\n");
+Format("^BDescription^b:\n");
+Format("^BAttribute^b: BIT (16)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Title(6, "n\\_video");
+
+Format("Now only for 8025 mode.\n");
+
+Title(7, "Cursor Operation");
+
+Format("^BConCursor^b\n");
+Format("^BPreset^b:\n");
+Format("^BParameter^b: "); Math("AX posi=\\sim"); Format("\n");
+Format("^BReturn^b:\n");
+Math("\\%1==~ Get: AX=AfterPosition Volatile\\{DX\\}");
+Format("\n");
+Math("\\%1!=~ Set: Volatile\\{AX, DX\\} BX=\\%1=AfterPosition");
+Format("\n");
+Format("^BDescription^b: Get or set the cursor.\n");
+Format("^BAttribute^b: BIT (16) CPU (i8086)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Title(7, "Screen Other Operation");
+
+Format("^BConRoll^b\n");
+Format("^BPreset^b: ES=VideoBufferSegment(0xB800)\n");
+Format("^BParameter^b: "); Math("AL rows=1 yo \\left[1~video_rows\\right]"); Format("\n");
+Format("^BReturn^b: "); Math("Volatile\\{AX, CX, SI, DI\\}"); Format("\n");
+Format("^BDescription^b: Roll the screen.\n");
+Format("^BAttribute^b: BIT (16) CPU (i8086)\n");
+Format("^BNestcall^b: ^INone^i\n");
+
+Title(7, "Print Collection");
+
+Format("^BConPrintChar^b\n");
+Format("^BPreset^b: ES=VideoBufferSegment(0xB800) STACK\n");
+Format("^BParameter^b: "); Math("AL/I char > \\sim AH/I style=0x07 > \\sim BX/I posi=\\sim"); Format("\n");
+Format("^BReturn^b: "); Math("BX=NextPosi(automatic mode)"); Format("\n");
+Format("^BDescription^b: Print a char on screen.\n");
+Format("If bx is invalid or out of the range, bx will be set 0.\n");
+Format("``posi'' starts from 0.\n");
+Format("Special chars for automatic position mode: ^M\\n^m, ^M\\r^m\n");
+Format("^BAttribute^b: BIT (16) CPU (i8086)\n");
+Format("^BNestcall^b: ConCursor (2 versions)\n");
+
+Format("^BConPrint^b\n");
+Format("^BPreset^b: ES=VideoBufferSegment(0xB800) DS=SegofString STACK\n");
+Format("^BParameter^b: "); Math("?SI String, AH/I\\ Style"); Format("\n");
+Format("^BReturn^b: "); Math("BX=NextPosi\\ Vola\\{?AX\\}"); Format("\n");
+Format("^BDescription^b: Print a char on screen.\n");
+Format("Accept ^M\\n^m, ^M\\r^m for controlling and ^M\\0^m for end.\n");
+Format("^BAttribute^b: BIT (16) CPU (SI:i8086, ESI:386+)\n");
+Format("^BNestcall^b: ConCursor (2 versions)\n");
+
+Format("{RFE221530} ^IArinaMgk replace PUSHAD and POPAD to meet 8086 mode^i;\n");
+
+Format("^BConPrintWord^b\n");
+Format("^BPreset^b: STACK\n");
+Format("^BParameter^b: BX/I word , Proc(ConPrintChar AL,AH,~)\n");
+Format("^BReturn^b:\n");
+Format("^BDescription^b:\n");
+Format("^BAttribute^b: BIT (16) CPU (i8086)\n");
+Format("^BNestcall^b: ConCursor yo ConPrintChar(Extern)\n");
+
+Format("^BConPrintDword^b\n");
+Format("^BPreset^b: STACK\n");
+Format("^BParameter^b: EBX/I word , Proc(ConPrintChar AL,AH,~)\n");
+Format("^BReturn^b:\n");
+Format("^BDescription^b:\n");
+Format("^BAttribute^b: BIT (16) CPU (386+)\n");
+Format("^BNestcall^b: ConCursor yo ConPrintChar(Extern)\n");

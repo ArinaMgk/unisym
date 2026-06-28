@@ -1,0 +1,42 @@
+#UTF-8 MAgicRK(1) . .
+
+Inline("tex", "\\labex{ASM}\n");
+
+Title(2, "Directive");
+
+Title(3, "Base Compatible Platform");
+Format("Usually, this is set by the category of the respective processor. There are examples for Intel");
+Inline("tex", "$^{\\textregistered}$");
+Format("80386.\n^Bfor NASM^b\n^TCPU 386^t or ^T[CPU 386]^t\n^Bfor MASM^b\n^T.386^t\n");
+
+Title(3, "Calling and Memory Method");
+Format("^Bfor MASM^b\n^M.model flat, stdcall^m\nflat: a 4GB segment is shared for code and data.\n");
+
+Title(2, "Instruction");
+Format("^BHeader^b: ^Mc/instruction.h^m\nInstruction is also known as Machine Instruction.\n");
+TexSubimport("ASM/Instruction", "Instruction-i8086");
+
+Title(2, "Difference");
+ListBegin("itemize");
+	ListItem("", "Netwide ASM (version 2.07)");
+	ListItem("", "Microsoft Macro ASM (6.15)");
+	ListItem("", "GNU-AS");
+ListEnd();
+
+Format("AASM / NASM specifies that all labels are addresses but accessing, which is different from that of C, whose array labels indicate objects but addresses. For some assemblers, there are for a same value:\n^M[A+B+1]^m; ^M[A+OFFSET(B)+1]^m; ^M1[A][B]^m.\nAnd there are for another value:\n^MA^m; ^M[A]^m; ^M[OFFSET A]^m.\n");
+
+Inline("tex", "\\refer{Magice}");
+Format(" uses AASM, which is a middle language, supporting automatically inline cross-platform AASM. If native assembly statements are used, the program will be degraded and deprived cross-platform property.\n");
+
+Title(2, "Bootstrap");
+IncludeWeak("OSD/Boot");
+
+Title(2, "Platforms");
+Title(3, "Intel x86 and AMD64");
+Title(4, "8086-BIOS Interrupt Macro Package : Kasha");
+
+Format("Package Name: ^MKasha^m");
+// for her cherishing <Yuuki Yuuna ha Yuusha de Aru>
+Format("\nMode: Real16\n");
+
+IncludeWeak("OSD/Kasha/xx-Kasha");

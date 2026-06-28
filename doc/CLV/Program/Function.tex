@@ -27,7 +27,6 @@ The \textbf{storage-class specifier} for a parameter declaration is only \verb|r
 \subsubsection{Calling Convention - Prologue and Epilogue}
 
 \labex{Calling}
-
 \textbf{Header}: auto-inc-by stdinc.
 
 The registers that need to be preserved before calling a function and stored after its returning is \textbf{Function Calling Context}. The saving subject is whether caller or callee.
@@ -68,7 +67,6 @@ The first argument is located closest to the top of the stack, according to whic
 This is for the parameters and locale variables. Whether the arguments are aligned with bytes depends on the compiler. For Visual C++ in Win32, it usually with multi-bytes (a \verb|dword|), while it may be only one for GCC. Try like this if we want to assure:
 
 \lstset{style=GlobalC}
-
 \begin{lstlisting}[language=C]
 	// ASCII C TAB4 CRLF
 	// Docutitle: (Demo) 
@@ -90,7 +88,6 @@ This appeared when the keyword \refer{keyword.inline} appeared. In a hosted envi
 \textbf{EXAMPLE - Avoid side-effect}
 
 \lstset{style=GlobalC}
-
 \begin{lstlisting}[language=C]
 inline MIN(int a, int b){if (a < b)return a; else return b;}
 #define min(x,y)((x)<(y)?(x):(y))

@@ -183,9 +183,12 @@ void ParseAndOutputText(rostr text, MarkProcessor* proc) {
             else if (chh == 'm') { proc->fmt.M = false; proc->fmt_valid = false; }
             else if (chh == 'T') { proc->fmt.T = true; proc->fmt_valid = false; }
             else if (chh == 't') { proc->fmt.T = false; proc->fmt_valid = false; }
-            else if (chh == '^') { 
+            else if (chh == '0') { 
                 proc->fmt.B = proc->fmt.I = proc->fmt.U = proc->fmt.M = proc->fmt.T = false; 
                 proc->fmt_valid = false; 
+            }
+            else if (chh == '^') {
+                EscapeAndOutputText("^", 1, proc);
             }
             
             chunk_start = p - text;

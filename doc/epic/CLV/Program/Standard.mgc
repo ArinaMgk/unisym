@@ -1,0 +1,14 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(4, "Arinae Covenant 2023");
+
+ListBegin("enumerate");
+	ListItem("", "Pointer ^TNULL^t = 0");
+	ListItem("", "Little Endianness");
+	ListItem("", "\"^Tword^t\" has fixed double bytes. And the fixed size rule is true for other basic types like \"^Tdword^t\"(four bytes).");
+	ListItem("", "A string ends at a zero byte by default, like `ASCIZ'.");
+	ListItem("", "byte only for 8 binary digit. (In Classic Mika, BYTE and OCTET always measures 8 binary digits.)");
+	ListItem("", "Use string or flexible chars to express ^Bdate and time^b but the only fixed integer");
+	ListItem("", "^Mif(A)^m means ^Mif(A!=0)^m, and if A is a floating number, this is equivalent to ^Mif(A!=0.0)^m although the hexadecimal of 0.0 may not be 0 in their structure.");
+	ListItem("", "Constant and increasing-ordered, for 0~9, a~z and A~Z in char-sets."); // `RFT08`, Haruno appended.
+ListEnd();

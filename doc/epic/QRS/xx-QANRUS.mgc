@@ -1,0 +1,62 @@
+#UTF-8 MAgicRK(1) . .
+
+Inline("tex", "\\labex{QANRUS}");
+Format("\nNotice: Depot ^Mmcudev^m has been merged with private repository ^Mherlib^m into `me-tutor'.\n");
+
+Title(2, "Processor and Controller Unit");
+Format("^BHeader^b:\n");
+Format("^Mc/proctrl/proctrl.h^m, auto-inc-by stdinc;\n");
+
+Title(3, "Intel 8051 Compatible");
+
+Title(3, "ARM Cortex Based");
+
+Title(4, "ST STM32 Series");
+
+Format("Single Core Controller\n");
+
+ListBegin("itemize");
+	ListItem("", "M3: F1x");
+	ListItem("", "M4: F4x");
+	ListItem("", "A7: MP13x");
+ListEnd();
+
+Title(4, "TI MSP432 Series");
+
+Format("P4\n");
+
+Title(4, "XY CW32 Series");
+
+Format("F030\n");
+
+Title(2, "Protocol and Wire Interface");
+
+Title(3, "IIC");
+Inline("tex", "\\labex{IIC}");
+Format("\n");
+TexSubimport("QRS/Device", "IIC");
+
+Title(3, "SPI");
+Inline("tex", "\\labex{SPI}");
+Format("\n");
+TexSubimport("QRS/Device", "SPI");
+
+Title(3, "One-wire");
+Inline("tex", "\\labex{OneWire}");
+Format("\n");
+
+Title(3, "U(S)ART");
+Inline("tex", "\\labex{XART}");
+Format("\n");
+
+Format("We call the combination of UART and USART `xART'. \n");
+
+Format("Soft\n");
+
+Format("Hard\n");
+
+Format("UART for Hosted:\n");
+Format("The port name may be ^M\\\\.\\COM10^m or ^M/dev/ttyUSB0^m.\n");
+
+Title(2, "Device");
+TexSubimport("QRS", "Device");

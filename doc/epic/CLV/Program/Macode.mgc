@@ -1,0 +1,21 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("The concept of `state machine' is widely accepted, for it describing the effect of the instructions, which can help us to get numeric register-effects and other side-effects.\n");
+
+Format("For example, the rules of conversion from function calling, entering(including allocating stack and others), leaving and evaluation to assembly implementation should be specific.\n");
+
+Format("More to see\n");
+ListBegin("itemize");
+ListItem("", ""); Refer("Calling");
+ListEnd();
+
+Format("Compared with C++, CPL has "
+	"no override, "
+	"no class pre-parameter(^Mthis^m), "
+	"no references(^M&^m), "
+	"no pre-constructure(calling in global area, beyond any procedure block), "); // int l = strlen("a");// this may happen without control
+Format("so it does not own complex reflect.\n");
+
+Title(4, "Control Transfer");
+
+Format("^Mgoto label^m is equivalent to ^Mjmp label;^m.\n");

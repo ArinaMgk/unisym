@@ -1,59 +1,85 @@
-
 The contents are hard-independent. For example, the paging is provided as a interface here and implemented in Chapter 1.
 
 Relative sub-project:
+
 \begin{itemize}
-\item \B{MECOCOA} Mecocoa is a tutorial-original operating system project, following UNISYM.
+
+\item \textbf{MECOCOA} Mecocoa is a tutorial-original operating system project, following UNISYM.
 \end{itemize}
 
-Mind about \It{mixed kernel}: The static \verb|syscall| can be made for Monolithic Kernel, and dynamic \verb|syscomm| can be made for Micro Kernel.
+Mind about \textit{mixed kernel}: The static \verb|syscall| can be made for Monolithic Kernel, and dynamic \verb|syscomm| can be made for Micro Kernel.
 
-\section{Memory Management}
-\B{Header}: memory.h, auto-inc-by stdinc.
-\B{Module}: \verb|mcca/memoman.cpp|
 
-\subsection{Paging}
+
+\chapter{Memory Management}
+
+\textbf{Header}: memory.h, auto-inc-by stdinc.
+
+\textbf{Module}: \verb|mcca/memoman.cpp|
+
+
+
+\section{Paging}
+
 \labex{Paging}
+\textbf{Header}: c/system/paging.h
 
-\B{Header}: c/system/paging.h
 
-\section{Task Management}
-\B{Header}: \verb|c/task.h|
-\B{Module}: \verb|mcca/taskman.cpp|
 
-\subsection{Inter-process Communication}
+\chapter{Task Management}
 
-\section{Interrupt and Exception}
-\B{Module}: \verb|mcca/handler.cpp|
+\textbf{Header}: \verb|c/task.h|
 
-Mecocoa has its own custom context processing mechanism, which is designed to make the most efficient use of the memory space. 
+\textbf{Module}: \verb|mcca/taskman.cpp|
 
-For x86: 
+
+
+\section{Inter-process Communication}
+
+
+
+\chapter{Interrupt and Exception}
+
+\textbf{Module}: \verb|mcca/handler.cpp|
+
+Mecocoa has its own custom context processing mechanism, which is designed to make the most efficient use of the memory space.
+
+For x86:
 
 Using INT and Call-Gate.
 
-Both Rupt and Call automatically switch to STSS.STACK0. All that is needed is to save the context and the page table. 
+Both Rupt and Call automatically switch to STSS.STACK0. All that is needed is to save the context and the page table.
 
-For x64: 
+For x64:
 
 Only for some irrecoverable exceptions is IST used. Otherwise, the stack switching occurs in the following situations.
+
 \begin{itemize}
+
 \item Normally Ring0...
-\item Ring1~3 Interrupt, use RSP0
-\item Ring1~3 Syscall, keep user's stack. We set \verb|IA32_FMASK (0xC0000084)| IF bit, which will mask RFLAGS aka 0x200 when syscalling. We also need setup \verb|IA32_STAR (0xC0000081)|. After switching to highest stack, saving context and switching CR3, we can STI. 
+\item Ring1\textasciitilde{}3 Interrupt, use RSP0
+\item Ring1\textasciitilde{}3 Syscall, keep user's stack. We set \verb|IA32_FMASK (0xC0000084)| IF bit, which will mask RFLAGS aka 0x200 when syscalling. We also need setup \verb|IA32_STAR (0xC0000081)|. After switching to highest stack, saving context and switching CR3, we can STI.
 \end{itemize}
 
 Interrupt: If the CR3 is not that of kernel, switch it.
 
 Each core own its highest stack mapped over 0xFFFFFFFFC0000000。
 
-\section{System Calling}
-\B{Module}: \verb|mcca/syscall.cpp|
 
-\section{File System}
-\B{Module}: \verb|mcca/fileman*.cpp|
 
-\section{IO System}
-\B{Module}: \verb|mcca/console.cpp|
+\chapter{System Calling}
 
+\textbf{Module}: \verb|mcca/syscall.cpp|
+
+
+
+\chapter{File System}
+
+\textbf{Module}: \verb|mcca/fileman*.cpp|
+
+
+
+\chapter{IO System}
+
+\textbf{Module}: \verb|mcca/console.cpp|
 

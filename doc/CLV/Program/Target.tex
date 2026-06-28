@@ -1,7 +1,10 @@
 
+
 \subsubsection{Freestanding Environment}
 
-Relative command options: %{TODO}
+Relative command options: 
+
+
 
 \subsubsection{Hosted Environment}
 
@@ -10,14 +13,36 @@ In Freestanding Environment, user can only use inline assembly, memory and arith
 Usually to see demo `args':
 
 \lstset{style=GlobalC}
-\lstinputlisting[language=C, firstline=24]{../demo/utilities/args.c}
+\begin{lstlisting}[language=C, firstnumber=24]
+#include <stdio.h>
+#include <string.h>
 
-But the ISO/IEC recommend the below forms for `main' function with external symbol \verb`_main`:
+int main(int argc, char *argv[], char* envp[]) {
+	int i;
+	printf("argc = %d;\n", argc);
+	for (i = 0; i < argc; i++) {
+		printf("arg[%d] = @\"%s\";\n", i, argv[i]);
+	}
+	if (argc > 1 && !strcmp("-e", argv[1])) for (i = 0; envp[i] != NULL; i++) {
+		char* p = strchr(envp[i], '=');
+		if (p) {
+			*p = '\0';
+			printf("env[%s] = @\"%s\";\n", envp[i], p + 1);
+		}
+		else printf("envp[%d] = @\"\"\"%s\"\"\";\n", i, envp[i]);
+	}
+	return 0;
+}
+\end{lstlisting}
 
-\verb`int main(int argc, char *argv[]) {/* ... */}` or 
-\verb`int main(void) { }`
+But the ISO/IEC recommend the below forms for `main' function with external symbol \verb|_main|:
 
-\B{EXAMPLE - Empty-return in Startup}
+\verb|int main(int argc, char *argv[]) {/* ... */}| or 
+
+\verb|int main(void) { }|
+
+\textbf{EXAMPLE - Empty-return in Startup}
+
 \begin{lstlisting}[language=C]
 // ARINA RFW4 TEST on GCC Lin32
 void main() { int a=2; }
@@ -26,3 +51,4 @@ void main() { int a=2; }
 \end{lstlisting}
 
 Learn the appliance with the utility `args'.
+

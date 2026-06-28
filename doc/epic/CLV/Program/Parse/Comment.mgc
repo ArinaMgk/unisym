@@ -1,0 +1,44 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(5, "Line After $//$");
+Format("\nomit the rest part of the line\nOften known as \"C++-style\" or \"single-line\" comments.\n(since C99)\n");
+
+ListBegin("itemize");
+	ListItem("", "C, C++");
+ListEnd();
+
+Title(5, "Line After $\\#$");
+ListBegin("itemize");
+	ListItem("", "Shell: Bash, ...");
+	ListItem("", "Perl (Perl has no block-comment)");
+	ListItem("", "Python");
+ListEnd();
+
+Title(5, "Line After $\\;$");
+ListBegin("itemize");
+	ListItem("", "A/N/YASM MASM");
+ListEnd();
+
+Title(5, "Line Head Direction");
+ListBegin("itemize");
+	ListItem("", "^BREM^b Windows CMD;");
+	ListItem("", "^BTITLE^b MASM (^BEND^b has it but also side-effect);");
+ListEnd();
+
+Title(5, "Special Block Rule");
+Format("\n^BFor MASM^b\n\n");
+
+Format("^I^BCOMMENT^b + some-symbol + ... + some-symbol^i.\n");
+Code("{[x86masm]Assembler}", "\tcomment @ there-are-comments\n\tthere-are-comments\n\tthere-are-comments @ there-are-comments\n");
+
+Title(5, "Block Between $/*$ and $*/$");
+Format("\nomit the part before the next end-flag `*/`\nOften known as \"C-style\" or \"multi-line\" comments.\n");
+ListBegin("itemize");
+	ListItem("", "C, C++");
+ListEnd();
+
+// [Reference]
+// C17     (ISO/IEC 9899:2018): 6.4.9 Comments (p: 54)
+// C11     (ISO/IEC 9899:2011): 6.4.9 Comments (p: 75)
+// C99     (ISO/IEC 9899:1999): 6.4.9 Comments (p: 66)
+// C89/C90 (ISO/IEC 9899:1990): 3.1.9 Comments

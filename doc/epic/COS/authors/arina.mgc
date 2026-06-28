@@ -1,0 +1,35 @@
+#UTF-8 MAgicRK(1) . .
+
+Inline("tex", "\\includegraphics{../../../.picture/phina.head.bmp}\n");
+Inline("html", "<img src=\"../../../.picture/phina.head.bmp\" />\n");
+Inline("md", "![](../../../.picture/phina.head.bmp)\n");
+
+Format("\n^MSacrificed in January, 2024, just after Anni-ten, and had been liberated from Physically and Mentally Sick (with dissociative personality disorder). ^m\n\n");
+
+ListBegin("itemize");
+	ListItem("", "^BBoudoir^b: Her-garden, ^Tphina.ren/net^t");
+	ListItem("", "^BGithub^b: ^MArinaMgk^m (had been taken over)");
+	ListItem("", "^BE-Mail^b: ^Marinachan@foxmail.com^m");
+	ListItem("", "^BNickname^b: ^BAri^bstocrat Phi^Bna^b");
+ListEnd();
+
+Format("\n^BA^bll in the Golden Afternoon");
+Inline("tex", "\\cite{AliceWonderland}");
+Format(", she started the concordant legend — SGA and USL;\n\n");
+
+Format("^BR^babbit-lover and compatible lass;\n\n");
+
+Format("^BI^bSFJ (MBTI);\n\n");
+
+Format("^BN^batural Science;\n\n");
+
+Format("^BA^bn idealist who lives in a fairy tale.\n\n");
+
+Format("^BView^b\n");
+ListBegin("itemize");
+	ListItem("", "Only under the definition of concepts can we judge things completely logical true and false;");
+	ListItem("", "Instances are more vivid than their abstracts, and abstracts ultimately come from instances;");
+	ListItem("", "It tends to be unified and symmetrical on the whole;");
+	ListItem("", "Among competing theories, the simpler explanation of an entity is to be preferred;");
+	ListItem("", "What you feel is directly dependent on your sensory organs and signal processing systems.");
+ListEnd();

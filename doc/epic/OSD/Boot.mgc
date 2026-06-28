@@ -1,0 +1,28 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(3, "Bootstrap and Reboot Method");
+
+// {TODO}
+
+Title(3, "Bootstrap Demonstration");
+Inline("tex", "\\labex{Bootstrap Demonstration}");
+
+Title(4, "Boot x86");
+
+Format("^MKER.APP^m for REAL16 Successor / Kernel.\n");
+
+Format("^MKEX.APP^m for FLAP32 Successor / Kernel.\n");
+
+Format("This will load the ELF32 executable file in a FAT12 formatted memory medium.\n");
+
+Title(5, "Outdated Bootstrap");
+ListBegin("itemize");
+	ListItem("", "ibm-bootarn ^BMedia^b: ^MDynamic^m Floppy; Hdisk;");
+	Format("Bootstrap from a disk and you can input the parameters instantly, from ^IArinae Codes^i.\n");
+	ListItem("", "ibm-boothk ^BMedia^b: Hdisk;");
+	Format("Boot Wait-key. From early ^IMecocoa^i.\n");
+ListEnd();
+
+ListBegin("itemize");
+	ListItem("", "Paging and Segment in flat style;");
+ListEnd();

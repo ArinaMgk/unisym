@@ -1,0 +1,34 @@
+#UTF-8 MAgicRK(1) . .
+//`RFG27`のAlice Dosconio: Make Mika a General-Purpose-Programming-or-Marking-Language.
+//`RFB14`のAlice Dosconio: Mika is from `Micro Core` or `Mecocoa Integrated Compilation Assembly`. Henceforth, Mika is the compilers collection of the Mana. `Ma` is from `Make`, na is from `Arina/Phina` and `Haruno(Haruna)`. The name may be “Mano” in the future.
+//`RFC29`のAlice Dosconio: Make Mika into a ML.
+//`RFX03`のAlice Dosconio: `Mediation and General-purpose Language Compolation` (Mgl), .ML is the pre-processed documentof .Mgl.
+//`RFX23`のAlice Dosconio: Rename into `Magicoll`(Universal Logical Linear Language) from `Mika` and bought the domain `magicoll.org`. 
+//`20240202`のAlice Dosconio: Bought the domain `magice.org`.
+
+Inline("tex", "\\labex{Magice}\n");
+
+Title(3, "Introduction");
+Format("^Balias^b: ^TUniversal Logical Linear Language^t;\n");
+Format("^Bdomain^b: ");
+Inline("tex", "\\href{http://magice.org}{magice.org};\n");
+Format("^Bassembly source extension^b: `.a';\n");
+Format("^BMagice source extension^b: `.m', `.mg', `.src'; (some format conflict with this: MATLAB, Objective-C)\n");
+Format("^Bheader extension^b: `.h', `.mgh';\n");
+Format("^Bused-name^b magicoll, mika(now a middle language).\n");
+
+Title(3, "Component");
+Format("^Bcompiler^b: `mgc', `magic';\n");
+Format("Special:\n");
+Format("1. The name of registers and instructions can be identifiers if defined ^M_KWRD_ASM^m or in block `unsafe'.\n");
+
+Title(3, "Optimizer");
+Format("Magice have 3 built-in optimizing modes:\n");
+ListBegin("itemize");
+	ListItem("", "^Mmgc -O^m + level: for running efficiency;");
+	ListItem("", "^Mmgc -Om^m + level: for memory occupation;");
+	ListItem("", "^Mmgc -Oo^m + level: for binary output occupation.");
+ListEnd();
+
+Title(3, "for non-binary system architectures");
+//{}...

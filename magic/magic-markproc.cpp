@@ -149,6 +149,19 @@ int ProcessorHTML::out(const char* str, stduint len) {
 	fmt_valid = true;
 	return len;
 }
+
+static char PickVerbDelimiter(const char* str, stduint start, stduint end) {
+	const char* delims = "|!+=#\"'@~-*$`?";
+	for (int d = 0; delims[d]; d++) {
+		bool found = false;
+		for (stduint j = start; j < end; j++) {
+			if (str[j] == delims[d]) { found = true; break; }
+		}
+		if (!found) return delims[d];
+	}
+	return '|';
+}
+
 int ProcessorTex::out(const char* str, stduint len) {
 	if (CodeEngineActive() || MathEngineActive()) return pout->out(str, len);
 	if (!fmt.B && !fmt.I && !fmt.U && !fmt.M && !fmt.T) {
@@ -166,11 +179,15 @@ int ProcessorTex::out(const char* str, stduint len) {
 				if (fmt.U) pout->OutFormat("\\underline{");
 				if (fmt.B) pout->OutFormat("\\textbf{");
 				if (fmt.I) pout->OutFormat("\\textit{");
-				if (fmt.M) pout->OutFormat("\\verb|");
+				char vdelim1 = '|';
+				if (fmt.M) {
+					vdelim1 = PickVerbDelimiter(str, start, i);
+					pout->OutFormat("\\verb%c", vdelim1);
+				}
 				if (fmt.T) pout->OutFormat("\\texttt{");
 				pout->out(str + start, i - start);
 				if (fmt.T) pout->OutFormat("}");
-				if (fmt.M) pout->OutFormat("|");
+				if (fmt.M) pout->OutChar(vdelim1);
 				if (fmt.I) pout->OutFormat("}");
 				if (fmt.B) pout->OutFormat("}");
 				if (fmt.U) pout->OutFormat("}");
@@ -183,11 +200,15 @@ int ProcessorTex::out(const char* str, stduint len) {
 		if (fmt.U) pout->OutFormat("\\underline{");
 		if (fmt.B) pout->OutFormat("\\textbf{");
 		if (fmt.I) pout->OutFormat("\\textit{");
-		if (fmt.M) pout->OutFormat("\\verb|");
+		char vdelim2 = '|';
+		if (fmt.M) {
+			vdelim2 = PickVerbDelimiter(str, start, len);
+			pout->OutFormat("\\verb%c", vdelim2);
+		}
 		if (fmt.T) pout->OutFormat("\\texttt{");
 		pout->out(str + start, len - start);
 		if (fmt.T) pout->OutFormat("}");
-		if (fmt.M) pout->OutFormat("|");
+		if (fmt.M) pout->OutChar(vdelim2);
 		if (fmt.I) pout->OutFormat("}");
 		if (fmt.B) pout->OutFormat("}");
 		if (fmt.U) pout->OutFormat("}");

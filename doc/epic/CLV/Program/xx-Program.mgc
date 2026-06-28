@@ -1,0 +1,45 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(3, "Bridge between Machine-code and Advanced-language");
+TexSubimport("CLV/Program", "Macode");
+
+Title(3, "Syntax, Semantics and Statement"); // Grammar
+TexSubimport("CLV/Program", "Statement");
+
+Title(3, "Scope and Linkage");
+
+Title(3, "Identifier and Token Parsing");
+TexSubimport("CLV/Program", "Identifier");
+
+Title(3, "Keyword and Operator Parsing");
+TexSubimport("CLV/Program", "Keyword");
+IncludeWeak("CLV/Program/Operator.tex");
+
+Title(3, "Preprocessing and Parsing");
+TexSubimport("CLV/Program", "Parsing");
+
+Title(3, "Procedure, Function and Method");
+Inline("tex", "\\labex{Function}\n");
+TexSubimport("CLV/Program", "Function");
+
+Title(3, "Standard, Style and Arinae Covenant");
+TexSubimport("CLV/Program", "Standard");
+
+Title(3, "Target and Output Format");
+IncludeWeak("CLV/Program/Target");
+
+Title(3, "Assertion and Exception");
+IncludeWeak("CLV/Except/Assertion");
+
+Title(3, "Parallel-Thread and Multi-process");
+
+Title(4, "Spin-lock");
+
+Title(3, "Binary Machine Operation");
+Format("^BHeader^b: ^Mc/binary.h^m\n");
+
+Title(5, "CPUID Operation");
+Format(" \n");
+Format("^BHeader^b: ^Mc/cpuid.h^m\n");
+
+Title(3, "Special Notion and Adaptation");

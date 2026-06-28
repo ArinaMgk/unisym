@@ -1,0 +1,68 @@
+#UTF-8 MAgicRK(1) . .
+
+// {TODO} Magice's
+
+Title(4, "Equivalent Expression for C, C++");
+
+ListBegin("itemize");
+	ListItem("", "^Madr[idx]^m ↔ ^M*(adr+idx)^m");
+	ListItem("", "^M(&bloc)->memb^m ↔ ^Mbloc.memb^m");
+	ListItem("", "^M!E^m ↔ ^M0==E^m");
+	ListItem("", "^M!!E^m ↔ ^M0!=E^m");
+	ListItem("", "^M++E^m ↔ ^ME+=1^m");
+	ListBegin("itemize");
+		ListItem("", "^Imay take^i ^MADD^m ^Ior^i ^MINC^m ^Ias assembly difference. — ARN^i");
+		ListItem("", "^M--E^m is analogous to this.");
+	ListEnd();
+	ListItem("", "^M*&a^m ↔ ^Ma^m");
+	ListBegin("itemize");
+		ListItem("", "^Imay not well for array label identifiers, for it^i ^Ma == &a^m.");
+	ListEnd();
+	ListItem("", "^Mdo{exps;}while(cons);^m ↔ ^M_do exps; if(cons)goto _do;^m");
+	ListItem("", "^Mfor(dec_or_calls_div_by_commas; cond; exps0) exps;^m ↔ ^Mdec_or_calls_div_by_commas; while(cond){exps;exps0;}^m");
+	ListItem("", "^Mwhile(condition) {functions(arguments);}^m ↔ ^Ma:if(condition)goto b; /***/ goto a;b:;^m ↔ ^Mwhile:condition; JZ endowhile; ...; JMP while; endowhile:;^m");
+	ListItem("", "Single definition check ^M#ifdef xxx^m ≃ ^M#if defined(xxx)^m");
+	ListBegin("itemize");
+		ListItem("", "Similarly, ^M#ifndef xxx^m ≃ ^M#if !defined(xxx)^m");
+	ListEnd();
+	ListItem("", "Global object definition ^Mchar LABEL [SIZE_BYTE]^m ↔ ^M#ASM RESB SIZE_BYTE^m");
+	ListItem("", "Boolean Operator ^Mif(!x)^m ↔ ^Mif(x==0)^m");
+	ListBegin("itemize");
+		ListItem("", "This is also true for floating numbers and pointers. (test yo RFW14, MSVC2022)");
+	ListEnd();
+	ListItem("", "^Mif(Cond) Stat;^m ≃ ^MCond && Stat;^m ↔ ^M !Cond || Stat; ^m");
+ListEnd();
+
+Title(4, "Definition and Declaration");
+Format("(C99, ...)\n");
+TexSubimport(".", "Dex");
+
+Title(4, "Multi-passing");
+Format("C and C++ has not implemented this for simple reflection to assembly.\n");
+
+Title(4, "Judgment Selection `If'");
+TexSubimport("Statement", "If");
+
+Title(4, "Reflection Selection `Switch'");
+TexSubimport("Statement", "Switch");
+
+Title(4, "Conditional Loop `While'");
+TexSubimport("Statement", "While");
+
+Title(4, "Normal Loop `Do - While'");
+Format("^BEXAMPLE for ^IMASM^i^b - Print 10 numbers\n");
+Inline("tex", "\\begin{lstlisting}[language={[x86masm]Assembler}]\n\t\tmov eax,0\n\t\t.REPEAT\n\t\t\tinc eax\n\t\t\tcall WriteDec\n\t\t\tcall Crlf\n\t\t.UNTIL eax == 10\n\t\\end{lstlisting}\n");
+
+Format("^Bfor ^IC,C++,C#^i^b\n");
+Format("...\n");
+
+Title(4, "Tri-loop `For'");
+TexSubimport("Statement", "Triloop");
+
+Title(4, "Counting Repeat and `foreach'");
+Format("The macro ^Tfor0^t, ^Tfor1^t, ^Tfor0a^t and more, are defined in ^Malice.h^m (used by ^Mstdinc.h^m) for C and C++.\n");
+Format("while they are keywords in Magice.\n");
+Format("For ^MC#^m, ^Mforeach(i_type i in IEnumerable_Objects) ...^m, where ^Mi_type^m usually is ^Mvar^m.\n");
+
+// MASM
+// ; repeat const;…;ENDM; （用于宏的マ）

@@ -139,6 +139,7 @@ int mark(int argc, char** argv) {
 	parser.method_string_double_quote = true;
 	parser.method_string_escape_sequence = true;
 	parser.Parse(dc);
+	LinearParser::StringConcatenation(dc);
 
 	// divide into statements by ';'
 	NestedParseUnit npu(dc, 0);

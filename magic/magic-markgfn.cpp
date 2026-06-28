@@ -136,7 +136,7 @@ void GF_Out(uni::Dchain* chain, MarkProcessor* proc)
 }
 
 void EscapeAndOutputText(const char* str, stduint len, MarkProcessor* proc) {
-	if (proc->fmt.M || proc->fmt.T) {
+	if (proc->fmt.M) {
 		proc->out(str, len);
 		return;
 	}
@@ -150,6 +150,33 @@ void EscapeAndOutputText(const char* str, stduint len, MarkProcessor* proc) {
 	
 	if (proc->txtfmt == MarkProcessor::TextFormat::Tex) {
 		for (stduint i = 0; i < len; i++) {
+			if (i + 2 < len && (unsigned char)str[i] == 0xE2) {
+				if ((unsigned char)str[i+1] == 0x89) {
+					if ((unsigned char)str[i+2] == 0xA4) {
+						const char* s = "$\\le$"; while (*s) buf[out_len++] = *s++; // ≤
+						i += 2; continue;
+					} else if ((unsigned char)str[i+2] == 0xA5) {
+						const char* s = "$\\ge$"; while (*s) buf[out_len++] = *s++; // ≥
+						i += 2; continue;
+					} else if ((unsigned char)str[i+2] == 0xA0) {
+						const char* s = "$\\neq$"; while (*s) buf[out_len++] = *s++; // ≠
+						i += 2; continue;
+					} else if ((unsigned char)str[i+2] == 0x83) {
+						const char* s = "$\\simeq$"; while (*s) buf[out_len++] = *s++; // ≃
+						i += 2; continue;
+					}
+				} else if ((unsigned char)str[i+1] == 0x86) {
+					if ((unsigned char)str[i+2] == 0x94) {
+						const char* s = "$\\leftrightarrow$"; while (*s) buf[out_len++] = *s++; // ↔
+						i += 2; continue;
+					}
+				} else if ((unsigned char)str[i+1] == 0x80) {
+					if ((unsigned char)str[i+2] == 0x94) {
+						const char* s = "\\textemdash{}"; while (*s) buf[out_len++] = *s++; // —
+						i += 2; continue;
+					}
+				}
+			}
 			char ch = str[i];
 			switch (ch) {
 			case '$': case '%': case '&': case '#': case '_': case '{': case '}':
@@ -219,7 +246,10 @@ void GF_Format(uni::Dchain* chain, MarkProcessor* proc)
 			if (p - 1 > chunk_start) EscapeAndOutputText(chunk_start, (p - 1) - chunk_start, proc);
 			char chh = *p++;
 			switch (chh) {
-			case '^':// B I U
+			case '^':
+				EscapeAndOutputText("^", 1, proc);
+				break;
+			case '0':// B I U
 				if (proc->fmt.B) { proc->fmt.B = false; proc->fmt_valid = false; }
 				if (proc->fmt.I) { proc->fmt.I = false; proc->fmt_valid = false; }
 				if (proc->fmt.U) { proc->fmt.U = false; proc->fmt_valid = false; }
@@ -491,7 +521,7 @@ void GF_Inline(uni::Dchain* chain, MarkProcessor* proc)
 			else if (proc->txtfmt == MarkProcessor::TextFormat::STDOUT && !StrCompare(target, "stdout")) match = true;
 
 			if (match) {
-				proc->OutFormat("%s\n", txt);
+				proc->refOstream()->OutFormat("%s\n", txt);
 			}
 		}
 	} else {

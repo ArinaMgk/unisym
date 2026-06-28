@@ -1,0 +1,15 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(4, "Assertion");
+Format("^BHeader^b: ^Mc/uassert.h^m\n");
+Format("^Bassert^b(basic): If basic is zero or null, the program will exit with abnormal feedback.\n");
+
+Title(4, "Interrupt");
+Format("^BHeader^b: ^Mcpp/interrupt^m\n");
+
+Title(5, "GIC and NVIC");
+Format("Generic and Nested Vector Interrupt Controller\n");
+
+Title(5, "EXTI - External Interrupt");
+
+Title(4, "Exception");

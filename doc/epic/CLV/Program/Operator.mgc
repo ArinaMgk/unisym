@@ -1,0 +1,120 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("for Std-C99, Single(Suffix then Prefix) "); Math(">"); Format(" ^BDouble^b "); Math(">"); Format(" Triple "); Math(">"); Format(" Assignment "); Math(">"); Format(" Half-Statement(Comma) .\n");
+
+Inline("tex", "\\begin{center}");
+TableBegin("c|l|l");
+Inline("tex", "\\hline\n"
+	"\\textbf{Precedence/} & \\textbf{Operator} & \\textbf{Description} \\\\\n"
+	"\\textbf{Associativity} & \\textbf{} & \\textbf{} \\\\\n"
+	"\\hline\n"
+	"\\endfirsthead\n"
+	"\\hline\n"
+	"\\textbf{P/A} & \\textbf{Operator} & \\textbf{Description} \\\\\n"
+	"\\hline\n"
+	"\\endhead\n"
+	"\\hline\n"
+	"\\endfoot\n"
+	"\\hline\n"
+	"\\endlastfoot\n");
+
+Row(); Rcell(""); Math("\\mathop{1}\\limits ^{\\rightarrow}");
+Rcell("^M++^m, ^M--^m"); Rcell("Suffix/postfix increment and decrement");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M()^m"); Rcell("Function call");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M[]^m"); Rcell("Array subscripting");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M.^m"); Rcell("Structure and union member access");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M->^m"); Rcell("Structure and union member access through pointer");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M(type0){...}^m"); Rcell("Compound literal (C99)");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{2}\\limits ^{\\leftarrow}");
+Rcell("^M++^m, ^M--^m"); Rcell("Prefix increment and decrement");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M+^m, ^M-^m"); Rcell("Unary plus and minus");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M!^m, ^M~^m"); Rcell("Logical NOT and bitwise NOT");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M(type0)^m"); Rcell("Cast conversion");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M*^m"); Rcell("Indirection (dereference)");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M&^m"); Rcell("Address-of l-value united in byte");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^Msizeof^m"); Rcell("Size-of united in byte");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M_Alignof^m"); Rcell("Alignment requirement (C11)");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{3}\\limits ^{\\rightarrow}");
+Rcell("^M*^m, ^M/^m, ^M%^m"); Rcell("Multiplication, division, and remainder");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{4}\\limits ^{\\rightarrow}");
+Rcell("^M+^m, ^M-^m"); Rcell("Addition and subtraction");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{5}\\limits ^{\\rightarrow}");
+Rcell("^M<<^m, ^M>>^m"); Rcell("Bitwise left shift and right shift");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{6}\\limits ^{\\rightarrow}");
+Rcell("^M<^m, ^M<=^m"); Rcell("For relational operators < and ≤ respectively");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M>^m, ^M>=^m"); Rcell("For relational operators > and ≥ respectively");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{7}\\limits ^{\\rightarrow}");
+Rcell("^M==^m, ^M!=^m"); Rcell("For relational = and ≠ respectively");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{8}\\limits ^{\\rightarrow}");
+Rcell("^M&^m"); Rcell("Bitwise AND");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{9}\\limits ^{\\rightarrow}");
+Rcell("^M^^^m"); Rcell("Bitwise XOR (exclusive or)");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{10}\\limits ^{\\rightarrow}");
+Rcell("^M|^m"); Rcell("Bitwise OR (inclusive or)");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{11}\\limits ^{\\rightarrow}");
+Rcell("^M&&^m"); Rcell("Logical AND");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{12}\\limits ^{\\rightarrow}");
+Rcell("^M||^m"); Rcell("Logical OR");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{13}\\limits ^{\\leftarrow}");
+Rcell("^M?:^m"); Rcell("Ternary conditional");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{14}\\limits ^{\\leftarrow}");
+Rcell("^M=^m"); Rcell("Simple Assignment (Below are Compound)");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M+=^m, ^M-=^m"); Rcell("Assignment by sum and difference");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M*=^m, ^M/=^m, ^M%=^m"); Rcell("Assignment by product, quotient, and remainder");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M<<=^m, ^M>>=^m"); Rcell("Assignment by bitwise left shift and right shift");
+LineH("2", "3");
+Row(); RcellSkip("1"); Rcell("^M&=^m, ^M^^=^m, ^M|=^m"); Rcell("Assignment by bitwise AND, XOR, and OR");
+LineH();
+
+Row(); Rcell(""); Math("\\mathop{15}\\limits ^{\\rightarrow}");
+Rcell("^M,^m"); Rcell("Comma");
+
+TableEnd();
+Inline("tex", "\\end{center}");
+
+Format("Address-of is called by reference in some books. This does not for bit-field and register objects.\n");
+
+// {TODO} ^M&^m returns a l- or r- value address.
+// {TODO} used with ‘*’ ‘[]’ is like ‘LEA’ instruction.

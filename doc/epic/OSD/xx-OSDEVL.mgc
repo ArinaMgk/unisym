@@ -1,0 +1,55 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("The contents are hard-independent. For example, the paging is provided as a interface here and implemented in Chapter 1.\n");
+
+Format("Relative sub-project:\n");
+ListBegin("itemize");
+	ListItem("", "^BMECOCOA^b Mecocoa is a tutorial-original operating system project, following UNISYM.");
+ListEnd();
+
+Format("Mind about ^Imixed kernel^i: The static ^Msyscall^m can be made for Monolithic Kernel, and dynamic ^Msyscomm^m can be made for Micro Kernel.\n");
+
+Title(1, "Memory Management");
+Format("^BHeader^b: memory.h, auto-inc-by stdinc.\n");
+Format("^BModule^b: ^Mmcca/memoman.cpp^m\n");
+
+Title(2, "Paging");
+Inline("tex", "\\labex{Paging}");
+
+Format("^BHeader^b: c/system/paging.h\n");
+
+Title(1, "Task Management");
+Format("^BHeader^b: ^Mc/task.h^m\n");
+Format("^BModule^b: ^Mmcca/taskman.cpp^m\n");
+
+Title(2, "Inter-process Communication");
+
+Title(1, "Interrupt and Exception");
+Format("^BModule^b: ^Mmcca/handler.cpp^m\n");
+
+Format("Mecocoa has its own custom context processing mechanism, which is designed to make the most efficient use of the memory space.\n");
+
+Format("For x86:\n");
+Format("Using INT and Call-Gate.\n");
+Format("Both Rupt and Call automatically switch to STSS.STACK0. All that is needed is to save the context and the page table.\n");
+
+Format("For x64:\n");
+Format("Only for some irrecoverable exceptions is IST used. Otherwise, the stack switching occurs in the following situations.\n");
+
+ListBegin("itemize");
+	ListItem("", "Normally Ring0...");
+	ListItem("", "Ring1~3 Interrupt, use RSP0");
+	ListItem("", "Ring1~3 Syscall, keep user's stack. We set ^MIA32_FMASK (0xC0000084)^m IF bit, which will mask RFLAGS aka 0x200 when syscalling. We also need setup ^MIA32_STAR (0xC0000081)^m. After switching to highest stack, saving context and switching CR3, we can STI.");
+ListEnd();
+
+Format("Interrupt: If the CR3 is not that of kernel, switch it.\n");
+Format("Each core own its highest stack mapped over 0xFFFFFFFFC0000000。\n");
+
+Title(1, "System Calling");
+Format("^BModule^b: ^Mmcca/syscall.cpp^m\n");
+
+Title(1, "File System");
+Format("^BModule^b: ^Mmcca/fileman*.cpp^m\n");
+
+Title(1, "IO System");
+Format("^BModule^b: ^Mmcca/console.cpp^m\n");

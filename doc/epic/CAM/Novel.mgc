@@ -1,0 +1,5 @@
+#UTF-8 MAgicRK(1) . .
+
+Inline("tex", "\n\\subsection{Alice's Advance in Wonderland\\cite{AliceWonderland}}\n");
+Format("Joke: ^IOften considered as `the Bible of Programmers'.^i");
+Inline("tex", "\n\n\\ifdetail{\n\t%\\subimport{../../../hersym/doc/CAM/Novel}{AliceWonderland} \n} \\fi\n");

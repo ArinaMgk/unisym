@@ -1,0 +1,36 @@
+#UTF-8 MAgicRK(1) . .
+
+ListBegin("itemize");
+	ListItem("", "^M()^m parenthesis");
+	ListLiumBegin();
+		ListBegin("itemize");
+			ListItem("", "^M(^m parens: Parenthesis Starter (Alicee)");
+			ListItem("", "^M)^m parend: Parenthesis Ender (Alicee)");
+		ListEnd();
+	ListLiumEnd();
+	ListItem("", "^M#^m pound sign = hash sign = number sign");
+	ListItem("", "^M<>^m angle bracket");
+	ListItem("", "^M{}^m curly brace");
+	ListItem("", "^M*^m asterisk");
+	ListItem("", "^M/^m slash");
+	ListItem("", "^M\\\\^m backslash");
+	ListItem("", "^M_^m underscore");
+	ListItem("", "^M'^m minus single-quote");
+	ListItem("", "^M\"^m double-quote");
+	ListItem("", "^M|^m vertical bar");
+	ListItem("", "^M+^m plus sign");
+	ListItem("", "^M-^m minus sign");
+	ListItem("", "^M=^m equal sign");
+	ListItem("", "^M%^m percent sign");
+	ListItem("", "^M&^m ampersand");
+	ListItem("", "^M^^^m caret");
+	ListItem("", "^M$^m dollar sign");
+	ListItem("", "^M@^m at sign");
+	ListItem("", "^M!^m exclamation mark");
+	ListItem("", "^M?^m question mark");
+	ListItem("", "^M~^m tilde");
+	ListItem("", "^M.^m dot");
+	ListItem("", "^M,^m comma");
+	ListItem("", "^M:^m colon");
+	ListItem("", "^M;^m semicolon");
+ListEnd();

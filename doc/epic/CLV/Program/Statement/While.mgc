@@ -1,0 +1,19 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("^Bfor ^IA.N.Y.^i^b\n\n");
+// {TODO}
+
+Format("\n^Bfor ^IC,C++,C#^i^b\n\n...\n\n");
+
+Format("^BVerilog^b is same as C/C++, except the parent`\\(' and parend`\\)' are by `begin' and `end'.\n");
+
+Format("\n^Bfor ^IMASM^i^b\n");
+// Is there WHILE when_const_true;…;ENDM For Macro
+Inline("tex", "\\lstset{style=GlobalASMx86}\n");
+Code("{[x86masm]Assembler}", "\n.WHILE condition\n\t;commands\n.ENDW\n");
+
+Format("\n^Bfor ^IMATLAB^i^b\n");
+Code("MATLAB", "while expression0 % need not parens\n\t% ...\nend\n");
+
+Format("\n^BEXAMPLE for ^IPython^i^b\n");
+Code("Python", "\tnumbers = [0, 6, 1, 8, 2, 8]\n\teven = []\n\todd = []\n\twhile len(numbers) > 0 :\n\t\tnumber = numbers.pop()\n\t\tif(number % 2 == 0):\n\t\t\teven.append(number)\n\t\telse:\n\t\t\todd.append(number)\n");

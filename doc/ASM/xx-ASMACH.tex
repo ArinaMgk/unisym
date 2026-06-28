@@ -1,47 +1,56 @@
 \labex{ASM}
 
+
+
 \section{Directive}
+
+
 
 \subsection{Base Compatible Platform}
 
-Usually, this is set by the category of the respective processor.
-There are examples for Intel$^{\textregistered}$80386.
+Usually, this is set by the category of the respective processor. There are examples for Intel$^{\textregistered}$
+80386.
 
-\B{for NASM}
+\textbf{for NASM}
 
-\T{CPU 386} or \T{[CPU 386]}
+\texttt{CPU 386} or \texttt{[CPU 386]}
 
-\B{for MASM}
+\textbf{for MASM}
 
-\T{.386}
+\texttt{.386}
+
 
 
 \subsection{Calling and Memory Method}
 
-\B{for MASM}
+\textbf{for MASM}
 
-\verb`.model flat, stdcall` 
+\verb|.model flat, stdcall|
 
 flat: a 4GB segment is shared for code and data.
 
+
+
 \section{Instruction}
-\B{Header}: \verb`c/instruction.h`
 
+\textbf{Header}: \verb|c/instruction.h|
 
-Instruction is also known as {Machine Instruction}.
+Instruction is also known as Machine Instruction.
 
 \subimport{ASM/Instruction}{Instruction-i8086}
+
+
 
 \section{Difference}
 
 \begin{itemize}
+
 \item Netwide ASM (version 2.07)
 \item Microsoft Macro ASM (6.15)
 \item GNU-AS
 \end{itemize}
 
-AASM / NASM specifies that all labels are addresses but accessing, which is different from that of C, whose array labels indicate objects but addresses.
-For some assemblers, there are for a same value:
+AASM / NASM specifies that all labels are addresses but accessing, which is different from that of C, whose array labels indicate objects but addresses. For some assemblers, there are for a same value:
 
 \verb|[A+B+1]|; \verb|[A+OFFSET(B)+1]|; \verb|1[A][B]|.
 
@@ -49,20 +58,30 @@ And there are for another value:
 
 \verb|A|; \verb|[A]|; \verb|[OFFSET A]|.
 
-\refer{Magice} uses AASM, which is a middle language, supporting automatically inline cross-platform AASM. If native assembly statements are used, the program will be degraded and deprived cross-platform property.
+\refer{Magice}
+ uses AASM, which is a middle language, supporting automatically inline cross-platform AASM. If native assembly statements are used, the program will be degraded and deprived cross-platform property.
+
+
 
 \section{Bootstrap}
 
 \input{OSD/Boot}
 
+
+
 \section{Platforms}
+
+
 
 \subsection{Intel x86 and AMD64}
 
+
+
 \subsubsection{8086-BIOS Interrupt Macro Package : Kasha}
 
-Package Name: \verb|Kasha| % for her cherishing <Yuuki Yuuna ha Yuusha de Aru>
+Package Name: \verb|Kasha|
 
 Mode: Real16
 
 \input{OSD/Kasha/xx-Kasha}
+

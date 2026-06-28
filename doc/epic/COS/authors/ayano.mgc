@@ -1,0 +1,5 @@
+#UTF-8 MAgicRK(1) . .
+
+Inline("tex", "\\includegraphics{../../../.picture/haruno.head.jpg}\n");
+// Inline("html", "<img src=\"../../../.picture/haruno.head.jpg\" />\n");
+// Inline("md", "![](../../../.picture/haruno.head.jpg)\n");

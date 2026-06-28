@@ -1,0 +1,42 @@
+#UTF-8 MAgicRK(1) . .
+
+Inline("tex", "\\labex{CLOVER}\n");
+
+Title(2, "Programming Language");
+Format("^IHer. suggestion: `Begin with assembly (like^i ^Mi-8086^m ^INASM) firstly, then come here. It is notable that advanced languages began from mapping with assembly.'^i\n");
+Format("^BOpposite Points of C and C++^b\n");
+ListBegin("itemize");
+	ListItem("", "The length of ^Mint^m, ^Mlong^m varies with the architecture\n\t\tand is independent of ^Mstduint^m.");
+ListEnd();
+
+IncludeWeak("CLV/Program/xx-Program");
+
+Title(2, "Data Structure");
+Format("The data may from evaluation of Objects, Functions or Expressions.\n");
+
+Title(3, "Integer Type");
+TexSubimport("CLV/Data", "Type");
+
+Title(3, "Floating");
+TexSubimport("CLV/Data", "Floating");
+
+// Title(3, "Derived Type");
+TexSubimport("CLV/Data", "Typex");
+
+Title(3, "Advanced Class");
+TexSubimport("CLV/Data", "Class-Advanced");
+
+Title(3, "Alignment");
+Format("For RISC-V processors, the addresses of data in memory should be aligned when ^Tload^t/^Tstore^t instructions act. An exception will arise if it does not match the alignment.\nx86 series have no the limit, but the times of accessing needed will be increasing if no alignment.\n");
+
+Title(3, "Trait");
+TexSubimport("CLV/Data", "Trait");
+
+Title(3, "Node-Chain");
+IncludeWeak("CLV/Data/Nodes");
+
+Title(3, "Byte-Block");
+IncludeWeak("CLV/Data/Byte-Block");
+
+Title(2, "Magice Compiler");
+IncludeWeak("CLV/Magice/xx-Magice");

@@ -1,0 +1,13 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(2, "Convention in Epic");
+
+Format("`since' included the point and `until' excluded by default. They can also be `X+' and `-X'.\n");
+
+Title(2, "Vocabulary");
+
+Title(3, "Punctuation Mark");
+TexSubimport("SKR/Vocabulary", "Symbol");
+
+Title(3, "Glossary");
+TexSubimport("SKR/Vocabulary", "Glossary");

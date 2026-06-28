@@ -1,0 +1,10 @@
+#UTF-8 MAgicRK(1) . .
+
+Inline("tex", "%${TODO}\n%\\textbf{Header} inc/c/charset/multichar/UTF-8.h\n");
+
+Format("^BCscUTF^b Convert UTFx to another UTF format.\n");
+
+Format("^Mstduint CscUTF(byte from, byte to, const pureptr_t src, stduint slen, ^m\n");
+Format("^Mpureptr_t* des);^m\n");
+
+Format("If something fail, this will return `NONE', or return the counts of effective bytes of the string in the Unicode format.\n");

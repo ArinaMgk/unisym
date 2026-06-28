@@ -1,0 +1,17 @@
+#UTF-8 MAgicRK(1) . .
+
+// {TODO} {Mgc} 任何语言 ---> 通用 Mika 中间语言 ---> 目标文件
+
+Title(4, "Parsing Stage");
+
+Title(4, "Comment");
+TexSubimport("Parse", "Comment");
+
+Title(4, "Sequence Point");
+
+Title(5, "about Calling");
+
+Format("^BFirst for arguments but function pointer^b\n");
+Format("In the function call ^M(*pf[f1()]) (f2(), f3() + f4())^m the functions f1, f2, f3, and f4 may be called in any order. All side effects have to be completed before the function pointed to by ^Mpf[f1()]^m is called.\n");
+
+Title(4, "Arithmetic Effect and Behavior");

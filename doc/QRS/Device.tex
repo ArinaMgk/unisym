@@ -1,10 +1,8 @@
-
-
 PHYZIK DEIVCE, Ref by address
 
 - Because 'this' taken for identification
 
-- e.g. IIC-Hard \verb`IIC`, GPIO, TIM, ADC, DAC, ...
+- e.g. IIC-Hard \verb|IIC|, GPIO, TIM, ADC, DAC, ...
 
 ABSTRACT DEIVCE
 
@@ -14,66 +12,106 @@ ABSTRACT DEIVCE
 
 DYNAMIC DEIVCE, Ref by name
 
-- e.g. IIC-Soft \verb`IIC_t`, ...
+- e.g. IIC-Soft \verb|IIC_t|, ...
 
 Why such confusion
 
-> Because the maintainer is only Haruno, till now
+\textgreater{} Because the maintainer is only Haruno, till now
 
-> Historically forming reasons
+\textgreater{} Historically forming reasons
+
+
 
 \subsection{Screen}
+
 \subimport{Device}{Video}
+
+
 
 \subsection{Memory}
 
 MMU to see \refer{Paging}.
 
+
+
 \subsubsection{Trust-Zone Controller}
+
+
 
 \subsubsection{DDR}
 
+
+
 \subsection{Generator}
+
+
 
 \subsubsection{AD9959}
 
-\B{Base}: \refer{SPI}.
+\textbf{Base}: \refer{SPI}.
+
+
 
 \subsection{Analog Digital Converter}
 
+
+
 \subsubsection{XPT2046}
+
+
 
 \subsection{Radio}
 
+
+
 \subsubsection{RDA5820}
 
-\B{Base}: \refer{IIC}.
+\textbf{Base}: \refer{IIC}.
+
+
 
 \subsubsection{TEA5767}
 
-\B{Base}: \refer{IIC}.
+\textbf{Base}: \refer{IIC}.
+
+
 
 \subsection{To-ki and Timer}
+
 \subimport{Device}{Toki}
 
+
+
 \subsection{Port and GPIO}
+
 \subimport{Device}{Port}
 
+
+
 \subsection{Key-board}
-\B{Header}: \verb`c/driver/keyboard.h`, \verb`c/driver/Mtrkbd.h`.
+
+\textbf{Header}: \verb|c/driver/keyboard.h|, \verb|c/driver/Mtrkbd.h|.
+
+
 
 \subsection{Power Controller}
 
+
+
 \subsection{Not-classified}
+
 \begin{itemize}
-	\item AT24C02
-	\item DS1302
-	\item DS18B20
-	\item HD44780
-	\item i8253A
-	\item i8259A
-	\item Nixie-tube
+
+\item AT24C02
+\item DS1302
+\item DS18B20
+\item HD44780
+\item i8253A
+\item i8259A
+\item Nixie-tube
 \end{itemize}
+
+
 
 \subsection{Devices in other place}
 

@@ -1,0 +1,11 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(5, "inline");
+Inline("tex", "\\labex{keyword.inline}");
+
+Format("Syntax: ^Minline function-declaration^m (since C99)\n");
+
+Format("C99"); Cite("StdC99"); Format(" says this make function Linkage internal. ");
+Format("However, the combination of ^Mextern inline^m is right in current implementation, which makes function external linkage and have macro feature. "); // -- Arina, REV20.
+Format("Someone says the case is that, no binary will be generated for the function, it will be expanded if someone calls it in a same document, but if you try to get its address, the address is decided by external linkage in another document. ^IDscn tried it on GCC/MSVC on WinNT but failed.^i ");
+Format("We'd better use ^Mstatic^m or ^Mextern^m while using inline.\n");

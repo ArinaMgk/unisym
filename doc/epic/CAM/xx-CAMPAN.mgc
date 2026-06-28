@@ -1,0 +1,10 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(2, "Novel");
+TexSubimport("CAM", "Novel");
+
+Title(2, "Date and Time Chronicle");
+Format("^BHeader^b: ^Mc/datime.h^m");
+
+Title(2, "Color");
+TexSubimport("CAM/Color", "xx-Color");

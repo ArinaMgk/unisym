@@ -1,0 +1,21 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("^Bfor ^IMagice, C,C++^i^b\n\n");
+Format("The case labels decide the entry of the evaluation put in the parens of switch. But it is false for below.\n\n");
+
+Code("C", "switch (val) {\n\tcase 'A': {} break;\n\tcase 'B': {} break;\n\t// ...\n\tdefault: break;\n}\n");
+
+Format("\n^B: Fall-through^b \n");
+Format("It is a fall-through if the running path goes over another label but jump before it, after program pointer has entered a switch block from a label.\n");
+Format("For example, if the ^Mbreak;^m in the line ^M'B'^m is removes, the val ^M'A'^m will cause a fall-through.\n\n");
+
+Format("^Bfor ^IC#^i^b\n\n");
+Format("Based on C++.\nBesides,\n\n");
+Format("(1) the cases could be available labels, e.g. ^Mgoto case 'A';^m;\n\n");
+Format("(2) ^BInborn-String^b: because the string is the inside type, it could be used directly, e.g. ^Mcase 'phina':^m;\n\n");
+
+Format("^Bfor ^IMATLAB^i^b\n");
+Code("MATLAB", "\tswitch val_src\n\tcase val_0\n\t\t% ...\n\tcase val_1\n\t\t% ...\n\totherwise\n\t\t% ...\n\tend\n");
+
+Format("\n^Bfor ^IVerilog^i^b\n");
+Code("Verilog", "\tcase (data[3:0]) // assume using bits 0~3 of data\n\t4'h0: begin\n\t\t//...\n\tend\n\t4'h1, 4'h2: begin\n\t\t//...\n\tend\n\tdefault: begin\n\t\t//...\n\tend\n\tendcase\n");

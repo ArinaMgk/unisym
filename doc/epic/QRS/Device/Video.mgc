@@ -1,0 +1,20 @@
+#UTF-8 MAgicRK(1) . .
+
+Inline("tex", "\\labex{Screen}");
+
+Format("\nThese provide base implementation of "); Refer("Witch"); Format(".\n");
+
+Format("This is composed of Video and Touch.\n");
+
+Format("The system is of Sheet-Tree.\n");
+
+Title(4, "LTDC : LCD TFT Display Controller");
+
+Title(4, "ILI9320");
+Title(4, "ILI9341");
+Title(4, "LCD12864");
+Title(4, "LCD1602");
+
+Format("Contain "); Refer("IIC"); Format(" and Parallel driver.\n");
+
+Title(4, "GPU and DMA2D");

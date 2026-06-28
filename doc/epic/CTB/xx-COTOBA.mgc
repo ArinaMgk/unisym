@@ -1,0 +1,40 @@
+#UTF-8 MAgicRK(1) . .
+// Algorithm, Model and Engineering Mathematics
+
+Title(2, "Symbol List");
+TexSubimport("CTB", "symbol");
+
+Title(2, "String Format and Parse");
+
+Format("old C Style: ^MNestedParseUnit^m in nnode.h\n");
+Format("used by COTLAB temporarily.\n");
+Format("new:\n");
+Format("^MLinearParser^m and ^MNestedParser^m in parse.hpp\n");
+
+Title(2, "Arithmetic");
+
+Title(3, "Basic Real-Number");
+Format("^M_USE_INNER_MATH^m\n");
+
+Title(3, "COEAR");
+
+Title(3, "REGAR");
+
+Title(3, "NUMAR");
+
+Title(3, "TENAR");
+
+Title(2, "Algorithm");
+
+Title(3, "Random");
+Format("^BHeader^b: ^Mc/random.h^m\n");
+
+Title(4, "device RNG");
+
+Title(3, "Cyclic Redundancy Check");
+Format("^BHeader^b:\n");
+Format("Bare ^Mcpp/Device/CRC^m;\n");
+Format("Hosted ^Mc/algorithm/hash/crc64.h^m;\n");
+
+Title(3, "Fast Fourier Transform");
+Format("^BHeader^b: ^Mc/algorithm/frequency/Fourier.h^m\n");

@@ -1,0 +1,21 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("You may need the header ^Mc/multichar.h^m or ^Mc/widechar.h^m.\n");
+
+Title(3, "ASCII");
+
+TexSubimport("Charset", "ASCII");
+
+Title(3, "Multi-char");
+
+Title(4, "Unicode");
+
+IncludeWeak("USL/Charset/Unicode.tex");
+
+Title(4, "Unisym Practical En-Coding");
+
+Format("^BHeader^b: ^Mc/charset/upec.h^m\n");
+
+Title(3, "Wide-char");
+
+Title(4, "GBK");

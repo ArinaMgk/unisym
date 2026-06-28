@@ -1,6 +1,10 @@
-\B{for $Magice, C,C++$}
+\textbf{for }\textbf{\textit{Magice, C,C++}}
+
+
 
 The case labels decide the entry of the evaluation put in the parens of switch. But it is false for below.
+
+
 
 \begin{lstlisting}[language=C]
 switch (val) {
@@ -12,20 +16,35 @@ switch (val) {
 \end{lstlisting}
 
 
-\B{: Fall-through} 
+
+\textbf{: Fall-through} 
+
 It is a fall-through if the running path goes over another label but jump before it, after program pointer has entered a switch block from a label.
+
 For example, if the \verb|break;| in the line \verb|'B'| is removes, the val \verb|'A'| will cause a fall-through.
 
-\B{for $C\#$}
+
+
+\textbf{for }\textbf{\textit{C\#}}
+
+
 
 Based on C++.
+
 Besides,
 
-(1) the cases could be available labels, e.g. \verb`goto case 'A';`;
 
-(2) \B{Inborn-String}: because the string is the inside type, it could be used directly, e.g. \verb`case 'phina':`;
 
-\B{for $MATLAB$}
+(1) the cases could be available labels, e.g. \verb|goto case 'A';|;
+
+
+
+(2) \textbf{Inborn-String}: because the string is the inside type, it could be used directly, e.g. \verb|case 'phina':|;
+
+
+
+\textbf{for }\textbf{\textit{MATLAB}}
+
 \begin{lstlisting}[language=MATLAB]
 	switch val_src
 	case val_0
@@ -38,7 +57,9 @@ Besides,
 \end{lstlisting}
 
 
-\B{for $Verilog$}
+
+\textbf{for }\textbf{\textit{Verilog}}
+
 \begin{lstlisting}[language=Verilog]
 	case (data[3:0]) // assume using bits 0~3 of data
 	4'h0: begin
@@ -52,6 +73,4 @@ Besides,
 	end
 	endcase
 \end{lstlisting}
-
-
 

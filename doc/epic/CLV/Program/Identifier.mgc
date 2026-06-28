@@ -1,0 +1,14 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(4, "Predefined and Sensitive Identifier");
+
+Format("Avoid to use the words to transplant C to others.\n");
+
+ListBegin("itemize");
+ListItem("", "class, a special keyword used by C++");
+ListEnd();
+
+Format("^T__func__^t\n");
+
+Format("This is rised by "); Cite("StdC99"); Format(", but some implementations do not support it. ");
+Format("Thus, UNISYM provides ^T__FUNCIDEN__^t to make it widely available.\n");

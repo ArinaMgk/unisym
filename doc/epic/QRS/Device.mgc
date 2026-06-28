@@ -1,0 +1,80 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("PHYZIK DEIVCE, Ref by address\n");
+
+Format("- Because 'this' taken for identification\n");
+
+Format("- e.g. IIC-Hard ^MIIC^m, GPIO, TIM, ADC, DAC, ...\n");
+
+Format("ABSTRACT DEIVCE\n");
+
+Format("- May contain multiple physical devices\n");
+
+Format("- e.g. Video.hpp, Audio.hpp, Power.hpp, ...\n");
+
+Format("DYNAMIC DEIVCE, Ref by name\n");
+
+Format("- e.g. IIC-Soft ^MIIC_t^m, ...\n");
+
+Format("Why such confusion\n");
+
+Format("> Because the maintainer is only Haruno, till now\n");
+
+Format("> Historically forming reasons\n");
+
+Title(3, "Screen");
+TexSubimport("Device", "Video");
+
+Title(3, "Memory");
+
+Format("MMU to see "); Refer("Paging"); Format(".\n");
+
+Title(4, "Trust-Zone Controller");
+
+Title(4, "DDR");
+
+Title(3, "Generator");
+
+Title(4, "AD9959");
+
+Format("^BBase^b: "); Refer("SPI"); Format(".\n");
+
+Title(3, "Analog Digital Converter");
+
+Title(4, "XPT2046");
+
+Title(3, "Radio");
+
+Title(4, "RDA5820");
+
+Format("^BBase^b: "); Refer("IIC"); Format(".\n");
+
+Title(4, "TEA5767");
+
+Format("^BBase^b: "); Refer("IIC"); Format(".\n");
+
+Title(3, "To-ki and Timer");
+TexSubimport("Device", "Toki");
+
+Title(3, "Port and GPIO");
+TexSubimport("Device", "Port");
+
+Title(3, "Key-board");
+Format("^BHeader^b: ^Mc/driver/keyboard.h^m, ^Mc/driver/Mtrkbd.h^m.\n");
+
+Title(3, "Power Controller");
+
+Title(3, "Not-classified");
+ListBegin("itemize");
+	ListItem("", "AT24C02");
+	ListItem("", "DS1302");
+	ListItem("", "DS18B20");
+	ListItem("", "HD44780");
+	ListItem("", "i8253A");
+	ListItem("", "i8259A");
+	ListItem("", "Nixie-tube");
+ListEnd();
+
+Title(3, "Devices in other place");
+
+Format("RNG (Random)\n");

@@ -1,0 +1,24 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(4, "Freestanding Environment");
+
+Format("Relative command options: \n"); // {TODO}
+
+Title(4, "Hosted Environment");
+
+Format("In Freestanding Environment, user can only use inline assembly, memory and arithmetic effect. However, the hosted includes at least interfaces provided by Operating System and Processor-registered mechanism, which provide much side-effect.\n");
+
+Format("Usually to see demo `args':\n");
+
+Inline("tex", "\\lstset{style=GlobalC}");
+CodeInclude("C", "../../../../demo/utilities/args.c", "24");
+
+Format("But the ISO/IEC recommend the below forms for `main' function with external symbol ^M_main^m:\n");
+
+Format("^Mint main(int argc, char *argv[]) {/* ... */}^m or \n");
+Format("^Mint main(void) { }^m\n");
+
+Format("^BEXAMPLE - Empty-return in Startup^b\n");
+Code("C", "// ARINA RFW4 TEST on GCC Lin32\nvoid main() { int a=2; }\n// arina@aUbt:~$ echo $?\n//:1\n");
+
+Format("Learn the appliance with the utility `args'.\n");

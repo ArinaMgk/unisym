@@ -1,0 +1,6 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("^BHeader^b: ^Mc/driver/SPI.h^m\n");
+Format("There are two kinds of IIC interfaces we can make.\n");
+Format("The one is ^BHARD^b, if there is an SPI peripheral, just use it.\n");
+Format("If there is not, use ^BSOFT^b to do the convention. Note that the delay time depends on your SysTick.\n");

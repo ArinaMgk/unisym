@@ -19,7 +19,6 @@ Magice(Default configuration) and Rust will take the last definition for the nea
 \textbf{EXPERIMENT - Slave statements cannot be declarations}
 
 \lstset{style=GlobalC}
-
 \begin{lstlisting}[language=C]
 	if (...) long long i;
 \end{lstlisting}
@@ -29,7 +28,6 @@ Magice(Default configuration) and Rust will take the last definition for the nea
 Below are codes in a global (out of any grace-scope) scope, where assumes N is an immediate integer. Results are done by \textit{dosconio} with specific version.
 
 \lstset{style=GlobalC}
-
 \begin{lstlisting}[language=C]
 	int i1 = N;        // definition, external linkage
 	static int i2 = N; // definition, internal linkage
@@ -61,7 +59,6 @@ If at the end of the translation unit containing, for example, \verb|int i[];|, 
 According to ISO/IEC C99
 
 \lstset{style=GlobalC}
-
 \begin{lstlisting}[language=C]
 // OK in file scope
 extern char a[];
@@ -109,7 +106,6 @@ If we define \verb|func(){}| without a `void' in the parameter list, then many a
 \textbf{EXAMPLE}
 
 \lstset{style=GlobalRust}
-
 \begin{lstlisting}[language=Rust]
 let mut a: i32 = 10;
 let a: i32;// just declaration
@@ -126,7 +122,6 @@ The line 1 where \verb|mut|, \verb|:i32|, \verb|=10| are optional for what you w
 We can define them later than their declaration. For example,
 
 \lstset{style=GlobalC}
-
 \begin{lstlisting}[language=C]
 	struct struc_a_t;
 	typedef struc_a_t struc_b_t;

@@ -63,10 +63,57 @@ _PACKED(struct) PartitionTableX86 {
 #define NR_SUB_PER_PART     16 // 16 logical partitions per primary partition
 #define NR_SUB_PER_DRIVE    (NR_SUB_PER_PART * NR_PART_PER_DRIVE)// 64
 #define NR_PRIM_PER_DRIVE    (NR_PART_PER_DRIVE + 1) // 5
-struct HD_Info {
-    uni::PartitionSlice primary[NR_PRIM_PER_DRIVE];
-    uni::PartitionSlice logical[NR_SUB_PER_DRIVE];
+#define MAX_PARTITIONS      128
+
+enum class PartitionSchemeKind : byte {
+	Unknown = 0,
+	MBR,
+	GPT,
+	GPT_Backup,
 };
+
+struct GptPartitionMeta {
+	byte type_guid[16];
+	byte uniq_guid[16];
+	uint64 attributes;
+};
+
+struct HD_Info {
+	uni::PartitionSlice whole_disk;
+	PartitionSchemeKind scheme_kind;
+	uint32 part_count;
+	uint32 part_overflow;
+	uni::PartitionSlice parts[MAX_PARTITIONS];
+	GptPartitionMeta gpt_meta[MAX_PARTITIONS];
+
+	void ResetUnifiedParts() {
+		part_count = 0;
+		part_overflow = 0;
+		MemSet(parts, 0, sizeof(parts));
+		MemSet(gpt_meta, 0, sizeof(gpt_meta));
+	}
+	bool AppendPart(const uni::PartitionSlice& slice) {
+		if (part_count < MAX_PARTITIONS) {
+			parts[part_count++] = slice;
+			return true;
+		}
+		part_overflow++;
+		return false;
+	}
+};
+
+namespace uni { class StorageTrait; }
+
+inline uni::PartitionSlice GetPartitionSlice(const HD_Info& hdi, unsigned dev) {
+	if (dev == 0) return hdi.whole_disk;
+	if (dev <= hdi.part_count) return hdi.parts[dev - 1];
+	uni::PartitionSlice slice = {};
+	return slice;
+}
+
+namespace uni {
+	bool LoadGPTPartitions(StorageTrait& base, HD_Info& hdi, byte* block_buf);
+}
 
 namespace uni {
 	class StorageTrait : public BlockTrait {

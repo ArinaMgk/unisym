@@ -68,37 +68,42 @@ namespace uni {
 		// ploginfo("%s: drive%u", __FUNCIDEN__, drive);
 		alignas(16) PartitionTableX86 part_tbl[4] = {};
 		if (primary_but_logical) {
+			if (LoadGPTPartitions(base, hdi, psector)) return;
+			hdi.scheme_kind = PartitionSchemeKind::MBR;
+			hdi.ResetUnifiedParts();
 			// get_partition_table(drv, 0, part_tbl);
 			base.Read(0, psector);
 			MemCopyN(part_tbl, psector + MBR_PARTITION_TABLE_OFFSET, sizeof(part_tbl));
-			int nr_prim_parts = 0;
 			for0(i, NR_PART_PER_DRIVE) {
 				if (part_tbl[i].type == Part_NO_PART)
 					continue;
-				nr_prim_parts++;
-				hdi.primary[i + 1].address = part_tbl[i].lba_start;
-				hdi.primary[i + 1].length = part_tbl[i].lba_count;
-				hdi.primary[i + 1].sys_id = part_tbl[i].type;
+				PartitionSlice prim = {};
+				prim.address = part_tbl[i].lba_start;
+				prim.length = part_tbl[i].lba_count;
+				prim.sys_id = part_tbl[i].type;
+				if (part_tbl[i].type != Part_EX_PART) {
+					hdi.AppendPart(prim);
+				}
 				// plogwarn("p %u: %u-%u", i + 1, part_tbl[i].lba_start, part_tbl[i].lba_count);
 				if (part_tbl[i].type ==Part_EX_PART)
-					Partition(base, hdi, psector, device + i + 1, false);
+					Partition(base, hdi, psector, prim.address, false);
 			}
-			// assert(nr_prim_parts != 0);
 		}
 		else {
-			int j = device % NR_PRIM_PER_DRIVE; /* 1~4 */
-			int ext_start_sect = hdi.primary[j].address;
+			int ext_start_sect = device;
 			int s = ext_start_sect;
-			int nr_1st_sub = (j - 1) * NR_SUB_PER_PART; /* 0/16/32/48 */
 			for0(i, NR_SUB_PER_PART) {
 				// get_partition_table(drv, s, part_tbl);
 				base.Read(s, psector);
 				MemCopyN(part_tbl, psector + MBR_PARTITION_TABLE_OFFSET, sizeof(part_tbl));
-				int dev_nr = nr_1st_sub + i;/* 0~15/16~31/32~47/48~63 */
-				hdi.logical[dev_nr].address = s + part_tbl[0].lba_start;
-				hdi.logical[dev_nr].length = part_tbl[0].lba_count;
-				hdi.logical[dev_nr].sys_id = part_tbl[0].type;
-				// plogwarn("l %u: %u-%u", dev_nr, hdi.logical[dev_nr].address, hdi.logical[dev_nr].address + hdi.logical[dev_nr].length);
+				PartitionSlice logi = {};
+				logi.address = s + part_tbl[0].lba_start;
+				logi.length = part_tbl[0].lba_count;
+				logi.sys_id = part_tbl[0].type;
+				if (logi.sys_id != Part_NO_PART && logi.length) {
+					hdi.AppendPart(logi);
+				}
+				// plogwarn("l %u: %u-%u", dev_nr, logi.address, logi.address + logi.length);
 				s = ext_start_sect + part_tbl[1].lba_start;
 				if (part_tbl[1].type == Part_NO_PART) {
 					break;

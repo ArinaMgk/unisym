@@ -1,0 +1,14 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("Console Input and Output: ^MCONIO^m > ^MCONSIO^m > ^MCONSOLEIO^m.\n");
+Format("^BHeader^b: ^Mc/consio.h^m\n");
+
+Title(3, "Hosted Console");
+Format("^BEntity^b: ^Muni::Console^m\n");
+Format("^BStyle Set^b: ^MUNI, C#^m\n");
+
+// Methods ...
+
+Title(3, "Managing Frame");
+Title(4, "Console Table");
+Format("^BHeader^b: ^Mc/graphic/contable.h^m\n");

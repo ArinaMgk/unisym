@@ -1,0 +1,12 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("The sub-project themes on Simulation, Emulation and Reverse Engineering. ^MWel^m is the root-fix of `evolve'. "
+"This may make use of the elementary data (binary / triple / ...) of ");
+Refer("ASM");
+Format(".\n");
+
+Title(3, "User Simulation");
+
+Title(3, "System Emulation");
+
+Title(3, "Virtual Machine for $Java/C\\sharp$");

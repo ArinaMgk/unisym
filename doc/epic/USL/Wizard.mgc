@@ -1,0 +1,11 @@
+#UTF-8 MAgicRK(1) . .
+Format("Generate structures, modules, classes and other things with options.\n");
+Format("Sub-components: \n");
+ListBegin("enumerate");
+	ListLiumBegin(""); Math("[TODO]"); Format(" M/ANY-ASM Macro Converter (centre-AASM)\n"); ListLiumEnd();
+ListEnd();
+Format("Others' Parallel Project: \n");
+ListBegin("enumerate");
+	ListItem("", "Proteus Module Wizard");
+	ListItem("", "ST STM32CubeMX");
+ListEnd();

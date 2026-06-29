@@ -1,0 +1,47 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("^BEN^b");
+Ruby("CN", "JP");
+Format("\n");
+
+// ----
+
+Format("^Bbare - metal(machine)^b"); // 裸机
+Ruby("裸", "ベア"); Ruby("机", "マシン"); Format(";裸金属; \n");
+Format("The state of PCU where there are no complex routines or supervisor mechanism (usually operation system), also known as ^Ifreestanding environment^i.\n");
+
+Format("^Bher^b"); // The implicit 'her'
+// means Alice Dosconio by default except in the works of Phinae; `her and her` means Phina and Alice.
+Format("May stand for ^IHeritage^i.\n");
+
+// ----
+
+Format("^BANY^b: AASM / NASM / YASM\n");
+
+Format("^BFlap-32^b: Flat-Segment and Protected-Mode and 32-bit Data&Code-Segment\n");
+
+Format("^BReal-16^b: ...\n");
+
+Format("^BSyster^b:"); // sister and system
+Format("a pronoun to the project and the author\n");
+
+Format("^BInnput^b: a name of input which measures same with that of Output\n");
+
+Format("^BLango^b language.\n"); // combination of "language "&"go(语)", which is equivalent to "lingu".
+
+Format("^BMidfix^b etyma, from \"prefix\" and \"suffix\"\n"); // Dosconioの`RFR01`.
+
+Format("^BPhyzik^b Physics\n");
+
+Format("^B赝积^b 叉乘 CROSS\n");
+
+Format("^B赝体积^b Tri-product 混合积, 三重积\n");
+
+Title(3, "Number Abbreviation");
+
+ListBegin("itemize");
+	ListLiumBegin(""); Format("0 not"); ListLiumEnd();
+	ListLiumBegin(""); Format("2 to"); ListLiumEnd();
+	ListLiumBegin(""); Format("4 for"); ListLiumEnd();
+	ListLiumBegin(""); Format("9 none"); ListLiumEnd();
+ListEnd();

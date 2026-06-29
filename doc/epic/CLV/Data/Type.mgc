@@ -8,7 +8,7 @@ Format("^BHeader^b: integer, auto-inc-by stdinc.\n");
 
 Format("Usually, the implementation about sizes of the fundamental types are collectively known as data model.\n");
 
-TableBegin("r|c|c|c|c|c");
+TableBegin("|r|c|c|c|c|c|");
 RowHead();
 Rcell("^BMIKA^b"); Rcell("^BBYTES(M)^b"); Rcell("^BSTDC^b"); Rcell("^BC-LP32^b"); Rcell("^BC-ILP32/LLP^b"); Rcell("^BC-LP64^b");
 

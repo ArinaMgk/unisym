@@ -3,7 +3,7 @@
 Format("for Std-C99, Single(Suffix then Prefix) "); Math(">"); Format(" ^BDouble^b "); Math(">"); Format(" Triple "); Math(">"); Format(" Assignment "); Math(">"); Format(" Half-Statement(Comma) .\n");
 
 Inline("tex", "\\begin{center}");
-TableBegin("c|l|l");
+TableBegin("|c|l|l|");
 Inline("tex", "\\hline\n"
 	"\\textbf{Precedence/} & \\textbf{Operator} & \\textbf{Description} \\\\\n"
 	"\\textbf{Associativity} & \\textbf{} & \\textbf{} \\\\\n"

@@ -1,0 +1,34 @@
+#UTF-8 MAgicRK(1) . .
+
+Format("Computer graphics implementations, graphical user interface library and rendering engine.\n");
+
+Format("The ^MLIB^m should at least provide a printing-point(s) function for ");
+Format("^IWitch^i.\n");
+
+Format("Witch-X is going to be 2D Engine, while Witch-XX to be 3D Engine.\n");
+
+Format("We planned to make the Dot-Net-Framework WinForm-similar Structure, and provide interfaces for:\n");
+
+ListBegin("enumerate");
+	ListItem("", "Microsoft Foundation Classes and Win-API");
+	ListItem("", "Gtk");
+	ListItem("", "Qt");
+	ListItem("", "EasyX");
+ListEnd();
+
+Format("We planned to apply for\n");
+
+ListBegin("enumerate");
+	ListItem("", "Free-standing MCU");
+	ListItem("", "Win32");
+	ListItem("", "Linux 64-bit GUI");
+ListEnd();
+
+Title(3, "Graphic Structure");
+
+ListBegin("enumerate");
+	ListItem("", "^Mposition(x,y)^m  : x for horizontal and y for vertical;");
+	ListItem("", "^Msize(w,h)^m      : w for width and h for height;");
+	ListItem("", "^Mcolor(r,g,b)^m   : r for red, g for green, b for blue;");
+	ListItem("", "^Mcolor(r,g,b,a)^m : a for alpha. For dword, that is ^M#AARRGGBB^m, while for word, that is ^M#xRGB^m;");
+ListEnd();

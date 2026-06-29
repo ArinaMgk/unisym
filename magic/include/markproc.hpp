@@ -171,6 +171,7 @@ void GF_Set(uni::Dchain* chain, MarkProcessor* proc);
 void GF_Append(uni::Dchain* chain, MarkProcessor* proc);
 // Title(lev: int, content: iden/string)
 void GF_Title(uni::Dchain* chain, MarkProcessor* proc);
+void GF_Ruby(uni::Dchain* chain, MarkProcessor* proc);
 // Out( str: iden/string , ... )
 void GF_Out(uni::Dchain* chain, MarkProcessor* proc);
 // Format( str: iden/string , ... )

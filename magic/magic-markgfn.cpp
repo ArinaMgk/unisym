@@ -73,6 +73,34 @@ void GF_Append(uni::Dchain* chain, MarkProcessor* proc)
 	if (mark_debug) ploginfo("Append(%s:%s = %s)", dc[0]->addr, dc[1]->addr, dc[2]->addr);
 }
 
+void GF_Title(uni::Dchain* chain, MarkProcessor* proc);
+
+void GF_Ruby(uni::Dchain* chain, MarkProcessor* proc)
+{
+	using namespace uni;
+	rostr base_text = nullptr;
+	rostr rt_text = nullptr;
+	
+	if (chain->Count() > 0) base_text = SeekString((*chain)[0], proc);
+	if (chain->Count() > 1) rt_text = SeekString((*chain)[1], proc);
+	
+	if (!base_text) base_text = "";
+	if (!rt_text) rt_text = "";
+	
+	switch (proc->txtfmt) {
+	case MarkProcessor::TextFormat::HTML:
+		proc->OutFormat("<ruby>%s<rt>%s</rt></ruby>", base_text, rt_text);
+		break;
+	case MarkProcessor::TextFormat::Tex:
+		proc->OutFormat("\\ruby{%s}{%s}", base_text, rt_text);
+		break;
+	case MarkProcessor::TextFormat::Markdown:
+	case MarkProcessor::TextFormat::STDOUT:
+		proc->OutFormat("%s(%s)", base_text, rt_text);
+		break;
+	}
+}
+
 void GF_Title(uni::Dchain* chain, MarkProcessor* proc)
 {
 	using namespace uni;

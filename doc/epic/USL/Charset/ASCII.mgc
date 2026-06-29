@@ -10,7 +10,7 @@ Format("ASCII code does not specify the number of 128 "); Math("\\sim"); Format(
 
 Title(4, "Map - Control characters (non-printable)");
 
-TableBegin("c|c|l");
+TableBegin("|c|c|l|");
 	RowHead(); Rcell("^BDecimal^b"); Rcell("^BFunction^b"); Rcell("^BDescription^b"); LineH();
 	Row(); Rcell("00"); Rcell("NULL"); Rcell("Null character"); LineH();
 	Row(); Rcell("01"); Rcell("SOH"); Rcell("Start of Header"); LineH();
@@ -50,7 +50,7 @@ TableEnd();
 Title(4, "Map - Printable characters");
 
 Inline("tex", "{\\font\\rm=\"Sarasa Mono J\" at 12pt \\rm\n");
-TableBegin("c|c|l");
+TableBegin("|c|c|l|");
 	RowHead(); Rcell("^BDecimal^b"); Rcell("^BChar^b"); Rcell("^BDescription^b"); LineH();
 	Row(); Rcell("32"); Rcell(" "); Rcell("Space"); LineH();
 	Row(); Rcell("33"); Rcell("!"); Rcell("Exclamation mark"); LineH();
@@ -74,7 +74,7 @@ Inline("tex", "}\n");
 Format("48(0x30) "); Math("\\rightarrow"); Format(" 57(0x39) are for Arabic figures zero to nine. \n");
 
 Inline("tex", "{\\font\\rm=\"Sarasa Mono J\" at 12pt \\rm\n");
-TableBegin("c|c|l");
+TableBegin("|c|c|l|");
 	RowHead(); Rcell("^BDecimal^b"); Rcell("^BChar^b"); Rcell("^BDescription^b"); LineH();
 	Row(); Rcell("58"); Rcell(":"); Rcell("Colon"); LineH();
 	Row(); Rcell("59"); Rcell(";"); Rcell("Semicolon"); LineH();
@@ -89,7 +89,7 @@ Inline("tex", "}\n");
 Format("65 "); Math("\\rightarrow"); Format(" 90 are for uppercase letters A to Z.\n");
 
 Inline("tex", "{\\font\\rm=\"Sarasa Mono J\" at 12pt \\rm\n");
-TableBegin("c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c");
+TableBegin("|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|");
 	RowHead(); Rcell("HL"); Rcell("0"); Rcell("1"); Rcell("2"); Rcell("3"); Rcell("4"); Rcell("5"); Rcell("6"); Rcell("7"); Rcell("8"); Rcell("9"); Rcell("A"); Rcell("B"); Rcell("C"); Rcell("D"); Rcell("E"); Rcell("F"); LineH();
 	Row(); Rcell("4x"); Rcell(" "); Rcell("A"); Rcell("B"); Rcell("C"); Rcell("D"); Rcell("E"); Rcell("F"); Rcell("G"); Rcell("H"); Rcell("I"); Rcell("J"); Rcell("K"); Rcell("L"); Rcell("M"); Rcell("N"); Rcell("O"); LineH();
 	Row(); Rcell("5x"); Rcell("P"); Rcell("Q"); Rcell("R"); Rcell("S"); Rcell("T"); Rcell("U"); Rcell("V"); Rcell("W"); Rcell("X"); Rcell("Y"); Rcell("Z"); Rcell(" "); Rcell(" "); Rcell(" "); Rcell(" "); Rcell(" ");
@@ -97,7 +97,7 @@ TableEnd();
 Inline("tex", "}\n");
 
 Inline("tex", "{\\font\\rm=\"Sarasa Mono J\" at 12pt \\rm\n");
-TableBegin("c|c|l");
+TableBegin("|c|c|l|");
 	RowHead(); Rcell("^BDecimal^b"); Rcell("^BChar^b"); Rcell("^BDescription^b"); LineH();
 	Row(); Rcell("91"); Rcell("["); Rcell("square brackets or box brackets, opening bracket"); LineH();
 	Row(); Rcell("92"); RcellBegin("1", "c", "1"); Math("\\backslash"); RcellEnd(); Rcell("Backslash , reverse slash"); LineH();
@@ -111,7 +111,7 @@ Inline("tex", "}\n");
 Format("97 "); Math("\\rightarrow"); Format(" 122 are for lowercase letters a to z.\n");
 
 Inline("tex", "{\\font\\rm=\"Sarasa Mono J\" at 12pt \\rm\n");
-TableBegin("c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c");
+TableBegin("|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|");
 	RowHead(); Rcell("HL"); Rcell("0"); Rcell("1"); Rcell("2"); Rcell("3"); Rcell("4"); Rcell("5"); Rcell("6"); Rcell("7"); Rcell("8"); Rcell("9"); Rcell("A"); Rcell("B"); Rcell("C"); Rcell("D"); Rcell("E"); Rcell("F"); LineH();
 	Row(); Rcell("6x"); Rcell(" "); Rcell("a"); Rcell("b"); Rcell("c"); Rcell("d"); Rcell("e"); Rcell("f"); Rcell("g"); Rcell("h"); Rcell("i"); Rcell("j"); Rcell("k"); Rcell("l"); Rcell("m"); Rcell("n"); Rcell("o"); LineH();
 	Row(); Rcell("7x"); Rcell("p"); Rcell("q"); Rcell("r"); Rcell("s"); Rcell("t"); Rcell("u"); Rcell("v"); Rcell("w"); Rcell("x"); Rcell("y"); Rcell("z"); Rcell(" "); Rcell(" "); Rcell(" "); Rcell(" "); Rcell(" ");
@@ -119,7 +119,7 @@ TableEnd();
 Inline("tex", "}\n");
 
 Inline("tex", "{\\font\\rm=\"Sarasa Mono J\" at 12pt \\rm\n");
-TableBegin("c|c|l");
+TableBegin("|c|c|l|");
 	RowHead(); Rcell("^BDecimal^b"); Rcell("^BChar^b"); Rcell("^BDescription^b"); LineH();
 	Row(); Rcell("123"); Rcell("{"); Rcell("braces or curly brackets, opening braces"); LineH();
 	Row(); Rcell("124"); Rcell("|"); Rcell("vertical-bar, vbar, vertical line or vertical slash"); LineH();
@@ -130,7 +130,7 @@ Inline("tex", "}\n");
 
 Title(4, "Map - IBM Extend");
 Inline("tex", "{\\font\\rm=\"Sarasa Mono J\" at 12pt \\rm\n");
-TableBegin("c|c|l");
+TableBegin("|c|c|l|");
 	RowHead(); Rcell("^BDecimal^b"); Rcell("^BChar^b"); Rcell("^BDescription^b"); LineH();
 	Row(); Rcell("128"); Rcell("Ç"); Rcell("Majuscule C-cedilla"); LineH();
 	Row(); Rcell("129"); Rcell("ü"); Rcell("letter u with umlaut or diaeresis , u-umlaut"); LineH();

@@ -2,7 +2,7 @@
 
 Format("The chain of a node contains a series of nodes. There are usually discrete so we need not allocate them at once.\n");
 
-TableBegin("c|c|c|l");
+TableBegin("|c|c|c|l|");
 Inline("tex", "\\caption{Comparison between Non-annulus Chain}\\labex{tab:table_na_nodes} \\\\\n\\hline \\textbf{NODE} & \\textbf{DNODE} & \\textbf{NNODE} & \\textbf{Puts}\\\\\nchain\\_t Chain & dchain\\_t Dchain T[2] & nchain\\_t Nchain & {} \\\\\n\\hline\n\\endfirsthead\n\\multicolumn{4}{c}{{\\bfseries \\tablename\\ \\thetable{} (continued) -- {Comparison between Non-annulus Chain}}} \\\\\n\\hline \\textbf{NODE} & \\textbf{DNODE} & \\textbf{NNODE} & \\textbf{Puts}  \\\\  \\hline\n\\endhead\n\\hline \\multicolumn{4}{r}{{Continued on the next page...}} \\\\\n\\endfoot\n\\hline \\hline\n\\endlastfoot\n");
 
 Row();

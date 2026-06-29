@@ -32,6 +32,7 @@ static const gfnmap_entry gfnmap[] = {
 	{"Set", GF_Set },
 	{"Append", GF_Append },
 	{"Title", GF_Title },
+	{"Ruby", GF_Ruby },
 	{"Out", GF_Out },
 	{"Format", GF_Format },
 	{"Picture", GF_Picture },

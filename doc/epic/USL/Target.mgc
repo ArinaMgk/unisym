@@ -1,0 +1,131 @@
+#UTF-8 MAgicRK(1) . .
+
+Title(3, "Output Target");
+
+Format("Target in format ^MArch-Devk-[Host/Board](Mode)^m\n");
+ListBegin("itemize");
+	ListItem("", "^Mi8086-CG-IBMPC ^m DJGPP 16 MSDOS");
+	ListItem("", "^Mx86-CG-Win32   ^m 32"); // %stable
+	ListItem("", "^Mx86-CV-Win32   ^m 32"); // %stable
+	ListItem("", "^Mx86-CM-Win32   ^m 32");
+	ListItem("", "^Mx86-CL-Win32   ^m 32");
+	ListItem("", "^Mx64-CG-Win64   ^m 64"); // %stable
+	ListItem("", "^Mx64-CV-Win64   ^m 64"); // %stable
+	ListItem("", "^Mx64-CM-Win64   ^m 64");
+	ListItem("", "^Mx64-CL-Win64   ^m 64");
+	ListItem("", "^Mx86-EG-Lin32   ^m 32"); // %stable
+	ListItem("", "^Mx64-EG-Lin64   ^m 64"); // %stable
+	ListItem("", "^Mx86-EG-MCCA    ^m 32"); // %to-cover-more
+	ListItem("", "^Mriscv64-EG-MCCA^m 64");
+	ListItem("", "^Mi8051-Keil-AT89C5^m 16");
+	ListItem("", "^Mcortexm0-EG  -CW32F003^m 32v6");
+	ListItem("", "^Mcortexm0-Keil-CW32F003^m 32v6");
+	ListItem("", "^Mcortexm0-EG  -CW32F030^m 32v6");
+	ListItem("", "^Mcortexm0-Keil-CW32F030^m 32v6");
+	ListItem("", "^Mcortexm3-EG  -STM32F1^m 32v7");
+	ListItem("", "^Mcortexm3-Keil-STM32F1^m 32v7");
+	ListItem("", "^Mcortexm4-EG  -STM32F4^m 32v7");
+	ListItem("", "^Mcortexm4-Keil-STM32F4^m 32v7");
+	ListItem("", "^Mcortexm7-EG  -STM32H7^m 32v7");
+	ListItem("", "^Mcortexm7-Keil-STM32H7^m 32v7");
+	ListItem("", "^Mcortexa7-Gnu -STM32MP13^m 32v6"); // %to-cover-more
+	ListItem("", "^Mcortexa7-Keil-STM32MP13^m 32v6");
+ListEnd();
+
+Format("where,\n");
+ListBegin("itemize");
+	ListItem("", "ARMv7 include ARMv7-M series;");
+	ListItem("", "cortexm stands for ARM.CortexM;");
+	ListItem("", "x64 stands for AMD64;");
+ListEnd();
+
+Format("Second parameter is the kit:\n");
+ListBegin("itemize");
+	ListItem("", "Ex: ELF");
+	ListItem("", "Cx: COFF");
+	ListItem("", "xG: GNU Compiler Collection");
+	ListItem("", "xV: Microsoft Visual C/C++");
+	ListItem("", "xA: Ain Magice");
+	ListItem("", "xL: LLVM");
+ListEnd();
+
+Title(3, "Option Switch");
+
+Format("^BHeader^b: ^Mc/system/uoption.h^m auto-inc-by stdinc.\n");
+
+Title(5, "Processor and Controller Unit");
+Format(" \\\n");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("^M_MCU_Intel8051^m\n");
+		ListBegin("itemize");
+			ListItem("", "^M_SYS_FREQ^m Frequency of the system.");
+			ListItem("", "usually used with ^M_DEV_^mxxx");
+			ListItem("", "TODO: Make magice support this then cancel support for Keil-C51");
+		ListEnd();
+	ListLiumEnd();
+	ListItem("", "^M_MCU_STM32F1x^m");
+	ListItem("", "^M_MCU_STM32F4x^m");
+	ListItem("", "^M_MPU_STM32MP13^m");
+	ListItem("", "^M_MCU_CW32F003^m");
+	ListItem("", "^M_MCU_CW32F030^m");
+	ListItem("", "^M_CPU_AMDRyzen7_5800H_Radeon^m");
+ListEnd();
+
+Title(5, "Support for Data-type and Device");
+Format(" \\\n");
+ListBegin("itemize");
+	ListItem("", "^B_SUPPORT_GPIO^b: Usually for MCU.");
+	ListItem("", "^B_SUPPORT_Port8^b: Usually for Personal Computers.");
+	ListItem("", "^B_BIT_SUPPORT_64^b");
+	ListItem("", "^B_BIT_SUPPORT_DFLOAT^b");
+ListEnd();
+
+Title(5, "\\_INC\\_");
+Format(" \\\n");
+ListBegin("itemize");
+	// {TODO}
+	ListItem("", ""); 
+ListEnd();
+
+Title(5, "\\_ESYM\\_");
+Format(" Exported Symbol Style \\\n");
+ListBegin("itemize");
+	ListItem("", "^M_EXSYM_C^m for ^Mextern \"C\"^m, normally with prefix ^M_^m");
+ListEnd();
+
+Title(5, "\\_CALL\\_");
+Format(" (is not Linkage) \\\n");
+ListBegin("itemize");
+	// {TODO} cdelc fastcall ...
+	ListItem("", "");
+ListEnd();
+
+Title(5, "\\_OPT\\_");
+Format(" \\\n");
+ListBegin("itemize");
+	ListItem("", "^M_OPT_RISCV64^m");
+ListEnd();
+
+Format("The prefix is `_ARC_' in early style 2.\n");
+
+Title(5, "\\_MCCA\\_");
+Format(" and Operating System\n");
+ListBegin("itemize");
+	ListItem("", "^M0x8616^m x86, bits 16");
+	ListItem("", "^M0x8632^m x86, bits 32");
+	ListLiumBegin(""); Format("_WinNT\n");
+		ListBegin("itemize");
+			ListItem("", "_Win32");
+			ListItem("", "_Win64");
+		ListEnd();
+	ListLiumEnd();
+	ListItem("", "_Linux");
+ListEnd();
+
+Title(5, "Development Kit");
+Format(" \\\n");
+ListBegin("itemize");
+	ListItem("", "^M_DEV_MSVC^m");
+	ListItem("", "^M_DEV_GCC^m");
+	ListItem("", "^M_DEV_Qt^m");
+ListEnd();

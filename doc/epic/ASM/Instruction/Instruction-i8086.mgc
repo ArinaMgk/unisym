@@ -14,7 +14,7 @@ Format(" Page 178(4-36).\n");
 //\resizebox{\textwidth}{!}
 FontBegin("6pt", "6.18pt");
 Inline("tex", "\\setlength{\\tabcolsep}{2pt}");
-TableBegin("c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c");
+TableBegin("|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|");
 RowHead();
 Rcell("^BHi/Lo^b");
 Rcell("0");
@@ -347,7 +347,7 @@ Rcell("Grp 2\nb,r/m");
 Rcell("Grp 2\nw,r/m");
 TableEnd();
 FontEnd();
-TableBegin("c|c|c|c|c|c|c|c|c");
+TableBegin("|c|c|c|c|c|c|c|c|c|");
 RowHead();
 Rcell("^Bmod□r/m^b");
 Rcell("^B000^b");

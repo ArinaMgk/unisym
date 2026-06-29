@@ -1,0 +1,238 @@
+#UTF-8 MAgicRK(1) . .
+// origin K/symbol.md
+// {TODO} 友情链接 [[U/constant|constant]];
+
+Format("^TA a^t "); Math("\\alpha");
+ListBegin("itemize");
+	ListLiumBegin(""); Math("\\mathbf{A}"); Format(" Electronic Potential"); ListLiumEnd(); // F/Electronic/Potential|矢势
+	ListLiumBegin(""); Math("\\vec{\\alpha}"); Format(" "); ListLiumEnd(); // 矢量面积
+ListEnd();
+
+Format("^TB b^t "); Math("\\beta");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("..."); ListLiumEnd();
+ListEnd();
+
+Format("^TC c^t "); Math("\\Psi \\psi");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Format("c ^Bnat. constant^b "); Math("\\approx 299,792,458 m/s \\approx 3d8 m/s"); Format("\n");
+		Format("(Kan.) 光速");
+	ListLiumEnd();
+	ListLiumBegin("");
+		Math("C = \\dfrac{\\varepsilon·A}{d}"); // 电容系数
+		Format("\n; where "); Math("W = \\int_0^Q(\\dfrac{q}{C})dq = \\dfrac{1}{2} \\dfrac{Q^2}{C}"); // {TEMP}
+	ListLiumEnd();
+ListEnd();
+
+Format("^TD d^t "); Math("\\Delta \\delta");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Format("Electric Displacement "); Math("\\vec{D}"); // 电位移矢量
+		Format("\nwhere  "); Math("\\vec{D}=\\varepsilon_0 \\vec{E} + \\vec{P}"); Format(", "); // P 为电极化强度
+		// 变化的电场等效出来的电流
+	ListLiumEnd();
+	ListLiumBegin(""); Math("\\delta"); ListLiumEnd(); // [[F/Notion/Skin-depth|趋肤深度]]
+ListEnd();
+
+Format("^TE e^t "); Math("\\epsilon \\varepsilon");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Format("e ^Bconstant^b "); Math("= 1 + \\dfrac{1}{1!} + \\dfrac{1}{2!} + ... + \\dfrac{1}{n!} \\approx 2.71828182845904..."); Format("\n");
+		// (Arn.) 离散极限
+		Format("(Eng.) Nature Logarithm; \n");
+		Format("(Lat.) Logarithmus Naturalis; \n");
+		Format("(Kan.) 自然対数 ."); // Nih.现用
+		Format("\nBase of ^Mln(x)^m, where l and n stand for Latin. name.");
+	ListLiumEnd();
+	ListLiumBegin("");
+		Format("e ^Bnat. constant^b "); Math("\\approx 1.602D19"); Format("\n");
+		Format("(Kan.) 静电常数 "); // 简体
+	ListLiumEnd();
+	ListLiumBegin("");
+		Math("\\varepsilon_0"); Format(" = "); Math("\\dfrac{1}{36\\pi}"); Format(" (nF/m) マ ≈ "); Math("8.85D12 \\ C^2/(N \\cdot m^2)"); Format(" (SI单位制)\n");
+		Format("(Kan.) 真空介电常数 "); // 简体
+	ListLiumEnd();
+	ListLiumBegin("");
+		Format("Electromotive Force (EMF) "); Math("E"); // 电动势
+	ListLiumEnd();
+ListEnd();
+
+Format("^TF f^t "); Math("\\Phi \\phi \\varphi");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Format("Force");
+		ListBegin("enumerate");
+			ListLiumBegin(""); Math("\\vec F = a \\vec E"); ListLiumEnd(); // 电场よの力
+		ListEnd();
+	ListLiumEnd();
+ListEnd();
+
+Format("^TG g^t "); Math("\\Gamma \\gamma");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("..."); ListLiumEnd();
+ListEnd();
+
+Format("^TH h^t "); Math("\\eta");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("H "); ListLiumEnd(); // 磁场辅助场 很多作者将H而不是B,称做“磁场”。那么他们不得不为B发明一个新名字:“流密度”，或者“磁感应强度”(这个名字在电动力学中已经有至少两个其他的意义)。
+ListEnd();
+
+Format("^TI i^t "); Math("\\iota");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Math("I = - log_a P(x)"); // 信息量
+		ListBegin("itemize");
+			ListLiumBegin(""); Format("base(2) → unit(^Mbit^m)"); ListLiumEnd();
+			ListLiumBegin(""); Format("base(e) → unit(^Mnat^m)"); ListLiumEnd();
+			ListLiumBegin(""); Format("base(10) → unit(^MHartley^m)"); ListLiumEnd();
+		ListEnd();
+	ListLiumEnd();
+ListEnd();
+
+Format("^TJ j^t "); Math("\\Xi \\xi");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Math("\\vec{J} = \\partial_{a_{VT}}\\vec{I} = \\rho\\vec{v}"); // Electronic/Electric-Current|体电流密度 % VT: ⊥
+		ListBegin("itemize");
+			ListLiumBegin(""); Math("F_{mag} = \\int(\\vec{v}\\cdot\\vec{B})\\rho\\tau = \\int(\\vec{J}\\cdot\\vec{B})\\tau"); ListLiumEnd();
+			ListLiumBegin(""); Math("\\vec{J} = \\partial_{l}\\vec{I} = \\rho\\vec{v}"); ListLiumEnd(); // 面电流密度マ
+			ListLiumBegin(""); Math("\\oint_S \\vec{J}\\cdot d\\vec{S} = \\int_\\gamma(\\nabla \\cdot \\vec{J})d\\tau = -\\int_\\gamma(\\partial_t\\rho)d\\tau = -\\partial_t q"); ListLiumEnd(); // 局部电荷守恒 aka 连续性方程
+			ListLiumBegin(""); Math("\\vec{J} = \\sigma \\vec{E}"); ListLiumEnd(); // , σ 为 电导率マ
+		ListEnd();
+	ListLiumEnd();
+ListEnd();
+
+Format("^TK k^t "); Math("\\kappa");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Math("k_{SI} = \\dfrac {1}{4 \\pi \\varepsilon_0}"); Format("\n");
+		Format("(Kan.) 电力系数"); // 简体
+		ListBegin("itemize");
+			ListLiumBegin(""); Math("\\varepsilon_0"); Format(" 用于真空环境， "); Math("\\varepsilon"); Format(" 用于各种环境"); ListLiumEnd();
+			ListLiumBegin(""); Format("静电场力 "); Math("F = k_{SI} \\dfrac{Q_1 Q_2}{r^2}"); Format("，同极性相斥，反极性相吸"); ListLiumEnd();
+			ListLiumBegin(""); Format("倒数 "); Math("\\rho = \\dfrac 1 \\varepsilon"); ListLiumEnd();
+		ListEnd();
+	ListLiumEnd();
+ListEnd();
+
+Format("^TL l^t "); Math("\\Lambda \\lambda");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Format("L "); // 电感
+		Format("\nwhere "); Math("\\Phi=LI"); Format("; "); Math("U = -LI'"); Format(".");
+	ListLiumEnd();
+	ListLiumBegin(""); Math("\\lambda = \\dfrac Q {2 \\pi R}"); ListLiumEnd(); // 电荷线密度
+	ListLiumBegin(""); Math("\\lambda = \\dfrac{c}{f}"); ListLiumEnd(); // 波长, c ぞ 光速， f ぞ 波の频率
+ListEnd();
+
+Format("^TM m^t "); Math("\\mu");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Math("\\mu_0"); Format("\n");
+		Format("与单位有关，在 SI单位制 下等于 ^M4 \\pi D7^m。\n");
+		Format("(Kan.) 磁导常数 "); // 简体
+	ListLiumEnd();
+	// \item M ひな系数
+	ListLiumBegin(""); Math("\\vec{M}"); ListLiumEnd(); // 力矩
+ListEnd();
+
+Format("^TN n^t "); Math("\\Upsilon \\upsilon \\nu");
+ListBegin("itemize");
+	ListLiumBegin(""); Math("n"); ListLiumEnd(); // 线圈变压器匝数比
+	ListLiumBegin(""); Math("\\hat{n}"); ListLiumEnd(); // 一个面的单位法向量 %根据求法与面内两条不平行的线垂直，列方程组或用叉乘运算
+ListEnd();
+
+Format("^TO o^t "); // omicron
+ListBegin("itemize");
+	ListLiumBegin(""); Format("..."); ListLiumEnd();
+ListEnd();
+
+Format("^TP p^t "); Math("\\Pi \\pi");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Math("\\pi"); Format(" ^Bconstant^b "); Math("= 4*(1-\\dfrac{1}{3}+\\dfrac{1}{5}-...) \\approx 3.141592653589793..."); Format("\n");
+		// (ARN.) 连续极限
+		Format("(Eng.) Ratio of circumference to diameter;\n");
+		Format("(Kan.) 圆周率 ."); // 简体
+	ListLiumEnd();
+	ListLiumBegin(""); Math("\\vec{p} = Q \\cdot \\vec r"); ListLiumEnd(); // 电(偶)极距
+	// \begin{itemize}
+	// 方向：正电荷指向负电荷
+	// 伪方向：几何中心 → 作用点 （アリナ 定义）
+	// 偶极矩是矢量，遵从矢量的加法
+	// \end{itemize}
+	ListLiumBegin(""); ListLiumEnd(); // 电极化强度 %aka 单位体积电偶极距
+ListEnd();
+
+Format("^TQ q^t ");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Format("Quality Factor "); // 品质因数
+		ListBegin("itemize");
+			ListLiumBegin(""); Math("Q = \\dfrac{\\omega_0 L}{R} = \\dfrac 1 {\\omega_0 R C}"); ListLiumEnd();
+			ListLiumBegin(""); Math("Q_0"); ListLiumEnd(); // 空载品质因数，不考虑 $R_S$, $R_L$
+			ListLiumBegin(""); Math("Q_L"); ListLiumEnd(); // 考虑电源内阻和负载的品质因数
+			// {} Q/Circuit/Resonance
+		ListEnd();
+	ListLiumEnd();
+	ListLiumBegin("");
+		Format("Q "); // 电量
+		ListBegin("itemize");
+			ListLiumBegin(""); Format("Solve Method: By Gauss's law; By direct integration "); ListLiumEnd(); // （电密度）
+		ListEnd();
+	ListLiumEnd();
+ListEnd();
+
+Format("^TR r^t (P) "); Math("\\rho");
+ListBegin("itemize");
+	ListLiumBegin(""); Math("\\rho(\\vec{r})"); ListLiumEnd(); // 体电荷密度 %{} [[F/Electronic/Static_Electro_Field]]
+	ListLiumBegin(""); Math("\\rho"); ListLiumEnd(); // 电阻率
+	ListLiumBegin(""); Math("\\rho_P = -\\nabla\\cdot\\vec{P}"); ListLiumEnd(); // 束缚电荷密度 
+ListEnd();
+
+Format("^TS s^t "); Math("\\Sigma \\sigma \\varsigma");
+ListBegin("itemize");
+	ListLiumBegin(""); Math("\\sigma"); Format(" 面电流密度"); ListLiumEnd();
+	ListLiumBegin(""); Math("\\sigma"); Format(" 电导率"); ListLiumEnd();
+ListEnd();
+
+Format("^TT t^t "); Math("\\tau");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("..."); ListLiumEnd();
+ListEnd();
+
+Format("^TU u^t "); Math("\\theta");
+ListBegin("itemize");
+	ListLiumBegin("");
+		Math("\\theta"); Format(" Angle");
+		Format("\n; where "); Math("cos \\theta = \\dfrac{\\vec{A} \\cdot \\vec{B}}{A \\cdot B}");
+	ListLiumEnd();
+ListEnd();
+
+Format("^TV v^t "); Math("\\Omega \\omega");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("..."); ListLiumEnd();
+ListEnd();
+
+Format("^TW w^t ");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("..."); ListLiumEnd();
+ListEnd();
+
+Format("^TX x^t "); Math("\\chi");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("..."); ListLiumEnd();
+ListEnd();
+
+Format("^TY y^t ");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("..."); ListLiumEnd();
+ListEnd();
+
+Format("^TZ z^t "); Math("\\zeta");
+ListBegin("itemize");
+	ListLiumBegin(""); Format("..."); ListLiumEnd();
+ListEnd();
+
+Inline("tex", "\\newpage\n");

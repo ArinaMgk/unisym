@@ -86,7 +86,7 @@ void GF_TableBegin(uni::Dchain* chain, MarkProcessor* proc) {
         proc->OutFormat("<table>");
         break;
     case MarkProcessor::TextFormat::Tex:
-        if (align) proc->OutFormat("\\begin{longtable}{|%s|}\n", align);
+        if (align) proc->OutFormat("\\begin{longtable}{%s}\n", align);
         else proc->OutFormat("\\begin{longtable}\n");
         proc->OutFormat("\\hline\n");
         break;

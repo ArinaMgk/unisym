@@ -1,6 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Storage) GPT
-// Codifiers: @OpenAI
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 
 #include "../../../../inc/cpp/unisym"

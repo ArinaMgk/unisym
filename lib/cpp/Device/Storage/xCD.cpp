@@ -178,30 +178,10 @@ namespace uni {
 		PartitionSlice slice;
 		slice.address = 0;
 		slice.length = getUnits();
-		slice.sys_id = 0; // Default to 0
-		
-		byte* sec_buf = (byte*)zalc(2048);
-		if (sec_buf) {
-			if (Read(0, sec_buf)) {
-				// Detect FAT type by checking the BPB signatures
-				char fat12_16[8];
-				char fat32[8];
-				MemCopyN(fat12_16, sec_buf + 0x36, 8);
-				MemCopyN(fat32, sec_buf + 0x52, 8);
-				
-				if (StrCompareN(fat32, "FAT32", 5) == 0) {
-					slice.sys_id = 0x0C; // FILESYS_FAT32_LBA
-				} else if (StrCompareN(fat12_16, "FAT16", 5) == 0) {
-					slice.sys_id = 0x06; // FILESYS_FAT16_CHSX
-				} else if (StrCompareN(fat12_16, "FAT12", 5) == 0) {
-					slice.sys_id = 0x01; // FILESYS_FAT12
-				} else {
-					// Fallback to FAT16
-					slice.sys_id = 0x06;
-				}
-			}
-			free(sec_buf);
-		}
+		// ATAPI optical media are probed as whole-disk filesystems rather than
+		// partition-typed block devices. Leave sys_id neutral here and let the
+		// filesystem probe chain decide whether the medium is ISO9660/UDF/etc.
+		slice.sys_id = 0;
 		
 		outpb(ctrl_base, 0);
 		return slice;

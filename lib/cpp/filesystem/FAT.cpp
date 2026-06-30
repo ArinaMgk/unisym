@@ -456,14 +456,32 @@ namespace uni {
 		MIN(to_read, fh->size - offset);
 
 		// evaluate the start cluster
-		uint32_t cluster = fh->start_cluster;
 		uint32_t cluster_size = sectors_per_cluster * storage->Block_Size;
+		uint32_t cluster;
+		uint32_t cluster_file_offset; // file offset of current cluster's start
 
-		// skip the start cluster
-		while (offset >= cluster_size) {
-			offset -= cluster_size;
-			cluster = get_fat_entry(cluster);
-			if (cluster >= 0xFFFFFFF8) return total_read; // over the file
+		// Use cached position to avoid O(n) FAT walk from start on forward seeks.
+		// current_cluster/current_offset record where the last readfl ended.
+		if (fh->current_cluster >= 2 && offset >= fh->current_offset) {
+			cluster = fh->current_cluster;
+			cluster_file_offset = fh->current_offset;
+			uint32_t skip = offset - fh->current_offset;
+			while (skip >= cluster_size) {
+				skip -= cluster_size;
+				cluster_file_offset += cluster_size;
+				cluster = get_fat_entry(cluster);
+				if (cluster >= 0xFFFFFFF8) return total_read;
+			}
+			offset = skip; // cluster-local offset
+		} else {
+			cluster = fh->start_cluster;
+			cluster_file_offset = 0;
+			while (offset >= cluster_size) {
+				offset -= cluster_size;
+				cluster_file_offset += cluster_size;
+				cluster = get_fat_entry(cluster);
+				if (cluster >= 0xFFFFFFF8) return total_read; // over the file
+			}
 		}
 
 		while (to_read > 0) {
@@ -485,16 +503,24 @@ namespace uni {
 			to_read -= can_read;
 			offset += can_read;
 
+			if (to_read == 0) break;
+
 			if (offset >= cluster_size) {
 				offset = 0;
+				cluster_file_offset += cluster_size;
 				auto old = cluster;
 				cluster = get_fat_entry(cluster);
-				if (cluster >= 0xFFFFFFF8 && to_read > 0) {
+				if (cluster >= 0xFFFFFFF8) {
 					// Fix 3: Return the total accumulated bytes, not the last chunk
+					fh->current_cluster = old;
+					fh->current_offset = cluster_file_offset - cluster_size;
 					return total_read;
 				}
 			}
 		}
+		// Cache current position for future forward seeks
+		fh->current_cluster = cluster;
+		fh->current_offset = cluster_file_offset;
 		return total_read;
 	}
 

@@ -58,9 +58,14 @@ PCI_Result PCI::ScanFunction(uint8 bus, uint8 device, uint8 function) {
 		return err;
 	}
 	if (class_code.Match(0x06u, 0x04u)) {
-		// standard PCI-PCI bridge
+		// Standard PCI-to-PCI bridge.
 		auto bus_numbers = read_bus_numbers(bus, device, function);
+		uint8_t primary_bus = bus_numbers & 0xffu;
 		uint8_t secondary_bus = (bus_numbers >> 8) & 0xffu;
+		uint8_t subordinate_bus = (bus_numbers >> 16) & 0xffu;
+		if (secondary_bus == 0 || secondary_bus < primary_bus || secondary_bus > subordinate_bus) {
+			return PCI_Result::Success;
+		}
 		return ScanBus(secondary_bus);
 	}
 	return PCI_Result::Success;
@@ -85,9 +90,9 @@ PCI_Result PCI::ScanDevice(uint8 bus, uint8 device) {
 }
 
 PCI_Result PCI::ScanBus(uint8 bus) {
-	// ploginfo("PCI::ScanBus bus%u", bus);
 	for0(device, 32) {
-		if (PCI::read_device_id(bus, device, 0) == 0xFFFFu) {
+		uint16 device_id = PCI::read_device_id(bus, device, 0);
+		if (device_id == 0xFFFFu) {
 			continue;
 		}
 		if (auto err = ScanDevice(bus, device)) {

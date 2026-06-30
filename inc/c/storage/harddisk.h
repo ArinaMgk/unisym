@@ -29,6 +29,7 @@
 
 #include "../../cpp/trait/StorageTrait.hpp"
 #include "../../cpp/interrupt"
+#include "AHCI.h"
 
 #define ATA_READ     0x20
 #define ATA_WRITE    0x30
@@ -128,6 +129,49 @@ namespace uni {
 		virtual bool Write(stduint BlockIden, const void* Sors) override { return false; } // CD-ROM is read-only
 		virtual stduint getUnits() override;
 		virtual PartitionSlice getSlice(stduint dev) override;
+	};
+
+	class Harddisk_SATA_AHCI : public StorageTrait {
+	public:
+		volatile AHCI_MEM* abar = nullptr;
+		int port_index = -1;
+		byte* cmd_list = nullptr;
+		byte* rx_fis = nullptr;
+		byte* cmd_table = nullptr;
+		uint64 total_sectors = 0;
+		HD_Info hd_info = {};
+		bool hd_info_valid = false;
+		bool (*fn_irq_wait)(Harddisk_SATA_AHCI* disk, uint32 slot_mask) = nullptr;
+
+	public:
+		Harddisk_SATA_AHCI() {
+			Block_buffer = nullptr;
+			Block_Size = 512;
+		}
+
+		void Bind(volatile AHCI_MEM* mmio_base, int port_no);
+		void SetWorkspace(void* clb, void* fb, void* ctba);
+
+		static bool IsCandidatePort(volatile AHCI_MEM* mmio_base, uint32 port_no);
+		static int SelectFirstPort(volatile AHCI_MEM* mmio_base);
+
+		bool Identify(void* identify_buf);
+		void UpdateIdentity(const void* identify_buf);
+		void GetModel(char model[41], const void* identify_buf) const;
+		bool ReadSectors(uint64 lba, void* dest, stduint sector_count);
+		bool WriteSectors(uint64 lba, const void* src, stduint sector_count);
+
+		virtual bool Read(stduint BlockIden, void* Dest) override;
+		virtual bool Write(stduint BlockIden, const void* Sors) override;
+		virtual stduint getUnits() override;
+		virtual int operator[](uint64 bytid) override { return _TODO 0; }
+		virtual PartitionSlice getSlice(stduint dev) override;
+
+	protected:
+		bool StopCommandEngine() const;
+		void StartCommandEngine() const;
+		bool PollCommandSlot(uint32 slot_mask) const;
+		bool PrepareAtaCommand(byte ata_cmd, uint64 lba, byte* data_buf, stduint sector_count, bool is_write);
 	};
 
 }

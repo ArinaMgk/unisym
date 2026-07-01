@@ -37,7 +37,28 @@ namespace uni::Witch {
 
 	struct Form_CloseButton : public SheetTrait {
 		friend class Form;
-		Form_CloseButton() : SheetTrait() {}
+		bool pressed = false;
+		Form_CloseButton() : SheetTrait(), pressed(false) {}
+		virtual void doshow(void*) override {}
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
+		virtual Color getPoint(Point p) override;
+	};
+	struct Form_MaximizeButton : public SheetTrait {
+		friend class Form;
+		bool pressed = false;
+		bool enabled = false;
+		bool visible = true;
+		Form_MaximizeButton() : SheetTrait(), pressed(false), enabled(false), visible(true) {}
+		virtual void doshow(void*) override {}
+		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
+		virtual Color getPoint(Point p) override;
+	};
+	struct Form_MinimizeButton : public SheetTrait {
+		friend class Form;
+		bool pressed = false;
+		bool enabled = true;
+		bool visible = true;
+		Form_MinimizeButton() : SheetTrait(), pressed(false), enabled(true), visible(true) {}
 		virtual void doshow(void*) override {}
 		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
 		virtual Color getPoint(Point p) override;
@@ -62,6 +83,10 @@ namespace uni::Witch {
 	private:
 		// subsheet0: Close Button
 		Form_CloseButton close_btn;
+		// subsheet2: Maximize Button
+		Form_MaximizeButton max_btn;
+		// subsheet3: Minimize Button
+		Form_MinimizeButton min_btn;
 		// subsheet1: Title Bar
 		Form_TitleBar title_bar;
 		// subsheetN: Client Area
@@ -77,7 +102,7 @@ namespace uni::Witch {
 		void* usrp_owner = nullptr;
 		Queue<SheetMessage> msg_queue;
 		// NodeChain Controls = (nullptr);
-		Form() : LayerManager(), close_btn(), title_bar(), client_area(),
+		Form() : LayerManager(), close_btn(), max_btn(), min_btn(), title_bar(), client_area(),
 			focus_sheet(nullptr), active(false), msg_queue(0) {
 		}
 

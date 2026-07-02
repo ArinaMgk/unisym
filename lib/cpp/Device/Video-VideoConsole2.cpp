@@ -46,6 +46,7 @@
 //   (Others consumed, attr reserved for future bold/underline/blink.)
 
 #include "../../../inc/cpp/Device/_Video.hpp"
+#include "../../../inc/cpp/Witch/TextChrome.hpp"
 #include "../../../inc/cpp/reference"
 #include "../../../inc/c/data.h"
 #include "../../../inc/c/multichar.h"
@@ -180,74 +181,10 @@ namespace uni {
 	// -------------------------------------------------------------------------
 	// BitmapFontEngine Implementation
 	// -------------------------------------------------------------------------
-	void BitmapFontEngine::DrawChar(
-		Color* pixel_buffer,
-		stduint pitch_pixels,
-		stduint px_x,
-		stduint px_y,
-		uint32 unicode_char,
-		Color fg,
-		Color bg
-	) const {
-		stduint font_w = typ ? 8 : 5;
-		stduint font_h = typ ? 16 : 8;
-
-		for0(scan_y, font_h) {
-			Color* dst = pixel_buffer + (px_y + scan_y) * pitch_pixels + px_x;
-			for0(px, font_w) dst[px] = bg;
-		}
-
-		char ch = (char)(unicode_char & 0xFF);
-		if (!ascii_isprint(ch)) return;
-		ch -= 0x20;
-
-		if (typ == 1) {
-			const uint16(*datptr) = (const uint16(*)) &_BITFONT_ASCII_16x8[(byte)ch];
-			uint16 dat = 0;
-			Reference_T<uint16> dat_bmap _IMM(&dat);
-			for0(i, 8) {
-				dat = datptr[i];
-				for0r(j, 16) {
-					if (dat_bmap.bitof(j)) {
-						pixel_buffer[(px_y + (j ^ 0b111)) * pitch_pixels + px_x + i] = fg;
-					}
-				}
-			}
-		}
-		else {
-			const uint8(*datptr) = (const uint8(*)) &_BITFONT_ASCII_8x5[(byte)ch];
-			uint8 dat = 0;
-			Reference_T<uint8> dat_bmap _IMM(&dat);
-			for0(i, 5) {
-				dat = datptr[i];
-				for0r(j, 8) {
-					if (dat_bmap.bitof(j)) {
-						pixel_buffer[(px_y + j) * pitch_pixels + px_x + i] = fg;
-					}
-				}
-			}
-		}
-	}
-
-	Color BitmapFontEngine::GetPixel(
-		uint32 unicode_char,
-		stduint gx,
-		stduint gy,
-		Color fg,
-		Color bg
-	) const {
-		char ch = (char)(unicode_char & 0xFF);
-		if (!ascii_isprint(ch)) return bg;
-		ch -= 0x20;
-
-		if (typ == 1) {
-			uint16 dat = ((const uint16(*)) &_BITFONT_ASCII_16x8[(byte)ch])[gx];
-			return ((dat >> (gy ^ 0b111)) & 1) ? fg : bg;
-		}
-		else {
-			uint8 dat = ((const uint8(*)) &_BITFONT_ASCII_8x5[(byte)ch])[gx];
-			return ((dat >> gy) & 1) ? fg : bg;
-		}
+	stduint VideoConsole2::getLineBufferSize() const {
+		if (!font_engine) return 0;
+		Size2 cell_size = font_engine->GetCellSize();
+		return cols * cell_size.x * cell_size.y;
 	}
 
 	// -------------------------------------------------------------------------
@@ -491,7 +428,7 @@ namespace uni {
 
 		for0(cx, cols) {
 			const BufferChar& cell = text_buf[row * cols + cx];
-			font_engine->DrawChar(line_buf, row_px_w, cx * font_w, 0,
+			witch::control::TextChrome::RasterCellToPixels(font_engine, line_buf, row_px_w, cx * font_w,
 				cell.unicode_char, cell.fore_color, cell.back_color);
 		}
 		line_buf_row   = (stdsint)row;
@@ -509,11 +446,11 @@ namespace uni {
 		stduint row_px_w = cols * font_w;
 		stduint py_base  = row * font_h;
 
-		for0(scan_y, font_h) {
-			Color* dst = buffer + (py_base + scan_y) * window.width;
-			Color* src = line_buf + scan_y * row_px_w;
-			for0(px, row_px_w) dst[px] = src[px];
-		}
+		witch::control::TextChrome::BlitPixelLine(
+			buffer, window.width, 0, py_base,
+			line_buf, row_px_w,
+			row_px_w, font_h
+		);
 		if (sheet_parent) {
 			Rectangle strip;
 			strip.x = 0; strip.y = py_base;
@@ -548,11 +485,11 @@ namespace uni {
 				for0(r, rows) {
 					EnsureLineBuffer(r);
 					stduint py_base = r * font_h;
-					for0(scan_y, font_h) {
-						Color* dst = buffer + (py_base + scan_y) * window.width;
-						Color* src = line_buf + scan_y * row_px_w;
-						for0(px, row_px_w) dst[px] = src[px];
-					}
+					witch::control::TextChrome::BlitPixelLine(
+						buffer, window.width, 0, py_base,
+						line_buf, row_px_w,
+						row_px_w, font_h
+					);
 					line_buf_valid = false;
 				}
 				Rectangle full;

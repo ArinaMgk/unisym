@@ -24,15 +24,14 @@
 #ifndef _INC_WITCH_CTRL_EDITBOX
 #define _INC_WITCH_CTRL_EDITBOX
 
-#include "../Control.hpp"
+#include "../TextChrome.hpp"
 #include "../../string"
-#include "../../Device/_Video.hpp"
 
 extern const char key_map[256], key_map_shift[256];
 
 namespace uni::witch::control {
 
-	class TextBox : public SheetTrait {
+	class TextBox : public SheetTrait, public TextChrome {
 	public:
 		struct RichLine {
 			String text = "";
@@ -63,8 +62,6 @@ namespace uni::witch::control {
 			bool valid = false;
 		};
 		Vector<RichLine> lines;
-		BitmapFontEngine default_font_engine = BitmapFontEngine(1);
-		const FontEngine* font_engine = nullptr;
 		CachedPhysicalLine* line_caches = nullptr;
 		stduint line_cache_count = 0;
 		stdsint cursor_row = 0;
@@ -75,7 +72,7 @@ namespace uni::witch::control {
 		Color current_input_color = Color::Black;
 		bool cursor_visible = false;
 	public:
-		TextBox() : SheetTrait(), default_font_engine(1), font_engine(&default_font_engine) {}
+		TextBox() : SheetTrait(), TextChrome() {}
 		~TextBox() {
 			ReleaseLineCaches();
 		}
@@ -122,6 +119,13 @@ namespace uni::witch::control {
 			}
 		}
 
+		void EnsureLineModel() {
+			if (lines.Count() == 0) {
+				RichLine line;
+				lines.Append(line);
+			}
+		}
+
 		DrawMetrics GetDrawMetrics() {
 			DrawMetrics dm;
 			if (font_engine) {
@@ -132,13 +136,6 @@ namespace uni::witch::control {
 				dm.margin_bottom = dm.line_height;
 			}
 			return dm;
-		}
-
-		void EnsureLineModel() {
-			if (lines.Count() == 0) {
-				RichLine line;
-				lines.Append(line);
-			}
 		}
 
 		void NormalizeLineColors(RichLine& line) {
@@ -657,32 +654,6 @@ namespace uni::witch::control {
 			return draw_y + dm.margin_bottom <= (stdsint)sheet_area.height;
 		}
 
-		void DrawGlyph(Point at, char ch, Color col) {
-			if (!sheet_buffer || !font_engine) return;
-			Size2 cell = font_engine->GetCellSize();
-			for (stduint gy = 0; gy < (stduint)cell.y; gy++) {
-				for (stduint gx = 0; gx < (stduint)cell.x; gx++) {
-					Point p(at.x + (stdsint)gx, at.y + (stdsint)gy);
-					if (p.x < 0 || p.y < 0 || p.x >= (stdsint)sheet_area.width || p.y >= (stdsint)sheet_area.height) continue;
-					sheet_buffer[(stduint)p.y * sheet_area.width + (stduint)p.x] =
-						font_engine->GetPixel((uint32)(byte)ch, gx, gy, col, Color::White);
-				}
-			}
-		}
-
-		void DrawGlyphToPixels(Color* pixels, stduint pitch_pixels, Point at, char ch, Color col) {
-			if (!pixels || !font_engine) return;
-			Size2 cell = font_engine->GetCellSize();
-			for (stduint gy = 0; gy < (stduint)cell.y; gy++) {
-				for (stduint gx = 0; gx < (stduint)cell.x; gx++) {
-					Point p(at.x + (stdsint)gx, at.y + (stdsint)gy);
-					if (p.x < 0 || p.y < 0) continue;
-					pixels[(stduint)p.y * pitch_pixels + (stduint)p.x] =
-						font_engine->GetPixel((uint32)(byte)ch, gx, gy, col, Color::White);
-				}
-			}
-		}
-
 		void RenderCachedLine(CachedPhysicalLine& cache, stduint logical_row, stduint segment_row, const DrawMetrics& dm) {
 			stduint visible_cols = GetVisibleTextCols();
 			stduint pitch_pixels = visible_cols * dm.char_width;
@@ -696,7 +667,7 @@ namespace uni::witch::control {
 				char ch = lines[logical_row].text[(stdsint)char_idx];
 				if (ch >= 32 && ch <= 126) {
 					Color col = (char_idx < lines[logical_row].colors.Count()) ? lines[logical_row].colors[char_idx] : Color::Black;
-					DrawGlyphToPixels(cache.pixels, pitch_pixels, Point((stdsint)draw_x, 0), ch, col);
+					RasterCellToPixels(font_engine, cache.pixels, pitch_pixels, draw_x, (uint32)(byte)ch, col, Color::White);
 				}
 				draw_x += dm.char_width;
 			}
@@ -713,11 +684,7 @@ namespace uni::witch::control {
 			if (!sheet_buffer || !cache.pixels) return;
 			stduint visible_cols = GetVisibleTextCols();
 			stduint pitch_pixels = visible_cols * dm.char_width;
-			for (stduint sy = 0; sy < (stduint)dm.line_height; sy++) {
-				Color* dst = sheet_buffer + (draw_y + sy) * sheet_area.width + dm.origin_x;
-				Color* src = cache.pixels + sy * pitch_pixels;
-				for (stduint sx = 0; sx < pitch_pixels; sx++) dst[sx] = src[sx];
-			}
+			BlitPixelLine(sheet_buffer, sheet_area.width, dm.origin_x, draw_y, cache.pixels, pitch_pixels, pitch_pixels, dm.line_height);
 		}
 
 		void DrawVisibleText(const DrawMetrics& dm, stdsint& cursor_draw_x, stdsint& cursor_draw_y, bool& cursor_draw_known) {
@@ -856,6 +823,11 @@ namespace uni::witch::control {
 			_TEMP (void)p; return Color::Black;
 		}
 
+		void setFontEngine(const FontEngine* fe) {
+			TextChrome::setFontEngine(fe);
+			InvalidateAllLineCaches();
+		}
+
 		// Update the buffer
 		virtual void doshow(void*) override {
 			if (!sheet_buffer) sheet_buffer = (Color*)calloc(sheet_area.getArea(), sizeof(Color));
@@ -914,10 +886,10 @@ namespace uni::witch::control {
 				stduint current_tick = para_next(args, stduint);
 				int type = para_next(args, int);
 				para_endo(args);
-				(void)current_tick; (void)type; // unused for now but parsed correctly
-				
+				(void)current_tick; (void)type;
+
 				cursor_visible = !cursor_visible;
-				doshow(nullptr); // this will redraw with updated cursor_visible state, resulting in blink
+				doshow(nullptr);
 			}
 			else if (event == SheetEvent::onKeybd) {
 				SyncLinesFromText();
@@ -925,9 +897,9 @@ namespace uni::witch::control {
 				para_ento(args, rel_p);
 				keyboard_event_t* pkey = para_next(args, keyboard_event_t*);
 				para_endo(args);
-					if (pkey && (pkey->method == keyboard_event_t::method_t::keydown || pkey->method == keyboard_event_t::method_t::keyrepeat)) {
-						bool shift = pkey->mod.l_shift || pkey->mod.r_shift;
-						char ch = (shift ? key_map_shift : key_map)[pkey->keycode];
+				if (pkey && (pkey->method == keyboard_event_t::method_t::keydown || pkey->method == keyboard_event_t::method_t::keyrepeat)) {
+					bool shift = pkey->mod.l_shift || pkey->mod.r_shift;
+					char ch = (shift ? key_map_shift : key_map)[pkey->keycode];
 
 					if (pkey->keycode == 0x50) {
 						MoveCursorLeft();
@@ -975,11 +947,6 @@ namespace uni::witch::control {
 					}
 				}
 			}
-		}
-
-		void setFontEngine(const FontEngine* fe) {
-			font_engine = fe ? fe : &default_font_engine;
-			InvalidateAllLineCaches();
 		}
 
 		void Start() {

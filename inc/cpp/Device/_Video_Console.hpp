@@ -83,63 +83,7 @@ namespace uni {
 		inline auto getCursor() const { return cursor; }
 	};
 
-	// Abstract font rendering engine interface
-	class FontEngine {
-	public:
-		virtual ~FontEngine() {}
-
-		// Get width and height of a single character cell in monospaced console
-		virtual Size2 GetCellSize() const = 0;
-
-		// Render character into a pixel buffer at (px_x, px_y) with specified pitch
-		virtual void DrawChar(
-			Color* pixel_buffer,
-			stduint pitch_pixels,
-			stduint px_x,
-			stduint px_y,
-			uint32 unicode_char,
-			Color fg,
-			Color bg
-		) const = 0;
-
-		// Retrieve color of a specific sub-pixel (gx, gy) within monospaced cell
-		virtual Color GetPixel(
-			uint32 unicode_char,
-			stduint gx,
-			stduint gy,
-			Color fg,
-			Color bg
-		) const = 0;
-	};
-
-	// Default bitmap font engine supporting 8x5 and 16x8 formats
-	class BitmapFontEngine : public FontEngine {
-	protected:
-		stduint typ; // 0: 8x5, 1: 16x8
-	public:
-		BitmapFontEngine(stduint type = 1) : typ(type) {}
-		virtual ~BitmapFontEngine() {}
-
-		virtual Size2 GetCellSize() const override {
-			return typ ? Size2(8, 16) : Size2(5, 8);
-		}
-		virtual void DrawChar(
-			Color* pixel_buffer,
-			stduint pitch_pixels,
-			stduint px_x,
-			stduint px_y,
-			uint32 unicode_char,
-			Color fg,
-			Color bg
-		) const override;
-		virtual Color GetPixel(
-			uint32 unicode_char,
-			stduint gx,
-			stduint gy,
-			Color fg,
-			Color bg
-		) const override;
-	};
+	class FontEngine;
 
 	// One cell of the VideoConsole2 text buffer.
 	struct BufferChar {
@@ -215,11 +159,7 @@ namespace uni {
 		inline stduint getRows() const { return rows; }
 		// Number of Color elements required for the line buffer allocation.
 		// line_buf must hold one character row: cols * font_w * font_h pixels.
-		inline stduint getLineBufferSize() const {
-			if (!font_engine) return 0;
-			Size2 cell_size = font_engine->GetCellSize();
-			return cols * cell_size.x * cell_size.y;
-		}
+		stduint getLineBufferSize() const;
 
 	public:
 		virtual int  out(const char* str, stduint len) override;

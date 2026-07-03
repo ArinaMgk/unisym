@@ -85,6 +85,10 @@ enum AHCI_FISType : byte {
 #define AHCI_FIS_DMA_I         0x40u
 #define AHCI_FIS_DMA_A         0x80u
 
+#ifdef _DEV_MSVC
+#pragma pack(push, 1)
+#endif
+
 // Port-to-memory receive FIS area. Total size is 256 bytes.
 _PACKED(struct) AHCI_ReceivedFIS {
 	byte dsfis[0x1C];
@@ -258,6 +262,10 @@ _PACKED(struct) AHCI_MEM {
 	byte vendor[0x100 - 0xA0];
 	AHCI_PORT ports[1];
 };
+
+#ifdef _DEV_MSVC
+#pragma pack(pop)
+#endif
 
 #ifdef _INC_CPP
 static_assert(sizeof(AHCI_FIS_REG_H2D) == 20, "AHCI_FIS_REG_H2D size mismatch");

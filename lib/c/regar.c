@@ -1284,6 +1284,8 @@ double _Heap RedToDouble(const Rfnar_t* dest)
 }
 
 #include <stdio.h>
+#undef isnan
+#define isnan(x) ((x) != (x))
 //
 Rfnar_t* _Need_free RedFromDouble(double flt, size_t rfnumlen, size_t FetchDigits)
 {

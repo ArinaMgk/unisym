@@ -152,6 +152,7 @@ bool uni::InterruptControl::Initialize(byte typ) {
 	#endif
 	if (typ) { // LAPIC
 		if (!pic_set) {
+			_IC_INIT_PIC();
 			outpb(PORT_i8259A_MAS_B, 0xFF);
 			outpb(PORT_i8259A_SLV_B, 0xFF);
 			pic_set = true;

@@ -103,6 +103,10 @@ static void Keyboard_Acknowledge()
 void Keyboard_Init()
 {
 	i8259Master_Enable(1);// Master1 is linked with RTC
+	// Flush the output buffer to clear any pending data/IRQs left by BIOS/GRUB
+	while (innpb(PORT_KEYBOARD_CMD) & 0x01) {
+		innpb(PORT_KEYBOARD_DAT);
+	}
 	//
 	// ---- make support for mouse
 	Keyboard_Wait();

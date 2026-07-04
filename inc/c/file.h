@@ -39,7 +39,8 @@ namespace uni {
 
 	// depend { String }
 	enum class FileOpenType {
-		Read, Write, Append //{MORE}
+		Read, Write, Append,
+		ReadText, WriteText, AppendText
 	};
 	class HostFile : public OstreamTrait, public IstreamTrait
 	// not inherited from File(FileSystem(BlockTraitObject))
@@ -50,6 +51,7 @@ namespace uni {
 		~HostFile();
 		HostFile() : fptr(nullptr) {}
 		HostFile(rostr filepath, FileOpenType fopen_type = FileOpenType::Read);
+		HostFile(rostr filepath, rostr mode);
 		explicit operator bool() const { return nullptr != fptr; }
 		//
 		virtual int inn() override;

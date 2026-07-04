@@ -281,6 +281,25 @@ void EnableLocalAPIC() {
 */
 #endif
 
+bool uni::InterruptControl::TryMaskInterrupt() {
+	#if (_MCCA & 0xFF00) == 0x8600
+	stduint flags = getFlags();
+	bool was_enabled = (byte)cast<REG_FLAG_t>(flags).IF != 0;
+	if (was_enabled) {
+		enInterrupt(false);
+	}
+	return was_enabled;
+	#elif (_MCCA & 0xFF00) == 0x1000
+	bool was_enabled = getInterrupt() != 0;
+	if (was_enabled) {
+		enInterrupt(false);
+	}
+	return was_enabled;
+	#else
+	return false;
+	#endif
+}
+
 // InterruptControl::Reset
 #if (_MCCA & 0xFF00) == 0x8600
 // Use Interrupt or Trap Gate? RPL = 0 or 3? 

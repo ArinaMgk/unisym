@@ -110,6 +110,10 @@ namespace uni {
 		// enInterrupt but init the icontroller nor IC's cascade interrupt
 		void enInterrupt(bool enable = true);
 
+		// IF=0 -> Return false
+		// IF=1 -> Return true after clear IF
+		bool TryMaskInterrupt();
+
 		// enAble: for IC self
 
 		#if (_MCCA & 0xFF00) == 0x8600

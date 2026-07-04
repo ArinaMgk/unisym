@@ -200,6 +200,13 @@ namespace uni {
 			return uni::Search(*this, (pureptr_t)&val);
 		}
 
+		// ISO C++
+
+		type0* begin() { return addr; }
+		const type0* begin() const { return addr; }
+		type0* end() { return addr + count; }
+		const type0* end() const { return addr + count; }
+
 	};
 
 

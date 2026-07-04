@@ -1,0 +1,133 @@
+// ASCII C++11 TAB4 CRLF
+// Attribute:
+// LastCheck: RFZ01
+// AllAuthor: @dosconio
+// ModuTitle: Basic Modules
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_ATOMIC_X
+#define _INC_ATOMIC_X
+
+#include "./unisym"
+
+namespace uni {
+
+// Memory order constants (mapped to GCC built-ins if available)
+	enum MemoryOrder {
+		MemoryOrder_Relaxed = 0, // __ATOMIC_RELAXED
+		MemoryOrder_Consume = 1, // __ATOMIC_CONSUME
+		MemoryOrder_Acquire = 2, // __ATOMIC_ACQUIRE
+		MemoryOrder_Release = 3, // __ATOMIC_RELEASE
+		MemoryOrder_Acq_Rel = 4, // __ATOMIC_ACQ_REL
+		MemoryOrder_Seq_Cst = 5  // __ATOMIC_SEQ_CST
+	};
+
+	template <typename T>
+	class Atomic {
+	protected:
+		T _val;
+	public:
+		Atomic() = default;
+		constexpr Atomic(T val) : _val(val) {}
+
+		Atomic(const Atomic&) = delete;
+		Atomic& operator=(const Atomic&) = delete;
+
+		T load(MemoryOrder order = MemoryOrder_Seq_Cst) const volatile {
+			#if defined(__GNUC__) || defined(__clang__)
+			return __atomic_load_n(&_val, (int)order);
+			#else
+			// Fallback (not truly atomic on all architectures without barriers)
+			return _val;
+			#endif
+		}
+
+		void store(T val, MemoryOrder order = MemoryOrder_Seq_Cst) volatile {
+			#if defined(__GNUC__) || defined(__clang__)
+			__atomic_store_n(&_val, val, (int)order);
+			#else
+			_val = val;
+			#endif
+		}
+
+		T exchange(T val, MemoryOrder order = MemoryOrder_Seq_Cst) volatile {
+			#if defined(__GNUC__) || defined(__clang__)
+			return __atomic_exchange_n(&_val, val, (int)order);
+			#else
+			T old = _val;
+			_val = val;
+			return old;
+			#endif
+		}
+
+		bool compare_exchange(T& expected, T desired,
+			MemoryOrder success_order = MemoryOrder_Seq_Cst,
+			MemoryOrder failure_order = MemoryOrder_Seq_Cst) volatile
+		{
+			#if defined(__GNUC__) || defined(__clang__)
+			return __atomic_compare_exchange_n(&_val, &expected, desired, false, (int)success_order, (int)failure_order);
+			#else
+			if (_val == expected) {
+				_val = desired;
+				return true;
+			}
+			expected = _val;
+			return false;
+			#endif
+		}
+
+		T fetch_add(T arg, MemoryOrder order = MemoryOrder_Seq_Cst) volatile {
+			#if defined(__GNUC__) || defined(__clang__)
+			return __atomic_fetch_add(&_val, arg, (int)order);
+			#else
+			T old = _val;
+			_val += arg;
+			return old;
+			#endif
+		}
+
+		T fetch_sub(T arg, MemoryOrder order = MemoryOrder_Seq_Cst) volatile {
+			#if defined(__GNUC__) || defined(__clang__)
+			return __atomic_fetch_sub(&_val, arg, (int)order);
+			#else
+			T old = _val;
+			_val -= arg;
+			return old;
+			#endif
+		}
+
+		T operator=(T val) volatile {
+			store(val);
+			return val;
+		}
+
+		operator T() const volatile {
+			return load();
+		}
+
+		T operator++() volatile { return fetch_add(1) + 1; }
+		T operator++(int) volatile { return fetch_add(1); }
+		T operator--() volatile { return fetch_sub(1) - 1; }
+		T operator--(int) volatile { return fetch_sub(1); }
+		T operator+=(T arg) volatile { return fetch_add(arg) + arg; }
+		T operator-=(T arg) volatile { return fetch_sub(arg) - arg; }
+	};
+
+}
+
+#endif

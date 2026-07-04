@@ -43,9 +43,13 @@ namespace uni {
 
 	HostFile::HostFile(rostr filepath, FileOpenType fopen_type) {
 		static rostr fop_iden[]{
-			"rb", "wb", "ab"
+			"rb", "wb", "ab",
+			"rt", "wt", "at" // t
 		};
 		fptr = (void*)fopen(filepath, fop_iden[_IMM(fopen_type)]);
+	}
+	HostFile::HostFile(rostr filepath, rostr mode) {
+		fptr = (void*)fopen(filepath, mode);
 	}
 
 	//

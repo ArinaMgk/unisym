@@ -227,9 +227,10 @@ SwitchTaskContext:; (* nex, * crt)
 	MOV [EAX + 0x44], ECX
 	;
 	MOV EDI, EAX
-	XOR ECX, ECX
-	MOV EAX, 0x0B
+	MOV EAX, 1
 	CPUID
+	MOV EDX, EBX
+	SHR EDX, 24 ; xAPIC LAPIC ID (Initial APIC ID), consistent with table keys
 	MOV [ap_ring3_iret_last_lapicid], EDX
 	CMP EDX, 256
 	JAE .ring3_guard_fallback

@@ -178,6 +178,7 @@ namespace uni {
 		uint32_t next_handle_id = 1;
 		uint32_t total_clusters;// = data_sectors / sectors_per_cluster
 		byte* buffer_fatable;
+		bool allow_allocate = false;//{TODO}
 	public:
 		FilesysFAT(uint32_t fatype, StorageTrait& s, byte* buffer, byte* fat_buffer)
 			: fat_type(fatype), buffer_sector(buffer), buffer_fatable(fat_buffer)

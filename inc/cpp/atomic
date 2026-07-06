@@ -45,7 +45,7 @@ namespace uni {
 		Atomic() = default;
 		constexpr Atomic(T val) : _val(val) {}
 
-		Atomic(const Atomic&) = delete;
+		explicit Atomic(const Atomic&) = delete;
 		Atomic& operator=(const Atomic&) = delete;
 
 		T load(MemoryOrder order = MemoryOrder_Seq_Cst) const volatile {
@@ -112,6 +112,10 @@ namespace uni {
 		}
 
 		T operator=(T val) volatile {
+			store(val);
+			return val;
+		}
+		T operator=(T val) {
 			store(val);
 			return val;
 		}

@@ -22,6 +22,7 @@ EXTERN ap_ring3_iret_stack_tops
 EXTERN ap_ring3_iret_guard_hits
 EXTERN ap_ring3_iret_last_lapicid
 EXTERN ap_ring3_iret_last_coreid
+EXTERN C_PCU_CORES_PERCORE
 
 ;[CPU 386]
 [CPU 686]
@@ -215,6 +216,21 @@ SwitchTaskContext:; (* nex, * crt)
 	FXSAVE [EAX + 0x60]
 	;
 	MOV DWORD [EAX + 0x26C], 0 ; clear crt->just_schedule
+	; x86 switching_out_thread
+	MOV EAX, 1
+	CPUID
+	MOV EDX, EBX
+	SHR EDX, 24
+	CMP EDX, 256
+	JAE .skip_clear_switching_out_thread
+	MOV EDX, [ap_lapicid_to_coreid + EDX * 4]
+	CMP EDX, 0xFFFFFFFF
+	JE .skip_clear_switching_out_thread
+	MOV EDX, [C_PCU_CORES_PERCORE + EDX * 4]
+	TEST EDX, EDX
+	JZ .skip_clear_switching_out_thread
+	MOV DWORD [EDX + 0x88], 0 ; clear percore->switching_out_thread
+	.skip_clear_switching_out_thread:
 	;
 	MOV EAX, [ESP + 8]; -> nex
 	MOV CX, [EAX + 0x50]

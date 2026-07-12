@@ -26,6 +26,134 @@
 #include "../../../inc/c/consio.h"
 namespace uni {
 
+	namespace {
+		struct FAT_LfnState {
+			uint16_t name_utf16[256];
+			char utf8_name[768];
+			uint8_t checksum;
+			int expected_order;
+			bool active;
+		};
+
+		static void fat_clear_lfn_sequence(FAT_LfnState& state) {
+			MemSet(state.name_utf16, 0, byteof(state.name_utf16));
+			state.checksum = 0;
+			state.expected_order = 0;
+			state.active = false;
+		}
+
+		static void fat_reset_lfn_state(FAT_LfnState& state) {
+			fat_clear_lfn_sequence(state);
+			MemSet(state.utf8_name, 0, byteof(state.utf8_name));
+		}
+
+		static void fat_append_utf8(char* out_name, stduint out_size, stduint& name_len, uint32_t codepoint) {
+			if (out_size == 0) return;
+			if (codepoint <= 0x7F) {
+				if (name_len + 1 >= out_size) return;
+				out_name[name_len++] = (char)codepoint;
+				return;
+			}
+			if (codepoint <= 0x7FF) {
+				if (name_len + 2 >= out_size) return;
+				out_name[name_len++] = (char)(0xC0 | ((codepoint >> 6) & 0x1F));
+				out_name[name_len++] = (char)(0x80 | (codepoint & 0x3F));
+				return;
+			}
+			if (name_len + 3 >= out_size) return;
+			out_name[name_len++] = (char)(0xE0 | ((codepoint >> 12) & 0x0F));
+			out_name[name_len++] = (char)(0x80 | ((codepoint >> 6) & 0x3F));
+			out_name[name_len++] = (char)(0x80 | (codepoint & 0x3F));
+		}
+
+		static uint8_t fat_short_name_checksum(const FAT_DirEntry& entry) {
+			uint8_t sum = 0;
+			for (int i = 0; i < 8; i++) sum = ((sum & 1u) ? 0x80u : 0) + (sum >> 1) + (uint8_t)entry.name[i];
+			for (int i = 0; i < 3; i++) sum = ((sum & 1u) ? 0x80u : 0) + (sum >> 1) + (uint8_t)entry.ext[i];
+			return sum;
+		}
+
+		static void fat_decode_short_name(const FAT_DirEntry& entry, char out_name[13]) {
+			int name_len = 0;
+			for (int k = 0; k < 8 && entry.name[k] != ' '; k++) {
+				unsigned char ch = (unsigned char)entry.name[k];
+				out_name[name_len++] = (ch == 0x05u) ? (char)0xE5u : (char)ch;
+			}
+			if (entry.ext[0] != ' ') {
+				out_name[name_len++] = '.';
+				for (int k = 0; k < 3 && entry.ext[k] != ' '; k++) out_name[name_len++] = entry.ext[k];
+			}
+			out_name[name_len] = 0;
+		}
+
+		static bool fat_append_lfn_piece(FAT_LfnState& state, const FAT_LongDirEntry& lfn) {
+			if (lfn.type != 0 || lfn.cluster != 0) {
+				fat_reset_lfn_state(state);
+				return false;
+			}
+
+			int order = lfn.order & 0x1F;
+			if (order == 0) {
+				fat_reset_lfn_state(state);
+				return false;
+			}
+
+			if (lfn.order & 0x40) {
+				fat_clear_lfn_sequence(state);
+				state.active = true;
+				state.checksum = lfn.checksum;
+				state.expected_order = order;
+			} else {
+				if (!state.active || lfn.checksum != state.checksum || order != state.expected_order - 1) {
+					fat_reset_lfn_state(state);
+					return false;
+				}
+				state.expected_order = order;
+			}
+
+			int piece_offset = (order - 1) * 13;
+			if (piece_offset < 0 || piece_offset + 13 > 256) {
+				fat_reset_lfn_state(state);
+				return false;
+			}
+
+			int idx = 0;
+			auto append_unit = [&](uint16_t c) {
+				state.name_utf16[piece_offset + idx++] = (c == 0xFFFF) ? 0 : c;
+			};
+			for (int j = 0; j < 5; j++) append_unit(lfn.name1[j]);
+			for (int j = 0; j < 6; j++) append_unit(lfn.name2[j]);
+			for (int j = 0; j < 2; j++) append_unit(lfn.name3[j]);
+			return true;
+		}
+
+		static const char* fat_finalize_lfn_name(FAT_LfnState& state) {
+			stduint out_len = 0;
+			for (int i = 0; i < 255; i++) {
+				uint16_t code = state.name_utf16[i];
+				if (code == 0x0000) break;
+				fat_append_utf8(state.utf8_name, byteof(state.utf8_name), out_len, code);
+			}
+			if (out_len < byteof(state.utf8_name)) state.utf8_name[out_len] = 0;
+			else state.utf8_name[byteof(state.utf8_name) - 1] = 0;
+			return state.utf8_name;
+		}
+
+		static const char* fat_pick_display_name(FAT_LfnState& state, const FAT_DirEntry& entry, char short_name[13]) {
+			fat_decode_short_name(entry, short_name);
+			bool use_lfn = state.active &&
+				state.expected_order == 1 &&
+				state.checksum == fat_short_name_checksum(entry);
+			const char* final_name = short_name;
+			if (use_lfn) {
+				const char* lfn_name = fat_finalize_lfn_name(state);
+				if (lfn_name[0]) final_name = lfn_name;
+			}
+			fat_clear_lfn_sequence(state);
+			return final_name;
+		}
+	}
+
 
 
 	bool FilesysFAT::makefs(rostr vol_label, void* moreinfo) {
@@ -149,8 +277,8 @@ namespace uni {
 	enum DirWalkResult { WALK_CONTINUE, WALK_FOUND, WALK_END };
 
 	bool FilesysFAT::find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index) {
-		char lfn_buf[256];
-		int lfn_expected_order = 0;
+		FAT_LfnState lfn_state;
+		fat_reset_lfn_state(lfn_state);
 		
 		auto process_sector = [&](uint32_t sector) -> DirWalkResult {
 			if (!storage->Read(sector, buffer_sector)) return WALK_END;
@@ -159,51 +287,20 @@ namespace uni {
 				FAT_DirEntry* entry = (FAT_DirEntry*)&buffer_sector[i * 32];
 				if ((byte)entry->name[0] == 0x00u) return WALK_END; // End of dir
 				if ((byte)entry->name[0] == 0xE5u) {
-					lfn_expected_order = 0; continue; // Deleted
+					fat_reset_lfn_state(lfn_state); continue; // Deleted
 				}
 				
 				if (entry->attribute.isLongName()) {
-					FAT_LongDirEntry* lfn = (FAT_LongDirEntry*)entry;
-					if (lfn->type != 0) continue;
-					int order = lfn->order & 0x1F;
-					if (lfn->order & 0x40) { // First logical piece (last physical)
-						lfn_expected_order = order;
-						MemSet(lfn_buf, 0, 256);
-					} else if (order != lfn_expected_order - 1 || order == 0) {
-						lfn_expected_order = 0;
-						continue;
-					}
-					lfn_expected_order = order;
-					int offset = (order - 1) * 13;
-					if (offset < 0 || offset >= 256 - 14) { lfn_expected_order = 0; continue; }
-					auto put_c = [&](uint16_t c) {
-						if (c == 0x0000 || c == 0xFFFF) lfn_buf[offset++] = 0;
-						else lfn_buf[offset++] = (char)(c & 0xFF);
-					};
-					for (int j = 0; j < 5; j++) put_c(lfn->name1[j]);
-					for (int j = 0; j < 6; j++) put_c(lfn->name2[j]);
-					for (int j = 0; j < 2; j++) put_c(lfn->name3[j]);
+					fat_append_lfn_piece(lfn_state, *(FAT_LongDirEntry*)entry);
 					continue;
 				}
 				
 				if (entry->attribute.volume_id && !entry->attribute.directory) {
-					lfn_expected_order = 0; continue;
+					fat_reset_lfn_state(lfn_state); continue;
 				}
 				
 				char short_name[13];
-				int name_len = 0;
-				for (int k = 0; k < 8 && entry->name[k] != ' '; k++) {
-					unsigned char ch = (unsigned char)entry->name[k];
-					short_name[name_len++] = (ch == 0x05u) ? (char)0xE5u : (char)ch;
-				}
-				if (entry->ext[0] != ' ') {
-					short_name[name_len++] = '.';
-					for (int k = 0; k < 3 && entry->ext[k] != ' '; k++) short_name[name_len++] = entry->ext[k];
-				}
-				short_name[name_len] = 0;
-				
-				char* final_name = short_name;
-				if (lfn_expected_order == 1) final_name = lfn_buf;
+				const char* final_name = fat_pick_display_name(lfn_state, *entry, short_name);
 				
 				// Sanity check to prevent explosive DFS traversal on garbage clusters
 				bool is_valid_name = true;
@@ -213,7 +310,7 @@ namespace uni {
 						is_valid_name = false; break;
 					}
 				}
-				if (!is_valid_name) { lfn_expected_order = 0; continue; }
+				if (!is_valid_name) continue;
 
 				if (!StrCompareInsensitive(final_name, target_name)) {
 					if (out_entry) *out_entry = *entry;
@@ -221,7 +318,6 @@ namespace uni {
 					if (out_index) *out_index = i;
 					return WALK_FOUND;
 				}
-				lfn_expected_order = 0;
 			}
 			return WALK_CONTINUE;
 		};
@@ -350,8 +446,8 @@ namespace uni {
 		FAT_FileHandle* fh = (FAT_FileHandle*)dir_handler;
 		if (!fh->is_dir) return false;
 
-		char lfn_buf[256];
-		int lfn_expected_order = 0;
+		FAT_LfnState lfn_state;
+		fat_reset_lfn_state(lfn_state);
 
 		auto process_sector = [&](uint32_t sector) -> bool {
 			if (!storage->Read(sector, buffer_sector)) return false;
@@ -360,51 +456,20 @@ namespace uni {
 				FAT_DirEntry* entry = &cast<FAT_DirEntry*>(buffer_sector)[i];
 				if ((byte)entry->name[0] == 0x00u) return false; // end of dir
 				if ((byte)entry->name[0] == 0xE5u) {
-					lfn_expected_order = 0; continue;
+					fat_reset_lfn_state(lfn_state); continue;
 				}
 
 				if (entry->attribute.isLongName()) {
-					FAT_LongDirEntry* lfn = (FAT_LongDirEntry*)entry;
-					if (lfn->type != 0) continue;
-					int order = lfn->order & 0x1F;
-					if (lfn->order & 0x40) {
-						lfn_expected_order = order;
-						MemSet(lfn_buf, 0, 256);
-					}
-					else if (order != lfn_expected_order - 1 || order == 0) {
-						lfn_expected_order = 0; continue;
-					}
-					lfn_expected_order = order;
-					int offset = (order - 1) * 13;
-					if (offset < 0 || offset >= 256 - 14) { lfn_expected_order = 0; continue; }
-					auto put_c = [&](uint16_t c) {
-						if (c == 0x0000 || c == 0xFFFF) lfn_buf[offset++] = 0;
-						else lfn_buf[offset++] = (char)(c & 0xFF);
-					};
-					for (int j = 0; j < 5; j++) put_c(lfn->name1[j]);
-					for (int j = 0; j < 6; j++) put_c(lfn->name2[j]);
-					for (int j = 0; j < 2; j++) put_c(lfn->name3[j]);
+					fat_append_lfn_piece(lfn_state, *(FAT_LongDirEntry*)entry);
 					continue;
 				}
 
 				if (entry->attribute.volume_id && !entry->attribute.directory) {
-					lfn_expected_order = 0; continue;
+					fat_reset_lfn_state(lfn_state); continue;
 				}
 
 				char short_name[13];
-				int name_len = 0;
-				for (int k = 0; k < 8 && entry->name[k] != ' '; k++) {
-					unsigned char ch = (unsigned char)entry->name[k];
-					short_name[name_len++] = (ch == 0x05u) ? (char)0xE5u : (char)ch;
-				}
-				if (entry->ext[0] != ' ') {
-					short_name[name_len++] = '.';
-					for (int k = 0; k < 3 && entry->ext[k] != ' '; k++) short_name[name_len++] = entry->ext[k];
-				}
-				short_name[name_len] = 0;
-
-				char* final_name = short_name;
-				if (lfn_expected_order == 1) final_name = lfn_buf;
+				const char* final_name = fat_pick_display_name(lfn_state, *entry, short_name);
 
 				bool is_valid_name = true;
 				for (int n = 0; final_name[n]; n++) {
@@ -413,12 +478,10 @@ namespace uni {
 						is_valid_name = false; break;
 					}
 				}
-				if (!is_valid_name) { lfn_expected_order = 0; continue; }
+				if (!is_valid_name) continue;
 
 				// ploginfo("FilesysFAT::enumer %s", final_name);
 				if (_fn) _fn((void*)_IMM(entry->attribute.directory), (void*)final_name);
-
-				lfn_expected_order = 0;
 			}
 			return true;
 			};

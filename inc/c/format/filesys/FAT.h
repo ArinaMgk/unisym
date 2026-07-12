@@ -115,13 +115,13 @@ _PACKED(struct) FAT_DirEntry {
 
 _PACKED(struct) FAT_LongDirEntry {
 	uint8_t  order;
-	wchar_t  name1[5];
+	uint16_t name1[5];
 	uint8_t  attr;
 	uint8_t  type;
 	uint8_t  checksum;
-	wchar_t  name2[6];
+	uint16_t name2[6];
 	uint16_t cluster;
-	wchar_t  name3[2];
+	uint16_t name3[2];
 };
 
 

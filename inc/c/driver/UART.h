@@ -321,14 +321,16 @@ namespace uni {
 	class x86_COM : public Console_t
 	{
 	public:
-		virtual int out(const char* str, stduint len) {
+		virtual int out(const char* str, stduint len) override {
 			for0(i, len) {
 				while (!is_transmit_empty());
 				outpb(PORT_COM1_DATA, str[i]);
 			}
 			return len;
 		}
-		virtual int inn();
+		virtual int inn() override {
+			return innpb(PORT_COM1_DATA) & 0xFFu;
+		}
 	public:
 		bool is_transmit_empty() { return innpb(0x3F8 + 5) & 0x20; }
 	};

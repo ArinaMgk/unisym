@@ -26,7 +26,7 @@
 #if defined(_Linux) && __BITS__ == 32
 #define _CALL_FAST __attribute__((fastcall))
 #define _CALL_CPL  __attribute__((cdecl))
-#elif defined(_MCCA)
+#elif (defined(_MCCA) || defined(_ACCM)) && __BITS__ == 32
 #define _CALL_FAST __attribute__((fastcall))
 #define _CALL_CPL  __attribute__((cdecl))
 #elif defined(_WinNT)

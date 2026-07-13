@@ -30,17 +30,31 @@ bool uni::ACPI::Assert(const RSDP& rsdp) {
 		plogerro("RSDP is not valid\n");
 		return false;
 	}
-	const XSDT& xsdt = *reinterpret_cast<const XSDT*>(rsdp.xsdt_address);
-	if (!xsdt.header.isValid("XSDT")) {
-		plogerro("XSDT is not valid\n");
-		return false;
-	}
 	fadt = nullptr;
-	for (int i = 0; i < xsdt.Count(); ++i) {
-		const auto& entry = xsdt[i];
-		if (entry.isValid("FACP")) { // FACP is the signature of FADT (rekishi reason)
-			fadt = reinterpret_cast<const FADT*>(&entry);
-			break;
+	if (rsdp.revision >= 2 && rsdp.xsdt_address) {
+		const XSDT& xsdt = *reinterpret_cast<const XSDT*>(rsdp.xsdt_address);
+		if (xsdt.header.isValid("XSDT")) {
+			for (int i = 0; i < xsdt.Count(); ++i) {
+				const auto& entry = xsdt[i];
+				if (entry.isValid("FACP")) { // FACP is the signature of FADT (rekishi reason)
+					fadt = reinterpret_cast<const FADT*>(&entry);
+					break;
+				}
+			}
+		}
+	}
+	if (fadt == nullptr && rsdp.rsdt_address) {
+		const RSDT& rsdt = *reinterpret_cast<const RSDT*>(rsdp.rsdt_address);
+		if (!rsdt.header.isValid("RSDT")) {
+			plogerro("RSDT is not valid\n");
+			return false;
+		}
+		for (int i = 0; i < rsdt.Count(); ++i) {
+			const auto& entry = rsdt[i];
+			if (entry.isValid("FACP")) { // FACP is the signature of FADT (rekishi reason)
+				fadt = reinterpret_cast<const FADT*>(&entry);
+				break;
+			}
 		}
 	}
 	if (fadt == nullptr) {
@@ -75,17 +89,16 @@ bool uni::ACPI::RSDP::isValid() const {
 		plogerro("invalid signature: %.8s, at %[x]", this->signature, this);
 		return false;
 	}
-	if (this->revision != 2) {
-		plogerro("ACPI revision must be 2: %d", this->revision);
-		return false;
-	}
 	if (auto sum = SumBytes(this, 20); sum != 0) {
 		plogerro("sum of 20 bytes must be 0: %d", sum);
 		return false;
 	}
-	if (auto sum = SumBytes(this, 36); sum != 0) {
-		plogerro("sum of 36 bytes must be 0: %d", sum);
-		return false;
+	if (this->revision >= 2) {
+		uint32 length = this->length < 20 ? 20 : this->length;
+		if (auto sum = SumBytes(this, length); sum != 0) {
+			plogerro("sum of %u bytes must be 0: %d", length, sum);
+			return false;
+		}
 	}
 	return true;
 }

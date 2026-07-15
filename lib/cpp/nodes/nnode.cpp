@@ -167,7 +167,7 @@ namespace uni {
 		Dnode* crt = dnod->Root();
 		if (crt) do {
 			(insnod = Append(crt->offs, onleft, insnod))->type = crt->type;
-		} while (crt = crt->next);
+		} while ((crt = crt->next));
 		dnod->func_free = nullptr;
 		dnod->~DnodeChain();
 		return insnod;

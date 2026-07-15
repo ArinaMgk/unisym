@@ -36,7 +36,7 @@ namespace uni {
 		chain->extn_field = maxof(byteof(TnodeField), extn_fielen);
 
 		// Structure for nested ---- Line ---> Nest ----
-		if (auto crttn = (Tnode*)tchain.Root()) do chain->Append(crttn); while (crttn = crttn->next);
+		if (auto crttn = (Tnode*)tchain.Root()) do chain->Append(crttn); while ((crttn = crttn->next));
 	}
 
 	bool NestedParseUnit::ParseParen(Nnode* tnod, bool merge_parensd) {

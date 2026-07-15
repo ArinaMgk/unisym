@@ -25,6 +25,6 @@
 size_t NodeCount(const Node* first)
 {
 	size_t ret = 0;
-	if (first) do ret++; while (first = first->next);
+	if (first) do ret++; while ((first = first->next));
 	return ret;
 }

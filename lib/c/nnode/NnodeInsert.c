@@ -32,11 +32,11 @@ Nnode* NnodeInsert(Nnode* nod, pureptr_t offs, stduint typlen, stduint extn_fiel
 	if (direction_right == 0) // left
 	{
 		if (Nnode_isEldest(nod)) {
-			if (tmp->left = nod->left)
+			if ((tmp->left = nod->left))
 				nod->pare->subf = tmp;
 		}
 		else {
-			if (tmp->left = nod->left)
+			if ((tmp->left = nod->left))
 				nod->left->next = tmp;
 		}
 		nod->left = tmp;

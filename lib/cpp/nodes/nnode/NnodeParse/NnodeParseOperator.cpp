@@ -79,7 +79,7 @@ const char* uni::StrIndexOperator(const char* str, uni::TokenOperator** operator
 	}
 	else if (cond == 1) {
 		for0(i, count) {
-			if (idx = (left_to_right ? StrIndexString : StrIndexStringRight)(str, (*operators)->idnop))
+			if ((idx = (left_to_right ? StrIndexString : StrIndexStringRight)(str, (*operators)->idnop)))
 				return idx;
 			else ++ * operators;
 		}
@@ -172,7 +172,7 @@ namespace uni {
 		bool state = true;
 		Node* crt = TokenOperatorGroupChain->Root();
 		TokenOperatorGroup* tog{ nullptr };
-		if (crt) do if (tog = (TokenOperatorGroup*)crt->offs)
+		if (crt) do if ((tog = (TokenOperatorGroup*)crt->offs))
 		{
 			exist_sym = false;
 			state = ParseOperatorGroup(head, this->chain, tog, exist_sym, tog->left_to_right, tog->condition);

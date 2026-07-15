@@ -162,7 +162,7 @@ public:
 	inline Dnode* LocateNode(pureptr_t content, _tocomp_ft cmp = 0) {
 		Dnode* res = nullptr, * crt = root_node;
 		if (!cmp) while (crt) {
-			if ((crt->offs == content)) { res = crt; break; }
+			if (crt->offs == content) { res = crt; break; }
 			else crt = crt->next;
 		}
 		else while (crt)
@@ -222,7 +222,7 @@ public:
 		Dnode* crt = root_node;
 		if (crt) do {
 			xchgptr(crt->left, crt->next);
-		} while (crt = crt->left);
+		} while ((crt = crt->left));
 		xchgptr(root_node, last_node);
 	}
 	bool Match(void* off, stduint typ);

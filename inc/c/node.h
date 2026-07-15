@@ -211,7 +211,7 @@ inline static Node* Node_getLeft(chain_t* chn, Node* nod, bool fromRight) {
 	if (crt) do if (crt->next == nod) {
 		res = crt;
 		if (!fromRight) break;
-	} while (crt = crt->next);
+	} while ((crt = crt->next));
 	return res;
 }
 

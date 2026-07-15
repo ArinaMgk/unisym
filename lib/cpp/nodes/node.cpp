@@ -99,7 +99,7 @@ namespace uni {
 		if (crt) do if (crt->next == nod) {
 			res = crt;
 			if (!fromRight) break;
-		} while (crt = crt->next);
+		} while ((crt = crt->next));
 		return res;
 	}
 	//

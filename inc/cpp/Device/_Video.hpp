@@ -143,36 +143,6 @@ namespace uni {
 		virtual void DrawPoints(const Rectangle& rect, const Color* base) const { }
 	};
 
-	class VideoControlInterfaceMARGB8888 : public VideoControlInterface {
-		Color* p;
-		Size2 size;
-	public:
-		VideoControlInterfaceMARGB8888(Color* buf, Size2 siz) : p(buf), size(siz) {}
-	public:
-		virtual void SetCursor(const Point&) const override {}
-		virtual Point GetCursor() const override { return Point(0, 0); }
-		virtual void DrawPoint(const Point& disp, Color color) const override {
-			if (disp < size) p[disp.y * size.x + disp.x] = color;
-		}
-		virtual void DrawRectangle(const Rectangle& rect) const override {
-			if (size.y < rect.y || size.x < rect.x) return;
-			for0(y, minof(rect.height, size.y - rect.y)) {
-				Color* p0 = p + size.x * (rect.y + y) + rect.x;
-				for0(x, minof(rect.width, size.x - rect.x))* p0++ = rect.color;
-			}
-		}
-		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str) const override {}
-		virtual Color GetColor(Point disp) const override {
-			return (disp < size) ? p[disp.y * size.x + disp.x] : Color::Black;
-		}
-	public:
-		virtual void RollUp(stduint height, const Rectangle& rect) const override;
-		virtual void DrawPoints(const Rectangle& rect, const Color* base) const override {
-			//{TODO}	
-		}
-		// void DrawLine(Point disp, Size2 size, Color color, bool negSizy = false);
-	};
-
 	/*
 	* 请求上级刷新：sheet_parent->Update...(目标区域)
 	* 点击事件分发：getTop
@@ -344,6 +314,56 @@ namespace uni {
 		virtual const FramebufferInfo& GetFramebuffer() const = 0;
 		virtual bool SetMode(const VideoMode& mode) { return false; }
 		virtual void Flush(const Rectangle& rect) {}
+	};
+}
+
+namespace uni {
+	class VideoControlInterfaceMARGB8888 : public VideoControlInterface {
+		Color* p;
+		Size2 size;
+	public:
+		VideoControlInterfaceMARGB8888(Color* buf, Size2 siz) : p(buf), size(siz) {}
+	public:
+		virtual void SetCursor(const Point&) const override {}
+		virtual Point GetCursor() const override { return Point(0, 0); }
+		virtual void DrawPoint(const Point& disp, Color color) const override {
+			if (disp < size) p[disp.y * size.x + disp.x] = color;
+		}
+		virtual void DrawRectangle(const Rectangle& rect) const override {
+			if (size.y < rect.y || size.x < rect.x) return;
+			for0(y, minof(rect.height, size.y - rect.y)) {
+				Color* p0 = p + size.x * (rect.y + y) + rect.x;
+				for0(x, minof(rect.width, size.x - rect.x))* p0++ = rect.color;
+			}
+		}
+		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str) const override {}
+		virtual Color GetColor(Point disp) const override {
+			return (disp < size) ? p[disp.y * size.x + disp.x] : Color::Black;
+		}
+	public:
+		virtual void RollUp(stduint height, const Rectangle& rect) const override;
+		virtual void DrawPoints(const Rectangle& rect, const Color* base) const override {
+			//{TODO}	
+		}
+		// void DrawLine(Point disp, Size2 size, Color color, bool negSizy = false);
+	};
+
+	//
+
+	class ScreenBridge : public VideoControlInterface {
+		mutable FramebufferInfo* fbi;
+	public:
+		uint32& Locate32(const Point& disp) const;
+		virtual ~ScreenBridge() = default;
+		ScreenBridge(FramebufferInfo& _fbi) : fbi(&_fbi) {}
+		//
+		virtual void SetCursor(const Point& disp) const override;
+		virtual Point GetCursor() const override;
+		virtual void DrawPoint(const Point& disp, Color color) const override;
+		virtual void DrawRectangle(const Rectangle& rect) const override;
+		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str) const override;
+		virtual Color GetColor(Point p) const override;
+		virtual void DrawPoints(const Rectangle& rect, const Color* base) const override;
 	};
 }
 

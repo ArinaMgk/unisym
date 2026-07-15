@@ -92,7 +92,7 @@ namespace uni {
 		ARGB8888_1440x900 = 0x180, // SVGA, 32bpp
 
 	};
-	typedef VideoModeVBE3 VideoMode;
+	
 	// ...
 	// 0x0143 1280x960 for vmware, 800x600 for qemu and bochs
 

@@ -55,7 +55,7 @@ struct TagChain {
 		io->type = typ;
 		io->offs = offs;
 		io->mutabl = mutabl;
-		if (tmp = self[iden]) {
+		if ((tmp = self[iden])) {
 			if (!tmp->mutabl) return;
 		}
 		chn.Map((pureptr_t)StrHeap(iden), (pureptr_t)io);

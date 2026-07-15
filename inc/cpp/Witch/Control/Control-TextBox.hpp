@@ -613,8 +613,8 @@ namespace uni::witch::control {
 
 			stdsint raw_row = (rel_p.y - dm.origin_y) / dm.line_height;
 			stdsint raw_col = (rel_p.x - dm.origin_x) / dm.char_width;
-			if (rel_p.y < dm.origin_y) raw_row = 0;
-			if (rel_p.x < dm.origin_x) raw_col = 0;
+			if ((stdsint)rel_p.y < dm.origin_y) raw_row = 0;
+			if ((stdsint)rel_p.x < dm.origin_x) raw_col = 0;
 			if (raw_row < 0) raw_row = 0;
 			if (raw_col < 0) raw_col = 0;
 

@@ -148,6 +148,8 @@ namespace uni {
 
 		// Clear console: blank both buffers, reset cursor.
 		void Clear();
+		// Rebind to a resized parent surface and rebuild internal buffers.
+		void Reconfigure(const VideoControlInterface* vci, LayerManager& parent, const Rectangle& win);
 
 		void Start();
 		void Stop();

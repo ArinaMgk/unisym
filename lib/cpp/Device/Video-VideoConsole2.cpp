@@ -274,6 +274,32 @@ namespace uni {
 		}
 	}
 
+	void VideoConsole2::Reconfigure(const VideoControlInterface* vci_, LayerManager& parent, const Rectangle& win) {
+		Stop();
+		vci = vci_;
+		window = win;
+		window.color = backcolor;
+		InitializeSheet(parent, win.getVertex(), win.getSize());
+		if (font_engine) {
+			Size2 cell_size = font_engine->GetCellSize();
+			size.x = window.width / cell_size.x;
+			size.y = window.height / cell_size.y;
+			cols = size.x;
+			rows = size.y;
+		}
+		else {
+			size = Size2(0, 0);
+			cols = 0;
+			rows = 0;
+		}
+
+		BufferChar* text_storage = cols && rows ? new BufferChar[cols * rows] : nullptr;
+		Color* line_storage = getLineBufferSize() ? new Color[getLineBufferSize()] : nullptr;
+		setBuffers(nullptr, text_storage, line_storage);
+		Clear();
+		Start();
+	}
+
 	// -------------------------------------------------------------------------
 	// Start
 	// -------------------------------------------------------------------------

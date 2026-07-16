@@ -312,7 +312,7 @@ namespace uni {
 	public:
 		virtual ~VideoDevice() = default;
 		virtual const FramebufferInfo& GetFramebuffer() const = 0;
-		virtual bool SetMode(const VideoMode& mode) { return false; }
+		virtual bool setMode(const VideoMode& mode) { return false; }
 		virtual void Flush(const Rectangle& rect) {}
 	};
 }

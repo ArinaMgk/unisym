@@ -33,7 +33,12 @@
 
 #define ATA_READ     0x20
 #define ATA_WRITE    0x30
+#define ATA_READ_DMA  0xC8
+#define ATA_WRITE_DMA 0xCA
 #define ATA_IDENTIFY 0xEC
+
+#define HD_TIMEOUT 10000
+#define HD_WAITFOR_TIMEOUT (HD_TIMEOUT / 1000)
 
 #define ATAPI_CMD_PACKET 0xA0
 #define ATAPI_CMD_IDENTIFY 0xA1
@@ -42,6 +47,19 @@ namespace uni {
 
 #if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 
+	enum {
+		BMIDE_REG_CMD = 0,
+		BMIDE_REG_STATUS = 2,
+		BMIDE_REG_PRDT = 4,
+	};
+
+	enum {
+		BMIDE_CMD_START = 0x01,
+		BMIDE_CMD_READ = 0x08,
+		BMIDE_STATUS_ERROR = 0x02,
+		BMIDE_STATUS_IRQ = 0x04,
+	};
+
 	struct HdiskCommand {
 		byte feature;
 		byte count;
@@ -49,6 +67,12 @@ namespace uni {
 		byte device;
 		byte command;
 		#define	MAKE_DEVICE_REG(lba_mode,drv,lba_highest) (((lba_mode) << 6) | ((drv) << 4) | ((lba_highest) & 0xF) | 0xA0)
+	};
+
+	_PACKED(struct) PataBmidePrd {
+		uint32 phys_base;
+		uint16 byte_count;
+		uint16 flags;
 	};
 
 
@@ -118,6 +142,12 @@ namespace uni {
 		#endif
 
 	};
+
+	#if defined(_DEV_GCC) && defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+	bool PataWaitRetry(Harddisk_PATA* hdd,
+		bool (*fn_lup_wait)(Harddisk_PATA*, stduint mask, stduint val, stduint timeout_second),
+		stduint mask, stduint val);
+	#endif
 
 
 	class xCD_ATAPI : public Harddisk_PATA {

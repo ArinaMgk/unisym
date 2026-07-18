@@ -556,11 +556,27 @@ namespace uni {
 				return total_read;
 			}
 
-			if (!storage->Read(sector + sector_index, buffer_sector)) return 0;
+			byte* current_buffer = buffer_sector;
+			bool allocated = false;
+			if (_TEMP 0 && allow_allocate) {
+				if (auto new_addr = new byte[storage->Block_Size]) {
+					current_buffer = new_addr;
+					allocated = true;
+				}
+			}
+			if (!storage->Read(sector + sector_index, current_buffer)) {
+				if (allocated) delete[] current_buffer;
+				return 0;
+			}
 			uint32_t can_read = storage->Block_Size - sector_offset;
 			if (can_read > to_read) can_read = (uint32_t)to_read;
 
-			MemCopyN(dest + total_read, buffer_sector + sector_offset, can_read);
+			MemCopyN(dest + total_read, current_buffer + sector_offset, can_read);
+
+			if (allocated) {
+				delete[] current_buffer;
+				allocated = false;
+			}
 
 			total_read += can_read;
 			to_read -= can_read;

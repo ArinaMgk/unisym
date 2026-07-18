@@ -148,23 +148,35 @@ namespace uni {
 	void Harddisk_PATA::Reset() {
 		outpb(ctrl_base, ATA_CTRL_SRST | ATA_CTRL_nIEN);
 		for (volatile int i = 0; i < 1000; i = i + 1) _TEMP;//{} delay010us();
+		
 		outpb(ctrl_base, ATA_CTRL_nIEN);
 		for (volatile int i = 0; i < 100000; i = i + 1) _TEMP;//{}
-		//
+		
+		// Wait for BSY to clear on default device before writing to REG_DEVICE
 		stduint timeout = 1000000;
-		bool error = false;
 		while (true) {
 			byte status = innpb(io_base + REG_STATUS);
-			if (!(status & STATUS_BSY)) {
-				break;
-			}
+			if (!(status & STATUS_BSY)) break;
 			timeout = timeout - 1;
-			if (!timeout) {
-				error = true;
-				break;
-			}
+			if (!timeout) break;
 		}
+
 		outpb(io_base + REG_DEVICE, 0xE0 | (getLowID() << 4));
+
+		// Mandatory 400ns delay after selecting drive
+		innpb(ctrl_base);
+		innpb(ctrl_base);
+		innpb(ctrl_base);
+		innpb(ctrl_base);
+
+		// Wait for target drive to be ready
+		timeout = 1000000;
+		while (true) {
+			byte status = innpb(io_base + REG_STATUS);
+			if (!(status & STATUS_BSY)) break;
+			timeout = timeout - 1;
+			if (!timeout) break;
+		}
 	}
 
 	_WEAK PartitionSlice Harddisk_PATA::getSlice(stduint dev) {

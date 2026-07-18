@@ -26,9 +26,11 @@ namespace uni {
 		stduint font_w = typ ? 8 : 5;
 		stduint font_h = typ ? 16 : 8;
 
-		for0(scan_y, font_h) {
-			Color* dst = pixel_buffer + (px_y + scan_y) * pitch_pixels + px_x;
-			for0(px, font_w) dst[px] = bg;
+		if (bg.a != 0) {
+			for0(scan_y, font_h) {
+				Color* dst = pixel_buffer + (px_y + scan_y) * pitch_pixels + px_x;
+				for0(px, font_w) dst[px] = bg;
+			}
 		}
 
 		char ch = (char)(unicode_char & 0xFF);

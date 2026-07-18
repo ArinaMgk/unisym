@@ -243,6 +243,16 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 		else if (focus_sheet) {
 			focus_sheet->onrupt(event, Point(0, 0), para1);
 		}
+		
+		if (msg_queue.Count() < 510) {
+			SheetMessage smsg;
+			smsg.event = event;
+			smsg.args[0] = rel_p.x;
+			smsg.args[1] = rel_p.y;
+			smsg.args[2] = para1;
+			smsg.args[3] = 0;
+			this->PushMessage(smsg);
+		}
 	}
 	else if (event == SheetEvent::onMoved || event == SheetEvent::onClick) {
 		if (event == SheetEvent::onClick) {
@@ -349,8 +359,8 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 		}
 	}
 	if (redraw) {
-		if (Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
-		if (Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
+		if (title_visable && Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
+		if (title_visable && Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
 		if (sheet_parent) sheet_parent->Update(this, title_bar.sheet_area);
 	}
 }
@@ -358,42 +368,56 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 void uni::Witch::Form::setSheet(LayerManager& layman, const Rectangle& rect, Color* buffer) {
 	InitializeSheet(layman, rect.getVertex(), rect.getSize());
 	window = rect;
-	int btn_x = rect.width - 17;
-	close_btn.refSheetParent() = this;//
-	close_btn.sheet_area = Rectangle(Point(btn_x, 2), Size2(CloseButtonWidth, CloseButtonHeight));
-	close_btn.sheet_node.offs = dynamic_cast<SheetTrait*>(&close_btn);
-	sheet_node.subf = &close_btn.sheet_node;
 	
-	if (max_btn.visible || min_btn.visible) btn_x -= 2;
-	if (max_btn.visible) {
-		btn_x -= 15;
-		max_btn.sheet_area = Rectangle(Point(btn_x, 2), Size2(CloseButtonWidth, CloseButtonHeight));
+	if (title_visable) {
+		int btn_x = rect.width - 17;
+		close_btn.refSheetParent() = this;//
+		close_btn.sheet_area = Rectangle(Point(btn_x, 2), Size2(CloseButtonWidth, CloseButtonHeight));
+		close_btn.sheet_node.offs = dynamic_cast<SheetTrait*>(&close_btn);
+		sheet_node.subf = &close_btn.sheet_node;
+		
+		if (max_btn.visible || min_btn.visible) btn_x -= 2;
+		if (max_btn.visible) {
+			btn_x -= 15;
+			max_btn.sheet_area = Rectangle(Point(btn_x, 2), Size2(CloseButtonWidth, CloseButtonHeight));
+		} else {
+			max_btn.sheet_area = Rectangle(Point(0, 0), Size2(0, 0));
+		}
+		max_btn.refSheetParent() = this;
+		max_btn.sheet_node.offs = dynamic_cast<SheetTrait*>(&max_btn);
+		sheet_node.subf->Tail()->next = &max_btn.sheet_node;
+		
+		if (min_btn.visible) {
+			btn_x -= 15;
+			min_btn.sheet_area = Rectangle(Point(btn_x, 2), Size2(CloseButtonWidth, CloseButtonHeight));
+		} else {
+			min_btn.sheet_area = Rectangle(Point(0, 0), Size2(0, 0));
+		}
+		min_btn.refSheetParent() = this;
+		min_btn.sheet_node.offs = dynamic_cast<SheetTrait*>(&min_btn);
+		sheet_node.subf->Tail()->next = &min_btn.sheet_node;
+		
+		title_bar.refSheetParent() = this;//
+		title_bar.sheet_area = Rectangle(Point(1, 1), Size2(rect.width - 2, 17));
+		title_bar.sheet_node.offs = dynamic_cast<SheetTrait*>(&title_bar);
+		sheet_node.subf->Tail()->next = &title_bar.sheet_node;
+		client_area.refSheetParent() = this;
+		client_area.sheet_area = Rectangle(Point(1, 18), Size2(rect.width - 2, rect.height - 19));
+		client_area.window = client_area.sheet_area;
+		client_area.refSheetNode().offs = dynamic_cast<SheetTrait*>(&client_area);
+		sheet_node.subf->Tail()->next = &client_area.refSheetNode();
 	} else {
+		close_btn.sheet_area = Rectangle(Point(0, 0), Size2(0, 0));
 		max_btn.sheet_area = Rectangle(Point(0, 0), Size2(0, 0));
-	}
-	max_btn.refSheetParent() = this;
-	max_btn.sheet_node.offs = dynamic_cast<SheetTrait*>(&max_btn);
-	sheet_node.subf->Tail()->next = &max_btn.sheet_node;
-	
-	if (min_btn.visible) {
-		btn_x -= 15;
-		min_btn.sheet_area = Rectangle(Point(btn_x, 2), Size2(CloseButtonWidth, CloseButtonHeight));
-	} else {
 		min_btn.sheet_area = Rectangle(Point(0, 0), Size2(0, 0));
+		title_bar.sheet_area = Rectangle(Point(0, 0), Size2(0, 0));
+
+		client_area.refSheetParent() = this;
+		client_area.sheet_area = Rectangle(Point(0, 0), Size2(rect.width, rect.height));
+		client_area.window = client_area.sheet_area;
+		client_area.refSheetNode().offs = dynamic_cast<SheetTrait*>(&client_area);
+		sheet_node.subf = &client_area.refSheetNode();
 	}
-	min_btn.refSheetParent() = this;
-	min_btn.sheet_node.offs = dynamic_cast<SheetTrait*>(&min_btn);
-	sheet_node.subf->Tail()->next = &min_btn.sheet_node;
-	
-	title_bar.refSheetParent() = this;//
-	title_bar.sheet_area = Rectangle(Point(1, 1), Size2(rect.width - 2, 17));
-	title_bar.sheet_node.offs = dynamic_cast<SheetTrait*>(&title_bar);
-	sheet_node.subf->Tail()->next = &title_bar.sheet_node;
-	client_area.refSheetParent() = this;
-	client_area.sheet_area = Rectangle(Point(1, 18), Size2(rect.width - 2, rect.height - 19));
-	client_area.window = client_area.sheet_area;
-	client_area.refSheetNode().offs = dynamic_cast<SheetTrait*>(&client_area);
-	sheet_node.subf->Tail()->next = &client_area.refSheetNode();
 
 	client_area.window.color = 0xFFC6C6C6;
 
@@ -403,8 +427,8 @@ void uni::Witch::Form::setSheet(LayerManager& layman, const Rectangle& rect, Col
 			*p++ = getPoint(Point(i, j));
 		}
 		sheet_buffer = buffer;
-		if (Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
-		if (Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
+		if (title_visable && Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
+		if (title_visable && Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
 
 	}
 

@@ -98,6 +98,7 @@ namespace uni::Witch {
 
 	public:
 		String Title = nullptr;
+		bool title_visable = true;
 		void* usrp_buffer = nullptr;
 		void* usrp_owner = nullptr;
 		Queue<SheetMessage> msg_queue;
@@ -159,8 +160,8 @@ namespace uni::Witch {
 				for0(j, sheet_area.height) for0(i, sheet_area.width) {
 					*p++ = getPoint(Point(i, j));
 				}
-				if (Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
-				if (Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
+				if (title_visable && Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
+				if (title_visable && Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
 			}
 			if (sheet_parent) sheet_parent->Update(this, who->sheet_area);
 		}

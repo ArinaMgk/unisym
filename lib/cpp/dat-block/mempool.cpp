@@ -278,7 +278,7 @@ bool Mempool::Expand(stduint min_size) {
 	Slice new_slice = { _IMM(raw_mem), req_size };
 	this->Append(new_slice);
 	#ifndef _ACCM////
-	ploginfo("Mempool Expanded by %u bytes at 0x%[x]", req_size, _IMM(raw_mem));
+	printlog(_LOG_TRACE, "Mempool Expanded by %u bytes at 0x%[x]", req_size, _IMM(raw_mem));
 	#endif
 	return true;
 }

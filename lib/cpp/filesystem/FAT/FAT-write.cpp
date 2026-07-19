@@ -47,6 +47,22 @@ namespace uni {
 			eoc_mark = 0xFFFF;
 		}
 
+		byte* sector_buffer = buffer_sector;
+		bool allocated_sector_buffer = false;
+		FAT_TableScratch fat_table_cache = {};
+		FAT_TableScratch* fat_cache = nullptr;
+		if (allow_allocate) {
+			fat_table_cache.buffer = new byte[bytes_per_sector];
+			if (!fat_table_cache.buffer) return total_written;
+			fat_table_cache.current_sector = 0xFFFFFFFF;
+			fat_cache = &fat_table_cache;
+		}
+		auto finish_write = [&](stduint ret) -> stduint {
+			if (fat_cache) delete[] fat_table_cache.buffer;
+			if (allocated_sector_buffer) delete[] sector_buffer;
+			return ret;
+		};
+
 		// Helper lambda to check if a cluster is an End-Of-Cluster (EOC) marker
 		auto is_eof = [&](uint32_t c) {
 			return c == 0 || c >= eoc_threshold;
@@ -58,9 +74,9 @@ namespace uni {
 
 		// If it's a new empty file, allocate first cluster
 		if (is_eof(cluster)) {
-			cluster = find_free_cluster();
-			if (cluster == 0) return 0;
-			set_fat_entry(cluster, eoc_mark);
+			cluster = find_free_cluster(fat_cache);
+			if (cluster == 0) return finish_write(0);
+			set_fat_entry(cluster, eoc_mark, fat_cache);
 			fh->start_cluster = cluster;
 			fh->current_cluster = cluster;
 
@@ -85,16 +101,16 @@ namespace uni {
 			// Find the last cluster of the current chain safely
 			uint32_t last = fh->start_cluster;
 			while (true) {
-				uint32_t next = get_fat_entry(last);
+				uint32_t next = get_fat_entry(last, fat_cache);
 				if (is_eof(next)) break;
 				last = next;
 			}
 			// Allocate more
 			for (uint32_t i = current_cluster_count; i < clusters_needed; i++) {
-				uint32_t next = find_free_cluster();
+				uint32_t next = find_free_cluster(fat_cache);
 				if (next == 0) break; // disk full
-				set_fat_entry(last, next);
-				set_fat_entry(next, eoc_mark);
+				set_fat_entry(last, next, fat_cache);
+				set_fat_entry(next, eoc_mark, fat_cache);
 				last = next;
 			}
 		}
@@ -106,10 +122,17 @@ namespace uni {
 		cluster = fh->start_cluster;
 		uint64_t seek_pos = current_pos;
 		while (seek_pos >= cluster_size) {
-			cluster = get_fat_entry(cluster);
+			cluster = get_fat_entry(cluster, fat_cache);
 			if (is_eof(cluster)) break;
 			seek_pos -= cluster_size;
 		}
+
+		if (allow_allocate) {
+			sector_buffer = new byte[bytes_per_sector];
+			if (!sector_buffer) return finish_write(total_written);
+			allocated_sector_buffer = true;
+		}
+		if (!sector_buffer) return finish_write(total_written);
 
 		while (total_written < to_write && !is_eof(cluster)) {
 			uint32_t cluster_offset = (uint32_t)(current_pos % cluster_size);
@@ -123,21 +146,21 @@ namespace uni {
 
 			if (offset_in_sector == 0 && can_write_in_sector == bytes_per_sector) {
 				// Full sector write, no need to read first
-				MemCopyN(buffer_sector, sors + total_written, bytes_per_sector);
+				MemCopyN(sector_buffer, sors + total_written, bytes_per_sector);
 			}
 			else {
-				storage->Read(target_sector, buffer_sector);
-				MemCopyN(buffer_sector + offset_in_sector, sors + total_written, can_write_in_sector);
+				storage->Read(target_sector, sector_buffer);
+				MemCopyN(sector_buffer + offset_in_sector, sors + total_written, can_write_in_sector);
 			}
-			// plogwarn("FATWrite %u %s", target_sector, buffer_sector);
-			if (!storage->Write(target_sector, buffer_sector)) break;
+			// plogwarn("FATWrite %u %s", target_sector, sector_buffer);
+			if (!storage->Write(target_sector, sector_buffer)) break;
 
 			total_written += can_write_in_sector;
 			current_pos += can_write_in_sector;
 
 			// If we crossed a cluster boundary, move to the next cluster
 			if ((current_pos % cluster_size) == 0 && total_written < to_write) {
-				cluster = get_fat_entry(cluster);
+				cluster = get_fat_entry(cluster, fat_cache);
 			}
 		}
 
@@ -153,7 +176,7 @@ namespace uni {
 			delete[] dir_buf;
 		}
 
-		return (stduint)total_written;
+		return finish_write((stduint)total_written);
 	}
 
 }

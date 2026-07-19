@@ -276,15 +276,18 @@ namespace uni {
 
 	enum DirWalkResult { WALK_CONTINUE, WALK_FOUND, WALK_END };
 
-	bool FilesysFAT::find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index) {
+	bool FilesysFAT::find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer, FAT_TableScratch* fat_cache) {
+		if (!sector_buffer) sector_buffer = buffer_sector;
+		if (!sector_buffer) return false;
+
 		FAT_LfnState lfn_state;
 		fat_reset_lfn_state(lfn_state);
 		
 		auto process_sector = [&](uint32_t sector) -> DirWalkResult {
-			if (!storage->Read(sector, buffer_sector)) return WALK_END;
+			if (!storage->Read(sector, sector_buffer)) return WALK_END;
 			int entries_per_sector = storage->Block_Size / 32;
 			for (int i = 0; i < entries_per_sector; i++) {
-				FAT_DirEntry* entry = (FAT_DirEntry*)&buffer_sector[i * 32];
+				FAT_DirEntry* entry = (FAT_DirEntry*)&sector_buffer[i * 32];
 				if ((byte)entry->name[0] == 0x00u) return WALK_END; // End of dir
 				if ((byte)entry->name[0] == 0xE5u) {
 					fat_reset_lfn_state(lfn_state); continue; // Deleted
@@ -340,7 +343,7 @@ namespace uni {
 					if (res == WALK_FOUND) return true;
 					if (res == WALK_END) return false;
 				}
-				cluster = get_fat_entry(cluster);
+				cluster = get_fat_entry(cluster, fat_cache);
 			}
 		}
 		return false;
@@ -350,7 +353,7 @@ namespace uni {
 		// args->handle_buffer --> FAT_FileHandle
 		// args->dir_info      --> FAT_DirInfo? (? means optional, set nullptr if not used)
 		//
-		if (!storage || !buffer_sector || !args) {
+		if (!storage || !args || (!buffer_sector && !allow_allocate)) {
 			error_number = 1;
 			return nullptr;
 		}
@@ -364,6 +367,30 @@ namespace uni {
 		if (!fullpath || !*fullpath || !StrCompare("/", fullpath)) {
 			return handle;
 		}
+
+		byte* sector_buffer = buffer_sector;
+		bool allocated_sector_buffer = false;
+		if (allow_allocate) {
+			sector_buffer = new byte[storage->Block_Size];
+			if (!sector_buffer) return nullptr;
+			allocated_sector_buffer = true;
+		}
+		FAT_TableScratch fat_table_cache = {};
+		FAT_TableScratch* fat_cache = nullptr;
+		if (allow_allocate) {
+			fat_table_cache.buffer = new byte[storage->Block_Size];
+			if (!fat_table_cache.buffer) {
+				if (allocated_sector_buffer) delete[] sector_buffer;
+				return nullptr;
+			}
+			fat_table_cache.current_sector = 0xFFFFFFFF;
+			fat_cache = &fat_table_cache;
+		}
+		auto finish_search = [&](void* ret) -> void* {
+			if (fat_cache) delete[] fat_table_cache.buffer;
+			if (allocated_sector_buffer) delete[] sector_buffer;
+			return ret;
+		};
 
 		const char* path_p = fullpath;
 		if (*path_p == '/') path_p++;
@@ -381,8 +408,8 @@ namespace uni {
 
 			FAT_DirEntry entry;
 			uint32_t found_sector, found_index;
-			if (!find_entry_in_dir(handle->start_cluster, segment, &entry, &found_sector, &found_index)) {
-				return nullptr; // segment not found
+			if (!find_entry_in_dir(handle->start_cluster, segment, &entry, &found_sector, &found_index, sector_buffer, fat_cache)) {
+				return finish_search(nullptr); // segment not found
 			}
 
 			handle->start_cluster = entry.getFirstClusterNumber();
@@ -400,7 +427,7 @@ namespace uni {
 				bool is_dot = (segment[0] == '.' && (segment[1] == '\0' || (segment[1] == '.' && segment[2] == '\0')));
 				uint32_t root_cl = (fat_type == 32) ? root_cluster : 0;
 				if (!is_dot && handle->start_cluster == root_cl) {
-					return nullptr; // Broken FAT structure (sub-directory pointing to root)
+					return finish_search(nullptr); // Broken FAT structure (sub-directory pointing to root)
 				}
 			}
 
@@ -408,11 +435,11 @@ namespace uni {
 			if (args->on_segment) {
 				if (!args->on_segment(handle, segment, (stduint)handle->is_dir, (stduint)handle->size, args->user_data)) {
 					// Callback requested to stop the search (e.g., crossed mount point)
-					return handle;
+					return finish_search(handle);
 				}
 			}
 
-			if (*path_p && !handle->is_dir) return nullptr; // trying to traverse into file
+			if (*path_p && !handle->is_dir) return finish_search(nullptr); // trying to traverse into file
 		}
 
 		if (args->dir_info) {
@@ -423,7 +450,7 @@ namespace uni {
 			info->start_cluster = handle->start_cluster;
 		}
 
-		return handle;
+		return finish_search(handle);
 	}
 
 	bool FilesysFAT::proper(void* handler, stduint cmd, const void* moreinfo) {
@@ -446,14 +473,34 @@ namespace uni {
 		FAT_FileHandle* fh = (FAT_FileHandle*)dir_handler;
 		if (!fh->is_dir) return false;
 
+		byte* sector_buffer = buffer_sector;
+		bool allocated_sector_buffer = false;
+		if (allow_allocate) {
+			sector_buffer = new byte[storage->Block_Size];
+			if (!sector_buffer) return false;
+			allocated_sector_buffer = true;
+		}
+		if (!sector_buffer) return false;
+		FAT_TableScratch fat_table_cache = {};
+		FAT_TableScratch* fat_cache = nullptr;
+		if (allow_allocate) {
+			fat_table_cache.buffer = new byte[storage->Block_Size];
+			if (!fat_table_cache.buffer) {
+				if (allocated_sector_buffer) delete[] sector_buffer;
+				return false;
+			}
+			fat_table_cache.current_sector = 0xFFFFFFFF;
+			fat_cache = &fat_table_cache;
+		}
+
 		FAT_LfnState lfn_state;
 		fat_reset_lfn_state(lfn_state);
 
 		auto process_sector = [&](uint32_t sector) -> bool {
-			if (!storage->Read(sector, buffer_sector)) return false;
+			if (!storage->Read(sector, sector_buffer)) return false;
 			int entries_per_sector = storage->Block_Size / 32;
 			for (int i = 0; i < entries_per_sector; i++) {
-				FAT_DirEntry* entry = &cast<FAT_DirEntry*>(buffer_sector)[i];
+				FAT_DirEntry* entry = &cast<FAT_DirEntry*>(sector_buffer)[i];
 				if ((byte)entry->name[0] == 0x00u) return false; // end of dir
 				if ((byte)entry->name[0] == 0xE5u) {
 					fat_reset_lfn_state(lfn_state); continue;
@@ -503,9 +550,11 @@ namespace uni {
 					if (!process_sector(cluster_sec + s)) { cont = false; break; }
 				}
 				if (!cont) break;
-				cluster = get_fat_entry(cluster);
+				cluster = get_fat_entry(cluster, fat_cache);
 			}
 		}
+		if (fat_cache) delete[] fat_table_cache.buffer;
+		if (allocated_sector_buffer) delete[] sector_buffer;
 		return true;
 	}
 
@@ -517,6 +566,30 @@ namespace uni {
 
 		if (offset >= fh->size) return 0;
 		MIN(to_read, fh->size - offset);
+
+		byte* sector_buffer = buffer_sector;
+		bool allocated_sector_buffer = false;
+		FAT_TableScratch fat_table_cache = {};
+		FAT_TableScratch* fat_cache = nullptr;
+		if (allow_allocate) {
+			sector_buffer = new byte[storage->Block_Size];
+			if (!sector_buffer) return total_read;
+			allocated_sector_buffer = true;
+
+			fat_table_cache.buffer = new byte[storage->Block_Size];
+			if (!fat_table_cache.buffer) {
+				delete[] sector_buffer;
+				return total_read;
+			}
+			fat_table_cache.current_sector = 0xFFFFFFFF;
+			fat_cache = &fat_table_cache;
+		}
+		if (!sector_buffer) return total_read;
+		auto finish_read = [&](stduint ret) -> stduint {
+			if (fat_cache) delete[] fat_table_cache.buffer;
+			if (allocated_sector_buffer) delete[] sector_buffer;
+			return ret;
+		};
 
 		// evaluate the start cluster
 		uint32_t cluster_size = sectors_per_cluster * storage->Block_Size;
@@ -532,8 +605,8 @@ namespace uni {
 			while (skip >= cluster_size) {
 				skip -= cluster_size;
 				cluster_file_offset += cluster_size;
-				cluster = get_fat_entry(cluster);
-				if (cluster >= 0xFFFFFFF8) return total_read;
+				cluster = get_fat_entry(cluster, fat_cache);
+				if (cluster >= 0xFFFFFFF8) return finish_read(total_read);
 			}
 			offset = skip; // cluster-local offset
 		} else {
@@ -542,8 +615,8 @@ namespace uni {
 			while (offset >= cluster_size) {
 				offset -= cluster_size;
 				cluster_file_offset += cluster_size;
-				cluster = get_fat_entry(cluster);
-				if (cluster >= 0xFFFFFFF8) return total_read; // over the file
+				cluster = get_fat_entry(cluster, fat_cache);
+				if (cluster >= 0xFFFFFFF8) return finish_read(total_read); // over the file
 			}
 		}
 
@@ -553,30 +626,16 @@ namespace uni {
 			uint32_t sector_index = offset / storage->Block_Size;
 			if (sector + sector_index == 0) {
 				plogerro("[%s:%u] Bad sec id", __FILE__, __LINE__);
-				return total_read;
+				return finish_read(total_read);
 			}
 
-			byte* current_buffer = buffer_sector;
-			bool allocated = false;
-			if (_TEMP 0 && allow_allocate) {
-				if (auto new_addr = new byte[storage->Block_Size]) {
-					current_buffer = new_addr;
-					allocated = true;
-				}
-			}
-			if (!storage->Read(sector + sector_index, current_buffer)) {
-				if (allocated) delete[] current_buffer;
-				return 0;
+			if (!storage->Read(sector + sector_index, sector_buffer)) {
+				return finish_read(0);
 			}
 			uint32_t can_read = storage->Block_Size - sector_offset;
 			if (can_read > to_read) can_read = (uint32_t)to_read;
 
-			MemCopyN(dest + total_read, current_buffer + sector_offset, can_read);
-
-			if (allocated) {
-				delete[] current_buffer;
-				allocated = false;
-			}
+			MemCopyN(dest + total_read, sector_buffer + sector_offset, can_read);
 
 			total_read += can_read;
 			to_read -= can_read;
@@ -588,27 +647,29 @@ namespace uni {
 				offset = 0;
 				cluster_file_offset += cluster_size;
 				auto old = cluster;
-				cluster = get_fat_entry(cluster);
+				cluster = get_fat_entry(cluster, fat_cache);
 				if (cluster >= 0xFFFFFFF8) {
 					// Fix 3: Return the total accumulated bytes, not the last chunk
 					fh->current_cluster = old;
 					fh->current_offset = cluster_file_offset - cluster_size;
-					return total_read;
+					return finish_read(total_read);
 				}
 			}
 		}
 		// Cache current position for future forward seeks
 		fh->current_cluster = cluster;
 		fh->current_offset = cluster_file_offset;
-		return total_read;
+		return finish_read(total_read);
 	}
 
 
 	// ----
 
-	uint32_t FilesysFAT::get_fat_entry(uint32_t cluster)
+	uint32_t FilesysFAT::get_fat_entry(uint32_t cluster, FAT_TableScratch* fat_cache)
 	{
-		if (!buffer_fatable) {
+		byte* fat_buffer = fat_cache ? fat_cache->buffer : buffer_fatable;
+		uint32_t* cached_sector = fat_cache ? &fat_cache->current_sector : &current_sector;
+		if (!fat_buffer) {
 			plogerro("[%s:%u] buffer_fatable is null", __FILE__, __LINE__);
 		}
 		uint32_t fat_offset = 0;
@@ -632,34 +693,34 @@ namespace uni {
 			ent_offset = fat_offset % bytes_per_sector;
 		}
 
-		if (current_sector != fat_sector) {
-			storage->Read(fat_sector, buffer_fatable);
-			current_sector = fat_sector;
+		if (*cached_sector != fat_sector) {
+			storage->Read(fat_sector, fat_buffer);
+			*cached_sector = fat_sector;
 		}
 
 		if (fat_type == 32) {
-			uint32_t val = *(uint32_t*)&buffer_fatable[ent_offset] & 0x0FFFFFFF;
+			uint32_t val = *(uint32_t*)&fat_buffer[ent_offset] & 0x0FFFFFFF;
 			if (val >= 0x0FFFFFF8) return 0xFFFFFFF8;
 			return val;
 		}
 		else if (fat_type == 16) {
-			uint16_t val = *(uint16_t*)&buffer_fatable[ent_offset];
+			uint16_t val = *(uint16_t*)&fat_buffer[ent_offset];
 			if (val >= 0xFFF8) return 0xFFFFFFF8;
 			return val;
 		}
 		else { // FAT12
 			uint16_t value;
 			if (ent_offset == bytes_per_sector - 1) {
-				uint8_t byte_low = buffer_fatable[ent_offset];
+				uint8_t byte_low = fat_buffer[ent_offset];
 				// Read the next sector to fetch the higher byte
-				storage->Read(fat_sector + 1, buffer_fatable);
-				current_sector = fat_sector + 1; // Update sector state for cache coherency
-				uint8_t byte_high = buffer_fatable[0];
+				storage->Read(fat_sector + 1, fat_buffer);
+				*cached_sector = fat_sector + 1; // Update sector state for cache coherency
+				uint8_t byte_high = fat_buffer[0];
 				value = ((uint16_t)byte_low) | ((uint16_t)byte_high << 8);
 			}
 			else {
-				value = ((uint16_t)buffer_fatable[ent_offset]) |
-					((uint16_t)buffer_fatable[ent_offset + 1] << 8);
+				value = ((uint16_t)fat_buffer[ent_offset]) |
+					((uint16_t)fat_buffer[ent_offset + 1] << 8);
 			}
 
 			uint16_t val = (cluster & 0x01) ? (value >> 4) : (value & 0x0FFF);
@@ -668,8 +729,11 @@ namespace uni {
 		};
 	}
 
-	bool FilesysFAT::set_fat_entry(uint32_t cluster, uint32_t value) {
+	bool FilesysFAT::set_fat_entry(uint32_t cluster, uint32_t value, FAT_TableScratch* fat_cache) {
 		if (cluster < 2) return false;
+		byte* fat_buffer = fat_cache ? fat_cache->buffer : buffer_fatable;
+		uint32_t* cached_sector = fat_cache ? &fat_cache->current_sector : &current_sector;
+		if (!fat_buffer) return false;
 		uint32_t fat_offset = 0;
 		uint32_t fat_sector = 0;
 		uint32_t ent_offset = 0;
@@ -689,35 +753,35 @@ namespace uni {
 			ent_offset = fat_offset % bytes_per_sector;
 		}
 		
-		if (current_sector != fat_sector) {
-			storage->Read(fat_sector, buffer_fatable);
-			current_sector = fat_sector;
+		if (*cached_sector != fat_sector) {
+			storage->Read(fat_sector, fat_buffer);
+			*cached_sector = fat_sector;
 		}
 		
 		if (fat_type == 32) {
 			value &= 0x0FFFFFFF;
-			buffer_fatable[ent_offset] = (byte)(value & 0xFF);
-			buffer_fatable[ent_offset + 1] = (byte)((value >> 8) & 0xFF);
-			buffer_fatable[ent_offset + 2] = (byte)((value >> 16) & 0xFF);
-			buffer_fatable[ent_offset + 3] = (byte)((buffer_fatable[ent_offset + 3] & 0xF0) | ((value >> 24) & 0x0F));
+			fat_buffer[ent_offset] = (byte)(value & 0xFF);
+			fat_buffer[ent_offset + 1] = (byte)((value >> 8) & 0xFF);
+			fat_buffer[ent_offset + 2] = (byte)((value >> 16) & 0xFF);
+			fat_buffer[ent_offset + 3] = (byte)((fat_buffer[ent_offset + 3] & 0xF0) | ((value >> 24) & 0x0F));
 		} else if (fat_type == 16) {
-			buffer_fatable[ent_offset] = (byte)(value & 0xFF);
-			buffer_fatable[ent_offset + 1] = (byte)((value >> 8) & 0xFF);
+			fat_buffer[ent_offset] = (byte)(value & 0xFF);
+			fat_buffer[ent_offset + 1] = (byte)((value >> 8) & 0xFF);
 		} else {// 12
-			uint32_t cur = ((uint32_t)buffer_fatable[ent_offset]) | ((uint32_t)buffer_fatable[ent_offset + 1] << 8);
+			uint32_t cur = ((uint32_t)fat_buffer[ent_offset]) | ((uint32_t)fat_buffer[ent_offset + 1] << 8);
 			if (cluster & 0x01) {
 				value = value << 4;
 				cur = (cur & 0x000F) | (value & 0xFFF0);
 			} else {
 				cur = (cur & 0xF000) | (value & 0x0FFF);
 			}
-			buffer_fatable[ent_offset] = (byte)(cur & 0xFF);
-			buffer_fatable[ent_offset + 1] = (byte)((cur >> 8) & 0xFF);
+			fat_buffer[ent_offset] = (byte)(cur & 0xFF);
+			fat_buffer[ent_offset + 1] = (byte)((cur >> 8) & 0xFF);
 		}
 		
 		for (uint32_t i = 0; i < fat_count; i++) {
 			uint32_t sec = fat_sector + (i * sectors_per_fat);
-			storage->Write(sec, buffer_fatable);
+			storage->Write(sec, fat_buffer);
 		}
 		return true;
 	}

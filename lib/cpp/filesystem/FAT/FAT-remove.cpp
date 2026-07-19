@@ -57,9 +57,33 @@ namespace uni {
 
 		if (!parent_h.is_dir) return false;
 
+		byte* sector_buffer = buffer_sector;
+		bool allocated_sector_buffer = false;
+		FAT_TableScratch fat_table_cache = {};
+		FAT_TableScratch* fat_cache = nullptr;
+		if (allow_allocate) {
+			sector_buffer = new byte[storage->Block_Size];
+			if (!sector_buffer) return false;
+			allocated_sector_buffer = true;
+
+			fat_table_cache.buffer = new byte[storage->Block_Size];
+			if (!fat_table_cache.buffer) {
+				delete[] sector_buffer;
+				return false;
+			}
+			fat_table_cache.current_sector = 0xFFFFFFFF;
+			fat_cache = &fat_table_cache;
+		}
+		if (!sector_buffer) return false;
+		auto finish_remove = [&](bool ret) -> bool {
+			if (fat_cache) delete[] fat_table_cache.buffer;
+			if (allocated_sector_buffer) delete[] sector_buffer;
+			return ret;
+		};
+
 		// Find the entry in the parent directory
-		if (!find_entry_in_dir(parent_h.start_cluster, filename, &entry, &entry_sector, &entry_index)) {
-			return false;
+		if (!find_entry_in_dir(parent_h.start_cluster, filename, &entry, &entry_sector, &entry_index, sector_buffer, fat_cache)) {
+			return finish_remove(false);
 		}
 
 		// Free cluster chain if it's a file or non-empty directory
@@ -69,22 +93,21 @@ namespace uni {
 		if (this->fat_type != 32) cluster &= 0xFFFF;
 
 		while (cluster >= 2 && cluster < 0xFFFFFFF8) {
-			uint32_t next = get_fat_entry(cluster);
-			set_fat_entry(cluster, 0); // Mark cluster as free
+			uint32_t next = get_fat_entry(cluster, fat_cache);
+			set_fat_entry(cluster, 0, fat_cache); // Mark cluster as free
 			cluster = next;
 		}
 
 		// Mark directory entry as deleted
-		// Reuse global persistent buffer_sector to prevent Use-After-Free during async HDD writes
-		if (storage->Read(entry_sector, buffer_sector)) {
-			FAT_DirEntry* d_entry = (FAT_DirEntry*)&buffer_sector[entry_index * 32];
+		if (storage->Read(entry_sector, sector_buffer)) {
+			FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[entry_index * 32];
 
 			d_entry->name[0] = 0xE5;
 
-			storage->Write(entry_sector, buffer_sector);
+			storage->Write(entry_sector, sector_buffer);
 		}
 
-		return true;
+		return finish_remove(true);
 	}
 
 }

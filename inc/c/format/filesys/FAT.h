@@ -149,6 +149,11 @@ namespace uni {
 		uint32_t start_cluster;
 	};
 
+	struct FAT_TableScratch {
+		byte*    buffer;
+		uint32_t current_sector;
+	};
+
 	enum class FilesysFAT_Error {
 		InputNullptr,
 		_TODO
@@ -228,20 +233,20 @@ namespace uni {
 			return ((cluster - 2) * self.sectors_per_cluster) + self.first_data_sector;
 		}
 	public:
-		uint32_t get_fat_entry(uint32_t cluster);
+		uint32_t get_fat_entry(uint32_t cluster, FAT_TableScratch* fat_cache = nullptr);
 
 		// FIX: Remove inline _TODO to allow proper definition
-		bool set_fat_entry(uint32_t cluster, uint32_t value);
+		bool set_fat_entry(uint32_t cluster, uint32_t value, FAT_TableScratch* fat_cache = nullptr);
 
-		stduint find_free_cluster() {
+		stduint find_free_cluster(FAT_TableScratch* fat_cache = nullptr) {
 			for (uint32_t i = 2; i < total_clusters + 2; i++) {
-				if (get_fat_entry(i) == 0) return i;
+				if (get_fat_entry(i, fat_cache) == 0) return i;
 			}
 			return 0; // the part is full
 		}
 	protected:
 		// Walk a cluster directory looking for `target_name`.
-		bool find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index);
+		bool find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer = nullptr, FAT_TableScratch* fat_cache = nullptr);
 	};
 
 

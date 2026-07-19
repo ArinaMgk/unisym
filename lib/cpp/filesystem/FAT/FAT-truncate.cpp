@@ -31,6 +31,18 @@ namespace uni {
 
 		stduint bytes_per_sector = storage->Block_Size;
 		uint32_t cluster_size = sectors_per_cluster * bytes_per_sector;
+		FAT_TableScratch fat_table_cache = {};
+		FAT_TableScratch* fat_cache = nullptr;
+		if (allow_allocate) {
+			fat_table_cache.buffer = new byte[bytes_per_sector];
+			if (!fat_table_cache.buffer) return false;
+			fat_table_cache.current_sector = 0xFFFFFFFF;
+			fat_cache = &fat_table_cache;
+		}
+		auto finish_truncate = [&](bool ret) -> bool {
+			if (fat_cache) delete[] fat_table_cache.buffer;
+			return ret;
+		};
 
 		// Dynamically determine EOC threshold and mark based on FAT version
 		uint32_t eoc_threshold = 0x0FFFFFF8;
@@ -48,7 +60,7 @@ namespace uni {
 			return c == 0 || c >= eoc_threshold;
 		};
 
-		if (size == fh->size) return true;
+		if (size == fh->size) return finish_truncate(true);
 
 		if (size < fh->size) {
 			// Shrink/Truncate file
@@ -56,8 +68,8 @@ namespace uni {
 				// Free entire cluster chain
 				uint32_t cluster = fh->start_cluster;
 				while (cluster >= 2 && !is_eof(cluster)) {
-					uint32_t next = get_fat_entry(cluster);
-					set_fat_entry(cluster, 0); // Mark cluster as free
+					uint32_t next = get_fat_entry(cluster, fat_cache);
+					set_fat_entry(cluster, 0, fat_cache); // Mark cluster as free
 					cluster = next;
 				}
 				fh->start_cluster = 0;
@@ -67,18 +79,18 @@ namespace uni {
 				uint32_t clusters_needed = (uint32_t)((size + cluster_size - 1) / cluster_size);
 				uint32_t last = fh->start_cluster;
 				for (uint32_t i = 1; i < clusters_needed; i++) {
-					last = get_fat_entry(last);
+					last = get_fat_entry(last, fat_cache);
 					if (is_eof(last)) break;
 				}
 
 				if (!is_eof(last)) {
-					uint32_t to_free = get_fat_entry(last);
-					set_fat_entry(last, eoc_mark); // Mark new end of file
+					uint32_t to_free = get_fat_entry(last, fat_cache);
+					set_fat_entry(last, eoc_mark, fat_cache); // Mark new end of file
 
 					// Free remaining clusters
 					while (to_free >= 2 && !is_eof(to_free)) {
-						uint32_t next = get_fat_entry(to_free);
-						set_fat_entry(to_free, 0);
+						uint32_t next = get_fat_entry(to_free, fat_cache);
+						set_fat_entry(to_free, 0, fat_cache);
 						to_free = next;
 					}
 				}
@@ -107,9 +119,9 @@ namespace uni {
 
 			// If empty, allocate first cluster
 			if (is_eof(cluster)) {
-				cluster = find_free_cluster();
-				if (cluster == 0) return false;
-				set_fat_entry(cluster, eoc_mark);
+				cluster = find_free_cluster(fat_cache);
+				if (cluster == 0) return finish_truncate(false);
+				set_fat_entry(cluster, eoc_mark, fat_cache);
 				fh->start_cluster = cluster;
 				fh->current_cluster = cluster;
 
@@ -127,17 +139,17 @@ namespace uni {
 				// Find last cluster
 				uint32_t last = fh->start_cluster;
 				while (true) {
-					uint32_t next = get_fat_entry(last);
+					uint32_t next = get_fat_entry(last, fat_cache);
 					if (is_eof(next)) break;
 					last = next;
 				}
 
 				// Allocate more clusters
 				for (uint32_t i = current_cluster_count; i < clusters_needed; i++) {
-					uint32_t next = find_free_cluster();
-					if (next == 0) return false; // Disk full
-					set_fat_entry(last, next);
-					set_fat_entry(next, eoc_mark);
+					uint32_t next = find_free_cluster(fat_cache);
+					if (next == 0) return finish_truncate(false); // Disk full
+					set_fat_entry(last, next, fat_cache);
+					set_fat_entry(next, eoc_mark, fat_cache);
 					last = next;
 				}
 			}
@@ -153,7 +165,7 @@ namespace uni {
 			delete[] dir_buf;
 		}
 
-		return true;
+		return finish_truncate(true);
 	}
 
 }

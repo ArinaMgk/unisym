@@ -29,6 +29,29 @@ namespace uni {
 		if (!fs_loaded) return false;
 
 		stduint bytes_per_sector = storage->Block_Size;
+		byte* sector_buffer = buffer_sector;
+		bool allocated_sector_buffer = false;
+		FAT_TableScratch fat_table_cache = {};
+		FAT_TableScratch* fat_cache = nullptr;
+		if (allow_allocate) {
+			sector_buffer = new byte[bytes_per_sector];
+			if (!sector_buffer) return false;
+			allocated_sector_buffer = true;
+
+			fat_table_cache.buffer = new byte[bytes_per_sector];
+			if (!fat_table_cache.buffer) {
+				delete[] sector_buffer;
+				return false;
+			}
+			fat_table_cache.current_sector = 0xFFFFFFFF;
+			fat_cache = &fat_table_cache;
+		}
+		if (!sector_buffer) return false;
+		auto finish_rename = [&](bool ret) -> bool {
+			if (fat_cache) delete[] fat_table_cache.buffer;
+			if (allocated_sector_buffer) delete[] sector_buffer;
+			return ret;
+		};
 
 		// Split src_path into parent path and filename
 		char src_parent_path[256];
@@ -65,16 +88,16 @@ namespace uni {
 		FilesysSearchArgs src_search_args = { &src_parent_h, nullptr, nullptr, nullptr };
 		if (!this->search(src_parent_path, &src_search_args)) {
 			StrCopy(src_parent_path, "/");
-			if (!this->search(src_parent_path, &src_search_args)) return false;
+			if (!this->search(src_parent_path, &src_search_args)) return finish_rename(false);
 		}
 
-		if (!src_parent_h.is_dir) return false;
+		if (!src_parent_h.is_dir) return finish_rename(false);
 
 		FAT_DirEntry entry;
 		uint32_t src_entry_sector = 0;
 		uint32_t src_entry_index = 0;
-		if (!find_entry_in_dir(src_parent_h.start_cluster, src_filename, &entry, &src_entry_sector, &src_entry_index)) {
-			return false; // Source file not found
+		if (!find_entry_in_dir(src_parent_h.start_cluster, src_filename, &entry, &src_entry_sector, &src_entry_index, sector_buffer, fat_cache)) {
+			return finish_rename(false); // Source file not found
 		}
 
 		// Format target filename into standard 8.3 format
@@ -106,15 +129,13 @@ namespace uni {
 
 		if (is_same_dir) {
 			// Simply modify the directory entry's name and ext fields
-			byte* sector_buf = new byte[bytes_per_sector];
-			if (storage->Read(src_entry_sector, sector_buf)) {
-				FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buf[src_entry_index * 32];
+			if (storage->Read(src_entry_sector, sector_buffer)) {
+				FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[src_entry_index * 32];
 				MemCopyN(d_entry->name, formatted_name, 8);
 				MemCopyN(d_entry->ext, formatted_ext, 3);
-				storage->Write(src_entry_sector, sector_buf);
+				storage->Write(src_entry_sector, sector_buffer);
 			}
-			delete[] sector_buf;
-			return true;
+			return finish_rename(true);
 		}
 
 		// Cross-directory move: Locate target parent handle
@@ -122,17 +143,17 @@ namespace uni {
 		FilesysSearchArgs dst_search_args = { &dst_parent_h, nullptr, nullptr, nullptr };
 		if (!this->search(dst_parent_path, &dst_search_args)) {
 			StrCopy(dst_parent_path, "/");
-			if (!this->search(dst_parent_path, &dst_search_args)) return false;
+			if (!this->search(dst_parent_path, &dst_search_args)) return finish_rename(false);
 		}
 
-		if (!dst_parent_h.is_dir) return false;
+		if (!dst_parent_h.is_dir) return finish_rename(false);
 
 		uint32_t dst_parent_cluster = dst_parent_h.start_cluster;
 
 		// Check if destination directory already has an entry with the target name
 		FAT_DirEntry existing_entry;
-		if (find_entry_in_dir(dst_parent_cluster, dst_filename, &existing_entry, nullptr, nullptr)) {
-			return false; // Target already exists
+		if (find_entry_in_dir(dst_parent_cluster, dst_filename, &existing_entry, nullptr, nullptr, sector_buffer, fat_cache)) {
+			return finish_rename(false); // Target already exists
 		}
 
 		// Prepare new entry based on the source entry with new name
@@ -146,12 +167,12 @@ namespace uni {
 		uint32_t written_index = 0;
 
 		auto try_sector = [&](uint32_t sector) -> bool {
-			if (!storage->Read(sector, buffer_sector)) return false;
+			if (!storage->Read(sector, sector_buffer)) return false;
 			for (int i = 0; i < storage->Block_Size / 32; i++) {
-				FAT_DirEntry* dir_entry = (FAT_DirEntry*)&buffer_sector[i * 32];
+				FAT_DirEntry* dir_entry = (FAT_DirEntry*)&sector_buffer[i * 32];
 				if (dir_entry->name[0] == 0 || (byte)dir_entry->name[0] == 0xE5u) {
 					MemCopyN(dir_entry, &new_entry, sizeof(FAT_DirEntry));
-					if (storage->Write(sector, buffer_sector)) {
+					if (storage->Write(sector, sector_buffer)) {
 						written_sector = sector;
 						written_index = i;
 						return true;
@@ -181,15 +202,15 @@ namespace uni {
 				}
 				if (written) break;
 
-				uint32_t next = get_fat_entry(cluster);
+				uint32_t next = get_fat_entry(cluster, fat_cache);
 				if (next >= 0xFFFFFFF8) {
-					uint32_t new_dir_cluster = find_free_cluster();
+					uint32_t new_dir_cluster = find_free_cluster(fat_cache);
 					if (new_dir_cluster == 0) break;
 
 					uint32_t end_mark = (fat_type == 32) ? 0x0FFFFFFF :
 						(fat_type == 16) ? 0xFFFF : 0xFFF;
-					set_fat_entry(cluster, new_dir_cluster);
-					set_fat_entry(new_dir_cluster, end_mark);
+					set_fat_entry(cluster, new_dir_cluster, fat_cache);
+					set_fat_entry(new_dir_cluster, end_mark, fat_cache);
 
 					uint32_t new_dir_sec = getSector_foCluster(new_dir_cluster);
 					byte* clr_buf = new byte[storage->Block_Size];
@@ -205,7 +226,7 @@ namespace uni {
 			}
 		}
 
-		if (!written) return false; // Fail if no slot could be allocated
+		if (!written) return finish_rename(false); // Fail if no slot could be allocated
 
 		// If the entry is a directory, update its ".." pointer to the new parent
 		if (new_entry.attribute.directory) {
@@ -214,30 +235,26 @@ namespace uni {
 
 			if (dir_start_cluster >= 2) {
 				uint32_t dir_sector = getSector_foCluster(dir_start_cluster);
-				byte* temp_buf = new byte[bytes_per_sector];
-				if (storage->Read(dir_sector, temp_buf)) {
-					FAT_DirEntry* dotdot = (FAT_DirEntry*)&temp_buf[32];
+				if (storage->Read(dir_sector, sector_buffer)) {
+					FAT_DirEntry* dotdot = (FAT_DirEntry*)&sector_buffer[32];
 					if (dotdot->name[0] == '.' && dotdot->name[1] == '.') {
 						uint32_t pp_clus = (dst_parent_cluster == root_cluster && fat_type != 32) ? 0 : dst_parent_cluster;
 						dotdot->cluster_low = (uint16_t)(pp_clus & 0xFFFF);
 						dotdot->cluster_high = (uint16_t)(pp_clus >> 16);
-						storage->Write(dir_sector, temp_buf);
+						storage->Write(dir_sector, sector_buffer);
 					}
 				}
-				delete[] temp_buf;
 			}
 		}
 
 		// 7. Mark the source entry as deleted
-		byte* sector_buf = new byte[bytes_per_sector];
-		if (storage->Read(src_entry_sector, sector_buf)) {
-			FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buf[src_entry_index * 32];
+		if (storage->Read(src_entry_sector, sector_buffer)) {
+			FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[src_entry_index * 32];
 			d_entry->name[0] = 0xE5;
-			storage->Write(src_entry_sector, sector_buf);
+			storage->Write(src_entry_sector, sector_buffer);
 		}
-		delete[] sector_buf;
 
-		return true;
+		return finish_rename(true);
 	}
 
 }

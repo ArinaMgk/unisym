@@ -46,16 +46,39 @@ namespace uni {
 		// 3. Resolve Flags
 		bool create_as_dir = (flags & O_DIRECTORY) != 0;
 		uint32_t new_cluster = 0;
+		byte* sector_buffer = buffer_sector;
+		bool allocated_sector_buffer = false;
+		FAT_TableScratch fat_table_cache = {};
+		FAT_TableScratch* fat_cache = nullptr;
+		if (allow_allocate) {
+			sector_buffer = new byte[storage->Block_Size];
+			if (!sector_buffer) return false;
+			allocated_sector_buffer = true;
+
+			fat_table_cache.buffer = new byte[storage->Block_Size];
+			if (!fat_table_cache.buffer) {
+				delete[] sector_buffer;
+				return false;
+			}
+			fat_table_cache.current_sector = 0xFFFFFFFF;
+			fat_cache = &fat_table_cache;
+		}
+		if (!sector_buffer) return false;
+		auto finish_create = [&](bool ret) -> bool {
+			if (fat_cache) delete[] fat_table_cache.buffer;
+			if (allocated_sector_buffer) delete[] sector_buffer;
+			return ret;
+		};
 
 		if (create_as_dir) {
-			new_cluster = find_free_cluster();
+			new_cluster = find_free_cluster(fat_cache);
 			if (new_cluster == 0) {
 				error_number = 3; // part is full
-				return false;
+				return finish_create(false);
 			}
 			uint32_t end_mark = (fat_type == 32) ? 0x0FFFFFFF :
 				(fat_type == 16) ? 0xFFFF : 0xFFF;
-			set_fat_entry(new_cluster, end_mark);
+			set_fat_entry(new_cluster, end_mark, fat_cache);
 
 			// --- [NEW LOGIC]: Initialize "." and ".." for the new directory ---
 			byte* dir_init_buf = new byte[storage->Block_Size];
@@ -119,12 +142,12 @@ namespace uni {
 		bool written = false;
 
 		auto try_sector = [&](uint32_t sector) -> bool {
-			if (!storage->Read(sector, buffer_sector)) return false;
+			if (!storage->Read(sector, sector_buffer)) return false;
 			for (int i = 0; i < storage->Block_Size / 32; i++) {
-				FAT_DirEntry* dir_entry = (FAT_DirEntry*)&buffer_sector[i * 32];
+				FAT_DirEntry* dir_entry = (FAT_DirEntry*)&sector_buffer[i * 32];
 				if (dir_entry->name[0] == 0 || (byte)dir_entry->name[0] == 0xE5u) {
 					MemCopyN(dir_entry, &entry, sizeof(FAT_DirEntry));
-					if (storage->Write(sector, buffer_sector)) {
+					if (storage->Write(sector, sector_buffer)) {
 						entry_sector = sector;
 						entry_index = i;
 						return true;
@@ -154,15 +177,15 @@ namespace uni {
 				}
 				if (written) break;
 
-				uint32_t next = get_fat_entry(cluster);
+				uint32_t next = get_fat_entry(cluster, fat_cache);
 				if (next >= 0xFFFFFFF8) {
-					uint32_t new_dir_cluster = find_free_cluster();
+					uint32_t new_dir_cluster = find_free_cluster(fat_cache);
 					if (new_dir_cluster == 0) break;
 
 					uint32_t end_mark = (fat_type == 32) ? 0x0FFFFFFF :
 						(fat_type == 16) ? 0xFFFF : 0xFFF;
-					set_fat_entry(cluster, new_dir_cluster);
-					set_fat_entry(new_dir_cluster, end_mark);
+					set_fat_entry(cluster, new_dir_cluster, fat_cache);
+					set_fat_entry(new_dir_cluster, end_mark, fat_cache);
 
 					uint32_t new_dir_sec = getSector_foCluster(new_dir_cluster);
 					byte* clr_buf = new byte[storage->Block_Size];
@@ -180,7 +203,7 @@ namespace uni {
 
 		if (!written) {
 			error_number = 4;
-			return false;
+			return finish_create(false);
 		}
 
 		// Output the new file handle back to VFS
@@ -198,7 +221,7 @@ namespace uni {
 			*(void**)exinfo = new_fh;
 		}
 
-		return true;
+		return finish_create(true);
 	}
 
 

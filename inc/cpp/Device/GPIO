@@ -163,6 +163,7 @@ namespace uni {
 		SelfGpin setMode(GPIOMode mod, GPIOSpeed spd = defa_speed, bool autoEnClk = true) const;
 		void setPull(bool pull_up) const;
 		void Toggle() const;
+		// STM32 GPIO lock is hardware one-way until reset; false cannot unlock it.
 		void Lock(bool tolock_orunlock = true) const;
 		bool isInput() const;
 		_COM_DEF_Interrupt_Interface();

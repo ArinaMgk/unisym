@@ -110,5 +110,11 @@ void erro(const char* erromsg
 
 _ESYM_C void warn(const char* warnmsg);
 
+#define ploginfo(...) 
+#define plogwarn(...) 
+#define plogerro(...) 
+#define plogtrac(...) 
+#define plogpass(...) 
+
 #endif
 

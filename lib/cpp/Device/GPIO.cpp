@@ -69,6 +69,8 @@ namespace uni
 	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= (bool val) const {
 	#ifdef _MCU_MSP432P4
 		Reference_T<byte>(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID())) = byte(val);
+	#elif defined(_MCU_STM32)
+		getParent()[GPIOReg::BSRR] = _IMM1S(getID() + (val ? 0 : 16));
 	#else
 		getParent()[GPIOReg::ODR].setof(getID(), val);
 	#endif
@@ -101,13 +103,28 @@ namespace uni
 		this_pin = !this_pin;
 	#elif defined(_MCU_CW32F030)
 		getParent()[GPIOReg::TOG] = _IMM1S(getID());
+	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+		stduint pin_mask = _IMM1S(getID());
+		stduint odr = getParent()[GPIOReg::ODR];
+		getParent()[GPIOReg::BSRR] = ((odr & pin_mask) << 16) | (~odr & pin_mask);
 	#else
 		getParent()[GPIOReg::ODR] ^= _IMM1S(getID());// no use of BSRR
 	#endif
 	}
 
 	void GeneralPurposeInputOutputPin::Lock(bool tolock_or_unlock) const {
-		//{TODO}
+		if (!tolock_or_unlock) return;
+		#if defined(_MCU_STM32)
+		stduint pin_mask = _IMM1S(getID());
+		stduint lock_mask = pin_mask | _IMM1S(16);
+		Reference lckr = getParent()[GPIOReg::LCKR];
+		lckr = lock_mask;
+		lckr = pin_mask;
+		lckr = lock_mask;
+		volatile stduint tmp = lckr;
+		tmp = lckr;
+		(void)tmp;
+		#endif
 	}
 
 	bool GeneralPurposeInputOutputPin::isInput() const {
@@ -115,7 +132,7 @@ namespace uni
 	#if defined(_MCU_CW32F030)
 		return getParent()[GPIOReg::DIR].bitof(getID());
 	#elif defined(_MCU_STM32F1x)
-		return 0 == getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].mask(getID() * 4, 2);
+		return 0 == getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].mask((getID() & 0x7) * 4, 2);
 	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		return 0 == getParent()[GPIOReg::MODER].mask(getID() * 2, 2);// moder length 2 bit
 	#else

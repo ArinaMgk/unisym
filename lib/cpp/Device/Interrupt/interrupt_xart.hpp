@@ -101,10 +101,10 @@ void _HandlerIRQ_XART(byte art_id) _Comment("AKA HAL_UART_IRQHandler") {
 				 Disable Rx Interrupts, and disable Rx DMA request, if ongoing */
 				// UART_EndRxTransfer
 				{
-					USART_CR1_RXNEIE_REF(cr1its) = 0;
-					USART_CR1_PEIE_REF(cr1its) = 0;
-					USART_CR3_EIE_REF(cr3its) = 0;
-					
+					USART_CR1_RXNEIE(xart) = 0;
+					USART_CR1_PEIE(xart) = 0;
+					USART_CR3_EIE(xart) = 0;
+					USART_CR3_RXFTIE(xart) = 0;
 				}
 #if 0 //{TODO}
 				/* Disable the UART DMA Rx request if enabled */

@@ -62,7 +62,7 @@ namespace uni {
 	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, _IMM(mode) >> 1);
 		getParent()[GPIOReg::OTYPER].setof(getID(), _IMM(mode) & 1);
-		getParent()[GPIOReg::SPEED].maset(_IMMx2(getID()), 2, _IMM(speed) >> 1);
+		getParent()[GPIOReg::SPEED].maset(_IMMx2(getID()), 2, _IMM(speed));
 		if (mode == GPIOMode::IN_Floating)
 			getParent()[GPIOReg::PULLS].maset(_IMMx2(getID()), 2, 0);
 	#endif
@@ -79,19 +79,21 @@ namespace uni {
 		if (f) setInterrupt(f);
 		if (!isInput()) setMode(GPIOMode::IN_Floating);
 
-	#if defined(_MCU_STM32F1x)
+		#if defined(_MCU_STM32F1x)
 		RCC.APB2.enAble(_RCC_APB2ENR_POSI_ENCLK_AFIO_BITPOS);
-	#elif defined(_MCU_STM32F4x)
+		#elif defined(_MCU_STM32F4x)
 		RCC.APB2.enAble(14);// SYSCFG EN
-	#endif
-	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
-		for0(i, 10);// some delay to wait, magic_num: random
+		#endif
+		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+		// Read APB2ENR back after AFIO/SYSCFG clock enable; empty loops vanish at O2+.
+		volatile stduint tmp = Reference(_RCC_APB2ENR_ADDR);
+		(void)tmp;
 		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[getID() >> 2];
 		CrtEXTICR.maset(_IMMx4(getID()), 4, getParent().getID());
 		EXTI::TriggerRising.setof(getID(), edg != GPIORupt::Negedge);
 		EXTI::TriggerFalling.setof(getID(), edg != GPIORupt::Posedge);
 		EXTI::MaskInterrupt.setof(getID()); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
-	#elif defined(_MCU_STM32H7x)
+		#elif defined(_MCU_STM32H7x)
 		RCC_APB4ENR_SYSCFGEN = 1; volatile stduint tmp = RCC_APB4ENR_SYSCFGEN;
 		Reference(&SYSCFG->EXTICR[getID() / 4]).maset(_IMMx4(getID()), 4, getParent().getID());
 		// Set IMR but EMR (EMR similar)
@@ -100,9 +102,41 @@ namespace uni {
 		/* Clear Rising Falling edge configuration */
 		EXTI[EXTIReg::RTSR1].setof(getID(), edg == GPIORupt::Posedge || edg == GPIORupt::Anyedge);
 		EXTI[EXTIReg::FTSR1].setof(getID(), edg == GPIORupt::Negedge || edg == GPIORupt::Anyedge);
-	#elif defined(_MPU_STM32MP13)
+		#elif defined(_MPU_STM32MP13)
 		EXTI.setConfig(getID(), edg, true, getParent().getID());
-	#endif
+		#endif
+		return self;
+	}
+
+	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOEvent::EventEdge edg) const {
+		getParent().enClock();
+		if (!isInput()) setMode(GPIOMode::IN_Floating);
+
+		#if defined(_MCU_STM32F1x)
+		RCC.APB2.enAble(_RCC_APB2ENR_POSI_ENCLK_AFIO_BITPOS);
+		#elif defined(_MCU_STM32F4x)
+		RCC.APB2.enAble(14);// SYSCFG EN
+		#endif
+		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+		// Read APB2ENR back after AFIO/SYSCFG clock enable; empty loops vanish at O2+.
+		volatile stduint tmp = Reference(_RCC_APB2ENR_ADDR);
+		(void)tmp;
+		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[getID() >> 2];
+		CrtEXTICR.maset(_IMMx4(getID()), 4, getParent().getID());
+		EXTI::TriggerRising.setof(getID(), edg != GPIOEvent::Negedge);
+		EXTI::TriggerFalling.setof(getID(), edg != GPIOEvent::Posedge);
+		EXTI::MaskEvent.setof(getID());
+		EXTI::MaskInterrupt.rstof(getID());
+		#elif defined(_MCU_STM32H7x)
+		RCC_APB4ENR_SYSCFGEN = 1; volatile stduint tmp = RCC_APB4ENR_SYSCFGEN;
+		Reference(&SYSCFG->EXTICR[getID() / 4]).maset(_IMMx4(getID()), 4, getParent().getID());
+		EXTI[EXTICore::D1][EXTICoreReg::EMR1].setof(getID());
+		EXTI[EXTICore::D1][EXTICoreReg::IMR1].rstof(getID());
+		EXTI[EXTIReg::RTSR1].setof(getID(), edg == GPIOEvent::Posedge || edg == GPIOEvent::Anyedge);
+		EXTI[EXTIReg::FTSR1].setof(getID(), edg == GPIOEvent::Negedge || edg == GPIOEvent::Anyedge);
+		#elif defined(_MPU_STM32MP13)
+		EXTI.setConfig(getID(), (EXTIEdge)edg, false, getParent().getID());
+		#endif
 		return self;
 	}
 

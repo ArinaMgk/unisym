@@ -57,7 +57,7 @@ extern "C" {
 #endif
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32H7x) || defined(_MCU_STM32F4x)
 	void EXTI9_5_IRQHandler(void) {
-		for (byte i = 5; i < 9; i++) _HandlerIRQ_EXTIx(i);
+		for (byte i = 5; i < 10; i++) _HandlerIRQ_EXTIx(i);
 	}
 	void EXTI15_10_IRQHandler(void) {
 		for (byte i = 10; i < 16; i++) _HandlerIRQ_EXTIx(i);

@@ -60,7 +60,6 @@ namespace uni {
 
 	namespace GPIOEvent {
 		enum EventEdge {
-			OUT_PushPull = 0 << 2,
 			Anyedge,
 			Posedge,// Rising Edge
 			Negedge// Falling Edge

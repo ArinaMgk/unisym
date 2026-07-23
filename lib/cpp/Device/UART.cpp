@@ -495,10 +495,11 @@ namespace uni {
 			else {
 				inn();// drop
 				// Disable the UART Parity Error Interrupt and RXNE interrupt
-				//USART_CR1_RXNEIE(self) = 0;
-				//USART_CR1_PEIE(self) = 0;
+				USART_CR1_RXNEIE(self) = 0;
+				USART_CR1_PEIE(self) = 0;
 				// Disable the UART Error Interrupt: (Frame error, noise error, overrun error)
-				//USART_CR3_EIE(self) = 0;
+				USART_CR3_EIE(self) = 0;
+				USART_CR3_RXFTIE(self) = 0;
 				// no consider HAL_UART_RxCpltCallback
 			}
 			lock_r = false;
@@ -637,7 +638,8 @@ namespace uni {
 
 			// ---- USART CR2 Configuration ---- //
 			USART_CR2_STOP(self) = 0;
-			
+			self[XARTReg::CR2] &= ~(USART_CR2_LINEN | USART_CR2_CLKEN);
+
 			// ---- USART CR3 Configuration ---- //
 			Reflocal(cr3) = 0;
 			// - UART HardWare Flow Control: set CTSE and RTSE bits
@@ -863,13 +865,13 @@ namespace uni {
 		// AKA UART_MASK_COMPUTATION
 		switch (wordlen) {
 		case WordLength_E::Bits7:
-			mask = parity_enable ? 0x7F : 0x3F;// one bit is for parity
+			mask = parity_enable ? 0x3F : 0x7F;// one bit is for parity
 			break;
 		case WordLength_E::Bits8:
-			mask = parity_enable ? 0xFF : 0x7F;
+			mask = parity_enable ? 0x7F : 0xFF;
 			break;
 		case WordLength_E::Bits9:
-			mask = parity_enable ? 0x1FF : 0xFF;
+			mask = parity_enable ? 0xFF : 0x1FF;
 			break;
 		default:
 			return false;

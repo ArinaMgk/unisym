@@ -1,6 +1,8 @@
 #define _MCU_XART_TEMP
 #include "../../../../inc/cpp/Device/UART"
 
+using namespace uni;
+
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 void _HandlerIRQ_XART(byte art_id);
 #endif
@@ -41,8 +43,9 @@ void _HandlerIRQ_XART(byte art_id) {
 	#endif
 }
 #elif defined(_MCU_STM32H7x)
-void _HandlerIRQ_XART(byte art_id) _Comment("AKA HAL_UART_IRQHandler") {
-	USART_t& xart = *(USART_t*)XART[art_id];
+template<class XART_T>
+// AKA HAL_UART_IRQHandler
+static void _HandlerIRQ_XART_H7(byte art_id, XART_T& xart) {
 	Reflocal(isrflags) = xart[XARTReg::ISR];
 	Reflocal(cr1its) = xart[XARTReg::CR1];
 	Reflocal(cr3its) = xart[XARTReg::CR3];
@@ -100,12 +103,7 @@ void _HandlerIRQ_XART(byte art_id) _Comment("AKA HAL_UART_IRQHandler") {
 				 Set the UART state ready to be able to start again the process,
 				 Disable Rx Interrupts, and disable Rx DMA request, if ongoing */
 				// UART_EndRxTransfer
-				{
-					USART_CR1_RXNEIE(xart) = 0;
-					USART_CR1_PEIE(xart) = 0;
-					USART_CR3_EIE(xart) = 0;
-					USART_CR3_RXFTIE(xart) = 0;
-				}
+				xart.abortReceive();
 #if 0 //{TODO}
 				/* Disable the UART DMA Rx request if enabled */
 				if (xart[XARTReg::CR3] & USART_CR3_DMAR)
@@ -157,28 +155,35 @@ void _HandlerIRQ_XART(byte art_id) _Comment("AKA HAL_UART_IRQHandler") {
 		//{} HAL_UARTEx_WakeupCallback(huart);
 		asserv(FUNC_XART[art_id])(); return;
 	}
-#if 0 //{TODO}
-	
 	/* UART in mode Transmitter ------------------------------------------------*/
 	if ((isrflags & USART_ISR_TXE) && ((cr1its & USART_CR1_TXEIE) || cr3its & USART_CR3_TXFTIE))
 	{
-		UART_Transmit_IT(huart);
+		// UART_Transmit_IT(huart)
+		xart.outHandlerByInterrupt();
 		asserv(FUNC_XART[art_id])(); return;
 	}
-	
+
 	/* UART in mode Transmitter (transmission end) -----------------------------*/
 	if (USART_ISR_TC_REF(isrflags) && (cr1its & USART_CR1_TCIE))
 	{
-		UART_EndTransmit_IT(huart);
+		// UART_EndTransmit_IT(huart)
+		xart.outDoneHandlerByInterrupt();
 		asserv(FUNC_XART[art_id])(); return;
 	}
-#endif
 	/* UART TX FIFO Empty  -----------------------------------------------------*/
 	if ((isrflags & USART_ISR_TXFE) && (cr1its & USART_CR1_TXFEIE))
 	{
 		xart[XARTReg::CR1] &= ~USART_CR1_TXFEIE;
 	}
 	asserv(FUNC_XART[art_id])();
+}
+void _HandlerIRQ_XART(byte art_id) _Comment("AKA HAL_UART_IRQHandler") {
+	if (XART.isSync(art_id)) {
+		_HandlerIRQ_XART_H7(art_id, *(USART_t*)XART[art_id]);
+	}
+	else {
+		_HandlerIRQ_XART_H7(art_id, *(UART_t*)XART[art_id]);
+	}
 }
 #endif
 

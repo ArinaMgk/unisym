@@ -161,17 +161,32 @@ namespace uni {
 		virtual PartitionSlice getSlice(stduint dev) override;
 	};
 
-	class Harddisk_SATA_AHCI : public StorageTrait {
+	class AHCI_Port_Base {
 	public:
 		volatile AHCI_MEM* abar = nullptr;
 		int port_index = -1;
 		byte* cmd_list = nullptr;
 		byte* rx_fis = nullptr;
 		byte* cmd_table = nullptr;
+		bool (*fn_irq_wait)(AHCI_Port_Base* port, uint32 slot_mask) = nullptr;
+
+	public:
+		void Bind(volatile AHCI_MEM* mmio_base, int port_no);
+		void SetWorkspace(void* clb, void* fb, void* ctba);
+
+	protected:
+		bool StopCommandEngine() const;
+		void StartCommandEngine() const;
+		bool PollCommandSlot(uint32 slot_mask) const;
+		bool PrepareAtaCommand(byte ata_cmd, uint64 lba, byte* data_buf, stduint sector_count, bool is_write);
+		bool PreparePacketCommand(const byte packet[12], byte* data_buf, stduint byte_count, bool is_write);
+	};
+
+	class Harddisk_SATA_AHCI : public StorageTrait, public AHCI_Port_Base {
+	public:
 		uint64 total_sectors = 0;
 		HD_Info hd_info = {};
 		bool hd_info_valid = false;
-		bool (*fn_irq_wait)(Harddisk_SATA_AHCI* disk, uint32 slot_mask) = nullptr;
 
 	public:
 		Harddisk_SATA_AHCI() {
@@ -180,7 +195,6 @@ namespace uni {
 		}
 
 		void Bind(volatile AHCI_MEM* mmio_base, int port_no);
-		void SetWorkspace(void* clb, void* fb, void* ctba);
 
 		static bool IsCandidatePort(volatile AHCI_MEM* mmio_base, uint32 port_no);
 		static int SelectFirstPort(volatile AHCI_MEM* mmio_base);
@@ -196,12 +210,32 @@ namespace uni {
 		virtual stduint getUnits() override;
 		virtual int operator[](uint64 bytid) override { return _TODO 0; }
 		virtual PartitionSlice getSlice(stduint dev) override;
+	};
 
-	protected:
-		bool StopCommandEngine() const;
-		void StartCommandEngine() const;
-		bool PollCommandSlot(uint32 slot_mask) const;
-		bool PrepareAtaCommand(byte ata_cmd, uint64 lba, byte* data_buf, stduint sector_count, bool is_write);
+	class CDROM_ATAPI_AHCI : public StorageTrait, public AHCI_Port_Base {
+	public:
+		uint32 total_blocks = 0;
+
+	public:
+		CDROM_ATAPI_AHCI() {
+			Block_buffer = nullptr;
+			Block_Size = 2048;
+		}
+
+		void Bind(volatile AHCI_MEM* mmio_base, int port_no);
+
+		static bool IsCandidatePort(volatile AHCI_MEM* mmio_base, uint32 port_no);
+
+		bool IdentifyPacket(void* identify_buf);
+		bool ReadCapacity(void* capacity_buf);
+		bool ReadBlocks(uint32 lba, void* dest, stduint block_count);
+		void UpdateCapacity(const void* capacity_buf);
+
+		virtual bool Read(stduint BlockIden, void* Dest) override;
+		virtual bool Write(stduint BlockIden, const void* Sors) override { return false; }
+		virtual stduint getUnits() override;
+		virtual int operator[](uint64 bytid) override { return _TODO 0; }
+		virtual PartitionSlice getSlice(stduint dev) override;
 	};
 
 }

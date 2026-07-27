@@ -36,18 +36,31 @@ namespace uni {
 	#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 	
 	bool DAC_t::enClock(bool ena) {
-		Reference(_RCC_APB1ENR_ADDR).setof(_RCC_APB1ENR_POSI_ENCLK_DAC);
+		Reference(_RCC_APB1ENR_ADDR).setof(_RCC_APB1ENR_POSI_ENCLK_DAC, ena);
 		if (ena != Reference(_RCC_APB1ENR_ADDR).bitof(_RCC_APB1ENR_POSI_ENCLK_DAC))
 			return false;
 		return true;
 	}
 
 	static DACReg::DACRegType DHR12Rx[] = { DACReg::DHR12R1, DACReg::DHR12R2 };
+	static DACReg::DACRegType DORx[] = { DACReg::DOR1, DACReg::DOR2 };
 	void DAC_t::setOutput(byte channel, uint16 val) {
 		using namespace ::uni::DACReg;
-		// assert (channel)
+		if (channel != 1 && channel != 2) return;
 		val &= 0x0FFF;// max output 2.5V
-		self[DHR12Rx[channel]] = val;
+		self[DHR12Rx[channel - 1]] = val;
+	}
+	uint16 DAC_t::getValue(byte channel) {
+		if (channel != 1 && channel != 2) return 0;
+		return self[DORx[channel - 1]];
+	}
+	bool DAC_t::StopDMA(byte channel) {
+		if (channel != 1 && channel != 2) return false;
+		self[DACReg::CR].setof(_DAC_CR_POS_DMAENx + 16 * (channel - 1), false);
+		#ifdef _MCU_STM32F1x
+		DMA2.enAble(false, channel + 2);// DAC ch1 -> DMA2 ch3, DAC ch2 -> DMA2 ch4
+		#endif
+		return true;
 	}
 
 	#endif
@@ -63,27 +76,25 @@ namespace uni {
 		if (&pin == &GPIOA[5] || &pin == &GPIOA[4]) {
 			//aka HAL_DAC_Init = HAL_DAC_MspInit
 			pin.setMode(GPIOMode::IN_Analog);
+			byte channel = getChannel(pin);
+			if (!channel) return false;
+			byte dma_channel = channel + 2;// DAC ch1 -> DMA2 ch3, DAC ch2 -> DMA2 ch4
 			DMA2.enClock();
-			DMA2.setMode(4, false, true, false, true);
+			if (!DMA2.setMode(dma_channel, false, true, false, true))
+				return false;
 			self.bind = (pureptr_t)&DMA2;
 			DMA2.bind = (pureptr_t)this;
 			//aka HAL_DAC_ConfigChannel
-			byte channel = 2;//{???} for GPIOA5
 			stduint tmp = 0;
 			BitSev(tmp, _DAC_CR_POS_BOFFx, buffer_enable);
 			tmp |= _IMM(trigger);
 			BitClr(tmp, _DAC_CR_POS_WAVEx);
-			if (channel == 1)
-			{
-				self[DACReg::CR] &= 0xFFFF0000;
-				self[DACReg::CR] |= tmp;
-				_TODO;//{}
-			}
-			else // 2
-			{
-				self[DACReg::CR] &= 0x0000FFFF;
-				self[DACReg::CR] |= tmp << 0x10;
-				//aka HAL_TIM_Base_Init
+			byte shift = (channel - 1) * 16;
+			stduint cr_mask = (stduint)0xFFFF << shift;
+			self[DACReg::CR] &= ~cr_mask;
+			self[DACReg::CR] |= tmp << shift;
+			if (trigger == DACTrigger::T6) {
+				// Keep the original convenience path for TIM6-triggered DAC DMA.
 				TIM6.setMode();
 				TIM6.ConfigMaster(0x00000020); // TIM_TRGO_UPDATE
 				TIM6.enAble();
@@ -97,18 +108,18 @@ namespace uni {
 			switch (align)
 			{
 			case _DAC_ALIGN_12B_R:
-				tmp = (uint32_t)&self[DACReg::DHR12R2];//{} DHR12R1 for chan1
+				tmp = (uint32_t)&self[channel == 1 ? DACReg::DHR12R1 : DACReg::DHR12R2];
 				break;
 			case _DAC_ALIGN_12B_L:
-				tmp = (uint32_t)&self[DACReg::DHR12L2];//{} DHR12L1 for chan1
+				tmp = (uint32_t)&self[channel == 1 ? DACReg::DHR12L1 : DACReg::DHR12L2];
 				break;
 			case _DAC_ALIGN_8B_R:
-				tmp = (uint32_t)&self[DACReg::DHR8R2];//{} DHR8R1 for chan1
+				tmp = (uint32_t)&self[channel == 1 ? DACReg::DHR8R1 : DACReg::DHR8R2];
 				break;
 			default:
 				break;
 			}
-			DMA2.StartInterrupt((pureptr_t)tmp, data, leng, _TEMP 4);
+			DMA2.StartInterrupt((pureptr_t)tmp, data, leng, dma_channel);
 			enAble(channel);//aka __HAL_DAC_ENABLE
 		}
 		else return false;
@@ -166,10 +177,6 @@ namespace uni {
 		tmp |= tmp2;
 		self[CR] = tmp;
 		enAble(channel, true);//aka DAC_Cmd(DAC_Channel_1, ENABLE);
-		//aka DAC_SetChannel1Data(DAC_Align_12b_R, 0);
-		_TEMP{
-			self[DHR12R1] = 0;
-		}
 		return true;
 	}
 

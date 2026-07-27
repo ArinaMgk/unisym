@@ -12,19 +12,38 @@ build-win64:
 	cc asm/data/*.c asm/about.c asm/aasm*.cpp $(ulibpath)/cpp/fileformat/execute/*.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -o $(ubinpath)/AMD64/Win64/aasm --static -w
 	cc asm/data/_*.c asm/data/insnsb.c asm/data/insnsd.c asm/data/regs.c asm/data/regdis.c asm/about.c asm/dasm*.cpp asm/aasm-lib.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -DNO_STDSCAN -o $(ubinpath)/AMD64/Win64/dasm --static -w
 
-data: asm/data/_crc64_tab.c
+data: asm/data/_crc64_tab.c asm/data/insnsa.c asm/data/insnsb.c asm/data/insnsd.c asm/data/pptok.h asm/data/pptok.c asm/todata/perllib/pptok.ph asm/data/macros.c asm/data/tokhash.c asm/data/tokens.h asm/data/regs.h asm/data/regs.c asm/data/regflags.c asm/data/regvals.c asm/data/regdis.c asm/data/regdis.h
+
+asm/data/insnsa.c:
 	cd asm/todata && perl make-ins.pl
+asm/data/insnsb.c:
+	cd asm/todata && perl make-ins.pl
+asm/data/insnsd.c:
+	cd asm/todata && perl make-ins.pl
+
+asm/data/pptok.h:
 	cd asm/todata && perl pptok.pl        h  pptok.dat ../data/pptok.h
+asm/data/pptok.c:
 	cd asm/todata && perl pptok.pl        c  pptok.dat ../data/pptok.c
+asm/todata/perllib/pptok.ph:
 	cd asm/todata && perl pptok.pl        ph pptok.dat ./perllib/pptok.ph
+asm/data/macros.c:
 	cd asm/todata && perl make-macros.pl ../data/standard.mac ../data/version.mac ../data/altreg.mac  ../data/smartalign.mac ../data/outfmt/outaout.mac ../data/outfmt/outas86.mac ../data/outfmt/outbin.mac ../data/outfmt/outcoff.mac ../data/outfmt/outelf.mac ../data/outfmt/outmacho.mac ../data/outfmt/outobj.mac ../data/outfmt/outrdf.mac ../data/outfmt/outrdf2.mac
+asm/data/tokhash.c:
 	cd asm/todata && perl make-tokhash.pl c  make-ins.dat make-reg.dat tokens.dat > ../data/tokhash.c
+asm/data/tokens.h:
 	cd asm/todata && perl make-tokhash.pl h  make-ins.dat make-reg.dat tokens.dat > ../data/tokens.h
+asm/data/regs.h:
 	cd asm/todata && perl make-reg.pl     h  make-reg.dat> ../data/regs.h
+asm/data/regs.c:
 	cd asm/todata && perl make-reg.pl     c  make-reg.dat> ../data/regs.c
+asm/data/regflags.c:
 	cd asm/todata && perl make-reg.pl     fc make-reg.dat> ../data/regflags.c
+asm/data/regvals.c:
 	cd asm/todata && perl make-reg.pl     vc make-reg.dat> ../data/regvals.c
+asm/data/regdis.c:
 	cd asm/todata && perl make-reg.pl     dc make-reg.dat> ../data/regdis.c
+asm/data/regdis.h:
 	cd asm/todata && perl make-reg.pl     dh make-reg.dat> ../data/regdis.h
 
 

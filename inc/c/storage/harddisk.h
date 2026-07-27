@@ -238,6 +238,67 @@ namespace uni {
 		virtual PartitionSlice getSlice(stduint dev) override;
 	};
 
+	class Harddisk_SCSI : public StorageTrait {
+	public:
+		using ExecCommandFn = bool(*)(void* context,
+			byte target_id, byte lun,
+			const byte* cdb, byte cdb_length,
+			void* data_buf, stduint data_length, bool data_in,
+			byte& completion_code, byte& adapter_status, byte& target_status);
+
+		byte target_id = 0;
+		byte lun = 0;
+		uint64 total_blocks = 0;
+		HD_Info hd_info = {};
+		bool hd_info_valid = false;
+		void* exec_context = nullptr;
+		ExecCommandFn fn_exec = nullptr;
+
+	public:
+		Harddisk_SCSI() {
+			Block_buffer = nullptr;
+			Block_Size = 512;
+		}
+
+		void Bind(byte target, byte lunx, void* context, ExecCommandFn exec_fn);
+		void UpdateCapacity(uint32 last_lba, uint32 block_size);
+		bool ReadBlocks(uint64 lba, void* dest, stduint block_count);
+		bool WriteBlocks(uint64 lba, const void* src, stduint block_count);
+
+		virtual bool Read(stduint BlockIden, void* Dest) override;
+		virtual bool Write(stduint BlockIden, const void* Sors) override;
+		virtual stduint getUnits() override;
+		virtual int operator[](uint64 bytid) override { return _TODO 0; }
+		virtual PartitionSlice getSlice(stduint dev) override;
+	};
+
+	class CDROM_SCSI : public StorageTrait {
+	public:
+		using ExecCommandFn = Harddisk_SCSI::ExecCommandFn;
+
+		byte target_id = 0;
+		byte lun = 0;
+		uint32 total_blocks = 0;
+		void* exec_context = nullptr;
+		ExecCommandFn fn_exec = nullptr;
+
+	public:
+		CDROM_SCSI() {
+			Block_buffer = nullptr;
+			Block_Size = 2048;
+		}
+
+		void Bind(byte target, byte lunx, void* context, ExecCommandFn exec_fn);
+		void UpdateCapacity(uint32 last_lba, uint32 block_size);
+		bool ReadBlocks(uint32 lba, void* dest, stduint block_count);
+
+		virtual bool Read(stduint BlockIden, void* Dest) override;
+		virtual bool Write(stduint BlockIden, const void* Sors) override { return false; }
+		virtual stduint getUnits() override;
+		virtual int operator[](uint64 bytid) override { return _TODO 0; }
+		virtual PartitionSlice getSlice(stduint dev) override;
+	};
+
 }
 #endif
 

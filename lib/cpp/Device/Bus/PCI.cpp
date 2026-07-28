@@ -110,7 +110,9 @@ PCI_Result PCI::scan_all_bus() {
 	if (IsSingleFunctionDevice(header_type)) {
 		return ScanBus(0);
 	}
-	for1 (function, 8 - 1) {
+	// For multi-function host bridges, each function (0 to 7) represents a host bridge mapping to a PCI bus.
+	// We must scan from function 0 to cover all possible buses (including Bus 0).
+	for0 (function, 8) {
 		if (read_vendor_id(0, 0, function) == 0xFFFFu) {
 			continue;
 		}

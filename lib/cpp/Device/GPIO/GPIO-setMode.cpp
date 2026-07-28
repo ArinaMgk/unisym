@@ -69,6 +69,89 @@ namespace uni {
 		return self;
 	}
 	
+	bool GeneralPurposeInputOutputPin::canMode() const {
+	#if 0
+	#elif defined(_MCU_MSP432P4)
+		//{}
+		// ROM_GPIOTABLE[14](getParent().getID(), _IMM1S(getID()));
+		// return true;
+	#elif defined(_MCU_CW32F030)
+		//{}
+		// getParent()[GPIOReg::DIR].setof(getID(), 1);// Input
+		// getParent()[GPIOReg::OPENDRAIN].rstof(getID());
+		// getParent()[GPIOReg::SPEED].rstof(getID());
+		// getParent()[GPIOReg::ANALOG].rstof(getID());
+		// return true;
+	#elif defined(_MCU_STM32F1x)
+		// DeInit: CRL/CRH to floating input, clear ODR, clear EXTI
+		uint32 bposi = (getID() < 8) ? getID() << 2 : (getID() - 8) << 2;
+		getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].maset(bposi, 4, 0x4);// floating input
+		getParent()[GPIOReg::ODR].rstof(getID());
+		// Clear EXTI if this port is mapped to the line
+		RCC.APB2.enAble(_RCC_APB2ENR_POSI_ENCLK_AFIO_BITPOS);
+		volatile stduint rcc_tmp = Reference(_RCC_APB2ENR_ADDR);
+		(void)rcc_tmp;
+		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[getID() >> 2];
+		if (CrtEXTICR.masof(_IMMx4(getID() & 0x3), 4) == getParent().getID()) {
+			CrtEXTICR.maset(_IMMx4(getID() & 0x3), 4, 0);
+			EXTI::MaskInterrupt.rstof(getID());
+			EXTI::MaskEvent.rstof(getID());
+			EXTI::TriggerRising.rstof(getID());
+			EXTI::TriggerFalling.rstof(getID());
+		}
+		return true;
+	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+		// ---- Common GPIO register reset ----
+	#if defined(_MCU_STM32F4x)
+		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, 0);// Input (reset default)
+	#else// H7 / MP13
+		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, 3);// Analog (reset default)
+	#endif
+		getParent()[getID() < 8 ? GPIOReg::AFRL : GPIOReg::AFRH].maset(_IMMx4(getID() & 0x7), 4, 0);
+		getParent()[GPIOReg::PULLS].maset(_IMMx2(getID()), 2, 0);// No pull
+		getParent()[GPIOReg::OTYPER].rstof(getID());// Push-pull
+		getParent()[GPIOReg::SPEED].maset(_IMMx2(getID()), 2, 0);// Low speed
+		// ---- EXTI cleanup (platform-specific) ----
+	#if defined(_MCU_STM32F4x)
+		RCC.APB2.enAble(14);// SYSCFG EN
+		volatile stduint rcc_tmp = Reference(_RCC_APB2ENR_ADDR);
+		(void)rcc_tmp;
+		Reference& CrtEXTICR = SYSCFG::ExternInterruptCfgs[getID() >> 2];
+		if (CrtEXTICR.masof(_IMMx4(getID() & 0x3), 4) == getParent().getID()) {
+			CrtEXTICR.maset(_IMMx4(getID() & 0x3), 4, 0);
+			EXTI::MaskInterrupt.rstof(getID());
+			EXTI::MaskEvent.rstof(getID());
+			EXTI::TriggerRising.rstof(getID());
+			EXTI::TriggerFalling.rstof(getID());
+		}
+	#elif defined(_MCU_STM32H7x)
+		RCC_APB4ENR_SYSCFGEN = 1; volatile stduint rcc_tmp = RCC_APB4ENR_SYSCFGEN;
+		(void)rcc_tmp;
+		Reference CrtEXTICR = Reference(&SYSCFG->EXTICR[getID() / 4]);
+		if (CrtEXTICR.masof(_IMMx4(getID() & 0x3), 4) == getParent().getID()) {
+			CrtEXTICR.maset(_IMMx4(getID() & 0x3), 4, 0);
+			EXTI[EXTICore::D1][EXTICoreReg::IMR1].rstof(getID());
+			EXTI[EXTICore::D1][EXTICoreReg::EMR1].rstof(getID());
+			EXTI[EXTIReg::RTSR1].rstof(getID());
+			EXTI[EXTIReg::FTSR1].rstof(getID());
+		}
+	#elif defined(_MPU_STM32MP13)
+		uint32* exti_ctrl = (uint32*)&EXTI[EXTIReg::EXTICR];
+		exti_ctrl += getID() >> 2;
+		Reference CrtEXTICR = Reference(exti_ctrl);
+		if (CrtEXTICR.masof(_IMMx4(getID() & 0x3), 4) == getParent().getID()) {
+			CrtEXTICR.maset(_IMMx4(getID() & 0x3), 4, 0);
+			EXTI[EXTICore::C1][EXTICoreReg::IMR1].rstof(getID());
+			EXTI[EXTICore::C1][EXTICoreReg::EMR1].rstof(getID());
+			EXTI.TriggerRising(1).rstof(getID());
+			EXTI.TriggerFalling(1).rstof(getID());
+		}
+	#endif
+		return true;
+	#endif
+		return false;
+	}
+
 
 
 // Interrupt Modes
@@ -89,14 +172,14 @@ namespace uni {
 		volatile stduint tmp = Reference(_RCC_APB2ENR_ADDR);
 		(void)tmp;
 		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[getID() >> 2];
-		CrtEXTICR.maset(_IMMx4(getID()), 4, getParent().getID());
+		CrtEXTICR.maset(_IMMx4(getID() & 0x3), 4, getParent().getID());
 		EXTI::TriggerRising.setof(getID(), edg != GPIORupt::Negedge);
 		EXTI::TriggerFalling.setof(getID(), edg != GPIORupt::Posedge);
 		EXTI::MaskInterrupt.setof(getID()); // Mask EVENT/INTERRUPT, //{TODO}while GPIOEvent Set MaskEvent, the above are same
 		#elif defined(_MCU_STM32H7x)
 		RCC_APB4ENR_SYSCFGEN = 1; volatile stduint tmp = RCC_APB4ENR_SYSCFGEN;
-		Reference(&SYSCFG->EXTICR[getID() / 4]).maset(_IMMx4(getID()), 4, getParent().getID());
-		// Set IMR but EMR (EMR similar)
+		Reference(&SYSCFG->EXTICR[getID() / 4]).maset(_IMMx4(getID() & 0x3), 4, getParent().getID());
+			// Set IMR but EMR (EMR similar)
 		EXTI[EXTICore::D1][EXTICoreReg::IMR1].setof(getID());
 		EXTI[EXTICore::D1][EXTICoreReg::EMR1].rstof(getID());
 		/* Clear Rising Falling edge configuration */
@@ -122,14 +205,14 @@ namespace uni {
 		volatile stduint tmp = Reference(_RCC_APB2ENR_ADDR);
 		(void)tmp;
 		Reference& CrtEXTICR = AFIO::ExternInterruptCfgs[getID() >> 2];
-		CrtEXTICR.maset(_IMMx4(getID()), 4, getParent().getID());
+		CrtEXTICR.maset(_IMMx4(getID() & 0x3), 4, getParent().getID());
 		EXTI::TriggerRising.setof(getID(), edg != GPIOEvent::Negedge);
 		EXTI::TriggerFalling.setof(getID(), edg != GPIOEvent::Posedge);
 		EXTI::MaskEvent.setof(getID());
 		EXTI::MaskInterrupt.rstof(getID());
 		#elif defined(_MCU_STM32H7x)
 		RCC_APB4ENR_SYSCFGEN = 1; volatile stduint tmp = RCC_APB4ENR_SYSCFGEN;
-		Reference(&SYSCFG->EXTICR[getID() / 4]).maset(_IMMx4(getID()), 4, getParent().getID());
+		Reference(&SYSCFG->EXTICR[getID() / 4]).maset(_IMMx4(getID() & 0x3), 4, getParent().getID());
 		EXTI[EXTICore::D1][EXTICoreReg::EMR1].setof(getID());
 		EXTI[EXTICore::D1][EXTICoreReg::IMR1].rstof(getID());
 		EXTI[EXTIReg::RTSR1].setof(getID(), edg == GPIOEvent::Posedge || edg == GPIOEvent::Anyedge);

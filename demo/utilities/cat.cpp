@@ -1,6 +1,5 @@
 // ASCII C++ TAB4 CRLF
 // Docutitle: (Module) Basic cat Utility using POSIX API and consio
-// Codifiers: @Antigravity
 // Attribute: Arn-Covenant Any-Architect Env-Hostedstanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 

@@ -21,6 +21,7 @@
 */
 
 #include "../../../inc/cpp/Device/AFIO"
+#include "../../../inc/cpp/Device/GPIO"
 namespace uni {
 #if 0
 

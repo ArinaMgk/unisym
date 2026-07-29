@@ -30,6 +30,7 @@
 #include "../../cpp/trait/StorageTrait.hpp"
 #include "../../cpp/interrupt"
 #include "AHCI.h"
+#include "NVMe.h"
 
 #define ATA_READ     0x20
 #define ATA_WRITE    0x30
@@ -294,6 +295,37 @@ namespace uni {
 
 		virtual bool Read(stduint BlockIden, void* Dest) override;
 		virtual bool Write(stduint BlockIden, const void* Sors) override { return false; }
+		virtual stduint getUnits() override;
+		virtual int operator[](uint64 bytid) override { return _TODO 0; }
+		virtual PartitionSlice getSlice(stduint dev) override;
+	};
+
+
+	class Harddisk_NVMe : public StorageTrait {
+	public:
+		using ExecBlocksFn = bool(*)(void* context,
+			uint32 nsid, uint64 lba,
+			void* data_buf, stduint block_count, bool is_write);
+
+		uint32 namespace_id = 0;
+		uint64 total_blocks = 0;
+		HD_Info hd_info = {};
+		bool hd_info_valid = false;
+		void* exec_context = nullptr;
+		ExecBlocksFn fn_exec = nullptr;
+
+	public:
+		Harddisk_NVMe() {
+			Block_buffer = nullptr;
+			Block_Size = 512;
+		}
+
+		void Bind(void* context, uint32 nsid, uint32 block_size, uint64 block_count, ExecBlocksFn exec_fn);
+		bool ReadBlocks(uint64 lba, void* dest, stduint block_count);
+		bool WriteBlocks(uint64 lba, const void* src, stduint block_count);
+
+		virtual bool Read(stduint BlockIden, void* Dest) override;
+		virtual bool Write(stduint BlockIden, const void* Sors) override;
 		virtual stduint getUnits() override;
 		virtual int operator[](uint64 bytid) override { return _TODO 0; }
 		virtual PartitionSlice getSlice(stduint dev) override;

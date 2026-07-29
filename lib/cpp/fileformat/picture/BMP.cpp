@@ -1,6 +1,5 @@
 // ASCII C/C++ TAB4 CRLF
 // Docutitle: Windows BMP Decoder Implementation
-// Codifiers: @Antigravity
 // Attribute: Env-Freestanding Non-Dependence
 // Copyright: UNISYM
 

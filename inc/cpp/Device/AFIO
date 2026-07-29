@@ -29,6 +29,10 @@
 
 namespace uni {
 
+#if defined(_MCU_STM32F1x)
+	class GeneralPurposeInputOutputPin;// forward for EVENTOUT
+#endif
+
 #if 0
 
 #elif defined(_MCU_STM32F1x)
@@ -40,9 +44,39 @@ namespace uni {
 	public:
 		static Reference EventCtrlReg;// AFIO_EVCR
 		static Reference MapReg;// AFIO_MAPR
+		static Reference MapReg2;// AFIO_MAPR2
 		static Reference ExternInterruptCfgs[4];// AFIO_EXTICRx
 
 	};
+
+	// ---- AFIO Remap (F1 only) ----
+	// Single-bit remaps: use AFIO_Remap(name, true/false)
+	// Multi-bit fields:  use AFIO_Remap(name, value)
+	// SWJ_CFG requires unlock sequence, handled automatically
+	enum class AFIORemap {
+		// MAPR single-bit (bool: enable/disable)
+		SPI1, I2C1, USART1, USART2, TIM4,
+		PD01, TIM5CH4, SPI3, ETH, CAN2, MII_RMII,
+		ADC1_ETRGINJ, ADC1_ETRGREG, ADC2_ETRGINJ, ADC2_ETRGREG,
+		TIM2ITR1, // 0=ETH, 1=USB
+		PTP_PPS, // Ethernet PPS (connectivity line only)
+		// MAPR2 single-bit (bool: enable/disable)
+		TIM9, TIM10, TIM11, TIM12, TIM13, TIM14,
+		TIM15, TIM16, TIM17, CEC, TIM1DMA,
+		TIM67DACDMA, FSMC_NADV, MISC,
+		// MAPR multi-bit fields (value: 0=NoRemap, 1/2/3=remap option)
+		USART3, TIM1, TIM2, TIM3, CAN1,
+		// SWJ_CFG special (value: 0=Full, 1=NoJNTRST, 2=NoJTAG, 4=Disable)
+		SWJ,
+	};
+
+	void AFIO_Remap(AFIORemap remap, bool enable);
+	void AFIO_RemapConfig(AFIORemap remap, byte value);
+
+	// ---- EVENTOUT (Cortex EVENTOUT via AFIO_EVCR, F1 only) ----
+	void EVENTOUT_Config(const GeneralPurposeInputOutputPin& pin);
+	void EVENTOUT_Enable();
+	void EVENTOUT_Disable();
 
 #elif defined(_MCU_STM32F4x) // aka SYSCFG
 

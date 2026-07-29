@@ -199,6 +199,18 @@ namespace uni
 		return self;
 	}
 
+	void GeneralPurposeInputOutputPort::maset(stduint setMask, stduint resetMask) const {
+		#if defined(_MCU_STM32)
+		self[GPIOReg::BSRR] = (resetMask << 16) | setMask;
+		#elif defined(_MCU_CW32F030)
+		self[GPIOReg::BSRR] = setMask;
+		self[GPIOReg::BRR] = resetMask;
+		#elif defined(_MCU_MSP432P4)
+		ROM_GPIOTABLE[1](getID(), setMask);    // set output high
+		ROM_GPIOTABLE[2](getID(), resetMask);   // set output low
+		#endif
+	}
+
 	// ---- ---- ---- ---- GPIO ---- ---- ---- ----
 	
 	const GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](unsigned portid) const {

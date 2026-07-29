@@ -186,7 +186,15 @@ namespace uni {
 			PartitionSlice slice = {};
 			slice.address = (stduint)ent.first_lba;
 			slice.length = (stduint)slice_len;
-			slice.sys_id = _LOCAL_MapGptTypeToSysId(ent.type_guid);
+			byte sys_id = _LOCAL_MapGptTypeToSysId(ent.type_guid);
+			if (sys_id == FILESYS_FAT32_LBA) {
+				if (_LOCAL_ReadBlock(base, ent.first_lba, block_buf)) {
+					if (block_buf[3] == 'N' && block_buf[4] == 'T' && block_buf[5] == 'F' && block_buf[6] == 'S') {
+						sys_id = FILESYS_NTFS;
+					}
+				}
+			}
+			slice.sys_id = sys_id;
 			stduint meta_index = hdi.part_count < MAX_PARTITIONS ? hdi.part_count : MAX_PARTITIONS - 1;
 			bool appended = hdi.AppendPart(slice);
 			if (appended) {

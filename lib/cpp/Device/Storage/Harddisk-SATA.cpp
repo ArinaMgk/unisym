@@ -5,7 +5,7 @@
 
 #include "../../../../inc/c/storage/harddisk.h"
 
-#if defined(_MCCA) && (_MCCA == 0x8632)
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 namespace uni {
 
 	void AHCI_Port_Base::Bind(volatile AHCI_MEM* mmio_base, int port_no) {
@@ -78,10 +78,10 @@ namespace uni {
 			MemSet(data_buf, 0, 512 * sector_count);
 		}
 
-		port.clb = _IMM(cmd_list);
-		port.clbu = 0;
-		port.fb = _IMM(rx_fis);
-		port.fbu = 0;
+		port.clb = (uint32)_IMM(cmd_list);
+		port.clbu = (uint32)(_IMM64(_IMM(cmd_list)) >> 32);
+		port.fb = (uint32)_IMM(rx_fis);
+		port.fbu = (uint32)(_IMM64(_IMM(rx_fis)) >> 32);
 		port.is = 0xFFFFFFFFu;
 		port.serr = 0xFFFFFFFFu;
 
@@ -93,11 +93,11 @@ namespace uni {
 		cmd_header[0].w = is_write ? 1 : 0;
 		cmd_header[0].prdtl = 1;
 		cmd_header[0].prdbc = 0;
-		cmd_header[0].ctba = _IMM(cmd_table);
-		cmd_header[0].ctbau = 0;
+		cmd_header[0].ctba = (uint32)_IMM(cmd_table);
+		cmd_header[0].ctbau = (uint32)(_IMM64(_IMM(cmd_table)) >> 32);
 
-		cmd_table_ptr->prdt_entry[0].dba = _IMM(data_buf);
-		cmd_table_ptr->prdt_entry[0].dbau = 0;
+		cmd_table_ptr->prdt_entry[0].dba = (uint32)_IMM(data_buf);
+		cmd_table_ptr->prdt_entry[0].dbau = (uint32)(_IMM64(_IMM(data_buf)) >> 32);
 		cmd_table_ptr->prdt_entry[0].dbc = 512 * sector_count - 1;
 		cmd_table_ptr->prdt_entry[0].i = 1;
 
@@ -131,10 +131,10 @@ namespace uni {
 			MemSet(data_buf, 0, byte_count);
 		}
 
-		port.clb = _IMM(cmd_list);
-		port.clbu = 0;
-		port.fb = _IMM(rx_fis);
-		port.fbu = 0;
+		port.clb = (uint32)_IMM(cmd_list);
+		port.clbu = (uint32)(_IMM64(_IMM(cmd_list)) >> 32);
+		port.fb = (uint32)_IMM(rx_fis);
+		port.fbu = (uint32)(_IMM64(_IMM(rx_fis)) >> 32);
 		port.is = 0xFFFFFFFFu;
 		port.serr = 0xFFFFFFFFu;
 
@@ -147,12 +147,12 @@ namespace uni {
 		cmd_header[0].w = is_write ? 1 : 0;
 		cmd_header[0].prdtl = 1;
 		cmd_header[0].prdbc = 0;
-		cmd_header[0].ctba = _IMM(cmd_table);
-		cmd_header[0].ctbau = 0;
+		cmd_header[0].ctba = (uint32)_IMM(cmd_table);
+		cmd_header[0].ctbau = (uint32)(_IMM64(_IMM(cmd_table)) >> 32);
 
 		MemCopyN(cmd_table_ptr->acmd, packet, 12);
-		cmd_table_ptr->prdt_entry[0].dba = _IMM(data_buf);
-		cmd_table_ptr->prdt_entry[0].dbau = 0;
+		cmd_table_ptr->prdt_entry[0].dba = (uint32)_IMM(data_buf);
+		cmd_table_ptr->prdt_entry[0].dbau = (uint32)(_IMM64(_IMM(data_buf)) >> 32);
 		cmd_table_ptr->prdt_entry[0].dbc = byte_count - 1;
 		cmd_table_ptr->prdt_entry[0].i = 1;
 
@@ -179,6 +179,7 @@ namespace uni {
 				return true;
 			}
 			if (port.is & AHCI_PxIS_TFES) return false;
+			__asm__ __volatile__("pause" ::: "memory");
 		}
 		return false;
 	}

@@ -171,7 +171,7 @@ namespace uni::device::SpaceUSB3 {
 		uint64_t data[1];
 		_PACKED(struct) {
 			uint64_t : 6;
-			uint64_t device_context_base_address_array_pointer : 26;
+			uint64_t device_context_base_address_array_pointer : 58;
 		} bits;
 
 		uint64_t Pointer() const {

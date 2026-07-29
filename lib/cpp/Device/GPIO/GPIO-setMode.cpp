@@ -33,57 +33,57 @@
 #endif
 
 namespace uni {
-	
+
 	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOMode mode, GPIOSpeed speed, bool autoEnClk) const {
-	#if 0
-	#elif defined(_MCU_MSP432P4)
+		#if 0
+		#elif defined(_MCU_MSP432P4)
 		(void)autoEnClk;//{} enClock it
-	#else
+		#else
 		if (autoEnClk) getParent().enClock();
-	#endif
-	#if 0
-	#elif defined(_MCU_MSP432P4)//{TEMP} ROM Method only
+		#endif
+		#if 0
+		#elif defined(_MCU_MSP432P4)//{TEMP} ROM Method only
 		(void)speed;//{}
 		bool innput = GPIOMode::IN == mode ? true : false;
 		ROM_GPIOTABLE[innput ? 14 : 0](getParent().getID(), _IMM1S(getID()));
-	#elif defined(_MCU_CW32F030)
+		#elif defined(_MCU_CW32F030)
 		const stduint mod = _IMM(mode);
 		getParent()[GPIOReg::DIR].setof(getID(), mod & 0x1);
 		getParent()[GPIOReg::OPENDRAIN].setof(getID(), mod & 0x2);
 		getParent()[GPIOReg::SPEED].setof(getID(), 0 != _IMM(speed));
 		getParent()[GPIOReg::ANALOG].setof(getID(), 0);/*TEMP*/
-	#elif defined(_MCU_STM32F1x)
+		#elif defined(_MCU_STM32F1x)
 		uint32 bposi = (getID() < 8) ? getID() << 2 : (getID() - 8) << 2; // mul by 4
 		uint32 bmode = (uint32)mode;
 		bool innput = (bmode & 1);
 		uint32 state = _IMM(innput ? GPIOSpeed::Atmost_Input : speed);
 		state |= (bmode & 0xC);// 0b1100
 		getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].maset(bposi, 4, state);
-	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+		#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, _IMM(mode) >> 1);
 		getParent()[GPIOReg::OTYPER].setof(getID(), _IMM(mode) & 1);
 		getParent()[GPIOReg::SPEED].maset(_IMMx2(getID()), 2, _IMM(speed));
 		if (mode == GPIOMode::IN_Floating)
 			getParent()[GPIOReg::PULLS].maset(_IMMx2(getID()), 2, 0);
-	#endif
+		#endif
 		return self;
 	}
-	
+
 	bool GeneralPurposeInputOutputPin::canMode() const {
-	#if 0
-	#elif defined(_MCU_MSP432P4)
-		//{}
-		// ROM_GPIOTABLE[14](getParent().getID(), _IMM1S(getID()));
-		// return true;
-	#elif defined(_MCU_CW32F030)
-		//{}
-		// getParent()[GPIOReg::DIR].setof(getID(), 1);// Input
-		// getParent()[GPIOReg::OPENDRAIN].rstof(getID());
-		// getParent()[GPIOReg::SPEED].rstof(getID());
-		// getParent()[GPIOReg::ANALOG].rstof(getID());
-		// return true;
-	#elif defined(_MCU_STM32F1x)
-		// DeInit: CRL/CRH to floating input, clear ODR, clear EXTI
+		#if 0
+		#elif defined(_MCU_MSP432P4)
+			//{}
+			// ROM_GPIOTABLE[14](getParent().getID(), _IMM1S(getID()));
+			// return true;
+		#elif defined(_MCU_CW32F030)
+			//{}
+			// getParent()[GPIOReg::DIR].setof(getID(), 1);// Input
+			// getParent()[GPIOReg::OPENDRAIN].rstof(getID());
+			// getParent()[GPIOReg::SPEED].rstof(getID());
+			// getParent()[GPIOReg::ANALOG].rstof(getID());
+			// return true;
+		#elif defined(_MCU_STM32F1x)
+			// DeInit: CRL/CRH to floating input, clear ODR, clear EXTI
 		uint32 bposi = (getID() < 8) ? getID() << 2 : (getID() - 8) << 2;
 		getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].maset(bposi, 4, 0x4);// floating input
 		getParent()[GPIOReg::ODR].rstof(getID());
@@ -100,19 +100,19 @@ namespace uni {
 			EXTI::TriggerFalling.rstof(getID());
 		}
 		return true;
-	#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
-		// ---- Common GPIO register reset ----
-	#if defined(_MCU_STM32F4x)
+		#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+			// ---- Common GPIO register reset ----
+		#if defined(_MCU_STM32F4x)
 		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, 0);// Input (reset default)
-	#else// H7 / MP13
+		#else// H7 / MP13
 		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, 3);// Analog (reset default)
-	#endif
+		#endif
 		getParent()[getID() < 8 ? GPIOReg::AFRL : GPIOReg::AFRH].maset(_IMMx4(getID() & 0x7), 4, 0);
 		getParent()[GPIOReg::PULLS].maset(_IMMx2(getID()), 2, 0);// No pull
 		getParent()[GPIOReg::OTYPER].rstof(getID());// Push-pull
 		getParent()[GPIOReg::SPEED].maset(_IMMx2(getID()), 2, 0);// Low speed
 		// ---- EXTI cleanup (platform-specific) ----
-	#if defined(_MCU_STM32F4x)
+		#if defined(_MCU_STM32F4x)
 		RCC.APB2.enAble(14);// SYSCFG EN
 		volatile stduint rcc_tmp = Reference(_RCC_APB2ENR_ADDR);
 		(void)rcc_tmp;
@@ -124,7 +124,7 @@ namespace uni {
 			EXTI::TriggerRising.rstof(getID());
 			EXTI::TriggerFalling.rstof(getID());
 		}
-	#elif defined(_MCU_STM32H7x)
+		#elif defined(_MCU_STM32H7x)
 		RCC_APB4ENR_SYSCFGEN = 1; volatile stduint rcc_tmp = RCC_APB4ENR_SYSCFGEN;
 		(void)rcc_tmp;
 		Reference CrtEXTICR = Reference(&SYSCFG->EXTICR[getID() / 4]);
@@ -135,7 +135,7 @@ namespace uni {
 			EXTI[EXTIReg::RTSR1].rstof(getID());
 			EXTI[EXTIReg::FTSR1].rstof(getID());
 		}
-	#elif defined(_MPU_STM32MP13)
+		#elif defined(_MPU_STM32MP13)
 		uint32* exti_ctrl = (uint32*)&EXTI[EXTIReg::EXTICR];
 		exti_ctrl += getID() >> 2;
 		Reference CrtEXTICR = Reference(exti_ctrl);
@@ -146,16 +146,16 @@ namespace uni {
 			EXTI.TriggerRising(1).rstof(getID());
 			EXTI.TriggerFalling(1).rstof(getID());
 		}
-	#endif
+		#endif
 		return true;
-	#endif
+		#endif
 		return false;
 	}
 
 
 
 // Interrupt Modes
-#if defined(_MCU_STM32)// F1 F4 MP13
+	#if defined(_MCU_STM32)// F1 F4 MP13
 
 	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIORupt::RuptEdge edg, Handler_t f) const {
 		getParent().enClock();
@@ -223,9 +223,66 @@ namespace uni {
 		return self;
 	}
 
-#endif
+	#endif
 
 
+	// ---- EXTI Pending / Flag / Software-Trigger Free Functions ----
+	#if defined(_MCU_STM32)
+
+	bool EXTI_GetPending(SelfGpin pin) {
+		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+		return EXTI::Pending.bitof(pin.getID());
+		#elif defined(_MCU_STM32H7x)
+		return EXTI.Pending(0/*D1 core*/, 1).bitof(pin.getID());
+		#elif defined(_MPU_STM32MP13)
+		return EXTI.PendingRising(1).bitof(pin.getID()) || EXTI.PendingFalling(1).bitof(pin.getID());
+		#endif
+	}
+
+	void EXTI_ClearPending(SelfGpin pin) {
+		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+		EXTI::Pending = _IMM1S(pin.getID());// w1c: write 1 to clear
+		#elif defined(_MCU_STM32H7x)
+		EXTI.Pending(0/*D1 core*/, 1) = _IMM1S(pin.getID());// PR1 w1c
+		#elif defined(_MPU_STM32MP13)
+		EXTI.PendingRising(1) = _IMM1S(pin.getID());// RPR1 w1c
+		EXTI.PendingFalling(1) = _IMM1S(pin.getID());// FPR1 w1c
+		#endif
+	}
+
+	void EXTI_SoftwareTrigger(SelfGpin pin) {
+		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+		EXTI::Softrupt.setof(pin.getID());
+		#elif defined(_MCU_STM32H7x)
+		EXTI[EXTIReg::SWIER1].setof(pin.getID());
+		#elif defined(_MPU_STM32MP13)
+		EXTI.getSWIER(1).setof(pin.getID());
+		#endif
+	}
+
+	#if defined(_MPU_STM32MP13)
+	bool EXTI_GetPendingRising(SelfGpin pin) {
+		return EXTI.PendingRising(1).bitof(pin.getID());
+	}
+	bool EXTI_GetPendingFalling(SelfGpin pin) {
+		return EXTI.PendingFalling(1).bitof(pin.getID());
+	}
+	void EXTI_ClearPendingRising(SelfGpin pin) {
+		EXTI.PendingRising(1) = _IMM1S(pin.getID());
+	}
+	void EXTI_ClearPendingFalling(SelfGpin pin) {
+		EXTI.PendingFalling(1) = _IMM1S(pin.getID());
+	}
+	#endif
+
+	// ---- TrustZone Security Pin (MP13 only) ----
+	#if defined(_MPU_STM32MP13)
+	void GPIO_SecurePin(SelfGpin pin) { pin.getParent()[GPIOReg::SECCFGR].setof(pin.getID()); }
+	void GPIO_NonSecurePin(SelfGpin pin) { pin.getParent()[GPIOReg::SECCFGR].rstof(pin.getID()); }
+	bool GPIO_IsPinSecured(SelfGpin pin) { return pin.getParent()[GPIOReg::SECCFGR].bitof(pin.getID()); }
+	#endif
+
+	#endif// _MCU_STM32
 
 }
 #endif

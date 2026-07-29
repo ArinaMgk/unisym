@@ -181,6 +181,27 @@ namespace uni {
 	#endif
 	};
 
+	// TEMP Place Here
+	// ---- EXTI Pending / Flag / Software-Trigger Free Functions ----
+#if defined(_MCU_STM32)
+	bool EXTI_GetPending(SelfGpin pin);
+	void EXTI_ClearPending(SelfGpin pin);
+	void EXTI_SoftwareTrigger(SelfGpin pin);
+#endif
+#if defined(_MPU_STM32MP13)
+	bool EXTI_GetPendingRising(SelfGpin pin);
+	bool EXTI_GetPendingFalling(SelfGpin pin);
+	void EXTI_ClearPendingRising(SelfGpin pin);
+	void EXTI_ClearPendingFalling(SelfGpin pin);
+#endif
+
+#if defined(_MPU_STM32MP13)
+	// ---- TrustZone Security Pin (MP13 only) ----
+	void GPIO_SecurePin(SelfGpin pin);
+	void GPIO_NonSecurePin(SelfGpin pin);
+	bool GPIO_IsPinSecured(SelfGpin pin);
+#endif
+
 	class GeneralPurposeInputOutputPort {
 	public:
 		stduint getID() const { return (_IMM(this) & ~_IMM(0xFFF)) >> 12; }
@@ -194,6 +215,8 @@ namespace uni {
 	#else
 		Reference operator[](GPIOReg trt) const;
 	#endif
+		// Atomic multi-pin write: set pins by setMask, reset pins by resetMask
+		void maset(stduint setMask, stduint resetMask) const;
 	};
 
 	struct GeneralPurposeInputOutput {

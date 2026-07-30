@@ -59,6 +59,11 @@ extern "C" {
 	/// @return newfd if successful, -1 if error
 	int dup2(int oldfd, int newfd);
 
+	/// @brief  duplicate a file descriptor
+	/// @param  oldfd: original file descriptor
+	/// @return new file descriptor if successful, -1 if error
+	int dup(int oldfd);
+
 	/// @brief  create an unidirectional data channel
 	/// @param  pipefd: array to hold the read and write descriptors
 	/// @return 0 if successful, -1 if error

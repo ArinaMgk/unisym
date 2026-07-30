@@ -24,6 +24,9 @@
 #define NVME_CSTS_RDY       0x00000001u
 #define NVME_CSTS_CFS       0x00000002u
 
+#ifdef _DEV_MSVC
+#pragma pack(push, 1)
+#endif
 namespace uni {
 
 	_PACKED(struct) NVME_BAR {
@@ -45,5 +48,8 @@ namespace uni {
 	static_assert(sizeof(NVME_BAR) == 0x1004, "NVME_BAR size mismatch");
 
 }
+#ifdef _DEV_MSVC
+#pragma pack(pop)
+#endif
 
 #endif

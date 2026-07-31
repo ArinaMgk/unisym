@@ -373,7 +373,7 @@ namespace uni::device::SpaceUSB3 {
 
 	using DoorbellRegisterArray = ArrayWrapper<DoorbellRegister>;
 
-	/** @brief 拡張レジスタの共通ヘッダ構造 */
+	/** @brief Common header structure for extended registers */
 	_PACKED(union) ExtendedRegister_t {
 		uint32 data[1];
 		_PACKED(struct) {
@@ -389,7 +389,7 @@ namespace uni::device::SpaceUSB3 {
 
 		class Iterator {
 		public:
-			// 添加迭代器特性类型别名
+			// Add iterator trait type aliases
 			using iterator_category = std::forward_iterator_tag;
 			using value_type = ValueType;
 			using difference_type = std::ptrdiff_t;
@@ -416,7 +416,7 @@ namespace uni::device::SpaceUSB3 {
 		const Iterator first_;
 	};
 
-	/**** 個別の拡張レジスタ定義 ****/
+	/**** Individual extended register definitions ****/
 	_PACKED(union) USBLEGSUP_t {
 		uint32 data[1];
 		_PACKED(struct) {

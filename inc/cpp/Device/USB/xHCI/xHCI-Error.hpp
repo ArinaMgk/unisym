@@ -22,7 +22,7 @@ public:
 		kInvalidPhase,
 		kUnknownXHCISpeedID,
 		kNoWaiter,
-		kLastOfCode,  // この列挙子は常に最後に配置する
+		kLastOfCode,  // This enumerator must always be placed last
 	};
 
 private:

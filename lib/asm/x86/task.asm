@@ -238,9 +238,10 @@ SwitchTaskContext:; (* nex, * crt)
 	JZ .switch_to_ring0
 
 .switch_to_ring3:; r1 r2 r3
-	MOV ECX, [EAX + 0x44]
-	OR ECX, 0x200;{} IF=1
-	MOV [EAX + 0x44], ECX
+	;[ CALLGATE need this ]
+	; MOV ECX, [EAX + 0x44]
+	; OR ECX, 0x200;{} IF=1
+	; MOV [EAX + 0x44], ECX
 	;
 	MOV EDI, EAX
 	MOV EAX, 1

@@ -38,11 +38,11 @@ namespace uni::device::SpaceUSB {
 		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len);
 
 	private:
-	 /** @brief エンドポイントに割り当て済みのクラスドライバ．
-	  *
-	  * 添字はエンドポイント番号（0 - 15）．
-	  * 添字 0 はどのクラスドライバからも使われないため，常に未使用．
-	  */
+	 /** @brief Class driver assigned to each endpoint.
+		  *
+		  * Index is the endpoint number (0 - 15).
+		  * Index 0 is always unused since no class driver uses it.
+		  */
 		std::array<ClassDriver*, 16> class_drivers_{};
 
 		std::array<uint8, 256> buf_{};
@@ -83,9 +83,9 @@ namespace uni::device::SpaceUSB {
 		Error RequestStringDescriptors();
 		Error BeginConfigurationDescriptorRead();
 
-		/** OnControlCompleted の中で要求の発行元を特定するためのマップ構造．
-		 * ControlOut または ControlIn を発行したときに発行元が登録される．
-		 */
+		/** Map structure to identify the issuer of a request within OnControlCompleted.
+			 * The issuer is registered when ControlOut or ControlIn is issued.
+			 */
 		ArrayMap<SetupData, ClassDriver*, 4> event_waiters_{};
 	};
 

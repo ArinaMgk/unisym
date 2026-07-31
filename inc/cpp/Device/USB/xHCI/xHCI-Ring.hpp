@@ -1,6 +1,6 @@
 
 namespace uni::device::SpaceUSB3 {
-	/** @brief Command/Transfer Ring を表すクラス． */
+	/** @brief Class representing a Command/Transfer Ring. */
 	class Ring {
 	public:
 		Ring() = default;
@@ -8,13 +8,13 @@ namespace uni::device::SpaceUSB3 {
 		~Ring();
 		Ring& operator=(const Ring&) = delete;
 
-		/** @brief リングのメモリ領域を割り当て，メンバを初期化する． */
+		/** @brief Allocate memory for the ring and initialize members. */
 		Error Initialize(size_t buf_size);
 
-		/** @brief TRB に cycle bit を設定した上でリング末尾に追加する．
-		 *
-		 * @return 追加された（リング上の）TRB を指すポインタ．
-		 */
+		/** @brief Append a TRB to the end of the ring with the cycle bit set.
+			 *
+			 * @return Pointer to the appended TRB (on the ring).
+			 */
 		template <typename TRBType>
 		TRB* Push(const TRBType& trb) {
 			return Push(trb.data);
@@ -26,32 +26,32 @@ namespace uni::device::SpaceUSB3 {
 		TRB* buf_ = nullptr;
 		size_t buf_size_ = 0;
 
-		/** @brief プロデューサ・サイクル・ステートを表すビット */
+		/** @brief Bit representing the producer cycle state. */
 		bool cycle_bit_;
-		/** @brief リング上で次に書き込む位置 */
+		/** @brief Next write position on the ring. */
 		size_t write_index_;
 
-		/** @brief TRB に cycle bit を設定した上でリング末尾に書き込む．
-		 *
-		 * write_index_ は変化させない．
-		 */
+		/** @brief Write a TRB to the end of the ring with the cycle bit set.
+			 *
+			 * write_index_ is not changed.
+			 */
 		void CopyToLast(const std::array<uint32_t, 4>& data);
 
-		/** @brief TRB に cycle bit を設定した上でリング末尾に追加する．
-		 *
-		 * write_index_ をインクリメントする．その結果 write_index_ がリング末尾
-		 * に達したら LinkTRB を適切に配置して write_index_ を 0 に戻し，
-		 * cycle bit を反転させる．
-		 *
-		 * @return 追加された（リング上の）TRB を指すポインタ．
-		 */
+		/** @brief Append a TRB to the end of the ring with the cycle bit set.
+			 *
+			 * Increments write_index_. If write_index_ reaches the end of the ring,
+			 * places a LinkTRB appropriately, resets write_index_ to 0,
+			 * and toggles the cycle bit.
+			 *
+			 * @return Pointer to the appended TRB (on the ring).
+			 */
 		TRB* Push(const std::array<uint32_t, 4>& data);
 	};
 
 	union EventRingSegmentTableEntry {
 		std::array<uint32_t, 4> data;
 		struct {
-			uint64_t ring_segment_base_address;  // 64 バイトアライメント
+			uint64_t ring_segment_base_address;  // 64-byte alignment
 
 			uint32_t ring_segment_size : 16;
 			uint32_t : 16;

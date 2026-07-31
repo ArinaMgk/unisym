@@ -731,17 +731,17 @@ namespace {
 		kConfiguringEndpoints,
 		kConfigured,
 	};
-	/* root hub port はリセット処理をしてからアドレスを割り当てるまでは
-	 * 他の処理を挟まず，そのポートについての処理だけをしなければならない．
-	 * kWaitingAddressed はリセット（kResettingPort）からアドレス割り当て
-	 * （kAddressingDevice）までの一連の処理の実行を待っている状態．
-	 */
+	/* Between resetting a root hub port and assigning an address,
+		 * no other processing must be interleaved; only that port's processing is allowed.
+		 * kWaitingAddressed is the state waiting for the sequence from reset
+		 * (kResettingPort) to address assignment (kAddressingDevice) to complete.
+		 */
 
 	std::array<volatile ConfigPhase, 256> port_config_phase{};  // index: port number
 
-	/** kResettingPort から kAddressingDevice までの処理を実行中のポート番号．
-	 * 0 ならその状態のポートがないことを示す．
-	 */
+	/** Port number currently processing from kResettingPort to kAddressingDevice.
+		 * 0 indicates no port is in that state.
+		 */
 	uint8 addressing_port{ 0 };
 
 	void InitializeSlotContext(SlotContext& ctx, uint8 root_hub_port_num, uint32 route_string,
@@ -1341,7 +1341,7 @@ Error HostController::Initialize() {
 
 	// Aloc Scratchpad Buffers) , set DCBAAP "Address Book"
 	auto hcsparams2 = cap_->HCSPARAMS2.Read();
-	// 拼接获取暂存器数量需求 (高 5 位和低 5 位组合)
+	// Combine to get scratchpad buffer count (high 5 bits and low 5 bits)
 	const uint16_t max_scratchpad_buffers =
 		hcsparams2.bits.max_scratchpad_buffers_low
 		| (hcsparams2.bits.max_scratchpad_buffers_high << 5);
@@ -1352,19 +1352,19 @@ Error HostController::Initialize() {
 			Log(kDebug, "scratchpad buffer array %d = %p\n",
 				i, scratchpad_buf_arr[i]);
 		}
-		// 将指针数组的物理地址，存入 DCBAAP 数组的第 0 项
+		// Store the physical address of the pointer array into DCBAAP array entry 0
 		devmgr_.DeviceContexts()[0] = reinterpret_cast<DeviceContext*>(scratchpad_buf_arr);
 		Log(kInfo, "wrote scratchpad buffer array %p to dev ctx array 0\n",
 			scratchpad_buf_arr);
 	}
 
 	DCBAAP_t dcbaap{};
-	// 将通讯簿数组的基地址填入 64 位的 DCBAAP 结构中
+	// Fill the base address of the device context base address array into the 64-bit DCBAAP structure
 	dcbaap.SetPointer(reinterpret_cast<uint64_t>(devmgr_.DeviceContexts()));
-	// 写入运营寄存器
+	// Write to operational register
 	op_->DCBAAP.Write(dcbaap);
 
-	// 硬件现在处于待命状态、以下は建立动态交互通道で
+	// Hardware is now ready; below is the setup of dynamic interaction channels
 
 	// Register 32 Command Rings
 	auto primary_interrupter = &InterrupterRegisterSets()[0];

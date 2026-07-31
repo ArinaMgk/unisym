@@ -140,13 +140,13 @@ namespace uni::device::SpaceUSB3 {
 		Error ConfigureEndpoints(DeviceUSB3& dev);
 		Error OnHubPortStatusChanged(DeviceUSB3& hub_dev, uint8 downstream_port, uint16 status, uint16 change);
 
-		/** @brief イベントリングに登録されたイベントを高々1つ処理する．
-		 *
-		 * xhc のプライマリイベントリングの先頭のイベントを処理する．
-		 * イベントが無ければ即座に Error::kSuccess を返す．
-		 *
-		 * @return イベントを正常に処理できたら Error::kSuccess
-		 */
+		/** @brief Process at most one event registered in the event ring.
+			 *
+			 * Processes the front event of the xHC's primary event ring.
+			 * If there is no event, returns Error::kSuccess immediately.
+			 *
+			 * @return Error::kSuccess if the event was processed successfully.
+			 */
 		Error ProcessEvent();
 
 	};

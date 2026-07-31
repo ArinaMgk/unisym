@@ -41,7 +41,8 @@ namespace uni {
 		return state;
 	}
 
-	bool UART_t::operator>> (int& res) {
+	int UART_t::inn() {
+		int32 res = -1;
 		HANDLE hCom = pHandle;
 		byte buf[4];
 		dword dwBytesWritten;
@@ -61,7 +62,7 @@ namespace uni {
 			#endif
 				);
 			ClearCommError(hCom, &dwErrorFlags, &comStat);
-			if (!comStat.cbInQue)return 0;
+			if (!comStat.cbInQue) return -1;
 			BOOL bReadStat = ReadFile(hCom, buf, 1, (LPDWORD)&dwBytesWritten, &m_osRead);
 			if (!bReadStat) {
 				if (GetLastError() == ERROR_IO_PENDING)
@@ -69,21 +70,20 @@ namespace uni {
 				else {
 					ClearCommError(hCom, &dwErrorFlags, &comStat);
 					CloseHandle(m_osRead.hEvent);
-					return false;
+					return -1;
 				}
 				res = buf[0];// -52 is the EOF
 			}
 		}
-		return dwBytesWritten;
+		return res;
 	}
 	
-	bool UART_t::operator<< (stduint dat) {
+	int UART_t::out(const char* str, stduint len) {
 		HANDLE hCom = pHandle;
-		byte buf = dat;
 		dword dwBytesWritten;
 		if (sync) {
-			BOOL bWriteStat = WriteFile(hCom, &buf, 1, (LPDWORD)&dwBytesWritten, NULL/*sync*/);
-			if (!bWriteStat) return false;
+			BOOL bWriteStat = WriteFile(hCom, str, len, (LPDWORD)&dwBytesWritten, NULL/*sync*/);
+			if (!bWriteStat) return _TEMP 0;
 		}
 		else {
 			DWORD dwErrorFlags;
@@ -97,14 +97,14 @@ namespace uni {
 			#endif
 				);
 			ClearCommError(hCom, &dwErrorFlags, &comStat);
-			BOOL bWriteStat = WriteFile(hCom, &buf, 1, (LPDWORD)&dwBytesWritten, &m_osWrite);
+			BOOL bWriteStat = WriteFile(hCom, str, len, (LPDWORD)&dwBytesWritten, &m_osWrite);
 			if (!bWriteStat) {
 				if (GetLastError() == ERROR_IO_PENDING)
 					WaitForSingleObject(m_osWrite.hEvent, 1000);// wait 1000ms
 				else {
 					ClearCommError(hCom, &dwErrorFlags, &comStat);
 					CloseHandle(m_osWrite.hEvent);
-					return false;
+					return _TEMP 0;
 				}
 			}
 		}
@@ -153,39 +153,77 @@ namespace uni {
 		return state;
 	}
 
-	bool UART_t::operator>> (int& res) {
+	int UART_t::inn() {
 		char buf;
 		fd_set readfds;
 		FD_ZERO(&readfds);
 		FD_SET(pHandle, &readfds);
 		int loc_state = select(pHandle + 1, &readfds, NULL, NULL, NULL);
 		if (loc_state == -1) {// wait for data, may block caller
-			return false;
+			return -1;
 		}
 		else if (loc_state > 0 && FD_ISSET(pHandle, &readfds)) {
 			int bytes_read = read(pHandle, &buf, 1);
-			res = buf;
-			return bytes_read > 0;
+			return bytes_read > 0 ? buf : -1;
 		}
-		return false;
+		return -1;
 	}
 
-	bool UART_t::operator<< (stduint dat) {
-		int written = write(pHandle, &dat, 1);
+	int UART_t::out(const char* str, stduint len) {
+		int written = write(pHandle, str, len);
 		return written > 0;
 	}
 
 }
 
+#elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+namespace uni {
+	int UART_t::inn() {
+		return innpb(PORT_COM1_DATA) & 0xFFu;
+	}
+
+	bool UART_t::operator<< (stduint dat) {
+		return out((const char*)&dat, 1);
+	}
+	int UART_t::out(const char* str, stduint len) {
+		for0(i, len) {
+			while (!is_transmit_empty());
+			outpb(PORT_COM1_DATA, str[i]);
+		}
+		return len;
+	}
+
+	void UART_t::setInterrupt(Handler_t _func) const { _TODO }
+	void UART_t::setInterruptPriority(byte preempt, byte sub_priority) const {
+		_TODO
+	}
+	void UART_t::enInterrupt(bool enable) const {
+		_TODO
+	}
+
+}
 #elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000) // for QEMUVIRT-RV UART0
 namespace uni {
 	UART_t UART0(0, _TEMP 115200);
 	
 	UART_t::~UART_t() {}
 
-	int UART_t::inn() { int ch; return operator>>(ch) ? ch : -1; }
+	// waiting-method. another method return false when no data
+	int UART_t::inn() {
+		while (!(self[XARTReg::LSR] & _IMM1S(_BITPOS_LSR_RX_READY)));
+		return self[XARTReg::RHR];
+	}
+	// waiting-method
+	bool UART_t::operator<< (stduint dat) {
+		while (!(self[XARTReg::LSR] & _IMM1S(_BITPOS_LSR_TX_IDLE)));
+		self[XARTReg::THR] = dat;
+		return true;
+	}
 	int UART_t::out(const char* str, stduint len) {
-		for0(i, len) operator<<(str[i]);
+		for0(i, len) {
+			while (!(self[XARTReg::LSR] & _IMM1S(_BITPOS_LSR_TX_IDLE)));
+			self[XARTReg::THR] = (byte)str[i];
+		}
 		return len;
 	}
 	void UART_t::setInterrupt(Handler_t _func) const { _TODO }
@@ -214,19 +252,7 @@ namespace uni {
 		return true;
 	}
 
-	// waiting-method. another method return false when no data
-	bool UART_t::operator>> (int& res) {
-		while (!(self[XARTReg::LSR] & _IMM1S(_BITPOS_LSR_RX_READY)));
-		res = self[XARTReg::RHR];
-		return true;
-	}
 
-	// waiting-method
-	bool UART_t::operator<< (stduint dat) {
-		while (!(self[XARTReg::LSR] & _IMM1S(_BITPOS_LSR_TX_IDLE)));
-		self[XARTReg::THR] = dat;
-		return true;
-	}
 
 
 }
@@ -324,7 +350,7 @@ namespace uni {
 				self[CR3] &= ~_IMM(0x3 << 8);//aka UartHandle.Init.HwFlowCtl = UART_HWCONTROL_NONE; (USART_CR3_RTSE | USART_CR3_CTSE)
 				// : byte over_sampling = _TEMP 16;// or 8
 				stduint freq = XART_ID == 1 || XART_ID == 6 ? RCC.getFrequencyPCLK2() : RCC.getFrequencyPCLK1();
-				last_baudrate = band_rate;
+				self.baudrate = band_rate;
 				self[BRR] = UART_BRR_SAMPLING(freq, band_rate, 16);
 			}
 			// In asynchronous mode, the following bits must be kept cleared:
@@ -341,8 +367,8 @@ namespace uni {
 	}
 
 	//aka HAL_UART_Receive
-	//{TODO} conflict
-	int UART_t::operator>> (int& res) {
+	int UART_t::inn() {
+		int res;
 		using namespace XARTReg;
 		bool len9b = databits == 9;// or 8b
 		bool parity_enable = check != UARTCheck::None;
@@ -353,35 +379,22 @@ namespace uni {
 		return res = d & mask;
 	}
 
-	int UART_t::inn() {
-		int res;
-		return operator>>(res) ? res : -1;
-	}
-
 	int UART_t::out(const char* str, stduint len) {
 		for0(i, len) self << stduint(str[i]);
 		return len;
 	}
 
 	void UART_t::Delay_unit() {
-		for (volatile stduint i = 0; i < SystemCoreClock / last_baudrate; i++);
+		for (volatile stduint i = 0; i < SystemCoreClock / baudrate; i++);
 	}
 
 	//aka HAL_UART_Transmit
-	//{TODO} conflict
-	UART_t& UART_t::operator << (stduint dat) {
+	bool UART_t::operator<< (stduint dat) {
 		using namespace XARTReg;
 		bool len9b = databits == 9;// or 8b
 		while (!self[SR].bitof(7));// TXE
 		self[DR] = dat & (len9b ? 0x1FF : 0x0FF);
-		return self;
-	}
-	UART_t& UART_t::operator << (const char* p) {
-		while (*p) {
-			self << stduint(*p++);
-			Delay_unit();
-		}
-		return self;
+		return true;
 	}
 
 	bool UART_t::enAble(bool ena) {
@@ -592,10 +605,10 @@ namespace uni {
 		}
 		return len;
 	}
-	UART_t& UART_t::operator<< (stduint dat) {
+	bool UART_t::operator<< (stduint dat) {
 		while (!self[XARTReg::ISR].bitof(7));// TXE_TXFNF
 		self[XARTReg::TDR] = dat & xart_mask(databits, check);
-		return self;
+		return true;
 	}
 	bool UART_t::setMode(stduint band_rate) {
 		if (!band_rate || !enClock()) return false;
@@ -940,9 +953,9 @@ namespace uni {
 		const bool parity_enable = xart_parityEnable(parity);
 		return xart_out(getAddress(), str, len, xart_mask(wordlen, parity_enable), xart_rxUnit(wordlen, parity_enable) == 2);
 	}
-	UART_t& UART_t::operator<< (stduint dat) {
-		out((const char*)&dat, xart_rxUnit(wordlen, xart_parityEnable(parity)));
-		return self;
+	bool UART_t::operator<< (stduint dat) {
+		auto len = xart_rxUnit(wordlen, xart_parityEnable(parity));
+		return out((const char*)&dat, len) == len;
 	}
 	UART_t& UART_t::setDataBits(stduint bits) {
 		wordlen = xart_wordLengthFromDataBits(bits);
@@ -1203,8 +1216,113 @@ namespace uni {
 		return xart_getClockSource(XART_ID);
 	}
 
+	// AKA HAL_UART_DeInit / HAL_USART_DeInit
+	bool UART_t::canMode() {
+		enAble(false);
+		self[XARTReg::CR1] = 0x0U;
+		self[XARTReg::CR2] = 0x0U;
+		self[XARTReg::CR3] = 0x0U;
+		rx_buffer = { 0, 0 };
+		tx_buffer = { 0, 0 };
+		error = NULL;
+		rx_pointer = 0;
+		tx_pointer = 0;
+		lock_r = false;
+		lock_t = false;
+		wordlen = WordLength_E::Bits8;
+		parity = XARTParity_E::None;
+		stopbits = XARTStopBits_E::One;
+		hwflow = XARTHwFlowCtl_E::None;
+		tx_fifo_threshold = XARTFIFOThreshold_E::_1_8;
+		rx_fifo_threshold = XARTFIFOThreshold_E::_1_8;
+		oversampling8 = false;
+		onebit_sampling = false;
+		fifo_mode = false;
+		mask = 0xFF;
+		return true;
+	}
 
-	
+	bool USART_t::canMode() {
+		if (!UART_t::canMode()) return false;
+		status = ERR_UART_NONE;
+		return true;
+	}
+
+	// AKA HAL_USART_Transmit
+	stduint USART_t::Transmit(const char* tx_data, stduint size) {
+		out(tx_data, size);
+		while (!self[XARTReg::ISR].bitof(6));// TC
+		return size;
+	}
+
+	// AKA HAL_USART_Receive
+	stduint USART_t::Receive(char* rx_data, stduint size) {
+		if (!rx_data || !size) return 0;
+		const bool parity_enable = xart_parityEnable(parity);
+		const stduint msk = xart_mask(wordlen, parity_enable);
+		const bool wide = xart_rxUnit(wordlen, parity_enable) == 2;
+		const stduint unit = wide ? 2 : 1;
+		const bool is_slave = self[XARTReg::CR2] & USART_CR2_SLVEN;
+		for (stduint i = 0; i < size; i++) {
+			if (!is_slave) {
+				// Master: wait TC then write dummy to generate clock for slave
+				while (!self[XARTReg::ISR].bitof(6));// TC
+				Reference_T<uint16>(getAddress() + _IMM(XARTReg::TDR)) = 0xFF;
+			}
+			while (!self[XARTReg::ISR].bitof(5));// RXNE
+			if (wide)
+				*(uint16*)(rx_data + i * unit) = (uint16)(Reference_T<uint16>(getAddress() + _IMM(XARTReg::RDR)) & msk);
+			else
+				*(uint8*)(rx_data + i) = (uint8)(Reference_T<uint16>(getAddress() + _IMM(XARTReg::RDR)) & msk);
+		}
+		return size;
+	}
+
+	// AKA HAL_USART_TransmitReceive
+	stduint USART_t::Transceive(const char* tx_data, char* rx_data, stduint size) {
+		if (!tx_data || !rx_data || !size) return 0;
+		const bool parity_enable = xart_parityEnable(parity);
+		const stduint msk = xart_mask(wordlen, parity_enable);
+		const bool wide = xart_rxUnit(wordlen, parity_enable) == 2;
+		const stduint unit = wide ? 2 : 1;
+		const bool is_slave = self[XARTReg::CR2] & USART_CR2_SLVEN;
+		stduint tx_i = 0, rx_i = 0;
+
+		if (is_slave) {
+			// Slave sends first byte before loop
+			while (!self[XARTReg::ISR].bitof(7));// TXE
+			Reference_T<uint16>(getAddress() + _IMM(XARTReg::TDR)) =
+				wide ? (*(uint16*)(tx_data) & msk) : (*(uint8*)(tx_data) & msk);
+			tx_i += unit;
+		}
+
+		stduint loop_count = is_slave ? size - 1 : size;
+		for (stduint n = 0; n < loop_count; n++) {
+			while (!self[XARTReg::ISR].bitof(7));// TXE
+			Reference_T<uint16>(getAddress() + _IMM(XARTReg::TDR)) =
+				wide ? (*(uint16*)(tx_data + tx_i) & msk) : (*(uint8*)(tx_data + tx_i) & msk);
+			tx_i += unit;
+			while (!self[XARTReg::ISR].bitof(5));// RXNE
+			if (wide)
+				*(uint16*)(rx_data + rx_i) = (uint16)(Reference_T<uint16>(getAddress() + _IMM(XARTReg::RDR)) & msk);
+			else
+				*(uint8*)(rx_data + rx_i) = (uint8)(Reference_T<uint16>(getAddress() + _IMM(XARTReg::RDR)) & msk);
+			rx_i += unit;
+		}
+
+		if (is_slave) {
+			// Slave receives last byte after loop
+			while (!self[XARTReg::ISR].bitof(5));// RXNE
+			if (wide)
+				*(uint16*)(rx_data + rx_i) = (uint16)(Reference_T<uint16>(getAddress() + _IMM(XARTReg::RDR)) & msk);
+			else
+				*(uint8*)(rx_data + rx_i) = (uint8)(Reference_T<uint16>(getAddress() + _IMM(XARTReg::RDR)) & msk);
+		}
+
+		return size;
+	}
+
+
 }
 
 #endif

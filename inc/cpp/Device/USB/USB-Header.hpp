@@ -183,11 +183,11 @@ namespace uni::device::SpaceUSB {
 		constexpr EndpointID(const EndpointID& ep_id) : addr_{ ep_id.addr_ } {}
 		explicit constexpr EndpointID(int addr) : addr_{ addr } {}
 
-		/** エンドポイント番号と入出力方向から ID を構成する．
-		 *
-		 * ep_num は 0..15 の整数．
-		 * dir_in は Control エンドポイントでは常に true にしなければならない．
-		 */
+		/** Construct an ID from endpoint number and direction.
+			 *
+			 * ep_num is an integer in 0..15.
+			 * dir_in must always be true for Control endpoints.
+			 */
 		constexpr EndpointID(int ep_num, bool dir_in) : addr_{ ep_num << 1 | dir_in } {}
 
 		EndpointID& operator =(const EndpointID& rhs) {
@@ -195,13 +195,13 @@ namespace uni::device::SpaceUSB {
 			return *this;
 		}
 
-		/** エンドポイントアドレス（0..31） */
+		/** Endpoint address (0..31) */
 		int Address() const { return addr_; }
 
-		/** エンドポイント番号（0..15） */
+		/** Endpoint number (0..15) */
 		int Number() const { return addr_ >> 1; }
 
-		/** 入出力方向．Control エンドポイントは true */
+		/** I/O direction. Control endpoints are true */
 		bool IsIn() const { return addr_ & 1; }
 
 	private:
@@ -211,16 +211,16 @@ namespace uni::device::SpaceUSB {
 	constexpr EndpointID kDefaultControlPipeID{ 0, true };
 
 	struct EndpointConfig {
-	  /** エンドポイント ID */
+	  /** Endpoint ID */
 		EndpointID ep_id;
 
-		/** このエンドポイントの種別 */
+		/** Type of this endpoint */
 		EndpointType ep_type;
 
-		/** このエンドポイントの最大パケットサイズ（バイト） */
+		/** Maximum packet size of this endpoint (bytes) */
 		int max_packet_size;
 
-		/** このエンドポイントの制御周期（125*2^(interval-1) マイクロ秒） */
+		/** Polling interval of this endpoint (125*2^(interval-1) microseconds) */
 		int interval;
 	};
 }
@@ -368,22 +368,22 @@ namespace uni::device::SpaceUSB {
 		uint8_t num_descriptors;    // offset 5
 
 		struct ClassDescriptor {
-		  /** @brief クラス特有ディスクリプタのタイプ値． */
+		  /** @brief Type value of the class-specific descriptor. */
 			uint8_t descriptor_type;
-			/** @brief クラス特有ディスクリプタのバイト数． */
+			/** @brief Byte count of the class-specific descriptor. */
 			uint16_t descriptor_length;
 		} __attribute__((packed));
 
-		/** @brief HID 特有のディスクリプタに関する情報を得る．
-		 *
-		 * HID はクラス特有（class-specific）のディスクリプタを 1 つ以上持つ．
-		 * その数は num_descriptors に記載されている．
-		 * Report ディスクリプタ（type = 34）は HID デバイスであれば必ず存在するため，
-		 * num_descriptors は必ず 1 以上となる．
-		 *
-		 * @param index  取得するディスクリプタの番号．0 <= index < num_descriptors.
-		 * @return index で指定されたディスクリプタの情報．index が範囲外なら nullptr.
-		 */
+		/** @brief Get information about HID-specific descriptors.
+			 *
+			 * HID has one or more class-specific descriptors.
+			 * The count is stored in num_descriptors.
+			 * A Report descriptor (type = 34) must exist for any HID device,
+			 * so num_descriptors is always at least 1.
+			 *
+			 * @param index  Descriptor number to retrieve. 0 <= index < num_descriptors.
+			 * @return Information of the descriptor specified by index. nullptr if index is out of range.
+			 */
 		ClassDescriptor* GetClassDescriptor(size_t index) const {
 			if (index >= num_descriptors) {
 				return nullptr;

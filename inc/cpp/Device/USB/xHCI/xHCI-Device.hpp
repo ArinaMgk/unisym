@@ -69,9 +69,9 @@ namespace uni::device::SpaceUSB3 {
 		uint8 parent_hub_slot_id_ = 0;
 		uint8 upstream_port_num_ = 0;
 
-		/** コントロール転送が完了した際に DataStageTRB や StatusStageTRB
-		 * から対応する SetupStageTRB を検索するためのマップ．
-		 */
+		/** Map to look up the corresponding SetupStageTRB from DataStageTRB
+			 * or StatusStageTRB when a control transfer completes.
+			 */
 		ArrayMap<const void*, const SetupStageTRB*, 16> setup_stage_map_{};
 
 		//DeviceUSB* usb_device_;

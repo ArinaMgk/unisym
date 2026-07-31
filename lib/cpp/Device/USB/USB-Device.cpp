@@ -282,7 +282,7 @@ namespace uni::device::SpaceUSB {
 
 			class_driver = NewClassDriver(this, *if_desc);
 			if (class_driver == nullptr) {
-			  // 非対応デバイス．次の interface を調べる．
+			  // Unsupported device. Check the next interface.
 				continue;
 			}
 

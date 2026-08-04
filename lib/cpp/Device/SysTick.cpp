@@ -30,14 +30,22 @@
 
 stduint SysTickHz = 1000;
 
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+volatile uint32 uwTickStep = 1;// AKA HAL uwTickFreq
+static uint32 uwTickPrio = 15;// AKA HAL uwTickPrio (1 << __NVIC_PRIO_BITS) - 1
+extern "C" volatile uint32 uwTick = 0;// AKA HAL uwTick
+#endif
+
 #ifdef _MCU_STM32F1x
 namespace uni {
 	bool SysTick::enClock(uint32 Hz) {
 		NVIC_t nvic;
 		SysTick_Map* st = (SysTick_Map*)ADDR_SysTick_Map;
 		if (SystemCoreClock / Hz > 0xFFFFFF) return false;
+		uwTickStep = 1000 / Hz;
+		uwTickPrio = (1 << _NVIC_PRIO_BITS) - 1;
 		st->LOAD = SystemCoreClock / Hz - 1;
-		nvic.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
+		nvic.setPriority(IRQ_SysTick, uwTickPrio);
 		st->VAL = 0;// SysTick Counter Value
 		st->CTRL = SysTick_CTRL_CLKSOURCE | SysTick_CTRL_TICKINT | SysTick_CTRL_ENABLE;// Enable SysTick IRQ and SysTick Timer
 		return true;
@@ -51,8 +59,10 @@ namespace uni {
 	bool SysTick::enClock(uint32 Hz) {
 		//aka HAL_SYSTICK_Config core_cm4::SysTick_Config
 		if (SystemCoreClock / Hz - 1 > 0xFFFFFF/*wo CortexM4*/) return false;
+		uwTickStep = 1000 / Hz;
+		uwTickPrio = (1 << _NVIC_PRIO_BITS) - 1;
 		ref().LOAD = SystemCoreClock / Hz - 1;
-		NVIC.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
+		NVIC.setPriority(IRQ_SysTick, uwTickPrio);
 		ref().VAL = 0;
 		ref().CTRL = SysTick_CTRL_CLKSOURCE | SysTick_CTRL_TICKINT | SysTick_CTRL_ENABLE;
 		return true;
@@ -64,9 +74,11 @@ namespace uni {
 	bool SysTick::enClock(uint32 _Hz) {
 		if (!_Hz || (SystemCoreClock / _Hz - 1 > SysTick_LOAD_RELOAD_Msk)) return false;
 		SysTickHz = _Hz;
+		uwTickStep = 1000 / _Hz;
+		uwTickPrio = (1 << _NVIC_PRIO_BITS) - 1;
 		//aka HAL_SYSTICK_Config SysTick_Config
 		ref().LOAD = SystemCoreClock / _Hz - 1; /* set reload register */
-		NVIC.setPriority(IRQ_SysTick, (1 << _NVIC_PRIO_BITS) - 1);
+		NVIC.setPriority(IRQ_SysTick, uwTickPrio);
 		ref().VAL = 0UL; /* Load the SysTick Counter Value */
 		ref().CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk | 4; // SYSTICK_CLKSOURCE_HCLK;
 		return true;
@@ -120,6 +132,27 @@ namespace uni {
 
 #endif
 
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+namespace uni {
+	// AKA HAL_GetTick
+	uint64 SysTick::getTick() { return uwTick; }
+	// AKA HAL_GetTickFreq
+	stduint SysTick::getFreq() { return SysTickHz; }
+	// AKA HAL_SetTickFreq
+	bool SysTick::setFreq(stduint Hz) { return enClock(Hz); }
+	// AKA HAL_GetTickPrio
+	uint32 SysTick::getPriority() { return uwTickPrio; }
+	// AKA HAL_SuspendTick
+	void SysTick::Suspend() {
+		((volatile SysTick_Map*)ADDR_SysTick_Map)->CTRL &= ~SysTick_CTRL_TICKINT_Msk;
+	}
+	// AKA HAL_ResumeTick
+	void SysTick::Resume() {
+		((volatile SysTick_Map*)ADDR_SysTick_Map)->CTRL |= SysTick_CTRL_TICKINT_Msk;
+	}
+}
+#endif
+
 extern "C" {
 	extern volatile stduint delay_count;
 	void SysTick_Handler(void);
@@ -127,7 +160,9 @@ extern "C" {
 
 volatile stduint delay_count = 0;
 void SysTick_Handler(void) {
-	//{TODO} Callback and more options
+	#ifdef _MCU_STM32
+	uwTick += uwTickStep;// AKA HAL_IncTick
+	#endif
 	asserv(delay_count)--;
 }
 void SysDelay(stduint unit) {

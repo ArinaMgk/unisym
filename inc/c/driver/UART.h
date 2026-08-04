@@ -44,6 +44,11 @@ namespace uni {
 	enum class UARTStopBit {
 		One, OneHalf, Two
 	};
+	enum class IOMethod : byte {
+		Loop,   // polling
+		Rupt,   // interrupt
+		DMA     // direct memory access
+	};
 }
 
 /// UART
@@ -268,9 +273,7 @@ namespace uni {
 		UART_t& setFIFOMode(bool ena = true) { fifo_mode = ena; return self; }
 		UART_t& setTXFIFOThreshold(XARTFIFOThreshold_E val) { tx_fifo_threshold = val; return self; }
 		UART_t& setRXFIFOThreshold(XARTFIFOThreshold_E val) { rx_fifo_threshold = val; return self; }
-		void innByInterrupt();
 		void abortReceive();
-		bool outByInterrupt(const char* str, stduint len);
 		void abortTransmit();
 		bool isReady() {
 			return !lock_r && !lock_t;
@@ -281,6 +284,11 @@ namespace uni {
 		void outHandlerByInterrupt();
 		void outDoneHandlerByInterrupt();
 		bool canMode();
+		int out(const char* str, stduint len, IOMethod method);
+		stduint Receive(char* rx_data, stduint size, IOMethod method = IOMethod::Loop);
+		void PauseDMA();
+		void ResumeDMA();
+		void StopDMA();
 		#endif
 		#endif
 	};
@@ -312,9 +320,9 @@ namespace uni {
 	#if defined(_MCU_STM32H7x)
 		UART_CLKSRC getClockSource();
 		bool canMode();
-		stduint Transmit(const char* tx_data, stduint size);
-		stduint Receive(char* rx_data, stduint size);
-		stduint Transceive(const char* tx_data, char* rx_data, stduint size);
+		stduint Transmit(const char* tx_data, stduint size, IOMethod method = IOMethod::Loop);
+		stduint Receive(char* rx_data, stduint size, IOMethod method = IOMethod::Loop);
+		stduint Transceive(const char* tx_data, char* rx_data, stduint size, IOMethod method = IOMethod::Loop);
 	#endif
 	};
 

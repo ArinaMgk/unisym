@@ -65,6 +65,16 @@ namespace uni {
 		static uint64 getTick();
 		//
 		static uint64 getTickPhysical();
+		// AKA HAL_SetTickFreq
+		static bool setFreq(stduint Hz);
+		// AKA HAL_GetTickFreq
+		static stduint getFreq();
+		// AKA HAL_GetTickPrio
+		static uint32 getPriority();
+		// AKA HAL_SuspendTick
+		static void Suspend();
+		// AKA HAL_ResumeTick
+		static void Resume();
 	
 	};
 }

@@ -651,9 +651,26 @@ namespace uni {
 
 #if defined(_MCU_STM32H7x)
 
+#include "../../../inc/cpp/Device/SysTick"
+
 namespace uni {
 	USART_t XART1(1), XART2(2), XART3(3), XART6(6);
 	UART_t  XART4(4), XART5(5), XART7(7), XART8(8);
+
+	// AKA HAL_UART_TIMEOUT_VALUE
+	static constexpr uint32 XART_TIMEOUT_VALUE = 0x1FFFFFFU;
+	// AKA USART_TEACK_REACK_TIMEOUT
+	static constexpr uint32 XART_TEACK_REACK_TIMEOUT = 1000U;
+
+	// AKA UART_WaitOnFlagUntilTimeout
+	// Returns true if flag matched, false if timeout
+	static bool xart_waitFlag(stduint address, byte flag_bit, bool expected, uint64 tickstart, uint32 timeout_ms) {
+		while (Reference(address + _IMM(XARTReg::ISR)).bitof(flag_bit) != expected) {
+			if ((SysTick::getTick() - tickstart) > timeout_ms)
+				return false;
+		}
+		return true;
+	}
 
 	static const stduint xart_addr[8]{
 	D2_APB2PERIPH_BASE + 0x1000, D2_APB1PERIPH_BASE + 0x4400, D2_APB1PERIPH_BASE + 0x4800, D2_APB1PERIPH_BASE + 0x4C00,
@@ -832,23 +849,6 @@ namespace uni {
 	void UART_t::enInterrupt(bool enable) const {
 		NVIC.setAble(xart_getRequest(XART_ID), enable);
 	}
-	// AKA HAL_UART_Receive_IT
-	// AKA UART_Receive_IT
-	void UART_t::innByInterrupt() {
-		if (!rx_buffer.address || rx_pointer >= rx_buffer.length) return;
-		while (lock_r);
-		lock_r = true;
-		// (frame error, noise error, overrun error)
-		USART_CR3_EIE(self) = true;
-		// Enable the UART Parity Error interrupt and RX FIFO Threshold interrupt
-		// (if FIFO mode is enabled) or Data Register Not Empty interrupt
-		// (if FIFO mode is disabled)
-		USART_CR1_PEIE(self) = xart_parityEnable(parity);
-		if _IMM(USART_CR1_FIFOEN(self))
-			USART_CR3_RXFTIE(self) = true;
-		else
-			USART_CR1_RXNEIE(self) = true;
-	}
 	// Disable the UART Parity Error Interrupt, RXNE/RXFT interrupt and UART Error Interrupt.
 	void UART_t::abortReceive() {
 		USART_CR1_RXNEIE(self) = 0;
@@ -889,7 +889,10 @@ namespace uni {
 	// ----
 
 	static int xart_inn(stduint address, stduint mask, bool wide) {
-		if (!address) return 0;
+		if (!address) return -1;
+		uint64 tickstart = SysTick::getTick();
+		if (!xart_waitFlag(address, 5, true, tickstart, XART_TIMEOUT_VALUE))// RXNE
+			return -1;
 		stduint uhdata = (uint16)Reference_T<uint16>(address + _IMM(XARTReg::RDR));
 		return wide ? uint16(uhdata & mask) : uint8(uhdata & mask);
 	}
@@ -897,8 +900,10 @@ namespace uni {
 	static int xart_out(stduint address, const char* str, stduint len, stduint mask, bool wide) {
 		if (!address) return 0;
 		if (wide && (len & 1)) return 0;
+		uint64 tickstart = SysTick::getTick();
 		for (stduint i = 0; i < len; i += wide ? 2 : 1) {
-			while (!Reference(address + _IMM(XARTReg::ISR)).bitof(6));
+			if (!xart_waitFlag(address, 7, true, tickstart, XART_TIMEOUT_VALUE))// TXE
+				return i;// timeout, return partial count
 			Reference_T<uint16>(address + _IMM(XARTReg::TDR)) =
 				wide ? (*(uint16*)(str + i) & mask) : (*(uint8*)(str + i) & mask);
 		}
@@ -953,6 +958,57 @@ namespace uni {
 		const bool parity_enable = xart_parityEnable(parity);
 		return xart_out(getAddress(), str, len, xart_mask(wordlen, parity_enable), xart_rxUnit(wordlen, parity_enable) == 2);
 	}
+	int UART_t::out(const char* str, stduint len, IOMethod method) {
+		switch (method) {
+		case IOMethod::Loop:
+			return out(str, len);
+		case IOMethod::Rupt:
+			if (xart_rxUnit(wordlen, xart_parityEnable(parity)) == 2 && (len & 1)) return 0;
+			return xart_outByInterrupt(getAddress(), tx_buffer, tx_pointer, lock_t, str, len) ? len : 0;
+		case IOMethod::DMA:
+			_TODO
+			return 0;
+		}
+		return 0;
+	}
+	stduint UART_t::Receive(char* rx_data, stduint size, IOMethod method) {
+		if (!rx_data || !size) return 0;
+		switch (method) {
+		case IOMethod::Loop: {
+			const bool parity_enable = xart_parityEnable(parity);
+			const bool wide = xart_rxUnit(wordlen, parity_enable) == 2;
+			const stduint unit = wide ? 2 : 1;
+			for (stduint i = 0; i < size; i++) {
+				int dat = inn();
+				if (dat < 0) return 0;// RXNE timeout
+				if (wide)
+					*(uint16*)(rx_data + i * unit) = (uint16)dat;
+				else
+					*(uint8*)(rx_data + i) = (uint8)dat;
+			}
+			return size;
+		}
+		case IOMethod::Rupt:
+			rx_buffer = {(stduint)rx_data, size};
+			rx_pointer = 0;
+			if (!rx_buffer.address || rx_pointer >= rx_buffer.length) return 0;
+			// while (lock_r);
+			if (lock_r) return 0;
+			lock_r = true;
+			self[XARTReg::ICR] = 0xFFFFFFFF; // clear stale error flags (ORE etc.) before arming
+			USART_CR3_EIE(self) = true;
+			USART_CR1_PEIE(self) = xart_parityEnable(parity);
+			if _IMM(USART_CR1_FIFOEN(self))
+				USART_CR3_RXFTIE(self) = true;
+			else
+				USART_CR1_RXNEIE(self) = true;
+			return size;
+		case IOMethod::DMA:
+			_TODO
+			return 0;
+		}
+		return 0;
+	}
 	bool UART_t::operator<< (stduint dat) {
 		auto len = xart_rxUnit(wordlen, xart_parityEnable(parity));
 		return out((const char*)&dat, len) == len;
@@ -968,10 +1024,6 @@ namespace uni {
 	UART_t& UART_t::setStopBit(UARTStopBit val) {
 		stopbits = xart_stopBitsFromStopBit(val);
 		return self;
-	}
-	bool UART_t::outByInterrupt(const char* str, stduint len) {
-		if (xart_rxUnit(wordlen, xart_parityEnable(parity)) == 2 && (len & 1)) return false;
-		return xart_outByInterrupt(getAddress(), tx_buffer, tx_pointer, lock_t, str, len);
 	}
 	void UART_t::abortTransmit() {
 		xart_abortTransmit(getAddress(), lock_t);
@@ -1095,12 +1147,17 @@ namespace uni {
 		enAble(true);
 		/* TEACK and/or REACK to check before moving huart->gState and huart->RxState to Ready */
 		if _IMM(USART_CR1_TE(self)) {
-			while (!_IMM(USART_ISR_TEACK(self)));
+			uint64 tickstart = SysTick::getTick();
+			while (!_IMM(USART_ISR_TEACK(self))) {
+				if ((SysTick::getTick() - tickstart) > XART_TEACK_REACK_TIMEOUT) return false;
+			}
 		}
 		if _IMM(USART_CR1_RE(self)) {
-			while (!_IMM(USART_ISR_REACK(self)));
+			uint64 tickstart = SysTick::getTick();
+			while (!_IMM(USART_ISR_REACK(self))) {
+				if ((SysTick::getTick() - tickstart) > XART_TEACK_REACK_TIMEOUT) return false;
+			}
 		}
-		// no consider timeout
 		// AKA UART_MASK_COMPUTATION
 		mask = xart_mask(wordlen, xart_parityEnable(parity));
 		return mask != 0;
@@ -1187,12 +1244,17 @@ namespace uni {
 		enAble(true);
 		/* TEACK and/or REACK to check before moving huart->gState and huart->RxState to Ready */
 		if _IMM(USART_CR1_TE(self)) {
-			while (!_IMM(USART_ISR_TEACK(self)));
+			uint64 tickstart = SysTick::getTick();
+			while (!_IMM(USART_ISR_TEACK(self))) {
+				if ((SysTick::getTick() - tickstart) > XART_TEACK_REACK_TIMEOUT) return false;
+			}
 		}
 		if _IMM(USART_CR1_RE(self)) {
-			while (!_IMM(USART_ISR_REACK(self)));
+			uint64 tickstart = SysTick::getTick();
+			while (!_IMM(USART_ISR_REACK(self))) {
+				if ((SysTick::getTick() - tickstart) > XART_TEACK_REACK_TIMEOUT) return false;
+			}
 		}
-		// no consider timeout
 		// AKA UART_MASK_COMPUTATION
 		mask = xart_mask(wordlen, parity_enable);
 		return mask != 0;
@@ -1247,29 +1309,51 @@ namespace uni {
 		status = ERR_UART_NONE;
 		return true;
 	}
+	// DMA flow control
+	void UART_t::PauseDMA() { _TODO }
+	void UART_t::ResumeDMA() { _TODO }
+	void UART_t::StopDMA() { _TODO }
 
 	// AKA HAL_USART_Transmit
-	stduint USART_t::Transmit(const char* tx_data, stduint size) {
-		out(tx_data, size);
-		while (!self[XARTReg::ISR].bitof(6));// TC
+	stduint USART_t::Transmit(const char* tx_data, stduint size, IOMethod method) {
+		switch (method) {
+		case IOMethod::Loop: break; // fall through to polling
+		case IOMethod::Rupt: return UART_t::out(tx_data, size, method);
+		case IOMethod::DMA: return UART_t::out(tx_data, size, method);
+		}
+		stduint sent = out(tx_data, size);
+		if (sent < size) return 0;// TXE timeout
+		uint64 tickstart = SysTick::getTick();
+		if (!xart_waitFlag(getAddress(), 6, true, tickstart, XART_TIMEOUT_VALUE))// TC
+			return 0;
 		return size;
 	}
 
 	// AKA HAL_USART_Receive
-	stduint USART_t::Receive(char* rx_data, stduint size) {
+	stduint USART_t::Receive(char* rx_data, stduint size, IOMethod method) {
 		if (!rx_data || !size) return 0;
+		const bool is_sync = self[XARTReg::CR2] & USART_CR2_CLKEN;
+		switch (method) {
+		case IOMethod::Loop: break; // fall through to polling
+		// Async mode delegates to UART; Sync mode needs TXEIE for clock generation (TODO)
+		case IOMethod::Rupt: if (is_sync) { _TODO; return 0; } return UART_t::Receive(rx_data, size, method);
+		case IOMethod::DMA: if (is_sync) { _TODO; return 0; } return UART_t::Receive(rx_data, size, method);
+		}
 		const bool parity_enable = xart_parityEnable(parity);
 		const stduint msk = xart_mask(wordlen, parity_enable);
 		const bool wide = xart_rxUnit(wordlen, parity_enable) == 2;
 		const stduint unit = wide ? 2 : 1;
 		const bool is_slave = self[XARTReg::CR2] & USART_CR2_SLVEN;
+		uint64 tickstart = SysTick::getTick();
 		for (stduint i = 0; i < size; i++) {
 			if (!is_slave) {
 				// Master: wait TC then write dummy to generate clock for slave
-				while (!self[XARTReg::ISR].bitof(6));// TC
+				if (!xart_waitFlag(getAddress(), 6, true, tickstart, XART_TIMEOUT_VALUE))// TC
+					return 0;
 				Reference_T<uint16>(getAddress() + _IMM(XARTReg::TDR)) = 0xFF;
 			}
-			while (!self[XARTReg::ISR].bitof(5));// RXNE
+			if (!xart_waitFlag(getAddress(), 5, true, tickstart, XART_TIMEOUT_VALUE))// RXNE
+				return 0;
 			if (wide)
 				*(uint16*)(rx_data + i * unit) = (uint16)(Reference_T<uint16>(getAddress() + _IMM(XARTReg::RDR)) & msk);
 			else
@@ -1279,18 +1363,25 @@ namespace uni {
 	}
 
 	// AKA HAL_USART_TransmitReceive
-	stduint USART_t::Transceive(const char* tx_data, char* rx_data, stduint size) {
+	stduint USART_t::Transceive(const char* tx_data, char* rx_data, stduint size, IOMethod method) {
 		if (!tx_data || !rx_data || !size) return 0;
+		switch (method) {
+		case IOMethod::Loop: break; // fall through to polling
+		case IOMethod::Rupt: _TODO; return 0;
+		case IOMethod::DMA: _TODO; return 0;
+		}
 		const bool parity_enable = xart_parityEnable(parity);
 		const stduint msk = xart_mask(wordlen, parity_enable);
 		const bool wide = xart_rxUnit(wordlen, parity_enable) == 2;
 		const stduint unit = wide ? 2 : 1;
 		const bool is_slave = self[XARTReg::CR2] & USART_CR2_SLVEN;
 		stduint tx_i = 0, rx_i = 0;
+		uint64 tickstart = SysTick::getTick();
 
 		if (is_slave) {
 			// Slave sends first byte before loop
-			while (!self[XARTReg::ISR].bitof(7));// TXE
+			if (!xart_waitFlag(getAddress(), 7, true, tickstart, XART_TIMEOUT_VALUE))// TXE
+				return 0;
 			Reference_T<uint16>(getAddress() + _IMM(XARTReg::TDR)) =
 				wide ? (*(uint16*)(tx_data) & msk) : (*(uint8*)(tx_data) & msk);
 			tx_i += unit;
@@ -1298,11 +1389,13 @@ namespace uni {
 
 		stduint loop_count = is_slave ? size - 1 : size;
 		for (stduint n = 0; n < loop_count; n++) {
-			while (!self[XARTReg::ISR].bitof(7));// TXE
+			if (!xart_waitFlag(getAddress(), 7, true, tickstart, XART_TIMEOUT_VALUE))// TXE
+				return 0;
 			Reference_T<uint16>(getAddress() + _IMM(XARTReg::TDR)) =
 				wide ? (*(uint16*)(tx_data + tx_i) & msk) : (*(uint8*)(tx_data + tx_i) & msk);
 			tx_i += unit;
-			while (!self[XARTReg::ISR].bitof(5));// RXNE
+			if (!xart_waitFlag(getAddress(), 5, true, tickstart, XART_TIMEOUT_VALUE))// RXNE
+				return 0;
 			if (wide)
 				*(uint16*)(rx_data + rx_i) = (uint16)(Reference_T<uint16>(getAddress() + _IMM(XARTReg::RDR)) & msk);
 			else
@@ -1312,7 +1405,8 @@ namespace uni {
 
 		if (is_slave) {
 			// Slave receives last byte after loop
-			while (!self[XARTReg::ISR].bitof(5));// RXNE
+			if (!xart_waitFlag(getAddress(), 5, true, tickstart, XART_TIMEOUT_VALUE))// RXNE
+				return 0;
 			if (wide)
 				*(uint16*)(rx_data + rx_i) = (uint16)(Reference_T<uint16>(getAddress() + _IMM(XARTReg::RDR)) & msk);
 			else

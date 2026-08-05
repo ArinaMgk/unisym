@@ -160,18 +160,18 @@ extern "C" {
 
 volatile stduint delay_count = 0;
 void SysTick_Handler(void) {
-	#ifdef _MCU_STM32
+	#if defined(_MCU_STM32) && !defined(_MPU_STM32MP13)
 	uwTick += uwTickStep;// AKA HAL_IncTick
 	#endif
 	asserv(delay_count)--;
 }
 void SysDelay(stduint unit) {
 #if defined(_MPU_STM32MP13)
-	//{TORM}
 	using namespace uni;
 	uint64 endo = SysTick::getTick() + unit;
 	while (true) if (SysTick::getTick() >= endo) break;
-
+	// stduint count = (SystemCoreClock / 1000) * unit;
+	// for (volatile stduint i = 0; i < count; i++);
 #else
 	//{ISSUE} append systick-enable check?
 	delay_count = unit;

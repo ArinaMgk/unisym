@@ -41,7 +41,7 @@ extern ::uni::trait::Malloc
 
 namespace uni {
 	const unsigned CNT_SLICES_PER_POOL = (0x1000 / sizeof(Slice)) - 3;
-	_PACKED(struct) SinglePool
+	struct SinglePool
 		: public trait::Array
 	{
 		SinglePool* nextpool;

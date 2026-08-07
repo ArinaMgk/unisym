@@ -44,11 +44,15 @@ namespace uni {
 	enum class UARTStopBit {
 		One, OneHalf, Two
 	};
+#ifndef _INC_UNI_IOMethod
+#define _INC_UNI_IOMethod
 	enum class IOMethod : byte {
 		Loop,   // polling
 		Rupt,   // interrupt
 		DMA     // direct memory access
 	};
+#endif
+	class DMAStream; // forward declaration for UART DMA integration
 }
 
 /// UART
@@ -84,6 +88,8 @@ namespace uni {
 		Slice rx_buffer = { 0, 0 };
 		Slice tx_buffer = { 0, 0 };
 		rostr error = NULL;
+		const DMAStream* hdmatx = nullptr;
+		const DMAStream* hdmarx = nullptr;
 		#endif
 	protected:
 		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)\
@@ -289,6 +295,7 @@ namespace uni {
 		void PauseDMA();
 		void ResumeDMA();
 		void StopDMA();
+		stduint getDMARequestID(bool is_tx) const;
 		#endif
 		#endif
 	};

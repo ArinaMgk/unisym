@@ -25,11 +25,17 @@
 #include "../../../inc/cpp/Device/DMA"
 #include "../../../inc/cpp/Device/RCC/RCCAddress"
 #include "../../../inc/cpp/Device/RCC/RCCClock"
+#include "../../../inc/cpp/Device/NVIC"
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#include "../../../inc/cpp/Device/SysTick"
+#endif
 
 namespace uni {
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	#define _DMA_Counts 2
+#endif
+#if defined(_MCU_STM32F1x)
 
 	static Request_t DMA1_Request_list[] = { Request_None,
 		IRQ_DMA1_Channel1, IRQ_DMA1_Channel2, IRQ_DMA1_Channel3,
@@ -43,7 +49,19 @@ namespace uni {
 	static Request_t* DMAx_Requests_list[_DMA_Counts + 1] = {
 		(Request_t*)0, DMA1_Request_list, DMA2_Request_list
 	};
-
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+	// by stream id (0..7)
+	static Request_t DMA1_Stream_Requests_list[] = {
+		IRQ_DMA1_Stream0, IRQ_DMA1_Stream1, IRQ_DMA1_Stream2, IRQ_DMA1_Stream3,
+		IRQ_DMA1_Stream4, IRQ_DMA1_Stream5, IRQ_DMA1_Stream6, IRQ_DMA1_Stream7
+	};
+	static Request_t DMA2_Stream_Requests_list[] = {
+		IRQ_DMA2_Stream0, IRQ_DMA2_Stream1, IRQ_DMA2_Stream2, IRQ_DMA2_Stream3,
+		IRQ_DMA2_Stream4, IRQ_DMA2_Stream5, IRQ_DMA2_Stream6, IRQ_DMA2_Stream7
+	};
+	static Request_t* DMAx_Stream_Requests_list[_DMA_Counts + 1] = {
+		(Request_t*)0, DMA1_Stream_Requests_list, DMA2_Stream_Requests_list
+	};
 #endif
 #if 0
 
@@ -110,11 +128,19 @@ namespace uni {
 
 
 
-#elif defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 
+#if defined(_MCU_STM32F4x)
 	static const uint32 _REFADDR_DMA[] = { nil,
 		0x40026000, 0x40026400
 	};
+#elif defined(_MCU_STM32H7x)
+	static const uint32 _REFADDR_DMA[] = { nil,
+		0x40020000, 0x40020400
+	};
+	// DMAMUX1 routes peripheral requests to DMA1/DMA2 streams (replaces F4 CHSEL)
+	#define _DMAMUX1_BASE 0x40020800
+#endif
 
 	static stduint RCC_DMAx_addrs[_DMA_Counts] = // 0.._DMA_Counts
 	{
@@ -135,40 +161,37 @@ namespace uni {
 		using namespace DMAReg;
 		byte st = getParent().getID();
 		DMA_t& sel = getParent().getParent();
+		// widths are encoded 2/3/4 = byte/half/word; reject reserved DIR (periph->periph)
+		if (periph_align < 2 || periph_align > 4 ||
+			memory_align < 2 || memory_align > 4) return false;
+		if (from_periph && to_periph) return false;
 		getParent().enAble(false);
 		Reference cr = sel[CR[st]];
-		cr.maset(25, 3, getID());// ChSel
-		//{} cr.maset(23,2,);// MBURST
-		//{} cr.maset(21, 2, );// PBURST
-		//{} cr.setof(19, );// CT
-		//{} cr.setof(18, );// DBM
-		cr.maset(16, 2, priority);// PL
-		//{} cr.setof(15,);// PINCOS
-		cr.maset(13, 2, memory_align - 2);// MSIZE
-		cr.maset(11, 2, periph_align - 2);// PSIZE
-		cr.setof(10, memory_inc);// MINC
-		cr.setof(9, periph_inc);// PINC
-		cr.setof(8, circular_mode);// CIRC
-		cr.maset(6, 2, (to_periph ? 1 : 0) + (from_periph ^ to_periph ? 0 : 2));// DIR
-		//{} cr.setof(5, );// PFCTRL
-		//{} cr.setof(4, );// TCIE
-		//{} cr.setof(3, );// HTIE
-		//{} cr.setof(2, );// TEIE
-		//{} cr.setof(1, );// DMEIE
-		//{} cr.setof(0, );// EN
+#if defined(_MCU_STM32F4x)
+		cr.maset(_DMA_SxCR_POS_CHSEL, 3, getID());// ChSel - F4 fixed peripheral mapping
+#elif defined(_MCU_STM32H7x)
+		// H7: request routing is via DMAMUX1 (call setRequest); CHSEL is left default
+#endif
+		//{} cr.maset(_DMA_SxCR_POS_MBURST, 2, );// MBURST
+		//{} cr.maset(_DMA_SxCR_POS_PBURST, 2, );// PBURST
+		//{} cr.setof(_DMA_SxCR_POS_CT, );// CT
+		//{} cr.setof(_DMA_SxCR_POS_DBM, );// DBM
+		cr.maset(_DMA_SxCR_POS_PL, 2, priority);// PL
+		//{} cr.setof(_DMA_SxCR_POS_PINCOS, );// PINCOS
+		cr.maset(_DMA_SxCR_POS_MSIZE, 2, memory_align - 2);// MSIZE
+		cr.maset(_DMA_SxCR_POS_PSIZE, 2, periph_align - 2);// PSIZE
+		cr.setof(_DMA_SxCR_POS_MINC, memory_inc);// MINC
+		cr.setof(_DMA_SxCR_POS_PINC, periph_inc);// PINC
+		cr.setof(_DMA_SxCR_POS_CIRC, circular_mode);// CIRC
+		cr.maset(_DMA_SxCR_POS_DIR, 2, (to_periph ? 1 : 0) + (from_periph ^ to_periph ? 0 : 2));// DIR
+		//{} cr.setof(_DMA_SxCR_POS_PFCTRL, );// PFCTRL
+		// IE bits are set by setInterruptSub / enInterrupt
 
-		_TEMP;// DMA_FIFOMode = DMA_FIFOMode_Disable; 0
-		// if(hdma->Init.FIFOMode == DMA_FIFOMODE_ENABLE) tmp |=  hdma->Init.MemBurst | hdma->Init.PeriphBurst;
 		Reference fcr = sel[FCR[st]];
-		fcr.setof(2, 0/*DMA_FIFOMode_Disable 0*/);
-		if (fcr.bitof(2)) {
-			_TEMP;// DMA_FIFOThreshold = DMA_FIFOThreshold_Full; 3
+		fcr.setof(_DMA_SxFCR_POS_DMDIS, 0/*DMA_FIFOMode_Disable*/);
+		if (fcr.bitof(_DMA_SxFCR_POS_DMDIS)) {
+			//{TODO} DMA_FIFOThreshold + MemBurst/PeriphBurst + DMA_CheckFifoParam
 			setFIFOThreshold(DMAChannel::_Full);
-			_TEMP;// DMA_MemoryBurst = DMA_MemoryBurst_Single; 0
-			_TEMP;// DMA_PeripheralBurst = DMA_PeripheralBurst_Single; 0
-			if (false /*MemBurst!=Single 0*/  /*&& DMA_CheckFifoParam*/) {
-				return false;
-			}
 		}
 		getParent().ClearInterruptFlags();
 		return true;
@@ -179,14 +202,134 @@ namespace uni {
 		byte st = getParent().getID();
 		DMA_t& sel = getParent().getParent();
 		Reference fcr = sel[FCR[st]];
-		fcr.maset(0, 2, _IMM(hold));
+		fcr.maset(_DMA_SxFCR_POS_FTH, 2, _IMM(hold));
+	}
+
+	void DMAStream::setRequest(stduint request_id) const {
+		using namespace DMAReg;
+		DMA_t& sel = getParent();
+		byte st = getID();
+#if defined(_MCU_STM32F4x)
+		sel[CR[st]].maset(_DMA_SxCR_POS_CHSEL, 3, request_id);
+#elif defined(_MCU_STM32H7x)
+		// DMA1 Stream N -> DMAMUX1 Channel N ; DMA2 Stream N -> DMAMUX1 Channel N+8
+		byte mux_index = st;
+		if (sel.getID() == 2) mux_index += 8;
+		Reference(_DMAMUX1_BASE + mux_index * 4) = request_id;
+#else
+		(void)st; (void)request_id;
+#endif
+	}
+
+	void DMAStream::setInterruptPriority(byte preempt, byte sub_priority) const {
+		DMA_t& sel = getParent();
+		NVIC.setPriority(DMAx_Stream_Requests_list[sel.getID()][getID()], preempt, sub_priority);
+	}
+
+	void DMAStream::enInterruptNVIC(bool ena) const {
+		DMA_t& sel = getParent();
+		NVIC.setAble(DMAx_Stream_Requests_list[sel.getID()][getID()], ena);
+	}
+
+	bool DMAStream::Transfer(pureptr_t dst_addr, pureptr_t src_addr, stduint leng, IOMethod method) const {
+		using namespace DMAReg;
+		DMA_t& sel = getParent();
+		byte st = getID();
+		if (sel.streamStates[st] != _DMA_STATE_READY) return false;
+
+		if (method == IOMethod::Rupt) {
+			// aka HAL_DMA_Start_IT
+			enAble(false);
+			setTransfer(dst_addr, src_addr, leng);
+			setInterruptSub(true);
+			enInterruptNVIC(true);
+			sel.streamStates[st] = _DMA_STATE_BUSY;
+			enAble(true);
+			return true;
+		}
+
+		if (method != IOMethod::Loop) return false; // DMA sub-mode N/A for DMA itself
+
+		// IOMethod::Loop: aka HAL_DMA_Start + HAL_DMA_PollForTransfer
+		if (sel[CR[st]].bitof(_DMA_SxCR_POS_CIRC)) {
+			sel.streamErrors[st] = _DMA_ERROR_NOT_SUPPORTED;
+			return false;
+		}
+		enAble(false);
+		setTransfer(dst_addr, src_addr, leng);
+		sel.streamStates[st] = _DMA_STATE_BUSY;
+		enAble(true);
+
+		uint64 tickstart = SysTick::getTick();
+		byte posi = flagBase();
+		DMARegType isr_reg = (st & 0b100) ? HISR : LISR;
+		while (!(sel[isr_reg] & (1U << (posi + _DMA_SxFLAG_POS_TCIF)))) {
+			if (sel[isr_reg] & (1U << (posi + _DMA_SxFLAG_POS_TEIF))) {
+				sel.streamErrors[st] = _DMA_ERROR_TE;
+				sel.streamStates[st] = _DMA_STATE_ERROR;
+				ClearInterruptFlags();
+				return false;
+			}
+			if ((SysTick::getTick() - tickstart) > DMA_TIMEOUT_VALUE) {
+				sel.streamErrors[st] = _DMA_ERROR_TIMEOUT;
+				Abort();
+				return false;
+			}
+		}
+		ClearInterruptFlags();
+		sel.streamStates[st] = _DMA_STATE_READY;
+		return true;
+	}
+
+	bool DMAStream::Abort() const {
+		using namespace DMAReg;
+		DMA_t& sel = getParent();
+		byte st = getID();
+		if (sel.streamStates[st] != _DMA_STATE_BUSY) {
+			sel.streamErrors[st] = _DMA_ERROR_NO_XFER;
+			return false;
+		}
+		// disable all interrupts
+		Reference cr = sel[CR[st]];
+		cr.setof(_DMA_SxCR_POS_TCIE, false);
+		cr.setof(_DMA_SxCR_POS_TEIE, false);
+		cr.setof(_DMA_SxCR_POS_DMEIE, false);
+		cr.setof(_DMA_SxCR_POS_HTIE, false);
+		sel[FCR[st]].setof(_DMA_SxFCR_POS_FEIE, false);
+		// disable stream
+		enAble(false);
+		// wait for EN=0 with timeout
+		uint64 tickstart = SysTick::getTick();
+		while (sel[CR[st]].bitof(_DMA_SxCR_POS_EN)) {
+			if ((SysTick::getTick() - tickstart) > DMA_TIMEOUT_VALUE) {
+				sel.streamErrors[st] = _DMA_ERROR_TIMEOUT;
+				sel.streamStates[st] = _DMA_STATE_ERROR;
+				return false;
+			}
+		}
+		ClearInterruptFlags();
+		sel.streamStates[st] = _DMA_STATE_READY;
+		return true;
+	}
+
+	bool DMAStream::AbortRupt() const {
+		DMA_t& sel = getParent();
+		byte st = getID();
+		if (sel.streamStates[st] != _DMA_STATE_BUSY) {
+			sel.streamErrors[st] = _DMA_ERROR_NO_XFER;
+			return false;
+		}
+		// set abort state; IRQ handler completes cleanup on next TCIF
+		sel.streamStates[st] = _DMA_STATE_ABORT;
+		enAble(false);
+		return true;
 	}
 
 
 
 #endif
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 
 	Reference DMA_t::operator[](DMAReg::DMARegType idx) {
 		return Reference(_REFADDR_DMA[DMA_ID] + _IMMx4(idx));
@@ -194,12 +337,15 @@ namespace uni {
 
 	bool DMA_t::enClock(bool ena) {
 		Reference(RCC_DMAx_addrs[DMA_ID - 1]).setof(RCC_DMAx_bitpos[DMA_ID - 1], ena);
+	#if defined(_MCU_STM32H7x)
+		// DMAMUX1 is the request router for both DMA1 and DMA2; clock it together
+		Reference(_RCC_AHB1ENR_ADDR).setof(_RCC_AHB1ENR_POSI_ENCLK_DMAMUX1, ena);
+	#endif
 		if (ena != Reference(RCC_DMAx_addrs[DMA_ID - 1]).bitof(RCC_DMAx_bitpos[DMA_ID - 1]))
 			return false;
 		return true;
 	}
-	
-	//
+
 
 	DMA_t DMAr(0), DMA1(1), DMA2(2);
 

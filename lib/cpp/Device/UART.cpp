@@ -652,6 +652,7 @@ namespace uni {
 #if defined(_MCU_STM32H7x)
 
 #include "../../../inc/cpp/Device/SysTick"
+#include "../../../inc/cpp/Device/DMA"
 
 namespace uni {
 	USART_t XART1(1), XART2(2), XART3(3), XART6(6);
@@ -950,6 +951,66 @@ namespace uni {
 		lock_t = false;
 	}
 
+	// ---- DMA helpers ----
+
+	// H7 DMAMUX1 request line IDs for UART/USART (see stm32h7xx_hal_dma.h DMA_REQUEST_*)
+	static stduint xart_dmaRequestID(byte xart_id, bool is_tx) {
+		static const stduint req_tbl[2][8] = {
+			{ 41, 43, 45, 63, 65, 71, 79, 81 }, // RX
+			{ 42, 44, 46, 64, 66, 72, 80, 82 }  // TX
+		};
+		if (!Ranglin(xart_id, 1, 8)) return 0;
+		return req_tbl[is_tx ? 1 : 0][xart_id - 1];
+	}
+
+	// Find the UART that registered the callback via DMA_t::bind.
+	// Limitation: callbacks are stored per DMA controller (DMA_t), not per stream.
+	// Simultaneous TX+RX DMA on the same DMA controller is not supported;
+	// use separate controllers (e.g. DMA1 for RX, DMA2 for TX) in that case.
+
+	// AKA UART_DMATransmitCplt: DMA has written all data to TDR.
+	// Disable DMAT, enable TCIE so the UART TC interrupt fires when
+	// the last byte finishes shifting out.
+	static void xart_dmaTransmitCplt() {
+		UART_t* uart = nullptr;
+		if (DMA1.XferCpltCallback == xart_dmaTransmitCplt) uart = (UART_t*)DMA1.bind;
+		else if (DMA2.XferCpltCallback == xart_dmaTransmitCplt) uart = (UART_t*)DMA2.bind;
+		if (!uart) return;
+		stduint addr = uart->getAddress();
+		// Guard: only handle if DMAT is set (TX DMA was active)
+		if (!Reference(addr + _IMM(XARTReg::CR3)).bitof(USART_CR3_DMAT_Pos)) return;
+		Reference(addr + _IMM(XARTReg::CR3)) &= ~USART_CR3_DMAT;
+		Reference(addr + _IMM(XARTReg::CR1)) |= USART_CR1_TCIE;
+	}
+
+	// AKA UART_DMAReceiveCplt: DMA has filled the receive buffer.
+	// Disable DMAR and error interrupts; release lock_r.
+	static void xart_dmaReceiveCplt() {
+		UART_t* uart = nullptr;
+		if (DMA1.XferCpltCallback == xart_dmaReceiveCplt) uart = (UART_t*)DMA1.bind;
+		else if (DMA2.XferCpltCallback == xart_dmaReceiveCplt) uart = (UART_t*)DMA2.bind;
+		if (!uart) return;
+		stduint addr = uart->getAddress();
+		// Guard: only handle if DMAR is set (RX DMA was active)
+		if (!Reference(addr + _IMM(XARTReg::CR3)).bitof(USART_CR3_DMAR_Pos)) return;
+		// Clear DMAR first (abortReceive does not clear it)
+		Reference(addr + _IMM(XARTReg::CR3)) &= ~USART_CR3_DMAR;
+		uart->abortReceive(); // clears PEIE, EIE, RXNEIE, RXFTIE; sets lock_r=false
+	}
+
+	// AKA UART_DMAError: stop both directions on DMA error
+	static void xart_dmaError() {
+		UART_t* uart = nullptr;
+		if (DMA1.XferErrorCallback == xart_dmaError) uart = (UART_t*)DMA1.bind;
+		else if (DMA2.XferErrorCallback == xart_dmaError) uart = (UART_t*)DMA2.bind;
+		if (!uart) return;
+		uart->abortTransmit();
+		uart->abortReceive();
+		stduint addr = uart->getAddress();
+		Reference(addr + _IMM(XARTReg::CR3)) &= ~(USART_CR3_DMAT | USART_CR3_DMAR);
+		uart->error = "DMA";
+	}
+
 	int UART_t::inn() {
 		const bool parity_enable = xart_parityEnable(parity);
 		return xart_inn(getAddress(), xart_mask(wordlen, parity_enable), xart_rxUnit(wordlen, parity_enable) == 2);
@@ -965,10 +1026,31 @@ namespace uni {
 		case IOMethod::Rupt:
 			if (xart_rxUnit(wordlen, xart_parityEnable(parity)) == 2 && (len & 1)) return 0;
 			return xart_outByInterrupt(getAddress(), tx_buffer, tx_pointer, lock_t, str, len) ? len : 0;
-		case IOMethod::DMA:
-			_TODO
-			return 0;
+		case IOMethod::DMA: {
+			if (!hdmatx || !str || !len) return 0;
+			const bool parity_enable = xart_parityEnable(parity);
+			const bool wide = xart_rxUnit(wordlen, parity_enable) == 2;
+			if (wide && (len & 1)) return 0;
+			if (lock_t) return 0;
+			tx_buffer = { (stduint)str, len };
+			tx_pointer = 0;
+			lock_t = true;
+			DMA_t& dma = hdmatx->getParent();
+			dma.bind = (pureptr_t)this;
+			dma.XferCpltCallback = xart_dmaTransmitCplt;
+			dma.XferErrorCallback = xart_dmaError;
+			self[XARTReg::ICR] = USART_ICR_TCCF; // clear TC flag
+			stduint ndtr = wide ? len / 2 : len;
+			stduint tdr_addr = getAddress() + _IMM(XARTReg::TDR);
+			if (!hdmatx->Transfer((pureptr_t)tdr_addr, (pureptr_t)str, ndtr, IOMethod::Rupt)) {
+				self[XARTReg::CR3] &= ~USART_CR3_DMAT;
+				lock_t = false;
+				return 0;
+			}
+			self[XARTReg::CR3] |= USART_CR3_DMAT;
+			return len;
 		}
+			}
 		return 0;
 	}
 	stduint UART_t::Receive(char* rx_data, stduint size, IOMethod method) {
@@ -1003,10 +1085,33 @@ namespace uni {
 			else
 				USART_CR1_RXNEIE(self) = true;
 			return size;
-		case IOMethod::DMA:
-			_TODO
-			return 0;
+		case IOMethod::DMA: {
+			if (!hdmarx) return 0;
+			const bool parity_enable = xart_parityEnable(parity);
+			const bool wide = xart_rxUnit(wordlen, parity_enable) == 2;
+			if (wide && (size & 1)) return 0;
+			if (lock_r) return 0;
+			rx_buffer = { (stduint)rx_data, size };
+			rx_pointer = 0;
+			lock_r = true;
+			DMA_t& dma = hdmarx->getParent();
+			dma.bind = (pureptr_t)this;
+			dma.XferCpltCallback = xart_dmaReceiveCplt;
+			dma.XferErrorCallback = xart_dmaError;
+			self[XARTReg::ICR] = USART_ICR_ORECF; // clear ORE
+			stduint ndtr = wide ? size / 2 : size;
+			stduint rdr_addr = getAddress() + _IMM(XARTReg::RDR);
+			if (!hdmarx->Transfer((pureptr_t)rx_data, (pureptr_t)rdr_addr, ndtr, IOMethod::Rupt)) {
+				self[XARTReg::CR3] &= ~USART_CR3_DMAR;
+				lock_r = false;
+				return 0;
+			}
+			USART_CR1_PEIE(self) = parity_enable;
+			USART_CR3_EIE(self) = true;
+			self[XARTReg::CR3] |= USART_CR3_DMAR;
+			return size;
 		}
+			}
 		return 0;
 	}
 	bool UART_t::operator<< (stduint dat) {
@@ -1289,6 +1394,8 @@ namespace uni {
 		error = NULL;
 		rx_pointer = 0;
 		tx_pointer = 0;
+		hdmatx = nullptr;
+		hdmarx = nullptr;
 		lock_r = false;
 		lock_t = false;
 		wordlen = WordLength_E::Bits8;
@@ -1310,9 +1417,34 @@ namespace uni {
 		return true;
 	}
 	// DMA flow control
-	void UART_t::PauseDMA() { _TODO }
-	void UART_t::ResumeDMA() { _TODO }
-	void UART_t::StopDMA() { _TODO }
+	// AKA HAL_UART_DMAPause: stop UART-side DMA requests without aborting the DMA stream
+	void UART_t::PauseDMA() {
+		self[XARTReg::CR3] &= ~USART_CR3_DMAT;  // pause TX DMA request
+		USART_CR1_PEIE(self) = false;
+		USART_CR3_EIE(self) = false;
+		self[XARTReg::CR3] &= ~USART_CR3_DMAR;  // pause RX DMA request
+	}
+	// AKA HAL_UART_DMAResume: re-enable UART-side DMA requests
+	void UART_t::ResumeDMA() {
+		self[XARTReg::CR3] |= USART_CR3_DMAT;   // resume TX DMA request
+		self[XARTReg::ICR] = USART_ICR_ORECF;   // clear ORE before resuming RX
+		USART_CR1_PEIE(self) = xart_parityEnable(parity);
+		USART_CR3_EIE(self) = true;
+		self[XARTReg::CR3] |= USART_CR3_DMAR;   // resume RX DMA request
+	}
+	// AKA HAL_UART_DMAStop: abort DMA streams and release UART-side locks
+	void UART_t::StopDMA() {
+		self[XARTReg::CR3] &= ~USART_CR3_DMAT;
+		if (hdmatx) hdmatx->Abort();
+		abortTransmit();
+		self[XARTReg::CR3] &= ~USART_CR3_DMAR;
+		if (hdmarx) hdmarx->Abort();
+		abortReceive();
+	}
+
+	stduint UART_t::getDMARequestID(bool is_tx) const {
+		return xart_dmaRequestID(XART_ID, is_tx);
+	}
 
 	// AKA HAL_USART_Transmit
 	stduint USART_t::Transmit(const char* tx_data, stduint size, IOMethod method) {

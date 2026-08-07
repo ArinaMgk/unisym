@@ -30,6 +30,17 @@
 #include "../../c/binary.h"
 #include "GPIO"
 
+#ifndef _INC_UNI_IOMethod
+#define _INC_UNI_IOMethod
+namespace uni {
+	enum class IOMethod : byte {
+		Loop,   // polling
+		Rupt,   // interrupt
+		DMA     // direct memory access
+	};
+}
+#endif
+
 // MEMMAP:
 // 0x0000_01AB DMA1
 // 0x0000_02AB DMA2
@@ -38,8 +49,29 @@
 
 #define _DEV_MASK_DMA 0x377 // 0b11_0111_0111
 
+// DMA transfer state (mirrors HAL_DMA_StateTypeDef)
+#define _DMA_STATE_RESET  0x00
+#define _DMA_STATE_READY  0x01
+#define _DMA_STATE_BUSY   0x02
+#define _DMA_STATE_TIMEOUT 0x03
+#define _DMA_STATE_ERROR  0x04
+#define _DMA_STATE_ABORT  0x05
+
+// DMA error codes (bitmask, mirrors HAL_DMA_ERROR_*)
+#define _DMA_ERROR_NONE          0x00000000U
+#define _DMA_ERROR_TE            0x00000001U
+#define _DMA_ERROR_FE            0x00000002U
+#define _DMA_ERROR_DME           0x00000004U
+#define _DMA_ERROR_TIMEOUT       0x00000020U
+#define _DMA_ERROR_PARAM         0x00000040U
+#define _DMA_ERROR_NO_XFER       0x00000080U
+#define _DMA_ERROR_NOT_SUPPORTED 0x00000100U
+
+// Default timeout for DMA polling/abort (same scale as XART_TIMEOUT_VALUE)
+#define DMA_TIMEOUT_VALUE 0x1FFFFFFU
+
 namespace uni {
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	#undef DMA
 	#undef DMA1
 	#undef DMA2
@@ -95,10 +127,40 @@ namespace uni {
 
 
 
-#elif defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	#define _DMA_Group_Span 6
-	
-	#define _DMA_SxCR_POS_EN 0
+
+	#define _DMA_SxCR_POS_EN     0
+	#define _DMA_SxCR_POS_DMEIE  1
+	#define _DMA_SxCR_POS_TEIE   2
+	#define _DMA_SxCR_POS_HTIE   3
+	#define _DMA_SxCR_POS_TCIE   4
+	#define _DMA_SxCR_POS_PFCTRL 5
+	#define _DMA_SxCR_POS_DIR    6  // 2b
+	#define _DMA_SxCR_POS_CIRC   8
+	#define _DMA_SxCR_POS_PINC   9
+	#define _DMA_SxCR_POS_MINC   10
+	#define _DMA_SxCR_POS_PSIZE  11 // 2b
+	#define _DMA_SxCR_POS_MSIZE  13 // 2b
+	#define _DMA_SxCR_POS_PINCOS 15
+	#define _DMA_SxCR_POS_PL     16 // 2b
+	#define _DMA_SxCR_POS_DBM    18
+	#define _DMA_SxCR_POS_CT     19
+	#define _DMA_SxCR_POS_PBURST 21 // 2b
+	#define _DMA_SxCR_POS_MBURST 23 // 2b
+	#define _DMA_SxCR_POS_CHSEL  25 // 3b (F4 only; H7 routes via DMAMUX1)
+
+	#define _DMA_SxFCR_POS_FEIE  7
+	#define _DMA_SxFCR_POS_DMDIS 2
+	#define _DMA_SxFCR_POS_FTH   0 // 2b
+
+	// per-stream 6-bit flag block in LISR/HISR (and LIFCR/HIFCR):
+	// [FEIF, rsv, DMEIF, TEIF, HTIF, TCIF] at stream base offset (0/6/16/22)
+	#define _DMA_SxFLAG_POS_FEIF  0
+	#define _DMA_SxFLAG_POS_DMEIF 2
+	#define _DMA_SxFLAG_POS_TEIF  3
+	#define _DMA_SxFLAG_POS_HTIF  4
+	#define _DMA_SxFLAG_POS_TCIF  5
 
 	namespace DMAReg {
 		typedef enum {
@@ -123,7 +185,7 @@ namespace uni {
 	
 #endif
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	class DMAStream;
 	class DMAChannel;
 	class DMA_t {
@@ -150,6 +212,12 @@ namespace uni {
 			XferAbortCallback = 0;
 			bind = 0;
 			m2p = false;
+		#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+			for0(i, 8) {
+				streamStates[i] = _DMA_STATE_RESET;
+				streamErrors[i] = _DMA_ERROR_NONE;
+			}
+		#endif
 		}
 		bool enClock(bool ena = true);
 	#if defined(_MCU_STM32F1x)		
@@ -202,11 +270,13 @@ namespace uni {
 			self[CMARx[chan]] = _IMM(self.m2p ? src_addr : dst_addr);
 		}
 	#endif
-	#if defined(_MCU_STM32F4x)
+	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 		const DMAStream& operator[](unsigned stream) const {
 			return *(const DMAStream*)((_IMM(getID()) << 8) | (stream << 4));
 		}
-
+		// per-stream state and error (DMAStream is a pseudo-pointer, storage lives here)
+		byte streamStates[8];
+		uint32 streamErrors[8];
 	#endif
 	};
 
@@ -235,12 +305,19 @@ namespace uni {
 		}
 	#endif
 	} DMA;
-#ifdef _MCU_STM32F4x
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	class DMAStream {
 	protected:
 		DMAReg::DMARegType refIFCR() const {
 			using namespace DMAReg;
 			return getID() & 0b100 ? HIFCR : LIFCR;
+		}
+		// base bit offset of this stream's 6-bit flag block in LISR/HISR (and LIFCR/HIFCR)
+		byte flagBase() const {
+			byte posi = 0;
+			if (getID() & 0b010) posi += 16;
+			if (getID() & 0b001) posi += 6;
+			return posi;
 		}
 
 	public:
@@ -277,18 +354,72 @@ namespace uni {
 			while (sel[CR[getID()]].bitof(_DMA_SxCR_POS_EN));
 		}
 
-
-
-		//
-
 		void ClearInterruptFlags() const {
 			using namespace DMAReg;
 			DMA_t& sel = getParent();
-			byte posi = 0;
-			if (getID() & 0b010) posi += 16;
-			if (getID() & 0b001) posi += 6;
-			sel[refIFCR()].maset(posi, 6, 0x3F);
+			sel[refIFCR()].maset(flagBase(), 6, 0x3F);
 		}
+
+		// aka DMA_SetConfig
+		void setTransfer(pureptr_t dst_addr, pureptr_t src_addr, stduint leng) const {
+			using namespace DMAReg;
+			DMA_t& sel = getParent();
+			byte st = getID();
+			bool m2p = 1 == sel[CR[st]].masof(_DMA_SxCR_POS_DIR, 2); // DIR
+			sel[NDTR[st]] = leng;
+			sel[PAR[st]] = _IMM(m2p ? dst_addr : src_addr);
+			sel[M0AR[st]] = _IMM(m2p ? src_addr : dst_addr);
+		}
+
+		// type: 1:TCIE, 2:HTIE, 3:TEIE, 4:DMEIE
+		void enInterrupt(bool ena = true, byte type = 1) const {
+			using namespace DMAReg;
+			DMA_t& sel = getParent();
+			Reference cr = sel[CR[getID()]];
+			switch (type) {
+			case 1: cr.setof(_DMA_SxCR_POS_TCIE, ena); break;
+			case 2: cr.setof(_DMA_SxCR_POS_HTIE, ena); break;
+			case 3: cr.setof(_DMA_SxCR_POS_TEIE, ena); break;
+			case 4: cr.setof(_DMA_SxCR_POS_DMEIE, ena); break;
+			}
+		}
+
+		// enable TCIE/TEIE/DMEIE (+HTIE if a half-callback is registered) and FEIE
+		void setInterruptSub(bool ena_total) const {
+			using namespace DMAReg;
+			DMA_t& sel = getParent();
+			Reference cr = sel[CR[getID()]];
+			cr.setof(_DMA_SxCR_POS_TCIE, ena_total);
+			cr.setof(_DMA_SxCR_POS_TEIE, ena_total);
+			cr.setof(_DMA_SxCR_POS_DMEIE, ena_total);
+			cr.setof(_DMA_SxCR_POS_HTIE, ena_total && sel.XferHalfCallback);
+			sel[FCR[getID()]].setof(_DMA_SxFCR_POS_FEIE, ena_total);
+		}
+
+		void setInterruptPriority(byte preempt, byte sub_priority) const;
+		void enInterruptNVIC(bool ena = true) const;
+
+		// select the peripheral request source.
+		//   F4: writes SxCR.CHSEL (fixed mapping; request_id is the channel number 0..7)
+		//   H7: writes DMAMUX1 channel CCR (request_id is the DMAMUX request line ID; see RM)
+		void setRequest(stduint request_id) const;
+
+		// aka HAL_DMA_GetState
+		byte getState() const { return getParent().streamStates[getID()]; }
+		// aka HAL_DMA_GetError
+		uint32 getError() const { return getParent().streamErrors[getID()]; }
+
+		// aka HAL_DMA_Start / HAL_DMA_Start_IT / HAL_DMA_PollForTransfer (unified)
+		//   Loop : configure + enable + poll TCIF with timeout (blocking)
+		//   Rupt : configure + enable stream interrupts + NVIC + enable (async, callback)
+		bool Transfer(pureptr_t dst_addr, pureptr_t src_addr, stduint leng, IOMethod method = IOMethod::Loop) const;
+
+		// aka HAL_DMA_Abort (blocking): disable IT + EN, wait EN=0 (timeout), clear flags
+		bool Abort() const;
+
+		// aka HAL_DMA_Abort_IT (non-blocking): disable EN, XferAbortCallback called from IRQ
+		bool AbortRupt() const;
+
 	};
 
 	class DMAChannel {
@@ -311,16 +442,22 @@ namespace uni {
 			byte priority = 1) const;
 
 		void setTransfer(pureptr_t dst_addr, pureptr_t src_addr, stduint leng) const {
-			using namespace DMAReg;
-			byte st = getParent().getID();
-			DMA_t& sel = getParent().getParent();
-			bool m2p = 1 == sel[CR[st]].masof(6, 2); // DIR
-			sel[NDTR[st]] = leng;
-			sel[PAR[st]] = _IMM(m2p ? dst_addr : src_addr);
-			sel[M0AR[st]] = _IMM(m2p ? src_addr : dst_addr);
+			getParent().setTransfer(dst_addr, src_addr, leng);
 		}
 
 		void setFIFOThreshold(DMAChannel::FIFOThreshold hold) const;
+
+		void setRequest(stduint request_id) const {
+			getParent().setRequest(request_id);
+		}
+
+		byte getState() const { return getParent().getState(); }
+		uint32 getError() const { return getParent().getError(); }
+		bool Transfer(pureptr_t dst_addr, pureptr_t src_addr, stduint leng, IOMethod method = IOMethod::Loop) const {
+			return getParent().Transfer(dst_addr, src_addr, leng, method);
+		}
+		bool Abort() const { return getParent().Abort(); }
+		bool AbortRupt() const { return getParent().AbortRupt(); }
 
 	};
 #endif

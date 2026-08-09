@@ -200,12 +200,12 @@ bool uni::InterruptControl::Initialize(byte typ) {
 	return true;
 }
 
-uint32 uni::InterruptControl::ReadLAPIC(uint32 offset) {
+uint32 uni::PortAdapter::ReadLAPIC(uint32 offset) {
 	if (typ == 2) return (uint32)getMSR(static_cast<x86MSR>(0x800 + (offset >> 4)));
 	return *(volatile uint32*)_IMM(0xFEE00000u + offset);
 }
 
-void uni::InterruptControl::WriteLAPIC(uint32 offset, uint32 val) {
+void uni::PortAdapter::WriteLAPIC(uint32 offset, uint32 val) {
 	if (typ == 2) setMSR(static_cast<x86MSR>(0x800 + (offset >> 4)), val);
 	else *(volatile uint32*)_IMM(0xFEE00000u + offset) = val;
 }
@@ -232,14 +232,14 @@ void uni::InterruptControl::SendEOI(byte irq) {
 volatile uint32_t* const ioapic_idx = reinterpret_cast<volatile uint32_t*>(0xFEC00000);
 volatile uint32_t* const ioapic_dat = reinterpret_cast<volatile uint32_t*>(0xFEC00010);
 __attribute__((optimize("O0")))
-void uni::InterruptControl::IO_Writ32(byte idx, uint32 val) {
+void uni::PortAdapter::IO_Writ32(byte idx, uint32 val) {
 	*ioapic_idx = idx;
 	mfence();
 	*ioapic_dat = val;
 	mfence();
 }
 __attribute__((optimize("O0")))
-uint32 uni::InterruptControl::IO_Read32(byte idx) {
+uint32 uni::PortAdapter::IO_Read32(byte idx) {
 	uint32 ret;
 	*ioapic_idx = idx;		
 	mfence();

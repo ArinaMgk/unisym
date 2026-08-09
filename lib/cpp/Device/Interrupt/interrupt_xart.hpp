@@ -54,7 +54,12 @@ static void _HandlerIRQ_XART_H7(byte art_id, XART_T& xart) {
 		if ((isrflags & USART_ISR_RXNE) && (USART_CR1_RXNEIE_REF(cr1its) || (USART_CR3_RXFTIE_REF(cr3its))))
 		{
 			xart.innHandlerByInterrupt();
-			asserv(FUNC_XART[art_id])(); return;
+			// Transceive(Rupt) mode: both lock_r and lock_t active;
+			// do NOT return yet — continue to TXE handler below
+			if (!(xart.lock_r && xart.lock_t)) {
+				asserv(FUNC_XART[art_id])(); return;
+			}
+			// Fall through: TXE may also be pending in Transceive mode
 		}
 	}
 	//
@@ -142,10 +147,10 @@ static void _HandlerIRQ_XART_H7(byte art_id, XART_T& xart) {
 				xart.error = NULL;
 			}
 		}
-		asserv(FUNC_XART[art_id])(); return;
-
+		asserv(FUNC_XART[art_id])();
+		// Transceive mode: do NOT return, fall through to TXE/TC handlers
+		if (!(xart.lock_r && xart.lock_t)) return;
 	} /* End if some error occurs */
-	/* UART wakeup from Stop mode interrupt occurred ---------------------------*/
 	if ((isrflags & USART_ISR_WUF) && (cr3its & USART_CR3_WUFIE))
 	{
 		xart[XARTReg::ICR] = USART_ICR_WUCF;

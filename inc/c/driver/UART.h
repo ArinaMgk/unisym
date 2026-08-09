@@ -53,6 +53,17 @@ namespace uni {
 	};
 #endif
 	class DMAStream; // forward declaration for UART DMA integration
+#if defined(_MCU_STM32H7x)
+	// AKA HAL_UART_StateTypeDef
+	enum class XARTState : byte {
+		Reset,
+		Ready,
+		BusyTX,
+		BusyRX,
+		BusyTxRx,
+		Error
+	};
+#endif
 }
 
 /// UART
@@ -90,6 +101,8 @@ namespace uni {
 		rostr error = NULL;
 		const DMAStream* hdmatx = nullptr;
 		const DMAStream* hdmarx = nullptr;
+		bool lock_r = false;
+		bool lock_t = false;
 		#endif
 	protected:
 		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)\
@@ -140,10 +153,6 @@ namespace uni {
 
 
 
-		#if defined(_MCU_STM32H7x)
-		bool lock_r = false;
-		bool lock_t = false;
-		#endif
 		#if !defined(_MCU_STM32H7x) && defined(_MCU_STM32) // ???
 		UARTCheck check = UARTCheck::None;
 		UARTStopBit stopbit = UARTStopBit::One;
@@ -296,7 +305,19 @@ namespace uni {
 		void ResumeDMA();
 		void StopDMA();
 		stduint getDMARequestID(bool is_tx) const;
-		#endif
+		// AKA HAL_UART_Abort (blocking): disable all IE + DMA, release locks
+		bool Abort();
+		// AKA HAL_UART_Abort_IT (non-blocking): disable all IE, release locks; DMA abort via AbortRupt
+		bool AbortRupt();
+		// AKA HAL_UART_GetState: derive state from lock_r/lock_t/error
+		XARTState getState() const;
+		// AKA HAL_HalfDuplex_Init: configure HDSEL mode
+		bool setModeHalfDuplex();
+		// AKA HAL_HalfDuplex_EnableTransmitter: clear TE+RE, set TE
+		void enableTransmitter();
+		// AKA HAL_HalfDuplex_EnableReceiver: clear TE+RE, set RE
+		void enableReceiver();
+	#endif
 		#endif
 	};
 }

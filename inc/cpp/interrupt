@@ -66,15 +66,11 @@ namespace uni {
 	public:
 		
 	};
-	class InterruptControl {
-	protected:
-		// 0x400 at least.
-		GateInterrupt* IVT_SEL_ADDR;
+	struct PortAdapter {
 		#if (_MCCA & 0xFF00) == 0x8600
 		byte typ = 0;// 0:PIC, 1:APIC, 2:x2APIC
-		#endif
-	public:// IOAPIC
-		#if (_MCCA & 0xFF00) == 0x8600
+
+
 		// RTE 64-bit
 		void IO_Writ32(byte idx, uint32 val);
 		uint32 IO_Read32(byte idx);
@@ -88,12 +84,21 @@ namespace uni {
 			ret |= IO_Read32(idx);
 			return ret;
 		}
-		auto getType() const { return typ; }
-
+		
 		// Read from Local APIC register
 		uint32 ReadLAPIC(uint32 mmio_offset);
 		// Write to Local APIC register
 		void WriteLAPIC(uint32 mmio_offset, uint32 val);
+		#endif
+	};
+	class InterruptControl : public PortAdapter {
+	protected:
+		// 0x400 at least.
+		GateInterrupt* IVT_SEL_ADDR;
+	public:// IOAPIC
+		#if (_MCCA & 0xFF00) == 0x8600
+		auto getType() const { return typ; }
+
 		#endif
 	public:
 		// @param _ivt_sel_addr: linear address but physical

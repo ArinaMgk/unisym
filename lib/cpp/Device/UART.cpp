@@ -1446,6 +1446,114 @@ namespace uni {
 		return xart_dmaRequestID(XART_ID, is_tx);
 	}
 
+	// AKA HAL_UART_Abort (blocking): disable all UART interrupts, clear DMA requests, abort DMA channels, release locks
+	bool UART_t::Abort() {
+		// Disable RXNE, PE, TXE, TC, RXFT, TXFT and ERR interrupts
+		USART_CR1_RXNEIE(self) = false;
+		USART_CR1_PEIE(self) = false;
+		self[XARTReg::CR1] &= ~(USART_CR1_TXEIE | USART_CR1_TCIE);
+		USART_CR3_EIE(self) = false;
+		USART_CR3_RXFTIE(self) = false;
+		self[XARTReg::CR3] &= ~USART_CR3_TXFTIE;
+
+		// Disable DMA Tx request if enabled
+		if (self[XARTReg::CR3] & USART_CR3_DMAT) {
+			self[XARTReg::CR3] &= ~USART_CR3_DMAT;
+			// Abort DMA Tx channel (blocking, no callback)
+			if (hdmatx) {
+				const_cast<DMAStream*>(hdmatx)->getParent().XferAbortCallback = NULL;
+				hdmatx->Abort();
+			}
+		}
+
+		// Disable DMA Rx request if enabled
+		if (self[XARTReg::CR3] & USART_CR3_DMAR) {
+			self[XARTReg::CR3] &= ~USART_CR3_DMAR;
+			// Abort DMA Rx channel (blocking, no callback)
+			if (hdmarx) {
+				const_cast<DMAStream*>(hdmarx)->getParent().XferAbortCallback = NULL;
+				hdmarx->Abort();
+			}
+		}
+
+		// Clear error flags in ICR
+		self[XARTReg::ICR] = USART_ICR_ORECF | USART_ICR_NCF | USART_ICR_PECF | USART_ICR_FECF;
+
+		// Release locks
+		lock_t = false;
+		lock_r = false;
+		error = NULL;
+
+		return true;
+	}
+
+	// AKA HAL_UART_Abort_IT (non-blocking): disable all UART interrupts, release locks, abort DMA via AbortRupt
+	bool UART_t::AbortRupt() {
+		// Disable PE, TC, RXNE, RXFT, TXFT and ERR interrupts
+		USART_CR1_PEIE(self) = false;
+		USART_CR1_RXNEIE(self) = false;
+		self[XARTReg::CR1] &= ~USART_CR1_TCIE;
+		USART_CR3_EIE(self) = false;
+		USART_CR3_RXFTIE(self) = false;
+		self[XARTReg::CR3] &= ~USART_CR3_TXFTIE;
+
+		// Disable DMA Tx request if enabled, abort DMA via AbortRupt
+		if (self[XARTReg::CR3] & USART_CR3_DMAT) {
+			self[XARTReg::CR3] &= ~USART_CR3_DMAT;
+			if (hdmatx) hdmatx->AbortRupt();
+		}
+
+		// Disable DMA Rx request if enabled, abort DMA via AbortRupt
+		if (self[XARTReg::CR3] & USART_CR3_DMAR) {
+			self[XARTReg::CR3] &= ~USART_CR3_DMAR;
+			if (hdmarx) hdmarx->AbortRupt();
+		}
+
+		// Clear error flags in ICR
+		self[XARTReg::ICR] = USART_ICR_ORECF | USART_ICR_NCF | USART_ICR_PECF | USART_ICR_FECF;
+
+		// Release locks
+		lock_t = false;
+		lock_r = false;
+		error = NULL;
+
+		return true;
+	}
+
+	// AKA HAL_UART_GetState: derive state from lock_r/lock_t/error
+	XARTState UART_t::getState() const {
+		if (error) return XARTState::Error;
+		if (lock_r && lock_t) return XARTState::BusyTxRx;
+		if (lock_r) return XARTState::BusyRX;
+		if (lock_t) return XARTState::BusyTX;
+		return XARTState::Ready;
+	}
+
+	// AKA HAL_HalfDuplex_Init: configure HDSEL mode
+	bool UART_t::setModeHalfDuplex() {
+		if (!enClock()) return false;
+		// Asynchronous half-duplex: clear LINEN, CLKEN, SCEN, IREN; set HDSEL
+		self[XARTReg::CR2] &= ~(USART_CR2_LINEN | USART_CR2_CLKEN);
+		self[XARTReg::CR3] &= ~(USART_CR3_IREN | USART_CR3_SCEN);
+		self[XARTReg::CR3] |= USART_CR3_HDSEL;
+		// TEACK and REACK must be waited before moving to Ready
+		return enAble(true);
+	}
+
+	// AKA HAL_HalfDuplex_EnableTransmitter: clear TE+RE, set TE (switch to TX direction in half-duplex)
+	void UART_t::enableTransmitter() {
+		USART_CR1_TE(self) = false;
+		USART_CR1_RE(self) = false;
+		USART_CR1_TE(self) = true;
+	}
+
+	// AKA HAL_HalfDuplex_EnableReceiver: clear TE+RE, set RE (switch to RX direction in half-duplex)
+	void UART_t::enableReceiver() {
+		USART_CR1_TE(self) = false;
+		USART_CR1_RE(self) = false;
+		USART_CR1_RE(self) = true;
+	}
+
 	// AKA HAL_USART_Transmit
 	stduint USART_t::Transmit(const char* tx_data, stduint size, IOMethod method) {
 		switch (method) {
@@ -1499,7 +1607,33 @@ namespace uni {
 		if (!tx_data || !rx_data || !size) return 0;
 		switch (method) {
 		case IOMethod::Loop: break; // fall through to polling
-		case IOMethod::Rupt: _TODO; return 0;
+		case IOMethod::Rupt: {
+			// AKA HAL_USART_TransmitReceive_IT
+			// Set up both TX and RX interrupt paths independently;
+			// the ISR handles TXE/RXNE concurrently via lock_r/lock_t flags.
+			if (!lock_r && !lock_t) {
+				const bool parity_enable = xart_parityEnable(parity);
+				const bool wide = xart_rxUnit(wordlen, parity_enable) == 2;
+				if (wide && (size & 1)) return 0;
+				tx_buffer = { (stduint)tx_data, size };
+				tx_pointer = 0;
+				lock_t = true;
+				rx_buffer = { (stduint)rx_data, size };
+				rx_pointer = 0;
+				lock_r = true;
+				// Enable error interrupt
+				USART_CR3_EIE(self) = true;
+				// Enable RXNEIE, TXEIE and PEIE (or FIFO thresholds if enabled)
+				USART_CR1_PEIE(self) = true;
+				self[XARTReg::CR1] |= USART_CR1_TXEIE;
+				if _IMM(USART_CR1_FIFOEN(self))
+					USART_CR3_RXFTIE(self) = true;
+				else
+					USART_CR1_RXNEIE(self) = true;
+				return size;
+			}
+			return 0;
+		}
 		case IOMethod::DMA: _TODO; return 0;
 		}
 		const bool parity_enable = xart_parityEnable(parity);

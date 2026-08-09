@@ -49,6 +49,8 @@ void Mouse_Init()
 
 #if defined(_INC_CPP) && (defined(_UEFI)) && (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 #include <algorithm>
+#include "../../../inc/c/proctrl/IAx86_64.msr.h"
+#include "../../../inc/cpp/interrupt"
 
 //{TEMP} version
 uni::PCI::Device* uni::device::SpaceUSB::HIDMouseDriver::Initialize(uni::PCI& pci, uni::PCI::Device& xhc_dev, uint64 xhc_mmio_base, uint8 irq_line, uint8 irq_pin, uni::device::SpaceUSB3::HostController* xhc) {
@@ -56,7 +58,11 @@ uni::PCI::Device* uni::device::SpaceUSB::HIDMouseDriver::Initialize(uni::PCI& pc
 	pci.enable_MMIO(xhc_dev);
 	ploginfo("xHC resource IRQ line=%u pin=%u", (unsigned)irq_line, (unsigned)irq_pin);
 	// config MSI
-	const uint8_t bsp_local_apic_id = treat<uint32>_IMM(0xFEE00020) >> 24;// or STI is useless -- Phina 20260117
+	const bool x2mode = (getMSR(x86MSR::APIC_BASE) & (1ULL << 10)) != 0;
+	PortAdapter port;
+	port.typ = x2mode ? 2 : 1;
+	const uint32_t apic_id_val = port.ReadLAPIC(0x20);
+	const uint8_t bsp_local_apic_id = x2mode ? (uint8_t)apic_id_val : (uint8_t)(apic_id_val >> 24); // or STI is useless -- Phina 20260117
 	pci.configure_MSI_fixed_destination(
 		xhc_dev, bsp_local_apic_id,
 		PCI::MSITriggerMode::Edge,

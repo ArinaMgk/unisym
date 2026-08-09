@@ -50,15 +50,24 @@ void PIT_Init()
 }
 
 #elif _MCCA == 0x8664
+#include "../../../inc/c/proctrl/IAx86_64.msr.h"
+#include "../../../inc/cpp/interrupt"
 using namespace uni;
 LocalAPICTimer lapic_timer;
 
 namespace {
 	const uint32 CountMax = 0xFFFFFFFFu;
-	volatile uint32* lvt_timer = (uint32*)(0xFEE00320);
-	volatile uint32* initial_count = (uint32*)(0xFEE00380);
-	volatile uint32* current_count = (uint32*)(0xFEE00390);
-	volatile uint32* divide_config = (uint32*)(0xFEE003E0);
+
+	// Check if x2APIC is active in hardware
+	inline bool is_x2apic_active() {
+		return (getMSR(x86MSR::APIC_BASE) & (1ULL << 10)) != 0;
+	}
+
+	inline PortAdapter get_port() {
+		PortAdapter port;
+		port.typ = is_x2apic_active() ? 2 : 1;
+		return port;
+	}
 }
 
 void LocalAPICTimer::Reset() {
@@ -70,21 +79,25 @@ void LocalAPICTimer::Reset() {
 	Frequency = elapsed * 10;
 }
 void LocalAPICTimer::Reset(stduint init_count) {
-	*divide_config = 0b1011; // divide 1:1
-	if (!init_count) *lvt_timer = _IMM(0b001 << 16) | 32; // masked, one-shot
+	PortAdapter port = get_port();
+	port.WriteLAPIC(0x3E0, 0b1011); // divide 1:1
+	if (!init_count) port.WriteLAPIC(0x320, _IMM(0b001 << 16) | 32); // masked, one-shot
 	else {
-		*lvt_timer = _IMM(0b010 << 16) | IRQ_LAPICTimer; // !masked, periodic
-		*initial_count = init_count;
+		port.WriteLAPIC(0x320, _IMM(0b010 << 16) | IRQ_LAPICTimer); // !masked, periodic
+		port.WriteLAPIC(0x380, init_count);
 	}
 }
 void LocalAPICTimer::Ento(stduint count) {
-	*initial_count = count;
+	PortAdapter port = get_port();
+	port.WriteLAPIC(0x380, count);
 }
 void LocalAPICTimer::Endo() {
-	*initial_count = 0;
+	PortAdapter port = get_port();
+	port.WriteLAPIC(0x380, 0);
 }
 stduint LocalAPICTimer::Read() {
-	return *current_count; // CountMax - *current_count;
+	PortAdapter port = get_port();
+	return port.ReadLAPIC(0x390);
 }
 
 #elif (_MCCA & 0xFF00) == 0x1000

@@ -140,6 +140,31 @@ namespace uni {
 	};
 	// DMAMUX1 routes peripheral requests to DMA1/DMA2 streams (replaces F4 CHSEL)
 	#define _DMAMUX1_BASE 0x40020800
+	// DMAMUX1 Channel Configuration Register (DMAMUX_CxCR) bit layout — H7 only.
+	// [7:0] DMAREQ_ID : DMA request ID (written by setRequest)
+	// [8]   SOIE      : Synchronization overrun interrupt enable
+	// [9]   EGE       : Event generation enable
+	// [16]  SE        : Synchronization enable
+	// [18:17] SPOL    : Synchronization polarity (0: no event, 1: rising, 2: falling)
+	// [24:19] NBREQ   : Number of DMA requests authorized per sync event (N-1 encoded)
+	// [29:25] SYNC_ID : Synchronization input signal ID
+	#define _DMAMUX_CxCR_SOIE    0x00000100U
+	#define _DMAMUX_CxCR_EGE     0x00000200U
+	#define _DMAMUX_CxCR_SE      0x00010000U
+	#define _DMAMUX_CxCR_SPOL_Pos 17U
+	#define _DMAMUX_CxCR_NBREQ_Pos 19U
+	#define _DMAMUX_CxCR_SYNC_ID_Pos 25U
+	// DMAMUX1 Request Generator Register (DMAMUX_RGxCR) bit layout — H7 only.
+	// [8]   OIE       : Request generator overrun interrupt enable
+	// [16]  GE        : Request generator enable
+	// [18:17] GPOL    : Request generator polarity (0: no event, 1: rising, 2: falling)
+	// [24:19] GNBREQ  : Number of requests to generate per event (N-1 encoded)
+	// [31:25] SIGNAL_ID : Request generator input signal ID
+	#define _DMAMUX_RGxCR_OIE      0x00000100U
+	#define _DMAMUX_RGxCR_GE       0x00010000U
+	#define _DMAMUX_RGxCR_GPOL_Pos 17U
+	#define _DMAMUX_RGxCR_NBREQ_Pos 19U
+	#define _DMAMUX_RGxCR_SIGNAL_ID_Pos 25U
 #endif
 
 	static stduint RCC_DMAx_addrs[_DMA_Counts] = // 0.._DMA_Counts
@@ -325,7 +350,159 @@ namespace uni {
 		return true;
 	}
 
+	// AKA HAL_DMAEx_MultiBufferStart / HAL_DMAEx_MultiBufferStart_IT
+	// Memory-to-memory transfer not supported in double buffering mode.
+	// When Double Buffer mode is enabled, the transfer is circular by default.
+	bool DMAStream::MultiBufferTransfer(pureptr_t dst_addr, pureptr_t src_addr, pureptr_t second_mem, stduint leng, IOMethod method) const {
+		using namespace DMAReg;
+		DMA_t& sel = getParent();
+		byte st = getID();
+		// Memory-to-memory transfer not supported in double buffering mode
+		if (sel[CR[st]].masof(_DMA_SxCR_POS_DIR, 2) == 2) {
+			sel.streamErrors[st] = _DMA_ERROR_NOT_SUPPORTED;
+			return false;
+		}
+		if (sel.streamStates[st] != _DMA_STATE_READY) {
+			sel.streamErrors[st] = _DMA_ERROR_BUSY;
+			return false;
+		}
+		sel.streamStates[st] = _DMA_STATE_BUSY;
+		sel.streamErrors[st] = _DMA_ERROR_NONE;
+		// Enable the double buffer mode
+		sel[CR[st]].setof(_DMA_SxCR_POS_DBM, true);
+		// Configure DMA Stream second memory address
+		sel[M1AR[st]] = _IMM(second_mem);
+		// Configure the source, destination address and the data length
+		sel[NDTR[st]] = leng;
+		// Use direction bit from existing CR config (DIR set by DMAChannel::setMode)
+		bool is_m2p = 1 == sel[CR[st]].masof(_DMA_SxCR_POS_DIR, 2);
+		sel[PAR[st]] = _IMM(is_m2p ? dst_addr : src_addr);
+		sel[M0AR[st]] = _IMM(is_m2p ? src_addr : dst_addr);
+		// Clear all stream flags
+		ClearInterruptFlags();
+		if (method == IOMethod::Rupt) {
+			// Enable common interrupts (TCIE | TEIE | DMEIE)
+			setInterruptSub(true);
+			// Double buffer: also enable HT if half callbacks are registered
+			if (sel.XferHalfCallback || sel.XferM1HalfCpltCallback)
+				sel[CR[st]].setof(_DMA_SxCR_POS_HTIE, true);
+			enInterruptNVIC(true);
+		}
+		// Enable the stream
+		enAble(true);
+		return true;
+	}
 
+	// AKA HAL_DMAEx_ChangeMemory: switch M0AR or M1AR on the fly
+	void DMAStream::ChangeMemory(pureptr_t addr, MemorySel mem) const {
+		using namespace DMAReg;
+		DMA_t& sel = getParent();
+		byte st = getID();
+		if (mem == MemorySel::Memory0) {
+			sel[M0AR[st]] = _IMM(addr);
+		} else {
+			sel[M1AR[st]] = _IMM(addr);
+		}
+	}
+
+#if defined(_MCU_STM32H7x)
+	// AKA HAL_DMAEx_ConfigMuxSync: configure DMAMUX synchronization for this stream
+	// Clear SE+EGE before applying new config; keeps existing DMAREQ_ID.
+	// DMAMUX_CxCR [7:0] DMAREQ_ID, [8] SOIE, [9] EGE, [16] SE, [18:17] SPOL, [24:19] NBREQ, [29:25] SYNC_ID
+	bool DMAStream::setMuxSync(stduint signal_id, MuxPolarity pol, bool ena, bool event_ena, stduint request_num) const {
+		DMA_t& sel = getParent();
+		byte st = getID();
+		byte mux_idx = st;
+		if (sel.getID() == 2) mux_idx += 8;
+		stduint ccr_addr = _DMAMUX1_BASE + mux_idx * 4;
+		if (sel.streamStates[st] != _DMA_STATE_READY) {
+			sel.streamErrors[st] = _DMA_ERROR_BUSY;
+			return false;
+		}
+		// Disable synchronization and event generation before applying new config
+		Reference ccr = Reference(ccr_addr);
+		ccr &= ~(_DMAMUX_CxCR_SE | _DMAMUX_CxCR_EGE);
+		if (ena) {
+			stduint new_val = ((stduint)ccr & 0xFFU)                                 // keep DMAREQ_ID[7:0]
+				| (signal_id << _DMAMUX_CxCR_SYNC_ID_Pos)                            // SYNC_ID[4:0] @ bit 25
+				| ((request_num - 1U) << _DMAMUX_CxCR_NBREQ_Pos)                     // NBREQ @ bit 19
+				| (((stduint)pol) << _DMAMUX_CxCR_SPOL_Pos)                          // SPOL @ bit 17
+				| _DMAMUX_CxCR_SE;                                                   // enable sync
+			if (event_ena) new_val |= _DMAMUX_CxCR_EGE;
+			ccr = new_val;
+		}
+		return true;
+	}
+
+	// AKA HAL_DMAEx_ConfigMuxRequestGenerator: configure DMAMUX request generator
+	// DMAMUX_RGxCR: [8] OIE, [16] GE, [18:17] GPOL, [24:19] GNBREQ, [31:25] SIGNAL_ID
+	// Note: DMAMUX1 has 8 request generators (indices follow the stream index 0..7);
+	//       a request generator is typically used by DMA2 streams.
+	bool DMAStream::ConfigRequestGenerator(stduint signal_id, MuxPolarity pol, stduint request_num) const {
+		DMA_t& sel = getParent();
+		byte st = getID();
+		stduint rgcr_addr = _DMAMUX1_BASE + 0x100U + st * 0x04U;
+		Reference rgcr = Reference(rgcr_addr);
+		// RequestGenerator must be disabled before configuring (GE bit must be 0)
+		if (rgcr.bitof(16)) {
+			sel.streamErrors[st] = _DMA_ERROR_BUSY;
+			return false;
+		}
+		rgcr = (signal_id << _DMAMUX_RGxCR_SIGNAL_ID_Pos)
+			| ((request_num - 1U) << _DMAMUX_RGxCR_NBREQ_Pos)
+			| (((stduint)pol) << _DMAMUX_RGxCR_GPOL_Pos);
+		return true;
+	}
+
+	// AKA HAL_DMAEx_EnableMuxRequestGenerator / DisableMuxRequestGenerator
+	bool DMAStream::EnableRequestGenerator(bool ena) const {
+		DMA_t& sel = getParent();
+		byte st = getID();
+		stduint rgcr_addr = _DMAMUX1_BASE + 0x100U + st * 0x04U;
+		Reference rgcr = Reference(rgcr_addr);
+		if (sel.streamStates[st] == _DMA_STATE_RESET)
+			return false; // stream not initialized
+		rgcr.setof(16, ena); // GE bit
+		return true;
+	}
+
+	// AKA HAL_DMAEx_MUX_IRQHandler: handle DMAMUX synchronization / request-generator overrun
+	// DMAMUX1 register layout (see RM0433):
+	//   CCR[N]    = 0x100 + 0x4*N        (N=0..15, channel configuration; N=8+st for DMA2)
+	//   CSR       = 0x080, CFR = 0x084   (channel status / status-clear, bit N = channel N)
+	//   RGCR[N]   = 0x100 + 0x4*N        (N=0..7,  request generator configuration)
+	//   RGSR      = 0x140, RGCFR = 0x144 (generator status / status-clear, bit N = generator N)
+	void DMAStream::HandleMuxIRQ(void) const {
+		DMA_t& sel = getParent();
+		byte st = getID();
+		byte mux_idx = st;
+		if (sel.getID() == 2) mux_idx += 8;
+
+		// Check DMAMUX synchronization overrun for this stream's channel
+		Reference csr = Reference(_DMAMUX1_BASE + 0x080U);
+		if (csr.bitof(mux_idx)) {
+			// Disable sync overrun interrupt
+			stduint ccr_addr = _DMAMUX1_BASE + mux_idx * 4;
+			Reference(ccr_addr) &= ~_DMAMUX_CxCR_SOIE;
+			// Clear sync overrun flag (write 1 to CFR bit)
+			Reference(_DMAMUX1_BASE + 0x084U).setof(mux_idx, true);
+			sel.streamErrors[st] |= _DMA_ERROR_SYNC;
+			asserv(sel.XferErrorCallback)();
+		}
+
+		// Check request generator overrun (generators follow stream index 0..7)
+		Reference rgsr = Reference(_DMAMUX1_BASE + 0x140U);
+		if (rgsr.bitof(st)) {
+			// Disable request generator overrun interrupt
+			Reference rgcr = Reference(_DMAMUX1_BASE + 0x100U + st * 0x04U);
+			rgcr &= ~_DMAMUX_RGxCR_OIE;
+			// Clear request generator overrun flag (write 1 to RGCFR bit)
+			Reference(_DMAMUX1_BASE + 0x144U).setof(st, true);
+			sel.streamErrors[st] |= _DMA_ERROR_REQGEN;
+			asserv(sel.XferErrorCallback)();
+		}
+	}
+#endif
 
 #endif
 

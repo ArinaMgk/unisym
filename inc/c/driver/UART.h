@@ -63,6 +63,13 @@ namespace uni {
 		BusyTxRx,
 		Error
 	};
+	// AKA UART_MODE_LIN / UART_MODE_MULTIPROCESSOR / UART_ADVFEATURE_DRIVER_ENABLE_INIT
+	enum class XartModeEx : byte {
+		Normal,          // standard async UART (default)
+		LIN,             // LIN mode
+		MultiProcessor,  // multiprocessor addressing mode
+		RS485            // RS485 driver enable mode (DE pin)
+	};
 #endif
 }
 
@@ -119,6 +126,12 @@ namespace uni {
 
 		#if defined(_MCU_STM32H7x)
 		XARTParity_E parity = XARTParity_E::None;
+		uint8_t mppAddr = 0;   // MultiProcessor node address (CR2.ADD[7:0])
+		uint32_t mppWakeUp = 0; // MultiProcessor wakeup method (CR1.WAKE)
+		uint32_t rs485Polarity = 0;        // RS485 DE polarity (CR3.DEP): 0 = active high, 1 = active low
+		uint32_t rs485AssertionTime = 0;   // RS485 DE assertion time (CR1.DEAT[4:0]), in bit-time units
+		uint32_t rs485DeassertionTime = 0; // RS485 DE deassertion time (CR1.DEDT[4:0]), in bit-time units
+		stduint status = ERR_UART_NONE;    // AKA HAL ErrorCode: error mask (ERR_UART_*), read via getError()
 		#elif (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)) \
 		|| (defined(_WinNT) || defined(_Linux))
 		UARTCheck parity;
@@ -317,6 +330,26 @@ namespace uni {
 		void enableTransmitter();
 		// AKA HAL_HalfDuplex_EnableReceiver: clear TE+RE, set RE
 		void enableReceiver();
+		// Extended mode init (LIN, MultiProcessor) — AKA HAL_LIN_Init / HAL_MultiProcessor_Init
+		bool setMode(stduint band_rate, XartModeEx mode);
+		// AKA HAL_LIN_SendBreak: trigger LIN break via RQR
+		bool LIN_SendBreak();
+		// AKA HAL_MultiProcessor_EnableMuteMode / DisableMuteMode: set/clear CR1.MME
+		void MultiProcessor_EnableMuteMode(bool ena = true);
+		// AKA HAL_MultiProcessor_EnterMuteMode: request entering mute mode via RQR.MMRQ
+		void MultiProcessor_EnterMuteMode();
+		// AKA HAL_UART_AbortTransmit_IT: abort TX only (non-blocking)
+		bool AbortTransmitRupt();
+		// AKA HAL_UART_AbortReceive_IT: abort RX only (non-blocking)
+		bool AbortReceiveRupt();
+		// AKA HAL_RS485Ex_Init: enter RS485 driver enable mode via setMode(baud, XartModeEx::RS485)
+		// DE polarity / assertion / deassertion times are set via rs485Polarity / rs485AssertionTime / rs485DeassertionTime fields before calling setMode
+		// AKA HAL_MultiProcessorEx_AddressLength_Set: set CR2.ADDM7
+		void setAddressLength(stduint AddressLength);
+		// AKA HAL_UARTEx_StopModeWakeUpSourceConfig: config wake-up event source
+		void StopModeWakeUpSourceConfig(uint32_t WakeUpEvent, uint16_t Address, uint32_t AddressLength);
+		// AKA HAL_UARTEx_EnableStopMode / DisableStopMode: set/clear CR1.UESM
+		void EnableStopMode(bool ena = true);
 	#endif
 		#endif
 	};
@@ -331,7 +364,7 @@ namespace uni {
 	class USART_t : public UART_t {
 	#if defined(_MCU_STM32H7x)
 	protected:
-		stduint status = ERR_UART_NONE;
+		bool dma_tcv_active = false; // Transceive DMA: true while dual DMA active
 	#endif
 	public:
 		USART_t(byte _XART_ID) : UART_t(_XART_ID) {}

@@ -62,10 +62,13 @@ namespace uni {
 #define _DMA_ERROR_TE            0x00000001U
 #define _DMA_ERROR_FE            0x00000002U
 #define _DMA_ERROR_DME           0x00000004U
+#define _DMA_ERROR_BUSY          0x00000010U
 #define _DMA_ERROR_TIMEOUT       0x00000020U
 #define _DMA_ERROR_PARAM         0x00000040U
 #define _DMA_ERROR_NO_XFER       0x00000080U
 #define _DMA_ERROR_NOT_SUPPORTED 0x00000100U
+#define _DMA_ERROR_SYNC          0x00000200U
+#define _DMA_ERROR_REQGEN        0x00000400U
 
 // Default timeout for DMA polling/abort (same scale as XART_TIMEOUT_VALUE)
 #define DMA_TIMEOUT_VALUE 0x1FFFFFFU
@@ -185,6 +188,19 @@ namespace uni {
 	
 #endif
 
+#if (defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x))
+	// AKA HAL_DMA_MemoryTypeDef
+	enum class MemorySel : byte { Memory0, Memory1 };
+#endif
+#if defined(_MCU_STM32H7x)
+	// AKA DMAMUX sync/request-generator polarity constants
+	// NB: 2-bit field; values 3 (HighLevel) and 4 (LowLevel) are not supported in hardware
+	enum class MuxPolarity : byte {
+		NoPolarity = 0,  // no synchronization event
+		Rising     = 1,  // DMAMUX_CxCR_SPOL_0: rising edge triggers synchronization
+		Falling    = 2   // DMAMUX_CxCR_SPOL_1: falling edge triggers synchronization
+	};
+#endif
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	class DMAStream;
 	class DMAChannel;
@@ -200,6 +216,10 @@ namespace uni {
 		Handler_t XferHalfCallback;
 		Handler_t XferErrorCallback;
 		Handler_t XferAbortCallback;
+		// Double buffer callbacks — AKA XferM1CpltCallback / XferM1HalfCpltCallback
+		// M1 callbacks fire when CT=1 (current target is Memory1); M0 fires standard XferCpltCallback
+		Handler_t XferM1CpltCallback;
+		Handler_t XferM1HalfCpltCallback;
 		bool m2p;
 		pureptr_t bind;
 		//
@@ -210,6 +230,8 @@ namespace uni {
 			XferHalfCallback = 0;
 			XferErrorCallback = 0;
 			XferAbortCallback = 0;
+			XferM1CpltCallback = 0;
+			XferM1HalfCpltCallback = 0;
 			bind = 0;
 			m2p = false;
 		#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
@@ -392,7 +414,7 @@ namespace uni {
 			cr.setof(_DMA_SxCR_POS_TCIE, ena_total);
 			cr.setof(_DMA_SxCR_POS_TEIE, ena_total);
 			cr.setof(_DMA_SxCR_POS_DMEIE, ena_total);
-			cr.setof(_DMA_SxCR_POS_HTIE, ena_total && sel.XferHalfCallback);
+			cr.setof(_DMA_SxCR_POS_HTIE, ena_total && (sel.XferHalfCallback || sel.XferM1HalfCpltCallback));
 			sel[FCR[getID()]].setof(_DMA_SxFCR_POS_FEIE, ena_total);
 		}
 
@@ -419,6 +441,31 @@ namespace uni {
 
 		// aka HAL_DMA_Abort_IT (non-blocking): disable EN, XferAbortCallback called from IRQ
 		bool AbortRupt() const;
+
+		// AKA HAL_DMAEx_MultiBufferStart / HAL_DMAEx_MultiBufferStart_IT
+		// Memory-to-memory transfer not supported in double buffering mode.
+		// When Double Buffer mode is enabled, the transfer is circular by default.
+		// Rupt callbacks: XferCpltCallback for M0 completion, XferM1CpltCallback for M1.
+		// If half callbacks are registered (XferHalfCallback / XferM1HalfCpltCallback), HTIE enabled.
+		bool MultiBufferTransfer(pureptr_t dst_addr, pureptr_t src_addr, pureptr_t second_mem, stduint leng, IOMethod method = IOMethod::Loop) const;
+		// AKA HAL_DMAEx_ChangeMemory: switch M0AR or M1AR on the fly (only when current target is the other buffer)
+		void ChangeMemory(pureptr_t addr, MemorySel mem) const;
+#if defined(_MCU_STM32H7x)
+		// AKA HAL_DMAEx_ConfigMuxSync: configure DMAMUX synchronization for this stream
+		// Clears SE+EGE before applying new config; keeps existing DMAREQ_ID.
+		//  - signal_id: sync signal ID (RM0433 Table 57 / Table 69)
+		//  - pol: sync trigger polarity (NoPolarity only valid when ena=false)
+		//  - request_num: number of DMA requests authorized per sync event (1..32)
+		//  - event_ena: if true, generates event when NBREQ counter reaches zero
+		bool setMuxSync(stduint signal_id, MuxPolarity pol, bool ena = true, bool event_ena = false, stduint request_num = 1) const;
+		// AKA HAL_DMAEx_ConfigMuxRequestGenerator: configure DMAMUX request generator
+		// RequestGenerator must be disabled (GE=0) before configuring.
+		bool ConfigRequestGenerator(stduint signal_id, MuxPolarity pol, stduint request_num) const;
+		// AKA HAL_DMAEx_EnableMuxRequestGenerator / DisableMuxRequestGenerator
+		bool EnableRequestGenerator(bool ena = true) const;
+		// AKA HAL_DMAEx_MUX_IRQHandler: handle DMAMUX sync/request-gen overrun for this stream
+		void HandleMuxIRQ(void) const;
+#endif
 
 	};
 
@@ -458,6 +505,21 @@ namespace uni {
 		}
 		bool Abort() const { return getParent().Abort(); }
 		bool AbortRupt() const { return getParent().AbortRupt(); }
+	#if (defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x))
+		bool MultiBufferTransfer(pureptr_t dst_addr, pureptr_t src_addr, pureptr_t second_mem, stduint leng, IOMethod method = IOMethod::Loop) const {
+			return getParent().MultiBufferTransfer(dst_addr, src_addr, second_mem, leng, method);
+		}
+		void ChangeMemory(pureptr_t addr, MemorySel mem) const { getParent().ChangeMemory(addr, mem); }
+	#endif
+	#if defined(_MCU_STM32H7x)
+		bool setMuxSync(stduint signal_id, MuxPolarity pol, bool ena = true, bool event_ena = false, stduint request_num = 1) const {
+			return getParent().setMuxSync(signal_id, pol, ena, event_ena, request_num);
+		}
+		bool ConfigRequestGenerator(stduint signal_id, MuxPolarity pol, stduint request_num) const {
+			return getParent().ConfigRequestGenerator(signal_id, pol, request_num);
+		}
+		bool EnableRequestGenerator(bool ena = true) const { return getParent().EnableRequestGenerator(ena); }
+	#endif
 
 	};
 #endif

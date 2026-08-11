@@ -1011,6 +1011,44 @@ namespace uni {
 		uart->error = "DMA";
 	}
 
+	// AKA USART_DMATransmitCplt / USART_DMAReceiveCplt (USART Transceive DMA)
+	// Called when TX DMA completes during Transceive DMA: if RX also done, enable TCIE for final TC
+	static void _usart_tcv_dma_tx_cplt() {
+		UART_t* uart = nullptr;
+		if (DMA1.XferCpltCallback == _usart_tcv_dma_tx_cplt) uart = (UART_t*)DMA1.bind;
+		else if (DMA2.XferCpltCallback == _usart_tcv_dma_tx_cplt) uart = (UART_t*)DMA2.bind;
+		if (!uart) return;
+		uart->lock_t = false;
+		stduint addr = uart->getAddress();
+		Reference(addr + _IMM(XARTReg::CR3)) &= ~USART_CR3_DMAT;
+		// If RX DMA also done (lock_r already false), enable TCIE and cleanup
+		if (!uart->lock_r) {
+			Reference(addr + _IMM(XARTReg::CR1)) |= USART_CR1_TCIE;
+			// Disable RX-related IE: PEIE (CR1.8), RXNEIE (CR1.5), EIE (CR3.0), RXFTIE (CR3.28)
+			Reference(addr + _IMM(XARTReg::CR1)) &= ~(0x100U | 0x20U);
+			Reference(addr + _IMM(XARTReg::CR3)) &= ~(0x1U | 0x10000000U);
+		}
+	}
+	// Called when RX DMA completes during Transceive DMA: if TX also done, enable TCIE for final TC
+	static void _usart_tcv_dma_rx_cplt() {
+		UART_t* uart = nullptr;
+		if (DMA1.XferCpltCallback == _usart_tcv_dma_rx_cplt) uart = (UART_t*)DMA1.bind;
+		else if (DMA2.XferCpltCallback == _usart_tcv_dma_rx_cplt) uart = (UART_t*)DMA2.bind;
+		if (!uart) return;
+		uart->lock_r = false;
+		stduint addr = uart->getAddress();
+		Reference(addr + _IMM(XARTReg::CR3)) &= ~USART_CR3_DMAR;
+		// If TX DMA also done (lock_t already false), enable TCIE and cleanup
+		if (!uart->lock_t) {
+			Reference(addr + _IMM(XARTReg::CR1)) |= USART_CR1_TCIE;
+			// Disable RX-related IE: PEIE (CR1.8), RXNEIE (CR1.5), EIE (CR3.0), RXFTIE (CR3.28)
+			Reference(addr + _IMM(XARTReg::CR1)) &= ~(0x100U | 0x20U);
+			Reference(addr + _IMM(XARTReg::CR3)) &= ~(0x1U | 0x10000000U);
+			// Clear TC flag in ISR
+			Reference(addr + _IMM(XARTReg::ICR)) = USART_ICR_TCCF;
+		}
+	}
+
 	int UART_t::inn() {
 		const bool parity_enable = xart_parityEnable(parity);
 		return xart_inn(getAddress(), xart_mask(wordlen, parity_enable), xart_rxUnit(wordlen, parity_enable) == 2);
@@ -1634,7 +1672,54 @@ namespace uni {
 			}
 			return 0;
 		}
-		case IOMethod::DMA: _TODO; return 0;
+		case IOMethod::DMA: {
+			// AKA HAL_USART_TransmitReceive_DMA
+			if (!hdmatx || !hdmarx || !tx_data || !rx_data || !size) return 0;
+			const bool parity_enable = xart_parityEnable(parity);
+			const bool wide = xart_rxUnit(wordlen, parity_enable) == 2;
+			if (wide && (size & 1)) return 0;
+			if (lock_r || lock_t) return 0;
+			// Enable error and parity interrupts for DMA error detection
+			USART_CR1_PEIE(self) = parity_enable;
+			USART_CR3_EIE(self) = true;
+			// Clear TC flag and lock both directions
+			self[XARTReg::ICR] = USART_ICR_TCCF;
+			lock_t = true;
+			lock_r = true;
+			dma_tcv_active = true;
+			tx_buffer = { (stduint)tx_data, size };
+			tx_pointer = 0;
+			rx_buffer = { (stduint)rx_data, size };
+			rx_pointer = 0;
+			// Configure TX DMA: Memory-to-Peripheral, completion callback
+			{
+				DMA_t& dma = hdmatx->getParent();
+				dma.bind = (pureptr_t)this;
+				dma.XferCpltCallback = _usart_tcv_dma_tx_cplt;
+				dma.XferErrorCallback = xart_dmaError;
+				stduint ndtr = wide ? size / 2 : size;
+				stduint tdr_addr = getAddress() + _IMM(XARTReg::TDR);
+				if (!hdmatx->Transfer((pureptr_t)tx_data, (pureptr_t)tdr_addr, ndtr, IOMethod::Rupt)) {
+					lock_t = false; lock_r = false; dma_tcv_active = false; return 0;
+				}
+			}
+			// Configure RX DMA: Peripheral-to-Memory, completion callback
+			{
+				DMA_t& dma = hdmarx->getParent();
+				dma.bind = (pureptr_t)this;
+				dma.XferCpltCallback = _usart_tcv_dma_rx_cplt;
+				dma.XferErrorCallback = xart_dmaError;
+				stduint ndtr = wide ? size / 2 : size;
+				stduint rdr_addr = getAddress() + _IMM(XARTReg::RDR);
+				if (!hdmarx->Transfer((pureptr_t)rx_data, (pureptr_t)rdr_addr, ndtr, IOMethod::Rupt)) {
+					Reference(getAddress() + _IMM(XARTReg::CR3)) &= ~(USART_CR3_DMAT | USART_CR3_DMAR);
+					lock_t = false; lock_r = false; dma_tcv_active = false; return 0;
+				}
+			}
+			// Enable DMA TX and RX requests
+			self[XARTReg::CR3] |= USART_CR3_DMAR | USART_CR3_DMAT;
+			return size;
+		}
 		}
 		const bool parity_enable = xart_parityEnable(parity);
 		const stduint msk = xart_mask(wordlen, parity_enable);
@@ -1682,6 +1767,170 @@ namespace uni {
 		return size;
 	}
 
+	// AKA HAL_LIN_Init / HAL_MultiProcessor_Init
+	// Extended-mode init: calls base setMode(band_rate) then applies LIN or MultiProcessor register configuration
+	bool UART_t::setMode(stduint band_rate, XartModeEx mode) {
+		// LIN mode only supports 8-bit word length and 16x oversampling
+		if (mode == XartModeEx::LIN) {
+			if (oversampling8 || wordlen != WordLength_E::Bits8) return false;
+		}
+		// Run base async init first (baud rate, word length, parity, stop bits, etc.)
+		if (!setMode(band_rate)) return false;
+		enAble(false);
+
+		switch (mode) {
+		case XartModeEx::LIN:
+			// LIN mode: clear CLKEN, HDSEL, IREN, SCEN; set LINEN
+			self[XARTReg::CR2] &= ~USART_CR2_CLKEN;
+			self[XARTReg::CR3] &= ~(USART_CR3_HDSEL | USART_CR3_IREN | USART_CR3_SCEN);
+			self[XARTReg::CR2] |= USART_CR2_LINEN;
+			break;
+		case XartModeEx::MultiProcessor:
+			// MultiProcessor mode: clear LINEN, CLKEN, SCEN, HDSEL, IREN
+			self[XARTReg::CR2] &= ~(USART_CR2_LINEN | USART_CR2_CLKEN);
+			self[XARTReg::CR3] &= ~(USART_CR3_SCEN | USART_CR3_HDSEL | USART_CR3_IREN);
+			// Set node address and wakeup method (idle-line or address-mark)
+			if (mppWakeUp & USART_CR1_WAKE) {
+				// Address-mark wakeup: write 4-bit address to CR2.ADD[3:0]
+				self[XARTReg::CR2] &= ~USART_CR2_ADD;
+				self[XARTReg::CR2] |= (mppAddr & 0x0FU) << 24U;
+			}
+			self[XARTReg::CR1] &= ~USART_CR1_WAKE;
+			self[XARTReg::CR1] |= mppWakeUp;
+			break;
+		case XartModeEx::RS485:
+			// AKA HAL_RS485Ex_Init: enter RS485 driver enable mode
+			// DE polarity / assertion / deassertion times are configured through the
+			// rs485Polarity / rs485AssertionTime / rs485DeassertionTime fields before calling setMode
+			// Enable DEM and set polarity DEP (CR3)
+			self[XARTReg::CR3] |= USART_CR3_DEM;
+			if (rs485Polarity)
+				self[XARTReg::CR3] |= USART_CR3_DEP;
+			else
+				self[XARTReg::CR3] &= ~USART_CR3_DEP;
+			// Set deassertion time DEDT[4:0] and assertion time DEAT[4:0] (CR1)
+			self[XARTReg::CR1] &= ~(USART_CR1_DEDT | USART_CR1_DEAT);
+			self[XARTReg::CR1] |= ((rs485DeassertionTime << 16U) & USART_CR1_DEDT)
+				| ((rs485AssertionTime << 21U) & USART_CR1_DEAT);
+			break;
+		default:
+			break;
+		}
+		// TEACK and REACK check before moving to Ready
+		return enAble(true);
+	}
+
+	// AKA HAL_LIN_SendBreak: trigger LIN break character via USART_RQR.SBKRQ
+	bool UART_t::LIN_SendBreak() {
+		// Write to RQR register to request break transmission
+		self[XARTReg::USARTReg16::RQR] = USART_RQR_SBKRQ;
+		return true;
+	}
+
+	// AKA HAL_MultiProcessor_EnableMuteMode / DisableMuteMode: set/clear CR1.MME
+	void UART_t::MultiProcessor_EnableMuteMode(bool ena) {
+		if (ena)
+			self[XARTReg::CR1] |= USART_CR1_MME;
+		else
+			self[XARTReg::CR1] &= ~USART_CR1_MME;
+	}
+
+	// AKA HAL_MultiProcessor_EnterMuteMode: request entering mute mode via RQR.MMRQ
+	// Once MME is set, a mute-mode request is sent to the receiver to enter mute mode.
+	void UART_t::MultiProcessor_EnterMuteMode() {
+		// Write to RQR register to request mute mode entry
+		self[XARTReg::USARTReg16::RQR] = USART_RQR_MMRQ;
+	}
+
+	// AKA HAL_UART_AbortTransmit_IT: abort TX direction only (non-blocking)
+	bool UART_t::AbortTransmitRupt() {
+		// Disable TX-related interrupts
+		self[XARTReg::CR1] &= ~(USART_CR1_TCIE | USART_CR1_TXEIE);
+		self[XARTReg::CR3] &= ~USART_CR3_TXFTIE;
+		// If DMA Tx is active, abort DMA channel via AbortRupt
+		if (self[XARTReg::CR3] & USART_CR3_DMAT) {
+			self[XARTReg::CR3] &= ~USART_CR3_DMAT;
+			if (hdmatx) hdmatx->AbortRupt();
+		}
+		else {
+			// No DMA: release lock immediately
+			lock_t = false;
+		}
+		return true;
+	}
+
+	// AKA HAL_UART_AbortReceive_IT: abort RX direction only (non-blocking)
+	bool UART_t::AbortReceiveRupt() {
+		// Disable RX-related interrupts
+		USART_CR1_PEIE(self) = false;
+		USART_CR1_RXNEIE(self) = false;
+		USART_CR3_EIE(self) = false;
+		USART_CR3_RXFTIE(self) = false;
+		// Clear error flags
+		self[XARTReg::ICR] = USART_ICR_ORECF | USART_ICR_NCF | USART_ICR_PECF | USART_ICR_FECF;
+		// If DMA Rx is active, abort DMA channel via AbortRupt
+		if (self[XARTReg::CR3] & USART_CR3_DMAR) {
+			self[XARTReg::CR3] &= ~USART_CR3_DMAR;
+			if (hdmarx) hdmarx->AbortRupt();
+		}
+		else {
+			// No DMA: release lock immediately
+			lock_r = false;
+		}
+		return true;
+	}
+
+	// AKA HAL_MultiProcessorEx_AddressLength_Set: set 7-bit address detection via CR2.ADDM7
+	void UART_t::setAddressLength(stduint AddressLength) {
+		enAble(false);
+		if (AddressLength >= 7)
+			self[XARTReg::CR2] |= USART_CR2_ADDM7;
+		else
+			self[XARTReg::CR2] &= ~USART_CR2_ADDM7;
+		enAble(true);
+	}
+
+	// AKA HAL_UARTEx_StopModeWakeUpSourceConfig: configure wake-up event source for Stop mode
+	void UART_t::StopModeWakeUpSourceConfig(uint32_t WakeUpEvent, uint16_t Address, uint32_t AddressLength) {
+		// Wake-up events requiring CR3.WUS configuration:
+		// 0x00 = ON_ADDRESS, 0x01 = ON_STARTBIT, 0x02 = ON_READDATA_NONEMPTY
+		if (WakeUpEvent <= 2U) {
+			enAble(false);
+			self[XARTReg::CR3] &= ~USART_CR3_WUS;
+			self[XARTReg::CR3] |= (WakeUpEvent << USART_CR3_WUS_Pos);
+			// Address-match wakeup: set address and length
+			if (WakeUpEvent == 0U) {
+				// Set address length (4-bit or 7-bit via CR2.ADDM7)
+				setAddressLength(AddressLength);
+				// Write node address to CR2.ADD[7:0]
+				self[XARTReg::CR2] &= ~USART_CR2_ADD;
+				self[XARTReg::CR2] |= ((uint32)Address << 24U);
+			}
+			enAble(true);
+			// Wait for REACK before returning
+			uint64 tickstart = SysTick::getTick();
+			while (!_IMM(USART_ISR_REACK(self))) {
+				if ((SysTick::getTick() - tickstart) > XART_TEACK_REACK_TIMEOUT) return;
+			}
+		}
+		// FIFO-based wakeup sources: just enable the relevant IE
+		else if (WakeUpEvent == 3U)// ON_RXFIFO_THRESHOLD
+			USART_CR3_RXFTIE(self) = true;
+		else if (WakeUpEvent == 4U)// ON_RXFIFO_FULL
+			self[XARTReg::CR1] |= USART_CR1_RXFFIE;
+		else if (WakeUpEvent == 5U)// ON_TXFIFO_THRESHOLD
+			self[XARTReg::CR3] |= USART_CR3_TXFTIE;
+		else if (WakeUpEvent == 6U)// ON_TXFIFO_EMPTY
+			self[XARTReg::CR1] |= USART_CR1_TXFEIE;
+	}
+
+	// AKA HAL_UARTEx_EnableStopMode / DisableStopMode: set/clear CR1.UESM
+	void UART_t::EnableStopMode(bool ena) {
+		if (ena)
+			self[XARTReg::CR1] |= USART_CR1_UESM;
+		else
+			self[XARTReg::CR1] &= ~USART_CR1_UESM;
+	}
 
 }
 

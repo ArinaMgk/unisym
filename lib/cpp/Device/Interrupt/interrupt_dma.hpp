@@ -56,7 +56,13 @@ _ESYM_C{
 	void DMA2_Stream5_IRQHandler(void) { _HandlerIRQ_DMAStreamx(2, 5); }
 	void DMA2_Stream6_IRQHandler(void) { _HandlerIRQ_DMAStreamx(2, 6); }
 	void DMA2_Stream7_IRQHandler(void) { _HandlerIRQ_DMAStreamx(2, 7); }
-	void DMAMUX1_OVR_IRQHandler(void) {}//{TODO} DMAMUX1 sync/request-gen overrun
+	void DMAMUX1_OVR_IRQHandler(void) {
+		// Iterate over all DMA streams (DMA1 + DMA2) and check DMAMUX overrun flags
+		for (byte dma_id = 1; dma_id <= 2; dma_id++) {
+			for (byte st = 0; st < 8; st++)
+				DMA[dma_id][st].HandleMuxIRQ();
+		}
+	}
 #elif defined(_MPU_STM32MP13)
 	//{TODO}
 	void DMA1_Stream0_IRQHandler(void) {}
@@ -131,6 +137,7 @@ static void _HandlerIRQ_DMAChannelx(byte dma_id, byte chanx) {
 
 // shared stream-style dispatch: LISR/HISR + LIFCR/HIFCR layout is identical on F4 and H7.
 // per-stream 6-bit block [FEIF, rsv, DMEIF, TEIF, HTIF, TCIF] at base offset 0/6/16/22.
+// Double buffer: CT bit (SxCR[19]) selects M0 vs M1 callback on TC/HT completion.
 static void _HandlerIRQ_DMAStreamx(byte dma_id, byte stream) {
 	DMA_t& crt = DMA[dma_id];
 	using namespace DMAReg;
@@ -143,6 +150,7 @@ static void _HandlerIRQ_DMAStreamx(byte dma_id, byte stream) {
 	uint32 fcr = crt[FCR[stream]];
 	DMARegType ifcr_reg = ishigh ? HIFCR : LIFCR;
 	bool is_circ = cr & (1U << _DMA_SxCR_POS_CIRC);
+	bool ct = cr & (1U << _DMA_SxCR_POS_CT); // current target: 0=M0, 1=M1 (double buffer)
 
 	// Transfer Complete
 	if ((flag & (1U << (posi + _DMA_SxFLAG_POS_TCIF))) && (cr & (1U << _DMA_SxCR_POS_TCIE))) {
@@ -164,14 +172,18 @@ static void _HandlerIRQ_DMAStreamx(byte dma_id, byte stream) {
 			crt[CR[stream]].setof(_DMA_SxCR_POS_TCIE, false);
 			crt.streamStates[stream] = _DMA_STATE_READY;
 		}
-		asserv(crt.XferCpltCallback)();
+		// Double buffer: CT bit selects which callback fires (M0 via XferCpltCallback, M1 via XferM1CpltCallback)
+		if (ct) asserv(crt.XferM1CpltCallback)();
+		else    asserv(crt.XferCpltCallback)();
 	}
 	// Half Transfer Complete
 	if ((flag & (1U << (posi + _DMA_SxFLAG_POS_HTIF))) && (cr & (1U << _DMA_SxCR_POS_HTIE))) {
 		crt[ifcr_reg] = (1U << (posi + _DMA_SxFLAG_POS_HTIF));
 		if (!is_circ)
 			crt[CR[stream]].setof(_DMA_SxCR_POS_HTIE, false);
-		asserv(crt.XferHalfCallback)();
+		// Double buffer: CT bit selects which half callback fires
+		if (ct) asserv(crt.XferM1HalfCpltCallback)();
+		else    asserv(crt.XferHalfCallback)();
 	}
 	// Transfer Error
 	if ((flag & (1U << (posi + _DMA_SxFLAG_POS_TEIF))) && (cr & (1U << _DMA_SxCR_POS_TEIE))) {

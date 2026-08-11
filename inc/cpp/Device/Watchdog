@@ -1,0 +1,88 @@
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Watching Dog: Independent and Window
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_Watchdog
+#define _INC_DEVICE_Watchdog
+
+#include "../unisym"
+#if defined(_MCU_STM32H7x)
+#include "../reference"
+
+#define _IWDG_TIMEOUT_VALUE 100U
+
+namespace uni {
+
+	// AKA IWDG_PR encoding values
+	enum class IWDGPrescaler : byte { Div4 = 0, Div8, Div16, Div32, Div64, Div128, Div256 };
+	// AKA WWDG_CFR_WDGTB encoding values
+	enum class WWDGPrescaler : byte { Div1 = 0, Div2, Div4, Div8, Div16, Div32, Div64, Div128 };
+
+	enum class IWDGReg {
+		KR, PR, RLR, SR, WINR
+	};
+	enum class WWDGReg {
+		CR, CFR, SR
+	};
+
+	class IWDG_t {
+	protected:
+		byte WDG_ID;
+	public:
+		IWDG_t(byte WDG_ID) : WDG_ID(WDG_ID) {}
+		byte getID() const { return WDG_ID; }
+		// AKA HAL_IWDG_Init: KR=0xCCCC(start) -> 0x5555(unlock) -> write PR/RLR -> wait SR cleared ->
+		//   write WINR if window differs, else feed dog (KR=0xAAAA) for a correct initial timebase
+		bool setMode(IWDGPrescaler prescaler, stduint reload, stduint window = 0x0FFF) const;
+		// AKA HAL_IWDG_Refresh: KR = 0xAAAA
+		bool Refresh() const;
+		// SR == 0: PR/RLR/WINR update completed
+		bool isReady() const;
+		Reference operator[](IWDGReg idx) const;
+	};
+	extern IWDG_t IWDG1;
+
+	class WWDG_t {
+	protected:
+		byte WDG_ID;
+	public:
+		byte counter;                    // AKA hwwdg->Init.Counter: stored for Refresh
+		Handler_t EarlyWakeupCallback;   // AKA HAL_WWDG_EarlyWakeupCallback
+		WWDG_t(byte WDG_ID) : WDG_ID(WDG_ID), counter(0), EarlyWakeupCallback(0) {}
+		byte getID() const { return WDG_ID; }
+		bool enClock(bool ena = true) const;
+		// AKA HAL_WWDG_Init: CR=WDGA|Counter; CFR=Prescaler|Window
+		bool setMode(WWDGPrescaler prescaler, stduint counter_val, stduint window) const;
+		// AKA HAL_WWDG_Refresh: CR = counter
+		bool Refresh() const;
+		// CFR.EWI bit set/clear (the only interrupt source)
+		bool enInterrupt(bool ena = true) const;
+		void setInterruptPriority(byte preempt, byte sub_priority) const;
+		bool enInterruptNVIC(bool ena = true) const;
+		// AKA HAL_WWDG_IRQHandler: if EWI enabled and EWIF set -> clear flag -> EarlyWakeupCallback
+		void IRQHandler() const;
+		Reference operator[](WWDGReg idx) const;
+	};
+	extern WWDG_t WWDG1;
+
+}
+#endif
+#endif

@@ -162,7 +162,7 @@ __Vectors_End */
 {TODO}	DCD     PendSV_Handler             ; PendSV Handler
 {TODO}	DCD     SysTick_Handler            ; SysTick Handler
 ; External Interrupts
-{TODO}	DCD     WWDG_IRQHandler                   ; Window WatchDog
+		DCD     WWDG_IRQHandler                   ; Window WatchDog
 {TODO}	DCD     PVD_IRQHandler                    ; PVD through EXTI Line detection
 {TODO}	DCD     TAMP_STAMP_IRQHandler             ; Tamper and TimeStamps through the EXTI line
 {TODO}	DCD     RTC_WKUP_IRQHandler               ; RTC Wakeup through the EXTI line

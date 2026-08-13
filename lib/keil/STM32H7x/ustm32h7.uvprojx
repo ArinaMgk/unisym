@@ -500,6 +500,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\Watchdog.cpp</FilePath>
             </File>
+            <File>
+              <FileName>TIM.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\TIM.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

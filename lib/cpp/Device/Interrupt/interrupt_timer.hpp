@@ -2,7 +2,7 @@
 
 
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 _ESYM_C{
 	//: typ: 0:Basic, 1:CaptureCompare, 2:Update, 3:Break, 4:Trigger, 5:Commutation
 	static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID);
@@ -12,6 +12,9 @@ _ESYM_C{
 	void TIM2_IRQHandler(void) { _HandlerIRQ_TIMx(0, 2); }
 	void TIM3_IRQHandler(void) { _HandlerIRQ_TIMx(0, 3); }
 	void TIM4_IRQHandler(void) { _HandlerIRQ_TIMx(0, 4); }
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+	void TIM5_IRQHandler(void) { _HandlerIRQ_TIMx(0, 5); }
+#endif
 
 #ifdef _MCU_STM32F1x
 	void TIM6_IRQHandler(void) { _HandlerIRQ_TIMx(0, 6); }
@@ -45,7 +48,7 @@ _ESYM_C{
 #endif
 
 
-#if defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	// pres: pos of SR and of DIER should be the same
 static bool _HandlerIRQ_TIMx_Exist(byte TIM_ID, stduint pos) {
 	using namespace TimReg;
@@ -62,7 +65,7 @@ static bool _HandlerIRQ_TIMx_Exist(byte TIM_ID, stduint pos) {
 static void _HandlerIRQ_TIMx_Channel(byte TIM_ID, byte chan) {
 	using namespace TimReg;
 	TIM_t& t = i_index(TIM, TIM_ID);
-	if (_HandlerIRQ_TIMx_Exist(TIM_ID, TIM_ID)) {
+	if (_HandlerIRQ_TIMx_Exist(TIM_ID, chan)) {
 		// SR.CCxIF and DIER.CCx
 		t.last_src = chan;
 		bool tim1or2 = chan <= 2;
@@ -102,11 +105,11 @@ static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {
 	//{TODO} TIM Break input event
 	//{TODO} TIM Trigger detection event
 	//{TODO} TIM commutation event
-#elif defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	//{TEMP} consider TIM_C just
 	using namespace TimReg;
 	if (typ) _TEMP return;
-	if (Ranglin(TIM_ID, 2, 4)) {
+	if (Ranglin(TIM_ID, 2, 4)) { // TIM_ID in [2,6): TIM2/3/4/5
 		TIM_t& t = i_index(TIM, TIM_ID);
 		_HandlerIRQ_TIMx_Channel(TIM_ID, 1);
 		_HandlerIRQ_TIMx_Channel(TIM_ID, 2);

@@ -25,28 +25,62 @@
 
 
 namespace uni {
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	
 	void TIM_t::setInterrupt(Handler_t f) const {
 		FUNC_TIMx[getID()] = f;
 	}
 	static Request_t TIM_Request_list[16] = {
 		Request_None, Request_None, IRQ_TIM2, IRQ_TIM3,
-		IRQ_TIM4, IRQ_TIM5, IRQ_TIM6, IRQ_TIM7,
+		IRQ_TIM4, IRQ_TIM5,
+#if defined(_MCU_STM32H7x)
+		IRQ_TIM6_DAC, IRQ_TIM7,
+#else
+		IRQ_TIM6, IRQ_TIM7,
+#endif
 	};
 	void TIM_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority(TIM_Request_list[getID()], preempt, sub_priority);
 	}
 	static void timer_it(byte TIM_ID, bool enable);
 	void TIM_t::enInterrupt(bool enable) const {
-		if (enable) {
-			NVIC.setAble(TIM_Request_list[getID()]);// dest
-		}
-		timer_it(getID(), enable);// sors
+		NVIC.setAble(TIM_Request_list[getID()], enable);// enable/disable NVIC
+		timer_it(getID(), enable);// configure DIER + counter
+	}
+
+	// aka HAL_TIM_Base_DeInit / PWM_DeInit / IC_DeInit / OC_DeInit / OnePulse_DeInit / Encoder_DeInit
+	bool TIM_t::canMode() {
+		using namespace TimReg;
+		enInterrupt(false);// disable NVIC + clear UIE
+		// Reset registers to their default (reset) values.
+		// Writing to reserved/unimplemented offsets (e.g. F1 TIM6/7) is harmless.
+		self[CR1] = 0;// CEN=0, aka __HAL_TIM_DISABLE
+		self[CR2] = 0;
+		self[SMCR] = 0;
+		self[DIER] = 0;
+		self[SR] = 0;
+		self[EGR] = 0;
+		self[CCMR1] = 0;
+		self[CCMR2] = 0;
+		self[CCER] = 0;
+		self[CNT] = 0;
+		self[PSC] = 0;
+		self[ARR] = 0;
+		self[RCR] = 0;
+		self[CCR1] = 0;
+		self[CCR2] = 0;
+		self[CCR3] = 0;
+		self[CCR4] = 0;
+		self[BDTR] = 0;
+		self[DCR] = 0;
+		self[DMAR] = 0;
+		self[OR] = 0;
+		enClock(false);// __HAL_RCC_TIMx_CLK_DISABLE
+		return true;
 	}
 
 	
-	#if defined(_MCU_STM32F4x)
+	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	bool TIM_CHAN_t::setMode(stduint compare, GPIO_Pin* pin) {
 		Letvar(addr, TIM_C*, TIM[TIM_ID]);
 		return addr->setChannel(CHAN_ID, compare, pin);
@@ -101,13 +135,20 @@ namespace uni {
 		&TIM6, &TIM7,
 	};
 
-#elif defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 
 	static const uint32 _REFADDR_TIM[] = { nil,
+#if defined(_MCU_STM32H7x)
+		D2_APB2PERIPH_BASE + 0x0000, D2_APB1PERIPH_BASE + 0x0000, D2_APB1PERIPH_BASE + 0x0400, D2_APB1PERIPH_BASE + 0x0800, // T 1 -> 4
+		D2_APB1PERIPH_BASE + 0x0C00, D2_APB1PERIPH_BASE + 0x1000, D2_APB1PERIPH_BASE + 0x1400, D2_APB2PERIPH_BASE + 0x0400, // T 5 -> 8
+		D2_APB2PERIPH_BASE + 0x4000, D2_APB2PERIPH_BASE + 0x4400, D2_APB2PERIPH_BASE + 0x4800, D2_APB1PERIPH_BASE + 0x1800, // T 9 -> 12
+		D2_APB1PERIPH_BASE + 0x1C00, D2_APB1PERIPH_BASE + 0x2000 // T 13 -> 14
+#else
 		0x40010000, 0x40000000, 0x40000400, 0x40000800, // T 1 -> 4
 		0x40000C00, 0x40001000, 0x40001400, 0x40010400, // T 5 -> 8
 		0x40014000, 0x40014400, 0x40014800, 0x40001800, // T 9 -> 12
 		0x40001C00, 0x40002000 // T 13 -> 14
+#endif
 	};
 	
 	TIM_C TIM2(_REFADDR_TIM[2], 2);
@@ -153,10 +194,10 @@ namespace uni {
 		GPINs_chan1_TIMx, GPINs_chan2_TIMx, GPINs_chan3_TIMx, GPINs_chan4_TIMx
 	};
 	static byte GPINs_AFs_TIMx[1 + 11] = { nil,
-		1,1, 2,2,2, // TIM1~5: AF1 for TIM1&2
+		1,1, 2,2,2, // TIM1~5: AF1 for TIM1&2, AF2 for TIM3/4/5
 		0xFF, 0xFF, // TIM6,7
 		3,3,3,3
-	};//{ONLY}  F407 & F417
+	};// F407 & F417 & H743
 
 	static TimReg::TimRegType _tab_timregs_ccr[] = {
 		TimReg::CCR1, TimReg::CCR2, TimReg::CCR3, TimReg::CCR4
@@ -164,13 +205,32 @@ namespace uni {
 	static void timer_it(byte TIM_ID, bool enable) {
 		using namespace TimReg;
 		TIM_t& sel = *TIM[TIM_ID];
-		sel[DIER] |= 1;// TIM_IT_UPDATE
-		if ((sel[SMCR] & 0x7) == 0x6) // TIM_SLAVEMODE_TRIGGER is TIM_SMCR_SMS
-			sel.enAble();
+		if (enable) {
+			sel[DIER] |= 1;// TIM_IT_UPDATE
+			#if defined(_MCU_STM32H7x)
+			sel.enAble(); // H7: unconditionally start counter
+			#else
+			if ((sel[SMCR] & 0x7) != 0x6) // !IS_TIM_SLAVEMODE_TRIGGER_ENABLED
+				sel.enAble();
+			#endif
+		}
+		else {
+			sel[DIER].setof(0, false);// clear UIE
+			#if defined(_MCU_STM32H7x)
+			sel.enAble(false); // H7: stop counter on disable
+			#else
+						// F4: stop only if not in slave trigger mode
+			if ((sel[SMCR] & 0x7) != 0x6)
+				sel.enAble(false);
+			#endif
+		}
 	}
 
-	void TIM_C::setMode(stduint prescaler, stduint period , bool auto_reload_preload) {
+	void TIM_C::setMode(stduint prescaler, stduint period, bool auto_reload_preload) {
 		using namespace TimReg;
+		// 16-bit timers (TIM3/4): clamp the default period to avoid ARR truncation
+		if ((TIM_ID == 3 || TIM_ID == 4) && period == _TIMC_DEFA_PERIOD)
+			period = _TIMC_DEFA_PERIOD16;
 		asserv(prescaler)--;
 		asserv(period)--;
 		bool _TEMP count_down = false;// direction
@@ -194,6 +254,8 @@ namespace uni {
 		if (TIM_ID == 1 || TIM_ID == 8) // IS_TIM_REPETITION_COUNTER_INSTANCE
 			self[RCR] = 0; // RepetitionCounter;
 		self[EGR] = _TEMP 1;// TIM_PSCReloadMode_Immediate
+		// Clear UIF after UG to avoid spurious interrupt
+		self[SR].setof(0, false);
 	}
 
 	// preset: Tim.setMode, e.g.(pres, period);
@@ -215,11 +277,10 @@ namespace uni {
 		return true;
 	}
 
-	// aka HAL_TIM_PWM_ConfigChannel
-	void TIM_C::ConfigChannel(byte channel, stduint pulse) {
+	// aka HAL_TIM_PWM_ConfigChannel / HAL_TIM_OC_ConfigChannel
+	// ocmode defaults to PWM1 (0x6) for backward compatibility
+	void TIM_C::ConfigChannel(byte channel, stduint pulse, stduint ocmode) {
 		using namespace TimReg;
-		_TEMP stduint TIM_OCMODE_PWM1 = 0x6;// 0b110
-		//{TEMP} OCFastMode = TIM_OCFAST_DISABLE; (0x00000000U)
 		_TEMP bool ddp_before_compar = false;
 		_TEMP bool TIM_OutputState_Enable = true;
 		if (!Ranglin(channel, 1, 4)) return;
@@ -231,8 +292,8 @@ namespace uni {
 		//: aka TIM_OCx_SetConfig
 		{
 			enCaptureCompareChannel(channel, false);
-			self[trt].maset(4 + shift, 3, TIM_OCMODE_PWM1);// OCxM
-			self[trt].maset(0 + shift, 2, nil);// CCxS
+			self[trt].maset(4 + shift, 3, ocmode);// OCxM
+			self[trt].maset(0 + shift, 2, nil);// CCxS = output
 			//: Select the Output Compare Mode
 			self[CCER].setof(chan0x + 1, ddp_before_compar);
 			self[CCER].setof(chan0x + 0, TIM_OutputState_Enable);
@@ -254,8 +315,11 @@ namespace uni {
 			}
 			self[_tab_timregs_ccr[channel - 1]] = pulse;//: aka __HAL_TIM_SET_COMPARE
 		}
-		self[trt] |= _IMM(0x00000008 << shift);// OCxPE
-		self[trt] &= ~_IMM(0x00000004 << shift);// OCxFE; // TIM_OCFAST_DISABLE; (0x00000000U)
+		// ARPE only meaningful for PWM modes (OC modes don't need preload)
+		if (ocmode == 0x6 || ocmode == 0x7) {
+			self[trt] |= _IMM(0x00000008 << shift);// OCxPE
+		}
+		self[trt] &= ~_IMM(0x00000004 << shift);// OCxFE; // TIM_OCFAST_DISABLE
 	}
 
 
@@ -311,6 +375,125 @@ namespace uni {
 		using namespace TimReg;
 		TIM_C& t = *(TIM_C*)TIM[TIM_ID];
 		return (double)(t[_tab_timregs_ccr[CHAN_ID - 1]]) / (1. + t[ARR]);
+	}
+	// Configure output compare mode with a specific mode and pulse
+	void TIM_CHAN_t::setMode(TimOutMode::TimOutMode mode, stduint pulse) {
+		TIM_C& t = *(TIM_C*)getParent();
+		if (t.getID() < 2 || t.getID() > 5) return; // only TIM2~5 supported
+		t.ConfigChannel(CHAN_ID, pulse, stduint(mode));
+		t.enChannel(CHAN_ID);
+		t.enAble();
+	}
+
+	// TIM DMA callbacks — located via DMA_t.bind (same scheme as UART DMA)
+	static void _TIM_DMA_UpdateCplt() {
+		TIM_t* t = (TIM_t*)DMA1.bind;
+		if (DMA1.XferCpltCallback != _TIM_DMA_UpdateCplt) t = (TIM_t*)DMA2.bind;
+		if (!t) return;
+		callif(FUNC_TIMx[t->getID()]);// period-elapsed callback
+	}
+	static void _TIM_DMA_DelayPulseCplt() {
+		TIM_t* t = (TIM_t*)DMA1.bind;
+		if (DMA1.XferCpltCallback != _TIM_DMA_DelayPulseCplt) t = (TIM_t*)DMA2.bind;
+		if (!t) return;
+		callif(t->FUNC_OC_DelayElapsed);
+		callif(t->FUNC_PWMPulseFinished);
+	}
+	static void _TIM_DMA_CaptureCplt() {
+		TIM_t* t = (TIM_t*)DMA1.bind;
+		if (DMA1.XferCpltCallback != _TIM_DMA_CaptureCplt) t = (TIM_t*)DMA2.bind;
+		if (!t) return;
+		callif(t->FUNC_IC_Capture);
+	}
+	static void _TIM_DMA_Error() {
+		TIM_t* t = (TIM_t*)DMA1.bind;
+		if (DMA1.XferErrorCallback != _TIM_DMA_Error) t = (TIM_t*)DMA2.bind;
+		if (!t) return;
+		using namespace TimReg;
+		(*t)[DIER] &= ~_IMM(0x1F00);// clear UDE + CC1~4DE (bits 8..12)
+		t->enAble(false);// stop counter
+	}
+
+	// aka HAL_TIM_Base_Start_DMA: DMA writes ARR on each update event
+	bool TIM_t::UpdateDMA(pureptr_t data, stduint leng, IOMethod method) {
+		using namespace TimReg;
+		if (!dma[0] || !data || !leng) return false;
+		DMA1.bind = (pureptr_t)this;
+		DMA1.XferCpltCallback = _TIM_DMA_UpdateCplt;
+		DMA1.XferErrorCallback = _TIM_DMA_Error;
+		// mem -> ARR (peripheral address is the ARR register)
+		stduint arr_addr = getBaseaddr() + _IMMx4(ARR);
+		if (!dma[0]->Transfer((pureptr_t)arr_addr, data, leng, method)) return false;
+		// enable the update DMA request (DIER.UDE = bit 8)
+		self[DIER].setof(8, true);
+		// enable counter, except in slave-mode trigger
+		if (0x6 != self[SMCR].mask(0, 3)) enAble(true);
+		return true;
+	}
+
+	// aka HAL_TIM_PWM/OC/IC_Start_DMA / Stop_DMA
+	bool TIM_C::enChannel(byte channel, bool ena, IOMethod method) {
+		using namespace TimReg;
+		if (!Ranglin(channel, 1, 4)) return false;
+		if (method != IOMethod::DMA) return false;
+		if (ena) {
+			// enable CCxDE (CC1DE=bit9 .. CC4DE=bit12)
+			self[DIER].setof(channel + 8, true);
+			// bind callbacks by direction (output: DelayPulseCplt, input: CaptureCplt)
+			if (dma[channel]) {
+				DMA1.bind = (pureptr_t)this;
+				TimReg::TimRegType trt = channel <= 2 ? CCMR1 : CCMR2;
+				byte shift = isodd(channel) ? 0 : 8;
+				if (self[trt].mask(shift, 2))// CCxS != 0 -> input capture
+					DMA1.XferCpltCallback = _TIM_DMA_CaptureCplt;
+				else
+					DMA1.XferCpltCallback = _TIM_DMA_DelayPulseCplt;
+				DMA1.XferErrorCallback = _TIM_DMA_Error;
+			}
+			enChannel(channel);// CCxE + MOE + CEN
+		}
+		else {
+			// disable CCxDE
+			self[DIER].setof(channel + 8, false);
+			// abort the DMA stream
+			if (dma[channel]) dma[channel]->Abort();
+			enCaptureCompareChannel(channel, false);// CCxE = 0
+			enAble(false);// CEN = 0
+		}
+		return true;
+	}
+
+	// aka HAL_TIM_PWM_Start_IT / IC_Start_IT / OC_Start_IT (and Stop_IT variants)
+	bool TIM_CHAN_t::enInterrupt(bool ena) {
+		TIM_t* t = getParent();
+		if (!t) return false;
+		if (ena) {
+			// Enable CCx interrupt in DIER
+			t->enCCInterrupt(CHAN_ID, true);
+			// Enable capture/compare channel (CCER)
+			((TIM_C*)t)->enCaptureCompareChannel(CHAN_ID, true);
+			// Enable main output for advanced timers (TIM1/8)
+			if (TIM_ID == 1 || TIM_ID == 8) {
+				(*t)[TimReg::BDTR] |= 0x00008000; // TIM_BDTR_MOE
+			}
+			// Enable counter, except in slave-mode trigger
+			if (0x6 != (*t)[TimReg::SMCR].mask(0, 3)) {
+				t->enAble(true);
+			}
+		}
+		else {
+			// Disable CCx interrupt
+			t->enCCInterrupt(CHAN_ID, false);
+			// Disable capture/compare channel
+			((TIM_C*)t)->enCaptureCompareChannel(CHAN_ID, false);
+			// Disable main output for advanced timers
+			if (TIM_ID == 1 || TIM_ID == 8) {
+				(*t)[TimReg::BDTR] &= ~0x00008000U;
+			}
+			// Stop counter
+			t->enAble(false);
+		}
+		return true;
 	}
 
 #elif defined(_MPU_STM32MP13)

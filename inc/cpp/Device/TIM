@@ -36,10 +36,11 @@
 #include "../interrupt"
 #include "GPIO"
 #include "RCC/RCCAddress"
+#include "DMA"
 
 //{TODO} each Channel has fixed address
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 #undef TIM
 #undef TIM1
 #undef TIM2
@@ -102,6 +103,19 @@ namespace uni {
 		} TimChinSel;
 	}
 
+	namespace TimOutMode { // TIM Output Compare modes (CCMRx.OCxM)
+		typedef enum : stduint {
+			Frozen = 0x0,       // output frozen, no compare action
+			Active = 0x1,       // set output active on match
+			Inactive = 0x2,     // set output inactive on match
+			Toggle = 0x3,       // toggle output on match
+			ForceInactive = 0x4,// force output inactive (no compare)
+			ForceActive = 0x5,  // force output active (no compare)
+			PWM1 = 0x6,         // PWM mode 1 (active when CNT < CCR)
+			PWM2 = 0x7,         // PWM mode 2 (inactive when CNT < CCR)
+		} TimOutMode;
+	}
+
 	class TIM_CHAN_t;
 	class TIM_t : public RuptTrait {
 	protected:
@@ -114,7 +128,11 @@ namespace uni {
 		Handler_t FUNC_Break;
 		Handler_t FUNC_Trigger;
 		Handler_t FUNC_Commute;
-		byte last_src;
+		volatile byte last_src;
+		// DMA stream handles: 0 = Update event, 1~4 = CC1~CC4 (aka HAL htim->hdma[])
+		DMAStream* dma[5];
+		// Base update-event DMA: mem -> ARR (aka HAL_TIM_Base_Start_DMA)
+		bool UpdateDMA(pureptr_t data, stduint leng, IOMethod method = IOMethod::Rupt);
 		TIM_t(stduint baseaddr, byte TIM_ID) : baseaddr(baseaddr), TIM_ID(TIM_ID) {
 			FUNC_IC_Capture = 0;
 			FUNC_OC_DelayElapsed = 0;
@@ -123,6 +141,7 @@ namespace uni {
 			FUNC_Trigger = 0;
 			FUNC_Commute = 0;
 			last_src = nil;
+			for (byte i = 0; i < 5; i++) dma[i] = 0;
 		}
 		Reference operator[](TimReg::TimRegType trt) {
 			return Reference(baseaddr + _IMMx4(trt));
@@ -134,15 +153,40 @@ namespace uni {
 		void enClock(bool ena = true) {
 			if (!TIM_ID) return;
 			byte width = 0;
-			stduint refaddr = _RCC_APB1ENR_ADDR;
+#if defined(_MCU_STM32H7x)
+			// H7 D2 domain: APB1LENR for TIM2~7, APB2ENR for TIM1/8
+			stduint refaddr = _RCC_ADDR + 0xE8; // APB1LENR
 			if (TIM_ID == 1) {
-				refaddr = _RCC_APB2ENR_ADDR;
-				width = 11;
+				refaddr = _RCC_ADDR + 0xF0; // APB2ENR
+				width = 0;
+			}
+			else if (TIM_ID == 8) {
+				refaddr = _RCC_ADDR + 0xF0; // APB2ENR
+				width = 1;
 			}
 			else if (Ranglin(TIM_ID, 2, 6)) { // TIM 2~7
 				width = TIM_ID - 2;
 			}
 			else _TODO;
+#else
+			stduint refaddr = _RCC_APB1ENR_ADDR;
+			if (TIM_ID == 1) {
+				refaddr = _RCC_APB2ENR_ADDR;
+#if defined(_MCU_STM32F1x)
+				width = 11;
+#else
+				width = 0; // F4: TIM1 is APB2 bit 0
+#endif
+			}
+			else if (TIM_ID == 8) {
+				refaddr = _RCC_APB2ENR_ADDR;
+				width = 1; // F4: TIM8 is APB2 bit 1
+			}
+			else if (Ranglin(TIM_ID, 2, 6)) { // TIM 2~7
+				width = TIM_ID - 2;
+			}
+			else _TODO;
+#endif
 			Reference(refaddr).setof(width, ena);
 		}
 		void enAble(bool ena = true) {
@@ -152,6 +196,15 @@ namespace uni {
 		void ConfigMaster(_TEMP stduint master_output_triggerm = 0, bool master_slave_enable = false);//{TO private}
 		bool WantedSource(byte src) {
 			return last_src == src;
+		}
+		// Reset the timer to its default state (aka HAL_TIM_*_DeInit):
+		// stop counter, clear all registers, then gate the peripheral clock.
+		bool canMode();
+		// Enable/disable capture/compare interrupt for a channel (DIER.CCxIE)
+		void enCCInterrupt(byte channel, bool ena = true) {
+			if (!Ranglin(channel, 1, 4)) return;
+			using namespace TimReg;
+			self[DIER].setof(channel, ena);
 		}
 	};
 
@@ -167,10 +220,15 @@ namespace uni {
 		bool setMode(stduint compare, GPIO_Pin* pin = nullptr);
 		// preset: setMode Parent; default: no-prescaler
 		void setMode(TimChinSel::TimChinSel sel, byte presexpo = 0);
+		// Configure output compare mode with pulse (aka HAL_TIM_OC_ConfigChannel)
+		void setMode(TimOutMode::TimOutMode mode, stduint pulse);
 		//
 		bool GenerateHalfwave(stduint pres, stduint period);
 		// preset: after using Generate-Halfwave
 		void RenerateHalfwave(stduint period);
+		// Start/stop channel in interrupt mode (aka HAL_TIM_*_Start_IT / Stop_IT)
+		bool enInterrupt(bool ena = true);
+		void disInterrupt() { enInterrupt(false); }
 
 		TIM_t* getParent() const { return TIM[TIM_ID]; }
 		double getDuty() const;
@@ -248,7 +306,7 @@ namespace uni {
 
 	class TIM_C;
 
-#elif defined(_MCU_STM32F4x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 
 	#define _TIM_CR2_POSI_MMS 4
 	
@@ -256,17 +314,23 @@ namespace uni {
 //{TODO} TIM[6] TIM[7]
 	//: TIMxCLK = HCLK/2 = 84MHz: TIMFREQ=TIMxCLK/TIMPrescaler=1MHz
 	//{TODO} get this from current sysfreq.
-	#define _TIMC_DEFA_PRESCALER 84 // 1e-6 second, 168M div APB1Pres(4) mul (2)
-	
+#if defined(_MCU_STM32H7x)
+	#define _TIMC_DEFA_PRESCALER 200 // 200MHz / 200 = 1MHz
+#else
+	#define _TIMC_DEFA_PRESCALER 84  // 168MHz / APB1Pres(4) * 2 = 84MHz; /84 = 1MHz
+#endif
 	#define _TIMC_DEFA_PERIOD    1000000
+	// 16-bit timers (TIM3/4) use a safe default to avoid truncation
+	#define _TIMC_DEFA_PERIOD16  0xFFFF
 	
 
 	class TIM_A;
 	class TIM_B;
 	class TIM_C : public TIM_t {
-		// aka HAL_TIM_PWM_ConfigChannel
-		void ConfigChannel(byte channel, stduint pulse);
 	public:
+		// aka HAL_TIM_PWM_ConfigChannel / HAL_TIM_OC_ConfigChannel
+		// ocmode defaults to PWM1 (0x6) for backward compatibility
+		void ConfigChannel(byte channel, stduint pulse, stduint ocmode = 0x6);
 		TIM_C(stduint baseaddr, byte TIM_ID) : TIM_t(baseaddr, TIM_ID) { }
 		//
 		void setMode(stduint prescaler = _TIMC_DEFA_PRESCALER, stduint period = _TIMC_DEFA_PERIOD, bool auto_reload_preload = false);
@@ -286,6 +350,12 @@ namespace uni {
 				enAble();
 			}
 		}
+
+		// Channel DMA request enable/disable (aka HAL_TIM_*_Start_DMA / Stop_DMA)
+		//   ena=true : CCxDE=1, bind callbacks, CCxE + MOE + CEN
+		//   ena=false: CCxDE=0, Abort DMA, CCxE=0 + CEN=0
+		// data, length and direction are configured at DMA layer (DMAStream::Transfer)
+		bool enChannel(byte channel, bool ena, IOMethod method);
 
 		//aka TIM_CCxChannelCmd
 		void enCaptureCompareChannel(byte channel, bool ena = true) {

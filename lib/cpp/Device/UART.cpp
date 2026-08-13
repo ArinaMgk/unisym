@@ -179,7 +179,7 @@ namespace uni {
 #elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 namespace uni {
 	int UART_t::inn() {
-		return innpb(PORT_COM1_DATA) & 0xFFu;
+		return innpb(baseaddr) & 0xFFu;
 	}
 
 	bool UART_t::operator<< (stduint dat) {
@@ -188,7 +188,7 @@ namespace uni {
 	int UART_t::out(const char* str, stduint len) {
 		for0(i, len) {
 			while (!is_transmit_empty());
-			outpb(PORT_COM1_DATA, str[i]);
+			outpb(baseaddr, str[i]);
 		}
 		return len;
 	}

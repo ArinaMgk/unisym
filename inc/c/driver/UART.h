@@ -146,6 +146,8 @@ namespace uni {
 
 		#if defined(_MCU_STM32)
 		byte XART_ID;
+		#elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		stduint baseaddr = 0x03F8;
 		#else
 		PORTNAME_TYPE portname;// "\\\\.\\COM10" or "ttyUSB0"
 		#endif
@@ -239,6 +241,8 @@ namespace uni {
 		{
 		}
 		~UART_t();
+		#elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		UART_t(stduint _baseaddr = 0x03F8) : baseaddr(_baseaddr) {}
 		#endif
 
 		// setMode Family
@@ -267,7 +271,8 @@ namespace uni {
 
 		// is_transmit_empty
 		#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
-		bool is_transmit_empty() { return innpb(0x3F8 + 5) & 0x20; }
+		bool is_transmit_empty() { return innpb(baseaddr + 5) & 0x20; }
+		stduint getAddress() const { return baseaddr; }
 		#endif
 
 		#if defined(_MCU_STM32)

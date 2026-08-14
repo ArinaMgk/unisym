@@ -25,33 +25,119 @@
 
 
 namespace uni {
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
-	
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	void TIM_t::setInterrupt(Handler_t f) const {
 		FUNC_TIMx[getID()] = f;
 	}
-	static Request_t TIM_Request_list[16] = {
-		Request_None, Request_None, IRQ_TIM2, IRQ_TIM3,
-		IRQ_TIM4, IRQ_TIM5,
-#if defined(_MCU_STM32H7x)
-		IRQ_TIM6_DAC, IRQ_TIM7,
-#else
-		IRQ_TIM6, IRQ_TIM7,
-#endif
-	};
-	void TIM_t::setInterruptPriority(byte preempt, byte sub_priority) const {
-		NVIC.setPriority(TIM_Request_list[getID()], preempt, sub_priority);
-	}
 	static void timer_it(byte TIM_ID, bool enable);
+#endif
+
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+	// Return the NVIC IRQ line for a timer event.
+	// typ: 0/2:Update, 1:CaptureCompare, 3:Break, 4:Trigger, 5:Commutation
+	static Request_t TIM_Request(byte TIM_ID, byte typ) {
+#if defined(_MCU_STM32H7x)
+		if (TIM_ID == 1) {
+			switch (typ) {
+			case 1: return IRQ_TIM1_CC;
+			case 3: return IRQ_TIM1_BRK;
+			case 4: case 5: return IRQ_TIM1_TRG_COM;
+			default: return IRQ_TIM1_UP;
+			}
+		}
+		if (TIM_ID == 8) {
+			switch (typ) {
+			case 1: return IRQ_TIM8_CC;
+			case 3: return IRQ_TIM8_BRK_TIM12;
+			case 4: case 5: return IRQ_TIM8_TRG_COM_TIM14;
+			default: return IRQ_TIM8_UP_TIM13;
+			}
+		}
+#else
+		if (TIM_ID == 1) {
+			switch (typ) {
+			case 1: return IRQ_TIM1CC;
+			case 3: return IRQ_TIM1BRK;
+			case 4: case 5: return IRQ_TIM1TRG_COM;
+			default: return IRQ_TIM1UP;
+			}
+		}
+		if (TIM_ID == 8) {
+			switch (typ) {
+			case 1: return IRQ_TIM8_CC;
+			case 3: return IRQ_TIM8_BRK;
+			case 4: case 5: return IRQ_TIM8_TRG_COM;
+			default: return IRQ_TIM8_UP;
+			}
+		}
+#endif
+		static const Request_t list[] = { Request_None,
+			Request_None, IRQ_TIM2, IRQ_TIM3,
+			IRQ_TIM4, IRQ_TIM5,
+#if defined(_MCU_STM32H7x)
+			IRQ_TIM6_DAC, IRQ_TIM7,
+#else
+			IRQ_TIM6, IRQ_TIM7,
+#endif
+		};
+		return (TIM_ID < numsof(list)) ? list[TIM_ID] : Request_None;
+	}
+	void TIM_t::setInterruptPriority(byte preempt, byte sub_priority) const {
+		NVIC.setPriority(TIM_Request(getID(), 0), preempt, sub_priority);
+		if (getID() == 1 || getID() == 8) {
+			NVIC.setPriority(TIM_Request(getID(), 1), preempt, sub_priority);// CC
+			NVIC.setPriority(TIM_Request(getID(), 3), preempt, sub_priority);// BRK
+			NVIC.setPriority(TIM_Request(getID(), 4), preempt, sub_priority);// TRG_COM
+		}
+	}
 	void TIM_t::enInterrupt(bool enable) const {
-		NVIC.setAble(TIM_Request_list[getID()], enable);// enable/disable NVIC
+		NVIC.setAble(TIM_Request(getID(), 0), enable);// enable/disable NVIC
 		timer_it(getID(), enable);// configure DIER + counter
 	}
+#elif defined(_MPU_STM32MP13)
+	static Request_t TIM_Request(byte TIM_ID, byte typ) {
+		if (TIM_ID == 1) {
+			switch (typ) {
+			case 1: return IRQ_TIM1_CC;
+			case 3: return IRQ_TIM1_BRK;
+			case 4: case 5: return IRQ_TIM1_TRG_COM;
+			default: return IRQ_TIM1_UP;
+			}
+		}
+		if (TIM_ID == 8) {
+			switch (typ) {
+			case 1: return IRQ_TIM8_CC;
+			case 3: return IRQ_TIM8_BRK;
+			case 4: case 5: return IRQ_TIM8_TRG_COM;
+			default: return IRQ_TIM8_UP;
+			}
+		}
+		static const Request_t list[] = { Request_None,
+			Request_None, IRQ_TIM2, IRQ_TIM3,
+			IRQ_TIM4, IRQ_TIM5, IRQ_TIM6, IRQ_TIM7,
+		};
+		return (TIM_ID < numsof(list)) ? list[TIM_ID] : Request_None;
+	}
+	void TIM_t::setInterruptPriority(byte preempt, byte sub_priority) const {
+		(void)sub_priority;
+		GIC.setPriority(TIM_Request(getID(), 0), preempt);
+		if (getID() == 1 || getID() == 8) {
+			GIC.setPriority(TIM_Request(getID(), 1), preempt);// CC
+			GIC.setPriority(TIM_Request(getID(), 3), preempt);// BRK
+			GIC.setPriority(TIM_Request(getID(), 4), preempt);// TRG_COM
+		}
+	}
+	void TIM_t::enInterrupt(bool enable) const {
+		GIC.enInterrupt(TIM_Request(getID(), 0), enable);// enable/disable GIC
+		timer_it(getID(), enable);// configure DIER + counter
+	}
+#endif
 
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	// aka HAL_TIM_Base_DeInit / PWM_DeInit / IC_DeInit / OC_DeInit / OnePulse_DeInit / Encoder_DeInit
 	bool TIM_t::canMode() {
 		using namespace TimReg;
-		enInterrupt(false);// disable NVIC + clear UIE
+		enInterrupt(false);// disable interrupt + clear UIE
 		// Reset registers to their default (reset) values.
 		// Writing to reserved/unimplemented offsets (e.g. F1 TIM6/7) is harmless.
 		self[CR1] = 0;// CEN=0, aka __HAL_TIM_DISABLE
@@ -79,13 +165,33 @@ namespace uni {
 		return true;
 	}
 
-	
-	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
-	bool TIM_CHAN_t::setMode(stduint compare, GPIO_Pin* pin) {
-		Letvar(addr, TIM_C*, TIM[TIM_ID]);
-		return addr->setChannel(CHAN_ID, compare, pin);
+	// aka __HAL_TIM_ENABLE_IT(TIM_IT_TRIGGER) + NVIC/GIC enable
+	void TIM_t::enTriggerInterrupt(bool ena) {
+		using namespace TimReg;
+		self[DIER].setof(6, ena);// DIER.TIE
+		if (TIM_ID == 1 || TIM_ID == 8) {// advanced timers route trigger to the TRG_COM line
+#if defined(_MPU_STM32MP13)
+			GIC.enInterrupt(TIM_Request(TIM_ID, 4), ena);
+#else
+			NVIC.setAble(TIM_Request(TIM_ID, 4), ena);
+#endif
+		}
 	}
-	
+
+	// aka __HAL_TIM_ENABLE_IT(TIM_IT_BREAK) + NVIC/GIC enable
+	void TIM_t::enBreakInterrupt(bool ena) {
+		using namespace TimReg;
+		if (TIM_ID != 1 && TIM_ID != 8) return;// break exists only on advanced timers
+		self[DIER].setof(7, ena);// DIER.BIE
+#if defined(_MPU_STM32MP13)
+		GIC.enInterrupt(TIM_Request(TIM_ID, 3), ena);
+#else
+		NVIC.setAble(TIM_Request(TIM_ID, 3), ena);
+#endif
+	}
+#endif
+
+	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	TIM_CHAN_t TIM_t::operator[](stduint chan_id) {
 		return TIM_CHAN_t(TIM_ID, chan_id);
 	}
@@ -95,10 +201,14 @@ namespace uni {
 		lock_timc(byte _TIM_ID) : TIM_ID(_TIM_ID) { TIM[_TIM_ID]->enAble(false); }
 		~lock_timc() { TIM[TIM_ID]->enAble(); }
 	};
-
 	#endif
 
-#endif
+	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+	bool TIM_CHAN_t::setMode(stduint compare, GPIO_Pin* pin) {
+		Letvar(addr, TIM_C*, TIM[TIM_ID]);
+		return addr->setChannel(CHAN_ID, compare, pin);
+	}
+	#endif
 
 #if 0
 #elif defined(_MCU_STM32F1x)
@@ -135,7 +245,7 @@ namespace uni {
 		&TIM6, &TIM7,
 	};
 
-#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 
 	static const uint32 _REFADDR_TIM[] = { nil,
 #if defined(_MCU_STM32H7x)
@@ -143,6 +253,12 @@ namespace uni {
 		D2_APB1PERIPH_BASE + 0x0C00, D2_APB1PERIPH_BASE + 0x1000, D2_APB1PERIPH_BASE + 0x1400, D2_APB2PERIPH_BASE + 0x0400, // T 5 -> 8
 		D2_APB2PERIPH_BASE + 0x4000, D2_APB2PERIPH_BASE + 0x4400, D2_APB2PERIPH_BASE + 0x4800, D2_APB1PERIPH_BASE + 0x1800, // T 9 -> 12
 		D2_APB1PERIPH_BASE + 0x1C00, D2_APB1PERIPH_BASE + 0x2000 // T 13 -> 14
+#elif defined(_MPU_STM32MP13)
+		APB2_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x1000, APB1_PERIPH_BASE + 0x2000, // T 1 -> 4
+		APB1_PERIPH_BASE + 0x3000, APB1_PERIPH_BASE + 0x4000, APB1_PERIPH_BASE + 0x5000, APB2_PERIPH_BASE + 0x1000, // T 5 -> 8
+		nil,                       nil,                       nil,                       APB6_PERIPH_BASE + 0x7000, // T 9 -> 12
+		APB6_PERIPH_BASE + 0x8000, APB6_PERIPH_BASE + 0x9000, APB6_PERIPH_BASE + 0xA000, APB6_PERIPH_BASE + 0xB000, // T 13 -> 16
+		APB6_PERIPH_BASE + 0xC000 // T 17
 #else
 		0x40010000, 0x40000000, 0x40000400, 0x40000800, // T 1 -> 4
 		0x40000C00, 0x40001000, 0x40001400, 0x40010400, // T 5 -> 8
@@ -151,17 +267,22 @@ namespace uni {
 #endif
 	};
 	
+	TIM_A TIM1(_REFADDR_TIM[1], 1);
 	TIM_C TIM2(_REFADDR_TIM[2], 2);
 	TIM_C TIM3(_REFADDR_TIM[3], 3);
 	TIM_C TIM4(_REFADDR_TIM[4], 4);
 	TIM_C TIM5(_REFADDR_TIM[5], 5);
-	// STATIC : 0x40000000 + 0x400 * (TIM_ID-2) : IF TIM_ID IN 2..6
+	TIM_B TIM6(_REFADDR_TIM[6], 6);
+	TIM_B TIM7(_REFADDR_TIM[7], 7);
+	TIM_A TIM8(_REFADDR_TIM[8], 8);
 	TIM_t* TIM[] = { nullptr,
-		nullptr, (TIM_t*)(pureptr_t)&TIM2,(TIM_t*)(pureptr_t)&TIM3,
-		(TIM_t*)(pureptr_t)&TIM4,(TIM_t*)(pureptr_t)&TIM5,
+		(TIM_t*)(pureptr_t)&TIM1, (TIM_t*)(pureptr_t)&TIM2, (TIM_t*)(pureptr_t)&TIM3,
+		(TIM_t*)(pureptr_t)&TIM4, (TIM_t*)(pureptr_t)&TIM5, (TIM_t*)(pureptr_t)&TIM6,
+		(TIM_t*)(pureptr_t)&TIM7, (TIM_t*)(pureptr_t)&TIM8,
 	};
 
 	//{TODO} a channel may connect multiple pins
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	static GPIO_Pin* GPINs_chan1_TIMx[] = { nullptr,
 		nullptr, // TIM1
 		& GPIOA[15], // or A[0]
@@ -198,6 +319,7 @@ namespace uni {
 		0xFF, 0xFF, // TIM6,7
 		3,3,3,3
 	};// F407 & F417 & H743
+#endif
 
 	static TimReg::TimRegType _tab_timregs_ccr[] = {
 		TimReg::CCR1, TimReg::CCR2, TimReg::CCR3, TimReg::CCR4
@@ -224,6 +346,19 @@ namespace uni {
 				sel.enAble(false);
 			#endif
 		}
+	}
+
+	// aka HAL_TIM_Base_Init for basic timers (TIM6/7): 16-bit time base without channels.
+	void TIM_B::setMode(stduint prescaler, stduint period, bool auto_reload_preload) {
+		using namespace TimReg;
+		asserv(prescaler)--;
+		asserv(period)--;
+		enClock();
+		self[CR1].setof(_TIM_CR1_POS_ARPE, auto_reload_preload);
+		self[ARR] = period;
+		self[PSC] = prescaler;
+		self[EGR] = 1;// reload prescaler immediately
+		self[SR].setof(0, false);// clear UIF to avoid a spurious interrupt
 	}
 
 	void TIM_C::setMode(stduint prescaler, stduint period, bool auto_reload_preload) {
@@ -259,6 +394,7 @@ namespace uni {
 	}
 
 	// preset: Tim.setMode, e.g.(pres, period);
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	bool TIM_C::setChannel(byte channel, stduint pulse_compar, GPIO_Pin* pin) {
 		using namespace TimReg;
 		if (!Ranglin(channel, 1, numsof(GPINs_chanx)) ||
@@ -276,6 +412,7 @@ namespace uni {
 		enAble();
 		return true;
 	}
+#endif
 
 	// aka HAL_TIM_PWM_ConfigChannel / HAL_TIM_OC_ConfigChannel
 	// ocmode defaults to PWM1 (0x6) for backward compatibility
@@ -510,13 +647,14 @@ namespace uni {
 	// Configure output compare mode with a specific mode and pulse
 	void TIM_CHAN_t::setMode(TimOutMode::TimOutMode mode, stduint pulse) {
 		TIM_C& t = *(TIM_C*)getParent();
-		if (t.getID() < 2 || t.getID() > 5) return; // only TIM2~5 supported
+		if (t.getID() == 6 || t.getID() == 7) return; // basic timers have no channels
 		t.ConfigChannel(CHAN_ID, pulse, stduint(mode));
 		t.enChannel(CHAN_ID);
 		t.enAble();
 	}
 
 	// TIM DMA callbacks — located via DMA_t.bind (same scheme as UART DMA)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	static void _TIM_DMA_UpdateCplt() {
 		TIM_t* t = (TIM_t*)DMA1.bind;
 		if (DMA1.XferCpltCallback != _TIM_DMA_UpdateCplt) t = (TIM_t*)DMA2.bind;
@@ -658,6 +796,7 @@ namespace uni {
 		if (dma[stduint(src)]) dma[stduint(src)]->Abort();
 		self[DIER].setof(8 + stduint(src), false);// clear UDE/CCxDE
 	}
+#endif
 
 	// Configure Hall sensor interface (aka HAL_TIMEx_HallSensor_Init params)
 	void TIM_C::ConfigHallSensor(stduint delay, TimIcPol::TimIcPol pol, byte filter, byte prescaler) {
@@ -673,6 +812,7 @@ namespace uni {
 	}
 
 	// Enable/disable complementary channel N (aka HAL_TIMEx_OCN/PWMN/OnePulseN_Start/Stop/_IT/_DMA)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	bool TIM_C::enChannelN(byte channel, bool ena, IOMethod method) {
 		using namespace TimReg;
 		if (!Ranglin(channel, 1, 4)) return false;
@@ -708,6 +848,7 @@ namespace uni {
 		}
 		return true;
 	}
+#endif
 
 	// Configure commutation event (aka HAL_TIMEx_ConfigCommutEvent/_IT/_DMA)
 	void TIM_C::ConfigCommutation(byte trigger, TimCommutSrc::TimCommutSrc src, IOMethod method) {
@@ -720,14 +861,29 @@ namespace uni {
 		if (method == IOMethod::Rupt) {
 			self[DIER].setof(5, true);// COMIE
 			self[DIER].setof(13, false);// COMDE
+#if defined(_MPU_STM32MP13)
+			GIC.enInterrupt(TIM_Request(TIM_ID, 5), true);
+#else
+			NVIC.setAble(TIM_Request(TIM_ID, 5), true);
+#endif
 		}
 		else if (method == IOMethod::DMA) {
 			self[DIER].setof(13, true);// COMDE
 			self[DIER].setof(5, false);// COMIE
+#if defined(_MPU_STM32MP13)
+			GIC.enInterrupt(TIM_Request(TIM_ID, 5), false);
+#else
+			NVIC.setAble(TIM_Request(TIM_ID, 5), false);
+#endif
 		}
 		else {
 			self[DIER].setof(5, false);// COMIE
 			self[DIER].setof(13, false);// COMDE
+#if defined(_MPU_STM32MP13)
+			GIC.enInterrupt(TIM_Request(TIM_ID, 5), false);
+#else
+			NVIC.setAble(TIM_Request(TIM_ID, 5), false);
+#endif
 		}
 	}
 
@@ -749,14 +905,14 @@ namespace uni {
 	// Configure remapping (aka HAL_TIMEx_RemapConfig)
 	void TIM_C::ConfigRemap(stduint remap) {
 		using namespace TimReg;
-#if defined(_MCU_STM32H7x)
-		self[AF1] = remap;// H7 remaps via AF1 (ETRSEL)
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+		self[AF1] = remap;// H7/MP13 remaps via AF1 (ETRSEL)
 #else
 		self[OR] = remap;// F1/F4 remaps via OR
 #endif
 	}
 
-#if defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	// Configure break input (aka HAL_TIMEx_ConfigBreakInput)
 	void TIM_C::ConfigBreakInput(TimBreakIn::TimBreakIn in, TimBreakSrc::TimBreakSrc src, bool ena, bool pol) {
 		using namespace TimReg;
@@ -803,6 +959,12 @@ namespace uni {
 			// Enable main output for advanced timers (TIM1/8)
 			if (TIM_ID == 1 || TIM_ID == 8) {
 				(*t)[TimReg::BDTR] |= 0x00008000; // TIM_BDTR_MOE
+				// Advanced timers route CC to a dedicated IRQ line.
+#if defined(_MPU_STM32MP13)
+				GIC.enInterrupt(TIM_Request(TIM_ID, 1), true);
+#else
+				NVIC.setAble(TIM_Request(TIM_ID, 1), true);
+#endif
 			}
 			// Enable counter, except in slave-mode trigger
 			if (0x6 != (*t)[TimReg::SMCR].mask(0, 3)) {
@@ -817,6 +979,11 @@ namespace uni {
 			// Disable main output for advanced timers
 			if (TIM_ID == 1 || TIM_ID == 8) {
 				(*t)[TimReg::BDTR] &= ~0x00008000U;
+#if defined(_MPU_STM32MP13)
+				GIC.enInterrupt(TIM_Request(TIM_ID, 1), false);
+#else
+				NVIC.setAble(TIM_Request(TIM_ID, 1), false);
+#endif
 			}
 			// Stop counter
 			t->enAble(false);
@@ -824,16 +991,6 @@ namespace uni {
 		return true;
 	}
 
-#elif defined(_MPU_STM32MP13)
-	
-	static const uint32 _REFADDR_TIM[] = { nil,
-		APB2_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x1000, APB1_PERIPH_BASE + 0x2000, // T 1 -> 4
-		APB1_PERIPH_BASE + 0x3000, APB1_PERIPH_BASE + 0x4000, APB1_PERIPH_BASE + 0x5000, APB2_PERIPH_BASE + 0x1000, // T 5 -> 8
-		nil,                       nil,                       nil,                       APB6_PERIPH_BASE + 0x7000, // T 9 -> 12
-		APB6_PERIPH_BASE + 0x8000, APB6_PERIPH_BASE + 0x9000, APB6_PERIPH_BASE + 0xA000, APB6_PERIPH_BASE + 0xB000, // T 13 -> 16
-		APB6_PERIPH_BASE + 0xC000 // T 17
-	};
-	
 #endif
 }
 

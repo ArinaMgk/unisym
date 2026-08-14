@@ -24,7 +24,7 @@
 #define _INC_DEVICE_Watchdog
 
 #include "../unisym"
-#if defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 #include "../reference"
 
 #define _IWDG_TIMEOUT_VALUE 100U
@@ -32,34 +32,72 @@
 namespace uni {
 
 	// AKA IWDG_PR encoding values
-	enum class IWDGPrescaler : byte { Div4 = 0, Div8, Div16, Div32, Div64, Div128, Div256 };
+	enum class IWDGPrescaler : byte { Div4 = 0, Div8, Div16, Div32, Div64, Div128, Div256
+#if defined(_MPU_STM32MP13)
+		, Div512, Div1024
+#endif
+	};
+
+#if defined(_MCU_STM32H7x)
 	// AKA WWDG_CFR_WDGTB encoding values
 	enum class WWDGPrescaler : byte { Div1 = 0, Div2, Div4, Div8, Div16, Div32, Div64, Div128 };
+#endif
 
 	enum class IWDGReg {
 		KR, PR, RLR, SR, WINR
+#if defined(_MPU_STM32MP13)
+		, EWCR
+#endif
 	};
+
+#if defined(_MCU_STM32H7x)
 	enum class WWDGReg {
 		CR, CFR, SR
 	};
+#endif
 
 	class IWDG_t {
 	protected:
 		byte WDG_ID;
 	public:
-		IWDG_t(byte WDG_ID) : WDG_ID(WDG_ID) {}
+#if defined(_MPU_STM32MP13)
+		Handler_t EwiCallback;          // AKA HAL_IWDG_EarlyWakeupCallback
+#endif
+		IWDG_t(byte WDG_ID) : WDG_ID(WDG_ID)
+#if defined(_MPU_STM32MP13)
+			, EwiCallback(0)
+#endif
+		{}
 		byte getID() const { return WDG_ID; }
-		// AKA HAL_IWDG_Init: KR=0xCCCC(start) -> 0x5555(unlock) -> write PR/RLR -> wait SR cleared ->
+		// AKA HAL_IWDG_Init: KR=0xCCCC(start) -> 0x5555(unlock) -> write PR/RLR -> (MP13: write EWCR) -> wait SR update flags clear ->
 		//   write WINR if window differs, else feed dog (KR=0xAAAA) for a correct initial timebase
-		bool setMode(IWDGPrescaler prescaler, stduint reload, stduint window = 0x0FFF) const;
+		bool setMode(IWDGPrescaler prescaler, stduint reload, stduint window = 0x0FFF
+#if defined(_MPU_STM32MP13)
+			, stduint ewi = 0
+#endif
+		) const;
 		// AKA HAL_IWDG_Refresh: KR = 0xAAAA
 		bool Refresh() const;
-		// SR == 0: PR/RLR/WINR update completed
+		// PR/RLR/WINR/EWCR update completed (SR PVU/RVU/WVU/EWU clear; ONF ignored on MP13)
 		bool isReady() const;
+#if defined(_MPU_STM32MP13)
+		// EWCR.EWIE set/clear (the only interrupt source); EWIT threshold is configured by setMode(..., ewi)
+		bool enInterrupt(bool ena = true) const;
+		// GIC priority (sub_priority ignored, kept for signature parity)
+		void setInterruptPriority(byte preempt, byte sub_priority) const;
+		// GIC line enable/disable
+		bool enInterruptGIC(bool ena = true) const;
+		// AKA HAL_IWDG_IRQHandler: if EWIF set -> clear (EWIC) -> EwiCallback
+		void IRQHandler() const;
+#endif
 		Reference operator[](IWDGReg idx) const;
 	};
 	extern IWDG_t IWDG1;
+#if defined(_MPU_STM32MP13)
+	extern IWDG_t IWDG2;
+#endif
 
+#if defined(_MCU_STM32H7x)
 	class WWDG_t {
 	protected:
 		byte WDG_ID;
@@ -82,6 +120,7 @@ namespace uni {
 		Reference operator[](WWDGReg idx) const;
 	};
 	extern WWDG_t WWDG1;
+#endif
 
 }
 #endif

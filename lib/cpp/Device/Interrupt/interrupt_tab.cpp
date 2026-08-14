@@ -22,6 +22,9 @@
 
 #include "../../../../inc/cpp/interrupt"
 #include "../../../../inc/cpp/Device/EXTI"
+#if defined(_MPU_STM32MP13)
+#include "../../../../inc/cpp/Device/Watchdog"
+#endif
 
 using namespace uni;
 
@@ -132,8 +135,8 @@ extern "C" {
 	void RCC_WAKEUP__IRQHandler(void) {}
 	void DTS_IRQHandler(void) {}
 	void MPU_WAKEUP_PIN_IRQHandler(void) {}
-	void IWDG1_IRQHandler(void) {}
-	void IWDG2_IRQHandler(void) {}
+	void IWDG1_IRQHandler(void) { uni::IWDG1.IRQHandler(); }
+	void IWDG2_IRQHandler(void) { uni::IWDG2.IRQHandler(); }
 	void TAMP_SIRQHandler(void) {}
 	void PMUIRQ0_IRQHandler(void) {}
 	void COMMRX0_IRQHandler(void) {}

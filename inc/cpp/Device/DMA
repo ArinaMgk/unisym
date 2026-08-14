@@ -74,10 +74,11 @@ namespace uni {
 #define DMA_TIMEOUT_VALUE 0x1FFFFFFU
 
 namespace uni {
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	#undef DMA
 	#undef DMA1
 	#undef DMA2
+	#undef DMA3
 
 	#define _DMA_Group(regname, start) \
 		static struct {\
@@ -130,7 +131,7 @@ namespace uni {
 
 
 
-#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	#define _DMA_Group_Span 6
 
 	#define _DMA_SxCR_POS_EN     0
@@ -188,11 +189,11 @@ namespace uni {
 	
 #endif
 
-#if (defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x))
+#if (defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13))
 	// AKA HAL_DMA_MemoryTypeDef
 	enum class MemorySel : byte { Memory0, Memory1 };
 #endif
-#if defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	// AKA DMAMUX sync/request-generator polarity constants
 	// NB: 2-bit field; values 3 (HighLevel) and 4 (LowLevel) are not supported in hardware
 	enum class MuxPolarity : byte {
@@ -201,7 +202,7 @@ namespace uni {
 		Falling    = 2   // DMAMUX_CxCR_SPOL_1: falling edge triggers synchronization
 	};
 #endif
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	class DMAStream;
 	class DMAChannel;
 	class DMA_t {
@@ -234,11 +235,14 @@ namespace uni {
 			XferM1HalfCpltCallback = 0;
 			bind = 0;
 			m2p = false;
-		#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+		#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 			for0(i, 8) {
 				streamStates[i] = _DMA_STATE_RESET;
 				streamErrors[i] = _DMA_ERROR_NONE;
 			}
+		#endif
+		#if defined(_MPU_STM32MP13)
+			for0(i, 8) streamRequests[i] = 0;
 		#endif
 		}
 		bool enClock(bool ena = true);
@@ -292,17 +296,23 @@ namespace uni {
 			self[CMARx[chan]] = _IMM(self.m2p ? src_addr : dst_addr);
 		}
 	#endif
-	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		const DMAStream& operator[](unsigned stream) const {
 			return *(const DMAStream*)((_IMM(getID()) << 8) | (stream << 4));
 		}
 		// per-stream state and error (DMAStream is a pseudo-pointer, storage lives here)
 		byte streamStates[8];
 		uint32 streamErrors[8];
+	#if defined(_MPU_STM32MP13)
+		byte streamRequests[8];// DMAMUX request id (low 8-bit): 0=MEM2MEM, 1..8=request generator 0..7
+	#endif
 	#endif
 	};
 
 	extern DMA_t DMA1, DMA2;
+#if defined(_MPU_STM32MP13)
+	extern DMA_t DMA3;
+#endif
 #ifdef _MCU_STM32F4x
 	
 	namespace DMAConnect {
@@ -318,6 +328,9 @@ namespace uni {
 			switch (id) {
 			case 1: return DMA1;
 			case 2: return DMA2;
+#if defined(_MPU_STM32MP13)
+			case 3: return DMA3;
+#endif
 			default: return DMAr;
 			}
 		}
@@ -327,7 +340,7 @@ namespace uni {
 		}
 	#endif
 	} DMA;
-#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	class DMAStream {
 	protected:
 		DMAReg::DMARegType refIFCR() const {
@@ -362,19 +375,7 @@ namespace uni {
 		}
 
 		// cancel working modes, aka HAL_DMA_DeInit
-		void canMode(void) const {
-			using namespace DMAReg;
-			DMA_t& sel = getParent();
-			sel.enClock();
-			sel[CR[getID()]] = 0;
-			sel[NDTR[getID()]] = 0;
-			sel[PAR[getID()]] = 0;
-			sel[M0AR[getID()]] = 0;
-			sel[M1AR[getID()]] = 0;
-			sel[FCR[getID()]] = 0x00000021;
-			ClearInterruptFlags();
-			while (sel[CR[getID()]].bitof(_DMA_SxCR_POS_EN));
-		}
+		void canMode(void) const;
 
 		void ClearInterruptFlags() const {
 			using namespace DMAReg;
@@ -387,6 +388,7 @@ namespace uni {
 			using namespace DMAReg;
 			DMA_t& sel = getParent();
 			byte st = getID();
+			sel[CR[st]].setof(_DMA_SxCR_POS_DBM, false);// clear DBM (aka DMA_SetConfig)
 			bool m2p = 1 == sel[CR[st]].masof(_DMA_SxCR_POS_DIR, 2); // DIR
 			sel[NDTR[st]] = leng;
 			sel[PAR[st]] = _IMM(m2p ? dst_addr : src_addr);
@@ -450,7 +452,7 @@ namespace uni {
 		bool MultiBufferTransfer(pureptr_t dst_addr, pureptr_t src_addr, pureptr_t second_mem, stduint leng, IOMethod method = IOMethod::Loop) const;
 		// AKA HAL_DMAEx_ChangeMemory: switch M0AR or M1AR on the fly (only when current target is the other buffer)
 		void ChangeMemory(pureptr_t addr, MemorySel mem) const;
-#if defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		// AKA HAL_DMAEx_ConfigMuxSync: configure DMAMUX synchronization for this stream
 		// Clears SE+EGE before applying new config; keeps existing DMAREQ_ID.
 		//  - signal_id: sync signal ID (RM0433 Table 57 / Table 69)
@@ -474,6 +476,10 @@ namespace uni {
 		enum FIFOThreshold {
 			_1QuarterFull = 0, _1HalfFull, _3QuarterFull, _Full
 		};
+#if defined(_MPU_STM32MP13)
+		// aka HAL DMA_MBURST_* / DMA_PBURST_* (memory/peripheral burst, 2-bit CR field)
+		enum class Burst : byte { Single = 0, Inc4, Inc8, Inc16 };
+#endif
 		byte getID() const {
 			return _IMM(this) & 0b111;
 		}
@@ -493,6 +499,10 @@ namespace uni {
 		}
 
 		void setFIFOThreshold(DMAChannel::FIFOThreshold hold) const;
+#if defined(_MPU_STM32MP13)
+		// aka HAL_DMA_Init FIFO part + DMA_CheckFifoParam
+		bool setFIFO(bool ena, Burst mem_burst = Burst::Single, Burst periph_burst = Burst::Single, FIFOThreshold threshold = _Full) const;
+#endif
 
 		void setRequest(stduint request_id) const {
 			getParent().setRequest(request_id);
@@ -505,13 +515,13 @@ namespace uni {
 		}
 		bool Abort() const { return getParent().Abort(); }
 		bool AbortRupt() const { return getParent().AbortRupt(); }
-	#if (defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x))
+	#if (defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13))
 		bool MultiBufferTransfer(pureptr_t dst_addr, pureptr_t src_addr, pureptr_t second_mem, stduint leng, IOMethod method = IOMethod::Loop) const {
 			return getParent().MultiBufferTransfer(dst_addr, src_addr, second_mem, leng, method);
 		}
 		void ChangeMemory(pureptr_t addr, MemorySel mem) const { getParent().ChangeMemory(addr, mem); }
 	#endif
-	#if defined(_MCU_STM32H7x)
+	#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		bool setMuxSync(stduint signal_id, MuxPolarity pol, bool ena = true, bool event_ena = false, stduint request_num = 1) const {
 			return getParent().setMuxSync(signal_id, pol, ena, event_ena, request_num);
 		}

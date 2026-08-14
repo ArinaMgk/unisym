@@ -12,25 +12,45 @@ _ESYM_C{
 	void TIM2_IRQHandler(void) { _HandlerIRQ_TIMx(0, 2); }
 	void TIM3_IRQHandler(void) { _HandlerIRQ_TIMx(0, 3); }
 	void TIM4_IRQHandler(void) { _HandlerIRQ_TIMx(0, 4); }
-#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	void TIM5_IRQHandler(void) { _HandlerIRQ_TIMx(0, 5); }
 #endif
 
 #ifdef _MCU_STM32F1x
 	void TIM6_IRQHandler(void) { _HandlerIRQ_TIMx(0, 6); }
+#elif defined(_MCU_STM32F4x)
+	void TIM1_BRK_TIM9_IRQHandler(void) { _HandlerIRQ_TIMx(3, 1); }
+	void TIM1_UP_TIM10_IRQHandler(void) { _HandlerIRQ_TIMx(2, 1); }
+	void TIM1_TRG_COM_TIM11_IRQHandler(void) { _HandlerIRQ_TIMx(4, 1); _HandlerIRQ_TIMx(5, 1); }
+	void TIM1_CC_IRQHandler(void) { _HandlerIRQ_TIMx(1, 1); }
+	void TIM8_BRK_TIM12_IRQHandler(void) { _HandlerIRQ_TIMx(3, 8); }
+	void TIM8_UP_TIM13_IRQHandler(void) { _HandlerIRQ_TIMx(2, 8); }
+	void TIM8_TRG_COM_TIM14_IRQHandler(void) { _HandlerIRQ_TIMx(4, 8); _HandlerIRQ_TIMx(5, 8); }
+	void TIM8_CC_IRQHandler(void) { _HandlerIRQ_TIMx(1, 8); }
+	void TIM6_DAC_IRQHandler(void) { _HandlerIRQ_TIMx(0, 6); }
+	void TIM7_IRQHandler(void) { _HandlerIRQ_TIMx(0, 7); }
+#elif defined(_MCU_STM32H7x)
+	void TIM1_BRK_IRQHandler(void) { _HandlerIRQ_TIMx(3, 1); }
+	void TIM1_UP_IRQHandler(void) { _HandlerIRQ_TIMx(2, 1); }
+	void TIM1_TRG_COM_IRQHandler(void) { _HandlerIRQ_TIMx(4, 1); _HandlerIRQ_TIMx(5, 1); }
+	void TIM1_CC_IRQHandler(void) { _HandlerIRQ_TIMx(1, 1); }
+	void TIM8_BRK_TIM12_IRQHandler(void) { _HandlerIRQ_TIMx(3, 8); }
+	void TIM8_UP_TIM13_IRQHandler(void) { _HandlerIRQ_TIMx(2, 8); }
+	void TIM8_TRG_COM_TIM14_IRQHandler(void) { _HandlerIRQ_TIMx(4, 8); _HandlerIRQ_TIMx(5, 8); }
+	void TIM8_CC_IRQHandler(void) { _HandlerIRQ_TIMx(1, 8); }
+	void TIM6_DAC_IRQHandler(void) { _HandlerIRQ_TIMx(0, 6); }
+	void TIM7_IRQHandler(void) { _HandlerIRQ_TIMx(0, 7); }
 #elif defined(_MPU_STM32MP13)
-	void TIM1_BRK_IRQHandler(void) {}
-	void TIM1_UP_IRQHandler(void) {}
-	void TIM1_TRG_COM_IRQHandler(void) {}
-	void TIM1_CC_IRQHandler(void) {}
-	void TIM8_BRK_IRQHandler(void) {}
-	void TIM8_UP_IRQHandler(void) {}
-	void TIM8_TRG_COM_IRQHandler(void) {}
-	void TIM8_CC_IRQHandler(void) {}
-	//
-	void TIM5_IRQHandler(void) {}
-	void TIM6_IRQHandler(void) {}
-	void TIM7_IRQHandler(void) {}
+	void TIM1_BRK_IRQHandler(void) { _HandlerIRQ_TIMx(3, 1); }
+	void TIM1_UP_IRQHandler(void) { _HandlerIRQ_TIMx(2, 1); }
+	void TIM1_TRG_COM_IRQHandler(void) { _HandlerIRQ_TIMx(4, 1); _HandlerIRQ_TIMx(5, 1); }
+	void TIM1_CC_IRQHandler(void) { _HandlerIRQ_TIMx(1, 1); }
+	void TIM8_BRK_IRQHandler(void) { _HandlerIRQ_TIMx(3, 8); }
+	void TIM8_UP_IRQHandler(void) { _HandlerIRQ_TIMx(2, 8); }
+	void TIM8_TRG_COM_IRQHandler(void) { _HandlerIRQ_TIMx(4, 8); _HandlerIRQ_TIMx(5, 8); }
+	void TIM8_CC_IRQHandler(void) { _HandlerIRQ_TIMx(1, 8); }
+	void TIM6_IRQHandler(void) { _HandlerIRQ_TIMx(0, 6); }
+	void TIM7_IRQHandler(void) { _HandlerIRQ_TIMx(0, 7); }
 	void TIM12_IRQHandler(void) {}
 	void TIM13_IRQHandler(void) {}
 	void TIM14_IRQHandler(void) {}
@@ -48,7 +68,7 @@ _ESYM_C{
 #endif
 
 
-#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	// pres: pos of SR and of DIER should be the same
 static bool _HandlerIRQ_TIMx_Exist(byte TIM_ID, stduint pos) {
 	using namespace TimReg;
@@ -105,11 +125,18 @@ static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {
 	//{TODO} TIM Break input event
 	//{TODO} TIM Trigger detection event
 	//{TODO} TIM commutation event
-#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
-	//{TEMP} consider TIM_C just
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	using namespace TimReg;
-	if (typ) _TEMP return;
-	if (Ranglin(TIM_ID, 2, 4)) { // TIM_ID in [2,6): TIM2/3/4/5
+	if (!TIM[TIM_ID]) _TEMP return;
+	// typ: 0:Global, 1:CaptureCompare, 2:Update, 3:Break, 4:Trigger, 5:Commutation
+	if (typ == 0) {
+		// Single global IRQ line: general timers (TIM2~5) and basic timers (TIM6/7).
+		if (TIM_ID == 6 || TIM_ID == 7) {
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 0)) { // UIF
+				callif(FUNC_TIMx[TIM_ID]);
+			}
+			_TEMP return;
+		}
 		TIM_t& t = i_index(TIM, TIM_ID);
 		_HandlerIRQ_TIMx_Channel(TIM_ID, 1);
 		_HandlerIRQ_TIMx_Channel(TIM_ID, 2);
@@ -117,25 +144,41 @@ static void _HandlerIRQ_TIMx(byte typ, byte TIM_ID) {
 		_HandlerIRQ_TIMx_Channel(TIM_ID, 4);
 		if (_HandlerIRQ_TIMx_Exist(TIM_ID, 0)) { // UIF
 			callif(FUNC_TIMx[TIM_ID]);
-			//(*TIM[TIM_ID])[SR].setof(0, true);
 			TIM[TIM_ID]->enAble();
 		}
-		if (_HandlerIRQ_TIMx_Exist(TIM_ID, 7)) { // BIF BIE
-			callif(t.FUNC_Break);// Break input event
-			//{TODO}
-		}
-		if (_HandlerIRQ_TIMx_Exist(TIM_ID, 6)) { // TIF TIE
-			callif(t.FUNC_Trigger);// Trigger detection event
-			//{TODO}
-		}
-		if (_HandlerIRQ_TIMx_Exist(TIM_ID, 5)) { // COMIF COMIE
-			callif(t.FUNC_Commute);// Commutation event
-			//{TODO}
+		if (_HandlerIRQ_TIMx_Exist(TIM_ID, 7)) callif(t.FUNC_Break);
+		if (_HandlerIRQ_TIMx_Exist(TIM_ID, 6)) callif(t.FUNC_Trigger);
+		if (_HandlerIRQ_TIMx_Exist(TIM_ID, 5)) callif(t.FUNC_Commute);
+		_TEMP return;
+	}
+	// Advanced timers (TIM1/8): dedicated BRK/UP/TRG_COM/CC IRQ lines.
+	if (TIM_ID != 1 && TIM_ID != 8) _TEMP return;
+	{
+		TIM_t& t = i_index(TIM, TIM_ID);
+		switch (typ) {
+		case 1:
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 1);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 2);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 3);
+			_HandlerIRQ_TIMx_Channel(TIM_ID, 4);
+			break;
+		case 2:
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 0)) { // UIF
+				callif(FUNC_TIMx[TIM_ID]);
+				TIM[TIM_ID]->enAble();
+			}
+			break;
+		case 3:
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 7)) callif(t.FUNC_Break);
+			break;
+		case 4:
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 6)) callif(t.FUNC_Trigger);
+			break;
+		case 5:
+			if (_HandlerIRQ_TIMx_Exist(TIM_ID, 5)) callif(t.FUNC_Commute);
+			break;
 		}
 	}
-	else _TEMP return;
-#elif defined(_MPU_STM32MP13)
-	//{TODO}
 #endif
 }
 

@@ -40,7 +40,7 @@
 
 //{TODO} each Channel has fixed address
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 #undef TIM
 #undef TIM1
 #undef TIM2
@@ -91,8 +91,8 @@ namespace uni {
 			BDTR,  // TIM break and dead-time register,           0x44
 			DCR,   // TIM DMA control register,                   0x48
 			DMAR,  // TIM DMA address for full transfer register, 0x4C
-			OR,    // TIM option register,                        0x50 (F1/F4; H7 reserved)
-#if defined(_MCU_STM32H7x)
+			OR,    // TIM option register,                        0x50 (F1/F4; H7/MP13 reserved)
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 			_RSV1, // TIM capture/compare mode register 3,        0x54
 			CCR5,  // TIM capture/compare register 5,             0x58
 			_RSV2, // TIM capture/compare register 6,             0x5C
@@ -198,7 +198,7 @@ namespace uni {
 		} TimCommutSrc;
 	}
 
-#if defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	namespace TimBreakIn { // TIM break input channel (H7 AF1/AF2)
 		typedef enum {
 			Brk = 0,  // BKIN
@@ -217,6 +217,7 @@ namespace uni {
 #endif
 
 	class TIM_CHAN_t;
+	class DMAStream; // forward: DMAStream* member below; full type only on F4/H7 (MP13 defers DMA)
 	class TIM_t : public RuptTrait {
 	protected:
 		stduint baseaddr;
@@ -252,6 +253,25 @@ namespace uni {
 		_COM_DEF_Interrupt_Interface();
 		void enClock(bool ena = true) {
 			if (!TIM_ID) return;
+#if defined(_MPU_STM32MP13)
+			// MP13 RCC: TIM1/8 (APB2), TIM2~7 (APB1), TIM12~17 (APB6)
+			stduint refaddr;
+			byte width;
+			if (TIM_ID == 1 || TIM_ID == 8) {
+				refaddr = _RCC_ADDR + (ena ? 0x708 : 0x70C); // APB2ENSETR / APB2ENCLRR
+				width = TIM_ID - 1; // TIM1 = 0, TIM8 = 1
+			}
+			else if (Ranglin(TIM_ID, 2, 6)) { // TIM 2~7
+				refaddr = _RCC_ADDR + (ena ? 0x700 : 0x704); // APB1ENSETR / APB1ENCLRR
+				width = TIM_ID - 2;
+			}
+			else if (Ranglin(TIM_ID, 12, 6)) { // TIM 12~17
+				refaddr = _RCC_ADDR + (ena ? 0x748 : 0x74C); // APB6ENSETR / APB6ENCLRR
+				width = TIM_ID - 5; // TIM12 = 7 .. TIM17 = 12
+			}
+			else return;
+			Reference(refaddr).operator=(_IMM1S(width));
+#else
 			byte width = 0;
 #if defined(_MCU_STM32H7x)
 			// H7 D2 domain: APB1LENR for TIM2~7, APB2ENR for TIM1/8
@@ -288,6 +308,7 @@ namespace uni {
 			else _TODO;
 #endif
 			Reference(refaddr).setof(width, ena);
+#endif
 		}
 		void enAble(bool ena = true) {
 			using namespace TimReg;
@@ -306,11 +327,10 @@ namespace uni {
 			using namespace TimReg;
 			self[DIER].setof(channel, ena);
 		}
-		// Enable/disable trigger interrupt (DIER.TIE)
-		void enTriggerInterrupt(bool ena = true) {
-			using namespace TimReg;
-			self[DIER].setof(6, ena);
-		}
+		// Enable/disable trigger interrupt (DIER.TIE; advanced timers also toggle the TRG_COM IRQ line)
+		void enTriggerInterrupt(bool ena = true);
+		// Enable/disable break interrupt (DIER.BIE + the BRK IRQ line, advanced timers only)
+		void enBreakInterrupt(bool ena = true);
 	};
 
 	extern TIM_t* TIM[];
@@ -411,7 +431,7 @@ namespace uni {
 
 	class TIM_C;
 
-#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 
 	#define _TIM_CR2_POSI_MMS 4
 	
@@ -421,6 +441,8 @@ namespace uni {
 	//{TODO} get this from current sysfreq.
 #if defined(_MCU_STM32H7x)
 	#define _TIMC_DEFA_PRESCALER 200 // 200MHz / 200 = 1MHz
+#elif defined(_MPU_STM32MP13)
+	#define _TIMC_DEFA_PRESCALER 200 // {TODO} MP13 APB clock; placeholder matching H7 (5% adaptation)
 #else
 	#define _TIMC_DEFA_PRESCALER 84  // 168MHz / APB1Pres(4) * 2 = 84MHz; /84 = 1MHz
 #endif
@@ -429,8 +451,13 @@ namespace uni {
 	#define _TIMC_DEFA_PERIOD16  0xFFFF
 	
 
-	class TIM_A;
-	class TIM_B;
+	class TIM_B : public TIM_t {
+	public:
+		TIM_B(stduint baseaddr, byte TIM_ID) : TIM_t(baseaddr, TIM_ID) { }
+		// Basic timers (TIM6/7): 16-bit time base without channels.
+		// prescaler/period are actual divide values (written as value-1), matching TIM_C::setMode.
+		void setMode(stduint prescaler = _TIMC_DEFA_PRESCALER, stduint period = _TIMC_DEFA_PERIOD16, bool auto_reload_preload = false);
+	};
 	class TIM_C : public TIM_t {
 	public:
 		// aka HAL_TIM_PWM_ConfigChannel / HAL_TIM_OC_ConfigChannel
@@ -504,7 +531,7 @@ namespace uni {
 		void ConfigBreakDeadTime(byte deadtime = 0, byte lock = 0, bool ossi = false, bool ossr = false, bool bke = false, bool bkp = false, bool aoe = false);
 		// Configure remapping (aka HAL_TIMEx_RemapConfig): F1/F4 -> OR, H7 -> AF1
 		void ConfigRemap(stduint remap);
-#if defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 		// Configure break input (aka HAL_TIMEx_ConfigBreakInput)
 		void ConfigBreakInput(TimBreakIn::TimBreakIn in, TimBreakSrc::TimBreakSrc src, bool ena = false, bool pol = false);
 		// Configure channel 5 grouping (aka HAL_TIMEx_GroupChannel5)
@@ -514,7 +541,15 @@ namespace uni {
 #endif
 
 	};
+	// Advanced timers (TIM1/8) reuse TIM_C; break/dead-time, complementary outputs,
+	// commutation and the repetition counter are already covered by TIM_C methods.
+	class TIM_A : public TIM_C {
+	public:
+		TIM_A(stduint baseaddr, byte TIM_ID) : TIM_C(baseaddr, TIM_ID) { }
+	};
+	extern TIM_A TIM1, TIM8;
 	extern TIM_C TIM2, TIM3, TIM4, TIM5;
+	extern TIM_B TIM6, TIM7;
 
 
 #endif

@@ -332,6 +332,137 @@ namespace uni {
 		self[SMCR].setof(7, MasterSlaveMode);// TIM_SelectMasterSlaveMode
 	}
 
+	// aka HAL_TIM_OnePulse_Init (OPM bit) / HAL_TIM_Encoder_Init (SMS bits) / HAL_TIMEx_HallSensor_Init (XOR + TI1F_ED + Reset)
+	void TIM_C::setMode(TIMMode::TIMMode mode) {
+		using namespace TimReg;
+		switch (mode) {
+		case TIMMode::OnePulse:
+			self[CR1].setof(_TIM_CR1_POS_OPM, true);// OPM = 1 (single pulse)
+			break;
+		case TIMMode::Encoder:
+			self[SMCR].maset(0, 3, 0x3);// SMS = 3 (encoder, dual-edge TI1+TI2)
+			break;
+		case TIMMode::HallSensor:
+			self[CR2].setof(7, true);// TI1S = XOR (three hall inputs)
+			self[SMCR].maset(4, 3, 0x4);// TS = TI1F_ED
+			self[SMCR].maset(0, 3, 0x4);// SMS = Reset Mode
+			break;
+		}
+	}
+
+	// Configure input channel (aka HAL_TIM_IC_ConfigChannel / TIM_TIx_SetConfig)
+	void TIM_C::ConfigChannelInn(byte channel, TimChinSel::TimChinSel sel, TimIcPol::TimIcPol pol, byte filter, byte prescaler) {
+		using namespace TimReg;
+		if (!Ranglin(channel, 1, 4)) return;
+		if (!Ranglin(prescaler, 0, 3)) return;// DIV 1/2/4/8
+		byte chan0x = 4 * (channel - 1);
+		TimReg::TimRegType trt = channel <= 2 ? CCMR1 : CCMR2;
+		byte shift = isodd(channel) ? 0 : 8;
+		// aka TIM_TIx_SetConfig
+		self[CCER].setof(chan0x, false);// CCxE = 0 (disable before config)
+		self[trt].maset(shift, 2, stduint(sel));// CCxS input selection
+		self[trt].maset(shift + 4, 4, filter);// ICxF filter
+		self[trt].maset(shift + 2, 2, prescaler);// ICxPSC prescaler
+		self[CCER].setof(chan0x + 1, pol == TimIcPol::Falling);// CCxP polarity
+		self[CCER].setof(chan0x + 3, false);// CCxNP = 0
+		self[CCER].setof(chan0x, true);// CCxE = 1
+	}
+
+	// Configure the clock source (aka HAL_TIM_ConfigClockSource)
+	void TIM_C::ConfigClock(TimClockSrc::TimClockSrc src, TimIcPol::TimIcPol pol, byte prescaler, byte filter) {
+		using namespace TimReg;
+		if (!Ranglin(prescaler, 0, 3)) return;
+		if (!Ranglin(filter, 0, 15)) return;
+		// reset SMS, TS and ETR conditioning bits
+		self[SMCR].maset(0, 3, 0);// SMS
+		self[SMCR].maset(4, 3, 0);// TS
+		self[SMCR].maset(8, 4, 0);// ETF
+		self[SMCR].maset(12, 2, 0);// ETPS
+		self[SMCR].setof(14, false);// ECE
+		self[SMCR].setof(15, false);// ETP
+		switch (src) {
+		case TimClockSrc::Internal:
+			break;
+		case TimClockSrc::ETRMode1:
+			self[SMCR].maset(8, 4, filter);// ETF
+			self[SMCR].maset(12, 2, prescaler);// ETPS
+			self[SMCR].setof(15, pol == TimIcPol::Falling);// ETP
+			self[SMCR].maset(0, 3, 0x7);// SMS = external clock mode 1
+			self[SMCR].maset(4, 3, 0x7);// TS = ETRF
+			break;
+		case TimClockSrc::ETRMode2:
+			self[SMCR].maset(8, 4, filter);// ETF
+			self[SMCR].maset(12, 2, prescaler);// ETPS
+			self[SMCR].setof(15, pol == TimIcPol::Falling);// ETP
+			self[SMCR].setof(14, true);// ECE
+			break;
+		case TimClockSrc::TI1:
+			ConfigChannelInn(1, TimChinSel::Direct, pol, filter, 0);
+			self[SMCR].maset(0, 3, 0x7);// SMS
+			self[SMCR].maset(4, 3, 0x5);// TS = TI1FP1
+			break;
+		case TimClockSrc::TI2:
+			ConfigChannelInn(2, TimChinSel::Direct, pol, filter, 0);
+			self[SMCR].maset(0, 3, 0x7);// SMS
+			self[SMCR].maset(4, 3, 0x6);// TS = TI2FP2
+			break;
+		case TimClockSrc::TI1ED:
+			ConfigChannelInn(1, TimChinSel::Direct, pol, filter, 0);
+			self[SMCR].maset(0, 3, 0x7);// SMS
+			self[SMCR].maset(4, 3, 0x4);// TS = TI1F_ED
+			break;
+		case TimClockSrc::ITR0:
+		case TimClockSrc::ITR1:
+		case TimClockSrc::ITR2:
+		case TimClockSrc::ITR3:
+			self[SMCR].maset(4, 3, stduint(src) - stduint(TimClockSrc::ITR0));// TS = ITRx
+			break;
+		}
+	}
+
+	// Select the signal connected to TI1 (aka HAL_TIM_ConfigTI1Input)
+	void TIM_C::ConfigTI1(TimTi1Sel::TimTi1Sel sel) {
+		using namespace TimReg;
+		self[CR2].setof(7, sel == TimTi1Sel::XOR);// TI1S
+	}
+
+	// Configure OCxREF clear source (aka HAL_TIM_ConfigOCrefClear)
+	void TIM_C::ConfigOcrefClear(byte channel, TimOcrefSrc::TimOcrefSrc src, TimIcPol::TimIcPol pol, byte filter) {
+		using namespace TimReg;
+		if (!Ranglin(channel, 1, 4)) return;
+		if (!Ranglin(filter, 0, 15)) return;
+		if (src == TimOcrefSrc::None) {
+			// clear ETR conditioning bits
+			self[SMCR].maset(8, 4, 0);// ETF
+			self[SMCR].maset(12, 2, 0);// ETPS
+			self[SMCR].setof(14, false);// ECE
+			self[SMCR].setof(15, false);// ETP
+		}
+		else {
+			// ETR source: prescaler forced DIV1, no external clock
+			self[SMCR].maset(8, 4, filter);// ETF
+			self[SMCR].maset(12, 2, 0);// ETPS = DIV1
+			self[SMCR].setof(14, false);// ECE = 0
+			self[SMCR].setof(15, pol == TimIcPol::Falling);// ETP
+		}
+		TimReg::TimRegType trt = channel <= 2 ? CCMR1 : CCMR2;
+		byte shift = isodd(channel) ? 0 : 8;
+		self[trt].setof(shift + 7, src == TimOcrefSrc::ETR);// OCxCE
+	}
+
+	// Generate a software event (aka HAL_TIM_GenerateEvent)
+	void TIM_C::GenerateEvent(TimEvSrc::TimEvSrc ev) {
+		using namespace TimReg;
+		self[EGR].setof(stduint(ev), true);
+	}
+
+	// Read the captured value of a channel (aka HAL_TIM_ReadCapturedValue)
+	stduint TIM_C::ReadCapture(byte channel) {
+		using namespace TimReg;
+		if (!Ranglin(channel, 1, 4)) return 0;
+		return self[_tab_timregs_ccr[channel - 1]];
+	}
+
 	static byte _TIM_ICxPSC[] = {
 
 	};
@@ -462,6 +593,203 @@ namespace uni {
 		}
 		return true;
 	}
+
+	// aka HAL_TIM_Encoder_Start_DMA: DMA reads CCR1->data1, CCR2->data2 (position capture)
+	bool TIM_C::CaptureDMA(pureptr_t data1, pureptr_t data2, stduint leng, IOMethod method) {
+		using namespace TimReg;
+		if (!dma[1] || !dma[2] || !data1 || !data2 || !leng) return false;
+		DMA1.bind = (pureptr_t)this;
+		DMA1.XferCpltCallback = _TIM_DMA_CaptureCplt;
+		DMA1.XferErrorCallback = _TIM_DMA_Error;
+		// peripheral -> memory read (DIR configured at DMA layer setMode)
+		stduint ccr1_addr = getBaseaddr() + _IMMx4(CCR1);
+		stduint ccr2_addr = getBaseaddr() + _IMMx4(CCR2);
+		if (!dma[1]->Transfer(data1, (pureptr_t)ccr1_addr, leng, method)) return false;
+		if (!dma[2]->Transfer(data2, (pureptr_t)ccr2_addr, leng, method)) return false;
+		self[DIER].setof(1 + 8, true);// CC1DE = bit 9
+		self[DIER].setof(2 + 8, true);// CC2DE = bit 10
+		enCaptureCompareChannel(1, true);// CC1E
+		enCaptureCompareChannel(2, true);// CC2E
+		enAble(true);// CEN
+		return true;
+	}
+
+	// DMA burst write: memory -> DMAR register burst (aka HAL_TIM_DMABurst_WriteStart)
+	bool TIM_C::BurstWrite(pureptr_t data, byte base, byte burst_len, TimBurstSrc::TimBurstSrc src, stduint datalen, IOMethod method) {
+		using namespace TimReg;
+		if (!Ranglin(base, 0, 17)) return false;// DBA 0..17
+		if (!Ranglin(burst_len, 1, 18)) return false;// DBL 1..18 transfers
+		if (!Ranglin(stduint(src), 0, 4)) return false;
+		if (!dma[stduint(src)] || !data || !datalen) return false;
+		// configure DMA burst mode: DCR = DBA | (DBL << 8)
+		self[DCR] = stduint(base) | (stduint(burst_len - 1) << 8);
+		DMA1.bind = (pureptr_t)this;
+		DMA1.XferCpltCallback = (src == TimBurstSrc::Update) ? _TIM_DMA_UpdateCplt : _TIM_DMA_DelayPulseCplt;
+		DMA1.XferErrorCallback = _TIM_DMA_Error;
+		// write direction: source = memory (data), dest = peripheral (DMAR)
+		stduint dmar_addr = getBaseaddr() + _IMMx4(DMAR);
+		if (!dma[stduint(src)]->Transfer((pureptr_t)dmar_addr, data, datalen, method)) return false;
+		self[DIER].setof(8 + stduint(src), true);// UDE=8 .. CC4DE=12
+		return true;
+	}
+
+	// DMA burst read: DMAR register burst -> memory (aka HAL_TIM_DMABurst_ReadStart)
+	bool TIM_C::BurstRead(pureptr_t data, byte base, byte burst_len, TimBurstSrc::TimBurstSrc src, stduint datalen, IOMethod method) {
+		using namespace TimReg;
+		if (!Ranglin(base, 0, 17)) return false;
+		if (!Ranglin(burst_len, 1, 18)) return false;
+		if (!Ranglin(stduint(src), 0, 4)) return false;
+		if (!dma[stduint(src)] || !data || !datalen) return false;
+		self[DCR] = stduint(base) | (stduint(burst_len - 1) << 8);
+		DMA1.bind = (pureptr_t)this;
+		DMA1.XferCpltCallback = (src == TimBurstSrc::Update) ? _TIM_DMA_UpdateCplt : _TIM_DMA_CaptureCplt;
+		DMA1.XferErrorCallback = _TIM_DMA_Error;
+		// read direction: source = peripheral (DMAR), dest = memory (data)
+		stduint dmar_addr = getBaseaddr() + _IMMx4(DMAR);
+		if (!dma[stduint(src)]->Transfer(data, (pureptr_t)dmar_addr, datalen, method)) return false;
+		self[DIER].setof(8 + stduint(src), true);
+		return true;
+	}
+
+	// Stop DMA burst (aka HAL_TIM_DMABurst_WriteStop / ReadStop)
+	void TIM_C::BurstStop(TimBurstSrc::TimBurstSrc src) {
+		using namespace TimReg;
+		if (!Ranglin(stduint(src), 0, 4)) return;
+		if (dma[stduint(src)]) dma[stduint(src)]->Abort();
+		self[DIER].setof(8 + stduint(src), false);// clear UDE/CCxDE
+	}
+
+	// Configure Hall sensor interface (aka HAL_TIMEx_HallSensor_Init params)
+	void TIM_C::ConfigHallSensor(stduint delay, TimIcPol::TimIcPol pol, byte filter, byte prescaler) {
+		using namespace TimReg;
+		if (!Ranglin(filter, 0, 15)) return;
+		if (!Ranglin(prescaler, 0, 3)) return;
+		// CH1 as TRC input (XOR of the three hall inputs)
+		ConfigChannelInn(1, TimChinSel::TRC, pol, filter, prescaler);
+		// CH2 in PWM2 mode with commutation delay
+		ConfigChannel(2, delay, 0x7);// PWM2
+		// OC2REF as TRGO (MMS = 101)
+		self[CR2].maset(_TIM_CR2_POSI_MMS, 3, 0x5);
+	}
+
+	// Enable/disable complementary channel N (aka HAL_TIMEx_OCN/PWMN/OnePulseN_Start/Stop/_IT/_DMA)
+	bool TIM_C::enChannelN(byte channel, bool ena, IOMethod method) {
+		using namespace TimReg;
+		if (!Ranglin(channel, 1, 4)) return false;
+		if (!(TIM_ID == 1 || TIM_ID == 8)) return false;// IS_TIM_CCXN_INSTANCE
+		byte chan0x = 4 * (channel - 1);
+		if (ena) {
+			self[CCER].setof(chan0x + 2, true);// CCxNE = 1
+			self[BDTR].setof(15, true);// MOE = 1
+			if (method == IOMethod::Rupt) {
+				self[DIER].setof(channel, true);// CCxIE
+			}
+			else if (method == IOMethod::DMA) {
+				self[DIER].setof(channel + 8, true);// CCxDE
+				if (dma[channel]) {
+					DMA1.bind = (pureptr_t)this;
+					DMA1.XferCpltCallback = _TIM_DMA_DelayPulseCplt;
+					DMA1.XferErrorCallback = _TIM_DMA_Error;
+				}
+			}
+			if (0x6 != self[SMCR].mask(0, 3)) enAble(true);// CEN (unless trigger mode)
+		}
+		else {
+			self[CCER].setof(chan0x + 2, false);// CCxNE = 0
+			self[BDTR].setof(15, false);// MOE = 0
+			if (method == IOMethod::Rupt) {
+				self[DIER].setof(channel, false);// CCxIE
+			}
+			else if (method == IOMethod::DMA) {
+				self[DIER].setof(channel + 8, false);// CCxDE
+				if (dma[channel]) dma[channel]->Abort();
+			}
+			enAble(false);// CEN = 0
+		}
+		return true;
+	}
+
+	// Configure commutation event (aka HAL_TIMEx_ConfigCommutEvent/_IT/_DMA)
+	void TIM_C::ConfigCommutation(byte trigger, TimCommutSrc::TimCommutSrc src, IOMethod method) {
+		using namespace TimReg;
+		if (!(TIM_ID == 1 || TIM_ID == 8)) return;// IS_TIM_COMMUTATION_EVENT_INSTANCE
+		if (!Ranglin(trigger, 0, 3)) return;
+		self[SMCR].maset(4, 3, trigger);// TS = ITRx
+		self[CR2].setof(3, true);// CCPC = 1 (capture/compare preload)
+		self[CR2].setof(2, src == TimCommutSrc::Software);// CCUS
+		if (method == IOMethod::Rupt) {
+			self[DIER].setof(5, true);// COMIE
+			self[DIER].setof(13, false);// COMDE
+		}
+		else if (method == IOMethod::DMA) {
+			self[DIER].setof(13, true);// COMDE
+			self[DIER].setof(5, false);// COMIE
+		}
+		else {
+			self[DIER].setof(5, false);// COMIE
+			self[DIER].setof(13, false);// COMDE
+		}
+	}
+
+	// Configure break & dead-time (aka HAL_TIMEx_ConfigBreakDeadTime)
+	void TIM_C::ConfigBreakDeadTime(byte deadtime, byte lock, bool ossi, bool ossr, bool bke, bool bkp, bool aoe) {
+		using namespace TimReg;
+		if (!(TIM_ID == 1 || TIM_ID == 8)) return;// IS_TIM_BREAK_INSTANCE
+		if (!Ranglin(lock, 0, 3)) return;
+		stduint bdtr = stduint(deadtime) & 0xFF;// DTG
+		bdtr |= (stduint(lock) & 0x3) << 8;// LOCK
+		if (ossi) bdtr |= 0x00000400;// OSSI
+		if (ossr) bdtr |= 0x00000800;// OSSR
+		if (bke)  bdtr |= 0x00001000;// BKE
+		if (bkp)  bdtr |= 0x00002000;// BKP
+		if (aoe)  bdtr |= 0x00004000;// AOE
+		self[BDTR] = bdtr;
+	}
+
+	// Configure remapping (aka HAL_TIMEx_RemapConfig)
+	void TIM_C::ConfigRemap(stduint remap) {
+		using namespace TimReg;
+#if defined(_MCU_STM32H7x)
+		self[AF1] = remap;// H7 remaps via AF1 (ETRSEL)
+#else
+		self[OR] = remap;// F1/F4 remaps via OR
+#endif
+	}
+
+#if defined(_MCU_STM32H7x)
+	// Configure break input (aka HAL_TIMEx_ConfigBreakInput)
+	void TIM_C::ConfigBreakInput(TimBreakIn::TimBreakIn in, TimBreakSrc::TimBreakSrc src, bool ena, bool pol) {
+		using namespace TimReg;
+		if (!(TIM_ID == 1 || TIM_ID == 8)) return;// IS_TIM_BREAK_INSTANCE
+		byte enable_pos = 0, polarity_pos = 0;
+		switch (src) {
+		case TimBreakSrc::Bkin:   enable_pos = 0; polarity_pos = 9;  break;
+		case TimBreakSrc::Comp1:  enable_pos = 1; polarity_pos = 10; break;
+		case TimBreakSrc::Comp2:  enable_pos = 2; polarity_pos = 11; break;
+		case TimBreakSrc::Dfsdm1: enable_pos = 8; polarity_pos = 0;  break;// DFSDM1 has no polarity
+		}
+		TimReg::TimRegType trt = (in == TimBreakIn::Brk) ? AF1 : AF2;
+		self[trt].setof(enable_pos, ena);
+		if (src != TimBreakSrc::Dfsdm1) self[trt].setof(polarity_pos, pol);
+	}
+
+	// Configure channel 5 grouping (aka HAL_TIMEx_GroupChannel5)
+	void TIM_C::ConfigGroupChannel5(stduint channels) {
+		using namespace TimReg;
+		if (!(TIM_ID == 1 || TIM_ID == 8)) return;// IS_TIM_COMBINED3PHASEPWM_INSTANCE
+		if (!Ranglin(channels, 0, 3)) return;
+		stduint mask = channels ? ((1U << channels) - 1) : 0;// GC5C1..GC5Cn
+		self[CCR5].maset(29, 3, mask);// GC5C1~3
+	}
+
+	// Select TIx input source via TISEL register (aka HAL_TIMEx_TISelection)
+	void TIM_C::ConfigTISelection(byte channel, byte sel) {
+		using namespace TimReg;
+		if (!Ranglin(channel, 1, 4)) return;
+		if (!Ranglin(sel, 0, 15)) return;
+		self[TISEL].maset((channel - 1) * 8, 4, sel);// TIxSEL[3:0]
+	}
+#endif
 
 	// aka HAL_TIM_PWM_Start_IT / IC_Start_IT / OC_Start_IT (and Stop_IT variants)
 	bool TIM_CHAN_t::enInterrupt(bool ena) {

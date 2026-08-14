@@ -91,7 +91,15 @@ namespace uni {
 			BDTR,  // TIM break and dead-time register,           0x44
 			DCR,   // TIM DMA control register,                   0x48
 			DMAR,  // TIM DMA address for full transfer register, 0x4C
-			OR,    // TIM option register,                        0x50
+			OR,    // TIM option register,                        0x50 (F1/F4; H7 reserved)
+#if defined(_MCU_STM32H7x)
+			_RSV1, // TIM capture/compare mode register 3,        0x54
+			CCR5,  // TIM capture/compare register 5,             0x58
+			_RSV2, // TIM capture/compare register 6,             0x5C
+			AF1,   // TIM alternate function option register 1,   0x60
+			AF2,   // TIM alternate function option register 2,   0x64
+			TISEL, // TIM input selection register,               0x68
+#endif
 		} TimRegType;
 	}
 
@@ -115,6 +123,98 @@ namespace uni {
 			PWM2 = 0x7,         // PWM mode 2 (inactive when CNT < CCR)
 		} TimOutMode;
 	}
+
+	namespace TIMMode { // TIM working mode selector (setMode)
+		typedef enum {
+			OnePulse,   // single-pulse mode (CR1.OPM = 1)
+			Encoder,    // encoder interface mode (SMCR.SMS = 3, dual-edge)
+			HallSensor, // hall sensor interface mode (XOR + TI1F_ED + Reset)
+		} TIMMode;
+	}
+
+	namespace TimIcPol { // TIM input polarity (CCxP)
+		typedef enum {
+			Rising = 0,  // rising edge / active high (CCxP = 0)
+			Falling = 1, // falling edge / active low (CCxP = 1)
+		} TimIcPol;
+	}
+
+	namespace TimClockSrc { // TIM clock source selector (ConfigClock)
+		typedef enum {
+			Internal, // internal clock (CK_INT)
+			ETRMode1, // external clock mode 1 (ETR, SMS=0x7 + TS=ETRF)
+			ETRMode2, // external clock mode 2 (SMCR.ECE)
+			TI1,      // external clock mode 1 (TI1FP1)
+			TI2,      // external clock mode 1 (TI2FP2)
+			TI1ED,    // external clock mode 1 (TI1 edge detector)
+			ITR0,     // internal trigger 0 (TS=0)
+			ITR1,     // internal trigger 1 (TS=1)
+			ITR2,     // internal trigger 2 (TS=2)
+			ITR3,     // internal trigger 3 (TS=3)
+		} TimClockSrc;
+	}
+
+	namespace TimTi1Sel { // TIM TI1 input selection (CR2.TI1S)
+		typedef enum {
+			Direct = 0, // CH1 pin -> TI1
+			XOR = 1,    // CH1 ^ CH2 ^ CH3 -> TI1
+		} TimTi1Sel;
+	}
+
+	namespace TimOcrefSrc { // TIM OCxREF clear source (ConfigOcrefClear)
+		typedef enum {
+			None = 0, // no clear source
+			ETR = 1,  // ETR as clear source
+		} TimOcrefSrc;
+	}
+
+	namespace TimEvSrc { // TIM software event source (GenerateEvent, EGR)
+		typedef enum {
+			Update = 0,  // UG
+			CC1 = 1,     // CC1G
+			CC2 = 2,     // CC2G
+			CC3 = 3,     // CC3G
+			CC4 = 4,     // CC4G
+			Commute = 5, // COMG
+			Trigger = 6, // TG
+			Break = 7,   // BG
+		} TimEvSrc;
+	}
+
+	namespace TimBurstSrc { // TIM DMA burst request source (BurstWrite/BurstRead)
+		typedef enum {
+			Update = 0, // dma[0], DIER.UDE
+			CC1 = 1,    // dma[1], DIER.CC1DE
+			CC2 = 2,    // dma[2], DIER.CC2DE
+			CC3 = 3,    // dma[3], DIER.CC3DE
+			CC4 = 4,    // dma[4], DIER.CC4DE
+		} TimBurstSrc;
+	}
+
+	namespace TimCommutSrc { // TIM commutation event source (CR2.CCUS)
+		typedef enum {
+			Trgi = 0,     // commutation on TRGI (interface timer trigger)
+			Software = 1, // commutation by software (COMG bit)
+		} TimCommutSrc;
+	}
+
+#if defined(_MCU_STM32H7x)
+	namespace TimBreakIn { // TIM break input channel (H7 AF1/AF2)
+		typedef enum {
+			Brk = 0,  // BKIN
+			Brk2 = 1, // BKIN2
+		} TimBreakIn;
+	}
+
+	namespace TimBreakSrc { // TIM break input source (H7 AF1/AF2)
+		typedef enum {
+			Bkin = 0,   // BKIN pin
+			Comp1 = 1,  // COMP1 output
+			Comp2 = 2,  // COMP2 output
+			Dfsdm1 = 3, // DFSDM1 break
+		} TimBreakSrc;
+	}
+#endif
 
 	class TIM_CHAN_t;
 	class TIM_t : public RuptTrait {
@@ -205,6 +305,11 @@ namespace uni {
 			if (!Ranglin(channel, 1, 4)) return;
 			using namespace TimReg;
 			self[DIER].setof(channel, ena);
+		}
+		// Enable/disable trigger interrupt (DIER.TIE)
+		void enTriggerInterrupt(bool ena = true) {
+			using namespace TimReg;
+			self[DIER].setof(6, ena);
 		}
 	};
 
@@ -331,9 +436,15 @@ namespace uni {
 		// aka HAL_TIM_PWM_ConfigChannel / HAL_TIM_OC_ConfigChannel
 		// ocmode defaults to PWM1 (0x6) for backward compatibility
 		void ConfigChannel(byte channel, stduint pulse, stduint ocmode = 0x6);
+		// Configure input channel (aka HAL_TIM_IC_ConfigChannel / TIM_TIx_SetConfig)
+		void ConfigChannelInn(byte channel, TimChinSel::TimChinSel sel, TimIcPol::TimIcPol pol, byte filter = 0, byte prescaler = 0);
 		TIM_C(stduint baseaddr, byte TIM_ID) : TIM_t(baseaddr, TIM_ID) { }
 		//
 		void setMode(stduint prescaler = _TIMC_DEFA_PRESCALER, stduint period = _TIMC_DEFA_PERIOD, bool auto_reload_preload = false);
+		// Switch working mode (aka HAL_TIM_OnePulse_Init OPM bit / HAL_TIM_Encoder_Init SMS bits)
+		void setMode(TIMMode::TIMMode mode);
+		// Encoder position DMA read (aka HAL_TIM_Encoder_Start_DMA): CCR1->data1, CCR2->data2
+		bool CaptureDMA(pureptr_t data1, pureptr_t data2, stduint leng, IOMethod method = IOMethod::Rupt);
 
 		bool setChannel(byte channel, stduint pulse, GPIO_Pin* pin);
 
@@ -365,6 +476,42 @@ namespace uni {
 		}
 
 		_TEMP void Select(stduint SlaveMode = 0x7, stduint TriggerInn = 0x5, stduint TriggerOut = 0, bool MasterSlaveMode = false);
+
+		// Configure the clock source (aka HAL_TIM_ConfigClockSource)
+		void ConfigClock(TimClockSrc::TimClockSrc src, TimIcPol::TimIcPol pol = TimIcPol::Rising, byte prescaler = 0, byte filter = 0);
+		// Select the signal connected to TI1 (aka HAL_TIM_ConfigTI1Input)
+		void ConfigTI1(TimTi1Sel::TimTi1Sel sel);
+		// Configure OCxREF clear source (aka HAL_TIM_ConfigOCrefClear)
+		void ConfigOcrefClear(byte channel, TimOcrefSrc::TimOcrefSrc src, TimIcPol::TimIcPol pol = TimIcPol::Rising, byte filter = 0);
+		// Generate a software event (aka HAL_TIM_GenerateEvent)
+		void GenerateEvent(TimEvSrc::TimEvSrc ev);
+		// Read the captured value of a channel (aka HAL_TIM_ReadCapturedValue)
+		stduint ReadCapture(byte channel);
+		// DMA burst write: memory -> DMAR register burst (aka HAL_TIM_DMABurst_WriteStart)
+		bool BurstWrite(pureptr_t data, byte base, byte burst_len, TimBurstSrc::TimBurstSrc src, stduint datalen, IOMethod method = IOMethod::Rupt);
+		// DMA burst read: DMAR register burst -> memory (aka HAL_TIM_DMABurst_ReadStart)
+		bool BurstRead(pureptr_t data, byte base, byte burst_len, TimBurstSrc::TimBurstSrc src, stduint datalen, IOMethod method = IOMethod::Rupt);
+		// Stop DMA burst (aka HAL_TIM_DMABurst_WriteStop / ReadStop)
+		void BurstStop(TimBurstSrc::TimBurstSrc src);
+
+		// Configure Hall sensor interface (aka HAL_TIMEx_HallSensor_Init params)
+		void ConfigHallSensor(stduint delay, TimIcPol::TimIcPol pol = TimIcPol::Rising, byte filter = 0, byte prescaler = 0);
+		// Enable/disable complementary channel N (aka HAL_TIMEx_OCN/PWMN/OnePulseN_Start/Stop/_IT/_DMA)
+		bool enChannelN(byte channel, bool ena = true, IOMethod method = IOMethod::Loop);
+		// Configure commutation event (aka HAL_TIMEx_ConfigCommutEvent/_IT/_DMA)
+		void ConfigCommutation(byte trigger, TimCommutSrc::TimCommutSrc src = TimCommutSrc::Trgi, IOMethod method = IOMethod::Loop);
+		// Configure break & dead-time (aka HAL_TIMEx_ConfigBreakDeadTime)
+		void ConfigBreakDeadTime(byte deadtime = 0, byte lock = 0, bool ossi = false, bool ossr = false, bool bke = false, bool bkp = false, bool aoe = false);
+		// Configure remapping (aka HAL_TIMEx_RemapConfig): F1/F4 -> OR, H7 -> AF1
+		void ConfigRemap(stduint remap);
+#if defined(_MCU_STM32H7x)
+		// Configure break input (aka HAL_TIMEx_ConfigBreakInput)
+		void ConfigBreakInput(TimBreakIn::TimBreakIn in, TimBreakSrc::TimBreakSrc src, bool ena = false, bool pol = false);
+		// Configure channel 5 grouping (aka HAL_TIMEx_GroupChannel5)
+		void ConfigGroupChannel5(stduint channels);
+		// Select TIx input source via TISEL register (aka HAL_TIMEx_TISelection)
+		void ConfigTISelection(byte channel, byte sel);
+#endif
 
 	};
 	extern TIM_C TIM2, TIM3, TIM4, TIM5;

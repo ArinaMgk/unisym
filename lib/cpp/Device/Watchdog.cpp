@@ -21,6 +21,9 @@
 */
 
 #include "../../../inc/cpp/Device/Watchdog"
+
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+
 #include "../../../inc/cpp/Device/RCC/RCCAddress"
 #if defined(_MCU_STM32H7x)
 #include "../../../inc/cpp/Device/NVIC"
@@ -36,8 +39,8 @@
 namespace uni {
 
 #if defined(_MCU_STM32H7x)
-	#define _IWDG1_ADDR 0x50004800
-	#define _WWDG1_ADDR 0x58003000
+	#define _IWDG1_ADDR 0x58004800
+	#define _WWDG1_ADDR 0x50003000
 #elif defined(_MPU_STM32MP13)
 	#define _IWDG1_ADDR (APB5_PERIPH_BASE + 0x3000)
 	#define _IWDG2_ADDR (APB4_PERIPH_BASE + 0x2000)
@@ -238,4 +241,6 @@ namespace uni {
 void WWDG_IRQHandler(void) {
 	uni::WWDG1.IRQHandler();
 }
+#endif
+
 #endif

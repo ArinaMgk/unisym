@@ -238,14 +238,6 @@ namespace uni {
 			NVIC.setAble(ADCx_Request_list[self.ADC_ID]);
 		}
 	}
-#elif defined(_MPU_STM32MP13)
-	static const uint32 _REFADDR_ADC[] = { nil,
-		AHB2_PERIPH_BASE + 0x3000,
-		AHB2_PERIPH_BASE + 0x4000
-	};
-	// ADC_Common_TypeDef of each is base plus 0x0300
-
-	
 #endif
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
@@ -371,5 +363,188 @@ namespace uni {
 		return *(ADC_t*)ADC_LST[id - 1];
 	}
 
-#endif	
+#endif
+
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+
+	#if defined(_MCU_STM32H7x)
+	ADC_t ADCr(0), ADC1(1), ADC2(2), ADC3(3);
+	static const uint32 _REFADDR_ADC[] = { nil,
+		0x40022000, 0x40022100, 0x58026000
+	};
+	static Request_t ADCx_Request_list[4] = {
+		Request_None, IRQ_ADC, IRQ_ADC, IRQ_ADC3
+	};
+	#elif defined(_MPU_STM32MP13)
+	ADC_t ADCr(0), ADC1(1), ADC2(2);
+	static const uint32 _REFADDR_ADC[] = { nil,
+		AHB2_PERIPH_BASE + 0x3000,// ADC1
+		AHB2_PERIPH_BASE + 0x4000 // ADC2
+	};
+	static Request_t ADCx_Request_list[3] = {
+		Request_None, IRQ_ADC1, IRQ_ADC2
+	};
+	#endif
+
+	stduint ADC_t::getBaseAddr() const {
+		return _REFADDR_ADC[self.ADC_ID];
+	}
+
+	void ADC_t::setInterrupt(Handler_t f) const {
+		FUNC_ADCx[getID()] = f;
+	}
+
+	void ADC_t::setInterruptPriority(byte preempt, byte sub_priority) const {
+	#if defined(_MPU_STM32MP13)
+		(void)sub_priority;
+		GIC.setPriority(ADCx_Request_list[ADC_ID], preempt);
+	#else
+		NVIC.setPriority(ADCx_Request_list[ADC_ID], preempt, sub_priority);
+	#endif
+	}
+
+	bool ADC_t::enClock(bool ena, byte presc) {
+		#if defined(_MCU_STM32H7x)
+		if (ADC_ID == 3) {
+			// RCC_AHB4ENR (D3): ADC3EN
+			Reference(_RCC_AHB4ENR_ADDR).setof(_RCC_AHB4ENR_POSI_ENCLK_ADC3, ena);
+			if (ena != Reference(_RCC_AHB4ENR_ADDR).bitof(_RCC_AHB4ENR_POSI_ENCLK_ADC3)) return false;
+		} else if (ADC_ID == 1 || ADC_ID == 2) {
+			// RCC_AHB1ENR (D2): ADC12EN
+			Reference(_RCC_AHB1ENR_ADDR).setof(_RCC_AHB1ENR_POSI_ENCLK_ADC12, ena);
+			if (ena != Reference(_RCC_AHB1ENR_ADDR).bitof(_RCC_AHB1ENR_POSI_ENCLK_ADC12)) return false;
+		} else return false;
+		if (ena) {
+			// CCR: CKMODE=asynchronous(0), PRESC=presc
+			Common(ADCCom::CCR).maset(_ADC_CCR_POS_CKMODE, 2, 0);
+			Common(ADCCom::CCR).maset(_ADC_CCR_POS_PRESC, 4, presc);
+		}
+		return true;
+		#elif defined(_MPU_STM32MP13)
+		using namespace RCCReg;
+		byte bit = ADC_ID == 1 ? 5 : ADC_ID == 2 ? 6 : 0;// ADC1EN/ADC2EN in RCC_MP_AHB2ENSETR
+		if (!bit) return false;
+		RCC[ena ? MP_AHB2ENSETR : MP_AHB2ENCLRR] = _IMM1S(bit);
+		if (ena != RCC[MP_AHB2ENSETR].bitof(bit)) return false;
+		if (ena) {
+			// CCR: CKMODE=asynchronous(0), PRESC=presc
+			Common(ADCCom::CCR).maset(_ADC_CCR_POS_CKMODE, 2, 0);
+			Common(ADCCom::CCR).maset(_ADC_CCR_POS_PRESC, 4, presc);
+		}
+		return true;
+		#endif
+	}
+
+	bool ADC_t::enAble(bool ena) const {
+		if (ena) {
+			self[ADCReg::CR].setof(_ADC_CR_POS_ADEN, true);
+			stduint timeout = 0xFFFF;
+			while (!self[ADCReg::ISR].bitof(_ADC_ISR_POS_ADRD) && timeout--) {}
+			return self[ADCReg::ISR].bitof(_ADC_ISR_POS_ADRD);
+		} else {
+			self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
+			return true;
+		}
+	}
+
+	bool ADC_t::setMode(ADCRes res, stduint numsof_conv, stduint trigger_ext, bool cont) {
+		enClock(true);
+		self.enAble(false);
+	#if defined(_MCU_STM32H7x)
+		Reference cfgr = self[ADCReg::CFGR];
+	#elif defined(_MPU_STM32MP13)
+		Reference cfgr = self[ADCReg::CFGR1];
+	#endif
+		cfgr.maset(_ADC_CFGR_POS_RES, 3, (stduint)res);
+		if (trigger_ext) {
+			cfgr.maset(_ADC_CFGR_POS_EXTSEL, 5, trigger_ext);
+			cfgr.maset(_ADC_CFGR_POS_EXTEN, 2, 1);// rising edge
+		} else {
+			cfgr.maset(_ADC_CFGR_POS_EXTSEL, 5, 0);
+			cfgr.maset(_ADC_CFGR_POS_EXTEN, 2, 0);
+		}
+		cfgr.setof(_ADC_CFGR_POS_CONT, cont);
+		self[ADCReg::SQR1].maset(0, 4, numsof_conv ? (numsof_conv - 1) : 0);
+		return true;
+	}
+
+	byte ADC_t::getChannelNumber(GPIO_Pin& pin) {
+		//{TODO} full H7/MP13 channel map (incl. differential & internal channels)
+		if (&pin.getParent() == &GPIO['A'])
+			return pin.getID() < 8 ? pin.getID() : 0xFF;
+		else if (&pin.getParent() == &GPIO['C'])
+			return pin.getID() < 6 ? (10 + pin.getID()) : 0xFF;
+		else return 0xFF;
+	}
+
+	bool ADC_t::setChannel(GPIO_Pin& pin, byte rank, ADCSample sample) {
+		if (rank >= 16) return false;
+		byte chan = getChannelNumber(pin);
+		if (chan == 0xFF) return false;
+		pin.setMode(GPIOMode::IN_Analog);
+		#if defined(_MCU_STM32H7x)
+		self[ADCReg::PCSEL].setof(chan, true);
+		#endif
+		if (chan < 10) self[ADCReg::SMPR1].maset(3 * chan, 3, (stduint)sample);
+		else self[ADCReg::SMPR2].maset(3 * (chan - 10), 3, (stduint)sample);
+		byte r = rank + 1;
+		if (r < 5) self[ADCReg::SQR1].maset(6 * r, 5, chan);
+		else if (r < 10) self[ADCReg::SQR2].maset(6 * (r - 5), 5, chan);
+		else if (r < 15) self[ADCReg::SQR3].maset(6 * (r - 10), 5, chan);
+		else self[ADCReg::SQR4].maset(6 * (r - 15), 5, chan);
+		return true;
+	}
+
+	bool ADC_t::Start() {
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN) && !enAble(true)) return false;
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_EOC, true);
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_EOS, true);
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_OVR, true);
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTART, true);
+		return true;
+	}
+
+	bool ADC_t::Stop() {
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTP, true);
+		stduint timeout = 0xFFFF;
+		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART) && timeout--) {}
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
+		return true;
+	}
+
+	bool ADC_t::Poll(stduint timeout) {
+		while (!self[ADCReg::ISR].bitof(_ADC_ISR_POS_EOC) && timeout--) {}
+		return self[ADCReg::ISR].bitof(_ADC_ISR_POS_EOC);
+	}
+
+	uint32 ADC_t::Calibrate() {
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN) && !enAble(true)) return 0xFFFFFFFF;
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADCAL, true);
+		stduint timeout = 0xFFFF;
+		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADCAL) && timeout--) {}
+		return self[ADCReg::CALFACT];
+	}
+
+	void ADC_t::enInterrupt(bool enable) const {
+		self[ADCReg::IER].setof(_ADC_ISR_POS_EOC, enable);
+	#if defined(_MPU_STM32MP13)
+		GIC.enInterrupt(ADCx_Request_list[self.ADC_ID], enable);
+	#else
+		NVIC.setAble(ADCx_Request_list[self.ADC_ID], enable);
+	#endif
+	}
+
+	ADC_t& ADC_Global::operator[](byte id) {
+		extern ADC_t ADCr;
+		#if defined(_MCU_STM32H7x)
+		const static ADC_t* ADC_LST[] = { &ADC1, &ADC2, &ADC3 };
+		#elif defined(_MPU_STM32MP13)
+		const static ADC_t* ADC_LST[] = { &ADC1, &ADC2 };
+		#endif
+		if (!Ranglin(id, 1, numsof(ADC_LST)))
+			return ADCr;
+		return *(ADC_t*)ADC_LST[id - 1];
+	}
+
+#endif
 }

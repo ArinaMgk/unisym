@@ -234,6 +234,10 @@ namespace uni {
 		DMAStream* dma[5];
 		// Base update-event DMA: mem -> ARR (aka HAL_TIM_Base_Start_DMA)
 		bool UpdateDMA(pureptr_t data, stduint leng, IOMethod method = IOMethod::Rupt);
+#if defined(_MPU_STM32MP13)
+		// Stop update-event DMA (aka HAL_TIM_Base_Stop_DMA)
+		void StopUpdateDMA();
+#endif
 		TIM_t(stduint baseaddr, byte TIM_ID) : baseaddr(baseaddr), TIM_ID(TIM_ID) {
 			FUNC_IC_Capture = 0;
 			FUNC_OC_DelayElapsed = 0;
@@ -472,6 +476,10 @@ namespace uni {
 		void setMode(TIMMode::TIMMode mode);
 		// Encoder position DMA read (aka HAL_TIM_Encoder_Start_DMA): CCR1->data1, CCR2->data2
 		bool CaptureDMA(pureptr_t data1, pureptr_t data2, stduint leng, IOMethod method = IOMethod::Rupt);
+#if defined(_MPU_STM32MP13)
+		// Stop encoder capture DMA (aka HAL_TIM_Encoder_Stop_DMA, both channels)
+		void StopCaptureDMA();
+#endif
 
 		bool setChannel(byte channel, stduint pulse, GPIO_Pin* pin);
 
@@ -523,6 +531,12 @@ namespace uni {
 
 		// Configure Hall sensor interface (aka HAL_TIMEx_HallSensor_Init params)
 		void ConfigHallSensor(stduint delay, TimIcPol::TimIcPol pol = TimIcPol::Rising, byte filter = 0, byte prescaler = 0);
+#if defined(_MPU_STM32MP13)
+		// Start Hall sensor interface DMA (aka HAL_TIMEx_HallSensor_Start_DMA): CCR1 -> memory
+		bool HallSensorStartDMA(pureptr_t data, stduint leng, IOMethod method = IOMethod::Rupt);
+		// Stop Hall sensor interface DMA (aka HAL_TIMEx_HallSensor_Stop_DMA)
+		void HallSensorStopDMA();
+#endif
 		// Enable/disable complementary channel N (aka HAL_TIMEx_OCN/PWMN/OnePulseN_Start/Stop/_IT/_DMA)
 		bool enChannelN(byte channel, bool ena = true, IOMethod method = IOMethod::Loop);
 		// Configure commutation event (aka HAL_TIMEx_ConfigCommutEvent/_IT/_DMA)
@@ -538,6 +552,12 @@ namespace uni {
 		void ConfigGroupChannel5(stduint channels);
 		// Select TIx input source via TISEL register (aka HAL_TIMEx_TISelection)
 		void ConfigTISelection(byte channel, byte sel);
+#endif
+#if defined(_MPU_STM32MP13)
+		// Disarm a break input in bidirectional mode (aka HAL_TIMEx_DisarmBreakInput)
+		void DisarmBreak(TimBreakIn::TimBreakIn in);
+		// Re-arm a break input in bidirectional mode (aka HAL_TIMEx_ReArmBreakInput)
+		bool ReArmBreak(TimBreakIn::TimBreakIn in);
 #endif
 
 	};

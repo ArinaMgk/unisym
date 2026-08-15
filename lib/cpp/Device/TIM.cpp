@@ -22,6 +22,7 @@
 
 #include "../../../inc/cpp/Device/TIM"
 #include "../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
+#include "../../../inc/cpp/Device/SysTick"
 
 
 namespace uni {
@@ -654,7 +655,7 @@ namespace uni {
 	}
 
 	// TIM DMA callbacks — located via DMA_t.bind (same scheme as UART DMA)
-#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	static void _TIM_DMA_UpdateCplt() {
 		TIM_t* t = (TIM_t*)DMA1.bind;
 		if (DMA1.XferCpltCallback != _TIM_DMA_UpdateCplt) t = (TIM_t*)DMA2.bind;
@@ -798,6 +799,52 @@ namespace uni {
 	}
 #endif
 
+#if defined(_MPU_STM32MP13)
+	// Stop update-event DMA (aka HAL_TIM_Base_Stop_DMA)
+	void TIM_t::StopUpdateDMA() {
+		using namespace TimReg;
+		self[DIER].setof(8, false);// UDE = 0
+		if (dma[0]) dma[0]->Abort();
+		enAble(false);// CEN = 0
+	}
+
+	// Stop encoder capture DMA (aka HAL_TIM_Encoder_Stop_DMA, both channels)
+	void TIM_C::StopCaptureDMA() {
+		using namespace TimReg;
+		self[DIER].setof(1 + 8, false);// CC1DE = 0
+		self[DIER].setof(2 + 8, false);// CC2DE = 0
+		if (dma[1]) dma[1]->Abort();
+		if (dma[2]) dma[2]->Abort();
+		enCaptureCompareChannel(1, false);// CC1E = 0
+		enCaptureCompareChannel(2, false);// CC2E = 0
+		enAble(false);// CEN = 0
+	}
+
+	// Start Hall sensor interface DMA (aka HAL_TIMEx_HallSensor_Start_DMA): CCR1 -> memory
+	bool TIM_C::HallSensorStartDMA(pureptr_t data, stduint leng, IOMethod method) {
+		using namespace TimReg;
+		if (!dma[1] || !data || !leng) return false;
+		DMA1.bind = (pureptr_t)this;
+		DMA1.XferCpltCallback = _TIM_DMA_CaptureCplt;
+		DMA1.XferErrorCallback = _TIM_DMA_Error;
+		stduint ccr1_addr = getBaseaddr() + _IMMx4(CCR1);
+		if (!dma[1]->Transfer(data, (pureptr_t)ccr1_addr, leng, method)) return false;
+		self[DIER].setof(1 + 8, true);// CC1DE = bit 9
+		enCaptureCompareChannel(1, true);// CC1E = 1
+		if (0x6 != self[SMCR].mask(0, 3)) enAble(true);// CEN (unless trigger mode)
+		return true;
+	}
+
+	// Stop Hall sensor interface DMA (aka HAL_TIMEx_HallSensor_Stop_DMA)
+	void TIM_C::HallSensorStopDMA() {
+		using namespace TimReg;
+		enCaptureCompareChannel(1, false);// CC1E = 0
+		self[DIER].setof(1 + 8, false);// CC1DE = 0
+		if (dma[1]) dma[1]->Abort();
+		enAble(false);// CEN = 0
+	}
+#endif
+
 	// Configure Hall sensor interface (aka HAL_TIMEx_HallSensor_Init params)
 	void TIM_C::ConfigHallSensor(stduint delay, TimIcPol::TimIcPol pol, byte filter, byte prescaler) {
 		using namespace TimReg;
@@ -812,7 +859,7 @@ namespace uni {
 	}
 
 	// Enable/disable complementary channel N (aka HAL_TIMEx_OCN/PWMN/OnePulseN_Start/Stop/_IT/_DMA)
-#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	bool TIM_C::enChannelN(byte channel, bool ena, IOMethod method) {
 		using namespace TimReg;
 		if (!Ranglin(channel, 1, 4)) return false;
@@ -944,6 +991,34 @@ namespace uni {
 		if (!Ranglin(channel, 1, 4)) return;
 		if (!Ranglin(sel, 0, 15)) return;
 		self[TISEL].maset((channel - 1) * 8, 4, sel);// TIxSEL[3:0]
+	}
+#endif
+
+#if defined(_MPU_STM32MP13)
+	// Disarm a break input in bidirectional mode (aka HAL_TIMEx_DisarmBreakInput)
+	void TIM_C::DisarmBreak(TimBreakIn::TimBreakIn in) {
+		using namespace TimReg;
+		if (!(TIM_ID == 1 || TIM_ID == 8)) return;// IS_TIM_BREAK_INSTANCE
+		if (in == TimBreakIn::Brk) {
+			if (self[BDTR].bitof(28) && !self[BDTR].bitof(15)) self[BDTR].setof(26);// BKDSRM
+		}
+		else {
+			if (self[BDTR].bitof(29) && !self[BDTR].bitof(15)) self[BDTR].setof(27);// BK2DSRM
+		}
+	}
+
+	// Re-arm a break input in bidirectional mode (aka HAL_TIMEx_ReArmBreakInput)
+	bool TIM_C::ReArmBreak(TimBreakIn::TimBreakIn in) {
+		using namespace TimReg;
+		if (!(TIM_ID == 1 || TIM_ID == 8)) return false;// IS_TIM_BREAK_INSTANCE
+		byte dsrm = (in == TimBreakIn::Brk) ? 26 : 27;// BKDSRM / BK2DSRM
+		byte bid  = (in == TimBreakIn::Brk) ? 28 : 29;// BKBID  / BK2BID
+		if (!self[BDTR].bitof(bid)) return true;// not bidirectional: nothing to re-arm
+		uint64 tickstart = SysTick::getTick();
+		while (self[BDTR].bitof(dsrm)) {
+			if ((SysTick::getTick() - tickstart) > 5) return false;// 5 ms timeout
+		}
+		return true;
 	}
 #endif
 

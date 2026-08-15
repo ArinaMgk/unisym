@@ -50,6 +50,29 @@ namespace uni {
 			JDR2, JDR3, JDR4, DR
 		} ADCRegType;
 	}
+#elif defined(_MCU_STM32H7x)
+	enum class ADCReg {
+		ISR,// Interrupt and Status Register
+		IER,// Interrupt Enable Register
+		CR,// Control Register
+		CFGR,// Configuration Register
+		CFGR2,// Configuration Register 2
+		SMPR1, SMPR2, PCSEL,// 0x1X sample time & pre-channel selection
+		LTR1, HTR1, RESERVED0, RESERVED1,// 0x2X watchdog threshold 1
+		SQR1, SQR2, SQR3, SQR4,// 0x3X regular sequence
+		// 0x4X :
+		DR,// regular data
+		RESERVED2, RESERVED3, JSQR,// injected sequence
+		// 0x6X :
+		OFR1 = 0x60 / 4, OFR2, OFR3, OFR4,// Offset Register
+		// 0x8X :
+		JDR1 = 0x80 / 4, JDR2, JDR3, JDR4,// Injected Data Register
+		// 0xAX :
+		AWD2CR = 0xA0 / 4, AWD3CR, RESERVED4, RESERVED5,// Analog Watchdog
+		LTR2, HTR2, LTR3, HTR3,// 0xBX watchdog threshold 2/3
+		DIFSEL, CALFACT, CALFACT2,// 0xCX differential & calibration
+	};// AKA ADC_TypeDef
+
 #elif defined(_MPU_STM32MP13)
 	enum class ADCReg {
 		ISR,// Interrupt and Status Register
@@ -80,7 +103,52 @@ namespace uni {
 		SIDR// Size ID
 	};// AKA ADC_TypeDef
 
-#endif	
+#endif
+
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+
+	// ---- ADC_CR (v2) ----
+	#define _ADC_CR_POS_ADEN        0
+	#define _ADC_CR_POS_ADDIS       1
+	#define _ADC_CR_POS_ADSTART     2
+	#define _ADC_CR_POS_JADSTART    3
+	#define _ADC_CR_POS_ADSTP       4
+	#define _ADC_CR_POS_JADSTP      5
+	#define _ADC_CR_POS_ADVREGEN    28
+	#define _ADC_CR_POS_DEEPPWD     29
+	#define _ADC_CR_POS_ADCALDIF    30
+	#define _ADC_CR_POS_ADCAL       31
+
+	// ---- ADC_ISR (v2) ----
+	#define _ADC_ISR_POS_ADRD       0
+	#define _ADC_ISR_POS_EOSMP      1
+	#define _ADC_ISR_POS_EOC        2
+	#define _ADC_ISR_POS_EOS        3
+	#define _ADC_ISR_POS_OVR        4
+
+	// ---- ADC_CFGR (v2) ----
+	#define _ADC_CFGR_POS_EXTSEL    5
+	#define _ADC_CFGR_POS_EXTEN     10
+	#define _ADC_CFGR_POS_OVRMOD    12
+	#define _ADC_CFGR_POS_CONT      13
+	#define _ADC_CFGR_POS_DISCEN    16
+	#define _ADC_CFGR_POS_DISCNUM   17
+	#if defined(_MCU_STM32H7x)
+	#define _ADC_CFGR_POS_RES       2
+	#define _ADC_CFGR_POS_DMNGT     0
+	#elif defined(_MPU_STM32MP13)
+	#define _ADC_CFGR_POS_RES       3
+	#define _ADC_CFGR_POS_DMAEN     0
+	#define _ADC_CFGR_POS_DMACFG    1
+	#endif
+
+	// ---- ADC_CCR (common) ----
+	#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+	#define _ADC_CCR_POS_CKMODE     16
+	#define _ADC_CCR_POS_PRESC      18
+	#endif
+
+#endif
 
 
 #if 0
@@ -138,12 +206,22 @@ namespace uni {
 		};
 	}
 
-#elif defined(_MPU_STM32MP13)
+#elif defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+	enum class ADCSample : byte {
+		CYCL_1_5 = 0,// 1.5 cycles
+		CYCL_2_5,// 2.5 cycles
+		CYCL_8_5,// 8.5 cycles
+		CYCL_16_5,// 16.5 cycles
+		CYCL_32_5,// 32.5 cycles
+		CYCL_64_5,// 64.5 cycles
+		CYCL_387_5,// 387.5 cycles
+		CYCL_810_5,// 810.5 cycles
+	};
 	enum class ADCCom {
 		CSR = 0x300 / 4,// Control Status Register
 		CCR = 0x308 / 4,// Control Register
 	};// AKA ADC_Common_TypeDef
-	
+
 #endif
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
@@ -242,6 +320,70 @@ namespace uni {
 		}
 		#endif
 	} ADC;// union with others to save .(ro)data
+
+#endif
+
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+
+	enum class ADCRes : byte {
+		B16 = 0, B14, B12, B10, B8
+	};// CFGR.RES
+
+	class ADC_t : public RuptTrait, public IstreamTrait {
+	protected:
+		byte ADC_ID;
+		pureptr_t bind;
+		byte getChannelNumber(GPIO_Pin& pin);
+	public:
+		_COM_DEF_Interrupt_Interface();
+		ADC_t(byte _ADC_ID) : ADC_ID(_ADC_ID) { bind = 0; }
+		stduint getBaseAddr() const;
+		byte getID() const { return ADC_ID; }
+		Reference operator[](ADCReg idx) const {
+			return getBaseAddr() + _IMMx4((stduint)idx);
+		}
+		Reference Common(ADCCom idx) const {
+			return getBaseAddr() + _IMMx4((stduint)idx);
+		}
+		// aka HAL_ADC_MspInit + CCR clock config
+		bool enClock(bool ena = true, byte presc = 0);
+		// aka ADC_Enable / ADC_Disable
+		bool enAble(bool ena = true) const;
+		// aka HAL_ADC_Init
+		bool setMode(ADCRes res = ADCRes::B12, stduint numsof_conv = 0, stduint trigger_ext = 0, bool cont = false);
+		// aka HAL_ADC_ConfigChannel
+		bool setChannel(GPIO_Pin& pin, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
+		// aka HAL_ADC_Start
+		bool Start();
+		// aka HAL_ADC_Stop
+		bool Stop();
+		// aka HAL_ADC_PollForConversion
+		bool Poll(stduint timeout = 0xFFFF);
+		// aka HAL_ADCEx_Calibration_Start
+		uint32 Calibrate();
+		// aka HAL_ADC_GetValue
+		int inn() override {
+			return self[ADCReg::DR];
+		}
+		ADC_t& operator>> (uint32_t& val) {
+			val = inn();
+			return self;
+		}
+		ADC_t& operator>> (float& val) {
+			val = float _IMM(inn()) / 4095;
+			return self;
+		}
+	};
+
+	static struct ADC_Global {
+		ADC_t& operator[](byte id);
+	} ADC;
+
+	#if defined(_MCU_STM32H7x)
+	extern ADC_t ADC1, ADC2, ADC3;
+	#elif defined(_MPU_STM32MP13)
+	extern ADC_t ADC1, ADC2;
+	#endif
 
 #endif
 }

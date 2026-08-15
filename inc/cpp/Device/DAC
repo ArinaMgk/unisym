@@ -68,6 +68,38 @@ namespace uni {
 	}
 #endif
 
+#if defined(_MCU_STM32H7x)
+	#undef DAC
+	#define _DAC_CR_POS_ENx    0
+	#define _DAC_CR_POS_TENx   1
+	#define _DAC_CR_POS_TSELx  2 // 4b
+	#define _DAC_CR_POS_WAVEx  6
+	#define _DAC_CR_POS_MAMPx  8 // 4b
+	#define _DAC_CR_POS_DMAENx 12
+	#define _DAC_CR_POS_DMAUDRIEx 13
+	#define _DAC_CR_POS_CENx   14
+	#define _DAC_CR_VAL_TEN1    0x00000002
+	#define _DAC_CR_VAL_TSEL1_0 0x00000004
+	#define _DAC_CR_VAL_TSEL1_1 0x00000008
+	#define _DAC_CR_VAL_TSEL1_2 0x00000010
+	#define _DAC_CR_VAL_TSEL1_3 0x00000020
+	#define _DAC_CR_VAL_WAVE1_0 0x00000040
+	#define _DAC_CR_VAL_WAVE1_1 0x00000080
+	#define _DAC_MCR_POS_MODEx 0
+	#define _DAC_MCR_LENG_MODEx 3
+	#define _DAC_MCR_VAL_MODE_CHIPCONNECT 0x1 // MODE1_0
+	#define _DAC_MCR_VAL_MODE_BUFFERDIS 0x2 // MODE1_1
+	#define _DAC_MCR_VAL_MODE_SAMPLEHOLD  0x4 // MODE1_2
+	#define _DAC_SR_POS_BWST1 13
+	#define _DAC_SR_POS_BWST2 29
+	#define _DAC_SR_POS_CAL_FLAG1 14
+	#define _DAC_SR_POS_CAL_FLAG2 30
+	namespace DACReg {
+		typedef enum {
+			CR = 0, SWTRIGR, DHR12R1, DHR12L1, DHR8R1, DHR12R2, DHR12L2, DHR8R2, DHR12RD, DHR12LD, DHR8RD, DOR1, DOR2, SR, CCR, MCR, SHSR1, SHSR2, SHHR, SHRR
+		} DACRegType;
+	}
+#endif
 
 #ifdef _MCU_STM32F1x
 
@@ -80,14 +112,47 @@ namespace uni {
 			T4 = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_2 | _DAC_CR_VAL_TSEL1_0,
 			EXT_IT9 = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_2 | _DAC_CR_VAL_TSEL1_1,
 			SOFTWARE = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1
+	} DACTrigger;
+	}
+#endif
+
+// H7 trigger/wave enums carry raw CR bit values (TENx|TSELx / WAVEx)
+#ifdef _MCU_STM32H7x
+	namespace DACTrigger {
+		typedef enum {
+			NONE = 0,
+			SOFTWARE = _DAC_CR_VAL_TEN1,
+			T1_TRGO = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_0,
+			T2_TRGO = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_1,
+			T4_TRGO = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_1 | _DAC_CR_VAL_TSEL1_0,
+			T5_TRGO = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_2,
+			T6_TRGO = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_2 | _DAC_CR_VAL_TSEL1_0,
+			T7_TRGO = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_2 | _DAC_CR_VAL_TSEL1_1,
+			T8_TRGO = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_2 | _DAC_CR_VAL_TSEL1_1 | _DAC_CR_VAL_TSEL1_0,
+			T15_TRGO = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_3,
+			HR1_TRGO1 = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_3 | _DAC_CR_VAL_TSEL1_0,
+			HR1_TRGO2 = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_3 | _DAC_CR_VAL_TSEL1_1,
+			LP1_OUT = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_3 | _DAC_CR_VAL_TSEL1_1 | _DAC_CR_VAL_TSEL1_0,
+			LP2_OUT = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_3 | _DAC_CR_VAL_TSEL1_2,
+			EXT_IT9 = _DAC_CR_VAL_TEN1 | _DAC_CR_VAL_TSEL1_3 | _DAC_CR_VAL_TSEL1_2 | _DAC_CR_VAL_TSEL1_0
 		} DACTrigger;
+	}
+	namespace DACWave {
+		typedef enum {
+			None = 0,
+			Noise = _DAC_CR_VAL_WAVE1_0,
+			Triangle = _DAC_CR_VAL_WAVE1_1
+		} DACWave;
 	}
 #endif
 	
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 
 	#define DAC_getStdvol(i) ((float)i*2.5/0x1000)
+	#define _DAC_ALIGN_12B_R 0x00000000U
+	#define _DAC_ALIGN_12B_L 0x00000004U
+	#define _DAC_ALIGN_8B_R  0x00000008U
 	class DACChan;
 	class DAC_t
 		#if 0
@@ -162,6 +227,23 @@ namespace uni {
 		bool enDMA(GPIO_Pin& pin, DACTrigger::DACTrigger trigger, bool buffer_enable, pureptr_t data, uint32_t leng, uint32_t align = 0);
 		#elif defined(_MCU_STM32F4x)
 		bool enAble(GPIO_Pin& pin);
+		#elif defined(_MCU_STM32H7x)
+		bool enAble(GPIO_Pin& pin);
+		bool canMode();
+		bool setTrigger(byte channel, DACTrigger::DACTrigger trigger);
+		bool setWave(byte channel, DACWave::DACWave wave, byte amplitude);
+		bool setBuffer(byte channel, bool ena);
+		bool enDMA(GPIO_Pin& pin, const DMAStream& stream, pureptr_t data, uint32_t leng, uint32_t align = 0);
+		bool setOutputs(uint32 val1, uint32 val2, uint32 align = _DAC_ALIGN_12B_R);
+		bool swTrigger(byte channel);
+		bool setValue(byte channel, uint32 data, uint32 align);
+		bool setSampleHold(byte channel, uint32 sampleTime, uint32 holdTime, uint32 refreshTime);
+		bool setUserTrimming(byte channel, uint32 trimValue);
+		bool setChipConnect(byte channel, bool ena);
+		bool setCalibrationEnable(byte channel, bool ena);
+		void getOutputs(uint16& val1, uint16& val2);
+		uint32 selfCalibrate(byte channel);
+		uint32 getTrimOffset(byte channel);
 		#endif
 		
 	};

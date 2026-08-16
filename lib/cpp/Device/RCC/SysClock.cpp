@@ -213,6 +213,16 @@ namespace uni {
 		}
 		return sysclockfreq;
 	}
+#elif defined(_MCU_STM32H7x)
+	stduint RCCSystemClock::getFrequency() {
+		switch (CurrentSource()) {
+		case SysclkSource::HSI: return RCC.HSI.getFrequency_ToCore();
+		case SysclkSource::HSE: return RCC.HSE.getFrequency();
+		case SysclkSource::PLL1: return RCC.PLL1.getFrequency_ToCore();
+		case SysclkSource::CSI:
+		default: return RCC.CSI.getFrequency();
+		}
+	}
 #endif
 	// ---- getFrequency (HCLK) ----
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
@@ -241,7 +251,7 @@ namespace uni {
 	}
 	
 #elif defined(_MPU_STM32MP13)
-	stduint RCCSystemClock::getCoreFrequency() {
+	stduint RCCSystemClock::getCoreFrequency() const {
 		using namespace RCCReg;
 		stduint mpu_div;
 		switch (CurrentSource()) {

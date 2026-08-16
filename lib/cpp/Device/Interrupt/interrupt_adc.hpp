@@ -1,7 +1,7 @@
 #include "../../../../inc/cpp/Device/ADC"
 #include "../../../../inc/c/driver/ADConverter/Register-ADC.h"
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 _ESYM_C{
 	Handler_t FUNC_ADCx[4] = { 0 };
 
@@ -76,10 +76,43 @@ void ADC_IRQHandler(void) {
 	//_TEMP NVIC.setAble(IRQ_ADC, true);
 }
 
+#elif defined(_MCU_STM32H7x)
+
+static bool ADC_IRQHandler_sub(ADC_t& sel) {
+	if (!sel.getID()) return false;
+	if (sel[ADCReg::ISR].bitof(_ADC_ISR_POS_EOC) &&
+		sel[ADCReg::IER].bitof(_ADC_ISR_POS_EOC)) {
+		asserv(FUNC_ADCx[sel.getID()])();
+		sel[ADCReg::ISR].setof(_ADC_ISR_POS_EOC, true);
+		return true;
+	}
+	return false;
+}
+
+void ADC_IRQHandler(void) {
+	if (ADC_IRQHandler_sub(ADC1)) return;
+	if (ADC_IRQHandler_sub(ADC2)) return;
+}
+
+void ADC3_IRQHandler(void) {
+	ADC_IRQHandler_sub(ADC3);
+}
+
 #elif defined(_MPU_STM32MP13)
 
-void ADC1_IRQHandler(void) {}
-void ADC2_IRQHandler(void) {}
+static bool ADC_IRQHandler_sub(ADC_t& sel) {
+	if (!sel.getID()) return false;
+	if (sel[ADCReg::ISR].bitof(_ADC_ISR_POS_EOC) &&
+		sel[ADCReg::IER].bitof(_ADC_ISR_POS_EOC)) {
+		asserv(FUNC_ADCx[sel.getID()])();
+		sel[ADCReg::ISR].setof(_ADC_ISR_POS_EOC, true);
+		return true;
+	}
+	return false;
+}
+
+void ADC1_IRQHandler(void) { ADC_IRQHandler_sub(ADC1); }
+void ADC2_IRQHandler(void) { ADC_IRQHandler_sub(ADC2); }
 
 #endif
 

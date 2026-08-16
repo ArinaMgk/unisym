@@ -57,6 +57,37 @@ namespace uni {
 	bool RCCOscillatorLSE::isReady() const {
 		return RCC[RCCReg::BDCR].bitof(1);
 	}
+	// ---- enable/bypass/calibration readback (for HAL_RCC_GetOscConfig)
+	bool RCCOscillatorHSE::isEnabled() const {
+		return RCC[RCCReg::CR].bitof(16);// HSEON
+	}
+	bool RCCOscillatorHSE::isBypass() const {
+		return RCC[RCCReg::CR].bitof(18);// HSEBYP
+	}
+	bool RCCOscillatorHSI::isEnabled() const {
+		return RCC[RCCReg::CR].bitof(0);// HSION
+	}
+	stduint RCCOscillatorHSI::getCalibration() const {
+		return RCC[RCCReg::ICSCR].masof(12, 6);// HSITRIM
+	}
+	bool RCCOscillatorHSI48::isEnabled() const {
+		return RCC[RCCReg::CR].bitof(12);// HSI48ON
+	}
+	bool RCCOscillatorCSI::isEnabled() const {
+		return RCC[RCCReg::CR].bitof(7);// CSION
+	}
+	stduint RCCOscillatorCSI::getCalibration() const {
+		return RCC[RCCReg::ICSCR].masof(26, 5);// CSITRIM
+	}
+	bool RCCOscillatorLSE::isEnabled() const {
+		return RCC[RCCReg::BDCR].bitof(0);// LSEON
+	}
+	bool RCCOscillatorLSE::isBypass() const {
+		return RCC[RCCReg::BDCR].bitof(2);// LSEBYP
+	}
+	bool RCCOscillatorLSI::isEnabled() const {
+		return RCC[RCCReg::CSR].bitof(0);// LSION
+	}
 #elif defined(_MPU_STM32MP13)
 	using namespace RCCReg;
 
@@ -74,6 +105,34 @@ namespace uni {
 	}
 	bool RCCOscillatorLSE::isReady() const {
 		return RCC[BDCR].bitof(_IMM(_BDCR::LSERDY));
+	}
+	// ---- enable/bypass/calibration readback (for HAL_RCC_GetOscConfig)
+	bool RCCOscillatorHSE::isEnabled() const {
+		return RCC[OCENSETR].bitof(_OCENSETR::HSEON);
+	}
+	bool RCCOscillatorHSE::isBypass() const {
+		return RCC[OCENSETR].bitof(_OCENSETR::HSEBYP);
+	}
+	bool RCCOscillatorHSI::isEnabled() const {
+		return RCC[OCENSETR].bitof(_OCENSETR::HSION);
+	}
+	stduint RCCOscillatorHSI::getCalibration() const {
+		return RCC[HSICFGR].masof(_HSICFGR::HSITRIM, 7);
+	}
+	bool RCCOscillatorCSI::isEnabled() const {
+		return RCC[OCENSETR].bitof(_OCENSETR::CSION);
+	}
+	stduint RCCOscillatorCSI::getCalibration() const {
+		return RCC[CSICFGR].masof(_IMM(_CSICFGR::CSITRIM), 5);
+	}
+	bool RCCOscillatorLSI::isEnabled() const {
+		return RCC[RDLSICR].bitof(_IMM(_RDLSICR::LSION));
+	}
+	bool RCCOscillatorLSE::isEnabled() const {
+		return RCC[BDCR].bitof(_IMM(_BDCR::LSEON));
+	}
+	bool RCCOscillatorLSE::isBypass() const {
+		return RCC[BDCR].bitof(_IMM(_BDCR::LSEBYP));
 	}
 #endif
 
@@ -410,6 +469,11 @@ namespace uni {
 			RCC[BDCR].setof(_IMM(_BDCR::LSEBYP), true);
 		}
 		enAble(true); while (true != isReady());
+		return true;
+	}
+	// AKA __HAL_RCC_LSEDRIVE_CONFIG
+	bool RCCOscillatorLSE::setLSEDrive(LSEDrive drive) const {
+		RCC[BDCR].maset(_IMM(_BDCR::LSEDRV), 2, _IMM(drive));// LSEDRV len 2
 		return true;
 	}
 	// ---- State OFF

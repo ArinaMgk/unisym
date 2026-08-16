@@ -50,9 +50,6 @@
 #include "../../../inc/cpp/reference"
 #include "../../../inc/c/data.h"
 #include "../../../inc/c/multichar.h"
-#if defined(_MCCA) && _MCCA==0x8632
-#include "../../../inc/cpp/Device/Buzzer.hpp"
-#endif
 
 namespace uni {
 
@@ -694,12 +691,7 @@ namespace uni {
 				crt_self->cursor.x = 0;
 			}
 			else if (c == '\a') {
-				#if defined(_MCCA) && _MCCA==0x8632
-				Buzzer::Buzz(true);
-				for (volatile size_t ii = 0, _L = 0x1000; ii < _L; ii++)
-					for (volatile size_t jj = 0, _L2 = 0x1000; jj < _L2; jj++);
-				Buzzer::Buzz(false);
-				#endif
+				crt_self->Bell();
 			}
 			else if (c == '\b') {
 				if (crt_self->cursor.x > 0)

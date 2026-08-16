@@ -205,6 +205,43 @@ namespace uni {
 		stduint getFrequencyD1PCLK1();
 		stduint getFrequencyD3PCLK1();
 
+		// Reset Mode (AKA HAL_RCC_DeInit)
+		void canMode() const;
+
+		// AKA HAL_RCCEx_PeriphCLKConfig / GetPeriphCLKConfig / GetPeriphCLKFreq
+		bool setPeriphClock(PeriphClock clk, ClockSource src) const;
+		ClockSource getPeriphClock(PeriphClock clk) const;
+		stduint getPeriphClockFreq(PeriphClock clk) const;
+
+		// AKA HAL_RCCEx_WakeUpStopCLKConfig / KerWakeUpStopCLKConfig
+		void setWakeUpClock(uint32 clk) const;
+		void setKernelWakeUpClock(uint32 clk) const;
+
+		// AKA HAL_RCCEx_EnableLSECSS / DisableLSECSS
+		void enLSECSS(bool ena = true) const;
+
+		// AKA HAL_RCC_EnableCSS
+		void enHSECSS(bool ena = true) const;
+
+		// AKA HAL_RCCEx_WWDGxSysResetConfig
+		void setWWDGReset(uint32 wwdg) const;
+
+		// AKA HAL_RCCEx_CRSWaitSynchronization
+		bool PollCRS(uint32 timeout = 0xFFFF) const;
+
+		// AKA HAL_RCC_MCOConfig
+		void setMCO(MCO1Source::MCO1Source src, MCODiv::MCODiv div = MCODiv::_1) const;
+		void setMCO(MCO2Source::MCO2Source src, MCODiv::MCODiv div = MCODiv::_1) const;
+
+		// AKA HAL_RCCEx_CRSConfig
+		void setCRS(CRSDiv::CRSDiv prescaler, CRSSource::CRSSource source, CRSPolarity::CRSPolarity polarity, uint32 reload, byte errorLimit, byte hsi48Calib) const;
+		// AKA HAL_RCCEx_CRSSoftwareSynchronizationGenerate
+		void setCRSSync() const;
+		// AKA HAL_RCCEx_CRSGetSynchronizationInfo
+		stduint getCRSReload() const;
+		stduint getCRSCalibration() const;
+		stduint getCRSFreqError() const;
+		bool getCRSFreqErrorDir() const;
 
 	};
 
@@ -265,6 +302,24 @@ namespace uni {
 		// AKA __HAL_RCC_SYSCFG_CLK_ENABLE for APB3
 		// ? can move into APB3?
 		void enSyscfg(bool ena = true) const;
+
+		// AKA HAL_RCC_GetXxxFreq series
+		stduint getFrequency(ClockDomain domain) const;
+
+		// AKA HAL_RCCEx_PeriphCLKConfig / GetPeriphCLKConfig / GetPeriphCLKFreq
+		bool setPeriphClock(PeriphClock clk, ClockSource src) const;
+		ClockSource getPeriphClock(PeriphClock clk) const;
+		stduint getPeriphClockFreq(PeriphClock clk) const;
+
+		// AKA HAL_RCCEx_EnableLSECSS / DisableLSECSS
+		void enLSECSS(bool ena = true) const;
+
+		// AKA HAL_RCC_EnableHSECSS
+		void enHSECSS(bool ena = true) const;
+
+		// AKA HAL_RCC_MCOConfig
+		void setMCO(MCO1Source::MCO1Source src, MCODiv::MCODiv div = MCODiv::_1) const;
+		void setMCO(MCO2Source::MCO2Source src, MCODiv::MCODiv div = MCODiv::_1) const;
 
 	};
 

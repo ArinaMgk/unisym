@@ -145,6 +145,18 @@ namespace uni {
 	class Console_t : public OstreamTrait, public IstreamTrait
 	{
 	public:
+		using BellHandler = void (*)(void* context);
+	protected:
+		BellHandler bell_handler = nullptr;
+		void* bell_context = nullptr;
+	public:
+		void setBellHandler(BellHandler handler, void* context = nullptr) {
+			bell_handler = handler;
+			bell_context = context;
+		}
+		void Bell() {
+			if (bell_handler) bell_handler(bell_context);
+		}
 		//virtual int out(const char* str, stduint len) { _TEMP return 0; }
 		//virtual int inn() { _TEMP return 0; }
 		

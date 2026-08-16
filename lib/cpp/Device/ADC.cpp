@@ -495,20 +495,177 @@ namespace uni {
 		return true;
 	}
 
-	bool ADC_t::Start() {
+	bool ADC_t::Start(IOMethod method) {
+		if (method == IOMethod::DMA) return false;// use enDMA()
 		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN) && !enAble(true)) return false;
 		self[ADCReg::ISR].setof(_ADC_ISR_POS_EOC, true);
 		self[ADCReg::ISR].setof(_ADC_ISR_POS_EOS, true);
 		self[ADCReg::ISR].setof(_ADC_ISR_POS_OVR, true);
+		if (method == IOMethod::Rupt) enInterrupt(true);
 		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTART, true);
 		return true;
 	}
 
-	bool ADC_t::Stop() {
+	bool ADC_t::Stop(IOMethod method) {
+		if (method == IOMethod::DMA) return StopDMA();
 		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTP, true);
 		stduint timeout = 0xFFFF;
 		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART) && timeout--) {}
+		if (method == IOMethod::Rupt) {
+			self[ADCReg::IER].setof(_ADC_ISR_POS_EOC, false);
+			self[ADCReg::IER].setof(_ADC_ISR_POS_OVR, false);
+		}
 		self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
+		return true;
+	}
+
+	bool ADC_t::canMode() {
+		// aka HAL_ADC_DeInit
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTP, true);
+		self[ADCReg::CR].setof(_ADC_CR_POS_JADSTP, true);
+		self[ADCReg::IER] = 0;
+		self[ADCReg::ISR] = 0x7FE;// clear all clearable flags (EOSMP..JQOVF)
+		#if defined(_MCU_STM32H7x)
+		self[ADCReg::CFGR].setof(_ADC_CFGR_POS_JQM, true);// flush injected queue
+		#elif defined(_MPU_STM32MP13)
+		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_JQM, true);
+		#endif
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADVREGEN, false);
+		self[ADCReg::CR].setof(_ADC_CR_POS_DEEPPWD, true);
+		self[ADCReg::CFGR2] = 0;
+		self[ADCReg::SMPR1] = 0;
+		self[ADCReg::SMPR2] = 0;
+		self[ADCReg::SQR1] = 0;
+		self[ADCReg::SQR2] = 0;
+		self[ADCReg::SQR3] = 0;
+		self[ADCReg::SQR4] = 0;
+		self[ADCReg::JSQR] = 0;
+		self[ADCReg::OFR1] = 0;
+		self[ADCReg::OFR2] = 0;
+		self[ADCReg::OFR3] = 0;
+		self[ADCReg::OFR4] = 0;
+		self[ADCReg::JDR1] = 0;
+		self[ADCReg::JDR2] = 0;
+		self[ADCReg::JDR3] = 0;
+		self[ADCReg::JDR4] = 0;
+		self[ADCReg::AWD2CR] = 0;
+		self[ADCReg::AWD3CR] = 0;
+		self[ADCReg::DIFSEL] = 0;
+		self[ADCReg::CALFACT] = 0;
+		#if defined(_MCU_STM32H7x)
+		self[ADCReg::CFGR] = 0;
+		self[ADCReg::CFGR].setof(_ADC_CFGR_POS_JQDIS, true);
+		self[ADCReg::PCSEL] = 0;
+		self[ADCReg::LTR1] = 0;
+		self[ADCReg::HTR1] = 0;
+		self[ADCReg::LTR2] = 0;
+		self[ADCReg::HTR2] = 0;
+		self[ADCReg::LTR3] = 0;
+		self[ADCReg::HTR3] = 0;
+		self[ADCReg::CALFACT2] = 0;
+		#elif defined(_MPU_STM32MP13)
+		self[ADCReg::CFGR1] = 0;
+		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_JQDIS, true);
+		self[ADCReg::TR1] = 0;
+		self[ADCReg::TR2] = 0;
+		self[ADCReg::TR3] = 0;
+		#endif
+		bind = 0;
+		enClock(false);
+		return true;
+	}
+
+	bool ADC_t::setDMA(const DMAStream& stream) {
+		bind = (pureptr_t)&stream;
+		return true;
+	}
+
+	bool ADC_t::enDMA(pureptr_t addr, stduint leng) {
+		if (!bind || !addr || !leng) return false;
+		const DMAStream& stream = *(const DMAStream*)bind;
+		stream.getParent().enClock();
+		stduint req = 0;
+		#if defined(_MCU_STM32H7x)
+		req = ADC_ID == 1 ? 9 : ADC_ID == 2 ? 10 : ADC_ID == 3 ? 115 : 0;
+		#elif defined(_MPU_STM32MP13)
+		req = ADC_ID == 1 ? 9 : ADC_ID == 2 ? 10 : 0;
+		#endif
+		if (!req) return false;
+		stream.setRequest(req);
+		if (!enAble(true)) return false;
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_EOC, true);
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_EOS, true);
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_OVR, true);
+		self[ADCReg::IER].setof(_ADC_ISR_POS_OVR, true);
+		#if defined(_MCU_STM32H7x)
+		self[ADCReg::CFGR].maset(_ADC_CFGR_POS_DMNGT, 2, 3);// circular
+		#elif defined(_MPU_STM32MP13)
+		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_DMAEN, true);
+		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_DMACFG, true);// circular
+		#endif
+		if (!stream.Transfer(addr, (pureptr_t)&self[ADCReg::DR], leng, IOMethod::Rupt))
+			return false;
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTART, true);
+		return true;
+	}
+
+	bool ADC_t::StopDMA() {
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTP, true);
+		stduint timeout = 0xFFFF;
+		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART) && timeout--) {}
+		#if defined(_MCU_STM32H7x)
+		self[ADCReg::CFGR].maset(_ADC_CFGR_POS_DMNGT, 2, 0);
+		#elif defined(_MPU_STM32MP13)
+		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_DMAEN, false);
+		#endif
+		if (bind) {
+			const DMAStream& stream = *(const DMAStream*)bind;
+			stream.Abort();
+		}
+		self[ADCReg::IER].setof(_ADC_ISR_POS_OVR, false);
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
+		return true;
+	}
+
+	bool ADC_t::setWatchdog(stduint low, stduint high, byte channel) {
+		if (channel > 18) return false;
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_AWD1, true);// clear flag
+		#if defined(_MCU_STM32H7x)
+		self[ADCReg::LTR1] = low << 4;
+		self[ADCReg::HTR1] = high << 4;
+		self[ADCReg::CFGR].setof(_ADC_CFGR_POS_AWD1SGL, true);
+		self[ADCReg::CFGR].setof(_ADC_CFGR_POS_AWD1EN, true);
+		self[ADCReg::CFGR].maset(_ADC_CFGR_POS_AWD1CH, 5, channel);
+		#elif defined(_MPU_STM32MP13)
+		self[ADCReg::TR1] = (low & 0xFFF) | ((high & 0xFFF) << 16);
+		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_AWD1SGL, true);
+		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_AWD1EN, true);
+		self[ADCReg::CFGR1].maset(_ADC_CFGR_POS_AWD1CH, 5, channel);
+		#endif
+		return true;
+	}
+
+	bool ADC_t::isBusy() const {
+		return self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART)
+			|| self[ADCReg::CR].bitof(_ADC_CR_POS_JADSTART);
+	}
+
+	uint32 ADC_t::getError() const {
+		uint32 err = _ADC_ERROR_NONE;
+		if (self[ADCReg::ISR].bitof(_ADC_ISR_POS_OVR)) err |= _ADC_ERROR_OVR;
+		if (self[ADCReg::ISR].bitof(_ADC_ISR_POS_JQOVF)) err |= _ADC_ERROR_JQOVF;
+		return err;
+	}
+
+	uint32 ADC_t::getCalibration() const {
+		return self[ADCReg::CALFACT] & 0x7F;// single-ended factor
+	}
+
+	bool ADC_t::setCalibration(uint32 factor) {
+		if (factor > 0x7F) return false;
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) return false;
+		self[ADCReg::CALFACT].maset(0, 7, factor);
 		return true;
 	}
 
@@ -533,6 +690,168 @@ namespace uni {
 		NVIC.setAble(ADCx_Request_list[self.ADC_ID], enable);
 	#endif
 	}
+
+	#if defined(_MCU_STM32H7x)
+	bool ADC_t::getLinearCalibration(uint32* buffer) const {
+		if (!buffer) return false;
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN) && !enAble(true)) return false;
+		for (byte cnt = 0; cnt < 6; cnt++) {
+			byte pos = _ADC_CR_POS_LINCALRDYW6 - cnt;
+			self[ADCReg::CR].setof(pos, false);
+			stduint timeout = 0xFFFF;
+			while (self[ADCReg::CR].bitof(pos) && timeout--) {}
+			buffer[cnt] = self[ADCReg::CALFACT2];
+		}
+		return true;
+	}
+
+	bool ADC_t::setLinearCalibration(const uint32* buffer) {
+		if (!buffer) return false;
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_DEEPPWD))
+			self[ADCReg::CR].setof(_ADC_CR_POS_DEEPPWD, false);
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADVREGEN)) {
+			self[ADCReg::CR].setof(_ADC_CR_POS_ADVREGEN, true);
+			for0(i, 10 * SystemCoreClock / 1000000) i = i;
+		}
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADVREGEN)) return false;
+		for (byte cnt = 0; cnt < 6; cnt++) {
+			byte pos = _ADC_CR_POS_LINCALRDYW6 - cnt;
+			self[ADCReg::CALFACT2] = buffer[cnt];
+			self[ADCReg::CR].setof(pos, true);
+			stduint timeout = 0xFFFF;
+			while (!self[ADCReg::CR].bitof(pos) && timeout--) {}
+		}
+		return true;
+	}
+	#endif
+
+	bool ADC_t::StartInject() {
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN) && !enAble(true)) return false;
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_JEOC, true);
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_JEOS, true);
+		self[ADCReg::CR].setof(_ADC_CR_POS_JADSTART, true);
+		return true;
+	}
+
+	bool ADC_t::StopInject() {
+		self[ADCReg::CR].setof(_ADC_CR_POS_JADSTP, true);
+		stduint timeout = 0xFFFF;
+		while (self[ADCReg::CR].bitof(_ADC_CR_POS_JADSTART) && timeout--) {}
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART))
+			self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
+		return true;
+	}
+
+	bool ADC_t::PollInject(stduint timeout) {
+		while (!self[ADCReg::ISR].bitof(_ADC_ISR_POS_JEOC) && timeout--) {}
+		return self[ADCReg::ISR].bitof(_ADC_ISR_POS_JEOC);
+	}
+
+	uint32 ADC_t::getInjectValue(byte rank) {
+		switch (rank) {
+		case 3: return self[ADCReg::JDR4];
+		case 2: return self[ADCReg::JDR3];
+		case 1: return self[ADCReg::JDR2];
+		default: return self[ADCReg::JDR1];
+		}
+	}
+
+	bool ADC_t::setInjectChannel(GPIO_Pin& pin, byte rank, ADCSample sample) {
+		if (rank >= 4) return false;
+		byte chan = getChannelNumber(pin);
+		if (chan == 0xFF) return false;
+		pin.setMode(GPIOMode::IN_Analog);
+		#if defined(_MCU_STM32H7x)
+		self[ADCReg::PCSEL].setof(chan, true);
+		#endif
+		if (chan < 10) self[ADCReg::SMPR1].maset(3 * chan, 3, (stduint)sample);
+		else self[ADCReg::SMPR2].maset(3 * (chan - 10), 3, (stduint)sample);
+		self[ADCReg::JSQR].maset(8 + 5 * rank, 5, chan);
+		return true;
+	}
+
+	bool ADC_t::enInjectQueue(bool ena) {
+		#if defined(_MCU_STM32H7x)
+		self[ADCReg::CFGR].setof(_ADC_CFGR_POS_JQDIS, !ena);
+		#elif defined(_MPU_STM32MP13)
+		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_JQDIS, !ena);
+		#endif
+		return true;
+	}
+
+	bool ADC_t::setMultiMode(stduint mode, stduint dual_data, stduint delay) {
+		Reference ccr = Common(ADCCom::CCR);
+		ccr.maset(_ADC_CCR_POS_DAMDF, 4, dual_data);
+		ccr.maset(_ADC_CCR_POS_DUAL, 5, mode);
+		ccr.maset(_ADC_CCR_POS_DELAY, 4, delay);
+		return true;
+	}
+
+	bool ADC_t::enMultiDMA(pureptr_t addr, stduint leng) {
+		if (!bind || !addr || !leng) return false;
+		const DMAStream& stream = *(const DMAStream*)bind;
+		stream.getParent().enClock();
+		stream.setRequest(9);// ADC1 (multimode master)
+		if (!enAble(true)) return false;
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_EOC, true);
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_EOS, true);
+		self[ADCReg::ISR].setof(_ADC_ISR_POS_OVR, true);
+		self[ADCReg::IER].setof(_ADC_ISR_POS_OVR, true);
+		if (!stream.Transfer(addr, (pureptr_t)&Common(ADCCom::CDR), leng, IOMethod::Rupt))
+			return false;
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTART, true);
+		return true;
+	}
+
+	bool ADC_t::StopMultiDMA() {
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTP, true);
+		stduint timeout = 0xFFFF;
+		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART) && timeout--) {}
+		if (bind) {
+			const DMAStream& stream = *(const DMAStream*)bind;
+			stream.Abort();
+		}
+		self[ADCReg::IER].setof(_ADC_ISR_POS_OVR, false);
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
+		return true;
+	}
+
+	uint32 ADC_t::getMultiValue() {
+		return Common(ADCCom::CDR);
+	}
+
+	bool ADC_t::enVoltageRegulator(bool ena) {
+		if (!ena && self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) return false;
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADVREGEN, ena);
+		if (ena) for0(i, 10 * SystemCoreClock / 1000000) i = i;
+		return true;
+	}
+
+	bool ADC_t::enDeepPowerDown(bool ena) {
+		if (ena && self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) return false;
+		self[ADCReg::CR].setof(_ADC_CR_POS_DEEPPWD, ena);
+		return true;
+	}
+
+	void ADC_t::setCallback(ADCCallbackID id, Handler_t f) const {
+		if (id == ADCCallbackID::ConvCplt)
+			FUNC_ADCx[getID()] = f;
+	}
+
+	#if defined(_MPU_STM32MP13)
+	bool ADC_t::PollEvent(ADCEvent event, stduint timeout) {
+		byte pos = (byte)event;
+		while (!self[ADCReg::ISR].bitof(pos) && timeout--) {}
+		if (!self[ADCReg::ISR].bitof(pos)) return false;
+		self[ADCReg::ISR].setof(pos, true);// clear flag
+		return true;
+	}
+
+	bool ADC_t::enSampling(bool ena) {
+		self[ADCReg::CFGR2].setof(_ADC_CFGR2_POS_SWTRIG, ena);
+		return true;
+	}
+	#endif
 
 	ADC_t& ADC_Global::operator[](byte id) {
 		extern ADC_t ADCr;

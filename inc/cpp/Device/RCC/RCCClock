@@ -187,6 +187,43 @@ namespace uni {
 		stduint getCoreFrequency();
 	};
 
+#ifdef _MCU_STM32H7x
+	// Peripheral kernel clock selectors (AKA HAL_RCCEx_PeriphCLKConfig targets)
+	enum class PeriphClock {
+		SAI1, SAI23, SPI123, SPI45, SPI6, SPDIFRX, DFSDM1, FDCAN, SWPMI1,
+		USART16, USART234578, RNG, I2C123, I2C4, USB, CEC,
+		LPTIM1, LPTIM2, LPTIM345, LPUART1,
+		ADC, SAI4A, SAI4B, FMC, QSPI, SDMMC, CKPER, RTC
+	};
+
+	// Peripheral kernel clock source (abstract; resolved per PeriphClock)
+	enum class ClockSource {
+		Bus,    // default bus/system clock (field value 0)
+		PLL1,   // PLL1 (PLL) as an explicit non-default source
+		PLL2,
+		PLL3,
+		HSI,
+		CSI,
+		HSE,
+		LSI,
+		LSE,
+		HSI48,
+		CKPER,  // peripheral kernel clock (CLKP)
+		Pin,    // external clock input
+		Sys     // DFSDM1 system clock
+	};
+
+	// Micro-controller clock output selectors (AKA HAL_RCC_MCOConfig)
+	namespace MCO1Source { enum MCO1Source { HSI = 0, LSE = 1, HSE = 2, PLL1Q = 3, HSI48 = 4 }; }
+	namespace MCO2Source { enum MCO2Source { SYSCLK = 0, PLL2P = 1, HSE = 2, PLL1P = 3, CSI = 4, LSI = 5 }; }
+	namespace MCODiv { enum MCODiv { _1 = 0, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16 }; }
+
+	// Clock Recovery System (CRS) configuration (AKA HAL_RCCEx_CRSConfig)
+	namespace CRSDiv { enum CRSDiv { _1 = 0, _2, _4, _8, _16, _32, _64, _128 }; }
+	namespace CRSSource { enum CRSSource { USB2 = 0, LSE = 1, USB1 = 2 }; }
+	namespace CRSPolarity { enum CRSPolarity { Rising = 0, Falling = 1 }; }
+#endif
+
 #elif defined(_MPU_STM32MP13)
 
 	class RCCSystemClock {
@@ -202,12 +239,54 @@ namespace uni {
 		static SysclkSource::RCCSysclockSource CurrentSource();
 		// get and update SystemCoreClock
 		// aka HAL_RCC_GetSystemCoreClockFreq and HAL_RCC_GetMPUSSFreq
-		stduint getCoreFrequency();
+		stduint getCoreFrequency() const;
 		// AKA RCC_CLOCKTYPE_MPU & RCC_MPUConfig
 		// default: PLL1 DIV2
 		// divexpo: 0~4 for DIV {1,2,4,8,16} for MPUDIV
 		bool setMode(SysclkSource::RCCSysclockSource source = SysclkSource::PLL1, byte divexpo = 1);
 	};
+
+	// Peripheral kernel clock selectors (AKA HAL_RCCEx_PeriphCLKConfig targets)
+	enum class PeriphClock {
+		I2C12, I2C345, SAI1, SAI2, SPI1, SPI23, SPI45,
+		UART12, UART35, UART4, UART6, UART78,
+		QSPI, FMC, FDCAN, SPDIFRX, CKPER, STGEN, DCMIPP, SAES,
+		LPTIM1, LPTIM23, LPTIM45, SDMMC12, ADC12, ETH12, USBPHY
+	};
+
+	// Peripheral kernel clock source (abstract; resolved per PeriphClock)
+	enum class ClockSource {
+		Bus,    // default bus clock (field value 0)
+		PLL2,
+		PLL3, PLL3_Q, PLL3_R,
+		PLL4, PLL4_P, PLL4_Q, PLL4_R,
+		HSI,
+		HSE,
+		CSI,
+		LSI,
+		LSE,
+		I2SCKIN,// external I2S clock input
+		PER,    // common peripheral kernel clock (CPERCKSELR)
+		SPDIF,  // SPDIFRX kernel clock
+		PHY,    // USB PHY clock
+		OFF     // clock disabled
+	};
+
+	// Frequency domain selectors (AKA HAL_RCC_GetXxxFreq)
+	enum class ClockDomain {
+		MPU, AXIS, MLAHB, ACLK, FCLK, MLHCLK,
+		HCLK1, HCLK2, HCLK3, HCLK4, HCLK5, HCLK6,
+		PCLK1, PCLK2, PCLK3, PCLK4, PCLK5, PCLK6
+	};
+
+	// LSE drive capability (AKA RCC_BDCR_LSEDRV)
+	enum class LSEDrive { Low, MediumLow, MediumHigh, High };
+
+	// Micro-controller clock output selectors (AKA HAL_RCC_MCOConfig)
+	namespace MCO1Source { enum MCO1Source { HSI = 0, HSE = 1, CSI = 2, LSI = 3, LSE = 4 }; }
+	namespace MCO2Source { enum MCO2Source { MPU = 0, AXI = 1, MLAHB = 2, PLL4 = 3, HSE = 4, HSI = 5 }; }
+	namespace MCODiv { enum MCODiv { _1 = 0, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16 }; }
+
 #elif defined(_MCU_MSP432P4)
 
 	class RCCSystemClock {

@@ -114,39 +114,81 @@ namespace uni {
 	#define _ADC_CR_POS_JADSTART    3
 	#define _ADC_CR_POS_ADSTP       4
 	#define _ADC_CR_POS_JADSTP      5
+	#if defined(_MCU_STM32H7x)
+	#define _ADC_CR_POS_BOOST       8
+	#define _ADC_CR_POS_LINCALRDYW6 23
+	#endif
 	#define _ADC_CR_POS_ADVREGEN    28
 	#define _ADC_CR_POS_DEEPPWD     29
 	#define _ADC_CR_POS_ADCALDIF    30
 	#define _ADC_CR_POS_ADCAL       31
 
-	// ---- ADC_ISR (v2) ----
+	// ---- ADC_ISR / ADC_IER (v2, same bits) ----
 	#define _ADC_ISR_POS_ADRD       0
 	#define _ADC_ISR_POS_EOSMP      1
 	#define _ADC_ISR_POS_EOC        2
 	#define _ADC_ISR_POS_EOS        3
 	#define _ADC_ISR_POS_OVR        4
+	#define _ADC_ISR_POS_JEOC       5
+	#define _ADC_ISR_POS_JEOS       6
+	#define _ADC_ISR_POS_AWD1       7
+	#define _ADC_ISR_POS_AWD2       8
+	#define _ADC_ISR_POS_AWD3       9
+	#define _ADC_ISR_POS_JQOVF      10
 
-	// ---- ADC_CFGR (v2) ----
+	// ---- ADC_CFGR (v2, H7 CFGR / MP13 CFGR1) ----
 	#define _ADC_CFGR_POS_EXTSEL    5
 	#define _ADC_CFGR_POS_EXTEN     10
 	#define _ADC_CFGR_POS_OVRMOD    12
 	#define _ADC_CFGR_POS_CONT      13
 	#define _ADC_CFGR_POS_DISCEN    16
 	#define _ADC_CFGR_POS_DISCNUM   17
+	#define _ADC_CFGR_POS_AWD1SGL   22
+	#define _ADC_CFGR_POS_AWD1EN    23
+	#define _ADC_CFGR_POS_JAWD1EN   24
+	#define _ADC_CFGR_POS_JAUTO     25
+	#define _ADC_CFGR_POS_AWD1CH    26
+	#define _ADC_CFGR_POS_JQDIS     31
 	#if defined(_MCU_STM32H7x)
 	#define _ADC_CFGR_POS_RES       2
 	#define _ADC_CFGR_POS_DMNGT     0
+	#define _ADC_CFGR_POS_JDISCEN   20
+	#define _ADC_CFGR_POS_JQM       21
 	#elif defined(_MPU_STM32MP13)
 	#define _ADC_CFGR_POS_RES       3
 	#define _ADC_CFGR_POS_DMAEN     0
 	#define _ADC_CFGR_POS_DMACFG    1
+	#define _ADC_CFGR_POS_JDISCEN   20
+	#define _ADC_CFGR_POS_JQM       21
 	#endif
+
+	// ---- ADC_CFGR2 (v2) ----
+	#define _ADC_CFGR2_POS_ROVSE    0
+	#define _ADC_CFGR2_POS_OVSR     2
+	#define _ADC_CFGR2_POS_OVSS     5
+	#define _ADC_CFGR2_POS_TROVS    9
+	#if defined(_MPU_STM32MP13)
+	#define _ADC_CFGR2_POS_SWTRIG   25
+	#endif
+
+	// ---- ADC_JSQR (v2) ----
+	#define _ADC_JSQR_POS_JL        0
+	#define _ADC_JSQR_POS_JEXTSEL   2
+	#define _ADC_JSQR_POS_JEXTEN    7
 
 	// ---- ADC_CCR (common) ----
 	#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+	#define _ADC_CCR_POS_DUAL       0
+	#define _ADC_CCR_POS_DELAY      8
+	#define _ADC_CCR_POS_DAMDF      14
 	#define _ADC_CCR_POS_CKMODE     16
 	#define _ADC_CCR_POS_PRESC      18
 	#endif
+
+	// ---- ADC error codes (aka HAL_ADC_ERROR_*) ----
+	#define _ADC_ERROR_NONE         0x00
+	#define _ADC_ERROR_OVR          0x02
+	#define _ADC_ERROR_JQOVF        0x08
 
 #endif
 
@@ -220,6 +262,7 @@ namespace uni {
 	enum class ADCCom {
 		CSR = 0x300 / 4,// Control Status Register
 		CCR = 0x308 / 4,// Control Register
+		CDR = 0x30C / 4 // Common Data Register (multimode)
 	};// AKA ADC_Common_TypeDef
 
 #endif
@@ -329,6 +372,20 @@ namespace uni {
 		B16 = 0, B14, B12, B10, B8
 	};// CFGR.RES
 
+	// AKA HAL_ADC_CallbackIDTypeDef (single-callback model: regular conversion complete)
+	enum class ADCCallbackID : byte {
+		ConvCplt = 0// AKA HAL_ADC_ConvCpltCallback
+	};
+#if defined(_MPU_STM32MP13)
+	// AKA HAL_ADC_EventType (ISR flag bits polled by PollEvent)
+	enum class ADCEvent : byte {
+		EOSMP = _ADC_ISR_POS_EOSMP,// End Of Sampling
+		AWD1 = _ADC_ISR_POS_AWD1,// Analog watchdog 1
+		AWD2 = _ADC_ISR_POS_AWD2,// Analog watchdog 2
+		AWD3 = _ADC_ISR_POS_AWD3 // Analog watchdog 3
+	};
+#endif
+
 	class ADC_t : public RuptTrait, public IstreamTrait {
 	protected:
 		byte ADC_ID;
@@ -353,14 +410,16 @@ namespace uni {
 		bool setMode(ADCRes res = ADCRes::B12, stduint numsof_conv = 0, stduint trigger_ext = 0, bool cont = false);
 		// aka HAL_ADC_ConfigChannel
 		bool setChannel(GPIO_Pin& pin, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
-		// aka HAL_ADC_Start
-		bool Start();
-		// aka HAL_ADC_Stop
-		bool Stop();
+		// aka HAL_ADC_Start / Start_IT / Start_DMA
+		bool Start(IOMethod method = IOMethod::Loop);
+		// aka HAL_ADC_Stop / Stop_IT / Stop_DMA
+		bool Stop(IOMethod method = IOMethod::Loop);
 		// aka HAL_ADC_PollForConversion
 		bool Poll(stduint timeout = 0xFFFF);
 		// aka HAL_ADCEx_Calibration_Start
 		uint32 Calibrate();
+		// aka HAL_ADC_DeInit
+		bool canMode();
 		// aka HAL_ADC_GetValue
 		int inn() override {
 			return self[ADCReg::DR];
@@ -373,6 +432,59 @@ namespace uni {
 			val = float _IMM(inn()) / 4095;
 			return self;
 		}
+		// bind DMA stream used by enDMA / enMultiDMA
+		bool setDMA(const DMAStream& stream);
+		// aka HAL_ADC_Start_DMA
+		bool enDMA(pureptr_t addr, stduint leng);
+		// aka HAL_ADC_Stop_DMA
+		bool StopDMA();
+		// aka HAL_ADC_AnalogWDGConfig (watchdog 1, single channel)
+		bool setWatchdog(stduint low, stduint high, byte channel = 0);
+		// aka HAL_ADC_GetState busy check
+		bool isBusy() const;
+		// aka HAL_ADC_GetError
+		uint32 getError() const;
+		// aka HAL_ADCEx_Calibration_GetValue
+		uint32 getCalibration() const;
+		// aka HAL_ADCEx_Calibration_SetValue (single-ended factor)
+		bool setCalibration(uint32 factor);
+#if defined(_MCU_STM32H7x)
+		// aka HAL_ADCEx_LinearCalibration_GetValue / SetValue
+		bool getLinearCalibration(uint32* buffer) const;
+		bool setLinearCalibration(const uint32* buffer);
+#endif
+		// aka HAL_ADCEx_InjectedStart
+		bool StartInject();
+		// aka HAL_ADCEx_InjectedStop
+		bool StopInject();
+		// aka HAL_ADCEx_InjectedPollForConversion
+		bool PollInject(stduint timeout = 0xFFFF);
+		// aka HAL_ADCEx_InjectedGetValue
+		uint32 getInjectValue(byte rank = 0);
+		// aka HAL_ADCEx_InjectedConfigChannel
+		bool setInjectChannel(GPIO_Pin& pin, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
+		// aka HAL_ADCEx_EnableInjectedQueue / DisableInjectedQueue
+		bool enInjectQueue(bool ena = true);
+		// aka HAL_ADCEx_MultiModeConfigChannel
+		bool setMultiMode(stduint mode, stduint dual_data = 0, stduint delay = 0);
+		// aka HAL_ADCEx_MultiModeStart_DMA
+		bool enMultiDMA(pureptr_t addr, stduint leng);
+		// aka HAL_ADCEx_MultiModeStop_DMA
+		bool StopMultiDMA();
+		// aka HAL_ADCEx_MultiModeGetValue
+		uint32 getMultiValue();
+		// aka HAL_ADCEx_DisableVoltageRegulator (ena=false) / HAL_ADC_Init VREG enable (ena=true)
+		bool enVoltageRegulator(bool ena = true);
+		// aka HAL_ADCEx_EnterADCDeepPowerDownMode
+		bool enDeepPowerDown(bool ena = true);
+		// aka HAL_ADC_RegisterCallback (single-callback model)
+		void setCallback(ADCCallbackID id, Handler_t f) const;
+#if defined(_MPU_STM32MP13)
+		// aka HAL_ADC_PollForEvent
+		bool PollEvent(ADCEvent event, stduint timeout = 0xFFFF);
+		// aka HAL_ADC_StartSampling / StopSampling
+		bool enSampling(bool ena = true);
+#endif
 	};
 
 	static struct ADC_Global {

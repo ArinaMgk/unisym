@@ -151,6 +151,10 @@ namespace uni {
 		// default: PLL3 DIV1
 		// divexpo: 0~7 for DIV{1,2,4,8,16,32,64,128}
 		bool setMode(MLAHBSource source = MLAHBSource::PLL3, byte divexpo = 0);
+		// AKA HAL_RCC_GetMLAHBSSFreq (pre MLAHB_DIV)
+		stduint getSourceFrequency() const;
+		// AKA HAL_RCC_GetMLAHBFreq (post MLAHB_DIV)
+		stduint getFrequency() const;
 	};
 	
 	class RCCAPB : public RCCPrescaler {
@@ -159,6 +163,8 @@ namespace uni {
 		stduint getID() const { return _IMM(this) & 0b111; }
 		// divexpo: 0~4 for DIV{1,2,4,8,16}
 		bool setMode(byte divexpo);
+		// AKA HAL_RCC_GetPCLKxFreq (post APBx_DIV)
+		stduint getFrequency() const;
 	};
 
 #endif

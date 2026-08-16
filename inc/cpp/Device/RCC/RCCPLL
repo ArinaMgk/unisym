@@ -161,6 +161,14 @@ namespace uni {
 
 		PLLSource::PLLSource CurrentSource() const;
 
+		// ---- raw readback (aka HAL_RCC_GetOscConfig PLL fields)
+		bool isEnabled() const;
+		stduint getDivM() const;// DIVMx
+		stduint getDivN() const;// DIVNx
+		stduint getFraction() const;// FRACNx
+		stduint getRange() const;// PLLxRGE
+		stduint getVCOSelect() const;// PLLxVCOSEL
+
 		// range 0..4
 		// vcosel 0 WIDE and 1 MEDIUM
 		bool setMode(PLLSource::PLLSource src, stduint range, stduint vcosel, PLLPara_t para) const;
@@ -236,6 +244,13 @@ namespace uni {
 		stduint getFrequencyP() const;// AKA GetPLLxClockFreq in system_....c
 		stduint getFrequencyQ() const;
 		stduint getFrequencyR() const;
+
+		// ---- raw readback (aka HAL_RCC_GetOscConfig PLL fields)
+		bool isEnabled() const;
+		stduint getDivM() const;// DIVM
+		stduint getDivN() const;// DIVN
+		stduint getFraction() const;// FRACV
+		PLLMode getMode() const;
 	};
 
 #endif

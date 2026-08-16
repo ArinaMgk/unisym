@@ -238,7 +238,9 @@ namespace uni {
 
 #if defined(_MCU_STM32H7x)
 // vector table refers to this symbol; IRQ handler dispatches to WWDG1
-void WWDG_IRQHandler(void) {
+// NOTE: must keep C linkage — the startup assembly vector table references the
+//       unmangled symbol `WWDG_IRQHandler`, otherwise the weak default (B .) is used.
+extern "C" void WWDG_IRQHandler(void) {
 	uni::WWDG1.IRQHandler();
 }
 #endif

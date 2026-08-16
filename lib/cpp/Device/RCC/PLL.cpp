@@ -76,11 +76,13 @@ namespace uni {
 #elif defined(_MCU_STM32H7x)
 
 	void RCCPLL::enAble(bool ena) const {
-		RCC[RCCReg::CR].setof(24, ena);// PLL1ON
+		byte id = getID() - 1;
+		RCC[RCCReg::CR].setof(24 + 2 * id, ena);// PLLxON
 		while (ena != isReady());
 	}
 	bool RCCPLL::isReady() const {
-		return RCC[RCCReg::CR].bitof(25);// PLL1RDY
+		byte id = getID() - 1;
+		return RCC[RCCReg::CR].bitof(25 + 2 * id);// PLLxRDY
 	}
 
 	stduint RCCPLL::getFrequency_ToCore() const {
@@ -201,6 +203,35 @@ namespace uni {
 		stduint P, Q, R;
 		getFrequencies(self, P, Q, R);
 		return R;
+	}
+
+	// ---- raw readback (aka HAL_RCC_GetOscConfig PLL fields)
+	bool RCCPLL::isEnabled() const {
+		byte id = getID() - 1;
+		return RCC[RCCReg::CR].bitof(24 + 2 * id);// PLLxON
+	}
+	static void getPara(const RCCPLL& pll, stduint& m, stduint& n, stduint& frac) {
+		if (!Ranglin(pll.getID(), 1, 3)) return;
+		byte id = pll.getID() - 1;
+		static const byte divm_off[] = { 4, 12, 20 };// DIVM1..3 in PLLCKSELR
+		static const RCCReg::RCCReg divrs[] = { RCCReg::PLL1DIVR, RCCReg::PLL2DIVR, RCCReg::PLL3DIVR };
+		static const RCCReg::RCCReg fracrs[] = { RCCReg::PLL1FRACR, RCCReg::PLL2FRACR, RCCReg::PLL3FRACR };
+		m = RCC[RCCReg::PLLCKSELR].masof(divm_off[id], 6);
+		n = RCC[divrs[id]].masof(0, 9) + 1;
+		frac = RCC[fracrs[id]].masof(3, 13);
+	}
+	stduint RCCPLL::getDivM() const { stduint m, n, frac; getPara(self, m, n, frac); return m; }
+	stduint RCCPLL::getDivN() const { stduint m, n, frac; getPara(self, m, n, frac); return n; }
+	stduint RCCPLL::getFraction() const { stduint m, n, frac; getPara(self, m, n, frac); return frac; }
+	stduint RCCPLL::getRange() const {
+		byte id = getID() - 1;
+		static const byte rge_off[] = { 2, 6, 10 };// PLLxRGE in PLLCFGR
+		return RCC[RCCReg::PLLCFGR].masof(rge_off[id], 2);
+	}
+	stduint RCCPLL::getVCOSelect() const {
+		byte id = getID() - 1;
+		static const byte vcosel_off[] = { 1, 5, 9 };// PLLxVCOSEL in PLLCFGR
+		return RCC[RCCReg::PLLCFGR].masof(vcosel_off[id], 1);
 	}
 
 #elif defined(_MPU_STM32MP13)
@@ -429,6 +460,34 @@ namespace uni {
 			return getVCO() / (float32)R_Div;// aka PLL1/2_Clocks->PLL1_P/Q/R_Frequency
 		}
 		return 0;
+	}
+
+	// ---- raw readback (aka HAL_RCC_GetOscConfig PLL fields)
+	bool RCCPLL::isEnabled() const {
+		using namespace RCCReg;
+		byte id = getID() - 1;
+		return RCC[PLLxCR[id]].bitof(0);// PLLON
+	}
+	stduint RCCPLL::getDivM() const {
+		using namespace RCCReg;
+		byte id = getID() - 1;
+		return RCC[PLLxCFGR1[id]].masof(16, 6) + 1;// DIVM
+	}
+	stduint RCCPLL::getDivN() const {
+		using namespace RCCReg;
+		byte id = getID() - 1;
+		return RCC[PLLxCFGR1[id]].masof(0, 9) + 1;// DIVN
+	}
+	stduint RCCPLL::getFraction() const {
+		using namespace RCCReg;
+		byte id = getID() - 1;
+		return RCC[PLLxFRACR[id]].masof(3, 13);// FRACV
+	}
+	PLLMode RCCPLL::getMode() const {
+		using namespace RCCReg;
+		byte id = getID() - 1;
+		if (RCC[PLLxFRACR[id]].masof(3, 13) != 0) return PLLMode::Fractional;
+		return RCC[PLLxCR[id]].bitof(2) ? PLLMode::SpreadSpectrum : PLLMode::Integer;// SSCG_CTRL
 	}
 
 #endif

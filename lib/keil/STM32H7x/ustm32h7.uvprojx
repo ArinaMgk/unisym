@@ -505,6 +505,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\TIM.cpp</FilePath>
             </File>
+            <File>
+              <FileName>ADC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\ADC.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

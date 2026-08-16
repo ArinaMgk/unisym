@@ -145,7 +145,6 @@ void ConClearScreen(void)
 #if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 #include "../../inc/c/proctrl/x86/x86.h"
 #include "../../inc/c/board/IBM.h"
-#include "../../inc/cpp/Device/Buzzer.hpp"
 
 void curset(word posi)
 {
@@ -283,13 +282,7 @@ namespace uni {
 					posi += _BytesPerLine;
 					break;
 				case '\a':
-					#ifndef _UEFI
-					Buzzer::Buzz(true);
-					for (size_t i = 0, _LIMIT = (100);i < (_LIMIT);i++) {
-						_ASM volatile("nop"::: "memory");// "pause"
-					}
-					Buzzer::Buzz(false);
-					#endif
+					Bell();
 					break;
 				case '\b':// left
 					posi -= 2;

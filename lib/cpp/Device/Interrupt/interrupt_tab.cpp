@@ -117,7 +117,6 @@ extern "C" {
 	void PVD_AVD_IRQHandler(void) {}
 	void TAMP_IRQHandler(void) {}
 	void TZC_IT_IRQHandler(void) {}
-	void RCC_IRQHandler(void) {}
 	void FMC_IRQHandler(void) {}
 
 	void USBH_PORT1_IRQHandler(void) {}
@@ -132,7 +131,6 @@ extern "C" {
 	void SPDIF_RX_IRQHandler(void) {}
 	void OTG_IRQHandler(void) {}
 	void RNG1_IRQHandler(void) {}
-	void RCC_WAKEUP__IRQHandler(void) {}
 	void DTS_IRQHandler(void) {}
 	void MPU_WAKEUP_PIN_IRQHandler(void) {}
 	void IWDG1_IRQHandler(void) { uni::IWDG1.IRQHandler(); }
@@ -245,6 +243,7 @@ __irq __arm void IRQ_Handler(void)
 #endif
 #include "interrupt_timer.hpp"
 #include "interrupt_adc.hpp"
+#include "interrupt_rcc.hpp"
 #include "interrupt_dma.hpp"
 #include "interrupt_xart.hpp"
 #include "interrupt_iic.hpp"

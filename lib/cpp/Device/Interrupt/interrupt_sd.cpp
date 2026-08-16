@@ -5,14 +5,14 @@
 
 using namespace uni;
 
-#if defined(_MPU_STM32MP13)
+#if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
 namespace uni {
 	void _HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd);
 }
 
 _WEAK void SDMMC1_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard1); }
-_WEAK void SDMMC2_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard1); }
+_WEAK void SDMMC2_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard2); }
 
 //{TODO} BUSY BIT
 
@@ -45,7 +45,7 @@ void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd)
 			{
 				if (!sd.SDMMC_CmdStopTransfer(&errorstate))
 				{
-					//{TODO} Error Callback
+					if (sd.ErrorHandler) sd.ErrorHandler();
 					return;
 				}
 			}
@@ -55,11 +55,11 @@ void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd)
 			sd.Context = (SDContext::NONE);
 			if (((context & _IMM(SDContext::READ_SINGLE_BLOCK)) != 0U) || ((context & _IMM(SDContext::READ_MULTIPLE_BLOCK)) != 0U))
 			{
-				//{TODO} HAL_SD_RxCpltCallback
+				if (sd.RxCpltHandler) sd.RxCpltHandler();
 			}
 			else
 			{
-				//{TODO} HAL_SD_TxCpltCallback
+				if (sd.TxCpltHandler) sd.TxCpltHandler();
 			}
 		}
 		else if ((context & _IMM(SDContext::DMA)) != 0U)
@@ -74,7 +74,7 @@ void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd)
 			{
 				if (!sd.SDMMC_CmdStopTransfer(&errorstate))
 				{
-					//{TODO} SDMMC_ERRORCallback
+					if (sd.ErrorHandler) sd.ErrorHandler();
 					return;
 				}
 			}
@@ -82,11 +82,11 @@ void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd)
 			if (((context & _IMM(SDContext::WRITE_SINGLE_BLOCK)) != 0U)
 				|| ((context & _IMM(SDContext::WRITE_MULTIPLE_BLOCK)) != 0U))
 			{
-				//{TODO} HAL_SD_TxCpltCallback
+				if (sd.TxCpltHandler) sd.TxCpltHandler();
 			}
 			if (((context & _IMM(SDContext::READ_SINGLE_BLOCK)) != 0U) || ((context & _IMM(SDContext::READ_MULTIPLE_BLOCK)) != 0U))
 			{
-				//{TODO} HAL_SD_RxCpltCallback
+				if (sd.RxCpltHandler) sd.RxCpltHandler();
 			}
 		}
 	}
@@ -131,7 +131,7 @@ void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd)
 		if ((context & _IMM(SDContext::IT)) != 0U)
 		{
 			sd.Context = (SDContext::NONE);
-			//{TODO} SDMMC_ERRORCallback
+			if (sd.ErrorHandler) sd.ErrorHandler();
 			return;
 		}
 		else if ((context & _IMM(SDContext::DMA)) != 0U)
@@ -141,7 +141,7 @@ void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd)
 				/* Disable Internal DMA */
 				sd[SDReg::MASK].rstof(28); // __HAL_SD_DISABLE_IT(hsd, SDMMC_IT_IDMABTC);
 				sd[SDReg::IDMACTRL] = 0; // SDMMC_DISABLE_IDMA;
-				//{TODO} SDMMC_ERRORCallback
+				if (sd.ErrorHandler) sd.ErrorHandler();
 			}
 		}
 	}
@@ -150,14 +150,32 @@ void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd)
 	{
 		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_FLAG_IDMABTC);
 		sd[SDReg::ICR] = _IMM1S(28);// SDMMC_FLAG_IDMABTC
+#if defined(_MPU_STM32MP13)
 		if ((context & _IMM(SDContext::WRITE_MULTIPLE_BLOCK)))
 		{
-			//{TODO} HAL_SDEx_Write_DMALnkLstBufCpltCallback
+			if (sd.Write_DMALnkLstBufCpltHandler) sd.Write_DMALnkLstBufCpltHandler();
 		}
 		else /* _IMM(SDContext::READ_MULTIPLE_BLOCK */
 		{
-			//{TODO} HAL_SDEx_Read_DMALnkLstBufCpltCallback
+			if (sd.Read_DMALnkLstBufCpltHandler) sd.Read_DMALnkLstBufCpltHandler();
 		}
+#elif defined(_MCU_STM32H7x)
+		// IDMABACT: 0 -> buffer0 active (buffer1 done); 1 -> buffer1 active (buffer0 done)
+		if (sd[SDReg::IDMACTRL].bitof(2) == 0)
+		{
+			if ((context & _IMM(SDContext::WRITE_MULTIPLE_BLOCK)) != 0U) {
+				if (sd.Write_DMADoubleBuffer1CpltHandler) sd.Write_DMADoubleBuffer1CpltHandler();
+			}
+			else if (sd.Read_DMADoubleBuffer1CpltHandler) sd.Read_DMADoubleBuffer1CpltHandler();
+		}
+		else
+		{
+			if ((context & _IMM(SDContext::WRITE_MULTIPLE_BLOCK)) != 0U) {
+				if (sd.Write_DMADoubleBuffer0CpltHandler) sd.Write_DMADoubleBuffer0CpltHandler();
+			}
+			else if (sd.Read_DMADoubleBuffer0CpltHandler) sd.Read_DMADoubleBuffer0CpltHandler();
+		}
+#endif
 	}
 }
 

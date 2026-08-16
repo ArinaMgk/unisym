@@ -42,7 +42,7 @@
 #define SDMMC_FIFO_SIZE 32U
 
 namespace uni {
-#if defined(_MPU_STM32MP13)
+#if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
 	// Read data(word) from Rx FIFO in blocking mode(polling)
 	// <=> SDMMC_GetFIFOCount

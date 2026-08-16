@@ -24,7 +24,8 @@
 #include "../../../../inc/cpp/Device/DDR"
 #include "../../../../inc/cpp/Device/RCC/RCC"
 #include "../../../../inc/cpp/Device/RCC/RCCAddress"
-#if defined(_MPU_STM32MP13)
+#include "../../../../inc/cpp/Device/NVIC"
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 
 #define lt(x) getParent()[LTDCReg::x]
 #define ly(x) self[LTDCLayerReg::x]
@@ -40,7 +41,11 @@ namespace uni {
 	//
 
 	LTDC_LAYER_t::LayerPara* LTDC_LAYER_t::layer_param_refer(LTDC_LAYER_t::LayerPara* para) {
+#if defined(_MPU_STM32MP13)
 		para->roleaddr = (pureptr_t)DDR.getRoleress();
+#else
+		para->roleaddr = nullptr;//{TODO} F4/H7 frame buffer address is user-specific
+#endif
 		para->window = Rectangle(Point(0, 0), Size2(800, 480));
 		para->image_size = Size2(800, 480);
 		para->factor1_mode = true;
@@ -52,6 +57,64 @@ namespace uni {
 	}
 
 	bool LTDC_LAYER_t::setMode_sub(LayerPara& param) const {
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+		// ---- v1 (F4/H7) LTDC_SetConfig ----
+		uint32 stride = 0U, pf_v1 = 0U;
+		stduint win_x0 = param.window.getVertex().x;
+		stduint win_x1 = param.window.getVertexOpposite().x;
+		stduint win_y0 = param.window.getVertex().y;
+		stduint win_y1 = param.window.getVertexOpposite().y;
+		{
+			Tdsfield AHBP((pureptr_t)&lt(BPCR), 16, 12);
+			Tdsfield AVBP((pureptr_t)&lt(BPCR), 0, 12);
+			stduint vir_WHPCR = 0;
+			Tdsfield WHSPPOS((pureptr_t)&vir_WHPCR, 16, 12);
+			Tdsfield WHSTPOS((pureptr_t)&vir_WHPCR, 0, 12);
+			stduint vir_WVPCR = 0;
+			Tdsfield WVSPPOS((pureptr_t)&vir_WVPCR, 16, 12);
+			Tdsfield WVSTPOS((pureptr_t)&vir_WVPCR, 0, 12);
+			// Configure the horizontal start and stop position
+			WHSPPOS = win_x1 + _IMM(AHBP);
+			WHSTPOS = win_x0 + _IMM(AHBP) + 1;
+			ly(WHPCR) = vir_WHPCR;
+			// Configure the vertical start and stop position
+			WVSPPOS = win_y1 + _IMM(AVBP);
+			WVSTPOS = win_y0 + _IMM(AVBP) + 1;
+			ly(WVPCR) = vir_WVPCR;
+		}
+		// Specifies the pixel format (v1: 3-bit PF field)
+		switch (param.pixel_format) {
+		case PixelFormat::ARGB8888: pf_v1 = 0U; stride = 4U; break;
+		case PixelFormat::RGB888:   pf_v1 = 1U; stride = 3U; break;
+		case PixelFormat::RGB565:   pf_v1 = 2U; stride = 2U; break;
+		case PixelFormat::ARGB1555: pf_v1 = 3U; stride = 2U; break;
+		case PixelFormat::ARGB4444: pf_v1 = 4U; stride = 2U; break;
+		case PixelFormat::L8:       pf_v1 = 5U; stride = 1U; break;
+		case PixelFormat::AL44:     pf_v1 = 6U; stride = 1U; break;
+		case PixelFormat::AL88:     pf_v1 = 7U; stride = 2U; break;
+		default: return false;// unsupported on F4/H7 v1 LTDC
+		}
+		ly(PFCR) = pf_v1;
+		{
+			// Configure the default color values
+			// NOTE(HAL deviation): see MP13 branch -- Alpha0/Alpha merged into backcolor.a.
+			ly(DCCR) = uint32(param.backcolor) & _TEMP 0xFFFFFF;
+			// Specifies the constant alpha value
+			Tdsfield CONSTA((pureptr_t)&ly(CACR), 0, 8);
+			CONSTA = param.backcolor.a;// use backcolor.a as Alpha (merged with Alpha0)
+		}
+		// Specifies the blending factors
+		ly(BFCR) = (param.factor1_mode ? /*T:PAxCA*/(0b110 << 8) : /*F:CA*/(0b100 << 8)) | (param.factor2_mode ? /*T:PAxCA*/(0b111) : /*F:CA*/(0b101));
+		// Configure the color frame buffer start address
+		ly(CFBAR) = _IMM(param.roleaddr);
+		// Configure the color frame buffer pitch and line length
+		ly(CFBLR) = ((param.image_size.x * stride) << 16U) | (param.window.width * stride + 3U);
+		// Configure the frame buffer line number
+		ly(CFBLNR) = param.image_size.y;
+		// Enable LTDC_Layer by setting LEN bit
+		ly(CR) = _IMM1S(0);// LEN
+		return true;
+#else
 		uint32 tmp,
 			stride, PSIZE = 0U,
 			ALEN = 0U, APOS = 0U, RLEN = 0U, RPOS = 0U, BLEN = 0U, BPOS = 0U, GLEN = 0U, GPOS = 0U;
@@ -79,10 +142,14 @@ namespace uni {
 		}
 		{
 			// Configure the default color values
+			// NOTE(HAL deviation): HAL writes LayerCfg.Alpha0 to DCCR[31:24] (default
+			//   alpha for alpha-less formats) and LayerCfg.Alpha to CACR.CONSTA (constant
+			//   alpha). Here Alpha0 is dropped and backcolor.a doubles as the constant
+			//   alpha, i.e. Alpha0/Alpha are merged into backcolor.a. Left as-is for now.
 			ly(DCCR) = uint32(param.backcolor) & _TEMP 0xFFFFFF;
 			// Specifies the constant alpha value
 			Tdsfield CONSTA((pureptr_t)&ly(CACR), 0, 8);
-			CONSTA = param.backcolor.a;// use backcolor as Alpha
+			CONSTA = param.backcolor.a;// use backcolor.a as Alpha (merged with Alpha0)
 		}
 		// Specifies the pixel format
 		{
@@ -415,6 +482,7 @@ namespace uni {
 			ly(CR) = _IMM1S(8) | _IMM1S(0);// HMEN | LEN;
 		}
 		return true;
+#endif
 	}
 
 	bool LTDC_LAYER_t::assert_param(LayerPara param) const {
@@ -521,7 +589,13 @@ namespace uni {
 	///
 
 	void LTDC_t::enClock(bool ena) {
+#if defined(_MCU_STM32F4x)
+		RCC[RCCReg::APB2ENR].setof(26, ena);// LTDCEN
+#elif defined(_MCU_STM32H7x)
+		RCC[RCCReg::APB3ENR].setof(3, ena);// LTDCEN
+#else
 		RCC[ena ? RCCReg::MP_NS_APB4ENSETR : RCCReg::MP_NS_APB4ENCLRR] = 0x00000001;
+#endif
 	}
 
 	LTDC_LAYER_t& LTDC_t::operator[](unsigned layer) const {
@@ -555,15 +629,19 @@ namespace uni {
 		self[LTDCReg::BCCR].maset(0x00, 8, color.b);
 		self[LTDCReg::BCCR].maset(0x08, 8, color.g);
 		self[LTDCReg::BCCR].maset(0x10, 8, color.r);
+#if defined(_MPU_STM32MP13)
 		self[LTDCReg::EDCR].maset(25, 3, nil);//{TODO} Configure the output to YCbCr 422: Enable, the CCIR hard-wired coefficients, chrominance order
 		self[LTDCReg::FUTR].maset(0, 16, nil);//{TODO} THRE, Configure the Fifo Underrun Threshold register
+#endif
 		//: Enable the Transfer Error and FIFO underrun interrupts
 		// AKA __HAL_LTDC_ENABLE_IT(hltdc, LTDC_IT_TE | LTDC_IT_FU)
-		self[LTDCReg::IER].setof(1);// LTDC_IER_FUWIE
-		self[LTDCReg::IER].setof(2);// LTDC_IER_TERRIE
+		self[LTDCReg::IER].setof(1);// F4/H7: FUIE, MP13: FUWIE
+		self[LTDCReg::IER].setof(2);// TERRIE
+#if defined(_MPU_STM32MP13)
 		// AKA __HAL_LTDC_ENABLE_SECURE_IT(hltdc, LTDC_IT_TE | LTDC_IT_FU)
 		self[LTDCReg::IER2].setof(1);// LTDC_IER_FUWIE
 		self[LTDCReg::IER2].setof(2);// LTDC_IER_TERRIE
+#endif
 		enAble();
 		return true;
 	}
@@ -573,8 +651,72 @@ namespace uni {
 	}
 	
 	stduint LTDC_t::getFrequency() {
+#if defined(_MCU_STM32F4x)
+		return 0;//{TODO} LTDC pixel clock = PLLSAI.R, not exposed in unisym RCC yet
+#elif defined(_MCU_STM32H7x)
+		return RCC.PLL3.getFrequencyR();// LTDC pixel clock = PLL3.R
+#else
 		return RCC.PLL4.getFrequencyQ();
+#endif
 	}
+
+#if defined(_MCU_STM32H7x)
+	// ---- advanced (H7 only) ----
+
+	// AKA HAL_LTDC_DeInit
+	void LTDC_t::canMode() {
+		enAble(false);// __HAL_LTDC_DISABLE
+		enClock(false);
+	}
+
+	// AKA HAL_LTDC_EnableDither / DisableDither
+	void LTDC_t::enDither(bool ena) {
+		self[LTDCReg::GCR].setof(16, ena);// DEN
+	}
+
+	// AKA HAL_LTDC_ProgramLineEvent
+	void LTDC_t::setLineEvent(stduint line) {
+		self[LTDCReg::LIPCR] = line;// LIPOS
+	}
+
+	// AKA HAL_LTDC_Reload
+	void LTDC_t::Reload(LTDCReload type) {
+		if (type == LTDCReload::Immediate) self[LTDCReg::SRCR].setof(0);// IMR
+		else self[LTDCReg::SRCR].setof(1);// VBR
+	}
+
+	// ---- interrupts (RuptTrait, AKA HAL_LTDC_IRQHandler) ----
+	void LTDC_t::setInterrupt(Handler_t f) const {
+		LineEventCallback = f;
+	}
+	void LTDC_t::setInterruptPriority(byte preempt, byte sub_priority) const {
+		NVIC.setPriority(IRQ_LTDC, preempt, sub_priority);
+		NVIC.setPriority(IRQ_LTDC_ER, preempt, sub_priority);
+	}
+	void LTDC_t::enInterrupt(bool enable) const {
+		NVIC.setAble(IRQ_LTDC, enable);
+		NVIC.setAble(IRQ_LTDC_ER, enable);
+	}
+
+	// AKA HAL_LTDC_ConfigColorKeying + Enable/DisableColorKeying
+	bool LTDC_LAYER_t::setColorKeying(Color key, bool ena) {
+		ly(CKCR) = uint32(key) & 0xFFFFFF;// CKBLUE | CKGREEN | CKRED
+		ly(CR).setof(1, ena);// COLKEN
+		return true;
+	}
+
+	// AKA HAL_LTDC_ConfigCLUT + Enable/DisableCLUT
+	bool LTDC_LAYER_t::setCLUT(const uint32* table, stduint size, bool ena) {
+		for (stduint counter = 0; counter < size; counter++) {
+			if (layer_param.pixel_format == PixelFormat::AL44)
+				ly(CLUTWR) = (((counter + 16U * counter) << 24U) | (table[counter] & 0xFFFFFFU));
+			else
+				ly(CLUTWR) = ((counter << 24U) | (table[counter] & 0xFFFFFFU));
+		}
+		ly(CR).setof(4, ena);// CLUTEN
+		return true;
+	}
+#endif
 
 }
 

@@ -510,6 +510,16 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\ADC.cpp</FilePath>
             </File>
+            <File>
+              <FileName>LTDC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Video\LTDC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>BDMA.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\BDMA.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

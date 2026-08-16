@@ -59,7 +59,7 @@ extern "C" {
 }
 
 namespace uni {
-#if defined(_MPU_STM32MP13)
+#if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
 	// Return the command index of last command for which response received
 	statin uint8 SDMMC_GetCommandResponse(const SecureDigitalCard_t& sd) {
@@ -1103,7 +1103,7 @@ namespace uni {
 			error_code = SDMMC_CmdStopTransfer(&error_code);
 		}
 		if (error_code != SDMMC_ERROR_NONE) return false; else
-			_Comment("{TODO} HAL_SD_AbortCallback");
+			if (AbortCpltHandler) AbortCpltHandler();
 		return true;
 	}
 

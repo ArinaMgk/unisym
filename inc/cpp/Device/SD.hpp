@@ -32,7 +32,7 @@
 #include "../interrupt"
 #include "../string"
 
-#if defined(_MPU_STM32MP13)
+#if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 //{TODO} now SysTick Freq Fixed on 1kHz
 //    search `SysTick::get...` for more
 
@@ -47,13 +47,30 @@ namespace uni {
 		DCOUNT, STA, ICR, MASK,
 		ACKTIME,
 		IDMACTRL = 0x50 / 4, IDMABSIZE, IDMABASER,
+	#if defined(_MPU_STM32MP13)
 		IDMALAR = 0x64 / 4, IDMABAR,
+	#elif defined(_MCU_STM32H7x)
+		IDMABASE1 = 0x5C / 4,
+	#endif
 		FIFO_Start = 0x80 / 4, // 0x80 - 0xBC
+	#if defined(_MPU_STM32MP13)
 		VERR = 0x3F4 / 4, IPIDR, SIDR
+	#elif defined(_MCU_STM32H7x)
+		IPVR = 0x3FC / 4
+	#endif
 	};
 
+#if defined(_MPU_STM32MP13)
 	// for SDMMC 1 and 2
 	enum class SDMMC_CLKSRC { HCLK6 = 0b00, PLL3, PLL4, HSI };
+#elif defined(_MCU_STM32H7x)
+	// SDMMC1 kernel clock source (RCC_D1CCIPR.SDMMCSEL, 1 bit)
+	enum class SDMMC1_CLKSRC { PLL1Q = 0b0, PLL2R = 0b1 };
+	// SDMMC2 kernel clock source (RCC_D1CCIPR.CKPERSEL, 2 bits)
+	enum class SDMMC2_CLKSRC { HCLK = 0b00, PLL1Q = 0b01, PLL2R = 0b10, HSI48 = 0b11 };
+	// SD internal DMA double-buffer selection (IDMABASE0 / IDMABASE1)
+	enum class SDMMC_DMABuffer { Buffer0 = 0b0, Buffer1 = 0b1 };
+#endif
 
 	class SecureDigitalCard_t : public StorageTrait, public RuptTrait
 	{
@@ -81,13 +98,36 @@ namespace uni {
 		virtual void setInterrupt(Handler_t _func) const override { _TODO }
 		virtual void setInterruptPriority(byte preempt, byte sub_priority) const override { _TODO }
 		virtual void enInterrupt(bool enable = true) const override { _TODO }
+		// ---- callbacks (Handler_t, AKA HAL weak callbacks) ----
+		Handler_t TxCpltHandler = 0;       // AKA HAL_SD_TxCpltCallback
+		Handler_t RxCpltHandler = 0;       // AKA HAL_SD_RxCpltCallback
+		Handler_t ErrorHandler = 0;        // AKA HAL_SD_ErrorCallback
+		Handler_t AbortCpltHandler = 0;    // AKA HAL_SD_AbortCallback
+#if defined(_MCU_STM32H7x)
+		Handler_t Read_DMADoubleBuffer0CpltHandler = 0;// AKA HAL_SDEx_Read_DMADoubleBuffer0CpltCallback
+		Handler_t Read_DMADoubleBuffer1CpltHandler = 0;
+		Handler_t Write_DMADoubleBuffer0CpltHandler = 0;
+		Handler_t Write_DMADoubleBuffer1CpltHandler = 0;
+#elif defined(_MPU_STM32MP13)
+		Handler_t Read_DMALnkLstBufCpltHandler = 0;    // AKA HAL_SDEx_Read_DMALnkLstBufCpltCallback
+		Handler_t Write_DMALnkLstBufCpltHandler = 0;   // AKA HAL_SDEx_Write_DMALnkLstBufCpltCallback
+#endif
 		// clock_edge: true for posedge
+	#if defined(_MPU_STM32MP13)
 		bool setMode(
 			SDMMC_CLKSRC clk_src = SDMMC_CLKSRC::HCLK6,
 			bool clock_edge = false,
 			bool powersave_enable = false,
 			SDMMC_BusWidth bus_width = SDMMC_BusWidth::Bits4,
 			bool hardware_flow_control_enable = false);
+	#elif defined(_MCU_STM32H7x)
+		bool setMode(
+			SDMMC1_CLKSRC clk_src = SDMMC1_CLKSRC::PLL1Q,
+			bool clock_edge = false,
+			bool powersave_enable = false,
+			SDMMC_BusWidth bus_width = SDMMC_BusWidth::Bits4,
+			bool hardware_flow_control_enable = false);
+	#endif
 
 		// AKA HAL_SD_DeInit
 		bool canMode();
@@ -266,6 +306,18 @@ namespace uni {
 		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
 		bool HAL_SD_Erase(uint32 BlockStartAdd, uint32 BlockEndAdd, uint32* feedback);
 
+#if defined(_MCU_STM32H7x)
+		// ---- H7 internal DMA double-buffer (aka HAL_SDEx_*) ----
+		// Configures Buffer0 and Buffer1 base address and buffer size (in blocks).
+		bool HAL_SDEx_ConfigDMAMultiBuffer(uint32* pDataBuffer0, uint32* pDataBuffer1, uint32 BufferSize);
+		// Reads block(s) into the double-buffer. Buffers must be configured by ConfigDMAMultiBuffer first.
+		bool HAL_SDEx_ReadBlocksDMAMultiBuffer(uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback = nullptr);
+		// Writes block(s) from the double-buffer.
+		bool HAL_SDEx_WriteBlocksDMAMultiBuffer(uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback = nullptr);
+		// Changes Buffer0 or Buffer1 address on the fly.
+		bool HAL_SDEx_ChangeDMABuffer(SDMMC_DMABuffer Buffer, uint32* pDataBuffer);
+#endif
+
 
 
 	_Comment("IO functions") protected:
@@ -277,6 +329,7 @@ namespace uni {
 		void SD_Write_IT();
 
 
+#if defined(_MPU_STM32MP13)
 	_Comment("Linked List functions") public:
 
 		// AKA HAL_SDEx_DMALinkedList_BuildNode
@@ -318,6 +371,7 @@ namespace uni {
 
 		// Write block(s) to a specified address in a card. The transferred Data are stored linked list nodes buffers .  linked list should be prepared before call this function 
 		bool HAL_SDEx_DMALinkedList_WriteBlocks(SDMMC_DMALinkedList* pLinkedList, uint32 BlockAddr, uint32 NumberOfBlocks, uint32* feedback = nullptr);
+#endif
 
 	_Comment("Peripheral Control functions") protected:
 
@@ -358,10 +412,21 @@ namespace uni {
 		stduint last_ClockDiv;
 			_TEMP public:		stduint temp_ClockDiv;
 	public:
+	#if defined(_MPU_STM32MP13)
 		// AKA __HAL_RCC_GET_SDMMC1_SOURCE = __HAL_RCC_GET_SDIO_SOURCE
 		SDMMC_CLKSRC getClockSource() const;
 		// AKA __HAL_RCC_SDMMC1_CONFIG
 		void setClockSource(SDMMC_CLKSRC clk_src) const;
+	#elif defined(_MCU_STM32H7x)
+		// AKA __HAL_RCC_GET_SDMMC1_SOURCE
+		SDMMC1_CLKSRC getClockSource() const;
+		// AKA __HAL_RCC_SDMMC1_CONFIG
+		void setClockSource(SDMMC1_CLKSRC clk_src) const;
+		// AKA __HAL_RCC_GET_SDMMC2_SOURCE (SDMMC2 uses CKPERSEL)
+		SDMMC2_CLKSRC getClockSource2() const;
+		// AKA __HAL_RCC_SDMMC2_CONFIG
+		void setClockSource2(SDMMC2_CLKSRC clk_src) const;
+	#endif
 		// AKA HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SDMMCx)
 		stduint getFrequency() const;
 

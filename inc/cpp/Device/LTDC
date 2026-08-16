@@ -22,10 +22,19 @@
 
 #ifndef _INC_Device_LTDC
 #define _INC_Device_LTDC
-#if defined(_MPU_STM32MP13)
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 
 #include "../reference"
+#include "../interrupt"
 #include "_Video.hpp"
+
+#if defined(_MCU_STM32F4x)
+#define _LTDC_ADDR 0x40016800// APB2PERIPH_BASE + 0x6800
+#elif defined(_MCU_STM32H7x)
+#define _LTDC_ADDR 0x50001000// D1_APB1PERIPH_BASE + 0x1000
+#elif defined(_MPU_STM32MP13)
+#define _LTDC_ADDR 0x5A001000// APB4_PERIPH_BASE + 0x1000
+#endif
 
 namespace uni {
 	struct LTDC_TIMESPAN {
@@ -71,7 +80,32 @@ namespace uni {
 		FUTR = 0x90 / 4,// FIFO underrun threshold   : 0x90
 	};// AKA LTDC_TypeDef
 
+#if defined(_MCU_STM32H7x)
+	enum class LTDCReload {
+		Immediate,     // SRCR.IMR
+		VerticalBlank, // SRCR.VBR
+	};
+#endif
+
 	// pander stm32mp135 d/f xx_ca7.h
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+	enum class LTDCLayerReg {
+		CR,           // control                         : layer+0x00
+		WHPCR,        // window horizontal position      : layer+0x04
+		WVPCR,        // window vertical position        : layer+0x08
+		CKCR,         // color keying configuration      : layer+0x0C
+		PFCR,         // pixel format configuration      : layer+0x10
+		CACR,         // constant alpha configuration    : layer+0x14
+		DCCR,         // default color configuration     : layer+0x18
+		BFCR,         // blending factors configuration  : layer+0x1C
+		// 0x20, 0x24 reserved
+		CFBAR = 10,   // color frame buffer address      : layer+0x28
+		CFBLR,        // color frame buffer length       : layer+0x2C
+		CFBLNR,       // color frame buffer line number  : layer+0x30
+		// 0x34, 0x38, 0x3C reserved
+		CLUTWR = 16,  // CLUT write                      : layer+0x40
+	};// AKA LTDC_Layer_TypeDef (v1, layer at LTDC+0x84 / stride 0x80)
+#else
 	enum class LTDCLayerReg {
 		C0R,          // configuration 0 
 		C1R,          // configuration 1 
@@ -105,6 +139,7 @@ namespace uni {
 		FPF0R,        // Flexible Pixel Format 0  : 0x74
 		FPF1R,        // Flexible Pixel Format 1  : 0x78
 	};// AKA LTDC_Layer_TypeDef L1 (or L2) from offset 0x100 (or 0x200) from LTDC
+#endif
 
 	
 	// MP13 have no DMA2D
@@ -140,10 +175,21 @@ namespace uni {
 		LTDC_LAYER_t(byte id) : id(id) {}
 		stduint getID() const { return _IMM(this) == 2 ? 0x2 : 0x1; }
 		LTDC_t& getParent() const;
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+		Reference operator[](LTDCLayerReg trt) const { return _LTDC_ADDR + 0x84 + (stduint)(id - 1) * 0x80 + _IMMx4(trt); }
+#else
 		Reference operator[](LTDCLayerReg trt) const { return 0x5A001000 + getID() * 0x100 + _IMMx4(trt); }
+#endif
 
 		// AKA HAL_LTDC_ConfigLayer
 		bool setMode(LayerPara& param);
+
+#if defined(_MCU_STM32H7x)
+		// AKA HAL_LTDC_ConfigColorKeying + Enable/DisableColorKeying
+		bool setColorKeying(Color key, bool ena = true);
+		// AKA HAL_LTDC_ConfigCLUT + Enable/DisableCLUT
+		bool setCLUT(const uint32* table, stduint size, bool ena = true);
+#endif
 
 		Rectangle getWindow() const;
 		
@@ -156,7 +202,11 @@ namespace uni {
 		//:VideoControlInterface Impl by USER
 		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str) const;
 	};// Layer 0x00000001 and 0x00000002
-	class LTDC_t {
+	class LTDC_t
+#if defined(_MCU_STM32H7x)
+		: public RuptTrait
+#endif
+	{
 	private:
 		LTDC_TIMESPAN horizontal, vertical;
 		// FifoUnderThresh
@@ -166,7 +216,7 @@ namespace uni {
 		LTDC_t() : HSPolarity(false), VSPolarity(false), DEPolarity(false), PCPolarity(false) {}
 		// ---- BASIC PROPERTIES ----
 		void enClock(bool ena = true);
-		Reference operator[](LTDCReg trt) const { return 0x5A001000 + _IMMx4(trt); }// APB4_PERIPH_BASE + 0x1000UL
+		Reference operator[](LTDCReg trt) const { return _LTDC_ADDR + _IMMx4(trt); }
 		LTDC_LAYER_t& operator[](unsigned layer) const;
 		// AKA __HAL_LTDC_ENABLE / DISABLE
 		void enAble(bool ena = true);
@@ -179,6 +229,21 @@ namespace uni {
 		bool setMode(Color color);
 		//
 		stduint getFrequency();
+#if defined(_MCU_STM32H7x)
+		// AKA HAL_LTDC_DeInit
+		void canMode();
+		// AKA HAL_LTDC_EnableDither / DisableDither
+		void enDither(bool ena = true);
+		// AKA HAL_LTDC_ProgramLineEvent
+		void setLineEvent(stduint line);
+		// AKA HAL_LTDC_Reload
+		void Reload(LTDCReload type);
+		// ---- interrupts (AKA HAL_LTDC_IRQHandler) ----
+		mutable Handler_t LineEventCallback = 0;
+		mutable Handler_t ReloadEventCallback = 0;
+		mutable Handler_t ErrorCallback = 0;
+		_COM_DEF_Interrupt_Interface();
+#endif
 
 	};
 

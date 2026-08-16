@@ -245,12 +245,14 @@ __irq __arm void IRQ_Handler(void)
 #include "interrupt_adc.hpp"
 #include "interrupt_rcc.hpp"
 #include "interrupt_dma.hpp"
+#include "interrupt_bdma.hpp"
 #include "interrupt_xart.hpp"
 #include "interrupt_iic.hpp"
 #include "interrupt_spi.hpp"
 #include "interrupt_sgi.hpp"
 #include "interrupt_dram.hpp"
 #include "interrupt_video.hpp"
+#include "interrupt_rtc.hpp"
 
 #if defined(_MPU_STM32MP13)
 

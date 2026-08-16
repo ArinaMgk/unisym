@@ -1,0 +1,126 @@
+// UTF-8 C/C++11 TAB4 CRLF
+// Docutitle: (Device) Basic Direct Memory Access, BDMA
+// Codifiers: @dosconio: 20260816~;
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+// Dependens: RCC
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_BDMA
+#define _INC_DEVICE_BDMA
+
+#include "../../c/stdinc.h"
+#include "../reference"
+
+#if defined(_MCU_STM32H7x)
+
+namespace uni {
+
+	// BDMA (Basic DMA) — H7, F1-style channel model + DMAMUX2 routing.
+	// BDMA_BASE = D3_AHB1PERIPH_BASE + 0x5400, DMAMUX2_BASE = +0x5800.
+	// Channel N registers: CCR/CNDTR/CPAR/CMAR at offset 0x08 + N*0x14 (+ 4 reserved bytes).
+
+#ifndef _INC_UNI_IOMethod
+#define _INC_UNI_IOMethod
+	enum class IOMethod : byte {
+		Loop,   // polling
+		Rupt,   // interrupt
+		DMA     // direct memory access
+	};
+#endif
+
+	// AKA BDMA_CCR bit positions (identical to F1 DMA_CCR)
+	#define _BDMA_CCR_POS_EN      0
+	#define _BDMA_CCR_POS_TCIE    1
+	#define _BDMA_CCR_POS_HTIE    2
+	#define _BDMA_CCR_POS_TEIE    3
+	#define _BDMA_CCR_POS_DIR     4
+	#define _BDMA_CCR_POS_CIRC    5
+	#define _BDMA_CCR_POS_PINC    6
+	#define _BDMA_CCR_POS_MINC    7
+	#define _BDMA_CCR_POS_PSIZE   8
+	#define _BDMA_CCR_POS_MSIZE   10
+	#define _BDMA_CCR_POS_PL      12
+	#define _BDMA_CCR_POS_MEM2MEM 14
+
+	namespace BDMAReg {
+		typedef enum {
+			ISR = 0, IFCR,
+			CCR1, CNDTR1, CPAR1, CMAR1, _RESERVED1,
+			CCR2, CNDTR2, CPAR2, CMAR2, _RESERVED2,
+			CCR3, CNDTR3, CPAR3, CMAR3, _RESERVED3,
+			CCR4, CNDTR4, CPAR4, CMAR4, _RESERVED4,
+			CCR5, CNDTR5, CPAR5, CMAR5, _RESERVED5,
+			CCR6, CNDTR6, CPAR6, CMAR6, _RESERVED6,
+			CCR7, CNDTR7, CPAR7, CMAR7, _RESERVED7
+		} BDMARegType;
+	}
+
+	// BDMA transfer state (mirrors HAL_DMA_StateTypeDef)
+	#define _BDMA_STATE_RESET   0x00
+	#define _BDMA_STATE_READY   0x01
+	#define _BDMA_STATE_BUSY    0x02
+	#define _BDMA_STATE_TIMEOUT 0x03
+	#define _BDMA_STATE_ERROR   0x04
+
+	class BDMA_t {
+	public:
+		Handler_t XferCpltCallback;
+		Handler_t XferHalfCallback;
+		Handler_t XferErrorCallback;
+		Handler_t XferAbortCallback;
+		pureptr_t bind;
+		byte channelStates[8];
+
+		BDMA_t() {
+			XferCpltCallback = 0;
+			XferHalfCallback = 0;
+			XferErrorCallback = 0;
+			XferAbortCallback = 0;
+			bind = 0;
+			for0(i, 8) channelStates[i] = _BDMA_STATE_RESET;
+		}
+
+		Reference operator[](BDMAReg::BDMARegType idx);
+		bool enClock(bool ena = true);
+		bool enAble(byte channel, bool ena = true);
+		// AKA HAL_BDMA_Init
+		bool setMode(byte channel, bool from_periph, bool to_periph,
+			bool periph_inc = false, bool memory_inc = false,
+			stduint periph_align = 2, stduint memory_align = 2,
+			bool circular_mode = false, byte priority = 1);
+		void setTransfer(byte channel, pureptr_t dst_addr, pureptr_t src_addr, stduint leng);
+		// AKA HAL_BDMA_ConfigMuxRequest (DMAMUX2 channel CCR)
+		void setRequest(byte channel, stduint request_id);
+		void setInterruptSub(bool ena_total, byte channel);
+		void setInterruptPriority(byte channel, byte preempt, byte sub_priority);
+		void enInterruptNVIC(byte channel, bool ena = true);
+		// AKA HAL_BDMA_Start / Start_IT / PollForTransfer (unified)
+		bool Transfer(byte channel, pureptr_t dst_addr, pureptr_t src_addr, stduint leng, IOMethod method = IOMethod::Loop);
+		bool Abort(byte channel);
+		bool AbortRupt(byte channel);
+		void HandleIRQ(byte channel);
+		byte getState(byte channel) const { return channelStates[channel]; }
+	};
+
+	extern BDMA_t BDMA;
+}
+
+#endif // _MCU_STM32H7x
+
+#endif

@@ -41,7 +41,7 @@
 #define SDMMC_STOPTRANSFERTIMEOUT          ((uint32_t)100000000U) // Timeout for STOP TRANSMISSION command
 
 namespace uni {
-#if defined(_MPU_STM32MP13)
+#if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 #include "../../../../../inc/cpp/Device/Storage/SD-PARA.h"
 
 	// Set SDMMC Power state to OFF
@@ -55,7 +55,11 @@ namespace uni {
 	//[pres]
 	// // SDMMC_CLKSRC::PLL3: User should config RCCPLL::setMode and enable DIVR
 	// // SDMMC_CLKSRC::PLL4: User should config RCCPLL::setMode and enable DIVP
+#if defined(_MPU_STM32MP13)
 	bool SecureDigitalCard_t::setMode(SDMMC_CLKSRC clk_src, bool clock_edge, bool powersave_enable, SDMMC_BusWidth bus_width, bool hardware_flow_control_enable) {
+#elif defined(_MCU_STM32H7x)
+	bool SecureDigitalCard_t::setMode(SDMMC1_CLKSRC clk_src, bool clock_edge, bool powersave_enable, SDMMC_BusWidth bus_width, bool hardware_flow_control_enable) {
+#endif
 		byte _id = getID() - 1;
 		asrtret(_id < 2);
 		//
@@ -80,9 +84,23 @@ namespace uni {
 		//() there may be callbacks set
 		// AKA HAL_SD_MspInit
 		//	// AKA Partial HAL_RCCEx_PeriphCLKConfig
+#if defined(_MPU_STM32MP13)
 		setClockSource(clk_src);
+#elif defined(_MCU_STM32H7x)
+		if (getID() == 1)
+			setClockSource(clk_src);
+		else
+			setClockSource2(clk_src == SDMMC1_CLKSRC::PLL2R ? SDMMC2_CLKSRC::PLL2R : SDMMC2_CLKSRC::PLL1Q);
+#endif
 		//	//{TODO DMA}
+#if defined(_MPU_STM32MP13)
 		RCC[RCCReg::MP_AHB6ENSETR].setof(16 + _id);
+#elif defined(_MCU_STM32H7x)
+		if (getID() == 1)
+			RCC[RCCReg::AHB3ENR].setof(16);// SDMMC1EN
+		else
+			RCC[RCCReg::AHB2ENR].setof(9);// SDMMC2EN
+#endif
 		if (getID() == 1) {
 
 			// __HAL_RCC_SDMMC1_CONFIG
@@ -93,11 +111,31 @@ namespace uni {
 			}
 			GPIOD[2].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);
 			GPIOD[2]._set_alternate(12);// GPIO_AF12_SDIO1
-			// GVIC configuration for SDIO interrupts
+			// interrupt controller configuration for SDIO interrupts
+#if defined(_MPU_STM32MP13)
 			GIC.setPriority(IRQ_SDMMC1, 0x00);
 			GIC.enInterrupt(IRQ_SDMMC1);
+#elif defined(_MCU_STM32H7x)
+			NVIC.setPriority(IRQ_SDMMC1, 0x00);
+			NVIC.setAble(IRQ_SDMMC1);
+#endif
 
 		}
+#if defined(_MCU_STM32H7x)
+		else {
+			// __HAL_RCC_SDMMC2_CONFIG
+			// GPIN Configure (AF9)
+			GPIOB[14].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High); GPIOB[14]._set_alternate(9);// SDMMC2_D0
+			GPIOB[15].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High); GPIOB[15]._set_alternate(9);// SDMMC2_D1
+			GPIOB[3].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOB[3]._set_alternate(9);// SDMMC2_D2
+			GPIOB[4].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOB[4]._set_alternate(9);// SDMMC2_D3
+			GPIOC[1].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOC[1]._set_alternate(9);// SDMMC2_CK
+			GPIOA[0].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOA[0]._set_alternate(9);// SDMMC2_CMD
+			// interrupt controller configuration
+			NVIC.setPriority(IRQ_SDMMC2, 0x00);
+			NVIC.setAble(IRQ_SDMMC2);
+		}
+#endif
 		// state AKA HAL_SD_STATE_PROGRAMMING
 		// Initialize the Card parameters
 		asrtret(setModeSub());

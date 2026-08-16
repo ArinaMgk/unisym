@@ -53,18 +53,27 @@ static const _TEMP stduint block_bytes { BLOCKSIZE };
 #define SDMMC_STOPTRANSFERTIMEOUT          ((uint32_t)100000000U) // Timeout for STOP TRANSMISSION command
 
 namespace uni {
+#if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 #if defined(_MPU_STM32MP13)
 	static const uint32 _REFADDR_SDMMC[] = { nil,
 		AHB6_PERIPH_BASE + 0x5000UL,
 		AHB6_PERIPH_BASE + 0x7000UL,
 	};
+#elif defined(_MCU_STM32H7x)
+	static const uint32 _REFADDR_SDMMC[] = { nil,
+		D1_AHB1PERIPH_BASE + 0x7000UL,// SDMMC1
+		D2_AHB2PERIPH_BASE + 0x2400UL,// SDMMC2
+	};
+#endif
 
 	SecureDigitalCard_t SDCard1(1);
+	SecureDigitalCard_t SDCard2(2);
 
 	Reference SecureDigitalCard_t::operator[](SDReg idx) const {
 		return _REFADDR_SDMMC[getID()] + _IMMx4(idx);
 	}
 
+#if defined(_MPU_STM32MP13)
 	SDMMC_CLKSRC SecureDigitalCard_t::getClockSource() const {
 		return (SDMMC_CLKSRC)RCC[RCCReg::SDMMC12CKSELR].masof(3 * (getID() - 1), 3);
 	}
@@ -96,6 +105,54 @@ namespace uni {
 		}
 		return frequency;
 	}
+#elif defined(_MCU_STM32H7x)
+	// AKA __HAL_RCC_GET_SDMMC1_SOURCE
+	SDMMC1_CLKSRC SecureDigitalCard_t::getClockSource() const {
+		return (SDMMC1_CLKSRC)RCC[RCCReg::D1CCIPR].bitof(16);// SDMMCSEL
+	}
+	void SecureDigitalCard_t::setClockSource(SDMMC1_CLKSRC clk_src) const {
+		RCC[RCCReg::D1CCIPR].setof(16, _IMM(clk_src));// SDMMCSEL
+	}
+	// AKA __HAL_RCC_GET_SDMMC2_SOURCE
+	SDMMC2_CLKSRC SecureDigitalCard_t::getClockSource2() const {
+		return (SDMMC2_CLKSRC)RCC[RCCReg::D1CCIPR].masof(28, 2);// CKPERSEL
+	}
+	void SecureDigitalCard_t::setClockSource2(SDMMC2_CLKSRC clk_src) const {
+		RCC[RCCReg::D1CCIPR].maset(28, 2, _IMM(clk_src));// CKPERSEL
+	}
+	stduint SecureDigitalCard_t::getFrequency() const {
+		stduint frequency = 0;
+		if (getID() == 1) {
+			switch (getClockSource()) {
+			case SDMMC1_CLKSRC::PLL1Q:
+				frequency = RCC.PLL1.getFrequencyQ();
+				break;
+			case SDMMC1_CLKSRC::PLL2R:
+				frequency = RCC.PLL2.getFrequencyR();
+				break;
+			default: break;
+			}
+		}
+		else {
+			switch (getClockSource2()) {
+			case SDMMC2_CLKSRC::HCLK:
+				frequency = RCC.getFrequencyHCLK();
+				break;
+			case SDMMC2_CLKSRC::PLL1Q:
+				frequency = RCC.PLL1.getFrequencyQ();
+				break;
+			case SDMMC2_CLKSRC::PLL2R:
+				frequency = RCC.PLL2.getFrequencyR();
+				break;
+			case SDMMC2_CLKSRC::HSI48:
+				frequency = 48000000U;// HSI48 fixed 48 MHz
+				break;
+			default: break;
+			}
+		}
+		return frequency;
+	}
+#endif
 
 	bool SecureDigitalCard_t::Read(stduint BlockIden, void* Dest) {
 		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)

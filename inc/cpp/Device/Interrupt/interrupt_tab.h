@@ -254,6 +254,7 @@ extern "C" {
 	extern Handler_t FUNC_XART[];// 5 xart
 	extern Handler_t FUNC_TIMx[];
 	extern Handler_t FUNC_ADCx[];
+	extern Handler_t FUNC_IIC[];// 4 iic (H7) / 5 iic (MP13)
 }
 #endif
 

@@ -52,7 +52,7 @@ static bool timeout_not_flag = false;
 
 
 namespace uni {
-#if defined(_MPU_STM32MP13)
+#if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
 	// Return the command index of last command for which response received
 	inline static uint8 SDMMC_GetCommandResponse(const SecureDigitalCard_t& sd) {

@@ -1,0 +1,336 @@
+// UTF-8 CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Master Direct Memory Access, MDMA
+// Codifiers: @dosconio: 20260816~;
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+// Dependens: RCC
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_MDMA
+#define _INC_DEVICE_MDMA
+
+#include "../../c/stdinc.h"
+#include "../reference"
+
+#if defined(_MCU_STM32H7x)
+
+namespace uni {
+
+	// MDMA (Master DMA) — H7 only this round (MP13 deferred), 16 channels (0..15), each 0x40 bytes.
+	// Global status register GISR0 at MDMA_BASE; channel N at MDMA_BASE + 0x40 + N*0x40.
+	// Channel registers (word offsets): CISR CIFCR CESR CCR CTCR CBNDTR CSAR CDAR CBRUR CLAR CTBR _ CMAR CMDR.
+
+#ifndef _INC_UNI_IOMethod
+#define _INC_UNI_IOMethod
+	enum class IOMethod : byte {
+		Loop,   // polling
+		Rupt,   // interrupt
+		DMA     // direct memory access
+	};
+#endif
+
+	// AKA HAL_MDMA_StateTypeDef
+	#define _MDMA_STATE_RESET  0x00
+	#define _MDMA_STATE_READY  0x01
+	#define _MDMA_STATE_BUSY   0x02
+	#define _MDMA_STATE_ERROR  0x03
+	#define _MDMA_STATE_ABORT  0x04
+
+	// AKA HAL_MDMA_ERROR_* (bitmask)
+	#define _MDMA_ERROR_NONE        0x00000000U
+	#define _MDMA_ERROR_READ_XFER   0x00000001U
+	#define _MDMA_ERROR_WRITE_XFER  0x00000002U
+	#define _MDMA_ERROR_MASK_DATA   0x00000004U
+	#define _MDMA_ERROR_LINKED_LIST 0x00000008U
+	#define _MDMA_ERROR_ALIGNMENT   0x00000010U
+	#define _MDMA_ERROR_BLOCK_SIZE  0x00000020U
+	#define _MDMA_ERROR_TIMEOUT     0x00000040U
+	#define _MDMA_ERROR_NO_XFER     0x00000080U
+	#define _MDMA_ERROR_BUSY        0x00000100U
+
+	// CCR bit positions (H7/MP13 shared)
+	#define _MDMA_CCR_POS_EN     0
+	#define _MDMA_CCR_POS_TEIE   1   // transfer error interrupt
+	#define _MDMA_CCR_POS_CTCIE  2   // channel transfer complete interrupt
+	#define _MDMA_CCR_POS_BRTIE  3   // block repeat transfer interrupt
+	#define _MDMA_CCR_POS_BTIE   4   // block transfer interrupt
+	#define _MDMA_CCR_POS_TCIE   5   // buffer transfer complete interrupt (CISR.TCIF / BFTC)
+	#define _MDMA_CCR_POS_PL     6   // 2b
+	#define _MDMA_CCR_POS_BEX    12
+	#define _MDMA_CCR_POS_HEX    13
+	#define _MDMA_CCR_POS_WEX    14
+	#define _MDMA_CCR_POS_SWRQ   16
+	//{MP13} CCR.SM (bit 8) secure mode — add when MP13 migrated
+
+	// CTCR bit positions
+	#define _MDMA_CTCR_POS_SINC    0   // 2b
+	#define _MDMA_CTCR_POS_DINC    2   // 2b
+	#define _MDMA_CTCR_POS_SSIZE   4   // 2b
+	#define _MDMA_CTCR_POS_DSIZE   6   // 2b
+	#define _MDMA_CTCR_POS_SINCOS  8   // 2b
+	#define _MDMA_CTCR_POS_DINCOS  10  // 2b
+	#define _MDMA_CTCR_POS_SBURST  12  // 3b
+	#define _MDMA_CTCR_POS_DBURST  15  // 3b
+	#define _MDMA_CTCR_POS_TLEN    18  // 8b
+	#define _MDMA_CTCR_POS_PKE     25
+	#define _MDMA_CTCR_POS_PAM     26  // 2b
+	#define _MDMA_CTCR_POS_TRGM    28  // 2b
+	#define _MDMA_CTCR_POS_SWRM    30
+	#define _MDMA_CTCR_POS_BWM     31
+
+	// CISR / CIFCR bit positions (status / clear share the same bit numbers)
+	#define _MDMA_CISR_POS_TEIF    0
+	#define _MDMA_CISR_POS_CTCIF   1
+	#define _MDMA_CISR_POS_BRTIF   2
+	#define _MDMA_CISR_POS_BTIF    3
+	#define _MDMA_CISR_POS_TCIF    4   // buffer transfer complete (AKA BFTC)
+	#define _MDMA_CISR_POS_CRQA    16
+
+	// CESR bit positions
+	#define _MDMA_CESR_POS_TEA     0
+	#define _MDMA_CESR_POS_TED     7
+	#define _MDMA_CESR_POS_TELD    8
+	#define _MDMA_CESR_POS_TEMD    9
+	#define _MDMA_CESR_POS_ASE     10
+	#define _MDMA_CESR_POS_BSE     11
+
+	// CBNDTR bit positions
+	#define _MDMA_CBNDTR_POS_BNDT  0   // 17b
+	#define _MDMA_CBNDTR_POS_BRSUM 18
+	#define _MDMA_CBNDTR_POS_BRDUM 19
+	#define _MDMA_CBNDTR_POS_BRC   20  // 12b
+
+	// CBRUR bit positions
+	#define _MDMA_CBRUR_POS_SUV    0   // 16b
+	#define _MDMA_CBRUR_POS_DUV    16  // 16b
+
+	// CTBR bit positions
+	#define _MDMA_CTBR_POS_TSEL    0   // 6b
+	#define _MDMA_CTBR_POS_SBUS    16
+	#define _MDMA_CTBR_POS_DBUS    17
+
+	namespace MDMAReg {
+		enum class Global : byte { GISR0 = 0 };
+		enum class Chan : byte {
+			CISR = 0, CIFCR, CESR, CCR, CTCR, CBNDTR, CSAR, CDAR,
+			CBRUR, CLAR, CTBR, _RESERVED, CMAR, CMDR
+		};
+	}
+
+	// AKA HAL_MDMA_LevelCompleteTypeDef (complete level for poll / linked list)
+	enum class MDMALevel : byte { Full = 0, Buffer, Block, RepeatBlock };
+
+	// AKA MDMA_Transfer_TriggerMode (CTCR.TRGM 2b)
+	enum class MDMATrigger : byte { Buffer = 0, Block, RepeatBlock, Full };
+
+	// AKA MDMA_Source/Destination_data_size (CTCR.SSIZE/DSIZE 2b)
+	enum class MDMASize : byte { Byte = 0, Halfword, Word, Doubleword };
+
+	// AKA MDMA_Source/Destination_increment_mode (CTCR.SINC|SINCOS / DINC|DINCOS)
+	enum class MDMAInc : byte {
+		Fixed = 0, IncByte, IncHalfword, IncWord, IncDoubleword,
+		DecByte, DecHalfword, DecWord, DecDoubleword
+	};
+
+	// AKA MDMA_data_Alignment (CTCR.PKE / PAM 2b)
+	enum class MDMAAlign : byte { Right = 0, RightSigned, Left, PackEnable };
+
+	// AKA MDMA_Source/Destination_burst (CTCR.SBURST/DBURST 3b)
+	enum class MDMABurst : byte {
+		Single = 0, Beats2, Beats4, Beats8, Beats16, Beats32, Beats64, Beats128
+	};
+
+	// AKA MDMA_Priority_level (CCR.PL 2b)
+	enum class MDMAPriority : byte { Low = 0, Medium, High, VeryHigh };
+
+	// AKA MDMA_Endianness (CCR.BEX/HEX/WEX)
+	enum class MDMAEndian : byte { Preserve = 0, ByteExchange, HalfwordExchange, WordExchange };
+
+	// AKA MDMA_Request_selection: raw CTBR.TSEL value; SW request is a special marker.
+#if defined(_MCU_STM32H7x)
+	#define MDMA_REQUEST_DMA1_Stream0_TC   0x00000000U
+	#define MDMA_REQUEST_DMA1_Stream1_TC   0x00000001U
+	#define MDMA_REQUEST_DMA1_Stream2_TC   0x00000002U
+	#define MDMA_REQUEST_DMA1_Stream3_TC   0x00000003U
+	#define MDMA_REQUEST_DMA1_Stream4_TC   0x00000004U
+	#define MDMA_REQUEST_DMA1_Stream5_TC   0x00000005U
+	#define MDMA_REQUEST_DMA1_Stream6_TC   0x00000006U
+	#define MDMA_REQUEST_DMA1_Stream7_TC   0x00000007U
+	#define MDMA_REQUEST_DMA2_Stream0_TC   0x00000008U
+	#define MDMA_REQUEST_DMA2_Stream1_TC   0x00000009U
+	#define MDMA_REQUEST_DMA2_Stream2_TC   0x0000000AU
+	#define MDMA_REQUEST_DMA2_Stream3_TC   0x0000000BU
+	#define MDMA_REQUEST_DMA2_Stream4_TC   0x0000000CU
+	#define MDMA_REQUEST_DMA2_Stream5_TC   0x0000000DU
+	#define MDMA_REQUEST_DMA2_Stream6_TC   0x0000000EU
+	#define MDMA_REQUEST_DMA2_Stream7_TC   0x0000000FU
+	#define MDMA_REQUEST_LTDC_LINE_IT      0x00000010U
+	#define MDMA_REQUEST_JPEG_INFIFO_TH    0x00000011U
+	#define MDMA_REQUEST_JPEG_INFIFO_NF    0x00000012U
+	#define MDMA_REQUEST_JPEG_OUTFIFO_TH   0x00000013U
+	#define MDMA_REQUEST_JPEG_OUTFIFO_NE   0x00000014U
+	#define MDMA_REQUEST_JPEG_END_CONVERSION 0x00000015U
+	#define MDMA_REQUEST_QUADSPI_FIFO_TH   0x00000016U
+	#define MDMA_REQUEST_QUADSPI_TC        0x00000017U
+	#define MDMA_REQUEST_DMA2D_CLUT_TC     0x00000018U
+	#define MDMA_REQUEST_DMA2D_TC          0x00000019U
+	#define MDMA_REQUEST_DMA2D_TW          0x0000001AU
+	// DSI-only requests (kept unguarded: plain TSEL numbers)
+	#define MDMA_REQUEST_DSI_TEARINGE_FFECT 0x0000001BU
+	#define MDMA_REQUEST_DSI_END_REFRESH   0x0000001CU
+	#define MDMA_REQUEST_SDMMC1_END_DATA   0x0000001DU
+	#define MDMA_REQUEST_SW                0x40000000U
+#endif // _MCU_STM32H7x
+
+	// AKA MDMA_LinkNodeTypeDef: hardware linked-list node descriptor (10 words).
+	// Software fills it (or uses CreateNode); hardware loads it when the previous transfer ends.
+	// Must reside in MDMA-accessible memory; align to 64 bytes per RM.
+	struct MDMA_LinkNode {
+		volatile uint32 CTCR;
+		volatile uint32 CBNDTR;
+		volatile uint32 CSAR;
+		volatile uint32 CDAR;
+		volatile uint32 CBRUR;
+		volatile uint32 CLAR;    // link address (next node), 0 = end of list
+		volatile uint32 CTBR;
+		uint32         Reserved;
+		volatile uint32 CMAR;
+		volatile uint32 CMDR;
+	};
+
+	// AKA MDMA_LinkNodeConfTypeDef. Init fields actually used by CreateNode;
+	// Priority/Endianness are channel-level CCR fields, so they are omitted here.
+	struct MDMA_LinkNodeConf {
+		stduint     request;         // MDMA_REQUEST_* or MDMA_REQUEST_SW
+		MDMATrigger trigger;
+		MDMAInc     srcInc;
+		MDMAInc     dstInc;
+		MDMASize    srcSize;
+		MDMASize    dstSize;
+		MDMAAlign   align;
+		MDMABurst   srcBurst;
+		MDMABurst   dstBurst;
+		stduint     bufferLen;       // 1..0xFE
+		int32       srcBlockOffset;
+		int32       dstBlockOffset;
+		pureptr_t   srcAddr;
+		pureptr_t   dstAddr;
+		stduint     blockDataLength; // 1..65536
+		stduint     blockCount;      // 1..4096
+		pureptr_t   postMaskAddr;    // 0 = none
+		uint32      postMaskData;
+	};
+
+	class MDMAChannel;
+	class MDMA_t {
+	public:
+		// per-channel callbacks/states (MDMAChannel is a pseudo-pointer, storage lives here)
+		Handler_t XferCpltCallback[16];
+		Handler_t XferBufferCpltCallback[16];
+		Handler_t XferBlockCpltCallback[16];
+		Handler_t XferRepeatBlockCpltCallback[16];
+		Handler_t XferErrorCallback[16];
+		Handler_t XferAbortCallback[16];
+		byte channelStates[16];
+		uint32 channelErrors[16];
+		MDMA_LinkNode* firstNode[16];  // AKA FirstLinkedListNodeAddress
+		MDMA_LinkNode* lastNode[16];   // AKA LastLinkedListNodeAddress
+		byte nodeCounter[16];          // AKA LinkedListNodeCounter
+
+		MDMA_t() {
+			for0(i, 16) {
+				XferCpltCallback[i] = 0;
+				XferBufferCpltCallback[i] = 0;
+				XferBlockCpltCallback[i] = 0;
+				XferRepeatBlockCpltCallback[i] = 0;
+				XferErrorCallback[i] = 0;
+				XferAbortCallback[i] = 0;
+				channelStates[i] = _MDMA_STATE_RESET;
+				channelErrors[i] = _MDMA_ERROR_NONE;
+				firstNode[i] = 0;
+				lastNode[i] = 0;
+				nodeCounter[i] = 0;
+			}
+		}
+		const MDMAChannel& operator[](unsigned chan) const {
+			return *(const MDMAChannel*)_IMM((chan > 15 ? 0 : chan) + 1);
+		}
+		Reference operator[](MDMAReg::Global idx) const;
+		bool enClock(bool ena = true) const;
+	};
+
+	extern MDMA_t MDMA;
+
+	class MDMAChannel {
+	public:
+		byte getID() const { return _IMM(this) - 1; }
+		MDMA_t& getParent() const { return MDMA; }
+		Reference operator[](MDMAReg::Chan idx) const;
+		// AKA HAL_MDMA_Init (CTCR + CTBR portion; sets READY + clears error at the tail).
+		// Call order: setMode first, then setBlockOffset / setPostRequestMask as needed;
+		// setPriority / setEndian may be called before or after.
+		bool setMode(stduint request, MDMATrigger trigger,
+			MDMAInc srcInc, MDMAInc dstInc,
+			MDMASize srcSize, MDMASize dstSize,
+			MDMAAlign align, MDMABurst srcBurst, MDMABurst dstBurst,
+			stduint bufferLen) const;
+		// AKA HAL_MDMA_Init block-address-offset portion (CBNDTR.BRSUM/BRDUM + CBRUR).
+		// Call after setMode (which resets CBNDTR/CBRUR).
+		void setBlockOffset(int32 srcOffset, int32 dstOffset) const;
+		// AKA HAL_MDMA_Init Priority field (CCR.PL)
+		void setPriority(MDMAPriority priority) const;
+		// AKA HAL_MDMA_Init Endianness field (CCR.BEX/HEX/WEX)
+		void setEndian(MDMAEndian endian) const;
+		// AKA HAL_MDMA_ConfigPostRequestMask (HW request only; fails on SW request). Call after setMode.
+		bool setPostRequestMask(pureptr_t maskAddr, uint32 maskData) const;
+		// AKA HAL_MDMA_DeInit
+		void canMode() const;
+		// AKA HAL_MDMA_Start / HAL_MDMA_Start_IT / HAL_MDMA_PollForTransfer (unified)
+		//   Loop : configure + enable + poll CTCIF (blocking, full-transfer level)
+		//   Rupt : configure + enable TE/CTC(+BT/BRT/BFTC per callback) + NVIC + enable
+		bool Transfer(pureptr_t srcAddr, pureptr_t dstAddr, stduint blockDataLength, stduint blockCount, IOMethod method = IOMethod::Loop) const;
+		// AKA HAL_MDMA_Abort (blocking)
+		bool Abort() const;
+		// AKA HAL_MDMA_Abort_IT (non-blocking; XferAbortCallback fires from IRQ)
+		bool AbortRupt() const;
+		// AKA HAL_MDMA_GenerateSWRequest
+		bool GenerateSWRequest() const;
+		// AKA HAL_MDMA_IRQHandler
+		void HandleIRQ() const;
+		// AKA HAL_MDMA_LinkedList_CreateNode
+		bool CreateNode(MDMA_LinkNode& node, const MDMA_LinkNodeConf& conf) const;
+		// AKA HAL_MDMA_LinkedList_AddNode (prevNode = 0 -> append at end)
+		bool AddNode(MDMA_LinkNode& node, MDMA_LinkNode* prevNode = 0) const;
+		// AKA HAL_MDMA_LinkedList_RemoveNode
+		bool RemoveNode(MDMA_LinkNode& node) const;
+		// AKA HAL_MDMA_LinkedList_EnableCircularMode / DisableCircularMode (unified)
+		bool enCircular(bool ena = true) const;
+		byte getState() const { return getParent().channelStates[getID()]; }
+		uint32 getError() const { return getParent().channelErrors[getID()]; }
+	private:
+		void enAble(bool ena = true) const;
+		void setInterruptSub(bool ena_total) const;
+		void setConfig(pureptr_t srcAddr, pureptr_t dstAddr, stduint blockDataLength, stduint blockCount) const;
+		void readErrorSource() const;
+	};
+
+}
+
+#endif // _MCU_STM32H7x
+
+#endif

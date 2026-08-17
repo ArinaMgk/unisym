@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Stroage) SDCard
+// Docutitle: (Stroage) Secure Digital Card
 // Codifiers: @dosconio: 20250107
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -44,12 +44,6 @@ namespace uni {
 #if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 #include "../../../../../inc/cpp/Device/Storage/SD-PARA.h"
 
-	// Set SDMMC Power state to OFF
-	// AKA SD_PowerOFF
-	statin void SDMMC_PowerState_OFF(const SecureDigitalCard_t& sd) {
-		sd[SDReg::POWER].maset(0, 2, nil);// PWRCTRL
-	}
-	
 	// AKA HAL_SD_Init + HAL_SD_ConfigSpeedBusOperation
 	// refer SDMMC_InitTypeDef
 	//[pres]
@@ -230,7 +224,7 @@ namespace uni {
 		#endif // USE_HAL_SD_REGISTER_CALLBACKS
 		}
 	#endif // USE_SD_TRANSCEIVER
-		SDMMC_PowerState_OFF(self);
+		self.SDMMC_PowerState_OFF();
 		//{} DeInitCallback
 		return true;
 	}

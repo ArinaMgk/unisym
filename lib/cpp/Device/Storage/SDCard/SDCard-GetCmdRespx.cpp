@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Stroage) SDCard
+// Docutitle: (Stroage) SecureDigitalCard
 // Codifiers: @dosconio: 20250107
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -54,18 +54,8 @@ static bool timeout_not_flag = false;
 namespace uni {
 #if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
-	// Return the command index of last command for which response received
-	inline static uint8 SDMMC_GetCommandResponse(const SecureDigitalCard_t& sd) {
-		return sd[SDReg::RESPCMD];
-	}
-	// Return the response received from the card for the last command
-	inline static uint32 SDMMC_GetResponse(const SecureDigitalCard_t& sd, uint32 response) {
-		if (--response >= 4) return 0;// 1 ~ 4
-		return (&sd[SDReg::RESP1])[response];
-	}
-
 	// Checks for error conditions for R1 response
-	bool SecureDigitalCard_t::SDMMC_GetCmdResp1(uint8 SD_CMD, uint32 Timeout, uint32* feedback) const {
+	bool SDMMC_t::SDMMC_GetCmdResp1(uint8 SD_CMD, uint32 Timeout, uint32* feedback) const {
 		// 8 is the number of required instructions cycles for the below loop statement. The SDMMC_CMDTIMEOUT is expressed in ms
 		stduint timeout = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U / SysTickHz);
 		uint32 sta_reg;
@@ -88,11 +78,11 @@ namespace uni {
 		}
 		self[SDReg::ICR] = _IMM(_IMM1S(21) | 0b11000101);// __SDMMC_CLEAR_FLAG: SDMMC_STATIC_CMD_FLAGS = FLAG_CCRCFAIL | FLAG_CTIMEOUT | FLAG_CMDREND | FLAG_CMDSENT | FLAG_BUSYD0END
 		// Check response received is of desired command
-		if (SDMMC_GetCommandResponse(self) != SD_CMD) {
+		if (self.SDMMC_GetCommandResponse() != SD_CMD) {
 			asserv(feedback)[nil] = SDMMC_ERROR_CMD_CRC_FAIL; return false;
 		}
 		// have received response, retrieve it for analysis
-		uint32 response_r1 = SDMMC_GetResponse(self, 1);
+		uint32 response_r1 = self.SDMMC_GetResponse( 1);
 		if ((response_r1 & SDMMC_OCR_ERRORBITS) == 0) {
 			asserv(feedback)[nil] = SDMMC_ERROR_NONE; return true;
 		}
@@ -156,7 +146,7 @@ namespace uni {
 		return false;
 	}
 	// Checks for error conditions for R2 (CID or CSD) response
-	bool SecureDigitalCard_t::SDMMC_GetCmdResp2(uint32* feedback) const {
+	bool SDMMC_t::SDMMC_GetCmdResp2(uint32* feedback) const {
 		// 8 is the number of required instructions cycles for the below loop statement. The SDMMC_CMDTIMEOUT is expressed in ms
 		stduint timeout = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U / SysTickHz);
 		uint32 sta_reg;
@@ -186,7 +176,7 @@ namespace uni {
 		return true;
 	}
 	// Checks for error conditions for R3 (OCR) response
-	bool SecureDigitalCard_t::SDMMC_GetCmdResp3(uint32* feedback) const {
+	bool SDMMC_t::SDMMC_GetCmdResp3(uint32* feedback) const {
 		// 8 is the number of required instructions cycles for the below loop statement. The SDMMC_CMDTIMEOUT is expressed in ms
 		stduint timeout = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U / SysTickHz);
 		uint32 sta_reg;
@@ -208,7 +198,7 @@ namespace uni {
 		return true;
 	}
 	// Checks for error conditions for R6 (RCA) response
-	bool SecureDigitalCard_t::SDMMC_GetCmdResp6(uint8 SD_CMD, uint16* pRCA, uint32* feedback) const {
+	bool SDMMC_t::SDMMC_GetCmdResp6(uint8 SD_CMD, uint16* pRCA, uint32* feedback) const {
 		// 8 is the number of required instructions cycles for the below loop statement. The SDMMC_CMDTIMEOUT is expressed in ms
 		stduint timeout = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U / SysTickHz);
 		uint32 sta_reg;
@@ -232,13 +222,13 @@ namespace uni {
 			asserv(feedback)[nil] = SDMMC_ERROR_CMD_CRC_FAIL;
 			return false;
 		}
-		uint8 cmd_resp = SDMMC_GetCommandResponse(self);
+		uint8 cmd_resp = self.SDMMC_GetCommandResponse();
 		// Check response received is of desired command
 		if (cmd_resp != SD_CMD) {
 			asserv(feedback)[nil] = SDMMC_ERROR_CMD_CRC_FAIL; return false;
 		}
 		self[SDReg::ICR] = (_IMM1S(21) | _IMM(0b11000101));// __SDMMC_CLEAR_FLAG: SDMMC_STATIC_CMD_FLAGS = FLAG_CCRCFAIL | FLAG_CTIMEOUT | FLAG_CMDREND | FLAG_CMDSENT | FLAG_BUSYD0END
-		uint32 response_r1 = self[SDReg::RESP1];//SDMMC_GetResponse(self, 1);
+		uint32 response_r1 = self[SDReg::RESP1];//self.SDMMC_GetResponse( 1);
 		if ((response_r1 & (SDMMC_R6_GENERAL_UNKNOWN_ERROR | SDMMC_R6_ILLEGAL_CMD | SDMMC_R6_COM_CRC_FAILED)) == 0) {
 			*pRCA = (uint16_t)(response_r1 >> 16);
 			asserv(feedback)[nil] = SDMMC_ERROR_NONE; return true;
@@ -255,7 +245,7 @@ namespace uni {
 		return false;
 	}
 	// Checks for error conditions for R7 response.
-	bool SecureDigitalCard_t::SDMMC_GetCmdResp7() const {
+	bool SDMMC_t::SDMMC_GetCmdResp7() const {
 		// 8 is the number of required instructions cycles for the below loop statement. The SDMMC_CMDTIMEOUT is expressed in ms
 		stduint timeout = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U / SysTickHz);
 		uint32 sta_reg;

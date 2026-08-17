@@ -29,11 +29,13 @@ using namespace uni;
 
 // Unify IRQ numbers (F4 wakeup IRQ is named IRQ_RTC, H7 is IRQ_RTC_WKUP; both are 3)
 #if defined(_MCU_STM32H7x)
-#define _IRQ_RTC_ALARM IRQ_RTC_Alarm
-#define _IRQ_RTC_WKUP  IRQ_RTC_WKUP
+#define _IRQ_RTC_ALARM     IRQ_RTC_Alarm
+#define _IRQ_RTC_WKUP      IRQ_RTC_WKUP
+#define _IRQ_RTC_TAMPSTAMP IRQ_TAMP_STAMP
 #else
-#define _IRQ_RTC_ALARM IRQ_RTC_Alarm
-#define _IRQ_RTC_WKUP  IRQ_RTC
+#define _IRQ_RTC_ALARM     IRQ_RTC_Alarm
+#define _IRQ_RTC_WKUP      IRQ_RTC
+#define _IRQ_RTC_TAMPSTAMP IRQ_xTAMP
 #endif
 
 // H7 RTC APB clock enable register (RCC_APB4ENR, bit 15 = RTCAPBEN)
@@ -245,9 +247,11 @@ namespace uni {
 
 	// aka HAL_RTC_SetAlarm / HAL_RTC_SetAlarm_IT (enables alarm + interrupt bit; NVIC via enInterrupt)
 	bool RTC_t::setAlarm(RTCAlarm alarm, const datime_t& time, RTCAlarmMask mask,
-		byte dateOrWeekDay, RTCAlarmSel sel, RTCFormat fmt) const {
+		byte dateOrWeekDay, RTCAlarmSel sel, RTCFormat fmt,
+		stduint subSeconds, RTCAlarmSubSecondMask subSecondMask) const {
 		bool isA = (alarm == RTCAlarm::AlarmA);
 		RTCReg::RTCRegType alrmReg = isA ? RTCReg::ALRMAR : RTCReg::ALRMBR;
+		RTCReg::RTCRegType alrmSSReg = isA ? RTCReg::ALRMASSR : RTCReg::ALRMBSSR;
 		byte aeBit = isA ? _RTC_CR_POS_ALRAE : _RTC_CR_POS_ALRBE;
 		byte ieBit = isA ? _RTC_CR_POS_ALRAIE : _RTC_CR_POS_ALRBIE;
 		byte wfBit = isA ? _RTC_ISR_POS_ALRAWF : _RTC_ISR_POS_ALRBWF;
@@ -278,8 +282,9 @@ namespace uni {
 		while (!self[RTCReg::ISR].bitof(wfBit)) {
 			if (SysTick::getTick() - tick > _RTC_TIMEOUT_VALUE) { wpEnable(); return false; }
 		}
-		// Write ALRMxR and enable alarm + interrupt bit
+		// Write ALRMxR + ALRMxSSR and enable alarm + interrupt bit
 		self[alrmReg] = tmpreg;
+		self[alrmSSReg] = (subSeconds & 0x7FFFU) | (stduint)subSecondMask;
 		self[RTCReg::CR].setof(aeBit, true);
 		self[RTCReg::CR].setof(ieBit, true);
 		wpEnable();
@@ -362,11 +367,301 @@ namespace uni {
 	void RTC_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority((Request_t)_IRQ_RTC_ALARM, preempt, sub_priority);
 		NVIC.setPriority((Request_t)_IRQ_RTC_WKUP, preempt, sub_priority);
+		NVIC.setPriority((Request_t)_IRQ_RTC_TAMPSTAMP, preempt, sub_priority);
 	}
 
 	void RTC_t::enInterrupt(bool enable) const {
 		NVIC.setAble((Request_t)_IRQ_RTC_ALARM, enable);
 		NVIC.setAble((Request_t)_IRQ_RTC_WKUP, enable);
+		NVIC.setAble((Request_t)_IRQ_RTC_TAMPSTAMP, enable);
+	}
+
+	// ---- Backup registers ----
+
+	void RTC_t::bkupWrite(byte index, stduint data) const {
+		Reference(baseaddr + _RTC_BKUP_BASE + _IMMx4(index)) = data;
+	}
+
+	stduint RTC_t::bkupRead(byte index) const {
+		return Reference(baseaddr + _RTC_BKUP_BASE + _IMMx4(index));
+	}
+
+	// ---- Calibration ----
+
+#if defined(_MCU_STM32F4x)
+	// aka HAL_RTCEx_SetCoarseCalib (F4 only)
+	bool RTC_t::setCoarseCalib(RTCCalibSign sign, byte value) const {
+		wpDisable();
+		bool ok = enterInitMode();
+		if (ok) {
+			self[RTCReg::CR].setof(_RTC_CR_POS_DCE, true);
+			self[RTCReg::CALIBR] = ((stduint)sign << _RTC_CALIBR_POS_DCS) | (value & 0x1FU);
+			ok = exitInitMode();
+		}
+		wpEnable();
+		return ok;
+	}
+
+	// aka HAL_RTCEx_DeactivateCoarseCalib (F4 only)
+	bool RTC_t::deactivateCoarseCalib() const {
+		wpDisable();
+		bool ok = enterInitMode();
+		if (ok) {
+			self[RTCReg::CR].setof(_RTC_CR_POS_DCE, false);
+			ok = exitInitMode();
+		}
+		wpEnable();
+		return ok;
+	}
+#endif
+
+	// aka HAL_RTCEx_SetSmoothCalib
+	bool RTC_t::setSmoothCalib(RTCSmoothCalibPeriod period, bool plusPulses, stduint minusValue) const {
+		wpDisable();
+		uint64 tick = SysTick::getTick();
+		while (self[RTCReg::ISR].bitof(_RTC_ISR_POS_RECALPF)) {
+			if (SysTick::getTick() - tick > _RTC_TIMEOUT_VALUE) { wpEnable(); return false; }
+		}
+		stduint tmp = (minusValue & 0x1FFU);
+		if (period == RTCSmoothCalibPeriod::_16sec) tmp |= _IMM1S(_RTC_CALR_POS_CALW16);
+		else if (period == RTCSmoothCalibPeriod::_8sec) tmp |= _IMM1S(_RTC_CALR_POS_CALW8);
+		if (plusPulses) tmp |= _IMM1S(_RTC_CALR_POS_CALP);
+		self[RTCReg::CALR] = tmp;
+		wpEnable();
+		return true;
+	}
+
+	// aka HAL_RTCEx_SetSynchroShift
+	bool RTC_t::setSynchroShift(bool add1S, stduint subFS) const {
+		wpDisable();
+		uint64 tick = SysTick::getTick();
+		while (self[RTCReg::ISR].bitof(_RTC_ISR_POS_SHPF)) {
+			if (SysTick::getTick() - tick > _RTC_TIMEOUT_VALUE) { wpEnable(); return false; }
+		}
+		if (self[RTCReg::CR].bitof(_RTC_CR_POS_REFCKON)) { wpEnable(); return false; }
+		self[RTCReg::SHIFTR] = (subFS & 0x7FFFU) | (add1S ? _IMM1S(_RTC_SHIFTR_POS_ADD1S) : 0U);
+		if (!self[RTCReg::CR].bitof(_RTC_CR_POS_BYPSHAD)) {
+			if (!waitSynchro()) { wpEnable(); return false; }
+		}
+		wpEnable();
+		return true;
+	}
+
+	// aka HAL_RTCEx_SetCalibrationOutPut
+	bool RTC_t::setCalibrationOutPut(RTCCalibOutput output) const {
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_COSEL, (output == RTCCalibOutput::_1Hz));
+		self[RTCReg::CR].setof(_RTC_CR_POS_COE, true);
+		wpEnable();
+		return true;
+	}
+
+	// aka HAL_RTCEx_DeactivateCalibrationOutPut
+	bool RTC_t::deactivateCalibrationOutPut() const {
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_COE, false);
+		wpEnable();
+		return true;
+	}
+
+	// aka HAL_RTCEx_SetRefClock
+	bool RTC_t::setRefClock() const {
+		wpDisable();
+		bool ok = enterInitMode();
+		if (ok) {
+			self[RTCReg::CR].setof(_RTC_CR_POS_REFCKON, true);
+			ok = exitInitMode();
+		}
+		wpEnable();
+		return ok;
+	}
+
+	// aka HAL_RTCEx_DeactivateRefClock
+	bool RTC_t::deactivateRefClock() const {
+		wpDisable();
+		bool ok = enterInitMode();
+		if (ok) {
+			self[RTCReg::CR].setof(_RTC_CR_POS_REFCKON, false);
+			ok = exitInitMode();
+		}
+		wpEnable();
+		return ok;
+	}
+
+	// aka HAL_RTCEx_EnableBypassShadow
+	bool RTC_t::enableBypassShadow() const {
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_BYPSHAD, true);
+		wpEnable();
+		return true;
+	}
+
+	// aka HAL_RTCEx_DisableBypassShadow
+	bool RTC_t::disableBypassShadow() const {
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_BYPSHAD, false);
+		wpEnable();
+		return true;
+	}
+
+	// ---- TimeStamp ----
+
+	// aka HAL_RTCEx_SetTimeStamp / SetTimeStamp_IT
+	bool RTC_t::setTimeStamp(RTCTimeStampEdge edge, RTCTimeStampPin pin, bool it) const {
+#if defined(_MCU_STM32F4x)
+		// F4 selects the timestamp pin via TAFCR.TSINSEL (bit 17); H7 pin is fixed
+		self[RTCReg::TAFCR].setof(17, (pin == RTCTimeStampPin::Pos1));
+#endif
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_TSEDGE, (edge == RTCTimeStampEdge::Falling));
+		self[RTCReg::ISR].setof(_RTC_ISR_POS_TSF, false);
+		self[RTCReg::ISR].setof(_RTC_ISR_POS_TSOVF, false);
+		self[RTCReg::CR].setof(_RTC_CR_POS_TSE, true);
+		self[RTCReg::CR].setof(_RTC_CR_POS_TSIE, it);
+		wpEnable();
+		return true;
+	}
+
+	// aka HAL_RTCEx_DeactivateTimeStamp
+	bool RTC_t::deactivateTimeStamp() const {
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_TSE, false);
+		self[RTCReg::CR].setof(_RTC_CR_POS_TSIE, false);
+		wpEnable();
+		return true;
+	}
+
+	// aka HAL_RTCEx_GetTimeStamp
+	bool RTC_t::getTimeStamp(datime_t& time, datime_t& date, RTCFormat fmt) const {
+		byte hour = (byte)self[RTCReg::TSTR].masof(_RTC_TR_POS_HU, 6);
+		byte minute = (byte)self[RTCReg::TSTR].masof(_RTC_TR_POS_MNU, 7);
+		byte second = (byte)self[RTCReg::TSTR].masof(_RTC_TR_POS_SU, 7);
+		byte month = (byte)self[RTCReg::TSDR].masof(_RTC_DR_POS_MU, 5);
+		byte day = (byte)self[RTCReg::TSDR].masof(_RTC_DR_POS_DU, 6);
+		if (fmt == RTCFormat::Bin) {
+			hour = _bcd2ToByte(hour);
+			minute = _bcd2ToByte(minute);
+			second = _bcd2ToByte(second);
+			month = _bcd2ToByte(month);
+			day = _bcd2ToByte(day);
+		}
+		time.hour = hour;
+		time.minute = minute;
+		time.second = second;
+		date.year = 0;// TSDR carries no year
+		date.month = (byte)(month - 1);
+		date.mday = day;
+		self[RTCReg::ISR].setof(_RTC_ISR_POS_TSF, false);
+#if defined(_MCU_STM32H7x)
+		self[RTCReg::ISR].setof(_RTC_ISR_POS_ITSF, false);
+#endif
+		return true;
+	}
+
+#if defined(_MCU_STM32H7x)
+	// aka HAL_RTCEx_SetInternalTimeStamp (H7 only)
+	bool RTC_t::setInternalTimeStamp() const {
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_ITSE, true);
+		wpEnable();
+		return true;
+	}
+
+	// aka HAL_RTCEx_DeactivateInternalTimeStamp (H7 only)
+	bool RTC_t::deactivateInternalTimeStamp() const {
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_ITSE, false);
+		wpEnable();
+		return true;
+	}
+#endif
+
+	// ---- Tamper ----
+
+	// aka HAL_RTCEx_SetTamper / SetTamper_IT
+	bool RTC_t::setTamper(RTCTamper tamper, RTCTamperTrigger trigger, bool it,
+		RTCTamperFilter filter, RTCTamperSamplingFreq freq, RTCTamperPrecharge precharge,
+		bool pullUp, bool timeStampOnTamper
+#if defined(_MCU_STM32F4x)
+		, RTCTamperPin pin
+#endif
+#if defined(_MCU_STM32H7x)
+		, bool noErase, bool maskFlag
+#endif
+	) const {
+		byte eBit, trgBit;
+		switch (tamper) {
+		case RTCTamper::Tamper1: eBit = _RTC_TAMP_POS_TAMP1E; trgBit = _RTC_TAMP_POS_TAMP1TRG; break;
+		case RTCTamper::Tamper2: eBit = _RTC_TAMP_POS_TAMP2E; trgBit = _RTC_TAMP_POS_TAMP2TRG; break;
+#if defined(_MCU_STM32H7x)
+		case RTCTamper::Tamper3: eBit = _RTC_TAMP_POS_TAMP3E; trgBit = _RTC_TAMP_POS_TAMP3TRG; break;
+#endif
+		default: return false;
+		}
+
+		Reference tafcr = self[RTCReg::TAFCR];
+		// Enable selected tamper + configure trigger edge
+		tafcr.setof(eBit, true);
+		tafcr.setof(trgBit, (trigger == RTCTamperTrigger::FallingEdge));
+		// Filter / sampling frequency / precharge duration / pull-up / timestamp-on-tamper
+		tafcr.maset(_RTC_TAMP_POS_TAMPFLT, 2, (stduint)filter);
+		tafcr.maset(_RTC_TAMP_POS_TAMPFREQ, 3, (stduint)freq);
+		tafcr.maset(_RTC_TAMP_POS_TAMPPRCH, 2, (stduint)precharge);
+		tafcr.setof(_RTC_TAMP_POS_TAMPPUDIS, !pullUp);
+		tafcr.setof(_RTC_TAMP_POS_TAMPTS, timeStampOnTamper);
+#if defined(_MCU_STM32F4x)
+		// F4 tamper-1 pin selection (TAMP1INSEL)
+		if (tamper == RTCTamper::Tamper1) {
+			tafcr.setof(_RTC_TAMP_POS_TAMP1INSEL, (pin == RTCTamperPin::Pos1));
+		}
+#endif
+		// Global tamper interrupt
+		tafcr.setof(_RTC_TAMP_POS_TAMPIE, it);
+#if defined(_MCU_STM32H7x)
+		// H7 per-tamper interrupt + no-erase + mask-flag
+		byte ieBit, noEraseBit, mfBit;
+		switch (tamper) {
+		case RTCTamper::Tamper1: ieBit = _RTC_TAMP_POS_TAMP1IE; noEraseBit = _RTC_TAMP_POS_TAMP1NOERASE; mfBit = _RTC_TAMP_POS_TAMP1MF; break;
+		case RTCTamper::Tamper2: ieBit = _RTC_TAMP_POS_TAMP2IE; noEraseBit = _RTC_TAMP_POS_TAMP2NOERASE; mfBit = _RTC_TAMP_POS_TAMP2MF; break;
+		case RTCTamper::Tamper3: ieBit = _RTC_TAMP_POS_TAMP3IE; noEraseBit = _RTC_TAMP_POS_TAMP3NOERASE; mfBit = _RTC_TAMP_POS_TAMP3MF; break;
+		default: return false;
+		}
+		tafcr.setof(ieBit, it);
+		tafcr.setof(noEraseBit, noErase);
+		tafcr.setof(mfBit, maskFlag);
+#endif
+		return true;
+	}
+
+	// aka HAL_RTCEx_DeactivateTamper
+	bool RTC_t::deactivateTamper(RTCTamper tamper) const {
+		byte eBit;
+		switch (tamper) {
+		case RTCTamper::Tamper1: eBit = _RTC_TAMP_POS_TAMP1E; break;
+		case RTCTamper::Tamper2: eBit = _RTC_TAMP_POS_TAMP2E; break;
+#if defined(_MCU_STM32H7x)
+		case RTCTamper::Tamper3: eBit = _RTC_TAMP_POS_TAMP3E; break;
+#endif
+		default: return false;
+		}
+		self[RTCReg::TAFCR].setof(eBit, false);
+		return true;
+	}
+
+	// ---- Daylight saving time ----
+
+	// aka HAL_RTC_DST_Add1Hour
+	void RTC_t::add1Hour() const {
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_ADD1H, true);
+		wpEnable();
+	}
+
+	// aka HAL_RTC_DST_Sub1Hour
+	void RTC_t::sub1Hour() const {
+		wpDisable();
+		self[RTCReg::CR].setof(_RTC_CR_POS_SUB1H, true);
+		wpEnable();
 	}
 
 }

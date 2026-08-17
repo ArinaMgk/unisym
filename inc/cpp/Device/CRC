@@ -22,18 +22,51 @@
 
 #ifndef _INCPP_Device_CRC
 #define _INCPP_Device_CRC
-#include "../../c/stdinc.h"
+#include "../unisym"
 #include "../../c/algorithm/hash/crc64.h"
+#if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+#include "../reference"
+
 namespace uni {
 
-#ifdef _MPU_STM32MP13
+	// AKA CRC_POLYLENGTH_32B/16B/8B/7B -- CR.POLYSIZE field encoding
+	enum class CRCPolyLength : byte { _32bit = 0, _16bit, _8bit, _7bit };
+	// AKA CRC_INPUTDATA_INVERSION_NONE/BYTE/HALFWORD/WORD -- CR.REV_IN field encoding
+	enum class CRCInversion : byte { None = 0, Byte, Halfword, Word };
+	// AKA CRC_INPUTDATA_FORMAT_WORDS/BYTES/HALFWORDS (dispatch argument only, not written to a register)
+	enum class CRCInputFormat : byte { Word = 0, Byte, Halfword };
+	// register index (4-byte aligned offset)
+	enum class CRCReg { DR = 0, IDR, CR, INIT = 0x10 / 4, POL = 0x14 / 4 };
+
 	class CRC_t {
+	protected:
+		// shared compute path of HAL_CRC_Calculate / HAL_CRC_Accumulate; reset=true does CR.RESET first
+		stduint _compute(pureptr_t buf, stduint leng, CRCInputFormat format, bool reset) const;
 	public:
-
+		// AKA __HAL_RCC_CRC_CLK_ENABLE (H7: AHB4ENR bit19; MP13: MP_NS_AHB6ENSETR bit20)
+		bool enClock(bool ena = true) const;
+		// AKA HAL_CRC_Init default path (POL=0x04C11DB7 / 32-bit / INIT=0xFFFFFFFF / no inversion); auto-enables clock
+		bool setMode() const;
+		// AKA HAL_CRC_DeInit: CR.RESET + clear IDR + disable clock
+		bool canMode() const;
+		// AKA HAL_CRCEx_Polynomial_Set: MSB check + write POL + write POLYSIZE
+		bool setPolynomial(stduint polynomial, CRCPolyLength length) const;
+		// AKA __HAL_CRC_INITIALCRCVALUE_CONFIG: write INIT
+		bool setInitValue(stduint value) const;
+		// AKA HAL_CRCEx_Input_Data_Reverse + Output_Data_Reverse: write REV_IN / REV_OUT
+		bool setInversion(CRCInversion input, bool output_reverse = false) const;
+		// AKA HAL_CRC_Calculate: CR.RESET -> feed DR per format -> read back
+		stduint Calculate(pureptr_t buf, stduint leng, CRCInputFormat format = CRCInputFormat::Word) const;
+		// AKA HAL_CRC_Accumulate: no RESET, continue from previous result
+		stduint Accumulate(pureptr_t buf, stduint leng, CRCInputFormat format = CRCInputFormat::Word) const;
+		// AKA __HAL_CRC_SET_IDR
+		void setIDR(stduint value) const;
+		// AKA __HAL_CRC_GET_IDR
+		stduint getIDR() const;
+		Reference operator[](CRCReg idx) const;
 	};
-	extern CRC_t CRC;
-
-#endif // _MPU_STM32MP13
+	extern CRC_t CRC;    // H7: 0x58024C00; MP13: 0x58009000
 
 } // namespace uni
+#endif
 #endif

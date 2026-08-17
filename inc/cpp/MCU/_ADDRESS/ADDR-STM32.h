@@ -43,6 +43,14 @@ _Comment("Peripheral_memory_map")
 #define AHB1PERIPH_BASE       (PERIPH_BASE + 0x00020000)
 #define AHB2PERIPH_BASE       (PERIPH_BASE + 0x08000000)
 
+// FMC (Flexible Memory Controller) — register + memory map
+#define FMC_R_BASE             (D1_AHB1PERIPH_BASE + 0x4000)   // FMC register base (0x52004000)
+#define FMC_Bank1_R_BASE       (FMC_R_BASE + 0x0000)           // NOR/PSRAM/SRAM bank1..4 registers
+#define FMC_Bank1E_R_BASE      (FMC_R_BASE + 0x0104)           // NOR/PSRAM/SRAM bank1..4 extended-mode (BWTR) registers
+#define FMC_Bank5_6_R_BASE     (FMC_R_BASE + 0x0140)           // SDRAM controller (SDCR/SDTR/SDCMR/SDRTR/SDSR)
+#define FMC_SDRAM_BANK1_BASE   ((uint32_t)0xC0000000UL)        // FMC SDRAM Bank1 memory
+#define FMC_SDRAM_BANK2_BASE   ((uint32_t)0xD0000000UL)        // FMC SDRAM Bank2 memory
+
 #elif defined(_MPU_STM32MP13)
 
 #define AHB_SRAM                ((uint32_t)0x30000000UL) // (up to 32KB) system data RAM accessible over over AHB

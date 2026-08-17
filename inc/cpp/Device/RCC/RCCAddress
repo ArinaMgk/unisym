@@ -499,6 +499,10 @@ namespace uni {
 #elif defined(_MCU_STM32H7x)
 #define _RCC_ADDR 0x58024400
 
+// D1-domain AHB3: MDMA/DMA2D/JPEG/FMC/QSPI/SDMMC1 live here
+#define _RCC_AHB3ENR_ADDR (_RCC_ADDR + 0xD4)
+#define _RCC_AHB3ENR_POSI_ENCLK_MDMA    0
+
 // D2-domain AHB1: DMA1/DMA2/DMAMUX1 live here
 #define _RCC_AHB1ENR_ADDR (_RCC_ADDR + 0xD8)
 #define _RCC_AHB1ENR_POSI_ENCLK_DMA1    0

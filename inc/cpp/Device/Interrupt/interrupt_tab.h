@@ -483,7 +483,7 @@ namespace uni {
 		IRQ_SAI1                   = 87,     // [ ] SAI1 global Interrupt                                             
 		IRQ_LTDC                   = 88,     // [ ] LTDC global Interrupt                                             
 		IRQ_LTDC_ER                = 89,     // [ ] LTDC Error global Interrupt                                       
-		IRQ_DMA2D                  = 90,     // [ ] DMA2D global Interrupt                                            
+		IRQ_DMA2D                  = 90,     // [x] DMA2D global Interrupt                                            
 		IRQ_SAI2                   = 91,     // [ ] SAI2 global Interrupt                                             
 		IRQ_QUADSPI                = 92,     // [ ] Quad SPI global interrupt                                         
 		IRQ_LPTIM1                 = 93,     // [ ] LP TIM1 interrupt                                                 

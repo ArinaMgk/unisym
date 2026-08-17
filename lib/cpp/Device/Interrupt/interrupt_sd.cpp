@@ -7,17 +7,14 @@ using namespace uni;
 
 #if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
-namespace uni {
-	void _HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd);
-}
-
-_WEAK void SDMMC1_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard1); }
-_WEAK void SDMMC2_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard2); }
+_WEAK _ESYM_C void SDMMC1_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard1); }
+_WEAK _ESYM_C void SDMMC2_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard2); }
 
 //{TODO} BUSY BIT
 
-// AKA HAL_SD_IRQHandler
-void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd)
+// AKA HAL_SD_IRQHandler / HAL_MMC_IRQHandler
+template <typename T>
+void uni::_HandlerIRQ_SDMMCx(T& sd)
 {
 	uint32 errorstate;
 	stduint context = _IMM(sd.Context);
@@ -178,6 +175,10 @@ void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd)
 #endif
 	}
 }
+
+// explicit instantiation for the two card device types
+template void uni::_HandlerIRQ_SDMMCx(SecureDigitalCard_t&);
+template void uni::_HandlerIRQ_SDMMCx(MultiMediaCard_t&);
 
 #endif
 

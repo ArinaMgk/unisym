@@ -44,22 +44,6 @@
 namespace uni {
 #if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
-	// Read data(word) from Rx FIFO in blocking mode(polling)
-	// <=> SDMMC_GetFIFOCount
-	statin uint32 SDMMC_ReadFIFO(const SecureDigitalCard_t& sd) {
-		return sd[SDReg::FIFO_Start];
-	}
-
-	// Write data (word) to Tx FIFO in blocking mode (polling)
-	statin void SDMMC_WriteFIFO(const SecureDigitalCard_t& sd, uint32* data) {
-		sd[SDReg::FIFO_Start] = *data;
-	}
-
-	// Return the response received from the card for the last command
-	inline static uint32 SDMMC_GetResponse(const SecureDigitalCard_t& sd, uint32 response) {
-		if (--response >= 4) return 0;// 1 ~ 4
-		return (&sd[SDReg::RESP1])[response];
-	}
 
 	bool SecureDigitalCard_t::HAL_SD_ReadBlocks(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback)
 	{
@@ -128,7 +112,7 @@ namespace uni {
 				/* Read data from SDMMC Rx FIFO */
 				for (count = 0U; count < (SDMMC_FIFO_SIZE / 4U); count++)
 				{
-					data = SDMMC_ReadFIFO(self);
+					data = self.SDMMC_ReadFIFO();
 					*tempbuff = (uint8_t)(data & 0xFFU);
 					tempbuff++;
 					*tempbuff = (uint8_t)((data >> 8U) & 0xFFU);
@@ -305,7 +289,7 @@ namespace uni {
 					tempbuff++;
 					data |= ((uint32)(*tempbuff) << 24U);
 					tempbuff++;
-					SDMMC_WriteFIFO(self, &data);
+					self.SDMMC_WriteFIFO( &data);
 				}
 				dataremaining -= SDMMC_FIFO_SIZE;
 			}
@@ -669,7 +653,7 @@ namespace uni {
 			
 			return false;
 		}
-		if (bitmatch(SDMMC_GetResponse(self, 1), SDMMC_CARD_LOCKED))
+		if (bitmatch(self.SDMMC_GetResponse( 1), SDMMC_CARD_LOCKED))
 		{
 			// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS)
 			self[SDReg::ICR] = (_IMM1S(0U)) | (_IMM1S(1U)) | (_IMM1S(2U)) |
@@ -746,7 +730,7 @@ namespace uni {
 		  /* Read data from SDMMC Rx FIFO */
 			for (count = 0U; count < (SDMMC_FIFO_SIZE / 4U); count++)
 			{
-				data = SDMMC_ReadFIFO(self);
+				data = self.SDMMC_ReadFIFO();
 				*tmp = (uint8_t)(data & 0xFFU);
 				tmp++;
 				*tmp = (uint8_t)((data >> 8U) & 0xFFU);
@@ -781,7 +765,7 @@ namespace uni {
 				tmp++;
 				data |= ((uint32)(*tmp) << 24U);
 				tmp++;
-				(void)SDMMC_WriteFIFO(self, &data);
+				(void)self.SDMMC_WriteFIFO( &data);
 			}
 			TxBuff.address = _IMM(tmp);
 			TxBuff.length -= SDMMC_FIFO_SIZE;

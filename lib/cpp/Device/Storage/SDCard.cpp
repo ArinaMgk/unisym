@@ -69,18 +69,18 @@ namespace uni {
 	SecureDigitalCard_t SDCard1(1);
 	SecureDigitalCard_t SDCard2(2);
 
-	Reference SecureDigitalCard_t::operator[](SDReg idx) const {
+	Reference SDMMC_t::operator[](SDReg idx) const {
 		return _REFADDR_SDMMC[getID()] + _IMMx4(idx);
 	}
 
 #if defined(_MPU_STM32MP13)
-	SDMMC_CLKSRC SecureDigitalCard_t::getClockSource() const {
+	SDMMC_CLKSRC SDMMC_t::getClockSource() const {
 		return (SDMMC_CLKSRC)RCC[RCCReg::SDMMC12CKSELR].masof(3 * (getID() - 1), 3);
 	}
-	void SecureDigitalCard_t::setClockSource(SDMMC_CLKSRC clk_src) const {
+	void SDMMC_t::setClockSource(SDMMC_CLKSRC clk_src) const {
 		RCC[RCCReg::SDMMC12CKSELR].maset(3 * (getID() - 1), 3, _IMM(clk_src));
 	}
-	stduint SecureDigitalCard_t::getFrequency() const {
+	stduint SDMMC_t::getFrequency() const {
 		stduint frequency = 0;
 		switch (getClockSource()) {
 		case SDMMC_CLKSRC::HCLK6:
@@ -107,20 +107,20 @@ namespace uni {
 	}
 #elif defined(_MCU_STM32H7x)
 	// AKA __HAL_RCC_GET_SDMMC1_SOURCE
-	SDMMC1_CLKSRC SecureDigitalCard_t::getClockSource() const {
+	SDMMC1_CLKSRC SDMMC_t::getClockSource() const {
 		return (SDMMC1_CLKSRC)RCC[RCCReg::D1CCIPR].bitof(16);// SDMMCSEL
 	}
-	void SecureDigitalCard_t::setClockSource(SDMMC1_CLKSRC clk_src) const {
+	void SDMMC_t::setClockSource(SDMMC1_CLKSRC clk_src) const {
 		RCC[RCCReg::D1CCIPR].setof(16, _IMM(clk_src));// SDMMCSEL
 	}
 	// AKA __HAL_RCC_GET_SDMMC2_SOURCE
-	SDMMC2_CLKSRC SecureDigitalCard_t::getClockSource2() const {
+	SDMMC2_CLKSRC SDMMC_t::getClockSource2() const {
 		return (SDMMC2_CLKSRC)RCC[RCCReg::D1CCIPR].masof(28, 2);// CKPERSEL
 	}
-	void SecureDigitalCard_t::setClockSource2(SDMMC2_CLKSRC clk_src) const {
+	void SDMMC_t::setClockSource2(SDMMC2_CLKSRC clk_src) const {
 		RCC[RCCReg::D1CCIPR].maset(28, 2, _IMM(clk_src));// CKPERSEL
 	}
-	stduint SecureDigitalCard_t::getFrequency() const {
+	stduint SDMMC_t::getFrequency() const {
 		stduint frequency = 0;
 		if (getID() == 1) {
 			switch (getClockSource()) {

@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Stroage) SDCard
+// Docutitle: (Stroage) Secure Digital Card
 // Codifiers: @dosconio: 20250107
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -72,19 +72,149 @@ namespace uni {
 	enum class SDMMC_DMABuffer { Buffer0 = 0b0, Buffer1 = 0b1 };
 #endif
 
-	class SecureDigitalCard_t : public StorageTrait, public RuptTrait
+	// Interrupt handler shared by SD and MMC card drivers (defined in interrupt_sd.cpp).
+	template <typename T> void _HandlerIRQ_SDMMCx(T& sd);
+
+	// ---- SDMMC peripheral interface (aka HAL LL layer: stm32xx_ll_sdmmc) ----
+	// Shared by SD card and MMC/eMMC device drivers.
+	class SDMMC_t : public RuptTrait
 	{
-		friend void _HandlerIRQ_SDMMCx(SecureDigitalCard_t& sd);
+	protected:
 		byte SDMMC_ID;
+	public:
+		SDMMC_t(byte _SDMMC_ID) : SDMMC_ID(_SDMMC_ID) {}
+		byte getID() const { return SDMMC_ID; }
+		Reference operator[](SDReg idx) const;
+		// ---- RuptTrait ----
+		virtual void setInterrupt(Handler_t _func) const override { _TODO }
+		virtual void setInterruptPriority(byte preempt, byte sub_priority) const override { _TODO }
+		virtual void enInterrupt(bool enable = true) const override { _TODO }
+		// ---- command types ----
+		enum class WaitForInterrupt_E {
+			None, Interrupt = 0b01, Pending = 0b10
+		};
+		struct CmdInitType {
+			stduint argument;// Specifies the SDMMC command argument which is sent to a card as part of a command message. If a command contains an argument, it must be loaded into this register before writing the command to the command register
+			stduint CmdIndex;// Specifies the SDMMC command index. It must be Min_Data = 0 and Max_Data = 64
+			stduint Response;// Specifies the SDMMC response type.
+			WaitForInterrupt_E WaitForInterrupt;// self[CMD]. Specifies whether SDMMC wait for interrupt request is enabled or disabled.
+			bool CPSM;// SDMMC_CMD_CPSMEN. Specifies whether SDMMC Command path state machine (CPSM) is enabled or disabled.
+		};// AKA SDMMC_CmdInitTypeDef
+		bool SDMMC_SendCommand(const CmdInitType& cit) const;
+		bool SDMMC_SendCommand(
+			stduint argument,
+			stduint cmdindex,
+			byte response,
+			WaitForInterrupt_E waitforinterrupt = WaitForInterrupt_E::None,
+			bool cpsm = true
+			) const;
+		bool SDMMC_GetCmdError() const;
+		bool SDMMC_ConfigData(const SDMMC_DataInitTypeDef& Data);
+		// ---- commands ----
+		bool SDMMC_CmdBlockLength(uint32 BlockSize, uint32* feedback = nullptr) const;
+		bool SDMMC_CmdGoIdleState() const;
+		bool SDMMC_CmdOperCond() const;
+		bool SDMMC_CmdSendCID(uint32* feedback) const;
+		bool SDMMC_CmdSendCSD(uint32 Argument, uint32* feedback) const;
+		bool SDMMC_CmdSetRelAdd(uint16* pRCA, uint32* feedback) const;
+		// [17 18] Read Single/Multi Block
+		uint32 SDMMC_CmdReadSingleBlock(uint32 ReadAdd, uint32* feedback);
+		uint32 SDMMC_CmdReadMultiBlock(uint32 ReadAdd, uint32* feedback);
+		// [24 25] Write Single/Multi Block
+		uint32 SDMMC_CmdWriteSingleBlock(uint32 ReadAdd, uint32* feedback);
+		uint32 SDMMC_CmdWriteMultiBlock(uint32 ReadAdd, uint32* feedback);
+		// [32 35]
+		bool SDMMC_CmdSDEraseStartAdd(uint32 StartAdd, uint32* feedback);
+		bool SDMMC_CmdEraseStartAdd(uint32 StartAdd, uint32* feedback);
+		// [33 36]
+		bool SDMMC_CmdSDEraseEndAdd(uint32 EndAdd, uint32* feedback);
+		bool SDMMC_CmdEraseEndAdd(uint32 EndAdd, uint32* feedback);
+		bool SDMMC_CmdErase(uint32 EraseType, uint32* feedback);
+		bool SDMMC_CmdStopTransfer(uint32* feedback);
+		bool SDMMC_CmdBusWidth(uint32 BusWidth, uint32* feedback);
+		bool SDMMC_CmdSelDesel(uint32 Addr, uint32* feedback) const;
+		bool SDMMC_CmdSendSCR(uint32* feedback);
+		bool SDMMC_CmdSetRelAddMmc(uint16 RCA, uint32* feedback);
+		uint32 SDMMC_CmdSleepMmc(uint32 Argument, uint32* feedback);
+		bool SDMMC_CmdSendStatus(uint32 Argument, uint32* feedback);
+		bool SDMMC_CmdStatusRegister(uint32* feedback);
+		bool SDMMC_CmdOpCondition(uint32 Argument, uint32* feedback);
+		bool SDMMC_CmdSwitch(uint32 Argument, uint32* feedback);
+		bool SDMMC_CmdVoltageSwitch(uint32* feedback);
+		bool SDMMC_CmdSendEXTCSD(uint32 Argument, uint32* feedback);
+		bool SDMMC_CmdAppCommand(uint32 Argument, uint32* feedback) const;
+		bool SDMMC_CmdAppOperCommand(uint32 Argument, uint32* feedback) const;
+		// ---- response ----
+		bool SDMMC_GetCmdResp1(uint8 SD_CMD, uint32 Timeout, uint32* feedback) const;
+		bool SDMMC_GetCmdResp2(uint32* feedback) const;
+		bool SDMMC_GetCmdResp3(uint32* feedback) const;
+		bool SDMMC_GetCmdResp6(uint8 SD_CMD, uint16* pRCA, uint32* feedback) const;
+		bool SDMMC_GetCmdResp7() const;
+		// ---- LL primitives (was statin free functions, deduplicated) ----
+		uint8 SDMMC_GetCommandResponse() const { return self[SDReg::RESPCMD]; }
+		uint32 SDMMC_GetResponse(uint32 response) const {
+			if (--response >= 4) return 0;// 1 ~ 4
+			return (&self[SDReg::RESP1])[response];
+		}
+		uint32 SDMMC_ReadFIFO() const { return self[SDReg::FIFO_Start]; }
+		void SDMMC_WriteFIFO(uint32* data) { self[SDReg::FIFO_Start] = *data; }
+		void SDMMC_PowerState_Cycle() const { self[SDReg::POWER].setof(1, true);// PWRCTRL b1
+		}
+		void SDMMC_PowerState_OFF() const { self[SDReg::POWER].maset(0, 2, nil);// PWRCTRL
+		}
+		uint32 SDMMC_GetDataCounter() const { return self[SDReg::DCOUNT]; }
+		void SDMMC_SetSDMMCReadWaitMode(bool clk_else_data2) const { self[SDReg::DCTRL].setof(10, clk_else_data2);// RWMOD
+		}
+		uint32 SDMMC_GetPowerState() const { return self[SDReg::POWER].masof(0, 2);// PWRCTRL
+		}
+		// ---- clock ----
+#if defined(_MPU_STM32MP13)
+		// AKA __HAL_RCC_GET_SDMMC1_SOURCE = __HAL_RCC_GET_SDIO_SOURCE
+		SDMMC_CLKSRC getClockSource() const;
+		// AKA __HAL_RCC_SDMMC1_CONFIG
+		void setClockSource(SDMMC_CLKSRC clk_src) const;
+#elif defined(_MCU_STM32H7x)
+		// AKA __HAL_RCC_GET_SDMMC1_SOURCE
+		SDMMC1_CLKSRC getClockSource() const;
+		// AKA __HAL_RCC_SDMMC1_CONFIG
+		void setClockSource(SDMMC1_CLKSRC clk_src) const;
+		// AKA __HAL_RCC_GET_SDMMC2_SOURCE (SDMMC2 uses CKPERSEL)
+		SDMMC2_CLKSRC getClockSource2() const;
+		// AKA __HAL_RCC_SDMMC2_CONFIG
+		void setClockSource2(SDMMC2_CLKSRC clk_src) const;
+#endif
+		// AKA HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SDMMCx)
+		stduint getFrequency() const;
+		// ---- CLKCR bit ops (static) ----
+		inline static void setClockEdge(Reference& reg, bool clock_edge) {
+			reg.setof(16, !clock_edge);// NEGEDGE
+		}
+		inline static void setClockPowerSave(Reference& reg, bool powersave_enable) {
+			reg.setof(12, powersave_enable);// PWRSAV
+		}
+		inline static void setBusWide(Reference& reg, SDMMC_BusWidth bus_width) {
+			reg.maset(14, 2, _IMM(bus_width));// WIDBUS
+		}
+		inline static void setHardwareFlowControl(Reference& reg, bool hardflow_control) {
+			reg.setof(17, hardflow_control);// HWFC_EN
+		}
+		inline static void setClockDiv(Reference& reg, stduint Init_ClockDiv) {
+			reg.maset(0, 10, Init_ClockDiv);// CLKDIV
+		}
+	};
+
+	// ---- SD card device driver (aka HAL layer: stm32xx_hal_sd) ----
+	class SecureDigitalCard_t : public SDMMC_t, public StorageTrait
+	{
+		template <typename T> friend void _HandlerIRQ_SDMMCx(T& sd);
 		bool Inner_Rupt_Handler;
 	protected:
 		Slice TxBuff;// pTxBuffPtr + TxXferSize
 		Slice RxBuff;// pRxBuffPtr + RxXferSize
 	public:
 		pureptr_t roleaddr;// for operator[](uint64 bytid)
-		SecureDigitalCard_t(byte _SDMMC_ID) : SDMMC_ID(_SDMMC_ID) {}
-		byte getID() const { return SDMMC_ID; }
-		Reference operator[](SDReg idx) const;
+		SecureDigitalCard_t(byte _SDMMC_ID) : SDMMC_t(_SDMMC_ID) {}
+		using SDMMC_t::operator[];// unhide SDReg register access from SDMMC_t
 		// ---- StorageTrait ----
 		// - stduint Block_Size;
 		// - void* Block_buffer;
@@ -94,10 +224,6 @@ namespace uni {
 		virtual stduint getUnits() { return _TODO 0; }
 		//
 		virtual int operator[](uint64 bytid) { return _TODO false; }// byte read
-		// ---- RuptTrait ----
-		virtual void setInterrupt(Handler_t _func) const override { _TODO }
-		virtual void setInterruptPriority(byte preempt, byte sub_priority) const override { _TODO }
-		virtual void enInterrupt(bool enable = true) const override { _TODO }
 		// ---- callbacks (Handler_t, AKA HAL weak callbacks) ----
 		Handler_t TxCpltHandler = 0;       // AKA HAL_SD_TxCpltCallback
 		Handler_t RxCpltHandler = 0;       // AKA HAL_SD_RxCpltCallback
@@ -139,9 +265,6 @@ namespace uni {
 	_TEMP public:
 		bool CARD_V2X_else_V1X;// CardVersion
 	public:
-		enum class WaitForInterrupt_E {
-			None, Interrupt = 0b01, Pending = 0b10
-		};
 		enum class CardType_E {
 			SDSC = 0,// SD Standard Capacity <2Go
 			SDHC_SDXC = 1,// SD High Capacity <32Go, SD Extended Capacity <2To
@@ -155,13 +278,6 @@ namespace uni {
 		uint32 CID[4];// SD card identification number table
 	protected:
 
-		struct CmdInitType {
-			stduint argument;// Specifies the SDMMC command argument which is sent to a card as part of a command message. If a command contains an argument, it must be loaded into this register before writing the command to the command register
-			stduint CmdIndex;// Specifies the SDMMC command index. It must be Min_Data = 0 and 			Max_Data = 64
-			stduint Response;// Specifies the SDMMC response type.
-			WaitForInterrupt_E WaitForInterrupt;// self[CMD]. Specifies whether SDMMC wait for interrupt request is enabled or disabled.
-			bool CPSM;// SDMMC_CMD_CPSMEN. Specifies whether SDMMC Command path state machine (CPSM) is enabled or disabled.
-		};// AKA SDMMC_CmdInitTypeDef
 	_TEMP public:
 		
 		struct HAL_SD_CardInfoTypeDef
@@ -182,20 +298,6 @@ namespace uni {
 		// Enquires cards about their operating voltage and configures clock controls and stores SD information that will be needed in future in the SD handle.
 		bool SD_PowerON(uint32* feedback);
 		bool SD_InitCard(uint32* feedback);
-		bool SDMMC_CmdBlockLength(uint32 BlockSize, uint32* feedback = nullptr) const;
-		//
-		bool SDMMC_CmdGoIdleState() const;
-		// 
-		bool SDMMC_SendCommand(const CmdInitType& cit) const;
-		bool SDMMC_SendCommand(
-			stduint argument,
-			stduint cmdindex,
-			byte response,
-			WaitForInterrupt_E waitforinterrupt = WaitForInterrupt_E::None,
-			bool cpsm = true
-			) const;
-		bool SDMMC_GetCmdError() const;
-		bool SDMMC_CmdOperCond() const;
 		//
 
 		//{TODO} use bit-field to redo the impl: 
@@ -215,63 +317,7 @@ namespace uni {
 			pCardInfo->LogBlockNbr = (CardInfo.LogBlockNbr);
 			pCardInfo->LogBlockSize = (CardInfo.LogBlockSize);
 		}
-		// Send the Send CID command and check the response
-		bool SDMMC_CmdSendCID(uint32* feedback) const;
-		// Send the Send CSD command and check the response
-		bool SDMMC_CmdSendCSD(uint32 Argument, uint32* feedback) const;
-		// ???
-		bool SDMMC_CmdSetRelAdd(uint16* pRCA, uint32* feedback) const;
 
-		// [17 18] Send the Read Single/Multi Block command and check the response
-		uint32 SDMMC_CmdReadSingleBlock(uint32 ReadAdd, uint32* feedback);
-		uint32 SDMMC_CmdReadMultiBlock(uint32 ReadAdd, uint32* feedback);
-
-		// [24 25] Send the Write Single/Multi Block command and check the response
-		uint32 SDMMC_CmdWriteSingleBlock(uint32 ReadAdd, uint32* feedback);
-		uint32 SDMMC_CmdWriteMultiBlock(uint32 ReadAdd, uint32* feedback);
-
-		// [32 35]
-		bool SDMMC_CmdSDEraseStartAdd(uint32 StartAdd, uint32* feedback);
-		bool SDMMC_CmdEraseStartAdd(uint32 StartAdd, uint32* feedback);
-		// [33 36]
-		bool SDMMC_CmdSDEraseEndAdd(uint32 EndAdd, uint32* feedback);
-		bool SDMMC_CmdEraseEndAdd(uint32 EndAdd, uint32* feedback);
-
-		bool SDMMC_CmdErase(uint32 EraseType, uint32* feedback);
-
-		bool SDMMC_CmdStopTransfer(uint32* feedback);
-
-		bool SDMMC_CmdBusWidth(uint32 BusWidth, uint32* feedback);
-
-		// Send the Select Deselect command and check the response
-		bool SDMMC_CmdSelDesel(uint32 Addr, uint32* feedback) const;
-
-		bool SDMMC_CmdSendSCR(uint32* feedback);
-		bool SDMMC_CmdSetRelAddMmc(uint16 RCA, uint32* feedback);
-		uint32 SDMMC_CmdSleepMmc(uint32 Argument, uint32* feedback);
-		bool SDMMC_CmdSendStatus(uint32 Argument, uint32* feedback);
-		bool SDMMC_CmdStatusRegister(uint32* feedback);
-		bool SDMMC_CmdOpCondition(uint32 Argument, uint32* feedback);
-		bool SDMMC_CmdSwitch(uint32 Argument, uint32* feedback);
-		bool SDMMC_CmdVoltageSwitch(uint32* feedback);
-		bool SDMMC_CmdSendEXTCSD(uint32 Argument, uint32* feedback);
-
-
-
-		//
-		bool SDMMC_GetCmdResp1(uint8 SD_CMD, uint32 Timeout, uint32* feedback) const;
-		bool SDMMC_GetCmdResp2(uint32* feedback) const;
-		bool SDMMC_GetCmdResp3(uint32* feedback) const;
-		bool SDMMC_GetCmdResp6(uint8 SD_CMD, uint16* pRCA, uint32* feedback) const;
-		bool SDMMC_GetCmdResp7() const;
-		//
-		bool SDMMC_CmdAppCommand(uint32 Argument, uint32* feedback) const;
-		bool SDMMC_CmdAppOperCommand(uint32 Argument, uint32* feedback) const;
-		//
-		bool SDMMC_ConfigData(const SDMMC_DataInitTypeDef& Data);
-
-
-		
 	_Comment("Chores") protected:
 
 		// pSDstatus: Pointer to the buffer that will contain the SD card status SD Status register
@@ -411,47 +457,150 @@ namespace uni {
 	_TEMP protected:
 		stduint last_ClockDiv;
 			_TEMP public:		stduint temp_ClockDiv;
-	public:
-	#if defined(_MPU_STM32MP13)
-		// AKA __HAL_RCC_GET_SDMMC1_SOURCE = __HAL_RCC_GET_SDIO_SOURCE
-		SDMMC_CLKSRC getClockSource() const;
-		// AKA __HAL_RCC_SDMMC1_CONFIG
-		void setClockSource(SDMMC_CLKSRC clk_src) const;
-	#elif defined(_MCU_STM32H7x)
-		// AKA __HAL_RCC_GET_SDMMC1_SOURCE
-		SDMMC1_CLKSRC getClockSource() const;
-		// AKA __HAL_RCC_SDMMC1_CONFIG
-		void setClockSource(SDMMC1_CLKSRC clk_src) const;
-		// AKA __HAL_RCC_GET_SDMMC2_SOURCE (SDMMC2 uses CKPERSEL)
-		SDMMC2_CLKSRC getClockSource2() const;
-		// AKA __HAL_RCC_SDMMC2_CONFIG
-		void setClockSource2(SDMMC2_CLKSRC clk_src) const;
-	#endif
-		// AKA HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SDMMCx)
-		stduint getFrequency() const;
-
-	public:
-		// reg should be set into sel[SDReg::CLKCR] finally
-		inline static void setClockEdge(Reference& reg, bool clock_edge) {
-			reg.setof(16, !clock_edge);// NEGEDGE
-		}
-		inline static void setClockPowerSave(Reference& reg, bool powersave_enable) {
-			reg.setof(12, powersave_enable);// PWRSAV
-		}
-		inline static void setBusWide(Reference& reg, SDMMC_BusWidth bus_width) {
-			reg.maset(14, 2, _IMM(bus_width));// WIDBUS
-		}
-		inline static void setHardwareFlowControl(Reference& reg, bool hardflow_control) {
-			reg.setof(17, hardflow_control);// HWFC_EN
-		}
-		inline static void setClockDiv(Reference& reg, stduint Init_ClockDiv) {
-			reg.maset(0, 10, Init_ClockDiv);// CLKDIV
-		}
 
 	};
 	typedef SecureDigitalCard_t SDCard_t;
 	extern SecureDigitalCard_t SDCard1;
 	extern SecureDigitalCard_t SDCard2;
+
+	// ---- MMC/eMMC card device driver (aka HAL layer: stm32xx_hal_mmc) ----
+	class MultiMediaCard_t : public SDMMC_t, public StorageTrait
+	{
+		template <typename T> friend void _HandlerIRQ_SDMMCx(T& sd);
+		bool Inner_Rupt_Handler;
+	protected:
+		Slice TxBuff;// pTxBuffPtr + TxXferSize
+		Slice RxBuff;// pRxBuffPtr + RxXferSize
+	public:
+		pureptr_t roleaddr;// for operator[](uint64 bytid)
+		MultiMediaCard_t(byte _SDMMC_ID) : SDMMC_t(_SDMMC_ID) {}
+		using SDMMC_t::operator[];// unhide SDReg register access from SDMMC_t
+		// ---- StorageTrait ----
+		virtual bool Read(stduint BlockIden, void* Dest);
+		virtual bool Write(stduint BlockIden, const void* Sors);
+		virtual stduint getUnits() { return _TODO 0; }
+		virtual int operator[](uint64 bytid) { return _TODO false; }// byte read
+		// ---- callbacks (Handler_t, AKA HAL weak callbacks) ----
+		Handler_t TxCpltHandler = 0;       // AKA HAL_MMC_TxCpltCallback
+		Handler_t RxCpltHandler = 0;       // AKA HAL_MMC_RxCpltCallback
+		Handler_t ErrorHandler = 0;        // AKA HAL_MMC_ErrorCallback
+		Handler_t AbortCpltHandler = 0;    // AKA HAL_MMC_AbortCallback
+#if defined(_MCU_STM32H7x)
+		Handler_t Read_DMADoubleBuffer0CpltHandler = 0;// AKA HAL_MMCEx_Read_DMADoubleBuffer0CpltCallback
+		Handler_t Read_DMADoubleBuffer1CpltHandler = 0;
+		Handler_t Write_DMADoubleBuffer0CpltHandler = 0;
+		Handler_t Write_DMADoubleBuffer1CpltHandler = 0;
+#elif defined(_MPU_STM32MP13)
+		Handler_t Read_DMALnkLstBufCpltHandler = 0;    // AKA HAL_MMCEx_Read_DMALnkLstBufCpltCallback
+		Handler_t Write_DMALnkLstBufCpltHandler = 0;
+#endif
+		// clock_edge: true for posedge
+	#if defined(_MPU_STM32MP13)
+		bool setMode(
+			SDMMC_CLKSRC clk_src = SDMMC_CLKSRC::HCLK6,
+			bool clock_edge = false,
+			bool powersave_enable = false,
+			SDMMC_BusWidth bus_width = SDMMC_BusWidth::Bits1,
+			bool hardware_flow_control_enable = false);
+	#elif defined(_MCU_STM32H7x)
+		bool setMode(
+			SDMMC1_CLKSRC clk_src = SDMMC1_CLKSRC::PLL1Q,
+			bool clock_edge = false,
+			bool powersave_enable = false,
+			SDMMC_BusWidth bus_width = SDMMC_BusWidth::Bits1,
+			bool hardware_flow_control_enable = false);
+	#endif
+
+		// AKA HAL_MMC_DeInit
+		bool canMode();
+
+	protected:
+		// AKA HAL_MMC_InitCard (card identification + EXT_CSD + block length + wide bus)
+		bool setModeSub();
+
+	public:
+		enum class CardType_E {
+			LOW_CAPACITY = 0,// MMC card <= 2GB
+			HIGH_CAPACITY = 1,// MMC/eMMC card > 2GB (sector addressing)
+		};
+		CardType_E CardType;
+		SDContext Context;
+		uint32 CSD[4];// MMC card specific data table
+		uint32 CID[4];// MMC card identification number table
+		uint32 Ext_CSD[128];// EXT_CSD register (512 bytes)
+		struct HAL_MMC_CardInfoTypeDef
+		{
+			uint32 CardType;
+			uint32 Class;
+			uint32 RelCardAdd;
+			uint32 BlockNbr;
+			uint32 BlockSize;
+			uint32 LogBlockNbr;
+			uint32 LogBlockSize;
+		} CardInfo;
+
+		// Identify card operating voltage (CMD0 + CMD1 loop).
+		bool MMC_PowerON(uint32* feedback);
+		// Send CID/CSD/EXT_CSD commands and select the card (CMD2/3/9/7/8).
+		bool MMC_InitCard(uint32* feedback);
+
+	_Comment("IO functions") public:
+
+		bool HAL_MMC_ReadBlocks(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback);
+		bool HAL_MMC_WriteBlocks(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback);
+		bool HAL_MMC_Erase(uint32 BlockStartAdd, uint32 BlockEndAdd, uint32* feedback);
+		bool HAL_MMC_ReadBlocks_IT(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+		bool HAL_MMC_WriteBlocks_IT(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+		bool HAL_MMC_ReadBlocks_DMA(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+		bool HAL_MMC_WriteBlocks_DMA(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+#if defined(_MCU_STM32H7x)
+		// ---- H7 internal DMA double-buffer (aka HAL_MMCEx_*) ----
+		bool HAL_MMCEx_ConfigDMAMultiBuffer(uint32* pDataBuffer0, uint32* pDataBuffer1, uint32 BufferSize);
+		bool HAL_MMCEx_ReadBlocksDMAMultiBuffer(uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback = nullptr);
+		bool HAL_MMCEx_WriteBlocksDMAMultiBuffer(uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback = nullptr);
+		bool HAL_MMCEx_ChangeDMABuffer(SDMMC_DMABuffer Buffer, uint32* pDataBuffer);
+#endif
+#if defined(_MPU_STM32MP13)
+		// ---- MP13 internal DMA linked-list (aka HAL_MMCEx_*) ----
+		bool HAL_MMCEx_DMALinkedList_ReadBlocks(SDMMC_DMALinkedList* pLinkedList, uint32 BlockAddr, uint32 NumberOfBlocks, uint32* feedback = nullptr);
+		bool HAL_MMCEx_DMALinkedList_WriteBlocks(SDMMC_DMALinkedList* pLinkedList, uint32 BlockAddr, uint32 NumberOfBlocks, uint32* feedback = nullptr);
+		// ---- eMMC advanced features (MP13) ----
+		bool HAL_MMC_GetCardExtCSD(uint32* pExtCSD, uint32 Timeout);
+		bool HAL_MMC_EraseSequence(uint32 EraseType, uint32 BlockStartAdd, uint32 BlockEndAdd, uint32* feedback);
+		bool HAL_MMC_Sanitize(uint32* feedback);
+		bool HAL_MMC_ConfigSecRemovalType(uint32 SRTMode, uint32* feedback);
+		bool HAL_MMC_GetSupportedSecRemovalType(uint32* SupportedSRT);
+		bool HAL_MMC_SleepDevice(uint32* feedback);
+		bool HAL_MMC_AwakeDevice(uint32* feedback);
+		bool HAL_MMC_ConfigSpeedBusOperation(SDMMC_SPEED_MODE SpeedMode);
+#endif
+
+	_Comment("IO helpers") protected:
+		// Wrap up reading in non-blocking mode (AKA MMC_Read_IT).
+		void SD_Read_IT();
+		// Wrap up writing in non-blocking mode (AKA MMC_Write_IT).
+		void SD_Write_IT();
+
+	_Comment("Card info") public:
+
+		bool HAL_MMC_GetCardCSD(HAL_SD_CardCSDTypeDef* pCSD);
+		void HAL_MMC_GetCardCID(HAL_SD_CardCIDTypeDef* pCID);
+		void HAL_MMC_GetCardInfo(HAL_MMC_CardInfoTypeDef* pCardInfo);
+		HAL_SD_CardStateTypeDef HAL_MMC_GetCardState();
+
+	_Comment("Peripheral Control") public:
+
+		// Enables wide bus operation via EXT_CSD BUS_WIDTH field (1/4/8-bit).
+		bool HAL_MMC_ConfigWideBusOperation(SDMMC_BusWidth bus_width, uint32* feedback);
+
+		// Abort the current transfer and disable the MMC.
+		bool HAL_MMC_Abort();
+		bool HAL_MMC_Abort_IT();
+
+	};
+	typedef MultiMediaCard_t MMC_t;
+	extern MultiMediaCard_t MMC1;
+	extern MultiMediaCard_t MMC2;
 	
 
 
@@ -462,4 +611,3 @@ namespace uni {
 #endif
 
 #endif
-

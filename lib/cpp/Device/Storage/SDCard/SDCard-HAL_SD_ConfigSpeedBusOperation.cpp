@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Stroage) SDCard
+// Docutitle: (Stroage) Secure Digital Card
 // Codifiers: @dosconio: 20250107
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -37,12 +37,6 @@
 namespace uni {
 #if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
-	// Read data(word) from Rx FIFO in blocking mode(polling)
-	// <=> SDMMC_GetFIFOCount
-	statin uint32 SDMMC_ReadFIFO(const SecureDigitalCard_t& sd) {
-		return sd[SDReg::FIFO_Start];
-	}
-	
 	bool SecureDigitalCard_t::SD_SwitchSpeed(uint32 SwitchSpeedMode, uint32* feedback) {
 		uint32 temp_error;
 		if (!feedback) feedback = &temp_error;
@@ -79,7 +73,7 @@ namespace uni {
 			if (self[SDReg::STA].bitof(15)) // RXFIFOHF
 			{
 				for0(count, 8)
-					SD_hs[(8 * loops) + count] = SDMMC_ReadFIFO(self);
+					SD_hs[(8 * loops) + count] = self.SDMMC_ReadFIFO();
 				loops++;
 			}
 			if (SysTick::getTick() - Timeout > SDMMC_DATATIMEOUT) {

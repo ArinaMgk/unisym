@@ -520,6 +520,26 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\BDMA.cpp</FilePath>
             </File>
+            <File>
+              <FileName>FDCAN.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\FDCAN.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>CRC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\CRC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SRAM.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\SRAM.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FMC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\FMC.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

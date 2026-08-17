@@ -63,7 +63,8 @@ typedef enum
 	IRQ_Cascade = 0x22,  // 8259A Cascade --> PORT_i8259A_SLV_A
 	IRQ_COM24_Serial = 0x23,   // COM2/4 or default ethernet interrupt vector, or RS232 interrupt vector for port 2 {??? 16450 Serial Port}
 	IRQ_COM13_RS232_P1 = 0x24, // COM1/3 or RS232 interrupt vector for port 1
-	IRQ_XT_WINI = 0x25,  // or LPT2
+	IRQ_SB16 = 0x25,     // Sound Blaster 16 (ISA IRQ5)
+	IRQ_XT_WINI = IRQ_SB16, // Legacy alias: XT hard disk or LPT2
 	IRQ_Floppy = 0x26,   // 8250 Floppy Disk Controller
 	IRQ_LPT1 = 0x27,     // 8255 Parallel Port
 
@@ -90,7 +91,8 @@ typedef enum
 	DEV_MAS_Cascade = IRQ_Cascade - 0x20,
 	DEV_MAS_Serial = IRQ_COM24_Serial - 0x20, 
 	DEV_MAS_RS232_Port1 = IRQ_COM13_RS232_P1 - 0x20, 
-	DEV_MAS_XT_WINI = IRQ_XT_WINI - 0x20, 
+	DEV_MAS_SB16 = IRQ_SB16 - 0x20,
+	DEV_MAS_XT_WINI = DEV_MAS_SB16,
 	DEV_MAS_Floppy = IRQ_Floppy - 0x20, 
 	DEV_MAS_LPT1 = IRQ_LPT1 - 0x20,
 } Request_Master_t;

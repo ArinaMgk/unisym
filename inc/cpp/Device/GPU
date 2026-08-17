@@ -1,6 +1,6 @@
 // UTF-8 CPP-ISO11 TAB4 CRLF
 // Docutitle: (Device) Graphic Processing Unit
-// Codifiers: @dosconio: 20241112
+// Codifiers: @dosconio: 20241112 ~
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -25,10 +25,21 @@
 
 #include "../unisym"
 #include "../reference"
-#include "../../c/binary.h"
-#include "GPIO"
+#include "../interrupt"
+#include "../../c/graphic.h"
+#include "../../c/driver/_predefine/predef.dma2d.hpp"
 
+#ifndef _INC_UNI_IOMethod
+#define _INC_UNI_IOMethod
 namespace uni {
+	enum class IOMethod : byte {
+		Loop,   // polling
+		Rupt,   // interrupt
+		DMA     // direct memory access
+	};
+}
+#endif
+
 #if 0
 
 #elif defined(_MCU_STM32F1x)
@@ -37,8 +48,143 @@ namespace uni {
 #elif defined(_MCU_STM32F4x)
 	
 // DMA2D
-	
-#endif
+
+#elif defined(_MCU_STM32H7x)
+
+// DMA2D transfer state (mirrors HAL_DMA2D_StateTypeDef)
+#define _DMA2D_STATE_RESET   0x00
+#define _DMA2D_STATE_READY   0x01
+#define _DMA2D_STATE_BUSY    0x02
+#define _DMA2D_STATE_TIMEOUT 0x03
+#define _DMA2D_STATE_ERROR   0x04
+#define _DMA2D_STATE_SUSPEND 0x05
+
+// DMA2D error codes (bitmask, mirrors HAL_DMA2D_ERROR_*)
+#define _DMA2D_ERROR_NONE    0x00000000U
+#define _DMA2D_ERROR_TE      0x00000001U
+#define _DMA2D_ERROR_CE      0x00000002U
+#define _DMA2D_ERROR_CAE     0x00000004U
+#define _DMA2D_ERROR_TIMEOUT 0x00000020U
+
+// Default timeout for polling / abort / suspend (same scale as DMA_TIMEOUT_VALUE)
+#define DMA2D_TIMEOUT_VALUE 0x1FFFFFFU
+
+namespace uni {
+
+	// AKA DMA2D_Mode (CR.MODE[1:0])
+	enum class DMA2DMode : byte {
+		M2M      = 0,// memory to memory
+		M2MPFC   = 1,// memory to memory with pixel format conversion
+		M2MBlend = 2,// memory to memory with blending
+		R2M      = 3 // register to memory (fill)
+	};
+
+	// AKA DMA2D_Alpha_Mode (PFCCR.AM[1:0])
+	enum class AlphaMode : byte {
+		NoModification = 0,// DMA2D_NO_MODIF_ALPHA
+		Replace        = 1,// DMA2D_REPLACE_ALPHA
+		Combine        = 2 // DMA2D_COMBINE_ALPHA
+	};
+
+	// AKA DMA2D_Chroma_Sub_Sampling (FGPFCCR.CSS[1:0], foreground only)
+	enum class ChromaSubSampling : byte {
+		None = 0,// DMA2D_NO_CSS (4:4:4)
+		_422 = 1,// DMA2D_CSS_422
+		_420 = 2 // DMA2D_CSS_420
+	};
+
+	class DMA2D_t;
+	class DMA2D_LAYER_t {
+	public:
+		// AKA DMA2D_LayerCfgTypeDef
+		struct alignas(4) LayerPara {
+			stduint input_offset = 0;                                   // line offset (14-bit), AKA InputOffset
+			PixelFormat pixel_format = PixelFormat::ARGB8888;           // AKA InputColorMode
+			AlphaMode alpha_mode = AlphaMode::NoModification;           // AKA AlphaMode
+			uint32 input_alpha = 0xFF;                                  // AKA InputAlpha: 8-bit alpha; for A4/A8 it is the full ARGB color
+			bool alpha_inverted = false;                                // AKA AlphaInverted
+			bool red_blue_swap = false;                                 // AKA RedBlueSwap
+			ChromaSubSampling chroma_sub_sampling = ChromaSubSampling::None;// AKA ChromaSubSampling (foreground only)
+		};
+	protected:
+		byte id;// 0: background, 1: foreground (HAL LayerIdx)
+		LayerPara layer_param;
+		DMA2D_t& getParent() const;
+	public:
+		DMA2D_LAYER_t(byte id) : id(id) {}
+		byte getID() const { return id; }
+		// AKA HAL_DMA2D_ConfigLayer
+		bool setMode(LayerPara& param);
+		// AKA HAL_DMA2D_ConfigCLUT + HAL_DMA2D_EnableCLUT + HAL_DMA2D_CLUTLoad(_IT)
+		//   Loop: configure CLUT + start load + poll CTC (blocking)
+		//   Rupt: configure CLUT + start load with CTC/TE/CE/CAE interrupts (async)
+		bool setCLUT(const uint32* table, stduint size, IOMethod method = IOMethod::Loop, bool ena = true);
+	};
+
+	class DMA2D_t : public RuptTrait {
+		friend class DMA2D_LAYER_t;
+	protected:
+		byte state;
+		uint32 error_code;
+		DMA2DMode mode;
+		PixelFormat output_format;
+		stduint output_offset;
+		bool alpha_inverted;
+		bool red_blue_swap;
+
+		void setConfig(pureptr_t pdata, pureptr_t dst, stduint width, stduint height);
+	public:
+		mutable Handler_t XferCpltCallback = 0;       // AKA XferCpltCallback (transfer complete)
+		mutable Handler_t XferErrorCallback = 0;      // AKA XferErrorCallback (TE/CE/CAE)
+		mutable Handler_t LineEventCallback = 0;      // AKA LineEventCallback (transfer watermark)
+		mutable Handler_t CLUTLoadingCpltCallback = 0;// AKA CLUTLoadingCpltCallback
+
+		DMA2D_t();
+
+		Reference operator[](DMA2DReg idx) const { return _DMA2D_ADDR + _IMMx4(idx); }
+		DMA2D_LAYER_t& operator[](byte layer) const;
+
+		// AKA __HAL_RCC_DMA2D_CLK_ENABLE / DISABLE
+		bool enClock(bool ena = true);
+		// AKA __HAL_DMA2D_ENABLE / DISABLE
+		void enAble(bool ena = true);
+
+		// AKA HAL_DMA2D_Init
+		bool setMode(DMA2DMode mode, PixelFormat output_format, stduint output_offset = 0, bool alpha_inverted = false, bool red_blue_swap = false);
+		// AKA HAL_DMA2D_DeInit
+		bool canMode();
+		// AKA HAL_DMA2D_Start / Start_IT (+ PollForTransfer in Loop mode)
+		//   pdata: source address (M2M/M2MPFC/M2MBlend) or fill color (R2M)
+		bool Transfer(pureptr_t pdata, pureptr_t dst, stduint width, stduint height, IOMethod method = IOMethod::Loop);
+		// AKA HAL_DMA2D_BlendingStart / BlendingStart_IT (+ PollForTransfer in Loop mode)
+		bool Blend(pureptr_t src1, pureptr_t src2, pureptr_t dst, stduint width, stduint height, IOMethod method = IOMethod::Loop);
+		// AKA HAL_DMA2D_Abort
+		bool Abort();
+		// AKA HAL_DMA2D_Suspend / Resume
+		bool Suspend();
+		bool Resume();
+		// AKA HAL_DMA2D_CLUTLoading_Abort / Suspend / Resume
+		bool AbortCLUT(byte layer);
+		bool SuspendCLUT(byte layer);
+		bool ResumeCLUT(byte layer);
+		// AKA HAL_DMA2D_ProgramLineEvent (enables transfer watermark interrupt)
+		void setLineEvent(stduint line);
+		// AKA HAL_DMA2D_EnableDeadTime / DisableDeadTime / ConfigDeadTime
+		void enDeadTime(bool ena = true, byte dt = 0);
+		// AKA HAL_DMA2D_IRQHandler
+		void HandleIRQ();
+		// AKA HAL_DMA2D_GetState / GetError
+		byte getState() const { return state; }
+		uint32 getError() const { return error_code; }
+
+		// RuptTrait
+		_COM_DEF_Interrupt_Interface();
+	};
+
+	extern DMA2D_t DMA2D;
+
 }
+
+#endif // _MCU_STM32H7x
 
 #endif

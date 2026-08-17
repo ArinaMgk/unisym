@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Stroage) SDCard
+// Docutitle: (Stroage) Secure Digital Card
 // Codifiers: @dosconio: 20250107
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -61,50 +61,7 @@ extern "C" {
 namespace uni {
 #if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
-	// Return the command index of last command for which response received
-	statin uint8 SDMMC_GetCommandResponse(const SecureDigitalCard_t& sd) {
-		return sd[SDReg::RESPCMD];
-	}
-	// Return the response received from the card for the last command
-	statin uint32 SDMMC_GetResponse(const SecureDigitalCard_t& sd, uint32 response) {
-		if (--response >= 4) return 0;// 1 ~ 4
-		return (&sd[SDReg::RESP1])[response];
-	}
-	// Read data(word) from Rx FIFO in blocking mode(polling)
-	// <=> SDMMC_GetFIFOCount
-	statin uint32 SDMMC_ReadFIFO(const SecureDigitalCard_t& sd) {
-		return sd[SDReg::FIFO_Start];
-	}
-	// Write data (word) to Tx FIFO in blocking mode (polling)
-	statin void SDMMC_WriteFIFO(const SecureDigitalCard_t& sd, uint32* data) {
-		sd[SDReg::FIFO_Start] = *data;
-	}
-	// Set SDMMC Power state to Power-Cycle
-	statin void SDMMC_PowerState_Cycle(const SecureDigitalCard_t& sd) {
-		sd[SDReg::POWER].setof(1, true);// PWRCTRL b1
-	}
-	// Set SDMMC Power state to OFF
-	// AKA SD_PowerOFF
-	statin void SDMMC_PowerState_OFF(const SecureDigitalCard_t& sd) {
-		sd[SDReg::POWER].maset(0, 2, nil);// PWRCTRL
-	}
-	// number of remaining data bytes to be transferred
-	statin uint32 SDMMC_GetDataCounter(const SecureDigitalCard_t& sd) {
-		return sd[SDReg::DCOUNT];
-	}
-	// Sets one of the two options of inserting read wait interval. Read Wait control by stopping SDMMCCLK or using SDMMC_DATA2
-	statin void SDMMC_SetSDMMCReadWaitMode(const SecureDigitalCard_t& sd, bool clk_else_data2) {
-		sd[SDReg::DCTRL].setof(10, clk_else_data2);// RWMOD
-	}
 
-	//[RET]
-	// - 0x00: Power OFF
-	// - 0x02: Power UP
-	// - 0x03: Power ON
-	statin uint32 SDMMC_GetPowerState(const SecureDigitalCard_t& sd)
-	{
-		return  sd[SDReg::POWER].masof(0, 2);// PWRCTRL
-	}
 
 	// 
 
@@ -143,7 +100,7 @@ namespace uni {
 				return false;
 			}
 			// Get command response
-			response = SDMMC_GetResponse(self, 1);
+			response = self.SDMMC_GetResponse( 1);
 			// Get operating voltage
 			validvoltage = (((response >> 31U) == 1U) ? 1U : 0U);
 			count++;
@@ -228,7 +185,7 @@ namespace uni {
 	bool SecureDigitalCard_t::SD_InitCard(uint32* feedback) {
 		uint16& sd_rca = SD_InitCard_sd_rca;// = 0
 		uint32 tickstart = SysTick::getTick();
-		if (!SDMMC_GetPowerState(self)) {// power off
+		if (!self.SDMMC_GetPowerState()) {// power off
 			asserv(feedback)[0] = SDMMC_ERROR_REQUEST_NOT_APPLICABLE;
 			return false;
 		}
@@ -237,7 +194,7 @@ namespace uni {
 			// Send CMD2 ALL_SEND_CID
 			asrtret(SDMMC_CmdSendCID(feedback));
 			// Get Card identification number data
-			for0(i, 4) CID[i] = SDMMC_GetResponse(self, i + 1);
+			for0(i, 4) CID[i] = self.SDMMC_GetResponse( i + 1);
 		}
 		//
 		if (CardType != CardType_E::SECURED) {
@@ -257,10 +214,10 @@ namespace uni {
 			// Send CMD9 SEND_CSD with argument as card's RCA
 			asrtret(SDMMC_CmdSendCSD(CardInfo.RelCardAdd << 16, feedback));
 			// Get Card Specific Data
-			for0(i, 4) CSD[i] = SDMMC_GetResponse(self, i + 1);
+			for0(i, 4) CSD[i] = self.SDMMC_GetResponse( i + 1);
 		}
 
-		CardInfo.Class = SDMMC_GetResponse(self, 2) >> 20;
+		CardInfo.Class = self.SDMMC_GetResponse( 2) >> 20;
 
 		// Get CSD parameters
 		HAL_SD_CardCSDTypeDef CSD;
@@ -275,14 +232,14 @@ namespace uni {
 		asserv(feedback)[0] = SDMMC_ERROR_NONE;
 		return true;
 	}
-	bool SecureDigitalCard_t::SDMMC_CmdBlockLength(uint32 BlockSize, uint32* feedback) const {
+	bool SDMMC_t::SDMMC_CmdBlockLength(uint32 BlockSize, uint32* feedback) const {
 		SDMMC_SendCommand(BlockSize, SDMMC_CMD_SET_BLOCKLEN, 0b01, WaitForInterrupt_E::None, true);
 		asrtret(SDMMC_GetCmdResp1(SDMMC_CMD_SET_BLOCKLEN, SDMMC_CMDTIMEOUT, feedback));
 		return true;
 	}
 
 	__attribute((optimize("O0")))
-	bool SecureDigitalCard_t::SDMMC_CmdGoIdleState() const {
+	bool SDMMC_t::SDMMC_CmdGoIdleState() const {
 		CmdInitType cit;
 		cit.argument = 0;
 		cit.CmdIndex = 0;// SDMMC_CMD_GO_IDLE_STATE;
@@ -295,7 +252,7 @@ namespace uni {
 	}
 
 	__attribute((optimize("O0")))
-	bool SecureDigitalCard_t::SDMMC_SendCommand(const CmdInitType& cit) const {
+	bool SDMMC_t::SDMMC_SendCommand(const CmdInitType& cit) const {
 		Reflocal(cmd) = self[SDReg::CMD];
 		asrtret(cit.CmdIndex < 0x40U);
 		asrtret(cit.Response <= 0b11);
@@ -310,7 +267,7 @@ namespace uni {
 	}
 
 	__attribute((optimize("O0")))
-	bool SecureDigitalCard_t::SDMMC_SendCommand(stduint argument, stduint cmdindex, byte response, WaitForInterrupt_E waitforinterrupt, bool cpsm) const {
+	bool SDMMC_t::SDMMC_SendCommand(stduint argument, stduint cmdindex, byte response, WaitForInterrupt_E waitforinterrupt, bool cpsm) const {
 		Reflocal(cmd) = self[SDReg::CMD];
 		asrtret(cmdindex < 0x40U);
 		asrtret(response <= 0b11);
@@ -323,13 +280,13 @@ namespace uni {
 		self[SDReg::CMD] = cmd;
 		return true;
 	}
-	bool SecureDigitalCard_t::SDMMC_GetCmdError() const {
+	bool SDMMC_t::SDMMC_GetCmdError() const {
 		stduint timeout = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U / SysTickHz);
 		do asrtret(timeout--) while (!self[SDReg::STA].bitof(7));// STAR.CMDSENT
 		self[SDReg::ICR] = _IMM(_IMM1S(21) | 0b11000101);// __SDMMC_CLEAR_FLAG: SDMMC_STATIC_CMD_FLAGS = FLAG_CCRCFAIL | FLAG_CTIMEOUT | FLAG_CMDREND | FLAG_CMDSENT | FLAG_BUSYD0END
 		return true;
 	}
-	bool SecureDigitalCard_t::SDMMC_CmdOperCond() const {
+	bool SDMMC_t::SDMMC_CmdOperCond() const {
 		// Send CMD8 to verify SD card interface operating condition
 		// Argument: - [31:12]: Reserved (shall be set to '0')
 		// - [11:8]: Supply Voltage (VHS) 0x1 (Range: 2.7-3.6 V)
@@ -434,7 +391,7 @@ namespace uni {
 	}
 
 	__attribute((optimize("O0")))
-	bool SecureDigitalCard_t::SDMMC_CmdSendCID(uint32* feedback) const {
+	bool SDMMC_t::SDMMC_CmdSendCID(uint32* feedback) const {
 		CmdInitType cit;
 		cit.argument = 0;
 		cit.CmdIndex = SDMMC_CMD_ALL_SEND_CID;
@@ -447,7 +404,7 @@ namespace uni {
 	}
 
 	__attribute((optimize("O0")))
-	bool SecureDigitalCard_t::SDMMC_CmdSendCSD(uint32 Argument, uint32* feedback) const {
+	bool SDMMC_t::SDMMC_CmdSendCSD(uint32 Argument, uint32* feedback) const {
 		// Send CMD9 SEND_CSD
 		CmdInitType cit;
 		cit.argument = Argument;
@@ -460,58 +417,58 @@ namespace uni {
 		return true;
 	}
 
-	bool SecureDigitalCard_t::SDMMC_CmdSetRelAdd(uint16* pRCA, uint32* feedback) const {
+	bool SDMMC_t::SDMMC_CmdSetRelAdd(uint16* pRCA, uint32* feedback) const {
 		asrtret(SDMMC_SendCommand(0, SDMMC_CMD_SET_REL_ADDR, 0b01));
 		asrtret(SDMMC_GetCmdResp6(SDMMC_CMD_SET_REL_ADDR, pRCA, feedback));
 		return true;
 	}
 
-	uint32 SecureDigitalCard_t::SDMMC_CmdReadSingleBlock(uint32 ReadAdd, uint32* feedback) {
+	uint32 SDMMC_t::SDMMC_CmdReadSingleBlock(uint32 ReadAdd, uint32* feedback) {
 		SDMMC_SendCommand(ReadAdd, SDMMC_CMD_READ_SINGLE_BLOCK, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_READ_SINGLE_BLOCK, SDMMC_CMDTIMEOUT, feedback);
 	}
-	uint32 SecureDigitalCard_t::SDMMC_CmdReadMultiBlock(uint32 ReadAdd, uint32* feedback) {
+	uint32 SDMMC_t::SDMMC_CmdReadMultiBlock(uint32 ReadAdd, uint32* feedback) {
 		SDMMC_SendCommand(ReadAdd, SDMMC_CMD_READ_MULT_BLOCK, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_READ_MULT_BLOCK, SDMMC_CMDTIMEOUT, feedback);
 	}
 
-	uint32 SecureDigitalCard_t::SDMMC_CmdWriteSingleBlock(uint32 ReadAdd, uint32* feedback) {
+	uint32 SDMMC_t::SDMMC_CmdWriteSingleBlock(uint32 ReadAdd, uint32* feedback) {
 		SDMMC_SendCommand(ReadAdd, SDMMC_CMD_WRITE_SINGLE_BLOCK, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_WRITE_SINGLE_BLOCK, SDMMC_CMDTIMEOUT, feedback);
 	}
-	uint32 SecureDigitalCard_t::SDMMC_CmdWriteMultiBlock(uint32 ReadAdd, uint32* feedback) {
+	uint32 SDMMC_t::SDMMC_CmdWriteMultiBlock(uint32 ReadAdd, uint32* feedback) {
 		SDMMC_SendCommand(ReadAdd, SDMMC_CMD_WRITE_MULT_BLOCK, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_WRITE_MULT_BLOCK, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 	// Send the Start Address Erase command (not) for SD and check the response
-	bool SecureDigitalCard_t::SDMMC_CmdSDEraseStartAdd(uint32 StartAdd, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdSDEraseStartAdd(uint32 StartAdd, uint32* feedback) {
 		SDMMC_SendCommand(StartAdd, SDMMC_CMD_SD_ERASE_GRP_START, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_SD_ERASE_GRP_START, SDMMC_CMDTIMEOUT, feedback);
 	}
-	bool SecureDigitalCard_t::SDMMC_CmdEraseStartAdd(uint32 StartAdd, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdEraseStartAdd(uint32 StartAdd, uint32* feedback) {
 		SDMMC_SendCommand(StartAdd, SDMMC_CMD_ERASE_GRP_START, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_ERASE_GRP_START, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 	// Send the End Address Erase command (not) for SD and check the response
-	bool SecureDigitalCard_t::SDMMC_CmdSDEraseEndAdd(uint32 EndAdd, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdSDEraseEndAdd(uint32 EndAdd, uint32* feedback) {
 		SDMMC_SendCommand(EndAdd, SDMMC_CMD_SD_ERASE_GRP_END, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_SD_ERASE_GRP_END, SDMMC_CMDTIMEOUT, feedback);
 	}
-	bool SecureDigitalCard_t::SDMMC_CmdEraseEndAdd(uint32 EndAdd, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdEraseEndAdd(uint32 EndAdd, uint32* feedback) {
 		SDMMC_SendCommand(EndAdd, SDMMC_CMD_ERASE_GRP_END, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_ERASE_GRP_END, SDMMC_CMDTIMEOUT, feedback);
 	}
 
-	bool SecureDigitalCard_t::SDMMC_CmdErase(uint32 EraseType, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdErase(uint32 EraseType, uint32* feedback) {
 		SDMMC_SendCommand(EraseType, SDMMC_CMD_ERASE, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_ERASE, SDMMC_MAXERASETIMEOUT, feedback);
 	}
 
 	// Send the Stop Transfer command and check the response
 	__attribute((optimize("O0")))
-	bool SecureDigitalCard_t::SDMMC_CmdStopTransfer(uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdStopTransfer(uint32* feedback) {
 		// Send CMD12 STOP_TRANSMISSION
 		self[SDReg::CMD].setof(7);// __SDMMC_CMDSTOP_ENABLE: CMDSTOP
 		self[SDReg::CMD].rstof(6);// __SDMMC_CMDTRANS_DISABLE: SDMMC_CMD_CMDTRANS
@@ -526,13 +483,13 @@ namespace uni {
 	}
 
 	// Send the Bus Width command and check the response
-	bool SecureDigitalCard_t::SDMMC_CmdBusWidth(uint32 BusWidth, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdBusWidth(uint32 BusWidth, uint32* feedback) {
 		SDMMC_SendCommand(BusWidth, SDMMC_CMD_APP_SD_SET_BUSWIDTH, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_APP_SD_SET_BUSWIDTH, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 
-	bool SecureDigitalCard_t::SDMMC_CmdSelDesel(uint32 Addr, uint32* feedback) const {
+	bool SDMMC_t::SDMMC_CmdSelDesel(uint32 Addr, uint32* feedback) const {
 		// Send CMD7 SDMMC_SEL_DESEL_CARD
 		SDMMC_SendCommand(Addr, SDMMC_CMD_SEL_DESEL_CARD, 0x01, WaitForInterrupt_E::None, true);
 		asrtret(SDMMC_GetCmdResp1(SDMMC_CMD_SEL_DESEL_CARD, SDMMC_CMDTIMEOUT, feedback));
@@ -540,56 +497,56 @@ namespace uni {
 	}
 
 	// Send the Send SCR command and check the response
-	bool SecureDigitalCard_t::SDMMC_CmdSendSCR(uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdSendSCR(uint32* feedback) {
 		SDMMC_SendCommand(nil, SDMMC_CMD_SD_APP_SEND_SCR, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_SD_APP_SEND_SCR, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 	// Send the Set Relative Address command to MMC card (not SD card)
-	bool SecureDigitalCard_t::SDMMC_CmdSetRelAddMmc(uint16 RCA, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdSetRelAddMmc(uint16 RCA, uint32* feedback) {
 		SDMMC_SendCommand(RCA << 16, SDMMC_CMD_SET_REL_ADDR, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_SET_REL_ADDR, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 	// Send the Sleep command to MMC card (not SD card)
-	uint32 SecureDigitalCard_t::SDMMC_CmdSleepMmc(uint32 Argument, uint32* feedback) {
+	uint32 SDMMC_t::SDMMC_CmdSleepMmc(uint32 Argument, uint32* feedback) {
 		SDMMC_SendCommand(Argument, SDMMC_CMD_MMC_SLEEP_AWAKE, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_MMC_SLEEP_AWAKE, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 	// Send the Status command and check the response
-	bool SecureDigitalCard_t::SDMMC_CmdSendStatus(uint32 Argument, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdSendStatus(uint32 Argument, uint32* feedback) {
 		SDMMC_SendCommand(Argument, SDMMC_CMD_SEND_STATUS, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_SEND_STATUS, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 	// Send the Status register command and check the response
-	bool SecureDigitalCard_t::SDMMC_CmdStatusRegister(uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdStatusRegister(uint32* feedback) {
 		SDMMC_SendCommand(nil, SDMMC_CMD_SD_APP_STATUS, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_SD_APP_STATUS, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 	// Sends host capacity support information and activates the card's initialization process. Send SDMMC_CMD_SEND_OP_COND command
-	bool SecureDigitalCard_t::SDMMC_CmdOpCondition(uint32 Argument, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdOpCondition(uint32 Argument, uint32* feedback) {
 		SDMMC_SendCommand(Argument, SDMMC_CMD_SEND_OP_COND, 0b01);
 		return SDMMC_GetCmdResp3(feedback);
 	}
 
 	// Checks switchable function and switch card function. SDMMC_CMD_HS_SWITCH command
-	bool SecureDigitalCard_t::SDMMC_CmdSwitch(uint32 Argument, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdSwitch(uint32 Argument, uint32* feedback) {
 		SDMMC_SendCommand(Argument,// SDMMC_SDR25_SWITCH_PATTERN
 			SDMMC_CMD_HS_SWITCH, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_HS_SWITCH, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 	// Send the command asking the accessed card to send its operating condition register (OCR)
-	bool SecureDigitalCard_t::SDMMC_CmdVoltageSwitch(uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdVoltageSwitch(uint32* feedback) {
 		SDMMC_SendCommand(nil, SDMMC_CMD_VOLTAGE_SWITCH, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_VOLTAGE_SWITCH, SDMMC_CMDTIMEOUT, feedback);
 	}
 
 	// Send the Send EXT_CSD command and check the response
-	bool SecureDigitalCard_t::SDMMC_CmdSendEXTCSD(uint32 Argument, uint32* feedback) {
+	bool SDMMC_t::SDMMC_CmdSendEXTCSD(uint32 Argument, uint32* feedback) {
 		SDMMC_SendCommand(Argument, SDMMC_CMD_HS_SEND_EXT_CSD, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_HS_SEND_EXT_CSD, SDMMC_CMDTIMEOUT, feedback);
 	}
@@ -616,7 +573,7 @@ namespace uni {
 
 	// Send the Application command to verify that that the next command is an application specific com-mand rather than a standard command and check the response.
 	__attribute((optimize("O0")))
-	bool SecureDigitalCard_t::SDMMC_CmdAppCommand(uint32 Argument, uint32* feedback) const {
+	bool SDMMC_t::SDMMC_CmdAppCommand(uint32 Argument, uint32* feedback) const {
 		CmdInitType cit;
 		cit.argument = Argument;
 		cit.CmdIndex = SDMMC_CMD_APP_CMD;
@@ -633,7 +590,7 @@ namespace uni {
 	}
 	// Send the command asking the accessed card to send its operating condition register (OCR)
 	__attribute((optimize("O0")))
-	bool SecureDigitalCard_t::SDMMC_CmdAppOperCommand(uint32 Argument, uint32* feedback) const {
+	bool SDMMC_t::SDMMC_CmdAppOperCommand(uint32 Argument, uint32* feedback) const {
 		CmdInitType cit;
 		cit.argument = Argument;
 		cit.CmdIndex = SDMMC_CMD_SD_APP_OP_COND;
@@ -649,7 +606,7 @@ namespace uni {
 
 	// Configure the SDMMC data path according to the specified parameters in the SDMMC_DataInitTypeDef.
 	__attribute((optimize("O0")))
-	bool SecureDigitalCard_t::SDMMC_ConfigData(const SDMMC_DataInitTypeDef& Data) {
+	bool SDMMC_t::SDMMC_ConfigData(const SDMMC_DataInitTypeDef& Data) {
 		asrtret(Data.DataLength <= 0x01FFFFFFU);
 		asrtret(Data.DataBlockSize < 0b1111);// SDMMC_DATABLOCK_SIZE_xB x=2**DataBlockSize
 		self[SDReg::DTIMER] = Data.DataTimeOut;
@@ -669,7 +626,7 @@ namespace uni {
 		uint32 tickstart = SysTick::getTick();
 
 		// Check SD response
-		if (bitmatch(SDMMC_GetResponse(self, 1), SDMMC_CARD_LOCKED)) {
+		if (bitmatch(self.SDMMC_GetResponse( 1), SDMMC_CARD_LOCKED)) {
 			asserv(feedback)[nil] = SDMMC_ERROR_LOCK_UNLOCK_FAILED;
 			return false;
 		}
@@ -699,7 +656,7 @@ namespace uni {
 			if (self[SDReg::STA].bitof(15)) // FLAG_RXFIFOHF
 			{
 				for0(i, _BYTE_BITS_) {
-					*pData++ = SDMMC_ReadFIFO(self);
+					*pData++ = self.SDMMC_ReadFIFO();
 					++ *write_times;
 				}
 			}
@@ -722,7 +679,7 @@ namespace uni {
 		}
 		while (self[SDReg::STA].bitof(12)) // SDMMC_FLAG_DPSMACT
 		{
-			*pData++ = SDMMC_ReadFIFO(self);
+			*pData++ = self.SDMMC_ReadFIFO();
 			++ *write_times;
 			if (SysTick::getTick() - tickstart > SDMMC_DATATIMEOUT) {
 				asserv(feedback)[nil] = SDMMC_ERROR_TIMEOUT;
@@ -816,8 +773,8 @@ namespace uni {
 		{
 			if (!self[SDReg::STA].bitof(19) // RXFIFOE
 				&& (index == 0U)) {
-				tempscr[0] = SDMMC_ReadFIFO(self);
-				tempscr[1] = SDMMC_ReadFIFO(self);
+				tempscr[0] = self.SDMMC_ReadFIFO();
+				tempscr[1] = self.SDMMC_ReadFIFO();
 				index++;
 			}
 			if (SysTick::getTick() - tickstart > SDMMC_DATATIMEOUT) {
@@ -853,7 +810,7 @@ namespace uni {
 	__attribute((optimize("O0")))
 	bool SecureDigitalCard_t::SD_WideBus_Enable(bool ena, uint32* feedback) {
 		uint32 scr[2U] = { 0UL, 0UL };
-		if (bitmatch(SDMMC_GetResponse(self, 1), SDMMC_CARD_LOCKED)) {
+		if (bitmatch(self.SDMMC_GetResponse( 1), SDMMC_CARD_LOCKED)) {
 			return SDMMC_ERROR_LOCK_UNLOCK_FAILED;
 		}
 		// Get SCR Register
@@ -992,7 +949,7 @@ namespace uni {
 	bool SecureDigitalCard_t::SD_SendStatus(uint32* pCardStatus, uint32* feedback) {
 		// Send Status command
 		asrtret(SDMMC_CmdSendStatus(CardInfo.RelCardAdd << 16, feedback));
-		*pCardStatus = SDMMC_GetResponse(self, 1);
+		*pCardStatus = self.SDMMC_GetResponse( 1);
 		return true;
 	}
 	__attribute((optimize("O0")))

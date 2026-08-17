@@ -1,5 +1,6 @@
 
 #include "../../../../inc/cpp/Device/SPI"
+#include "interrupt_i2s.hpp"
 
 using namespace uni;
 
@@ -22,6 +23,11 @@ static SPI_HARD& _spi_inst(byte spid) {
 // AKA HAL_SPI_IRQHandler
 void _HandlerIRQ_SPI(byte spid) {
 	SPI_HARD& sp = _spi_inst(spid);
+	// I2S mode: SPI1/2/3 in I2S mode share the same IRQ line, route to the I2S driver
+	if (sp[SPIReg::I2SCFGR].bitof(SPI_I2SCFGR_I2SMOD_Pos)) {
+		_HandlerIRQ_I2S(spid);
+		return;
+	}
 	stduint itsource = sp[SPIReg::IER];
 	stduint itflag = sp[SPIReg::SR];
 	stduint trigger = itsource & itflag;

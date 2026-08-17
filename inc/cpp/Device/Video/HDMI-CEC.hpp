@@ -61,7 +61,7 @@ namespace uni {
 	};
 
 	// AKA CEC_SFT_Option (CFGR.SFTOPT)
-	enum class CECSftOption : byte {
+	enum class CECSoftOption : byte {
 		OnTxSom = 0, OnTxRxEnd = 1
 	};
 
@@ -84,7 +84,7 @@ namespace uni {
 
 	class HDMI_CEC_t : public RuptTrait {
 	public:
-		byte* rx_buffer = nullptr;       // AKA HAL Init.RxBuffer (RX 目标缓冲)
+		byte* rx_buffer = nullptr;       // AKA HAL Init.RxBuffer (RX target buffer)
 		Handler_t TxCpltHandler = 0;     // AKA HAL_CEC_TxCpltCallback
 		Handler_t RxCpltHandler = 0;     // AKA HAL_CEC_RxCpltCallback
 		Handler_t ErrorHandler = 0;      // AKA HAL_CEC_ErrorCallback
@@ -93,7 +93,7 @@ namespace uni {
 		bool bre_err_gen = false;                          // AKA Init.BREErrorBitGen (CFGR.BREGEN)
 		bool lbpe_err_gen = false;                         // AKA Init.LBPEErrorBitGen (CFGR.LBPEGEN)
 		bool brd_no_gen = false;                           // AKA Init.BroadcastMsgNoErrorBitGen (CFGR.BRDNOGEN)
-		CECSftOption sft_opt = CECSftOption::OnTxSom;      // AKA Init.SignalFreeTimeOption (CFGR.SFTOPT)
+		CECSoftOption soft_opt = CECSoftOption::OnTxSom;   // AKA Init.SignalFreeTimeOption (CFGR.SFTOPT)
 		const byte* tx_ptr = nullptr;                      // AKA pTxBuffPtr
 		stduint tx_count = 0;                              // AKA TxXferCount
 		stduint rx_size = 0;                               // AKA RxXferSize
@@ -105,15 +105,15 @@ namespace uni {
 		Reference operator[](CECReg idx) const;
 		bool enClock(bool ena = true) const;
 		bool enAble(bool ena = true) const;
-		// AKA HAL_CEC_Init（常用参数；错误生成标志经下方 setter 缓存后一并写入 CFGR）
+		// AKA HAL_CEC_Init (common parameters; error-generation flags cached by the setters below are written into CFGR together)
 		bool setMode(CECSignalFreeTime sft = CECSignalFreeTime::Default,
 			CECTolerance tolerance = CECTolerance::Standard,
-			byte ownAddress = 0,
+			stduint ownAddress = 0,       // CFGR.OAR, 15-bit one-hot (logical address 0~14)
 			CECListenMode listen = CECListenMode::Reduced);
 		// AKA HAL_CEC_DeInit
 		bool canMode();
 		// AKA HAL_CEC_SetDeviceAddress
-		bool setOwnAddress(byte ownAddress);
+		bool setOwnAddress(stduint ownAddress);
 		// AKA Init.BRERxStop
 		HDMI_CEC_t& setRxStopOnBRE(bool ena = true) { rx_stop_bre = ena; return self; }
 		// AKA Init.BREErrorBitGen
@@ -123,7 +123,7 @@ namespace uni {
 		// AKA Init.BroadcastMsgNoErrorBitGen
 		HDMI_CEC_t& setBroadcastNoErrorBitGen(bool ena = true) { brd_no_gen = ena; return self; }
 		// AKA Init.SignalFreeTimeOption
-		HDMI_CEC_t& setSftOption(CECSftOption opt = CECSftOption::OnTxSom) { sft_opt = opt; return self; }
+		HDMI_CEC_t& setSoftOption(CECSoftOption opt = CECSoftOption::OnTxSom) { soft_opt = opt; return self; }
 		// AKA HAL_CEC_Transmit_IT
 		bool Transmit(byte initiator, byte destination, const byte* data, stduint size);
 		// AKA HAL_CEC_GetLastReceivedFrameSize

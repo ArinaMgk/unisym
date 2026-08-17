@@ -2,6 +2,9 @@
 // Modern SPI IP register bit definition (STM32H7 / STM32MP13)
 // AKA stm32h7xx CMSIS SPI bitfield macros
 
+#ifndef _INC_DEV_INNER_SPI_H7
+#define _INC_DEV_INNER_SPI_H7
+
 /*******************  Bit definition for SPI_CR1 register  *******************/
 #define SPI_CR1_SPE_Pos               (0U)
 #define SPI_CR1_SPE_Msk               (0x1UL << SPI_CR1_SPE_Pos)              /*!< 0x00000001 */
@@ -253,3 +256,5 @@
 #define _SPI_ERR_TIMEOUT  0x100
 #define _SPI_ERR_NOT_SUPPORTED 0x400
 #define _SPI_TIMEOUT_VALUE 0x1FFFFFFUL
+
+#endif

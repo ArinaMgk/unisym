@@ -30,6 +30,10 @@
 #define lt(x) getParent()[LTDCReg::x]
 #define ly(x) self[LTDCLayerReg::x]
 
+_WEAK void uni::LTDC_LAYER_t::DrawFont(const Point& disp, const DisplayFont& font, const String& str) const {
+	return;
+}
+
 namespace uni {
 	LTDC_t LTDC;
 

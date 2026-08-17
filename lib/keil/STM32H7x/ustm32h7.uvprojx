@@ -540,6 +540,26 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\FMC.cpp</FilePath>
             </File>
+            <File>
+              <FileName>I2S.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\I2S.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>GPU.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Video\GPU.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>RealtimeClock.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RCC\RealtimeClock.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>MDMA.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\MDMA.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -630,6 +650,16 @@
               <FileName>bstring.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\grp-base\bstring.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>color.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\color.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>weekday.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\datime\weekday.c</FilePath>
             </File>
           </Files>
         </Group>

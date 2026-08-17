@@ -45,7 +45,16 @@ namespace uni {
 		bool Probe();
 		bool ReadVersion(uint8& major, uint8& minor);
 		bool Trigger8BitIrq();
+		bool SpeakerOn();
+		bool SpeakerOff();
+		bool SetOutputRate(uint16 sample_rate);
+		bool StartSingleCycle8(uint32 byte_count, bool is_signed, bool stereo);
+		bool StartAutoInit8(uint32 block_bytes, bool is_signed, bool stereo);
+		bool Halt8();
+		bool Continue8();
+		bool ExitAutoInit8();
 		void Acknowledge8BitIrq();
+		void Complete8BitPlayback();
 
 		uint16 GetIoBase() const;
 		SoundBlasterState GetState() const;

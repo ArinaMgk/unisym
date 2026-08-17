@@ -467,6 +467,9 @@ namespace uni {
 		// aka HAL_TIM_PWM_ConfigChannel / HAL_TIM_OC_ConfigChannel
 		// ocmode defaults to PWM1 (0x6) for backward compatibility
 		void ConfigChannel(byte channel, stduint pulse, stduint ocmode = 0x6);
+		// Set output-compare polarity (aka HAL OCPolarity, CCxP bit):
+		// active_low = true -> CCxP=1 -> output inverted (HAL TIM_OCPOLARITY_LOW)
+		void setOCPolarity(byte channel, bool active_low);
 		// Configure input channel (aka HAL_TIM_IC_ConfigChannel / TIM_TIx_SetConfig)
 		void ConfigChannelInn(byte channel, TimChinSel::TimChinSel sel, TimIcPol::TimIcPol pol, byte filter = 0, byte prescaler = 0);
 		TIM_C(stduint baseaddr, byte TIM_ID) : TIM_t(baseaddr, TIM_ID) { }

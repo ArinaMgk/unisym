@@ -15,6 +15,18 @@ namespace {
 	constexpr uint8 DspResetReply = 0xAA;
 	constexpr uint8 DspGetVersionCommand = 0xE1;
 	constexpr uint8 DspTrigger8BitIrqCommand = 0xF2;
+	constexpr uint8 DspSetOutputRateCommand = 0x41;
+	constexpr uint8 DspStartSingleCycle8Command = 0xC0;
+	constexpr uint8 DspStartAutoInit8Command = 0xC4;
+	constexpr uint8 DspHalt8Command = 0xD0;
+	constexpr uint8 DspSpeakerOnCommand = 0xD1;
+	constexpr uint8 DspSpeakerOffCommand = 0xD3;
+	constexpr uint8 DspContinue8Command = 0xD4;
+	constexpr uint8 DspExitAutoInit8Command = 0xDA;
+	constexpr uint8 DspModeSigned = 0x10;
+	constexpr uint8 DspModeStereo = 0x20;
+	constexpr uint16 DspMinimumOutputRate = 5000;
+	constexpr uint16 DspMaximumOutputRate = 45000;
 	constexpr uint32 DspPollLimit = 0x10000;
 	constexpr uint32 DspResetPulseMicroseconds = 3;
 }
@@ -103,9 +115,105 @@ bool uni::SoundBlaster::Trigger8BitIrq() {
 	return WriteDsp(DspTrigger8BitIrqCommand);
 }
 
+bool uni::SoundBlaster::SpeakerOn() {
+	if (state != SoundBlasterState::Ready || !WriteDsp(DspSpeakerOnCommand)) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	return true;
+}
+
+bool uni::SoundBlaster::SpeakerOff() {
+	if (!WriteDsp(DspSpeakerOffCommand)) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	return true;
+}
+
+bool uni::SoundBlaster::SetOutputRate(uint16 sample_rate) {
+	if (state != SoundBlasterState::Ready ||
+		sample_rate < DspMinimumOutputRate || sample_rate > DspMaximumOutputRate ||
+		!WriteDsp(DspSetOutputRateCommand) ||
+		!WriteDsp(uint8(sample_rate >> 8)) || !WriteDsp(uint8(sample_rate))) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	return true;
+}
+
+bool uni::SoundBlaster::StartSingleCycle8(uint32 byte_count, bool is_signed, bool stereo) {
+	if (state != SoundBlasterState::Ready || !byte_count || byte_count > 0x10000) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	const uint8 mode = uint8(
+		(is_signed ? DspModeSigned : 0) | (stereo ? DspModeStereo : 0));
+	const uint16 count = uint16(byte_count - 1);
+	if (!WriteDsp(DspStartSingleCycle8Command) || !WriteDsp(mode) ||
+		!WriteDsp(uint8(count)) || !WriteDsp(uint8(count >> 8))) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Playing;
+	return true;
+}
+
+bool uni::SoundBlaster::StartAutoInit8(uint32 block_bytes, bool is_signed, bool stereo) {
+	if (state != SoundBlasterState::Ready || !block_bytes || block_bytes > 0x10000) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	const uint8 mode = uint8(
+		(is_signed ? DspModeSigned : 0) | (stereo ? DspModeStereo : 0));
+	const uint16 count = uint16(block_bytes - 1);
+	if (!WriteDsp(DspStartAutoInit8Command) || !WriteDsp(mode) ||
+		!WriteDsp(uint8(count)) || !WriteDsp(uint8(count >> 8))) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Playing;
+	return true;
+}
+
+bool uni::SoundBlaster::Halt8() {
+	if (state != SoundBlasterState::Playing || !WriteDsp(DspHalt8Command)) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Stopping;
+	return true;
+}
+
+bool uni::SoundBlaster::Continue8() {
+	if (state != SoundBlasterState::Stopping || !WriteDsp(DspContinue8Command)) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Playing;
+	return true;
+}
+
+bool uni::SoundBlaster::ExitAutoInit8() {
+	if ((state != SoundBlasterState::Playing && state != SoundBlasterState::Stopping) ||
+		!WriteDsp(DspExitAutoInit8Command)) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Stopping;
+	return true;
+}
+
 void uni::SoundBlaster::Acknowledge8BitIrq() {
 	if (io.read8) {
 		(void)io.read8(io.context, io_base + DspReadStatusOffset);
+	}
+}
+
+void uni::SoundBlaster::Complete8BitPlayback() {
+	if (state == SoundBlasterState::Playing ||
+		state == SoundBlasterState::Stopping) {
+		state = SoundBlasterState::Ready;
 	}
 }
 

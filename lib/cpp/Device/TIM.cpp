@@ -460,6 +460,15 @@ namespace uni {
 		self[trt] &= ~_IMM(0x00000004 << shift);// OCxFE; // TIM_OCFAST_DISABLE
 	}
 
+	// Set output-compare polarity of a channel (aka HAL OCPolarity, CCxP bit):
+	// active_low = true -> CCxP=1 -> output inverted (HAL TIM_OCPOLARITY_LOW)
+	void TIM_C::setOCPolarity(byte channel, bool active_low) {
+		using namespace TimReg;
+		if (!Ranglin(channel, 1, 4)) return;
+		byte chan0x = 4 * (channel - 1);
+		self[CCER].setof(chan0x + 1, active_low);
+	}
+
 
 	_TEMP void TIM_C::Select(stduint SlaveMode, stduint TriggerInn, stduint TriggerOut, bool MasterSlaveMode)
 	{

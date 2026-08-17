@@ -74,6 +74,47 @@ namespace uni {
 #define DMA_TIMEOUT_VALUE 0x1FFFFFFU
 
 namespace uni {
+#if (_MCCA & 0xFF00) == 0x8600
+	enum class DMA8237Direction : byte {
+		MemoryToDevice,
+		DeviceToMemory,
+	};
+
+	enum class DMA8237ReloadMode : byte {
+		OneShot,
+		AutoInitialize,
+	};
+
+	struct DMA8237_IO {
+		void* context;
+		void (*write8)(void* context, uint16 port, byte value);
+	};
+
+	class DMA8237_t {
+		DMA8237_IO io;
+
+		bool Write8(uint16 port, byte value) const;
+		static bool IsValid8Channel(byte channel);
+		static bool IsValid8Transfer(stduint physical_address, uint32 length);
+		bool Prepare8(byte channel, stduint physical_address, uint32 length,
+			DMA8237Direction direction, DMA8237ReloadMode reload_mode) const;
+		bool Mask8(byte channel) const;
+		bool Unmask8(byte channel) const;
+
+	public:
+		explicit DMA8237_t(DMA8237_IO io) : io(io) {}
+
+		// The byte-pointer flip-flop is shared; callers must serialize each operation.
+		// The current implementation accepts primary-controller channels 0..3 only.
+		bool Transfer(byte channel, stduint physical_address, uint32 length,
+			DMA8237Direction direction,
+			DMA8237ReloadMode reload_mode = DMA8237ReloadMode::OneShot) const;
+		bool enAble(bool enable = true, byte channel = 0) const;
+		// Stops the DMA controller side only; the peripheral must be stopped separately.
+		bool Abort(byte channel) const;
+	};
+#endif
+
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	#undef DMA
 	#undef DMA1

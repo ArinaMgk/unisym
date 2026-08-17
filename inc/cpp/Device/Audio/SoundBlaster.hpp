@@ -48,7 +48,9 @@ namespace uni {
 		bool SpeakerOn();
 		bool SpeakerOff();
 		bool SetOutputRate(uint16 sample_rate);
+		bool SetTimeConstant(uint16 sample_rate);
 		bool StartSingleCycle8(uint32 byte_count, bool is_signed, bool stereo);
+		bool StartSingleCycle8Legacy(uint32 byte_count);
 		bool StartAutoInit8(uint32 block_bytes, bool is_signed, bool stereo);
 		bool Halt8();
 		bool Continue8();

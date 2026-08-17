@@ -15,7 +15,9 @@ namespace {
 	constexpr uint8 DspResetReply = 0xAA;
 	constexpr uint8 DspGetVersionCommand = 0xE1;
 	constexpr uint8 DspTrigger8BitIrqCommand = 0xF2;
+	constexpr uint8 DspSetTimeConstantCommand = 0x40;
 	constexpr uint8 DspSetOutputRateCommand = 0x41;
+	constexpr uint8 DspStartSingleCycle8LegacyCommand = 0x14;
 	constexpr uint8 DspStartSingleCycle8Command = 0xC0;
 	constexpr uint8 DspStartAutoInit8Command = 0xC4;
 	constexpr uint8 DspHalt8Command = 0xD0;
@@ -142,6 +144,20 @@ bool uni::SoundBlaster::SetOutputRate(uint16 sample_rate) {
 	return true;
 }
 
+bool uni::SoundBlaster::SetTimeConstant(uint16 sample_rate) {
+	if (state != SoundBlasterState::Ready ||
+		sample_rate < DspMinimumOutputRate || sample_rate > DspMaximumOutputRate) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	const uint8 time_constant = uint8(256 - (1000000UL / sample_rate));
+	if (!WriteDsp(DspSetTimeConstantCommand) || !WriteDsp(time_constant)) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	return true;
+}
+
 bool uni::SoundBlaster::StartSingleCycle8(uint32 byte_count, bool is_signed, bool stereo) {
 	if (state != SoundBlasterState::Ready || !byte_count || byte_count > 0x10000) {
 		state = SoundBlasterState::Failed;
@@ -151,6 +167,21 @@ bool uni::SoundBlaster::StartSingleCycle8(uint32 byte_count, bool is_signed, boo
 		(is_signed ? DspModeSigned : 0) | (stereo ? DspModeStereo : 0));
 	const uint16 count = uint16(byte_count - 1);
 	if (!WriteDsp(DspStartSingleCycle8Command) || !WriteDsp(mode) ||
+		!WriteDsp(uint8(count)) || !WriteDsp(uint8(count >> 8))) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Playing;
+	return true;
+}
+
+bool uni::SoundBlaster::StartSingleCycle8Legacy(uint32 byte_count) {
+	if (state != SoundBlasterState::Ready || !byte_count || byte_count > 0x10000) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	const uint16 count = uint16(byte_count - 1);
+	if (!WriteDsp(DspStartSingleCycle8LegacyCommand) ||
 		!WriteDsp(uint8(count)) || !WriteDsp(uint8(count >> 8))) {
 		state = SoundBlasterState::Failed;
 		return false;

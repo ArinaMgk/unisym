@@ -36,6 +36,9 @@ enum {
 	PGPROP_global = 0b1000,
 	PGPROP_weak = 0x10,
 	PGPROP_nonexecutable = 0x20,
+	// x86 page-cache controls.  PCD | PWT selects UC with the default PAT.
+	PGPROP_cache_disable = 0x40,
+	PGPROP_write_through = 0x80,
 };
 
 enum PageSizeShift : stduint {
@@ -88,6 +91,8 @@ namespace uni {
 			this->huge_page = huge;
 			this->writable = !!(prop & PGPROP_writable);
 			this->user_access = !!(prop & PGPROP_user_access);
+			this->write_through = !!(prop & PGPROP_write_through);
+			this->cache_disable = !!(prop & PGPROP_cache_disable);
 		}
 		#endif
 	};

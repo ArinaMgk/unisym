@@ -27,7 +27,7 @@ namespace uni {
 	enum class SDRAMDataWidth: byte { W8 = 0, W16 = 1, W32 = 2 };             // MWID
 	enum class SDRAMBankNum  : byte { Two = 0, Four = 1 };                    // NB
 	enum class SDRAMCas      : byte { CL1 = 1, CL2 = 2, CL3 = 3 };            // CAS (1-based)
-	enum class SDRAMClock    : byte { Disable = 0, C2 = 1, C3 = 2 };          // SDCLK
+	enum class SDRAMClock    : byte { Disable = 0, C2 = 2, C3 = 3 };          // SDCLK (H7 field: /2 = value 2, see HAL FMC_SDRAM_CLOCK_PERIOD_2 = 0x800)
 	enum class SDRAMReadPipe : byte { NoDelay = 0, One = 1, Two = 2 };        // RPIPE
 
 	// ---- SDCMR ----

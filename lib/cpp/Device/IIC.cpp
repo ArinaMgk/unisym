@@ -80,6 +80,7 @@ namespace uni {
 		SCL = true;
 		asserv(func_delay)();
 		SCL = false;
+		if (!push_pull) SDA = true;// !
 	}
 
 	void IIC_SOFT::Send(byte* txtp, stduint len, bool auto_wait_ack) {

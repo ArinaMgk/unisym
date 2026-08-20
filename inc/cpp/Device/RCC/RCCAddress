@@ -517,6 +517,7 @@ namespace uni {
 #define _RCC_AHB4ENR_ADDR (_RCC_ADDR + 0xE0)
 #define _RCC_AHB4ENR_POSI_ENCLK_GPIOA (0)
 #define _RCC_AHB4ENR_POSI_ENCLK_ADC3    24
+#define _RCC_AHB4ENR_POSI_ENCLK_HSEM   25
 
 // D2-domain APB1L: DAC12 clock gate
 #define _RCC_APB1LENR_ADDR (_RCC_ADDR + 0xE8)

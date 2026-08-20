@@ -174,6 +174,8 @@ namespace uni {
 		if (method != IOMethod::Loop) return false;
 
 		// AKA HAL_DMA2D_Start + HAL_DMA2D_PollForTransfer
+		// 清除上次传输的 TC 标志，避免残留使本轮轮询立即误判"已完成"（TCIF 为置位锁存、写 1 清除）
+		self[DMA2DReg::IFCR].setof(_DMA2D_FLAG_TC);
 		setConfig(pdata, dst, width, height);
 		error_code = _DMA2D_ERROR_NONE;
 		state = _DMA2D_STATE_BUSY;

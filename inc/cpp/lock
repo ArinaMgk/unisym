@@ -1,0 +1,208 @@
+// ASCII C++2x TAB4 CRLF
+// AllAuthor: @ArinaMgk
+// ModuTitle: Basic Modules
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_LOCK_X
+#define _INC_LOCK_X
+
+#include "./unisym"
+#include "./atomic"
+#include "./queue"
+
+// ---- Spinlock ---- //
+
+struct Spinlock {
+	uni::Atomic<byte> locked = 0;
+	stdsint cpu_id = 0;
+	Spinlock() {}
+	bool Acquire();
+	bool TryAcquire(bool& old_if);
+	void Release(bool old_if);
+};
+
+
+struct SpinlockLocal {
+	bool old_if;
+	Spinlock* spinlock;
+	SpinlockLocal(Spinlock* spinl) : spinlock(spinl) {
+		old_if = spinlock->Acquire();
+	}
+	/// @brief Drop the lock
+	~SpinlockLocal() {
+		auto sl = spinlock;
+		spinlock = 0;
+		if (sl) {
+			sl->Release(old_if);
+		}
+	}
+};
+
+template <typename T>
+class SpinlockBlock {
+	Spinlock lock_;
+	T data_;
+public:
+	SpinlockBlock() : lock_(), data_() {}
+
+	template <typename... Args>
+	SpinlockBlock(Args&&... args) : lock_(), data_(static_cast<Args&&>(args)...) {}
+
+	class Guard {
+		SpinlockBlock<T>* owner_ = nullptr;
+		bool old_if_ = false;
+	public:
+		explicit Guard(SpinlockBlock<T>* owner) : owner_(owner) {
+			old_if_ = owner_->lock_.Acquire();
+		}
+		Guard(const Guard&) = delete;
+		Guard& operator=(const Guard&) = delete;
+		Guard(Guard&& other) : owner_(other.owner_), old_if_(other.old_if_) {
+			other.owner_ = nullptr;
+		}
+		Guard& operator=(Guard&& other) = delete;
+		~Guard() {
+			Unlock();
+		}
+		void Unlock() {
+			auto owner = owner_;
+			owner_ = nullptr;
+			if (owner) owner->lock_.Release(old_if_);
+		}
+		T* operator->() { return &owner_->data_; }
+		T& operator*() { return owner_->data_; }
+		const T* operator->() const { return &owner_->data_; }
+		const T& operator*() const { return owner_->data_; }
+	};
+
+	Guard Lock() {
+		return Guard(this);
+	}
+	Spinlock& raw_spinlock() { return lock_; }
+	const Spinlock& raw_spinlock() const { return lock_; }
+	T* unsafe_ptr() { return &data_; }
+};
+
+
+// ---- Hardlock ---- //
+
+
+
+
+// ---- Mutex ---- //
+
+template <typename Th>
+struct Mutex_T {
+	Spinlock guard;
+	uni::Atomic<byte> locked = 0;
+	uni::Queue<Th*> wait_queue;
+	Mutex_T() : wait_queue() {}
+	void Acquire();
+	void Release();
+};
+template <typename Th>
+struct MutexLocal_T {
+	Mutex_T<Th>* mutex;
+	MutexLocal_T(Mutex_T<Th>* _mutex) : mutex(_mutex) {
+		mutex->Acquire();
+	}
+	~MutexLocal_T() {
+		mutex->Release();
+	}
+};
+
+// MutexBlock_T<Th, T> protects one resource domain with a per-domain Mutex.
+// It does not manage object lifetime. If the owner object can disappear or
+// transition out of active use, callers should first acquire a stable owner
+// reference (for example via AcquireActive*) and then Lock() this block.
+template <typename Th, typename T>
+class MutexBlock_T {
+	Mutex_T<Th> lock_;
+	T data_;
+public:
+	MutexBlock_T() : lock_(), data_() {}
+
+	template <typename... Args>
+	MutexBlock_T(Args&&... args) : lock_(), data_(static_cast<Args&&>(args)...) {}
+
+	class Guard {
+		MutexBlock_T<Th, T>* owner_ = nullptr;
+	public:
+		explicit Guard(MutexBlock_T<Th, T>* owner) : owner_(owner) {
+			owner_->lock_.Acquire();
+		}
+		Guard(const Guard&) = delete;
+		Guard& operator=(const Guard&) = delete;
+		Guard(Guard&& other) : owner_(other.owner_) {
+			other.owner_ = nullptr;
+		}
+		Guard& operator=(Guard&& other) = delete;
+		~Guard() {
+			Unlock();
+		}
+		void Unlock() {
+			auto owner = owner_;
+			owner_ = nullptr;
+			if (owner) owner->lock_.Release();
+		}
+		T* operator->() { return &owner_->data_; }
+		T& operator*() { return owner_->data_; }
+		const T* operator->() const { return &owner_->data_; }
+		const T& operator*() const { return owner_->data_; }
+	};
+
+	Guard Lock() {
+		return Guard(this);
+	}
+	Mutex_T<Th>& raw_mutex() { return lock_; }
+	const Mutex_T<Th>& raw_mutex() const { return lock_; }
+};
+
+// ---- Semaphore ---- //
+
+template <typename Th>
+struct Semaphore_T {
+	Spinlock guard;
+	stdsint value;
+	uni::Queue<Th*> wait_queue;
+
+	/// @brief Initialize semaphore with an initial counter value
+	/// @param initial_value The initial available resource count (default is 1)
+	Semaphore_T(stdsint initial_value = 1) : value(initial_value), wait_queue() {}
+
+	/// @brief Acquire operation - Decrements resource count or blocks the current thread
+	void Acquire();
+
+	/// @brief Release operation - Increments resource count or wakes up a waiting thread
+	void Release();
+};
+
+/// @brief RAII local wrapper for Semaphore, automatically invoking Acquire/Release on scope lifetime
+template <typename Th>
+struct SemaphoreLocal_T {
+	Semaphore_T<Th>* semaphore;
+	SemaphoreLocal_T(Semaphore_T<Th>* _sem) : semaphore(_sem) {
+		semaphore->Acquire();
+	}
+	~SemaphoreLocal_T() {
+		semaphore->Release();
+	}
+};
+
+
+#endif

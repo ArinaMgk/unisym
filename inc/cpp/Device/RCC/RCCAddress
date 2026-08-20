@@ -510,6 +510,10 @@ namespace uni {
 #define _RCC_AHB1ENR_POSI_ENCLK_DMAMUX1 2
 #define _RCC_AHB1ENR_POSI_ENCLK_ADC12   5
 
+// D2-domain AHB2: RNG lives here (RNGEN bit 6)
+#define _RCC_AHB2ENR_ADDR (_RCC_ADDR + 0xDC)
+#define _RCC_AHB2ENR_POSI_ENCLK_RNG 6
+
 #define _RCC_AHB4ENR_ADDR (_RCC_ADDR + 0xE0)
 #define _RCC_AHB4ENR_POSI_ENCLK_GPIOA (0)
 #define _RCC_AHB4ENR_POSI_ENCLK_ADC3    24

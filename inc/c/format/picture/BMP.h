@@ -59,4 +59,46 @@ struct Color* DecodeBMP(const byte* fileData, size_t fileSize, int* outWidth, in
 }
 #endif
 
+#if defined(_INC_CPP) || defined(__cplusplus)
+#include "../../../cpp/picture.hpp"
+
+namespace uni {
+	class BMPCodec : public IImageCodec {
+	public:
+		virtual ~BMPCodec() = default;
+
+		virtual const char* GetName() const override;
+		virtual ImageFormat GetFormat() const override;
+		virtual const char* const* GetExtensions() const override;
+
+		virtual ImageResult Probe(StorageTrait& storage, bool& matched) const override;
+		virtual ImageResult ReadInfo(StorageTrait& storage, ImageInfo& outInfo) const override;
+
+		virtual ImageResult OpenSurface(
+			StorageTrait& storage,
+			IImageSurface*& outSurface,
+			trait::Malloc& allocator,
+			const ImageDecodeOptions& options,
+			ImageAccessMode access
+		) const override;
+
+		virtual ImageResult Decode(
+			StorageTrait& storage,
+			ImageBuffer& outBuffer,
+			trait::Malloc& allocator,
+			const ImageDecodeOptions& options
+		) const override;
+
+		virtual ImageResult Encode(
+			const ImageBuffer& image,
+			StorageTrait& storage,
+			trait::Malloc& allocator,
+			const ImageEncodeOptions& options
+		) const override;
+
+		virtual bool CanEncode(PixelFormat format) const override;
+	};
+}
+#endif
+
 #endif // _INC_FORMAT_PICTURE_BMP

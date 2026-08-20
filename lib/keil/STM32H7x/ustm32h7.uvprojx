@@ -661,6 +661,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\c\datime\weekday.c</FilePath>
             </File>
+            <File>
+              <FileName>Video-VideoConsole.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Video-VideoConsole.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Video-VCI.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Video-VCI.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -700,6 +710,21 @@
               <FileName>STM32H7.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\MCU\STM32H7.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Em_Engine</GroupName>
+          <Files>
+            <File>
+              <FileName>GPE-JPEG.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Graphic\GPE-JPEG.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>RNG.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\RNG.cpp</FilePath>
             </File>
           </Files>
         </Group>

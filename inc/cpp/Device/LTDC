@@ -194,13 +194,13 @@ namespace uni {
 		Rectangle getWindow() const;
 		
 		// VideoControlInterface
-		virtual void SetCursor(const Point& disp) const;
-		virtual Point GetCursor() const;
+		virtual void SetCursor(const Point& disp) const override;
+		virtual Point GetCursor() const override;
 		virtual void DrawPoint(const Point& disp, Color color) const override;
 		virtual void DrawRectangle(const Rectangle& rect) const override;
-		virtual Color GetColor(Point p) const;
+		virtual Color GetColor(Point p) const override;
 		//:VideoControlInterface Impl by USER
-		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str) const;
+		virtual void DrawFont(const Point& disp, const DisplayFont& font, const String& str) const override;
 	};// Layer 0x00000001 and 0x00000002
 	class LTDC_t
 #if defined(_MCU_STM32H7x)

@@ -196,3 +196,254 @@ uni::Color* DecodeBMP(const byte* fileData, size_t fileSize, int* outWidth, int*
 #if defined(_INC_CPP) || defined(__cplusplus)
 }
 #endif
+
+#if defined(_INC_CPP) || defined(__cplusplus)
+#include <string.h>
+
+const char* uni::BMPCodec::GetName() const {
+	return "BMP";
+}
+
+uni::ImageFormat uni::BMPCodec::GetFormat() const {
+	return uni::ImageFormat::BMP;
+}
+
+const char* const* uni::BMPCodec::GetExtensions() const {
+	static const char* const extensions[] = { "bmp", "dib", nullptr };
+	return extensions;
+}
+
+uni::ImageResult uni::BMPCodec::Probe(StorageTrait& storage, bool& matched) const {
+	matched = false;
+
+	uint16 bfType = 0;
+	stduint block_size = storage.Block_Size ? storage.Block_Size : 512;
+
+	byte* block_buf = nullptr;
+	bool is_dyn = false;
+	byte stack_buf[2048];
+	if (block_size <= 2048) {
+		block_buf = stack_buf;
+	} else {
+		block_buf = (byte*)malloc(block_size);
+		if (!block_buf) {
+			return uni::ImageResult::OUT_OF_MEMORY;
+		}
+		is_dyn = true;
+	}
+
+	stduint read_bytes = storage.Read(0, &bfType, 2, block_buf);
+
+	if (is_dyn) {
+		free(block_buf);
+	}
+
+	// Verify 'BM' magic number (0x4D42)
+	if (read_bytes == 2 && bfType == 0x4D42) {
+		matched = true;
+	}
+
+	return uni::ImageResult::OK;
+}
+
+uni::ImageResult uni::BMPCodec::ReadInfo(StorageTrait& storage, ImageInfo& outInfo) const {
+	bool matched = false;
+	uni::ImageResult res = Probe(storage, matched);
+	if (res != uni::ImageResult::OK) {
+		return res;
+	}
+	if (!matched) {
+		return uni::ImageResult::INVALID_FORMAT;
+	}
+
+	BITMAPFILEHEADER fileHeader;
+	BITMAPINFOHEADER infoHeader;
+
+	stduint block_size = storage.Block_Size ? storage.Block_Size : 512;
+	byte* block_buf = nullptr;
+	bool is_dyn = false;
+	byte stack_buf[2048];
+	if (block_size <= 2048) {
+		block_buf = stack_buf;
+	} else {
+		block_buf = (byte*)malloc(block_size);
+		if (!block_buf) {
+			return uni::ImageResult::OUT_OF_MEMORY;
+		}
+		is_dyn = true;
+	}
+
+	stduint read_bytes = storage.Read(0, &fileHeader, sizeof(fileHeader), block_buf);
+	if (read_bytes == sizeof(fileHeader)) {
+		read_bytes = storage.Read(sizeof(fileHeader), &infoHeader, sizeof(infoHeader), block_buf);
+	}
+
+	if (is_dyn) {
+		free(block_buf);
+	}
+
+	if (read_bytes != sizeof(infoHeader)) {
+		return uni::ImageResult::INVALID_FORMAT;
+	}
+
+	if (infoHeader.biSize < 40 || infoHeader.biCompression != BMP_BI_RGB) {
+		return uni::ImageResult::UNSUPPORTED;
+	}
+
+	uint16 bitCount = infoHeader.biBitCount;
+	if (bitCount != 1 && bitCount != 4 && bitCount != 8 && bitCount != 24 && bitCount != 32) {
+		return uni::ImageResult::UNSUPPORTED;
+	}
+
+	int32 width = infoHeader.biWidth;
+	int32 height = infoHeader.biHeight;
+	if (width <= 0 || height == 0) {
+		return uni::ImageResult::INVALID_FORMAT;
+	}
+
+	int32 absHeight = height < 0 ? -height : height;
+
+	outInfo.width = (uint32)width;
+	outInfo.height = (uint32)absHeight;
+	outInfo.format = PixelFormat::ARGB8888;
+	outInfo.colorSpace = ColorSpace::SRGB;
+	outInfo.alphaMode = (bitCount == 32) ? ImageAlphaMode::STRAIGHT : ImageAlphaMode::NONE;
+	outInfo.fileFormat = ImageFormat::BMP;
+	outInfo.bitsPerPixel = bitCount;
+	outInfo.frameCount = 1;
+	outInfo.hasAlpha = (bitCount == 32);
+	outInfo.hasAnimation = false;
+
+	return uni::ImageResult::OK;
+}
+
+uni::ImageResult uni::BMPCodec::OpenSurface(
+	StorageTrait& storage,
+	IImageSurface*& outSurface,
+	trait::Malloc& allocator,
+	const ImageDecodeOptions& options,
+	ImageAccessMode access
+) const {
+	return uni::ImageResult::UNSUPPORTED;
+}
+
+uni::ImageResult uni::BMPCodec::Decode(
+	StorageTrait& storage,
+	ImageBuffer& outBuffer,
+	trait::Malloc& allocator,
+	const ImageDecodeOptions& options
+) const {
+	BITMAPFILEHEADER fileHeader;
+	BITMAPINFOHEADER infoHeader;
+
+	stduint block_size = storage.Block_Size ? storage.Block_Size : 512;
+	byte* block_buf = nullptr;
+	bool is_dyn = false;
+	byte stack_buf[2048];
+	if (block_size <= 2048) {
+		block_buf = stack_buf;
+	} else {
+		block_buf = (byte*)malloc(block_size);
+		if (!block_buf) {
+			return uni::ImageResult::OUT_OF_MEMORY;
+		}
+		is_dyn = true;
+	}
+
+	stduint read_bytes = storage.Read(0, &fileHeader, sizeof(fileHeader), block_buf);
+	if (read_bytes == sizeof(fileHeader)) {
+		read_bytes = storage.Read(sizeof(fileHeader), &infoHeader, sizeof(infoHeader), block_buf);
+	}
+
+	if (read_bytes != sizeof(infoHeader)) {
+		if (is_dyn) free(block_buf);
+		return uni::ImageResult::INVALID_FORMAT;
+	}
+
+	if (fileHeader.bfType != 0x4D42 || infoHeader.biSize < 40 || infoHeader.biCompression != BMP_BI_RGB) {
+		if (is_dyn) free(block_buf);
+		return uni::ImageResult::UNSUPPORTED;
+	}
+
+	uint16 bitCount = infoHeader.biBitCount;
+	if (bitCount != 1 && bitCount != 4 && bitCount != 8 && bitCount != 24 && bitCount != 32) {
+		if (is_dyn) free(block_buf);
+		return uni::ImageResult::UNSUPPORTED;
+	}
+
+	int32 width = infoHeader.biWidth;
+	int32 height = infoHeader.biHeight;
+	if (width <= 0 || height == 0) {
+		if (is_dyn) free(block_buf);
+		return uni::ImageResult::INVALID_FORMAT;
+	}
+
+	stduint fileSize = fileHeader.bfSize;
+	stduint maxStorageSize = storage.getUnits() * storage.Block_Size;
+	if (fileSize == 0 || fileSize > maxStorageSize) {
+		fileSize = maxStorageSize;
+	}
+
+	if (fileSize < sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)) {
+		if (is_dyn) free(block_buf);
+		return uni::ImageResult::INVALID_FORMAT;
+	}
+
+	// Allocate temporary file buffer using malloc since it is transient data
+	byte* fileData = (byte*)malloc(fileSize);
+	if (!fileData) {
+		if (is_dyn) free(block_buf);
+		return uni::ImageResult::OUT_OF_MEMORY;
+	}
+
+	stduint totalRead = storage.Read(0, fileData, fileSize, block_buf);
+	if (is_dyn) {
+		free(block_buf);
+	}
+
+	int outWidth = 0;
+	int outHeight = 0;
+	uni::Color* stdPixels = DecodeBMP(fileData, totalRead, &outWidth, &outHeight);
+	free(fileData);
+
+	if (!stdPixels) {
+		return uni::ImageResult::FAILED;
+	}
+
+	// Allocate pixel buffer using the custom allocator required by the IImageCodec framework
+	size_t pixelBufferSize = outWidth * outHeight * sizeof(uni::Color);
+	void* targetPixels = allocator.allocate(pixelBufferSize);
+	if (!targetPixels) {
+		free(stdPixels);
+		return uni::ImageResult::OUT_OF_MEMORY;
+	}
+
+	memcpy(targetPixels, stdPixels, pixelBufferSize);
+	free(stdPixels);
+
+	outBuffer.width = (uint32)outWidth;
+	outBuffer.height = (uint32)outHeight;
+	outBuffer.stride = outWidth * sizeof(uni::Color);
+	outBuffer.format = PixelFormat::ARGB8888;
+	outBuffer.colorSpace = ColorSpace::SRGB;
+	outBuffer.alphaMode = (bitCount == 32) ? ImageAlphaMode::STRAIGHT : ImageAlphaMode::NONE;
+	outBuffer.pixels = targetPixels;
+	outBuffer.size = pixelBufferSize;
+	outBuffer.allocator = &allocator;
+
+	return uni::ImageResult::OK;
+}
+
+uni::ImageResult uni::BMPCodec::Encode(
+	const ImageBuffer& image,
+	StorageTrait& storage,
+	trait::Malloc& allocator,
+	const ImageEncodeOptions& options
+) const {
+	return uni::ImageResult::UNSUPPORTED;
+}
+
+bool uni::BMPCodec::CanEncode(PixelFormat format) const {
+	return false;
+}
+#endif

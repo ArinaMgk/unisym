@@ -560,6 +560,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\MDMA.cpp</FilePath>
             </File>
+            <File>
+              <FileName>DAC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\DAC.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -671,6 +676,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\Video-VCI.cpp</FilePath>
             </File>
+            <File>
+              <FileName>lock.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\lock.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -725,6 +735,36 @@
               <FileName>RNG.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\RNG.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>HASH.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\HASH.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>COMs</GroupName>
+          <Files>
+            <File>
+              <FileName>USB-Device.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\USB-Device.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>HCD.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\HCD.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>PCD.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\PCD.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>OTGHostDevice.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\OTGHostDevice.cpp</FilePath>
             </File>
           </Files>
         </Group>

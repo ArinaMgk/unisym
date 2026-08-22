@@ -372,6 +372,15 @@ namespace uni {
 		B16 = 0, B14, B12, B10, B8
 	};// CFGR.RES
 
+	// ADC kernel clock source for enClock (AKA RCC ADCxSEL / ADCSEL field).
+	// Default CKPER (per_ck) keeps the common case self-sufficient: per_ck
+	// defaults to HSI (always available), so enClock() needs no extra setup.
+	enum class ADCClkSrc : byte {
+		PLL2 = 0,// pll2_p_ck
+		PLL3 = 1,// pll3_r_ck
+		CKPER = 2// per_ck (CLKP) — default
+	};
+
 	// AKA HAL_ADC_CallbackIDTypeDef (single-callback model: regular conversion complete)
 	enum class ADCCallbackID : byte {
 		ConvCplt = 0// AKA HAL_ADC_ConvCpltCallback
@@ -391,6 +400,8 @@ namespace uni {
 		byte ADC_ID;
 		pureptr_t bind;
 		byte getChannelNumber(GPIO_Pin& pin);
+		// Shared H7/MP13 regular-channel writer: PCSEL / SMPR / SQR + DIFSEL(diff).
+		bool _configChannel(byte chan, byte rank, ADCSample sample, bool diff);
 	public:
 		_COM_DEF_Interrupt_Interface();
 		ADC_t(byte _ADC_ID) : ADC_ID(_ADC_ID) { bind = 0; }
@@ -403,13 +414,18 @@ namespace uni {
 			return getBaseAddr() + _IMMx4((stduint)idx);
 		}
 		// aka HAL_ADC_MspInit + CCR clock config
-		bool enClock(bool ena = true, byte presc = 0);
+		bool enClock(bool ena = true, byte presc = 0, ADCClkSrc src = ADCClkSrc::CKPER);
 		// aka ADC_Enable / ADC_Disable
 		bool enAble(bool ena = true) const;
 		// aka HAL_ADC_Init
 		bool setMode(ADCRes res = ADCRes::B12, stduint numsof_conv = 0, stduint trigger_ext = 0, bool cont = false);
 		// aka HAL_ADC_ConfigChannel
 		bool setChannel(GPIO_Pin& pin, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
+		// aka HAL_ADC_ConfigChannel with an explicit channel number (pin-less
+		// internal channels, e.g. ADC2 INP16/17 = DAC1_OUT1/OUT2 loopback).
+		bool setChannelNum(byte chan, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
+		// aka HAL_ADC_ConfigChannel with SingleDiff = ADC_DIFFERENTIAL_ENDED
+		bool setDiffChannel(GPIO_Pin& pin, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
 		// aka HAL_ADC_Start / Start_IT / Start_DMA
 		bool Start(IOMethod method = IOMethod::Loop);
 		// aka HAL_ADC_Stop / Stop_IT / Stop_DMA

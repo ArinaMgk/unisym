@@ -21,10 +21,11 @@
 */
 
 #include "../../../inc/c/random.h"
-#include "Interrupt/interrupt_rng.hpp"
 
 namespace uni {
 #if defined(_MCU_STM32H7x)
+	_ESYM_C void RNG_IRQHandler(void);
+	_ESYM_C extern Handler_t FUNC_RNG[1];
 
 	#define _RNG_TIMEOUT_VALUE 2U
 

@@ -25,7 +25,7 @@
 #pragma warning(disable:6011)// for MSVC
 #endif
 
-#if !defined(_LIB_DEBUG) && defined(_DEBUG)// Add this can cheat the compiler
+#if !defined(_LIB_DEBUG)
 #define _LIB_DEBUG// Her Convenient odd style. Maybe a bad habit for formal project.
 
 // ---- { memory } ----
@@ -93,28 +93,19 @@ typedef void (*_printlog_t)(loglevel_t level, const char* fmt, ...);
 void printlog(loglevel_t level, const char* fmt, ...);
 #define printlnf(a, ...) printlog(_LOG_STDOUT, a, ##__VA_ARGS__)
 
+#if defined(_DEBUG)
 #define ploginfo(...) printlog(_LOG_INFO, __VA_ARGS__)
 #define plogwarn(...) printlog(_LOG_WARN, __VA_ARGS__)
 #define plogerro(...) printlog(_LOG_ERROR, __VA_ARGS__)
 #define plogtrac(...) printlog(_LOG_TRACE, __VA_ARGS__)
 #define plogpass(...) printlog(_LOG_GOOD , __VA_ARGS__)
-
 #else
-
-_ESYM_C
-void erro(const char* erromsg
-#ifdef _INC_CPP
-	= nullptr
-#endif
-);
-
-_ESYM_C void warn(const char* warnmsg);
-
 #define ploginfo(...) 
 #define plogwarn(...) 
 #define plogerro(...) 
 #define plogtrac(...) 
 #define plogpass(...) 
+#endif
 
 #endif
 

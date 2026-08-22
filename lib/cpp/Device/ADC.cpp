@@ -403,7 +403,7 @@ namespace uni {
 	#endif
 	}
 
-	bool ADC_t::enClock(bool ena, byte presc) {
+	bool ADC_t::enClock(bool ena, byte presc, ADCClkSrc src) {
 		#if defined(_MCU_STM32H7x)
 		if (ADC_ID == 3) {
 			// RCC_AHB4ENR (D3): ADC3EN
@@ -415,13 +415,30 @@ namespace uni {
 			if (ena != Reference(_RCC_AHB1ENR_ADDR).bitof(_RCC_AHB1ENR_POSI_ENCLK_ADC12)) return false;
 		} else return false;
 		if (ena) {
-			// CCR: CKMODE=asynchronous(0), PRESC=presc
+			// Select the ADC kernel clock source (ADCSEL, RCC_D3CCIPR[17:16]):
+			// 0=pll2_p, 1=pll3_r, 2=per_ck.
+			switch (src) {
+			case ADCClkSrc::CKPER:// per_ck defaults to HSI; make sure it is up
+				RCC.HSI.setMode(true, 0, 0);// ena, divr(HSIDIV=0 => /1), calibration
+				RCC.setPeriphClock(PeriphClock::ADC, ClockSource::CKPER);
+				break;
+			case ADCClkSrc::PLL2:// pll2_p_ck (PLL2 must be configured by caller)
+				RCC.setPeriphClock(PeriphClock::ADC, ClockSource::PLL2);
+				break;
+			case ADCClkSrc::PLL3:// pll3_r_ck (PLL3 must be configured by caller)
+				RCC.setPeriphClock(PeriphClock::ADC, ClockSource::PLL3);
+				break;
+			}
+			// CCR clock mode: asynchronous (CKMODE=0) — the ADC conversion clock is
+			// adc_ker_ck selected above (ADCSEL), divided by PRESC. This is the
+			// migrated configuration; keep ADCCLK in spec (<=36MHz).
 			Common(ADCCom::CCR).maset(_ADC_CCR_POS_CKMODE, 2, 0);
 			Common(ADCCom::CCR).maset(_ADC_CCR_POS_PRESC, 4, presc);
 		}
 		return true;
 		#elif defined(_MPU_STM32MP13)
 		using namespace RCCReg;
+		(void)src;//{TODO} MP13 ADC kernel clock source selection
 		byte bit = ADC_ID == 1 ? 5 : ADC_ID == 2 ? 6 : 0;// ADC1EN/ADC2EN in RCC_MP_AHB2ENSETR
 		if (!bit) return false;
 		RCC[ena ? MP_AHB2ENSETR : MP_AHB2ENCLRR] = _IMM1S(bit);
@@ -452,6 +469,7 @@ namespace uni {
 		self.enAble(false);
 	#if defined(_MCU_STM32H7x)
 		Reference cfgr = self[ADCReg::CFGR];
+		self[ADCReg::CR].setof(_ADC_CR_POS_BOOST, true);// Boost mode (HAL BoostMode=ENABLE)
 	#elif defined(_MPU_STM32MP13)
 		Reference cfgr = self[ADCReg::CFGR1];
 	#endif
@@ -463,13 +481,62 @@ namespace uni {
 			cfgr.maset(_ADC_CFGR_POS_EXTSEL, 5, 0);
 			cfgr.maset(_ADC_CFGR_POS_EXTEN, 2, 0);
 		}
+		cfgr.setof(_ADC_CFGR_POS_OVRMOD, true);// Overrun overwrite (HAL Overrun=OVR_DATA_OVERWRITTEN)
 		cfgr.setof(_ADC_CFGR_POS_CONT, cont);
 		self[ADCReg::SQR1].maset(0, 4, numsof_conv ? (numsof_conv - 1) : 0);
 		return true;
 	}
 
+	/*
+	 * [LESSON] H7/MP13 ADC channel number != GPIO pin number.
+	 *
+	 * On F1/F4 the ADC channel in SQR happens to equal the pin number (PA0=0,
+	 * PA5=5, ...), so getChannelNumber() could just return pin.getID().  This
+	 * is NOT true on H7: the channel number written to SQR/PCSEL/SMPR comes
+	 * from the datasheet's ADC channel table, not from the pin number.
+	 *
+	 * The original port blindly reused the F4-style linear map and therefore
+	 * sampled the WRONG channel (PA5 was mapped to channel 5, but on H743 PA5
+	 * is ADC1 channel 19).  Symptom: constant low reading that never followed
+	 * the input voltage.  Always look up the device's ADC channel table; do
+	 * not assume pin number == channel number.
+	 */
 	byte ADC_t::getChannelNumber(GPIO_Pin& pin) {
-		//{TODO} full H7/MP13 channel map (incl. differential & internal channels)
+		#if defined(_MCU_STM32H7x)
+		// H743/H750 ADC1/2 single-ended (INP) channel table, per ST datasheet.
+		// NOTE: ADC channel number != GPIO pin number (unlike F1/F4).
+		// ADC1/ADC2 share PA/PB/PC mapping; they differ only on PF:
+		//   INP2 = PF11 (ADC1) / PF13 (ADC2);  INP6 = PF12 (ADC1) / PF14 (ADC2).
+		// Internal (pin-less) channels: ADC2 INP16 = DAC1_OUT1, INP17 = DAC1_OUT2;
+		// use setChannelNum() for those.
+		// Fast channels INP0..INP5 (shorter sample time OK); INP6..INP19 are slow.
+		// PC2_C/PC3_C are ANA direct-connect pins, not GPIO: they route to
+		// INP14/INP16/INP17 via the SYSCFG internal analog switch (SYSCFG_PMCR
+		// PC2SO/PC3SO); not supported here (occupied by FMC SDRAM on Apollo).
+		static const byte CH_A[8] = { 16, 17, 14, 15, 18, 19, 3, 7 };// PA0..PA7
+		static const byte CH_B[2] = { 9, 5 };// PB0,PB1
+		static const byte CH_C[6] = { 10, 11, 0xFF, 0xFF, 4, 8 };// PC0..PC5 (PC2/PC3 not on LQFP176)
+		if (&pin.getParent() == &GPIO['A']) {
+			if (pin.getID() < numsof(CH_A)) return CH_A[pin.getID()];
+		}
+		else if (&pin.getParent() == &GPIO['B']) {
+			if (pin.getID() < numsof(CH_B)) return CH_B[pin.getID()];
+		}
+		else if (&pin.getParent() == &GPIO['C']) {
+			if (pin.getID() < numsof(CH_C)) return CH_C[pin.getID()];
+		}
+		else if (&pin.getParent() == &GPIO['F']) {
+			if (ADC_ID == 2) {
+				if (pin.getID() == 13) return 2;// PF13 = INP2
+				if (pin.getID() == 14) return 6;// PF14 = INP6
+			} else {
+				if (pin.getID() == 11) return 2;// PF11 = INP2
+				if (pin.getID() == 12) return 6;// PF12 = INP6
+			}
+		}
+		return 0xFF;
+		#endif
+		// F1/F4 linear map (pin number == channel number); NOT valid for H7/MP13.
 		if (&pin.getParent() == &GPIO['A'])
 			return pin.getID() < 8 ? pin.getID() : 0xFF;
 		else if (&pin.getParent() == &GPIO['C'])
@@ -477,13 +544,11 @@ namespace uni {
 		else return 0xFF;
 	}
 
-	bool ADC_t::setChannel(GPIO_Pin& pin, byte rank, ADCSample sample) {
-		if (rank >= 16) return false;
-		byte chan = getChannelNumber(pin);
-		if (chan == 0xFF) return false;
-		pin.setMode(GPIOMode::IN_Analog);
+	bool ADC_t::_configChannel(byte chan, byte rank, ADCSample sample, bool diff) {
+		if (rank >= 16 || chan >= 20) return false;
 		#if defined(_MCU_STM32H7x)
 		self[ADCReg::PCSEL].setof(chan, true);
+		self[ADCReg::DIFSEL].setof(chan, diff);// single-ended=0, differential=1
 		#endif
 		if (chan < 10) self[ADCReg::SMPR1].maset(3 * chan, 3, (stduint)sample);
 		else self[ADCReg::SMPR2].maset(3 * (chan - 10), 3, (stduint)sample);
@@ -493,6 +558,24 @@ namespace uni {
 		else if (r < 15) self[ADCReg::SQR3].maset(6 * (r - 10), 5, chan);
 		else self[ADCReg::SQR4].maset(6 * (r - 15), 5, chan);
 		return true;
+	}
+
+	bool ADC_t::setChannel(GPIO_Pin& pin, byte rank, ADCSample sample) {
+		byte chan = getChannelNumber(pin);
+		if (chan == 0xFF) return false;
+		pin.setMode(GPIOMode::IN_Analog);
+		return _configChannel(chan, rank, sample, false);
+	}
+
+	bool ADC_t::setChannelNum(byte chan, byte rank, ADCSample sample) {
+		return _configChannel(chan, rank, sample, false);
+	}
+
+	bool ADC_t::setDiffChannel(GPIO_Pin& pin, byte rank, ADCSample sample) {
+		byte chan = getChannelNumber(pin);
+		if (chan == 0xFF) return false;
+		pin.setMode(GPIOMode::IN_Analog);
+		return _configChannel(chan, rank, sample, true);
 	}
 
 	bool ADC_t::Start(IOMethod method) {
@@ -675,7 +758,12 @@ namespace uni {
 	}
 
 	uint32 ADC_t::Calibrate() {
-		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN) && !enAble(true)) return 0xFFFFFFFF;
+		// H7/MP13: calibration must run with the ADC disabled (ADEN=0).
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) {
+			self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
+			stduint t = 0xFFFF;
+			while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN) && t--) {}
+		}
 		self[ADCReg::CR].setof(_ADC_CR_POS_ADCAL, true);
 		stduint timeout = 0xFFFF;
 		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADCAL) && timeout--) {}

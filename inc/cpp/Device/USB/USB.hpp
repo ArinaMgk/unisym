@@ -43,12 +43,10 @@
 // x86_64 part of USB&xHCI Drivers are borrowed from uchan-nos/mikanos
 // - https://github.com/uchan-nos/mikanos
 // cited sincerely.
-#if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 
 #include "./USB-Header.hpp"
-#include <algorithm>
-
 #include "./USB-Device.hpp"
+#include <algorithm>
 
 namespace uni::device::SpaceUSB {
 	class DeviceUSB;
@@ -57,6 +55,8 @@ namespace uni::device::SpaceUSB {
 	using HubPortStatusHook = void (*)(DeviceUSB& dev, uint8 downstream_port, uint16 status, uint16 change);
 	extern HubPortStatusHook g_hub_port_status_hook;
 
+	// Base class of USB class drivers. Platform independent; the H7 host
+	// bridge (OTGHostDevice) drives it over the OTG controller.
 	class ClassDriver {
 	public:
 		ClassDriver(DeviceUSB* dev) : dev_{ dev } {}
@@ -74,6 +74,13 @@ namespace uni::device::SpaceUSB {
 	private:
 		DeviceUSB* dev_;
 	};
+}
+
+// x86_64 specific class drivers (HID keyboard/mouse, hub) stay on x86;
+// the H7 host currently runs the enumeration + ClassDriver core only.
+#if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
+
+namespace uni::device::SpaceUSB {
 
 	class HIDBaseDriver : public ClassDriver {
 	public:

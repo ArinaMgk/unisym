@@ -1,0 +1,222 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Hash, HASH
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_HASH
+#define _INC_DEVICE_HASH
+
+#include "../../c/stdinc.h"
+#include "../reference"
+#include "../interrupt"
+#include "../string"
+#include "DMA"
+#include "MDMA"
+#include "RCC/RCCAddress"
+
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+
+#if defined(_MCU_STM32H7x)
+#define _HASH_ADDR 0x48021400
+#elif defined(_MCU_STM32F4x)
+#define _HASH_ADDR 0x50060400
+#endif
+
+// global ISR entry (extern "C"; defined in interrupt_hash.hpp), friended below
+extern "C" void HASH_IRQHandler();
+
+namespace uni {
+
+	// AKA HASH_TypeDef register map (byte offsets)
+	enum class HASHReg : unsigned {
+		CR = 0x00,   // control (INIT/DMAE/DATATYPE/MODE/ALGO/NBW/LKEY)
+		DIN = 0x04,  // data input
+		STR = 0x08,  // start (NBLW/DCAL)
+		HR0 = 0x0C,  // digest registers HR[0..4]
+		IMR = 0x20,  // interrupt mask
+		SR = 0x24,   // status (DINIS/DCIS/DMAS/BUSY)
+		CSR0 = 0xF8, // context swap registers CSR[0..53]
+	};
+
+	// HASH_CR bits
+	#define _HASH_CR_POS_INIT     2
+	#define _HASH_CR_POS_DMAE     3
+	#define _HASH_CR_POS_DATATYPE 4  // 2b
+	#define _HASH_CR_POS_MODE     6
+	#define _HASH_CR_POS_ALGO0    7
+	#define _HASH_CR_POS_NBW      8  // 4b
+	#define _HASH_CR_POS_DINNE    12
+	#define _HASH_CR_POS_MDMAT    13
+	#define _HASH_CR_POS_LKEY     16
+	#define _HASH_CR_POS_ALGO1    18
+
+	// HASH_STR bits
+	#define _HASH_STR_POS_NBLW 0  // 5b
+	#define _HASH_STR_POS_DCAL 8
+
+	// HASH_SR bits
+	#define _HASH_SR_POS_DINIS 0
+	#define _HASH_SR_POS_DCIS  1
+	#define _HASH_SR_POS_DMAS  2
+	#define _HASH_SR_POS_BUSY  3
+
+	// HASH_IMR bits (AKA HASH_IT_DINI / HASH_IT_DCI)
+	#define _HASH_IMR_POS_DINIE 0
+	#define _HASH_IMR_POS_DCIE  1
+
+	// AKA HAL_HASH_AlgoTypeDef / HASH_ALGOSELECTION_*
+	enum class HashAlgo : stduint {
+		SHA1 = 0x0000,
+		MD5 = 0x0001,      // HASH_CR_ALGO_0
+		SHA224 = 0x0002,   // HASH_CR_ALGO_1
+		SHA256 = 0x0003,   // HASH_CR_ALGO
+	};
+
+	// AKA HAL_HASH_ModeTypeDef / HASH_ALGOMODE_* (CR.MODE)
+	enum class HashMode : byte {
+		Hash = 0,  // HASH_ALGOMODE_HASH
+		HMAC = 1,  // HASH_ALGOMODE_HMAC (CR.MODE)
+	};
+
+	// AKA HAL_HASH_DataType (CR.DATATYPE, 2b)
+	enum class HashDataType : byte {
+		Byte = 0,   // 32-bit words, byte-swapped (HAL_HASH_BYTE_SWAPPED)
+		Half = 1,   // half-word swapped
+		Word = 2,   // word swapped (default)
+		Bit = 3,    // bit string
+	};
+
+	// Hardware hash accelerator (F4/H7; MD5/SHA1/SHA224/SHA256 + HMAC).
+	class HASH : public RuptTrait {
+	public:
+		// ---- configuration fields ----
+		// AKA HAL_HASH_Init.DataType (CR.DATATYPE); assign before setMode()
+		HashDataType data_type = HashDataType::Word;
+		// true once setMode() ran successfully
+		bool initialized = false;
+
+		// HMAC key (AKA HAL_HMAC_*); set via ConfigHMAC()
+		Slice key = { 0, 0 };
+
+		// DMA input channel (DMAChannel of DMA1/DMA2; HAL feeds HASH thru DMA
+		// streams on both F4 and H7), for IOMethod::DMA
+		pureptr_t dma_in = 0;
+
+		// AKA HAL handle DigestCalculationDisable (MDMAT control): set non-zero
+		// before Start(DMA) for multi-buffer HMAC DMA processing (AKA
+		// HAL_HMACEx_*_Step1_2_DMA / Step2_DMA / Step2_3_DMA); the digest
+		// calculation is skipped at the end of each intermediate buffer feed.
+		volatile byte DigestCalculationDisable = 0;
+
+		// callbacks (AKA HAL_HASH_InCpltCallback / DgstCpltCallback / ErrorCallback)
+		Handler_t InCpltHandler = 0;
+		Handler_t DgstCpltHandler = 0;
+		Handler_t ErrorHandler = 0;
+
+		// RCC clock gate (F4: AHB2 HASHEN; H7: AHB2 HASHEN)
+		void enClock(bool ena = true);
+		// AKA HAL_HASH_Init + algorithm mode selection (HASH or HMAC)
+		bool setMode(HashMode mode = HashMode::Hash);
+		// AKA HAL_HASH_DeInit
+		void canMode();
+		// AKA HAL_HMAC key configuration (HMAC mode only; call before Start)
+		bool ConfigHMAC(const byte* key, stduint key_len);
+		// Unified entry: hash or HMAC (per setMode), polling/IT/DMA per method.
+		// out must hold the digest length for the algorithm (may be 0 for the
+		// intermediate buffers of multi-buffer HMAC DMA processing).
+		bool Start(HashAlgo algo, const byte* in, stduint size, byte* out, IOMethod method = IOMethod::Loop);
+		// AKA HAL_HASH_*_Accumulate: feed a block of a large message
+		bool Accumulate(HashAlgo algo, const byte* in, stduint size);
+		// AKA HAL_HASH_*_Finish: obtain the final digest after Accumulate
+		bool Finish(byte* out, IOMethod method = IOMethod::Loop);
+		// AKA HAL_HASH_GetState: current state machine value
+		stduint getStatus();
+		// AKA HAL_HASH_ContextSaving / ContextRestoring (context swap registers)
+		void ContextSaving(byte* mem_buffer);
+		void ContextRestoring(const byte* mem_buffer);
+		// AKA HAL_HASH_SwFeed_ProcessSuspend / DMAFeed_ProcessSuspend
+		void SwFeedProcessSuspend();
+		bool DMAFeedProcessSuspend();
+
+		// register access
+		Reference operator[](HASHReg reg) const { return Reference(_HASH_ADDR + _IMM(reg)); }
+		// digest registers HR[n]
+		Reference HR(stduint n) const { return Reference(_HASH_ADDR + 0x0C + n * 4); }
+		// context swap registers CSR[n]
+		Reference CSR(stduint n) const { return Reference(_HASH_ADDR + 0xF8 + n * 4); }
+
+		// RuptTrait (NVIC + IRQ_RNG shared with RNG)
+		_COM_DEF_Interrupt_Interface();
+
+	protected:
+		// ---- internal processing state (AKA tail of HASH_HandleTypeDef) ----
+		// AKA HAL_HASH_PhaseTypeDef
+		enum class PhaseType : byte {
+			Ready = 0x00,
+			Process = 0x01,
+			HMACStep1 = 0x02,
+			HMACStep2 = 0x03,
+			HMACStep3 = 0x04,
+		};
+		volatile PhaseType Phase = PhaseType::Ready;
+		// AKA HAL_HASH_StateTypeDef
+		#define _HASH_STATE_RESET     0x00
+		#define _HASH_STATE_READY     0x01
+		#define _HASH_STATE_BUSY      0x02
+		#define _HASH_STATE_ERROR     0x07
+		#define _HASH_STATE_SUSPENDED 0x08
+		// AKA HAL_HASH_SuspendTypeDef
+		#define _HASH_SUSPEND_NONE 0x00
+		#define _HASH_SUSPEND      0x01
+		volatile byte State = _HASH_STATE_RESET;
+		volatile stduint HashInCount = 0;
+		volatile stduint HashITCounter = 0;
+		volatile stduint HashBuffSize = 0;
+		volatile byte SuspendRequest = 0;
+		byte* pHashInBuffPtr = 0;
+		byte* pHashOutBuffPtr = 0;
+		byte* pHashKeyBuffPtr = 0;
+		byte* pHashMsgBuffPtr = 0;// AKA pHashMsgBuffPtr (HMAC step 2 message pointer)
+		stduint HashKeyCount = 0;
+
+		// internal helpers (AKA static HASH_* functions)
+		bool WriteData(const byte* in, stduint size);
+		void GetDigest(byte* out, stduint size);
+		bool WaitOnFlag(stduint flag, bool status, stduint timeout);
+		void SetNbValidBits(stduint size);
+		void StartDigest();
+		stduint getDigestLength();
+		bool ProcessIT();// AKA HASH_IT
+		stduint WriteBlockData();// AKA HASH_Write_Block_Data; returns digest-calculation-started flag
+
+		// ISR entry (global, extern "C", defined in interrupt_hash.hpp)
+		friend void ::HASH_IRQHandler();
+		// DMA callbacks (AKA HASH_DMAXferCplt / HASH_DMAError; defined in HASH.cpp)
+		friend void _HASH_DMA_Cplt();
+		friend void _HASH_DMA_Error();
+	};
+
+	extern HASH HASH1;
+
+}
+
+#endif // _MCU_STM32F4x || _MCU_STM32H7x
+
+#endif // _INC_DEVICE_HASH

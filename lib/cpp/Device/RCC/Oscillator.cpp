@@ -255,7 +255,7 @@ namespace uni {
 				cr.setof(0, ena); // RCC_CR_HSION
 				cr.maset(3, 2, divr); // RCC_CR_HSIDIV
 				RCC[RCCReg::CR] = cr;
-				while (!ena ^ isReady());
+				while (ena != isReady());
 				RCC_ICSCR_HSITRIM = calibration;// __HAL_RCC_HSI_CALIBRATIONVALUE_ADJUST
 			}
 		}
@@ -265,7 +265,7 @@ namespace uni {
 				cr.setof(0, ena); // RCC_CR_HSION
 				cr.maset(3, 2, divr); // RCC_CR_HSIDIV
 				RCC[RCCReg::CR] = cr;
-				while (!ena ^ isReady());
+				while (ena != isReady());
 				RCC_ICSCR_HSITRIM = calibration;// __HAL_RCC_HSI_CALIBRATIONVALUE_ADJUST
 			}
 			else {

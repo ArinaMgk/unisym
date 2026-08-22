@@ -70,7 +70,7 @@ namespace uni {
 	// Hardware semaphore (H7 only; AKA HSEM_HandleTypeDef).
 	// 32 hardware semaphores for inter-master mutual exclusion (CM7/CM4/DMA...),
 	// no interrupt disable needed (hardware atomic read-modify-write).
-	class HSEM {
+	class HSEM : public RuptTrait {
 	public:
 		// MasterID of the current core, used by Take/Release/ReleaseAll.
 		// H7 HAL uses CM7 = 3; set to 4 for CM4 on dual-core parts.

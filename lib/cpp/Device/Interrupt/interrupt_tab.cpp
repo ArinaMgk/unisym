@@ -262,6 +262,8 @@ __irq __arm void IRQ_Handler(void)
 #include "interrupt_video.hpp"
 #include "interrupt_dma2d.hpp"
 #include "interrupt_rtc.hpp"
+#include "interrupt_rng.hpp"
+#include "interrupt_usb.hpp"
 
 #if defined(_MPU_STM32MP13)
 

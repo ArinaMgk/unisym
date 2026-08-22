@@ -99,7 +99,31 @@ public:
 };
 
 
-// ---- Hardlock ---- //
+// ---- Hardlock (hardware lock; one lock instance like Spinlock) ---- //
+
+namespace uni {
+	class HSEM; // forward declaration; H7-only implementation (Device/Lock/HSEM.hpp)
+
+	// A hardware lock bound to one global semaphore id (sem_id).
+	// The sem_id space is continuous across HSEM instances: HSEM1 owns 0..31,
+	// a future HSEM2 would own 32..63, etc. The H7 implementation below
+	// currently maps 0..31 to HSEM1 and rejects ids >= 32.
+	class Hardlock {
+	protected:
+		stduint sem_id;
+	public:
+		Hardlock(stduint sem_id) : sem_id(sem_id) {}
+		// Acquire the lock. process_id = -1 selects the fast 1-step method,
+		// otherwise the 2-step method with that process id.
+		bool Acquire(stdsint process_id = -1);
+		// Non-blocking fast acquire (1-step).
+		bool TryAcquire();
+		// Release the lock.
+		void Release(stduint process_id = 0);
+		// Check whether the lock is held.
+		bool isTaken();
+	};
+}
 
 
 

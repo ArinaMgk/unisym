@@ -63,7 +63,7 @@ namespace uni {
 		getParent()[GPIOReg::MODER].maset(_IMMx2(getID()), 2, _IMM(mode) >> 1);
 		getParent()[GPIOReg::OTYPER].setof(getID(), _IMM(mode) & 1);
 		getParent()[GPIOReg::SPEED].maset(_IMMx2(getID()), 2, _IMM(speed));
-		if (mode == GPIOMode::IN_Floating)
+		if (mode == GPIOMode::IN_Floating || mode == GPIOMode::IN_Analog)
 			getParent()[GPIOReg::PULLS].maset(_IMMx2(getID()), 2, 0);
 		#endif
 		return self;

@@ -43,6 +43,10 @@
 #include "../../Device/_Power.hpp"
 #include "../../Device/_Video.hpp"
 #include "../../Device/Graphic/GPE-JPEG.hpp"
+#include "../../Device/USB/OTG.hpp"
+#include "../../Device/USB/PCD.hpp"
+#include "../../Device/USB/HCD.hpp"
+#include "../../Device/USB/OTGHostDevice.hpp"
 
 extern "C" char _IDN_BOARD[16];
 

@@ -43,8 +43,6 @@
 #include "../../../c/consio.h"
 #include "../../../cpp/trait/MallocTrait.hpp"
 
-#if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
-
 #include <array>
 #include <optional>
 
@@ -389,7 +387,7 @@ namespace uni::device::SpaceUSB {
 				return nullptr;
 			}
 			const auto end_of_struct =
-				reinterpret_cast<uintptr_t>(this) + sizeof(HIDDescriptor);
+				reinterpret_cast<stduint>(this) + sizeof(HIDDescriptor);
 			return reinterpret_cast<ClassDescriptor*>(end_of_struct) + index;
 		}
 	} __attribute__((packed));
@@ -421,7 +419,5 @@ namespace uni::device::SpaceUSB3 {
 
 extern
 ::uni::trait::Malloc* uni_hostenv_allocator;
-
-#endif
 
 #endif

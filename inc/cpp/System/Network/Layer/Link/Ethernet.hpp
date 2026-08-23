@@ -58,8 +58,17 @@ namespace Network {
 		return (uint16(data[0]) << 8) | uint16(data[1]);
 	}
 
+	inline void EthernetWrite16(uint8* data, uint16 value) {
+		data[0] = uint8(value >> 8);
+		data[1] = uint8(value);
+	}
+
 	inline void EthernetCopyAddress(MacAddress& destination, const uint8* source) {
 		for0(i, EthernetAddressLength) destination.octet[i] = source[i];
+	}
+
+	inline void EthernetWriteAddress(uint8* destination, const MacAddress& source) {
+		for0(i, EthernetAddressLength) destination[i] = source.octet[i];
 	}
 
 	inline bool ParseEthernetFrame(const LinkFrameView& raw, EthernetFrameView& frame) {

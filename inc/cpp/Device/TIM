@@ -26,9 +26,9 @@
 #define _INCPP_Device_TIM
 
 /* Component
-- Advanced 高级定时器 TIM1 TIM8
-- Basic    基本定时器 TIM6 TIM7 : 16b-auto-reload-counter
-- Common   通用定时器 TIM2 TIM3 TIM4 TIM5 : general-purpose
+- Advanced timers TIM1 TIM8
+- Basic    timers TIM6 TIM7 : 16b-auto-reload-counter
+- Common   timers TIM2 TIM3 TIM4 TIM5 : general-purpose
 */
 #include "../unisym"
 #include "../binary"
@@ -291,6 +291,13 @@ namespace uni {
 			else if (Ranglin(TIM_ID, 2, 6)) { // TIM 2~7
 				width = TIM_ID - 2;
 			}
+			else if (Ranglin(TIM_ID, 12, 3)) { // TIM 12~14: APB1LENR bits 16~18
+				width = TIM_ID - 12 + 16;
+			}
+			else if (Ranglin(TIM_ID, 15, 3)) { // TIM 15~17: APB2ENR bits 16~18
+				refaddr = _RCC_ADDR + 0xF0; // APB2ENR
+				width = TIM_ID - 15 + 16;
+			}
 			else _TODO;
 #else
 			stduint refaddr = _RCC_APB1ENR_ADDR;
@@ -492,7 +499,7 @@ namespace uni {
 		void enChannel(byte channel) {
 			using namespace TimReg;
 			enCaptureCompareChannel(channel);
-			if (TIM_ID == 1 || TIM_ID == 8) { // IS_TIM_BREAK_INSTANCE
+			if (TIM_ID == 1 || TIM_ID == 8 || Ranglin(TIM_ID, 15, 3)) { // TIM1/8/15/16/17 have MOE
 				self[BDTR] |= 0x00008000; //(TIM_BDTR_MOE)
 			}
 			if (0x6 != self[SMCR].mask(0, 3)) { // !IS_TIM_SLAVEMODE_TRIGGER_ENABLED
@@ -573,6 +580,9 @@ namespace uni {
 	extern TIM_A TIM1, TIM8;
 	extern TIM_C TIM2, TIM3, TIM4, TIM5;
 	extern TIM_B TIM6, TIM7;
+#if defined(_MCU_STM32H7x)
+	extern TIM_C TIM12, TIM13, TIM14, TIM15, TIM16, TIM17;
+#endif
 
 
 #endif

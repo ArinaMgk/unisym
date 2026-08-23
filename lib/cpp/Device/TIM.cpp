@@ -252,8 +252,9 @@ namespace uni {
 #if defined(_MCU_STM32H7x)
 		D2_APB2PERIPH_BASE + 0x0000, D2_APB1PERIPH_BASE + 0x0000, D2_APB1PERIPH_BASE + 0x0400, D2_APB1PERIPH_BASE + 0x0800, // T 1 -> 4
 		D2_APB1PERIPH_BASE + 0x0C00, D2_APB1PERIPH_BASE + 0x1000, D2_APB1PERIPH_BASE + 0x1400, D2_APB2PERIPH_BASE + 0x0400, // T 5 -> 8
-		D2_APB2PERIPH_BASE + 0x4000, D2_APB2PERIPH_BASE + 0x4400, D2_APB2PERIPH_BASE + 0x4800, D2_APB1PERIPH_BASE + 0x1800, // T 9 -> 12
-		D2_APB1PERIPH_BASE + 0x1C00, D2_APB1PERIPH_BASE + 0x2000 // T 13 -> 14
+		nil, nil, nil, // T 9 -> 11 (H7 has no TIM9/10/11)
+		D2_APB1PERIPH_BASE + 0x1800, D2_APB1PERIPH_BASE + 0x1C00, D2_APB1PERIPH_BASE + 0x2000, // T 12 -> 14
+		D2_APB2PERIPH_BASE + 0x4000, D2_APB2PERIPH_BASE + 0x4400, D2_APB2PERIPH_BASE + 0x4800 // T 15 -> 17
 #elif defined(_MPU_STM32MP13)
 		APB2_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x0000, APB1_PERIPH_BASE + 0x1000, APB1_PERIPH_BASE + 0x2000, // T 1 -> 4
 		APB1_PERIPH_BASE + 0x3000, APB1_PERIPH_BASE + 0x4000, APB1_PERIPH_BASE + 0x5000, APB2_PERIPH_BASE + 0x1000, // T 5 -> 8
@@ -276,49 +277,81 @@ namespace uni {
 	TIM_B TIM6(_REFADDR_TIM[6], 6);
 	TIM_B TIM7(_REFADDR_TIM[7], 7);
 	TIM_A TIM8(_REFADDR_TIM[8], 8);
+#if defined(_MCU_STM32H7x)
+	TIM_C TIM12(_REFADDR_TIM[12], 12);
+	TIM_C TIM13(_REFADDR_TIM[13], 13);
+	TIM_C TIM14(_REFADDR_TIM[14], 14);
+	TIM_C TIM15(_REFADDR_TIM[15], 15);
+	TIM_C TIM16(_REFADDR_TIM[16], 16);
+	TIM_C TIM17(_REFADDR_TIM[17], 17);
+#endif
 	TIM_t* TIM[] = { nullptr,
 		(TIM_t*)(pureptr_t)&TIM1, (TIM_t*)(pureptr_t)&TIM2, (TIM_t*)(pureptr_t)&TIM3,
 		(TIM_t*)(pureptr_t)&TIM4, (TIM_t*)(pureptr_t)&TIM5, (TIM_t*)(pureptr_t)&TIM6,
 		(TIM_t*)(pureptr_t)&TIM7, (TIM_t*)(pureptr_t)&TIM8,
+#if defined(_MCU_STM32H7x)
+		nullptr, nullptr, nullptr, // 9~11 (none on H7)
+		(TIM_t*)(pureptr_t)&TIM12, (TIM_t*)(pureptr_t)&TIM13, (TIM_t*)(pureptr_t)&TIM14,
+		(TIM_t*)(pureptr_t)&TIM15, (TIM_t*)(pureptr_t)&TIM16, (TIM_t*)(pureptr_t)&TIM17,
+#endif
 	};
 
 	//{TODO} a channel may connect multiple pins
 #if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 	static GPIO_Pin* GPINs_chan1_TIMx[] = { nullptr,
 		nullptr, // TIM1
-		& GPIOA[15], // or A[0]
-		& GPIOA[6], // or C[6] B[4]
-		& GPIOB[6], // or D[12]
-		& GPIOA[0]
+		& GPIOA[15], // TIM2 or A[0]
+		& GPIOA[6], // TIM3 or C[6] B[4]
+		& GPIOB[6], // TIM4 or D[12]
+		& GPIOA[0], // TIM5
+		nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // TIM6~11 (TIM8 advanced, 9~11 none)
+		& GPIOB[14], // TIM12 CH1
+		& GPIOA[6], // TIM13 CH1 (or F[8])
+		& GPIOA[7], // TIM14 CH1 (or F[9])
+		& GPIOA[2], // TIM15 CH1
+		& GPIOB[8], // TIM16 CH1 (or F[6])
+		& GPIOB[9], // TIM17 CH1 (or F[7])
 	};
 	static GPIO_Pin* GPINs_chan2_TIMx[] = { nullptr,
 		nullptr, // TIM1
-		& GPIOB[3], // or A[1]
+		& GPIOB[3], // TIM2 or A[1]
 		& GPIOA[7], // TIM3 or C[7] B[5]
-		& GPIOD[13], // or B[7]
-		& GPIOA[1]
+		& GPIOD[13], // TIM4 or B[7]
+		& GPIOA[1], // TIM5
+		nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // TIM6~11
+		& GPIOB[15], // TIM12 CH2
+		nullptr, // TIM13 has no CH2
+		nullptr, // TIM14 has no CH2
+		& GPIOA[3], // TIM15 CH2
+		nullptr, // TIM16 has no CH2
+		nullptr, // TIM17 has no CH2
 	};
 	static GPIO_Pin* GPINs_chan3_TIMx[] = { nullptr,
 		nullptr, // TIM1
-		& GPIOB[10], // or A[2]
+		& GPIOB[10], // TIM2 or A[2]
 		& GPIOB[0], // TIM3 or C[8] 
-		& GPIOB[8], // or D[14]
-		& GPIOA[2]
+		& GPIOB[8], // TIM4 or D[14]
+		& GPIOA[2], // TIM5
+		nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // TIM6~11
+		nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // TIM12~17 have no CH3
 	};
 	static GPIO_Pin* GPINs_chan4_TIMx[] = { nullptr,
 		nullptr, // TIM1
-		& GPIOB[11], // or A[3]
+		& GPIOB[11], // TIM2 or A[3]
 		& GPIOB[1], // TIM3 or C[9]
-		& GPIOB[9], // or D[15]
-		& GPIOA[3]
+		& GPIOB[9], // TIM4 or D[15]
+		& GPIOA[3], // TIM5
+		nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // TIM6~11
+		nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // TIM12~17 have no CH4
 	};
 	static GPIO_Pin** GPINs_chanx[] = {
 		GPINs_chan1_TIMx, GPINs_chan2_TIMx, GPINs_chan3_TIMx, GPINs_chan4_TIMx
 	};
-	static byte GPINs_AFs_TIMx[1 + 11] = { nil,
+	static byte GPINs_AFs_TIMx[1 + 17] = { nil,
 		1,1, 2,2,2, // TIM1~5: AF1 for TIM1&2, AF2 for TIM3/4/5
 		0xFF, 0xFF, // TIM6,7
-		3,3,3,3
+		3,3,3,3, // TIM8~11 (H7: only TIM8=AF3; 9~11 none)
+		2, 9, 9, 4, 1, 1 // TIM12~17: AF2/AF9/AF9/AF4/AF1/AF1
 	};// F407 & F417 & H743
 #endif
 
@@ -1041,7 +1074,7 @@ namespace uni {
 			// Enable capture/compare channel (CCER)
 			((TIM_C*)t)->enCaptureCompareChannel(CHAN_ID, true);
 			// Enable main output for advanced timers (TIM1/8)
-			if (TIM_ID == 1 || TIM_ID == 8) {
+			if (TIM_ID == 1 || TIM_ID == 8 || Ranglin(TIM_ID, 15, 3)) {
 				(*t)[TimReg::BDTR] |= 0x00008000; // TIM_BDTR_MOE
 				// Advanced timers route CC to a dedicated IRQ line.
 #if defined(_MPU_STM32MP13)
@@ -1061,7 +1094,7 @@ namespace uni {
 			// Disable capture/compare channel
 			((TIM_C*)t)->enCaptureCompareChannel(CHAN_ID, false);
 			// Disable main output for advanced timers
-			if (TIM_ID == 1 || TIM_ID == 8) {
+			if (TIM_ID == 1 || TIM_ID == 8 || Ranglin(TIM_ID, 15, 3)) {
 				(*t)[TimReg::BDTR] &= ~0x00008000U;
 #if defined(_MPU_STM32MP13)
 				GIC.enInterrupt(TIM_Request(TIM_ID, 1), false);

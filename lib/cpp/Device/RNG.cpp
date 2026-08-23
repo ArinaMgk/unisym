@@ -21,6 +21,7 @@
 */
 
 #include "../../../inc/c/random.h"
+#include "../../../inc/cpp/Device/RCC/RCC"
 
 namespace uni {
 #if defined(_MCU_STM32H7x)
@@ -35,6 +36,11 @@ namespace uni {
 	bool RNG::setMode() {
 		if (State == RNGState::Reset) {
 			enClock();
+			// Select RNG kernel clock source (RNGSEL, RCC_D2CCIP2R[9:8]).
+			// AKA HAL_RCCEx_PeriphCLKConfig: RCC_RNGCLKSOURCE_PLL (PLL1_Q).
+			// Default RNGSEL=0 selects HSI48, which is OFF at reset, so the RNG
+			// would stall (no DRDY) without this selection.
+			RCC.setPeriphClock(PeriphClock::RNG, ClockSource::PLL1);
 			State = RNGState::Busy;
 			// AKA MODIFY_REG(CR, RNG_CR_CED, Init.ClockErrorDetection)
 			self[RNGReg::CR].setof(_RNG_CR_POS_CED, clock_error_detection);

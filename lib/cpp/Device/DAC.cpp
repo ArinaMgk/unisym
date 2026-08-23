@@ -429,10 +429,8 @@ namespace uni {
 
 	#endif
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
-	DAC_t DAC(0x40007400);//~0x400077FF
-#elif defined(_MCU_STM32H7x)
-	DAC_t DAC(0x4802B400);// D2_APB1PERIPH_BASE(0x48024000) + 0x7400
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+	DAC_t DAC(0x40007400);
 #endif
 	
 }

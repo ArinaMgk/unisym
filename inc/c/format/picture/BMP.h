@@ -60,7 +60,7 @@ struct Color* DecodeBMP(const byte* fileData, size_t fileSize, int* outWidth, in
 #endif
 
 #if defined(_INC_CPP) || defined(__cplusplus)
-#include "../../../cpp/picture.hpp"
+#include "../../../cpp/System/Picture.hpp"
 
 namespace uni {
 	class BMPCodec : public IImageCodec {

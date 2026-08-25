@@ -12,7 +12,7 @@
 #if defined(_INC_CPP)
 
 #include "../../graphic/color.h"
-#include "../../../cpp/picture.hpp"
+#include "../../../cpp/System/Picture.hpp"
 
 // ===== JPEG file markers =====
 // Each marker is 1 byte 0xFF followed by 1 byte type

@@ -137,7 +137,7 @@ namespace uni {
 		bool SDMMC_CmdSetRelAddMmc(uint16 RCA, uint32* feedback);
 		uint32 SDMMC_CmdSleepMmc(uint32 Argument, uint32* feedback);
 		bool SDMMC_CmdSendStatus(uint32 Argument, uint32* feedback);
-		bool SDMMC_CmdStatusRegister(uint32* feedback);
+		bool SDMMC_CmdStatusRegister(uint32 Argument, uint32* feedback);
 		bool SDMMC_CmdOpCondition(uint32 Argument, uint32* feedback);
 		bool SDMMC_CmdSwitch(uint32 Argument, uint32* feedback);
 		bool SDMMC_CmdVoltageSwitch(uint32* feedback);

@@ -521,8 +521,8 @@ namespace uni {
 	}
 
 	// Send the Status register command and check the response
-	bool SDMMC_t::SDMMC_CmdStatusRegister(uint32* feedback) {
-		SDMMC_SendCommand(nil, SDMMC_CMD_SD_APP_STATUS, 0b01);
+	bool SDMMC_t::SDMMC_CmdStatusRegister(uint32 Argument, uint32* feedback) {
+		SDMMC_SendCommand(Argument, SDMMC_CMD_SD_APP_STATUS, 0b01);
 		return SDMMC_GetCmdResp1(SDMMC_CMD_SD_APP_STATUS, SDMMC_CMDTIMEOUT, feedback);
 	}
 
@@ -648,7 +648,7 @@ namespace uni {
 			(void) SDMMC_ConfigData(config);
 		}
 		// Send ACMD13 (SD_APP_STAUS)  with argument as card's RCA
-		asrtret(SDMMC_CmdStatusRegister(feedback));
+		asrtret(SDMMC_CmdStatusRegister(CardInfo.RelCardAdd << 16U, feedback));
 		// Get status data
 		uint32 mask = (_IMM1S(5U)) | (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(8U));// (!__HAL_SD_GET_FLAG(hsd, SDMMC_FLAG_RXOVERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DATAEND))
 		while (!(self[SDReg::STA] & mask))
@@ -814,7 +814,9 @@ namespace uni {
 			return SDMMC_ERROR_LOCK_UNLOCK_FAILED;
 		}
 		// Get SCR Register
-		asrtret(SD_FindSCR(scr, feedback));
+		if (!SD_FindSCR(scr, feedback)) {
+			return false;
+		}
 		if (ena) {
 			// If requested card supports wide bus operation
 			if (scr[1U] & SDMMC_WIDE_BUS_SUPPORT) {

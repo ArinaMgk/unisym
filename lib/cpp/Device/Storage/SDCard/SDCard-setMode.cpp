@@ -133,29 +133,32 @@ namespace uni {
 		// state AKA HAL_SD_STATE_PROGRAMMING
 		// Initialize the Card parameters
 		asrtret(setModeSub());
-		//
 		{
 			uint32 tmp;
 			HAL_SD_CardStatusTypeDef CardStatus;
 			uint32 speedgrade, unitsize;
-			asrtret(HAL_SD_GetCardStatus(&CardStatus, &tmp));
-			// Get Initial Card Speed from Card Status
-			speedgrade = CardStatus.UhsSpeedGrade;
-			unitsize = CardStatus.UhsAllocationUnitSize;
-			if ((CardType == CardType_E ::SDHC_SDXC) && ((speedgrade != 0U) || (unitsize != 0U)))
-			{
-				CardInfo.CardSpeed = CARD_ULTRA_HIGH_SPEED;
+			if (HAL_SD_GetCardStatus(&CardStatus, &tmp)) {// card speed detect, non-fatal
+				speedgrade = CardStatus.UhsSpeedGrade;
+				unitsize = CardStatus.UhsAllocationUnitSize;
+				if ((CardType == CardType_E ::SDHC_SDXC) && ((speedgrade != 0U) || (unitsize != 0U)))
+				{
+					CardInfo.CardSpeed = CARD_ULTRA_HIGH_SPEED;
+				}
+				else {
+					CardInfo.CardSpeed = (CardType == CardType_E::SDHC_SDXC) ? CARD_HIGH_SPEED : CARD_NORMAL_SPEED;
+				}
 			}
 			else {
 				CardInfo.CardSpeed = (CardType == CardType_E::SDHC_SDXC) ? CARD_HIGH_SPEED : CARD_NORMAL_SPEED;
 			}
 		}
-		// Configure the bus wide
-		asrtret(HAL_SD_ConfigWideBusOperation(clock_edge, powersave_enable, bus_width, hardware_flow_control_enable, NULL));
+		// Configure the bus wide (non-fatal)
+		HAL_SD_ConfigWideBusOperation(clock_edge, powersave_enable, bus_width, hardware_flow_control_enable, NULL);
 		// Verify that SD card is ready to use after Initialization
 		while ((HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER));
 		Context = SDContext::NONE;
-		asrtret (HAL_SD_ConfigSpeedBusOperation(SDMMC_SPEED_MODE::HIGH));// Try to switch to High Speed Mode , if supported by the card
+		// Try to switch to High Speed Mode (non-fatal)
+		HAL_SD_ConfigSpeedBusOperation(SDMMC_SPEED_MODE::HIGH);
 		return true;
 	}
 

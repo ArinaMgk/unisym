@@ -159,11 +159,11 @@
             <ldmm>1</ldmm>
             <ldXref>1</ldXref>
             <BigEnd>0</BigEnd>
-            <AdsALst>1</AdsALst>
+            <AdsALst>0</AdsALst>
             <AdsACrf>1</AdsACrf>
             <AdsANop>0</AdsANop>
             <AdsANot>0</AdsANot>
-            <AdsLLst>1</AdsLLst>
+            <AdsLLst>0</AdsLLst>
             <AdsLmap>1</AdsLmap>
             <AdsLcgr>1</AdsLcgr>
             <AdsLsym>1</AdsLsym>
@@ -476,21 +476,6 @@
               <FilePath>..\..\cpp\Device\Power.cpp</FilePath>
             </File>
             <File>
-              <FileName>UART.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\UART.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>IIC.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\IIC.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>SPI.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\SPI.cpp</FilePath>
-            </File>
-            <File>
               <FileName>DMA.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\DMA.cpp</FilePath>
@@ -519,31 +504,6 @@
               <FileName>BDMA.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\BDMA.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>FDCAN.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\FDCAN.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>CRC.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\CRC.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>SRAM.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\SRAM.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>FMC.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\FMC.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>I2S.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\I2S.cpp</FilePath>
             </File>
             <File>
               <FileName>GPU.cpp</FileName>
@@ -741,11 +701,46 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\HASH.cpp</FilePath>
             </File>
+            <File>
+              <FileName>CRC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\CRC.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>COMs</GroupName>
           <Files>
+            <File>
+              <FileName>UART.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\UART.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>IIC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\IIC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>I2S.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\I2S.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SAI.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\SAI.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SPI.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\SPI.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SPI-Quad.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\SPI-Quad.cpp</FilePath>
+            </File>
             <File>
               <FileName>USB-Device.cpp</FileName>
               <FileType>8</FileType>
@@ -765,6 +760,96 @@
               <FileName>OTGHostDevice.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\USB\OTGHostDevice.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FDCAN.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\FDCAN.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Memory</GroupName>
+          <Files>
+            <File>
+              <FileName>FMC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\FMC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SRAM.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\SRAM.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Storage</GroupName>
+          <Files>
+            <File>
+              <FileName>SDCard.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>MMCard.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\MMCard.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>MMCard-Advanced.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\MMCard-Advanced.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>MMCard-HAL_MMCEx_MultiBuffer.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\MMCard-HAL_MMCEx_MultiBuffer.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SDCard-Callback.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-Callback.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SDCard-DMALinkedLists.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-DMALinkedLists.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SDCard-GetCmdRespx.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-GetCmdRespx.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SDCard-HAL_SD_ConfigSpeedBusOperation.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-HAL_SD_ConfigSpeedBusOperation.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SDCard-HAL_SDEx_MultiBuffer.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-HAL_SDEx_MultiBuffer.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SDCard-Others.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-Others.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SDCard-RW.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-RW.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SDCard-setMode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-setMode.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>SDCard-USE_SD_TRANSCEIVER.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-USE_SD_TRANSCEIVER.cpp</FilePath>
             </File>
           </Files>
         </Group>

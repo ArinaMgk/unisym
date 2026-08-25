@@ -507,6 +507,8 @@ namespace uni {
 // D1-domain AHB3: MDMA/DMA2D/JPEG/FMC/QSPI/SDMMC1 live here
 #define _RCC_AHB3ENR_ADDR (_RCC_ADDR + 0xD4)
 #define _RCC_AHB3ENR_POSI_ENCLK_MDMA    0
+#define _RCC_AHB3ENR_POSI_ENCLK_JPEG    5
+#define _RCC_AHB3ENR_POSI_ENCLK_QSPI    14
 
 // D2-domain AHB1: DMA1/DMA2/DMAMUX1 live here
 #define _RCC_AHB1ENR_ADDR (_RCC_ADDR + 0xD8)

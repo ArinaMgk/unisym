@@ -1,0 +1,103 @@
+// ASCII C++-ISO11 TAB4 CRLF
+// Docutitle: [Datatype] Endian
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCX_ENDIAN
+#define _INCX_ENDIAN
+
+#include "unisym"
+
+// Fixed-endian scalar wrapper for on-disk / on-wire structures.
+//
+//   LitEndian<T, false> : stored as aligned T; little-endian semantics on access only.
+//   LitEndian<T, true > : stored as byte array (alignas 1); unaligned-safe AND little-endian.
+//   BigEndian<T, ?>     : same, big-endian.
+//
+// packed=true never emits a single unaligned multi-byte load, so it works regardless of the
+// memory region attributes (e.g. STM32 external SDRAM/DDR that may be Device-mapped).
+
+// host byte-swap helper for BigEndian(false); assumes a little-endian host (all current unisym targets)
+static inline byte* endian_swap_bytes(byte* p, stduint n) {
+	for (stduint i = 0; i < n / 2; i++) {
+		byte t = p[i]; p[i] = p[n - 1 - i]; p[n - 1 - i] = t;
+	}
+	return p;
+}
+
+template<class T, bool packed = false>
+struct LitEndian {
+	T store;
+	operator T() const { return store; }
+	LitEndian& operator=(T x) { store = x; return *this; }
+	T get() const { return store; }
+	void set(T x) { store = x; }
+	T* data() { return &store; }
+	const T* data() const { return &store; }
+};
+
+template<class T>
+struct LitEndian<T, true> {
+	byte v[sizeof(T)];
+	operator T() const {
+		T r = 0;
+		for (stduint i = 0; i < sizeof(T); i++) r |= (T)v[i] << (i * 8);
+		return r;
+	}
+	LitEndian& operator=(T x) {
+		for (stduint i = 0; i < sizeof(T); i++) v[i] = (byte)(x >> (i * 8));
+		return *this;
+	}
+	T get() const { return (T)*this; }
+	void set(T x) { *this = x; }
+	byte* data() { return v; }
+	const byte* data() const { return v; }
+};
+
+template<class T, bool packed = false>
+struct BigEndian {
+	T store;
+	operator T() const { T r = store; endian_swap_bytes((byte*)&r, sizeof(T)); return r; }
+	BigEndian& operator=(T x) { endian_swap_bytes((byte*)&x, sizeof(T)); store = x; return *this; }
+	T get() const { T r = store; endian_swap_bytes((byte*)&r, sizeof(T)); return r; }
+	void set(T x) { endian_swap_bytes((byte*)&x, sizeof(T)); store = x; }
+	T* data() { return &store; }
+	const T* data() const { return &store; }
+};
+
+template<class T>
+struct BigEndian<T, true> {
+	byte v[sizeof(T)];
+	operator T() const {
+		T r = 0;
+		for (stduint i = 0; i < sizeof(T); i++) r |= (T)v[i] << ((sizeof(T) - 1 - i) * 8);
+		return r;
+	}
+	BigEndian& operator=(T x) {
+		for (stduint i = 0; i < sizeof(T); i++) v[i] = (byte)(x >> ((sizeof(T) - 1 - i) * 8));
+		return *this;
+	}
+	T get() const { return (T)*this; }
+	void set(T x) { *this = x; }
+	byte* data() { return v; }
+	const byte* data() const { return v; }
+};
+
+#endif // _INCX_ENDIAN

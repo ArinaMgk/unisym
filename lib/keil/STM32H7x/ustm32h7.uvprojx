@@ -853,6 +853,46 @@
             </File>
           </Files>
         </Group>
+        <Group>
+          <GroupName>FS</GroupName>
+          <Files>
+            <File>
+              <FileName>toxxxer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\auxiliary\toxxxer.c</FilePath>
+            </File>
+            <File>
+              <FileName>FAT.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\filesystem\FAT.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FAT-create.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\filesystem\FAT\FAT-create.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FAT-remove.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\filesystem\FAT\FAT-remove.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FAT-rename.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\filesystem\FAT\FAT-rename.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FAT-truncate.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\filesystem\FAT\FAT-truncate.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FAT-write.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\filesystem\FAT\FAT-write.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
       </Groups>
     </Target>
   </Targets>

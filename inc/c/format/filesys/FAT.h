@@ -27,6 +27,7 @@
 
 #include "../../../cpp/trait/StorageTrait.hpp"
 #include "../../../cpp/trait/FilesysTrait.hpp"
+#include "../../../cpp/endian"
 
 // file:///E:/book/STANDARD/FAT32.pdf
 
@@ -34,12 +35,12 @@
 #define FAT_BootSectorHead \
 	uint8_t  jmpBoot[3]; \
 	char     OEM[8]; \
-	uint16_t bytes_per_sector; \
+	LitEndian<uint16_t, true> bytes_per_sector; \
 	uint8_t  sectors_per_cluster; \
 	uint16_t reserved_sectors; \
 	uint8_t  fat_count; \
-	uint16_t root_entries; \
-	uint16_t total_sectors_16; \
+	LitEndian<uint16_t, true> root_entries; \
+	LitEndian<uint16_t, true> total_sectors_16; \
 	uint8_t  media_type; \
 	uint16_t sectors_per_fat_16; \
 	uint16_t sectors_per_track; \
@@ -51,7 +52,7 @@
 	uint8_t  drive_number; \
 	uint8_t  reserved1; \
 	uint8_t  boot_signature; \
-	uint32_t volume_id; \
+	LitEndian<uint32_t, true> volume_id; \
 	char     volume_label[11]; \
 	char     fs_type[8]
 
@@ -115,13 +116,13 @@ _PACKED(struct) FAT_DirEntry {
 
 _PACKED(struct) FAT_LongDirEntry {
 	uint8_t  order;
-	uint16_t name1[5];
+	LitEndian<uint16_t, true> name1[5];
 	uint8_t  attr;
 	uint8_t  type;
 	uint8_t  checksum;
-	uint16_t name2[6];
+	LitEndian<uint16_t, true> name2[6];
 	uint16_t cluster;
-	uint16_t name3[2];
+	LitEndian<uint16_t, true> name3[2];
 };
 
 

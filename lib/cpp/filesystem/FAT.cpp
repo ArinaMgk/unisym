@@ -172,7 +172,7 @@ namespace uni {
 			// Head
 			bs.jmpBoot[0] = _JMP_imm_sid; bs.jmpBoot[1] = 0x58; bs.jmpBoot[2] = _NOP;// skip 0x58 bytes (to position +90)
 			MemCopyN(bs.OEM, "MSWIN4.1", byteof(bs.OEM));
-			bs.bytes_per_sector = storage->Block_Size;
+			bs.bytes_per_sector = (uint16_t)storage->Block_Size;
 			bs.sectors_per_cluster = secPerClus;
 			bs.reserved_sectors = 32;// standard
 			bs.fat_count = 2;// usual
@@ -212,7 +212,7 @@ namespace uni {
 		uint32_t* fatStart = (uint32_t*)buffer_sector;
 		fatStart[0] = 0x0FFFFFF8; // Media type
 		fatStart[1] = 0x0FFFFFFF; // EOC
-		fatStart[2] = 0x0FFFFFFF; // Root Directory EOC (初始为空)
+		fatStart[2] = 0x0FFFFFFF; // Root Directory EOC (initially empty)
 		storage->Write(((FAT_BootSector32*)buffer_sector)->reserved_sectors, buffer_sector); 
 		return true;// loadfs();
 	}

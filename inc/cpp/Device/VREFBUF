@@ -1,0 +1,82 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Internal Voltage Reference Buffer, VREFBUF
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_VREFBUF
+#define _INC_DEVICE_VREFBUF
+
+#include "../../c/stdinc.h"
+#include "../reference"
+#include "../Device/SysTick"
+
+#if defined(_MCU_STM32H7x)
+
+// global ISR not applicable (VREFBUF has no interrupt in this scope)
+namespace uni {
+
+	// AKA VREFBUF_TypeDef register map (byte offsets from 0x58023C00)
+	enum class VREFBUFReg : unsigned {
+		CSR = 0x00, // control and status register
+		CCR = 0x04, // calibration and control register
+	};
+
+	// VREFBUF_CSR bits
+	#define _VREFBUF_CSR_POS_ENVR 0
+	#define _VREFBUF_CSR_POS_HIZ  1
+	#define _VREFBUF_CSR_POS_VRR  3
+	#define _VREFBUF_CSR_POS_VRS  4 // 3b
+
+	// VREFBUF_CCR bits
+	#define _VREFBUF_CCR_POS_TRIM 0 // 6b
+
+	// voltage scale values (AKA SYSCFG_VREFBUF_VOLTAGE_SCALE*)
+	enum class VREFBUFScale : byte {
+		_2_048V = 0, // VRS=0, needs VDDA >= 2.4V
+		_2_5V   = 1, // VRS=1, needs VDDA >= 2.8V
+		_1_5V   = 2, // VRS=2, needs VDDA >= 1.8V
+		_1_8V   = 3, // VRS=3, needs VDDA >= 2.1V
+	};
+
+	// Internal voltage reference buffer (H7 only; AKA HAL_SYSCFG_VREFBUF_*)
+	class VREFBUF {
+	public:
+		// AKA HAL_SYSCFG_VREFBUF_VoltageScalingConfig (VREFBUF.CSR.VRS)
+		void setVoltageScaling(VREFBUFScale scale);
+		// AKA HAL_SYSCFG_VREFBUF_HighImpedanceConfig (VREFBUF.CSR.HIZ); true = high impedance
+		void setHighImpedance(bool ena);
+		// AKA HAL_SYSCFG_VREFBUF_TrimmingConfig (VREFBUF.CCR.TRIM)
+		void setTrimming(stduint value);
+		// AKA HAL_SYSCFG_EnableVREFBUF (set ENVR, wait VRR ready); returns false on timeout
+		bool enAble(bool ena = true);
+		// AKA HAL_SYSCFG_DisableVREFBUF (clear ENVR)
+		void enDisable();
+
+		// register access
+		Reference operator[](VREFBUFReg reg) const { return Reference(0x58023C00 + _IMM(reg)); }
+	};
+
+	extern VREFBUF VREF;
+
+}
+
+#endif // _MCU_STM32H7x
+
+#endif // _INC_DEVICE_VREFBUF

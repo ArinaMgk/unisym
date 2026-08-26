@@ -466,11 +466,6 @@
               <FilePath>..\..\cpp\Device\NVIC.cpp</FilePath>
             </File>
             <File>
-              <FileName>Flash.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Flash.cpp</FilePath>
-            </File>
-            <File>
               <FileName>Power.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\Power.cpp</FilePath>
@@ -524,6 +519,16 @@
               <FileName>DAC.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\DAC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>VREFBUF.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\VREFBUF.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>AFIO.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\AFIO.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -786,6 +791,11 @@
         <Group>
           <GroupName>Storage</GroupName>
           <Files>
+            <File>
+              <FileName>Flash.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Flash.cpp</FilePath>
+            </File>
             <File>
               <FileName>SDCard.cpp</FileName>
               <FileType>8</FileType>

@@ -102,6 +102,12 @@ namespace uni {
 	#define _SDRAM_SDSR_POS_BUSY    5
 
 	#define _FMC_BCR1_FMCEN         31  // FMC global enable (BTCR[0] bit31)
+	#define _FMC_BCR1_POS_BMAP      24  // 2b bank mapping (BTCR[0])
+
+	// FMC bank mapping modes (AKA FMC_SWAPBMAP_*)
+	#define _FMC_SWAPBMAP_DISABLE    0x00000000U
+	#define _FMC_SWAPBMAP_SDRAM_SRAM 0x01000000U // BMAP_0
+	#define _FMC_SWAPBMAP_SDRAMB2    0x02000000U // BMAP_1
 
 	// ---- NORSRAM Bank1~4 (SRAM/PSRAM) ----
 	// AKA FMC_Bank1_TypeDef (BTCR[0..7]) + FMC_Bank1E_TypeDef (BWTR[0..6])

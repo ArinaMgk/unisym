@@ -75,6 +75,12 @@ namespace uni {
 	public:
 		FMC_SDRAM_t SDRAM;
 		FMC_t() : SDRAM(FMC_Bank5_6_R_BASE) {}
+
+		// AKA HAL_SetFMCMemorySwappingConfig: global bank mapping (FMC_Bank1.BTCR[0].BMAP).
+		// bank_map: _FMC_SWAPBMAP_DISABLE / _FMC_SWAPBMAP_SDRAM_SRAM / _FMC_SWAPBMAP_SDRAMB2
+		void setMemorySwapping(stduint bank_map);
+		// AKA HAL_GetFMCMemorySwappingConfig
+		stduint getMemorySwapping();
 	};
 
 	extern FMC_t FMC;

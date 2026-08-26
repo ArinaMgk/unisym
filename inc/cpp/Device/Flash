@@ -60,7 +60,16 @@ namespace uni {
 
 #elif defined(_MCU_STM32H7x)
 
+#include "../../c/driver/_predefine/predef.flash.hpp"
+#include "../trait/StorageTrait.hpp"
+#include "../interrupt"
+#include "MDMA"// IOMethod (guarded shared enum; DMA unused by flash)
+
 #define _Flash_ADDR (D1_AHB1PERIPH_BASE + 0x2000)
+
+// global ISR entry (extern "C"; defined in interrupt_flash.hpp), friended below
+extern "C" void FLASH_IRQHandler();
+
 namespace uni {
 
 	namespace FlashReg {
@@ -105,11 +114,80 @@ namespace uni {
 		ECC_FA2,            // Flash ECC Fail Address For Bank2 Register
 		} FlashReg;
 	}
-	
-	class Flash_t {
+
+	// option bytes readback (AKA HAL_FLASHEx_OBGetConfig output)
+	struct OptionBytesConfig_t {
+		byte read_protection;      // RDP level 0/1/2
+		byte bor_level;            // BOR level 1/2/3
+		stduint write_protection1; // WPSN_CUR1 sector mask (bank1)
+		stduint write_protection2; // WPSN_CUR2 sector mask (bank2)
+		stduint boot_addr0;        // BOOT_ADD0
+		stduint boot_addr1;        // BOOT_ADD1
+		stduint code_read_start;   // PRAR_CUR start address
+		stduint code_read_end;     // PRAR_CUR end address
+		stduint secure_area_start; // SCAR_CUR start address
+		stduint secure_area_end;   // SCAR_CUR end address
+		stduint user_options;      // OPTSR_CUR user bits
+	};
+
+	// AKA HAL_FLASH_HandleTypeDef + StorageTrait (block device, 32-byte row granularity)
+	class Flash_t : public StorageTrait, public RuptTrait {
 	public:
+		Flash_t() { Block_Size = _FLASH_ROW_SIZE; readable = true; writable = true; }
+
+		// AKA HAL_FLASH_Unlock / Lock (KEYR1 + CR1.LOCK)
+		bool Unlock();
+		void Lock();
+
+		// AKA HAL_FLASH_Program / _IT (256-bit row at addr; Loop polls, Rupt raises EOP)
+		bool Program(stduint addr, const void* data, IOMethod method = IOMethod::Loop);
+		// AKA HAL_FLASHEx_Erase / _IT: erase one sector of a bank
+		bool Erase(byte bank, byte sector, IOMethod method = IOMethod::Loop);
+		// AKA HAL_FLASHEx_Erase / _IT: mass erase a bank
+		bool Erase(byte bank, IOMethod method = IOMethod::Loop);
+
+		// StorageTrait: 32-byte row granularity
+		// Read(block, buf): read 32 bytes at absolute addr = FLASH_BASE + block*32
+		// Write(block, buf): auto-erase sector then program the row
+		virtual bool Read(stduint block, void* dest) override;
+		virtual bool Write(stduint block, const void* src) override;
+		virtual stduint getUnits() override { return (_FLASH_SECTOR_TOTAL * _FLASH_SECTOR_SIZE) / _FLASH_ROW_SIZE; }
+		virtual int operator[](uint64 bytid) override;
+
+		// callbacks (AKA HAL_FLASH_EndOfOperationCallback / OperationErrorCallback)
+		Handler_t EndOfOperationHandler = 0;
+		Handler_t OperationErrorHandler = 0;
+
+		// AKA HAL_FLASH_GetError
+		stduint getError() const { return ErrorCode; }
+
+		// ---- option bytes (AKA HAL_FLASH_OB_* / HAL_FLASHEx_OBProgram / OBGetConfig) ----
+		bool OB_Unlock();
+		void OB_Lock();
+		bool OB_Launch();
+		bool setReadProtection(byte level);       // RDP 0/1/2
+		bool setWriteProtection(byte bank, stduint sector_mask);
+		bool setBORLevel(byte level);             // BOR 1/2/3
+		bool setBootAddress(byte which, stduint addr); // which 0/1/2 = ADD0/ADD1/both
+		bool setCodeReadProtection(byte bank, stduint start, stduint end);
+		bool setSecureArea(byte bank, stduint start, stduint end);
+		bool setUserOption(stduint mask, stduint value);
+		bool getOptionBytesConfig(OptionBytesConfig_t& cfg);
+
+		// register access
 		Reference operator[](FlashReg::FlashReg idx);
 
+		// RuptTrait (NVIC + IRQ_FLASH)
+		_COM_DEF_Interrupt_Interface();
+
+	protected:
+		// interrupt-mode process state (AKA tail of FLASH_ProcessTypeDef)
+		volatile stduint Procedure = _FLASH_PROC_NONE;
+		stduint Address = 0;   // program address for IRQ dispatch
+		stduint ErrorCode = 0; // last error flags
+
+		// ISR entry (global, extern "C", defined in interrupt_flash.hpp)
+		friend void ::FLASH_IRQHandler();
 	};
 	extern Flash_t Flash;// yo RCC!
 }

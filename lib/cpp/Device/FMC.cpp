@@ -229,6 +229,16 @@ namespace uni {
 
 	FMC_t FMC;
 
+	// AKA HAL_SetFMCMemorySwappingConfig (global FMC bank mapping, BTCR[0].BMAP)
+	void FMC_t::setMemorySwapping(stduint bank_map) {
+		Reference(FMC_Bank1_R_BASE).maset(_FMC_BCR1_POS_BMAP, 2, bank_map);
+	}
+
+	// AKA HAL_GetFMCMemorySwappingConfig
+	stduint FMC_t::getMemorySwapping() {
+		return Reference(FMC_Bank1_R_BASE).masof(_FMC_BCR1_POS_BMAP, 2);
+	}
+
 #endif // _MCU_STM32H7x
 
 }

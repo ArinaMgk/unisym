@@ -74,9 +74,16 @@ void SystemInit(void) {
 
 namespace uni {
 
+	// AKA HAL_GetDEVID: MCU device identifier (DBGMCU.IDCODE & 0xFFF)
+	stduint ReadDeviceIdentifier() {
+		return Reference(0x5C001000).mask(0, 12);// DBGMCU.IDCODE bits[11:0]
+	}
 
+	// AKA HAL_GetREVID: device revision (DBGMCU.IDCODE >> 16)
+	stduint ReadRevisionIdentifier() {
+		return Reference(0x5C001000).masof(16, 16);// DBGMCU.IDCODE bits[31:16]
+	}
 
-	
 }
 
 // This function configures the external memories (SRAM/SDRAM)

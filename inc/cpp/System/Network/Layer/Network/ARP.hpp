@@ -107,6 +107,29 @@ namespace Network {
 		return frame_length;
 	}
 
+	inline stduint BuildArpEthernetIPv4Request(uint8* buffer, stduint capacity,
+		const MacAddress& local_mac, const IPv4Address& local_ip, const IPv4Address& target_ip) {
+		constexpr stduint frame_length = EthernetHeaderLength + ArpEthernetIPv4Length;
+		if (!buffer || capacity < frame_length) return 0;
+		MacAddress broadcast{{ 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu }};
+		MacAddress empty{};
+		auto* ethernet = reinterpret_cast<EthernetHeader*>(buffer);
+		EthernetWriteAddress(ethernet->destination, broadcast);
+		EthernetWriteAddress(ethernet->source, local_mac);
+		EthernetWrite16(ethernet->type, uint16(EthernetType::ARP));
+		auto* arp = reinterpret_cast<ArpEthernetIPv4Packet*>(buffer + EthernetHeaderLength);
+		EthernetWrite16(arp->hardware_type, uint16(ArpHardwareType::Ethernet));
+		EthernetWrite16(arp->protocol_type, uint16(EthernetType::IPv4));
+		arp->hardware_length = EthernetAddressLength;
+		arp->protocol_length = IPv4AddressLength;
+		EthernetWrite16(arp->operation, uint16(ArpOperation::Request));
+		EthernetWriteAddress(arp->sender_hardware, local_mac);
+		IPv4WriteAddress(arp->sender_protocol, local_ip);
+		EthernetWriteAddress(arp->target_hardware, empty);
+		IPv4WriteAddress(arp->target_protocol, target_ip);
+		return frame_length;
+	}
+
 }
 }
 

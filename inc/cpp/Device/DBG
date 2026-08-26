@@ -1,0 +1,72 @@
+// ASCII CPP-ISO11 TAB4 CRLF
+// Docutitle: (Device) Debug MCU, DBGMCU
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INC_DEVICE_DBG
+#define _INC_DEVICE_DBG
+
+#include "../../c/stdinc.h"
+#include "../reference"
+
+#if defined(_MCU_STM32H7x)
+
+namespace uni {
+
+	// AKA DBGMCU_TypeDef register map (byte offsets from 0x5C001000)
+	enum class DBGReg : unsigned {
+		IDCODE = 0x00, // MCU device ID code
+		CR = 0x04,     // debug configuration register
+		// 0x34 APB3FZ1, 0x3C APB1LFZ1, 0x44 APB1HFZ1, 0x4C APB2FZ1, 0x54 APB4FZ1
+	};
+
+	// DBGMCU_CR bit positions (AKA DBGMCU_CR_DBG_*)
+	#define _DBG_CR_POS_SLEEPD1   0  // Domain1 sleep debug
+	#define _DBG_CR_POS_STOPD1    1  // Domain1 stop debug
+	#define _DBG_CR_POS_STANDBYD1 2  // Domain1 standby debug
+	#define _DBG_CR_POS_STOPD3    7  // Domain3 stop debug
+	#define _DBG_CR_POS_STANDBYD3 8  // Domain3 standby debug
+
+	// Debug MCU control (H7 only; AKA HAL_Enable/DisableDBG*).
+	// Keep the debugger connected during low-power modes.
+	class DBG {
+	public:
+		// Domain1 low-power debug (AKA HAL_Enable/DisableDBGSleepMode)
+		void enDBGSleep(bool ena = true);
+		// Domain1 stop debug (AKA HAL_Enable/DisableDBGStopMode)
+		void enDBGStop(bool ena = true);
+		// Domain1 standby debug (AKA HAL_Enable/DisableDBGStandbyMode)
+		void enDBGStandby(bool ena = true);
+		// Domain3 stop debug (AKA HAL_Enable/DisableDomain3DBGStopMode)
+		void enDBGStopDomain3(bool ena = true);
+		// Domain3 standby debug (AKA HAL_Enable/DisableDomain3DBGStandbyMode)
+		void enDBGStandbyDomain3(bool ena = true);
+
+		// register access
+		Reference operator[](DBGReg reg) const { return Reference(0x5C001000 + _IMM(reg)); }
+	};
+
+	extern DBG DBGMCU;
+
+}
+
+#endif // _MCU_STM32H7x
+
+#endif // _INC_DEVICE_DBG

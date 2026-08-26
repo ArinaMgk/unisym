@@ -120,5 +120,57 @@ namespace uni {
 	};
 	Reference SYSCFG::CMPCR(_SYSCFG_ADDR + 0x20);
 
+#elif defined(_MCU_STM32H7x)
+
+	// H7 SYSCFG methods (AKA HAL_SYSCFG_*; struct defined in AFIO.hpp)
+	// EPIS_SEL field: 3 bits at bit21 (MII=0, RMII=1); analog switch bits in PMCR[27:24]
+	#define _SYSCFG_PMCR_POS_EPIS_SEL  21 // 3b
+	#define _SYSCFG_PMCR_POS_BOOSTEN    8
+	#define _SYSCFG_PMCR_POS_SWITCH     24 // 4b: PA0/PA1/PC2/PC3
+	#define _SYSCFG_CCCSR_POS_EN        0
+	#define _SYSCFG_CCCSR_POS_CS        1
+	#define _SYSCFG_CCCSR_POS_HSLV      16
+	#define _SYSCFG_UR2_POS_BOOT_ADD0   16 // 16b
+	#define _SYSCFG_UR3_POS_BOOT_ADD1   0  // 16b
+
+	void SYSCFG_t::setETHInterface(ETHInterface sel) {
+		self.PMCR = (self.PMCR & ~(0x7U << _SYSCFG_PMCR_POS_EPIS_SEL)) | ((stduint)sel << _SYSCFG_PMCR_POS_EPIS_SEL);
+	}
+
+	void SYSCFG_t::setAnalogSwitch(byte pad, bool open) {
+		if (pad > 3) return;
+		if (open) self.PMCR |= (1U << (_SYSCFG_PMCR_POS_SWITCH + pad));
+		else self.PMCR &= ~(1U << (_SYSCFG_PMCR_POS_SWITCH + pad));
+	}
+
+	void SYSCFG_t::enBOOST(bool ena) {
+		if (ena) self.PMCR |= (1U << _SYSCFG_PMCR_POS_BOOSTEN);
+		else self.PMCR &= ~(1U << _SYSCFG_PMCR_POS_BOOSTEN);
+	}
+
+	void SYSCFG_t::setCM7BootAddress(bool addr0, stduint boot_address) {
+		if (addr0) self.UR[2] = (self.UR[2] & ~(0xFFFFU << _SYSCFG_UR2_POS_BOOT_ADD0)) | ((boot_address >> 16) << _SYSCFG_UR2_POS_BOOT_ADD0);
+		else self.UR[3] = (self.UR[3] & ~(0xFFFFU << _SYSCFG_UR3_POS_BOOT_ADD1)) | ((boot_address >> 16) << _SYSCFG_UR3_POS_BOOT_ADD1);
+	}
+
+	void SYSCFG_t::enCompensationCell(bool ena) {
+		if (ena) self.CCCSR |= (1U << _SYSCFG_CCCSR_POS_EN);
+		else self.CCCSR &= ~(1U << _SYSCFG_CCCSR_POS_EN);
+	}
+
+	void SYSCFG_t::setCompensationCodeSelect(bool cell_code) {
+		if (cell_code) self.CCCSR |= (1U << _SYSCFG_CCCSR_POS_CS);
+		else self.CCCSR &= ~(1U << _SYSCFG_CCCSR_POS_CS);
+	}
+
+	void SYSCFG_t::setCompensationCode(stduint pmos_code, stduint nmos_code) {
+		self.CCCR = (pmos_code & 0xFF) | ((nmos_code & 0xFF) << 8);
+	}
+
+	void SYSCFG_t::enIOSpeedOptimize(bool ena) {
+		if (ena) self.CCCSR |= (1U << _SYSCFG_CCCSR_POS_HSLV);
+		else self.CCCSR &= ~(1U << _SYSCFG_CCCSR_POS_HSLV);
+	}
+
 #endif
 }

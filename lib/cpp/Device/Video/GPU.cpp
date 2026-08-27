@@ -155,7 +155,7 @@ namespace uni {
 		}
 	}
 
-	bool DMA2D_t::Transfer(pureptr_t pdata, pureptr_t dst, stduint width, stduint height, IOMethod method) {
+	bool DMA2D_t::Transfer(pureptr_t pdata, pureptr_t dst, stduint width, stduint height, stduint dst_line_width, IOMethod method) {
 		if (state != _DMA2D_STATE_READY) return false;
 		if (height > 0xFFFF) return false;// AKA IS_DMA2D_LINE
 		if (width > 0x3FFF) return false; // AKA IS_DMA2D_PIXEL
@@ -163,6 +163,7 @@ namespace uni {
 		if (method == IOMethod::Rupt) {
 			// AKA HAL_DMA2D_Start_IT
 			setConfig(pdata, dst, width, height);
+			if (dst_line_width > width) self[DMA2DReg::OOR] = dst_line_width - width;
 			self[DMA2DReg::CR].setof(_DMA2D_CR_TCIE, true);
 			self[DMA2DReg::CR].setof(_DMA2D_CR_TEIE, true);
 			self[DMA2DReg::CR].setof(_DMA2D_CR_CEIE, true);
@@ -177,6 +178,7 @@ namespace uni {
 		// 清除上次传输的 TC 标志，避免残留使本轮轮询立即误判"已完成"（TCIF 为置位锁存、写 1 清除）
 		self[DMA2DReg::IFCR].setof(_DMA2D_FLAG_TC);
 		setConfig(pdata, dst, width, height);
+		if (dst_line_width > width) self[DMA2DReg::OOR] = dst_line_width - width;
 		error_code = _DMA2D_ERROR_NONE;
 		state = _DMA2D_STATE_BUSY;
 		enAble(true);

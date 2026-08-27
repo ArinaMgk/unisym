@@ -49,18 +49,108 @@ enum class PWRReg {
 	WKUPCR = 0x20 / 4, WKUPFR, WKUPEPR,
 };
 
+// low power mode entered by setMode
+enum class PWRMode : byte { SLEEP, STOP, STANDBY };
+// power domain (D1/D2/D3), for domain-scoped low-power / D3 config
+enum class PWRDomain : byte { D1, D2, D3 };
+// low power mode entry instruction
+enum class PWREntry : byte { WFI, WFE };
+// regulator state in STOP mode (maps to CR1.LPDS)
+enum class PWRRegulator : byte { MAIN, LOWPOWER };
+// main regulator voltage scaling (D3CR.VOS value)
+enum class PWRVoltageScale : byte { SCALE3 = 1, SCALE2 = 2, SCALE1 = 3 };
+// stop mode voltage scaling (CR1.SVOS value)
+enum class PWRStopVoltageScale : byte { SCALE3 = 1, SCALE4 = 2, SCALE5 = 3 };
+// wake-up pin identity (WKUPEPR/WKUPFR bit position)
+enum class PWRWakeUpPin : byte { WKUP1 = 0, WKUP2 = 1, WKUP3 = 2, WKUP4 = 3, WKUP5 = 4, WKUP6 = 5 };
+// monitored level result (temperature / VBAT)
+enum class PWRMonitorLevel : byte { BELOW_LOW, BETWEEN, ABOVE_HIGH };
+
+// wake-up pin configuration (mirrors HAL PWREx_WakeupPinTypeDef)
+struct PWRWakeUpPinConfig {
+	PWRWakeUpPin pin;
+	byte polarity;// 0 high/rising, 1 low/falling
+	byte pull;// 0 none, 1 pull-up, 2 pull-down
+};
+
 class PWR_t {
 public:
 	Reference operator[](PWRReg idx) {
 		return _ADDR_PWR + _IMMx4(idx);
 	}
 
-	// TEMP AREA
-
 	// Configure the main internal regulator output voltage, AKA __HAL_PWR_VOLTAGESCALING_CONFIG
 	// @param regulator: `[0 SCALE3, 1 SCALE2, 3 SCALE1]` the regulator output voltage to achieve a tradeoff between performance and power consumption when the device does not operate at the maximum frequency (refer to the datasheets for more details).
 	void ConfigVoltageScaling(byte regulator);
 
+	// ---- low power mode entry ----
+	// AKA HAL_PWR_EnterSLEEPMode / HAL_PWR_EnterSTOPMode / HAL_PWR_EnterSTANDBYMode
+	//      HAL_PWREx_EnterSTOPMode / HAL_PWREx_EnterSTANDBYMode
+	void setMode(PWRMode mode, PWREntry entry = PWREntry::WFI, PWRRegulator regulator = PWRRegulator::MAIN, PWRDomain domain = PWRDomain::D1);
+
+	// ---- voltage / supply ----
+	// AKA HAL_PWREx_ControlVoltageScaling
+	bool ControlVoltageScaling(PWRVoltageScale scaling);
+	// AKA HAL_PWREx_GetVoltageRange
+	stduint getVoltageRange();
+	// AKA HAL_PWREx_ControlStopModeVoltageScaling
+	void ControlStopModeVoltageScaling(PWRStopVoltageScale scaling);
+	// AKA HAL_PWREx_GetStopModeVoltageRange
+	stduint getStopModeVoltageRange();
+	// AKA HAL_PWREx_ConfigSupply
+	bool ConfigSupply(stduint supply);
+	// AKA HAL_PWREx_GetSupplyConfig
+	stduint getSupplyConfig();
+
+	// ---- backup domain ----
+	// AKA HAL_PWR_EnableBkUpAccess / DisableBkUpAccess
+	void enBkUpAccess(bool ena = true);
+	// AKA HAL_PWREx_EnableBkUpReg / DisableBkUpReg
+	bool enBkUpReg(bool ena = true);
+
+	// ---- wake-up pin ----
+	// AKA HAL_PWREx_EnableWakeUpPin / DisableWakeUpPin (and legacy HAL_PWR_EnableWakeUpPin)
+	void enWakeUpPin(const PWRWakeUpPinConfig& cfg);
+	// AKA HAL_PWREx_GetWakeupFlag
+	stduint getWakeupFlag(stduint flag);
+	// AKA HAL_PWREx_ClearWakeupFlag
+	bool clearWakeupFlag(stduint flag);
+
+	// ---- voltage detectors ----
+	// AKA HAL_PWR_ConfigPVD (threshold level only; EXTI config belongs to EXTI layer)
+	void ConfigProgrammableVoltageDetector(stduint level);
+	// AKA HAL_PWR_EnablePVD / DisablePVD
+	void enProgrammableVoltageDetector(bool ena = true);
+	// AKA HAL_PWREx_ConfigAVD (threshold level only)
+	void ConfigAnalogVoltageDetector(stduint level);
+	// AKA HAL_PWREx_EnableAVD / DisableAVD
+	void enAnalogVoltageDetector(bool ena = true);
+
+	// ---- Cortex SCR bits ----
+	// AKA HAL_PWR_EnableSleepOnExit / DisableSleepOnExit
+	void enSleepOnExit(bool ena = true);
+	// AKA HAL_PWR_EnableSEVOnPend / DisableSEVOnPend
+	void enSEVOnPend(bool ena = true);
+
+	// ---- power features ----
+	// AKA HAL_PWREx_ConfigD3Domain
+	void ConfigD3Domain(stduint state);
+	// AKA HAL_PWREx_EnableFlashPowerDown / DisableFlashPowerDown
+	void enFlashPowerDown(bool ena = true);
+	// AKA HAL_PWREx_EnableUSBReg / DisableUSBReg
+	bool enUSBReg(bool ena = true);
+	// AKA HAL_PWREx_EnableUSBVoltageDetector / DisableUSBVoltageDetector
+	void enUSBVoltageDetector(bool ena = true);
+	// AKA HAL_PWREx_EnableBatteryCharging / DisableBatteryCharging
+	void enBatteryCharging(bool ena, stduint resistor = 0);
+	// AKA HAL_PWREx_EnableMonitoring / DisableMonitoring
+	void enMonitoring(bool ena = true);
+
+	// ---- monitoring result ----
+	// AKA HAL_PWREx_GetTemperatureLevel
+	PWRMonitorLevel getTemperatureLevel();
+	// AKA HAL_PWREx_GetVBATLevel
+	PWRMonitorLevel getVBATLevel();
 
 };
 extern PWR_t PWR;

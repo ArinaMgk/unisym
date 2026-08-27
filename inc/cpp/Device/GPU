@@ -155,7 +155,12 @@ namespace uni {
 		bool canMode();
 		// AKA HAL_DMA2D_Start / Start_IT (+ PollForTransfer in Loop mode)
 		//   pdata: source address (M2M/M2MPFC/M2MBlend) or fill color (R2M)
-		bool Transfer(pureptr_t pdata, pureptr_t dst, stduint width, stduint height, IOMethod method = IOMethod::Loop);
+		//   dst_line_width: target line width in pixels. When it is larger than
+		//     width, the DMA2D output line offset (OOR) is set to
+		//     dst_line_width - width automatically, so a sub-block is written to
+		//     successive lines of a wider framebuffer. 0 = keep the OOR value set
+		//     by setMode() (used for whole-image copies, where OOR is 0).
+		bool Transfer(pureptr_t pdata, pureptr_t dst, stduint width, stduint height, stduint dst_line_width = 0, IOMethod method = IOMethod::Loop);
 		// AKA HAL_DMA2D_BlendingStart / BlendingStart_IT (+ PollForTransfer in Loop mode)
 		bool Blend(pureptr_t src1, pureptr_t src2, pureptr_t dst, stduint width, stduint height, IOMethod method = IOMethod::Loop);
 		// AKA HAL_DMA2D_Abort

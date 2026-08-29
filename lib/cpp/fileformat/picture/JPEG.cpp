@@ -6,8 +6,10 @@
 #include "../../../../inc/c/format/picture/JPEG.h"
 #include "../../../../inc/cpp/Device/Graphic/GPE-JPEG.hpp"
 #include "../../../../inc/cpp/Device/GPU"
-#include <stdlib.h>
-#include <string.h>
+#include "../../../../inc/cpp/endian"
+// #include "../../../../inc/cpp/Device/UART"
+// #include <stdlib.h>
+// #include <string.h>
 
 namespace {
 
@@ -42,7 +44,7 @@ namespace {
 	}
 
 	static inline uint16 ReadBE16(const byte* p) {
-		return (uint16)((p[0] << 8) | p[1]);
+		return ((const BigEndian<uint16, true>*)p)->get();
 	}
 
 	// Internal Huffman table structure with lookahead acceleration
@@ -432,7 +434,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 	}
 
 	JPEG_FRAME_HEADER frame;
-	memset(&frame, 0, sizeof(frame));
+	MemSet(&frame, 0, sizeof(frame));
 	bool hasFrame = false;
 	bool isProgressive = false;
 
@@ -550,7 +552,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 				if (tableId >= 4) break;
 				if (precision == 0) {
 					if (dqtPos + 64 > payloadLen) break;
-					memcpy(quantTables[tableId], segment + dqtPos, 64);
+					MemCopyN(quantTables[tableId], segment + dqtPos, 64);
 					quantTableValid[tableId] = true;
 					dqtPos += 64;
 				} else {
@@ -571,7 +573,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 				if (tableId >= 4 || dhtPos + 16 > payloadLen) break;
 
 				byte bits[16];
-				memcpy(bits, segment + dhtPos, 16);
+				MemCopyN(bits, segment + dhtPos, 16);
 				dhtPos += 16;
 
 				int count = 0;
@@ -990,13 +992,13 @@ uni::ImageResult uni::JPEGCodec::Decode(
 	}
 
 	size_t pixelBufferSize = (size_t)outWidth * (size_t)outHeight * sizeof(uni::Color);
-	void* targetPixels = allocator.allocate(pixelBufferSize);
+	void* targetPixels = allocator.allocate(pixelBufferSize, 3, 0);
 	if (!targetPixels) {
 		free(stdPixels);
 		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
-	memcpy(targetPixels, stdPixels, pixelBufferSize);
+	MemCopyN(targetPixels, stdPixels, pixelBufferSize);
 	free(stdPixels);
 
 	outBuffer.width = (uint32)outWidth;
@@ -1072,8 +1074,8 @@ uni::ImageResult uni::JPEGCodecHard::ReadInfo(StorageTrait& storage, ImageInfo& 
 		if (hdr[i] != 0xFF) { i++; continue; }
 		byte m = hdr[i + 1];
 		if (m == 0xC0 || m == 0xC1 || m == 0xC2 || m == 0xC3) {
-			outInfo.height = ((uint16)hdr[i + 5] << 8) | hdr[i + 6];
-			outInfo.width  = ((uint16)hdr[i + 7] << 8) | hdr[i + 8];
+			outInfo.height = ((const BigEndian<uint16, true>*)&hdr[i + 5])->get();
+			outInfo.width  = ((const BigEndian<uint16, true>*)&hdr[i + 7])->get();
 			byte ns = hdr[i + 9];
 			outInfo.format = PixelFormat::ARGB8888;
 			outInfo.colorSpace = (ns == 1) ? ColorSpace::GRAY : (ns == 4 ? ColorSpace::CMYK : ColorSpace::SRGB);
@@ -1087,7 +1089,7 @@ uni::ImageResult uni::JPEGCodecHard::ReadInfo(StorageTrait& storage, ImageInfo& 
 		}
 		// skip segment
 		if (m == 0xD8 || m == 0xD9) { i += 2; continue; }
-		stduint segLen = ((uint16)hdr[i + 2] << 8) | hdr[i + 3];
+		stduint segLen = ((const BigEndian<uint16, true>*)&hdr[i + 2])->get();
 		i += 2 + segLen;
 	}
 	return uni::ImageResult::INVALID_FORMAT;
@@ -1130,7 +1132,7 @@ uni::ImageResult uni::JPEGCodecHard::Decode(
 	// Read whole JPEG stream.
 	stduint maxStorageSize = storage.getUnits() * storage.Block_Size;
 	if (maxStorageSize < 4) return uni::ImageResult::INVALID_FORMAT;
-	byte* stream = (byte*)allocator.allocate(maxStorageSize);
+	byte* stream = (byte*)allocator.allocate(maxStorageSize, 3, 0);
 	if (!stream) return uni::ImageResult::OUT_OF_MEMORY;
 	byte block[512];
 	stduint got = storage.Read(0, stream, maxStorageSize, block);
@@ -1144,12 +1146,13 @@ uni::ImageResult uni::JPEGCodecHard::Decode(
 	JPEGSubsampling subsampling = JPEGSubsampling::_444;
 	{
 		stduint i = 2;
-		while (i + 8 < got) {
+		while (i + 12 < got) {
 			if (stream[i] != 0xFF) { i++; continue; }
 			byte m = stream[i + 1];
-			if (m == 0xC0 || m == 0xC1 || m == 0xC2 || m == 0xC3) {
-				height = ((uint16)stream[i + 5] << 8) | stream[i + 6];
-				width  = ((uint16)stream[i + 7] << 8) | stream[i + 8];
+			if (m == 0xC0) {
+				// Big-endian fields; packed=true reads byte-by-byte (no unaligned LDRH).
+				height = ((const BigEndian<uint16, true>*)&stream[i + 5])->get();
+				width  = ((const BigEndian<uint16, true>*)&stream[i + 7])->get();
 				byte ns = stream[i + 9];
 				// subsampling from first component's H/V sampling factors (byte 11/12)
 				if (ns >= 1) {
@@ -1161,22 +1164,47 @@ uni::ImageResult uni::JPEGCodecHard::Decode(
 				}
 				break;
 			}
+			// SOF1(0xC1)/SOF2(0xC2)/SOF3(0xC3) are extended/progressive/lossless:
+			// H7 hardware JPEG only decodes baseline (SOF0). Reject them.
+			if (m == 0xC1 || m == 0xC2 || m == 0xC3 || m == 0xC5 || m == 0xC6 ||
+				m == 0xC7 || m == 0xC9 || m == 0xCA || m == 0xCB || m == 0xCD ||
+				m == 0xCE || m == 0xCF) {
+				allocator.deallocate(stream, maxStorageSize);
+				return uni::ImageResult::INVALID_FORMAT;
+			}
 			if (m == 0xD8 || m == 0xD9) { i += 2; continue; }
-			stduint segLen = ((uint16)stream[i + 2] << 8) | stream[i + 3];
+			stduint segLen = ((const BigEndian<uint16, true>*)&stream[i + 2])->get();
+			if (segLen < 2) break;// malformed segment length, stop parsing
 			i += 2 + segLen;
 		}
 	}
 	if (!width || !height) { allocator.deallocate(stream, maxStorageSize); return uni::ImageResult::INVALID_FORMAT; }
 
+	// XART1.OutFormat("W=%u H=%u\n", (unsigned)width, (unsigned)height);
+
 	// Hardware decode into a YCbCr buffer (JPEG outputs interleaved YCbCr blocks).
 	// Output buffer size: worst case ~3 bytes/pixel.
 	stduint ycbcrSize = width * height * 3 + 64;
-	byte* ycbcr = (byte*)allocator.allocate(ycbcrSize);
+	// XART1.OutFormat("ycbcrSize=%u\n", (unsigned)ycbcrSize);
+	byte* ycbcr = (byte*)allocator.allocate(ycbcrSize, 3, 0);// 8-byte aligned (MDMA/DMA2D)
 	if (!ycbcr) { allocator.deallocate(stream, maxStorageSize); return uni::ImageResult::OUT_OF_MEMORY; }
 
 	jpeg.inn_buffer = { (stduint)stream, got };
 	jpeg.out_buffer = { (stduint)ycbcr, ycbcrSize };
 	if (!jpeg.Decode(stream, got, ycbcr, ycbcrSize, IOMethod::Loop)) {
+		// XART1.OutFormat("jpeg.Decode FAIL: err=0x%X state=%d\n",
+		// 	(unsigned)jpeg.getError(), (int)jpeg.getState());
+		// XART1.OutFormat("SR=0x%X CR=0x%X CONFR0=0x%X CONFR1=0x%X CONFR2=0x%X CONFR3=0x%X\n",
+		// 	(unsigned)(stduint)jpeg[JPEGReg::SR], (unsigned)(stduint)jpeg[JPEGReg::CR],
+		// 	(unsigned)(stduint)jpeg[JPEGReg::CONFR0], (unsigned)(stduint)jpeg[JPEGReg::CONFR1],
+		// 	(unsigned)(stduint)jpeg[JPEGReg::CONFR2], (unsigned)(stduint)jpeg[JPEGReg::CONFR3]);
+		// XART1.OutFormat("tail: got=%u [%02X %02X %02X %02X]\n", (unsigned)got,
+		// 	(unsigned)stream[got - 4], (unsigned)stream[got - 3],
+		// 	(unsigned)stream[got - 2], (unsigned)stream[got - 1]);
+		// XART1.OutFormat("CONFR4=0x%X CONFR5=0x%X CONFR6=0x%X\n",
+		// 	(unsigned)(stduint)jpeg[JPEGReg::CONFR4],
+		// 	(unsigned)(stduint)jpeg[JPEGReg::CONFR5],
+		// 	(unsigned)(stduint)jpeg[JPEGReg::CONFR6]);
 		allocator.deallocate(stream, maxStorageSize); allocator.deallocate(ycbcr, ycbcrSize);
 		return uni::ImageResult::FAILED;
 	}
@@ -1209,7 +1237,7 @@ uni::ImageResult uni::JPEGCodecHard::Decode(
 	default: outBytesPerPx = 4; break;
 	}
 	size_t rgbSize = (size_t)width * height * outBytesPerPx;
-	void* rgb = allocator.allocate(rgbSize);
+	void* rgb = allocator.allocate(rgbSize, 3, 0);// 8-byte aligned (DMA2D)
 	if (!rgb) { allocator.deallocate(stream, maxStorageSize); allocator.deallocate(ycbcr, ycbcrSize); return uni::ImageResult::OUT_OF_MEMORY; }
 
 	// Configure DMA2D: M2M with pixel format conversion, foreground = YCbCr source.
@@ -1290,7 +1318,7 @@ uni::ImageResult uni::JPEGCodecHard::Encode(
 	// For 4:4:4 the hardware encoder consumes one YCbCr triple per pixel.
 	size_t pxCount = (size_t)image.width * image.height;
 	size_t ycbcrSize = pxCount * 3;
-	byte* ycbcr = (byte*)allocator.allocate(ycbcrSize);
+	byte* ycbcr = (byte*)allocator.allocate(ycbcrSize, 3, 0);
 	if (!ycbcr) return uni::ImageResult::OUT_OF_MEMORY;
 
 	const byte* src = (const byte*)image.pixels;
@@ -1318,7 +1346,7 @@ uni::ImageResult uni::JPEGCodecHard::Encode(
 	}
 
 	// Hardware encode: YCbCr input -> JPEG stream.
-	byte* jpegOut = (byte*)allocator.allocate(pxCount + 1024);
+	byte* jpegOut = (byte*)allocator.allocate(pxCount + 1024, 3, 0);
 	if (!jpegOut) { allocator.deallocate(ycbcr, ycbcrSize); return uni::ImageResult::OUT_OF_MEMORY; }
 	bool ok = jpeg.Encode(ycbcr, ycbcrSize, jpegOut, pxCount + 1024, IOMethod::Loop);
 	allocator.deallocate(ycbcr, ycbcrSize);

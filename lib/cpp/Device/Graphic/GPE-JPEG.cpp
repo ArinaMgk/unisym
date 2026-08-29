@@ -25,6 +25,7 @@
 #include "../../../../inc/cpp/Device/NVIC"
 #include "../../../../inc/cpp/Device/Interrupt/interrupt_tab.h"
 #include "../Interrupt/interrupt_jpeg.hpp"
+// #include <cpp/Device/UART>
 
 namespace uni {
 #if defined(_MCU_STM32H7x)
@@ -479,7 +480,7 @@ namespace uni {
 			jpeg.Context |= _JPEG_CONTEXT_ENDING_DMA;
 			jpeg[JPEGReg::CONFR0].rstof(0);// STOP
 			jpeg[JPEGReg::CR] &= ~_JPEG_INTERRUPT_MASK;
-			jpeg[JPEGReg::CFR] = 0x30;
+			jpeg[JPEGReg::CFR] = (1U << _JPEG_CFR_POS_CEOCF) | (1U << _JPEG_CFR_POS_CHPDF);
 			if (jpeg.hdmain && jpeg.hdmain->getState() == _MDMA_STATE_BUSY)
 				jpeg.hdmain->AbortRupt();
 			if (jpeg.hdmaout && jpeg.hdmaout->getState() == _MDMA_STATE_BUSY)
@@ -600,30 +601,27 @@ namespace uni {
 
 	// AKA HAL_JPEG_Init
 	bool JPEG_HARD::setMode() {
-		if (State == JPEGState::Reset) {
-			enClock();
-			// AKA HAL_JPEG_Init: enable core, stop process, disable IT, flush FIFOs, clear flags
-			enAble(true);
-			self[JPEGReg::CONFR0].rstof(0);// STOP
-			self[JPEGReg::CR] &= ~_JPEG_INTERRUPT_MASK;
-			self[JPEGReg::CR].setof(_JPEG_CR_POS_IFF);
-			self[JPEGReg::CR].setof(_JPEG_CR_POS_OFF);
-			self[JPEGReg::CFR] = 0x30;// clear EOCF|HPDF (CFR bits 4/5)
-			if (!_JPEG_Set_HuffEnc_Mem(self)) {
-				ErrorCode |= _JPEG_ERROR_HUFF_TABLE;
-				State = JPEGState::Error;
-				return false;
-			}
-			// enable header parsing (decode side)
-			self[JPEGReg::CONFR1].setof(_JPEG_CONFR1_POS_HDR);
-			JpegInCount = 0;
-			JpegOutCount = 0;
-			ErrorCode = _JPEG_ERROR_NONE;
-			Context = 0;
-			State = JPEGState::Ready;
-			return true;
+		enClock();
+		// AKA HAL_JPEG_Init: enable core, stop process, disable IT, flush FIFOs, clear flags
+		enAble(true);
+		self[JPEGReg::CONFR0].rstof(0);// STOP
+		self[JPEGReg::CR] &= ~_JPEG_INTERRUPT_MASK;
+		self[JPEGReg::CR].setof(_JPEG_CR_POS_IFF);
+		self[JPEGReg::CR].setof(_JPEG_CR_POS_OFF);
+		self[JPEGReg::CFR] = (1U << _JPEG_CFR_POS_CEOCF) | (1U << _JPEG_CFR_POS_CHPDF);// clear EOCF|HPDF
+		if (!_JPEG_Set_HuffEnc_Mem(self)) {
+			ErrorCode |= _JPEG_ERROR_HUFF_TABLE;
+			State = JPEGState::Error;
+			return false;
 		}
-		return false;
+		// enable header parsing (decode side)
+		self[JPEGReg::CONFR1].setof(_JPEG_CONFR1_POS_HDR);
+		JpegInCount = 0;
+		JpegOutCount = 0;
+		ErrorCode = _JPEG_ERROR_NONE;
+		Context = 0;
+		State = JPEGState::Ready;
+		return true;
 	}
 
 	// AKA HAL_JPEG_ConfigEncoding
@@ -767,7 +765,7 @@ namespace uni {
 		self[JPEGReg::CR] &= ~_JPEG_INTERRUPT_MASK;
 		self[JPEGReg::CR].setof(_JPEG_CR_POS_IFF);
 		self[JPEGReg::CR].setof(_JPEG_CR_POS_OFF);
-		self[JPEGReg::CFR] = 0x30;// clear EOCF|HPDF
+		self[JPEGReg::CFR] = (1U << _JPEG_CFR_POS_CEOCF) | (1U << _JPEG_CFR_POS_CHPDF);// clear EOCF|HPDF
 		self[JPEGReg::CONFR0].setof(0);// START
 		if ((Context & _JPEG_CONTEXT_METHOD_MASK) == _JPEG_CONTEXT_IT) {
 			self[JPEGReg::CR].setof(_JPEG_CR_POS_IFTIE);
@@ -869,7 +867,7 @@ namespace uni {
 			self[JPEGReg::CONFR0].rstof(0);// STOP
 			if ((Context & _JPEG_CONTEXT_METHOD_MASK) == _JPEG_CONTEXT_IT)
 				self[JPEGReg::CR] &= ~_JPEG_INTERRUPT_MASK;
-			self[JPEGReg::CFR] = 0x30;
+			self[JPEGReg::CFR] = (1U << _JPEG_CFR_POS_CEOCF) | (1U << _JPEG_CFR_POS_CHPDF);
 			// DataReady callback for trailing bytes
 			if (JpegOutCount > 0) JpegOutCount = 0;
 			stduint tmpContext = Context;
@@ -933,8 +931,10 @@ namespace uni {
 		State = JPEGState::BusyDecoding;
 		Context &= ~(_JPEG_CONTEXT_OPERATION_MASK | _JPEG_CONTEXT_METHOD_MASK);
 		Context |= _JPEG_CONTEXT_DECODE | (method == IOMethod::Rupt ? _JPEG_CONTEXT_IT : method == IOMethod::DMA ? _JPEG_CONTEXT_DMA : _JPEG_CONTEXT_POLLING);
-		inLen -= inLen % 4;
-		outLen -= outLen % 4;
+		// Round lengths up to a word boundary so trailing 1..3 bytes (JPEG EOI 0xFFD9)
+		// are fed via ReadInput's end-of-file pack. Truncating drops EOI and stalls EOC.
+		inLen = (inLen + 3) & ~3U;
+		outLen = (outLen + 3) & ~3U;
 		inn_buffer = { (stduint)pDataIn, inLen };
 		out_buffer = { (stduint)pDataOut, outLen };
 		JpegInCount = 0;
@@ -953,6 +953,10 @@ namespace uni {
 			while (!ProcessPump()) {
 				if ((SysTick::getTick() - tickstart) > _JPEG_TIMEOUT_VALUE) {
 					ErrorCode |= _JPEG_ERROR_TIMEOUT;
+					// XART1.OutFormat("TO: SR=0x%X C=0x%X in=%u/%u out=%u/%u\n",
+					// 	(unsigned)(stduint)self[JPEGReg::SR], (unsigned)Context,
+					// 	(unsigned)JpegInCount, (unsigned)inn_buffer.length,
+					// 	(unsigned)JpegOutCount, (unsigned)out_buffer.length);
 					State = JPEGState::Ready;
 					return false;
 				}
@@ -1009,7 +1013,7 @@ namespace uni {
 		self[JPEGReg::CR] &= ~_JPEG_INTERRUPT_MASK;
 		self[JPEGReg::CR].setof(_JPEG_CR_POS_IFF);
 		self[JPEGReg::CR].setof(_JPEG_CR_POS_OFF);
-		self[JPEGReg::CFR] = 0x30;
+		self[JPEGReg::CFR] = (1U << _JPEG_CFR_POS_CEOCF) | (1U << _JPEG_CFR_POS_CHPDF);
 		JpegInCount = 0;
 		JpegOutCount = 0;
 		Context &= ~(_JPEG_CONTEXT_PAUSE_INPUT | _JPEG_CONTEXT_PAUSE_OUTPUT);

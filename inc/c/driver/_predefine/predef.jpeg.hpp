@@ -98,9 +98,9 @@ namespace uni {
 	#define _JPEG_SR_POS_HPDF  6  // header parsing done
 	#define _JPEG_SR_POS_COF   7  // codec operation ongoing
 
-	// JPEG_CFR bits
-	#define _JPEG_CFR_POS_CEOCF 4 // clear EOCF
-	#define _JPEG_CFR_POS_CHPDF 5 // clear HPDF
+	// JPEG_CFR bits (clear flags: same bit position as the matching SR flag)
+	#define _JPEG_CFR_POS_CEOCF 5 // clear EOCF (SR bit5)
+	#define _JPEG_CFR_POS_CHPDF 6 // clear HPDF (SR bit6)
 
 	// JPEG_CONFR1 bits
 	#define _JPEG_CONFR1_POS_NF   0 // 2b number of components

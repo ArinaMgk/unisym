@@ -154,8 +154,10 @@ bool      SinglePool::Insert(stduint idx, pureptr_t dat _Comment(pointer to a sl
 		if (left.address + left.length == src.address) {
 			left.length += src.length;
 			if (auto p = (Slice*)Locate(idx)) {
-				if (left.address + left.length == p->address)
+				if (left.address + left.length == p->address) {
+					left.length += p->length;
 					return Remove(idx, 1);
+				}
 			}
 			return true;
 		}

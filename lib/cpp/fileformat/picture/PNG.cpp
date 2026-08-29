@@ -9,14 +9,6 @@
 
 namespace {
 
-	static inline uint32 ReadBE32(const byte* p) {
-		return ((uint32)p[0] << 24) | ((uint32)p[1] << 16) | ((uint32)p[2] << 8) | (uint32)p[3];
-	}
-
-	static inline uint16 ReadBE16(const byte* p) {
-		return (uint16)(((uint16)p[0] << 8) | (uint16)p[1]);
-	}
-
 	static inline byte ClampByte(int val) {
 		if (val < 0) return 0;
 		if (val > 255) return 255;
@@ -389,8 +381,8 @@ uni::Color* DecodePNG(const byte* fileData, size_t fileSize, int* outWidth, int*
 
 	size_t pos = 8;
 	while (pos + 8 <= fileSize) {
-		uint32 chunkLen = ReadBE32(fileData + pos);
-		uint32 chunkType = ReadBE32(fileData + pos + 4);
+		uint32 chunkLen = *(const BigEndian<uint32, true>*)(fileData + pos);
+		uint32 chunkType = *(const BigEndian<uint32, true>*)(fileData + pos + 4);
 		pos += 8;
 
 		if (pos + chunkLen + 4 > fileSize) {
@@ -401,13 +393,14 @@ uni::Color* DecodePNG(const byte* fileData, size_t fileSize, int* outWidth, int*
 
 		if (chunkType == PNG_CHUNK_IHDR) {
 			if (chunkLen >= 13) {
-				ihdr.width = ReadBE32(chunkData + 0);
-				ihdr.height = ReadBE32(chunkData + 4);
-				ihdr.bit_depth = chunkData[8];
-				ihdr.color_type = chunkData[9];
-				ihdr.compression_method = chunkData[10];
-				ihdr.filter_method = chunkData[11];
-				ihdr.interlace_method = chunkData[12];
+				const PNG_IHDR* ihdrPtr = (const PNG_IHDR*)chunkData;
+				ihdr.width = ihdrPtr->width;
+				ihdr.height = ihdrPtr->height;
+				ihdr.bit_depth = ihdrPtr->bit_depth;
+				ihdr.color_type = ihdrPtr->color_type;
+				ihdr.compression_method = ihdrPtr->compression_method;
+				ihdr.filter_method = ihdrPtr->filter_method;
+				ihdr.interlace_method = ihdrPtr->interlace_method;
 				if (ihdr.width > 0 && ihdr.height > 0 && ihdr.compression_method == 0 && ihdr.filter_method == 0) {
 					hasIhdr = true;
 				}
@@ -708,15 +701,16 @@ uni::ImageResult uni::PNGCodec::ReadInfo(StorageTrait& storage, ImageInfo& outIn
 		return uni::ImageResult::INVALID_FORMAT;
 	}
 
-	uint32 chunkType = ReadBE32(headerBuf + 12);
+	uint32 chunkType = *(const BigEndian<uint32, true>*)(headerBuf + 12);
 	if (chunkType != PNG_CHUNK_IHDR) {
 		return uni::ImageResult::INVALID_FORMAT;
 	}
 
-	uint32 width = ReadBE32(headerBuf + 16);
-	uint32 height = ReadBE32(headerBuf + 20);
-	byte bitDepth = headerBuf[24];
-	byte colorType = headerBuf[25];
+	const PNG_IHDR* ihdr = (const PNG_IHDR*)(headerBuf + 16);
+	uint32 width = ihdr->width;
+	uint32 height = ihdr->height;
+	byte bitDepth = ihdr->bit_depth;
+	byte colorType = ihdr->color_type;
 
 	outInfo.width = width;
 	outInfo.height = height;

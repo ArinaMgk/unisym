@@ -12,6 +12,7 @@
 
 #include "../../graphic/color.h"
 #include "../../../cpp/System/Picture.hpp"
+#include "../../../cpp/endian"
 
 // ===== PNG Chunk Types =====
 #define PNG_CHUNK_IHDR 0x49484452 // "IHDR"
@@ -44,8 +45,8 @@ enum class PNGFilterType : byte {
 // ===== PNG Header (IHDR) =====
 #pragma pack(push, 1)
 typedef struct {
-	uint32 width;              // Width of image in pixels (big-endian)
-	uint32 height;             // Height of image in pixels (big-endian)
+	BigEndian<uint32, true> width;              // Width of image in pixels (big-endian)
+	BigEndian<uint32, true> height;             // Height of image in pixels (big-endian)
 	byte   bit_depth;          // Bits per sample or per palette index (1, 2, 4, 8, 16)
 	byte   color_type;         // Color type (0, 2, 3, 4, 6)
 	byte   compression_method; // Compression method (0 = Deflate)

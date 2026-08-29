@@ -13,6 +13,7 @@
 
 #include "../../graphic/color.h"
 #include "../../../cpp/System/Picture.hpp"
+#include "../../../cpp/endian"
 
 // ===== JPEG file markers =====
 // Each marker is 1 byte 0xFF followed by 1 byte type

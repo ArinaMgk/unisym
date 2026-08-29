@@ -62,6 +62,8 @@ namespace uni {
 		//
 		GREY8,
 		INDEX8,
+		// DMA2D hardware YCbCr interleaved input (CM=11, with CSS in layer config)
+		YCbCr,
 		//
 		UNKNOWN
 	};

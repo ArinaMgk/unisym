@@ -99,6 +99,8 @@ typedef struct {
 uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int* outHeight);
 
 namespace uni {
+	class JPEG_HARD;// forward: hardware codec driver (GPE-JPEG.hpp), used by JPEGCodecHard
+
 	class JPEGCodec : public IImageCodec {
 	public:
 		virtual ~JPEGCodec() = default;
@@ -133,6 +135,50 @@ namespace uni {
 		) const override;
 
 		virtual bool CanEncode(PixelFormat format) const override;
+	};
+
+	// Hardware JPEG codec (H7 only): wraps JPEG_HARD for the IImageCodec interface.
+	// Software JPEGCodec is unchanged; this class provides the hardware path only.
+	// On non-H7 targets every operation returns UNSUPPORTED.
+	class JPEGCodecHard : public IImageCodec {
+	public:
+		// User injects the hardware driver instance.
+		explicit JPEGCodecHard(JPEG_HARD& jpeg) : jpeg(jpeg) {}
+		virtual ~JPEGCodecHard() = default;
+
+		virtual const char* GetName() const override;
+		virtual ImageFormat GetFormat() const override;
+		virtual const char* const* GetExtensions() const override;
+
+		virtual ImageResult Probe(StorageTrait& storage, bool& matched) const override;
+		virtual ImageResult ReadInfo(StorageTrait& storage, ImageInfo& outInfo) const override;
+
+		virtual ImageResult OpenSurface(
+			StorageTrait& storage,
+			IImageSurface*& outSurface,
+			trait::Malloc& allocator,
+			const ImageDecodeOptions& options,
+			ImageAccessMode access
+		) const override;
+
+		virtual ImageResult Decode(
+			StorageTrait& storage,
+			ImageBuffer& outBuffer,
+			trait::Malloc& allocator,
+			const ImageDecodeOptions& options
+		) const override;
+
+		virtual ImageResult Encode(
+			const ImageBuffer& image,
+			StorageTrait& storage,
+			trait::Malloc& allocator,
+			const ImageEncodeOptions& options
+		) const override;
+
+		virtual bool CanEncode(PixelFormat format) const override;
+
+	private:
+		JPEG_HARD& jpeg;
 	};
 }
 

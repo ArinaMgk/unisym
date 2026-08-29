@@ -51,6 +51,37 @@ namespace uni {
 		return ret;
 	}
 
+	stduint BlockTrait::Write(stduint linear_offset, const void* src, stduint length, byte* buffer) {
+		stduint block_size = Block_Size ? Block_Size : 512;
+		stduint crt_block = linear_offset / block_size;
+		stduint block_offset = linear_offset % block_size;
+		const byte* in = cast<const byte*>(src);
+		stduint ret = 0;
+		while (length) {
+			bool state;
+			stduint copy_size = block_size - block_offset;
+			if (copy_size > length) copy_size = length;
+			if (block_offset == 0 && copy_size == block_size) {
+				// whole-block write, no need to read-modify-write
+				state = Write(crt_block, in);
+				if (!state) return ret;
+			} else {
+				// partial block: read-modify-write
+				state = Read(crt_block, buffer);
+				if (!state) return ret;
+				MemCopyN(buffer + block_offset, in, copy_size);
+				state = Write(crt_block, buffer);
+				if (!state) return ret;
+			}
+			in += copy_size;
+			ret += copy_size;
+			length -= copy_size;
+			crt_block++;
+			block_offset = 0; // from next block, offset resets
+		}
+		return ret;
+	}
+
 	bool DiscPartition::Read(stduint BlockIden, void* Dest) {
 		if (!slice.address && !slice.length) renew_slice();
 		// ploginfo("DiscPartition::Read %u:%u -> %[x]", DRV_OF_DEV(self.device), BlockIden + slice.address, Dest);

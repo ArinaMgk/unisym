@@ -34,7 +34,7 @@ namespace uni {
 	static DMA2D_LAYER_t layers[2] = { DMA2D_LAYER_t(0), DMA2D_LAYER_t(1) };
 
 	// AKA DMA2D_INPUT_* — unisym PixelFormat → DMA2D FGPFCCR/BGPFCCR.CM[3:0]
-	// Returns 0xFF when the format has no DMA2D input equivalent (L4/A8/A4/YCbCr not exposed).
+	// Returns 0xFF when the format has no DMA2D input equivalent (L4/A8/A4 not exposed).
 	static byte _DMA2D_InputFormat(PixelFormat pf) {
 		switch (pf) {
 		case PixelFormat::ARGB8888: return 0;
@@ -45,6 +45,7 @@ namespace uni {
 		case PixelFormat::L8:       return 5;
 		case PixelFormat::AL44:     return 6;
 		case PixelFormat::AL88:     return 7;
+		case PixelFormat::YCbCr:    return 0xB;// DMA2D YCbCr interleaved input
 		default: return 0xFF;
 		}
 	}
@@ -152,6 +153,14 @@ namespace uni {
 			self[DMA2DReg::OCOLR] = tmp;
 		} else {
 			self[DMA2DReg::FGMAR] = _IMM(pdata);
+			if (mode == DMA2DMode::M2M) {
+				// M2M needs the SOURCE color format (FGPFCCR.CM) and line offset (FGOR),
+				// otherwise the source is read with a stale/incorrect pixel width and the
+				// block copy reads past the source buffer (lower half garbage). M2MPFC sets
+				// these via DMA2D_LAYER_t::setMode instead.
+				self[DMA2DReg::FGPFCCR].maset(_DMA2D_PFCCR_CM, 4, _DMA2D_InputFormat(output_format));
+				self[DMA2DReg::FGOR] = 0;
+			}
 		}
 	}
 
@@ -437,7 +446,7 @@ namespace uni {
 	bool DMA2D_LAYER_t::setMode(LayerPara& param) {
 		DMA2D_t& dev = getParent();
 		byte incm = _DMA2D_InputFormat(param.pixel_format);
-		if (incm > 7) return false;// L4/A8/A4/YCbCr not exposed via PixelFormat
+		if (incm == 0xFF) return false;// no DMA2D input equivalent
 		if (param.input_offset > 0x3FFF) return false;
 
 		bool fg = (id == 1);
@@ -451,6 +460,9 @@ namespace uni {
 		dev[pfccr].setof(_DMA2D_PFCCR_RBS, param.red_blue_swap);
 		dev[pfccr].maset(_DMA2D_PFCCR_ALPHA, 8, param.input_alpha & 0xFF);
 		dev[oreg] = param.input_offset;
+		// YCbCr input (foreground only): set chroma sub-sampling (CSS[1:0])
+		if (fg && param.pixel_format == PixelFormat::YCbCr)
+			dev[pfccr].maset(_DMA2D_PFCCR_CSS, 2, _IMM(param.chroma_sub_sampling));
 
 		layer_param = param;
 		return true;

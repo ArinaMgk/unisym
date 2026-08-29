@@ -385,6 +385,11 @@
           <GroupName>Embedded</GroupName>
           <Files>
             <File>
+              <FileName>DBG.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\DBG.cpp</FilePath>
+            </File>
+            <File>
               <FileName>GPIO.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\GPIO.cpp</FilePath>
@@ -697,6 +702,11 @@
               <FilePath>..\..\cpp\Device\Graphic\GPE-JPEG.cpp</FilePath>
             </File>
             <File>
+              <FileName>JPEG.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\fileformat\picture\JPEG.cpp</FilePath>
+            </File>
+            <File>
               <FileName>RNG.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\RNG.cpp</FilePath>
@@ -777,6 +787,11 @@
           <GroupName>Memory</GroupName>
           <Files>
             <File>
+              <FileName>mempool.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\dat-block\mempool.cpp</FilePath>
+            </File>
+            <File>
               <FileName>FMC.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\FMC.cpp</FilePath>
@@ -791,6 +806,16 @@
         <Group>
           <GroupName>Storage</GroupName>
           <Files>
+            <File>
+              <FileName>Storage.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Storage-GPT.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\Storage-GPT.cpp</FilePath>
+            </File>
             <File>
               <FileName>Flash.cpp</FileName>
               <FileType>8</FileType>
@@ -875,6 +900,57 @@
               <FileName>FAT.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\filesystem\FAT.cpp</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>2</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>2</IncludeInBuild>
+                  <AlwaysBuild>2</AlwaysBuild>
+                  <GenerateAssemblyFile>2</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                  <PublicsOnly>2</PublicsOnly>
+                  <StopOnExitCode>11</StopOnExitCode>
+                  <CustomArgument></CustomArgument>
+                  <IncludeLibraryModules></IncludeLibraryModules>
+                  <ComprImg>1</ComprImg>
+                </CommonProperty>
+                <FileArmAds>
+                  <Cads>
+                    <interw>2</interw>
+                    <Optim>1</Optim>
+                    <oTime>2</oTime>
+                    <SplitLS>2</SplitLS>
+                    <OneElfS>2</OneElfS>
+                    <Strict>2</Strict>
+                    <EnumInt>2</EnumInt>
+                    <PlainCh>2</PlainCh>
+                    <Ropi>2</Ropi>
+                    <Rwpi>2</Rwpi>
+                    <wLevel>0</wLevel>
+                    <uThumb>2</uThumb>
+                    <uSurpInc>2</uSurpInc>
+                    <uC99>2</uC99>
+                    <uGnu>2</uGnu>
+                    <useXO>2</useXO>
+                    <v6Lang>0</v6Lang>
+                    <v6LangP>0</v6LangP>
+                    <vShortEn>2</vShortEn>
+                    <vShortWch>2</vShortWch>
+                    <v6Lto>2</v6Lto>
+                    <v6WtE>2</v6WtE>
+                    <v6Rtti>2</v6Rtti>
+                    <VariousControls>
+                      <MiscControls></MiscControls>
+                      <Define></Define>
+                      <Undefine></Undefine>
+                      <IncludePath></IncludePath>
+                    </VariousControls>
+                  </Cads>
+                </FileArmAds>
+              </FileOption>
             </File>
             <File>
               <FileName>FAT-create.cpp</FileName>

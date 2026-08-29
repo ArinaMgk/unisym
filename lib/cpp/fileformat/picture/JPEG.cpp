@@ -4,6 +4,8 @@
 // Copyright: UNISYM
 
 #include "../../../../inc/c/format/picture/JPEG.h"
+#include "../../../../inc/cpp/Device/Graphic/GPE-JPEG.hpp"
+#include "../../../../inc/cpp/Device/GPU"
 #include <stdlib.h>
 #include <string.h>
 
@@ -1022,3 +1024,327 @@ uni::ImageResult uni::JPEGCodec::Encode(
 bool uni::JPEGCodec::CanEncode(PixelFormat format) const {
 	return false;
 }
+
+// ==================== JPEGCodecHard (hardware, H7 only) ====================
+
+// On non-H7 targets there is no hardware JPEG; every operation is UNSUPPORTED.
+const char* uni::JPEGCodecHard::GetName() const {
+	return "jpeg-hard";
+}
+
+uni::ImageFormat uni::JPEGCodecHard::GetFormat() const {
+	return uni::ImageFormat::JPEG;
+}
+
+const char* const* uni::JPEGCodecHard::GetExtensions() const {
+	static const char* const exts[] = { "jpg", "jpeg", nullptr };
+	return exts;
+}
+
+uni::ImageResult uni::JPEGCodecHard::Probe(StorageTrait& storage, bool& matched) const {
+	// JPEG file starts with SOI marker 0xFF 0xD8.
+	matched = false;
+	byte b[2];
+	if (storage.Read(0, b, 2, nullptr) != 2) return uni::ImageResult::IO_ERROR;
+	if (b[0] == 0xFF && b[1] == 0xD8) matched = true;
+	return uni::ImageResult::OK;
+}
+
+uni::ImageResult uni::JPEGCodecHard::ReadInfo(StorageTrait& storage, ImageInfo& outInfo) const {
+	// Read the whole file into memory, decode with hardware, then report dims.
+	// (Simplified: reuse Decode's path but only fill ImageInfo.)
+	ImageBuffer buf;
+	uni::ImageBufferClear(buf);
+	// need an allocator; use a local heap via the injected jpeg driver not needed.
+	// Simplest: full decode then copy metadata.
+	// Use a temporary Malloc wrapper over a static buffer is messy; instead decode into
+	// a caller-provided buffer is not available here, so return UNSUPPORTED for ReadInfo
+	// unless we implement a light header parse. We parse the JPEG header (SOF) directly.
+	byte hdr[256];
+	byte block[512];
+	stduint maxStorageSize = storage.getUnits() * storage.Block_Size;
+	if (maxStorageSize < 4) return uni::ImageResult::INVALID_FORMAT;
+	stduint toRead = maxStorageSize < sizeof(hdr) ? maxStorageSize : sizeof(hdr);
+	stduint got = storage.Read(0, hdr, toRead, block);
+	// scan for SOF0/SOF2 marker (0xFFC0 / 0xFFC2) to read height/width/ns
+	stduint i = 2;
+	while (i + 8 < got) {
+		if (hdr[i] != 0xFF) { i++; continue; }
+		byte m = hdr[i + 1];
+		if (m == 0xC0 || m == 0xC1 || m == 0xC2 || m == 0xC3) {
+			outInfo.height = ((uint16)hdr[i + 5] << 8) | hdr[i + 6];
+			outInfo.width  = ((uint16)hdr[i + 7] << 8) | hdr[i + 8];
+			byte ns = hdr[i + 9];
+			outInfo.format = PixelFormat::ARGB8888;
+			outInfo.colorSpace = (ns == 1) ? ColorSpace::GRAY : (ns == 4 ? ColorSpace::CMYK : ColorSpace::SRGB);
+			outInfo.alphaMode = ImageAlphaMode::NONE;
+			outInfo.fileFormat = ImageFormat::JPEG;
+			outInfo.bitsPerPixel = 24;
+			outInfo.frameCount = 1;
+			outInfo.hasAlpha = false;
+			outInfo.hasAnimation = false;
+			return uni::ImageResult::OK;
+		}
+		// skip segment
+		if (m == 0xD8 || m == 0xD9) { i += 2; continue; }
+		stduint segLen = ((uint16)hdr[i + 2] << 8) | hdr[i + 3];
+		i += 2 + segLen;
+	}
+	return uni::ImageResult::INVALID_FORMAT;
+}
+
+uni::ImageResult uni::JPEGCodecHard::OpenSurface(
+	StorageTrait& storage,
+	IImageSurface*& outSurface,
+	trait::Malloc& allocator,
+	const ImageDecodeOptions& options,
+	ImageAccessMode access
+) const {
+	(void)storage; (void)outSurface; (void)allocator; (void)options; (void)access;
+	return uni::ImageResult::UNSUPPORTED;
+}
+
+// YCbCr -> RGB888 (single pixel), integer BT.601 coefficients (scaled <<10).
+static inline void YCbCrToRGB(int y, int cb, int cr, byte& r, byte& g, byte& b) {
+	int yy = y << 10;
+	int rr = yy + 1436 * (cr - 128);
+	int gg = yy - 352 * (cb - 128) - 731 * (cr - 128);
+	int bb = yy + 1815 * (cb - 128);
+	rr >>= 10; gg >>= 10; bb >>= 10;
+	if (rr < 0) rr = 0; else if (rr > 255) rr = 255;
+	if (gg < 0) gg = 0; else if (gg > 255) gg = 255;
+	if (bb < 0) bb = 0; else if (bb > 255) bb = 255;
+	r = (byte)rr; g = (byte)gg; b = (byte)bb;
+}
+
+uni::ImageResult uni::JPEGCodecHard::Decode(
+	StorageTrait& storage,
+	ImageBuffer& outBuffer,
+	trait::Malloc& allocator,
+	const ImageDecodeOptions& options
+) const {
+#if !defined(_MCU_STM32H7x)
+	(void)storage; (void)outBuffer; (void)allocator; (void)options;
+	return uni::ImageResult::UNSUPPORTED;
+#else
+	// Read whole JPEG stream.
+	stduint maxStorageSize = storage.getUnits() * storage.Block_Size;
+	if (maxStorageSize < 4) return uni::ImageResult::INVALID_FORMAT;
+	byte* stream = (byte*)allocator.allocate(maxStorageSize);
+	if (!stream) return uni::ImageResult::OUT_OF_MEMORY;
+	byte block[512];
+	stduint got = storage.Read(0, stream, maxStorageSize, block);
+	if (got < 4) { allocator.deallocate(stream, maxStorageSize); return uni::ImageResult::INVALID_FORMAT; }
+
+	// Initialize hardware + header parsing.
+	if (!jpeg.setMode()) { allocator.deallocate(stream, maxStorageSize); return uni::ImageResult::FAILED; }
+
+	// Parse dimensions + subsampling from the JPEG stream SOF segment.
+	stduint width = 0, height = 0;
+	JPEGSubsampling subsampling = JPEGSubsampling::_444;
+	{
+		stduint i = 2;
+		while (i + 8 < got) {
+			if (stream[i] != 0xFF) { i++; continue; }
+			byte m = stream[i + 1];
+			if (m == 0xC0 || m == 0xC1 || m == 0xC2 || m == 0xC3) {
+				height = ((uint16)stream[i + 5] << 8) | stream[i + 6];
+				width  = ((uint16)stream[i + 7] << 8) | stream[i + 8];
+				byte ns = stream[i + 9];
+				// subsampling from first component's H/V sampling factors (byte 11/12)
+				if (ns >= 1) {
+					byte hv = stream[i + 11];
+					byte h = (hv >> 4) & 0xF, v = hv & 0xF;
+					if (h == 2 && v == 2) subsampling = JPEGSubsampling::_420;
+					else if (h == 2 && v == 1) subsampling = JPEGSubsampling::_422;
+					else subsampling = JPEGSubsampling::_444;
+				}
+				break;
+			}
+			if (m == 0xD8 || m == 0xD9) { i += 2; continue; }
+			stduint segLen = ((uint16)stream[i + 2] << 8) | stream[i + 3];
+			i += 2 + segLen;
+		}
+	}
+	if (!width || !height) { allocator.deallocate(stream, maxStorageSize); return uni::ImageResult::INVALID_FORMAT; }
+
+	// Hardware decode into a YCbCr buffer (JPEG outputs interleaved YCbCr blocks).
+	// Output buffer size: worst case ~3 bytes/pixel.
+	stduint ycbcrSize = width * height * 3 + 64;
+	byte* ycbcr = (byte*)allocator.allocate(ycbcrSize);
+	if (!ycbcr) { allocator.deallocate(stream, maxStorageSize); return uni::ImageResult::OUT_OF_MEMORY; }
+
+	jpeg.inn_buffer = { (stduint)stream, got };
+	jpeg.out_buffer = { (stduint)ycbcr, ycbcrSize };
+	if (!jpeg.Decode(stream, got, ycbcr, ycbcrSize, IOMethod::Loop)) {
+		allocator.deallocate(stream, maxStorageSize); allocator.deallocate(ycbcr, ycbcrSize);
+		return uni::ImageResult::FAILED;
+	}
+
+	// Output pixel format: follow user's preference; default to RGBA8888 (ARGB8888).
+	PixelFormat outFmt = options.preferredFormat;
+	if (outFmt != PixelFormat::RGB888 && outFmt != PixelFormat::RGB565 &&
+		outFmt != PixelFormat::RGBA8888 && outFmt != PixelFormat::ARGB8888)
+		outFmt = PixelFormat::ARGB8888;
+
+	// DMA2D: YCbCr interleaved -> RGB (hardware color conversion).
+	// Map JPEGSubsampling -> DMA2D ChromaSubSampling.
+	uni::ChromaSubSampling css;
+	switch (subsampling) {
+	case JPEGSubsampling::_420: css = uni::ChromaSubSampling::_420; break;
+	case JPEGSubsampling::_422: css = uni::ChromaSubSampling::_422; break;
+	default:                    css = uni::ChromaSubSampling::None; break;
+	}
+
+	uni::DMA2D_LAYER_t::LayerPara lp;
+	lp.pixel_format = PixelFormat::YCbCr;
+	lp.chroma_sub_sampling = css;
+	lp.alpha_mode = uni::AlphaMode::NoModification;
+	lp.input_alpha = 0xFF;
+
+	size_t outBytesPerPx = 4;
+	switch (outFmt) {
+	case PixelFormat::RGB888: outBytesPerPx = 3; break;
+	case PixelFormat::RGB565: outBytesPerPx = 2; break;
+	default: outBytesPerPx = 4; break;
+	}
+	size_t rgbSize = (size_t)width * height * outBytesPerPx;
+	void* rgb = allocator.allocate(rgbSize);
+	if (!rgb) { allocator.deallocate(stream, maxStorageSize); allocator.deallocate(ycbcr, ycbcrSize); return uni::ImageResult::OUT_OF_MEMORY; }
+
+	// Configure DMA2D: M2M with pixel format conversion, foreground = YCbCr source.
+	if (!DMA2D.setMode(uni::DMA2DMode::M2MPFC, outFmt)) {
+		allocator.deallocate(rgb, rgbSize); allocator.deallocate(stream, maxStorageSize); allocator.deallocate(ycbcr, ycbcrSize);
+		return uni::ImageResult::FAILED;
+	}
+	DMA2D[1].setMode(lp);
+	// Transfer whole image: source YCbCr (input_offset 0), dst rgb.
+	if (!DMA2D.Transfer((pureptr_t)ycbcr, (pureptr_t)rgb, width, height, 0, IOMethod::Loop)) {
+		allocator.deallocate(rgb, rgbSize); allocator.deallocate(stream, maxStorageSize); allocator.deallocate(ycbcr, ycbcrSize);
+		return uni::ImageResult::FAILED;
+	}
+
+	allocator.deallocate(stream, maxStorageSize);
+	allocator.deallocate(ycbcr, ycbcrSize);
+
+	outBuffer.width = (uint32)width;
+	outBuffer.height = (uint32)height;
+	outBuffer.stride = width * outBytesPerPx;
+	outBuffer.format = outFmt;
+	outBuffer.colorSpace = ColorSpace::SRGB;
+	outBuffer.alphaMode = ImageAlphaMode::NONE;
+	outBuffer.pixels = rgb;
+	outBuffer.size = rgbSize;
+	outBuffer.allocator = &allocator;
+
+	return uni::ImageResult::OK;
+#endif
+}
+
+// RGB -> YCbCr (single pixel), integer BT.601 (scaled <<10). Returns packed YCbCr (24-bit).
+static inline uint32 RGBToYCbCr(byte r, byte g, byte b) {
+	int yy = (66 * (int)r + 129 * (int)g + 25 * (int)b + 128) >> 8;
+	int cb = (-38 * (int)r - 74 * (int)g + 112 * (int)b + 128) >> 8;
+	int cr = (112 * (int)r - 94 * (int)g - 18 * (int)b + 128) >> 8;
+	yy += 16; cb += 128; cr += 128;
+	return ((uint32)(byte)yy) | ((uint32)(byte)cb << 8) | ((uint32)(byte)cr << 16);
+}
+
+uni::ImageResult uni::JPEGCodecHard::Encode(
+	const ImageBuffer& image,
+	StorageTrait& storage,
+	trait::Malloc& allocator,
+	const ImageEncodeOptions& options
+) const {
+#if !defined(_MCU_STM32H7x)
+	(void)image; (void)storage; (void)allocator; (void)options;
+	return uni::ImageResult::UNSUPPORTED;
+#else
+	(void)allocator;
+	if (!image.pixels || !image.width || !image.height) return uni::ImageResult::INVALID_ARGUMENT;
+	// Configure hardware encoder from the image.
+	jpeg.image_width = image.width;
+	jpeg.image_height = image.height;
+	jpeg.image_quality = options.quality ? (byte)options.quality : 90;
+	// Choose color space / subsampling from image format.
+	bool gray = false;
+	switch (image.format) {
+	case PixelFormat::L8:
+		jpeg.color_space = JPEGColorSpace::Gray;
+		jpeg.subsampling = JPEGSubsampling::_444;
+		gray = true;
+		break;
+	case PixelFormat::RGB888:
+	case PixelFormat::RGBA8888:
+	case PixelFormat::ARGB8888:
+		jpeg.color_space = JPEGColorSpace::YCbCr;
+		jpeg.subsampling = JPEGSubsampling::_444;
+		break;
+	default:
+		return uni::ImageResult::INVALID_ARGUMENT;
+	}
+	if (!jpeg.setMode()) return uni::ImageResult::FAILED;
+	if (!jpeg.ConfigEncoding()) return uni::ImageResult::FAILED;
+
+	// Convert RGB(A) pixels to YCbCr interleaved (Y,Cb,Cr per pixel, 444 here).
+	// For 4:4:4 the hardware encoder consumes one YCbCr triple per pixel.
+	size_t pxCount = (size_t)image.width * image.height;
+	size_t ycbcrSize = pxCount * 3;
+	byte* ycbcr = (byte*)allocator.allocate(ycbcrSize);
+	if (!ycbcr) return uni::ImageResult::OUT_OF_MEMORY;
+
+	const byte* src = (const byte*)image.pixels;
+	size_t stride = image.stride ? image.stride : (size_t)image.width * (image.format == PixelFormat::RGB888 ? 3 : 4);
+	for (size_t y = 0; y < image.height; y++) {
+		const byte* row = src + y * stride;
+		for (size_t x = 0; x < image.width; x++) {
+			size_t dstIdx = (y * image.width + x) * 3;
+			if (gray) {
+				byte g0 = row[x];
+				ycbcr[dstIdx] = g0;
+				ycbcr[dstIdx + 1] = 128;
+				ycbcr[dstIdx + 2] = 128;
+			} else {
+				// little-endian Color layout: b,g,r,a (see color.h union)
+				byte b = row[x * 4 + 0];
+				byte g = row[x * 4 + 1];
+				byte r = row[x * 4 + 2];
+				uint32 p = RGBToYCbCr(r, g, b);
+				ycbcr[dstIdx] = (byte)(p & 0xFF);
+				ycbcr[dstIdx + 1] = (byte)((p >> 8) & 0xFF);
+				ycbcr[dstIdx + 2] = (byte)((p >> 16) & 0xFF);
+			}
+		}
+	}
+
+	// Hardware encode: YCbCr input -> JPEG stream.
+	byte* jpegOut = (byte*)allocator.allocate(pxCount + 1024);
+	if (!jpegOut) { allocator.deallocate(ycbcr, ycbcrSize); return uni::ImageResult::OUT_OF_MEMORY; }
+	bool ok = jpeg.Encode(ycbcr, ycbcrSize, jpegOut, pxCount + 1024, IOMethod::Loop);
+	allocator.deallocate(ycbcr, ycbcrSize);
+	if (!ok) { allocator.deallocate(jpegOut, pxCount + 1024); return uni::ImageResult::FAILED; }
+
+	// Write JPEG stream into storage.
+	// Determine written length: out_buffer.length reflects consumed output.
+	stduint outLen = jpeg.out_buffer.length;
+	byte block[512];
+	stduint wlen = storage.Write(0, jpegOut, outLen, block);
+	allocator.deallocate(jpegOut, pxCount + 1024);
+	if (wlen != outLen) return uni::ImageResult::IO_ERROR;
+
+	return uni::ImageResult::OK;
+#endif
+}
+
+bool uni::JPEGCodecHard::CanEncode(PixelFormat format) const {
+	switch (format) {
+	case PixelFormat::L8:
+	case PixelFormat::RGB888:
+	case PixelFormat::RGBA8888:
+	case PixelFormat::ARGB8888:
+		return true;
+	default:
+		return false;
+	}
+}
+

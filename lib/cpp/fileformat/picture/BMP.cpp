@@ -317,6 +317,197 @@ uni::ImageResult uni::BMPCodec::ReadInfo(StorageTrait& storage, ImageInfo& outIn
 	return uni::ImageResult::OK;
 }
 
+namespace {
+
+	class BMPSurface : public uni::IImageSurface {
+	private:
+		uni::StorageTrait* storage;
+		uni::ImageInfo     info;
+		uint32             bfOffBits;
+		uint16             bitCount;
+		uint32             rowSize;
+		int32              rawHeight; // > 0: bottom-up, < 0: top-down
+		RGBQUAD            palette[256];
+		uint32             numColors;
+		uni::trait::Malloc* allocator;
+
+	public:
+		BMPSurface(uni::StorageTrait& stg, const uni::ImageInfo& inf, uint32 offBits, uint16 bpp, uint32 rSize, int32 rHeight, const RGBQUAD* pal, uint32 palCount, uni::trait::Malloc& alloc)
+			: storage(&stg), info(inf), bfOffBits(offBits), bitCount(bpp), rowSize(rSize), rawHeight(rHeight), numColors(palCount), allocator(&alloc) {
+			if (pal && palCount) {
+				MemCopyN(palette, pal, (palCount > 256 ? 256 : palCount) * sizeof(RGBQUAD));
+			}
+		}
+
+		virtual ~BMPSurface() = default;
+
+		virtual void Release() override {
+			uni::trait::Malloc* alloc = allocator;
+			this->~BMPSurface();
+			if (alloc) {
+				alloc->deallocate(this);
+			}
+		}
+
+		virtual uni::ImageResult GetInfo(uni::ImageInfo& outInfo) const override {
+			outInfo = info;
+			return uni::ImageResult::OK;
+		}
+
+		virtual uni::ImageSurfaceCapability GetCapabilities() const override {
+			return uni::ImageSurfaceCapability::FULL_READ | uni::ImageSurfaceCapability::REGION_READ |
+				   uni::ImageSurfaceCapability::SCANLINE_READ | uni::ImageSurfaceCapability::RANDOM_STORAGE;
+		}
+
+		virtual uni::ImageResult GetMetadata(uni::IImageMetadata*& outMetadata) override {
+			outMetadata = nullptr;
+			return uni::ImageResult::NOT_FOUND;
+		}
+
+		virtual uni::ImageResult ReadPixels(
+			const uni::Rectangle& rect,
+			uni::ImageBuffer& outBuffer,
+			uni::trait::Malloc& alloc
+		) override {
+			int rx = rect.x;
+			int ry = rect.y;
+			int rw = rect.width;
+			int rh = rect.height;
+
+			if (rx < 0 || ry < 0 || rx + rw > (int)info.width || ry + rh > (int)info.height || rw <= 0 || rh <= 0) {
+				return uni::ImageResult::INVALID_ARGUMENT;
+			}
+
+			size_t neededSize = (size_t)rw * (size_t)rh * sizeof(uni::Color);
+			void* pixelsMem = outBuffer.pixels;
+			bool ownsMem = false;
+			if (!pixelsMem) {
+				pixelsMem = alloc.allocate(neededSize);
+				if (!pixelsMem) return uni::ImageResult::OUT_OF_MEMORY;
+				ownsMem = true;
+			}
+
+			uni::Color* outPixels = (uni::Color*)pixelsMem;
+			byte* rowBuf = (byte*)malloc(rowSize);
+			if (!rowBuf) {
+				if (ownsMem) alloc.deallocate(pixelsMem);
+				return uni::ImageResult::OUT_OF_MEMORY;
+			}
+
+			stduint block_size = storage->Block_Size ? storage->Block_Size : 512;
+			byte* block_buf = nullptr;
+			bool is_dyn = false;
+			byte stack_buf[2048];
+			if (block_size <= 2048) {
+				block_buf = stack_buf;
+			} else {
+				block_buf = (byte*)malloc(block_size);
+				if (!block_buf) {
+					free(rowBuf);
+					if (ownsMem) alloc.deallocate(pixelsMem);
+					return uni::ImageResult::OUT_OF_MEMORY;
+				}
+				is_dyn = true;
+			}
+
+			for (int line = 0; line < rh; ++line) {
+				int y = ry + line;
+				int diskRow = (rawHeight > 0) ? ((int)info.height - 1 - y) : y;
+				stduint fileOffset = bfOffBits + (stduint)diskRow * rowSize;
+
+				stduint readBytes = storage->Read(fileOffset, rowBuf, rowSize, block_buf);
+				if (readBytes != rowSize) {
+					if (is_dyn) free(block_buf);
+					free(rowBuf);
+					if (ownsMem) alloc.deallocate(pixelsMem);
+					return uni::ImageResult::FAILED;
+				}
+
+				uni::Color* destRow = outPixels + line * rw;
+				for (int col = 0; col < rw; ++col) {
+					int x = rx + col;
+					uni::Color c(0);
+					switch (bitCount) {
+					case 1: {
+						byte b = rowBuf[x / 8];
+						byte idx = (b >> (7 - (x % 8))) & 0x01;
+						if (idx < numColors) {
+							c.r = palette[idx].rgbRed;
+							c.g = palette[idx].rgbGreen;
+							c.b = palette[idx].rgbBlue;
+							c.a = 0xFF;
+						}
+						break;
+					}
+					case 4: {
+						byte b = rowBuf[x / 2];
+						byte idx = (x % 2 == 0) ? ((b >> 4) & 0x0F) : (b & 0x0F);
+						if (idx < numColors) {
+							c.r = palette[idx].rgbRed;
+							c.g = palette[idx].rgbGreen;
+							c.b = palette[idx].rgbBlue;
+							c.a = 0xFF;
+						}
+						break;
+					}
+					case 8: {
+						byte idx = rowBuf[x];
+						if (idx < numColors) {
+							c.r = palette[idx].rgbRed;
+							c.g = palette[idx].rgbGreen;
+							c.b = palette[idx].rgbBlue;
+							c.a = 0xFF;
+						}
+						break;
+					}
+					case 24: {
+						const byte* p = rowBuf + x * 3;
+						c.b = p[0];
+						c.g = p[1];
+						c.r = p[2];
+						c.a = 0xFF;
+						break;
+					}
+					case 32: {
+						const byte* p = rowBuf + x * 4;
+						c.b = p[0];
+						c.g = p[1];
+						c.r = p[2];
+						c.a = p[3];
+						break;
+					}
+					}
+					destRow[col] = c;
+				}
+			}
+
+			if (is_dyn) free(block_buf);
+			free(rowBuf);
+
+			outBuffer.width = (uint32)rw;
+			outBuffer.height = (uint32)rh;
+			outBuffer.stride = (uint32)(rw * sizeof(uni::Color));
+			outBuffer.format = uni::PixelFormat::ARGB8888;
+			outBuffer.colorSpace = uni::ColorSpace::SRGB;
+			outBuffer.alphaMode = (bitCount == 32) ? uni::ImageAlphaMode::STRAIGHT : uni::ImageAlphaMode::NONE;
+			outBuffer.pixels = pixelsMem;
+			outBuffer.size = neededSize;
+			outBuffer.allocator = ownsMem ? &alloc : nullptr;
+
+			return uni::ImageResult::OK;
+		}
+
+		virtual uni::ImageResult WritePixels(const uni::Rectangle& rect, const uni::ImageBuffer& srcBuffer) override {
+			return uni::ImageResult::UNSUPPORTED;
+		}
+
+		virtual uni::ImageResult Flush() override {
+			return uni::ImageResult::OK;
+		}
+	};
+
+}
+
 uni::ImageResult uni::BMPCodec::OpenSurface(
 	StorageTrait& storage,
 	IImageSurface*& outSurface,
@@ -324,7 +515,63 @@ uni::ImageResult uni::BMPCodec::OpenSurface(
 	const ImageDecodeOptions& options,
 	ImageAccessMode access
 ) const {
-	return uni::ImageResult::UNSUPPORTED;
+	if (access == ImageAccessMode::READ_WRITE) {
+		return uni::ImageResult::UNSUPPORTED;
+	}
+
+	ImageInfo info;
+	uni::ImageResult res = ReadInfo(storage, info);
+	if (res != uni::ImageResult::OK) return res;
+
+	BITMAPFILEHEADER fileHeader;
+	BITMAPINFOHEADER infoHeader;
+
+	stduint block_size = storage.Block_Size ? storage.Block_Size : 512;
+	byte* block_buf = nullptr;
+	bool is_dyn = false;
+	byte stack_buf[2048];
+	if (block_size <= 2048) {
+		block_buf = stack_buf;
+	} else {
+		block_buf = (byte*)malloc(block_size);
+		if (!block_buf) return uni::ImageResult::OUT_OF_MEMORY;
+		is_dyn = true;
+	}
+
+	stduint read_bytes = storage.Read(0, &fileHeader, sizeof(fileHeader), block_buf);
+	if (read_bytes == sizeof(fileHeader)) {
+		read_bytes = storage.Read(sizeof(fileHeader), &infoHeader, sizeof(infoHeader), block_buf);
+	}
+
+	RGBQUAD palette[256];
+	uint32 numColors = 0;
+	if (infoHeader.biBitCount <= 8) {
+		numColors = infoHeader.biClrUsed > 0 ? infoHeader.biClrUsed : (1 << infoHeader.biBitCount);
+		if (numColors > 256) numColors = 256;
+		storage.Read(sizeof(BITMAPFILEHEADER) + infoHeader.biSize, palette, numColors * sizeof(RGBQUAD), block_buf);
+	}
+
+	if (is_dyn) free(block_buf);
+
+	uint32 rowSize = 0;
+	switch (infoHeader.biBitCount) {
+	case 1:  rowSize = ((info.width + 31) / 32) * 4; break;
+	case 4:  rowSize = ((info.width + 7) / 8) * 4;   break;
+	case 8:  rowSize = ((info.width + 3) / 4) * 4;   break;
+	case 24: rowSize = ((info.width * 3 + 3) / 4) * 4; break;
+	case 32: rowSize = info.width * 4; break;
+	default: return uni::ImageResult::UNSUPPORTED;
+	}
+
+	void* mem = allocator.allocate(sizeof(BMPSurface));
+	if (!mem) return uni::ImageResult::OUT_OF_MEMORY;
+
+	BMPSurface* surf = new (mem) BMPSurface(
+		storage, info, fileHeader.bfOffBits, infoHeader.biBitCount,
+		rowSize, infoHeader.biHeight, palette, numColors, allocator
+	);
+	outSurface = surf;
+	return uni::ImageResult::OK;
 }
 
 uni::ImageResult uni::BMPCodec::Decode(

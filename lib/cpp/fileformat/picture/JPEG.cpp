@@ -929,6 +929,126 @@ uni::ImageResult uni::JPEGCodec::ReadInfo(StorageTrait& storage, ImageInfo& outI
 	return uni::ImageResult::INVALID_FORMAT;
 }
 
+namespace {
+
+	class JPEGSurface : public uni::IImageSurface {
+	private:
+		uni::StorageTrait* storage;
+		uni::ImageInfo     info;
+		uni::trait::Malloc* allocator;
+
+	public:
+		JPEGSurface(uni::StorageTrait& stg, const uni::ImageInfo& inf, uni::trait::Malloc& alloc)
+			: storage(&stg), info(inf), allocator(&alloc) {
+		}
+
+		virtual ~JPEGSurface() = default;
+
+		virtual void Release() override {
+			uni::trait::Malloc* alloc = allocator;
+			this->~JPEGSurface();
+			if (alloc) {
+				alloc->deallocate(this);
+			}
+		}
+
+		virtual uni::ImageResult GetInfo(uni::ImageInfo& outInfo) const override {
+			outInfo = info;
+			return uni::ImageResult::OK;
+		}
+
+		virtual uni::ImageSurfaceCapability GetCapabilities() const override {
+			return uni::ImageSurfaceCapability::FULL_READ | uni::ImageSurfaceCapability::REGION_READ |
+				   uni::ImageSurfaceCapability::SCANLINE_READ;
+		}
+
+		virtual uni::ImageResult GetMetadata(uni::IImageMetadata*& outMetadata) override {
+			outMetadata = nullptr;
+			return uni::ImageResult::NOT_FOUND;
+		}
+
+		virtual uni::ImageResult ReadPixels(
+			const uni::Rectangle& rect,
+			uni::ImageBuffer& outBuffer,
+			uni::trait::Malloc& alloc
+		) override {
+			int rx = rect.x;
+			int ry = rect.y;
+			int rw = rect.width;
+			int rh = rect.height;
+
+			if (rx < 0 || ry < 0 || rx + rw > (int)info.width || ry + rh > (int)info.height || rw <= 0 || rh <= 0) {
+				return uni::ImageResult::INVALID_ARGUMENT;
+			}
+
+			stduint maxStorageSize = storage->getUnits() * storage->Block_Size;
+			if (maxStorageSize < 4) return uni::ImageResult::INVALID_FORMAT;
+
+			stduint blockSize = storage->Block_Size ? storage->Block_Size : 512;
+			byte* blockBuf = (byte*)malloc(blockSize);
+			if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
+
+			byte* fileData = (byte*)malloc(maxStorageSize);
+			if (!fileData) {
+				free(blockBuf);
+				return uni::ImageResult::OUT_OF_MEMORY;
+			}
+
+			stduint totalRead = storage->Read(0, fileData, maxStorageSize, blockBuf);
+			free(blockBuf);
+
+			int decWidth = 0, decHeight = 0;
+			uni::Color* fullPixels = DecodeJPEG(fileData, totalRead, &decWidth, &decHeight);
+			free(fileData);
+
+			if (!fullPixels) {
+				return uni::ImageResult::FAILED;
+			}
+
+			size_t neededSize = (size_t)rw * (size_t)rh * sizeof(uni::Color);
+			void* pixelsMem = outBuffer.pixels;
+			bool ownsMem = false;
+			if (!pixelsMem) {
+				pixelsMem = alloc.allocate(neededSize);
+				if (!pixelsMem) {
+					free(fullPixels);
+					return uni::ImageResult::OUT_OF_MEMORY;
+				}
+				ownsMem = true;
+			}
+
+			uni::Color* outPixels = (uni::Color*)pixelsMem;
+			for (int line = 0; line < rh; ++line) {
+				int srcY = ry + line;
+				MemCopyN(outPixels + line * rw, fullPixels + srcY * decWidth + rx, rw * sizeof(uni::Color));
+			}
+
+			free(fullPixels);
+
+			outBuffer.width = (uint32)rw;
+			outBuffer.height = (uint32)rh;
+			outBuffer.stride = (uint32)(rw * sizeof(uni::Color));
+			outBuffer.format = uni::PixelFormat::ARGB8888;
+			outBuffer.colorSpace = uni::ColorSpace::SRGB;
+			outBuffer.alphaMode = uni::ImageAlphaMode::NONE;
+			outBuffer.pixels = pixelsMem;
+			outBuffer.size = neededSize;
+			outBuffer.allocator = ownsMem ? &alloc : nullptr;
+
+			return uni::ImageResult::OK;
+		}
+
+		virtual uni::ImageResult WritePixels(const uni::Rectangle& rect, const uni::ImageBuffer& srcBuffer) override {
+			return uni::ImageResult::UNSUPPORTED;
+		}
+
+		virtual uni::ImageResult Flush() override {
+			return uni::ImageResult::OK;
+		}
+	};
+
+}
+
 uni::ImageResult uni::JPEGCodec::OpenSurface(
 	StorageTrait& storage,
 	IImageSurface*& outSurface,
@@ -936,7 +1056,20 @@ uni::ImageResult uni::JPEGCodec::OpenSurface(
 	const ImageDecodeOptions& options,
 	ImageAccessMode access
 ) const {
-	return uni::ImageResult::UNSUPPORTED;
+	if (access == ImageAccessMode::READ_WRITE) {
+		return uni::ImageResult::UNSUPPORTED;
+	}
+
+	ImageInfo info;
+	uni::ImageResult res = ReadInfo(storage, info);
+	if (res != uni::ImageResult::OK) return res;
+
+	void* mem = allocator.allocate(sizeof(JPEGSurface));
+	if (!mem) return uni::ImageResult::OUT_OF_MEMORY;
+
+	JPEGSurface* surf = new (mem) JPEGSurface(storage, info, allocator);
+	outSurface = surf;
+	return uni::ImageResult::OK;
 }
 
 uni::ImageResult uni::JPEGCodec::Decode(

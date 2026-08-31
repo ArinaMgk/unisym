@@ -582,6 +582,26 @@ namespace uni {
 			options.reserved[i] = 0;
 		}
 	}
+
+	// Image processing algorithms operating on ImageBuffer.
+	namespace PictureOperation {
+
+		// Compute the largest destination size that keeps the source aspect ratio
+		// and fits entirely inside a box of box_w x box_h. Both dimensions are
+		// clamped to at least 1 pixel. No centering is applied; the caller decides
+		// the offset when blitting.
+		void FitAspect(stduint src_w, stduint src_h, stduint box_w, stduint box_h, stduint& dst_w, stduint& dst_h);
+
+		// Nearest-neighbor scale of a source ImageBuffer into a destination buffer.
+		// dst is allocated via allocator with the requested dst_format; its width,
+		// height, stride and format are filled on success. Supported source and
+		// destination formats: RGB565, RGB888, RGBA8888, ARGB8888, L8 (gray).
+		// Any other format returns INVALID_ARGUMENT. The destination is cleared
+		// before scaling, so on failure it stays an empty buffer.
+		ImageResult ScaleNearest(const ImageBuffer& src, ImageBuffer& dst, stduint dst_w, stduint dst_h, PixelFormat dst_format, trait::Malloc& allocator);
+
+	} // namespace PictureOperation
+
 }
 
 #endif // _INC_PICTURE

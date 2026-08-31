@@ -707,6 +707,11 @@
           <GroupName>Em_Engine</GroupName>
           <Files>
             <File>
+              <FileName>Picture.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\System\Picture.cpp</FilePath>
+            </File>
+            <File>
               <FileName>GPE-JPEG.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\Graphic\GPE-JPEG.cpp</FilePath>

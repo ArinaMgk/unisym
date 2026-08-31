@@ -4,8 +4,8 @@
 // Copyright: UNISYM
 
 #include "../../../../inc/c/format/picture/GIF.h"
-#include <stdlib.h>
-#include <string.h>
+#include "../../../../inc/c/ustring.h"
+
 
 namespace {
 
@@ -69,9 +69,21 @@ namespace {
 	};
 
 	// Decodes GIF LZW compressed image pixel stream
-	static bool DecodeGIF_LZW(const byte* fileData, size_t fileSize, size_t& pos,
-							  byte* outPixels, size_t expectedPixelCount) {
+	struct GIFLZWContext {
+		int16 prefix[4096];
+		byte  suffix[4096];
+		byte  stack[4096];
+	};
+
+	static bool DecodeGIF_LZW(
+		const byte* fileData,
+		size_t fileSize,
+		size_t& pos,
+		byte* outPixels,
+		size_t expectedPixelCount
+	) {
 		if (pos >= fileSize) return false;
+
 		byte minCodeSize = fileData[pos++];
 		if (minCodeSize < 2 || minCodeSize > 11) return false;
 
@@ -81,14 +93,13 @@ namespace {
 		int maxCode = 1 << codeSize;
 		int nextCode = eoiCode + 1;
 
-		int16 prefix[4096];
-		byte  suffix[4096];
-		byte  stack[4096];
-		int   stackPtr = 0;
+		GIFLZWContext* ctx = (GIFLZWContext*)malloc(sizeof(GIFLZWContext));
+		if (!ctx) return false;
+		int stackPtr = 0;
 
 		for (int i = 0; i < clearCode; ++i) {
-			prefix[i] = -1;
-			suffix[i] = (byte)i;
+			ctx->prefix[i] = -1;
+			ctx->suffix[i] = (byte)i;
 		}
 
 		GIFBitStream bs;
@@ -117,22 +128,23 @@ namespace {
 				if (code > nextCode || prevCode < 0) {
 					bs.SkipRemainingSubBlocks();
 					pos = bs.pos;
+					free(ctx);
 					return false;
 				}
-				stack[stackPtr++] = (byte)firstChar;
+				ctx->stack[stackPtr++] = (byte)firstChar;
 				code = prevCode;
 			}
 
 			while (code >= clearCode && code < 4096) {
-				stack[stackPtr++] = suffix[code];
-				code = prefix[code];
+				ctx->stack[stackPtr++] = ctx->suffix[code];
+				code = ctx->prefix[code];
 			}
-			firstChar = suffix[code];
-			stack[stackPtr++] = (byte)firstChar;
+			firstChar = ctx->suffix[code];
+			ctx->stack[stackPtr++] = (byte)firstChar;
 
 			if (prevCode >= 0 && nextCode < 4096) {
-				prefix[nextCode] = (int16)prevCode;
-				suffix[nextCode] = (byte)firstChar;
+				ctx->prefix[nextCode] = (int16)prevCode;
+				ctx->suffix[nextCode] = (byte)firstChar;
 				nextCode++;
 				if (nextCode >= maxCode && codeSize < 12) {
 					codeSize++;
@@ -142,12 +154,13 @@ namespace {
 			prevCode = inCode;
 
 			while (stackPtr > 0 && outIndex < expectedPixelCount) {
-				outPixels[outIndex++] = stack[--stackPtr];
+				outPixels[outIndex++] = ctx->stack[--stackPtr];
 			}
 		}
 
 		bs.SkipRemainingSubBlocks();
 		pos = bs.pos;
+		free(ctx);
 		return true;
 	}
 
@@ -183,7 +196,7 @@ bool DecodeGIFAnimation(const byte* fileData, size_t fileSize, GIFAnimation& out
 	}
 
 	// Verify GIF header: "GIF87a" or "GIF89a"
-	if (memcmp(fileData, "GIF87a", 6) != 0 && memcmp(fileData, "GIF89a", 6) != 0) {
+	if (MemCompare((const char*)fileData, "GIF87a", 6) != 0 && MemCompare((const char*)fileData, "GIF89a", 6) != 0) {
 		return false;
 	}
 
@@ -201,13 +214,13 @@ bool DecodeGIFAnimation(const byte* fileData, size_t fileSize, GIFAnimation& out
 	int gctSize = 1 << ((screenPacked & 0x07) + 1);
 
 	byte globalPalette[256 * 3];
-	memset(globalPalette, 0, sizeof(globalPalette));
+	MemSet(globalPalette, 0, sizeof(globalPalette));
 
 	size_t pos = 13;
 	if (hasGct) {
 		size_t gctBytes = (size_t)gctSize * 3;
 		if (pos + gctBytes > fileSize) return false;
-		memcpy(globalPalette, fileData + pos, gctBytes);
+		MemCopyN(globalPalette, fileData + pos, gctBytes);
 		pos += gctBytes;
 	}
 
@@ -301,7 +314,7 @@ bool DecodeGIFAnimation(const byte* fileData, size_t fileSize, GIFAnimation& out
 			if (hasLct) {
 				size_t lctBytes = (size_t)lctSize * 3;
 				if (pos + lctBytes > fileSize) break;
-				memcpy(localPalette, fileData + pos, lctBytes);
+				MemCopyN(localPalette, fileData + pos, lctBytes);
 				pos += lctBytes;
 				activePalette = localPalette;
 				activePaletteSize = lctSize;
@@ -319,12 +332,12 @@ bool DecodeGIFAnimation(const byte* fileData, size_t fileSize, GIFAnimation& out
 					}
 				}
 			} else if (prevDisposal == GIFDisposalMethod::RESTORE_PREV) {
-				memcpy(canvas, prevBackup, canvasPixelCount * sizeof(uni::Color));
+				MemCopyN(canvas, prevBackup, canvasPixelCount * sizeof(uni::Color));
 			}
 
 			// If current frame requests RESTORE_PREV, save canvas state before drawing
 			if (disposalMethod == GIFDisposalMethod::RESTORE_PREV) {
-				memcpy(prevBackup, canvas, canvasPixelCount * sizeof(uni::Color));
+				MemCopyN(prevBackup, canvas, canvasPixelCount * sizeof(uni::Color));
 			}
 
 			// Decode LZW pixel indices for this image
@@ -387,7 +400,7 @@ bool DecodeGIFAnimation(const byte* fileData, size_t fileSize, GIFAnimation& out
 			// Copy current canvas snapshot into frame array
 			uni::Color* framePixels = (uni::Color*)malloc(canvasPixelCount * sizeof(uni::Color));
 			if (framePixels) {
-				memcpy(framePixels, canvas, canvasPixelCount * sizeof(uni::Color));
+				MemCopyN(framePixels, canvas, canvasPixelCount * sizeof(uni::Color));
 				if (frameCount >= frameCapacity) {
 					frameCapacity *= 2;
 					frameList = (GIFFrame*)realloc(frameList, frameCapacity * sizeof(GIFFrame));
@@ -459,24 +472,15 @@ uni::ImageResult uni::GIFCodec::Probe(StorageTrait& storage, bool& matched) cons
 	matched = false;
 	byte sig[6];
 	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
-
-	byte* blockBuf = nullptr;
-	bool isDyn = false;
-	byte stackBuf[2048];
-	if (blockSize <= 2048) {
-		blockBuf = stackBuf;
-	} else {
-		blockBuf = (byte*)malloc(blockSize);
-		if (!blockBuf) {
-			return uni::ImageResult::OUT_OF_MEMORY;
-		}
-		isDyn = true;
+	byte* blockBuf = (byte*)malloc(blockSize);
+	if (!blockBuf) {
+		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint readBytes = storage.Read(0, sig, 6, blockBuf);
-	if (isDyn) free(blockBuf);
+	free(blockBuf);
 
-	if (readBytes == 6 && (memcmp(sig, "GIF87a", 6) == 0 || memcmp(sig, "GIF89a", 6) == 0)) {
+	if (readBytes == 6 && (MemCompare((const char*)sig, "GIF87a", 6) == 0 || MemCompare((const char*)sig, "GIF89a", 6) == 0)) {
 		matched = true;
 	}
 
@@ -490,20 +494,12 @@ uni::ImageResult uni::GIFCodec::ReadInfo(StorageTrait& storage, ImageInfo& outIn
 	if (!matched) return uni::ImageResult::INVALID_FORMAT;
 
 	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
-	byte* blockBuf = nullptr;
-	bool isDyn = false;
-	byte stackBuf[2048];
-	if (blockSize <= 2048) {
-		blockBuf = stackBuf;
-	} else {
-		blockBuf = (byte*)malloc(blockSize);
-		if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
-		isDyn = true;
-	}
+	byte* blockBuf = (byte*)malloc(blockSize);
+	if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
 
 	byte headerBuf[13];
 	stduint readBytes = storage.Read(0, headerBuf, 13, blockBuf);
-	if (isDyn) free(blockBuf);
+	free(blockBuf);
 
 	if (readBytes < 13) {
 		return uni::ImageResult::INVALID_FORMAT;
@@ -701,25 +697,17 @@ uni::ImageResult uni::GIFCodec::Decode(
 	if (maxStorageSize < 13) return uni::ImageResult::INVALID_FORMAT;
 
 	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
-	byte* blockBuf = nullptr;
-	bool isDyn = false;
-	byte stackBuf[2048];
-	if (blockSize <= 2048) {
-		blockBuf = stackBuf;
-	} else {
-		blockBuf = (byte*)malloc(blockSize);
-		if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
-		isDyn = true;
-	}
+	byte* blockBuf = (byte*)malloc(blockSize);
+	if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
 
 	byte* fileData = (byte*)malloc(maxStorageSize);
 	if (!fileData) {
-		if (isDyn) free(blockBuf);
+		free(blockBuf);
 		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint totalRead = storage.Read(0, fileData, maxStorageSize, blockBuf);
-	if (isDyn) free(blockBuf);
+	free(blockBuf);
 
 	GIFAnimation anim;
 	if (!DecodeGIFAnimation(fileData, totalRead, anim) || anim.frameCount == 0 || !anim.frames) {
@@ -738,7 +726,7 @@ uni::ImageResult uni::GIFCodec::Decode(
 		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
-	memcpy(targetPixels, targetPixelsSrc, pixelBufferSize);
+	MemCopyN(targetPixels, targetPixelsSrc, pixelBufferSize);
 
 	outBuffer.width = anim.width;
 	outBuffer.height = anim.height;

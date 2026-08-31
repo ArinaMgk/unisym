@@ -9,6 +9,7 @@
 #include "../../../../inc/cpp/endian"
 // #include "../../../../inc/cpp/Device/UART"
 // #include <stdlib.h>
+#include "../../../../inc/c/ustring.h"
 // #include <string.h>
 
 namespace {
@@ -208,7 +209,7 @@ namespace {
 	// 8x8 Fixed-Point Integer Inverse Discrete Cosine Transform (IDCT)
 	static void IDCT8x8(const int* in, byte* out, int outStride) {
 		int work[64];
-		// Pass 1: rows
+		// Pass 1: rows (scale by 1024 / 256 = 4)
 		for (int y = 0; y < 8; ++y) {
 			int row = y * 8;
 			for (int x = 0; x < 8; ++x) {
@@ -216,17 +217,17 @@ namespace {
 				for (int u = 0; u < 8; ++u) {
 					sum += in[row + u] * kCosTable[x][u];
 				}
-				work[row + x] = (sum + 512) >> 10;
+				work[row + x] = (sum + 128) >> 8;
 			}
 		}
-		// Pass 2: columns
+		// Pass 2: columns (scale by 4 * 1024 * 4 = 16384)
 		for (int x = 0; x < 8; ++x) {
 			for (int y = 0; y < 8; ++y) {
 				int sum = 0;
 				for (int v = 0; v < 8; ++v) {
 					sum += work[v * 8 + x] * kCosTable[y][v];
 				}
-				int val = ((sum + 512) >> 12) + 128;
+				int val = ((sum + 8192) >> 14) + 128;
 				out[y * outStride + x] = ClampByte(val);
 			}
 		}
@@ -423,15 +424,16 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 		return nullptr;
 	}
 
-	byte quantTables[4][64];
-	bool quantTableValid[4] = { false, false, false, false };
+	struct JPEGContext {
+		byte         quantTables[4][64];
+		bool         quantTableValid[4];
+		HuffmanTable dcTables[4];
+		HuffmanTable acTables[4];
+	};
 
-	HuffmanTable dcTables[4];
-	HuffmanTable acTables[4];
-	for (int i = 0; i < 4; ++i) {
-		dcTables[i].valid = false;
-		acTables[i].valid = false;
-	}
+	JPEGContext* ctx = (JPEGContext*)malloc(sizeof(JPEGContext));
+	if (!ctx) return nullptr;
+	MemSet(ctx, 0, sizeof(JPEGContext));
 
 	JPEG_FRAME_HEADER frame;
 	MemSet(&frame, 0, sizeof(frame));
@@ -487,6 +489,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 	}
 
 	if (!hasFrame) {
+		free(ctx);
 		return nullptr;
 	}
 
@@ -514,6 +517,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 		coeffBuffer[c] = (int16*)calloc(totalBlocks[c] * 64, sizeof(int16));
 		if (!coeffBuffer[c]) {
 			for (int k = 0; k < c; ++k) free(coeffBuffer[k]);
+			free(ctx);
 			return nullptr;
 		}
 	}
@@ -552,15 +556,17 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 				if (tableId >= 4) break;
 				if (precision == 0) {
 					if (dqtPos + 64 > payloadLen) break;
-					MemCopyN(quantTables[tableId], segment + dqtPos, 64);
-					quantTableValid[tableId] = true;
+					for (int i = 0; i < 64; ++i) {
+						ctx->quantTables[tableId][kZigzag[i]] = segment[dqtPos + i];
+					}
+					ctx->quantTableValid[tableId] = true;
 					dqtPos += 64;
 				} else {
 					if (dqtPos + 128 > payloadLen) break;
 					for (int i = 0; i < 64; ++i) {
-						quantTables[tableId][i] = segment[dqtPos + i * 2 + 1];
+						ctx->quantTables[tableId][kZigzag[i]] = segment[dqtPos + i * 2 + 1];
 					}
-					quantTableValid[tableId] = true;
+					ctx->quantTableValid[tableId] = true;
 					dqtPos += 128;
 				}
 			}
@@ -581,9 +587,9 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 				if (dhtPos + count > payloadLen) break;
 
 				if (tableClass == 0) {
-					BuildHuffmanTable(dcTables[tableId], bits, segment + dhtPos, count);
+					BuildHuffmanTable(ctx->dcTables[tableId], bits, segment + dhtPos, count);
 				} else {
-					BuildHuffmanTable(acTables[tableId], bits, segment + dhtPos, count);
+					BuildHuffmanTable(ctx->acTables[tableId], bits, segment + dhtPos, count);
 				}
 				dhtPos += count;
 			}
@@ -650,7 +656,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 
 									if (!isProgressive && ss == 0 && se == 63 && ah == 0 && al == 0) {
 										// Baseline full block decode
-										int s = bs.DecodeHuffman(dcTables[dcId]);
+										int s = bs.DecodeHuffman(ctx->dcTables[dcId]);
 										if (s < 0) goto scan_done;
 										int diff = bs.ReceiveExtend(s);
 										dcPredictors[i] += diff;
@@ -658,7 +664,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 
 										int k = 1;
 										while (k <= 63) {
-											int rs = bs.DecodeHuffman(acTables[acId]);
+											int rs = bs.DecodeHuffman(ctx->acTables[acId]);
 											if (rs < 0) goto scan_done;
 											int r = rs >> 4;
 											int sVal = rs & 0x0F;
@@ -674,7 +680,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 											k++;
 										}
 									} else {
-										if (!DecodeBlockSpectral(bs, dcTables[dcId], acTables[acId],
+										if (!DecodeBlockSpectral(bs, ctx->dcTables[dcId], ctx->acTables[acId],
 																dcPredictors[i], eobRun, block, ss, se, ah, al)) {
 											goto scan_done;
 										}
@@ -699,7 +705,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 							bs.ResetForRestart();
 						}
 						int16* block = &coeffBuffer[c][(by * blocksX[c] + bx) * 64];
-						if (!DecodeBlockSpectral(bs, dcTables[dcId], acTables[acId],
+						if (!DecodeBlockSpectral(bs, ctx->dcTables[dcId], ctx->acTables[acId],
 												dcPredictors[0], eobRun, block, ss, se, ah, al)) {
 							goto scan_done;
 						}
@@ -729,11 +735,12 @@ scan_done:
 		if (!compSamples[c]) {
 			for (int k = 0; k < frame.ncomp; ++k) free(coeffBuffer[k]);
 			for (int k = 0; k < c; ++k) free(compSamples[k]);
+			free(ctx);
 			return nullptr;
 		}
 
 		byte qId = frame.comp_q[c];
-		const byte* qTable = quantTables[qId < 4 ? qId : 0];
+		const byte* qTable = ctx->quantTables[qId < 4 ? qId : 0];
 		int stride = blocksX[c] * 8;
 
 		for (int by = 0; by < blocksY[c]; ++by) {
@@ -754,6 +761,7 @@ scan_done:
 	uni::Color* pixels = (uni::Color*)malloc(frame.width * frame.height * sizeof(uni::Color));
 	if (!pixels) {
 		for (int c = 0; c < frame.ncomp; ++c) free(compSamples[c]);
+		free(ctx);
 		return nullptr;
 	}
 
@@ -784,6 +792,7 @@ scan_done:
 		free(compSamples[c]);
 	}
 
+	free(ctx);
 	if (outWidth) *outWidth = frame.width;
 	if (outHeight) *outHeight = frame.height;
 
@@ -807,25 +816,13 @@ uni::ImageResult uni::JPEGCodec::Probe(StorageTrait& storage, bool& matched) con
 	matched = false;
 	byte magic[2] = { 0, 0 };
 	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
-
-	byte* blockBuf = nullptr;
-	bool isDyn = false;
-	byte stackBuf[2048];
-	if (blockSize <= 2048) {
-		blockBuf = stackBuf;
-	} else {
-		blockBuf = (byte*)malloc(blockSize);
-		if (!blockBuf) {
-			return uni::ImageResult::OUT_OF_MEMORY;
-		}
-		isDyn = true;
+	byte* blockBuf = (byte*)malloc(blockSize);
+	if (!blockBuf) {
+		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint readBytes = storage.Read(0, magic, 2, blockBuf);
-
-	if (isDyn) {
-		free(blockBuf);
-	}
+	free(blockBuf);
 
 	// Verify JPEG SOI marker (0xFFD8)
 	if (readBytes == 2 && magic[0] == 0xFF && magic[1] == (byte)JPEGMarker::SOI) {
@@ -851,28 +848,20 @@ uni::ImageResult uni::JPEGCodec::ReadInfo(StorageTrait& storage, ImageInfo& outI
 	}
 
 	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
-	byte* blockBuf = nullptr;
-	bool isDyn = false;
-	byte stackBuf[2048];
-	if (blockSize <= 2048) {
-		blockBuf = stackBuf;
-	} else {
-		blockBuf = (byte*)malloc(blockSize);
-		if (!blockBuf) {
-			return uni::ImageResult::OUT_OF_MEMORY;
-		}
-		isDyn = true;
+	byte* blockBuf = (byte*)malloc(blockSize);
+	if (!blockBuf) {
+		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint scanLimit = maxStorageSize > 65536 ? 65536 : maxStorageSize;
 	byte* headerBuf = (byte*)malloc(scanLimit);
 	if (!headerBuf) {
-		if (isDyn) free(blockBuf);
+		free(blockBuf);
 		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint readBytes = storage.Read(0, headerBuf, scanLimit, blockBuf);
-	if (isDyn) free(blockBuf);
+	free(blockBuf);
 
 	if (readBytes < 4) {
 		free(headerBuf);
@@ -1093,27 +1082,19 @@ uni::ImageResult uni::JPEGCodec::Decode(
 	}
 
 	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
-	byte* blockBuf = nullptr;
-	bool isDyn = false;
-	byte stackBuf[2048];
-	if (blockSize <= 2048) {
-		blockBuf = stackBuf;
-	} else {
-		blockBuf = (byte*)malloc(blockSize);
-		if (!blockBuf) {
-			return uni::ImageResult::OUT_OF_MEMORY;
-		}
-		isDyn = true;
+	byte* blockBuf = (byte*)malloc(blockSize);
+	if (!blockBuf) {
+		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	byte* fileData = (byte*)malloc(maxStorageSize);
 	if (!fileData) {
-		if (isDyn) free(blockBuf);
+		free(blockBuf);
 		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint totalRead = storage.Read(0, fileData, maxStorageSize, blockBuf);
-	if (isDyn) free(blockBuf);
+	free(blockBuf);
 
 	int outWidth = 0;
 	int outHeight = 0;
@@ -1180,7 +1161,8 @@ uni::ImageResult uni::JPEGCodecHard::Probe(StorageTrait& storage, bool& matched)
 	// JPEG file starts with SOI marker 0xFF 0xD8.
 	matched = false;
 	byte b[2];
-	if (storage.Read(0, b, 2, nullptr) != 2) return uni::ImageResult::IO_ERROR;
+	byte block[512];
+	if (storage.Read(0, b, 2, block) != 2) return uni::ImageResult::IO_ERROR;
 	if (b[0] == 0xFF && b[1] == 0xD8) matched = true;
 	return uni::ImageResult::OK;
 }

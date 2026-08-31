@@ -4,8 +4,7 @@
 // Copyright: UNISYM
 
 #include "../../../../inc/c/format/picture/PNG.h"
-#include <stdlib.h>
-#include <string.h>
+#include "../../../../inc/cpp/endian"
 
 namespace {
 
@@ -216,8 +215,15 @@ namespace {
 		size_t outPos = 0;
 		int bfinal = 0;
 
-		DeflateHuffman fixedLitTree;
-		DeflateHuffman fixedDistTree;
+		struct InflateWorkingTrees {
+			DeflateHuffman fixedLitTree;
+			DeflateHuffman fixedDistTree;
+			DeflateHuffman dynamicLitTree;
+			DeflateHuffman dynamicDistTree;
+			DeflateHuffman clenTree;
+		};
+		InflateWorkingTrees* trees = (InflateWorkingTrees*)malloc(sizeof(InflateWorkingTrees));
+		if (!trees) return false;
 		bool fixedTreesBuilt = false;
 
 		while (!bfinal) {
@@ -230,17 +236,18 @@ namespace {
 				uint16 len = (uint16)bs.ReadBits(16);
 				uint16 nlen = (uint16)bs.ReadBits(16);
 				if ((uint16)(len ^ 0xFFFF) != nlen) {
+					free(trees);
 					return false;
 				}
 				if (outPos + len > expectedOutSize) {
+					free(trees);
 					return false;
 				}
 				for (int i = 0; i < len; ++i) {
 					outData[outPos++] = (byte)bs.ReadBits(8);
 				}
 			} else if (btype == 1 || btype == 2) {
-				DeflateHuffman dynamicLitTree;
-				DeflateHuffman dynamicDistTree;
+				
 				DeflateHuffman* pLitTree = nullptr;
 				DeflateHuffman* pDistTree = nullptr;
 
@@ -252,39 +259,46 @@ namespace {
 						for (int i = 144; i <= 255; ++i) litLengths[i] = 9;
 						for (int i = 256; i <= 279; ++i) litLengths[i] = 7;
 						for (int i = 280; i <= 287; ++i) litLengths[i] = 8;
-						BuildDeflateHuffman(fixedLitTree, litLengths, 288);
+						BuildDeflateHuffman(trees->fixedLitTree, litLengths, 288);
 
 						byte distLengths[32];
 						for (int i = 0; i < 32; ++i) distLengths[i] = 5;
-						BuildDeflateHuffman(fixedDistTree, distLengths, 32);
+						BuildDeflateHuffman(trees->fixedDistTree, distLengths, 32);
 						fixedTreesBuilt = true;
 					}
-					pLitTree = &fixedLitTree;
-					pDistTree = &fixedDistTree;
+					pLitTree = &trees->fixedLitTree;
+					pDistTree = &trees->fixedDistTree;
 				} else {
 					// Dynamic Huffman codes
 					int hlit = bs.ReadBits(5) + 257;
 					int hdist = bs.ReadBits(5) + 1;
 					int hclen = bs.ReadBits(4) + 4;
+					if (hlit > 286 || hdist > 30) {
+						free(trees);
+						return false;
+					}
 
 					byte clenCodeLengths[19] = { 0 };
 					for (int i = 0; i < hclen; ++i) {
 						clenCodeLengths[kClenOrder[i]] = (byte)bs.ReadBits(3);
 					}
 
-					DeflateHuffman clenTree;
-					BuildDeflateHuffman(clenTree, clenCodeLengths, 19);
+					
+					if (!BuildDeflateHuffman(trees->clenTree, clenCodeLengths, 19)) {
+						free(trees);
+						return false;
+					}
 
 					byte totalLengths[320] = { 0 };
 					int totalSymbols = hlit + hdist;
 					int cur = 0;
 					while (cur < totalSymbols) {
-						int sym = bs.DecodeSymbol(clenTree);
-						if (sym < 0) return false;
+						int sym = bs.DecodeSymbol(trees->clenTree);
+						if (sym < 0) { free(trees); return false; }
 						if (sym <= 15) {
 							totalLengths[cur++] = (byte)sym;
 						} else if (sym == 16) {
-							if (cur == 0) return false;
+							if (cur == 0) { free(trees); return false; }
 							byte prev = totalLengths[cur - 1];
 							int repeat = bs.ReadBits(2) + 3;
 							while (repeat-- > 0 && cur < totalSymbols) {
@@ -303,47 +317,48 @@ namespace {
 						}
 					}
 
-					BuildDeflateHuffman(dynamicLitTree, totalLengths, hlit);
-					BuildDeflateHuffman(dynamicDistTree, totalLengths + hlit, hdist);
-					pLitTree = &dynamicLitTree;
-					pDistTree = &dynamicDistTree;
+					BuildDeflateHuffman(trees->dynamicLitTree, totalLengths, hlit);
+					BuildDeflateHuffman(trees->dynamicDistTree, totalLengths + hlit, hdist);
+					pLitTree = &trees->dynamicLitTree;
+					pDistTree = &trees->dynamicDistTree;
 				}
 
 				// Decompress block data
 				while (true) {
 					int sym = bs.DecodeSymbol(*pLitTree);
-					if (sym < 0) return false;
+					if (sym < 0) { free(trees); return false; }
 					if (sym < 256) {
-						if (outPos >= expectedOutSize) return false;
+						if (outPos >= expectedOutSize) { free(trees); return false; }
 						outData[outPos++] = (byte)sym;
 					} else if (sym == 256) {
 						// End of Block
 						break;
-					} else {
-						int lenIndex = sym - 257;
-						if (lenIndex >= 29) return false;
-						int matchLen = kBaseLength[lenIndex] + bs.ReadBits(kExtraLengthBits[lenIndex]);
-
+					} else if (sym <= 285) {
+						int len = kBaseLength[sym - 257] + bs.ReadBits(kExtraLengthBits[sym - 257]);
 						int distSym = bs.DecodeSymbol(*pDistTree);
-						if (distSym < 0 || distSym >= 30) return false;
-						int matchDist = kBaseDist[distSym] + bs.ReadBits(kExtraDistBits[distSym]);
+						if (distSym < 0 || distSym >= 30) { free(trees); return false; }
+						int dist = kBaseDist[distSym] + bs.ReadBits(kExtraDistBits[distSym]);
 
-						if (matchDist > (int)outPos || outPos + matchLen > expectedOutSize) {
-							return false;
-						}
+						if (dist > (int)outPos) { free(trees); return false; }
+						if (outPos + len > expectedOutSize) { free(trees); return false; }
 
-						size_t srcPos = outPos - matchDist;
-						for (int i = 0; i < matchLen; ++i) {
-							outData[outPos++] = outData[srcPos + i];
+						for (int i = 0; i < len; ++i) {
+							outData[outPos] = outData[outPos - dist];
+							outPos++;
 						}
+					} else {
+						free(trees);
+						return false;
 					}
 				}
 			} else {
 				// Invalid block type
+				free(trees);
 				return false;
 			}
 		}
 
+		free(trees);
 		return outPos == expectedOutSize;
 	}
 
@@ -357,12 +372,12 @@ uni::Color* DecodePNG(const byte* fileData, size_t fileSize, int* outWidth, int*
 
 	// Verify 8-byte PNG signature: \x89PNG\r\n\x1a\n
 	static const byte kPngSig[8] = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
-	if (memcmp(fileData, kPngSig, 8) != 0) {
+	if (MemCompare((const char*)fileData, (const char*)kPngSig, 8) != 0) {
 		return nullptr;
 	}
 
 	PNG_IHDR ihdr;
-	memset(&ihdr, 0, sizeof(ihdr));
+	MemSet(&ihdr, 0, sizeof(ihdr));
 	bool hasIhdr = false;
 
 	// Palette for indexed color
@@ -408,10 +423,10 @@ uni::Color* DecodePNG(const byte* fileData, size_t fileSize, int* outWidth, int*
 		} else if (chunkType == PNG_CHUNK_PLTE) {
 			paletteSize = (int)(chunkLen / 3);
 			if (paletteSize > 256) paletteSize = 256;
-			memcpy(palette, chunkData, paletteSize * 3);
+			MemCopyN(palette, chunkData, paletteSize * 3);
 		} else if (chunkType == PNG_CHUNK_tRNS) {
 			trnsSize = chunkLen > 256 ? 256 : chunkLen;
-			memcpy(trnsData, chunkData, trnsSize);
+			MemCopyN(trnsData, chunkData, trnsSize);
 			hasTrns = true;
 		} else if (chunkType == PNG_CHUNK_IDAT) {
 			if (chunkLen > 0) {
@@ -426,7 +441,7 @@ uni::Color* DecodePNG(const byte* fileData, size_t fileSize, int* outWidth, int*
 					idatBuffer = newBuf;
 					idatCapacity = newCap;
 				}
-				memcpy(idatBuffer + idatSize, chunkData, chunkLen);
+				MemCopyN(idatBuffer + idatSize, chunkData, chunkLen);
 				idatSize += chunkLen;
 			}
 		} else if (chunkType == PNG_CHUNK_IEND) {
@@ -494,7 +509,7 @@ uni::Color* DecodePNG(const byte* fileData, size_t fileSize, int* outWidth, int*
 
 		switch ((PNGFilterType)filterType) {
 		case PNGFilterType::NONE:
-			memcpy(dst, src, rowBytes);
+			MemCopyN(dst, src, rowBytes);
 			break;
 
 		case PNGFilterType::SUB:
@@ -530,7 +545,7 @@ uni::Color* DecodePNG(const byte* fileData, size_t fileSize, int* outWidth, int*
 
 		default:
 			// Invalid filter type fallback
-			memcpy(dst, src, rowBytes);
+			MemCopyN(dst, src, rowBytes);
 			break;
 		}
 	}
@@ -650,25 +665,16 @@ uni::ImageResult uni::PNGCodec::Probe(StorageTrait& storage, bool& matched) cons
 	matched = false;
 	byte sig[8];
 	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
-
-	byte* blockBuf = nullptr;
-	bool isDyn = false;
-	byte stackBuf[2048];
-	if (blockSize <= 2048) {
-		blockBuf = stackBuf;
-	} else {
-		blockBuf = (byte*)malloc(blockSize);
-		if (!blockBuf) {
-			return uni::ImageResult::OUT_OF_MEMORY;
-		}
-		isDyn = true;
+	byte* blockBuf = (byte*)malloc(blockSize);
+	if (!blockBuf) {
+		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint readBytes = storage.Read(0, sig, 8, blockBuf);
-	if (isDyn) free(blockBuf);
+	free(blockBuf);
 
 	static const byte kPngSig[8] = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
-	if (readBytes == 8 && memcmp(sig, kPngSig, 8) == 0) {
+	if (readBytes == 8 && MemCompare((const char*)sig, (const char*)kPngSig, 8) == 0) {
 		matched = true;
 	}
 
@@ -682,20 +688,12 @@ uni::ImageResult uni::PNGCodec::ReadInfo(StorageTrait& storage, ImageInfo& outIn
 	if (!matched) return uni::ImageResult::INVALID_FORMAT;
 
 	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
-	byte* blockBuf = nullptr;
-	bool isDyn = false;
-	byte stackBuf[2048];
-	if (blockSize <= 2048) {
-		blockBuf = stackBuf;
-	} else {
-		blockBuf = (byte*)malloc(blockSize);
-		if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
-		isDyn = true;
-	}
+	byte* blockBuf = (byte*)malloc(blockSize);
+	if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
 
 	byte headerBuf[32];
 	stduint readBytes = storage.Read(0, headerBuf, 32, blockBuf);
-	if (isDyn) free(blockBuf);
+	free(blockBuf);
 
 	if (readBytes < 29) {
 		return uni::ImageResult::INVALID_FORMAT;
@@ -728,18 +726,501 @@ uni::ImageResult uni::PNGCodec::ReadInfo(StorageTrait& storage, ImageInfo& outIn
 
 namespace {
 
+	struct PNGIDATSource {
+		uni::StorageTrait* storage;
+		stduint firstIDATOffset;
+		stduint firstIDATLength;
+		stduint currentFileOffset;
+		stduint remainingInCurrentChunk;
+		stduint totalFileSize;
+		byte*   chunkBuf;
+		byte*   sectorBuf;
+		stduint blockSize;
+		stduint bufPos;
+		stduint bufAvail;
+
+		PNGIDATSource() : storage(nullptr), firstIDATOffset(0), firstIDATLength(0),
+			currentFileOffset(0), remainingInCurrentChunk(0), totalFileSize(0),
+			chunkBuf(nullptr), sectorBuf(nullptr), blockSize(0), bufPos(0), bufAvail(0) {}
+
+		~PNGIDATSource() {
+			if (chunkBuf) free(chunkBuf);
+			if (sectorBuf) free(sectorBuf);
+		}
+
+		void Init(uni::StorageTrait* stg, stduint firstOffset, stduint firstLen, stduint fileSize) {
+			storage = stg;
+			firstIDATOffset = firstOffset;
+			firstIDATLength = firstLen;
+			totalFileSize = fileSize;
+			blockSize = storage->Block_Size ? storage->Block_Size : 512;
+			if (!chunkBuf) {
+				chunkBuf = (byte*)malloc(blockSize);
+			}
+			if (!sectorBuf) {
+				sectorBuf = (byte*)malloc(blockSize);
+			}
+			Reset();
+		}
+
+		void Reset() {
+			currentFileOffset = firstIDATOffset;
+			remainingInCurrentChunk = firstIDATLength;
+			bufPos = 0;
+			bufAvail = 0;
+		}
+
+		int ReadByte() {
+			if (bufPos < bufAvail) {
+				return (int)chunkBuf[bufPos++];
+			}
+
+			while (remainingInCurrentChunk == 0) {
+				currentFileOffset += 4; // Skip CRC of previous chunk
+				if (currentFileOffset + 8 > totalFileSize) return -1;
+
+				byte hdr[8];
+				stduint rd = storage->Read(currentFileOffset, hdr, 8, sectorBuf);
+				if (rd != 8) return -1;
+
+				uint32 chunkLen = *(const BigEndian<uint32, true>*)hdr;
+				uint32 chunkType = *(const BigEndian<uint32, true>*)(hdr + 4);
+				currentFileOffset += 8;
+
+				if (chunkType == PNG_CHUNK_IDAT) {
+					remainingInCurrentChunk = chunkLen;
+				} else {
+					return -1;
+				}
+			}
+
+			stduint toRead = blockSize;
+			if (toRead > remainingInCurrentChunk) toRead = remainingInCurrentChunk;
+			stduint rd = storage->Read(currentFileOffset, chunkBuf, toRead, sectorBuf);
+			if (rd == 0) return -1;
+
+			currentFileOffset += rd;
+			remainingInCurrentChunk -= rd;
+			bufPos = 1;
+			bufAvail = rd;
+			return (int)chunkBuf[0];
+		}
+	};
+
+	struct StreamInflate {
+		PNGIDATSource* src;
+		uint32 bitBuf;
+		int    bitsCount;
+		bool   zlibHeaderParsed;
+		bool   bfinal;
+		int    btype;
+		uint16 storedLen;
+
+		DeflateHuffman litTree;
+		DeflateHuffman distTree;
+		DeflateHuffman clenTree;
+
+		int    matchRemain;
+		uint16 matchDist;
+
+		byte   window[32768];
+		uint32 winHead;
+
+		void Init(PNGIDATSource* pSrc) {
+			src = pSrc;
+			Reset();
+		}
+
+		void Reset() {
+			bitBuf = 0;
+			bitsCount = 0;
+			zlibHeaderParsed = false;
+			bfinal = false;
+			btype = -1;
+			storedLen = 0;
+			matchRemain = 0;
+			matchDist = 0;
+			winHead = 0;
+			MemSet(window, 0, sizeof(window));
+		}
+
+		bool FillBits(int n) {
+			while (bitsCount < n) {
+				int b = src->ReadByte();
+				if (b < 0) {
+					bitBuf |= (0 << bitsCount);
+					bitsCount += 8;
+					return false;
+				}
+				bitBuf |= ((uint32)(byte)b) << bitsCount;
+				bitsCount += 8;
+			}
+			return true;
+		}
+
+		int ReadBits(int n) {
+			if (n == 0) return 0;
+			FillBits(n);
+			int val = bitBuf & ((1 << n) - 1);
+			bitBuf >>= n;
+			bitsCount -= n;
+			return val;
+		}
+
+		void DropBits(int n) {
+			bitBuf >>= n;
+			bitsCount -= n;
+		}
+
+		void AlignToByte() {
+			int drop = bitsCount % 8;
+			if (drop > 0) DropBits(drop);
+		}
+
+		int DecodeSymbol(const DeflateHuffman& dh) {
+			FillBits(9);
+			int look = bitBuf & 0x01FF;
+			uint16 entry = dh.table[look];
+			if (entry != 0xFFFF) {
+				int len = entry >> 10;
+				DropBits(len);
+				return entry & 0x03FF;
+			}
+			uint16 code = 0;
+			for (int l = 1; l <= 16; ++l) {
+				code = (code << 1) | ReadBits(1);
+				if (dh.maxcode[l] != 0xFFFF && code <= dh.maxcode[l]) {
+					int idx = dh.valptr[l] + (code - dh.mincode[l]);
+					return dh.symbols[idx];
+				}
+			}
+			return -1;
+		}
+
+		bool StartNewBlock() {
+			if (bfinal) return false;
+			bfinal = ReadBits(1) != 0;
+			btype = ReadBits(2);
+			if (btype == 0) {
+				AlignToByte();
+				uint16 len = (uint16)ReadBits(16);
+				uint16 nlen = (uint16)ReadBits(16);
+				if ((uint16)(len ^ 0xFFFF) != nlen) return false;
+				storedLen = len;
+			} else if (btype == 1) {
+				byte litLengths[288];
+				for (int i = 0; i <= 143; ++i) litLengths[i] = 8;
+				for (int i = 144; i <= 255; ++i) litLengths[i] = 9;
+				for (int i = 256; i <= 279; ++i) litLengths[i] = 7;
+				for (int i = 280; i <= 287; ++i) litLengths[i] = 8;
+				BuildDeflateHuffman(litTree, litLengths, 288);
+
+				byte distLengths[32];
+				for (int i = 0; i < 32; ++i) distLengths[i] = 5;
+				BuildDeflateHuffman(distTree, distLengths, 32);
+			} else if (btype == 2) {
+				int hlit = ReadBits(5) + 257;
+				int hdist = ReadBits(5) + 1;
+				int hclen = ReadBits(4) + 4;
+				if (hlit > 286 || hdist > 30) return false;
+
+				byte clenLengths[19] = { 0 };
+				for (int i = 0; i < hclen; ++i) {
+					clenLengths[kClenOrder[i]] = (byte)ReadBits(3);
+				}
+
+				if (!BuildDeflateHuffman(clenTree, clenLengths, 19)) return false;
+
+				byte codeLengths[320] = { 0 };
+				int numCodes = hlit + hdist;
+				int idx = 0;
+				while (idx < numCodes) {
+					int sym = DecodeSymbol(clenTree);
+					if (sym < 0) return false;
+					if (sym < 16) {
+						codeLengths[idx++] = (byte)sym;
+					} else if (sym == 16) {
+						if (idx == 0) return false;
+						int rep = ReadBits(2) + 3;
+						byte prev = codeLengths[idx - 1];
+						while (rep-- > 0 && idx < numCodes) codeLengths[idx++] = prev;
+					} else if (sym == 17) {
+						int rep = ReadBits(3) + 3;
+						while (rep-- > 0 && idx < numCodes) codeLengths[idx++] = 0;
+					} else if (sym == 18) {
+						int rep = ReadBits(7) + 11;
+						while (rep-- > 0 && idx < numCodes) codeLengths[idx++] = 0;
+					}
+				}
+				BuildDeflateHuffman(litTree, codeLengths, hlit);
+				BuildDeflateHuffman(distTree, codeLengths + hlit, hdist);
+			} else {
+				return false;
+			}
+			return true;
+		}
+
+		int PullByte() {
+			if (!zlibHeaderParsed) {
+				int cmf = src->ReadByte();
+				int flg = src->ReadByte();
+				if (cmf < 0 || flg < 0) return -1;
+				if ((cmf & 0x0F) != 8 || ((cmf * 256 + flg) % 31) != 0) return -1;
+				if (flg & 0x20) {
+					for (int i = 0; i < 4; ++i) src->ReadByte();
+				}
+				zlibHeaderParsed = true;
+			}
+
+			if (matchRemain > 0) {
+				byte b = window[(winHead - matchDist) & 32767];
+				window[winHead & 32767] = b;
+				winHead++;
+				matchRemain--;
+				return (int)b;
+			}
+
+			while (true) {
+				if (btype < 0) {
+					if (!StartNewBlock()) return -1;
+				}
+
+				if (btype == 0) {
+					if (storedLen > 0) {
+						int b = ReadBits(8);
+						storedLen--;
+						if (storedLen == 0) btype = -1;
+						window[winHead & 32767] = (byte)b;
+						winHead++;
+						return b;
+					}
+					btype = -1;
+				} else if (btype == 1 || btype == 2) {
+					int sym = DecodeSymbol(litTree);
+					if (sym < 0) return -1;
+					if (sym < 256) {
+						byte b = (byte)sym;
+						window[winHead & 32767] = b;
+						winHead++;
+						return (int)b;
+					} else if (sym == 256) {
+						btype = -1;
+					} else if (sym <= 285) {
+						int len = kBaseLength[sym - 257] + ReadBits(kExtraLengthBits[sym - 257]);
+						int distSym = DecodeSymbol(distTree);
+						if (distSym < 0 || distSym >= 30) return -1;
+						int dist = kBaseDist[distSym] + ReadBits(kExtraDistBits[distSym]);
+						matchDist = (uint16)dist;
+						matchRemain = len;
+
+						byte b = window[(winHead - matchDist) & 32767];
+						window[winHead & 32767] = b;
+						winHead++;
+						matchRemain--;
+						return (int)b;
+					} else {
+						return -1;
+					}
+				} else {
+					return -1;
+				}
+			}
+		}
+
+		bool Pull(byte* dest, size_t count) {
+			for (size_t i = 0; i < count; ++i) {
+				int b = PullByte();
+				if (b < 0) return false;
+				dest[i] = (byte)b;
+			}
+			return true;
+		}
+	};
+
+	static void ReconstructScanline(
+		const byte* src,
+		uni::Color* dst,
+		uint32 startX,
+		uint32 count,
+		byte colorType,
+		byte bitDepth,
+		const byte* palette,
+		int paletteSize,
+		const byte* trnsData,
+		int trnsSize,
+		bool hasTrns
+	) {
+		for (uint32 col = 0; col < count; ++col) {
+			uint32 x = startX + col;
+			uni::Color c;
+			c.r = c.g = c.b = 0;
+			c.a = 0xFF;
+
+			switch ((PNGColorType)colorType) {
+			case PNGColorType::GRAYSCALE: {
+				byte g = 0;
+				if (bitDepth == 8) {
+					g = src[x];
+				} else if (bitDepth == 16) {
+					g = src[x * 2];
+				} else if (bitDepth == 4) {
+					byte b = src[x / 2];
+					g = (x % 2 == 0) ? ((b >> 4) & 0x0F) : (b & 0x0F);
+					g = (byte)(g * 255 / 15);
+				} else if (bitDepth == 2) {
+					byte b = src[x / 4];
+					g = (b >> (2 * (3 - (x % 4)))) & 0x03;
+					g = (byte)(g * 255 / 3);
+				} else if (bitDepth == 1) {
+					byte b = src[x / 8];
+					g = ((b >> (7 - (x % 8))) & 0x01) ? 255 : 0;
+				}
+				c.r = c.g = c.b = g;
+				if (hasTrns && trnsSize >= 2) {
+					uint16 key = ((uint16)trnsData[0] << 8) | trnsData[1];
+					if (g == (byte)key) c.a = 0;
+				}
+				break;
+			}
+			case PNGColorType::RGB: {
+				if (bitDepth == 8) {
+					const byte* p = src + x * 3;
+					c.r = p[0]; c.g = p[1]; c.b = p[2];
+				} else if (bitDepth == 16) {
+					const byte* p = src + x * 6;
+					c.r = p[0]; c.g = p[2]; c.b = p[4];
+				}
+				if (hasTrns && trnsSize >= 6) {
+					uint16 rk = ((uint16)trnsData[0] << 8) | trnsData[1];
+					uint16 gk = ((uint16)trnsData[2] << 8) | trnsData[3];
+					uint16 bk = ((uint16)trnsData[4] << 8) | trnsData[5];
+					if (c.r == (byte)rk && c.g == (byte)gk && c.b == (byte)bk) {
+						c.a = 0;
+					}
+				}
+				break;
+			}
+			case PNGColorType::INDEXED: {
+				byte idx = 0;
+				if (bitDepth == 8) {
+					idx = src[x];
+				} else if (bitDepth == 4) {
+					byte b = src[x / 2];
+					idx = (x % 2 == 0) ? ((b >> 4) & 0x0F) : (b & 0x0F);
+				} else if (bitDepth == 2) {
+					byte b = src[x / 4];
+					idx = (b >> (2 * (3 - (x % 4)))) & 0x03;
+				} else if (bitDepth == 1) {
+					byte b = src[x / 8];
+					idx = (b >> (7 - (x % 8))) & 0x01;
+				}
+				if (idx < paletteSize) {
+					c.r = palette[idx * 3 + 0];
+					c.g = palette[idx * 3 + 1];
+					c.b = palette[idx * 3 + 2];
+				}
+				if (hasTrns && idx < trnsSize) {
+					c.a = trnsData[idx];
+				}
+				break;
+			}
+			case PNGColorType::GRAYSCALE_ALPHA: {
+				if (bitDepth == 8) {
+					const byte* p = src + x * 2;
+					c.r = c.g = c.b = p[0];
+					c.a = p[1];
+				} else if (bitDepth == 16) {
+					const byte* p = src + x * 4;
+					c.r = c.g = c.b = p[0];
+					c.a = p[2];
+				}
+				break;
+			}
+			case PNGColorType::RGBA: {
+				if (bitDepth == 8) {
+					const byte* p = src + x * 4;
+					c.r = p[0]; c.g = p[1]; c.b = p[2]; c.a = p[3];
+				} else if (bitDepth == 16) {
+					const byte* p = src + x * 8;
+					c.r = p[0]; c.g = p[2]; c.b = p[4]; c.a = p[6];
+				}
+				break;
+			}
+			}
+			dst[col] = c;
+		}
+	}
+
 	class PNGSurface : public uni::IImageSurface {
 	private:
 		uni::StorageTrait* storage;
 		uni::ImageInfo     info;
 		uni::trait::Malloc* allocator;
 
+		PNGIDATSource      idatSrc;
+		StreamInflate      inflate;
+
+		byte   colorType;
+		byte   bitDepth;
+		byte   palette[256 * 3];
+		int    paletteSize;
+		byte   trnsData[256];
+		int    trnsSize;
+		bool   hasTrns;
+
+		size_t rowBytes;
+		int    bpp;
+		byte*  prevRow;
+		byte*  currRow;
+		byte*  rawRow;
+		uint32 currentY;
+
 	public:
-		PNGSurface(uni::StorageTrait& stg, const uni::ImageInfo& inf, uni::trait::Malloc& alloc)
-			: storage(&stg), info(inf), allocator(&alloc) {
+		PNGSurface(
+			uni::StorageTrait& stg,
+			const uni::ImageInfo& inf,
+			stduint firstIDATOff,
+			stduint firstIDATLen,
+			stduint fileSize,
+			byte colType,
+			byte depth,
+			const byte* pal,
+			int palSize,
+			const byte* trns,
+			int trSize,
+			bool trnsFlag,
+			size_t rBytes,
+			int bytesPerPx,
+			uni::trait::Malloc& alloc
+		) : storage(&stg), info(inf), allocator(&alloc),
+			colorType(colType), bitDepth(depth),
+			paletteSize(palSize), trnsSize(trSize), hasTrns(trnsFlag),
+			rowBytes(rBytes), bpp(bytesPerPx), currentY(0) {
+
+			if (pal && palSize) {
+				MemCopyN(palette, pal, palSize * 3);
+			}
+			if (trns && trSize) {
+				MemCopyN(trnsData, trns, trSize);
+			}
+
+			idatSrc.Init(storage, firstIDATOff, firstIDATLen, fileSize);
+			inflate.Init(&idatSrc);
+
+			prevRow = (byte*)malloc(rowBytes);
+			currRow = (byte*)malloc(rowBytes);
+			rawRow  = (byte*)malloc(rowBytes);
+
+			if (prevRow) MemSet(prevRow, 0, rowBytes);
+			if (currRow) MemSet(currRow, 0, rowBytes);
+			if (rawRow)  MemSet(rawRow, 0, rowBytes);
 		}
 
-		virtual ~PNGSurface() = default;
+		virtual ~PNGSurface() {
+			if (prevRow) free(prevRow);
+			if (currRow) free(currRow);
+			if (rawRow)  free(rawRow);
+		}
 
 		virtual void Release() override {
 			uni::trait::Malloc* alloc = allocator;
@@ -778,28 +1259,16 @@ namespace {
 				return uni::ImageResult::INVALID_ARGUMENT;
 			}
 
-			stduint maxStorageSize = storage->getUnits() * storage->Block_Size;
-			if (maxStorageSize < 8) return uni::ImageResult::INVALID_FORMAT;
-
-			stduint blockSize = storage->Block_Size ? storage->Block_Size : 512;
-			byte* blockBuf = (byte*)malloc(blockSize);
-			if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
-
-			byte* fileData = (byte*)malloc(maxStorageSize);
-			if (!fileData) {
-				free(blockBuf);
+			if (!prevRow || !currRow || !rawRow) {
 				return uni::ImageResult::OUT_OF_MEMORY;
 			}
 
-			stduint totalRead = storage->Read(0, fileData, maxStorageSize, blockBuf);
-			free(blockBuf);
-
-			int decWidth = 0, decHeight = 0;
-			uni::Color* fullPixels = DecodePNG(fileData, totalRead, &decWidth, &decHeight);
-			free(fileData);
-
-			if (!fullPixels) {
-				return uni::ImageResult::FAILED;
+			// If requested region starts before current scanline position, restart stream
+			if ((uint32)ry < currentY) {
+				idatSrc.Reset();
+				inflate.Reset();
+				MemSet(prevRow, 0, rowBytes);
+				currentY = 0;
 			}
 
 			size_t neededSize = (size_t)rw * (size_t)rh * sizeof(uni::Color);
@@ -807,20 +1276,86 @@ namespace {
 			bool ownsMem = false;
 			if (!pixelsMem) {
 				pixelsMem = alloc.allocate(neededSize);
-				if (!pixelsMem) {
-					free(fullPixels);
-					return uni::ImageResult::OUT_OF_MEMORY;
-				}
+				if (!pixelsMem) return uni::ImageResult::OUT_OF_MEMORY;
 				ownsMem = true;
 			}
 
 			uni::Color* outPixels = (uni::Color*)pixelsMem;
-			for (int line = 0; line < rh; ++line) {
-				int srcY = ry + line;
-				MemCopyN(outPixels + line * rw, fullPixels + srcY * decWidth + rx, rw * sizeof(uni::Color));
-			}
+			uint32 targetEndY = (uint32)(ry + rh);
 
-			free(fullPixels);
+			while (currentY < targetEndY) {
+				// Pull 1 byte filter type
+				int filterType = inflate.PullByte();
+				if (filterType < 0) {
+					if (ownsMem) alloc.deallocate(pixelsMem);
+					return uni::ImageResult::FAILED;
+				}
+
+				// Pull 1 scanline raw data
+				if (!inflate.Pull(rawRow, rowBytes)) {
+					if (ownsMem) alloc.deallocate(pixelsMem);
+					return uni::ImageResult::FAILED;
+				}
+
+				// Apply inverse filter
+				switch ((PNGFilterType)filterType) {
+				case PNGFilterType::NONE:
+					MemCopyN(currRow, rawRow, rowBytes);
+					break;
+				case PNGFilterType::SUB:
+					for (size_t i = 0; i < rowBytes; ++i) {
+						byte a = (i >= (size_t)bpp) ? currRow[i - bpp] : 0;
+						currRow[i] = (byte)(rawRow[i] + a);
+					}
+					break;
+				case PNGFilterType::UP:
+					for (size_t i = 0; i < rowBytes; ++i) {
+						byte bVal = prevRow[i];
+						currRow[i] = (byte)(rawRow[i] + bVal);
+					}
+					break;
+				case PNGFilterType::AVERAGE:
+					for (size_t i = 0; i < rowBytes; ++i) {
+						int a = (i >= (size_t)bpp) ? currRow[i - bpp] : 0;
+						int bVal = prevRow[i];
+						currRow[i] = (byte)(rawRow[i] + ((a + bVal) >> 1));
+					}
+					break;
+				case PNGFilterType::PAETH:
+					for (size_t i = 0; i < rowBytes; ++i) {
+						int a = (i >= (size_t)bpp) ? currRow[i - bpp] : 0;
+						int bVal = prevRow[i];
+						int cVal = (i >= (size_t)bpp) ? prevRow[i - bpp] : 0;
+						currRow[i] = (byte)(rawRow[i] + PaethPredictor(a, bVal, cVal));
+					}
+					break;
+				default:
+					if (ownsMem) alloc.deallocate(pixelsMem);
+					return uni::ImageResult::FAILED;
+				}
+
+				// If current scanline is within the requested rectangle, reconstruct pixels
+				if (currentY >= (uint32)ry && currentY < targetEndY) {
+					uint32 lineOffset = (currentY - (uint32)ry) * (uint32)rw;
+					ReconstructScanline(
+						currRow,
+						outPixels + lineOffset,
+						(uint32)rx,
+						(uint32)rw,
+						colorType,
+						bitDepth,
+						palette,
+						paletteSize,
+						trnsData,
+						trnsSize,
+						hasTrns
+					);
+				}
+
+				// Update previous row
+				MemCopyN(prevRow, currRow, rowBytes);
+				currentY++;
+			}
 
 			outBuffer.width = (uint32)rw;
 			outBuffer.height = (uint32)rh;
@@ -861,10 +1396,106 @@ uni::ImageResult uni::PNGCodec::OpenSurface(
 	uni::ImageResult res = ReadInfo(storage, info);
 	if (res != uni::ImageResult::OK) return res;
 
-	void* mem = allocator.allocate(sizeof(PNGSurface));
-	if (!mem) return uni::ImageResult::OUT_OF_MEMORY;
+	stduint fileSize = storage.getUnits() * storage.Block_Size;
+	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
+	byte* blockBuf = (byte*)malloc(blockSize);
+	if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
 
-	PNGSurface* surf = new (mem) PNGSurface(storage, info, allocator);
+	byte* palette = (byte*)malloc(256 * 3);
+	byte* trnsData = (byte*)malloc(256);
+	if (!palette || !trnsData) {
+		if (blockBuf) free(blockBuf);
+		if (palette) free(palette);
+		if (trnsData) free(trnsData);
+		return uni::ImageResult::OUT_OF_MEMORY;
+	}
+
+	byte headerBuf[32];
+	if (storage.Read(0, headerBuf, 32, blockBuf) < 29) {
+		free(blockBuf); free(palette); free(trnsData);
+		return uni::ImageResult::INVALID_FORMAT;
+	}
+
+	const PNG_IHDR* ihdr = (const PNG_IHDR*)(headerBuf + 16);
+	if (ihdr->interlace_method != 0) {
+		free(blockBuf); free(palette); free(trnsData);
+		return uni::ImageResult::UNSUPPORTED; // Non-interlaced streaming only
+	}
+
+	int paletteSize = 0;
+	int trnsSize = 0;
+	bool hasTrns = false;
+
+	stduint firstIDATOffset = 0;
+	stduint firstIDATLength = 0;
+
+	// Traverse chunks to extract PLTE, tRNS, and locate first IDAT
+	stduint pos = 8;
+	while (pos + 8 <= fileSize) {
+		byte chunkHdr[8];
+		if (storage.Read(pos, chunkHdr, 8, blockBuf) != 8) break;
+
+		uint32 chunkLen = *(const BigEndian<uint32, true>*)chunkHdr;
+		uint32 chunkType = *(const BigEndian<uint32, true>*)(chunkHdr + 4);
+		pos += 8;
+
+		if (chunkType == PNG_CHUNK_PLTE) {
+			paletteSize = (int)(chunkLen / 3);
+			if (paletteSize > 256) paletteSize = 256;
+			storage.Read(pos, palette, paletteSize * 3, blockBuf);
+		} else if (chunkType == PNG_CHUNK_tRNS) {
+			trnsSize = chunkLen > 256 ? 256 : chunkLen;
+			storage.Read(pos, trnsData, trnsSize, blockBuf);
+			hasTrns = true;
+		} else if (chunkType == PNG_CHUNK_IDAT) {
+			firstIDATOffset = pos;
+			firstIDATLength = chunkLen;
+			break;
+		} else if (chunkType == PNG_CHUNK_IEND) {
+			break;
+		}
+
+		pos += chunkLen + 4; // Skip data + CRC
+	}
+
+	if (firstIDATOffset == 0 || firstIDATLength == 0) {
+		free(blockBuf); free(palette); free(trnsData);
+		return uni::ImageResult::INVALID_FORMAT;
+	}
+
+	int channels = 1;
+	switch ((PNGColorType)ihdr->color_type) {
+	case PNGColorType::GRAYSCALE:       channels = 1; break;
+	case PNGColorType::RGB:             channels = 3; break;
+	case PNGColorType::INDEXED:         channels = 1; break;
+	case PNGColorType::GRAYSCALE_ALPHA: channels = 2; break;
+	case PNGColorType::RGBA:            channels = 4; break;
+	default:
+		free(blockBuf); free(palette); free(trnsData);
+		return uni::ImageResult::INVALID_FORMAT;
+	}
+
+	size_t rowBytes = ((size_t)ihdr->width * channels * ihdr->bit_depth + 7) / 8;
+	int bpp = (channels * ihdr->bit_depth + 7) / 8;
+	if (bpp < 1) bpp = 1;
+
+	void* mem = allocator.allocate(sizeof(PNGSurface));
+	if (!mem) {
+		free(blockBuf); free(palette); free(trnsData);
+		return uni::ImageResult::OUT_OF_MEMORY;
+	}
+
+	PNGSurface* surf = new (mem) PNGSurface(
+		storage, info, firstIDATOffset, firstIDATLength, fileSize,
+		ihdr->color_type, ihdr->bit_depth,
+		palette, paletteSize, trnsData, trnsSize, hasTrns,
+		rowBytes, bpp, allocator
+	);
+
+	free(blockBuf);
+	free(palette);
+	free(trnsData);
+
 	outSurface = surf;
 	return uni::ImageResult::OK;
 }
@@ -875,65 +1506,20 @@ uni::ImageResult uni::PNGCodec::Decode(
 	trait::Malloc& allocator,
 	const ImageDecodeOptions& options
 ) const {
-	bool matched = false;
-	uni::ImageResult res = Probe(storage, matched);
-	if (res != uni::ImageResult::OK) return res;
-	if (!matched) return uni::ImageResult::INVALID_FORMAT;
-
-	stduint maxStorageSize = storage.getUnits() * storage.Block_Size;
-	if (maxStorageSize < 8) return uni::ImageResult::INVALID_FORMAT;
-
-	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
-	byte* blockBuf = nullptr;
-	bool isDyn = false;
-	byte stackBuf[2048];
-	if (blockSize <= 2048) {
-		blockBuf = stackBuf;
-	} else {
-		blockBuf = (byte*)malloc(blockSize);
-		if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
-		isDyn = true;
+	IImageSurface* surface = nullptr;
+	uni::ImageResult res = OpenSurface(storage, surface, allocator, options, ImageAccessMode::READ_ONLY);
+	if (res != uni::ImageResult::OK) {
+		return res;
 	}
 
-	byte* fileData = (byte*)malloc(maxStorageSize);
-	if (!fileData) {
-		if (isDyn) free(blockBuf);
-		return uni::ImageResult::OUT_OF_MEMORY;
-	}
+	ImageInfo info;
+	surface->GetInfo(info);
 
-	stduint totalRead = storage.Read(0, fileData, maxStorageSize, blockBuf);
-	if (isDyn) free(blockBuf);
+	Rectangle fullRect{ Point(0, 0), Size2(info.width, info.height) };
+	res = surface->ReadPixels(fullRect, outBuffer, allocator);
+	surface->Release();
 
-	int outWidth = 0;
-	int outHeight = 0;
-	uni::Color* stdPixels = DecodePNG(fileData, totalRead, &outWidth, &outHeight);
-	free(fileData);
-
-	if (!stdPixels) {
-		return uni::ImageResult::FAILED;
-	}
-
-	size_t pixelBufferSize = (size_t)outWidth * (size_t)outHeight * sizeof(uni::Color);
-	void* targetPixels = allocator.allocate(pixelBufferSize, 3, 0);// 8-byte aligned (memcpy/Color)
-	if (!targetPixels) {
-		free(stdPixels);
-		return uni::ImageResult::OUT_OF_MEMORY;
-	}
-
-	memcpy(targetPixels, stdPixels, pixelBufferSize);
-	free(stdPixels);
-
-	outBuffer.width = (uint32)outWidth;
-	outBuffer.height = (uint32)outHeight;
-	outBuffer.stride = outWidth * sizeof(uni::Color);
-	outBuffer.format = PixelFormat::ARGB8888;
-	outBuffer.colorSpace = ColorSpace::SRGB;
-	outBuffer.alphaMode = ImageAlphaMode::STRAIGHT;
-	outBuffer.pixels = targetPixels;
-	outBuffer.size = pixelBufferSize;
-	outBuffer.allocator = &allocator;
-
-	return uni::ImageResult::OK;
+	return res;
 }
 
 uni::ImageResult uni::PNGCodec::Encode(

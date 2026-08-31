@@ -32,6 +32,9 @@ typedef stduint socklen_t;
 #define SHUT_WR     1
 #define SHUT_RDWR   2
 
+#define SOL_SOCKET  1
+#define SO_REUSEADDR 2
+
 #define MSG_DONTWAIT 0x40
 
 struct sockaddr {

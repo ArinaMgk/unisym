@@ -4,7 +4,7 @@
 // Copyright: UNISYM
 
 #include "../../../../inc/c/format/picture/BMP.h"
-#include <stdlib.h>
+#include "../../../../inc/c/ustring.h"
 
 #if defined(_INC_CPP) || defined(__cplusplus)
 extern "C" {
@@ -218,25 +218,13 @@ uni::ImageResult uni::BMPCodec::Probe(StorageTrait& storage, bool& matched) cons
 
 	uint16 bfType = 0;
 	stduint block_size = storage.Block_Size ? storage.Block_Size : 512;
-
-	byte* block_buf = nullptr;
-	bool is_dyn = false;
-	byte stack_buf[2048];
-	if (block_size <= 2048) {
-		block_buf = stack_buf;
-	} else {
-		block_buf = (byte*)malloc(block_size);
-		if (!block_buf) {
-			return uni::ImageResult::OUT_OF_MEMORY;
-		}
-		is_dyn = true;
+	byte* block_buf = (byte*)malloc(block_size);
+	if (!block_buf) {
+		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint read_bytes = storage.Read(0, &bfType, 2, block_buf);
-
-	if (is_dyn) {
-		free(block_buf);
-	}
+	free(block_buf);
 
 	// Verify 'BM' magic number (0x4D42)
 	if (read_bytes == 2 && bfType == 0x4D42) {
@@ -260,27 +248,16 @@ uni::ImageResult uni::BMPCodec::ReadInfo(StorageTrait& storage, ImageInfo& outIn
 	BITMAPINFOHEADER infoHeader;
 
 	stduint block_size = storage.Block_Size ? storage.Block_Size : 512;
-	byte* block_buf = nullptr;
-	bool is_dyn = false;
-	byte stack_buf[2048];
-	if (block_size <= 2048) {
-		block_buf = stack_buf;
-	} else {
-		block_buf = (byte*)malloc(block_size);
-		if (!block_buf) {
-			return uni::ImageResult::OUT_OF_MEMORY;
-		}
-		is_dyn = true;
+	byte* block_buf = (byte*)malloc(block_size);
+	if (!block_buf) {
+		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint read_bytes = storage.Read(0, &fileHeader, sizeof(fileHeader), block_buf);
 	if (read_bytes == sizeof(fileHeader)) {
 		read_bytes = storage.Read(sizeof(fileHeader), &infoHeader, sizeof(infoHeader), block_buf);
 	}
-
-	if (is_dyn) {
-		free(block_buf);
-	}
+	free(block_buf);
 
 	if (read_bytes != sizeof(infoHeader)) {
 		return uni::ImageResult::INVALID_FORMAT;
@@ -395,19 +372,11 @@ namespace {
 			}
 
 			stduint block_size = storage->Block_Size ? storage->Block_Size : 512;
-			byte* block_buf = nullptr;
-			bool is_dyn = false;
-			byte stack_buf[2048];
-			if (block_size <= 2048) {
-				block_buf = stack_buf;
-			} else {
-				block_buf = (byte*)malloc(block_size);
-				if (!block_buf) {
-					free(rowBuf);
-					if (ownsMem) alloc.deallocate(pixelsMem);
-					return uni::ImageResult::OUT_OF_MEMORY;
-				}
-				is_dyn = true;
+			byte* block_buf = (byte*)malloc(block_size);
+			if (!block_buf) {
+				free(rowBuf);
+				if (ownsMem) alloc.deallocate(pixelsMem);
+				return uni::ImageResult::OUT_OF_MEMORY;
 			}
 
 			for (int line = 0; line < rh; ++line) {
@@ -417,7 +386,7 @@ namespace {
 
 				stduint readBytes = storage->Read(fileOffset, rowBuf, rowSize, block_buf);
 				if (readBytes != rowSize) {
-					if (is_dyn) free(block_buf);
+					free(block_buf);
 					free(rowBuf);
 					if (ownsMem) alloc.deallocate(pixelsMem);
 					return uni::ImageResult::FAILED;
@@ -481,7 +450,7 @@ namespace {
 				}
 			}
 
-			if (is_dyn) free(block_buf);
+			free(block_buf);
 			free(rowBuf);
 
 			outBuffer.width = (uint32)rw;
@@ -527,16 +496,8 @@ uni::ImageResult uni::BMPCodec::OpenSurface(
 	BITMAPINFOHEADER infoHeader;
 
 	stduint block_size = storage.Block_Size ? storage.Block_Size : 512;
-	byte* block_buf = nullptr;
-	bool is_dyn = false;
-	byte stack_buf[2048];
-	if (block_size <= 2048) {
-		block_buf = stack_buf;
-	} else {
-		block_buf = (byte*)malloc(block_size);
-		if (!block_buf) return uni::ImageResult::OUT_OF_MEMORY;
-		is_dyn = true;
-	}
+	byte* block_buf = (byte*)malloc(block_size);
+	if (!block_buf) return uni::ImageResult::OUT_OF_MEMORY;
 
 	stduint read_bytes = storage.Read(0, &fileHeader, sizeof(fileHeader), block_buf);
 	if (read_bytes == sizeof(fileHeader)) {
@@ -551,7 +512,7 @@ uni::ImageResult uni::BMPCodec::OpenSurface(
 		storage.Read(sizeof(BITMAPFILEHEADER) + infoHeader.biSize, palette, numColors * sizeof(RGBQUAD), block_buf);
 	}
 
-	if (is_dyn) free(block_buf);
+	free(block_buf);
 
 	uint32 rowSize = 0;
 	switch (infoHeader.biBitCount) {
@@ -584,17 +545,9 @@ uni::ImageResult uni::BMPCodec::Decode(
 	BITMAPINFOHEADER infoHeader;
 
 	stduint block_size = storage.Block_Size ? storage.Block_Size : 512;
-	byte* block_buf = nullptr;
-	bool is_dyn = false;
-	byte stack_buf[2048];
-	if (block_size <= 2048) {
-		block_buf = stack_buf;
-	} else {
-		block_buf = (byte*)malloc(block_size);
-		if (!block_buf) {
-			return uni::ImageResult::OUT_OF_MEMORY;
-		}
-		is_dyn = true;
+	byte* block_buf = (byte*)malloc(block_size);
+	if (!block_buf) {
+		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint read_bytes = storage.Read(0, &fileHeader, sizeof(fileHeader), block_buf);
@@ -603,25 +556,25 @@ uni::ImageResult uni::BMPCodec::Decode(
 	}
 
 	if (read_bytes != sizeof(infoHeader)) {
-		if (is_dyn) free(block_buf);
+		free(block_buf);
 		return uni::ImageResult::INVALID_FORMAT;
 	}
 
 	if (fileHeader.bfType != 0x4D42 || infoHeader.biSize < 40 || infoHeader.biCompression != BMP_BI_RGB) {
-		if (is_dyn) free(block_buf);
+		free(block_buf);
 		return uni::ImageResult::UNSUPPORTED;
 	}
 
 	uint16 bitCount = infoHeader.biBitCount;
 	if (bitCount != 1 && bitCount != 4 && bitCount != 8 && bitCount != 24 && bitCount != 32) {
-		if (is_dyn) free(block_buf);
+		free(block_buf);
 		return uni::ImageResult::UNSUPPORTED;
 	}
 
 	int32 width = infoHeader.biWidth;
 	int32 height = infoHeader.biHeight;
 	if (width <= 0 || height == 0) {
-		if (is_dyn) free(block_buf);
+		free(block_buf);
 		return uni::ImageResult::INVALID_FORMAT;
 	}
 
@@ -632,21 +585,19 @@ uni::ImageResult uni::BMPCodec::Decode(
 	}
 
 	if (fileSize < sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)) {
-		if (is_dyn) free(block_buf);
+		free(block_buf);
 		return uni::ImageResult::INVALID_FORMAT;
 	}
 
 	// Allocate temporary file buffer using malloc since it is transient data
 	byte* fileData = (byte*)malloc(fileSize);
 	if (!fileData) {
-		if (is_dyn) free(block_buf);
+		free(block_buf);
 		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
 	stduint totalRead = storage.Read(0, fileData, fileSize, block_buf);
-	if (is_dyn) {
-		free(block_buf);
-	}
+	free(block_buf);
 
 	int outWidth = 0;
 	int outHeight = 0;
@@ -665,7 +616,7 @@ uni::ImageResult uni::BMPCodec::Decode(
 		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
-	memcpy(targetPixels, stdPixels, pixelBufferSize);
+	MemCopyN(targetPixels, stdPixels, pixelBufferSize);
 	free(stdPixels);
 
 	outBuffer.width = (uint32)outWidth;

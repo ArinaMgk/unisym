@@ -23,12 +23,16 @@ extern "C" {
 	#define O_NONBLOCK  0x800
 	#define O_DIRECTORY 0x10000
 
+	#define F_GETFL     3
+	#define F_SETFL     4
+
 	/// @brief  open file
 	/// @param  path: file path
 	/// @param  oflag: access mode and flags
 	/// @param  ...: optional mode (if O_CREAT)
 	/// @return file descriptor, -1 if error
 	int open(const char* path, int oflag, ...);
+	int fcntl(int fd, int cmd, ...);
 
 #if defined(_INC_CPP) || defined(__cplusplus)
 }

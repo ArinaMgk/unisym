@@ -781,7 +781,7 @@ uni::ImageResult uni::PNGCodec::Decode(
 	}
 
 	size_t pixelBufferSize = (size_t)outWidth * (size_t)outHeight * sizeof(uni::Color);
-	void* targetPixels = allocator.allocate(pixelBufferSize);
+	void* targetPixels = allocator.allocate(pixelBufferSize, 3, 0);// 8-byte aligned (memcpy/Color)
 	if (!targetPixels) {
 		free(stdPixels);
 		return uni::ImageResult::OUT_OF_MEMORY;

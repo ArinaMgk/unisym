@@ -42,9 +42,9 @@ namespace uni {
 }
 #endif
 
-extern "C" void SysDelay(stduint unit);
-extern "C" void SysDelay_ms(stduint ms);
-extern "C" void SysDelay_us(stduint us);
+void SysDelay(stduint unit, bool halt_wait = false);
+void SysDelay_ms(stduint ms, bool halt_wait = false);
+void SysDelay_us(stduint us, bool halt_wait = false);
 
 #if defined(_MCU_STM32)
 

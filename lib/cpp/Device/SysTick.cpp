@@ -23,6 +23,11 @@
 #include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/cpp/Device/SysTick"
 #include "../../../inc/cpp/Device/NVIC"
+#ifdef _MCU_STM32
+#include "../../../inc/c/proctrl/ARM.h"
+#else
+#define HALT()
+#endif
 
 #define SysTick_CTRL_CLKSOURCE (1UL << 2)
 #define SysTick_CTRL_TICKINT   (1UL << 1) 
@@ -165,7 +170,7 @@ void SysTick_Handler(void) {
 	#endif
 	asserv(delay_count)--;
 }
-void SysDelay(stduint unit) {
+void SysDelay(stduint unit, bool halt_wait) {
 #if defined(_MPU_STM32MP13)
 	using namespace uni;
 	uint64 endo = SysTick::getTick() + unit;
@@ -175,18 +180,18 @@ void SysDelay(stduint unit) {
 #else
 	//{ISSUE} append systick-enable check?
 	delay_count = unit;
-	while (delay_count);// HALT(); will make Flash Hard
+	while (delay_count) if (halt_wait) HALT();
 #endif
 }
-void SysDelay_ms(stduint ms) {
-	SysDelay(ms * SysTickHz / 1000);
+void SysDelay_ms(stduint ms, bool halt_wait) {
+	SysDelay(ms * SysTickHz / 1000, halt_wait);
 }
 
-void SysDelay_us(stduint us) {
+void SysDelay_us(stduint us, bool halt_wait) {
 	if (us * SysTickHz < 1000000) {
 		for (volatile stduint i = 0; i < SystemCoreClock / 1000000 * us; i++);
 	}
-	else SysDelay(us * SysTickHz / 1000000);
+	else SysDelay(us * SysTickHz / 1000000, halt_wait);
 }
 
 #if defined(_MPU_STM32MP13)

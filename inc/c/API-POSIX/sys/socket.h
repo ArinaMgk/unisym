@@ -32,6 +32,8 @@ typedef stduint socklen_t;
 #define SHUT_WR     1
 #define SHUT_RDWR   2
 
+#define MSG_DONTWAIT 0x40
+
 struct sockaddr {
 	sa_family_t sa_family;
 	char sa_data[14];

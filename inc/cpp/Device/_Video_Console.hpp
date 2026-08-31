@@ -177,6 +177,23 @@ namespace uni {
 		// Invalidate the line buffer (called on RollUp / content change).
 		inline void InvalidateLineBuffer() { line_buf_valid = false; }
 
+		// Return the pixel rectangle for one character cell.
+		Rectangle GetCellRect(stduint cx, stduint cy) const;
+
+		// Repaint a single cell through the active rendering path.
+		void RefreshCell(stduint cx, stduint cy);
+
+		// Repaint a cursor transition without leaving stale cursor pixels behind.
+		void RefreshCursorTransition(Point old_cursor, bool old_visible);
+
+		// Begin/end a batched screen update for one out() call.
+		void BeginBatchUpdate();
+		void FlushBatchUpdate();
+
+		// Accumulate dirty cells/rows for deferred sheet_parent->Update().
+		void MarkDirtyCell(stduint cx, stduint cy, stduint span = 1);
+		void MarkDirtyRow(stduint row);
+
 		// Render char-row `row` into line_buf if not already cached.
 		void EnsureLineBuffer(stduint row);
 
@@ -197,6 +214,10 @@ namespace uni {
 
 		friend void _VideoConsole2Out(VideoConsole2* crt_self, const char* str, stduint len);
 		static VideoConsole2* crt_self2;
+		bool batch_update_active = false;
+		bool batch_full_refresh = false;
+		stduint* batch_dirty_min = nullptr;
+		stduint* batch_dirty_max = nullptr;
 	};
 
 	// VideoConsole3: uni::witch::control::TextBox

@@ -229,8 +229,16 @@ namespace uni {
 		buffer         = pixel_buf;
 		text_buf       = text_storage;
 		line_buf       = line_storage;
+		if (batch_dirty_min) { delete[] batch_dirty_min; batch_dirty_min = nullptr; }
+		if (batch_dirty_max) { delete[] batch_dirty_max; batch_dirty_max = nullptr; }
+		if (rows) {
+			batch_dirty_min = new stduint[rows];
+			batch_dirty_max = new stduint[rows];
+		}
 		line_buf_row   = -1;
 		line_buf_valid = false;
+		batch_update_active = false;
+		batch_full_refresh = false;
 		esc_state  = 0;
 		esc_nparams = 0;
 		for0(k, 8) esc_params[k] = 0;
@@ -259,11 +267,15 @@ namespace uni {
 			stduint total = window.width * window.height;
 			Color* p = buffer;
 			for0(i, total) *p++ = backcolor;
-			if (sheet_parent) sheet_parent->Update(this, window);
+			if (sheet_parent) {
+				if (batch_update_active) batch_full_refresh = true;
+				else sheet_parent->Update(this, window);
+			}
 			else if (vci) { Rectangle r = window; r.color = backcolor; vci->DrawRectangle(r); }
 		}
 		else if (sheet_parent) {
-			sheet_parent->Update(this, window);
+			if (batch_update_active) batch_full_refresh = true;
+			else sheet_parent->Update(this, window);
 		}
 		else if (vci) {
 			Rectangle r = window; r.color = backcolor;
@@ -315,39 +327,178 @@ namespace uni {
 		// Use delete[] to match new[] allocation in console initialization
 		if (text_buf) { delete[] text_buf; text_buf = nullptr; }
 		if (line_buf) { delete[] line_buf; line_buf = nullptr; }
+		if (batch_dirty_min) { delete[] batch_dirty_min; batch_dirty_min = nullptr; }
+		if (batch_dirty_max) { delete[] batch_dirty_max; batch_dirty_max = nullptr; }
 	}
 
 	// -------------------------------------------------------------------------
 	// doshow
 	// -------------------------------------------------------------------------
+	Rectangle VideoConsole2::GetCellRect(stduint cx, stduint cy) const {
+		Rectangle rect;
+		rect.x = cx * font_engine->GetCellSize().x;
+		rect.y = cy * font_engine->GetCellSize().y;
+		rect.width = font_engine->GetCellSize().x;
+		rect.height = font_engine->GetCellSize().y;
+		return rect;
+	}
+
+	void VideoConsole2::RefreshCell(stduint cx, stduint cy) {
+		if (!font_engine || cx >= cols || cy >= rows) return;
+
+		Rectangle cell_rect = GetCellRect(cx, cy);
+		bool draw_cursor = cursor_visible && cursor.x == (stdsint)cx && cursor.y == (stdsint)cy;
+
+		if (sheet_buffer || buffer) {
+			Color* target = sheet_buffer ? sheet_buffer : buffer;
+			if (draw_cursor) {
+				for0(sy, cell_rect.height) {
+					Color* row = target + (cell_rect.y + sy) * window.width + cell_rect.x;
+					for0(sx, cell_rect.width) row[sx] = forecolor;
+				}
+			}
+			else if (text_buf) {
+				const BufferChar& cell = text_buf[cy * cols + cx];
+				if (line_buf) {
+					EnsureLineBuffer(cy);
+					stduint row_px_w = cols * cell_rect.width;
+					Color* glyph_base = line_buf + cx * cell_rect.width;
+					for0(scan_y, cell_rect.height) {
+						Color* dst = target + (cell_rect.y + scan_y) * window.width + cell_rect.x;
+						Color* src = glyph_base + scan_y * row_px_w;
+						for0(px, cell_rect.width) dst[px] = src[px];
+					}
+				}
+				else {
+					font_engine->DrawChar(target, window.width,
+						cell_rect.x, cell_rect.y, cell.unicode_char,
+						cell.fore_color, cell.back_color);
+				}
+			}
+			else {
+				for0(sy, cell_rect.height) {
+					Color* row = target + (cell_rect.y + sy) * window.width + cell_rect.x;
+					for0(sx, cell_rect.width) row[sx] = backcolor;
+				}
+			}
+		}
+		else if (vci && !sheet_parent) {
+			if (draw_cursor) {
+				Rectangle draw_rect = cell_rect;
+				draw_rect.color = forecolor;
+				vci->DrawRectangle(draw_rect);
+			}
+			else if (line_buf && text_buf) {
+				EnsureLineBuffer(cy);
+				stduint row_px_w = cols * cell_rect.width;
+				Color* glyph_base = line_buf + cx * cell_rect.width;
+				Color* tmp = new Color[cell_rect.width * cell_rect.height];
+				if (!tmp) return;
+				for0(scan_y, cell_rect.height) {
+					Color* dst = tmp + scan_y * cell_rect.width;
+					Color* src = glyph_base + scan_y * row_px_w;
+					for0(px, cell_rect.width) dst[px] = src[px];
+				}
+				vci->DrawPoints(cell_rect, tmp);
+				delete[] tmp;
+			}
+			else {
+				Rectangle draw_rect = cell_rect;
+				draw_rect.color = backcolor;
+				vci->DrawRectangle(draw_rect);
+			}
+		}
+
+		if (sheet_parent) sheet_parent->Update(this, cell_rect);
+	}
+
+	void VideoConsole2::RefreshCursorTransition(Point old_cursor, bool old_visible) {
+		if (old_visible && old_cursor.x >= 0 && old_cursor.y >= 0) {
+			RefreshCell((stduint)old_cursor.x, (stduint)old_cursor.y);
+		}
+		if (cursor_visible && cursor.x >= 0 && cursor.y >= 0 &&
+			(old_cursor.x != cursor.x || old_cursor.y != cursor.y || !old_visible)) {
+			RefreshCell((stduint)cursor.x, (stduint)cursor.y);
+		}
+	}
+
 	void VideoConsole2::doshow(void*) {
-		if (!font_engine) return;
+		if (!font_engine || cursor.x < 0 || cursor.y < 0) return;
+		RefreshCell((stduint)cursor.x, (stduint)cursor.y);
+	}
+
+	void VideoConsole2::BeginBatchUpdate() {
+		batch_update_active = true;
+		batch_full_refresh = false;
+		if (!batch_dirty_min || !batch_dirty_max) return;
+		for0(row, rows) {
+			batch_dirty_min[row] = cols;
+			batch_dirty_max[row] = 0;
+		}
+	}
+
+	void VideoConsole2::MarkDirtyCell(stduint cx, stduint cy, stduint span) {
+		if (!batch_update_active || !batch_dirty_min || !batch_dirty_max) return;
+		if (cy >= rows || cx >= cols) return;
+		stduint end = cx + maxof((stduint)1, span);
+		if (end > cols) end = cols;
+		if (batch_dirty_min[cy] > cx) batch_dirty_min[cy] = cx;
+		if (batch_dirty_max[cy] < end) batch_dirty_max[cy] = end;
+	}
+
+	void VideoConsole2::MarkDirtyRow(stduint row) {
+		if (!batch_update_active) return;
+		if (row >= rows) return;
+		if (!batch_dirty_min || !batch_dirty_max) {
+			batch_full_refresh = true;
+			return;
+		}
+		batch_dirty_min[row] = 0;
+		batch_dirty_max[row] = cols;
+	}
+
+	void VideoConsole2::FlushBatchUpdate() {
+		if (!batch_update_active) return;
+		batch_update_active = false;
+		if (!sheet_parent || !font_engine) return;
+
 		stduint font_w = font_engine->GetCellSize().x;
 		stduint font_h = font_engine->GetCellSize().y;
-		Size2 fontsize((stdsint)font_w, (stdsint)font_h);
-		Rectangle cursor_rect(cursor * fontsize, fontsize, cursor_visible ? forecolor : backcolor);
 
-		if (sheet_buffer) {
-			VideoControlInterfaceMARGB8888 vcim(sheet_buffer, window.getSize());
-			vcim.DrawRectangle(cursor_rect);
-			if (sheet_parent) sheet_parent->Update(this, cursor_rect);
+		if (batch_full_refresh || !batch_dirty_min || !batch_dirty_max) {
+			Rectangle full;
+			full.x = 0;
+			full.y = 0;
+			full.width = window.width;
+			full.height = rows * font_h;
+			sheet_parent->Update(this, full);
+			batch_full_refresh = false;
+			return;
 		}
-		else if (buffer) {
-			Color fill = cursor_visible ? forecolor : backcolor;
-			stduint px = (stduint)cursor.x * font_w;
-			stduint py = (stduint)cursor.y * font_h;
-			for (stduint sy = 0; sy < font_h; sy++) {
-				Color* row = buffer + (py + sy) * window.width + px;
-				for (stduint sx = 0; sx < font_w; sx++) row[sx] = fill;
+
+		for (stduint row = 0; row < rows;) {
+			stduint min_cx = batch_dirty_min[row];
+			stduint max_cx = batch_dirty_max[row];
+			if (min_cx >= max_cx || min_cx >= cols) {
+				row++;
+				continue;
 			}
-			if (sheet_parent) sheet_parent->Update(this, cursor_rect);
+			if (max_cx > cols) max_cx = cols;
+			stduint end_row = row + 1;
+			while (end_row < rows &&
+				batch_dirty_min[end_row] == min_cx &&
+				batch_dirty_max[end_row] == max_cx) {
+				end_row++;
+			}
+			Rectangle rect;
+			rect.x = min_cx * font_w;
+			rect.y = row * font_h;
+			rect.width = (max_cx - min_cx) * font_w;
+			rect.height = (end_row - row) * font_h;
+			sheet_parent->Update(this, rect);
+			row = end_row;
 		}
-		else if (vci) {
-			vci->DrawRectangle(cursor_rect);
-		}
-		else if (sheet_parent) {
-			sheet_parent->Update(this, cursor_rect);
-		}
+		batch_full_refresh = false;
 	}
 
 	// -------------------------------------------------------------------------
@@ -518,13 +669,17 @@ namespace uni {
 				Rectangle full;
 				full.x = 0; full.y = 0;
 				full.width = window.width; full.height = (stduint)(rows * font_h);
-				if (sheet_parent) sheet_parent->Update(this, full);
+				if (sheet_parent && !batch_update_active) sheet_parent->Update(this, full);
+				else if (sheet_parent) batch_full_refresh = true;
 			}
 			else if (sheet_parent) {
-				Rectangle full;
-				full.x = 0; full.y = 0;
-				full.width = window.width; full.height = (stduint)(rows * font_h);
-				sheet_parent->Update(this, full);
+				if (batch_update_active) batch_full_refresh = true;
+				else {
+					Rectangle full;
+					full.x = 0; full.y = 0;
+					full.width = window.width; full.height = (stduint)(rows * font_h);
+					sheet_parent->Update(this, full);
+				}
 			}
 			else if (vci) {
 				if (line_buf) {
@@ -552,7 +707,8 @@ namespace uni {
 				VideoControlInterfaceMARGB8888 bvim(buffer, window.getSize());
 				Rectangle zero_rect = window; zero_rect.x = zero_rect.y = 0;
 				bvim.RollUp(font_h, zero_rect);
-				if (sheet_parent) sheet_parent->Update(this, zero_rect);
+				if (sheet_parent && !batch_update_active) sheet_parent->Update(this, zero_rect);
+				else if (sheet_parent) batch_full_refresh = true;
 			}
 			else if (vci) {
 				vci->RollUp(font_h, window);
@@ -658,13 +814,8 @@ namespace uni {
 			if (consumed) continue;
 
 			if (u_c == 0) {
-				if (crt_self->cursor.x > 0 && crt_self->refSheetParent()) {
-					Rectangle rect;
-					rect.x = (crt_self->cursor.x - 1) * font_w;
-					rect.y = crt_self->cursor.y * font_h;
-					rect.width = font_w; rect.height = font_h;
-					crt_self->refSheetParent()->Update(crt_self, rect);
-				}
+				if (crt_self->cursor.x > 0)
+					crt_self->MarkDirtyCell((stduint)(crt_self->cursor.x - 1), (stduint)crt_self->cursor.y);
 			}
 			else if (c == '\x1b') {
 				crt_self->esc_state = 1;
@@ -679,13 +830,8 @@ namespace uni {
 				crt_self->cursor.y++;
 				crt_self->FeedLine();
 
-				if (crt_self->refSheetParent() && crt_self->update_method == 2) {
-					Rectangle rect;
-					rect.x = 0;
-					rect.y = (stduint)(crt_self->cursor.y - 1) * font_h;
-					rect.width = crt_self->window.width; rect.height = font_h;
-					crt_self->refSheetParent()->Update(crt_self, rect);
-				}
+				if (crt_self->update_method == 2 && crt_self->cursor.y > 0)
+					crt_self->MarkDirtyRow((stduint)(crt_self->cursor.y - 1));
 			}
 			else if (c == '\r') {
 				crt_self->cursor.x = 0;
@@ -766,12 +912,8 @@ namespace uni {
 
 				if (u_c >= 0x100) {
 					// [Double-wide CJK character]
-					if (crt_self->refSheetParent() && crt_self->update_method >= 1) {
-						Rectangle rect;
-						rect.x = cx * font_w; rect.y = cy * font_h;
-						rect.width = font_w * 2; rect.height = font_h;
-						crt_self->refSheetParent()->Update(crt_self, rect);
-					}
+					if (crt_self->update_method >= 1)
+						crt_self->MarkDirtyCell(cx, cy, 2);
 
 					// Move to next cell to place the dummy placeholder
 					crt_self->curinc();
@@ -817,12 +959,8 @@ namespace uni {
 					crt_self->curinc();
 				} else {
 					// [Regular single-wide character]
-					if (crt_self->refSheetParent() && crt_self->update_method >= 1) {
-						Rectangle rect;
-						rect.x = cx * font_w; rect.y = cy * font_h;
-						rect.width = font_w; rect.height = font_h;
-						crt_self->refSheetParent()->Update(crt_self, rect);
-					}
+					if (crt_self->update_method >= 1)
+						crt_self->MarkDirtyCell(cx, cy);
 					crt_self->curinc();
 				}
 			}
@@ -844,14 +982,16 @@ namespace uni {
 			plogerro("VideoConsole2: Attempted to print characters without a bound FontEngine!");
 			return -1;
 		}
+		Point old_cursor = cursor;
 		bool old_visible = cursor_visible;
 		cursor_visible = false;
-		doshow(nullptr);
+		BeginBatchUpdate();
 
 		_VideoConsole2Out(this, str, len);
+		FlushBatchUpdate();
 
 		cursor_visible = old_visible;
-		doshow(nullptr);
+		RefreshCursorTransition(old_cursor, old_visible);
 		return 0;
 	}
 	int VideoConsole2::inn() {

@@ -216,7 +216,7 @@ namespace uni {
 
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) override;// set proper
 
-		virtual bool enumer(void* dir_handler, _tocall_ft _fn) override;
+		virtual bool enumer(void* dir_handler, _tocall_ft _fn, FilesysEnumState* state = nullptr) override;
 
 		virtual stduint readfl(void* fil_handler, Slice file_slice, byte*) override;// read file
 

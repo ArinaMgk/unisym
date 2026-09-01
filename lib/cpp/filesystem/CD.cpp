@@ -673,9 +673,10 @@ namespace uni {
 		}
 	}
 
-	bool FilesysISO9660::enumer(void* dir_handler, _tocall_ft _fn) {
+	bool FilesysISO9660::enumer(void* dir_handler, _tocall_ft _fn, FilesysEnumState* state) {
 		ISO9660_FileHandle* dir = (ISO9660_FileHandle*)dir_handler;
 		if (!dir || !dir->isDir() || !_fn) return false;
+		if (state && (state->finished || state->full())) return true;
 
 		uint32 total = dir->data_length;
 		uint32 processed = 0;
@@ -694,11 +695,24 @@ namespace uni {
 
 				char name[128];
 				iso_decode_name(this, rec, name, sizeof(name));
-				_fn((void*)(stduint)(rec->flags & 0x02u ? 1 : 0), (void*)name);
+				if (state) {
+					if (state->should_emit()) {
+						_fn((void*)(stduint)(rec->flags & 0x02u ? 1 : 0), (void*)name);
+						state->emit_one();
+						if (state->full()) return true;
+					}
+					else {
+						state->skip_one();
+					}
+				}
+				else {
+					_fn((void*)(stduint)(rec->flags & 0x02u ? 1 : 0), (void*)name);
+				}
 				off += rec->length;
 			}
 			processed += sector_used;
 		}
+		if (state) state->mark_finished();
 		return true;
 	}
 
@@ -1049,9 +1063,10 @@ namespace uni {
 		}
 	}
 
-	bool FilesysUDF::enumer(void* dir_handler, _tocall_ft _fn) {
+	bool FilesysUDF::enumer(void* dir_handler, _tocall_ft _fn, FilesysEnumState* state) {
 		UDF_FileHandle* dir = (UDF_FileHandle*)dir_handler;
 		if (!dir || !dir->is_dir || !_fn) return false;
+		if (state && (state->finished || state->full())) return true;
 
 		uint32 total = dir->length;
 		uint32 processed = 0;
@@ -1080,7 +1095,19 @@ namespace uni {
 				char name[256];
 				udf_decode_fid_name(fid, sector_buffer + name_off, name, sizeof(name));
 				if (name[0] && StrCompare(name, ".") && StrCompare(name, "..")) {
-					_fn((void*)(stduint)((fid->file_characteristics & 0x02u) ? 1 : 0), (void*)name);
+					if (state) {
+						if (state->should_emit()) {
+							_fn((void*)(stduint)((fid->file_characteristics & 0x02u) ? 1 : 0), (void*)name);
+							state->emit_one();
+							if (state->full()) return true;
+						}
+						else {
+							state->skip_one();
+						}
+					}
+					else {
+						_fn((void*)(stduint)((fid->file_characteristics & 0x02u) ? 1 : 0), (void*)name);
+					}
 				}
 
 				stduint fid_len = sizeof(UDF_FileIdentifierDescriptor) + fid->length_of_implementation_use + fid->length_of_file_identifier;
@@ -1090,6 +1117,7 @@ namespace uni {
 			}
 			processed += sector_used;
 		}
+		if (state) state->mark_finished();
 		return true;
 	}
 

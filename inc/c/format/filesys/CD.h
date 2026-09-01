@@ -271,7 +271,7 @@ namespace uni {
 		virtual bool remove(rostr pathname) override;
 		virtual void* search(rostr fullpath, FilesysSearchArgs* args) override;
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) override;
-		virtual bool enumer(void* dir_handler, _tocall_ft _fn) override;
+		virtual bool enumer(void* dir_handler, _tocall_ft _fn, FilesysEnumState* state = nullptr) override;
 		virtual stduint readfl(void* fil_handler, Slice file_slice, byte* dst) override;
 		virtual stduint writfl(void* fil_handler, Slice file_slice, const byte* src) override;
 	};
@@ -302,7 +302,7 @@ namespace uni {
 		virtual bool remove(rostr pathname) override;
 		virtual void* search(rostr fullpath, FilesysSearchArgs* args) override;
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) override;
-		virtual bool enumer(void* dir_handler, _tocall_ft _fn) override;
+		virtual bool enumer(void* dir_handler, _tocall_ft _fn, FilesysEnumState* state = nullptr) override;
 		virtual stduint readfl(void* fil_handler, Slice file_slice, byte* dst) override;
 		virtual stduint writfl(void* fil_handler, Slice file_slice, const byte* src) override;
 	};

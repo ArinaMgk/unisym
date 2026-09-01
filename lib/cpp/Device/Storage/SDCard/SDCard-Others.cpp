@@ -893,29 +893,11 @@ namespace uni {
 			state = false;
 		}
 		else if (sdmmc_clk = getFrequency()) {
-			stduint this_ClockDiv;
-			// Check if user Clock div < Normal speed 25Mhz, no change in Clockdiv
-			// or UltraHigh speed SD card,user Clock div
-			if (last_ClockDiv >= (sdmmc_clk / (2U * SD_NORMAL_SPEED_FREQ)) ||
-				CardInfo.CardSpeed == CARD_ULTRA_HIGH_SPEED)
-				this_ClockDiv = last_ClockDiv;
-			else if (CardInfo.CardSpeed == CARD_HIGH_SPEED) {
-				// High speed SD card, Max Frequency = 50Mhz
-				if (!last_ClockDiv) {
-					this_ClockDiv = (sdmmc_clk > SD_HIGH_SPEED_FREQ) ? sdmmc_clk / (2U * SD_HIGH_SPEED_FREQ) : last_ClockDiv;
-				}
-				else {
-					this_ClockDiv = ((sdmmc_clk / (2U * last_ClockDiv)) > SD_HIGH_SPEED_FREQ) ? sdmmc_clk / (2U * SD_HIGH_SPEED_FREQ) : last_ClockDiv;
-				}
-			}
-			else {
-				// No High speed SD card, Max Frequency = 25Mhz
-				if (!last_ClockDiv) {
-					this_ClockDiv = (sdmmc_clk > SD_NORMAL_SPEED_FREQ) ? sdmmc_clk / (2U * SD_NORMAL_SPEED_FREQ) : last_ClockDiv;
-				}
-				else {
-					this_ClockDiv = ((sdmmc_clk / (2U * last_ClockDiv)) > SD_NORMAL_SPEED_FREQ) ? sdmmc_clk / (2U * SD_NORMAL_SPEED_FREQ) : last_ClockDiv;
-				}
+			stduint target_freq = CardInfo.CardSpeed >= CARD_HIGH_SPEED ?
+				SD_HIGH_SPEED_FREQ : SD_NORMAL_SPEED_FREQ;
+			stduint this_ClockDiv = 0;
+			if (sdmmc_clk > target_freq) {
+				this_ClockDiv = (sdmmc_clk + (2U * target_freq) - 1U) / (2U * target_freq);
 			}
 		#if (USE_SD_TRANSCEIVER != 0U)
 			Init.TranceiverPresent = hsd->Init.TranceiverPresent;

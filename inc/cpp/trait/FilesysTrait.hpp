@@ -72,6 +72,43 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		void* user_data;
 	};
 
+	struct FilesysEnumState {
+		stduint position = 0;
+		stduint current = 0;
+		stduint limit = 0;
+		stduint emitted = 0;
+		stduint finished = 0;
+		stduint opaque[8] = {};
+
+		void begin(stduint max_emit) {
+			current = 0;
+			limit = max_emit;
+			emitted = 0;
+		}
+
+		bool full() const {
+			return limit != 0 && emitted >= limit;
+		}
+
+		bool should_emit() const {
+			return !finished && !full() && current >= position;
+		}
+
+		void skip_one() {
+			current++;
+		}
+
+		void emit_one() {
+			emitted++;
+			current++;
+			position = current;
+		}
+
+		void mark_finished() {
+			finished = 1;
+		}
+	};
+
 	class FilesysTrait
 	{
 	public:
@@ -95,7 +132,7 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) = 0;// set proper
 
 		// _fn(is_folder, flinfo)
-		virtual bool enumer(void* dir_handler, _tocall_ft _fn) = 0;
+		virtual bool enumer(void* dir_handler, _tocall_ft _fn, FilesysEnumState* state = nullptr) = 0;
 
 		// return the bytes read
 		// limit(<= ~0, <= ~0)

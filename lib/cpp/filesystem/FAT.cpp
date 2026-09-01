@@ -274,7 +274,7 @@ namespace uni {
 		return fs_loaded = true;
 	}
 
-	enum DirWalkResult { WALK_CONTINUE, WALK_FOUND, WALK_END };
+	enum DirWalkResult { WALK_CONTINUE, WALK_FOUND, WALK_END, WALK_LIMIT, WALK_ERROR };
 
 	bool FilesysFAT::find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer, FAT_TableScratch* fat_cache) {
 		if (!sector_buffer) sector_buffer = buffer_sector;
@@ -469,9 +469,11 @@ namespace uni {
 		}
 	}
 
-	bool FilesysFAT::enumer(void* dir_handler, _tocall_ft _fn) {
+	bool FilesysFAT::enumer(void* dir_handler, _tocall_ft _fn, FilesysEnumState* state) {
 		FAT_FileHandle* fh = (FAT_FileHandle*)dir_handler;
-		if (!fh->is_dir) return false;
+		if (!fh || !fh->is_dir) return false;
+		if (!_fn) return true;
+		if (state && (state->finished || state->full())) return true;
 
 		byte* sector_buffer = buffer_sector;
 		bool allocated_sector_buffer = false;
@@ -496,12 +498,49 @@ namespace uni {
 		FAT_LfnState lfn_state;
 		fat_reset_lfn_state(lfn_state);
 
-		auto process_sector = [&](uint32_t sector) -> bool {
-			if (!storage->Read(sector, sector_buffer)) return false;
+		enum {
+			FAT_ENUM_CLUSTER = 0,
+			FAT_ENUM_SECTOR_OFFSET = 1,
+			FAT_ENUM_ENTRY_INDEX = 2,
+			FAT_ENUM_STARTED = 3,
+		};
+
+		uint32_t cursor_cluster = fh->start_cluster;
+		if (cursor_cluster == 0 && fat_type == 32) cursor_cluster = root_cluster;
+		uint32_t cursor_sector_offset = 0;
+		uint32_t cursor_entry_index = 0;
+		if (state) {
+			state->current = state->position;
+			if (state->opaque[FAT_ENUM_STARTED]) {
+				cursor_cluster = (uint32_t)state->opaque[FAT_ENUM_CLUSTER];
+				cursor_sector_offset = (uint32_t)state->opaque[FAT_ENUM_SECTOR_OFFSET];
+				cursor_entry_index = (uint32_t)state->opaque[FAT_ENUM_ENTRY_INDEX];
+			}
+			else {
+				state->opaque[FAT_ENUM_CLUSTER] = cursor_cluster;
+				state->opaque[FAT_ENUM_SECTOR_OFFSET] = 0;
+				state->opaque[FAT_ENUM_ENTRY_INDEX] = 0;
+				state->opaque[FAT_ENUM_STARTED] = 1;
+			}
+		}
+
+		auto save_cursor = [&](uint32_t cluster, uint32_t sector_offset, uint32_t entry_index) {
+			if (!state) return;
+			state->opaque[FAT_ENUM_CLUSTER] = cluster;
+			state->opaque[FAT_ENUM_SECTOR_OFFSET] = sector_offset;
+			state->opaque[FAT_ENUM_ENTRY_INDEX] = entry_index;
+			state->opaque[FAT_ENUM_STARTED] = 1;
+		};
+
+		auto process_sector = [&](uint32_t sector, uint32_t cluster, uint32_t sector_offset, uint32_t start_index) -> DirWalkResult {
+			if (!storage->Read(sector, sector_buffer)) return WALK_ERROR;
 			int entries_per_sector = storage->Block_Size / 32;
-			for (int i = 0; i < entries_per_sector; i++) {
+			for (int i = (int)start_index; i < entries_per_sector; i++) {
 				FAT_DirEntry* entry = &cast<FAT_DirEntry*>(sector_buffer)[i];
-				if ((byte)entry->name[0] == 0x00u) return false; // end of dir
+				if ((byte)entry->name[0] == 0x00u) {
+					if (state) state->mark_finished();
+					return WALK_END;
+				}
 				if ((byte)entry->name[0] == 0xE5u) {
 					fat_reset_lfn_state(lfn_state); continue;
 				}
@@ -529,29 +568,58 @@ namespace uni {
 
 				// ploginfo("FilesysFAT::enumer %s", final_name);
 				if (_fn) _fn((void*)_IMM(entry->attribute.directory), (void*)final_name);
+				if (state) {
+					state->emit_one();
+					uint32_t next_sector_offset = sector_offset;
+					uint32_t next_entry_index = (uint32_t)i + 1;
+					if (next_entry_index >= (uint32_t)entries_per_sector) {
+						next_sector_offset++;
+						next_entry_index = 0;
+					}
+					save_cursor(cluster, next_sector_offset, next_entry_index);
+					if (state->full()) return WALK_LIMIT;
+				}
 			}
-			return true;
+			return WALK_CONTINUE;
 			};
 
 		if (fh->start_cluster == 0 && fat_type != 32) {
 			uint32_t start_sec = first_data_sector - root_dir_sectors;
-			for (uint32_t s = 0; s < root_dir_sectors; s++) {
-				if (!process_sector(start_sec + s)) break;
+			for (uint32_t s = cursor_sector_offset; s < root_dir_sectors; s++) {
+				DirWalkResult res = process_sector(start_sec + s, 0, s, (s == cursor_sector_offset) ? cursor_entry_index : 0);
+				if (res == WALK_ERROR) {
+					if (fat_cache) delete[] fat_table_cache.buffer;
+					if (allocated_sector_buffer) delete[] sector_buffer;
+					return false;
+				}
+				if (res == WALK_END || res == WALK_LIMIT) break;
+				save_cursor(0, s + 1, 0);
 			}
+			if (state && !state->full()) state->mark_finished();
 		}
 		else {
-			uint32_t cluster = fh->start_cluster;
-			if (cluster == 0 && fat_type == 32) cluster = root_cluster;
+			uint32_t cluster = cursor_cluster;
 			int limit = 100000;
 			while (cluster >= 2 && cluster < 0xFFFFFFF8 && limit-- > 0) {
 				uint32_t cluster_sec = getSector_foCluster(cluster);
-				bool cont = true;
-				for (uint32_t s = 0; s < sectors_per_cluster; s++) {
-					if (!process_sector(cluster_sec + s)) { cont = false; break; }
+				DirWalkResult res = WALK_CONTINUE;
+				for (uint32_t s = cursor_sector_offset; s < sectors_per_cluster; s++) {
+					res = process_sector(cluster_sec + s, cluster, s, (s == cursor_sector_offset) ? cursor_entry_index : 0);
+					if (res == WALK_ERROR) {
+						if (fat_cache) delete[] fat_table_cache.buffer;
+						if (allocated_sector_buffer) delete[] sector_buffer;
+						return false;
+					}
+					if (res == WALK_END || res == WALK_LIMIT) break;
+					save_cursor(cluster, s + 1, 0);
 				}
-				if (!cont) break;
+				if (res == WALK_END || res == WALK_LIMIT) break;
 				cluster = get_fat_entry(cluster, fat_cache);
+				cursor_sector_offset = 0;
+				cursor_entry_index = 0;
+				save_cursor(cluster, 0, 0);
 			}
+			if ((cluster < 2 || cluster >= 0xFFFFFFF8 || limit <= 0) && state) state->mark_finished();
 		}
 		if (fat_cache) delete[] fat_table_cache.buffer;
 		if (allocated_sector_buffer) delete[] sector_buffer;

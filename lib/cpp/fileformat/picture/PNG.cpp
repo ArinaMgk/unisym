@@ -805,6 +805,25 @@ namespace {
 			bufAvail = rd;
 			return (int)chunkBuf[0];
 		}
+
+		bool ReadBytes(byte* dest, size_t count) {
+			size_t out = 0;
+			while (out < count) {
+				if (bufPos < bufAvail) {
+					size_t n = bufAvail - bufPos;
+					if (n > count - out) n = count - out;
+					MemCopyN(dest + out, chunkBuf + bufPos, n);
+					bufPos += n;
+					out += n;
+					continue;
+				}
+
+				int b = ReadByte();
+				if (b < 0) return false;
+				dest[out++] = (byte)b;
+			}
+			return true;
+		}
 	};
 
 	struct StreamInflate {
@@ -960,17 +979,57 @@ namespace {
 			return true;
 		}
 
-		int PullByte() {
+		bool EnsureZlibHeader() {
 			if (!zlibHeaderParsed) {
 				int cmf = src->ReadByte();
 				int flg = src->ReadByte();
-				if (cmf < 0 || flg < 0) return -1;
-				if ((cmf & 0x0F) != 8 || ((cmf * 256 + flg) % 31) != 0) return -1;
+				if (cmf < 0 || flg < 0) return false;
+				if ((cmf & 0x0F) != 8 || ((cmf * 256 + flg) % 31) != 0) return false;
 				if (flg & 0x20) {
 					for (int i = 0; i < 4; ++i) src->ReadByte();
 				}
 				zlibHeaderParsed = true;
 			}
+			return true;
+		}
+
+		void AppendWindow(const byte* data, size_t count) {
+			while (count > 0) {
+				size_t pos = winHead & 32767;
+				size_t n = 32768 - pos;
+				if (n > count) n = count;
+				MemCopyN(window + pos, data, n);
+				winHead += (uint32)n;
+				data += n;
+				count -= n;
+			}
+		}
+
+		void RepeatWindowByte(byte value, size_t count) {
+			while (count > 0) {
+				size_t pos = winHead & 32767;
+				size_t n = 32768 - pos;
+				if (n > count) n = count;
+				MemSet(window + pos, value, n);
+				winHead += (uint32)n;
+				count -= n;
+			}
+		}
+
+		void CopyMatchNoOverlap(byte* dest, size_t count) {
+			size_t out = 0;
+			while (out < count) {
+				size_t pos = (winHead - matchDist + out) & 32767;
+				size_t n = 32768 - pos;
+				if (n > count - out) n = count - out;
+				MemCopyN(dest + out, window + pos, n);
+				out += n;
+			}
+			AppendWindow(dest, count);
+		}
+
+		int PullByte() {
+			if (!EnsureZlibHeader()) return -1;
 
 			if (matchRemain > 0) {
 				byte b = window[(winHead - matchDist) & 32767];
@@ -1028,10 +1087,82 @@ namespace {
 		}
 
 		bool Pull(byte* dest, size_t count) {
-			for (size_t i = 0; i < count; ++i) {
-				int b = PullByte();
-				if (b < 0) return false;
-				dest[i] = (byte)b;
+			if (!EnsureZlibHeader()) return false;
+
+			size_t out = 0;
+			while (out < count) {
+				if (matchRemain > 0) {
+					size_t n = count - out;
+					if (n > (size_t)matchRemain) n = matchRemain;
+					if (matchDist == 1) {
+						byte b = window[(winHead - 1) & 32767];
+						MemSet(dest + out, b, n);
+						RepeatWindowByte(b, n);
+						out += n;
+					} else if ((size_t)matchDist >= n) {
+						CopyMatchNoOverlap(dest + out, n);
+						out += n;
+					} else {
+						for (size_t i = 0; i < n; ++i) {
+							byte b = window[(winHead - matchDist) & 32767];
+							window[winHead & 32767] = b;
+							winHead++;
+							dest[out++] = b;
+						}
+					}
+					matchRemain -= (int)n;
+					continue;
+				}
+
+				if (btype < 0) {
+					if (!StartNewBlock()) return false;
+				}
+
+				if (btype == 0) {
+					if (storedLen > 0) {
+						size_t n = count - out;
+						if (n > (size_t)storedLen) n = storedLen;
+						if (bitsCount == 0) {
+							if (!src->ReadBytes(dest + out, n)) return false;
+							AppendWindow(dest + out, n);
+							out += n;
+						} else {
+							for (size_t i = 0; i < n; ++i) {
+								int b = ReadBits(8);
+								byte outByte = (byte)b;
+								window[winHead & 32767] = outByte;
+								winHead++;
+								dest[out++] = outByte;
+							}
+						}
+						storedLen -= (uint16)n;
+						if (storedLen == 0) btype = -1;
+						continue;
+					}
+					btype = -1;
+				} else if (btype == 1 || btype == 2) {
+					int sym = DecodeSymbol(litTree);
+					if (sym < 0) return false;
+					if (sym < 256) {
+						byte b = (byte)sym;
+						window[winHead & 32767] = b;
+						winHead++;
+						dest[out++] = b;
+					} else if (sym == 256) {
+						btype = -1;
+					} else if (sym <= 285) {
+						int len = kBaseLength[sym - 257] + ReadBits(kExtraLengthBits[sym - 257]);
+						int distSym = DecodeSymbol(distTree);
+						if (distSym < 0 || distSym >= 30) return false;
+						int dist = kBaseDist[distSym] + ReadBits(kExtraDistBits[distSym]);
+						matchDist = (uint16)dist;
+						matchRemain = len;
+					} else {
+						return false;
+					}
+				} else {
+					return false;
+				}
 			}
 			return true;
 		}
@@ -1151,11 +1282,127 @@ namespace {
 		}
 	}
 
+	static void ReconstructScanlineRGB565(
+		const byte* src,
+		uint16* dst,
+		uint32 startX,
+		uint32 count,
+		byte colorType,
+		byte bitDepth,
+		const byte* palette,
+		int paletteSize,
+		const byte* trnsData,
+		int trnsSize,
+		bool hasTrns
+	) {
+		for (uint32 col = 0; col < count; ++col) {
+			uint32 x = startX + col;
+			uni::Color c;
+			c.r = c.g = c.b = 0;
+			c.a = 0xFF;
+
+			switch ((PNGColorType)colorType) {
+			case PNGColorType::GRAYSCALE: {
+				byte g = 0;
+				if (bitDepth == 8) {
+					g = src[x];
+				} else if (bitDepth == 16) {
+					g = src[x * 2];
+				} else if (bitDepth == 4) {
+					byte b = src[x / 2];
+					g = (x % 2 == 0) ? ((b >> 4) & 0x0F) : (b & 0x0F);
+					g = (byte)(g * 255 / 15);
+				} else if (bitDepth == 2) {
+					byte b = src[x / 4];
+					g = (b >> (2 * (3 - (x % 4)))) & 0x03;
+					g = (byte)(g * 255 / 3);
+				} else if (bitDepth == 1) {
+					byte b = src[x / 8];
+					g = ((b >> (7 - (x % 8))) & 0x01) ? 255 : 0;
+				}
+				c.r = c.g = c.b = g;
+				if (hasTrns && trnsSize >= 2) {
+					uint16 key = ((uint16)trnsData[0] << 8) | trnsData[1];
+					if (g == (byte)key) c.a = 0;
+				}
+				break;
+			}
+			case PNGColorType::RGB: {
+				if (bitDepth == 8) {
+					const byte* p = src + x * 3;
+					c.r = p[0]; c.g = p[1]; c.b = p[2];
+				} else if (bitDepth == 16) {
+					const byte* p = src + x * 6;
+					c.r = p[0]; c.g = p[2]; c.b = p[4];
+				}
+				if (hasTrns && trnsSize >= 6) {
+					uint16 rk = ((uint16)trnsData[0] << 8) | trnsData[1];
+					uint16 gk = ((uint16)trnsData[2] << 8) | trnsData[3];
+					uint16 bk = ((uint16)trnsData[4] << 8) | trnsData[5];
+					if (c.r == (byte)rk && c.g == (byte)gk && c.b == (byte)bk) {
+						c.a = 0;
+					}
+				}
+				break;
+			}
+			case PNGColorType::INDEXED: {
+				byte idx = 0;
+				if (bitDepth == 8) {
+					idx = src[x];
+				} else if (bitDepth == 4) {
+					byte b = src[x / 2];
+					idx = (x % 2 == 0) ? ((b >> 4) & 0x0F) : (b & 0x0F);
+				} else if (bitDepth == 2) {
+					byte b = src[x / 4];
+					idx = (b >> (2 * (3 - (x % 4)))) & 0x03;
+				} else if (bitDepth == 1) {
+					byte b = src[x / 8];
+					idx = (b >> (7 - (x % 8))) & 0x01;
+				}
+				if (idx < paletteSize) {
+					c.r = palette[idx * 3 + 0];
+					c.g = palette[idx * 3 + 1];
+					c.b = palette[idx * 3 + 2];
+				}
+				if (hasTrns && idx < trnsSize) {
+					c.a = trnsData[idx];
+				}
+				break;
+			}
+			case PNGColorType::GRAYSCALE_ALPHA: {
+				if (bitDepth == 8) {
+					const byte* p = src + x * 2;
+					c.r = c.g = c.b = p[0];
+					c.a = p[1];
+				} else if (bitDepth == 16) {
+					const byte* p = src + x * 4;
+					c.r = c.g = c.b = p[0];
+					c.a = p[2];
+				}
+				break;
+			}
+			case PNGColorType::RGBA: {
+				if (bitDepth == 8) {
+					const byte* p = src + x * 4;
+					c.r = p[0]; c.g = p[1]; c.b = p[2]; c.a = p[3];
+				} else if (bitDepth == 16) {
+					const byte* p = src + x * 8;
+					c.r = p[0]; c.g = p[2]; c.b = p[4]; c.a = p[6];
+				}
+				break;
+			}
+			}
+
+			dst[col] = c.ToRGB565();
+		}
+	}
+
 	class PNGSurface : public uni::IImageSurface {
 	private:
 		uni::StorageTrait* storage;
 		uni::ImageInfo     info;
 		uni::trait::Malloc* allocator;
+		uni::PixelFormat   outputFormat;
 
 		PNGIDATSource      idatSrc;
 		StreamInflate      inflate;
@@ -1191,11 +1438,20 @@ namespace {
 			bool trnsFlag,
 			size_t rBytes,
 			int bytesPerPx,
+			uni::PixelFormat outFmt,
 			uni::trait::Malloc& alloc
 		) : storage(&stg), info(inf), allocator(&alloc),
+			outputFormat(outFmt),
 			colorType(colType), bitDepth(depth),
 			paletteSize(palSize), trnsSize(trSize), hasTrns(trnsFlag),
 			rowBytes(rBytes), bpp(bytesPerPx), currentY(0) {
+
+			info.format = outputFormat;
+			if (outputFormat == uni::PixelFormat::RGB565) {
+				info.bitsPerPixel = 16;
+				info.alphaMode = uni::ImageAlphaMode::NONE;
+				info.hasAlpha = false;
+			}
 
 			if (pal && palSize) {
 				MemCopyN(palette, pal, palSize * 3);
@@ -1271,7 +1527,8 @@ namespace {
 				currentY = 0;
 			}
 
-			size_t neededSize = (size_t)rw * (size_t)rh * sizeof(uni::Color);
+			size_t pixelSize = outputFormat == uni::PixelFormat::RGB565 ? sizeof(uint16) : sizeof(uni::Color);
+			size_t neededSize = (size_t)rw * (size_t)rh * pixelSize;
 			void* pixelsMem = outBuffer.pixels;
 			bool ownsMem = false;
 			if (!pixelsMem) {
@@ -1281,6 +1538,7 @@ namespace {
 			}
 
 			uni::Color* outPixels = (uni::Color*)pixelsMem;
+			uint16* outPixels565 = (uint16*)pixelsMem;
 			uint32 targetEndY = (uint32)(ry + rh);
 
 			while (currentY < targetEndY) {
@@ -1337,19 +1595,35 @@ namespace {
 				// If current scanline is within the requested rectangle, reconstruct pixels
 				if (currentY >= (uint32)ry && currentY < targetEndY) {
 					uint32 lineOffset = (currentY - (uint32)ry) * (uint32)rw;
-					ReconstructScanline(
-						currRow,
-						outPixels + lineOffset,
-						(uint32)rx,
-						(uint32)rw,
-						colorType,
-						bitDepth,
-						palette,
-						paletteSize,
-						trnsData,
-						trnsSize,
-						hasTrns
-					);
+					if (outputFormat == uni::PixelFormat::RGB565) {
+						ReconstructScanlineRGB565(
+							currRow,
+							outPixels565 + lineOffset,
+							(uint32)rx,
+							(uint32)rw,
+							colorType,
+							bitDepth,
+							palette,
+							paletteSize,
+							trnsData,
+							trnsSize,
+							hasTrns
+						);
+					} else {
+						ReconstructScanline(
+							currRow,
+							outPixels + lineOffset,
+							(uint32)rx,
+							(uint32)rw,
+							colorType,
+							bitDepth,
+							palette,
+							paletteSize,
+							trnsData,
+							trnsSize,
+							hasTrns
+						);
+					}
 				}
 
 				// Update previous row
@@ -1359,10 +1633,10 @@ namespace {
 
 			outBuffer.width = (uint32)rw;
 			outBuffer.height = (uint32)rh;
-			outBuffer.stride = (uint32)(rw * sizeof(uni::Color));
-			outBuffer.format = uni::PixelFormat::ARGB8888;
+			outBuffer.stride = (uint32)(rw * pixelSize);
+			outBuffer.format = outputFormat;
 			outBuffer.colorSpace = uni::ColorSpace::SRGB;
-			outBuffer.alphaMode = info.alphaMode;
+			outBuffer.alphaMode = outputFormat == uni::PixelFormat::RGB565 ? uni::ImageAlphaMode::NONE : info.alphaMode;
 			outBuffer.pixels = pixelsMem;
 			outBuffer.size = neededSize;
 			outBuffer.allocator = ownsMem ? &alloc : nullptr;
@@ -1479,6 +1753,9 @@ uni::ImageResult uni::PNGCodec::OpenSurface(
 	int bpp = (channels * ihdr->bit_depth + 7) / 8;
 	if (bpp < 1) bpp = 1;
 
+	PixelFormat outputFormat = options.preferredFormat == PixelFormat::RGB565 ?
+		PixelFormat::RGB565 : PixelFormat::ARGB8888;
+
 	void* mem = allocator.allocate(sizeof(PNGSurface));
 	if (!mem) {
 		free(blockBuf); free(palette); free(trnsData);
@@ -1489,7 +1766,7 @@ uni::ImageResult uni::PNGCodec::OpenSurface(
 		storage, info, firstIDATOffset, firstIDATLength, fileSize,
 		ihdr->color_type, ihdr->bit_depth,
 		palette, paletteSize, trnsData, trnsSize, hasTrns,
-		rowBytes, bpp, allocator
+		rowBytes, bpp, outputFormat, allocator
 	);
 
 	free(blockBuf);

@@ -30,16 +30,6 @@
 #include "../../c/binary.h"
 #include "GPIO"
 
-#ifndef _INC_UNI_IOMethod
-#define _INC_UNI_IOMethod
-namespace uni {
-	enum class IOMethod : byte {
-		Loop,   // polling
-		Rupt,   // interrupt
-		DMA     // direct memory access
-	};
-}
-#endif
 
 // MEMMAP:
 // 0x0000_01AB DMA1

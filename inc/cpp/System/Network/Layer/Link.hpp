@@ -32,12 +32,12 @@ namespace Network {
 	struct MacAddress {
 		uint8 octet[6];
 
-		bool IsZero() const {
+		bool isZero() const {
 			for0(i, numsof(octet)) if (octet[i]) return false;
 			return true;
 		}
 
-		bool IsBroadcast() const {
+		bool isBroadcast() const {
 			for0(i, numsof(octet)) if (octet[i] != 0xFFu) return false;
 			return true;
 		}
@@ -82,15 +82,15 @@ namespace Network {
 	class LinkDevice {
 	public:
 		virtual ~LinkDevice() = default;
-		virtual const char* GetName() const = 0;
-		virtual LinkMedium GetMedium() const = 0;
-		virtual LinkState GetState() const = 0;
-		virtual MacAddress GetAddress() const = 0;
-		virtual stduint GetMtu() const = 0;
+		virtual const char* getName() const = 0;
+		virtual LinkMedium getMedium() const = 0;
+		virtual LinkState getState() const = 0;
+		virtual MacAddress getAddress() const = 0;
+		virtual stduint getMtu() const = 0;
 		virtual stdsint Send(const LinkFrameView& frame) = 0;
 		virtual stdsint Receive(LinkMutableFrameView& frame) = 0;
 		virtual stdsint Control(stduint command, void* args) = 0;
-		virtual void GetStatistics(LinkStatistics& statistics) const = 0;
+		virtual void getStatistics(LinkStatistics& statistics) const = 0;
 	};
 
 }

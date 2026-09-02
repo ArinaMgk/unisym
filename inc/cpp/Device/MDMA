@@ -35,14 +35,6 @@ namespace uni {
 	// Global status register GISR0 at MDMA_BASE; channel N at MDMA_BASE + 0x40 + N*0x40.
 	// Channel registers (word offsets): CISR CIFCR CESR CCR CTCR CBNDTR CSAR CDAR CBRUR CLAR CTBR _ CMAR CMDR.
 
-#ifndef _INC_UNI_IOMethod
-#define _INC_UNI_IOMethod
-	enum class IOMethod : byte {
-		Loop,   // polling
-		Rupt,   // interrupt
-		DMA     // direct memory access
-	};
-#endif
 
 	// AKA HAL_MDMA_StateTypeDef
 	#define _MDMA_STATE_RESET  0x00

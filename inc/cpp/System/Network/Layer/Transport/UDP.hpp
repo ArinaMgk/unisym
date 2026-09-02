@@ -1,4 +1,4 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPP-ISO11 TAB4 LF
 // Docutitle: [System.Network.Layer.Transport] UDP
 // Codifiers: @AringMgk
 // Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
@@ -23,6 +23,7 @@
 #ifndef _INCPP_System_NETWORK_LAYER_TRANSPORT_UDP
 #define _INCPP_System_NETWORK_LAYER_TRANSPORT_UDP
 
+#include "../Transport.hpp"
 #include "../Network/IPv4.hpp"
 
 namespace uni {
@@ -57,6 +58,44 @@ namespace Network {
 		UDPEndpoint destination;
 		const uint8* payload;
 		stduint payload_length;
+	};
+
+	class UDPInterface : public TransportInterface {
+	public:
+		TransportProtocol getProtocol() const override {
+			return TransportProtocol::UDP;
+		}
+	};
+
+	class UDPObject : public UDPInterface {
+	public:
+		explicit UDPObject(NetworkInterface* network = nullptr,
+			void* packet_buffer = nullptr, stduint packet_capacity = 0);
+
+		NetworkInterface* getNetwork() const override;
+		void setNetwork(NetworkInterface* network);
+		void setPacketBuffer(void* packet_buffer, stduint packet_capacity);
+		void setIdentification(uint16 identification);
+		bool isBound() const;
+		bool isConnected() const;
+		stdsint Bind(const TransportEndpoint& local) override;
+		stdsint Connect(const TransportEndpoint& remote) override;
+		stdsint Listen(stduint backlog) override;
+		stdsint Accept(TransportConnectionContext& connection) override;
+		stdsint BuildPacket(NetworkPacketContext& packet, const TransportPayloadContext& payload);
+		stdsint Send(const TransportPayloadContext& payload) override;
+		stdsint Receive(TransportMutablePayloadContext& payload) override;
+		stdsint Control(stduint command, void* args) override;
+
+	protected:
+		NetworkInterface* network_;
+		uint8* packet_buffer_;
+		stduint packet_capacity_;
+		TransportEndpoint local_;
+		TransportEndpoint remote_;
+		uint16 identification_;
+		bool bound_;
+		bool connected_;
 	};
 
 	inline bool ParseUDPDatagram(const IPv4PacketView& ipv4, UDPDatagramView& datagram) {

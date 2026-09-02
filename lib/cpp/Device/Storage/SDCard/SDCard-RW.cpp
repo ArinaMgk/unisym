@@ -45,7 +45,7 @@ namespace uni {
 #if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
 
-	bool SecureDigitalCard_t::HAL_SD_ReadBlocks(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback)
+	bool SecureDigitalCard_t::ReadLoop(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback)
 	{
 		SDMMC_DataInitTypeDef config;
 		uint32 errorstate;
@@ -214,7 +214,7 @@ namespace uni {
 
 	// Allows to write block(s) to a specified address in a card. The Data transfer is managed by polling mode.
 	// This API should be followed by a check on the card state through HAL_SD_GetCardState().
-	bool SecureDigitalCard_t::HAL_SD_WriteBlocks(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback)
+	bool SecureDigitalCard_t::WriteLoop(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback)
 	{
 		SDMMC_DataInitTypeDef config;
 		uint32 errorstate;
@@ -384,7 +384,7 @@ namespace uni {
 	}
 
 
-	bool SecureDigitalCard_t::HAL_SD_ReadBlocks_IT(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback)
+	bool SecureDigitalCard_t::ReadRupt(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback)
 	{
 		SDMMC_DataInitTypeDef config;
 		uint32 errorstate = SDMMC_ERROR_NONE;
@@ -439,7 +439,7 @@ namespace uni {
 		return true;
 	}
 
-	bool SecureDigitalCard_t::HAL_SD_WriteBlocks_IT(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback)
+	bool SecureDigitalCard_t::WriteRupt(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback)
 	{
 		SDMMC_DataInitTypeDef config;
 		uint32 errorstate = SDMMC_ERROR_NONE;
@@ -496,7 +496,7 @@ namespace uni {
 	}
 
 
-	bool SecureDigitalCard_t::HAL_SD_ReadBlocks_DMA(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback)
+	bool SecureDigitalCard_t::ReadDMA(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback)
 	{
 		SDMMC_DataInitTypeDef config;
 		uint32 errorstate = SDMMC_ERROR_NONE;
@@ -556,7 +556,7 @@ namespace uni {
 	}
 
 
-	bool SecureDigitalCard_t::HAL_SD_WriteBlocks_DMA(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback)
+	bool SecureDigitalCard_t::WriteDMA(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback)
 	{
 		SDMMC_DataInitTypeDef config;
 		uint32 errorstate;
@@ -769,6 +769,24 @@ namespace uni {
 			}
 			TxBuff.address = _IMM(tmp);
 			TxBuff.length -= SDMMC_FIFO_SIZE;
+		}
+	}
+
+	// Read block(s) with transfer mode selected by IOMethod (AKA HAL_SD_ReadBlocks / _IT / _DMA).
+	bool SecureDigitalCard_t::Read(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, IOMethod method, uint32 Timeout, uint32* feedback) {
+		switch (method) {
+		case IOMethod::Rupt: return ReadRupt(pData, BlockAdd, NumberOfBlocks, feedback);
+		case IOMethod::DMA:  return ReadDMA(pData, BlockAdd, NumberOfBlocks, feedback);
+		default:             return ReadLoop(pData, BlockAdd, NumberOfBlocks, Timeout, feedback);
+		}
+	}
+
+	// Write block(s) with transfer mode selected by IOMethod (AKA HAL_SD_WriteBlocks / _IT / _DMA).
+	bool SecureDigitalCard_t::Write(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, IOMethod method, uint32 Timeout, uint32* feedback) {
+		switch (method) {
+		case IOMethod::Rupt: return WriteRupt(pData, BlockAdd, NumberOfBlocks, feedback);
+		case IOMethod::DMA:  return WriteDMA(pData, BlockAdd, NumberOfBlocks, feedback);
+		default:             return WriteLoop(pData, BlockAdd, NumberOfBlocks, Timeout, feedback);
 		}
 	}
 

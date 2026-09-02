@@ -98,7 +98,7 @@ endef
 
 cplfile=$(wildcard lib/c/*.c) $(wildcard lib/c/**/*.c) $(wildcard lib/c/**/**/*.c) $(wildcard lib/c/**/**/**/*.c)
 cplobjs=$(addprefix $(dest_obj)/$(cplpref),$(patsubst %c,%o,$(notdir $(cplfile))))
-cppfile=$(wildcard lib/cpp/*.cpp) $(wildcard lib/cpp/**/*.cpp) $(wildcard lib/cpp/**/**/*.cpp) $(wildcard lib/cpp/**/**/**/*.cpp)
+cppfile=$(wildcard lib/cpp/*.cpp) $(wildcard lib/cpp/**/*.cpp) $(wildcard lib/cpp/**/**/*.cpp) $(wildcard lib/cpp/**/**/**/*.cpp) $(wildcard lib/cpp/**/**/**/**/*.cpp)
 cppobjs=$(addprefix $(dest_obj)/$(cpppref),$(patsubst %cpp,%o,$(notdir $(cppfile))))
 """
 

@@ -1,4 +1,4 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPP-ISO11 TAB4 LF
 // Docutitle: [System.Network.Layer.Application] Socket
 // Codifiers: @AringMgk
 // Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
@@ -23,7 +23,7 @@
 #ifndef _INCPP_System_NETWORK_LAYER_APPLICATION_SOCKET
 #define _INCPP_System_NETWORK_LAYER_APPLICATION_SOCKET
 
-#include "../../../Network.hpp"
+#include "../Application.hpp"
 
 namespace uni {
 namespace Network {

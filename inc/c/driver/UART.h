@@ -44,14 +44,7 @@ namespace uni {
 	enum class UARTStopBit {
 		One, OneHalf, Two
 	};
-#ifndef _INC_UNI_IOMethod
-#define _INC_UNI_IOMethod
-	enum class IOMethod : byte {
-		Loop,   // polling
-		Rupt,   // interrupt
-		DMA     // direct memory access
-	};
-#endif
+
 	class DMAStream; // forward declaration for UART DMA integration
 #if defined(_MCU_STM32H7x)
 	// AKA HAL_UART_StateTypeDef

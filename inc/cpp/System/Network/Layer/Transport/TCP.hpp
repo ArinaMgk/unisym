@@ -1,4 +1,4 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPP-ISO11 TAB4 LF
 // Docutitle: [System.Network.Layer.Transport] TCP
 // Codifiers: @AringMgk
 // Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
@@ -23,6 +23,7 @@
 #ifndef _INCPP_System_NETWORK_LAYER_TRANSPORT_TCP
 #define _INCPP_System_NETWORK_LAYER_TRANSPORT_TCP
 
+#include "../Transport.hpp"
 #include "../Network/IPv4.hpp"
 
 namespace uni {
@@ -67,6 +68,99 @@ namespace Network {
 		const uint8* payload;
 		stduint payload_length;
 	};
+
+	struct TCPEndpoint {
+		IPv4Address address;
+		uint16 port;
+	};
+
+	struct TCPConnectionContext {
+		TCPEndpoint local;
+		TCPEndpoint remote;
+	};
+
+	enum class TCPConnectionState : uint8 {
+		SynReceived,
+		Established,
+		CloseWait,
+	};
+
+	struct TCPConnectionControlBlock {
+		TCPConnectionContext context;
+		uint32 local_next_sequence;
+		uint32 remote_next_sequence;
+		TCPConnectionState state;
+	};
+
+	class TCPInterface : public TransportInterface {
+	public:
+		TransportProtocol getProtocol() const override {
+			return TransportProtocol::TCP;
+		}
+	};
+
+	class TCPObject : public TCPInterface {
+	public:
+		explicit TCPObject(NetworkInterface* network = nullptr,
+			void* packet_buffer = nullptr, stduint packet_capacity = 0);
+
+		NetworkInterface* getNetwork() const override;
+		void Reset(NetworkInterface* network = nullptr,
+			void* packet_buffer = nullptr, stduint packet_capacity = 0);
+		void setNetwork(NetworkInterface* network);
+		void setPacketBuffer(void* packet_buffer, stduint packet_capacity);
+		void setAcceptQueue(TCPConnectionContext* pending, stduint capacity);
+		void setIdentification(uint16 identification);
+		void setWindow(uint16 window);
+		TCPConnectionControlBlock& getControl();
+		const TCPConnectionControlBlock& getControl() const;
+		stduint getPendingAcceptCount() const;
+		bool isBound() const;
+		bool isConnected() const;
+		bool isListening() const;
+		stdsint Bind(const TransportEndpoint& local) override;
+		stdsint Connect(const TransportEndpoint& remote) override;
+		stdsint Listen(stduint backlog) override;
+		stdsint Accept(TransportConnectionContext& connection) override;
+		stdsint Send(const TransportPayloadContext& payload) override;
+		stdsint Receive(TransportMutablePayloadContext& payload) override;
+		stdsint Control(stduint command, void* args) override;
+		void BeginPassiveConnection(const IPv4Address& local_ip, uint16 local_port,
+			const IPv4Address& remote_ip, uint16 remote_port,
+			const TCPSegmentView& segment, uint32 initial_sequence);
+		bool AcceptHandshakeAck(const TCPSegmentView& segment);
+		bool EnqueueAccept(const TCPConnectionContext& connection);
+		bool Accept(TCPConnectionContext& connection);
+		bool isExpectedSegment(const TCPSegmentView& segment) const;
+		bool ConsumeExpectedSegment(const TCPSegmentView& segment);
+
+	protected:
+		NetworkInterface* network_;
+		uint8* packet_buffer_;
+		stduint packet_capacity_;
+		TCPConnectionContext* accept_pending_;
+		stduint accept_capacity_;
+		stduint accept_head_;
+		stduint accept_tail_;
+		stduint accept_count_;
+		TCPConnectionControlBlock control_;
+		stduint backlog_;
+		uint16 identification_;
+		uint16 window_;
+		bool bound_;
+		bool connected_;
+		bool listening_;
+	};
+
+	uint32 TCPSequenceLength(const TCPSegmentView& segment);
+	void TCPBeginPassiveConnection(TCPConnectionControlBlock& connection,
+		const IPv4Address& local_ip, uint16 local_port,
+		const IPv4Address& remote_ip, uint16 remote_port,
+		const TCPSegmentView& segment, uint32 initial_sequence);
+	bool TCPAcceptHandshakeAck(TCPConnectionControlBlock& connection, const TCPSegmentView& segment);
+	bool TCPIsExpectedSegment(const TCPConnectionControlBlock& connection, const TCPSegmentView& segment);
+	uint32 TCPExpectedAcknowledge(const TCPConnectionControlBlock& connection, const TCPSegmentView& segment);
+	bool TCPConsumeExpectedSegment(TCPConnectionControlBlock& connection, const TCPSegmentView& segment);
 
 	inline uint32 TCPRead32(const uint8* data) {
 		return (uint32(data[0]) << 24) | (uint32(data[1]) << 16) |

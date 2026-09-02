@@ -29,16 +29,6 @@
 #include "../../c/graphic.h"
 #include "../../c/driver/_predefine/predef.dma2d.hpp"
 
-#ifndef _INC_UNI_IOMethod
-#define _INC_UNI_IOMethod
-namespace uni {
-	enum class IOMethod : byte {
-		Loop,   // polling
-		Rupt,   // interrupt
-		DMA     // direct memory access
-	};
-}
-#endif
 
 #if 0
 

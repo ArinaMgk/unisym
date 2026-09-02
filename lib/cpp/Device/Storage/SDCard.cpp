@@ -169,7 +169,7 @@ namespace uni {
 		// SDMMC_DMALinkedList_EnableCircularMode(&Read_LinkedList, false);
 		// HAL_SDEx_DMALinkedList_ReadBlocks(&Read_LinkedList, BlockIden, 1);
 		//[2]
-		HAL_SD_ReadBlocks((uint8_t*)Dest, BlockIden, 1, 1000, NULL);
+		Read((uint8_t*)Dest, BlockIden, 1, IOMethod::Loop, 1000, nullptr);
 		while (HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
 		return true;
 	}
@@ -191,7 +191,7 @@ namespace uni {
 		// HAL_SDEx_DMALinkedList_RemoveNode(&Write_LinkedList, &pLinkNode[0]);
 		//[2]
 		stduint timeo = 1000;// assume 1kHz SysTick
-		HAL_SD_WriteBlocks((uint8_t*)Sors, BlockIden, 1, timeo, NULL);
+		Write((uint8_t*)Sors, BlockIden, 1, IOMethod::Loop, timeo, nullptr);
 		while (HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
 		return true;
 	}

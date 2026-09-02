@@ -36,14 +36,6 @@
 
 namespace uni {
 
-#ifndef _INC_UNI_IOMethod
-#define _INC_UNI_IOMethod
-	enum class IOMethod : byte {
-		Loop,   // polling
-		Rupt,   // interrupt
-		DMA     // direct memory access
-	};
-#endif
 
 #if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 #include "../../cpp/Device/_inner/I2S-STM32H7.hpp"

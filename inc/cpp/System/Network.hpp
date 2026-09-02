@@ -41,7 +41,7 @@ namespace Network {
 			return true;
 		}
 
-		bool IsZero() const {
+		bool isZero() const {
 			for0(i, IPv4AddressLength) if (octet[i]) return false;
 			return true;
 		}
@@ -55,16 +55,16 @@ namespace Network {
 			return true;
 		}
 
-		bool IsZero() const {
+		bool isZero() const {
 			for0(i, IPv6AddressLength) if (octet[i]) return false;
 			return true;
 		}
 
-		bool IsMulticast() const {
+		bool isMulticast() const {
 			return octet[0] == 0xFFu;
 		}
 
-		uint16 GetGroup(stduint index) const {
+		uint16 getGroup(stduint index) const {
 			if (index >= 8) return 0;
 			return (uint16(octet[index * 2]) << 8) | uint16(octet[index * 2 + 1]);
 		}

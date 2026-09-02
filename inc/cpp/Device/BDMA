@@ -35,14 +35,6 @@ namespace uni {
 	// BDMA_BASE = D3_AHB1PERIPH_BASE + 0x5400, DMAMUX2_BASE = +0x5800.
 	// Channel N registers: CCR/CNDTR/CPAR/CMAR at offset 0x08 + N*0x14 (+ 4 reserved bytes).
 
-#ifndef _INC_UNI_IOMethod
-#define _INC_UNI_IOMethod
-	enum class IOMethod : byte {
-		Loop,   // polling
-		Rupt,   // interrupt
-		DMA     // direct memory access
-	};
-#endif
 
 	// AKA BDMA_CCR bit positions (identical to F1 DMA_CCR)
 	#define _BDMA_CCR_POS_EN      0

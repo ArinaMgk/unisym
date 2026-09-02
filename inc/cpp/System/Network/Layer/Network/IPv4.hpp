@@ -1,4 +1,4 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPP-ISO11 TAB4 LF
 // Docutitle: [System.Network.Layer.Network] IPv4
 // Codifiers: @AringMgk
 // Attribute: <ArnCovenant> Any-Architect <Environment> <Reference/Dependence>
@@ -23,7 +23,7 @@
 #ifndef _INCPP_System_NETWORK_LAYER_NETWORK_IPV4
 #define _INCPP_System_NETWORK_LAYER_NETWORK_IPV4
 
-#include "../../../Network.hpp"
+#include "../Network.hpp"
 #include "../Link/Ethernet.hpp"
 
 namespace uni {

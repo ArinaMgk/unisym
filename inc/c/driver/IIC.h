@@ -54,14 +54,6 @@ void I2C_Stop(void);
 #define ERR_IIC_SIZE     0x40
 
 namespace uni {
-#ifndef _INC_UNI_IOMethod
-#define _INC_UNI_IOMethod
-	enum class IOMethod : byte {
-		Loop,   // polling
-		Rupt,   // interrupt
-		DMA     // direct memory access
-	};
-#endif
 
 	// AKA I2C_MEMADD_SIZE_8BIT / I2C_MEMADD_SIZE_16BIT
 	enum class MemAddrSize : byte { Byte1 = 1, Byte2 = 2 };

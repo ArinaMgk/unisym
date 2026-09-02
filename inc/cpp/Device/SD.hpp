@@ -325,28 +325,14 @@ namespace uni {
 
 	_Comment("IO functions") public:
 
-		bool HAL_SD_ReadBlocks(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback);
+		// HAL_SD_ReadBlocks*
+		// Read block(s) from a specified address. Transfer mode is selected by `method`
+		// (Loop = polling, Rupt = interrupt, DMA = internal DMA); Timeout only applies to Loop.
+		bool Read(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, IOMethod method, uint32 Timeout = 0, uint32* feedback = nullptr);
 
-		bool HAL_SD_WriteBlocks(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback);
-
-		// Reads block(s) from a specified address in a card. The Data transfer is managed in interrupt mode.
-		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
-		bool HAL_SD_ReadBlocks_IT(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
-
-		// Writes block(s) to a specified address in a card. The Data transfer is managed in interrupt mode.
-		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
-		// You could also check the IT transfer process through the SD Tx interrupt event.
-		bool HAL_SD_WriteBlocks_IT(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
-
-		// Reads block(s) from a specified address in a card. The Data transfer is managed by DMA mode.
-		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
-		// You could also check the DMA transfer process through the SD Rx interrupt event.
-		bool HAL_SD_ReadBlocks_DMA(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
-
-		// Writes block(s) to a specified address in a card. The Data transfer is managed by DMA mode.
-		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
-		// You could also check the DMA transfer process through the SD Tx interrupt event.
-		bool HAL_SD_WriteBlocks_DMA(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+		// HAL_SD_WriteBlocks*
+		// Write block(s) to a specified address. Transfer mode is selected by `method`.
+		bool Write(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, IOMethod method, uint32 Timeout = 0, uint32* feedback = nullptr);
 
 		// Erases the specified memory area of the given SD card.
 		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
@@ -367,6 +353,14 @@ namespace uni {
 
 
 	_Comment("IO functions") protected:
+
+		// Polling / interrupt / DMA transfer implementations (dispatched by Read/Write).
+		bool ReadLoop(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback);
+		bool WriteLoop(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback);
+		bool ReadRupt(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+		bool WriteRupt(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+		bool ReadDMA(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+		bool WriteDMA(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
 
 		// Wrap up reading in non-blocking mode.
 		void SD_Read_IT();

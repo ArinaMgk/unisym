@@ -892,7 +892,7 @@ namespace uni {
 				(_IMM1S(27U)) | (_IMM1S(28U));
 			state = false;
 		}
-		else if (sdmmc_clk = getFrequency()) {
+		else if ((sdmmc_clk = getFrequency())) {
 			stduint target_freq = CardInfo.CardSpeed >= CARD_HIGH_SPEED ?
 				SD_HIGH_SPEED_FREQ : SD_NORMAL_SPEED_FREQ;
 			stduint this_ClockDiv = 0;
@@ -999,8 +999,8 @@ namespace uni {
 		// else if ((self[DCTRL] & SDMMC_DCTRL_DTDIR) == SDMMC_TRANSFER_DIR_TO_SDMMC)
 		else if (self[SDReg::DCTRL].bitof(1))
 		{
-			// while (!__HAL_SD_GET_FLAG(hsd, SDMMC_FLAG_DABORT | SDMMC_FLAG_DATAEND))
-			while (!self[SDReg::STA] & ( _IMM1S(8)&_IMM1S(11) ))
+			// while (!__HAL_SD_GET_FLAG(hsd, SDMMC_FLAG_DATAEND | SDMMC_FLAG_DABORT))
+			while (!(((self[SDReg::STA] & (((0x1UL << (8U)) | (0x1UL << (11U))))) != 0U)))
 			{
 				if ((SysTick::getTick() - tickstart) >= SDMMC_DATATIMEOUT)
 				{

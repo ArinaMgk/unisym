@@ -31,6 +31,8 @@
 
 namespace uni {
 
+#if defined(_MCU_STM32H7x)
+
 // FMC NAND controller register block (AKA FMC_Bank3_TypeDef).
 // Word offsets relative to FMC_Bank3_R_BASE (PCR at +0x80, ECCR at +0x94).
 enum class NandReg : byte {
@@ -62,6 +64,14 @@ struct NANDAddress {
 	uint16 block;    // AKA Block
 };
 
+// ---- AKA FMC_NAND_PCC_TimingTypeDef (common/attribute space timing) ----
+struct NANDPCC {
+	byte setup_time = 0;        // AKA SetupTime
+	byte wait_setup_time = 0;   // AKA WaitSetupTime
+	byte hold_setup_time = 0;   // AKA HoldSetupTime
+	byte hiz_setup_time = 0;    // AKA HiZSetupTime
+};
+
 // ---- AKA FMC_NAND_InitTypeDef + NAND_DeviceConfigTypeDef (controller + device geometry) ----
 struct NANDConfig {
 	// ---- controller (AKA FMC_NAND_InitTypeDef) ----
@@ -71,6 +81,8 @@ struct NANDConfig {
 	stduint ecc_page_size = 0;      // ECCPS (AKA FMC_NAND_ECC_PAGE_SIZE_*)
 	byte tclr_setup_time = 0;       // TCLR
 	byte tar_setup_time = 0;        // TAR
+	NANDPCC common_space;           // AKA ComSpace_Timing
+	NANDPCC attribute_space;        // AKA AttSpace_Timing
 	// ---- device geometry (AKA NAND_DeviceConfigTypeDef) ----
 	stduint page_size = 0;          // main area bytes (or words when 16-bit addressing)
 	stduint spare_area_size = 0;    // spare area bytes
@@ -135,6 +147,8 @@ public:
 };
 
 extern FMC_NAND_t FMC_NAND;
+
+#endif // _MCU_STM32H7x
 
 }
 

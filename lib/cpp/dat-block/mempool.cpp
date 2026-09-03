@@ -37,6 +37,83 @@ using namespace uni;
 ::uni::trait::Malloc* uni_hostenv_allocator
 = nullptr;
 
+static bool PrepareNextPool(SinglePool* root, SinglePool* tail)
+{
+	const stduint pool_size = 0x1000;
+
+	static_assert(
+		sizeof(SinglePool) <= pool_size,
+		"SinglePool exceeds one page");
+
+	SinglePool* new_pool = nullptr;
+	stduint new_pool_addr = 0;
+
+	if (root->owner_id == 1) {
+		SinglePool* crtpool = root;
+		while (crtpool && crtpool->slicecnt) {
+			for0(i, crtpool->slicecnt) {
+				Slice* p = &crtpool->slices[i];
+
+				if (p->length < pool_size)
+					continue;
+
+				stduint addr =
+					ceilAlign(pool_size, p->address);
+
+				if (addr + pool_size <=
+					(stduint)p->getEndoaddr())
+				{
+					new_pool_addr = addr;
+					new_pool = (SinglePool*)addr;
+					break;
+				}
+			}
+
+			if (new_pool)
+				break;
+
+			crtpool = crtpool->nextpool;
+		}
+	}
+	else {
+		if (!uni_default_allocator) {
+			plogerro(
+				"uni_default_allocator is nullptr");
+
+			new_pool = (SinglePool*)
+				malloc(sizeof(SinglePool));
+		}
+		else {
+			new_pool = (SinglePool*)
+				uni_default_allocator->allocate(
+					sizeof(SinglePool), 12);
+		}
+	}
+
+	if (!new_pool)
+		return false;
+
+	new (new_pool) SinglePool();
+
+	new_pool->nextpool = nullptr;
+	new_pool->leftpool = tail;
+	new_pool->owner_id = root->owner_id;
+	new_pool->slicecnt = 0;
+
+	tail->nextpool = new_pool;
+
+	if (root->owner_id == 1) {
+		if (!root->Remove(
+			Slice{ new_pool_addr, pool_size }))
+		{
+			tail->nextpool = nullptr;
+			return false;
+		}
+	}
+
+	return true;
+}
+
 stdsint SinglePool::ifContainAll(const Slice& slice) {
 	stduint lev = 0;
 	auto crtpool = this;
@@ -144,54 +221,66 @@ stduint   SinglePool::Length() const {
 	return ret;
 }
 bool      SinglePool::Insert(stduint idx, pureptr_t dat _Comment(pointer to a slice)) {
-	Slice& src = *(Slice*)dat;
-	stduint total_len = Length();
-	if (idx > total_len) return false;
+	if (!dat) return false;
+	Slice src = *(Slice*)dat;
 	//
-	// see left
-	if (idx > 0) {
-		auto& left = *(Slice*)Locate(idx - 1);
-		if (left.address + left.length == src.address) {
-			left.length += src.length;
-			if (auto p = (Slice*)Locate(idx)) {
-				if (left.address + left.length == p->address) {
-					left.length += p->length;
-					return Remove(idx, 1);
+	stduint total_len;
+	SinglePool* last_pool;
+	while (true) {
+		total_len = Length();
+		if (idx > total_len) return false;
+		//
+		// see left
+		if (idx > 0) {
+			auto& left = *(Slice*)Locate(idx - 1);
+			if (left.address + left.length == src.address) {
+				left.length += src.length;
+				if (auto p = (Slice*)Locate(idx)) {
+					if (left.address + left.length == p->address) {
+						left.length += p->length;
+						return Remove(idx, 1);
+					}
 				}
+				return true;
 			}
-			return true;
 		}
-	}
-	if (auto p = (Slice*)Locate(idx)) {
-		if (src.address + src.length == p->address) {
-			p->address = src.address;
-			p->length += src.length;
-			return true;
+		// see right
+		if (auto p = (Slice*)Locate(idx)) {
+			if (src.address + src.length == p->address) {
+				p->address = src.address;
+				p->length += src.length;
+				return true;
+			}
 		}
+		//
+		SinglePool* physical_tail = this;
+		while (physical_tail->nextpool)
+			physical_tail = physical_tail->nextpool;
+
+		// Reserve one slot for splitting the storage slice,
+		// and another slot for the current insertion.
+		if (physical_tail->slicecnt >= CNT_SLICES_PER_POOL - 2) {
+			if (!PrepareNextPool(this, physical_tail))
+				return false;
+
+			// PrepareNextPool may change the slice array.
+			stdsint new_idx = ifContainNon(src);
+			if (new_idx < 0) return false;
+			idx = (stduint)new_idx;
+			continue;
+		}
+		//
+		last_pool = this;
+		while (last_pool->nextpool &&
+			last_pool->slicecnt >= CNT_SLICES_PER_POOL)
+		{
+			last_pool = last_pool->nextpool;
+		}
+		break;
 	}
 	//
-	SinglePool* last_pool = this;
-	while (last_pool->nextpool && last_pool->slicecnt >= CNT_SLICES_PER_POOL)
-		last_pool = last_pool->nextpool;
-	if (last_pool->slicecnt >= CNT_SLICES_PER_POOL) { // > is for safety, last_pool->nextpool should be nullptr
-		if (!uni_default_allocator) {
-			plogerro("uni_default_allocator is nullptr");
-		}
-		SinglePool* new_pool = (SinglePool*)(uni_default_allocator ?
-			uni_default_allocator->allocate(sizeof(SinglePool)) :
-			malloc(sizeof(SinglePool)));
-		if (!new_pool) return false;
-		new (new_pool) SinglePool();
-		last_pool->nextpool = (SinglePool*)new_pool;
-		new_pool->nextpool = nullptr;
-		new_pool->leftpool = last_pool;
-		new_pool->slicecnt = 0;
-		new_pool->owner_id = this->owner_id;
-		last_pool = new_pool;
-	}
 	auto last_pool0 = last_pool;
 	stduint cnt_dst = total_len % CNT_SLICES_PER_POOL;
-	stduint cnt_src = (total_len - 1) % CNT_SLICES_PER_POOL;
 	if (last_pool->slicecnt == 0 && last_pool->leftpool == nullptr) {
 		if (cnt_dst != 0) {
 			plogerro("cnt_dst != 0");
@@ -201,10 +290,14 @@ bool      SinglePool::Insert(stduint idx, pureptr_t dat _Comment(pointer to a sl
 		last_pool->slicecnt++;
 		return true;
 	}
-	SinglePool* ento_pool = last_pool->slicecnt == 0 ? last_pool->leftpool : last_pool;
+	//
+	stduint cnt_src = (total_len - 1) % CNT_SLICES_PER_POOL;
+	SinglePool* ento_pool = last_pool->slicecnt == 0
+		? last_pool->leftpool : last_pool;
 	for (stduint i = total_len; i > idx; --i) {
 		last_pool->slices[cnt_dst] = ento_pool->slices[cnt_src];
-		cnt_dst = cnt_src; last_pool = ento_pool;
+		cnt_dst = cnt_src;
+		last_pool = ento_pool;
 		if (cnt_src == 0) {
 			cnt_src = CNT_SLICES_PER_POOL - 1;
 			ento_pool = ento_pool->leftpool;
@@ -261,6 +354,9 @@ _PACKED(struct) Header {
 };
 
 bool Mempool::Expand(stduint min_size) {
+	if (expand_only_from_self) {
+		return false;
+	}
 	if (!uni_default_allocator) {
 		plogerro("Mempool::Expand failed: uni_default_allocator is nullptr");
 		return false;
@@ -293,6 +389,13 @@ void* Mempool::allocate(stduint size, stduint alignment, stduint boundary) {
 
 	if (!size) size = 1;
 	// if (!size) return nullptr;
+
+	// page-aligned requests whose size is a whole number of pages use the
+	// headerless page allocator; bound == 0 means no crossing constraint remains
+	if (alignment >= MEMPOOL_PAGE_SHIFT && bound == 0 && (size % MEMPOOL_PAGE_SIZE) == 0) {
+		stduint page_count = size >> MEMPOOL_PAGE_SHIFT;
+		return allocate_pages(page_count, alignment);
+	}
 
 	if (bound > 0 && size > bound) return nullptr;
 	const stduint total_size = sizeof(Header) + size;
@@ -361,6 +464,13 @@ _RETRY_ALLOC:
 }
 bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
 	// ploginfo("Mempool::deallocate %p s%u", ptr, size);
+	// page allocations carry no header; detect them by 4 KiB alignment + page table
+	if (ptr && ((_IMM(ptr) & (MEMPOOL_PAGE_SIZE - 1)) == 0)) {
+		stduint* entry = get_leaf_entry(_IMM(ptr) >> MEMPOOL_PAGE_SHIFT, false);
+		if (entry && *entry != PAGE_META_FREE) {
+			return deallocate_pages(ptr);
+		}
+	}
 	if (_IMM(ptr) < sizeof(Header)) return false;
 
 	Header* header = (Header*)ptr - 1;
@@ -390,6 +500,148 @@ bool Mempool::deallocate(void* ptr, stduint size _Comment(zero_for_block)) {
 		state = pool_available.Append(recovered);
 	}
 	return state;
+}
+
+// ---- Page-based allocation (4 KiB, no header) ----
+// take an aligned 4 KiB page from pool_available for a page-table node;
+// the page is not tracked in the page table itself (owned via parent pointer)
+PageMetaNode* Mempool::allocate_meta_page() {
+	for (auto crtpool = &pool_available; crtpool; crtpool = crtpool->nextpool) {
+		for0(i, crtpool->slicecnt) {
+			Slice* p = &crtpool->slices[i];
+			if (p->length < MEMPOOL_PAGE_SIZE) continue;
+			stduint addr = ceilAlign(MEMPOOL_PAGE_SIZE, p->address);
+			if (addr + MEMPOOL_PAGE_SIZE > (stduint)p->getEndoaddr()) continue;
+			if (!pool_available.Remove(Slice{ addr, MEMPOOL_PAGE_SIZE })) continue;
+			PageMetaNode* node = (PageMetaNode*)addr;
+			MemSet(node, 0, MEMPOOL_PAGE_SIZE);
+			return node;
+		}
+	}
+	return nullptr;
+}
+
+bool Mempool::deallocate_meta_page(PageMetaNode* node) {
+	if (!node) return false;
+	return pool_available.Append(Slice{ _IMM(node), MEMPOOL_PAGE_SIZE });
+}
+
+bool Mempool::ensure_page_root() {
+	if (page_root) return true;
+	page_root = allocate_meta_page();
+	return page_root != nullptr;
+}
+
+// walk the sparse page table down to the leaf entry of a page number;
+// create missing nodes only when create is true (deallocate stays read-only)
+stduint* Mempool::get_leaf_entry(stduint page_no, bool create) {
+	if (!page_root) return nullptr;
+	PageMetaNode* node = page_root;
+	for (stduint level = PAGE_META_LEVELS - 1; level >= 1; --level) {
+		stduint idx = (page_no >> (level * PAGE_META_LEVEL_BITS)) & (PAGE_META_ENTRY_COUNT - 1);
+		PageMetaNode* child = (PageMetaNode*)node->entries[idx];
+		if (!child) {
+			if (!create) return nullptr;
+			child = allocate_meta_page();
+			if (!child) return nullptr;
+			node->entries[idx] = _IMM(child);
+		}
+		node = child;
+	}
+	return &node->entries[page_no & (PAGE_META_ENTRY_COUNT - 1)];
+}
+
+// reserved for on-the-fly empty-node reclaim (later phase); not called yet
+void Mempool::free_page_table(PageMetaNode* node, stduint level) {
+	if (!node) return;
+	if (level >= 1) {
+		for0(i, PAGE_META_ENTRY_COUNT) {
+			PageMetaNode* child = (PageMetaNode*)node->entries[i];
+			if (child) free_page_table(child, level - 1);
+		}
+	}
+	deallocate_meta_page(node);
+}
+
+void* Mempool::allocate_pages(stduint page_count, stduint alignment) {
+	if (!page_count || page_count == PAGE_META_CONT) return nullptr;
+	if (page_count > ~_IMM0 / MEMPOOL_PAGE_SIZE) return nullptr;// size would wrap
+	if (alignment < MEMPOOL_PAGE_SHIFT) alignment = MEMPOOL_PAGE_SHIFT;// 4 KiB is the floor
+
+	const stduint align = _IMM1 << alignment;
+	const stduint size = page_count * MEMPOOL_PAGE_SIZE;
+
+	// one allocation attempt; returns nullptr when the pool cannot satisfy it
+	auto attempt_alloc = [&]() -> void* {
+		if (!ensure_page_root()) return nullptr;
+
+		// locate an aligned free run large enough
+		stduint addr = 0;
+		for (auto crtpool = &pool_available; crtpool && !addr; crtpool = crtpool->nextpool) {
+			for0(i, crtpool->slicecnt) {
+				Slice* p = &crtpool->slices[i];
+				stduint aligned = ceilAlign(align, p->address);
+				if (aligned + size <= (stduint)p->getEndoaddr()) {
+					addr = aligned;
+					break;
+				}
+			}
+		}
+		if (!addr) return nullptr;
+
+		// reserve the user region first so page-table nodes never take pages from it
+		if (!pool_available.Remove(Slice{ addr, size })) return nullptr;
+
+		// build every page-table path and confirm all leaf entries are free
+		const stduint first_page = addr >> MEMPOOL_PAGE_SHIFT;
+		for (stduint p = 0; p < page_count; ++p) {
+			stduint* entry = get_leaf_entry(first_page + p, true);
+			if (!entry || *entry != PAGE_META_FREE) {
+				pool_available.Append(Slice{ addr, size });// roll back; keep built empty nodes
+				return nullptr;
+			}
+		}
+
+		// commit: first entry holds the page count, the rest are continuations
+		for (stduint p = 0; p < page_count; ++p) {
+			*get_leaf_entry(first_page + p, false) = p ? PAGE_META_CONT : page_count;
+		}
+		return (void*)addr;
+	};
+
+	void* result = attempt_alloc();
+	if (!result && enable_auto_expand && Expand(size + align)) {
+		result = attempt_alloc();
+	}
+	return result;
+}
+
+bool Mempool::deallocate_pages(void* ptr) {
+	if (!ptr) return false;
+	stduint address = _IMM(ptr);
+	if (address & (MEMPOOL_PAGE_SIZE - 1)) return false;// not 4 KiB aligned
+	if (!page_root) return false;
+
+	const stduint first_page = address >> MEMPOOL_PAGE_SHIFT;
+	stduint* first_entry = get_leaf_entry(first_page, false);
+	if (!first_entry) return false;// not owned by the page allocator
+	if (*first_entry == PAGE_META_FREE || *first_entry == PAGE_META_CONT) return false;
+
+	const stduint page_count = *first_entry;
+	if (page_count > ~_IMM0 / MEMPOOL_PAGE_SIZE) return false;// damaged entry
+
+	// verify the whole run before touching anything
+	for (stduint p = 1; p < page_count; ++p) {
+		stduint* entry = get_leaf_entry(first_page + p, false);
+		if (!entry || *entry != PAGE_META_CONT) return false;
+	}
+
+	// hand the run back, then clear the entries
+	if (!pool_available.Append(Slice{ address, page_count * MEMPOOL_PAGE_SIZE })) return false;
+	for (stduint p = 0; p < page_count; ++p) {
+		*get_leaf_entry(first_page + p, false) = PAGE_META_FREE;
+	}
+	return true;
 }
 
 void Mempool::dump_available() {

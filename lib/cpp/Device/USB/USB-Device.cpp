@@ -545,7 +545,7 @@ namespace uni {
 		stduint count32b = (len + 3) / 4;
 		for (stduint i = 0; i < count32b; i++) {
 			stduint w = src[0] | (src[1] << 8) | (src[2] << 16) | (src[3] << 24);
-			Reference(fifo) = w;
+			Reference(fifo + 0) = w;
 			src += 4;
 		}
 		return true;
@@ -556,7 +556,7 @@ namespace uni {
 		stduint fifo = base + USB_OTG_FIFO_BASE;
 		stduint count32b = (len + 3) / 4;
 		for (stduint i = 0; i < count32b; i++) {
-			stduint w = Reference(fifo);
+			stduint w = Reference(fifo + 0);
 			dest[0] = w & 0xFF; dest[1] = (w >> 8) & 0xFF;
 			dest[2] = (w >> 16) & 0xFF; dest[3] = (w >> 24) & 0xFF;
 			dest += 4;

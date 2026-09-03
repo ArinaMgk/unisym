@@ -323,7 +323,7 @@
             <PlainCh>1</PlainCh>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
-            <wLevel>1</wLevel>
+            <wLevel>3</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
             <uC99>1</uC99>
@@ -337,7 +337,7 @@
             <v6WtE>0</v6WtE>
             <v6Rtti>0</v6Rtti>
             <VariousControls>
-              <MiscControls>-fno-strict-aliasing -Wno-c++98-compat -Wno-old-style-cast -Wno-c++98-c++11-compat-binary-literal -Wno-extra-semi-stmt -Wno-deprecated-copy-with-user-provided-copy -Wno-c++98-compat-pedantic -Wno-keyword-macro -Wno-invalid-constexpr</MiscControls>
+              <MiscControls>-fno-strict-aliasing -Wno-c++98-compat -Wno-old-style-cast -Wno-c++98-c++11-compat-binary-literal -Wno-extra-semi-stmt -Wno-deprecated-copy-with-user-provided-copy -Wno-c++98-compat-pedantic -Wno-keyword-macro -Wno-invalid-constexpr -Wno-unknown-attributes -Wno-empty-body</MiscControls>
               <Define>_MCU_STM32H7x, _HIS_IMPLEMENT</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
@@ -1012,6 +1012,16 @@
               <FileName>SDCard-USE_SD_TRANSCEIVER.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-USE_SD_TRANSCEIVER.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FMC-Flash-NAND.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\FMC\FMC-Flash-NAND.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FMC-Flash-NOR.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Storage\FMC\FMC-Flash-NOR.cpp</FilePath>
             </File>
           </Files>
         </Group>

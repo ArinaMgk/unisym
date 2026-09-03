@@ -31,6 +31,8 @@
 
 namespace uni {
 
+#if defined(_MCU_STM32H7x)
+
 // ---- AKA HAL_NOR_StateTypeDef ----
 	enum class NORState : byte { Reset, Ready, Busy, Error, Protected };
 
@@ -134,6 +136,8 @@ namespace uni {
 	};
 
 	extern FMC_NOR_t FMC_NOR;
+
+#endif // _MCU_STM32H7x
 
 }
 

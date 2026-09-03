@@ -122,7 +122,7 @@ namespace uni {
 		if (!pe->isPresent()) {
 			if (!(pgporp & PGPROP_present)) return true;
 			void* new_pg = uni_default_allocator ?
-				uni_default_allocator->allocate(0x1000, 0x1000) : nullptr;
+				uni_default_allocator->allocate(0x1000, PAGESIZE_4KB) : nullptr;
 			if (!new_pg) return false;
 			MemSet(new_pg, 0, 0x1000);
 			pe->SetupAsTable(new_pg);
@@ -220,7 +220,7 @@ namespace uni {
 			if (!pe->isPresent()) {
 				if (!(pgporp & PGPROP_present)) return true;
 				void* new_pg = uni_default_allocator ?
-					uni_default_allocator->allocate(0x1000, 0x1000) : nullptr;
+					uni_default_allocator->allocate(0x1000, PAGESIZE_4KB) : nullptr;
 				if (!new_pg) return false;
 				MemSet(new_pg, 0, 0x1000);
 				pe->SetupAsTable(new_pg);
@@ -249,12 +249,14 @@ namespace uni {
 
 	void Paging::Reset() {
 		stduint root_size = 0x1000;
+		stduint root_align = PAGESIZE_4KB;
 		#if defined(_ARC_ARM_32)
 		root_size = 0x4000;
+		root_align = 14;
 		#endif
 
 		if (uni_default_allocator) {
-			root_level_page = (uni::PageEntry*)uni_default_allocator->allocate(root_size, root_size);
+			root_level_page = (uni::PageEntry*)uni_default_allocator->allocate(root_size, root_align);
 		}
 		#if defined(_ARC_x86)
 		else if (_physical_allocate) {

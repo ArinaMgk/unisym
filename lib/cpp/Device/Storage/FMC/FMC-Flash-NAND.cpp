@@ -361,12 +361,24 @@ namespace uni {
 		return a;
 	}
 
-	bool FMC_NAND_t::Read(stduint block, void* dest) {
-		return Read(_linear_to_address(block, Config), dest, 1, NANDArea::Main, Config.data_bus);
+	bool FMC_NAND_t::Read(stduint block, void* dest, stduint Times) {
+		if (State == NANDState::Busy || !Block_Size || !dest || !Times) return false;
+		if (block + Times > getUnits()) return false;
+		for0(t, Times) {
+			if (!Read(_linear_to_address(block + t, Config), (byte*)dest + t * Block_Size, 1, NANDArea::Main, Config.data_bus))
+				return false;
+		}
+		return true;
 	}
 
-	bool FMC_NAND_t::Write(stduint block, const void* src) {
-		return Write(_linear_to_address(block, Config), src, 1, NANDArea::Main, Config.data_bus);
+	bool FMC_NAND_t::Write(stduint block, const void* src, stduint Times) {
+		if (State == NANDState::Busy || !Block_Size || !src || !Times) return false;
+		if (block + Times > getUnits()) return false;
+		for0(t, Times) {
+			if (!Write(_linear_to_address(block + t, Config), (const byte*)src + t * Block_Size, 1, NANDArea::Main, Config.data_bus))
+				return false;
+		}
+		return true;
 	}
 
 	stduint FMC_NAND_t::getUnits() {

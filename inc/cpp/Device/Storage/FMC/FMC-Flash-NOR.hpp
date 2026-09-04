@@ -129,8 +129,8 @@ namespace uni {
 		// ---- StorageTrait (block device over the linear NOR window) ----
 		// NOTE: NOR is random-addressable; block granularity follows the erase-block unit.
 		//       Block_Size = Init.erase_block_size, getUnits = total_bytes / erase_block_size.
-		virtual bool Read(stduint block, void* dest) override;
-		virtual bool Write(stduint block, const void* src) override;
+		virtual bool Read(stduint block, void* dest, stduint Times = 1) override;
+		virtual bool Write(stduint block, const void* src, stduint Times = 1) override;
 		virtual stduint getUnits() override;
 		virtual int operator[](uint64 bytid) override;
 	};

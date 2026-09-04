@@ -154,7 +154,7 @@ namespace uni {
 	}
 #endif
 
-	bool SecureDigitalCard_t::Read(stduint BlockIden, void* Dest) {
+	bool SecureDigitalCard_t::Read(stduint BlockIden, void* Dest, stduint Times) {
 		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)
 		self[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
 		//[1] (? How to Use)
@@ -169,12 +169,12 @@ namespace uni {
 		// SDMMC_DMALinkedList_EnableCircularMode(&Read_LinkedList, false);
 		// HAL_SDEx_DMALinkedList_ReadBlocks(&Read_LinkedList, BlockIden, 1);
 		//[2]
-		Read((uint8_t*)Dest, BlockIden, 1, IOMethod::Loop, 1000, nullptr);
+		Read((uint8_t*)Dest, BlockIden, Times, IOMethod::Loop, 1000, nullptr);
 		while (HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
 		return true;
 	}
 
-	bool SecureDigitalCard_t::Write(stduint BlockIden, const void* Sors) {
+	bool SecureDigitalCard_t::Write(stduint BlockIden, const void* Sors, stduint Times) {
 		// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)
 		self[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
 		//[1] single node case (? Unchk)
@@ -191,7 +191,7 @@ namespace uni {
 		// HAL_SDEx_DMALinkedList_RemoveNode(&Write_LinkedList, &pLinkNode[0]);
 		//[2]
 		stduint timeo = 1000;// assume 1kHz SysTick
-		Write((uint8_t*)Sors, BlockIden, 1, IOMethod::Loop, timeo, nullptr);
+		Write((uint8_t*)Sors, BlockIden, Times, IOMethod::Loop, timeo, nullptr);
 		while (HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
 		return true;
 	}

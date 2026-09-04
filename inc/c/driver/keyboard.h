@@ -113,7 +113,7 @@ _ESYM_C void KbdSetLED(byte stat);
 namespace uni::device::SpaceUSB {
 	class HIDKeyboardDriver : public HIDBaseDriver {
 	public:
-		HIDKeyboardDriver(DeviceUSB* dev, int interface_index);
+		HIDKeyboardDriver(USBHostDevice* dev, int interface_index);
 
 		void* operator new(size_t size);
 		void operator delete(void* ptr) noexcept;

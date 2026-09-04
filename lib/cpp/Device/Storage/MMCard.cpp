@@ -216,14 +216,14 @@ namespace uni {
 		return true;
 	}
 
-	bool MultiMediaCard_t::Read(stduint BlockIden, void* Dest) {
-		HAL_MMC_ReadBlocks((uint8_t*)Dest, BlockIden, 1, 1000, nullptr);
+	bool MultiMediaCard_t::Read(stduint BlockIden, void* Dest, stduint Times) {
+		HAL_MMC_ReadBlocks((uint8_t*)Dest, BlockIden, Times, 1000, nullptr);
 		while (HAL_MMC_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
 		return true;
 	}
 
-	bool MultiMediaCard_t::Write(stduint BlockIden, const void* Sors) {
-		HAL_MMC_WriteBlocks((uint8_t*)Sors, BlockIden, 1, 1000, nullptr);
+	bool MultiMediaCard_t::Write(stduint BlockIden, const void* Sors, stduint Times) {
+		HAL_MMC_WriteBlocks((uint8_t*)Sors, BlockIden, Times, 1000, nullptr);
 		while (HAL_MMC_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
 		return true;
 	}

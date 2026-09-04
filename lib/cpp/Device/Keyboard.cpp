@@ -52,7 +52,7 @@ namespace uni::device::SpaceUSB {
 	}
 }
 namespace uni::device::SpaceUSB {
-	HIDKeyboardDriver::HIDKeyboardDriver(DeviceUSB* dev, int interface_index)
+	HIDKeyboardDriver::HIDKeyboardDriver(USBHostDevice* dev, int interface_index)
 		: HIDBaseDriver{ dev, interface_index, 8 } {
 	}
 

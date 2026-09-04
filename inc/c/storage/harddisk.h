@@ -116,8 +116,8 @@ namespace uni {
 			ctrl_base = id < 2 ? PORT_IDE_ControlBlock_0 : PORT_IDE_ControlBlock_1;
 			#endif
 		}
-		virtual bool Read(stduint BlockIden, void* Dest) override;
-		virtual bool Write(stduint BlockIden, const void* Sors) override;
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
 		virtual stduint getUnits() override;
 		// byte read
 		virtual int operator[](uint64 bytid) override { return _TODO 0; }
@@ -156,8 +156,8 @@ namespace uni {
 		xCD_ATAPI(byte id = 0) : Harddisk_PATA(id) {
 			Block_Size = 2048; // CD-ROM sector size is 2048 bytes
 		}
-		virtual bool Read(stduint BlockIden, void* Dest) override;
-		virtual bool Write(stduint BlockIden, const void* Sors) override { return false; } // CD-ROM is read-only
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override { return false; } // CD-ROM is read-only
 		virtual stduint getUnits() override;
 		virtual PartitionSlice getSlice(stduint dev) override;
 	};
@@ -206,8 +206,8 @@ namespace uni {
 		bool ReadSectors(uint64 lba, void* dest, stduint sector_count);
 		bool WriteSectors(uint64 lba, const void* src, stduint sector_count);
 
-		virtual bool Read(stduint BlockIden, void* Dest) override;
-		virtual bool Write(stduint BlockIden, const void* Sors) override;
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
 		virtual stduint getUnits() override;
 		virtual int operator[](uint64 bytid) override { return _TODO 0; }
 		virtual PartitionSlice getSlice(stduint dev) override;
@@ -232,8 +232,8 @@ namespace uni {
 		bool ReadBlocks(uint32 lba, void* dest, stduint block_count);
 		void UpdateCapacity(const void* capacity_buf);
 
-		virtual bool Read(stduint BlockIden, void* Dest) override;
-		virtual bool Write(stduint BlockIden, const void* Sors) override { return false; }
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override { return false; }
 		virtual stduint getUnits() override;
 		virtual int operator[](uint64 bytid) override { return _TODO 0; }
 		virtual PartitionSlice getSlice(stduint dev) override;
@@ -266,8 +266,8 @@ namespace uni {
 		bool ReadBlocks(uint64 lba, void* dest, stduint block_count);
 		bool WriteBlocks(uint64 lba, const void* src, stduint block_count);
 
-		virtual bool Read(stduint BlockIden, void* Dest) override;
-		virtual bool Write(stduint BlockIden, const void* Sors) override;
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
 		virtual stduint getUnits() override;
 		virtual int operator[](uint64 bytid) override { return _TODO 0; }
 		virtual PartitionSlice getSlice(stduint dev) override;
@@ -291,10 +291,9 @@ namespace uni {
 
 		void Bind(byte target, byte lunx, void* context, ExecCommandFn exec_fn);
 		void UpdateCapacity(uint32 last_lba, uint32 block_size);
-		bool ReadBlocks(uint32 lba, void* dest, stduint block_count);
 
-		virtual bool Read(stduint BlockIden, void* Dest) override;
-		virtual bool Write(stduint BlockIden, const void* Sors) override { return false; }
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override { return false; }
 		virtual stduint getUnits() override;
 		virtual int operator[](uint64 bytid) override { return _TODO 0; }
 		virtual PartitionSlice getSlice(stduint dev) override;
@@ -324,8 +323,8 @@ namespace uni {
 		bool ReadBlocks(uint64 lba, void* dest, stduint block_count);
 		bool WriteBlocks(uint64 lba, const void* src, stduint block_count);
 
-		virtual bool Read(stduint BlockIden, void* Dest) override;
-		virtual bool Write(stduint BlockIden, const void* Sors) override;
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
 		virtual stduint getUnits() override;
 		virtual int operator[](uint64 bytid) override { return _TODO 0; }
 		virtual PartitionSlice getSlice(stduint dev) override;

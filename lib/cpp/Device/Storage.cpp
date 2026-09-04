@@ -34,20 +34,38 @@ namespace uni {
 		stduint block_offset = linear_offset % block_size;
 		byte* out = cast<byte*>(dest);
 		stduint ret = 0;
-		while (length) {
-			bool state = Read(crt_block, buffer);
-			if (!state) return ret;
+
+		// Partial head block
+		if (block_offset != 0 && length > 0) {
+			if (!Read(crt_block, buffer, 1)) return ret;
 			stduint copy_size = block_size - block_offset;
-			if (copy_size > length) {
-				copy_size = length;
-			}
+			if (copy_size > length) copy_size = length;
 			MemCopyN(out, buffer + block_offset, copy_size);
 			out += copy_size;
 			ret += copy_size;
 			length -= copy_size;
 			crt_block++;
-			block_offset = 0; // read from 0 at 
+			block_offset = 0;
 		}
+
+		// Multi-block aligned body
+		stduint full_blocks = length / block_size;
+		if (full_blocks > 0) {
+			if (!Read(crt_block, out, full_blocks)) return ret;
+			stduint trans_bytes = full_blocks * block_size;
+			out += trans_bytes;
+			ret += trans_bytes;
+			length -= trans_bytes;
+			crt_block += full_blocks;
+		}
+
+		// Partial tail block
+		if (length > 0) {
+			if (!Read(crt_block, buffer, 1)) return ret;
+			MemCopyN(out, buffer, length);
+			ret += length;
+		}
+
 		return ret;
 	}
 
@@ -57,40 +75,52 @@ namespace uni {
 		stduint block_offset = linear_offset % block_size;
 		const byte* in = cast<const byte*>(src);
 		stduint ret = 0;
-		while (length) {
-			bool state;
+
+		// Partial head block (read-modify-write)
+		if (block_offset != 0 && length > 0) {
+			if (!Read(crt_block, buffer, 1)) return ret;
 			stduint copy_size = block_size - block_offset;
 			if (copy_size > length) copy_size = length;
-			if (block_offset == 0 && copy_size == block_size) {
-				// whole-block write, no need to read-modify-write
-				state = Write(crt_block, in);
-				if (!state) return ret;
-			} else {
-				// partial block: read-modify-write
-				state = Read(crt_block, buffer);
-				if (!state) return ret;
-				MemCopyN(buffer + block_offset, in, copy_size);
-				state = Write(crt_block, buffer);
-				if (!state) return ret;
-			}
+			MemCopyN(buffer + block_offset, in, copy_size);
+			if (!Write(crt_block, buffer, 1)) return ret;
 			in += copy_size;
 			ret += copy_size;
 			length -= copy_size;
 			crt_block++;
-			block_offset = 0; // from next block, offset resets
+			block_offset = 0;
 		}
+
+		// Multi-block aligned body (direct multi-block write)
+		stduint full_blocks = length / block_size;
+		if (full_blocks > 0) {
+			if (!Write(crt_block, in, full_blocks)) return ret;
+			stduint trans_bytes = full_blocks * block_size;
+			in += trans_bytes;
+			ret += trans_bytes;
+			length -= trans_bytes;
+			crt_block += full_blocks;
+		}
+
+		// Partial tail block (read-modify-write)
+		if (length > 0) {
+			if (!Read(crt_block, buffer, 1)) return ret;
+			MemCopyN(buffer, in, length);
+			if (!Write(crt_block, buffer, 1)) return ret;
+			ret += length;
+		}
+
 		return ret;
 	}
 
-	bool DiscPartition::Read(stduint BlockIden, void* Dest) {
+	bool DiscPartition::Read(stduint BlockIden, void* Dest, stduint Times) {
 		if (!slice.address && !slice.length) renew_slice();
 		// ploginfo("DiscPartition::Read %u:%u -> %[x]", DRV_OF_DEV(self.device), BlockIden + slice.address, Dest);
-		return base->Read(BlockIden + slice.address, Dest);
+		return base->Read(BlockIden + slice.address, Dest, Times);
 	}
 
-	bool DiscPartition::Write(stduint BlockIden, const void* Sors) {
+	bool DiscPartition::Write(stduint BlockIden, const void* Sors, stduint Times) {
 		if (!slice.address && !slice.length) renew_slice();
-		return base->Write(BlockIden + slice.address, Sors);
+		return base->Write(BlockIden + slice.address, Sors, Times);
 	}
 
 	void DiscPartition::Partition(StorageTrait& base, HD_Info& hdi, byte* psector, unsigned device, bool primary_but_logical)

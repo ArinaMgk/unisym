@@ -102,7 +102,7 @@ void uni::device::SpaceUSB::HIDMouseDriver::operator delete(void* ptr) noexcept 
 }
 
 namespace uni::device::SpaceUSB {
-	HIDMouseDriver::HIDMouseDriver(DeviceUSB* dev, int interface_index)
+	HIDMouseDriver::HIDMouseDriver(USBHostDevice* dev, int interface_index)
 		: HIDBaseDriver{ dev, interface_index, 3 } {
 	}
 

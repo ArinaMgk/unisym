@@ -319,23 +319,28 @@ namespace uni {
 	// ---- StorageTrait ----
 	// NOTE: NOR is random-addressable; block == erase-block unit (Block_Size bytes).
 	//       Read copies Block_Size bytes; Write erases the block then programs it.
-	bool FMC_NOR_t::Read(stduint block, void* dest) {
-		if (State == NORState::Busy || !Block_Size) return false;
+	bool FMC_NOR_t::Read(stduint block, void* dest, stduint Times) {
+		if (State == NORState::Busy || !Block_Size || !dest || !Times) return false;
+		if (block + Times > getUnits()) return false;
+		stduint total_bytes = Times * Block_Size;
 		stduint a = devbase + block * Block_Size;
 		volatile byte* p = (volatile byte*)a;
 		byte* d = (byte*)dest;
-		for (stduint i = 0; i < Block_Size; i++) d[i] = p[i];
+		for (stduint i = 0; i < total_bytes; i++) d[i] = p[i];
 		return true;
 	}
 
-	bool FMC_NOR_t::Write(stduint block, const void* src) {
-		if (State == NORState::Busy || State == NORState::Protected || !Block_Size) return false;
-		stduint a = devbase + block * Block_Size;
-		// erase the block first, then program half-words
-		if (!EraseBlock((pureptr_t)a, 0)) return false;
-		const uint16* s = (const uint16*)src;
-		for (stduint i = 0; i < Block_Size; i += 2) {
-			if (!Program((pureptr_t)(a + i), *s++)) return false;
+	bool FMC_NOR_t::Write(stduint block, const void* src, stduint Times) {
+		if (State == NORState::Busy || State == NORState::Protected || !Block_Size || !src || !Times) return false;
+		if (block + Times > getUnits()) return false;
+		for0(t, Times) {
+			stduint a = devbase + (block + t) * Block_Size;
+			// erase the block first, then program half-words
+			if (!EraseBlock((pureptr_t)a, 0)) return false;
+			const uint16* s = (const uint16*)((const byte*)src + t * Block_Size);
+			for (stduint i = 0; i < Block_Size; i += 2) {
+				if (!Program((pureptr_t)(a + i), *s++)) return false;
+			}
 		}
 		return true;
 	}

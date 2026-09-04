@@ -56,7 +56,7 @@ _ESYM_C void Mouse_Init();
 namespace uni::device::SpaceUSB {
 	class HIDMouseDriver : public HIDBaseDriver {
 	public:
-		HIDMouseDriver(DeviceUSB* dev, int interface_index);
+		HIDMouseDriver(USBHostDevice* dev, int interface_index);
 		static uni::PCI::Device* Initialize(uni::PCI& pci, uni::PCI::Device& xhc_dev, uint64 xhc_mmio_base, uint8 irq_line, uint8 irq_pin, uni::device::SpaceUSB3::HostController* xhc);
 
 		void* operator new(size_t size);

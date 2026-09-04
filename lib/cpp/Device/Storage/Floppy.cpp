@@ -1,4 +1,4 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+﻿// ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Storage) Floppy Disk Implementation
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -158,82 +158,90 @@ namespace uni {
 		return true;
 	}
 
-	_WEAK bool FloppyDisk::Read(stduint BlockIden, void* Dest) {
-		if (BlockIden >= getUnits()) return false;
+	_WEAK bool FloppyDisk::Read(stduint BlockIden, void* Dest, stduint Times) {
+		if (BlockIden + Times > getUnits()) return false;
 
-		byte cyl, head, sec;
-		LBA2CHS(BlockIden, cyl, head, sec);
+		for0(t, Times) {
+			stduint blk = BlockIden + t;
+			byte* dst = (byte*)Dest + t * Block_Size;
+			byte cyl, head, sec;
+			LBA2CHS(blk, cyl, head, sec);
 
-		Motor(true);
-		asserv(fn_feedback)();
+			Motor(true);
+			asserv(fn_feedback)();
 
-		// Configure data transfer rate dynamically based on drive type
-		outpb(PORT_FDC_CCR, DATA_RATE);
+			// Configure data transfer rate dynamically based on drive type
+			outpb(PORT_FDC_CCR, DATA_RATE);
 
-		// Note: Requires ISA DMA Channel 2 setup here (e.g., DMA_Setup_Read)
+			// Note: Requires ISA DMA Channel 2 setup here (e.g., DMA_Setup_Read)
 
-		WriteCmd(FDC_CMD_READ_DATA);
-		WriteCmd((head << 2) | id); 
-		WriteCmd(cyl);
-		WriteCmd(head);
-		WriteCmd(sec);
-		WriteCmd(0x02); // 512 Bytes/Sector
-		WriteCmd(SECTORS_PER_TRACK);
-		WriteCmd(GAP3_LENGTH);
-		WriteCmd(0xFF); // DTL
+			WriteCmd(FDC_CMD_READ_DATA);
+			WriteCmd((head << 2) | id); 
+			WriteCmd(cyl);
+			WriteCmd(head);
+			WriteCmd(sec);
+			WriteCmd(0x02); // 512 Bytes/Sector
+			WriteCmd(SECTORS_PER_TRACK);
+			WriteCmd(GAP3_LENGTH);
+			WriteCmd(0xFF); // DTL
 
-		if (react_type == ReactType::Rupt && fn_int_wait) {
-			if (!fn_int_wait() && !flp_result_ready_retry()) return false;
-		} else {
-			for (volatile int i = 0; i < 100000; i++) _TEMP;
+			if (react_type == ReactType::Rupt && fn_int_wait) {
+				if (!fn_int_wait() && !flp_result_ready_retry()) return false;
+			} else {
+				for (volatile int i = 0; i < 100000; i++) _TEMP;
+			}
+
+			// Read 7 Status Bytes after operation completion
+			byte st0 = ReadData();
+			for (int i = 0; i < 6; i++) ReadData(); 
+
+			Motor(false);
+
+			// Check for errors in ST0
+			if ((st0 & 0xC0) != 0x00) return false;
 		}
-
-		// Read 7 Status Bytes after operation completion
-		byte st0 = ReadData();
-		for (int i = 0; i < 6; i++) ReadData(); 
-
-		Motor(false);
-
-		// Check for errors in ST0
-		if ((st0 & 0xC0) != 0x00) return false;
 		return true;
 	}
 
-	_WEAK bool FloppyDisk::Write(stduint BlockIden, const void* Sors) {
-		if (BlockIden >= getUnits()) return false;
+	_WEAK bool FloppyDisk::Write(stduint BlockIden, const void* Sors, stduint Times) {
+		if (BlockIden + Times > getUnits()) return false;
 
-		byte cyl, head, sec;
-		LBA2CHS(BlockIden, cyl, head, sec);
+		for0(t, Times) {
+			stduint blk = BlockIden + t;
+			const byte* src = (const byte*)Sors + t * Block_Size;
+			byte cyl, head, sec;
+			LBA2CHS(blk, cyl, head, sec);
 
-		Motor(true);
-		asserv(fn_feedback)();
+			Motor(true);
+			asserv(fn_feedback)();
 
-		// Configure data transfer rate dynamically
-		outpb(PORT_FDC_CCR, DATA_RATE);
+			// Configure data transfer rate dynamically
+			outpb(PORT_FDC_CCR, DATA_RATE);
 
-		// Note: Requires ISA DMA Channel 2 setup here (e.g., DMA_Setup_Write)
+			// Note: Requires ISA DMA Channel 2 setup here (e.g., DMA_Setup_Write)
 
-		WriteCmd(FDC_CMD_WRITE_DATA);
-		WriteCmd((head << 2) | id);
-		WriteCmd(cyl);
-		WriteCmd(head);
-		WriteCmd(sec);
-		WriteCmd(0x02); 
-		WriteCmd(SECTORS_PER_TRACK);
-		WriteCmd(GAP3_LENGTH);
-		WriteCmd(0xFF); 
+			WriteCmd(FDC_CMD_WRITE_DATA);
+			WriteCmd((head << 2) | id); 
+			WriteCmd(cyl);
+			WriteCmd(head);
+			WriteCmd(sec);
+			WriteCmd(0x02); 
+			WriteCmd(SECTORS_PER_TRACK);
+			WriteCmd(GAP3_LENGTH);
+			WriteCmd(0xFF); 
 
-		if (react_type == ReactType::Rupt && fn_int_wait) {
-			if (!fn_int_wait() && !flp_result_ready_retry()) return false;
+			if (react_type == ReactType::Rupt && fn_int_wait) {
+				if (!fn_int_wait() && !flp_result_ready_retry()) return false;
+			}
+
+			// Read 7 Status Bytes
+			byte st0 = ReadData();
+			for (int i = 0; i < 6; i++) ReadData(); 
+
+			Motor(false);
+			
+			if ((st0 & 0xC0) != 0x00) return false;
 		}
-
-		// Read 7 Status Bytes
-		byte st0 = ReadData();
-		for (int i = 0; i < 6; i++) ReadData(); 
-
-		Motor(false);
-		
-		if ((st0 & 0xC0) != 0x00) return false;
 		return true;
 	}
 

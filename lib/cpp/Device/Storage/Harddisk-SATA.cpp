@@ -242,12 +242,12 @@ namespace uni {
 		return true;
 	}
 
-	bool Harddisk_SATA_AHCI::Read(stduint BlockIden, void* Dest) {
-		return ReadSectors(BlockIden, Dest, 1);
+	bool Harddisk_SATA_AHCI::Read(stduint BlockIden, void* Dest, stduint Times) {
+		return ReadSectors(BlockIden, Dest, Times);
 	}
 
-	bool Harddisk_SATA_AHCI::Write(stduint BlockIden, const void* Sors) {
-		return WriteSectors(BlockIden, Sors, 1);
+	bool Harddisk_SATA_AHCI::Write(stduint BlockIden, const void* Sors, stduint Times) {
+		return WriteSectors(BlockIden, Sors, Times);
 	}
 
 	stduint Harddisk_SATA_AHCI::getUnits() {
@@ -328,8 +328,8 @@ namespace uni {
 		total_blocks = max_lba + 1;
 	}
 
-	bool CDROM_ATAPI_AHCI::Read(stduint BlockIden, void* Dest) {
-		return ReadBlocks((uint32)BlockIden, Dest, 1);
+	bool CDROM_ATAPI_AHCI::Read(stduint BlockIden, void* Dest, stduint Times) {
+		return ReadBlocks((uint32)BlockIden, Dest, Times);
 	}
 
 	stduint CDROM_ATAPI_AHCI::getUnits() {

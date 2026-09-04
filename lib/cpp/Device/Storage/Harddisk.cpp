@@ -1,4 +1,4 @@
-// ASCII CPP-ISO11 TAB4 CRLF
+﻿// ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Stroage) Harddisk
 // Codifiers: @dosconio: 20250107
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
@@ -52,7 +52,6 @@ namespace uni {
 	void Harddisk_PATA::enInterrupt(bool enable) const {
 		// EMPTY
 	}
-
 	void Harddisk_PATA::setInterrupt(Handler_t unused_func) const {
 		if (id >= 4) return;// ide00 ide01 ide10 ide11
 		// ploginfo("Harddisk_PATA::setInterrupt(%d)", id);
@@ -61,27 +60,31 @@ namespace uni {
 	}
 
 	// __attribute__((optimize("O0")))// NO OPTIMIZE
-	_WEAK bool Harddisk_PATA::Read(stduint BlockIden, void* Dest) {
+	_WEAK bool Harddisk_PATA::Read(stduint BlockIden, void* Dest, stduint Times) {
 		// ploginfo("Harddisk_PATA::Read %d(%d, %[32H])", _IMM(react_type), BlockIden, Dest);
-		switch (react_type) {
-		case ReactType::Loop:
-		{
-			outpb(io_base + REG_NSECTOR, 1);// 1 sector
-			for0(i, 3) outpb(io_base + REG_LBA_LOW + i, (BlockIden >> (i * 8)));// [LiE]
-			outpb(io_base + REG_DEVICE, MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF));
-			outpb(io_base + REG_CMD, 0x20);// read
-			while ((innpb(io_base + REG_STATUS) & 0x88) != 0x08);
-			IN_wn(io_base + REG_DATA, (word*)Dest, Block_Size);
-			return true;
-		}
-		case ReactType::Rupt:
-		{
-			HdiskCommand cmd;
-			cmd.feature = 0;
-			cmd.count = 1;// number of sectors: slice.length
-			for0(i, 3) cmd.LBA[i] = (BlockIden >> (i * 8));
-			cmd.device = MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF);
-			cmd.command = ATA_READ;
+		if (BlockIden + Times > getUnits()) return false;
+		for0(t, Times) {
+			stduint blk = BlockIden + t;
+			byte* dst = (byte*)Dest + t * Block_Size;
+			switch (react_type) {
+			case ReactType::Loop:
+			{
+				outpb(io_base + REG_NSECTOR, 1);// 1 sector
+				for0(i, 3) outpb(io_base + REG_LBA_LOW + i, (blk >> (i * 8)));// [LiE]
+				outpb(io_base + REG_DEVICE, MAKE_DEVICE_REG(1, getLowID(), (blk >> 24) & 0xF));
+				outpb(io_base + REG_CMD, 0x20);// read
+				while ((innpb(io_base + REG_STATUS) & 0x88) != 0x08);
+				IN_wn(io_base + REG_DATA, (word*)dst, Block_Size);
+				break;
+			}
+			case ReactType::Rupt:
+			{
+				HdiskCommand cmd;
+				cmd.feature = 0;
+				cmd.count = 1;// number of sectors: slice.length
+				for0(i, 3) cmd.LBA[i] = (blk >> (i * 8));
+				cmd.device = MAKE_DEVICE_REG(1, getLowID(), (blk >> 24) & 0xF);
+				cmd.command = ATA_READ;
 				asserv(fn_feedback)();// foreback
 				Harddisk_PATA::Hdisk_OUT(&cmd);
 				if (fn_int_wait && fn_lup_wait) {
@@ -91,50 +94,56 @@ namespace uni {
 					}
 					else if (!fn_lup_wait(this, STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT / 1000)) {
 						return false;
+					}
+					IN_wn(io_base + REG_DATA, (word*)dst, Block_Size);
+					// repeat the block to RW multi-sectors
 				}
-				IN_wn(io_base + REG_DATA, (word*)Dest, Block_Size);
-				return true;
-				// repeat the block to RW multi-sectors
+				else return false;
+				break;
 			}
-			else return false;
-		}
-		default:
-			return false;
+			default:
+				return false;
+			}
 		}
 		return true;
 	}
 	// __attribute__((optimize("O0")))// NO OPTIMIZE
-	_WEAK bool Harddisk_PATA::Write(stduint BlockIden, const void* Sors) {
+	_WEAK bool Harddisk_PATA::Write(stduint BlockIden, const void* Sors, stduint Times) {
 		// ploginfo("Harddisk_PATA::Write(%d, %[32H])", BlockIden, Sors);
-		switch (react_type) {
-		case ReactType::Loop:
-		{
-			return _TODO false;
-		}
-		case ReactType::Rupt:
-		{
-			HdiskCommand cmd;
-			cmd.feature = 0;
-			cmd.count = 1;// number of sectors: slice.length
-			for0(i, 3) cmd.LBA[i] = (BlockIden >> (i * 8));
-			cmd.device = MAKE_DEVICE_REG(1, getLowID(), (BlockIden >> 24) & 0xF);
-			cmd.command = ATA_WRITE;
-			asserv(fn_feedback)();// foreback
-			Harddisk_PATA::Hdisk_OUT(&cmd);
-			if (fn_int_wait && fn_lup_wait) {
-				if (!fn_lup_wait(this, STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT / 1000)) return false;
-				OUT_wn(io_base + REG_DATA, (word*)Sors, Block_Size);
-				const bool use_loop_fallback = !fn_int_wait();
-				if (use_loop_fallback) {
-					if (!PataWaitRetry(this, fn_lup_wait, STATUS_BSY, 0)) return false;
-				}
-				return true;
-				// repeat the block to RW multi-sectors
+		if (BlockIden + Times > getUnits()) return false;
+		for0(t, Times) {
+			stduint blk = BlockIden + t;
+			const byte* src = (const byte*)Sors + t * Block_Size;
+			switch (react_type) {
+			case ReactType::Loop:
+			{
+				return _TODO false;
 			}
-			else return false;
-		}
-		default:
-			return false;
+			case ReactType::Rupt:
+			{
+				HdiskCommand cmd;
+				cmd.feature = 0;
+				cmd.count = 1;// number of sectors: slice.length
+				for0(i, 3) cmd.LBA[i] = (blk >> (i * 8));
+				cmd.device = MAKE_DEVICE_REG(1, getLowID(), (blk >> 24) & 0xF);
+				cmd.command = ATA_WRITE;
+				asserv(fn_feedback)();// foreback
+				Harddisk_PATA::Hdisk_OUT(&cmd);
+				if (fn_int_wait && fn_lup_wait) {
+					if (!fn_lup_wait(this, STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT / 1000)) return false;
+					OUT_wn(io_base + REG_DATA, (word*)src, Block_Size);
+					const bool use_loop_fallback = !fn_int_wait();
+					if (use_loop_fallback) {
+						if (!PataWaitRetry(this, fn_lup_wait, STATUS_BSY, 0)) return false;
+					}
+					// repeat the block to RW multi-sectors
+				}
+				else return false;
+				break;
+			}
+			default:
+				return false;
+			}
 		}
 		return true;
 	}

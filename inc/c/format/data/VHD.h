@@ -55,8 +55,8 @@ namespace uni {
 	public:
 		void* fp;
 	public:
-		virtual bool Read(stduint BlockIden, void* Dest);
-		virtual bool Write(stduint BlockIden, const void* Sors);
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
 		virtual stduint getUnits();
 		// byte read
 		virtual int operator[](uint64 bytid);

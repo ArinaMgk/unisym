@@ -172,24 +172,30 @@ namespace uni {
 			(_FLASH_BANK2_BASE + (block - (_FLASH_SECTOR_TOTAL * _FLASH_SECTOR_SIZE / _FLASH_ROW_SIZE / 2)) * _FLASH_ROW_SIZE);
 	}
 
-	bool Flash_t::Read(stduint block, void* dest) {
-		if (block >= getUnits()) return false;
-		stduint addr = _FlashBlockAddr(block);
-		Reference(0xE000EF5C) = addr;// DCIMVAC: invalidate the D-Cache line covering this block
-		__DSB();
-		MemCopyN(dest, (void*)addr, _FLASH_ROW_SIZE);
+	bool Flash_t::Read(stduint block, void* dest, stduint Times) {
+		if (!dest || !Times || block + Times > getUnits()) return false;
+		for0(t, Times) {
+			stduint addr = _FlashBlockAddr(block + t);
+			Reference(0xE000EF5C) = addr;// DCIMVAC: invalidate the D-Cache line covering this block
+			__DSB();
+			MemCopyN((byte*)dest + t * _FLASH_ROW_SIZE, (void*)addr, _FLASH_ROW_SIZE);
+		}
 		return true;
 	}
 
 	// auto-erase the containing sector, then program the row
-	bool Flash_t::Write(stduint block, const void* src) {
-		if (block >= getUnits()) return false;
-		stduint half = _FLASH_SECTOR_TOTAL * _FLASH_SECTOR_SIZE / _FLASH_ROW_SIZE / 2;// rows per bank
-		byte bank = (block < half) ? 1 : 2;
-		stduint within = (block < half) ? block : (block - half);
-		byte sector = (byte)((within * _FLASH_ROW_SIZE) / _FLASH_SECTOR_SIZE);
-		if (!Erase(bank, sector)) return false;
-		return Program(_FlashBlockAddr(block), src);
+	bool Flash_t::Write(stduint block, const void* src, stduint Times) {
+		if (!src || !Times || block + Times > getUnits()) return false;
+		for0(t, Times) {
+			stduint blk = block + t;
+			stduint half = _FLASH_SECTOR_TOTAL * _FLASH_SECTOR_SIZE / _FLASH_ROW_SIZE / 2;// rows per bank
+			byte bank = (blk < half) ? 1 : 2;
+			stduint within = (blk < half) ? blk : (blk - half);
+			byte sector = (byte)((within * _FLASH_ROW_SIZE) / _FLASH_SECTOR_SIZE);
+			if (!Erase(bank, sector)) return false;
+			if (!Program(_FlashBlockAddr(blk), (const byte*)src + t * _FLASH_ROW_SIZE)) return false;
+		}
+		return true;
 	}
 
 	// AKA byte access; -1 when out of range

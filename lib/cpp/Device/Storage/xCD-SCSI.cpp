@@ -55,12 +55,8 @@ namespace uni {
 		Block_Size = block_size ? block_size : 2048;
 	}
 
-	bool CDROM_SCSI::ReadBlocks(uint32 lba, void* dest, stduint block_count) {
-		return _LOCAL_ExecuteRead10(*this, lba, dest, block_count);
-	}
-
-	bool CDROM_SCSI::Read(stduint BlockIden, void* Dest) {
-		return ReadBlocks((uint32)BlockIden, Dest, 1);
+	bool CDROM_SCSI::Read(stduint BlockIden, void* Dest, stduint Times) {
+		return _LOCAL_ExecuteRead10(*this, (uint32)BlockIden, Dest, Times);
 	}
 
 	stduint CDROM_SCSI::getUnits() {

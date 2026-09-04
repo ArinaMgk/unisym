@@ -49,17 +49,17 @@
 #include <algorithm>
 
 namespace uni::device::SpaceUSB {
-	class DeviceUSB;
-	using HubDescriptorCompleteHook = void (*)(DeviceUSB& dev);
+	class USBHostDevice;
+	using HubDescriptorCompleteHook = void (*)(USBHostDevice& dev);
 	extern HubDescriptorCompleteHook g_hub_descriptor_complete_hook;
-	using HubPortStatusHook = void (*)(DeviceUSB& dev, uint8 downstream_port, uint16 status, uint16 change);
+	using HubPortStatusHook = void (*)(USBHostDevice& dev, uint8 downstream_port, uint16 status, uint16 change);
 	extern HubPortStatusHook g_hub_port_status_hook;
 
 	// Base class of USB class drivers. Platform independent; the H7 host
 	// bridge (OTGHostDevice) drives it over the OTG controller.
 	class ClassDriver {
 	public:
-		ClassDriver(DeviceUSB* dev) : dev_{ dev } {}
+		ClassDriver(USBHostDevice* dev) : dev_{ dev } {}
 		// virtual ~ClassDriver();
 
 		virtual Error Initialize() = 0;
@@ -69,10 +69,10 @@ namespace uni::device::SpaceUSB {
 		virtual Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) = 0;
 
 		/** Returns the USB device that holds this class driver. */
-		DeviceUSB* ParentDevice() const { return dev_; }
+		USBHostDevice* ParentDevice() const { return dev_; }
 
 	private:
-		DeviceUSB* dev_;
+		USBHostDevice* dev_;
 	};
 }
 
@@ -84,7 +84,7 @@ namespace uni::device::SpaceUSB {
 
 	class HIDBaseDriver : public ClassDriver {
 	public:
-		HIDBaseDriver(DeviceUSB* dev, int interface_index, int in_packet_size)
+		HIDBaseDriver(USBHostDevice* dev, int interface_index, int in_packet_size)
 			: ClassDriver{ dev }, interface_index_{ interface_index },
 			in_packet_size_{ in_packet_size }
 		{ }
@@ -144,7 +144,7 @@ namespace uni::device::SpaceUSB {
 
 	class USBHubDriver : public ClassDriver {
 	public:
-		explicit USBHubDriver(DeviceUSB* dev)
+		explicit USBHubDriver(USBHostDevice* dev)
 			: ClassDriver{ dev } {}
 
 		void* operator new(size_t size) {

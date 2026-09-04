@@ -87,8 +87,8 @@ namespace uni {
 	public:
 		FloppyDisk(byte id = 0, FloppyDriveType type = FloppyDriveType::Drive_1_44MB_3_5);
 
-		virtual bool Read(stduint BlockIden, void* Dest) override;
-		virtual bool Write(stduint BlockIden, const void* Sors) override;
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
 		virtual stduint getUnits() override;
 		virtual int operator[](uint64 bytid) override { return _TODO 0; }
 		

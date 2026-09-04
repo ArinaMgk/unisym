@@ -90,20 +90,20 @@ namespace uni {
 		return vhd_disk_type[MemReverseB(footer->disk_type)];
 	}
 
-	bool VirtualDisk_VHD::Read(stduint BlockIden, void* Dest)//{TEMP} only for FIXED
+	bool VirtualDisk_VHD::Read(stduint BlockIden, void* Dest, stduint Times)//{TEMP} only for FIXED
 	{
-		if (BlockIden >= getUnits()) return false;
+		if (BlockIden + Times > getUnits()) return false;
 		fseek((FILE*)fp, Block_Size * BlockIden, SEEK_SET);//{stdc} long-limit
-		auto _unuse_size = fread(Dest, 512, 1, (FILE*)fp);
+		auto _unuse_size = fread(Dest, Block_Size, Times, (FILE*)fp);
 		return false;
 	}
 
 
-	bool VirtualDisk_VHD::Write(stduint BlockIden, const void* Sors)//{TEMP} only for FIXED
+	bool VirtualDisk_VHD::Write(stduint BlockIden, const void* Sors, stduint Times)//{TEMP} only for FIXED
 	{
-		if (BlockIden >= getUnits()) return false;
+		if (BlockIden + Times > getUnits()) return false;
 		fseek((FILE*)fp, Block_Size * BlockIden, SEEK_SET);//{stdc} long-limit
-		fwrite(Sors, 512, 1, (FILE*)fp);
+		fwrite(Sors, Block_Size, Times, (FILE*)fp);
 		return false;
 	}
 

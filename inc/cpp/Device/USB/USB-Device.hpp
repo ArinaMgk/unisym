@@ -3,9 +3,9 @@
 namespace uni::device::SpaceUSB {
 	class ClassDriver;
 
-	class DeviceUSB {
+	class USBHostDevice {
 	public:
-		virtual ~DeviceUSB();
+		virtual ~USBHostDevice();
 		virtual Error ControlIn(EndpointID ep_id, SetupData setup_data,
 			void* buf, int len, ClassDriver* issuer);
 		virtual Error ControlOut(EndpointID ep_id, SetupData setup_data,
@@ -89,10 +89,10 @@ namespace uni::device::SpaceUSB {
 		ArrayMap<SetupData, ClassDriver*, 4> event_waiters_{};
 	};
 
-	Error GetDescriptor(DeviceUSB& dev, EndpointID ep_id,
+	Error GetDescriptor(USBHostDevice& dev, EndpointID ep_id,
 		uint8 desc_type, uint8 desc_index,
 		void* buf, int len, bool debug = false, uint16 desc_lang_id = 0);
-	Error SetConfiguration(DeviceUSB& dev, EndpointID ep_id,
+	Error SetConfiguration(USBHostDevice& dev, EndpointID ep_id,
 		uint8 config_value, bool debug = false);
 }
 #endif

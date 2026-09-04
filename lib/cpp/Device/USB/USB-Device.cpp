@@ -63,7 +63,7 @@ namespace {
 		return conf;
 	}
 
-	uni::device::SpaceUSB::ClassDriver* NewClassDriver(uni::device::SpaceUSB::DeviceUSB* dev, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc)
+	uni::device::SpaceUSB::ClassDriver* NewClassDriver(uni::device::SpaceUSB::USBHostDevice* dev, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc)
 	{
 #if defined(_MCU_STM32H7x)
 		// H7: HID keyboard/mouse and hub drivers stay on x86 for now;
@@ -127,10 +127,10 @@ namespace uni::device::SpaceUSB {
 	HubDescriptorCompleteHook g_hub_descriptor_complete_hook = nullptr;
 	HubPortStatusHook g_hub_port_status_hook = nullptr;
 
-	DeviceUSB::~DeviceUSB() {
+	USBHostDevice::~USBHostDevice() {
 	}
 
-	Error DeviceUSB::ControlIn(EndpointID ep_id, SetupData setup_data,
+	Error USBHostDevice::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
 		if (issuer) {
 			event_waiters_.Put(setup_data, issuer);
@@ -138,7 +138,7 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB::ControlOut(EndpointID ep_id, SetupData setup_data,
+	Error USBHostDevice::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
 		if (issuer) {
 			event_waiters_.Put(setup_data, issuer);
@@ -146,22 +146,22 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB::InterruptIn(EndpointID ep_id, void* buf, int len) {
+	Error USBHostDevice::InterruptIn(EndpointID ep_id, void* buf, int len) {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB::InterruptOut(EndpointID ep_id, void* buf, int len) {
+	Error USBHostDevice::InterruptOut(EndpointID ep_id, void* buf, int len) {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB::OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) {
+	Error USBHostDevice::OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) {
 		(void)port_num;
 		(void)status;
 		(void)change;
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB::StartInitialize() {
+	Error USBHostDevice::StartInitialize() {
 		is_initialized_ = false;
 		hub_num_ports_ = 0;
 		initialize_phase_ = 1;
@@ -176,7 +176,7 @@ namespace uni::device::SpaceUSB {
 			buf_.data(), buf_.size(), true);
 	}
 
-	Error DeviceUSB::OnEndpointsConfigured() {
+	Error USBHostDevice::OnEndpointsConfigured() {
 		for (auto class_driver : class_drivers_) {
 			if (class_driver != nullptr) {
 				if (auto err = class_driver->OnEndpointsConfigured()) {
@@ -187,7 +187,7 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB::OnControlCompleted(EndpointID ep_id, SetupData setup_data,
+	Error USBHostDevice::OnControlCompleted(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len) {
 		// Log(kDebug, "Device::OnControlCompleted: buf 0x%08x, len %d, dir %d", buf, len, setup_data.request_type.bits.direction);
 		if (is_initialized_) {
@@ -254,7 +254,7 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kNotImplemented);
 	}
 
-	Error DeviceUSB::OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) {
+	Error USBHostDevice::OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) {
 		// Log(kDebug, "Device::OnInterruptCompleted: ep addr %d\n", ep_id.Address());
 		if (auto w = class_drivers_[ep_id.Number()]) {
 			return w->OnInterruptCompleted(ep_id, buf, len);
@@ -262,7 +262,7 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kNoWaiter);
 	}
 
-	Error DeviceUSB::InitializePhase1(const uint8_t* buf, int len) {
+	Error USBHostDevice::InitializePhase1(const uint8_t* buf, int len) {
 		const auto device_desc = DescriptorDynamicCast<DeviceDescriptor>(buf);
 		vendor_id_ = device_desc->vendor_id;
 		product_id_ = device_desc->product_id;
@@ -277,7 +277,7 @@ namespace uni::device::SpaceUSB {
 		return RequestStringDescriptors();
 	}
 
-	Error DeviceUSB::InitializePhase2(const uint8_t* buf, int len) {
+	Error USBHostDevice::InitializePhase2(const uint8_t* buf, int len) {
 		auto conf_desc = DescriptorDynamicCast<ConfigurationDescriptor>(buf);
 		if (conf_desc == nullptr) {
 			return MAKE_ERROR(Error::kInvalidDescriptor);
@@ -324,7 +324,7 @@ namespace uni::device::SpaceUSB {
 			conf_desc->configuration_value, true);
 	}
 
-	Error DeviceUSB::InitializePhase3(uint8_t config_value) {
+	Error USBHostDevice::InitializePhase3(uint8_t config_value) {
 		for (int i = 0; i < num_ep_configs_; ++i) {
 			class_drivers_[ep_configs_[i].ep_id.Number()]->SetEndpoint(ep_configs_[i]);
 		}
@@ -333,7 +333,7 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB::InitializeStringPhase0(const uint8_t* buf, int len) {
+	Error USBHostDevice::InitializeStringPhase0(const uint8_t* buf, int len) {
 		if (len >= 4 && buf[1] == descriptor_type::kString) {
 			string_lang_id_ = uint16_t(buf[2]) | (uint16_t(buf[3]) << 8);
 		}
@@ -358,7 +358,7 @@ namespace uni::device::SpaceUSB {
 		return BeginConfigurationDescriptorRead();
 	}
 
-	Error DeviceUSB::InitializeStringPhaseManufacturer(const uint8_t* buf, int len) {
+	Error USBHostDevice::InitializeStringPhaseManufacturer(const uint8_t* buf, int len) {
 		DecodeUSBStringDescriptor(buf, len, manufacturer_string_.data(), manufacturer_string_.size());
 		if (product_index_) {
 			initialize_phase_ = 13;
@@ -375,7 +375,7 @@ namespace uni::device::SpaceUSB {
 		return BeginConfigurationDescriptorRead();
 	}
 
-	Error DeviceUSB::InitializeStringPhaseProduct(const uint8_t* buf, int len) {
+	Error USBHostDevice::InitializeStringPhaseProduct(const uint8_t* buf, int len) {
 		DecodeUSBStringDescriptor(buf, len, product_string_.data(), product_string_.size());
 		if (serial_index_) {
 			initialize_phase_ = 14;
@@ -386,12 +386,12 @@ namespace uni::device::SpaceUSB {
 		return BeginConfigurationDescriptorRead();
 	}
 
-	Error DeviceUSB::InitializeStringPhaseSerial(const uint8_t* buf, int len) {
+	Error USBHostDevice::InitializeStringPhaseSerial(const uint8_t* buf, int len) {
 		DecodeUSBStringDescriptor(buf, len, serial_string_.data(), serial_string_.size());
 		return BeginConfigurationDescriptorRead();
 	}
 
-	Error DeviceUSB::RequestStringDescriptors() {
+	Error USBHostDevice::RequestStringDescriptors() {
 		if (!manufacturer_index_ && !product_index_ && !serial_index_) {
 			return BeginConfigurationDescriptorRead();
 		}
@@ -401,7 +401,7 @@ namespace uni::device::SpaceUSB {
 			buf_.data(), buf_.size(), true, 0);
 	}
 
-	Error DeviceUSB::BeginConfigurationDescriptorRead() {
+	Error USBHostDevice::BeginConfigurationDescriptorRead() {
 		initialize_phase_ = 2;
 		Log(kDebug, "issuing GetDesc(Config): index=%d)\n", config_index_);
 		return GetDescriptor(*this, kDefaultControlPipeID,
@@ -409,7 +409,7 @@ namespace uni::device::SpaceUSB {
 			buf_.data(), buf_.size(), true);
 	}
 
-	Error GetDescriptor(DeviceUSB& dev, EndpointID ep_id,
+	Error GetDescriptor(USBHostDevice& dev, EndpointID ep_id,
 		uint8_t desc_type, uint8_t desc_index,
 		void* buf, int len, bool debug, uint16_t desc_lang_id) {
 		SetupData setup_data{};
@@ -423,7 +423,7 @@ namespace uni::device::SpaceUSB {
 		return dev.ControlIn(ep_id, setup_data, buf, len, nullptr);
 	}
 
-	Error SetConfiguration(DeviceUSB& dev, EndpointID ep_id,
+	Error SetConfiguration(USBHostDevice& dev, EndpointID ep_id,
 		uint8_t config_value, bool debug) {
 		SetupData setup_data{};
 		setup_data.request_type.bits.direction = request_type::kOut;

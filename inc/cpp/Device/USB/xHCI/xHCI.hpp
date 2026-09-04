@@ -81,7 +81,7 @@ namespace uni::device::SpaceUSB3 {
 		bool IsPortResetChanged() const;
 		int Speed() const;
 		Error Reset();
-		DeviceUSB3* Initialize();
+		USBHostDevice_v3* Initialize();
 
 		void ClearConnectStatusChanged() const {
 			CLEAR_STATUS_BIT(connect_status_change);
@@ -137,8 +137,8 @@ namespace uni::device::SpaceUSB3 {
 
 	public:
 		Error ConfigurePort(Port& port);
-		Error ConfigureEndpoints(DeviceUSB3& dev);
-		Error OnHubPortStatusChanged(DeviceUSB3& hub_dev, uint8 downstream_port, uint16 status, uint16 change);
+		Error ConfigureEndpoints(USBHostDevice_v3& dev);
+		Error OnHubPortStatusChanged(USBHostDevice_v3& hub_dev, uint8 downstream_port, uint16 status, uint16 change);
 
 		/** @brief Process at most one event registered in the event ring.
 			 *
@@ -151,7 +151,7 @@ namespace uni::device::SpaceUSB3 {
 
 	};
 
-	using ConfigurationCompleteHook = void (*)(HostController& xhc, uint8 port_id, uint8 slot_id, DeviceUSB3& dev);
+	using ConfigurationCompleteHook = void (*)(HostController& xhc, uint8 port_id, uint8 slot_id, USBHostDevice_v3& dev);
 	extern ConfigurationCompleteHook g_configuration_complete_hook;
 	using DeviceDisconnectHook = void (*)(HostController& xhc, uint8 port_id, uint8 slot_id);
 	extern DeviceDisconnectHook g_device_disconnect_hook;

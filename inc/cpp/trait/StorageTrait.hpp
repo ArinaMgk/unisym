@@ -146,14 +146,17 @@ namespace uni {
 			total_units = src.length / unit;
 		}
 	public:
-		virtual bool Read(stduint BlockIden, void* Dest) override {
-			if (BlockIden >= total_units) return false;
-			MemCopyN(Dest, address + BlockIden * Block_Size, Block_Size);
+		using BlockTrait::Read;
+		using BlockTrait::Write;
+
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override {
+			if (BlockIden >= total_units || BlockIden + Times > total_units) return false;
+			MemCopyN(Dest, address + BlockIden * Block_Size, Block_Size * Times);
 			return true;
 		}
-		virtual bool Write(stduint BlockIden, const void* Sors) override {
-			if (BlockIden >= total_units) return false;
-			MemCopyN(address + BlockIden * Block_Size, Sors, Block_Size);
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override {
+			if (BlockIden >= total_units || BlockIden + Times > total_units) return false;
+			MemCopyN(address + BlockIden * Block_Size, Sors, Block_Size * Times);
 			return true;
 		}
 		virtual stduint getUnits() override {
@@ -179,8 +182,8 @@ namespace uni {
 		PartitionSlice slice = {};
 		//
 		DiscPartition(StorageTrait& storage, int dev) : base(&storage), device(dev) { Block_Size = storage.Block_Size; }
-		virtual bool Read(stduint BlockIden, void* Dest) override;
-		virtual bool Write(stduint BlockIden, const void* Sors) override;
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
 		virtual stduint getUnits() override {
 			if (!slice.address && !slice.length) renew_slice();
 			return slice.length;

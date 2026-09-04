@@ -36,7 +36,7 @@ namespace uni::device::SpaceUSB {
 
 	Error OTGHostDevice::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
-		if (auto err = DeviceUSB::ControlIn(ep_id, setup_data, buf, len, issuer)) {
+		if (auto err = USBHostDevice::ControlIn(ep_id, setup_data, buf, len, issuer)) {
 			return err;
 		}
 		if (ep_id.Number() != 0) {
@@ -55,7 +55,7 @@ namespace uni::device::SpaceUSB {
 
 	Error OTGHostDevice::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
-		if (auto err = DeviceUSB::ControlOut(ep_id, setup_data, buf, len, issuer)) {
+		if (auto err = USBHostDevice::ControlOut(ep_id, setup_data, buf, len, issuer)) {
 			return err;
 		}
 		if (ep_id.Number() != 0) {
@@ -71,7 +71,7 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error OTGHostDevice::InterruptIn(EndpointID ep_id, void* buf, int len) {
-		if (auto err = DeviceUSB::InterruptIn(ep_id, buf, len)) {
+		if (auto err = USBHostDevice::InterruptIn(ep_id, buf, len)) {
 			return err;
 		}
 		const byte ch = static_cast<byte>(ep_id.Number());
@@ -81,7 +81,7 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error OTGHostDevice::InterruptOut(EndpointID ep_id, void* buf, int len) {
-		if (auto err = DeviceUSB::InterruptOut(ep_id, buf, len)) {
+		if (auto err = USBHostDevice::InterruptOut(ep_id, buf, len)) {
 			return err;
 		}
 		const byte ch = static_cast<byte>(ep_id.Number());

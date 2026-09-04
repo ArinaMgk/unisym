@@ -99,7 +99,7 @@ namespace uni::device::SpaceUSB3 {
 		PendingHubChildAddress active_hub_child{};
 		bool active_hub_child_valid = false;
 
-		bool MatchesPortAndRoute(const DeviceUSB3& dev, uint8 port_num, uint32 route_string) {
+		bool MatchesPortAndRoute(const USBHostDevice_v3& dev, uint8 port_num, uint32 route_string) {
 			return dev.RootHubPortNum() == port_num && dev.RouteString() == route_string;
 		}
 
@@ -223,11 +223,11 @@ namespace uni::device::SpaceUSB3 {
 	ConfigurationCompleteHook g_configuration_complete_hook = nullptr;
 	DeviceDisconnectHook g_device_disconnect_hook = nullptr;
 
-	DeviceUSB3::DeviceUSB3(uint8 slot_id, DoorbellRegister* dbreg, HostController* host)
+	USBHostDevice_v3::USBHostDevice_v3(uint8 slot_id, DoorbellRegister* dbreg, HostController* host)
 		: slot_id_{ slot_id }, dbreg_{ dbreg }, host_{ host } {
 	}
 
-	Error DeviceUSB3::Initialize() {
+	Error USBHostDevice_v3::Initialize() {
 		state_ = State::kBlank;
 		for (size_t i = 0; i < 31; ++i) {
 			const DeviceContextIndex dci(i + 1);
@@ -236,11 +236,11 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	void DeviceUSB3::SelectForSlotAssignment() {
+	void USBHostDevice_v3::SelectForSlotAssignment() {
 		state_ = State::kSlotAssigning;
 	}
 
-	Ring* DeviceUSB3::AllocTransferRing(DeviceContextIndex index, size_t buf_size) {
+	Ring* USBHostDevice_v3::AllocTransferRing(DeviceContextIndex index, size_t buf_size) {
 		int i = index.value - 1;
 		auto tr = AllocArray<Ring>(1, 64, 4096);
 		if (tr) {
@@ -251,9 +251,9 @@ namespace uni::device::SpaceUSB3 {
 		return tr;
 	}
 
-	Error DeviceUSB3::ControlIn(EndpointID ep_id, SetupData setup_data,
+	Error USBHostDevice_v3::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
-		if (auto err = DeviceUSB::ControlIn(ep_id, setup_data, buf, len, issuer)) {
+		if (auto err = USBHostDevice::ControlIn(ep_id, setup_data, buf, len, issuer)) {
 			return err;
 		}
 
@@ -299,9 +299,9 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB3::ControlOut(EndpointID ep_id, SetupData setup_data,
+	Error USBHostDevice_v3::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
-		if (auto err = DeviceUSB::ControlOut(ep_id, setup_data, buf, len, issuer)) {
+		if (auto err = USBHostDevice::ControlOut(ep_id, setup_data, buf, len, issuer)) {
 			return err;
 		}
 
@@ -346,8 +346,8 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB3::InterruptIn(EndpointID ep_id, void* buf, int len) {
-		if (auto err = DeviceUSB::InterruptIn(ep_id, buf, len)) {
+	Error USBHostDevice_v3::InterruptIn(EndpointID ep_id, void* buf, int len) {
+		if (auto err = USBHostDevice::InterruptIn(ep_id, buf, len)) {
 			return err;
 		}
 
@@ -370,8 +370,8 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	Error DeviceUSB3::InterruptOut(EndpointID ep_id, void* buf, int len) {
-		if (auto err = DeviceUSB::InterruptOut(ep_id, buf, len)) {
+	Error USBHostDevice_v3::InterruptOut(EndpointID ep_id, void* buf, int len) {
+		if (auto err = USBHostDevice::InterruptOut(ep_id, buf, len)) {
 			return err;
 		}
 
@@ -380,12 +380,12 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kNotImplemented);
 	}
 
-	Error DeviceUSB3::OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) {
+	Error USBHostDevice_v3::OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) {
 		if (!host_) return MAKE_ERROR(Error::kNotImplemented);
 		return host_->OnHubPortStatusChanged(*this, port_num, status, change);
 	}
 
-	Error DeviceUSB3::OnTransferEventReceived(const TransferEventTRB& trb) {
+	Error USBHostDevice_v3::OnTransferEventReceived(const TransferEventTRB& trb) {
 		const auto residual_length = trb.bits.trb_transfer_length;
 
 		if (trb.bits.completion_code != 1 /* Success */ &&
@@ -446,7 +446,7 @@ namespace uni::device::SpaceUSB3 {
 	Error DeviceManager::Initialize(size_t max_slots) {
 		max_slots_ = max_slots;
 
-		devices_ = AllocArray<DeviceUSB3*>(max_slots_ + 1, 0, 0);
+		devices_ = AllocArray<USBHostDevice_v3*>(max_slots_ + 1, 0, 0);
 		if (devices_ == nullptr) {
 			return MAKE_ERROR(Error::kNoEnoughMemory);
 		}
@@ -469,7 +469,7 @@ namespace uni::device::SpaceUSB3 {
 		return device_context_pointers_;
 	}
 
-	DeviceUSB3* DeviceManager::FindByPort(uint8 port_num, uint32_t route_string) const {
+	USBHostDevice_v3* DeviceManager::FindByPort(uint8 port_num, uint32_t route_string) const {
 		for (size_t i = 1; i <= max_slots_; ++i) {
 			auto dev = devices_[i];
 			if (dev == nullptr) continue;
@@ -480,7 +480,7 @@ namespace uni::device::SpaceUSB3 {
 		return nullptr;
 	}
 
-	DeviceUSB3* DeviceManager::FindByState(enum DeviceUSB3::State state) const {
+	USBHostDevice_v3* DeviceManager::FindByState(enum USBHostDevice_v3::State state) const {
 		for (size_t i = 1; i <= max_slots_; ++i) {
 			auto dev = devices_[i];
 			if (dev == nullptr) continue;
@@ -491,7 +491,7 @@ namespace uni::device::SpaceUSB3 {
 		return nullptr;
 	}
 
-	DeviceUSB3* DeviceManager::FindBySlot(uint8 slot_id) const {
+	USBHostDevice_v3* DeviceManager::FindBySlot(uint8 slot_id) const {
 		if (slot_id > max_slots_) {
 			return nullptr;
 		}
@@ -516,8 +516,8 @@ namespace uni::device::SpaceUSB3 {
 			return MAKE_ERROR(Error::kAlreadyAllocated);
 		}
 
-		devices_[slot_id] = AllocArray<DeviceUSB3>(1, 64, 4096);
-		new(devices_[slot_id]) DeviceUSB3(slot_id, dbreg, host);
+		devices_[slot_id] = AllocArray<USBHostDevice_v3>(1, 64, 4096);
+		new(devices_[slot_id]) USBHostDevice_v3(slot_id, dbreg, host);
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
@@ -575,7 +575,7 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	DeviceUSB3* Port::Initialize() {
+	USBHostDevice_v3* Port::Initialize() {
 		return nullptr;
 	}
 }
@@ -745,7 +745,7 @@ namespace {
 	uint8 addressing_port{ 0 };
 
 	void InitializeSlotContext(SlotContext& ctx, uint8 root_hub_port_num, uint32 route_string,
-		uint8 speed, const DeviceUSB3* parent_hub, uint8 downstream_port) {
+		uint8 speed, const USBHostDevice_v3* parent_hub, uint8 downstream_port) {
 		ctx.bits.route_string = route_string;
 		ctx.bits.root_hub_port_num = root_hub_port_num;
 		ctx.bits.context_entries = 1;
@@ -863,7 +863,7 @@ namespace {
 
 		xhc.GetDeviceManager()->AllocDevice(slot_id, xhc.DoorbellRegisterAt(slot_id), &xhc);
 
-		DeviceUSB3* dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
+		USBHostDevice_v3* dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
 		if (dev == nullptr) {
 			return MAKE_ERROR(Error::kInvalidSlotID);
 		}
@@ -896,7 +896,7 @@ namespace {
 	Error AddressDevice(HostController& xhc, const PendingHubChildAddress& child_ctx, uint8 slot_id) {
 		xhc.GetDeviceManager()->AllocDevice(slot_id, xhc.DoorbellRegisterAt(slot_id), &xhc);
 
-		DeviceUSB3* dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
+		USBHostDevice_v3* dev = xhc.GetDeviceManager()->FindBySlot(slot_id);
 		if (dev == nullptr) {
 			return MAKE_ERROR(Error::kInvalidSlotID);
 		}
@@ -1139,7 +1139,7 @@ Error HostController::ConfigurePort(Port& port) {
 	return MAKE_ERROR(Error::kSuccess);
 }
 
-Error HostController::OnHubPortStatusChanged(DeviceUSB3& hub_dev, uint8 downstream_port, uint16 status, uint16 change) {
+Error HostController::OnHubPortStatusChanged(USBHostDevice_v3& hub_dev, uint8 downstream_port, uint16 status, uint16 change) {
 	(void)change;
 	const auto root_hub_port_num = hub_dev.RootHubPortNum();
 	const auto route_string = AppendRouteString(hub_dev.RouteString(), downstream_port);
@@ -1170,7 +1170,7 @@ Error HostController::OnHubPortStatusChanged(DeviceUSB3& hub_dev, uint8 downstre
 	return TryAddressNextHubChild(self);
 }
 
-Error HostController::ConfigureEndpoints(DeviceUSB3& dev) {
+Error HostController::ConfigureEndpoints(USBHostDevice_v3& dev) {
 	auto& xhc = self;
 	const auto configs = dev.EndpointConfigs();
 	const auto len = dev.NumEndpointConfigs();

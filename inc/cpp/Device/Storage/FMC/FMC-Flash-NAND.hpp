@@ -140,8 +140,8 @@ public:
 	// ---- StorageTrait (raw NAND; 1 block = 1 page main area) ----
 	// Block_Size = Config.page_size, getUnits = block_nbr * block_size.
 	// Spare area is NOT part of the block device; access it via Read/Write(area=Spare).
-	virtual bool Read(stduint block, void* dest) override;
-	virtual bool Write(stduint block, const void* src) override;
+	virtual bool Read(stduint block, void* dest, stduint Times = 1) override;
+	virtual bool Write(stduint block, const void* src, stduint Times = 1) override;
 	virtual stduint getUnits() override;
 	virtual int operator[](uint64 bytid) override;
 };

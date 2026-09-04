@@ -170,12 +170,12 @@ namespace uni {
 			const_cast<void*>(src), block_count, false, "WRITE(10)");
 	}
 
-	bool Harddisk_SCSI::Read(stduint BlockIden, void* Dest) {
-		return ReadBlocks(BlockIden, Dest, 1);
+	bool Harddisk_SCSI::Read(stduint BlockIden, void* Dest, stduint Times) {
+		return ReadBlocks(BlockIden, Dest, Times);
 	}
 
-	bool Harddisk_SCSI::Write(stduint BlockIden, const void* Sors) {
-		return WriteBlocks(BlockIden, Sors, 1);
+	bool Harddisk_SCSI::Write(stduint BlockIden, const void* Sors, stduint Times) {
+		return WriteBlocks(BlockIden, Sors, Times);
 	}
 
 	stduint Harddisk_SCSI::getUnits() {

@@ -4,7 +4,7 @@
 
 namespace uni::device::SpaceUSB3 {
 	class HostController;
-	class DeviceUSB3 : public ::uni::device::SpaceUSB::DeviceUSB {
+	class USBHostDevice_v3 : public ::uni::device::SpaceUSB::USBHostDevice {
 	public:
 		enum class State {
 			kInvalid,
@@ -14,20 +14,20 @@ namespace uni::device::SpaceUSB3 {
 		};
 
 		using OnTransferredCallbackType = void (
-			DeviceUSB3* dev,
+			USBHostDevice_v3* dev,
 			DeviceContextIndex dci,
 			int completion_code,
 			int trb_transfer_length,
 			TRB* issue_trb);
 
-		DeviceUSB3(uint8 slot_id, DoorbellRegister* dbreg, HostController* host);
+		USBHostDevice_v3(uint8 slot_id, DoorbellRegister* dbreg, HostController* host);
 
 		Error Initialize();
 
 		DeviceContext* GetDeviceContext() { return &ctx_; }
 		const DeviceContext* GetDeviceContext() const { return &ctx_; }
 		InputContext* GetInputContext() { return &input_ctx_; }
-		//usb::DeviceUSB* USBDevice() { return usb_device_; }
+		//usb::USBHostDevice* USBDevice() { return usb_device_; }
 		//void SetUSBDevice(usb::Device* value) { usb_device_ = value; }
 
 		State State() const { return state_; }
@@ -74,7 +74,7 @@ namespace uni::device::SpaceUSB3 {
 			 */
 		ArrayMap<const void*, const SetupStageTRB*, 16> setup_stage_map_{};
 
-		//DeviceUSB* usb_device_;
+		//USBHostDevice* usb_device_;
 	};
 }
 
@@ -89,9 +89,9 @@ namespace uni::device::SpaceUSB3 {
 		Error Initialize(size_t max_slots);
 		DeviceContext** DeviceContexts() const;
 		size_t MaxSlots() const { return max_slots_; }
-		DeviceUSB3* FindByPort(uint8 port_num, uint32_t route_string) const;
-		DeviceUSB3* FindByState(enum DeviceUSB3::State state) const;
-		DeviceUSB3* FindBySlot(uint8 slot_id) const;
+		USBHostDevice_v3* FindByPort(uint8 port_num, uint32_t route_string) const;
+		USBHostDevice_v3* FindByState(enum USBHostDevice_v3::State state) const;
+		USBHostDevice_v3* FindBySlot(uint8 slot_id) const;
 		//WithError<Device*> Get(uint8 device_id) const;
 		Error AllocDevice(uint8 slot_id, DoorbellRegister* dbreg, HostController* host);
 		Error LoadDCBAA(uint8 slot_id);
@@ -104,6 +104,6 @@ namespace uni::device::SpaceUSB3 {
 		size_t max_slots_;
 
 		// The number of elements is max_slots_ + 1.
-		DeviceUSB3** devices_;
+		USBHostDevice_v3** devices_;
 	};
 }

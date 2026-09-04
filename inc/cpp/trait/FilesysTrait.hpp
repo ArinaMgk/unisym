@@ -169,14 +169,16 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		}
 
 		using BlockTrait::Read;
+		using BlockTrait::Write;
 
-		virtual bool Read(stduint BlockIden, void* Dest) override {
-			if (!fs || !file_handle) return false;
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override {
+			if (!fs || !file_handle || !Times) return false;
 
 			stduint offset = BlockIden * Block_Size;
 			if (offset >= file_size) return false;
 
-			stduint to_read = Block_Size;
+			stduint total_requested = Times * Block_Size;
+			stduint to_read = total_requested;
 			if (offset + to_read > file_size) {
 				to_read = file_size - offset;
 			}
@@ -184,20 +186,20 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 			stduint bytes_read = fs->readfl(file_handle, Slice{ offset, to_read }, (byte*)Dest);
 
 			// Safety Erase
-			if (bytes_read < Block_Size) {
-				MemSet((byte*)Dest + bytes_read, 0, Block_Size - bytes_read);
+			if (bytes_read < total_requested) {
+				MemSet((byte*)Dest + bytes_read, 0, total_requested - bytes_read);
 			}
 
 			return bytes_read > 0;
 		}
 
-		virtual bool Write(stduint BlockIden, const void* Sors) override {
-			if (!writable || !fs || !file_handle) return false;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override {
+			if (!writable || !fs || !file_handle || !Times) return false;
 
 			stduint offset = BlockIden * Block_Size;
 			if (offset >= file_size) return false;
 
-			stduint to_write = Block_Size;
+			stduint to_write = Times * Block_Size;
 			if (offset + to_write > file_size) {
 				to_write = file_size - offset;
 			}

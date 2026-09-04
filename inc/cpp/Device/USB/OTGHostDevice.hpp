@@ -37,14 +37,14 @@
 
 namespace uni::device::SpaceUSB {
 
-	// AKA DeviceUSB3 (xHCI) but on the H7 OTG host controller: bridges the
-	// DeviceUSB protocol stack (enumeration + class drivers) onto HCD channels.
+	// AKA USBHostDevice_v3 (xHCI) but on the H7 OTG host controller: bridges the
+	// USBHostDevice protocol stack (enumeration + class drivers) onto HCD channels.
 	// Channel 0 is the default control pipe; other endpoints use their number.
-	class OTGHostDevice : public DeviceUSB {
+	class OTGHostDevice : public USBHostDevice {
 	public:
 		OTGHostDevice(HCD& hcd, byte dev_address, byte speed);
 
-		// transport backends (called by the DeviceUSB protocol stack)
+		// transport backends (called by the USBHostDevice protocol stack)
 		Error ControlIn(EndpointID ep_id, SetupData setup_data,
 			void* buf, int len, ClassDriver* issuer) override;
 		Error ControlOut(EndpointID ep_id, SetupData setup_data,

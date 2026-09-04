@@ -149,8 +149,8 @@ namespace uni {
 		// StorageTrait: 32-byte row granularity
 		// Read(block, buf): read 32 bytes at absolute addr = FLASH_BASE + block*32
 		// Write(block, buf): auto-erase sector then program the row
-		virtual bool Read(stduint block, void* dest) override;
-		virtual bool Write(stduint block, const void* src) override;
+		virtual bool Read(stduint block, void* dest, stduint Times = 1) override;
+		virtual bool Write(stduint block, const void* src, stduint Times = 1) override;
 		virtual stduint getUnits() override { return (_FLASH_SECTOR_TOTAL * _FLASH_SECTOR_SIZE) / _FLASH_ROW_SIZE; }
 		virtual int operator[](uint64 bytid) override;
 

@@ -219,11 +219,11 @@ namespace uni {
 		// - stduint Block_Size;
 		// - void* Block_buffer;
 		// //{TODO} Constantly Read/Write
-		virtual bool Read(stduint BlockIden, void* Dest);
-		virtual bool Write(stduint BlockIden, const void* Sors);
-		virtual stduint getUnits() { return _TODO 0; }
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
+		virtual stduint getUnits() override { return _TODO 0; }
 		//
-		virtual int operator[](uint64 bytid) { return _TODO false; }// byte read
+		virtual int operator[](uint64 bytid) override { return _TODO false; }// byte read
 		// ---- callbacks (Handler_t, AKA HAL weak callbacks) ----
 		Handler_t TxCpltHandler = 0;       // AKA HAL_SD_TxCpltCallback
 		Handler_t RxCpltHandler = 0;       // AKA HAL_SD_RxCpltCallback
@@ -470,10 +470,10 @@ namespace uni {
 		MultiMediaCard_t(byte _SDMMC_ID) : SDMMC_t(_SDMMC_ID) {}
 		using SDMMC_t::operator[];// unhide SDReg register access from SDMMC_t
 		// ---- StorageTrait ----
-		virtual bool Read(stduint BlockIden, void* Dest);
-		virtual bool Write(stduint BlockIden, const void* Sors);
-		virtual stduint getUnits() { return _TODO 0; }
-		virtual int operator[](uint64 bytid) { return _TODO false; }// byte read
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
+		virtual stduint getUnits() override { return _TODO 0; }
+		virtual int operator[](uint64 bytid) override { return _TODO false; }// byte read
 		// ---- callbacks (Handler_t, AKA HAL weak callbacks) ----
 		Handler_t TxCpltHandler = 0;       // AKA HAL_MMC_TxCpltCallback
 		Handler_t RxCpltHandler = 0;       // AKA HAL_MMC_RxCpltCallback

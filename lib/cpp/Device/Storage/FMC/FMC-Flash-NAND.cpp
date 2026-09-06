@@ -219,18 +219,22 @@ namespace uni {
 				_nand_cmd(data_base, _NAND_CMD_AREA_TRUE1);
 			}
 
-			// wait tR (page read latency ~25us): the FMC does NOT wait for R/B without
-			// PWAITEN, and enabling PWAITEN can hang the bus if R/B is not wired.
-			// A short fixed delay covers tR before reading data (AKA NAND_WaitRB in the reference).
-			uint64 tr_t0 = SysTick::getTick();
-			while ((SysTick::getTick() - tr_t0) < 1) {}
+			// wait tR (page read latency): reference (NAND_WaitRB) confirms R/B before
+			// reading data. No R/B pin here, so use a generous fixed CPU delay — reading
+			// too early returns 0x00/garbage (Windows: fatal device error).
+			// NOTE: hand-rolled spin loop on purpose — SysDelay_us() can route to the
+			// SysTick-based SysDelay() when us*SysTickHz >= 1000000, which deadlocks
+			// inside the USB ISR (SysTick can't preempt it). Never call it here.
+			{
+				volatile stduint _tR_spin = (SystemCoreClock / 1000000u) * 150u;
+				while (_tR_spin--) {}
+			}
 
 			// AKA ExtraCommandEnable: poll status then back to read mode
 			if (Config.extra_command_enable) {
-				uint64 t0 = SysTick::getTick();
-				while (ReadStatus() != _NAND_READY) {
-					if ((SysTick::getTick() - t0) > _NAND_WRITE_TIMEOUT) { State = NANDState::Ready; return false; }
-				}
+				stduint guard = _NAND_WRITE_TIMEOUT;
+				while (ReadStatus() != _NAND_READY && --guard) {}
+				if (!guard) { State = NANDState::Ready; return false; }
 				_nand_cmd(data_base, 0x00);
 			}
 
@@ -281,12 +285,11 @@ namespace uni {
 			if (bus == NANDBus::Bits8)  { for (stduint i = 0; i < per; i++) _nand_write8(data_base, *s8++); }
 			else                        { for (stduint i = 0; i < per; i++) _nand_write16(data_base, *s16++); }
 
-			// confirm + poll status (timeout corrected vs HAL's per-iteration tickstart)
+			// confirm + poll status (fixed-iteration timeout; no getTick)
 			_nand_cmd(data_base, _NAND_CMD_WRITE_TRUE1);
-			uint64 t0 = SysTick::getTick();
-			while (ReadStatus() != _NAND_READY) {
-				if ((SysTick::getTick() - t0) > _NAND_WRITE_TIMEOUT) { State = NANDState::Ready; return false; }
-			}
+			{ stduint guard = _NAND_WRITE_TIMEOUT;
+			  while (ReadStatus() != _NAND_READY && --guard) {}
+			  if (!guard) { State = NANDState::Ready; return false; } }
 
 			count--;
 			nand_address++;
@@ -305,10 +308,9 @@ namespace uni {
 		_nand_addr(data_base, (uint8)(nand_address >> 8));
 		_nand_addr(data_base, (uint8)(nand_address >> 16));
 		_nand_cmd(data_base, _NAND_CMD_ERASE1);
-		uint64 t0 = SysTick::getTick();
-		while (ReadStatus() != _NAND_READY) {
-			if ((SysTick::getTick() - t0) > _NAND_WRITE_TIMEOUT) { State = NANDState::Ready; return false; }
-		}
+		{ stduint guard = _NAND_WRITE_TIMEOUT;
+		  while (ReadStatus() != _NAND_READY && --guard) {}
+		  if (!guard) { State = NANDState::Ready; return false; } }
 		State = NANDState::Ready;
 		return true;
 	}
@@ -335,11 +337,9 @@ namespace uni {
 	bool FMC_NAND_t::getECC(stduint& ecc, stduint timeout) {
 		if (State == NANDState::Busy) return false;
 		State = NANDState::Busy;
-		uint64 t0 = SysTick::getTick();
+		stduint guard = (timeout == 0xFFFFFFFFU) ? _NAND_WRITE_TIMEOUT : (timeout + 1);
 		while (!(*this)[NandReg::SR].bitof(_SR_FEMPT)) {
-			if (timeout != 0xFFFFFFFFU) {
-				if ((timeout == 0) || ((SysTick::getTick() - t0) > timeout)) { State = NANDState::Ready; return false; }
-			}
+			if (--guard == 0) { State = NANDState::Ready; return false; }
 		}
 		ecc = (*this)[NandReg::ECCR];
 		State = NANDState::Ready;

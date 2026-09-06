@@ -102,8 +102,8 @@ namespace uni::device::SpaceUSB {
 		byte status;
 	};
 
-	// Mass Storage Class (AKA USBD_MSC + BOT + SCSI): exposes one StorageTrait
-	// block device as a USB MSC logical unit.
+	// Mass Storage Class (AKA USBD_MSC + BOT + SCSI): exposes one or more
+	// StorageTrait block devices as USB MSC logical units (multi-LUN reader).
 	class USBPeri_MSC : public ClassPeripheral {
 	public:
 		USBPeri_MSC();
@@ -114,8 +114,13 @@ namespace uni::device::SpaceUSB {
 		stduint media_packet = 32 * 1024;
 		byte ep_in_addr = 0x81;
 		byte ep_out_addr = 0x01;
+		// max logical units (AKA STORAGE_LUN_NBR in usbd_storage: SD/W25Q256/NAND)
+		static const byte _MSC_LUN_MAX = 3;
 
-		// bind the block device and its standard inquiry data (single LUN)
+		// bind a set of block devices + per-LUN standard inquiry data
+		// (36 bytes each, AKA USBD_MSC_RegisterStorage + STORAGE_Inquirydata)
+		void Bind(PeripheralDevice& dev, StorageTrait* const* storage, const byte* const* inquiry, byte count);
+		// single-LUN convenience (kept for simple readers)
 		void Bind(PeripheralDevice& dev, StorageTrait* storage, const byte* inquiry);
 
 		// ---- ClassPeripheral overrides ----
@@ -141,26 +146,28 @@ namespace uni::device::SpaceUSB {
 		void CompleteClearFeature(byte epnum);
 
 		// ---- SCSI machine (AKA SCSI_*) ----
-		sint ProcessCmd();
-		sint TestUnitReady();
-		sint Inquiry();
-		sint ReadCapacity10();
-		sint ReadFormatCapacity();
-		sint ModeSense6();
-		sint ModeSense10();
-		sint RequestSense();
-		sint StartStopUnit();
-		sint Read10();
-		sint Write10();
-		sint Verify10();
-		sint CheckAddressRange(stduint blk_offset, uint16 blk_nbr);
-		sint ProcessRead();
-		sint ProcessWrite();
+		stdsint ProcessCmd();
+		stdsint TestUnitReady();
+		stdsint Inquiry();
+		stdsint ReadCapacity10();
+		stdsint ReadFormatCapacity();
+		stdsint ModeSense6();
+		stdsint ModeSense10();
+		stdsint RequestSense();
+		stdsint StartStopUnit();
+		stdsint Read10();
+		stdsint Write10();
+		stdsint Verify10();
+		stdsint CheckAddressRange(stduint blk_offset, uint16 blk_nbr);
+		stdsint ProcessRead();
+		stdsint ProcessWrite();
 		void SenseCode(SenseKey skey, AdditionalSenseCode asc);
 
 		// ---- state (AKA USBD_MSC_BOT_HandleTypeDef) ----
-		StorageTrait* storage_ = nullptr;
-		const byte* inquiry_ = nullptr;    // 36-byte standard inquiry (per LUN)
+		StorageTrait* storage_[_MSC_LUN_MAX] = { nullptr };
+		const byte* inquiry_[_MSC_LUN_MAX] = { nullptr };// 36-byte standard inquiry per LUN
+		byte lun_count = 0;          // number of bound LUNs (AKA STORAGE_LUN_NBR)
+		byte cur_lun = 0;            // LUN of the CBW being processed (AKA cbw.bLUN)
 		BotState bot_state = BotState::Idle;
 		byte bot_status = 0;           // 0 normal, 1 recovery, 2 error
 		uint16 bot_data_length = 0;
@@ -168,7 +175,7 @@ namespace uni::device::SpaceUSB {
 		CBW cbw{};
 		CSW csw{};
 		byte interface = 0;
-		stduint max_lun = 0;
+		stduint max_lun = 0;           // highest LUN index (lun_count-1), AKA GetMaxLun
 		stduint scsi_blk_size = 0;
 		stduint scsi_blk_nbr = 0;
 		uint64 scsi_blk_addr = 0;

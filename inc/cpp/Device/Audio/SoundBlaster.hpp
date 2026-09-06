@@ -52,11 +52,18 @@ namespace uni {
 		bool StartSingleCycle8(uint32 byte_count, bool is_signed, bool stereo);
 		bool StartSingleCycle8Legacy(uint32 byte_count);
 		bool StartAutoInit8(uint32 block_bytes, bool is_signed, bool stereo);
+		bool StartSingleCycle16(uint32 sample_count, bool is_signed, bool stereo);
+		bool StartAutoInit16(uint32 sample_count, bool is_signed, bool stereo);
 		bool Halt8();
 		bool Continue8();
 		bool ExitAutoInit8();
+		bool Halt16();
+		bool Continue16();
+		bool ExitAutoInit16();
 		void Acknowledge8BitIrq();
+		void Acknowledge16BitIrq();
 		void Complete8BitPlayback();
+		void Complete16BitPlayback();
 
 		uint16 GetIoBase() const;
 		SoundBlasterState GetState() const;

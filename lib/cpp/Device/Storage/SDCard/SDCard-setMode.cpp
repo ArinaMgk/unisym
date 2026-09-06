@@ -159,6 +159,8 @@ namespace uni {
 		Context = SDContext::NONE;
 		// Try to switch to High Speed Mode (non-fatal)
 		HAL_SD_ConfigSpeedBusOperation(SDMMC_SPEED_MODE::HIGH);
+		// Fill the StorageTrait fields (512B logical blocks)
+		Block_Size = CardInfo.LogBlockSize ? CardInfo.LogBlockSize : BLOCKSIZE;
 		return true;
 	}
 

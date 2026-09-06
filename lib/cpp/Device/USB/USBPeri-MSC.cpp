@@ -88,11 +88,23 @@ namespace uni::device::SpaceUSB {
 		if (bot_data) { delete[] bot_data; bot_data = nullptr; }
 	}
 
-	// bind the block device + standard inquiry data (single LUN)
-	void USBPeri_MSC::Bind(PeripheralDevice& dev, StorageTrait* storage, const byte* inquiry) {
+	// bind a set of block devices + per-LUN standard inquiry data (multi-LUN reader)
+	void USBPeri_MSC::Bind(PeripheralDevice& dev, StorageTrait* const* storage, const byte* const* inquiry, byte count) {
 		dev.RegisterClass(*this);
-		storage_ = storage;
-		inquiry_ = inquiry;
+		if (count > _MSC_LUN_MAX) count = _MSC_LUN_MAX;
+		lun_count = count;
+		max_lun = (count > 0) ? count - 1 : 0;
+		for (byte i = 0; i < count; i++) {
+			storage_[i] = storage[i];
+			inquiry_[i] = inquiry[i];
+		}
+	}
+
+	// single-LUN convenience (kept for simple readers)
+	void USBPeri_MSC::Bind(PeripheralDevice& dev, StorageTrait* storage, const byte* inquiry) {
+		StorageTrait* st[1] = { storage };
+		const byte* iq[1] = { inquiry };
+		Bind(dev, st, iq, 1);
 	}
 
 	// ---- ClassPeripheral: init (AKA USBD_MSC_Init) ----
@@ -135,7 +147,7 @@ namespace uni::device::SpaceUSB {
 			switch (req.request) {
 			case _BOT_GET_MAX_LUN:
 				if (req.value == 0 && req.length == 1 && (req.request_type & 0x80) == 0x80) {
-					byte mlun = 0;   // single LUN -> max_lun = 0
+					byte mlun = (byte)max_lun;   // highest LUN index (AKA STORAGE_GetMaxLun)
 					dev->SendControl(&mlun, 1);
 				}
 				else { dev->StallControl(); return false; }
@@ -223,7 +235,7 @@ namespace uni::device::SpaceUSB {
 
 		if ((dev && dev->getRxCount(ep_out_addr) != _CBW_LENGTH) ||
 			(cbw.signature != _CBW_SIGNATURE) ||
-			(cbw.lun > 0) ||
+			(cbw.lun >= lun_count) ||
 			(cbw.cb_length < 1) ||
 			(cbw.cb_length > 16)) {
 			SenseCode(SenseKey::IllegalRequest, AdditionalSenseCode::InvalidCdb);
@@ -231,6 +243,7 @@ namespace uni::device::SpaceUSB {
 			BotAbort();
 			return;
 		}
+		cur_lun = cbw.lun;
 
 		if (ProcessCmd() < 0) {
 			if (bot_state == BotState::NoData) SendCSW(_CSW_CMD_FAILED);
@@ -292,7 +305,7 @@ namespace uni::device::SpaceUSB {
 	}
 
 	// ---- SCSI: dispatch (AKA SCSI_ProcessCmd) ----
-	sint USBPeri_MSC::ProcessCmd() {
+	stdsint USBPeri_MSC::ProcessCmd() {
 		byte op = cbw.cb[0];
 		switch (op) {
 		case (byte)SCSICommand::TestUnitReady:      return TestUnitReady();
@@ -308,17 +321,21 @@ namespace uni::device::SpaceUSB {
 		case (byte)SCSICommand::Write10:            return Write10();
 		case (byte)SCSICommand::Verify10:           return Verify10();
 		default:
+			// { char d[12]; const char hx[] = "0123456789ABCDEF";
+			//   d[0]='U'; d[1]='N'; d[2]='K'; d[3]=':';
+			//   d[4]=hx[op>>4]; d[5]=hx[op&15]; d[6]='\r'; d[7]='\n';
+			//   outtxt(d, 8); }
 			SenseCode(SenseKey::IllegalRequest, AdditionalSenseCode::InvalidCdb);
 			return -1;
 		}
 	}
 
-	sint USBPeri_MSC::TestUnitReady() {
+	stdsint USBPeri_MSC::TestUnitReady() {
 		if (cbw.data_length != 0) {
 			SenseCode(SenseKey::IllegalRequest, AdditionalSenseCode::InvalidCdb);
 			return -1;
 		}
-		if (!storage_ || storage_->getUnits() == 0) {
+		if (!storage_[cur_lun] || storage_[cur_lun]->getUnits() == 0) {
 			SenseCode(SenseKey::NotReady, AdditionalSenseCode::MediumNotPresent);
 			bot_state = BotState::NoData;
 			return -1;
@@ -327,7 +344,7 @@ namespace uni::device::SpaceUSB {
 		return 0;
 	}
 
-	sint USBPeri_MSC::Inquiry() {
+	stdsint USBPeri_MSC::Inquiry() {
 		const byte* page;
 		uint16 len;
 		if (cbw.cb[1] & 0x01) {
@@ -335,8 +352,8 @@ namespace uni::device::SpaceUSB {
 			len = _LENGTH_INQUIRY_PAGE00;
 		}
 		else {
-			// standard inquiry: 36 bytes supplied by the storage backend
-			page = inquiry_;
+			// standard inquiry: 36 bytes supplied by the storage backend (per LUN)
+			page = inquiry_[cur_lun];
 			if (!page) {
 				SenseCode(SenseKey::IllegalRequest, AdditionalSenseCode::InvalidCdb);
 				return -1;
@@ -349,13 +366,13 @@ namespace uni::device::SpaceUSB {
 		return 0;
 	}
 
-	sint USBPeri_MSC::ReadCapacity10() {
-		if (!storage_) {
+	stdsint USBPeri_MSC::ReadCapacity10() {
+		if (!storage_[cur_lun]) {
 			SenseCode(SenseKey::NotReady, AdditionalSenseCode::MediumNotPresent);
 			return -1;
 		}
-		scsi_blk_nbr = storage_->getUnits();
-		scsi_blk_size = storage_->Block_Size;
+		scsi_blk_nbr = storage_[cur_lun]->getUnits();
+		scsi_blk_size = storage_[cur_lun]->Block_Size;
 		stduint last = scsi_blk_nbr - 1;
 		bot_data[0] = (byte)(last >> 24);
 		bot_data[1] = (byte)(last >> 16);
@@ -369,14 +386,14 @@ namespace uni::device::SpaceUSB {
 		return 0;
 	}
 
-	sint USBPeri_MSC::ReadFormatCapacity() {
+	stdsint USBPeri_MSC::ReadFormatCapacity() {
 		for (byte i = 0; i < 12; i++) bot_data[i] = 0;
-		if (!storage_) {
+		if (!storage_[cur_lun]) {
 			SenseCode(SenseKey::NotReady, AdditionalSenseCode::MediumNotPresent);
 			return -1;
 		}
-		stduint blk_nbr = storage_->getUnits();
-		uint16 blk_size = storage_->Block_Size;
+		stduint blk_nbr = storage_[cur_lun]->getUnits();
+		uint16 blk_size = storage_[cur_lun]->Block_Size;
 		bot_data[3] = 0x08;
 		bot_data[4] = (byte)((blk_nbr - 1) >> 24);
 		bot_data[5] = (byte)((blk_nbr - 1) >> 16);
@@ -390,19 +407,19 @@ namespace uni::device::SpaceUSB {
 		return 0;
 	}
 
-	sint USBPeri_MSC::ModeSense6() {
+	stdsint USBPeri_MSC::ModeSense6() {
 		bot_data_length = _MODE_SENSE6_DATA_LEN;
 		for (byte i = 0; i < _MODE_SENSE6_DATA_LEN; i++) bot_data[i] = _mode_sense6[i];
 		return 0;
 	}
 
-	sint USBPeri_MSC::ModeSense10() {
+	stdsint USBPeri_MSC::ModeSense10() {
 		bot_data_length = _MODE_SENSE10_DATA_LEN;
 		for (byte i = 0; i < _MODE_SENSE10_DATA_LEN; i++) bot_data[i] = _mode_sense10[i];
 		return 0;
 	}
 
-	sint USBPeri_MSC::RequestSense() {
+	stdsint USBPeri_MSC::RequestSense() {
 		for (byte i = 0; i < _REQUEST_SENSE_DATA_LEN; i++) bot_data[i] = 0;
 		bot_data[0] = 0x70;
 		bot_data[7] = _REQUEST_SENSE_DATA_LEN - 6;
@@ -417,18 +434,18 @@ namespace uni::device::SpaceUSB {
 		return 0;
 	}
 
-	sint USBPeri_MSC::StartStopUnit() {
+	stdsint USBPeri_MSC::StartStopUnit() {
 		bot_data_length = 0;
 		return 0;
 	}
 
-	sint USBPeri_MSC::Read10() {
+	stdsint USBPeri_MSC::Read10() {
 		if (bot_state == BotState::Idle) {
 			if ((cbw.flags & 0x80) != 0x80) {
 				SenseCode(SenseKey::IllegalRequest, AdditionalSenseCode::InvalidCdb);
 				return -1;
 			}
-			if (!storage_ || storage_->getUnits() == 0) {
+			if (!storage_[cur_lun] || storage_[cur_lun]->getUnits() == 0) {
 				SenseCode(SenseKey::NotReady, AdditionalSenseCode::MediumNotPresent);
 				return -1;
 			}
@@ -448,13 +465,13 @@ namespace uni::device::SpaceUSB {
 		return ProcessRead();
 	}
 
-	sint USBPeri_MSC::Write10() {
+	stdsint USBPeri_MSC::Write10() {
 		if (bot_state == BotState::Idle) {
 			if ((cbw.flags & 0x80) == 0x80) {
 				SenseCode(SenseKey::IllegalRequest, AdditionalSenseCode::InvalidCdb);
 				return -1;
 			}
-			if (!storage_ || storage_->getUnits() == 0) {
+			if (!storage_[cur_lun] || storage_[cur_lun]->getUnits() == 0) {
 				SenseCode(SenseKey::NotReady, AdditionalSenseCode::MediumNotPresent);
 				return -1;
 			}
@@ -479,7 +496,7 @@ namespace uni::device::SpaceUSB {
 		return 0;
 	}
 
-	sint USBPeri_MSC::Verify10() {
+	stdsint USBPeri_MSC::Verify10() {
 		if ((cbw.cb[1] & 0x02) == 0x02) {
 			SenseCode(SenseKey::IllegalRequest, AdditionalSenseCode::InvalidFieldInCommand);
 			return -1;
@@ -489,21 +506,21 @@ namespace uni::device::SpaceUSB {
 		return 0;
 	}
 
-	sint USBPeri_MSC::CheckAddressRange(stduint blk_offset, uint16 blk_nbr) {
-		if (!storage_) return -1;
-		if ((blk_offset + blk_nbr) > storage_->getUnits()) {
+	stdsint USBPeri_MSC::CheckAddressRange(stduint blk_offset, uint16 blk_nbr) {
+		if (!storage_[cur_lun]) return -1;
+		if ((blk_offset + blk_nbr) > storage_[cur_lun]->getUnits()) {
 			SenseCode(SenseKey::IllegalRequest, AdditionalSenseCode::AddressOutOfRange);
 			return -1;
 		}
 		return 0;
 	}
 
-	sint USBPeri_MSC::ProcessRead() {
-		if (!storage_) return -1;
+	stdsint USBPeri_MSC::ProcessRead() {
+		if (!storage_[cur_lun]) return -1;
 		PeripheralDevice* dev = Parent();
 		stduint len = scsi_blk_len < media_packet ? scsi_blk_len : media_packet;
 		stduint blocks = len / scsi_blk_size;
-		if (!storage_->Read((stduint)(scsi_blk_addr / scsi_blk_size), bot_data, blocks)) {
+		if (!storage_[cur_lun]->Read((stduint)(scsi_blk_addr / scsi_blk_size), bot_data, blocks)) {
 			SenseCode(SenseKey::HardwareError, AdditionalSenseCode::UnrecoveredReadError);
 			return -1;
 		}
@@ -515,12 +532,20 @@ namespace uni::device::SpaceUSB {
 		return 0;
 	}
 
-	sint USBPeri_MSC::ProcessWrite() {
-		if (!storage_) return -1;
+	stdsint USBPeri_MSC::ProcessWrite() {
+		if (!storage_[cur_lun]) return -1;
 		PeripheralDevice* dev = Parent();
 		stduint len = scsi_blk_len < media_packet ? scsi_blk_len : media_packet;
 		stduint blocks = len / scsi_blk_size;
-		if (!storage_->Write((stduint)(scsi_blk_addr / scsi_blk_size), bot_data, blocks)) {
+		/* { char d[48]; const char hex[] = "0123456789ABCDEF";
+		  stduint b = scsi_blk_addr / scsi_blk_size;
+		  d[0]=hex[(b>>8)&15]; d[1]=hex[b&15];
+		  d[2]=' '; d[3]=hex[bot_data[0]>>4]; d[4]=hex[bot_data[0]&15];
+		  d[5]=hex[bot_data[1]>>4]; d[6]=hex[bot_data[1]&15];
+		  d[7]=hex[bot_data[2]>>4]; d[8]=hex[bot_data[2]&15];
+		  d[9]=hex[bot_data[3]>>4]; d[10]=hex[bot_data[3]&15];
+		  d[11]='\r'; d[12]='\n'; outtxt(d, 13); } */
+		if (!storage_[cur_lun]->Write((stduint)(scsi_blk_addr / scsi_blk_size), bot_data, blocks)) {
 			SenseCode(SenseKey::HardwareError, AdditionalSenseCode::WriteFault);
 			return -1;
 		}

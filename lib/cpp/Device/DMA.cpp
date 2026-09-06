@@ -51,13 +51,21 @@ namespace uni {
 		constexpr uint16 DMA8237_8MaskPort = 0x0A;
 		constexpr uint16 DMA8237_8ModePort = 0x0B;
 		constexpr uint16 DMA8237_8ClearFlipFlopPort = 0x0C;
+
+		constexpr uint16 DMA8237_16AddressPorts[] = { 0xC0, 0xC4, 0xC8, 0xCC };
+		constexpr uint16 DMA8237_16CountPorts[] = { 0xC2, 0xC6, 0xCA, 0xCE };
+		constexpr uint16 DMA8237_16PagePorts[] = { 0x8F, 0x8B, 0x89, 0x8A };
+		constexpr uint16 DMA8237_16MaskPort = 0xD4;
+		constexpr uint16 DMA8237_16ModePort = 0xD6;
+		constexpr uint16 DMA8237_16ClearFlipFlopPort = 0xD8;
+
 		constexpr byte DMA8237_ModeSingle = 0x40;
 		constexpr byte DMA8237_ModeAutoInitialize = 0x10;
 		constexpr byte DMA8237_ModeDeviceToMemory = 0x04;
 		constexpr byte DMA8237_ModeMemoryToDevice = 0x08;
-		constexpr stduint DMA8237_8AddressLimit = 0x01000000;
+		constexpr stduint DMA8237_AddressLimit = 0x01000000;
 		constexpr uint32 DMA8237_8Boundary = 0x00010000;
-		constexpr uint32 DMA8237_8MaximumLength = 0x00010000;
+		constexpr uint32 DMA8237_16Boundary = 0x00020000;
 	}
 
 	bool DMA8237_t::Write8(uint16 port, byte value) const {
@@ -66,28 +74,38 @@ namespace uni {
 		return true;
 	}
 
-	bool DMA8237_t::IsValid8Channel(byte channel) {
-		return channel < numsof(DMA8237_8AddressPorts);
+	bool DMA8237_t::Is16BitChannel(byte channel) {
+		return channel >= 5 && channel <= 7;
 	}
 
-	bool DMA8237_t::IsValid8Transfer(stduint physical_address, uint32 length) {
-		if (!length || length > DMA8237_8MaximumLength) return false;
-		if (physical_address >= DMA8237_8AddressLimit) return false;
-		if (stduint(length) > DMA8237_8AddressLimit - physical_address) return false;
+	bool DMA8237_t::IsValidChannel(byte channel) {
+		return channel <= 3 || Is16BitChannel(channel);
+	}
+
+	bool DMA8237_t::IsValidTransfer(byte channel, stduint physical_address, uint32 length_bytes) {
+		if (!IsValidChannel(channel) || !length_bytes) return false;
+		const bool is_16bit = Is16BitChannel(channel);
+		if (is_16bit && ((physical_address & 1) || (length_bytes & 1))) return false;
+
+		const uint32 boundary = is_16bit ? DMA8237_16Boundary : DMA8237_8Boundary;
+		if (length_bytes > boundary) return false;
+		if (physical_address >= DMA8237_AddressLimit) return false;
+		if (stduint(length_bytes) > DMA8237_AddressLimit - physical_address) return false;
+
 		const uint32 boundary_offset =
-			uint32(physical_address & (DMA8237_8Boundary - 1));
-		return length <= DMA8237_8Boundary - boundary_offset;
+			uint32(physical_address & (boundary - 1));
+		return length_bytes <= boundary - boundary_offset;
 	}
 
-	bool DMA8237_t::Transfer(byte channel, stduint physical_address, uint32 length,
+	bool DMA8237_t::Transfer(byte channel, stduint physical_address, uint32 length_bytes,
 		DMA8237Direction direction, DMA8237ReloadMode reload_mode) const {
-		return Prepare8(
-			channel, physical_address, length, direction, reload_mode);
+		return Prepare(
+			channel, physical_address, length_bytes, direction, reload_mode);
 	}
 
-	bool DMA8237_t::Prepare8(byte channel, stduint physical_address, uint32 length,
+	bool DMA8237_t::Prepare(byte channel, stduint physical_address, uint32 length_bytes,
 		DMA8237Direction direction, DMA8237ReloadMode reload_mode) const {
-		if (!IsValid8Channel(channel) || !IsValid8Transfer(physical_address, length) ||
+		if (!IsValidTransfer(channel, physical_address, length_bytes) ||
 			(direction != DMA8237Direction::MemoryToDevice &&
 				direction != DMA8237Direction::DeviceToMemory) ||
 			(reload_mode != DMA8237ReloadMode::OneShot &&
@@ -95,39 +113,65 @@ namespace uni {
 			return false;
 		}
 
-		Mask8(channel);
-		Write8(DMA8237_8ClearFlipFlopPort, 0);
+		const bool is_16bit = Is16BitChannel(channel);
+		const byte ch_idx = is_16bit ? byte(channel - 4) : channel;
+		const byte shift = is_16bit ? 1 : 0;
+
+		const uint16 clear_ff_port = is_16bit ? DMA8237_16ClearFlipFlopPort : DMA8237_8ClearFlipFlopPort;
+		const uint16 mode_port = is_16bit ? DMA8237_16ModePort : DMA8237_8ModePort;
+		const uint16 addr_port = is_16bit ? DMA8237_16AddressPorts[ch_idx] : DMA8237_8AddressPorts[ch_idx];
+		const uint16 page_port = is_16bit ? DMA8237_16PagePorts[ch_idx] : DMA8237_8PagePorts[ch_idx];
+		const uint16 count_port = is_16bit ? DMA8237_16CountPorts[ch_idx] : DMA8237_8CountPorts[ch_idx];
+
+		Mask(channel);
+		Write8(clear_ff_port, 0);
 		const byte transfer_mode = direction == DMA8237Direction::DeviceToMemory ?
 			DMA8237_ModeDeviceToMemory : DMA8237_ModeMemoryToDevice;
 		const byte auto_initialize = reload_mode == DMA8237ReloadMode::AutoInitialize ?
 			DMA8237_ModeAutoInitialize : 0;
-		Write8(DMA8237_8ModePort,
-			byte(DMA8237_ModeSingle | auto_initialize | transfer_mode | channel));
-		Write8(DMA8237_8AddressPorts[channel], byte(physical_address));
-		Write8(DMA8237_8AddressPorts[channel], byte(physical_address >> 8));
-		Write8(DMA8237_8PagePorts[channel], byte(physical_address >> 16));
-		Write8(DMA8237_8ClearFlipFlopPort, 0);
-		const uint16 count = uint16(length - 1);
-		Write8(DMA8237_8CountPorts[channel], byte(count));
-		Write8(DMA8237_8CountPorts[channel], byte(count >> 8));
-		return Unmask8(channel);
+		Write8(mode_port,
+			byte(DMA8237_ModeSingle | auto_initialize | transfer_mode | ch_idx));
+
+		const uint16 word_addr = uint16((physical_address >> shift) & 0xFFFF);
+		Write8(addr_port, byte(word_addr));
+		Write8(addr_port, byte(word_addr >> 8));
+		const byte page_val = is_16bit ?
+			byte((physical_address >> 16) & 0xFE) :
+			byte(physical_address >> 16);
+		Write8(page_port, page_val);
+		Write8(clear_ff_port, 0);
+		const uint16 word_count = uint16((length_bytes >> shift) - 1);
+		Write8(count_port, byte(word_count));
+		Write8(count_port, byte(word_count >> 8));
+		return Unmask(channel);
 	}
 
-	bool DMA8237_t::Mask8(byte channel) const {
-		return IsValid8Channel(channel) &&
-			Write8(DMA8237_8MaskPort, byte(0x04 | channel));
+	bool DMA8237_t::Mask(byte channel) const {
+		if (channel <= 3) {
+			return Write8(DMA8237_8MaskPort, byte(0x04 | channel));
+		}
+		if (Is16BitChannel(channel)) {
+			return Write8(DMA8237_16MaskPort, byte(0x04 | (channel - 4)));
+		}
+		return false;
 	}
 
-	bool DMA8237_t::Unmask8(byte channel) const {
-		return IsValid8Channel(channel) && Write8(DMA8237_8MaskPort, channel);
+	bool DMA8237_t::Unmask(byte channel) const {
+		if (channel <= 3) {
+			return Write8(DMA8237_8MaskPort, channel);
+		}
+		if (Is16BitChannel(channel)) {
+			return Write8(DMA8237_16MaskPort, byte(channel - 4));
+		}
+		return false;
 	}
 
 	bool DMA8237_t::enAble(bool enable, byte channel) const {
-		return enable ? Unmask8(channel) : Mask8(channel);
+		return enable ? Unmask(channel) : Mask(channel);
 	}
 
 	bool DMA8237_t::Abort(byte channel) const {
-		return Mask8(channel);
+		return Mask(channel);
 	}
 #endif
 
@@ -176,11 +220,11 @@ namespace uni {
 #if 0
 
 #elif defined(_MCU_STM32F1x)
-	
+
 	static const uint32 _REFADDR_DMA[] = { nil,
 		0x40020000, 0x40020400
 	};
-	
+
 	static stduint RCC_DMAx_addrs[_DMA_Counts] = // 0.._DMA_Counts
 	{
 		_RCC_AHBENR_ADDR,_RCC_AHBENR_ADDR
@@ -204,7 +248,7 @@ namespace uni {
 		else return false;
 	}
 
-	
+
 
 
 	bool DMA_t::setMode(byte channel, bool from_periph_or_memory, bool to_periph_or_memory, bool periph_inc, bool memory_inc, stduint periph_align, stduint memory_align, bool circular_mode, byte priority) {

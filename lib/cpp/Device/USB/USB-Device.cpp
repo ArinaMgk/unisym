@@ -539,9 +539,9 @@ namespace uni {
 		Reference(base + 0x014) |= interrupt;
 	}
 
-	// AKA USB_WritePacket (DFIFO at base + 0x1000 + ep*4)
+	// AKA USB_WritePacket (DFIFO at base + 0x1000 + ep*USB_OTG_FIFO_SIZE)
 	bool OTG::WritePacket(stduint base, const byte* src, byte ep_num, stduint len) {
-		stduint fifo = base + USB_OTG_FIFO_BASE + ep_num * 4;
+		stduint fifo = base + USB_OTG_FIFO_BASE + ep_num * USB_OTG_FIFO_SIZE;
 		stduint count32b = (len + 3) / 4;
 		for (stduint i = 0; i < count32b; i++) {
 			stduint w = src[0] | (src[1] << 8) | (src[2] << 16) | (src[3] << 24);
@@ -567,8 +567,8 @@ namespace uni {
 	// AKA USB_StopDevice
 	bool OTG::StopDevice(stduint base) {
 		for (stduint i = 0; i < 15; i++) {
-			Reference(base + USB_OTG_IN_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x004) = 0xFF;// DIEPINT
-			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x004) = 0xFF;// DOEPINT
+			Reference(base + USB_OTG_IN_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x008) = 0xFF;// DIEPINT
+			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x008) = 0xFF;// DOEPINT
 		}
 		Reference(base + USB_OTG_DEVICE_BASE + 0x18) = 0xFFFFFFFF;// DAINT
 		Reference(base + USB_OTG_DEVICE_BASE + 0x10) = 0;// DIEPMSK
@@ -610,7 +610,6 @@ namespace uni {
 	bool OTG::InitializeDevice(stduint base, bool vbus_sensing_enable, byte speed, byte dev_endpoints, bool dma_enable, bool sof_enable) {
 		Reference gccfg(base + 0x038);
 		Reference gotgctl(base + 0x000);
-		Reference dcfg(base + USB_OTG_DEVICE_BASE + 0x00);
 		Reference dthrctl(base + USB_OTG_DEVICE_BASE + 0x30);
 		Reference gintmsk(base + 0x018);
 		Reference gintsts(base + 0x014);
@@ -622,7 +621,7 @@ namespace uni {
 			gotgctl.setof(USB_OTG_GOTGCTL_BVALOVAL_Pos);
 		}
 		Reference(base + USB_OTG_PCGCCTL_BASE) = 0;// PCGCCTL
-		dcfg |= (0x3U << 11);// DCFG.FRAME_INTERVAL_80 (80% frame interval)
+		// H7: DCFG_FRAME_INTERVAL_80 == 0U in ll_usb.h, nothing to set.
 		setDevSpeed(base, speed);
 		FlushTxFifo(base, 0x10);
 		FlushRxFifo(base);
@@ -632,23 +631,19 @@ namespace uni {
 		Reference(base + USB_OTG_DEVICE_BASE + 0x1C) = 0;// DAINTMSK
 		for (stduint i = 0; i < dev_endpoints; i++) {
 			Reference diepctl(base + USB_OTG_IN_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x000);
-			if (diepctl.bitof(USB_OTG_DIEPCTL_EPENA_Pos)) {
-				diepctl.setof(USB_OTG_DIEPCTL_EPDIS_Pos);
-				diepctl.setof(USB_OTG_DIEPCTL_SNAK_Pos);
-			}
+			if (diepctl.bitof(USB_OTG_DIEPCTL_EPENA_Pos))
+				diepctl = USB_OTG_DIEPCTL_EPDIS | USB_OTG_DIEPCTL_SNAK;// AKA DIEPCTL = (EPDIS|SNAK)
 			else diepctl = 0;
-			Reference(base + USB_OTG_IN_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x008) = 0;// DIEPTSIZ
-			Reference(base + USB_OTG_IN_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x004) = 0xFF;// DIEPINT
+			Reference(base + USB_OTG_IN_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x010) = 0;// DIEPTSIZ
+			Reference(base + USB_OTG_IN_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x008) = 0xFF;// DIEPINT
 		}
 		for (stduint i = 0; i < dev_endpoints; i++) {
 			Reference doepctl(base + USB_OTG_OUT_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x000);
-			if (doepctl.bitof(USB_OTG_DOEPCTL_EPENA_Pos)) {
-				doepctl.setof(USB_OTG_DOEPCTL_EPDIS_Pos);
-				doepctl.setof(USB_OTG_DOEPCTL_SNAK_Pos);
-			}
+			if (doepctl.bitof(USB_OTG_DOEPCTL_EPENA_Pos))
+				doepctl = USB_OTG_DOEPCTL_EPDIS | USB_OTG_DOEPCTL_SNAK;// AKA DOEPCTL = (EPDIS|SNAK)
 			else doepctl = 0;
-			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x008) = 0;// DOEPTSIZ
-			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x004) = 0xFF;// DOEPINT
+			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x010) = 0;// DOEPTSIZ
+			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + i * USB_OTG_EP_REG_SIZE + 0x008) = 0xFF;// DOEPINT
 		}
 		Reference(base + USB_OTG_DEVICE_BASE + 0x10).rstof(USB_OTG_DIEPMSK_TXFURM_Pos);
 		if (dma_enable) {
@@ -678,15 +673,19 @@ namespace uni {
 	}
 
 	// AKA USB_SetDevSpeed / USB_GetDevSpeed
+	// speed values are the raw DCFG.DEVSPD codes: 0=HS, 1=FS(30/60MHz PHY),
+	// 2=LS, 3=FS(48MHz internal transceiver). Same codes as HAL USB_OTG_SPEED_*.
 	void OTG::setDevSpeed(stduint base, byte speed) {
 		Reference dcfg(base + USB_OTG_DEVICE_BASE + 0x00);
 		dcfg.maset(0, 2, speed);// DCFG.DEVSPD[1:0]
 	}
 	byte OTG::getDevSpeed(stduint base) {
+		// AKA USB_GetDevSpeed: DSTS.ENUMSPD 0=HS, 1=FS(30/60MHz),
+		// 2=LS(6MHz), 3=FS(48MHz); returns HAL USB_OTG_SPEED_* code.
 		stduint spd = Reference(base + USB_OTG_DEVICE_BASE + 0x08).masof(USB_OTG_DSTS_ENUMSPD_Pos, 2);
 		if (spd == 0) return 0;// HIGH
-		if (spd == 1 || spd == 2) return 2;// FULL
-		return 3;// LOW
+		if (spd == 1 || spd == 3) return 3;// FULL
+		return 2;// LOW
 	}
 
 	// AKA USB_SetDevAddress
@@ -712,7 +711,7 @@ namespace uni {
 			if (!diepctl.bitof(USB_OTG_DIEPCTL_USBAEP_Pos)) {
 				diepctl.maset(USB_OTG_DIEPCTL_MPSIZ_Pos, 11, ep.maxpacket);
 				diepctl.maset(USB_OTG_DIEPCTL_EPTYP_Pos, 2, ep.type);
-				diepctl.maset(22, 4, ep.num);// DIEPCTL.EPNUM
+				diepctl.maset(USB_OTG_DIEPCTL_TXFNUM_Pos, 4, ep.num);// DIEPCTL.TXFNUM
 				diepctl.setof(USB_OTG_DIEPCTL_SD0PID_SEVNFRM_Pos);
 				diepctl.setof(USB_OTG_DIEPCTL_USBAEP_Pos);
 			}
@@ -734,22 +733,16 @@ namespace uni {
 	// AKA USB_DeactivateEndpoint
 	bool OTG::DeactivateEndpoint(stduint base, OTGEP& ep) {
 		if (ep.is_in) {
-			Reference diepctl(base + USB_OTG_IN_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x000);
-			if (!diepctl.bitof(USB_OTG_DIEPCTL_EPENA_Pos)) {
-				diepctl.setof(USB_OTG_DIEPCTL_EPDIS_Pos);
-				diepctl.setof(USB_OTG_DIEPCTL_SNAK_Pos);
-			}
-			Reference(base + USB_OTG_IN_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x008) = 0;// DIEPTSIZ
-			Reference(base + USB_OTG_IN_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x004) = 0xFF;// DIEPINT
+			Reference(base + USB_OTG_DEVICE_BASE + 0x3C).rstof(ep.num & 0xF);// DEACHMSK.IEPM
+			Reference(base + USB_OTG_DEVICE_BASE + 0x1C).rstof(ep.num & 0xF);// DAINTMSK.IEPM
+			Reference(base + USB_OTG_IN_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x000)
+				.rstof(USB_OTG_DIEPCTL_USBAEP_Pos);
 		}
 		else {
-			Reference doepctl(base + USB_OTG_OUT_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x000);
-			if (!doepctl.bitof(USB_OTG_DOEPCTL_EPENA_Pos)) {
-				doepctl.setof(USB_OTG_DOEPCTL_EPDIS_Pos);
-				doepctl.setof(USB_OTG_DOEPCTL_SNAK_Pos);
-			}
-			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x008) = 0;// DOEPTSIZ
-			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x004) = 0xFF;// DOEPINT
+			Reference(base + USB_OTG_DEVICE_BASE + 0x3C).rstof(16 + (ep.num & 0xF));// DEACHMSK.OEPM
+			Reference(base + USB_OTG_DEVICE_BASE + 0x1C).rstof(16 + (ep.num & 0xF));// DAINTMSK.OEPM
+			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x000)
+				.rstof(USB_OTG_DOEPCTL_USBAEP_Pos);
 		}
 		return true;
 	}
@@ -799,7 +792,7 @@ namespace uni {
 	// AKA USB_EPStartXfer
 	bool OTG::StartEndpointXfer(stduint base, OTGEP& ep, bool dma) {
 		if (ep.is_in) {
-			Reference dieptsiz(base + USB_OTG_IN_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x008);
+			Reference dieptsiz(base + USB_OTG_IN_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x010);
 			Reference diepctl(base + USB_OTG_IN_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x000);
 			dieptsiz.maset(USB_OTG_DIEPTSIZ_XFRSIZ_Pos, 19, 0);
 			dieptsiz.maset(USB_OTG_DIEPTSIZ_PKTCNT_Pos, 10, 0);
@@ -814,7 +807,7 @@ namespace uni {
 					dieptsiz.maset(USB_OTG_DIEPTSIZ_MULCNT_Pos, 2, 1);
 				}
 			}
-			if (dma) Reference(base + USB_OTG_IN_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x00C) = ep.dma_addr;// DIEPDMA
+			if (dma) Reference(base + USB_OTG_IN_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x014) = ep.dma_addr;// DIEPDMA
 			else if (ep.type != 1 && ep.xfer_len > 0)
 				Reference(base + USB_OTG_DEVICE_BASE + 0x34).setof(ep.num & 0xF);// DIEPEMPMSK
 			if (ep.type == 1) {// ISOC odd/even
@@ -826,7 +819,7 @@ namespace uni {
 			if (ep.type == 1) WritePacket(base, ep.xfer_buff, ep.num, ep.xfer_len);
 		}
 		else {
-			Reference doetsiz(base + USB_OTG_OUT_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x008);
+			Reference doetsiz(base + USB_OTG_OUT_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x010);
 			Reference doepctl(base + USB_OTG_OUT_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x000);
 			doetsiz.maset(USB_OTG_DOEPTSIZ_XFRSIZ_Pos, 19, 0);
 			doetsiz.maset(USB_OTG_DOEPTSIZ_PKTCNT_Pos, 10, 0);
@@ -839,7 +832,7 @@ namespace uni {
 				doetsiz.maset(USB_OTG_DOEPTSIZ_PKTCNT_Pos, 10, pktcnt);
 				doetsiz.maset(USB_OTG_DOEPTSIZ_XFRSIZ_Pos, 19, ep.maxpacket * pktcnt);
 			}
-			if (dma) Reference(base + USB_OTG_OUT_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x00C) = (stduint)ep.xfer_buff;// DOEPDMA
+			if (dma) Reference(base + USB_OTG_OUT_ENDPOINT_BASE + ep.num * USB_OTG_EP_REG_SIZE + 0x014) = (stduint)ep.xfer_buff;// DOEPDMA
 			if (ep.type == 1) {
 				if (!(Reference(base + USB_OTG_DEVICE_BASE + 0x08) & (1U << 8))) doepctl.setof(USB_OTG_DOEPCTL_SODDFRM_Pos);
 				else doepctl.setof(USB_OTG_DOEPCTL_SD0PID_SEVNFRM_Pos);
@@ -853,7 +846,7 @@ namespace uni {
 	// AKA USB_EP0StartXfer
 	bool OTG::StartEP0Xfer(stduint base, OTGEP& ep, bool dma) {
 		if (ep.is_in) {
-			Reference dieptsiz(base + USB_OTG_IN_ENDPOINT_BASE + 0x008);
+			Reference dieptsiz(base + USB_OTG_IN_ENDPOINT_BASE + 0x010);
 			Reference diepctl(base + USB_OTG_IN_ENDPOINT_BASE + 0x000);
 			dieptsiz.maset(USB_OTG_DIEPTSIZ_XFRSIZ_Pos, 19, 0);
 			dieptsiz.maset(USB_OTG_DIEPTSIZ_PKTCNT_Pos, 10, 0);
@@ -865,20 +858,20 @@ namespace uni {
 				dieptsiz.maset(USB_OTG_DIEPTSIZ_PKTCNT_Pos, 10, 1);
 				dieptsiz.maset(USB_OTG_DIEPTSIZ_XFRSIZ_Pos, 19, ep.xfer_len);
 			}
-			if (dma) Reference(base + USB_OTG_IN_ENDPOINT_BASE + 0x00C) = ep.dma_addr;
+			if (dma) Reference(base + USB_OTG_IN_ENDPOINT_BASE + 0x014) = ep.dma_addr;
 			else if (ep.xfer_len > 0) Reference(base + USB_OTG_DEVICE_BASE + 0x34).setof(0);// DIEPEMPMSK ep0
 			diepctl.setof(USB_OTG_DIEPCTL_CNAK_Pos);
 			diepctl.setof(USB_OTG_DIEPCTL_EPENA_Pos);
 		}
 		else {
-			Reference doetsiz(base + USB_OTG_OUT_ENDPOINT_BASE + 0x008);
+			Reference doetsiz(base + USB_OTG_OUT_ENDPOINT_BASE + 0x010);
 			Reference doepctl(base + USB_OTG_OUT_ENDPOINT_BASE + 0x000);
 			doetsiz.maset(USB_OTG_DOEPTSIZ_XFRSIZ_Pos, 19, 0);
 			doetsiz.maset(USB_OTG_DOEPTSIZ_PKTCNT_Pos, 10, 0);
 			if (ep.xfer_len > 0) ep.xfer_len = ep.maxpacket;
 			doetsiz.maset(USB_OTG_DOEPTSIZ_PKTCNT_Pos, 10, 1);
 			doetsiz.maset(USB_OTG_DOEPTSIZ_XFRSIZ_Pos, 19, ep.maxpacket);
-			if (dma) Reference(base + USB_OTG_OUT_ENDPOINT_BASE + 0x00C) = (stduint)ep.xfer_buff;
+			if (dma) Reference(base + USB_OTG_OUT_ENDPOINT_BASE + 0x014) = (stduint)ep.xfer_buff;
 			doepctl.setof(USB_OTG_DOEPCTL_CNAK_Pos);
 			doepctl.setof(USB_OTG_DOEPCTL_EPENA_Pos);
 		}
@@ -887,14 +880,14 @@ namespace uni {
 
 	// AKA USB_EP0_OutStart
 	bool OTG::StartEP0Out(stduint base, bool dma, byte* psetup) {
-		Reference doetsiz(base + USB_OTG_OUT_ENDPOINT_BASE + 0x008);
+		Reference doetsiz(base + USB_OTG_OUT_ENDPOINT_BASE + 0x010);
 		Reference doepctl(base + USB_OTG_OUT_ENDPOINT_BASE + 0x000);
 		doetsiz = 0;
 		doetsiz.maset(USB_OTG_DOEPTSIZ_PKTCNT_Pos, 10, 1);
 		doetsiz.maset(USB_OTG_DOEPTSIZ_XFRSIZ_Pos, 19, 3 * 8);
 		doetsiz.maset(USB_OTG_DOEPTSIZ_STUPCNT_Pos, 2, 3);
 		if (dma) {
-			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + 0x00C) = (stduint)psetup;// DOEPDMA
+			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + 0x014) = (stduint)psetup;// DOEPDMA
 			doepctl = 0x80008000;
 		}
 		return true;
@@ -924,13 +917,13 @@ namespace uni {
 		return Reference(base + USB_OTG_DEVICE_BASE + 0x18) & Reference(base + USB_OTG_DEVICE_BASE + 0x1C) & 0xFFFF;
 	}
 	stduint OTG::ReadDevOutEPInterrupt(stduint base, byte epnum) {
-		return Reference(base + USB_OTG_OUT_ENDPOINT_BASE + epnum * USB_OTG_EP_REG_SIZE + 0x004) & Reference(base + USB_OTG_DEVICE_BASE + 0x14);
+		return Reference(base + USB_OTG_OUT_ENDPOINT_BASE + epnum * USB_OTG_EP_REG_SIZE + 0x008) & Reference(base + USB_OTG_DEVICE_BASE + 0x14);
 	}
 	stduint OTG::ReadDevInEPInterrupt(stduint base, byte epnum) {
 		stduint msk = Reference(base + USB_OTG_DEVICE_BASE + 0x10);
 		stduint emp = Reference(base + USB_OTG_DEVICE_BASE + 0x34);
 		msk |= ((emp >> epnum) & 0x1) << 7;
-		return Reference(base + USB_OTG_IN_ENDPOINT_BASE + epnum * USB_OTG_EP_REG_SIZE + 0x004) & msk;
+		return Reference(base + USB_OTG_IN_ENDPOINT_BASE + epnum * USB_OTG_EP_REG_SIZE + 0x008) & msk;
 	}
 
 	// AKA USB_HostInit
@@ -944,13 +937,13 @@ namespace uni {
 		Reference hptxfsiz(base + 0x100);
 		Reference(base + USB_OTG_PCGCCTL_BASE) = 0;// PCGCCTL
 		gccfg.setof(USB_OTG_GCCFG_VBDEN_Pos);
-		if (speed == 2 && base != _OTG2_FS_ADDR) hcfg.setof(USB_OTG_HCFG_FSLSS_Pos);// FULL speed, not OTG2_FS
+		if (speed == 3 && base != _OTG2_FS_ADDR) hcfg.setof(USB_OTG_HCFG_FSLSS_Pos);// FULL speed, not OTG2_FS
 		else hcfg.rstof(USB_OTG_HCFG_FSLSS_Pos);
 		FlushTxFifo(base, 0x10);
 		FlushRxFifo(base);
 		for (stduint i = 0; i < host_channels; i++) {
-			Reference(base + USB_OTG_HOST_CHANNEL_BASE + i * USB_OTG_HOST_CHANNEL_SIZE + 0x004) = 0xFFFFFFFF;// HCINT
-			Reference(base + USB_OTG_HOST_CHANNEL_BASE + i * USB_OTG_HOST_CHANNEL_SIZE + 0x008) = 0;// HCINTMSK
+			Reference(base + USB_OTG_HOST_CHANNEL_BASE + i * USB_OTG_HOST_CHANNEL_SIZE + 0x008) = 0xFFFFFFFF;// HCINT
+			Reference(base + USB_OTG_HOST_CHANNEL_BASE + i * USB_OTG_HOST_CHANNEL_SIZE + 0x00C) = 0;// HCINTMSK
 		}
 		// VBUS drive (AKA USB_DriveVbus): GCCFG.NOVBUSSENS, plus HPRT.PPWR set by HCD Start
 		gintmsk = 0;
@@ -997,8 +990,8 @@ namespace uni {
 
 	// AKA USB_HC_Init
 	bool OTG::InitializeHostChannel(stduint base, byte ch_num, byte epnum, byte dev_address, byte speed, byte ep_type, uint16 mps) {
-		Reference hcint(base + USB_OTG_HOST_CHANNEL_BASE + ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x004);
-		Reference hcintmsk(base + USB_OTG_HOST_CHANNEL_BASE + ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x008);
+		Reference hcint(base + USB_OTG_HOST_CHANNEL_BASE + ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x008);
+		Reference hcintmsk(base + USB_OTG_HOST_CHANNEL_BASE + ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x00C);
 		Reference hcchar(base + USB_OTG_HOST_CHANNEL_BASE + ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x000);
 		hcint = 0xFFFFFFFF;
 		stduint msk = 0;
@@ -1034,7 +1027,7 @@ namespace uni {
 	bool OTG::StartHostChannelXfer(stduint base, OTGHC& hc, bool dma) {
 		Reference hcchar(base + USB_OTG_HOST_CHANNEL_BASE + hc.ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x000);
 		Reference hctsiz(base + USB_OTG_HOST_CHANNEL_BASE + hc.ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x010);
-		Reference hcintmsk(base + USB_OTG_HOST_CHANNEL_BASE + hc.ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x008);
+		Reference hcintmsk(base + USB_OTG_HOST_CHANNEL_BASE + hc.ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x00C);
 		uint16 num_packets;
 		if (base != _OTG2_FS_ADDR && hc.speed == 0) {// HS
 			if (!dma && hc.do_ping) return DoPing(base, hc.ch_num);

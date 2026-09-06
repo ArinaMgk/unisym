@@ -11,6 +11,7 @@ namespace {
 	constexpr uint16 DspReadDataOffset = 0x0A;
 	constexpr uint16 DspWriteDataOffset = 0x0C;
 	constexpr uint16 DspReadStatusOffset = 0x0E;
+	constexpr uint16 Dsp16BitIrqAcknowledgeOffset = 0x0F;
 	constexpr uint8 DspReadyMask = 0x80;
 	constexpr uint8 DspResetReply = 0xAA;
 	constexpr uint8 DspGetVersionCommand = 0xE1;
@@ -20,10 +21,15 @@ namespace {
 	constexpr uint8 DspStartSingleCycle8LegacyCommand = 0x14;
 	constexpr uint8 DspStartSingleCycle8Command = 0xC0;
 	constexpr uint8 DspStartAutoInit8Command = 0xC4;
+	constexpr uint8 DspStartSingleCycle16Command = 0xB0;
+	constexpr uint8 DspStartAutoInit16Command = 0xB4;
 	constexpr uint8 DspHalt8Command = 0xD0;
 	constexpr uint8 DspSpeakerOnCommand = 0xD1;
 	constexpr uint8 DspSpeakerOffCommand = 0xD3;
 	constexpr uint8 DspContinue8Command = 0xD4;
+	constexpr uint8 DspHalt16Command = 0xD5;
+	constexpr uint8 DspContinue16Command = 0xD6;
+	constexpr uint8 DspExitAutoInit16Command = 0xD9;
 	constexpr uint8 DspExitAutoInit8Command = 0xDA;
 	constexpr uint8 DspModeSigned = 0x10;
 	constexpr uint8 DspModeStereo = 0x20;
@@ -207,6 +213,40 @@ bool uni::SoundBlaster::StartAutoInit8(uint32 block_bytes, bool is_signed, bool 
 	return true;
 }
 
+bool uni::SoundBlaster::StartSingleCycle16(uint32 sample_count, bool is_signed, bool stereo) {
+	if (state != SoundBlasterState::Ready || !sample_count || sample_count > 0x10000) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	const uint8 mode = uint8(
+		(is_signed ? DspModeSigned : 0) | (stereo ? DspModeStereo : 0));
+	const uint16 count = uint16(sample_count - 1);
+	if (!WriteDsp(DspStartSingleCycle16Command) || !WriteDsp(mode) ||
+		!WriteDsp(uint8(count)) || !WriteDsp(uint8(count >> 8))) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Playing;
+	return true;
+}
+
+bool uni::SoundBlaster::StartAutoInit16(uint32 sample_count, bool is_signed, bool stereo) {
+	if (state != SoundBlasterState::Ready || !sample_count || sample_count > 0x10000) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	const uint8 mode = uint8(
+		(is_signed ? DspModeSigned : 0) | (stereo ? DspModeStereo : 0));
+	const uint16 count = uint16(sample_count - 1);
+	if (!WriteDsp(DspStartAutoInit16Command) || !WriteDsp(mode) ||
+		!WriteDsp(uint8(count)) || !WriteDsp(uint8(count >> 8))) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Playing;
+	return true;
+}
+
 bool uni::SoundBlaster::Halt8() {
 	if (state != SoundBlasterState::Playing || !WriteDsp(DspHalt8Command)) {
 		state = SoundBlasterState::Failed;
@@ -235,13 +275,54 @@ bool uni::SoundBlaster::ExitAutoInit8() {
 	return true;
 }
 
+bool uni::SoundBlaster::Halt16() {
+	if (state != SoundBlasterState::Playing || !WriteDsp(DspHalt16Command)) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Stopping;
+	return true;
+}
+
+bool uni::SoundBlaster::Continue16() {
+	if (state != SoundBlasterState::Stopping || !WriteDsp(DspContinue16Command)) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Playing;
+	return true;
+}
+
+bool uni::SoundBlaster::ExitAutoInit16() {
+	if ((state != SoundBlasterState::Playing && state != SoundBlasterState::Stopping) ||
+		!WriteDsp(DspExitAutoInit16Command)) {
+		state = SoundBlasterState::Failed;
+		return false;
+	}
+	state = SoundBlasterState::Stopping;
+	return true;
+}
+
 void uni::SoundBlaster::Acknowledge8BitIrq() {
 	if (io.read8) {
 		(void)io.read8(io.context, io_base + DspReadStatusOffset);
 	}
 }
 
+void uni::SoundBlaster::Acknowledge16BitIrq() {
+	if (io.read8) {
+		(void)io.read8(io.context, io_base + Dsp16BitIrqAcknowledgeOffset);
+	}
+}
+
 void uni::SoundBlaster::Complete8BitPlayback() {
+	if (state == SoundBlasterState::Playing ||
+		state == SoundBlasterState::Stopping) {
+		state = SoundBlasterState::Ready;
+	}
+}
+
+void uni::SoundBlaster::Complete16BitPlayback() {
 	if (state == SoundBlasterState::Playing ||
 		state == SoundBlasterState::Stopping) {
 		state = SoundBlasterState::Ready;

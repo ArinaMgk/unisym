@@ -66,8 +66,9 @@ typedef long fpos_t;
 //{} int fprintf(FILE restrict stream, const char restrict format, ...);
 //{} int fscanf(FILE restrict stream, const char restrict format, ...);
 
-// int printf(const char* restrict format, ...);
-#define printf outsfmt
+_ESYM_C
+int printf(const char* /*restrict*/ format, ...);
+// #define printf outsfmt
 
 //{} int scanf(const char* restrict format, ...);
 

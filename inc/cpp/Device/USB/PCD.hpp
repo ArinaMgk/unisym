@@ -71,8 +71,10 @@ namespace uni {
 	class PCD : public RuptTrait {
 	public:
 		// ---- init configuration (AKA PCD_InitTypeDef / USB_OTG_CfgTypeDef) ----
-		byte speed = 0;                // PCD_SPEED_HIGH(0) / HIGH_IN_FULL(1) / FULL(2)
-		uint16 ep0_mps = 512;          // USB_OTG_HS_MAX_PACKET_SIZE (512); 64 for FS
+		// speed: raw DCFG.DEVSPD code (AKA USB_OTG_SPEED_* in ll_usb.h):
+		// 0=HS, 1=FS(30/60MHz), 2=LS, 3=FS(48MHz embedded).
+		byte speed = 0;                // USB_OTG_SPEED_HIGH(0) / LOW(2) / FULL(3)
+		uint16 ep0_mps = 512;          // USB_OTG_HS_MAX_PACKET_SIZE (512); 64 for FS; updated at ENUMDNE
 		byte dev_endpoints = 15;
 		byte phy_itface = 2;           // PCD_PHY_ULPI(1) / PCD_PHY_EMBEDDED(2)
 		bool dma_enable = false;
@@ -130,6 +132,8 @@ namespace uni {
 		bool TransmitEndpoint(byte ep_addr, byte* pBuf, stduint len);
 		// AKA HAL_PCD_EP_GetRxCount
 		uint16 getRxCount(byte ep_addr);
+		// AKA USB_EP0_OutStart: (re-)arm EP0 to receive the next SETUP packet
+		bool ArmSetup();
 		// AKA HAL_PCD_EP_SetStall / HAL_PCD_EP_ClrStall (merged)
 		bool ConfigStall(byte ep_addr, bool set_or_reset);
 		// AKA HAL_PCD_EP_Flush

@@ -853,6 +853,16 @@
               <FilePath>..\..\cpp\Device\USB\OTGHostDevice.cpp</FilePath>
             </File>
             <File>
+              <FileName>USBPeri-Device.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\USBPeri-Device.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>USBPeri-MSC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\USBPeri-MSC.cpp</FilePath>
+            </File>
+            <File>
               <FileName>FDCAN.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\FDCAN.cpp</FilePath>

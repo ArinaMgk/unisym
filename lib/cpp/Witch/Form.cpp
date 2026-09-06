@@ -434,5 +434,22 @@ void uni::Witch::Form::setSheet(LayerManager& layman, const Rectangle& rect, Col
 
 }
 
-
-
+void uni::Witch::Form::setTitle(const String& title)
+{
+	Title = title;
+	if (sheet_buffer && title_visable) {
+		for0(j, title_bar.sheet_area.height) {
+			Color* p = this->sheet_buffer + (title_bar.sheet_area.y + j) * this->sheet_area.width + title_bar.sheet_area.x;
+			for0(i, title_bar.sheet_area.width) {
+				*p++ = this->getPoint(Point(title_bar.sheet_area.x + i, title_bar.sheet_area.y + j));
+			}
+		}
+		if (Title.reference()) {
+			DrawString_16(self, Point2(3, 3), Title, Color::Black);
+			DrawString_16(self, Point2(2, 2), Title, Color::White);
+		}
+		if (sheet_parent) {
+			sheet_parent->Update(this, title_bar.sheet_area);
+		}
+	}
+}

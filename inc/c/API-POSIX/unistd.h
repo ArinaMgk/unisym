@@ -10,12 +10,12 @@ extern "C" {
 #endif
 
 // ---- TASKMAN
-	
+
 	/// @brief  exit self
 	/// @param status: exit status
 	[[noreturn]] void _exit(int status);
 
-	
+
 	/// @brief  clone self
 	/// @return parent: return unzero pid of child if successful, -1 if error; child: return zero
 	pid_t fork(void);
@@ -87,6 +87,13 @@ extern "C" {
 	/// @param nbyte: number of bytes to write
 	/// @return: number of bytes written, -1 if error
 	stdsint write(int fd, const void* buf, size_t nbyte);
+
+	/// @brief  reposition read/write file offset
+	/// @param  fd: file descriptor
+	/// @param  offset: file offset
+	/// @param  whence: directive (SEEK_SET, SEEK_CUR, SEEK_END)
+	/// @return resulting offset location from beginning, -1 if error
+	off_t lseek(int fd, off_t offset, int whence);
 
 	/// @brief  delete a name and possibly the file it refers to
 	/// @param  pathname: path to the file

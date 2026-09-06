@@ -89,6 +89,10 @@ namespace uni::device::SpaceUSB {
 		void* pclass_data = nullptr;
 		PeripheralDescriptor* pdesc = nullptr;   // device identity (usbd_desc)
 		SetupPacket request{};
+		byte ep0_buf[64]{};              // persistent EP0 TX buffer (AKA USBD ep0_data):
+		                                 // non-DMA EP0 IN is written to the FIFO later from
+		                                 // the TXFE interrupt, so the source must outlive
+		                                 // SendControl() (never pass a stack local)
 		byte dev_address = 0;
 		PeripheralState dev_state = PeripheralState::Default;
 		PeripheralState dev_old_state = PeripheralState::Default;
@@ -114,8 +118,8 @@ namespace uni::device::SpaceUSB {
 
 		// ---- events (called by PCD callbacks) ----
 		void HandleSetup();
-		void HandleDataInn();
-		void HandleDataOut();
+		void HandleDataInn(byte epnum);
+		void HandleDataOut(byte epnum);
 		void HandleReset();
 		void HandleSuspend();
 		void HandleResume();

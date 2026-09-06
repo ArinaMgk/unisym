@@ -68,15 +68,28 @@ namespace uni::device::SpaceUSB {
 		ep0_state = ControlState::Setup;
 		ep0_data_len = request.length;
 
-		switch (request.request_type & (_USB_REQ_RECIPIENT_MASK | _USB_REQ_TYPE_MASK)) {
-		case _USB_REQ_RECIPIENT_DEVICE:
-			HandleStandardDeviceRequest();
+		byte rtype = request.request_type;
+		switch (rtype & _USB_REQ_TYPE_MASK) {
+		case _USB_REQ_TYPE_STANDARD:
+			switch (rtype & _USB_REQ_RECIPIENT_MASK) {
+			case _USB_REQ_RECIPIENT_DEVICE:
+				HandleStandardDeviceRequest();
+				break;
+			case _USB_REQ_RECIPIENT_INTERFACE:
+				HandleStandardInterfaceRequest();
+				break;
+			case _USB_REQ_RECIPIENT_ENDPOINT:
+				HandleStandardEndpointRequest();
+				break;
+			default:
+				StallControl();
+				break;
+			}
 			break;
-		case _USB_REQ_RECIPIENT_INTERFACE:
-			HandleStandardInterfaceRequest();
-			break;
-		case _USB_REQ_RECIPIENT_ENDPOINT:
-			HandleStandardEndpointRequest();
+		case _USB_REQ_TYPE_CLASS:
+			// class request (e.g. MSC GetMaxLUN / BOT reset) goes to the class driver
+			if (pclass) pclass->Setup();
+			else StallControl();
 			break;
 		default:
 			StallControl();
@@ -85,7 +98,12 @@ namespace uni::device::SpaceUSB {
 	}
 
 	// AKA USBD_LL_DataInStage (EP0 IN data stage completed)
-	void PeripheralDevice::HandleDataInn() {
+	void PeripheralDevice::HandleDataInn(byte epnum) {
+		// non-EP0 endpoint (e.g. MSC bulk IN) goes to the class driver
+		if (epnum != 0) {
+			if (pclass) pclass->inn(epnum);
+			return;
+		}
 		Endpoint* pep = &ep_in[0];
 		if (ep0_state == ControlState::DataInn) {
 			if (pep->rem_length > pep->maxpacket) {
@@ -107,13 +125,23 @@ namespace uni::device::SpaceUSB {
 				}
 			}
 		}
+		else if (ep0_state == ControlState::StatusInn) {
+			// status IN (ZLP) completed: control transfer is done, arm EP0 for the next SETUP
+			ep0_state = ControlState::Idle;
+			if (pcd) pcd->ArmSetup();
+		}
 		if (dev_test_mode == 1) {
 			dev_test_mode = 0;
 		}
 	}
 
 	// AKA USBD_LL_DataOutStage (EP0 OUT data stage completed)
-	void PeripheralDevice::HandleDataOut() {
+	void PeripheralDevice::HandleDataOut(byte epnum) {
+		// non-EP0 endpoint (e.g. MSC bulk OUT) goes to the class driver
+		if (epnum != 0) {
+			if (pclass) pclass->out(epnum);
+			return;
+		}
 		Endpoint* pep = &ep_out[0];
 		if (ep0_state == ControlState::DataOut) {
 			if (pep->rem_length > pep->maxpacket) {
@@ -125,10 +153,18 @@ namespace uni::device::SpaceUSB {
 				SendStatus();
 			}
 		}
+		else if (ep0_state == ControlState::StatusOut) {
+			// status OUT (ZLP) completed: control transfer is done, arm EP0 for the next SETUP
+			ep0_state = ControlState::Idle;
+			if (pcd) pcd->ArmSetup();
+		}
 	}
 
 	// AKA USBD_LL_Reset
 	void PeripheralDevice::HandleReset() {
+		// sync enumerated speed from the PCD (AKA USBD_LL_SetSpeed at ENUMDNE):
+		// pcd->speed is the raw DCFG.DEVSPD code, 0 = HS, 3 = FS(48MHz)
+		if (pcd) dev_speed = (pcd->speed == 0) ? PeripheralSpeed::High : PeripheralSpeed::Full;
 		OpenEndpoint(0x00, 0, _USB_MAX_EP0_SIZE);   // EP0 OUT, CTRL
 		ep_out[0].maxpacket = _USB_MAX_EP0_SIZE;
 		OpenEndpoint(0x80, 0, _USB_MAX_EP0_SIZE);   // EP0 IN, CTRL
@@ -157,11 +193,17 @@ namespace uni::device::SpaceUSB {
 	}
 
 	// ---- EP0 control transfer primitives ----
+	// AKA USBD_CtlSendData: copy into the persistent EP0 buffer first, because
+	// the non-DMA EP0 IN data is written to the FIFO later from the TXFE
+	// interrupt (after this function returns) - the source must stay valid.
 	void PeripheralDevice::SendControl(const byte* buf, uint16 len) {
+		uint16 n = len;
+		if (n > byteof(ep0_buf)) n = byteof(ep0_buf);
+		for (uint16 i = 0; i < n; i++) ep0_buf[i] = buf[i];
 		ep0_state = ControlState::DataInn;
-		ep_in[0].total_length = len;
-		ep_in[0].rem_length = len;
-		TransmitEndpoint(0x80, const_cast<byte*>(buf), len);
+		ep_in[0].total_length = n;
+		ep_in[0].rem_length = n;
+		TransmitEndpoint(0x80, ep0_buf, n);
 	}
 
 	void PeripheralDevice::ReceiveControl(byte* buf, uint16 len) {

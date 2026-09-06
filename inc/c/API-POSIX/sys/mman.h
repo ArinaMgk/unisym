@@ -4,9 +4,11 @@
 #include "../../stdinc.h"
 #include "../api_posix.h"
 
-#ifndef _OFF_T_DECLARED
-typedef stduint off_t;
+#if !defined(_OFF_T_DECLARED) && !defined(__off_t_defined) && !defined(_OFF_T_DEFINED)
+typedef stdsint off_t;
 #define _OFF_T_DECLARED
+#define __off_t_defined
+#define _OFF_T_DEFINED
 #endif
 
 // Memory protection attributes

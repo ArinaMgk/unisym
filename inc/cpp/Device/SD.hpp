@@ -221,7 +221,7 @@ namespace uni {
 		// //{TODO} Constantly Read/Write
 		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
 		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
-		virtual stduint getUnits() override { return _TODO 0; }
+		virtual stduint getUnits() override { return CardInfo.LogBlockNbr; }// 512B logical blocks
 		//
 		virtual int operator[](uint64 bytid) override { return _TODO false; }// byte read
 		// ---- callbacks (Handler_t, AKA HAL weak callbacks) ----

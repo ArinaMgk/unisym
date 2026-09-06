@@ -52,6 +52,7 @@ namespace uni {
 	// AKA HAL_HCD_Init
 	bool HCD::setMode() {
 		if (base == 0) return false;
+		OTG::g_base = base;// global-int helpers use this static base
 		State = HCDState::Busy;
 		// MspInit: enable the OTG clock (GPIO/NVIC are handled by the caller)
 		enClock(true);
@@ -197,8 +198,8 @@ namespace uni {
 
 	// AKA HCD_HC_IN_IRQHandler
 	static void HCD_HC_IN_IRQHandler(HCD& hcd, byte chnum) {
-		Reference hcint = hcd.ChannelReg(chnum, 0x004);// HCINT
-		Reference hcintmsk = hcd.ChannelReg(chnum, 0x008);// HCINTMSK
+		Reference hcint = hcd.ChannelReg(chnum, 0x008);// HCINT
+		Reference hcintmsk = hcd.ChannelReg(chnum, 0x00C);// HCINTMSK
 		Reference hcchar = hcd.ChannelReg(chnum, 0x000);// HCCHAR
 		stduint tmpreg = 0;
 
@@ -300,8 +301,8 @@ namespace uni {
 
 	// AKA HCD_HC_OUT_IRQHandler
 	static void HCD_HC_OUT_IRQHandler(HCD& hcd, byte chnum) {
-		Reference hcint = hcd.ChannelReg(chnum, 0x004);// HCINT
-		Reference hcintmsk = hcd.ChannelReg(chnum, 0x008);// HCINTMSK
+		Reference hcint = hcd.ChannelReg(chnum, 0x008);// HCINT
+		Reference hcintmsk = hcd.ChannelReg(chnum, 0x00C);// HCINTMSK
 		Reference hcchar = hcd.ChannelReg(chnum, 0x000);// HCCHAR
 		stduint tmpreg = 0;
 

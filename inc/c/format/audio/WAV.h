@@ -8,7 +8,7 @@
 
 #include "../../stdinc.h"
 
-#if defined(_INC_CPP) || defined(__cplusplus)
+#if defined(_INC_CPP)
 extern "C" {
 #endif
 
@@ -108,7 +108,30 @@ static inline bool WAV_ParsePCM(
 	return true;
 }
 
-#if defined(_INC_CPP) || defined(__cplusplus)
+#if defined(_INC_CPP)
+}
+#endif
+
+#if defined(_INC_CPP)
+#include "../../../cpp/System/Audiosys.hpp"
+
+namespace uni {
+	class WAVCodec : public IAudioCodec {
+	public:
+		virtual ~WAVCodec() = default;
+
+		virtual const char* GetName() const override;
+		virtual AudioContainerFormat GetFormat() const override;
+		virtual const char* const* GetExtensions() const override;
+
+		virtual AudioResult Probe(StorageTrait& storage, bool& matched) const override;
+		virtual AudioResult ReadInfo(StorageTrait& storage, AudioInfo& outInfo) const override;
+		virtual AudioResult OpenStream(
+			StorageTrait& storage,
+			IAudioStream*& outStream,
+			trait::Malloc& allocator
+		) const override;
+	};
 }
 #endif
 

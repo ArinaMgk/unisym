@@ -37,9 +37,13 @@ namespace uni {
 	QSPI QSPI1;
 
 	// AKA QSPI_WaitFlagStateUntilTimeout
+	// NOTE: plain loop-counter timeout — getTick()/uwTick freeze inside high-prio ISRs
+	// (SysTick can't preempt a same-or-higher USB ISR), which used to hang QSPI waits.
 	bool QSPI::waitFlag(stduint flag_pos, bool expect, uint64 tickstart) {
+		(void)tickstart;
+		volatile stduint guard = 8000000;              // bounded poll, no SysTick dependency
 		while (self[QSPIReg::SR].bitof(flag_pos) != expect) {
-			if ((SysTick::getTick() - tickstart) > timeout) {
+			if (!--guard) {
 				error_code |= _QSPI_ERROR_TIMEOUT;
 				return false;
 			}
@@ -289,12 +293,16 @@ namespace uni {
 		error_code = _QSPI_ERROR_NONE;
 		state = QSPIState::BusyIndirectRx;
 		rx_buff = data;
+		// clear stale TC/FT flags FIRST (before touching CCR): a leftover TCF from a
+		// previous transfer would make the poll drain an empty FIFO of zeros
+		self[QSPIReg::FCR].setof(_QSPI_FCR_POS_CTCF);
+		self[QSPIReg::FCR].setof(_QSPI_FCR_POS_CTEF);
 		rx_count = self[QSPIReg::DLR] + 1;
 		rx_size = rx_count;
 		stduint addr = self[QSPIReg::AR];
 		// functional mode = indirect read
 		self[QSPIReg::CCR].maset(_QSPI_CCR_POS_FMODE, 2, _QSPI_FMODE_INDIRECT_READ);
-		self[QSPIReg::DLR] = rx_count - 1;// re-assert data length right before the transfer
+		self[QSPIReg::DLR] = rx_count - 1;// (demo11 original: re-assert DLR before start)
 		self[QSPIReg::AR] = addr;// restart transfer
 		// DR must be accessed byte-wise (8-bit): the 32-bit-wide FIFO packs up to 4
 		// received bytes per entry, so a 32-bit read would pop them all at once.
@@ -327,9 +335,10 @@ namespace uni {
 		}
 		while (rx_count > 0) {
 			// wait until FT (threshold reached = data available) OR TC (transfer done)
-			while (!self[QSPIReg::SR].bitof(_QSPI_SR_POS_FTF)
-				&& !self[QSPIReg::SR].bitof(_QSPI_SR_POS_TCF)) {
-				if ((SysTick::getTick() - tickstart) > timeout) {
+			volatile stduint guard2 = 8000000;
+			while (!(self[QSPIReg::SR].bitof(_QSPI_SR_POS_FTF)
+				|| self[QSPIReg::SR].bitof(_QSPI_SR_POS_TCF))) {
+				if (!--guard2) {
 					error_code |= _QSPI_ERROR_TIMEOUT;
 					state = QSPIState::Error;
 					return false;

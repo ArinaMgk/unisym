@@ -138,6 +138,7 @@ namespace uni::Witch {
 		//
 
 		void setSheet(LayerManager& layman, const Rectangle& rect, Color* buffer = nullptr);
+		void setTitle(const String& title);
 
 		bool setFocus(SheetTrait* sheet) {
 			//{TODO} check if in client area

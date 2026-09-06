@@ -46,6 +46,7 @@ namespace uni {
 	// AKA HAL_PCD_Init
 	bool PCD::setMode() {
 		if (base == 0) return false;
+		OTG::g_base = base;// global-int helpers use this static base
 		State = PCDState::Busy;
 		// MspInit: enable the OTG clock (GPIO/NVIC are handled by the caller)
 		enClock(true);
@@ -341,7 +342,6 @@ namespace uni {
 		if (OTG::getMode(base) != 0) return;
 		// avoid spurious interrupt
 		if (OTG::ReadInterrupts(base) == 0) return;
-
 		Reference gintsts(base + _IMM(OTGGlobalReg::GINTSTS));
 		Reference gintmsk(base + _IMM(OTGGlobalReg::GINTMSK));
 
@@ -497,8 +497,8 @@ namespace uni {
 				DeviceReg(OTGDeviceReg::DIEPMSK).setof(USB_OTG_DIEPMSK_XFRCM_Pos);
 				DeviceReg(OTGDeviceReg::DIEPMSK).setof(USB_OTG_DIEPMSK_EPDM_Pos);
 			}
-			// set default address to 0
-			DeviceReg(OTGDeviceReg::DCFG).rstof(USB_OTG_DCFG_DAD_Pos);
+			// set default address to 0 (AKA DCFG &= ~USB_OTG_DCFG_DAD, 7-bit field)
+			DeviceReg(OTGDeviceReg::DCFG).maset(USB_OTG_DCFG_DAD_Pos, 7, 0);
 			// setup EP0 to receive SETUP packets
 			OTG::StartEP0Out(base, dma_enable, (byte*)Setup);
 			gintsts.setof(USB_OTG_GINTSTS_USBRST_Pos);
@@ -507,7 +507,8 @@ namespace uni {
 		if (gintsts.bitof(USB_OTG_GINTSTS_ENUMDNE_Pos)) {
 			// activate setup: set IN EP0 MPS per enumerated speed, clear global IN NAK
 			Reference diepctl0 = InEndpointReg(0, OTGInEPReg::DIEPCTL);
-			diepctl0.rstof(USB_OTG_DIEPCTL_MPSIZ_Pos);
+			// AKA USB_ActivateSetup: clear MPSIZ, then LS -> 3 (8 bytes)
+			diepctl0.maset(USB_OTG_DIEPCTL_MPSIZ_Pos, 11, 0);
 			if (DeviceReg(OTGDeviceReg::DSTS).masof(USB_OTG_DSTS_ENUMSPD_Pos, 2) == 2) {
 				diepctl0.maset(USB_OTG_DIEPCTL_MPSIZ_Pos, 11, 3);// LS: MPS=3 (8 bytes)
 			}
@@ -520,8 +521,8 @@ namespace uni {
 				ep0_mps = 512;
 				gusbcfg.maset(USB_OTG_GUSBCFG_TRDT_Pos, 4, _USBD_HS_TRDT_VALUE);
 			}
-			else {// FULL
-				speed = 2;
+			else {// FULL (USB_OTG_SPEED_FULL = 3)
+				speed = 3;
 				ep0_mps = 64;
 				// USBTRD table by HCLK frequency (HAL_PCD uses HAL_RCC_GetHCLKFreq)
 				stduint hclk = uni::RCC.getFrequencyHCLK();
@@ -599,6 +600,13 @@ namespace uni {
 	void PCD::enInterrupt(bool enable) const {
 		if (base == _OTG1_HS_ADDR) NVIC.setAble(IRQ_OTG_HS, enable);
 		else NVIC.setAble(IRQ_OTG_FS, enable);
+	}
+
+	// AKA USB_EP0_OutStart: (re-)arm EP0 to receive the next SETUP packet.
+	// Must be called after every control transfer completes (status stage),
+	// because DOEPTSIZ0.STUPCNT (3) is consumed by consecutive SETUPs.
+	bool PCD::ArmSetup() {
+		return OTG::StartEP0Out(base, dma_enable, (byte*)Setup);
 	}
 
 #endif // _MCU_STM32H7x

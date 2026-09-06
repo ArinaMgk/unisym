@@ -84,24 +84,33 @@ namespace uni {
 		DMA8237_IO io;
 
 		bool Write8(uint16 port, byte value) const;
-		static bool IsValid8Channel(byte channel);
-		static bool IsValid8Transfer(stduint physical_address, uint32 length);
-		bool Prepare8(byte channel, stduint physical_address, uint32 length,
+		static bool Is16BitChannel(byte channel);
+		static bool IsValidChannel(byte channel);
+		static bool IsValidTransfer(byte channel, stduint physical_address, uint32 length_bytes);
+		bool Prepare(byte channel, stduint physical_address, uint32 length_bytes,
 			DMA8237Direction direction, DMA8237ReloadMode reload_mode) const;
-		bool Mask8(byte channel) const;
-		bool Unmask8(byte channel) const;
+		bool Mask(byte channel) const;
+		bool Unmask(byte channel) const;
 
 	public:
 		explicit DMA8237_t(DMA8237_IO io) : io(io) {}
 
 		// The byte-pointer flip-flop is shared; callers must serialize each operation.
-		// The current implementation accepts primary-controller channels 0..3 only.
-		bool Transfer(byte channel, stduint physical_address, uint32 length,
+		// Unified transfer for 8-bit (channels 0..3) and 16-bit (channels 5..7, length in bytes).
+		bool Transfer(byte channel, stduint physical_address, uint32 length_bytes,
 			DMA8237Direction direction,
 			DMA8237ReloadMode reload_mode = DMA8237ReloadMode::OneShot) const;
+
+		// Backward-compatible alias for 16-bit transfer.
+		inline bool Transfer16(byte channel, stduint physical_address, uint32 length_bytes,
+			DMA8237Direction direction,
+			DMA8237ReloadMode reload_mode = DMA8237ReloadMode::OneShot) const {
+			return Transfer(channel, physical_address, length_bytes, direction, reload_mode);
+		}
+
 		bool enAble(bool enable = true, byte channel = 0) const;
 		// Stops the DMA controller side only; the peripheral must be stopped separately.
-		bool Abort(byte channel) const;
+		bool Abort(byte channel = 0) const;
 	};
 #endif
 
@@ -137,7 +146,7 @@ namespace uni {
 	#define _DMA_CCRx_POS_PSIZE 8 // 2b
 	#define _DMA_CCRx_POS_MSIZE 10 // 2b
 	#define _DMA_CCRx_POS_PL 12 // 2b
-	#define _DMA_CCRx_POS_M2M 14 
+	#define _DMA_CCRx_POS_M2M 14
 
 	#define _DMA_ISR_POS_GIF1 0
 	#define _DMA_Group_Span 5
@@ -217,7 +226,7 @@ namespace uni {
 		_DMA_Group(FCR, S0FCR);
 	}
 
-	
+
 #endif
 
 #if (defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13))
@@ -277,7 +286,7 @@ namespace uni {
 		#endif
 		}
 		bool enClock(bool ena = true);
-	#if defined(_MCU_STM32F1x)		
+	#if defined(_MCU_STM32F1x)
 		bool enAble(bool ena = true, byte channel = 1) {
 			using namespace DMAReg;
 			if (!ExistChannel(channel)) return false;
@@ -345,7 +354,7 @@ namespace uni {
 	extern DMA_t DMA3;
 #endif
 #ifdef _MCU_STM32F4x
-	
+
 	namespace DMAConnect {
 		typedef enum {
 			ADC1 = 0x0200,

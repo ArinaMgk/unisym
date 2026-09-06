@@ -95,20 +95,22 @@ enum class OTGHostReg : unsigned {
 };
 
 // AKA USB_OTG_INEndpointTypeDef (each IN endpoint, 0x20 bytes stride)
+// H7 layout: CTL@00, INT@08, TSIZ@10, DMA@14, TXFSTS@18 (Reserved in between)
 enum class OTGInEPReg : unsigned {
 	DIEPCTL = 0x000,
-	DIEPINT = 0x004,
-	DIEPTSIZ = 0x008,
-	DIEPDMA = 0x00C,
-	DTXFSTS = 0x010,
+	DIEPINT = 0x008,
+	DIEPTSIZ = 0x010,
+	DIEPDMA = 0x014,
+	DTXFSTS = 0x018,
 };
 
 // AKA USB_OTG_OUTEndpointTypeDef (each OUT endpoint, 0x20 bytes stride)
+// H7 layout: CTL@00, INT@08, TSIZ@10, DMA@14
 enum class OTGOutEPReg : unsigned {
 	DOEPCTL = 0x000,
-	DOEPINT = 0x004,
-	DOEPTSIZ = 0x008,
-	DOEPDMA = 0x00C,
+	DOEPINT = 0x008,
+	DOEPTSIZ = 0x010,
+	DOEPDMA = 0x014,
 };
 
 // ---- USB_OTG bit definitions (full CMSIS set) ----

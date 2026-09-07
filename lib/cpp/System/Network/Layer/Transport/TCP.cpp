@@ -155,8 +155,49 @@ namespace Network {
 	}
 
 	stdsint TCPObject::Send(const TransportPayloadContext& payload) {
-		(void)payload;
-		return -1;
+		if (!network_ || !packet_buffer_ || !connected_) return -1;
+		if (!payload.payload && payload.payload_length) return -1;
+		auto local = control_.context.local;
+		auto remote = control_.context.remote;
+		if (payload.connection.local.port) {
+			IPv4Address address{};
+			if (!NetworkReadIPv4Address(payload.connection.local.address, address)) return -1;
+			local = { address, payload.connection.local.port };
+		}
+		if (payload.connection.remote.port) {
+			IPv4Address address{};
+			if (!NetworkReadIPv4Address(payload.connection.remote.address, address)) return -1;
+			remote = { address, payload.connection.remote.port };
+		}
+		if (!local.port || !remote.port || local.address.isZero() || remote.address.isZero()) return -1;
+
+		const stduint tcp_length = TCPMinHeaderLength + payload.payload_length;
+		if (tcp_length > packet_capacity_ || tcp_length > network_->getPayloadMtu()) return -1;
+
+		auto* tcp = reinterpret_cast<TCPHeader*>(packet_buffer_);
+		const uint8 flags = uint8(TCPFlagACK | (payload.payload_length ? TCPFlagPSH : 0));
+		BuildTCPHeader(*tcp, local.port, remote.port,
+			control_.local_next_sequence, control_.remote_next_sequence,
+			flags, window_);
+		auto* data = packet_buffer_ + TCPMinHeaderLength;
+		const auto* source_data = reinterpret_cast<const uint8*>(payload.payload);
+		for0(i, payload.payload_length) data[i] = source_data[i];
+		const uint16 checksum = TCPIPv4Checksum(local.address, remote.address, tcp, tcp_length);
+		EthernetWrite16(tcp->checksum, checksum);
+
+		NetworkPacketContext packet{
+			NetworkAddressIPv4(local.address),
+			NetworkAddressIPv4(remote.address),
+			uint8(IPv4Protocol::TCP),
+			packet_buffer_,
+			tcp_length,
+			identification_++,
+			64,
+		};
+		const stdsint sent = network_->SendPacket(packet);
+		if (sent <= 0) return sent;
+		control_.local_next_sequence += uint32(payload.payload_length);
+		return stdsint(payload.payload_length);
 	}
 
 	stdsint TCPObject::Receive(TransportMutablePayloadContext& payload) {
@@ -168,6 +209,37 @@ namespace Network {
 		(void)command;
 		(void)args;
 		return -1;
+	}
+
+	stdsint TCPObject::Close() {
+		if (!network_ || !packet_buffer_ || !connected_) return -1;
+		const auto& local = control_.context.local;
+		const auto& remote = control_.context.remote;
+		if (!local.port || !remote.port || local.address.isZero() || remote.address.isZero()) return -1;
+		if (TCPMinHeaderLength > packet_capacity_ || TCPMinHeaderLength > network_->getPayloadMtu()) return -1;
+
+		auto* tcp = reinterpret_cast<TCPHeader*>(packet_buffer_);
+		BuildTCPHeader(*tcp, local.port, remote.port,
+			control_.local_next_sequence, control_.remote_next_sequence,
+			uint8(TCPFlagFIN | TCPFlagACK), window_);
+		const uint16 checksum = TCPIPv4Checksum(local.address, remote.address, tcp, TCPMinHeaderLength);
+		EthernetWrite16(tcp->checksum, checksum);
+
+		NetworkPacketContext packet{
+			NetworkAddressIPv4(local.address),
+			NetworkAddressIPv4(remote.address),
+			uint8(IPv4Protocol::TCP),
+			packet_buffer_,
+			TCPMinHeaderLength,
+			identification_++,
+			64,
+		};
+		const stdsint sent = network_->SendPacket(packet);
+		if (sent <= 0) return sent;
+		control_.local_next_sequence++;
+		control_.state = TCPConnectionState::LastAck;
+		connected_ = false;
+		return 1;
 	}
 
 	void TCPObject::BeginPassiveConnection(const IPv4Address& local_ip, uint16 local_port,
@@ -183,6 +255,12 @@ namespace Network {
 		const bool accepted = TCPAcceptHandshakeAck(control_, segment);
 		if (accepted) connected_ = true;
 		return accepted;
+	}
+
+	bool TCPObject::AcceptCloseAck(const TCPSegmentView& segment) {
+		if (control_.state != TCPConnectionState::LastAck) return false;
+		if (!(segment.flags & TCPFlagACK)) return false;
+		return segment.acknowledgment == control_.local_next_sequence;
 	}
 
 	bool TCPObject::EnqueueAccept(const TCPConnectionContext& connection) {
@@ -251,7 +329,9 @@ namespace Network {
 	bool TCPConsumeExpectedSegment(TCPConnectionControlBlock& connection, const TCPSegmentView& segment) {
 		if (!TCPIsExpectedSegment(connection, segment)) return false;
 		connection.remote_next_sequence += TCPSequenceLength(segment);
-		if (segment.flags & TCPFlagFIN) connection.state = TCPConnectionState::CloseWait;
+		if ((segment.flags & TCPFlagFIN) && connection.state != TCPConnectionState::LastAck) {
+			connection.state = TCPConnectionState::CloseWait;
+		}
 		return true;
 	}
 

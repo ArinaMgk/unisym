@@ -83,6 +83,7 @@ namespace Network {
 		SynReceived,
 		Established,
 		CloseWait,
+		LastAck,
 	};
 
 	struct TCPConnectionControlBlock {
@@ -125,10 +126,12 @@ namespace Network {
 		stdsint Send(const TransportPayloadContext& payload) override;
 		stdsint Receive(TransportMutablePayloadContext& payload) override;
 		stdsint Control(stduint command, void* args) override;
+		stdsint Close();
 		void BeginPassiveConnection(const IPv4Address& local_ip, uint16 local_port,
 			const IPv4Address& remote_ip, uint16 remote_port,
 			const TCPSegmentView& segment, uint32 initial_sequence);
 		bool AcceptHandshakeAck(const TCPSegmentView& segment);
+		bool AcceptCloseAck(const TCPSegmentView& segment);
 		bool EnqueueAccept(const TCPConnectionContext& connection);
 		bool Accept(TCPConnectionContext& connection);
 		bool isExpectedSegment(const TCPSegmentView& segment) const;

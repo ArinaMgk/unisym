@@ -112,11 +112,49 @@ namespace uni {
 		virtual const IAudioCodec* GetCodec(uint32 index) const = 0;
 	};
 
+	class ResamplerStream : public IAudioStream {
+	private:
+		IAudioStream*       source;
+		AudioInfo           info;
+		uint32              source_rate;
+		uint32              target_rate;
+		uint32              step;         // 16.16 fixed point: (source_rate << 16) / target_rate
+		uint32              phase;        // 16.16 accumulator: fraction between current and next frame
+		trait::Malloc*      allocator;
+		byte*               source_buf;
+		uint32              source_buf_cap;
+		uint32              source_buf_pos;
+		uint32              source_buf_valid;
+		int32               curr_frame[2]; // Cached current frame samples (L, R)
+		int32               next_frame[2]; // Cached next frame samples (L, R)
+		bool                has_frames;
+		bool                source_eos;
+
+		bool FetchSourceFrame(int32* frame);
+
+	public:
+		ResamplerStream(IAudioStream* src, uint32 targetRate, trait::Malloc& alloc);
+		virtual ~ResamplerStream();
+
+		bool IsValid() const;
+		virtual void Release() override;
+		virtual AudioResult GetInfo(AudioInfo& outInfo) const override;
+		virtual AudioResult ReadSamples(void* destBuffer, uint32 maxBytes, uint32& bytesRead) override;
+		virtual AudioResult Seek(uint32 sampleIndex) override;
+	};
+
 }
 
 // Inn
 
 // Out
 
+// HostMusic
+
+namespace uni {
+	class HostMusic {
+
+	};
+}
 
 #endif

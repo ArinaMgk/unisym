@@ -7,7 +7,6 @@
 #include "../../../../inc/cpp/System/Audiosys.hpp"
 #include "../../../../inc/c/ustring.h"
 
-#if defined(_INC_CPP) || defined(__cplusplus)
 
 namespace {
 	constexpr uint32 kSourceChunkSize = 4096;
@@ -252,4 +251,3 @@ uni::AudioResult uni::ResamplerStream::Seek(uint32 sampleIndex) {
 	return uni::AudioResult::OK;
 }
 
-#endif

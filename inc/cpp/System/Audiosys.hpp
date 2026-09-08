@@ -152,9 +152,80 @@ namespace uni {
 // HostMusic
 
 namespace uni {
-	class HostMusic {
 
+	enum class HostMusicState : uint8 {
+		Idle,
+		Opening,
+		Playing,
+		Paused,
+		Finished,
+		Stopped,
+		Error
 	};
+
+	class HostMusic {
+	public:
+		typedef void (*FinishedHandler)(HostMusic* sender, void* user_data);
+		typedef void (*ProgressHandler)(HostMusic* sender, uint32 current_ms, uint32 total_ms, void* user_data);
+
+		FinishedHandler OnFinished;
+		ProgressHandler OnProgress;
+		void*           user_data;
+
+	protected:
+		void*          impl;
+		HostMusicState state;
+		uint32         volume;
+		bool           muted;
+		bool           is_looping;
+
+	public:
+		HostMusic();
+		HostMusic(rostr filepath, bool loop_mode = false);
+		HostMusic(StorageTrait& storage, bool loop_mode = false);
+		HostMusic(IAudioStream* stream, bool loop_mode = false);
+		~HostMusic();
+
+		HostMusic(const HostMusic&) = delete;
+		HostMusic& operator=(const HostMusic&) = delete;
+
+		explicit operator bool() const;
+
+		bool Open(rostr filepath, bool loop_mode = false);
+		bool Open(StorageTrait& storage, bool loop_mode = false);
+		bool OpenStream(IAudioStream* stream, bool loop_mode = false);
+		void Close();
+
+		bool Play();
+		bool Pause();
+		bool Resume();
+		void Stop();
+		bool Seek(uint32 target_ms);
+
+		// Read volume-scaled PCM samples into destination buffer
+		AudioResult ReadSamples(void* destBuffer, uint32 maxBytes, uint32& bytesRead);
+
+		// Non-blocking single-frame tick (returns true if still active, false if finished/idle)
+		bool Update();
+
+		void setVolume(uint32 percent);
+		uint32 getVolume() const;
+
+		void setMute(bool mute);
+		bool isMuted() const;
+
+		void setLoop(bool loop_mode);
+		bool isLoop() const;
+
+		bool isPlaying() const;
+		bool isPaused() const;
+
+		uint32 getPositionMs() const;
+		uint32 getDurationMs() const;
+		bool getInfo(AudioInfo& outInfo) const;
+		HostMusicState getState() const;
+	};
+
 }
 
 #endif

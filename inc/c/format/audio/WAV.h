@@ -50,7 +50,43 @@ typedef struct {
 #define WAV_FOURCC_FMT  0x20746D66u
 #define WAV_FOURCC_DATA 0x61746164u
 
-#define WAV_FORMAT_PCM  0x0001u
+#define WAV_FORMAT_PCM         0x0001u
+#define WAV_FORMAT_MS_ADPCM    0x0002u
+#define WAV_FORMAT_IEEE_FLOAT  0x0003u
+#define WAV_FORMAT_ALAW        0x0006u
+#define WAV_FORMAT_MULAW       0x0007u
+#define WAV_FORMAT_IMA_ADPCM   0x0011u
+#define WAV_FORMAT_EXTENSIBLE  0xFFFEu
+
+#pragma pack(push, 1)
+
+typedef struct {
+	uint16 audio_format;
+	uint16 channel_count;
+	uint32 sample_rate;
+	uint32 byte_rate;
+	uint16 block_align;
+	uint16 bits_per_sample;
+	uint16 extra_size;
+} WAVFORMATEX;
+
+typedef struct {
+	WAVFORMATEX format;
+	union {
+		uint16 valid_bits_per_sample;
+		uint16 samples_per_block;
+		uint16 reserved;
+	} samples;
+	uint32 channel_mask;
+	uint8 sub_format[16];
+} WAVFORMATEXTENSIBLE;
+
+typedef struct {
+	int16 coef1;
+	int16 coef2;
+} MSADPCMCOEF;
+
+#pragma pack(pop)
 
 static inline const WAVCHUNKHEADER* WAV_FindChunk(
 	const void* file_data, uint32 file_size, uint32 chunk_tag) {

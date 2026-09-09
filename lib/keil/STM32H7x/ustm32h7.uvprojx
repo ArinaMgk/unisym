@@ -1131,6 +1131,16 @@
             </File>
           </Files>
         </Group>
+        <Group>
+          <GroupName>Music</GroupName>
+          <Files>
+            <File>
+              <FileName>WAV.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\fileformat\audio\WAV.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
       </Groups>
     </Target>
   </Targets>

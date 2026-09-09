@@ -149,6 +149,48 @@ namespace uni {
 
 // Out
 
+namespace uni {
+
+	using AudioPcmRefillHandler = uint32 (*)(void* context, uint8* destination, uint32 byte_count);
+
+	class AudioControlInterface {
+	public:
+		virtual ~AudioControlInterface() = default;
+
+	public: // ---- Stream Lifecycle Control ----
+		virtual bool StartStream(const AudioFormat& format,
+			AudioPcmRefillHandler refill_cb, void* context) = 0;
+
+		virtual bool StopStream() = 0;
+
+		virtual bool PauseStream() { return false; }
+		virtual bool ResumeStream() { return false; }
+
+	public: // ---- Volume and Gain Control (0 ~ 100 Integer Range) ----
+		virtual void setVolume(uint32 percent) { }
+		virtual void setVolume(uint32 left, uint32 right) {
+			setVolume((left + right) / 2);
+		}
+		virtual uint32 getVolume() const { return 100; }
+
+	public: // ---- Float Overloads (0.0f ~ 1.0f Normalized Range) ----
+		virtual void setVolume(float percent) {
+			if (percent < 0.0f) setVolume(0U);
+			else if (percent > 1.0f) setVolume(100U);
+			else setVolume(uint32(percent * 100.0f));
+		}
+		virtual void setVolume(float left, float right) {
+			setVolume((left + right) * 0.5f);
+		}
+
+		virtual void setMute(bool mute = true) { }
+
+	public: // ---- Service & Maintenance ----
+		virtual uint8 ServicePlayback() { return 0; }
+	};
+
+}
+
 // HostMusic
 
 namespace uni {

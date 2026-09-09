@@ -457,8 +457,6 @@ namespace uni {
 			state = HostMusicState::Error;
 			return false;
 		}
-		uint8 raw_vol = (uint8)(((uint32)volume * 255) / 100);
-		SendAudioSetVolume(uni::SoundBlasterMixerChannel::MasterVolume, raw_vol, raw_vol, muted);
 #endif
 		state = HostMusicState::Playing;
 		return true;
@@ -479,8 +477,6 @@ namespace uni {
 #if defined(_ACCM)
 		uni::AudioPlayRequest req{};
 		SendAudioRequest(AudioMsg::STREAM_RESUME, req);
-		uint8 raw_vol = (uint8)(((uint32)volume * 255) / 100);
-		SendAudioSetVolume(uni::SoundBlasterMixerChannel::MasterVolume, raw_vol, raw_vol, muted);
 #endif
 		state = HostMusicState::Playing;
 		return true;
@@ -629,10 +625,6 @@ namespace uni {
 
 	void HostMusic::setVolume(uint32 percent) {
 		volume = (percent > 100) ? 100 : percent;
-#if defined(_ACCM)
-		uint8 raw_vol = (uint8)(((uint32)volume * 255) / 100);
-		SendAudioSetVolume(uni::SoundBlasterMixerChannel::MasterVolume, raw_vol, raw_vol, muted);
-#endif
 		if (impl) {
 			HostMusicInternal* internal = static_cast<HostMusicInternal*>(impl);
 			if (internal->chunk_bytes_read > internal->chunk_offset) {
@@ -655,10 +647,6 @@ namespace uni {
 
 	void HostMusic::setMute(bool mute) {
 		muted = mute;
-#if defined(_ACCM)
-		uint8 raw_vol = (uint8)(((uint32)volume * 255) / 100);
-		SendAudioSetVolume(uni::SoundBlasterMixerChannel::MasterVolume, raw_vol, raw_vol, muted);
-#endif
 		if (impl) {
 			HostMusicInternal* internal = static_cast<HostMusicInternal*>(impl);
 			if (internal->chunk_bytes_read > internal->chunk_offset) {

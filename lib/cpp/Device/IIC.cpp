@@ -40,15 +40,17 @@ namespace uni {
 		SDA = false;
 		asserv(func_delay)();
 		SCL = false;
+		asserv(func_delay)();
 		if (addr) IIC_t::Send((byte)(addr << 1), true);// 7-bit addr << 1 | W, wait ACK
 	}
 
 	void IIC_SOFT::SendStop(void) {
 		if (push_pull) SDA.setMode(GPIOMode::OUT_PushPull);
-		SCL = false;// opt?
+		SCL = false;
 		SDA = false;
 		asserv(func_delay)();
 		SCL = true;
+		asserv(func_delay)();
 		SDA = true;
 		asserv(func_delay)();
 	}
@@ -70,6 +72,7 @@ namespace uni {
 			asserv(func_delay)();
 		}
 		SCL = false;
+		asserv(func_delay)();
 		return last_ack_accepted = true;
 	}
 	void IIC_SOFT::SendAcknowledge(bool ack) {
@@ -80,6 +83,7 @@ namespace uni {
 		SCL = true;
 		asserv(func_delay)();
 		SCL = false;
+		asserv(func_delay)();
 		if (!push_pull) SDA = true;// !
 	}
 

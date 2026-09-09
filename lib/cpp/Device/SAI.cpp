@@ -204,17 +204,17 @@ namespace uni {
 		}
 		Reference(sai_base + _IMM(SAIGlobalReg::GCR)) = tmpgcr;
 
-		// Mckdiv prescaler (AKA HAL formula)
+		// Mckdiv prescaler (AKA HAL formula: hardware divides by 2 * MCKDIV)
 		if (audio_freq != 0) {
 			uint32 freq = sai_kernel_clock(id);
 			uint32 tmpval;
 			if (nodiv == SAINoDivider_E::NoDivider) {
-				// NOMCK = 1: MCKDIV = CK / (FS * FRL)
-				tmpval = (freq * 10) / (audio_freq * frame_length);
+				// NOMCK = 1: MCKDIV = CK / (FS * FRL * 2)
+				tmpval = (freq * 10) / (audio_freq * frame_length * 2);
 			} else {
-				// NOMCK = 0: MCKDIV = CK / (FS * OSR * 256)
+				// NOMCK = 0: MCKDIV = CK / (FS * OSR * 256 * 2)
 				uint32 tmposr = (mckosr == SAIMckOverSampling_E::Enable) ? 2 : 1;
-				tmpval = (freq * 10) / (audio_freq * tmposr * 256);
+				tmpval = (freq * 10) / (audio_freq * tmposr * 512);
 			}
 			mckdiv = tmpval / 10;
 			if ((tmpval % 10) > 8) mckdiv += 1;

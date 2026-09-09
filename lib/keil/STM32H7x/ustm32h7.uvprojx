@@ -541,6 +541,11 @@
           <GroupName>General</GroupName>
           <Files>
             <File>
+              <FileName>consio.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\consio.cpp</FilePath>
+            </File>
+            <File>
               <FileName>stream.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\stream.cpp</FilePath>

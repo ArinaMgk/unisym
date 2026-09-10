@@ -189,6 +189,31 @@ namespace uni {
 		virtual uint8 ServicePlayback() { return 0; }
 	};
 
+	// SubACI: chip/device level (runtime configurable capabilities only;
+	// power-on initialization and stream control stay outside this interface)
+	class AudioDeviceInterface {
+	public:
+		virtual ~AudioDeviceInterface() = default;
+
+		virtual bool isReady() const { return true; }
+
+	public: // ---- Format and I2S ----
+		virtual bool setFormat(const AudioFormat& format) { (void)format; return false; }
+		virtual bool ConfigI2S(uint32 fmt, uint32 bits) { (void)fmt; (void)bits; return false; }
+
+	public: // ---- Channels ----
+		virtual stduint     getChannelCount() const { return 0; }
+		virtual const char* getChannelName(stduint ch) const { (void)ch; return nullptr; }
+		virtual bool        getMainChannel(stduint& out) const { (void)out; return false; }
+
+	public: // ---- Volume (0 ~ 100 Integer Range, by Channel) ----
+		virtual bool setVolume(stduint ch, uint32 left, uint32 right) { (void)ch; (void)left; (void)right; return false; }
+		virtual bool getVolume(stduint ch, uint32& left, uint32& right) const { (void)ch; (void)left; (void)right; return false; }
+		virtual bool setMute(stduint ch, bool mute = true) { (void)ch; (void)mute; return false; }
+	};
+
+	using SubACI = AudioDeviceInterface;
+
 }
 
 // HostMusic

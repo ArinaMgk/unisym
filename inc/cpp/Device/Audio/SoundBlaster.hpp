@@ -8,6 +8,7 @@
 #define _INCPP_Device_Audio_SoundBlaster
 
 #include "../../../c/stdinc.h"
+#include "../../System/Audiosys.hpp"
 
 namespace uni {
 
@@ -96,7 +97,7 @@ namespace uni {
 		Line   = 0x2E,
 	};
 
-	class SoundBlaster {
+	class SoundBlaster : public AudioDeviceInterface {
 		uint16 io_base;
 		SoundBlasterIo io;
 		SoundBlasterState state;
@@ -160,6 +161,68 @@ namespace uni {
 		SoundBlasterState GetState() const;
 		uint8 GetDspMajorVersion() const;
 		uint8 GetDspMinorVersion() const;
+
+	public: // ---- SubACI ----
+		bool isReady() const {
+			return state != SoundBlasterState::Absent && state != SoundBlasterState::Failed;
+		}
+
+		bool setFormat(const AudioFormat& format) {
+			if (!format.sample_rate) return false;
+			format_cache = format;
+			return SetOutputRate((uint16)format.sample_rate);
+		}
+
+		bool ConfigI2S(uint32 fmt, uint32 bits) {
+			(void)fmt; (void)bits;
+			return false;// no I2S concept, use DSP commands
+		}
+
+		stduint getChannelCount() const {
+			return 6;
+		}
+
+		const char* getChannelName(stduint ch) const {
+			switch (ch) {
+			case 0: return "Master";
+			case 1: return "Voice";
+			case 2: return "MIDI";
+			case 3: return "CD";
+			case 4: return "LineIn";
+			case 5: return "Mic";
+			default: return nullptr;
+			}
+		}
+
+		bool getMainChannel(stduint& out) const {
+			out = (stduint)SoundBlasterMixerChannel::MasterVolume;
+			return true;
+		}
+
+		bool setVolume(stduint ch, uint32 left, uint32 right) {
+			if (ch > 5) return false;
+			uint32 l = (left > 100) ? 100 : left;
+			uint32 r = (right > 100) ? 100 : right;
+			return SetVolume((SoundBlasterMixerChannel)ch, (uint8)(l * 255 / 100), (uint8)(r * 255 / 100));
+		}
+
+		bool getVolume(stduint ch, uint32& left, uint32& right) const {
+			if (ch > 5) return false;
+			uint8 l = 0, r = 0;
+			// GetVolume goes through the IO callbacks (non-const), the interface requires const
+			if (!const_cast<SoundBlaster*>(this)->GetVolume((SoundBlasterMixerChannel)ch, l, r)) return false;
+			left = l * 100u / 255u;
+			right = r * 100u / 255u;
+			return true;
+		}
+
+		bool setMute(stduint ch, bool mute = true) {
+			if (ch > 5) return false;
+			return SetMute((SoundBlasterMixerChannel)ch, mute);
+		}
+
+	private:
+		AudioFormat format_cache;
 	};
 
 }

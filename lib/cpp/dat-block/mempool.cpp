@@ -22,6 +22,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 
 #include "../../../inc/c/mempool.h"
+#include "../../../inc/cpp/endian"
 
 #if !defined(SET_POISON) && defined(_DEBUG)
 #define SET_POISON 1
@@ -349,8 +350,8 @@ bool      SinglePool::Exchange(stduint idx1, stduint idx2) {
 }
 
 _PACKED(struct) Header {
-	stduint size;
-	stduint prop;
+	LitEndian<stduint, true> size;
+	LitEndian<stduint, true> prop;
 };
 
 bool Mempool::Expand(stduint min_size) {

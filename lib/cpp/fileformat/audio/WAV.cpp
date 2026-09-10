@@ -357,15 +357,15 @@ namespace {
 			  adpcm_raw_buf(nullptr), adpcm_samples_buf(nullptr), adpcm_sample_cap(0),
 			  adpcm_sample_pos(0), adpcm_samples_valid(0) {
 			stduint block_size = storage->Block_Size ? storage->Block_Size : 512;
-			sector_buf = (byte*)allocator->allocate(block_size);
+			sector_buf = (byte*)allocator->allocate(block_size, 3);
 
 			if (details.audio_format == WAV_FORMAT_MS_ADPCM || details.audio_format == WAV_FORMAT_IMA_ADPCM) {
 				uint32 blk_align = details.block_align ? details.block_align : 512;
-				adpcm_raw_buf = (byte*)allocator->allocate(blk_align);
+				adpcm_raw_buf = (byte*)allocator->allocate(blk_align, 3);
 				uint32 max_smp = details.samples_per_block ? details.samples_per_block : (blk_align * 2);
 				adpcm_sample_cap = max_smp * (details.channels ? details.channels : 1);
 				if (adpcm_sample_cap < 512) adpcm_sample_cap = 512;
-				adpcm_samples_buf = (int16*)allocator->allocate(adpcm_sample_cap * sizeof(int16));
+				adpcm_samples_buf = (int16*)allocator->allocate(adpcm_sample_cap * sizeof(int16), 3);
 			}
 		}
 
@@ -981,7 +981,7 @@ uni::AudioResult uni::WAVCodec::OpenStream(
 	info.durationMs = details.sample_rate ?
 		(uint32)(((uint64)info.totalSamples * 1000) / details.sample_rate) : 0;
 
-	void* mem = allocator.allocate(sizeof(WAVStream));
+	void* mem = allocator.allocate(sizeof(WAVStream), 3);// 3 => 2^3 = 8 字节对齐: WAVStream 含 vptr, 未对齐对象会 UNDEFINSTR(trait::Malloc& 默认实参 0 对 mempool 意味着仅 1 字节对齐)
 	if (!mem) return uni::AudioResult::OutOfMemory;
 
 	WAVStream* stream = new (mem) WAVStream(storage, info, details, allocator);

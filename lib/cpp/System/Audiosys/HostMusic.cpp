@@ -6,6 +6,10 @@
 
 #include "../../../../inc/cpp/System/Audiosys.hpp"
 #include "../../../../inc/c/format/audio/WAV.h"
+#include "../../../../inc/c/format/audio/MP3.h"
+#include "../../../../inc/c/format/audio/FLAC.h"
+#include "../../../../inc/c/format/audio/OGG.h"
+#include "../../../../inc/c/format/audio/MIDI.h"
 #include "../../../../inc/c/ustring.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -247,6 +251,80 @@ namespace uni {
 		return impl != nullptr && state != HostMusicState::Error && state != HostMusicState::Idle;
 	}
 
+	static uni::AudioResult TryOpenAudioStream(
+		uni::StorageTrait& storage,
+		uni::IAudioStream*& outStream,
+		uni::trait::Malloc& allocator
+	) {
+		// 1. Try WAV probe
+		{
+			uni::WAVCodec wav_codec;
+			bool matched = false;
+			if (wav_codec.Probe(storage, matched) == uni::AudioResult::OK && matched) {
+				return wav_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
+		// 2. Try MP3 probe
+		{
+			uni::MP3Codec mp3_codec;
+			bool matched = false;
+			if (mp3_codec.Probe(storage, matched) == uni::AudioResult::OK && matched) {
+				return mp3_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
+		// 3. Try FLAC probe
+		{
+			uni::FLACCodec flac_codec;
+			bool matched = false;
+			if (flac_codec.Probe(storage, matched) == uni::AudioResult::OK && matched) {
+				return flac_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
+		// 4. Try OGG probe
+		{
+			uni::OGGCodec ogg_codec;
+			bool matched = false;
+			if (ogg_codec.Probe(storage, matched) == uni::AudioResult::OK && matched) {
+				return ogg_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
+		// 5. Try MIDI probe
+		{
+			uni::MIDICodec midi_codec;
+			bool matched = false;
+			if (midi_codec.Probe(storage, matched) == uni::AudioResult::OK && matched) {
+				return midi_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
+		// Fallback: try WAV OpenStream, then MP3 OpenStream, then FLAC OpenStream, then OGG OpenStream, then MIDI OpenStream
+		{
+			uni::WAVCodec wav_codec;
+			uni::AudioResult res = wav_codec.OpenStream(storage, outStream, allocator);
+			if (res == uni::AudioResult::OK && outStream) return res;
+		}
+		{
+			uni::MP3Codec mp3_codec;
+			uni::AudioResult res = mp3_codec.OpenStream(storage, outStream, allocator);
+			if (res == uni::AudioResult::OK && outStream) return res;
+		}
+		{
+			uni::FLACCodec flac_codec;
+			uni::AudioResult res = flac_codec.OpenStream(storage, outStream, allocator);
+			if (res == uni::AudioResult::OK && outStream) return res;
+		}
+		{
+			uni::OGGCodec ogg_codec;
+			uni::AudioResult res = ogg_codec.OpenStream(storage, outStream, allocator);
+			if (res == uni::AudioResult::OK && outStream) return res;
+		}
+		{
+			uni::MIDICodec midi_codec;
+			uni::AudioResult res = midi_codec.OpenStream(storage, outStream, allocator);
+			if (res == uni::AudioResult::OK && outStream) return res;
+		}
+		return uni::AudioResult::Unsupported;
+	}
+
 	bool HostMusic::Open(rostr filepath, bool loop_mode) {
 		Close();
 		this->is_looping = loop_mode;
@@ -281,9 +359,8 @@ namespace uni {
 			return false;
 		}
 
-		WAVCodec wav_codec;
 		IAudioStream* stream = nullptr;
-		AudioResult res = wav_codec.OpenStream(*storage, stream, s_host_music_allocator);
+		AudioResult res = TryOpenAudioStream(*storage, stream, s_host_music_allocator);
 		if (res != AudioResult::OK || !stream) {
 			storage->~FileStorageDevice();
 			s_host_music_allocator.deallocate(storage);
@@ -345,9 +422,8 @@ namespace uni {
 	bool HostMusic::Open(StorageTrait& storage, bool loop_mode) {
 		Close();
 		this->is_looping = loop_mode;
-		WAVCodec wav_codec;
 		IAudioStream* stream = nullptr;
-		AudioResult res = wav_codec.OpenStream(storage, stream, s_host_music_allocator);
+		AudioResult res = TryOpenAudioStream(storage, stream, s_host_music_allocator);
 		if (res != AudioResult::OK || !stream) {
 			state = HostMusicState::Error;
 			return false;

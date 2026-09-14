@@ -399,6 +399,23 @@ namespace uni {
 		uint32 getUnderruns() const {
 			return dma_underruns;
 		}
+
+		// True when the SAI/PLL2 presets can generate this rate with a valid MCKDIV (6-bit field, 1..63).
+		static bool isRateSupported(uint32 samplerate) {
+			if (!samplerate) return false;
+			uint16 rate_div10 = (uint16)(samplerate / 10);
+			stduint tbl_count = 0;
+			const SAIPreset* tbl = RateTable(tbl_count);
+			for (stduint i = 0; i < tbl_count; i++) {
+				if (tbl[i].rate_div10 != rate_div10) continue;
+				uint32 freq = (1000000ULL * tbl[i].pll2n) / tbl[i].pll2p;
+				uint32 tmpval = (freq * 10) / (samplerate * 256);
+				uint32 mckdiv = tmpval / 10;
+				if ((tmpval % 10) > 8) mckdiv += 1;
+				return (mckdiv >= 1 && mckdiv <= 63);
+			}
+			return false;
+		}
 	};
 
 }

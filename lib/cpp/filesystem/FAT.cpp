@@ -632,7 +632,10 @@ namespace uni {
 		auto [offset, to_read] = file_slice; // C++17 structured binding
 		uint64_t total_read = 0; // ret
 
-		if (offset >= fh->size) return 0;
+		if (offset >= fh->size) {
+			plogerro("[%s:%u] read beyond EOF off=%u size=%u", __FILE__, __LINE__, offset, fh->size);
+			return 0;
+		}
 		MIN(to_read, fh->size - offset);
 
 		byte* sector_buffer = buffer_sector;
@@ -698,7 +701,8 @@ namespace uni {
 			}
 
 			if (!storage->Read(sector + sector_index, sector_buffer)) {
-				return finish_read(0);
+				plogerro("[%s:%u] storage read fail sector=%u off=%u", __FILE__, __LINE__, sector + sector_index, offset);
+				return finish_read(total_read);
 			}
 			uint32_t can_read = storage->Block_Size - sector_offset;
 			if (can_read > to_read) can_read = (uint32_t)to_read;

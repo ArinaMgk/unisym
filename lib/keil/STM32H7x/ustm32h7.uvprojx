@@ -1135,9 +1135,24 @@
           <GroupName>Music</GroupName>
           <Files>
             <File>
+              <FileName>Resampler.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\System\Audiosys\Resampler.cpp</FilePath>
+            </File>
+            <File>
               <FileName>WAV.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\fileformat\audio\WAV.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>MP3.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\fileformat\audio\MP3.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>FLAC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\fileformat\audio\FLAC.cpp</FilePath>
             </File>
           </Files>
         </Group>

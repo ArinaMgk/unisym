@@ -55,7 +55,8 @@ namespace uni::Witch {
 		bool pressed = false;
 		bool enabled = false;
 		bool visible = true;
-		Form_MaximizeButton() : SheetTrait(), pressed(false), enabled(false), visible(true) {}
+		bool is_maximized = false;
+		Form_MaximizeButton() : SheetTrait(), pressed(false), enabled(false), visible(true), is_maximized(false) {}
 		virtual void doshow(void*) override {}
 		virtual void onrupt(SheetEvent event, Point rel_p, ...) override {}
 		virtual Color getPoint(Point p) override;
@@ -118,6 +119,22 @@ namespace uni::Witch {
 		}
 
 		bool isMinimized() const { return state == FormState::Minimized; }
+		bool isMaximized() const { return max_btn.is_maximized; }
+		void EnableMaximizeBox(bool enable = true) {
+			max_btn.enabled = enable;
+		}
+		void SetMaximized(bool max) {
+			state = max ? FormState::Maximized : FormState::Normal;
+			max_btn.is_maximized = max;
+			if (sheet_buffer && max_btn.visible) {
+				for0(j, max_btn.sheet_area.height) {
+					Color* p = sheet_buffer + (max_btn.sheet_area.y + j) * sheet_area.width + max_btn.sheet_area.x;
+					for0(i, max_btn.sheet_area.width) {
+						*p++ = getPoint(Point(max_btn.sheet_area.x + i, max_btn.sheet_area.y + j));
+					}
+				}
+			}
+		}
 
 		virtual void PushMessage(const SheetMessage& msg) override {
 			msg_queue.Enqueue(msg);
@@ -150,6 +167,7 @@ namespace uni::Witch {
 		//
 
 		void setSheet(LayerManager& layman, const Rectangle& rect, Color* buffer = nullptr);
+		void Resize(const Rectangle& rect, Color* buffer = nullptr);
 		void setTitle(const String& title);
 
 		bool setFocus(SheetTrait* sheet) {

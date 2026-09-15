@@ -323,6 +323,7 @@ namespace uni {
 		Size2 size;
 	public:
 		VideoControlInterfaceMARGB8888(Color* buf, Size2 siz) : p(buf), size(siz) {}
+		void setBuffer(Color* buf, Size2 siz) { p = buf; size = siz; }
 	public:
 		virtual void SetCursor(const Point&) const override {}
 		virtual Point GetCursor() const override { return Point(0, 0); }

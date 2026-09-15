@@ -97,6 +97,40 @@ static const char pressed_maximize_button[CloseButtonHeight][CloseButtonWidth + 
 	"$.............@",
 	"@@@@@@@@@@@@@@@",
 };
+static const char restore_button[CloseButtonHeight][CloseButtonWidth + 1] = {
+	"..............@",
+	".::::@@@@@@::$@",
+	".::::@@@@@@::$@",
+	".::::@::::@::$@",
+	".:@@@@@@::@::$@",
+	".:@@@@@@::@::$@",
+	".:@::::@::@::$@",
+	".:@::::@@@@::$@",
+	".:@::::@:::::$@",
+	".:@::::@:::::$@",
+	".:@@@@@@:::::$@",
+	".::::::::::::$@",
+	".::::::::::::$@",
+	".$$$$$$$$$$$$$@",
+	"@@@@@@@@@@@@@@@",
+};
+static const char pressed_restore_button[CloseButtonHeight][CloseButtonWidth + 1] = {
+	"$$$$$$$$$$$$$$@",
+	"$::::::::::::.@",
+	"$:::::@@@@@::.@",
+	"$:::::@:::@@:.@",
+	"$:::@@@@@:@::.@",
+	"$:::@:::@:@::.@",
+	"$:::@:::@@@::.@",
+	"$:::@:::@::::.@",
+	"$:::@@@@@::::.@",
+	"$::::::::::::.@",
+	"$::::::::::::.@",
+	"$::::::::::::.@",
+	"$::::::::::::.@",
+	"$.............@",
+	"@@@@@@@@@@@@@@@",
+};
 static const char minimize_button[CloseButtonHeight][CloseButtonWidth + 1] = {
 	"..............@",
 	".::::::::::::$@",
@@ -148,7 +182,12 @@ uni::Color uni::Witch::Form_CloseButton::getPoint(Point p)
 uni::Color uni::Witch::Form_MaximizeButton::getPoint(Point p)
 {
 	if (!visible) return 0xFFFFFFFF;
-	auto dat = pressed && enabled ? pressed_maximize_button[p.y][p.x] : maximize_button[p.y][p.x];
+	char dat;
+	if (is_maximized) {
+		dat = pressed && enabled ? pressed_restore_button[p.y][p.x] : restore_button[p.y][p.x];
+	} else {
+		dat = pressed && enabled ? pressed_maximize_button[p.y][p.x] : maximize_button[p.y][p.x];
+	}
 	if (dat == '@') {
 		return enabled ? (0xFF000000) : (0xFF848484);
 	} else if (dat == '$') {
@@ -367,8 +406,26 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 
 void uni::Witch::Form::setSheet(LayerManager& layman, const Rectangle& rect, Color* buffer) {
 	InitializeSheet(layman, rect.getVertex(), rect.getSize());
+	Resize(rect, buffer);
+}
+
+void uni::Witch::Form::Resize(const Rectangle& rect, Color* buffer) {
+	sheet_area = rect;
 	window = rect;
-	
+
+	// Reset child sheet node links to avoid cyclic list
+	close_btn.sheet_node.next = nullptr;
+	close_btn.sheet_node.left = nullptr;
+	max_btn.sheet_node.next = nullptr;
+	max_btn.sheet_node.left = nullptr;
+	min_btn.sheet_node.next = nullptr;
+	min_btn.sheet_node.left = nullptr;
+	title_bar.sheet_node.next = nullptr;
+	title_bar.sheet_node.left = nullptr;
+	client_area.refSheetNode().next = nullptr;
+	client_area.refSheetNode().left = nullptr;
+	sheet_node.subf = nullptr;
+
 	if (title_visable) {
 		int btn_x = rect.width - 17;
 		close_btn.refSheetParent() = this;//
@@ -422,16 +479,14 @@ void uni::Witch::Form::setSheet(LayerManager& layman, const Rectangle& rect, Col
 	client_area.window.color = 0xFFC6C6C6;
 
 	if (buffer) {
+		sheet_buffer = buffer;
 		Color* p = buffer;
 		for0(j, rect.height) for0(i, rect.width) {
 			*p++ = getPoint(Point(i, j));
 		}
-		sheet_buffer = buffer;
 		if (title_visable && Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
 		if (title_visable && Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
-
 	}
-
 }
 
 void uni::Witch::Form::setTitle(const String& title)

@@ -39,6 +39,7 @@ namespace uni {
 		onClick,// Mouse Click or Finger Touch (Point, byte 0RML0RML)
 		onTimer,// Systimer -> (timeout, {SheetT*, type}) -> this(unused Point, Type, timeout)
 		onKeybd,// Keyboard Event -> (unused Point, keyboard_event_t)
+		onResize,// Form/Sheet Size Changed -> (args[0]=new_w, args[1]=new_h, args[2]=old_w, args[3]=old_h)
 	};
 	// once Click trigger two onClicks
 	// 0RML0RML: Lower 0RML for change, Upper 0RML0RML: last state

@@ -75,6 +75,10 @@ namespace uni::witch::control {
 		TextBox() : SheetTrait(), TextChrome() {}
 		~TextBox() {
 			ReleaseLineCaches();
+			if (sheet_buffer) {
+				free(sheet_buffer);
+				sheet_buffer = nullptr;
+			}
 		}
 	protected:
 		void ReleaseLineCaches() {

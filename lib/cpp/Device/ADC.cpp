@@ -22,6 +22,7 @@
 
 #include "../../../inc/cpp/Device/ADC"
 #include "../../../inc/cpp/Device/RCC/RCC"
+#include "../../../inc/cpp/Device/SysTick"
 #include "../../../inc/c/driver/ADConverter/Register-ADC.h"
 #include "../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 
@@ -84,7 +85,10 @@ namespace uni {
 		// C-with HAL_ADC_Start_IT
 		if (enable) {
 			if (!self.enAble(true)) return;
-			for0(i, (/*SystemCoreClock=>us*/ 72)) i = i;
+			// volatile counter, so the loop cannot be optimised away: a plain non-volatile
+			// counter with an empty body is dead code and may be deleted entirely.
+			// NOTE: the constant 72 has no documented basis and was kept as-is.
+			for (volatile stduint i = 0; i < 72; i++) {}
 			byte id = self.getID();
 			bool ADC_NONMULTIMODE_OR_MULTIMODEMASTER = (id != 2 || !(ADC1[ADCReg::CR1] & (0xFU << _ADC_CR1_POS_DUALMOD)));
 			//{useless} ... inner def ... 
@@ -221,7 +225,8 @@ namespace uni {
 		if (enable) {
 			if (!self[CR2].bitof(0)) { // ADON
 				self[CR2].setof(0);
-				for0(i, 3 * SystemCoreClock / 1000000U) {}
+				// volatile counter to keep the settling loop from being optimised out.
+				for (volatile stduint i = 0; i < 3 * SystemCoreClock / 1000000U; i++) {}
 				while (!self[CR2].bitof(0));
 			}
 			
@@ -309,7 +314,8 @@ namespace uni {
 		enClock(true, divby);
 		if (numsof_conv > 16 || numsof_disc > 8) return false;//? for F1 or F1&4
 		self.enAble(false);// Stop potential conversion on going, on regular and injected groups
-		for0(i, SystemCoreClock / 1000000) i = i;
+		// volatile counter to keep the settling loop from being optimised out.
+		for (volatile stduint i = 0; i < SystemCoreClock / 1000000; i++) {}
 		self[CR2].setof(_ADC_CR2_POS_ALIGN, align_left);
 	#if defined(_MCU_STM32F1x)
 		/* aka ADC_CFGR_EXTSEL */ {
@@ -459,12 +465,25 @@ namespace uni {
 			while (!self[ADCReg::ISR].bitof(_ADC_ISR_POS_ADRD) && timeout--) {}
 			return self[ADCReg::ISR].bitof(_ADC_ISR_POS_ADRD);
 		} else {
+			// AKA HAL's ADC_Disable(), whose own note is: "forbidden to disable ADC (set
+			// bit ADC_CR_ADDIS) if ADC is already disabled". The former version wrote
+			// ADDIS unconditionally, leaving that command bit set on an ADC that had
+			// nothing to disable, and returned true without looking at ADEN at all.
+			if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) return true;
 			self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
-			return true;
+			stduint timeout = 0xFFFF;
+			while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN) && timeout--) {}
+			// Report instead of assuming success: a stuck ADEN is exactly the failure
+			// HAL turns into HAL_ERROR.
+			return !self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN);
 		}
 	}
 
 	bool ADC_t::setMode(ADCRes res, stduint numsof_conv, stduint trigger_ext, bool cont) {
+		// Opens the kernel clock through enClock()'s default presc, i.e. with no division:
+		// on H7 with the default per_ck source that is above the "<=36MHz" limit noted in
+		// enClock(). Callers must therefore follow up with enClock(true, n), and that call
+		// has to come AFTER this function, which would otherwise reset PRESC again.
 		enClock(true);
 		self.enAble(false);
 	#if defined(_MCU_STM32H7x)
@@ -513,6 +532,10 @@ namespace uni {
 		// PC2_C/PC3_C are ANA direct-connect pins, not GPIO: they route to
 		// INP14/INP16/INP17 via the SYSCFG internal analog switch (SYSCFG_PMCR
 		// PC2SO/PC3SO); not supported here (occupied by FMC SDRAM on Apollo).
+		// Scope: this table covers ADC1/ADC2 only; no ADC3 pin mapping is recorded here.
+		// That is deliberate rather than a restriction: on ADC3 the caller supplies the
+		// channel number itself through setChannelNum(), or uses setInnerChannel() /
+		// setInjectInnerChannel() for the internal paths.
 		static const byte CH_A[8] = { 16, 17, 14, 15, 18, 19, 3, 7 };// PA0..PA7
 		static const byte CH_B[2] = { 9, 5 };// PB0,PB1
 		static const byte CH_C[6] = { 10, 11, 0xFF, 0xFF, 4, 8 };// PC0..PC5 (PC2/PC3 not on LQFP176)
@@ -544,11 +567,53 @@ namespace uni {
 		else return 0xFF;
 	}
 
+	#if defined(_MCU_STM32H7x)
+	// AKA the internal-measurement-path part of HAL_ADC_ConfigChannel: VBAT/VSENSE/
+	// VREFINT are only wired to ADC3, and each one needs its analog switch closed in
+	// ADC_CCR by software (ADC_CCR bits 22/23/24 per stm32h743xx.h). Without this the
+	// channel converts a floating input.
+	bool ADC_t::_enInnerPath(byte chan, bool ena) {
+		if (ADC_ID != 3) return false;// VBAT/TSEN/VREFINT are ADC3-only
+		byte pos;
+		switch (chan) {
+		case (byte)ADCInner::VBAT:    pos = _ADC_CCR_POS_VBATEN; break;
+		case (byte)ADCInner::TSEN:    pos = _ADC_CCR_POS_TSEN; break;
+		case (byte)ADCInner::VREFINT: pos = _ADC_CCR_POS_VREFEN; break;
+		default: return false;
+		}
+		// AKA HAL's "software is allowed to change common parameters only when all
+		// ADCs of the common group are disabled" (ADC_IS_ENABLE(hadc) == RESET).
+		// ADC3 is the only member of its own common group.
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) return false;
+		Reference ccr = Common(ADCCom::CCR);
+		// AKA HAL: "if the requested internal measurement path has already been
+		// enabled, bypass the configuration processing" (its condition is
+		// HAL_IS_BIT_CLR(ADC_CCR, ADC_CCR_TSEN) and friends). Keeps a repeated
+		// setInnerChannel() from paying the settling delay twice.
+		if (ena && ccr.bitof(pos)) return true;
+		ccr.setof(pos, ena);
+		// HAL waits ADC_TEMPSENSOR_DELAY_US (=120us) after closing the VSENSE path.
+		// NOTE: SysDelay_us is SysTick-based, so RCC.setClock() must have run.
+		if (ena && pos == _ADC_CCR_POS_TSEN) SysDelay_us(120);
+		return true;
+	}
+
+	bool ADC_t::setInnerChannel(ADCInner ch, byte rank, ADCSample sample) {
+		if (!_configChannel((byte)ch, rank, sample, false)) return false;
+		return _enInnerPath((byte)ch, true);
+	}
+	#endif
+
 	bool ADC_t::_configChannel(byte chan, byte rank, ADCSample sample, bool diff) {
 		if (rank >= 16 || chan >= 20) return false;
 		#if defined(_MCU_STM32H7x)
 		self[ADCReg::PCSEL].setof(chan, true);
 		self[ADCReg::DIFSEL].setof(chan, diff);// single-ended=0, differential=1
+		// ADC3's internal paths (VBAT/VSENSE/VREFINT) additionally need their analog
+		// switch in ADC_CCR, which HAL_ADC_ConfigChannel also does at this point.
+		// Not fatal if it fails: setInnerChannel() reports it, and channel18 on
+		// ADC1/ADC2 is PA4, which has no internal path at all.
+		if (ADC_ID == 3) _enInnerPath(chan, true);
 		#endif
 		if (chan < 10) self[ADCReg::SMPR1].maset(3 * chan, 3, (stduint)sample);
 		else self[ADCReg::SMPR2].maset(3 * (chan - 10), 3, (stduint)sample);
@@ -594,6 +659,9 @@ namespace uni {
 		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTP, true);
 		stduint timeout = 0xFFFF;
 		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART) && timeout--) {}
+		// Report instead of returning true unconditionally: ADSTP not taking effect means
+		// the conversion is still running. The return value stays as it was.
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART)) errcode |= _ADC_ERROR_INTERNAL;
 		if (method == IOMethod::Rupt) {
 			self[ADCReg::IER].setof(_ADC_ISR_POS_EOC, false);
 			self[ADCReg::IER].setof(_ADC_ISR_POS_OVR, false);
@@ -697,6 +765,8 @@ namespace uni {
 		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTP, true);
 		stduint timeout = 0xFFFF;
 		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART) && timeout--) {}
+		// Latch a timeout for getError() rather than changing the return value.
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART)) errcode |= _ADC_ERROR_INTERNAL;
 		#if defined(_MCU_STM32H7x)
 		self[ADCReg::CFGR].maset(_ADC_CFGR_POS_DMNGT, 2, 0);
 		#elif defined(_MPU_STM32MP13)
@@ -715,12 +785,24 @@ namespace uni {
 		if (channel > 18) return false;
 		self[ADCReg::ISR].setof(_ADC_ISR_POS_AWD1, true);// clear flag
 		#if defined(_MCU_STM32H7x)
-		self[ADCReg::LTR1] = low << 4;
-		self[ADCReg::HTR1] = high << 4;
+		// The watchdog thresholds are compared against the conversion result, so they must
+		// be aligned the same way. The field itself is 26 bits (ADC_LTR1_LT1_Msk =
+		// 0x3FFFFFF) and therefore wider than any resolution, which is why the alignment
+		// has to be derived from CFGR.RES: HAL documents it as "thresholds have to be
+		// left-aligned on bit 15" and shifts by (((CFGR & ADC_CFGR_RES) >> 2) * 2), i.e.
+		// 0/2/4/6/8 for B16/B14/B12/B10/B8.
+		// Previously this was a hard-coded "low << 4", which is only the B12 case and
+		// silently mis-placed the window at every other resolution.
+		const byte shift = 2 * (byte)self[ADCReg::CFGR].masof(_ADC_CFGR_POS_RES, 3);
+		self[ADCReg::LTR1] = low << shift;
+		self[ADCReg::HTR1] = high << shift;
 		self[ADCReg::CFGR].setof(_ADC_CFGR_POS_AWD1SGL, true);
 		self[ADCReg::CFGR].setof(_ADC_CFGR_POS_AWD1EN, true);
 		self[ADCReg::CFGR].maset(_ADC_CFGR_POS_AWD1CH, 5, channel);
 		#elif defined(_MPU_STM32MP13)
+		//{TODO} MP13 still packs both thresholds in TR1 below the 12-bit assumption
+		// (0xFFF) and applies no resolution dependent shift. Left untouched: the MP13
+		// TR1 layout was not verified.
 		self[ADCReg::TR1] = (low & 0xFFF) | ((high & 0xFFF) << 16);
 		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_AWD1SGL, true);
 		self[ADCReg::CFGR1].setof(_ADC_CFGR_POS_AWD1EN, true);
@@ -735,20 +817,38 @@ namespace uni {
 	}
 
 	uint32 ADC_t::getError() const {
-		uint32 err = _ADC_ERROR_NONE;
+		// AKA HAL_ADC_GetError(): the latched code, completed with the ISR flags that are
+		// still readable. The former version derived everything from ISR, so a wait that
+		// timed out could not be reported at all once its flag had gone.
+		uint32 err = errcode;
 		if (self[ADCReg::ISR].bitof(_ADC_ISR_POS_OVR)) err |= _ADC_ERROR_OVR;
 		if (self[ADCReg::ISR].bitof(_ADC_ISR_POS_JQOVF)) err |= _ADC_ERROR_JQOVF;
 		return err;
 	}
 
 	uint32 ADC_t::getCalibration() const {
-		return self[ADCReg::CALFACT] & 0x7F;// single-ended factor
+	#if defined(_MCU_STM32H7x)
+		// The single-ended factor is an 11-bit field, not 7: the former 0x7F mask
+		// truncated every factor above 127 (ADC_CALFACT_CALFACT_S_Msk = 0x7FF).
+		return self[ADCReg::CALFACT].masof(_ADC_CALFACT_POS_S, _ADC_CALFACT_LEN_S);
+	#else
+		return self[ADCReg::CALFACT] & 0x7F;// single-ended factor{TODO} MP13 field width unverified
+	#endif
 	}
 
 	bool ADC_t::setCalibration(uint32 factor) {
-		if (factor > 0x7F) return false;
+	#if defined(_MCU_STM32H7x)
+		// Write the whole 11-bit field: the former 0x7F limit rejected valid factors
+		// and maset(0, 7, ..) left bits 10:7 holding the previous value.
+		const byte len = _ADC_CALFACT_LEN_S;
+		const byte pos = _ADC_CALFACT_POS_S;
+	#else
+		const byte len = 7;//{TODO} MP13 field width unverified
+		const byte pos = 0;
+	#endif
+		if (factor > _IMM1S(len) - 1) return false;
 		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) return false;
-		self[ADCReg::CALFACT].maset(0, 7, factor);
+		self[ADCReg::CALFACT].maset(pos, len, factor);
 		return true;
 	}
 
@@ -757,17 +857,47 @@ namespace uni {
 		return self[ADCReg::ISR].bitof(_ADC_ISR_POS_EOC);
 	}
 
-	uint32 ADC_t::Calibrate() {
+	uint32 ADC_t::Calibrate(bool diff, bool linear) {
+		// AKA the bring-up half of HAL_ADC_Init: calibration cannot complete while the
+		// ADC is held in deep power-down or its voltage regulator is off, and setMode()
+		// (its "aka HAL_ADC_Init") does not do this part.
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_DEEPPWD))
+			self[ADCReg::CR].setof(_ADC_CR_POS_DEEPPWD, false);
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADVREGEN)) {
+			self[ADCReg::CR].setof(_ADC_CR_POS_ADVREGEN, true);
+			SysDelay_us(10);// HAL: ADC_STAB_DELAY_US, voltage regulator startup time
+		}
+		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADVREGEN)) return (uint32)~_IMM0;
 		// H7/MP13: calibration must run with the ADC disabled (ADEN=0).
 		if (self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) {
 			self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
 			stduint t = 0xFFFF;
 			while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN) && t--) {}
 		}
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) return (uint32)~_IMM0;
+		// AKA HAL's ADC_CR_ADCALDIF selection (single-ended / differential ended).
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADCALDIF, diff);
+	#if defined(_MCU_STM32H7x)
+		// AKA HAL's ADC_CR_ADCALLIN selection (offset / offset + linearity calibration).
+		self[ADCReg::CR].setof(_ADC_CR_POS_ADCALLIN, linear);
+	#else
+		(void)linear;//{TODO} MP13 ADCALLIN bit unverified
+	#endif
 		self[ADCReg::CR].setof(_ADC_CR_POS_ADCAL, true);
 		stduint timeout = 0xFFFF;
 		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADCAL) && timeout--) {}
-		return self[ADCReg::CALFACT];
+		// ADCAL is cleared by hardware when calibration completes, so a bit that is
+		// still set after the loop means it never finished (typically no ADC kernel
+		// clock). Report it AKA HAL's ADC_CALIBRATION_TIMEOUT -> HAL_ERROR branch.
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_ADCAL)) return (uint32)~_IMM0;
+	#if defined(_MCU_STM32H7x)
+		// Single-ended factor only. The raw register also carries CALFACT_D in bits
+		// 27:16, so returning it unmasked would let a legitimate value leave the
+		// field range and collide with the (uint32)~_IMM0 sentinel above.
+		return self[ADCReg::CALFACT].masof(_ADC_CALFACT_POS_S, _ADC_CALFACT_LEN_S);
+	#else
+		return self[ADCReg::CALFACT];//{TODO} MP13 layout unverified, sentinel unsound there
+	#endif
 	}
 
 	void ADC_t::enInterrupt(bool enable) const {
@@ -788,6 +918,8 @@ namespace uni {
 			self[ADCReg::CR].setof(pos, false);
 			stduint timeout = 0xFFFF;
 			while (self[ADCReg::CR].bitof(pos) && timeout--) {}
+			// Latch a timeout for getError() instead of changing the return value.
+			if (self[ADCReg::CR].bitof(pos)) errcode |= _ADC_ERROR_INTERNAL;
 			buffer[cnt] = self[ADCReg::CALFACT2];
 		}
 		return true;
@@ -799,7 +931,8 @@ namespace uni {
 			self[ADCReg::CR].setof(_ADC_CR_POS_DEEPPWD, false);
 		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADVREGEN)) {
 			self[ADCReg::CR].setof(_ADC_CR_POS_ADVREGEN, true);
-			for0(i, 10 * SystemCoreClock / 1000000) i = i;
+			// volatile counter to keep the regulator settling loop from being optimised out.
+			for (volatile stduint i = 0; i < 10 * SystemCoreClock / 1000000; i++) {}
 		}
 		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADVREGEN)) return false;
 		for (byte cnt = 0; cnt < 6; cnt++) {
@@ -808,6 +941,8 @@ namespace uni {
 			self[ADCReg::CR].setof(pos, true);
 			stduint timeout = 0xFFFF;
 			while (!self[ADCReg::CR].bitof(pos) && timeout--) {}
+			// Latch a timeout for getError() instead of changing the return value.
+			if (!self[ADCReg::CR].bitof(pos)) errcode |= _ADC_ERROR_INTERNAL;
 		}
 		return true;
 	}
@@ -825,6 +960,8 @@ namespace uni {
 		self[ADCReg::CR].setof(_ADC_CR_POS_JADSTP, true);
 		stduint timeout = 0xFFFF;
 		while (self[ADCReg::CR].bitof(_ADC_CR_POS_JADSTART) && timeout--) {}
+		// Latch a timeout for getError() instead of changing the return value.
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_JADSTART)) errcode |= _ADC_ERROR_INTERNAL;
 		if (!self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART))
 			self[ADCReg::CR].setof(_ADC_CR_POS_ADDIS, true);
 		return true;
@@ -857,6 +994,21 @@ namespace uni {
 		self[ADCReg::JSQR].maset(8 + 5 * rank, 5, chan);
 		return true;
 	}
+
+	#if defined(_MCU_STM32H7x)
+	// Injected counterpart of setInnerChannel(): mirrors setInjectChannel()'s register
+	// work but takes a channel number, because the internal paths have no pin, and then
+	// closes the analog switch in ADC_CCR through _enInnerPath().
+	bool ADC_t::setInjectInnerChannel(ADCInner ch, byte rank, ADCSample sample) {
+		if (rank >= 4) return false;// AKA the injected sequence length limit of setInjectChannel()
+		byte chan = (byte)ch;
+		self[ADCReg::PCSEL].setof(chan, true);
+		if (chan < 10) self[ADCReg::SMPR1].maset(3 * chan, 3, (stduint)sample);
+		else self[ADCReg::SMPR2].maset(3 * (chan - 10), 3, (stduint)sample);
+		self[ADCReg::JSQR].maset(8 + 5 * rank, 5, chan);
+		return _enInnerPath(chan, true);
+	}
+	#endif
 
 	bool ADC_t::enInjectQueue(bool ena) {
 		#if defined(_MCU_STM32H7x)
@@ -895,6 +1047,8 @@ namespace uni {
 		self[ADCReg::CR].setof(_ADC_CR_POS_ADSTP, true);
 		stduint timeout = 0xFFFF;
 		while (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART) && timeout--) {}
+		// Latch a timeout for getError() instead of changing the return value.
+		if (self[ADCReg::CR].bitof(_ADC_CR_POS_ADSTART)) errcode |= _ADC_ERROR_INTERNAL;
 		if (bind) {
 			const DMAStream& stream = *(const DMAStream*)bind;
 			stream.Abort();
@@ -911,7 +1065,8 @@ namespace uni {
 	bool ADC_t::enVoltageRegulator(bool ena) {
 		if (!ena && self[ADCReg::CR].bitof(_ADC_CR_POS_ADEN)) return false;
 		self[ADCReg::CR].setof(_ADC_CR_POS_ADVREGEN, ena);
-		if (ena) for0(i, 10 * SystemCoreClock / 1000000) i = i;
+		// volatile counter: a non-volatile empty loop is dead code and may be removed
+		if (ena) for (volatile stduint i = 0; i < 10 * SystemCoreClock / 1000000; i++) {}
 		return true;
 	}
 

@@ -103,12 +103,14 @@ namespace Network {
 		IPv4Address netmask;
 		IPv4Address router;
 		IPv4Address server;
+		IPv4Address dns;
 		uint32 lease_time;
 		DHCPMessageType message_type;
 		bool has_address;
 		bool has_netmask;
 		bool has_router;
 		bool has_server;
+		bool has_dns;
 		bool has_lease_time;
 	};
 
@@ -205,6 +207,7 @@ namespace Network {
 		config.has_netmask = DHCPReadIPv4Option(message, DHCPOption::SubnetMask, config.netmask);
 		config.has_router = DHCPReadIPv4Option(message, DHCPOption::Router, config.router);
 		config.has_server = DHCPReadIPv4Option(message, DHCPOption::ServerIdentifier, config.server);
+		config.has_dns = DHCPReadIPv4Option(message, DHCPOption::DomainNameServer, config.dns);
 		config.has_lease_time = DHCPReadU32Option(message, DHCPOption::LeaseTime, config.lease_time);
 		return true;
 	}

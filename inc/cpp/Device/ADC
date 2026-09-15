@@ -116,7 +116,9 @@ namespace uni {
 	#define _ADC_CR_POS_JADSTP      5
 	#if defined(_MCU_STM32H7x)
 	#define _ADC_CR_POS_BOOST       8
-	#define _ADC_CR_POS_LINCALRDYW6 23
+	// AKA ADC_CR_ADCALLIN_Pos: select linearity calibration instead of offset only.
+	#define _ADC_CR_POS_ADCALLIN    16
+	#define _ADC_CR_POS_LINCALRDYW6 27
 	#endif
 	#define _ADC_CR_POS_ADVREGEN    28
 	#define _ADC_CR_POS_DEEPPWD     29
@@ -183,10 +185,31 @@ namespace uni {
 	#define _ADC_CCR_POS_DAMDF      14
 	#define _ADC_CCR_POS_CKMODE     16
 	#define _ADC_CCR_POS_PRESC      18
+	#if defined(_MCU_STM32H7x)
+	// Internal measurement paths, wired to ADC3 only (stm32h743xx.h ADC_CCR):
+	// VBAT/4 = channel17, VSENSE (temperature sensor) = channel18, VREFINT = channel19.
+	// AKA HAL ADC_CHANNEL_VBAT_DIV4 / ADC_CHANNEL_TEMPSENSOR / ADC_CHANNEL_VREFINT.
+	#define _ADC_CCR_POS_VREFEN     22
+	#define _ADC_CCR_POS_TSEN       23
+	#define _ADC_CCR_POS_VBATEN     24
+	#endif
+	#endif
+
+	// ---- ADC_CALFACT ----
+	// Single-ended calibration factor field. stm32h743xx.h:
+	//   ADC_CALFACT_CALFACT_S_Pos = 0, ADC_CALFACT_CALFACT_S_Msk = 0x7FF => 11 bits.
+	// CALFACT_D is the differential factor at bit 16 (ADC_CALFACT_CALFACT_D_Pos); it
+	// must not leak into a single-ended reading.
+	#if defined(_MCU_STM32H7x)
+	#define _ADC_CALFACT_POS_S      0
+	#define _ADC_CALFACT_LEN_S      11
 	#endif
 
 	// ---- ADC error codes (aka HAL_ADC_ERROR_*) ----
 	#define _ADC_ERROR_NONE         0x00
+	// AKA HAL_ADC_ERROR_INTERNAL, "ADC IP internal error (problem of clocking,...)":
+	// used for a wait that never completed, e.g. ADEN not falling or ADCAL staying set.
+	#define _ADC_ERROR_INTERNAL     0x01
 	#define _ADC_ERROR_OVR          0x02
 	#define _ADC_ERROR_JQOVF        0x08
 
@@ -262,7 +285,8 @@ namespace uni {
 	enum class ADCCom {
 		CSR = 0x300 / 4,// Control Status Register
 		CCR = 0x308 / 4,// Control Register
-		CDR = 0x30C / 4 // Common Data Register (multimode)
+		CDR = 0x30C / 4,// Common Data Register (multimode)
+		CDR2 = 0x310 / 4// Common Data Register for 32-bit dual mode
 	};// AKA ADC_Common_TypeDef
 
 #endif
@@ -372,6 +396,18 @@ namespace uni {
 		B16 = 0, B14, B12, B10, B8
 	};// CFGR.RES
 
+#if defined(_MCU_STM32H7x)
+	// Internal (pin-less) measurement paths. Their values are the hardware ADC
+	// channel index written to PCSEL/SMPR/SQR, and they are wired to ADC3 only.
+	// Note the collision: channel18 is VSENSE on ADC3 but PA4 on ADC1/ADC2, so an
+	// internal path must not be requested through setChannelNum() alone.
+	enum class ADCInner : byte {
+		VBAT    = 17,// VBAT/4
+		TSEN    = 18,// VSENSE (temperature sensor), needs ADC_CCR.TSEN
+		VREFINT = 19 // needs ADC_CCR.VREFEN
+	};
+#endif
+
 	// ADC kernel clock source for enClock (AKA RCC ADCxSEL / ADCSEL field).
 	// Default CKPER (per_ck) keeps the common case self-sufficient: per_ck
 	// defaults to HSI (always available), so enClock() needs no extra setup.
@@ -399,12 +435,23 @@ namespace uni {
 	protected:
 		byte ADC_ID;
 		pureptr_t bind;
+		// AKA HAL's hadc->ErrorCode. Latched, so a wait that timed out stays visible after
+		// the flag it was waiting on disappeared; mutable because the polling getters are
+		// const yet still have to record their own timeout.
+		mutable uint32 errcode;
 		byte getChannelNumber(GPIO_Pin& pin);
 		// Shared H7/MP13 regular-channel writer: PCSEL / SMPR / SQR + DIFSEL(diff).
 		bool _configChannel(byte chan, byte rank, ADCSample sample, bool diff);
+	#if defined(_MCU_STM32H7x)
+		// Switch an ADC3 internal measurement path (VBAT/VSENSE/VREFINT) in ADC_CCR,
+		// AKA the internal-path part of HAL_ADC_ConfigChannel. Fails on a non-ADC3
+		// instance, on a channel without an internal path, and while the ADC is
+		// enabled (ADC_CCR may only be changed with all ADCs of the group disabled).
+		bool _enInnerPath(byte chan, bool ena = true);
+	#endif
 	public:
 		_COM_DEF_Interrupt_Interface();
-		ADC_t(byte _ADC_ID) : ADC_ID(_ADC_ID) { bind = 0; }
+		ADC_t(byte _ADC_ID) : ADC_ID(_ADC_ID) { bind = 0; errcode = _ADC_ERROR_NONE; }
 		stduint getBaseAddr() const;
 		byte getID() const { return ADC_ID; }
 		Reference operator[](ADCReg idx) const {
@@ -417,13 +464,23 @@ namespace uni {
 		bool enClock(bool ena = true, byte presc = 0, ADCClkSrc src = ADCClkSrc::CKPER);
 		// aka ADC_Enable / ADC_Disable
 		bool enAble(bool ena = true) const;
-		// aka HAL_ADC_Init
+		// aka HAL_ADC_Init, except that it does NOT release DEEPPWD or enable ADVREGEN
+		// (Calibrate() does that now), and that it opens the kernel clock itself with
+		// enClock()'s default presc (no division). Call enClock(true, n) AFTER setMode()
+		// to pick a safe ADCCLK: calling it before would be undone by this function.
 		bool setMode(ADCRes res = ADCRes::B12, stduint numsof_conv = 0, stduint trigger_ext = 0, bool cont = false);
 		// aka HAL_ADC_ConfigChannel
 		bool setChannel(GPIO_Pin& pin, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
 		// aka HAL_ADC_ConfigChannel with an explicit channel number (pin-less
 		// internal channels, e.g. ADC2 INP16/17 = DAC1_OUT1/OUT2 loopback).
 		bool setChannelNum(byte chan, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
+	#if defined(_MCU_STM32H7x)
+		// aka HAL_ADC_ConfigChannel for ADC3's internal measurement paths: selects
+		// the channel and enables its analog switch in ADC_CCR. Unlike
+		// setChannelNum(), a wrong instance or an enabled ADC is reported back.
+		// Default sample time follows HAL's temperature-sensor example (810.5 cycles).
+		bool setInnerChannel(ADCInner ch, byte rank = 0, ADCSample sample = ADCSample::CYCL_810_5);
+	#endif
 		// aka HAL_ADC_ConfigChannel with SingleDiff = ADC_DIFFERENTIAL_ENDED
 		bool setDiffChannel(GPIO_Pin& pin, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
 		// aka HAL_ADC_Start / Start_IT / Start_DMA
@@ -432,8 +489,16 @@ namespace uni {
 		bool Stop(IOMethod method = IOMethod::Loop);
 		// aka HAL_ADC_PollForConversion
 		bool Poll(stduint timeout = 0xFFFF);
-		// aka HAL_ADCEx_Calibration_Start
-		uint32 Calibrate();
+		// aka HAL_ADCEx_Calibration_Start, but the timeout is reported in-band: returns
+		// the single-ended calibration factor (always inside the field, e.g. 0..2047 on
+		// H7) or (uint32)~_IMM0 when the bring-up or ADCAL did not complete, AKA the HAL
+		// ADC_CALIBRATION_TIMEOUT path. The sentinel cannot be reached by a factor.
+		// It also performs the DEEPPWD/ADVREGEN bring-up that setMode() omits, so calling
+		// setMode() -> setChannel*() -> Calibrate() is self-sufficient.
+		// diff: AKA ADC_CR_ADCALDIF / HAL ADC_DIFFERENTIAL_ENDED; needed because
+		// setDiffChannel() exists but calibration defaulted to single-ended only.
+		// linear: AKA ADC_CR_ADCALLIN / HAL ADC_CALIB_OFFSET_LINEARITY (H7 only).
+		uint32 Calibrate(bool diff = false, bool linear = false);
 		// aka HAL_ADC_DeInit
 		bool canMode();
 		// aka HAL_ADC_GetValue
@@ -445,7 +510,14 @@ namespace uni {
 			return self;
 		}
 		ADC_t& operator>> (float& val) {
-			val = float _IMM(inn()) / 4095;
+		#if defined(_MCU_STM32H7x)
+			// Full scale follows CFGR.RES. HAL derives the same relation:
+			//   bits = 16 - (((RES) >> 2) * 2)   => 16/14/12/10/8 for B16..B8
+			byte bits = 16 - 2 * (byte)self[ADCReg::CFGR].masof(_ADC_CFGR_POS_RES, 3);
+			val = float _IMM(inn()) / float _IMM(_IMM1S(bits) - 1);
+		#else
+			val = float _IMM(inn()) / 4095;//{TODO} MP13 RES encoding unverified
+		#endif
 			return self;
 		}
 		// bind DMA stream used by enDMA / enMultiDMA
@@ -458,8 +530,12 @@ namespace uni {
 		bool setWatchdog(stduint low, stduint high, byte channel = 0);
 		// aka HAL_ADC_GetState busy check
 		bool isBusy() const;
-		// aka HAL_ADC_GetError
+		// aka HAL_ADC_GetError: latched error code (see errcode), OR-ed with the ISR flags
+		// that are still readable. Waits that timed out latch _ADC_ERROR_INTERNAL here
+		// instead of changing their return value, AKA HAL_ADC_ERROR_INTERNAL.
 		uint32 getError() const;
+		// aka __HAL_ADC_CLEAR_ERRORCODE
+		void setError(stduint code = _ADC_ERROR_NONE) { errcode = code; }
 		// aka HAL_ADCEx_Calibration_GetValue
 		uint32 getCalibration() const;
 		// aka HAL_ADCEx_Calibration_SetValue (single-ended factor)
@@ -479,6 +555,12 @@ namespace uni {
 		uint32 getInjectValue(byte rank = 0);
 		// aka HAL_ADCEx_InjectedConfigChannel
 		bool setInjectChannel(GPIO_Pin& pin, byte rank = 0, ADCSample sample = ADCSample::CYCL_64_5);
+	#if defined(_MCU_STM32H7x)
+		// aka HAL_ADCEx_InjectedConfigChannel for ADC3's internal measurement paths: the
+		// injected counterpart of setInnerChannel(). setInjectChannel() takes a pin only,
+		// so VBAT/VSENSE/VREFINT could not be injected at all.
+		bool setInjectInnerChannel(ADCInner ch, byte rank = 0, ADCSample sample = ADCSample::CYCL_810_5);
+	#endif
 		// aka HAL_ADCEx_EnableInjectedQueue / DisableInjectedQueue
 		bool enInjectQueue(bool ena = true);
 		// aka HAL_ADCEx_MultiModeConfigChannel

@@ -719,7 +719,12 @@ namespace uni {
 	stduint FilesysISO9660::readfl(void* fil_handler, Slice file_slice, byte* dst) {
 		ISO9660_FileHandle* fh = (ISO9660_FileHandle*)fil_handler;
 		if (!fh || !dst || fh->isDir()) return 0;
-		if (file_slice.address >= fh->data_length) return 0;
+		if (file_slice.address >= fh->data_length) {
+			plogerro("[%s:%u] iso read past EOF off=%u len=%u data_length=%u",
+				__FILE__, __LINE__, (unsigned)file_slice.address, (unsigned)file_slice.length,
+				(unsigned)fh->data_length);
+			return 0;
+		}
 
 		uint32 remaining = fh->data_length - file_slice.address;
 		uint32 need = iso_min_u32((uint32)file_slice.length, remaining);
@@ -731,7 +736,12 @@ namespace uni {
 			uint32 sector_offset = offset % logical_block_size;
 			uint32 can_read = iso_min_u32(logical_block_size - sector_offset, need - total_read);
 
-			if (!storage->Read(fh->extent_lba + sector_index, sector_buffer)) break;
+			if (!storage->Read(fh->extent_lba + sector_index, sector_buffer)) {
+				plogerro("[%s:%u] iso sector read fail lba=%u off=%u got=%u of %u",
+					__FILE__, __LINE__, (unsigned)(fh->extent_lba + sector_index),
+					(unsigned)offset, (unsigned)total_read, (unsigned)need);
+				break;
+			}
 			MemCopyN(dst + total_read, sector_buffer + sector_offset, can_read);
 			total_read += can_read;
 		}

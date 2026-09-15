@@ -35,6 +35,13 @@ namespace uni::Witch {
 	class Control;
 	class Form;
 
+	enum class FormState : uint8 {
+		Normal = 0,    // Visible on screen, active in LayerManager
+		Minimized,     // Minimized to taskbar/ribbon, detached from LayerManager
+		Maximized,     // Maximized to fill screen work area
+		Hidden,        // Hidden/invisible
+	};
+
 	struct Form_CloseButton : public SheetTrait {
 		friend class Form;
 		bool pressed = false;
@@ -102,10 +109,15 @@ namespace uni::Witch {
 		void* usrp_buffer = nullptr;
 		void* usrp_owner = nullptr;
 		Queue<SheetMessage> msg_queue;
+		bool is_dock = false;// for taskbar/ribbon
+		FormState state = FormState::Normal;
+		Rectangle normal_rect = {};
 		// NodeChain Controls = (nullptr);
 		Form() : LayerManager(), close_btn(), max_btn(), min_btn(), title_bar(), client_area(),
-			focus_sheet(nullptr), active(false), msg_queue(0) {
+			focus_sheet(nullptr), active(false), is_dock(false), msg_queue(0), state(FormState::Normal), normal_rect() {
 		}
+
+		bool isMinimized() const { return state == FormState::Minimized; }
 
 		virtual void PushMessage(const SheetMessage& msg) override {
 			msg_queue.Enqueue(msg);

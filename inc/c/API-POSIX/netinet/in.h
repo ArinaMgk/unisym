@@ -19,6 +19,7 @@ typedef uint32 in_addr_t;
 #define INADDR_ANY         ((in_addr_t)0x00000000u)
 #define INADDR_BROADCAST   ((in_addr_t)0xFFFFFFFFu)
 #define INADDR_LOOPBACK    ((in_addr_t)0x7F000001u)
+#define INADDR_NONE        ((in_addr_t)0xFFFFFFFFu)
 
 #define IPPROTO_IP         0
 #define IPPROTO_ICMP       1

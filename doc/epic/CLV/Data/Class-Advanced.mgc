@@ -4,7 +4,7 @@ Title(4, "Bit-Map");
 Format("^BHeader^b: ^Mc/bitmap.h^m\n\n");
 
 Title(4, "int128");
-Format("^BHeader^b: ^Mcpp/datype/int128^m\n\n");
+Format("^BHeader^b: ^Mcpp/Datype/int128^m\n\n");
 
 Title(4, "Buffer Block");
 

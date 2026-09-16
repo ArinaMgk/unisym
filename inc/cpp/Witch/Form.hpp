@@ -42,6 +42,20 @@ namespace uni::Witch {
 		Hidden,        // Hidden/invisible
 	};
 
+	enum class FormHitTest : uint8 {
+		None = 0,
+		Client,
+		TitleBar,
+		BorderTop,
+		BorderBottom,
+		BorderLeft,
+		BorderRight,
+		CornerTopLeft,
+		CornerTopRight,
+		CornerBottomLeft,
+		CornerBottomRight,
+	};
+
 	struct Form_CloseButton : public SheetTrait {
 		friend class Form;
 		bool pressed = false;
@@ -113,13 +127,18 @@ namespace uni::Witch {
 		bool is_dock = false;// for taskbar/ribbon
 		FormState state = FormState::Normal;
 		Rectangle normal_rect = {};
+		bool virtual_frame = false;
 		// NodeChain Controls = (nullptr);
 		Form() : LayerManager(), close_btn(), max_btn(), min_btn(), title_bar(), client_area(),
-			focus_sheet(nullptr), active(false), is_dock(false), msg_queue(0), state(FormState::Normal), normal_rect() {
+			focus_sheet(nullptr), active(false), is_dock(false), virtual_frame(false), msg_queue(0), state(FormState::Normal), normal_rect() {
 		}
 
 		bool isMinimized() const { return state == FormState::Minimized; }
 		bool isMaximized() const { return max_btn.is_maximized; }
+		bool isResizable() const {
+			return !is_dock && title_visable && max_btn.visible && max_btn.enabled && !isMaximized() && (state == FormState::Normal);
+		}
+		FormHitTest HitTest(Point rel_p) const;
 		void EnableMaximizeBox(bool enable = true) {
 			max_btn.enabled = enable;
 		}

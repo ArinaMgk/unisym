@@ -272,28 +272,45 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 	Letpara(args, rel_p);
 	stduint para1 = para_next(args, stduint);
 	// notice layman if button_dn the title bar
-	if (event == SheetEvent::onLeave && para1 == 1) {
-		active = false, title_bar.active = false;
-		update_title_bar();
-		redraw = true;
-		if (client_area.sheet_area.ifContain(rel_p)) {
-			client_area.onrupt(event, rel_p - client_area.sheet_area.getVertex(), para1);
+	if (event == SheetEvent::onLeave) {
+		if (sheet_parent) {
+			sheet_parent->setCursorType(CursorType::Normal);
 		}
-		else if (focus_sheet) {
-			focus_sheet->onrupt(event, Point(0, 0), para1);
-		}
-		
-		if (msg_queue.Count() < 510) {
-			SheetMessage smsg;
-			smsg.event = event;
-			smsg.args[0] = rel_p.x;
-			smsg.args[1] = rel_p.y;
-			smsg.args[2] = para1;
-			smsg.args[3] = 0;
-			this->PushMessage(smsg);
+		if (para1 == 1) {
+			active = false, title_bar.active = false;
+			update_title_bar();
+			redraw = true;
+			if (client_area.sheet_area.ifContain(rel_p)) {
+				client_area.onrupt(event, rel_p - client_area.sheet_area.getVertex(), para1);
+			}
+			else if (focus_sheet) {
+				focus_sheet->onrupt(event, Point(0, 0), para1);
+			}
+			
+			if (msg_queue.Count() < 510) {
+				SheetMessage smsg;
+				smsg.event = event;
+				smsg.args[0] = rel_p.x;
+				smsg.args[1] = rel_p.y;
+				smsg.args[2] = para1;
+				smsg.args[3] = 0;
+				this->PushMessage(smsg);
+			}
 		}
 	}
 	else if (event == SheetEvent::onMoved || event == SheetEvent::onClick) {
+		if (event == SheetEvent::onMoved) {
+			FormHitTest hit = HitTest(rel_p);
+			CursorType cur_type = CursorType::Normal;
+			if (hit == FormHitTest::BorderTop || hit == FormHitTest::BorderBottom) cur_type = CursorType::ResizeV;
+			else if (hit == FormHitTest::BorderLeft || hit == FormHitTest::BorderRight) cur_type = CursorType::ResizeH;
+			else if (hit == FormHitTest::CornerTopLeft || hit == FormHitTest::CornerBottomRight) cur_type = CursorType::ResizeNWSE;
+			else if (hit == FormHitTest::CornerTopRight || hit == FormHitTest::CornerBottomLeft) cur_type = CursorType::ResizeNESW;
+
+			if (sheet_parent) {
+				sheet_parent->setCursorType(cur_type);
+			}
+		}
 		if (event == SheetEvent::onClick) {
 			bool lbtn_down = (para1 & 0x10) != 0;
 			if (close_btn.sheet_area.ifContain(rel_p)) {
@@ -343,6 +360,13 @@ void uni::Witch::Form::onrupt(SheetEvent event, Point rel_p, ...)
 				!close_btn.sheet_area.ifContain(rel_p)) {
 				para_ento(args, rel_p);
 				sheet_parent->Dorupt(this, event, rel_p, args);
+			}
+			else if (sheet_parent && (para1 & 0x10)) {
+				FormHitTest hit = HitTest(rel_p);
+				if (hit >= FormHitTest::BorderTop && hit <= FormHitTest::CornerBottomRight) {
+					para_ento(args, rel_p);
+					sheet_parent->Dorupt(this, event, rel_p, args);
+				}
 			}
 		}
 		if (client_area.sheet_area.ifContain(rel_p)) {
@@ -507,4 +531,40 @@ void uni::Witch::Form::setTitle(const String& title)
 			sheet_parent->Update(this, title_bar.sheet_area);
 		}
 	}
+}
+
+uni::Witch::FormHitTest uni::Witch::Form::HitTest(Point rel_p) const {
+	if (rel_p.x < 0 || rel_p.y < 0 || rel_p.x >= (stdsint)sheet_area.width || rel_p.y >= (stdsint)sheet_area.height) {
+		return FormHitTest::None;
+	}
+	if (!isResizable()) {
+		if (title_visable && title_bar.sheet_area.ifContain(rel_p)) {
+			return FormHitTest::TitleBar;
+		}
+		return FormHitTest::Client;
+	}
+
+	constexpr stdsint kBorder = 4;
+	constexpr stdsint kCorner = 8;
+	stdsint w = (stdsint)sheet_area.width;
+	stdsint h = (stdsint)sheet_area.height;
+
+	// Check 4 Corners
+	if (rel_p.x < kCorner && rel_p.y < kCorner) return FormHitTest::CornerTopLeft;
+	if (rel_p.x >= w - kCorner && rel_p.y < kCorner) return FormHitTest::CornerTopRight;
+	if (rel_p.x < kCorner && rel_p.y >= h - kCorner) return FormHitTest::CornerBottomLeft;
+	if (rel_p.x >= w - kCorner && rel_p.y >= h - kCorner) return FormHitTest::CornerBottomRight;
+
+	// Check 4 Borders
+	if (rel_p.y < kBorder) return FormHitTest::BorderTop;
+	if (rel_p.y >= h - kBorder) return FormHitTest::BorderBottom;
+	if (rel_p.x < kBorder) return FormHitTest::BorderLeft;
+	if (rel_p.x >= w - kBorder) return FormHitTest::BorderRight;
+
+	// Buttons & Title Bar
+	if (title_visable && title_bar.sheet_area.ifContain(rel_p)) {
+		return FormHitTest::TitleBar;
+	}
+
+	return FormHitTest::Client;
 }

@@ -24,7 +24,7 @@
 #include "../../../../inc/c/driver/i8259A.h"
 #include "../../../../inc/c/driver/RealtimeClock.h"
 
-#if defined(_MCCA) && (_MCCA==0x8616||_MCCA==0x8632)
+#if defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600)
 
 void RTC_Init()// <=> Kasha TimerInit16 
 {

@@ -126,6 +126,14 @@ namespace uni {
 		Size2 size = { 0, 0 };
 	};
 
+	enum class CursorType : uint8 {
+		Normal = 0, // Default arrow
+		ResizeV,    // | Vertical (up-down)
+		ResizeH,    // — Horizontal (left-right)
+		ResizeNWSE, // \ Diagonal (northwest-southeast)
+		ResizeNESW, // / Diagonal (northeast-southwest)
+	};
+
 
 	// Do not use pure virtual for PCU, must be entity
 	class VideoControlInterface {
@@ -265,6 +273,7 @@ namespace uni {
 		}
 		inline void setCursor(Point disp) { pvci->SetCursor(disp); }
 		inline Point getCursor() { return pvci->GetCursor(); }
+		virtual void setCursorType(CursorType type) {}
 
 		// The layers may use translucent color.
 		Color EvaluateColor(const Point& p);

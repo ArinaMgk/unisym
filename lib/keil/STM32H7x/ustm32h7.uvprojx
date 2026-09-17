@@ -323,7 +323,7 @@
             <PlainCh>1</PlainCh>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
-            <wLevel>3</wLevel>
+            <wLevel>1</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
             <uC99>1</uC99>
@@ -866,6 +866,11 @@
               <FileName>USBPeri-MSC.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\USB\USBPeri-MSC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>USBPeri-CDC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\USBPeri-CDC.cpp</FilePath>
             </File>
             <File>
               <FileName>FDCAN.cpp</FileName>

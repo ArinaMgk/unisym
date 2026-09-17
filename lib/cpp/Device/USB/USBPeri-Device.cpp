@@ -108,8 +108,13 @@ namespace uni::device::SpaceUSB {
 		if (ep0_state == ControlState::DataInn) {
 			if (pep->rem_length > pep->maxpacket) {
 				pep->rem_length -= pep->maxpacket;
-				// continue sending remaining data (caller supplies buffer)
-				ReceiveControl(nullptr, 0);   // prepare for premature end
+				// AKA USBD_CtlContinueSendData(pdev, pdata, rem_length): send the next
+				// chunk of the SAME control data - the already-sent prefix is
+				// total_length - rem_length. Without this the data stage stops after one
+				// packet, so anything longer than bMaxPacketSize0 never leaves the device.
+				TransmitEndpoint(0x80, ep0_buf + (pep->total_length - pep->rem_length), (uint16)pep->rem_length);
+				// AKA USBD_LL_PrepareReceive(pdev, 0, NULL, 0): prepare for premature end
+				ReceiveEndpoint(0x00, nullptr, 0);
 			}
 			else {
 				// last packet is MPS multiple -> send ZLP
@@ -117,7 +122,9 @@ namespace uni::device::SpaceUSB {
 					(pep->total_length >= pep->maxpacket) &&
 					(pep->total_length < ep0_data_len)) {
 					ep0_data_len = 0;
-					ReceiveControl(nullptr, 0);
+					// AKA USBD_CtlContinueSendData(pdev, NULL, 0): the ZLP closes the data stage
+					TransmitEndpoint(0x80, nullptr, 0);
+					ReceiveEndpoint(0x00, nullptr, 0);
 				}
 				else {
 					if (pclass) pclass->EP0TxSent();

@@ -184,8 +184,11 @@ namespace uni {
 
 		// DMA1 Stream5, circular double buffer. Request 87 = SAI1_A
 		void dma_audio_init(byte* buf0, byte* buf1, uint32 num_items, uint32 element_size) {
-			DMA1.enClock();
-			*(volatile uint32*)0x580244D8 |= (1 << 28);// DMAMUX1 clock (RCC_AHB1ENR.DMAMUX1EN)
+			DMA1.enClock();// also enables DMAMUX1 (RCC_AHB1ENR.DMAMUX1EN, bit 2)
+			// NOTE: never poke RCC_AHB1ENR bit 28 here: on STM32H743 that bit is
+			// USB2OTGHSULPIEN (USB2 ULPI PHY clock), not DMAMUX1EN — writing it
+			// reaches into the USB clock tree for no reason.
+			//(RCC_AHB1ENR_ADDR = 0x580244D8)
 			*(volatile uint32*)(0x40020800 + 5 * 4) = 87U;// DMAMUX1 channel 5 = request 87 (SAI1_A)
 
 			DMA1.XferCpltCallback = on_dma_xfer_cplt0;

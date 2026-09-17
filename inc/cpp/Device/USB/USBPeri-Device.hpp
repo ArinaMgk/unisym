@@ -89,10 +89,14 @@ namespace uni::device::SpaceUSB {
 		void* pclass_data = nullptr;
 		PeripheralDescriptor* pdesc = nullptr;   // device identity (usbd_desc)
 		SetupPacket request{};
-		byte ep0_buf[64]{};              // persistent EP0 TX buffer (AKA USBD ep0_data):
+		byte ep0_buf[256]{};             // persistent EP0 TX buffer (AKA USBD ep0_data):
 		                                 // non-DMA EP0 IN is written to the FIFO later from
 		                                 // the TXFE interrupt, so the source must outlive
-		                                 // SendControl() (never pass a stack local)
+		                                 // SendControl() (never pass a stack local).
+		                                 // Must cover the whole control-IN transfer, not just
+		                                 // one packet: a UAC1 configuration descriptor is
+		                                 // 109 bytes and a 64-byte buffer silently truncated it
+		                                 // (Windows: CONFIG_DESCRIPTOR_FAILURE).
 		byte dev_address = 0;
 		PeripheralState dev_state = PeripheralState::Default;
 		PeripheralState dev_old_state = PeripheralState::Default;

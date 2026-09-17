@@ -814,8 +814,7 @@ namespace uni {
 				if (!(Reference(base + USB_OTG_DEVICE_BASE + 0x08) & (1U << 8))) diepctl.setof(USB_OTG_DIEPCTL_SODDFRM_Pos);
 				else diepctl.setof(USB_OTG_DIEPCTL_SD0PID_SEVNFRM_Pos);
 			}
-			diepctl.setof(USB_OTG_DIEPCTL_CNAK_Pos);
-			diepctl.setof(USB_OTG_DIEPCTL_EPENA_Pos);
+			diepctl = diepctl | USB_OTG_DIEPCTL_CNAK | USB_OTG_DIEPCTL_EPENA;
 			if (ep.type == 1) WritePacket(base, ep.xfer_buff, ep.num, ep.xfer_len);
 		}
 		else {
@@ -837,8 +836,7 @@ namespace uni {
 				if (!(Reference(base + USB_OTG_DEVICE_BASE + 0x08) & (1U << 8))) doepctl.setof(USB_OTG_DOEPCTL_SODDFRM_Pos);
 				else doepctl.setof(USB_OTG_DOEPCTL_SD0PID_SEVNFRM_Pos);
 			}
-			doepctl.setof(USB_OTG_DOEPCTL_CNAK_Pos);
-			doepctl.setof(USB_OTG_DOEPCTL_EPENA_Pos);
+			doepctl = doepctl | USB_OTG_DOEPCTL_CNAK | USB_OTG_DOEPCTL_EPENA;
 		}
 		return true;
 	}
@@ -860,8 +858,7 @@ namespace uni {
 			}
 			if (dma) Reference(base + USB_OTG_IN_ENDPOINT_BASE + 0x014) = ep.dma_addr;
 			else if (ep.xfer_len > 0) Reference(base + USB_OTG_DEVICE_BASE + 0x34).setof(0);// DIEPEMPMSK ep0
-			diepctl.setof(USB_OTG_DIEPCTL_CNAK_Pos);
-			diepctl.setof(USB_OTG_DIEPCTL_EPENA_Pos);
+			diepctl = diepctl | USB_OTG_DIEPCTL_CNAK | USB_OTG_DIEPCTL_EPENA;
 		}
 		else {
 			Reference doetsiz(base + USB_OTG_OUT_ENDPOINT_BASE + 0x010);
@@ -872,8 +869,7 @@ namespace uni {
 			doetsiz.maset(USB_OTG_DOEPTSIZ_PKTCNT_Pos, 10, 1);
 			doetsiz.maset(USB_OTG_DOEPTSIZ_XFRSIZ_Pos, 19, ep.maxpacket);
 			if (dma) Reference(base + USB_OTG_OUT_ENDPOINT_BASE + 0x014) = (stduint)ep.xfer_buff;
-			doepctl.setof(USB_OTG_DOEPCTL_CNAK_Pos);
-			doepctl.setof(USB_OTG_DOEPCTL_EPENA_Pos);
+			doepctl = doepctl | USB_OTG_DOEPCTL_CNAK | USB_OTG_DOEPCTL_EPENA;
 		}
 		return true;
 	}
@@ -889,6 +885,9 @@ namespace uni {
 		if (dma) {
 			Reference(base + USB_OTG_OUT_ENDPOINT_BASE + 0x014) = (stduint)psetup;// DOEPDMA
 			doepctl = 0x80008000;
+		}
+		else {
+			doepctl = doepctl | USB_OTG_DOEPCTL_CNAK | USB_OTG_DOEPCTL_EPENA;
 		}
 		return true;
 	}

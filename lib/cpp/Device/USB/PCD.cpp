@@ -328,7 +328,7 @@ namespace uni {
 			ep->xfer_buff += len;
 			ep->xfer_count += (stduint)len;
 		}
-		if (len <= 0) {
+		if (ep->xfer_count >= ep->xfer_len) {
 			pcd.DeviceReg(OTGDeviceReg::DIEPEMPMSK).rstof(epnum);// clear TXFE mask
 		}
 		return true;
@@ -346,7 +346,36 @@ namespace uni {
 		Reference gintmsk(base + _IMM(OTGGlobalReg::GINTMSK));
 
 		if (gintsts.bitof(USB_OTG_GINTSTS_MMIS_Pos)) {
-			gintsts.setof(USB_OTG_GINTSTS_MMIS_Pos);// incorrect mode, acknowledge
+			gintsts = (1U << USB_OTG_GINTSTS_MMIS_Pos);// incorrect mode, acknowledge
+		}
+		// ---- Rx queue level (must be processed before OEPINT so Setup/Data buffers are filled) ----
+		if (gintsts.bitof(USB_OTG_GINTSTS_RXFLVL_Pos)) {
+			gintmsk.rstof(USB_OTG_GINTMSK_RXFLVLM_Pos);// mask
+			temp = GlobalReg(OTGGlobalReg::GRXSTSP);
+			OTGEP* ep = &OUT_ep[temp & USB_OTG_GRXSTSP_EPNUM];
+			if (((temp & USB_OTG_GRXSTSP_PKTSTS) >> 17) == 2) {// STS_DATA_UPDT
+				if ((temp & USB_OTG_GRXSTSP_BCNT) != 0) {
+					stduint bcnt = (temp & USB_OTG_GRXSTSP_BCNT) >> 4;
+					if (ep->xfer_buff) {
+						OTG::ReadPacket(base, ep->xfer_buff, bcnt);
+						ep->xfer_buff += bcnt;
+						ep->xfer_count += bcnt;
+					}
+					else {
+						// OUT endpoint with no armed receive (e.g. an isochronous EP the
+						// class never armed): the packet must still be POPPED from the
+						// RxFIFO or RXFLVL never clears, but writing it to a null
+						// xfer_buff is a HardFault — so read it out and drop it.
+						stduint fifo = base + USB_OTG_FIFO_BASE;
+						for (stduint w = 0; w < ((bcnt + 3) / 4); w++) (void)*(volatile stduint*)fifo;
+					}
+				}
+			}
+			else if (((temp & USB_OTG_GRXSTSP_PKTSTS) >> 17) == 6) {// STS_SETUP_UPDT
+				OTG::ReadPacket(base, (byte*)Setup, 8);
+				ep->xfer_count += (temp & USB_OTG_GRXSTSP_BCNT) >> 4;
+			}
+			gintmsk.setof(USB_OTG_GINTMSK_RXFLVLM_Pos);// unmask
 		}
 		// ---- OUT endpoints ----
 		if (gintsts.bitof(USB_OTG_GINTSTS_OEPINT_Pos)) {
@@ -540,25 +569,6 @@ namespace uni {
 			}
 			if (ResetHandler) ResetHandler();
 			gintsts.setof(USB_OTG_GINTSTS_ENUMDNE_Pos);
-		}
-		// ---- Rx queue level ----
-		if (gintsts.bitof(USB_OTG_GINTSTS_RXFLVL_Pos)) {
-			gintmsk.rstof(USB_OTG_GINTMSK_RXFLVLM_Pos);// mask
-			temp = GlobalReg(OTGGlobalReg::GRXSTSP);
-			OTGEP* ep = &OUT_ep[temp & USB_OTG_GRXSTSP_EPNUM];
-			if (((temp & USB_OTG_GRXSTSP_PKTSTS) >> 17) == 2) {// STS_DATA_UPDT
-				if ((temp & USB_OTG_GRXSTSP_BCNT) != 0) {
-					stduint bcnt = (temp & USB_OTG_GRXSTSP_BCNT) >> 4;
-					OTG::ReadPacket(base, ep->xfer_buff, bcnt);
-					ep->xfer_buff += bcnt;
-					ep->xfer_count += bcnt;
-				}
-			}
-			else if (((temp & USB_OTG_GRXSTSP_PKTSTS) >> 17) == 6) {// STS_SETUP_UPDT
-				OTG::ReadPacket(base, (byte*)Setup, 8);
-				ep->xfer_count += (temp & USB_OTG_GRXSTSP_BCNT) >> 4;
-			}
-			gintmsk.setof(USB_OTG_GINTMSK_RXFLVLM_Pos);// unmask
 		}
 		// ---- SOF ----
 		if (gintsts.bitof(USB_OTG_GINTSTS_SOF_Pos)) {

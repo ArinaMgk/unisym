@@ -6,6 +6,7 @@
 
 #include "../../../../inc/cpp/System/Videosys.hpp"
 #include "../../../../inc/c/format/video/AVI.h"
+#include "../../../../inc/c/format/video/MPEG.h"
 #include "../../../../inc/c/ustring.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -264,6 +265,41 @@ namespace uni {
 		return impl != nullptr && state != HostVideoState::Error && state != HostVideoState::Idle;
 	}
 
+	static uni::VideoResult TryOpenVideoStream(
+		uni::StorageTrait& storage,
+		uni::IVideoStream*& outStream,
+		uni::trait::Malloc& allocator
+	) {
+		// 1. Try AVI probe
+		{
+			uni::AVICodec avi_codec;
+			bool matched = false;
+			if (avi_codec.Probe(storage, matched) == uni::VideoResult::OK && matched) {
+				return avi_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
+		// 2. Try MPEG-1/2 probe
+		{
+			uni::MPEGCodec mpeg_codec;
+			bool matched = false;
+			if (mpeg_codec.Probe(storage, matched) == uni::VideoResult::OK && matched) {
+				return mpeg_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
+		// Fallback: try AVI OpenStream, then MPEG OpenStream
+		{
+			uni::AVICodec avi_codec;
+			uni::VideoResult res = avi_codec.OpenStream(storage, outStream, allocator);
+			if (res == uni::VideoResult::OK && outStream) return res;
+		}
+		{
+			uni::MPEGCodec mpeg_codec;
+			uni::VideoResult res = mpeg_codec.OpenStream(storage, outStream, allocator);
+			if (res == uni::VideoResult::OK && outStream) return res;
+		}
+		return uni::VideoResult::Unsupported;
+	}
+
 	bool HostVideo::Open(const char* filepath, bool loop_mode) {
 		Close();
 		is_loop = loop_mode;
@@ -296,9 +332,8 @@ namespace uni {
 			return false;
 		}
 
-		AVICodec avi_codec;
 		IVideoStream* stream = nullptr;
-		if (avi_codec.OpenStream(*storage, stream, s_video_allocator) != VideoResult::OK || !stream) {
+		if (TryOpenVideoStream(*storage, stream, s_video_allocator) != VideoResult::OK || !stream) {
 			delete storage;
 			fclose(fp);
 			state = HostVideoState::Error;
@@ -341,9 +376,8 @@ namespace uni {
 		Close();
 		is_loop = loop_mode;
 
-		AVICodec avi_codec;
 		IVideoStream* stream = nullptr;
-		if (avi_codec.OpenStream(storage, stream, s_video_allocator) != VideoResult::OK || !stream) {
+		if (TryOpenVideoStream(storage, stream, s_video_allocator) != VideoResult::OK || !stream) {
 			state = HostVideoState::Error;
 			return false;
 		}

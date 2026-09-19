@@ -41,6 +41,30 @@ namespace Network {
 		stduint body_length;
 	};
 
+	struct HTTPHeaderValue {
+		const char* value;
+		stduint value_length;
+		bool present;
+	};
+
+	struct HTTPBodyView {
+		const char* body;
+		stduint body_length;
+		bool present;
+	};
+
+	struct HTTPResponseView {
+		HTTPStatusLine status;
+		HTTPHeaderView header;
+		stduint content_length;
+		const char* content_type;
+		stduint content_type_length;
+		bool has_status;
+		bool has_header;
+		bool has_content_length;
+		bool has_content_type;
+	};
+
 	inline stduint HTTPStringLength(const char* text) {
 		stduint length = 0;
 		if (text) while (text[length]) length++;
@@ -137,33 +161,74 @@ namespace Network {
 		return true;
 	}
 
-	inline bool HTTPContentLength(const char* response, stduint length, stduint& output) {
-		output = 0;
+	inline bool HTTPFindHeader(const char* response, stduint length, const char* name,
+		const char*& value, stduint& value_length) {
+		value = nullptr;
+		value_length = 0;
 		const stduint header_length = HTTPHeaderLength(response, length);
-		if (!header_length) return false;
+		if (!header_length || !name || !name[0]) return false;
 		stduint line = 0;
 		while (line < header_length) {
 			stduint end = line;
 			while (end < header_length && response[end] != '\r' && response[end] != '\n') end++;
 			const stduint line_length = end - line;
-			if (HTTPHeaderNameMatch(response + line, line_length, "content-length")) {
-				stduint cursor = line + HTTPStringLength("content-length:");
+			if (HTTPHeaderNameMatch(response + line, line_length, name)) {
+				stduint cursor = line + HTTPStringLength(name) + 1;
 				while (cursor < end && (response[cursor] == ' ' || response[cursor] == '\t')) cursor++;
-				stduint value = 0;
-				bool any = false;
-				while (cursor < end && response[cursor] >= '0' && response[cursor] <= '9') {
-					any = true;
-					value = value * 10 + stduint(response[cursor] - '0');
-					cursor++;
-				}
-				if (!any) return false;
-				output = value;
+				stduint finish = end;
+				while (finish > cursor && (response[finish - 1] == ' ' || response[finish - 1] == '\t')) finish--;
+				value = response + cursor;
+				value_length = finish - cursor;
 				return true;
 			}
 			while (end < header_length && (response[end] == '\r' || response[end] == '\n')) end++;
 			line = end;
 		}
 		return false;
+	}
+
+	inline HTTPHeaderValue HTTPHeaderValueOf(const char* response, stduint length, const char* name) {
+		HTTPHeaderValue result{};
+		result.present = HTTPFindHeader(response, length, name, result.value, result.value_length);
+		return result;
+	}
+
+	inline HTTPBodyView HTTPBody(const char* response, stduint length) {
+		HTTPBodyView result{};
+		HTTPHeaderView header{};
+		if (!HTTPParseHeader(response, length, header)) return result;
+		result.body = header.body;
+		result.body_length = header.body_length;
+		result.present = true;
+		return result;
+	}
+
+	inline bool HTTPContentLength(const char* response, stduint length, stduint& output) {
+		output = 0;
+		const char* value_text = nullptr;
+		stduint value_length = 0;
+		if (!HTTPFindHeader(response, length, "content-length", value_text, value_length)) return false;
+		stduint value = 0;
+		bool any = false;
+		for0(i, value_length) {
+			const char digit = value_text[i];
+			if (digit < '0' || digit > '9') return false;
+			any = true;
+			value = value * 10 + stduint(digit - '0');
+		}
+		if (!any) return false;
+		output = value;
+		return true;
+	}
+
+	inline bool HTTPParseResponse(const char* response, stduint length, HTTPResponseView& view) {
+		view = {};
+		view.has_status = HTTPParseStatusLine(response, length, view.status);
+		view.has_header = HTTPParseHeader(response, length, view.header);
+		view.has_content_length = HTTPContentLength(response, length, view.content_length);
+		view.has_content_type = HTTPFindHeader(response, length, "content-type",
+			view.content_type, view.content_type_length);
+		return view.has_status || view.has_header;
 	}
 
 }

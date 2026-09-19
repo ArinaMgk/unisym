@@ -4,6 +4,8 @@
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 
 #include "../../../../inc/c/format/video/AVI.h"
+#include "../../../../inc/c/format/video/MPEG4.h"
+#include "../../../../inc/c/format/audio/MP3.h"
 #include "../../../../inc/c/format/picture/JPEG.h"
 #include "../../../../inc/c/ustring.h"
 #include <stdlib.h>
@@ -13,6 +15,61 @@
 namespace {
 
 	static const char* const AVI_EXTENSIONS[] = { ".avi", ".divx", nullptr };
+
+	// AVI stores compressed audio (format tag 0x0055 = MPEG audio) one frame per chunk;
+	// the decoder needs the whole elementary stream contiguously because MPEG audio
+	// frames share a bit reservoir.
+	class DefaultHeapAllocator : public uni::trait::Malloc {
+	public:
+		virtual void* allocate(stduint size, stduint alignment = 0, stduint boundary = 0) override {
+			return malloc(size);
+		}
+		virtual bool deallocate(void* ptr, stduint size = 0) override {
+			if (!ptr) return false;
+			free(ptr);
+			return true;
+		}
+	};
+
+	static DefaultHeapAllocator s_avi_allocator;
+
+	// Storage over a flat in-memory extent. Block_Size is 1 so that the extent reported
+	// through getUnits() is exact (the MPEG audio decoder sizes its input from it) and so
+	// that a read can never straddle a rounded-up block.
+	class MemoryStorageDevice : public uni::StorageTrait {
+	private:
+		const byte* m_data;
+		stduint     m_size;
+
+	public:
+		MemoryStorageDevice(const byte* data, stduint size)
+			: m_data(data), m_size(size) {
+			Block_Size = 1;
+			Block_buffer = nullptr; // the base class leaves this pointer uninitialised
+			readable = true;
+			writable = false;
+		}
+
+		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override {
+			if (!Dest || Times == 0) return false;
+			if (BlockIden > m_size || Times > m_size - BlockIden) return false; // short read
+			MemCopyN(Dest, m_data + BlockIden, Times);
+			return true;
+		}
+
+		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override {
+			return false;
+		}
+
+		virtual stduint getUnits() override {
+			return m_size;
+		}
+
+		virtual int operator[](uint64 bytid) override {
+			if (bytid >= m_size) return -1;
+			return m_data[bytid];
+		}
+	};
 
 	static bool StorageReadExact(uni::StorageTrait& storage, uint64 offset, void* dst, size_t len) {
 		if (len == 0) return true;
@@ -103,6 +160,15 @@ namespace {
 		uint32       curr_achunk;
 		uint32       curr_achunk_offset;
 
+		void*        mpeg4_decoder;
+
+		// compressed audio stream (MPEG audio in AVI), rebuilt as one contiguous buffer
+		byte*               audio_es;
+		stduint             audio_es_len;
+		uni::StorageTrait*  audio_storage;
+		uni::IAudioStream*  audio_stream;
+		bool                audio_metadata_only; // ReadInfo: report the format without a decoder
+
 		bool AddVideoFrame(uint32 offset, uint32 length, uint32 flags) {
 			if (v_frame_count >= v_frame_cap) {
 				uint32 new_cap = v_frame_cap ? v_frame_cap * 2 : 128;
@@ -150,10 +216,32 @@ namespace {
 			  a_sample_rate(0), a_bits_per_sample(0), a_block_align(0),
 			  v_frames(nullptr), v_frame_count(0), v_frame_cap(0), curr_vframe(0),
 			  a_chunks(nullptr), a_chunk_count(0), a_chunk_cap(0), curr_achunk(0),
-			  curr_achunk_offset(0) {
+			  curr_achunk_offset(0), mpeg4_decoder(nullptr),
+			  audio_es(nullptr), audio_es_len(0), audio_storage(nullptr), audio_stream(nullptr),
+			  audio_metadata_only(false) {
 		}
 
+		// ReadInfo only needs the format, not a decoder instance.
+		void SetAudioMetadataOnly(bool on) { audio_metadata_only = on; }
+
 		virtual ~AVIStream() {
+			if (audio_stream) {
+				audio_stream->Release();
+				audio_stream = nullptr;
+			}
+			if (audio_storage) {
+				delete audio_storage;
+				audio_storage = nullptr;
+			}
+			if (audio_es) {
+				free(audio_es);
+				audio_es = nullptr;
+				audio_es_len = 0;
+			}
+			if (mpeg4_decoder) {
+				MPEG4Decoder_Destroy(mpeg4_decoder);
+				mpeg4_decoder = nullptr;
+			}
 			if (v_frames) {
 				free(v_frames);
 				v_frames = nullptr;
@@ -311,7 +399,8 @@ namespace {
 
 							uint8 stream_num = (uint8)(entry.ckid & 0xFF) - '0';
 							uint8 stream_tens = (uint8)((entry.ckid >> 8) & 0xFF) - '0';
-							uint32 str_idx = (stream_tens < 10 && stream_num < 10) ? (stream_tens * 10 + stream_num) : (uint8)(entry.ckid & 0xFF) - '0';
+							// the chunk id is written as "00dc": the first digit is the tens
+							uint32 str_idx = (stream_tens < 10 && stream_num < 10) ? (stream_num * 10 + stream_tens) : (uint8)(entry.ckid & 0xFF) - '0';
 							uint16 type_code = (uint16)(entry.ckid >> 16);
 
 							// 'dc' (0x6364) = compressed video, 'db' (0x6264) = uncompressed bitmap, 'wb' (0x6277) = wave audio
@@ -373,6 +462,13 @@ namespace {
 			if (v_fourcc == AVI_FOURCC_MJPG || v_fourcc == AVI_FOURCC_mjpg ||
 				v_fourcc == AVI_FOURCC_JPEG || v_fourcc == AVI_FOURCC_jpeg) {
 				info.videoFormat.codec_type = uni::VideoCodecType::MJPEG;
+			} else if (v_fourcc == AVI_FOURCC_DIVX || v_fourcc == AVI_FOURCC_divx ||
+					   v_fourcc == AVI_FOURCC_XVID || v_fourcc == AVI_FOURCC_xvid ||
+					   v_fourcc == AVI_FOURCC_MP4V || v_fourcc == AVI_FOURCC_mp4v ||
+					   v_fourcc == AVI_FOURCC_DX50 || v_fourcc == AVI_FOURCC_dx50 ||
+					   v_fourcc == AVI_FOURCC_FMP4 || v_fourcc == AVI_FOURCC_fmp4) {
+				info.videoFormat.codec_type = uni::VideoCodecType::MPEG4;
+				if (!mpeg4_decoder) mpeg4_decoder = MPEG4Decoder_Create((int)v_width, (int)v_height);
 			} else if (v_fourcc == AVI_FOURCC_DIB || v_fourcc == AVI_FOURCC_RGB ||
 					   v_fourcc == AVI_FOURCC_RAW || v_fourcc == 0) {
 				info.videoFormat.codec_type = uni::VideoCodecType::RGB;
@@ -390,7 +486,7 @@ namespace {
 				info.durationMs = (uint32)(((uint64)v_frame_count * 1000ULL * v_scale) / v_rate);
 			}
 
-			if (a_channels > 0 && a_sample_rate > 0) {
+			if (a_channels > 0 && a_sample_rate > 0 && (a_format_tag == 1 || a_format_tag == 0)) {
 				info.hasAudio = true;
 				info.audioInfo.format.channels = (uint16)a_channels;
 				info.audioInfo.format.sample_rate = a_sample_rate;
@@ -398,9 +494,82 @@ namespace {
 				info.audioInfo.bitsPerSample = a_bits_per_sample ? a_bits_per_sample : 16;
 				info.audioInfo.containerFormat = uni::AudioContainerFormat::WAV;
 				info.audioInfo.durationMs = info.durationMs;
+			} else if (a_channels > 0 && a_sample_rate > 0 &&
+				(a_format_tag == 0x0055 || a_format_tag == 0x0050)) {
+				// MPEG audio (Layer III / Layer II): decode through the MP3 codec
+				OpenCompressedAudioStream();
 			}
 
 			return v_frame_count > 0;
+		}
+
+		// Concatenate every audio chunk into one elementary stream and open the decoder on
+		// it. MPEG audio frames share a bit reservoir, so a single decoder instance must
+		// see the whole stream.
+		bool OpenCompressedAudioStream() {
+			if (a_chunk_count == 0) return false;
+
+			stduint total = 0;
+			for (uint32 i = 0; i < a_chunk_count; ++i) total += a_chunks[i].length;
+			if (total == 0) return false;
+
+			audio_es = (byte*)malloc(total);
+			if (!audio_es) return false;
+
+			stduint off = 0;
+			for (uint32 i = 0; i < a_chunk_count; ++i) {
+				const uint32 len = a_chunks[i].length;
+				if (len == 0) continue;
+				if (!StorageReadExact(*storage, a_chunks[i].offset, audio_es + off, len)) {
+					free(audio_es);
+					audio_es = nullptr;
+					return false;
+				}
+				off += len;
+			}
+			audio_es_len = off;
+
+			audio_storage = new MemoryStorageDevice(audio_es, audio_es_len);
+			if (!audio_storage) {
+				free(audio_es);
+				audio_es = nullptr;
+				audio_es_len = 0;
+				return false;
+			}
+
+			uni::MP3Codec mp3_codec;
+			bool matched = false;
+			if (mp3_codec.Probe(*audio_storage, matched) == uni::AudioResult::OK && matched) {
+				if (audio_metadata_only) {
+					uni::AudioInfo a_info{};
+					if (mp3_codec.ReadInfo(*audio_storage, a_info) == uni::AudioResult::OK) {
+						info.hasAudio = true;
+						info.audioInfo = a_info;
+						if (info.audioInfo.durationMs == 0) info.audioInfo.durationMs = info.durationMs;
+						return true;
+					}
+				} else if (mp3_codec.OpenStream(*audio_storage, audio_stream, s_avi_allocator) == uni::AudioResult::OK && audio_stream) {
+					uni::AudioInfo a_info{};
+					if (audio_stream->GetInfo(a_info) == uni::AudioResult::OK) {
+						info.hasAudio = true;
+						info.audioInfo = a_info;
+						info.audioInfo.containerFormat = uni::AudioContainerFormat::MP3;
+						if (info.audioInfo.durationMs == 0) info.audioInfo.durationMs = info.durationMs;
+						return true;
+					}
+				}
+			}
+
+			if (audio_stream) {
+				audio_stream->Release();
+				audio_stream = nullptr;
+			}
+			delete audio_storage;
+			audio_storage = nullptr;
+			free(audio_es);
+			audio_es = nullptr;
+			audio_es_len = 0;
+			return false;
 		}
 
 		virtual uni::VideoResult GetInfo(uni::VideoInfo& outInfo) const override {
@@ -409,15 +578,16 @@ namespace {
 		}
 
 		virtual uni::VideoResult ReadVideoFrame(uni::VideoFrame& outFrame, uni::trait::Malloc& alloc) override {
+			// AVI files may carry empty chunks (an index entry without payload); skip them
+			// instead of reporting a failed frame.
+			while (curr_vframe < v_frame_count && v_frames[curr_vframe].length == 0) {
+				curr_vframe++;
+			}
 			if (curr_vframe >= v_frame_count) {
 				return uni::VideoResult::EndOfStream;
 			}
 
 			const AVIChunkRef& chunk = v_frames[curr_vframe];
-			if (chunk.length == 0) {
-				curr_vframe++;
-				return uni::VideoResult::Failed;
-			}
 
 			byte* chunk_data = (byte*)malloc(chunk.length);
 			if (!chunk_data) {
@@ -435,6 +605,10 @@ namespace {
 
 			if (info.videoFormat.codec_type == uni::VideoCodecType::MJPEG) {
 				pixels = DecodeJPEG(chunk_data, chunk.length, &out_w, &out_h);
+			} else if (info.videoFormat.codec_type == uni::VideoCodecType::MPEG4) {
+				if (!mpeg4_decoder) mpeg4_decoder = MPEG4Decoder_Create((int)v_width, (int)v_height);
+				int vop_type = 0;
+				pixels = MPEG4Decoder_DecodeFrame(mpeg4_decoder, chunk_data, chunk.length, &out_w, &out_h, &vop_type);
 			} else if (info.videoFormat.codec_type == uni::VideoCodecType::RGB) {
 				// Raw BMP/DIB frame
 				out_w = (int)v_width;
@@ -498,7 +672,18 @@ namespace {
 
 		virtual uni::VideoResult ReadAudioSamples(void* destBuffer, uint32 maxBytes, uint32& bytesRead) override {
 			bytesRead = 0;
-			if (!destBuffer || maxBytes == 0 || !info.hasAudio) {
+			if (!destBuffer || maxBytes == 0) {
+				return uni::VideoResult::InvalidArgument;
+			}
+
+			if (audio_stream) {
+				uni::AudioResult ares = audio_stream->ReadSamples(destBuffer, maxBytes, bytesRead);
+				if (ares == uni::AudioResult::OK) return uni::VideoResult::OK;
+				if (ares == uni::AudioResult::EndOfStream) return uni::VideoResult::EndOfStream;
+				return uni::VideoResult::Failed;
+			}
+
+			if (!info.hasAudio) {
 				return uni::VideoResult::InvalidArgument;
 			}
 
@@ -540,10 +725,44 @@ namespace {
 				curr_vframe = v_frame_count;
 				return uni::VideoResult::EndOfStream;
 			}
-			curr_vframe = frameIndex;
+
+			// A P-VOP is predicted from the previously *decoded* picture: jumping to an
+			// arbitrary frame would reconstruct it against a stale reference and leave the
+			// previous position's content behind. Restart from the closest preceding
+			// keyframe and decode (and drop) the frames up to the target instead.
+			if (frameIndex != curr_vframe && info.videoFormat.codec_type == uni::VideoCodecType::MPEG4) {
+				uint32 key = frameIndex;
+				while (key > 0 && (v_frames[key].flags & AVIIF_KEYFRAME) == 0) {
+					--key;
+				}
+				if (mpeg4_decoder) {
+					MPEG4Decoder_Destroy(mpeg4_decoder);
+					mpeg4_decoder = nullptr;
+				}
+				mpeg4_decoder = MPEG4Decoder_Create((int)v_width, (int)v_height);
+
+				curr_vframe = key;
+				int guard = 0;
+				while (curr_vframe < frameIndex && guard++ < (int)v_frame_count) {
+					uni::VideoFrame discarded;
+					VideoFrameClear(discarded);
+					const uni::VideoResult r = ReadVideoFrame(discarded, s_avi_allocator);
+					if (r == uni::VideoResult::EndOfStream) break;
+					if (r == uni::VideoResult::OK) VideoFrameFree(discarded);
+				}
+			} else {
+				curr_vframe = frameIndex;
+			}
+			if (curr_vframe < frameIndex) curr_vframe = frameIndex;
 
 			// Approximate audio position
-			if (info.hasAudio && v_frame_count > 0 && a_chunk_count > 0) {
+			if (audio_stream) {
+				const uint32 arate = info.audioInfo.format.sample_rate ? info.audioInfo.format.sample_rate : 44100;
+				const uint32 rate = v_rate ? v_rate : 30;
+				const uint32 scale = v_scale ? v_scale : 1;
+				const uint64 target_ms = ((uint64)frameIndex * 1000ULL * scale) / rate;
+				audio_stream->Seek((uint32)((target_ms * arate) / 1000));
+			} else if (info.hasAudio && v_frame_count > 0 && a_chunk_count > 0) {
 				curr_achunk = (uint32)(((uint64)frameIndex * a_chunk_count) / v_frame_count);
 				curr_achunk_offset = 0;
 			}

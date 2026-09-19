@@ -7,6 +7,7 @@
 #include "../../../../inc/cpp/System/Videosys.hpp"
 #include "../../../../inc/c/format/video/AVI.h"
 #include "../../../../inc/c/format/video/MPEG.h"
+#include "../../../../inc/c/format/video/MPEG4.h"
 #include "../../../../inc/c/ustring.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -286,6 +287,14 @@ namespace uni {
 				return mpeg_codec.OpenStream(storage, outStream, allocator);
 			}
 		}
+		// 3. Try MPEG-4 probe
+		{
+			uni::MPEG4Codec mpeg4_codec;
+			bool matched = false;
+			if (mpeg4_codec.Probe(storage, matched) == uni::VideoResult::OK && matched) {
+				return mpeg4_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
 		// Fallback: try AVI OpenStream, then MPEG OpenStream
 		{
 			uni::AVICodec avi_codec;
@@ -295,6 +304,11 @@ namespace uni {
 		{
 			uni::MPEGCodec mpeg_codec;
 			uni::VideoResult res = mpeg_codec.OpenStream(storage, outStream, allocator);
+			if (res == uni::VideoResult::OK && outStream) return res;
+		}
+		{
+			uni::MPEG4Codec mpeg4_codec;
+			uni::VideoResult res = mpeg4_codec.OpenStream(storage, outStream, allocator);
 			if (res == uni::VideoResult::OK && outStream) return res;
 		}
 		return uni::VideoResult::Unsupported;

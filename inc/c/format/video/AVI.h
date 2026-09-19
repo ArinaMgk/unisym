@@ -46,12 +46,17 @@ extern "C" {
 #define AVI_FOURCC_MPG1 AVI_FOURCC('M', 'P', 'G', '1')
 #define AVI_FOURCC_MPG2 AVI_FOURCC('M', 'P', 'G', '2')
 #define AVI_FOURCC_MP4V AVI_FOURCC('M', 'P', '4', 'V')
+#define AVI_FOURCC_mp4v AVI_FOURCC('m', 'p', '4', 'v')
 #define AVI_FOURCC_H264 AVI_FOURCC('H', '2', '6', '4')
 #define AVI_FOURCC_h264 AVI_FOURCC('h', '2', '6', '4')
 #define AVI_FOURCC_XVID AVI_FOURCC('X', 'V', 'I', 'D')
 #define AVI_FOURCC_xvid AVI_FOURCC('x', 'v', 'i', 'd')
 #define AVI_FOURCC_DIVX AVI_FOURCC('D', 'I', 'V', 'X')
 #define AVI_FOURCC_divx AVI_FOURCC('d', 'i', 'v', 'x')
+#define AVI_FOURCC_DX50 AVI_FOURCC('D', 'X', '5', '0')
+#define AVI_FOURCC_dx50 AVI_FOURCC('d', 'x', '5', '0')
+#define AVI_FOURCC_FMP4 AVI_FOURCC('F', 'M', 'P', '4')
+#define AVI_FOURCC_fmp4 AVI_FOURCC('f', 'm', 'p', '4')
 
 #define AVIF_HASINDEX       0x00000010u
 #define AVIF_MUSTUSEINDEX   0x00000020u

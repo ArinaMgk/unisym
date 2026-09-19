@@ -166,11 +166,63 @@ namespace Network {
 		return true;
 	}
 
+	inline void DNSClearIPv6Result(DNSIPv6Result& result, DNSResolveStatus status = DNSResolveStatus::None) {
+		result.address = {};
+		for0(i, DNSAddressCapacity) result.addresses[i] = {};
+		result.address_count = 0;
+		result.answer_count = 0;
+		result.cname_count = 0;
+		result.non_address_count = 0;
+		result.ttl = 0;
+		result.status = status;
+	}
+
+	inline bool DNSAppendIPv6Address(DNSIPv6Result& result, const IPv6Address& address) {
+		if (address.isZero()) return false;
+		for0(i, result.address_count) {
+			if (result.addresses[i] == address) return false;
+		}
+		if (result.address_count >= DNSAddressCapacity) return false;
+		result.addresses[result.address_count++] = address;
+		if (result.address_count == 1) result.address = address;
+		return true;
+	}
+
 	inline void DNSClearAddressList(DNSAddressList& result, DNSResolveStatus status = DNSResolveStatus::None) {
 		for0(i, DNSAddressCapacity) result.addresses[i] = {};
 		result.address_count = 0;
 		result.status = status;
 		result.ttl = 0;
+	}
+
+	inline bool DNSAppendAddress(DNSAddressList& result, const IPv4Address& address, uint16 port = 0) {
+		if (address.isZero()) return false;
+		for0(i, result.address_count) {
+			const auto& item = result.addresses[i];
+			if (item.type == DNSRecordType::A && item.port == port && item.ipv4 == address) return false;
+		}
+		if (result.address_count >= DNSAddressCapacity) return false;
+		auto& item = result.addresses[result.address_count++];
+		item = {};
+		item.type = DNSRecordType::A;
+		item.port = port;
+		item.ipv4 = address;
+		return true;
+	}
+
+	inline bool DNSAppendAddress(DNSAddressList& result, const IPv6Address& address, uint16 port = 0) {
+		if (address.isZero()) return false;
+		for0(i, result.address_count) {
+			const auto& item = result.addresses[i];
+			if (item.type == DNSRecordType::AAAA && item.port == port && item.ipv6 == address) return false;
+		}
+		if (result.address_count >= DNSAddressCapacity) return false;
+		auto& item = result.addresses[result.address_count++];
+		item = {};
+		item.type = DNSRecordType::AAAA;
+		item.port = port;
+		item.ipv6 = address;
+		return true;
 	}
 
 	inline const char* DNSStatusName(DNSResolveStatus status) {

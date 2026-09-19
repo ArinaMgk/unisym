@@ -4,6 +4,7 @@
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 
 #include "../../../../inc/c/format/video/MPEG.h"
+#include "../../../../inc/c/algorithm/dct.h"
 #include "../../../../inc/c/ustring.h"
 #include <stdlib.h>
 
@@ -108,42 +109,8 @@ namespace {
 	};
 
 	// 2D Inverse Discrete Cosine Transform (Fixed-point IEEE-1180 precision)
-	static void Compute2D_IDCT(int* block) {
-		static const int cos_tab[8][8] = {
-			{  724,  1004,   946,   851,   724,   569,   392,   200 },
-			{  724,   851,   392,  -200,  -724, -1004,  -946,  -569 },
-			{  724,   569,  -392, -1004,  -724,   200,   946,   851 },
-			{  724,   200,  -946,  -569,   724,   851,  -392, -1004 },
-			{  724,  -200,  -946,   569,   724,  -851,  -392,  1004 },
-			{  724,  -569,  -392,  1004,  -724,  -200,   946,  -851 },
-			{  724,  -851,   392,   200,  -724,  1004,  -946,   569 },
-			{  724, -1004,   946,  -851,   724,  -569,   392,  -200 }
-		};
-
-		int temp[64];
-		// Row 1D-IDCT
-		for (int i = 0; i < 8; ++i) {
-			const int* in = block + i * 8;
-			int* out = temp + i * 8;
-			for (int j = 0; j < 8; ++j) {
-				int sum = 0;
-				for (int k = 0; k < 8; ++k) {
-					sum += in[k] * cos_tab[j][k];
-				}
-				out[j] = (sum + 1024) >> 11;
-			}
-		}
-
-		// Col 1D-IDCT
-		for (int j = 0; j < 8; ++j) {
-			for (int i = 0; i < 8; ++i) {
-				int sum = 0;
-				for (int k = 0; k < 8; ++k) {
-					sum += temp[k * 8 + j] * cos_tab[i][k];
-				}
-				block[i * 8 + j] = (sum + 1024) >> 11;
-			}
-		}
+	static inline void Compute2D_IDCT(stdsint* block) {
+		uni::IDCT::Transform(block, 8);
 	}
 
 	// Bitstream Buffer Helper
@@ -770,7 +737,7 @@ namespace {
 		uint32        curr_vframe;
 
 		int dc_dct_pred[3];
-		int recon_block[64];
+		stdsint recon_block[64];
 
 	public:
 		MPEGStream(uni::StorageTrait* st)

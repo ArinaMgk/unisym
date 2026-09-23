@@ -67,7 +67,20 @@ namespace uni {
 		//
 		UNKNOWN
 	};
-	
+
+	#ifdef _INC_CPP
+	enum class YCbCrMatrix {
+		BT601,
+		BT709,
+		BT2020_NCL
+	};
+
+	enum class YCbCrRange {
+		Full,
+		Limited
+	};
+	#endif
+
 	//[ATTR] little-endian, argb
 	struct alignas(byteof(uint32)) Color {
 		union {
@@ -101,6 +114,7 @@ namespace uni {
 
 		static Color FromRGB888(uint32 argb);
 		static Color FromBGR565(uint16 col);
+		static Color FromYCbCr(byte y, byte cb, byte cr, YCbCrMatrix matrix = YCbCrMatrix::BT601, YCbCrRange range = YCbCrRange::Full);
 
 		//{TODO} static HSLA
 

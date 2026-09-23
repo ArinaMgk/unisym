@@ -233,18 +233,6 @@ namespace {
 		}
 	}
 
-	static inline uni::Color YCbCrToColor(int y, int cb, int cr) {
-		int r = y + ((359 * (cr - 128) + 128) >> 8);
-		int g = y - ((88 * (cb - 128) + 183 * (cr - 128) + 128) >> 8);
-		int b = y + ((454 * (cb - 128) + 128) >> 8);
-		uni::Color c;
-		c.b = ClampByte(b);
-		c.g = ClampByte(g);
-		c.r = ClampByte(r);
-		c.a = 0xFF;
-		return c;
-	}
-
 	static inline uni::Color GrayToColor(int y) {
 		byte b = ClampByte(y);
 		uni::Color c;
@@ -780,7 +768,7 @@ scan_done:
 				int crSampleY = py * frame.comp_v[2] / maxV;
 				int cr = compSamples[2][crSampleY * (blocksX[2] * 8) + crSampleX];
 
-				pixels[py * frame.width + px] = YCbCrToColor(y, cb, cr);
+				pixels[py * frame.width + px] = uni::Color::FromYCbCr((byte)y, (byte)cb, (byte)cr);
 			} else {
 				int y = compSamples[0][py * (blocksX[0] * 8) + px];
 				pixels[py * frame.width + px] = GrayToColor(y);
@@ -1223,15 +1211,10 @@ uni::ImageResult uni::JPEGCodecHard::OpenSurface(
 
 // YCbCr -> RGB888 (single pixel), integer BT.601 coefficients (scaled <<10).
 static inline void YCbCrToRGB(int y, int cb, int cr, byte& r, byte& g, byte& b) {
-	int yy = y << 10;
-	int rr = yy + 1436 * (cr - 128);
-	int gg = yy - 352 * (cb - 128) - 731 * (cr - 128);
-	int bb = yy + 1815 * (cb - 128);
-	rr >>= 10; gg >>= 10; bb >>= 10;
-	if (rr < 0) rr = 0; else if (rr > 255) rr = 255;
-	if (gg < 0) gg = 0; else if (gg > 255) gg = 255;
-	if (bb < 0) bb = 0; else if (bb > 255) bb = 255;
-	r = (byte)rr; g = (byte)gg; b = (byte)bb;
+	uni::Color color = uni::Color::FromYCbCr((byte)y, (byte)cb, (byte)cr);
+	r = color.r;
+	g = color.g;
+	b = color.b;
 }
 
 uni::ImageResult uni::JPEGCodecHard::Decode(

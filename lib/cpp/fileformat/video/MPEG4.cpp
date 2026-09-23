@@ -60,26 +60,6 @@ namespace {
 		return val;
 	}
 
-	// YUV (4:2:0) to BGRA. MPEG-4 Part 2 has no range signalling: yuv420p content is
-	// video range (Y 16..235, Cb/Cr 16..240) exactly like in H.263/MPEG-2, so the range has
-	// to be expanded here. Converting as if Y were full range washes the picture out: blacks
-	// land on 16 and the contrast is scaled by 219/255, which reads as a blurry, flat image.
-	static inline uni::Color YCbCrToBGRA(int y, int cb, int cr) {
-		const int c = y - 16;
-		const int d = cb - 128;
-		const int e = cr - 128;
-		// BT.601 video range: 1.164*(Y-16) + 1.596*(Cr-128) etc, in 8.8 fixed point
-		int r = (298 * c + 409 * e + 128) >> 8;
-		int g = (298 * c - 100 * d - 208 * e + 128) >> 8;
-		int b = (298 * c + 516 * d + 128) >> 8;
-		uni::Color col;
-		col.b = (uint8)ClampByte(b);
-		col.g = (uint8)ClampByte(g);
-		col.r = (uint8)ClampByte(r);
-		col.a = 0xFF; // Fully opaque
-		return col;
-	}
-
 	static inline int Median3(int a, int b, int c) {
 		if (a > b) {
 			if (b > c) return b;
@@ -1661,7 +1641,10 @@ namespace {
 				const uint8* row_v = cur_v + (size_t)(y / 2) * chroma_stride;
 				uni::Color* dst_row = pixels + (size_t)y * width;
 				for (uint32 x = 0; x < width; ++x) {
-					dst_row[x] = YCbCrToBGRA(row_y[x], row_u[x / 2], row_v[x / 2]);
+					// MPEG-4 Part 2 has no range signalling: yuv420p content is video range
+					// exactly like in H.263/MPEG-2, so expand BT.601 limited range here.
+					dst_row[x] = uni::Color::FromYCbCr(row_y[x], row_u[x / 2], row_v[x / 2],
+						uni::YCbCrMatrix::BT601, uni::YCbCrRange::Limited);
 				}
 			}
 

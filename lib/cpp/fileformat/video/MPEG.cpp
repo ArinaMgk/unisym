@@ -1366,18 +1366,8 @@ namespace {
 					// MPEG-1 codes studio range video: luma 16..235, chroma 16..240. The
 					// matrix has to expand that onto 0..255, otherwise black stays at 16
 					// and white stops at 235 and the whole picture looks washed out.
-					int Y = (((int)py[x] - 16) * 1192) >> 10;
-					int U = pu[x / 2] - 128;
-					int V = pv[x / 2] - 128;
-
-					int r = Y + ((V * 1634) >> 10);
-					int g = Y - ((U * 401 + V * 833) >> 10);
-					int b = Y + ((U * 2066) >> 10);
-
-					dst_row[x].r = (uint8)Clamp255(r);
-					dst_row[x].g = (uint8)Clamp255(g);
-					dst_row[x].b = (uint8)Clamp255(b);
-					dst_row[x].a = 0xFF;
+					dst_row[x] = uni::Color::FromYCbCr(py[x], pu[x / 2], pv[x / 2],
+						uni::YCbCrMatrix::BT601, uni::YCbCrRange::Limited);
 				}
 			}
 

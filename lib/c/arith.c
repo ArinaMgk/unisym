@@ -24,6 +24,7 @@
 */
 
 #include "../../inc/c/arith.h"
+#include "../../inc/c/auxiliary/trigtab.h"
 #include <float.h>
 
 stduint _EFDIGS = 6;
@@ -193,68 +194,94 @@ double dblsqrt(double inp)
 	return dblpow_fexpo(inp, .5);
 }
 
-static double dblsin_recurs(double inp, int is_cos)
-{
-	// sin(x)= x - x^3/3! + x^5/5!
-	// cos(x)= 1 - x^2/2! + x^4/4!
-	stduint i = is_cos ? 1 : 2;
-	double res = is_cos ? 1 : inp;
-	double plus = is_cos ? 1 : inp;
-	const double inpsqu = inp * inp;
-	double efdigs = dblpow_iexpo(10., _EFDIGS + 2);
-	int conti = 1;
-	do
-	{
-		plus *= inpsqu * (-1) / i / (i + 1);
-		i += 2;
-		res += plus;
-		conti = dblabs(plus) * efdigs >= dblabs(res);
-	} while (conti);
-	return res;
-}
 double dblsin(double rad)
 {
-	double res = 1;
-	if (rad < 0) return -dblsin(-rad);
-	while (rad > 2 * _pi) //{TODO} f_getPartInteger, or may overlimit of stduint
-		rad -= (_IMM(rad / _pi) & ~_IMM(1)) * _pi;
-	if (rad > _pi)
-	{
-		res *= -1;
-		rad -= _pi;
-	}
-	if (rad > _pi / 2)
-		rad = (_pi) - rad;
-	if (rad > _pi / 4)
-		return res * dblsin_recurs(_pi / 2 - rad, 1);
-	if (rad == 0.0) return 0.0;// 20240527 fix-append
-	return res * dblsin_recurs(rad, 0);
+	double s, c;
+	dblsincos(rad, &s, &c);
+	return s;
 }
 double dblcos(double rad)
 {
-	double res = 1;
-	if (rad < 0) return dblcos(-rad);
-	while (rad > 2 * _pi) //{TODO} f_getPartInteger, or may overlimit of stduint
-		rad -= (_IMM(rad / _pi) & ~_IMM(1)) * _pi;
-	if (rad > _pi)
+	double s, c;
+	dblsincos(rad, &s, &c);
+	return c;
+}
+
+// ---- trigonometric range reduction ----
+// rad = n * (pi/2) + r with |r| <= pi/4, carrying pi/2 and 2/pi as double-double
+// (106 bit). The reduction error then stays on the level of the final rounding
+// instead of growing with |rad|: the former `rad -= k*pi` lost k*ulp(pi) and
+// cost about 1e-8 absolute (5.8e-3 relative) already at |rad| = 1e9.
+#define _VAL_PIO2_HI 0x1.921fb54442d18p+0
+#define _VAL_PIO2_LO 0x1.1a62633145c07p-54
+#define _VAL_2OPI_HI 0x1.45f306dc9c883p-1
+#define _VAL_2OPI_LO -0x1.6b01ec5417056p-55
+#define _VAL_TRIG_SPLIT 134217729.0 // 2^27 + 1, for the Dekker splitting
+
+// Dekker: p = a*b and e = the exact residual of that rounding
+static void dbltwoprod(double a, double b, double* p, double* e)
+{
+	double ca = _VAL_TRIG_SPLIT * a, ahi = ca - (ca - a), alo = a - ahi;
+	double cb = _VAL_TRIG_SPLIT * b, bhi = cb - (cb - b), blo = b - bhi;
+	double t = a * b;
+	*p = t;
+	*e = ((ahi * bhi - t) + ahi * blo + alo * bhi) + alo * blo;
+}
+
+void dblsincos(double rad, double* out_sin, double* out_cos)
+{
+	const double step_hi = _VAL_PIO2_HI / (double)TRIGTAB_QUARTER_N;
+	const double step_lo = _VAL_PIO2_LO / (double)TRIGTAB_QUARTER_N;
+	double q, qe, t, nf, fr, ph, pl, d, r, ar, d2, sd, cd, sinr, cosr;
+	double tab_s, tab_c, sinv, cosv;
+	stduint k;
+	int64 ni;
+	int quad;
+	// n = nearest integer of rad * (2/pi)
+	dbltwoprod(rad, _VAL_2OPI_HI, &q, &qe);
+	qe += rad * _VAL_2OPI_LO;
+	t = q + 0.5; // exact for |q| < 2^52
+	nf = dblfloor(t);
+	fr = t - nf; // exact fractional part, decides the tie together with qe
+	if (fr + qe <= 0.0) nf -= 1.0;
+	else if (fr + qe >= 1.0) nf += 1.0;
+	ni = (int64)nf;
+	quad = (int)(((ni % 4) + 4) % 4);
+	// r = rad - n * (pi/2)
+	dbltwoprod(nf, _VAL_PIO2_HI, &ph, &pl);
+	pl += nf * _VAL_PIO2_LO;
+	d = rad - ph; // exact by Sterbenz, the two operands cancel
+	r = d - pl;
+	// table + taylor for |r| <= pi/4
+	ar = r < 0 ? -r : r;
+	k = (stduint)(ar / step_hi + 0.5);
+	if (k > TRIGTAB_QUARTER_N) k = TRIGTAB_QUARTER_N;
+	dbltwoprod((double)k, step_hi, &ph, &pl);
+	d = ((ar - ph) - pl) - (double)k * step_lo;
+	d2 = d * d;
+	sd = d + d * d2 * (-1.0 / 6.0 + d2 * (1.0 / 120.0));
+	cd = 1.0 + d2 * (-1.0 / 2.0 + d2 * (1.0 / 24.0 - d2 * (1.0 / 720.0)));
+	tab_s = (double)_tab_sin_quarter[k];
+	tab_c = (double)_tab_sin_quarter[TRIGTAB_QUARTER_N - k];
+	sinr = tab_s * cd + tab_c * sd;
+	cosr = tab_c * cd - tab_s * sd;
+	if (r < 0) sinr = -sinr;
+	switch (quad)
 	{
-		res *= -1;
-		rad -= _pi;
+	case 0: sinv = sinr; cosv = cosr; break;
+	case 1: sinv = cosr; cosv = -sinr; break;
+	case 2: sinv = -sinr; cosv = -cosr; break;
+	default: sinv = -cosr; cosv = sinr; break;
 	}
-	if (rad > _pi / 2)
-	{
-		res *= -1;
-		rad = _pi - rad;
-	}
-	if (rad > _pi / 4)
-		return res * dblsin_recurs(_pi / 2 - rad, 0);
-	if (rad == 0.0) return 1.0;// 20240527 fix-append
-	return res * dblsin_recurs(rad, 1);
+	if (out_sin) *out_sin = sinv;
+	if (out_cos) *out_cos = cosv;
 }
 
 double dbltan(double rad)
 {
-	return dblsin(rad) / dblcos(rad);
+	double s, c;
+	dblsincos(rad, &s, &c);
+	return s / c;
 }
 
 // asin(x) = \Int_0^x{dt/sqrt(1-t^2)}

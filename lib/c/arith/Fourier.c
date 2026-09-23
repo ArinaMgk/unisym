@@ -30,8 +30,16 @@ static void dflFourier_recurs(dfloat* dat, stduint siz, double(*_loc_sin)(double
 		stduint butterfly_distance = 1 << i;
 		dfloat xtmp, ytmp;
 		xtmp.real = 1.0; xtmp.imag = 0.0; // cofficient of butterfly
-		ytmp.real = _loc_cos(_VAL_PI / (butterfly_distance / 2));
-		ytmp.imag = -_loc_sin(_VAL_PI / (butterfly_distance / 2));
+		double angle = _VAL_PI / (butterfly_distance / 2);
+		if (_loc_sin) {
+			ytmp.real = _loc_cos(angle);
+			ytmp.imag = -_loc_sin(angle);
+		} else {
+			double s, c;
+			dblsincos(angle, &s, &c);
+			ytmp.real = c;
+			ytmp.imag = -s;
+		}
 		for0(j, butterfly_distance / 2) {
 			for (stduint k = j; k < siz; k += butterfly_distance) {
 				const stduint ip = k + butterfly_distance / 2;
@@ -46,7 +54,6 @@ static void dflFourier_recurs(dfloat* dat, stduint siz, double(*_loc_sin)(double
 
 void dflFourier(dfloat* dat, stduint exp, double(*_loc_sin)(double))
 {
-	if (!_loc_sin) _loc_sin = dblsin;
 	if (!exp) return; // size 1
 	// dfloat 
 	stduint siz = intpow2_iexpo(exp);
@@ -75,7 +82,6 @@ void dflFourier(dfloat* dat, stduint exp, double(*_loc_sin)(double))
 
 void dflFourierFromWord(word* ori_dat, dfloat* dat, stduint exp, double(*_loc_sin)(double))
 {
-	if (!_loc_sin) _loc_sin = dblsin;
 	if (!exp) return; // size 1
 	// dfloat 
 	stduint siz = intpow2_iexpo(exp);

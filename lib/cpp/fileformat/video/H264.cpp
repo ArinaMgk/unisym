@@ -9470,38 +9470,16 @@ void H264_DeblockFrame(
 	}
 }
 
-// YCbCr -> BGRA for the decoded planes.  The matrix and the sample range come from the active
+// The matrix and the sample range come from the active
 // SPS's video_signal_type() (H.264 E.1.1): hardcoding BT.601 shifted every pixel of a BT.709
 // stream by up to 9 levels - measured on wind.mp4, whose VUI carries matrix_coefficients 1,
 // BT.601 gives an RGB MAE of 5.32 against the reference decoder and BT.709 gives 1.00.  An
 // absent or unspecified matrix_coefficients keeps BT.601, which is what a stream without a
 // colour description has always been interpreted with.  The coefficients are scaled by 256.
-static inline uni::Color YCbCrToBGRA(int y, int cb, int cr, int matrix, int full_range) {
-	int cr_r, cb_g, cr_g, cb_b;
-	if (full_range) {
-		if (matrix == 1) { cr_r = 403; cb_g = 48; cr_g = 120; cb_b = 475; }
-		else if (matrix == 9) { cr_r = 378; cb_g = 42; cr_g = 146; cb_b = 482; }
-		else { cr_r = 359; cb_g = 88; cr_g = 183; cb_b = 454; }
-	} else {
-		if (matrix == 1) { cr_r = 459; cb_g = 55; cr_g = 136; cb_b = 541; }
-		else if (matrix == 9) { cr_r = 430; cb_g = 48; cr_g = 167; cb_b = 548; }
-		else { cr_r = 409; cb_g = 100; cr_g = 208; cb_b = 516; }
-	}
-	// 1.164 for the limited range, 1.0 for the full range.
-	const int y_scale = full_range ? 256 : 298;
-	int c = y - (full_range ? 0 : 16);
-	if (c < 0) c = 0;
-	int d = cb - 128;
-	int e = cr - 128;
-	int r = (y_scale * c + cr_r * e + 128) >> 8;
-	int g = (y_scale * c - cb_g * d - cr_g * e + 128) >> 8;
-	int b = (y_scale * c + cb_b * d + 128) >> 8;
-	uni::Color clr;
-	clr.b = Clip8(b);
-	clr.g = Clip8(g);
-	clr.r = Clip8(r);
-	clr.a = 0xFF;
-	return clr;
+static inline uni::YCbCrMatrix H264YCbCrMatrix(int matrix) {
+	if (matrix == 1) return uni::YCbCrMatrix::BT709;
+	if (matrix == 9) return uni::YCbCrMatrix::BT2020_NCL;
+	return uni::YCbCrMatrix::BT601;
 }
 
 class H264DecoderImpl {
@@ -9740,8 +9718,9 @@ public:
 			const uint8* row_v = q.v + (size_t)(y / 2) * uv_stride;
 			uni::Color* dst_row = pixels + (size_t)y * pic_w;
 			for (int x = 0; x < pic_w; ++x) {
-				dst_row[x] = YCbCrToBGRA(row_y[x], row_u[x / 2], row_v[x / 2],
-										 (int)sps->matrix_coefficients, (int)sps->video_full_range_flag);
+				dst_row[x] = uni::Color::FromYCbCr(row_y[x], row_u[x / 2], row_v[x / 2],
+					H264YCbCrMatrix((int)sps->matrix_coefficients),
+					sps->video_full_range_flag ? uni::YCbCrRange::Full : uni::YCbCrRange::Limited);
 			}
 		}
 
@@ -10737,8 +10716,9 @@ public:
 			const uint8* row_v = cur_v + (size_t)(y / 2) * uv_stride;
 			uni::Color* dst_row = pixels + (size_t)y * pic_w;
 			for (int x = 0; x < pic_w; ++x) {
-				dst_row[x] = YCbCrToBGRA(row_y[x], row_u[x / 2], row_v[x / 2],
-										 (int)sps->matrix_coefficients, (int)sps->video_full_range_flag);
+				dst_row[x] = uni::Color::FromYCbCr(row_y[x], row_u[x / 2], row_v[x / 2],
+					H264YCbCrMatrix((int)sps->matrix_coefficients),
+					sps->video_full_range_flag ? uni::YCbCrRange::Full : uni::YCbCrRange::Limited);
 			}
 		}
 

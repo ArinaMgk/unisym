@@ -23,6 +23,12 @@
 #include "../../inc/c/graphic/color.h"
 
 namespace uni {
+	static inline byte ColorClipByte(int value) {
+		if (value < 0) return 0;
+		if (value > 255) return 255;
+		return (byte)value;
+	}
+
 	Color Color::FromRGB888(uint32 argb) {
 		Color color = *(Color*)&argb;
 		if (argb && !(argb & 0xFF000000)) argb |= 0xFF000000u;
@@ -34,6 +40,40 @@ namespace uni {
 		color.b = (col) & 0x1F;
 		color.g = (col >> 5) & 0x3F;
 		color.r = (col >> 11) & 0x1F;
+		return color;
+	}
+
+	Color Color::FromYCbCr(byte y, byte cb, byte cr, YCbCrMatrix matrix, YCbCrRange range) {
+		int cr_r, cb_g, cr_g, cb_b;
+		if (range == YCbCrRange::Full) {
+			if (matrix == YCbCrMatrix::BT709) {
+				cr_r = 403; cb_g = 48; cr_g = 120; cb_b = 475;
+			} else if (matrix == YCbCrMatrix::BT2020_NCL) {
+				cr_r = 378; cb_g = 42; cr_g = 146; cb_b = 482;
+			} else {
+				cr_r = 359; cb_g = 88; cr_g = 183; cb_b = 454;
+			}
+		} else {
+			if (matrix == YCbCrMatrix::BT709) {
+				cr_r = 459; cb_g = 55; cr_g = 136; cb_b = 541;
+			} else if (matrix == YCbCrMatrix::BT2020_NCL) {
+				cr_r = 430; cb_g = 48; cr_g = 167; cb_b = 548;
+			} else {
+				cr_r = 409; cb_g = 100; cr_g = 208; cb_b = 516;
+			}
+		}
+
+		const int y_scale = (range == YCbCrRange::Full) ? 256 : 298;
+		int c = (int)y - ((range == YCbCrRange::Full) ? 0 : 16);
+		if (c < 0) c = 0;
+		int d = (int)cb - 128;
+		int e = (int)cr - 128;
+
+		Color color;
+		color.r = ColorClipByte((y_scale * c + cr_r * e + 128) >> 8);
+		color.g = ColorClipByte((y_scale * c - cb_g * d - cr_g * e + 128) >> 8);
+		color.b = ColorClipByte((y_scale * c + cb_b * d + 128) >> 8);
+		color.a = 0xFF;
 		return color;
 	}
 }

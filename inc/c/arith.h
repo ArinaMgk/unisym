@@ -322,6 +322,7 @@ long double hypotl(long double x, long double y);
 
 // ---- angle ----
 
+void dblsincos(double rad, double* out_sin, double* out_cos);
 double dblsin(double rad);
 #if defined(_USE_INNER_MATH)
 #define sinf dblsin // TEMP no float ver

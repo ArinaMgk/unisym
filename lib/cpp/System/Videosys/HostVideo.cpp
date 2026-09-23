@@ -8,6 +8,8 @@
 #include "../../../../inc/c/format/video/AVI.h"
 #include "../../../../inc/c/format/video/MPEG.h"
 #include "../../../../inc/c/format/video/MPEG4.h"
+#include "../../../../inc/c/format/video/H264.h"
+#include "../../../../inc/c/format/video/MP4.h"
 #include "../../../../inc/c/ustring.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -295,7 +297,23 @@ namespace uni {
 				return mpeg4_codec.OpenStream(storage, outStream, allocator);
 			}
 		}
-		// Fallback: try AVI OpenStream, then MPEG OpenStream
+		// 4. Try H.264 probe
+		{
+			uni::H264Codec h264_codec;
+			bool matched = false;
+			if (h264_codec.Probe(storage, matched) == uni::VideoResult::OK && matched) {
+				return h264_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
+		// 5. Try MP4 / ISOBMFF probe
+		{
+			uni::MP4Codec mp4_codec;
+			bool matched = false;
+			if (mp4_codec.Probe(storage, matched) == uni::VideoResult::OK && matched) {
+				return mp4_codec.OpenStream(storage, outStream, allocator);
+			}
+		}
+		// Fallback: try AVI OpenStream, then MPEG OpenStream, then MP4 OpenStream
 		{
 			uni::AVICodec avi_codec;
 			uni::VideoResult res = avi_codec.OpenStream(storage, outStream, allocator);
@@ -309,6 +327,11 @@ namespace uni {
 		{
 			uni::MPEG4Codec mpeg4_codec;
 			uni::VideoResult res = mpeg4_codec.OpenStream(storage, outStream, allocator);
+			if (res == uni::VideoResult::OK && outStream) return res;
+		}
+		{
+			uni::MP4Codec mp4_codec;
+			uni::VideoResult res = mp4_codec.OpenStream(storage, outStream, allocator);
 			if (res == uni::VideoResult::OK && outStream) return res;
 		}
 		return uni::VideoResult::Unsupported;

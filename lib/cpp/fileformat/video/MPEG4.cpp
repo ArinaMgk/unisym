@@ -29,9 +29,8 @@
 //    escape modes; escape mode 3 is last(1) run(6) marker(1) level(12) marker(1).
 //
 // The VLC tables below are generated from, and validated against, the tables of
-// ISO/IEC 14496-2 Annex B as used by FFmpeg (libavcodec/h263data.c, mpeg4data.h) and
-// Xvid (src/bitstream/vlc_codes.*). Never hand-edit them: a single wrong code or length
-// silently destroys the whole picture.
+// ISO/IEC 14496-2 Annex B and Xvid (src/bitstream/vlc_codes.*). 
+// Never hand - edit them : a single wrong code or length silently destroys the whole picture.
 
 #include "../../../../inc/c/format/video/MPEG4.h"
 #include "../../../../inc/c/algorithm/dct.h"

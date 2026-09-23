@@ -1,7 +1,8 @@
 // ASCII C/C++ TAB4 CRLF
-// Docutitle: MPEG Audio Layer III (MP3) Codec Implementation
+// Docutitle: [Filefmt.Audio] MPEG Audio Layer III (MP3) Codec Implementation
 // Attribute: Env-Freestanding Non-Dependence
 // Copyright: UNISYM
+// Reference: minimp3 (github.com/lieff/minimp3), released under CC0-1.0.
 
 #include "../../../../inc/c/format/audio/MP3.h"
 #include "../../../../inc/c/ustring.h"

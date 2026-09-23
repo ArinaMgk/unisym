@@ -23,12 +23,14 @@ including not only implementation, library, tool-kits, chroming engine and demon
 - Hierarchical Data System: `HERNOT` and public `HEREPC`
     - Herepic
         - Style Color: <font color="#FF619D">Herpink</font> <!-- (R255, G97, B157, #double-0.618)  -->
-        - (OK)TeX&PDF, ( )HTML, ( )Markdown
+        - TeX&PDF, HTML, Markdown
 - `HERPRO` and static `HERDAT`
     - opensrc **UNISYM** (this Abstract Centre, Apache), up-to chip-level `arch-objfmt-env`
 		- `IBM.BIOS` **Kasha** Static BIOS Assembly Macro Package (UNDONE.SUSPEND)
 		- `Embedded` HAL for Cortex Series MCU/MPU
-		- `Compiler` Magice(`mgc`) with AASM(`aasm`)
+		- `Compiler`
+			- Magice ([`mgc`](magice.org)) : Magrk and CC
+			- AASM(`aasm`) x86&x64
 			- doscon.io/COTLAB(`cot`)
 		- (Linker)
 		- (Wel)

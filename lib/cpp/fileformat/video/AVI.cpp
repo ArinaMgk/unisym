@@ -5,6 +5,7 @@
 
 #include "../../../../inc/c/format/video/AVI.h"
 #include "../../../../inc/c/format/video/MPEG4.h"
+#include "../../../../inc/c/format/video/H264.h"
 #include "../../../../inc/c/format/audio/MP3.h"
 #include "../../../../inc/c/format/picture/JPEG.h"
 #include "../../../../inc/c/ustring.h"
@@ -153,6 +154,10 @@ namespace {
 		uint32       v_frame_count;
 		uint32       v_frame_cap;
 		uint32       curr_vframe;
+		// Frames handed to the caller.  An H.264 decoder releases pictures in display order, so it
+		// may consume several chunks before a picture is due; the timestamp follows the delivered
+		// frame, not the chunk that happened to complete it.
+		uint32       curr_oframe;
 
 		AVIChunkRef* a_chunks;
 		uint32       a_chunk_count;
@@ -161,6 +166,7 @@ namespace {
 		uint32       curr_achunk_offset;
 
 		void*        mpeg4_decoder;
+		void*        h264_decoder;
 
 		// compressed audio stream (MPEG audio in AVI), rebuilt as one contiguous buffer
 		byte*               audio_es;
@@ -214,9 +220,9 @@ namespace {
 			  v_width(0), v_height(0), v_bits_per_pixel(24),
 			  a_stream_idx((uint32)-1), a_format_tag(0), a_channels(0),
 			  a_sample_rate(0), a_bits_per_sample(0), a_block_align(0),
-			  v_frames(nullptr), v_frame_count(0), v_frame_cap(0), curr_vframe(0),
+			  v_frames(nullptr), v_frame_count(0), v_frame_cap(0), curr_vframe(0), curr_oframe(0),
 			  a_chunks(nullptr), a_chunk_count(0), a_chunk_cap(0), curr_achunk(0),
-			  curr_achunk_offset(0), mpeg4_decoder(nullptr),
+			  curr_achunk_offset(0), mpeg4_decoder(nullptr), h264_decoder(nullptr),
 			  audio_es(nullptr), audio_es_len(0), audio_storage(nullptr), audio_stream(nullptr),
 			  audio_metadata_only(false) {
 		}
@@ -241,6 +247,10 @@ namespace {
 			if (mpeg4_decoder) {
 				MPEG4Decoder_Destroy(mpeg4_decoder);
 				mpeg4_decoder = nullptr;
+			}
+			if (h264_decoder) {
+				H264Decoder_Destroy(h264_decoder);
+				h264_decoder = nullptr;
 			}
 			if (v_frames) {
 				free(v_frames);
@@ -476,8 +486,11 @@ namespace {
 				info.videoFormat.codec_type = uni::VideoCodecType::MPEG1;
 			} else if (v_fourcc == AVI_FOURCC_MPG2) {
 				info.videoFormat.codec_type = uni::VideoCodecType::MPEG2;
-			} else if (v_fourcc == AVI_FOURCC_H264 || v_fourcc == AVI_FOURCC_h264) {
+			} else if (v_fourcc == AVI_FOURCC_H264 || v_fourcc == AVI_FOURCC_h264 ||
+					   v_fourcc == AVI_FOURCC_AVC1 || v_fourcc == AVI_FOURCC_avc1 ||
+					   v_fourcc == AVI_FOURCC_X264 || v_fourcc == AVI_FOURCC_x264) {
 				info.videoFormat.codec_type = uni::VideoCodecType::H264;
+				if (!h264_decoder) h264_decoder = H264Decoder_Create((int)v_width, (int)v_height);
 			} else {
 				info.videoFormat.codec_type = uni::VideoCodecType::MJPEG; // default guess
 			}
@@ -578,38 +591,53 @@ namespace {
 		}
 
 		virtual uni::VideoResult ReadVideoFrame(uni::VideoFrame& outFrame, uni::trait::Malloc& alloc) override {
-			// AVI files may carry empty chunks (an index entry without payload); skip them
-			// instead of reporting a failed frame.
-			while (curr_vframe < v_frame_count && v_frames[curr_vframe].length == 0) {
-				curr_vframe++;
-			}
-			if (curr_vframe >= v_frame_count) {
-				return uni::VideoResult::EndOfStream;
-			}
-
-			const AVIChunkRef& chunk = v_frames[curr_vframe];
-
-			byte* chunk_data = (byte*)malloc(chunk.length);
-			if (!chunk_data) {
-				return uni::VideoResult::OutOfMemory;
-			}
-
-			if (!StorageReadExact(*storage, chunk.offset, chunk_data, chunk.length)) {
-				free(chunk_data);
-				return uni::VideoResult::IoError;
-			}
-
 			int out_w = 0;
 			int out_h = 0;
 			uni::Color* pixels = nullptr;
+			int frame_type = 0;
+			bool chunk_is_key = true;
 
-			if (info.videoFormat.codec_type == uni::VideoCodecType::MJPEG) {
-				pixels = DecodeJPEG(chunk_data, chunk.length, &out_w, &out_h);
-			} else if (info.videoFormat.codec_type == uni::VideoCodecType::MPEG4) {
-				if (!mpeg4_decoder) mpeg4_decoder = MPEG4Decoder_Create((int)v_width, (int)v_height);
-				int vop_type = 0;
-				pixels = MPEG4Decoder_DecodeFrame(mpeg4_decoder, chunk_data, chunk.length, &out_w, &out_h, &vop_type);
-			} else if (info.videoFormat.codec_type == uni::VideoCodecType::RGB) {
+			// An H.264 decoder releases pictures in display order, so a chunk can be consumed
+			// without a picture being due, and pictures stay buffered once the last chunk has been
+			// read: keep feeding chunks, and drain them with a null chunk at the end.
+			while (!pixels) {
+				// AVI files may carry empty chunks (an index entry without payload); skip them
+				// instead of reporting a failed frame.
+				while (curr_vframe < v_frame_count && v_frames[curr_vframe].length == 0) {
+					curr_vframe++;
+				}
+				if (curr_vframe >= v_frame_count) {
+					if (!h264_decoder) return uni::VideoResult::EndOfStream;
+					pixels = H264Decoder_DecodeFrame(h264_decoder, nullptr, 0, &out_w, &out_h, &frame_type);
+					if (!pixels) return uni::VideoResult::EndOfStream;
+					break;
+				}
+
+				const AVIChunkRef& chunk = v_frames[curr_vframe];
+				chunk_is_key = (chunk.flags & AVIIF_KEYFRAME) != 0;
+				curr_vframe++;
+
+				byte* chunk_data = (byte*)malloc(chunk.length);
+				if (!chunk_data) {
+					return uni::VideoResult::OutOfMemory;
+				}
+
+				if (!StorageReadExact(*storage, chunk.offset, chunk_data, chunk.length)) {
+					free(chunk_data);
+					return uni::VideoResult::IoError;
+				}
+
+				if (info.videoFormat.codec_type == uni::VideoCodecType::MJPEG) {
+					pixels = DecodeJPEG(chunk_data, chunk.length, &out_w, &out_h);
+				} else if (info.videoFormat.codec_type == uni::VideoCodecType::MPEG4) {
+					if (!mpeg4_decoder) mpeg4_decoder = MPEG4Decoder_Create((int)v_width, (int)v_height);
+					int vop_type = 0;
+					pixels = MPEG4Decoder_DecodeFrame(mpeg4_decoder, chunk_data, chunk.length, &out_w, &out_h, &vop_type);
+				} else if (info.videoFormat.codec_type == uni::VideoCodecType::H264) {
+					if (!h264_decoder) h264_decoder = H264Decoder_Create((int)v_width, (int)v_height);
+					pixels = H264Decoder_DecodeFrame(h264_decoder, chunk_data, chunk.length, &out_w, &out_h, &frame_type);
+					chunk_is_key = (frame_type == 0);
+				} else if (info.videoFormat.codec_type == uni::VideoCodecType::RGB) {
 				// Raw BMP/DIB frame
 				out_w = (int)v_width;
 				out_h = (int)v_height;
@@ -644,18 +672,18 @@ namespace {
 			}
 
 			free(chunk_data);
+			}
 
 			if (!pixels) {
-				curr_vframe++;
 				return uni::VideoResult::Failed;
 			}
 
 			uni::VideoFrameClear(outFrame);
 			outFrame.width = (uint32)out_w;
 			outFrame.height = (uint32)out_h;
-			outFrame.timestampMs = (uint32)(((uint64)curr_vframe * 1000ULL * (v_scale ? v_scale : 1)) / (v_rate ? v_rate : 30));
-			outFrame.frameIndex = curr_vframe;
-			outFrame.isKeyFrame = (chunk.flags & AVIIF_KEYFRAME) != 0;
+			outFrame.timestampMs = (uint32)(((uint64)curr_oframe * 1000ULL * (v_scale ? v_scale : 1)) / (v_rate ? v_rate : 30));
+			outFrame.frameIndex = curr_oframe;
+			outFrame.isKeyFrame = chunk_is_key;
 
 			outFrame.image.width = (uint32)out_w;
 			outFrame.image.height = (uint32)out_h;
@@ -666,7 +694,7 @@ namespace {
 			outFrame.image.size = (size_t)out_w * (size_t)out_h * sizeof(uni::Color);
 			outFrame.image.allocator = nullptr; // managed / freed via free() or VideoFrameFree
 
-			curr_vframe++;
+			curr_oframe++;
 			return uni::VideoResult::OK;
 		}
 
@@ -754,6 +782,7 @@ namespace {
 				curr_vframe = frameIndex;
 			}
 			if (curr_vframe < frameIndex) curr_vframe = frameIndex;
+			curr_oframe = frameIndex;
 
 			// Approximate audio position
 			if (audio_stream) {

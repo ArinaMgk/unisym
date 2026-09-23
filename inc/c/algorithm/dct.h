@@ -24,6 +24,7 @@
 #define _INC_ALGORITHM_DCT
 
 #include "../stdinc.h"
+#include "../ustdbool.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,6 +38,20 @@ void IDCT_Transform(stdsint block[], unsigned n);
 // 2D Forward Discrete Cosine Transform for NxN block
 void DCT_Transform(stdsint block[], unsigned n);
 
+// --- H.264 / AVC Integer & Hadamard Transforms ---
+
+// H.264 4x4 Core Inverse Integer Transform (ITU-T H.264 8.5.12)
+void IDCT_H264_4x4(const stdsint in_scaled[16], stdsint out_residual[16]);
+
+// H.264 4x4 Luma DC Inverse Hadamard Transform & Scaling (ITU-T H.264 8.5.6)
+void Hadamard_H264_4x4(const stdsint in_dc[16], int qp, stdsint out_scaled_dc[16]);
+
+// H.264 2x2 Chroma DC Inverse Hadamard Transform & Scaling (ITU-T H.264 8.5.7)
+void Hadamard_H264_2x2(const stdsint in_dc[4], int qp, stdsint out_scaled_dc[4]);
+
+// H.264 4x4 Dequantization (ITU-T H.264 8.5.12)
+void Dequant_H264_4x4(const int16 in_coeffs[16], int qp, bool is_dc_present, stdsint out_scaled[16]);
+
 #ifdef __cplusplus
 }
 
@@ -45,10 +60,21 @@ namespace uni {
 		inline void Transform(stdsint block[], unsigned n) {
 			IDCT_Transform(block, n);
 		}
+		inline void H264_4x4(const stdsint in_scaled[16], stdsint out_residual[16]) {
+			IDCT_H264_4x4(in_scaled, out_residual);
+		}
 	}
 	namespace DCT {
 		inline void Transform(stdsint block[], unsigned n) {
 			DCT_Transform(block, n);
+		}
+	}
+	namespace Hadamard {
+		inline void H264_4x4(const stdsint in_dc[16], int qp, stdsint out_scaled_dc[16]) {
+			Hadamard_H264_4x4(in_dc, qp, out_scaled_dc);
+		}
+		inline void H264_2x2(const stdsint in_dc[4], int qp, stdsint out_scaled_dc[4]) {
+			Hadamard_H264_2x2(in_dc, qp, out_scaled_dc);
 		}
 	}
 }
@@ -56,6 +82,9 @@ namespace uni {
 namespace IDCT {
 	inline void Transform(stdsint block[], unsigned n) {
 		IDCT_Transform(block, n);
+	}
+	inline void H264_4x4(const stdsint in_scaled[16], stdsint out_residual[16]) {
+		IDCT_H264_4x4(in_scaled, out_residual);
 	}
 }
 

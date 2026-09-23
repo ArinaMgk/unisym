@@ -37,6 +37,7 @@ namespace uni {
 		MP3,
 		FLAC,
 		OGG,
+		AAC,
 	};
 
 	struct AudioFormat {

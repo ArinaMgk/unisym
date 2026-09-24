@@ -9,6 +9,7 @@
 
 #include "../../../../inc/c/format/audio/AAC.h"
 #include "../../../../inc/c/ustring.h"
+#include "../../../../inc/c/arith.h"
 
 #if defined(_INC_CPP)
 
@@ -622,44 +623,6 @@ static inline float aac_fabs(float x) {
 	return (x < 0.0f) ? -x : x;
 }
 
-// Square root by Newton iteration.  The only caller needs it for values in (0, 1], and the
-// codec is freestanding, so it cannot reach for the library's sqrt.
-static inline double aac_sqrt(double x) {
-	if (x <= 0.0) return 0.0;
-	double r = 1.0;
-	while (r * r > x * 4.0) r *= 0.5;
-	while (r * r < x * 0.25) r *= 2.0;
-	for (int i = 0; i < 20; ++i) r = 0.5 * (r + x / r);
-	return r;
-}
-
-static inline double aac_cos(double x) {
-	const double pi = 3.14159265358979323846;
-	const double two_pi = 6.28318530717958647692;
-	if (x < 0) x = -x;
-	while (x >= two_pi) x -= two_pi;
-	if (x > pi) x = two_pi - x;
-	if (x > pi * 0.5) return -aac_cos(pi - x);
-
-	double x2 = x * x;
-	double term = 1.0;
-	double sum = 1.0;
-
-	term *= -x2 / (1.0 * 2.0); sum += term;
-	term *= -x2 / (3.0 * 4.0); sum += term;
-	term *= -x2 / (5.0 * 6.0); sum += term;
-	term *= -x2 / (7.0 * 8.0); sum += term;
-	term *= -x2 / (9.0 * 10.0); sum += term;
-	term *= -x2 / (11.0 * 12.0); sum += term;
-	term *= -x2 / (13.0 * 14.0); sum += term;
-	return sum;
-}
-
-static inline double aac_sin(double x) {
-	const double pi = 3.14159265358979323846;
-	return aac_cos(0.5 * pi - x);
-}
-
 static inline float aac_pow2_quarter(int exp_quarter) {
 	int n = exp_quarter >> 2;
 	int rem = exp_quarter & 3;
@@ -806,14 +769,14 @@ static void AAC_KbdWindow(float* window, double alpha, int n) {
 		window[i] = (float)sum;
 	}
 	sum += 1.0;
-	for (int i = 0; i < n; ++i) window[i] = (float)aac_sqrt((double)window[i] / sum);
+	for (int i = 0; i < n; ++i) window[i] = (float)dblsqrt((double)window[i] / sum);
 }
 
 static void InitAACWindow() {
 	if (aac_win_inited) return;
 	const double pi = 3.14159265358979323846;
-	for (int i = 0; i < 1024; ++i) aac_win_long[0][i] = (float)aac_sin(pi / 2048.0 * (i + 0.5));
-	for (int i = 0; i < 128; ++i) aac_win_short[0][i] = (float)aac_sin(pi / 256.0 * (i + 0.5));
+	for (int i = 0; i < 1024; ++i) aac_win_long[0][i] = (float)dblsin(pi / 2048.0 * (i + 0.5));
+	for (int i = 0; i < 128; ++i) aac_win_short[0][i] = (float)dblsin(pi / 256.0 * (i + 0.5));
 	AAC_KbdWindow(aac_win_long[1], 4.0, 1024);
 	AAC_KbdWindow(aac_win_short[1], 6.0, 128);
 	/* Precompute discrete cosine LUT for 2048-point IMDCT:
@@ -822,7 +785,7 @@ static void InitAACWindow() {
 	 * For N = 2048: theta(n, k) = (pi / 4096) * (2n + 1025) * (2k + 1).
 	 * Period 2*pi corresponds to 8192 discrete angle bins. */
 	for (int i = 0; i < 8192; ++i) {
-		aac_cos_lut[i] = (float)aac_cos(2.0 * pi / 8192.0 * (double)i);
+		aac_cos_lut[i] = (float)dblcos(2.0 * pi / 8192.0 * (double)i);
 	}
 	aac_win_inited = true;
 }
@@ -907,7 +870,7 @@ static void AAC_TnsDecodeCoef(int order, int coef_res_bits, int coef_compress,
 
 	for (int i = 0; i < order; ++i) {
 		tmp[i] = (coef[i] & s_mask) ? (coef[i] | n_mask) : coef[i];
-		tmp2[i] = (float)aac_sin(tmp[i] / ((tmp[i] >= 0) ? iqfac : iqfac_m));
+		tmp2[i] = (float)dblsin(tmp[i] / ((tmp[i] >= 0) ? iqfac : iqfac_m));
 	}
 
 	a[0] = 1.0f;

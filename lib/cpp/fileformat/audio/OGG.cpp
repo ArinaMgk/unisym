@@ -1599,54 +1599,12 @@ namespace ogg {
 	// =========================================================================
 	namespace Trig {
 
-		// Self-contained sin/cos for the Vorbis window and the IMDCT cosine table.
-		//
-		// Deliberately NOT unisym's dblsin/dblcos from lib/c/arith.c: those are the
-		// freestanding "TEMP" implementations whose Taylor loop terminates on a test
-		// involving the global _EFDIGS, so the number of terms actually summed (and
-		// therefore the accuracy) depends on runtime state. The window and the cosine
-		// table must be good to float precision; if they are not, the decoded
-		// spectrum comes out as noise whose magnitude no single scale factor fixes.
 		constexpr double kPi = 3.14159265358979323846264338327950288;
 		constexpr double kHalfPi = 1.57079632679489661923132169163975144;
 
-		// Reduce x to r in [-pi/4, pi/4] plus a quadrant, then sum a FIXED number of
-		// Taylor terms (8 for sin up to r^15/15!, 9 for cos up to r^16/16!). On
-		// |r| <= pi/4 the truncation error is below 1e-16, far under float precision.
-		inline void SinCos(double x, double& s, double& c) {
-			long long q = (long long)(x / kHalfPi + ((x < 0.0) ? -0.5 : 0.5));
-			double r = x - (double)q * kHalfPi;
-			double r2 = r * r;
-
-			double ps = r, ss = r;
-			ps *= -r2 / 6.0;    ss += ps;   // r^3 / 3!
-			ps *= -r2 / 20.0;   ss += ps;   // r^5 / 5!
-			ps *= -r2 / 42.0;   ss += ps;   // r^7 / 7!
-			ps *= -r2 / 72.0;   ss += ps;   // r^9 / 9!
-			ps *= -r2 / 110.0;  ss += ps;   // r^11 / 11!
-			ps *= -r2 / 156.0;  ss += ps;   // r^13 / 13!
-			ps *= -r2 / 210.0;  ss += ps;   // r^15 / 15!
-
-			double pc = 1.0, cc = 1.0;
-			pc *= -r2 / 2.0;    cc += pc;   // r^2 / 2!
-			pc *= -r2 / 12.0;   cc += pc;   // r^4 / 4!
-			pc *= -r2 / 30.0;   cc += pc;   // r^6 / 6!
-			pc *= -r2 / 56.0;   cc += pc;   // r^8 / 8!
-			pc *= -r2 / 90.0;   cc += pc;   // r^10 / 10!
-			pc *= -r2 / 132.0;  cc += pc;   // r^12 / 12!
-			pc *= -r2 / 182.0;  cc += pc;   // r^14 / 14!
-			pc *= -r2 / 240.0;  cc += pc;   // r^16 / 16!
-
-			switch (q & 3) {
-			case 0:  s =  ss; c =  cc; break;
-			case 1:  s =  cc; c = -ss; break;
-			case 2:  s = -ss; c = -cc; break;
-			default: s = -cc; c =  ss; break;
-			}
-		}
-
-		inline double Sin(double x) { double s, c; SinCos(x, s, c); return s; }
-		inline double Cos(double x) { double s, c; SinCos(x, s, c); return c; }
+		inline void SinCos(double x, double& s, double& c) { dblsincos(x, &s, &c); }
+		inline double Sin(double x) { return dblsin(x); }
+		inline double Cos(double x) { return dblcos(x); }
 
 	} // namespace Trig
 

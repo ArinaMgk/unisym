@@ -666,6 +666,21 @@
               <FileType>1</FileType>
               <FilePath>..\..\c\ustring\astring\salc.c</FilePath>
             </File>
+            <File>
+              <FileName>dct.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\arith\dct.c</FilePath>
+            </File>
+            <File>
+              <FileName>arith.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\arith.c</FilePath>
+            </File>
+            <File>
+              <FileName>trigtab.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\auxiliary\trigtab.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1158,6 +1173,31 @@
               <FileName>FLAC.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\fileformat\audio\FLAC.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Movie</GroupName>
+          <Files>
+            <File>
+              <FileName>AVI.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\fileformat\video\AVI.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>H264.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\fileformat\video\H264.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>MPEG.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\fileformat\video\MPEG.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>MPEG4.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\fileformat\video\MPEG4.cpp</FilePath>
             </File>
           </Files>
         </Group>

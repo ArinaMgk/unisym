@@ -181,6 +181,7 @@ long double expl(long double val);
 #endif
 
 //{}  ldexp
+double dblldexp(double val, int expo);
 #if defined(_USE_INNER_MATH)
 #define ldexpf dblldexp // TEMP no float ver
 #else
@@ -190,6 +191,7 @@ long double ldexpl(long double val, int exp);
 #endif
 
 //{} exp2 (by bits logical)
+double dblexp2(double val);
 #if defined(_USE_INNER_MATH)
 #define exp2f dblexp2 // TEMP no float ver
 #else
@@ -198,6 +200,7 @@ double exp2(double val);
 long double exp2l(long double val);
 #endif
 //{} expml ? m1 ?
+double dblexpm1(double val);
 #if defined(_USE_INNER_MATH)
 #define expm1f dblexpm1 // TEMP no float ver
 #else
@@ -227,6 +230,7 @@ double log10(double val);
 long double log10l(long double val);
 #endif
 //{} log2
+double dbllog2(double val);
 #if defined(_USE_INNER_MATH)
 #define log2f dbllog2 // TEMP no float ver
 #else
@@ -234,7 +238,7 @@ float log2f(float val);
 double log2(double val);
 long double log2l(long double val);
 #endif
-//{} log1p
+double dbllog1p(double val);
 #if defined(_USE_INNER_MATH)
 #define log1pf dbllog1p // TEMP no float ver
 #else
@@ -243,6 +247,7 @@ double log1p(double val);
 long double log1pl(long double val);
 #endif
 //{} logb
+double dbllogb(double val);
 #if defined(_USE_INNER_MATH)
 #define logbf dbllogb // TEMP no float ver
 #else
@@ -494,6 +499,7 @@ long double modfl(long double a, long double* b);
 #endif
 
 //{} frexp
+double dblfrexp(double val, int* expo);
 #if defined(_USE_INNER_MATH)
 #define frexpf dblfrexp // TEMP no float ver
 #else

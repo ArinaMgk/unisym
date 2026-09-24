@@ -4,12 +4,79 @@
 // Copyright: UNISYM, under Apache License 2.0; Dosconio Mecocoa, BSD 3-Clause License
 
 #include "../../../../inc/c/format/video/AVI.h"
-#include "../../../../inc/c/format/video/MPEG4.h"
-#include "../../../../inc/c/format/video/H264.h"
-#include "../../../../inc/c/format/audio/MP3.h"
-#include "../../../../inc/c/format/picture/JPEG.h"
 #include "../../../../inc/c/ustring.h"
 #include <stdlib.h>
+#ifndef AVI_WITH_MPEG4
+#define AVI_WITH_MPEG4 1
+#endif
+#ifndef AVI_WITH_H264
+#define AVI_WITH_H264 1
+#endif
+#ifndef AVI_WITH_MP3
+#define AVI_WITH_MP3 1
+#endif
+#ifndef AVI_WITH_JPEG
+#define AVI_WITH_JPEG 1
+#endif
+
+#if AVI_WITH_MPEG4
+#include "../../../../inc/c/format/video/MPEG4.h"
+#else
+static void* MPEG4Decoder_Create(int default_w, int default_h) {
+	(void)default_w; (void)default_h; return nullptr;
+}
+static void MPEG4Decoder_Destroy(void* ctx) { (void)ctx; }
+static uni::Color* MPEG4Decoder_DecodeFrame(void* ctx, const byte* data, size_t size,
+	int* out_w, int* out_h, int* out_vop_type) {
+	(void)ctx; (void)data; (void)size; (void)out_w; (void)out_h; (void)out_vop_type;
+	return nullptr;
+}
+#endif
+
+#if AVI_WITH_H264
+#include "../../../../inc/c/format/video/H264.h"
+#else
+static void* H264Decoder_Create(int default_w, int default_h) {
+	(void)default_w; (void)default_h; return nullptr;
+}
+static void H264Decoder_Destroy(void* ctx) { (void)ctx; }
+static uni::Color* H264Decoder_DecodeFrame(void* ctx, const byte* data, size_t size,
+	int* out_w, int* out_h, int* out_frame_type) {
+	(void)ctx; (void)data; (void)size; (void)out_w; (void)out_h; (void)out_frame_type;
+	return nullptr;
+}
+#endif
+
+#if AVI_WITH_JPEG
+#include "../../../../inc/c/format/picture/JPEG.h"
+#else
+static uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int* outHeight) {
+	(void)fileData; (void)fileSize; (void)outWidth; (void)outHeight; return nullptr;
+}
+#endif
+
+#if AVI_WITH_MP3
+#include "../../../../inc/c/format/audio/MP3.h"
+using AviMp3Codec = uni::MP3Codec;
+#else
+namespace avi_detail {
+	class MP3Codec {
+	public:
+		uni::AudioResult Probe(uni::StorageTrait& storage, bool& matched) const {
+			(void)storage; (void)matched; return uni::AudioResult::Unsupported;
+		}
+		uni::AudioResult ReadInfo(uni::StorageTrait& storage, uni::AudioInfo& outInfo) const {
+			(void)storage; (void)outInfo; return uni::AudioResult::Unsupported;
+		}
+		uni::AudioResult OpenStream(uni::StorageTrait& storage,
+			uni::IAudioStream*& outStream, uni::trait::Malloc& allocator) const {
+			(void)storage; (void)outStream; (void)allocator;
+			return uni::AudioResult::Unsupported;
+		}
+	};
+}
+using AviMp3Codec = avi_detail::MP3Codec;
+#endif
 
 #if defined(_INC_CPP)
 
@@ -550,7 +617,7 @@ namespace {
 				return false;
 			}
 
-			uni::MP3Codec mp3_codec;
+			AviMp3Codec mp3_codec;
 			bool matched = false;
 			if (mp3_codec.Probe(*audio_storage, matched) == uni::AudioResult::OK && matched) {
 				if (audio_metadata_only) {
@@ -748,6 +815,7 @@ namespace {
 			return uni::VideoResult::OK;
 		}
 
+		// Video position only, like MP4Stream/MPEGStream; the audio position follows SeekTime.
 		virtual uni::VideoResult SeekFrame(uint32 frameIndex) override {
 			if (frameIndex >= v_frame_count) {
 				curr_vframe = v_frame_count;
@@ -783,25 +851,26 @@ namespace {
 			}
 			if (curr_vframe < frameIndex) curr_vframe = frameIndex;
 			curr_oframe = frameIndex;
-
-			// Approximate audio position
-			if (audio_stream) {
-				const uint32 arate = info.audioInfo.format.sample_rate ? info.audioInfo.format.sample_rate : 44100;
-				const uint32 rate = v_rate ? v_rate : 30;
-				const uint32 scale = v_scale ? v_scale : 1;
-				const uint64 target_ms = ((uint64)frameIndex * 1000ULL * scale) / rate;
-				audio_stream->Seek((uint32)((target_ms * arate) / 1000));
-			} else if (info.hasAudio && v_frame_count > 0 && a_chunk_count > 0) {
-				curr_achunk = (uint32)(((uint64)frameIndex * a_chunk_count) / v_frame_count);
-				curr_achunk_offset = 0;
-			}
 			return uni::VideoResult::OK;
 		}
 
 		virtual uni::VideoResult SeekTime(uint32 timestampMs) override {
 			if (info.durationMs == 0 || v_frame_count == 0) return uni::VideoResult::Failed;
 			uint32 target_frame = (uint32)(((uint64)timestampMs * (v_rate ? v_rate : 30)) / ((v_scale ? v_scale : 1) * 1000ULL));
-			return SeekFrame(target_frame);
+			uni::VideoResult result = SeekFrame(target_frame);
+
+			// Approximate audio position
+			if (audio_stream) {
+				const uint32 arate = info.audioInfo.format.sample_rate ? info.audioInfo.format.sample_rate : 44100;
+				const uint32 rate = v_rate ? v_rate : 30;
+				const uint32 scale = v_scale ? v_scale : 1;
+				const uint64 target_ms = ((uint64)target_frame * 1000ULL * scale) / rate;
+				audio_stream->Seek((uint32)((target_ms * arate) / 1000));
+			} else if (info.hasAudio && v_frame_count > 0 && a_chunk_count > 0) {
+				curr_achunk = (uint32)(((uint64)target_frame * a_chunk_count) / v_frame_count);
+				curr_achunk_offset = 0;
+			}
+			return result;
 		}
 	};
 

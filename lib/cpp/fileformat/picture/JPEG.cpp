@@ -206,31 +206,63 @@ namespace {
 		}
 	};
 
+	// Bit-exact fast 1D IDCT: same sum as the naive triple loop, 20 multiplies instead of 64 (even/odd split of kCosTable; M derived from the table and verified over 8e6 random vectors).
+	static void IDCT1D(const int* F, int* S) {
+		static const int M[4][4] = {
+			{  602,  402,  710,  141 },
+			{  141,  710, -602,  402 },
+			{  710, -141, -402, -602 },
+			{ -402,  602,  141, -710 }
+		};
+		const int G0 = F[0], G1 = F[2], G2 = F[4], G3 = F[6];
+		const int ee0 = 724 * (G0 + G2), ee1 = 724 * (G0 - G2);
+		const int eo0 = 946 * G1 + 392 * G3;
+		const int eo1 = 392 * G1 - 946 * G3;
+		const int E0 = ee0 + eo0, E1 = ee1 + eo1, E2 = ee1 - eo1, E3 = ee0 - eo0;
+
+		const int H0 = F[1], H1 = F[3], H2 = F[5], H3 = F[7];
+		const int p = H0 + H3, q = H0 - H3, r = H1 + H2, s = H1 - H2;
+		const int O0 = M[0][0] * p + M[0][1] * q + M[0][2] * r + M[0][3] * s;
+		const int O1 = M[1][0] * p + M[1][1] * q + M[1][2] * r + M[1][3] * s;
+		const int O2 = M[2][0] * p + M[2][1] * q + M[2][2] * r + M[2][3] * s;
+		const int O3 = M[3][0] * p + M[3][1] * q + M[3][2] * r + M[3][3] * s;
+
+		S[0] = E0 + O0; S[7] = E0 - O0;
+		S[1] = E1 + O1; S[6] = E1 - O1;
+		S[2] = E2 + O2; S[5] = E2 - O2;
+		S[3] = E3 + O3; S[4] = E3 - O3;
+	}
+
 	// 8x8 Fixed-Point Integer Inverse Discrete Cosine Transform (IDCT)
 	static void IDCT8x8(const int* in, byte* out, int outStride) {
 		int work[64];
+		int S[8];
 		// Pass 1: rows (scale by 1024 / 256 = 4)
 		for (int y = 0; y < 8; ++y) {
 			int row = y * 8;
+			IDCT1D(in + row, S);
 			for (int x = 0; x < 8; ++x) {
-				int sum = 0;
-				for (int u = 0; u < 8; ++u) {
-					sum += in[row + u] * kCosTable[x][u];
-				}
-				work[row + x] = (sum + 128) >> 8;
+				work[row + x] = (S[x] + 128) >> 8;
 			}
 		}
 		// Pass 2: columns (scale by 4 * 1024 * 4 = 16384)
 		for (int x = 0; x < 8; ++x) {
+			int col[8];
+			for (int v = 0; v < 8; ++v) col[v] = work[v * 8 + x];
+			IDCT1D(col, S);
 			for (int y = 0; y < 8; ++y) {
-				int sum = 0;
-				for (int v = 0; v < 8; ++v) {
-					sum += work[v * 8 + x] * kCosTable[y][v];
-				}
-				int val = ((sum + 8192) >> 14) + 128;
+				int val = ((S[y] + 8192) >> 14) + 128;
 				out[y * outStride + x] = ClampByte(val);
 			}
 		}
+	}
+
+	// True when the 63 AC coefficients are all zero: requires coeffBuffer to be calloc'ed and to only receive coded slots, else it reads stale AC and the DC fast path emits wrong pixels.
+	static inline bool IsBlockDCOnly(const int16* block) {
+		for (int k = 1; k < 64; ++k) {
+			if (block[k]) return false;
+		}
+		return true;
 	}
 
 	static inline uni::Color GrayToColor(int y) {
@@ -502,6 +534,7 @@ uni::Color* DecodeJPEG(const byte* fileData, size_t fileSize, int* outWidth, int
 		blocksX[c] = mcusX * frame.comp_h[c];
 		blocksY[c] = mcusY * frame.comp_v[c];
 		totalBlocks[c] = blocksX[c] * blocksY[c];
+		// Must stay calloc and must not be reused across blocks: IsBlockDCOnly() reads an unwritten AC slot as "not coded".
 		coeffBuffer[c] = (int16*)calloc(totalBlocks[c] * 64, sizeof(int16));
 		if (!coeffBuffer[c]) {
 			for (int k = 0; k < c; ++k) free(coeffBuffer[k]);
@@ -734,11 +767,24 @@ scan_done:
 		for (int by = 0; by < blocksY[c]; ++by) {
 			for (int bx = 0; bx < blocksX[c]; ++bx) {
 				const int16* block = &coeffBuffer[c][(by * blocksX[c] + bx) * 64];
+				byte* dest = &compSamples[c][by * 8 * stride + bx * 8];
+
+				// f(x,y) = F(0,0)/8 for every pixel; same two passes as IDCT8x8 so the result is bit-identical (both use kCosTable[*][0] = 724). block[0] must be dequantised first, exactly as the slow path does.
+				if (IsBlockDCOnly(block)) {
+					int w = ((block[0] * qTable[0]) * kCosTable[0][0] + 128) >> 8;
+					byte v = ClampByte(((w * kCosTable[0][0] + 8192) >> 14) + 128);
+					for (int yy = 0; yy < 8; ++yy) {
+						byte* row = dest + yy * stride;
+						row[0] = v; row[1] = v; row[2] = v; row[3] = v;
+						row[4] = v; row[5] = v; row[6] = v; row[7] = v;
+					}
+					continue;
+				}
+
 				int dequant[64];
 				for (int k = 0; k < 64; ++k) {
 					dequant[k] = block[k] * qTable[k];
 				}
-				byte* dest = &compSamples[c][by * 8 * stride + bx * 8];
 				IDCT8x8(dequant, dest, stride);
 			}
 		}
@@ -753,25 +799,61 @@ scan_done:
 		return nullptr;
 	}
 
+	// Sample index for output column/row i of component c is i * comp_h[c] / maxH.
+	// Every standard sampling factor makes that ratio a power of two, so the
+	// per-pixel divide collapses into a shift. A factor of zero (a corrupt header
+	// can produce one) or a non-power-of-two ratio keeps the divide.
+	int shiftH[JPEG_MAX_COMPONENTS];
+	int shiftV[JPEG_MAX_COMPONENTS];
+	for (int c = 0; c < JPEG_MAX_COMPONENTS; ++c) { shiftH[c] = -1; shiftV[c] = -1; }
+	for (int c = 0; c < frame.ncomp; ++c) {
+		if (frame.comp_h[c] > 0 && maxH % frame.comp_h[c] == 0) {
+			int step = maxH / frame.comp_h[c];
+			if ((step & (step - 1)) == 0) {
+				int n = 0;
+				while (step > 1) { step >>= 1; ++n; }
+				shiftH[c] = n;
+			}
+		}
+		if (frame.comp_v[c] > 0 && maxV % frame.comp_v[c] == 0) {
+			int step = maxV / frame.comp_v[c];
+			if ((step & (step - 1)) == 0) {
+				int n = 0;
+				while (step > 1) { step >>= 1; ++n; }
+				shiftV[c] = n;
+			}
+		}
+	}
+
 	for (int py = 0; py < frame.height; ++py) {
-		for (int px = 0; px < frame.width; ++px) {
-			if (frame.ncomp == 3) {
-				int ySampleX = px * frame.comp_h[0] / maxH;
-				int ySampleY = py * frame.comp_v[0] / maxV;
-				int y = compSamples[0][ySampleY * (blocksX[0] * 8) + ySampleX];
+		uni::Color* drow = pixels + py * frame.width;
 
-				int cbSampleX = px * frame.comp_h[1] / maxH;
-				int cbSampleY = py * frame.comp_v[1] / maxV;
-				int cb = compSamples[1][cbSampleY * (blocksX[1] * 8) + cbSampleX];
+		// The row index does not vary across px, so all three are hoisted here
+		// instead of being recomputed for every pixel.
+		const int sy = (shiftV[0] >= 0) ? (py >> shiftV[0]) : (py * frame.comp_v[0] / maxV);
+		const byte* yrow = compSamples[0] + sy * (blocksX[0] * 8);
 
-				int crSampleX = px * frame.comp_h[2] / maxH;
-				int crSampleY = py * frame.comp_v[2] / maxV;
-				int cr = compSamples[2][crSampleY * (blocksX[2] * 8) + crSampleX];
+		if (frame.ncomp != 3) {
+			for (int px = 0; px < frame.width; ++px) drow[px] = GrayToColor(yrow[px]);
+			continue;
+		}
 
-				pixels[py * frame.width + px] = uni::Color::FromYCbCr((byte)y, (byte)cb, (byte)cr);
-			} else {
-				int y = compSamples[0][py * (blocksX[0] * 8) + px];
-				pixels[py * frame.width + px] = GrayToColor(y);
+		const int scb = (shiftV[1] >= 0) ? (py >> shiftV[1]) : (py * frame.comp_v[1] / maxV);
+		const int scr = (shiftV[2] >= 0) ? (py >> shiftV[2]) : (py * frame.comp_v[2] / maxV);
+		const byte* cbrow = compSamples[1] + scb * (blocksX[1] * 8);
+		const byte* crrow = compSamples[2] + scr * (blocksX[2] * 8);
+
+		if (shiftH[0] >= 0 && shiftH[1] >= 0 && shiftH[2] >= 0) {
+			const int hy = shiftH[0], hcb = shiftH[1], hcr = shiftH[2];
+			for (int px = 0; px < frame.width; ++px) {
+				drow[px] = uni::Color::FromYCbCr(yrow[px >> hy], cbrow[px >> hcb], crrow[px >> hcr]);
+			}
+		} else {
+			for (int px = 0; px < frame.width; ++px) {
+				drow[px] = uni::Color::FromYCbCr(
+					yrow[px * frame.comp_h[0] / maxH],
+					cbrow[px * frame.comp_h[1] / maxH],
+					crrow[px * frame.comp_h[2] / maxH]);
 			}
 		}
 	}

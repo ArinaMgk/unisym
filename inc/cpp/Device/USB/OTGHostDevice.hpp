@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Device.USB) OTG Host Device Bridge
+// Docutitle: [Device.USB] OTG Host Device Bridge
 // Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -51,13 +51,20 @@ namespace uni::device::SpaceUSB {
 			const void* buf, int len, ClassDriver* issuer) override;
 		Error InterruptIn(EndpointID ep_id, void* buf, int len) override;
 		Error InterruptOut(EndpointID ep_id, void* buf, int len) override;
+		// Bulk transport for class drivers (AKA a host MSC disk)
+		Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len) override;
 		Error OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) override;
+
+		// program every non-control channel from the parsed configuration
+		Error ConfigureTransportEndpoints() override { return ConfigureEndpoints(); }
 
 		// URB completion dispatcher; called from HCD.NotifyURBChangeHandler
 		void OnChannelURBCompleted(byte ch_num, URBState urb_state);
 
 		// configure all non-control endpoints from the parsed configuration
 		Error ConfigureEndpoints();
+		// host channel of an endpoint address, programming the channels on first use
+		byte ChannelOfEndpoint(EndpointID ep_id);
 
 		HCD& Controller() { return hcd_; }
 		byte DeviceAddress() const { return dev_address_; }
@@ -76,6 +83,23 @@ namespace uni::device::SpaceUSB {
 		HCD& hcd_;
 		const byte dev_address_;
 		const byte speed_;
+
+		byte* ch_xfer_base_[16] = {};// what the completion callbacks hand back
+		uint16 ch_xfer_len_[16] = {};
+
+		byte ch_nak_retry_[16] = {};// NAK is not a failure: the same URB is re-submitted that many times
+		static const int kNakRetryLimit = 200;
+
+		// endpoint address <-> host channel (AKA USBH_AllocPipe)
+		byte ch_of_ep_[32] = {};
+		byte ep_of_ch_[16] = {};
+		bool endpoints_configured_ = false;
+
+		// EP0 starts at 8 bytes until the first device-descriptor reply says otherwise
+		bool mps_known_ = false;
+		bool mps_probe_ = false;
+		int ctrl_len_full_ = 0;
+		int ctrl_xfer_count_ = 0;// bytes the data stage really moved
 	};
 
 }

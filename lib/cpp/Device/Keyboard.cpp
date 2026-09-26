@@ -40,8 +40,9 @@ const char key_map_shift[256] = {
 '8',  '9',  '0',  '.', '\\',  0,    0,    '=', // 0x60
 };
 
-#if defined(_INC_CPP) && (defined(_MCCA) && ((_MCCA)==0x8664))
+#if defined(_INC_CPP) && ((defined(_MCCA) && ((_MCCA)==0x8664)) || defined(_MCU_STM32H7x))
 #include <algorithm>
+#if defined(_MCCA) && ((_MCCA)==0x8664)
 namespace uni::device::SpaceUSB {
 	void* HIDKeyboardDriver::operator new(size_t size) {
 		return uni_hostenv_allocator->allocate(sizeof(HIDKeyboardDriver));
@@ -51,6 +52,7 @@ namespace uni::device::SpaceUSB {
 		uni_hostenv_allocator->deallocate(ptr);
 	}
 }
+#endif
 namespace uni::device::SpaceUSB {
 	HIDKeyboardDriver::HIDKeyboardDriver(USBHostDevice* dev, int interface_index)
 		: HIDBaseDriver{ dev, interface_index, 8 } {

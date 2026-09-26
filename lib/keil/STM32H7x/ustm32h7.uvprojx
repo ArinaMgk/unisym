@@ -883,9 +883,19 @@
               <FilePath>..\..\cpp\Device\USB\USBPeri-MSC.cpp</FilePath>
             </File>
             <File>
+              <FileName>USBHost-MSC.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\USBHost-MSC.cpp</FilePath>
+            </File>
+            <File>
               <FileName>USBPeri-CDC.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\USB\USBPeri-CDC.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>USBHost-HID.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\USBHost-HID.cpp</FilePath>
             </File>
             <File>
               <FileName>FDCAN.cpp</FileName>
@@ -1198,6 +1208,21 @@
               <FileName>MPEG4.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\fileformat\video\MPEG4.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>USBDev</GroupName>
+          <Files>
+            <File>
+              <FileName>Keyboard.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Keyboard.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Mouse.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\Mouse.cpp</FilePath>
             </File>
           </Files>
         </Group>

@@ -12,12 +12,22 @@ namespace uni::device::SpaceUSB {
 			const void* buf, int len, ClassDriver* issuer);
 		virtual Error InterruptIn(EndpointID ep_id, void* buf, int len);
 		virtual Error InterruptOut(EndpointID ep_id, void* buf, int len);
+		// Bulk transport (AKA a host MSC disk): dir_in selects the IN/OUT direction.
+		virtual Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len);
 		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change);
+		// AKA xHCI ConfigureEndpoints: the transport programs its channels here
+		virtual Error ConfigureTransportEndpoints() { return MAKE_ERROR(Error::kSuccess); }
 
 		Error StartInitialize();
 		bool IsInitialized() { return is_initialized_; }
+		// descriptors all read; true even when no class driver claimed the device
+		bool IsEnumerated() const { return enumerated_; }
 		EndpointConfig* EndpointConfigs() { return ep_configs_.data(); }
 		int NumEndpointConfigs() { return num_ep_configs_; }
+		// the class driver bound to an endpoint number (AKA class_drivers_[ep_num])
+		ClassDriver* ClassDriverOf(int ep_num) {
+			return (ep_num >= 0 && ep_num < 16) ? class_drivers_[ep_num] : nullptr;
+		}
 		Error OnEndpointsConfigured();
 		uint16 VendorID() const { return vendor_id_; }
 		uint16 ProductID() const { return product_id_; }
@@ -36,6 +46,7 @@ namespace uni::device::SpaceUSB {
 		Error OnControlCompleted(EndpointID ep_id, SetupData setup_data,
 			const void* buf, int len);
 		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len);
+		Error OnBulkCompleted(EndpointID ep_id, const void* buf, int len);
 
 	private:
 	 /** @brief Class driver assigned to each endpoint.
@@ -56,6 +67,7 @@ namespace uni::device::SpaceUSB {
 		Error OnSetConfigurationCompleted(uint8 config_value);
 
 		bool is_initialized_ = false;
+		bool enumerated_ = false;
 		uint16 vendor_id_ = 0;
 		uint16 product_id_ = 0;
 		uint8 device_class_ = 0;

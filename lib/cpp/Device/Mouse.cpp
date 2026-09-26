@@ -22,10 +22,10 @@
 
 #include <stdlib.h>
 #include "../../../inc/c/driver/mouse.h"
-#include "../../../inc/c/driver/i8259A.h"
-#include "../../../inc/c/board/IBM.h"
 
 #ifdef _SUPPORT_Port8
+#include "../../../inc/c/driver/i8259A.h"
+#include "../../../inc/c/board/IBM.h"
 
 #define KEYCMD_SENDTO_MOUSE 0xD4
 #define MOUSECMD_ENABLE     0xF4
@@ -47,7 +47,9 @@ void Mouse_Init()
 
 #endif
 
-#if defined(_INC_CPP) && (defined(_UEFI)) && (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
+#if defined(_INC_CPP) && ((defined(_UEFI) && (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))) || defined(_MCU_STM32H7x))
+
+#if defined(_UEFI)
 #include <algorithm>
 #include "../../../inc/c/proctrl/IAx86_64.msr.h"
 #include "../../../inc/cpp/interrupt"
@@ -90,8 +92,9 @@ uni::PCI::Device* uni::device::SpaceUSB::HIDMouseDriver::Initialize(uni::PCI& pc
 	//
 	return &xhc_dev;
 }
+#endif // _UEFI
 
-
+#if defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600)
 void* uni::device::SpaceUSB::HIDMouseDriver::operator new(size_t size) {
 	auto ret = uni_hostenv_allocator->allocate(sizeof(HIDMouseDriver));
 	return ret;
@@ -100,6 +103,7 @@ void* uni::device::SpaceUSB::HIDMouseDriver::operator new(size_t size) {
 void uni::device::SpaceUSB::HIDMouseDriver::operator delete(void* ptr) noexcept {
 	uni_hostenv_allocator->deallocate(ptr);
 }
+#endif
 
 namespace uni::device::SpaceUSB {
 	HIDMouseDriver::HIDMouseDriver(USBHostDevice* dev, int interface_index)

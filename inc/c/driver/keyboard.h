@@ -104,19 +104,22 @@ _ESYM_C void KbdSetLED(byte stat);
 
 // ---- ATX USB Keyboard ---- //
 
-#if defined(_INC_CPP) && (defined(_MCCA) && ((_MCCA)==0x8664))
+#if defined(_INC_CPP) && ((defined(_MCCA) && ((_MCCA)==0x8664)) || defined(_MCU_STM32H7x))
+#include "../../cpp/Device/USB/USBHost-HID.hpp"
+#if defined(_MCCA) && ((_MCCA)==0x8664)
 #include "../../../inc/c/msgface.h"
-#include "../../cpp/Device/USB/USB.hpp"
 #include "../../cpp/Device/USB/USB-Header.hpp"
-
+#endif
 
 namespace uni::device::SpaceUSB {
 	class HIDKeyboardDriver : public HIDBaseDriver {
 	public:
 		HIDKeyboardDriver(USBHostDevice* dev, int interface_index);
 
+#if defined(_MCCA) && ((_MCCA)==0x8664)
 		void* operator new(size_t size);
 		void operator delete(void* ptr) noexcept;
+#endif
 
 		Error OnDataReceived() override;
 

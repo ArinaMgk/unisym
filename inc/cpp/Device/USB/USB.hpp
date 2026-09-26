@@ -60,13 +60,20 @@ namespace uni::device::SpaceUSB {
 	class ClassDriver {
 	public:
 		ClassDriver(USBHostDevice* dev) : dev_{ dev } {}
-		// virtual ~ClassDriver();
+		virtual ~ClassDriver() {}// the host device deletes its drivers through this base pointer
 
 		virtual Error Initialize() = 0;
 		virtual Error SetEndpoint(const EndpointConfig& config) = 0;
 		virtual Error OnEndpointsConfigured() = 0;
 		virtual Error OnControlCompleted(EndpointID ep_id, SetupData setup_data, const void* buf, int len) = 0;
 		virtual Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) = 0;
+		// Bulk completion (AKA a host MSC disk); drivers without bulk endpoints keep this
+		virtual Error OnBulkCompleted(EndpointID ep_id, const void* buf, int len) {
+			(void)ep_id;
+			(void)buf;
+			(void)len;
+			return MAKE_ERROR(Error::kNotImplemented);
+		}
 
 		/** Returns the USB device that holds this class driver. */
 		USBHostDevice* ParentDevice() const { return dev_; }
@@ -76,71 +83,11 @@ namespace uni::device::SpaceUSB {
 	};
 }
 
-// x86_64 specific class drivers (HID keyboard/mouse, hub) stay on x86;
-// the H7 host currently runs the enumeration + ClassDriver core only.
+// x86_64 specific: the hub driver allocates from the host environment, while the
+// HID class drivers and their base live in USBHost-HID.hpp/.cpp on every platform.
 #if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 
 namespace uni::device::SpaceUSB {
-
-	class HIDBaseDriver : public ClassDriver {
-	public:
-		HIDBaseDriver(USBHostDevice* dev, int interface_index, int in_packet_size)
-			: ClassDriver{ dev }, interface_index_{ interface_index },
-			in_packet_size_{ in_packet_size }
-		{ }
-		Error Initialize() override { return MAKE_ERROR(Error::kNotImplemented); }
-		Error SetEndpoint(const EndpointConfig& config) override {
-			if (config.ep_type == EndpointType::kInterrupt && config.ep_id.IsIn()) {
-				ep_interrupt_in_ = config.ep_id;
-			}
-			else if (config.ep_type == EndpointType::kInterrupt && !config.ep_id.IsIn()) {
-				ep_interrupt_out_ = config.ep_id;
-			}
-			return MAKE_ERROR(Error::kSuccess);
-		}
-		Error OnEndpointsConfigured() override {
-			SetupData setup_data{};
-			setup_data.request_type.bits.direction = request_type::kOut;
-			setup_data.request_type.bits.type = request_type::kClass;
-			setup_data.request_type.bits.recipient = request_type::kInterface;
-			setup_data.request = request::kSetProtocol;
-			setup_data.value = 0; // boot protocol
-			setup_data.index = interface_index_;
-			setup_data.length = 0;
-			initialize_phase_ = 1;
-			return ParentDevice()->ControlOut(kDefaultControlPipeID, setup_data, nullptr, 0, this);
-		}
-		Error OnControlCompleted(EndpointID ep_id, SetupData setup_data, const void* buf, int len) override {
-			// Log(kDebug, "HIDBaseDriver::OnControlCompleted: dev %[8H], phase = %d, len = %d", this, initialize_phase_, len);
-			if (initialize_phase_ == 1) {
-				initialize_phase_ = 2;
-				return ParentDevice()->InterruptIn(ep_interrupt_in_, buf_.data(), in_packet_size_);
-			}
-			return MAKE_ERROR(Error::kNotImplemented);
-		}
-		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) override {
-			if (ep_id.IsIn()) {
-				OnDataReceived();
-				std::copy_n(buf_.begin(), len, previous_buf_.begin());
-				return ParentDevice()->InterruptIn(ep_interrupt_in_, buf_.data(), in_packet_size_);
-			}
-			return MAKE_ERROR(Error::kNotImplemented);
-		}
-
-		virtual Error OnDataReceived() = 0;
-		const static size_t kBufferSize = 1024;
-		const std::array<uint8_t, kBufferSize>& Buffer() const { return buf_; }
-		const std::array<uint8_t, kBufferSize>& PreviousBuffer() const { return previous_buf_; }
-
-	private:
-		EndpointID ep_interrupt_in_;
-		EndpointID ep_interrupt_out_;
-		const int interface_index_;
-		int in_packet_size_;
-		int initialize_phase_{ 0 };
-
-		std::array<uint8_t, kBufferSize> buf_{}, previous_buf_{};
-	};
 
 	class USBHubDriver : public ClassDriver {
 	public:

@@ -1,6 +1,7 @@
 #if (defined(_MCCA) && _MCCA == 0x8664) || defined(_MCU_STM32H7x)
 
 #include "../../../../inc/cpp/Device/USB/USB.hpp"
+#include "../../../../inc/cpp/Device/USB/USBHost-MSC.hpp"
 #include "../../../../inc/c/driver/keyboard.h"
 #include "../../../../inc/c/driver/mouse.h"
 
@@ -65,16 +66,18 @@ namespace {
 
 	uni::device::SpaceUSB::ClassDriver* NewClassDriver(uni::device::SpaceUSB::USBHostDevice* dev, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc)
 	{
-#if defined(_MCU_STM32H7x)
-		// H7: HID keyboard/mouse and hub drivers stay on x86 for now;
-		// enumeration and the ClassDriver core run, but no class driver is bound.
-		(void)dev;
-		(void)if_desc;
-		return nullptr;
-#else
+#if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 		if (dev->DeviceClass() == 0x09u || if_desc.interface_class == 0x09u) {
 			return new uni::device::SpaceUSB::USBHubDriver{ dev };
 		}
+#endif
+#if defined(_MCU_STM32H7x)
+		if (if_desc.interface_class == 0x08u &&// MSC
+			if_desc.interface_sub_class == 0x06u &&// SCSI transparent command set
+			if_desc.interface_protocol == 0x50u) {// bulk-only transport
+			return new uni::device::SpaceUSB::USBHost_MSC{ dev, if_desc.interface_number };
+		}
+#endif
 		if (if_desc.interface_class == 3 &&
 			if_desc.interface_sub_class == 1) {  // HID boot interface
 			if (if_desc.interface_protocol == 1) {  // keyboard
@@ -92,8 +95,9 @@ namespace {
 				return mouse_driver;
 			}
 		}
+		(void)dev;
+		(void)if_desc;
 		return nullptr;
-#endif
 	}
 
 	void Log(LogLevel level, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc) {
@@ -128,6 +132,16 @@ namespace uni::device::SpaceUSB {
 	HubPortStatusHook g_hub_port_status_hook = nullptr;
 
 	USBHostDevice::~USBHostDevice() {
+		// one driver can sit in several endpoint slots: delete each exactly once
+		for (size_t i = 0; i < class_drivers_.size(); i++) {
+			ClassDriver* driver = class_drivers_[i];
+			if (driver == nullptr) continue;
+			for (size_t j = 0; j < i; j++) {
+				if (class_drivers_[j] == driver) driver = nullptr;
+			}
+			delete driver;
+			class_drivers_[i] = nullptr;
+		}
 	}
 
 	Error USBHostDevice::ControlIn(EndpointID ep_id, SetupData setup_data,
@@ -154,6 +168,14 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
+	Error USBHostDevice::BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len) {
+		(void)ep_id;
+		(void)dir_in;
+		(void)buf;
+		(void)len;
+		return MAKE_ERROR(Error::kNotImplemented);
+	}
+
 	Error USBHostDevice::OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) {
 		(void)port_num;
 		(void)status;
@@ -163,6 +185,7 @@ namespace uni::device::SpaceUSB {
 
 	Error USBHostDevice::StartInitialize() {
 		is_initialized_ = false;
+		enumerated_ = false;
 		hub_num_ports_ = 0;
 		initialize_phase_ = 1;
 		manufacturer_index_ = 0;
@@ -172,8 +195,9 @@ namespace uni::device::SpaceUSB {
 		manufacturer_string_[0] = 0;
 		product_string_[0] = 0;
 		serial_string_[0] = 0;
+		// Ask for the device descriptor itself (18 bytes, AKA what every host does).
 		return GetDescriptor(*this, kDefaultControlPipeID, DeviceDescriptor::kType, 0,
-			buf_.data(), buf_.size(), true);
+			buf_.data(), (int)sizeof(DeviceDescriptor), true);
 	}
 
 	Error USBHostDevice::OnEndpointsConfigured() {
@@ -262,6 +286,13 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kNoWaiter);
 	}
 
+	Error USBHostDevice::OnBulkCompleted(EndpointID ep_id, const void* buf, int len) {
+		if (auto w = class_drivers_[ep_id.Number()]) {
+			return w->OnBulkCompleted(ep_id, buf, len);
+		}
+		return MAKE_ERROR(Error::kNoWaiter);
+	}
+
 	Error USBHostDevice::InitializePhase1(const uint8_t* buf, int len) {
 		const auto device_desc = DescriptorDynamicCast<DeviceDescriptor>(buf);
 		vendor_id_ = device_desc->vendor_id;
@@ -315,6 +346,8 @@ namespace uni::device::SpaceUSB {
 		}
 
 		if (!class_driver) {
+			// nothing will drive this device, but the enumeration is finished
+			enumerated_ = true;
 			return MAKE_ERROR(Error::kSuccess);
 		}
 		initialize_phase_ = 3;
@@ -330,7 +363,16 @@ namespace uni::device::SpaceUSB {
 		}
 		initialize_phase_ = 4;
 		is_initialized_ = true;
+		enumerated_ = true;
+#if defined(_MCU_STM32)
+		// AKA the OTG transport: xHCI starts the drivers from CompleteConfiguration()
+		if (auto err = ConfigureTransportEndpoints()) {
+			return err;
+		}
+		return OnEndpointsConfigured();
+#else
 		return MAKE_ERROR(Error::kSuccess);
+#endif
 	}
 
 	Error USBHostDevice::InitializeStringPhase0(const uint8_t* buf, int len) {
@@ -412,6 +454,8 @@ namespace uni::device::SpaceUSB {
 	Error GetDescriptor(USBHostDevice& dev, EndpointID ep_id,
 		uint8_t desc_type, uint8_t desc_index,
 		void* buf, int len, bool debug, uint16_t desc_lang_id) {
+		// one descriptor read asks for at most 255 bytes: a wLength of 0x0100 is answered with nothing
+		if (len > 255) len = 255;
 		SetupData setup_data{};
 		setup_data.request_type.bits.direction = request_type::kIn;
 		setup_data.request_type.bits.type = request_type::kStandard;
@@ -536,30 +580,49 @@ namespace uni {
 
 	// AKA USB_ClearInterrupts
 	void OTG::ClearInterrupts(stduint base, stduint interrupt) {
-		Reference(base + 0x014) |= interrupt;
+		// GINTSTS is write-1-to-clear: write the mask, not a read-modify-write
+		Reference(base + 0x014) = interrupt;
 	}
 
 	// AKA USB_WritePacket (DFIFO at base + 0x1000 + ep*USB_OTG_FIFO_SIZE)
+	// a trailing 1..3 bytes are zero-padded, never read past the caller's buffer
 	bool OTG::WritePacket(stduint base, const byte* src, byte ep_num, stduint len) {
 		stduint fifo = base + USB_OTG_FIFO_BASE + ep_num * USB_OTG_FIFO_SIZE;
-		stduint count32b = (len + 3) / 4;
-		for (stduint i = 0; i < count32b; i++) {
-			stduint w = src[0] | (src[1] << 8) | (src[2] << 16) | (src[3] << 24);
+		stduint i = 0;
+		for (; i + 4 <= len; i += 4) {
+			const stduint w = (stduint)src[0] | ((stduint)src[1] << 8)
+				| ((stduint)src[2] << 16) | ((stduint)src[3] << 24);
 			Reference(fifo + 0) = w;
 			src += 4;
+		}
+		if (i < len) {
+			stduint w = 0;
+			for (stduint b = 0; b < len - i; b++) {
+				w |= (stduint)src[b] << (b * 8);
+			}
+			Reference(fifo + 0) = w;
 		}
 		return true;
 	}
 
 	// AKA USB_ReadPacket (DFIFO0 at base + 0x1000)
+	// the FIFO is read in 32-bit units, but only `len` bytes are written back
 	bool OTG::ReadPacket(stduint base, byte* dest, stduint len) {
 		stduint fifo = base + USB_OTG_FIFO_BASE;
-		stduint count32b = (len + 3) / 4;
-		for (stduint i = 0; i < count32b; i++) {
-			stduint w = Reference(fifo + 0);
-			dest[0] = w & 0xFF; dest[1] = (w >> 8) & 0xFF;
-			dest[2] = (w >> 16) & 0xFF; dest[3] = (w >> 24) & 0xFF;
+		stduint i = 0;
+		for (; i + 4 <= len; i += 4) {
+			const stduint w = Reference(fifo + 0);
+			dest[0] = (byte)(w & 0xFF);
+			dest[1] = (byte)((w >> 8) & 0xFF);
+			dest[2] = (byte)((w >> 16) & 0xFF);
+			dest[3] = (byte)((w >> 24) & 0xFF);
 			dest += 4;
+		}
+		if (i < len) {// 1..3 trailing bytes: pop the word, drop its padding
+			const stduint w = Reference(fifo + 0);
+			for (stduint b = 0; b < len - i; b++) {
+				*dest++ = (byte)((w >> (b * 8)) & 0xFF);
+			}
 		}
 		return true;
 	}
@@ -1012,10 +1075,11 @@ namespace uni {
 		hcintmsk = msk;
 		Reference(base + USB_OTG_HOST_BASE + 0x18).setof(ch_num & 0xF);// HAINTMSK
 		Reference(base + 0x018).setof(USB_OTG_GINTMSK_HCIM_Pos);
+		// speed is HPRT0.PSPD: 0=HS, 1=FS, 2=LS (HCD.speed uses another scale)
 		hcchar = ((dev_address << USB_OTG_HCCHAR_DAD_Pos) & USB_OTG_HCCHAR_DAD)
 			| (((epnum & 0x7F) << USB_OTG_HCCHAR_EPNUM_Pos) & USB_OTG_HCCHAR_EPNUM)
 			| ((((epnum & 0x80) == 0x80) ? 1U : 0U) << USB_OTG_HCCHAR_EPDIR_Pos)
-			| (((speed == 3) ? 1U : 0U) << USB_OTG_HCCHAR_LSDEV_Pos)
+			| (((speed == 2) ? 1U : 0U) << USB_OTG_HCCHAR_LSDEV_Pos)
 			| ((ep_type << USB_OTG_HCCHAR_EPTYP_Pos) & USB_OTG_HCCHAR_EPTYP)
 			| (mps & USB_OTG_HCCHAR_MPSIZ);
 		if (ep_type == 3) hcchar.setof(USB_OTG_HCCHAR_ODDFRM_Pos);
@@ -1048,6 +1112,8 @@ namespace uni {
 			| ((num_packets << USB_OTG_HCTSIZ_PKTCNT_Pos) & USB_OTG_HCTSIZ_PKTCNT)
 			| ((hc.data_pid << USB_OTG_HCTSIZ_DPID_Pos) & USB_OTG_HCTSIZ_DPID);
 		if (dma) Reference(base + USB_OTG_HOST_CHANNEL_BASE + hc.ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x014) = (stduint)hc.xfer_buff;// HCDMA
+		// EPDIR must follow this transfer: one channel carries both directions here
+		hcchar.setof(USB_OTG_HCCHAR_EPDIR_Pos, hc.ep_is_in ? true : false);
 		stduint is_oddframe = (Reference(base + USB_OTG_HOST_BASE + 0x08) & 0x1) ? 0 : 1;// HFNUM
 		hcchar.rstof(USB_OTG_HCCHAR_ODDFRM_Pos);
 		hcchar.setof(USB_OTG_HCCHAR_ODDFRM_Pos, is_oddframe ? true : false);

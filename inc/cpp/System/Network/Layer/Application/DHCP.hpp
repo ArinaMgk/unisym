@@ -38,6 +38,7 @@ namespace Network {
 	constexpr stduint DHCPMinMessageLength = 240;
 	constexpr stduint DHCPDiscoverMinLength = 244;
 	constexpr stduint DHCPRequestMinLength = 256;
+	constexpr stduint DHCPReleaseMinLength = 250;
 	constexpr uint32 DHCPMagicCookie = 0x63825363u;
 
 	enum class DHCPMessageType : uint8 {
@@ -267,6 +268,26 @@ namespace Network {
 		return stduint(option - buffer);
 	}
 
+	inline stduint BuildDHCPRelease(uint8* buffer, stduint capacity, const MacAddress& mac,
+		uint32 xid, const IPv4Address& client_address, const IPv4Address& server_identifier) {
+		if (!buffer || capacity < DHCPReleaseMinLength || mac.isZero() ||
+			client_address.isZero() || server_identifier.isZero()) return 0;
+		for0(i, capacity) buffer[i] = 0;
+		auto* header = reinterpret_cast<DHCPHeader*>(buffer);
+		header->op = 1;
+		header->htype = 1;
+		header->hlen = EthernetAddressLength;
+		DHCPWrite32(header->xid, xid);
+		IPv4WriteAddress(header->ciaddr, client_address);
+		for0(i, EthernetAddressLength) header->chaddr[i] = mac.octet[i];
+		DHCPWriteMagicCookie(header->cookie);
+		auto* option = buffer + DHCPOptionsOffset;
+		option = DHCPAppendMessageType(option, DHCPMessageType::Release);
+		option = DHCPAppendIPv4Option(option, DHCPOption::ServerIdentifier, server_identifier);
+		*option++ = uint8(DHCPOption::End);
+		return stduint(option - buffer);
+	}
+
 	class DHCPClientObject {
 	public:
 		DHCPClientObject() {
@@ -323,6 +344,11 @@ namespace Network {
 				xid_, offer_.address, offer_.server);
 			if (length) state_ = DHCPClientState::Requesting;
 			return length;
+		}
+
+		stduint BuildRelease(uint8* buffer, stduint capacity, const MacAddress& mac) const {
+			if (!isBound() || !bound_.has_address || !bound_.has_server) return 0;
+			return BuildDHCPRelease(buffer, capacity, mac, xid_, bound_.address, bound_.server);
 		}
 
 		bool AcceptMessage(const uint8* payload, stduint length, DHCPClientConfig& config) {

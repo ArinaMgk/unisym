@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Device.USB) Peripheral Controller Driver, PCD
+// Docutitle: [Device.USB] Peripheral Controller Driver, PCD
 // Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -344,6 +344,7 @@ namespace uni {
 		if (OTG::ReadInterrupts(base) == 0) return;
 		Reference gintsts(base + _IMM(OTGGlobalReg::GINTSTS));
 		Reference gintmsk(base + _IMM(OTGGlobalReg::GINTMSK));
+		// all four are write-1-to-clear: assign the mask, never setof()
 
 		if (gintsts.bitof(USB_OTG_GINTSTS_MMIS_Pos)) {
 			gintsts = (1U << USB_OTG_GINTSTS_MMIS_Pos);// incorrect mode, acknowledge
@@ -385,12 +386,12 @@ namespace uni {
 				if (ep_intr & 0x1) {
 					epint = OTG::ReadDevOutEPInterrupt(base, (byte)epnum);
 					if (epint & USB_OTG_DOEPINT_XFRC) {
-						OutEndpointReg((byte)epnum, OTGOutEPReg::DOEPINT).setof(USB_OTG_DOEPINT_XFRC_Pos);
+						OutEndpointReg((byte)epnum, OTGOutEPReg::DOEPINT) = USB_OTG_DOEPINT_XFRC;
 						// setup/out transaction management for Core ID >= 310A
 						if (stduint(GlobalReg(OTGGlobalReg::GSNPSID)) >= _USB_OTG_CORE_ID_310A) {
 							if (dma_enable) {
 								if (OutEndpointReg(0, OTGOutEPReg::DOEPINT).bitof(15)) {
-									OutEndpointReg(0, OTGOutEPReg::DOEPINT).setof(15);
+									OutEndpointReg(0, OTGOutEPReg::DOEPINT) = USB_OTG_DOEPINT_STUP;
 								}
 							}
 						}
@@ -410,18 +411,18 @@ namespace uni {
 						if (stduint(GlobalReg(OTGGlobalReg::GSNPSID)) >= _USB_OTG_CORE_ID_310A) {
 							if (dma_enable) {
 								if (OutEndpointReg(0, OTGOutEPReg::DOEPINT).bitof(15)) {
-									OutEndpointReg(0, OTGOutEPReg::DOEPINT).setof(15);
+									OutEndpointReg(0, OTGOutEPReg::DOEPINT) = USB_OTG_DOEPINT_STUP;
 								}
 							}
 						}
 						if (SetupStageHandler) SetupStageHandler();
-						OutEndpointReg((byte)epnum, OTGOutEPReg::DOEPINT).setof(USB_OTG_DOEPINT_STUP_Pos);
+						OutEndpointReg((byte)epnum, OTGOutEPReg::DOEPINT) = USB_OTG_DOEPINT_STUP;
 					}
 					if (epint & USB_OTG_DOEPINT_OTEPDIS) {
-						OutEndpointReg((byte)epnum, OTGOutEPReg::DOEPINT).setof(USB_OTG_DOEPINT_OTEPDIS_Pos);
+						OutEndpointReg((byte)epnum, OTGOutEPReg::DOEPINT) = USB_OTG_DOEPINT_OTEPDIS;
 					}
 					if (epint & USB_OTG_DOEPINT_OTEPSPR) {
-						OutEndpointReg((byte)epnum, OTGOutEPReg::DOEPINT).setof(USB_OTG_DOEPINT_OTEPSPR_Pos);
+						OutEndpointReg((byte)epnum, OTGOutEPReg::DOEPINT) = USB_OTG_DOEPINT_OTEPSPR;
 					}
 				}
 				epnum++;
@@ -437,7 +438,7 @@ namespace uni {
 					epint = OTG::ReadDevInEPInterrupt(base, (byte)epnum);
 					if (epint & USB_OTG_DIEPINT_XFRC) {
 						DeviceReg(OTGDeviceReg::DIEPEMPMSK).rstof(epnum);
-						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT).setof(USB_OTG_DIEPINT_XFRC_Pos);
+						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT) = USB_OTG_DIEPINT_XFRC;
 						if (dma_enable) {
 							IN_ep[epnum].xfer_buff += IN_ep[epnum].maxpacket;
 						}
@@ -449,16 +450,16 @@ namespace uni {
 						}
 					}
 					if (epint & USB_OTG_DIEPINT_TOC) {
-						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT).setof(USB_OTG_DIEPINT_TOC_Pos);
+						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT) = USB_OTG_DIEPINT_TOC;
 					}
 					if (epint & USB_OTG_DIEPINT_ITTXFE) {
-						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT).setof(USB_OTG_DIEPINT_ITTXFE_Pos);
+						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT) = USB_OTG_DIEPINT_ITTXFE;
 					}
 					if (epint & USB_OTG_DIEPINT_INEPNE) {
-						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT).setof(USB_OTG_DIEPINT_INEPNE_Pos);
+						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT) = USB_OTG_DIEPINT_INEPNE;
 					}
 					if (epint & USB_OTG_DIEPINT_EPDISD) {
-						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT).setof(USB_OTG_DIEPINT_EPDISD_Pos);
+						InEndpointReg((byte)epnum, OTGInEPReg::DIEPINT) = USB_OTG_DIEPINT_EPDISD;
 					}
 					if (epint & USB_OTG_DIEPINT_TXFE) {
 						PCD_WriteEmptyTxFifo(*this, (byte)epnum);
@@ -478,18 +479,18 @@ namespace uni {
 			else {
 				if (ResumeHandler) ResumeHandler();
 			}
-			gintsts.setof(USB_OTG_GINTSTS_WKUINT_Pos);
+			gintsts = USB_OTG_GINTSTS_WKUINT;
 		}
 		// ---- suspend ----
 		if (gintsts.bitof(USB_OTG_GINTSTS_USBSUSP_Pos)) {
 			if (DeviceReg(OTGDeviceReg::DSTS).bitof(USB_OTG_DSTS_SUSPSTS_Pos)) {
 				if (SuspendHandler) SuspendHandler();
 			}
-			gintsts.setof(USB_OTG_GINTSTS_USBSUSP_Pos);
+			gintsts = USB_OTG_GINTSTS_USBSUSP;
 		}
 		// ---- LPM ----
 		if (gintsts.bitof(USB_OTG_GINTSTS_LPMINT_Pos)) {
-			gintsts.setof(USB_OTG_GINTSTS_LPMINT_Pos);
+			gintsts = USB_OTG_GINTSTS_LPMINT;
 			if (LPM_State == PCDLPMState::L0) {
 				LPM_State = PCDLPMState::L1;
 				BESL = GlobalReg(OTGGlobalReg::GLPMCFG).masof(USB_OTG_GLPMCFG_BESL_Pos, 4);
@@ -530,7 +531,7 @@ namespace uni {
 			DeviceReg(OTGDeviceReg::DCFG).maset(USB_OTG_DCFG_DAD_Pos, 7, 0);
 			// setup EP0 to receive SETUP packets
 			OTG::StartEP0Out(base, dma_enable, (byte*)Setup);
-			gintsts.setof(USB_OTG_GINTSTS_USBRST_Pos);
+			gintsts = USB_OTG_GINTSTS_USBRST;
 		}
 		// ---- enumeration done ----
 		if (gintsts.bitof(USB_OTG_GINTSTS_ENUMDNE_Pos)) {
@@ -568,33 +569,33 @@ namespace uni {
 				gusbcfg.maset(USB_OTG_GUSBCFG_TRDT_Pos, 4, trdt);
 			}
 			if (ResetHandler) ResetHandler();
-			gintsts.setof(USB_OTG_GINTSTS_ENUMDNE_Pos);
+			gintsts = USB_OTG_GINTSTS_ENUMDNE;
 		}
 		// ---- SOF ----
 		if (gintsts.bitof(USB_OTG_GINTSTS_SOF_Pos)) {
 			if (SOFHandler) SOFHandler();
-			gintsts.setof(USB_OTG_GINTSTS_SOF_Pos);
+			gintsts = USB_OTG_GINTSTS_SOF;
 		}
 		// ---- incomplete ISO IN / OUT ----
 		if (gintsts.bitof(USB_OTG_GINTSTS_IISOIXFR_Pos)) {
 			if (ISOINIncompleteHandler) ISOINIncompleteHandler((pureptr_t)(stduint)epnum);
-			gintsts.setof(USB_OTG_GINTSTS_IISOIXFR_Pos);
+			gintsts = USB_OTG_GINTSTS_IISOIXFR;
 		}
 		if (gintsts.bitof(USB_OTG_GINTSTS_PXFR_INCOMPISOOUT_Pos)) {
 			if (ISOOUTIncompleteHandler) ISOOUTIncompleteHandler((pureptr_t)(stduint)epnum);
-			gintsts.setof(USB_OTG_GINTSTS_PXFR_INCOMPISOOUT_Pos);
+			gintsts = USB_OTG_GINTSTS_PXFR_INCOMPISOOUT;
 		}
 		// ---- connect / disconnect (session) ----
 		if (gintsts.bitof(USB_OTG_GINTSTS_SRQINT_Pos)) {
 			if (ConnectHandler) ConnectHandler();
-			gintsts.setof(USB_OTG_GINTSTS_SRQINT_Pos);
+			gintsts = USB_OTG_GINTSTS_SRQINT;
 		}
 		if (gintsts.bitof(USB_OTG_GINTSTS_OTGINT_Pos)) {
 			temp = GlobalReg(OTGGlobalReg::GOTGINT);
 			if (temp & USB_OTG_GOTGINT_SEDET) {
 				if (DisconnectHandler) DisconnectHandler();
 			}
-			GlobalReg(OTGGlobalReg::GOTGINT).setof(USB_OTG_GOTGINT_SEDET_Pos);
+			GlobalReg(OTGGlobalReg::GOTGINT) = USB_OTG_GOTGINT_SEDET;
 		}
 	}
 

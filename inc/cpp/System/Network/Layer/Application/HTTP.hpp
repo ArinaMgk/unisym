@@ -231,6 +231,20 @@ namespace Network {
 		return view.has_status || view.has_header;
 	}
 
+	inline bool HTTPResponseComplete(const char* response, stduint length) {
+		HTTPResponseView view{};
+		if (!HTTPParseResponse(response, length, view) || !view.has_header) return false;
+		if (!view.has_content_length) return false;
+		return view.header.body_length >= view.content_length;
+	}
+
+	inline bool HTTPCompleteBody(const char* response, stduint length, HTTPBodyView& body) {
+		body = {};
+		if (!HTTPResponseComplete(response, length)) return false;
+		body = HTTPBody(response, length);
+		return body.present;
+	}
+
 }
 }
 

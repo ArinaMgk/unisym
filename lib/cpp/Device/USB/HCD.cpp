@@ -1,5 +1,5 @@
 // ASCII CPP-ISO11 TAB4 CRLF
-// Docutitle: (Device.USB) Host Controller Driver, HCD
+// Docutitle: [Device.USB] Host Controller Driver, HCD
 // Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
@@ -203,32 +203,33 @@ namespace uni {
 		Reference hcchar = hcd.ChannelReg(chnum, 0x000);// HCCHAR
 		stduint tmpreg = 0;
 
+		// HCINT is write-1-to-clear: assign the mask, never setof()
 		if (hcint.bitof(USB_OTG_HCINT_AHBERR_Pos)) {
-			hcint.setof(USB_OTG_HCINT_AHBERR_Pos);
+			hcint = USB_OTG_HCINT_AHBERR;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);// unmask halt
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_ACK_Pos)) {
-			hcint.setof(USB_OTG_HCINT_ACK_Pos);
+			hcint = USB_OTG_HCINT_ACK;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_STALL_Pos)) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			hcd.hc[chnum].state = (byte)HostChannelState::Stall;
-			hcint.setof(USB_OTG_HCINT_NAK_Pos);
-			hcint.setof(USB_OTG_HCINT_STALL_Pos);
+			hcint = USB_OTG_HCINT_NAK;
+			hcint = USB_OTG_HCINT_STALL;
 			OTG::HaltHostChannel(hcd.base, chnum);
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_DTERR_Pos)) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
-			hcint.setof(USB_OTG_HCINT_NAK_Pos);
+			hcint = USB_OTG_HCINT_NAK;
 			hcd.hc[chnum].state = (byte)HostChannelState::DataTglErr;
-			hcint.setof(USB_OTG_HCINT_DTERR_Pos);
+			hcint = USB_OTG_HCINT_DTERR;
 		}
 
 		if (hcint.bitof(USB_OTG_HCINT_FRMOR_Pos)) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
-			hcint.setof(USB_OTG_HCINT_FRMOR_Pos);
+			hcint = USB_OTG_HCINT_FRMOR;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_XFRC_Pos)) {
 			if (hcd.dma_enable) {
@@ -237,11 +238,11 @@ namespace uni {
 			}
 			hcd.hc[chnum].state = (byte)HostChannelState::XFRC;
 			hcd.hc[chnum].ErrCnt = 0;
-			hcint.setof(USB_OTG_HCINT_XFRC_Pos);
+			hcint = USB_OTG_HCINT_XFRC;
 			if ((hcd.hc[chnum].ep_type == 0) || (hcd.hc[chnum].ep_type == 2)) {// CTRL|BULK
 				hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 				OTG::HaltHostChannel(hcd.base, chnum);
-				hcint.setof(USB_OTG_HCINT_NAK_Pos);
+				hcint = USB_OTG_HCINT_NAK;
 			}
 			else if (hcd.hc[chnum].ep_type == 3) {// INTR
 				hcchar.setof(USB_OTG_HCCHAR_ODDFRM_Pos);
@@ -273,7 +274,7 @@ namespace uni {
 				tmpreg |= USB_OTG_HCCHAR_CHENA;
 				hcchar = tmpreg;
 			}
-			hcint.setof(USB_OTG_HCINT_CHH_Pos);
+			hcint = USB_OTG_HCINT_CHH;
 			if (hcd.NotifyURBChangeHandler) hcd.NotifyURBChangeHandler((pureptr_t)(stduint)chnum, hcd.hc[chnum].urb_state);
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_TXERR_Pos)) {
@@ -281,7 +282,7 @@ namespace uni {
 			hcd.hc[chnum].ErrCnt++;
 			hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
 			OTG::HaltHostChannel(hcd.base, chnum);
-			hcint.setof(USB_OTG_HCINT_TXERR_Pos);
+			hcint = USB_OTG_HCINT_TXERR;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_NAK_Pos)) {
 			if (hcd.hc[chnum].ep_type == 3) {// INTR
@@ -295,7 +296,7 @@ namespace uni {
 				hcchar = tmpreg;
 			}
 			hcd.hc[chnum].state = (byte)HostChannelState::NAK;
-			hcint.setof(USB_OTG_HCINT_NAK_Pos);
+			hcint = USB_OTG_HCINT_NAK;
 		}
 	}
 
@@ -306,12 +307,13 @@ namespace uni {
 		Reference hcchar = hcd.ChannelReg(chnum, 0x000);// HCCHAR
 		stduint tmpreg = 0;
 
+		// HCINT is write-1-to-clear: assign the mask, never setof()
 		if (hcint.bitof(USB_OTG_HCINT_AHBERR_Pos)) {
-			hcint.setof(USB_OTG_HCINT_AHBERR_Pos);
+			hcint = USB_OTG_HCINT_AHBERR;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_ACK_Pos)) {
-			hcint.setof(USB_OTG_HCINT_ACK_Pos);
+			hcint = USB_OTG_HCINT_ACK;
 			if (hcd.hc[chnum].do_ping == 1) {
 				hcd.hc[chnum].state = (byte)HostChannelState::NYET;
 				hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
@@ -324,22 +326,22 @@ namespace uni {
 			hcd.hc[chnum].ErrCnt = 0;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
-			hcint.setof(USB_OTG_HCINT_NYET_Pos);
+			hcint = USB_OTG_HCINT_NYET;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_FRMOR_Pos)) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
-			hcint.setof(USB_OTG_HCINT_FRMOR_Pos);
+			hcint = USB_OTG_HCINT_FRMOR;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_XFRC_Pos)) {
 			hcd.hc[chnum].ErrCnt = 0;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
-			hcint.setof(USB_OTG_HCINT_XFRC_Pos);
+			hcint = USB_OTG_HCINT_XFRC;
 			hcd.hc[chnum].state = (byte)HostChannelState::XFRC;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_STALL_Pos)) {
-			hcint.setof(USB_OTG_HCINT_STALL_Pos);
+			hcint = USB_OTG_HCINT_STALL;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcd.hc[chnum].state = (byte)HostChannelState::Stall;
@@ -349,19 +351,19 @@ namespace uni {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcd.hc[chnum].state = (byte)HostChannelState::NAK;
-			hcint.setof(USB_OTG_HCINT_NAK_Pos);
+			hcint = USB_OTG_HCINT_NAK;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_TXERR_Pos)) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
-			hcint.setof(USB_OTG_HCINT_TXERR_Pos);
+			hcint = USB_OTG_HCINT_TXERR;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_DTERR_Pos)) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
-			hcint.setof(USB_OTG_HCINT_NAK_Pos);
-			hcint.setof(USB_OTG_HCINT_DTERR_Pos);
+			hcint = USB_OTG_HCINT_NAK;
+			hcint = USB_OTG_HCINT_DTERR;
 			hcd.hc[chnum].state = (byte)HostChannelState::DataTglErr;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_CHH_Pos)) {
@@ -394,7 +396,13 @@ namespace uni {
 				tmpreg |= USB_OTG_HCCHAR_CHENA;
 				hcchar = tmpreg;
 			}
-			hcint.setof(USB_OTG_HCINT_CHH_Pos);
+			// a halted OUT channel leaves its packet in the shared TxFIFO: drop it
+			if ((hcd.hc[chnum].state != (byte)HostChannelState::XFRC)
+				&& (hcd.hc[chnum].ep_is_in == 0)
+				&& ((hcd.hc[chnum].ep_type == 0) || (hcd.hc[chnum].ep_type == 2))) {// CTRL|BULK
+				OTG::FlushTxFifo(hcd.base, 0x10);
+			}
+			hcint = USB_OTG_HCINT_CHH;
 			if (hcd.NotifyURBChangeHandler) hcd.NotifyURBChangeHandler((pureptr_t)(stduint)chnum, hcd.hc[chnum].urb_state);
 		}
 	}
@@ -487,18 +495,18 @@ namespace uni {
 		if (OTG::ReadInterrupts(base) == 0) return;
 
 		Reference gintsts(base + _IMM(OTGGlobalReg::GINTSTS));
-
+		// GINTSTS is write-1-to-clear: assign the mask, never setof()
 		if (gintsts.bitof(USB_OTG_GINTSTS_PXFR_INCOMPISOOUT_Pos)) {
-			gintsts.setof(USB_OTG_GINTSTS_PXFR_INCOMPISOOUT_Pos);
+			gintsts = USB_OTG_GINTSTS_PXFR_INCOMPISOOUT;
 		}
 		if (gintsts.bitof(USB_OTG_GINTSTS_IISOIXFR_Pos)) {
-			gintsts.setof(USB_OTG_GINTSTS_IISOIXFR_Pos);
+			gintsts = USB_OTG_GINTSTS_IISOIXFR;
 		}
 		if (gintsts.bitof(USB_OTG_GINTSTS_PTXFE_Pos)) {
-			gintsts.setof(USB_OTG_GINTSTS_PTXFE_Pos);
+			gintsts = USB_OTG_GINTSTS_PTXFE;
 		}
 		if (gintsts.bitof(USB_OTG_GINTSTS_MMIS_Pos)) {
-			gintsts.setof(USB_OTG_GINTSTS_MMIS_Pos);
+			gintsts = USB_OTG_GINTSTS_MMIS;
 		}
 		// host disconnect
 		if (gintsts.bitof(USB_OTG_GINTSTS_DISCINT_Pos)) {
@@ -507,7 +515,7 @@ namespace uni {
 			hprt_reg = hprt_reg & ~(USB_OTG_HPRT_PENA | USB_OTG_HPRT_PCDET | USB_OTG_HPRT_PENCHNG | USB_OTG_HPRT_POCCHNG);
 			if (DisconnectHandler) DisconnectHandler();
 			OTG::InitFSLSPClkSel(base, _HCFG_48_MHZ);
-			gintsts.setof(USB_OTG_GINTSTS_DISCINT_Pos);
+			gintsts = USB_OTG_GINTSTS_DISCINT;
 		}
 		// host port
 		if (gintsts.bitof(USB_OTG_GINTSTS_HPRTINT_Pos)) {
@@ -516,7 +524,7 @@ namespace uni {
 		// SOF
 		if (gintsts.bitof(USB_OTG_GINTSTS_SOF_Pos)) {
 			if (SOFHandler) SOFHandler();
-			gintsts.setof(USB_OTG_GINTSTS_SOF_Pos);
+			gintsts = USB_OTG_GINTSTS_SOF;
 		}
 		// host channels
 		if (gintsts.bitof(USB_OTG_GINTSTS_HCINT_Pos)) {
@@ -531,7 +539,7 @@ namespace uni {
 					}
 				}
 			}
-			gintsts.setof(USB_OTG_GINTSTS_HCINT_Pos);
+			gintsts = USB_OTG_GINTSTS_HCINT;
 		}
 		// Rx queue level
 		if (gintsts.bitof(USB_OTG_GINTSTS_RXFLVL_Pos)) {

@@ -46,21 +46,25 @@ _PACKED(struct) MouseMessage {
 // pres: init keyboard
 _ESYM_C void Mouse_Init();
 
-#if defined(_INC_CPP) && (defined(_UEFI))
+#if defined(_INC_CPP) && (defined(_UEFI) || defined(_MCU_STM32H7x))
+#include "../../cpp/Device/USB/USBHost-HID.hpp"
+#if defined(_UEFI)
 #include "../../../inc/c/msgface.h"
-#include "../../cpp/Device/USB/USB.hpp"
 #include "../../cpp/Device/USB/USB-Header.hpp"
 #include "../../cpp/Device/USB/xHCI/xHCI.hpp"
 #include "../../cpp/Device/Bus/PCI.hpp"
+#endif
 
 namespace uni::device::SpaceUSB {
 	class HIDMouseDriver : public HIDBaseDriver {
 	public:
 		HIDMouseDriver(USBHostDevice* dev, int interface_index);
+#if defined(_UEFI)
 		static uni::PCI::Device* Initialize(uni::PCI& pci, uni::PCI::Device& xhc_dev, uint64 xhc_mmio_base, uint8 irq_line, uint8 irq_pin, uni::device::SpaceUSB3::HostController* xhc);
 
 		void* operator new(size_t size);
 		void operator delete(void* ptr) noexcept;
+#endif
 
 		Error OnDataReceived() override;
 

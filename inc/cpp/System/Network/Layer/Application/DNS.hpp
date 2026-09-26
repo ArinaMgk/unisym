@@ -66,6 +66,7 @@ namespace Network {
 	struct DNSIPv4Result {
 		IPv4Address address;
 		IPv4Address addresses[DNSAddressCapacity];
+		char cname_target[DNSNameCapacity];
 		stduint address_count;
 		stduint answer_count;
 		stduint cname_count;
@@ -81,6 +82,7 @@ namespace Network {
 	struct DNSIPv6Result {
 		IPv6Address address;
 		IPv6Address addresses[DNSAddressCapacity];
+		char cname_target[DNSNameCapacity];
 		stduint address_count;
 		stduint answer_count;
 		stduint cname_count;
@@ -116,10 +118,13 @@ namespace Network {
 	struct DNSCacheEntryIPv4 {
 		char host[DNSNameCapacity];
 		char status[DNSStatusTextCapacity];
+		char cname_target[DNSNameCapacity];
 		IPv4Address address;
 		IPv4Address addresses[DNSAddressCapacity];
 		stduint address_count;
 		stduint answer_count;
+		stduint cname_count;
+		stduint non_address_count;
 		uint32 ttl;
 		bool negative;
 	};
@@ -127,10 +132,13 @@ namespace Network {
 	struct DNSCacheEntryIPv6 {
 		char host[DNSNameCapacity];
 		char status[DNSStatusTextCapacity];
+		char cname_target[DNSNameCapacity];
 		IPv6Address address;
 		IPv6Address addresses[DNSAddressCapacity];
 		stduint address_count;
 		stduint answer_count;
+		stduint cname_count;
+		stduint non_address_count;
 		uint32 ttl;
 		bool negative;
 	};
@@ -147,6 +155,7 @@ namespace Network {
 	inline void DNSClearIPv4Result(DNSIPv4Result& result, DNSResolveStatus status = DNSResolveStatus::None) {
 		result.address = {};
 		for0(i, DNSAddressCapacity) result.addresses[i] = {};
+		for0(i, DNSNameCapacity) result.cname_target[i] = 0;
 		result.address_count = 0;
 		result.answer_count = 0;
 		result.cname_count = 0;
@@ -169,6 +178,7 @@ namespace Network {
 	inline void DNSClearIPv6Result(DNSIPv6Result& result, DNSResolveStatus status = DNSResolveStatus::None) {
 		result.address = {};
 		for0(i, DNSAddressCapacity) result.addresses[i] = {};
+		for0(i, DNSNameCapacity) result.cname_target[i] = 0;
 		result.address_count = 0;
 		result.answer_count = 0;
 		result.cname_count = 0;

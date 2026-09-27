@@ -260,6 +260,12 @@ namespace uni::device::SpaceUSB {
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
+		else if (initialize_phase_ == 15) {
+			if (setup_data.request == request::kSetAddress) {
+				return InitializeAddressPhase();
+			}
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
 		else if (initialize_phase_ == 2) {
 			if (setup_data.request == request::kGetDescriptor &&
 				DescriptorDynamicCast<ConfigurationDescriptor>(buf8)) {
@@ -304,6 +310,15 @@ namespace uni::device::SpaceUSB {
 		serial_index_ = device_desc->serial_number;
 		num_configurations_ = device_desc->num_configurations;
 		config_index_ = 0;
+		// AKA ENUM_SET_ADDR: a device refuses SetConfiguration while it has no address
+		initialize_phase_ = 15;
+		return SetAddress(*this, kDefaultControlPipeID, kDefaultDeviceAddress, true);
+	}
+
+	// AKA the step after ENUM_SET_ADDR: the rest of the enumeration runs at the new address
+	Error USBHostDevice::InitializeAddressPhase() {
+		// the transport has to switch before the next request goes out
+		OnDeviceAddressChanged(kDefaultDeviceAddress);
 		return RequestStringDescriptors();
 	}
 
@@ -474,6 +489,20 @@ namespace uni::device::SpaceUSB {
 		setup_data.request_type.bits.recipient = request_type::kDevice;
 		setup_data.request = request::kSetConfiguration;
 		setup_data.value = config_value;
+		setup_data.index = 0;
+		setup_data.length = 0;
+		return dev.ControlOut(ep_id, setup_data, nullptr, 0, nullptr);
+	}
+
+	// AKA USBH_SetAddress: from the next request on the device answers at the new address
+	Error SetAddress(USBHostDevice& dev, EndpointID ep_id,
+		uint8_t address, bool debug) {
+		SetupData setup_data{};
+		setup_data.request_type.bits.direction = request_type::kOut;
+		setup_data.request_type.bits.type = request_type::kStandard;
+		setup_data.request_type.bits.recipient = request_type::kDevice;
+		setup_data.request = request::kSetAddress;
+		setup_data.value = address;
 		setup_data.index = 0;
 		setup_data.length = 0;
 		return dev.ControlOut(ep_id, setup_data, nullptr, 0, nullptr);

@@ -100,6 +100,7 @@ namespace uni::device::SpaceUSB {
 		const int kSetDescriptor = 7;
 		const int kGetConfiguration = 8;
 		const int kSetConfiguration = 9;
+		const int kSetReport = 9;// class request (SET_REPORT), same bRequest value as SET_CONFIGURATION
 		const int kGetInterface = 10;
 		const int kSetInterface = 11;
 		const int kSynchFrame = 12;
@@ -208,6 +209,8 @@ namespace uni::device::SpaceUSB {
 	};
 
 	constexpr EndpointID kDefaultControlPipeID{ 0, true };
+	// AKA USBH_DEVICE_ADDRESS: the address the host assigns first
+	constexpr uint8 kDefaultDeviceAddress = 1;
 
 	struct EndpointConfig {
 	  /** Endpoint ID */

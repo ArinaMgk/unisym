@@ -34,6 +34,17 @@ namespace uni::device::SpaceUSB {
 		hcd_.InitializeHostChannel(0, 0x00, dev_address, speed, 0, 8);// EP_TYPE_CTRL
 	}
 
+	// The device needs the 2 ms recovery window of SET_ADDRESS before it answers
+	void OTGHostDevice::OnDeviceAddressChanged(byte address) {
+		const stduint start = hcd_.getCurrentFrame();
+		stduint spin = 0;
+		// the frame counter is the only clock available here: never spin forever on it
+		while ((stduint)(hcd_.getCurrentFrame() - start) < 3 && spin++ < 200000) {}
+		dev_address_ = address;
+		// endpoint 0 keeps the packet size learned from the device descriptor
+		hcd_.InitializeHostChannel(0, 0x00, dev_address_, speed_, 0, hcd_.hc[0].max_packet);
+	}
+
 	Error OTGHostDevice::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
 		if (auto err = USBHostDevice::ControlIn(ep_id, setup_data, buf, len, issuer)) {
@@ -51,6 +62,7 @@ namespace uni::device::SpaceUSB {
 		ctrl_setup_.length = static_cast<uint16>(ctrl_len_);
 		ctrl_xfer_count_ = 0;
 		mps_probe_ = false;
+		ch_nak_retry_[0] = 0;
 		if (!mps_known_ && setup_data.request == request::kGetDescriptor &&
 			(setup_data.value >> 8) == DeviceDescriptor::kType && ctrl_len_ > 8) {
 			// the 8-byte header fits every bMaxPacketSize0
@@ -76,6 +88,7 @@ namespace uni::device::SpaceUSB {
 		ctrl_setup_ = setup_data;
 		ctrl_buf_ = const_cast<void*>(buf);
 		ctrl_len_ = len;
+		ch_nak_retry_[0] = 0;
 		ctrl_stage_ = ControlStage::Setup;
 		hcd_.SubmitRequest(0, 0, 0, 0, reinterpret_cast<byte*>(&ctrl_setup_), 8, 0);
 		return MAKE_ERROR(Error::kSuccess);
@@ -87,11 +100,35 @@ namespace uni::device::SpaceUSB {
 		}
 		const byte ch = ChannelOfEndpoint(ep_id);
 		if (!ch) return MAKE_ERROR(Error::kInvalidEndpointNumber);
-		// IN interrupt transfer, DATA1 first (toggle starts at 0)
 		ch_xfer_base_[ch] = static_cast<byte*>(buf);
 		ch_xfer_len_[ch] = static_cast<uint16>(len);
+		if (ch_poll_interval_[ch]) {
+			// an interrupt endpoint is polled once per bInterval, so an early re-arm waits
+			const stduint frame = hcd_.getCurrentFrame();
+			// the frame counter wraps: an absolute due frame can never be reached again
+			if ((uint16)(frame - ch_poll_last_[ch]) < ch_poll_interval_[ch]) {
+				ch_deferred_buf_[ch] = static_cast<byte*>(buf);
+				ch_deferred_len_[ch] = static_cast<uint16>(len);
+				return MAKE_ERROR(Error::kSuccess);
+			}
+			ch_poll_last_[ch] = frame;
+		}
 		hcd_.SubmitRequest(ch, 1, 3, 1, static_cast<byte*>(buf), static_cast<uint16>(len), 0);
 		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	// Submit every interrupt poll that was held back and whose interval is over
+	void OTGHostDevice::ProcessDeferredInterrupts() {
+		const stduint frame = hcd_.getCurrentFrame();
+		for (byte ch = 1; ch < 16; ch++) {
+			if (ch_deferred_buf_[ch] == nullptr) continue;
+			if ((uint16)(frame - ch_poll_last_[ch]) < ch_poll_interval_[ch]) continue;
+			byte* buf = ch_deferred_buf_[ch];
+			const uint16 len = ch_deferred_len_[ch];
+			ch_deferred_buf_[ch] = nullptr;
+			ch_poll_last_[ch] = frame;
+			hcd_.SubmitRequest(ch, 1, 3, 1, buf, len, 0);
+		}
 	}
 
 	Error OTGHostDevice::InterruptOut(EndpointID ep_id, void* buf, int len) {
@@ -144,6 +181,9 @@ namespace uni::device::SpaceUSB {
 			const byte ep_type = static_cast<byte>(conf.ep_type);// kControl=0, kIsochronous=1, kBulk=2, kInterrupt=3
 			ch_of_ep_[ep_id_addr] = next_ch;
 			ep_of_ch_[next_ch] = ep_id_addr;
+			if (ep_type == 3) {// kInterrupt: bInterval counts frames (milliseconds) on LS/FS
+				ch_poll_interval_[next_ch] = conf.interval ? static_cast<byte>(conf.interval) : 1;
+			}
 			hcd_.InitializeHostChannel(next_ch, ep_addr, dev_address_, speed_,
 				ep_type, static_cast<uint16>(conf.max_packet_size));
 			next_ch++;
@@ -162,8 +202,36 @@ namespace uni::device::SpaceUSB {
 		return ch;
 	}
 
+	// Send the stage in flight again: a NAK means the device was not ready for it
+	Error OTGHostDevice::ResubmitControlStage() {
+		switch (ctrl_stage_) {
+		case ControlStage::Setup:
+			hcd_.SubmitRequest(0, 0, 0, 0, reinterpret_cast<byte*>(&ctrl_setup_), 8, 0);
+			break;
+		case ControlStage::DataIn:
+			hcd_.SubmitRequest(0, 1, 0, 1, static_cast<byte*>(ctrl_buf_),
+				static_cast<uint16>(ctrl_len_), 0);
+			break;
+		case ControlStage::DataOut:
+			hcd_.SubmitRequest(0, 0, 0, 1, static_cast<byte*>(ctrl_buf_),
+				static_cast<uint16>(ctrl_len_), 0);
+			break;
+		case ControlStage::StatusIn:
+			hcd_.SubmitRequest(0, 1, 0, 1, nullptr, 0, 0);
+			break;
+		case ControlStage::StatusOut:
+			hcd_.SubmitRequest(0, 0, 0, 1, nullptr, 0, 0);
+			break;
+		default:
+			break;
+		}
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
 	// Advance the control stage machine on channel-0 URB completion.
 	void OTGHostDevice::OnChannelURBCompleted(byte ch_num, URBState urb_state) {
+		// EP0: Idle is only ever set by a fresh submit, so it carries no result
+		if (ch_num == 0 && urb_state == URBState::Idle) return;
 		if (ch_num != 0) {
 			// route by the endpoint type; the class driver gets its own buffer back
 			const byte ep_addr = ep_of_ch_[ch_num];
@@ -177,13 +245,14 @@ namespace uni::device::SpaceUSB {
 				if (ep_type == 2) OnBulkCompleted(ep_id, ch_xfer_base_[ch_num], len);
 				else OnInterruptCompleted(ep_id, ch_xfer_base_[ch_num], len);
 			}
-			else if (urb_state == URBState::NotReady || urb_state == URBState::NYET) {
+			else if (urb_state == URBState::NotReady || urb_state == URBState::NYET
+				|| urb_state == URBState::Idle) {
 				const HostChannelState ch_state = hcd_.getHostChannelState(ch_num);
 				if (ch_state == HostChannelState::Xacterr
 					|| ch_state == HostChannelState::DataTglErr) {
 					return;// the HCD re-activated this channel by itself
 				}
-				// NAK is not a failure: the very same URB goes out again
+				// a NAK and a missing result both mean: this very URB goes out again
 				if (ch_xfer_base_[ch_num] && ch_xfer_len_[ch_num]
 					&& ch_nak_retry_[ch_num]++ < kNakRetryLimit) {
 					hcd_.SubmitRequest(ch_num, dir_in ? 1 : 0, ep_type, 1,
@@ -207,10 +276,18 @@ namespace uni::device::SpaceUSB {
 			return;
 		}
 		if (urb_state != URBState::Done) {
+			const bool nak = (urb_state == URBState::NotReady || urb_state == URBState::NYET)
+				&& hcd_.getHostChannelState(0) == HostChannelState::NAK;
+			if (nak && ch_nak_retry_[0]++ < kNakRetryLimit) {
+				// a NAK means the device was not ready for this stage: send it again
+				ResubmitControlStage();
+				return;
+			}
 			ctrl_stage_ = ControlStage::Done;
 			OnControlCompleted(ctrl_ep_id_, ctrl_setup_, ctrl_buf_, 0);
 			return;
 		}
+		ch_nak_retry_[0] = 0;
 		switch (ctrl_stage_) {
 		case ControlStage::Setup:
 			// SETUP done -> DATA stage (direction from request)

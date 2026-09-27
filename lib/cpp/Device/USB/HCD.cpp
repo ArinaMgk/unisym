@@ -171,6 +171,10 @@ namespace uni {
 		hc_ref.xfer_count = 0;
 		hc_ref.ch_num = ch_num;
 		hc_ref.state = (byte)HostChannelState::Idle;
+		// HCINT.CHH is write-1-to-clear: drop the previous transfer's halt flag
+		ChannelReg(ch_num, 0x008) = USB_OTG_HCINT_CHH;
+		// the CHH handler masks the halt interrupt, so every transfer arms it again
+		ChannelReg(ch_num, 0x00C).setof(USB_OTG_HCINTMSK_CHHM_Pos);
 		return OTG::StartHostChannelXfer(base, hc_ref, dma_enable);
 	}
 
@@ -228,6 +232,8 @@ namespace uni {
 
 		if (hcint.bitof(USB_OTG_HCINT_FRMOR_Pos)) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
+			// a control halt must carry a reason, or the URB layer reads it as no result
+			if (hcd.hc[chnum].ep_type == 0) hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcint = USB_OTG_HCINT_FRMOR;
 		}
@@ -252,7 +258,7 @@ namespace uni {
 			hcd.hc[chnum].toggle_in ^= 1;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_CHH_Pos)) {
-			hcintmsk.rstof(USB_OTG_HCINTMSK_CHHM_Pos);// mask halt
+			hcintmsk.rstof(USB_OTG_HCINTMSK_CHHM_Pos);// mask halt again
 			if (hcd.hc[chnum].state == (byte)HostChannelState::XFRC) {
 				hcd.hc[chnum].urb_state = (byte)URBState::Done;
 			}
@@ -330,6 +336,8 @@ namespace uni {
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_FRMOR_Pos)) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
+			// a control halt must carry a reason, or the URB layer reads it as no result
+			if (hcd.hc[chnum].ep_type == 0) hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcint = USB_OTG_HCINT_FRMOR;
 		}
@@ -367,7 +375,7 @@ namespace uni {
 			hcd.hc[chnum].state = (byte)HostChannelState::DataTglErr;
 		}
 		else if (hcint.bitof(USB_OTG_HCINT_CHH_Pos)) {
-			hcintmsk.rstof(USB_OTG_HCINTMSK_CHHM_Pos);
+			hcintmsk.rstof(USB_OTG_HCINTMSK_CHHM_Pos);// mask halt again
 			if (hcd.hc[chnum].state == (byte)HostChannelState::XFRC) {
 				hcd.hc[chnum].urb_state = (byte)URBState::Done;
 				if (hcd.hc[chnum].ep_type == 2) hcd.hc[chnum].toggle_out ^= 1;// BULK
@@ -540,6 +548,17 @@ namespace uni {
 				}
 			}
 			gintsts = USB_OTG_GINTSTS_HCINT;
+			// a channel can halt right after its handler ran: that CHH never reaches HAINT
+			for (i = 0; i < host_channels; i++) {
+				if (interrupt & (1U << i)) continue;
+				if (!ChannelReg((byte)i, 0x008)) continue;// HCINT
+				if (ChannelReg((byte)i, 0x000).bitof(USB_OTG_HCCHAR_EPDIR_Pos)) {
+					HCD_HC_IN_IRQHandler(*this, (byte)i);
+				}
+				else {
+					HCD_HC_OUT_IRQHandler(*this, (byte)i);
+				}
+			}
 		}
 		// Rx queue level
 		if (gintsts.bitof(USB_OTG_GINTSTS_RXFLVL_Pos)) {

@@ -30,6 +30,7 @@
 // x86
 #include "./keyboard.h"
 
+//{TODO} Boot protocol mouse report: 3 bytes (buttons, X, Y) -- there is no wheel byte in it
 _PACKED(struct) MouseMessage {
 	byte BtnLeft : 1;
 	byte BtnRight : 1;

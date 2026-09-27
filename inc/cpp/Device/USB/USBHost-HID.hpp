@@ -40,6 +40,11 @@ namespace uni::device::SpaceUSB {
 		Error OnControlCompleted(EndpointID ep_id, SetupData setup_data, const void* buf, int len) override;
 		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) override;
 
+		Error SetLed(byte leds);
+		byte LedState() const { return led_; }
+		// only a device that owns an output report takes an LED byte (a mouse has none)
+		virtual bool HasLedReport() const { return false; }
+
 		virtual Error OnDataReceived() = 0;
 		const static size_t kBufferSize = 1024;
 		const uni::Array<uint8_t, kBufferSize>& Buffer() const { return buf_; }
@@ -53,6 +58,11 @@ namespace uni::device::SpaceUSB {
 		int initialize_phase_{ 0 };
 
 		uni::Array<uint8_t, kBufferSize> buf_{}, previous_buf_{};
+		// the LED byte the device should show (bit0 num, bit1 caps, bit2 scroll)
+		byte led_ = 0;
+		byte led_sent_ = 0;// the byte actually handed to the control pipe
+		bool led_pending_ = false;// one output report at a time
+		Error SendLed();
 	};
 
 }

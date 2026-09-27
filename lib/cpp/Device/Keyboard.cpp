@@ -76,10 +76,21 @@ namespace uni::device::SpaceUSB {
 		for (stduint i = 2; i < 8; ++i) {
 			if (last_buf[i] && std::find(prev_buf.begin(), prev_buf.end(), last_buf[i]) == prev_buf.end()) {
 				keyevent.keycode = last_buf[i];
+				ToggleLockLed(last_buf[i]);
 				NotifyKeyPush(keyevent);
 			}
 		}
 		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	// the lock keys are not part of the modifier byte: each press flips one LED bit
+	void HIDKeyboardDriver::ToggleLockLed(byte keycode) {
+		byte bit = 0;
+		if (keycode == _UKEY_CAPSLOCK) bit = _ULED_CAPSLOCK;
+		else if (keycode == _UKEY_NUMLOCK) bit = _ULED_NUMLOCK;
+		else if (keycode == _UKEY_SCROLLLOCK) bit = _ULED_SCROLLLOCK;
+		else return;
+		SetLed(LedState() ^ bit);
 	}
 
 	void HIDKeyboardDriver::SubscribeKeyPush(

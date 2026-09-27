@@ -17,6 +17,8 @@ namespace uni::device::SpaceUSB {
 		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change);
 		// AKA xHCI ConfigureEndpoints: the transport programs its channels here
 		virtual Error ConfigureTransportEndpoints() { return MAKE_ERROR(Error::kSuccess); }
+		// AKA USBH_LL_SetDeviceAddress: the transport follows the new address here
+		virtual void OnDeviceAddressChanged(uint8 address) { (void)address; }
 
 		Error StartInitialize();
 		bool IsInitialized() { return is_initialized_; }
@@ -94,6 +96,7 @@ namespace uni::device::SpaceUSB {
 		Error InitializeStringPhaseSerial(const uint8* buf, int len);
 		Error RequestStringDescriptors();
 		Error BeginConfigurationDescriptorRead();
+		Error InitializeAddressPhase();
 
 		/** Map structure to identify the issuer of a request within OnControlCompleted.
 			 * The issuer is registered when ControlOut or ControlIn is issued.
@@ -106,5 +109,7 @@ namespace uni::device::SpaceUSB {
 		void* buf, int len, bool debug = false, uint16 desc_lang_id = 0);
 	Error SetConfiguration(USBHostDevice& dev, EndpointID ep_id,
 		uint8 config_value, bool debug = false);
+	Error SetAddress(USBHostDevice& dev, EndpointID ep_id,
+		uint8 address, bool debug = false);
 }
 #endif

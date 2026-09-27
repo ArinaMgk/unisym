@@ -54,9 +54,13 @@ namespace uni::device::SpaceUSB {
 
 		// program every non-control channel from the parsed configuration
 		Error ConfigureTransportEndpoints() override { return ConfigureEndpoints(); }
+		// AKA USBH_LL_SetDeviceAddress: every later transfer uses the new address
+		void OnDeviceAddressChanged(uint8 address) override;
 
 		// URB completion dispatcher; called from HCD.NotifyURBChangeHandler
 		void OnChannelURBCompleted(byte ch_num, URBState urb_state);
+		// Submit every interrupt poll that was held back and whose interval is over
+		void ProcessDeferredInterrupts();
 
 		// configure all non-control endpoints from the parsed configuration
 		Error ConfigureEndpoints();
@@ -78,7 +82,7 @@ namespace uni::device::SpaceUSB {
 		int ctrl_len_ = 0;
 
 		HCD& hcd_;
-		const byte dev_address_;
+		byte dev_address_;
 		const byte speed_;
 
 		byte* ch_xfer_base_[16] = {};// what the completion callbacks hand back
@@ -86,6 +90,11 @@ namespace uni::device::SpaceUSB {
 
 		byte ch_nak_retry_[16] = {};// NAK is not a failure: the same URB is re-submitted that many times
 		static const int kNakRetryLimit = 200;
+		Error ResubmitControlStage();
+		byte ch_poll_interval_[16] = {};// bInterval of an interrupt endpoint, in frames
+		stduint ch_poll_last_[16] = {};// frame the last poll went out at
+		byte* ch_deferred_buf_[16] = {};// poll held back until then
+		uint16 ch_deferred_len_[16] = {};
 
 		// endpoint address <-> host channel (AKA USBH_AllocPipe)
 		byte ch_of_ep_[32] = {};

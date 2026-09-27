@@ -35,7 +35,7 @@ namespace uni::device::SpaceUSB3 {
 			 *
 			 * write_index_ is not changed.
 			 */
-		void CopyToLast(const std::array<uint32_t, 4>& data);
+		void CopyToLast(const uni::Array<uint32_t, 4>& data);
 
 		/** @brief Append a TRB to the end of the ring with the cycle bit set.
 			 *
@@ -45,11 +45,11 @@ namespace uni::device::SpaceUSB3 {
 			 *
 			 * @return Pointer to the appended TRB (on the ring).
 			 */
-		TRB* Push(const std::array<uint32_t, 4>& data);
+		TRB* Push(const uni::Array<uint32_t, 4>& data);
 	};
 
 	union EventRingSegmentTableEntry {
-		std::array<uint32_t, 4> data;
+		uni::Array<uint32_t, 4> data;
 		struct {
 			uint64_t ring_segment_base_address;  // 64-byte alignment
 

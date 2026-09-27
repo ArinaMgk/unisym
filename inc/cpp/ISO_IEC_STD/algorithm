@@ -1,0 +1,199 @@
+// ASCII CPP-ISO11 TAB4 LF
+// Docutitle: (Module) Algorithm
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Algorithm_NEXT
+#define _INCPP_Algorithm_NEXT
+
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winclude-next-absolute-path"
+#endif
+
+#if defined(__has_include_next)
+#	if __has_include_next(<algorithm>)
+#		include_next <algorithm>
+#		define _HAS_STD_ALGORITHM
+#	endif
+#endif
+
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+
+#endif
+
+#ifndef _INCPP_Algorithm
+#define _INCPP_Algorithm
+
+#include "../unisym"
+
+#if !defined(_HAS_STD_ALGORITHM)
+namespace std {
+
+	// Non-modifying sequence operations
+
+	template <class InputIt, class type>
+	constexpr InputIt find(InputIt first, InputIt last, const type& val) {
+		for (; first != last; ++first) if (*first == val) return first;
+		return last;
+	}
+
+	template <class InputIt, class UnaryPredicate>
+	constexpr InputIt find_if(InputIt first, InputIt last, UnaryPredicate pred) {
+		for (; first != last; ++first) if (pred(*first)) return first;
+		return last;
+	}
+
+	template <class InputIt, class UnaryPredicate>
+	constexpr InputIt find_if_not(InputIt first, InputIt last, UnaryPredicate pred) {
+		for (; first != last; ++first) if (!pred(*first)) return first;
+		return last;
+	}
+
+	template <class InputIt, class type>
+	constexpr stduint count(InputIt first, InputIt last, const type& val) {
+		stduint cnt = 0;
+		for (; first != last; ++first) if (*first == val) ++cnt;
+		return cnt;
+	}
+
+	template <class InputIt, class UnaryPredicate>
+	constexpr stduint count_if(InputIt first, InputIt last, UnaryPredicate pred) {
+		stduint cnt = 0;
+		for (; first != last; ++first) if (pred(*first)) ++cnt;
+		return cnt;
+	}
+
+	template <class InputIt, class UnaryPredicate>
+	constexpr bool all_of(InputIt first, InputIt last, UnaryPredicate pred) {
+		for (; first != last; ++first) if (!pred(*first)) return false;
+		return true;
+	}
+
+	template <class InputIt, class UnaryPredicate>
+	constexpr bool any_of(InputIt first, InputIt last, UnaryPredicate pred) {
+		for (; first != last; ++first) if (pred(*first)) return true;
+		return false;
+	}
+
+	template <class InputIt, class UnaryPredicate>
+	constexpr bool none_of(InputIt first, InputIt last, UnaryPredicate pred) {
+		for (; first != last; ++first) if (pred(*first)) return false;
+		return true;
+	}
+
+	template <class InputIt, class UnaryFunction>
+	constexpr UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction func) {
+		for (; first != last; ++first) func(*first);
+		return func;
+	}
+
+	template <class InputIt1, class InputIt2>
+	constexpr bool equal(InputIt1 first1, InputIt1 last1, InputIt2 first2) {
+		for (; first1 != last1; ++first1, ++first2) if (!(*first1 == *first2)) return false;
+		return true;
+	}
+
+	// Modifying sequence operations
+
+	template <class InputIt, class OutputIt>
+	constexpr OutputIt copy(InputIt first, InputIt last, OutputIt result) {
+		for (; first != last; ++first, ++result) *result = *first;
+		return result;
+	}
+
+	template <class InputIt, class Size, class OutputIt>
+	constexpr OutputIt copy_n(InputIt first, Size count, OutputIt result) {
+		for (Size i = 0; i < count; ++i, ++first, ++result) *result = *first;
+		return result;
+	}
+
+	template <class InputIt, class OutputIt, class UnaryPredicate>
+	constexpr OutputIt copy_if(InputIt first, InputIt last, OutputIt result, UnaryPredicate pred) {
+		for (; first != last; ++first) if (pred(*first)) { *result = *first; ++result; }
+		return result;
+	}
+
+	template <class OutputIt, class Size, class type>
+	constexpr OutputIt fill_n(OutputIt first, Size count, const type& val) {
+		for (Size i = 0; i < count; ++i, ++first) *first = val;
+		return first;
+	}
+
+	template <class ForwardIt, class type>
+	constexpr void fill(ForwardIt first, ForwardIt last, const type& val) {
+		for (; first != last; ++first) *first = val;
+	}
+
+	template <class InputIt, class OutputIt, class UnaryOperation>
+	constexpr OutputIt transform(InputIt first, InputIt last, OutputIt result, UnaryOperation op) {
+		for (; first != last; ++first, ++result) *result = op(*first);
+		return result;
+	}
+
+	// Minimum and maximum
+
+	template <class type>
+	constexpr const type& min(const type& lhs, const type& rhs) {
+		return (rhs < lhs) ? rhs : lhs;
+	}
+
+	template <class type, class Compare>
+	constexpr const type& min(const type& lhs, const type& rhs, Compare cmp) {
+		return cmp(rhs, lhs) ? rhs : lhs;
+	}
+
+	template <class type>
+	constexpr const type& max(const type& lhs, const type& rhs) {
+		return (lhs < rhs) ? rhs : lhs;
+	}
+
+	template <class type, class Compare>
+	constexpr const type& max(const type& lhs, const type& rhs, Compare cmp) {
+		return cmp(lhs, rhs) ? rhs : lhs;
+	}
+
+	template <class type>
+	constexpr const type& clamp(const type& val, const type& lo, const type& hi) {
+		return (val < lo) ? lo : ((hi < val) ? hi : val);
+	}
+
+	template <class ForwardIt>
+	constexpr ForwardIt min_element(ForwardIt first, ForwardIt last) {
+		if (first == last) return last;
+		ForwardIt res = first;
+		for (++first; first != last; ++first) if (*first < *res) res = first;
+		return res;
+	}
+
+	template <class ForwardIt>
+	constexpr ForwardIt max_element(ForwardIt first, ForwardIt last) {
+		if (first == last) return last;
+		ForwardIt res = first;
+		for (++first; first != last; ++first) if (*res < *first) res = first;
+		return res;
+	}
+
+}
+#endif
+
+#endif

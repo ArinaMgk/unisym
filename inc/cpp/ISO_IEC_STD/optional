@@ -1,0 +1,115 @@
+// ASCII CPP-ISO11 TAB4 LF
+// Docutitle: (Module) Optional
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Optional_NEXT
+#define _INCPP_Optional_NEXT
+
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winclude-next-absolute-path"
+#endif
+
+#if defined(__has_include_next)
+#	if __has_include_next(<optional>)
+#		include_next <optional>
+#		define _HAS_STD_OPTIONAL
+#	endif
+#endif
+
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+
+#endif
+
+#ifndef _INCPP_Optional
+#define _INCPP_Optional
+
+#include "../unisym"
+
+namespace uni {
+
+	struct nullopt_t {
+		explicit constexpr nullopt_t(int) {}
+	};
+
+	constexpr nullopt_t nullopt{ 0 };
+
+	template <typename type>
+	class Optional {
+	private:
+		type value_;
+		bool engaged_;
+
+	public:
+		constexpr Optional() : value_(), engaged_(false) {}
+		constexpr Optional(nullopt_t) : value_(), engaged_(false) {}
+		constexpr Optional(const type& val) : value_(val), engaged_(true) {}
+		constexpr Optional(const Optional& opt) : value_(opt.value_), engaged_(opt.engaged_) {}
+
+		Optional& operator=(const Optional& opt) {
+			value_ = opt.value_;
+			engaged_ = opt.engaged_;
+			return *this;
+		}
+		Optional& operator=(nullopt_t) {
+			engaged_ = false;
+			return *this;
+		}
+		Optional& operator=(const type& val) {
+			value_ = val;
+			engaged_ = true;
+			return *this;
+		}
+
+		constexpr bool has_value() const { return engaged_; }
+		constexpr explicit operator bool() const { return engaged_; }
+
+		type& value() {
+			if (!engaged_) erro("Optional: value() on empty");
+			return value_;
+		}
+		const type& value() const {
+			if (!engaged_) erro("Optional: value() on empty");
+			return value_;
+		}
+		type& operator*() { return value(); }
+		const type& operator*() const { return value(); }
+		type* operator->() { return &value(); }
+		const type* operator->() const { return &value(); }
+
+		type value_or(const type& alt) const { return engaged_ ? value_ : alt; }
+		void reset() { engaged_ = false; }
+	};
+
+}
+
+// Keep "std::optional" spelled code compilable without any C++ standard library.
+#if !defined(_HAS_STD_OPTIONAL)
+namespace std {
+	using uni::nullopt_t;
+	using uni::nullopt;
+	template <typename type> using optional = uni::Optional<type>;
+}
+#endif
+
+#endif

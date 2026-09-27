@@ -2,7 +2,7 @@
 #include "../../../../../inc/c/msgface.h"
 #include "../../../../../inc/cpp/Device/USB/xHCI/xHCI-registers.hpp"
 #include "../../../../../inc/cpp/Device/USB/xHCI/xHCI.hpp"
-#include <algorithm>
+#include "../../../../../inc/cpp/ISO_IEC_STD/algorithm"
 
 
 
@@ -32,7 +32,7 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
-	void Ring::CopyToLast(const std::array<uint32_t, 4>& data) {
+	void Ring::CopyToLast(const uni::Array<uint32_t, 4>& data) {
 		for (int i = 0; i < 3; ++i) {
 		  // data[0..2] must be written prior to data[3].
 			buf_[write_index_].data[i] = data[i];
@@ -44,7 +44,7 @@ namespace uni::device::SpaceUSB3 {
 			= (data[3] & 0xfffffffeu) | static_cast<uint32_t>(cycle_bit_);
 	}
 
-	TRB* Ring::Push(const std::array<uint32_t, 4>& data) {
+	TRB* Ring::Push(const uni::Array<uint32_t, 4>& data) {
 		auto trb_ptr = &buf_[write_index_];
 		CopyToLast(data);
 

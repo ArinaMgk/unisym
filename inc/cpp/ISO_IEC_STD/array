@@ -1,0 +1,89 @@
+// ASCII CPP-ISO11 TAB4 LF
+// Docutitle: (Module) Array
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Array_NEXT
+#define _INCPP_Array_NEXT
+
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winclude-next-absolute-path"
+#endif
+
+#if defined(__has_include_next)
+#	if __has_include_next(<array>)
+#		include_next <array>
+#		define _HAS_STD_ARRAY
+#	endif
+#endif
+
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+
+#endif
+
+#ifndef _INCPP_Array
+#define _INCPP_Array
+
+#include "../unisym"
+
+namespace uni {
+
+	template <typename type, stduint dim>
+	struct Array {
+		type elems[dim ? dim : 1];
+
+		constexpr type* data() { return elems; }
+		constexpr const type* data() const { return elems; }
+		static constexpr stduint size() { return dim; }
+		constexpr bool empty() const { return !dim; }
+
+		constexpr type& operator[](stduint idx) { return elems[idx]; }
+		constexpr const type& operator[](stduint idx) const { return elems[idx]; }
+		constexpr type& front() { return elems[0]; }
+		constexpr const type& front() const { return elems[0]; }
+		constexpr type& back() { return elems[dim - 1]; }
+		constexpr const type& back() const { return elems[dim - 1]; }
+
+		constexpr type* begin() { return elems; }
+		constexpr const type* begin() const { return elems; }
+		constexpr type* end() { return elems + dim; }
+		constexpr const type* end() const { return elems + dim; }
+
+		void fill(const type& val) {
+			for (stduint i = 0; i < dim; i++) elems[i] = val;
+		}
+	};
+
+	template <typename type, class... args>
+	Array(type, args...) -> Array<type, 1 + sizeof...(args)>;
+
+}
+
+// Keep "std::array" spelled code compilable without any C++ standard library.
+#if !defined(_HAS_STD_ARRAY)
+namespace std {
+	template <typename type, stduint dim> using array = uni::Array<type, dim>;
+}
+#endif
+
+#endif

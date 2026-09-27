@@ -20,9 +20,8 @@
 	limitations under the License.
 */
 
-#if (defined(_MCCA) && _MCCA == 0x8664) || defined(_MCU_STM32H7x)
-
 #include "../../../../inc/cpp/Device/USB/USBHost-HID.hpp"
+#include "../../../../inc/cpp/ISO_IEC_STD/algorithm"
 
 namespace uni::device::SpaceUSB {
 
@@ -83,5 +82,3 @@ namespace uni::device::SpaceUSB {
 	}
 
 }
-
-#endif // _MCU_STM32H7x

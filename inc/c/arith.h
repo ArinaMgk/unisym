@@ -28,6 +28,12 @@
 #include "coear.h"
 #include "number.h"
 
+#ifdef __math_h
+#define _SKIP_STDMATH 1
+#else
+#define _SKIP_STDMATH 0
+#endif
+
 // π
 #define _VAL_PI 3.14159265358979323846264338327950288419716939937510582097494459
 // ln2
@@ -71,12 +77,13 @@ macro-style function
 #ifndef _HUGE_ENUF
 #define _HUGE_ENUF  1e+300  // _HUGE_ENUF*_HUGE_ENUF must overflow
 #endif
+#ifndef INFINITY
 #define INFINITY   ((float)(_HUGE_ENUF * _HUGE_ENUF))
 #define HUGE_VAL   ((double)INFINITY)
 #define HUGE_VALF  ((float)INFINITY)
 #define HUGE_VALL  ((long double)INFINITY)
 #define NAN        ((float)(INFINITY * 0.0F))
-
+#endif
 
 #ifdef _INC_CPP
 extern "C" {
@@ -639,7 +646,7 @@ long double nexttowardl(long double a, long double b);
 #define islessequalf dblislessequal // TEMP no float ver
 #define islessgreaterf dblislessgreater // TEMP no float ver
 #define isunordf dblisunordered // TEMP no float ver
-#else
+#elif !_SKIP_STDMATH
 int isgreaterf(float a, float b);
 int isgreaterequalf(float a, float b);
 int islessf(float a, float b);
@@ -655,16 +662,18 @@ int isunordered(double a, double b);
 #endif
 
 //{} judge-serial
+#if !_SKIP_STDMATH
 int isnan(double a);
 int isinf(double a);
 int isnormal(double a);
 int isfinite(double a);
+#endif
 
 //{}
 #if defined(_DEV_MSVC) && defined(_INC_CPP)
 extern "C++" inline bool signbit(_In_ double _X) throw();
 extern "C++" inline int fpclassify(_In_ double _X) throw();
-#else
+#elif !_SKIP_STDMATH
 int signbit(double a);
 int fpclassify(double a);
 #endif

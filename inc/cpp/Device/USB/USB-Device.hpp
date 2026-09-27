@@ -54,9 +54,9 @@ namespace uni::device::SpaceUSB {
 		  * Index is the endpoint number (0 - 15).
 		  * Index 0 is always unused since no class driver uses it.
 		  */
-		std::array<ClassDriver*, 16> class_drivers_{};
+		uni::Array<ClassDriver*, 16> class_drivers_{};
 
-		std::array<uint8, 256> buf_{};
+		uni::Array<uint8, 256> buf_{};
 
 		// following fields are used during initialization
 		uint8 num_configurations_;
@@ -78,11 +78,11 @@ namespace uni::device::SpaceUSB {
 		uint8 serial_index_ = 0;
 		uint8 hub_num_ports_ = 0;
 		uint16 string_lang_id_ = 0x0409;
-		std::array<char, 64> manufacturer_string_{};
-		std::array<char, 64> product_string_{};
-		std::array<char, 64> serial_string_{};
+		uni::Array<char, 64> manufacturer_string_{};
+		uni::Array<char, 64> product_string_{};
+		uni::Array<char, 64> serial_string_{};
 		int initialize_phase_ = 0;
-		std::array<EndpointConfig, 16> ep_configs_;
+		uni::Array<EndpointConfig, 16> ep_configs_;
 		int num_ep_configs_;
 		Error InitializePhase1(const uint8* buf, int len);
 		Error InitializePhase2(const uint8* buf, int len);

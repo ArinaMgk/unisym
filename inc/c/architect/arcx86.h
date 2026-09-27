@@ -155,7 +155,14 @@ typedef __PTRDIFF_TYPE__ ptrdiff_t;
 typedef __SIZE_TYPE__ size_t;
 	//{TODO} typedef unsigned long wchar_t;//{TEMP}
 
-#endif // !_HOST_WIN64_
+// ...
+	#if defined(__UINTPTR_TYPE__)
+		typedef __UINTPTR_TYPE__ uintptr_t;
+	#else
+		typedef uint32_t uintptr_t;
+	#endif
+
+#endif
 
 /* Experiment : {sizeof(int), sizeof(long)}
 [ ] i686-elf-tools

@@ -26,7 +26,7 @@ public:
 	};
 
 private:
-	static constexpr std::array code_names_{
+	static constexpr uni::Array code_names_{
 	"kSuccess",
 	"kFull",
 	"kEmpty",

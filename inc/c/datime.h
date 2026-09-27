@@ -27,6 +27,13 @@
 
 #include "stdinc.h"
 
+#if !defined(_HER_TIME_H) && defined(__has_include)
+#	if __has_include(<time.h>)
+#		include <time.h>
+#		define _DATIME_HAS_TIME_H
+#	endif
+#endif
+
 // Compatible with `time.h`
 #define __time_h
 
@@ -49,7 +56,7 @@ struct datimex_t {
 	byte isDaylightSavingTime;
 };
 
-#ifdef _HER_TIME_H //{}: will remove after unisym realize time.h 
+#if !defined(_DATIME_HAS_TIME_H) // #ifdef _HER_TIME_H
 struct tm {
 	int tm_sec;
 	int tm_min;

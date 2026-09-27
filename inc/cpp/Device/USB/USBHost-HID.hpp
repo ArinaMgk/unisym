@@ -23,9 +23,6 @@
 #ifndef _INC_DEVICE_USB_HOST_HID
 #define _INC_DEVICE_USB_HOST_HID
 
-// the host stack needs <array>/<optional> via USB.hpp, AKA USB-Device.cpp:1
-#if (defined(_MCCA) && _MCCA == 0x8664) || defined(_MCU_STM32H7x)
-
 #include "USB.hpp"
 
 namespace uni::device::SpaceUSB {
@@ -45,8 +42,8 @@ namespace uni::device::SpaceUSB {
 
 		virtual Error OnDataReceived() = 0;
 		const static size_t kBufferSize = 1024;
-		const std::array<uint8_t, kBufferSize>& Buffer() const { return buf_; }
-		const std::array<uint8_t, kBufferSize>& PreviousBuffer() const { return previous_buf_; }
+		const uni::Array<uint8_t, kBufferSize>& Buffer() const { return buf_; }
+		const uni::Array<uint8_t, kBufferSize>& PreviousBuffer() const { return previous_buf_; }
 
 	private:
 		EndpointID ep_interrupt_in_{};
@@ -55,11 +52,10 @@ namespace uni::device::SpaceUSB {
 		int in_packet_size_;
 		int initialize_phase_{ 0 };
 
-		std::array<uint8_t, kBufferSize> buf_{}, previous_buf_{};
+		uni::Array<uint8_t, kBufferSize> buf_{}, previous_buf_{};
 	};
 
 }
 
-#endif // _MCU_STM32H7x
 
 #endif // _INC_DEVICE_USB_HOST_HID

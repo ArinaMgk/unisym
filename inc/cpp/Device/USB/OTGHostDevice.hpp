@@ -32,9 +32,6 @@
 
 #if defined(_MCU_STM32H7x)
 
-#include <array>
-#include <optional>
-
 namespace uni::device::SpaceUSB {
 
 	// AKA USBHostDevice_v3 (xHCI) but on the H7 OTG host controller: bridges the

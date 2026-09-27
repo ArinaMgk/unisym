@@ -104,12 +104,11 @@ _ESYM_C void KbdSetLED(byte stat);
 
 // ---- ATX USB Keyboard ---- //
 
-#if defined(_INC_CPP) && ((defined(_MCCA) && ((_MCCA)==0x8664)) || defined(_MCU_STM32H7x))
+#if defined(_INC_CPP)
 #include "../../cpp/Device/USB/USBHost-HID.hpp"
-#if defined(_MCCA) && ((_MCCA)==0x8664)
 #include "../../../inc/c/msgface.h"
 #include "../../cpp/Device/USB/USB-Header.hpp"
-#endif
+
 
 namespace uni::device::SpaceUSB {
 	class HIDKeyboardDriver : public HIDBaseDriver {

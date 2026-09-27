@@ -23,9 +23,6 @@
 #ifndef _INC_DEVICE_USB_HOST_MSC
 #define _INC_DEVICE_USB_HOST_MSC
 
-// the host stack needs <array>/<optional> via USB.hpp, AKA USB-Device.cpp:1
-#if (defined(_MCCA) && _MCCA == 0x8664) || defined(_MCU_STM32H7x)
-
 #include "USB.hpp"
 
 namespace uni::device::SpaceUSB {
@@ -192,7 +189,5 @@ namespace uni::device::SpaceUSB {
 	};
 
 }
-
-#endif // _MCU_STM32H7x
 
 #endif // _INC_DEVICE_USB_HOST_MSC

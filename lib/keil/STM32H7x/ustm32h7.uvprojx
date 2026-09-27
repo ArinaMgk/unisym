@@ -338,7 +338,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-fno-strict-aliasing -Wno-c++98-compat -Wno-old-style-cast -Wno-c++98-c++11-compat-binary-literal -Wno-extra-semi-stmt -Wno-deprecated-copy-with-user-provided-copy -Wno-c++98-compat-pedantic -Wno-keyword-macro -Wno-invalid-constexpr -Wno-unknown-attributes -Wno-empty-body</MiscControls>
-              <Define>_MCU_STM32H7x, _HIS_IMPLEMENT</Define>
+              <Define>_MCU_STM32H7x, _HIS_IMPLEMENT, _MCCA=0x1A072032</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
             </VariousControls>

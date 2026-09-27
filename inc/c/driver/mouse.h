@@ -46,14 +46,12 @@ _PACKED(struct) MouseMessage {
 // pres: init keyboard
 _ESYM_C void Mouse_Init();
 
-#if defined(_INC_CPP) && (defined(_UEFI) || defined(_MCU_STM32H7x))
+
 #include "../../cpp/Device/USB/USBHost-HID.hpp"
-#if defined(_UEFI)
 #include "../../../inc/c/msgface.h"
 #include "../../cpp/Device/USB/USB-Header.hpp"
 #include "../../cpp/Device/USB/xHCI/xHCI.hpp"
 #include "../../cpp/Device/Bus/PCI.hpp"
-#endif
 
 namespace uni::device::SpaceUSB {
 	class HIDMouseDriver : public HIDBaseDriver {
@@ -79,7 +77,5 @@ namespace uni::device::SpaceUSB {
 		void NotifyMouseMove(MouseMessage mmsg);
 	};
 }
-
-#endif
 
 #endif

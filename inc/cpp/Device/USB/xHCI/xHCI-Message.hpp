@@ -129,11 +129,11 @@ namespace uni::device::SpaceUSB3 {
 // ---- ---- ---- ---- trb.hpp ---- ---- ---- ---- //
 
 namespace uni::device::SpaceUSB3 {
-	extern const std::array<const char*, 37> kTRBCompletionCodeToName;
-	extern const std::array<const char*, 64> kTRBTypeToName;
+	extern const uni::Array<const char*, 37> kTRBCompletionCodeToName;
+	extern const uni::Array<const char*, 64> kTRBTypeToName;
 
 	union TRB {
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t parameter;
 			uint32_t status;
@@ -147,7 +147,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union NormalTRB {
 		static const unsigned int Type = 1;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t data_buffer_pointer;
 
@@ -187,7 +187,7 @@ namespace uni::device::SpaceUSB3 {
 		static const unsigned int kOutDataStage = 2;
 		static const unsigned int kInDataStage = 3;
 
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint32_t request_type : 8;
 			uint32_t request : 8;
@@ -219,7 +219,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union DataStageTRB {
 		static const unsigned int Type = 3;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t data_buffer_pointer;
 
@@ -255,7 +255,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union StatusStageTRB {
 		static const unsigned int Type = 4;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t : 64;
 
@@ -280,7 +280,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union LinkTRB {
 		static const unsigned int Type = 6;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t : 4;
 			uint64_t ring_segment_pointer : 60;
@@ -314,7 +314,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union NoOpTRB {
 		static const unsigned int Type = 8;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t : 64;
 
@@ -338,7 +338,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union EnableSlotCommandTRB {
 		static const unsigned int Type = 9;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint32_t : 32;
 
@@ -360,7 +360,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union AddressDeviceCommandTRB {
 		static const unsigned int Type = 11;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t : 4;
 			uint64_t input_context_pointer : 60;
@@ -392,7 +392,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union ConfigureEndpointCommandTRB {
 		static const unsigned int Type = 12;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t : 4;
 			uint64_t input_context_pointer : 60;
@@ -424,7 +424,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union StopEndpointCommandTRB {
 		static const unsigned int Type = 15;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint32_t : 32;
 
@@ -454,7 +454,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union NoOpCommandTRB {
 		static const unsigned int Type = 23;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint32_t : 32;
 
@@ -475,7 +475,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union TransferEventTRB {
 		static const unsigned int Type = 32;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t trb_pointer : 64;
 
@@ -511,7 +511,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union CommandCompletionEventTRB {
 		static const unsigned int Type = 33;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t : 4;
 			uint64_t command_trb_pointer : 60;
@@ -541,7 +541,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union PortStatusChangeEventTRB {
 		static const unsigned int Type = 34;
-		std::array<uint32_t, 4> data{};
+		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint32_t : 24;
 			uint32_t port_id : 8;

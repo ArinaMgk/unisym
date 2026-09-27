@@ -141,7 +141,9 @@ namespace uni {
 	};
 }
 
-#elif defined(_MCU_STM32)
+#endif
+
+#if defined(_MCU_STM32)
 #include "Device/NVIC"
 #include "Device/EXTI"
 #include "Device/AFIO"

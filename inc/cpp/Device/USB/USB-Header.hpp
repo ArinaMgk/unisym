@@ -43,8 +43,9 @@
 #include "../../../c/consio.h"
 #include "../../../cpp/trait/MallocTrait.hpp"
 
-#include <array>
-#include <optional>
+#include "../../ISO_IEC_STD/array"
+#include "../../ISO_IEC_STD/optional"
+#include "../../ISO_IEC_STD/pair"
 
 // ---- ---- ---- ---- logger.hpp ---- ---- ---- ---- //
 
@@ -230,13 +231,13 @@ namespace uni::device::SpaceUSB {
 	template <class K, class V, size_t N = 16>
 	class ArrayMap {
 	public:
-		std::optional<V> Get(const K& key) const {
+		uni::Optional<V> Get(const K& key) const {
 			for (size_t i = 0; i < table_.size(); ++i) {
 				if (auto opt_k = table_[i].first; opt_k && opt_k.value() == key) {
 					return table_[i].second;
 				}
 			}
-			return std::nullopt;
+			return uni::nullopt;
 		}
 
 		void Put(const K& key, const V& value) {
@@ -252,14 +253,14 @@ namespace uni::device::SpaceUSB {
 		void Delete(const K& key) {
 			for (size_t i = 0; i < table_.size(); ++i) {
 				if (auto opt_k = table_[i].first; opt_k && opt_k.value() == key) {
-					table_[i].first = std::nullopt;
+					table_[i].first = uni::nullopt;
 					break;
 				}
 			}
 		}
 
 	private:
-		std::array<std::pair<std::optional<K>, V>, N> table_{};
+		uni::Array<uni::Pair<uni::Optional<K>, V>, N> table_{};
 	};
 }
 

@@ -2,7 +2,7 @@
 #include "../../../../../inc/c/msgface.h"
 #include "../../../../../inc/cpp/Device/USB/xHCI/xHCI-registers.hpp"
 #include "../../../../../inc/cpp/Device/USB/xHCI/xHCI.hpp"
-#include <algorithm>
+#include "../../../../../inc/cpp/ISO_IEC_STD/algorithm"
 
 
 
@@ -94,7 +94,7 @@ namespace uni::device::SpaceUSB3 {
 			uint8 speed;
 		};
 
-		std::array<PendingHubChildAddress, 16> pending_hub_children{};
+		uni::Array<PendingHubChildAddress, 16> pending_hub_children{};
 		stduint pending_hub_child_count = 0;
 		PendingHubChildAddress active_hub_child{};
 		bool active_hub_child_valid = false;
@@ -186,7 +186,7 @@ namespace uni::device::SpaceUSB3 {
 		}
 
 		void RemoveDeviceSubtree(HostController& xhc, uint8 root_hub_port_num, uint32 route_string_prefix, bool all_routes) {
-			std::array<uint8, 256> slots{};
+			uni::Array<uint8, 256> slots{};
 			stduint slot_count = 0;
 			for (stduint slot_id = 1; slot_id <= xhc.GetDeviceManager()->MaxSlots() && slot_id < slots.size(); ++slot_id) {
 				auto* dev = xhc.GetDeviceManager()->FindBySlot(uint8(slot_id));
@@ -607,7 +607,7 @@ namespace uni::device::SpaceUSB3 {
 // ---- ---- ---- ---- trb.cpp ---- ---- ---- ---- //
 
 namespace uni::device::SpaceUSB3 {
-	const std::array<const char*, 37> kTRBCompletionCodeToName{
+	const uni::Array<const char*, 37> kTRBCompletionCodeToName{
 		"Invalid",
 		"Success",
 		"Data Buffer Error",
@@ -647,7 +647,7 @@ namespace uni::device::SpaceUSB3 {
 		"Split Transaction Error",
 	};
 
-	const std::array<const char*, 64> kTRBTypeToName{
+	const uni::Array<const char*, 64> kTRBTypeToName{
 		"Reserved",                             // 0
 		"Normal",
 		"Setup Stage",
@@ -737,7 +737,7 @@ namespace {
 		 * (kResettingPort) to address assignment (kAddressingDevice) to complete.
 		 */
 
-	std::array<volatile ConfigPhase, 256> port_config_phase{};  // index: port number
+	uni::Array<volatile ConfigPhase, 256> port_config_phase{};  // index: port number
 
 	/** Port number currently processing from kResettingPort to kAddressingDevice.
 		 * 0 indicates no port is in that state.

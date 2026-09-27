@@ -1,0 +1,190 @@
+// ASCII CPP-ISO11 TAB4 LF
+// Docutitle: (Module) Iterator
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Iterator_NEXT
+#define _INCPP_Iterator_NEXT
+
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winclude-next-absolute-path"
+#endif
+
+#if defined(__has_include_next)
+#	if __has_include_next(<iterator>)
+#		include_next <iterator>
+#		define _HAS_STD_ITERATOR
+#	endif
+#endif
+
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+
+#endif
+
+#ifndef _INCPP_Iterator
+#define _INCPP_Iterator
+
+#include "../unisym"
+
+#if !defined(_HAS_STD_ITERATOR)
+
+namespace std {
+
+	using ::ptrdiff_t;
+
+	struct input_iterator_tag {};
+	struct output_iterator_tag {};
+	struct forward_iterator_tag : public input_iterator_tag {};
+	struct bidirectional_iterator_tag : public forward_iterator_tag {};
+	struct random_access_iterator_tag : public bidirectional_iterator_tag {};
+	struct contiguous_iterator_tag : public random_access_iterator_tag {};
+
+	template <class Iterator>
+	struct iterator_traits {
+		using difference_type = typename Iterator::difference_type;
+		using value_type = typename Iterator::value_type;
+		using pointer = typename Iterator::pointer;
+		using reference = typename Iterator::reference;
+		using iterator_category = typename Iterator::iterator_category;
+	};
+
+	template <class type>
+	struct iterator_traits<type*> {
+		using difference_type = ptrdiff_t;
+		using value_type = type;
+		using pointer = type*;
+		using reference = type&;
+		using iterator_category = random_access_iterator_tag;
+	};
+
+}
+
+// Dispatch helpers, kept out of std on purpose.
+namespace uni {
+
+	template <class InputIt, class Distance>
+	constexpr void _Local_Advance(InputIt& it, Distance n, std::input_iterator_tag) {
+		while (n > 0) { ++it; --n; }
+	}
+
+	template <class BidirIt, class Distance>
+	constexpr void _Local_Advance(BidirIt& it, Distance n, std::bidirectional_iterator_tag) {
+		while (n > 0) { ++it; --n; }
+		while (n < 0) { --it; ++n; }
+	}
+
+	template <class RandomIt, class Distance>
+	constexpr void _Local_Advance(RandomIt& it, Distance n, std::random_access_iterator_tag) {
+		it += n;
+	}
+
+	template <class InputIt>
+	constexpr typename std::iterator_traits<InputIt>::difference_type
+	_Local_Distance(InputIt first, InputIt last, std::input_iterator_tag) {
+		typename std::iterator_traits<InputIt>::difference_type n = 0;
+		while (first != last) { ++first; ++n; }
+		return n;
+	}
+
+	template <class RandomIt>
+	constexpr typename std::iterator_traits<RandomIt>::difference_type
+	_Local_Distance(RandomIt first, RandomIt last, std::random_access_iterator_tag) {
+		return last - first;
+	}
+
+}
+
+namespace std {
+
+	template <class Iterator, class Distance>
+	constexpr void advance(Iterator& it, Distance n) {
+		uni::_Local_Advance(it, n, typename iterator_traits<Iterator>::iterator_category());
+	}
+
+	template <class Iterator>
+	constexpr Iterator next(Iterator it, typename iterator_traits<Iterator>::difference_type n = 1) {
+		advance(it, n);
+		return it;
+	}
+
+	template <class Iterator>
+	constexpr Iterator prev(Iterator it, typename iterator_traits<Iterator>::difference_type n = 1) {
+		advance(it, -n);
+		return it;
+	}
+
+	template <class InputIt>
+	constexpr typename iterator_traits<InputIt>::difference_type
+	distance(InputIt first, InputIt last) {
+		return uni::_Local_Distance(first, last, typename iterator_traits<InputIt>::iterator_category());
+	}
+
+	// Range access
+
+	template <class Container>
+	constexpr auto begin(Container& cont) -> decltype(cont.begin()) { return cont.begin(); }
+
+	template <class Container>
+	constexpr auto begin(const Container& cont) -> decltype(cont.begin()) { return cont.begin(); }
+
+	template <class type, stduint dim>
+	constexpr type* begin(type (&arr)[dim]) { return arr; }
+
+	template <class Container>
+	constexpr auto end(Container& cont) -> decltype(cont.end()) { return cont.end(); }
+
+	template <class Container>
+	constexpr auto end(const Container& cont) -> decltype(cont.end()) { return cont.end(); }
+
+	template <class type, stduint dim>
+	constexpr type* end(type (&arr)[dim]) { return arr + dim; }
+
+	template <class Container>
+	constexpr auto size(const Container& cont) -> decltype(cont.size()) { return cont.size(); }
+
+	template <class type, stduint dim>
+	constexpr stduint size(const type (&)[dim]) { return dim; }
+
+	template <class Container>
+	constexpr auto empty(const Container& cont) -> decltype(cont.empty()) { return cont.empty(); }
+
+	template <class type, stduint dim>
+	constexpr bool empty(const type (&)[dim]) { return false; }
+
+	template <class Container>
+	constexpr auto data(Container& cont) -> decltype(cont.data()) { return cont.data(); }
+
+	template <class Container>
+	constexpr auto data(const Container& cont) -> decltype(cont.data()) { return cont.data(); }
+
+	template <class type, stduint dim>
+	constexpr type* data(type (&arr)[dim]) { return arr; }
+
+	template <class type, stduint dim>
+	constexpr const type* data(const type (&arr)[dim]) { return arr; }
+
+}
+
+#endif
+
+#endif

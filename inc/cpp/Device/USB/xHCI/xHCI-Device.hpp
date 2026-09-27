@@ -65,7 +65,7 @@ namespace uni::device::SpaceUSB3 {
 		HostController* const host_;
 
 		enum State state_;
-		std::array<Ring*, 31> transfer_rings_; // index = dci - 1
+		uni::Array<Ring*, 31> transfer_rings_; // index = dci - 1
 		uint8 parent_hub_slot_id_ = 0;
 		uint8 upstream_port_num_ = 0;
 

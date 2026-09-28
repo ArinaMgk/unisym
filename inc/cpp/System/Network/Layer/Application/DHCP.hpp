@@ -100,11 +100,15 @@ namespace Network {
 	};
 
 	struct DHCPClientConfig {
+		static constexpr stduint DNSAddressCapacity = 4;
+
 		IPv4Address address;
 		IPv4Address netmask;
 		IPv4Address router;
 		IPv4Address server;
 		IPv4Address dns;
+		IPv4Address dns_servers[DNSAddressCapacity];
+		stduint dns_count;
 		uint32 lease_time;
 		DHCPMessageType message_type;
 		bool has_address;
@@ -193,6 +197,17 @@ namespace Network {
 		return true;
 	}
 
+	inline stduint DHCPReadIPv4ListOption(const DHCPMessageView& message, DHCPOption option,
+		IPv4Address* addresses, stduint capacity) {
+		if (!addresses || !capacity) return 0;
+		DHCPOptionView view{};
+		if (!DHCPFindOption(message, option, view) || view.length < IPv4AddressLength) return 0;
+		stduint count = view.length / IPv4AddressLength;
+		if (count > capacity) count = capacity;
+		for0(i, count) IPv4CopyAddress(addresses[i], view.data + i * IPv4AddressLength);
+		return count;
+	}
+
 	inline bool DHCPReadU32Option(const DHCPMessageView& message, DHCPOption option, uint32& value) {
 		DHCPOptionView view{};
 		if (!DHCPFindOption(message, option, view) || view.length != 4) return false;
@@ -208,7 +223,10 @@ namespace Network {
 		config.has_netmask = DHCPReadIPv4Option(message, DHCPOption::SubnetMask, config.netmask);
 		config.has_router = DHCPReadIPv4Option(message, DHCPOption::Router, config.router);
 		config.has_server = DHCPReadIPv4Option(message, DHCPOption::ServerIdentifier, config.server);
-		config.has_dns = DHCPReadIPv4Option(message, DHCPOption::DomainNameServer, config.dns);
+		config.dns_count = DHCPReadIPv4ListOption(message, DHCPOption::DomainNameServer,
+			config.dns_servers, DHCPClientConfig::DNSAddressCapacity);
+		config.has_dns = config.dns_count != 0;
+		if (config.has_dns) config.dns = config.dns_servers[0];
 		config.has_lease_time = DHCPReadU32Option(message, DHCPOption::LeaseTime, config.lease_time);
 		return true;
 	}

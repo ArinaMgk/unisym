@@ -47,9 +47,15 @@ static inline void HALT_EVENT()
 	_ASM volatile("wfe");
 }
 
+// paging
+
 inline static void RefreshVirtualAddress(stduint addr) {
 	_ASM volatile("dsb sy" : : : "memory");
 	_ASM volatile("isb" : : : "memory");
 }
+
+#if __BITS__ == 32
+#include "ARM/ARM32.h"
+#endif
 
 #endif

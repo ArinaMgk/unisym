@@ -1,3 +1,23 @@
+# magice compiler
+
+```mermaid
+flowchart TB
+    SRC["[source code]"]
+    IR["[IR]"]
+    OBJ["[Object]"]
+    EXE["[Executable]"]
+
+    SRC -->|frontend| H1["AST"]
+    H1 -->|optimizer| IR
+    H1 -->|translator| SRC
+    IR -->|asm.backend| OBJ
+    OBJ -->|linker with optimize| EXE
+    EXE -->|wel| H2[" "]
+
+    style H1 fill:none,stroke:none,color:none
+    style H2 fill:none,stroke:none,color:none
+```
+
 # 【ZH-CN】 mgc (MAgicRK) 指令参考手册
 
 `mgc` 宏引擎支持以下全局函数（宏指令）。在 `.mgc` 脚本文件中，这些指令可用于组织和渲染多端统一排版格式（HTML / Markdown / LaTeX / STDOUT）。

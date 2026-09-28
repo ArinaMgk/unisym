@@ -115,6 +115,14 @@ namespace uni {
 		static Color FromRGB888(uint32 argb);
 		static Color FromBGR565(uint16 col);
 		static Color FromYCbCr(byte y, byte cb, byte cr, YCbCrMatrix matrix = YCbCrMatrix::BT601, YCbCrRange range = YCbCrRange::Full);
+		inline static Color FromGrey(int i) {
+			if (i < 0) i = 0;
+			byte b = (byte)i;
+			uni::Color c;
+			c.b = b, c.g = b, c.r = b;
+			c.a = 0xFF;
+			return c;
+		}
 
 		//{TODO} static HSLA
 

@@ -26,7 +26,7 @@ including not only implementation, library, tool-kits, chroming engine and demon
         - TeX&PDF, HTML, Markdown
 - `HERPRO` and static `HERDAT`
     - opensrc **UNISYM** (this Abstract Centre, Apache), up-to chip-level `arch-objfmt-env`
-		- `IBM.BIOS` **Kasha** Static BIOS Assembly Macro Package (UNDONE.SUSPEND)
+		- `IBM.BIOS` **Kasha** IBMx86 BIOS ROM Firmware and Macros (UNDONE.SUSPEND)
 		- `Embedded` HAL for Cortex Series MCU/MPU
 		- `Compiler`
 			- Magice ([`mgc`](magice.org)) : Magrk and CC

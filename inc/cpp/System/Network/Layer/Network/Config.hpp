@@ -37,12 +37,17 @@ namespace Network {
 		Failed = 4,
 	};
 
+	constexpr stduint NetworkConfigDNSServerCapacity = 4;
+
 	struct IPv4InterfaceConfig {
 		IPv4Address address;
 		IPv4Address netmask;
 		IPv4Address gateway;
 		IPv4Address dns;
+		IPv4Address dns_servers[NetworkConfigDNSServerCapacity];
 		NetworkConfigSource source;
+		NetworkConfigSource dns_source;
+		stduint dns_count;
 		uint32 lease_seconds;
 
 		bool hasAddress() const {
@@ -54,7 +59,7 @@ namespace Network {
 		}
 
 		bool hasDNS() const {
-			return !dns.isZero();
+			return dns_count || !dns.isZero();
 		}
 	};
 
@@ -62,6 +67,7 @@ namespace Network {
 		IPv4Address destination;
 		IPv4Address netmask;
 		IPv4Address gateway;
+		NetworkConfigSource source;
 		uint16 interface_index;
 		bool up;
 

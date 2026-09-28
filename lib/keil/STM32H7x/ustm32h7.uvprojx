@@ -338,7 +338,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-fno-strict-aliasing -Wno-c++98-compat -Wno-old-style-cast -Wno-c++98-c++11-compat-binary-literal -Wno-extra-semi-stmt -Wno-deprecated-copy-with-user-provided-copy -Wno-c++98-compat-pedantic -Wno-keyword-macro -Wno-invalid-constexpr -Wno-unknown-attributes -Wno-empty-body</MiscControls>
-              <Define>_MCU_STM32H7x, _HIS_IMPLEMENT, _MCCA=0x1A072032</Define>
+              <Define>_MCU_STM32H7x, _HIS_IMPLEMENT, _MCCA=0x1A072032, _DEBUG</Define>
               <Undefine></Undefine>
               <IncludePath></IncludePath>
             </VariousControls>
@@ -541,6 +541,11 @@
           <GroupName>General</GroupName>
           <Files>
             <File>
+              <FileName>interrupt.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\interrupt.cpp</FilePath>
+            </File>
+            <File>
               <FileName>consio.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\consio.cpp</FilePath>
@@ -681,6 +686,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\c\auxiliary\trigtab.c</FilePath>
             </File>
+            <File>
+              <FileName>debug.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\debug.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -710,6 +720,86 @@
               <FileName>RCC-setClock.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\RCC\RCC-setClock.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Data</GroupName>
+          <Files>
+            <File>
+              <FileName>dnode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\nodes\dnode.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeAppendX.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\nodes\dnode\DnodeAppendX.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeRemoveX.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\nodes\dnode\DnodeRemoveX.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>dchain.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\dchain.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeAppend.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeAppend.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeBind.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeBind.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeChainAdapt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeChainAdapt.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeCount.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeCount.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeGeneral.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeGeneral.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeIndex.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeIndex.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeInsert.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeInsert.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeRelease.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeRelease.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeRemove.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeRemove.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeRewind.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeRewind.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeSort.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\dnode\DnodeSort.c</FilePath>
             </File>
           </Files>
         </Group>

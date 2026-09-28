@@ -265,16 +265,6 @@ namespace {
 		return true;
 	}
 
-	static inline uni::Color GrayToColor(int y) {
-		byte b = ClampByte(y);
-		uni::Color c;
-		c.b = b;
-		c.g = b;
-		c.r = b;
-		c.a = 0xFF;
-		return c;
-	}
-
 	// Decodes one block for spectral selection and successive approximation
 	static bool DecodeBlockSpectral(BitStream& bs, const HuffmanTable& dcHt, const HuffmanTable& acHt,
 									int& dcPredictor, int& eobRun, int16* block,
@@ -834,7 +824,7 @@ scan_done:
 		const byte* yrow = compSamples[0] + sy * (blocksX[0] * 8);
 
 		if (frame.ncomp != 3) {
-			for (int px = 0; px < frame.width; ++px) drow[px] = GrayToColor(yrow[px]);
+			for (int px = 0; px < frame.width; ++px) drow[px] = ::uni::Color::FromGrey(yrow[px]);
 			continue;
 		}
 

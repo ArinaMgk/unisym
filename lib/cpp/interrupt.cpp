@@ -36,6 +36,8 @@ namespace uni {
 #include "../../inc/c/proctrl/IAx86_64.msr.h"
 #elif (_MCCA & 0xFF00) == 0x1000
 #include "../../inc/c/proctrl/RISCV/riscv.h"
+#elif (_MCCA & 0xFF00) == 0x2000
+#include "../../inc/c/proctrl/ARM.h"
 #endif
 
 //{TODO} Implement in Magice/AASM, because GCC compile this may be bad for different version or optimization level.
@@ -250,7 +252,7 @@ uint32 uni::PortAdapter::IO_Read32(byte idx) {
 #endif
 
 // InterruptControl::enInterrupt
-#if (_MCCA & 0xFF00) == 0x8600
+#if (_MCCA & 0xFF00) == 0x8600 || (_MCCA & 0xFF00) == 0x2000// ARM
 void uni::InterruptControl::enInterrupt(bool enable) {
 	::enInterrupt(enable);
 }
@@ -267,6 +269,8 @@ void uni::InterruptControl::enInterrupt(bool enable) {
 	if (enable) setMSTATUS(getMSTATUS() | _MSTATUS_MIE);
 	else setMSTATUS(getMSTATUS() & ~_MSTATUS_MIE);
 }
+#else
+#warning "InterruptControl::enInterrupt() not implemented"
 /*
 void EnableLocalAPIC() {
 	// SVR
@@ -289,13 +293,14 @@ bool uni::InterruptControl::TryMaskInterrupt() {
 		enInterrupt(false);
 	}
 	return was_enabled;
-	#elif (_MCCA & 0xFF00) == 0x1000
+	#elif ((_MCCA & 0xFF00) == 0x1000) || ((_MCCA & 0xFF00) == 0x2000)
 	bool was_enabled = getInterrupt() != 0;
 	if (was_enabled) {
 		enInterrupt(false);
 	}
 	return was_enabled;
 	#else
+	#warning "InterruptControl::TryMaskInterrupt() not implemented"
 	return false;
 	#endif
 }
@@ -319,7 +324,8 @@ void uni::InterruptControl::Reset() {
 }
 #endif
 
-#elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
+#endif// _MCCA
+#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)
 
 namespace uni {
 

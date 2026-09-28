@@ -56,6 +56,9 @@ namespace Network {
 		BadName,
 		BadReply,
 		Unsupported,
+		Refused,
+		CnameLoop,
+		NetworkError,
 	};
 
 	struct DNSQuery {
@@ -248,6 +251,9 @@ namespace Network {
 		case DNSResolveStatus::BadName: return "bad-name";
 		case DNSResolveStatus::BadReply: return "bad-reply";
 		case DNSResolveStatus::Unsupported: return "unsupported";
+		case DNSResolveStatus::Refused: return "refused";
+		case DNSResolveStatus::CnameLoop: return "cname-loop";
+		case DNSResolveStatus::NetworkError: return "network-error";
 		default: return "none";
 		}
 	}

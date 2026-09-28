@@ -36,6 +36,7 @@ typedef stduint socklen_t;
 #define SO_REUSEADDR 2
 #define SO_TYPE     3
 #define SO_ERROR    4
+#define SO_KEEPALIVE 9
 
 #define MSG_DONTWAIT 0x40
 

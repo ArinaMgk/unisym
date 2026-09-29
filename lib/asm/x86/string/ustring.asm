@@ -9,7 +9,10 @@
 	DB "UNISYM DOSCON.IO"
 
 [SECTION .code]
+	%ifndef _DYNLINK_
 	GLOBAL @StrLength@4
+	%endif
+	GLOBAL StrLength
 ; ____________________________________________________________________________
 
 ; EAX <<< _StrLength <<< ECX(const char*)
@@ -18,7 +21,9 @@
 ; {TODO: optimize with SCASD and check 4 bytes for each iteration}
 ; - "\0" ---> FFFFFFFF
 StrLength:
+%ifndef _DYNLINK_
 @StrLength@4:
+%endif
 	PUSH EDI
 	PUSH ECX
 	MOV EDI, ECX

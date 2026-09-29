@@ -11,7 +11,9 @@
 	DB "UNISYM DOSCON.IO", "BINARY"
 
 [SECTION .code]
+	%ifndef _DYNLINK_
 	GLOBAL @BitReflect@8
+	%endif
 	GLOBAL BitReflect
 	[BITS 32]
 
@@ -31,7 +33,9 @@
 ;      loop 08: RCR to DL(00001111?)
 ; However, now is for EDX and EAX, with ECX as times.
 ; [__fastcall] BitReflect8 <<< ECX(times), EDX(inp)
+%ifndef _DYNLINK_
 @BitReflect@8:
+%endif
 BitReflect:
 	PUSH ECX
 	PUSH EDX

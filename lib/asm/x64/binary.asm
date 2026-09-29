@@ -9,7 +9,9 @@
 	DB "UNISYM DOSCON.IO", "BINARY"
 
 [SECTION .code]
+	%ifndef _DYNLINK_
 	GLOBAL @BitReflect@8
+	%endif
 	GLOBAL BitReflect
 	[BITS 64]
 
@@ -29,7 +31,9 @@
 ;      loop 08: RCR to DL(00001111?)
 ; However, now is for RDX and RAX, with RCX as times.
 ; [__fastcall] BitReflect8 <<< RCX(times), RDX(inp)
+%ifndef _DYNLINK_
 @BitReflect@8:
+%endif
 BitReflect:
 	PUSH RCX
 	PUSH RDX

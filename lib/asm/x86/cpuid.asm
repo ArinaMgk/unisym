@@ -11,7 +11,9 @@
 	DB "UNISYM DOSCON.IO", "CPUID"
 
 [SECTION .code]
+	%ifndef _DYNLINK_
 	GLOBAL @CpuBrand@4 
+	%endif
 	GLOBAL CpuBrand
 	GLOBAL _CpuBrand
 	[BITS 32]
@@ -20,7 +22,9 @@
 
 ; Get CPU Brand Informatiom
 ; [__fastcall] CpuBrand <<< ECX(char* BufAddr)
+%ifndef _DYNLINK_
 @CpuBrand@4:
+%endif
 CpuBrand:
 _CpuBrand:
 	PUSHAD

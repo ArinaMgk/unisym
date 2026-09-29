@@ -20,8 +20,8 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/c/format/filesys/FAT.h"
-#include "../../../../inc/c/proctrl/x86/inst_x86_64.h"
+#include "../../../../../inc/c/format/filesys/FAT.h"
+#include "../../../../../inc/c/proctrl/x86/inst_x86_64.h"
 
 namespace uni {
 

@@ -17,6 +17,9 @@ namespace uni::device::SpaceUSB {
 		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change);
 		// AKA xHCI ConfigureEndpoints: the transport programs its channels here
 		virtual Error ConfigureTransportEndpoints() { return MAKE_ERROR(Error::kSuccess); }
+		// Traditional host controllers assign the USB address with SET_ADDRESS;
+		// xHCI already does this with its Address Device command.
+		virtual bool RequiresSetAddressRequest() const { return false; }
 		// AKA USBH_LL_SetDeviceAddress: the transport follows the new address here
 		virtual void OnDeviceAddressChanged(uint8 address) { (void)address; }
 

@@ -54,6 +54,7 @@ namespace uni::device::SpaceUSB {
 
 		// program every non-control channel from the parsed configuration
 		Error ConfigureTransportEndpoints() override { return ConfigureEndpoints(); }
+		bool RequiresSetAddressRequest() const override { return true; }
 		// AKA USBH_LL_SetDeviceAddress: every later transfer uses the new address
 		void OnDeviceAddressChanged(uint8 address) override;
 

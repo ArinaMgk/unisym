@@ -310,6 +310,9 @@ namespace uni::device::SpaceUSB {
 		serial_index_ = device_desc->serial_number;
 		num_configurations_ = device_desc->num_configurations;
 		config_index_ = 0;
+		if (!RequiresSetAddressRequest()) {
+			return RequestStringDescriptors();
+		}
 		// AKA ENUM_SET_ADDR: a device refuses SetConfiguration while it has no address
 		initialize_phase_ = 15;
 		return SetAddress(*this, kDefaultControlPipeID, kDefaultDeviceAddress, true);

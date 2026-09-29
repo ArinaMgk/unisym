@@ -7,6 +7,6 @@
 
 all:
 	@echo MK Local Data
-	@$(CC) $(ulibpath)/local/toxxxer.make.c -o $(uobjpath)/toxxxer.make.exe && $(uobjpath)/toxxxer.make.exe
-	@$(CC) $(ulibpath)/local/trigtab.make.c -o $(uobjpath)/trigtab.make.exe && $(uobjpath)/trigtab.make.exe
+	@# $(CC) $(ulibpath)/local/toxxxer.make.c -o $(uobjpath)/toxxxer.make.exe && $(uobjpath)/toxxxer.make.exe
+	@# $(CC) $(ulibpath)/local/trigtab.make.c -o $(uobjpath)/trigtab.make.exe && $(uobjpath)/trigtab.make.exe
 

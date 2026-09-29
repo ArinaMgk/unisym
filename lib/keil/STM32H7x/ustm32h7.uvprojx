@@ -682,14 +682,19 @@
               <FilePath>..\..\c\arith.c</FilePath>
             </File>
             <File>
-              <FileName>trigtab.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\c\auxiliary\trigtab.c</FilePath>
-            </File>
-            <File>
               <FileName>debug.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\c\debug.c</FilePath>
+            </File>
+            <File>
+              <FileName>TableToxxxer.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Auxiliary\TableToxxxer.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>TableTrigo.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Auxiliary\TableTrigo.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -1112,11 +1117,6 @@
         <Group>
           <GroupName>FS</GroupName>
           <Files>
-            <File>
-              <FileName>toxxxer.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\c\auxiliary\toxxxer.c</FilePath>
-            </File>
             <File>
               <FileName>FAT.cpp</FileName>
               <FileType>8</FileType>

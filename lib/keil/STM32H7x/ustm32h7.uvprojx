@@ -632,11 +632,6 @@
               <FilePath>..\..\c\data\font\font-16x8.c</FilePath>
             </File>
             <File>
-              <FileName>bstring.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\grp-base\bstring.cpp</FilePath>
-            </File>
-            <File>
               <FileName>color.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\color.cpp</FilePath>
@@ -696,6 +691,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Auxiliary\TableTrigo.cpp</FilePath>
             </File>
+            <File>
+              <FileName>bstring.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Datype\bstring.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -731,21 +731,6 @@
         <Group>
           <GroupName>Data</GroupName>
           <Files>
-            <File>
-              <FileName>dnode.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\nodes\dnode.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>DnodeAppendX.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\nodes\dnode\DnodeAppendX.cpp</FilePath>
-            </File>
-            <File>
-              <FileName>DnodeRemoveX.cpp</FileName>
-              <FileType>8</FileType>
-              <FilePath>..\..\cpp\nodes\dnode\DnodeRemoveX.cpp</FilePath>
-            </File>
             <File>
               <FileName>dchain.c</FileName>
               <FileType>1</FileType>
@@ -805,6 +790,21 @@
               <FileName>DnodeSort.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\c\dnode\DnodeSort.c</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeAppendX.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Datype\dnode\DnodeAppendX.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>DnodeRemoveX.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Datype\dnode\DnodeRemoveX.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>dnode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Datype\dnode.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -954,7 +954,7 @@
             <File>
               <FileName>mempool.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\dat-block\mempool.cpp</FilePath>
+              <FilePath>..\..\cpp\Datype\mempool.cpp</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>

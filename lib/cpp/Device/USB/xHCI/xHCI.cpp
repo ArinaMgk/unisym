@@ -1116,12 +1116,13 @@ namespace uni::device::SpaceUSB3 {
 	}
 
 	Error HostController::ProcessEvents() {
+		Error first_error = MAKE_ERROR(Error::kSuccess);
 		while (this->PrimaryEventRing()->HasFront()) {
 			if (auto err = ProcessEvent()) {
-				return err;
+				if (!first_error) first_error = err;
 			}
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return first_error;
 	}
 
 

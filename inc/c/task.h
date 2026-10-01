@@ -102,6 +102,54 @@ _PACKED(struct) NormalTaskContext {
 #endif
 };
 
+#elif (defined(_MCCA) && ((_MCCA & 0xFFFF) == 0x2032))
+
+_PACKED(struct) NormalTaskContext {
+	// 0x00
+	stduint R0, R1, R2, R3, R4, R5, R6, R7;
+	stduint R8, R9, R10, R11, R12;
+	union { stduint sp, SP, psp; };// 0x34
+	union { stduint lr, LR, exc_return; };// 0x38 EXC_RETURN on Cortex-M: 0xFFFFFFFD thread+PSP, 0xFFFFFFF9 thread+MSP
+	union { stduint pc, IP; };// 0x3C
+	stduint CPSR, SPSR;// 0x40
+	stduint CONTROL;// 0x48
+	// 0x4C
+	stduint SP_svc, LR_svc;
+	stduint SP_irq, LR_irq;
+	stduint SP_abt, LR_abt;
+	stduint SP_und, LR_und;
+	stduint SP_fiq, LR_fiq, SPSR_fiq, R8_fiq, R9_fiq, R10_fiq, R11_fiq, R12_fiq;
+	// 0x8C
+	stduint TTBR0, TTBR1, TTBCR, DACR;
+	stduint CONTEXTIDR;// 0x9C
+	union {
+		uint64 VFP_D[32];// A-profile: D0-D31
+		stduint S16_S31[16];// Cortex-M: S16-S31, S0-S15 stay in the hardware frame
+	};// 0xA0
+	stduint FPSCR, FPEXC;// 0x1A0
+	stduint _reserved[2];// 0x1A8
+};// 0x1B0
+
+#elif (defined(_MCCA) && ((_MCCA & 0xFFFF) == 0x2064))
+
+// AArch64: paging by ttbr0_el1/ttbr1_el1/tcr_el1, mair_el1 indexes PageEntry.attr_index, contextidr_el1 is the ASID
+_PACKED(struct) NormalTaskContext {
+	// 0x000, X29 FP and X30 LR
+	stduint X0, X1, X2, X3, X4, X5, X6, X7;
+	stduint X8, X9, X10, X11, X12, X13, X14, X15;
+	stduint X16, X17, X18, X19, X20, X21, X22, X23;
+	stduint X24, X25, X26, X27, X28, X29, X30;
+	union { stduint sp_el0, SP; };// 0x0F8
+	union { stduint sp_el1, kernel_sp; };// 0x100
+	union { stduint elr_el1, IP; };// 0x108
+	stduint spsr_el1;// 0x110
+	stduint ttbr0_el1, ttbr1_el1, tcr_el1;// 0x118
+	stduint mair_el1, contextidr_el1;// 0x130
+	uint64 q0_q31[64];// 0x140, Q0-Q31 as 64-bit low/high halves
+	stduint fpsr, fpcr;// 0x340
+};// 0x350
+
+
 #else
 
 _PACKED(struct) NormalTaskContext { int _; };

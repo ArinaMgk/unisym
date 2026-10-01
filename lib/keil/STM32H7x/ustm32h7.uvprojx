@@ -696,6 +696,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Datype\bstring.cpp</FilePath>
             </File>
+            <File>
+              <FileName>Unicode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Datype\Charset\Unicode.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1211,6 +1216,21 @@
               <FileName>Mouse.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\Mouse.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Witch</GroupName>
+          <Files>
+            <File>
+              <FileName>_TextChrome.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Witch\_TextChrome.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>Form.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Witch\Form.cpp</FilePath>
             </File>
           </Files>
         </Group>

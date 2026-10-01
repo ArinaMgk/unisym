@@ -36,7 +36,7 @@ static void setsym(const char**const inp) {
 stduint atohex(const char* str) {
 	stduint ret = 0;
 	char ch;
-	while (ch = *str++) {
+	while ((ch = *str++)) {
 		if (ch == '0') {
 			ret <<= 4;
 			continue;

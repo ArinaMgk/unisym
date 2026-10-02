@@ -64,7 +64,7 @@
 #define DMA_TIMEOUT_VALUE 0x1FFFFFFU
 
 namespace uni {
-#if (_MCCA & 0xFF00) == 0x8600
+#if (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)) || (defined(_ACCM) && ((_ACCM & 0xFF00) == 0x8600))
 	enum class DMA8237Direction : byte {
 		MemoryToDevice,
 		DeviceToMemory,

@@ -701,6 +701,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Datype\Charset\Unicode.cpp</FilePath>
             </File>
+            <File>
+              <FileName>StrHeapN.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\ustring\astring\StrHeapN.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -810,6 +815,21 @@
               <FileName>dnode.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Datype\dnode.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>nnode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Datype\nnode.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>NnodeInsert.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\nnode\NnodeInsert.c</FilePath>
+            </File>
+            <File>
+              <FileName>NnodeRelease.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\c\nnode\NnodeRelease.c</FilePath>
             </File>
           </Files>
         </Group>

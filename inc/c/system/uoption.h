@@ -63,7 +63,7 @@
 #define _SUPPORT_GPIO
 #endif
 
-#if defined(_SUPPORT_GPIO) && defined(_INC_CPP)
+#if defined(_INC_CPP)
 namespace uni {
 	enum class IOMethod {
 		Loop,   // polling

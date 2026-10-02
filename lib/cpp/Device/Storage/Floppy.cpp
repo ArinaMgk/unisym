@@ -5,8 +5,9 @@
 
 #include "../../../../inc/c/storage/floppy.h"
 #include "../../../../inc/c/driver/i8259A.h"
+#include "../../../../inc/c/proctrl/x86/x86.h"
 
-#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+#if (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)) || (defined(_ACCM) && ((_ACCM & 0xFF00) == 0x8600))
 #include "../../../../inc/c/board/IBM.h"
 
 #pragma GCC optimize("O0")
@@ -130,11 +131,29 @@ namespace uni {
 		Motor(false);
 	}
 
+	_WEAK void FloppyDisk::Reset() {
+		outpb(PORT_FDC_DOR, 0x00);
+		for (volatile int i = 0; i < 10000; i++) _TEMP;
+		outpb(PORT_FDC_DOR, 0x0C);
+		motor_state = false;
+		if (fn_int_wait) fn_int_wait();
+		for (int i = 0; i < 4; ++i) {
+			byte st0, cyl;
+			SenseInt(st0, cyl);
+		}
+		outpb(PORT_FDC_CCR, DATA_RATE);
+		WriteCmd(FDC_CMD_SPECIFY);
+		WriteCmd(0xDF);
+		WriteCmd(0x02);
+		Recalibrate();
+	}
+
 	bool FloppyDisk::IsMediaPresent() {
 		Motor(true);
 
 		// Bit 7 of DIR register indicates Disk Change status
 		if ((innpb(PORT_FDC_DIR) & 0x80) == 0) {
+			Motor(false);
 			return true; // Disk is present and unaltered
 		}
 
@@ -160,6 +179,9 @@ namespace uni {
 
 	_WEAK bool FloppyDisk::Read(stduint BlockIden, void* Dest, stduint Times) {
 		if (BlockIden + Times > getUnits()) return false;
+		#if defined(_ACCM)
+		if (io_method != IOMethod::DMA || !Block_buffer || !fn_dma_prepare) return false;
+		#endif
 
 		for0(t, Times) {
 			stduint blk = BlockIden + t;
@@ -173,7 +195,12 @@ namespace uni {
 			// Configure data transfer rate dynamically based on drive type
 			outpb(PORT_FDC_CCR, DATA_RATE);
 
-			// Note: Requires ISA DMA Channel 2 setup here (e.g., DMA_Setup_Read)
+			#if defined(_ACCM)
+			if (!fn_dma_prepare(false)) {
+				Motor(false);
+				return false;
+			}
+			#endif
 
 			WriteCmd(FDC_CMD_READ_DATA);
 			WriteCmd((head << 2) | id); 
@@ -186,7 +213,10 @@ namespace uni {
 			WriteCmd(0xFF); // DTL
 
 			if (react_type == ReactType::Rupt && fn_int_wait) {
-				if (!fn_int_wait() && !flp_result_ready_retry()) return false;
+				if (!fn_int_wait() && !flp_result_ready_retry()) {
+					Motor(false);
+					return false;
+				}
 			} else {
 				for (volatile int i = 0; i < 100000; i++) _TEMP;
 			}
@@ -199,12 +229,18 @@ namespace uni {
 
 			// Check for errors in ST0
 			if ((st0 & 0xC0) != 0x00) return false;
+			#if defined(_ACCM)
+			MemCopyN(dst, Block_buffer, Block_Size);
+			#endif
 		}
 		return true;
 	}
 
 	_WEAK bool FloppyDisk::Write(stduint BlockIden, const void* Sors, stduint Times) {
 		if (BlockIden + Times > getUnits()) return false;
+		#if defined(_ACCM)
+		if (io_method != IOMethod::DMA || !Block_buffer || !fn_dma_prepare) return false;
+		#endif
 
 		for0(t, Times) {
 			stduint blk = BlockIden + t;
@@ -218,7 +254,13 @@ namespace uni {
 			// Configure data transfer rate dynamically
 			outpb(PORT_FDC_CCR, DATA_RATE);
 
-			// Note: Requires ISA DMA Channel 2 setup here (e.g., DMA_Setup_Write)
+			#if defined(_ACCM)
+			MemCopyN(Block_buffer, src, Block_Size);
+			if (!fn_dma_prepare(true)) {
+				Motor(false);
+				return false;
+			}
+			#endif
 
 			WriteCmd(FDC_CMD_WRITE_DATA);
 			WriteCmd((head << 2) | id); 
@@ -231,7 +273,10 @@ namespace uni {
 			WriteCmd(0xFF); 
 
 			if (react_type == ReactType::Rupt && fn_int_wait) {
-				if (!fn_int_wait() && !flp_result_ready_retry()) return false;
+				if (!fn_int_wait() && !flp_result_ready_retry()) {
+					Motor(false);
+					return false;
+				}
 			}
 
 			// Read 7 Status Bytes

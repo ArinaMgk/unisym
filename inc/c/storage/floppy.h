@@ -44,7 +44,7 @@
 #include "../../cpp/interrupt"
 
 namespace uni {
-	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+	#if (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)) || (defined(_ACCM) && ((_ACCM & 0xFF00) == 0x8600))
 
 	// Standard types read from CMOS 0x10 register
 	enum class FloppyDriveType : byte {
@@ -79,9 +79,11 @@ namespace uni {
 
 	public:
 		ReactType react_type = ReactType::Loop;
+		IOMethod io_method = IOMethod::Loop;
 		bool (*fn_cmd_wait)(FloppyDisk* fd) = 0;
 		bool (*fn_int_wait)() = 0;// true: interrupt received; false: timeout
 		void (*fn_feedback)() = 0;
+		bool (*fn_dma_prepare)(bool write) = 0;
 		stdsint units = -1;
 
 	public:

@@ -43,7 +43,7 @@
 #endif
 
 namespace uni {
-#if (_MCCA & 0xFF00) == 0x8600
+#if (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)) || (defined(_ACCM) && ((_ACCM & 0xFF00) == 0x8600))
 	namespace {
 		constexpr uint16 DMA8237_8AddressPorts[] = { 0x00, 0x02, 0x04, 0x06 };
 		constexpr uint16 DMA8237_8CountPorts[] = { 0x01, 0x03, 0x05, 0x07 };

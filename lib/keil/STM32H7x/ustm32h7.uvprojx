@@ -967,6 +967,11 @@
               <FilePath>..\..\cpp\Device\USB\USBHost-HID.cpp</FilePath>
             </File>
             <File>
+              <FileName>USBHost-Hub.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\cpp\Device\USB\USBHost-Hub.cpp</FilePath>
+            </File>
+            <File>
               <FileName>FDCAN.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\cpp\Device\FDCAN.cpp</FilePath>

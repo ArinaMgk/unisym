@@ -108,8 +108,10 @@ namespace uni {
 		outpb(PORT_FDC_DOR, dor);
 		motor_state = on;
 
-		// Delay for motor spin-up (~300ms)
-		for (volatile int i = 0; i < 1000000; i++) _TEMP;
+		if (on) {
+			// Delay for motor spin-up (~300ms)
+			for (volatile int i = 0; i < 1000000; i++) _TEMP;
+		}
 	}
 
 	void FloppyDisk::SenseInt(byte& st0, byte& cyl) {
@@ -118,25 +120,29 @@ namespace uni {
 		cyl = ReadData();
 	}
 
-	void FloppyDisk::Recalibrate() {
+	bool FloppyDisk::Recalibrate() {
 		Motor(true);
 		asserv(fn_feedback)();
 		WriteCmd(FDC_CMD_RECALIBRATE);
 		WriteCmd(id);
 		
-		if (fn_int_wait) fn_int_wait(); 
+		if (fn_int_wait && !fn_int_wait()) {
+			Motor(false);
+			return false;
+		}
 		
 		byte st0, cyl;
 		SenseInt(st0, cyl);
 		Motor(false);
+		return (st0 & 0xC0) == 0 && cyl == 0;
 	}
 
-	_WEAK void FloppyDisk::Reset() {
+	_WEAK bool FloppyDisk::Reset() {
 		outpb(PORT_FDC_DOR, 0x00);
 		for (volatile int i = 0; i < 10000; i++) _TEMP;
 		outpb(PORT_FDC_DOR, 0x0C);
 		motor_state = false;
-		if (fn_int_wait) fn_int_wait();
+		if (fn_int_wait && !fn_int_wait()) return false;
 		for (int i = 0; i < 4; ++i) {
 			byte st0, cyl;
 			SenseInt(st0, cyl);
@@ -145,7 +151,7 @@ namespace uni {
 		WriteCmd(FDC_CMD_SPECIFY);
 		WriteCmd(0xDF);
 		WriteCmd(0x02);
-		Recalibrate();
+		return Recalibrate();
 	}
 
 	bool FloppyDisk::IsMediaPresent() {
@@ -162,7 +168,10 @@ namespace uni {
 		WriteCmd(FDC_CMD_RECALIBRATE);
 		WriteCmd(id);
 		
-		if (fn_int_wait) fn_int_wait(); 
+		if (fn_int_wait && !fn_int_wait()) {
+			Motor(false);
+			return false;
+		}
 
 		byte st0, cyl;
 		SenseInt(st0, cyl); 
@@ -225,13 +234,16 @@ namespace uni {
 			byte st0 = ReadData();
 			for (int i = 0; i < 6; i++) ReadData(); 
 
-			Motor(false);
-
 			// Check for errors in ST0
-			if ((st0 & 0xC0) != 0x00) return false;
+			if ((st0 & 0xC0) != 0x00) {
+				Motor(false);
+				return false;
+			}
 			#if defined(_ACCM)
 			MemCopyN(dst, Block_buffer, Block_Size);
 			#endif
+			if (fn_motor_release) fn_motor_release(this);
+			else Motor(false);
 		}
 		return true;
 	}
@@ -283,9 +295,12 @@ namespace uni {
 			byte st0 = ReadData();
 			for (int i = 0; i < 6; i++) ReadData(); 
 
-			Motor(false);
-			
-			if ((st0 & 0xC0) != 0x00) return false;
+			if ((st0 & 0xC0) != 0x00) {
+				Motor(false);
+				return false;
+			}
+			if (fn_motor_release) fn_motor_release(this);
+			else Motor(false);
 		}
 		return true;
 	}

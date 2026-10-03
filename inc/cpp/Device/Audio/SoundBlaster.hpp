@@ -97,6 +97,42 @@ namespace uni {
 		Line   = 0x2E,
 	};
 
+	// CT1745 mixer levels are 5-bit attenuators: 2 dB per step, 31 = unity, so map percentages onto that grid instead of scaling linearly.
+	inline uint8 SoundBlasterMixerLevelToPercent(uint8 level) {
+		static const uint8 cvt[32] = {
+			 0,  0,  0,  0,  0,  0,  0,  0,
+			 1,  1,  1,  1,  1,  2,  2,  3,
+			 3,  4,  5,  6,  8, 10, 13, 16,
+			20, 25, 32, 40, 50, 63, 79, 100,
+		};
+		return cvt[level & 0x1F];
+	}
+
+	// Percentage (0..100) -> mixer level (0..31); rounding never grants more gain than requested.
+	inline uint8 SoundBlasterPercentToMixerLevel(uint32 percent) {
+		if (!percent) return 0;
+		if (percent >= 100) return 31;
+		uint8 level = 0;
+		for (uint32 candidate = 1; candidate <= 31; ++candidate) {
+			if (SoundBlasterMixerLevelToPercent((uint8)candidate) > percent) break;
+			level = (uint8)candidate;
+		}
+		return level;
+	}
+
+	// Percentage (0..100) -> raw register value (0..255, 5-bit level in bits 7..3).
+	inline uint8 SoundBlasterPercentToRaw(uint32 percent) {
+		return (uint8)(SoundBlasterPercentToMixerLevel(percent) << 3);
+	}
+
+	// Raw register value (0..255) -> percentage (0..100).
+	inline uint8 SoundBlasterRawToPercent(uint8 raw) {
+		return SoundBlasterMixerLevelToPercent((uint8)(raw >> 3));
+	}
+
+	// Raw value for unity gain (level 31).
+	constexpr uint8 SoundBlasterUnityRaw = 0xF8;
+
 	class SoundBlaster : public AudioDeviceInterface {
 		uint16 io_base;
 		SoundBlasterIo io;
@@ -203,7 +239,8 @@ namespace uni {
 			if (ch > 5) return false;
 			uint32 l = (left > 100) ? 100 : left;
 			uint32 r = (right > 100) ? 100 : right;
-			return SetVolume((SoundBlasterMixerChannel)ch, (uint8)(l * 255 / 100), (uint8)(r * 255 / 100));
+			return SetVolume((SoundBlasterMixerChannel)ch,
+				SoundBlasterPercentToRaw(l), SoundBlasterPercentToRaw(r));
 		}
 
 		bool getVolume(stduint ch, uint32& left, uint32& right) const {
@@ -211,8 +248,8 @@ namespace uni {
 			uint8 l = 0, r = 0;
 			// GetVolume goes through the IO callbacks (non-const), the interface requires const
 			if (!const_cast<SoundBlaster*>(this)->GetVolume((SoundBlasterMixerChannel)ch, l, r)) return false;
-			left = l * 100u / 255u;
-			right = r * 100u / 255u;
+			left = SoundBlasterRawToPercent(l);
+			right = SoundBlasterRawToPercent(r);
 			return true;
 		}
 

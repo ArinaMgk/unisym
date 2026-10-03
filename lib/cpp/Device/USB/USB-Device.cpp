@@ -1,5 +1,6 @@
 
 #include "../../../../inc/cpp/Device/USB/USB.hpp"
+#include "../../../../inc/cpp/Device/USB/USBHost-Hub.hpp"
 #include "../../../../inc/cpp/Device/USB/USBHost-MSC.hpp"
 #include "../../../../inc/c/driver/keyboard.h"
 #include "../../../../inc/c/driver/mouse.h"
@@ -65,11 +66,9 @@ namespace {
 
 	uni::device::SpaceUSB::ClassDriver* NewClassDriver(uni::device::SpaceUSB::USBHostDevice* dev, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc)
 	{
-#if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 		if (dev->DeviceClass() == 0x09u || if_desc.interface_class == 0x09u) {
 			return new uni::device::SpaceUSB::USBHubDriver{ dev };
 		}
-#endif
 #if defined(_MCU_STM32H7x)
 		if (if_desc.interface_class == 0x08u &&// MSC
 			if_desc.interface_sub_class == 0x06u &&// SCSI transparent command set

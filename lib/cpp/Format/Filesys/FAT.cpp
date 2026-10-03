@@ -631,7 +631,7 @@ namespace uni {
 		uint64_t total_read = 0; // ret
 
 		if (offset >= fh->size) {
-			plogerro("[%s:%u] read beyond EOF off=%u size=%u", __FILE__, __LINE__, offset, fh->size);
+			// plogerro("[%s:%u] read beyond EOF off=%u size=%u", __FILE__, __LINE__, offset, fh->size);
 			return 0;
 		}
 		MIN(to_read, fh->size - offset);

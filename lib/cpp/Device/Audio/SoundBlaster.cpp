@@ -339,64 +339,54 @@ bool uni::SoundBlaster::ResetMixer() {
 bool uni::SoundBlaster::SetVolume(SoundBlasterMixerChannel channel, uint8 left, uint8 right) {
 	const bool is_sb16 = (dsp_major_version >= 4);
 
-	// SBPro uses 4 bits (0..15) per channel: bits 7..4 Left, bits 3..0 Right
-	const uint8 l4 = (uint8)(((uint32)left * 15) / 255);
-	const uint8 r4 = (uint8)(((uint32)right * 15) / 255);
-	const uint8 combined_pro = (l4 << 4) | (r4 & 0x0F);
-
 	if (is_sb16) {
-		// SB16 uses 5 bits (0..31), high 5 bits of the register (val << 3)
+		// SB16: drive only the requested pair; the SB Pro registers (0x04/0x22) can be a second cascade stage.
 		const uint8 val_l = (uint8)(((uint32)left * 31) / 255) << 3;
 		const uint8 val_r = (uint8)(((uint32)right * 31) / 255) << 3;
 
 		switch (channel) {
 		case SoundBlasterMixerChannel::MasterVolume:
-			WriteMixer(SoundBlasterMixerRegisterSBPro::Master, combined_pro);
-			WriteMixer(SoundBlasterMixerRegisterSBPro::Voice, combined_pro);
-			WriteMixer(SoundBlasterMixerRegisterSB16::VoiceLeft, val_l);
-			WriteMixer(SoundBlasterMixerRegisterSB16::VoiceRight, val_r);
 			return WriteMixer(SoundBlasterMixerRegisterSB16::MasterLeft, val_l) &&
 			       WriteMixer(SoundBlasterMixerRegisterSB16::MasterRight, val_r);
 		case SoundBlasterMixerChannel::VoiceVolume:
-			WriteMixer(SoundBlasterMixerRegisterSBPro::Voice, combined_pro);
 			return WriteMixer(SoundBlasterMixerRegisterSB16::VoiceLeft, val_l) &&
 			       WriteMixer(SoundBlasterMixerRegisterSB16::VoiceRight, val_r);
 		case SoundBlasterMixerChannel::MidiVolume:
-			WriteMixer(SoundBlasterMixerRegisterSBPro::Midi, combined_pro);
 			return WriteMixer(SoundBlasterMixerRegisterSB16::MidiLeft, val_l) &&
 			       WriteMixer(SoundBlasterMixerRegisterSB16::MidiRight, val_r);
 		case SoundBlasterMixerChannel::CdVolume:
-			WriteMixer(SoundBlasterMixerRegisterSBPro::Cd, combined_pro);
 			return WriteMixer(SoundBlasterMixerRegisterSB16::CdLeft, val_l) &&
 			       WriteMixer(SoundBlasterMixerRegisterSB16::CdRight, val_r);
 		case SoundBlasterMixerChannel::LineInVolume:
-			WriteMixer(SoundBlasterMixerRegisterSBPro::Line, combined_pro);
 			return WriteMixer(SoundBlasterMixerRegisterSB16::LineLeft, val_l) &&
 			       WriteMixer(SoundBlasterMixerRegisterSB16::LineRight, val_r);
 		case SoundBlasterMixerChannel::MicVolume:
-			WriteMixer(SoundBlasterMixerRegisterSBPro::Mic, (uint8)(((uint32)left * 7) / 255));
 			return WriteMixer(SoundBlasterMixerRegisterSB16::Mic, val_l);
 		default:
 			return false;
 		}
-	} else {
-		switch (channel) {
-		case SoundBlasterMixerChannel::MasterVolume:
-			WriteMixer(SoundBlasterMixerRegisterSBPro::Voice, combined_pro);
-			return WriteMixer(SoundBlasterMixerRegisterSBPro::Master, combined_pro);
-		case SoundBlasterMixerChannel::VoiceVolume:
-			return WriteMixer(SoundBlasterMixerRegisterSBPro::Voice, combined_pro);
-		case SoundBlasterMixerChannel::MidiVolume:
-			return WriteMixer(SoundBlasterMixerRegisterSBPro::Midi, combined_pro);
-		case SoundBlasterMixerChannel::CdVolume:
-			return WriteMixer(SoundBlasterMixerRegisterSBPro::Cd, combined_pro);
-		case SoundBlasterMixerChannel::LineInVolume:
-			return WriteMixer(SoundBlasterMixerRegisterSBPro::Line, combined_pro);
-		case SoundBlasterMixerChannel::MicVolume:
-			return WriteMixer(SoundBlasterMixerRegisterSBPro::Mic, (uint8)(((uint32)left * 7) / 255));
-		default:
-			return false;
-		}
+	}
+
+	// SB Pro uses 4 bits (0..15) per channel: bits 7..4 Left, bits 3..0 Right
+	const uint8 l4 = (uint8)(((uint32)left * 15) / 255);
+	const uint8 r4 = (uint8)(((uint32)right * 15) / 255);
+	const uint8 combined_pro = (l4 << 4) | (r4 & 0x0F);
+
+	switch (channel) {
+	case SoundBlasterMixerChannel::MasterVolume:
+		return WriteMixer(SoundBlasterMixerRegisterSBPro::Master, combined_pro);
+	case SoundBlasterMixerChannel::VoiceVolume:
+		return WriteMixer(SoundBlasterMixerRegisterSBPro::Voice, combined_pro);
+	case SoundBlasterMixerChannel::MidiVolume:
+		return WriteMixer(SoundBlasterMixerRegisterSBPro::Midi, combined_pro);
+	case SoundBlasterMixerChannel::CdVolume:
+		return WriteMixer(SoundBlasterMixerRegisterSBPro::Cd, combined_pro);
+	case SoundBlasterMixerChannel::LineInVolume:
+		return WriteMixer(SoundBlasterMixerRegisterSBPro::Line, combined_pro);
+	case SoundBlasterMixerChannel::MicVolume:
+		return WriteMixer(SoundBlasterMixerRegisterSBPro::Mic, (uint8)(((uint32)left * 7) / 255));
+	default:
+		return false;
 	}
 }
 
@@ -475,6 +465,7 @@ bool uni::SoundBlaster::SetMute(SoundBlasterMixerChannel channel, bool mute) {
 	if (mute) {
 		return SetVolume(channel, 0, 0);
 	}
-	return SetVolume(channel, 204, 204);
+	// Unmute restores unity gain (was 204 = level 24/31, a silent -14 dB cap).
+	return SetVolume(channel, SoundBlasterUnityRaw, SoundBlasterUnityRaw);
 }
 

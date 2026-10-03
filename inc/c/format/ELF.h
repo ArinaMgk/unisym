@@ -466,6 +466,34 @@ struct elf_known_section {
 		R_386_PC8           = 23    /* An 8-bit PC-relative relocation */
 	};
 
+	// ARM (A32/T32) dynamic relocations used by static PIE images
+	enum reloc32_arm_type {
+		R_ARM_NONE          =  0,   /* No reloc */
+		R_ARM_ABS32         =  2,   /* Direct 32 bit */
+		R_ARM_RELATIVE      = 23    /* Adjust by program base */
+	};
+
+	// RISC-V (RV32/RV64) dynamic relocations
+	enum reloc32_riscv_type {
+		R_RISCV_NONE        =  0,   /* No reloc */
+		R_RISCV_32          =  1,   /* Direct 32 bit */
+		R_RISCV_64          =  2,   /* Direct 64 bit */
+		R_RISCV_RELATIVE    =  3,   /* Adjust by program base */
+		R_RISCV_JUMP_SLOT   =  5    /* PLT slot */
+	};
+
+	// Unified 32-bit dynamic relocation ids for the arch-neutral flat PIE loader
+	#if (_MCCA & 0xFFFF) == 0x2032
+	#define ELF_RELOC_RELATIVE R_ARM_RELATIVE
+	#define ELF_RELOC_ABS32    R_ARM_ABS32
+	#elif (_MCCA & 0xFF00) == 0x1000
+	#define ELF_RELOC_RELATIVE R_RISCV_RELATIVE
+	#define ELF_RELOC_ABS32    R_RISCV_32
+	#elif _MCCA == 0x8632
+	#define ELF_RELOC_RELATIVE R_386_RELATIVE
+	#define ELF_RELOC_ABS32    R_386_32
+	#endif
+
 	typedef struct elf32_sym {
 		Elf32_Word st_name;
 		Elf32_Addr st_value;

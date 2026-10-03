@@ -84,6 +84,7 @@ namespace uni {
 		bool (*fn_int_wait)() = 0;// true: interrupt received; false: timeout
 		void (*fn_feedback)() = 0;
 		bool (*fn_dma_prepare)(bool write) = 0;
+		void (*fn_motor_release)(FloppyDisk* fd) = 0;
 		stdsint units = -1;
 
 	public:
@@ -104,7 +105,7 @@ namespace uni {
 		FloppyDriveType getType() const { return drive_type; }
 
 		// FDC Specific Methods
-		void Reset();
+		bool Reset();
 		void Motor(bool on);
 		void LBA2CHS(stduint lba, byte& cyl, byte& head, byte& sec);
 		bool IsMediaPresent(); 
@@ -114,7 +115,7 @@ namespace uni {
 		void WriteCmd(byte cmd);
 		byte ReadData();
 		void SenseInt(byte& st0, byte& cyl);
-		void Recalibrate();
+		bool Recalibrate();
 		void SetGeometry(); // Populate parameters based on drive_type
 	};
 

@@ -27,14 +27,15 @@
 
 namespace uni::device::SpaceUSB {
 
-	// the hub class port feature selectors and the status bits the policy tests
+	// AKA the hub class port feature selectors and the status bits the policy tests
 	const uint16 kHubPortFeatureReset = 4;
 	const uint16 kHubPortFeaturePower = 8;
 	const uint16 kHubPortStatusConnect = 0x0001;
 	const uint16 kHubPortStatusEnable = 0x0002;
 	const uint16 kHubPortStatusLowSpeed = 0x0200;// PORT_LOW_SPEED of wPortStatus
 
-	// reads the hub descriptor, then walks every port and hands each port status change to the transport through OnHubPortStatusReceived().
+	// AKA USBH_HUB_CLASS: reads the hub descriptor, then walks every port and hands
+	// each port status change to the transport through OnHubPortStatusReceived().
 	class USBHubDriver : public ClassDriver {
 	public:
 		explicit USBHubDriver(USBHostDevice* dev);
@@ -48,9 +49,12 @@ namespace uni::device::SpaceUSB {
 		Error OnControlCompleted(EndpointID ep_id, SetupData setup_data, const void* buf, int len) override;
 		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) override;
 
+		// AKA the port policy, ticked by the host transport about once per millisecond
+		Error ProcessDelayed() override;
 		Error RequestSetPortFeature(uint8 port_num, uint16 feature_selector);
 		Error RecordPortStatus(uint8 port_num, const void* buf);
 
+		// AKA the port state machine: poll a port, report the change, clear its change bits
 		Error RequestPortStatus(uint8 port_num);
 		Error RequestClearPortFeature(uint8 port_num, uint16 feature_selector);
 		Error StartStatusChangePolling();
@@ -60,7 +64,7 @@ namespace uni::device::SpaceUSB {
 		uint8 NumPorts() const { return num_ports_; }
 
 	private:
-		// the port policy state: it advances only while the transport ticks ProcessDelayed()
+		// AKA the port policy state: it advances only while the transport ticks ProcessDelayed()
 		uint16 port_status_[16] = {};
 		uint16 port_change_[16] = {};
 		uint8 pending_kind_ = 0;// 1 = SET_FEATURE in flight, 2 = GET_STATUS of the policy

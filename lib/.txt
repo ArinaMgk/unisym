@@ -1,15 +1,17 @@
-[lang]
+[lang.base]
 - c (=> cpp )
 - cpp
 - cpp-mod
-- dotNet
+[lang]
 - Rust
+- Zig
 [script Script/]
 - AutoHotkey
 - batch (win cmd)
 - Cotoba
 - Makefile (make/python)
 [ide]
+- dotNet
 - keil
 [doc]
 - Tex

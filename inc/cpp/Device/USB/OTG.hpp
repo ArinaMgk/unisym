@@ -192,6 +192,9 @@ enum class OTGOutEPReg : unsigned {
 #define USB_OTG_HCFG_FSLSS_Pos                   (2U)                          
 #define USB_OTG_HCFG_FSLSS_Msk                   (0x1U << USB_OTG_HCFG_FSLSS_Pos) /*!< 0x00000004 */
 #define USB_OTG_HCFG_FSLSS                       USB_OTG_HCFG_FSLSS_Msk        /*!< FS- and LS-only support */
+#define USB_OTG_HCFG_PERSCHEDENA_Pos             (26U)                          
+#define USB_OTG_HCFG_PERSCHEDENA_Msk             (0x1U << USB_OTG_HCFG_PERSCHEDENA_Pos) /*!< 0x04000000 */
+#define USB_OTG_HCFG_PERSCHEDENA                 USB_OTG_HCFG_PERSCHEDENA_Msk  /*!< Periodic scheduling enable */
 #define USB_OTG_DCFG_DSPD_Pos                    (0U)                          
 #define USB_OTG_DCFG_DSPD_Msk                    (0x3U << USB_OTG_DCFG_DSPD_Pos) /*!< 0x00000003 */
 #define USB_OTG_DCFG_DSPD                        USB_OTG_DCFG_DSPD_Msk         /*!< Device speed */
@@ -1433,6 +1436,7 @@ public:
 	static bool InitializeHostChannel(stduint base, byte ch_num, byte epnum, byte dev_address, byte speed, byte ep_type, uint16 mps);
 	static bool StartHostChannelXfer(stduint base, OTGHC& hc, bool dma);
 	static bool HaltHostChannel(stduint base, byte hc_num);
+	static void ClearHaltPending(byte hc_num);
 	static bool DoPing(stduint base, byte ch_num);
 	static stduint ReadHostChannelInterrupt(stduint base);
 

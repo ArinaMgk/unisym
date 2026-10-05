@@ -134,8 +134,7 @@ namespace uni::device::SpaceUSB {
 	}
 
 	// AKA USBH_MSC_BOT_Abort: CLEAR_FEATURE(ENDPOINT_HALT) on the stalled endpoint.
-	// Fire and forget: the device releases the halt when it processes the request,
-	// and the next command on that pipe is what proves it.
+	// The class state does not wait here, but keep the completion associated with this driver so transports can finish their host-side endpoint recovery in order.
 	Error USBHost_MSC::RecoverHalt(EndpointID ep_id) {
 		SetupData setup_data{};
 		setup_data.request_type.bits.direction = request_type::kOut;
@@ -147,7 +146,7 @@ namespace uni::device::SpaceUSB {
 			ep_id.Number() | (ep_id.IsIn() ? 0x80 : 0x00));// AKA the descriptor address
 		setup_data.length = 0;
 		halt_recoveries_++;
-		return ParentDevice()->ControlOut(kDefaultControlPipeID, setup_data, nullptr, 0, nullptr);
+		return ParentDevice()->ControlOut(kDefaultControlPipeID, setup_data, nullptr, 0, this);
 	}
 
 	// Drop an in-flight command whose completion never arrived (caller timed out), so

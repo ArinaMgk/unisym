@@ -22,8 +22,6 @@
 
 #include "../../../../inc/cpp/Device/USB/HCD.hpp"
 #include "../../../../inc/cpp/Device/SysTick"
-// Note: FUNC_OTG_HS/FUNC_OTG_FS are declared extern in HCD.hpp; the single
-// definition lives in interrupt_usb.hpp, which the user includes once.
 
 namespace uni {
 #if defined(_MCU_STM32H7x)
@@ -64,6 +62,7 @@ namespace uni {
 		OTG::setMode(base, 0);
 		// Init host
 		if (!OTG::InitializeHost(base, speed, host_channels, dma_enable)) return false;
+		if (phy_itface == 2) OTG::InitFSLSPClkSel(base, _HCFG_48_MHZ);
 		State = HCDState::Ready;
 		return true;
 	}
@@ -98,7 +97,16 @@ namespace uni {
 
 	// AKA HAL_HCD_ResetPort
 	bool HCD::ResetPort() {
-		return OTG::ResetPort(base);
+		const bool ok = OTG::ResetPort(base);
+		if (ok) {
+			// a bus reset puts every endpoint back to DATA0, so these toggles are stale
+			for (byte ch = 0; ch < host_channels; ch++) {
+				hc[ch].toggle_in = 0;
+				hc[ch].toggle_out = 0;
+				hc[ch].data_pid = 0;
+			}
+		}
+		return ok;
 	}
 
 	// AKA HAL_HCD_HC_Init
@@ -120,7 +128,26 @@ namespace uni {
 
 	// AKA HAL_HCD_HC_Halt
 	bool HCD::HaltHostChannel(byte ch_num) {
+		// a halt completes only when its CHH is unmasked: a masked halt leaves CHENA|CHDIS posted for good
+		ChannelReg(ch_num, 0x00C).setof(USB_OTG_HCINTMSK_CHHM_Pos);
 		return OTG::HaltHostChannel(base, ch_num);
+	}
+
+	// AKA USBH_AllocPipe: hand out the first free host channel
+	byte HCD::AllocChannel() {
+		for (byte ch = 0; ch < host_channels && ch < 16; ch++) {
+			if ((ch_used_ & (1u << ch)) != 0) continue;
+			ch_used_ |= uint16(1u << ch);
+			return ch;
+		}
+		return kNoChannel;
+	}
+
+	// AKA USBH_FreePipe: the channel goes back to the pool
+	void HCD::FreeChannel(byte ch_num) {
+		if (ch_num >= 16) return;
+		ch_used_ &= uint16(~(1u << ch_num));
+		OTG::ClearHaltPending(ch_num);// a halt the old owner left posted must not refuse the next owner
 	}
 
 	// AKA HAL_HCD_HC_SubmitRequest
@@ -171,6 +198,7 @@ namespace uni {
 		hc_ref.xfer_count = 0;
 		hc_ref.ch_num = ch_num;
 		hc_ref.state = (byte)HostChannelState::Idle;
+		hc_ref.ErrCnt = 0;
 		// HCINT.CHH is write-1-to-clear: drop the previous transfer's halt flag
 		ChannelReg(ch_num, 0x008) = USB_OTG_HCINT_CHH;
 		// the CHH handler masks the halt interrupt, so every transfer arms it again
@@ -197,7 +225,6 @@ namespace uni {
 		// AKA USB_GetHostSpeed: HPRT0.PSPD
 		return Reference(base + USB_OTG_HOST_PORT_BASE).masof(USB_OTG_HPRT_PSPD_Pos, 2);
 	}
-
 	// ---- private IRQ handlers (AKA HCD_HC_IN_IRQHandler etc., file-local) ----
 
 	// AKA HCD_HC_IN_IRQHandler
@@ -205,24 +232,25 @@ namespace uni {
 		Reference hcint = hcd.ChannelReg(chnum, 0x008);// HCINT
 		Reference hcintmsk = hcd.ChannelReg(chnum, 0x00C);// HCINTMSK
 		Reference hcchar = hcd.ChannelReg(chnum, 0x000);// HCCHAR
+		const stduint pending = (stduint)hcint & (stduint)hcintmsk;
 		stduint tmpreg = 0;
 
 		// HCINT is write-1-to-clear: assign the mask, never setof()
-		if (hcint.bitof(USB_OTG_HCINT_AHBERR_Pos)) {
+		if (pending & USB_OTG_HCINT_AHBERR) {
 			hcint = USB_OTG_HCINT_AHBERR;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);// unmask halt
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_ACK_Pos)) {
+		else if (pending & USB_OTG_HCINT_ACK) {
 			hcint = USB_OTG_HCINT_ACK;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_STALL_Pos)) {
+		else if (pending & USB_OTG_HCINT_STALL) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			hcd.hc[chnum].state = (byte)HostChannelState::Stall;
 			hcint = USB_OTG_HCINT_NAK;
 			hcint = USB_OTG_HCINT_STALL;
 			OTG::HaltHostChannel(hcd.base, chnum);
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_DTERR_Pos)) {
+		else if (pending & USB_OTG_HCINT_DTERR) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcint = USB_OTG_HCINT_NAK;
@@ -230,14 +258,14 @@ namespace uni {
 			hcint = USB_OTG_HCINT_DTERR;
 		}
 
-		if (hcint.bitof(USB_OTG_HCINT_FRMOR_Pos)) {
+		if (pending & USB_OTG_HCINT_FRMOR) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			// a control halt must carry a reason, or the URB layer reads it as no result
 			if (hcd.hc[chnum].ep_type == 0) hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcint = USB_OTG_HCINT_FRMOR;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_XFRC_Pos)) {
+		else if (pending & USB_OTG_HCINT_XFRC) {
 			if (hcd.dma_enable) {
 				hcd.hc[chnum].xfer_count = hcd.hc[chnum].xfer_len
 					- hcd.ChannelReg(chnum, 0x010).masof(USB_OTG_HCTSIZ_XFRSIZ_Pos, 19);// HCTSIZ
@@ -245,52 +273,65 @@ namespace uni {
 			hcd.hc[chnum].state = (byte)HostChannelState::XFRC;
 			hcd.hc[chnum].ErrCnt = 0;
 			hcint = USB_OTG_HCINT_XFRC;
+			hcd.hc[chnum].toggle_in ^= 1;
 			if ((hcd.hc[chnum].ep_type == 0) || (hcd.hc[chnum].ep_type == 2)) {// CTRL|BULK
 				hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 				OTG::HaltHostChannel(hcd.base, chnum);
 				hcint = USB_OTG_HCINT_NAK;
 			}
 			else if (hcd.hc[chnum].ep_type == 3) {// INTR
-				hcchar.setof(USB_OTG_HCCHAR_ODDFRM_Pos);
+				// Periodic IN is already halted by the core at transfer completion.
 				hcd.hc[chnum].urb_state = (byte)URBState::Done;
 				if (hcd.NotifyURBChangeHandler) hcd.NotifyURBChangeHandler((pureptr_t)(stduint)chnum, hcd.hc[chnum].urb_state);
 			}
-			hcd.hc[chnum].toggle_in ^= 1;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_CHH_Pos)) {
+		else if (pending & USB_OTG_HCINT_CHH) {
 			hcintmsk.rstof(USB_OTG_HCINTMSK_CHHM_Pos);// mask halt again
+			OTG::ClearHaltPending(chnum);// the halt completed, the channel may be armed again
 			if (hcd.hc[chnum].state == (byte)HostChannelState::XFRC) {
 				hcd.hc[chnum].urb_state = (byte)URBState::Done;
 			}
 			else if (hcd.hc[chnum].state == (byte)HostChannelState::Stall) {
 				hcd.hc[chnum].urb_state = (byte)URBState::Stall;
 			}
+			else if (hcd.hc[chnum].state == (byte)HostChannelState::NAK) {
+				// an INTR halt reports a NAK: without this the result reaches the URB as a bare Idle
+				hcd.hc[chnum].urb_state = (byte)URBState::NotReady;
+			}
 			else if ((hcd.hc[chnum].state == (byte)HostChannelState::Xacterr)
 				|| (hcd.hc[chnum].state == (byte)HostChannelState::DataTglErr)) {
 				if (hcd.hc[chnum].ErrCnt++ > 3) {
+					// the retries are used up: the channel stays halted and the URB is failed
 					hcd.hc[chnum].ErrCnt = 0;
 					hcd.hc[chnum].urb_state = (byte)URBState::Error;
 				}
 				else {
+					// report only: re-submitting is the URB layer's job, it re-arms the halt interrupt and refills the packet through SubmitRequest()
 					hcd.hc[chnum].urb_state = (byte)URBState::NotReady;
 				}
-				// re-activate the channel
-				tmpreg = hcchar;
-				tmpreg &= ~USB_OTG_HCCHAR_CHDIS;
-				tmpreg |= USB_OTG_HCCHAR_CHENA;
-				hcchar = tmpreg;
 			}
 			hcint = USB_OTG_HCINT_CHH;
 			if (hcd.NotifyURBChangeHandler) hcd.NotifyURBChangeHandler((pureptr_t)(stduint)chnum, hcd.hc[chnum].urb_state);
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_TXERR_Pos)) {
+		else if (pending & USB_OTG_HCINT_TXERR) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			hcd.hc[chnum].ErrCnt++;
 			hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcint = USB_OTG_HCINT_TXERR;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_NAK_Pos)) {
+		else if (pending & USB_OTG_HCINT_BBERR) {
+			// AKA the reference host driver babble handler: halt the channel, the retry is the URB layer's job
+			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
+			hcd.hc[chnum].ErrCnt++;
+			hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
+			OTG::HaltHostChannel(hcd.base, chnum);
+			hcint = USB_OTG_HCINT_BBERR;
+		}
+		else if (pending & USB_OTG_HCINT_NAK) {
+			hcd.hc[chnum].state = (byte)HostChannelState::NAK;
+			// clear the cause before changing HCCHAR, a latched NAK races the halt request
+			hcint = USB_OTG_HCINT_NAK;
 			if (hcd.hc[chnum].ep_type == 3) {// INTR
 				hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 				OTG::HaltHostChannel(hcd.base, chnum);
@@ -301,8 +342,6 @@ namespace uni {
 				tmpreg |= USB_OTG_HCCHAR_CHENA;
 				hcchar = tmpreg;
 			}
-			hcd.hc[chnum].state = (byte)HostChannelState::NAK;
-			hcint = USB_OTG_HCINT_NAK;
 		}
 	}
 
@@ -310,15 +349,14 @@ namespace uni {
 	static void HCD_HC_OUT_IRQHandler(HCD& hcd, byte chnum) {
 		Reference hcint = hcd.ChannelReg(chnum, 0x008);// HCINT
 		Reference hcintmsk = hcd.ChannelReg(chnum, 0x00C);// HCINTMSK
-		Reference hcchar = hcd.ChannelReg(chnum, 0x000);// HCCHAR
-		stduint tmpreg = 0;
+		const stduint pending = (stduint)hcint & (stduint)hcintmsk;
 
 		// HCINT is write-1-to-clear: assign the mask, never setof()
-		if (hcint.bitof(USB_OTG_HCINT_AHBERR_Pos)) {
+		if (pending & USB_OTG_HCINT_AHBERR) {
 			hcint = USB_OTG_HCINT_AHBERR;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_ACK_Pos)) {
+		else if (pending & USB_OTG_HCINT_ACK) {
 			hcint = USB_OTG_HCINT_ACK;
 			if (hcd.hc[chnum].do_ping == 1) {
 				hcd.hc[chnum].state = (byte)HostChannelState::NYET;
@@ -327,55 +365,66 @@ namespace uni {
 				hcd.hc[chnum].urb_state = (byte)URBState::NotReady;
 			}
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_NYET_Pos)) {
+		else if (pending & USB_OTG_HCINT_NYET) {
 			hcd.hc[chnum].state = (byte)HostChannelState::NYET;
 			hcd.hc[chnum].ErrCnt = 0;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcint = USB_OTG_HCINT_NYET;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_FRMOR_Pos)) {
+		else if (pending & USB_OTG_HCINT_FRMOR) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			// a control halt must carry a reason, or the URB layer reads it as no result
 			if (hcd.hc[chnum].ep_type == 0) hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcint = USB_OTG_HCINT_FRMOR;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_XFRC_Pos)) {
+		else if (pending & USB_OTG_HCINT_XFRC) {
 			hcd.hc[chnum].ErrCnt = 0;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcint = USB_OTG_HCINT_XFRC;
 			hcd.hc[chnum].state = (byte)HostChannelState::XFRC;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_STALL_Pos)) {
+		else if (pending & USB_OTG_HCINT_STALL) {
 			hcint = USB_OTG_HCINT_STALL;
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcd.hc[chnum].state = (byte)HostChannelState::Stall;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_NAK_Pos)) {
+		else if (pending & USB_OTG_HCINT_NAK) {
 			hcd.hc[chnum].ErrCnt = 0;
-			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
-			OTG::HaltHostChannel(hcd.base, chnum);
 			hcd.hc[chnum].state = (byte)HostChannelState::NAK;
+			// TinyUSB clears the sampled cause before disabling a slave-mode channel.
 			hcint = USB_OTG_HCINT_NAK;
+			if (!(pending & USB_OTG_HCINT_CHH)) {
+				hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
+				OTG::HaltHostChannel(hcd.base, chnum);
+			}
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_TXERR_Pos)) {
+		else if (pending & USB_OTG_HCINT_TXERR) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
 			hcint = USB_OTG_HCINT_TXERR;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_DTERR_Pos)) {
+		else if (pending & USB_OTG_HCINT_BBERR) {
+			// AKA the reference host driver babble handler: halt the channel, the retry is the URB layer's job
+			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
+			OTG::HaltHostChannel(hcd.base, chnum);
+			hcd.hc[chnum].state = (byte)HostChannelState::Xacterr;
+			hcint = USB_OTG_HCINT_BBERR;
+		}
+		else if (pending & USB_OTG_HCINT_DTERR) {
 			hcintmsk.setof(USB_OTG_HCINTMSK_CHHM_Pos);
 			OTG::HaltHostChannel(hcd.base, chnum);
 			hcint = USB_OTG_HCINT_NAK;
 			hcint = USB_OTG_HCINT_DTERR;
 			hcd.hc[chnum].state = (byte)HostChannelState::DataTglErr;
 		}
-		else if (hcint.bitof(USB_OTG_HCINT_CHH_Pos)) {
+		else if (pending & USB_OTG_HCINT_CHH) {
 			hcintmsk.rstof(USB_OTG_HCINTMSK_CHHM_Pos);// mask halt again
+			OTG::ClearHaltPending(chnum);// the halt completed, the channel may be armed again
 			if (hcd.hc[chnum].state == (byte)HostChannelState::XFRC) {
 				hcd.hc[chnum].urb_state = (byte)URBState::Done;
 				if (hcd.hc[chnum].ep_type == 2) hcd.hc[chnum].toggle_out ^= 1;// BULK
@@ -393,22 +442,14 @@ namespace uni {
 			else if ((hcd.hc[chnum].state == (byte)HostChannelState::Xacterr)
 				|| (hcd.hc[chnum].state == (byte)HostChannelState::DataTglErr)) {
 				if (hcd.hc[chnum].ErrCnt++ > 3) {
+					// the retries are used up: the channel stays halted and the URB is failed
 					hcd.hc[chnum].ErrCnt = 0;
 					hcd.hc[chnum].urb_state = (byte)URBState::Error;
 				}
 				else {
+					// report only: re-submitting is the URB layer's job, it re-arms the halt interrupt and refills the packet through SubmitRequest()
 					hcd.hc[chnum].urb_state = (byte)URBState::NotReady;
 				}
-				tmpreg = hcchar;
-				tmpreg &= ~USB_OTG_HCCHAR_CHDIS;
-				tmpreg |= USB_OTG_HCCHAR_CHENA;
-				hcchar = tmpreg;
-			}
-			// a halted OUT channel leaves its packet in the shared TxFIFO: drop it
-			if ((hcd.hc[chnum].state != (byte)HostChannelState::XFRC)
-				&& (hcd.hc[chnum].ep_is_in == 0)
-				&& ((hcd.hc[chnum].ep_type == 0) || (hcd.hc[chnum].ep_type == 2))) {// CTRL|BULK
-				OTG::FlushTxFifo(hcd.base, 0x10);
 			}
 			hcint = USB_OTG_HCINT_CHH;
 			if (hcd.NotifyURBChangeHandler) hcd.NotifyURBChangeHandler((pureptr_t)(stduint)chnum, hcd.hc[chnum].urb_state);
@@ -450,9 +491,8 @@ namespace uni {
 	static void HCD_Port_IRQHandler(HCD& hcd) {
 		Reference hprt_reg(hcd.base + USB_OTG_HOST_PORT_BASE);
 		stduint hprt0 = hprt_reg;
-		stduint hprt0_dup = hprt_reg;
+		stduint hprt0_dup = hprt0;
 		hprt0_dup &= ~(USB_OTG_HPRT_PENA | USB_OTG_HPRT_PCDET | USB_OTG_HPRT_PENCHNG | USB_OTG_HPRT_POCCHNG);
-
 		if ((hprt0 & USB_OTG_HPRT_PCDET) == USB_OTG_HPRT_PCDET) {
 			if ((hprt0 & USB_OTG_HPRT_PCSTS) == USB_OTG_HPRT_PCSTS) {
 				hcd.GlobalReg(OTGGlobalReg::GINTMSK).rstof(USB_OTG_GINTMSK_DISCINT_Pos);// mask disconnect
@@ -503,6 +543,10 @@ namespace uni {
 		if (OTG::ReadInterrupts(base) == 0) return;
 
 		Reference gintsts(base + _IMM(OTGGlobalReg::GINTSTS));
+		// the reference host ISR clears the session request; left pending it stays set for the whole session
+		if (gintsts.bitof(USB_OTG_GINTSTS_SRQINT_Pos)) {
+			gintsts = USB_OTG_GINTSTS_SRQINT;
+		}
 		// GINTSTS is write-1-to-clear: assign the mask, never setof()
 		if (gintsts.bitof(USB_OTG_GINTSTS_PXFR_INCOMPISOOUT_Pos)) {
 			gintsts = USB_OTG_GINTSTS_PXFR_INCOMPISOOUT;
@@ -516,13 +560,27 @@ namespace uni {
 		if (gintsts.bitof(USB_OTG_GINTSTS_MMIS_Pos)) {
 			gintsts = USB_OTG_GINTSTS_MMIS;
 		}
+		// a latched connector-ID change is cleared first, the reference host ISR does the same
+		if (gintsts.bitof(USB_OTG_GINTSTS_CIDSCHG_Pos)) {
+			gintsts = USB_OTG_GINTSTS_CIDSCHG;
+		}
+		// clear the suspend flag, a suspended bus has no frames for periodic channels
+		if (gintsts.bitof(USB_OTG_GINTSTS_USBSUSP_Pos)) {
+			gintsts = USB_OTG_GINTSTS_USBSUSP;
+		}
+		// clear the OTG flags: a latched Session End leaves the core clearing PENA by itself
+
+		Reference gotgint(base + 0x004);
+		if ((stduint)gotgint) gotgint = (stduint)gotgint;
 		// host disconnect
 		if (gintsts.bitof(USB_OTG_GINTSTS_DISCINT_Pos)) {
-			// cleanup HPRT
 			Reference hprt_reg(base + USB_OTG_HOST_PORT_BASE);
-			hprt_reg = hprt_reg & ~(USB_OTG_HPRT_PENA | USB_OTG_HPRT_PCDET | USB_OTG_HPRT_PENCHNG | USB_OTG_HPRT_POCCHNG);
-			if (DisconnectHandler) DisconnectHandler();
-			OTG::InitFSLSPClkSel(base, _HCFG_48_MHZ);
+			if ((hprt_reg & USB_OTG_HPRT_PCSTS) == 0) {
+				// cleanup HPRT
+				hprt_reg = hprt_reg & ~(USB_OTG_HPRT_PENA | USB_OTG_HPRT_PCDET | USB_OTG_HPRT_PENCHNG | USB_OTG_HPRT_POCCHNG);
+				if (DisconnectHandler) DisconnectHandler();
+				OTG::InitFSLSPClkSel(base, _HCFG_48_MHZ);
+			}
 			gintsts = USB_OTG_GINTSTS_DISCINT;
 		}
 		// host port
@@ -548,10 +606,8 @@ namespace uni {
 				}
 			}
 			gintsts = USB_OTG_GINTSTS_HCINT;
-			// a channel can halt right after its handler ran: that CHH never reaches HAINT
 			for (i = 0; i < host_channels; i++) {
-				if (interrupt & (1U << i)) continue;
-				if (!ChannelReg((byte)i, 0x008)) continue;// HCINT
+				if (!((stduint)ChannelReg((byte)i, 0x008) & (stduint)ChannelReg((byte)i, 0x00C))) continue;// HCINT & HCINTMSK
 				if (ChannelReg((byte)i, 0x000).bitof(USB_OTG_HCCHAR_EPDIR_Pos)) {
 					HCD_HC_IN_IRQHandler(*this, (byte)i);
 				}

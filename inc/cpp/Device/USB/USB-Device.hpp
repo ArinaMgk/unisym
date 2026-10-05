@@ -15,10 +15,14 @@ namespace uni::device::SpaceUSB {
 		// Bulk transport (AKA a host MSC disk): dir_in selects the IN/OUT direction.
 		virtual Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len);
 		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change);
+		// a hub parent reports the port while a device on it still answers at address 0
+		virtual uint8 HubAddressingPort() const { return 0; }
+		// a hub parent reports whether one of its downstream devices holds the bus right now
+		virtual bool ChildBusy() { return false; }
+		// HPRT0.PSPD scale: 0 high, 1 full, 2 low speed
+		virtual stduint Speed() const { return 1; }
 		// AKA xHCI ConfigureEndpoints: the transport programs its channels here
 		virtual Error ConfigureTransportEndpoints() { return MAKE_ERROR(Error::kSuccess); }
-		// Traditional host controllers assign the USB address with SET_ADDRESS;
-		// xHCI already does this with its Address Device command.
 		virtual bool RequiresSetAddressRequest() const { return false; }
 		// AKA USBH_LL_SetDeviceAddress: the transport follows the new address here
 		virtual void OnDeviceAddressChanged(uint8 address) { (void)address; }
@@ -34,6 +38,8 @@ namespace uni::device::SpaceUSB {
 			return (ep_num >= 0 && ep_num < 16) ? class_drivers_[ep_num] : nullptr;
 		}
 		Error OnEndpointsConfigured();
+		// AKA the periodic tick: hand every class driver its timed work (about once per ms)
+		Error ProcessDelayed();
 		uint16 VendorID() const { return vendor_id_; }
 		uint16 ProductID() const { return product_id_; }
 		uint8 DeviceClass() const { return device_class_; }
@@ -41,6 +47,12 @@ namespace uni::device::SpaceUSB {
 		uint8 DeviceProtocol() const { return device_protocol_; }
 		uint8 HubNumPorts() const { return hub_num_ports_; }
 		void SetHubNumPorts(uint8 num_ports) { hub_num_ports_ = num_ports; }
+		// bPwrOn2PwrGood: units of 2 ms, from the hub descriptor
+		uint8 HubPowerOnToPowerGood() const { return hub_power_on_to_power_good_; }
+		void SetHubPowerOnToPowerGood(uint8 val) { hub_power_on_to_power_good_ = val; }
+		// the USB address this device is given by SET_ADDRESS
+		uint8 AssignedAddress() const { return assigned_address_; }
+		void SetAssignedAddress(uint8 val) { assigned_address_ = val; }
 		const char* ManufacturerString() const { return manufacturer_string_[0] ? manufacturer_string_.data() : nullptr; }
 		const char* ProductString() const { return product_string_[0] ? product_string_.data() : nullptr; }
 		const char* SerialString() const { return serial_string_[0] ? serial_string_.data() : nullptr; }
@@ -64,8 +76,8 @@ namespace uni::device::SpaceUSB {
 		uni::Array<uint8, 256> buf_{};
 
 		// following fields are used during initialization
-		uint8 num_configurations_;
-		uint8 config_index_;
+		uint8 num_configurations_ = 0;
+		uint8 config_index_ = 0;
 
 		Error OnDeviceDescriptorReceived(const uint8* buf, int len);
 		Error OnConfigurationDescriptorReceived(const uint8* buf, int len);
@@ -82,13 +94,23 @@ namespace uni::device::SpaceUSB {
 		uint8 product_index_ = 0;
 		uint8 serial_index_ = 0;
 		uint8 hub_num_ports_ = 0;
+		uint8 hub_power_on_to_power_good_ = 0;
+		uint8 assigned_address_ = kDefaultDeviceAddress;
+		// the enumeration request in flight: a failed control transfer is sent again
+		SetupData enum_setup_{};
+		void* enum_buf_ = nullptr;
+		int enum_len_ = 0;
+		int enum_retry_ = 0;
+		bool enum_in_ = true;
+		bool enum_pending_ = false;
+		bool enum_resubmit_ = false;
 		uint16 string_lang_id_ = 0x0409;
 		uni::Array<char, 64> manufacturer_string_{};
 		uni::Array<char, 64> product_string_{};
 		uni::Array<char, 64> serial_string_{};
 		int initialize_phase_ = 0;
-		uni::Array<EndpointConfig, 16> ep_configs_;
-		int num_ep_configs_;
+		uni::Array<EndpointConfig, 16> ep_configs_{};
+		int num_ep_configs_ = 0;
 		Error InitializePhase1(const uint8* buf, int len);
 		Error InitializePhase2(const uint8* buf, int len);
 		Error InitializePhase3(uint8 config_value);
@@ -104,7 +126,7 @@ namespace uni::device::SpaceUSB {
 		/** Map structure to identify the issuer of a request within OnControlCompleted.
 			 * The issuer is registered when ControlOut or ControlIn is issued.
 			 */
-		ArrayMap<SetupData, ClassDriver*, 4> event_waiters_{};
+		ArrayMap<SetupData, ClassDriver*, 16> event_waiters_{};
 	};
 
 	Error GetDescriptor(USBHostDevice& dev, EndpointID ep_id,
@@ -114,5 +136,25 @@ namespace uni::device::SpaceUSB {
 		uint8 config_value, bool debug = false);
 	Error SetAddress(USBHostDevice& dev, EndpointID ep_id,
 		uint8 address, bool debug = false);
+
+	struct USBHostControllerIdentity {
+		const char* driver_name;
+		void* driver_data;
+		uint8 root_hub_protocol;
+	};
+
+	struct USBHostDeviceLocation {
+		USBHostDevice* parent_hub;
+		uint8 device_id;
+		uint8 root_hub_port;
+		uint8 upstream_port;
+	};
+
+	using HostDeviceConfiguredHook = void (*)(const USBHostControllerIdentity& controller,
+		const USBHostDeviceLocation& location, USBHostDevice& dev);
+	extern HostDeviceConfiguredHook g_host_device_configured_hook;
+	using HostDeviceDisconnectedHook = void (*)(const USBHostControllerIdentity& controller,
+		const USBHostDeviceLocation& location, USBHostDevice& dev);
+	extern HostDeviceDisconnectedHook g_host_device_disconnected_hook;
 }
 #endif

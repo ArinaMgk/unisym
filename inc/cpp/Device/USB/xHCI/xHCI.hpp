@@ -107,6 +107,9 @@ namespace uni::device::SpaceUSB3 {
 			return Port{ port_num, PortRegisterSets()[port_num - 1] };
 		}
 		uint8 MaxPorts() const { return max_ports_; }
+		uint8 MaxSlots() const { return max_slots_; }
+		uint8 ContextSize() const { return context_size_; }
+		uint8 SpeedClass(uint8 root_hub_port_num, uint8 speed_id) const;
 		DeviceManager* GetDeviceManager() { return &devmgr_; }
 	public:
 		Error ProcessEvents();
@@ -117,6 +120,10 @@ namespace uni::device::SpaceUSB3 {
 		CapabilityRegisters* const cap_;
 		OperationalRegisters* const op_;
 		const uint8 max_ports_;
+		const uint8 max_slots_;
+		const uint8 context_size_;
+		uint8 port_protocol_major_[256]{};
+		uint8 port_speed_classes_[256][16]{};
 
 		class DeviceManager devmgr_;
 		Ring cr_;
@@ -133,6 +140,8 @@ namespace uni::device::SpaceUSB3 {
 		DoorbellRegisterArray DoorbellRegisters() const {
 			return { mmio_base_ + cap_->DBOFF.Read().Offset(), 256 };
 		}
+
+		void InitializeSupportedProtocols();
 		//
 
 	public:
@@ -150,11 +159,6 @@ namespace uni::device::SpaceUSB3 {
 		Error ProcessEvent();
 
 	};
-
-	using ConfigurationCompleteHook = void (*)(HostController& xhc, uint8 port_id, uint8 slot_id, USBHostDevice_v3& dev);
-	extern ConfigurationCompleteHook g_configuration_complete_hook;
-	using DeviceDisconnectHook = void (*)(HostController& xhc, uint8 port_id, uint8 slot_id);
-	extern DeviceDisconnectHook g_device_disconnect_hook;
 
 }
 

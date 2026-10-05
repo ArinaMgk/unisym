@@ -21,6 +21,10 @@ namespace uni::device::SpaceUSB3 {
 		}
 
 		TRB* Buffer() const { return buf_; }
+		TRB* EnqueuePointer() const { return &buf_[write_index_]; }
+		bool ProducerCycleState() const { return cycle_bit_; }
+		size_t UsableSize() const { return buf_size_ ? buf_size_ - 1 : 0; }
+		TRB* NextTransferTRB(const TRB* trb) const;
 
 	private:
 		TRB* buf_ = nullptr;

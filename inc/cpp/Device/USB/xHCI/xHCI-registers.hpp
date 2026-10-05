@@ -383,6 +383,62 @@ namespace uni::device::SpaceUSB3 {
 		} bits;
 	};
 
+	_PACKED(union) SupportedProtocolRevision_t {
+		uint32 data[1];
+		_PACKED(struct) {
+			uint32 capability_id : 8;
+			uint32 next_pointer : 8;
+			uint32 minor_revision : 8;
+			uint32 major_revision : 8;
+		} bits;
+	};
+
+	_PACKED(union) SupportedProtocolPorts_t {
+		uint32 data[1];
+		_PACKED(struct) {
+			uint32 compatible_port_offset : 8;
+			uint32 compatible_port_count : 8;
+			uint32 protocol_defined : 12;
+			uint32 protocol_speed_id_count : 4;
+		} bits;
+	};
+
+	_PACKED(union) SupportedProtocolSlotType_t {
+		uint32 data[1];
+		_PACKED(struct) {
+			uint32 protocol_slot_type : 5;
+			uint32 : 27;
+		} bits;
+	};
+
+	_PACKED(union) ProtocolSpeedID_t {
+		uint32 data[1];
+		_PACKED(struct) {
+			uint32 speed_id_value : 4;
+			uint32 speed_id_exponent : 2;
+			uint32 psi_type : 2;
+			uint32 psi_full_duplex : 1;
+			uint32 : 5;
+			uint32 link_protocol : 2;
+			uint32 speed_id_mantissa : 16;
+		} bits;
+	};
+
+	struct SupportedProtocolCapability {
+		MemMapRegister<SupportedProtocolRevision_t> revision;
+		MemMapRegister<DefaultBitmap<uint32>> name_string;
+		MemMapRegister<SupportedProtocolPorts_t> ports;
+		MemMapRegister<SupportedProtocolSlotType_t> slot_type;
+	};
+
+	static_assert(sizeof(SupportedProtocolRevision_t) == 4 &&
+		sizeof(SupportedProtocolPorts_t) == 4 &&
+		sizeof(SupportedProtocolSlotType_t) == 4 &&
+		sizeof(ProtocolSpeedID_t) == 4,
+		"Supported Protocol registers must be 32 bits");
+	static_assert(sizeof(SupportedProtocolCapability) == 0x10,
+		"Supported Protocol capability header must be 16 bytes");
+
 	class ExtendedRegisterList {
 	public:
 		using ValueType = MemMapRegister<ExtendedRegister_t>;

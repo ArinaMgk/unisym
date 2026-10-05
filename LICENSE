@@ -210,7 +210,7 @@
    APPENDIX: Header format for source files, only the first line is required anyway.
 
 // <Codeset> <Lango/Format> <LnBegStyle> <LnEndStyle>
-// Docutitle: (<Type>) <Document(Linear?)>
+// Docutitle: [<Type>] <Document(Linear?)>
 // Codifiers: <Author>(@ <Organization/Company>):( <Date> ~ <Last-check>)
 // Attribute: <Covenant> <Architect> <Environment> <Reference/Dependence>
 // Copyright: <Project>, under <License>

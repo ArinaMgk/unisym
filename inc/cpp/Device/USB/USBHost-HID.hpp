@@ -26,6 +26,20 @@
 #include "USB.hpp"
 
 namespace uni::device::SpaceUSB {
+	class HIDBootKeyboardReportDecoder {
+	public:
+		static constexpr stduint kReportBytes = 8;
+		using ObserverType = void (*)(uint8 modifiers, uint8 keycode,
+			bool pressed);
+
+		bool Process(const uint8* report, stduint length,
+			ObserverType observer);
+		void Reset(ObserverType observer = nullptr);
+
+	private:
+		static bool Contains(const uint8* report, uint8 keycode);
+		uint8 previous_report_[kReportBytes]{};
+	};
 
 	// AKA USBH_HID_CLASS: SET_PROTOCOL(boot) once the endpoints are configured, then
 	// an interrupt-IN poll that re-arms itself after every completion (or failure),

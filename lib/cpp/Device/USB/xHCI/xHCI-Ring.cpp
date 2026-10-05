@@ -52,6 +52,7 @@ namespace uni::device::SpaceUSB3 {
 		if (write_index_ == buf_size_ - 1) {
 			LinkTRB link{ buf_ };
 			link.bits.toggle_cycle = true;
+			link.bits.chain_bit = (data[3] & (1u << 4)) != 0;
 			CopyToLast(link.data);
 
 			write_index_ = 0;
@@ -59,6 +60,19 @@ namespace uni::device::SpaceUSB3 {
 		}
 
 		return trb_ptr;
+	}
+
+	TRB* Ring::NextTransferTRB(const TRB* trb) const {
+		if (buf_ == nullptr || buf_size_ < 2 || trb == nullptr) return nullptr;
+		const uintptr_t address = reinterpret_cast<uintptr_t>(trb);
+		const uintptr_t begin = reinterpret_cast<uintptr_t>(buf_);
+		const uintptr_t end = reinterpret_cast<uintptr_t>(buf_ + buf_size_ - 1);
+		if (address < begin || address >= end ||
+			(address - begin) % sizeof(TRB) != 0) {
+			return nullptr;
+		}
+		auto* next = reinterpret_cast<TRB*>(address + sizeof(TRB));
+		return next == buf_ + buf_size_ - 1 ? buf_ : next;
 	}
 
 	Error EventRing::Initialize(size_t buf_size,

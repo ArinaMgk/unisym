@@ -38,6 +38,7 @@
 
 #define ClassBase_SerialBusController 0x0C
 #define ClassSub_UniversalSerialBusController 0x03
+#define ClassInterface_UHCI 0x00// 1.x
 #define ClassInterface_EHCI 0x20// 2.x
 #define ClassInterface_XHCI 0x30// 3.x
 

@@ -245,6 +245,12 @@ namespace uni::device::SpaceUSB {
 
 		void Put(const K& key, const V& value) {
 			for (size_t i = 0; i < table_.size(); ++i) {
+				if (auto opt_k = table_[i].first; opt_k && opt_k.value() == key) {
+					table_[i].second = value;// an existing key is replaced, never duplicated
+					return;
+				}
+			}
+			for (size_t i = 0; i < table_.size(); ++i) {
 				if (!table_[i].first) {
 					table_[i].first = key;
 					table_[i].second = value;

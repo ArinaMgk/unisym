@@ -66,9 +66,11 @@ namespace {
 
 	uni::device::SpaceUSB::ClassDriver* NewClassDriver(uni::device::SpaceUSB::USBHostDevice* dev, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc)
 	{
+
 		if (dev->DeviceClass() == 0x09u || if_desc.interface_class == 0x09u) {
 			return new uni::device::SpaceUSB::USBHubDriver{ dev };
 		}
+
 #if defined(_MCU_STM32H7x)
 		if (if_desc.interface_class == 0x08u &&// MSC
 			if_desc.interface_sub_class == 0x06u &&// SCSI transparent command set
@@ -128,6 +130,12 @@ namespace {
 namespace uni::device::SpaceUSB {
 	HubDescriptorCompleteHook g_hub_descriptor_complete_hook = nullptr;
 	HubPortStatusHook g_hub_port_status_hook = nullptr;
+	HubResetPortHook g_hub_reset_port_hook = nullptr;
+	HostDeviceConfiguredHook g_host_device_configured_hook = nullptr;
+	HostDeviceDisconnectedHook g_host_device_disconnected_hook = nullptr;
+
+	// how many times an enumeration request is sent again after a failed transfer
+	const int kEnumRetryLimit = 3;
 
 	USBHostDevice::~USBHostDevice() {
 		// one driver can sit in several endpoint slots: delete each exactly once
@@ -147,6 +155,15 @@ namespace uni::device::SpaceUSB {
 		if (issuer) {
 			event_waiters_.Put(setup_data, issuer);
 		}
+		else if (!enum_resubmit_) {
+			// an enumeration request: keep it so a failed transfer can go out again
+			enum_setup_ = setup_data;
+			enum_buf_ = buf;
+			enum_len_ = len;
+			enum_in_ = true;
+			enum_pending_ = true;
+			enum_retry_ = 0;
+		}
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
@@ -154,6 +171,14 @@ namespace uni::device::SpaceUSB {
 		const void* buf, int len, ClassDriver* issuer) {
 		if (issuer) {
 			event_waiters_.Put(setup_data, issuer);
+		}
+		else if (!enum_resubmit_) {
+			enum_setup_ = setup_data;
+			enum_buf_ = const_cast<void*>(buf);
+			enum_len_ = len;
+			enum_in_ = false;
+			enum_pending_ = true;
+			enum_retry_ = 0;
 		}
 		return MAKE_ERROR(Error::kSuccess);
 	}
@@ -209,21 +234,51 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
+	// the periodic tick: drivers that own timed work (a hub powering its ports) run here
+	Error USBHostDevice::ProcessDelayed() {
+		for (auto class_driver : class_drivers_) {
+			if (class_driver != nullptr) {
+				if (auto err = class_driver->ProcessDelayed()) {
+					return err;
+				}
+			}
+		}
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
 	Error USBHostDevice::OnControlCompleted(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len) {
 		// Log(kDebug, "Device::OnControlCompleted: buf 0x%08x, len %d, dir %d", buf, len, setup_data.request_type.bits.direction);
+		if (len < 0) {// a negative length means the transport reported a failed transfer
+			// the waiter has to hear about the failure too: HID arms its interrupt pipe from that callback
+			if (is_initialized_) {
+				if (auto w = event_waiters_.Get(setup_data)) {
+					auto* waiter = w.value();
+					event_waiters_.Delete(setup_data);
+					return waiter->OnControlCompleted(ep_id, setup_data, buf, len);
+				}
+			}
+			event_waiters_.Delete(setup_data);
+			if (enum_pending_ && enum_retry_++ < kEnumRetryLimit) {
+				enum_resubmit_ = true;
+				const Error err = enum_in_
+					? ControlIn(kDefaultControlPipeID, enum_setup_, enum_buf_, enum_len_, nullptr)
+					: ControlOut(kDefaultControlPipeID, enum_setup_, enum_buf_, enum_len_, nullptr);
+				enum_resubmit_ = false;
+				return err;
+			}
+			enum_pending_ = false;
+			if (!is_initialized_) return MAKE_ERROR(Error::kTransferFailed);
+		}
+		else {
+			enum_pending_ = false;
+		}
 		if (is_initialized_) {
 			if (auto w = event_waiters_.Get(setup_data)) {
 				auto* waiter = w.value();
 				event_waiters_.Delete(setup_data);
 				return waiter->OnControlCompleted(ep_id, setup_data, buf, len);
 			}
-			plogerro("USB control completion without waiter: req_type=%02x req=%02x value=%04x index=%04x len=%u",
-				(unsigned)setup_data.request_type.data,
-				(unsigned)setup_data.request,
-				(unsigned)setup_data.value,
-				(unsigned)setup_data.index,
-				(unsigned)setup_data.length);
 			return MAKE_ERROR(Error::kNoWaiter);
 		}
 
@@ -312,15 +367,15 @@ namespace uni::device::SpaceUSB {
 		if (!RequiresSetAddressRequest()) {
 			return RequestStringDescriptors();
 		}
-		// AKA ENUM_SET_ADDR: a device refuses SetConfiguration while it has no address
+		// a device refuses SetConfiguration while it has no address
 		initialize_phase_ = 15;
-		return SetAddress(*this, kDefaultControlPipeID, kDefaultDeviceAddress, true);
+		return SetAddress(*this, kDefaultControlPipeID, assigned_address_, true);
 	}
 
-	// AKA the step after ENUM_SET_ADDR: the rest of the enumeration runs at the new address
+	// the rest of the enumeration runs at the new address
 	Error USBHostDevice::InitializeAddressPhase() {
 		// the transport has to switch before the next request goes out
-		OnDeviceAddressChanged(kDefaultDeviceAddress);
+		OnDeviceAddressChanged(assigned_address_);
 		return RequestStringDescriptors();
 	}
 
@@ -381,7 +436,7 @@ namespace uni::device::SpaceUSB {
 		is_initialized_ = true;
 		enumerated_ = true;
 #if defined(_MCU_STM32)
-		// AKA the OTG transport: xHCI starts the drivers from CompleteConfiguration()
+		// the OTG transport: xHCI starts the drivers from CompleteConfiguration()
 		if (auto err = ConfigureTransportEndpoints()) {
 			return err;
 		}
@@ -472,6 +527,11 @@ namespace uni::device::SpaceUSB {
 		void* buf, int len, bool debug, uint16_t desc_lang_id) {
 		// one descriptor read asks for at most 255 bytes: a wLength of 0x0100 is answered with nothing
 		if (len > 255) len = 255;
+		// an LS read moves 8 bytes per packet at 1.5Mb/s and cannot finish inside a frame: the packet the core leaves
+		// for the frame end is what makes a port babble (RM0433), so a name is cut short instead of the port being lost
+		// 8 bytes = one packet: a string descriptor is only used to print a name, and every packet saved is one less
+		// chance for the hub to drop a low-speed answer
+		if (desc_type == descriptor_type::kString && dev.Speed() == 2 && len > 8) len = 8;
 		SetupData setup_data{};
 		setup_data.request_type.bits.direction = request_type::kIn;
 		setup_data.request_type.bits.type = request_type::kStandard;
@@ -510,7 +570,6 @@ namespace uni::device::SpaceUSB {
 		return dev.ControlOut(ep_id, setup_data, nullptr, 0, nullptr);
 	}
 }
-
 
 // ---- STM32H7 OTG low layer (shared by PCD/HCD) ----
 #if defined(_MCU_STM32H7x)
@@ -558,6 +617,10 @@ namespace uni {
 			gusbcfg.setof(USB_OTG_GUSBCFG_PHYSEL_Pos);
 			if (!ResetCore(base)) return false;
 			gccfg = USB_OTG_GCCFG_PWRDWN;
+			// USB turnaround time: the reset value is 1 (21ns), the FS/LS table wants 6 (125ns) for HCLK >= 32MHz.
+			// Left at the reset value the core stops listening for the answer far too early, which shows up as a
+			// transaction error on a device that answered a little late (an LS device behind a hub, for instance).
+			gusbcfg.maset(USB_OTG_GUSBCFG_TRDT_Pos, 4, 0x6);
 		}
 		if (dma_enable) {
 			gahbcfg.maset(USB_OTG_GAHBCFG_HBSTLEN_Pos, 2, 3);
@@ -581,7 +644,7 @@ namespace uni {
 		Reference grstctl(base + 0x010);
 		grstctl = USB_OTG_GRSTCTL_TXFFLSH | ((num & 0xF) << 6);
 		do {
-			if (++count > 200000) return false;
+			if (++count > 2000) return false;
 		} while (grstctl.bitof(USB_OTG_GRSTCTL_TXFFLSH_Pos));
 		return true;
 	}
@@ -1027,7 +1090,10 @@ namespace uni {
 		Reference nptxfsiz(base + 0x028);
 		Reference hptxfsiz(base + 0x100);
 		Reference(base + USB_OTG_PCGCCTL_BASE) = 0;// PCGCCTL
-		gccfg.setof(USB_OTG_GCCFG_VBDEN_Pos);
+		gccfg.rstof(USB_OTG_GCCFG_VBDEN_Pos);
+		// VBUS sensing is off, so force the session valid: otherwise the core can clear PENA by itself (AKA ST USB_DevInit)
+		Reference(base + 0x000).setof(USB_OTG_GOTGCTL_BVALOEN_Pos);
+		Reference(base + 0x000).setof(USB_OTG_GOTGCTL_BVALOVAL_Pos);
 		if (speed == 3 && base != _OTG2_FS_ADDR) hcfg.setof(USB_OTG_HCFG_FSLSS_Pos);// FULL speed, not OTG2_FS
 		else hcfg.rstof(USB_OTG_HCFG_FSLSS_Pos);
 		FlushTxFifo(base, 0x10);
@@ -1049,7 +1115,12 @@ namespace uni {
 			nptxfsiz = ((0x100 << USB_OTG_NPTXFD_Pos) & USB_OTG_NPTXFD) | 0x200;
 			hptxfsiz = ((0xE0 << USB_OTG_HPTXFSIZ_PTXFD_Pos) & USB_OTG_HPTXFSIZ_PTXFD) | 0x300;
 		}
+		// clear pending OTG flags and keep that interrupt unmasked
+
+		Reference(base + 0x004) = 0xFFFFFFFF;// GOTGINT
 		if (!dma_enable) gintmsk.setof(USB_OTG_GINTMSK_RXFLVLM_Pos);
+		gintmsk.setof(USB_OTG_GINTMSK_OTGINT_Pos);
+		gintmsk.setof(USB_OTG_GINTMSK_USBSUSPM_Pos);
 		gintmsk.setof(USB_OTG_GINTMSK_PRTIM_Pos);
 		gintmsk.setof(USB_OTG_GINTMSK_HCIM_Pos);
 		gintmsk.setof(USB_OTG_GINTMSK_SOFM_Pos);
@@ -1071,11 +1142,26 @@ namespace uni {
 	// AKA USB_ResetPort
 	bool OTG::ResetPort(stduint base) {
 		Reference hprt(base + USB_OTG_HOST_PORT_BASE);
-		stduint hprt0 = hprt;
+		const stduint raw = hprt;// one sample of the live register, never two
+		stduint hprt0 = raw;
 		hprt0 &= ~(USB_OTG_HPRT_PENA | USB_OTG_HPRT_PCDET | USB_OTG_HPRT_PENCHNG | USB_OTG_HPRT_POCCHNG);
 		hprt = USB_OTG_HPRT_PRST | hprt0;
-		SysDelay_ms(100);
+		SysDelay_ms(10);
+		stduint hold = 0;
+		while (hold < 90) {
+			if (hprt & USB_OTG_HPRT_PENA) break;
+			SysDelay_ms(1);
+			++hold;
+		}
 		hprt = (~USB_OTG_HPRT_PRST) & hprt0;
+		stduint waited = 0;
+		while (waited < 100) {
+			if (hprt & USB_OTG_HPRT_PENA) break;
+			SysDelay_ms(1);
+			++waited;
+		}
+		// the periodic schedule must be running, a core reset leaves it off
+		Reference(base + USB_OTG_HOST_BASE + 0x00).setof(USB_OTG_HCFG_PERSCHEDENA_Pos);
 		return true;
 	}
 
@@ -1088,7 +1174,8 @@ namespace uni {
 		stduint msk = 0;
 		if (ep_type == 0 || ep_type == 2) {// CTRL|BULK
 			msk = USB_OTG_HCINTMSK_XFRCM | USB_OTG_HCINTMSK_STALLM | USB_OTG_HCINTMSK_TXERRM
-				| USB_OTG_HCINTMSK_DTERRM | USB_OTG_HCINTMSK_AHBERR | USB_OTG_HCINTMSK_NAKM;
+				| USB_OTG_HCINTMSK_DTERRM | USB_OTG_HCINTMSK_AHBERR | USB_OTG_HCINTMSK_NAKM
+				| USB_OTG_HCINTMSK_FRMORM;
 			if (epnum & 0x80) msk |= USB_OTG_HCINTMSK_BBERRM;
 			else if (base != _OTG2_FS_ADDR) msk |= USB_OTG_HCINTMSK_NYET | USB_OTG_HCINTMSK_ACKM;
 		}
@@ -1115,9 +1202,18 @@ namespace uni {
 		return true;
 	}
 
+	// a halt that has been issued and whose CHH has not arrived yet
+	static stduint s_halt_pending = 0;
+
 	// AKA USB_HC_StartXfer
 	bool OTG::StartHostChannelXfer(stduint base, OTGHC& hc, bool dma) {
 		Reference hcchar(base + USB_OTG_HOST_CHANNEL_BASE + hc.ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x000);
+		if (s_halt_pending & (1u << hc.ch_num)) {
+			// a halt whose CHH never comes would refuse every later transfer on this channel, and clearing the
+			// channel does not clear it: the channel reading back fully disabled means the halt is over
+			if (((stduint)hcchar) & (USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS)) return false;
+			s_halt_pending &= ~(1u << hc.ch_num);
+		}
 		Reference hctsiz(base + USB_OTG_HOST_CHANNEL_BASE + hc.ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x010);
 		Reference hcintmsk(base + USB_OTG_HOST_CHANNEL_BASE + hc.ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x00C);
 		uint16 num_packets;
@@ -1143,12 +1239,16 @@ namespace uni {
 		if (dma) Reference(base + USB_OTG_HOST_CHANNEL_BASE + hc.ch_num * USB_OTG_HOST_CHANNEL_SIZE + 0x014) = (stduint)hc.xfer_buff;// HCDMA
 		// EPDIR must follow this transfer: one channel carries both directions here
 		hcchar.setof(USB_OTG_HCCHAR_EPDIR_Pos, hc.ep_is_in ? true : false);
-		stduint is_oddframe = (Reference(base + USB_OTG_HOST_BASE + 0x08) & 0x1) ? 0 : 1;// HFNUM
-		hcchar.rstof(USB_OTG_HCCHAR_ODDFRM_Pos);
-		hcchar.setof(USB_OTG_HCCHAR_ODDFRM_Pos, is_oddframe ? true : false);
-		hcchar.rstof(USB_OTG_HCCHAR_CHDIS_Pos);
-		hcchar.setof(USB_OTG_HCCHAR_CHENA_Pos);
-		if (!dma && !hc.ep_is_in && hc.xfer_len > 0) {
+		// Periodic transfers are scheduled for the next frame.
+		if (hc.ep_type == 1 || hc.ep_type == 3) {
+			stduint is_oddframe = (Reference(base + USB_OTG_HOST_BASE + 0x08) & 0x1) ? 0 : 1;// HFNUM
+			hcchar.rstof(USB_OTG_HCCHAR_ODDFRM_Pos);
+			hcchar.setof(USB_OTG_HCCHAR_ODDFRM_Pos, is_oddframe ? true : false);
+		} else {
+			hcchar.rstof(USB_OTG_HCCHAR_ODDFRM_Pos);
+		}
+		const bool has_out_data = !dma && !hc.ep_is_in && hc.xfer_len > 0;
+		if (has_out_data) {
 			stduint len_words = (hc.xfer_len + 3) / 4;
 			if (hc.ep_type == 0 || hc.ep_type == 2) {
 				if (len_words > (Reference(base + 0x02C) & 0xFFFF))// HNPTXSTS
@@ -1158,7 +1258,22 @@ namespace uni {
 				if (len_words > (Reference(base + USB_OTG_HOST_BASE + 0x10) & 0xFFFF))// HPTXSTS
 					Reference(base + 0x018).setof(USB_OTG_GINTMSK_PTXFEM_Pos);
 			}
+		}
+		if (hc.ep_type == 3 || hc.ep_type == 1) {
+			stduint spin = 0;
+			while ((Reference(base + USB_OTG_HOST_BASE + 0x10) & USB_OTG_HPTXSTS_PTXQSAV) == 0
+				&& spin++ < 1000) {}
+		}
+		// For slave-mode OUT, CHENA must be visible before the FIFO write that
+		// creates the request. Keep both writes atomic with respect to this core's ISR.
+		Reference gahbcfg(base + 0x008);
+		const stduint saved_gahbcfg = gahbcfg;
+		if (has_out_data) gahbcfg = saved_gahbcfg & ~USB_OTG_GAHBCFG_GINT;
+		hcchar.rstof(USB_OTG_HCCHAR_CHDIS_Pos);
+		hcchar.setof(USB_OTG_HCCHAR_CHENA_Pos);
+		if (has_out_data) {
 			WritePacket(base, hc.xfer_buff, hc.ch_num, hc.xfer_len);
+			gahbcfg = saved_gahbcfg;
 		}
 		return true;
 	}
@@ -1170,30 +1285,31 @@ namespace uni {
 
 	// AKA USB_HC_Halt
 	bool OTG::HaltHostChannel(stduint base, byte hc_num) {
+		if (s_halt_pending & (1u << hc_num)) return true;// one halt at a time, a second one jams it
+		s_halt_pending |= (1u << hc_num);
 		Reference hcchar(base + USB_OTG_HOST_CHANNEL_BASE + hc_num * USB_OTG_HOST_CHANNEL_SIZE + 0x000);
-		hcchar.setof(USB_OTG_HCCHAR_CHDIS_Pos);
-		stduint eptyp = hcchar.masof(USB_OTG_HCCHAR_EPTYP_Pos, 2);
-		if (eptyp == 0 || eptyp == 2) {// CTRL|BULK
-			if ((Reference(base + 0x02C) & 0xFFFF) == 0) {// HNPTXSTS
-				hcchar.rstof(USB_OTG_HCCHAR_CHENA_Pos);
-				hcchar.setof(USB_OTG_HCCHAR_CHENA_Pos);
-				hcchar.rstof(USB_OTG_HCCHAR_EPDIR_Pos);
-				stduint count = 0;
-				do { if (++count > 1000) break; } while (hcchar.bitof(USB_OTG_HCCHAR_CHENA_Pos));
-			}
-			else hcchar.setof(USB_OTG_HCCHAR_CHENA_Pos);
+		const stduint ep_type = hcchar.masof(USB_OTG_HCCHAR_EPTYP_Pos, 2);
+		const stduint queue_space = (ep_type == 0 || ep_type == 2)
+			? (Reference(base + 0x02C) & USB_OTG_GNPTXSTS_NPTQXSAV)// HNPTXSTS
+			: (Reference(base + USB_OTG_HOST_BASE + 0x10) & USB_OTG_HPTXSTS_PTXQSAV);// HPTXSTS
+		stduint hcchar_value = hcchar;
+		hcchar_value |= USB_OTG_HCCHAR_CHDIS;
+		if (queue_space) {
+			hcchar_value |= USB_OTG_HCCHAR_CHENA;
 		}
 		else {
-			if ((Reference(base + USB_OTG_HOST_BASE + 0x10) & 0xFFFF) == 0) {// HPTXSTS
-				hcchar.rstof(USB_OTG_HCCHAR_CHENA_Pos);
-				hcchar.setof(USB_OTG_HCCHAR_CHENA_Pos);
-				hcchar.rstof(USB_OTG_HCCHAR_EPDIR_Pos);
-				stduint count = 0;
-				do { if (++count > 1000) break; } while (hcchar.bitof(USB_OTG_HCCHAR_CHENA_Pos));
-			}
-			else hcchar.setof(USB_OTG_HCCHAR_CHENA_Pos);
+			// With no request-queue slot, CHENA|CHDIS cannot be posted and remains
+			// stuck. Flush the queued request with CHENA clear and OUT direction.
+			hcchar_value &= ~USB_OTG_HCCHAR_CHENA;
+			hcchar_value &= ~USB_OTG_HCCHAR_EPDIR;
 		}
+		hcchar = hcchar_value;
 		return true;
+	}
+
+	// AKA the halt_pending flag of the reference host driver
+	void OTG::ClearHaltPending(byte hc_num) {
+		s_halt_pending &= ~(1u << hc_num);
 	}
 
 	// AKA USB_DoPing

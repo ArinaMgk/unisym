@@ -53,6 +53,9 @@ namespace uni::device::SpaceUSB {
 	extern HubDescriptorCompleteHook g_hub_descriptor_complete_hook;
 	using HubPortStatusHook = void (*)(USBHostDevice& dev, uint8 downstream_port, uint16 status, uint16 change);
 	extern HubPortStatusHook g_hub_port_status_hook;
+	// which port may be reset next (0 = none): only one device may sit at address 0 at a time
+	using HubResetPortHook = uint8 (*)(USBHostDevice& dev);
+	extern HubResetPortHook g_hub_reset_port_hook;
 
 	// Base class of USB class drivers. Platform independent; the H7 host
 	// bridge (OTGHostDevice) drives it over the OTG controller.
@@ -73,6 +76,8 @@ namespace uni::device::SpaceUSB {
 			(void)len;
 			return MAKE_ERROR(Error::kNotImplemented);
 		}
+		// AKA periodic service; the host transport ticks this about once per millisecond
+		virtual Error ProcessDelayed() { return MAKE_ERROR(Error::kSuccess); }
 
 		/** Returns the USB device that holds this class driver. */
 		USBHostDevice* ParentDevice() const { return dev_; }
@@ -81,5 +86,7 @@ namespace uni::device::SpaceUSB {
 		USBHostDevice* dev_;
 	};
 }
+
+#include "./USBHost-Hub.hpp"
 
 #endif

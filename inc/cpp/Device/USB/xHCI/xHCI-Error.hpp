@@ -22,6 +22,9 @@ public:
 		kInvalidPhase,
 		kUnknownXHCISpeedID,
 		kNoWaiter,
+		kUnsupportedXHCIVersion,
+		kInvalidControllerCapability,
+		kUnsupportedPageSize,
 		kLastOfCode,  // This enumerator must always be placed last
 	};
 
@@ -47,6 +50,9 @@ private:
 	"kInvalidPhase",
 	"kUnknownXHCISpeedID",
 	"kNoWaiter",
+	"kUnsupportedXHCIVersion",
+	"kInvalidControllerCapability",
+	"kUnsupportedPageSize",
 	};
 	static_assert(Error::Code::kLastOfCode == code_names_.size());
 

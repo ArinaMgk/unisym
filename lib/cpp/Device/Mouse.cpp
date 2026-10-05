@@ -49,51 +49,6 @@ void Mouse_Init()
 
 #if defined(_INC_CPP) && ((defined(_UEFI) && (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))) || defined(_MCU_STM32H7x))
 
-#if defined(_UEFI)
-#include <algorithm>
-#include "../../../inc/c/proctrl/IAx86_64.msr.h"
-#include "../../../inc/cpp/interrupt"
-
-//{TEMP} version
-uni::PCI::Device* uni::device::SpaceUSB::HIDMouseDriver::Initialize(uni::PCI& pci, uni::PCI::Device& xhc_dev, uint64 xhc_mmio_base, uint8 irq_line, uint8 irq_pin, uni::device::SpaceUSB3::HostController* xhc) {
-	using namespace uni;
-	pci.enable_MMIO(xhc_dev);
-	ploginfo("xHC resource IRQ line=%u pin=%u", (unsigned)irq_line, (unsigned)irq_pin);
-	// config MSI
-	const bool x2mode = (getMSR(x86MSR::APIC_BASE) & (1ULL << 10)) != 0;
-	PortAdapter port;
-	port.typ = x2mode ? 2 : 1;
-	const uint32_t apic_id_val = port.ReadLAPIC(0x20);
-	const uint8_t bsp_local_apic_id = x2mode ? (uint8_t)apic_id_val : (uint8_t)(apic_id_val >> 24); // or STI is useless -- Phina 20260117
-	pci.configure_MSI_fixed_destination(
-		xhc_dev, bsp_local_apic_id,
-		PCI::MSITriggerMode::Edge,
-		PCI::MSIDeliveryMode::Fixed,
-		IRQ_xHCI, 0);
-	//
-	if (!xhc_mmio_base) return nullptr;
-	new (xhc) uni::device::SpaceUSB3::HostController(xhc_mmio_base);
-	pci.ConvertFromEhci(xhc_dev);
-	if (auto err = xhc->Initialize()) {
-		ploginfo("xhc.Initialize: %s", err.Name());
-	}
-	//
-	xhc->Run();
-	for1(i, xhc->MaxPorts()) {
-		auto port = xhc->PortAt(i);
-		// ploginfo("Port %d: IsConnected=%d", i, port.IsConnected());
-		if (port.IsConnected()) {
-			if (auto err = xhc->ConfigurePort(port)) {
-				plogerro("Failed to configure port: %s at %s:%d", err.Name(), err.File(), err.Line());
-				continue;
-			}
-		}
-	}
-	//
-	return &xhc_dev;
-}
-#endif // _UEFI
-
 #if defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600)
 void* uni::device::SpaceUSB::HIDMouseDriver::operator new(size_t size) {
 	auto ret = uni_hostenv_allocator->allocate(sizeof(HIDMouseDriver));

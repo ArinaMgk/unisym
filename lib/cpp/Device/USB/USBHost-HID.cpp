@@ -24,6 +24,48 @@
 #include "../../../../inc/cpp/ISO_IEC_STD/algorithm"
 
 namespace uni::device::SpaceUSB {
+	bool HIDBootKeyboardReportDecoder::Contains(const uint8* report,
+		uint8 keycode) {
+		for (stduint index = 2; index < kReportBytes; ++index) {
+			if (report[index] == keycode) return true;
+		}
+		return false;
+	}
+
+	bool HIDBootKeyboardReportDecoder::Process(const uint8* report,
+		stduint length, ObserverType observer) {
+		if (!report || length != kReportBytes || !observer) return false;
+		if (report[0] != previous_report_[0]) {
+			observer(report[0], 0, true);
+		}
+		for (stduint index = 2; index < kReportBytes; ++index) {
+			const uint8 keycode = previous_report_[index];
+			if (keycode && !Contains(report, keycode)) {
+				observer(report[0], keycode, false);
+			}
+		}
+		for (stduint index = 2; index < kReportBytes; ++index) {
+			const uint8 keycode = report[index];
+			if (keycode && !Contains(previous_report_, keycode)) {
+				observer(report[0], keycode, true);
+			}
+		}
+		for (stduint index = 0; index < kReportBytes; ++index) {
+			previous_report_[index] = report[index];
+		}
+		return true;
+	}
+
+	void HIDBootKeyboardReportDecoder::Reset(ObserverType observer) {
+		uint8 empty_report[kReportBytes]{};
+		if (observer) {
+			Process(empty_report, kReportBytes, observer);
+			return;
+		}
+		for (stduint index = 0; index < kReportBytes; ++index) {
+			previous_report_[index] = 0;
+		}
+	}
 
 	HIDBaseDriver::HIDBaseDriver(USBHostDevice* dev, int interface_index, int in_packet_size)
 		: ClassDriver{ dev }, interface_index_{ interface_index },

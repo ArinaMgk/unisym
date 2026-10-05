@@ -56,6 +56,9 @@ namespace uni {
 		Xacterr = 6, BBLerr = 7, DataTglErr = 8
 	};
 
+	// USBH_AllocPipe failure: every host channel is taken
+	const byte kNoChannel = 0xFF;
+
 	// Host-side USB OTG controller (H7 only; AKA HCD_HandleTypeDef).
 	// HCD1 = OTG1_HS (0x40040000), HCD2 = OTG2_FS (0x40080000).
 	class HCD : public RuptTrait {
@@ -69,7 +72,7 @@ namespace uni {
 
 		// ---- controller state ----
 		stduint base = 0;              // register base address of this instance
-		OTGHC hc[15];                  // host channel parameters
+		OTGHC hc[15] = {};             // host channel parameters
 		HCDState State = HCDState::Reset;
 
 		// ---- callbacks (AKA HAL_HCD_*Callback) ----
@@ -102,6 +105,10 @@ namespace uni {
 		stduint getCurrentSpeed();
 		// AKA HAL_HCD_GetState
 		HCDState getState() const { return State; }
+		// USBH_AllocPipe / USBH_FreePipe: a host channel belongs to one endpoint at a time
+		byte AllocChannel();
+		void FreeChannel(byte ch_num);
+		uint16 ch_used_ = 0;// one bit per host channel, set while an endpoint holds it
 
 		// AKA HAL_HCD_IRQHandler; dispatched by the ISR (interrupt_usb.hpp)
 		void HandleIRQ();

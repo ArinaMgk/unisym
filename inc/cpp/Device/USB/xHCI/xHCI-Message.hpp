@@ -85,11 +85,6 @@ namespace uni::device::SpaceUSB3 {
 		DeviceContextIndex& operator =(const DeviceContextIndex& rhs) = default;
 	};
 
-	struct DeviceContext {
-		SlotContext slot_context;
-		EndpointContext ep_contexts[31];
-	} __attribute__((packed));
-
 	struct InputControlContext {
 		uint32_t drop_context_flags;
 		uint32_t add_context_flags;
@@ -100,18 +95,57 @@ namespace uni::device::SpaceUSB3 {
 		uint8_t reserved2;
 	} __attribute__((packed));
 
+	constexpr size_t kXHCIContextEntryCount = 32;
+	constexpr size_t kXHCIMaxContextSize = 64;
+
+	// HCCPARAMS1.CSZ selects a 32- or 64-byte hardware stride; the defined fields
+	// remain in the first 32 bytes of each context entry.
+	struct DeviceContext {
+		uint8_t data[kXHCIContextEntryCount * kXHCIMaxContextSize];
+
+		void* Buffer() { return data; }
+		const void* Buffer() const { return data; }
+		SlotContext* Slot() { return reinterpret_cast<SlotContext*>(data); }
+		const SlotContext* Slot() const { return reinterpret_cast<const SlotContext*>(data); }
+		EndpointContext* Endpoint(DeviceContextIndex dci, size_t context_size) {
+			return reinterpret_cast<EndpointContext*>(data + context_size * dci.value);
+		}
+		const EndpointContext* Endpoint(DeviceContextIndex dci, size_t context_size) const {
+			return reinterpret_cast<const EndpointContext*>(data + context_size * dci.value);
+		}
+	};
+
 	struct InputContext {
-		InputControlContext input_control_context;
-		SlotContext slot_context;
-		EndpointContext ep_contexts[31];
+		uint8_t data[(kXHCIContextEntryCount + 1) * kXHCIMaxContextSize];
+
+		void* Buffer() { return data; }
+		const void* Buffer() const { return data; }
+		InputControlContext* Control() {
+			return reinterpret_cast<InputControlContext*>(data);
+		}
+		const InputControlContext* Control() const {
+			return reinterpret_cast<const InputControlContext*>(data);
+		}
+		SlotContext* Slot(size_t context_size) {
+			return reinterpret_cast<SlotContext*>(data + context_size);
+		}
+		const SlotContext* Slot(size_t context_size) const {
+			return reinterpret_cast<const SlotContext*>(data + context_size);
+		}
+		EndpointContext* Endpoint(DeviceContextIndex dci, size_t context_size) {
+			return reinterpret_cast<EndpointContext*>(data + context_size * (dci.value + 1));
+		}
+		const EndpointContext* Endpoint(DeviceContextIndex dci, size_t context_size) const {
+			return reinterpret_cast<const EndpointContext*>(data + context_size * (dci.value + 1));
+		}
 
 		/** @brief Enable the slot context.
 		 *
 		 * @return Pointer to the slot context enabled.
 		 */
-		SlotContext* EnableSlotContext() {
-			input_control_context.add_context_flags |= 1;
-			return &slot_context;
+		SlotContext* EnableSlotContext(size_t context_size) {
+			Control()->add_context_flags |= 1;
+			return Slot(context_size);
 		}
 
 		/** @brief Enable an endpoint.
@@ -119,11 +153,18 @@ namespace uni::device::SpaceUSB3 {
 		 * @param dci Device Context Index (1 .. 31)
 		 * @return Pointer to the endpoint context enabled.
 		 */
-		EndpointContext* EnableEndpoint(DeviceContextIndex dci) {
-			input_control_context.add_context_flags |= 1u << dci.value;
-			return &ep_contexts[dci.value - 1];
+		EndpointContext* EnableEndpoint(DeviceContextIndex dci, size_t context_size) {
+			Control()->add_context_flags |= 1u << dci.value;
+			return Endpoint(dci, context_size);
 		}
-	} __attribute__((packed));
+	};
+
+	static_assert(sizeof(SlotContext) == 32 && sizeof(EndpointContext) == 32 &&
+		sizeof(InputControlContext) == 32,
+		"xHCI context structures must contain one 32-byte context entry");
+	static_assert(sizeof(DeviceContext) == kXHCIContextEntryCount * kXHCIMaxContextSize &&
+		sizeof(InputContext) == (kXHCIContextEntryCount + 1) * kXHCIMaxContextSize,
+		"xHCI context buffers must cover every 64-byte context entry");
 }
 
 // ---- ---- ---- ---- trb.hpp ---- ---- ---- ---- //
@@ -375,17 +416,17 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t slot_id : 8;
 		} __attribute__((packed)) bits;
 
-		AddressDeviceCommandTRB(const InputContext* input_context, uint8_t slot_id) {
+		AddressDeviceCommandTRB(const void* input_context, uint8_t slot_id) {
 			bits.trb_type = Type;
 			bits.slot_id = slot_id;
 			SetPointer(input_context);
 		}
 
-		InputContext* Pointer() const {
-			return reinterpret_cast<InputContext*>(bits.input_context_pointer << 4);
+		void* Pointer() const {
+			return reinterpret_cast<void*>(bits.input_context_pointer << 4);
 		}
 
-		void SetPointer(const InputContext* p) {
+		void SetPointer(const void* p) {
 			bits.input_context_pointer = reinterpret_cast<uint64_t>(p) >> 4;
 		}
 	};
@@ -407,18 +448,50 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t slot_id : 8;
 		} __attribute__((packed)) bits;
 
-		ConfigureEndpointCommandTRB(const InputContext* input_context, uint8_t slot_id) {
+		ConfigureEndpointCommandTRB(const void* input_context, uint8_t slot_id) {
 			bits.trb_type = Type;
 			bits.slot_id = slot_id;
 			SetPointer(input_context);
 		}
 
-		InputContext* Pointer() const {
-			return reinterpret_cast<InputContext*>(bits.input_context_pointer << 4);
+		void* Pointer() const {
+			return reinterpret_cast<void*>(bits.input_context_pointer << 4);
 		}
 
-		void SetPointer(const InputContext* p) {
+		void SetPointer(const void* p) {
 			bits.input_context_pointer = reinterpret_cast<uint64_t>(p) >> 4;
+		}
+	};
+
+	union ResetEndpointCommandTRB {
+		static const unsigned int Type = 14;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint32_t : 32;
+
+			uint32_t : 32;
+
+			uint32_t : 32;
+
+			uint32_t cycle_bit : 1;
+			uint32_t : 8;
+			uint32_t transfer_state_preserve : 1;
+			uint32_t trb_type : 6;
+			uint32_t endpoint_id : 5;
+			uint32_t : 3;
+			uint32_t slot_id : 8;
+		} __attribute__((packed)) bits;
+
+		ResetEndpointCommandTRB(EndpointID endpoint_id, uint8_t slot_id,
+			bool preserve_transfer_state) {
+			bits.trb_type = Type;
+			bits.endpoint_id = endpoint_id.Address();
+			bits.slot_id = slot_id;
+			bits.transfer_state_preserve = preserve_transfer_state;
+		}
+
+		EndpointID GetEndpointID() const {
+			return uni::device::SpaceUSB::EndpointID{ (int)bits.endpoint_id };
 		}
 	};
 
@@ -451,6 +524,51 @@ namespace uni::device::SpaceUSB3 {
 			return uni::device::SpaceUSB::EndpointID{ (int)bits.endpoint_id };
 		}
 	};
+
+	union SetTRDequeuePointerCommandTRB {
+		static const unsigned int Type = 16;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint64_t dequeue_cycle_state : 1;
+			uint64_t : 3;
+			uint64_t new_tr_dequeue_pointer : 60;
+
+			uint32_t stream_id : 16;
+			uint32_t : 16;
+
+			uint32_t cycle_bit : 1;
+			uint32_t : 9;
+			uint32_t trb_type : 6;
+			uint32_t endpoint_id : 5;
+			uint32_t : 3;
+			uint32_t slot_id : 8;
+		} __attribute__((packed)) bits;
+
+		SetTRDequeuePointerCommandTRB(const TRB* dequeue_pointer, bool cycle_state,
+			EndpointID endpoint_id, uint8_t slot_id) {
+			bits.trb_type = Type;
+			bits.endpoint_id = endpoint_id.Address();
+			bits.slot_id = slot_id;
+			bits.dequeue_cycle_state = cycle_state;
+			SetPointer(dequeue_pointer);
+		}
+
+		TRB* Pointer() const {
+			return reinterpret_cast<TRB*>(bits.new_tr_dequeue_pointer << 4);
+		}
+
+		void SetPointer(const TRB* p) {
+			bits.new_tr_dequeue_pointer = reinterpret_cast<uint64_t>(p) >> 4;
+		}
+
+		EndpointID GetEndpointID() const {
+			return uni::device::SpaceUSB::EndpointID{ (int)bits.endpoint_id };
+		}
+	};
+
+	static_assert(sizeof(ResetEndpointCommandTRB) == 16 &&
+		sizeof(SetTRDequeuePointerCommandTRB) == 16,
+		"xHCI command TRBs must be 16 bytes");
 
 	union NoOpCommandTRB {
 		static const unsigned int Type = 23;

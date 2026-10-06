@@ -387,27 +387,27 @@
             <File>
               <FileName>DBG.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\DBG.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\DBG.cpp</FilePath>
             </File>
             <File>
               <FileName>GPIO.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\GPIO.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\GPIO.cpp</FilePath>
             </File>
             <File>
               <FileName>SysClock.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\SysClock.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\RCC\SysClock.cpp</FilePath>
             </File>
             <File>
               <FileName>RCC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\RCC.cpp</FilePath>
             </File>
             <File>
               <FileName>Cache.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Cache.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Cache.cpp</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
@@ -463,77 +463,77 @@
             <File>
               <FileName>SysTick.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\SysTick.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\SysTick.cpp</FilePath>
             </File>
             <File>
               <FileName>NVIC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\NVIC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\NVIC.cpp</FilePath>
             </File>
             <File>
               <FileName>Power.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Power.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Power.cpp</FilePath>
             </File>
             <File>
               <FileName>DMA.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\DMA.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\DMA.cpp</FilePath>
             </File>
             <File>
               <FileName>Watchdog.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Watchdog.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Watchdog.cpp</FilePath>
             </File>
             <File>
               <FileName>TIM.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\TIM.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\TIM.cpp</FilePath>
             </File>
             <File>
               <FileName>ADC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\ADC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\ADC.cpp</FilePath>
             </File>
             <File>
               <FileName>LTDC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Video\LTDC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Video\LTDC.cpp</FilePath>
             </File>
             <File>
               <FileName>BDMA.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\BDMA.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\BDMA.cpp</FilePath>
             </File>
             <File>
               <FileName>GPU.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Video\GPU.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Video\GPU.cpp</FilePath>
             </File>
             <File>
               <FileName>RealtimeClock.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\RealtimeClock.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\RCC\RealtimeClock.cpp</FilePath>
             </File>
             <File>
               <FileName>MDMA.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\MDMA.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\MDMA.cpp</FilePath>
             </File>
             <File>
               <FileName>DAC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\DAC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\DAC.cpp</FilePath>
             </File>
             <File>
               <FileName>VREFBUF.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\VREFBUF.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\VREFBUF.cpp</FilePath>
             </File>
             <File>
               <FileName>AFIO.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\AFIO.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\AFIO.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -543,17 +543,17 @@
             <File>
               <FileName>interrupt.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\interrupt.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\interrupt.cpp</FilePath>
             </File>
             <File>
               <FileName>consio.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\consio.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\consio.cpp</FilePath>
             </File>
             <File>
               <FileName>stream.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\stream.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\stream.cpp</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
@@ -609,102 +609,102 @@
             <File>
               <FileName>string.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\string.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\string.cpp</FilePath>
             </File>
             <File>
               <FileName>mcore.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\mcore.c</FilePath>
+              <FilePath>..\..\..\lib\c\mcore.c</FilePath>
             </File>
             <File>
               <FileName>Video.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Video.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Video.cpp</FilePath>
             </File>
             <File>
               <FileName>font-8x5.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\data\font\font-8x5.c</FilePath>
+              <FilePath>..\..\..\lib\c\data\font\font-8x5.c</FilePath>
             </File>
             <File>
               <FileName>font-16x8.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\data\font\font-16x8.c</FilePath>
+              <FilePath>..\..\..\lib\c\data\font\font-16x8.c</FilePath>
             </File>
             <File>
               <FileName>color.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\color.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\color.cpp</FilePath>
             </File>
             <File>
               <FileName>weekday.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\datime\weekday.c</FilePath>
+              <FilePath>..\..\..\lib\c\datime\weekday.c</FilePath>
             </File>
             <File>
               <FileName>Video-VideoConsole.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Video-VideoConsole.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Video-VideoConsole.cpp</FilePath>
             </File>
             <File>
               <FileName>Video-VCI.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Video-VCI.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Video-VCI.cpp</FilePath>
             </File>
             <File>
               <FileName>lock.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\lock.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\lock.cpp</FilePath>
             </File>
             <File>
               <FileName>StrHeap.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\ustring\astring\StrHeap.c</FilePath>
+              <FilePath>..\..\..\lib\c\ustring\astring\StrHeap.c</FilePath>
             </File>
             <File>
               <FileName>salc.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\ustring\astring\salc.c</FilePath>
+              <FilePath>..\..\..\lib\c\ustring\astring\salc.c</FilePath>
             </File>
             <File>
               <FileName>dct.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\arith\dct.c</FilePath>
+              <FilePath>..\..\..\lib\c\arith\dct.c</FilePath>
             </File>
             <File>
               <FileName>arith.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\arith.c</FilePath>
+              <FilePath>..\..\..\lib\c\arith.c</FilePath>
             </File>
             <File>
               <FileName>debug.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\debug.c</FilePath>
+              <FilePath>..\..\..\lib\c\debug.c</FilePath>
             </File>
             <File>
               <FileName>TableToxxxer.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Auxiliary\TableToxxxer.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Auxiliary\TableToxxxer.cpp</FilePath>
             </File>
             <File>
               <FileName>TableTrigo.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Auxiliary\TableTrigo.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Auxiliary\TableTrigo.cpp</FilePath>
             </File>
             <File>
               <FileName>bstring.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Datype\bstring.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Datype\bstring.cpp</FilePath>
             </File>
             <File>
               <FileName>Unicode.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Datype\Charset\Unicode.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Datype\Charset\Unicode.cpp</FilePath>
             </File>
             <File>
               <FileName>StrHeapN.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\ustring\astring\StrHeapN.c</FilePath>
+              <FilePath>..\..\..\lib\c\ustring\astring\StrHeapN.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -714,27 +714,27 @@
             <File>
               <FileName>PLL.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\PLL.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\RCC\PLL.cpp</FilePath>
             </File>
             <File>
               <FileName>Oscillator.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\Oscillator.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\RCC\Oscillator.cpp</FilePath>
             </File>
             <File>
               <FileName>GPIO-setMode.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\GPIO\GPIO-setMode.cpp</FilePath>
             </File>
             <File>
               <FileName>interrupt_tab.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Interrupt\interrupt_tab.cpp</FilePath>
             </File>
             <File>
               <FileName>RCC-setClock.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RCC\RCC-setClock.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\RCC\RCC-setClock.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -744,92 +744,92 @@
             <File>
               <FileName>dchain.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\dchain.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\dchain.c</FilePath>
             </File>
             <File>
               <FileName>DnodeAppend.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeAppend.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeAppend.c</FilePath>
             </File>
             <File>
               <FileName>DnodeBind.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeBind.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeBind.c</FilePath>
             </File>
             <File>
               <FileName>DnodeChainAdapt.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeChainAdapt.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeChainAdapt.c</FilePath>
             </File>
             <File>
               <FileName>DnodeCount.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeCount.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeCount.c</FilePath>
             </File>
             <File>
               <FileName>DnodeGeneral.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeGeneral.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeGeneral.c</FilePath>
             </File>
             <File>
               <FileName>DnodeIndex.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeIndex.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeIndex.c</FilePath>
             </File>
             <File>
               <FileName>DnodeInsert.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeInsert.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeInsert.c</FilePath>
             </File>
             <File>
               <FileName>DnodeRelease.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeRelease.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeRelease.c</FilePath>
             </File>
             <File>
               <FileName>DnodeRemove.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeRemove.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeRemove.c</FilePath>
             </File>
             <File>
               <FileName>DnodeRewind.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeRewind.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeRewind.c</FilePath>
             </File>
             <File>
               <FileName>DnodeSort.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\dnode\DnodeSort.c</FilePath>
+              <FilePath>..\..\..\lib\c\dnode\DnodeSort.c</FilePath>
             </File>
             <File>
               <FileName>DnodeAppendX.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Datype\dnode\DnodeAppendX.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Datype\dnode\DnodeAppendX.cpp</FilePath>
             </File>
             <File>
               <FileName>DnodeRemoveX.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Datype\dnode\DnodeRemoveX.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Datype\dnode\DnodeRemoveX.cpp</FilePath>
             </File>
             <File>
               <FileName>dnode.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Datype\dnode.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Datype\dnode.cpp</FilePath>
             </File>
             <File>
               <FileName>nnode.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Datype\nnode.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Datype\nnode.cpp</FilePath>
             </File>
             <File>
               <FileName>NnodeInsert.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\nnode\NnodeInsert.c</FilePath>
+              <FilePath>..\..\..\lib\c\nnode\NnodeInsert.c</FilePath>
             </File>
             <File>
               <FileName>NnodeRelease.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\c\nnode\NnodeRelease.c</FilePath>
+              <FilePath>..\..\..\lib\c\nnode\NnodeRelease.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -839,7 +839,7 @@
             <File>
               <FileName>STM32H7.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\MCU\STM32H7.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\MCU\STM32H7.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -849,42 +849,42 @@
             <File>
               <FileName>Picture.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\System\Picture.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\System\Picture.cpp</FilePath>
             </File>
             <File>
               <FileName>GPE-JPEG.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Graphic\GPE-JPEG.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Graphic\GPE-JPEG.cpp</FilePath>
             </File>
             <File>
               <FileName>RNG.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\RNG.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\RNG.cpp</FilePath>
             </File>
             <File>
               <FileName>HASH.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\HASH.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\HASH.cpp</FilePath>
             </File>
             <File>
               <FileName>CRC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\CRC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\CRC.cpp</FilePath>
             </File>
             <File>
               <FileName>JPEG.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Picture\JPEG.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Picture\JPEG.cpp</FilePath>
             </File>
             <File>
               <FileName>PNG.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Picture\PNG.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Picture\PNG.cpp</FilePath>
             </File>
             <File>
               <FileName>BMP.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Picture\BMP.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Picture\BMP.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -894,87 +894,87 @@
             <File>
               <FileName>UART.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\UART.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\UART.cpp</FilePath>
             </File>
             <File>
               <FileName>IIC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\IIC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\IIC.cpp</FilePath>
             </File>
             <File>
               <FileName>I2S.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\I2S.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\I2S.cpp</FilePath>
             </File>
             <File>
               <FileName>SAI.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\SAI.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\SAI.cpp</FilePath>
             </File>
             <File>
               <FileName>SPI.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\SPI.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\SPI.cpp</FilePath>
             </File>
             <File>
               <FileName>SPI-Quad.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\SPI-Quad.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\SPI-Quad.cpp</FilePath>
             </File>
             <File>
               <FileName>USB-Device.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\USB-Device.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\USB-Device.cpp</FilePath>
             </File>
             <File>
               <FileName>OTG-HCD.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\OTG\OTG-HCD.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\OTG\OTG-HCD.cpp</FilePath>
             </File>
             <File>
               <FileName>OTG-PCD.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\OTG\OTG-PCD.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\OTG\OTG-PCD.cpp</FilePath>
             </File>
             <File>
               <FileName>OTGHostDevice.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\OTGHostDevice.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\OTGHostDevice.cpp</FilePath>
             </File>
             <File>
               <FileName>USBPeri-Device.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\USBPeri-Device.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\USBPeri-Device.cpp</FilePath>
             </File>
             <File>
               <FileName>USBPeri-MSC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\USBPeri-MSC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\USBPeri-MSC.cpp</FilePath>
             </File>
             <File>
               <FileName>USBHost-MSC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\USBHost-MSC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\USBHost-MSC.cpp</FilePath>
             </File>
             <File>
               <FileName>USBPeri-CDC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\USBPeri-CDC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\USBPeri-CDC.cpp</FilePath>
             </File>
             <File>
               <FileName>USBHost-HID.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\USBHost-HID.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\USBHost-HID.cpp</FilePath>
             </File>
             <File>
               <FileName>USBHost-Hub.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\USBHost-Hub.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\USB\USBHost-Hub.cpp</FilePath>
             </File>
             <File>
               <FileName>FDCAN.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\FDCAN.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\FDCAN.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -984,7 +984,7 @@
             <File>
               <FileName>mempool.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Datype\mempool.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Datype\mempool.cpp</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
@@ -1040,12 +1040,12 @@
             <File>
               <FileName>FMC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\FMC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\FMC.cpp</FilePath>
             </File>
             <File>
               <FileName>SRAM.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\SRAM.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\SRAM.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -1055,92 +1055,92 @@
             <File>
               <FileName>Storage.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage.cpp</FilePath>
             </File>
             <File>
               <FileName>Storage-GPT.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\Storage-GPT.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\Storage-GPT.cpp</FilePath>
             </File>
             <File>
               <FileName>Flash.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Flash.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Flash.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard.cpp</FilePath>
             </File>
             <File>
               <FileName>MMCard.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\MMCard.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\MMCard.cpp</FilePath>
             </File>
             <File>
               <FileName>MMCard-Advanced.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\MMCard-Advanced.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\MMCard-Advanced.cpp</FilePath>
             </File>
             <File>
               <FileName>MMCard-HAL_MMCEx_MultiBuffer.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\MMCard-HAL_MMCEx_MultiBuffer.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\MMCard-HAL_MMCEx_MultiBuffer.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard-Callback.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-Callback.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard\SDCard-Callback.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard-DMALinkedLists.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-DMALinkedLists.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard\SDCard-DMALinkedLists.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard-GetCmdRespx.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-GetCmdRespx.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard\SDCard-GetCmdRespx.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard-HAL_SD_ConfigSpeedBusOperation.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-HAL_SD_ConfigSpeedBusOperation.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard\SDCard-HAL_SD_ConfigSpeedBusOperation.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard-HAL_SDEx_MultiBuffer.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-HAL_SDEx_MultiBuffer.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard\SDCard-HAL_SDEx_MultiBuffer.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard-Others.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-Others.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard\SDCard-Others.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard-RW.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-RW.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard\SDCard-RW.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard-setMode.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-setMode.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard\SDCard-setMode.cpp</FilePath>
             </File>
             <File>
               <FileName>SDCard-USE_SD_TRANSCEIVER.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\SDCard\SDCard-USE_SD_TRANSCEIVER.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\SDCard\SDCard-USE_SD_TRANSCEIVER.cpp</FilePath>
             </File>
             <File>
               <FileName>FMC-Flash-NAND.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\FMC\FMC-Flash-NAND.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\FMC\FMC-Flash-NAND.cpp</FilePath>
             </File>
             <File>
               <FileName>FMC-Flash-NOR.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Storage\FMC\FMC-Flash-NOR.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Storage\FMC\FMC-Flash-NOR.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -1150,32 +1150,32 @@
             <File>
               <FileName>FAT.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Filesys\FAT.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Filesys\FAT.cpp</FilePath>
             </File>
             <File>
               <FileName>FAT-create.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Filesys\FAT\FAT-create.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Filesys\FAT\FAT-create.cpp</FilePath>
             </File>
             <File>
               <FileName>FAT-remove.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Filesys\FAT\FAT-remove.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Filesys\FAT\FAT-remove.cpp</FilePath>
             </File>
             <File>
               <FileName>FAT-rename.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Filesys\FAT\FAT-rename.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Filesys\FAT\FAT-rename.cpp</FilePath>
             </File>
             <File>
               <FileName>FAT-truncate.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Filesys\FAT\FAT-truncate.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Filesys\FAT\FAT-truncate.cpp</FilePath>
             </File>
             <File>
               <FileName>FAT-write.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Filesys\FAT\FAT-write.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Filesys\FAT\FAT-write.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -1185,22 +1185,22 @@
             <File>
               <FileName>Resampler.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\System\Audiosys\Resampler.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\System\Audiosys\Resampler.cpp</FilePath>
             </File>
             <File>
               <FileName>WAV.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Audio\WAV.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Audio\WAV.cpp</FilePath>
             </File>
             <File>
               <FileName>MP3.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Audio\MP3.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Audio\MP3.cpp</FilePath>
             </File>
             <File>
               <FileName>FLAC.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Audio\FLAC.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Audio\FLAC.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -1210,22 +1210,22 @@
             <File>
               <FileName>AVI.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Video\AVI.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Video\AVI.cpp</FilePath>
             </File>
             <File>
               <FileName>H264.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Video\H264.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Video\H264.cpp</FilePath>
             </File>
             <File>
               <FileName>MPEG.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Video\MPEG.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Video\MPEG.cpp</FilePath>
             </File>
             <File>
               <FileName>MPEG4.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Format\Video\MPEG4.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Format\Video\MPEG4.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -1235,12 +1235,12 @@
             <File>
               <FileName>Keyboard.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Keyboard.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Keyboard.cpp</FilePath>
             </File>
             <File>
               <FileName>Mouse.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\Mouse.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Device\Mouse.cpp</FilePath>
             </File>
           </Files>
         </Group>
@@ -1250,12 +1250,12 @@
             <File>
               <FileName>_TextChrome.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Witch\_TextChrome.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Witch\_TextChrome.cpp</FilePath>
             </File>
             <File>
               <FileName>Form.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Witch\Form.cpp</FilePath>
+              <FilePath>..\..\..\lib\cpp\Witch\Form.cpp</FilePath>
             </File>
           </Files>
         </Group>

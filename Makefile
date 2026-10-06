@@ -144,7 +144,6 @@ x64-EL-Lin64: x64-EG-Lin64
 x86-EG-MCCA: ./lib/make/cgmx86.make
 	-@mkdir -p $(uobjpath)/CGMin32
 #	-@rm -f $(uobjpath)/CGMin32/*
-	-@rm -f $(ubinpath)/libm32d.a
 	make -f ${make_dir}cgmx86.make all
 ./lib/make/cgmx86.make: $(filelist)
 	@perl ./lib/Script/Makefile/makemake.pl

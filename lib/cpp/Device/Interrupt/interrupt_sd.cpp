@@ -7,8 +7,8 @@ using namespace uni;
 
 #if defined(_MPU_STM32MP13) || defined(_MCU_STM32H7x)
 
-_WEAK _ESYM_C void SDMMC1_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard1); }
-_WEAK _ESYM_C void SDMMC2_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard2); }
+_ESYM_C void SDMMC1_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard1); }
+_ESYM_C void SDMMC2_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard2); }
 
 //{TODO} BUSY BIT
 

@@ -245,8 +245,12 @@ all: $(asmobjs) $(cplobjs) $(cppobjs)
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
 text_gcc_lin32 += tmp
-text_gcc_mecocoa += tmp
 text_gcc_lin64 += tmp
+tmp = """
+.PHONY: all
+all: $(asmobjs) $(cplobjs) $(cppobjs) ${dest_abs}
+"""
+text_gcc_mecocoa += tmp
 tmp = ".PHONY: all\n"+\
 	"\nall:\n"+\
 	'\t-@$(MKDIR) -p ${dest_obj}\n'+\
@@ -271,7 +275,7 @@ if True:
 	text_gcc_win32 += tmp
 	text_gcc_win64 += tmp
 	text_gcc_lin32 += tmp
-	text_gcc_mecocoa += tmp
+	# text_gcc_mecocoa += tmp
 	text_gcc_lin64 += tmp
 for val in list_cpl_file:
 	tmp = "\t@$(CC) /c " + val + " /Fo:${dest_obj}/${cplpref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
@@ -281,6 +285,14 @@ for val in list_cpp_file:
 	tmp = "\t@$(CX) /c " + val + " /Fo:${dest_obj}/${cpppref}" + get_outfilename(val) + ".obj /I${VI_64} ${attr}" + "\n"
 	text_msv_win32 += tmp
 	text_msv_win64 += tmp
+# Mecocoa: ${dest_abs} is a real target, the archive is repacked only when an object is newer
+tmp = """${dest_abs}: $(asmobjs) $(cplobjs) $(cppobjs)
+\t@echo AR ${dest_abs}
+\t@${AR} -rcs ${dest_abs} $^
+\t@echo AR ${dest_dll}
+\t@rm -f ${dest_dll}
+"""
+text_gcc_mecocoa += tmp
 tmp = """\t@echo AR ${dest_abs}
 \t@${AR} -rcs ${dest_abs} ${dest_obj}/*.o*
 \t@echo AR ${dest_dll}
@@ -288,7 +300,6 @@ tmp = """\t@echo AR ${dest_abs}
 """
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
-text_gcc_mecocoa += tmp
 tmp += """\t@${LD} -shared -o ${dest_dll} ${dest_obj}-DLL/* -lc"""
 text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp

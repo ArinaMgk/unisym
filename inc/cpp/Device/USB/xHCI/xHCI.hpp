@@ -47,6 +47,7 @@
 #include <setjmp.h>
 #include "../../../ISO_IEC_STD/iterator"
 #include "../../../../c/arith.h"
+#include "../../../../c/bitmap.h"
 #include "../USB-Header.hpp"
 #include "./xHCI-registers.hpp"
 #include "./xHCI-Message.hpp"
@@ -66,6 +67,16 @@
 // ---- ---- ---- ---- . ---- ---- ---- ---- //
 
 namespace uni::device::SpaceUSB3 {
+	struct HostControllerResourceConfig {
+		// Zero selects a controller-scaled default for command/event rings.
+		size_t command_ring_trbs = 0;
+		size_t event_ring_trbs = 0;
+		size_t control_transfer_ring_trbs = 64;
+		size_t transfer_ring_trbs = 64;
+		size_t bulk_transfer_ring_trbs = 1024;
+		// Zero enables every slot reported by HCSPARAMS1.MaxSlots.
+		uint8 max_slots = 0;
+	};
 
 	class Port {
 	public:
@@ -97,7 +108,8 @@ namespace uni::device::SpaceUSB3 {
 
 	class HostController {
 	public:
-		HostController(uintptr_t mmio_base);
+		HostController(uintptr_t mmio_base,
+			const HostControllerResourceConfig& resources = HostControllerResourceConfig{});
 		Error Initialize();
 		Error Run();
 		Ring* CommandRing() { return &cr_; }
@@ -109,21 +121,33 @@ namespace uni::device::SpaceUSB3 {
 		uint8 MaxPorts() const { return max_ports_; }
 		uint8 MaxSlots() const { return max_slots_; }
 		uint8 ContextSize() const { return context_size_; }
+		size_t PageSize() const { return page_size_; }
+		size_t ControlTransferRingSize() const { return resource_config_.control_transfer_ring_trbs; }
+		size_t TransferRingSize() const { return resource_config_.transfer_ring_trbs; }
+		size_t BulkTransferRingSize() const { return resource_config_.bulk_transfer_ring_trbs; }
 		uint8 SpeedClass(uint8 root_hub_port_num, uint8 speed_id) const;
+		uint8 SpeedIDForClass(uint8 root_hub_port_num, uint8 speed_class) const;
 		DeviceManager* GetDeviceManager() { return &devmgr_; }
+		bool IsSlotRemovalPending(uint8 slot_id) const;
+		Error QueueSlotRemoval(uint8 slot_id, bool notify_disconnected);
+		Error OnDisableSlotCompleted(uint8 slot_id, int completion_code);
 	public:
 		Error ProcessEvents();
 	private:
-		static const size_t kDeviceSize = _TEMP 8;
-
 		const uintptr_t mmio_base_;
 		CapabilityRegisters* const cap_;
 		OperationalRegisters* const op_;
+		HostControllerResourceConfig resource_config_;
 		const uint8 max_ports_;
 		const uint8 max_slots_;
 		const uint8 context_size_;
+		size_t page_size_ = 4096;
 		uint8 port_protocol_major_[256]{};
 		uint8 port_speed_classes_[256][16]{};
+		byte slot_removal_pending_storage_[32]{};
+		byte slot_disconnect_notified_storage_[32]{};
+		uni::Bitmap slot_removal_pending_;
+		uni::Bitmap slot_disconnect_notified_;
 
 		class DeviceManager devmgr_;
 		Ring cr_;
@@ -147,7 +171,8 @@ namespace uni::device::SpaceUSB3 {
 	public:
 		Error ConfigurePort(Port& port);
 		Error ConfigureEndpoints(USBHostDevice_v3& dev);
-		Error OnHubPortStatusChanged(USBHostDevice_v3& hub_dev, uint8 downstream_port, uint16 status, uint16 change);
+		Error OnHubPortStatusChanged(USBHostDevice_v3& hub_dev, uint8 downstream_port,
+			uint16 status, uint16 change, uint8 speed_id);
 
 		/** @brief Process at most one event registered in the event ring.
 			 *

@@ -91,37 +91,56 @@ namespace uni::device::SpaceUSB {
 		const int kIn = 1;
 	}
 
-	namespace request {
-		const int kGetStatus = 0;
-		const int kClearFeature = 1;
-		const int kSetFeature = 3;
-		const int kSetAddress = 5;
-		const int kGetDescriptor = 6;
-		const int kSetDescriptor = 7;
-		const int kGetConfiguration = 8;
-		const int kSetConfiguration = 9;
-		const int kSetReport = 9;// class request (SET_REPORT), same bRequest value as SET_CONFIGURATION
-		const int kGetInterface = 10;
-		const int kSetInterface = 11;
-		const int kSynchFrame = 12;
-		const int kSetEncryption = 13;
-		const int kGetEncryption = 14;
-		const int kSetHandshake = 15;
-		const int kGetHandshake = 16;
-		const int kSetConnection = 17;
-		const int kSetSecurityData = 18;
-		const int kGetSecurityData = 19;
-		const int kSetWUSBData = 20;
-		const int kLoopbackDataWrite = 21;
-		const int kLoopbackDataRead = 22;
-		const int kSetInterfaceDS = 23;
-		const int kSetSel = 48;
-		const int kSetIsochDelay = 49;
+	enum class StandardRequest : uint8 {
+		GetStatus = 0,
+		ClearFeature = 1,
+		SetFeature = 3,
+		SetAddress = 5,
+		GetDescriptor = 6,
+		SetDescriptor = 7,
+		GetConfiguration = 8,
+		SetConfiguration = 9,
+		GetInterface = 10,
+		SetInterface = 11,
+		SynchFrame = 12,
+		SetEncryption = 13,
+		GetEncryption = 14,
+		SetHandshake = 15,
+		GetHandshake = 16,
+		SetConnection = 17,
+		SetSecurityData = 18,
+		GetSecurityData = 19,
+		SetWUSBData = 20,
+		LoopbackDataWrite = 21,
+		LoopbackDataRead = 22,
+		SetInterfaceDS = 23,
+		SetSel = 48,
+		SetIsochDelay = 49,
+	};
 
-		// HID class specific report values
-		const int kGetReport = 1;
-		const int kSetProtocol = 11;
-	}
+	enum class HIDRequest : uint8 {
+		GetReport = 1,
+		SetReport = 9,
+		SetProtocol = 11,
+	};
+
+	enum class HubRequest : uint8 {
+		SetHubDepth = 12,
+		GetPortErrorCount = 13,
+	};
+
+	enum class HubProtocol : uint8 {
+		FullSpeed = 0,
+		HighSpeedSingleTT = 1,
+		HighSpeedMultipleTT = 2,
+		SuperSpeed = 3,
+	};
+
+	enum class HubPortStatusType : uint16 {
+		Standard = 0,
+		PowerDelivery = 1,
+		Extended = 2,
+	};
 
 	namespace descriptor_type {
 		const int kDevice = 1;
@@ -224,6 +243,18 @@ namespace uni::device::SpaceUSB {
 
 		/** Polling interval of this endpoint (125*2^(interval-1) microseconds) */
 		int interval;
+
+		/** SuperSpeed Endpoint Companion bMaxBurst. */
+		uint8 max_burst;
+
+		/** SuperSpeed isochronous Mult (zero based). */
+		uint8 mult;
+
+		/** Bulk MaxStreams exponent advertised by the companion descriptor. */
+		uint8 max_streams;
+
+		/** Maximum bytes transferred during one service interval. */
+		uint32 bytes_per_interval;
 	};
 }
 
@@ -350,8 +381,32 @@ namespace uni::device::SpaceUSB {
 		uint8_t interval;           // offset 6
 	} __attribute__((packed));
 
+	struct SuperSpeedEndpointCompanionDescriptor {
+		static const uint8_t kType = descriptor_type::kSuperspeedUSBEndpointCompanion;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint8_t max_burst;
+		uint8_t attributes;
+		uint16_t bytes_per_interval;
+	} __attribute__((packed));
+
+	struct SuperSpeedPlusIsochronousEndpointCompanionDescriptor {
+		static const uint8_t kType = descriptor_type::kSuperspeedPlusIsochronousEndpointCompanion;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint16_t reserved;
+		uint32_t bytes_per_interval;
+	} __attribute__((packed));
+
+	static_assert(sizeof(SuperSpeedEndpointCompanionDescriptor) == 6,
+		"SuperSpeed endpoint companion descriptor must be 6 bytes");
+	static_assert(sizeof(SuperSpeedPlusIsochronousEndpointCompanionDescriptor) == 8,
+		"SuperSpeedPlus isochronous endpoint companion descriptor must be 8 bytes");
+
 	struct HubDescriptor {
-		static const uint8_t kType = 0x29;
+		static const uint8_t kType = descriptor_type::kHub;
 
 		uint8_t length;
 		uint8_t descriptor_type;
@@ -361,10 +416,36 @@ namespace uni::device::SpaceUSB {
 		uint8_t hub_control_current;
 	} __attribute__((packed));
 
+	struct SuperSpeedHubDescriptor {
+		static const uint8_t kType = descriptor_type::kSuperSpeedHub;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint8_t num_ports;
+		uint16_t characteristics;
+		uint8_t power_on_to_power_good;
+		uint8_t hub_control_current;
+		uint8_t hub_header_decode_latency;
+		uint16_t hub_delay;
+		uint16_t device_removable;
+	} __attribute__((packed));
+
+	static_assert(sizeof(SuperSpeedHubDescriptor) == 12,
+		"SuperSpeed hub descriptor must be 12 bytes");
+
 	struct HubPortStatus {
 		uint16_t status;
 		uint16_t change;
 	} __attribute__((packed));
+
+	struct ExtendedHubPortStatus {
+		uint16_t status;
+		uint16_t change;
+		uint32_t extended_status;
+	} __attribute__((packed));
+
+	static_assert(sizeof(ExtendedHubPortStatus) == 8,
+		"Extended hub port status must be 8 bytes");
 
 	struct HIDDescriptor {
 		static const uint8_t kType = 33;

@@ -32,6 +32,9 @@ namespace uni {
 		// AKA L1C_EnableCaches
 		void enAble(bool ena = true) const;
 
+		// line size in bytes, from CCSIDR.LineSize
+		stduint getDCacheLineSize() const;
+
 		// AKA L1C_EnableBTAC
 		void enBTAC(bool ena = true) const;
 
@@ -94,7 +97,30 @@ namespace uni {
 		void enAbleICacheAll(void) const;
 		void enAbleDCacheAll(void) const;
 
+		// line size in bytes, from CTR.DminLine
+		stduint getDCacheLineSize() const;
 
+		void InvalidateICacheAll(void) const;
+
+		void CleanDCacheMVA(pureptr_t va) const;
+		void InvalidateDCacheMVA(pureptr_t va) const;
+		void CleanInvalidateDCacheMVA(pureptr_t va) const;
+		void CleanDCacheRange(pureptr_t addr, stduint byte_size) const;
+		void InvalidateDCacheRange(pureptr_t addr, stduint byte_size) const;
+		void CleanInvalidateDCacheRange(pureptr_t addr, stduint byte_size) const;
+
+		// op: 0 - invalidate, 1 - clean, otherwise - clean and invalidate
+		void CleanInvalidateCache(uint32 op) const;
+
+		inline void InvalidateDCacheAll(void) const {
+			CleanInvalidateCache(0);
+		}
+		inline void CleanDCacheAll(void) const {
+			CleanInvalidateCache(1);
+		}
+		inline void CleanInvalidateDCacheAll(void) const {
+			CleanInvalidateCache(2);
+		}
 	};
 	typedef Cache_t L1C_t;// Level 1 Cache
 	extern Cache_t L1C;

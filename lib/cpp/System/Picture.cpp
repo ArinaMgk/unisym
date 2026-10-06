@@ -153,15 +153,40 @@ namespace PictureOperation {
 		byte* dst_rows = (byte*)dst_pixels;
 		stduint dst_stride = dst_w * dst_bpp;
 
-		for (stduint dy = 0; dy < dst_h; ++dy) {
-			stduint sy = dy * src.height / dst_h;
-			if (sy >= src.height) sy = src.height - 1;
-			const byte* src_row = src_rows + sy * src_stride;
-			byte* dst_row = dst_rows + dy * dst_stride;
-			for (stduint dx = 0; dx < dst_w; ++dx) {
-				stduint sx = dx * src.width / dst_w;
-				if (sx >= src.width) sx = src.width - 1;
-				WritePixel(dst_row, dx, dst_format, ReadPixel(src_row, sx, src.format));
+		// same-format fast path: no per-pixel conversion, fixed-point stepping avoids a divide per pixel
+		if (src.format == dst_format && (src_bpp == 2 || src_bpp == 4)) {
+			stduint step = (stduint)(((unsigned long long)src.width << 16) / dst_w);
+			for (stduint dy = 0; dy < dst_h; ++dy) {
+				stduint sy = dy * src.height / dst_h;
+				if (sy >= src.height) sy = src.height - 1;
+				const byte* src_row = src_rows + sy * src_stride;
+				byte* dst_row = dst_rows + dy * dst_stride;
+				stduint sx_acc = 0;
+				if (src_bpp == 2) {
+					for (stduint dx = 0; dx < dst_w; ++dx) {
+						((uint16*)dst_row)[dx] = ((const uint16*)src_row)[sx_acc >> 16];
+						sx_acc += step;
+					}
+				}
+				else {
+					for (stduint dx = 0; dx < dst_w; ++dx) {
+						((uint32*)dst_row)[dx] = ((const uint32*)src_row)[sx_acc >> 16];
+						sx_acc += step;
+					}
+				}
+			}
+		}
+		else {
+			for (stduint dy = 0; dy < dst_h; ++dy) {
+				stduint sy = dy * src.height / dst_h;
+				if (sy >= src.height) sy = src.height - 1;
+				const byte* src_row = src_rows + sy * src_stride;
+				byte* dst_row = dst_rows + dy * dst_stride;
+				for (stduint dx = 0; dx < dst_w; ++dx) {
+					stduint sx = dx * src.width / dst_w;
+					if (sx >= src.width) sx = src.width - 1;
+					WritePixel(dst_row, dx, dst_format, ReadPixel(src_row, sx, src.format));
+				}
 			}
 		}
 

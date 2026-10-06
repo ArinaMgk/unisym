@@ -935,7 +935,7 @@ namespace uni::device::SpaceUSB2 {
 			host_.ControlNoData(device_address_, 0,
 				control_max_packet_size_, setup_data, 500);
 		if (result == ControllerError::Success &&
-			setup_data.request == SpaceUSB::request::kClearFeature &&
+			setup_data.request == static_cast<uint8>(SpaceUSB::StandardRequest::ClearFeature) &&
 			setup_data.request_type.bits.recipient ==
 				SpaceUSB::request_type::kEndpoint) {
 			const SpaceUSB::EndpointID endpoint{

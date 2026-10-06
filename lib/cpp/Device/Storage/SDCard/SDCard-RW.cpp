@@ -25,6 +25,7 @@
 #include "../../../../../inc/cpp/Device/RCC/RCC"
 #include "../../../../../inc/cpp/Device/GPIO"
 #include "../../../../../inc/cpp/Device/SysTick"
+#include "../../../../../inc/cpp/Device/Cache"
 #include "../../../../../inc/c/driver/interrupt/GIC.h"
 #include "../../../../../inc/cpp/MCU/_ADDRESS/ADDR-STM32.h"
 
@@ -618,6 +619,43 @@ namespace uni {
 		// __HAL_SD_ENABLE_IT(hsd, (SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_TXUNDERR | SDMMC_IT_DATAEND));
 		self[SDReg::MASK] |= ((((_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(8U)))));
 		return true;
+	}
+
+
+	// ReadDMA/WriteDMA only start the transfer; the wrap-up is done by SDMMC1_IRQHandler.
+	bool SecureDigitalCard_t::WaitDMA(uint32 Timeout, uint32* feedback) {
+		volatile SDContext* pctx = &Context;
+		uint32 tickstart = SysTick::getTick();
+		bool timed_out = false;
+		while (self[SDReg::MASK].bitof(8)) {// cleared by the handler on DATAEND and on error
+			if ((SysTick::getTick() - tickstart) >= Timeout) {
+				timed_out = true;
+				break;
+			}
+		}
+		if (*pctx == SDContext::NONE) return true;
+		self[SDReg::IDMACTRL] = 0;// SDMMC_DISABLE_IDMA
+		self[SDReg::CMD].rstof(6);// __SDMMC_CMDTRANS_DISABLE
+		self[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
+		Context = SDContext::NONE;
+		asserv(feedback)[nil] = timed_out ? SDMMC_ERROR_TIMEOUT : SDMMC_ERROR_DMA;
+		return false;
+	}
+
+	// the internal DMA bypasses the D-cache, so invalidate before receiving
+	bool SecureDigitalCard_t::ReadDMA_Blocking(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback) {
+		if (!pData || !NumberOfBlocks) return false;
+		L1C.InvalidateDCacheRange(pData, BLOCKSIZE * NumberOfBlocks);
+		if (!ReadDMA(pData, BlockAdd, NumberOfBlocks, feedback)) return false;
+		return WaitDMA(Timeout ? Timeout : 1000, feedback);
+	}
+
+	// the internal DMA reads straight from memory, so clean before transmitting
+	bool SecureDigitalCard_t::WriteDMA_Blocking(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback) {
+		if (!pData || !NumberOfBlocks) return false;
+		L1C.CleanDCacheRange((pureptr_t)pData, BLOCKSIZE * NumberOfBlocks);
+		if (!WriteDMA(pData, BlockAdd, NumberOfBlocks, feedback)) return false;
+		return WaitDMA(Timeout ? Timeout : 1000, feedback);
 	}
 
 

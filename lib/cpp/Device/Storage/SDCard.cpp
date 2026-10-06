@@ -169,9 +169,11 @@ namespace uni {
 		// SDMMC_DMALinkedList_EnableCircularMode(&Read_LinkedList, false);
 		// HAL_SDEx_DMALinkedList_ReadBlocks(&Read_LinkedList, BlockIden, 1);
 		//[2]
-		Read((uint8_t*)Dest, BlockIden, Times, IOMethod::Loop, 1000, nullptr);
-		while (HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
-		return true;
+		bool ok = (storage_method == IOMethod::DMA)
+			? ReadDMA_Blocking((uint8_t*)Dest, BlockIden, Times, storage_timeout, nullptr)
+			: Read((uint8_t*)Dest, BlockIden, Times, storage_method, storage_timeout, nullptr);
+		if (!ok) return false;
+		return WaitCardTransfer();
 	}
 
 	bool SecureDigitalCard_t::Write(stduint BlockIden, const void* Sors, stduint Times) {
@@ -190,9 +192,20 @@ namespace uni {
 		// /* Remove write nodes, remove node on the right then left */
 		// HAL_SDEx_DMALinkedList_RemoveNode(&Write_LinkedList, &pLinkNode[0]);
 		//[2]
-		stduint timeo = 1000;// assume 1kHz SysTick
-		Write((uint8_t*)Sors, BlockIden, Times, IOMethod::Loop, timeo, nullptr);
-		while (HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER);
+		stduint timeo = storage_timeout ? storage_timeout : 1000;// assume 1kHz SysTick
+		bool ok = (storage_method == IOMethod::DMA)
+			? WriteDMA_Blocking((const uint8_t*)Sors, BlockIden, Times, timeo, nullptr)
+			: Write((const uint8_t*)Sors, BlockIden, Times, storage_method, timeo, nullptr);
+		if (!ok) return false;
+		return WaitCardTransfer();
+	}
+
+	bool SecureDigitalCard_t::WaitCardTransfer() {
+		stduint timeo = storage_timeout ? storage_timeout : 1000;
+		uint32 tickstart = SysTick::getTick();
+		while (HAL_SD_GetCardState() != HAL_SD_CardStateTypeDef::TRANSFER) {
+			if ((SysTick::getTick() - tickstart) >= timeo) return false;
+		}
 		return true;
 	}
 

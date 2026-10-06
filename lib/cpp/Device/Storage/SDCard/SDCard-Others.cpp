@@ -469,17 +469,19 @@ namespace uni {
 	// Send the Stop Transfer command and check the response
 	__attribute((optimize("O0")))
 	bool SDMMC_t::SDMMC_CmdStopTransfer(uint32* feedback) {
+		uint32 errorstate = SDMMC_ERROR_NONE;
 		// Send CMD12 STOP_TRANSMISSION
 		self[SDReg::CMD].setof(7);// __SDMMC_CMDSTOP_ENABLE: CMDSTOP
 		self[SDReg::CMD].rstof(6);// __SDMMC_CMDTRANS_DISABLE: SDMMC_CMD_CMDTRANS
 		SDMMC_SendCommand(nil, SDMMC_CMD_STOP_TRANSMISSION, 0b01);
-		SDMMC_GetCmdResp1(SDMMC_CMD_STOP_TRANSMISSION, SDMMC_STOPTRANSFERTIMEOUT, feedback);
+		SDMMC_GetCmdResp1(SDMMC_CMD_STOP_TRANSMISSION, SDMMC_STOPTRANSFERTIMEOUT, &errorstate);
 		self[SDReg::CMD].setof(7, false);// __SDMMC_CMDSTOP_DISABLE
 		// Ignore Address Out Of Range Error, Not relevant at end of memory
-		if (*feedback == SDMMC_ERROR_ADDR_OUT_OF_RANGE) {
-			*feedback = SDMMC_ERROR_NONE;
+		if (errorstate == SDMMC_ERROR_ADDR_OUT_OF_RANGE) {
+			errorstate = SDMMC_ERROR_NONE;
 		}
-		return *feedback == SDMMC_ERROR_NONE;
+		asserv(feedback)[nil] = errorstate;
+		return errorstate == SDMMC_ERROR_NONE;
 	}
 
 	// Send the Bus Width command and check the response

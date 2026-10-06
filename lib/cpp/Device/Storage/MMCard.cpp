@@ -20,6 +20,7 @@
 	limitations under the License.
 */
 
+#include "../../../../inc/cpp/unisym"
 #if defined(_MCU_STM32)
 #include "../../../../inc/cpp/Device/SD.hpp"
 #include "../../../../inc/cpp/Device/Storage/SD-PARA.h"

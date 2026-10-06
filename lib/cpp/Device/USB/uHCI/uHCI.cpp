@@ -750,7 +750,7 @@ namespace uni::device::SpaceUSB1 {
 		uint16 actual_length = 0;
 		auto result = ControllerError::Success;
 		const bool reads_descriptor =
-			setup_data.request == SpaceUSB::request::kGetDescriptor;
+			setup_data.request == static_cast<uint8>(SpaceUSB::StandardRequest::GetDescriptor);
 		const uint8 descriptor_type = uint8(setup_data.value >> 8);
 		const bool reads_device_descriptor = reads_descriptor &&
 			descriptor_type == SpaceUSB::DeviceDescriptor::kType;

@@ -399,6 +399,29 @@ namespace uni::device::SpaceUSB3 {
 		}
 	};
 
+	union DisableSlotCommandTRB {
+		static const unsigned int Type = 10;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint32_t : 32;
+
+			uint32_t : 32;
+
+			uint32_t : 32;
+
+			uint32_t cycle_bit : 1;
+			uint32_t : 9;
+			uint32_t trb_type : 6;
+			uint32_t : 8;
+			uint32_t slot_id : 8;
+		} __attribute__((packed)) bits;
+
+		explicit DisableSlotCommandTRB(uint8_t slot_id) {
+			bits.trb_type = Type;
+			bits.slot_id = slot_id;
+		}
+	};
+
 	union AddressDeviceCommandTRB {
 		static const unsigned int Type = 11;
 		uni::Array<uint32_t, 4> data{};

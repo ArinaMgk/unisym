@@ -14,7 +14,14 @@ namespace uni::device::SpaceUSB {
 		virtual Error InterruptOut(EndpointID ep_id, void* buf, int len);
 		// Bulk transport (AKA a host MSC disk): dir_in selects the IN/OUT direction.
 		virtual Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len);
-		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change);
+		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status,
+			uint16 change, uint8 speed_id = 0);
+		virtual Error ConfigureHub(uint8 num_ports, uint16 characteristics) {
+			(void)num_ports;
+			(void)characteristics;
+			return MAKE_ERROR(Error::kSuccess);
+		}
+		virtual uint8 HubDepth() const { return 0; }
 		// a hub parent reports the port while a device on it still answers at address 0
 		virtual uint8 HubAddressingPort() const { return 0; }
 		// a hub parent reports whether one of its downstream devices holds the bus right now
@@ -45,6 +52,7 @@ namespace uni::device::SpaceUSB {
 		uint8 DeviceClass() const { return device_class_; }
 		uint8 DeviceSubClass() const { return device_sub_class_; }
 		uint8 DeviceProtocol() const { return device_protocol_; }
+		uint16 USBRelease() const { return usb_release_; }
 		uint8 HubNumPorts() const { return hub_num_ports_; }
 		void SetHubNumPorts(uint8 num_ports) { hub_num_ports_ = num_ports; }
 		// bPwrOn2PwrGood: units of 2 ms, from the hub descriptor
@@ -90,6 +98,7 @@ namespace uni::device::SpaceUSB {
 		uint8 device_class_ = 0;
 		uint8 device_sub_class_ = 0;
 		uint8 device_protocol_ = 0;
+		uint16 usb_release_ = 0;
 		uint8 manufacturer_index_ = 0;
 		uint8 product_index_ = 0;
 		uint8 serial_index_ = 0;

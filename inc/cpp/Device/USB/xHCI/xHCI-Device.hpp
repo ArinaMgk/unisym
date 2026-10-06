@@ -65,11 +65,16 @@ namespace uni::device::SpaceUSB3 {
 		Error InterruptIn(EndpointID ep_id, void* buf, int len) override;
 		Error InterruptOut(EndpointID ep_id, void* buf, int len) override;
 		Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len) override;
-		Error OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) override;
+		Error OnHubPortStatusReceived(uint8 port_num, uint16 status,
+			uint16 change, uint8 speed_id = 0) override;
+		Error ConfigureHub(uint8 num_ports, uint16 characteristics) override;
+		uint8 HubDepth() const override;
 
 		Error OnTransferEventReceived(const TransferEventTRB& trb);
 		Error OnEndpointResetCompleted(EndpointID ep_id, int completion_code);
 		Error OnTransferRingDequeueSet(EndpointID ep_id, int completion_code);
+		bool IsHubContextUpdatePending() const { return hub_context_update_pending_; }
+		void CompleteHubContextUpdate() { hub_context_update_pending_ = false; }
 
 	private:
 		enum class BulkRecoveryPhase {
@@ -106,6 +111,7 @@ namespace uni::device::SpaceUSB3 {
 		uni::Array<Ring*, 31> transfer_rings_; // index = dci - 1
 		uint8 parent_hub_slot_id_ = 0;
 		uint8 upstream_port_num_ = 0;
+		bool hub_context_update_pending_ = false;
 
 		/** Map to look up the corresponding SetupStageTRB from DataStageTRB
 			 * or StatusStageTRB when a control transfer completes.

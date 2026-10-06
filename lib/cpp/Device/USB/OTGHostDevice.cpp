@@ -194,7 +194,7 @@ namespace uni::device::SpaceUSB {
 		mps_probe_ = false;
 		ch_nak_retry_[ctrl_ch_] = 0;
 		ctrl_err_retry_ = 0;
-		if (!mps_known_ && setup_data.request == request::kGetDescriptor &&
+		if (!mps_known_ && setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor) &&
 			(setup_data.value >> 8) == DeviceDescriptor::kType && ctrl_len_ > 8) {
 			// the 8-byte header fits every bMaxPacketSize0
 			mps_probe_ = true;
@@ -324,7 +324,9 @@ namespace uni::device::SpaceUSB {
 	}
 
 	// the hub class driver reports one downstream port here; only here can a child get an address
-	Error OTGHostDevice::OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) {
+	Error OTGHostDevice::OnHubPortStatusReceived(uint8 port_num, uint16 status,
+		uint16 change, uint8 speed_id) {
+		(void)speed_id;
 		if (port_num == 0 || port_num > 16) {
 			return MAKE_ERROR(Error::kInvalidEndpointNumber);
 		}

@@ -273,6 +273,8 @@ namespace uni {
 	public:
 		CardType_E CardType;
 		SDContext Context;
+		IOMethod storage_method = IOMethod::Loop;// transfer mode of the StorageTrait Read/Write
+		uint32 storage_timeout = 1000;// ms, 1kHz SysTick
 		// ----: SD_HandleTypeDef :----
 		uint32 CSD[4];// SD card specific data table
 		uint32 CID[4];// SD card identification number table
@@ -334,6 +336,10 @@ namespace uni {
 		// Write block(s) to a specified address. Transfer mode is selected by `method`.
 		bool Write(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, IOMethod method, uint32 Timeout = 0, uint32* feedback = nullptr);
 
+		// like Read/Write with IOMethod::DMA, but wait for completion and keep the D-cache coherent
+		bool ReadDMA_Blocking(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout = 0, uint32* feedback = nullptr);
+		bool WriteDMA_Blocking(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout = 0, uint32* feedback = nullptr);
+
 		// Erases the specified memory area of the given SD card.
 		// This API should be followed by a check on the card state through HAL_SD_GetCardState().
 		bool HAL_SD_Erase(uint32 BlockStartAdd, uint32 BlockEndAdd, uint32* feedback);
@@ -361,6 +367,8 @@ namespace uni {
 		bool WriteRupt(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
 		bool ReadDMA(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
 		bool WriteDMA(const uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32* feedback);
+		bool WaitDMA(uint32 Timeout, uint32* feedback);
+		bool WaitCardTransfer();
 
 		// Wrap up reading in non-blocking mode.
 		void SD_Read_IT();

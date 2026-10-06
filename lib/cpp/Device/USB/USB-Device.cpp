@@ -29,11 +29,30 @@ namespace {
 		}
 
 		const uint8_t* Next() {
-			p_ += p_[0];
-			if (p_ < desc_buf_ + desc_buf_len_) {
-				return p_;
+			if (p_ == nullptr || p_ >= desc_buf_ + desc_buf_len_) {
+				p_ = nullptr;
+				return nullptr;
 			}
-			return nullptr;
+			const stduint remaining = desc_buf_ + desc_buf_len_ - p_;
+			if (p_[0] < 2 || p_[0] > remaining) {
+				p_ = nullptr;
+				return nullptr;
+			}
+			p_ += p_[0];
+			if (p_ == desc_buf_ + desc_buf_len_) return nullptr;
+			const stduint next_remaining = desc_buf_ + desc_buf_len_ - p_;
+			if (next_remaining < 2 || p_[0] < 2 || p_[0] > next_remaining) return nullptr;
+			return p_;
+		}
+
+		const uint8_t* Peek() const {
+			if (p_ == nullptr || p_ >= desc_buf_ + desc_buf_len_) return nullptr;
+			const stduint remaining = desc_buf_ + desc_buf_len_ - p_;
+			if (p_[0] < 2 || p_[0] > remaining || remaining - p_[0] < 2) return nullptr;
+			const uint8_t* next = p_ + p_[0];
+			const stduint next_remaining = desc_buf_ + desc_buf_len_ - next;
+			if (next[0] < 2 || next[0] > next_remaining) return nullptr;
+			return next;
 		}
 
 		template <class T>
@@ -53,15 +72,28 @@ namespace {
 	};
 
 	uni::device::SpaceUSB::EndpointConfig MakeEPConfig(const uni::device::SpaceUSB::EndpointDescriptor& ep_desc) {
-		uni::device::SpaceUSB::EndpointConfig conf;
+		uni::device::SpaceUSB::EndpointConfig conf{};
 		conf.ep_id = uni::device::SpaceUSB::EndpointID{
 		  ep_desc.endpoint_address.bits.number,
 		  ep_desc.endpoint_address.bits.dir_in == 1
 		};
 		conf.ep_type = static_cast<uni::device::SpaceUSB::EndpointType>(ep_desc.attributes.bits.transfer_type);
-		conf.max_packet_size = ep_desc.max_packet_size;
+		conf.max_packet_size = ep_desc.max_packet_size & 0x07ffu;
+		conf.max_burst = (ep_desc.max_packet_size >> 11) & 0x03u;
 		conf.interval = ep_desc.interval;
 		return conf;
+	}
+
+	void ApplyEndpointCompanion(uni::device::SpaceUSB::EndpointConfig& conf,
+		const uni::device::SpaceUSB::SuperSpeedEndpointCompanionDescriptor& desc) {
+		conf.max_burst = desc.max_burst;
+		conf.bytes_per_interval = desc.bytes_per_interval;
+		if (conf.ep_type == uni::device::SpaceUSB::EndpointType::kIsochronous) {
+			conf.mult = desc.attributes & 0x03u;
+		}
+		else if (conf.ep_type == uni::device::SpaceUSB::EndpointType::kBulk) {
+			conf.max_streams = desc.attributes & 0x1fu;
+		}
 	}
 
 	uni::device::SpaceUSB::ClassDriver* NewClassDriver(uni::device::SpaceUSB::USBHostDevice* dev, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc)
@@ -197,10 +229,12 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kNotImplemented);
 	}
 
-	Error USBHostDevice::OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) {
+	Error USBHostDevice::OnHubPortStatusReceived(uint8 port_num, uint16 status,
+		uint16 change, uint8 speed_id) {
 		(void)port_num;
 		(void)status;
 		(void)change;
+		(void)speed_id;
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
@@ -282,51 +316,51 @@ namespace uni::device::SpaceUSB {
 
 		const uint8_t* buf8 = reinterpret_cast<const uint8_t*>(buf);
 		if (initialize_phase_ == 1) {
-			if (setup_data.request == request::kGetDescriptor &&
+			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor) &&
 				DescriptorDynamicCast<DeviceDescriptor>(buf8)) {
 				return InitializePhase1(buf8, len);
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 		else if (initialize_phase_ == 11) {
-			if (setup_data.request == request::kGetDescriptor) {
+			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor)) {
 				return InitializeStringPhase0(buf8, len);
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 		else if (initialize_phase_ == 12) {
-			if (setup_data.request == request::kGetDescriptor) {
+			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor)) {
 				return InitializeStringPhaseManufacturer(buf8, len);
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 		else if (initialize_phase_ == 13) {
-			if (setup_data.request == request::kGetDescriptor) {
+			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor)) {
 				return InitializeStringPhaseProduct(buf8, len);
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 		else if (initialize_phase_ == 14) {
-			if (setup_data.request == request::kGetDescriptor) {
+			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor)) {
 				return InitializeStringPhaseSerial(buf8, len);
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 		else if (initialize_phase_ == 15) {
-			if (setup_data.request == request::kSetAddress) {
+			if (setup_data.request == static_cast<uint8>(StandardRequest::SetAddress)) {
 				return InitializeAddressPhase();
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 		else if (initialize_phase_ == 2) {
-			if (setup_data.request == request::kGetDescriptor &&
+			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor) &&
 				DescriptorDynamicCast<ConfigurationDescriptor>(buf8)) {
 				return InitializePhase2(buf8, len);
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 		else if (initialize_phase_ == 3) {
-			if (setup_data.request == request::kSetConfiguration) {
+			if (setup_data.request == static_cast<uint8>(StandardRequest::SetConfiguration)) {
 				return InitializePhase3(setup_data.value & 0xffu);
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
@@ -357,6 +391,7 @@ namespace uni::device::SpaceUSB {
 		device_class_ = device_desc->device_class;
 		device_sub_class_ = device_desc->device_sub_class;
 		device_protocol_ = device_desc->device_protocol;
+		usb_release_ = device_desc->usb_release;
 		manufacturer_index_ = device_desc->manufacturer;
 		product_index_ = device_desc->product;
 		serial_index_ = device_desc->serial_number;
@@ -398,8 +433,31 @@ namespace uni::device::SpaceUSB {
 
 			while (num_ep_configs_ < if_desc->num_endpoints) {
 				auto desc = config_reader.Next();
+				if (desc == nullptr) {
+					for (int i = 0; i < num_ep_configs_; ++i) {
+						class_drivers_[ep_configs_[i].ep_id.Number()] = nullptr;
+					}
+					delete class_driver;
+					return MAKE_ERROR(Error::kInvalidDescriptor);
+				}
 				if (auto ep_desc = DescriptorDynamicCast<EndpointDescriptor>(desc)) {
 					auto conf = MakeEPConfig(*ep_desc);
+					if (auto companion = config_reader.Peek()) {
+						if (auto ss_companion = DescriptorDynamicCast<SuperSpeedEndpointCompanionDescriptor>(companion);
+							companion[0] >= sizeof(SuperSpeedEndpointCompanionDescriptor) && ss_companion) {
+							config_reader.Next();
+							ApplyEndpointCompanion(conf, *ss_companion);
+							if (auto ssp_data = config_reader.Peek()) {
+								if (auto ssp_companion = DescriptorDynamicCast<SuperSpeedPlusIsochronousEndpointCompanionDescriptor>(ssp_data);
+									ssp_data[0] >= sizeof(SuperSpeedPlusIsochronousEndpointCompanionDescriptor) && ssp_companion) {
+									config_reader.Next();
+									if (conf.ep_type == EndpointType::kIsochronous) {
+										conf.bytes_per_interval = ssp_companion->bytes_per_interval;
+									}
+								}
+							}
+						}
+					}
 					Log(kDebug, conf);
 
 					ep_configs_[num_ep_configs_] = conf;
@@ -534,7 +592,7 @@ namespace uni::device::SpaceUSB {
 		setup_data.request_type.bits.direction = request_type::kIn;
 		setup_data.request_type.bits.type = request_type::kStandard;
 		setup_data.request_type.bits.recipient = request_type::kDevice;
-		setup_data.request = request::kGetDescriptor;
+		setup_data.request = static_cast<uint8>(StandardRequest::GetDescriptor);
 		setup_data.value = (static_cast<uint16_t>(desc_type) << 8) | desc_index;
 		setup_data.index = desc_lang_id;
 		setup_data.length = len;
@@ -547,7 +605,7 @@ namespace uni::device::SpaceUSB {
 		setup_data.request_type.bits.direction = request_type::kOut;
 		setup_data.request_type.bits.type = request_type::kStandard;
 		setup_data.request_type.bits.recipient = request_type::kDevice;
-		setup_data.request = request::kSetConfiguration;
+		setup_data.request = static_cast<uint8>(StandardRequest::SetConfiguration);
 		setup_data.value = config_value;
 		setup_data.index = 0;
 		setup_data.length = 0;
@@ -561,7 +619,7 @@ namespace uni::device::SpaceUSB {
 		setup_data.request_type.bits.direction = request_type::kOut;
 		setup_data.request_type.bits.type = request_type::kStandard;
 		setup_data.request_type.bits.recipient = request_type::kDevice;
-		setup_data.request = request::kSetAddress;
+		setup_data.request = static_cast<uint8>(StandardRequest::SetAddress);
 		setup_data.value = address;
 		setup_data.index = 0;
 		setup_data.length = 0;

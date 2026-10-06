@@ -123,6 +123,13 @@ namespace uni {
 		__DMB();// ensure the ordering of data cache maintenance operations and their effects
 	}
 
+	stduint Cache_t::getDCacheLineSize() const {
+		uint32 ccsidr;
+		__set_CSSELR(0);// select level 1 data cache
+		ccsidr = __get_CCSIDR();
+		return (stduint)1 << (((ccsidr & 0x00000007U) + 2U) + 2U);
+	}
+
 	void Cache_t::CleanInvalidateCache(uint32 op) const {
 		uint32_t clidr;
 		uint32_t cache_type;
@@ -191,6 +198,90 @@ namespace uni {
 		} while (sets-- != 0U);
 		__DSB();
 		SCB->CCR |= SCB_CCR_DC_Msk; // enable D-Cache */
+		__DSB();
+		__ISB();
+	}
+
+	stduint Cache_t::getDCacheLineSize() const {
+		return (stduint)4 << ((SCB->CTR & SCB_CTR_DMINLINE_Msk) >> SCB_CTR_DMINLINE_Pos);
+	}
+
+	void Cache_t::InvalidateICacheAll(void) const {
+		__DSB();
+		__ISB();
+		SCB->ICIALLU = 0UL;
+		__DSB();
+		__ISB();
+	}
+
+	void Cache_t::CleanDCacheMVA(pureptr_t va) const {
+		SCB->DCCMVAC = (uint32)va;
+		__DSB();
+	}
+
+	void Cache_t::InvalidateDCacheMVA(pureptr_t va) const {
+		SCB->DCIMVAC = (uint32)va;
+		__DSB();
+	}
+
+	void Cache_t::CleanInvalidateDCacheMVA(pureptr_t va) const {
+		SCB->DCCIMVAC = (uint32)va;
+		__DSB();
+	}
+
+	void Cache_t::CleanDCacheRange(pureptr_t addr, stduint byte_size) const {
+		const stduint mask = ~(getDCacheLineSize() - 1U);
+		const stduint last = ((stduint)addr + byte_size - 1U) & mask;
+		for (stduint a = (stduint)addr & mask; ; a += getDCacheLineSize()) {
+			SCB->DCCMVAC = a;
+			if (a >= last) break;
+		}
+		__DSB();
+	}
+
+	void Cache_t::InvalidateDCacheRange(pureptr_t addr, stduint byte_size) const {
+		const stduint mask = ~(getDCacheLineSize() - 1U);
+		const stduint last = ((stduint)addr + byte_size - 1U) & mask;
+		for (stduint a = (stduint)addr & mask; ; a += getDCacheLineSize()) {
+			SCB->DCIMVAC = a;
+			if (a >= last) break;
+		}
+		__DSB();
+	}
+
+	void Cache_t::CleanInvalidateDCacheRange(pureptr_t addr, stduint byte_size) const {
+		const stduint mask = ~(getDCacheLineSize() - 1U);
+		const stduint last = ((stduint)addr + byte_size - 1U) & mask;
+		for (stduint a = (stduint)addr & mask; ; a += getDCacheLineSize()) {
+			SCB->DCCIMVAC = a;
+			if (a >= last) break;
+		}
+		__DSB();
+	}
+
+	void Cache_t::CleanInvalidateCache(uint32 op) const {
+		uint32_t ccsidr;
+		uint32_t sets;
+		uint32_t ways;
+		SCB->CSSELR = 0U;// Level 1 data cache
+		__DSB();
+		ccsidr = SCB->CCSIDR;
+		sets = CCSIDR_SETS(ccsidr);
+		do {
+			ways = CCSIDR_WAYS(ccsidr);
+			do {
+				uint32_t val = (((sets << SCB_DCISW_SET_Pos) & SCB_DCISW_SET_Msk) |
+					((ways << SCB_DCISW_WAY_Pos) & SCB_DCISW_WAY_Msk));
+				switch (op) {
+				case 0U: SCB->DCISW = val; break;
+				case 1U: SCB->DCCSW = val; break;
+				default: SCB->DCCISW = val; break;
+				}
+			#if defined ( __CC_ARM )
+				__schedule_barrier();
+			#endif
+			} while (ways-- != 0U);
+		} while (sets-- != 0U);
 		__DSB();
 		__ISB();
 	}

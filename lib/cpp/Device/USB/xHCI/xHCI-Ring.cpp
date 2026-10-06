@@ -15,6 +15,9 @@ namespace uni::device::SpaceUSB3 {
 	}
 
 	Error Ring::Initialize(size_t buf_size) {
+		if (buf_size < 16 || buf_size > 4096) {
+			return MAKE_ERROR(Error::kInvalidControllerCapability);
+		}
 		if (buf_ != nullptr) {
 			uni_hostenv_allocator->deallocate(buf_);
 			// plogwarn(">> %[x]", buf_);
@@ -77,6 +80,9 @@ namespace uni::device::SpaceUSB3 {
 
 	Error EventRing::Initialize(size_t buf_size,
 		InterrupterRegisterSet* interrupter) {
+		if (buf_size < 16 || buf_size > 4096 || interrupter == nullptr) {
+			return MAKE_ERROR(Error::kInvalidControllerCapability);
+		}
 		if (buf_ != nullptr) {
 			uni_hostenv_allocator->deallocate(buf_);
 		}

@@ -35,7 +35,7 @@ namespace uni {
 	public:
 		Bitmap(pureptr_t offs, stduint size) : offs(offs), size(size), alloc(false) {}
 		// cnts > 0
-		Bitmap(stduint cnts) : size((cnts - _BYTE_BITS_ + 1) / _BYTE_BITS_), alloc(true) { offs = zalc(size); }
+		Bitmap(stduint cnts) : size(cnts / _BYTE_BITS_ + (cnts % _BYTE_BITS_ != 0)), alloc(true) { offs = zalc(size); }
 		~Bitmap() { if (alloc) mfree(offs); }
 		bool bitof(stduint idx) const {
 			const byte& byt = ((byte*)offs)[idx / _BYTE_BITS_];

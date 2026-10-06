@@ -92,7 +92,7 @@ namespace uni::device::SpaceUSB {
 		setup_data.request_type.bits.direction = request_type::kOut;
 		setup_data.request_type.bits.type = request_type::kClass;
 		setup_data.request_type.bits.recipient = request_type::kInterface;
-		setup_data.request = request::kSetProtocol;
+		setup_data.request = static_cast<uint8>(HIDRequest::SetProtocol);
 		setup_data.value = 0;// boot protocol
 		setup_data.index = interface_index_;
 		setup_data.length = 0;
@@ -116,6 +116,10 @@ namespace uni::device::SpaceUSB {
 		if (initialize_phase_ == 2) {
 			// the output report completed (or the device refused it): release the pipe
 			led_pending_ = false;
+			if (len < 0) {
+				led_sent_ = byte(~led_);
+				return MAKE_ERROR(Error::kTransferFailed);
+			}
 			if (led_sent_ != led_) return SendLed();// a newer state waited for this completion
 			return MAKE_ERROR(Error::kSuccess);
 		}
@@ -133,15 +137,23 @@ namespace uni::device::SpaceUSB {
 	Error HIDBaseDriver::SendLed() {
 		led_sent_ = led_;
 		led_pending_ = true;
+		if (ep_interrupt_out_.Number() != 0) {
+			const Error err = ParentDevice()->InterruptOut(ep_interrupt_out_, &led_sent_, 1);
+			if (err) led_pending_ = false;
+			return err;
+		}
 		SetupData setup_data{};
 		setup_data.request_type.bits.direction = request_type::kOut;
 		setup_data.request_type.bits.type = request_type::kClass;
 		setup_data.request_type.bits.recipient = request_type::kInterface;
-		setup_data.request = request::kSetReport;
+		setup_data.request = static_cast<uint8>(HIDRequest::SetReport);
 		setup_data.value = 0x0200;// output report, report id 0
 		setup_data.index = interface_index_;
 		setup_data.length = 1;
-		return ParentDevice()->ControlOut(kDefaultControlPipeID, setup_data, &led_sent_, 1, this);
+		const Error err = ParentDevice()->ControlOut(
+			kDefaultControlPipeID, setup_data, &led_sent_, 1, this);
+		if (err) led_pending_ = false;
+		return err;
 	}
 
 	Error HIDBaseDriver::OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) {
@@ -154,7 +166,16 @@ namespace uni::device::SpaceUSB {
 			}
 			return ParentDevice()->InterruptIn(ep_interrupt_in_, buf_.data(), in_packet_size_);
 		}
-		return MAKE_ERROR(Error::kNotImplemented);
+		if (ep_id.Address() != ep_interrupt_out_.Address()) {
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
+		led_pending_ = false;
+		if (len <= 0) {
+			led_sent_ = byte(~led_);
+			return MAKE_ERROR(Error::kTransferFailed);
+		}
+		if (led_sent_ != led_) return SendLed();
+		return MAKE_ERROR(Error::kSuccess);
 	}
 
 }

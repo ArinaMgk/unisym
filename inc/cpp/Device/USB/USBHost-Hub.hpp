@@ -28,11 +28,23 @@
 namespace uni::device::SpaceUSB {
 
 	// AKA the hub class port feature selectors and the status bits the policy tests
-	const uint16 kHubPortFeatureReset = 4;
-	const uint16 kHubPortFeaturePower = 8;
+	enum class HubPortFeature : uint16 {
+		Reset = 4,
+		Power = 8,
+		ConnectionChange = 16,
+		EnableChange = 17,
+		SuspendChange = 18,
+		OverCurrentChange = 19,
+		ResetChange = 20,
+		LinkStateChange = 25,
+		ConfigErrorChange = 26,
+		WarmResetChange = 29,
+	};
 	const uint16 kHubPortStatusConnect = 0x0001;
 	const uint16 kHubPortStatusEnable = 0x0002;
 	const uint16 kHubPortStatusLowSpeed = 0x0200;// PORT_LOW_SPEED of wPortStatus
+	const uint16 kHubPortStatusHighSpeed = 0x0400;
+	const uint16 kSuperSpeedHubPortStatusSpeed = 0x1c00;
 
 	// AKA USBH_HUB_CLASS: reads the hub descriptor, then walks every port and hands
 	// each port status change to the transport through OnHubPortStatusReceived().
@@ -51,15 +63,17 @@ namespace uni::device::SpaceUSB {
 
 		// AKA the port policy, ticked by the host transport about once per millisecond
 		Error ProcessDelayed() override;
-		Error RequestSetPortFeature(uint8 port_num, uint16 feature_selector);
-		Error RecordPortStatus(uint8 port_num, const void* buf);
+		Error RequestSetPortFeature(uint8 port_num, HubPortFeature feature_selector);
+		Error RequestSetHubDepth();
+		Error RecordPortStatus(uint8 port_num, const void* buf, int len);
 
 		// AKA the port state machine: poll a port, report the change, clear its change bits
 		Error RequestPortStatus(uint8 port_num);
-		Error RequestClearPortFeature(uint8 port_num, uint16 feature_selector);
+		Error RequestClearPortFeature(uint8 port_num, HubPortFeature feature_selector);
 		Error StartStatusChangePolling();
 		Error ContinuePendingPortStatus();
 		Error ClearNextPendingChange();
+		Error BeginPortScan();
 
 		uint8 NumPorts() const { return num_ports_; }
 
@@ -85,8 +99,10 @@ namespace uni::device::SpaceUSB {
 		uint8 clear_change_port_ = 0;
 		uint8 clear_change_bit_ = 0;
 		uint16 pending_change_mask_ = 0;
-		uni::Array<uint8_t, sizeof(HubDescriptor)> buf_{};
-		uni::Array<uint8_t, sizeof(HubPortStatus)> port_status_buf_{};
+		bool is_super_speed_ = false;
+		bool extended_port_status_ = false;
+		uni::Array<uint8_t, sizeof(SuperSpeedHubDescriptor)> buf_{};
+		uni::Array<uint8_t, sizeof(ExtendedHubPortStatus)> port_status_buf_{};
 		uni::Array<uint8_t, 8> interrupt_buf_{};
 		uni::Array<uint8_t, 32> pending_status_ports_{};
 	};

@@ -16,7 +16,7 @@ _ESYM_C void SDMMC2_IRQHandler(void) { _HandlerIRQ_SDMMCx(SDCard2); }
 template <typename T>
 void uni::_HandlerIRQ_SDMMCx(T& sd)
 {
-	uint32 errorstate;
+	uint32 errorstate = SDMMC_ERROR_NONE;
 	stduint context = _IMM(sd.Context);
 	/* Check for SDMMC interrupt flags */
 	if (sd[SDReg::STA].bitof(15) //SDMMC_FLAG_RXFIFOHF
@@ -71,10 +71,13 @@ void uni::_HandlerIRQ_SDMMCx(T& sd)
 			{
 				if (!sd.SDMMC_CmdStopTransfer(&errorstate))
 				{
+					sd.Context = (SDContext::NONE);
 					if (sd.ErrorHandler) sd.ErrorHandler();
 					return;
 				}
 			}
+			// __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_DATA_FLAGS)
+			sd[SDReg::ICR] = (_IMM1S(1U)) | (_IMM1S(3U)) | (_IMM1S(4U)) | (_IMM1S(5U)) | (_IMM1S(8U)) | (_IMM1S(9U)) | (_IMM1S(10U)) | (_IMM1S(11U)) | (_IMM1S(27U)) | (_IMM1S(28U));
 			sd.Context = (SDContext::NONE);
 			if (((context & _IMM(SDContext::WRITE_SINGLE_BLOCK)) != 0U)
 				|| ((context & _IMM(SDContext::WRITE_MULTIPLE_BLOCK)) != 0U))
@@ -140,6 +143,7 @@ void uni::_HandlerIRQ_SDMMCx(T& sd)
 				sd[SDReg::IDMACTRL] = 0; // SDMMC_DISABLE_IDMA;
 				if (sd.ErrorHandler) sd.ErrorHandler();
 			}
+			sd.Context = (SDContext::NONE);
 		}
 	}
 

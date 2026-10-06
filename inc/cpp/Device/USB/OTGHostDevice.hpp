@@ -63,7 +63,8 @@ namespace uni::device::SpaceUSB {
 		Error InterruptOut(EndpointID ep_id, void* buf, int len) override;
 		// Bulk transport for class drivers (AKA a host MSC disk)
 		Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len) override;
-		Error OnHubPortStatusReceived(uint8 port_num, uint16 status, uint16 change) override;
+		Error OnHubPortStatusReceived(uint8 port_num, uint16 status,
+			uint16 change, uint8 speed_id = 0) override;
 
 		// program every non-control channel from the parsed configuration
 		Error ConfigureTransportEndpoints() override { return ConfigureEndpoints(); }

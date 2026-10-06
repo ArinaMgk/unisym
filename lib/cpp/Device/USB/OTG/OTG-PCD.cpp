@@ -20,11 +20,9 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/cpp/Device/USB/PCD.hpp"
-#include "../../../../inc/cpp/Device/SysTick"
-#include "../../../../inc/cpp/Device/RCC/RCC"
-// Note: FUNC_OTG_HS/FUNC_OTG_FS are declared extern in PCD.hpp; the single
-// definition lives in interrupt_usb.hpp, which the user includes once.
+#include "../../../../../inc/cpp/Device/USB/PCD.hpp"
+#include "../../../../../inc/cpp/Device/SysTick"
+#include "../../../../../inc/cpp/Device/RCC/RCC"
 
 namespace uni {
 #if defined(_MCU_STM32H7x)

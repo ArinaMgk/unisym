@@ -71,13 +71,11 @@ namespace {
 			return new uni::device::SpaceUSB::USBHubDriver{ dev };
 		}
 
-#if defined(_MCU_STM32H7x)
 		if (if_desc.interface_class == 0x08u &&// MSC
 			if_desc.interface_sub_class == 0x06u &&// SCSI transparent command set
 			if_desc.interface_protocol == 0x50u) {// bulk-only transport
 			return new uni::device::SpaceUSB::USBHost_MSC{ dev, if_desc.interface_number };
 		}
-#endif
 		if (if_desc.interface_class == 3 &&
 			if_desc.interface_sub_class == 1) {  // HID boot interface
 			if (if_desc.interface_protocol == 1) {  // keyboard

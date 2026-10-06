@@ -8,7 +8,7 @@
 #define _INCPP_Device_USB_eHCI
 
 #include "../../../../c/stdinc.h"
-#include "../USB-Header.hpp"
+#include "../USB.hpp"
 
 namespace uni::device::SpaceUSB2 {
 
@@ -64,6 +64,9 @@ namespace uni::device::SpaceUSB2 {
 		static constexpr stduint kPeriodicListBytes =
 			kPeriodicListEntries * sizeof(uint32);
 		static constexpr stduint kTransferWorkspaceBytes = 0x1000;
+		static constexpr stduint kBulkScheduleBytes = 0x100;
+		static constexpr stduint kMaximumBulkTransferBytes =
+			kTransferWorkspaceBytes - kBulkScheduleBytes;
 		static constexpr uint8 kMaximumRootPorts = 15;
 
 		HostController() = default;
@@ -78,8 +81,16 @@ namespace uni::device::SpaceUSB2 {
 			uint16 max_packet_size, const SpaceUSB::SetupData& setup,
 			uint8* data, uint16 data_length, uint16& actual_length,
 			stduint timeout_milliseconds);
+		ControllerError ControlOut(uint8 device_address, uint8 endpoint,
+			uint16 max_packet_size, const SpaceUSB::SetupData& setup,
+			const uint8* data, uint16 data_length,
+			stduint timeout_milliseconds);
 		ControllerError ControlNoData(uint8 device_address, uint8 endpoint,
 			uint16 max_packet_size, const SpaceUSB::SetupData& setup,
+			stduint timeout_milliseconds);
+		ControllerError BulkTransfer(uint8 device_address, uint8 endpoint,
+			bool direction_in, uint16 max_packet_size, void* data,
+			uint16 data_length, uint16& actual_length, bool& data_toggle,
 			stduint timeout_milliseconds);
 
 		bool IsBound() const;
@@ -91,6 +102,9 @@ namespace uni::device::SpaceUSB2 {
 		uint32 Command() const;
 		uint32 Status() const;
 		uint32 FrameIndex() const;
+		stduint MaximumBulkTransferBytes() const;
+		uint8 CompanionControllerCount() const;
+		uint8 CompanionPortsPerController() const;
 		uint32 LastTransferStatus() const { return last_transfer_status_; }
 		uint8 LastTransferDescriptorIndex() const {
 			return last_transfer_descriptor_index_;
@@ -98,6 +112,8 @@ namespace uni::device::SpaceUSB2 {
 		uint8 RootPortCount() const { return root_port_count_; }
 		RootPortStatus RootPortAt(uint8 port_index) const;
 		bool ResetRootPort(uint8 port_index);
+		bool RouteRootPortToCompanion(uint8 port_index);
+		bool ReclaimRootPortFromCompanion(uint8 port_index);
 		void AcknowledgeRootPortChanges(uint8 port_index);
 
 		static const char* ErrorName(ControllerError error);
@@ -135,6 +151,38 @@ namespace uni::device::SpaceUSB2 {
 		uint8 last_transfer_descriptor_index_ = 0;
 		bool port_power_control_ = false;
 		bool running_ = false;
+	};
+
+	class USBHostDevice_v2 : public SpaceUSB::USBHostDevice {
+	public:
+		USBHostDevice_v2(HostController& host,
+			uint8 assigned_address = SpaceUSB::kDefaultDeviceAddress);
+		stduint Speed() const override { return 0; }
+		bool RequiresSetAddressRequest() const override { return true; }
+		void OnDeviceAddressChanged(uint8 address) override;
+		Error ControlIn(SpaceUSB::EndpointID ep_id,
+			SpaceUSB::SetupData setup_data, void* buf, int len,
+			SpaceUSB::ClassDriver* issuer) override;
+		Error ControlOut(SpaceUSB::EndpointID ep_id,
+			SpaceUSB::SetupData setup_data, const void* buf, int len,
+			SpaceUSB::ClassDriver* issuer) override;
+		Error InterruptIn(SpaceUSB::EndpointID ep_id,
+			void* buf, int len) override;
+		Error InterruptOut(SpaceUSB::EndpointID ep_id,
+			void* buf, int len) override;
+		Error BulkTransfer(SpaceUSB::EndpointID ep_id,
+			bool direction_in, void* buf, int len) override;
+		Error ConfigureTransportEndpoints() override;
+		HostController& Controller() { return host_; }
+		uint8 DeviceAddress() const { return device_address_; }
+
+	private:
+		const SpaceUSB::EndpointConfig* EndpointConfigOf(
+			SpaceUSB::EndpointID ep_id);
+		HostController& host_;
+		uint8 device_address_ = 0;
+		uint16 control_max_packet_size_ = 64;
+		bool data_toggle_[32]{};
 	};
 
 }

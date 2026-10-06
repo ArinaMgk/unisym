@@ -927,14 +927,14 @@
               <FilePath>..\..\cpp\Device\USB\USB-Device.cpp</FilePath>
             </File>
             <File>
-              <FileName>HCD.cpp</FileName>
+              <FileName>OTG-HCD.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\HCD.cpp</FilePath>
+              <FilePath>..\..\cpp\Device\USB\OTG\OTG-HCD.cpp</FilePath>
             </File>
             <File>
-              <FileName>PCD.cpp</FileName>
+              <FileName>OTG-PCD.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\..\cpp\Device\USB\PCD.cpp</FilePath>
+              <FilePath>..\..\cpp\Device\USB\OTG\OTG-PCD.cpp</FilePath>
             </File>
             <File>
               <FileName>OTGHostDevice.cpp</FileName>

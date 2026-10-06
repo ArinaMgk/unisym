@@ -38,6 +38,9 @@ namespace uni::device::SpaceUSB2 {
 
 		constexpr uint32 StructuralPortCountMask = 0x0Fu;
 		constexpr uint32 StructuralPortPowerControl = 1u << 4;
+		constexpr uint32 StructuralCompanionPortCountShift = 8;
+		constexpr uint32 StructuralCompanionCountShift = 12;
+		constexpr uint32 StructuralCompanionCountMask = 0x0Fu;
 		constexpr uint32 CapabilityExtendedCapabilitiesShift = 8;
 		constexpr uint32 CapabilityExtendedCapabilitiesMask = 0xFFu;
 		constexpr uint32 LegacyCapabilityId = 0x01u;
@@ -112,9 +115,11 @@ namespace uni::device::SpaceUSB2 {
 			"eHCI queue heads must preserve 32-byte hardware alignment");
 		static_assert(sizeof(TransferDescriptor) == 64,
 			"eHCI qTDs must preserve 32-byte hardware alignment");
+		static_assert(sizeof(QueueHead) * 2 + sizeof(TransferDescriptor) ==
+			HostController::kBulkScheduleBytes,
+			"eHCI bulk workspace overhead must match its schedule layout");
 		static_assert(sizeof(SpaceUSB::SetupData) == 8,
 			"USB setup packets must be 8 bytes");
-
 		stduint AlignSchedule(stduint value) {
 			return (value + 31u) & ~stduint(31u);
 		}
@@ -221,6 +226,24 @@ namespace uni::device::SpaceUSB2 {
 
 	uint32 HostController::FrameIndex() const {
 		return capability_length_ ? Read32(OperationalOffset(FrameIndexOffset)) : 0;
+	}
+
+	stduint HostController::MaximumBulkTransferBytes() const {
+		if (transfer_workspace_bytes_ <= kBulkScheduleBytes) return 0;
+		const stduint available = transfer_workspace_bytes_ -
+			kBulkScheduleBytes;
+		return available < kMaximumBulkTransferBytes ?
+			available : kMaximumBulkTransferBytes;
+	}
+
+	uint8 HostController::CompanionControllerCount() const {
+		return uint8((StructuralParameters() >>
+			StructuralCompanionCountShift) & StructuralCompanionCountMask);
+	}
+
+	uint8 HostController::CompanionPortsPerController() const {
+		return uint8((StructuralParameters() >>
+			StructuralCompanionPortCountShift) & StructuralCompanionCountMask);
 	}
 
 	bool HostController::IsRunning() const {
@@ -465,6 +488,11 @@ namespace uni::device::SpaceUSB2 {
 		for (stduint index = 0; index < sizeof(setup); ++index) {
 			setup_buffer[index] = setup_source[index];
 		}
+		if (data_length && !direction_in) {
+			for (uint16 index = 0; index < data_length; ++index) {
+				data_buffer[index] = data[index];
+			}
+		}
 
 		const uint32 queue_head_physical = transfer_workspace_physical_ +
 			uint32(queue_head_offset);
@@ -581,8 +609,10 @@ namespace uni::device::SpaceUSB2 {
 				TransferBytesMask);
 			actual_length = remaining <= data_length ?
 				uint16(data_length - remaining) : 0;
-			for (uint16 index = 0; index < actual_length; ++index) {
-				data[index] = data_buffer[index];
+			if (direction_in) {
+				for (uint16 index = 0; index < actual_length; ++index) {
+					data[index] = data_buffer[index];
+				}
 			}
 		}
 		return ControllerError::Success;
@@ -601,6 +631,19 @@ namespace uni::device::SpaceUSB2 {
 			timeout_milliseconds, true);
 	}
 
+	ControllerError HostController::ControlOut(uint8 device_address,
+		uint8 endpoint, uint16 max_packet_size,
+		const SpaceUSB::SetupData& setup, const uint8* data,
+		uint16 data_length, stduint timeout_milliseconds) {
+		if (!data_length || (setup.request_type.data & 0x80u)) {
+			return ControllerError::InvalidParameter;
+		}
+		uint16 actual_length = 0;
+		return ExecuteControlTransfer(device_address, endpoint,
+			max_packet_size, setup, const_cast<uint8*>(data), data_length,
+			actual_length, timeout_milliseconds, false);
+	}
+
 	ControllerError HostController::ControlNoData(uint8 device_address,
 		uint8 endpoint, uint16 max_packet_size,
 		const SpaceUSB::SetupData& setup, stduint timeout_milliseconds) {
@@ -609,6 +652,144 @@ namespace uni::device::SpaceUSB2 {
 		return ExecuteControlTransfer(device_address, endpoint,
 			max_packet_size, setup, nullptr, 0, actual_length,
 			timeout_milliseconds, false);
+	}
+
+	ControllerError HostController::BulkTransfer(uint8 device_address,
+		uint8 endpoint, bool direction_in, uint16 max_packet_size,
+		void* data, uint16 data_length, uint16& actual_length,
+		bool& data_toggle, stduint timeout_milliseconds) {
+		actual_length = 0;
+		last_transfer_status_ = 0;
+		last_transfer_descriptor_index_ = 0;
+		if (!IsRunning() || device_address > 0x7Fu || !endpoint ||
+			endpoint > 0x0Fu || !max_packet_size || max_packet_size > 512u ||
+			!data || !data_length || !timeout_milliseconds) {
+			return ControllerError::InvalidParameter;
+		}
+
+		const stduint head_offset = 0;
+		const stduint queue_head_offset = AlignSchedule(sizeof(QueueHead));
+		const stduint qtd_offset = AlignSchedule(
+			queue_head_offset + sizeof(QueueHead));
+		const stduint data_offset = AlignSchedule(
+			qtd_offset + sizeof(TransferDescriptor));
+		const stduint required_bytes = data_offset + data_length;
+		if (required_bytes > transfer_workspace_bytes_) {
+			return ControllerError::TransferWorkspaceTooSmall;
+		}
+		for (stduint index = queue_head_offset; index < required_bytes; ++index) {
+			transfer_workspace_[index] = 0;
+		}
+
+		auto* async_head = reinterpret_cast<QueueHead*>(
+			transfer_workspace_ + head_offset);
+		auto* queue_head = reinterpret_cast<QueueHead*>(
+			transfer_workspace_ + queue_head_offset);
+		auto* descriptor = reinterpret_cast<TransferDescriptor*>(
+			transfer_workspace_ + qtd_offset);
+		auto* data_buffer = transfer_workspace_ + data_offset;
+		if (!direction_in) {
+			const auto* source = static_cast<const uint8*>(data);
+			for (uint16 index = 0; index < data_length; ++index) {
+				data_buffer[index] = source[index];
+			}
+		}
+
+		const uint32 queue_head_physical = transfer_workspace_physical_ +
+			uint32(queue_head_offset);
+		const uint32 qtd_physical = transfer_workspace_physical_ +
+			uint32(qtd_offset);
+		const uint32 data_physical = transfer_workspace_physical_ +
+			uint32(data_offset);
+
+		descriptor->next_qtd = LinkTerminate;
+		descriptor->alternate_next_qtd = LinkTerminate;
+		descriptor->token = TransferToken(
+			direction_in ? TransferPidIn : TransferPidOut,
+			data_toggle, data_length, true);
+		SetTransferBuffer(*descriptor, data_physical);
+
+		queue_head->horizontal_link = transfer_workspace_physical_ |
+			LinkQueueHead;
+		queue_head->endpoint_characteristics =
+			(uint32(device_address) & QueueHeadDeviceAddressMask) |
+			(uint32(endpoint) << QueueHeadEndpointShift) |
+			QueueHeadSpeedHigh | QueueHeadDataToggleControl |
+			(uint32(max_packet_size) << QueueHeadMaxPacketShift) |
+			(15u << QueueHeadNakReloadShift);
+		queue_head->endpoint_capabilities = QueueHeadMultOne;
+		queue_head->current_qtd = 0;
+		queue_head->next_qtd = qtd_physical;
+		queue_head->alternate_next_qtd = LinkTerminate;
+		queue_head->token = 0;
+
+		io_.SynchronizeMemory(io_.context);
+		if (!SetAsyncScheduleEnabled(false)) {
+			return ControllerError::ScheduleTimeout;
+		}
+		async_head->horizontal_link = queue_head_physical | LinkQueueHead;
+		io_.SynchronizeMemory(io_.context);
+		if (!SetAsyncScheduleEnabled(true)) {
+			async_head->horizontal_link = transfer_workspace_physical_ |
+				LinkQueueHead;
+			io_.SynchronizeMemory(io_.context);
+			return ControllerError::ScheduleTimeout;
+		}
+
+		ControllerError result = ControllerError::TransferTimeout;
+		for (stduint elapsed = 0; elapsed < timeout_milliseconds; ++elapsed) {
+			const uint32 transfer_status = descriptor->token;
+			if (transfer_status & TransferErrorMask) {
+				last_transfer_status_ = transfer_status;
+				result = TransferStatusError(transfer_status);
+				break;
+			}
+			if (!(transfer_status & TransferActive)) {
+				last_transfer_status_ = transfer_status;
+				result = ControllerError::Success;
+				break;
+			}
+			if (Status() & StatusHostSystemError) {
+				result = ControllerError::FatalStatus;
+				break;
+			}
+			if (Status() & StatusHalted) {
+				result = ControllerError::HaltTimeout;
+				break;
+			}
+			Delay(1);
+		}
+		if (result == ControllerError::TransferTimeout) {
+			last_transfer_status_ = descriptor->token;
+		}
+
+		if (!SetAsyncScheduleEnabled(false)) {
+			return ControllerError::ScheduleTimeout;
+		}
+		async_head->horizontal_link = transfer_workspace_physical_ |
+			LinkQueueHead;
+		io_.SynchronizeMemory(io_.context);
+		if (!SetAsyncScheduleEnabled(true)) {
+			return ControllerError::ScheduleTimeout;
+		}
+		Write32(OperationalOffset(StatusOffset), StatusAcknowledgeMask);
+		if (result != ControllerError::Success) return result;
+
+		const uint16 remaining = uint16(
+			(descriptor->token >> TransferBytesShift) & TransferBytesMask);
+		actual_length = remaining <= data_length ?
+			uint16(data_length - remaining) : 0;
+		if (direction_in) {
+			auto* destination = static_cast<uint8*>(data);
+			for (uint16 index = 0; index < actual_length; ++index) {
+				destination[index] = data_buffer[index];
+			}
+		}
+		const stduint packet_count = actual_length ?
+			(stduint(actual_length) + max_packet_size - 1u) /
+				max_packet_size : 1u;
+		if (packet_count & 1u) data_toggle = !data_toggle;
+		return ControllerError::Success;
 	}
 
 	RootPortStatus HostController::RootPortAt(uint8 port_index) const {
@@ -648,6 +829,28 @@ namespace uni::device::SpaceUSB2 {
 		WritePortControl(port_index, 0, 0, status & PortChangeMask);
 	}
 
+	bool HostController::RouteRootPortToCompanion(uint8 port_index) {
+		if (!IsRunning() || !CompanionControllerCount() ||
+			port_index >= root_port_count_) return false;
+		const auto status = RootPortAt(port_index);
+		if (!status.valid || !status.connected) return false;
+		if (status.owned_by_companion) return true;
+		AcknowledgeRootPortChanges(port_index);
+		WritePortControl(port_index, PortOwner, PortReset | PortEnabled);
+		return RootPortAt(port_index).owned_by_companion;
+	}
+
+	bool HostController::ReclaimRootPortFromCompanion(uint8 port_index) {
+		if (!IsRunning() || port_index >= root_port_count_) return false;
+		const auto status = RootPortAt(port_index);
+		if (!status.valid || status.connected || !status.owned_by_companion) {
+			return false;
+		}
+		AcknowledgeRootPortChanges(port_index);
+		WritePortControl(port_index, 0, PortOwner | PortReset | PortEnabled);
+		return !RootPortAt(port_index).owned_by_companion;
+	}
+
 	bool HostController::ResetRootPort(uint8 port_index) {
 		if (!IsRunning() || port_index >= root_port_count_) return false;
 		auto status = RootPortAt(port_index);
@@ -683,6 +886,102 @@ namespace uni::device::SpaceUSB2 {
 		AcknowledgeRootPortChanges(port_index);
 		status = RootPortAt(port_index);
 		return status.valid && status.connected && status.high_speed;
+	}
+
+	USBHostDevice_v2::USBHostDevice_v2(HostController& host,
+		uint8 assigned_address) : host_{ host } {
+		SetAssignedAddress(assigned_address);
+	}
+
+	void USBHostDevice_v2::OnDeviceAddressChanged(uint8 address) {
+		device_address_ = address;
+	}
+
+	const SpaceUSB::EndpointConfig* USBHostDevice_v2::EndpointConfigOf(
+		SpaceUSB::EndpointID ep_id) {
+		for (int index = 0; index < NumEndpointConfigs(); ++index) {
+			const auto& config = EndpointConfigs()[index];
+			if (config.ep_id.Address() == ep_id.Address()) return &config;
+		}
+		return nullptr;
+	}
+
+	Error USBHostDevice_v2::ControlIn(SpaceUSB::EndpointID ep_id,
+		SpaceUSB::SetupData setup_data, void* buf, int len,
+		SpaceUSB::ClassDriver* issuer) {
+		if (ep_id.Number() != 0 || !buf || len <= 0 || len > 0xFFFF) {
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
+		if (auto error = SpaceUSB::USBHostDevice::ControlIn(ep_id,
+			setup_data, buf, len, issuer)) return error;
+		uint16 actual_length = 0;
+		const auto result = host_.ControlIn(device_address_, 0,
+			control_max_packet_size_, setup_data, static_cast<uint8*>(buf),
+			uint16(len), actual_length, 500);
+		return OnControlCompleted(ep_id, setup_data, buf,
+			result == ControllerError::Success ? int(actual_length) : -1);
+	}
+
+	Error USBHostDevice_v2::ControlOut(SpaceUSB::EndpointID ep_id,
+		SpaceUSB::SetupData setup_data, const void* buf, int len,
+		SpaceUSB::ClassDriver* issuer) {
+		if (ep_id.Number() != 0 || len < 0 || len > 0xFFFF ||
+			(len && !buf)) return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		if (auto error = SpaceUSB::USBHostDevice::ControlOut(ep_id,
+			setup_data, buf, len, issuer)) return error;
+		const auto result = len ? host_.ControlOut(device_address_, 0,
+			control_max_packet_size_, setup_data,
+			static_cast<const uint8*>(buf), uint16(len), 500) :
+			host_.ControlNoData(device_address_, 0,
+				control_max_packet_size_, setup_data, 500);
+		if (result == ControllerError::Success &&
+			setup_data.request == SpaceUSB::request::kClearFeature &&
+			setup_data.request_type.bits.recipient ==
+				SpaceUSB::request_type::kEndpoint) {
+			const SpaceUSB::EndpointID endpoint{
+				int(setup_data.index & 0x0Fu), bool(setup_data.index & 0x80u) };
+			data_toggle_[endpoint.Address()] = false;
+		}
+		return OnControlCompleted(ep_id, setup_data, buf,
+			result == ControllerError::Success ? len : -1);
+	}
+
+	Error USBHostDevice_v2::InterruptIn(SpaceUSB::EndpointID ep_id,
+		void* buf, int len) {
+		(void)ep_id;
+		(void)buf;
+		(void)len;
+		return MAKE_ERROR(Error::kNotImplemented);
+	}
+
+	Error USBHostDevice_v2::InterruptOut(SpaceUSB::EndpointID ep_id,
+		void* buf, int len) {
+		(void)ep_id;
+		(void)buf;
+		(void)len;
+		return MAKE_ERROR(Error::kNotImplemented);
+	}
+
+	Error USBHostDevice_v2::BulkTransfer(SpaceUSB::EndpointID ep_id,
+		bool direction_in, void* buf, int len) {
+		const auto* config = EndpointConfigOf(ep_id);
+		if (!config || config->ep_type != SpaceUSB::EndpointType::kBulk ||
+			ep_id.IsIn() != direction_in || !buf || len <= 0 ||
+			stduint(len) > host_.MaximumBulkTransferBytes() || len > 0xFFFF) {
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
+		uint16 actual_length = 0;
+		const auto result = host_.BulkTransfer(device_address_,
+			uint8(ep_id.Number()), direction_in,
+			uint16(config->max_packet_size), buf, uint16(len), actual_length,
+			data_toggle_[ep_id.Address()], 2000);
+		return OnBulkCompleted(ep_id,
+			result == ControllerError::Success ? buf : nullptr,
+			result == ControllerError::Success ? int(actual_length) : 0);
+	}
+
+	Error USBHostDevice_v2::ConfigureTransportEndpoints() {
+		return MAKE_ERROR(Error::kSuccess);
 	}
 
 	const char* HostController::ErrorName(ControllerError error) {

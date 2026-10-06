@@ -33,8 +33,8 @@ including not only implementation, library, tool-kits, chroming engine and demon
 			- AASM(`aasm`) x86&x64
 			- doscon.io/COTLAB(`cot`)
 		- (Linker)
-		- (Wel)
 		- Kits
+	- Wel (Xmulator)
 	- Dinah (Processor and Controller Chip)
 	- Mecocoa (General Hosted Environment), up-to board-level `board-arch-mode`
 	- Websec (Webnet Server&Client and Secure) 

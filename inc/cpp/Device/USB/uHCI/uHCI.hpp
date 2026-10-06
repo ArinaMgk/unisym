@@ -8,7 +8,7 @@
 #define _INCPP_Device_USB_uHCI
 
 #include "../../../../c/stdinc.h"
-#include "../USB-Header.hpp"
+#include "../USB.hpp"
 
 namespace uni::device::SpaceUSB1 {
 
@@ -125,6 +125,45 @@ namespace uni::device::SpaceUSB1 {
 		uint32 interrupt_in_transfer_status_ = 0;
 		bool interrupt_in_data_one_ = false;
 		bool interrupt_in_active_ = false;
+	};
+
+	class USBHostDevice_v1 : public SpaceUSB::USBHostDevice {
+	public:
+		USBHostDevice_v1(HostController& host, bool low_speed,
+			uint8 assigned_address = SpaceUSB::kDefaultDeviceAddress);
+		~USBHostDevice_v1() override;
+		stduint Speed() const override { return low_speed_ ? 2 : 1; }
+		bool RequiresSetAddressRequest() const override { return true; }
+		void OnDeviceAddressChanged(uint8 address) override;
+		Error ControlIn(SpaceUSB::EndpointID ep_id,
+			SpaceUSB::SetupData setup_data, void* buf, int len,
+			SpaceUSB::ClassDriver* issuer) override;
+		Error ControlOut(SpaceUSB::EndpointID ep_id,
+			SpaceUSB::SetupData setup_data, const void* buf, int len,
+			SpaceUSB::ClassDriver* issuer) override;
+		Error InterruptIn(SpaceUSB::EndpointID ep_id,
+			void* buf, int len) override;
+		Error InterruptOut(SpaceUSB::EndpointID ep_id,
+			void* buf, int len) override;
+		Error BulkTransfer(SpaceUSB::EndpointID ep_id,
+			bool direction_in, void* buf, int len) override;
+		Error ConfigureTransportEndpoints() override;
+		Error PollInterrupt();
+		void Disconnect();
+		HostController& Controller() { return host_; }
+		uint8 DeviceAddress() const { return device_address_; }
+
+	private:
+		const SpaceUSB::EndpointConfig* EndpointConfigOf(
+			SpaceUSB::EndpointID ep_id);
+		HostController& host_;
+		uint8 device_address_ = 0;
+		uint8 control_max_packet_size_ = 8;
+		SpaceUSB::EndpointID interrupt_endpoint_{};
+		uint8* interrupt_buffer_ = nullptr;
+		uint16 interrupt_capacity_ = 0;
+		bool low_speed_ = false;
+		bool interrupt_started_ = false;
 	};
 
 }

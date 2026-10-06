@@ -717,6 +717,200 @@ namespace uni::device::SpaceUSB1 {
 		WriteRootPortControl(port_index, 0, 0, status & PortChangeMask);
 	}
 
+	USBHostDevice_v1::USBHostDevice_v1(HostController& host, bool low_speed,
+		uint8 assigned_address) : host_{ host }, low_speed_{ low_speed } {
+		SetAssignedAddress(assigned_address);
+	}
+
+	USBHostDevice_v1::~USBHostDevice_v1() {
+		Disconnect();
+	}
+
+	void USBHostDevice_v1::OnDeviceAddressChanged(uint8 address) {
+		device_address_ = address;
+	}
+
+	const SpaceUSB::EndpointConfig* USBHostDevice_v1::EndpointConfigOf(
+		SpaceUSB::EndpointID ep_id) {
+		for (int index = 0; index < NumEndpointConfigs(); ++index) {
+			const auto& config = EndpointConfigs()[index];
+			if (config.ep_id.Address() == ep_id.Address()) return &config;
+		}
+		return nullptr;
+	}
+
+	Error USBHostDevice_v1::ControlIn(SpaceUSB::EndpointID ep_id,
+		SpaceUSB::SetupData setup_data, void* buf, int len,
+		SpaceUSB::ClassDriver* issuer) {
+		if (ep_id.Number() != 0 || !buf || len <= 0 || len > 0xFFFF) {
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
+		if (auto error = SpaceUSB::USBHostDevice::ControlIn(ep_id,
+			setup_data, buf, len, issuer)) return error;
+		uint16 actual_length = 0;
+		auto result = ControllerError::Success;
+		const bool reads_descriptor =
+			setup_data.request == SpaceUSB::request::kGetDescriptor;
+		const uint8 descriptor_type = uint8(setup_data.value >> 8);
+		const bool reads_device_descriptor = reads_descriptor &&
+			descriptor_type == SpaceUSB::DeviceDescriptor::kType;
+		if (!device_address_ && reads_device_descriptor && len > 8) {
+			auto prefix_setup = setup_data;
+			prefix_setup.length = 8;
+			result = host_.ControlIn(0, 0, low_speed_, 8, prefix_setup,
+				static_cast<uint8*>(buf), 8, actual_length, 500);
+			if (result == ControllerError::Success && actual_length == 8) {
+				const uint8 max_packet_size = static_cast<uint8*>(buf)[7];
+				if (max_packet_size == 8 || (!low_speed_ &&
+					(max_packet_size == 16 || max_packet_size == 32 ||
+					 max_packet_size == 64))) {
+					control_max_packet_size_ = max_packet_size;
+				} else {
+					result = ControllerError::InvalidParameter;
+				}
+			} else if (result == ControllerError::Success) {
+				result = ControllerError::InvalidParameter;
+			}
+		}
+		auto transfer_setup = setup_data;
+		uint16 transfer_length = uint16(len);
+		if (result == ControllerError::Success && reads_descriptor &&
+			descriptor_type == SpaceUSB::ConfigurationDescriptor::kType &&
+			len > int(sizeof(SpaceUSB::ConfigurationDescriptor))) {
+			transfer_setup.length = sizeof(SpaceUSB::ConfigurationDescriptor);
+			result = host_.ControlIn(device_address_, 0, low_speed_,
+				control_max_packet_size_, transfer_setup,
+				static_cast<uint8*>(buf), transfer_setup.length,
+				actual_length, 500);
+			if (result == ControllerError::Success &&
+				actual_length == sizeof(SpaceUSB::ConfigurationDescriptor)) {
+				const auto* configuration = reinterpret_cast<
+					const SpaceUSB::ConfigurationDescriptor*>(buf);
+				if (configuration->descriptor_type == descriptor_type &&
+					configuration->total_length >= sizeof(*configuration) &&
+					configuration->total_length <= uint16(len)) {
+					transfer_length = configuration->total_length;
+					transfer_setup.length = transfer_length;
+				} else {
+					result = ControllerError::InvalidParameter;
+				}
+			} else if (result == ControllerError::Success) {
+				result = ControllerError::InvalidParameter;
+			}
+		} else if (result == ControllerError::Success && reads_descriptor &&
+			descriptor_type == SpaceUSB::descriptor_type::kString && len > 2) {
+			transfer_setup.length = 2;
+			result = host_.ControlIn(device_address_, 0, low_speed_,
+				control_max_packet_size_, transfer_setup,
+				static_cast<uint8*>(buf), 2, actual_length, 500);
+			if (result == ControllerError::Success && actual_length == 2 &&
+				static_cast<uint8*>(buf)[1] == descriptor_type &&
+				static_cast<uint8*>(buf)[0] >= 2) {
+				transfer_length = static_cast<uint8*>(buf)[0];
+				if (transfer_length > uint16(len)) transfer_length = uint16(len);
+				transfer_setup.length = transfer_length;
+			} else if (result == ControllerError::Success) {
+				result = ControllerError::InvalidParameter;
+			}
+		}
+		if (result == ControllerError::Success) result = host_.ControlIn(
+			device_address_, 0, low_speed_, control_max_packet_size_,
+			transfer_setup, static_cast<uint8*>(buf), transfer_length,
+			actual_length, 500);
+		if (result == ControllerError::Success && actual_length >= 8 &&
+			reads_device_descriptor) {
+			const uint8 max_packet_size = static_cast<uint8*>(buf)[7];
+			if (max_packet_size == 8 || (!low_speed_ &&
+				(max_packet_size == 16 || max_packet_size == 32 ||
+				 max_packet_size == 64))) {
+				control_max_packet_size_ = max_packet_size;
+			}
+		}
+		return OnControlCompleted(ep_id, setup_data, buf,
+			result == ControllerError::Success ? int(actual_length) : -1);
+	}
+
+	Error USBHostDevice_v1::ControlOut(SpaceUSB::EndpointID ep_id,
+		SpaceUSB::SetupData setup_data, const void* buf, int len,
+		SpaceUSB::ClassDriver* issuer) {
+		if (ep_id.Number() != 0 || len < 0 || (len && !buf)) {
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
+		if (auto error = SpaceUSB::USBHostDevice::ControlOut(ep_id,
+			setup_data, buf, len, issuer)) return error;
+		if (len) return OnControlCompleted(ep_id, setup_data, buf, -1);
+		const auto result = host_.ControlNoData(device_address_, 0,
+			low_speed_, control_max_packet_size_, setup_data, 500);
+		return OnControlCompleted(ep_id, setup_data, buf,
+			result == ControllerError::Success ? 0 : -1);
+	}
+
+	Error USBHostDevice_v1::InterruptIn(SpaceUSB::EndpointID ep_id,
+		void* buf, int len) {
+		const auto* config = EndpointConfigOf(ep_id);
+		if (!config || config->ep_type != SpaceUSB::EndpointType::kInterrupt ||
+			!ep_id.IsIn() || !buf || len <= 0 || len > 0xFFFF ||
+			len > config->max_packet_size) {
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
+		if (auto error = SpaceUSB::USBHostDevice::InterruptIn(ep_id,
+			buf, len)) return error;
+		interrupt_endpoint_ = ep_id;
+		interrupt_buffer_ = static_cast<uint8*>(buf);
+		interrupt_capacity_ = uint16(len);
+		if (interrupt_started_) return MAKE_ERROR(Error::kSuccess);
+		const auto result = host_.StartInterruptIn(device_address_,
+			uint8(ep_id.Number()), low_speed_, uint16(config->max_packet_size),
+			uint8(config->interval), uint16(len));
+		interrupt_started_ = result == ControllerError::Success;
+		return interrupt_started_ ? MAKE_ERROR(Error::kSuccess) :
+			MAKE_ERROR(Error::kTransferFailed);
+	}
+
+	Error USBHostDevice_v1::InterruptOut(SpaceUSB::EndpointID ep_id,
+		void* buf, int len) {
+		(void)ep_id;
+		(void)buf;
+		(void)len;
+		return MAKE_ERROR(Error::kNotImplemented);
+	}
+
+	Error USBHostDevice_v1::BulkTransfer(SpaceUSB::EndpointID ep_id,
+		bool direction_in, void* buf, int len) {
+		(void)ep_id;
+		(void)direction_in;
+		(void)buf;
+		(void)len;
+		return MAKE_ERROR(Error::kNotImplemented);
+	}
+
+	Error USBHostDevice_v1::ConfigureTransportEndpoints() {
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	Error USBHostDevice_v1::PollInterrupt() {
+		if (!interrupt_started_) return MAKE_ERROR(Error::kSuccess);
+		uint16 actual_length = 0;
+		bool completed = false;
+		const auto result = host_.PollInterruptIn(interrupt_buffer_,
+			interrupt_capacity_, actual_length, completed);
+		if (result != ControllerError::Success) {
+			host_.StopInterruptIn();
+			interrupt_started_ = false;
+			return OnInterruptCompleted(interrupt_endpoint_, nullptr, 0);
+		}
+		if (!completed) return MAKE_ERROR(Error::kSuccess);
+		return OnInterruptCompleted(interrupt_endpoint_, interrupt_buffer_,
+			int(actual_length));
+	}
+
+	void USBHostDevice_v1::Disconnect() {
+		if (interrupt_started_) host_.StopInterruptIn();
+		interrupt_started_ = false;
+		interrupt_buffer_ = nullptr;
+		interrupt_capacity_ = 0;
+	}
+
 	const char* HostController::ErrorName(ControllerError error) {
 		switch (error) {
 		case ControllerError::Success: return "success";

@@ -1226,8 +1226,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\cpp\Device\USB\HCD.cpp</PathWithFileName>
-      <FilenameWithoutPath>HCD.cpp</FilenameWithoutPath>
+      <PathWithFileName>..\..\cpp\Device\USB\OTG\OTG-HCD.cpp</PathWithFileName>
+      <FilenameWithoutPath>OTG-HCD.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
@@ -1238,8 +1238,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\cpp\Device\USB\PCD.cpp</PathWithFileName>
-      <FilenameWithoutPath>PCD.cpp</FilenameWithoutPath>
+      <PathWithFileName>..\..\cpp\Device\USB\OTG\OTG-PCD.cpp</PathWithFileName>
+      <FilenameWithoutPath>OTG-PCD.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

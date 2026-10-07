@@ -319,6 +319,44 @@ namespace uni::device::SpaceUSB3 {
 		}
 	};
 
+	union IsochronousTRB {
+		static const unsigned int Type = 5;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint64_t data_buffer_pointer;
+
+			uint32_t trb_transfer_length : 17;
+			uint32_t td_size : 5;
+			uint32_t interrupter_target : 10;
+
+			uint32_t cycle_bit : 1;
+			uint32_t evaluate_next_trb : 1;
+			uint32_t interrupt_on_short_packet : 1;
+			uint32_t no_snoop : 1;
+			uint32_t chain_bit : 1;
+			uint32_t interrupt_on_completion : 1;
+			uint32_t immediate_data : 1;
+			uint32_t transfer_burst_count : 2;
+			uint32_t block_event_interrupt : 1;
+			uint32_t trb_type : 6;
+			uint32_t transfer_last_burst_packet_count : 4;
+			uint32_t frame_id : 11;
+			uint32_t schedule_immediately : 1;
+		} __attribute__((packed)) bits;
+
+		IsochronousTRB() {
+			bits.trb_type = Type;
+		}
+
+		void* Pointer() const {
+			return reinterpret_cast<void*>(bits.data_buffer_pointer);
+		}
+
+		void SetPointer(const void* p) {
+			bits.data_buffer_pointer = reinterpret_cast<uint64_t>(p);
+		}
+	};
+
 	union LinkTRB {
 		static const unsigned int Type = 6;
 		uni::Array<uint32_t, 4> data{};
@@ -701,6 +739,97 @@ namespace uni::device::SpaceUSB3 {
 			bits.trb_type = Type;
 		}
 	};
+
+	union BandwidthRequestEventTRB {
+		static const unsigned int Type = 35;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint64_t : 64;
+			uint32_t : 24;
+			uint32_t completion_code : 8;
+			uint32_t cycle_bit : 1;
+			uint32_t : 9;
+			uint32_t trb_type : 6;
+			uint32_t : 8;
+			uint32_t slot_id : 8;
+		} __attribute__((packed)) bits;
+	};
+
+	union DoorbellEventTRB {
+		static const unsigned int Type = 36;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint32_t doorbell_reason : 5;
+			uint32_t : 27;
+			uint32_t : 32;
+			uint32_t : 24;
+			uint32_t completion_code : 8;
+			uint32_t cycle_bit : 1;
+			uint32_t : 9;
+			uint32_t trb_type : 6;
+			uint32_t vf_id : 8;
+			uint32_t slot_id : 8;
+		} __attribute__((packed)) bits;
+	};
+
+	union HostControllerEventTRB {
+		static const unsigned int Type = 37;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint64_t : 64;
+			uint32_t : 24;
+			uint32_t completion_code : 8;
+			uint32_t cycle_bit : 1;
+			uint32_t : 9;
+			uint32_t trb_type : 6;
+			uint32_t : 16;
+		} __attribute__((packed)) bits;
+	};
+
+	union DeviceNotificationEventTRB {
+		static const unsigned int Type = 38;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint32_t : 4;
+			uint32_t notification_type : 4;
+			uint32_t notification_data_low : 24;
+			uint32_t notification_data_high;
+			uint32_t : 24;
+			uint32_t completion_code : 8;
+			uint32_t cycle_bit : 1;
+			uint32_t : 9;
+			uint32_t trb_type : 6;
+			uint32_t : 8;
+			uint32_t slot_id : 8;
+		} __attribute__((packed)) bits;
+
+		uint64 NotificationData() const {
+			return (uint64(bits.notification_data_high) << 24) |
+				bits.notification_data_low;
+		}
+	};
+
+	union MFINDEXWrapEventTRB {
+		static const unsigned int Type = 39;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint64_t : 64;
+			uint32_t : 24;
+			uint32_t completion_code : 8;
+			uint32_t cycle_bit : 1;
+			uint32_t : 9;
+			uint32_t trb_type : 6;
+			uint32_t : 16;
+		} __attribute__((packed)) bits;
+	};
+
+	static_assert(sizeof(IsochronousTRB) == 16 &&
+		sizeof(BandwidthRequestEventTRB) == 16 &&
+		sizeof(DoorbellEventTRB) == 16 &&
+		sizeof(HostControllerEventTRB) == 16 &&
+		sizeof(DeviceNotificationEventTRB) == 16 &&
+		sizeof(MFINDEXWrapEventTRB) == 16,
+		"xHCI TRBs must be 16 bytes");
 
 	/** @brief TRBDynamicCast casts a trb pointer to other type of TRB.
 	 *

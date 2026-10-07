@@ -163,11 +163,14 @@ namespace uni::device::SpaceUSB {
 	HubResetPortHook g_hub_reset_port_hook = nullptr;
 	HostDeviceConfiguredHook g_host_device_configured_hook = nullptr;
 	HostDeviceDisconnectedHook g_host_device_disconnected_hook = nullptr;
+	HostDeviceNotificationHook g_host_device_notification_hook = nullptr;
+	HostBandwidthRequestHook g_host_bandwidth_request_hook = nullptr;
 
 	// how many times an enumeration request is sent again after a failed transfer
 	const int kEnumRetryLimit = 3;
 
 	USBHostDevice::~USBHostDevice() {
+		ReleaseBOSBuffer();
 		// one driver can sit in several endpoint slots: delete each exactly once
 		for (size_t i = 0; i < class_drivers_.size(); i++) {
 			ClassDriver* driver = class_drivers_[i];
@@ -229,6 +232,15 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::kNotImplemented);
 	}
 
+	Error USBHostDevice::IsochronousTransfer(EndpointID ep_id, void* buf, int len,
+		const IsochronousTransferOptions& options) {
+		(void)ep_id;
+		(void)buf;
+		(void)len;
+		(void)options;
+		return MAKE_ERROR(Error::kNotImplemented);
+	}
+
 	Error USBHostDevice::OnHubPortStatusReceived(uint8 port_num, uint16 status,
 		uint16 change, uint8 speed_id) {
 		(void)port_num;
@@ -239,9 +251,23 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error USBHostDevice::StartInitialize() {
+		ReleaseBOSBuffer();
 		is_initialized_ = false;
 		enumerated_ = false;
 		hub_num_ports_ = 0;
+		has_bos_ = false;
+		has_usb20_extension_ = false;
+		usb20_extension_attributes_ = 0;
+		has_superspeed_usb_capability_ = false;
+		superspeed_usb_capability_ = SuperSpeedUSBCapabilityDescriptor{};
+		has_superspeed_plus_usb_capability_ = false;
+		superspeed_plus_usb_capability_ = SuperSpeedPlusUSBCapabilityDescriptor{};
+		superspeed_plus_sublink_speed_attribute_count_ = 0;
+		MemSet(superspeed_plus_sublink_speed_attributes_.data(), 0,
+			sizeof(SuperSpeedPlusSublinkSpeedAttribute) *
+			superspeed_plus_sublink_speed_attributes_.size());
+		has_container_id_ = false;
+		MemSet(container_id_.data(), 0, container_id_.size());
 		initialize_phase_ = 1;
 		manufacturer_index_ = 0;
 		product_index_ = 0;
@@ -300,6 +326,11 @@ namespace uni::device::SpaceUSB {
 				return err;
 			}
 			enum_pending_ = false;
+			if (!is_initialized_ &&
+				(initialize_phase_ == 16 || initialize_phase_ == 17)) {
+				ReleaseBOSBuffer();
+				return BeginConfigurationDescriptorRead();
+			}
 			if (!is_initialized_) return MAKE_ERROR(Error::kTransferFailed);
 		}
 		else {
@@ -352,6 +383,22 @@ namespace uni::device::SpaceUSB {
 			}
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
+		else if (initialize_phase_ == 16) {
+			if (len >= 2 &&
+				setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor) &&
+				DescriptorDynamicCast<BOSDescriptor>(buf8)) {
+				return InitializeBOSHeader(buf8, len);
+			}
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
+		else if (initialize_phase_ == 17) {
+			if (len >= 2 &&
+				setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor) &&
+				DescriptorDynamicCast<BOSDescriptor>(buf8)) {
+				return InitializeBOS(buf8, len);
+			}
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
 		else if (initialize_phase_ == 2) {
 			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor) &&
 				DescriptorDynamicCast<ConfigurationDescriptor>(buf8)) {
@@ -380,6 +427,15 @@ namespace uni::device::SpaceUSB {
 	Error USBHostDevice::OnBulkCompleted(EndpointID ep_id, const void* buf, int len) {
 		if (auto w = class_drivers_[ep_id.Number()]) {
 			return w->OnBulkCompleted(ep_id, buf, len);
+		}
+		return MAKE_ERROR(Error::kNoWaiter);
+	}
+
+	Error USBHostDevice::OnIsochronousCompleted(EndpointID ep_id, const void* buf,
+		int len, uint16 frame_id, bool schedule_immediately, int completion_code) {
+		if (auto w = class_drivers_[ep_id.Number()]) {
+			return w->OnIsochronousCompleted(ep_id, buf, len, frame_id,
+				schedule_immediately, completion_code);
 		}
 		return MAKE_ERROR(Error::kNoWaiter);
 	}
@@ -524,7 +580,7 @@ namespace uni::device::SpaceUSB {
 				descriptor_type::kString, serial_index_,
 				buf_.data(), buf_.size(), true, string_lang_id_);
 		}
-		return BeginConfigurationDescriptorRead();
+		return BeginBOSDescriptorRead();
 	}
 
 	Error USBHostDevice::InitializeStringPhaseManufacturer(const uint8_t* buf, int len) {
@@ -541,7 +597,7 @@ namespace uni::device::SpaceUSB {
 				descriptor_type::kString, serial_index_,
 				buf_.data(), buf_.size(), true, string_lang_id_);
 		}
-		return BeginConfigurationDescriptorRead();
+		return BeginBOSDescriptorRead();
 	}
 
 	Error USBHostDevice::InitializeStringPhaseProduct(const uint8_t* buf, int len) {
@@ -552,22 +608,150 @@ namespace uni::device::SpaceUSB {
 				descriptor_type::kString, serial_index_,
 				buf_.data(), buf_.size(), true, string_lang_id_);
 		}
-		return BeginConfigurationDescriptorRead();
+		return BeginBOSDescriptorRead();
 	}
 
 	Error USBHostDevice::InitializeStringPhaseSerial(const uint8_t* buf, int len) {
 		DecodeUSBStringDescriptor(buf, len, serial_string_.data(), serial_string_.size());
+		return BeginBOSDescriptorRead();
+	}
+
+	Error USBHostDevice::InitializeBOSHeader(const uint8_t* buf, int len) {
+		if (len < static_cast<int>(sizeof(BOSDescriptor))) {
+			return MAKE_ERROR(Error::kInvalidDescriptor);
+		}
+		const auto* bos = reinterpret_cast<const BOSDescriptor*>(buf);
+		if (bos->length != sizeof(BOSDescriptor) || bos->total_length < bos->length) {
+			return MAKE_ERROR(Error::kInvalidDescriptor);
+		}
+		ReleaseBOSBuffer();
+		bos_buffer_ = static_cast<uint8*>(
+			uni_hostenv_allocator->allocate(bos->total_length));
+		if (bos_buffer_ == nullptr) {
+			Log(kWarn, "Cannot allocate BOS descriptor: len=%u\n", bos->total_length);
+			return BeginConfigurationDescriptorRead();
+		}
+		bos_buffer_length_ = bos->total_length;
+
+		initialize_phase_ = 17;
+		const Error err = GetDescriptor(*this, kDefaultControlPipeID,
+			descriptor_type::kBOS, 0, bos_buffer_, bos_buffer_length_, true);
+		if (err) ReleaseBOSBuffer();
+		return err;
+	}
+
+	Error USBHostDevice::InitializeBOS(const uint8_t* buf, int len) {
+		const auto invalid_descriptor = [this]() {
+			ReleaseBOSBuffer();
+			return MAKE_ERROR(Error::kInvalidDescriptor);
+		};
+		if (len < static_cast<int>(sizeof(BOSDescriptor))) {
+			return invalid_descriptor();
+		}
+		const auto* bos = reinterpret_cast<const BOSDescriptor*>(buf);
+		if (bos->length != sizeof(BOSDescriptor) ||
+			bos->total_length != bos_buffer_length_ || bos->total_length > len) {
+			return invalid_descriptor();
+		}
+
+		const uint8* cursor = buf + bos->length;
+		const uint8* end = buf + bos->total_length;
+		uint8 capability_count = 0;
+		while (cursor < end && capability_count < bos->num_device_capabilities) {
+			const stduint remaining = end - cursor;
+			if (remaining < sizeof(DeviceCapabilityDescriptor) ||
+				cursor[0] < sizeof(DeviceCapabilityDescriptor) || cursor[0] > remaining ||
+				cursor[1] != descriptor_type::kDeviceCapability) {
+				return invalid_descriptor();
+			}
+
+			const auto capability_type = static_cast<DeviceCapabilityType>(cursor[2]);
+			if (capability_type == DeviceCapabilityType::USB20Extension) {
+				if (cursor[0] < sizeof(USB20ExtensionCapabilityDescriptor)) {
+					return invalid_descriptor();
+				}
+				const auto* capability =
+					reinterpret_cast<const USB20ExtensionCapabilityDescriptor*>(cursor);
+				has_usb20_extension_ = true;
+				usb20_extension_attributes_ = capability->attributes;
+			}
+			else if (capability_type == DeviceCapabilityType::SuperSpeedUSB) {
+				if (cursor[0] < sizeof(SuperSpeedUSBCapabilityDescriptor)) {
+					return invalid_descriptor();
+				}
+				has_superspeed_usb_capability_ = true;
+				MemCopyN(&superspeed_usb_capability_, cursor,
+					sizeof(SuperSpeedUSBCapabilityDescriptor));
+			}
+			else if (capability_type == DeviceCapabilityType::SuperSpeedPlusUSB) {
+				if (cursor[0] < sizeof(SuperSpeedPlusUSBCapabilityDescriptor)) {
+					return invalid_descriptor();
+				}
+				const auto* capability =
+					reinterpret_cast<const SuperSpeedPlusUSBCapabilityDescriptor*>(cursor);
+				const uint8 attribute_count =
+					static_cast<uint8>((capability->attributes & 0x1fu) + 1u);
+				const stduint required_length = sizeof(SuperSpeedPlusUSBCapabilityDescriptor) +
+					sizeof(SuperSpeedPlusSublinkSpeedAttribute) * attribute_count;
+				if (cursor[0] < required_length ||
+					attribute_count > superspeed_plus_sublink_speed_attributes_.size()) {
+					return invalid_descriptor();
+				}
+				has_superspeed_plus_usb_capability_ = true;
+				MemCopyN(&superspeed_plus_usb_capability_, cursor,
+					sizeof(SuperSpeedPlusUSBCapabilityDescriptor));
+				superspeed_plus_sublink_speed_attribute_count_ = attribute_count;
+				MemCopyN(superspeed_plus_sublink_speed_attributes_.data(),
+					cursor + sizeof(SuperSpeedPlusUSBCapabilityDescriptor),
+					sizeof(SuperSpeedPlusSublinkSpeedAttribute) * attribute_count);
+			}
+			else if (capability_type == DeviceCapabilityType::ContainerID) {
+				if (cursor[0] < sizeof(ContainerIDCapabilityDescriptor)) {
+					return invalid_descriptor();
+				}
+				const auto* capability =
+					reinterpret_cast<const ContainerIDCapabilityDescriptor*>(cursor);
+				has_container_id_ = true;
+				MemCopyN(container_id_.data(), capability->container_id,
+					container_id_.size());
+			}
+
+			cursor += cursor[0];
+			++capability_count;
+		}
+		if (capability_count != bos->num_device_capabilities || cursor != end) {
+			return invalid_descriptor();
+		}
+		has_bos_ = true;
+		ReleaseBOSBuffer();
 		return BeginConfigurationDescriptorRead();
+	}
+
+	void USBHostDevice::ReleaseBOSBuffer() {
+		if (bos_buffer_ != nullptr) {
+			uni_hostenv_allocator->deallocate(bos_buffer_);
+			bos_buffer_ = nullptr;
+		}
+		bos_buffer_length_ = 0;
 	}
 
 	Error USBHostDevice::RequestStringDescriptors() {
 		if (!manufacturer_index_ && !product_index_ && !serial_index_) {
-			return BeginConfigurationDescriptorRead();
+			return BeginBOSDescriptorRead();
 		}
 		initialize_phase_ = 11;
 		return GetDescriptor(*this, kDefaultControlPipeID,
 			descriptor_type::kString, 0,
 			buf_.data(), buf_.size(), true, 0);
+	}
+
+	Error USBHostDevice::BeginBOSDescriptorRead() {
+		if (usb_release_ < 0x0201u) {
+			return BeginConfigurationDescriptorRead();
+		}
+		initialize_phase_ = 16;
+		return GetDescriptor(*this, kDefaultControlPipeID,
+			descriptor_type::kBOS, 0, buf_.data(), sizeof(BOSDescriptor), true);
 	}
 
 	Error USBHostDevice::BeginConfigurationDescriptorRead() {
@@ -581,8 +765,8 @@ namespace uni::device::SpaceUSB {
 	Error GetDescriptor(USBHostDevice& dev, EndpointID ep_id,
 		uint8_t desc_type, uint8_t desc_index,
 		void* buf, int len, bool debug, uint16_t desc_lang_id) {
-		// one descriptor read asks for at most 255 bytes: a wLength of 0x0100 is answered with nothing
-		if (len > 255) len = 255;
+		// Preserve the short-read workaround for ordinary descriptors; BOS has its own exact-sized buffer.
+		if (len > 255 && desc_type != descriptor_type::kBOS) len = 255;
 		// an LS read moves 8 bytes per packet at 1.5Mb/s and cannot finish inside a frame: the packet the core leaves
 		// for the frame end is what makes a port babble (RM0433), so a name is cut short instead of the port being lost
 		// 8 bytes = one packet: a string descriptor is only used to print a name, and every packet saved is one less

@@ -76,6 +76,16 @@ namespace uni::device::SpaceUSB {
 			(void)len;
 			return MAKE_ERROR(Error::kNotImplemented);
 		}
+		virtual Error OnIsochronousCompleted(EndpointID ep_id, const void* buf,
+			int len, uint16 frame_id, bool schedule_immediately, int completion_code) {
+			(void)ep_id;
+			(void)buf;
+			(void)len;
+			(void)frame_id;
+			(void)schedule_immediately;
+			(void)completion_code;
+			return MAKE_ERROR(Error::kNotImplemented);
+		}
 		// AKA periodic service; the host transport ticks this about once per millisecond
 		virtual Error ProcessDelayed() { return MAKE_ERROR(Error::kSuccess); }
 

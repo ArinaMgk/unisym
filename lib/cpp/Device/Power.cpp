@@ -228,7 +228,7 @@ namespace uni {
 #elif defined(_MPU_STM32MP13)
 	PWR_t PWR;
 #elif defined(_MCU_MSP432P4)
-	#include "../../../inc/c/MCU/MSP432/MSP432P4.h"
+	#include "../../../inc/cpp/Prounit/MCU/MSP432/MSP432P4.hpp"
 	Watchdog_t WdogA;
 
 	Reference_T<uint16> Watchdog_t::operator[](WDogReg idx) {

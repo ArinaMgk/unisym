@@ -49,7 +49,7 @@ _WEAK bool __REGULATOR = 0;
 
 #define _OPT_PCU_CortexM4F
 #include "../../../inc/c/prochip/CortexM4.h"
-#include "../../../inc/c/MCU/MSP432/MSP432P4.h"
+#include "../../../inc/cpp/Prounit/MCU/MSP432/MSP432P4.hpp"
 #include "../../../inc/cpp/MCU/TI/MSP432P4"
 
 extern "C" void SystemInit(void);

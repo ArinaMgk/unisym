@@ -14,6 +14,8 @@ namespace uni::device::SpaceUSB {
 		virtual Error InterruptOut(EndpointID ep_id, void* buf, int len);
 		// Bulk transport (AKA a host MSC disk): dir_in selects the IN/OUT direction.
 		virtual Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len);
+		virtual Error IsochronousTransfer(EndpointID ep_id, void* buf, int len,
+			const IsochronousTransferOptions& options = IsochronousTransferOptions{});
 		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status,
 			uint16 change, uint8 speed_id = 0);
 		virtual Error ConfigureHub(uint8 num_ports, uint16 characteristics) {
@@ -53,6 +55,25 @@ namespace uni::device::SpaceUSB {
 		uint8 DeviceSubClass() const { return device_sub_class_; }
 		uint8 DeviceProtocol() const { return device_protocol_; }
 		uint16 USBRelease() const { return usb_release_; }
+		bool HasBOS() const { return has_bos_; }
+		bool HasUSB20ExtensionCapability() const { return has_usb20_extension_; }
+		uint32 USB20ExtensionAttributes() const { return usb20_extension_attributes_; }
+		bool HasSuperSpeedUSBCapability() const { return has_superspeed_usb_capability_; }
+		const SuperSpeedUSBCapabilityDescriptor& SuperSpeedUSBCapability() const {
+			return superspeed_usb_capability_;
+		}
+		bool HasSuperSpeedPlusUSBCapability() const { return has_superspeed_plus_usb_capability_; }
+		const SuperSpeedPlusUSBCapabilityDescriptor& SuperSpeedPlusUSBCapability() const {
+			return superspeed_plus_usb_capability_;
+		}
+		uint8 SuperSpeedPlusSublinkSpeedAttributeCount() const {
+			return superspeed_plus_sublink_speed_attribute_count_;
+		}
+		const SuperSpeedPlusSublinkSpeedAttribute* SuperSpeedPlusSublinkSpeedAttributes() const {
+			return superspeed_plus_sublink_speed_attributes_.data();
+		}
+		bool HasContainerID() const { return has_container_id_; }
+		const uint8* ContainerID() const { return container_id_.data(); }
 		uint8 HubNumPorts() const { return hub_num_ports_; }
 		void SetHubNumPorts(uint8 num_ports) { hub_num_ports_ = num_ports; }
 		// bPwrOn2PwrGood: units of 2 ms, from the hub descriptor
@@ -72,6 +93,8 @@ namespace uni::device::SpaceUSB {
 			const void* buf, int len);
 		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len);
 		Error OnBulkCompleted(EndpointID ep_id, const void* buf, int len);
+		Error OnIsochronousCompleted(EndpointID ep_id, const void* buf, int len,
+			uint16 frame_id, bool schedule_immediately, int completion_code);
 
 	private:
 	 /** @brief Class driver assigned to each endpoint.
@@ -99,6 +122,20 @@ namespace uni::device::SpaceUSB {
 		uint8 device_sub_class_ = 0;
 		uint8 device_protocol_ = 0;
 		uint16 usb_release_ = 0;
+		uint8* bos_buffer_ = nullptr;
+		uint16 bos_buffer_length_ = 0;
+		bool has_bos_ = false;
+		bool has_usb20_extension_ = false;
+		uint32 usb20_extension_attributes_ = 0;
+		bool has_superspeed_usb_capability_ = false;
+		SuperSpeedUSBCapabilityDescriptor superspeed_usb_capability_{};
+		bool has_superspeed_plus_usb_capability_ = false;
+		SuperSpeedPlusUSBCapabilityDescriptor superspeed_plus_usb_capability_{};
+		uint8 superspeed_plus_sublink_speed_attribute_count_ = 0;
+		uni::Array<SuperSpeedPlusSublinkSpeedAttribute, 32>
+			superspeed_plus_sublink_speed_attributes_{};
+		bool has_container_id_ = false;
+		uni::Array<uint8, 16> container_id_{};
 		uint8 manufacturer_index_ = 0;
 		uint8 product_index_ = 0;
 		uint8 serial_index_ = 0;
@@ -128,9 +165,13 @@ namespace uni::device::SpaceUSB {
 		Error InitializeStringPhaseManufacturer(const uint8* buf, int len);
 		Error InitializeStringPhaseProduct(const uint8* buf, int len);
 		Error InitializeStringPhaseSerial(const uint8* buf, int len);
+		Error InitializeBOSHeader(const uint8* buf, int len);
+		Error InitializeBOS(const uint8* buf, int len);
 		Error RequestStringDescriptors();
+		Error BeginBOSDescriptorRead();
 		Error BeginConfigurationDescriptorRead();
 		Error InitializeAddressPhase();
+		void ReleaseBOSBuffer();
 
 		/** Map structure to identify the issuer of a request within OnControlCompleted.
 			 * The issuer is registered when ControlOut or ControlIn is issued.
@@ -165,5 +206,12 @@ namespace uni::device::SpaceUSB {
 	using HostDeviceDisconnectedHook = void (*)(const USBHostControllerIdentity& controller,
 		const USBHostDeviceLocation& location, USBHostDevice& dev);
 	extern HostDeviceDisconnectedHook g_host_device_disconnected_hook;
+	using HostDeviceNotificationHook = void (*)(const USBHostControllerIdentity& controller,
+		const USBHostDeviceLocation& location, USBHostDevice& dev,
+		uint8 notification_type, uint64 notification_data);
+	extern HostDeviceNotificationHook g_host_device_notification_hook;
+	using HostBandwidthRequestHook = void (*)(const USBHostControllerIdentity& controller,
+		const USBHostDeviceLocation& location, USBHostDevice& dev);
+	extern HostBandwidthRequestHook g_host_bandwidth_request_hook;
 }
 #endif

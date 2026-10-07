@@ -28,7 +28,7 @@
 #if !defined(_INC_MCU_8051)
 #define _INC_MCU_8051
 
-#include "../../stdinc.h"
+#include "../../../stdinc.h"
 
 #ifdef _DEV_KEIL // for KEIL C51
 #define defbyt(idn,adr)   sfr  idn=adr;

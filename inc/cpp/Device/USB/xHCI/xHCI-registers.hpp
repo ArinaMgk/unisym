@@ -87,7 +87,9 @@ namespace uni::device::SpaceUSB3 {
 			uint32 compliance_transition_capability : 1;
 			uint32 large_esit_payload_capability : 1;
 			uint32 configuration_information_capability : 1;
-			uint32 : 26;
+			uint32 extended_tbc_capability : 1;
+			uint32 extended_tbc_trb_status_capability : 1;
+			uint32 : 24;
 		} bits;
 	};
 
@@ -124,7 +126,8 @@ namespace uni::device::SpaceUSB3 {
 			uint32 enable_u3_mfindex_stop : 1;
 			uint32 stopped_short_packet_enable : 1;
 			uint32 cem_enable : 1;
-			uint32 : 18;
+			uint32 extended_tbc_enable : 1;
+			uint32 : 17;
 		} bits;
 	};
 
@@ -349,6 +352,22 @@ namespace uni::device::SpaceUSB3 {
 	} /*__attribute__((packed))*/;
 
 	using InterrupterRegisterSetArray = ArrayWrapper<InterrupterRegisterSet>;
+
+	_PACKED(union) MFINDEX_t {
+		uint32 data[1];
+		_PACKED(struct) {
+			uint32 microframe_index : 14;
+			uint32 : 18;
+		} bits;
+	};
+
+	struct RuntimeRegisters {
+		MemMapRegister<MFINDEX_t> MFINDEX;
+		uint32 reserved[7];
+	};
+
+	static_assert(sizeof(RuntimeRegisters) == 0x20,
+		"xHCI interrupter registers must start at runtime offset 0x20");
 
 	_PACKED(union) Doorbell_t {
 		uint32 data[1];

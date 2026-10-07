@@ -20,8 +20,8 @@
 	limitations under the License.
 */
 
-#include "../../../inc/c/system/paging.h"
-#include "../../../inc/c/ustring.h"
+#include "../../../../inc/c/system/paging.h"
+#include "../../../../inc/c/ustring.h"
 
 // a32 (unchk)
 

@@ -20,8 +20,8 @@
 	limitations under the License.
 */
 
-#include "../../stdinc.h"
-#include "../../prochip/CortexM4.h"
+#include "../../../../c/stdinc.h"
+#include "../../../../c/prochip/CortexM4.h"
 #if !defined(_INC_MCU_MSP432P4_INNER)
 #define _INC_MCU_MSP432P4_INNER
 

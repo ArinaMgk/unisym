@@ -14,7 +14,9 @@ OPT=-D_Linux -L$(ubinpath) -ll64d -lstdc++
 CC32=gcc -m64
 
 CSC4=echo 
-PREF=-I${INCC_DIR} -o ${DEST_BIN}
+PREF=-I${INCC_DIR}
+
+.PHONY: all args cal clear cpuid fdump ffset ret segsel elf
 
 all:\
 args\
@@ -27,37 +29,45 @@ ret\
 segsel\
 
 
-args:
+args: ${DEST_BIN}args
+cal: ${DEST_BIN}cal
+clear: ${DEST_BIN}clear
+fdump: ${DEST_BIN}fdump
+ffset: ${DEST_BIN}ffset
+ret: ${DEST_BIN}ret
+elf: ${DEST_BIN}readelf
+
+${DEST_BIN}args: ${DEMO_DIR}args.c
 	@echo 'MK args'
-	@$(CC32) ${DEMO_DIR}args.c $(PREF)args ${OPT}
-cal:
+	@$(CC32) ${DEMO_DIR}args.c $(PREF) -o $@ ${OPT}
+${DEST_BIN}cal: ${DEMO_DIR}calendar/calendar.c
 	@echo 'MK cal (Calendar)'
-	@$(CC32) ${DEMO_DIR}calendar/calendar.c $(PREF)cal ${OPT}
-clear:
+	@$(CC32) ${DEMO_DIR}calendar/calendar.c $(PREF) -o $@ ${OPT}
+${DEST_BIN}clear: ${DEMO_DIR}clear.c
 	@echo 'MK clear'
-	@$(CC32) ${DEMO_DIR}clear.c $(PREF)clear ${OPT}
+	@$(CC32) ${DEMO_DIR}clear.c $(PREF) -o $@ ${OPT}
 
 # # #
 cpuid:
 	@echo 'TD cpuid'
 
-fdump:
+${DEST_BIN}fdump: ${DEMO_DIR}filedump.c
 	@echo 'MK fdump'
-	@$(CC32) ${DEMO_DIR}filedump.c $(PREF)fdump ${OPT}
-ffset:
+	@$(CC32) ${DEMO_DIR}filedump.c $(PREF) -o $@ ${OPT}
+${DEST_BIN}ffset: ${DEMO_DIR}VirtualDiskCopier/ffset.c
 	@echo 'MK ffset'
-	@$(CC32) ${DEMO_DIR}VirtualDiskCopier/ffset.c $(PREF)ffset ${OPT}
-ret:
+	@$(CC32) ${DEMO_DIR}VirtualDiskCopier/ffset.c $(PREF) -o $@ ${OPT}
+${DEST_BIN}ret: ${DEMO_DIR}ret.c
 	@echo 'MK ret'
-	@$(CC32) ${DEMO_DIR}ret.c $(PREF)ret ${OPT}
+	@$(CC32) ${DEMO_DIR}ret.c $(PREF) -o $@ ${OPT}
 
 # # #
 segsel:
 	@echo 'TD SEGSEL'
 
-elf:
+${DEST_BIN}readelf: ${DEMO_DIR}readelf.c ${LIBC_DIR}format/ELF.c
 	@echo MK readelf
-	@$(CC32) ${DEMO_DIR}readelf.c ${LIBC_DIR}format/ELF.c $(PREF)readelf ${OPT}
+	@$(CC32) ${DEMO_DIR}readelf.c ${LIBC_DIR}format/ELF.c $(PREF) -o $@ ${OPT}
 
 install:
 #{TODO}

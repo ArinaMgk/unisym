@@ -24,7 +24,15 @@
 
 #if defined(_MCU_Intel8051)
 #include "../../inc/c/MCU/Intel/i8051.h"
-#include "../../inc/c/MCU/port.h"
+
+void outpohi(byte port, byte pinidn);
+
+void outpolo(byte port, byte pinidn);
+
+void outpb(byte port, byte pinsmap);
+
+byte innpb(byte port);
+
 
 void outpohi(byte port, byte pinidn)
 {

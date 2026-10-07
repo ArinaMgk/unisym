@@ -46,6 +46,7 @@
 #if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 #include <setjmp.h>
 #include "../../../ISO_IEC_STD/iterator"
+#include "../../../vector"
 #include "../../../../c/arith.h"
 #include "../../../../c/bitmap.h"
 #include "../USB-Header.hpp"
@@ -121,6 +122,24 @@ namespace uni::device::SpaceUSB3 {
 		uint8 MaxPorts() const { return max_ports_; }
 		uint8 MaxSlots() const { return max_slots_; }
 		uint8 ContextSize() const { return context_size_; }
+		uint16 HCIVersion() const { return cap_->HCIVERSION.Read(); }
+		uint16 CurrentMicroframeIndex() const {
+			return runtime_->MFINDEX.Read().bits.microframe_index;
+		}
+		uint8 IsochronousSchedulingThreshold() const;
+		bool HasContiguousFrameIDCapability() const {
+			return cap_->HCCPARAMS1.Read().bits.contiguous_frame_id_capability;
+		}
+		bool HasBandwidthNegotiationCapability() const {
+			return cap_->HCCPARAMS1.Read().bits.bw_negotiation_capability;
+		}
+		bool HasExtendedTBCCapability() const {
+			const auto hccparams2 = cap_->HCCPARAMS2.Read();
+			return HCIVersion() >= 0x0110u &&
+				hccparams2.bits.large_esit_payload_capability &&
+				hccparams2.bits.extended_tbc_capability;
+		}
+		bool IsControllerFailed() const { return controller_failed_; }
 		size_t PageSize() const { return page_size_; }
 		size_t ControlTransferRingSize() const { return resource_config_.control_transfer_ring_trbs; }
 		size_t TransferRingSize() const { return resource_config_.transfer_ring_trbs; }
@@ -131,12 +150,16 @@ namespace uni::device::SpaceUSB3 {
 		bool IsSlotRemovalPending(uint8 slot_id) const;
 		Error QueueSlotRemoval(uint8 slot_id, bool notify_disconnected);
 		Error OnDisableSlotCompleted(uint8 slot_id, int completion_code);
+		Error OnHostControllerEvent(int completion_code);
+		void OnMFINDEXWrapEvent() { ++mfindex_wrap_count_; }
+		uint64 MFINDEXWrapCount() const { return mfindex_wrap_count_; }
 	public:
 		Error ProcessEvents();
 	private:
 		const uintptr_t mmio_base_;
 		CapabilityRegisters* const cap_;
 		OperationalRegisters* const op_;
+		RuntimeRegisters* const runtime_;
 		HostControllerResourceConfig resource_config_;
 		const uint8 max_ports_;
 		const uint8 max_slots_;
@@ -148,6 +171,11 @@ namespace uni::device::SpaceUSB3 {
 		byte slot_disconnect_notified_storage_[32]{};
 		uni::Bitmap slot_removal_pending_;
 		uni::Bitmap slot_disconnect_notified_;
+		bool controller_failed_ = false;
+		bool controller_recovery_requested_ = false;
+		bool controller_recovery_in_progress_ = false;
+		uint8 controller_event_completion_code_ = 0;
+		uint64 mfindex_wrap_count_ = 0;
 
 		class DeviceManager devmgr_;
 		Ring cr_;
@@ -166,6 +194,8 @@ namespace uni::device::SpaceUSB3 {
 		}
 
 		void InitializeSupportedProtocols();
+		Error RecoverController();
+		Error InitializeRuntimeRings();
 		//
 
 	public:

@@ -54,8 +54,7 @@ text_gcc_lin32 = "# UNISYM for GCC-Lin32 built-" + str(__BuildTime) + '\n'
 text_gcc_mecocoa = "# UNISYM for MECOCOA-x86 built-" + str(__BuildTime) + '\n'
 # text_gcc_mccar32 = "# UNISYM for MECOCOA-r32 built-" + str(__BuildTime) + '\n' # realized by mcca
 text_gcc_lin64 = "# UNISYM for GCC-Lin64 built-" + str(__BuildTime) + '\n'
-print(text_gcc_win32, text_gcc_win64, text_msv_win32, text_msv_win64, text_gcc_lin32, text_gcc_lin64, sep="")
-print(text_gcc_mecocoa, sep="")
+
 
 text_gcc_win32 += "ENVIDEN=cgw32" + "\n"
 text_gcc_win64 += "ENVIDEN=cgw64" + "\n"
@@ -244,6 +243,10 @@ all: $(asmobjs) $(cplobjs) $(cppobjs)
 """
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
+tmp = """
+.PHONY: all
+all: $(asmobjs) $(cplobjs) $(cppobjs) ${dest_abs} ${dest_dll}
+"""
 text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp
 tmp = """
@@ -300,7 +303,15 @@ tmp = """\t@echo AR ${dest_abs}
 """
 text_gcc_win32 += tmp
 text_gcc_win64 += tmp
-tmp += """\t@${LD} -shared -o ${dest_dll} ${dest_obj}-DLL/* -lc"""
+tmp = """dllobjs = $(wildcard ${dest_obj}-DLL/*.o)
+${dest_abs}: $(asmobjs) $(cplobjs) $(cppobjs)
+\t@echo AR ${dest_abs}
+\t@${AR} -rcs ${dest_abs} $^
+${dest_dll}: $(dllobjs)
+\t@echo AR ${dest_dll}
+\t@rm -f ${dest_dll}
+\t@${LD} -shared -o ${dest_dll} $(dllobjs) -lc
+"""
 text_gcc_lin32 += tmp
 text_gcc_lin64 += tmp
 tmp = """\t@echo AR ${dest_abs}
@@ -359,7 +370,6 @@ STM32F1 = "# UNISYM for GCC-STM32F1 built-" + str(__BuildTime) + '\n'
 STM32F4 = "# UNISYM for GCC-STM32F4 built-" + str(__BuildTime) + '\n'
 STM32H7 = "# UNISYM for GCC-STM32H7 built-" + str(__BuildTime) + '\n'
 STM32MP13 = "# UNISYM for GCC-STM32MP13 built-" + str(__BuildTime) + '\n'
-print(STM32F1, STM32F4, STM32H7, STM32MP13, sep="")
 
 STM32F1   += """IDEN=STM32F1
 FLAG=-Os -D_MCU_$(IDEN)x -mcpu=cortex-m3 -mthumb $(FPU) $(FLOAT-ABI)

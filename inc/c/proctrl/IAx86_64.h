@@ -178,6 +178,7 @@ typedef _PACKED(struct) _CPU_gate_type
 		gate->param_count = 0;
 		#elif __BITS__ == 64
 		gate->interrupt_stack_table = 0;
+		gate->reserved = 0;
 		#endif
 		gate->zero = 0;
 		gate->type = _Dptr_InterruptGate386;

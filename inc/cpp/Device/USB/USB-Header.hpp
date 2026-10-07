@@ -125,8 +125,16 @@ namespace uni::device::SpaceUSB {
 	};
 
 	enum class HubRequest : uint8 {
+		ClearTTBuffer = 8,
 		SetHubDepth = 12,
 		GetPortErrorCount = 13,
+	};
+
+	enum class DeviceCapabilityType : uint8 {
+		USB20Extension = 2,
+		SuperSpeedUSB = 3,
+		ContainerID = 4,
+		SuperSpeedPlusUSB = 10,
 	};
 
 	enum class HubProtocol : uint8 {
@@ -256,6 +264,14 @@ namespace uni::device::SpaceUSB {
 		/** Maximum bytes transferred during one service interval. */
 		uint32 bytes_per_interval;
 	};
+
+	struct IsochronousTransferOptions {
+		// SIA asks the controller to schedule the TD at the next service opportunity.
+		bool schedule_immediately = true;
+		// When SIA is clear, the host can derive the next valid Frame ID from MFINDEX.
+		bool automatic_frame_id = true;
+		uint16 frame_id = 0;
+	};
 }
 
 // ---- ---- ---- ---- arraymap.hpp ---- ---- ---- ---- //
@@ -340,6 +356,93 @@ namespace uni::device::SpaceUSB {
 		uint8_t attributes;         // offset 7
 		uint8_t max_power;          // offset 8
 	} __attribute__((packed));
+
+	struct BOSDescriptor {
+		static const uint8_t kType = descriptor_type::kBOS;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint16_t total_length;
+		uint8_t num_device_capabilities;
+	} __attribute__((packed));
+
+	struct DeviceCapabilityDescriptor {
+		static const uint8_t kType = descriptor_type::kDeviceCapability;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint8_t capability_type;
+	} __attribute__((packed));
+
+	struct USB20ExtensionCapabilityDescriptor {
+		static const uint8_t kType = descriptor_type::kDeviceCapability;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint8_t capability_type;
+		uint32_t attributes;
+	} __attribute__((packed));
+
+	struct SuperSpeedUSBCapabilityDescriptor {
+		static const uint8_t kType = descriptor_type::kDeviceCapability;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint8_t capability_type;
+		uint8_t attributes;
+		uint16_t speeds_supported;
+		uint8_t functionality_support;
+		uint8_t u1_device_exit_latency;
+		uint16_t u2_device_exit_latency;
+	} __attribute__((packed));
+
+	struct SuperSpeedPlusUSBCapabilityDescriptor {
+		static const uint8_t kType = descriptor_type::kDeviceCapability;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint8_t capability_type;
+		uint8_t reserved;
+		uint32_t attributes;
+		uint16_t functionality_support;
+		uint16_t reserved2;
+	} __attribute__((packed));
+
+	union SuperSpeedPlusSublinkSpeedAttribute {
+		uint32_t data;
+		struct {
+			uint32_t id : 4;
+			uint32_t lane_speed_exponent : 2;
+			uint32_t asymmetric : 1;
+			uint32_t transmit : 1;
+			uint32_t reserved : 6;
+			uint32_t link_protocol : 2;
+			uint32_t lane_speed_mantissa : 16;
+		} __attribute__((packed)) bits;
+	} __attribute__((packed));
+
+	struct ContainerIDCapabilityDescriptor {
+		static const uint8_t kType = descriptor_type::kDeviceCapability;
+
+		uint8_t length;
+		uint8_t descriptor_type;
+		uint8_t capability_type;
+		uint8_t reserved;
+		uint8_t container_id[16];
+	} __attribute__((packed));
+
+	static_assert(sizeof(BOSDescriptor) == 5,
+		"BOS descriptor must be 5 bytes");
+	static_assert(sizeof(USB20ExtensionCapabilityDescriptor) == 7,
+		"USB 2.0 extension capability descriptor must be 7 bytes");
+	static_assert(sizeof(SuperSpeedUSBCapabilityDescriptor) == 10,
+		"SuperSpeed USB capability descriptor must be 10 bytes");
+	static_assert(sizeof(SuperSpeedPlusUSBCapabilityDescriptor) == 12,
+		"SuperSpeedPlus USB capability descriptor header must be 12 bytes");
+	static_assert(sizeof(SuperSpeedPlusSublinkSpeedAttribute) == 4,
+		"SuperSpeedPlus sublink speed attribute must be 4 bytes");
+	static_assert(sizeof(ContainerIDCapabilityDescriptor) == 20,
+		"Container ID capability descriptor must be 20 bytes");
 
 	struct InterfaceDescriptor {
 		static const uint8_t kType = 4;

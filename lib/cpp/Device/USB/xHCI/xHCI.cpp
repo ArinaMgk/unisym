@@ -242,7 +242,11 @@ namespace uni::device::SpaceUSB3 {
 
 	USBHostDevice_v3::USBHostDevice_v3(uint8 slot_id, DoorbellRegister* dbreg,
 		HostController* host, uint8 context_size)
-		: slot_id_{ slot_id }, dbreg_{ dbreg }, host_{ host }, context_size_{ context_size } {
+		: slot_id_{ slot_id }, dbreg_{ dbreg }, host_{ host }, context_size_{ context_size },
+		isochronous_schedule_valid_{ isochronous_schedule_valid_storage_,
+			sizeof(isochronous_schedule_valid_storage_) },
+		isochronous_stream_started_{ isochronous_stream_started_storage_,
+			sizeof(isochronous_stream_started_storage_) } {
 	}
 
 	USBHostDevice_v3::~USBHostDevice_v3() {
@@ -264,7 +268,7 @@ namespace uni::device::SpaceUSB3 {
 			ctx_ = nullptr;
 			return MAKE_ERROR(Error::kNoEnoughMemory);
 		}
-		state_ = State::kBlank;
+		state_ = State::Blank;
 		for (size_t i = 0; i < 31; ++i) {
 			const DeviceContextIndex dci(i + 1);
 			//on_transferred_callbacks_[i] = nullptr;
@@ -273,7 +277,7 @@ namespace uni::device::SpaceUSB3 {
 	}
 
 	void USBHostDevice_v3::SelectForSlotAssignment() {
-		state_ = State::kSlotAssigning;
+		state_ = State::SlotAssigning;
 	}
 
 	Ring* USBHostDevice_v3::AllocTransferRing(DeviceContextIndex index, size_t buf_size) {
@@ -348,6 +352,11 @@ namespace uni::device::SpaceUSB3 {
 		if (auto err = USBHostDevice::ControlOut(ep_id, setup_data, buf, len, issuer)) {
 			return err;
 		}
+		return QueueControlOut(ep_id, setup_data, buf, len);
+	}
+
+	Error USBHostDevice_v3::QueueControlOut(EndpointID ep_id, SetupData setup_data,
+		const void* buf, int len) {
 
 		// Log(kDebug, "Device::ControlOut: ep addr %d, buf 0x%08x, len %d", ep_id.Address(), buf, len);
 		if (ep_id.Number() < 0 || 15 < ep_id.Number()) {
@@ -534,6 +543,237 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
+	size_t USBHostDevice_v3::ActiveIsochronousTRBs(EndpointID ep_id) const {
+		size_t count = 0;
+		for (const auto& pending : pending_isochronous_transfers_) {
+			if (pending.ep_id.Address() == ep_id.Address()) {
+				count += pending.trb_count;
+			}
+		}
+		return count;
+	}
+
+	Error USBHostDevice_v3::IsochronousTransfer(EndpointID ep_id, void* buf, int len,
+		const IsochronousTransferOptions& options) {
+		if (host_ == nullptr || host_->IsControllerFailed()) {
+			return MAKE_ERROR(Error::kTransferFailed);
+		}
+		if (ep_id.Number() <= 0 || ep_id.Number() > 15 || len < 0 ||
+			(buf == nullptr && len != 0)) {
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
+		const auto* config = EndpointConfigOf(ep_id);
+		if (config == nullptr || config->ep_type != EndpointType::kIsochronous ||
+			config->max_packet_size <= 0) {
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
+		uint32 max_esit_payload = config->bytes_per_interval;
+		if (max_esit_payload == 0) {
+			max_esit_payload = uint32(config->max_packet_size) *
+				(uint32(config->max_burst) + 1u) * (uint32(config->mult) + 1u);
+		}
+		if (uint32(len) > max_esit_payload) {
+			return MAKE_ERROR(Error::kBufferTooSmall);
+		}
+
+		const DeviceContextIndex dci{ ep_id };
+		Ring* tr = transfer_rings_[dci.value - 1];
+		if (tr == nullptr) return MAKE_ERROR(Error::kTransferRingNotSet);
+
+		constexpr uintptr_t kBufferBoundary = 64u * 1024u;
+		auto* next = static_cast<uint8*>(buf);
+		int remaining = len;
+		size_t trb_count = 0;
+		do {
+			const uintptr_t bytes_to_boundary = next == nullptr ? kBufferBoundary :
+				kBufferBoundary - (reinterpret_cast<uintptr_t>(next) & (kBufferBoundary - 1));
+			const int chunk = remaining < static_cast<int>(bytes_to_boundary)
+				? remaining : static_cast<int>(bytes_to_boundary);
+			remaining -= chunk;
+			if (next != nullptr) next += chunk;
+			++trb_count;
+		} while (remaining > 0);
+		if (ActiveIsochronousTRBs(ep_id) + trb_count > tr->UsableSize()) {
+			return MAKE_ERROR(Error::kFull);
+		}
+
+		const int speed_class = host_->SpeedClass(RootHubPortNum(),
+			GetSlotContext()->bits.speed);
+		if (speed_class == 0) return MAKE_ERROR(Error::kUnknownXHCISpeedID);
+		const int interval_exponent = speed_class == kFullSpeed || speed_class == kLowSpeed
+			? config->interval + 2 : config->interval - 1;
+		if (interval_exponent < 0 || interval_exponent > 18) {
+			return MAKE_ERROR(Error::kInvalidDescriptor);
+		}
+		uint32 interval_uframes = 1u << interval_exponent;
+		if (interval_uframes > 16384u) interval_uframes = 16384u;
+
+		bool schedule_immediately = options.schedule_immediately;
+		uint16 frame_id = options.frame_id;
+		if (!schedule_immediately) {
+			if (options.automatic_frame_id) {
+				const uint32 current_uframe = host_->CurrentMicroframeIndex();
+				const uint32 scheduling_lead =
+					host_->IsochronousSchedulingThreshold() + 10u;
+				uint32 start_uframe = next_isochronous_uframe_[dci.value - 1];
+				const uint32 scheduled_delta = (start_uframe - current_uframe) & 0x3fffu;
+				if (!isochronous_schedule_valid_[dci.value - 1] ||
+					scheduled_delta < scheduling_lead || scheduled_delta > 0x2000u) {
+					start_uframe = current_uframe + scheduling_lead;
+					start_uframe = (start_uframe + 7u) & ~7u;
+					start_uframe = ((start_uframe + interval_uframes - 1u) /
+						interval_uframes) * interval_uframes;
+					start_uframe %= 16384u;
+				}
+				frame_id = static_cast<uint16>((start_uframe >> 3) & 0x7ffu);
+				next_isochronous_uframe_[dci.value - 1] = static_cast<uint16>(
+					(start_uframe + interval_uframes) % 16384u);
+				isochronous_schedule_valid_.setof(dci.value - 1);
+			}
+			else if (frame_id > 0x7ffu) {
+				return MAKE_ERROR(Error::kInvalidPhase);
+			}
+			else {
+				next_isochronous_uframe_[dci.value - 1] = static_cast<uint16>(
+					(uint32(frame_id) * 8u + interval_uframes) % 16384u);
+				isochronous_schedule_valid_.setof(dci.value - 1);
+			}
+			if (!host_->HasContiguousFrameIDCapability() &&
+				isochronous_stream_started_[dci.value - 1]) {
+				schedule_immediately = true;
+			}
+		}
+
+		const uint32 max_packet_size = static_cast<uint32>(config->max_packet_size);
+		uint32 packet_count = (uint32(len) + max_packet_size - 1u) / max_packet_size;
+		if (packet_count == 0) packet_count = 1;
+		uint32 burst_count = 0;
+		uint32 last_burst_packet_count = 0;
+		if (host_->HCIVersion() >= 0x0100u && speed_class >= kSuperSpeed) {
+			const uint32 packets_per_burst = uint32(config->max_burst) + 1u;
+			burst_count = (packet_count + packets_per_burst - 1u) / packets_per_burst - 1u;
+			const uint32 residue = packet_count % packets_per_burst;
+			last_burst_packet_count = residue == 0 ? config->max_burst : residue - 1u;
+		}
+		else if (host_->HCIVersion() >= 0x0100u) {
+			last_burst_packet_count = packet_count - 1u;
+		}
+		const bool extended_tbc = host_->HasExtendedTBCCapability();
+		const uint32 max_burst_count = extended_tbc ? 31u : 3u;
+		if (burst_count > max_burst_count || last_burst_packet_count > 15u) {
+			return MAKE_ERROR(Error::kInvalidDescriptor);
+		}
+
+		PendingIsochronousTransfer pending{};
+		pending.ep_id = ep_id;
+		pending.buffer = buf;
+		pending.length = len;
+		pending.trb_count = trb_count;
+		pending.frame_id = frame_id;
+		pending.schedule_immediately = schedule_immediately;
+
+		next = static_cast<uint8*>(buf);
+		remaining = len;
+		uint32 enqueued_length = 0;
+		const bool first_cycle_state = tr->ProducerCycleState();
+		for (size_t index = 0; index < trb_count; ++index) {
+			const uintptr_t bytes_to_boundary = next == nullptr ? kBufferBoundary :
+				kBufferBoundary - (reinterpret_cast<uintptr_t>(next) & (kBufferBoundary - 1));
+			const int chunk = remaining < static_cast<int>(bytes_to_boundary)
+				? remaining : static_cast<int>(bytes_to_boundary);
+			const bool last = index + 1 == trb_count;
+			enqueued_length += chunk;
+			const uint32 packets_transferred = enqueued_length / max_packet_size;
+			const uint32 remaining_packets = packet_count - packets_transferred;
+
+			TRB* position;
+			if (index == 0) {
+				IsochronousTRB isoch{};
+				isoch.SetPointer(next);
+				isoch.bits.trb_transfer_length = chunk;
+				isoch.bits.td_size = extended_tbc ? burst_count :
+					(remaining_packets > 31u ? 31u : remaining_packets);
+				isoch.bits.interrupt_on_short_packet = ep_id.IsIn();
+				isoch.bits.chain_bit = !last;
+				isoch.bits.interrupt_on_completion = last;
+				isoch.bits.transfer_burst_count = extended_tbc ? 0u : burst_count;
+				isoch.bits.transfer_last_burst_packet_count = last_burst_packet_count;
+				isoch.bits.frame_id = frame_id;
+				isoch.bits.schedule_immediately = schedule_immediately;
+				position = tr->PushDeferred(isoch);
+				pending.first_trb = position;
+			}
+			else {
+				NormalTRB normal{};
+				normal.SetPointer(next);
+				normal.bits.trb_transfer_length = chunk;
+				normal.bits.td_size = remaining_packets > 31u ? 31u : remaining_packets;
+				normal.bits.interrupt_on_short_packet = ep_id.IsIn();
+				normal.bits.chain_bit = !last;
+				normal.bits.interrupt_on_completion = last;
+				position = tr->Push(normal);
+			}
+			if (last) pending.last_trb = position;
+			remaining -= chunk;
+			if (next != nullptr) next += chunk;
+		}
+		pending_isochronous_transfers_.Append(pending);
+		tr->Commit(pending.first_trb, first_cycle_state);
+		isochronous_stream_started_.setof(dci.value - 1);
+		dbreg_->Ring(dci.value);
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	USBHostDevice_v3::PendingIsochronousTransfer*
+	USBHostDevice_v3::FindIsochronousTransfer(EndpointID ep_id,
+		const TRB* issuer_trb) {
+		if (issuer_trb == nullptr) return nullptr;
+		const DeviceContextIndex dci{ ep_id };
+		Ring* tr = transfer_rings_[dci.value - 1];
+		if (tr == nullptr) return nullptr;
+		for (auto& pending : pending_isochronous_transfers_) {
+			if (pending.ep_id.Address() != ep_id.Address()) continue;
+			const TRB* cursor = pending.first_trb;
+			for (size_t index = 0; index < pending.trb_count; ++index) {
+				if (cursor == issuer_trb) return &pending;
+				cursor = tr->NextTransferTRB(cursor);
+				if (cursor == nullptr) break;
+			}
+		}
+		return nullptr;
+	}
+
+	int USBHostDevice_v3::IsochronousTransferredLength(
+		const PendingIsochronousTransfer& pending, const TRB* issuer_trb,
+		int residual_length) const {
+		const DeviceContextIndex dci{ pending.ep_id };
+		Ring* tr = transfer_rings_[dci.value - 1];
+		if (tr == nullptr || issuer_trb == nullptr || residual_length < 0) return -1;
+		const TRB* cursor = pending.first_trb;
+		int transferred = 0;
+		for (size_t index = 0; index < pending.trb_count; ++index) {
+			int trb_length;
+			if (index == 0) {
+				auto* isoch = TRBDynamicCast<IsochronousTRB>(const_cast<TRB*>(cursor));
+				if (isoch == nullptr) return -1;
+				trb_length = isoch->bits.trb_transfer_length;
+			}
+			else {
+				auto* normal = TRBDynamicCast<NormalTRB>(const_cast<TRB*>(cursor));
+				if (normal == nullptr) return -1;
+				trb_length = normal->bits.trb_transfer_length;
+			}
+			if (cursor == issuer_trb) {
+				if (residual_length > trb_length) return -1;
+				return transferred + trb_length - residual_length;
+			}
+			transferred += trb_length;
+			cursor = tr->NextTransferTRB(cursor);
+			if (cursor == nullptr) return -1;
+		}
+		return -1;
+	}
+
 	int USBHostDevice_v3::BulkTransferredLength(EndpointID ep_id, const TRB* issuer_trb,
 		int residual_length) const {
 		const DeviceContextIndex dci{ ep_id };
@@ -561,11 +801,11 @@ namespace uni::device::SpaceUSB3 {
 	Error USBHostDevice_v3::BeginBulkRecovery(EndpointID ep_id) {
 		const DeviceContextIndex dci{ ep_id };
 		auto& pending = pending_bulk_transfers_[dci.value - 1];
-		if (!pending.active || pending.recovery_phase != BulkRecoveryPhase::kNone ||
+		if (!pending.active || pending.recovery_phase != BulkRecoveryPhase::None ||
 			host_ == nullptr) {
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
-		pending.recovery_phase = BulkRecoveryPhase::kResetEndpoint;
+		pending.recovery_phase = BulkRecoveryPhase::ResetEndpoint;
 		ResetEndpointCommandTRB reset{ ep_id, slot_id_, false };
 		host_->CommandRing()->Push(reset);
 		host_->DoorbellRegisterAt(0)->Ring(0);
@@ -582,14 +822,14 @@ namespace uni::device::SpaceUSB3 {
 	Error USBHostDevice_v3::OnEndpointResetCompleted(EndpointID ep_id, int completion_code) {
 		const DeviceContextIndex dci{ ep_id };
 		auto& pending = pending_bulk_transfers_[dci.value - 1];
-		if (!pending.active || pending.recovery_phase != BulkRecoveryPhase::kResetEndpoint) {
+		if (!pending.active || pending.recovery_phase != BulkRecoveryPhase::ResetEndpoint) {
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 		if (completion_code != 1 || host_ == nullptr) {
 			return CompleteBulkFailure(ep_id);
 		}
 
-		pending.recovery_phase = BulkRecoveryPhase::kClearEndpointHalt;
+		pending.recovery_phase = BulkRecoveryPhase::ClearEndpointHalt;
 		if (auto err = this->OnBulkCompleted(ep_id, nullptr, 0)) {
 			pending = PendingBulkTransfer{};
 			return err;
@@ -597,11 +837,95 @@ namespace uni::device::SpaceUSB3 {
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
+	Error USBHostDevice_v3::QueueBulkDequeuePointer(EndpointID ep_id) {
+		const DeviceContextIndex dci{ ep_id };
+		auto& pending = pending_bulk_transfers_[dci.value - 1];
+		if (!pending.active || host_ == nullptr ||
+			(pending.recovery_phase != BulkRecoveryPhase::ClearEndpointHalt &&
+			pending.recovery_phase != BulkRecoveryPhase::ClearTTBuffer)) {
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
+
+		pending.recovery_phase = BulkRecoveryPhase::SetDequeuePointer;
+		SetTRDequeuePointerCommandTRB set_dequeue{
+			pending.next_trb, pending.next_cycle_state, ep_id, slot_id_ };
+		host_->CommandRing()->Push(set_dequeue);
+		host_->DoorbellRegisterAt(0)->Ring(0);
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	Error USBHostDevice_v3::BeginTTBufferClear(EndpointID ep_id) {
+		const DeviceContextIndex dci{ ep_id };
+		auto& pending = pending_bulk_transfers_[dci.value - 1];
+		if (!pending.active ||
+			pending.recovery_phase != BulkRecoveryPhase::ClearEndpointHalt ||
+			host_ == nullptr) {
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
+
+		const auto* slot_ctx = GetSlotContext();
+		if (slot_ctx->bits.tt_hub_slot_id == 0) {
+			return QueueBulkDequeuePointer(ep_id);
+		}
+		auto* tt_hub = host_->GetDeviceManager()->FindBySlot(
+			slot_ctx->bits.tt_hub_slot_id);
+		if (tt_hub == nullptr) {
+			pending = PendingBulkTransfer{};
+			return MAKE_ERROR(Error::kTransferFailed);
+		}
+
+		pending.recovery_phase = BulkRecoveryPhase::ClearTTBuffer;
+		if (auto err = tt_hub->SubmitTTBufferClear(*this, ep_id)) {
+			pending = PendingBulkTransfer{};
+			return err;
+		}
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	Error USBHostDevice_v3::SubmitTTBufferClear(USBHostDevice_v3& child,
+		EndpointID ep_id) {
+		const auto* child_slot_ctx = child.GetSlotContext();
+		if (child_slot_ctx->bits.tt_hub_slot_id != slot_id_ ||
+			child_slot_ctx->bits.usb_device_address == 0 ||
+			ep_id.Number() <= 0 || ep_id.Number() > 15) {
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
+
+		SetupData setup_data{};
+		setup_data.request_type.bits.direction = request_type::kOut;
+		setup_data.request_type.bits.type = request_type::kClass;
+		setup_data.request_type.bits.recipient = request_type::kOther;
+		setup_data.request = static_cast<uint8>(HubRequest::ClearTTBuffer);
+		setup_data.value = static_cast<uint16>(ep_id.Number()) |
+			(static_cast<uint16>(child_slot_ctx->bits.usb_device_address) << 4) |
+			(static_cast<uint16>(EndpointType::kBulk) << 11) |
+			(ep_id.IsIn() ? 0x8000u : 0u);
+		setup_data.index = GetSlotContext()->bits.mtt
+			? child_slot_ctx->bits.tt_port_num : 1;
+		setup_data.length = 0;
+		return QueueControlOut(kDefaultControlPipeID, setup_data, nullptr, 0);
+	}
+
+	Error USBHostDevice_v3::OnTTBufferClearCompleted(EndpointID ep_id,
+		int completion_code) {
+		const DeviceContextIndex dci{ ep_id };
+		auto& pending = pending_bulk_transfers_[dci.value - 1];
+		if (!pending.active ||
+			pending.recovery_phase != BulkRecoveryPhase::ClearTTBuffer) {
+			return MAKE_ERROR(Error::kInvalidPhase);
+		}
+		if (completion_code != 1) {
+			pending = PendingBulkTransfer{};
+			return MAKE_ERROR(Error::kTransferFailed);
+		}
+		return QueueBulkDequeuePointer(ep_id);
+	}
+
 	Error USBHostDevice_v3::OnTransferRingDequeueSet(EndpointID ep_id, int completion_code) {
 		const DeviceContextIndex dci{ ep_id };
 		auto& pending = pending_bulk_transfers_[dci.value - 1];
 		if (!pending.active ||
-			pending.recovery_phase != BulkRecoveryPhase::kSetDequeuePointer) {
+			pending.recovery_phase != BulkRecoveryPhase::SetDequeuePointer) {
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 		pending = PendingBulkTransfer{};
@@ -657,6 +981,35 @@ namespace uni::device::SpaceUSB3 {
 		Log(kDebug, trb);
 
 		TRB* issuer_trb = trb.Pointer();
+		{
+			const auto ep_id = trb.GetEndpointID();
+			const auto* config = EndpointConfigOf(ep_id);
+			if (config != nullptr && config->ep_type == EndpointType::kIsochronous) {
+				if (issuer_trb == nullptr) {
+					if (trb.bits.completion_code == 14 || trb.bits.completion_code == 15) {
+						return this->OnIsochronousCompleted(ep_id, nullptr, 0, 0, true,
+							trb.bits.completion_code);
+					}
+					return MAKE_ERROR(Error::kTransferFailed);
+				}
+				auto* pending = FindIsochronousTransfer(ep_id, issuer_trb);
+				if (pending == nullptr) return MAKE_ERROR(Error::kInvalidPhase);
+				const stduint pending_index = static_cast<stduint>(
+					pending - pending_isochronous_transfers_.begin());
+				int transfer_length = transfer_succeeded
+					? IsochronousTransferredLength(*pending, issuer_trb,
+						static_cast<int>(residual_length)) : -1;
+				if (transfer_succeeded && transfer_length < 0) {
+					transfer_length = -1;
+				}
+				const PendingIsochronousTransfer completed = *pending;
+				pending_isochronous_transfers_.Remove(pending_index);
+				return this->OnIsochronousCompleted(ep_id, completed.buffer,
+					transfer_length, completed.frame_id,
+					completed.schedule_immediately, trb.bits.completion_code);
+			}
+		}
+		if (issuer_trb == nullptr) return MAKE_ERROR(Error::kTransferFailed);
 		if (auto normal_trb = TRBDynamicCast<NormalTRB>(issuer_trb)) {
 			const auto ep_id = trb.GetEndpointID();
 			const auto* config = EndpointConfigOf(ep_id);
@@ -670,7 +1023,7 @@ namespace uni::device::SpaceUSB3 {
 					return MAKE_ERROR(Error::kInvalidPhase);
 				}
 				if (!transfer_succeeded) {
-					if (pending.recovery_phase != BulkRecoveryPhase::kNone) {
+					if (pending.recovery_phase != BulkRecoveryPhase::None) {
 						return MAKE_ERROR(Error::kSuccess);
 					}
 					return BeginBulkRecovery(ep_id);
@@ -751,10 +1104,50 @@ namespace uni::device::SpaceUSB3 {
 			return MAKE_ERROR(Error::kNotImplemented);
 		}
 
+		const bool is_clear_tt_buffer =
+			setup_data.request_type.bits.direction == request_type::kOut &&
+			setup_data.request_type.bits.type == request_type::kClass &&
+			setup_data.request_type.bits.recipient == request_type::kOther &&
+			setup_data.request == static_cast<uint8>(HubRequest::ClearTTBuffer) &&
+			setup_data.length == 0;
+		if (is_clear_tt_buffer && host_ != nullptr) {
+			for (stduint slot_id = 1;
+				slot_id <= host_->GetDeviceManager()->MaxSlots(); ++slot_id) {
+				auto* child = host_->GetDeviceManager()->FindBySlot(
+					static_cast<uint8>(slot_id));
+				if (child == nullptr || child == this) continue;
+				const auto* child_slot_ctx = child->GetSlotContext();
+				if (child_slot_ctx->bits.tt_hub_slot_id != slot_id_) continue;
+				for (size_t index = 0;
+					index < child->pending_bulk_transfers_.size(); ++index) {
+					auto& pending = child->pending_bulk_transfers_[index];
+					if (!pending.active ||
+						pending.recovery_phase != BulkRecoveryPhase::ClearTTBuffer) {
+						continue;
+					}
+					const EndpointID recovery_ep{ static_cast<int>(index + 1) };
+					const uint16 expected_value =
+						static_cast<uint16>(recovery_ep.Number()) |
+						(static_cast<uint16>(child_slot_ctx->bits.usb_device_address) << 4) |
+						(static_cast<uint16>(EndpointType::kBulk) << 11) |
+						(recovery_ep.IsIn() ? 0x8000u : 0u);
+					const uint16 expected_tt_port = GetSlotContext()->bits.mtt
+						? child_slot_ctx->bits.tt_port_num : 1;
+					if (setup_data.value != expected_value ||
+						setup_data.index != expected_tt_port) {
+						continue;
+					}
+					return child->OnTTBufferClearCompleted(recovery_ep,
+						trb.bits.completion_code);
+				}
+			}
+			return MAKE_ERROR(Error::kSuccess);
+		}
+
 		for (size_t index = 0; index < pending_bulk_transfers_.size(); ++index) {
 			auto& pending = pending_bulk_transfers_[index];
 			if (!pending.active ||
-				pending.recovery_phase != BulkRecoveryPhase::kClearEndpointHalt) {
+				pending.recovery_phase != BulkRecoveryPhase::ClearEndpointHalt) {
 				continue;
 			}
 			const EndpointID recovery_ep{ static_cast<int>(index + 1) };
@@ -777,12 +1170,7 @@ namespace uni::device::SpaceUSB3 {
 					? callback_error : MAKE_ERROR(Error::kTransferFailed);
 			}
 
-			pending.recovery_phase = BulkRecoveryPhase::kSetDequeuePointer;
-			SetTRDequeuePointerCommandTRB set_dequeue{
-				pending.next_trb, pending.next_cycle_state, recovery_ep, slot_id_ };
-			host_->CommandRing()->Push(set_dequeue);
-			host_->DoorbellRegisterAt(0)->Ring(0);
-			return MAKE_ERROR(Error::kSuccess);
+			return BeginTTBufferClear(recovery_ep);
 		}
 
 		if (!transfer_succeeded) {
@@ -869,7 +1257,7 @@ namespace uni::device::SpaceUSB3 {
 			return MAKE_ERROR(Error::kAlreadyAllocated);
 		}
 
-		devices_[slot_id] = AllocArray<USBHostDevice_v3>(1, 64, 4096);
+		devices_[slot_id] = AllocArray<USBHostDevice_v3>(1, 64, 0);
 		if (!devices_[slot_id]) return MAKE_ERROR(Error::kNoEnoughMemory);
 		new(devices_[slot_id]) USBHostDevice_v3(slot_id, dbreg, host, host->ContextSize());
 		if (auto err = devices_[slot_id]->Initialize()) {
@@ -900,6 +1288,17 @@ namespace uni::device::SpaceUSB3 {
 		uni_hostenv_allocator->deallocate(devices_[slot_id]);
 		devices_[slot_id] = nullptr;
 		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	void DeviceManager::Reset() {
+		if (devices_ == nullptr || device_context_pointers_ == nullptr) return;
+		for (size_t slot_id = 1; slot_id <= max_slots_; ++slot_id) {
+			if (devices_[slot_id] == nullptr) continue;
+			device_context_pointers_[slot_id] = nullptr;
+			devices_[slot_id]->~USBHostDevice_v3();
+			uni_hostenv_allocator->deallocate(devices_[slot_id]);
+			devices_[slot_id] = nullptr;
+		}
 	}
 
 	bool HostController::IsSlotRemovalPending(uint8 slot_id) const {
@@ -1132,24 +1531,24 @@ namespace {
 
 
 	enum class ConfigPhase {
-		kNotConnected,
-		kWaitingAddressed,
-		kResettingPort,
-		kEnablingSlot,
-		kAddressingDevice,
-		kInitializingDevice,
-		kConfiguringEndpoints,
-		kConfigured,
+		NotConnected,
+		WaitingAddressed,
+		ResettingPort,
+		EnablingSlot,
+		AddressingDevice,
+		InitializingDevice,
+		ConfiguringEndpoints,
+		Configured,
 	};
 	/* Between resetting a root hub port and assigning an address,
 		 * no other processing must be interleaved; only that port's processing is allowed.
-		 * kWaitingAddressed is the state waiting for the sequence from reset
-		 * (kResettingPort) to address assignment (kAddressingDevice) to complete.
+		 * WaitingAddressed is the state waiting for the sequence from reset
+		 * (ResettingPort) to address assignment (AddressingDevice) to complete.
 		 */
 
 	uni::Array<volatile ConfigPhase, 256> port_config_phase{};  // index: port number
 
-	/** Port number currently processing from kResettingPort to kAddressingDevice.
+	/** Port number currently processing from ResettingPort to AddressingDevice.
 		 * 0 indicates no port is in that state.
 		 */
 	uint8 addressing_port{ 0 };
@@ -1242,16 +1641,16 @@ namespace {
 		}
 
 		if (enable_slot_command_pending || addressing_port != 0 || active_hub_child_valid) {
-			port_config_phase[port.Number()] = ConfigPhase::kWaitingAddressed;
+			port_config_phase[port.Number()] = ConfigPhase::WaitingAddressed;
 		}
 		else {
 			const auto port_phase = port_config_phase[port.Number()];
-			if (port_phase != ConfigPhase::kNotConnected &&
-				port_phase != ConfigPhase::kWaitingAddressed) {
+			if (port_phase != ConfigPhase::NotConnected &&
+				port_phase != ConfigPhase::WaitingAddressed) {
 				return MAKE_ERROR(Error::kInvalidPhase);
 			}
 			addressing_port = port.Number();
-			port_config_phase[port.Number()] = ConfigPhase::kResettingPort;
+			port_config_phase[port.Number()] = ConfigPhase::ResettingPort;
 			port.Reset();
 		}
 		return MAKE_ERROR(Error::kSuccess);
@@ -1262,7 +1661,7 @@ namespace {
 			return MAKE_ERROR(Error::kSuccess);
 		}
 		for (size_t i = 1; i < port_config_phase.size(); ++i) {
-			if (port_config_phase[i] != ConfigPhase::kWaitingAddressed) continue;
+			if (port_config_phase[i] != ConfigPhase::WaitingAddressed) continue;
 			auto port = xhc.PortAt(static_cast<uint8>(i));
 			return ResetPort(xhc, port);
 		}
@@ -1273,7 +1672,7 @@ namespace {
 		if (dev == nullptr) return;
 		if (dev->RouteString() == 0) {
 			const uint8 port_id = dev->RootHubPortNum();
-			port_config_phase[port_id] = ConfigPhase::kNotConnected;
+			port_config_phase[port_id] = ConfigPhase::NotConnected;
 			if (addressing_port == port_id) addressing_port = 0;
 		}
 		else if (active_hub_child_valid &&
@@ -1289,7 +1688,7 @@ namespace {
 			return;
 		}
 		if (addressing_port != 0) {
-			port_config_phase[addressing_port] = ConfigPhase::kNotConnected;
+			port_config_phase[addressing_port] = ConfigPhase::NotConnected;
 			addressing_port = 0;
 		}
 	}
@@ -1321,7 +1720,7 @@ namespace {
 		if (is_enabled && reset_completed) {
 			port.ClearPortResetChange();
 
-			port_config_phase[port.Number()] = ConfigPhase::kEnablingSlot;
+			port_config_phase[port.Number()] = ConfigPhase::EnablingSlot;
 
 			EnableSlotCommandTRB cmd{};
 			xhc.CommandRing()->Push(cmd);
@@ -1364,7 +1763,7 @@ namespace {
 
 		xhc.GetDeviceManager()->LoadDCBAA(slot_id);
 
-		port_config_phase[port_id] = ConfigPhase::kAddressingDevice;
+		port_config_phase[port_id] = ConfigPhase::AddressingDevice;
 
 		AddressDeviceCommandTRB addr_dev_cmd{ dev->InputContextBuffer(), slot_id };
 		xhc.CommandRing()->Push(addr_dev_cmd);
@@ -1421,7 +1820,7 @@ namespace {
 		}
 
 		if (dev->RouteString() == 0) {
-			port_config_phase[port_id] = ConfigPhase::kInitializingDevice;
+			port_config_phase[port_id] = ConfigPhase::InitializingDevice;
 		}
 		return dev->StartInitialize();
 	}
@@ -1442,7 +1841,7 @@ namespace {
 		}
 
 		if (dev->RouteString() == 0) {
-			port_config_phase[port_id] = ConfigPhase::kConfigured;
+			port_config_phase[port_id] = ConfigPhase::Configured;
 		}
 		if (active_hub_child_valid &&
 			active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
@@ -1459,28 +1858,28 @@ namespace {
 		auto port = xhc.PortAt(port_id);
 
 		switch (port_config_phase[port_id]) {
-		case ConfigPhase::kNotConnected:
+		case ConfigPhase::NotConnected:
 			return ResetPort(xhc, port);
-		case ConfigPhase::kResettingPort:
+		case ConfigPhase::ResettingPort:
 			return EnableSlot(xhc, port);
-		case ConfigPhase::kWaitingAddressed:
-		case ConfigPhase::kEnablingSlot:
+		case ConfigPhase::WaitingAddressed:
+		case ConfigPhase::EnablingSlot:
 			// Before the Enable Slot command is completed, the controller/virtual machine may continue to report port status changes.
 			if (!port.IsConnected()) {
 				// restore state
-				port_config_phase[port_id] = ConfigPhase::kNotConnected;
+				port_config_phase[port_id] = ConfigPhase::NotConnected;
 				if (addressing_port == port_id) addressing_port = 0;
 				ploginfo("Port %u disconnected while enabling slot, reset state", port_id);
 			} else {
-				// ploginfo("Port %u: PSC arrived during kEnablingSlot -- ignoring", port_id);// ignore
+				// ploginfo("Port %u: PSC arrived during EnablingSlot -- ignoring", port_id);// ignore
 			}
 			return MAKE_ERROR(Error::kSuccess);
-		case ConfigPhase::kAddressingDevice:
-		case ConfigPhase::kInitializingDevice:
-		case ConfigPhase::kConfiguringEndpoints:
-		case ConfigPhase::kConfigured:
+		case ConfigPhase::AddressingDevice:
+		case ConfigPhase::InitializingDevice:
+		case ConfigPhase::ConfiguringEndpoints:
+		case ConfigPhase::Configured:
 			if (!port.IsConnected()) {
-				port_config_phase[port_id] = ConfigPhase::kNotConnected;
+				port_config_phase[port_id] = ConfigPhase::NotConnected;
 				if (addressing_port == port_id) addressing_port = 0;
 				RemoveDeviceSubtree(xhc, port_id, 0, true);
 				ploginfo("Port %u disconnected, subtree disable queued", port_id);
@@ -1513,7 +1912,7 @@ namespace {
 
 		const auto port_id = dev->GetSlotContext()->bits.root_hub_port_num;
 		if (dev->IsInitialized() &&
-			((dev->RouteString() == 0 && port_config_phase[port_id] == ConfigPhase::kInitializingDevice) ||
+			((dev->RouteString() == 0 && port_config_phase[port_id] == ConfigPhase::InitializingDevice) ||
 			 (active_hub_child_valid &&
 			  active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
 			  active_hub_child.route_string == dev->RouteString()))) {
@@ -1523,6 +1922,79 @@ namespace {
 				return RollbackEnumeration(xhc, *dev);
 			}
 		}
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	Error OnEvent(HostController& xhc, BandwidthRequestEventTRB& trb) {
+		if (trb.bits.completion_code != 1) {
+			return MAKE_ERROR(Error::kTransferFailed);
+		}
+		if (trb.bits.slot_id == 0 ||
+			xhc.GetDeviceManager()->FindBySlot(trb.bits.slot_id) == nullptr) {
+			return MAKE_ERROR(Error::kInvalidSlotID);
+		}
+		auto* dev = xhc.GetDeviceManager()->FindBySlot(trb.bits.slot_id);
+		if (!xhc.HasBandwidthNegotiationCapability()) {
+			plogwarn("xHCI unsolicited bandwidth request without BNC: slot=%u",
+				trb.bits.slot_id);
+		}
+		// The owner must release bandwidth through a lower-bandwidth alternate
+		// setting; issuing Negotiate Bandwidth here may generate this event again.
+		if (g_host_bandwidth_request_hook) {
+			const auto controller = ControllerIdentity(xhc);
+			const auto location = DeviceLocation(xhc, *dev);
+			g_host_bandwidth_request_hook(controller, location, *dev);
+		}
+		else {
+			plogwarn("xHCI bandwidth request has no policy handler: slot=%u",
+				trb.bits.slot_id);
+		}
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	Error OnEvent(HostController& xhc, DoorbellEventTRB& trb) {
+		(void)xhc;
+		plogwarn("xHCI Doorbell Event: reason=%u vf=%u slot=%u completion=%u",
+			trb.bits.doorbell_reason, trb.bits.vf_id, trb.bits.slot_id,
+			trb.bits.completion_code);
+		return MAKE_ERROR(trb.bits.completion_code == 1
+			? Error::kSuccess : Error::kTransferFailed);
+	}
+
+	Error OnEvent(HostController& xhc, HostControllerEventTRB& trb) {
+		return xhc.OnHostControllerEvent(trb.bits.completion_code);
+	}
+
+	Error OnEvent(HostController& xhc, DeviceNotificationEventTRB& trb) {
+		if (trb.bits.completion_code != 1 || trb.bits.slot_id == 0) {
+			return MAKE_ERROR(Error::kTransferFailed);
+		}
+		auto* dev = xhc.GetDeviceManager()->FindBySlot(trb.bits.slot_id);
+		if (dev == nullptr) return MAKE_ERROR(Error::kInvalidSlotID);
+		// DNCTRL enables only Function Wake (N1); reject unexpected firmware events.
+		if (trb.bits.notification_type != 1) {
+			plogwarn("xHCI unsupported device notification: type=%u slot=%u",
+				trb.bits.notification_type, trb.bits.slot_id);
+			return MAKE_ERROR(Error::kSuccess);
+		}
+		if (g_host_device_notification_hook) {
+			const auto controller = ControllerIdentity(xhc);
+			const auto location = DeviceLocation(xhc, *dev);
+			g_host_device_notification_hook(controller, location, *dev,
+				trb.bits.notification_type, trb.NotificationData());
+		}
+		else {
+			plogwarn("xHCI Function Wake has no notification handler: slot=%u",
+				trb.bits.slot_id);
+		}
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	Error OnEvent(HostController& xhc, MFINDEXWrapEventTRB& trb) {
+		if (trb.bits.completion_code != 1) {
+			return MAKE_ERROR(Error::kTransferFailed);
+		}
+		xhc.OnMFINDEXWrapEvent();
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
@@ -1554,7 +2026,7 @@ namespace {
 				err = AddressDevice(xhc, active_hub_child, slot_id);
 			}
 			else if (addressing_port != 0 &&
-				port_config_phase[addressing_port] == ConfigPhase::kEnablingSlot) {
+				port_config_phase[addressing_port] == ConfigPhase::EnablingSlot) {
 				err = AddressDevice(xhc, addressing_port, slot_id);
 			}
 			if (err) {
@@ -1580,7 +2052,7 @@ namespace {
 				if (port_id != addressing_port) {
 					return MAKE_ERROR(Error::kInvalidPhase);
 				}
-				if (port_config_phase[port_id] != ConfigPhase::kAddressingDevice) {
+				if (port_config_phase[port_id] != ConfigPhase::AddressingDevice) {
 					return MAKE_ERROR(Error::kInvalidPhase);
 				}
 
@@ -1634,7 +2106,7 @@ namespace {
 			if (hub_context_update) return MAKE_ERROR(Error::kSuccess);
 
 			auto port_id = dev->GetSlotContext()->bits.root_hub_port_num;
-			if (dev->RouteString() == 0 && port_config_phase[port_id] != ConfigPhase::kConfiguringEndpoints) {
+			if (dev->RouteString() == 0 && port_config_phase[port_id] != ConfigPhase::ConfiguringEndpoints) {
 				return MAKE_ERROR(Error::kInvalidPhase);
 			}
 
@@ -1664,6 +2136,7 @@ namespace uni::device::SpaceUSB3 {
 
 
 	Error HostController::Run() {
+		if (controller_failed_) return MAKE_ERROR(Error::kTransferFailed);
 	  // Run the controller
 		auto usbcmd = op_->USBCMD.Read();
 		usbcmd.bits.run_stop = true;
@@ -1680,6 +2153,15 @@ namespace uni::device::SpaceUSB3 {
 	}
 
 	Error HostController::ProcessEvents() {
+		if (controller_failed_) return MAKE_ERROR(Error::kTransferFailed);
+		const auto status = op_->USBSTS.Read();
+		if (status.bits.host_system_error || status.bits.host_controller_error) {
+			plogwarn("xHCI fatal status: HSE=%u HCE=%u",
+				status.bits.host_system_error, status.bits.host_controller_error);
+			controller_event_completion_code_ = 0;
+			controller_recovery_requested_ = true;
+			return RecoverController();
+		}
 		Error first_error = MAKE_ERROR(Error::kSuccess);
 		while (this->PrimaryEventRing()->HasFront()) {
 			if (auto err = ProcessEvent()) {
@@ -1698,7 +2180,7 @@ namespace uni::device::SpaceUSB3 {
 
 
 Error HostController::ConfigurePort(Port& port) {
-	if (port_config_phase[port.Number()] == ConfigPhase::kNotConnected) {
+	if (port_config_phase[port.Number()] == ConfigPhase::NotConnected) {
 		return ResetPort(self, port);
 	}
 	return MAKE_ERROR(Error::kSuccess);
@@ -1836,7 +2318,7 @@ Error HostController::ConfigureEndpoints(USBHostDevice_v3& dev) {
 	}
 
 	if (dev.RouteString() == 0) {
-		port_config_phase[port_id] = ConfigPhase::kConfiguringEndpoints;
+		port_config_phase[port_id] = ConfigPhase::ConfiguringEndpoints;
 	}
 
 	ConfigureEndpointCommandTRB cmd{ dev.InputContextBuffer(), dev.SlotID() };
@@ -1862,7 +2344,28 @@ Error HostController::ProcessEvent() {
 	else if (auto trb = TRBDynamicCast<CommandCompletionEventTRB>(event_trb)) {
 		err = OnEvent(xhc, *trb);
 	}
+	else if (auto trb = TRBDynamicCast<BandwidthRequestEventTRB>(event_trb)) {
+		err = OnEvent(xhc, *trb);
+	}
+	else if (auto trb = TRBDynamicCast<DoorbellEventTRB>(event_trb)) {
+		err = OnEvent(xhc, *trb);
+	}
+	else if (auto trb = TRBDynamicCast<HostControllerEventTRB>(event_trb)) {
+		err = OnEvent(xhc, *trb);
+	}
+	else if (auto trb = TRBDynamicCast<DeviceNotificationEventTRB>(event_trb)) {
+		err = OnEvent(xhc, *trb);
+	}
+	else if (auto trb = TRBDynamicCast<MFINDEXWrapEventTRB>(event_trb)) {
+		err = OnEvent(xhc, *trb);
+	}
+	else {
+		plogwarn("xHCI unhandled vendor/reserved event type=%u",
+			event_trb->bits.trb_type);
+		err = MAKE_ERROR(Error::kSuccess);
+	}
 	xhc.PrimaryEventRing()->Pop();
+	if (xhc.controller_recovery_requested_) return xhc.RecoverController();
 	return err;
 }
 
@@ -1874,6 +2377,7 @@ HostController::HostController(uintptr_t mmio_base,
 	: mmio_base_{ mmio_base },
 	cap_{ reinterpret_cast<CapabilityRegisters*>(mmio_base) },
 	op_{ reinterpret_cast<OperationalRegisters*>(mmio_base + cap_->CAPLENGTH.Read()) },
+	runtime_{ reinterpret_cast<RuntimeRegisters*>(mmio_base + cap_->RTSOFF.Read().Offset()) },
 	resource_config_{ resources },
 	max_ports_{ static_cast<uint8>(cap_->HCSPARAMS1.Read().bits.max_ports) },
 	max_slots_{ static_cast<uint8>(resources.max_slots != 0 &&
@@ -1893,6 +2397,18 @@ HostController::HostController(uintptr_t mmio_base,
 		if (resource_config_.event_ring_trbs < 256) resource_config_.event_ring_trbs = 256;
 		if (resource_config_.event_ring_trbs > 4096) resource_config_.event_ring_trbs = 4096;
 	}
+}
+
+uint8 HostController::IsochronousSchedulingThreshold() const {
+	const uint8 raw = cap_->HCSPARAMS2.Read().bits.isochronous_scheduling_threshold;
+	return static_cast<uint8>((raw & 0x07u) * ((raw & 0x08u) ? 8u : 1u));
+}
+
+Error HostController::OnHostControllerEvent(int completion_code) {
+	plogwarn("xHCI Host Controller Event: completion=%d", completion_code);
+	controller_event_completion_code_ = static_cast<uint8>(completion_code);
+	controller_recovery_requested_ = true;
+	return MAKE_ERROR(Error::kSuccess);
 }
 
 namespace {
@@ -2030,6 +2546,130 @@ static Error RegisterCommandRing(Ring* ring, MemMapRegister<CRCR_t>* crcr) {
 	return MAKE_ERROR(Error::kSuccess);
 }
 
+Error HostController::InitializeRuntimeRings() {
+	auto* primary_interrupter = &InterrupterRegisterSets()[0];
+	if (auto err = cr_.Initialize(resource_config_.command_ring_trbs)) return err;
+	if (auto err = RegisterCommandRing(&cr_, &op_->CRCR)) return err;
+	if (auto err = er_.Initialize(resource_config_.event_ring_trbs,
+		primary_interrupter)) return err;
+
+	auto iman = primary_interrupter->IMAN.Read();
+	iman.bits.interrupt_pending = true;
+	iman.bits.interrupt_enable = true;
+	primary_interrupter->IMAN.Write(iman);
+
+	auto dnctrl = op_->DNCTRL.Read();
+	dnctrl.data[0] = 1u << 1;
+	op_->DNCTRL.Write(dnctrl);
+
+	auto usbcmd = op_->USBCMD.Read();
+	usbcmd.bits.interrupter_enable = true;
+	usbcmd.bits.host_system_error_enable = true;
+	usbcmd.bits.enable_wrap_event = HCIVersion() >= 0x0100u;
+	usbcmd.bits.extended_tbc_enable = HasExtendedTBCCapability();
+	op_->USBCMD.Write(usbcmd);
+	return MAKE_ERROR(Error::kSuccess);
+}
+
+Error HostController::RecoverController() {
+	if (!controller_recovery_requested_ || controller_recovery_in_progress_) {
+		return MAKE_ERROR(Error::kTransferFailed);
+	}
+	controller_recovery_in_progress_ = true;
+	controller_failed_ = true;
+	plogwarn("xHCI controller recovery started: completion=%u",
+		controller_event_completion_code_);
+
+	auto usbcmd = op_->USBCMD.Read();
+	usbcmd.bits.run_stop = false;
+	usbcmd.bits.interrupter_enable = false;
+	usbcmd.bits.host_system_error_enable = false;
+	usbcmd.bits.enable_wrap_event = false;
+	op_->USBCMD.Write(usbcmd);
+	stduint wait_count = 10000000u;
+	while (!op_->USBSTS.Read().bits.host_controller_halted && wait_count != 0) {
+		--wait_count;
+	}
+	if (wait_count == 0) {
+		controller_recovery_in_progress_ = false;
+		return MAKE_ERROR(Error::kHostControllerNotHalted);
+	}
+
+	for (stduint slot_id = 1; slot_id <= devmgr_.MaxSlots(); ++slot_id) {
+		auto* dev = devmgr_.FindBySlot(static_cast<uint8>(slot_id));
+		if (dev == nullptr || slot_disconnect_notified_[slot_id]) continue;
+		if (g_host_device_disconnected_hook) {
+			const auto controller = ControllerIdentity(*this);
+			const auto location = DeviceLocation(*this, *dev);
+			g_host_device_disconnected_hook(controller, location, *dev);
+		}
+		slot_disconnect_notified_.setof(slot_id);
+	}
+	devmgr_.Reset();
+	MemSet(slot_removal_pending_storage_, 0, sizeof(slot_removal_pending_storage_));
+	MemSet(slot_disconnect_notified_storage_, 0, sizeof(slot_disconnect_notified_storage_));
+
+	pending_hub_child_count = 0;
+	active_hub_child_valid = false;
+	addressing_port = 0;
+	enable_slot_command_pending = false;
+	for (size_t index = 0; index < port_config_phase.size(); ++index) {
+		port_config_phase[index] = ConfigPhase::NotConnected;
+	}
+
+	usbcmd = op_->USBCMD.Read();
+	usbcmd.bits.host_controller_reset = true;
+	op_->USBCMD.Write(usbcmd);
+	wait_count = 10000000u;
+	while ((op_->USBCMD.Read().bits.host_controller_reset ||
+		op_->USBSTS.Read().bits.controller_not_ready) && wait_count != 0) {
+		--wait_count;
+	}
+	if (wait_count == 0) {
+		controller_recovery_in_progress_ = false;
+		return MAKE_ERROR(Error::kTransferFailed);
+	}
+
+	auto config = op_->CONFIG.Read();
+	config.bits.max_device_slots_enabled = max_slots_;
+	op_->CONFIG.Write(config);
+	DCBAAP_t dcbaap{};
+	dcbaap.SetPointer(reinterpret_cast<uint64_t>(devmgr_.DeviceContexts()));
+	op_->DCBAAP.Write(dcbaap);
+	if (auto err = InitializeRuntimeRings()) {
+		controller_recovery_in_progress_ = false;
+		return err;
+	}
+
+	usbcmd = op_->USBCMD.Read();
+	usbcmd.bits.run_stop = true;
+	op_->USBCMD.Write(usbcmd);
+	wait_count = 10000000u;
+	while (op_->USBSTS.Read().bits.host_controller_halted && wait_count != 0) {
+		--wait_count;
+	}
+	if (wait_count == 0) {
+		controller_recovery_in_progress_ = false;
+		return MAKE_ERROR(Error::kTransferFailed);
+	}
+
+	controller_recovery_requested_ = false;
+	controller_recovery_in_progress_ = false;
+	controller_failed_ = false;
+	controller_event_completion_code_ = 0;
+
+	Error first_error = MAKE_ERROR(Error::kSuccess);
+	for (uint16 port_id = 1; port_id <= max_ports_; ++port_id) {
+		auto port = PortAt(static_cast<uint8>(port_id));
+		if (!port.IsConnected()) continue;
+		if (auto err = ConfigurePort(port)) {
+			if (!first_error) first_error = err;
+		}
+	}
+	plogwarn("xHCI controller recovery completed");
+	return first_error;
+}
+
 Error HostController::Initialize() {
 	const uint16 hci_version = cap_->HCIVERSION.Read();
 	if (hci_version < 0x0100u) {
@@ -2124,33 +2764,11 @@ Error HostController::Initialize() {
 	// Write to operational register
 	op_->DCBAAP.Write(dcbaap);
 
-	// Hardware is now ready; below is the setup of dynamic interaction channels
-
-	// Register the command and primary event rings using the selected resource policy.
-	auto primary_interrupter = &InterrupterRegisterSets()[0];
-	if (auto err = cr_.Initialize(resource_config_.command_ring_trbs)) {
-		return err;
-	}
-	if (auto err = RegisterCommandRing(&cr_, &op_->CRCR)) {
-		return err;
-	}
-	// init ring and bind it to the primary interrupter
-	if (auto err = er_.Initialize(resource_config_.event_ring_trbs, primary_interrupter)) {
-		return err;
-	}
-
-	// Enable interrupt for the primary interrupter
-	auto iman = primary_interrupter->IMAN.Read();
-	iman.bits.interrupt_pending = true;
-	iman.bits.interrupt_enable = true;
-	primary_interrupter->IMAN.Write(iman);
-
-	// Enable interrupt for the controller
-	usbcmd = op_->USBCMD.Read();
-	usbcmd.bits.interrupter_enable = true;
-	op_->USBCMD.Write(usbcmd);
-
-	return MAKE_ERROR(Error::kSuccess);
+	controller_failed_ = false;
+	controller_recovery_requested_ = false;
+	controller_recovery_in_progress_ = false;
+	controller_event_completion_code_ = 0;
+	return InitializeRuntimeRings();
 }
 
 

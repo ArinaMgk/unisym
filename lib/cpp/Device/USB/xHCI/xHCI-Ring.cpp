@@ -65,6 +65,34 @@ namespace uni::device::SpaceUSB3 {
 		return trb_ptr;
 	}
 
+	TRB* Ring::PushDeferred(const uni::Array<uint32_t, 4>& data) {
+		auto* trb_ptr = &buf_[write_index_];
+		const bool producer_cycle_state = cycle_bit_;
+		cycle_bit_ = !cycle_bit_;
+		CopyToLast(data);
+		cycle_bit_ = producer_cycle_state;
+
+		++write_index_;
+		if (write_index_ == buf_size_ - 1) {
+			LinkTRB link{ buf_ };
+			link.bits.toggle_cycle = true;
+			link.bits.chain_bit = (data[3] & (1u << 4)) != 0;
+			CopyToLast(link.data);
+			write_index_ = 0;
+			cycle_bit_ = !cycle_bit_;
+		}
+		return trb_ptr;
+	}
+
+	void Ring::Commit(TRB* trb, bool cycle_state) {
+		if (trb == nullptr) return;
+		#if defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
+		_ASM("sfence" ::: "memory");
+		#endif
+		trb->data[3] = (trb->data[3] & 0xfffffffeu) |
+			static_cast<uint32_t>(cycle_state);
+	}
+
 	TRB* Ring::NextTransferTRB(const TRB* trb) const {
 		if (buf_ == nullptr || buf_size_ < 2 || trb == nullptr) return nullptr;
 		const uintptr_t address = reinterpret_cast<uintptr_t>(trb);
@@ -78,6 +106,17 @@ namespace uni::device::SpaceUSB3 {
 		return next == buf_ + buf_size_ - 1 ? buf_ : next;
 	}
 
+	EventRing::~EventRing() {
+		if (erst_ != nullptr) {
+			uni_hostenv_allocator->deallocate(erst_);
+			erst_ = nullptr;
+		}
+		if (buf_ != nullptr) {
+			uni_hostenv_allocator->deallocate(buf_);
+			buf_ = nullptr;
+		}
+	}
+
 	Error EventRing::Initialize(size_t buf_size,
 		InterrupterRegisterSet* interrupter) {
 		if (buf_size < 16 || buf_size > 4096 || interrupter == nullptr) {
@@ -85,6 +124,11 @@ namespace uni::device::SpaceUSB3 {
 		}
 		if (buf_ != nullptr) {
 			uni_hostenv_allocator->deallocate(buf_);
+			buf_ = nullptr;
+		}
+		if (erst_ != nullptr) {
+			uni_hostenv_allocator->deallocate(erst_);
+			erst_ = nullptr;
 		}
 
 		cycle_bit_ = true;
@@ -100,6 +144,7 @@ namespace uni::device::SpaceUSB3 {
 		erst_ = AllocArray<EventRingSegmentTableEntry>(1, 64, 64 * 1024);
 		if (erst_ == nullptr) {
 			uni_hostenv_allocator->deallocate(buf_);
+			buf_ = nullptr;
 			return MAKE_ERROR(Error::kNoEnoughMemory);
 		}
 		MemSet(erst_, 0, 1 * sizeof(EventRingSegmentTableEntry));

@@ -19,6 +19,11 @@ namespace uni::device::SpaceUSB3 {
 		TRB* Push(const TRBType& trb) {
 			return Push(trb.data);
 		}
+		template <typename TRBType>
+		TRB* PushDeferred(const TRBType& trb) {
+			return PushDeferred(trb.data);
+		}
+		void Commit(TRB* trb, bool cycle_state);
 
 		TRB* Buffer() const { return buf_; }
 		TRB* EnqueuePointer() const { return &buf_[write_index_]; }
@@ -50,6 +55,7 @@ namespace uni::device::SpaceUSB3 {
 			 * @return Pointer to the appended TRB (on the ring).
 			 */
 		TRB* Push(const uni::Array<uint32_t, 4>& data);
+		TRB* PushDeferred(const uni::Array<uint32_t, 4>& data);
 	};
 
 	union EventRingSegmentTableEntry {
@@ -66,6 +72,7 @@ namespace uni::device::SpaceUSB3 {
 
 	class EventRing {
 	public:
+		~EventRing();
 		Error Initialize(size_t buf_size, InterrupterRegisterSet* interrupter);
 
 		TRB* ReadDequeuePointer() const {
@@ -85,11 +92,11 @@ namespace uni::device::SpaceUSB3 {
 		void Pop();
 
 	private:
-		TRB* buf_;
-		size_t buf_size_;
+		TRB* buf_ = nullptr;
+		size_t buf_size_ = 0;
 
-		bool cycle_bit_;
-		EventRingSegmentTableEntry* erst_;
-		InterrupterRegisterSet* interrupter_;
+		bool cycle_bit_ = true;
+		EventRingSegmentTableEntry* erst_ = nullptr;
+		InterrupterRegisterSet* interrupter_ = nullptr;
 	};
 }

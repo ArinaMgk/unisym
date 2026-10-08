@@ -454,3 +454,25 @@ namespace uni {
 
 
 }
+
+#if defined(_ARC_x86) || defined(_ARC_x64)
+#include "../../../../inc/c/proctrl/IAx86_64.h"
+
+bool uni::Paging::isSupportedSize(stduint exponent) {
+	unsigned a{}, b{}, c{}, d{};
+	switch (exponent) {
+	case PAGESIZE_4KB: return true;
+	case PAGESIZE_2MB: {
+		_IO_CPUID(1, 0, &a, &b, &c, &d);
+		return (d & (1u << 3)) != 0;
+	}
+	case PAGESIZE_1GB: {
+		_IO_CPUID(0x80000000, 0, &a, &b, &c, &d);
+		if (a < 0x80000001u) return false;
+		_IO_CPUID(0x80000001, 0, &a, &b, &c, &d);
+		return (d & (1u << 26)) != 0;
+	}
+	default: return false;
+	}
+}
+#endif

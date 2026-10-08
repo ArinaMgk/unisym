@@ -30,10 +30,10 @@
 
 // The hosted C++ headers are not consulted: libstdc++'s <memory> needs C facilities
 // (mbstate_t, wint_t, btowc) that the local C shadow does not provide yet.
-#if 0
+#if 1
 #if defined(__has_include_next)
 #	if __has_include_next(<memory>)
-#		include_next <memory>
+// #		include_next <memory>
 #		define _HAS_STD_MEMORY
 #	endif
 #endif

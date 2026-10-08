@@ -87,19 +87,6 @@ namespace {
 
 namespace uni::device::SpaceUSB3 {
 	namespace {
-		struct PendingHubChildAddress {
-			uint8 root_hub_port_num;
-			uint32 route_string;
-			uint8 hub_slot_id;
-			uint8 downstream_port;
-			uint8 speed;
-		};
-
-		uni::Array<PendingHubChildAddress, 16> pending_hub_children{};
-		stduint pending_hub_child_count = 0;
-		PendingHubChildAddress active_hub_child{};
-		bool active_hub_child_valid = false;
-
 		bool MatchesPortAndRoute(const USBHostDevice_v3& dev, uint8 port_num, uint32 route_string) {
 			return dev.RootHubPortNum() == port_num && dev.RouteString() == route_string;
 		}
@@ -159,51 +146,43 @@ namespace uni::device::SpaceUSB3 {
 			return kFullSpeed;
 		}
 
-		bool QueueHubChildAddress(PendingHubChildAddress ctx) {
-			if (pending_hub_child_count >= pending_hub_children.size()) {
-				return false;
-			}
-			for (stduint i = 0; i < pending_hub_child_count; ++i) {
-				const auto& pending = pending_hub_children[i];
+		bool QueueHubChildAddress(HostController& xhc, PendingHubChildAddress ctx) {
+			auto& state = xhc.EnumerationState();
+			for (stduint i = 0; i < state.pending_hub_children.Count(); ++i) {
+				const auto& pending = state.pending_hub_children[i];
 				if (pending.root_hub_port_num == ctx.root_hub_port_num &&
 					pending.route_string == ctx.route_string) {
 					return true;
 				}
 			}
-			if (active_hub_child_valid &&
-				active_hub_child.root_hub_port_num == ctx.root_hub_port_num &&
-				active_hub_child.route_string == ctx.route_string) {
+			if (state.active_hub_child_valid &&
+				state.active_hub_child.root_hub_port_num == ctx.root_hub_port_num &&
+				state.active_hub_child.route_string == ctx.route_string) {
 				return true;
 			}
-			pending_hub_children[pending_hub_child_count++] = ctx;
-			return true;
+			return state.pending_hub_children.Append(ctx);
 		}
 
-		bool PopHubChildAddress(PendingHubChildAddress& ctx) {
-			if (pending_hub_child_count == 0) return false;
-			ctx = pending_hub_children[0];
-			for (stduint i = 1; i < pending_hub_child_count; ++i) {
-				pending_hub_children[i - 1] = pending_hub_children[i];
-			}
-			--pending_hub_child_count;
-			return true;
+		bool PopHubChildAddress(HostController& xhc, PendingHubChildAddress& ctx) {
+			auto& state = xhc.EnumerationState();
+			if (state.pending_hub_children.Count() == 0) return false;
+			ctx = state.pending_hub_children[0];
+			return state.pending_hub_children.Remove(0);
 		}
 
-		void RemovePendingHubChildren(uint8 root_hub_port_num, uint32 route_string_prefix, bool all_routes) {
-			stduint dst = 0;
-			for (stduint src = 0; src < pending_hub_child_count; ++src) {
-				const auto& pending = pending_hub_children[src];
+		void RemovePendingHubChildren(HostController& xhc, uint8 root_hub_port_num,
+			uint32 route_string_prefix, bool all_routes) {
+			auto& state = xhc.EnumerationState();
+			for (stduint index = state.pending_hub_children.Count(); index > 0; --index) {
+				const auto& pending = state.pending_hub_children[index - 1];
 				const bool matches = pending.root_hub_port_num == root_hub_port_num &&
 					(all_routes || RouteHasPrefix(pending.route_string, route_string_prefix));
-				if (!matches) {
-					pending_hub_children[dst++] = pending;
-				}
+				if (matches) state.pending_hub_children.Remove(index - 1);
 			}
-			pending_hub_child_count = dst;
-			if (active_hub_child_valid &&
-				active_hub_child.root_hub_port_num == root_hub_port_num &&
-				(all_routes || RouteHasPrefix(active_hub_child.route_string, route_string_prefix))) {
-				active_hub_child_valid = false;
+			if (state.active_hub_child_valid &&
+				state.active_hub_child.root_hub_port_num == root_hub_port_num &&
+				(all_routes || RouteHasPrefix(state.active_hub_child.route_string, route_string_prefix))) {
+				state.active_hub_child_valid = false;
 			}
 		}
 
@@ -236,7 +215,7 @@ namespace uni::device::SpaceUSB3 {
 						slots[i], err.Name());
 				}
 			}
-			RemovePendingHubChildren(root_hub_port_num, route_string_prefix, all_routes);
+			RemovePendingHubChildren(xhc, root_hub_port_num, route_string_prefix, all_routes);
 		}
 	}
 
@@ -301,10 +280,6 @@ namespace uni::device::SpaceUSB3 {
 
 	Error USBHostDevice_v3::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
-		if (auto err = USBHostDevice::ControlIn(ep_id, setup_data, buf, len, issuer)) {
-			return err;
-		}
-
 		Log(kDebug, "Device::ControlIn: ep addr %d, buf 0x%08x, len %d\n",
 			ep_id.Address(), buf, len);
 		if (ep_id.Number() < 0 || 15 < ep_id.Number()) {
@@ -319,6 +294,10 @@ namespace uni::device::SpaceUSB3 {
 		if (tr == nullptr) {
 			return MAKE_ERROR(Error::kTransferRingNotSet);
 		}
+		if (setup_stage_map_.IsFull()) return MAKE_ERROR(Error::kFull);
+		if (auto err = USBHostDevice::ControlIn(ep_id, setup_data, buf, len, issuer)) {
+			return err;
+		}
 
 		auto status = StatusStageTRB{};
 
@@ -330,7 +309,9 @@ namespace uni::device::SpaceUSB3 {
 			auto data_trb_position = tr->Push(data);
 			tr->Push(status);
 
-			setup_stage_map_.Put(data_trb_position, setup_trb_position);
+			if (!setup_stage_map_.Put(data_trb_position, setup_trb_position)) {
+				return MAKE_ERROR(Error::kFull);
+			}
 		}
 		else {
 			auto setup_trb_position = TRBDynamicCast<SetupStageTRB>(tr->Push(
@@ -339,7 +320,9 @@ namespace uni::device::SpaceUSB3 {
 			status.bits.interrupt_on_completion = true;
 			auto status_trb_position = tr->Push(status);
 
-			setup_stage_map_.Put(status_trb_position, setup_trb_position);
+			if (!setup_stage_map_.Put(status_trb_position, setup_trb_position)) {
+				return MAKE_ERROR(Error::kFull);
+			}
 		}
 
 		dbreg_->Ring(dci.value);
@@ -349,6 +332,14 @@ namespace uni::device::SpaceUSB3 {
 
 	Error USBHostDevice_v3::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
+		if (ep_id.Number() < 0 || 15 < ep_id.Number()) {
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
+		const DeviceContextIndex dci{ ep_id };
+		if (transfer_rings_[dci.value - 1] == nullptr) {
+			return MAKE_ERROR(Error::kTransferRingNotSet);
+		}
+		if (setup_stage_map_.IsFull()) return MAKE_ERROR(Error::kFull);
 		if (auto err = USBHostDevice::ControlOut(ep_id, setup_data, buf, len, issuer)) {
 			return err;
 		}
@@ -371,6 +362,7 @@ namespace uni::device::SpaceUSB3 {
 		if (tr == nullptr) {
 			return MAKE_ERROR(Error::kTransferRingNotSet);
 		}
+		if (setup_stage_map_.IsFull()) return MAKE_ERROR(Error::kFull);
 
 		auto status = StatusStageTRB{};
 		status.bits.direction = true;
@@ -383,7 +375,9 @@ namespace uni::device::SpaceUSB3 {
 			auto data_trb_position = tr->Push(data);
 			tr->Push(status);
 
-			setup_stage_map_.Put(data_trb_position, setup_trb_position);
+			if (!setup_stage_map_.Put(data_trb_position, setup_trb_position)) {
+				return MAKE_ERROR(Error::kFull);
+			}
 		}
 		else {
 			auto setup_trb_position = TRBDynamicCast<SetupStageTRB>(tr->Push(
@@ -391,7 +385,9 @@ namespace uni::device::SpaceUSB3 {
 			status.bits.interrupt_on_completion = true;
 			auto status_trb_position = tr->Push(status);
 
-			setup_stage_map_.Put(status_trb_position, setup_trb_position);
+			if (!setup_stage_map_.Put(status_trb_position, setup_trb_position)) {
+				return MAKE_ERROR(Error::kFull);
+			}
 		}
 
 		dbreg_->Ring(dci.value);
@@ -1173,11 +1169,9 @@ namespace uni::device::SpaceUSB3 {
 			return BeginTTBufferClear(recovery_ep);
 		}
 
-		if (!transfer_succeeded) {
-			return MAKE_ERROR(Error::kTransferFailed);
-		}
 		return this->OnControlCompleted(
-			trb.GetEndpointID(), setup_data, data_stage_buffer, transfer_length);
+			trb.GetEndpointID(), setup_data, data_stage_buffer,
+			transfer_succeeded ? transfer_length : -1);
 	}
 }
 
@@ -1530,29 +1524,11 @@ namespace {
 
 
 
-	enum class ConfigPhase {
-		NotConnected,
-		WaitingAddressed,
-		ResettingPort,
-		EnablingSlot,
-		AddressingDevice,
-		InitializingDevice,
-		ConfiguringEndpoints,
-		Configured,
-	};
 	/* Between resetting a root hub port and assigning an address,
 		 * no other processing must be interleaved; only that port's processing is allowed.
 		 * WaitingAddressed is the state waiting for the sequence from reset
 		 * (ResettingPort) to address assignment (AddressingDevice) to complete.
 		 */
-
-	uni::Array<volatile ConfigPhase, 256> port_config_phase{};  // index: port number
-
-	/** Port number currently processing from ResettingPort to AddressingDevice.
-		 * 0 indicates no port is in that state.
-		 */
-	uint8 addressing_port{ 0 };
-	bool enable_slot_command_pending{ false };
 
 	void InitializeSlotContext(SlotContext& ctx, uint8 root_hub_port_num, uint32 route_string,
 		uint8 speed, const USBHostDevice_v3* parent_hub, uint8 downstream_port) {
@@ -1578,18 +1554,20 @@ namespace {
 	}
 
 	Error TryAddressNextHubChild(HostController& xhc) {
-		if (enable_slot_command_pending || active_hub_child_valid || addressing_port != 0) {
+		auto& state = xhc.EnumerationState();
+		if (state.enable_slot_command_pending || state.active_hub_child_valid ||
+			state.addressing_port != 0) {
 			return MAKE_ERROR(Error::kSuccess);
 		}
 		PendingHubChildAddress ctx{};
-		if (!PopHubChildAddress(ctx)) {
+		if (!PopHubChildAddress(xhc, ctx)) {
 			return MAKE_ERROR(Error::kSuccess);
 		}
-		active_hub_child = ctx;
-		active_hub_child_valid = true;
+		state.active_hub_child = ctx;
+		state.active_hub_child_valid = true;
 		EnableSlotCommandTRB cmd{};
 		xhc.CommandRing()->Push(cmd);
-		enable_slot_command_pending = true;
+		state.enable_slot_command_pending = true;
 		xhc.DoorbellRegisterAt(0)->Ring(0);
 		return MAKE_ERROR(Error::kSuccess);
 	}
@@ -1632,6 +1610,7 @@ namespace {
 	}
 
 	Error ResetPort(HostController& xhc, Port& port) {
+		auto& state = xhc.EnumerationState();
 		const bool is_connected = port.IsConnected();
 		Log(kDebug, "ResetPort: port.IsConnected() = %s\n",
 			is_connected ? "true" : "false");
@@ -1640,61 +1619,66 @@ namespace {
 			return MAKE_ERROR(Error::kSuccess);
 		}
 
-		if (enable_slot_command_pending || addressing_port != 0 || active_hub_child_valid) {
-			port_config_phase[port.Number()] = ConfigPhase::WaitingAddressed;
+		if (state.enable_slot_command_pending || state.addressing_port != 0 ||
+			state.active_hub_child_valid) {
+			state.port_config_phase[port.Number()] = ConfigPhase::WaitingAddressed;
 		}
 		else {
-			const auto port_phase = port_config_phase[port.Number()];
+			const auto port_phase = state.port_config_phase[port.Number()];
 			if (port_phase != ConfigPhase::NotConnected &&
 				port_phase != ConfigPhase::WaitingAddressed) {
 				return MAKE_ERROR(Error::kInvalidPhase);
 			}
-			addressing_port = port.Number();
-			port_config_phase[port.Number()] = ConfigPhase::ResettingPort;
+			state.addressing_port = port.Number();
+			state.port_config_phase[port.Number()] = ConfigPhase::ResettingPort;
 			port.Reset();
 		}
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
 	Error ResumePendingEnumeration(HostController& xhc) {
-		if (enable_slot_command_pending || addressing_port != 0 || active_hub_child_valid) {
+		auto& state = xhc.EnumerationState();
+		if (state.enable_slot_command_pending || state.addressing_port != 0 ||
+			state.active_hub_child_valid) {
 			return MAKE_ERROR(Error::kSuccess);
 		}
-		for (size_t i = 1; i < port_config_phase.size(); ++i) {
-			if (port_config_phase[i] != ConfigPhase::WaitingAddressed) continue;
+		for (size_t i = 1; i < state.port_config_phase.size(); ++i) {
+			if (state.port_config_phase[i] != ConfigPhase::WaitingAddressed) continue;
 			auto port = xhc.PortAt(static_cast<uint8>(i));
 			return ResetPort(xhc, port);
 		}
 		return TryAddressNextHubChild(xhc);
 	}
 
-	void ReleaseEnumerationOwner(USBHostDevice_v3* dev) {
+	void ReleaseEnumerationOwner(HostController& xhc, USBHostDevice_v3* dev) {
 		if (dev == nullptr) return;
+		auto& state = xhc.EnumerationState();
 		if (dev->RouteString() == 0) {
 			const uint8 port_id = dev->RootHubPortNum();
-			port_config_phase[port_id] = ConfigPhase::NotConnected;
-			if (addressing_port == port_id) addressing_port = 0;
+			state.port_config_phase[port_id] = ConfigPhase::NotConnected;
+			if (state.addressing_port == port_id) state.addressing_port = 0;
 		}
-		else if (active_hub_child_valid &&
-			active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
-			active_hub_child.route_string == dev->RouteString()) {
-			active_hub_child_valid = false;
+		else if (state.active_hub_child_valid &&
+			state.active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
+			state.active_hub_child.route_string == dev->RouteString()) {
+			state.active_hub_child_valid = false;
 		}
 	}
 
-	void ReleaseActiveEnableSlotOwner() {
-		if (active_hub_child_valid) {
-			active_hub_child_valid = false;
+	void ReleaseActiveEnableSlotOwner(HostController& xhc) {
+		auto& state = xhc.EnumerationState();
+		if (state.active_hub_child_valid) {
+			state.active_hub_child_valid = false;
 			return;
 		}
-		if (addressing_port != 0) {
-			port_config_phase[addressing_port] = ConfigPhase::NotConnected;
-			addressing_port = 0;
+		if (state.addressing_port != 0) {
+			state.port_config_phase[state.addressing_port] = ConfigPhase::NotConnected;
+			state.addressing_port = 0;
 		}
 	}
 
 	Error RollbackEnabledSlot(HostController& xhc, uint8 slot_id) {
-		ReleaseActiveEnableSlotOwner();
+		ReleaseActiveEnableSlotOwner(xhc);
 		if (slot_id != 0) {
 			if (auto err = xhc.QueueSlotRemoval(slot_id, false)) return err;
 		}
@@ -1704,13 +1688,14 @@ namespace {
 
 	Error RollbackEnumeration(HostController& xhc, USBHostDevice_v3& dev) {
 		const uint8 slot_id = dev.SlotID();
-		ReleaseEnumerationOwner(&dev);
+		ReleaseEnumerationOwner(xhc, &dev);
 		if (auto err = xhc.QueueSlotRemoval(slot_id, false)) return err;
 		if (auto err = ResumePendingEnumeration(xhc)) return err;
 		return MAKE_ERROR(Error::kTransferFailed);
 	}
 
 	Error EnableSlot(HostController& xhc, Port& port) {
+		auto& state = xhc.EnumerationState();
 		const bool is_enabled = port.IsEnabled();
 		const bool reset_completed = port.IsPortResetChanged();
 		Log(kDebug, "EnableSlot: port.IsEnabled() = %s, port.IsPortResetChanged() = %s\n",
@@ -1720,17 +1705,18 @@ namespace {
 		if (is_enabled && reset_completed) {
 			port.ClearPortResetChange();
 
-			port_config_phase[port.Number()] = ConfigPhase::EnablingSlot;
+			state.port_config_phase[port.Number()] = ConfigPhase::EnablingSlot;
 
 			EnableSlotCommandTRB cmd{};
 			xhc.CommandRing()->Push(cmd);
-			enable_slot_command_pending = true;
+			state.enable_slot_command_pending = true;
 			xhc.DoorbellRegisterAt(0)->Ring(0);
 		}
 		return MAKE_ERROR(Error::kSuccess);
 	}
 
 	Error AddressDevice(HostController& xhc, uint8 port_id, uint8 slot_id) {
+		auto& state = xhc.EnumerationState();
 		Log(kDebug, "AddressDevice: port_id = %d, slot_id = %d\n", port_id, slot_id);
 		auto port = xhc.PortAt(port_id);
 		const uint8 speed_id = port.Speed();
@@ -1763,7 +1749,7 @@ namespace {
 
 		xhc.GetDeviceManager()->LoadDCBAA(slot_id);
 
-		port_config_phase[port_id] = ConfigPhase::AddressingDevice;
+		state.port_config_phase[port_id] = ConfigPhase::AddressingDevice;
 
 		AddressDeviceCommandTRB addr_dev_cmd{ dev->InputContextBuffer(), slot_id };
 		xhc.CommandRing()->Push(addr_dev_cmd);
@@ -1820,7 +1806,7 @@ namespace {
 		}
 
 		if (dev->RouteString() == 0) {
-			port_config_phase[port_id] = ConfigPhase::InitializingDevice;
+			xhc.EnumerationState().port_config_phase[port_id] = ConfigPhase::InitializingDevice;
 		}
 		return dev->StartInitialize();
 	}
@@ -1841,12 +1827,13 @@ namespace {
 		}
 
 		if (dev->RouteString() == 0) {
-			port_config_phase[port_id] = ConfigPhase::Configured;
+			xhc.EnumerationState().port_config_phase[port_id] = ConfigPhase::Configured;
 		}
-		if (active_hub_child_valid &&
-			active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
-			active_hub_child.route_string == dev->RouteString()) {
-			active_hub_child_valid = false;
+		auto& state = xhc.EnumerationState();
+		if (state.active_hub_child_valid &&
+			state.active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
+			state.active_hub_child.route_string == dev->RouteString()) {
+			state.active_hub_child_valid = false;
 			return TryAddressNextHubChild(xhc);
 		}
 		return MAKE_ERROR(Error::kSuccess);
@@ -1857,7 +1844,8 @@ namespace {
 		auto port_id = trb.bits.port_id;
 		auto port = xhc.PortAt(port_id);
 
-		switch (port_config_phase[port_id]) {
+		auto& state = xhc.EnumerationState();
+		switch (state.port_config_phase[port_id]) {
 		case ConfigPhase::NotConnected:
 			return ResetPort(xhc, port);
 		case ConfigPhase::ResettingPort:
@@ -1867,8 +1855,8 @@ namespace {
 			// Before the Enable Slot command is completed, the controller/virtual machine may continue to report port status changes.
 			if (!port.IsConnected()) {
 				// restore state
-				port_config_phase[port_id] = ConfigPhase::NotConnected;
-				if (addressing_port == port_id) addressing_port = 0;
+				state.port_config_phase[port_id] = ConfigPhase::NotConnected;
+				if (state.addressing_port == port_id) state.addressing_port = 0;
 				ploginfo("Port %u disconnected while enabling slot, reset state", port_id);
 			} else {
 				// ploginfo("Port %u: PSC arrived during EnablingSlot -- ignoring", port_id);// ignore
@@ -1879,15 +1867,15 @@ namespace {
 		case ConfigPhase::ConfiguringEndpoints:
 		case ConfigPhase::Configured:
 			if (!port.IsConnected()) {
-				port_config_phase[port_id] = ConfigPhase::NotConnected;
-				if (addressing_port == port_id) addressing_port = 0;
+				state.port_config_phase[port_id] = ConfigPhase::NotConnected;
+				if (state.addressing_port == port_id) state.addressing_port = 0;
 				RemoveDeviceSubtree(xhc, port_id, 0, true);
 				ploginfo("Port %u disconnected, subtree disable queued", port_id);
 				return ResumePendingEnumeration(xhc);
 			}
 			return MAKE_ERROR(Error::kSuccess);
 		default:
-			plogerro("OnEvent kInvalidPhase %u", port_config_phase[port_id]);
+			plogerro("OnEvent kInvalidPhase %u", state.port_config_phase[port_id]);
 			return MAKE_ERROR(Error::kInvalidPhase);
 		}
 	}
@@ -1911,11 +1899,12 @@ namespace {
 		}
 
 		const auto port_id = dev->GetSlotContext()->bits.root_hub_port_num;
+		auto& state = xhc.EnumerationState();
 		if (dev->IsInitialized() &&
-			((dev->RouteString() == 0 && port_config_phase[port_id] == ConfigPhase::InitializingDevice) ||
-			 (active_hub_child_valid &&
-			  active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
-			  active_hub_child.route_string == dev->RouteString()))) {
+			((dev->RouteString() == 0 && state.port_config_phase[port_id] == ConfigPhase::InitializingDevice) ||
+			 (state.active_hub_child_valid &&
+			  state.active_hub_child.root_hub_port_num == dev->RootHubPortNum() &&
+			  state.active_hub_child.route_string == dev->RouteString()))) {
 			if (auto err = xhc.ConfigureEndpoints(*dev)) {
 				plogerro("xHCI endpoint configuration setup failed: slot=%u error=%s",
 					slot_id, err.Name());
@@ -1999,6 +1988,7 @@ namespace {
 	}
 
 	Error OnEvent(HostController& xhc, CommandCompletionEventTRB& trb) {
+		auto& state = xhc.EnumerationState();
 		if (trb.Pointer() == nullptr) return MAKE_ERROR(Error::kInvalidPhase);
 		const auto issuer_type = trb.Pointer()->bits.trb_type;
 		const auto slot_id = trb.bits.slot_id;
@@ -2013,21 +2003,21 @@ namespace {
 		}
 
 		if (issuer_type == EnableSlotCommandTRB::Type) {
-			enable_slot_command_pending = false;
+			state.enable_slot_command_pending = false;
 			if (trb.bits.completion_code != 1) {
 				plogerro("xHCI Enable Slot failed: completion=%u",
 					trb.bits.completion_code);
-				ReleaseActiveEnableSlotOwner();
+				ReleaseActiveEnableSlotOwner(xhc);
 				if (auto err = ResumePendingEnumeration(xhc)) return err;
 				return MAKE_ERROR(Error::kTransferFailed);
 			}
 			Error err = MAKE_ERROR(Error::kInvalidPhase);
-			if (active_hub_child_valid) {
-				err = AddressDevice(xhc, active_hub_child, slot_id);
+			if (state.active_hub_child_valid) {
+				err = AddressDevice(xhc, state.active_hub_child, slot_id);
 			}
-			else if (addressing_port != 0 &&
-				port_config_phase[addressing_port] == ConfigPhase::EnablingSlot) {
-				err = AddressDevice(xhc, addressing_port, slot_id);
+			else if (state.addressing_port != 0 &&
+				state.port_config_phase[state.addressing_port] == ConfigPhase::EnablingSlot) {
+				err = AddressDevice(xhc, state.addressing_port, slot_id);
 			}
 			if (err) {
 				plogerro("xHCI failed to prepare Address Device: slot=%u error=%s",
@@ -2049,14 +2039,14 @@ namespace {
 
 			auto port_id = dev->GetSlotContext()->bits.root_hub_port_num;
 			if (dev->RouteString() == 0) {
-				if (port_id != addressing_port) {
+				if (port_id != state.addressing_port) {
 					return MAKE_ERROR(Error::kInvalidPhase);
 				}
-				if (port_config_phase[port_id] != ConfigPhase::AddressingDevice) {
+				if (state.port_config_phase[port_id] != ConfigPhase::AddressingDevice) {
 					return MAKE_ERROR(Error::kInvalidPhase);
 				}
 
-				addressing_port = 0;
+				state.addressing_port = 0;
 				if (auto err = ResumePendingEnumeration(xhc)) return err;
 			}
 
@@ -2106,7 +2096,8 @@ namespace {
 			if (hub_context_update) return MAKE_ERROR(Error::kSuccess);
 
 			auto port_id = dev->GetSlotContext()->bits.root_hub_port_num;
-			if (dev->RouteString() == 0 && port_config_phase[port_id] != ConfigPhase::ConfiguringEndpoints) {
+			if (dev->RouteString() == 0 &&
+				state.port_config_phase[port_id] != ConfigPhase::ConfiguringEndpoints) {
 				return MAKE_ERROR(Error::kInvalidPhase);
 			}
 
@@ -2180,7 +2171,7 @@ namespace uni::device::SpaceUSB3 {
 
 
 Error HostController::ConfigurePort(Port& port) {
-	if (port_config_phase[port.Number()] == ConfigPhase::NotConnected) {
+	if (enumeration_state_.port_config_phase[port.Number()] == ConfigPhase::NotConnected) {
 		return ResetPort(self, port);
 	}
 	return MAKE_ERROR(Error::kSuccess);
@@ -2197,7 +2188,7 @@ Error HostController::OnHubPortStatusChanged(USBHostDevice_v3& hub_dev, uint8 do
 		if (existing) {
 			RemoveDeviceSubtree(self, root_hub_port_num, route_string, false);
 		} else {
-			RemovePendingHubChildren(root_hub_port_num, route_string, false);
+			RemovePendingHubChildren(self, root_hub_port_num, route_string, false);
 		}
 		return ResumePendingEnumeration(self);
 	}
@@ -2221,7 +2212,7 @@ Error HostController::OnHubPortStatusChanged(USBHostDevice_v3& hub_dev, uint8 do
 	if (child_ctx.speed == 0) {
 		return MAKE_ERROR(Error::kUnknownXHCISpeedID);
 	}
-	if (!QueueHubChildAddress(child_ctx)) {
+	if (!QueueHubChildAddress(self, child_ctx)) {
 		return MAKE_ERROR(Error::kNoEnoughMemory);
 	}
 	return TryAddressNextHubChild(self);
@@ -2318,7 +2309,7 @@ Error HostController::ConfigureEndpoints(USBHostDevice_v3& dev) {
 	}
 
 	if (dev.RouteString() == 0) {
-		port_config_phase[port_id] = ConfigPhase::ConfiguringEndpoints;
+		xhc.EnumerationState().port_config_phase[port_id] = ConfigPhase::ConfiguringEndpoints;
 	}
 
 	ConfigureEndpointCommandTRB cmd{ dev.InputContextBuffer(), dev.SlotID() };
@@ -2609,12 +2600,12 @@ Error HostController::RecoverController() {
 	MemSet(slot_removal_pending_storage_, 0, sizeof(slot_removal_pending_storage_));
 	MemSet(slot_disconnect_notified_storage_, 0, sizeof(slot_disconnect_notified_storage_));
 
-	pending_hub_child_count = 0;
-	active_hub_child_valid = false;
-	addressing_port = 0;
-	enable_slot_command_pending = false;
-	for (size_t index = 0; index < port_config_phase.size(); ++index) {
-		port_config_phase[index] = ConfigPhase::NotConnected;
+	enumeration_state_.pending_hub_children.Clear();
+	enumeration_state_.active_hub_child_valid = false;
+	enumeration_state_.addressing_port = 0;
+	enumeration_state_.enable_slot_command_pending = false;
+	for (size_t index = 0; index < enumeration_state_.port_config_phase.size(); ++index) {
+		enumeration_state_.port_config_phase[index] = ConfigPhase::NotConnected;
 	}
 
 	usbcmd = op_->USBCMD.Read();

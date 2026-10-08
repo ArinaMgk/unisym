@@ -156,11 +156,11 @@ namespace uni::device::SpaceUSB3 {
 		erstsz.SetSize(1);
 		interrupter_->ERSTSZ.Write(erstsz);
 
-		WriteDequeuePointer(&buf_[0]);
-
 		ERSTBA_t erstba = interrupter_->ERSTBA.Read();
 		erstba.SetPointer(reinterpret_cast<uint64_t>(erst_));
 		interrupter_->ERSTBA.Write(erstba);
+
+		WriteDequeuePointer(&buf_[0]);
 
 		return MAKE_ERROR(Error::kSuccess);
 	}
@@ -168,6 +168,7 @@ namespace uni::device::SpaceUSB3 {
 	void EventRing::WriteDequeuePointer(TRB* p) {
 		auto erdp = interrupter_->ERDP.Read();
 		erdp.SetPointer(reinterpret_cast<uint64_t>(p));
+		erdp.bits.event_handler_busy = true;
 		interrupter_->ERDP.Write(erdp);
 	}
 

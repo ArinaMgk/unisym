@@ -79,6 +79,42 @@ namespace uni::device::SpaceUSB3 {
 		uint8 max_slots = 0;
 	};
 
+	enum class ConfigPhase {
+		NotConnected,
+		WaitingAddressed,
+		ResettingPort,
+		EnablingSlot,
+		AddressingDevice,
+		InitializingDevice,
+		ConfiguringEndpoints,
+		Configured,
+	};
+
+	struct PendingHubChildAddress {
+		uint8 root_hub_port_num;
+		uint32 route_string;
+		uint8 hub_slot_id;
+		uint8 downstream_port;
+		uint8 speed;
+
+		bool operator==(const PendingHubChildAddress& rhs) const {
+			return root_hub_port_num == rhs.root_hub_port_num &&
+				route_string == rhs.route_string &&
+				hub_slot_id == rhs.hub_slot_id &&
+				downstream_port == rhs.downstream_port &&
+				speed == rhs.speed;
+		}
+	};
+
+	struct HostControllerEnumerationState {
+		uni::Vector<PendingHubChildAddress> pending_hub_children{};
+		PendingHubChildAddress active_hub_child{};
+		bool active_hub_child_valid = false;
+		uni::Array<ConfigPhase, 256> port_config_phase{};
+		uint8 addressing_port = 0;
+		bool enable_slot_command_pending = false;
+	};
+
 	class Port {
 	public:
 		Port(uint8 port_num, PortRegisterSet& port_reg_set)
@@ -147,6 +183,7 @@ namespace uni::device::SpaceUSB3 {
 		uint8 SpeedClass(uint8 root_hub_port_num, uint8 speed_id) const;
 		uint8 SpeedIDForClass(uint8 root_hub_port_num, uint8 speed_class) const;
 		DeviceManager* GetDeviceManager() { return &devmgr_; }
+		HostControllerEnumerationState& EnumerationState() { return enumeration_state_; }
 		bool IsSlotRemovalPending(uint8 slot_id) const;
 		Error QueueSlotRemoval(uint8 slot_id, bool notify_disconnected);
 		Error OnDisableSlotCompleted(uint8 slot_id, int completion_code);
@@ -176,6 +213,7 @@ namespace uni::device::SpaceUSB3 {
 		bool controller_recovery_in_progress_ = false;
 		uint8 controller_event_completion_code_ = 0;
 		uint64 mfindex_wrap_count_ = 0;
+		HostControllerEnumerationState enumeration_state_{};
 
 		class DeviceManager devmgr_;
 		Ring cr_;

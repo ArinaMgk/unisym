@@ -29,10 +29,10 @@
 #endif
 
 // The hosted C++ headers are not consulted, see the note in the local <memory>.
-#if 0
+#if 1
 #if defined(__has_include_next)
 #	if __has_include_next(<utility>)
-#		include_next <utility>
+// #		include_next <utility>
 #		define _HAS_STD_UTILITY
 #	endif
 #endif

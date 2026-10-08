@@ -97,6 +97,10 @@ namespace uni::device::SpaceUSB {
 			uint16 frame_id, bool schedule_immediately, int completion_code);
 
 	private:
+		void ReleaseClassDrivers();
+
+		uni::Vector<ClassDriver*> class_driver_instances_{};
+
 	 /** @brief Class driver assigned to each endpoint.
 		  *
 		  * Index is the endpoint number (0 - 15).

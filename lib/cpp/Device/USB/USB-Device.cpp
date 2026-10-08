@@ -171,22 +171,25 @@ namespace uni::device::SpaceUSB {
 
 	USBHostDevice::~USBHostDevice() {
 		ReleaseBOSBuffer();
-		// one driver can sit in several endpoint slots: delete each exactly once
-		for (size_t i = 0; i < class_drivers_.size(); i++) {
-			ClassDriver* driver = class_drivers_[i];
-			if (driver == nullptr) continue;
-			for (size_t j = 0; j < i; j++) {
-				if (class_drivers_[j] == driver) driver = nullptr;
-			}
-			delete driver;
-			class_drivers_[i] = nullptr;
-		}
+		ReleaseClassDrivers();
+	}
+
+	void USBHostDevice::ReleaseClassDrivers() {
+		for (auto* driver : class_driver_instances_) delete driver;
+		class_driver_instances_.Clear();
+		for (auto& driver : class_drivers_) driver = nullptr;
 	}
 
 	Error USBHostDevice::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
 		if (issuer) {
-			event_waiters_.Put(setup_data, issuer);
+			if (!event_waiters_.Insert(setup_data, issuer)) {
+				Log(kWarn,
+					"Control IN waiter rejected: type=%u request=%u value=%u index=%u length=%u\n",
+					setup_data.request_type.data, setup_data.request, setup_data.value,
+					setup_data.index, setup_data.length);
+				return MAKE_ERROR(Error::kFull);
+			}
 		}
 		else if (!enum_resubmit_) {
 			// an enumeration request: keep it so a failed transfer can go out again
@@ -203,7 +206,13 @@ namespace uni::device::SpaceUSB {
 	Error USBHostDevice::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
 		if (issuer) {
-			event_waiters_.Put(setup_data, issuer);
+			if (!event_waiters_.Insert(setup_data, issuer)) {
+				Log(kWarn,
+					"Control OUT waiter rejected: type=%u request=%u value=%u index=%u length=%u\n",
+					setup_data.request_type.data, setup_data.request, setup_data.value,
+					setup_data.index, setup_data.length);
+				return MAKE_ERROR(Error::kFull);
+			}
 		}
 		else if (!enum_resubmit_) {
 			enum_setup_ = setup_data;
@@ -252,8 +261,14 @@ namespace uni::device::SpaceUSB {
 
 	Error USBHostDevice::StartInitialize() {
 		ReleaseBOSBuffer();
+		ReleaseClassDrivers();
+		event_waiters_.Clear();
 		is_initialized_ = false;
 		enumerated_ = false;
+		num_ep_configs_ = 0;
+		enum_pending_ = false;
+		enum_resubmit_ = false;
+		enum_retry_ = 0;
 		hub_num_ports_ = 0;
 		has_bos_ = false;
 		has_usb20_extension_ = false;
@@ -282,11 +297,9 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error USBHostDevice::OnEndpointsConfigured() {
-		for (auto class_driver : class_drivers_) {
-			if (class_driver != nullptr) {
-				if (auto err = class_driver->OnEndpointsConfigured()) {
-					return err;
-				}
+		for (auto* class_driver : class_driver_instances_) {
+			if (auto err = class_driver->OnEndpointsConfigured()) {
+				return err;
 			}
 		}
 		return MAKE_ERROR(Error::kSuccess);
@@ -294,11 +307,9 @@ namespace uni::device::SpaceUSB {
 
 	// the periodic tick: drivers that own timed work (a hub powering its ports) run here
 	Error USBHostDevice::ProcessDelayed() {
-		for (auto class_driver : class_drivers_) {
-			if (class_driver != nullptr) {
-				if (auto err = class_driver->ProcessDelayed()) {
-					return err;
-				}
+		for (auto* class_driver : class_driver_instances_) {
+			if (auto err = class_driver->ProcessDelayed()) {
+				return err;
 			}
 		}
 		return MAKE_ERROR(Error::kSuccess);
@@ -342,6 +353,10 @@ namespace uni::device::SpaceUSB {
 				event_waiters_.Delete(setup_data);
 				return waiter->OnControlCompleted(ep_id, setup_data, buf, len);
 			}
+			Log(kWarn,
+				"Control completion without waiter: type=%u request=%u value=%u index=%u length=%u\n",
+				setup_data.request_type.data, setup_data.request, setup_data.value,
+				setup_data.index, setup_data.length);
 			return MAKE_ERROR(Error::kNoWaiter);
 		}
 
@@ -524,6 +539,7 @@ namespace uni::device::SpaceUSB {
 					Log(kDebug, *hid_desc);
 				}
 			}
+			class_driver_instances_.Append(class_driver);
 
 			break;
 		}

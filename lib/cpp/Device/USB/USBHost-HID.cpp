@@ -88,6 +88,10 @@ namespace uni::device::SpaceUSB {
 
 	// AKA USBH_HID_SetProtocol: boot protocol keeps every report at a fixed length
 	Error HIDBaseDriver::OnEndpointsConfigured() {
+		if (ep_interrupt_in_.Number() == 0) {
+			Log(kWarn, "HID interface %u has no interrupt-IN endpoint\n", interface_index_);
+			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		}
 		SetupData setup_data{};
 		setup_data.request_type.bits.direction = request_type::kOut;
 		setup_data.request_type.bits.type = request_type::kClass;
@@ -110,6 +114,10 @@ namespace uni::device::SpaceUSB {
 			// AKA USBH_HID_SetProtocol done: arm the poll, then sync the device LED state
 			initialize_phase_ = 2;
 			Error armed = ParentDevice()->InterruptIn(ep_interrupt_in_, buf_.data(), in_packet_size_);
+			if (armed) {
+				plogwarn("HID interface %u SetProtocol result=%d; Interrupt IN failed: %s",
+					interface_index_, len, armed.Name());
+			}
 			if (HasLedReport()) SendLed();
 			return armed;
 		}

@@ -284,11 +284,25 @@ namespace uni {
 	}
 
 	void VideoConsole2::Reconfigure(const VideoControlInterface* vci_, LayerManager& parent, const Rectangle& win) {
-		Stop();
+		if (this->timer_root_manager) {
+			this->timer_root_manager->UnregisterTimer(this);
+			this->timer_root_manager = nullptr;
+		}
+
+		BufferChar* old_text_buf = text_buf;
+		Color* old_line_buf = line_buf;
+		stduint old_cols = cols;
+		stduint old_rows = rows;
+
+		// Detach pointers so setBuffers does not delete them prematurely
+		text_buf = nullptr;
+		line_buf = nullptr;
+
 		vci = vci_;
 		window = win;
 		window.color = backcolor;
 		InitializeSheet(parent, win.getVertex(), win.getSize());
+
 		if (font_engine) {
 			Size2 cell_size = font_engine->GetCellSize();
 			size.x = window.width / cell_size.x;
@@ -302,10 +316,27 @@ namespace uni {
 			rows = 0;
 		}
 
-		BufferChar* text_storage = cols && rows ? new BufferChar[cols * rows] : nullptr;
+		BufferChar* text_storage = (cols && rows) ? new BufferChar[cols * rows] : nullptr;
 		Color* line_storage = getLineBufferSize() ? new Color[getLineBufferSize()] : nullptr;
 		setBuffers(nullptr, text_storage, line_storage);
-		Clear();
+
+		if (old_text_buf && text_buf) {
+			stduint copy_cols = old_cols < cols ? old_cols : cols;
+			stduint copy_rows = old_rows < rows ? old_rows : rows;
+			for (stduint y = 0; y < copy_rows; y++) {
+				for (stduint x = 0; x < copy_cols; x++) {
+					text_buf[y * cols + x] = old_text_buf[y * old_cols + x];
+				}
+			}
+		}
+
+		if (cursor.x >= (stdsint)cols) cursor.x = cols > 0 ? cols - 1 : 0;
+		if (cursor.y >= (stdsint)rows) cursor.y = rows > 0 ? rows - 1 : 0;
+
+		if (old_text_buf) { delete[] old_text_buf; }
+		if (old_line_buf) { delete[] old_line_buf; }
+
+		batch_full_refresh = true;
 		Start();
 	}
 

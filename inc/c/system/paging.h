@@ -335,6 +335,8 @@ namespace uni {
 		auto PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool;
 
 	public:
+		static bool isSupportedSize(stduint exponent);// e.g. 12 for 4K page
+	public:
 		#if defined(_ARC_RISCV_32) || defined(_ARC_RISCV_64)
 		inline stduint MakeSATP() {
 			if (!root_level_page) return 0;

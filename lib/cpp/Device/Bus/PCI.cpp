@@ -173,7 +173,9 @@ PCI::MSICapability PCI::read_MSI_capability(const Device& dev, uint8 cap_addr) {
 }
 
 void PCI::write_MSI_capability(const Device& dev, uint8 cap_addr, const PCI::MSICapability& msi_cap) {
-	write_config_register(dev, cap_addr, msi_cap.header.data);
+	auto disabled_header = msi_cap.header;
+	disabled_header.bits.msi_enable = 0;
+	write_config_register(dev, cap_addr, disabled_header.data);
 	write_config_register(dev, cap_addr + 4, msi_cap.msg_addr);
 	uint8_t msg_data_addr = cap_addr + 8;
 	if (msi_cap.header.bits.addr_64_capable) {
@@ -183,8 +185,8 @@ void PCI::write_MSI_capability(const Device& dev, uint8 cap_addr, const PCI::MSI
 	write_config_register(dev, msg_data_addr, msi_cap.msg_data);
 	if (msi_cap.header.bits.per_vector_mask_capable) {
 		write_config_register(dev, msg_data_addr + 4, msi_cap.mask_bits);
-		write_config_register(dev, msg_data_addr + 8, msi_cap.pending_bits);
 	}
+	write_config_register(dev, cap_addr, msi_cap.header.data);
 }
 
 PCI_Result PCI::configure_MSI_register(const Device& dev, uint8_t cap_addr,

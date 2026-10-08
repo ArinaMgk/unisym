@@ -46,6 +46,7 @@
 #include "../../ISO_IEC_STD/array"
 #include "../../ISO_IEC_STD/optional"
 #include "../../ISO_IEC_STD/pair"
+#include "../../vector"
 
 // ---- ---- ---- ---- logger.hpp ---- ---- ---- ---- //
 
@@ -290,20 +291,30 @@ namespace uni::device::SpaceUSB {
 			return uni::nullopt;
 		}
 
-		void Put(const K& key, const V& value) {
+		bool Insert(const K& key, const V& value) {
 			for (size_t i = 0; i < table_.size(); ++i) {
 				if (auto opt_k = table_[i].first; opt_k && opt_k.value() == key) {
-					table_[i].second = value;// an existing key is replaced, never duplicated
-					return;
+					return false;
 				}
 			}
 			for (size_t i = 0; i < table_.size(); ++i) {
 				if (!table_[i].first) {
 					table_[i].first = key;
 					table_[i].second = value;
-					break;
+					return true;
 				}
 			}
+			return false;
+		}
+
+		bool Put(const K& key, const V& value) {
+			for (size_t i = 0; i < table_.size(); ++i) {
+				if (auto opt_k = table_[i].first; opt_k && opt_k.value() == key) {
+					table_[i].second = value;
+					return true;
+				}
+			}
+			return Insert(key, value);
 		}
 
 		void Delete(const K& key) {
@@ -312,6 +323,19 @@ namespace uni::device::SpaceUSB {
 					table_[i].first = uni::nullopt;
 					break;
 				}
+			}
+		}
+
+		bool IsFull() const {
+			for (size_t i = 0; i < table_.size(); ++i) {
+				if (!table_[i].first) return false;
+			}
+			return true;
+		}
+
+		void Clear() {
+			for (size_t i = 0; i < table_.size(); ++i) {
+				table_[i].first = uni::nullopt;
 			}
 		}
 

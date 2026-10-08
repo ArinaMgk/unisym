@@ -176,13 +176,16 @@ namespace uni::device::SpaceUSB {
 
 	Error OTGHostDevice::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
-		if (auto err = USBHostDevice::ControlIn(ep_id, setup_data, buf, len, issuer)) {
-			return err;
-		}
 		if (ep_id.Number() != 0) {
 			return MAKE_ERROR(Error::kInvalidEndpointNumber);
 		}
 		if (ctrl_ch_ == kNoChannel) return MAKE_ERROR(Error::kNoEnoughMemory);
+		if (ctrl_stage_ != ControlStage::Idle && ctrl_stage_ != ControlStage::Done) {
+			return MAKE_ERROR(Error::kFull);
+		}
+		if (auto err = USBHostDevice::ControlIn(ep_id, setup_data, buf, len, issuer)) {
+			return err;
+		}
 		// stage machine: SETUP(OUT) -> DATA(IN) -> STATUS(OUT)
 		ctrl_ep_id_ = ep_id;
 		ctrl_setup_ = setup_data;
@@ -210,13 +213,16 @@ namespace uni::device::SpaceUSB {
 
 	Error OTGHostDevice::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
-		if (auto err = USBHostDevice::ControlOut(ep_id, setup_data, buf, len, issuer)) {
-			return err;
-		}
 		if (ep_id.Number() != 0) {
 			return MAKE_ERROR(Error::kInvalidEndpointNumber);
 		}
 		if (ctrl_ch_ == kNoChannel) return MAKE_ERROR(Error::kNoEnoughMemory);
+		if (ctrl_stage_ != ControlStage::Idle && ctrl_stage_ != ControlStage::Done) {
+			return MAKE_ERROR(Error::kFull);
+		}
+		if (auto err = USBHostDevice::ControlOut(ep_id, setup_data, buf, len, issuer)) {
+			return err;
+		}
 		ctrl_ep_id_ = ep_id;
 		ctrl_setup_ = setup_data;
 		ctrl_buf_ = const_cast<void*>(buf);

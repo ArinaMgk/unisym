@@ -1,0 +1,623 @@
+// ASCII CPP-ISO11 TAB4 LF
+// Docutitle: (Module) Memory
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Memory_NEXT
+#define _INCPP_Memory_NEXT
+
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winclude-next-absolute-path"
+#endif
+
+// The hosted C++ headers are not consulted: libstdc++'s <memory> needs C facilities
+// (mbstate_t, wint_t, btowc) that the local C shadow does not provide yet.
+#if 0
+#if defined(__has_include_next)
+#	if __has_include_next(<memory>)
+#		include_next <memory>
+#		define _HAS_STD_MEMORY
+#	endif
+#endif
+#endif
+
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+
+#endif
+
+#ifndef _INCPP_Memory
+#define _INCPP_Memory
+
+#include "../unisym"
+#include "../atomic"
+#include "type_traits"
+#include "utility"
+
+// Both Mecocoa targets build with -fno-exceptions, where a failure cannot be thrown:
+// those targets report through plogerro and yield an empty smart pointer instead.
+#if defined(_MCCA) || defined(_ACCM) || defined(_SMARTPTR_NOTHROW)
+#	ifndef _SMARTPTR_NOTHROW
+#		define _SMARTPTR_NOTHROW
+#	endif
+#endif
+
+namespace uni {
+
+	// Reported when a SharedPtr is built from an expired WeakPtr.
+	struct BadWeakPtr {};
+
+	template <typename type> class SharedPtr;
+	template <typename type> class WeakPtr;
+	template <typename type> class EnableSharedFromThis;
+
+	template <typename type>
+	struct DefaultDelete {
+		constexpr DefaultDelete() noexcept = default;
+		template <typename type2, typename = EnableIfT<IsConvertible<type2*, type*>::value>>
+		DefaultDelete(const DefaultDelete<type2>&) noexcept {}
+		void operator()(type* ptr) const { delete ptr; }
+	};
+
+	template <typename type>
+	struct DefaultDelete<type[]> {
+		constexpr DefaultDelete() noexcept = default;
+		template <typename type2>
+		DefaultDelete(const DefaultDelete<type2[]>&) noexcept {}
+		void operator()(type* ptr) const { delete[] ptr; }
+	};
+
+	// ---- shared control block ----
+	// A strong owner also holds one weak reference, so the block outlives the object while any
+	// WeakPtr remains; the object is dropped when the strong count reaches zero and the block is
+	// freed when the weak count does. Both counters are atomic.
+	class _Local_SharedBlock {
+	private:
+		Atomic<stduint> strong_;
+		Atomic<stduint> weak_;
+	public:
+		_Local_SharedBlock() : strong_(1), weak_(1) {}
+
+		void AddStrong() { strong_.fetch_add(1, MemoryOrder_Acq_Rel); }
+		void AddWeak() { weak_.fetch_add(1, MemoryOrder_Relaxed); }
+
+		// true when the caller is the last strong owner and must dispose the object
+		bool ReleaseStrong() { return strong_.fetch_sub(1, MemoryOrder_Acq_Rel) == 1; }
+		// true when the caller is the last weak reference and must free this block
+		bool ReleaseWeak() { return weak_.fetch_sub(1, MemoryOrder_Acq_Rel) == 1; }
+
+		// false when the object is already gone; the block cannot be freed in between because
+		// the weak reference held by this caller keeps the block alive
+		bool TryAddStrong() {
+			stduint count = strong_.load(MemoryOrder_Acquire);
+			while (count) {
+				if (strong_.compare_exchange(count, count + 1, MemoryOrder_Acq_Rel, MemoryOrder_Acquire)) {
+					weak_.fetch_add(1, MemoryOrder_Relaxed);
+					return true;
+				}
+			}
+			return false;
+		}
+
+		stduint GetStrong() const { return strong_.load(MemoryOrder_Acquire); }
+
+		virtual void Dispose() = 0;
+		virtual ~_Local_SharedBlock() {}
+	};
+
+	template <typename type, typename deleter>
+	class _Local_SharedBlockOf : public _Local_SharedBlock {
+	private:
+		type* ptr_;
+		deleter del_;
+	public:
+		_Local_SharedBlockOf(type* ptr, const deleter& del) : ptr_(ptr), del_(del) {}
+		void Dispose() override {
+			if (ptr_) {
+				del_(ptr_);
+				ptr_ = nullptr;
+			}
+		}
+	};
+
+	// ---- enable_shared_from_this plumbing ----
+	// The link is installed only when the pointee type itself derives from EnableSharedFromThis,
+	// which is the usual `class X : public std::enable_shared_from_this<X>` form.
+	template <typename type, bool = IsBaseOf<EnableSharedFromThis<type>, type>::value>
+	struct _Local_EsftLink {
+		static void Install(type*, _Local_SharedBlock*) {}
+	};
+	template <typename type>
+	struct _Local_EsftLink<type, true> {
+		static void Install(type* object, _Local_SharedBlock* block) {
+			static_cast<EnableSharedFromThis<type>*>(object)->_Attach(block, object);
+		}
+	};
+
+	template <typename type>
+	class SharedPtr {
+		template <typename> friend class SharedPtr;
+		template <typename> friend class WeakPtr;
+	private:
+		type* ptr_;
+		_Local_SharedBlock* block_;
+
+		void _Release() noexcept {
+			if (!block_) return;
+			if (block_->ReleaseStrong()) {
+				block_->Dispose();
+				if (block_->ReleaseWeak()) delete block_;
+			}
+			ptr_ = nullptr;
+			block_ = nullptr;
+		}
+	public:
+		typedef type element_type;
+
+		constexpr SharedPtr() noexcept : ptr_(nullptr), block_(nullptr) {}
+		constexpr SharedPtr(decltype(nullptr)) noexcept : ptr_(nullptr), block_(nullptr) {}
+
+		template <typename type2>
+		explicit SharedPtr(type2* ptr) : ptr_(ptr), block_(nullptr) {
+			if (ptr) block_ = new _Local_SharedBlockOf<type2, DefaultDelete<type2>>(ptr, DefaultDelete<type2>());
+			_GuardBlock(ptr, DefaultDelete<type2>());
+		}
+		template <typename type2, typename deleter>
+		SharedPtr(type2* ptr, deleter del) : ptr_(ptr), block_(nullptr) {
+			if (ptr) block_ = new _Local_SharedBlockOf<type2, deleter>(ptr, del);
+			_GuardBlock(ptr, del);
+		}
+		// Aliasing: shares ownership with other while pointing at ptr
+		template <typename type2>
+		SharedPtr(const SharedPtr<type2>& other, type* ptr) noexcept : ptr_(ptr), block_(other.block_) {
+			if (block_) block_->AddStrong();
+		}
+
+		SharedPtr(const SharedPtr& other) noexcept : ptr_(other.ptr_), block_(other.block_) {
+			if (block_) block_->AddStrong();
+		}
+		template <typename type2, typename = EnableIfT<IsConvertible<type2*, type*>::value>>
+		SharedPtr(const SharedPtr<type2>& other) noexcept : ptr_(other.ptr_), block_(other.block_) {
+			if (block_) block_->AddStrong();
+		}
+		SharedPtr(SharedPtr&& other) noexcept : ptr_(other.ptr_), block_(other.block_) {
+			other.ptr_ = nullptr;
+			other.block_ = nullptr;
+		}
+		template <typename type2, typename = EnableIfT<IsConvertible<type2*, type*>::value>>
+		SharedPtr(SharedPtr<type2>&& other) noexcept : ptr_(other.ptr_), block_(other.block_) {
+			other.ptr_ = nullptr;
+			other.block_ = nullptr;
+		}
+		template <typename type2>
+		explicit SharedPtr(const WeakPtr<type2>& other) : ptr_(other.ptr_), block_(other.block_) {
+			if (block_ && block_->TryAddStrong()) return;
+			ptr_ = nullptr;
+			block_ = nullptr;
+			_Local_WeakExpired();
+		}
+
+		~SharedPtr() { _Release(); }
+
+		SharedPtr& operator=(const SharedPtr& other) noexcept {
+			if (this != &other) {
+				SharedPtr temp(other);
+				swap(temp);
+			}
+			return *this;
+		}
+		template <typename type2, typename = EnableIfT<IsConvertible<type2*, type*>::value>>
+		SharedPtr& operator=(const SharedPtr<type2>& other) noexcept {
+			SharedPtr temp(other);
+			swap(temp);
+			return *this;
+		}
+		SharedPtr& operator=(SharedPtr&& other) noexcept {
+			if (this != &other) {
+				SharedPtr temp(static_cast<SharedPtr&&>(other));
+				swap(temp);
+			}
+			return *this;
+		}
+		template <typename type2, typename = EnableIfT<IsConvertible<type2*, type*>::value>>
+		SharedPtr& operator=(SharedPtr<type2>&& other) noexcept {
+			SharedPtr temp(static_cast<SharedPtr<type2>&&>(other));
+			swap(temp);
+			return *this;
+		}
+
+		type* get() const noexcept { return ptr_; }
+		explicit operator bool() const noexcept { return ptr_ != nullptr; }
+		type& operator*() const { return *ptr_; }
+		type* operator->() const noexcept { return ptr_; }
+
+		stduint use_count() const noexcept { return block_ ? block_->GetStrong() : 0; }
+		bool unique() const noexcept { return use_count() == 1; }
+
+		void reset() noexcept { _Release(); }
+		template <typename type2>
+		void reset(type2* ptr) {
+			SharedPtr temp(ptr);
+			swap(temp);
+		}
+		template <typename type2, typename deleter>
+		void reset(type2* ptr, deleter del) {
+			SharedPtr temp(ptr, del);
+			swap(temp);
+		}
+
+		void swap(SharedPtr& other) noexcept {
+			type* ptr = ptr_;
+			ptr_ = other.ptr_;
+			other.ptr_ = ptr;
+			_Local_SharedBlock* block = block_;
+			block_ = other.block_;
+			other.block_ = block;
+		}
+	private:
+		// A failed block allocation must not leak the object it was meant to own
+		template <typename type2, typename deleter>
+		void _GuardBlock(type2* ptr, const deleter& del) {
+		#if defined(_SMARTPTR_NOTHROW)
+			if (ptr && !block_) {
+				plogerro("shared_ptr: out of memory");
+				del(ptr);
+				ptr_ = nullptr;
+				return;
+			}
+		#else
+			(void)del;
+		#endif
+			if (block_) _Local_EsftLink<type2>::Install(ptr, block_);
+		}
+
+		void _Local_WeakExpired() {
+		#if defined(_SMARTPTR_NOTHROW)
+			plogerro("shared_ptr: weak_ptr is expired");
+		#else
+			throw BadWeakPtr();
+		#endif
+		}
+	};
+
+	template <typename type>
+	class WeakPtr {
+		template <typename> friend class WeakPtr;
+		template <typename> friend class SharedPtr;
+		template <typename> friend class EnableSharedFromThis;
+	private:
+		type* ptr_;
+		_Local_SharedBlock* block_;
+
+		WeakPtr(type* ptr, _Local_SharedBlock* block) noexcept : ptr_(ptr), block_(block) {
+			if (block_) block_->AddWeak();
+		}
+		void _Release() noexcept {
+			if (block_ && block_->ReleaseWeak()) delete block_;
+			ptr_ = nullptr;
+			block_ = nullptr;
+		}
+	public:
+		typedef type element_type;
+
+		constexpr WeakPtr() noexcept : ptr_(nullptr), block_(nullptr) {}
+		WeakPtr(const WeakPtr& other) noexcept : ptr_(other.ptr_), block_(other.block_) {
+			if (block_) block_->AddWeak();
+		}
+		template <typename type2, typename = EnableIfT<IsConvertible<type2*, type*>::value>>
+		WeakPtr(const WeakPtr<type2>& other) noexcept : ptr_(other.ptr_), block_(other.block_) {
+			if (block_) block_->AddWeak();
+		}
+		WeakPtr(WeakPtr&& other) noexcept : ptr_(other.ptr_), block_(other.block_) {
+			other.ptr_ = nullptr;
+			other.block_ = nullptr;
+		}
+		template <typename type2>
+		WeakPtr(const SharedPtr<type2>& other) noexcept : ptr_(other.ptr_), block_(other.block_) {
+			if (block_) block_->AddWeak();
+		}
+
+		~WeakPtr() { _Release(); }
+
+		WeakPtr& operator=(const WeakPtr& other) noexcept {
+			if (this != &other) {
+				WeakPtr temp(other);
+				swap(temp);
+			}
+			return *this;
+		}
+		WeakPtr& operator=(WeakPtr&& other) noexcept {
+			if (this != &other) {
+				WeakPtr temp(static_cast<WeakPtr&&>(other));
+				swap(temp);
+			}
+			return *this;
+		}
+
+		// An empty SharedPtr is returned when the object is already gone
+		SharedPtr<type> lock() const noexcept {
+			SharedPtr<type> result;
+			if (block_ && block_->TryAddStrong()) {
+				result.ptr_ = ptr_;
+				result.block_ = block_;
+			}
+			return result;
+		}
+
+		stduint use_count() const noexcept { return block_ ? block_->GetStrong() : 0; }
+		bool expired() const noexcept { return use_count() == 0; }
+
+		void reset() noexcept { _Release(); }
+		void swap(WeakPtr& other) noexcept {
+			type* ptr = ptr_;
+			ptr_ = other.ptr_;
+			other.ptr_ = ptr;
+			_Local_SharedBlock* block = block_;
+			block_ = other.block_;
+			other.block_ = block;
+		}
+	};
+
+	template <typename type>
+	class EnableSharedFromThis {
+		template <typename> friend class SharedPtr;
+		template <typename, bool> friend struct _Local_EsftLink;
+	private:
+		WeakPtr<type> weak_this_;
+		void _Attach(_Local_SharedBlock* block, type* object) {
+			weak_this_ = WeakPtr<type>(object, block);
+		}
+	public:
+		SharedPtr<type> shared_from_this() { return weak_this_.lock(); }
+		WeakPtr<type> weak_from_this() noexcept { return weak_this_; }
+	protected:
+		EnableSharedFromThis() noexcept {}
+		EnableSharedFromThis(const EnableSharedFromThis&) noexcept {}
+		EnableSharedFromThis& operator=(const EnableSharedFromThis&) noexcept { return *this; }
+		~EnableSharedFromThis() {}
+	};
+
+	// dynaminc_pointer_cast cannot be offered: the local builds use -fno-rtti.
+	template <typename to, typename from>
+	SharedPtr<to> static_pointer_cast(const SharedPtr<from>& sp) noexcept {
+		return SharedPtr<to>(sp, static_cast<to*>(sp.get()));
+	}
+	template <typename to, typename from>
+	SharedPtr<to> const_pointer_cast(const SharedPtr<from>& sp) noexcept {
+		return SharedPtr<to>(sp, const_cast<to*>(sp.get()));
+	}
+	template <typename to, typename from>
+	SharedPtr<to> reinterpret_pointer_cast(const SharedPtr<from>& sp) noexcept {
+		return SharedPtr<to>(sp, reinterpret_cast<to*>(sp.get()));
+	}
+
+	// The deleter is stored even when it is empty, no [[no_unique_address]] is applied here.
+	template <typename type, typename deleter = DefaultDelete<type>>
+	class UniquePtr {
+		template <typename, typename> friend class UniquePtr;
+	private:
+		type* ptr_;
+		deleter del_;
+	public:
+		typedef type element_type;
+		typedef deleter deleter_type;
+		typedef type* pointer;
+
+		constexpr UniquePtr() noexcept : ptr_(nullptr), del_() {}
+		constexpr UniquePtr(decltype(nullptr)) noexcept : ptr_(nullptr), del_() {}
+		explicit UniquePtr(pointer ptr) noexcept : ptr_(ptr), del_() {}
+		UniquePtr(pointer ptr, const deleter& del) noexcept : ptr_(ptr), del_(del) {}
+		UniquePtr(pointer ptr, deleter&& del) noexcept : ptr_(ptr), del_(static_cast<deleter&&>(del)) {}
+
+		UniquePtr(UniquePtr&& other) noexcept
+			: ptr_(other.ptr_), del_(static_cast<deleter&&>(other.del_)) {
+			other.ptr_ = nullptr;
+		}
+		template <typename type2, typename deleter2,
+			typename = EnableIfT<IsConvertible<type2*, type*>::value>>
+		UniquePtr(UniquePtr<type2, deleter2>&& other) noexcept
+			: ptr_(other.ptr_), del_(static_cast<deleter2&&>(other.del_)) {
+			other.ptr_ = nullptr;
+		}
+
+		UniquePtr(const UniquePtr&) = delete;
+		UniquePtr& operator=(const UniquePtr&) = delete;
+
+		~UniquePtr() {
+			if (ptr_) del_(ptr_);
+		}
+
+		UniquePtr& operator=(UniquePtr&& other) noexcept {
+			if (this != &other) {
+				reset(other.release());
+				del_ = static_cast<deleter&&>(other.del_);
+			}
+			return *this;
+		}
+		template <typename type2, typename deleter2>
+		UniquePtr& operator=(UniquePtr<type2, deleter2>&& other) noexcept {
+			reset(other.release());
+			del_ = static_cast<deleter2&&>(other.del_);
+			return *this;
+		}
+
+		pointer get() const noexcept { return ptr_; }
+		deleter& get_deleter() noexcept { return del_; }
+		const deleter& get_deleter() const noexcept { return del_; }
+
+		explicit operator bool() const noexcept { return ptr_ != nullptr; }
+		type& operator*() const { return *ptr_; }
+		pointer operator->() const noexcept { return ptr_; }
+
+		pointer release() noexcept {
+			pointer ptr = ptr_;
+			ptr_ = nullptr;
+			return ptr;
+		}
+		void reset(pointer ptr = pointer()) noexcept {
+			pointer old = ptr_;
+			ptr_ = ptr;
+			if (old) del_(old);
+		}
+
+		void swap(UniquePtr& other) noexcept {
+			pointer ptr = ptr_;
+			ptr_ = other.ptr_;
+			other.ptr_ = ptr;
+			uni::swap(del_, other.del_);
+		}
+	};
+
+	template <typename type, typename deleter>
+	class UniquePtr<type[], deleter> {
+		template <typename, typename> friend class UniquePtr;
+	private:
+		type* ptr_;
+		deleter del_;
+	public:
+		typedef type element_type;
+		typedef deleter deleter_type;
+		typedef type* pointer;
+
+		constexpr UniquePtr() noexcept : ptr_(nullptr), del_() {}
+		constexpr UniquePtr(decltype(nullptr)) noexcept : ptr_(nullptr), del_() {}
+		explicit UniquePtr(pointer ptr) noexcept : ptr_(ptr), del_() {}
+		UniquePtr(pointer ptr, const deleter& del) noexcept : ptr_(ptr), del_(del) {}
+		UniquePtr(pointer ptr, deleter&& del) noexcept : ptr_(ptr), del_(static_cast<deleter&&>(del)) {}
+
+		UniquePtr(UniquePtr&& other) noexcept
+			: ptr_(other.ptr_), del_(static_cast<deleter&&>(other.del_)) {
+			other.ptr_ = nullptr;
+		}
+		template <typename type2, typename deleter2,
+			typename = EnableIfT<IsConvertible<type2(*)[], type(*)[]>::value>>
+		UniquePtr(UniquePtr<type2[], deleter2>&& other) noexcept
+			: ptr_(other.ptr_), del_(static_cast<deleter2&&>(other.del_)) {
+			other.ptr_ = nullptr;
+		}
+
+		UniquePtr(const UniquePtr&) = delete;
+		UniquePtr& operator=(const UniquePtr&) = delete;
+
+		~UniquePtr() {
+			if (ptr_) del_(ptr_);
+		}
+
+		UniquePtr& operator=(UniquePtr&& other) noexcept {
+			if (this != &other) {
+				reset(other.release());
+				del_ = static_cast<deleter&&>(other.del_);
+			}
+			return *this;
+		}
+		template <typename type2, typename deleter2>
+		UniquePtr& operator=(UniquePtr<type2[], deleter2>&& other) noexcept {
+			reset(other.release());
+			del_ = static_cast<deleter2&&>(other.del_);
+			return *this;
+		}
+
+		pointer get() const noexcept { return ptr_; }
+		deleter& get_deleter() noexcept { return del_; }
+		const deleter& get_deleter() const noexcept { return del_; }
+
+		explicit operator bool() const noexcept { return ptr_ != nullptr; }
+		type& operator[](stduint idx) const { return ptr_[idx]; }
+
+		pointer release() noexcept {
+			pointer ptr = ptr_;
+			ptr_ = nullptr;
+			return ptr;
+		}
+		void reset(pointer ptr = pointer()) noexcept {
+			pointer old = ptr_;
+			ptr_ = ptr;
+			if (old) del_(old);
+		}
+
+		void swap(UniquePtr& other) noexcept {
+			pointer ptr = ptr_;
+			ptr_ = other.ptr_;
+			other.ptr_ = ptr;
+			uni::swap(del_, other.del_);
+		}
+	};
+
+	template <typename type, typename... args_t>
+	EnableIfT<!IsArray<type>::value, UniquePtr<type>> make_unique(args_t&&... args) {
+		UniquePtr<type> result(new type(static_cast<args_t&&>(args)...));
+	#if defined(_SMARTPTR_NOTHROW)
+		if (!result) plogerro("make_unique: out of memory");
+	#endif
+		return result;
+	}
+
+	template <typename type>
+	EnableIfT<IsArray<type>::value, UniquePtr<type>> make_unique(stduint count) {
+		typedef RemoveExtentT<type> element;
+		UniquePtr<type> result(new element[count]());
+	#if defined(_SMARTPTR_NOTHROW)
+		if (!result) plogerro("make_unique: out of memory");
+	#endif
+		return result;
+	}
+
+	// The object and its control block are allocated separately here, unlike the single
+	// allocation of the hosted implementations.
+	template <typename type, typename... args_t>
+	SharedPtr<type> make_shared(args_t&&... args) {
+		type* ptr = new type(static_cast<args_t&&>(args)...);
+	#if defined(_SMARTPTR_NOTHROW)
+		if (!ptr) {
+			plogerro("make_shared: out of memory");
+			return SharedPtr<type>();
+		}
+	#endif
+		return SharedPtr<type>(ptr);
+	}
+
+}
+
+#if !defined(_HAS_STD_MEMORY)
+
+namespace std {
+
+	template <typename type> using default_delete = uni::DefaultDelete<type>;
+	template <typename type, typename deleter = uni::DefaultDelete<type>>
+	using unique_ptr = uni::UniquePtr<type, deleter>;
+
+	template <typename type> using shared_ptr = uni::SharedPtr<type>;
+	template <typename type> using weak_ptr = uni::WeakPtr<type>;
+	template <typename type> using enable_shared_from_this = uni::EnableSharedFromThis<type>;
+	using bad_weak_ptr = uni::BadWeakPtr;
+
+	using uni::make_unique;
+	using uni::make_shared;
+	using uni::static_pointer_cast;
+	using uni::const_pointer_cast;
+	using uni::reinterpret_pointer_cast;
+
+}
+
+#endif
+
+#endif

@@ -1,0 +1,175 @@
+// ASCII CPP-ISO11 TAB4 LF
+// Docutitle: (Module) Type Traits
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_TypeTraits_NEXT
+#define _INCPP_TypeTraits_NEXT
+
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winclude-next-absolute-path"
+#endif
+
+// The hosted C++ headers are not consulted, see the note in the local <memory>.
+#if 0
+#if defined(__has_include_next)
+#	if __has_include_next(<type_traits>)
+#		include_next <type_traits>
+#		define _HAS_STD_TYPE_TRAITS
+#	endif
+#endif
+#endif
+
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+
+#endif
+
+#ifndef _INCPP_TypeTraits
+#define _INCPP_TypeTraits
+
+#include "../unisym"
+
+namespace uni {
+
+	// Only the subset required by the local <utility> and <memory> is provided.
+
+	struct _Local_Yes { char pad[1]; };
+	struct _Local_No { char pad[2]; };
+
+	template <typename type, type val>
+	struct IntegralConstant {
+		static constexpr type value = val;
+		typedef type value_type;
+		typedef IntegralConstant type_;
+		constexpr operator value_type() const noexcept { return val; }
+	};
+
+	typedef IntegralConstant<bool, true> TrueType;
+	typedef IntegralConstant<bool, false> FalseType;
+
+	template <bool cond, typename type = void> struct EnableIf {};
+	template <typename type> struct EnableIf<true, type> { typedef type type_; };
+	template <bool cond, typename type = void> using EnableIfT = typename EnableIf<cond, type>::type_;
+
+	template <typename A, typename B> struct IsSame : FalseType {};
+	template <typename A> struct IsSame<A, A> : TrueType {};
+
+	template <bool cond, typename yes, typename no> struct Conditional { typedef yes type_; };
+	template <typename yes, typename no> struct Conditional<false, yes, no> { typedef no type_; };
+	template <bool cond, typename yes, typename no> using ConditionalT = typename Conditional<cond, yes, no>::type_;
+
+	template <typename type> struct RemoveReference { typedef type type_; };
+	template <typename type> struct RemoveReference<type&> { typedef type type_; };
+	template <typename type> struct RemoveReference<type&&> { typedef type type_; };
+	template <typename type> using RemoveReferenceT = typename RemoveReference<type>::type_;
+
+	template <typename type> struct RemoveCv { typedef type type_; };
+	template <typename type> struct RemoveCv<const type> { typedef type type_; };
+	template <typename type> struct RemoveCv<volatile type> { typedef type type_; };
+	template <typename type> struct RemoveCv<const volatile type> { typedef type type_; };
+	template <typename type> using RemoveCvT = typename RemoveCv<type>::type_;
+
+	template <typename type> struct RemoveExtent { typedef type type_; };
+	template <typename type> struct RemoveExtent<type[]> { typedef type type_; };
+	template <typename type, stduint dim> struct RemoveExtent<type[dim]> { typedef type type_; };
+	template <typename type> using RemoveExtentT = typename RemoveExtent<type>::type_;
+
+	template <typename type> struct IsArray : FalseType {};
+	template <typename type> struct IsArray<type[]> : TrueType {};
+	template <typename type, stduint dim> struct IsArray<type[dim]> : TrueType {};
+
+	// Only the implicit-conversion form is reported, as ISO does.
+	template <typename from, typename to>
+	class IsConvertible {
+	private:
+		template <typename type> static void _Accept(type);
+		template <typename from_, typename to_, typename = decltype(_Accept<to_>(*(from_*)0))>
+		static _Local_Yes _Test(int);
+		template <typename, typename> static _Local_No _Test(...);
+	public:
+		static constexpr bool value = sizeof(_Test<from, to>(0)) == sizeof(_Local_Yes);
+	};
+
+	template <typename type>
+	class IsClass {
+	private:
+		template <typename type2> static _Local_Yes _Test(int type2::*);
+		template <typename> static _Local_No _Test(...);
+	public:
+		static constexpr bool value = sizeof(_Test<type>(0)) == sizeof(_Local_Yes);
+	};
+
+	// Only an accessible unambiguous base is reported; the compiler trait is exact, the local
+	// probe below is the fallback and cannot tell an ambiguous or inaccessible base apart.
+	template <typename base, typename derived>
+	class IsBaseOf {
+	private:
+		static _Local_Yes _Probe(base*);
+		static _Local_No _Probe(...);
+		static constexpr bool _Portable() {
+			return IsClass<RemoveCvT<base>>::value && IsClass<RemoveCvT<derived>>::value &&
+				(IsSame<RemoveCvT<base>, RemoveCvT<derived>>::value ||
+					sizeof(_Probe((RemoveCvT<derived>*)0)) == sizeof(_Local_Yes));
+		}
+	public:
+	#if defined(__GNUC__) || defined(__clang__)
+		static constexpr bool value = __is_base_of(base, derived);
+	#else
+		static constexpr bool value = _Portable();
+	#endif
+	};
+
+}
+
+#if !defined(_HAS_STD_TYPE_TRAITS)
+
+namespace std {
+
+	template <typename type, type val> using integral_constant = uni::IntegralConstant<type, val>;
+	using true_type = uni::TrueType;
+	using false_type = uni::FalseType;
+
+	template <bool cond, typename type = void> using enable_if = uni::EnableIf<cond, type>;
+	template <bool cond, typename type = void> using enable_if_t = uni::EnableIfT<cond, type>;
+
+	template <typename A, typename B> using is_same = uni::IsSame<A, B>;
+	template <bool cond, typename yes, typename no> using conditional = uni::Conditional<cond, yes, no>;
+	template <bool cond, typename yes, typename no> using conditional_t = uni::ConditionalT<cond, yes, no>;
+
+	template <typename type> using remove_reference = uni::RemoveReference<type>;
+	template <typename type> using remove_reference_t = uni::RemoveReferenceT<type>;
+	template <typename type> using remove_cv = uni::RemoveCv<type>;
+	template <typename type> using remove_cv_t = uni::RemoveCvT<type>;
+	template <typename type> using remove_extent = uni::RemoveExtent<type>;
+	template <typename type> using remove_extent_t = uni::RemoveExtentT<type>;
+
+	template <typename type> using is_array = uni::IsArray<type>;
+	template <typename type> using is_class = uni::IsClass<type>;
+	template <typename from, typename to> using is_convertible = uni::IsConvertible<from, to>;
+	template <typename base, typename derived> using is_base_of = uni::IsBaseOf<base, derived>;
+
+}
+
+#endif
+
+#endif

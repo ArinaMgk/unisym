@@ -225,6 +225,15 @@ namespace uni {
 				MemSet(new_pg, 0, 0x1000);
 				pe->SetupAsTable(new_pg);
 			}
+			else if (pe->isHuge()) {
+				const stduint huge_base = pe->getAddress();
+				const stduint huge_size = _IMM1 << VPN_SHIFTS[level];
+				const stduint req_size = _IMM1 << pgsize;
+				if (laddr < huge_base || laddr + req_size > huge_base + huge_size) return false;
+				if ((pgporp & PGPROP_writable) && !pe->writable) return false;
+				if ((pgporp & PGPROP_user_access) && !pe->user_access) return false;
+				return true;
+			}
 			table = (PageEntry*)pe->getAddress();
 		}
 
@@ -278,14 +287,16 @@ namespace uni {
 		const stduint unit = alignmask + 1;
 
 		do {
+			bool ok = true;
 			if (pgporp & PGPROP_weak) {
 				auto entry = getEntry(ln_address);
 				if (_IMM(entry) == ~_IMM0 || !entry->isPresent())
-					PageMap(ln_address, ph_address, pgsize, pgporp);
+					ok = PageMap(ln_address, ph_address, pgsize, pgporp);
 			}
 			else {
-				PageMap(ln_address, ph_address, pgsize, pgporp);
+				ok = PageMap(ln_address, ph_address, pgsize, pgporp);
 			}
+			if (!ok) return false;
 			ln_address += unit;
 			ph_address += unit;
 			length -= minof(unit, length);

@@ -1,0 +1,96 @@
+// ASCII CPP-ISO11 TAB4 LF
+// Docutitle: (Module) Utility
+// Codifiers: @ArinaMgk
+// Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2023 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
+#ifndef _INCPP_Utility_NEXT
+#define _INCPP_Utility_NEXT
+
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winclude-next-absolute-path"
+#endif
+
+// The hosted C++ headers are not consulted, see the note in the local <memory>.
+#if 0
+#if defined(__has_include_next)
+#	if __has_include_next(<utility>)
+#		include_next <utility>
+#		define _HAS_STD_UTILITY
+#	endif
+#endif
+#endif
+
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+
+#endif
+
+#ifndef _INCPP_Utility
+#define _INCPP_Utility
+
+#include "../unisym"
+#include "type_traits"
+
+namespace uni {
+
+	template <typename type>
+	constexpr RemoveReferenceT<type>&& move(type&& arg) noexcept {
+		return static_cast<RemoveReferenceT<type>&&>(arg);
+	}
+
+	template <typename type>
+	constexpr type&& forward(RemoveReferenceT<type>& arg) noexcept {
+		return static_cast<type&&>(arg);
+	}
+
+	template <typename type>
+	constexpr type&& forward(RemoveReferenceT<type>&& arg) noexcept {
+		return static_cast<type&&>(arg);
+	}
+
+	template <typename type>
+	inline void swap(type& a, type& b) {
+		type temp = static_cast<type&&>(a);
+		a = static_cast<type&&>(b);
+		b = static_cast<type&&>(temp);
+	}
+
+	template <typename type, stduint dim>
+	inline void swap(type (&a)[dim], type (&b)[dim]) {
+		for (stduint i = 0; i < dim; i++) uni::swap(a[i], b[i]);
+	}
+
+}
+
+#if !defined(_HAS_STD_UTILITY)
+
+namespace std {
+
+	using uni::move;
+	using uni::forward;
+	using uni::swap;
+
+}
+
+#endif
+
+#endif

@@ -105,9 +105,9 @@ namespace uni {
 	_PACKED(struct) PageEntry {
 		stduint valid : 1;     // V
 		stduint read : 1;      // R
-		stduint write : 1;     // W
+		stduint writable : 1;     // W
 		stduint execute : 1;   // X
-		stduint user : 1;      // U
+		stduint user_access : 1;      // U
 		stduint global : 1;    // G
 		stduint accessed : 1;  // A
 		stduint dirty : 1;     // D
@@ -119,7 +119,7 @@ namespace uni {
 
 		#ifdef _INC_CPP
 		inline bool isPresent() const { return valid; }
-		inline bool isHuge() const { return valid && (read || write || execute); }
+		inline bool isHuge() const { return valid && (read || writable || execute); }
 		inline stduint getAddress() const { return _IMM(ppn) << 12; }
 		inline void Clear() { MemSet(this, 0, sizeof(PageEntry)); }
 
@@ -127,7 +127,7 @@ namespace uni {
 			Clear();
 			this->ppn = _IMM(next_table_ptr) >> 12;
 			this->valid = 1;
-			this->read = this->write = this->execute = 0;
+			this->read = this->writable = this->execute = 0;
 		}
 
 		inline void SetupAsLeaf(stduint paddr, bool huge, stduint prop) {
@@ -136,8 +136,8 @@ namespace uni {
 			this->valid = 1;
 			this->read = 1;
 			this->execute = !(prop & PGPROP_nonexecutable);
-			this->write = !!(prop & PGPROP_writable);
-			this->user = !!(prop & PGPROP_user_access);
+			this->writable = !!(prop & PGPROP_writable);
+			this->user_access = !!(prop & PGPROP_user_access);
 
 			this->accessed = 1;
 			this->dirty = !!(prop & PGPROP_writable);

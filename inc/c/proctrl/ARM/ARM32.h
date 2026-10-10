@@ -36,9 +36,15 @@ static inline void enInterrupt(int enable) {
 }
 
 static inline int getInterrupt() {
+#if defined(_MCCA) && ((_MCCA >> 24) == 0x1A)// Cortex-M: PRIMASK, not the A-profile CPSR I bit
+	stduint primask;
+	_ASM volatile("mrs %0, primask" : "=r"(primask));
+	return primask == 0;
+#else
 	stduint cpsr;
 	_ASM volatile("mrs %0, cpsr" : "=r"(cpsr));
 	return (cpsr & 0x80) == 0;
+#endif
 }
 
 #endif // _INC_ARM32

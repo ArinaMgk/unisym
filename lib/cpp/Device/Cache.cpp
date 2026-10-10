@@ -200,6 +200,7 @@ namespace uni {
 		SCB->CCR |= SCB_CCR_DC_Msk; // enable D-Cache */
 		__DSB();
 		__ISB();
+		d_cache_enabled = true;
 	}
 
 	stduint Cache_t::getDCacheLineSize() const {
@@ -215,21 +216,25 @@ namespace uni {
 	}
 
 	void Cache_t::CleanDCacheMVA(pureptr_t va) const {
+		if (!d_cache_enabled) return;
 		SCB->DCCMVAC = (uint32)va;
 		__DSB();
 	}
 
 	void Cache_t::InvalidateDCacheMVA(pureptr_t va) const {
+		if (!d_cache_enabled) return;
 		SCB->DCIMVAC = (uint32)va;
 		__DSB();
 	}
 
 	void Cache_t::CleanInvalidateDCacheMVA(pureptr_t va) const {
+		if (!d_cache_enabled) return;
 		SCB->DCCIMVAC = (uint32)va;
 		__DSB();
 	}
 
 	void Cache_t::CleanDCacheRange(pureptr_t addr, stduint byte_size) const {
+		if (!d_cache_enabled) return;
 		const stduint mask = ~(getDCacheLineSize() - 1U);
 		const stduint last = ((stduint)addr + byte_size - 1U) & mask;
 		for (stduint a = (stduint)addr & mask; ; a += getDCacheLineSize()) {
@@ -240,6 +245,7 @@ namespace uni {
 	}
 
 	void Cache_t::InvalidateDCacheRange(pureptr_t addr, stduint byte_size) const {
+		if (!d_cache_enabled) return;
 		const stduint mask = ~(getDCacheLineSize() - 1U);
 		const stduint last = ((stduint)addr + byte_size - 1U) & mask;
 		for (stduint a = (stduint)addr & mask; ; a += getDCacheLineSize()) {
@@ -250,6 +256,7 @@ namespace uni {
 	}
 
 	void Cache_t::CleanInvalidateDCacheRange(pureptr_t addr, stduint byte_size) const {
+		if (!d_cache_enabled) return;
 		const stduint mask = ~(getDCacheLineSize() - 1U);
 		const stduint last = ((stduint)addr + byte_size - 1U) & mask;
 		for (stduint a = (stduint)addr & mask; ; a += getDCacheLineSize()) {

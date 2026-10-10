@@ -21,6 +21,9 @@
 */
 
 #include "../../../../inc/cpp/Device/USB/OTGHostDevice.hpp"
+#if defined(_MCU_STM32H7x)
+#include "../../../../inc/cpp/Device/USB/USBHost-Hub.hpp"
+#endif
 
 namespace uni::device::SpaceUSB {
 #if defined(_MCU_STM32H7x)

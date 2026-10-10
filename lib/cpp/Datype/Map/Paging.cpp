@@ -22,26 +22,26 @@
 
 #include "../../../../inc/c/system/paging.h"
 #include "../../../../inc/c/ustring.h"
-
+#if defined(_ARC_x86) || defined(_ARC_x64)
+#include "../../../../inc/c/proctrl/IAx86_64.msr.h"
+#endif
 // a32 (unchk)
 
 // a64 (unchk)
 
 
-#if defined(_ARC_x86) || defined(_ARC_RISCV_32)
+#if defined(_ARC_x86)
 // x86 Lev2: 00000000~FFFFFFFF
-// r32 Lev2: 00000000~FFFFFFFF
 //     [v]4KB [v]4MB
 // [x86] 4MB
 // - set CR4.PSE
 // - set PDE.PAT of l1p_index
-// [RISCV] 
-// - if R = W = X = 0 then current table is the table of table but a page
 constexpr stduint PAGE_LEVELS = 2;
 constexpr stduint VPN_SHIFTS[] = {12, 22};
-constexpr stduint VPN_MASKS[] = { 0x3FF, 0x3FF };
+constexpr stduint PAGE_ENTRY_COUNTS[] = {1024, 1024};
+constexpr bool PAGE_LEVEL_CAN_LEAF[] = {true, true};
 
-#elif defined(_ARC_x64) || defined(_ARC_ARM_64)
+#elif defined(_ARC_x64)
 // x64 Lev4: 000000000000~FFFFFFFFFFFF
 //     [v]4KB [v]2MB [v]1GB ---
 // x64 2MB/1GB
@@ -49,20 +49,54 @@ constexpr stduint VPN_MASKS[] = { 0x3FF, 0x3FF };
 // - set PDE.PAT of l1p_index(2M) or l2p_index(1G)
 constexpr stduint PAGE_LEVELS = 4;
 constexpr stduint VPN_SHIFTS[] = {12, 21, 30, 39};
-constexpr stduint VPN_MASKS[] = { 0x1FF, 0x1FF, 0x1FF, 0x1FF };
+constexpr stduint PAGE_ENTRY_COUNTS[] = {512, 512, 512, 512};
+constexpr bool PAGE_LEVEL_CAN_LEAF[] = {true, true, true, false};
 
-#elif defined(_ARC_RISCV_64) 
-// r64 
+#elif defined(_ARC_ARM_32)
+constexpr stduint PAGE_LEVELS = 2;
+constexpr stduint VPN_SHIFTS[] = {12, 20};
+constexpr stduint PAGE_ENTRY_COUNTS[] = {256, 4096};
+constexpr bool PAGE_LEVEL_CAN_LEAF[] = {true, true};
 
+#elif defined(_ARC_ARM_64)
+constexpr stduint PAGE_LEVELS = 4;
+constexpr stduint VPN_SHIFTS[] = {12, 21, 30, 39};
+constexpr stduint PAGE_ENTRY_COUNTS[] = {512, 512, 512, 512};
+constexpr bool PAGE_LEVEL_CAN_LEAF[] = {true, true, true, false};
+
+#elif defined(_ARC_RISCV_32)
+// r32 Lev2: 00000000~FFFFFFFF
+//     [v]4KB [v]4MB
+// [RISCV]
+// - if R = W = X = 0 then current table is the table of table but a page
+constexpr stduint PAGE_LEVELS = 2;
+constexpr stduint VPN_SHIFTS[] = {12, 22};
+constexpr stduint PAGE_ENTRY_COUNTS[] = {1024, 1024};
+constexpr bool PAGE_LEVEL_CAN_LEAF[] = {true, true};
+
+#elif defined(_ARC_RISCV_64)
+// r64
 constexpr stduint PAGE_LEVELS = 3;
 constexpr stduint VPN_SHIFTS[] = {12, 21, 30};
-constexpr stduint VPN_MASKS[]  = {0x1FF, 0x1FF, 0x1FF};
+constexpr stduint PAGE_ENTRY_COUNTS[] = {512, 512, 512};
+constexpr bool PAGE_LEVEL_CAN_LEAF[] = {true, true, true};
 #endif
+
+static_assert(sizeof(VPN_SHIFTS) / sizeof(VPN_SHIFTS[0]) == PAGE_LEVELS, "invalid paging shift count");
+static_assert(sizeof(PAGE_ENTRY_COUNTS) / sizeof(PAGE_ENTRY_COUNTS[0]) == PAGE_LEVELS, "invalid paging entry count");
+static_assert(sizeof(PAGE_LEVEL_CAN_LEAF) / sizeof(PAGE_LEVEL_CAN_LEAF[0]) == PAGE_LEVELS, "invalid paging leaf count");
+
+static int PagingLevelOf(stduint page_shift) {
+	for (stduint level = 0; level < PAGE_LEVELS; level++) {
+		if (PAGE_LEVEL_CAN_LEAF[level] && VPN_SHIFTS[level] == page_shift) return level;
+	}
+	return -1;
+}
 
 namespace uni {
 	#if !defined(_ARC_ARM_32)
 	inline stduint getVPN(stduint address, stduint level) {
-		return (address >> VPN_SHIFTS[level]) & VPN_MASKS[level];
+		return (address >> VPN_SHIFTS[level]) & (PAGE_ENTRY_COUNTS[level] - 1);
 	}
 	#endif
 }
@@ -73,10 +107,10 @@ namespace uni {
 
 	Paging::~Paging() {
 		if (!root_level_page || !uni_default_allocator) return;
-		for (int i = 0; i < 4096; i++) {
+		for (stduint i = 0; i < PAGE_ENTRY_COUNTS[1]; i++) {
 			PageEntry& pde = root_level_page[i];
-			if (pde.isPresent() && !pde.isHuge()) {
-				void* pt = (void*)pde.getAddress();
+			if (pde.isTable(1)) {
+				void* pt = (void*)pde.getAddress(1);
 				uni_default_allocator->deallocate(pt, 0x1000);
 			}
 		}
@@ -92,8 +126,9 @@ namespace uni {
 		pageint p = address;
 		auto pe = (PageEntry*)root_level_page + p.l1p_index;
 		if (!pe->isPresent()) return (PageEntry*)~_IMM0;
-		if (pe->isHuge()) return pe;
-		pe = (PageEntry*)(pe->getAddress()) + p.l0p_index;
+		if (pe->isHuge(1)) return pe;
+		if (!pe->isTable(1)) return (PageEntry*)~_IMM0;
+		pe = (PageEntry*)(pe->getAddress(1)) + p.l0p_index;
 		return pe;
 	}
 
@@ -101,20 +136,30 @@ namespace uni {
 		pageint p = address;
 		auto pe = (PageEntry*)root_level_page + p.l1p_index;
 		if (!pe->isPresent()) return 0;
-		if (pe->isHuge()) return 20; // 1MB Section
+		if (pe->isHuge(1)) return VPN_SHIFTS[1];
+		if (!pe->isTable(1)) return 0;
 
-		pe = (PageEntry*)(pe->getAddress()) + p.l0p_index;
+		pe = (PageEntry*)(pe->getAddress(1)) + p.l0p_index;
 		if (!pe->isPresent()) return 0;
-		return 12; // 4KB Page
+		return VPN_SHIFTS[0];
 	}
 
 	auto Paging::PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool {
-		if (pgsize == 12 || pgsize == 20); else return false;
+		int target_level = -1;
+		for (stduint level = 0; level < PAGE_LEVELS; level++) {
+			if (PAGE_LEVEL_CAN_LEAF[level] && VPN_SHIFTS[level] == pgsize) {
+				target_level = level;
+				break;
+			}
+		}
+		if (target_level < 0) return false;
 		pageint p = laddr;
 		auto pe = (PageEntry*)root_level_page + p.l1p_index;
 
-		if (pgsize == 20) {
-			if (pgporp & PGPROP_present) pe->SetupAsLeaf(paddr, true, pgporp);
+		if (target_level == 1) {
+			if (pgporp & PGPROP_present) {
+				if (!pe->SetupAsLeaf(paddr, 1, pgporp)) return false;
+			}
 			else pe->Clear();
 			return true;
 		}
@@ -125,11 +170,17 @@ namespace uni {
 				uni_default_allocator->allocate(0x1000, PAGESIZE_4KB) : nullptr;
 			if (!new_pg) return false;
 			MemSet(new_pg, 0, 0x1000);
-			pe->SetupAsTable(new_pg);
+			if (!pe->SetupAsTable(new_pg, 1)) {
+				uni_default_allocator->deallocate(new_pg, 0x1000);
+				return false;
+			}
 		}
+		else if (!pe->isTable(1)) return false;
 
-		pe = (PageEntry*)(pe->getAddress()) + p.l0p_index;
-		if (pgporp & PGPROP_present) pe->SetupAsLeaf(paddr, false, pgporp);
+		pe = (PageEntry*)(pe->getAddress(1)) + p.l0p_index;
+		if (pgporp & PGPROP_present) {
+			if (!pe->SetupAsLeaf(paddr, 0, pgporp)) return false;
+		}
 		else pe->Clear();
 		return true;
 	}
@@ -139,11 +190,11 @@ namespace uni {
 	static void FreePageTable(PageEntry* table, int level) {
 		if (!table) return;
 		if (level > 0) {
-			stduint max_entries = VPN_MASKS[level] + 1;
+			stduint max_entries = PAGE_ENTRY_COUNTS[level];
 			for (stduint i = 0; i < max_entries; i++) {
 				PageEntry& pe = table[i];
-				if (pe.isPresent() && !pe.isHuge()) {
-					PageEntry* next_table = (PageEntry*)pe.getAddress();
+				if (pe.isTable(level)) {
+					PageEntry* next_table = (PageEntry*)pe.getAddress(level);
 					FreePageTable(next_table, level - 1);
 				}
 			}
@@ -172,8 +223,8 @@ namespace uni {
 		for (int level = PAGE_LEVELS - 1; level >= (int)p.crt_level; --level) {
 			pe = &table[getVPN(address, level)];
 			if (!pe->isPresent()) return (PageEntry*)~_IMM0;
-			if (level > p.crt_level && pe->isHuge()) return (PageEntry*)~_IMM0;
-			table = (PageEntry*)pe->getAddress();
+			if (level > p.crt_level && !pe->isTable(level)) return (PageEntry*)~_IMM0;
+			table = (PageEntry*)pe->getAddress(level);
 		}
 		return pe;
 	}
@@ -186,8 +237,9 @@ namespace uni {
 		for (int level = PAGE_LEVELS - 1; level >= 0; --level) {
 			pe = &table[getVPN(address, level)];
 			if (!pe->isPresent()) return (PageEntry*)~_IMM0;
-			if (pe->isHuge() || level == 0) return pe;
-			table = (PageEntry*)pe->getAddress();
+			if (pe->isHuge(level) || level == 0) return pe;
+			if (!pe->isTable(level)) return (PageEntry*)~_IMM0;
+			table = (PageEntry*)pe->getAddress(level);
 		}
 		return pe;
 	}
@@ -197,8 +249,10 @@ namespace uni {
 		for (int level = PAGE_LEVELS - 1; level >= 0; --level) {
 			PageEntry* pe = &table[getVPN(address, level)];
 			if (!pe->isPresent()) return 0;
-			if (pe->isHuge() || level == 0) return VPN_SHIFTS[level];
-			table = (PageEntry*)pe->getAddress();
+			if ((pe->isHuge(level) || level == 0) && PAGE_LEVEL_CAN_LEAF[level]) return VPN_SHIFTS[level];
+			if (pe->isHuge(level)) return 0;
+			if (!pe->isTable(level)) return 0;
+			table = (PageEntry*)pe->getAddress(level);
 		}
 		return 0;
 	}
@@ -206,7 +260,7 @@ namespace uni {
 	auto Paging::PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool {
 		int target_level = -1;
 		for (int i = 0; i < PAGE_LEVELS; i++) {
-			if (VPN_SHIFTS[i] == pgsize) { target_level = i; break; }
+			if (PAGE_LEVEL_CAN_LEAF[i] && VPN_SHIFTS[i] == pgsize) { target_level = i; break; }
 		}
 		if (target_level == -1) return false;
 
@@ -223,22 +277,28 @@ namespace uni {
 					uni_default_allocator->allocate(0x1000, PAGESIZE_4KB) : nullptr;
 				if (!new_pg) return false;
 				MemSet(new_pg, 0, 0x1000);
-				pe->SetupAsTable(new_pg);
+				if (!pe->SetupAsTable(new_pg, level)) {
+					uni_default_allocator->deallocate(new_pg, 0x1000);
+					return false;
+				}
 			}
-			else if (pe->isHuge()) {
-				const stduint huge_base = pe->getAddress();
+			else if (pe->isHuge(level)) {
+				const stduint huge_base = pe->getAddress(level);
 				const stduint huge_size = _IMM1 << VPN_SHIFTS[level];
 				const stduint req_size = _IMM1 << pgsize;
-				if (laddr < huge_base || laddr + req_size > huge_base + huge_size) return false;
-				if ((pgporp & PGPROP_writable) && !pe->writable) return false;
-				if ((pgporp & PGPROP_user_access) && !pe->user_access) return false;
+				const stduint huge_offset = laddr & (huge_size - 1);
+				if (huge_offset + req_size > huge_size) return false;
+				if (paddr != huge_base + huge_offset) return false;
+				if ((pgporp & PGPROP_writable) && !pe->isWritable(level)) return false;
+				if ((pgporp & PGPROP_user_access) && !pe->isUserAccessible(level)) return false;
 				return true;
 			}
-			table = (PageEntry*)pe->getAddress();
+			else if (!pe->isTable(level)) return false;
+			table = (PageEntry*)pe->getAddress(level);
 		}
 
 		if (pgporp & PGPROP_present) {
-			pe->SetupAsLeaf(paddr, target_level > 0, pgporp);
+			if (!pe->SetupAsLeaf(paddr, target_level, pgporp)) return false;
 		}
 		else {
 			pe->Clear();
@@ -253,7 +313,9 @@ namespace uni {
 
 		stduint shift = getPageSizeShift(address);
 		stduint mask = (1ULL << shift) - 1;
-		return (void*)(entry->getAddress() + (address & mask));
+		int level = PagingLevelOf(shift);
+		if (level < 0) return (void*)~_IMM0;
+		return (void*)(entry->getAddress(level) + (address & mask));
 	}
 
 	void Paging::Reset() {
@@ -347,9 +409,11 @@ namespace uni {
 					return 0;
 				}
 				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
+				int level = PagingLevelOf(shift);
+				if (level < 0) return 0;
 				stduint mask = (1ULL << shift) - 1;
 				stduint offset = _IMM(dest) & mask;
-				phy_d = crt->getAddress() + offset;
+				phy_d = crt->getAddress(level) + offset;
 				MIN(unit, (1ULL << shift) - offset);
 			}
 			else {
@@ -365,9 +429,11 @@ namespace uni {
 					return 0;
 				}
 				stduint shift = pg_s.getPageSizeShift(_IMM(sors));
+				int level = PagingLevelOf(shift);
+				if (level < 0) return 0;
 				stduint mask = (1ULL << shift) - 1;
 				stduint offset = _IMM(sors) & mask;
-				phy_s = crt->getAddress() + offset;
+				phy_s = crt->getAddress(level) + offset;
 				MIN(unit, (1ULL << shift) - offset);
 			}
 			else {
@@ -399,9 +465,11 @@ namespace uni {
 				auto crt = pg_d.getEntry(_IMM(dest));
 				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return 0;
 				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
+				int level = PagingLevelOf(shift);
+				if (level < 0) return 0;
 				stduint mask = (1ULL << shift) - 1;
 				stduint offset = _IMM(dest) & mask;
-				phy_d = crt->getAddress() + offset;
+				phy_d = crt->getAddress(level) + offset;
 				MIN(unit, (1ULL << shift) - offset);
 			}
 			else {
@@ -413,9 +481,11 @@ namespace uni {
 				auto crt = pg_s.getEntry(_IMM(sors));
 				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return 0;
 				stduint shift = pg_s.getPageSizeShift(_IMM(sors));
+				int level = PagingLevelOf(shift);
+				if (level < 0) return 0;
 				stduint mask = (1ULL << shift) - 1;
 				stduint offset = _IMM(sors) & mask;
-				phy_s = crt->getAddress() + offset;
+				phy_s = crt->getAddress(level) + offset;
 				MIN(unit, (1ULL << shift) - offset);
 			}
 			else {
@@ -442,7 +512,9 @@ namespace uni {
 				auto crt = pg_d.getEntry(_IMM(dest));
 				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return ret;
 				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
-				phy_d = crt->getAddress() + (_IMM(dest) & ((1ULL << shift) - 1));
+				int level = PagingLevelOf(shift);
+				if (level < 0) return ret;
+				phy_d = crt->getAddress(level) + (_IMM(dest) & ((1ULL << shift) - 1));
 			}
 			else {
 				phy_d = _IMM(dest);
@@ -455,24 +527,78 @@ namespace uni {
 
 }
 
-#if defined(_ARC_x86) || defined(_ARC_x64)
+#if defined(_ARC_x86)
 #include "../../../../inc/c/proctrl/IAx86_64.h"
 
 bool uni::Paging::isSupportedSize(stduint exponent) {
 	unsigned a{}, b{}, c{}, d{};
 	switch (exponent) {
 	case PAGESIZE_4KB: return true;
-	case PAGESIZE_2MB: {
+	case PAGESIZE_4MB:
 		_IO_CPUID(1, 0, &a, &b, &c, &d);
 		return (d & (1u << 3)) != 0;
+	case PAGESIZE_ANY: return false;
+	default: return false;
 	}
+}
+
+#elif defined(_ARC_x64)
+#include "../../../../inc/c/proctrl/IAx86_64.h"
+
+static bool paging_nx_enabled = false;
+
+bool uni::EnablePagingNX() {
+	unsigned a{}, b{}, c{}, d{};
+	_IO_CPUID(0x80000000, 0, &a, &b, &c, &d);
+	if (a < 0x80000001u) return false;
+	_IO_CPUID(0x80000001, 0, &a, &b, &c, &d);
+	if (!(d & (1u << 20))) return false;
+
+	constexpr uint64 EFER_NXE = uint64(1) << 11;
+	setMSR(x86MSR::EFER, getMSR(x86MSR::EFER) | EFER_NXE);
+	paging_nx_enabled = !!(getMSR(x86MSR::EFER) & EFER_NXE);
+	return paging_nx_enabled;
+}
+
+bool uni::PagingNXEnabled() {
+	return paging_nx_enabled;
+}
+
+bool uni::Paging::isSupportedSize(stduint exponent) {
+	unsigned a{}, b{}, c{}, d{};
+	switch (exponent) {
+	case PAGESIZE_4KB:
+	case PAGESIZE_2MB: return true;
 	case PAGESIZE_1GB: {
 		_IO_CPUID(0x80000000, 0, &a, &b, &c, &d);
 		if (a < 0x80000001u) return false;
 		_IO_CPUID(0x80000001, 0, &a, &b, &c, &d);
 		return (d & (1u << 26)) != 0;
 	}
+	case PAGESIZE_ANY: return false;
 	default: return false;
 	}
+}
+
+#elif defined(_ARC_ARM_32)
+bool uni::Paging::isSupportedSize(stduint exponent) {
+	return exponent == PAGESIZE_4KB || exponent == PAGESIZE_1MB;
+}
+
+#elif defined(_ARC_ARM_64)
+bool uni::Paging::isSupportedSize(stduint exponent) {
+	return exponent == PAGESIZE_4KB ||
+		exponent == PAGESIZE_2MB || exponent == PAGESIZE_1GB;
+}
+
+#elif defined(_ARC_RISCV_32)
+bool uni::Paging::isSupportedSize(stduint exponent) {
+	return exponent == PAGESIZE_4KB || exponent == PAGESIZE_4MB;
+}
+
+#elif defined(_ARC_RISCV_64)
+bool uni::Paging::isSupportedSize(stduint exponent) {
+	return exponent == PAGESIZE_4KB ||
+		exponent == PAGESIZE_2MB || exponent == PAGESIZE_1GB;
 }
 #endif

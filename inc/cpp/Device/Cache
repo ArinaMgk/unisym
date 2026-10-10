@@ -89,6 +89,8 @@ namespace uni {
 #elif defined(_MCU_STM32H7x)
 
 	class Cache_t {
+	private:
+		mutable bool d_cache_enabled = false;
 	public:
 		//
 		void enAble(bool ena = true) const;

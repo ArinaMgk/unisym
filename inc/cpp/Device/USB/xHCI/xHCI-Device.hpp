@@ -65,10 +65,13 @@ namespace uni::device::SpaceUSB3 {
 		Error InterruptIn(EndpointID ep_id, void* buf, int len) override;
 		Error InterruptOut(EndpointID ep_id, void* buf, int len) override;
 		Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len) override;
+		bool IsBulkRecoveryPending(EndpointID ep_id) const override;
 		Error IsochronousTransfer(EndpointID ep_id, void* buf, int len,
 			const IsochronousTransferOptions& options = IsochronousTransferOptions{}) override;
 		Error OnHubPortStatusReceived(uint8 port_num, uint16 status,
 			uint16 change, uint8 speed_id = 0) override;
+		bool ClaimHubPortReset(uint8 port_num) override;
+		void ReleaseHubPortReset(uint8 port_num) override;
 		Error ConfigureHub(uint8 num_ports, uint16 characteristics) override;
 		uint8 HubDepth() const override;
 

@@ -131,35 +131,31 @@ namespace uni::device::SpaceUSB {
 	// the port policy: no wait may run in the interrupt, so every step is ticked here
 	Error USBHubDriver::ProcessDelayed() {
 		static const uint16 kRescanTicks = 250;
-		static uint16 rescan_ticks = 0;
 		static const uint16 kSettleTicks = 100;
-		static uint16 settle_ticks = 0;
 		static const uint16 kPendingTicks = 300;
-		static uint16 pending_ticks = 0;
 		static const uint8 kPortResetTries = 3;
 		static const uint16 kChildBusyWaitTicks = 50;// at most this many ticks the policy waits for a busy child
-		static uint16 child_busy_ticks = 0;
 		if (num_ports_ == 0 || initialize_phase_ != 3) {
 			return MAKE_ERROR(Error::kSuccess);// wait for the descriptor and the first port scan
 		}
 		// hold the policy back while a downstream device uses the bus, bounded so it can never starve
-		if (ParentDevice()->ChildBusy() && child_busy_ticks < kChildBusyWaitTicks) {
-			child_busy_ticks++;
+		if (ParentDevice()->ChildBusy() && child_busy_ticks_ < kChildBusyWaitTicks) {
+			child_busy_ticks_++;
 			return MAKE_ERROR(Error::kSuccess);
 		}
-		child_busy_ticks = 0;
+		child_busy_ticks_ = 0;
 		if (wait_ticks_) {
 			--wait_ticks_;
 			return MAKE_ERROR(Error::kSuccess);
 		}
 		if (pending_kind_) {
-			if (++pending_ticks > kPendingTicks) {
-				pending_ticks = 0;
+			if (++pending_ticks_ > kPendingTicks) {
+				pending_ticks_ = 0;
 				pending_kind_ = 0;
 			}
 			else return MAKE_ERROR(Error::kSuccess);// one port request at a time
 		}
-		else pending_ticks = 0;
+		else pending_ticks_ = 0;
 		if (delayed_step_ == 0) {
 			port_cursor_ = 1;// power every port once, then wait bPwrOn2PwrGood
 			delayed_step_ = 1;
@@ -183,13 +179,16 @@ namespace uni::device::SpaceUSB {
 			delayed_step_ = 4;
 		}
 		if (delayed_step_ == 4) {
-			if (++rescan_ticks >= kRescanTicks) {
-				rescan_ticks = 0;
+			if (++rescan_ticks_ >= kRescanTicks) {
+				rescan_ticks_ = 0;
 				delayed_step_ = 2;// back to reading every port status once
 				return MAKE_ERROR(Error::kSuccess);
 			}
 			for (uint8 port = 1; port <= num_ports_; port++) {// a port that lost ENABLE may come up again
 				if (!(port_status_[port - 1] & kHubPortStatusConnect)) {
+					if (reset_mask_ & uint16(1u << (port - 1))) {
+						ParentDevice()->ReleaseHubPortReset(port);
+					}
 					reset_mask_ &= uint16(~(1u << (port - 1)));
 					reset_count_[port - 1] = 0;// a device plugged in again gets the tries back
 				}
@@ -197,13 +196,12 @@ namespace uni::device::SpaceUSB {
 				if (port_status_[port - 1] & kHubPortStatusEnable) continue;
 				ready_mask_ &= uint16(~(1u << (port - 1)));
 			}
-			const uint8 want = g_hub_reset_port_hook ? g_hub_reset_port_hook(*ParentDevice()) : 0;
-			if (g_hub_reset_port_hook && want == 0) return MAKE_ERROR(Error::kSuccess);// nothing to bring up now
 			// First, process any settling ports that have finally become ENABLED
 			for (uint8 port = 1; port <= num_ports_; port++) {
 				if ((reset_mask_ & uint16(1u << (port - 1))) && (port_status_[port - 1] & kHubPortStatusEnable)) {
 					ready_mask_ |= uint16(1u << (port - 1));
 					reset_mask_ &= uint16(~(1u << (port - 1)));
+					ParentDevice()->ReleaseHubPortReset(port);
 				}
 			}
 
@@ -211,37 +209,55 @@ namespace uni::device::SpaceUSB {
 			if (!is_addressing && reset_mask_ == 0) {
 				// Only pick a new port to reset if the bus is clear from address 0 assignments
 				for (uint8 port = 1; port <= num_ports_; port++) {
-					if (want && port != want) continue;
 					if (ready_mask_ & uint16(1u << (port - 1))) continue;
 					if (!(port_status_[port - 1] & kHubPortStatusConnect)) continue;
-					
+					if (!ParentDevice()->ClaimHubPortReset(port)) continue;
+
 					port_cursor_ = port;
 					reset_mask_ |= uint16(1u << (port - 1));
 					delayed_step_ = 5;
-					return RequestSetPortFeature(port, HubPortFeature::Reset);
+					auto error = RequestSetPortFeature(port, HubPortFeature::Reset);
+					if (error) {
+						pending_kind_ = 0;
+						reset_mask_ &= uint16(~(1u << (port - 1)));
+						ParentDevice()->ReleaseHubPortReset(port);
+					}
+					return error;
 				}
 			}
-			if (++settle_ticks > kSettleTicks) {
-				settle_ticks = 0;
+			if (++settle_ticks_ > kSettleTicks) {
+				settle_ticks_ = 0;
 				for (uint8 port = 1; port <= num_ports_; port++) {
 					if (!(reset_mask_ & uint16(1u << (port - 1)))) continue;
 					if (port_status_[port - 1] & kHubPortStatusEnable) continue;
 					if (port_status_[port - 1] & 0x0010) {// PORT_RESET: reset still in progress
 						pending_kind_ = 1;
-						return RequestClearPortFeature(port, HubPortFeature::Reset);
+						auto error = RequestClearPortFeature(port, HubPortFeature::Reset);
+						if (error) {
+							pending_kind_ = 0;
+							reset_mask_ &= uint16(~(1u << (port - 1)));
+							ParentDevice()->ReleaseHubPortReset(port);
+						}
+						return error;
 					}
 					// a port that never reached ENABLE gets another reset, up to kPortResetTries
 					if (reset_count_[port - 1] == 0) reset_count_[port - 1] = kPortResetTries;
 					if (--reset_count_[port - 1] > 0) {
 						port_cursor_ = port;
 						delayed_step_ = 5;
-						return RequestSetPortFeature(port, HubPortFeature::Reset);
+						auto error = RequestSetPortFeature(port, HubPortFeature::Reset);
+						if (error) {
+							pending_kind_ = 0;
+							reset_mask_ &= uint16(~(1u << (port - 1)));
+							ParentDevice()->ReleaseHubPortReset(port);
+						}
+						return error;
 					}
 					reset_mask_ &= uint16(~(1u << (port - 1)));// the tries are used up
+					ParentDevice()->ReleaseHubPortReset(port);
 				}
 			}
 			for (uint8 port = 1; port <= num_ports_; port++) {// read a port whose reset is still settling
-				if (want && port != want) continue;
 				if (!(reset_mask_ & uint16(1u << (port - 1)))) continue;
 				if (port_status_[port - 1] & kHubPortStatusEnable) continue;
 				port_cursor_ = port;
@@ -259,7 +275,13 @@ namespace uni::device::SpaceUSB {
 			port_cursor_ = 0;
 			delayed_step_ = 4;
 			pending_kind_ = 2;
-			return RequestPortStatus(port);
+			auto error = RequestPortStatus(port);
+			if (error) {
+				pending_kind_ = 0;
+				reset_mask_ &= uint16(~(1u << (port - 1)));
+				ParentDevice()->ReleaseHubPortReset(port);
+			}
+			return error;
 		}
 		delayed_step_ = 4;
 		return MAKE_ERROR(Error::kSuccess);

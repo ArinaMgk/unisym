@@ -46,7 +46,8 @@ enum PageSizeShift : stduint {
 	PAGESIZE_1MB = 20,// ARM32
 	PAGESIZE_2MB = 21,// normal 64b
 	PAGESIZE_4MB = 22,// normal 32b
-	PAGESIZE_1GB = 30
+	PAGESIZE_1GB = 30,
+	PAGESIZE_ANY = 0xFFFF
 };
 
 // 1 [ none   | l1p-id | l0p-id    ] until Commit 6f9dbef7

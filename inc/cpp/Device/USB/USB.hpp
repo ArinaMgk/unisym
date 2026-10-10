@@ -49,13 +49,14 @@
 
 namespace uni::device::SpaceUSB {
 	class USBHostDevice;
+	enum class ClassDriverType : byte {
+		Unknown,
+		MassStorage,
+	};
 	using HubDescriptorCompleteHook = void (*)(USBHostDevice& dev);
 	extern HubDescriptorCompleteHook g_hub_descriptor_complete_hook;
 	using HubPortStatusHook = void (*)(USBHostDevice& dev, uint8 downstream_port, uint16 status, uint16 change);
 	extern HubPortStatusHook g_hub_port_status_hook;
-	// which port may be reset next (0 = none): only one device may sit at address 0 at a time
-	using HubResetPortHook = uint8 (*)(USBHostDevice& dev);
-	extern HubResetPortHook g_hub_reset_port_hook;
 
 	// Base class of USB class drivers. Platform independent; the H7 host
 	// bridge (OTGHostDevice) drives it over the OTG controller.
@@ -76,6 +77,11 @@ namespace uni::device::SpaceUSB {
 			(void)len;
 			return MAKE_ERROR(Error::kNotImplemented);
 		}
+		virtual Error OnBulkRecoveryCompleted(EndpointID ep_id, bool success) {
+			(void)ep_id;
+			(void)success;
+			return MAKE_ERROR(Error::kSuccess);
+		}
 		virtual Error OnIsochronousCompleted(EndpointID ep_id, const void* buf,
 			int len, uint16 frame_id, bool schedule_immediately, int completion_code) {
 			(void)ep_id;
@@ -88,6 +94,8 @@ namespace uni::device::SpaceUSB {
 		}
 		// AKA periodic service; the host transport ticks this about once per millisecond
 		virtual Error ProcessDelayed() { return MAKE_ERROR(Error::kSuccess); }
+		virtual ClassDriverType Type() const { return ClassDriverType::Unknown; }
+		virtual int InterfaceNumber() const { return -1; }
 
 		/** Returns the USB device that holds this class driver. */
 		USBHostDevice* ParentDevice() const { return dev_; }

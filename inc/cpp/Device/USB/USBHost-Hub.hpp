@@ -86,6 +86,10 @@ namespace uni::device::SpaceUSB {
 		uint8 port_cursor_ = 0;
 		uint8 wait_ticks_ = 0;
 		uint8 power_good_ticks_ = 0;
+		uint16 rescan_ticks_ = 0;
+		uint16 settle_ticks_ = 0;
+		uint16 pending_ticks_ = 0;
+		uint16 child_busy_ticks_ = 0;
 		uint16 ready_mask_ = 0;
 		uint16 reset_mask_ = 0;// ports whose PORT_RESET is still settling
 		uint8 reset_count_[16] = {};// resets left for a port that has not reached ENABLE yet

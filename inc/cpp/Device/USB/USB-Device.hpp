@@ -2,6 +2,7 @@
 #define _USB_DEVICE_HPP
 namespace uni::device::SpaceUSB {
 	class ClassDriver;
+	enum class ClassDriverType : byte;
 
 	class USBHostDevice {
 	public:
@@ -14,6 +15,10 @@ namespace uni::device::SpaceUSB {
 		virtual Error InterruptOut(EndpointID ep_id, void* buf, int len);
 		// Bulk transport (AKA a host MSC disk): dir_in selects the IN/OUT direction.
 		virtual Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len);
+		virtual bool IsBulkRecoveryPending(EndpointID ep_id) const {
+			(void)ep_id;
+			return false;
+		}
 		virtual Error IsochronousTransfer(EndpointID ep_id, void* buf, int len,
 			const IsochronousTransferOptions& options = IsochronousTransferOptions{});
 		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status,
@@ -28,6 +33,12 @@ namespace uni::device::SpaceUSB {
 		virtual uint8 HubAddressingPort() const { return 0; }
 		// a hub parent reports whether one of its downstream devices holds the bus right now
 		virtual bool ChildBusy() { return false; }
+		// Some transports serialize address-zero ownership across their hub tree.
+		virtual bool ClaimHubPortReset(uint8 port_num) {
+			(void)port_num;
+			return true;
+		}
+		virtual void ReleaseHubPortReset(uint8 port_num) { (void)port_num; }
 		// HPRT0.PSPD scale: 0 high, 1 full, 2 low speed
 		virtual stduint Speed() const { return 1; }
 		// AKA xHCI ConfigureEndpoints: the transport programs its channels here
@@ -46,6 +57,8 @@ namespace uni::device::SpaceUSB {
 		ClassDriver* ClassDriverOf(int ep_num) {
 			return (ep_num >= 0 && ep_num < 16) ? class_drivers_[ep_num] : nullptr;
 		}
+		ClassDriver* FindClassDriver(ClassDriverType type,
+			int interface_number = -1) const;
 		Error OnEndpointsConfigured();
 		// AKA the periodic tick: hand every class driver its timed work (about once per ms)
 		Error ProcessDelayed();
@@ -93,6 +106,7 @@ namespace uni::device::SpaceUSB {
 			const void* buf, int len);
 		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len);
 		Error OnBulkCompleted(EndpointID ep_id, const void* buf, int len);
+		Error OnBulkRecoveryCompleted(EndpointID ep_id, bool success);
 		Error OnIsochronousCompleted(EndpointID ep_id, const void* buf, int len,
 			uint16 frame_id, bool schedule_immediately, int completion_code);
 

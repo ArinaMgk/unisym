@@ -41,6 +41,15 @@ namespace uni::device::SpaceUSB {
 	// and advance the state machine, so a caller polls IsBusy()/LastResult().
 	class USBHost_MSC : public ClassDriver {
 	public:
+		enum class Event : byte {
+			BringUpComplete,
+			CommandComplete,
+		};
+		// Observers run in the transport completion context and may only record state
+		// or wake a waiter; they must not submit another USB command directly.
+		using Observer = void (*)(USBHost_MSC& driver, Event event,
+			uint32 command_id, void* context);
+
 		// AKA USBH_MSC_BOT_CBWTypeDef (31 bytes on the wire)
 		struct BotCBW {
 			uint32 signature;// 0x43425355, "USBC" little-endian on the wire
@@ -63,19 +72,21 @@ namespace uni::device::SpaceUSB {
 		// Result of the last transaction or of the bring-up sequence, AKA the
 		// DRESULT a FatFS diskio layer would collapse into RES_OK/RES_ERROR.
 		enum class Result : byte {
-			kOk = 0,
-			kBusy,          // a command is still in flight
-			kNoBulkPair,    // the configuration gave no bulk IN/OUT endpoint pair
-			kTransferFailed,// a bulk transfer did not complete (stall/error/timeout)
-			kShortCsw,      // CSW shorter than 13 bytes
-			kCswSignature,  // CSW signature or tag mismatch
-			kCswStatus,     // CSW status = command failed
-			kCswPhase,      // CSW status = phase error
+			Ok = 0,
+			Busy,          // a command is still in flight
+			NoBulkPair,    // the configuration gave no bulk IN/OUT endpoint pair
+			TransferFailed,// a bulk transfer did not complete (stall/error/timeout)
+			ShortCsw,      // CSW shorter than 13 bytes
+			CswSignature,  // CSW signature or tag mismatch
+			CswStatus,     // CSW status = command failed
+			CswPhase,      // CSW status = phase error
+			RecoveryFailed,
+			CswResidue,
 		};
 
 		static const uint32 kSignatureCbw = 0x43425355U;
 		static const uint32 kSignatureCsw = 0x53425355U;
-		static const uint32 kTag = 0x20304050U;// constant tag, AKA the reference
+		static const uint32 kInitialTag = 0x20304050U;
 		static const byte kCdbLength = 10;
 		static const byte kMaxLun = 1;// LUNs 0..kMaxLun are accepted
 		// Wire lengths of the BOT/SCSI payloads. The transport copies a received
@@ -95,6 +106,10 @@ namespace uni::device::SpaceUSB {
 		Error OnControlCompleted(EndpointID ep_id, SetupData setup_data, const void* buf, int len) override;
 		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) override;
 		Error OnBulkCompleted(EndpointID ep_id, const void* buf, int len) override;
+		Error OnBulkRecoveryCompleted(EndpointID ep_id, bool success) override;
+		ClassDriverType Type() const override { return ClassDriverType::MassStorage; }
+		int InterfaceNumber() const override { return interface_index_; }
+		void SetObserver(Observer observer, void* context = nullptr);
 
 		// ---- state ----
 		bool IsReady() const { return ready_; }// INQUIRY and READ CAPACITY are done
@@ -105,14 +120,18 @@ namespace uni::device::SpaceUSB {
 		Result LastResult() const { return result_; }
 		const char* ResultName() const;
 		byte MaxLun() const { return max_lun_; }
+		byte Lun() const { return lun_; }
 
 		// ---- bring-up progress, for platform logs ----
 		// CommandCount counts the BOT commands submitted, CompletionCount every
 		// control/bulk completion seen: a driver that reports cmds=1, completions=0
 		// and stage="cbw" never got the first bulk transfer back.
 		uint32 CommandCount() const { return command_count_; }
+		uint32 CommandID() const { return command_id_; }
+		uint32 CommandTag() const { return cbw_.tag; }
 		uint32 CompletionCount() const { return completion_count_; }
 		uint32 HaltRecoveries() const { return halt_recoveries_; }
+		uint32 ResetRecoveries() const { return reset_recoveries_; }
 		const char* PhaseName() const;
 		const char* StageName() const;
 
@@ -131,6 +150,14 @@ namespace uni::device::SpaceUSB {
 
 	private:
 		enum class Stage : byte { Idle, Cbw, Data, Csw };
+		enum class RecoveryStage : byte {
+			None,
+			ClearHalt,
+			AwaitTransport,
+			MassStorageReset,
+			ClearBulkIn,
+			ClearBulkOut,
+		};
 
 		// AKA the SCSI commands of usbh_msc_scsi.c
 		Error Inquiry();
@@ -145,11 +172,16 @@ namespace uni::device::SpaceUSB {
 		// A stalled bulk endpoint stays halted until the host clears the feature
 		// (AKA USBH_MSC_BOT_Abort), otherwise that pipe stays dead for every later
 		// command on it.
-		Error RecoverHalt(EndpointID ep_id);
+		Error BeginHaltRecovery(EndpointID ep_id, Result result);
+		Error BeginResetRecovery(Result result);
+		Error SubmitClearHalt(EndpointID ep_id);
+		Error SubmitMassStorageReset();
+		void FinishRecovery(bool success);
 		void Finish(Result res);
 		void ParseCsw(int len);
 		void ParseCapacity();
 		void CaptureInquiry();
+		void Notify(Event event);
 
 		EndpointID ep_bulk_in_{};
 		EndpointID ep_bulk_out_{};
@@ -158,7 +190,7 @@ namespace uni::device::SpaceUSB {
 
 		BotCBW cbw_{};
 		Stage stage_ = Stage::Idle;
-		Result result_ = Result::kOk;
+		Result result_ = Result::Ok;
 		bool ready_ = false;
 		bool dir_in_ = false;
 		void* data_ = nullptr;
@@ -174,9 +206,15 @@ namespace uni::device::SpaceUSB {
 		// diagnostics: how many commands were submitted, how many completions arrived
 		// and which stage the first failure happened in (0 = none yet)
 		uint32 command_count_ = 0;
+		uint32 command_id_ = 0;
+		uint32 next_tag_ = kInitialTag;
 		uint32 completion_count_ = 0;
 		uint32 halt_recoveries_ = 0;
+		uint32 reset_recoveries_ = 0;
 		byte fail_stage_ = 0;
+		RecoveryStage recovery_stage_ = RecoveryStage::None;
+		Result recovery_result_ = Result::Ok;
+		EndpointID recovery_ep_{};
 
 		byte inquiry_[40] = {};// kInquiryLength + word padding
 		byte capacity_[12] = {};// kCapacityLength + word padding
@@ -186,6 +224,8 @@ namespace uni::device::SpaceUSB {
 		char vendor_[9] = {};
 		char product_[17] = {};
 		char revision_[5] = {};
+		Observer observer_ = nullptr;
+		void* observer_context_ = nullptr;
 	};
 
 }

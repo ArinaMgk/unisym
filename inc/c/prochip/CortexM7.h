@@ -65,7 +65,10 @@ struct SysCtrlBlock_Map {
 	uint32 CPACR;                  // 0x088 (R/W)  Coprocessor Access Control
 	uint32 RESERVED3[93U]; //////////////
 	uint32 STIR;                   // 0x200 ( /W)  Software Triggered Interrupt Register
-	uint32 RESERVED4[15U]; //////////////
+	uint32 RESERVED4[12U]; //////////////
+	uint32 FPCCR;                  // 0x234 (R/W)  Floating-Point Context Control
+	uint32 FPCAR;                  // 0x238 (R/W)  Floating-Point Context Address
+	uint32 FPDSCR;                 // 0x23C (R/W)  Floating-Point Default Status Control
 	uint32 MVFR0;                  // 0x240 (R/ )  Media and VFP Feature 0
 	uint32 MVFR1;                  // 0x244 (R/ )  Media and VFP Feature 1
 	uint32 MVFR2;                  // 0x248 (R/ )  Media and VFP Feature 2
@@ -89,7 +92,23 @@ struct SysCtrlBlock_Map {
 	uint32 RESERVED8[1U]; //////////////
 	uint32 ABFSR;                  // 0x2A8 (R/W)  Auxiliary Bus Fault Status
 };
-#define SCB ((struct SysCtrlBlock_Map *)_SCB_BASE)
+#define SCB ((volatile struct SysCtrlBlock_Map *)_SCB_BASE)
+
+#define _MPU_BASE       (_SCS_BASE +  0x0D90UL)
+struct MpuBlock_Map {
+	uint32 TYPE;   // 0x00 (R/ )  MPU Type
+	uint32 CTRL;   // 0x04 (R/W)  MPU Control
+	uint32 RNR;    // 0x08 (R/W)  MPU Region Number
+	uint32 RBAR;   // 0x0C (R/W)  MPU Region Base Address
+	uint32 RASR;   // 0x10 (R/W)  MPU Region Attribute and Size
+	uint32 RBAR_A1;// 0x14 ( /W)  MPU Region Base Address Alias 1
+	uint32 RASR_A1;// 0x18 ( /W)  MPU Region Attribute and Size Alias 1
+	uint32 RBAR_A2;// 0x1C ( /W)  MPU Region Base Address Alias 2
+	uint32 RASR_A2;// 0x20 ( /W)  MPU Region Attribute and Size Alias 2
+	uint32 RBAR_A3;// 0x24 ( /W)  MPU Region Base Address Alias 3
+	uint32 RASR_A3;// 0x28 ( /W)  MPU Region Attribute and Size Alias 3
+};
+#define MPU ((volatile struct MpuBlock_Map *)_MPU_BASE)
 #ifdef _CortexM7_SCB_TEMP
 #include "CortexM7/CortexM7-SCB.h"
 #endif

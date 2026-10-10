@@ -160,7 +160,6 @@ namespace {
 namespace uni::device::SpaceUSB {
 	HubDescriptorCompleteHook g_hub_descriptor_complete_hook = nullptr;
 	HubPortStatusHook g_hub_port_status_hook = nullptr;
-	HubResetPortHook g_hub_reset_port_hook = nullptr;
 	HostDeviceConfiguredHook g_host_device_configured_hook = nullptr;
 	HostDeviceDisconnectedHook g_host_device_disconnected_hook = nullptr;
 	HostDeviceNotificationHook g_host_device_notification_hook = nullptr;
@@ -178,6 +177,17 @@ namespace uni::device::SpaceUSB {
 		for (auto* driver : class_driver_instances_) delete driver;
 		class_driver_instances_.Clear();
 		for (auto& driver : class_drivers_) driver = nullptr;
+	}
+
+	ClassDriver* USBHostDevice::FindClassDriver(ClassDriverType type,
+		int interface_number) const {
+		for (auto* driver : class_driver_instances_) {
+			if (driver && driver->Type() == type &&
+				(interface_number < 0 || driver->InterfaceNumber() == interface_number)) {
+				return driver;
+			}
+		}
+		return nullptr;
 	}
 
 	Error USBHostDevice::ControlIn(EndpointID ep_id, SetupData setup_data,
@@ -442,6 +452,13 @@ namespace uni::device::SpaceUSB {
 	Error USBHostDevice::OnBulkCompleted(EndpointID ep_id, const void* buf, int len) {
 		if (auto w = class_drivers_[ep_id.Number()]) {
 			return w->OnBulkCompleted(ep_id, buf, len);
+		}
+		return MAKE_ERROR(Error::kNoWaiter);
+	}
+
+	Error USBHostDevice::OnBulkRecoveryCompleted(EndpointID ep_id, bool success) {
+		if (auto w = class_drivers_[ep_id.Number()]) {
+			return w->OnBulkRecoveryCompleted(ep_id, success);
 		}
 		return MAKE_ERROR(Error::kNoWaiter);
 	}

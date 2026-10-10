@@ -110,6 +110,9 @@ namespace uni::device::SpaceUSB3 {
 		uni::Vector<PendingHubChildAddress> pending_hub_children{};
 		PendingHubChildAddress active_hub_child{};
 		bool active_hub_child_valid = false;
+		PendingHubChildAddress resetting_hub_port{};
+		bool resetting_hub_port_valid = false;
+		uint16 resetting_hub_port_ticks = 0;
 		uni::Array<ConfigPhase, 256> port_config_phase{};
 		uint8 addressing_port = 0;
 		bool enable_slot_command_pending = false;
@@ -192,6 +195,7 @@ namespace uni::device::SpaceUSB3 {
 		uint64 MFINDEXWrapCount() const { return mfindex_wrap_count_; }
 	public:
 		Error ProcessEvents();
+		Error ProcessDelayed();
 	private:
 		const uintptr_t mmio_base_;
 		CapabilityRegisters* const cap_;
@@ -241,6 +245,8 @@ namespace uni::device::SpaceUSB3 {
 		Error ConfigureEndpoints(USBHostDevice_v3& dev);
 		Error OnHubPortStatusChanged(USBHostDevice_v3& hub_dev, uint8 downstream_port,
 			uint16 status, uint16 change, uint8 speed_id);
+		bool ClaimHubPortReset(USBHostDevice_v3& hub_dev, uint8 downstream_port);
+		void ReleaseHubPortReset(USBHostDevice_v3& hub_dev, uint8 downstream_port);
 
 		/** @brief Process at most one event registered in the event ring.
 			 *

@@ -21,7 +21,6 @@
 */
 
 #include "../../../../inc/cpp/Device/USB/OTGHostDevice.hpp"
-#include "../../../../inc/cpp/Device/USB/USB.hpp"// g_hub_reset_port_hook
 
 namespace uni::device::SpaceUSB {
 #if defined(_MCU_STM32H7x)
@@ -80,15 +79,6 @@ namespace uni::device::SpaceUSB {
 			if (s_bridges[i]) n++;
 		}
 		return n;
-	}
-
-	OTGHostDevice* OTGHostDevice::BridgeOf(const USBHostDevice* dev) {
-		if (dev == nullptr) return nullptr;
-		for (int i = 0; i < kMaxBridges; i++) {
-			if (s_bridges[i] == nullptr) continue;
-			if (static_cast<const USBHostDevice*>(s_bridges[i]) == dev) return s_bridges[i];
-		}
-		return nullptr;
 	}
 
 	void OTGHostDevice::ReserveDeviceAddress(byte address) {
@@ -339,10 +329,6 @@ namespace uni::device::SpaceUSB {
 		hub_port_status_[port_num - 1] = status;
 		hub_port_change_[port_num - 1] |= change;
 		hub_port_event_count_++;
-		// from here on the transport decides which port may be reset (0 = none)
-		if (g_hub_reset_port_hook == nullptr) {
-			g_hub_reset_port_hook = HubResetPortHook;
-		}
 		// A device that went away: give its channels and its USB address back
 		if ((change & kHubPortStatusConnect) && !(status & kHubPortStatusConnect)) {
 			if (DropChildDevice(byte(port_num))) child_down_count_++;
@@ -399,12 +385,6 @@ namespace uni::device::SpaceUSB {
 			return port;
 		}
 		return 0;
-	}
-
-	// the hook is global, so it finds the bridge that wraps this very device
-	byte OTGHostDevice::HubResetPortHook(USBHostDevice& dev) {
-		OTGHostDevice* bridge = BridgeOf(&dev);
-		return bridge ? bridge->NextHubPortToReset() : byte(0);
 	}
 
 	// build the device that just showed up on a hub port

@@ -86,7 +86,6 @@ namespace uni::device::SpaceUSB {
 		// ---- the bus device list: the root device plus everything behind a hub ----
 		static OTGHostDevice* BridgeAt(int index);
 		static int NumBridges();
-		static OTGHostDevice* BridgeOf(const USBHostDevice* dev);
 		static void TickAll();// tick every bridge about once per millisecond
 		void Tick();
 		static void PollBus();// drive the bus transfers, called from the main loop
@@ -115,6 +114,9 @@ namespace uni::device::SpaceUSB {
 		byte HubAddressingPort() const override { return hub_addressing_port_; }
 		// true while a child of this hub parent has a control transfer in flight or a channel armed
 		bool ChildBusy() override;
+		bool ClaimHubPortReset(uint8 port_num) override {
+			return NextHubPortToReset() == port_num;
+		}
 		stduint HubPortEventCount() const { return hub_port_event_count_; }
 		uint16 HubPortStatus(byte port) const {
 			return (port >= 1 && port <= 16) ? hub_port_status_[port - 1] : uint16(0);
@@ -210,7 +212,6 @@ namespace uni::device::SpaceUSB {
 		// while a child sits at address 0 the hub may not reset another port
 		void TickAddressing();
 		// the hub class driver asks which port to reset next
-		static byte HubResetPortHook(USBHostDevice& dev);
 		static void RegisterBridge(OTGHostDevice* dev);
 		static void UnregisterBridge(OTGHostDevice* dev);
 	};

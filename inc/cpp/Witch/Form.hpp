@@ -130,7 +130,7 @@ namespace uni::Witch {
 		bool virtual_frame = false;
 		// NodeChain Controls = (nullptr);
 		Form() : LayerManager(), close_btn(), max_btn(), min_btn(), title_bar(), client_area(),
-			focus_sheet(nullptr), active(false), is_dock(false), virtual_frame(false), msg_queue(0), state(FormState::Normal), normal_rect() {
+			focus_sheet(nullptr), active(false), msg_queue(0), is_dock(false), state(FormState::Normal), normal_rect(), virtual_frame(false) {
 		}
 
 		bool isMinimized() const { return state == FormState::Minimized; }

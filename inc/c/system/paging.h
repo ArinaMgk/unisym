@@ -39,7 +39,47 @@ enum {
 	// x86 page-cache controls.  PCD | PWT selects UC with the default PAT.
 	PGPROP_cache_disable = 0x40,
 	PGPROP_write_through = 0x80,
+
+	// TYPE
+	PGPROP_MASK_TYPE = 0x700,
+	PGTYPE_default = 0x000,
+	PGTYPE_writeback = 0x100,
+	PGTYPE_writethrough = 0x200,
+	PGTYPE_uncacheable = 0x300,
+	PGTYPE_writecombine = 0x400,
+	PGTYPE_device = 0x500,
+	PGTYPE_noncacheable = 0x600,
 };
+
+inline bool NormalizePageProperties(stduint prop, stduint& normalized) {
+	const stduint legacy = prop & (PGPROP_cache_disable | PGPROP_write_through);
+	stduint type = prop & PGPROP_MASK_TYPE;
+	if (type == PGPROP_MASK_TYPE || (type != PGTYPE_default && legacy)) return false;
+	if (type == PGTYPE_default && legacy) {
+		if (legacy == PGPROP_write_through) type = PGTYPE_writethrough;
+		else if (legacy == PGPROP_cache_disable) type = PGTYPE_noncacheable;
+		else type = PGTYPE_uncacheable;
+	}
+	normalized = (prop & ~(PGPROP_MASK_TYPE |
+		PGPROP_cache_disable | PGPROP_write_through)) | type;
+	return true;
+}
+
+inline bool PageTypeSupported(stduint type) {
+	#if defined(_ARC_x86) || defined(_ARC_x64)
+	return type == PGTYPE_default || type == PGTYPE_writeback ||
+		type == PGTYPE_writethrough || type == PGTYPE_uncacheable ||
+		type == PGTYPE_device || type == PGTYPE_noncacheable;
+	#elif defined(_ARC_ARM_32)
+	return type == PGTYPE_default || type == PGTYPE_writeback ||
+		type == PGTYPE_writethrough || type == PGTYPE_uncacheable ||
+		type == PGTYPE_device || type == PGTYPE_noncacheable;
+	#elif defined(_ARC_ARM_64) || defined(_ARC_RISCV_32) || defined(_ARC_RISCV_64)
+	return type == PGTYPE_default;
+	#else
+	return false;
+	#endif
+}
 
 enum PageSizeShift : stduint {
 	PAGESIZE_4KB = 12,
@@ -162,6 +202,9 @@ namespace uni {
 			#endif
 			return !!(raw & (_IMM1 << 7));
 		}
+		inline bool isLeaf(stduint level) const {
+			return isPresent() && (!level || isHuge(level));
+		}
 		inline bool isTable(stduint level) const {
 			return level && isPresent() && !(raw & (_IMM1 << 7));
 		}
@@ -179,6 +222,32 @@ namespace uni {
 		}
 		inline bool isWritable(stduint) const { return l0p_entry.writable; }
 		inline bool isUserAccessible(stduint) const { return l0p_entry.user_access; }
+		inline bool DecodeLeafProperties(stduint level, stduint& prop) const {
+			#if defined(_ARC_x86)
+			if (level > 1) return false;
+			#elif defined(_ARC_x64)
+			if (level > 2) return false;
+			#endif
+			if (!isLeaf(level)) return false;
+			prop = PGPROP_present;
+			if (l0p_entry.writable) prop |= PGPROP_writable;
+			if (l0p_entry.user_access) prop |= PGPROP_user_access;
+			if (l0p_entry.global) prop |= PGPROP_global;
+			#if defined(_ARC_x64)
+			if (raw & (_IMM1 << 63)) prop |= PGPROP_nonexecutable;
+			#endif
+			const stduint pat = level ? !!(raw & (_IMM1 << 12)) : l0p_entry.pat;
+			const stduint pat_index = (pat << 2) |
+				(stduint(l0p_entry.cache_disable) << 1) | l0p_entry.write_through;
+			switch (pat_index) {
+			case 0: prop |= PGTYPE_writeback; break;
+			case 1: prop |= PGTYPE_writethrough; break;
+			case 2: prop |= PGTYPE_noncacheable; break;
+			case 3: prop |= PGTYPE_uncacheable; break;
+			default: return false;
+			}
+			return true;
+		}
 		inline void Clear() { raw = 0; }
 		inline bool SetupAsTable(void* next_table_ptr, stduint level) {
 			if (!level || (_IMM(next_table_ptr) & 0xFFF)) return false;
@@ -200,6 +269,34 @@ namespace uni {
 			else if (level == 2) shift = PAGESIZE_1GB;
 			#endif
 			if (paddr & ((uint64(1) << shift) - 1)) return false;
+			stduint normalized;
+			if (!NormalizePageProperties(prop, normalized)) return false;
+			
+			#if defined(_ARC_x86)
+			if (normalized & PGPROP_nonexecutable) return false;
+			#elif defined(_ARC_x64)
+			if ((normalized & PGPROP_nonexecutable) && !PagingNXEnabled()) return false;
+			#endif
+
+			bool write_through = false;
+			bool cache_disable = false;
+			switch (normalized & PGPROP_MASK_TYPE) {
+			case PGTYPE_default:
+			case PGTYPE_writeback:
+				break;
+			case PGTYPE_writethrough:
+				write_through = true;
+				break;
+			case PGTYPE_uncacheable:
+			case PGTYPE_device:
+				write_through = cache_disable = true;
+				break;
+			case PGTYPE_noncacheable:
+				cache_disable = true;
+				break;
+			default:
+				return false;
+			}
 			Clear();
 			if (!level) l0p_entry.address = paddr >> 12;
 			#if defined(_ARC_x86)
@@ -213,12 +310,13 @@ namespace uni {
 			#endif
 			l0p_entry.present = 1;
 			if (level) raw |= _IMM1 << 7;
-			l0p_entry.writable = !!(prop & PGPROP_writable);
-			l0p_entry.user_access = !!(prop & PGPROP_user_access);
-			l0p_entry.write_through = !!(prop & PGPROP_write_through);
-			l0p_entry.cache_disable = !!(prop & PGPROP_cache_disable);
+			l0p_entry.writable = !!(normalized & PGPROP_writable);
+			l0p_entry.user_access = !!(normalized & PGPROP_user_access);
+			l0p_entry.global = !!(normalized & PGPROP_global);
+			l0p_entry.write_through = write_through;
+			l0p_entry.cache_disable = cache_disable;
 			#if defined(_ARC_x64)
-			if (PagingNXEnabled() && (prop & PGPROP_nonexecutable)) raw |= _IMM1 << 63;
+			if (PagingNXEnabled() && (normalized & PGPROP_nonexecutable)) raw |= _IMM1 << 63;
 			#endif
 			return true;
 		}
@@ -274,6 +372,10 @@ namespace uni {
 			return level && isPresent() &&
 				(l0p_entry.read || l0p_entry.writable || l0p_entry.execute);
 		}
+		inline bool isLeaf(stduint) const {
+			return isPresent() &&
+				(l0p_entry.read || l0p_entry.writable || l0p_entry.execute);
+		}
 		inline bool isTable(stduint level) const {
 			return level && isPresent() &&
 				!(l0p_entry.read || l0p_entry.writable || l0p_entry.execute);
@@ -281,6 +383,30 @@ namespace uni {
 		inline stduint getAddress(stduint) const { return _IMM(l0p_entry.ppn) << 12; }
 		inline bool isWritable(stduint) const { return l0p_entry.writable; }
 		inline bool isUserAccessible(stduint) const { return l0p_entry.user_access; }
+		inline bool DecodeLeafProperties(stduint level, stduint& prop) const {
+			#if defined(_ARC_RISCV_32)
+			if (level > 1) return false;
+			#elif defined(_ARC_RISCV_64)
+			if (level > 2) return false;
+			#endif
+			if (!isLeaf(level)) return false;
+			prop = PGPROP_present;
+			if (l0p_entry.writable) prop |= PGPROP_writable;
+			if (l0p_entry.user_access) prop |= PGPROP_user_access;
+			if (l0p_entry.global) prop |= PGPROP_global;
+			if (!l0p_entry.execute) prop |= PGPROP_nonexecutable;
+			#if defined(_ARC_RISCV_64)
+			switch (l0p_entry.pbmt) {
+			case 0: prop |= PGTYPE_default; break;
+			case 1: prop |= PGTYPE_noncacheable; break;
+			case 2: prop |= PGTYPE_device; break;
+			default: return false;
+			}
+			#else
+			prop |= PGTYPE_default;
+			#endif
+			return true;
+		}
 		inline void Clear() { raw = 0; }
 
 		inline bool SetupAsTable(void* next_table_ptr, stduint level) {
@@ -302,16 +428,20 @@ namespace uni {
 				(level == 1 ? PAGESIZE_2MB : PAGESIZE_1GB) : PAGESIZE_4KB;
 			#endif
 			if (paddr & ((_IMM1 << shift) - 1)) return false;
+			stduint normalized;
+			if (!NormalizePageProperties(prop, normalized) ||
+				(normalized & PGPROP_MASK_TYPE) != PGTYPE_default) return false;
 			Clear();
 			l0p_entry.ppn = _IMM(paddr) >> 12;
 			l0p_entry.valid = 1;
 			l0p_entry.read = 1;
-			l0p_entry.execute = !(prop & PGPROP_nonexecutable);
-			l0p_entry.writable = !!(prop & PGPROP_writable);
-			l0p_entry.user_access = !!(prop & PGPROP_user_access);
+			l0p_entry.execute = !(normalized & PGPROP_nonexecutable);
+			l0p_entry.writable = !!(normalized & PGPROP_writable);
+			l0p_entry.user_access = !!(normalized & PGPROP_user_access);
+			l0p_entry.global = !!(normalized & PGPROP_global);
 
 			l0p_entry.accessed = 1;
-			l0p_entry.dirty = !!(prop & PGPROP_writable);
+			l0p_entry.dirty = !!(normalized & PGPROP_writable);
 			return true;
 		}
 		#endif
@@ -395,6 +525,9 @@ namespace uni {
 		inline bool isHuge(stduint level) const {
 			return level && level < 3 && l0p_entry.valid && !l0p_entry.is_table;
 		}
+		inline bool isLeaf(stduint level) const {
+			return isPresent() && (level ? isHuge(level) : l0p_entry.is_table);
+		}
 		inline bool isTable(stduint level) const {
 			return level && l0p_entry.valid && l0p_entry.is_table;
 		}
@@ -408,6 +541,16 @@ namespace uni {
 		}
 		inline bool isWritable(stduint) const { return !(l0p_entry.ap & 0b10); }
 		inline bool isUserAccessible(stduint) const { return !!(l0p_entry.ap & 0b01); }
+		inline bool DecodeLeafProperties(stduint level, stduint& prop) const {
+			if (level > 2 || !isLeaf(level)) return false;
+			if (l0p_entry.attr_index || l0p_entry.pxn != l0p_entry.uxn) return false;
+			prop = PGPROP_present | PGTYPE_default;
+			if (isWritable(level)) prop |= PGPROP_writable;
+			if (isUserAccessible(level)) prop |= PGPROP_user_access;
+			if (!l0p_entry.ng) prop |= PGPROP_global;
+			if (l0p_entry.pxn) prop |= PGPROP_nonexecutable;
+			return true;
+		}
 		inline void Clear() { raw = 0; }
 
 		inline bool SetupAsTable(void* next_table_ptr, stduint level) {
@@ -424,6 +567,9 @@ namespace uni {
 			stduint shift = level ?
 				(level == 1 ? PAGESIZE_2MB : PAGESIZE_1GB) : PAGESIZE_4KB;
 			if (paddr & ((_IMM1 << shift) - 1)) return false;
+			stduint normalized;
+			if (!NormalizePageProperties(prop, normalized) ||
+				(normalized & PGPROP_MASK_TYPE) != PGTYPE_default) return false;
 			Clear();
 			if (!level) l0p_entry.address = _IMM(paddr) >> 12;
 			else if (level == 1) l1p_entry.address = _IMM(paddr) >> 21;
@@ -431,13 +577,14 @@ namespace uni {
 			l0p_entry.valid = 1;
 			l0p_entry.is_table = !level;
 			l0p_entry.af = 1;
-			if (prop & PGPROP_user_access) {
-				l0p_entry.ap = (prop & PGPROP_writable) ? 0b01 : 0b11;
+			if (normalized & PGPROP_user_access) {
+				l0p_entry.ap = (normalized & PGPROP_writable) ? 0b01 : 0b11;
 			}
 			else {
-				l0p_entry.ap = (prop & PGPROP_writable) ? 0b00 : 0b10;
+				l0p_entry.ap = (normalized & PGPROP_writable) ? 0b00 : 0b10;
 			}
-			if (prop & PGPROP_nonexecutable) l0p_entry.pxn = l0p_entry.uxn = 1;
+			l0p_entry.ng = !(normalized & PGPROP_global);
+			if (normalized & PGPROP_nonexecutable) l0p_entry.pxn = l0p_entry.uxn = 1;
 			return true;
 		}
 		#endif
@@ -491,6 +638,9 @@ namespace uni {
 		inline bool isHuge(stduint level) const {
 			return level == 1 && l1p_entry.type == 0b10 && !l1p_entry.supersection;
 		}
+		inline bool isLeaf(stduint level) const {
+			return level ? isHuge(level) : isPresent() && l0p_entry.type;
+		}
 		inline bool isTable(stduint level) const {
 			return level == 1 && l1p_table_entry.type == 0b01;
 		}
@@ -504,6 +654,28 @@ namespace uni {
 		}
 		inline bool isUserAccessible(stduint level) const {
 			return level ? l1p_entry.ap == 0b11 : l0p_entry.ap == 0b11;
+		}
+		inline bool DecodeLeafProperties(stduint level, stduint& prop) const {
+			if (level > 1 || !isLeaf(level)) return false;
+			prop = PGPROP_present;
+			if (isWritable(level)) prop |= PGPROP_writable;
+			if (isUserAccessible(level)) prop |= PGPROP_user_access;
+			const stduint ng = level ? l1p_entry.ng : l0p_entry.ng;
+			const stduint xn = level ? l1p_entry.xn : l0p_entry.xn;
+			const stduint tex = level ? l1p_entry.tex : l0p_entry.tex;
+			const stduint c = level ? l1p_entry.c : l0p_entry.c;
+			const stduint b = level ? l1p_entry.b : l0p_entry.b;
+			if (!ng) prop |= PGPROP_global;
+			if (xn) prop |= PGPROP_nonexecutable;
+			switch ((tex << 2) | (c << 1) | b) {
+			case 0b000: prop |= PGTYPE_uncacheable; break;
+			case 0b001: prop |= PGTYPE_device; break;
+			case 0b010: prop |= PGTYPE_writethrough; break;
+			case 0b011: prop |= PGTYPE_writeback; break;
+			case 0b100: prop |= PGTYPE_noncacheable; break;
+			default: return false;
+			}
+			return true;
 		}
 		inline void Clear() { raw = 0; }
 
@@ -520,22 +692,54 @@ namespace uni {
 			if (level > 1) return false;
 			stduint shift = level ? PAGESIZE_1MB : PAGESIZE_4KB;
 			if (paddr & ((_IMM1 << shift) - 1)) return false;
+			stduint normalized;
+			if (!NormalizePageProperties(prop, normalized)) return false;
+			stduint tex = 0;
+			stduint c = 0;
+			stduint b = 0;
+			switch (normalized & PGPROP_MASK_TYPE) {
+			case PGTYPE_default:
+				c = b = !level;
+				break;
+			case PGTYPE_writeback:
+				c = b = 1;
+				break;
+			case PGTYPE_writethrough:
+				c = 1;
+				break;
+			case PGTYPE_uncacheable:
+				break;
+			case PGTYPE_device:
+				b = 1;
+				break;
+			case PGTYPE_noncacheable:
+				tex = 1;
+				break;
+			default:
+				return false;
+			}
 			Clear();
 			if (level) {
 				l1p_entry.address = paddr >> 20;
 				l1p_entry.type = 0b10;
-				l1p_entry.xn = !!(prop & PGPROP_nonexecutable);
-				l1p_entry.ap = (prop & PGPROP_user_access) ? 0b11 : 0b01;
-				l1p_entry.apx = !(prop & PGPROP_writable);
+				l1p_entry.xn = !!(normalized & PGPROP_nonexecutable);
+				l1p_entry.ap = (normalized & PGPROP_user_access) ? 0b11 : 0b01;
+				l1p_entry.apx = !(normalized & PGPROP_writable);
+				l1p_entry.ng = !(normalized & PGPROP_global);
+				l1p_entry.tex = tex;
+				l1p_entry.c = c;
+				l1p_entry.b = b;
 			}
 			else {
 				l0p_entry.address = paddr >> 12;
 				l0p_entry.type = 1;
-				l0p_entry.xn = !!(prop & PGPROP_nonexecutable);
-				l0p_entry.c = 1;
-				l0p_entry.b = 1;
-				l0p_entry.ap = (prop & PGPROP_user_access) ? 0b11 : 0b01;
-				l0p_entry.apx = !(prop & PGPROP_writable);
+				l0p_entry.xn = !!(normalized & PGPROP_nonexecutable);
+				l0p_entry.ap = (normalized & PGPROP_user_access) ? 0b11 : 0b01;
+				l0p_entry.apx = !(normalized & PGPROP_writable);
+				l0p_entry.ng = !(normalized & PGPROP_global);
+				l0p_entry.tex = tex;
+				l0p_entry.c = c;
+				l0p_entry.b = b;
 			}
 			return true;
 		}
@@ -585,7 +789,7 @@ namespace uni {
 #elif defined(_ARC_ARM_32)
 namespace uni {
 	_PACKED(struct) pageint {
-		stduint offset : 12;
+		stduint crt_level : 12;
 		stduint l0p_index : 8;  // Level 2 (PT)
 		stduint l1p_index : 12; // Level 1 (PD)
 		pageint(stduint address) { treat<stduint>(this) = address; }
@@ -617,12 +821,13 @@ namespace uni {
 
 		~Paging();
 
-		// return ~0 for unmapped
-		// do not consider huge-page
+		// Return the entry at p.crt_level, or ~0 if the path stops earlier.
 		PageEntry* refEntry(pageint p);
 
-		// return ~0 for unmapped
+		// Return the mapped leaf, or ~0 for unmapped or malformed entries.
 		PageEntry* getEntry(stduint address) const;
+		// Write the mapped leaf level to p.crt_level.
+		PageEntry* getEntry(pageint& p) const;
 
 		// return physical address, ~0 for unmapped
 		void* operator[](stduint address) const;
@@ -644,6 +849,15 @@ namespace uni {
 
 		auto getPageSizeShift(stduint address) const -> stduint;
 	protected:
+		// Inn: p provides virtual-address indexes and target_level limits the walk
+		// OUT : entry points to the stop entry and p.crt_level reports its level; true means an empty entry, leaf, or target level was reached, false means the root, level, or descriptor is invalid; no page - table entry is allocated or modified.
+		auto Walk(pageint & p, stduint target_level, PageEntry * &entry) const -> bool;
+		// Split one verified large leaf into an equivalent child table; failure leaves the parent unchanged.
+		auto SplitLeaf(PageEntry* leaf, stduint level, stduint virtual_leaf_base) -> bool;
+		// Inn: virtual and physical starts plus the boundary-limited remaining length
+		// Out: result receives the largest supported, representable, aligned, and unoccupied leaf size; no mapping is created.
+		auto ChooseLargestPageSize(stduint virtual_address, stduint physical_address,
+			stduint remaining, PageSizeShift& result) const -> bool;
 		auto PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool;
 
 	public:

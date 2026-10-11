@@ -1,13 +1,13 @@
-﻿// ASCII CPP-ISO11 TAB4 CRLF
+// ASCII CPP-ISO11 TAB4 CRLF
 // Docutitle: (Storage) Floppy Disk Implementation
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 
 #include "../../../../inc/c/storage/floppy.h"
 #include "../../../../inc/c/driver/i8259A.h"
-#include "../../../../inc/c/proctrl/x86/x86.h"
 
 #if (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)) || (defined(_ACCM) && ((_ACCM & 0xFF00) == 0x8600))
+#include "../../../../inc/c/proctrl/x86/x86.h"
 #include "../../../../inc/c/board/IBM.h"
 
 #pragma GCC optimize("O0")

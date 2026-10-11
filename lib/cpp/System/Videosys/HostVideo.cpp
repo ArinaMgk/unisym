@@ -158,7 +158,7 @@ namespace {
 	};
 
 #if defined(_ACCM)
-#if __BITS__ > 32
+#if !(_ACCM == 0x8632)
 #define Task_Audio_Serv 0
 #endif
 

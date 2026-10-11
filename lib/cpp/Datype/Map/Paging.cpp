@@ -86,22 +86,32 @@ static_assert(sizeof(VPN_SHIFTS) / sizeof(VPN_SHIFTS[0]) == PAGE_LEVELS, "invali
 static_assert(sizeof(PAGE_ENTRY_COUNTS) / sizeof(PAGE_ENTRY_COUNTS[0]) == PAGE_LEVELS, "invalid paging entry count");
 static_assert(sizeof(PAGE_LEVEL_CAN_LEAF) / sizeof(PAGE_LEVEL_CAN_LEAF[0]) == PAGE_LEVELS, "invalid paging leaf count");
 
-static int PagingLevelOf(stduint page_shift) {
-	for (stduint level = 0; level < PAGE_LEVELS; level++) {
-		if (PAGE_LEVEL_CAN_LEAF[level] && VPN_SHIFTS[level] == page_shift) return level;
-	}
-	return -1;
-}
-
 namespace uni {
-	#if !defined(_ARC_ARM_32)
 	inline stduint getVPN(stduint address, stduint level) {
 		return (address >> VPN_SHIFTS[level]) & (PAGE_ENTRY_COUNTS[level] - 1);
 	}
-	#endif
 }
 
 namespace uni {
+	static stduint ComparablePageType(stduint type) {
+		#if defined(_ARC_x86) || defined(_ARC_x64)
+		if (type == PGTYPE_device) return PGTYPE_uncacheable;
+		#endif
+		return type;
+	}
+
+	static bool PagePropertiesCompatible(const PageEntry& entry, stduint level, stduint requested) {
+		stduint existing;
+		if (!entry.DecodeLeafProperties(level, existing)) return false;
+		const stduint permission_mask = PGPROP_writable | PGPROP_user_access |
+			PGPROP_global | PGPROP_nonexecutable;
+		if ((requested & permission_mask) != (existing & permission_mask)) return false;
+		const stduint requested_type = requested & PGPROP_MASK_TYPE;
+		if (requested_type != PGTYPE_default &&
+			ComparablePageType(requested_type) !=
+			ComparablePageType(existing & PGPROP_MASK_TYPE)) return false;
+		return true;
+	}
 
 	#if defined(_ARC_ARM_32)
 
@@ -116,32 +126,6 @@ namespace uni {
 		}
 		uni_default_allocator->deallocate(root_level_page, 0x4000);
 		root_level_page = nullptr;
-	}
-
-	auto Paging::refEntry(pageint p) -> PageEntry* {
-		return _TEMP getEntry((stduint)p);
-	}
-
-	auto Paging::getEntry(stduint address) const -> PageEntry* {
-		pageint p = address;
-		auto pe = (PageEntry*)root_level_page + p.l1p_index;
-		if (!pe->isPresent()) return (PageEntry*)~_IMM0;
-		if (pe->isHuge(1)) return pe;
-		if (!pe->isTable(1)) return (PageEntry*)~_IMM0;
-		pe = (PageEntry*)(pe->getAddress(1)) + p.l0p_index;
-		return pe;
-	}
-
-	auto Paging::getPageSizeShift(stduint address) const -> stduint {
-		pageint p = address;
-		auto pe = (PageEntry*)root_level_page + p.l1p_index;
-		if (!pe->isPresent()) return 0;
-		if (pe->isHuge(1)) return VPN_SHIFTS[1];
-		if (!pe->isTable(1)) return 0;
-
-		pe = (PageEntry*)(pe->getAddress(1)) + p.l0p_index;
-		if (!pe->isPresent()) return 0;
-		return VPN_SHIFTS[0];
 	}
 
 	auto Paging::PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool {
@@ -210,53 +194,6 @@ namespace uni {
 		root_level_page = nullptr;
 	}
 
-	// static byte getLevel(stduint lnaddr) {}
-
-	auto Paging::refEntry(pageint p) -> PageEntry* {
-		// needs pageint level
-		if (p.crt_level >= PAGE_LEVELS) return (PageEntry*)~_IMM0;
-
-		PageEntry* table = root_level_page;
-		PageEntry* pe = nullptr;
-		stduint address = (stduint)p;
-
-		for (int level = PAGE_LEVELS - 1; level >= (int)p.crt_level; --level) {
-			pe = &table[getVPN(address, level)];
-			if (!pe->isPresent()) return (PageEntry*)~_IMM0;
-			if (level > p.crt_level && !pe->isTable(level)) return (PageEntry*)~_IMM0;
-			table = (PageEntry*)pe->getAddress(level);
-		}
-		return pe;
-	}
-
-	auto Paging::getEntry(stduint address) const -> PageEntry* {
-		// if (sizeof(stduint) == 8 && address >= (_IMM1 << (12 + PAGE_LEVELS * VPN_SHIFTS[0])))
-		// 	return (PageEntry*)~_IMM0;
-		PageEntry* table = root_level_page;
-		PageEntry* pe = nullptr;
-		for (int level = PAGE_LEVELS - 1; level >= 0; --level) {
-			pe = &table[getVPN(address, level)];
-			if (!pe->isPresent()) return (PageEntry*)~_IMM0;
-			if (pe->isHuge(level) || level == 0) return pe;
-			if (!pe->isTable(level)) return (PageEntry*)~_IMM0;
-			table = (PageEntry*)pe->getAddress(level);
-		}
-		return pe;
-	}
-
-	auto Paging::getPageSizeShift(stduint address) const -> stduint {
-		PageEntry* table = root_level_page;
-		for (int level = PAGE_LEVELS - 1; level >= 0; --level) {
-			PageEntry* pe = &table[getVPN(address, level)];
-			if (!pe->isPresent()) return 0;
-			if ((pe->isHuge(level) || level == 0) && PAGE_LEVEL_CAN_LEAF[level]) return VPN_SHIFTS[level];
-			if (pe->isHuge(level)) return 0;
-			if (!pe->isTable(level)) return 0;
-			table = (PageEntry*)pe->getAddress(level);
-		}
-		return 0;
-	}
-
 	auto Paging::PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool {
 		int target_level = -1;
 		for (int i = 0; i < PAGE_LEVELS; i++) {
@@ -285,13 +222,11 @@ namespace uni {
 			else if (pe->isHuge(level)) {
 				const stduint huge_base = pe->getAddress(level);
 				const stduint huge_size = _IMM1 << VPN_SHIFTS[level];
-				const stduint req_size = _IMM1 << pgsize;
+				const stduint req_size = _IMM1 << VPN_SHIFTS[target_level];
 				const stduint huge_offset = laddr & (huge_size - 1);
 				if (huge_offset + req_size > huge_size) return false;
 				if (paddr != huge_base + huge_offset) return false;
-				if ((pgporp & PGPROP_writable) && !pe->isWritable(level)) return false;
-				if ((pgporp & PGPROP_user_access) && !pe->isUserAccessible(level)) return false;
-				return true;
+				return PagePropertiesCompatible(*pe, level, pgporp);
 			}
 			else if (!pe->isTable(level)) return false;
 			table = (PageEntry*)pe->getAddress(level);
@@ -307,15 +242,132 @@ namespace uni {
 	}
 	#endif
 
-	void* Paging::operator[](stduint address) const {
-		auto entry = getEntry(address);
-		if (_IMM(entry) == ~_IMM0 || !entry->isPresent()) return (void*)~_IMM0;
+	auto Paging::Walk(pageint& p, stduint target_level, PageEntry*& entry) const -> bool {
+		entry = nullptr;
+		if (!root_level_page || target_level >= PAGE_LEVELS) return false;
 
-		stduint shift = getPageSizeShift(address);
+		const stduint address = (stduint)p;
+		PageEntry* table = root_level_page;
+		for (int level = PAGE_LEVELS - 1; level >= (int)target_level; --level) {
+			entry = &table[getVPN(address, level)];
+			p.crt_level = level;
+			if (!entry->isPresent() || entry->isLeaf(level) || level == target_level)
+				return true;
+			if (!entry->isTable(level)) return false;
+			table = (PageEntry*)entry->getAddress(level);
+		}
+		return false;
+	}
+
+	auto Paging::SplitLeaf(PageEntry* leaf, stduint level, stduint virtual_leaf_base) -> bool {
+		if (!leaf || !level || level >= PAGE_LEVELS ||
+			!PAGE_LEVEL_CAN_LEAF[level] || !PAGE_LEVEL_CAN_LEAF[level - 1] ||
+			!leaf->isLeaf(level) || !uni_default_allocator) return false;
+
+		const uint64 parent_unit = uint64(1) << VPN_SHIFTS[level];
+		const uint64 child_unit = uint64(1) << VPN_SHIFTS[level - 1];
+		if ((virtual_leaf_base & (parent_unit - 1)) ||
+			parent_unit / child_unit != PAGE_ENTRY_COUNTS[level - 1]) return false;
+
+		pageint p = virtual_leaf_base;
+		PageEntry* walked_leaf;
+		if (!Walk(p, level, walked_leaf) || p.crt_level != level || walked_leaf != leaf)
+			return false;
+
+		stduint properties;
+		if (!leaf->DecodeLeafProperties(level, properties)) return false;
+		const uint64 physical_base = leaf->getAddress(level);
+		if (physical_base & (parent_unit - 1)) return false;
+
+		void* new_pg = uni_default_allocator->allocate(0x1000, PAGESIZE_4KB);
+		if (!new_pg) return false;
+		MemSet(new_pg, 0, 0x1000);
+		PageEntry* child_table = (PageEntry*)new_pg;
+		for (stduint index = 0; index < PAGE_ENTRY_COUNTS[level - 1]; index++) {
+			const uint64 child_physical = physical_base + uint64(index) * child_unit;
+			stduint child_properties;
+			if (child_physical < physical_base ||
+				!child_table[index].SetupAsLeaf(child_physical, level - 1, properties) ||
+				uint64(child_table[index].getAddress(level - 1)) != child_physical ||
+				!child_table[index].DecodeLeafProperties(level - 1, child_properties) ||
+				child_properties != properties) {
+				uni_default_allocator->deallocate(new_pg, 0x1000);
+				return false;
+			}
+		}
+
+		PageEntry table_entry;
+		if (!table_entry.SetupAsTable(new_pg, level) ||
+			uint64(table_entry.getAddress(level)) != uint64(_IMM(new_pg))) {
+			uni_default_allocator->deallocate(new_pg, 0x1000);
+			return false;
+		}
+		*leaf = table_entry;
+		return true;
+	}
+
+	auto Paging::ChooseLargestPageSize(stduint virtual_address, stduint physical_address,
+		stduint remaining, PageSizeShift& result) const -> bool {
+		for (int level = PAGE_LEVELS - 1; level >= 0; --level) {
+			if (!PAGE_LEVEL_CAN_LEAF[level]) continue;
+			const stduint shift = VPN_SHIFTS[level];
+			if (!isSupportedSize(shift)) continue;
+
+			const stduint unit = _IMM1 << shift;
+			const stduint mask = unit - 1;
+			if ((virtual_address & mask) || (physical_address & mask) || remaining < unit)
+				continue;
+
+			PageEntry encoded;
+			if (!encoded.SetupAsLeaf(physical_address, level, PGPROP_present) ||
+				encoded.getAddress(level) != physical_address) continue;
+
+			pageint p = virtual_address;
+			PageEntry* entry;
+			if (!Walk(p, level, entry)) continue;
+			if (entry && entry->isPresent()) continue;
+
+			result = (PageSizeShift)shift;
+			return true;
+		}
+		return false;
+	}
+
+	auto Paging::refEntry(pageint p) -> PageEntry* {
+		const stduint target_level = p.crt_level;
+		PageEntry* entry;
+		if (!Walk(p, target_level, entry) || p.crt_level != target_level ||
+			!entry || !entry->isPresent()) return (PageEntry*)~_IMM0;
+		return entry;
+	}
+
+	auto Paging::getEntry(pageint& p) const -> PageEntry* {
+		PageEntry* entry;
+		if (!Walk(p, 0, entry) || !entry || !entry->isLeaf(p.crt_level))
+			return (PageEntry*)~_IMM0;
+		return entry;
+	}
+
+	auto Paging::getEntry(stduint address) const -> PageEntry* {
+		pageint p = address;
+		return getEntry(p);
+	}
+
+	auto Paging::getPageSizeShift(stduint address) const -> stduint {
+		pageint p = address;
+		PageEntry* entry = getEntry(p);
+		if (_IMM(entry) == ~_IMM0) return 0;
+		return VPN_SHIFTS[p.crt_level];
+	}
+
+	void* Paging::operator[](stduint address) const {
+		pageint p = address;
+		auto entry = getEntry(p);
+		if (_IMM(entry) == ~_IMM0) return (void*)~_IMM0;
+
+		stduint shift = VPN_SHIFTS[p.crt_level];
 		stduint mask = (1ULL << shift) - 1;
-		int level = PagingLevelOf(shift);
-		if (level < 0) return (void*)~_IMM0;
-		return (void*)(entry->getAddress(level) + (address & mask));
+		return (void*)(entry->getAddress(p.crt_level) + (address & mask));
 	}
 
 	void Paging::Reset() {
@@ -340,14 +392,156 @@ namespace uni {
 
 	auto Paging::Map(stduint ln_address, stduint ph_address, stduint length, PageSizeShift pgsize, stduint pgporp) -> bool {
 		if (!length) return true;
-		stduint alignmask = (_IMM1 << pgsize) - 1;
+		stduint normalized;
+		if (!NormalizePageProperties(pgporp, normalized) ||
+			!PageTypeSupported(normalized & PGPROP_MASK_TYPE)) return false;
+		pgporp = normalized;
+		if (pgporp & PGPROP_present) {
+			PageEntry property_probe;
+			if (!property_probe.SetupAsLeaf(0, 0, pgporp) ||
+				!PagePropertiesCompatible(property_probe, 0, pgporp)) return false;
+		}
+		if (pgsize == PAGESIZE_ANY) {
+			const stduint requested_linear = ln_address;
+			const stduint requested_length = length;
+			const stduint page_mask = (_IMM1 << PAGESIZE_4KB) - 1;
+			const stduint virtual_offset = ln_address & page_mask;
+			if (virtual_offset != (ph_address & page_mask)) return false;
+			if (ln_address + length - 1 < ln_address ||
+				ph_address + length - 1 < ph_address) return false;
+
+			ln_address -= virtual_offset;
+			ph_address -= virtual_offset;
+			if (length > ~_IMM0 - virtual_offset) return false;
+			length += virtual_offset;
+			if (length > ~_IMM0 - page_mask) return false;
+			length = (length + page_mask) & ~page_mask;
+			if (ln_address + length - 1 < ln_address ||
+				ph_address + length - 1 < ph_address) return false;
+
+			bool saw_present = false;
+			bool saw_not_present = false;
+			bool warned_property_change = false;
+			bool warned_mixed_presence = false;
+			while (length) {
+				pageint p = ln_address;
+				PageEntry* entry;
+				if (!Walk(p, 0, entry) || !entry) return false;
+
+				if (entry->isPresent()) {
+					saw_present = true;
+					if (!warned_mixed_presence && saw_present && saw_not_present) {
+						plogwarn("Paging::Map range contains both present and non-present pages at VA=%[x] length=%[u]",
+							requested_linear, requested_length);
+						warned_mixed_presence = true;
+					}
+					if (!entry->isLeaf(p.crt_level)) return false;
+					const stduint unit = _IMM1 << VPN_SHIFTS[p.crt_level];
+					const stduint mask = unit - 1;
+					const stduint leaf_base = ln_address & ~mask;
+					const stduint offset = ln_address & mask;
+					const stduint step = minof(unit - offset, length);
+					const bool properties_compatible =
+						PagePropertiesCompatible(*entry, p.crt_level, pgporp);
+					stduint replacement_properties = pgporp;
+					if ((pgporp & PGPROP_present) &&
+						(pgporp & PGPROP_MASK_TYPE) == PGTYPE_default) {
+						stduint existing_properties;
+						if (!entry->DecodeLeafProperties(p.crt_level, existing_properties)) return false;
+						replacement_properties |= existing_properties & PGPROP_MASK_TYPE;
+					}
+					const bool mapping_compatible = (pgporp & PGPROP_present) &&
+						entry->getAddress(p.crt_level) + offset == ph_address &&
+						properties_compatible;
+
+					if ((pgporp & PGPROP_weak) || mapping_compatible) {
+						length -= step;
+						if (length) {
+							ln_address += step;
+							ph_address += step;
+						}
+						continue;
+					}
+
+					if ((pgporp & PGPROP_present) && !properties_compatible &&
+						!warned_property_change) {
+						plogwarn("Paging::Map PAGESIZE_ANY requests changes to existing page properties at VA=%[x] level=%u",
+							ln_address, p.crt_level);
+						warned_property_change = true;
+					}
+
+					bool can_replace = !(pgporp & PGPROP_present);
+					if ((pgporp & PGPROP_present) && ln_address == leaf_base && length >= unit) {
+						PageEntry replacement;
+						can_replace = replacement.SetupAsLeaf(ph_address, p.crt_level, replacement_properties) &&
+							replacement.getAddress(p.crt_level) == ph_address &&
+							PagePropertiesCompatible(replacement, p.crt_level, replacement_properties);
+					}
+					if (ln_address == leaf_base && length >= unit && can_replace) {
+						if (!PageMap(ln_address, ph_address,
+							(PageSizeShift)VPN_SHIFTS[p.crt_level], replacement_properties)) return false;
+						length -= unit;
+						if (length) {
+							ln_address += unit;
+							ph_address += unit;
+						}
+						continue;
+					}
+
+					if (!p.crt_level || !SplitLeaf(entry, p.crt_level, leaf_base)) return false;
+					continue;
+				}
+
+				saw_not_present = true;
+				if (!warned_mixed_presence && saw_present && saw_not_present) {
+					plogwarn("Paging::Map range contains both present and non-present pages at VA=%[x] length=%[u]",
+						requested_linear, requested_length);
+					warned_mixed_presence = true;
+				}
+				if (!(pgporp & PGPROP_present)) {
+					const stduint empty_unit = _IMM1 << VPN_SHIFTS[p.crt_level];
+					const stduint step = minof(empty_unit - (ln_address & (empty_unit - 1)), length);
+					length -= step;
+					if (length) {
+						ln_address += step;
+						ph_address += step;
+					}
+					continue;
+				}
+
+				PageSizeShift selected;
+				if (!ChooseLargestPageSize(ln_address, ph_address, length, selected)) return false;
+				stduint selected_unit = 0;
+				for (stduint level = 0; level < PAGE_LEVELS; level++) {
+					if (PAGE_LEVEL_CAN_LEAF[level] && VPN_SHIFTS[level] == selected) {
+						selected_unit = _IMM1 << VPN_SHIFTS[level];
+						break;
+					}
+				}
+				if (!selected_unit || !PageMap(ln_address, ph_address, selected, pgporp)) return false;
+				length -= selected_unit;
+				if (length) {
+					ln_address += selected_unit;
+					ph_address += selected_unit;
+				}
+			}
+			return true;
+		}
+		int target_level = -1;
+		for (stduint level = 0; level < PAGE_LEVELS; level++) {
+			if (PAGE_LEVEL_CAN_LEAF[level] && VPN_SHIFTS[level] == pgsize) {
+				target_level = level;
+				break;
+			}
+		}
+		if (target_level < 0 || !isSupportedSize(pgsize)) return false;
+		const stduint unit = _IMM1 << VPN_SHIFTS[target_level];
+		stduint alignmask = unit - 1;
 		ph_address &= ~alignmask;
 		if (ln_address + length - 1 < ln_address) return false;
 
 		length += ln_address & alignmask;
 		ln_address &= ~alignmask;
-		const stduint unit = alignmask + 1;
-
 		do {
 			bool ok = true;
 			if (pgporp & PGPROP_weak) {
@@ -370,9 +564,10 @@ namespace uni {
 	auto Paging::Unmap(stduint ln_address, stduint length) -> bool {
 		if (!length) return true;
 		while (length > 0) {
-			auto pe = getEntry(ln_address);
-			if (_IMM(pe) != ~_IMM0 && pe->isPresent()) {
-				stduint shift = getPageSizeShift(ln_address);
+			pageint p = ln_address;
+			auto pe = getEntry(p);
+			if (_IMM(pe) != ~_IMM0) {
+				stduint shift = VPN_SHIFTS[p.crt_level];
 				stduint unit = _IMM1 << shift;
 				stduint step = minof(unit - (ln_address & (unit - 1)), length);
 				Map(ln_address, 0, step, (PageSizeShift)shift, 0);
@@ -400,20 +595,19 @@ namespace uni {
 			// --- Process Destination ---
 
 			if (pg_d.root_level_page) {
-				auto crt = pg_d.getEntry(_IMM(dest));
-				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) {
+				pageint p = _IMM(dest);
+				auto crt = pg_d.getEntry(p);
+				if (_IMM(crt) == ~_IMM0) {
 					plogerro(" at %s(dest %[x], %[x], sors %[x], %[x], length %[u])",
 						__FUNCIDEN__, dest, pg_d.root_level_page, sors, pg_s.root_level_page, length
 					);
 					plogerro("MemCopyP: dest page is not present. rest %[u]B", length);
 					return 0;
 				}
-				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
-				int level = PagingLevelOf(shift);
-				if (level < 0) return 0;
+				stduint shift = VPN_SHIFTS[p.crt_level];
 				stduint mask = (1ULL << shift) - 1;
 				stduint offset = _IMM(dest) & mask;
-				phy_d = crt->getAddress(level) + offset;
+				phy_d = crt->getAddress(p.crt_level) + offset;
 				MIN(unit, (1ULL << shift) - offset);
 			}
 			else {
@@ -423,17 +617,16 @@ namespace uni {
 
 			// --- Process Source ---
 			if (pg_s.root_level_page) {
-				auto crt = pg_s.getEntry(_IMM(sors));
-				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) {
+				pageint p = _IMM(sors);
+				auto crt = pg_s.getEntry(p);
+				if (_IMM(crt) == ~_IMM0) {
 					plogerro("MemCopyP: sors page is not present for %[x] in %[x]", sors, pg_s.root_level_page);
 					return 0;
 				}
-				stduint shift = pg_s.getPageSizeShift(_IMM(sors));
-				int level = PagingLevelOf(shift);
-				if (level < 0) return 0;
+				stduint shift = VPN_SHIFTS[p.crt_level];
 				stduint mask = (1ULL << shift) - 1;
 				stduint offset = _IMM(sors) & mask;
-				phy_s = crt->getAddress(level) + offset;
+				phy_s = crt->getAddress(p.crt_level) + offset;
 				MIN(unit, (1ULL << shift) - offset);
 			}
 			else {
@@ -462,14 +655,13 @@ namespace uni {
 			// --- Process Destination ---
 
 			if (pg_d.root_level_page) {
-				auto crt = pg_d.getEntry(_IMM(dest));
-				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return 0;
-				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
-				int level = PagingLevelOf(shift);
-				if (level < 0) return 0;
+				pageint p = _IMM(dest);
+				auto crt = pg_d.getEntry(p);
+				if (_IMM(crt) == ~_IMM0) return 0;
+				stduint shift = VPN_SHIFTS[p.crt_level];
 				stduint mask = (1ULL << shift) - 1;
 				stduint offset = _IMM(dest) & mask;
-				phy_d = crt->getAddress(level) + offset;
+				phy_d = crt->getAddress(p.crt_level) + offset;
 				MIN(unit, (1ULL << shift) - offset);
 			}
 			else {
@@ -478,14 +670,13 @@ namespace uni {
 
 			// --- Process Source ---
 			if (pg_s.root_level_page) {
-				auto crt = pg_s.getEntry(_IMM(sors));
-				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return 0;
-				stduint shift = pg_s.getPageSizeShift(_IMM(sors));
-				int level = PagingLevelOf(shift);
-				if (level < 0) return 0;
+				pageint p = _IMM(sors);
+				auto crt = pg_s.getEntry(p);
+				if (_IMM(crt) == ~_IMM0) return 0;
+				stduint shift = VPN_SHIFTS[p.crt_level];
 				stduint mask = (1ULL << shift) - 1;
 				stduint offset = _IMM(sors) & mask;
-				phy_s = crt->getAddress(level) + offset;
+				phy_s = crt->getAddress(p.crt_level) + offset;
 				MIN(unit, (1ULL << shift) - offset);
 			}
 			else {
@@ -509,12 +700,11 @@ namespace uni {
 		if (length) {
 			stduint phy_d;
 			if (pg_d.root_level_page) {
-				auto crt = pg_d.getEntry(_IMM(dest));
-				if (_IMM(crt) == ~_IMM0 || !crt->isPresent()) return ret;
-				stduint shift = pg_d.getPageSizeShift(_IMM(dest));
-				int level = PagingLevelOf(shift);
-				if (level < 0) return ret;
-				phy_d = crt->getAddress(level) + (_IMM(dest) & ((1ULL << shift) - 1));
+				pageint p = _IMM(dest);
+				auto crt = pg_d.getEntry(p);
+				if (_IMM(crt) == ~_IMM0) return ret;
+				stduint shift = VPN_SHIFTS[p.crt_level];
+				phy_d = crt->getAddress(p.crt_level) + (_IMM(dest) & ((1ULL << shift) - 1));
 			}
 			else {
 				phy_d = _IMM(dest);

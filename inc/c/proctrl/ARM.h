@@ -50,8 +50,20 @@ static inline void HALT_EVENT()
 // paging
 
 inline static void RefreshVirtualAddress(stduint addr) {
+	#if __BITS__ == 64
+	stduint page = addr >> 12;
+	_ASM volatile("dsb ishst" : : : "memory");
+	_ASM volatile("tlbi vaae1, %0" : : "r"(page) : "memory");
+	_ASM volatile("dsb ish" : : : "memory");
+	_ASM volatile("isb" : : : "memory");
+	#else
+	(void)addr;
+	stduint zero = 0;
+	_ASM volatile("dsb sy" : : : "memory");
+	_ASM volatile("mcr p15, 0, %0, c8, c7, 0" : : "r"(zero) : "memory");
 	_ASM volatile("dsb sy" : : : "memory");
 	_ASM volatile("isb" : : : "memory");
+	#endif
 }
 
 #if __BITS__ == 32

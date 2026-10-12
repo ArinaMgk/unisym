@@ -22,6 +22,7 @@
 
 #include "../../../../inc/c/format/filesys/FAT.h"
 #include "../../../../inc/c/proctrl/x86/inst_x86_64.h"
+#include "../../../../inc/cpp/ISO_IEC_STD/memory"
 namespace uni {
 
 	namespace {
@@ -278,7 +279,9 @@ namespace uni {
 		if (!sector_buffer) sector_buffer = buffer_sector;
 		if (!sector_buffer) return false;
 
-		FAT_LfnState lfn_state;
+		uni::UniquePtr<FAT_LfnState> lfn_state_holder(new FAT_LfnState);// ~1.3KB: keep it off the stack
+		if (!lfn_state_holder) return false;
+		FAT_LfnState& lfn_state = *lfn_state_holder;
 		fat_reset_lfn_state(lfn_state);
 		
 		auto process_sector = [&](uint32_t sector) -> DirWalkResult {
@@ -493,7 +496,9 @@ namespace uni {
 			fat_cache = &fat_table_cache;
 		}
 
-		FAT_LfnState lfn_state;
+		uni::UniquePtr<FAT_LfnState> lfn_state_holder(new FAT_LfnState);// ~1.3KB: keep it off the stack
+		if (!lfn_state_holder) return false;
+		FAT_LfnState& lfn_state = *lfn_state_holder;
 		fat_reset_lfn_state(lfn_state);
 
 		enum {

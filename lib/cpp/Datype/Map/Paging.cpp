@@ -24,6 +24,7 @@
 #include "../../../../inc/c/ustring.h"
 #if defined(_ARC_x86) || defined(_ARC_x64)
 #include "../../../../inc/c/proctrl/IAx86_64.msr.h"
+#include "../../../../inc/c/proctrl/IAx86_64.h"
 #endif
 // a32 (unchk)
 
@@ -90,12 +91,55 @@ namespace uni {
 	inline stduint getVPN(stduint address, stduint level) {
 		return (address >> VPN_SHIFTS[level]) & (PAGE_ENTRY_COUNTS[level] - 1);
 	}
+
+	struct PageMapWrite {
+		PageEntry* target;
+		stduint expected_raw;
+		PageEntry value;
+		stduint virtual_address;
+	};
+
+	struct PageMapTransaction {
+		bool build;
+		bool any_size;
+		stduint maximum_level;
+		stduint properties;
+		stduint table_count;
+		stduint write_count;
+		stduint table_index;
+		stduint write_index;
+		PageEntry** tables;
+		PageMapWrite* writes;
+		bool saw_present;
+		bool saw_not_present;
+		bool property_change;
+		stduint property_address;
+		stduint property_level;
+		bool finer_structure;
+		stduint finer_address;
+		stduint finer_level;
+	};
+
+	static bool ExecutePageMapTransaction(PageMapTransaction& transaction,
+		PageEntry* root, stduint virtual_address, uint64 physical_address,
+		stduint length);
 }
 
 namespace uni {
 	static stduint ComparablePageType(stduint type) {
 		#if defined(_ARC_x86) || defined(_ARC_x64)
 		if (type == PGTYPE_device) return PGTYPE_uncacheable;
+		#elif defined(_ARC_ARM_64)
+		if (type == PGTYPE_uncacheable) return PGTYPE_device;
+		if (type == PGTYPE_writecombine) return PGTYPE_noncacheable;
+		#elif defined(_ARC_ARM_32)
+		if (type == PGTYPE_writecombine) return PGTYPE_noncacheable;
+		#elif defined(_ARC_RISCV_32) || defined(_ARC_RISCV_64)
+		if (type == PGTYPE_writeback) return PGTYPE_default;
+		#if defined(_ARC_RISCV_64)
+		if (type == PGTYPE_uncacheable) return PGTYPE_device;
+		if (type == PGTYPE_writecombine) return PGTYPE_noncacheable;
+		#endif
 		#endif
 		return type;
 	}
@@ -128,47 +172,6 @@ namespace uni {
 		root_level_page = nullptr;
 	}
 
-	auto Paging::PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool {
-		int target_level = -1;
-		for (stduint level = 0; level < PAGE_LEVELS; level++) {
-			if (PAGE_LEVEL_CAN_LEAF[level] && VPN_SHIFTS[level] == pgsize) {
-				target_level = level;
-				break;
-			}
-		}
-		if (target_level < 0) return false;
-		pageint p = laddr;
-		auto pe = (PageEntry*)root_level_page + p.l1p_index;
-
-		if (target_level == 1) {
-			if (pgporp & PGPROP_present) {
-				if (!pe->SetupAsLeaf(paddr, 1, pgporp)) return false;
-			}
-			else pe->Clear();
-			return true;
-		}
-
-		if (!pe->isPresent()) {
-			if (!(pgporp & PGPROP_present)) return true;
-			void* new_pg = uni_default_allocator ?
-				uni_default_allocator->allocate(0x1000, PAGESIZE_4KB) : nullptr;
-			if (!new_pg) return false;
-			MemSet(new_pg, 0, 0x1000);
-			if (!pe->SetupAsTable(new_pg, 1)) {
-				uni_default_allocator->deallocate(new_pg, 0x1000);
-				return false;
-			}
-		}
-		else if (!pe->isTable(1)) return false;
-
-		pe = (PageEntry*)(pe->getAddress(1)) + p.l0p_index;
-		if (pgporp & PGPROP_present) {
-			if (!pe->SetupAsLeaf(paddr, 0, pgporp)) return false;
-		}
-		else pe->Clear();
-		return true;
-	}
-
 	#else
 
 	static void FreePageTable(PageEntry* table, int level) {
@@ -194,52 +197,6 @@ namespace uni {
 		root_level_page = nullptr;
 	}
 
-	auto Paging::PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool {
-		int target_level = -1;
-		for (int i = 0; i < PAGE_LEVELS; i++) {
-			if (PAGE_LEVEL_CAN_LEAF[i] && VPN_SHIFTS[i] == pgsize) { target_level = i; break; }
-		}
-		if (target_level == -1) return false;
-
-		PageEntry* table = root_level_page;
-		PageEntry* pe = nullptr;
-
-		for (int level = PAGE_LEVELS - 1; level >= target_level; --level) {
-			pe = &table[getVPN(laddr, level)];
-			if (level == target_level) break;
-
-			if (!pe->isPresent()) {
-				if (!(pgporp & PGPROP_present)) return true;
-				void* new_pg = uni_default_allocator ?
-					uni_default_allocator->allocate(0x1000, PAGESIZE_4KB) : nullptr;
-				if (!new_pg) return false;
-				MemSet(new_pg, 0, 0x1000);
-				if (!pe->SetupAsTable(new_pg, level)) {
-					uni_default_allocator->deallocate(new_pg, 0x1000);
-					return false;
-				}
-			}
-			else if (pe->isHuge(level)) {
-				const stduint huge_base = pe->getAddress(level);
-				const stduint huge_size = _IMM1 << VPN_SHIFTS[level];
-				const stduint req_size = _IMM1 << VPN_SHIFTS[target_level];
-				const stduint huge_offset = laddr & (huge_size - 1);
-				if (huge_offset + req_size > huge_size) return false;
-				if (paddr != huge_base + huge_offset) return false;
-				return PagePropertiesCompatible(*pe, level, pgporp);
-			}
-			else if (!pe->isTable(level)) return false;
-			table = (PageEntry*)pe->getAddress(level);
-		}
-
-		if (pgporp & PGPROP_present) {
-			if (!pe->SetupAsLeaf(paddr, target_level, pgporp)) return false;
-		}
-		else {
-			pe->Clear();
-		}
-		return true;
-	}
 	#endif
 
 	auto Paging::Walk(pageint& p, stduint target_level, PageEntry*& entry) const -> bool {
@@ -255,80 +212,6 @@ namespace uni {
 				return true;
 			if (!entry->isTable(level)) return false;
 			table = (PageEntry*)entry->getAddress(level);
-		}
-		return false;
-	}
-
-	auto Paging::SplitLeaf(PageEntry* leaf, stduint level, stduint virtual_leaf_base) -> bool {
-		if (!leaf || !level || level >= PAGE_LEVELS ||
-			!PAGE_LEVEL_CAN_LEAF[level] || !PAGE_LEVEL_CAN_LEAF[level - 1] ||
-			!leaf->isLeaf(level) || !uni_default_allocator) return false;
-
-		const uint64 parent_unit = uint64(1) << VPN_SHIFTS[level];
-		const uint64 child_unit = uint64(1) << VPN_SHIFTS[level - 1];
-		if ((virtual_leaf_base & (parent_unit - 1)) ||
-			parent_unit / child_unit != PAGE_ENTRY_COUNTS[level - 1]) return false;
-
-		pageint p = virtual_leaf_base;
-		PageEntry* walked_leaf;
-		if (!Walk(p, level, walked_leaf) || p.crt_level != level || walked_leaf != leaf)
-			return false;
-
-		stduint properties;
-		if (!leaf->DecodeLeafProperties(level, properties)) return false;
-		const uint64 physical_base = leaf->getAddress(level);
-		if (physical_base & (parent_unit - 1)) return false;
-
-		void* new_pg = uni_default_allocator->allocate(0x1000, PAGESIZE_4KB);
-		if (!new_pg) return false;
-		MemSet(new_pg, 0, 0x1000);
-		PageEntry* child_table = (PageEntry*)new_pg;
-		for (stduint index = 0; index < PAGE_ENTRY_COUNTS[level - 1]; index++) {
-			const uint64 child_physical = physical_base + uint64(index) * child_unit;
-			stduint child_properties;
-			if (child_physical < physical_base ||
-				!child_table[index].SetupAsLeaf(child_physical, level - 1, properties) ||
-				uint64(child_table[index].getAddress(level - 1)) != child_physical ||
-				!child_table[index].DecodeLeafProperties(level - 1, child_properties) ||
-				child_properties != properties) {
-				uni_default_allocator->deallocate(new_pg, 0x1000);
-				return false;
-			}
-		}
-
-		PageEntry table_entry;
-		if (!table_entry.SetupAsTable(new_pg, level) ||
-			uint64(table_entry.getAddress(level)) != uint64(_IMM(new_pg))) {
-			uni_default_allocator->deallocate(new_pg, 0x1000);
-			return false;
-		}
-		*leaf = table_entry;
-		return true;
-	}
-
-	auto Paging::ChooseLargestPageSize(stduint virtual_address, stduint physical_address,
-		stduint remaining, PageSizeShift& result) const -> bool {
-		for (int level = PAGE_LEVELS - 1; level >= 0; --level) {
-			if (!PAGE_LEVEL_CAN_LEAF[level]) continue;
-			const stduint shift = VPN_SHIFTS[level];
-			if (!isSupportedSize(shift)) continue;
-
-			const stduint unit = _IMM1 << shift;
-			const stduint mask = unit - 1;
-			if ((virtual_address & mask) || (physical_address & mask) || remaining < unit)
-				continue;
-
-			PageEntry encoded;
-			if (!encoded.SetupAsLeaf(physical_address, level, PGPROP_present) ||
-				encoded.getAddress(level) != physical_address) continue;
-
-			pageint p = virtual_address;
-			PageEntry* entry;
-			if (!Walk(p, level, entry)) continue;
-			if (entry && entry->isPresent()) continue;
-
-			result = (PageSizeShift)shift;
-			return true;
 		}
 		return false;
 	}
@@ -401,163 +284,65 @@ namespace uni {
 			if (!property_probe.SetupAsLeaf(0, 0, pgporp) ||
 				!PagePropertiesCompatible(property_probe, 0, pgporp)) return false;
 		}
+		const stduint requested_linear = ln_address;
+		const stduint requested_length = length;
+		stduint maximum_level = PAGE_LEVELS - 1;
 		if (pgsize == PAGESIZE_ANY) {
-			const stduint requested_linear = ln_address;
-			const stduint requested_length = length;
 			const stduint page_mask = (_IMM1 << PAGESIZE_4KB) - 1;
 			const stduint virtual_offset = ln_address & page_mask;
-			if (virtual_offset != (ph_address & page_mask)) return false;
-			if (ln_address + length - 1 < ln_address ||
+			if (virtual_offset != (ph_address & page_mask) ||
+				ln_address + length - 1 < ln_address ||
 				ph_address + length - 1 < ph_address) return false;
-
 			ln_address -= virtual_offset;
 			ph_address -= virtual_offset;
 			if (length > ~_IMM0 - virtual_offset) return false;
 			length += virtual_offset;
 			if (length > ~_IMM0 - page_mask) return false;
 			length = (length + page_mask) & ~page_mask;
-			if (ln_address + length - 1 < ln_address ||
-				ph_address + length - 1 < ph_address) return false;
-
-			bool saw_present = false;
-			bool saw_not_present = false;
-			bool warned_property_change = false;
-			bool warned_mixed_presence = false;
-			while (length) {
-				pageint p = ln_address;
-				PageEntry* entry;
-				if (!Walk(p, 0, entry) || !entry) return false;
-
-				if (entry->isPresent()) {
-					saw_present = true;
-					if (!warned_mixed_presence && saw_present && saw_not_present) {
-						plogwarn("Paging::Map range contains both present and non-present pages at VA=%[x] length=%[u]",
-							requested_linear, requested_length);
-						warned_mixed_presence = true;
-					}
-					if (!entry->isLeaf(p.crt_level)) return false;
-					const stduint unit = _IMM1 << VPN_SHIFTS[p.crt_level];
-					const stduint mask = unit - 1;
-					const stduint leaf_base = ln_address & ~mask;
-					const stduint offset = ln_address & mask;
-					const stduint step = minof(unit - offset, length);
-					const bool properties_compatible =
-						PagePropertiesCompatible(*entry, p.crt_level, pgporp);
-					stduint replacement_properties = pgporp;
-					if ((pgporp & PGPROP_present) &&
-						(pgporp & PGPROP_MASK_TYPE) == PGTYPE_default) {
-						stduint existing_properties;
-						if (!entry->DecodeLeafProperties(p.crt_level, existing_properties)) return false;
-						replacement_properties |= existing_properties & PGPROP_MASK_TYPE;
-					}
-					const bool mapping_compatible = (pgporp & PGPROP_present) &&
-						entry->getAddress(p.crt_level) + offset == ph_address &&
-						properties_compatible;
-
-					if ((pgporp & PGPROP_weak) || mapping_compatible) {
-						length -= step;
-						if (length) {
-							ln_address += step;
-							ph_address += step;
-						}
-						continue;
-					}
-
-					if ((pgporp & PGPROP_present) && !properties_compatible &&
-						!warned_property_change) {
-						plogwarn("Paging::Map PAGESIZE_ANY requests changes to existing page properties at VA=%[x] level=%u",
-							ln_address, p.crt_level);
-						warned_property_change = true;
-					}
-
-					bool can_replace = !(pgporp & PGPROP_present);
-					if ((pgporp & PGPROP_present) && ln_address == leaf_base && length >= unit) {
-						PageEntry replacement;
-						can_replace = replacement.SetupAsLeaf(ph_address, p.crt_level, replacement_properties) &&
-							replacement.getAddress(p.crt_level) == ph_address &&
-							PagePropertiesCompatible(replacement, p.crt_level, replacement_properties);
-					}
-					if (ln_address == leaf_base && length >= unit && can_replace) {
-						if (!PageMap(ln_address, ph_address,
-							(PageSizeShift)VPN_SHIFTS[p.crt_level], replacement_properties)) return false;
-						length -= unit;
-						if (length) {
-							ln_address += unit;
-							ph_address += unit;
-						}
-						continue;
-					}
-
-					if (!p.crt_level || !SplitLeaf(entry, p.crt_level, leaf_base)) return false;
-					continue;
-				}
-
-				saw_not_present = true;
-				if (!warned_mixed_presence && saw_present && saw_not_present) {
-					plogwarn("Paging::Map range contains both present and non-present pages at VA=%[x] length=%[u]",
-						requested_linear, requested_length);
-					warned_mixed_presence = true;
-				}
-				if (!(pgporp & PGPROP_present)) {
-					const stduint empty_unit = _IMM1 << VPN_SHIFTS[p.crt_level];
-					const stduint step = minof(empty_unit - (ln_address & (empty_unit - 1)), length);
-					length -= step;
-					if (length) {
-						ln_address += step;
-						ph_address += step;
-					}
-					continue;
-				}
-
-				PageSizeShift selected;
-				if (!ChooseLargestPageSize(ln_address, ph_address, length, selected)) return false;
-				stduint selected_unit = 0;
-				for (stduint level = 0; level < PAGE_LEVELS; level++) {
-					if (PAGE_LEVEL_CAN_LEAF[level] && VPN_SHIFTS[level] == selected) {
-						selected_unit = _IMM1 << VPN_SHIFTS[level];
-						break;
-					}
-				}
-				if (!selected_unit || !PageMap(ln_address, ph_address, selected, pgporp)) return false;
-				length -= selected_unit;
-				if (length) {
-					ln_address += selected_unit;
-					ph_address += selected_unit;
-				}
-			}
-			return true;
 		}
-		int target_level = -1;
-		for (stduint level = 0; level < PAGE_LEVELS; level++) {
-			if (PAGE_LEVEL_CAN_LEAF[level] && VPN_SHIFTS[level] == pgsize) {
-				target_level = level;
-				break;
+		else {
+			int target_level = -1;
+			for (stduint level = 0; level < PAGE_LEVELS; level++) {
+				if (PAGE_LEVEL_CAN_LEAF[level] && VPN_SHIFTS[level] == pgsize) {
+					target_level = level;
+					break;
+				}
 			}
+			if (target_level < 0 || !isSupportedSize(pgsize)) return false;
+			maximum_level = target_level;
+			const stduint unit = _IMM1 << VPN_SHIFTS[target_level];
+			const stduint alignmask = unit - 1;
+			ph_address &= ~alignmask;
+			if (ln_address + length - 1 < ln_address) return false;
+			const stduint virtual_offset = ln_address & alignmask;
+			if (length > ~_IMM0 - virtual_offset) return false;
+			length += virtual_offset;
+			ln_address &= ~alignmask;
+			if (length > ~_IMM0 - alignmask) return false;
+			length = (length + alignmask) & ~alignmask;
 		}
-		if (target_level < 0 || !isSupportedSize(pgsize)) return false;
-		const stduint unit = _IMM1 << VPN_SHIFTS[target_level];
-		stduint alignmask = unit - 1;
-		ph_address &= ~alignmask;
-		if (ln_address + length - 1 < ln_address) return false;
+		if (!length || ln_address + length - 1 < ln_address ||
+			ph_address + length - 1 < ph_address) return false;
 
-		length += ln_address & alignmask;
-		ln_address &= ~alignmask;
-		do {
-			bool ok = true;
-			if (pgporp & PGPROP_weak) {
-				auto entry = getEntry(ln_address);
-				if (_IMM(entry) == ~_IMM0 || !entry->isPresent())
-					ok = PageMap(ln_address, ph_address, pgsize, pgporp);
-			}
-			else {
-				ok = PageMap(ln_address, ph_address, pgsize, pgporp);
-			}
-			if (!ok) return false;
-			ln_address += unit;
-			ph_address += unit;
-			length -= minof(unit, length);
-		} while (length);
+		PageMapTransaction transaction = {};
+		transaction.any_size = pgsize == PAGESIZE_ANY;
+		transaction.maximum_level = maximum_level;
+		transaction.properties = pgporp;
+		if (!ExecutePageMapTransaction(transaction, root_level_page,
+			ln_address, ph_address, length)) return false;
 
+		if (transaction.property_change) {
+			plogwarn("Paging::Map requests changes to existing page properties at VA=%[x] level=%u",
+				transaction.property_address, transaction.property_level);
+		}
+		if (!transaction.any_size && transaction.finer_structure) {
+			plogwarn("Paging::Map explicit page size follows an existing finer page table at VA=%[x] requested-shift=%u actual-level=%u",
+				transaction.finer_address, (stduint)pgsize, transaction.finer_level);
+		}
+		if (transaction.saw_present && transaction.saw_not_present) {
+			plogwarn("Paging::Map range contains both present and non-present pages at VA=%[x] length=%[u]",
+				requested_linear, requested_length);
+		}
 		return true;
 	}
 
@@ -570,7 +355,7 @@ namespace uni {
 				stduint shift = VPN_SHIFTS[p.crt_level];
 				stduint unit = _IMM1 << shift;
 				stduint step = minof(unit - (ln_address & (unit - 1)), length);
-				Map(ln_address, 0, step, (PageSizeShift)shift, 0);
+				if (!Map(ln_address, 0, step, (PageSizeShift)shift, 0)) return false;
 				ln_address += step;
 				length -= step;
 			}
@@ -717,8 +502,158 @@ namespace uni {
 
 }
 
+#if defined(_ARC_x86) || defined(_ARC_x64)
+
+namespace {
+	constexpr uint64 PAGING_PAT_VALUE = 0x0007040100070406ULL;
+	constexpr uint8 X86_MEMORY_UC = 0x00;
+	constexpr uint8 X86_MEMORY_WC = 0x01;
+	constexpr uint8 X86_MEMORY_WT = 0x04;
+	constexpr uint8 X86_MEMORY_WP = 0x05;
+	constexpr uint8 X86_MEMORY_WB = 0x06;
+
+	static stduint X86PhysicalAddressBits() {
+		unsigned a{}, b{}, c{}, d{};
+		_IO_CPUID(0x80000000, 0, &a, &b, &c, &d);
+		if (a < 0x80000008u) return 36;
+		_IO_CPUID(0x80000008, 0, &a, &b, &c, &d);
+		const stduint bits = a & 0xFFu;
+		return bits >= 32 && bits <= 64 ? bits : 36;
+	}
+
+	static bool X86PATSupported() {
+		unsigned a{}, b{}, c{}, d{};
+		_IO_CPUID(1, 0, &a, &b, &c, &d);
+		return !!(d & (1u << 16));
+	}
+
+	static bool X86PSE36Supported() {
+		unsigned a{}, b{}, c{}, d{};
+		_IO_CPUID(1, 0, &a, &b, &c, &d);
+		return !!(d & (1u << 17));
+	}
+
+	static bool DecodeX86MemoryType(uint8 memory_type, stduint& type) {
+		switch (memory_type) {
+		case X86_MEMORY_UC: type = PGTYPE_uncacheable; return true;
+		case X86_MEMORY_WC: type = PGTYPE_writecombine; return true;
+		case X86_MEMORY_WT: type = PGTYPE_writethrough; return true;
+		case X86_MEMORY_WB: type = PGTYPE_writeback; return true;
+		case X86_MEMORY_WP: return false;
+		default: return false;
+		}
+	}
+
+	static bool MergeX86MTRRType(uint8& current, uint8 incoming) {
+		if (current == incoming) return true;
+		if (current == X86_MEMORY_UC || incoming == X86_MEMORY_UC) {
+			current = X86_MEMORY_UC;
+			return true;
+		}
+		if ((current == X86_MEMORY_WT && incoming == X86_MEMORY_WB) ||
+			(current == X86_MEMORY_WB && incoming == X86_MEMORY_WT)) {
+			current = X86_MEMORY_WT;
+			return true;
+		}
+		return false;
+	}
+
+	static uint8 ReadX86FixedMTRRType(uint64 physical_address) {
+		x86MSR msr;
+		stduint index;
+		if (physical_address < 0x80000) {
+			msr = x86MSR::MTRR_FIX64K_00000;
+			index = physical_address >> 16;
+		}
+		else if (physical_address < 0xA0000) {
+			msr = x86MSR::MTRR_FIX16K_80000;
+			index = (physical_address - 0x80000) >> 14;
+		}
+		else if (physical_address < 0xC0000) {
+			msr = x86MSR::MTRR_FIX16K_A0000;
+			index = (physical_address - 0xA0000) >> 14;
+		}
+		else {
+			const stduint slot = (physical_address - 0xC0000) >> 15;
+			msr = static_cast<x86MSR>(uint32(x86MSR::MTRR_FIX4K_C0000) + slot);
+			index = ((physical_address - 0xC0000) >> 12) & 7;
+		}
+		return uint8(getMSR(msr) >> (index * 8));
+	}
+}
+
+bool uni::EnablePagingPAT() {
+	if (!X86PATSupported()) return false;
+	setMSR(x86MSR::PAT, PAGING_PAT_VALUE);
+	return getMSR(x86MSR::PAT) == PAGING_PAT_VALUE;
+}
+
+bool uni::PagingPATEnabled() {
+	return X86PATSupported() && getMSR(x86MSR::PAT) == PAGING_PAT_VALUE;
+}
+
+bool uni::PagingPhysicalAddressSupported(uint64 physical_address, stduint level) {
+	stduint bits = X86PhysicalAddressBits();
+	#if defined(_ARC_x86)
+	if (!level) bits = 32;
+	else {
+		if (level != 1) return false;
+		if (!X86PSE36Supported()) bits = 32;
+		else if (bits > 36) bits = 36;
+	}
+	#elif defined(_ARC_x64)
+	if (level > 2) return false;
+	if (bits > 52) bits = 52;
+	#endif
+	return bits == 64 || physical_address < (uint64(1) << bits);
+}
+
+bool uni::ReadX86MTRRType(uint64 physical_address, stduint& type) {
+	unsigned a{}, b{}, c{}, d{};
+	_IO_CPUID(1, 0, &a, &b, &c, &d);
+	if (!(d & (1u << 12))) return false;
+	const uint64 capability = getMSR(x86MSR::MTRRCAP);
+	const uint64 default_type = getMSR(x86MSR::MTRR_DEF_TYPE);
+	if (!(default_type & (uint64(1) << 11))) {
+		type = PGTYPE_uncacheable;
+		return true;
+	}
+	if (physical_address < 0x100000 && (capability & (uint64(1) << 8)) &&
+		(default_type & (uint64(1) << 10)))
+		return DecodeX86MemoryType(ReadX86FixedMTRRType(physical_address), type);
+
+	const stduint physical_bits = X86PhysicalAddressBits();
+	if (physical_bits < 64 && physical_address >= (uint64(1) << physical_bits)) return false;
+	const uint64 physical_mask = physical_bits == 64 ? ~uint64(0) :
+		((uint64(1) << physical_bits) - 1);
+	const uint64 address_mask = physical_mask & ~uint64(0xFFF);
+	const stduint variable_count = capability & 0xFF;
+	bool matched = false;
+	uint8 memory_type = 0;
+	for (stduint index = 0; index < variable_count; index++) {
+		const x86MSR base_msr = static_cast<x86MSR>(
+			uint32(x86MSR::MTRR_PHYSBASE0) + uint32(index * 2));
+		const x86MSR mask_msr = static_cast<x86MSR>(
+			uint32(x86MSR::MTRR_PHYSMASK0) + uint32(index * 2));
+		const uint64 mask = getMSR(mask_msr);
+		if (!(mask & (uint64(1) << 11))) continue;
+		const uint64 base = getMSR(base_msr);
+		if ((physical_address & (mask & address_mask)) !=
+			(base & (mask & address_mask))) continue;
+		const uint8 incoming = uint8(base & 0xFF);
+		if (!matched) {
+			memory_type = incoming;
+			matched = true;
+		}
+		else if (!MergeX86MTRRType(memory_type, incoming)) return false;
+	}
+	if (!matched) memory_type = uint8(default_type & 0xFF);
+	return DecodeX86MemoryType(memory_type, type);
+}
+
+#endif
+
 #if defined(_ARC_x86)
-#include "../../../../inc/c/proctrl/IAx86_64.h"
 
 bool uni::Paging::isSupportedSize(stduint exponent) {
 	unsigned a{}, b{}, c{}, d{};
@@ -733,7 +668,6 @@ bool uni::Paging::isSupportedSize(stduint exponent) {
 }
 
 #elif defined(_ARC_x64)
-#include "../../../../inc/c/proctrl/IAx86_64.h"
 
 static bool paging_nx_enabled = false;
 
@@ -757,8 +691,10 @@ bool uni::PagingNXEnabled() {
 bool uni::Paging::isSupportedSize(stduint exponent) {
 	unsigned a{}, b{}, c{}, d{};
 	switch (exponent) {
-	case PAGESIZE_4KB:
-	case PAGESIZE_2MB: return true;
+	case PAGESIZE_4KB: return true;
+	case PAGESIZE_2MB:
+		_IO_CPUID(1, 0, &a, &b, &c, &d);
+		return (d & (1u << 3)) != 0;
 	case PAGESIZE_1GB: {
 		_IO_CPUID(0x80000000, 0, &a, &b, &c, &d);
 		if (a < 0x80000001u) return false;
@@ -771,24 +707,500 @@ bool uni::Paging::isSupportedSize(stduint exponent) {
 }
 
 #elif defined(_ARC_ARM_32)
+#include "../../../../inc/c/proctrl/ARM.h"
+
+bool uni::PagingARM32MemoryTypesEnabled() {
+	stduint sctlr;
+	stduint ttbcr;
+	_ASM volatile("mrc p15, 0, %0, c1, c0, 0" : "=r"(sctlr));
+	_ASM volatile("mrc p15, 0, %0, c2, c0, 2" : "=r"(ttbcr));
+	return (sctlr & (_IMM1 << 23)) &&
+		!(sctlr & (_IMM1 << 28)) && !(ttbcr & (_IMM1 << 31));
+}
+
 bool uni::Paging::isSupportedSize(stduint exponent) {
 	return exponent == PAGESIZE_4KB || exponent == PAGESIZE_1MB;
 }
 
 #elif defined(_ARC_ARM_64)
+#include "../../../../inc/c/proctrl/ARM.h"
+
+bool uni::EnablePagingMAIR() {
+	constexpr uint64 mair = 0x0000000044BB00FFULL;
+	_ASM volatile("msr mair_el1, %0" : : "r"(mair) : "memory");
+	_ASM volatile("isb" : : : "memory");
+	uint64 current;
+	_ASM volatile("mrs %0, mair_el1" : "=r"(current));
+	return current == mair;
+}
+
+bool uni::PagingMAIREnabled() {
+	constexpr uint64 mair = 0x0000000044BB00FFULL;
+	uint64 current;
+	_ASM volatile("mrs %0, mair_el1" : "=r"(current));
+	return current == mair;
+}
+
 bool uni::Paging::isSupportedSize(stduint exponent) {
 	return exponent == PAGESIZE_4KB ||
 		exponent == PAGESIZE_2MB || exponent == PAGESIZE_1GB;
 }
 
 #elif defined(_ARC_RISCV_32)
+#include "../../../../inc/c/proctrl/RISCV/riscv.h"
+
+void uni::SetPagingSvpbmtSupported(bool) {}
+
+bool uni::PagingSvpbmtSupported() {
+	return false;
+}
+
 bool uni::Paging::isSupportedSize(stduint exponent) {
 	return exponent == PAGESIZE_4KB || exponent == PAGESIZE_4MB;
 }
 
 #elif defined(_ARC_RISCV_64)
+#include "../../../../inc/c/proctrl/RISCV/riscv.h"
+
+static bool paging_svpbmt_supported = false;
+
+void uni::SetPagingSvpbmtSupported(bool supported) {
+	paging_svpbmt_supported = supported;
+}
+
+bool uni::PagingSvpbmtSupported() {
+	return paging_svpbmt_supported;
+}
+
 bool uni::Paging::isSupportedSize(stduint exponent) {
 	return exponent == PAGESIZE_4KB ||
 		exponent == PAGESIZE_2MB || exponent == PAGESIZE_1GB;
 }
 #endif
+
+
+namespace uni {
+
+	static bool TransactionIncrement(stduint& value) {
+		if (value == ~_IMM0) return false;
+		value++;
+		return true;
+	}
+
+	static bool EncodeTransactionLeaf(PageEntry& result, uint64 physical_address,
+		stduint level, stduint properties) {
+		result.Clear();
+		return result.SetupAsLeaf(physical_address, level, properties) &&
+			uint64(result.getAddress(level)) == physical_address &&
+			PagePropertiesCompatible(result, level, properties);
+	}
+
+	static bool RecordTransactionWrite(PageMapTransaction& transaction,
+		PageEntry* target, const PageEntry& value, stduint virtual_address,
+		bool published) {
+		if (!published) {
+			if (transaction.build) target->raw = value.raw;
+			return true;
+		}
+		if (!transaction.build) return TransactionIncrement(transaction.write_count);
+		if (transaction.write_index >= transaction.write_count) return false;
+		PageMapWrite& write = transaction.writes[transaction.write_index++];
+		write.target = target;
+		write.expected_raw = target->raw;
+		write.value.raw = value.raw;
+		write.virtual_address = virtual_address;
+		return true;
+	}
+
+	static bool CountTransactionEntry(PageMapTransaction& transaction,
+		const PageEntry* entry, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published);
+
+	static bool CountTransactionChildren(PageMapTransaction& transaction,
+		const PageEntry* table, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published) {
+		while (length) {
+			const stduint unit = _IMM1 << VPN_SHIFTS[level];
+			const stduint offset = virtual_address & (unit - 1);
+			const stduint step = minof(unit - offset, length);
+			const PageEntry* child = table ? &table[getVPN(virtual_address, level)] : nullptr;
+			if (!CountTransactionEntry(transaction, child, level, virtual_address,
+				physical_address, step, published)) return false;
+			length -= step;
+			if (length) {
+				virtual_address += step;
+				physical_address += step;
+			}
+		}
+		return true;
+	}
+
+	static bool CountTransactionSplit(PageMapTransaction& transaction,
+		const PageEntry& leaf, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published) {
+		if (!level || !PAGE_LEVEL_CAN_LEAF[level] || !PAGE_LEVEL_CAN_LEAF[level - 1] ||
+			!TransactionIncrement(transaction.table_count)) return false;
+
+		stduint existing_properties;
+		if (!leaf.DecodeLeafProperties(level, existing_properties)) return false;
+		const uint64 parent_unit = uint64(1) << VPN_SHIFTS[level];
+		const uint64 child_unit = uint64(1) << VPN_SHIFTS[level - 1];
+		const uint64 physical_base = leaf.getAddress(level);
+		if ((physical_base & (parent_unit - 1)) ||
+			parent_unit / child_unit != PAGE_ENTRY_COUNTS[level - 1]) return false;
+
+		for (stduint index = 0; index < PAGE_ENTRY_COUNTS[level - 1]; index++) {
+			const uint64 child_physical = physical_base + uint64(index) * child_unit;
+			PageEntry child;
+			if (child_physical < physical_base ||
+				!EncodeTransactionLeaf(child, child_physical, level - 1,
+					existing_properties)) return false;
+		}
+
+		while (length) {
+			const stduint child_level = level - 1;
+			const stduint child_size = _IMM1 << VPN_SHIFTS[child_level];
+			const stduint offset = virtual_address & (child_size - 1);
+			const stduint step = minof(child_size - offset, length);
+			const stduint index = getVPN(virtual_address, child_level);
+			PageEntry child;
+			if (!EncodeTransactionLeaf(child,
+				physical_base + uint64(index) * child_unit,
+				child_level, existing_properties) ||
+				!CountTransactionEntry(transaction, &child, child_level,
+					virtual_address, physical_address, step, false)) return false;
+			length -= step;
+			if (length) {
+				virtual_address += step;
+				physical_address += step;
+			}
+		}
+
+		PageEntry table_entry;
+		table_entry.Clear();
+		return RecordTransactionWrite(transaction, const_cast<PageEntry*>(&leaf),
+			table_entry, virtual_address, published);
+	}
+
+	static bool CountTransactionEmptyTable(PageMapTransaction& transaction,
+		const PageEntry* entry, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published) {
+		if (!level || !TransactionIncrement(transaction.table_count) ||
+			!CountTransactionChildren(transaction, nullptr, level - 1,
+				virtual_address, physical_address, length, false)) return false;
+		PageEntry table_entry;
+		table_entry.Clear();
+		return RecordTransactionWrite(transaction, const_cast<PageEntry*>(entry),
+			table_entry, virtual_address, published);
+	}
+
+	static bool CountTransactionEntry(PageMapTransaction& transaction,
+		const PageEntry* entry, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published) {
+		const bool present = entry && entry->isPresent();
+		const stduint unit = _IMM1 << VPN_SHIFTS[level];
+		const stduint offset = virtual_address & (unit - 1);
+		const bool full_leaf = !offset && length == unit;
+
+		if (!present) {
+			transaction.saw_not_present = true;
+			if (!(transaction.properties & PGPROP_present)) return true;
+			if (full_leaf && level <= transaction.maximum_level &&
+				PAGE_LEVEL_CAN_LEAF[level] && Paging::isSupportedSize(VPN_SHIFTS[level])) {
+				PageEntry replacement;
+				if (EncodeTransactionLeaf(replacement, physical_address, level,
+					transaction.properties))
+					return RecordTransactionWrite(transaction, const_cast<PageEntry*>(entry),
+						replacement, virtual_address, published);
+			}
+			if (!level) return false;
+			return CountTransactionEmptyTable(transaction, entry, level,
+				virtual_address, physical_address, length, published);
+		}
+
+		if (entry->isTable(level)) {
+			if (!level) return false;
+			if (!transaction.any_size && published && level <= transaction.maximum_level &&
+				!transaction.finer_structure) {
+				transaction.finer_structure = true;
+				transaction.finer_address = virtual_address;
+				transaction.finer_level = level - 1;
+			}
+			const PageEntry* child_table = (const PageEntry*)entry->getAddress(level);
+			if (!child_table) return false;
+			return CountTransactionChildren(transaction, child_table, level - 1,
+				virtual_address, physical_address, length, true);
+		}
+
+		if (!entry->isLeaf(level)) return false;
+		transaction.saw_present = true;
+		if (transaction.properties & PGPROP_weak) return true;
+
+		const bool properties_compatible =
+			PagePropertiesCompatible(*entry, level, transaction.properties);
+		const bool mapping_compatible = (transaction.properties & PGPROP_present) &&
+			uint64(entry->getAddress(level)) + offset == physical_address &&
+			properties_compatible;
+		if (mapping_compatible) return true;
+
+		if ((transaction.properties & PGPROP_present) && !properties_compatible &&
+			!transaction.property_change) {
+			transaction.property_change = true;
+			transaction.property_address = virtual_address;
+			transaction.property_level = level;
+		}
+
+		stduint replacement_properties = transaction.properties;
+		if ((replacement_properties & PGPROP_present) &&
+			(replacement_properties & PGPROP_MASK_TYPE) == PGTYPE_default) {
+			stduint existing_properties;
+			if (!entry->DecodeLeafProperties(level, existing_properties)) return false;
+			replacement_properties |= existing_properties & PGPROP_MASK_TYPE;
+		}
+
+		if (full_leaf && level <= transaction.maximum_level) {
+			PageEntry replacement;
+			replacement.Clear();
+			if (!(replacement_properties & PGPROP_present) ||
+				EncodeTransactionLeaf(replacement, physical_address, level,
+					replacement_properties))
+				return RecordTransactionWrite(transaction, const_cast<PageEntry*>(entry),
+					replacement, virtual_address, published);
+		}
+
+		if (!level) return false;
+		return CountTransactionSplit(transaction, *entry, level,
+			virtual_address, physical_address, length, published);
+	}
+
+	static bool BuildTransactionEntry(PageMapTransaction& transaction,
+		PageEntry* entry, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published);
+
+	static PageEntry* AcquireTransactionTable(PageMapTransaction& transaction) {
+		if (transaction.table_index >= transaction.table_count) return nullptr;
+		PageEntry* table = transaction.tables[transaction.table_index++];
+		MemSet(table, 0, 0x1000);
+		return table;
+	}
+
+	static bool BuildTransactionChildren(PageMapTransaction& transaction,
+		PageEntry* table, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published) {
+		while (length) {
+			const stduint unit = _IMM1 << VPN_SHIFTS[level];
+			const stduint offset = virtual_address & (unit - 1);
+			const stduint step = minof(unit - offset, length);
+			if (!BuildTransactionEntry(transaction, &table[getVPN(virtual_address, level)],
+				level, virtual_address, physical_address, step, published)) return false;
+			length -= step;
+			if (length) {
+				virtual_address += step;
+				physical_address += step;
+			}
+		}
+		return true;
+	}
+
+	static bool BuildTransactionSplit(PageMapTransaction& transaction,
+		PageEntry* leaf, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published) {
+		stduint existing_properties;
+		if (!leaf->DecodeLeafProperties(level, existing_properties)) return false;
+		const uint64 parent_unit = uint64(1) << VPN_SHIFTS[level];
+		const uint64 child_unit = uint64(1) << VPN_SHIFTS[level - 1];
+		const uint64 physical_base = leaf->getAddress(level);
+		PageEntry* child_table = AcquireTransactionTable(transaction);
+		if (!child_table || (physical_base & (parent_unit - 1)) ||
+			parent_unit / child_unit != PAGE_ENTRY_COUNTS[level - 1]) return false;
+
+		for (stduint index = 0; index < PAGE_ENTRY_COUNTS[level - 1]; index++) {
+			const uint64 child_physical = physical_base + uint64(index) * child_unit;
+			if (child_physical < physical_base ||
+				!EncodeTransactionLeaf(child_table[index], child_physical,
+					level - 1, existing_properties)) return false;
+		}
+		if (!BuildTransactionChildren(transaction, child_table, level - 1,
+			virtual_address, physical_address, length, false)) return false;
+
+		PageEntry table_entry;
+		if (!table_entry.SetupAsTable(child_table, level) ||
+			uint64(table_entry.getAddress(level)) != uint64(_IMM(child_table))) return false;
+		return RecordTransactionWrite(transaction, leaf, table_entry,
+			virtual_address, published);
+	}
+
+	static bool BuildTransactionEmptyTable(PageMapTransaction& transaction,
+		PageEntry* entry, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published) {
+		PageEntry* child_table = AcquireTransactionTable(transaction);
+		if (!child_table || !BuildTransactionChildren(transaction, child_table,
+			level - 1, virtual_address, physical_address, length, false)) return false;
+		PageEntry table_entry;
+		if (!table_entry.SetupAsTable(child_table, level) ||
+			uint64(table_entry.getAddress(level)) != uint64(_IMM(child_table))) return false;
+		return RecordTransactionWrite(transaction, entry, table_entry,
+			virtual_address, published);
+	}
+
+	static bool BuildTransactionEntry(PageMapTransaction& transaction,
+		PageEntry* entry, stduint level, stduint virtual_address,
+		uint64 physical_address, stduint length, bool published) {
+		const bool present = entry->isPresent();
+		const stduint unit = _IMM1 << VPN_SHIFTS[level];
+		const stduint offset = virtual_address & (unit - 1);
+		const bool full_leaf = !offset && length == unit;
+
+		if (!present) {
+			if (!(transaction.properties & PGPROP_present)) return true;
+			if (full_leaf && level <= transaction.maximum_level &&
+				PAGE_LEVEL_CAN_LEAF[level] && Paging::isSupportedSize(VPN_SHIFTS[level])) {
+				PageEntry replacement;
+				if (EncodeTransactionLeaf(replacement, physical_address, level,
+					transaction.properties))
+					return RecordTransactionWrite(transaction, entry, replacement,
+						virtual_address, published);
+			}
+			if (!level) return false;
+			return BuildTransactionEmptyTable(transaction, entry, level,
+				virtual_address, physical_address, length, published);
+		}
+
+		if (entry->isTable(level)) {
+			if (!level) return false;
+			PageEntry* child_table = (PageEntry*)entry->getAddress(level);
+			if (!child_table) return false;
+			return BuildTransactionChildren(transaction, child_table, level - 1,
+				virtual_address, physical_address, length, true);
+		}
+
+		if (!entry->isLeaf(level)) return false;
+		if (transaction.properties & PGPROP_weak) return true;
+		const bool properties_compatible =
+			PagePropertiesCompatible(*entry, level, transaction.properties);
+		const bool mapping_compatible = (transaction.properties & PGPROP_present) &&
+			uint64(entry->getAddress(level)) + offset == physical_address &&
+			properties_compatible;
+		if (mapping_compatible) return true;
+
+		stduint replacement_properties = transaction.properties;
+		if ((replacement_properties & PGPROP_present) &&
+			(replacement_properties & PGPROP_MASK_TYPE) == PGTYPE_default) {
+			stduint existing_properties;
+			if (!entry->DecodeLeafProperties(level, existing_properties)) return false;
+			replacement_properties |= existing_properties & PGPROP_MASK_TYPE;
+		}
+
+		if (full_leaf && level <= transaction.maximum_level) {
+			PageEntry replacement;
+			replacement.Clear();
+			if (!(replacement_properties & PGPROP_present) ||
+				EncodeTransactionLeaf(replacement, physical_address, level,
+					replacement_properties))
+				return RecordTransactionWrite(transaction, entry, replacement,
+					virtual_address, published);
+		}
+
+		if (!level) return false;
+		return BuildTransactionSplit(transaction, entry, level,
+			virtual_address, physical_address, length, published);
+	}
+
+	static bool CountTransactionRange(PageMapTransaction& transaction,
+		PageEntry* root, stduint virtual_address, uint64 physical_address,
+		stduint length) {
+		return CountTransactionChildren(transaction, root, PAGE_LEVELS - 1,
+			virtual_address, physical_address, length, true);
+	}
+
+	static bool BuildTransactionRange(PageMapTransaction& transaction,
+		PageEntry* root, stduint virtual_address, uint64 physical_address,
+		stduint length) {
+		return BuildTransactionChildren(transaction, root, PAGE_LEVELS - 1,
+			virtual_address, physical_address, length, true);
+	}
+
+	static void ReleaseTransactionStorage(PageMapTransaction& transaction,
+		stduint allocated_tables, bool release_tables) {
+		if (!uni_default_allocator) return;
+		if (release_tables && transaction.tables) {
+			for (stduint index = 0; index < allocated_tables; index++)
+				uni_default_allocator->deallocate(transaction.tables[index], 0x1000);
+		}
+		if (transaction.writes)
+			uni_default_allocator->deallocate(transaction.writes,
+				transaction.write_count * sizeof(PageMapWrite));
+		if (transaction.tables)
+			uni_default_allocator->deallocate(transaction.tables,
+				transaction.table_count * sizeof(PageEntry*));
+		transaction.writes = nullptr;
+		transaction.tables = nullptr;
+	}
+
+	static bool ExecutePageMapTransaction(PageMapTransaction& transaction,
+		PageEntry* root, stduint virtual_address, uint64 physical_address,
+		stduint length) {
+		if (!root || !CountTransactionRange(transaction, root, virtual_address,
+			physical_address, length)) return false;
+		if (!transaction.write_count) return !transaction.table_count;
+		if (!uni_default_allocator ||
+			transaction.table_count > ~_IMM0 / sizeof(PageEntry*) ||
+			transaction.write_count > ~_IMM0 / sizeof(PageMapWrite)) return false;
+
+		if (transaction.table_count) {
+			transaction.tables = (PageEntry**)uni_default_allocator->allocate(
+				transaction.table_count * sizeof(PageEntry*));
+			if (!transaction.tables) return false;
+		}
+		transaction.writes = (PageMapWrite*)uni_default_allocator->allocate(
+			transaction.write_count * sizeof(PageMapWrite));
+		if (!transaction.writes) {
+			ReleaseTransactionStorage(transaction, 0, false);
+			return false;
+		}
+
+		stduint allocated_tables = 0;
+		for (; allocated_tables < transaction.table_count; allocated_tables++) {
+			void* table = uni_default_allocator->allocate(0x1000, PAGESIZE_4KB);
+			if (!table) {
+				ReleaseTransactionStorage(transaction, allocated_tables, true);
+				return false;
+			}
+			transaction.tables[allocated_tables] = (PageEntry*)table;
+			MemSet(table, 0, 0x1000);
+		}
+
+		transaction.build = true;
+		if (!BuildTransactionRange(transaction, root, virtual_address,
+			physical_address, length) ||
+			transaction.table_index != transaction.table_count ||
+			transaction.write_index != transaction.write_count) {
+			ReleaseTransactionStorage(transaction, allocated_tables, true);
+			return false;
+		}
+		for (stduint index = 0; index < transaction.write_count; index++) {
+			if (transaction.writes[index].target->raw !=
+				transaction.writes[index].expected_raw) {
+				ReleaseTransactionStorage(transaction, allocated_tables, true);
+				return false;
+			}
+		}
+		for (stduint index = 0; index < transaction.write_count; index++) {
+			PageMapWrite& write = transaction.writes[index];
+			#if defined(_ARC_ARM_32) || defined(_ARC_ARM_64)
+			PageEntry existing;
+			existing.raw = write.expected_raw;
+			if (existing.isPresent()) {
+				write.target->raw = 0;
+				RefreshVirtualAddress(write.virtual_address);
+			}
+			#endif
+			write.target->raw = write.value.raw;
+			RefreshVirtualAddress(write.virtual_address);
+		}
+
+		ReleaseTransactionStorage(transaction, allocated_tables, false);
+		return true;
+	}
+}
+

@@ -34,8 +34,7 @@ including not only implementation, library, tool-kits, chroming engine and demon
 			- doscon.io/COTLAB(`cot`)
 		- (Linker)
 		- Kits
-	- Wel (Xmulator)
-	- Dinah (Processor and Controller Chip)
+	- Wel (Xmulator) and Dinah (Processor and Controller Chip)
 	- Mecocoa (General Hosted Environment), up-to board-level `board-arch-mode`
 	- Websec (Webnet Server&Client and Secure) 
 	- Witch and Nova (Graphics Rendering and Gaming)

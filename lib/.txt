@@ -14,5 +14,4 @@
 [ide]
 [doc]
 - Tex
-[class Model/]
-- Printed Circuit Component
+

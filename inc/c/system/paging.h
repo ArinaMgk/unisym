@@ -51,6 +51,31 @@ enum {
 	PGTYPE_noncacheable = 0x600,
 };
 
+#if defined(_ARC_x86) || defined(_ARC_x64)
+namespace uni {
+	// The caller must perform the architecture-required multiprocessor cache and TLB synchronization protocol.
+	bool EnablePagingPAT();
+	bool PagingPATEnabled();
+	bool PagingPhysicalAddressSupported(uint64 physical_address, stduint level);
+	bool ReadX86MTRRType(uint64 physical_address, stduint& type);
+}
+#elif defined(_ARC_ARM_64)
+namespace uni {
+	// The caller must configure the same MAIR layout on every processor before sharing page tables.
+	bool EnablePagingMAIR();
+	bool PagingMAIREnabled();
+}
+#elif defined(_ARC_ARM_32)
+namespace uni {
+	bool PagingARM32MemoryTypesEnabled();
+}
+#elif defined(_ARC_RISCV_32) || defined(_ARC_RISCV_64)
+namespace uni {
+	void SetPagingSvpbmtSupported(bool supported);
+	bool PagingSvpbmtSupported();
+}
+#endif
+
 inline bool NormalizePageProperties(stduint prop, stduint& normalized) {
 	const stduint legacy = prop & (PGPROP_cache_disable | PGPROP_write_through);
 	stduint type = prop & PGPROP_MASK_TYPE;
@@ -69,13 +94,26 @@ inline bool PageTypeSupported(stduint type) {
 	#if defined(_ARC_x86) || defined(_ARC_x64)
 	return type == PGTYPE_default || type == PGTYPE_writeback ||
 		type == PGTYPE_writethrough || type == PGTYPE_uncacheable ||
-		type == PGTYPE_device || type == PGTYPE_noncacheable;
+		type == PGTYPE_device || type == PGTYPE_noncacheable ||
+		(type == PGTYPE_writecombine && uni::PagingPATEnabled());
 	#elif defined(_ARC_ARM_32)
-	return type == PGTYPE_default || type == PGTYPE_writeback ||
+	return uni::PagingARM32MemoryTypesEnabled() &&
+		(type == PGTYPE_default || type == PGTYPE_writeback ||
 		type == PGTYPE_writethrough || type == PGTYPE_uncacheable ||
-		type == PGTYPE_device || type == PGTYPE_noncacheable;
-	#elif defined(_ARC_ARM_64) || defined(_ARC_RISCV_32) || defined(_ARC_RISCV_64)
-	return type == PGTYPE_default;
+		type == PGTYPE_device || type == PGTYPE_noncacheable ||
+		type == PGTYPE_writecombine);
+	#elif defined(_ARC_ARM_64)
+	return type == PGTYPE_default || (uni::PagingMAIREnabled() &&
+		(type == PGTYPE_writeback || type == PGTYPE_writethrough ||
+		type == PGTYPE_uncacheable || type == PGTYPE_device ||
+		type == PGTYPE_noncacheable || type == PGTYPE_writecombine));
+	#elif defined(_ARC_RISCV_32)
+	return type == PGTYPE_default || type == PGTYPE_writeback;
+	#elif defined(_ARC_RISCV_64)
+	return type == PGTYPE_default || type == PGTYPE_writeback ||
+		(uni::PagingSvpbmtSupported() &&
+		(type == PGTYPE_uncacheable || type == PGTYPE_device ||
+		type == PGTYPE_noncacheable || type == PGTYPE_writecombine));
 	#else
 	return false;
 	#endif
@@ -239,12 +277,16 @@ namespace uni {
 			const stduint pat = level ? !!(raw & (_IMM1 << 12)) : l0p_entry.pat;
 			const stduint pat_index = (pat << 2) |
 				(stduint(l0p_entry.cache_disable) << 1) | l0p_entry.write_through;
+			if (pat && !PagingPATEnabled()) return false;
 			switch (pat_index) {
 			case 0: prop |= PGTYPE_writeback; break;
 			case 1: prop |= PGTYPE_writethrough; break;
 			case 2: prop |= PGTYPE_noncacheable; break;
 			case 3: prop |= PGTYPE_uncacheable; break;
-			default: return false;
+			case 4: prop |= PGTYPE_writecombine; break;
+			case 5: prop |= PGTYPE_writethrough; break;
+			case 6: prop |= PGTYPE_noncacheable; break;
+			case 7: prop |= PGTYPE_uncacheable; break;
 			}
 			return true;
 		}
@@ -268,7 +310,8 @@ namespace uni {
 			if (level == 1) shift = PAGESIZE_2MB;
 			else if (level == 2) shift = PAGESIZE_1GB;
 			#endif
-			if (paddr & ((uint64(1) << shift) - 1)) return false;
+			if (paddr & ((uint64(1) << shift) - 1) ||
+				!PagingPhysicalAddressSupported(paddr, level)) return false;
 			stduint normalized;
 			if (!NormalizePageProperties(prop, normalized)) return false;
 			
@@ -280,6 +323,7 @@ namespace uni {
 
 			bool write_through = false;
 			bool cache_disable = false;
+			bool pat = false;
 			switch (normalized & PGPROP_MASK_TYPE) {
 			case PGTYPE_default:
 			case PGTYPE_writeback:
@@ -293,6 +337,10 @@ namespace uni {
 				break;
 			case PGTYPE_noncacheable:
 				cache_disable = true;
+				break;
+			case PGTYPE_writecombine:
+				if (!PagingPATEnabled()) return false;
+				pat = true;
 				break;
 			default:
 				return false;
@@ -315,6 +363,10 @@ namespace uni {
 			l0p_entry.global = !!(normalized & PGPROP_global);
 			l0p_entry.write_through = write_through;
 			l0p_entry.cache_disable = cache_disable;
+			if (pat) {
+				if (level) raw |= _IMM1 << 12;
+				else l0p_entry.pat = 1;
+			}
 			#if defined(_ARC_x64)
 			if (PagingNXEnabled() && (normalized & PGPROP_nonexecutable)) raw |= _IMM1 << 63;
 			#endif
@@ -396,6 +448,7 @@ namespace uni {
 			if (l0p_entry.global) prop |= PGPROP_global;
 			if (!l0p_entry.execute) prop |= PGPROP_nonexecutable;
 			#if defined(_ARC_RISCV_64)
+			if (l0p_entry.pbmt && !PagingSvpbmtSupported()) return false;
 			switch (l0p_entry.pbmt) {
 			case 0: prop |= PGTYPE_default; break;
 			case 1: prop |= PGTYPE_noncacheable; break;
@@ -429,10 +482,34 @@ namespace uni {
 			#endif
 			if (paddr & ((_IMM1 << shift) - 1)) return false;
 			stduint normalized;
-			if (!NormalizePageProperties(prop, normalized) ||
-				(normalized & PGPROP_MASK_TYPE) != PGTYPE_default) return false;
+			if (!NormalizePageProperties(prop, normalized)) return false;
+			#if defined(_ARC_RISCV_64)
+			stduint pbmt = 0;
+			#endif
+			switch (normalized & PGPROP_MASK_TYPE) {
+			case PGTYPE_default:
+			case PGTYPE_writeback:
+				break;
+			#if defined(_ARC_RISCV_64)
+			case PGTYPE_noncacheable:
+			case PGTYPE_writecombine:
+				if (!PagingSvpbmtSupported()) return false;
+				pbmt = 1;
+				break;
+			case PGTYPE_uncacheable:
+			case PGTYPE_device:
+				if (!PagingSvpbmtSupported()) return false;
+				pbmt = 2;
+				break;
+			#endif
+			default:
+				return false;
+			}
 			Clear();
 			l0p_entry.ppn = _IMM(paddr) >> 12;
+			#if defined(_ARC_RISCV_64)
+			l0p_entry.pbmt = pbmt;
+			#endif
 			l0p_entry.valid = 1;
 			l0p_entry.read = 1;
 			l0p_entry.execute = !(normalized & PGPROP_nonexecutable);
@@ -543,8 +620,22 @@ namespace uni {
 		inline bool isUserAccessible(stduint) const { return !!(l0p_entry.ap & 0b01); }
 		inline bool DecodeLeafProperties(stduint level, stduint& prop) const {
 			if (level > 2 || !isLeaf(level)) return false;
-			if (l0p_entry.attr_index || l0p_entry.pxn != l0p_entry.uxn) return false;
-			prop = PGPROP_present | PGTYPE_default;
+			if (l0p_entry.pxn != l0p_entry.uxn) return false;
+			stduint type;
+			if (!PagingMAIREnabled()) {
+				if (l0p_entry.attr_index) return false;
+				type = PGTYPE_default;
+			}
+			else {
+				switch (l0p_entry.attr_index) {
+				case 0: type = PGTYPE_writeback; break;
+				case 1: type = PGTYPE_device; break;
+				case 2: type = PGTYPE_writethrough; break;
+				case 3: type = PGTYPE_noncacheable; break;
+				default: return false;
+				}
+			}
+			prop = PGPROP_present | type;
 			if (isWritable(level)) prop |= PGPROP_writable;
 			if (isUserAccessible(level)) prop |= PGPROP_user_access;
 			if (!l0p_entry.ng) prop |= PGPROP_global;
@@ -568,14 +659,41 @@ namespace uni {
 				(level == 1 ? PAGESIZE_2MB : PAGESIZE_1GB) : PAGESIZE_4KB;
 			if (paddr & ((_IMM1 << shift) - 1)) return false;
 			stduint normalized;
-			if (!NormalizePageProperties(prop, normalized) ||
-				(normalized & PGPROP_MASK_TYPE) != PGTYPE_default) return false;
+			if (!NormalizePageProperties(prop, normalized)) return false;
+			stduint attr_index = 0;
+			stduint shareability = 0b11;
+			switch (normalized & PGPROP_MASK_TYPE) {
+			case PGTYPE_default:
+				break;
+			case PGTYPE_writeback:
+				if (!PagingMAIREnabled()) return false;
+				break;
+			case PGTYPE_uncacheable:
+			case PGTYPE_device:
+				if (!PagingMAIREnabled()) return false;
+				attr_index = 1;
+				shareability = 0b10;
+				break;
+			case PGTYPE_writethrough:
+				if (!PagingMAIREnabled()) return false;
+				attr_index = 2;
+				break;
+			case PGTYPE_noncacheable:
+			case PGTYPE_writecombine:
+				if (!PagingMAIREnabled()) return false;
+				attr_index = 3;
+				break;
+			default:
+				return false;
+			}
 			Clear();
 			if (!level) l0p_entry.address = _IMM(paddr) >> 12;
 			else if (level == 1) l1p_entry.address = _IMM(paddr) >> 21;
 			else l2p_entry.address = _IMM(paddr) >> 30;
 			l0p_entry.valid = 1;
 			l0p_entry.is_table = !level;
+			l0p_entry.attr_index = attr_index;
+			l0p_entry.sh = shareability;
 			l0p_entry.af = 1;
 			if (normalized & PGPROP_user_access) {
 				l0p_entry.ap = (normalized & PGPROP_writable) ? 0b01 : 0b11;
@@ -656,7 +774,7 @@ namespace uni {
 			return level ? l1p_entry.ap == 0b11 : l0p_entry.ap == 0b11;
 		}
 		inline bool DecodeLeafProperties(stduint level, stduint& prop) const {
-			if (level > 1 || !isLeaf(level)) return false;
+			if (level > 1 || !isLeaf(level) || !PagingARM32MemoryTypesEnabled()) return false;
 			prop = PGPROP_present;
 			if (isWritable(level)) prop |= PGPROP_writable;
 			if (isUserAccessible(level)) prop |= PGPROP_user_access;
@@ -693,14 +811,13 @@ namespace uni {
 			stduint shift = level ? PAGESIZE_1MB : PAGESIZE_4KB;
 			if (paddr & ((_IMM1 << shift) - 1)) return false;
 			stduint normalized;
-			if (!NormalizePageProperties(prop, normalized)) return false;
+			if (!NormalizePageProperties(prop, normalized) ||
+				!PagingARM32MemoryTypesEnabled()) return false;
 			stduint tex = 0;
 			stduint c = 0;
 			stduint b = 0;
 			switch (normalized & PGPROP_MASK_TYPE) {
 			case PGTYPE_default:
-				c = b = !level;
-				break;
 			case PGTYPE_writeback:
 				c = b = 1;
 				break;
@@ -713,6 +830,7 @@ namespace uni {
 				b = 1;
 				break;
 			case PGTYPE_noncacheable:
+			case PGTYPE_writecombine:
 				tex = 1;
 				break;
 			default:
@@ -726,6 +844,7 @@ namespace uni {
 				l1p_entry.ap = (normalized & PGPROP_user_access) ? 0b11 : 0b01;
 				l1p_entry.apx = !(normalized & PGPROP_writable);
 				l1p_entry.ng = !(normalized & PGPROP_global);
+				l1p_entry.s = 1;
 				l1p_entry.tex = tex;
 				l1p_entry.c = c;
 				l1p_entry.b = b;
@@ -737,6 +856,7 @@ namespace uni {
 				l0p_entry.ap = (normalized & PGPROP_user_access) ? 0b11 : 0b01;
 				l0p_entry.apx = !(normalized & PGPROP_writable);
 				l0p_entry.ng = !(normalized & PGPROP_global);
+				l0p_entry.s = 1;
 				l0p_entry.tex = tex;
 				l0p_entry.c = c;
 				l0p_entry.b = b;
@@ -852,13 +972,6 @@ namespace uni {
 		// Inn: p provides virtual-address indexes and target_level limits the walk
 		// OUT : entry points to the stop entry and p.crt_level reports its level; true means an empty entry, leaf, or target level was reached, false means the root, level, or descriptor is invalid; no page - table entry is allocated or modified.
 		auto Walk(pageint & p, stduint target_level, PageEntry * &entry) const -> bool;
-		// Split one verified large leaf into an equivalent child table; failure leaves the parent unchanged.
-		auto SplitLeaf(PageEntry* leaf, stduint level, stduint virtual_leaf_base) -> bool;
-		// Inn: virtual and physical starts plus the boundary-limited remaining length
-		// Out: result receives the largest supported, representable, aligned, and unoccupied leaf size; no mapping is created.
-		auto ChooseLargestPageSize(stduint virtual_address, stduint physical_address,
-			stduint remaining, PageSizeShift& result) const -> bool;
-		auto PageMap(stduint laddr, stduint paddr, stduint pgsize, stduint pgporp) -> bool;
 
 	public:
 		static bool isSupportedSize(stduint exponent);// e.g. 12 for 4K page

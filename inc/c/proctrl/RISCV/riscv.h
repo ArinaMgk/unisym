@@ -273,7 +273,7 @@ static inline void FlushTLB() {
 }
 
 inline static void RefreshVirtualAddress(stduint addr) {
-	asm volatile("sfence.vma zero, zero");
+	asm volatile("sfence.vma %0, zero" : : "r"(addr) : "memory");
 }
 
 

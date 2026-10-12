@@ -663,7 +663,7 @@ const char* const* uni::PNGCodec::GetExtensions() const {
 
 uni::ImageResult uni::PNGCodec::Probe(StorageTrait& storage, bool& matched) const {
 	matched = false;
-	byte sig[8];
+	alignas(4) byte sig[8];
 	stduint blockSize = storage.Block_Size ? storage.Block_Size : 512;
 	byte* blockBuf = (byte*)malloc(blockSize);
 	if (!blockBuf) {
@@ -691,7 +691,7 @@ uni::ImageResult uni::PNGCodec::ReadInfo(StorageTrait& storage, ImageInfo& outIn
 	byte* blockBuf = (byte*)malloc(blockSize);
 	if (!blockBuf) return uni::ImageResult::OUT_OF_MEMORY;
 
-	byte headerBuf[32];
+	alignas(4) byte headerBuf[32];
 	stduint readBytes = storage.Read(0, headerBuf, 32, blockBuf);
 	free(blockBuf);
 

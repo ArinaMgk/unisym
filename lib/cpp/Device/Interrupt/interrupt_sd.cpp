@@ -138,10 +138,12 @@ void uni::_HandlerIRQ_SDMMCx(T& sd)
 		{
 			if (errorstate != SDMMC_ERROR_NONE)
 			{
+				// Context stays set so WaitDMA reports the failure instead of a silent success with the wrong data
 				/* Disable Internal DMA */
 				sd[SDReg::MASK].rstof(28); // __HAL_SD_DISABLE_IT(hsd, SDMMC_IT_IDMABTC);
 				sd[SDReg::IDMACTRL] = 0; // SDMMC_DISABLE_IDMA;
 				if (sd.ErrorHandler) sd.ErrorHandler();
+				return;// WaitDMA ends the abort and clears the flags
 			}
 			sd.Context = (SDContext::NONE);
 		}

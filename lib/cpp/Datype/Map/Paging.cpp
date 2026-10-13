@@ -101,6 +101,7 @@ namespace uni {
 
 	struct PageMapTransaction {
 		bool build;
+		bool direct_write;
 		bool any_size;
 		stduint maximum_level;
 		stduint properties;
@@ -275,6 +276,8 @@ namespace uni {
 
 	auto Paging::Map(stduint ln_address, stduint ph_address, stduint length, PageSizeShift pgsize, stduint pgporp) -> bool {
 		if (!length) return true;
+		const bool omit_warnings = pgporp & PGOPTS_omit_warnings;
+		pgporp &= ~PGOPTS_omit_warnings;
 		stduint normalized;
 		if (!NormalizePageProperties(pgporp, normalized) ||
 			!PageTypeSupported(normalized & PGPROP_MASK_TYPE)) return false;
@@ -331,15 +334,15 @@ namespace uni {
 		if (!ExecutePageMapTransaction(transaction, root_level_page,
 			ln_address, ph_address, length)) return false;
 
-		if (transaction.property_change) {
+		if (!omit_warnings && transaction.property_change) {
 			plogwarn("Paging::Map requests changes to existing page properties at VA=%[x] level=%u",
 				transaction.property_address, transaction.property_level);
 		}
-		if (!transaction.any_size && transaction.finer_structure) {
+		if (!omit_warnings && !transaction.any_size && transaction.finer_structure) {
 			plogwarn("Paging::Map explicit page size follows an existing finer page table at VA=%[x] requested-shift=%u actual-level=%u",
 				transaction.finer_address, (stduint)pgsize, transaction.finer_level);
 		}
-		if (transaction.saw_present && transaction.saw_not_present) {
+		if (!omit_warnings && transaction.saw_present && transaction.saw_not_present) {
 			plogwarn("Paging::Map range contains both present and non-present pages at VA=%[x] length=%[u]",
 				requested_linear, requested_length);
 		}
@@ -348,24 +351,12 @@ namespace uni {
 
 	auto Paging::Unmap(stduint ln_address, stduint length) -> bool {
 		if (!length) return true;
-		while (length > 0) {
-			pageint p = ln_address;
-			auto pe = getEntry(p);
-			if (_IMM(pe) != ~_IMM0) {
-				stduint shift = VPN_SHIFTS[p.crt_level];
-				stduint unit = _IMM1 << shift;
-				stduint step = minof(unit - (ln_address & (unit - 1)), length);
-				if (!Map(ln_address, 0, step, (PageSizeShift)shift, 0)) return false;
-				ln_address += step;
-				length -= step;
-			}
-			else {
-				stduint step = minof((_IMM1 << PAGESIZE_4KB) - (ln_address & ((_IMM1 << PAGESIZE_4KB) - 1)), length);
-				ln_address += step;
-				length -= step;
-			}
-		}
-		return true;
+		const stduint page_mask = (_IMM1 << PAGESIZE_4KB) - 1;
+		const stduint offset = ln_address & page_mask;
+		if (length > ~_IMM0 - offset) return false;
+		ln_address -= offset;
+		length += offset;
+		return Map(ln_address, 0, length, PAGESIZE_ANY, 0);
 	}
 
 
@@ -803,6 +794,19 @@ namespace uni {
 			return true;
 		}
 		if (!transaction.build) return TransactionIncrement(transaction.write_count);
+		if (transaction.direct_write) {
+			if (transaction.write_index >= transaction.write_count) return false;
+			transaction.write_index++;
+			#if defined(_ARC_ARM_32) || defined(_ARC_ARM_64)
+			if (target->isPresent()) {
+				target->raw = 0;
+				RefreshVirtualAddress(virtual_address);
+			}
+			#endif
+			target->raw = value.raw;
+			RefreshVirtualAddress(virtual_address);
+			return true;
+		}
 		if (transaction.write_index >= transaction.write_count) return false;
 		PageMapWrite& write = transaction.writes[transaction.write_index++];
 		write.target = target;
@@ -1143,6 +1147,13 @@ namespace uni {
 		if (!root || !CountTransactionRange(transaction, root, virtual_address,
 			physical_address, length)) return false;
 		if (!transaction.write_count) return !transaction.table_count;
+		if (!uni_default_allocator && !transaction.table_count) {
+			transaction.build = true;
+			transaction.direct_write = true;
+			return BuildTransactionRange(transaction, root, virtual_address,
+				physical_address, length) &&
+				transaction.write_index == transaction.write_count;
+		}
 		if (!uni_default_allocator ||
 			transaction.table_count > ~_IMM0 / sizeof(PageEntry*) ||
 			transaction.write_count > ~_IMM0 / sizeof(PageMapWrite)) return false;
@@ -1179,8 +1190,14 @@ namespace uni {
 			return false;
 		}
 		for (stduint index = 0; index < transaction.write_count; index++) {
-			if (transaction.writes[index].target->raw !=
-				transaction.writes[index].expected_raw) {
+			const stduint current = transaction.writes[index].target->raw;
+			const stduint changed = current ^ transaction.writes[index].expected_raw;
+			#if defined(_ARC_x86) || defined(_ARC_x64)
+			const stduint hardware_changed = (_IMM1 << 5) | (_IMM1 << 6);
+			#else
+			const stduint hardware_changed = 0;
+			#endif
+			if (changed & ~hardware_changed) {
 				ReleaseTransactionStorage(transaction, allocated_tables, true);
 				return false;
 			}

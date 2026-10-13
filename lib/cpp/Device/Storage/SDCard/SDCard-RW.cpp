@@ -642,10 +642,10 @@ namespace uni {
 		return false;
 	}
 
-	// the internal DMA bypasses the D-cache, so invalidate before receiving
+	// the internal DMA bypasses the D-cache, so invalidate before receiving; clean first, or the dirty lines of the same line would be dropped
 	bool SecureDigitalCard_t::ReadDMA_Blocking(uint8_t* pData, uint32 BlockAdd, uint32 NumberOfBlocks, uint32 Timeout, uint32* feedback) {
 		if (!pData || !NumberOfBlocks) return false;
-		L1C.InvalidateDCacheRange(pData, BLOCKSIZE * NumberOfBlocks);
+		L1C.CleanInvalidateDCacheRange(pData, BLOCKSIZE * NumberOfBlocks);
 		if (!ReadDMA(pData, BlockAdd, NumberOfBlocks, feedback)) return false;
 		return WaitDMA(Timeout ? Timeout : 1000, feedback);
 	}

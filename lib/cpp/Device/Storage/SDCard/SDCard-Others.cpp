@@ -895,8 +895,8 @@ namespace uni {
 			state = false;
 		}
 		else if ((sdmmc_clk = getFrequency())) {
-			stduint target_freq = CardInfo.CardSpeed >= CARD_HIGH_SPEED ?
-				SD_HIGH_SPEED_FREQ : SD_NORMAL_SPEED_FREQ;
+			// the normal speed rate: the card's 50 MHz High Speed is marginal under FMC/AXI contention, RXOVERR aborts the block
+			stduint target_freq = SD_NORMAL_SPEED_FREQ;
 			stduint this_ClockDiv = 0;
 			if (sdmmc_clk > target_freq) {
 				this_ClockDiv = (sdmmc_clk + (2U * target_freq) - 1U) / (2U * target_freq);

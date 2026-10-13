@@ -779,7 +779,7 @@ namespace {
 				currentFileOffset += 4; // Skip CRC of previous chunk
 				if (currentFileOffset + 8 > totalFileSize) return -1;
 
-				byte hdr[8];
+				alignas(4) byte hdr[8];
 				stduint rd = storage->Read(currentFileOffset, hdr, 8, sectorBuf);
 				if (rd != 8) return -1;
 
@@ -1684,7 +1684,7 @@ uni::ImageResult uni::PNGCodec::OpenSurface(
 		return uni::ImageResult::OUT_OF_MEMORY;
 	}
 
-	byte headerBuf[32];
+	alignas(4) byte headerBuf[32];
 	if (storage.Read(0, headerBuf, 32, blockBuf) < 29) {
 		free(blockBuf); free(palette); free(trnsData);
 		return uni::ImageResult::INVALID_FORMAT;
@@ -1706,7 +1706,7 @@ uni::ImageResult uni::PNGCodec::OpenSurface(
 	// Traverse chunks to extract PLTE, tRNS, and locate first IDAT
 	stduint pos = 8;
 	while (pos + 8 <= fileSize) {
-		byte chunkHdr[8];
+		alignas(4) byte chunkHdr[8];
 		if (storage.Read(pos, chunkHdr, 8, blockBuf) != 8) break;
 
 		uint32 chunkLen = *(const BigEndian<uint32, true>*)chunkHdr;

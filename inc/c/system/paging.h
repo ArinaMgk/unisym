@@ -49,6 +49,8 @@ enum {
 	PGTYPE_writecombine = 0x400,
 	PGTYPE_device = 0x500,
 	PGTYPE_noncacheable = 0x600,
+
+	PGOPTS_omit_warnings = 0x1000,
 };
 
 #if defined(_ARC_x86) || defined(_ARC_x64)

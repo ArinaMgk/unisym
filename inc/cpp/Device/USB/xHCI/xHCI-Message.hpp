@@ -71,6 +71,26 @@ namespace uni::device::SpaceUSB3 {
 		}
 	} __attribute__((packed));
 
+	union StreamContext {
+		uint32_t dwords[4];
+		struct {
+			uint64_t dequeue_cycle_state : 1;
+			uint64_t stream_context_type : 3;
+			uint64_t tr_dequeue_pointer : 60;
+
+			uint32_t stopped_edtla : 24;
+			uint32_t : 8;
+
+			uint32_t : 32;
+		} __attribute__((packed)) bits;
+
+		void SetTransferRingBuffer(TRB* buffer) {
+			bits.tr_dequeue_pointer = reinterpret_cast<uint64_t>(buffer) >> 4;
+			bits.dequeue_cycle_state = 1;
+			bits.stream_context_type = 1;
+		}
+	} __attribute__((packed));
+
 	struct DeviceContextIndex {
 		int value;
 
@@ -160,6 +180,7 @@ namespace uni::device::SpaceUSB3 {
 	};
 
 	static_assert(sizeof(SlotContext) == 32 && sizeof(EndpointContext) == 32 &&
+		sizeof(StreamContext) == 16 &&
 		sizeof(InputControlContext) == 32,
 		"xHCI context structures must contain one 32-byte context entry");
 	static_assert(sizeof(DeviceContext) == kXHCIContextEntryCount * kXHCIMaxContextSize &&
@@ -575,10 +596,12 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t slot_id : 8;
 		} __attribute__((packed)) bits;
 
-		StopEndpointCommandTRB(EndpointID endpoint_id, uint8_t slot_id) {
+		StopEndpointCommandTRB(EndpointID endpoint_id, uint8_t slot_id,
+			bool suspend = false) {
 			bits.trb_type = Type;
 			bits.endpoint_id = endpoint_id.Address();
 			bits.slot_id = slot_id;
+			bits.suspend = suspend;
 		}
 
 		EndpointID GetEndpointID() const {
@@ -591,11 +614,11 @@ namespace uni::device::SpaceUSB3 {
 		uni::Array<uint32_t, 4> data{};
 		struct {
 			uint64_t dequeue_cycle_state : 1;
-			uint64_t : 3;
+			uint64_t stream_context_type : 3;
 			uint64_t new_tr_dequeue_pointer : 60;
 
-			uint32_t stream_id : 16;
 			uint32_t : 16;
+			uint32_t stream_id : 16;
 
 			uint32_t cycle_bit : 1;
 			uint32_t : 9;
@@ -606,11 +629,13 @@ namespace uni::device::SpaceUSB3 {
 		} __attribute__((packed)) bits;
 
 		SetTRDequeuePointerCommandTRB(const TRB* dequeue_pointer, bool cycle_state,
-			EndpointID endpoint_id, uint8_t slot_id) {
+			EndpointID endpoint_id, uint8_t slot_id, uint16_t stream_id = 0) {
 			bits.trb_type = Type;
 			bits.endpoint_id = endpoint_id.Address();
 			bits.slot_id = slot_id;
 			bits.dequeue_cycle_state = cycle_state;
+			bits.stream_context_type = stream_id == 0 ? 0 : 1;
+			bits.stream_id = stream_id;
 			SetPointer(dequeue_pointer);
 		}
 
@@ -627,8 +652,32 @@ namespace uni::device::SpaceUSB3 {
 		}
 	};
 
+	union SetLatencyToleranceValueCommandTRB {
+		static const unsigned int Type = 20;
+		uni::Array<uint32_t, 4> data{};
+		struct {
+			uint32_t : 32;
+
+			uint32_t : 32;
+
+			uint32_t : 32;
+
+			uint32_t cycle_bit : 1;
+			uint32_t : 9;
+			uint32_t trb_type : 6;
+			uint32_t best_effort_latency_tolerance : 12;
+			uint32_t : 4;
+		} __attribute__((packed)) bits;
+
+		explicit SetLatencyToleranceValueCommandTRB(uint16_t value) {
+			bits.trb_type = Type;
+			bits.best_effort_latency_tolerance = value & 0x0fffu;
+		}
+	};
+
 	static_assert(sizeof(ResetEndpointCommandTRB) == 16 &&
-		sizeof(SetTRDequeuePointerCommandTRB) == 16,
+		sizeof(SetTRDequeuePointerCommandTRB) == 16 &&
+		sizeof(SetLatencyToleranceValueCommandTRB) == 16,
 		"xHCI command TRBs must be 16 bytes");
 
 	union NoOpCommandTRB {

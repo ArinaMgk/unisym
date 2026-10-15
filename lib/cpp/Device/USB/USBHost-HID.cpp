@@ -73,7 +73,7 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error HIDBaseDriver::Initialize() {
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	Error HIDBaseDriver::SetEndpoint(const EndpointConfig& config) {
@@ -83,14 +83,14 @@ namespace uni::device::SpaceUSB {
 		else if (config.ep_type == EndpointType::kInterrupt && !config.ep_id.IsIn()) {
 			ep_interrupt_out_ = config.ep_id;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// AKA USBH_HID_SetProtocol: boot protocol keeps every report at a fixed length
 	Error HIDBaseDriver::OnEndpointsConfigured() {
 		if (ep_interrupt_in_.Number() == 0) {
 			Log(kWarn, "HID interface %u has no interrupt-IN endpoint\n", interface_index_);
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		SetupData setup_data{};
 		setup_data.request_type.bits.direction = request_type::kOut;
@@ -126,18 +126,18 @@ namespace uni::device::SpaceUSB {
 			led_pending_ = false;
 			if (len < 0) {
 				led_sent_ = byte(~led_);
-				return MAKE_ERROR(Error::kTransferFailed);
+				return MAKE_ERROR(Error::TransferFailed);
 			}
 			if (led_sent_ != led_) return SendLed();// a newer state waited for this completion
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	// AKA USBH_HID_SetReport: the LED state is remembered; the pipe sends one report at a time
 	Error HIDBaseDriver::SetLed(byte leds) {
 		led_ = leds;
-		if (led_pending_ || led_sent_ == led_) return MAKE_ERROR(Error::kSuccess);
+		if (led_pending_ || led_sent_ == led_) return MAKE_ERROR(Error::Success);
 		return SendLed();
 	}
 
@@ -175,15 +175,15 @@ namespace uni::device::SpaceUSB {
 			return ParentDevice()->InterruptIn(ep_interrupt_in_, buf_.data(), in_packet_size_);
 		}
 		if (ep_id.Address() != ep_interrupt_out_.Address()) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		led_pending_ = false;
 		if (len <= 0) {
 			led_sent_ = byte(~led_);
-			return MAKE_ERROR(Error::kTransferFailed);
+			return MAKE_ERROR(Error::TransferFailed);
 		}
 		if (led_sent_ != led_) return SendLed();
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 }

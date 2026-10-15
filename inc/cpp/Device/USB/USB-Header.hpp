@@ -3,7 +3,6 @@
 // Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
-// Copyright: uchan-nos/mikanos, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,22 +18,6 @@
 	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 	See the License for the specific language governing permissions and
 	limitations under the License.
-*/
-
-/*
-┌─────────────────────────────┐
-│  Applications / OS Services │
-├─────────────────────────────┤
-│  USB Class Drivers          │  ← Device-specific functionality
-├─────────────────────────────┤
-│  USB Core Framework         │  ← Protocol abstraction layer
-├─────────────────────────────┤
-│  xHCI Driver                │  ← USB 3.0+ Host Controller Driver
-├─────────────────────────────┤
-│  PCI/PCIe Driver            │  ← Bus enumeration and communication (inc\cpp\Device\Bus\PCI.hpp)
-├─────────────────────────────┤
-│  xHCI Hardware Controller   │  ← Physical hardware
-└─────────────────────────────┘
 */
 
 #ifndef _INCPP_Device_USB_Header
@@ -117,6 +100,13 @@ namespace uni::device::SpaceUSB {
 		SetInterfaceDS = 23,
 		SetSel = 48,
 		SetIsochDelay = 49,
+	};
+
+	enum class FeatureSelector : uint16 {
+		DeviceRemoteWakeup = 1,
+		U1Enable = 48,
+		U2Enable = 49,
+		LTMEnable = 50,
 	};
 
 	enum class HIDRequest : uint8 {
@@ -203,6 +193,31 @@ namespace uni::device::SpaceUSB {
 		kIsochronous = 1,
 		kBulk = 2,
 		kInterrupt = 3,
+	};
+
+	enum class DevicePowerState : uint8 {
+		Active,
+		Suspending,
+		Suspended,
+		Resuming,
+	};
+
+	struct USBHostLinkInfo {
+		uint8 speed_id = 0;
+		uint8 speed_class = 0;
+		uint8 rx_lane_count = 0;
+		uint8 tx_lane_count = 0;
+		uint8 rx_link_protocol = 0;
+		uint8 tx_link_protocol = 0;
+		bool full_duplex = false;
+		uint32 rx_lane_mbps = 0;
+		uint32 tx_lane_mbps = 0;
+		uint64 rx_total_mbps = 0;
+		uint64 tx_total_mbps = 0;
+	};
+
+	enum class DeviceClassCode : uint8 {
+		Hub = 9,
 	};
 
 	class EndpointID {

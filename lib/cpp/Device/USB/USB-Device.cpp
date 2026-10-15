@@ -99,9 +99,11 @@ namespace {
 	uni::device::SpaceUSB::ClassDriver* NewClassDriver(uni::device::SpaceUSB::USBHostDevice* dev, const uni::device::SpaceUSB::InterfaceDescriptor& if_desc)
 	{
 
+		#if _OPT_BUS_USB_Hub
 		if (dev->DeviceClass() == 0x09u || if_desc.interface_class == 0x09u) {
 			return new uni::device::SpaceUSB::USBHubDriver{ dev };
 		}
+		#endif
 
 		if (if_desc.interface_class == 0x08u &&// MSC
 			if_desc.interface_sub_class == 0x06u &&// SCSI transparent command set
@@ -198,7 +200,7 @@ namespace uni::device::SpaceUSB {
 					"Control IN waiter rejected: type=%u request=%u value=%u index=%u length=%u\n",
 					setup_data.request_type.data, setup_data.request, setup_data.value,
 					setup_data.index, setup_data.length);
-				return MAKE_ERROR(Error::kFull);
+				return MAKE_ERROR(Error::Full);
 			}
 		}
 		else if (!enum_resubmit_) {
@@ -210,7 +212,7 @@ namespace uni::device::SpaceUSB {
 			enum_pending_ = true;
 			enum_retry_ = 0;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHostDevice::ControlOut(EndpointID ep_id, SetupData setup_data,
@@ -221,7 +223,7 @@ namespace uni::device::SpaceUSB {
 					"Control OUT waiter rejected: type=%u request=%u value=%u index=%u length=%u\n",
 					setup_data.request_type.data, setup_data.request, setup_data.value,
 					setup_data.index, setup_data.length);
-				return MAKE_ERROR(Error::kFull);
+				return MAKE_ERROR(Error::Full);
 			}
 		}
 		else if (!enum_resubmit_) {
@@ -232,15 +234,15 @@ namespace uni::device::SpaceUSB {
 			enum_pending_ = true;
 			enum_retry_ = 0;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHostDevice::InterruptIn(EndpointID ep_id, void* buf, int len) {
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHostDevice::InterruptOut(EndpointID ep_id, void* buf, int len) {
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHostDevice::BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len) {
@@ -248,7 +250,17 @@ namespace uni::device::SpaceUSB {
 		(void)dir_in;
 		(void)buf;
 		(void)len;
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
+	}
+
+	Error USBHostDevice::BulkStreamTransfer(EndpointID ep_id, bool dir_in,
+		uint16 stream_id, void* buf, int len) {
+		(void)ep_id;
+		(void)dir_in;
+		(void)stream_id;
+		(void)buf;
+		(void)len;
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	Error USBHostDevice::IsochronousTransfer(EndpointID ep_id, void* buf, int len,
@@ -257,7 +269,7 @@ namespace uni::device::SpaceUSB {
 		(void)buf;
 		(void)len;
 		(void)options;
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	Error USBHostDevice::OnHubPortStatusReceived(uint8 port_num, uint16 status,
@@ -266,7 +278,7 @@ namespace uni::device::SpaceUSB {
 		(void)status;
 		(void)change;
 		(void)speed_id;
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHostDevice::StartInitialize() {
@@ -312,7 +324,7 @@ namespace uni::device::SpaceUSB {
 				return err;
 			}
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// the periodic tick: drivers that own timed work (a hub powering its ports) run here
@@ -322,7 +334,7 @@ namespace uni::device::SpaceUSB {
 				return err;
 			}
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHostDevice::OnControlCompleted(EndpointID ep_id, SetupData setup_data,
@@ -352,7 +364,7 @@ namespace uni::device::SpaceUSB {
 				ReleaseBOSBuffer();
 				return BeginConfigurationDescriptorRead();
 			}
-			if (!is_initialized_) return MAKE_ERROR(Error::kTransferFailed);
+			if (!is_initialized_) return MAKE_ERROR(Error::TransferFailed);
 		}
 		else {
 			enum_pending_ = false;
@@ -367,7 +379,7 @@ namespace uni::device::SpaceUSB {
 				"Control completion without waiter: type=%u request=%u value=%u index=%u length=%u\n",
 				setup_data.request_type.data, setup_data.request, setup_data.value,
 				setup_data.index, setup_data.length);
-			return MAKE_ERROR(Error::kNoWaiter);
+			return MAKE_ERROR(Error::NoWaiter);
 		}
 
 		const uint8_t* buf8 = reinterpret_cast<const uint8_t*>(buf);
@@ -376,37 +388,37 @@ namespace uni::device::SpaceUSB {
 				DescriptorDynamicCast<DeviceDescriptor>(buf8)) {
 				return InitializePhase1(buf8, len);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		else if (initialize_phase_ == 11) {
 			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor)) {
 				return InitializeStringPhase0(buf8, len);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		else if (initialize_phase_ == 12) {
 			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor)) {
 				return InitializeStringPhaseManufacturer(buf8, len);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		else if (initialize_phase_ == 13) {
 			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor)) {
 				return InitializeStringPhaseProduct(buf8, len);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		else if (initialize_phase_ == 14) {
 			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor)) {
 				return InitializeStringPhaseSerial(buf8, len);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		else if (initialize_phase_ == 15) {
 			if (setup_data.request == static_cast<uint8>(StandardRequest::SetAddress)) {
 				return InitializeAddressPhase();
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		else if (initialize_phase_ == 16) {
 			if (len >= 2 &&
@@ -414,7 +426,7 @@ namespace uni::device::SpaceUSB {
 				DescriptorDynamicCast<BOSDescriptor>(buf8)) {
 				return InitializeBOSHeader(buf8, len);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		else if (initialize_phase_ == 17) {
 			if (len >= 2 &&
@@ -422,23 +434,23 @@ namespace uni::device::SpaceUSB {
 				DescriptorDynamicCast<BOSDescriptor>(buf8)) {
 				return InitializeBOS(buf8, len);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		else if (initialize_phase_ == 2) {
 			if (setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor) &&
 				DescriptorDynamicCast<ConfigurationDescriptor>(buf8)) {
 				return InitializePhase2(buf8, len);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		else if (initialize_phase_ == 3) {
 			if (setup_data.request == static_cast<uint8>(StandardRequest::SetConfiguration)) {
 				return InitializePhase3(setup_data.value & 0xffu);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	Error USBHostDevice::OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) {
@@ -446,21 +458,37 @@ namespace uni::device::SpaceUSB {
 		if (auto w = class_drivers_[ep_id.Number()]) {
 			return w->OnInterruptCompleted(ep_id, buf, len);
 		}
-		return MAKE_ERROR(Error::kNoWaiter);
+		return MAKE_ERROR(Error::NoWaiter);
 	}
 
 	Error USBHostDevice::OnBulkCompleted(EndpointID ep_id, const void* buf, int len) {
 		if (auto w = class_drivers_[ep_id.Number()]) {
 			return w->OnBulkCompleted(ep_id, buf, len);
 		}
-		return MAKE_ERROR(Error::kNoWaiter);
+		return MAKE_ERROR(Error::NoWaiter);
+	}
+
+	Error USBHostDevice::OnBulkStreamCompleted(EndpointID ep_id, uint16 stream_id,
+		const void* buf, int len) {
+		if (auto w = class_drivers_[ep_id.Number()]) {
+			return w->OnBulkStreamCompleted(ep_id, stream_id, buf, len);
+		}
+		return MAKE_ERROR(Error::NoWaiter);
 	}
 
 	Error USBHostDevice::OnBulkRecoveryCompleted(EndpointID ep_id, bool success) {
 		if (auto w = class_drivers_[ep_id.Number()]) {
 			return w->OnBulkRecoveryCompleted(ep_id, success);
 		}
-		return MAKE_ERROR(Error::kNoWaiter);
+		return MAKE_ERROR(Error::NoWaiter);
+	}
+
+	Error USBHostDevice::OnBulkStreamRecoveryCompleted(EndpointID ep_id,
+		uint16 stream_id, bool success) {
+		if (auto w = class_drivers_[ep_id.Number()]) {
+			return w->OnBulkStreamRecoveryCompleted(ep_id, stream_id, success);
+		}
+		return MAKE_ERROR(Error::NoWaiter);
 	}
 
 	Error USBHostDevice::OnIsochronousCompleted(EndpointID ep_id, const void* buf,
@@ -469,7 +497,7 @@ namespace uni::device::SpaceUSB {
 			return w->OnIsochronousCompleted(ep_id, buf, len, frame_id,
 				schedule_immediately, completion_code);
 		}
-		return MAKE_ERROR(Error::kNoWaiter);
+		return MAKE_ERROR(Error::NoWaiter);
 	}
 
 	Error USBHostDevice::InitializePhase1(const uint8_t* buf, int len) {
@@ -503,7 +531,7 @@ namespace uni::device::SpaceUSB {
 	Error USBHostDevice::InitializePhase2(const uint8_t* buf, int len) {
 		auto conf_desc = DescriptorDynamicCast<ConfigurationDescriptor>(buf);
 		if (conf_desc == nullptr) {
-			return MAKE_ERROR(Error::kInvalidDescriptor);
+			return MAKE_ERROR(Error::InvalidDescriptor);
 		}
 		ConfigurationDescriptorReader config_reader{ buf, len };
 
@@ -526,7 +554,7 @@ namespace uni::device::SpaceUSB {
 						class_drivers_[ep_configs_[i].ep_id.Number()] = nullptr;
 					}
 					delete class_driver;
-					return MAKE_ERROR(Error::kInvalidDescriptor);
+					return MAKE_ERROR(Error::InvalidDescriptor);
 				}
 				if (auto ep_desc = DescriptorDynamicCast<EndpointDescriptor>(desc)) {
 					auto conf = MakeEPConfig(*ep_desc);
@@ -564,7 +592,7 @@ namespace uni::device::SpaceUSB {
 		if (!class_driver) {
 			// nothing will drive this device, but the enumeration is finished
 			enumerated_ = true;
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		initialize_phase_ = 3;
 		Log(kDebug, "issuing SetConfiguration: conf_val=%d\n",
@@ -587,7 +615,7 @@ namespace uni::device::SpaceUSB {
 		}
 		return OnEndpointsConfigured();
 #else
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 #endif
 	}
 
@@ -651,11 +679,11 @@ namespace uni::device::SpaceUSB {
 
 	Error USBHostDevice::InitializeBOSHeader(const uint8_t* buf, int len) {
 		if (len < static_cast<int>(sizeof(BOSDescriptor))) {
-			return MAKE_ERROR(Error::kInvalidDescriptor);
+			return MAKE_ERROR(Error::InvalidDescriptor);
 		}
 		const auto* bos = reinterpret_cast<const BOSDescriptor*>(buf);
 		if (bos->length != sizeof(BOSDescriptor) || bos->total_length < bos->length) {
-			return MAKE_ERROR(Error::kInvalidDescriptor);
+			return MAKE_ERROR(Error::InvalidDescriptor);
 		}
 		ReleaseBOSBuffer();
 		bos_buffer_ = static_cast<uint8*>(
@@ -676,7 +704,7 @@ namespace uni::device::SpaceUSB {
 	Error USBHostDevice::InitializeBOS(const uint8_t* buf, int len) {
 		const auto invalid_descriptor = [this]() {
 			ReleaseBOSBuffer();
-			return MAKE_ERROR(Error::kInvalidDescriptor);
+			return MAKE_ERROR(Error::InvalidDescriptor);
 		};
 		if (len < static_cast<int>(sizeof(BOSDescriptor))) {
 			return invalid_descriptor();
@@ -779,6 +807,9 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error USBHostDevice::BeginBOSDescriptorRead() {
+		#if !_OPT_BUS_USB_BOS
+		return BeginConfigurationDescriptorRead();
+		#endif
 		if (usb_release_ < 0x0201u) {
 			return BeginConfigurationDescriptorRead();
 		}

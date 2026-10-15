@@ -21,6 +21,7 @@
 */
 
 #include "../../../../inc/cpp/Device/USB/USBHost-Hub.hpp"
+#if _OPT_BUS_USB_Hub
 #include "../../../../inc/cpp/Device/USB/OTGHostDevice.hpp"
 
 namespace uni::device::SpaceUSB {
@@ -39,14 +40,14 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error USBHubDriver::Initialize() {
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHubDriver::SetEndpoint(const EndpointConfig& config) {
 		if (config.ep_type == EndpointType::kInterrupt && config.ep_id.IsIn()) {
 			ep_interrupt_in_ = config.ep_id;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// the first hub class request: the hub descriptor says how many ports exist
@@ -71,7 +72,7 @@ namespace uni::device::SpaceUSB {
 
 	Error USBHubDriver::StartStatusChangePolling() {
 		if (ep_interrupt_in_.Number() == 0) {
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		const stduint bytes = status_change_bytes_ ? status_change_bytes_ : 1;
 		return ParentDevice()->InterruptIn(ep_interrupt_in_, interrupt_buf_.data(), int(bytes));
@@ -107,10 +108,10 @@ namespace uni::device::SpaceUSB {
 	// the port status record: keep it per port and hand it to the transport
 	Error USBHubDriver::RecordPortStatus(uint8 port_num, const void* buf, int len) {
 		if (port_num == 0 || port_num > 16) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		if (buf == nullptr || len < int(sizeof(HubPortStatus))) {
-			return MAKE_ERROR(Error::kInvalidDescriptor);
+			return MAKE_ERROR(Error::InvalidDescriptor);
 		}
 		const auto port_status = reinterpret_cast<const HubPortStatus*>(buf);
 		port_status_[port_num - 1] = port_status->status;
@@ -125,7 +126,7 @@ namespace uni::device::SpaceUSB {
 		if (g_hub_port_status_hook) {
 			g_hub_port_status_hook(*ParentDevice(), port_num, port_status->status, port_status->change);
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// the port policy: no wait may run in the interrupt, so every step is ticked here
@@ -136,24 +137,24 @@ namespace uni::device::SpaceUSB {
 		static const uint8 kPortResetTries = 3;
 		static const uint16 kChildBusyWaitTicks = 50;// at most this many ticks the policy waits for a busy child
 		if (num_ports_ == 0 || initialize_phase_ != 3) {
-			return MAKE_ERROR(Error::kSuccess);// wait for the descriptor and the first port scan
+			return MAKE_ERROR(Error::Success);// wait for the descriptor and the first port scan
 		}
 		// hold the policy back while a downstream device uses the bus, bounded so it can never starve
 		if (ParentDevice()->ChildBusy() && child_busy_ticks_ < kChildBusyWaitTicks) {
 			child_busy_ticks_++;
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		child_busy_ticks_ = 0;
 		if (wait_ticks_) {
 			--wait_ticks_;
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		if (pending_kind_) {
 			if (++pending_ticks_ > kPendingTicks) {
 				pending_ticks_ = 0;
 				pending_kind_ = 0;
 			}
-			else return MAKE_ERROR(Error::kSuccess);// one port request at a time
+			else return MAKE_ERROR(Error::Success);// one port request at a time
 		}
 		else pending_ticks_ = 0;
 		if (delayed_step_ == 0) {
@@ -182,7 +183,7 @@ namespace uni::device::SpaceUSB {
 			if (++rescan_ticks_ >= kRescanTicks) {
 				rescan_ticks_ = 0;
 				delayed_step_ = 2;// back to reading every port status once
-				return MAKE_ERROR(Error::kSuccess);
+				return MAKE_ERROR(Error::Success);
 			}
 			for (uint8 port = 1; port <= num_ports_; port++) {// a port that lost ENABLE may come up again
 				if (!(port_status_[port - 1] & kHubPortStatusConnect)) {
@@ -264,7 +265,7 @@ namespace uni::device::SpaceUSB {
 				delayed_step_ = 5;
 				break;
 			}
-			if (delayed_step_ == 4) return MAKE_ERROR(Error::kSuccess);
+			if (delayed_step_ == 4) return MAKE_ERROR(Error::Success);
 		}
 		if (delayed_step_ == 5) {
 			wait_ticks_ = 60;// the reset recovery window, then read that port again
@@ -284,7 +285,7 @@ namespace uni::device::SpaceUSB {
 			return error;
 		}
 		delayed_step_ = 4;
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHubDriver::RequestPortStatus(uint8 port_num) {
@@ -372,7 +373,7 @@ namespace uni::device::SpaceUSB {
 		const uint8 pending_kind = pending_kind_;
 		pending_kind_ = 0;
 		if (pending_kind == 1) {
-			return MAKE_ERROR(Error::kSuccess);// the SET_FEATURE of the port policy needs no further step
+			return MAKE_ERROR(Error::Success);// the SET_FEATURE of the port policy needs no further step
 		}
 		if (pending_kind == 2) {
 			if (len >= int(sizeof(HubPortStatus))) {
@@ -382,19 +383,19 @@ namespace uni::device::SpaceUSB {
 			delayed_step_ = 3;
 			port_cursor_ = 1;
 			wait_ticks_ = 10;
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		if (initialize_phase_ == 1) {
 			uint16 characteristics = 0;
 			uint8 power_on_to_power_good = 0;
 			if (is_super_speed_) {
 				if (buf == nullptr || len < int(sizeof(SuperSpeedHubDescriptor))) {
-					return MAKE_ERROR(Error::kInvalidDescriptor);
+					return MAKE_ERROR(Error::InvalidDescriptor);
 				}
 				auto hub_desc = DescriptorDynamicCast<SuperSpeedHubDescriptor>(
 					reinterpret_cast<const uint8*>(buf));
 				if (hub_desc == nullptr) {
-					return MAKE_ERROR(Error::kInvalidDescriptor);
+					return MAKE_ERROR(Error::InvalidDescriptor);
 				}
 				num_ports_ = hub_desc->num_ports;
 				characteristics = hub_desc->characteristics;
@@ -402,19 +403,19 @@ namespace uni::device::SpaceUSB {
 			}
 			else {
 				if (buf == nullptr || len < int(sizeof(HubDescriptor))) {
-					return MAKE_ERROR(Error::kInvalidDescriptor);
+					return MAKE_ERROR(Error::InvalidDescriptor);
 				}
 				auto hub_desc = DescriptorDynamicCast<HubDescriptor>(
 					reinterpret_cast<const uint8*>(buf));
 				if (hub_desc == nullptr) {
-					return MAKE_ERROR(Error::kInvalidDescriptor);
+					return MAKE_ERROR(Error::InvalidDescriptor);
 				}
 				num_ports_ = hub_desc->num_ports;
 				characteristics = hub_desc->characteristics;
 				power_on_to_power_good = hub_desc->power_on_to_power_good;
 			}
 			if (num_ports_ > 16) {
-				return MAKE_ERROR(Error::kInvalidDescriptor);
+				return MAKE_ERROR(Error::InvalidDescriptor);
 			}
 			ParentDevice()->SetHubNumPorts(num_ports_);
 			ParentDevice()->SetHubPowerOnToPowerGood(power_on_to_power_good);
@@ -431,7 +432,7 @@ namespace uni::device::SpaceUSB {
 		if (initialize_phase_ == 6) {
 			const bool depth_set = setup_data.request == static_cast<uint8>(HubRequest::SetHubDepth)
 				&& setup_data.request_type.bits.recipient == request_type::kDevice;
-			if (!depth_set || len < 0) return MAKE_ERROR(Error::kTransferFailed);
+			if (!depth_set || len < 0) return MAKE_ERROR(Error::TransferFailed);
 			return BeginPortScan();
 		}
 		if (initialize_phase_ == 2) {
@@ -484,9 +485,9 @@ namespace uni::device::SpaceUSB {
 				setup_data.request_type.bits.recipient == request_type::kOther) {
 				return ClearNextPendingChange();
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	Error USBHubDriver::OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) {
@@ -515,3 +516,5 @@ namespace uni::device::SpaceUSB {
 	}
 
 }
+
+#endif

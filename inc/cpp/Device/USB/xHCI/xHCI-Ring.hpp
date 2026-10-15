@@ -73,7 +73,8 @@ namespace uni::device::SpaceUSB3 {
 	class EventRing {
 	public:
 		~EventRing();
-		Error Initialize(size_t buf_size, InterrupterRegisterSet* interrupter);
+		Error Initialize(size_t total_trbs, uint8 segment_count,
+			InterrupterRegisterSet* interrupter);
 
 		TRB* ReadDequeuePointer() const {
 			return reinterpret_cast<TRB*>(interrupter_->ERDP.Read().Pointer());
@@ -90,13 +91,18 @@ namespace uni::device::SpaceUSB3 {
 		}
 
 		void Pop();
+		size_t SegmentCount() const { return segments_.Count(); }
+		size_t TotalSize() const { return total_size_; }
 
 	private:
-		TRB* buf_ = nullptr;
-		size_t buf_size_ = 0;
-
+		uni::Vector<TRB*> segments_{};
+		size_t segment_size_ = 0;
+		size_t total_size_ = 0;
+		uint8 dequeue_segment_index_ = 0;
 		bool cycle_bit_ = true;
 		EventRingSegmentTableEntry* erst_ = nullptr;
 		InterrupterRegisterSet* interrupter_ = nullptr;
+
+		void Release();
 	};
 }

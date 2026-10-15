@@ -111,6 +111,14 @@ namespace uni {
 					class_code.interface == other.class_code.interface;
 			}
 		};
+		struct MSIMessage {
+			uint64 address;
+			uint32 data;
+
+			bool operator==(const MSIMessage& other) const {
+				return address == other.address && data == other.data;
+			}
+		};
 		uni::Vector<Device> devices;
 		int num_device;
 		inline static ConfigSpaceAccess config_space_access_{};
@@ -314,6 +322,9 @@ namespace uni {
 			uint8 vector,
 			unsigned num_vector_exponent
 		);
+		uint16 MSIXTableSize(const Device& dev);
+		PCI_Result ConfigureMSIX(const Device& dev, const MSIMessage* messages,
+			uint16 message_count);
 
 	public:
 		bool ConvertFromEhci(const PCI::Device& xhc_dev);

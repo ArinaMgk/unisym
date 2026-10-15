@@ -129,11 +129,14 @@ namespace uni {
 namespace uni {
 	static stduint ComparablePageType(stduint type) {
 		#if defined(_ARC_x86) || defined(_ARC_x64)
+		if (type == PGTYPE_default) return PGTYPE_writeback;
 		if (type == PGTYPE_device) return PGTYPE_uncacheable;
 		#elif defined(_ARC_ARM_64)
+		if (type == PGTYPE_default) return PGTYPE_writeback;
 		if (type == PGTYPE_uncacheable) return PGTYPE_device;
 		if (type == PGTYPE_writecombine) return PGTYPE_noncacheable;
 		#elif defined(_ARC_ARM_32)
+		if (type == PGTYPE_default) return PGTYPE_writeback;
 		if (type == PGTYPE_writecombine) return PGTYPE_noncacheable;
 		#elif defined(_ARC_RISCV_32) || defined(_ARC_RISCV_64)
 		if (type == PGTYPE_writeback) return PGTYPE_default;
@@ -152,8 +155,7 @@ namespace uni {
 			PGPROP_global | PGPROP_nonexecutable;
 		if ((requested & permission_mask) != (existing & permission_mask)) return false;
 		const stduint requested_type = requested & PGPROP_MASK_TYPE;
-		if (requested_type != PGTYPE_default &&
-			ComparablePageType(requested_type) !=
+		if (ComparablePageType(requested_type) !=
 			ComparablePageType(existing & PGPROP_MASK_TYPE)) return false;
 		return true;
 	}
@@ -949,25 +951,26 @@ namespace uni {
 
 		if ((transaction.properties & PGPROP_present) && !properties_compatible &&
 			!transaction.property_change) {
-			transaction.property_change = true;
-			transaction.property_address = virtual_address;
-			transaction.property_level = level;
-		}
-
-		stduint replacement_properties = transaction.properties;
-		if ((replacement_properties & PGPROP_present) &&
-			(replacement_properties & PGPROP_MASK_TYPE) == PGTYPE_default) {
 			stduint existing_properties;
-			if (!entry->DecodeLeafProperties(level, existing_properties)) return false;
-			replacement_properties |= existing_properties & PGPROP_MASK_TYPE;
+			const bool decoded = entry->DecodeLeafProperties(level, existing_properties);
+			const stduint existing_type = decoded ?
+				(existing_properties & PGPROP_MASK_TYPE) : PGPROP_MASK_TYPE;
+			const stduint requested_type = transaction.properties & PGPROP_MASK_TYPE;
+			if (!decoded || ((existing_type != PGTYPE_default &&
+				existing_type != PGTYPE_writeback) &&
+				ComparablePageType(existing_type) != ComparablePageType(requested_type))) {
+				transaction.property_change = true;
+				transaction.property_address = virtual_address;
+				transaction.property_level = level;
+			}
 		}
 
 		if (full_leaf && level <= transaction.maximum_level) {
 			PageEntry replacement;
 			replacement.Clear();
-			if (!(replacement_properties & PGPROP_present) ||
+			if (!(transaction.properties & PGPROP_present) ||
 				EncodeTransactionLeaf(replacement, physical_address, level,
-					replacement_properties))
+					transaction.properties))
 				return RecordTransactionWrite(transaction, const_cast<PageEntry*>(entry),
 					replacement, virtual_address, published);
 		}
@@ -1087,20 +1090,12 @@ namespace uni {
 			properties_compatible;
 		if (mapping_compatible) return true;
 
-		stduint replacement_properties = transaction.properties;
-		if ((replacement_properties & PGPROP_present) &&
-			(replacement_properties & PGPROP_MASK_TYPE) == PGTYPE_default) {
-			stduint existing_properties;
-			if (!entry->DecodeLeafProperties(level, existing_properties)) return false;
-			replacement_properties |= existing_properties & PGPROP_MASK_TYPE;
-		}
-
 		if (full_leaf && level <= transaction.maximum_level) {
 			PageEntry replacement;
 			replacement.Clear();
-			if (!(replacement_properties & PGPROP_present) ||
+			if (!(transaction.properties & PGPROP_present) ||
 				EncodeTransactionLeaf(replacement, physical_address, level,
-					replacement_properties))
+					transaction.properties))
 				return RecordTransactionWrite(transaction, entry, replacement,
 					virtual_address, published);
 		}

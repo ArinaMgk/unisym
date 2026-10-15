@@ -69,7 +69,7 @@ namespace uni::device::SpaceUSB {
 		MouseMessage mmsg;
 		MemCopyN(&mmsg, (const void*)&Buffer()[0], sizeof(MouseMessage));
 		NotifyMouseMove(mmsg);
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	void HIDMouseDriver::SubscribeMouseMove(

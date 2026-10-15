@@ -2,59 +2,60 @@
 class Error {
 public:
 	enum Code {
-		kSuccess,
-		kFull,
-		kEmpty,
-		kNoEnoughMemory,
-		kIndexOutOfRange,
-		kHostControllerNotHalted,
-		kInvalidSlotID,
-		kPortNotConnected,
-		kInvalidEndpointNumber,
-		kTransferRingNotSet,
-		kAlreadyAllocated,
-		kNotImplemented,
-		kInvalidDescriptor,
-		kBufferTooSmall,
-		kUnknownDevice,
-		kNoCorrespondingSetupStage,
-		kTransferFailed,
-		kInvalidPhase,
-		kUnknownXHCISpeedID,
-		kNoWaiter,
-		kUnsupportedXHCIVersion,
-		kInvalidControllerCapability,
-		kUnsupportedPageSize,
-		kLastOfCode,  // This enumerator must always be placed last
+		Success,
+		Full,
+		Empty,
+		NoEnoughMemory,
+		IndexOutOfRange,
+		HostControllerNotHalted,
+		InvalidSlotID,
+		PortNotConnected,
+		InvalidEndpointNumber,
+		TransferRingNotSet,
+		AlreadyAllocated,
+		NotImplemented,
+		InvalidDescriptor,
+		BufferTooSmall,
+		UnknownDevice,
+		NoCorrespondingSetupStage,
+		TransferFailed,
+		InvalidPhase,
+		UnknownXHCISpeedID,
+		NoWaiter,
+		UnsupportedXHCIVersion,
+		InvalidControllerCapability,
+		UnsupportedPageSize,
+		//
+		LastOfCode
 	};
 
 private:
 	static constexpr uni::Array code_names_{
-	"kSuccess",
-	"kFull",
-	"kEmpty",
-	"kNoEnoughMemory",
-	"kIndexOutOfRange",
-	"kHostControllerNotHalted",
-	"kInvalidSlotID",
-	"kPortNotConnected",
-	"kInvalidEndpointNumber",
-	"kTransferRingNotSet",
-	"kAlreadyAllocated",
-	"kNotImplemented",
-	"kInvalidDescriptor",
-	"kBufferTooSmall",
-	"kUnknownDevice",
-	"kNoCorrespondingSetupStage",
-	"kTransferFailed",
-	"kInvalidPhase",
-	"kUnknownXHCISpeedID",
-	"kNoWaiter",
-	"kUnsupportedXHCIVersion",
-	"kInvalidControllerCapability",
-	"kUnsupportedPageSize",
+	"Success",
+	"Full",
+	"Empty",
+	"NoEnoughMemory",
+	"IndexOutOfRange",
+	"HostControllerNotHalted",
+	"InvalidSlotID",
+	"PortNotConnected",
+	"InvalidEndpointNumber",
+	"TransferRingNotSet",
+	"AlreadyAllocated",
+	"NotImplemented",
+	"InvalidDescriptor",
+	"BufferTooSmall",
+	"UnknownDevice",
+	"NoCorrespondingSetupStage",
+	"TransferFailed",
+	"InvalidPhase",
+	"UnknownXHCISpeedID",
+	"NoWaiter",
+	"UnsupportedXHCIVersion",
+	"InvalidControllerCapability",
+	"UnsupportedPageSize",
 	};
-	static_assert(Error::Code::kLastOfCode == code_names_.size());
+	static_assert(Error::Code::LastOfCode == code_names_.size());
 
 public:
 	Error(Code code, const char* file, int line) : code_{ code }, line_{ line }, file_{ file } {}
@@ -64,7 +65,7 @@ public:
 	}
 
 	operator bool() const {
-		return this->code_ != kSuccess;
+		return this->code_ != Success;
 	}
 
 	const char* Name() const {

@@ -513,7 +513,7 @@ namespace uni {
 	}
 
 	Rectangle LTDC_LAYER_t::getWindow() const {
-		return _TEMP Rectangle(Point(0, 0), Size2(800, 480));
+		return layer_param.window;
 	}
 	
 

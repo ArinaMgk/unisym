@@ -3,7 +3,6 @@
 // Codifiers: @ArinaMgk
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
-// Copyright: uchan-nos/mikanos, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -21,34 +20,16 @@
 	limitations under the License.
 */
 
-/*
-┌─────────────────────────────┐
-│  Applications / OS Services │
-├─────────────────────────────┤
-│  USB Class Drivers          │  ← Device-specific functionality
-├─────────────────────────────┤
-│  USB Core Framework         │  ← Protocol abstraction layer
-├─────────────────────────────┤
-│  xHCI Driver                │  ← USB 3.0+ Host Controller Driver
-├─────────────────────────────┤
-│  PCI/PCIe Driver            │  ← Bus enumeration and communication (inc\cpp\Device\Bus\PCI.hpp)
-├─────────────────────────────┤
-│  xHCI Hardware Controller   │  ← Physical hardware
-└─────────────────────────────┘
-*/
-
 #ifndef _INCPP_Device_USB_xHCI
 #define _INCPP_Device_USB_xHCI
 
-// x86_64 part of USB Driver is borrowed from uchan-nos/mikanos
-// - https://github.com/uchan-nos/mikanos
-// cited sincerely.
 #if (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))
 #include <setjmp.h>
 #include "../../../ISO_IEC_STD/iterator"
 #include "../../../vector"
 #include "../../../../c/arith.h"
 #include "../../../../c/bitmap.h"
+#include "../USB-Options.hpp"
 #include "../USB-Header.hpp"
 #include "./xHCI-registers.hpp"
 #include "./xHCI-Message.hpp"
@@ -68,13 +49,55 @@
 // ---- ---- ---- ---- . ---- ---- ---- ---- //
 
 namespace uni::device::SpaceUSB3 {
+	enum class ProtocolSpeedType : uint8 {
+		Symmetric = 0,
+		Reserved = 1,
+		AsymmetricReceive = 2,
+		AsymmetricTransmit = 3,
+	};
+
+	struct ProtocolSpeedInfo {
+		uint8 root_hub_port_num = 0;
+		uint8 speed_id = 0;
+		uint32 rx_lane_mbps = 0;
+		uint32 tx_lane_mbps = 0;
+		uint8 speed_class = 0;
+		uint8 rx_link_protocol = 0;
+		uint8 tx_link_protocol = 0;
+		bool full_duplex = false;
+
+		bool operator==(const ProtocolSpeedInfo& other) const {
+			return root_hub_port_num == other.root_hub_port_num &&
+				speed_id == other.speed_id &&
+				rx_lane_mbps == other.rx_lane_mbps &&
+				tx_lane_mbps == other.tx_lane_mbps &&
+				speed_class == other.speed_class &&
+				rx_link_protocol == other.rx_link_protocol &&
+				tx_link_protocol == other.tx_link_protocol &&
+				full_duplex == other.full_duplex;
+		}
+	};
+
+	using PortLinkInfo = ::uni::device::SpaceUSB::USBHostLinkInfo;
+
 	struct HostControllerResourceConfig {
 		// Zero selects a controller-scaled default for command/event rings.
 		size_t command_ring_trbs = 0;
 		size_t event_ring_trbs = 0;
+		uint8 event_ring_segments = 1;
+		uint16 max_interrupters = 1;
 		size_t control_transfer_ring_trbs = 64;
 		size_t transfer_ring_trbs = 64;
 		size_t bulk_transfer_ring_trbs = 1024;
+		size_t stream_transfer_ring_trbs = 64;
+		// This is the xHCI MaxPStreams exponent, not a stream count.
+		uint8 max_primary_streams = _OPT_BUS_USB_xHCI_Streams ? 4 : 0;
+		uint8 u1_timeout = _OPT_BUS_USB_xHCI_LinkPower ? 10 : 0;
+		uint8 u2_timeout = _OPT_BUS_USB_xHCI_LinkPower ? 32 : 0;
+		// Raw 12-bit xHCI BELT value. Zero leaves LTM disabled.
+		uint16 best_effort_latency_tolerance = 0;
+		bool enable_link_power_management = _OPT_BUS_USB_xHCI_LinkPower != 0;
+		bool enable_u3 = _OPT_BUS_USB_xHCI_LinkPower != 0;
 		// Zero enables every slot reported by HCSPARAMS1.MaxSlots.
 		uint8 max_slots = 0;
 	};
@@ -130,8 +153,12 @@ namespace uni::device::SpaceUSB3 {
 		bool IsEnabled() const;
 		bool IsConnectStatusChanged() const;
 		bool IsPortResetChanged() const;
+		bool IsPortLinkStateChanged() const;
+		uint8 LinkState() const;
 		int Speed() const;
 		Error Reset();
+		Error SetLinkState(uint8 link_state);
+		void ConfigureLinkPower(uint8 u1_timeout, uint8 u2_timeout);
 		USBHostDevice_v3* Initialize();
 
 		void ClearConnectStatusChanged() const {
@@ -139,6 +166,9 @@ namespace uni::device::SpaceUSB3 {
 		}
 		void ClearPortResetChange() const {
 			CLEAR_STATUS_BIT(port_reset_change);
+		}
+		void ClearPortLinkStateChange() const {
+			CLEAR_STATUS_BIT(port_link_state_change);
 		}
 
 	private:
@@ -150,10 +180,20 @@ namespace uni::device::SpaceUSB3 {
 	public:
 		HostController(uintptr_t mmio_base,
 			const HostControllerResourceConfig& resources = HostControllerResourceConfig{});
+		~HostController();
 		Error Initialize();
 		Error Run();
 		Ring* CommandRing() { return &cr_; }
-		EventRing* PrimaryEventRing() { return &er_; }
+		EventRing* PrimaryEventRing() { return EventRingAt(0); }
+		EventRing* EventRingAt(uint16 interrupter_index);
+		const EventRing* EventRingAt(uint16 interrupter_index) const;
+		uint16 InterrupterCount() const { return max_interrupters_; }
+		bool HasPendingEvent(uint16 interrupter_index) const;
+		bool HasPendingEvent() const;
+		bool AcknowledgeInterrupter(uint16 interrupter_index);
+		uint16 InterrupterTargetForSlot(uint8 slot_id) const {
+			return max_interrupters_ > 1 ? uint16(slot_id % max_interrupters_) : 0;
+		}
 		DoorbellRegister* DoorbellRegisterAt(uint8 index);
 		Port PortAt(uint8 port_num) {
 			return Port{ port_num, PortRegisterSets()[port_num - 1] };
@@ -178,19 +218,43 @@ namespace uni::device::SpaceUSB3 {
 				hccparams2.bits.large_esit_payload_capability &&
 				hccparams2.bits.extended_tbc_capability;
 		}
+		uint8 MaximumPrimaryStreamArraySize() const {
+			return cap_->HCCPARAMS1.Read().bits.maximum_primary_stream_array_size;
+		}
+		bool HasLatencyToleranceMessagingCapability() const {
+			return cap_->HCCPARAMS1.Read().bits.latency_tolerance_messaging_capability;
+		}
+		bool HasU3EntryCapability() const {
+			return HCIVersion() >= 0x0110u &&
+				cap_->HCCPARAMS2.Read().bits.u3_entry_capability;
+		}
 		bool IsControllerFailed() const { return controller_failed_; }
 		size_t PageSize() const { return page_size_; }
 		size_t ControlTransferRingSize() const { return resource_config_.control_transfer_ring_trbs; }
 		size_t TransferRingSize() const { return resource_config_.transfer_ring_trbs; }
 		size_t BulkTransferRingSize() const { return resource_config_.bulk_transfer_ring_trbs; }
+		size_t StreamTransferRingSize() const { return resource_config_.stream_transfer_ring_trbs; }
+		uint8 ConfiguredMaxPrimaryStreams() const { return resource_config_.max_primary_streams; }
+		uint8 U1Timeout() const { return resource_config_.u1_timeout; }
+		uint8 U2Timeout() const { return resource_config_.u2_timeout; }
+		uint16 BestEffortLatencyTolerance() const {
+			return resource_config_.best_effort_latency_tolerance;
+		}
+		bool LinkPowerManagementEnabled() const {
+			return resource_config_.enable_link_power_management;
+		}
+		bool U3Enabled() const { return resource_config_.enable_u3; }
 		uint8 SpeedClass(uint8 root_hub_port_num, uint8 speed_id) const;
 		uint8 SpeedIDForClass(uint8 root_hub_port_num, uint8 speed_class) const;
+		PortLinkInfo PortLink(uint8 root_hub_port_num) const;
 		DeviceManager* GetDeviceManager() { return &devmgr_; }
 		HostControllerEnumerationState& EnumerationState() { return enumeration_state_; }
 		bool IsSlotRemovalPending(uint8 slot_id) const;
 		Error QueueSlotRemoval(uint8 slot_id, bool notify_disconnected);
 		Error OnDisableSlotCompleted(uint8 slot_id, int completion_code);
 		Error OnHostControllerEvent(int completion_code);
+		Error SetLatencyTolerance(uint16 value);
+		Error SetPortLinkState(uint8 port_num, uint8 link_state);
 		void OnMFINDEXWrapEvent() { ++mfindex_wrap_count_; }
 		uint64 MFINDEXWrapCount() const { return mfindex_wrap_count_; }
 	public:
@@ -205,9 +269,10 @@ namespace uni::device::SpaceUSB3 {
 		const uint8 max_ports_;
 		const uint8 max_slots_;
 		const uint8 context_size_;
+		const uint16 max_interrupters_;
 		size_t page_size_ = 4096;
-		uint8 port_protocol_major_[256]{};
-		uint8 port_speed_classes_[256][16]{};
+		uni::Vector<uint8> port_protocol_major_{};
+		uni::Vector<ProtocolSpeedInfo> protocol_speeds_{};
 		byte slot_removal_pending_storage_[32]{};
 		byte slot_disconnect_notified_storage_[32]{};
 		uni::Bitmap slot_removal_pending_;
@@ -222,6 +287,7 @@ namespace uni::device::SpaceUSB3 {
 		class DeviceManager devmgr_;
 		Ring cr_;
 		EventRing er_;
+		uni::Vector<EventRing*> event_rings_{};
 
 		InterrupterRegisterSetArray InterrupterRegisterSets() const {
 			return { mmio_base_ + cap_->RTSOFF.Read().Offset() + 0x20u, 1024 };
@@ -236,6 +302,9 @@ namespace uni::device::SpaceUSB3 {
 		}
 
 		void InitializeSupportedProtocols();
+		ProtocolSpeedInfo* ProtocolSpeed(uint8 root_hub_port_num, uint8 speed_id);
+		const ProtocolSpeedInfo* ProtocolSpeed(uint8 root_hub_port_num,
+			uint8 speed_id) const;
 		Error RecoverController();
 		Error InitializeRuntimeRings();
 		//
@@ -243,19 +312,19 @@ namespace uni::device::SpaceUSB3 {
 	public:
 		Error ConfigurePort(Port& port);
 		Error ConfigureEndpoints(USBHostDevice_v3& dev);
-		Error OnHubPortStatusChanged(USBHostDevice_v3& hub_dev, uint8 downstream_port,
-			uint16 status, uint16 change, uint8 speed_id);
+		Error OnHubPortStatusChanged(
+			USBHostDevice_v3& hub_dev, uint8 downstream_port, uint16 status, uint16 change, uint8 speed_id);
 		bool ClaimHubPortReset(USBHostDevice_v3& hub_dev, uint8 downstream_port);
 		void ReleaseHubPortReset(USBHostDevice_v3& hub_dev, uint8 downstream_port);
 
 		/** @brief Process at most one event registered in the event ring.
-			 *
-			 * Processes the front event of the xHC's primary event ring.
-			 * If there is no event, returns Error::kSuccess immediately.
-			 *
-			 * @return Error::kSuccess if the event was processed successfully.
-			 */
-		Error ProcessEvent();
+		 *
+		 * Processes the front event of the xHC's primary event ring.
+		 * If there is no event, returns Error::Success immediately.
+		 *
+		 * @return Error::Success if the event was processed successfully.
+		 */
+		Error ProcessEvent(uint16 interrupter_index = 0);
 
 	};
 

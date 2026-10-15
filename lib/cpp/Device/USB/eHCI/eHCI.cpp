@@ -910,7 +910,7 @@ namespace uni::device::SpaceUSB2 {
 		SpaceUSB::SetupData setup_data, void* buf, int len,
 		SpaceUSB::ClassDriver* issuer) {
 		if (ep_id.Number() != 0 || !buf || len <= 0 || len > 0xFFFF) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		if (auto error = SpaceUSB::USBHostDevice::ControlIn(ep_id,
 			setup_data, buf, len, issuer)) return error;
@@ -926,7 +926,7 @@ namespace uni::device::SpaceUSB2 {
 		SpaceUSB::SetupData setup_data, const void* buf, int len,
 		SpaceUSB::ClassDriver* issuer) {
 		if (ep_id.Number() != 0 || len < 0 || len > 0xFFFF ||
-			(len && !buf)) return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			(len && !buf)) return MAKE_ERROR(Error::InvalidEndpointNumber);
 		if (auto error = SpaceUSB::USBHostDevice::ControlOut(ep_id,
 			setup_data, buf, len, issuer)) return error;
 		const auto result = len ? host_.ControlOut(device_address_, 0,
@@ -951,7 +951,7 @@ namespace uni::device::SpaceUSB2 {
 		(void)ep_id;
 		(void)buf;
 		(void)len;
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	Error USBHostDevice_v2::InterruptOut(SpaceUSB::EndpointID ep_id,
@@ -959,7 +959,7 @@ namespace uni::device::SpaceUSB2 {
 		(void)ep_id;
 		(void)buf;
 		(void)len;
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	Error USBHostDevice_v2::BulkTransfer(SpaceUSB::EndpointID ep_id,
@@ -968,7 +968,7 @@ namespace uni::device::SpaceUSB2 {
 		if (!config || config->ep_type != SpaceUSB::EndpointType::kBulk ||
 			ep_id.IsIn() != direction_in || !buf || len <= 0 ||
 			stduint(len) > host_.MaximumBulkTransferBytes() || len > 0xFFFF) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		uint16 actual_length = 0;
 		const auto result = host_.BulkTransfer(device_address_,
@@ -981,7 +981,7 @@ namespace uni::device::SpaceUSB2 {
 	}
 
 	Error USBHostDevice_v2::ConfigureTransportEndpoints() {
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	const char* HostController::ErrorName(ControllerError error) {

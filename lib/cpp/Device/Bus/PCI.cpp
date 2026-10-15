@@ -207,7 +207,91 @@ PCI_Result PCI::configure_MSI_register(const Device& dev, uint8_t cap_addr,
 }
 
 PCI_Result PCI::configure_MSIX_register(const Device& dev, uint8_t cap_addr, uint32 msg_addr, uint32 msg_data, unsigned num_vector_exponent) {
-	return (PCI_Result::NotImplemented);
+	(void)cap_addr;
+	uint16 count = num_vector_exponent < 11 ? uint16(1u << num_vector_exponent) : 0;
+	const uint16 table_size = MSIXTableSize(dev);
+	if (count == 0 || table_size == 0) return PCI_Result::NotImplemented;
+	if (count > table_size) count = table_size;
+	uni::Vector<MSIMessage> messages{};
+	for (uint16 index = 0; index < count; ++index) {
+		MSIMessage message{};
+		message.address = msg_addr;
+		message.data = msg_data + index;
+		if (!messages.Append(message)) return PCI_Result::Full;
+	}
+	return ConfigureMSIX(dev, messages.begin(), count);
+}
+
+uint16 PCI::MSIXTableSize(const Device& dev) {
+	uint8 cap_addr = read_config_register(dev, 0x34) & 0xffu;
+	for (uint8 count = 0; cap_addr != 0 && count < 48; ++count) {
+		const auto header = read_capability_header(dev, cap_addr);
+		if (header.bits.cap_id == kCapabilityMSIX) {
+			return static_cast<uint16>(((header.data >> 16) & 0x07ffu) + 1u);
+		}
+		cap_addr = header.bits.next_ptr;
+	}
+	return 0;
+}
+
+PCI_Result PCI::ConfigureMSIX(const Device& dev, const MSIMessage* messages,
+	uint16 message_count) {
+	if (messages == nullptr || message_count == 0) return PCI_Result::Empty;
+	uint8 cap_addr = read_config_register(dev, 0x34) & 0xffu;
+	uint8 msi_cap_addr = 0;
+	uint8 msix_cap_addr = 0;
+	for (uint8 count = 0; cap_addr != 0 && count < 48; ++count) {
+		const auto header = read_capability_header(dev, cap_addr);
+		if (header.bits.cap_id == kCapabilityMSI) msi_cap_addr = cap_addr;
+		if (header.bits.cap_id == kCapabilityMSIX) msix_cap_addr = cap_addr;
+		cap_addr = header.bits.next_ptr;
+	}
+	if (msix_cap_addr == 0) return PCI_Result::NoPCIMSI;
+
+	uint32 control = read_config_register(dev, msix_cap_addr);
+	const uint16 table_size = static_cast<uint16>(((control >> 16) & 0x07ffu) + 1u);
+	if (message_count > table_size) return PCI_Result::IndexOutOfRange;
+	const uint32 table_descriptor = read_config_register(dev, msix_cap_addr + 4);
+	const uint8 bir = table_descriptor & 0x07u;
+	if (bir >= 6) return PCI_Result::IndexOutOfRange;
+	const uint8 bar_addr = calculate_bar_address(bir);
+	const uint32 bar_low = read_config_register(dev, bar_addr);
+	if ((bar_low & 0x01u) != 0) return PCI_Result::NotImplemented;
+	const uint8 memory_type = uint8((bar_low >> 1) & 0x03u);
+	uint64 bar_base = uint64(bar_low & ~0x0fu);
+	if (memory_type == 0x02u) {
+		if (bir >= 5) return PCI_Result::IndexOutOfRange;
+		bar_base |= uint64(read_config_register(dev, bar_addr + 4)) << 32;
+	}
+	if (bar_base == 0) return PCI_Result::Empty;
+	const uint64 table_address = bar_base + uint64(table_descriptor & ~0x07u);
+	if (table_address < bar_base || table_address > uint64(~stduint(0))) {
+		return PCI_Result::IndexOutOfRange;
+	}
+
+	control &= ~(1u << 31);
+	control |= 1u << 30;
+	write_config_register(dev, msix_cap_addr, control);
+	if (msi_cap_addr != 0) {
+		uint32 msi_control = read_config_register(dev, msi_cap_addr);
+		msi_control &= ~(1u << 16);
+		write_config_register(dev, msi_cap_addr, msi_control);
+	}
+	auto* table = reinterpret_cast<volatile uint32*>(stduint(table_address));
+	for (uint16 index = 0; index < table_size; ++index) {
+		table[stduint(index) * 4u + 3u] = 1u;
+	}
+	for (uint16 index = 0; index < message_count; ++index) {
+		const stduint offset = stduint(index) * 4u;
+		table[offset] = uint32(messages[index].address);
+		table[offset + 1] = uint32(messages[index].address >> 32);
+		table[offset + 2] = messages[index].data;
+		table[offset + 3] = 0;
+	}
+	control |= 1u << 31;
+	control &= ~(1u << 30);
+	write_config_register(dev, msix_cap_addr, control);
+	return PCI_Result::Success;
 }
 
 PCI::CapabilityHeader PCI::read_capability_header(const Device& dev, uint8 addr)

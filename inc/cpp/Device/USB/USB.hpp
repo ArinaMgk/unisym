@@ -22,19 +22,21 @@
 */
 
 /*
-┌─────────────────────────────┐
-│  Applications / OS Services │
-├─────────────────────────────┤
-│  USB Class Drivers          │  ← Device-specific functionality
-├─────────────────────────────┤
-│  USB Core Framework         │  ← Protocol abstraction layer
-├─────────────────────────────┤
-│  xHCI Driver                │  ← USB 3.0+ Host Controller Driver
-├─────────────────────────────┤
-│  PCI/PCIe Driver            │  ← Bus enumeration and communication (inc\cpp\Device\Bus\PCI.hpp)
-├─────────────────────────────┤
-│  xHCI Hardware Controller   │  ← Physical hardware
-└─────────────────────────────┘
+USB Host Hardware
+├── xHCI Controller → USBHostDevice_v3 ─┐
+├── eHCI Controller → USBHostDevice_v2 ─┤
+├── uHCI Controller → USBHostDevice_v1 ─┼─ USBHostDevice
+└── STM32 OTG → HCD → OTGHostDevice ────┘   │
+                                            ├── Device enumeration
+                                            ├── Descriptor and endpoint parsing
+                                            └── ClassDriver
+
+ClassDriver
+├── MSC (Bulk-Only Transport)
+├── HID Boot Keyboard
+├── HID Boot Mouse
+└── USB Hub
+└── ...
 */
 
 #ifndef _INCPP_Device_USB
@@ -44,6 +46,7 @@
 // - https://github.com/uchan-nos/mikanos
 // cited sincerely.
 
+#include "./USB-Options.hpp"
 #include "./USB-Header.hpp"
 #include "./USB-Device.hpp"
 
@@ -75,12 +78,22 @@ namespace uni::device::SpaceUSB {
 			(void)ep_id;
 			(void)buf;
 			(void)len;
-			return MAKE_ERROR(Error::kNotImplemented);
+			return MAKE_ERROR(Error::NotImplemented);
+		}
+		virtual Error OnBulkStreamCompleted(EndpointID ep_id, uint16 stream_id,
+			const void* buf, int len) {
+			(void)stream_id;
+			return OnBulkCompleted(ep_id, buf, len);
 		}
 		virtual Error OnBulkRecoveryCompleted(EndpointID ep_id, bool success) {
 			(void)ep_id;
 			(void)success;
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
+		}
+		virtual Error OnBulkStreamRecoveryCompleted(EndpointID ep_id,
+			uint16 stream_id, bool success) {
+			(void)stream_id;
+			return OnBulkRecoveryCompleted(ep_id, success);
 		}
 		virtual Error OnIsochronousCompleted(EndpointID ep_id, const void* buf,
 			int len, uint16 frame_id, bool schedule_immediately, int completion_code) {
@@ -90,10 +103,10 @@ namespace uni::device::SpaceUSB {
 			(void)frame_id;
 			(void)schedule_immediately;
 			(void)completion_code;
-			return MAKE_ERROR(Error::kNotImplemented);
+			return MAKE_ERROR(Error::NotImplemented);
 		}
 		// AKA periodic service; the host transport ticks this about once per millisecond
-		virtual Error ProcessDelayed() { return MAKE_ERROR(Error::kSuccess); }
+		virtual Error ProcessDelayed() { return MAKE_ERROR(Error::Success); }
 		virtual ClassDriverType Type() const { return ClassDriverType::Unknown; }
 		virtual int InterfaceNumber() const { return -1; }
 

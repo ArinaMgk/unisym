@@ -46,6 +46,7 @@ namespace uni::device::SpaceUSB {
 	const uint16 kHubPortStatusHighSpeed = 0x0400;
 	const uint16 kSuperSpeedHubPortStatusSpeed = 0x1c00;
 
+	#if _OPT_BUS_USB_Hub
 	// AKA USBH_HUB_CLASS: reads the hub descriptor, then walks every port and hands
 	// each port status change to the transport through OnHubPortStatusReceived().
 	class USBHubDriver : public ClassDriver {
@@ -110,6 +111,7 @@ namespace uni::device::SpaceUSB {
 		uni::Array<uint8_t, 8> interrupt_buf_{};
 		uni::Array<uint8_t, 32> pending_status_ports_{};
 	};
+	#endif
 
 }
 

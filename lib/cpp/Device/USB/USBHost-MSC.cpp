@@ -61,7 +61,7 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error USBHost_MSC::Initialize() {
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHost_MSC::SetEndpoint(const EndpointConfig& config) {
@@ -70,7 +70,7 @@ namespace uni::device::SpaceUSB {
 			else ep_bulk_out_ = config.ep_id;
 			bulk_mps_ = static_cast<uint16>(config.max_packet_size);
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// AKA USBH_MSC_Init/USBH_MSC_Process: the device is configured, so start the
@@ -84,7 +84,7 @@ namespace uni::device::SpaceUSB {
 				(stduint)ep_bulk_in_.Address(), (stduint)ep_bulk_out_.Address(),
 				(stduint)bulk_mps_);
 			Notify(Event::BringUpComplete);
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		ploginfo("USB MSC bring-up start dev=%p interface=%u bulk-in=%u bulk-out=%u mps=%u",
 			ParentDevice(), (stduint)interface_index_,
@@ -119,12 +119,12 @@ namespace uni::device::SpaceUSB {
 		if (recovery_stage_ != RecoveryStage::None) {
 			if (len < 0) {
 				FinishRecovery(false);
-				return MAKE_ERROR(Error::kSuccess);
+				return MAKE_ERROR(Error::Success);
 			}
 			if (recovery_stage_ == RecoveryStage::ClearHalt) {
 				if (!IsClearHaltRequest(setup_data, recovery_ep_)) {
 					FinishRecovery(false);
-					return MAKE_ERROR(Error::kInvalidPhase);
+					return MAKE_ERROR(Error::InvalidPhase);
 				}
 				if (ParentDevice()->IsBulkRecoveryPending(recovery_ep_)) {
 					recovery_stage_ = RecoveryStage::AwaitTransport;
@@ -132,7 +132,7 @@ namespace uni::device::SpaceUSB {
 				else {
 					FinishRecovery(true);
 				}
-				return MAKE_ERROR(Error::kSuccess);
+				return MAKE_ERROR(Error::Success);
 			}
 			if (recovery_stage_ == RecoveryStage::MassStorageReset) {
 				if (setup_data.request_type.bits.direction != request_type::kOut ||
@@ -143,36 +143,36 @@ namespace uni::device::SpaceUSB {
 					setup_data.index != static_cast<uint16>(interface_index_) ||
 					setup_data.length != 0) {
 					FinishRecovery(false);
-					return MAKE_ERROR(Error::kInvalidPhase);
+					return MAKE_ERROR(Error::InvalidPhase);
 				}
 				recovery_stage_ = RecoveryStage::ClearBulkIn;
 				if (auto error = SubmitClearHalt(ep_bulk_in_)) {
 					FinishRecovery(false);
 					return error;
 				}
-				return MAKE_ERROR(Error::kSuccess);
+				return MAKE_ERROR(Error::Success);
 			}
 			if (recovery_stage_ == RecoveryStage::ClearBulkIn) {
 				if (!IsClearHaltRequest(setup_data, ep_bulk_in_)) {
 					FinishRecovery(false);
-					return MAKE_ERROR(Error::kInvalidPhase);
+					return MAKE_ERROR(Error::InvalidPhase);
 				}
 				recovery_stage_ = RecoveryStage::ClearBulkOut;
 				if (auto error = SubmitClearHalt(ep_bulk_out_)) {
 					FinishRecovery(false);
 					return error;
 				}
-				return MAKE_ERROR(Error::kSuccess);
+				return MAKE_ERROR(Error::Success);
 			}
 			if (recovery_stage_ == RecoveryStage::ClearBulkOut) {
 				if (!IsClearHaltRequest(setup_data, ep_bulk_out_)) {
 					FinishRecovery(false);
-					return MAKE_ERROR(Error::kInvalidPhase);
+					return MAKE_ERROR(Error::InvalidPhase);
 				}
 				FinishRecovery(true);
-				return MAKE_ERROR(Error::kSuccess);
+				return MAKE_ERROR(Error::Success);
 			}
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		if (phase_ == 1) {
 			// Devices that do not implement GET_MAX_LUN stall the request; that is a
@@ -183,14 +183,14 @@ namespace uni::device::SpaceUSB {
 				(stduint)max_lun_, (stduint)completion_count_);
 			return Inquiry();
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHost_MSC::OnInterruptCompleted(EndpointID ep_id, const void* buf, int len) {
 		(void)ep_id;
 		(void)buf;
 		(void)len;
-		return MAKE_ERROR(Error::kNotImplemented);// MSC has no interrupt endpoint
+		return MAKE_ERROR(Error::NotImplemented);// MSC has no interrupt endpoint
 	}
 
 	// AKA USBH_MSC_BOT_Process: one completion of the running transaction
@@ -227,27 +227,27 @@ namespace uni::device::SpaceUSB {
 				return BeginHaltRecovery(ep_id, Result::TransferFailed);
 			}
 			ParseCsw(len);
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		default:
 			break;
 		}
 		plogwarn("USB MSC unexpected bulk completion dev=%p interface=%u phase=%s ep=%u length=%d",
 			ParentDevice(), (stduint)interface_index_, PhaseName(),
 			(stduint)ep_id.Address(), len);
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHost_MSC::OnBulkRecoveryCompleted(EndpointID ep_id, bool success) {
 		if (recovery_stage_ == RecoveryStage::None && stage_ != Stage::Idle && !success) {
 			Finish(Result::RecoveryFailed);
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		if (recovery_stage_ != RecoveryStage::AwaitTransport ||
 			ep_id.Address() != recovery_ep_.Address()) {
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		FinishRecovery(success);
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHost_MSC::SubmitClearHalt(EndpointID ep_id) {
@@ -277,7 +277,7 @@ namespace uni::device::SpaceUSB {
 
 	Error USBHost_MSC::BeginHaltRecovery(EndpointID ep_id, Result result) {
 		if (recovery_stage_ != RecoveryStage::None) {
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		recovery_result_ = result;
 		recovery_ep_ = ep_id;
@@ -287,12 +287,12 @@ namespace uni::device::SpaceUSB {
 			FinishRecovery(false);
 			return error;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHost_MSC::BeginResetRecovery(Result result) {
 		if (recovery_stage_ != RecoveryStage::None) {
-			return MAKE_ERROR(Error::kInvalidPhase);
+			return MAKE_ERROR(Error::InvalidPhase);
 		}
 		recovery_result_ = result;
 		recovery_stage_ = RecoveryStage::MassStorageReset;
@@ -301,7 +301,7 @@ namespace uni::device::SpaceUSB {
 			FinishRecovery(false);
 			return error;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	void USBHost_MSC::FinishRecovery(bool success) {
@@ -341,7 +341,7 @@ namespace uni::device::SpaceUSB {
 	// AKA USBH_MSC_BOT_SendCBW: the command block wrapper goes out on the bulk OUT
 	// endpoint, then the data stage (if any) and finally the status wrapper.
 	Error USBHost_MSC::StartCommand(const byte* cdb, bool dir_in, void* data, uint32 data_len) {
-		if (stage_ != Stage::Idle) return MAKE_ERROR(Error::kFull);
+		if (stage_ != Stage::Idle) return MAKE_ERROR(Error::Full);
 		cbw_.signature = kSignatureCbw;
 		cbw_.tag = next_tag_++;
 		if (next_tag_ == 0) next_tag_ = kInitialTag;
@@ -364,7 +364,7 @@ namespace uni::device::SpaceUSB {
 			Finish(Result::TransferFailed);// never leave the machine busy
 			return err;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// DATA-IN: one pipe transfer for the whole requested length (the controller splits
@@ -379,7 +379,7 @@ namespace uni::device::SpaceUSB {
 			Finish(Result::TransferFailed);// never leave the machine busy
 			return err;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// DATA-OUT: the payload is pushed one endpoint packet at a time.
@@ -397,7 +397,7 @@ namespace uni::device::SpaceUSB {
 			Finish(Result::TransferFailed);// never leave the machine busy
 			return err;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHost_MSC::SubmitCsw() {
@@ -409,7 +409,7 @@ namespace uni::device::SpaceUSB {
 			Finish(Result::TransferFailed);// never leave the machine busy
 			return err;
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// AKA USBH_MSC_BOT_DecodeCSW: 13 bytes, matching signature and tag required
@@ -528,7 +528,7 @@ namespace uni::device::SpaceUSB {
 		if (!ready_ || count == 0 || buf == nullptr || !block_size_ ||
 			lba >= block_count_ || uint32(count) > block_count_ - lba ||
 			uint32(count) > ~uint32(0) / block_size_) {
-			return MAKE_ERROR(Error::kIndexOutOfRange);
+			return MAKE_ERROR(Error::IndexOutOfRange);
 		}
 		byte cdb[kCdbLength] = {};
 		cdb[0] = _SCSI_READ10;
@@ -545,7 +545,7 @@ namespace uni::device::SpaceUSB {
 		if (!ready_ || count == 0 || buf == nullptr || !block_size_ ||
 			lba >= block_count_ || uint32(count) > block_count_ - lba ||
 			uint32(count) > ~uint32(0) / block_size_) {
-			return MAKE_ERROR(Error::kIndexOutOfRange);
+			return MAKE_ERROR(Error::IndexOutOfRange);
 		}
 		byte cdb[kCdbLength] = {};
 		cdb[0] = _SCSI_WRITE10;

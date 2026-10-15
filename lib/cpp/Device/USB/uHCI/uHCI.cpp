@@ -743,7 +743,7 @@ namespace uni::device::SpaceUSB1 {
 		SpaceUSB::SetupData setup_data, void* buf, int len,
 		SpaceUSB::ClassDriver* issuer) {
 		if (ep_id.Number() != 0 || !buf || len <= 0 || len > 0xFFFF) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		if (auto error = SpaceUSB::USBHostDevice::ControlIn(ep_id,
 			setup_data, buf, len, issuer)) return error;
@@ -834,7 +834,7 @@ namespace uni::device::SpaceUSB1 {
 		SpaceUSB::SetupData setup_data, const void* buf, int len,
 		SpaceUSB::ClassDriver* issuer) {
 		if (ep_id.Number() != 0 || len < 0 || (len && !buf)) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		if (auto error = SpaceUSB::USBHostDevice::ControlOut(ep_id,
 			setup_data, buf, len, issuer)) return error;
@@ -851,20 +851,20 @@ namespace uni::device::SpaceUSB1 {
 		if (!config || config->ep_type != SpaceUSB::EndpointType::kInterrupt ||
 			!ep_id.IsIn() || !buf || len <= 0 || len > 0xFFFF ||
 			len > config->max_packet_size) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		if (auto error = SpaceUSB::USBHostDevice::InterruptIn(ep_id,
 			buf, len)) return error;
 		interrupt_endpoint_ = ep_id;
 		interrupt_buffer_ = static_cast<uint8*>(buf);
 		interrupt_capacity_ = uint16(len);
-		if (interrupt_started_) return MAKE_ERROR(Error::kSuccess);
+		if (interrupt_started_) return MAKE_ERROR(Error::Success);
 		const auto result = host_.StartInterruptIn(device_address_,
 			uint8(ep_id.Number()), low_speed_, uint16(config->max_packet_size),
 			uint8(config->interval), uint16(len));
 		interrupt_started_ = result == ControllerError::Success;
-		return interrupt_started_ ? MAKE_ERROR(Error::kSuccess) :
-			MAKE_ERROR(Error::kTransferFailed);
+		return interrupt_started_ ? MAKE_ERROR(Error::Success) :
+			MAKE_ERROR(Error::TransferFailed);
 	}
 
 	Error USBHostDevice_v1::InterruptOut(SpaceUSB::EndpointID ep_id,
@@ -872,7 +872,7 @@ namespace uni::device::SpaceUSB1 {
 		(void)ep_id;
 		(void)buf;
 		(void)len;
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	Error USBHostDevice_v1::BulkTransfer(SpaceUSB::EndpointID ep_id,
@@ -881,15 +881,15 @@ namespace uni::device::SpaceUSB1 {
 		(void)direction_in;
 		(void)buf;
 		(void)len;
-		return MAKE_ERROR(Error::kNotImplemented);
+		return MAKE_ERROR(Error::NotImplemented);
 	}
 
 	Error USBHostDevice_v1::ConfigureTransportEndpoints() {
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error USBHostDevice_v1::PollInterrupt() {
-		if (!interrupt_started_) return MAKE_ERROR(Error::kSuccess);
+		if (!interrupt_started_) return MAKE_ERROR(Error::Success);
 		uint16 actual_length = 0;
 		bool completed = false;
 		const auto result = host_.PollInterruptIn(interrupt_buffer_,
@@ -899,7 +899,7 @@ namespace uni::device::SpaceUSB1 {
 			interrupt_started_ = false;
 			return OnInterruptCompleted(interrupt_endpoint_, nullptr, 0);
 		}
-		if (!completed) return MAKE_ERROR(Error::kSuccess);
+		if (!completed) return MAKE_ERROR(Error::Success);
 		return OnInterruptCompleted(interrupt_endpoint_, interrupt_buffer_,
 			int(actual_length));
 	}

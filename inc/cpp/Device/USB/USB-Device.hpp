@@ -15,18 +15,29 @@ namespace uni::device::SpaceUSB {
 		virtual Error InterruptOut(EndpointID ep_id, void* buf, int len);
 		// Bulk transport (AKA a host MSC disk): dir_in selects the IN/OUT direction.
 		virtual Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len);
+		virtual Error BulkStreamTransfer(EndpointID ep_id, bool dir_in,
+			uint16 stream_id, void* buf, int len);
+		virtual uint16 MaxStreamID(EndpointID ep_id) const {
+			(void)ep_id;
+			return 0;
+		}
 		virtual bool IsBulkRecoveryPending(EndpointID ep_id) const {
 			(void)ep_id;
 			return false;
 		}
 		virtual Error IsochronousTransfer(EndpointID ep_id, void* buf, int len,
 			const IsochronousTransferOptions& options = IsochronousTransferOptions{});
+		virtual Error Suspend() { return MAKE_ERROR(Error::NotImplemented); }
+		virtual Error Resume() { return MAKE_ERROR(Error::NotImplemented); }
+		virtual DevicePowerState GetPowerState() const { return DevicePowerState::Active; }
+		// Physical host-facing root-port link; a hub downstream link may differ.
+		virtual USBHostLinkInfo LinkInfo() const { return USBHostLinkInfo{}; }
 		virtual Error OnHubPortStatusReceived(uint8 port_num, uint16 status,
 			uint16 change, uint8 speed_id = 0);
 		virtual Error ConfigureHub(uint8 num_ports, uint16 characteristics) {
 			(void)num_ports;
 			(void)characteristics;
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		virtual uint8 HubDepth() const { return 0; }
 		// a hub parent reports the port while a device on it still answers at address 0
@@ -42,7 +53,7 @@ namespace uni::device::SpaceUSB {
 		// HPRT0.PSPD scale: 0 high, 1 full, 2 low speed
 		virtual stduint Speed() const { return 1; }
 		// AKA xHCI ConfigureEndpoints: the transport programs its channels here
-		virtual Error ConfigureTransportEndpoints() { return MAKE_ERROR(Error::kSuccess); }
+		virtual Error ConfigureTransportEndpoints() { return MAKE_ERROR(Error::Success); }
 		virtual bool RequiresSetAddressRequest() const { return false; }
 		// AKA USBH_LL_SetDeviceAddress: the transport follows the new address here
 		virtual void OnDeviceAddressChanged(uint8 address) { (void)address; }
@@ -106,7 +117,11 @@ namespace uni::device::SpaceUSB {
 			const void* buf, int len);
 		Error OnInterruptCompleted(EndpointID ep_id, const void* buf, int len);
 		Error OnBulkCompleted(EndpointID ep_id, const void* buf, int len);
+		Error OnBulkStreamCompleted(EndpointID ep_id, uint16 stream_id,
+			const void* buf, int len);
 		Error OnBulkRecoveryCompleted(EndpointID ep_id, bool success);
+		Error OnBulkStreamRecoveryCompleted(EndpointID ep_id, uint16 stream_id,
+			bool success);
 		Error OnIsochronousCompleted(EndpointID ep_id, const void* buf, int len,
 			uint16 frame_id, bool schedule_immediately, int completion_code);
 

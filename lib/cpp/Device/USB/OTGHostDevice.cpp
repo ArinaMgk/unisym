@@ -170,11 +170,11 @@ namespace uni::device::SpaceUSB {
 	Error OTGHostDevice::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
 		if (ep_id.Number() != 0) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
-		if (ctrl_ch_ == kNoChannel) return MAKE_ERROR(Error::kNoEnoughMemory);
+		if (ctrl_ch_ == kNoChannel) return MAKE_ERROR(Error::NoEnoughMemory);
 		if (ctrl_stage_ != ControlStage::Idle && ctrl_stage_ != ControlStage::Done) {
-			return MAKE_ERROR(Error::kFull);
+			return MAKE_ERROR(Error::Full);
 		}
 		if (auto err = USBHostDevice::ControlIn(ep_id, setup_data, buf, len, issuer)) {
 			return err;
@@ -201,17 +201,17 @@ namespace uni::device::SpaceUSB {
 		ctrl_retry_pending_ = false;
 		ctrl_stage_ = ControlStage::Setup;
 		ResubmitControlStage();
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	Error OTGHostDevice::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
 		if (ep_id.Number() != 0) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
-		if (ctrl_ch_ == kNoChannel) return MAKE_ERROR(Error::kNoEnoughMemory);
+		if (ctrl_ch_ == kNoChannel) return MAKE_ERROR(Error::NoEnoughMemory);
 		if (ctrl_stage_ != ControlStage::Idle && ctrl_stage_ != ControlStage::Done) {
-			return MAKE_ERROR(Error::kFull);
+			return MAKE_ERROR(Error::Full);
 		}
 		if (auto err = USBHostDevice::ControlOut(ep_id, setup_data, buf, len, issuer)) {
 			return err;
@@ -225,7 +225,7 @@ namespace uni::device::SpaceUSB {
 		ctrl_retry_pending_ = false;
 		ctrl_stage_ = ControlStage::Setup;
 		ResubmitControlStage();
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// called from the main loop, far more often than a frame: the transfer goes out the moment the window opens
@@ -260,7 +260,7 @@ namespace uni::device::SpaceUSB {
 			return err;
 		}
 		const byte ch = ChannelOfEndpoint(ep_id);
-		if (!ch) return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		if (!ch) return MAKE_ERROR(Error::InvalidEndpointNumber);
 		ch_xfer_base_[ch] = static_cast<byte*>(buf);
 		ch_xfer_len_[ch] = static_cast<uint16>(len);
 		if (ch_poll_interval_[ch]) {
@@ -270,13 +270,13 @@ namespace uni::device::SpaceUSB {
 			if ((stduint)(now_tick - ch_poll_last_[ch]) < ch_poll_interval_[ch]) {
 				ch_deferred_buf_[ch] = static_cast<byte*>(buf);
 				ch_deferred_len_[ch] = static_cast<uint16>(len);
-				return MAKE_ERROR(Error::kSuccess);
+				return MAKE_ERROR(Error::Success);
 			}
 			ch_poll_last_[ch] = now_tick;
 		}
 		ch_waiting_since_[ch] = s_bus_tick;
 		hcd_.SubmitRequest(ch, 1, 3, 1, static_cast<byte*>(buf), static_cast<uint16>(len), 0);
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// Submit every interrupt poll that was held back and whose interval is over
@@ -299,19 +299,19 @@ namespace uni::device::SpaceUSB {
 			return err;
 		}
 		const byte ch = ChannelOfEndpoint(ep_id);
-		if (!ch) return MAKE_ERROR(Error::kInvalidEndpointNumber);
+		if (!ch) return MAKE_ERROR(Error::InvalidEndpointNumber);
 		ch_xfer_base_[ch] = static_cast<byte*>(buf);
 		ch_xfer_len_[ch] = static_cast<uint16>(len);
 		ch_waiting_since_[ch] = s_bus_tick;
 		hcd_.SubmitRequest(ch, 0, 3, 1, static_cast<byte*>(buf), static_cast<uint16>(len), 0);
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// the bulk pipe of a host class driver
 	Error OTGHostDevice::BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len) {
 		const byte ch = ChannelOfEndpoint(ep_id);
 		if (!ch || buf == nullptr || len <= 0) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		ch_xfer_base_[ch] = static_cast<byte*>(buf);
 		ch_xfer_len_[ch] = static_cast<uint16>(len);
@@ -319,7 +319,7 @@ namespace uni::device::SpaceUSB {
 		// token 1 = DATA1; BULK takes the PID from the per-channel toggle
 		hcd_.SubmitRequest(ch, dir_in ? 1 : 0, 2, 1, static_cast<byte*>(buf),
 			static_cast<uint16>(len), 0);// EP_TYPE_BULK
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// the hub class driver reports one downstream port here; only here can a child get an address
@@ -327,7 +327,7 @@ namespace uni::device::SpaceUSB {
 		uint16 change, uint8 speed_id) {
 		(void)speed_id;
 		if (port_num == 0 || port_num > 16) {
-			return MAKE_ERROR(Error::kInvalidEndpointNumber);
+			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
 		hub_port_status_[port_num - 1] = status;
 		hub_port_change_[port_num - 1] |= change;
@@ -335,21 +335,21 @@ namespace uni::device::SpaceUSB {
 		// A device that went away: give its channels and its USB address back
 		if ((change & kHubPortStatusConnect) && !(status & kHubPortStatusConnect)) {
 			if (DropChildDevice(byte(port_num))) child_down_count_++;
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		if (!(status & kHubPortStatusConnect)) {
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		if (ChildOfPort(byte(port_num))) {
-			return MAKE_ERROR(Error::kSuccess);// this port is already brought up
+			return MAKE_ERROR(Error::Success);// this port is already brought up
 		}
 		// the hub has not finished resetting: until PORT_ENABLE the device does not answer
 		if (!(status & kHubPortStatusEnable)) {
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		// a fresh device answers at address 0 and only one may sit there
 		if (hub_addressing_) {
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		return StartChildDevice(byte(port_num), status);
 	}
@@ -394,12 +394,12 @@ namespace uni::device::SpaceUSB {
 	Error OTGHostDevice::StartChildDevice(byte port, uint16 port_status) {
 		if (num_children_ >= kMaxHubChildren) {
 			child_fail_count_++;
-			return MAKE_ERROR(Error::kNoEnoughMemory);
+			return MAKE_ERROR(Error::NoEnoughMemory);
 		}
 		const byte address = AllocDeviceAddress();
 		if (address == 0) {
 			child_fail_count_++;
-			return MAKE_ERROR(Error::kNoEnoughMemory);
+			return MAKE_ERROR(Error::NoEnoughMemory);
 		}
 		// PORT_LOW_SPEED is status bit 9; HCD speed codes are 1 = FS, 2 = LS
 		const byte speed = (port_status & kHubPortStatusLowSpeed) ? byte(2) : byte(1);
@@ -408,12 +408,12 @@ namespace uni::device::SpaceUSB {
 		if (child == nullptr) {
 			FreeDeviceAddress(address);
 			child_fail_count_++;
-			return MAKE_ERROR(Error::kNoEnoughMemory);
+			return MAKE_ERROR(Error::NoEnoughMemory);
 		}
 		if (child->ControlChannel() == kNoChannel) {
 			delete child;// its destructor gives the address back too
 			child_fail_count_++;
-			return MAKE_ERROR(Error::kNoEnoughMemory);
+			return MAKE_ERROR(Error::NoEnoughMemory);
 		}
 		child->parent_ = this;
 		child->parent_port_ = port;
@@ -428,7 +428,7 @@ namespace uni::device::SpaceUSB {
 		// hold the first transaction back until the reset recovery time is over (started by TickAddressing)
 		hub_child_started_ = false;
 		child_up_count_++;
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// the downstream device is gone: its channels and its USB address go back to the bus
@@ -554,7 +554,7 @@ namespace uni::device::SpaceUSB {
 	// AKA USBH_AllocPipe: one host channel per endpoint address
 	Error OTGHostDevice::ConfigureEndpoints() {
 		if (endpoints_configured_) {
-			return MAKE_ERROR(Error::kSuccess);
+			return MAKE_ERROR(Error::Success);
 		}
 		for (int i = 0; i < NumEndpointConfigs(); ++i) {
 			const EndpointConfig& conf = EndpointConfigs()[i];
@@ -576,7 +576,7 @@ namespace uni::device::SpaceUSB {
 				ep_type, static_cast<uint16>(conf.max_packet_size));
 		}
 		endpoints_configured_ = true;
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// Channel of an endpoint address, programming the channels on first use.
@@ -614,7 +614,7 @@ namespace uni::device::SpaceUSB {
 		}
 		ctrl_waiting_ = true;
 		ctrl_submit_tick_ = s_bus_tick;
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// Advance the control stage machine on a control-channel URB completion.

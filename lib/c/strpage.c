@@ -40,7 +40,7 @@ static Strpage* StrpageSetup(stduint level)
 	Strpage* sp;
 	if (sp = zalcof(Strpage)); else 
 		return NULL;
-	if (sp->layer_level = level)
+	if ((sp->layer_level = level))
 		;// MetSetof(sp->branches, NULL);
 	return sp;
 }

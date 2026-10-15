@@ -80,7 +80,7 @@ namespace uni::device::SpaceUSB {
 				NotifyKeyPush(keyevent);
 			}
 		}
-		return MAKE_ERROR(Error::kSuccess);
+		return MAKE_ERROR(Error::Success);
 	}
 
 	// the lock keys are not part of the modifier byte: each press flips one LED bit

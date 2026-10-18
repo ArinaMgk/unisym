@@ -32,7 +32,7 @@ namespace uni {
 	HostConsole Console;
 
 	int HostConsole::out(const char* str, stduint len) {
-		if (!count_mode) outtxt(str, len);
+		if (!count_mode) (!error_mode ? outtxt : outerr)(str, len);
 		out_count += len;
 		return len;
 	}
@@ -54,6 +54,19 @@ int outsfmt(const char* fmt, ...)
 }
 int outsfmtlst(const char* fmt, para_list paras) { return uni::Console.OutFormatPack(fmt, paras); }
 void outc(const char chr) { uni::Console.out(&chr, 1); }
+
+int errofmtlst(const char* fmt, para_list paras) {
+	uni::Console.error_mode = true;
+	auto ret = uni::Console.OutFormatPack(fmt, paras);
+	uni::Console.error_mode = false;
+	return ret;
+}
+int errofmt(const char* fmt, ...) {
+	Letpara(args, fmt);
+	return errofmtlst(fmt, args);
+	para_endo(args);
+}
+
 #if defined(_BIT_SUPPORT_64)
 #if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 __attribute__((target("sse2")))
@@ -84,6 +97,9 @@ void outtxt(const char* str, stduint len)
 		putchar(*str++);
 	}
 	//_crt_out_cnt += len;
+}
+void outerr(const char* str, stduint len) {
+	for0(i, len) { fputc(*str++, stderr); }
 }
 
 #elif defined(_MCCA) && _MCCA==0x8632// in consio.cpp
@@ -361,6 +377,9 @@ namespace uni {
 
 extern uni::OstreamTrait* con0_out;
 _WEAK void outtxt(const char* str, stduint len) {
+	asserv (con0_out)->out(str, len);
+}
+_WEAK void outerr(const char* str, stduint len) {
 	asserv (con0_out)->out(str, len);
 }
 

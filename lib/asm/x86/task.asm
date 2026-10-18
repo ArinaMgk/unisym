@@ -6,17 +6,6 @@
 ; Copyright: ArinaMgk UniSym, Apache License Version 2.0
 
 GLOBAL SwitchTaskContext
-GLOBAL dbg_last_switch_ctx
-GLOBAL dbg_last_switch_stage
-GLOBAL dbg_last_switch_path
-GLOBAL dbg_last_switch_iret_esp
-GLOBAL dbg_last_switch_ip
-GLOBAL dbg_last_switch_cs
-GLOBAL dbg_last_switch_ds
-GLOBAL dbg_last_switch_es
-GLOBAL dbg_last_switch_ss
-GLOBAL dbg_last_switch_fs
-GLOBAL dbg_last_switch_gs
 EXTERN ap_lapicid_to_coreid
 EXTERN ap_ring3_iret_stack_tops
 EXTERN ap_ring3_iret_guard_hits
@@ -28,6 +17,7 @@ EXTERN C_PCU_CORES_PERCORE
 [CPU 686]
 
 [BITS 32]
+%ifndef _DYNLINK_
 
 
 section .text
@@ -315,3 +305,6 @@ jmpTask_var: DD 0,0,0,0, 0,0,0,0; do not access after change page
 ALIGN 16
 jmpTask_stack: TIMES 8 DD 0
 jmpTask_stack_top:; for cpu0
+
+%endif
+

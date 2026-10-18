@@ -47,6 +47,7 @@ void curset(word posi);
 word curget(void);
 void scrrol(word lines);
 void outtxt(const char* str, stduint len);
+void outerr(const char* str, stduint len);
 
 // [INNER-USE]
 #define outs(a) outtxt(a, StrLength(a))
@@ -58,7 +59,9 @@ bool outinteger(uint64 val, int base, bool sign_show, bool sign_have, byte least
 
 // User Use
 int  outsfmtlst(const char* fmt, para_list lst);
+int  errofmtlst(const char* fmt, para_list paras);
 int  outsfmt(const char* fmt, ...);
+int  errofmt(const char* fmt, ...);
 //[OLD] outbyte_t outredirect(outbyte_t out);
 
 #define printline(...) puts(__VA_ARGS__)
@@ -168,6 +171,8 @@ namespace uni {
 	
 	class HostConsole : public Console_t // single instance
 	{
+	public:
+		bool error_mode = false; // for error output
 	public:
 		virtual int out(const char* str, stduint len) override;
 		virtual int inn() override;

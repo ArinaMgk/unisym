@@ -190,6 +190,7 @@ namespace uni {
 			while (!is_transmit_empty());
 			outpb(baseaddr, str[i]);
 		}
+		out_count += len;
 		return len;
 	}
 

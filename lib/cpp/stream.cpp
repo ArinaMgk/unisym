@@ -187,6 +187,9 @@ namespace uni {
 				if (!s) s = (char*)"(null)";
 				outs(s);
 				break;
+			case 'n':
+				if (int* count = pnext(int*)) *count = (int)out_count;
+				break;
 			case '%':
 				c = '%';
 				localout(&fmt[i], 1);

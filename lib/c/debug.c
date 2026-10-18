@@ -74,16 +74,16 @@ switch (level)
 #else // elif defined(_Linux) || 1
 	{
 	case _LOG_FATAL:// better into STDERR
-		outsfmt("\x1b[%dm%s", CON_FORE_RED, _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
+		errofmt("\x1b[%dm%s", CON_FORE_RED, _logstyle == _LOG_STYLE_NONE ? _pref_fata : "fatal: ");
 		break;
 	case _LOG_PANIC:// better into STDERR
-		outsfmt("\x1b[%dm%s", CON_FORE_RED, _logstyle == _LOG_STYLE_NONE ? _pref_pani : "panic: ");
+		errofmt("\x1b[%dm%s", CON_FORE_RED, _logstyle == _LOG_STYLE_NONE ? _pref_pani : "panic: ");
 		break;
 	case _LOG_ERROR:// better into STDERR
-		outsfmt("\x1b[%dm%s", CON_FORE_RED, _logstyle == _LOG_STYLE_NONE ? _pref_erro : "error: ");
+		errofmt("\x1b[%dm%s", CON_FORE_RED, _logstyle == _LOG_STYLE_NONE ? _pref_erro : "error: ");
 		break;
 	case _LOG_WARN:
-		outsfmt("\x1b[%dm%s", CON_FORE_YELLOW, _logstyle == _LOG_STYLE_NONE ? _pref_warn : "warning: "); break;
+		errofmt("\x1b[%dm%s", CON_FORE_YELLOW, _logstyle == _LOG_STYLE_NONE ? _pref_warn : "warning: "); break;
 	case _LOG_INFO:
 		outsfmt("\x1b[%dm%s", CON_FORE_CYAN, _logstyle == _LOG_STYLE_NONE ? _pref_info : "info: "); break;
 	case _LOG_DEBUG:
@@ -104,7 +104,10 @@ static void printsuff(loglevel_t level) {
 	outs("\xFF\xFF\n\r");
 #elif defined(_Linux) || 1
 	if (level != _LOG_STDOUT)
-		outs("\x1b[0m\n\r");
+	{
+		((level && level <= _LOG_WARN) ? errofmt : outsfmt)
+			("%s", "\x1b[0m\n\r");
+	}
 #endif
 }
 
@@ -113,7 +116,7 @@ void printlogx(loglevel_t level, const char* fmt, para_list paras)
 #if defined(_Linux) || 1
 	printpref(level);
 	asserv(_befo_logging) ((void*)level);
-	outsfmtlst(fmt, paras);
+	((level && level <= _LOG_WARN) ? errofmtlst : outsfmtlst)(fmt, paras);
 	printsuff(level);
 #endif
 	if (level != _LOG_STDOUT) // assume low level is more serious

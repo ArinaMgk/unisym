@@ -80,7 +80,7 @@ void ConClearScreen(void);
 // ---- ---- ---- ----
 
 // Return the length of the words excluding terminating zero but "limit" considers it.
-size_t ConScanLine(char* buf, size_t limit);
+//(removed) size_t ConScanLine(char* buf, size_t limit);
 
 void ConCursorMoveUp(unsigned short dif);
 void ConCursorMoveDown(unsigned short dif);

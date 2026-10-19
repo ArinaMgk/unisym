@@ -125,24 +125,6 @@ void ConStyleNormal(void)
 #endif
 }
 
-size_t ConScanLine(char* buf, size_t limit)
-{
-#if defined(_WinNT) || defined(_Linux) || defined(_ACCM) 
-	size_t slen = 0;
-	char* tmp = fgets(buf, (int)limit, stdin);// tmp: cheat compiler
-	if (!*buf) return 0;
-	while (buf[slen + 1])slen++;
-	while ((buf[slen] == '\n' || buf[slen] == '\r'))
-	{
-		buf[slen] = 0;
-		if (!slen) break; else slen--;
-	}
-	return 1 + slen;
-#else
-	return _TODO 0;
-#endif
-}
-
 void ConClearScreen(void)
 {
 	int i =
@@ -385,13 +367,3 @@ _WEAK void outerr(const char* str, stduint len) {
 
 #endif
 
-#if 0
-
-size_t ConScanLine(char* innbuf, size_t limit) {
-	char ch;
-	while (i < limit && std::cin.get(ch) && ch != '\n')
-		innbuf[i++] = ch;
-	innbuf[i] = 0;
-}
-
-#endif

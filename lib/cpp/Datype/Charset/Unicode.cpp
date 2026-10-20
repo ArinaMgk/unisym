@@ -153,3 +153,42 @@ stduint ScanUTF8(byte* src) {
 	else if (*src < 0xFE) return 6;
 	return NONE;
 }
+
+// Terminal columns one code point takes, 2 for the East Asian wide ranges.
+static stduint RuneWidth(char_utf32_t rune) {
+	if (rune >= 0x1100 && rune <= 0x115F) return 2;
+	if (rune >= 0x2E80 && rune <= 0x303E) return 2;
+	if (rune >= 0x3041 && rune <= 0x33FF) return 2;
+	if (rune >= 0x3400 && rune <= 0x4DBF) return 2;
+	if (rune >= 0x4E00 && rune <= 0x9FFF) return 2;
+	if (rune >= 0xA000 && rune <= 0xA4CF) return 2;
+	if (rune >= 0xAC00 && rune <= 0xD7A3) return 2;
+	if (rune >= 0xF900 && rune <= 0xFAFF) return 2;
+	if (rune >= 0xFE30 && rune <= 0xFE6F) return 2;
+	if (rune >= 0xFF00 && rune <= 0xFF60) return 2;
+	if (rune >= 0xFFE0 && rune <= 0xFFE6) return 2;
+	if (rune >= 0x1F300 && rune <= 0x1F64F) return 2;
+	if (rune >= 0x1F900 && rune <= 0x1F9FF) return 2;
+	if (rune >= 0x20000 && rune <= 0x3FFFD) return 2;
+	return 1;
+}
+
+// Columns of the UTF-8 character starting at src, NONE when the sequence is broken.
+stduint ScanUTF8Width(byte* src) {
+	if (!src) return NONE;
+	stduint len = ScanUTF8(src);
+	if (len == NONE) return NONE;
+	char_utf32_t rune = 0;
+	if (len == 1) {
+		rune = *src;
+	}
+	else {
+		rune = (*src) & (0xFF >> (len + 1));
+		for (stduint i = 1; i < len; i++) {
+			if ((src[i] & 0xC0) != 0x80U) return NONE;
+			rune = (rune << 6) | (src[i] & 0x3F);
+		}
+	}
+	return RuneWidth(rune);
+}
+

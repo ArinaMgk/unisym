@@ -44,6 +44,9 @@ extern "C" {
 	// return the length of the next UTF-8 char
 	stduint ScanUTF8(byte* src);
 
+	// return the terminal columns of the next UTF-8 char
+	stduint ScanUTF8Width(byte* src);
+
 #ifdef _INC_CPP
 }
 #endif

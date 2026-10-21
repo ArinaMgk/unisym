@@ -26,6 +26,7 @@
 #ifdef _DEBUG
 
 logstyle_t _logstyle = _LOG_STYLE_NONE;
+_WEAK loglevel_t _log_limit = _LOG_INFO;// hosts may override with a strong definition
 // MSVC Style {filename(lineno) : error: ...}
 // GCC  Style {filename:lineno: error: ...}
 // This process `error` only. User should print `filename` and `lineno` before calling.
@@ -114,10 +115,14 @@ static void printsuff(loglevel_t level) {
 void printlogx(loglevel_t level, const char* fmt, para_list paras)
 {
 #if defined(_Linux) || 1
-	printpref(level);
-	asserv(_befo_logging) ((void*)level);
-	((level && level <= _LOG_WARN) ? errofmtlst : outsfmtlst)(fmt, paras);
-	printsuff(level);
+	// _LOG_GOOD ranks after _LOG_TRACE but stays visible
+	if (level == _LOG_STDOUT || level == _LOG_GOOD || level <= _log_limit)
+	{
+		printpref(level);
+		asserv(_befo_logging) ((void*)level);
+		((level && level <= _LOG_WARN) ? errofmtlst : outsfmtlst)(fmt, paras);
+		printsuff(level);
+	}
 #endif
 	if (level != _LOG_STDOUT) // assume low level is more serious
 		asserv(_call_serious)((void*)level);

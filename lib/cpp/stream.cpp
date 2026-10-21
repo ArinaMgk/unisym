@@ -146,27 +146,49 @@ namespace uni {
 
 
 			// ---- INTEGER ---- [signed] [base] ...
-			//{TODO} use sizlevel
+			// sizlevel: -2 byte, -1 short, 0 int, 1 long, 2 long long
+			// narrow types must be fetched by their promoted type, see para_next_u8/u16
 			case 'o':
-				out_integer(pnext(unsigned), 8, tmp_signed, true, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
-				break;
 			case 'd':
-				out_integer(pnext(signed), 10, tmp_signed, true, ent, tmp_zero_padding, intlog2_iexpo(byteof(signed)));
-				break;
-
-			// ---- UNSIGNED ----
 			case 'b':// alicee extend
-				out_integer(pnext(unsigned), 2, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
-				break;
-			case 'x':
-				out_integer(pnext(unsigned), -16, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
-				break;
-			case 'X':
-				out_integer(pnext(unsigned), 16, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
-				break;
 			case 'u':
-				out_integer(pnext(unsigned), 10, false, false, ent, tmp_zero_padding, intlog2_iexpo(byteof(unsigned)));
+			case 'x':
+			case 'X':
+			{
+				uint64 raw;
+				byte bytexpo;
+				switch (sizlevel) {
+				case -2:
+					raw = c == 'd' ? (uint64)(sbyte)pnext(signed) : (uint64)para_next_u8(paras);
+					bytexpo = intlog2_iexpo(byteof(byte));
+					break;
+				case -1:
+					raw = c == 'd' ? (uint64)(sint16)pnext(signed) : (uint64)para_next_u16(paras);
+					bytexpo = intlog2_iexpo(byteof(uint16));
+					break;
+				case 1:
+					raw = c == 'd' ? (uint64)pnext(signed long) : (uint64)pnext(unsigned long);
+					bytexpo = intlog2_iexpo(byteof(unsigned long));
+					break;
+				case 2:
+					raw = c == 'd' ? (uint64)pnext(signed long long) : (uint64)pnext(unsigned long long);
+					bytexpo = intlog2_iexpo(byteof(unsigned long long));
+					break;
+				default:// 0, or a repeated modifier: never leave the argument walk behind
+					raw = c == 'd' ? (uint64)pnext(signed) : (uint64)pnext(unsigned);
+					bytexpo = intlog2_iexpo(byteof(unsigned));
+					break;
+				}
+				switch (c) {
+				case 'o': out_integer(raw, 8, tmp_signed, true, ent, tmp_zero_padding, bytexpo); break;
+				case 'd': out_integer(raw, 10, tmp_signed, true, ent, tmp_zero_padding, bytexpo); break;
+				case 'b': out_integer(raw, 2, false, false, ent, tmp_zero_padding, bytexpo); break;
+				case 'u': out_integer(raw, 10, false, false, ent, tmp_zero_padding, bytexpo); break;
+				case 'x': out_integer(raw, -16, false, false, ent, tmp_zero_padding, bytexpo); break;
+				case 'X': out_integer(raw, 16, false, false, ent, tmp_zero_padding, bytexpo); break;
+				}
 				break;
+			}
 
 
 

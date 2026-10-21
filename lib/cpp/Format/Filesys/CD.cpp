@@ -938,7 +938,7 @@ namespace uni {
 				return false;
 			}
 		}
-		ploginfo("[UDF] AVDP at %u mvds=%u len=%u", avdp_lba,
+		plogtrac("[UDF] AVDP at %u mvds=%u len=%u", avdp_lba,
 			avdp->main_volume_descriptor_sequence_extent.location,
 			udf_ad_length(avdp->main_volume_descriptor_sequence_extent.length));
 
@@ -973,8 +973,9 @@ namespace uni {
 				}
 				fsd_icb = *(UDF_LongAD*)lvd->logical_volume_contents_use;
 				found_lvd = true;
-				ploginfo("[UDF] lvd fsd part=%u lbn=%u", fsd_icb.location.partition_reference_number, fsd_icb.location.logical_block_number);
-			} else if (tag->tag_identifier == 8) {
+				plogtrac("[UDF] lvd fsd part=%u lbn=%u", fsd_icb.location.partition_reference_number, fsd_icb.location.logical_block_number);
+			}
+			else if (tag->tag_identifier == 8) {
 				break;
 			}
 		}

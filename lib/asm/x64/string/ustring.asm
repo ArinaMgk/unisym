@@ -6,7 +6,7 @@
 BITS 64
 [SECTION .data]
 	DB "UNISYM DOSCON.IO", 0, "[COPYRIGHT]Phina Ren", "[AUTHOR] Haruno Doshou"
-[SECTION .code]
+[SECTION .code progbits alloc exec]
 	GLOBAL ChrAddx64
 	; EXTERN malloc
 ChrAddx64:; E.g. `12` and `99` for `111`

@@ -10,7 +10,7 @@
 [SECTION .data]
 	DB "UNISYM DOSCON.IO", "CPUID"
 
-[SECTION .code]
+[SECTION .code progbits alloc exec]
 	%ifndef _DYNLINK_
 	GLOBAL @CpuBrand@4 
 	%endif

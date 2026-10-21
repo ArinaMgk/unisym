@@ -87,8 +87,8 @@ namespace uni {
 	};
 
 	// ---- shared control block ----
-	// A strong owner also holds one weak reference, so the block outlives the object while any
-	// WeakPtr remains; the object is dropped when the strong count reaches zero and the block is
+	// The strong-owner group holds one implicit weak reference. The block outlives the object while
+	// any WeakPtr remains; the object is dropped when the strong count reaches zero and the block is
 	// freed when the weak count does. Both counters are atomic.
 	class _Local_SharedBlock {
 	private:
@@ -111,7 +111,7 @@ namespace uni {
 			stduint count = strong_.load(MemoryOrder_Acquire);
 			while (count) {
 				if (strong_.compare_exchange(count, count + 1, MemoryOrder_Acq_Rel, MemoryOrder_Acquire)) {
-					weak_.fetch_add(1, MemoryOrder_Relaxed);
+					// All strong owners share the one implicit weak reference created with the block.
 					return true;
 				}
 			}

@@ -8,7 +8,7 @@
 [SECTION .data]
 	DB "UNISYM DOSCON.IO"
 
-[SECTION .code]
+[SECTION .code progbits alloc exec]
 	%ifndef _DYNLINK_
 	GLOBAL @StrLength@4
 	%endif

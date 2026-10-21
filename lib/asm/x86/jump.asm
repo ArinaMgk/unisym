@@ -5,7 +5,7 @@
 ; Copyright: UNISYM, under Apache License 2.0
 
 [bits 32]
-[SECTION .code]
+[SECTION .code progbits alloc exec]
 
 GLOBAL _JumpPoint; COFF
 GLOBAL JumpPoint ; ELF

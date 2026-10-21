@@ -75,6 +75,7 @@ typedef enum {
 } logstyle_t;
 
 extern logstyle_t _logstyle;
+extern loglevel_t _log_limit;// levels above this one are not printed
 
 extern const char* _pref_fata;
 extern const char* _pref_pani;

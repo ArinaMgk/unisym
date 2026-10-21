@@ -67,7 +67,8 @@ namespace uni {
 
 	bool AHCI_Port_Base::PrepareAtaCommand(byte ata_cmd, uint64 lba, byte* data_buf, stduint sector_count, bool is_write) {
 		if (!abar || port_index < 0 || port_index >= 32) return false;
-		if (!cmd_list || !rx_fis || !cmd_table || !data_buf || sector_count == 0) return false;
+		// Intel AHCI 1.3.1, section 4.2.3.3: the PRDT data base address must be word-aligned.
+		if (!cmd_list || !rx_fis || !cmd_table || !data_buf || sector_count == 0 || (_IMM(data_buf) & 1u)) return false;
 		auto& port = abar->ports[port_index];
 		if (!StopCommandEngine()) return false;
 
@@ -120,7 +121,7 @@ namespace uni {
 
 	bool AHCI_Port_Base::PreparePacketCommand(const byte packet[12], byte* data_buf, stduint byte_count, bool is_write) {
 		if (!abar || port_index < 0 || port_index >= 32) return false;
-		if (!cmd_list || !rx_fis || !cmd_table || !packet || !data_buf || byte_count == 0) return false;
+		if (!cmd_list || !rx_fis || !cmd_table || !packet || !data_buf || byte_count == 0 || (_IMM(data_buf) & 1u)) return false;
 		auto& port = abar->ports[port_index];
 		if (!StopCommandEngine()) return false;
 
@@ -223,7 +224,20 @@ namespace uni {
 	}
 
 	bool Harddisk_SATA_AHCI::ReadSectors(uint64 lba, void* dest, stduint sector_count) {
-		if (!dest) return false;
+		if (!dest || !sector_count) return false;
+		if (_IMM(dest) & 1u) {
+			byte* aligned = new (std::align_val_t(2)) byte[512];
+			if (!aligned) return false;
+			for0(i, sector_count) {
+				if (!ReadSectors(lba + i, aligned, 1)) {
+					::operator delete[](aligned, std::align_val_t(2));
+					return false;
+				}
+				MemCopyN((byte*)dest + i * 512, aligned, 512);
+			}
+			::operator delete[](aligned, std::align_val_t(2));
+			return true;
+		}
 		if (!PrepareAtaCommand(AHCI_ATA_CMD_READ_DMA_EXT, lba, (byte*)dest, sector_count, false)) return false;
 		auto& port = abar->ports[port_index];
 		while (port.tfd & (0x80u | 0x08u)) {}
@@ -233,7 +247,20 @@ namespace uni {
 	}
 
 	bool Harddisk_SATA_AHCI::WriteSectors(uint64 lba, const void* src, stduint sector_count) {
-		if (!src) return false;
+		if (!src || !sector_count) return false;
+		if (_IMM(src) & 1u) {
+			byte* aligned = new (std::align_val_t(2)) byte[512];
+			if (!aligned) return false;
+			for0(i, sector_count) {
+				MemCopyN(aligned, (const byte*)src + i * 512, 512);
+				if (!WriteSectors(lba + i, aligned, 1)) {
+					::operator delete[](aligned, std::align_val_t(2));
+					return false;
+				}
+			}
+			::operator delete[](aligned, std::align_val_t(2));
+			return true;
+		}
 		if (!PrepareAtaCommand(AHCI_ATA_CMD_WRITE_DMA_EXT, lba, (byte*)src, sector_count, true)) return false;
 		auto& port = abar->ports[port_index];
 		while (port.tfd & (0x80u | 0x08u)) {}

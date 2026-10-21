@@ -8,7 +8,7 @@
 [SECTION .data]
 	DB "UNISYM DOSCON.IO", "BINARY"
 
-[SECTION .code]
+[SECTION .code progbits alloc exec]
 	%ifndef _DYNLINK_
 	GLOBAL @BitReflect@8
 	%endif

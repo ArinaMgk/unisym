@@ -1,6 +1,6 @@
 [BITS 64]
 
-GLOBAL SwitchTaskContext; (NormalTaskContext* nex, NormalTaskContext* crt)
+GLOBAL SwitchTaskContext; (NormalTaskContext* nex, NormalTaskContext* crt, bool old_if)
 SwitchTaskContext:
 	MOV [RSI + 0x00], RAX
 	MOV [RSI + 0x08], RCX
@@ -23,7 +23,12 @@ SwitchTaskContext:
 	MOV RAX, [RSP]; RETADDR
 	MOV [RSI + 0x80], RAX  ; RIP
 	PUSHFQ
+	CLI
 	POP QWORD [RSI + 0x88] ; RFLAGS
+	TEST DL, DL
+	JZ .old_if_saved
+	OR QWORD [RSI + 0x88], 0x200
+.old_if_saved:
 	MOV RAX, CR3
 	MOV [RSI + 0x90], RAX  ; CR3
 	;

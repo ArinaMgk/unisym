@@ -138,6 +138,7 @@ namespace uni {
 					c = '%'; tmp_percent_feed = 1;
 					break;
 				}
+				_FALLTHROUGH;
 			case '1': case '2': case '3': case '4': case '5':
 			case '6': case '7': case '8': case '9':
 				ent = ent * 10 + (c - '0');

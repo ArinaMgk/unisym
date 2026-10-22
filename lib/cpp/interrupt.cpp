@@ -106,14 +106,14 @@ void General_IRQHandler(InterruptFrame* frame) {
 static bool pic_set = false;//{} lock should
 static bool ioapic_set = false;//{} lock should
 static void _IC_INIT_PIC() {
-	_8259A_init_t Mas = { 0 };
+	_8259A_init_t Mas = { };
 	Mas.port = PORT_i8259A_MAS_A;
 	Mas.ICW1.ICW4_USED = 1;
 	Mas.ICW1.ENA = 1;
 	Mas.ICW2.IntNo = 0x20;
 	Mas.ICW3.CasPortMap = 0b00000100;
 	Mas.ICW4.Not8b = 1;
-	_8259A_init_t Slv = { 0 };
+	_8259A_init_t Slv = { };
 	Slv.port = PORT_i8259A_SLV_A;
 	Slv.ICW1.ICW4_USED = 1;
 	Slv.ICW1.ENA = 1;
@@ -212,7 +212,6 @@ void uni::PortAdapter::WriteLAPIC(uint32 offset, uint32 val) {
 	else *(volatile uint32*)_IMM(0xFEE00000u + offset) = val;
 }
 
-_ESYM_C void sendEOI();
 void uni::InterruptControl::SendEOI(byte irq) {
 	if (typ == 2) {
 		// x2APIC mode

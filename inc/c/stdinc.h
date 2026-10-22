@@ -23,14 +23,14 @@
 
 #ifndef _INC_MACHINE
 #define _INC_MACHINE
-#if defined(_INC_CPP) || defined(__cplusplus)
-extern "C" {
-#endif
+// #if defined(_INC_CPP) || defined(__cplusplus)
+// extern "C" {
+// #endif
 #include "proctrl/proctrl.h"
 
-#if defined(_INC_CPP) || defined(__cplusplus)
-}
-#endif
+// #if defined(_INC_CPP) || defined(__cplusplus)
+// }
+// #endif
 
 #include "system/host.h"
 

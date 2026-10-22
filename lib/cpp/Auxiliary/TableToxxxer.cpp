@@ -26,7 +26,7 @@ constexpr auto make_toupper() {
 
 constexpr auto make_alnum_digit() {
 	uni::Array<unsigned char, 128> t{};
-	for (int i = 0; i < t.size(); ++i) {
+	for0 (i, t.size()) {
 		char c = static_cast<char>(i);
 		if (c >= '0' && c <= '9') t[i] = c - '0';
 		else if (c >= 'A' && c <= 'Z') t[i] = c - 'A' + 10;

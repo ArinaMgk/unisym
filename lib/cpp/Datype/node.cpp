@@ -129,7 +129,7 @@ namespace uni {
 		Node* crt = Root();
 		if (!crt) return;
 		Node* last = crt, * next = crt->next;
-		while (crt = next) {
+		while ((crt = next)) {
 			next = crt->next;
 			if (cmp(last->offs, crt->offs) > 0)
 			{

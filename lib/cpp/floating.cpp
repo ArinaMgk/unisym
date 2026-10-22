@@ -87,7 +87,7 @@ static int float_multiply(fp_limb * to, fp_limb * from)
 	dprintf(("%s=" MANT_FMT "\n", "mul1", SOME_ARG(to, 0)));
 	dprintf(("%s=" MANT_FMT "\n", "mul2", SOME_ARG(from, 0)));
 
-	(temp, 0, sizeof temp);
+	// (temp, 0, sizeof temp);
 
 	for (i = 0; i < MANT_LIMBS; i++) {
 		for (j = 0; j < MANT_LIMBS; j++) {

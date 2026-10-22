@@ -211,7 +211,7 @@ namespace uni {
 		for (int level = PAGE_LEVELS - 1; level >= (int)target_level; --level) {
 			entry = &table[getVPN(address, level)];
 			p.crt_level = level;
-			if (!entry->isPresent() || entry->isLeaf(level) || level == target_level)
+			if (!entry->isPresent() || entry->isLeaf(level) || level == (int)target_level)
 				return true;
 			if (!entry->isTable(level)) return false;
 			table = (PageEntry*)entry->getAddress(level);
@@ -954,7 +954,7 @@ namespace uni {
 			stduint existing_properties;
 			const bool decoded = entry->DecodeLeafProperties(level, existing_properties);
 			const stduint existing_type = decoded ?
-				(existing_properties & PGPROP_MASK_TYPE) : PGPROP_MASK_TYPE;
+				(existing_properties & PGPROP_MASK_TYPE) : stduint(PGPROP_MASK_TYPE);
 			const stduint requested_type = transaction.properties & PGPROP_MASK_TYPE;
 			if (!decoded || ((existing_type != PGTYPE_default &&
 				existing_type != PGTYPE_writeback) &&

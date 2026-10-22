@@ -23,6 +23,8 @@
 #include "../../../inc/cpp/dnode"
 #include "../../../inc/c/ustring.h"
 
+#define nothing(...) {__VA_ARGS__}
+
 namespace uni {
 #define tmpl(...) __VA_ARGS__ Dchain
 
@@ -80,12 +82,12 @@ namespace uni {
 	// impl Array for 
 	tmpl(pureptr_t)::Locate(stduint idx) const {
 		Dnode* crt = Root();
-		if (idx) do; while ((crt = crt->next) && (--idx));
+		if (idx) do nothing() while ((crt = crt->next) && (--idx));
 		return (pureptr_t)(idx ? nullptr : crt);
 	}
 	tmpl(Dnode*)::LocateNode(stduint idx) const {
 		Dnode* crt = Root();
-		if (crt) do; while ((idx--) && (crt = crt->next));
+		if (crt) do nothing() while ((idx--) && (crt = crt->next));
 		return crt; // if not found, crt is nullptr
 	}
 	//
@@ -152,7 +154,7 @@ namespace uni {
 		Dnode* crt = Root();
 		if (!crt || !crt->next) return;
 		Dnode* next = crt->next;
-		while (crt = next) {
+		while ((crt = next)) {
 			next = crt->next;
 			if (cmp(crt->left, crt) > 0)
 			{
@@ -181,7 +183,7 @@ namespace uni {
 		if (nod) do {
 			if (nod->offs == off && nod->type == typ)
 				return true;
-		} while (nod = nod->next);
+		} while ((nod = nod->next));
 		return false;
 	}
 

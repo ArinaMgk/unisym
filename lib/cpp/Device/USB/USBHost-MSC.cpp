@@ -25,11 +25,6 @@
 namespace uni::device::SpaceUSB {
 
 	// ---- SCSI command bytes (AKA usbh_msc_scsi.c) ----
-	#define _SCSI_INQUIRY         0x12
-	#define _SCSI_READ_CAPACITY10 0x25
-	#define _SCSI_READ10          0x28
-	#define _SCSI_WRITE10         0x2A
-	#define _SCSI_INQUIRY_ALLOC   0x24
 	#define _SCSI_GET_MAX_LUN     0xFE
 	#define _MSC_BULK_ONLY_RESET  0xFF
 
@@ -78,7 +73,7 @@ namespace uni::device::SpaceUSB {
 	Error USBHost_MSC::OnEndpointsConfigured() {
 		if (!bulk_mps_ || ep_bulk_in_.Number() == 0 || ep_bulk_out_.Number() == 0) {
 			result_ = Result::NoBulkPair;
-			phase_ = 4;
+			phase_ = Phase::Done;
 			plogwarn("USB MSC bring-up failed dev=%p interface=%u result=%s bulk-in=%u bulk-out=%u mps=%u",
 				ParentDevice(), (stduint)interface_index_, ResultName(),
 				(stduint)ep_bulk_in_.Address(), (stduint)ep_bulk_out_.Address(),
@@ -98,12 +93,12 @@ namespace uni::device::SpaceUSB {
 		setup_data.value = 0;
 		setup_data.index = static_cast<uint16>(interface_index_);
 		setup_data.length = 1;
-		phase_ = 1;
+		phase_ = Phase::GetMaxLun;
 		auto error = ParentDevice()->ControlIn(kDefaultControlPipeID, setup_data,
 			&max_lun_, 1, this);
 		if (error) {
 			result_ = Result::TransferFailed;
-			phase_ = 4;
+			phase_ = Phase::Done;
 			plogwarn("USB MSC GET_MAX_LUN submit failed dev=%p interface=%u error=%s",
 				ParentDevice(), (stduint)interface_index_, error.Name());
 			Notify(Event::BringUpComplete);
@@ -174,7 +169,7 @@ namespace uni::device::SpaceUSB {
 			}
 			return MAKE_ERROR(Error::InvalidPhase);
 		}
-		if (phase_ == 1) {
+		if (phase_ == Phase::GetMaxLun) {
 			// Devices that do not implement GET_MAX_LUN stall the request; that is a
 			// device with LUN 0 only, AKA what Linux assumes as well.
 			if (len < 1 || max_lun_ > kMaxLun) max_lun_ = 0;
@@ -324,23 +319,34 @@ namespace uni::device::SpaceUSB {
 
 	Error USBHost_MSC::Inquiry() {
 		byte cdb[kCdbLength] = {};
-		cdb[0] = _SCSI_INQUIRY;
+		cdb[0] = static_cast<byte>(ScsiCommand::Inquiry);
 		cdb[1] = static_cast<byte>(lun_ << 5);// EVPD = 0, LUN in bits 7..5 (AKA the reference)
-		cdb[4] = _SCSI_INQUIRY_ALLOC;// allocation length: 36 bytes
-		phase_ = 2;
-		return StartCommand(cdb, true, inquiry_, kInquiryLength);
+		cdb[4] = kInquiryLength;
+		phase_ = Phase::Inquiry;
+		return StartCommand(cdb, kCdbLength, true, inquiry_, kInquiryLength);
 	}
 
 	Error USBHost_MSC::ReadCapacity10() {
 		byte cdb[kCdbLength] = {};
-		cdb[0] = _SCSI_READ_CAPACITY10;
-		phase_ = 3;
-		return StartCommand(cdb, true, capacity_, kCapacityLength);
+		cdb[0] = static_cast<byte>(ScsiCommand::ReadCapacity10);
+		phase_ = Phase::ReadCapacity;
+		return StartCommand(cdb, kCdbLength, true, capacity_, kCapacityLength);
+	}
+
+	Error USBHost_MSC::RequestSense(Result failed_result) {
+		byte cdb[kSenseCdbLength] = {};
+		cdb[0] = static_cast<byte>(ScsiCommand::RequestSense);
+		cdb[4] = kSenseLength;
+		for (byte& value : sense_) value = 0;
+		sense_origin_result_ = failed_result;
+		phase_ = Phase::RequestSense;
+		return StartCommand(cdb, kSenseCdbLength, true, sense_, kSenseLength);
 	}
 
 	// AKA USBH_MSC_BOT_SendCBW: the command block wrapper goes out on the bulk OUT
 	// endpoint, then the data stage (if any) and finally the status wrapper.
-	Error USBHost_MSC::StartCommand(const byte* cdb, bool dir_in, void* data, uint32 data_len) {
+	Error USBHost_MSC::StartCommand(const byte* cdb, byte cdb_len, bool dir_in,
+		void* data, uint32 data_len) {
 		if (stage_ != Stage::Idle) return MAKE_ERROR(Error::Full);
 		cbw_.signature = kSignatureCbw;
 		cbw_.tag = next_tag_++;
@@ -348,8 +354,8 @@ namespace uni::device::SpaceUSB {
 		cbw_.transfer_length = data_len;
 		cbw_.flags = dir_in ? 0x80 : 0x00;
 		cbw_.lun = lun_;
-		cbw_.cb_length = kCdbLength;
-		for (byte i = 0; i < 16; i++) cbw_.cb[i] = (i < kCdbLength) ? cdb[i] : 0;
+		cbw_.cb_length = cdb_len;
+		for (byte i = 0; i < 16; i++) cbw_.cb[i] = (i < cdb_len) ? cdb[i] : 0;
 		dir_in_ = dir_in;
 		data_ = data;
 		data_len_ = data_len;
@@ -464,34 +470,88 @@ namespace uni::device::SpaceUSB {
 				ResultName(), (stduint)command_count_, (stduint)completion_count_,
 				(stduint)halt_recoveries_, (stduint)reset_recoveries_);
 		}
-		if (phase_ == 2) {
+		if (phase_ == Phase::Inquiry) {
 			Notify(Event::CommandComplete);
 			// INQUIRY done (or refused): the capacity matters more, so keep going
 			if (res == Result::Ok) CaptureInquiry();
 			ReadCapacity10();
 			return;
 		}
-		if (phase_ == 3) {
-			if (res == Result::Ok) ParseCapacity();
-			phase_ = 4;
-			if (ready_) {
-				ploginfo("USB MSC ready dev=%p interface=%u lun=%u vendor=%s product=%s revision=%s blocks=%u block-size=%u commands=%u completions=%u recoveries=%u resets=%u",
-					ParentDevice(), (stduint)interface_index_, (stduint)lun_,
-					vendor_, product_, revision_, (stduint)block_count_,
-					(stduint)block_size_, (stduint)command_count_,
-					(stduint)completion_count_, (stduint)halt_recoveries_,
-					(stduint)reset_recoveries_);
-			} else {
-				plogwarn("USB MSC bring-up failed dev=%p interface=%u phase=%s result=%s commands=%u completions=%u recoveries=%u resets=%u",
-					ParentDevice(), (stduint)interface_index_, PhaseName(), ResultName(),
-					(stduint)command_count_, (stduint)completion_count_,
-					(stduint)halt_recoveries_, (stduint)reset_recoveries_);
-			}
+		if (phase_ == Phase::ReadCapacity) {
 			Notify(Event::CommandComplete);
-			Notify(Event::BringUpComplete);
+			if (res == Result::Ok) {
+				ParseCapacity();
+				CompleteBringUp(Result::Ok);
+				return;
+			}
+			if (res == Result::CswStatus) {
+				RequestSense(res);
+				return;
+			}
+			CompleteBringUp(res);
+			return;
+		}
+		if (phase_ == Phase::RequestSense) {
+			Notify(Event::CommandComplete);
+			if (res == Result::Ok && ShouldRetrySense() &&
+				capacity_retries_ < kMaxCapacityRetries) {
+				capacity_retries_++;
+				ploginfo("USB MSC retry READ CAPACITY dev=%p interface=%u attempt=%u",
+					ParentDevice(), (stduint)interface_index_,
+					(stduint)capacity_retries_);
+				ReadCapacity10();
+				return;
+			}
+			CompleteBringUp(sense_origin_result_);
 			return;
 		}
 		Notify(Event::CommandComplete);
+	}
+
+	bool USBHost_MSC::ShouldRetrySense() {
+		const byte response_code = sense_[0] & 0x7F;
+		byte key = 0xFF;
+		byte asc = 0;
+		byte ascq = 0;
+		if (response_code == static_cast<byte>(SenseResponseCode::CurrentFixed) ||
+			response_code == static_cast<byte>(SenseResponseCode::DeferredFixed)) {
+			key = sense_[2] & 0x0F;
+			asc = sense_[12];
+			ascq = sense_[13];
+		}
+		else if (response_code == static_cast<byte>(SenseResponseCode::CurrentDescriptor) ||
+			response_code == static_cast<byte>(SenseResponseCode::DeferredDescriptor)) {
+			key = sense_[1] & 0x0F;
+			asc = sense_[2];
+			ascq = sense_[3];
+		}
+		plogwarn("USB MSC sense dev=%p interface=%u response=%[8H] key=%[8H] asc=%[8H] ascq=%[8H] retry=%u/%u",
+			ParentDevice(), (stduint)interface_index_, (stduint)response_code,
+			(stduint)key, (stduint)asc, (stduint)ascq,
+			(stduint)capacity_retries_, (stduint)kMaxCapacityRetries);
+		if (key == static_cast<byte>(SenseKey::UnitAttention)) return true;
+		return key == static_cast<byte>(SenseKey::NotReady) &&
+			asc == kAscLogicalUnitNotReady && ascq == kAscqBecomingReady;
+	}
+
+	void USBHost_MSC::CompleteBringUp(Result result) {
+		result_ = result;
+		phase_ = Phase::Done;
+		if (ready_) {
+			ploginfo("USB MSC ready dev=%p interface=%u lun=%u vendor=%s product=%s revision=%s blocks=%u block-size=%u commands=%u completions=%u recoveries=%u resets=%u",
+				ParentDevice(), (stduint)interface_index_, (stduint)lun_,
+				vendor_, product_, revision_, (stduint)block_count_,
+				(stduint)block_size_, (stduint)command_count_,
+				(stduint)completion_count_, (stduint)halt_recoveries_,
+				(stduint)reset_recoveries_);
+		}
+		else {
+			plogwarn("USB MSC bring-up failed dev=%p interface=%u phase=%s result=%s commands=%u completions=%u recoveries=%u resets=%u",
+				ParentDevice(), (stduint)interface_index_, PhaseName(), ResultName(),
+				(stduint)command_count_, (stduint)completion_count_,
+				(stduint)halt_recoveries_, (stduint)reset_recoveries_);
+		}
+		Notify(Event::BringUpComplete);
 	}
 
 	// AKA USBH_MSC_SCSI_Inquiry: vendor at 8, product at 16, revision at 32
@@ -531,14 +591,15 @@ namespace uni::device::SpaceUSB {
 			return MAKE_ERROR(Error::IndexOutOfRange);
 		}
 		byte cdb[kCdbLength] = {};
-		cdb[0] = _SCSI_READ10;
+		cdb[0] = static_cast<byte>(ScsiCommand::Read10);
 		cdb[2] = static_cast<byte>(lba >> 24);
 		cdb[3] = static_cast<byte>(lba >> 16);
 		cdb[4] = static_cast<byte>(lba >> 8);
 		cdb[5] = static_cast<byte>(lba);
 		cdb[7] = static_cast<byte>(count >> 8);
 		cdb[8] = static_cast<byte>(count);
-		return StartCommand(cdb, true, buf, static_cast<uint32>(count) * block_size_);
+		return StartCommand(cdb, kCdbLength, true, buf,
+			static_cast<uint32>(count) * block_size_);
 	}
 
 	Error USBHost_MSC::WriteBlocks(uint32 lba, uint16 count, const void* buf) {
@@ -548,23 +609,24 @@ namespace uni::device::SpaceUSB {
 			return MAKE_ERROR(Error::IndexOutOfRange);
 		}
 		byte cdb[kCdbLength] = {};
-		cdb[0] = _SCSI_WRITE10;
+		cdb[0] = static_cast<byte>(ScsiCommand::Write10);
 		cdb[2] = static_cast<byte>(lba >> 24);
 		cdb[3] = static_cast<byte>(lba >> 16);
 		cdb[4] = static_cast<byte>(lba >> 8);
 		cdb[5] = static_cast<byte>(lba);
 		cdb[7] = static_cast<byte>(count >> 8);
 		cdb[8] = static_cast<byte>(count);
-		return StartCommand(cdb, false, const_cast<void*>(buf),
+		return StartCommand(cdb, kCdbLength, false, const_cast<void*>(buf),
 			static_cast<uint32>(count) * block_size_);
 	}
 
 	const char* USBHost_MSC::PhaseName() const {
 		switch (phase_) {
-		case 0: return "idle";
-		case 1: return "get-max-lun";
-		case 2: return "inquiry";
-		case 3: return "read-capacity";
+		case Phase::Idle: return "idle";
+		case Phase::GetMaxLun: return "get-max-lun";
+		case Phase::Inquiry: return "inquiry";
+		case Phase::ReadCapacity: return "read-capacity";
+		case Phase::RequestSense: return "request-sense";
 		default: return "done";
 		}
 	}

@@ -148,7 +148,7 @@ namespace uni {
 						visited[adjacent] = true;
 						q.push(adjacent);
 					}
-				} while (nod = nod->next);
+				} while ((nod = nod->next));
 				if (q.empty()) {
 					if (gencrt >= cnt) break;
 					else {
@@ -206,7 +206,7 @@ namespace uni {
 					stduint adjacent = (stduint)nod->offs;
 					if (!visited[adjacent]) 
 						TraversalDepthFirst(adjacent, fn, visit_list);
-				} while (nod = nod->next);
+				} while ((nod = nod->next));
 			}
 			else if (storage == _Gnode_Matrix) {
 				std::vector<bool>& visited = *visit_list;

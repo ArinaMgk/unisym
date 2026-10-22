@@ -724,7 +724,7 @@ namespace uni::witch::control {
 						cache.wrap_mode != word_wrap) {
 						RenderCachedLine(cache, line_idx, 0, dm);
 					}
-					if (pstr) while (*pstr++) if (char_idx++ >= 0) {}
+					if (pstr) while (*pstr++) char_idx++;
 					char_idx = GetLineLength(line_idx);
 					BlitCachedLine(cache, (stduint)cur_draw_y, dm);
 					draw_count = minof(visible_cols, (char_idx > (stduint)scroll_x) ? (char_idx - (stduint)scroll_x) : 0);

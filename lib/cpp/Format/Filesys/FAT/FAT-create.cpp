@@ -143,7 +143,7 @@ namespace uni {
 
 		auto try_sector = [&](uint32_t sector) -> bool {
 			if (!storage->Read(sector, sector_buffer)) return false;
-			for (int i = 0; i < storage->Block_Size / 32; i++) {
+			for0 (i, storage->Block_Size / 32) {
 				FAT_DirEntry* dir_entry = (FAT_DirEntry*)&sector_buffer[i * 32];
 				if (dir_entry->name[0] == 0 || (byte)dir_entry->name[0] == 0xE5u) {
 					MemCopyN(dir_entry, &entry, sizeof(FAT_DirEntry));

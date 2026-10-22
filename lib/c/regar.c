@@ -132,7 +132,7 @@ signed RsgCmpByte(const unsigned char* a, const unsigned char* b, size_t alen, s
 	{
 		for (ptrdiff_t i = efflena - 1; i >= 0; i--)
 		{
-			if (state = (unsigned int)a[i] - (unsigned int)b[i])
+			if ((state = (unsigned int)a[i] - (unsigned int)b[i]))
 				return state;
 		}
 		return 0;
@@ -880,7 +880,7 @@ void RedReduct(Rfnar_t* d)
 	}
 	memfree(GCD);
 	memfree(GCDCpy);
-	while (*d->coff & 0xF == 0)
+	while (!(*d->coff & 0xF))
 	{
 		StrShiftRight4(d->coff, sizeof(size_t) * dlen);
 		RedExpoAdd8(d, 1);
@@ -1293,7 +1293,7 @@ Rfnar_t* _Need_free RedFromDouble(double flt, size_t rfnumlen, size_t FetchDigit
 	if (isnan(flt)) return RedNewImm(1, 0, 0, rfnumlen);
 	Rfnar_t* res = RedNewImm(0, 0, 1, rfnumlen);
 	if (flt == 0.0) return res;
-	if (res->cofsign = (flt < 0)) flt = -flt;
+	if ((res->cofsign = (flt < 0))) flt = -flt;
 	ptrdiff_t crtpow = ((ptrdiff_t)log2(flt)) & (~(ptrdiff_t)0b0111);
 	size_t luptimes = 0;
 	char* const buf = zalc((DBL_MAX_EXP >> 3) + 1);//{TOD} [BUF]

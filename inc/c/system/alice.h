@@ -91,6 +91,9 @@ extern "C++" {
 //#define _CALL_C __cdecl
 #define _WEAK
 #define _PACKED(x) x //{unchk}
+#if defined(__cplusplus) && defined(_MSVC_LANG) && _MSVC_LANG >= 201703L
+	#define _FALLTHROUGH [[fallthrough]]
+#endif
 
 #elif defined(__GNUC__)
 #define _DEV_GCC
@@ -99,6 +102,14 @@ extern "C++" {
 #define _ASM __asm__
 #define _WEAK __attribute__((weak))
 #define _PACKED(x) x __attribute__((packed))
+#if defined(__cplusplus) && __cplusplus >= 201703L && \
+	defined(__has_cpp_attribute)
+	#if __has_cpp_attribute(fallthrough)
+	#define _FALLTHROUGH [[fallthrough]]
+	#endif
+#elif defined(__GNUC__) && __GNUC__ >= 7 || defined(__clang__)
+	#define _FALLTHROUGH __attribute__((fallthrough))
+#endif
 
 #ifdef __UVISION_VERSION
 #define _DEV_KEIL
@@ -113,6 +124,11 @@ extern "C++" {
 #define _PACKED(x) x __attribute__((packed))
 
 #endif
+
+#ifndef _FALLTHROUGH
+#define _FALLTHROUGH
+#endif
+
 
 
 #define _ENDIAN_LOW // little endian for bit-field, ...
@@ -170,7 +186,30 @@ extern "C++" {
 #define nulrecurs(inp, root, rets) do {if (!inp) return rets; else if (!~(stduint)inp) inp = root; } while (0)
 
 #define Castype(des,val) *(des*)&(val)
+
+// Letvar
+#ifdef _INC_CPP
+namespace uni {
+	template<typename T> struct remove_const { typedef T type; };
+	template<typename T> struct remove_const<T const> { typedef T type; };
+
+	template<typename T> struct remove_volatile { typedef T type; };
+	template<typename T> struct remove_volatile<T volatile> { typedef T type; };
+
+	template<typename T> struct remove_cv {
+		typedef typename remove_volatile<
+			typename remove_const<T>::type
+		>::type type;
+	};
+
+	template<typename T>
+	using remove_cv_t = typename remove_cv<T>::type;
+}
+#define Letvar(iden,type,init) type iden = (uni::remove_cv_t<type>)(init)
+#else
 #define Letvar(iden,type,init) type iden = (type)(init)
+#endif
+
 
 #define floorAlign(align,val) (((val)/(align))*align)
 #define vaultAlign(align,val)  floorAlign(align,val+(align-1))

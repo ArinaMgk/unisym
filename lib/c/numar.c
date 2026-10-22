@@ -136,14 +136,14 @@ char* NumToString(const dima* dest, int opt)
 		* str2 = CoeToLocale(&dest->Imag, opt);
 	size_t alsize = StrLength(str1) + StrLength(str2) + 3;// \0, space and i
 	char* buf = salc(alsize);
-	for (size_t i = 0; c = str1[i]; i++)
+	for (size_t i = 0; (c = str1[i]); i++)
 	{
 		buf[pos++] = c;
 	}
 	if (dest->Imag.coff[1] != '0')
 	{
 		buf[pos++] = ' ';
-		for (size_t i = 0; c = str2[i]; i++)
+		for (size_t i = 0; (c = str2[i]); i++)
 		{
 			buf[pos++] = c;
 		}
@@ -230,6 +230,7 @@ void NumAdd(dima* dest, const dima* sors)
 			dest->z.expo = StrHeap(sors->z.expo);
 			dest->z.divr = StrHeap(sors->z.divr);
 		}
+	else {}
 }
 
 void NumSub(dima* dest, const dima* sors)
@@ -285,7 +286,7 @@ void NumMul(dima* dest, const dima* sors)// aka NumDot
 	}
 }
 
-void NumCross(dima* dest, const dima* sors)// ¦Å d_i s_j e_k
+void NumCross(dima* dest, const dima* sors)// ï¿½ï¿½ d_i s_j e_k
 {
 	// dest_x dest_y dest_z
 	// sors_x sors_y sors_z

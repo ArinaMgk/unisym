@@ -33,7 +33,8 @@ namespace uni::device::SpaceUSB {
 	//
 	// The bring-up sequence runs by itself once the endpoints are configured:
 	// GET_MAX_LUN (class request, answered with a STALL by many devices: LUN 0 only)
-	// -> INQUIRY -> READ CAPACITY(10). Every step is one BOT transaction:
+	// -> INQUIRY -> READ CAPACITY(10). A failed capacity command is followed by
+	// REQUEST SENSE and a bounded retry for transient device states. Every step is one BOT transaction:
 	// CBW(31, bulk OUT) -> data (bulk IN or OUT) -> CSW(13, bulk IN).
 	//
 	// The calls are asynchronous like the rest of the host stack: ReadBlocks and
@@ -97,6 +98,9 @@ namespace uni::device::SpaceUSB {
 		static const byte kCswLength = 13;
 		static const byte kInquiryLength = 36;
 		static const byte kCapacityLength = 8;
+		static const byte kSenseLength = 18;
+		static const byte kSenseCdbLength = 6;
+		static const byte kMaxCapacityRetries = 2;
 
 		USBHost_MSC(USBHostDevice* dev, int interface_index);
 
@@ -116,7 +120,7 @@ namespace uni::device::SpaceUSB {
 		bool IsBusy() const { return stage_ != Stage::Idle; }
 		void AbortCommand();
 		// The bring-up sequence reached its end (successfully or not)
-		bool BringUpDone() const { return phase_ == 4; }
+		bool BringUpDone() const { return phase_ == Phase::Done; }
 		Result LastResult() const { return result_; }
 		const char* ResultName() const;
 		byte MaxLun() const { return max_lun_; }
@@ -150,6 +154,33 @@ namespace uni::device::SpaceUSB {
 
 	private:
 		enum class Stage : byte { Idle, Cbw, Data, Csw };
+		enum class ScsiCommand : byte {
+			RequestSense = 0x03,
+			Inquiry = 0x12,
+			ReadCapacity10 = 0x25,
+			Read10 = 0x28,
+			Write10 = 0x2A,
+		};
+		enum class SenseResponseCode : byte {
+			CurrentFixed = 0x70,
+			DeferredFixed = 0x71,
+			CurrentDescriptor = 0x72,
+			DeferredDescriptor = 0x73,
+		};
+		enum class SenseKey : byte {
+			NotReady = 0x02,
+			UnitAttention = 0x06,
+		};
+		enum class Phase : byte {
+			Idle,
+			GetMaxLun,
+			Inquiry,
+			ReadCapacity,
+			Done,
+			RequestSense,
+		};
+		static const byte kAscLogicalUnitNotReady = 0x04;
+		static const byte kAscqBecomingReady = 0x01;
 		enum class RecoveryStage : byte {
 			None,
 			ClearHalt,
@@ -162,7 +193,9 @@ namespace uni::device::SpaceUSB {
 		// AKA the SCSI commands of usbh_msc_scsi.c
 		Error Inquiry();
 		Error ReadCapacity10();
-		Error StartCommand(const byte* cdb, bool dir_in, void* data, uint32 data_len);
+		Error RequestSense(Result failed_result);
+		Error StartCommand(const byte* cdb, byte cdb_len, bool dir_in,
+			void* data, uint32 data_len);
 		Error SubmitCsw();
 		Error SubmitDataIn();
 		// The non-periodic TxFIFO holds only 96 words (384 bytes) and this controller
@@ -180,6 +213,8 @@ namespace uni::device::SpaceUSB {
 		void Finish(Result res);
 		void ParseCsw(int len);
 		void ParseCapacity();
+		bool ShouldRetrySense();
+		void CompleteBringUp(Result result);
 		void CaptureInquiry();
 		void Notify(Event event);
 
@@ -201,8 +236,7 @@ namespace uni::device::SpaceUSB {
 		uint32 out_chunk_ = 0;
 		byte lun_ = 0;
 		byte max_lun_ = 0;
-		// bring-up phases: 1 = GET_MAX_LUN, 2 = INQUIRY, 3 = READ CAPACITY, 4 = done
-		int phase_ = 0;
+		Phase phase_ = Phase::Idle;
 		// diagnostics: how many commands were submitted, how many completions arrived
 		// and which stage the first failure happened in (0 = none yet)
 		uint32 command_count_ = 0;
@@ -218,7 +252,10 @@ namespace uni::device::SpaceUSB {
 
 		byte inquiry_[40] = {};// kInquiryLength + word padding
 		byte capacity_[12] = {};// kCapacityLength + word padding
+		byte sense_[20] = {};// kSenseLength + word padding
 		byte csw_raw_[16] = {};// kCswLength + word padding, parsed as a BotCSW
+		Result sense_origin_result_ = Result::CswStatus;
+		byte capacity_retries_ = 0;
 		uint32 block_count_ = 0;
 		uint32 block_size_ = 0;
 		char vendor_[9] = {};

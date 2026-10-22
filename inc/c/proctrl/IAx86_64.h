@@ -253,9 +253,11 @@ _PACKED(struct) CallgateFrame {
 	stduint r13;
 	stduint r14;
 	stduint r15;
+	// ax for ret-val
 	stduint ax;
 	stduint sp0;
-	// ax for ret-val
+	stduint return_to_ring1;
+	stduint caller_cr3;
 };
 #else // 32
 _PACKED(struct) CallgateFrame {
@@ -270,6 +272,10 @@ _PACKED(struct) CallgateFrame {
 #endif
 
 // -- lib/asm/*/inst/ioport.asm
+
+#if defined(_INC_CPP) || defined(__cplusplus)
+extern "C" {
+#endif
 
 _ESYM_C void OUT_b(uint16 port, uint8 data);
 _ESYM_C uint32 IN_b(uint16 port);
@@ -396,5 +402,9 @@ unsigned IfSupport_IA32E();
 inline static void RefreshVirtualAddress(stduint addr) {
 	__asm__ volatile("invlpg (%0)" : : "r"(addr) : "memory");
 }
+
+#if defined(_INC_CPP) || defined(__cplusplus)
+}
+#endif
 
 #endif

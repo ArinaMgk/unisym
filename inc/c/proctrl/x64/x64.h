@@ -40,6 +40,14 @@ static inline void Descriptor64SetData(descriptor_t* gdte, _CPU_descriptor_type 
 
 // ---- interrupt.asm ----
 
+#if defined(_INC_CPP) || defined(__cplusplus)
+extern "C" {
+#endif
+
 void sendEOI(void);
+
+#if defined(_INC_CPP) || defined(__cplusplus)
+}
+#endif
 
 #endif

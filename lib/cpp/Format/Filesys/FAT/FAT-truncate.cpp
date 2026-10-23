@@ -99,15 +99,17 @@ namespace uni {
 			fh->size = (uint32_t)size;
 
 			// Write updated size to directory entry
-			byte* dir_buf = new byte[bytes_per_sector];
-			if (storage->Read(fh->dir_sector, dir_buf)) {
-				FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
-				entry->file_size = fh->size;
-				entry->cluster_low = (uint16_t)(fh->start_cluster & 0xFFFF);
-				entry->cluster_high = (uint16_t)(fh->start_cluster >> 16);
-				storage->Write(fh->dir_sector, dir_buf);
+			if (!fh->is_unlinked) {
+				byte* dir_buf = new byte[bytes_per_sector];
+				if (storage->Read(fh->dir_sector, dir_buf)) {
+					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
+					entry->file_size = fh->size;
+					entry->cluster_low = (uint16_t)(fh->start_cluster & 0xFFFF);
+					entry->cluster_high = (uint16_t)(fh->start_cluster >> 16);
+					storage->Write(fh->dir_sector, dir_buf);
+				}
+				delete[] dir_buf;
 			}
-			delete[] dir_buf;
 		}
 		else {
 			// Expand file
@@ -125,14 +127,16 @@ namespace uni {
 				fh->start_cluster = cluster;
 				fh->current_cluster = cluster;
 
-				byte* dir_buf = new byte[bytes_per_sector];
-				if (storage->Read(fh->dir_sector, dir_buf)) {
-					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
-					entry->cluster_low = (uint16_t)(cluster & 0xFFFF);
-					entry->cluster_high = (uint16_t)(cluster >> 16);
-					storage->Write(fh->dir_sector, dir_buf);
+				if (!fh->is_unlinked) {
+					byte* dir_buf = new byte[bytes_per_sector];
+					if (storage->Read(fh->dir_sector, dir_buf)) {
+						FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
+						entry->cluster_low = (uint16_t)(cluster & 0xFFFF);
+						entry->cluster_high = (uint16_t)(cluster >> 16);
+						storage->Write(fh->dir_sector, dir_buf);
+					}
+					delete[] dir_buf;
 				}
-				delete[] dir_buf;
 			}
 
 			if (clusters_needed > current_cluster_count) {
@@ -156,13 +160,15 @@ namespace uni {
 
 			fh->size = (uint32_t)size;
 
-			byte* dir_buf = new byte[bytes_per_sector];
-			if (storage->Read(fh->dir_sector, dir_buf)) {
-				FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
-				entry->file_size = fh->size;
-				storage->Write(fh->dir_sector, dir_buf);
+			if (!fh->is_unlinked) {
+				byte* dir_buf = new byte[bytes_per_sector];
+				if (storage->Read(fh->dir_sector, dir_buf)) {
+					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
+					entry->file_size = fh->size;
+					storage->Write(fh->dir_sector, dir_buf);
+				}
+				delete[] dir_buf;
 			}
-			delete[] dir_buf;
 		}
 
 		return finish_truncate(true);

@@ -296,21 +296,23 @@ namespace uni {
 
 }
 
-#elif defined(_MCCA) && _MCCA == 0x8632
+#elif defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
 
-namespace uni {
-
-	void Cache_t::enAble(bool ena)
+void uni::Cache_t::enAble(bool ena) {
+	if (ena)
 	{
-		if (ena)
-		{
-			_ASM("mov %cr0, %eax");
-			_ASM("btr $29, %eax");// NW
-			_ASM("btr $30, %eax");// CD
-			_ASM("mov %eax, %cr0");
-		}
+		#if _MCCA == 0x8632
+		_ASM("mov %cr0, %eax");
+		_ASM("btr $29, %eax");// NW
+		_ASM("btr $30, %eax");// CD
+		_ASM("mov %eax, %cr0");
+		#elif _MCCA == 0x8664
+		_ASM("mov %cr0, %rax");
+		_ASM("btr $29, %rax");// NW
+		_ASM("btr $30, %rax");// CD
+		_ASM("mov %rax, %cr0");
+		#endif
 	}
-
 }
 
 #endif

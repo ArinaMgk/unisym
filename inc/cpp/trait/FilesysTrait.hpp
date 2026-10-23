@@ -147,6 +147,19 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 
 		virtual bool rename(rostr src_path, rostr dst_path) { return false; }// rename or move file/directory
 
+		// Remove a namespace entry while retaining data referenced by an open handle.
+		virtual bool unlink(rostr pathname, void* fil_handler) {
+			(void)pathname;
+			(void)fil_handler;
+			return false;
+		}
+
+		// Reclaim data retained for an unlinked open handle.
+		virtual bool reclaim(void* fil_handler) {
+			(void)fil_handler;
+			return false;
+		}
+
 		//{} extfunc()
 	};
 

@@ -136,6 +136,7 @@ namespace uni {
 		uint32_t current_offset;
 		uint32_t size;
 		bool     is_dir;
+		bool     is_unlinked;
 		uint32_t dir_sector;
 		uint32_t dir_index;
 	};
@@ -227,6 +228,8 @@ namespace uni {
 		virtual bool truncate(void* fil_handler, stduint size) override;
 
 		virtual bool rename(rostr src_path, rostr dst_path) override;
+		virtual bool unlink(rostr pathname, void* fil_handler) override;
+		virtual bool reclaim(void* fil_handler) override;
 
 	public:
 		uint32_t getSector_foCluster(uint32_t cluster) {

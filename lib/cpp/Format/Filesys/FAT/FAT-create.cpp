@@ -214,6 +214,7 @@ namespace uni {
 			new_fh->current_offset = 0;
 			new_fh->size = 0;
 			new_fh->is_dir = create_as_dir;
+			new_fh->is_unlinked = false;
 			new_fh->dir_sector = entry_sector;
 			new_fh->dir_index = entry_index;
 

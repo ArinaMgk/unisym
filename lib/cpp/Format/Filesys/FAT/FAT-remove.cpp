@@ -26,6 +26,10 @@
 namespace uni {
 
 	bool FilesysFAT::remove(rostr pathname) {
+		return unlink(pathname, nullptr);
+	}
+
+	bool FilesysFAT::unlink(rostr pathname, void* fil_handler) {
 		if (!fs_loaded) return false;
 		ploginfo("FATRemove: %s", pathname);
 		FAT_DirEntry entry;
@@ -85,29 +89,69 @@ namespace uni {
 		if (!find_entry_in_dir(parent_h.start_cluster, filename, &entry, &entry_sector, &entry_index, sector_buffer, fat_cache)) {
 			return finish_remove(false);
 		}
+		if (entry.attribute.directory) return finish_remove(false);
 
-		// Free cluster chain if it's a file or non-empty directory
+		FAT_FileHandle* fh = (FAT_FileHandle*)fil_handler;
+		if (fh && (fh->is_dir || fh->is_unlinked || fh->dir_sector != entry_sector ||
+			fh->dir_index != entry_index)) return finish_remove(false);
+
 		uint32_t cluster = entry.getFirstClusterNumber();
-
-		// In FAT12/16, cluster_high can contain garbage data
 		if (this->fat_type != 32) cluster &= 0xFFFF;
 
-		while (cluster >= 2 && cluster < 0xFFFFFFF8) {
+		// Mark directory entry as deleted
+		if (!storage->Read(entry_sector, sector_buffer)) return finish_remove(false);
+		FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[entry_index * 32];
+		d_entry->name[0] = 0xE5;
+		if (!storage->Write(entry_sector, sector_buffer)) return finish_remove(false);
+
+		if (fh) {
+			fh->is_unlinked = true;
+			return finish_remove(true);
+		}
+
+		uint32_t eoc_threshold = fat_type == 12 ? 0x0FF8 :
+			fat_type == 16 ? 0xFFF8 : 0x0FFFFFF8;
+		while (cluster >= 2 && cluster < eoc_threshold) {
 			uint32_t next = get_fat_entry(cluster, fat_cache);
-			set_fat_entry(cluster, 0, fat_cache); // Mark cluster as free
+			set_fat_entry(cluster, 0, fat_cache);
 			cluster = next;
 		}
 
-		// Mark directory entry as deleted
-		if (storage->Read(entry_sector, sector_buffer)) {
-			FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[entry_index * 32];
+		return finish_remove(true);
+	}
 
-			d_entry->name[0] = 0xE5;
+	bool FilesysFAT::reclaim(void* fil_handler) {
+		FAT_FileHandle* fh = (FAT_FileHandle*)fil_handler;
+		if (!fh || !fh->is_unlinked || fh->is_dir) return false;
 
-			storage->Write(entry_sector, sector_buffer);
+		FAT_TableScratch fat_table_cache = {};
+		FAT_TableScratch* fat_cache = nullptr;
+		if (allow_allocate) {
+			fat_table_cache.buffer = new byte[storage->Block_Size];
+			if (!fat_table_cache.buffer) return false;
+			fat_table_cache.current_sector = 0xFFFFFFFF;
+			fat_cache = &fat_table_cache;
 		}
 
-		return finish_remove(true);
+		uint32_t eoc_threshold = fat_type == 12 ? 0x0FF8 :
+			fat_type == 16 ? 0xFFF8 : 0x0FFFFFF8;
+		uint32_t cluster = fh->start_cluster;
+		while (cluster >= 2 && cluster < eoc_threshold) {
+			uint32_t next = get_fat_entry(cluster, fat_cache);
+			if (!set_fat_entry(cluster, 0, fat_cache)) {
+				if (fat_cache) delete[] fat_table_cache.buffer;
+				return false;
+			}
+			cluster = next;
+		}
+		if (fat_cache) delete[] fat_table_cache.buffer;
+
+		fh->start_cluster = 0;
+		fh->current_cluster = 0;
+		fh->current_offset = 0;
+		fh->size = 0;
+		fh->is_unlinked = false;
+		return true;
 	}
 
 }

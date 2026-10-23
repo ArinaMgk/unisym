@@ -133,8 +133,9 @@ namespace uni {
 				FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[src_entry_index * 32];
 				MemCopyN(d_entry->name, formatted_name, 8);
 				MemCopyN(d_entry->ext, formatted_ext, 3);
-				storage->Write(src_entry_sector, sector_buffer);
+				if (!storage->Write(src_entry_sector, sector_buffer)) return finish_rename(false);
 			}
+			else return finish_rename(false);
 			return finish_rename(true);
 		}
 
@@ -251,8 +252,9 @@ namespace uni {
 		if (storage->Read(src_entry_sector, sector_buffer)) {
 			FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[src_entry_index * 32];
 			d_entry->name[0] = 0xE5;
-			storage->Write(src_entry_sector, sector_buffer);
+			if (!storage->Write(src_entry_sector, sector_buffer)) return finish_rename(false);
 		}
+		else return finish_rename(false);
 
 		return finish_rename(true);
 	}

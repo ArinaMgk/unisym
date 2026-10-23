@@ -394,6 +394,7 @@ namespace uni {
 		uint16 MSIXTableSize(const Device& dev);
 		PCI_Result ConfigureMSIX(const Device& dev, const MSIMessage* messages,
 			uint16 message_count);
+		bool DisableMSIX(const Device& dev);
 
 	public:
 		bool ConvertFromEhci(const PCI::Device& xhc_dev);

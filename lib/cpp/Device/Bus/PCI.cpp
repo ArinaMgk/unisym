@@ -263,6 +263,7 @@ PCI_Result PCI::configure_MSIX_register(const Device& dev, uint8_t cap_addr, uin
 uint16 PCI::MSIXTableSize(const Device& dev) {
 	uint8 cap_addr = read_config_register(dev, 0x34) & 0xffu;
 	for (uint8 count = 0; cap_addr != 0 && count < 48; ++count) {
+		if (cap_addr < 0x40 || (cap_addr & 3u)) break;
 		const auto header = read_capability_header(dev, cap_addr);
 		if (header.bits.cap_id == kCapabilityMSIX) {
 			return static_cast<uint16>(((header.data >> 16) & 0x07ffu) + 1u);
@@ -279,6 +280,7 @@ PCI_Result PCI::ConfigureMSIX(const Device& dev, const MSIMessage* messages,
 	uint8 msi_cap_addr = 0;
 	uint8 msix_cap_addr = 0;
 	for (uint8 count = 0; cap_addr != 0 && count < 48; ++count) {
+		if (cap_addr < 0x40 || (cap_addr & 3u)) break;
 		const auto header = read_capability_header(dev, cap_addr);
 		if (header.bits.cap_id == kCapabilityMSI) msi_cap_addr = cap_addr;
 		if (header.bits.cap_id == kCapabilityMSIX) msix_cap_addr = cap_addr;
@@ -330,6 +332,25 @@ PCI_Result PCI::ConfigureMSIX(const Device& dev, const MSIMessage* messages,
 	control &= ~(1u << 30);
 	write_config_register(dev, msix_cap_addr, control);
 	return PCI_Result::Success;
+}
+
+bool PCI::DisableMSIX(const Device& dev) {
+	uint8 cap_addr = read_config_register(dev, 0x34) & 0xffu;
+	for (uint8 count = 0; cap_addr != 0 && count < 48; ++count) {
+		if (cap_addr < 0x40 || (cap_addr & 3u)) break;
+		const auto header = read_capability_header(dev, cap_addr);
+		if (header.bits.cap_id == kCapabilityMSIX) {
+			uint32 control = read_config_register(dev, cap_addr);
+			control |= 1u << 30;
+			write_config_register(dev, cap_addr, control);
+			control &= ~(1u << 31);
+			write_config_register(dev, cap_addr, control);
+			return true;
+		}
+		if (!header.bits.next_ptr || header.bits.next_ptr == cap_addr) break;
+		cap_addr = header.bits.next_ptr;
+	}
+	return false;
 }
 
 PCI::CapabilityHeader PCI::read_capability_header(const Device& dev, uint8 addr)

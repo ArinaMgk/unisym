@@ -80,6 +80,22 @@ namespace uni {
 			uint8_t type;
 			uint8_t length;
 		};
+		static constexpr uint8_t MADTTypeIOAPIC = 1;
+		static constexpr uint8_t MADTTypeInterruptSourceOverride = 2;
+		_PACKED(struct) MADTIOAPIC {
+			MADTEntry entry;
+			uint8_t ioapic_id;
+			uint8_t reserved;
+			uint32_t ioapic_address;
+			uint32_t global_system_interrupt_base;
+		};
+		_PACKED(struct) MADTInterruptSourceOverride {
+			MADTEntry entry;
+			uint8_t bus;
+			uint8_t source;
+			uint32_t global_system_interrupt;
+			uint16_t flags;
+		};
 		_PACKED(struct) MADTLocalAPIC {
 			MADTEntry entry;
 			uint8_t acpi_processor_uid;

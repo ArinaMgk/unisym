@@ -132,7 +132,7 @@ bool uni::InterruptControl::Initialize(byte typ) {
 		uint64_t apic_base_diag = getMSR(x86MSR::APIC_BASE);
 		bool diag_en   = (apic_base_diag >> 11) & 1; // bit11: APIC Global Enable
 		bool diag_extd = (apic_base_diag >> 10) & 1; // bit10: x2APIC Enable
-		ploginfo("[IC-Diag] IA32_APIC_BASE = 0x%llX  EN=%d  EXTD(x2APIC)=%d",
+		plogtrac("[IC-Diag] IA32_APIC_BASE = 0x%llX  EN=%d  EXTD(x2APIC)=%d",
 			(unsigned long long)apic_base_diag, (int)diag_en, (int)diag_extd);
 	}
 	// [Diag] Read IOAPIC Redirection Entries 0..3 (high DWORDs = APIC ID field)
@@ -145,7 +145,7 @@ bool uni::InterruptControl::Initialize(byte typ) {
 			uint32_t _rte_hi = IO_Read32(_rte_hi_idx);
 			uint8_t  _dest8  = (uint8_t)(_rte_hi >> 24);   // xAPIC dest [59:56] → bits[31:24] of high DW
 			bool     _x2mode = (_rte_hi & ~0xFF000000u) != 0; // any other bits set → x2APIC 32-bit ID
-			ploginfo("[IC-Diag] IOAPIC RTE[%u] hi=0x%08X  dest8=0x%02X  %s",
+			plogtrac("[IC-Diag] IOAPIC RTE[%u] hi=0x%08X  dest8=0x%02X  %s",
 				(unsigned)_diag_i, (unsigned)_rte_hi,
 				(unsigned)_dest8,
 				_x2mode ? "x2APIC(32b dest?)" : "xAPIC(8b dest)");

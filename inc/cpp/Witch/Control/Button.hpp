@@ -52,6 +52,29 @@ namespace uni::witch::control {
 			return 0xFFC6C6C6; // Light gray background
 		}
 
+		Point getTextVertex() const {
+			stduint text_width = 0;
+			if (text.reference()) {
+				for (auto cp : text.chars()) {
+					text_width += ((uint32)cp >= 0x100) ? 16 : 8;
+				}
+			}
+			stduint text_height = 16;
+
+			stdsint draw_x = ((stdsint)sheet_area.width - (stdsint)text_width) / 2;
+			stdsint draw_y = ((stdsint)sheet_area.height - (stdsint)text_height) / 2;
+
+			if (pressed) {
+				draw_x += 1;
+				draw_y += 1;
+			}
+
+			if (draw_x < 0) draw_x = 2;
+			if (draw_y < 0) draw_y = 2;
+
+			return Point(draw_x, draw_y);
+		}
+
 		virtual void doshow(void*) override {
 			if (!sheet_buffer) sheet_buffer = (Color*)calloc(sheet_area.getArea(), sizeof(Color));
 			
@@ -62,22 +85,17 @@ namespace uni::witch::control {
 			}
 
 			if (text.reference()) {
-				// Estimate text size (8x16 font)
-				stduint text_width = text.getByteCount() * 8;
-				stduint text_height = 16;
-				
-				stdsint draw_x = (sheet_area.width - text_width) / 2;
-				stdsint draw_y = (sheet_area.height - text_height) / 2;
-				
-				if (pressed) {
-					draw_x += 1;
-					draw_y += 1;
+				bool has_non_ascii = false;
+				for (const char* s = text.reference(); *s; ++s) {
+					if ((byte)*s >= 0x80) {
+						has_non_ascii = true;
+						break;
+					}
 				}
-				
-				if (draw_x < 0) draw_x = 2;
-				if (draw_y < 0) draw_y = 2;
-
-				DrawString_16(self, Point(draw_x, draw_y), text, Color::Black);
+				if (!has_non_ascii) {
+					Point draw_p = getTextVertex();
+					DrawString_16(self, draw_p, text, Color::Black);
+				}
 			}
 
 			if (sheet_parent) sheet_parent->Update(this, Rectangle(Point(0,0), sheet_area.getSize()));

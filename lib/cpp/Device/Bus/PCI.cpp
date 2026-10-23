@@ -35,7 +35,7 @@ int PCI_Init(PCI& pci) {
 	}
 	for0(i, pci.num_device) {
 		const auto& dev = pci.devices[i];
-		auto class_code = pci.read_class_code(dev.bus, dev.device, dev.function);
+		auto class_code = pci.read_class_code(dev);
 		// vcon0->OutFormat("%[8H].%[8H].%[8H]: vend 0x%[16H], class 0x%[32H], head 0x%[8H]\n\r",
 		// 	dev.bus, dev.device, dev.function, vendor_id, class_code, dev.header_type);
 	}
@@ -45,57 +45,80 @@ int PCI_Init(PCI& pci) {
 
 PCI_Result PCI::AddDevice(const Device& dev) {
 	// ploginfo("PCI::AddDevice");
+	for0(index, devices.Count()) {
+		const auto& current = devices[index];
+		if (current.segment_group == dev.segment_group && current.bus == dev.bus &&
+			current.device == dev.device && current.function == dev.function)
+			return PCI_Result::Success;
+	}
 	devices.Append(dev);
 	num_device = devices.Count();
 	return PCI_Result::Success;
 }
 
-PCI_Result PCI::ScanFunction(uint8 bus, uint8 device, uint8 function) {
-	auto class_code = read_class_code(bus, device, function);
-	auto header_type = PCI::read_header_type(bus, device, function);
-	Device dev{ bus, device, function, header_type, class_code };
+PCI_Result PCI::ScanFunction(uint16 segment, uint8 bus, uint8 device, uint8 function) {
+	Device dev{};
+	dev.segment_group = segment;
+	dev.bus = bus;
+	dev.device = device;
+	dev.function = function;
+	dev.class_code = read_class_code(dev);
+	dev.header_type = PCI::read_header_type(dev);
 	if (auto err = AddDevice(dev)) {
 		return err;
 	}
-	if (class_code.Match(0x06u, 0x04u)) {
+	if (dev.class_code.Match(0x06u, 0x04u)) {
 		// Standard PCI-to-PCI bridge.
-		auto bus_numbers = read_bus_numbers(bus, device, function);
+		auto bus_numbers = read_bus_numbers(dev);
 		uint8_t primary_bus = bus_numbers & 0xffu;
 		uint8_t secondary_bus = (bus_numbers >> 8) & 0xffu;
 		uint8_t subordinate_bus = (bus_numbers >> 16) & 0xffu;
 		if (secondary_bus == 0 || secondary_bus < primary_bus || secondary_bus > subordinate_bus) {
 			return PCI_Result::Success;
 		}
-		return ScanBus(secondary_bus);
+		return ScanBus(segment, secondary_bus);
 	}
 	return PCI_Result::Success;
 }
 
-PCI_Result PCI::ScanDevice(uint8 bus, uint8 device) {
-	if (auto err = ScanFunction(bus, device, 0)) {
+PCI_Result PCI::ScanDevice(uint16 segment, uint8 bus, uint8 device) {
+	Device function_zero{};
+	function_zero.segment_group = segment;
+	function_zero.bus = bus;
+	function_zero.device = device;
+	if (auto err = ScanFunction(segment, bus, device, 0)) {
 		return err;
 	}
-	if (PCI::IsSingleFunctionDevice(PCI::read_header_type(bus, device, 0))) {
+	if (PCI::IsSingleFunctionDevice(PCI::read_header_type(function_zero))) {
 		return PCI_Result::Success;
 	}
 	for1 (function, 8 - 1) {
-		if (PCI::read_vendor_id(bus, device, function) == 0xffffu) {
+		Device dev{};
+		dev.segment_group = segment;
+		dev.bus = bus;
+		dev.device = device;
+		dev.function = function;
+		if (PCI::read_vendor_id(dev) == 0xffffu) {
 			continue;
 		}
-		if (auto err = ScanFunction(bus, device, function)) {
+		if (auto err = ScanFunction(segment, bus, device, function)) {
 			return err;
 		}
 	}
 	return PCI_Result::Success;
 }
 
-PCI_Result PCI::ScanBus(uint8 bus) {
+PCI_Result PCI::ScanBus(uint16 segment, uint8 bus) {
 	for0(device, 32) {
-		uint16 device_id = PCI::read_device_id(bus, device, 0);
+		Device dev{};
+		dev.segment_group = segment;
+		dev.bus = bus;
+		dev.device = device;
+		uint16 device_id = PCI::read_device_id(dev);
 		if (device_id == 0xFFFFu) {
 			continue;
 		}
-		if (auto err = ScanDevice(bus, device)) {
+		if (auto err = ScanDevice(segment, bus, device)) {
 			return err;
 		}
 	}
@@ -106,19 +129,34 @@ PCI_Result PCI::scan_all_bus() {
 	// ploginfo("PCI::scan_all_bus");
 	num_device = 0;
 	devices.Clear();
-	auto header_type = read_header_type(0, 0, 0);
-	if (IsSingleFunctionDevice(header_type)) {
-		return ScanBus(0);
+	const stduint access_count = GetConfigSpaceAccessCount();
+	if (access_count) {
+		bool scanned_segment_zero_bus_zero = false;
+		for0(index, access_count) {
+			const auto* access = GetConfigSpaceAccess(index);
+			if (!access) continue;
+			if (access->segment_group == 0 && access->start_bus == 0)
+				scanned_segment_zero_bus_zero = true;
+			bool already_scanned = false;
+			for0(previous, index) {
+				const auto* current = GetConfigSpaceAccess(previous);
+				if (current && current->segment_group == access->segment_group &&
+					current->start_bus == access->start_bus) {
+					already_scanned = true;
+					break;
+				}
+			}
+			if (already_scanned) continue;
+			if (auto err = ScanBus(access->segment_group, access->start_bus)) return err;
+		}
+		if (scanned_segment_zero_bus_zero) return PCI_Result::Success;
 	}
-	// For multi-function host bridges, each function (0 to 7) represents a host bridge mapping to a PCI bus.
-	// We must scan from function 0 to cover all possible buses (including Bus 0).
+	auto header_type = read_header_type(0, 0, 0);
+	if (IsSingleFunctionDevice(header_type)) return ScanBus(0, 0);
+	// For multi-function host bridges, each function maps to one PCI bus.
 	for0 (function, 8) {
-		if (read_vendor_id(0, 0, function) == 0xFFFFu) {
-			continue;
-		}
-		if (auto err = ScanBus(function)) {
-			return err;
-		}
+		if (read_vendor_id(0, 0, function) == 0xFFFFu) continue;
+		if (auto err = ScanBus(0, function)) return err;
 	}
 	return PCI_Result::Success;
 }

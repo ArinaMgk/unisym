@@ -101,8 +101,10 @@ namespace uni {
 		struct Device {
 			uint8 bus, device, function, header_type;
 			ClassCode class_code;
+			uint16 segment_group = 0;
 			bool operator==(const Device& other) const {
-				return bus == other.bus &&
+				return segment_group == other.segment_group &&
+					bus == other.bus &&
 					device == other.device &&
 					function == other.function &&
 					header_type == other.header_type &&
@@ -121,19 +123,42 @@ namespace uni {
 		};
 		uni::Vector<Device> devices;
 		int num_device;
-		inline static ConfigSpaceAccess config_space_access_{};
+		static constexpr stduint ConfigSpaceAccessCapacity = 32;
+		inline static ConfigSpaceAccess config_space_accesses_[ConfigSpaceAccessCapacity]{};
+		inline static stduint config_space_access_count_ = 0;
 
 
 
 		PCI_Result scan_all_bus();
 		inline static void SetConfigSpaceAccess(const ConfigSpaceAccess& access) {
-			config_space_access_ = access;
+			DisableConfigSpaceAccess();
+			AddConfigSpaceAccess(access);
+		}
+		inline static bool AddConfigSpaceAccess(const ConfigSpaceAccess& access) {
+			if (!access.ecam_enabled || !access.ecam_base ||
+				access.end_bus < access.start_bus) return false;
+			for0(index, config_space_access_count_) {
+				const auto& current = config_space_accesses_[index];
+				if (current.segment_group != access.segment_group) continue;
+				if (access.start_bus <= current.end_bus &&
+					current.start_bus <= access.end_bus) return false;
+			}
+			if (config_space_access_count_ >= ConfigSpaceAccessCapacity) return false;
+			config_space_accesses_[config_space_access_count_++] = access;
+			return true;
 		}
 		inline static void DisableConfigSpaceAccess() {
-			config_space_access_ = {};
+			for0(index, config_space_access_count_) config_space_accesses_[index] = {};
+			config_space_access_count_ = 0;
 		}
 		inline static const ConfigSpaceAccess& GetConfigSpaceAccess() {
-			return config_space_access_;
+			return config_space_accesses_[0];
+		}
+		inline static stduint GetConfigSpaceAccessCount() {
+			return config_space_access_count_;
+		}
+		inline static const ConfigSpaceAccess* GetConfigSpaceAccess(stduint index) {
+			return index < config_space_access_count_ ? &config_space_accesses_[index] : nullptr;
 		}
 
 	public:
@@ -141,44 +166,56 @@ namespace uni {
 			auto shl = [](uint32 x, unsigned bits) {return x << bits;};
 			return shl(1, 31) _Comment(enable) | shl(bus, 16) | shl(dev, 11) | shl(func, 8) | (reg & 0xFCu);
 		}
-		inline static bool is_ecam_config_access_available(uint8 bus, uint8 dev, uint8 func, uint8 reg) {
-			const auto& access = config_space_access_;
-			if (!access.ecam_enabled) return false;
-			if (access.segment_group != 0) return false;
-			if (bus < access.start_bus || bus > access.end_bus) return false;
-			if (dev >= 32 || func >= 8) return false;
-			if ((reg & 0x3) != 0) return false;
+		inline static const ConfigSpaceAccess* FindConfigSpaceAccess(uint16 segment,
+			uint8 bus, uint8 dev, uint8 func, uint16 reg) {
+			if (dev >= 32 || func >= 8 || (reg & 0x3) != 0 || reg >= 0x1000) return nullptr;
+			for0(index, config_space_access_count_) {
+				const auto& access = config_space_accesses_[index];
+				if (!access.ecam_enabled || access.segment_group != segment) continue;
+				if (bus >= access.start_bus && bus <= access.end_bus) return &access;
+			}
+			return nullptr;
+		}
+		inline static bool is_ecam_config_access_available(uint16 segment,
+			uint8 bus, uint8 dev, uint8 func, uint16 reg) {
+			const auto* access = FindConfigSpaceAccess(segment, bus, dev, func, reg);
+			if (!access) return false;
+			// MCFG base represents bus 0 even when the allocation starts at another bus.
 			const uint64 offset =
-				(uint64(bus - access.start_bus) << 20) |
+				(uint64(bus) << 20) |
 				(uint64(dev) << 15) |
 				(uint64(func) << 12) |
 				(reg & 0xFFCu);
-			const uint64 target = access.ecam_base + offset;
-			if (target < access.ecam_base) return false;
+			const uint64 target = access->ecam_base + offset;
+			if (target < access->ecam_base) return false;
 			if (target > (uint64)~(stduint)0) return false;
 			#if _MCCA == 0x8632
 			if (target + sizeof(uint32) > 0x10000000ull) return false;
 			#endif
 			return true;
 		}
-		inline static uint32 read_ecam_register(uint8 bus, uint8 dev, uint8 func, uint8 reg) {
-			const auto& access = config_space_access_;
+		inline static uint32 read_ecam_register(uint16 segment, uint8 bus,
+			uint8 dev, uint8 func, uint16 reg) {
+			const auto* access = FindConfigSpaceAccess(segment, bus, dev, func, reg);
+			if (!access) return 0xFFFFFFFFu;
 			const uint64 offset =
-				(uint64(bus - access.start_bus) << 20) |
+				(uint64(bus) << 20) |
 				(uint64(dev) << 15) |
 				(uint64(func) << 12) |
 				(reg & 0xFFCu);
-			auto ptr = reinterpret_cast<volatile uint32*>(stduint(access.ecam_base + offset));
+			auto ptr = reinterpret_cast<volatile uint32*>(stduint(access->ecam_base + offset));
 			return *ptr;
 		}
-		inline static void write_ecam_register(uint8 bus, uint8 dev, uint8 func, uint8 reg, uint32 data) {
-			const auto& access = config_space_access_;
+		inline static void write_ecam_register(uint16 segment, uint8 bus,
+			uint8 dev, uint8 func, uint16 reg, uint32 data) {
+			const auto* access = FindConfigSpaceAccess(segment, bus, dev, func, reg);
+			if (!access) return;
 			const uint64 offset =
-				(uint64(bus - access.start_bus) << 20) |
+				(uint64(bus) << 20) |
 				(uint64(dev) << 15) |
 				(uint64(func) << 12) |
 				(reg & 0xFFCu);
-			auto ptr = reinterpret_cast<volatile uint32*>(stduint(access.ecam_base + offset));
+			auto ptr = reinterpret_cast<volatile uint32*>(stduint(access->ecam_base + offset));
 			*ptr = data;
 		}
 		inline static void send_addr(uint32 addr) {
@@ -192,31 +229,47 @@ namespace uni {
 		inline static uint32 read_data() {
 			return Port<uint32>(PORT_PCI_CONFIG_DATA);// innpd(PORT_PCI_CONFIG_DATA);
 		}
-		inline static uint32 read_config_register(uint8 bus, uint8 dev, uint8 func, uint8 reg_addr) {
-			if (is_ecam_config_access_available(bus, dev, func, reg_addr)) {
-				return read_ecam_register(bus, dev, func, reg_addr);
+		inline static uint32 read_config_register(uint16 segment, uint8 bus,
+			uint8 dev, uint8 func, uint16 reg_addr) {
+			if (is_ecam_config_access_available(segment, bus, dev, func, reg_addr)) {
+				return read_ecam_register(segment, bus, dev, func, reg_addr);
 			}
-			send_addr(make_port_address(bus, dev, func, reg_addr));
+			if (segment != 0 || reg_addr >= 0x100) return 0xFFFFFFFFu;
+			send_addr(make_port_address(bus, dev, func, uint8(reg_addr)));
 			return read_data();
 		}
-		inline static void write_config_register(uint8 bus, uint8 dev, uint8 func, uint8 reg_addr, uint32 data) {
-			if (is_ecam_config_access_available(bus, dev, func, reg_addr)) {
-				write_ecam_register(bus, dev, func, reg_addr, data);
+		inline static void write_config_register(uint16 segment, uint8 bus,
+			uint8 dev, uint8 func, uint16 reg_addr, uint32 data) {
+			if (is_ecam_config_access_available(segment, bus, dev, func, reg_addr)) {
+				write_ecam_register(segment, bus, dev, func, reg_addr, data);
 				return;
 			}
-			send_addr(make_port_address(bus, dev, func, reg_addr));
+			if (segment != 0 || reg_addr >= 0x100) return;
+			send_addr(make_port_address(bus, dev, func, uint8(reg_addr)));
 			send_data(data);
+		}
+		inline static uint32 read_config_register(uint8 bus, uint8 dev, uint8 func, uint8 reg_addr) {
+			return read_config_register(0, bus, dev, func, reg_addr);
+		}
+		inline static void write_config_register(uint8 bus, uint8 dev, uint8 func,
+			uint8 reg_addr, uint32 data) {
+			write_config_register(0, bus, dev, func, reg_addr, data);
 		}
 
 		inline static uint16 read_vendor_id(uint8 bus, uint8 dev, uint8 func) {
 			return read_config_register(bus, dev, func, 0x00) & 0xFFFF;
 		}
 		inline static uint16 read_vendor_id(const Device& dev) {
-			return read_vendor_id(dev.bus, dev.device, dev.function);
+			return read_config_register(dev.segment_group, dev.bus,
+				dev.device, dev.function, 0x00) & 0xFFFF;
 		}
 
 		inline static uint16 read_device_id(uint8 bus, uint8 dev, uint8 func) {
 			return read_config_register(bus, dev, func, 0x00) >> 16;
+		}
+		inline static uint16 read_device_id(const Device& dev) {
+			return read_config_register(dev.segment_group, dev.bus,
+				dev.device, dev.function, 0x00) >> 16;
 		}
 
 		inline static ClassCode read_class_code(uint8 bus, uint8 dev, uint8 func) {
@@ -227,24 +280,40 @@ namespace uni {
 			cc.interface = (class_code >> 8);
 			return cc;
 		}
+		inline static ClassCode read_class_code(const Device& dev) {
+			uint32 class_code = read_config_register(dev.segment_group, dev.bus,
+				dev.device, dev.function, 0x08);
+			return ClassCode{ uint8(class_code >> 24), uint8(class_code >> 16),
+				uint8(class_code >> 8) };
+		}
 
 		inline static uint8  read_header_type(uint8 bus, uint8 dev, uint8 func) {
 			return read_config_register(bus, dev, func, 0x0C) >> 16;
 		}
+		inline static uint8 read_header_type(const Device& dev) {
+			return read_config_register(dev.segment_group, dev.bus,
+				dev.device, dev.function, 0x0C) >> 16;
+		}
 		inline static uint32 read_bus_numbers(uint8 bus, uint8 dev, uint8 func) {
 			return read_config_register(bus, dev, func, 0x18);
+		}
+		inline static uint32 read_bus_numbers(const Device& dev) {
+			return read_config_register(dev.segment_group, dev.bus,
+				dev.device, dev.function, 0x18);
 		}
 
 		inline static bool IsSingleFunctionDevice(uint8 header_type) {
 			return !(header_type & 0x80u);
 		}
 
-		inline static uint32 read_config_register(const Device& dev, uint8 reg_addr) {
-			return read_config_register(dev.bus, dev.device, dev.function, reg_addr);
+		inline static uint32 read_config_register(const Device& dev, uint16 reg_addr) {
+			return read_config_register(dev.segment_group, dev.bus,
+				dev.device, dev.function, reg_addr);
 		}
 
-		inline static void write_config_register(const Device& dev, uint8 reg_addr, uint32 data) {
-			write_config_register(dev.bus, dev.device, dev.function, reg_addr, data);
+		inline static void write_config_register(const Device& dev, uint16 reg_addr, uint32 data) {
+			write_config_register(dev.segment_group, dev.bus,
+				dev.device, dev.function, reg_addr, data);
 		}
 
 		// set Memory Space (bit1) and Bus Master (bit2) in PCI command
@@ -330,9 +399,9 @@ namespace uni {
 		bool ConvertFromEhci(const PCI::Device& xhc_dev);
 
 	protected:
-		PCI_Result ScanBus(uint8 bus);
-		PCI_Result ScanDevice(uint8 bus, uint8 device);
-		PCI_Result ScanFunction(uint8 bus, uint8 device, uint8 function);
+		PCI_Result ScanBus(uint16 segment, uint8 bus);
+		PCI_Result ScanDevice(uint16 segment, uint8 bus, uint8 device);
+		PCI_Result ScanFunction(uint16 segment, uint8 bus, uint8 device, uint8 function);
 		//
 		PCI_Result AddDevice(const Device& dev);
 	protected:

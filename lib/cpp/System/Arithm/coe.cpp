@@ -57,11 +57,11 @@ namespace uni{
 	double Coe::GetReal() const { return CoeToDouble(co); }
 
 	String Coe::ToString(int opt) const {
-		return String (CoeToLocale(co, opt));
+		return String(CoeToLocale(co, opt), 0);
 	}
 
 	Coe::operator double() const { return CoeToDouble(this->co); }
-	Coe::operator String() const { return CoeToLocale(this->co, 0); }
+	Coe::operator String() const { return String(CoeToLocale(this->co, 0), 0); }
 
 	Coe& operator++ (Coe& num) {// prefix
 		CoeAdd(num.co, &coeone);

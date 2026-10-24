@@ -55,6 +55,7 @@ namespace uni {
 		for (stduint spin = 0; spin < 1000000; ++spin) {
 			if ((port.cmd & (AHCI_PxCMD_CR | AHCI_PxCMD_FR)) == 0) return true;
 		}
+		plogerro("[AHCI-DIAG] stop-engine timeout port=%d cmd=%[32H] tfd=%[32H] is=%[32H] serr=%[32H] ci=%[32H] sact=%[32H]", port_index, port.cmd, port.tfd, port.is, port.serr, port.ci, port.sact);
 		return false;
 	}
 
@@ -171,17 +172,28 @@ namespace uni {
 	bool AHCI_Port_Base::PollCommandSlot(uint32 slot_mask) const {
 		if (!abar || port_index < 0 || port_index >= 32) return false;
 		if (fn_irq_wait) {
-			if (!fn_irq_wait(const_cast<AHCI_Port_Base*>(this), slot_mask)) return false;
+			if (!fn_irq_wait(const_cast<AHCI_Port_Base*>(this), slot_mask)) {
+				auto& port = abar->ports[port_index];
+				plogerro("[AHCI-DIAG] irq-wait failed port=%d slot=%[32H] cmd=%[32H] tfd=%[32H] is=%[32H] serr=%[32H] ci=%[32H] sact=%[32H]", port_index, slot_mask, port.cmd, port.tfd, port.is, port.serr, port.ci, port.sact);
+				return false;
+			}
 		}
 		auto& port = abar->ports[port_index];
 		for (stduint spin = 0; spin < 5000000; ++spin) {
 			if ((port.ci & slot_mask) == 0) {
-				if (port.is & AHCI_PxIS_TFES) return false;
+				if (port.is & AHCI_PxIS_TFES) {
+					plogerro("[AHCI-DIAG] command TFES port=%d slot=%[32H] cmd=%[32H] tfd=%[32H] is=%[32H] serr=%[32H] ci=%[32H] sact=%[32H]", port_index, slot_mask, port.cmd, port.tfd, port.is, port.serr, port.ci, port.sact);
+					return false;
+				}
 				return true;
 			}
-			if (port.is & AHCI_PxIS_TFES) return false;
+			if (port.is & AHCI_PxIS_TFES) {
+				plogerro("[AHCI-DIAG] command TFES port=%d slot=%[32H] cmd=%[32H] tfd=%[32H] is=%[32H] serr=%[32H] ci=%[32H] sact=%[32H]", port_index, slot_mask, port.cmd, port.tfd, port.is, port.serr, port.ci, port.sact);
+				return false;
+			}
 			__asm__ __volatile__("pause" ::: "memory");
 		}
+		plogerro("[AHCI-DIAG] command timeout port=%d slot=%[32H] cmd=%[32H] tfd=%[32H] is=%[32H] serr=%[32H] ci=%[32H] sact=%[32H]", port_index, slot_mask, port.cmd, port.tfd, port.is, port.serr, port.ci, port.sact);
 		return false;
 	}
 
@@ -336,11 +348,25 @@ namespace uni {
 		packet[7] = byte(block_count >> 16);
 		packet[8] = byte(block_count >> 8);
 		packet[9] = byte(block_count);
-		if (!PreparePacketCommand(packet, (byte*)dest, Block_Size * block_count, false)) return false;
+		if (!PreparePacketCommand(packet, (byte*)dest, Block_Size * block_count, false)) {
+			plogerro("[AHCI-DIAG] atapi-read failed stage=prepare port=%d lba=%u blocks=%u dest=%p", port_index, lba, (unsigned)block_count, dest);
+			return false;
+		}
 		auto& port = abar->ports[port_index];
-		while (port.tfd & (0x80u | 0x08u)) {}
+		stduint tfd_spins = 0;
+		bool tfd_reported = false;
+		while (port.tfd & (0x80u | 0x08u)) {
+			if (!tfd_reported && ++tfd_spins == 5000000) {
+				plogerro("[AHCI-DIAG] atapi-read wait-tfd prolonged port=%d lba=%u blocks=%u cmd=%[32H] tfd=%[32H] is=%[32H] serr=%[32H] ci=%[32H] sact=%[32H]", port_index, lba, (unsigned)block_count, port.cmd, port.tfd, port.is, port.serr, port.ci, port.sact);
+				tfd_reported = true;
+			}
+		}
 		port.ci = 1u;
-		if (!PollCommandSlot(1u)) return false;
+		if (!PollCommandSlot(1u)) {
+			auto* cmd_header = reinterpret_cast<AHCI_CMD_HEADER*>(cmd_list);
+			plogerro("[AHCI-DIAG] atapi-read failed stage=complete port=%d lba=%u blocks=%u dest=%p prdbc=%u cmd=%[32H] tfd=%[32H] is=%[32H] serr=%[32H] ci=%[32H] sact=%[32H]", port_index, lba, (unsigned)block_count, dest, cmd_header ? cmd_header[0].prdbc : 0, port.cmd, port.tfd, port.is, port.serr, port.ci, port.sact);
+			return false;
+		}
 		return true;
 	}
 

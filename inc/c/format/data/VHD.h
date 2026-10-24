@@ -57,9 +57,9 @@ namespace uni {
 	public:
 		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;
 		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override;
-		virtual stduint getUnits();
+		virtual stduint getUnits() override;
 		// byte read
-		virtual int operator[](uint64 bytid);
+		virtual int operator[](uint64 bytid) override;
 
 		bool valid = false;
 		VHD_Footer* footer;

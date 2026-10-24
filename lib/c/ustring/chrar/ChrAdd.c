@@ -94,7 +94,7 @@ char* ChrAdd(const char* a, const char* b)
 		unsigned char regichar = *(endofa--) - 0x30;
 		if (endofb >= b) regichar += *(endofb--) - 0x30;
 		regichar += flag.carry;
-		if (flag.carry = (regichar > 9)) regichar -= 10;
+		if ((flag.carry = (regichar > 9))) regichar -= 10;
 #ifndef _ARN_FLAG_DISABLE
 		q[loop_time-- + aflaga.signsym] = regichar + 0x30;
 #else

@@ -45,7 +45,7 @@ Nnode* NnodeInsert(Nnode* nod, pureptr_t offs, stduint typlen, stduint extn_fiel
 	}
 	else // right
 	{
-		if (tmp->next = nod->next) tmp->next->left = tmp;
+		if ((tmp->next = nod->next)) tmp->next->left = tmp;
 		(tmp->left = nod)->next = tmp;
 	}
 	return tmp;

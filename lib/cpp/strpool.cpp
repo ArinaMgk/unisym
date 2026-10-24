@@ -67,6 +67,7 @@ namespace uni {
 			if (size > unit_size - sizeof(byte*))
 				new_pool(size + sizeof(byte*));
 			else new_pool();
+		else {}
 		ret = crt_pool + local_ptr;
 		local_ptr += size;
 		if (mempos) MemCopyN(ret, mempos, size);

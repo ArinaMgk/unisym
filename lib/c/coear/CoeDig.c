@@ -55,7 +55,7 @@ void CoeDig(coe* obj, size_t digits, int direction)
 		{
 			size_t tmplen = 1;
 			char tmpc;
-			while (tmpc = obj->coff[digits + tmplen])
+			while ((tmpc = obj->coff[digits + tmplen]))
 			{
 				if (tmpc != '0')
 				{

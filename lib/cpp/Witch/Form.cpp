@@ -534,7 +534,7 @@ void uni::Witch::Form::setTitle(const String& title)
 }
 
 uni::Witch::FormHitTest uni::Witch::Form::HitTest(Point rel_p) const {
-	if (rel_p.x < 0 || rel_p.y < 0 || rel_p.x >= (stdsint)sheet_area.width || rel_p.y >= (stdsint)sheet_area.height) {
+	if (rel_p.x_signed < 0 || rel_p.y_signed < 0 || rel_p.x_signed >= (stdsint)sheet_area.width || rel_p.y_signed >= (stdsint)sheet_area.height) {
 		return FormHitTest::None;
 	}
 	if (!isResizable()) {
@@ -550,16 +550,16 @@ uni::Witch::FormHitTest uni::Witch::Form::HitTest(Point rel_p) const {
 	stdsint h = (stdsint)sheet_area.height;
 
 	// Check 4 Corners
-	if (rel_p.x < kCorner && rel_p.y < kCorner) return FormHitTest::CornerTopLeft;
-	if (rel_p.x >= w - kCorner && rel_p.y < kCorner) return FormHitTest::CornerTopRight;
-	if (rel_p.x < kCorner && rel_p.y >= h - kCorner) return FormHitTest::CornerBottomLeft;
-	if (rel_p.x >= w - kCorner && rel_p.y >= h - kCorner) return FormHitTest::CornerBottomRight;
+	if (rel_p.x_signed < kCorner && rel_p.y_signed < kCorner) return FormHitTest::CornerTopLeft;
+	if (rel_p.x_signed >= w - kCorner && rel_p.y_signed < kCorner) return FormHitTest::CornerTopRight;
+	if (rel_p.x_signed < kCorner && rel_p.y_signed >= h - kCorner) return FormHitTest::CornerBottomLeft;
+	if (rel_p.x_signed >= w - kCorner && rel_p.y_signed >= h - kCorner) return FormHitTest::CornerBottomRight;
 
 	// Check 4 Borders
-	if (rel_p.y < kBorder) return FormHitTest::BorderTop;
-	if (rel_p.y >= h - kBorder) return FormHitTest::BorderBottom;
-	if (rel_p.x < kBorder) return FormHitTest::BorderLeft;
-	if (rel_p.x >= w - kBorder) return FormHitTest::BorderRight;
+	if (rel_p.y_signed < kBorder) return FormHitTest::BorderTop;
+	if (rel_p.y_signed >= h - kBorder) return FormHitTest::BorderBottom;
+	if (rel_p.x_signed < kBorder) return FormHitTest::BorderLeft;
+	if (rel_p.x_signed >= w - kBorder) return FormHitTest::BorderRight;
 
 	// Buttons & Title Bar
 	if (title_visable && title_bar.sheet_area.ifContain(rel_p)) {

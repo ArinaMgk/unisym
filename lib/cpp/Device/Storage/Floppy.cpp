@@ -19,7 +19,7 @@ namespace uni {
 
 	static bool flp_result_ready_retry() {
 		for (int retry = 0; retry < 5; retry++) {
-			for (volatile int i = 0; i < 100000; i++) _TEMP;
+			for (volatile int i = 0; i < 100000; i += 1) _TEMP;
 			if (flp_result_ready()) return true;
 		}
 		return false;
@@ -110,7 +110,7 @@ namespace uni {
 
 		if (on) {
 			// Delay for motor spin-up (~300ms)
-			for (volatile int i = 0; i < 1000000; i++) _TEMP;
+			for (volatile int i = 0; i < 1000000; i = i + 1) _TEMP;
 		}
 	}
 
@@ -139,7 +139,7 @@ namespace uni {
 
 	_WEAK bool FloppyDisk::Reset() {
 		outpb(PORT_FDC_DOR, 0x00);
-		for (volatile int i = 0; i < 10000; i++) _TEMP;
+		for (volatile int i = 0; i < 10000; i = i + 1) _TEMP;
 		outpb(PORT_FDC_DOR, 0x0C);
 		motor_state = false;
 		if (fn_int_wait && !fn_int_wait()) return false;
@@ -227,7 +227,7 @@ namespace uni {
 					return false;
 				}
 			} else {
-				for (volatile int i = 0; i < 100000; i++) _TEMP;
+				for (volatile int i = 0; i < 100000; i = i + 1) _TEMP;
 			}
 
 			// Read 7 Status Bytes after operation completion

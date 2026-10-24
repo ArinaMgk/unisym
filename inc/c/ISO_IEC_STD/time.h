@@ -37,6 +37,8 @@ typedef stduint clock_t;
 typedef sint64 time_t;
 #endif
 
+struct tm;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

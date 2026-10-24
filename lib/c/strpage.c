@@ -67,7 +67,7 @@ stduint StrpageGet(const Strpage* sp, stduint index)
 	while (sp->layer_level) {
 		stduint l = index >> StrpageGetShiftBits(sp);
 		index &= StrpageGetMask(sp);
-		if (sp = sp->branches[l]); else
+		if ((sp = sp->branches[l])); else
 			return 0;// undefined entries
 	}
 	return sp->leaves[index];

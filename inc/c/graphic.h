@@ -31,7 +31,8 @@ namespace uni {
 #endif
 
 	typedef struct Point2 {
-		stduint x, y;
+		union { stduint x; stdsint x_signed; };
+		union { stduint y; stdsint y_signed; };
 	public:
 		Point2(stduint x = 0, stduint y = 0) : x(x), y(y) {}
 

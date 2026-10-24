@@ -330,8 +330,8 @@ namespace uni {
 			}
 		}
 
-		if (cursor.x >= (stdsint)cols) cursor.x = cols > 0 ? cols - 1 : 0;
-		if (cursor.y >= (stdsint)rows) cursor.y = rows > 0 ? rows - 1 : 0;
+		if (cursor.x_signed >= (stdsint)cols) cursor.x = cols > 0 ? cols - 1 : 0;
+		if (cursor.y_signed >= (stdsint)rows) cursor.y = rows > 0 ? rows - 1 : 0;
 
 		if (old_text_buf) { delete[] old_text_buf; }
 		if (old_line_buf) { delete[] old_line_buf; }
@@ -378,7 +378,7 @@ namespace uni {
 		if (!font_engine || cx >= cols || cy >= rows) return;
 
 		Rectangle cell_rect = GetCellRect(cx, cy);
-		bool draw_cursor = cursor_visible && cursor.x == (stdsint)cx && cursor.y == (stdsint)cy;
+		bool draw_cursor = cursor_visible && cursor.x == cx && cursor.y == cy;
 
 		if (sheet_buffer || buffer) {
 			Color* target = sheet_buffer ? sheet_buffer : buffer;
@@ -444,18 +444,18 @@ namespace uni {
 	}
 
 	void VideoConsole2::RefreshCursorTransition(Point old_cursor, bool old_visible) {
-		if (old_visible && old_cursor.x >= 0 && old_cursor.y >= 0) {
-			RefreshCell((stduint)old_cursor.x, (stduint)old_cursor.y);
+		if (old_visible && old_cursor.x_signed >= 0 && old_cursor.y_signed >= 0) {
+			RefreshCell(old_cursor.x, old_cursor.y);
 		}
-		if (cursor_visible && cursor.x >= 0 && cursor.y >= 0 &&
+		if (cursor_visible && cursor.x_signed >= 0 && cursor.y_signed >= 0 &&
 			(old_cursor.x != cursor.x || old_cursor.y != cursor.y || !old_visible)) {
-			RefreshCell((stduint)cursor.x, (stduint)cursor.y);
+			RefreshCell(cursor.x, cursor.y);
 		}
 	}
 
 	void VideoConsole2::doshow(void*) {
-		if (!font_engine || cursor.x < 0 || cursor.y < 0) return;
-		RefreshCell((stduint)cursor.x, (stduint)cursor.y);
+		if (!font_engine || cursor.x_signed < 0 || cursor.y_signed < 0) return;
+		RefreshCell(cursor.x, cursor.y);
 	}
 
 	void VideoConsole2::BeginBatchUpdate() {

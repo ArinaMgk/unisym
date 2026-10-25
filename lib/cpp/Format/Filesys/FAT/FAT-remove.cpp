@@ -85,8 +85,11 @@ namespace uni {
 			return ret;
 		};
 
-		// Find the entry in the parent directory
-		if (!find_entry_in_dir(parent_h.start_cluster, filename, &entry, &entry_sector, &entry_index, sector_buffer, fat_cache)) {
+		uint32_t lfn_sector = 0;
+		uint32_t lfn_index = 0;
+		stduint lfn_count = 0;
+		// Find the entry in the parent directory together with the LFN pieces in front of it
+		if (!find_entry_in_dir(parent_h.start_cluster, filename, &entry, &entry_sector, &entry_index, sector_buffer, fat_cache, &lfn_sector, &lfn_index, &lfn_count)) {
 			return finish_remove(false);
 		}
 		if (entry.attribute.directory) return finish_remove(false);
@@ -103,6 +106,9 @@ namespace uni {
 		FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[entry_index * 32];
 		d_entry->name[0] = 0xE5;
 		if (!storage->Write(entry_sector, sector_buffer)) return finish_remove(false);
+		if (lfn_count && !erase_dir_run(parent_h.start_cluster, lfn_sector, lfn_index, lfn_count)) {
+			plogwarn("FATRemove: LFN pieces left behind for %s", pathname);
+		}
 
 		if (fh) {
 			fh->is_unlinked = true;

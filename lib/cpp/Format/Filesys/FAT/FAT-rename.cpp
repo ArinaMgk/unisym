@@ -96,138 +96,79 @@ namespace uni {
 		FAT_DirEntry entry;
 		uint32_t src_entry_sector = 0;
 		uint32_t src_entry_index = 0;
-		if (!find_entry_in_dir(src_parent_h.start_cluster, src_filename, &entry, &src_entry_sector, &src_entry_index, sector_buffer, fat_cache)) {
+		uint32_t src_lfn_sector = 0;
+		uint32_t src_lfn_index = 0;
+		stduint src_lfn_count = 0;
+		if (!find_entry_in_dir(src_parent_h.start_cluster, src_filename, &entry, &src_entry_sector, &src_entry_index, sector_buffer, fat_cache, &src_lfn_sector, &src_lfn_index, &src_lfn_count)) {
 			return finish_rename(false); // Source file not found
 		}
 
-		// Format target filename into standard 8.3 format
-		char formatted_name[8];
-		char formatted_ext[3];
-		MemSet(formatted_name, ' ', 8);
-		MemSet(formatted_ext, ' ', 3);
-
-		const char* dot_char = StrIndexCharRight(dst_filename, '.');
-		if (dot_char) {
-			int name_len = dot_char - dst_filename;
-			int ext_len = StrLength(dot_char + 1);
-			if (name_len > 8) name_len = 8;
-			if (ext_len > 3) ext_len = 3;
-			MemCopyN(formatted_name, dst_filename, name_len);
-			MemCopyN(formatted_ext, dot_char + 1, ext_len);
-		}
-		else {
-			int name_len = StrLength(dst_filename);
-			if (name_len > 8) name_len = 8;
-			MemCopyN(formatted_name, dst_filename, name_len);
-		}
-
-		for (int i = 0; i < 8; i++) formatted_name[i] = ascii_toupper(formatted_name[i]);
-		for (int i = 0; i < 3; i++) formatted_ext[i] = ascii_toupper(formatted_ext[i]);
-
-		// Compare parent paths to determine if it is a simple rename
-		bool is_same_dir = StrCompare(src_parent_path, dst_parent_path) == 0;
-
-		if (is_same_dir) {
-			// Simply modify the directory entry's name and ext fields
-			if (storage->Read(src_entry_sector, sector_buffer)) {
-				FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[src_entry_index * 32];
-				MemCopyN(d_entry->name, formatted_name, 8);
-				MemCopyN(d_entry->ext, formatted_ext, 3);
-				if (!storage->Write(src_entry_sector, sector_buffer)) return finish_rename(false);
+		const bool is_same_dir = StrCompare(src_parent_path, dst_parent_path) == 0;
+		uint32_t dst_parent_cluster = src_parent_h.start_cluster;
+		if (!is_same_dir) {
+			FAT_FileHandle dst_parent_h;
+			FilesysSearchArgs dst_search_args = { &dst_parent_h, nullptr, nullptr, nullptr };
+			if (!this->search(dst_parent_path, &dst_search_args)) {
+				StrCopy(dst_parent_path, "/");
+				if (!this->search(dst_parent_path, &dst_search_args)) return finish_rename(false);
 			}
-			else return finish_rename(false);
+			if (!dst_parent_h.is_dir) return finish_rename(false);
+			dst_parent_cluster = dst_parent_h.start_cluster;
+			FAT_DirEntry existing_entry;
+			if (find_entry_in_dir(dst_parent_cluster, dst_filename, &existing_entry, nullptr, nullptr, sector_buffer, fat_cache)) {
+				return finish_rename(false); // Target already exists
+			}
+		}
+
+		// Prepare new entry based on the source entry with the destination name
+		FAT_DirEntry new_entry = entry;
+		FAT_DirEntry shaped;
+		bool needs_lfn = false;
+		if (!build_short_entry(dst_filename, dst_parent_cluster, sector_buffer, fat_cache, shaped, needs_lfn)) {
+			return finish_rename(false);
+		}
+		MemCopyN(new_entry.name, shaped.name, 8);
+		MemCopyN(new_entry.ext, shaped.ext, 3);
+
+		constexpr stduint lfn_capacity = 20;
+		stduint new_count = 0;
+		byte* run = new byte[(lfn_capacity + 2) * 32];
+		if (!run) return finish_rename(false);
+		auto drop_run = [&]() {
+			delete[] run;
+			run = nullptr;
+		};
+		if (needs_lfn &&
+			(!build_lfn_entries(dst_filename, new_entry, run, lfn_capacity, new_count) || !new_count)) {
+			drop_run();
+			return finish_rename(false);
+		}
+		MemCopyN(run + new_count * 32, &new_entry, 32);
+		MemSet(run + (new_count + 1) * 32, 0, 32);
+
+		const uint32_t old_block_sector = src_lfn_count ? src_lfn_sector : src_entry_sector;
+		const uint32_t old_block_index = src_lfn_count ? src_lfn_index : src_entry_index;
+		const stduint old_block_count = src_lfn_count + 1;
+
+		if (is_same_dir && src_lfn_count >= new_count) {
+			// In-place: clear the old block, then lay the new pieces and short entry over its front
+			if (!erase_dir_run(src_parent_h.start_cluster, old_block_sector, old_block_index, old_block_count) ||
+				!write_dir_run(src_parent_h.start_cluster, old_block_sector, old_block_index, run, new_count + 1)) {
+				drop_run();
+				return finish_rename(false);
+			}
+			drop_run();
 			return finish_rename(true);
 		}
 
-		// Cross-directory move: Locate target parent handle
-		FAT_FileHandle dst_parent_h;
-		FilesysSearchArgs dst_search_args = { &dst_parent_h, nullptr, nullptr, nullptr };
-		if (!this->search(dst_parent_path, &dst_search_args)) {
-			StrCopy(dst_parent_path, "/");
-			if (!this->search(dst_parent_path, &dst_search_args)) return finish_rename(false);
-		}
-
-		if (!dst_parent_h.is_dir) return finish_rename(false);
-
-		uint32_t dst_parent_cluster = dst_parent_h.start_cluster;
-
-		// Check if destination directory already has an entry with the target name
-		FAT_DirEntry existing_entry;
-		if (find_entry_in_dir(dst_parent_cluster, dst_filename, &existing_entry, nullptr, nullptr, sector_buffer, fat_cache)) {
-			return finish_rename(false); // Target already exists
-		}
-
-		// Prepare new entry based on the source entry with new name
-		FAT_DirEntry new_entry = entry;
-		MemCopyN(new_entry.name, formatted_name, 8);
-		MemCopyN(new_entry.ext, formatted_ext, 3);
-
-		// Seek and write to an empty slot in destination parent directory
-		bool written = false;
 		uint32_t written_sector = 0;
 		uint32_t written_index = 0;
-
-		auto try_sector = [&](uint32_t sector) -> bool {
-			if (!storage->Read(sector, sector_buffer)) return false;
-			for0 (i, storage->Block_Size / 32) {
-				FAT_DirEntry* dir_entry = (FAT_DirEntry*)&sector_buffer[i * 32];
-				if (dir_entry->name[0] == 0 || (byte)dir_entry->name[0] == 0xE5u) {
-					MemCopyN(dir_entry, &new_entry, sizeof(FAT_DirEntry));
-					if (storage->Write(sector, sector_buffer)) {
-						written_sector = sector;
-						written_index = i;
-						return true;
-					}
-				}
-			}
-			return false;
-		};
-
-		if ((dst_parent_cluster == 0 || dst_parent_cluster == root_cluster) && fat_type != 32) {
-			// FAT12/16 Root Directory
-			uint32_t start_sec = first_data_sector - root_dir_sectors;
-			for (uint32_t s = 0; s < root_dir_sectors; s++) {
-				if (try_sector(start_sec + s)) { written = true; break; }
-			}
+		if (!alloc_dir_run(dst_parent_cluster, new_count + 2, written_sector, written_index, sector_buffer, fat_cache) ||
+			!write_dir_run(dst_parent_cluster, written_sector, written_index, run, new_count + 2)) {
+			drop_run();
+			return finish_rename(false);
 		}
-		else {
-			// FAT32 Root Directory or Any Subdirectory
-			uint32_t cluster = dst_parent_cluster;
-			if (cluster == 0 && fat_type == 32) cluster = root_cluster;
-
-			int limit = 10000;
-			while (cluster >= 2 && cluster < 0xFFFFFFF8 && limit-- > 0) {
-				uint32_t cluster_sec = getSector_foCluster(cluster);
-				for (uint32_t s = 0; s < sectors_per_cluster; s++) {
-					if (try_sector(cluster_sec + s)) { written = true; break; }
-				}
-				if (written) break;
-
-				uint32_t next = get_fat_entry(cluster, fat_cache);
-				if (next >= 0xFFFFFFF8) {
-					uint32_t new_dir_cluster = find_free_cluster(fat_cache);
-					if (new_dir_cluster == 0) break;
-
-					uint32_t end_mark = (fat_type == 32) ? 0x0FFFFFFF :
-						(fat_type == 16) ? 0xFFFF : 0xFFF;
-					set_fat_entry(cluster, new_dir_cluster, fat_cache);
-					set_fat_entry(new_dir_cluster, end_mark, fat_cache);
-
-					uint32_t new_dir_sec = getSector_foCluster(new_dir_cluster);
-					byte* clr_buf = new byte[storage->Block_Size];
-					MemSet(clr_buf, 0, storage->Block_Size);
-					for (uint32_t s = 0; s < sectors_per_cluster; s++) {
-						storage->Write(new_dir_sec + s, clr_buf);
-					}
-					delete[] clr_buf;
-
-					next = new_dir_cluster;
-				}
-				cluster = next;
-			}
-		}
-
-		if (!written) return finish_rename(false); // Fail if no slot could be allocated
+		drop_run();
 
 		// If the entry is a directory, update its ".." pointer to the new parent
 		if (new_entry.attribute.directory) {
@@ -248,13 +189,10 @@ namespace uni {
 			}
 		}
 
-		// 7. Mark the source entry as deleted
-		if (storage->Read(src_entry_sector, sector_buffer)) {
-			FAT_DirEntry* d_entry = (FAT_DirEntry*)&sector_buffer[src_entry_index * 32];
-			d_entry->name[0] = 0xE5;
-			if (!storage->Write(src_entry_sector, sector_buffer)) return finish_rename(false);
+		// Mark the whole source block, LFN pieces and short entry, as deleted
+		if (!erase_dir_run(src_parent_h.start_cluster, old_block_sector, old_block_index, old_block_count)) {
+			return finish_rename(false);
 		}
-		else return finish_rename(false);
 
 		return finish_rename(true);
 	}

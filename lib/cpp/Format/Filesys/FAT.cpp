@@ -46,25 +46,6 @@ namespace uni {
 			MemSet(state.utf8_name, 0, byteof(state.utf8_name));
 		}
 
-		static void fat_append_utf8(char* out_name, stduint out_size, stduint& name_len, uint32_t codepoint) {
-			if (out_size == 0) return;
-			if (codepoint <= 0x7F) {
-				if (name_len + 1 >= out_size) return;
-				out_name[name_len++] = (char)codepoint;
-				return;
-			}
-			if (codepoint <= 0x7FF) {
-				if (name_len + 2 >= out_size) return;
-				out_name[name_len++] = (char)(0xC0 | ((codepoint >> 6) & 0x1F));
-				out_name[name_len++] = (char)(0x80 | (codepoint & 0x3F));
-				return;
-			}
-			if (name_len + 3 >= out_size) return;
-			out_name[name_len++] = (char)(0xE0 | ((codepoint >> 12) & 0x0F));
-			out_name[name_len++] = (char)(0x80 | ((codepoint >> 6) & 0x3F));
-			out_name[name_len++] = (char)(0x80 | (codepoint & 0x3F));
-		}
-
 		static uint8_t fat_short_name_checksum(const FAT_DirEntry& entry) {
 			uint8_t sum = 0;
 			for (int i = 0; i < 8; i++) sum = ((sum & 1u) ? 0x80u : 0) + (sum >> 1) + (uint8_t)entry.name[i];
@@ -127,14 +108,25 @@ namespace uni {
 		}
 
 		static const char* fat_finalize_lfn_name(FAT_LfnState& state) {
-			stduint out_len = 0;
+			state.utf8_name[0] = 0;
+			String out(state.utf8_name, byteof(state.utf8_name));
 			for (int i = 0; i < 255; i++) {
 				uint16_t code = state.name_utf16[i];
 				if (code == 0x0000) break;
-				fat_append_utf8(state.utf8_name, byteof(state.utf8_name), out_len, code);
+				uint32_t rune = code;
+				if (code >= 0xD800u && code <= 0xDBFFu) {
+					const uint16_t low = (i + 1 < 255) ? state.name_utf16[i + 1] : 0;
+					if (low >= 0xDC00u && low <= 0xDFFFu) {
+						rune = 0x10000u + ((uint32_t)(code - 0xD800u) << 10) + (uint32_t)(low - 0xDC00u);
+						i++;
+					}
+					else rune = 0xFFFDu;
+				}
+				else if (code >= 0xDC00u && code <= 0xDFFFu) {
+					rune = 0xFFFDu;
+				}
+				if (!out.PushRune((char32_t)rune)) break;
 			}
-			if (out_len < byteof(state.utf8_name)) state.utf8_name[out_len] = 0;
-			else state.utf8_name[byteof(state.utf8_name) - 1] = 0;
 			return state.utf8_name;
 		}
 
@@ -275,7 +267,7 @@ namespace uni {
 
 	enum DirWalkResult { WALK_CONTINUE, WALK_FOUND, WALK_END, WALK_LIMIT, WALK_ERROR };
 
-	bool FilesysFAT::find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer, FAT_TableScratch* fat_cache) {
+	bool FilesysFAT::find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer, FAT_TableScratch* fat_cache, uint32_t* out_lfn_sector, uint32_t* out_lfn_index, stduint* out_lfn_count) {
 		if (!sector_buffer) sector_buffer = buffer_sector;
 		if (!sector_buffer) return false;
 
@@ -284,6 +276,9 @@ namespace uni {
 		FAT_LfnState& lfn_state = *lfn_state_holder;
 		fat_reset_lfn_state(lfn_state);
 		
+		uint32_t lfn_run_sector = 0;
+		uint32_t lfn_run_index = 0;
+		stduint lfn_run_count = 0;
 		auto process_sector = [&](uint32_t sector) -> DirWalkResult {
 			if (!storage->Read(sector, sector_buffer)) return WALK_END;
 			int entries_per_sector = storage->Block_Size / 32;
@@ -291,16 +286,25 @@ namespace uni {
 				FAT_DirEntry* entry = (FAT_DirEntry*)&sector_buffer[i * 32];
 				if ((byte)entry->name[0] == 0x00u) return WALK_END; // End of dir
 				if ((byte)entry->name[0] == 0xE5u) {
-					fat_reset_lfn_state(lfn_state); continue; // Deleted
+					fat_reset_lfn_state(lfn_state);
+					lfn_run_count = 0;
+					continue; // Deleted
 				}
 				
 				if (entry->attribute.isLongName()) {
+					if (!lfn_run_count) {
+						lfn_run_sector = sector;
+						lfn_run_index = (uint32_t)i;
+					}
+					lfn_run_count++;
 					fat_append_lfn_piece(lfn_state, *(FAT_LongDirEntry*)entry);
 					continue;
 				}
 				
 				if (entry->attribute.volume_id && !entry->attribute.directory) {
-					fat_reset_lfn_state(lfn_state); continue;
+					fat_reset_lfn_state(lfn_state);
+					lfn_run_count = 0;
+					continue;
 				}
 				
 				char short_name[13];
@@ -314,14 +318,21 @@ namespace uni {
 						is_valid_name = false; break;
 					}
 				}
-				if (!is_valid_name) continue;
+				if (!is_valid_name) {
+					lfn_run_count = 0;
+					continue;
+				}
 
 				if (!StrCompareInsensitive(final_name, target_name)) {
 					if (out_entry) *out_entry = *entry;
 					if (out_sector) *out_sector = sector;
 					if (out_index) *out_index = i;
+					if (out_lfn_sector) *out_lfn_sector = lfn_run_sector;
+					if (out_lfn_index) *out_lfn_index = lfn_run_index;
+					if (out_lfn_count) *out_lfn_count = lfn_run_count;
 					return WALK_FOUND;
 				}
+				lfn_run_count = 0;
 			}
 			return WALK_CONTINUE;
 		};
@@ -859,5 +870,358 @@ namespace uni {
 			storage->Write(sec, fat_buffer);
 		}
 		return true;
+	}
+
+	namespace {
+		// One code point to UTF-16 units, a surrogate pair above the BMP
+		static stduint fat_utf16_units_of(uint32_t rune, uint16_t* out_units) {
+			if (rune >= 0x10000u && rune <= 0x10FFFFu) {
+				const uint32_t offset = rune - 0x10000u;
+				out_units[0] = (uint16_t)(0xD800u | (offset >> 10));
+				out_units[1] = (uint16_t)(0xDC00u | (offset & 0x3FFu));
+				return 2;
+			}
+			out_units[0] = (uint16_t)(rune > 0xFFFFu ? 0xFFFDu : rune);
+			return 1;
+		}
+
+		// Characters allowed in an 8.3 field: uppercase ASCII, every other byte becomes '_'
+		static char fat_short_name_char(char c) {
+			const unsigned char raw = (unsigned char)c;
+			if (raw < 0x20u || raw >= 0x7Fu) return '_';
+			if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+			switch (c) {
+			case ' ': case '"': case '*': case '+': case ',': case '/': case ':':
+			case ';': case '<': case '=': case '>': case '?': case '[': case '\\':
+			case ']': case '|':
+				return '_';
+			default:
+				return c;
+			}
+		}
+	}
+
+	bool FilesysFAT::build_lfn_entries(const char* name, const FAT_DirEntry& short_entry,
+		byte* out_entries, stduint capacity, stduint& out_count) {
+		out_count = 0;
+		if (!name || !out_entries) return false;
+		String source(name);
+		stduint unit_count = 0;
+		for (auto rune : source.chars()) {
+			unit_count += (rune >= 0x10000u) ? 2 : 1;
+		}
+		if (!unit_count || unit_count > 255) return false;
+		const stduint piece_count = (unit_count + 12) / 13;
+		if (piece_count > capacity) return false;
+		const uint8_t checksum = fat_short_name_checksum(short_entry);
+		for (stduint slot = 0; slot < piece_count; slot++) {
+			const stduint order = piece_count - slot;
+			FAT_LongDirEntry* entry = (FAT_LongDirEntry*)(out_entries + slot * 32);
+			MemSet(entry, 0, 32);
+			entry->order = (uint8_t)(order | (slot == 0 ? 0x40 : 0x00));
+			entry->attr = 0x0F;
+			entry->type = 0;
+			entry->checksum = checksum;
+			entry->cluster = 0;
+			uint16_t units[13];
+			stduint filled = 0;
+			const stduint first_unit = (order - 1) * 13;
+			const stduint last_unit = first_unit + 13;
+			stduint position = 0;
+			for (auto rune = source.chars_begin(); position < last_unit; ++rune) {
+				if (rune == source.chars_end()) break;
+				uint16_t produced_units[2];
+				const stduint produced = fat_utf16_units_of(*rune, produced_units);
+				for (stduint i = 0; i < produced && position < last_unit; i++, position++) {
+					if (position < first_unit) continue;
+					units[filled++] = produced_units[i];
+				}
+			}
+			for (stduint i = 0; i < 13; i++) {
+				const uint16_t unit = i < filled ? units[i] : (uint16_t)0xFFFF;
+				if (i < 5) entry->name1[i] = unit;
+				else if (i < 11) entry->name2[i - 5] = unit;
+				else entry->name3[i - 11] = unit;
+			}
+		}
+		out_count = piece_count;
+		return true;
+	}
+
+	bool FilesysFAT::short_name_exists(uint32_t dir_cluster, const FAT_DirEntry& candidate,
+		byte* sector_buffer, FAT_TableScratch* fat_cache) {
+		if (!sector_buffer) sector_buffer = buffer_sector;
+		if (!sector_buffer) return false;
+		auto matches = [&](uint32_t sector) -> bool {
+			if (!storage->Read(sector, sector_buffer)) return true;
+			const int entries_per_sector = storage->Block_Size / 32;
+			for (int i = 0; i < entries_per_sector; i++) {
+				FAT_DirEntry* entry = (FAT_DirEntry*)&sector_buffer[i * 32];
+				if ((byte)entry->name[0] == 0x00u) return false;
+				if ((byte)entry->name[0] == 0xE5u) continue;
+				if (entry->attribute.isLongName()) continue;
+				if (entry->attribute.volume_id && !entry->attribute.directory) continue;
+				bool same = true;
+				for (int k = 0; k < 8 && same; k++) same = entry->name[k] == candidate.name[k];
+				for (int k = 0; k < 3 && same; k++) same = entry->ext[k] == candidate.ext[k];
+				if (same) return true;
+			}
+			return false;
+		};
+		if (dir_cluster == 0 && fat_type != 32) {
+			const uint32_t start_sec = first_data_sector - root_dir_sectors;
+			for (uint32_t s = 0; s < root_dir_sectors; s++) {
+				if (matches(start_sec + s)) return true;
+			}
+			return false;
+		}
+		uint32_t cluster = dir_cluster;
+		if (cluster == 0) cluster = root_cluster;
+		int limit = 100000;
+		while (cluster >= 2 && cluster < 0xFFFFFFF8 && limit-- > 0) {
+			const uint32_t cluster_sec = getSector_foCluster(cluster);
+			for (uint32_t s = 0; s < sectors_per_cluster; s++) {
+				if (matches(cluster_sec + s)) return true;
+			}
+			cluster = get_fat_entry(cluster, fat_cache);
+		}
+		return false;
+	}
+
+	bool FilesysFAT::build_short_entry(const char* name, uint32_t dir_cluster,
+		byte* sector_buffer, FAT_TableScratch* fat_cache, FAT_DirEntry& out_entry,
+		bool& out_needs_lfn) {
+		out_needs_lfn = true;
+		if (!name || !*name) return false;
+		const char* base = name;
+		while (*base == '.') base++;
+		if (!*base) return false;
+		const char* dot = nullptr;
+		for (const char* p = base; *p; p++) {
+			if (*p == '.') dot = p;
+		}
+		char stem[8] = {};
+		char ext[3] = {};
+		stduint stem_len = 0;
+		stduint ext_len = 0;
+		if (dot) {
+			for (const char* p = base; p < dot && stem_len < 8; p++) {
+				const char ch = fat_short_name_char(*p);
+				if (ch) stem[stem_len++] = ch;
+			}
+			for (const char* p = dot + 1; *p && ext_len < 3; p++) {
+				const char ch = fat_short_name_char(*p);
+				if (ch) ext[ext_len++] = ch;
+			}
+		}
+		else {
+			for (const char* p = base; *p && stem_len < 8; p++) {
+				const char ch = fat_short_name_char(*p);
+				if (ch) stem[stem_len++] = ch;
+			}
+		}
+		if (!stem_len) return false;
+
+		FAT_DirEntry candidate;
+		auto compose = [&](const char* tail, stduint tail_len) {
+			MemSet(&candidate, 0, sizeof(FAT_DirEntry));
+			MemSet(candidate.name, ' ', 8);
+			MemSet(candidate.ext, ' ', 3);
+			stduint usable = 8 - tail_len;
+			if (usable > stem_len) usable = stem_len;
+			for (stduint i = 0; i < usable; i++) candidate.name[i] = stem[i];
+			for (stduint i = 0; i < tail_len; i++) candidate.name[usable + i] = tail[i];
+			for (stduint i = 0; i < ext_len; i++) candidate.ext[i] = ext[i];
+			if ((byte)candidate.name[0] == 0xE5u) candidate.name[0] = (char)0x05;
+		};
+		auto accept = [&]() {
+			MemSet(&out_entry, 0, sizeof(FAT_DirEntry));
+			MemCopyN(out_entry.name, candidate.name, 8);
+			MemCopyN(out_entry.ext, candidate.ext, 3);
+			char rebuilt[13];
+			fat_decode_short_name(out_entry, rebuilt);
+			out_needs_lfn = StrCompare(rebuilt, base) != 0;
+		};
+
+		compose(nullptr, 0);
+		if (!short_name_exists(dir_cluster, candidate, sector_buffer, fat_cache)) {
+			accept();
+			return true;
+		}
+		for (uint32_t serial = 1; serial < 1000000u; serial++) {
+			char tail[8] = { '~' };
+			char digits[8];
+			stduint digit_count = 0;
+			uint32_t value = serial;
+			do {
+				digits[digit_count++] = (char)('0' + (value % 10));
+				value /= 10;
+			} while (value && digit_count < 7);
+			for (stduint i = 0; i < digit_count; i++) tail[1 + i] = digits[digit_count - 1 - i];
+			compose(tail, 1 + digit_count);
+			if (!short_name_exists(dir_cluster, candidate, sector_buffer, fat_cache)) {
+				accept();
+				out_needs_lfn = true;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	uint32_t FilesysFAT::dir_next_sector(uint32_t dir_cluster, uint32_t sector,
+		FAT_TableScratch* fat_cache) {
+		if (!sector) return 0;
+		if (dir_cluster == 0 && fat_type != 32) {
+			const uint32_t start_sec = first_data_sector - root_dir_sectors;
+			if (sector + 1 >= start_sec + root_dir_sectors) return 0;
+			return sector + 1;
+		}
+		if (sector < first_data_sector) return 0;
+		const uint32_t cluster_of_sector = (sector - first_data_sector) / sectors_per_cluster + 2;
+		const uint32_t cluster_first = getSector_foCluster(cluster_of_sector);
+		if (sector + 1 < cluster_first + sectors_per_cluster) return sector + 1;
+		const uint32_t next_cluster = get_fat_entry(cluster_of_sector, fat_cache);
+		if (next_cluster < 2 || next_cluster >= 0xFFFFFFF8) return 0;
+		return getSector_foCluster(next_cluster);
+	}
+
+	bool FilesysFAT::dir_grow_chain(uint32_t dir_cluster, FAT_TableScratch* fat_cache) {
+		if (dir_cluster == 0 && fat_type != 32) return false;
+		uint32_t cluster = dir_cluster ? dir_cluster : root_cluster;
+		if (cluster < 2) return false;
+		int limit = 10000;
+		while (limit-- > 0) {
+			const uint32_t next = get_fat_entry(cluster, fat_cache);
+			if (next >= 0xFFFFFFF8) break;
+			if (next < 2) return false;
+			cluster = next;
+		}
+		if (limit <= 0) return false;
+		const uint32_t grown = find_free_cluster(fat_cache);
+		if (!grown) return false;
+		const uint32_t end_mark = (fat_type == 32) ? 0x0FFFFFFF :
+			(fat_type == 16) ? 0xFFFF : 0xFFF;
+		if (!set_fat_entry(cluster, grown, fat_cache)) return false;
+		if (!set_fat_entry(grown, end_mark, fat_cache)) return false;
+		byte* cleared = new byte[storage->Block_Size];
+		if (!cleared) return false;
+		MemSet(cleared, 0, storage->Block_Size);
+		const uint32_t grown_sec = getSector_foCluster(grown);
+		for (uint32_t s = 0; s < sectors_per_cluster; s++) {
+			storage->Write(grown_sec + s, cleared);
+		}
+		delete[] cleared;
+		return true;
+	}
+
+	bool FilesysFAT::alloc_dir_run(uint32_t dir_cluster, stduint count,
+		uint32_t& out_sector, uint32_t& out_index, byte* sector_buffer,
+		FAT_TableScratch* fat_cache) {
+		out_sector = 0;
+		out_index = 0;
+		if (!count) return false;
+		if (!sector_buffer) sector_buffer = buffer_sector;
+		if (!sector_buffer) return false;
+		const stduint slots_per_sector = storage->Block_Size / 32;
+		const bool fixed_root = (dir_cluster == 0 && fat_type != 32);
+		uint32_t sector = fixed_root ?
+			(first_data_sector - root_dir_sectors) :
+			getSector_foCluster(dir_cluster ? dir_cluster : root_cluster);
+		if (!sector) return false;
+		uint32_t run_sector = 0;
+		uint32_t run_index = 0;
+		stduint run_count = 0;
+		for (int guard = 0; sector && guard < 100000; guard++) {
+			if (!storage->Read(sector, sector_buffer)) return false;
+			for (stduint i = 0; i < slots_per_sector; i++) {
+				FAT_DirEntry* entry = (FAT_DirEntry*)&sector_buffer[i * 32];
+				const bool free_slot = (byte)entry->name[0] == 0x00u ||
+					(byte)entry->name[0] == 0xE5u;
+				if (!free_slot) {
+					run_count = 0;
+					continue;
+				}
+				if (!run_count) {
+					run_sector = sector;
+					run_index = (uint32_t)i;
+				}
+				if (++run_count >= count) {
+					out_sector = run_sector;
+					out_index = run_index;
+					return true;
+				}
+			}
+			const uint32_t next = dir_next_sector(dir_cluster, sector, fat_cache);
+			if (!next) {
+				if (fixed_root) return false;
+				if (!dir_grow_chain(dir_cluster, fat_cache)) return false;
+				sector = dir_next_sector(dir_cluster, sector, fat_cache);
+				continue;
+			}
+			sector = next;
+		}
+		return false;
+	}
+
+	bool FilesysFAT::write_dir_run(uint32_t dir_cluster, uint32_t start_sector,
+		uint32_t start_index, const byte* entries, stduint count) {
+		if (!start_sector || !entries || !count) return false;
+		byte* buffer = new byte[storage->Block_Size];
+		if (!buffer) return false;
+		const stduint slots_per_sector = storage->Block_Size / 32;
+		uint32_t sector = start_sector;
+		stduint index = start_index;
+		stduint done = 0;
+		bool ok = true;
+		while (done < count && ok) {
+			if (!storage->Read(sector, buffer)) {
+				ok = false;
+				break;
+			}
+			while (index < slots_per_sector && done < count) {
+				MemCopyN(&buffer[index * 32], entries + done * 32, 32);
+				index++;
+				done++;
+			}
+			ok = storage->Write(sector, buffer);
+			if (done < count) {
+				sector = dir_next_sector(dir_cluster, sector, nullptr);
+				if (!sector) ok = false;
+				index = 0;
+			}
+		}
+		delete[] buffer;
+		return ok && done == count;
+	}
+
+	bool FilesysFAT::erase_dir_run(uint32_t dir_cluster, uint32_t start_sector,
+		uint32_t start_index, stduint count) {
+		if (!start_sector || !count) return false;
+		byte* buffer = new byte[storage->Block_Size];
+		if (!buffer) return false;
+		const stduint slots_per_sector = storage->Block_Size / 32;
+		uint32_t sector = start_sector;
+		stduint index = start_index;
+		stduint done = 0;
+		bool ok = true;
+		while (done < count && ok) {
+			if (!storage->Read(sector, buffer)) {
+				ok = false;
+				break;
+			}
+			while (index < slots_per_sector && done < count) {
+				buffer[index * 32] = 0xE5u;
+				index++;
+				done++;
+			}
+			ok = storage->Write(sector, buffer);
+			if (done < count) {
+				sector = dir_next_sector(dir_cluster, sector, nullptr);
+				if (!sector) ok = false;
+				index = 0;
+			}
+		}
+		delete[] buffer;
+		return ok && done == count;
 	}
 }

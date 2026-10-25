@@ -278,6 +278,9 @@ namespace uni {
 		String(const String32& str32);
 		String32 toUTF32() const;
 
+		// Append one code point as UTF-8, false when the buffer has no room for it
+		bool PushRune(Rune cp);
+
 		// UTF-8 Character Iterator
 		class Utf8Iterator {
 		private:

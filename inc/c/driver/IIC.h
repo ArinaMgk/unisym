@@ -71,6 +71,42 @@ namespace uni {
 
 	class DMAStream;// forward declaration for IIC DMA integration
 
+	enum IICMessageFlags : uint16 {
+		IICMessageFlag_None = 0,
+		IICMessageFlag_Read = 1 << 0,
+		IICMessageFlag_TenBitAddress = 1 << 1,
+		IICMessageFlag_Stop = 1 << 2,
+	};
+
+	enum class IICTransferStatus : uint8 {
+		Success,
+		InvalidArgument,
+		Unsupported,
+		AddressNack,
+		DataNack,
+		ArbitrationLost,
+		BusBusy,
+		Timeout,
+		ControllerError,
+	};
+
+	struct IICMessage {
+		uint16 address;
+		uint16 flags;
+		const byte* write_buffer;
+		byte* read_buffer;
+		stduint length;
+		stduint transferred;
+	};
+
+	struct IICTransferResult {
+		stduint completed_messages;
+		stduint failed_message;
+		stduint submitted_bytes;
+		stduint completed_bytes;
+		uint32 hardware_status;
+	};
+
 #undef IIC
 #if defined(_SUPPORT_GPIO) || (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600))
 	
@@ -101,6 +137,7 @@ namespace uni {
 		void Send(byte txt, bool auto_wait_ack = false) { Send(&txt, _BYTE_BITS_, auto_wait_ack); }
 		virtual void Send(byte* txt, stduint len, bool auto_wait_ack = false) {}
 		virtual byte ReadByte(bool feedback = true, bool ack = true) { return 0; }
+		virtual IICTransferStatus Transfer(IICMessage*, stduint message_count, stduint, IICTransferResult& result) { result = {}; result.failed_message = message_count; return IICTransferStatus::Unsupported; }
 		//{} Read(&bits, bitlen, ...)
 	};
 
@@ -142,6 +179,16 @@ namespace uni {
 		uint16 receive_fifo_depth;
 	};
 
+	using IICDesignWareRecoverBus = bool (*)(void* context, stduint timeout);
+
+	struct IICDesignWareInitialization {
+		uint32 input_clock_hz;
+		uint32 bus_speed_hz;
+		stduint timeout;
+		void* recovery_context;
+		IICDesignWareRecoverBus recover_bus;
+	};
+
 	using IICDesignWareReadRegister = uint32 (*)(void* context, stduint offset);
 	using IICDesignWareWriteRegister = void (*)(void* context, stduint offset, uint32 value);
 
@@ -151,6 +198,10 @@ namespace uni {
 		void* register_context;
 		IICDesignWareReadRegister read_register;
 		IICDesignWareWriteRegister write_register;
+		IICDesignWareCapabilities runtime_capabilities{};
+		IICDesignWareInitialization runtime_initialization{};
+		bool initialized = false;
+		IICTransferStatus TransferPolling(IICMessage* messages, stduint message_count, stduint timeout, IICTransferResult& result, const IICDesignWareCapabilities& capabilities);
 	public:
 		static constexpr uint32 ComponentTypeValue = 0x44570140u;
 
@@ -160,7 +211,9 @@ namespace uni {
 		uint32 ReadRegister(IICDesignWareReg reg) const;
 		void WriteRegister(IICDesignWareReg reg, uint32 value);
 		bool Probe(IICDesignWareCapabilities& capabilities) const;
+		IICDesignWareStatus Initialize(const IICDesignWareInitialization& initialization);
 		IICDesignWareStatus Initialize(uint32 input_clock_hz, uint32 bus_speed_hz, stduint timeout);
+		IICTransferStatus Transfer(IICMessage* messages, stduint message_count, stduint timeout, IICTransferResult& result) override;
 		IICDesignWareStatus Transfer(uint16 address, const byte* transmit, stduint transmit_length, byte* receive, stduint receive_length, stduint timeout, uint32* abort_source = nullptr);
 	};
 	#endif

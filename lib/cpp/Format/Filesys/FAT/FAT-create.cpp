@@ -111,97 +111,45 @@ namespace uni {
 		}
 
 		FAT_DirEntry entry;
-		MemSet(&entry, 0, sizeof(FAT_DirEntry));
-		MemSet(entry.name, ' ', 8);
-		MemSet(entry.ext, ' ', 3);
-
-		const char* dot_char = StrIndexCharRight(filename, '.');
-		if (dot_char) {
-			int name_len = dot_char - filename;
-			int ext_len = StrLength(dot_char + 1);
-			if (name_len > 8) name_len = 8;
-			if (ext_len > 3) ext_len = 3;
-			MemCopyN(entry.name, filename, name_len);
-			MemCopyN(entry.ext, dot_char + 1, ext_len);
+		bool needs_lfn = false;
+		if (!build_short_entry(filename, parent_cluster, sector_buffer, fat_cache, entry, needs_lfn)) {
+			error_number = 4;
+			return finish_create(false);
 		}
-		else {
-			int name_len = StrLength(filename);
-			if (name_len > 8) name_len = 8;
-			MemCopyN(entry.name, filename, name_len);
-		}
-
-		for (int i = 0; i < 8; i++) entry.name[i] = ascii_toupper(entry.name[i]);
-		for (int i = 0; i < 3; i++) entry.ext[i] = ascii_toupper(entry.ext[i]);
-
 		entry.attribute.attr = create_as_dir ? 0x10 : 0x20;
 		entry.cluster_high = (uint16_t)(new_cluster >> 16);
 		entry.cluster_low = (uint16_t)(new_cluster & 0xFFFF);
 
+		stduint lfn_count = 0;
+		constexpr stduint lfn_capacity = 20;
+		byte* run = new byte[(lfn_capacity + 2) * 32];
+		if (!run) {
+			error_number = 4;
+			return finish_create(false);
+		}
+		if (needs_lfn &&
+			(!build_lfn_entries(filename, entry, run, lfn_capacity, lfn_count) || !lfn_count)) {
+			delete[] run;
+			error_number = 4;
+			return finish_create(false);
+		}
+		// LFN pieces first, then the short entry, then a zero terminator
+		MemCopyN(run + lfn_count * 32, &entry, 32);
+		MemSet(run + (lfn_count + 1) * 32, 0, 32);
+
+		uint32_t run_sector = 0;
+		uint32_t run_index = 0;
+		if (!alloc_dir_run(parent_cluster, lfn_count + 2, run_sector, run_index, sector_buffer, fat_cache) ||
+			!write_dir_run(parent_cluster, run_sector, run_index, run, lfn_count + 2)) {
+			delete[] run;
+			error_number = 4;
+			return finish_create(false);
+		}
+		delete[] run;
+
 		uint32_t entry_sector = 0;
 		uint32_t entry_index = 0;
-		bool written = false;
-
-		auto try_sector = [&](uint32_t sector) -> bool {
-			if (!storage->Read(sector, sector_buffer)) return false;
-			for0 (i, storage->Block_Size / 32) {
-				FAT_DirEntry* dir_entry = (FAT_DirEntry*)&sector_buffer[i * 32];
-				if (dir_entry->name[0] == 0 || (byte)dir_entry->name[0] == 0xE5u) {
-					MemCopyN(dir_entry, &entry, sizeof(FAT_DirEntry));
-					if (storage->Write(sector, sector_buffer)) {
-						entry_sector = sector;
-						entry_index = i;
-						return true;
-					}
-				}
-			}
-			return false;
-			};
-
-		if ((parent_cluster == 0 || parent_cluster == root_cluster) && fat_type != 32) {
-			// FAT12/16 Root Directory
-			uint32_t start_sec = first_data_sector - root_dir_sectors;
-			for (uint32_t s = 0; s < root_dir_sectors; s++) {
-				if (try_sector(start_sec + s)) { written = true; break; }
-			}
-		}
-		else {
-			// FAT32 Root Directory or Any Subdirectory
-			uint32_t cluster = parent_cluster;
-			if (cluster == 0 && fat_type == 32) cluster = root_cluster;
-
-			int limit = 10000;
-			while (cluster >= 2 && cluster < 0xFFFFFFF8 && limit-- > 0) {
-				uint32_t cluster_sec = getSector_foCluster(cluster);
-				for (uint32_t s = 0; s < sectors_per_cluster; s++) {
-					if (try_sector(cluster_sec + s)) { written = true; break; }
-				}
-				if (written) break;
-
-				uint32_t next = get_fat_entry(cluster, fat_cache);
-				if (next >= 0xFFFFFFF8) {
-					uint32_t new_dir_cluster = find_free_cluster(fat_cache);
-					if (new_dir_cluster == 0) break;
-
-					uint32_t end_mark = (fat_type == 32) ? 0x0FFFFFFF :
-						(fat_type == 16) ? 0xFFFF : 0xFFF;
-					set_fat_entry(cluster, new_dir_cluster, fat_cache);
-					set_fat_entry(new_dir_cluster, end_mark, fat_cache);
-
-					uint32_t new_dir_sec = getSector_foCluster(new_dir_cluster);
-					byte* clr_buf = new byte[storage->Block_Size];
-					MemSet(clr_buf, 0, storage->Block_Size);
-					for (uint32_t s = 0; s < sectors_per_cluster; s++) {
-						storage->Write(new_dir_sec + s, clr_buf);
-					}
-					delete[] clr_buf;
-
-					next = new_dir_cluster;
-				}
-				cluster = next;
-			}
-		}
-
-		if (!written) {
+		if (!find_entry_in_dir(parent_cluster, filename, &entry, &entry_sector, &entry_index, sector_buffer, fat_cache)) {
 			error_number = 4;
 			return finish_create(false);
 		}

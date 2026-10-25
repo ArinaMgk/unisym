@@ -37,6 +37,8 @@ namespace uni {
 		dynamic_object_count = 0;
 		mutex_top = AMLNamespace::InvalidIndex;
 		buffer_used = 0;
+		package_value_used = 0;
+		method_argument_depth = 0;
 		last_error = {};
 		last_error.object = AMLNamespace::InvalidIndex;
 		last_error.scope = AMLNamespace::InvalidIndex;
@@ -59,6 +61,7 @@ namespace uni {
 	}
 
 	AMLExecutor::Status AMLExecutor::ConsumeInstruction(const uint8* address) {
+		if (limits.timeout && limits.timeout(limits.timeout_context)) return Fail(Status::Timeout, address);
 		if (++instruction_count > limits.instruction_count) return Fail(Status::InstructionLimit, address);
 		return Status::Success;
 	}
@@ -210,7 +213,33 @@ namespace uni {
 		return Status::Success;
 	}
 
+	AMLExecutor::Status AMLExecutor::AllocatePackage(stduint count, Value& value) {
+		if (package_value_used > workspace.package_value_capacity || count > workspace.package_value_capacity - package_value_used || (count && !workspace.package_values)) return Fail(Status::PackageCapacity, nullptr);
+		Value* elements = count ? workspace.package_values + package_value_used : workspace.package_values;
+		package_value_used += count;
+		for0(index, count) elements[index] = {};
+		value = {};
+		value.type = ValueType::Package;
+		value.elements = elements;
+		value.writable_elements = elements;
+		value.element_count = count;
+		return Status::Success;
+	}
+
 	AMLExecutor::Status AMLExecutor::CopyValue(const Value& source, Value& value, const uint8* address) {
+		if (source.type == ValueType::Package) {
+			if (source.element_count && !source.elements) return Fail(Status::Malformed, address);
+			Status status = AllocatePackage(source.element_count, value);
+			if (status != Status::Success) {
+				last_error.address = address;
+				return status;
+			}
+			for0(index, source.element_count) {
+				status = CopyValue(source.elements[index], value.writable_elements[index], address);
+				if (status != Status::Success) return status;
+			}
+			return Status::Success;
+		}
 		if (source.type != ValueType::Buffer && source.type != ValueType::String) {
 			value = source;
 			return Status::Success;
@@ -223,6 +252,96 @@ namespace uni {
 		}
 		for0(index, source.length) value.writable_data[index] = source.data[index];
 		value.data_length = source.data_length < source.length ? source.data_length : source.length;
+		return Status::Success;
+	}
+
+	AMLExecutor::Status AMLExecutor::ImportValue(const Value& source, Value& value, const uint8* address, stduint depth) {
+		if (depth >= AMLNamespace::MaximumDepth) return Fail(Status::FrameLimit, address);
+		if (source.type == ValueType::Package) {
+			if (source.element_count && !source.elements) return Fail(Status::Malformed, address);
+			Status status = AllocatePackage(source.element_count, value);
+			if (status != Status::Success) return status;
+			for0(index, source.element_count) {
+				status = ImportValue(source.elements[index], value.writable_elements[index], address, depth + 1);
+				if (status != Status::Success) return status;
+			}
+			return Status::Success;
+		}
+		if (source.type == ValueType::Buffer || source.type == ValueType::String) return CopyValue(source, value, address);
+		if (source.type == ValueType::Reference) {
+			if (source.reference_type == ReferenceType::None) {
+				value = source;
+				return Status::Success;
+			}
+			if (source.reference_type != ReferenceType::Object || source.reference >= aml_namespace.Count() || !aml_namespace.At(source.reference)) return Fail(Status::InvalidTarget, address, source.reference);
+			value = source;
+			value.reference_frame = 0;
+			return Status::Success;
+		}
+		if (source.type != ValueType::Uninitialized && source.type != ValueType::Integer) return Fail(Status::TypeMismatch, address);
+		value = source;
+		return Status::Success;
+	}
+
+	AMLExecutor::Status AMLExecutor::NormalizeValue(const Value& source, Value& value, const uint8* address, stduint depth) {
+		if (depth >= AMLNamespace::MaximumDepth) return Fail(Status::FrameLimit, address);
+		if (source.type == ValueType::Reference) {
+			if (source.reference_type == ReferenceType::None || (source.reference_type == ReferenceType::Object && source.reference < aml_namespace.Count())) {
+				value = source;
+				return Status::Success;
+			}
+			Value resolved = {};
+			const Status status = ReadReference(source, resolved);
+			return status == Status::Success ? NormalizeValue(resolved, value, address, depth + 1) : status;
+		}
+		if (source.type == ValueType::Package) {
+			if (source.element_count && !source.elements) return Fail(Status::Malformed, address);
+			Status status = AllocatePackage(source.element_count, value);
+			if (status != Status::Success) return status;
+			for0(index, source.element_count) {
+				status = NormalizeValue(source.elements[index], value.writable_elements[index], address, depth + 1);
+				if (status != Status::Success) return status;
+			}
+			return Status::Success;
+		}
+		value = source;
+		return Status::Success;
+	}
+
+	AMLExecutor::Status AMLExecutor::ExportValue(const Value& source, Value& value, const ValueStorage& value_storage, stduint& value_used, stduint& byte_used, stduint depth) {
+		if (depth >= AMLNamespace::MaximumDepth) return Fail(Status::FrameLimit, nullptr);
+		if (source.type == ValueType::Package) {
+			if (source.element_count && !source.elements) return Fail(Status::Malformed, nullptr);
+			if (value_used > value_storage.value_capacity || source.element_count > value_storage.value_capacity - value_used || (source.element_count && !value_storage.values)) return Fail(Status::PackageCapacity, nullptr);
+			Value* elements = source.element_count ? value_storage.values + value_used : value_storage.values;
+			value_used += source.element_count;
+			for0(index, source.element_count) elements[index] = {};
+			value = {};
+			value.type = ValueType::Package;
+			value.elements = elements;
+			value.writable_elements = elements;
+			value.element_count = source.element_count;
+			for0(index, source.element_count) {
+				const Status status = ExportValue(source.elements[index], elements[index], value_storage, value_used, byte_used, depth + 1);
+				if (status != Status::Success) return status;
+			}
+			return Status::Success;
+		}
+		if (source.type == ValueType::Buffer || source.type == ValueType::String) {
+			if (source.length && !source.data) return Fail(Status::Malformed, nullptr);
+			const stduint allocation_length = source.length + (source.type == ValueType::String ? 1 : 0);
+			if (allocation_length < source.length || byte_used > value_storage.byte_capacity || allocation_length > value_storage.byte_capacity - byte_used || (allocation_length && !value_storage.bytes)) return Fail(Status::BufferCapacity, nullptr);
+			uint8* data = allocation_length ? value_storage.bytes + byte_used : value_storage.bytes;
+			byte_used += allocation_length;
+			for0(index, source.length) data[index] = source.data[index];
+			if (source.type == ValueType::String) data[source.length] = 0;
+			value = source;
+			value.data = data;
+			value.writable_data = data;
+			return Status::Success;
+		}
+		if (source.type == ValueType::Reference && source.reference_type != ReferenceType::None && (source.reference_type != ReferenceType::Object || source.reference >= aml_namespace.Count())) return Fail(Status::InvalidTarget, nullptr, source.reference);
+		value = source;
 		return Status::Success;
 	}
 
@@ -969,10 +1088,12 @@ namespace uni {
 
 	AMLExecutor::Status AMLExecutor::ExecuteMethod(stduint object_index, const Value* arguments, stduint argument_count, Value& value) {
 		const AMLNamespace::Object* object = AtObject(object_index);
-		if (!object || object->type != AMLNamespace::ObjectType::Method) return Fail(Status::UnsupportedObject, object ? object->value : nullptr, object_index);
+		if (!object) return Fail(Status::NotFound, nullptr, object_index);
+		if (object->type != AMLNamespace::ObjectType::Method) return Fail(Status::UnsupportedObject, object->value, object_index);
 		if (object->flags & AMLNamespace::ObjectFlagConditional) return Fail(Status::ConditionalObject, object->value, object_index);
 		if (argument_count != object->argument_count || (argument_count && !arguments)) return Fail(Status::InvalidArgument, object->value, object_index);
-		if (!workspace.frames || frame_count >= workspace.frame_capacity) return Fail(Status::FrameLimit, object->value, object_index);
+		const stduint method_depth = limits.method_depth && limits.method_depth < workspace.frame_capacity ? limits.method_depth : workspace.frame_capacity;
+		if (!workspace.frames || frame_count >= method_depth) return Fail(Status::FrameLimit, object->value, object_index);
 		const stduint initial_mutex_top = mutex_top;
 		const stduint initial_dynamic_count = dynamic_object_count;
 		Status status = Status::Success;
@@ -994,6 +1115,11 @@ namespace uni {
 		status = ExecuteBlock(cursor, end, frame.scope, &frame, value, returned, broke, continued);
 		if (status == Status::Success && mutex_top != method_mutex_top) status = Fail(Status::InvalidArgument, object->value, object_index);
 		if (status == Status::Success && (broke || continued)) status = Fail(Status::InvalidArgument, object->value_length ? end - 1 : nullptr, object_index);
+		if (status == Status::Success && returned) {
+			Value normalized = {};
+			status = NormalizeValue(value, normalized, object->value);
+			if (status == Status::Success) value = normalized;
+		}
 		if (status == Status::Success && !returned) value = {};
 		RestoreMutex(initial_mutex_top);
 		DiscardDynamicObjects(initial_dynamic_count);
@@ -1012,6 +1138,20 @@ namespace uni {
 		return EvaluateObject(object, nullptr, value);
 	}
 
+	AMLExecutor::Status AMLExecutor::Evaluate(stduint object, Value& value, const ValueStorage& value_storage) {
+		if (!workspace.frames || !workspace.frame_capacity || !limits.instruction_count || !limits.loop_count) return Fail(Status::InvalidArgument, nullptr, object);
+		Reset();
+		value = {};
+		Value internal_value = {};
+		Status status = EvaluateObject(object, nullptr, internal_value);
+		if (status != Status::Success) return status;
+		stduint value_used = 0;
+		stduint byte_used = 0;
+		status = ExportValue(internal_value, value, value_storage, value_used, byte_used);
+		if (status != Status::Success && last_error.object == AMLNamespace::InvalidIndex) last_error.object = object;
+		return status;
+	}
+
 	AMLExecutor::Status AMLExecutor::EvaluateInteger(stduint object, uint64& integer) {
 		Value value = {};
 		const Status status = Evaluate(object, value);
@@ -1019,6 +1159,32 @@ namespace uni {
 		if (value.type != ValueType::Integer) return Fail(Status::TypeMismatch, AtObject(object) ? AtObject(object)->value : nullptr, object);
 		integer = value.integer;
 		return Status::Success;
+	}
+
+	AMLExecutor::Status AMLExecutor::Invoke(stduint method, const Value* arguments, stduint argument_count, Value& value, const ValueStorage& value_storage) {
+		if (!workspace.frames || !workspace.frame_capacity || !workspace.method_arguments || workspace.method_argument_capacity < 7 || !limits.instruction_count || !limits.loop_count || argument_count > 7 || (argument_count && !arguments)) return Fail(Status::InvalidArgument, nullptr, method);
+		Reset();
+		value = {};
+		Value* imported_arguments = workspace.method_arguments;
+		for0(index, 7) imported_arguments[index] = {};
+		for0(index, argument_count) {
+			const Status status = ImportValue(arguments[index], imported_arguments[index], nullptr);
+			if (status != Status::Success) return status;
+		}
+		Value internal_value = {};
+		Status status = ExecuteMethod(method, imported_arguments, argument_count, internal_value);
+		if (status != Status::Success) return status;
+		stduint value_used = 0;
+		stduint byte_used = 0;
+		status = ExportValue(internal_value, value, value_storage, value_used, byte_used);
+		if (status != Status::Success && last_error.object == AMLNamespace::InvalidIndex) last_error.object = method;
+		return status;
+	}
+
+	AMLExecutor::Status AMLExecutor::Invoke(const char* path, const Value* arguments, stduint argument_count, Value& value, const ValueStorage& value_storage) {
+		const stduint method = aml_namespace.FindPath(path);
+		if (method == AMLNamespace::InvalidIndex) return Fail(Status::NotFound, nullptr);
+		return Invoke(method, arguments, argument_count, value, value_storage);
 	}
 
 	AMLExecutor::Status AMLExecutor::EvaluateBinary(const uint8*& cursor, const uint8* end, stduint scope, Frame* frame, uint8 opcode, Value& value) {
@@ -1029,6 +1195,13 @@ namespace uni {
 		if (status != Status::Success) return status;
 		status = EvaluateTerm(cursor, end, scope, frame, right);
 		if (status != Status::Success) return status;
+		if (opcode == 0x93 && left.type == right.type && (left.type == ValueType::Buffer || left.type == ValueType::String)) {
+			if ((left.length && !left.data) || (right.length && !right.data)) return Fail(Status::Malformed, address);
+			bool equal = left.length == right.length;
+			for (stduint index = 0; equal && index < left.length; ++index) equal = left.data[index] == right.data[index];
+			value = aml_integer(equal);
+			return Status::Success;
+		}
 		uint64 left_integer = 0;
 		uint64 right_integer = 0;
 		status = RequireInteger(left, left_integer, address);
@@ -1112,6 +1285,39 @@ namespace uni {
 			}
 			value.data_length = available;
 			for0(index, value.data_length) value.writable_data[index] = cursor[index];
+			cursor = object_end;
+			return Status::Success;
+		}
+		if (opcode == 0x12 || opcode == 0x13) {
+			const uint8* content = nullptr;
+			const uint8* object_end = nullptr;
+			if (!PackageRange(cursor, end, content, object_end)) return Fail(Status::Malformed, address);
+			cursor = content;
+			uint64 count = 0;
+			if (opcode == 0x12) {
+				if (cursor >= object_end) return Fail(Status::Malformed, address);
+				count = *cursor++;
+			}
+			else {
+				Value count_value = {};
+				status = EvaluateTerm(cursor, object_end, scope, frame, count_value);
+				if (status != Status::Success) return status;
+				status = RequireInteger(count_value, count, address);
+				if (status != Status::Success) return status;
+			}
+			const stduint package_count = stduint(count);
+			if (uint64(package_count) != count) return Fail(Status::PackageCapacity, address);
+			status = AllocatePackage(package_count, value);
+			if (status != Status::Success) {
+				last_error.address = address;
+				return status;
+			}
+			for0(index, value.element_count) {
+				if (cursor >= object_end) break;
+				status = EvaluateTerm(cursor, object_end, scope, frame, value.writable_elements[index]);
+				if (status != Status::Success) return status;
+			}
+			if (cursor != object_end) return Fail(Status::Malformed, cursor);
 			cursor = object_end;
 			return Status::Success;
 		}
@@ -1212,8 +1418,11 @@ namespace uni {
 			Value source = {};
 			status = EvaluateTerm(cursor, end, scope, frame, source);
 			if (status != Status::Success) return status;
-			if (source.type != ValueType::Buffer && source.type != ValueType::String) return Fail(Status::TypeMismatch, address);
-			value = aml_integer(source.length);
+			if (source.type == ValueType::Package) value = aml_integer(source.element_count);
+			else {
+				if (source.type != ValueType::Buffer && source.type != ValueType::String) return Fail(Status::TypeMismatch, address);
+				value = aml_integer(source.length);
+			}
 			return Status::Success;
 		}
 		if (opcode == 0x99 || opcode == 0x9D) {
@@ -1393,13 +1602,28 @@ namespace uni {
 		if (!object) return Fail(Status::NotFound, address);
 		cursor = name_end;
 		if (object->type == AMLNamespace::ObjectType::Method) {
-			Value arguments[7] = {};
-			if (object->argument_count > numsof(arguments)) return Fail(Status::Malformed, address, object_index);
+			if (object->argument_count > 7) return Fail(Status::Malformed, address, object_index);
+			if (method_argument_depth > ~stduint(0) / 7 || method_argument_depth * 7 > workspace.method_argument_capacity || 7 > workspace.method_argument_capacity - method_argument_depth * 7 || !workspace.method_arguments) return Fail(Status::FrameLimit, address, object_index);
+			Value* arguments = workspace.method_arguments + method_argument_depth * 7;
+			++method_argument_depth;
+			for0(index, 7) arguments[index] = {};
 			for0(index, object->argument_count) {
 				status = EvaluateTerm(cursor, end, scope, frame, arguments[index]);
-				if (status != Status::Success) return status;
+				if (status != Status::Success) {
+					--method_argument_depth;
+					return status;
+				}
 			}
-			return ExecuteMethod(object_index, arguments, object->argument_count, value);
+			status = ExecuteMethod(object_index, arguments, object->argument_count, value);
+			--method_argument_depth;
+			return status;
+		}
+		if (object->type == AMLNamespace::ObjectType::Device) {
+			value = {};
+			value.type = ValueType::Reference;
+			value.reference_type = ReferenceType::Object;
+			value.reference = object_index;
+			return Status::Success;
 		}
 		if (object->type == AMLNamespace::ObjectType::External) return Fail(Status::UnsupportedObject, address, object_index);
 		return EvaluateObject(object_index, frame, value);
@@ -1504,6 +1728,313 @@ namespace uni {
 			if (status != Status::Success) return status;
 		}
 		return Status::Success;
+	}
+
+	void ACPIUUID::Encode(uint8 output[16]) const {
+		if (!output) return;
+		output[0] = uint8(data1);
+		output[1] = uint8(data1 >> 8);
+		output[2] = uint8(data1 >> 16);
+		output[3] = uint8(data1 >> 24);
+		output[4] = uint8(data2);
+		output[5] = uint8(data2 >> 8);
+		output[6] = uint8(data3);
+		output[7] = uint8(data3 >> 8);
+		for0(index, 8) output[index + 8] = data4[index];
+	}
+
+	ACPIDSM::ACPIDSM(const AMLNamespace& namespace_value, AMLExecutor& executor_value) : aml_namespace(namespace_value), aml_executor(executor_value) {}
+
+	ACPIDSM::Status ACPIDSM::ResolveMethod(stduint device, stduint& method) const {
+		method = AMLNamespace::InvalidIndex;
+		const AMLNamespace::Object* device_object = aml_namespace.At(device);
+		if (!device_object || device_object->type != AMLNamespace::ObjectType::Device) return Status::InvalidArgument;
+		const char dsm_name[5] = { '_', 'D', 'S', 'M', 0 };
+		method = aml_namespace.FindChild(device, dsm_name);
+		if (method == AMLNamespace::InvalidIndex) return Status::MethodNotFound;
+		const AMLNamespace::Object* method_object = aml_namespace.At(method);
+		if (!method_object || method_object->type != AMLNamespace::ObjectType::Method || method_object->argument_count != 4) return Status::MalformedMethod;
+		return Status::Success;
+	}
+
+	void ACPIDSM::PrepareArguments(const ACPIUUID& uuid, uint64 revision, uint64 function, const AMLExecutor::Value* parameters, Workspace& workspace) const {
+		for0(index, 4) workspace.arguments[index] = {};
+		uuid.Encode(workspace.uuid);
+		workspace.arguments[0].type = AMLExecutor::ValueType::Buffer;
+		workspace.arguments[0].data = workspace.uuid;
+		workspace.arguments[0].length = sizeof(workspace.uuid);
+		workspace.arguments[0].data_length = sizeof(workspace.uuid);
+		workspace.arguments[1].type = AMLExecutor::ValueType::Integer;
+		workspace.arguments[1].integer = revision;
+		workspace.arguments[2].type = AMLExecutor::ValueType::Integer;
+		workspace.arguments[2].integer = function;
+		workspace.arguments[3].type = AMLExecutor::ValueType::Package;
+		if (parameters) workspace.arguments[3] = *parameters;
+	}
+
+	bool ACPIDSM::Accepts(ReturnType return_type, AMLExecutor::ValueType value_type) const {
+		if (return_type == ReturnType::Any) return value_type == AMLExecutor::ValueType::Integer || value_type == AMLExecutor::ValueType::Buffer || value_type == AMLExecutor::ValueType::Package;
+		if (return_type == ReturnType::Integer) return value_type == AMLExecutor::ValueType::Integer;
+		if (return_type == ReturnType::Buffer) return value_type == AMLExecutor::ValueType::Buffer;
+		if (return_type == ReturnType::Package) return value_type == AMLExecutor::ValueType::Package;
+		return false;
+	}
+
+	ACPIDSM::Status ACPIDSM::Query(stduint device, const ACPIUUID& uuid, uint64 revision, Result& result, Workspace& workspace, const AMLExecutor::ValueStorage& value_storage) {
+		result = {};
+		stduint method = AMLNamespace::InvalidIndex;
+		result.status = ResolveMethod(device, method);
+		if (result.status != Status::Success) return result.status;
+		PrepareArguments(uuid, revision, 0, nullptr, workspace);
+		result.aml_status = aml_executor.Invoke(method, workspace.arguments, 4, result.value, value_storage);
+		if (result.aml_status != AMLExecutor::Status::Success) {
+			result.status = Status::ExecutionFailed;
+			return result.status;
+		}
+		if (result.value.type != AMLExecutor::ValueType::Buffer || !result.value.length || !result.value.data) {
+			result.status = Status::MalformedFunctionMask;
+			return result.status;
+		}
+		if (!(result.value.data[0] & 1u)) {
+			result.status = Status::UUIDUnsupported;
+			return result.status;
+		}
+		result.status = Status::Success;
+		return result.status;
+	}
+
+	ACPIDSM::Status ACPIDSM::Invoke(stduint device, const ACPIUUID& uuid, uint64 revision, uint64 function, const AMLExecutor::Value* parameters, ReturnType return_type, Result& result, Workspace& workspace, const AMLExecutor::ValueStorage& value_storage) {
+		result = {};
+		if (parameters && parameters->type != AMLExecutor::ValueType::Package) {
+			result.status = Status::InvalidArgument;
+			return result.status;
+		}
+		if (!function) return Query(device, uuid, revision, result, workspace, value_storage);
+		const AMLExecutor::ValueStorage query_storage = { workspace.query_values, numsof(workspace.query_values), workspace.query_bytes, numsof(workspace.query_bytes) };
+		const Status query_status = Query(device, uuid, revision, workspace.query_result, workspace, query_storage);
+		if (query_status != Status::Success) {
+			result = workspace.query_result;
+			return result.status;
+		}
+		const uint64 function_byte = function >> 3;
+		if (function_byte >= workspace.query_result.value.length || !(workspace.query_result.value.data[stduint(function_byte)] & uint8(1u << (function & 7u)))) {
+			result.status = Status::FunctionUnsupported;
+			result.aml_status = AMLExecutor::Status::Success;
+			return result.status;
+		}
+		stduint method = AMLNamespace::InvalidIndex;
+		result.status = ResolveMethod(device, method);
+		if (result.status != Status::Success) return result.status;
+		PrepareArguments(uuid, revision, function, parameters, workspace);
+		result.aml_status = aml_executor.Invoke(method, workspace.arguments, 4, result.value, value_storage);
+		if (result.aml_status != AMLExecutor::Status::Success) {
+			result.status = Status::ExecutionFailed;
+			return result.status;
+		}
+		if (!Accepts(return_type, result.value.type)) {
+			result.status = Status::ReturnTypeMismatch;
+			return result.status;
+		}
+		result.status = Status::Success;
+		return result.status;
+	}
+
+	ACPIDSD::ACPIDSD(const AMLNamespace& namespace_value, AMLExecutor& executor_value) : aml_namespace(namespace_value), aml_executor(executor_value) {}
+
+	bool ACPIDSD::EqualUuid(const AMLExecutor::Value& value, const uint8 uuid[16]) const {
+		if (value.type != AMLExecutor::ValueType::Buffer || value.length != 16 || !value.data || !uuid) return false;
+		for0(index, 16) if (value.data[index] != uuid[index]) return false;
+		return true;
+	}
+
+	bool ACPIDSD::EqualString(const AMLExecutor::Value& value, const char* text) const {
+		if (value.type != AMLExecutor::ValueType::String || !text || (value.length && !value.data)) return false;
+		stduint length = 0;
+		while (text[length]) ++length;
+		if (length != value.length) return false;
+		for0(index, length) if (value.data[index] != uint8(text[index])) return false;
+		return true;
+	}
+
+	ACPIDSD::Status ACPIDSD::ValidateValue(const AMLExecutor::Value& value, stduint depth, bool& nonstandard) const {
+		if (depth > 8) return Status::MalformedPackage;
+		switch (value.type) {
+		case AMLExecutor::ValueType::Integer: return Status::Success;
+		case AMLExecutor::ValueType::String:
+			return value.length && !value.data ? Status::MalformedPackage : Status::Success;
+		case AMLExecutor::ValueType::Buffer:
+			if (value.length && !value.data) return Status::MalformedPackage;
+			nonstandard = true;
+			return Status::Success;
+		case AMLExecutor::ValueType::Reference:
+			if (value.reference_type != AMLExecutor::ReferenceType::Object || !aml_namespace.At(value.reference)) return Status::UnsupportedPropertyType;
+			return Status::Success;
+		case AMLExecutor::ValueType::Package:
+			if (value.element_count && !value.elements) return Status::MalformedPackage;
+			if (depth) nonstandard = true;
+			for0(index, value.element_count) {
+				const Status status = ValidateValue(value.elements[index], depth + 1, nonstandard);
+				if (status != Status::Success) return status;
+			}
+			return Status::Success;
+		default: return Status::UnsupportedPropertyType;
+		}
+	}
+
+	ACPIDSD::Status ACPIDSD::ConvertValue(const AMLExecutor::Value& source, Value& value, stduint depth, bool& nonstandard) const {
+		value = {};
+		const Status status = ValidateValue(source, depth, nonstandard);
+		if (status != Status::Success) return status;
+		value.integer = source.integer;
+		value.data = source.data;
+		value.length = source.length;
+		value.elements = source.elements;
+		value.element_count = source.element_count;
+		value.reference = source.reference;
+		value.flags = nonstandard ? ValueFlagNonStandard : ValueFlagNone;
+		switch (source.type) {
+		case AMLExecutor::ValueType::Integer: value.type = ValueType::Integer; break;
+		case AMLExecutor::ValueType::String: value.type = ValueType::String; break;
+		case AMLExecutor::ValueType::Buffer: value.type = ValueType::Buffer; break;
+		case AMLExecutor::ValueType::Package: value.type = ValueType::Array; break;
+		case AMLExecutor::ValueType::Reference: value.type = ValueType::DeviceReference; break;
+		default: return Status::UnsupportedPropertyType;
+		}
+		return Status::Success;
+	}
+
+	ACPIDSD::Status ACPIDSD::Evaluate(stduint device, Result& result, const AMLExecutor::ValueStorage& value_storage) {
+		result = {};
+		const AMLNamespace::Object* device_object = aml_namespace.At(device);
+		if (!device_object || device_object->type != AMLNamespace::ObjectType::Device) {
+			result.status = Status::InvalidArgument;
+			return result.status;
+		}
+		const char dsd_name[5] = { '_', 'D', 'S', 'D', 0 };
+		const stduint object = aml_namespace.FindChild(device, dsd_name);
+		if (object == AMLNamespace::InvalidIndex) {
+			result.status = Status::ObjectNotFound;
+			return result.status;
+		}
+		const AMLNamespace::Object* dsd_object = aml_namespace.At(object);
+		if (!dsd_object) {
+			result.status = Status::MalformedObject;
+			return result.status;
+		}
+		if (dsd_object->type == AMLNamespace::ObjectType::Method) {
+			if (dsd_object->argument_count) {
+				result.status = Status::MalformedObject;
+				return result.status;
+			}
+			result.aml_status = aml_executor.Invoke(object, nullptr, 0, result.value, value_storage);
+		}
+		else {
+			if (dsd_object->type != AMLNamespace::ObjectType::Name) {
+				result.status = Status::MalformedObject;
+				return result.status;
+			}
+			result.aml_status = aml_executor.Evaluate(object, result.value, value_storage);
+		}
+		if (result.aml_status != AMLExecutor::Status::Success) {
+			result.status = Status::ExecutionFailed;
+			return result.status;
+		}
+		if (result.value.type != AMLExecutor::ValueType::Package || (result.value.element_count && !result.value.elements) || (result.value.element_count & 1u)) {
+			result.status = Status::MalformedPackage;
+			return result.status;
+		}
+		const ACPIUUID device_properties_uuid = { 0xDAFFD814u, 0x6EBAu, 0x4D8Cu, { 0x8A, 0x91, 0xBC, 0x9B, 0xBF, 0x4A, 0xA3, 0x01 } };
+		uint8 encoded_uuid[16] = {};
+		device_properties_uuid.Encode(encoded_uuid);
+		const AMLExecutor::Value* properties = nullptr;
+		bool device_properties_found = false;
+		for (stduint index = 0; index < result.value.element_count; index += 2) {
+			const auto& uuid = result.value.elements[index];
+			const auto& data = result.value.elements[index + 1];
+			if (uuid.type != AMLExecutor::ValueType::Buffer || uuid.length != 16 || !uuid.data || data.type != AMLExecutor::ValueType::Package || (data.element_count && !data.elements)) {
+				result.status = Status::MalformedPackage;
+				return result.status;
+			}
+			for (stduint previous = 0; previous < index; previous += 2) {
+				bool equal = true;
+				for0(byte, 16) if (result.value.elements[previous].data[byte] != uuid.data[byte]) {
+					equal = false;
+					break;
+				}
+				if (equal) {
+					result.status = Status::DuplicateDescriptor;
+					return result.status;
+				}
+			}
+			if (EqualUuid(uuid, encoded_uuid)) {
+				device_properties_found = true;
+				properties = data.elements;
+				result.property_count = data.element_count;
+			}
+		}
+		if (!device_properties_found) {
+			result.status = Status::DevicePropertiesNotFound;
+			return result.status;
+		}
+		result.properties = properties;
+		for0(index, result.property_count) {
+			const auto& entry = result.properties[index];
+			if (entry.type != AMLExecutor::ValueType::Package || entry.element_count != 2 || !entry.elements || entry.elements[0].type != AMLExecutor::ValueType::String || !entry.elements[0].length || !entry.elements[0].data) {
+				result.status = Status::MalformedPackage;
+				return result.status;
+			}
+			for0(previous, index) {
+				const auto& previous_key = result.properties[previous].elements[0];
+				const auto& key = entry.elements[0];
+				if (previous_key.length != key.length) continue;
+				bool equal = true;
+				for0(character, key.length) if (previous_key.data[character] != key.data[character]) {
+					equal = false;
+					break;
+				}
+				if (equal) {
+					result.status = Status::DuplicateProperty;
+					return result.status;
+				}
+			}
+			bool nonstandard = false;
+			const Status status = ValidateValue(entry.elements[1], 0, nonstandard);
+			if (status != Status::Success) {
+				result.status = status;
+				return result.status;
+			}
+			if (nonstandard) ++result.nonstandard_count;
+		}
+		result.status = Status::Success;
+		return result.status;
+	}
+
+	ACPIDSD::Status ACPIDSD::PropertyAt(const Result& result, stduint index, Property& property) const {
+		property = {};
+		if (result.status != Status::Success || !result.properties || index >= result.property_count) return Status::InvalidArgument;
+		const auto& entry = result.properties[index];
+		property.name = entry.elements[0].data;
+		property.name_length = entry.elements[0].length;
+		bool nonstandard = false;
+		return ConvertValue(entry.elements[1], property.value, 0, nonstandard);
+	}
+
+	ACPIDSD::Status ACPIDSD::Find(const Result& result, const char* name, Property& property) const {
+		property = {};
+		if (!name || result.status != Status::Success || (result.property_count && !result.properties)) return Status::InvalidArgument;
+		for0(index, result.property_count) {
+			const auto& entry = result.properties[index];
+			if (!EqualString(entry.elements[0], name)) continue;
+			return PropertyAt(result, index, property);
+		}
+		return Status::PropertyNotFound;
+	}
+
+	ACPIDSD::Status ACPIDSD::ArrayAt(const Value& array, stduint index, Value& value) const {
+		value = {};
+		if (array.type != ValueType::Array || !array.elements || index >= array.element_count) return Status::InvalidArgument;
+		bool nonstandard = false;
+		return ConvertValue(array.elements[index], value, 1, nonstandard);
 	}
 
 }

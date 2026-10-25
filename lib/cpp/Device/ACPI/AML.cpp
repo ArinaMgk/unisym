@@ -211,6 +211,32 @@ namespace uni {
 		return InvalidIndex;
 	}
 
+	stduint AMLNamespace::FindPath(const char* path) const {
+		if (!objects || !count || !path) return InvalidIndex;
+		const char* cursor = path;
+		if (*cursor == '\\') ++cursor;
+		stduint object = 0;
+		if (!*cursor) return object;
+		while (*cursor) {
+			char name[5] = { '_', '_', '_', '_', 0 };
+			stduint length = 0;
+			while (*cursor && *cursor != '.') {
+				if (length >= 4) return InvalidIndex;
+				const char character = *cursor++;
+				if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '_')) return InvalidIndex;
+				name[length++] = character;
+			}
+			if (!length) return InvalidIndex;
+			object = FindChild(object, name);
+			if (object == InvalidIndex) return InvalidIndex;
+			if (*cursor == '.') {
+				++cursor;
+				if (!*cursor) return InvalidIndex;
+			}
+		}
+		return object;
+	}
+
 	stduint AMLNamespace::Add(stduint parent, const char name[5], ObjectType type, uint8 flags, const uint8* value, stduint value_length) {
 		if (!objects || parent >= count || !name) return InvalidIndex;
 		const stduint existing = FindChild(parent, name);

@@ -249,8 +249,18 @@ namespace uni {
 			return 0; // the part is full
 		}
 	protected:
-		// Walk a cluster directory looking for `target_name`.
-		bool find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer = nullptr, FAT_TableScratch* fat_cache = nullptr);
+		// Walk a cluster directory looking for `target_name`; the LFN pieces before it are reported by start position and count
+		bool find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer = nullptr, FAT_TableScratch* fat_cache = nullptr, uint32_t* out_lfn_sector = nullptr, uint32_t* out_lfn_index = nullptr, stduint* out_lfn_count = nullptr);
+
+		// Long file name write support
+		bool build_lfn_entries(const char* name, const FAT_DirEntry& short_entry, byte* out_entries, stduint capacity, stduint& out_count);
+		bool build_short_entry(const char* name, uint32_t dir_cluster, byte* sector_buffer, FAT_TableScratch* fat_cache, FAT_DirEntry& out_entry, bool& out_needs_lfn);
+		bool short_name_exists(uint32_t dir_cluster, const FAT_DirEntry& candidate, byte* sector_buffer, FAT_TableScratch* fat_cache);
+		uint32_t dir_next_sector(uint32_t dir_cluster, uint32_t sector, FAT_TableScratch* fat_cache);
+		bool dir_grow_chain(uint32_t dir_cluster, FAT_TableScratch* fat_cache);
+		bool alloc_dir_run(uint32_t dir_cluster, stduint count, uint32_t& out_sector, uint32_t& out_index, byte* sector_buffer, FAT_TableScratch* fat_cache);
+		bool write_dir_run(uint32_t dir_cluster, uint32_t start_sector, uint32_t start_index, const byte* entries, stduint count);
+		bool erase_dir_run(uint32_t dir_cluster, uint32_t start_sector, uint32_t start_index, stduint count);
 	};
 
 

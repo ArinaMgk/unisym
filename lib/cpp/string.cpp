@@ -411,6 +411,46 @@ namespace uni {
 		return self;
 	}
 
+	bool String::PushRune(Rune cp) {
+		if (cp > 0x10FFFFu) cp = 0xFFFDu;
+		char bytes[4];
+		stduint count = 0;
+		if (cp <= 0x7Fu) {
+			bytes[count++] = (char)cp;
+		}
+		else if (cp <= 0x7FFu) {
+			bytes[count++] = (char)(0xC0u | (cp >> 6));
+			bytes[count++] = (char)(0x80u | (cp & 0x3Fu));
+		}
+		else if (cp <= 0xFFFFu) {
+			bytes[count++] = (char)(0xE0u | (cp >> 12));
+			bytes[count++] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
+			bytes[count++] = (char)(0x80u | (cp & 0x3Fu));
+		}
+		else {
+			bytes[count++] = (char)(0xF0u | (cp >> 18));
+			bytes[count++] = (char)(0x80u | ((cp >> 12) & 0x3Fu));
+			bytes[count++] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
+			bytes[count++] = (char)(0x80u | (cp & 0x3Fu));
+		}
+		if (allocated) {
+			if (!addr) return false;
+			if (limits <= counts + count) {
+				char* tmp = (char*)zalc(Enlarge(counts + count + 1));
+				StrCopy(tmp, addr);
+				srs(addr, tmp);
+				Refresh();
+			}
+			for (stduint i = 0; i < count; i++) addr[counts++] = bytes[i];
+			addr[counts] = '\0';
+			return true;
+		}
+		if (!addr || counts + count + 1 > limits) return false;
+		for (stduint i = 0; i < count; i++) addr[counts++] = bytes[i];
+		addr[counts] = '\0';
+		return true;
+	}
+
 	String& String::Refresh(char* str) {
 		stduint newlen;
 		switch (charset)

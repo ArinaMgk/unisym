@@ -117,6 +117,7 @@ namespace uni {
 		const Object* At(stduint index) const;
 		stduint FindChild(stduint parent, const char name[5]) const;
 		stduint Find(stduint scope, const AMLBytecode::Name& name) const;
+		stduint FindPath(const char* path) const;
 		bool FormatPath(stduint index, char* path, stduint capacity) const;
 		stduint ConditionalCount() const;
 		bool Truncated() const;
@@ -153,6 +154,7 @@ namespace uni {
 			Integer,
 			String,
 			Buffer,
+			Package,
 			Reference,
 		};
 
@@ -181,6 +183,8 @@ namespace uni {
 			DynamicObjectCapacity,
 			MutexCapacity,
 			BufferCapacity,
+			PackageCapacity,
+			Timeout,
 			NoReturn,
 			Count,
 		};
@@ -193,6 +197,9 @@ namespace uni {
 			uint64 integer;
 			stduint reference;
 			stduint reference_frame;
+			const Value* elements;
+			Value* writable_elements;
+			stduint element_count;
 			ValueType type;
 			ReferenceType reference_type;
 		};
@@ -218,6 +225,7 @@ namespace uni {
 
 		using RegionReadRoutine = bool (*)(void* context, const AMLNamespace& aml_namespace, stduint region_object, stduint region_scope, uint8 space, uint64 address, uint8 width, uint64& value);
 		using RegionWriteRoutine = bool (*)(void* context, const AMLNamespace& aml_namespace, stduint region_object, stduint region_scope, uint8 space, uint64 address, uint8 width, uint64 value);
+		using TimeoutRoutine = bool (*)(void* context);
 
 		struct RegionAccess {
 			void* context;
@@ -237,11 +245,25 @@ namespace uni {
 			stduint mutex_capacity;
 			uint8* buffer_storage;
 			stduint buffer_capacity;
+			Value* package_values;
+			stduint package_value_capacity;
+			Value* method_arguments;
+			stduint method_argument_capacity;
+		};
+
+		struct ValueStorage {
+			Value* values;
+			stduint value_capacity;
+			uint8* bytes;
+			stduint byte_capacity;
 		};
 
 		struct Limits {
 			stduint instruction_count;
 			stduint loop_count;
+			stduint method_depth;
+			void* timeout_context;
+			TimeoutRoutine timeout;
 		};
 
 		struct Error {
@@ -256,7 +278,10 @@ namespace uni {
 
 		void Reset();
 		Status Evaluate(stduint object, Value& value);
+		Status Evaluate(stduint object, Value& value, const ValueStorage& value_storage);
 		Status EvaluateInteger(stduint object, uint64& value);
+		Status Invoke(stduint method, const Value* arguments, stduint argument_count, Value& value, const ValueStorage& value_storage);
+		Status Invoke(const char* path, const Value* arguments, stduint argument_count, Value& value, const ValueStorage& value_storage);
 		const Error& LastError() const;
 
 	private:
@@ -294,6 +319,8 @@ namespace uni {
 		stduint dynamic_object_count;
 		stduint mutex_top;
 		stduint buffer_used;
+		stduint package_value_used;
+		stduint method_argument_depth;
 		Error last_error;
 
 		Status Fail(Status status, const uint8* address, stduint object = AMLNamespace::InvalidIndex, uint16 opcode = 0);
@@ -333,10 +360,144 @@ namespace uni {
 		Status StoreObject(stduint object, const Value& value);
 		Status RequireInteger(const Value& value, uint64& integer, const uint8* address);
 		Status AllocateBuffer(stduint length, ValueType type, Value& value);
+		Status AllocatePackage(stduint count, Value& value);
 		Status CopyValue(const Value& source, Value& value, const uint8* address);
+		Status ImportValue(const Value& source, Value& value, const uint8* address, stduint depth = 0);
+		Status NormalizeValue(const Value& source, Value& value, const uint8* address, stduint depth = 0);
+		Status ExportValue(const Value& source, Value& value, const ValueStorage& value_storage, stduint& value_used, stduint& byte_used, stduint depth = 0);
 		Status ResourceTemplatePayloadLength(const Value& source, stduint& length, const uint8* address);
 		Status EvaluateBinary(const uint8*& cursor, const uint8* end, stduint scope, Frame* frame, uint8 opcode, Value& value);
 		bool PackageRange(const uint8* length_at, const uint8* limit, const uint8*& content, const uint8*& object_end) const;
+	};
+
+	struct ACPIUUID {
+		uint32 data1;
+		uint16 data2;
+		uint16 data3;
+		uint8 data4[8];
+
+		void Encode(uint8 output[16]) const;
+	};
+
+	class ACPIDSM {
+	public:
+		enum class Status : uint8 {
+			Success,
+			InvalidArgument,
+			MethodNotFound,
+			MalformedMethod,
+			UUIDUnsupported,
+			FunctionUnsupported,
+			MalformedFunctionMask,
+			ReturnTypeMismatch,
+			ExecutionFailed,
+		};
+
+		enum class ReturnType : uint8 {
+			Any,
+			Integer,
+			Buffer,
+			Package,
+		};
+
+		struct Result {
+			AMLExecutor::Value value;
+			AMLExecutor::Status aml_status;
+			Status status;
+		};
+
+		struct Workspace {
+			AMLExecutor::Value arguments[4];
+			AMLExecutor::Value query_values[16];
+			uint8 uuid[16];
+			uint8 query_bytes[64];
+			Result query_result;
+		};
+
+		ACPIDSM(const AMLNamespace& aml_namespace, AMLExecutor& aml_executor);
+
+		Status Query(stduint device, const ACPIUUID& uuid, uint64 revision, Result& result, Workspace& workspace, const AMLExecutor::ValueStorage& value_storage);
+		Status Invoke(stduint device, const ACPIUUID& uuid, uint64 revision, uint64 function, const AMLExecutor::Value* parameters, ReturnType return_type, Result& result, Workspace& workspace, const AMLExecutor::ValueStorage& value_storage);
+
+	private:
+		const AMLNamespace& aml_namespace;
+		AMLExecutor& aml_executor;
+
+		Status ResolveMethod(stduint device, stduint& method) const;
+		void PrepareArguments(const ACPIUUID& uuid, uint64 revision, uint64 function, const AMLExecutor::Value* parameters, Workspace& workspace) const;
+		bool Accepts(ReturnType return_type, AMLExecutor::ValueType value_type) const;
+	};
+
+	class ACPIDSD {
+	public:
+		enum class Status : uint8 {
+			Success,
+			InvalidArgument,
+			ObjectNotFound,
+			MalformedObject,
+			DevicePropertiesNotFound,
+			PropertyNotFound,
+			MalformedPackage,
+			DuplicateDescriptor,
+			DuplicateProperty,
+			UnsupportedPropertyType,
+			ExecutionFailed,
+		};
+
+		enum class ValueType : uint8 {
+			Integer,
+			String,
+			Buffer,
+			Array,
+			DeviceReference,
+		};
+
+		enum ValueFlags : uint8 {
+			ValueFlagNone = 0,
+			ValueFlagNonStandard = 1 << 0,
+		};
+
+		struct Value {
+			const uint8* data;
+			const AMLExecutor::Value* elements;
+			uint64 integer;
+			stduint length;
+			stduint element_count;
+			stduint reference;
+			ValueType type;
+			uint8 flags;
+		};
+
+		struct Property {
+			const uint8* name;
+			stduint name_length;
+			Value value;
+		};
+
+		struct Result {
+			AMLExecutor::Value value;
+			const AMLExecutor::Value* properties;
+			stduint property_count;
+			stduint nonstandard_count;
+			AMLExecutor::Status aml_status;
+			Status status;
+		};
+
+		ACPIDSD(const AMLNamespace& aml_namespace, AMLExecutor& aml_executor);
+
+		Status Evaluate(stduint device, Result& result, const AMLExecutor::ValueStorage& value_storage);
+		Status PropertyAt(const Result& result, stduint index, Property& property) const;
+		Status Find(const Result& result, const char* name, Property& property) const;
+		Status ArrayAt(const Value& array, stduint index, Value& value) const;
+
+	private:
+		const AMLNamespace& aml_namespace;
+		AMLExecutor& aml_executor;
+
+		Status ConvertValue(const AMLExecutor::Value& source, Value& value, stduint depth, bool& nonstandard) const;
+		Status ValidateValue(const AMLExecutor::Value& value, stduint depth, bool& nonstandard) const;
+		bool EqualUuid(const AMLExecutor::Value& value, const uint8 uuid[16]) const;
+		bool EqualString(const AMLExecutor::Value& value, const char* text) const;
 	};
 
 }

@@ -81,7 +81,7 @@ namespace uni::device::SpaceUSB {
 			Notify(Event::BringUpComplete);
 			return MAKE_ERROR(Error::Success);
 		}
-		ploginfo("USB MSC bring-up start dev=%p interface=%u bulk-in=%u bulk-out=%u mps=%u",
+		plogtrac("USB MSC bring-up start dev=%p interface=%u bulk-in=%u bulk-out=%u mps=%u",
 			ParentDevice(), (stduint)interface_index_,
 			(stduint)ep_bulk_in_.Address(), (stduint)ep_bulk_out_.Address(),
 			(stduint)bulk_mps_);
@@ -173,7 +173,7 @@ namespace uni::device::SpaceUSB {
 			// Devices that do not implement GET_MAX_LUN stall the request; that is a
 			// device with LUN 0 only, AKA what Linux assumes as well.
 			if (len < 1 || max_lun_ > kMaxLun) max_lun_ = 0;
-			ploginfo("USB MSC GET_MAX_LUN complete dev=%p interface=%u length=%d max-lun=%u completions=%u",
+			plogtrac("USB MSC GET_MAX_LUN complete dev=%p interface=%u length=%d max-lun=%u completions=%u",
 				ParentDevice(), (stduint)interface_index_, len,
 				(stduint)max_lun_, (stduint)completion_count_);
 			return Inquiry();
@@ -496,7 +496,7 @@ namespace uni::device::SpaceUSB {
 			if (res == Result::Ok && ShouldRetrySense() &&
 				capacity_retries_ < kMaxCapacityRetries) {
 				capacity_retries_++;
-				ploginfo("USB MSC retry READ CAPACITY dev=%p interface=%u attempt=%u",
+				plogtrac("USB MSC retry READ CAPACITY dev=%p interface=%u attempt=%u",
 					ParentDevice(), (stduint)interface_index_,
 					(stduint)capacity_retries_);
 				ReadCapacity10();
@@ -538,7 +538,7 @@ namespace uni::device::SpaceUSB {
 		result_ = result;
 		phase_ = Phase::Done;
 		if (ready_) {
-			ploginfo("USB MSC ready dev=%p interface=%u lun=%u vendor=%s product=%s revision=%s blocks=%u block-size=%u commands=%u completions=%u recoveries=%u resets=%u",
+			plogtrac("USB MSC ready dev=%p interface=%u lun=%u vendor=%s product=%s revision=%s blocks=%u block-size=%u commands=%u completions=%u recoveries=%u resets=%u",
 				ParentDevice(), (stduint)interface_index_, (stduint)lun_,
 				vendor_, product_, revision_, (stduint)block_count_,
 				(stduint)block_size_, (stduint)command_count_,

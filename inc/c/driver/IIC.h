@@ -72,7 +72,7 @@ namespace uni {
 	class DMAStream;// forward declaration for IIC DMA integration
 
 #undef IIC
-#if defined(_SUPPORT_GPIO)
+#if defined(_SUPPORT_GPIO) || (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600))
 	
 	class IIC_t : public OstreamTrait, public IstreamTrait {
 	protected:
@@ -103,6 +103,71 @@ namespace uni {
 		virtual byte ReadByte(bool feedback = true, bool ack = true) { return 0; }
 		//{} Read(&bits, bitlen, ...)
 	};
+
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+	enum class IICDesignWareReg : uint16 {
+		Control = 0x00,
+		TargetAddress = 0x04,
+		DataCommand = 0x10,
+		StandardSclHighCount = 0x14,
+		StandardSclLowCount = 0x18,
+		FastSclHighCount = 0x1C,
+		FastSclLowCount = 0x20,
+		InterruptStatus = 0x2C,
+		InterruptMask = 0x30,
+		RawInterruptStatus = 0x34,
+		ReceiveFifoThreshold = 0x38,
+		TransmitFifoThreshold = 0x3C,
+		ClearInterrupt = 0x40,
+		ClearTransmitAbort = 0x54,
+		ClearStopDetection = 0x60,
+		Enable = 0x6C,
+		Status = 0x70,
+		TransmitFifoLevel = 0x74,
+		ReceiveFifoLevel = 0x78,
+		TransmitAbortSource = 0x80,
+		EnableStatus = 0x9C,
+		ComponentParameter = 0xF4,
+		ComponentVersion = 0xF8,
+		ComponentType = 0xFC,
+	};
+
+	enum class IICDesignWareStatus : uint8 { Success, InvalidArgument, ComponentMismatch, DisableTimeout, EnableTimeout, TransferTimeout, TransmitAbort };
+
+	struct IICDesignWareCapabilities {
+		uint32 component_type;
+		uint32 component_version;
+		uint32 component_parameter;
+		uint16 transmit_fifo_depth;
+		uint16 receive_fifo_depth;
+	};
+
+	using IICDesignWareReadRegister = uint32 (*)(void* context, stduint offset);
+	using IICDesignWareWriteRegister = void (*)(void* context, stduint offset, uint32 value);
+
+	class IIC_DESIGNWARE : public IIC_t {
+	protected:
+		stduint baseaddr;
+		void* register_context;
+		IICDesignWareReadRegister read_register;
+		IICDesignWareWriteRegister write_register;
+	public:
+		static constexpr uint32 ComponentTypeValue = 0x44570140u;
+
+		IIC_DESIGNWARE(stduint _baseaddr);
+		IIC_DESIGNWARE(void* context, IICDesignWareReadRegister read, IICDesignWareWriteRegister write);
+		stduint getAddress() const;
+		uint32 ReadRegister(IICDesignWareReg reg) const;
+		void WriteRegister(IICDesignWareReg reg, uint32 value);
+		bool Probe(IICDesignWareCapabilities& capabilities) const;
+		IICDesignWareStatus Initialize(uint32 input_clock_hz, uint32 bus_speed_hz, stduint timeout);
+		IICDesignWareStatus Transfer(uint16 address, const byte* transmit, stduint transmit_length, byte* receive, stduint receive_length, stduint timeout, uint32* abort_source = nullptr);
+	};
+	#endif
+
+#endif
+
+#if defined(_SUPPORT_GPIO)
 
 	class IIC_SOFT : public IIC_t {
 	protected:

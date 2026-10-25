@@ -64,12 +64,14 @@ namespace uni {
 			Event,
 			OperationRegion,
 			FieldUnit,
+			BufferField,
 		};
 
 		enum ObjectFlag : uint8 {
 			ObjectFlagNone = 0,
 			ObjectFlagConditional = 1,
 			ObjectFlagPlaceholder = 2,
+			ObjectFlagRuntime = 4,
 		};
 
 		enum class Status : uint8 {
@@ -95,6 +97,7 @@ namespace uni {
 			ObjectType type;
 			uint8 flags;
 			uint8 argument_count;
+			uint8 method_flags;
 			uint8 external_type;
 			uint8 field_flags;
 		};
@@ -175,12 +178,16 @@ namespace uni {
 			InstructionLimit,
 			LoopLimit,
 			ObjectValueCapacity,
+			DynamicObjectCapacity,
+			MutexCapacity,
+			BufferCapacity,
 			NoReturn,
 			Count,
 		};
 
 		struct Value {
 			const uint8* data;
+			uint8* writable_data;
 			stduint length;
 			stduint data_length;
 			uint64 integer;
@@ -202,11 +209,20 @@ namespace uni {
 			bool valid;
 		};
 
-		using RegionReadRoutine = bool (*)(void* context, const AMLNamespace& aml_namespace, stduint region_object, uint8 space, uint64 address, uint8 width, uint64& value);
+		struct MutexState {
+			stduint object;
+			stduint previous;
+			uint8 sync_level;
+			bool valid;
+		};
+
+		using RegionReadRoutine = bool (*)(void* context, const AMLNamespace& aml_namespace, stduint region_object, stduint region_scope, uint8 space, uint64 address, uint8 width, uint64& value);
+		using RegionWriteRoutine = bool (*)(void* context, const AMLNamespace& aml_namespace, stduint region_object, stduint region_scope, uint8 space, uint64 address, uint8 width, uint64 value);
 
 		struct RegionAccess {
 			void* context;
 			RegionReadRoutine read;
+			RegionWriteRoutine write;
 		};
 
 		struct Workspace {
@@ -215,6 +231,12 @@ namespace uni {
 			ObjectValue* object_values;
 			stduint object_value_capacity;
 			RegionAccess region_access;
+			AMLNamespace::Object* dynamic_objects;
+			stduint dynamic_object_capacity;
+			MutexState* mutex_states;
+			stduint mutex_capacity;
+			uint8* buffer_storage;
+			stduint buffer_capacity;
 		};
 
 		struct Limits {
@@ -225,6 +247,7 @@ namespace uni {
 		struct Error {
 			const uint8* address;
 			stduint object;
+			stduint scope;
 			uint16 opcode;
 			Status status;
 		};
@@ -250,6 +273,17 @@ namespace uni {
 			TargetType type;
 		};
 
+		struct FieldAccess {
+			const AMLNamespace::Object* field;
+			stduint region_object;
+			stduint region_scope;
+			uint64 region_offset;
+			uint64 region_length;
+			uint16 field_opcode;
+			uint8 space;
+			uint8 width;
+		};
+
 		const AMLNamespace& aml_namespace;
 		Workspace workspace;
 		Limits limits;
@@ -257,22 +291,50 @@ namespace uni {
 		stduint instruction_count;
 		stduint loop_count;
 		stduint object_depth;
+		stduint dynamic_object_count;
+		stduint mutex_top;
+		stduint buffer_used;
 		Error last_error;
 
 		Status Fail(Status status, const uint8* address, stduint object = AMLNamespace::InvalidIndex, uint16 opcode = 0);
 		Status ConsumeInstruction(const uint8* address);
 		Status EvaluateObject(stduint object, Frame* frame, Value& value);
+		Status ResolveFieldWidth(const AMLNamespace::Object& field, stduint object, uint16 opcode, uint8& width);
+		Status ResolveField(stduint object, Frame* frame, FieldAccess& access);
 		Status ReadField(stduint object, Frame* frame, Value& value);
+		Status WriteField(stduint object, Frame* frame, const Value& value);
+		Status ReadIndexField(stduint object, Frame* frame, Value& value);
+		Status WriteIndexField(stduint object, Frame* frame, const Value& value);
+		Status ResolveBufferField(stduint object, Frame* frame, Value& source, uint64& bit_offset, uint64& bit_length);
+		Status ReadBufferField(stduint object, Frame* frame, Value& value);
+		Status WriteBufferField(stduint object, Frame* frame, const Value& value);
 		Status EvaluateTerm(const uint8*& cursor, const uint8* end, stduint scope, Frame* frame, Value& value);
 		Status ExecuteMethod(stduint object, const Value* arguments, stduint argument_count, Value& value);
 		Status ExecuteBlock(const uint8*& cursor, const uint8* end, stduint scope, Frame* frame, Value& value, bool& returned, bool& broke, bool& continued);
+		Status DefineOperationRegion(const uint8* address, const uint8*& cursor, const uint8* end, stduint scope, Frame* frame);
+		Status DefineField(const uint8* address, const uint8*& cursor, const uint8* end, stduint scope);
+		Status DefineFieldList(const uint8* address, const uint8* begin, const uint8* end, stduint scope, stduint region, uint8 field_flags);
+		Status DefineBufferField(const uint8* address, const uint8*& cursor, const uint8* end, stduint scope, Frame* frame, uint16 opcode);
 		Status ParseTarget(const uint8*& cursor, const uint8* end, stduint scope, Frame* frame, Target& target);
 		Status ReadTarget(const Target& target, Value& value);
 		Status StoreTarget(const Target& target, const Value& value);
+		Status ResolveMutex(const Target& target, stduint& object);
+		Status AcquireMutex(stduint object, uint8 sync_level, const uint8* address);
+		Status ReleaseMutex(stduint object, const uint8* address);
+		void RestoreMutex(stduint top);
+		const AMLNamespace::Object* AtObject(stduint object) const;
+		AMLNamespace::Object* AtDynamicObject(stduint object);
+		stduint FindChildObject(stduint parent, const char name[5]) const;
+		stduint FindObject(stduint scope, const AMLBytecode::Name& name) const;
+		stduint DefineDynamicObject(stduint scope, const AMLBytecode::Name& name, AMLNamespace::ObjectType type, const uint8* value, stduint value_length);
+		void DiscardDynamicObjects(stduint count);
 		Status ReadReference(const Value& reference, Value& value);
 		Status ReadStoredObject(stduint object, Value& value) const;
 		Status StoreObject(stduint object, const Value& value);
 		Status RequireInteger(const Value& value, uint64& integer, const uint8* address);
+		Status AllocateBuffer(stduint length, ValueType type, Value& value);
+		Status CopyValue(const Value& source, Value& value, const uint8* address);
+		Status ResourceTemplatePayloadLength(const Value& source, stduint& length, const uint8* address);
 		Status EvaluateBinary(const uint8*& cursor, const uint8* end, stduint scope, Frame* frame, uint8 opcode, Value& value);
 		bool PackageRange(const uint8* length_at, const uint8* limit, const uint8*& content, const uint8*& object_end) const;
 	};

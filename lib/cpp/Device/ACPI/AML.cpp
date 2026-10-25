@@ -288,6 +288,7 @@ namespace uni {
 			uint8 target_count = 0;
 			switch (cursor[1]) {
 			case 0x12: argument_count = 1; target_count = 1; break;
+			case 0x13: argument_count = 3; target_count = 1; break;
 			case 0x1F: argument_count = 6; break;
 			case 0x20: argument_count = 1; target_count = 1; break;
 			case 0x23: case 0x25: argument_count = 2; break;
@@ -330,6 +331,7 @@ namespace uni {
 		case 0x83: case 0x87: case 0x8E: case 0x92: argument_count = 1; break;
 		case 0x86: argument_count = 2; break;
 		case 0x88: argument_count = 2; target_count = 1; break;
+		case 0x8A: case 0x8B: case 0x8C: case 0x8D: case 0x8F: argument_count = 2; target_count = 1; break;
 		case 0x89: argument_count = 6; break;
 		case 0x90: case 0x91: case 0x93: case 0x94: case 0x95: argument_count = 2; break;
 		case 0x96: case 0x97: case 0x98: case 0x99: argument_count = 1; target_count = 1; break;
@@ -361,6 +363,7 @@ namespace uni {
 			}
 			if (*cursor == 0x01) {
 				if (end - cursor < 3) return Fail(Status::MalformedObject, cursor);
+				field_flags = (field_flags & 0xF0u) | (cursor[1] & 0x0Fu);
 				cursor += 3;
 				continue;
 			}
@@ -376,6 +379,7 @@ namespace uni {
 			}
 			if (*cursor == 0x03) {
 				if (end - cursor < 4) return Fail(Status::MalformedObject, cursor);
+				field_flags = (field_flags & 0xF0u) | (cursor[1] & 0x0Fu);
 				cursor += 4;
 				continue;
 			}
@@ -422,6 +426,16 @@ namespace uni {
 			operand = SkipTermArgument(operand, end, scope, depth + 1);
 			if (operand > end) return Fail(Status::MalformedObject, opcode);
 			if (Define(scope, name, ObjectType::OperationRegion, flags, value, stduint(operand - value)) == InvalidIndex) return Fail(Status::Capacity, opcode);
+			cursor = operand;
+			return Status::Success;
+		}
+		if (extended == 0x13) {
+			const uint8* operand = cursor + 2;
+			const uint8* value = cursor;
+			for0(index, 3) operand = SkipTermArgument(operand, end, scope, depth + 1);
+			AMLBytecode::Name name = {};
+			if (!AMLBytecode::DecodeName(operand, end, name)) return Fail(Status::MalformedName, operand);
+			if (Define(scope, name, ObjectType::BufferField, flags, value, stduint(operand - value)) == InvalidIndex) return Fail(Status::Capacity, opcode);
 			cursor = operand;
 			return Status::Success;
 		}
@@ -537,6 +551,7 @@ namespace uni {
 					const stduint method_index = Define(scope, name, ObjectType::Method, flags, content, stduint(object_end - content));
 					if (method_index == InvalidIndex) return Fail(Status::Capacity, opcode);
 					objects[method_index].argument_count = method_flags & 0x07u;
+					objects[method_index].method_flags = method_flags;
 				}
 				cursor = object_end;
 				continue;
@@ -550,6 +565,16 @@ namespace uni {
 				objects[external_index].external_type = operand[0];
 				objects[external_index].argument_count = operand[1];
 				cursor = operand + 2;
+				continue;
+			}
+			if (*cursor == 0x8A || *cursor == 0x8B || *cursor == 0x8C || *cursor == 0x8D || *cursor == 0x8F) {
+				const uint8* operand = cursor + 1;
+				const uint8* value = cursor;
+				for0(index, 2) operand = SkipTermArgument(operand, end, scope, depth + 1);
+				AMLBytecode::Name name = {};
+				if (!AMLBytecode::DecodeName(operand, end, name)) return Fail(Status::MalformedName, operand);
+				if (Define(scope, name, ObjectType::BufferField, flags, value, stduint(operand - value)) == InvalidIndex) return Fail(Status::Capacity, opcode);
+				cursor = operand;
 				continue;
 			}
 			if (*cursor == 0xA0 || *cursor == 0xA1 || *cursor == 0xA2) {

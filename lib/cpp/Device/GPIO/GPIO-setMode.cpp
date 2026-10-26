@@ -25,7 +25,7 @@
 #include "../../../../inc/cpp/Device/RCC/RCCAddress"
 #include "../../../../inc/c/binary.h"
 
-#ifdef _SUPPORT_GPIO
+#if defined(_SUPPORT_GPIO) || (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600))
 
 #if 0
 #elif defined(_MCU_MSP432P4)
@@ -35,13 +35,18 @@
 namespace uni {
 
 	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::setMode(GPIOMode mode, GPIOSpeed speed, bool autoEnClk) const {
-		#if 0
+		#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		(void)autoEnClk;
+		#elif 0
 		#elif defined(_MCU_MSP432P4)
 		(void)autoEnClk;//{} enClock it
 		#else
 		if (autoEnClk) getParent().enClock();
 		#endif
-		#if 0
+		#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		const auto* backend = ResolveGPIOBackend(self);
+		if (backend && backend->configure_pin) backend->configure_pin(backend->context, getID(), mode, speed);
+		#elif 0
 		#elif defined(_MCU_MSP432P4)//{TEMP} ROM Method only
 		(void)speed;//{}
 		bool innput = GPIOMode::IN == mode ? true : false;
@@ -70,7 +75,10 @@ namespace uni {
 	}
 
 	bool GeneralPurposeInputOutputPin::canMode() const {
-		#if 0
+		#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		const auto* backend = ResolveGPIOBackend(self);
+		return backend && backend->configure_pin;
+		#elif 0
 		#elif defined(_MCU_MSP432P4)
 			//{}
 			// ROM_GPIOTABLE[14](getParent().getID(), _IMM1S(getID()));

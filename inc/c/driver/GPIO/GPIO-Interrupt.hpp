@@ -16,7 +16,10 @@ static Request_t GPIO_Request_list[16] = {
 
 
 void GeneralPurposeInputOutputPin::setInterrupt(Handler_t f) const {
-#if defined(_MCU_STM32)
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+	const auto* backend = ResolveGPIOBackend(self);
+	if (backend && backend->set_interrupt) backend->set_interrupt(backend->context, getID(), f);
+#elif defined(_MCU_STM32)
 	FUNC_EXTI[getID()] =
 #else
 	(void)
@@ -24,7 +27,16 @@ void GeneralPurposeInputOutputPin::setInterrupt(Handler_t f) const {
 		f;
 }
 
-#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) const {
+	const auto* backend = ResolveGPIOBackend(self);
+	if (backend && backend->set_interrupt_priority) backend->set_interrupt_priority(backend->context, getID(), preempt, sub_priority);
+}
+void GeneralPurposeInputOutputPin::enInterrupt(bool enable) const {
+	const auto* backend = ResolveGPIOBackend(self);
+	if (backend && backend->enable_interrupt) backend->enable_interrupt(backend->context, getID(), enable);
+}
+#elif defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 void GeneralPurposeInputOutputPin::setInterruptPriority(byte preempt, byte sub_priority) const {
 	NVIC.setPriority(GPIO_Request_list[getID()], preempt, sub_priority);
 }

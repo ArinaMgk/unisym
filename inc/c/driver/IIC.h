@@ -162,6 +162,7 @@ namespace uni {
 		Status = 0x70,
 		TransmitFifoLevel = 0x74,
 		ReceiveFifoLevel = 0x78,
+		SdaHold = 0x7C,
 		TransmitAbortSource = 0x80,
 		EnableStatus = 0x9C,
 		ComponentParameter = 0xF4,
@@ -187,6 +188,7 @@ namespace uni {
 		stduint timeout;
 		void* recovery_context;
 		IICDesignWareRecoverBus recover_bus;
+		uint32 sda_hold_time_ns;
 	};
 
 	using IICDesignWareReadRegister = uint32 (*)(void* context, stduint offset);

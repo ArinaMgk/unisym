@@ -50,6 +50,17 @@ namespace uni {
 	};
 }
 
+namespace uni {
+	namespace GPIORupt {
+		enum RuptEdge {
+			Anyedge,
+			Posedge,
+			Negedge,
+		};
+	}
+
+}
+
 #define _COM_DEF_Interrupt_Interface() \
 virtual void setInterrupt(Handler_t _func) const override;\
 virtual void setInterruptPriority(byte preempt, byte sub_priority) const override;\

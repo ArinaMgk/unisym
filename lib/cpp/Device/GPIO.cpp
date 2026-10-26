@@ -24,7 +24,7 @@
 #include "../../../inc/cpp/Device/RCC/RCCAddress"
 #include "../../../inc/c/binary.h"
 
-#ifdef _SUPPORT_GPIO
+#if defined(_SUPPORT_GPIO) || (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600))
 
 // Inner Include
 #if 0
@@ -32,6 +32,7 @@
 #include "../../../inc/cpp/Prounit/MCU/MSP432/MSP432P4.hpp"
 #endif
 
+#if !defined(_MCCA) || ((_MCCA & 0xFF00) != 0x8600)
 // if zero => no GPIO
 static stduint _TAB_ADDR_GPIOx[] = {
 #if defined(_MCU_MSP432P4)
@@ -62,12 +63,22 @@ static stduint _TAB_ADDR_GPIOx[] = {
 	#error [unisym] unsupported MCU
 #endif
 };
+#endif
 
 namespace uni
 {
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+	const GeneralPurposeInputOutputPortBackend* ResolveGPIOBackend(SelfGpin pin) {
+		const auto* backend = GPIO.getBackend(pin.getParent().getID());
+		return backend && pin.getID() < backend->pin_count ? backend : nullptr;
+	}
+	#endif
 	// G'DP(high-level) or D'DP(low-level)
 	const GeneralPurposeInputOutputPin& GeneralPurposeInputOutputPin::operator= (bool val) const {
-	#ifdef _MCU_MSP432P4
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		const auto* backend = ResolveGPIOBackend(self);
+		if (backend && backend->write_pin) backend->write_pin(backend->context, getID(), val);
+	#elif defined(_MCU_MSP432P4)
 		Reference_T<byte>(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID())) = byte(val);
 	#elif defined(_MCU_STM32)
 		getParent()[GPIOReg::BSRR] = _IMM1S(getID() + (val ? 0 : 16));
@@ -78,7 +89,11 @@ namespace uni
 	}
 
 	GeneralPurposeInputOutputPin::operator bool() const {
-	#ifdef _MCU_MSP432P4
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		bool value = false;
+		const auto* backend = ResolveGPIOBackend(self);
+		return backend && backend->read_pin && backend->read_pin(backend->context, getID(), value) ? value : false;
+	#elif defined(_MCU_MSP432P4)
 		return byte(Reference_T<byte>(&BITBAND_PERI(getParent()[GPIOReg8::IDR], getID())));
 	#else
 		return getParent()[GPIOReg::IDR].bitof(getID());// cancel isInput() ? IDR : ODR
@@ -86,7 +101,10 @@ namespace uni
 	}
 
 	void GeneralPurposeInputOutputPin::setPull(bool pullup) const {
-	#if defined(_MCU_CW32F030)
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		const auto* backend = ResolveGPIOBackend(self);
+		if (backend && backend->set_pull) backend->set_pull(backend->context, getID(), pullup);
+	#elif defined(_MCU_CW32F030)
 		getParent()[GPIOReg::PUR].setof(getID(), pullup);
 		getParent()[GPIOReg::PDR].setof(getID(), !pullup);
 	#elif defined(_MCU_STM32F1x)
@@ -98,7 +116,11 @@ namespace uni
 	
 	void GeneralPurposeInputOutputPin::Toggle() const
 	{
-	#if defined(_MCU_MSP432P4)
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		const auto* backend = ResolveGPIOBackend(self);
+		bool value = false;
+		if (backend && backend->read_pin && backend->write_pin && backend->read_pin(backend->context, getID(), value)) backend->write_pin(backend->context, getID(), !value);
+	#elif defined(_MCU_MSP432P4)
 		Reference_T<byte> this_pin(&BITBAND_PERI(getParent()[GPIOReg8::ODR], getID()));
 		this_pin = !this_pin;
 	#elif defined(_MCU_CW32F030)
@@ -129,7 +151,11 @@ namespace uni
 
 	bool GeneralPurposeInputOutputPin::isInput() const {
 		// panic if getID() > 15
-	#if defined(_MCU_CW32F030)
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		const auto* backend = ResolveGPIOBackend(self);
+		bool input = false;
+		return backend && backend->is_input && backend->is_input(backend->context, getID(), input) && input;
+	#elif defined(_MCU_CW32F030)
 		return getParent()[GPIOReg::DIR].bitof(getID());
 	#elif defined(_MCU_STM32F1x)
 		return 0 == getParent()[getID() < 8 ? GPIOReg::CRL : GPIOReg::CRH].mask((getID() & 0x7) * 4, 2);
@@ -158,7 +184,9 @@ namespace uni
 	GeneralPurposeInputOutput GPIO;
 
 	void GeneralPurposeInputOutputPort::enClock(bool enable) const {
-	#if defined(_MPU_STM32MP13)
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		(void)enable;
+	#elif defined(_MPU_STM32MP13)
 		using namespace RCCReg;
 		RCCReg::RCCReg AHB4ENR_NS = enable ? MP_NS_AHB4ENSETR : MP_NS_AHB4ENCLRR;
 		RCC[AHB4ENR_NS] = _IMM1S(getID());
@@ -173,9 +201,23 @@ namespace uni
 	#endif
 	}
 	
-	#ifndef _MCU_MSP432P4 //{TEMP}
+	#if !defined(_MCU_MSP432P4) //{TEMP}
 	GeneralPurposeInputOutputPort::operator stduint() const {
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		const auto* backend = GPIO.getBackend(getID());
+		stduint value = 0;
+		if (!backend) return 0;
+		if (backend->read_port && backend->read_port(backend->context, value)) return value;
+		if (!backend->read_pin) return 0;
+		const stduint count = backend->pin_count < sizeof(stduint) * 8 ? backend->pin_count : sizeof(stduint) * 8;
+		for0(pin, count) {
+			bool state = false;
+			if (backend->read_pin(backend->context, pin, state) && state) value |= _IMM1S(pin);
+		}
+		return value;
+	#else
 		return _IMM(self[GPIOReg::IDR]);
+	#endif
 	}
 	#endif
 	
@@ -184,13 +226,20 @@ namespace uni
 	Reference_T<byte> GeneralPurposeInputOutputPort::operator[](GPIOReg8::GPIOReg8 trt) const {
 		return _TAB_ADDR_GPIOx[getID()] + _IMM(trt);
 	}
-	#else
+	#elif !defined(_MCCA) || ((_MCCA & 0xFF00) != 0x8600)
 	Reference GeneralPurposeInputOutputPort::operator[](GPIOReg trt) const {
 		return _TAB_ADDR_GPIOx[getID()] + _IMMx4(trt);
 	}
 	#endif
 	const GeneralPurposeInputOutputPort& GeneralPurposeInputOutputPort::operator=(stduint val) const {
-	#ifdef _MCU_MSP432P4		
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		const auto* backend = GPIO.getBackend(getID());
+		if (!backend) return self;
+		if (backend->write_port && backend->write_port(backend->context, val)) return self;
+		if (!backend->write_pin) return self;
+		const stduint count = backend->pin_count < sizeof(stduint) * 8 ? backend->pin_count : sizeof(stduint) * 8;
+		for0(pin, count) backend->write_pin(backend->context, pin, (val & _IMM1S(pin)) != 0);
+	#elif defined(_MCU_MSP432P4)
 		ROM_GPIOTABLE[2](getID(), ~val);// set ddp
 		ROM_GPIOTABLE[1](getID(),  val);// set gdp
 	#else
@@ -200,7 +249,18 @@ namespace uni
 	}
 
 	void GeneralPurposeInputOutputPort::maset(stduint setMask, stduint resetMask) const {
-		#if defined(_MCU_STM32)
+		#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		const auto* backend = GPIO.getBackend(getID());
+		if (!backend) return;
+		if (backend->modify_port && backend->modify_port(backend->context, setMask, resetMask)) return;
+		if (!backend->write_pin) return;
+		const stduint count = backend->pin_count < sizeof(stduint) * 8 ? backend->pin_count : sizeof(stduint) * 8;
+		for0(pin, count) {
+			const stduint mask = _IMM1S(pin);
+			if (setMask & mask) backend->write_pin(backend->context, pin, true);
+			else if (resetMask & mask) backend->write_pin(backend->context, pin, false);
+		}
+		#elif defined(_MCU_STM32)
 		self[GPIOReg::BSRR] = (resetMask << 16) | setMask;
 		#elif defined(_MCU_CW32F030)
 		self[GPIOReg::BSRR] = setMask;
@@ -211,10 +271,14 @@ namespace uni
 		#endif
 	}
 
+
+
 	// ---- ---- ---- ---- GPIO ---- ---- ---- ----
 	
 	const GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](unsigned portid) const {
-	#ifdef _MCU_MSP432P4
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		return treat<GeneralPurposeInputOutputPort>(_IMM(portid & 0xFFu) << 24);
+	#elif defined(_MCU_MSP432P4)
 		static byte maps_caps[] = {1,3,5,7,9};//A B C D E
 		return treat<GeneralPurposeInputOutputPort>(
 			portid <= 10 ? (portid << 12) :

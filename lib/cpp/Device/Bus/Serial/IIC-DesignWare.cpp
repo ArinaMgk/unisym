@@ -39,6 +39,10 @@ namespace uni {
 		constexpr uint32 StatusTransmitFifoNotFull = 1u << 1;
 		constexpr uint32 StatusTransmitFifoEmpty = 1u << 2;
 		constexpr uint32 StatusReceiveFifoNotEmpty = 1u << 3;
+		constexpr uint32 SdaHoldReceiveShift = 16;
+		constexpr uint32 SdaHoldTransmitMask = 0xFFFFu;
+		constexpr uint32 SdaHoldReceiveMask = 0xFFu << SdaHoldReceiveShift;
+		constexpr uint32 SdaHoldMinimumVersion = 0x3131312Au;
 		constexpr uint32 AbortAddressNack = (1u << 0) | (1u << 1) | (1u << 2) | (1u << 4);
 		constexpr uint32 AbortDataNack = 1u << 3;
 		constexpr uint32 AbortArbitrationLost = (1u << 12) | (1u << 14);
@@ -48,6 +52,13 @@ namespace uni {
 			const uint64 clocks = (uint64(input_clock_hz) * period_ns + 500000000u) / 1000000000u;
 			if (clocks <= adjustment || clocks - adjustment > 0xFFFFu) return false;
 			count = uint32(clocks - adjustment);
+			return true;
+		}
+
+		bool CalculateSdaHold(uint32 input_clock_hz, uint32 hold_time_ns, uint32& value) {
+			const uint64 clocks = (uint64(input_clock_hz) * hold_time_ns + 500000000u) / 1000000000u;
+			if (!clocks || clocks > SdaHoldTransmitMask) return false;
+			value = uint32(clocks) | (1u << SdaHoldReceiveShift);
 			return true;
 		}
 
@@ -91,6 +102,8 @@ namespace uni {
 			uint32 fast_high = 0;
 			uint32 fast_low = 0;
 			if (!CalculateSclCount(input_clock_hz, 4300u, 3u, standard_high) || !CalculateSclCount(input_clock_hz, 5000u, 1u, standard_low) || !CalculateSclCount(input_clock_hz, 900u, 3u, fast_high) || !CalculateSclCount(input_clock_hz, 1600u, 1u, fast_low)) return IICDesignWareStatus::InvalidArgument;
+			uint32 sda_hold = 0;
+			if (initialization.sda_hold_time_ns && (capabilities.component_version < SdaHoldMinimumVersion || !CalculateSdaHold(input_clock_hz, initialization.sda_hold_time_ns, sda_hold))) return IICDesignWareStatus::InvalidArgument;
 
 			controller.WriteRegister(IICDesignWareReg::InterruptMask, 0);
 			controller.WriteRegister(IICDesignWareReg::Enable, 0);
@@ -104,6 +117,11 @@ namespace uni {
 			controller.WriteRegister(IICDesignWareReg::StandardSclLowCount, standard_low);
 			controller.WriteRegister(IICDesignWareReg::FastSclHighCount, fast_high);
 			controller.WriteRegister(IICDesignWareReg::FastSclLowCount, fast_low);
+			if (capabilities.component_version >= SdaHoldMinimumVersion) {
+				if (!sda_hold) sda_hold = controller.ReadRegister(IICDesignWareReg::SdaHold);
+				if (!(sda_hold & SdaHoldReceiveMask)) sda_hold |= 1u << SdaHoldReceiveShift;
+				controller.WriteRegister(IICDesignWareReg::SdaHold, sda_hold);
+			}
 			controller.WriteRegister(IICDesignWareReg::ReceiveFifoThreshold, 0);
 			controller.WriteRegister(IICDesignWareReg::TransmitFifoThreshold, 0);
 			controller.WriteRegister(IICDesignWareReg::InterruptMask, 0);
@@ -163,7 +181,7 @@ namespace uni {
 	}
 
 	IICDesignWareStatus IIC_DESIGNWARE::Initialize(uint32 input_clock_hz, uint32 bus_speed_hz, stduint timeout) {
-		const IICDesignWareInitialization initialization{ input_clock_hz, bus_speed_hz, timeout, nullptr, nullptr };
+		const IICDesignWareInitialization initialization{ input_clock_hz, bus_speed_hz, timeout, nullptr, nullptr, 0 };
 		return Initialize(initialization);
 	}
 

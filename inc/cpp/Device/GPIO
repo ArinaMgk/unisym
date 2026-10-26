@@ -24,7 +24,7 @@
 #define _INC_DEVICE_GPIO_X
 
 #include "../unisym"
-#if defined(_SUPPORT_GPIO)
+#if defined(_SUPPORT_GPIO) || (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600))
 
 #include "../binary"
 #include "../reference"
@@ -113,6 +113,15 @@ namespace uni {
 	enum class GPIOMode {
 		IN, OUT_PushPull, OUT_OpenDrain
 	};//{TODO}
+#elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+	enum class GPIOMode : uint8 {
+		IN_Floating,
+		IN_Pull,
+		OUT_PushPull,
+		OUT_OpenDrain,
+		IN = IN_Floating,
+		OUT = OUT_PushPull,
+	};
 #endif
 
 #if defined(_MCU_STM32F1x)
@@ -129,6 +138,15 @@ namespace uni {
 	enum class GPIOSpeed {
 		Low = 0, High
 	};
+#elif defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+#define defa_speed GPIOSpeed::Default
+	enum class GPIOSpeed : uint8 {
+		Default = 0,
+	};
+#endif
+
+#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+	#include "_inner/GPIO-x86_64.hpp"
 #endif
 
 	#undef GPIO_Pin
@@ -155,8 +173,13 @@ namespace uni {
 	// Abstract Layer, should take no space. We use const to confirm, which is friendly to Rust.
 	class GeneralPurposeInputOutputPin final : public RuptTrait {
 	public:
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		inline SelfGpor getParent() const { return treat<GPIO_Port>(_IMM(this) & ~_IMM(0xFFFFFF)); }
+		inline stduint getID() const { return (_IMM(this) >> 8) & 0xFFFF; }
+	#else
 		inline SelfGpor getParent() const { return treat<GPIO_Port>(_IMM(this) & ~_IMM(0xFFF)); }
 		inline byte getID() const { return (_IMM(this) >> 8) & 0xF; }
+	#endif
 		SelfGpin operator=(bool val) const;
 		SelfGpin operator=(SelfGpin pin) const { return self = bool(pin); }
 		operator bool() const;
@@ -168,6 +191,12 @@ namespace uni {
 		void Lock(bool tolock_orunlock = true) const;
 		bool isInput() const;
 		_COM_DEF_Interrupt_Interface();
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		SelfGpin setMode(GPIOInterruptTrigger trigger, GPIOInterruptPolarity polarity, Handler_t handler = nullptr) const;
+		SelfGpin ConfigureInterrupt(const GPIOInterruptConfiguration& configuration, Handler_t handler = nullptr) const;
+		bool InterruptPending() const;
+		bool AcknowledgeInterrupt() const;
+	#endif
 	#if defined(_MCU_STM32) // F1 F4 MP13
 		//
 		const GeneralPurposeInputOutputPin& setMode(GPIORupt::RuptEdge edg, Handler_t f = 0) const;// must in input mode
@@ -204,22 +233,44 @@ namespace uni {
 
 	class GeneralPurposeInputOutputPort {
 	public:
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		stduint getID() const { return (_IMM(this) & ~_IMM(0xFFFFFF)) >> 24; }
+	#else
 		stduint getID() const { return (_IMM(this) & ~_IMM(0xFFF)) >> 12; }
+	#endif
 		void enClock(bool enable = true) const;
 		operator stduint() const;
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		constexpr SelfGpin operator[](int pinid) const { return treat<GPIO_Pin>((_IMM(this) & ~_IMM(0xFFFFFF)) + ((_IMM(pinid) & 0xFFFF) << 8)); }
+	#else
 		constexpr SelfGpin operator[](int pinid) const { return treat<GPIO_Pin>((_IMM(this) & ~_IMM(0xFFF)) + ((pinid & 0xF) << 8)); }
+	#endif
 		SelfGpor operator=(SelfGpor pot) const { return self = stduint(pot); }
 		SelfGpor operator=(stduint val) const;
 	#if defined(_MCU_MSP432P4)
 		Reference_T<byte> operator[](GPIOReg8::GPIOReg8 trt) const;
-	#else
+	#elif !defined(_MCCA) || ((_MCCA & 0xFF00) != 0x8600)
 		Reference operator[](GPIOReg trt) const;
 	#endif
 		// Atomic multi-pin write: set pins by setMask, reset pins by resetMask
 		void maset(stduint setMask, stduint resetMask) const;
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+		stduint getPinCount() const;
+		uint32 getCapabilities() const;
+		bool Available() const;
+	#endif
 	};
 
 	struct GeneralPurposeInputOutput {
+	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
+	private:
+		GeneralPurposeInputOutputPortBackend* port_backends = nullptr;
+		stduint port_backend_capacity = 0;
+	public:
+		bool Attach(const GeneralPurposeInputOutputPortBackend& backend, stduint& portid);
+		bool Detach(stduint portid, void* context = nullptr);
+		const GeneralPurposeInputOutputPortBackend* getBackend(stduint portid) const;
+	#endif
 		SelfGpor operator[](unsigned portid) const;
 	};
 	extern GeneralPurposeInputOutput GPIO;
@@ -252,5 +303,5 @@ namespace uni {
 #define GPIOK GPIO['K']
 #endif
 
-#endif // _SUPPORT_GPIO
+#endif // _SUPPORT_GPIO || MCCA x86
 #endif // !_INC_DEVICE_GPIO_X

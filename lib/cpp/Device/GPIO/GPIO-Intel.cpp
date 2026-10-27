@@ -214,7 +214,11 @@ namespace uni {
 			value |= configuration.trigger == GPIOInterruptTrigger::Edge ? PadConfiguration0ReceiveEventEdge : PadConfiguration0ReceiveEventLevel;
 			if (configuration.polarity == GPIOInterruptPolarity::ActiveLow) value |= PadConfiguration0ReceiveInvert;
 		}
-		return WriteRegister(offset, value) ? IntelGPIOStatus::Success : IntelGPIOStatus::AccessFailure;
+		if (!WriteRegister(offset, value)) return IntelGPIOStatus::AccessFailure;
+		uint32 readback;
+		const uint32 interrupt_configuration_mask = PadConfiguration0ModeMask | PadConfiguration0ReceiveEventMask | PadConfiguration0ReceiveInvert | PadConfiguration0RouteIoApic | PadConfiguration0RouteSci | PadConfiguration0RouteSmi | PadConfiguration0RouteNmi | PadConfiguration0ReceiveDisable | PadConfiguration0TransmitDisable;
+		if (!ReadRegister(offset, readback) || ((readback ^ value) & interrupt_configuration_mask)) return IntelGPIOStatus::AccessFailure;
+		return IntelGPIOStatus::Success;
 	}
 
 	IntelGPIOStatus IntelGPIOCommunity::EnableInterrupt(stduint pin, bool enable) {
@@ -226,7 +230,8 @@ namespace uni {
 		uint32 value;
 		if (!WriteRegister(status_offset, bit) || !ReadRegister(enable_offset, value)) return IntelGPIOStatus::AccessFailure;
 		value = enable ? value | bit : value & ~bit;
-		return WriteRegister(enable_offset, value) ? IntelGPIOStatus::Success : IntelGPIOStatus::AccessFailure;
+		if (!WriteRegister(enable_offset, value) || !ReadRegister(enable_offset, value)) return IntelGPIOStatus::AccessFailure;
+		return ((value & bit) != 0) == enable ? IntelGPIOStatus::Success : IntelGPIOStatus::AccessFailure;
 	}
 
 	IntelGPIOStatus IntelGPIOCommunity::InterruptPending(stduint pin, bool& pending) const {

@@ -268,11 +268,13 @@ namespace uni {
 	HIDI2CStatus HIDI2CDevice::ParseInput(const byte* source, stduint length, byte* destination, stduint capacity, HIDI2CResult& result) {
 		if (!initialized) return SetStatus(result, HIDI2CStatus::NotInitialized);
 		if (!source || length < 2 || (!destination && capacity)) return SetStatus(result, HIDI2CStatus::InvalidArgument);
-		const stduint report_length = DecodeHIDI2CWord(source);
+		stduint report_length = DecodeHIDI2CWord(source);
 		if (!report_length) {
 			reset_pending = false;
 			return SetStatus(result, HIDI2CStatus::ResetComplete);
 		}
+		// Compatibility evidence: Linux i2c-hid I2C_HID_QUIRK_BAD_INPUT_SIZE.
+		if ((report_length < 2 || report_length > length) && (input_quirks & HIDI2CInputQuirk_BadReportLength)) report_length = length;
 		if (report_length < 2 || report_length > length) return SetStatus(result, HIDI2CStatus::InvalidReportLength);
 		const stduint payload_length = report_length - 2;
 		if (payload_length > capacity) return SetStatus(result, HIDI2CStatus::BufferTooSmall);
@@ -284,6 +286,10 @@ namespace uni {
 		ResetResult(result);
 		result.transfer_status = IICTransferStatus::Success;
 		return ParseInput(source, length, destination, capacity, result);
+	}
+
+	void HIDI2CDevice::ConfigureInputQuirks(uint32 quirks) {
+		input_quirks = quirks;
 	}
 
 	HIDI2CStatus HIDI2CDevice::ExpireReset(HIDI2CResult& result) {

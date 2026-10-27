@@ -67,6 +67,11 @@ namespace uni {
 	enum class HIDI2CReportType : uint8 { Input = 1, Output = 2, Feature = 3 };
 	enum class HIDI2CPowerState : uint8 { On = 0, Sleep = 1 };
 
+	enum HIDI2CInputQuirkFlags : uint32 {
+		HIDI2CInputQuirk_None = 0,
+		HIDI2CInputQuirk_BadReportLength = 1u << 0,
+	};
+
 	struct HIDI2CResult {
 		HIDI2CStatus status;
 		IICTransferStatus transfer_status;
@@ -94,6 +99,7 @@ namespace uni {
 		HIDReportLayout report_layout;
 		byte* report_descriptor = nullptr;
 		byte* transfer_buffer = nullptr;
+		uint32 input_quirks = HIDI2CInputQuirk_None;
 		bool initialized = false;
 		bool report_descriptor_ready = false;
 		bool reset_pending = false;
@@ -122,6 +128,7 @@ namespace uni {
 		HIDI2CStatus BeginReset(stduint timeout, HIDI2CResult& result);
 		HIDI2CStatus AcceptInput(const byte* source, stduint length, byte* destination, stduint capacity, HIDI2CResult& result);
 		HIDI2CStatus ExpireReset(HIDI2CResult& result);
+		void ConfigureInputQuirks(uint32 quirks);
 
 		bool IsInitialized() const { return initialized; }
 		bool IsResetPending() const { return reset_pending; }

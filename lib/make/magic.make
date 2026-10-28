@@ -20,7 +20,19 @@ CXXFLAGS=$(DEFS)
 
 MGC_CFLG=-L$(ubinpath) -std=c++17  -fno-common -static
 
-SRCS=$(wildcard magic/*.cpp) $(wildcard magic/m_*/*.cpp)
+MGC_SRCS=$(wildcard magic/*.cpp) $(wildcard magic/m_*/*.cpp) \
+	lib/cpp/Lango/CloverIR.cpp
 
-all:
-	g++ $(MGC_CFLG) -o $(DSTPATH)/mgc $(SRCS) $(CXXFLAGS)
+CLOVER_RISCV_SRCS=magic/backend/clover-riscv.cpp \
+	lib/cpp/Lango/CloverIR.cpp \
+	lib/cpp/Lango/Backend/Backend-riscv.cpp
+
+.PHONY: all
+
+all: $(DSTPATH)/mgc $(DSTPATH)/clover-riscv
+
+$(DSTPATH)/mgc: $(MGC_SRCS)
+	g++ $(MGC_CFLG) -o $@ $(MGC_SRCS) $(CXXFLAGS)
+
+$(DSTPATH)/clover-riscv: $(CLOVER_RISCV_SRCS)
+	g++ $(MGC_CFLG) -o $@ $(CLOVER_RISCV_SRCS) $(CXXFLAGS)

@@ -31,6 +31,79 @@ namespace uni {
 		return (value + 3u) & ~3u;
 	}
 
+#ifdef _FILESYS_DATETIME
+	static bool cd_adjust_to_utc(int& year, int& month, int& day, int& minutes, int offset_minutes) {
+		minutes -= offset_minutes;
+		if (minutes < 0) {
+			minutes += 24 * 60;
+			if (--day == 0) {
+				if (--month == 0) { month = 12; --year; }
+				if (year < 1) return false;
+				day = moondays(year, month);
+			}
+		} else if (minutes >= 24 * 60) {
+			minutes -= 24 * 60;
+			if (++day > moondays(year, month)) {
+				day = 1;
+				if (++month > 12) { month = 1; ++year; }
+				if (year > 9999) return false;
+			}
+		}
+		return true;
+	}
+
+	// ECMA-119 9.1.5: the offset is in 15-minute intervals east of GMT.
+	static bool iso_decode_recording_time(const ISO9660_RecordingTime& timestamp, datime_t& result) {
+		int year = 1900 + int(timestamp.year_since_1900);
+		int month = timestamp.month;
+		int day = timestamp.day;
+		if (month < 1 || month > 12 || day < 1 || day > moondays(year, month) ||
+			timestamp.hour > 23 || timestamp.minute > 59 || timestamp.second > 59 ||
+			timestamp.gmt_offset_quarters < -48 || timestamp.gmt_offset_quarters > 52) return false;
+
+		int minutes = int(timestamp.hour) * 60 + int(timestamp.minute);
+		if (!cd_adjust_to_utc(year, month, day, minutes, int(timestamp.gmt_offset_quarters) * 15)) return false;
+
+		result = {};
+		result.year = year - 1900;
+		result.month = byte(month - 1);
+		result.mday = byte(day);
+		result.hour = byte(minutes / 60);
+		result.minute = byte(minutes % 60);
+		result.second = timestamp.second;
+		return true;
+	}
+
+	// ECMA-167 1/7.3: a specified local-time offset is in minutes east of UTC.
+	static bool udf_decode_timestamp(const UDF_Timestamp& timestamp, datime_t& result) {
+		const uint16_t type_and_zone = timestamp.type_and_timezone;
+		const stduint type = type_and_zone >> 12;
+		int zone = type_and_zone & 0x0FFF;
+		if (zone & 0x0800) zone -= 0x1000;
+		if (type > 1 || (type == 1 && zone != -2047 && (zone < -1440 || zone > 1440))) return false;
+
+		int year = timestamp.year;
+		int month = timestamp.month;
+		int day = timestamp.day;
+		if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1 ||
+			day > moondays(year, month) || timestamp.hour > 23 || timestamp.minute > 59 ||
+			timestamp.second > 59 || timestamp.centiseconds > 99 ||
+			timestamp.hundreds_of_microseconds > 99 || timestamp.microseconds > 99) return false;
+
+		int minutes = int(timestamp.hour) * 60 + int(timestamp.minute);
+		if (!cd_adjust_to_utc(year, month, day, minutes, type == 1 && zone != -2047 ? zone : 0)) return false;
+
+		result = {};
+		result.year = year - 1900;
+		result.month = byte(month - 1);
+		result.mday = byte(day);
+		result.hour = byte(minutes / 60);
+		result.minute = byte(minutes % 60);
+		result.second = timestamp.second;
+		return true;
+	}
+#endif
+
 	static void iso_append_utf8(char* out_name, stduint out_size, stduint& name_len, uint32_t codepoint);
 	static bool udf_load_file_entry(FilesysUDF* fs, uint32_t abs_lba, UDF_FileHandle* out_handle);
 	static void udf_set_root_handle(FilesysUDF* fs, UDF_FileHandle* out);
@@ -108,6 +181,16 @@ namespace uni {
 				out->embedded = child.parent_embedded;
 				out->embedded_offset = child.parent_embedded_offset;
 				out->is_dir = 1;
+				#ifdef _FILESYS_DATETIME
+				UDF_FileHandle parent_info = {};
+				parent_info.partition_ref = out->partition_ref;
+				parent_info.partition_start = out->partition_start;
+				if (out->entry_lba && udf_load_file_entry(fs, out->entry_lba, &parent_info)) {
+					out->access_time = parent_info.access_time;
+					out->modification_time = parent_info.modification_time;
+					out->creation_time = parent_info.creation_time;
+				}
+				#endif
 				if (out->entry_lba == fs->root_handle.entry_lba) {
 					udf_set_root_handle(fs, out);
 				}
@@ -395,6 +478,9 @@ namespace uni {
 		out->record_lba = sector_lba;
 		out->record_offset = sector_off;
 		out->flags = rec->flags;
+		#ifdef _FILESYS_DATETIME
+		out->recording_time = rec->recording_time;
+		#endif
 	}
 
 	static void iso_set_root_handle(FilesysISO9660* fs, ISO9660_FileHandle* out) {
@@ -407,6 +493,10 @@ namespace uni {
 		out->parent_extent_lba = fs->root_extent_lba;
 		out->parent_data_length = fs->root_data_length;
 		out->parent_flags = 0x02;
+		#ifdef _FILESYS_DATETIME
+		out->recording_time = fs->root_recording_time;
+		out->parent_recording_time = fs->root_recording_time;
+		#endif
 	}
 
 	bool FilesysISO9660::makefs(rostr vol_label, void* moreinfo) {
@@ -452,6 +542,10 @@ namespace uni {
 		uint32_t joliet_root_extent = 0;
 		uint32_t joliet_root_size = 0;
 		bool found_joliet = false;
+		#ifdef _FILESYS_DATETIME
+		ISO9660_RecordingTime pvd_root_time = {};
+		ISO9660_RecordingTime joliet_root_time = {};
+		#endif
 
 		for (uint32 sector = 16; sector < 64; sector++) {
 			if (!storage->Read(sector, sector_buffer)) {
@@ -480,6 +574,9 @@ namespace uni {
 				found_pvd = true;
 				pvd_root_extent = root->extent_lba_le;
 				pvd_root_size = root->data_length_le;
+				#ifdef _FILESYS_DATETIME
+				pvd_root_time = root->recording_time;
+				#endif
 				ploginfo("[ISO9660] pvd root extent=%u size=%u", pvd_root_extent, pvd_root_size);
 				continue;
 			}
@@ -496,6 +593,9 @@ namespace uni {
 					}
 					joliet_root_extent = root->extent_lba_le;
 					joliet_root_size = root->data_length_le;
+					#ifdef _FILESYS_DATETIME
+					joliet_root_time = root->recording_time;
+					#endif
 					found_joliet = true;
 					ploginfo("[ISO9660] joliet root extent=%u size=%u", joliet_root_extent, joliet_root_size);
 				}
@@ -508,6 +608,9 @@ namespace uni {
 			root_data_length = pvd_root_size;
 			joliet_enabled = false;
 			rockridge_enabled = false;
+			#ifdef _FILESYS_DATETIME
+			root_recording_time = pvd_root_time;
+			#endif
 
 			if (iso_dir_has_rockridge(this, pvd_root_extent, pvd_root_size)) {
 				rockridge_enabled = true;
@@ -515,6 +618,9 @@ namespace uni {
 				root_extent_lba = joliet_root_extent;
 				root_data_length = joliet_root_size;
 				joliet_enabled = true;
+				#ifdef _FILESYS_DATETIME
+				root_recording_time = joliet_root_time;
+				#endif
 			}
 
 			ploginfo("[ISO9660] root extent=%u size=%u mode=%s",
@@ -617,6 +723,9 @@ namespace uni {
 					parent.extent_lba = handle->parent_extent_lba;
 					parent.data_length = handle->parent_data_length;
 					parent.flags = handle->parent_flags;
+					#ifdef _FILESYS_DATETIME
+					parent.recording_time = handle->parent_recording_time;
+					#endif
 
 					if (parent.extent_lba == root_extent_lba && parent.data_length == root_data_length) {
 						iso_set_root_handle(this, &parent);
@@ -627,6 +736,9 @@ namespace uni {
 							parent.parent_extent_lba = grand.extent_lba;
 							parent.parent_data_length = grand.data_length;
 							parent.parent_flags = grand.flags;
+							#ifdef _FILESYS_DATETIME
+							parent.parent_recording_time = grand.recording_time;
+							#endif
 						}
 					}
 					*handle = parent;
@@ -641,6 +753,9 @@ namespace uni {
 			next.parent_extent_lba = handle->extent_lba;
 			next.parent_data_length = handle->data_length;
 			next.parent_flags = handle->flags;
+			#ifdef _FILESYS_DATETIME
+			next.parent_recording_time = handle->recording_time;
+			#endif
 			if (next.extent_lba == root_extent_lba && next.data_length == root_data_length && next.isDir()) {
 				iso_set_root_handle(this, &next);
 			}
@@ -668,6 +783,18 @@ namespace uni {
 		case FilesysCmd::FS_CMD_GET_ISDIR:
 			*(bool*)moreinfo = fh->isDir();
 			return true;
+		#ifdef _FILESYS_DATETIME
+		case FilesysCmd::FS_CMD_GET_INFO: {
+			FilesysFileInfo* info = (FilesysFileInfo*)moreinfo;
+			*info = {};
+			info->size = fh->data_length;
+			info->is_dir = fh->isDir();
+			// ECMA-119 9.1.5 provides recording time, not separate creation or access times.
+			if (iso_decode_recording_time(fh->recording_time, info->modified))
+				info->time_valid |= FILESYS_TIME_MODIFIED;
+			return true;
+		}
+		#endif
 		default:
 			return false;
 		}
@@ -788,6 +915,21 @@ namespace uni {
 		out_handle->data_lba = 0;
 		out_handle->icb_parent_ref = icb->parent_icb_location.partition_reference_number;
 		out_handle->icb_parent_lba = out_handle->partition_start + icb->parent_icb_location.logical_block_number;
+		#ifdef _FILESYS_DATETIME
+		out_handle->access_time = {};
+		out_handle->modification_time = {};
+		out_handle->creation_time = {};
+		if (tag->tag_identifier == 261) {
+			const UDF_FileEntry* fe = (const UDF_FileEntry*)fs->sector_buffer;
+			out_handle->access_time = fe->access_time;
+			out_handle->modification_time = fe->modification_time;
+		} else {
+			const UDF_ExtendedFileEntry* efe = (const UDF_ExtendedFileEntry*)fs->sector_buffer;
+			out_handle->access_time = efe->access_time;
+			out_handle->modification_time = efe->modification_time;
+			out_handle->creation_time = efe->creation_time;
+		}
+		#endif
 
 		const byte* alloc_base = fs->sector_buffer + entry_header_size + length_of_extended_attributes;
 		uint32_t alloc_len = length_of_allocation_descriptors;
@@ -1069,6 +1211,18 @@ namespace uni {
 		case FilesysCmd::FS_CMD_GET_ISDIR:
 			*(bool*)moreinfo = fh->is_dir != 0;
 			return true;
+		#ifdef _FILESYS_DATETIME
+		case FilesysCmd::FS_CMD_GET_INFO: {
+			FilesysFileInfo* info = (FilesysFileInfo*)moreinfo;
+			*info = {};
+			info->size = fh->length;
+			info->is_dir = fh->is_dir != 0;
+			if (udf_decode_timestamp(fh->access_time, info->accessed)) info->time_valid |= FILESYS_TIME_ACCESSED;
+			if (udf_decode_timestamp(fh->modification_time, info->modified)) info->time_valid |= FILESYS_TIME_MODIFIED;
+			if (udf_decode_timestamp(fh->creation_time, info->created)) info->time_valid |= FILESYS_TIME_CREATED;
+			return true;
+		}
+		#endif
 		default:
 			return false;
 		}

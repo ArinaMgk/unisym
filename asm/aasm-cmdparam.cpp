@@ -310,10 +310,10 @@ bool process_arg(char* p, char* q)
 
 		case 'h':
 			printf
-			("usage: nasm [-@ response file] [-o outfile] [-f format] "
+			("usage: aasm [-@ response file] [-o outfile] [-f format] "
 				"[-l listfile]\n"
 				"            [options...] [--] filename\n"
-				"    or nasm -v   for version info\n\n"
+				"    or aasm -v   for version info\n\n"
 				"    -t          assemble in SciTech TASM compatible mode\n"
 				"    -g          generate debug information in selected format.\n");
 			printf

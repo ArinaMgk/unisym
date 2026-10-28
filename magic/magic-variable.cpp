@@ -1,5 +1,5 @@
 ﻿// ASCII C++ TAB4 LF
-// Docutitle: Magice Operator
+// Docutitle: Magice Variable Table
 /*
 	Copyright 2023 ArinaMgk
 
@@ -19,12 +19,9 @@
 
 #include "./magice.hpp"
 
-
 #include "../inc/cpp/parse.hpp"
 
 using namespace uni;
-
-//
 
 struct VariableElement {
 	rostr iden;
@@ -52,7 +49,6 @@ void AddVari(NodeChain& variables, rostr iden) {
 		new_elm->iden = StrHeap(iden);
 		new_elm->local_stack_offset = 8 * variables.Count();
 		variables.Append(new_elm);
-		//ploginfo("appended %s", new_elm->iden);
 	}
 }
 
@@ -64,19 +60,12 @@ void DelVari(pureptr_t p) {
 
 static void ListVariSub(NodeChain& variables, Nnode* beg) {
 	for (Nnode* crt = beg; crt; crt = crt->next) {
-		if (crt->type == tok_identy && crt->addr) {
-			AddVari(variables, crt->addr);
-		}
+		if (crt->type == tok_identy && crt->addr) AddVari(variables, crt->addr);
 		if (crt->subf) ListVariSub(variables, crt->subf);
 	}
 }
 
-
-Variable::Variable() : variables(DelVari) {
-	
-}
-
-// public:
+Variable::Variable() : variables(DelVari) {}
 
 void Variable::List(uni::Nchain* nchain) {
 	ListVariSub(variables, nchain->Root());

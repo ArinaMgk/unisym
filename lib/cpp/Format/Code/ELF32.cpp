@@ -669,8 +669,8 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 		 * else section would cause a core dump, because its a reference
 		 * beyond the end of the section array.
 		 * This behaviour is exhibited by this code:
-		 *     GLOBAL crash_nasm
-		 *     crash_nasm equ 0
+		 *     GLOBAL crash_aasm
+		 *     crash_aasm equ 0
 		 * To avoid such a crash, such requests are silently discarded.
 		 * This may not be the best solution.
 		 */

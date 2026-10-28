@@ -1,3 +1,24 @@
+// ASCII C++11 TAB4 LF
+// Docutitle: Magice Clover IR Lowering
+// Codifiers: @ArinaMgk
+// Copyright: UNISYM, under Apache License 2.0
+/*
+	Copyright 2026 ArinaMgk
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+	http://unisym.org/license.html
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
 #include "../include/clover-ir.hpp"
 
 #include "../../inc/cpp/parse.hpp"
@@ -264,120 +285,6 @@ namespace clover {
 			}
 		};
 
-		// Text spelling used by the Clover serializer.
-		const char* TypeName(Type type) {
-			switch (type) {
-			case Type::I1: return "i1";
-			case Type::I64: return "i64";
-			case Type::Ptr: return "ptr";
-			}
-			return "?";
-		}
-
-		// Text spelling for arithmetic and bitwise instructions.
-		const char* OpcodeName(Opcode opcode) {
-			switch (opcode) {
-			case Opcode::Mov: return "mov";
-			case Opcode::Add: return "add";
-			case Opcode::Sub: return "sub";
-			case Opcode::Mul: return "mul";
-			case Opcode::SDiv: return "sdiv";
-			case Opcode::SRem: return "srem";
-			case Opcode::And: return "and";
-			case Opcode::Or: return "or";
-			case Opcode::Xor: return "xor";
-			case Opcode::Shl: return "shl";
-			case Opcode::AShr: return "ashr";
-			default: return "?";
-			}
-		}
-
-		// Text spelling for integer comparison predicates.
-		const char* PredicateName(ICmpPredicate predicate) {
-			switch (predicate) {
-			case ICmpPredicate::EQ: return "eq";
-			case ICmpPredicate::NE: return "ne";
-			case ICmpPredicate::SLT: return "slt";
-			case ICmpPredicate::SLE: return "sle";
-			case ICmpPredicate::SGT: return "sgt";
-			case ICmpPredicate::SGE: return "sge";
-			}
-			return "?";
-		}
-
-		// Print a reference to one SSA value.
-		void PrintValue(uni::OstreamTrait& output, Value value) {
-			output.OutFormat("%%%[u]", value.id);
-		}
-
-		// Serialize one instruction according to its opcode's operand layout.
-		bool PrintInstruction(const Instruction& instruction, uni::OstreamTrait& output) {
-			if (instruction.has_result) {
-				output.OutFormat("    ");
-				PrintValue(output, instruction.result);
-				output.OutFormat(" = ");
-			}
-			else output.OutFormat("    ");
-
-			switch (instruction.opcode) {
-			case Opcode::Const:
-				output.OutFormat("const %s %[i]\n", TypeName(instruction.type), instruction.immediate);
-				break;
-			case Opcode::Local:
-				output.OutFormat("local %s ; %s\n", TypeName(instruction.type), instruction.name.reference());
-				break;
-			case Opcode::Load:
-				output.OutFormat("load %s, ", TypeName(instruction.type));
-				PrintValue(output, instruction.operands.begin()[0]);
-				output.OutFormat("\n");
-				break;
-			case Opcode::Store:
-				output.OutFormat("store %s ", TypeName(instruction.type));
-				PrintValue(output, instruction.operands.begin()[0]);
-				output.OutFormat(", ");
-				PrintValue(output, instruction.operands.begin()[1]);
-				output.OutFormat("\n");
-				break;
-			case Opcode::Mov:
-			case Opcode::Add:
-			case Opcode::Sub:
-			case Opcode::Mul:
-			case Opcode::SDiv:
-			case Opcode::SRem:
-			case Opcode::And:
-			case Opcode::Or:
-			case Opcode::Xor:
-			case Opcode::Shl:
-			case Opcode::AShr:
-				output.OutFormat("%s %s ", OpcodeName(instruction.opcode), TypeName(instruction.type));
-				PrintValue(output, instruction.operands.begin()[0]);
-				if (instruction.operands.Count() > 1) {
-					output.OutFormat(", ");
-					PrintValue(output, instruction.operands.begin()[1]);
-				}
-				output.OutFormat("\n");
-				break;
-			case Opcode::ICmp:
-				output.OutFormat("icmp %s %s ", PredicateName(instruction.predicate), TypeName(instruction.type));
-				PrintValue(output, instruction.operands.begin()[0]);
-				output.OutFormat(", ");
-				PrintValue(output, instruction.operands.begin()[1]);
-				output.OutFormat("\n");
-				break;
-			case Opcode::ZExt:
-				output.OutFormat("zext %s ", TypeName(instruction.operands.begin()[0].type));
-				PrintValue(output, instruction.operands.begin()[0]);
-				output.OutFormat(" to %s\n", TypeName(instruction.type));
-				break;
-			case Opcode::Ret:
-				output.OutFormat("ret %s ", TypeName(instruction.type));
-				PrintValue(output, instruction.operands.begin()[0]);
-				output.OutFormat("\n");
-				break;
-			}
-			return true;
-		}
-
 	}
 
 	bool Generate(uni::Nchain& syntax_tree, Module& module) {
@@ -388,19 +295,6 @@ namespace clover {
 		FunctionBuilder builder(function);
 		if (!builder.Lower(syntax_tree)) return false;
 		module.functions.Append(function);
-		return true;
-	}
-
-	bool Print(const Module& module, uni::OstreamTrait& output) {
-		for (const Function& function : module.functions) {
-			output.OutFormat("func @%s() -> %s {\n", function.name.reference(), TypeName(function.return_type));
-			for (const BasicBlock& block : function.blocks) {
-				output.OutFormat("^%s:\n", block.name.reference());
-				for (const Instruction& instruction : block.instructions)
-					if (!PrintInstruction(instruction, output)) return false;
-			}
-			output.OutFormat("}\n");
-		}
 		return true;
 	}
 

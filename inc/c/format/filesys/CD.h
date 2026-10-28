@@ -14,6 +14,17 @@ _PACKED(struct) ISO9660_VolumeDescriptorHeader {
 	byte version;
 };
 
+// ECMA-119 9.1.5: directory record timestamp (7 bytes).
+_PACKED(struct) ISO9660_RecordingTime {
+	byte year_since_1900;
+	byte month;
+	byte day;
+	byte hour;
+	byte minute;
+	byte second;
+	int8_t gmt_offset_quarters;
+};
+
 _PACKED(struct) ISO9660_DirectoryRecord {
 	byte length;
 	byte ext_attr_length;
@@ -21,7 +32,7 @@ _PACKED(struct) ISO9660_DirectoryRecord {
 	uint32_t extent_lba_be;
 	uint32_t data_length_le;
 	uint32_t data_length_be;
-	byte recording_time[7];
+	ISO9660_RecordingTime recording_time;
 	byte flags;
 	byte file_unit_size;
 	byte interleave_gap_size;
@@ -139,6 +150,20 @@ _PACKED(struct) UDF_ICBTag {
 	uint16_t flags;
 };
 
+// ECMA-167 1/7.3: on-disc timestamp (12 bytes).
+_PACKED(struct) UDF_Timestamp {
+	uint16_t type_and_timezone;
+	int16_t year;
+	byte month;
+	byte day;
+	byte hour;
+	byte minute;
+	byte second;
+	byte centiseconds;
+	byte hundreds_of_microseconds;
+	byte microseconds;
+};
+
 _PACKED(struct) UDF_FileEntry {
 	UDF_DescriptorTag tag;
 	UDF_ICBTag icb_tag;
@@ -151,9 +176,9 @@ _PACKED(struct) UDF_FileEntry {
 	uint32_t record_length;
 	uint64_t information_length;
 	uint64_t logical_blocks_recorded;
-	byte access_time[12];
-	byte modification_time[12];
-	byte attribute_time[12];
+	UDF_Timestamp access_time;
+	UDF_Timestamp modification_time;
+	UDF_Timestamp attribute_time;
 	uint32_t checkpoint;
 	UDF_LongAD extended_attribute_icb;
 	UDF_EntityID implementation_identifier;
@@ -175,10 +200,10 @@ _PACKED(struct) UDF_ExtendedFileEntry {
 	uint64_t information_length;
 	uint64_t object_size;
 	uint64_t logical_blocks_recorded;
-	byte access_time[12];
-	byte modification_time[12];
-	byte creation_time[12];
-	byte attribute_time[12];
+	UDF_Timestamp access_time;
+	UDF_Timestamp modification_time;
+	UDF_Timestamp creation_time;
+	UDF_Timestamp attribute_time;
 	uint32_t checkpoint;
 	uint32_t reserved;
 	UDF_LongAD extended_attribute_icb;
@@ -204,6 +229,8 @@ _PACKED(struct) UDF_ShortAD {
 };
 
 #ifdef _INC_CPP
+static_assert(sizeof(ISO9660_RecordingTime) == 7, "ISO9660 recording time layout must match ECMA-119");
+static_assert(sizeof(UDF_Timestamp) == 12, "UDF timestamp layout must match ECMA-167");
 namespace uni {
 
 	struct ISO9660_FileHandle {
@@ -217,6 +244,10 @@ namespace uni {
 		uint32_t parent_data_length = 0;
 		byte parent_flags = 0;
 		byte reserved[4] = {};
+		#ifdef _FILESYS_DATETIME
+		ISO9660_RecordingTime recording_time = {};
+		ISO9660_RecordingTime parent_recording_time = {};
+		#endif
 
 		bool isDir() const { return (flags & 0x02u) != 0; }
 	};
@@ -242,6 +273,11 @@ namespace uni {
 		uint16_t parent_alloc_type = 0;
 		byte parent_embedded = 0;
 		uint16_t parent_embedded_offset = 0;
+		#ifdef _FILESYS_DATETIME
+		UDF_Timestamp access_time = {};
+		UDF_Timestamp modification_time = {};
+		UDF_Timestamp creation_time = {};
+		#endif
 	};
 
 	class FilesysISO9660 : public FilesysTrait
@@ -251,6 +287,9 @@ namespace uni {
 		uint16_t logical_block_size = 0;
 		uint32_t root_extent_lba = 0;
 		uint32_t root_data_length = 0;
+		#ifdef _FILESYS_DATETIME
+		ISO9660_RecordingTime root_recording_time = {};
+		#endif
 		bool joliet_enabled = false;
 		bool rockridge_enabled = false;
 		bool fs_loaded = false;

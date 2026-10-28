@@ -17,6 +17,7 @@ struct Operators {
 	static void List(uni::Chain& nc);
 };
 
+// Frontend variable table. It will grow into the declaration and scope table.
 struct Variable {
 	uni::NodeChain variables;
 	Variable();

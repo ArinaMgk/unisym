@@ -56,7 +56,6 @@
 #define VM_PROT_ALL	(VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE)
 
 struct section {
-	/* nasm internal data */
 	struct section *next;
 	Strbuff *data;
 	int32_t index;
@@ -102,7 +101,6 @@ static struct sectmap {
 };
 
 struct reloc {
-	/* nasm internal data */
 	struct reloc *next;
 
 	/* data that goes into the file */
@@ -121,7 +119,6 @@ struct reloc {
 					** highest bit == 1 */
 
 struct symbol {
-	/* nasm internal data */
 	struct symbol *next;	/* next symbol in the list */
 	char *name;			/* name of this symbol */
 	int32_t initial_snum;		/* symbol number used above in
@@ -840,7 +837,7 @@ static void macho_symdef(char *name, int32_t section, int64_t offset,
 
 			/* remember symbol number of references to external
 			 ** symbols, this works because every external symbol gets
-			 ** its own section number allocated internally by nasm and
+			 ** its own section number allocated internally and
 			 ** can so be used as a key */
 			extsyms = StrpageSet(extsyms, section, nsyms);
 

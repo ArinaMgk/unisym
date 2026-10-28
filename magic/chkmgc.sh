@@ -11,15 +11,16 @@ check()
 {
 	arguments="$1"
 	expectation="$2"
-	mgc "$arguments" > $uobjpath/check.s || exit
-	riscv64-linux-gnu-gcc -static -o $uobjpath/check $uobjpath/check.s
-	qemu-riscv64 -L $RISCV/sysroot $uobjpath/check
-	feekback="$?"
+	mgc -emit-ir "$arguments" -o "$uobjpath/check.ir" || exit 1
+	clover-riscv "$uobjpath/check.ir" -mbits=64 -minst=im -o "$uobjpath/check.s" || exit 1
+	riscv64-linux-gnu-gcc -static -o "$uobjpath/check" "$uobjpath/check.s" || exit 1
+	qemu-riscv64 -L "$RISCV/sysroot" "$uobjpath/check"
+	feedback="$?"
 
-	if [ "$feekback" = "$expectation" ]; then
+	if [ "$feedback" = "$expectation" ]; then
 		echo "passed by $arguments !"
 	else
-		echo "$arguments failed for $feekback, Expecting $expectation"
+		echo "$arguments failed for $feedback, Expecting $expectation"
 		exit 1
 	fi	
 }

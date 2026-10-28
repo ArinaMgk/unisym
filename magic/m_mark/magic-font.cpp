@@ -4,7 +4,7 @@
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 
-#include "include/markproc.hpp"
+#include "../include/markproc.hpp"
 
 // FontBegin(size, baselineskip="", family="")
 void GF_FontBegin(uni::Dchain* chain, MarkProcessor* proc) {

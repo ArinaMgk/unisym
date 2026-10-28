@@ -249,6 +249,11 @@ namespace uni {
 			return 0; // the part is full
 		}
 	protected:
+#ifdef _FILESYS_DATETIME
+		bool getFatDateTime(uint16_t& date, uint16_t& time, uint8_t& hundredths) const;
+		static void setFatCreationTime(FAT_DirEntry& entry, uint16_t date, uint16_t time, uint8_t hundredths);
+		static void setFatWriteTime(FAT_DirEntry& entry, uint16_t date, uint16_t time);
+#endif
 		// Walk a cluster directory looking for `target_name`; the LFN pieces before it are reported by start position and count
 		bool find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer = nullptr, FAT_TableScratch* fat_cache = nullptr, uint32_t* out_lfn_sector = nullptr, uint32_t* out_lfn_index = nullptr, stduint* out_lfn_count = nullptr);
 

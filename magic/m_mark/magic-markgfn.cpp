@@ -20,7 +20,7 @@
 	limitations under the License.
 */
 
-#include "include/markproc.hpp"
+#include "../include/markproc.hpp"
 
 extern bool mark_debug;
 
@@ -378,7 +378,7 @@ void GF_Picture(uni::Dchain* chain, MarkProcessor* proc)
 	}
 }
 
-#include "../inc/c/file.h"
+#include "../../inc/c/file.h"
 
 extern const char* mgc_top_file_path;
 

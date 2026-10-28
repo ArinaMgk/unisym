@@ -143,9 +143,63 @@ namespace uni {
 			fat_clear_lfn_sequence(state);
 			return final_name;
 		}
+#ifdef _FILESYS_DATETIME
+		static uint8_t fat_month_days(uint32_t year, uint8_t month) {
+			static const uint8_t days[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+			if (month == 1 && (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))) return 29;
+			return days[month];
+		}
+
+		static bool fat_decode_datetime(uint16_t date, uint16_t time, uint8_t hundredths, datime_t& result) {
+			uint32_t year = 1980 + (date >> 9);
+			uint8_t month = (uint8_t)((date >> 5) & 0x0F);
+			uint8_t day = (uint8_t)(date & 0x1F);
+			uint8_t hour = (uint8_t)(time >> 11);
+			uint8_t minute = (uint8_t)((time >> 5) & 0x3F);
+			uint8_t second = (uint8_t)(((time & 0x1F) * 2) + (hundredths >= 100));
+			if (!date || month < 1 || month > 12 || day < 1 ||
+				day > fat_month_days(year, (uint8_t)(month - 1)) ||
+				hour > 23 || minute > 59 || second > 59 || hundredths > 199) return false;
+			result.year = (stdint)(year - 1900);
+			result.month = (uint8_t)(month - 1);
+			result.mday = day;
+			result.hour = hour;
+			result.minute = minute;
+			result.second = second;
+			return true;
+		}
+#endif
 	}
 
 
+
+#ifdef _FILESYS_DATETIME
+	bool FilesysFAT::getFatDateTime(uint16_t& date, uint16_t& time, uint8_t& hundredths) const {
+		datime_t now = {};
+		if (!getCurrentTime(now) || now.year < 80 || now.year > 207 ||
+			now.month > 11 || now.mday < 1 ||
+			now.mday > fat_month_days((uint32_t)(now.year + 1900), now.month) ||
+			now.hour > 23 || now.minute > 59 || now.second > 59) return false;
+		// Microsoft FAT Specification: directory entry date/time fields use local time and two-second units.
+		date = (uint16_t)(((now.year - 80) << 9) | ((now.month + 1) << 5) | now.mday);
+		time = (uint16_t)((now.hour << 11) | (now.minute << 5) | (now.second / 2));
+		hundredths = (now.second & 1) ? 100 : 0;
+		return true;
+	}
+
+	void FilesysFAT::setFatCreationTime(FAT_DirEntry& entry, uint16_t date, uint16_t time, uint8_t hundredths) {
+		entry.create_date = date;
+		entry.create_time = time;
+		entry.create_time_tenth = hundredths;
+		entry.access_date = date;
+		setFatWriteTime(entry, date, time);
+	}
+
+	void FilesysFAT::setFatWriteTime(FAT_DirEntry& entry, uint16_t date, uint16_t time) {
+		entry.write_date = date;
+		entry.write_time = time;
+	}
+#endif
 
 	bool FilesysFAT::makefs(rostr vol_label, void* moreinfo) {
 		if (!storage) {
@@ -476,6 +530,34 @@ namespace uni {
 		case FilesysCmd::FS_CMD_GET_ISDIR:
 			*(bool*)moreinfo = fh->is_dir;
 			return true;
+#ifdef _FILESYS_DATETIME
+		case FilesysCmd::FS_CMD_GET_INFO: {
+			FilesysFileInfo* info = (FilesysFileInfo*)moreinfo;
+			*info = {};
+			info->size = fh->size;
+			info->is_dir = fh->is_dir;
+			if (fh->is_unlinked || !fh->dir_sector) return true;
+			if (!storage || fh->dir_index >= storage->Block_Size / sizeof(FAT_DirEntry)) return false;
+			byte* dir_buf = new byte[storage->Block_Size];
+			if (!dir_buf) return false;
+			bool ok = storage->Read(fh->dir_sector, dir_buf);
+			if (ok) {
+				FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * sizeof(FAT_DirEntry)];
+				if (!entry->name[0] || (uint8_t)entry->name[0] == 0xE5 || entry->attribute.isLongName()) {
+					delete[] dir_buf;
+					return false;
+				}
+				if (fat_decode_datetime(entry->create_date, entry->create_time, entry->create_time_tenth, info->created))
+					info->time_valid |= FILESYS_TIME_CREATED;
+				if (fat_decode_datetime(entry->access_date, 0, 0, info->accessed))
+					info->time_valid |= FILESYS_TIME_ACCESSED;
+				if (fat_decode_datetime(entry->write_date, entry->write_time, 0, info->modified))
+					info->time_valid |= FILESYS_TIME_MODIFIED;
+			}
+			delete[] dir_buf;
+			return ok;
+		}
+#endif
 		default:
 			return false;
 		}

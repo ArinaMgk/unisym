@@ -106,6 +106,13 @@ namespace uni {
 					entry->file_size = fh->size;
 					entry->cluster_low = (uint16_t)(fh->start_cluster & 0xFFFF);
 					entry->cluster_high = (uint16_t)(fh->start_cluster >> 16);
+#ifdef _FILESYS_DATETIME
+					uint16_t fat_date = 0;
+					uint16_t fat_time = 0;
+					uint8_t fat_hundredths = 0;
+					if (getFatDateTime(fat_date, fat_time, fat_hundredths))
+						setFatWriteTime(*entry, fat_date, fat_time);
+#endif
 					storage->Write(fh->dir_sector, dir_buf);
 				}
 				delete[] dir_buf;
@@ -165,6 +172,13 @@ namespace uni {
 				if (storage->Read(fh->dir_sector, dir_buf)) {
 					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 					entry->file_size = fh->size;
+#ifdef _FILESYS_DATETIME
+					uint16_t fat_date = 0;
+					uint16_t fat_time = 0;
+					uint8_t fat_hundredths = 0;
+					if (getFatDateTime(fat_date, fat_time, fat_hundredths))
+						setFatWriteTime(*entry, fat_date, fat_time);
+#endif
 					storage->Write(fh->dir_sector, dir_buf);
 				}
 				delete[] dir_buf;

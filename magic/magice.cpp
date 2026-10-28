@@ -29,9 +29,12 @@
 
 
 #include "../inc/c/uctype.h"
+#include "../inc/c/file.h"
 
 #include "../inc/cpp/parse.hpp"
+#include "../inc/cpp/vector"
 #include "../inc/c/compile/asmcode.h"
+#include "./include/clover-ir.hpp"
 
 
 
@@ -205,6 +208,23 @@ int magic(int argc, char** argv) {
 	LinearParser parser(minn);
 	Dchain dc;
 	NodeChain operators(NodeHeapFreeSimple);
+	HostFile* output_file = nullptr;
+	bool emit_ir = false;
+	rostr output_path = nullptr;
+	Vector<rostr> inputs;
+	for (int i = 1; i < argc; i++) {
+		if (!StrCompare(argv[i], "--emit-ir") || !StrCompare(argv[i], "-emit-ir")) {
+			emit_ir = true;
+		}
+		else if (!StrCompare(argv[i], "-o")) {
+			if (++i >= argc) {
+				plogerro("expected filename after -o");
+				return 1;
+			}
+			output_path = argv[i];
+		}
+		else inputs.Append(argv[i]);
+	}
 
 
 	dst = &Console;
@@ -217,21 +237,41 @@ int magic(int argc, char** argv) {
 		goto endo;
 	}
 
-	if (argc <= 1) {
-		ploginfo("Usage: magic str0 (str1) (str2 ...)\n\t Magice will combine them.");
+	if (inputs.isEmpty()) {
+		ploginfo("Usage: mgc [--emit-ir] expression... [-o output]");
 		state = 0;
 		goto endo;
 	}
 
+	if (output_path) {
+		output_file = new HostFile(output_path, FileOpenType::Write);
+		if (!*output_file) {
+			plogerro("cannot open output file %s", output_path);
+			delete output_file;
+			return 1;
+		}
+		dst = output_file;
+	}
 
-	dst->OutFormat("%s%s", _AUT_HEAD[platform], _AUT_ARCHITECT[platform]);
-	dst->OutFormat("%s", _ASM_GLOBAL[platform]); // GLOBAL main
-	dst->OutFormat("#%s\n", argv[1]);
+	if (!emit_ir) {
+		dst->OutFormat("%s%s", _AUT_HEAD[platform], _AUT_ARCHITECT[platform]);
+		dst->OutFormat("%s", _ASM_GLOBAL[platform]); // GLOBAL main
+		dst->OutFormat("#%s\n", inputs[0]);
+	}
 
 	parser.GHT = false;
-	for1(i, argc - 1) {
-		minn.p = argv[i];
-		parser.Parse(dc);
+	for (rostr input : inputs) {
+		HostFile input_file(input, FileOpenType::Read);
+		if (input_file) {
+			String input_source;
+			input_file >> input_source;
+			minn.p = (char*)input_source.reference();
+			parser.Parse(dc);
+		}
+		else {
+			minn.p = (char*)input;
+			parser.Parse(dc);
+		}
 	}
 
 	{
@@ -240,11 +280,23 @@ int magic(int argc, char** argv) {
 		NestedParseUnit fileScope(dc, &operators, sizeof(mag_node_t));
 		NestedParseUnit& npu = fileScope;
 
-		if (!npu.Parse()) return 1;
+		if (!npu.Parse()) {
+			if (output_file) delete output_file;
+			return 1;
+		}
 
 		auto netroot = npu.GetNetwork()->Root();
 
 		npu.ParseStatements_CPL();
+		if (emit_ir) {
+			clover::Module module;
+			if (!clover::Generate(*fileScope.GetNetwork(), module) || !clover::Print(module, *dst)) {
+				if (output_file) delete output_file;
+				return 1;
+			}
+			if (output_file) delete output_file;
+			return 0;
+		}
 		variables.List(fileScope.GetNetwork());
 
 		dst->OutFormat("main:\n");
@@ -283,7 +335,7 @@ int magic(int argc, char** argv) {
 
 
 endo:
-
+	if (output_file) delete output_file;
 
 	return state;
 }
@@ -296,7 +348,6 @@ int main(int argc, char** argv)
 	arg_v = argv;
 	int stat = 0;
 
-	FILE* file = 0;
 	bool is_mark = false;
 
 	int file_arg_idx = 1;
@@ -313,17 +364,16 @@ int main(int argc, char** argv)
 	if (file_arg_idx < argc) {
 		// judge "mgc XXX.mgc"
 		mgc_top_file_path = argv[file_arg_idx];
-		file = fopen(argv[file_arg_idx], "r");
+		HostFile file(argv[file_arg_idx], FileOpenType::Read);
 		if (file) {
 			String buf(String::Charset::UTF8, 22);
 			for (stduint i = 0; i < 21; i++) {
-				int ch = fgetc(file);
+				int ch = file.inn();
 				if (ch == EOF) break;
 				else buf << ch;
 			}
 			if (!StrCompare(buf.reference(), "#UTF-8 MAgicRK(1) . ."))
 				is_mark = true;
-			fclose(file); file = nullptr;
 		}
 	}
 	if (!is_mark) stat = magic(argc, argv);

@@ -70,6 +70,13 @@ namespace uni {
 			return ret;
 		};
 
+#ifdef _FILESYS_DATETIME
+		uint16_t fat_date = 0;
+		uint16_t fat_time = 0;
+		uint8_t fat_hundredths = 0;
+		bool has_fat_time = getFatDateTime(fat_date, fat_time, fat_hundredths);
+#endif
+
 		if (create_as_dir) {
 			new_cluster = find_free_cluster(fat_cache);
 			if (new_cluster == 0) {
@@ -93,6 +100,9 @@ namespace uni {
 			dot->attribute.attr = 0x10; // Directory attribute
 			dot->cluster_low = (uint16_t)(new_cluster & 0xFFFF);
 			dot->cluster_high = (uint16_t)(new_cluster >> 16);
+#ifdef _FILESYS_DATETIME
+			if (has_fat_time) setFatCreationTime(*dot, fat_date, fat_time, fat_hundredths);
+#endif
 
 			// Setup ".." entry (Parent Directory)
 			MemSet(dotdot->name, ' ', 11);
@@ -103,6 +113,9 @@ namespace uni {
 			uint32_t pp_clus = (parent_cluster == root_cluster && fat_type != 32) ? 0 : parent_cluster;
 			dotdot->cluster_low = (uint16_t)(pp_clus & 0xFFFF);
 			dotdot->cluster_high = (uint16_t)(pp_clus >> 16);
+#ifdef _FILESYS_DATETIME
+			if (has_fat_time) setFatCreationTime(*dotdot, fat_date, fat_time, fat_hundredths);
+#endif
 
 			// Flush the initialization sector to disk
 			storage->Write(getSector_foCluster(new_cluster), dir_init_buf);
@@ -119,6 +132,9 @@ namespace uni {
 		entry.attribute.attr = create_as_dir ? 0x10 : 0x20;
 		entry.cluster_high = (uint16_t)(new_cluster >> 16);
 		entry.cluster_low = (uint16_t)(new_cluster & 0xFFFF);
+#ifdef _FILESYS_DATETIME
+		if (has_fat_time) setFatCreationTime(entry, fat_date, fat_time, fat_hundredths);
+#endif
 
 		stduint lfn_count = 0;
 		constexpr stduint lfn_capacity = 20;

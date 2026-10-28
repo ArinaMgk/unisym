@@ -25,6 +25,15 @@
 
 #include "StorageTrait.hpp"
 
+
+#ifndef _FILESYS_DATETIME
+#define _FILESYS_DATETIME 1
+#endif
+// Define _FILESYS_DATETIME for the whole filesystem build to enable timestamps.
+#ifdef _FILESYS_DATETIME
+#include "../../c/datime.h"
+#endif
+
 #ifndef _INCPP_TRAIT_FILESYSTEM
 #define _INCPP_TRAIT_FILESYSTEM
 
@@ -63,7 +72,33 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 	enum class FilesysCmd {
 		FS_CMD_GET_SIZE = 0x01,  // moreinfo points to stduint for output
 		FS_CMD_GET_ISDIR = 0x02, // moreinfo points to bool for output
+#ifdef _FILESYS_DATETIME
+		FS_CMD_GET_INFO = 0x03,  // moreinfo points to FilesysFileInfo for output
+#endif
 	};
+
+#ifdef _FILESYS_DATETIME
+	struct FilesysTimeSource {
+		// Return local time; year is since 1900 and month is 0..11.
+		bool (*now)(datime_t& result, void* context);
+		void* context;
+	};
+
+	enum FilesysTimeValid {
+		FILESYS_TIME_CREATED = 0x01,
+		FILESYS_TIME_ACCESSED = 0x02,
+		FILESYS_TIME_MODIFIED = 0x04,
+	};
+
+	struct FilesysFileInfo {
+		stduint size;
+		bool is_dir;
+		datime_t created;
+		datime_t accessed;
+		datime_t modified;
+		stduint time_valid;
+	};
+#endif
 
 	struct FilesysSearchArgs {
 		void* handle_buffer;     // formerly moreinfo[0]
@@ -116,6 +151,10 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		StorageTrait* storage;// set a partition(device)
 		stduint error_number = 0;
 
+#ifdef _FILESYS_DATETIME
+		void setTimeSource(FilesysTimeSource source) { time_source = source; }
+#endif
+
 		virtual bool makefs(rostr vol_label, void* moreinfo = 0) = 0;
 
 		virtual bool loadfs(void* moreinfo = 0) { return false; }
@@ -159,6 +198,16 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 			(void)fil_handler;
 			return false;
 		}
+
+#ifdef _FILESYS_DATETIME
+	protected:
+		bool getCurrentTime(datime_t& result) const {
+			return time_source.now && time_source.now(result, time_source.context);
+		}
+
+	private:
+		FilesysTimeSource time_source = {};
+#endif
 
 		//{} extfunc()
 	};

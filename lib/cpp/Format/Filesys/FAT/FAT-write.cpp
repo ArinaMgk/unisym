@@ -166,18 +166,31 @@ namespace uni {
 			}
 		}
 
-		// Update size if expanded
-		if (current_pos > fh->size) {
+		// Update the directory entry after a successful write.
+		bool size_changed = current_pos > fh->size;
+		if (size_changed) {
 			fh->size = (uint32_t)current_pos;
-			if (!fh->is_unlinked) {
-				byte* dir_buf = new byte[bytes_per_sector];
-				if (storage->Read(fh->dir_sector, dir_buf)) {
-					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
-					entry->file_size = fh->size;
-					storage->Write(fh->dir_sector, dir_buf);
-				}
-				delete[] dir_buf;
+		}
+		bool update_entry = size_changed;
+#ifdef _FILESYS_DATETIME
+		uint16_t fat_date = 0;
+		uint16_t fat_time = 0;
+		uint8_t fat_hundredths = 0;
+		bool update_time = total_written && !fh->is_unlinked &&
+			getFatDateTime(fat_date, fat_time, fat_hundredths);
+		if (update_time) update_entry = true;
+#endif
+		if (update_entry && !fh->is_unlinked) {
+			byte* dir_buf = new byte[bytes_per_sector];
+			if (storage->Read(fh->dir_sector, dir_buf)) {
+				FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
+				if (size_changed) entry->file_size = fh->size;
+#ifdef _FILESYS_DATETIME
+				if (update_time) setFatWriteTime(*entry, fat_date, fat_time);
+#endif
+				storage->Write(fh->dir_sector, dir_buf);
 			}
+			delete[] dir_buf;
 		}
 
 		return finish_write((stduint)total_written);

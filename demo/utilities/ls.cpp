@@ -6,6 +6,7 @@
 
 #include "dirent.h"
 #include <sys/stat.h>
+#include <time.h>
 #include <dirent.h>
 #include <c/consio.h>
 
@@ -30,6 +31,15 @@ static void format_size(char *buf, stduint size, bool human) {
 		unsigned long frac = (((size % (1024 * 1024 * 1024)) * 10) / (1024 * 1024 * 1024));
 		outsfmtbuf(buf, "%lu.%luG", gb, frac);
 	}
+}
+
+static void format_time(char* buf, const struct stat& st) {
+	if (st.st_mtime) {
+		const struct tm* date = localtime(&st.st_mtime);
+		if (date && strftime(buf, 32, "%Y-%m-%d %H:%M", date)) return;
+	}
+	buf[0] = '-';
+	buf[1] = '\0';
 }
 
 int main(int argc, char *argv[]) {
@@ -63,8 +73,10 @@ int main(int argc, char *argv[]) {
 		if (stat(path, &st) == 0) {
 			if (opt_l) {
 				char szbuf[32];
+				char timebuf[32];
 				format_size(szbuf, st.st_size, opt_h);
-				outsfmt("-rw-r--r--  %s  %s\n\r", szbuf, path);
+				format_time(timebuf, st);
+				outsfmt("-rw-r--r--  %s  %s  %s\n\r", szbuf, timebuf, path);
 			} else {
 				outsfmt("%s\n\r", path);
 			}
@@ -97,12 +109,14 @@ int main(int argc, char *argv[]) {
 			struct stat st;
 			if (stat(fullpath, &st) == 0) {
 				char szbuf[32];
+				char timebuf[32];
 				format_size(szbuf, st.st_size, opt_h);
+				format_time(timebuf, st);
 				const char* type_str = S_ISDIR(st.st_mode) ? "drwxr-xr-x" : "-rw-r--r--";
-				outsfmt("%s  %s  %s\n\r", type_str, szbuf, entry->d_name);
+				outsfmt("%s  %s  %s  %s\n\r", type_str, szbuf, timebuf, entry->d_name);
 			} else {
 				const char* type_str = (entry->d_type == DT_DIR) ? "drwxr-xr-x" : "-rw-r--r--";
-				outsfmt("%s  ?  %s\n\r", type_str, entry->d_name);
+				outsfmt("%s  ?  -  %s\n\r", type_str, entry->d_name);
 			}
 		} else {
 			outsfmt("%s  ", entry->d_name);

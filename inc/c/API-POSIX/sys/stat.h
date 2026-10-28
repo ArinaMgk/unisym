@@ -2,6 +2,7 @@
 #define _INC_POSIX_SYS_STAT_H
 
 #include "../../stdinc.h"
+#include "../../ISO_IEC_STD/time.h"
 #include "../api_posix.h"
 
 #define S_IFMT		0170000
@@ -19,6 +20,7 @@ extern "C" {
 struct stat {
 	stduint st_size;
 	stduint st_mode;
+	time_t st_mtime;
 };
 
 typedef stduint mode_t;

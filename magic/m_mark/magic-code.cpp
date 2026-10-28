@@ -4,8 +4,8 @@
 // Attribute: Arn-Covenant Any-Architect Env-Freestanding Non-Dependence
 // Copyright: UNISYM, under Apache License 2.0
 
-#include "include/markproc.hpp"
-#include "../inc/c/file.h"
+#include "../include/markproc.hpp"
+#include "../../inc/c/file.h"
 
 namespace {
     bool in_code_block = false;

@@ -49,7 +49,7 @@ bool uni::ACPI::Assert(const RSDP& rsdp) {
 			plogerro("RSDT is not valid\n");
 			return false;
 		}
-		for (int i = 0; i < rsdt.Count(); ++i) {
+		for0 (i, rsdt.Count()) {
 			const auto& entry = rsdt[i];
 			if (entry.isValid("FACP")) { // FACP is the signature of FADT (rekishi reason)
 				fadt = reinterpret_cast<const FADT*>(&entry);

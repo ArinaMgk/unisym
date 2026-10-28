@@ -20,7 +20,7 @@ CXXFLAGS=$(DEFS)
 
 MGC_CFLG=-L$(ubinpath) -std=c++17  -fno-common -static
 
-SRCS=$(wildcard magic/*.cpp)
+SRCS=$(wildcard magic/*.cpp) $(wildcard magic/m_*/*.cpp)
 
 all:
 	g++ $(MGC_CFLG) -o $(DSTPATH)/mgc $(SRCS) $(CXXFLAGS)

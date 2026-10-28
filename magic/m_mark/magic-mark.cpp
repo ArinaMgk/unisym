@@ -25,9 +25,9 @@
 //       |-> stdout
 //       |-> Unix Manual Page
 
-#include "magice.hpp"
-#include "../inc/c/file.h"
-#include "include/markproc.hpp"
+#include "../magice.hpp"
+#include "../../inc/c/file.h"
+#include "../include/markproc.hpp"
 
 using namespace uni;
 

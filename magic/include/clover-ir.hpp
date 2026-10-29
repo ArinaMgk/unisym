@@ -25,10 +25,13 @@
 #include "../../inc/c/nnode.h"
 #include "../../inc/cpp/Lango/CloverIR.hpp"
 
+struct MagicDebugInfo;
+
 namespace clover {
 
 // Lower a parsed Magice syntax tree into a Clover IR module.
-bool Generate(uni::Nchain& syntax_tree, Module& module);
+bool Generate(uni::Nchain& syntax_tree, Module& module,
+	const MagicDebugInfo* debug_info = nullptr);
 
 }
 

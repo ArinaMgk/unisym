@@ -40,13 +40,111 @@ namespace clover {
 			Value address;
 		};
 
+		// One C statement atom after transparent tok_statement wrappers are removed.
+		struct StatementAtom {
+			uni::Nnode* node = nullptr;
+			const uni::Nnode* source = nullptr;
+		};
+
 		// Lowers one C function body into one Clover function.
 		class FunctionBuilder {
 		private:
-			BasicBlock* entry = nullptr;
+			Function* function = nullptr;
+			stduint current_block = 0;
+			unsigned next_block = 0;
 			unsigned next_value = 0;
 			uni::Vector<LocalValue> locals;
+			uni::Vector<const uni::Nnode*> emitted_sources;
+			const MagicDebugInfo* debug_info = nullptr;
 			bool failed = false;
+
+			BasicBlock& CurrentBlock() {
+				return function->blocks[current_block];
+			}
+
+			BasicBlock& EntryBlock() {
+				return function->blocks[0];
+			}
+
+			bool IsKeyword(const uni::Nnode* node, const char* keyword) const {
+				return node && node->addr && !StrCompare(node->addr, keyword);
+			}
+
+			void AppendUnsigned(uni::String& text, unsigned value) {
+				char digits[16];
+				stduint count = 0;
+				do {
+					digits[count++] = (char)('0' + value % 10);
+					value /= 10;
+				} while (value);
+				while (count) text << digits[--count];
+			}
+
+			uni::String NewBlockName(const char* prefix) {
+				uni::String name;
+				while (*prefix) name << *prefix++;
+				name << '.';
+				AppendUnsigned(name, next_block++);
+				return name;
+			}
+
+			stduint AppendBlock(const uni::String& name) {
+				BasicBlock block;
+				block.name = name;
+				function->blocks.Append(block);
+				return function->blocks.Count() - 1;
+			}
+
+			stduint NewBlock(const char* prefix) {
+				return AppendBlock(NewBlockName(prefix));
+			}
+
+			bool BlockTerminated() const {
+				const BasicBlock& block = function->blocks.begin()[current_block];
+				if (!block.instructions.Count()) return false;
+				Opcode opcode = block.instructions.begin()[block.instructions.Count() - 1].opcode;
+				return opcode == Opcode::Jmp || opcode == Opcode::Ret;
+			}
+
+			void EmitJump(stduint target) {
+				EmitJump(function->blocks[target].name);
+			}
+
+			void EmitJump(const uni::String& target) {
+				Instruction instruction;
+				instruction.opcode = Opcode::Jmp;
+				instruction.target = target;
+				CurrentBlock().instructions.Append(instruction);
+			}
+
+			void EmitJump(Value condition, stduint target_true, stduint target_false) {
+				Instruction instruction;
+				instruction.opcode = Opcode::Jmp;
+				instruction.type = Type::I1;
+				instruction.operands.Append(condition);
+				instruction.target = function->blocks[target_true].name;
+				instruction.target_false = function->blocks[target_false].name;
+				CurrentBlock().instructions.Append(instruction);
+			}
+
+			bool SourceEmitted(const uni::Nnode* statement) const {
+				for (const uni::Nnode* emitted : emitted_sources)
+					if (emitted == statement) return true;
+				return false;
+			}
+
+			void AttachSource(Instruction& instruction, const uni::Nnode* statement) {
+				if (!debug_info || !statement || SourceEmitted(statement)) return;
+				const uni::String* source = debug_info->Find(statement);
+				if (!source) return;
+				instruction.debug_source = *source;
+				emitted_sources.Append(statement);
+			}
+
+			void AttachSource(stduint instruction_index, const uni::Nnode* statement) {
+				if (instruction_index >= CurrentBlock().instructions.Count()) return;
+				AttachSource(CurrentBlock().instructions[instruction_index], statement);
+			}
 
 			// Reserve the next function-local SSA identifier.
 			Value NewValue(Type type) {
@@ -64,7 +162,7 @@ namespace clover {
 				instruction.has_result = true;
 				instruction.result = NewValue(type);
 				instruction.operands.Append(operand);
-				entry->instructions.Append(instruction);
+				CurrentBlock().instructions.Append(instruction);
 				return instruction.result;
 			}
 
@@ -77,7 +175,7 @@ namespace clover {
 				instruction.result = NewValue(type);
 				instruction.operands.Append(left);
 				instruction.operands.Append(right);
-				entry->instructions.Append(instruction);
+				CurrentBlock().instructions.Append(instruction);
 				return instruction.result;
 			}
 
@@ -88,7 +186,7 @@ namespace clover {
 				instruction.type = value.type;
 				instruction.operands.Append(value);
 				instruction.operands.Append(address);
-				entry->instructions.Append(instruction);
+				CurrentBlock().instructions.Append(instruction);
 			}
 
 			// Promote a comparison result before using it as an integer operand.
@@ -101,12 +199,28 @@ namespace clover {
 					instruction.has_result = true;
 					instruction.result = NewValue(Type::I64);
 					instruction.operands.Append(value);
-					entry->instructions.Append(instruction);
+					CurrentBlock().instructions.Append(instruction);
 					return instruction.result;
 				}
 				failed = true;
 				plogerro("Clover IR: expected integer value");
 				return value;
+			}
+
+			Value AsCondition(Value value) {
+				if (value.type == Type::I1) return value;
+				Value integer = AsI64(value);
+				Value zero = EmitConst(0);
+				Instruction instruction;
+				instruction.opcode = Opcode::ICmp;
+				instruction.type = Type::I64;
+				instruction.has_result = true;
+				instruction.result = NewValue(Type::I1);
+				instruction.operands.Append(integer);
+				instruction.operands.Append(zero);
+				instruction.predicate = ICmpPredicate::NE;
+				CurrentBlock().instructions.Append(instruction);
+				return instruction.result;
 			}
 
 			// Materialize a source integer literal as a Const instruction.
@@ -117,12 +231,12 @@ namespace clover {
 				instruction.has_result = true;
 				instruction.result = NewValue(Type::I64);
 				instruction.immediate = immediate;
-				entry->instructions.Append(instruction);
+				CurrentBlock().instructions.Append(instruction);
 				return instruction.result;
 			}
 
 			// Return an existing local address or declare it on first use.
-			Value LocalAddress(const char* name) {
+			Value LocalAddress(const char* name, const uni::Nnode* statement = nullptr) {
 				for (LocalValue& local : locals)
 					if (!StrCompare(local.name.reference(), name)) return local.address;
 
@@ -132,7 +246,8 @@ namespace clover {
 				instruction.has_result = true;
 				instruction.result = NewValue(Type::Ptr);
 				instruction.name = name;
-				entry->instructions.Append(instruction);
+				AttachSource(instruction, statement);
+				EntryBlock().instructions.Append(instruction);
 
 				LocalValue local;
 				local.name = name;
@@ -143,10 +258,16 @@ namespace clover {
 
 			// Declare every source identifier before executable instructions so all
 			// Local instructions stay at the beginning of the entry block.
-			void CollectLocals(uni::Nnode* node) {
+			void CollectLocals(uni::Nnode* node, const uni::Nnode* statement = nullptr) {
 				for (; node; node = node->next) {
-					if (node->type == tok_identy && node->addr) LocalAddress(node->addr);
-					if (node->subf) CollectLocals(node->subf);
+					if (node->type == tok_statement || node->type == magict_sta_return) {
+						CollectLocals(node->subf, node);
+						continue;
+					}
+					if (node->type == tok_identy && node->addr &&
+						!IsKeyword(node, "return") && !IsKeyword(node, "else"))
+						LocalAddress(node->addr, statement);
+					if (node->subf) CollectLocals(node->subf, statement);
 				}
 			}
 
@@ -224,7 +345,7 @@ namespace clover {
 					instruction.operands.Append(lhs);
 					instruction.operands.Append(rhs);
 					instruction.predicate = predicate;
-					entry->instructions.Append(instruction);
+					CurrentBlock().instructions.Append(instruction);
 					return { instruction.result, true };
 				}
 
@@ -234,11 +355,11 @@ namespace clover {
 
 		public:
 			// The expression frontend currently requires one entry block.
-			FunctionBuilder(Function& function)
+			FunctionBuilder(Function& function, const MagicDebugInfo* debug_information)
+				: function(&function), debug_info(debug_information)
 			{
 				function.blocks.Append(BasicBlock());
-				entry = &function.blocks[0];
-				entry->name = "entry";
+				function.blocks[0].name = "entry";
 			}
 
 			// Translate a number, identifier, grouping node, or operator node.
@@ -260,11 +381,9 @@ namespace clover {
 				}
 			}
 
-			// Emit the terminator for an explicit C return statement.
-			bool EmitReturn(uni::Nnode* statement) {
-				uni::Nnode* expression = statement->subf;
+			bool EmitReturnExpression(uni::Nnode* expression) {
 				if (!expression)
-					return Error("return requires a value", statement).valid;
+					return Error("return requires a value", expression).valid;
 				LoweredValue lowered = LowerExpression(expression);
 				if (!lowered.valid) return false;
 				Value result = AsI64(lowered.value);
@@ -273,8 +392,94 @@ namespace clover {
 				instruction.opcode = Opcode::Ret;
 				instruction.type = Type::I64;
 				instruction.operands.Append(result);
-				entry->instructions.Append(instruction);
+				CurrentBlock().instructions.Append(instruction);
 				return true;
+			}
+
+			bool BeginIf(uni::Nnode* condition_node, const uni::Nnode* source_statement,
+				stduint& then_block, stduint& else_block, uni::String& end_block) {
+				stduint first_instruction = CurrentBlock().instructions.Count();
+				LoweredValue lowered = LowerExpression(condition_node);
+				if (!lowered.valid) return false;
+				Value condition = AsCondition(lowered.value);
+				if (failed) return false;
+				AttachSource(first_instruction, source_statement);
+				then_block = NewBlock("if.then");
+				else_block = NewBlock("if.else");
+				end_block = NewBlockName("if.end");
+				EmitJump(condition, then_block, else_block);
+				current_block = then_block;
+				return true;
+			}
+
+			void EndIfBranch(const uni::String& end_block) {
+				if (!BlockTerminated()) EmitJump(end_block);
+			}
+
+			void AppendStatementAtoms(uni::Nnode* node,
+				uni::Vector<StatementAtom>& atoms) {
+				for (; node; node = node->next) {
+					if (node->type == tok_statement) {
+						for (uni::Nnode* child = node->subf; child; child = child->next) {
+							StatementAtom atom;
+							atom.node = child;
+							atom.source = node;
+							atoms.Append(atom);
+						}
+						continue;
+					}
+					StatementAtom atom;
+					atom.node = node;
+					atom.source = node;
+					atoms.Append(atom);
+				}
+			}
+
+			bool LowerStatement(uni::Vector<StatementAtom>& atoms, stduint& index) {
+				if (index >= atoms.Count())
+					return Error("if requires a statement", nullptr).valid;
+				StatementAtom atom = atoms.begin()[index++];
+				uni::Nnode* node = atom.node;
+				if (!node) return Error("missing statement", node).valid;
+
+				if (node->type == magict_sta_empty) return true;
+				if (node->type == magict_sta_else)
+					return Error("else has no matching if", node).valid;
+				if (node->type == magict_sta_if) {
+					if (!node->subf) return Error("if requires a condition", node).valid;
+					stduint then_block, else_block;
+					uni::String end_block;
+					if (!BeginIf(node->subf, node,
+						then_block, else_block, end_block)) return false;
+					if (!LowerStatement(atoms, index)) return false;
+					EndIfBranch(end_block);
+
+					current_block = else_block;
+					if (index < atoms.Count() &&
+						atoms.begin()[index].node->type == magict_sta_else) {
+						index++;
+						if (!LowerStatement(atoms, index)) return false;
+					}
+					EndIfBranch(end_block);
+					current_block = AppendBlock(end_block);
+					return true;
+				}
+
+				if (node->type == tok_block) return LowerBlock(node);
+				stduint first_instruction = CurrentBlock().instructions.Count();
+				if (node->type == magict_sta_return) {
+					bool success;
+					if (node->subf) success = EmitReturnExpression(node->subf);
+					else if (index < atoms.Count())
+						success = EmitReturnExpression(atoms.begin()[index++].node);
+					else success = Error("return requires a value", node).valid;
+					if (success) AttachSource(first_instruction, atom.source);
+					return success;
+				}
+
+				bool success = LowerExpression(node).valid;
+				if (success) AttachSource(first_instruction, atom.source);
+				return success;
 			}
 
 			// Lower every statement in source order, including statements after return.
@@ -283,21 +488,10 @@ namespace clover {
 					Error("expected block", block);
 					return false;
 				}
-				for (uni::Nnode* node = block->subf; node; node = node->next) {
-					if (node->type == tok_block) {
-						if (!LowerBlock(node)) return false;
-					}
-					else if (node->type == magict_sta_return) {
-						if (!EmitReturn(node)) return false;
-					}
-					else if (node->type == tok_statement) {
-						if (node->subf && !LowerExpression(node->subf).valid) return false;
-					}
-					else {
-						Error("expected statement or block", node);
-						return false;
-					}
-					if (failed) return false;
+				uni::Vector<StatementAtom> atoms;
+				AppendStatementAtoms(block->subf, atoms);
+				for (stduint index = 0; index < atoms.Count();) {
+					if (!LowerStatement(atoms, index) || failed) return false;
 				}
 				return true;
 			}
@@ -311,7 +505,8 @@ namespace clover {
 
 	}
 
-	bool Generate(uni::Nchain& syntax_tree, Module& module) {
+	bool Generate(uni::Nchain& syntax_tree, Module& module,
+		const MagicDebugInfo* debug_info) {
 		module.functions.Clear();
 		for (uni::Nnode* node = syntax_tree.Root(); node;) {
 			if (node->type != magict_function || !node->addr ||
@@ -324,7 +519,7 @@ namespace clover {
 			Function function;
 			function.name = node->addr;
 			function.return_type = Type::I64;
-			FunctionBuilder builder(function);
+			FunctionBuilder builder(function, debug_info);
 			if (!builder.Lower(body)) return false;
 			module.functions.Append(function);
 			node = body->next;

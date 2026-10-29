@@ -61,6 +61,16 @@ static bool IsCSourcePath(rostr path) {
 		(path[length - 1] == 'c' || path[length - 1] == 'C');
 }
 
+static void PrintMagicHelp() {
+	uni::Console.OutFormat("Usage: mgc [options] input...\n");
+	uni::Console.OutFormat("Options:\n");
+	uni::Console.OutFormat("  -emit-ir, --emit-ir    Emit Clover IR\n");
+	uni::Console.OutFormat("  -emit-ast, --emit-ast  Emit the parsed AST\n");
+	uni::Console.OutFormat("  -g                      Add source comments to Clover IR\n");
+	uni::Console.OutFormat("  -o output               Write output to a file\n");
+	uni::Console.OutFormat("  -h, --help              Print this help\n");
+}
+
 int magic(int argc, char** argv) {
 	using namespace uni;
 	MagInn minn;
@@ -70,22 +80,41 @@ int magic(int argc, char** argv) {
 	HostFile* output_file = nullptr;
 	bool request_ir = false;
 	bool request_ast = false;
+	bool debug_symbols = false;
+	bool options_ended = false;
 	bool has_c_source = false;
 	rostr output_path = nullptr;
 	Vector<rostr> inputs;
 	for (int i = 1; i < argc; i++) {
-		if (!StrCompare(argv[i], "--emit-ir") || !StrCompare(argv[i], "-emit-ir")) {
+		if (!options_ended && !StrCompare(argv[i], "--")) {
+			options_ended = true;
+		}
+		else if (!options_ended &&
+			(!StrCompare(argv[i], "--emit-ir") || !StrCompare(argv[i], "-emit-ir"))) {
 			request_ir = true;
 		}
-		else if (!StrCompare(argv[i], "--emit-ast") || !StrCompare(argv[i], "-emit-ast")) {
+		else if (!options_ended &&
+			(!StrCompare(argv[i], "--emit-ast") || !StrCompare(argv[i], "-emit-ast"))) {
 			request_ast = true;
 		}
-		else if (!StrCompare(argv[i], "-o")) {
+		else if (!options_ended && !StrCompare(argv[i], "-g")) {
+			debug_symbols = true;
+		}
+		else if (!options_ended &&
+			(!StrCompare(argv[i], "-h") || !StrCompare(argv[i], "--help"))) {
+			PrintMagicHelp();
+			return 0;
+		}
+		else if (!options_ended && !StrCompare(argv[i], "-o")) {
 			if (++i >= argc) {
 				plogerro("expected filename after -o");
 				return 1;
 			}
 			output_path = argv[i];
+		}
+		else if (!options_ended && argv[i][0] == '-' && argv[i][1]) {
+			plogerro("unknown option %s", argv[i]);
+			return 1;
 		}
 		else {
 			inputs.Append(argv[i]);
@@ -100,7 +129,7 @@ int magic(int argc, char** argv) {
 	}
 
 	if (inputs.isEmpty()) {
-		ploginfo("Usage: mgc [-emit-ir|-emit-ast] input... [-o output]");
+		PrintMagicHelp();
 		return 0;
 	}
 	bool emit_ast = request_ast || (!request_ir && has_c_source);
@@ -116,6 +145,8 @@ int magic(int argc, char** argv) {
 	}
 
 	parser.GHT = false;
+	parser.handler_comment = LineParse_Comment_C_Cpp;
+	parser.method_omit_comment = true;
 	for (rostr input : inputs) {
 		HostFile input_file(input, FileOpenType::Read);
 		if (input_file) {
@@ -135,8 +166,10 @@ int magic(int argc, char** argv) {
 
 		NestedParseUnit fileScope(dc, &operators, sizeof(mag_node_t));
 		NestedParseUnit& npu = fileScope;
+		MagicDebugInfo debug_info;
+		MagicDebugInfo* requested_debug_info = debug_symbols ? &debug_info : nullptr;
 
-		if (!FrontendAnalyze(MagicFrontend::C, npu)) {
+		if (!FrontendAnalyze(MagicFrontend::C, npu, requested_debug_info)) {
 			if (output_file) delete output_file;
 			return 1;
 		}
@@ -145,7 +178,8 @@ int magic(int argc, char** argv) {
 		}
 		else {
 			clover::Module module;
-			if (!clover::Generate(*fileScope.GetNetwork(), module) || !clover::Print(module, *dst)) {
+			if (!clover::Generate(*fileScope.GetNetwork(), module, requested_debug_info) ||
+				!clover::Print(module, *dst)) {
 				if (output_file) delete output_file;
 				return 1;
 			}

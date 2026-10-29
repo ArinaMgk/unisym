@@ -127,6 +127,12 @@ namespace uni::lango {
 			return false;
 		}
 
+		bool HasBlock(const clover::Function& function, const uni::String& name) {
+			for (const clover::BasicBlock& block : function.blocks)
+				if (!StrCompare(block.name.reference(), name.reference())) return true;
+			return false;
+		}
+
 		// Load one SSA value from its spill slot into a temporary register.
 		bool LoadValue(const FunctionLayout& layout, clover::Value value,
 			const char* reg, uni::OstreamTrait& output) {
@@ -166,7 +172,7 @@ namespace uni::lango {
 
 		// Lower one Clover instruction to RV64 assembler.
 		bool EmitInstruction(const clover::Instruction& instruction, const FunctionLayout& layout,
-			uni::OstreamTrait& output, bool& returned) {
+			const clover::Function& function, uni::OstreamTrait& output) {
 			switch (instruction.opcode) {
 			case clover::Opcode::Const:
 				output.OutFormat("\tli t0, %[i]\n", instruction.immediate);
@@ -242,11 +248,32 @@ namespace uni::lango {
 					output.OutFormat("\tandi t0, t0, 1\n");
 				return StoreResult(layout, instruction, "t0", output);
 
+			case clover::Opcode::Jmp:
+				if (!HasBlock(function, instruction.target) ||
+					(instruction.target_false.getByteCount() &&
+						!HasBlock(function, instruction.target_false))) {
+					plogerro("RISC-V backend: jump to undefined block");
+					return false;
+				}
+				if (!instruction.operands.Count()) {
+					output.OutFormat("\tj .L%s_%s\n", function.name.reference(),
+						instruction.target.reference());
+					return true;
+				}
+				if (!RequireOperands(instruction, 1) ||
+					!instruction.target_false.getByteCount() ||
+					instruction.operands.begin()[0].type != clover::Type::I1 ||
+					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
+				output.OutFormat("\tbnez t0, .L%s_%s\n", function.name.reference(),
+					instruction.target.reference());
+				output.OutFormat("\tj .L%s_%s\n", function.name.reference(),
+					instruction.target_false.reference());
+				return true;
+
 			case clover::Opcode::Ret:
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "a0", output)) return false;
 				EmitEpilogue(output);
-				returned = true;
 				return true;
 			}
 			return false;
@@ -265,13 +292,22 @@ namespace uni::lango {
 			output.OutFormat("\tsd s0, %[i](sp)\n", layout.frame_size - 16);
 			output.OutFormat("\taddi s0, sp, %[i]\n", layout.frame_size);
 
-			bool returned = false;
 			for (const clover::BasicBlock& block : function.blocks) {
 				output.OutFormat(".L%s_%s:\n", function.name.reference(), block.name.reference());
 				for (const clover::Instruction& instruction : block.instructions)
-					if (!EmitInstruction(instruction, layout, output, returned)) return false;
+					if (!EmitInstruction(instruction, layout, function, output)) return false;
 			}
-			if (!returned) {
+			bool terminated = false;
+			if (function.blocks.Count()) {
+				const clover::BasicBlock& last_block =
+					function.blocks.begin()[function.blocks.Count() - 1];
+				if (last_block.instructions.Count()) {
+					clover::Opcode opcode = last_block.instructions.begin()[
+						last_block.instructions.Count() - 1].opcode;
+					terminated = opcode == clover::Opcode::Ret || opcode == clover::Opcode::Jmp;
+				}
+			}
+			if (!terminated) {
 				output.OutFormat("\tli a0, 0\n");
 				EmitEpilogue(output);
 			}

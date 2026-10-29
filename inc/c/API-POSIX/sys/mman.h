@@ -20,6 +20,9 @@ typedef stdsint off_t;
 // Map attributes
 #define MAP_SHARED	0x01
 #define MAP_PRIVATE	0x02
+// POSIX.1-2024 mmap(): MAP_FIXED uses the requested address exactly.
+// Mecocoa currently replaces only a PROT_NONE anonymous reservation.
+#define MAP_FIXED	0x10
 #define MAP_ANONYMOUS	0x20
 
 #define MAP_FAILED	((void*)~_IMM0)
@@ -29,6 +32,8 @@ extern "C" {
 #endif
 
 void* mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset);
+// POSIX.1-2024 mprotect(): change protections on an existing mapping.
+int mprotect(void* addr, size_t length, int prot);
 int munmap(void* addr, size_t length);
 
 #if defined(_INC_CPP) || defined(__cplusplus)

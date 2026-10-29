@@ -71,8 +71,14 @@ namespace clover {
 			output.OutFormat("%%%[u]", value.id);
 		}
 
+		void PrintBlockName(uni::OstreamTrait& output, const uni::String& name) {
+			output.OutFormat("^%s", name.reference());
+		}
+
 		// Serialize one instruction according to its operand layout.
 		bool PrintInstruction(const Instruction& instruction, uni::OstreamTrait& output) {
+			if (instruction.debug_source.getByteCount())
+				output.OutFormat("    ; %s\n", instruction.debug_source.reference());
 			output.OutFormat("    ");
 			if (instruction.has_result) {
 				PrintValue(output, instruction.result);
@@ -131,6 +137,19 @@ namespace clover {
 				output.OutFormat("zext %s ", TypeName(instruction.operands.begin()[0].type));
 				PrintValue(output, instruction.operands.begin()[0]);
 				output.OutFormat(" to %s\n", TypeName(instruction.type));
+				break;
+			case Opcode::Jmp:
+				output.OutFormat("jmp ");
+				if (instruction.operands.Count()) {
+					output.OutFormat("i1 ");
+					PrintValue(output, instruction.operands.begin()[0]);
+					output.OutFormat(", ");
+					PrintBlockName(output, instruction.target);
+					output.OutFormat(", ");
+					PrintBlockName(output, instruction.target_false);
+				}
+				else PrintBlockName(output, instruction.target);
+				output.OutFormat("\n");
 				break;
 			case Opcode::Ret:
 				output.OutFormat("ret %s ", TypeName(instruction.type));
@@ -291,6 +310,10 @@ namespace clover {
 				return FindValue(id, value);
 			}
 
+			bool ReadBlockName(uni::String& name) {
+				return Expect("^") && ReadName(name);
+			}
+
 			bool Define(Value value) {
 				for (const DefinedValue& defined : definitions)
 					if (defined.value.id == value.id) return Error("duplicate SSA identifier");
@@ -402,6 +425,24 @@ namespace clover {
 					instruction.operands.Append(operand);
 					instruction.result.type = instruction.type;
 				}
+				else if (!StrCompare(operation.reference(), "jmp")) {
+					instruction.opcode = Opcode::Jmp;
+					if (has_result) return Error("invalid jmp instruction");
+					if (Is("^")) {
+						if (!ReadBlockName(instruction.target)) return false;
+					}
+					else {
+						Value condition;
+						if (!ReadType(instruction.type) || instruction.type != Type::I1 ||
+							!ReadValue(condition) || !Expect(",") ||
+							!ReadBlockName(instruction.target) || !Expect(",") ||
+							!ReadBlockName(instruction.target_false))
+							return Error("invalid conditional jmp instruction");
+						if (condition.type != Type::I1)
+							return Error("conditional jmp requires i1 value");
+						instruction.operands.Append(condition);
+					}
+				}
 				else if (!StrCompare(operation.reference(), "ret")) {
 					instruction.opcode = Opcode::Ret;
 					Value operand;
@@ -437,6 +478,26 @@ namespace clover {
 				while (Is("^"))
 					if (!ParseBlock(function)) return false;
 				if (!Expect("}")) return false;
+				for (stduint index = 0; index < function.blocks.Count(); index++)
+					for (stduint other = index + 1; other < function.blocks.Count(); other++)
+						if (!StrCompare(function.blocks[index].name.reference(),
+							function.blocks[other].name.reference()))
+							return Error("duplicate block name");
+				for (const BasicBlock& block : function.blocks) {
+					for (const Instruction& instruction : block.instructions) {
+						if (instruction.opcode != Opcode::Jmp) continue;
+						bool target_found = false;
+						bool false_found = !instruction.target_false.getByteCount();
+						for (const BasicBlock& candidate : function.blocks) {
+							if (!StrCompare(candidate.name.reference(), instruction.target.reference()))
+								target_found = true;
+							if (instruction.target_false.getByteCount() &&
+								!StrCompare(candidate.name.reference(), instruction.target_false.reference()))
+								false_found = true;
+						}
+						if (!target_found || !false_found) return Error("jmp to undefined block");
+					}
+				}
 				module.functions.Append(function);
 				return true;
 			}

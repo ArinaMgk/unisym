@@ -21,13 +21,14 @@
 
 #include "./magice.hpp"
 
-bool FrontendAnalyze(MagicFrontend frontend, uni::NestedParseUnit& parser) {
+bool FrontendAnalyze(MagicFrontend frontend, uni::NestedParseUnit& parser,
+	MagicDebugInfo* debug_info) {
 	switch (frontend) {
 	case MagicFrontend::C: {
 		uni::Nchain& syntax_tree = *parser.GetNetwork();
 		if (!parser.ParseParen(syntax_tree.Root())) return false;
 		parser.ParseStatements_CPL();
-		if (!FrontendCPrepare(syntax_tree)) return false;
+		if (!FrontendCPrepare(syntax_tree, debug_info)) return false;
 		if (!parser.ParseOperator(syntax_tree.Root())) return false;
 		return FrontendCValidate(syntax_tree);
 	}

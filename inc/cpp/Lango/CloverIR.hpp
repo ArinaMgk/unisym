@@ -54,6 +54,7 @@ enum class Opcode {
 	AShr,  // Arithmetic right shift.
 	ICmp,  // Integer comparison producing I1.
 	ZExt,  // Zero-extension to a wider integer type.
+	Jmp,   // Unconditional or condition-selected basic-block transfer.
 	Ret,   // Return from the current function.
 };
 
@@ -81,6 +82,9 @@ struct Instruction {
 	Value result;                   // SSA result when has_result is true.
 	uni::Vector<Value> operands;    // Ordered input values.
 	uni::String name;               // Optional source name retained by Local.
+	uni::String debug_source;       // Optional source statement printed before this instruction.
+	uni::String target;             // Jump target, or true target for a conditional jump.
+	uni::String target_false;       // False target for a conditional jump.
 	stdsint immediate = 0;          // Integer literal retained by Const.
 	ICmpPredicate predicate = ICmpPredicate::EQ; // Comparison mode for ICmp.
 };

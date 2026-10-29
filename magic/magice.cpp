@@ -130,9 +130,11 @@ int magic(int argc, char** argv) {
 	}
 
 	String source;
+	const char* source_name = inputs.Count() == 1 ? "<command-line>" : "<multiple-inputs>";
 	for (rostr input : inputs) {
 		HostFile input_file(input, FileOpenType::Read);
 		if (input_file) {
+			if (inputs.Count() == 1) source_name = input;
 			String input_source;
 			input_file >> input_source;
 			source += input_source;
@@ -146,8 +148,11 @@ int magic(int argc, char** argv) {
 
 	{
 		MagicSourceInput input(source.reference());
+		lango::FrontendOptions frontend_options;
+		frontend_options.debug_source = debug_symbols;
+		frontend_options.source_name = source_name;
 		if (emit_ast) {
-			if (!FrontendPrintAST(MagicFrontend::C, input, *output)) {
+			if (!FrontendPrintAST(MagicFrontend::C, input, *output, frontend_options)) {
 				if (output_file) delete output_file;
 				return 1;
 			}
@@ -158,8 +163,6 @@ int magic(int argc, char** argv) {
 				if (output_file) delete output_file;
 				return 1;
 			}
-			lango::FrontendOptions frontend_options;
-			frontend_options.debug_source = debug_symbols;
 			clover::Module module;
 			bool success = frontend->Generate(input, module, frontend_options) &&
 				clover::Print(module, *output);

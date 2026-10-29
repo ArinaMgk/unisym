@@ -33,11 +33,11 @@ uni::lango::FrontendInterface* FrontendCreate(MagicFrontend frontend) {
 }
 
 bool FrontendPrintAST(MagicFrontend frontend, uni::IstreamTrait& input,
-	uni::OstreamTrait& output) {
+	uni::OstreamTrait& output, const uni::lango::FrontendOptions& options) {
 	switch (frontend) {
 	case MagicFrontend::C: {
 		uni::lango::FrontendC frontend_c;
-		return frontend_c.PrintAST(input, output);
+		return frontend_c.PrintAST(input, output, options);
 	}
 	}
 	plogerro("Magice: frontend does not support AST output");

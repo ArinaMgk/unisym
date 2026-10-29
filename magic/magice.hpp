@@ -22,7 +22,7 @@ uni::lango::FrontendInterface* FrontendCreate(MagicFrontend frontend);
 
 // Print a language-specific syntax tree without extending the common interface.
 bool FrontendPrintAST(MagicFrontend frontend, uni::IstreamTrait& input,
-	uni::OstreamTrait& output);
+	uni::OstreamTrait& output, const uni::lango::FrontendOptions& options);
 
 // Frontend variable table. It will grow into the declaration and scope table.
 struct Variable {

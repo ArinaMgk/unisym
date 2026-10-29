@@ -54,6 +54,7 @@ namespace clover {
 			uni::Vector<LocalValue> locals;
 			uni::Vector<const uni::Nnode*> emitted_sources;
 			const FrontendCDebugInfo* debug_info = nullptr;
+			const FrontendCDiagnostics* diagnostics = nullptr;
 			bool failed = false;
 
 			BasicBlock& CurrentBlock() {
@@ -116,12 +117,18 @@ namespace clover {
 			}
 
 			void EmitJump(Value condition, stduint target_true, stduint target_false) {
+				EmitJump(condition, function->blocks[target_true].name,
+					function->blocks[target_false].name);
+			}
+
+			void EmitJump(Value condition, const uni::String& target_true,
+				const uni::String& target_false) {
 				Instruction instruction;
 				instruction.opcode = Opcode::Jmp;
 				instruction.type = Type::I1;
 				instruction.operands.Append(condition);
-				instruction.target = function->blocks[target_true].name;
-				instruction.target_false = function->blocks[target_false].name;
+				instruction.target = target_true;
+				instruction.target_false = target_false;
 				CurrentBlock().instructions.Append(instruction);
 			}
 
@@ -201,7 +208,8 @@ namespace clover {
 					return instruction.result;
 				}
 				failed = true;
-				plogerro("Clover IR: expected integer value");
+				diagnostics->Report(DiagnosticStage::Lowering,
+					"expected integer value");
 				return value;
 			}
 
@@ -273,9 +281,21 @@ namespace clover {
 			// Record a lowering error and return an invalid expression result.
 			LoweredValue Error(const char* message, const uni::Nnode* node) {
 				failed = true;
-				plogerro("Clover IR: %s%s%s", message,
-					node && node->addr ? " " : "", node && node->addr ? node->addr : "");
+				diagnostics->Report(DiagnosticStage::Lowering, message, node);
 				return {};
+			}
+
+			LoweredValue LowerIncrement(uni::Nnode* operand, bool increment,
+				bool return_updated) {
+				if (!operand || operand->type != tok_identy || !operand->addr)
+					return Error("increment requires an identifier", operand);
+				Value address = LocalAddress(operand->addr);
+				Value previous = EmitResult(Opcode::Load, Type::I64, address);
+				Value one = EmitConst(1);
+				Value updated = EmitResult(increment ? Opcode::Add : Opcode::Sub,
+					Type::I64, previous, one);
+				EmitStore(updated, address);
+				return { return_updated ? updated : previous, true };
 			}
 
 			// Translate one operator and recursively lower its operands.
@@ -288,6 +308,14 @@ namespace clover {
 				Nnode* right_node = left_node->next;
 				const char* operation = node->addr;
 
+				if (!StrCompare(operation, "OP@SUFADD"))
+					return LowerIncrement(left_node, true, false);
+				if (!StrCompare(operation, "OP@SUFSUB"))
+					return LowerIncrement(left_node, false, false);
+				if (!StrCompare(operation, "OP@PREADD"))
+					return LowerIncrement(left_node, true, true);
+				if (!StrCompare(operation, "OP@@PRESUB"))
+					return LowerIncrement(left_node, false, true);
 				if (!StrCompare(operation, "OP@PREPOSI")) return LowerExpression(left_node);
 				if (!StrCompare(operation, "OP@PRENEGA")) {
 					LoweredValue operand = LowerExpression(left_node);
@@ -354,8 +382,10 @@ namespace clover {
 
 		public:
 			// The expression frontend currently requires one entry block.
-			FunctionBuilder(Function& function, const FrontendCDebugInfo* debug_information)
-				: function(&function), debug_info(debug_information)
+			FunctionBuilder(Function& function, const FrontendCDiagnostics& diagnostic_output,
+				const FrontendCDebugInfo* debug_information)
+				: function(&function), debug_info(debug_information),
+					diagnostics(&diagnostic_output)
 			{
 				function.blocks.Append(BasicBlock());
 				function.blocks[0].name = "entry";
@@ -434,6 +464,81 @@ namespace clover {
 				}
 			}
 
+			uni::Nnode* ForClause(uni::Nnode* clause) {
+				return clause && clause->type == tok_statement ? clause->subf : nullptr;
+			}
+
+			bool LowerWhile(uni::Nnode* node, const uni::Nnode* source_statement,
+				uni::Vector<StatementAtom>& atoms, stduint& index) {
+				if (!node->subf) return Error("while requires a condition", node).valid;
+				stduint condition_block = NewBlock("while.cond");
+				stduint body_block = NewBlock("while.body");
+				uni::String end_name = NewBlockName("while.end");
+				EmitJump(condition_block);
+
+				current_block = condition_block;
+				stduint first_instruction = CurrentBlock().instructions.Count();
+				LoweredValue lowered = LowerExpression(node->subf);
+				if (!lowered.valid) return false;
+				Value condition = AsCondition(lowered.value);
+				if (failed) return false;
+				AttachSource(first_instruction, source_statement);
+				EmitJump(condition, function->blocks[body_block].name, end_name);
+
+				current_block = body_block;
+				if (!LowerStatement(atoms, index)) return false;
+				if (!BlockTerminated()) EmitJump(condition_block);
+				current_block = AppendBlock(end_name);
+				return true;
+			}
+
+			bool LowerFor(uni::Nnode* node, const uni::Nnode* source_statement,
+				uni::Vector<StatementAtom>& atoms, stduint& index) {
+				uni::Nnode* init_clause = node->subf;
+				uni::Nnode* condition_clause = init_clause ? init_clause->next : nullptr;
+				uni::Nnode* step_clause = condition_clause ? condition_clause->next : nullptr;
+				if (!init_clause || !condition_clause ||
+					init_clause->type != tok_statement ||
+					condition_clause->type != tok_statement ||
+					(step_clause && (step_clause->type != tok_statement || step_clause->next)))
+					return Error("invalid for clauses", node).valid;
+
+				uni::Nnode* init = ForClause(init_clause);
+				uni::Nnode* condition_node = ForClause(condition_clause);
+				uni::Nnode* step = ForClause(step_clause);
+				stduint source_instruction = CurrentBlock().instructions.Count();
+				if (init && !LowerExpression(init).valid) return false;
+				AttachSource(source_instruction, source_statement);
+
+				stduint condition_block = NewBlock("for.cond");
+				stduint body_block = NewBlock("for.body");
+				uni::String step_name = NewBlockName("for.step");
+				uni::String end_name = NewBlockName("for.end");
+				EmitJump(condition_block);
+
+				current_block = condition_block;
+				if (condition_node) {
+					stduint first_instruction = CurrentBlock().instructions.Count();
+					LoweredValue lowered = LowerExpression(condition_node);
+					if (!lowered.valid) return false;
+					Value condition = AsCondition(lowered.value);
+					if (failed) return false;
+					AttachSource(first_instruction, source_statement);
+					EmitJump(condition, function->blocks[body_block].name, end_name);
+				}
+				else EmitJump(body_block);
+
+				current_block = body_block;
+				if (!LowerStatement(atoms, index)) return false;
+				if (!BlockTerminated()) EmitJump(step_name);
+
+				current_block = AppendBlock(step_name);
+				if (step && !LowerExpression(step).valid) return false;
+				if (!BlockTerminated()) EmitJump(condition_block);
+				current_block = AppendBlock(end_name);
+				return true;
+			}
+
 			bool LowerStatement(uni::Vector<StatementAtom>& atoms, stduint& index) {
 				if (index >= atoms.Count())
 					return Error("if requires a statement", nullptr).valid;
@@ -463,6 +568,10 @@ namespace clover {
 					current_block = AppendBlock(end_block);
 					return true;
 				}
+				if (node->type == ToToken(FrontendCToken::While))
+					return LowerWhile(node, atom.source, atoms, index);
+				if (node->type == ToToken(FrontendCToken::For))
+					return LowerFor(node, atom.source, atoms, index);
 
 				if (node->type == tok_block) return LowerBlock(node);
 				stduint first_instruction = CurrentBlock().instructions.Count();
@@ -505,12 +614,14 @@ namespace clover {
 	}
 
 	bool LowerFrontendC(uni::Nchain& syntax_tree, Module& module,
+		const FrontendCDiagnostics& diagnostics,
 		const FrontendCDebugInfo* debug_info) {
 		module.functions.Clear();
 		for (uni::Nnode* node = syntax_tree.Root(); node;) {
 			if (node->type != ToToken(FrontendCToken::Function) || !node->addr ||
 				!node->next || node->next->type != tok_block) {
-				plogerro("Clover IR: expected analyzed function definition");
+				diagnostics.Report(DiagnosticStage::Lowering,
+					"expected analyzed function definition", node);
 				return false;
 			}
 
@@ -518,7 +629,7 @@ namespace clover {
 			Function function;
 			function.name = node->addr;
 			function.return_type = Type::I64;
-			FunctionBuilder builder(function, debug_info);
+			FunctionBuilder builder(function, diagnostics, debug_info);
 			if (!builder.Lower(body)) return false;
 			module.functions.Append(function);
 			node = body->next;
@@ -529,6 +640,7 @@ namespace clover {
 }
 
 bool uni::lango::frontend_c_detail::Lower(uni::Nchain& syntax_tree,
-	clover::Module& module, const FrontendCDebugInfo* debug_info) {
-	return clover::LowerFrontendC(syntax_tree, module, debug_info);
+	clover::Module& module, const FrontendCDiagnostics& diagnostics,
+	const FrontendCDebugInfo* debug_info) {
+	return clover::LowerFrontendC(syntax_tree, module, diagnostics, debug_info);
 }

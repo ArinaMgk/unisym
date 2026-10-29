@@ -65,7 +65,17 @@ namespace {
 		if (control->addr) AppendSourceText(text, control->addr);
 		if (control->subf) {
 			text << '(';
-			AppendSourceNodes(text, control->subf);
+			if (control->addr && !StrCompare(control->addr, "for")) {
+				uni::Nnode* clause = control->subf;
+				for (stduint index = 0; index < 3; index++) {
+					if (clause) {
+						AppendSourceNodes(text, clause->subf);
+						clause = clause->next;
+					}
+					if (index < 2) text << ';';
+				}
+			}
+			else AppendSourceNodes(text, control->subf);
 			text << ')';
 		}
 		debug_info->Add(control, text);
@@ -81,6 +91,14 @@ namespace {
 			SaveControlSource(debug_info, node);
 			node->type = ToToken(FrontendCToken::If);
 		}
+		else if (node->type == tok_func && IsKeyword(node, "while")) {
+			SaveControlSource(debug_info, node);
+			node->type = ToToken(FrontendCToken::While);
+		}
+		else if (node->type == tok_func && IsKeyword(node, "for")) {
+			SaveControlSource(debug_info, node);
+			node->type = ToToken(FrontendCToken::For);
+		}
 		else if (node->type == tok_identy && IsKeyword(node, "else")) {
 			node->type = ToToken(FrontendCToken::Else);
 		}
@@ -91,7 +109,9 @@ namespace {
 		if (!statement || !statement->subf) return;
 		uni::Nnode* tail = statement->subf->Tail();
 		if (tail->type != ToToken(FrontendCToken::If) &&
-			tail->type != ToToken(FrontendCToken::Else)) return;
+			tail->type != ToToken(FrontendCToken::Else) &&
+			tail->type != ToToken(FrontendCToken::While) &&
+			tail->type != ToToken(FrontendCToken::For)) return;
 		uni::Nnode* empty = syntax_tree.Append(nullptr, false, tail);
 		empty->type = ToToken(FrontendCToken::Empty);
 		*empty->GetTnodeField() = *tail->GetTnodeField();
@@ -100,18 +120,21 @@ namespace {
 	// Classify return statements before operator parsing. Removing the keyword
 	// prevents unary and binary operators from treating it as an operand.
 	bool PrepareBlock(uni::Nchain& syntax_tree, uni::Nnode* block,
-		FrontendCDebugInfo* debug_info) {
+		const FrontendCDiagnostics& diagnostics, FrontendCDebugInfo* debug_info) {
 		if (!block || block->type != tok_block) {
-			plogerro("C frontend: expected function block");
+			diagnostics.Report(DiagnosticStage::Parser,
+				"expected function block", block);
 			return false;
 		}
 
 		for (uni::Nnode* node = block->subf; node; node = node->next) {
 			if (node->type == tok_block) {
-				if (!PrepareBlock(syntax_tree, node, debug_info)) return false;
+				if (!PrepareBlock(syntax_tree, node, diagnostics, debug_info)) return false;
 				continue;
 			}
-			if (node->type == tok_func && IsKeyword(node, "if")) {
+			if (node->type == tok_func &&
+				(IsKeyword(node, "if") || IsKeyword(node, "while") ||
+					IsKeyword(node, "for"))) {
 				ClassifyControlNode(node, debug_info);
 				continue;
 			}
@@ -120,7 +143,8 @@ namespace {
 				continue;
 			}
 			if (node->type != tok_statement) {
-				plogerro("C frontend: expected statement or block");
+				diagnostics.Report(DiagnosticStage::Parser,
+					"expected statement or block", node);
 				return false;
 			}
 
@@ -131,7 +155,7 @@ namespace {
 			}
 			for (uni::Nnode* child = node->subf; child; child = child->next)
 				if (child->type == tok_block) {
-					if (!PrepareBlock(syntax_tree, child, debug_info)) return false;
+					if (!PrepareBlock(syntax_tree, child, diagnostics, debug_info)) return false;
 				}
 				else {
 					ClassifyControlNode(child, debug_info);
@@ -150,7 +174,8 @@ namespace {
 			else if (first && first->type == ToToken(FrontendCToken::Return)) {
 				node->type = ToToken(FrontendCToken::Return);
 				if (!syntax_tree.Remove(first)) {
-					plogerro("C frontend: return requires a value");
+					diagnostics.Report(DiagnosticStage::Parser,
+						"return requires a value", node);
 					return false;
 				}
 			}
@@ -161,22 +186,26 @@ namespace {
 
 	// Validate expression shape after operator parsing has folded each return
 	// expression into one syntax-tree node.
-	bool ValidateBlock(uni::Nnode* block) {
+	bool ValidateBlock(uni::Nnode* block, const FrontendCDiagnostics& diagnostics) {
 		for (uni::Nnode* node = block ? block->subf : nullptr; node; node = node->next) {
 			if (node->type == tok_block) {
-				if (!ValidateBlock(node)) return false;
+				if (!ValidateBlock(node, diagnostics)) return false;
 			}
 			else if (node->type == ToToken(FrontendCToken::If) ||
 				node->type == ToToken(FrontendCToken::Else) ||
+				node->type == ToToken(FrontendCToken::While) ||
+				node->type == ToToken(FrontendCToken::For) ||
 				node->type == ToToken(FrontendCToken::Empty)) continue;
 			else if (node->type == ToToken(FrontendCToken::Return) &&
 				(!node->subf || node->subf->next)) {
-				plogerro("C frontend: invalid return expression");
+				diagnostics.Report(DiagnosticStage::Parser,
+					"invalid return expression", node);
 				return false;
 			}
 			else if (node->type == tok_statement) {
 				for (uni::Nnode* child = node->subf; child; child = child->next)
-					if (child->type == tok_block && !ValidateBlock(child)) return false;
+					if (child->type == tok_block &&
+						!ValidateBlock(child, diagnostics)) return false;
 			}
 		}
 		return true;
@@ -198,36 +227,40 @@ const uni::String* FrontendCDebugInfo::Find(const uni::Nnode* node) const {
 }
 
 bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
-	FrontendCDebugInfo* debug_info) {
+	const FrontendCDiagnostics& diagnostics, FrontendCDebugInfo* debug_info) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		if (node->type != tok_func || !node->addr) {
-			plogerro("C frontend: expected function definition");
+			diagnostics.Report(DiagnosticStage::Parser,
+				"expected function definition", node);
 			return false;
 		}
 		if (node->subf) {
-			plogerro("C frontend: function parameters are not supported yet");
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"function parameters are not supported yet", node);
 			return false;
 		}
 
 		uni::Nnode* body = node->next;
 		if (!body || body->type != tok_block) {
-			plogerro("C frontend: expected function body after %s", node->addr);
+			diagnostics.Report(DiagnosticStage::Parser,
+				"expected function body", body ? body : node);
 			return false;
 		}
 
 		node->type = ToToken(FrontendCToken::Function);
-		if (!PrepareBlock(syntax_tree, body, debug_info)) return false;
+		if (!PrepareBlock(syntax_tree, body, diagnostics, debug_info)) return false;
 		node = body->next;
 	}
 	return true;
 }
 
-bool frontend_c_detail::Validate(uni::Nchain& syntax_tree) {
+bool frontend_c_detail::Validate(uni::Nchain& syntax_tree,
+	const FrontendCDiagnostics& diagnostics) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		uni::Nnode* body = node->next;
 		if (node->type != ToToken(FrontendCToken::Function) ||
 			!body || body->type != tok_block ||
-			!ValidateBlock(body)) return false;
+			!ValidateBlock(body, diagnostics)) return false;
 		node = body->next;
 	}
 	return true;

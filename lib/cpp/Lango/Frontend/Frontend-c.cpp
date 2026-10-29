@@ -26,17 +26,27 @@ namespace uni::lango {
 
 	namespace {
 
-		bool AnalyzeC(NestedParseUnit& parser, FrontendCDebugInfo* debug_info) {
+		bool AnalyzeC(NestedParseUnit& parser, const FrontendCDiagnostics& diagnostics,
+			FrontendCDebugInfo* debug_info) {
 			Nchain& syntax_tree = *parser.GetNetwork();
-			if (!parser.ParseParen(syntax_tree.Root())) return false;
+			if (!parser.ParseParen(syntax_tree.Root())) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"unmatched or invalid delimiter", syntax_tree.Root());
+				return false;
+			}
 			parser.ParseStatements_CPL();
-			if (!frontend_c_detail::Prepare(syntax_tree, debug_info)) return false;
-			if (!parser.ParseOperator(syntax_tree.Root())) return false;
-			return frontend_c_detail::Validate(syntax_tree);
+			if (!frontend_c_detail::Prepare(syntax_tree, diagnostics, debug_info)) return false;
+			if (!parser.ParseOperator(syntax_tree.Root())) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"invalid operator expression", syntax_tree.Root());
+				return false;
+			}
+			return frontend_c_detail::Validate(syntax_tree, diagnostics);
 		}
 
 		bool ParseC(IstreamTrait& input, NodeChain& operators,
-			NestedParseUnit*& syntax, FrontendCDebugInfo* debug_info) {
+			NestedParseUnit*& syntax, const FrontendCDiagnostics& diagnostics,
+			FrontendCDebugInfo* debug_info) {
 			LinearParser lexer(input);
 			Dchain tokens;
 			lexer.GHT = false;
@@ -46,7 +56,7 @@ namespace uni::lango {
 
 			frontend_c_detail::ListOperators(operators);
 			syntax = new NestedParseUnit(tokens, &operators, sizeof(mag_node_t));
-			if (AnalyzeC(*syntax, debug_info)) return true;
+			if (AnalyzeC(*syntax, diagnostics, debug_info)) return true;
 			delete syntax;
 			syntax = nullptr;
 			return false;
@@ -66,22 +76,46 @@ namespace uni::lango {
 		const FrontendOptions& options) {
 		NodeChain operators(NodeHeapFreeSimple);
 		NestedParseUnit* syntax = nullptr;
+		FrontendCDiagnostics diagnostics;
+		diagnostics.output = options.diagnostics ? options.diagnostics :
+			&DefaultDiagnosticInterface();
+		diagnostics.source_name = options.source_name ? options.source_name : "<input>";
 		FrontendCDebugInfo debug_info;
 		FrontendCDebugInfo* requested_debug_info = options.debug_source ? &debug_info : nullptr;
-		if (!ParseC(input, operators, syntax, requested_debug_info)) return false;
+		if (!ParseC(input, operators, syntax, diagnostics, requested_debug_info)) return false;
 		bool success = frontend_c_detail::Lower(
-			*syntax->GetNetwork(), module, requested_debug_info);
+			*syntax->GetNetwork(), module, diagnostics, requested_debug_info);
 		delete syntax;
 		return success;
 	}
 
-	bool FrontendC::PrintAST(IstreamTrait& input, OstreamTrait& output) {
+	bool FrontendC::PrintAST(IstreamTrait& input, OstreamTrait& output,
+		const FrontendOptions& options) {
 		NodeChain operators(NodeHeapFreeSimple);
 		NestedParseUnit* syntax = nullptr;
-		if (!ParseC(input, operators, syntax, nullptr)) return false;
+		FrontendCDiagnostics diagnostics;
+		diagnostics.output = options.diagnostics ? options.diagnostics :
+			&DefaultDiagnosticInterface();
+		diagnostics.source_name = options.source_name ? options.source_name : "<input>";
+		if (!ParseC(input, operators, syntax, diagnostics, nullptr)) return false;
 		PrintNode(output, syntax->GetNetwork()->Root());
 		delete syntax;
 		return true;
 	}
 
+}
+
+void uni::lango::FrontendCDiagnostics::Report(DiagnosticStage stage,
+	const char* message, const uni::Nnode* node) const {
+	Diagnostic diagnostic;
+	diagnostic.stage = stage;
+	diagnostic.message = message;
+	diagnostic.location.file = source_name ? source_name : "<input>";
+	if (node) {
+		const uni::TnodeField* field =
+			const_cast<uni::Nnode*>(node)->GetTnodeField();
+		diagnostic.location.row = field->row;
+		diagnostic.location.column = field->col;
+	}
+	(output ? output : &DefaultDiagnosticInterface())->Report(diagnostic);
 }

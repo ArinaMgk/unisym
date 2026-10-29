@@ -34,7 +34,8 @@ public:
 		const FrontendOptions& options = FrontendOptions()) override;
 
 	// Parse C source and print its frontend-specific syntax tree.
-	bool PrintAST(uni::IstreamTrait& input, uni::OstreamTrait& output);
+	bool PrintAST(uni::IstreamTrait& input, uni::OstreamTrait& output,
+		const FrontendOptions& options = FrontendOptions());
 };
 
 }

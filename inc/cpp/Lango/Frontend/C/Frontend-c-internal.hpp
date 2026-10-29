@@ -33,6 +33,8 @@ enum class FrontendCToken : stduint {
 	Declaration,              // Reserved for a C declaration statement.
 	If,                       // If statement with its condition as children.
 	Else,                     // Else marker paired by statement composition.
+	While,                    // While loop with its condition as children.
+	For,                      // For loop with init, condition, and step clauses.
 	Empty,                    // Empty statement represented by a semicolon.
 	Return,                   // Return statement or inline return marker.
 	End                       // First token value available after the C frontend range.
@@ -57,17 +59,28 @@ struct FrontendCDebugInfo {
 	const uni::String* Find(const uni::Nnode* node) const;
 };
 
+// Diagnostic destination and source identity shared by C frontend phases.
+struct FrontendCDiagnostics {
+	DiagnosticInterface* output = nullptr;
+	const char* source_name = nullptr;
+
+	void Report(DiagnosticStage stage, const char* message,
+		const uni::Nnode* node = nullptr) const;
+};
+
 namespace frontend_c_detail {
 
 	// Populate the operator-precedence groups used by the C frontend.
 	void ListOperators(uni::Chain& operators);
 
 	// Classify C statements before and validate them after operator parsing.
-	bool Prepare(uni::Nchain& syntax_tree, FrontendCDebugInfo* debug_info = nullptr);
-	bool Validate(uni::Nchain& syntax_tree);
+	bool Prepare(uni::Nchain& syntax_tree, const FrontendCDiagnostics& diagnostics,
+		FrontendCDebugInfo* debug_info = nullptr);
+	bool Validate(uni::Nchain& syntax_tree, const FrontendCDiagnostics& diagnostics);
 
 	// Lower an analyzed C syntax tree to an in-memory Clover module.
 	bool Lower(uni::Nchain& syntax_tree, clover::Module& module,
+		const FrontendCDiagnostics& diagnostics,
 		const FrontendCDebugInfo* debug_info = nullptr);
 
 }

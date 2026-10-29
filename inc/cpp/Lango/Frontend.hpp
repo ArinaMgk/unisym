@@ -23,12 +23,15 @@
 #define UNISYM_LANGO_FRONTEND_HPP
 
 #include "./CloverIR.hpp"
+#include "./Diagnostic.hpp"
 
 namespace uni::lango {
 
 // Options shared by source-language frontends.
 struct FrontendOptions {
 	bool debug_source = false; // Retain source statements in generated Clover IR.
+	const char* source_name = nullptr; // Path or synthetic name shown in diagnostics.
+	DiagnosticInterface* diagnostics = nullptr; // Uses the default logger when null.
 };
 
 // Common interface implemented by source-language Clover IR frontends.

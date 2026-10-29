@@ -21,6 +21,7 @@ CXXFLAGS=$(DEFS)
 MGC_CFLG=-L$(ubinpath) -std=c++17  -fno-common -static
 
 MGC_SRCS=$(wildcard magic/*.cpp) $(wildcard magic/m_*/*.cpp) \
+	lib/cpp/Lango/Diagnostic.cpp \
 	lib/cpp/Lango/CloverIR.cpp \
 	$(wildcard lib/cpp/Lango/Frontend/*.cpp) \
 	$(wildcard lib/cpp/Lango/Frontend/C/*.cpp)

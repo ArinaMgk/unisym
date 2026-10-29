@@ -1,5 +1,7 @@
-﻿// ASCII C++ TAB4 LF
-// Docutitle: Magice Operator
+// ASCII C++11 TAB4 LF
+// Docutitle: Lango C Frontend Operators
+// Codifiers: @ArinaMgk
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -17,10 +19,7 @@
 	limitations under the License.
 */
 
-#include "./magice.hpp"
-
-
-#include "../inc/cpp/parse.hpp"
+#include "../../../../../inc/cpp/Lango/Frontend/C/Frontend-c-internal.hpp"
 
 static uni::TokenOperator
 // 1
@@ -124,7 +123,7 @@ opmid015[] = { opcomma }
 #define TO_RIGHT true
 #define TO_LEFT  false
 
-void Operators::List(uni::Chain& nc) {
+void uni::lango::frontend_c_detail::ListOperators(uni::Chain& nc) {
 	using namespace uni;
 	// 1
 	nc.Append(new TokenOperatorGroup(togsym(opg01_0), TO_RIGHT, 1));// suff+-

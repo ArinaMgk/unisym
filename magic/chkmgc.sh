@@ -74,9 +74,9 @@ check 'main(){{1;};;{}{b=2;} return 3;}' 3
 
 # Statement
 check 'main() { if (2-1) return 2; return(3); }' 2
-check 'main() { if(1) {1;2;return 3;} else if (0) {4;return 5;6;}} else;' 3
+check 'main() { if(1) {1;2;return 3;} else if (0) {4;return 5;6;} else;}' 3
 check 'main() { for(;;) {return 1;} return 2;}' 1
 check 'main() { i=0; j=0; for(i=0;i<10;i++) {j=j+1;} return j;} // comment-test' 10
-check 'main() { i=1; while(i<10) i=i+i+1; } return i; /*comment-test*/ ' 15 # 1 -> 3 -> 7 -> 15
+check 'main() { i=1; while(i<10) i=i+i+1; return i; } /*comment-test*/ ' 15 # 1 -> 3 -> 7 -> 15
 
 echo pass!

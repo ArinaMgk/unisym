@@ -1,5 +1,5 @@
 // ASCII C++11 TAB4 LF
-// Docutitle: Magice Clover IR Lowering
+// Docutitle: Lango C Frontend Clover Lowering
 // Codifiers: @ArinaMgk
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -19,12 +19,10 @@
 	limitations under the License.
 */
 
-#include "../include/clover-ir.hpp"
-#include "../magice.hpp"
-
-#include "../../inc/cpp/parse.hpp"
+#include "../../../../../inc/cpp/Lango/Frontend/C/Frontend-c-internal.hpp"
 
 namespace clover {
+	using namespace uni::lango;
 
 	namespace {
 
@@ -55,7 +53,7 @@ namespace clover {
 			unsigned next_value = 0;
 			uni::Vector<LocalValue> locals;
 			uni::Vector<const uni::Nnode*> emitted_sources;
-			const MagicDebugInfo* debug_info = nullptr;
+			const FrontendCDebugInfo* debug_info = nullptr;
 			bool failed = false;
 
 			BasicBlock& CurrentBlock() {
@@ -260,7 +258,8 @@ namespace clover {
 			// Local instructions stay at the beginning of the entry block.
 			void CollectLocals(uni::Nnode* node, const uni::Nnode* statement = nullptr) {
 				for (; node; node = node->next) {
-					if (node->type == tok_statement || node->type == magict_sta_return) {
+					if (node->type == tok_statement ||
+						node->type == ToToken(FrontendCToken::Return)) {
 						CollectLocals(node->subf, node);
 						continue;
 					}
@@ -355,7 +354,7 @@ namespace clover {
 
 		public:
 			// The expression frontend currently requires one entry block.
-			FunctionBuilder(Function& function, const MagicDebugInfo* debug_information)
+			FunctionBuilder(Function& function, const FrontendCDebugInfo* debug_information)
 				: function(&function), debug_info(debug_information)
 			{
 				function.blocks.Append(BasicBlock());
@@ -442,10 +441,10 @@ namespace clover {
 				uni::Nnode* node = atom.node;
 				if (!node) return Error("missing statement", node).valid;
 
-				if (node->type == magict_sta_empty) return true;
-				if (node->type == magict_sta_else)
+				if (node->type == ToToken(FrontendCToken::Empty)) return true;
+				if (node->type == ToToken(FrontendCToken::Else))
 					return Error("else has no matching if", node).valid;
-				if (node->type == magict_sta_if) {
+				if (node->type == ToToken(FrontendCToken::If)) {
 					if (!node->subf) return Error("if requires a condition", node).valid;
 					stduint then_block, else_block;
 					uni::String end_block;
@@ -456,7 +455,7 @@ namespace clover {
 
 					current_block = else_block;
 					if (index < atoms.Count() &&
-						atoms.begin()[index].node->type == magict_sta_else) {
+						atoms.begin()[index].node->type == ToToken(FrontendCToken::Else)) {
 						index++;
 						if (!LowerStatement(atoms, index)) return false;
 					}
@@ -467,7 +466,7 @@ namespace clover {
 
 				if (node->type == tok_block) return LowerBlock(node);
 				stduint first_instruction = CurrentBlock().instructions.Count();
-				if (node->type == magict_sta_return) {
+				if (node->type == ToToken(FrontendCToken::Return)) {
 					bool success;
 					if (node->subf) success = EmitReturnExpression(node->subf);
 					else if (index < atoms.Count())
@@ -505,11 +504,11 @@ namespace clover {
 
 	}
 
-	bool Generate(uni::Nchain& syntax_tree, Module& module,
-		const MagicDebugInfo* debug_info) {
+	bool LowerFrontendC(uni::Nchain& syntax_tree, Module& module,
+		const FrontendCDebugInfo* debug_info) {
 		module.functions.Clear();
 		for (uni::Nnode* node = syntax_tree.Root(); node;) {
-			if (node->type != magict_function || !node->addr ||
+			if (node->type != ToToken(FrontendCToken::Function) || !node->addr ||
 				!node->next || node->next->type != tok_block) {
 				plogerro("Clover IR: expected analyzed function definition");
 				return false;
@@ -527,4 +526,9 @@ namespace clover {
 		return true;
 	}
 
+}
+
+bool uni::lango::frontend_c_detail::Lower(uni::Nchain& syntax_tree,
+	clover::Module& module, const FrontendCDebugInfo* debug_info) {
+	return clover::LowerFrontendC(syntax_tree, module, debug_info);
 }

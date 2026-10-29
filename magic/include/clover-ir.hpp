@@ -1,5 +1,5 @@
 // ASCII C++11 TAB4 LF
-// Docutitle: Magice Clover IR Lowering Interface
+// Docutitle: Magice C Frontend Compatibility Include
 // Codifiers: @ArinaMgk
 // Copyright: UNISYM, under Apache License 2.0
 /*
@@ -22,17 +22,6 @@
 #ifndef MAGIC_CLOVER_IR_HPP
 #define MAGIC_CLOVER_IR_HPP
 
-#include "../../inc/c/nnode.h"
-#include "../../inc/cpp/Lango/CloverIR.hpp"
-
-struct MagicDebugInfo;
-
-namespace clover {
-
-// Lower a parsed Magice syntax tree into a Clover IR module.
-bool Generate(uni::Nchain& syntax_tree, Module& module,
-	const MagicDebugInfo* debug_info = nullptr);
-
-}
+#include "../../inc/cpp/Lango/Frontend/Frontend-c.hpp"
 
 #endif

@@ -1,5 +1,7 @@
-// ASCII C++ TAB4 LF
-// Docutitle: Magice Statement (div. by ';')
+// ASCII C++11 TAB4 LF
+// Docutitle: Lango C Frontend Statements
+// Codifiers: @ArinaMgk
+// Copyright: UNISYM, under Apache License 2.0
 /*
 	Copyright 2023 ArinaMgk
 
@@ -17,9 +19,9 @@
 	limitations under the License.
 */
 
-#include "./magice.hpp"
+#include "../../../../../inc/cpp/Lango/Frontend/C/Frontend-c-internal.hpp"
 
-#include "../inc/cpp/parse.hpp"
+namespace uni::lango {
 
 namespace {
 
@@ -49,7 +51,7 @@ namespace {
 		}
 	}
 
-	void SaveStatementSource(MagicDebugInfo* debug_info, uni::Nnode* statement) {
+	void SaveStatementSource(FrontendCDebugInfo* debug_info, uni::Nnode* statement) {
 		if (!debug_info || !statement || !statement->subf) return;
 		uni::String text;
 		AppendSourceNodes(text, statement->subf);
@@ -57,7 +59,7 @@ namespace {
 		debug_info->Add(statement, text);
 	}
 
-	void SaveControlSource(MagicDebugInfo* debug_info, uni::Nnode* control) {
+	void SaveControlSource(FrontendCDebugInfo* debug_info, uni::Nnode* control) {
 		if (!debug_info || !control) return;
 		uni::String text;
 		if (control->addr) AppendSourceText(text, control->addr);
@@ -73,14 +75,14 @@ namespace {
 		return node && node->addr && !StrCompare(node->addr, keyword);
 	}
 
-	void ClassifyControlNode(uni::Nnode* node, MagicDebugInfo* debug_info) {
+	void ClassifyControlNode(uni::Nnode* node, FrontendCDebugInfo* debug_info) {
 		if (!node) return;
 		if (node->type == tok_func && IsKeyword(node, "if")) {
 			SaveControlSource(debug_info, node);
-			node->type = magict_sta_if;
+			node->type = ToToken(FrontendCToken::If);
 		}
 		else if (node->type == tok_identy && IsKeyword(node, "else")) {
-			node->type = magict_sta_else;
+			node->type = ToToken(FrontendCToken::Else);
 		}
 	}
 
@@ -88,16 +90,17 @@ namespace {
 		uni::Nnode* statement) {
 		if (!statement || !statement->subf) return;
 		uni::Nnode* tail = statement->subf->Tail();
-		if (tail->type != magict_sta_if && tail->type != magict_sta_else) return;
+		if (tail->type != ToToken(FrontendCToken::If) &&
+			tail->type != ToToken(FrontendCToken::Else)) return;
 		uni::Nnode* empty = syntax_tree.Append(nullptr, false, tail);
-		empty->type = magict_sta_empty;
+		empty->type = ToToken(FrontendCToken::Empty);
 		*empty->GetTnodeField() = *tail->GetTnodeField();
 	}
 
 	// Classify return statements before operator parsing. Removing the keyword
 	// prevents unary and binary operators from treating it as an operand.
 	bool PrepareBlock(uni::Nchain& syntax_tree, uni::Nnode* block,
-		MagicDebugInfo* debug_info) {
+		FrontendCDebugInfo* debug_info) {
 		if (!block || block->type != tok_block) {
 			plogerro("C frontend: expected function block");
 			return false;
@@ -123,7 +126,7 @@ namespace {
 
 			SaveStatementSource(debug_info, node);
 			if (!node->subf) {
-				node->type = magict_sta_empty;
+				node->type = ToToken(FrontendCToken::Empty);
 				continue;
 			}
 			for (uni::Nnode* child = node->subf; child; child = child->next)
@@ -133,15 +136,19 @@ namespace {
 				else {
 					ClassifyControlNode(child, debug_info);
 					if ((child->type == tok_identy || child->type == tok_func) &&
-						IsKeyword(child, "return")) child->type = magict_sta_return;
+						IsKeyword(child, "return"))
+						child->type = ToToken(FrontendCToken::Return);
 				}
 			uni::Nnode* first = node->subf;
-			if (first && first->type == magict_sta_return && first->subf) {
-				node->type = magict_sta_return;
+			if (first && first->type == ToToken(FrontendCToken::Return) && first->subf) {
+				node->type = ToToken(FrontendCToken::Return);
+				// The statement owns the return keyword; keep return(...) as an
+				// anonymous grouped expression for the common return lowering path.
+				first->type = tok_func;
 				srs(first->addr, nullptr);
 			}
-			else if (first && first->type == magict_sta_return) {
-				node->type = magict_sta_return;
+			else if (first && first->type == ToToken(FrontendCToken::Return)) {
+				node->type = ToToken(FrontendCToken::Return);
 				if (!syntax_tree.Remove(first)) {
 					plogerro("C frontend: return requires a value");
 					return false;
@@ -159,9 +166,10 @@ namespace {
 			if (node->type == tok_block) {
 				if (!ValidateBlock(node)) return false;
 			}
-			else if (node->type == magict_sta_if || node->type == magict_sta_else ||
-				node->type == magict_sta_empty) continue;
-			else if (node->type == magict_sta_return &&
+			else if (node->type == ToToken(FrontendCToken::If) ||
+				node->type == ToToken(FrontendCToken::Else) ||
+				node->type == ToToken(FrontendCToken::Empty)) continue;
+			else if (node->type == ToToken(FrontendCToken::Return) &&
 				(!node->subf || node->subf->next)) {
 				plogerro("C frontend: invalid return expression");
 				return false;
@@ -176,20 +184,21 @@ namespace {
 
 }
 
-void MagicDebugInfo::Add(const uni::Nnode* node, const uni::String& text) {
-	MagicDebugSource source;
+void FrontendCDebugInfo::Add(const uni::Nnode* node, const uni::String& text) {
+	FrontendCDebugSource source;
 	source.node = node;
 	source.text = text;
 	sources.Append(source);
 }
 
-const uni::String* MagicDebugInfo::Find(const uni::Nnode* node) const {
-	for (const MagicDebugSource& source : sources)
+const uni::String* FrontendCDebugInfo::Find(const uni::Nnode* node) const {
+	for (const FrontendCDebugSource& source : sources)
 		if (source.node == node) return &source.text;
 	return nullptr;
 }
 
-bool FrontendCPrepare(uni::Nchain& syntax_tree, MagicDebugInfo* debug_info) {
+bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
+	FrontendCDebugInfo* debug_info) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		if (node->type != tok_func || !node->addr) {
 			plogerro("C frontend: expected function definition");
@@ -206,21 +215,24 @@ bool FrontendCPrepare(uni::Nchain& syntax_tree, MagicDebugInfo* debug_info) {
 			return false;
 		}
 
-		node->type = magict_function;
+		node->type = ToToken(FrontendCToken::Function);
 		if (!PrepareBlock(syntax_tree, body, debug_info)) return false;
 		node = body->next;
 	}
 	return true;
 }
 
-bool FrontendCValidate(uni::Nchain& syntax_tree) {
+bool frontend_c_detail::Validate(uni::Nchain& syntax_tree) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		uni::Nnode* body = node->next;
-		if (node->type != magict_function || !body || body->type != tok_block ||
+		if (node->type != ToToken(FrontendCToken::Function) ||
+			!body || body->type != tok_block ||
 			!ValidateBlock(body)) return false;
 		node = body->next;
 	}
 	return true;
+}
+
 }
 
 

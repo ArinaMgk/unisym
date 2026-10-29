@@ -31,28 +31,17 @@
 #include "../inc/c/uctype.h"
 #include "../inc/c/file.h"
 
-#include "../inc/cpp/parse.hpp"
 #include "../inc/cpp/vector"
-#include "./include/clover-ir.hpp"
 
 
-
-uni::OstreamTrait* dst;// to be a HostFile or ConsoleLine
-class MagInn : public uni::IstreamTrait {
+class MagicSourceInput : public uni::IstreamTrait {
 public:
-	char* p;
-	MagInn(char* p = 0) : p(p) {}
+	const char* source;
+	MagicSourceInput(const char* text) : source(text) {}
 	virtual int inn() {
-		return *p ? *p++ : -1;
+		return *source ? *source++ : -1;
 	}
-
 };
-
-// Print one AST node using the existing tree indentation convention.
-static void NnodePrint(uni::Nnode& nnod, stduint nest) {
-	for0(i, nest) dst->OutFormat(i + 1 == _LIMIT ? "->" : "--");
-	dst->OutFormat("|%s|\n", nnod.addr ? nnod.addr : "(null)");
-}
 
 // Return true when a path uses the C source extension.
 static bool IsCSourcePath(rostr path) {
@@ -73,11 +62,8 @@ static void PrintMagicHelp() {
 
 int magic(int argc, char** argv) {
 	using namespace uni;
-	MagInn minn;
-	LinearParser parser(minn);
-	Dchain dc;
-	NodeChain operators(NodeHeapFreeSimple);
 	HostFile* output_file = nullptr;
+	OstreamTrait* output = &Console;
 	bool request_ir = false;
 	bool request_ast = false;
 	bool debug_symbols = false;
@@ -122,7 +108,6 @@ int magic(int argc, char** argv) {
 		}
 	}
 
-	dst = &Console;
 	if (request_ir && request_ast) {
 		plogerro("-emit-ir and -emit-ast cannot be used together");
 		return 1;
@@ -141,45 +126,45 @@ int magic(int argc, char** argv) {
 			delete output_file;
 			return 1;
 		}
-		dst = output_file;
+		output = output_file;
 	}
 
-	parser.GHT = false;
-	parser.handler_comment = LineParse_Comment_C_Cpp;
-	parser.method_omit_comment = true;
+	String source;
 	for (rostr input : inputs) {
 		HostFile input_file(input, FileOpenType::Read);
 		if (input_file) {
 			String input_source;
 			input_file >> input_source;
-			minn.p = (char*)input_source.reference();
-			parser.Parse(dc);
+			source += input_source;
 		}
 		else {
-			minn.p = (char*)input;
-			parser.Parse(dc);
+			String input_source(input);
+			source += input_source;
 		}
+		source << '\n';
 	}
 
 	{
-		Operators::List(operators);
-
-		NestedParseUnit fileScope(dc, &operators, sizeof(mag_node_t));
-		NestedParseUnit& npu = fileScope;
-		MagicDebugInfo debug_info;
-		MagicDebugInfo* requested_debug_info = debug_symbols ? &debug_info : nullptr;
-
-		if (!FrontendAnalyze(MagicFrontend::C, npu, requested_debug_info)) {
-			if (output_file) delete output_file;
-			return 1;
-		}
+		MagicSourceInput input(source.reference());
 		if (emit_ast) {
-			npu.GetNetwork()->Traversal(NnodePrint);
+			if (!FrontendPrintAST(MagicFrontend::C, input, *output)) {
+				if (output_file) delete output_file;
+				return 1;
+			}
 		}
 		else {
+			lango::FrontendInterface* frontend = FrontendCreate(MagicFrontend::C);
+			if (!frontend) {
+				if (output_file) delete output_file;
+				return 1;
+			}
+			lango::FrontendOptions frontend_options;
+			frontend_options.debug_source = debug_symbols;
 			clover::Module module;
-			if (!clover::Generate(*fileScope.GetNetwork(), module, requested_debug_info) ||
-				!clover::Print(module, *dst)) {
+			bool success = frontend->Generate(input, module, frontend_options) &&
+				clover::Print(module, *output);
+			delete frontend;
+			if (!success) {
 				if (output_file) delete output_file;
 				return 1;
 			}

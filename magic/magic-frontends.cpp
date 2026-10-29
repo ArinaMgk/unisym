@@ -21,18 +21,25 @@
 
 #include "./magice.hpp"
 
-bool FrontendAnalyze(MagicFrontend frontend, uni::NestedParseUnit& parser,
-	MagicDebugInfo* debug_info) {
+#include "../inc/cpp/Lango/Frontend/Frontend-c.hpp"
+
+uni::lango::FrontendInterface* FrontendCreate(MagicFrontend frontend) {
 	switch (frontend) {
-	case MagicFrontend::C: {
-		uni::Nchain& syntax_tree = *parser.GetNetwork();
-		if (!parser.ParseParen(syntax_tree.Root())) return false;
-		parser.ParseStatements_CPL();
-		if (!FrontendCPrepare(syntax_tree, debug_info)) return false;
-		if (!parser.ParseOperator(syntax_tree.Root())) return false;
-		return FrontendCValidate(syntax_tree);
-	}
+	case MagicFrontend::C:
+		return new uni::lango::FrontendC();
 	}
 	plogerro("Magice: unsupported frontend");
+	return nullptr;
+}
+
+bool FrontendPrintAST(MagicFrontend frontend, uni::IstreamTrait& input,
+	uni::OstreamTrait& output) {
+	switch (frontend) {
+	case MagicFrontend::C: {
+		uni::lango::FrontendC frontend_c;
+		return frontend_c.PrintAST(input, output);
+	}
+	}
+	plogerro("Magice: frontend does not support AST output");
 	return false;
 }

@@ -105,16 +105,18 @@ namespace uni {
 							fn = last_parens;
 						}
 						else {// {}
-							Nnode* fn = chain->Append(nullptr, true, last_parens);
+							fn = chain->Append(nullptr, true, last_parens);
 							NnodeBlock(fn, last_parens->next, crt->getLeft())->type = tok_block;// chain->Adopt
 							fn->GetTnodeField()->col = last_parens->GetTnodeField()->col;
 							fn->GetTnodeField()->row = last_parens->GetTnodeField()->row;
-							chain->Remove(last_parens);
-							if (last_parens == crt) crt = fn;
-							chain->Remove(crt);
+							if (last_parens == crt) chain->Remove(last_parens);
+							else {
+								chain->Remove(last_parens);
+								chain->Remove(crt);
+							}
 						}
 						crt = fn;
-						if (!ParseParen(fn->subf, chain))
+						if (!ParseParen(fn->subf, merge_parensd))
 						{
 							return false;
 						}

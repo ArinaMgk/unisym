@@ -136,12 +136,10 @@ int magic(int argc, char** argv) {
 		NestedParseUnit fileScope(dc, &operators, sizeof(mag_node_t));
 		NestedParseUnit& npu = fileScope;
 
-		if (!npu.Parse()) {
+		if (!FrontendAnalyze(MagicFrontend::C, npu)) {
 			if (output_file) delete output_file;
 			return 1;
 		}
-
-		npu.ParseStatements_CPL();
 		if (emit_ast) {
 			npu.GetNetwork()->Traversal(NnodePrint);
 		}

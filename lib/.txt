@@ -1,17 +1,17 @@
 [lang.base]
 - c (=> cpp )
 - cpp
-[lang]
+[clover lang]
 - cpp-mod
 - rust
 - zig
 - dotnet
+[hdware lang]
+- sverilog
+[markiη lang]
+- Tex
 [script Script/]
 - AutoHotkey
 - batch (win cmd)
 - Cotoba
 - Makefile (make/python)
-[ide]
-[doc]
-- Tex
-

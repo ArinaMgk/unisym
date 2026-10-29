@@ -1104,7 +1104,7 @@ namespace uni {
 		const stduint method_mutex_top = mutex_top;
 		Frame& frame = workspace.frames[frame_count++];
 		frame = {};
-		frame.scope = object->parent;
+		frame.scope = object_index;
 		const stduint copy_count = argument_count < numsof(frame.arguments) ? argument_count : numsof(frame.arguments);
 		for0(index, copy_count) frame.arguments[index] = arguments[index];
 		const uint8* cursor = object->value;

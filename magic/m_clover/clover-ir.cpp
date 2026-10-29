@@ -20,6 +20,7 @@
 */
 
 #include "../include/clover-ir.hpp"
+#include "../magice.hpp"
 
 #include "../../inc/cpp/parse.hpp"
 
@@ -39,7 +40,7 @@ namespace clover {
 			Value address;
 		};
 
-		// Lowers the current expression-only AST into one Clover function.
+		// Lowers one C function body into one Clover function.
 		class FunctionBuilder {
 		private:
 			BasicBlock* entry = nullptr;
@@ -140,8 +141,8 @@ namespace clover {
 				return instruction.result;
 			}
 
-			// Declare every source identifier before emitting executable instructions,
-			// so all Local instructions stay at the beginning of the entry block.
+			// Declare every source identifier before executable instructions so all
+			// Local instructions stay at the beginning of the entry block.
 			void CollectLocals(uni::Nnode* node) {
 				for (; node; node = node->next) {
 					if (node->type == tok_identy && node->addr) LocalAddress(node->addr);
@@ -259,23 +260,15 @@ namespace clover {
 				}
 			}
 
-			// Lower all expression statements and return the final expression value.
-			bool Lower(uni::Nchain& syntax_tree) {
-				CollectLocals(syntax_tree.Root());
-				LoweredValue last;
-				for (uni::Nnode* statement = syntax_tree.Root(); statement; statement = statement->next) {
-					if (statement->type != tok_statement) {
-						Error("expected statement", statement);
-						return false;
-					}
-					if (statement->subf) last = LowerExpression(statement->subf);
-					if (failed) return false;
-				}
-
-				if (!last.valid) last = { EmitConst(0), true };
-				Value result = AsI64(last.value);
+			// Emit the terminator for an explicit C return statement.
+			bool EmitReturn(uni::Nnode* statement) {
+				uni::Nnode* expression = statement->subf;
+				if (!expression)
+					return Error("return requires a value", statement).valid;
+				LoweredValue lowered = LowerExpression(expression);
+				if (!lowered.valid) return false;
+				Value result = AsI64(lowered.value);
 				if (failed) return false;
-
 				Instruction instruction;
 				instruction.opcode = Opcode::Ret;
 				instruction.type = Type::I64;
@@ -283,18 +276,59 @@ namespace clover {
 				entry->instructions.Append(instruction);
 				return true;
 			}
+
+			// Lower every statement in source order, including statements after return.
+			bool LowerBlock(uni::Nnode* block) {
+				if (!block || block->type != tok_block) {
+					Error("expected block", block);
+					return false;
+				}
+				for (uni::Nnode* node = block->subf; node; node = node->next) {
+					if (node->type == tok_block) {
+						if (!LowerBlock(node)) return false;
+					}
+					else if (node->type == magict_sta_return) {
+						if (!EmitReturn(node)) return false;
+					}
+					else if (node->type == tok_statement) {
+						if (node->subf && !LowerExpression(node->subf).valid) return false;
+					}
+					else {
+						Error("expected statement or block", node);
+						return false;
+					}
+					if (failed) return false;
+				}
+				return true;
+			}
+
+			// Lower one function body without requiring an explicit return statement.
+			bool Lower(uni::Nnode* body) {
+				CollectLocals(body ? body->subf : nullptr);
+				return LowerBlock(body);
+			}
 		};
 
 	}
 
 	bool Generate(uni::Nchain& syntax_tree, Module& module) {
 		module.functions.Clear();
-		Function function;
-		function.name = "main";
-		function.return_type = Type::I64;
-		FunctionBuilder builder(function);
-		if (!builder.Lower(syntax_tree)) return false;
-		module.functions.Append(function);
+		for (uni::Nnode* node = syntax_tree.Root(); node;) {
+			if (node->type != magict_function || !node->addr ||
+				!node->next || node->next->type != tok_block) {
+				plogerro("Clover IR: expected analyzed function definition");
+				return false;
+			}
+
+			uni::Nnode* body = node->next;
+			Function function;
+			function.name = node->addr;
+			function.return_type = Type::I64;
+			FunctionBuilder builder(function);
+			if (!builder.Lower(body)) return false;
+			module.functions.Append(function);
+			node = body->next;
+		}
 		return true;
 	}
 

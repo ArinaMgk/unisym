@@ -29,7 +29,7 @@ sufmep{ "->","OP@SUFMEMP" },
 sufadd{ "++","OP@SUFADD" },
 sufsub{ "--","OP@SUFSUB" },
 //    ---- (Compound literal)
-// 
+//
 // 2
 preadd{ "++","OP@PREADD" },
 presub{ "--","OP@@PRESUB" },

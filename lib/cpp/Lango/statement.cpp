@@ -53,8 +53,9 @@ static void ParseStatements_CPL(Nchain& nchain, Nnode* beg_nod) {
 			break;
 		}
 		// consider declaration assignment
-		else if (crt->type == tok_block && !crt->getParent() && !is_declaration_assignment_tail(crt->left)) {
-			//{} check: FUN+BLK without pare (only think FileScope can exist Functions)
+		else if (crt->type == tok_block && !is_declaration_assignment_tail(crt->left)) {
+			// A standalone block ends the preceding statement range at every nesting
+			// level. Initializer blocks remain attached to their assignment.
 			// 
 			//if (!is_declaration_assignment_tail(crt->left)) {
 			//	Nnode* fn = nchain.Append(nullptr, true, left0_nod);

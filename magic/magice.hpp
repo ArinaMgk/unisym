@@ -17,6 +17,18 @@ struct Operators {
 	static void List(uni::Chain& nc);
 };
 
+// Frontend selected for the current Magice compilation unit.
+enum class MagicFrontend {
+	C, // C language frontend.
+};
+
+// Run the selected language frontend over the generic nested parser.
+bool FrontendAnalyze(MagicFrontend frontend, uni::NestedParseUnit& parser);
+
+// C-specific AST preparation and validation implemented by magic-statement.cpp.
+bool FrontendCPrepare(uni::Nchain& syntax_tree);
+bool FrontendCValidate(uni::Nchain& syntax_tree);
+
 // Frontend variable table. It will grow into the declaration and scope table.
 struct Variable {
 	uni::NodeChain variables;

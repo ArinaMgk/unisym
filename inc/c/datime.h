@@ -28,7 +28,8 @@
 #include "stdinc.h"
 
 #if !defined(_HER_TIME_H) && defined(__has_include)
-#	if __has_include(<time.h>)
+#	if __has_include(<time.h>)\
+	&& (defined(_DEV_KEIL) || !defined(_MCCA) && !defined(_ACCM))
 #		include <time.h>
 #		define _DATIME_HAS_TIME_H
 #	endif
@@ -56,7 +57,8 @@ struct datimex_t {
 	byte isDaylightSavingTime;
 };
 
-#if !defined(_DATIME_HAS_TIME_H) // #ifdef _HER_TIME_H
+#if !defined(_DATIME_HAS_TIME_H) && !defined(__struct_tm_defined) && \
+	!defined(__DEFINED_struct_tm) && !defined(_STRUCT_TM) && !defined(_TM_DEFINED)
 struct tm {
 	int tm_sec;
 	int tm_min;

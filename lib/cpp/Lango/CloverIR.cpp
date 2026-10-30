@@ -95,6 +95,8 @@ namespace clover {
 				break;
 			case Opcode::Local:
 				output.OutFormat("local %s", TypeName(instruction.type));
+				if (instruction.immediate > 1)
+					output.OutFormat(", %[i]", instruction.immediate);
 				if (instruction.name.getByteCount())
 					output.OutFormat(" ; %s", instruction.name.reference());
 				output.OutFormat("\n");
@@ -148,6 +150,17 @@ namespace clover {
 				output.OutFormat("zext %s ", TypeName(instruction.operands.begin()[0].type));
 				PrintValue(output, instruction.operands.begin()[0]);
 				output.OutFormat(" to %s\n", TypeName(instruction.type));
+				break;
+			case Opcode::Call:
+				output.OutFormat("call %s @%s(", TypeName(instruction.type),
+					instruction.callee.reference());
+				for (stduint index = 0; index < instruction.operands.Count(); index++) {
+					if (index) output.OutFormat(", ");
+					Value operand = instruction.operands.begin()[index];
+					output.OutFormat("%s ", TypeName(operand.type));
+					PrintValue(output, operand);
+				}
+				output.OutFormat(")\n");
 				break;
 			case Opcode::Jmp:
 				output.OutFormat("jmp ");
@@ -361,6 +374,20 @@ namespace clover {
 				return type != Type::Ptr;
 			}
 
+			bool ReadCallOperands(Instruction& instruction) {
+				if (!Expect("(")) return false;
+				while (!Is(")")) {
+					Type type;
+					Value value;
+					if (!ReadType(type) || !ReadValue(value)) return false;
+					if (value.type != type) return Error("call argument type does not match value");
+					instruction.operands.Append(value);
+					if (Is(")")) break;
+					if (!Expect(",")) return false;
+				}
+				return Expect(")");
+			}
+
 			bool ParseInstruction(BasicBlock& block) {
 				Instruction instruction;
 				unsigned result_id = 0;
@@ -383,6 +410,12 @@ namespace clover {
 				else if (!StrCompare(operation.reference(), "local")) {
 					instruction.opcode = Opcode::Local;
 					if (!has_result || !ReadType(instruction.type)) return Error("invalid local instruction");
+					instruction.immediate = 1;
+					if (Is(",")) {
+						Advance();
+						if (!ReadNumber(instruction.immediate) || instruction.immediate <= 0)
+							return Error("invalid local element count");
+					}
 					instruction.result.type = Type::Ptr;
 				}
 				else if (!StrCompare(operation.reference(), "load")) {
@@ -453,6 +486,13 @@ namespace clover {
 					instruction.operands.Append(operand);
 					instruction.result.type = instruction.type;
 				}
+				else if (!StrCompare(operation.reference(), "call")) {
+					instruction.opcode = Opcode::Call;
+					if (!has_result || !ReadType(instruction.type) || !Expect("@") ||
+						!ReadName(instruction.callee) || !ReadCallOperands(instruction))
+						return Error("invalid call instruction");
+					instruction.result.type = instruction.type;
+				}
 				else if (!StrCompare(operation.reference(), "jmp")) {
 					instruction.opcode = Opcode::Jmp;
 					if (has_result) return Error("invalid jmp instruction");
@@ -501,7 +541,16 @@ namespace clover {
 				Function function;
 				definitions.Clear();
 				if (!Expect("func") || !Expect("@") || !ReadName(function.name) ||
-					!Expect("(") || !Expect(")") || !Expect("->") ||
+					!Expect("(")) return false;
+				while (!Is(")")) {
+					Parameter parameter;
+					if (!ReadType(parameter.value.type) ||
+						!ReadResultID(parameter.value.id) || !Define(parameter.value)) return false;
+					function.parameters.Append(parameter);
+					if (Is(")")) break;
+					if (!Expect(",")) return false;
+				}
+				if (!Expect(")") || !Expect("->") ||
 					!ReadType(function.return_type) || !Expect("{")) return false;
 				while (Is("^"))
 					if (!ParseBlock(function)) return false;
@@ -552,7 +601,14 @@ namespace clover {
 
 	bool Print(const Module& module, uni::OstreamTrait& output) {
 		for (const Function& function : module.functions) {
-			output.OutFormat("func @%s() -> %s {\n", function.name.reference(), TypeName(function.return_type));
+			output.OutFormat("func @%s(", function.name.reference());
+			for (stduint index = 0; index < function.parameters.Count(); index++) {
+				if (index) output.OutFormat(", ");
+				const Parameter& parameter = function.parameters.begin()[index];
+				output.OutFormat("%s ", TypeName(parameter.value.type));
+				PrintValue(output, parameter.value);
+			}
+			output.OutFormat(") -> %s {\n", TypeName(function.return_type));
 			for (const BasicBlock& block : function.blocks) {
 				output.OutFormat("^%s:\n", block.name.reference());
 				for (const Instruction& instruction : block.instructions)

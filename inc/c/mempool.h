@@ -130,6 +130,12 @@ namespace uni {
 			pool_available.Append(slice);
 		}
 
+		// Transfer a wholly free range to an external owner without allocation metadata.
+		bool Reserve(const Slice& slice) {
+			if (!slice.length || slice.length > ~_IMM0 - slice.address) return false;
+			return pool_available.Remove(slice);
+		}
+
 		bool Expand(stduint min_size = 0);
 
 	public:// trait

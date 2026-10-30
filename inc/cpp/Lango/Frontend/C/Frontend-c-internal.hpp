@@ -30,6 +30,7 @@ namespace uni::lango {
 // C-specific syntax node types stored above the generic nested-parser range.
 enum class FrontendCToken : stduint {
 	Function = tok__continue, // Function definition followed by its body block.
+	Parameter,                // Typed function parameter normalized before expressions.
 	Declaration,              // Reserved for a C declaration statement.
 	If,                       // If statement with its condition as children.
 	Else,                     // Else marker paired by statement composition.
@@ -48,16 +49,50 @@ enum class FrontendCTypeKind {
 
 // Minimal semantic C type retained before conversion to fixed-width Clover types.
 struct FrontendCType {
+	static constexpr stduint MaxArrayDimensions = 16;
+
 	FrontendCTypeKind kind = FrontendCTypeKind::Int;
 	unsigned pointer_depth = 0;
+	stduint array_dimension_count = 0;
+	stduint array_dimensions[MaxArrayDimensions] = {};
 
 	bool IsPointer() const { return pointer_depth != 0; }
-	bool IsInteger() const { return pointer_depth == 0 && kind == FrontendCTypeKind::Int; }
+	bool IsArray() const { return pointer_depth == 0 && array_dimension_count; }
+	bool IsInteger() const {
+		return pointer_depth == 0 && !array_dimension_count &&
+			kind == FrontendCTypeKind::Int;
+	}
 	bool IsSame(const FrontendCType& other) const {
-		return kind == other.kind && pointer_depth == other.pointer_depth;
+		if (kind != other.kind || pointer_depth != other.pointer_depth ||
+			array_dimension_count != other.array_dimension_count) return false;
+		for (stduint index = 0; index < array_dimension_count; index++)
+			if (array_dimensions[index] != other.array_dimensions[index]) return false;
+		return true;
+	}
+	bool AppendArrayDimension(stduint count) {
+		if (array_dimension_count >= MaxArrayDimensions) return false;
+		array_dimensions[array_dimension_count++] = count;
+		return true;
+	}
+	stduint StorageElementCount() const {
+		stduint count = 1;
+		for (stduint index = 0; index < array_dimension_count; index++)
+			count *= array_dimensions[index];
+		return count;
 	}
 	FrontendCType AddressType() const {
 		FrontendCType result = *this;
+		result.kind = FrontendCTypeKind::Pointer;
+		result.pointer_depth++;
+		return result;
+	}
+	FrontendCType DecayType() const {
+		FrontendCType result = *this;
+		if (result.array_dimension_count) {
+			for (stduint index = 1; index < result.array_dimension_count; index++)
+				result.array_dimensions[index - 1] = result.array_dimensions[index];
+			result.array_dimensions[--result.array_dimension_count] = 0;
+		}
 		result.kind = FrontendCTypeKind::Pointer;
 		result.pointer_depth++;
 		return result;

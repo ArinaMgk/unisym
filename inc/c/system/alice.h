@@ -176,7 +176,16 @@ extern "C++" {
 #define ralcof(x,addr,nums) (x*)realloc((void*)(addr),(nums)*sizeof(x))
 
 #define xchg(a,b) do if(a!=b){(a)^=(b);(b)^=(a);(a)^=(b);}while(0) // cancelled (a)^=(b)^=(a)^=(b);
+#ifdef _INC_CPP
+template<class Left, class Right>
+inline void xchgptr(Left*& left, Right*& right) {
+	Left* temporary = left;
+	left = (Left*)right;
+	right = (Right*)temporary;
+}
+#else
 #define xchgptr(a,b) do if((size_t*)a!=(size_t*)b)*(size_t*)&(a)^=*(size_t*)&(b)^=*(size_t*)&(a)^=*(size_t*)&(b);while(0)
+#endif
 
 #define AssignParallel(l,m,r) ((l=m),(m=r))// different from `l=m=r`
 #define Assign3(l,m,r) do{if(&(l)==&(r))AssignParallel(l,m,r); else xchg((l),(m));}while(0)

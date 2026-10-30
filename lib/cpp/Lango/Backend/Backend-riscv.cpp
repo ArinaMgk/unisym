@@ -24,6 +24,16 @@
 namespace uni::lango {
 
 	namespace {
+		const char* ArgumentRegisters[] = {
+			"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"
+		};
+
+		const clover::Function* FindFunction(const clover::Module& module,
+			const uni::String& name) {
+			for (const clover::Function& function : module.functions)
+				if (!StrCompare(function.name.reference(), name.reference())) return &function;
+			return nullptr;
+		}
 
 		// Check target-wide requirements before writing partial assembly output.
 		bool ValidateTarget(const RISCVTargetInfo& target, const clover::Module& module) {
@@ -35,16 +45,49 @@ namespace uni::lango {
 				plogerro("RISC-V backend: the I instruction set is required");
 				return false;
 			}
-			if (target.extension_m) return true;
-
-			for (const clover::Function& function : module.functions) {
+			for (stduint function_index = 0;
+				function_index < module.functions.Count(); function_index++) {
+				const clover::Function& function = module.functions.begin()[function_index];
+				for (stduint previous = 0; previous < function_index; previous++)
+					if (!StrCompare(function.name.reference(),
+						module.functions.begin()[previous].name.reference())) {
+						plogerro("RISC-V backend: duplicate function '%s'",
+							function.name.reference());
+						return false;
+					}
+				if (function.parameters.Count() > numsof(ArgumentRegisters)) {
+					plogerro("RISC-V backend: more than 8 register parameters are not supported");
+					return false;
+				}
 				for (const clover::BasicBlock& block : function.blocks) {
 					for (const clover::Instruction& instruction : block.instructions) {
-						if (instruction.opcode == clover::Opcode::Mul ||
+						if (!target.extension_m &&
+							(instruction.opcode == clover::Opcode::Mul ||
 							instruction.opcode == clover::Opcode::SDiv ||
-							instruction.opcode == clover::Opcode::SRem) {
+							instruction.opcode == clover::Opcode::SRem)) {
 							plogerro("RISC-V backend: Clover mul/sdiv/srem requires -minst=im");
 							return false;
+						}
+						if (instruction.opcode == clover::Opcode::Call) {
+							const clover::Function* callee = FindFunction(module, instruction.callee);
+							if (!callee) {
+								plogerro("RISC-V backend: call to undefined function '%s'",
+									instruction.callee.reference());
+								return false;
+							}
+							if (instruction.type != callee->return_type ||
+								instruction.operands.Count() != callee->parameters.Count()) {
+								plogerro("RISC-V backend: call signature mismatch for '%s'",
+									instruction.callee.reference());
+								return false;
+							}
+							for (stduint index = 0; index < instruction.operands.Count(); index++)
+								if (instruction.operands.begin()[index].type !=
+									callee->parameters.begin()[index].value.type) {
+									plogerro("RISC-V backend: call argument type mismatch for '%s'",
+										instruction.callee.reference());
+									return false;
+								}
 						}
 					}
 				}
@@ -95,6 +138,10 @@ namespace uni::lango {
 		unsigned LargestValueID(const clover::Function& function, bool& found) {
 			unsigned largest = 0;
 			found = false;
+			for (const clover::Parameter& parameter : function.parameters) {
+				if (!found || parameter.value.id > largest) largest = parameter.value.id;
+				found = true;
+			}
 			for (const clover::BasicBlock& block : function.blocks) {
 				for (const clover::Instruction& instruction : block.instructions) {
 					if (!instruction.has_result) continue;
@@ -112,6 +159,15 @@ namespace uni::lango {
 			unsigned largest = LargestValueID(function, found);
 			layout.slots = uni::Vector<ValueSlot>::From(ValueSlot(), found ? largest + 1 : 0);
 			stdsint offset = 16; // -8(s0) and -16(s0) save ra and the caller's s0.
+			for (const clover::Parameter& parameter : function.parameters) {
+				ValueSlot& slot = layout.slots[parameter.value.id];
+				if (slot.defined) {
+					plogerro("RISC-V backend: duplicate SSA value %%%[u]", parameter.value.id);
+					return false;
+				}
+				slot.defined = true;
+				slot.value_offset = offset += 8;
+			}
 
 			for (const clover::BasicBlock& block : function.blocks) {
 				for (const clover::Instruction& instruction : block.instructions) {
@@ -123,10 +179,12 @@ namespace uni::lango {
 					}
 					slot.defined = true;
 					if (instruction.opcode == clover::Opcode::Local) {
-						stdsint size = TypeStorageBytes(instruction.type, target);
-						if (!size) return false;
-						offset = AlignOffset(offset, size);
-						slot.local_offset = offset += size;
+						stdsint element_size = TypeStorageBytes(instruction.type, target);
+						stdsint element_count = instruction.immediate > 0 ?
+							instruction.immediate : 1;
+						if (!element_size || element_count <= 0) return false;
+						offset = AlignOffset(offset, element_size);
+						slot.local_offset = offset += element_size * element_count;
 					}
 					else slot.value_offset = offset += 8;
 				}
@@ -331,6 +389,20 @@ namespace uni::lango {
 					output.OutFormat("\tandi t0, t0, 1\n");
 				return StoreResult(layout, instruction, "t0", output);
 
+			case clover::Opcode::Call:
+				if (instruction.operands.Count() > numsof(ArgumentRegisters)) return false;
+				for (stduint index = 0; index < instruction.operands.Count(); index++) {
+					const char* reg = ArgumentRegisters[index];
+					if (!LoadValue(layout, instruction.operands.begin()[index], reg, output))
+						return false;
+					if (instruction.operands.begin()[index].type == clover::Type::I32)
+						output.OutFormat("\taddiw %s, %s, 0\n", reg, reg);
+				}
+				output.OutFormat("\tcall %s\n", instruction.callee.reference());
+				if (instruction.type == clover::Type::I32)
+					output.OutFormat("\taddiw a0, a0, 0\n");
+				return StoreResult(layout, instruction, "a0", output);
+
 			case clover::Opcode::Jmp:
 				if (!HasBlock(function, instruction.target) ||
 					(instruction.target_false.getByteCount() &&
@@ -375,6 +447,15 @@ namespace uni::lango {
 			output.OutFormat("\tsd ra, %[i](sp)\n", layout.frame_size - 8);
 			output.OutFormat("\tsd s0, %[i](sp)\n", layout.frame_size - 16);
 			output.OutFormat("\taddi s0, sp, %[i]\n", layout.frame_size);
+			for (stduint index = 0; index < function.parameters.Count(); index++) {
+				const clover::Parameter& parameter = function.parameters.begin()[index];
+				const ValueSlot* slot;
+				if (!SlotOf(layout, parameter.value, slot) || !slot->value_offset) return false;
+				const char* reg = ArgumentRegisters[index];
+				if (parameter.value.type == clover::Type::I32)
+					output.OutFormat("\taddiw %s, %s, 0\n", reg, reg);
+				output.OutFormat("\tsd %s, -%[i](s0)\n", reg, slot->value_offset);
+			}
 
 			for (const clover::BasicBlock& block : function.blocks) {
 				output.OutFormat(".L%s_%s:\n", function.name.reference(), block.name.reference());

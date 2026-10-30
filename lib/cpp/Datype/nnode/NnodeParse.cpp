@@ -96,7 +96,8 @@ namespace uni {
 						else if (c == ']') {
 							// [], +[a] => fn(NULL,a), a [ b ] => fn( a b )
 							// e,g, (-a[1][2])[3], [a]([b][v]), ([(a)])
-							bool valued = (last_parens->getLeft() && last_parens->getLeft()->type == tok_func);
+							Nnode* left_value = last_parens->getLeft();
+							bool valued = left_value && maynotsym(left_value->type);
 							if (anonymity && !valued) (fn = chain->Append(NULL, true, last_parens))->type = tok_string;
 							chain->Exchange(fn, last_parens); xchgptr(fn, last_parens);// xchg a and [, now fn is a
 							NnodeBlock(last_parens, last_parens->next, crt->getLeft())->type = tok_func;

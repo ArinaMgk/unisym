@@ -79,10 +79,10 @@ void  i1  i8  i16  i32  i64  ptr
 函数定义格式：
 
 ```clover
-func @add(i32 %a, i32 %b) -> i32 {
+func @add(i32 %0, i32 %1) -> i32 {
 ^entry:
-    %result = add i32 %a, %b
-    ret i32 %result
+    %2 = add i32 %0, %1
+    ret i32 %2
 }
 ```
 
@@ -101,13 +101,14 @@ declare @putchar(i32) -> i32
 %copy = mov i32 %value
 
 %address = local i32
+%array = local i32, 12
 %loaded = load i32, %address
 store i32 %value, %address
 %next = ptradd i32 %address, %index
 ```
 
 - `const`：产生整数常量。
-- `local`：创建函数局部存储，结果类型为 `ptr`。
+- `local`：创建函数局部存储，结果类型为 `ptr`；可选元素数量用于连续数组存储。
 - `mov`：复制一个 SSA 值，不读写内存。
 - `load`：从 `ptr` 地址读取值。
 - `store`：向 `ptr` 地址写入值，不产生结果。
@@ -177,7 +178,7 @@ ret i32 %value
 #### 函数调用
 
 ```clover
-%result = call i32 @add(i32 %a, i32 %b)
+%result = call i32 @add(i32 %0, i32 %1)
 call void @abort()
 ```
 

@@ -50,6 +50,13 @@ namespace clover {
 			const uni::Nnode* source = nullptr;
 		};
 
+		// Function declaration visible at the current C translation-unit position.
+		struct FrontendCFunction {
+			uni::String name;
+			FrontendCType return_type;
+			uni::Vector<FrontendCType> parameter_types;
+		};
+
 		// Lowers one C function body into one Clover function.
 		class FunctionBuilder {
 		private:
@@ -59,6 +66,7 @@ namespace clover {
 			unsigned next_value = 0;
 			uni::Vector<LocalValue> locals;
 			uni::Vector<const uni::Nnode*> emitted_sources;
+			const uni::Vector<FrontendCFunction>* visible_functions = nullptr;
 			const FrontendCDebugInfo* debug_info = nullptr;
 			const FrontendCDiagnostics* diagnostics = nullptr;
 			bool failed = false;
@@ -192,9 +200,15 @@ namespace clover {
 
 			// Add a signed element index to a pointer while retaining pointee size.
 			Value EmitPtrAdd(Value pointer, Value index, const FrontendCType& pointer_type) {
+				FrontendCType pointee_type = pointer_type.DereferenceType();
+				stduint scalar_count = pointee_type.StorageElementCount();
+				if (scalar_count > 1) {
+					Value scale = EmitConst((stdsint)scalar_count);
+					index = EmitResult(Opcode::Mul, Type::I32, index, scale);
+				}
 				Instruction instruction;
 				instruction.opcode = Opcode::PtrAdd;
-				instruction.type = CloverType(pointer_type.DereferenceType());
+				instruction.type = CloverType(pointee_type);
 				instruction.has_result = true;
 				instruction.result = NewValue(Type::Ptr);
 				instruction.operands.Append(pointer);
@@ -218,6 +232,11 @@ namespace clover {
 			}
 
 			LoweredValue ToRValue(LoweredValue lowered, const uni::Nnode* node) {
+				if (lowered.valid && lowered.type.IsArray()) {
+					lowered.type = lowered.type.DecayType();
+					lowered.is_lvalue = false;
+					return lowered;
+				}
 				if (!lowered.valid || !lowered.is_lvalue) return lowered;
 				lowered.value = EmitResult(Opcode::Load, CloverType(lowered.type),
 					lowered.value);
@@ -294,6 +313,13 @@ namespace clover {
 				return nullptr;
 			}
 
+			const FrontendCFunction* FindFunction(const char* name) const {
+				if (!visible_functions) return nullptr;
+				for (const FrontendCFunction& candidate : *visible_functions)
+					if (!StrCompare(candidate.name.reference(), name)) return &candidate;
+				return nullptr;
+			}
+
 			bool PredeclareLocal(const char* name, const FrontendCType& type,
 				const uni::Nnode* declaration, const uni::Nnode* scope) {
 				for (const LocalValue& local : locals)
@@ -306,6 +332,7 @@ namespace clover {
 				Instruction instruction;
 				instruction.opcode = Opcode::Local;
 				instruction.type = CloverType(type);
+				instruction.immediate = (stdsint)type.StorageElementCount();
 				instruction.has_result = true;
 				instruction.result = NewValue(Type::Ptr);
 				instruction.name = name;
@@ -322,18 +349,36 @@ namespace clover {
 				return true;
 			}
 
+			bool ParseDeclaratorNode(uni::Nnode* node, uni::Nnode*& identifier,
+				FrontendCType& type) {
+				if (!node) return false;
+				if (node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "OP@PREMEMB") && node->subf &&
+					!node->subf->next) {
+					if (!ParseDeclaratorNode(node->subf, identifier, type)) return false;
+					type = type.AddressType();
+					return true;
+				}
+				if (node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "operator[]")) {
+					uni::Nnode* declarator = node->subf;
+					uni::Nnode* dimension = declarator ? declarator->next : nullptr;
+					if (!declarator || !dimension || dimension->next ||
+						dimension->type != tok_number || !dimension->addr ||
+						!ParseDeclaratorNode(declarator, identifier, type)) return false;
+					stdsint count = atoins(dimension->addr);
+					if (count <= 0) return false;
+					return type.AppendArrayDimension((stduint)count);
+				}
+				if (node->type != tok_identy || !node->addr) return false;
+				identifier = node;
+				return true;
+			}
+
 			bool ParseDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
 				FrontendCType& type) {
 				type = FrontendCType();
-				while (node && node->type == tok_func && node->addr &&
-					!StrCompare(node->addr, "OP@PREMEMB") && node->subf &&
-					!node->subf->next) {
-					type = type.AddressType();
-					node = node->subf;
-				}
-				if (!node || node->type != tok_identy || !node->addr) return false;
-				identifier = node;
-				return true;
+				return ParseDeclaratorNode(node, identifier, type);
 			}
 
 			bool PredeclareDeclarator(uni::Nnode* node, const uni::Nnode* declaration,
@@ -382,6 +427,47 @@ namespace clover {
 				return nullptr;
 			}
 
+			void AppendInitializerValues(uni::Nnode* node,
+				uni::Vector<uni::Nnode*>& values) {
+				if (node && (node->type == tok_block ||
+					(node->type == tok_func && !node->addr)) && node->subf) {
+					AppendInitializerValues(node->subf, values);
+					return;
+				}
+				if (node && node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "OP@COMMA")) {
+					for (uni::Nnode* child = node->subf; child; child = child->next)
+						AppendInitializerValues(child, values);
+					return;
+				}
+				if (node) values.Append(node);
+			}
+
+			bool InitializeArray(LocalValue& local, uni::Nnode* initializer) {
+				uni::Vector<uni::Nnode*> values;
+				AppendInitializerValues(initializer, values);
+				stduint element_count = local.type.StorageElementCount();
+				if (values.Count() > element_count)
+					return Error("too many array initializer values", initializer).valid;
+				FrontendCType element_pointer = FrontendCType().AddressType();
+				for (stduint index = 0; index < element_count; index++) {
+					Value value;
+					if (index < values.Count()) {
+						uni::Nnode* value_node = values.begin()[index];
+						LoweredValue lowered = ToRValue(LowerExpression(value_node), value_node);
+						if (!lowered.valid) return false;
+						if (!lowered.type.IsInteger())
+							return Error("array initializer requires an integer", value_node).valid;
+						value = AsInt(lowered.value);
+					}
+					else value = EmitConst(0);
+					Value element_index = EmitConst((stdsint)index);
+					Value address = EmitPtrAdd(local.address, element_index, element_pointer);
+					EmitStore(value, address);
+				}
+				return true;
+			}
+
 			bool LowerDeclarator(uni::Nnode* node, const uni::Nnode* declaration) {
 				if (!node) return Error("missing declarator", declaration).valid;
 				if (node->type == tok_func && node->addr &&
@@ -406,6 +492,8 @@ namespace clover {
 				LocalValue* local = ActivateLocal(identifier->addr, declaration);
 				if (!local) return Error("invalid local declaration", identifier).valid;
 				if (!initializer_node) return true;
+				if (local->type.IsArray())
+					return InitializeArray(*local, initializer_node);
 				LoweredValue initializer = ToRValue(
 					LowerExpression(initializer_node), initializer_node);
 				if (!initializer.valid) return false;
@@ -425,6 +513,64 @@ namespace clover {
 				failed = true;
 				diagnostics->Report(DiagnosticStage::Lowering, message, node);
 				return {};
+			}
+
+			void AppendCallArguments(uni::Nnode* node,
+				uni::Vector<uni::Nnode*>& arguments) {
+				if (node && node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "OP@COMMA")) {
+					for (uni::Nnode* child = node->subf; child; child = child->next)
+						AppendCallArguments(child, arguments);
+					return;
+				}
+				if (node) arguments.Append(node);
+			}
+
+			LoweredValue LowerCall(uni::Nnode* node) {
+				const FrontendCFunction* signature = FindFunction(node->addr);
+				if (!signature) return Error("call to undeclared function", node);
+				uni::Vector<uni::Nnode*> arguments;
+				AppendCallArguments(node->subf, arguments);
+				if (arguments.Count() != signature->parameter_types.Count())
+					return Error("function argument count mismatch", node);
+
+				Instruction instruction;
+				instruction.opcode = Opcode::Call;
+				instruction.type = CloverType(signature->return_type);
+				instruction.callee = signature->name;
+				for (stduint index = 0; index < arguments.Count(); index++) {
+					uni::Nnode* argument_node = arguments.begin()[index];
+					LoweredValue argument = ToRValue(
+						LowerExpression(argument_node), argument_node);
+					if (!argument.valid) return argument;
+					if (!argument.type.IsSame(signature->parameter_types.begin()[index]))
+						return Error("incompatible function argument type", argument_node);
+					instruction.operands.Append(argument.value);
+				}
+				instruction.has_result = true;
+				instruction.result = NewValue(instruction.type);
+				CurrentBlock().instructions.Append(instruction);
+				return { instruction.result, true, signature->return_type, false };
+			}
+
+			LoweredValue LowerSubscript(uni::Nnode* node) {
+				uni::Nnode* left_node = node->subf;
+				uni::Nnode* right_node = left_node ? left_node->next : nullptr;
+				if (!left_node || !right_node || right_node->next)
+					return Error("array subscript requires two operands", node);
+				LoweredValue left = ToRValue(LowerExpression(left_node), left_node);
+				LoweredValue right = ToRValue(LowerExpression(right_node), right_node);
+				if (!left.valid || !right.valid) return {};
+				if (left.type.IsInteger() && right.type.IsPointer()) {
+					LoweredValue temporary = left;
+					left = right;
+					right = temporary;
+				}
+				if (!left.type.IsPointer() || !right.type.IsInteger())
+					return Error("array subscript requires a pointer and an integer", node);
+				Value index = AsInt(right.value);
+				Value address = EmitPtrAdd(left.value, index, left.type);
+				return { address, !failed, left.type.DereferenceType(), true };
 			}
 
 			LoweredValue LowerIncrement(uni::Nnode* operand, bool increment,
@@ -583,9 +729,12 @@ namespace clover {
 
 		public:
 			// The expression frontend currently requires one entry block.
-			FunctionBuilder(Function& function, const FrontendCDiagnostics& diagnostic_output,
+			FunctionBuilder(Function& function,
+				const uni::Vector<FrontendCFunction>& functions,
+				const FrontendCDiagnostics& diagnostic_output,
 				const FrontendCDebugInfo* debug_information)
-				: function(&function), debug_info(debug_information),
+				: function(&function), next_value(function.parameters.Count()),
+					visible_functions(&functions), debug_info(debug_information),
 					diagnostics(&diagnostic_output)
 			{
 				function.blocks.Append(BasicBlock());
@@ -605,6 +754,12 @@ namespace clover {
 					return { local->address, true, local->type, true };
 				}
 				case tok_func:
+					if (node->addr && !StrCompare(node->addr, "operator[]"))
+						return LowerSubscript(node);
+					if (node->addr && StrLength(node->addr) >= 3 &&
+						!(node->addr[0] == 'O' && node->addr[1] == 'P' &&
+						node->addr[2] == '@')) return LowerCall(node);
+					if (node->addr && StrLength(node->addr) < 3) return LowerCall(node);
 					return LowerOperator(node);
 				default:
 					return Error("unsupported syntax node", node);
@@ -811,8 +966,25 @@ namespace clover {
 				return true;
 			}
 
+			bool InitializeParameters(uni::Nnode* parameter_node,
+				const uni::Nnode* body) {
+				stduint index = 0;
+				for (; parameter_node; parameter_node = parameter_node->next, index++) {
+					if (index >= function->parameters.Count() || !parameter_node->addr)
+						return Error("invalid function parameter", parameter_node).valid;
+					FrontendCType type;
+					if (!PredeclareLocal(parameter_node->addr, type,
+						parameter_node, body)) return false;
+					LocalValue* local = ActivateLocal(parameter_node->addr, parameter_node);
+					if (!local) return Error("invalid function parameter", parameter_node).valid;
+					EmitStore(function->parameters.begin()[index].value, local->address);
+				}
+				return index == function->parameters.Count();
+			}
+
 			// Lower one function body without requiring an explicit return statement.
-			bool Lower(uni::Nnode* body) {
+			bool Lower(uni::Nnode* body, uni::Nnode* parameters) {
+				if (!InitializeParameters(parameters, body)) return false;
 				if (!PredeclareBlock(body)) return false;
 				return LowerBlock(body);
 			}
@@ -824,6 +996,7 @@ namespace clover {
 		const FrontendCDiagnostics& diagnostics,
 		const FrontendCDebugInfo* debug_info) {
 		module.functions.Clear();
+		uni::Vector<FrontendCFunction> visible_functions;
 		for (uni::Nnode* node = syntax_tree.Root(); node;) {
 			if (node->type != ToToken(FrontendCToken::Function) || !node->addr ||
 				!node->next || node->next->type != tok_block) {
@@ -833,11 +1006,37 @@ namespace clover {
 			}
 
 			uni::Nnode* body = node->next;
+			for (const FrontendCFunction& previous : visible_functions)
+				if (!StrCompare(previous.name.reference(), node->addr)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"redefinition of function", node);
+					return false;
+				}
+
 			Function function;
 			function.name = node->addr;
 			function.return_type = Type::I32;
-			FunctionBuilder builder(function, diagnostics, debug_info);
-			if (!builder.Lower(body)) return false;
+			FrontendCFunction signature;
+			signature.name = node->addr;
+			for (uni::Nnode* parameter_node = node->subf;
+				parameter_node; parameter_node = parameter_node->next) {
+				if (parameter_node->type != ToToken(FrontendCToken::Parameter) ||
+					!parameter_node->addr) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"invalid function parameter", parameter_node);
+					return false;
+				}
+				FrontendCType parameter_type;
+				signature.parameter_types.Append(parameter_type);
+				Parameter parameter;
+				parameter.name = parameter_node->addr;
+				parameter.value.type = Type::I32;
+				parameter.value.id = function.parameters.Count();
+				function.parameters.Append(parameter);
+			}
+			visible_functions.Append(signature);
+			FunctionBuilder builder(function, visible_functions, diagnostics, debug_info);
+			if (!builder.Lower(body, node->subf)) return false;
 			module.functions.Append(function);
 			node = body->next;
 		}

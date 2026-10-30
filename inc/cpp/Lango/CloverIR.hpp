@@ -58,6 +58,7 @@ enum class Opcode {
 	PtrAdd, // Add an integer index scaled by the pointee type to a pointer.
 	ICmp,  // Integer comparison producing I1.
 	ZExt,  // Zero-extension to a wider integer type.
+	Call,  // Call a named function and produce its return value.
 	Jmp,   // Unconditional or condition-selected basic-block transfer.
 	Ret,   // Return from the current function.
 };
@@ -87,9 +88,10 @@ struct Instruction {
 	uni::Vector<Value> operands;    // Ordered input values.
 	uni::String name;               // Optional source name retained by Local.
 	uni::String debug_source;       // Optional source statement printed before this instruction.
+	uni::String callee;             // Named function target used by Call.
 	uni::String target;             // Jump target, or true target for a conditional jump.
 	uni::String target_false;       // False target for a conditional jump.
-	stdsint immediate = 0;          // Integer literal retained by Const.
+	stdsint immediate = 0;          // Const literal, or Local element count.
 	ICmpPredicate predicate = ICmpPredicate::EQ; // Comparison mode for ICmp.
 };
 
@@ -99,10 +101,17 @@ struct BasicBlock {
 	uni::Vector<Instruction> instructions;
 };
 
+// One typed SSA value supplied by the caller at function entry.
+struct Parameter {
+	uni::String name;
+	Value value;
+};
+
 // Function-level Clover IR container.
 struct Function {
 	uni::String name;
 	Type return_type = Type::I64;
+	uni::Vector<Parameter> parameters;
 	uni::Vector<BasicBlock> blocks;
 };
 

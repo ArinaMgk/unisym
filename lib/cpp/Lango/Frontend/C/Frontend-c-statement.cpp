@@ -99,6 +99,46 @@ namespace {
 		return true;
 	}
 
+	bool PrepareFunctionParameters(uni::Nchain& syntax_tree, uni::Nnode* function,
+		const FrontendCDiagnostics& diagnostics) {
+		uni::Nnode* node = function ? function->subf : nullptr;
+		stduint count = 0;
+		while (node) {
+			if (node->type != tok_identy || !IsKeyword(node, "int")) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"expected 'int' parameter type", node);
+				return false;
+			}
+			uni::Nnode* parameter = syntax_tree.Remove(node);
+			if (!parameter || parameter->type != tok_identy || !parameter->addr) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"expected parameter name", parameter ? parameter : function);
+				return false;
+			}
+			parameter->type = ToToken(FrontendCToken::Parameter);
+			if (++count > 8) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"more than 8 function parameters are not supported", parameter);
+				return false;
+			}
+
+			node = parameter->next;
+			if (!node) break;
+			if (node->type != tok_symbol || !node->addr || StrCompare(node->addr, ",")) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"expected ',' between function parameters", node);
+				return false;
+			}
+			node = syntax_tree.Remove(node);
+			if (!node) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"expected parameter after ','", parameter);
+				return false;
+			}
+		}
+		return true;
+	}
+
 	void ClassifyControlNode(uni::Nnode* node, FrontendCDebugInfo* debug_info) {
 		if (!node) return;
 		if (node->type == tok_func && IsKeyword(node, "if")) {
@@ -248,25 +288,27 @@ const uni::String* FrontendCDebugInfo::Find(const uni::Nnode* node) const {
 bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 	const FrontendCDiagnostics& diagnostics, FrontendCDebugInfo* debug_info) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
-		if (node->type != tok_func || !node->addr) {
+		if (node->type != tok_identy || !IsKeyword(node, "int")) {
 			diagnostics.Report(DiagnosticStage::Parser,
-				"expected function definition", node);
+				"expected function return type 'int'", node);
 			return false;
 		}
-		if (node->subf) {
-			diagnostics.Report(DiagnosticStage::Semantic,
-				"function parameters are not supported yet", node);
+		uni::Nnode* function = syntax_tree.Remove(node);
+		if (!function || function->type != tok_func || !function->addr) {
+			diagnostics.Report(DiagnosticStage::Parser,
+				"expected function definition", function);
 			return false;
 		}
+		if (!PrepareFunctionParameters(syntax_tree, function, diagnostics)) return false;
 
-		uni::Nnode* body = node->next;
+		uni::Nnode* body = function->next;
 		if (!body || body->type != tok_block) {
 			diagnostics.Report(DiagnosticStage::Parser,
-				"expected function body", body ? body : node);
+				"expected function body", body ? body : function);
 			return false;
 		}
 
-		node->type = ToToken(FrontendCToken::Function);
+		function->type = ToToken(FrontendCToken::Function);
 		if (!PrepareBlock(syntax_tree, body, diagnostics, debug_info)) return false;
 		node = body->next;
 	}

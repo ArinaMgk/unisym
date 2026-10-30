@@ -41,6 +41,7 @@ struct FrontendCTargetInfo {
 	unsigned int_bits = 32;
 	unsigned long_bits = 64;
 	unsigned long_long_bits = 64;
+	unsigned pointer_bits = 64;
 	bool char_is_signed = true;
 
 	static FrontendCTargetInfo FromTarget(const TargetInfo& target);
@@ -49,6 +50,7 @@ struct FrontendCTargetInfo {
 inline FrontendCTargetInfo FrontendCTargetInfo::FromTarget(const TargetInfo& target) {
 	FrontendCTargetInfo info;
 	info.char_bits = target.byte_bits;
+	info.pointer_bits = target.pointer_bits;
 	if (target.pointer_bits == 32) {
 		info.data_model = CDataModel::ILP32;
 		info.long_bits = 32;

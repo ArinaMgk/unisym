@@ -31,39 +31,48 @@ namespace uni::lango {
 enum class FrontendCToken : stduint {
 	Function = tok__continue, // Function definition followed by its body block.
 	Parameter,                // Typed function parameter normalized before expressions.
-	Declaration,              // Reserved for a C declaration statement.
+	Declaration,              // Function-local object declaration.
+	GlobalDeclaration,        // Translation-unit object declaration.
 	If,                       // If statement with its condition as children.
 	Else,                     // Else marker paired by statement composition.
 	While,                    // While loop with its condition as children.
 	For,                      // For loop with init, condition, and step clauses.
 	Empty,                    // Empty statement represented by a semicolon.
 	Return,                   // Return statement or inline return marker.
+	ReturnVoid,               // Return statement without a value.
 	End                       // First token value available after the C frontend range.
 };
 
-// C99 type categories currently recognized by the frontend.
-enum class FrontendCTypeKind {
-	Int,    // Target ABI signed int type.
-	Pointer // Pointer to another C type.
+// Relative rank used by the C99 integer promotions and conversions.
+enum class FrontendCIntegerRank {
+	Char,     // char, signed char, or unsigned char.
+	Short,    // short int or unsigned short int.
+	Int,      // int or unsigned int.
+	Long,     // long int or unsigned long int.
+	LongLong  // long long int or unsigned long long int.
 };
 
-// Minimal semantic C type retained before conversion to fixed-width Clover types.
+// Semantic integer, pointer, and array type retained by the C frontend.
 struct FrontendCType {
 	static constexpr stduint MaxArrayDimensions = 16;
 
-	FrontendCTypeKind kind = FrontendCTypeKind::Int;
+	FrontendCIntegerRank integer_rank = FrontendCIntegerRank::Int;
+	bool is_signed = true;
+	bool is_void = false;
 	unsigned pointer_depth = 0;
 	stduint array_dimension_count = 0;
 	stduint array_dimensions[MaxArrayDimensions] = {};
 
 	bool IsPointer() const { return pointer_depth != 0; }
+	bool IsVoid() const { return is_void && pointer_depth == 0; }
 	bool IsArray() const { return pointer_depth == 0 && array_dimension_count; }
 	bool IsInteger() const {
-		return pointer_depth == 0 && !array_dimension_count &&
-			kind == FrontendCTypeKind::Int;
+		return !is_void && pointer_depth == 0 && !array_dimension_count;
 	}
 	bool IsSame(const FrontendCType& other) const {
-		if (kind != other.kind || pointer_depth != other.pointer_depth ||
+		if (integer_rank != other.integer_rank || is_signed != other.is_signed ||
+			is_void != other.is_void ||
+			pointer_depth != other.pointer_depth ||
 			array_dimension_count != other.array_dimension_count) return false;
 		for (stduint index = 0; index < array_dimension_count; index++)
 			if (array_dimensions[index] != other.array_dimensions[index]) return false;
@@ -82,7 +91,6 @@ struct FrontendCType {
 	}
 	FrontendCType AddressType() const {
 		FrontendCType result = *this;
-		result.kind = FrontendCTypeKind::Pointer;
 		result.pointer_depth++;
 		return result;
 	}
@@ -93,16 +101,28 @@ struct FrontendCType {
 				result.array_dimensions[index - 1] = result.array_dimensions[index];
 			result.array_dimensions[--result.array_dimension_count] = 0;
 		}
-		result.kind = FrontendCTypeKind::Pointer;
 		result.pointer_depth++;
 		return result;
 	}
 	FrontendCType DereferenceType() const {
 		FrontendCType result = *this;
 		if (result.pointer_depth) result.pointer_depth--;
-		if (!result.pointer_depth) result.kind = FrontendCTypeKind::Int;
 		return result;
 	}
+};
+
+// Associates normalized syntax nodes with their C types without extending Nnode.
+struct FrontendCTypedNode {
+	const uni::Nnode* node = nullptr;
+	FrontendCType type;
+};
+
+// Type information collected before generic operator parsing rearranges nodes.
+struct FrontendCTypeInfo {
+	uni::Vector<FrontendCTypedNode> nodes;
+
+	void Add(const uni::Nnode* node, const FrontendCType& type);
+	const FrontendCType* Find(const uni::Nnode* node) const;
 };
 
 // Convert a scoped frontend token to the integer representation stored by Nnode.
@@ -140,12 +160,14 @@ namespace frontend_c_detail {
 
 	// Classify C statements before and validate them after operator parsing.
 	bool Prepare(uni::Nchain& syntax_tree, const FrontendCDiagnostics& diagnostics,
+		const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info,
 		FrontendCDebugInfo* debug_info = nullptr);
 	bool Validate(uni::Nchain& syntax_tree, const FrontendCDiagnostics& diagnostics);
 
 	// Lower an analyzed C syntax tree to an in-memory Clover module.
 	bool Lower(uni::Nchain& syntax_tree, clover::Module& module,
-		const FrontendCDiagnostics& diagnostics,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		const FrontendCTypeInfo& type_info,
 		const FrontendCDebugInfo* debug_info = nullptr);
 
 }

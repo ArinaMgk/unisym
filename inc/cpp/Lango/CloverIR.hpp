@@ -30,6 +30,7 @@ namespace clover {
 
 // Scalar and address types currently represented by Clover IR.
 enum class Type {
+	Void, // No value; valid for function returns and side-effecting calls.
 	I1,  // One-bit condition value.
 	I8,  // Eight-bit integer value.
 	I16, // Sixteen-bit integer value.
@@ -49,15 +50,21 @@ enum class Opcode {
 	Sub,   // Integer subtraction.
 	Mul,   // Integer multiplication.
 	SDiv,  // Signed integer division.
+	UDiv,  // Unsigned integer division.
 	SRem,  // Signed integer remainder.
+	URem,  // Unsigned integer remainder.
 	And,   // Bitwise AND.
 	Or,    // Bitwise OR.
 	Xor,   // Bitwise XOR.
 	Shl,   // Logical left shift.
 	AShr,  // Arithmetic right shift.
+	LShr,  // Logical right shift.
 	PtrAdd, // Add an integer index scaled by the pointee type to a pointer.
 	ICmp,  // Integer comparison producing I1.
 	ZExt,  // Zero-extension to a wider integer type.
+	SExt,  // Sign-extension to a wider integer type.
+	Trunc, // Truncate an integer to a narrower integer type.
+	GlobalAddr, // Produce the address of a named module global object.
 	Call,  // Call a named function and produce its return value.
 	Jmp,   // Unconditional or condition-selected basic-block transfer.
 	Ret,   // Return from the current function.
@@ -71,6 +78,10 @@ enum class ICmpPredicate {
 	SLE, // Signed less than or equal.
 	SGT, // Signed greater than.
 	SGE, // Signed greater than or equal.
+	ULT, // Unsigned less than.
+	ULE, // Unsigned less than or equal.
+	UGT, // Unsigned greater than.
+	UGE, // Unsigned greater than or equal.
 };
 
 // Reference to a typed SSA result. IDs are unique within one function.
@@ -107,6 +118,14 @@ struct Parameter {
 	Value value;
 };
 
+// One module-scope object with static storage duration.
+struct Global {
+	uni::String name;
+	Type type = Type::I8;
+	stdsint initializer = 0;
+	stdsint element_count = 1;
+};
+
 // Function-level Clover IR container.
 struct Function {
 	uni::String name;
@@ -117,6 +136,7 @@ struct Function {
 
 // Compilation unit exchanged between a Clover frontend and backend.
 struct Module {
+	uni::Vector<Global> globals;
 	uni::Vector<Function> functions;
 };
 

@@ -28,6 +28,7 @@ namespace clover {
 		// Convert a Clover type to its textual spelling.
 		const char* TypeName(Type type) {
 			switch (type) {
+			case Type::Void: return "void";
 			case Type::I1: return "i1";
 			case Type::I8: return "i8";
 			case Type::I16: return "i16";
@@ -46,12 +47,15 @@ namespace clover {
 			case Opcode::Sub: return "sub";
 			case Opcode::Mul: return "mul";
 			case Opcode::SDiv: return "sdiv";
+			case Opcode::UDiv: return "udiv";
 			case Opcode::SRem: return "srem";
+			case Opcode::URem: return "urem";
 			case Opcode::And: return "and";
 			case Opcode::Or: return "or";
 			case Opcode::Xor: return "xor";
 			case Opcode::Shl: return "shl";
 			case Opcode::AShr: return "ashr";
+			case Opcode::LShr: return "lshr";
 			case Opcode::PtrAdd: return "ptradd";
 			default: return "?";
 			}
@@ -66,6 +70,10 @@ namespace clover {
 			case ICmpPredicate::SLE: return "sle";
 			case ICmpPredicate::SGT: return "sgt";
 			case ICmpPredicate::SGE: return "sge";
+			case ICmpPredicate::ULT: return "ult";
+			case ICmpPredicate::ULE: return "ule";
+			case ICmpPredicate::UGT: return "ugt";
+			case ICmpPredicate::UGE: return "uge";
 			}
 			return "?";
 		}
@@ -118,12 +126,15 @@ namespace clover {
 			case Opcode::Sub:
 			case Opcode::Mul:
 			case Opcode::SDiv:
+			case Opcode::UDiv:
 			case Opcode::SRem:
+			case Opcode::URem:
 			case Opcode::And:
 			case Opcode::Or:
 			case Opcode::Xor:
 			case Opcode::Shl:
 			case Opcode::AShr:
+			case Opcode::LShr:
 				output.OutFormat("%s %s ", OpcodeName(instruction.opcode), TypeName(instruction.type));
 				PrintValue(output, instruction.operands.begin()[0]);
 				if (instruction.operands.Count() > 1) {
@@ -147,9 +158,16 @@ namespace clover {
 				output.OutFormat("\n");
 				break;
 			case Opcode::ZExt:
-				output.OutFormat("zext %s ", TypeName(instruction.operands.begin()[0].type));
+			case Opcode::SExt:
+			case Opcode::Trunc:
+				output.OutFormat("%s %s ", instruction.opcode == Opcode::ZExt ? "zext" :
+					instruction.opcode == Opcode::SExt ? "sext" : "trunc",
+					TypeName(instruction.operands.begin()[0].type));
 				PrintValue(output, instruction.operands.begin()[0]);
 				output.OutFormat(" to %s\n", TypeName(instruction.type));
+				break;
+			case Opcode::GlobalAddr:
+				output.OutFormat("globaladdr @%s\n", instruction.name.reference());
 				break;
 			case Opcode::Call:
 				output.OutFormat("call %s @%s(", TypeName(instruction.type),
@@ -176,8 +194,11 @@ namespace clover {
 				output.OutFormat("\n");
 				break;
 			case Opcode::Ret:
-				output.OutFormat("ret %s ", TypeName(instruction.type));
-				PrintValue(output, instruction.operands.begin()[0]);
+				output.OutFormat("ret %s", TypeName(instruction.type));
+				if (instruction.type != Type::Void) {
+					output.OutFormat(" ");
+					PrintValue(output, instruction.operands.begin()[0]);
+				}
 				output.OutFormat("\n");
 				break;
 			}
@@ -293,7 +314,8 @@ namespace clover {
 			}
 
 			bool ReadType(Type& type) {
-				if (Is("i1")) type = Type::I1;
+				if (Is("void")) type = Type::Void;
+				else if (Is("i1")) type = Type::I1;
 				else if (Is("i8")) type = Type::I8;
 				else if (Is("i16")) type = Type::I16;
 				else if (Is("i32")) type = Type::I32;
@@ -357,6 +379,10 @@ namespace clover {
 				else if (Is("sle")) predicate = ICmpPredicate::SLE;
 				else if (Is("sgt")) predicate = ICmpPredicate::SGT;
 				else if (Is("sge")) predicate = ICmpPredicate::SGE;
+				else if (Is("ult")) predicate = ICmpPredicate::ULT;
+				else if (Is("ule")) predicate = ICmpPredicate::ULE;
+				else if (Is("ugt")) predicate = ICmpPredicate::UGT;
+				else if (Is("uge")) predicate = ICmpPredicate::UGE;
 				else return Error("expected icmp predicate");
 				Advance();
 				return true;
@@ -371,7 +397,7 @@ namespace clover {
 			}
 
 			bool IsIntegerType(Type type) const {
-				return type != Type::Ptr;
+				return type != Type::Void && type != Type::Ptr;
 			}
 
 			bool ReadCallOperands(Instruction& instruction) {
@@ -441,19 +467,24 @@ namespace clover {
 				}
 				else if (!StrCompare(operation.reference(), "add") || !StrCompare(operation.reference(), "sub") ||
 					!StrCompare(operation.reference(), "mul") || !StrCompare(operation.reference(), "sdiv") ||
-					!StrCompare(operation.reference(), "srem") || !StrCompare(operation.reference(), "and") ||
+					!StrCompare(operation.reference(), "udiv") || !StrCompare(operation.reference(), "srem") ||
+					!StrCompare(operation.reference(), "urem") || !StrCompare(operation.reference(), "and") ||
 					!StrCompare(operation.reference(), "or") || !StrCompare(operation.reference(), "xor") ||
-					!StrCompare(operation.reference(), "shl") || !StrCompare(operation.reference(), "ashr")) {
+					!StrCompare(operation.reference(), "shl") || !StrCompare(operation.reference(), "ashr") ||
+					!StrCompare(operation.reference(), "lshr")) {
 					if (!StrCompare(operation.reference(), "add")) instruction.opcode = Opcode::Add;
 					else if (!StrCompare(operation.reference(), "sub")) instruction.opcode = Opcode::Sub;
 					else if (!StrCompare(operation.reference(), "mul")) instruction.opcode = Opcode::Mul;
 					else if (!StrCompare(operation.reference(), "sdiv")) instruction.opcode = Opcode::SDiv;
+					else if (!StrCompare(operation.reference(), "udiv")) instruction.opcode = Opcode::UDiv;
 					else if (!StrCompare(operation.reference(), "srem")) instruction.opcode = Opcode::SRem;
+					else if (!StrCompare(operation.reference(), "urem")) instruction.opcode = Opcode::URem;
 					else if (!StrCompare(operation.reference(), "and")) instruction.opcode = Opcode::And;
 					else if (!StrCompare(operation.reference(), "or")) instruction.opcode = Opcode::Or;
 					else if (!StrCompare(operation.reference(), "xor")) instruction.opcode = Opcode::Xor;
 					else if (!StrCompare(operation.reference(), "shl")) instruction.opcode = Opcode::Shl;
-					else instruction.opcode = Opcode::AShr;
+					else if (!StrCompare(operation.reference(), "ashr")) instruction.opcode = Opcode::AShr;
+					else instruction.opcode = Opcode::LShr;
 					if (!has_result || !ReadType(instruction.type) || !ReadBinaryOperands(instruction))
 						return Error("invalid binary instruction");
 					instruction.result.type = instruction.type;
@@ -475,22 +506,35 @@ namespace clover {
 						return Error("invalid icmp instruction");
 					instruction.result.type = Type::I1;
 				}
-				else if (!StrCompare(operation.reference(), "zext")) {
-					instruction.opcode = Opcode::ZExt;
+				else if (!StrCompare(operation.reference(), "zext") ||
+					!StrCompare(operation.reference(), "sext") ||
+					!StrCompare(operation.reference(), "trunc")) {
+					instruction.opcode = !StrCompare(operation.reference(), "zext") ? Opcode::ZExt :
+						!StrCompare(operation.reference(), "sext") ? Opcode::SExt : Opcode::Trunc;
 					Type source_type;
 					Value operand;
 					if (!has_result || !ReadType(source_type) || !ReadValue(operand) ||
 						!Expect("to") || !ReadType(instruction.type))
-						return Error("invalid zext instruction");
-					operand.type = source_type;
+						return Error("invalid integer conversion instruction");
+					if (operand.type != source_type)
+						return Error("integer conversion source type does not match value");
 					instruction.operands.Append(operand);
 					instruction.result.type = instruction.type;
 				}
+				else if (!StrCompare(operation.reference(), "globaladdr")) {
+					instruction.opcode = Opcode::GlobalAddr;
+					if (!has_result || !Expect("@") || !ReadName(instruction.name))
+						return Error("invalid globaladdr instruction");
+					instruction.type = Type::Ptr;
+					instruction.result.type = Type::Ptr;
+				}
 				else if (!StrCompare(operation.reference(), "call")) {
 					instruction.opcode = Opcode::Call;
-					if (!has_result || !ReadType(instruction.type) || !Expect("@") ||
+					if (!ReadType(instruction.type) || !Expect("@") ||
 						!ReadName(instruction.callee) || !ReadCallOperands(instruction))
 						return Error("invalid call instruction");
+					if ((instruction.type == Type::Void) == has_result)
+						return Error("void call result mismatch");
 					instruction.result.type = instruction.type;
 				}
 				else if (!StrCompare(operation.reference(), "jmp")) {
@@ -513,10 +557,13 @@ namespace clover {
 				}
 				else if (!StrCompare(operation.reference(), "ret")) {
 					instruction.opcode = Opcode::Ret;
-					Value operand;
-					if (has_result || !ReadType(instruction.type) || !ReadValue(operand))
+					if (has_result || !ReadType(instruction.type))
 						return Error("invalid ret instruction");
-					instruction.operands.Append(operand);
+					if (instruction.type != Type::Void) {
+						Value operand;
+						if (!ReadValue(operand)) return Error("invalid ret instruction");
+						instruction.operands.Append(operand);
+					}
 				}
 				else return Error("unknown opcode");
 
@@ -579,15 +626,36 @@ namespace clover {
 				return true;
 			}
 
+			bool ParseGlobal(Module& module) {
+				Global global;
+				if (!Expect("global") || !Expect("@") || !ReadName(global.name) ||
+					!ReadType(global.type) || global.type == Type::Void)
+					return Error("invalid global declaration");
+				if (Is(",")) {
+					Advance();
+					if (!ReadNumber(global.element_count) || global.element_count <= 0)
+						return Error("invalid global element count");
+				}
+				if (!Expect("=") || !ReadNumber(global.initializer))
+					return Error("invalid global initializer");
+				module.globals.Append(global);
+				return true;
+			}
+
 		public:
 			Parser(uni::IstreamTrait& input) : lexer(input) {
 				Advance();
 			}
 
 			bool ParseModule(Module& module) {
+				module.globals.Clear();
 				module.functions.Clear();
-				while (token.getByteCount())
-					if (!ParseFunction(module)) return false;
+				while (token.getByteCount()) {
+					if (Is("global")) {
+						if (!ParseGlobal(module)) return false;
+					}
+					else if (!ParseFunction(module)) return false;
+				}
 				return !failed;
 			}
 		};
@@ -600,6 +668,11 @@ namespace clover {
 	}
 
 	bool Print(const Module& module, uni::OstreamTrait& output) {
+		for (const Global& global : module.globals) {
+			output.OutFormat("global @%s %s", global.name.reference(), TypeName(global.type));
+			if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
+			output.OutFormat(" = %[i]\n", global.initializer);
+		}
 		for (const Function& function : module.functions) {
 			output.OutFormat("func @%s(", function.name.reference());
 			for (stduint index = 0; index < function.parameters.Count(); index++) {

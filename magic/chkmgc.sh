@@ -18,7 +18,7 @@ check()
 	feedback="$?"
 
 	if [ "$feedback" = "$expectation" ]; then
-		echo "passed by $arguments !"
+		echo "passed: $arguments !"
 	else
 		echo "$arguments failed for $feedback, Expecting $expectation"
 		exit 1
@@ -92,5 +92,20 @@ check 'int add(int x, int y) {return x+y;} int main() { return add(-1, 4);} ' 3
 check 'int main() {int a[3]; a[0]=2; a[1]=3; a[2]=4; return a[0]+a[1]+a[2];}' 9
 check 'int main() {int a[4]={1,2,3,4}; return a[2];}' 3
 check 'int main() {int a[2][3]; a[0][1]=5; a[1][2]=7; return a[0][1]+a[1][2];}' 12
+
+# Basic Types
+check 'int main() {char a=1; short b=2; long c=3; long long d=4; return a+b+c+d;}' 10
+check 'int main() {return sizeof(char)+sizeof(short)+sizeof(int)+sizeof(long)+sizeof(long long);}' 23
+check 'int main() {signed char x=-1; unsigned char y=255; y=y+2; return (x<0)+(y==1);}' 2
+check 'int main() {unsigned int x=0; x=x-1; return x>1;}' 1
+check 'int main() {unsigned int x=0; x=x-1; return x/16777216;}' 255
+check 'int main() {int x=1; int n=sizeof(x++); return x*10+n;}' 14
+check 'int main() {char x=1; return sizeof(x++);}' 1
+check 'int main() {int a[2][3]; return sizeof(a)+sizeof(a[0])+sizeof(a[0][0]);}' 40
+check 'int main() {return sizeof(int*)+sizeof(char[3]);}' 11
+
+# Storage Area and Lifetime
+check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1
+
 
 echo pass!

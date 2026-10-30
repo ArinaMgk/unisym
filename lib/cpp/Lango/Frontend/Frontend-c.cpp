@@ -25,6 +25,33 @@
 namespace uni::lango {
 
 	namespace {
+		bool IsHexDigits(const char* text) {
+			if (!text || !*text) return false;
+			for (; *text; text++)
+				if (!((*text >= '0' && *text <= '9') ||
+					(*text >= 'a' && *text <= 'f') ||
+					(*text >= 'A' && *text <= 'F'))) return false;
+			return true;
+		}
+
+		// The generic lexer separates the alphabetic tail of a hexadecimal token.
+		void JoinCHexadecimalTokens(Dchain& tokens) {
+			for (Dnode* node = tokens.Root(); node && node->next; node = node->next) {
+				Dnode* tail = node->next;
+				if (node->type != tok_number || tail->type != tok_identy ||
+					!node->addr || !tail->addr || StrLength(node->addr) < 2 ||
+					node->addr[0] != '0' ||
+					(node->addr[1] != 'x' && node->addr[1] != 'X') ||
+					!IsHexDigits(tail->addr)) continue;
+				TnodeField* head_field = node->GetTnodeField();
+				TnodeField* tail_field = tail->GetTnodeField();
+				if (head_field->row != tail_field->row ||
+					tail_field->col != head_field->col + StrLength(node->addr)) continue;
+				char* joined = StrHeapAppend(node->addr, tail->addr);
+				srs(node->addr, joined);
+				tokens.Remove(tail);
+			}
+		}
 
 		bool ValidateOptions(const FrontendOptions& options,
 			const FrontendCDiagnostics& diagnostics) {
@@ -44,6 +71,7 @@ namespace uni::lango {
 		}
 
 		bool AnalyzeC(NestedParseUnit& parser, const FrontendCDiagnostics& diagnostics,
+			const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info,
 			FrontendCDebugInfo* debug_info) {
 			Nchain& syntax_tree = *parser.GetNetwork();
 			if (!parser.ParseParen(syntax_tree.Root())) {
@@ -52,7 +80,8 @@ namespace uni::lango {
 				return false;
 			}
 			parser.ParseStatements_CPL();
-			if (!frontend_c_detail::Prepare(syntax_tree, diagnostics, debug_info)) return false;
+			if (!frontend_c_detail::Prepare(syntax_tree, diagnostics, target,
+				type_info, debug_info)) return false;
 			if (!parser.ParseOperator(syntax_tree.Root())) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"invalid operator expression", syntax_tree.Root());
@@ -63,6 +92,7 @@ namespace uni::lango {
 
 		bool ParseC(IstreamTrait& input, NodeChain& operators,
 			NestedParseUnit*& syntax, const FrontendCDiagnostics& diagnostics,
+			const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info,
 			FrontendCDebugInfo* debug_info) {
 			LinearParser lexer(input);
 			Dchain tokens;
@@ -70,10 +100,11 @@ namespace uni::lango {
 			lexer.handler_comment = LineParse_Comment_C_Cpp;
 			lexer.method_omit_comment = true;
 			lexer.Parse(tokens);
+			JoinCHexadecimalTokens(tokens);
 
 			frontend_c_detail::ListOperators(operators);
 			syntax = new NestedParseUnit(tokens, &operators, sizeof(mag_node_t));
-			if (AnalyzeC(*syntax, diagnostics, debug_info)) return true;
+			if (AnalyzeC(*syntax, diagnostics, target, type_info, debug_info)) return true;
 			delete syntax;
 			syntax = nullptr;
 			return false;
@@ -98,11 +129,15 @@ namespace uni::lango {
 			&DefaultDiagnosticInterface();
 		diagnostics.source_name = options.source_name ? options.source_name : "<input>";
 		if (!ValidateOptions(options, diagnostics)) return false;
+		FrontendCTargetInfo target = FrontendCTargetInfo::FromTarget(options.target);
+		FrontendCTypeInfo type_info;
 		FrontendCDebugInfo debug_info;
 		FrontendCDebugInfo* requested_debug_info = options.debug_source ? &debug_info : nullptr;
-		if (!ParseC(input, operators, syntax, diagnostics, requested_debug_info)) return false;
+		if (!ParseC(input, operators, syntax, diagnostics, target,
+			type_info, requested_debug_info)) return false;
 		bool success = frontend_c_detail::Lower(
-			*syntax->GetNetwork(), module, diagnostics, requested_debug_info);
+			*syntax->GetNetwork(), module, diagnostics, target,
+			type_info, requested_debug_info);
 		delete syntax;
 		return success;
 	}
@@ -116,7 +151,10 @@ namespace uni::lango {
 			&DefaultDiagnosticInterface();
 		diagnostics.source_name = options.source_name ? options.source_name : "<input>";
 		if (!ValidateOptions(options, diagnostics)) return false;
-		if (!ParseC(input, operators, syntax, diagnostics, nullptr)) return false;
+		FrontendCTargetInfo target = FrontendCTargetInfo::FromTarget(options.target);
+		FrontendCTypeInfo type_info;
+		if (!ParseC(input, operators, syntax, diagnostics, target,
+			type_info, nullptr)) return false;
 		PrintNode(output, syntax->GetNetwork()->Root());
 		delete syntax;
 		return true;

@@ -102,6 +102,8 @@ declare @putchar(i32) -> i32
 
 %address = local i32
 %array = local i32, 12
+global @counter i32 = 0
+%global_address = globaladdr @counter
 %loaded = load i32, %address
 store i32 %value, %address
 %next = ptradd i32 %address, %index
@@ -109,6 +111,8 @@ store i32 %value, %address
 
 - `const`：产生整数常量。
 - `local`：创建函数局部存储，结果类型为 `ptr`；可选元素数量用于连续数组存储。
+- `global`：定义具有静态存储期的模块级对象，未显式初始化时由前端写入零初始化值。
+- `globaladdr`：取得模块级对象的地址，结果类型为 `ptr`。
 - `mov`：复制一个 SSA 值，不读写内存。
 - `load`：从 `ptr` 地址读取值。
 - `store`：向 `ptr` 地址写入值，不产生结果。
@@ -185,5 +189,5 @@ call void @abort()
 调用的参数和返回类型必须与函数声明一致。具体的参数寄存器、返回值寄存器
 和栈布局由目标后端按照 ABI 处理。
 
-第一版暂不支持浮点、聚合类型、全局变量、指针差值、`phi`、原子操作和
+第一版暂不支持浮点、聚合类型、指针差值、`phi`、原子操作和
 可变参数。

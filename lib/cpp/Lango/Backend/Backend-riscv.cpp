@@ -35,6 +35,13 @@ namespace uni::lango {
 			return nullptr;
 		}
 
+		const clover::Global* FindGlobal(const clover::Module& module,
+			const uni::String& name) {
+			for (const clover::Global& global : module.globals)
+				if (!StrCompare(global.name.reference(), name.reference())) return &global;
+			return nullptr;
+		}
+
 		// Check target-wide requirements before writing partial assembly output.
 		bool ValidateTarget(const RISCVTargetInfo& target, const clover::Module& module) {
 			if (target.bits != 64) {
@@ -45,9 +52,28 @@ namespace uni::lango {
 				plogerro("RISC-V backend: the I instruction set is required");
 				return false;
 			}
+			for (stduint index = 0; index < module.globals.Count(); index++) {
+				const clover::Global& global = module.globals.begin()[index];
+				if (!global.name.getByteCount() || global.type == clover::Type::Void ||
+					global.element_count <= 0) {
+					plogerro("RISC-V backend: invalid global object");
+					return false;
+				}
+				for (stduint previous = 0; previous < index; previous++)
+					if (!StrCompare(global.name.reference(),
+						module.globals.begin()[previous].name.reference())) {
+						plogerro("RISC-V backend: duplicate global '%s'", global.name.reference());
+						return false;
+					}
+			}
 			for (stduint function_index = 0;
 				function_index < module.functions.Count(); function_index++) {
 				const clover::Function& function = module.functions.begin()[function_index];
+				if (FindGlobal(module, function.name)) {
+					plogerro("RISC-V backend: function conflicts with global '%s'",
+						function.name.reference());
+					return false;
+				}
 				for (stduint previous = 0; previous < function_index; previous++)
 					if (!StrCompare(function.name.reference(),
 						module.functions.begin()[previous].name.reference())) {
@@ -61,11 +87,19 @@ namespace uni::lango {
 				}
 				for (const clover::BasicBlock& block : function.blocks) {
 					for (const clover::Instruction& instruction : block.instructions) {
+						if (instruction.opcode == clover::Opcode::GlobalAddr &&
+							!FindGlobal(module, instruction.name)) {
+							plogerro("RISC-V backend: undefined global '%s'",
+								instruction.name.reference());
+							return false;
+						}
 						if (!target.extension_m &&
 							(instruction.opcode == clover::Opcode::Mul ||
 							instruction.opcode == clover::Opcode::SDiv ||
-							instruction.opcode == clover::Opcode::SRem)) {
-							plogerro("RISC-V backend: Clover mul/sdiv/srem requires -minst=im");
+							instruction.opcode == clover::Opcode::UDiv ||
+							instruction.opcode == clover::Opcode::SRem ||
+							instruction.opcode == clover::Opcode::URem)) {
+							plogerro("RISC-V backend: Clover multiply/divide/remainder requires -minst=im");
 							return false;
 						}
 						if (instruction.opcode == clover::Opcode::Call) {
@@ -115,6 +149,7 @@ namespace uni::lango {
 
 		stdsint TypeBits(clover::Type type, const RISCVTargetInfo& target) {
 			switch (type) {
+			case clover::Type::Void: return 0;
 			case clover::Type::I1: return 1;
 			case clover::Type::I8: return 8;
 			case clover::Type::I16: return 16;
@@ -344,8 +379,12 @@ namespace uni::lango {
 				BinaryMnemonic(instruction, "mul", "mulw"), output);
 			case clover::Opcode::SDiv: return EmitBinary(instruction, layout,
 				BinaryMnemonic(instruction, "div", "divw"), output);
+			case clover::Opcode::UDiv: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "divu", "divuw"), output);
 			case clover::Opcode::SRem: return EmitBinary(instruction, layout,
 				BinaryMnemonic(instruction, "rem", "remw"), output);
+			case clover::Opcode::URem: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "remu", "remuw"), output);
 			case clover::Opcode::And: return EmitBinary(instruction, layout, "and", output);
 			case clover::Opcode::Or: return EmitBinary(instruction, layout, "or", output);
 			case clover::Opcode::Xor: return EmitBinary(instruction, layout, "xor", output);
@@ -353,6 +392,8 @@ namespace uni::lango {
 				BinaryMnemonic(instruction, "sll", "sllw"), output);
 			case clover::Opcode::AShr: return EmitBinary(instruction, layout,
 				BinaryMnemonic(instruction, "sra", "sraw"), output);
+			case clover::Opcode::LShr: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "srl", "srlw"), output);
 			case clover::Opcode::PtrAdd:
 				return EmitPtrAdd(instruction, layout, target, output);
 
@@ -379,14 +420,57 @@ namespace uni::lango {
 				case clover::ICmpPredicate::SGE:
 					output.OutFormat("\tslt t2, t0, t1\n\txori t2, t2, 1\n");
 					break;
+				case clover::ICmpPredicate::ULT:
+					output.OutFormat("\tsltu t2, t0, t1\n");
+					break;
+				case clover::ICmpPredicate::ULE:
+					output.OutFormat("\tsltu t2, t1, t0\n\txori t2, t2, 1\n");
+					break;
+				case clover::ICmpPredicate::UGT:
+					output.OutFormat("\tsltu t2, t1, t0\n");
+					break;
+				case clover::ICmpPredicate::UGE:
+					output.OutFormat("\tsltu t2, t0, t1\n\txori t2, t2, 1\n");
+					break;
 				}
 				return StoreResult(layout, instruction, "t2", output);
 
 			case clover::Opcode::ZExt:
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
-				if (instruction.operands.begin()[0].type == clover::Type::I1)
-					output.OutFormat("\tandi t0, t0, 1\n");
+				switch (TypeBits(instruction.operands.begin()[0].type, target)) {
+				case 1: output.OutFormat("\tandi t0, t0, 1\n"); break;
+				case 8: output.OutFormat("\tandi t0, t0, 255\n"); break;
+				case 16: output.OutFormat("\tslli t0, t0, 48\n\tsrli t0, t0, 48\n"); break;
+				case 32: output.OutFormat("\tslli t0, t0, 32\n\tsrli t0, t0, 32\n"); break;
+				}
+				return StoreResult(layout, instruction, "t0", output);
+
+			case clover::Opcode::SExt:
+				if (!RequireOperands(instruction, 1) ||
+					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
+				switch (TypeBits(instruction.operands.begin()[0].type, target)) {
+				case 1: output.OutFormat("\tslli t0, t0, 63\n\tsrai t0, t0, 63\n"); break;
+				case 8: output.OutFormat("\tslli t0, t0, 56\n\tsrai t0, t0, 56\n"); break;
+				case 16: output.OutFormat("\tslli t0, t0, 48\n\tsrai t0, t0, 48\n"); break;
+				case 32: output.OutFormat("\taddiw t0, t0, 0\n"); break;
+				}
+				return StoreResult(layout, instruction, "t0", output);
+
+			case clover::Opcode::Trunc:
+				if (!RequireOperands(instruction, 1) ||
+					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
+				switch (TypeBits(instruction.type, target)) {
+				case 1: output.OutFormat("\tandi t0, t0, 1\n"); break;
+				case 8: output.OutFormat("\tandi t0, t0, 255\n"); break;
+				case 16: output.OutFormat("\tslli t0, t0, 48\n\tsrli t0, t0, 48\n"); break;
+				case 32: output.OutFormat("\tslli t0, t0, 32\n\tsrli t0, t0, 32\n"); break;
+				}
+				return StoreResult(layout, instruction, "t0", output);
+
+			case clover::Opcode::GlobalAddr:
+				if (!instruction.name.getByteCount()) return false;
+				output.OutFormat("\tla t0, %s\n", instruction.name.reference());
 				return StoreResult(layout, instruction, "t0", output);
 
 			case clover::Opcode::Call:
@@ -399,6 +483,7 @@ namespace uni::lango {
 						output.OutFormat("\taddiw %s, %s, 0\n", reg, reg);
 				}
 				output.OutFormat("\tcall %s\n", instruction.callee.reference());
+				if (instruction.type == clover::Type::Void) return true;
 				if (instruction.type == clover::Type::I32)
 					output.OutFormat("\taddiw a0, a0, 0\n");
 				return StoreResult(layout, instruction, "a0", output);
@@ -426,6 +511,11 @@ namespace uni::lango {
 				return true;
 
 			case clover::Opcode::Ret:
+				if (instruction.type == clover::Type::Void) {
+					if (instruction.operands.Count()) return false;
+					EmitEpilogue(output);
+					return true;
+				}
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "a0", output)) return false;
 				EmitEpilogue(output);
@@ -484,6 +574,27 @@ namespace uni::lango {
 
 	bool BackendRISCV::Generate(const clover::Module& module, uni::OstreamTrait& output) {
 		if (!ValidateTarget(target, module)) return false;
+		for (const clover::Global& global : module.globals) {
+			stdsint element_size = TypeStorageBytes(global.type, target);
+			stdsint object_size = element_size * global.element_count;
+			if (!element_size || object_size <= 0) return false;
+			output.OutFormat(global.initializer ? ".data\n" : ".bss\n");
+			output.OutFormat(".globl %s\n.type %s, @object\n.size %s, %[i]\n",
+				global.name.reference(), global.name.reference(), global.name.reference(), object_size);
+			output.OutFormat(".balign %[i]\n%s:\n", element_size,
+				global.name.reference());
+			if (!global.initializer) output.OutFormat("\t.zero %[i]\n", object_size);
+			else if (global.element_count != 1) return false;
+			else {
+				switch (element_size) {
+				case 1: output.OutFormat("\t.byte %[i]\n", global.initializer); break;
+				case 2: output.OutFormat("\t.half %[i]\n", global.initializer); break;
+				case 4: output.OutFormat("\t.word %[i]\n", global.initializer); break;
+				case 8: output.OutFormat("\t.quad %[i]\n", global.initializer); break;
+				default: return false;
+				}
+			}
+		}
 		output.OutFormat(".text\n");
 		for (const clover::Function& function : module.functions)
 			if (!EmitFunction(function, target, output)) return false;

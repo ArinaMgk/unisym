@@ -57,16 +57,65 @@ namespace clover {
 			uni::Vector<FrontendCType> parameter_types;
 		};
 
+		// Module-scope object visible at the current translation-unit position.
+		struct FrontendCGlobal {
+			uni::String name;
+			FrontendCType type;
+		};
+
+		bool ParseIntegerLiteral(const char* text, stdsint& value) {
+			if (!text || !*text) return false;
+			unsigned base = 10;
+			if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
+				base = 16;
+				text += 2;
+			}
+			else if (text[0] == '0' && text[1]) base = 8;
+			if (!*text) return false;
+			stdsint result = 0;
+			for (; *text; text++) {
+				unsigned digit;
+				if (*text >= '0' && *text <= '9') digit = (unsigned)(*text - '0');
+				else if (*text >= 'a' && *text <= 'f') digit = (unsigned)(*text - 'a' + 10);
+				else if (*text >= 'A' && *text <= 'F') digit = (unsigned)(*text - 'A' + 10);
+				else return false;
+				if (digit >= base) return false;
+				result = result * (stdsint)base + (stdsint)digit;
+			}
+			value = result;
+			return true;
+		}
+
+		Type CloverTypeFor(const FrontendCType& type,
+			const FrontendCTargetInfo& target) {
+			if (type.IsVoid()) return Type::Void;
+			if (type.IsPointer()) return Type::Ptr;
+			unsigned bits = target.int_bits;
+			switch (type.integer_rank) {
+			case FrontendCIntegerRank::Char: bits = target.char_bits; break;
+			case FrontendCIntegerRank::Short: bits = target.short_bits; break;
+			case FrontendCIntegerRank::Int: bits = target.int_bits; break;
+			case FrontendCIntegerRank::Long: bits = target.long_bits; break;
+			case FrontendCIntegerRank::LongLong: bits = target.long_long_bits; break;
+			}
+			return bits == 8 ? Type::I8 : bits == 16 ? Type::I16 :
+				bits == 64 ? Type::I64 : Type::I32;
+		}
+
 		// Lowers one C function body into one Clover function.
 		class FunctionBuilder {
 		private:
 			Function* function = nullptr;
+			FrontendCType return_type;
 			stduint current_block = 0;
 			unsigned next_block = 0;
 			unsigned next_value = 0;
 			uni::Vector<LocalValue> locals;
 			uni::Vector<const uni::Nnode*> emitted_sources;
 			const uni::Vector<FrontendCFunction>* visible_functions = nullptr;
+			const uni::Vector<FrontendCGlobal>* visible_globals = nullptr;
+			const FrontendCTargetInfo* target = nullptr;
+			const FrontendCTypeInfo* type_info = nullptr;
 			const FrontendCDebugInfo* debug_info = nullptr;
 			const FrontendCDiagnostics* diagnostics = nullptr;
 			bool failed = false;
@@ -204,7 +253,9 @@ namespace clover {
 				stduint scalar_count = pointee_type.StorageElementCount();
 				if (scalar_count > 1) {
 					Value scale = EmitConst((stdsint)scalar_count);
-					index = EmitResult(Opcode::Mul, Type::I32, index, scale);
+					if (index.type == Type::I64)
+						scale = EmitConversion(Opcode::SExt, Type::I64, scale);
+					index = EmitResult(Opcode::Mul, index.type, index, scale);
 				}
 				Instruction instruction;
 				instruction.opcode = Opcode::PtrAdd;
@@ -227,8 +278,85 @@ namespace clover {
 				CurrentBlock().instructions.Append(instruction);
 			}
 
+			unsigned IntegerBits(const FrontendCType& type) const {
+				switch (type.integer_rank) {
+				case FrontendCIntegerRank::Char: return target->char_bits;
+				case FrontendCIntegerRank::Short: return target->short_bits;
+				case FrontendCIntegerRank::Int: return target->int_bits;
+				case FrontendCIntegerRank::Long: return target->long_bits;
+				case FrontendCIntegerRank::LongLong: return target->long_long_bits;
+				}
+				return 0;
+			}
+
 			Type CloverType(const FrontendCType& type) const {
-				return type.IsPointer() ? Type::Ptr : Type::I32;
+				return CloverTypeFor(type, *target);
+			}
+
+			FrontendCType IntType() const {
+				return FrontendCType();
+			}
+
+			FrontendCType SizeType() const {
+				FrontendCType type;
+				type.is_signed = false;
+				type.integer_rank = target->long_bits == target->pointer_bits ?
+					FrontendCIntegerRank::Long : FrontendCIntegerRank::LongLong;
+				return type;
+			}
+
+			Value EmitConversion(Opcode opcode, Type destination, Value operand) {
+				Instruction instruction;
+				instruction.opcode = opcode;
+				instruction.type = destination;
+				instruction.has_result = true;
+				instruction.result = NewValue(destination);
+				instruction.operands.Append(operand);
+				CurrentBlock().instructions.Append(instruction);
+				return instruction.result;
+			}
+
+			LoweredValue ConvertInteger(LoweredValue lowered,
+				const FrontendCType& destination, const uni::Nnode* node) {
+				lowered = ToRValue(lowered, node);
+				if (!lowered.valid || !lowered.type.IsInteger() || !destination.IsInteger())
+					return Error("integer conversion requires integer operands", node);
+				if (lowered.value.type == Type::I1 && CloverType(lowered.type) != Type::I1)
+					lowered.value = EmitConversion(Opcode::ZExt,
+						CloverType(lowered.type), lowered.value);
+				unsigned source_bits = IntegerBits(lowered.type);
+				unsigned destination_bits = IntegerBits(destination);
+				if (source_bits < destination_bits)
+					lowered.value = EmitConversion(lowered.type.is_signed ? Opcode::SExt :
+						Opcode::ZExt, CloverType(destination), lowered.value);
+				else if (source_bits > destination_bits)
+					lowered.value = EmitConversion(Opcode::Trunc,
+						CloverType(destination), lowered.value);
+				lowered.type = destination;
+				lowered.is_lvalue = false;
+				return lowered;
+			}
+
+			FrontendCType PromoteType(FrontendCType type) const {
+				if (type.IsInteger() &&
+					type.integer_rank < FrontendCIntegerRank::Int) return IntType();
+				return type;
+			}
+
+			FrontendCType CommonIntegerType(FrontendCType left,
+				FrontendCType right) const {
+				left = PromoteType(left);
+				right = PromoteType(right);
+				if (left.integer_rank == right.integer_rank) {
+					if (!left.is_signed || !right.is_signed) left.is_signed = false;
+					return left;
+				}
+				FrontendCType higher = left.integer_rank > right.integer_rank ? left : right;
+				FrontendCType lower = left.integer_rank > right.integer_rank ? right : left;
+				if (higher.is_signed == lower.is_signed || !higher.is_signed) return higher;
+				if (IntegerBits(higher) > IntegerBits(lower)) return higher;
+				higher.is_signed = false;
+				return higher;
 			}
 
 			LoweredValue ToRValue(LoweredValue lowered, const uni::Nnode* node) {
@@ -244,34 +372,6 @@ namespace clover {
 				return lowered;
 			}
 
-			// Convert a comparison result to the C99 int type when required.
-			Value AsInt(Value value) {
-				if (value.type == Type::I32) return value;
-				if (value.type == Type::I1) {
-					Instruction instruction;
-					instruction.opcode = Opcode::ZExt;
-					instruction.type = Type::I32;
-					instruction.has_result = true;
-					instruction.result = NewValue(Type::I32);
-					instruction.operands.Append(value);
-					CurrentBlock().instructions.Append(instruction);
-					return instruction.result;
-				}
-				failed = true;
-				diagnostics->Report(DiagnosticStage::Lowering,
-					"expected integer value");
-				return value;
-			}
-
-			Value AsInt(LoweredValue lowered, const uni::Nnode* node) {
-				lowered = ToRValue(lowered, node);
-				if (!lowered.valid || !lowered.type.IsInteger()) {
-					Error("expected integer expression", node);
-					return lowered.value;
-				}
-				return AsInt(lowered.value);
-			}
-
 			Value AsCondition(LoweredValue lowered, const uni::Nnode* node) {
 				lowered = ToRValue(lowered, node);
 				if (!lowered.valid || !lowered.type.IsInteger()) {
@@ -279,11 +379,11 @@ namespace clover {
 					return lowered.value;
 				}
 				if (lowered.value.type == Type::I1) return lowered.value;
-				Value integer = AsInt(lowered.value);
-				Value zero = EmitConst(0);
+				Value integer = lowered.value;
+				Value zero = EmitConst(0, lowered.type);
 				Instruction instruction;
 				instruction.opcode = Opcode::ICmp;
-				instruction.type = Type::I32;
+				instruction.type = CloverType(lowered.type);
 				instruction.has_result = true;
 				instruction.result = NewValue(Type::I1);
 				instruction.operands.Append(integer);
@@ -294,12 +394,13 @@ namespace clover {
 			}
 
 			// Materialize a source integer literal as a Const instruction.
-			Value EmitConst(stdsint immediate) {
+			Value EmitConst(stdsint immediate,
+				const FrontendCType& type = FrontendCType()) {
 				Instruction instruction;
 				instruction.opcode = Opcode::Const;
-				instruction.type = Type::I32;
+				instruction.type = CloverType(type);
 				instruction.has_result = true;
-				instruction.result = NewValue(Type::I32);
+				instruction.result = NewValue(instruction.type);
 				instruction.immediate = immediate;
 				CurrentBlock().instructions.Append(instruction);
 				return instruction.result;
@@ -318,6 +419,24 @@ namespace clover {
 				for (const FrontendCFunction& candidate : *visible_functions)
 					if (!StrCompare(candidate.name.reference(), name)) return &candidate;
 				return nullptr;
+			}
+
+			const FrontendCGlobal* FindGlobal(const char* name) const {
+				if (!visible_globals) return nullptr;
+				for (const FrontendCGlobal& candidate : *visible_globals)
+					if (!StrCompare(candidate.name.reference(), name)) return &candidate;
+				return nullptr;
+			}
+
+			Value EmitGlobalAddress(const FrontendCGlobal& global) {
+				Instruction instruction;
+				instruction.opcode = Opcode::GlobalAddr;
+				instruction.type = Type::Ptr;
+				instruction.has_result = true;
+				instruction.result = NewValue(Type::Ptr);
+				instruction.name = global.name;
+				CurrentBlock().instructions.Append(instruction);
+				return instruction.result;
 			}
 
 			bool PredeclareLocal(const char* name, const FrontendCType& type,
@@ -376,18 +495,18 @@ namespace clover {
 			}
 
 			bool ParseDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
-				FrontendCType& type) {
-				type = FrontendCType();
+				FrontendCType& type, const FrontendCType& base_type) {
+				type = base_type;
 				return ParseDeclaratorNode(node, identifier, type);
 			}
 
 			bool PredeclareDeclarator(uni::Nnode* node, const uni::Nnode* declaration,
-				const uni::Nnode* scope) {
+				const uni::Nnode* scope, const FrontendCType& base_type) {
 				if (!node) return false;
 				if (node->type == tok_func && node->addr &&
 					!StrCompare(node->addr, "OP@COMMA")) {
 					for (uni::Nnode* child = node->subf; child; child = child->next)
-						if (!PredeclareDeclarator(child, declaration, scope)) return false;
+						if (!PredeclareDeclarator(child, declaration, scope, base_type)) return false;
 					return true;
 				}
 				uni::Nnode* declarator = node;
@@ -395,14 +514,15 @@ namespace clover {
 					!StrCompare(node->addr, "OP@ASSIGN")) declarator = node->subf;
 				uni::Nnode* identifier = nullptr;
 				FrontendCType type;
-				if (!ParseDeclarator(declarator, identifier, type)) return false;
+				if (!ParseDeclarator(declarator, identifier, type, base_type)) return false;
 				return PredeclareLocal(identifier->addr, type, declaration, scope);
 			}
 
 			bool PredeclareBlock(uni::Nnode* block) {
 				for (uni::Nnode* node = block ? block->subf : nullptr; node; node = node->next) {
 					if (node->type == ToToken(FrontendCToken::Declaration)) {
-						if (!PredeclareDeclarator(node->subf, node, block)) {
+						const FrontendCType* base_type = type_info->Find(node);
+						if (!base_type || !PredeclareDeclarator(node->subf, node, block, *base_type)) {
 							if (failed) return false;
 							return Error("invalid int declaration", node).valid;
 						}
@@ -449,7 +569,9 @@ namespace clover {
 				stduint element_count = local.type.StorageElementCount();
 				if (values.Count() > element_count)
 					return Error("too many array initializer values", initializer).valid;
-				FrontendCType element_pointer = FrontendCType().AddressType();
+				FrontendCType element_type = local.type;
+				element_type.array_dimension_count = 0;
+				FrontendCType element_pointer = element_type.AddressType();
 				for (stduint index = 0; index < element_count; index++) {
 					Value value;
 					if (index < values.Count()) {
@@ -458,9 +580,11 @@ namespace clover {
 						if (!lowered.valid) return false;
 						if (!lowered.type.IsInteger())
 							return Error("array initializer requires an integer", value_node).valid;
-						value = AsInt(lowered.value);
+						lowered = ConvertInteger(lowered, element_type, value_node);
+						if (!lowered.valid) return false;
+						value = lowered.value;
 					}
-					else value = EmitConst(0);
+					else value = EmitConst(0, element_type);
 					Value element_index = EmitConst((stdsint)index);
 					Value address = EmitPtrAdd(local.address, element_index, element_pointer);
 					EmitStore(value, address);
@@ -487,7 +611,9 @@ namespace clover {
 				}
 				uni::Nnode* identifier = nullptr;
 				FrontendCType declared_type;
-				if (!ParseDeclarator(declarator, identifier, declared_type))
+				const FrontendCType* base_type = type_info->Find(declaration);
+				if (!base_type || !ParseDeclarator(declarator, identifier,
+					declared_type, *base_type))
 					return Error("invalid declarator", declarator).valid;
 				LocalValue* local = ActivateLocal(identifier->addr, declaration);
 				if (!local) return Error("invalid local declaration", identifier).valid;
@@ -497,8 +623,11 @@ namespace clover {
 				LoweredValue initializer = ToRValue(
 					LowerExpression(initializer_node), initializer_node);
 				if (!initializer.valid) return false;
-				if (!local->type.IsSame(initializer.type))
+				if (local->type.IsInteger())
+					initializer = ConvertInteger(initializer, local->type, initializer_node);
+				else if (!local->type.IsSame(initializer.type))
 					return Error("incompatible initializer type", initializer_node).valid;
+				if (!initializer.valid) return false;
 				EmitStore(initializer.value, local->address);
 				return true;
 			}
@@ -543,12 +672,17 @@ namespace clover {
 					LoweredValue argument = ToRValue(
 						LowerExpression(argument_node), argument_node);
 					if (!argument.valid) return argument;
-					if (!argument.type.IsSame(signature->parameter_types.begin()[index]))
+					const FrontendCType& parameter_type =
+						signature->parameter_types.begin()[index];
+					if (parameter_type.IsInteger())
+						argument = ConvertInteger(argument, parameter_type, argument_node);
+					else if (!argument.type.IsSame(parameter_type))
 						return Error("incompatible function argument type", argument_node);
+					if (!argument.valid) return argument;
 					instruction.operands.Append(argument.value);
 				}
-				instruction.has_result = true;
-				instruction.result = NewValue(instruction.type);
+				instruction.has_result = !signature->return_type.IsVoid();
+				if (instruction.has_result) instruction.result = NewValue(instruction.type);
 				CurrentBlock().instructions.Append(instruction);
 				return { instruction.result, true, signature->return_type, false };
 			}
@@ -568,7 +702,10 @@ namespace clover {
 				}
 				if (!left.type.IsPointer() || !right.type.IsInteger())
 					return Error("array subscript requires a pointer and an integer", node);
-				Value index = AsInt(right.value);
+				FrontendCType index_type = PromoteType(right.type);
+				right = ConvertInteger(right, index_type, right_node);
+				if (!right.valid) return right;
+				Value index = right.value;
 				Value address = EmitPtrAdd(left.value, index, left.type);
 				return { address, !failed, left.type.DereferenceType(), true };
 			}
@@ -581,7 +718,8 @@ namespace clover {
 					(!lowered.type.IsInteger() && !lowered.type.IsPointer()))
 					return Error("increment requires an arithmetic or pointer lvalue", operand);
 				Value previous = EmitResult(Opcode::Load, CloverType(lowered.type), lowered.value);
-				Value one = EmitConst(1);
+				Value one = EmitConst(1, lowered.type.IsInteger() ?
+					PromoteType(lowered.type) : IntType());
 				Value updated;
 				if (lowered.type.IsPointer()) {
 					Value index = one;
@@ -591,10 +729,187 @@ namespace clover {
 					}
 					updated = EmitPtrAdd(previous, index, lowered.type);
 				}
-				else updated = EmitResult(increment ? Opcode::Add : Opcode::Sub,
-					Type::I32, previous, one);
+				else {
+					FrontendCType arithmetic_type = PromoteType(lowered.type);
+					LoweredValue promoted = ConvertInteger(
+						{ previous, true, lowered.type, false }, arithmetic_type, operand);
+					updated = EmitResult(increment ? Opcode::Add : Opcode::Sub,
+						CloverType(arithmetic_type), promoted.value, one);
+					LoweredValue converted = ConvertInteger(
+						{ updated, true, arithmetic_type, false }, lowered.type, operand);
+					if (!converted.valid) return converted;
+					updated = converted.value;
+				}
 				EmitStore(updated, lowered.value);
 				return { return_updated ? updated : previous, true, lowered.type, false };
+			}
+
+			bool IsTypeWord(const uni::Nnode* node, const char* word) const {
+				return node && node->type == tok_identy && node->addr &&
+					!StrCompare(node->addr, word);
+			}
+
+			// Parse the integer and pointer subset of a C type-name used by sizeof.
+			bool ParseTypeName(uni::Nnode* node, FrontendCType& type,
+				const uni::Nnode* end = nullptr) const {
+				if (node && node->next == end && node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "operator[]")) {
+					uni::Nnode* dimension = node->subf ? node->subf->Tail() : nullptr;
+					if (!dimension || dimension == node->subf ||
+						dimension->type != tok_number || !dimension->addr ||
+						!ParseTypeName(node->subf, type, dimension)) return false;
+					stdsint count = atoins(dimension->addr);
+					return count > 0 && type.AppendArrayDimension((stduint)count);
+				}
+				unsigned signed_count = 0, unsigned_count = 0, char_count = 0;
+				unsigned short_count = 0, int_count = 0, long_count = 0, void_count = 0;
+				bool found = false;
+				for (; node != end && node && node->type == tok_identy; node = node->next) {
+					if (IsTypeWord(node, "signed")) signed_count++;
+					else if (IsTypeWord(node, "unsigned")) unsigned_count++;
+					else if (IsTypeWord(node, "char")) char_count++;
+					else if (IsTypeWord(node, "short")) short_count++;
+					else if (IsTypeWord(node, "int")) int_count++;
+					else if (IsTypeWord(node, "long")) long_count++;
+					else if (IsTypeWord(node, "void")) void_count++;
+					else break;
+					found = true;
+				}
+				if (!found || signed_count > 1 || unsigned_count > 1 || void_count > 1 ||
+					(signed_count && unsigned_count) || char_count > 1 ||
+					short_count > 1 || int_count > 1 || long_count > 2 ||
+					(char_count && (short_count || int_count || long_count)) ||
+					(short_count && long_count) ||
+					(void_count && (signed_count || unsigned_count || char_count ||
+						short_count || int_count || long_count))) return false;
+				type = FrontendCType();
+				type.is_void = void_count != 0;
+				type.is_signed = !unsigned_count;
+				if (char_count) type.integer_rank = FrontendCIntegerRank::Char;
+				else if (short_count) type.integer_rank = FrontendCIntegerRank::Short;
+				else if (long_count == 1) type.integer_rank = FrontendCIntegerRank::Long;
+				else if (long_count == 2) type.integer_rank = FrontendCIntegerRank::LongLong;
+				while (node != end && node && node->type == tok_symbol && node->addr &&
+					!StrCompare(node->addr, "*")) {
+					type = type.AddressType();
+					node = node->next;
+				}
+				return node == end;
+			}
+
+			bool ResolveExpressionType(uni::Nnode* node, FrontendCType& type) {
+				if (!node) return false;
+				if (node->type == tok_number) {
+					type = IntType();
+					return true;
+				}
+				if (node->type == tok_identy) {
+					LocalValue* local = FindLocal(node->addr);
+					if (local) type = local->type;
+					else {
+						const FrontendCGlobal* global = FindGlobal(node->addr);
+						if (!global) return false;
+						type = global->type;
+					}
+					return true;
+				}
+				if (node->type != tok_func) return false;
+				if (!node->addr) return ResolveExpressionType(node->subf, type);
+				if (!StrCompare(node->addr, "sizeof") ||
+					!StrCompare(node->addr, "OP@SIZEOF")) {
+					type = SizeType();
+					return true;
+				}
+				if (!StrCompare(node->addr, "operator[]")) {
+					uni::Nnode* left = node->subf;
+					uni::Nnode* right = left ? left->next : nullptr;
+					FrontendCType left_type, right_type;
+					if (!left || !right || right->next ||
+						!ResolveExpressionType(left, left_type) ||
+						!ResolveExpressionType(right, right_type)) return false;
+					if (left_type.IsArray()) left_type = left_type.DecayType();
+					if (right_type.IsArray()) right_type = right_type.DecayType();
+					if (left_type.IsInteger() && right_type.IsPointer()) left_type = right_type;
+					if (!left_type.IsPointer()) return false;
+					type = left_type.DereferenceType();
+					return true;
+				}
+				if (StrLength(node->addr) < 3 || node->addr[0] != 'O' ||
+					node->addr[1] != 'P' || node->addr[2] != '@') {
+					const FrontendCFunction* signature = FindFunction(node->addr);
+					if (!signature) return false;
+					type = signature->return_type;
+					return true;
+				}
+				uni::Nnode* left = node->subf;
+				uni::Nnode* right = left ? left->next : nullptr;
+				FrontendCType left_type;
+				if (!ResolveExpressionType(left, left_type)) return false;
+				if (!StrCompare(node->addr, "OP@PREADDR")) {
+					type = left_type.AddressType();
+					return true;
+				}
+				if (!StrCompare(node->addr, "OP@PREMEMB")) {
+					if (!left_type.IsPointer()) return false;
+					type = left_type.DereferenceType();
+					return true;
+				}
+				if (!StrCompare(node->addr, "OP@JEQUAL") ||
+					!StrCompare(node->addr, "OP@JNOTEQ") ||
+					!StrCompare(node->addr, "OP@JBELOW") ||
+					!StrCompare(node->addr, "OP@JBEEQU") ||
+					!StrCompare(node->addr, "OP@JGREAT") ||
+					!StrCompare(node->addr, "OP@JGREQU")) {
+					type = IntType();
+					return true;
+				}
+				if (!right) {
+					if (!StrCompare(node->addr, "OP@SUFADD") ||
+						!StrCompare(node->addr, "OP@SUFSUB") ||
+						!StrCompare(node->addr, "OP@PREADD") ||
+						!StrCompare(node->addr, "OP@@PRESUB")) type = left_type;
+					else type = PromoteType(left_type);
+					return true;
+				}
+				FrontendCType right_type;
+				if (!ResolveExpressionType(right, right_type)) return false;
+				if (!StrCompare(node->addr, "OP@ASSIGN")) {
+					type = left_type;
+					return true;
+				}
+				if (!StrCompare(node->addr, "OP@COMMA")) {
+					type = right_type;
+					return true;
+				}
+				if ((!StrCompare(node->addr, "OP@ARIADD") ||
+					!StrCompare(node->addr, "OP@ARISUB")) && left_type.IsPointer()) {
+					type = left_type;
+					return true;
+				}
+				if (!StrCompare(node->addr, "OP@ARIADD") && right_type.IsPointer()) {
+					type = right_type;
+					return true;
+				}
+				if (!left_type.IsInteger() || !right_type.IsInteger()) return false;
+				type = CommonIntegerType(left_type, right_type);
+				return true;
+			}
+
+			stdsint SizeOf(const FrontendCType& type) const {
+				unsigned bits = type.IsPointer() ? target->pointer_bits : IntegerBits(type);
+				stduint element_count = type.IsPointer() ? 1 : type.StorageElementCount();
+				return (stdsint)((bits / target->char_bits) * element_count);
+			}
+
+			LoweredValue LowerSizeof(uni::Nnode* operand) {
+				FrontendCType operand_type;
+				if (!ParseTypeName(operand, operand_type) &&
+					!ResolveExpressionType(operand, operand_type))
+					return Error("invalid sizeof operand", operand);
+				if (operand_type.IsVoid()) return Error("sizeof cannot be applied to void", operand);
+				FrontendCType result_type = SizeType();
+				return { EmitConst(SizeOf(operand_type), result_type), true,
+					result_type, false };
 			}
 
 			// Translate one operator and recursively lower its operands.
@@ -615,6 +930,8 @@ namespace clover {
 					return LowerIncrement(left_node, true, true);
 				if (!StrCompare(operation, "OP@@PRESUB"))
 					return LowerIncrement(left_node, false, true);
+				if (!StrCompare(operation, "OP@SIZEOF"))
+					return LowerSizeof(left_node);
 				if (!StrCompare(operation, "OP@PREADDR")) {
 					LoweredValue operand = LowerExpression(left_node);
 					if (!operand.valid) return operand;
@@ -634,15 +951,18 @@ namespace clover {
 					if (!operand.valid) return operand;
 					if (!operand.type.IsInteger())
 						return Error("unary plus requires an integer", left_node);
-					return operand;
+					return ConvertInteger(operand, PromoteType(operand.type), left_node);
 				}
 				if (!StrCompare(operation, "OP@PRENEGA")) {
-					LoweredValue operand = LowerExpression(left_node);
+					LoweredValue operand = ToRValue(LowerExpression(left_node), left_node);
 					if (!operand.valid) return operand;
-					Value zero = EmitConst(0);
-					Value value = EmitResult(Opcode::Sub, Type::I32, zero,
-						AsInt(operand, left_node));
-					return { value, !failed, FrontendCType(), false };
+					FrontendCType arithmetic_type = PromoteType(operand.type);
+					operand = ConvertInteger(operand, arithmetic_type, left_node);
+					if (!operand.valid) return operand;
+					Value zero = EmitConst(0, arithmetic_type);
+					Value value = EmitResult(Opcode::Sub, CloverType(arithmetic_type),
+						zero, operand.value);
+					return { value, !failed, arithmetic_type, false };
 				}
 
 				if (!StrCompare(operation, "OP@ASSIGN")) {
@@ -652,8 +972,11 @@ namespace clover {
 					if (!left.is_lvalue) return Error("assignment requires an lvalue", left_node);
 					LoweredValue right = ToRValue(LowerExpression(right_node), right_node);
 					if (!right.valid) return right;
-					if (!left.type.IsSame(right.type))
+					if (left.type.IsInteger())
+						right = ConvertInteger(right, left.type, right_node);
+					else if (!left.type.IsSame(right.type))
 						return Error("incompatible assignment types", node);
+					if (!right.valid) return right;
 					EmitStore(right.value, left.value);
 					return right;
 				}
@@ -669,16 +992,20 @@ namespace clover {
 					right = ToRValue(right, right_node);
 					bool subtract = !StrCompare(operation, "OP@ARISUB");
 					if (left.type.IsPointer() && right.type.IsInteger()) {
-						Value index = AsInt(right, right_node);
+						FrontendCType index_type = PromoteType(right.type);
+						right = ConvertInteger(right, index_type, right_node);
+						Value index = right.value;
 						if (subtract) {
-							Value zero = EmitConst(0);
-							index = EmitResult(Opcode::Sub, Type::I32, zero, index);
+							Value zero = EmitConst(0, index_type);
+							index = EmitResult(Opcode::Sub, CloverType(index_type), zero, index);
 						}
 						Value value = EmitPtrAdd(left.value, index, left.type);
 						return { value, !failed, left.type, false };
 					}
 					if (!subtract && left.type.IsInteger() && right.type.IsPointer()) {
-						Value index = AsInt(left, left_node);
+						FrontendCType index_type = PromoteType(left.type);
+						left = ConvertInteger(left, index_type, left_node);
+						Value index = left.value;
 						Value value = EmitPtrAdd(right.value, index, right.type);
 						return { value, !failed, right.type, false };
 					}
@@ -686,55 +1013,76 @@ namespace clover {
 						return Error("invalid operands to pointer arithmetic", node);
 				}
 
-				Value lhs = AsInt(left, left_node);
-				Value rhs = AsInt(right, right_node);
-				if (failed) return {};
+				left = ToRValue(left, left_node);
+				right = ToRValue(right, right_node);
+				if (!left.valid || !right.valid || !left.type.IsInteger() ||
+					!right.type.IsInteger()) return Error("expected integer operands", node);
+				FrontendCType arithmetic_type = CommonIntegerType(left.type, right.type);
+				left = ConvertInteger(left, arithmetic_type, left_node);
+				right = ConvertInteger(right, arithmetic_type, right_node);
+				if (!left.valid || !right.valid) return {};
+				Value lhs = left.value;
+				Value rhs = right.value;
 
 				Opcode opcode;
 				if (!StrCompare(operation, "OP@ARIADD")) opcode = Opcode::Add;
 				else if (!StrCompare(operation, "OP@ARISUB")) opcode = Opcode::Sub;
 				else if (!StrCompare(operation, "OP@ARIMUL")) opcode = Opcode::Mul;
-				else if (!StrCompare(operation, "OP@ARIDIV")) opcode = Opcode::SDiv;
-				else if (!StrCompare(operation, "OP@ARIREM")) opcode = Opcode::SRem;
+				else if (!StrCompare(operation, "OP@ARIDIV"))
+					opcode = arithmetic_type.is_signed ? Opcode::SDiv : Opcode::UDiv;
+				else if (!StrCompare(operation, "OP@ARIREM"))
+					opcode = arithmetic_type.is_signed ? Opcode::SRem : Opcode::URem;
 				else if (!StrCompare(operation, "OP@BITAND")) opcode = Opcode::And;
 				else if (!StrCompare(operation, "OP@BITWOR")) opcode = Opcode::Or;
 				else if (!StrCompare(operation, "OP@BITXOR")) opcode = Opcode::Xor;
 				else if (!StrCompare(operation, "OP@BITSHL")) opcode = Opcode::Shl;
-				else if (!StrCompare(operation, "OP@BITSHR")) opcode = Opcode::AShr;
+				else if (!StrCompare(operation, "OP@BITSHR"))
+					opcode = arithmetic_type.is_signed ? Opcode::AShr : Opcode::LShr;
 				else {
 					ICmpPredicate predicate;
 					if (!StrCompare(operation, "OP@JEQUAL")) predicate = ICmpPredicate::EQ;
 					else if (!StrCompare(operation, "OP@JNOTEQ")) predicate = ICmpPredicate::NE;
-					else if (!StrCompare(operation, "OP@JBELOW")) predicate = ICmpPredicate::SLT;
-					else if (!StrCompare(operation, "OP@JBEEQU")) predicate = ICmpPredicate::SLE;
-					else if (!StrCompare(operation, "OP@JGREAT")) predicate = ICmpPredicate::SGT;
-					else if (!StrCompare(operation, "OP@JGREQU")) predicate = ICmpPredicate::SGE;
+					else if (!StrCompare(operation, "OP@JBELOW")) predicate =
+						arithmetic_type.is_signed ? ICmpPredicate::SLT : ICmpPredicate::ULT;
+					else if (!StrCompare(operation, "OP@JBEEQU")) predicate =
+						arithmetic_type.is_signed ? ICmpPredicate::SLE : ICmpPredicate::ULE;
+					else if (!StrCompare(operation, "OP@JGREAT")) predicate =
+						arithmetic_type.is_signed ? ICmpPredicate::SGT : ICmpPredicate::UGT;
+					else if (!StrCompare(operation, "OP@JGREQU")) predicate =
+						arithmetic_type.is_signed ? ICmpPredicate::SGE : ICmpPredicate::UGE;
 					else return Error("unsupported operator", node);
 
 					Instruction instruction;
 					instruction.opcode = Opcode::ICmp;
-					instruction.type = Type::I32;
+					instruction.type = CloverType(arithmetic_type);
 					instruction.has_result = true;
 					instruction.result = NewValue(Type::I1);
 					instruction.operands.Append(lhs);
 					instruction.operands.Append(rhs);
 					instruction.predicate = predicate;
 					CurrentBlock().instructions.Append(instruction);
-					return { instruction.result, true, FrontendCType(), false };
+					return { instruction.result, true, IntType(), false };
 				}
 
-				Value value = EmitResult(opcode, Type::I32, lhs, rhs);
-				return { value, true, FrontendCType(), false };
+				Value value = EmitResult(opcode, CloverType(arithmetic_type), lhs, rhs);
+				return { value, true, arithmetic_type, false };
 			}
 
 		public:
 			// The expression frontend currently requires one entry block.
 			FunctionBuilder(Function& function,
 				const uni::Vector<FrontendCFunction>& functions,
+				const uni::Vector<FrontendCGlobal>& globals,
+				const FrontendCType& function_return_type,
+				const FrontendCTargetInfo& target_info,
+				const FrontendCTypeInfo& semantic_types,
 				const FrontendCDiagnostics& diagnostic_output,
 				const FrontendCDebugInfo* debug_information)
-				: function(&function), next_value(function.parameters.Count()),
-					visible_functions(&functions), debug_info(debug_information),
+				: function(&function), return_type(function_return_type),
+					next_value(function.parameters.Count()),
+					visible_functions(&functions), visible_globals(&globals),
+					debug_info(debug_information),
+					target(&target_info), type_info(&semantic_types),
 					diagnostics(&diagnostic_output)
 			{
 				function.blocks.Append(BasicBlock());
@@ -746,14 +1094,22 @@ namespace clover {
 				using namespace uni;
 				if (!node) return Error("missing expression", node);
 				switch (node->type) {
-				case tok_number:
-					return { EmitConst(atoins(node->addr)), true };
+				case tok_number: {
+					stdsint immediate;
+					if (!ParseIntegerLiteral(node->addr, immediate))
+						return Error("invalid integer literal", node);
+					return { EmitConst(immediate), true };
+				}
 				case tok_identy: {
 					LocalValue* local = FindLocal(node->addr);
-					if (!local) return Error("use of undeclared identifier", node);
-					return { local->address, true, local->type, true };
+					if (local) return { local->address, true, local->type, true };
+					const FrontendCGlobal* global = FindGlobal(node->addr);
+					if (!global) return Error("use of undeclared identifier", node);
+					return { EmitGlobalAddress(*global), true, global->type, true };
 				}
 				case tok_func:
+					if (node->addr && !StrCompare(node->addr, "sizeof"))
+						return LowerSizeof(node->subf);
 					if (node->addr && !StrCompare(node->addr, "operator[]"))
 						return LowerSubscript(node);
 					if (node->addr && StrLength(node->addr) >= 3 &&
@@ -771,12 +1127,14 @@ namespace clover {
 					return Error("return requires a value", expression).valid;
 				LoweredValue lowered = LowerExpression(expression);
 				if (!lowered.valid) return false;
-				Value result = AsInt(lowered, expression);
-				if (failed) return false;
+				if (!return_type.IsInteger())
+					return Error("unsupported function return type", expression).valid;
+				lowered = ConvertInteger(lowered, return_type, expression);
+				if (!lowered.valid) return false;
 				Instruction instruction;
 				instruction.opcode = Opcode::Ret;
-				instruction.type = Type::I32;
-				instruction.operands.Append(result);
+				instruction.type = CloverType(return_type);
+				instruction.operands.Append(lowered.value);
 				CurrentBlock().instructions.Append(instruction);
 				return true;
 			}
@@ -945,6 +1303,16 @@ namespace clover {
 					if (success) AttachSource(first_instruction, atom.source);
 					return success;
 				}
+				if (node->type == ToToken(FrontendCToken::ReturnVoid)) {
+					if (!return_type.IsVoid())
+						return Error("non-void function requires a return value", node).valid;
+					Instruction instruction;
+					instruction.opcode = Opcode::Ret;
+					instruction.type = Type::Void;
+					CurrentBlock().instructions.Append(instruction);
+					AttachSource(first_instruction, atom.source);
+					return true;
+				}
 
 				bool success = LowerExpression(node).valid;
 				if (success) AttachSource(first_instruction, atom.source);
@@ -972,7 +1340,10 @@ namespace clover {
 				for (; parameter_node; parameter_node = parameter_node->next, index++) {
 					if (index >= function->parameters.Count() || !parameter_node->addr)
 						return Error("invalid function parameter", parameter_node).valid;
-					FrontendCType type;
+					const FrontendCType* parameter_type = type_info->Find(parameter_node);
+					if (!parameter_type)
+						return Error("missing function parameter type", parameter_node).valid;
+					FrontendCType type = *parameter_type;
 					if (!PredeclareLocal(parameter_node->addr, type,
 						parameter_node, body)) return false;
 					LocalValue* local = ActivateLocal(parameter_node->addr, parameter_node);
@@ -986,18 +1357,126 @@ namespace clover {
 			bool Lower(uni::Nnode* body, uni::Nnode* parameters) {
 				if (!InitializeParameters(parameters, body)) return false;
 				if (!PredeclareBlock(body)) return false;
-				return LowerBlock(body);
+				if (!LowerBlock(body)) return false;
+				if (return_type.IsVoid() && !BlockTerminated()) {
+					Instruction instruction;
+					instruction.opcode = Opcode::Ret;
+					instruction.type = Type::Void;
+					CurrentBlock().instructions.Append(instruction);
+				}
+				return true;
 			}
 		};
+
+		bool ParseGlobalDeclaratorNode(uni::Nnode* node, uni::Nnode*& identifier,
+			FrontendCType& type) {
+			if (!node) return false;
+			if (node->type == tok_func && node->addr &&
+				!StrCompare(node->addr, "OP@PREMEMB") && node->subf &&
+				!node->subf->next) {
+				if (!ParseGlobalDeclaratorNode(node->subf, identifier, type)) return false;
+				type = type.AddressType();
+				return true;
+			}
+			if (node->type == tok_func && node->addr &&
+				!StrCompare(node->addr, "operator[]")) {
+				uni::Nnode* declarator = node->subf;
+				uni::Nnode* dimension = declarator ? declarator->next : nullptr;
+				stdsint count;
+				if (!declarator || !dimension || dimension->next ||
+					dimension->type != tok_number || !dimension->addr ||
+					!ParseIntegerLiteral(dimension->addr, count) || count <= 0 ||
+					!ParseGlobalDeclaratorNode(declarator, identifier, type)) return false;
+				return type.AppendArrayDimension((stduint)count);
+			}
+			if (node->type != tok_identy || !node->addr) return false;
+			identifier = node;
+			return true;
+		}
+
+		bool ParseGlobalConstant(uni::Nnode* node, stdsint& value) {
+			if (!node) return false;
+			if (node->type == tok_number) return ParseIntegerLiteral(node->addr, value);
+			if (node->type == tok_func && node->addr && node->subf &&
+				!node->subf->next && !StrCompare(node->addr, "OP@PRENEGA")) {
+				if (!ParseGlobalConstant(node->subf, value)) return false;
+				value = -value;
+				return true;
+			}
+			return false;
+		}
+
+		bool LowerGlobalDeclarator(uni::Nnode* node, const FrontendCType& base_type,
+			Module& module, uni::Vector<FrontendCGlobal>& globals,
+			const FrontendCTargetInfo& target, const FrontendCDiagnostics& diagnostics,
+			const uni::Nnode* declaration) {
+			if (node && node->type == tok_func && node->addr &&
+				!StrCompare(node->addr, "OP@COMMA")) {
+				for (uni::Nnode* child = node->subf; child; child = child->next)
+					if (!LowerGlobalDeclarator(child, base_type, module, globals,
+						target, diagnostics, declaration)) return false;
+				return true;
+			}
+			uni::Nnode* declarator = node;
+			uni::Nnode* initializer_node = nullptr;
+			if (node && node->type == tok_func && node->addr &&
+				!StrCompare(node->addr, "OP@ASSIGN")) {
+				declarator = node->subf;
+				initializer_node = declarator ? declarator->next : nullptr;
+				if (!initializer_node || initializer_node->next) {
+					diagnostics.Report(DiagnosticStage::Lowering,
+						"invalid global initializer", node);
+					return false;
+				}
+			}
+			FrontendCType type = base_type;
+			uni::Nnode* identifier = nullptr;
+			if (!ParseGlobalDeclaratorNode(declarator, identifier, type)) {
+				diagnostics.Report(DiagnosticStage::Lowering,
+					"invalid global declarator", declarator ? declarator : declaration);
+				return false;
+			}
+			for (const FrontendCGlobal& previous : globals)
+				if (!StrCompare(previous.name.reference(), identifier->addr)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"redefinition of global variable", identifier);
+					return false;
+				}
+			Global global;
+			global.name = identifier->addr;
+			global.type = CloverTypeFor(type, target);
+			global.element_count = (stdsint)type.StorageElementCount();
+			if (initializer_node && !ParseGlobalConstant(initializer_node, global.initializer)) {
+				diagnostics.Report(DiagnosticStage::Lowering,
+					"global initializer must be an integer constant", initializer_node);
+				return false;
+			}
+			module.globals.Append(global);
+			FrontendCGlobal frontend_global;
+			frontend_global.name = identifier->addr;
+			frontend_global.type = type;
+			globals.Append(frontend_global);
+			return true;
+		}
 
 	}
 
 	bool LowerFrontendC(uni::Nchain& syntax_tree, Module& module,
-		const FrontendCDiagnostics& diagnostics,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		const FrontendCTypeInfo& type_info,
 		const FrontendCDebugInfo* debug_info) {
+		module.globals.Clear();
 		module.functions.Clear();
 		uni::Vector<FrontendCFunction> visible_functions;
+		uni::Vector<FrontendCGlobal> visible_globals;
 		for (uni::Nnode* node = syntax_tree.Root(); node;) {
+			if (node->type == ToToken(FrontendCToken::GlobalDeclaration)) {
+				const FrontendCType* base_type = type_info.Find(node);
+				if (!base_type || !LowerGlobalDeclarator(node->subf, *base_type,
+					module, visible_globals, target, diagnostics, node)) return false;
+				node = node->next;
+				continue;
+			}
 			if (node->type != ToToken(FrontendCToken::Function) || !node->addr ||
 				!node->next || node->next->type != tok_block) {
 				diagnostics.Report(DiagnosticStage::Lowering,
@@ -1012,12 +1491,25 @@ namespace clover {
 						"redefinition of function", node);
 					return false;
 				}
+			for (const FrontendCGlobal& previous : visible_globals)
+				if (!StrCompare(previous.name.reference(), node->addr)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"function conflicts with global variable", node);
+					return false;
+				}
 
 			Function function;
 			function.name = node->addr;
-			function.return_type = Type::I32;
+			const FrontendCType* function_return_type = type_info.Find(node);
+			if (!function_return_type) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"missing function return type", node);
+				return false;
+			}
+			function.return_type = CloverTypeFor(*function_return_type, target);
 			FrontendCFunction signature;
 			signature.name = node->addr;
+			signature.return_type = *function_return_type;
 			for (uni::Nnode* parameter_node = node->subf;
 				parameter_node; parameter_node = parameter_node->next) {
 				if (parameter_node->type != ToToken(FrontendCToken::Parameter) ||
@@ -1026,16 +1518,23 @@ namespace clover {
 						"invalid function parameter", parameter_node);
 					return false;
 				}
-				FrontendCType parameter_type;
-				signature.parameter_types.Append(parameter_type);
+				const FrontendCType* parameter_type = type_info.Find(parameter_node);
+				if (!parameter_type) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"missing function parameter type", parameter_node);
+					return false;
+				}
+				signature.parameter_types.Append(*parameter_type);
 				Parameter parameter;
 				parameter.name = parameter_node->addr;
-				parameter.value.type = Type::I32;
+				parameter.value.type = CloverTypeFor(*parameter_type, target);
 				parameter.value.id = function.parameters.Count();
 				function.parameters.Append(parameter);
 			}
 			visible_functions.Append(signature);
-			FunctionBuilder builder(function, visible_functions, diagnostics, debug_info);
+			FunctionBuilder builder(function, visible_functions, visible_globals,
+				*function_return_type,
+				target, type_info, diagnostics, debug_info);
 			if (!builder.Lower(body, node->subf)) return false;
 			module.functions.Append(function);
 			node = body->next;
@@ -1047,6 +1546,8 @@ namespace clover {
 
 bool uni::lango::frontend_c_detail::Lower(uni::Nchain& syntax_tree,
 	clover::Module& module, const FrontendCDiagnostics& diagnostics,
+	const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
 	const FrontendCDebugInfo* debug_info) {
-	return clover::LowerFrontendC(syntax_tree, module, diagnostics, debug_info);
+	return clover::LowerFrontendC(syntax_tree, module, diagnostics, target,
+		type_info, debug_info);
 }

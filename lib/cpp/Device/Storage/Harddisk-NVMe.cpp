@@ -16,7 +16,7 @@ namespace uni {
 		Block_Size = block_size ? block_size : 512;
 		hd_info.whole_disk.address = 0;
 		hd_info.whole_disk.length = (stduint)block_count;
-		hd_info.whole_disk.sys_id = 0;
+		hd_info.whole_disk.sys_id = ClassicFilesysType::None;
 		hd_info.scheme_kind = PartitionSchemeKind::Unknown;
 		hd_info.ResetUnifiedParts();
 		hd_info_valid = false;

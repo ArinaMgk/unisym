@@ -23,6 +23,24 @@
 
 #include "../inc/cpp/Lango/Frontend/Frontend-c.hpp"
 
+bool FrontendFromName(rostr name, MagicFrontend& frontend) {
+	if (!StrCompare(name, "c")) {
+		frontend = MagicFrontend::C;
+		return true;
+	}
+	return false;
+}
+
+bool FrontendFromPath(rostr path, MagicFrontend& frontend) {
+	stduint length = StrLength(path);
+	if (length >= 2 && path[length - 2] == '.' &&
+		(path[length - 1] == 'c' || path[length - 1] == 'C')) {
+		frontend = MagicFrontend::C;
+		return true;
+	}
+	return false;
+}
+
 uni::lango::FrontendInterface* FrontendCreate(MagicFrontend frontend) {
 	switch (frontend) {
 	case MagicFrontend::C:

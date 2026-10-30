@@ -18,7 +18,7 @@ uincpath?=./inc
 ubinpath?=../_bin
 uobjpath?=../_obj
 
-filelist=./lib/Script/Makefile/makemake.py
+filelist=./lib/make/makemake.py
 
 .PHONY: local list manual clean \
 	mx86 cgw16 cgw32 cgw64 cvw32 cvw64 cgl32 cgl64\
@@ -32,7 +32,7 @@ local:
 	@make --no-print-directory -f ${make_dir}local.make all
 
 list: local# depend [perl python]
-	@perl ./lib/Script/Makefile/makemake.pl
+	@perl ./lib/make/makemake.pl
 
 native:
 	#{TODO}
@@ -146,7 +146,7 @@ x86-EG-MCCA: ./lib/make/cgmx86.make
 #	-@rm -f $(uobjpath)/CGMin32/*
 	make -f ${make_dir}cgmx86.make all
 ./lib/make/cgmx86.make: $(filelist)
-	@perl ./lib/Script/Makefile/makemake.pl
+	@perl ./lib/make/makemake.pl
 
 riscv64-EG-MCCA:
 	@echo TODO

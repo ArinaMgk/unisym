@@ -26,6 +26,36 @@
 
 namespace uni::lango {
 
+// Conventional C integer and pointer width families selected by an ABI.
+enum class CDataModel {
+	ILP32, // int, long, and pointers are 32-bit.
+	LP64,  // int is 32-bit; long and pointers are 64-bit.
+	LLP64  // int and long are 32-bit; long long and pointers are 64-bit.
+};
+
+// C-specific type sizes derived from a target and its ABI data model.
+struct FrontendCTargetInfo {
+	CDataModel data_model = CDataModel::LP64;
+	unsigned char_bits = 8;
+	unsigned short_bits = 16;
+	unsigned int_bits = 32;
+	unsigned long_bits = 64;
+	unsigned long_long_bits = 64;
+	bool char_is_signed = true;
+
+	static FrontendCTargetInfo FromTarget(const TargetInfo& target);
+};
+
+inline FrontendCTargetInfo FrontendCTargetInfo::FromTarget(const TargetInfo& target) {
+	FrontendCTargetInfo info;
+	info.char_bits = target.byte_bits;
+	if (target.pointer_bits == 32) {
+		info.data_model = CDataModel::ILP32;
+		info.long_bits = 32;
+	}
+	return info;
+}
+
 // C source frontend producing Clover IR.
 class FrontendC : public FrontendInterface {
 public:

@@ -52,11 +52,11 @@ namespace uni::lango {
 			return true;
 		}
 
-		// Stack locations assigned to one SSA result and, for Local, its object.
+		// Stack location assigned to an SSA spill or a rematerialized Local object.
 		struct ValueSlot {
 			bool defined = false;
-			stdsint value_offset = 0;
-			stdsint local_offset = 0;
+			stdsint value_offset = 0; // Runtime SSA value spill; zero for Local.
+			stdsint local_offset = 0; // Local object address rematerialized from s0.
 		};
 
 		// Function-specific stack layout used by the simple first backend.
@@ -68,6 +68,27 @@ namespace uni::lango {
 		// Round a frame size up to the RISC-V ABI's 16-byte stack alignment.
 		stdsint AlignFrame(stdsint size) {
 			return (size + 15) & ~stdsint(15);
+		}
+
+		stdsint TypeBits(clover::Type type, const RISCVTargetInfo& target) {
+			switch (type) {
+			case clover::Type::I1: return 1;
+			case clover::Type::I8: return 8;
+			case clover::Type::I16: return 16;
+			case clover::Type::I32: return 32;
+			case clover::Type::I64: return 64;
+			case clover::Type::Ptr: return target.bits;
+			}
+			return 0;
+		}
+
+		stdsint TypeStorageBytes(clover::Type type, const RISCVTargetInfo& target) {
+			stdsint bits = TypeBits(type, target);
+			return bits ? (bits + 7) / 8 : 0;
+		}
+
+		stdsint AlignOffset(stdsint offset, stdsint alignment) {
+			return (offset + alignment - 1) & ~(alignment - 1);
 		}
 
 		// Find the largest SSA identifier so it can index the slot vector.
@@ -84,8 +105,9 @@ namespace uni::lango {
 			return largest;
 		}
 
-		// Assign every SSA result a spill slot and every Local an object slot.
-		bool BuildLayout(const clover::Function& function, FunctionLayout& layout) {
+		// Spill ordinary SSA results; Local results retain only their object offset.
+		bool BuildLayout(const clover::Function& function, const RISCVTargetInfo& target,
+			FunctionLayout& layout) {
 			bool found;
 			unsigned largest = LargestValueID(function, found);
 			layout.slots = uni::Vector<ValueSlot>::From(ValueSlot(), found ? largest + 1 : 0);
@@ -100,9 +122,13 @@ namespace uni::lango {
 						return false;
 					}
 					slot.defined = true;
-					slot.value_offset = offset += 8;
-					if (instruction.opcode == clover::Opcode::Local)
-						slot.local_offset = offset += 8;
+					if (instruction.opcode == clover::Opcode::Local) {
+						stdsint size = TypeStorageBytes(instruction.type, target);
+						if (!size) return false;
+						offset = AlignOffset(offset, size);
+						slot.local_offset = offset += size;
+					}
+					else slot.value_offset = offset += 8;
 				}
 			}
 			layout.frame_size = AlignFrame(offset);
@@ -133,11 +159,16 @@ namespace uni::lango {
 			return false;
 		}
 
-		// Load one SSA value from its spill slot into a temporary register.
+		// Load a spilled SSA value, or rematerialize a Local frame address.
 		bool LoadValue(const FunctionLayout& layout, clover::Value value,
 			const char* reg, uni::OstreamTrait& output) {
 			const ValueSlot* slot;
 			if (!SlotOf(layout, value, slot)) return false;
+			if (slot->local_offset) {
+				output.OutFormat("\taddi %s, s0, -%[i]\n", reg, slot->local_offset);
+				return true;
+			}
+			if (!slot->value_offset) return false;
 			output.OutFormat("\tld %s, -%[i](s0)\n", reg, slot->value_offset);
 			return true;
 		}
@@ -147,6 +178,7 @@ namespace uni::lango {
 			const char* reg, uni::OstreamTrait& output) {
 			const ValueSlot* slot;
 			if (!instruction.has_result || !SlotOf(layout, instruction.result, slot)) return false;
+			if (!slot->value_offset) return false;
 			output.OutFormat("\tsd %s, -%[i](s0)\n", reg, slot->value_offset);
 			return true;
 		}
@@ -170,9 +202,38 @@ namespace uni::lango {
 			return StoreResult(layout, instruction, "t2", output);
 		}
 
+		// Scale a signed element index and add it to a target-width pointer.
+		bool EmitPtrAdd(const clover::Instruction& instruction,
+			const FunctionLayout& layout, const RISCVTargetInfo& target,
+			uni::OstreamTrait& output) {
+			if (!RequireOperands(instruction, 2) ||
+				instruction.operands.begin()[0].type != clover::Type::Ptr ||
+				instruction.operands.begin()[1].type == clover::Type::Ptr ||
+				!LoadValue(layout, instruction.operands.begin()[0], "t0", output) ||
+				!LoadValue(layout, instruction.operands.begin()[1], "t1", output)) return false;
+			stdsint element_size = TypeStorageBytes(instruction.type, target);
+			switch (element_size) {
+			case 1: break;
+			case 2: output.OutFormat("\tslli t1, t1, 1\n"); break;
+			case 4: output.OutFormat("\tslli t1, t1, 2\n"); break;
+			case 8: output.OutFormat("\tslli t1, t1, 3\n"); break;
+			default:
+				plogerro("RISC-V backend: unsupported ptradd element size %[i]", element_size);
+				return false;
+			}
+			output.OutFormat("\tadd t2, t0, t1\n");
+			return StoreResult(layout, instruction, "t2", output);
+		}
+
+		const char* BinaryMnemonic(const clover::Instruction& instruction,
+			const char* wide, const char* word) {
+			return instruction.type == clover::Type::I32 ? word : wide;
+		}
+
 		// Lower one Clover instruction to RV64 assembler.
 		bool EmitInstruction(const clover::Instruction& instruction, const FunctionLayout& layout,
-			const clover::Function& function, uni::OstreamTrait& output) {
+			const clover::Function& function, const RISCVTargetInfo& target,
+			uni::OstreamTrait& output) {
 			switch (instruction.opcode) {
 			case clover::Opcode::Const:
 				output.OutFormat("\tli t0, %[i]\n", instruction.immediate);
@@ -182,21 +243,34 @@ namespace uni::lango {
 				const ValueSlot* slot;
 				if (!instruction.has_result || !SlotOf(layout, instruction.result, slot) || !slot->local_offset)
 					return false;
-				output.OutFormat("\taddi t0, s0, -%[i]\n", slot->local_offset);
-				return StoreResult(layout, instruction, "t0", output);
+				return true;
 			}
 
 			case clover::Opcode::Load:
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
-				output.OutFormat("\tld t1, 0(t0)\n");
+				switch (instruction.type) {
+				case clover::Type::I1:
+				case clover::Type::I8: output.OutFormat("\tlb t1, 0(t0)\n"); break;
+				case clover::Type::I16: output.OutFormat("\tlh t1, 0(t0)\n"); break;
+				case clover::Type::I32: output.OutFormat("\tlw t1, 0(t0)\n"); break;
+				case clover::Type::I64:
+				case clover::Type::Ptr: output.OutFormat("\tld t1, 0(t0)\n"); break;
+				}
 				return StoreResult(layout, instruction, "t1", output);
 
 			case clover::Opcode::Store:
 				if (!RequireOperands(instruction, 2) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output) ||
 					!LoadValue(layout, instruction.operands.begin()[1], "t1", output)) return false;
-				output.OutFormat("\tsd t0, 0(t1)\n");
+				switch (instruction.type) {
+				case clover::Type::I1:
+				case clover::Type::I8: output.OutFormat("\tsb t0, 0(t1)\n"); break;
+				case clover::Type::I16: output.OutFormat("\tsh t0, 0(t1)\n"); break;
+				case clover::Type::I32: output.OutFormat("\tsw t0, 0(t1)\n"); break;
+				case clover::Type::I64:
+				case clover::Type::Ptr: output.OutFormat("\tsd t0, 0(t1)\n"); break;
+				}
 				return true;
 
 			case clover::Opcode::Mov:
@@ -204,16 +278,25 @@ namespace uni::lango {
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
 				return StoreResult(layout, instruction, "t0", output);
 
-			case clover::Opcode::Add: return EmitBinary(instruction, layout, "add", output);
-			case clover::Opcode::Sub: return EmitBinary(instruction, layout, "sub", output);
-			case clover::Opcode::Mul: return EmitBinary(instruction, layout, "mul", output);
-			case clover::Opcode::SDiv: return EmitBinary(instruction, layout, "div", output);
-			case clover::Opcode::SRem: return EmitBinary(instruction, layout, "rem", output);
+			case clover::Opcode::Add: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "add", "addw"), output);
+			case clover::Opcode::Sub: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "sub", "subw"), output);
+			case clover::Opcode::Mul: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "mul", "mulw"), output);
+			case clover::Opcode::SDiv: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "div", "divw"), output);
+			case clover::Opcode::SRem: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "rem", "remw"), output);
 			case clover::Opcode::And: return EmitBinary(instruction, layout, "and", output);
 			case clover::Opcode::Or: return EmitBinary(instruction, layout, "or", output);
 			case clover::Opcode::Xor: return EmitBinary(instruction, layout, "xor", output);
-			case clover::Opcode::Shl: return EmitBinary(instruction, layout, "sll", output);
-			case clover::Opcode::AShr: return EmitBinary(instruction, layout, "sra", output);
+			case clover::Opcode::Shl: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "sll", "sllw"), output);
+			case clover::Opcode::AShr: return EmitBinary(instruction, layout,
+				BinaryMnemonic(instruction, "sra", "sraw"), output);
+			case clover::Opcode::PtrAdd:
+				return EmitPtrAdd(instruction, layout, target, output);
 
 			case clover::Opcode::ICmp:
 				if (!RequireOperands(instruction, 2) ||
@@ -280,9 +363,10 @@ namespace uni::lango {
 		}
 
 		// Emit one function with a conservative stack slot for every SSA result.
-		bool EmitFunction(const clover::Function& function, uni::OstreamTrait& output) {
+		bool EmitFunction(const clover::Function& function, const RISCVTargetInfo& target,
+			uni::OstreamTrait& output) {
 			FunctionLayout layout;
-			if (!BuildLayout(function, layout)) return false;
+			if (!BuildLayout(function, target, layout)) return false;
 
 			output.OutFormat("\n.globl %s\n", function.name.reference());
 			output.OutFormat(".type %s, @function\n", function.name.reference());
@@ -295,7 +379,7 @@ namespace uni::lango {
 			for (const clover::BasicBlock& block : function.blocks) {
 				output.OutFormat(".L%s_%s:\n", function.name.reference(), block.name.reference());
 				for (const clover::Instruction& instruction : block.instructions)
-					if (!EmitInstruction(instruction, layout, function, output)) return false;
+					if (!EmitInstruction(instruction, layout, function, target, output)) return false;
 			}
 			bool terminated = false;
 			if (function.blocks.Count()) {
@@ -321,7 +405,7 @@ namespace uni::lango {
 		if (!ValidateTarget(target, module)) return false;
 		output.OutFormat(".text\n");
 		for (const clover::Function& function : module.functions)
-			if (!EmitFunction(function, output)) return false;
+			if (!EmitFunction(function, target, output)) return false;
 		return true;
 	}
 

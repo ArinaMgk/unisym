@@ -40,6 +40,36 @@ enum class FrontendCToken : stduint {
 	End                       // First token value available after the C frontend range.
 };
 
+// C99 type categories currently recognized by the frontend.
+enum class FrontendCTypeKind {
+	Int,    // Target ABI signed int type.
+	Pointer // Pointer to another C type.
+};
+
+// Minimal semantic C type retained before conversion to fixed-width Clover types.
+struct FrontendCType {
+	FrontendCTypeKind kind = FrontendCTypeKind::Int;
+	unsigned pointer_depth = 0;
+
+	bool IsPointer() const { return pointer_depth != 0; }
+	bool IsInteger() const { return pointer_depth == 0 && kind == FrontendCTypeKind::Int; }
+	bool IsSame(const FrontendCType& other) const {
+		return kind == other.kind && pointer_depth == other.pointer_depth;
+	}
+	FrontendCType AddressType() const {
+		FrontendCType result = *this;
+		result.kind = FrontendCTypeKind::Pointer;
+		result.pointer_depth++;
+		return result;
+	}
+	FrontendCType DereferenceType() const {
+		FrontendCType result = *this;
+		if (result.pointer_depth) result.pointer_depth--;
+		if (!result.pointer_depth) result.kind = FrontendCTypeKind::Int;
+		return result;
+	}
+};
+
 // Convert a scoped frontend token to the integer representation stored by Nnode.
 constexpr stduint ToToken(FrontendCToken token) {
 	return (stduint)token;

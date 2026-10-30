@@ -43,19 +43,14 @@ public:
 	}
 };
 
-// Return true when a path uses the C source extension.
-static bool IsCSourcePath(rostr path) {
-	stduint length = StrLength(path);
-	return length >= 2 && path[length - 2] == '.' &&
-		(path[length - 1] == 'c' || path[length - 1] == 'C');
-}
-
 static void PrintMagicHelp() {
 	uni::Console.OutFormat("Usage: mgc [options] input...\n");
 	uni::Console.OutFormat("Options:\n");
-	uni::Console.OutFormat("  -emit-ir, --emit-ir    Emit Clover IR\n");
-	uni::Console.OutFormat("  -emit-ast, --emit-ast  Emit the parsed AST\n");
+	uni::Console.OutFormat("  --emit-ir               Emit Clover IR\n");
+	uni::Console.OutFormat("  --emit-ast              Emit the parsed AST\n");
 	uni::Console.OutFormat("  -g                      Add source comments to Clover IR\n");
+	uni::Console.OutFormat("  --lango=c               Select the source-language frontend\n");
+	uni::Console.OutFormat("  --std=c99               Pass the language standard to the frontend\n");
 	uni::Console.OutFormat("  -o output               Write output to a file\n");
 	uni::Console.OutFormat("  -h, --help              Print this help\n");
 }
@@ -67,24 +62,35 @@ int magic(int argc, char** argv) {
 	bool request_ir = false;
 	bool request_ast = false;
 	bool debug_symbols = false;
+	rostr language_standard = "c99";
+	MagicFrontend selected_frontend = MagicFrontend::C;
+	bool frontend_explicit = false;
 	bool options_ended = false;
-	bool has_c_source = false;
+	bool has_source_suffix = false;
 	rostr output_path = nullptr;
 	Vector<rostr> inputs;
 	for (int i = 1; i < argc; i++) {
 		if (!options_ended && !StrCompare(argv[i], "--")) {
 			options_ended = true;
 		}
-		else if (!options_ended &&
-			(!StrCompare(argv[i], "--emit-ir") || !StrCompare(argv[i], "-emit-ir"))) {
+		else if (!options_ended && !StrCompare(argv[i], "--emit-ir")) {
 			request_ir = true;
 		}
-		else if (!options_ended &&
-			(!StrCompare(argv[i], "--emit-ast") || !StrCompare(argv[i], "-emit-ast"))) {
+		else if (!options_ended && !StrCompare(argv[i], "--emit-ast")) {
 			request_ast = true;
 		}
 		else if (!options_ended && !StrCompare(argv[i], "-g")) {
 			debug_symbols = true;
+		}
+		else if (!options_ended && !StrCompareN(argv[i], "--lango=", 8)) {
+			if (!FrontendFromName(argv[i] + 8, selected_frontend)) {
+				plogerro("unsupported frontend %s", argv[i] + 8);
+				return 1;
+			}
+			frontend_explicit = true;
+		}
+		else if (!options_ended && !StrCompareN(argv[i], "--std=", 6)) {
+			language_standard = argv[i] + 6;
 		}
 		else if (!options_ended &&
 			(!StrCompare(argv[i], "-h") || !StrCompare(argv[i], "--help"))) {
@@ -104,12 +110,16 @@ int magic(int argc, char** argv) {
 		}
 		else {
 			inputs.Append(argv[i]);
-			if (IsCSourcePath(argv[i])) has_c_source = true;
+			MagicFrontend suffix_frontend;
+			if (FrontendFromPath(argv[i], suffix_frontend)) {
+				has_source_suffix = true;
+				if (!frontend_explicit) selected_frontend = suffix_frontend;
+			}
 		}
 	}
 
 	if (request_ir && request_ast) {
-		plogerro("-emit-ir and -emit-ast cannot be used together");
+		plogerro("--emit-ir and --emit-ast cannot be used together");
 		return 1;
 	}
 
@@ -117,7 +127,7 @@ int magic(int argc, char** argv) {
 		PrintMagicHelp();
 		return 0;
 	}
-	bool emit_ast = request_ast || (!request_ir && has_c_source);
+	bool emit_ast = request_ast || (!request_ir && has_source_suffix);
 
 	if (output_path) {
 		output_file = new HostFile(output_path, FileOpenType::Write);
@@ -151,14 +161,15 @@ int magic(int argc, char** argv) {
 		lango::FrontendOptions frontend_options;
 		frontend_options.debug_source = debug_symbols;
 		frontend_options.source_name = source_name;
+		frontend_options.language_standard = language_standard;
 		if (emit_ast) {
-			if (!FrontendPrintAST(MagicFrontend::C, input, *output, frontend_options)) {
+			if (!FrontendPrintAST(selected_frontend, input, *output, frontend_options)) {
 				if (output_file) delete output_file;
 				return 1;
 			}
 		}
 		else {
-			lango::FrontendInterface* frontend = FrontendCreate(MagicFrontend::C);
+			lango::FrontendInterface* frontend = FrontendCreate(selected_frontend);
 			if (!frontend) {
 				if (output_file) delete output_file;
 				return 1;

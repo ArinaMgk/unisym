@@ -67,7 +67,7 @@ namespace uni {
 		PartitionSlice slice = {};
 		slice.address = 0;
 		slice.length = dev ? 0 : getUnits();
-		slice.sys_id = 0;
+		slice.sys_id = ClassicFilesysType::None;
 		return slice;
 	}
 

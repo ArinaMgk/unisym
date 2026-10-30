@@ -185,7 +185,7 @@ namespace uni {
 		// ATAPI optical media are probed as whole-disk filesystems rather than
 		// partition-typed block devices. Leave sys_id neutral here and let the
 		// filesystem probe chain decide whether the medium is ISO9660/UDF/etc.
-		slice.sys_id = 0;
+		slice.sys_id = ClassicFilesysType::None;
 		
 		outpb(ctrl_base, 0);
 		return slice;

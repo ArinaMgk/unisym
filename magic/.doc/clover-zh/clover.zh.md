@@ -2,6 +2,48 @@
 
 版本 0.1.0
 
+## 工具链使用与命令选项
+
+工具链当前由 `mgc` 和 `clover-riscv` 组成：`mgc` 将源代码转换为 AST 或
+Clover IR，`clover-riscv` 将 Clover IR 转换为 RISC-V 汇编。
+
+`mgc` 的命令格式：
+
+```text
+mgc [options] input...
+```
+
+| 选项 | 含义 |
+| :--- | :--- |
+| `--emit-ir` | 输出 Clover IR |
+| `--emit-ast` | 输出前端 AST |
+| `--lango=c` | 选择 C 前端 |
+| `--std=c99` | 将 C99 标准选项传递给 C 前端 |
+| `-g` | 在 Clover IR 中保留对应的源代码注释 |
+| `-o file` | 将结果写入指定文件 |
+| `-h`、`--help` | 显示帮助信息 |
+| `--` | 结束命令选项解析 |
+
+前端选择顺序为：`--lango`、输入文件后缀、默认 C 前端。`.c` 文件在未指定
+输出形式时默认输出 AST；直接传入命令行源码时默认输出 Clover IR。当前只
+支持 `--lango=c` 和 `--std=c99`，未知选项会直接报错。
+
+`clover-riscv` 的命令格式：
+
+```text
+clover-riscv input.ir [options]
+```
+
+| 选项 | 含义 |
+| :--- | :--- |
+| `-mbits=64` | 选择 64 位 RISC-V 目标 |
+| `-minst=i` | 使用基础整数指令集 |
+| `-minst=im` | 启用基础整数及乘除法指令集 |
+| `-o file` | 将汇编写入指定文件 |
+| `-h`、`--help` | 显示帮助信息及已支持的目标信息 |
+
+当前默认后端目标为 `-mbits=64 -minst=im`。
+
 ## IR 中间语言设计
 
 Clover IR 是 C 前端与机器后端之间的中间表示。前端负责把 C AST 转换为
@@ -61,6 +103,7 @@ declare @putchar(i32) -> i32
 %address = local i32
 %loaded = load i32, %address
 store i32 %value, %address
+%next = ptradd i32 %address, %index
 ```
 
 - `const`：产生整数常量。
@@ -68,6 +111,7 @@ store i32 %value, %address
 - `mov`：复制一个 SSA 值，不读写内存。
 - `load`：从 `ptr` 地址读取值。
 - `store`：向 `ptr` 地址写入值，不产生结果。
+- `ptradd`：将整数索引乘以给定元素类型的存储大小，再加到 `ptr` 地址；结果类型为 `ptr`。
 
 `mov` 不统一表示 `load` 和 `store`。三者虽然都可能降低为机器的移动指令，
 但在 IR 中具有不同语义：`mov` 没有副作用，`load` 读取内存，`store` 修改
@@ -140,5 +184,5 @@ call void @abort()
 调用的参数和返回类型必须与函数声明一致。具体的参数寄存器、返回值寄存器
 和栈布局由目标后端按照 ABI 处理。
 
-第一版暂不支持浮点、聚合类型、全局变量、指针运算、`phi`、原子操作和
+第一版暂不支持浮点、聚合类型、全局变量、指针差值、`phi`、原子操作和
 可变参数。

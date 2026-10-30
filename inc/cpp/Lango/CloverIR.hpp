@@ -31,6 +31,9 @@ namespace clover {
 // Scalar and address types currently represented by Clover IR.
 enum class Type {
 	I1,  // One-bit condition value.
+	I8,  // Eight-bit integer value.
+	I16, // Sixteen-bit integer value.
+	I32, // Thirty-two-bit integer value.
 	I64, // Signed or unsigned 64-bit integer value.
 	Ptr, // Target-independent address value.
 };
@@ -52,6 +55,7 @@ enum class Opcode {
 	Xor,   // Bitwise XOR.
 	Shl,   // Logical left shift.
 	AShr,  // Arithmetic right shift.
+	PtrAdd, // Add an integer index scaled by the pointee type to a pointer.
 	ICmp,  // Integer comparison producing I1.
 	ZExt,  // Zero-extension to a wider integer type.
 	Jmp,   // Unconditional or condition-selected basic-block transfer.

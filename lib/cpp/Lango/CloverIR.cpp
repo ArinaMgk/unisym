@@ -29,6 +29,9 @@ namespace clover {
 		const char* TypeName(Type type) {
 			switch (type) {
 			case Type::I1: return "i1";
+			case Type::I8: return "i8";
+			case Type::I16: return "i16";
+			case Type::I32: return "i32";
 			case Type::I64: return "i64";
 			case Type::Ptr: return "ptr";
 			}
@@ -49,6 +52,7 @@ namespace clover {
 			case Opcode::Xor: return "xor";
 			case Opcode::Shl: return "shl";
 			case Opcode::AShr: return "ashr";
+			case Opcode::PtrAdd: return "ptradd";
 			default: return "?";
 			}
 		}
@@ -124,6 +128,13 @@ namespace clover {
 					output.OutFormat(", ");
 					PrintValue(output, instruction.operands.begin()[1]);
 				}
+				output.OutFormat("\n");
+				break;
+			case Opcode::PtrAdd:
+				output.OutFormat("ptradd %s ", TypeName(instruction.type));
+				PrintValue(output, instruction.operands.begin()[0]);
+				output.OutFormat(", ");
+				PrintValue(output, instruction.operands.begin()[1]);
 				output.OutFormat("\n");
 				break;
 			case Opcode::ICmp:
@@ -270,6 +281,9 @@ namespace clover {
 
 			bool ReadType(Type& type) {
 				if (Is("i1")) type = Type::I1;
+				else if (Is("i8")) type = Type::I8;
+				else if (Is("i16")) type = Type::I16;
+				else if (Is("i32")) type = Type::I32;
 				else if (Is("i64")) type = Type::I64;
 				else if (Is("ptr")) type = Type::Ptr;
 				else return Error("expected Clover type");
@@ -343,6 +357,10 @@ namespace clover {
 				return true;
 			}
 
+			bool IsIntegerType(Type type) const {
+				return type != Type::Ptr;
+			}
+
 			bool ParseInstruction(BasicBlock& block) {
 				Instruction instruction;
 				unsigned result_id = 0;
@@ -406,6 +424,16 @@ namespace clover {
 					if (!has_result || !ReadType(instruction.type) || !ReadBinaryOperands(instruction))
 						return Error("invalid binary instruction");
 					instruction.result.type = instruction.type;
+				}
+				else if (!StrCompare(operation.reference(), "ptradd")) {
+					instruction.opcode = Opcode::PtrAdd;
+					if (!has_result || !ReadType(instruction.type) ||
+						!ReadBinaryOperands(instruction))
+						return Error("invalid ptradd instruction");
+					if (instruction.operands.begin()[0].type != Type::Ptr ||
+						!IsIntegerType(instruction.operands.begin()[1].type))
+						return Error("ptradd requires a pointer and an integer index");
+					instruction.result.type = Type::Ptr;
 				}
 				else if (!StrCompare(operation.reference(), "icmp")) {
 					instruction.opcode = Opcode::ICmp;

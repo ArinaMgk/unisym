@@ -48,7 +48,7 @@ if (!defined $python_path || length($python_path) == 0) {
     }
 }
 
-my $result = system($python_path, './lib/Script/Makefile/makemake.py');
+my $result = system($python_path, './lib/make/makemake.py');
 if ($result != 0) {
     print "Failed to execute makemake.py.\n";
     exit -1;

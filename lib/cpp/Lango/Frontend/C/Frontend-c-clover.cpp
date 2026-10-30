@@ -30,12 +30,18 @@ namespace clover {
 		struct LoweredValue {
 			Value value;
 			bool valid = false;
+			FrontendCType type;
+			bool is_lvalue = false;
 		};
 
 		// Associates a source identifier with the Ptr value produced by Local.
 		struct LocalValue {
 			uni::String name;
 			Value address;
+			FrontendCType type;
+			const uni::Nnode* declaration = nullptr;
+			const uni::Nnode* scope = nullptr;
+			bool active = false;
 		};
 
 		// One C statement atom after transparent tok_statement wrappers are removed.
@@ -184,6 +190,19 @@ namespace clover {
 				return instruction.result;
 			}
 
+			// Add a signed element index to a pointer while retaining pointee size.
+			Value EmitPtrAdd(Value pointer, Value index, const FrontendCType& pointer_type) {
+				Instruction instruction;
+				instruction.opcode = Opcode::PtrAdd;
+				instruction.type = CloverType(pointer_type.DereferenceType());
+				instruction.has_result = true;
+				instruction.result = NewValue(Type::Ptr);
+				instruction.operands.Append(pointer);
+				instruction.operands.Append(index);
+				CurrentBlock().instructions.Append(instruction);
+				return instruction.result;
+			}
+
 			// Store is side-effecting and therefore has no SSA result.
 			void EmitStore(Value value, Value address) {
 				Instruction instruction;
@@ -194,15 +213,27 @@ namespace clover {
 				CurrentBlock().instructions.Append(instruction);
 			}
 
-			// Promote a comparison result before using it as an integer operand.
-			Value AsI64(Value value) {
-				if (value.type == Type::I64) return value;
+			Type CloverType(const FrontendCType& type) const {
+				return type.IsPointer() ? Type::Ptr : Type::I32;
+			}
+
+			LoweredValue ToRValue(LoweredValue lowered, const uni::Nnode* node) {
+				if (!lowered.valid || !lowered.is_lvalue) return lowered;
+				lowered.value = EmitResult(Opcode::Load, CloverType(lowered.type),
+					lowered.value);
+				lowered.is_lvalue = false;
+				return lowered;
+			}
+
+			// Convert a comparison result to the C99 int type when required.
+			Value AsInt(Value value) {
+				if (value.type == Type::I32) return value;
 				if (value.type == Type::I1) {
 					Instruction instruction;
 					instruction.opcode = Opcode::ZExt;
-					instruction.type = Type::I64;
+					instruction.type = Type::I32;
 					instruction.has_result = true;
-					instruction.result = NewValue(Type::I64);
+					instruction.result = NewValue(Type::I32);
 					instruction.operands.Append(value);
 					CurrentBlock().instructions.Append(instruction);
 					return instruction.result;
@@ -213,13 +244,27 @@ namespace clover {
 				return value;
 			}
 
-			Value AsCondition(Value value) {
-				if (value.type == Type::I1) return value;
-				Value integer = AsI64(value);
+			Value AsInt(LoweredValue lowered, const uni::Nnode* node) {
+				lowered = ToRValue(lowered, node);
+				if (!lowered.valid || !lowered.type.IsInteger()) {
+					Error("expected integer expression", node);
+					return lowered.value;
+				}
+				return AsInt(lowered.value);
+			}
+
+			Value AsCondition(LoweredValue lowered, const uni::Nnode* node) {
+				lowered = ToRValue(lowered, node);
+				if (!lowered.valid || !lowered.type.IsInteger()) {
+					Error("condition requires an integer expression", node);
+					return lowered.value;
+				}
+				if (lowered.value.type == Type::I1) return lowered.value;
+				Value integer = AsInt(lowered.value);
 				Value zero = EmitConst(0);
 				Instruction instruction;
 				instruction.opcode = Opcode::ICmp;
-				instruction.type = Type::I64;
+				instruction.type = Type::I32;
 				instruction.has_result = true;
 				instruction.result = NewValue(Type::I1);
 				instruction.operands.Append(integer);
@@ -233,49 +278,146 @@ namespace clover {
 			Value EmitConst(stdsint immediate) {
 				Instruction instruction;
 				instruction.opcode = Opcode::Const;
-				instruction.type = Type::I64;
+				instruction.type = Type::I32;
 				instruction.has_result = true;
-				instruction.result = NewValue(Type::I64);
+				instruction.result = NewValue(Type::I32);
 				instruction.immediate = immediate;
 				CurrentBlock().instructions.Append(instruction);
 				return instruction.result;
 			}
 
-			// Return an existing local address or declare it on first use.
-			Value LocalAddress(const char* name, const uni::Nnode* statement = nullptr) {
-				for (LocalValue& local : locals)
-					if (!StrCompare(local.name.reference(), name)) return local.address;
+			LocalValue* FindLocal(const char* name) {
+				for (stduint index = locals.Count(); index; index--) {
+					LocalValue& local = locals[index - 1];
+					if (local.active && !StrCompare(local.name.reference(), name)) return &local;
+				}
+				return nullptr;
+			}
 
+			bool PredeclareLocal(const char* name, const FrontendCType& type,
+				const uni::Nnode* declaration, const uni::Nnode* scope) {
+				for (const LocalValue& local : locals)
+					if (local.scope == scope && !StrCompare(local.name.reference(), name)) {
+						diagnostics->Report(DiagnosticStage::Semantic,
+							"redefinition of local variable", declaration);
+						failed = true;
+						return false;
+					}
 				Instruction instruction;
 				instruction.opcode = Opcode::Local;
-				instruction.type = Type::I64;
+				instruction.type = CloverType(type);
 				instruction.has_result = true;
 				instruction.result = NewValue(Type::Ptr);
 				instruction.name = name;
-				AttachSource(instruction, statement);
+				AttachSource(instruction, declaration);
 				EntryBlock().instructions.Append(instruction);
 
 				LocalValue local;
 				local.name = name;
 				local.address = instruction.result;
+				local.type = type;
+				local.declaration = declaration;
+				local.scope = scope;
 				locals.Append(local);
-				return instruction.result;
+				return true;
 			}
 
-			// Declare every source identifier before executable instructions so all
-			// Local instructions stay at the beginning of the entry block.
-			void CollectLocals(uni::Nnode* node, const uni::Nnode* statement = nullptr) {
-				for (; node; node = node->next) {
-					if (node->type == tok_statement ||
-						node->type == ToToken(FrontendCToken::Return)) {
-						CollectLocals(node->subf, node);
-						continue;
-					}
-					if (node->type == tok_identy && node->addr &&
-						!IsKeyword(node, "return") && !IsKeyword(node, "else"))
-						LocalAddress(node->addr, statement);
-					if (node->subf) CollectLocals(node->subf, statement);
+			bool ParseDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
+				FrontendCType& type) {
+				type = FrontendCType();
+				while (node && node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "OP@PREMEMB") && node->subf &&
+					!node->subf->next) {
+					type = type.AddressType();
+					node = node->subf;
 				}
+				if (!node || node->type != tok_identy || !node->addr) return false;
+				identifier = node;
+				return true;
+			}
+
+			bool PredeclareDeclarator(uni::Nnode* node, const uni::Nnode* declaration,
+				const uni::Nnode* scope) {
+				if (!node) return false;
+				if (node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "OP@COMMA")) {
+					for (uni::Nnode* child = node->subf; child; child = child->next)
+						if (!PredeclareDeclarator(child, declaration, scope)) return false;
+					return true;
+				}
+				uni::Nnode* declarator = node;
+				if (node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "OP@ASSIGN")) declarator = node->subf;
+				uni::Nnode* identifier = nullptr;
+				FrontendCType type;
+				if (!ParseDeclarator(declarator, identifier, type)) return false;
+				return PredeclareLocal(identifier->addr, type, declaration, scope);
+			}
+
+			bool PredeclareBlock(uni::Nnode* block) {
+				for (uni::Nnode* node = block ? block->subf : nullptr; node; node = node->next) {
+					if (node->type == ToToken(FrontendCToken::Declaration)) {
+						if (!PredeclareDeclarator(node->subf, node, block)) {
+							if (failed) return false;
+							return Error("invalid int declaration", node).valid;
+						}
+					}
+					if (node->type == tok_block && !PredeclareBlock(node)) return false;
+					if (node->subf) {
+						for (uni::Nnode* child = node->subf; child; child = child->next)
+							if (child->type == tok_block && !PredeclareBlock(child)) return false;
+					}
+				}
+				return true;
+			}
+
+			LocalValue* ActivateLocal(const char* name, const uni::Nnode* declaration) {
+				for (LocalValue& local : locals) {
+					if (local.declaration == declaration &&
+						!StrCompare(local.name.reference(), name)) {
+						local.active = true;
+						return &local;
+					}
+				}
+				return nullptr;
+			}
+
+			bool LowerDeclarator(uni::Nnode* node, const uni::Nnode* declaration) {
+				if (!node) return Error("missing declarator", declaration).valid;
+				if (node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "OP@COMMA")) {
+					for (uni::Nnode* child = node->subf; child; child = child->next)
+						if (!LowerDeclarator(child, declaration)) return false;
+					return true;
+				}
+				uni::Nnode* declarator = node;
+				uni::Nnode* initializer_node = nullptr;
+				if (node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "OP@ASSIGN")) {
+					declarator = node->subf;
+					initializer_node = declarator ? declarator->next : nullptr;
+					if (!initializer_node || initializer_node->next)
+						return Error("invalid initializer", node).valid;
+				}
+				uni::Nnode* identifier = nullptr;
+				FrontendCType declared_type;
+				if (!ParseDeclarator(declarator, identifier, declared_type))
+					return Error("invalid declarator", declarator).valid;
+				LocalValue* local = ActivateLocal(identifier->addr, declaration);
+				if (!local) return Error("invalid local declaration", identifier).valid;
+				if (!initializer_node) return true;
+				LoweredValue initializer = ToRValue(
+					LowerExpression(initializer_node), initializer_node);
+				if (!initializer.valid) return false;
+				if (!local->type.IsSame(initializer.type))
+					return Error("incompatible initializer type", initializer_node).valid;
+				EmitStore(initializer.value, local->address);
+				return true;
+			}
+
+			void LeaveScope(const uni::Nnode* block) {
+				for (LocalValue& local : locals)
+					if (local.scope == block) local.active = false;
 			}
 
 			// Record a lowering error and return an invalid expression result.
@@ -287,15 +429,26 @@ namespace clover {
 
 			LoweredValue LowerIncrement(uni::Nnode* operand, bool increment,
 				bool return_updated) {
-				if (!operand || operand->type != tok_identy || !operand->addr)
-					return Error("increment requires an identifier", operand);
-				Value address = LocalAddress(operand->addr);
-				Value previous = EmitResult(Opcode::Load, Type::I64, address);
+				LoweredValue lowered = LowerExpression(operand);
+				if (!lowered.valid) return lowered;
+				if (!lowered.is_lvalue ||
+					(!lowered.type.IsInteger() && !lowered.type.IsPointer()))
+					return Error("increment requires an arithmetic or pointer lvalue", operand);
+				Value previous = EmitResult(Opcode::Load, CloverType(lowered.type), lowered.value);
 				Value one = EmitConst(1);
-				Value updated = EmitResult(increment ? Opcode::Add : Opcode::Sub,
-					Type::I64, previous, one);
-				EmitStore(updated, address);
-				return { return_updated ? updated : previous, true };
+				Value updated;
+				if (lowered.type.IsPointer()) {
+					Value index = one;
+					if (!increment) {
+						Value zero = EmitConst(0);
+						index = EmitResult(Opcode::Sub, Type::I32, zero, one);
+					}
+					updated = EmitPtrAdd(previous, index, lowered.type);
+				}
+				else updated = EmitResult(increment ? Opcode::Add : Opcode::Sub,
+					Type::I32, previous, one);
+				EmitStore(updated, lowered.value);
+				return { return_updated ? updated : previous, true, lowered.type, false };
 			}
 
 			// Translate one operator and recursively lower its operands.
@@ -316,31 +469,79 @@ namespace clover {
 					return LowerIncrement(left_node, true, true);
 				if (!StrCompare(operation, "OP@@PRESUB"))
 					return LowerIncrement(left_node, false, true);
-				if (!StrCompare(operation, "OP@PREPOSI")) return LowerExpression(left_node);
+				if (!StrCompare(operation, "OP@PREADDR")) {
+					LoweredValue operand = LowerExpression(left_node);
+					if (!operand.valid) return operand;
+					if (!operand.is_lvalue)
+						return Error("cannot take the address of an rvalue", left_node);
+					return { operand.value, true, operand.type.AddressType(), false };
+				}
+				if (!StrCompare(operation, "OP@PREMEMB")) {
+					LoweredValue operand = ToRValue(LowerExpression(left_node), left_node);
+					if (!operand.valid) return operand;
+					if (!operand.type.IsPointer())
+						return Error("dereference requires a pointer", left_node);
+					return { operand.value, true, operand.type.DereferenceType(), true };
+				}
+				if (!StrCompare(operation, "OP@PREPOSI")) {
+					LoweredValue operand = ToRValue(LowerExpression(left_node), left_node);
+					if (!operand.valid) return operand;
+					if (!operand.type.IsInteger())
+						return Error("unary plus requires an integer", left_node);
+					return operand;
+				}
 				if (!StrCompare(operation, "OP@PRENEGA")) {
 					LoweredValue operand = LowerExpression(left_node);
 					if (!operand.valid) return operand;
 					Value zero = EmitConst(0);
-					Value value = EmitResult(Opcode::Sub, Type::I64, zero, AsI64(operand.value));
-					return { value, !failed };
+					Value value = EmitResult(Opcode::Sub, Type::I32, zero,
+						AsInt(operand, left_node));
+					return { value, !failed, FrontendCType(), false };
 				}
 
 				if (!StrCompare(operation, "OP@ASSIGN")) {
-					if (!right_node || left_node->type != tok_identy || !left_node->addr)
-						return Error("assignment requires an identifier", node);
-					LoweredValue right = LowerExpression(right_node);
+					if (!right_node) return Error("assignment requires two operands", node);
+					LoweredValue left = LowerExpression(left_node);
+					if (!left.valid) return left;
+					if (!left.is_lvalue) return Error("assignment requires an lvalue", left_node);
+					LoweredValue right = ToRValue(LowerExpression(right_node), right_node);
 					if (!right.valid) return right;
-					Value value = AsI64(right.value);
-					EmitStore(value, LocalAddress(left_node->addr));
-					return { value, !failed };
+					if (!left.type.IsSame(right.type))
+						return Error("incompatible assignment types", node);
+					EmitStore(right.value, left.value);
+					return right;
 				}
 
 				if (!right_node) return Error("binary operator requires two operands", node);
 				LoweredValue left = LowerExpression(left_node);
 				LoweredValue right = LowerExpression(right_node);
 				if (!left.valid || !right.valid) return {};
-				Value lhs = AsI64(left.value);
-				Value rhs = AsI64(right.value);
+
+				if (!StrCompare(operation, "OP@ARIADD") ||
+					!StrCompare(operation, "OP@ARISUB")) {
+					left = ToRValue(left, left_node);
+					right = ToRValue(right, right_node);
+					bool subtract = !StrCompare(operation, "OP@ARISUB");
+					if (left.type.IsPointer() && right.type.IsInteger()) {
+						Value index = AsInt(right, right_node);
+						if (subtract) {
+							Value zero = EmitConst(0);
+							index = EmitResult(Opcode::Sub, Type::I32, zero, index);
+						}
+						Value value = EmitPtrAdd(left.value, index, left.type);
+						return { value, !failed, left.type, false };
+					}
+					if (!subtract && left.type.IsInteger() && right.type.IsPointer()) {
+						Value index = AsInt(left, left_node);
+						Value value = EmitPtrAdd(right.value, index, right.type);
+						return { value, !failed, right.type, false };
+					}
+					if (left.type.IsPointer() || right.type.IsPointer())
+						return Error("invalid operands to pointer arithmetic", node);
+				}
+
+				Value lhs = AsInt(left, left_node);
+				Value rhs = AsInt(right, right_node);
 				if (failed) return {};
 
 				Opcode opcode;
@@ -366,18 +567,18 @@ namespace clover {
 
 					Instruction instruction;
 					instruction.opcode = Opcode::ICmp;
-					instruction.type = Type::I64;
+					instruction.type = Type::I32;
 					instruction.has_result = true;
 					instruction.result = NewValue(Type::I1);
 					instruction.operands.Append(lhs);
 					instruction.operands.Append(rhs);
 					instruction.predicate = predicate;
 					CurrentBlock().instructions.Append(instruction);
-					return { instruction.result, true };
+					return { instruction.result, true, FrontendCType(), false };
 				}
 
-				Value value = EmitResult(opcode, Type::I64, lhs, rhs);
-				return { value, true };
+				Value value = EmitResult(opcode, Type::I32, lhs, rhs);
+				return { value, true, FrontendCType(), false };
 			}
 
 		public:
@@ -399,9 +600,9 @@ namespace clover {
 				case tok_number:
 					return { EmitConst(atoins(node->addr)), true };
 				case tok_identy: {
-					Value address = LocalAddress(node->addr);
-					Value value = EmitResult(Opcode::Load, Type::I64, address);
-					return { value, true };
+					LocalValue* local = FindLocal(node->addr);
+					if (!local) return Error("use of undeclared identifier", node);
+					return { local->address, true, local->type, true };
 				}
 				case tok_func:
 					return LowerOperator(node);
@@ -415,11 +616,11 @@ namespace clover {
 					return Error("return requires a value", expression).valid;
 				LoweredValue lowered = LowerExpression(expression);
 				if (!lowered.valid) return false;
-				Value result = AsI64(lowered.value);
+				Value result = AsInt(lowered, expression);
 				if (failed) return false;
 				Instruction instruction;
 				instruction.opcode = Opcode::Ret;
-				instruction.type = Type::I64;
+				instruction.type = Type::I32;
 				instruction.operands.Append(result);
 				CurrentBlock().instructions.Append(instruction);
 				return true;
@@ -430,7 +631,7 @@ namespace clover {
 				stduint first_instruction = CurrentBlock().instructions.Count();
 				LoweredValue lowered = LowerExpression(condition_node);
 				if (!lowered.valid) return false;
-				Value condition = AsCondition(lowered.value);
+				Value condition = AsCondition(lowered, condition_node);
 				if (failed) return false;
 				AttachSource(first_instruction, source_statement);
 				then_block = NewBlock("if.then");
@@ -480,7 +681,7 @@ namespace clover {
 				stduint first_instruction = CurrentBlock().instructions.Count();
 				LoweredValue lowered = LowerExpression(node->subf);
 				if (!lowered.valid) return false;
-				Value condition = AsCondition(lowered.value);
+				Value condition = AsCondition(lowered, node->subf);
 				if (failed) return false;
 				AttachSource(first_instruction, source_statement);
 				EmitJump(condition, function->blocks[body_block].name, end_name);
@@ -521,7 +722,7 @@ namespace clover {
 					stduint first_instruction = CurrentBlock().instructions.Count();
 					LoweredValue lowered = LowerExpression(condition_node);
 					if (!lowered.valid) return false;
-					Value condition = AsCondition(lowered.value);
+					Value condition = AsCondition(lowered, condition_node);
 					if (failed) return false;
 					AttachSource(first_instruction, source_statement);
 					EmitJump(condition, function->blocks[body_block].name, end_name);
@@ -575,6 +776,11 @@ namespace clover {
 
 				if (node->type == tok_block) return LowerBlock(node);
 				stduint first_instruction = CurrentBlock().instructions.Count();
+				if (node->type == ToToken(FrontendCToken::Declaration)) {
+					bool success = LowerDeclarator(node->subf, node);
+					if (success) AttachSource(first_instruction, atom.source);
+					return success;
+				}
 				if (node->type == ToToken(FrontendCToken::Return)) {
 					bool success;
 					if (node->subf) success = EmitReturnExpression(node->subf);
@@ -601,12 +807,13 @@ namespace clover {
 				for (stduint index = 0; index < atoms.Count();) {
 					if (!LowerStatement(atoms, index) || failed) return false;
 				}
+				LeaveScope(block);
 				return true;
 			}
 
 			// Lower one function body without requiring an explicit return statement.
 			bool Lower(uni::Nnode* body) {
-				CollectLocals(body ? body->subf : nullptr);
+				if (!PredeclareBlock(body)) return false;
 				return LowerBlock(body);
 			}
 		};
@@ -628,7 +835,7 @@ namespace clover {
 			uni::Nnode* body = node->next;
 			Function function;
 			function.name = node->addr;
-			function.return_type = Type::I64;
+			function.return_type = Type::I32;
 			FunctionBuilder builder(function, diagnostics, debug_info);
 			if (!builder.Lower(body)) return false;
 			module.functions.Append(function);

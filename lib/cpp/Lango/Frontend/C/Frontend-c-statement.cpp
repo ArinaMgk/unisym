@@ -85,6 +85,20 @@ namespace {
 		return node && node->addr && !StrCompare(node->addr, keyword);
 	}
 
+	bool PrepareDeclaration(uni::Nchain& syntax_tree, uni::Nnode* statement,
+		const FrontendCDiagnostics& diagnostics) {
+		uni::Nnode* type = statement ? statement->subf : nullptr;
+		if (!type || type->type != tok_identy || !IsKeyword(type, "int")) return false;
+		uni::Nnode* declarator = syntax_tree.Remove(type);
+		if (!declarator) {
+			diagnostics.Report(DiagnosticStage::Parser,
+				"expected declarator after 'int'", statement);
+			return false;
+		}
+		statement->type = ToToken(FrontendCToken::Declaration);
+		return true;
+	}
+
 	void ClassifyControlNode(uni::Nnode* node, FrontendCDebugInfo* debug_info) {
 		if (!node) return;
 		if (node->type == tok_func && IsKeyword(node, "if")) {
@@ -153,6 +167,10 @@ namespace {
 				node->type = ToToken(FrontendCToken::Empty);
 				continue;
 			}
+			if (node->subf->type == tok_identy && IsKeyword(node->subf, "int")) {
+				if (!PrepareDeclaration(syntax_tree, node, diagnostics)) return false;
+				continue;
+			}
 			for (uni::Nnode* child = node->subf; child; child = child->next)
 				if (child->type == tok_block) {
 					if (!PrepareBlock(syntax_tree, child, diagnostics, debug_info)) return false;
@@ -195,7 +213,8 @@ namespace {
 				node->type == ToToken(FrontendCToken::Else) ||
 				node->type == ToToken(FrontendCToken::While) ||
 				node->type == ToToken(FrontendCToken::For) ||
-				node->type == ToToken(FrontendCToken::Empty)) continue;
+				node->type == ToToken(FrontendCToken::Empty) ||
+				node->type == ToToken(FrontendCToken::Declaration)) continue;
 			else if (node->type == ToToken(FrontendCToken::Return) &&
 				(!node->subf || node->subf->next)) {
 				diagnostics.Report(DiagnosticStage::Parser,

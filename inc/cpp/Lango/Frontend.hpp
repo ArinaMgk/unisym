@@ -24,6 +24,7 @@
 
 #include "./CloverIR.hpp"
 #include "./Diagnostic.hpp"
+#include "./Target.hpp"
 
 namespace uni::lango {
 
@@ -32,6 +33,8 @@ struct FrontendOptions {
 	bool debug_source = false; // Retain source statements in generated Clover IR.
 	const char* source_name = nullptr; // Path or synthetic name shown in diagnostics.
 	DiagnosticInterface* diagnostics = nullptr; // Uses the default logger when null.
+	const char* language_standard = nullptr; // Frontend-specific standard such as c99.
+	TargetInfo target; // ABI sizes used while lowering source-language types.
 };
 
 // Common interface implemented by source-language Clover IR frontends.

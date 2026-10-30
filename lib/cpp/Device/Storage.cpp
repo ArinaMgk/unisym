@@ -22,7 +22,7 @@
 
 #include "../../../inc/cpp/unisym"
 #include "../../../inc/cpp/string"
-#include "../../../inc/cpp/trait/StorageTrait.hpp"
+#include "../../../inc/cpp/System/Filesys.hpp"
 
 #pragma GCC optimize("O0")
 #define DRV_OF_DEV
@@ -136,17 +136,17 @@ namespace uni {
 			base.Read(0, psector);
 			MemCopyN(part_tbl, psector + MBR_PARTITION_TABLE_OFFSET, sizeof(part_tbl));
 			for0(i, NR_PART_PER_DRIVE) {
-				if (part_tbl[i].type == Part_NO_PART)
+				if (part_tbl[i].type == ClassicFilesysType::None)
 					continue;
 				PartitionSlice prim = {};
 				prim.address = part_tbl[i].lba_start;
 				prim.length = part_tbl[i].lba_count;
 				prim.sys_id = part_tbl[i].type;
-				if (part_tbl[i].type != Part_EX_PART) {
+				if (part_tbl[i].type != ClassicFilesysType::EXT) {
 					hdi.AppendPart(prim);
 				}
 				// plogwarn("p %u: %u-%u", i + 1, part_tbl[i].lba_start, part_tbl[i].lba_count);
-				if (part_tbl[i].type ==Part_EX_PART)
+				if (part_tbl[i].type == ClassicFilesysType::EXT)
 					Partition(base, hdi, psector, prim.address, false);
 			}
 		}
@@ -161,12 +161,12 @@ namespace uni {
 				logi.address = s + part_tbl[0].lba_start;
 				logi.length = part_tbl[0].lba_count;
 				logi.sys_id = part_tbl[0].type;
-				if (logi.sys_id != Part_NO_PART && logi.length) {
+				if (logi.sys_id != ClassicFilesysType::None && logi.length) {
 					hdi.AppendPart(logi);
 				}
 				// plogwarn("l %u: %u-%u", dev_nr, logi.address, logi.address + logi.length);
 				s = ext_start_sect + part_tbl[1].lba_start;
-				if (part_tbl[1].type == Part_NO_PART) {
+				if (part_tbl[1].type == ClassicFilesysType::None) {
 					break;
 				}
 			}

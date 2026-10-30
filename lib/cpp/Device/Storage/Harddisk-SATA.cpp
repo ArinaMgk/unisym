@@ -219,7 +219,7 @@ namespace uni {
 		total_sectors = sectors48 ? sectors48 : sectors28;
 		hd_info.whole_disk.address = 0;
 		hd_info.whole_disk.length = (stduint)total_sectors;
-		hd_info.whole_disk.sys_id = 0;
+		hd_info.whole_disk.sys_id = ClassicFilesysType::None;
 		hd_info.scheme_kind = PartitionSchemeKind::Unknown;
 	}
 
@@ -394,7 +394,7 @@ namespace uni {
 		if (dev != 0) return slice;
 		slice.address = 0;
 		slice.length = total_blocks;
-		slice.sys_id = 0;
+		slice.sys_id = ClassicFilesysType::None;
 		return slice;
 	}
 }

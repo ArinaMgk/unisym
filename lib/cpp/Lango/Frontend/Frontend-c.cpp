@@ -26,6 +26,23 @@ namespace uni::lango {
 
 	namespace {
 
+		bool ValidateOptions(const FrontendOptions& options,
+			const FrontendCDiagnostics& diagnostics) {
+			if (options.language_standard &&
+				StrCompare(options.language_standard, "c99")) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"unsupported C standard; supported standard: c99");
+				return false;
+			}
+			FrontendCTargetInfo target = FrontendCTargetInfo::FromTarget(options.target);
+			if (target.int_bits != 32) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"unsupported target int width; supported width: 32");
+				return false;
+			}
+			return true;
+		}
+
 		bool AnalyzeC(NestedParseUnit& parser, const FrontendCDiagnostics& diagnostics,
 			FrontendCDebugInfo* debug_info) {
 			Nchain& syntax_tree = *parser.GetNetwork();
@@ -80,6 +97,7 @@ namespace uni::lango {
 		diagnostics.output = options.diagnostics ? options.diagnostics :
 			&DefaultDiagnosticInterface();
 		diagnostics.source_name = options.source_name ? options.source_name : "<input>";
+		if (!ValidateOptions(options, diagnostics)) return false;
 		FrontendCDebugInfo debug_info;
 		FrontendCDebugInfo* requested_debug_info = options.debug_source ? &debug_info : nullptr;
 		if (!ParseC(input, operators, syntax, diagnostics, requested_debug_info)) return false;
@@ -97,6 +115,7 @@ namespace uni::lango {
 		diagnostics.output = options.diagnostics ? options.diagnostics :
 			&DefaultDiagnosticInterface();
 		diagnostics.source_name = options.source_name ? options.source_name : "<input>";
+		if (!ValidateOptions(options, diagnostics)) return false;
 		if (!ParseC(input, operators, syntax, diagnostics, nullptr)) return false;
 		PrintNode(output, syntax->GetNetwork()->Root());
 		delete syntax;

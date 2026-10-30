@@ -17,6 +17,10 @@ enum class MagicFrontend {
 	C, // C language frontend.
 };
 
+// Resolve an explicit --lango value or a recognized source-file suffix.
+bool FrontendFromName(rostr name, MagicFrontend& frontend);
+bool FrontendFromPath(rostr path, MagicFrontend& frontend);
+
 // Construct the selected source-language frontend.
 uni::lango::FrontendInterface* FrontendCreate(MagicFrontend frontend);
 

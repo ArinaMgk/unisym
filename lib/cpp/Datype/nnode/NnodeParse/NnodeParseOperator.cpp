@@ -78,11 +78,30 @@ const char* uni::StrIndexOperator(const char* str, uni::TokenOperator** operator
 		else ++ * operators;
 	}
 	else if (cond == 1) {
+		uni::TokenOperator* first = *operators;
+		uni::TokenOperator* selected = nullptr;
+		const char* selected_idx = nullptr;
+		stduint selected_width = 0;
 		for0(i, count) {
-			if ((idx = (left_to_right ? StrIndexString : StrIndexStringRight)(str, (*operators)->idnop)))
-				return idx;
-			else ++ * operators;
+			uni::TokenOperator* candidate = first + i;
+			idx = (left_to_right ? StrIndexString : StrIndexStringRight)(str, candidate->idnop);
+			if (!idx) continue;
+			stduint width = StrLength(candidate->idnop);
+			if (!selected ||
+				(left_to_right && (idx < selected_idx ||
+					(idx == selected_idx && width > selected_width))) ||
+				(!left_to_right && (idx + width > selected_idx + selected_width ||
+					(idx + width == selected_idx + selected_width && width > selected_width)))) {
+				selected = candidate;
+				selected_idx = idx;
+				selected_width = width;
+			}
 		}
+		if (selected) {
+			*operators = selected;
+			return selected_idx;
+		}
+		*operators = first + count;
 	}
 	return nullptr;
 }

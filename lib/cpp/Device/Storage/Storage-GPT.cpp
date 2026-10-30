@@ -5,7 +5,7 @@
 #include "../../../../inc/cpp/unisym"
 #include "../../../../inc/cpp/string"
 #include "../../../../inc/cpp/trait/StorageTrait.hpp"
-#include "../../../../inc/c/format/filesys.h"
+#include "../../../../inc/cpp/System/Filesys.hpp"
 
 namespace uni {
 
@@ -61,7 +61,7 @@ namespace uni {
 		return value && !(value & (value - 1));
 	}
 
-	static byte _LOCAL_MapGptTypeToSysId(const byte guid[16]) {
+	static ClassicFilesysType _LOCAL_MapGptTypeToSysId(const byte guid[16]) {
 		static const byte guid_esp[16] = {
 			0x28, 0x73, 0x2A, 0xC1, 0x1F, 0xF8, 0xD2, 0x11,
 			0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B,
@@ -74,10 +74,10 @@ namespace uni {
 			0xAF, 0x3D, 0xC6, 0x0F, 0x83, 0x84, 0x72, 0x47,
 			0x8E, 0x79, 0x3D, 0x69, 0xD8, 0x47, 0x7D, 0xE4,
 		};
-		if (_LOCAL_GuidEq(guid, guid_esp)) return FILESYS_EFI_SYS;
-		if (_LOCAL_GuidEq(guid, guid_basic_data)) return FILESYS_FAT32_LBA;
-		if (_LOCAL_GuidEq(guid, guid_linux_fs)) return FILESYS_LINUX_NATIVE;
-		return 0x00;
+		if (_LOCAL_GuidEq(guid, guid_esp)) return ClassicFilesysType::EFI_SYS;
+		if (_LOCAL_GuidEq(guid, guid_basic_data)) return ClassicFilesysType::FAT32_LBA;
+		if (_LOCAL_GuidEq(guid, guid_linux_fs)) return ClassicFilesysType::LINUX_NATIVE;
+		return ClassicFilesysType::None;
 	}
 
 	static bool _LOCAL_ReadBlock(StorageTrait& base, uint64 lba, byte* dest) {
@@ -91,7 +91,7 @@ namespace uni {
 		if (block[510] != 0x55 || block[511] != 0xAA) return false;
 		PartitionTableX86 part_tbl[4] = {};
 		MemCopyN(part_tbl, block + MBR_PARTITION_TABLE_OFFSET, sizeof(part_tbl));
-		for0(i, 4) if (part_tbl[i].type == 0xEE) return true;
+		for0(i, 4) if (part_tbl[i].type == ClassicFilesysType::GPT_PROTECTIVE) return true;
 		return false;
 	}
 
@@ -186,11 +186,11 @@ namespace uni {
 			PartitionSlice slice = {};
 			slice.address = (stduint)ent.first_lba;
 			slice.length = (stduint)slice_len;
-			byte sys_id = _LOCAL_MapGptTypeToSysId(ent.type_guid);
-			if (sys_id == FILESYS_FAT32_LBA) {
+			auto sys_id = _LOCAL_MapGptTypeToSysId(ent.type_guid);
+			if (sys_id == ClassicFilesysType::FAT32_LBA) {
 				if (_LOCAL_ReadBlock(base, ent.first_lba, block_buf)) {
 					if (block_buf[3] == 'N' && block_buf[4] == 'T' && block_buf[5] == 'F' && block_buf[6] == 'S') {
-						sys_id = FILESYS_NTFS;
+						sys_id = ClassicFilesysType::NTFS;
 					}
 				}
 			}

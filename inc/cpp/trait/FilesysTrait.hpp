@@ -23,7 +23,8 @@
 #include "../string"
 //{TODO} ! Below are included by HEREPIC ! //
 
-#include "StorageTrait.hpp"
+#include "../trait/BlockTrait.hpp"
+#include "../trait/StorageTrait.hpp"
 
 
 #ifndef _FILESYS_DATETIME

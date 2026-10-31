@@ -1,4 +1,4 @@
-#if defined(_MCCA) && _MCCA == 0x8664
+#if defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
 #include "../../../../../inc/c/msgface.h"
 #include "../../../../../inc/cpp/Device/USB/xHCI/xHCI-registers.hpp"
 #include "../../../../../inc/cpp/Device/USB/xHCI/xHCI.hpp"

@@ -57,9 +57,18 @@ check 'int main(){return -3>=-3;}' 1
 check 'int main(){return -4>=-3;}' 0
 #
 check 'int main(){return -4>=-3==-0*-1;}' 1
-# Comma
+# Expression statements
 check 'int main(){1+2;;return 6;}' 6
 check 'int main(){12+23;12+99/3; return 78-66;}' 12
+
+# Comma operator
+check 'int main(){return (1,2,3);}' 3
+check 'int main(){return 1,2;}' 2
+check 'int main(){int x=1; return (x=4,x+2);}' 6
+check 'int main(){int x=(1,2),y=4; return x+y;}' 6
+check 'int add(int x,int y){return x+y;} int main(){return add((1,2),3);}' 5
+check 'int main(){int a[2]={(1,2),3}; return a[0]+a[1];}' 5
+
 # Variabls
 check 'int main(){int foo=3; return foo+1;}' 4
 check 'int main(){int foo2=6; int bar4=foo2+4; foo2=2; return foo2+foo2*bar4;}' 22
@@ -106,6 +115,15 @@ check 'int main() {return sizeof(int*)+sizeof(char[3]);}' 11
 check 'int main() { return "abc"[0]; }' 97
 check 'int main() { return ""[0]; }' 0
 check 'int main() { return "\101"[0]; }' 65
+
+# Structure layout
+check '../demo/test/clover/c/struct-layout.c' 44
+check 'struct S {int a; char b;}; int main(){struct S x; x.a=3; x.b=2; return x.a+x.b;}' 5
+check 'struct S {char a; int b;}; int main(){struct S x; x.b=7; return *&x.b;}' 7
+check 'struct S {char a; int b;}; int main(){struct S x; return sizeof(x.a)+sizeof(x.b);}' 5
+check 'struct S {char a; int b;}; int main(){struct S x; struct S *p=&x; p->a=2; p->b=5; return p->a+p->b;}' 7
+check 'struct S {char a; int b;}; int main(){struct S x; struct S *p=&x; p->b=9; return *&p->b;}' 9
+check 'struct S {char a; int b;}; int main(){struct S *p; return sizeof(p->a)+sizeof(p->b);}' 5
 
 # Storage Area and Lifetime
 check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1

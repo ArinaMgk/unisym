@@ -130,6 +130,13 @@ namespace uni::lango {
 								instruction.name.reference());
 							return false;
 						}
+						if (instruction.opcode == clover::Opcode::Local &&
+							instruction.alignment &&
+							((instruction.alignment & (instruction.alignment - 1)) ||
+							instruction.alignment > 16)) {
+							plogerro("RISC-V backend: local alignment must be a power of two up to 16 bytes");
+							return false;
+						}
 						if (!target.extension_m &&
 							(instruction.opcode == clover::Opcode::Mul ||
 							instruction.opcode == clover::Opcode::SDiv ||
@@ -255,8 +262,11 @@ namespace uni::lango {
 						stdsint element_count = instruction.immediate > 0 ?
 							instruction.immediate : 1;
 						if (!element_size || element_count <= 0) return false;
-						offset = AlignOffset(offset, element_size);
-						slot.local_offset = offset += element_size * element_count;
+						stdsint alignment = instruction.alignment ?
+							(stdsint)instruction.alignment : element_size;
+						slot.local_offset = AlignOffset(
+							offset + element_size * element_count, alignment);
+						offset = slot.local_offset;
 					}
 					else slot.value_offset = offset += 8;
 				}

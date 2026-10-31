@@ -33,7 +33,7 @@ enum class CDataModel {
 	LLP64  // int and long are 32-bit; long long and pointers are 64-bit.
 };
 
-// C-specific type sizes derived from a target and its ABI data model.
+// C-specific type sizes and alignments derived from a target ABI data model.
 struct FrontendCTargetInfo {
 	CDataModel data_model = CDataModel::LP64;
 	unsigned char_bits = 8;
@@ -42,6 +42,12 @@ struct FrontendCTargetInfo {
 	unsigned long_bits = 64;
 	unsigned long_long_bits = 64;
 	unsigned pointer_bits = 64;
+	unsigned char_align_bits = 8;
+	unsigned short_align_bits = 16;
+	unsigned int_align_bits = 32;
+	unsigned long_align_bits = 64;
+	unsigned long_long_align_bits = 64;
+	unsigned pointer_align_bits = 64;
 	bool char_is_signed = true;
 
 	static FrontendCTargetInfo FromTarget(const TargetInfo& target);
@@ -50,10 +56,14 @@ struct FrontendCTargetInfo {
 inline FrontendCTargetInfo FrontendCTargetInfo::FromTarget(const TargetInfo& target) {
 	FrontendCTargetInfo info;
 	info.char_bits = target.byte_bits;
+	info.char_align_bits = target.byte_bits;
 	info.pointer_bits = target.pointer_bits;
+	info.pointer_align_bits = target.pointer_bits;
 	if (target.pointer_bits == 32) {
 		info.data_model = CDataModel::ILP32;
 		info.long_bits = 32;
+		info.long_align_bits = 32;
+		info.pointer_align_bits = 32;
 	}
 	return info;
 }

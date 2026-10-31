@@ -253,7 +253,7 @@ namespace uni::device::SpaceUSB3 {
 
 	public:
 		Error Initialize(size_t max_slots);
-		void** DeviceContexts() const;
+		uint64_t* DeviceContexts() const;
 		size_t MaxSlots() const { return max_slots_; }
 		USBHostDevice_v3* FindByPort(uint8 port_num, uint32_t route_string) const;
 		USBHostDevice_v3* FindByState(enum USBHostDevice_v3::State state) const;
@@ -265,9 +265,10 @@ namespace uni::device::SpaceUSB3 {
 		void Reset();
 
 	private:
-	 // device_context_pointers_ can be used as DCBAAP's value.
-	 // The number of elements is max_slots_ + 1.
-		void** device_context_pointers_;
+		// device_context_pointers_ can be used as DCBAAP's value.
+		// The number of elements is max_slots_ + 1.
+		// xHCI Device Context Base Address Array entries are always 64-bit bus addresses.
+		uint64_t* device_context_pointers_;
 		size_t max_slots_;
 
 		// The number of elements is max_slots_ + 1.

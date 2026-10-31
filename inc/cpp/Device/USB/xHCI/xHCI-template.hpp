@@ -23,6 +23,10 @@ namespace ext {
 	 * T::data. T is the template parameter. T::data should be an array.
 	 */
 	// 20260528: use inline assembly to avoid over OPTIMIZATION by GCC 16.1.1+
+	#if defined(__GNUC__) || defined(__clang__)
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+	#endif
 	template <typename T>
 	class MemMapRegister {
 	public:
@@ -42,7 +46,15 @@ namespace ext {
 				*(uint32_t*)&tmp = val;
 			} else if constexpr (sizeof(T) == 8) {
 				uint64_t val;
-				asm volatile ("movq %1, %0" : "=r"(val) : "m"(*(volatile uint64_t*)&value_) : "memory");
+				if constexpr (sizeof(uintptr_t) == 8) {
+					asm volatile ("movq %1, %0" : "=r"(val) : "m"(*(volatile uint64_t*)&value_) : "memory");
+				} else {
+					auto* words = reinterpret_cast<const volatile uint32_t*>(&value_);
+					uint32_t low, high;
+					asm volatile ("movl %1, %0" : "=r"(low) : "m"(words[0]) : "memory");
+					asm volatile ("movl %1, %0" : "=r"(high) : "m"(words[1]) : "memory");
+					val = uint64_t(low) | (uint64_t(high) << 32);
+				}
 				*(uint64_t*)&tmp = val;
 			} else {
 				for (size_t i = 0; i < len_; ++i) {
@@ -64,7 +76,14 @@ namespace ext {
 				asm volatile ("movl %0, %1" : : "r"(val), "m"(*(volatile uint32_t*)&value_) : "memory");
 			} else if constexpr (sizeof(T) == 8) {
 				uint64_t val = *(uint64_t*)&value;
-				asm volatile ("movq %0, %1" : : "r"(val), "m"(*(volatile uint64_t*)&value_) : "memory");
+				if constexpr (sizeof(uintptr_t) == 8) {
+					asm volatile ("movq %0, %1" : : "r"(val), "m"(*(volatile uint64_t*)&value_) : "memory");
+				} else {
+					// xHCI 1.2 section 5.1: two DWORD writes must be low first, then high.
+					auto* words = reinterpret_cast<volatile uint32_t*>(&value_);
+					asm volatile ("movl %1, %0" : "=m"(words[0]) : "r"(uint32_t(val)) : "memory");
+					asm volatile ("movl %1, %0" : "=m"(words[1]) : "r"(uint32_t(val >> 32)) : "memory");
+				}
 			} else {
 				for (size_t i = 0; i < len_; ++i) {
 					value_.data[i] = value.data[i];
@@ -76,6 +95,9 @@ namespace ext {
 		volatile T value_;
 		static const size_t len_ = ArrayLength<decltype(T::data)>::value;
 	};
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 	template <typename T>
 	struct DefaultBitmap {

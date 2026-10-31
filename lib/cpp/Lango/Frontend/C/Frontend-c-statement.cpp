@@ -99,19 +99,45 @@ namespace {
 			IsKeyword(node, "signed") || IsKeyword(node, "unsigned") ||
 			IsKeyword(node, "char") || IsKeyword(node, "short") ||
 			IsKeyword(node, "int") || IsKeyword(node, "long") ||
-			IsKeyword(node, "void");
+			IsKeyword(node, "void") || IsKeyword(node, "struct");
 	}
 
 	// Consume one C99 scalar type-specifier sequence before its declarator.
 	bool ParseTypeSpecifiers(uni::Nchain& syntax_tree, uni::Nnode*& node,
 		FrontendCType& type, const FrontendCDiagnostics& diagnostics,
-		const FrontendCTargetInfo& target) {
+		const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info) {
 		unsigned signed_count = 0, unsigned_count = 0, char_count = 0;
 		unsigned short_count = 0, int_count = 0, long_count = 0, void_count = 0;
 		unsigned const_count = 0;
 		uni::Nnode* first = node;
 		uni::Nnode* after_type = node;
-		while (IsTypeSpecifier(after_type)) {
+		while (IsKeyword(after_type, "const")) {
+			const_count++;
+			after_type = after_type->next;
+		}
+		if (IsKeyword(after_type, "struct")) {
+			uni::Nnode* tag = after_type->next;
+			if (const_count > 1 || !tag || tag->type != tok_identy || !tag->addr) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"expected struct tag", after_type);
+				return false;
+			}
+			stduint record_id = type_info.FindRecord(tag->addr);
+			if (!record_id) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"use of undefined struct type", tag);
+				return false;
+			}
+			after_type = tag->next;
+			while (node != after_type) node = syntax_tree.Remove(node);
+			type = FrontendCType();
+			type.record_id = record_id;
+			type.base_qualifiers.is_const = const_count != 0;
+			return true;
+		}
+		after_type = first;
+		const_count = 0;
+		while (IsTypeSpecifier(after_type) && !IsKeyword(after_type, "struct")) {
 			if (IsKeyword(after_type, "const")) const_count++;
 			else if (IsKeyword(after_type, "signed")) signed_count++;
 			else if (IsKeyword(after_type, "unsigned")) unsigned_count++;
@@ -155,7 +181,8 @@ namespace {
 		FrontendCTypeInfo& type_info, bool global = false) {
 		uni::Nnode* declarator = statement ? statement->subf : nullptr;
 		FrontendCType type;
-		if (!ParseTypeSpecifiers(syntax_tree, declarator, type, diagnostics, target)) return false;
+		if (!ParseTypeSpecifiers(syntax_tree, declarator, type, diagnostics,
+			target, type_info)) return false;
 		if (!declarator) {
 			diagnostics.Report(DiagnosticStage::Parser,
 				"expected declarator after type", statement);
@@ -164,6 +191,11 @@ namespace {
 		if (type.IsVoid()) {
 			diagnostics.Report(DiagnosticStage::Semantic,
 				"object cannot have void type", statement);
+			return false;
+		}
+		if (global && type.IsRecord()) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"global struct objects are not supported yet", statement);
 			return false;
 		}
 		statement->type = ToToken(global ? FrontendCToken::GlobalDeclaration :
@@ -179,7 +211,8 @@ namespace {
 		stduint count = 0;
 		while (node) {
 			FrontendCType type;
-			if (!ParseTypeSpecifiers(syntax_tree, node, type, diagnostics, target)) {
+			if (!ParseTypeSpecifiers(syntax_tree, node, type, diagnostics,
+				target, type_info)) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"expected integer parameter type", node);
 				return false;
@@ -194,6 +227,11 @@ namespace {
 			if (type.IsVoid()) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"parameter cannot have void type", node ? node : function);
+				return false;
+			}
+			if (type.IsRecord()) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"struct parameters by value are not supported yet", node);
 				return false;
 			}
 			uni::Nnode* parameter = node;
@@ -224,6 +262,90 @@ namespace {
 				return false;
 			}
 		}
+		return true;
+	}
+
+	stduint AlignUp(stduint value, stduint alignment) {
+		if (!alignment) return value;
+		stduint remainder = value % alignment;
+		return remainder ? value + alignment - remainder : value;
+	}
+
+	bool IsRecordDefinition(const uni::Nnode* statement) {
+		const uni::Nnode* keyword = statement ? statement->subf : nullptr;
+		const uni::Nnode* tag = keyword ? keyword->next : nullptr;
+		const uni::Nnode* body = tag ? tag->next : nullptr;
+		return IsKeyword(keyword, "struct") && tag && tag->type == tok_identy &&
+			tag->addr && body && body->type == tok_block && !body->next;
+	}
+
+	bool PrepareRecordDefinition(uni::Nchain& syntax_tree, uni::Nnode* statement,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		FrontendCTypeInfo& type_info) {
+		uni::Nnode* tag = statement->subf->next;
+		uni::Nnode* body = tag->next;
+		if (type_info.FindRecord(tag->addr)) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"redefinition of struct type", tag);
+			return false;
+		}
+
+		FrontendCRecord record;
+		record.tag = tag->addr;
+		type_info.records.Append(record);
+		stduint record_id = type_info.records.Count();
+		stduint size_bits = 0;
+		stduint align_bits = 0;
+		for (uni::Nnode* member_statement = body->subf;
+			member_statement; member_statement = member_statement->next) {
+			if (member_statement->type != tok_statement || !member_statement->subf) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"expected struct member declaration", member_statement);
+				return false;
+			}
+			uni::Nnode* declarator = member_statement->subf;
+			FrontendCType member_type;
+			if (!ParseTypeSpecifiers(syntax_tree, declarator, member_type,
+				diagnostics, target, type_info)) return false;
+			if (!member_type.IsInteger() || !declarator || declarator->next ||
+				declarator->type != tok_identy || !declarator->addr) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"only one integer member per declaration is supported", declarator);
+				return false;
+			}
+			FrontendCRecord* current = type_info.GetRecord(record_id);
+			for (const FrontendCRecordMember& previous : current->members)
+				if (!StrCompare(previous.name.reference(), declarator->addr)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"duplicate struct member", declarator);
+					return false;
+				}
+			stduint member_size = type_info.SizeBits(member_type, target);
+			stduint member_align = type_info.AlignBits(member_type, target);
+			if (!member_size || !member_align) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"invalid struct member type", declarator);
+				return false;
+			}
+			size_bits = AlignUp(size_bits, member_align);
+			FrontendCRecordMember member;
+			member.name = declarator->addr;
+			member.type = member_type;
+			member.offset_bits = size_bits;
+			current->members.Append(member);
+			size_bits += member_size;
+			if (member_align > align_bits) align_bits = member_align;
+		}
+		if (!align_bits) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"empty struct is not supported in C99", body);
+			return false;
+		}
+		FrontendCRecord* completed = type_info.GetRecord(record_id);
+		completed->align_bits = align_bits;
+		completed->size_bits = AlignUp(size_bits, align_bits);
+		completed->complete = true;
+		statement->type = ToToken(FrontendCToken::RecordDefinition);
 		return true;
 	}
 
@@ -304,6 +426,11 @@ namespace {
 			if (!node->subf) {
 				node->type = ToToken(FrontendCToken::Empty);
 				continue;
+			}
+			if (IsRecordDefinition(node)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"block-scope struct definitions are not supported yet", node);
+				return false;
 			}
 			if (IsTypeSpecifier(node->subf)) {
 				if (!PrepareDeclaration(syntax_tree, node, diagnostics, target, type_info)) return false;
@@ -397,27 +524,94 @@ const FrontendCType* FrontendCTypeInfo::Find(const uni::Nnode* node) const {
 	return nullptr;
 }
 
+stduint FrontendCTypeInfo::FindRecord(const char* tag) const {
+	if (!tag) return 0;
+	for (stduint index = 0; index < records.Count(); index++)
+		if (!StrCompare(records.begin()[index].tag.reference(), tag)) return index + 1;
+	return 0;
+}
+
+const FrontendCRecord* FrontendCTypeInfo::GetRecord(stduint record_id) const {
+	return record_id && record_id <= records.Count() ?
+		&records.begin()[record_id - 1] : nullptr;
+}
+
+FrontendCRecord* FrontendCTypeInfo::GetRecord(stduint record_id) {
+	return record_id && record_id <= records.Count() ?
+		&records.begin()[record_id - 1] : nullptr;
+}
+
+stduint FrontendCTypeInfo::SizeBits(const FrontendCType& type,
+	const FrontendCTargetInfo& target) const {
+	if (type.IsPointer()) return target.pointer_bits;
+	stduint bits = 0;
+	if (type.record_id) {
+		const FrontendCRecord* record = GetRecord(type.record_id);
+		if (!record || !record->complete) return 0;
+		bits = record->size_bits;
+	}
+	else {
+		switch (type.integer_rank) {
+		case FrontendCIntegerRank::Char: bits = target.char_bits; break;
+		case FrontendCIntegerRank::Short: bits = target.short_bits; break;
+		case FrontendCIntegerRank::Int: bits = target.int_bits; break;
+		case FrontendCIntegerRank::Long: bits = target.long_bits; break;
+		case FrontendCIntegerRank::LongLong: bits = target.long_long_bits; break;
+		}
+	}
+	return bits * type.StorageElementCount();
+}
+
+stduint FrontendCTypeInfo::AlignBits(const FrontendCType& type,
+	const FrontendCTargetInfo& target) const {
+	if (type.IsPointer()) return target.pointer_align_bits;
+	if (type.record_id) {
+		const FrontendCRecord* record = GetRecord(type.record_id);
+		return record && record->complete ? record->align_bits : 0;
+	}
+	switch (type.integer_rank) {
+	case FrontendCIntegerRank::Char: return target.char_align_bits;
+	case FrontendCIntegerRank::Short: return target.short_align_bits;
+	case FrontendCIntegerRank::Int: return target.int_align_bits;
+	case FrontendCIntegerRank::Long: return target.long_align_bits;
+	case FrontendCIntegerRank::LongLong: return target.long_long_align_bits;
+	}
+	return 0;
+}
+
 bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 	const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 	FrontendCTypeInfo& type_info, FrontendCDebugInfo* debug_info) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		if (node->type == tok_statement) {
 			uni::Nnode* next = node->next;
-			if (!node->subf || !IsTypeSpecifier(node->subf) ||
-				!PrepareDeclaration(syntax_tree, node, diagnostics, target,
-					type_info, true)) {
+			if (IsRecordDefinition(node)) {
+				if (!PrepareRecordDefinition(syntax_tree, node, diagnostics,
+					target, type_info)) return false;
+				node = next;
+				continue;
+			}
+			if (!node->subf || !IsTypeSpecifier(node->subf)) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"expected global declaration", node);
 				return false;
 			}
+			if (!PrepareDeclaration(syntax_tree, node, diagnostics, target,
+				type_info, true)) return false;
 			MarkPrefixKeywords(node->subf);
 			node = next;
 			continue;
 		}
 		FrontendCType return_type;
-		if (!ParseTypeSpecifiers(syntax_tree, node, return_type, diagnostics, target)) {
+		if (!ParseTypeSpecifiers(syntax_tree, node, return_type, diagnostics,
+			target, type_info)) {
 			diagnostics.Report(DiagnosticStage::Parser,
 				"expected function return type", node);
+			return false;
+		}
+		if (return_type.IsRecord()) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"struct return values are not supported yet", node);
 			return false;
 		}
 		uni::Nnode* function = node;
@@ -446,7 +640,8 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 bool frontend_c_detail::Validate(uni::Nchain& syntax_tree,
 	const FrontendCDiagnostics& diagnostics) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
-		if (node->type == ToToken(FrontendCToken::GlobalDeclaration)) {
+		if (node->type == ToToken(FrontendCToken::GlobalDeclaration) ||
+			node->type == ToToken(FrontendCToken::RecordDefinition)) {
 			node = node->next;
 			continue;
 		}

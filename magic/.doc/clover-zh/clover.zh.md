@@ -123,6 +123,7 @@ declare @putchar(i32) -> i32
 
 %address = local i32
 %array = local i32, 12
+%buffer = local i8, 24 align 8
 global @counter i32 = 0
 constant @.L.clover.string.0 i8, 4 = {97, 98, 99, 0}
 %global_address = globaladdr @counter
@@ -132,7 +133,8 @@ store i32 %value, %address
 ```
 
 - `const`：产生整数常量。
-- `local`：创建函数局部存储，结果类型为 `ptr`；可选元素数量用于连续数组存储。
+- `local`：创建函数局部存储，结果类型为 `ptr`；可选元素数量用于连续数组存储，
+  可选的 `align` 指定以字节计的存储对齐，且必须是二的幂。
 - `global`：定义具有静态存储期的模块级对象，未显式初始化时由前端写入零初始化值。
 - `constant`：定义模块内部的只读聚合数据；初始化列表的元素数量必须与声明数量一致。
 - `globaladdr`：取得模块级对象的地址，结果类型为 `ptr`。

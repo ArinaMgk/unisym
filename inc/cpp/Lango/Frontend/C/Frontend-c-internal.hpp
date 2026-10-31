@@ -33,6 +33,7 @@ enum class FrontendCToken : stduint {
 	Parameter,                // Typed function parameter normalized before expressions.
 	Declaration,              // Function-local object declaration.
 	GlobalDeclaration,        // Translation-unit object declaration.
+	RecordDefinition,         // Translation-unit struct or union type definition.
 	If,                       // If statement with its condition as children.
 	Else,                     // Else marker paired by statement composition.
 	While,                    // While loop with its condition as children.
@@ -66,6 +67,7 @@ struct FrontendCType {
 	bool is_signed = true;
 	bool is_void = false;
 	FrontendCTypeQualifier base_qualifiers;
+	stduint record_id = 0; // One-based identity in FrontendCTypeInfo::records; zero is scalar.
 	unsigned pointer_depth = 0;
 	FrontendCTypeQualifier pointer_qualifiers[MaxPointerDepth] = {};
 	stduint array_dimension_count = 0;
@@ -74,12 +76,15 @@ struct FrontendCType {
 	bool IsPointer() const { return pointer_depth != 0; }
 	bool IsVoid() const { return is_void && pointer_depth == 0; }
 	bool IsArray() const { return pointer_depth == 0 && array_dimension_count; }
+	bool IsRecord() const {
+		return record_id != 0 && pointer_depth == 0 && !array_dimension_count;
+	}
 	bool IsInteger() const {
-		return !is_void && pointer_depth == 0 && !array_dimension_count;
+		return !is_void && !record_id && pointer_depth == 0 && !array_dimension_count;
 	}
 	bool HasSameShape(const FrontendCType& other) const {
 		if (integer_rank != other.integer_rank || is_signed != other.is_signed ||
-			is_void != other.is_void ||
+			is_void != other.is_void || record_id != other.record_id ||
 			pointer_depth != other.pointer_depth ||
 			array_dimension_count != other.array_dimension_count) return false;
 		for (stduint index = 0; index < array_dimension_count; index++)
@@ -143,6 +148,23 @@ struct FrontendCType {
 	}
 };
 
+// One named member in a C structure or union definition.
+struct FrontendCRecordMember {
+	uni::String name;
+	FrontendCType type;
+	stduint offset_bits = 0;
+};
+
+// One tagged C structure or union retained independently from syntax nodes.
+struct FrontendCRecord {
+	uni::String tag;
+	uni::Vector<FrontendCRecordMember> members;
+	stduint size_bits = 0;
+	stduint align_bits = 0;
+	bool is_union = false;
+	bool complete = false;
+};
+
 // Associates normalized syntax nodes with their C types without extending Nnode.
 struct FrontendCTypedNode {
 	const uni::Nnode* node = nullptr;
@@ -152,9 +174,17 @@ struct FrontendCTypedNode {
 // Type information collected before generic operator parsing rearranges nodes.
 struct FrontendCTypeInfo {
 	uni::Vector<FrontendCTypedNode> nodes;
+	uni::Vector<FrontendCRecord> records;
 
 	void Add(const uni::Nnode* node, const FrontendCType& type);
 	const FrontendCType* Find(const uni::Nnode* node) const;
+	stduint FindRecord(const char* tag) const;
+	const FrontendCRecord* GetRecord(stduint record_id) const;
+	FrontendCRecord* GetRecord(stduint record_id);
+	stduint SizeBits(const FrontendCType& type,
+		const FrontendCTargetInfo& target) const;
+	stduint AlignBits(const FrontendCType& type,
+		const FrontendCTargetInfo& target) const;
 };
 
 // Convert a scoped frontend token to the integer representation stored by Nnode.

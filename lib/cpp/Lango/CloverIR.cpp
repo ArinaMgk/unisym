@@ -123,6 +123,8 @@ namespace clover {
 				output.OutFormat("local %s", TypeName(instruction.type));
 				if (instruction.immediate > 1)
 					output.OutFormat(", %[i]", instruction.immediate);
+				if (instruction.alignment)
+					output.OutFormat(" align %[u]", instruction.alignment);
 				if (instruction.name.getByteCount())
 					output.OutFormat(" ; %s", instruction.name.reference());
 				output.OutFormat("\n");
@@ -491,6 +493,13 @@ namespace clover {
 						Advance();
 						if (!ReadNumber(instruction.immediate) || instruction.immediate <= 0)
 							return Error("invalid local element count");
+					}
+					if (Is("align")) {
+						Advance();
+						stdsint alignment;
+						if (!ReadNumber(alignment) || alignment <= 0)
+							return Error("invalid local alignment");
+						instruction.alignment = (stduint)alignment;
 					}
 					instruction.result.type = Type::Ptr;
 				}

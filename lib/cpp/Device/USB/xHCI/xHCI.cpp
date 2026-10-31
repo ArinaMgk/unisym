@@ -1,4 +1,4 @@
-#if defined(_MCCA) && _MCCA == 0x8664
+#if defined(_MCCA) && (_MCCA & 0xFF00) == 0x8600
 #include "../../../../../inc/c/msgface.h"
 #include "../../../../../inc/cpp/Device/USB/USBHost-Hub.hpp"
 #include "../../../../../inc/cpp/Device/USB/xHCI/xHCI-registers.hpp"
@@ -1726,7 +1726,7 @@ namespace uni::device::SpaceUSB3 {
 			return MAKE_ERROR(Error::NoEnoughMemory);
 		}
 
-		device_context_pointers_ = AllocArray<void*>(max_slots_ + 1, 64, 4096);
+		device_context_pointers_ = AllocArray<uint64_t>(max_slots_ + 1, 64, 4096);
 		if (device_context_pointers_ == nullptr) {
 			uni_hostenv_allocator->deallocate(devices_);
 			return MAKE_ERROR(Error::NoEnoughMemory);
@@ -1734,13 +1734,13 @@ namespace uni::device::SpaceUSB3 {
 
 		for (size_t i = 0; i <= max_slots_; ++i) {
 			devices_[i] = nullptr;
-			device_context_pointers_[i] = nullptr;
+			device_context_pointers_[i] = 0;
 		}
 
 		return MAKE_ERROR(Error::Success);
 	}
 
-	void** DeviceManager::DeviceContexts() const {
+	uint64_t* DeviceManager::DeviceContexts() const {
 		return device_context_pointers_;
 	}
 
@@ -1809,7 +1809,7 @@ namespace uni::device::SpaceUSB3 {
 		}
 
 		auto dev = devices_[slot_id];
-		device_context_pointers_[slot_id] = dev->DeviceContextBuffer();
+		device_context_pointers_[slot_id] = uint64_t(reinterpret_cast<uintptr_t>(dev->DeviceContextBuffer()));
 		return MAKE_ERROR(Error::Success);
 	}
 
@@ -1817,7 +1817,7 @@ namespace uni::device::SpaceUSB3 {
 		if (slot_id == 0 || slot_id > max_slots_ || devices_[slot_id] == nullptr) {
 			return MAKE_ERROR(Error::InvalidSlotID);
 		}
-		device_context_pointers_[slot_id] = nullptr;
+		device_context_pointers_[slot_id] = 0;
 		devices_[slot_id]->~USBHostDevice_v3();
 		uni_hostenv_allocator->deallocate(devices_[slot_id]);
 		devices_[slot_id] = nullptr;
@@ -1828,7 +1828,7 @@ namespace uni::device::SpaceUSB3 {
 		if (devices_ == nullptr || device_context_pointers_ == nullptr) return;
 		for (size_t slot_id = 1; slot_id <= max_slots_; ++slot_id) {
 			if (devices_[slot_id] == nullptr) continue;
-			device_context_pointers_[slot_id] = nullptr;
+			device_context_pointers_[slot_id] = 0;
 			devices_[slot_id]->~USBHostDevice_v3();
 			uni_hostenv_allocator->deallocate(devices_[slot_id]);
 			devices_[slot_id] = nullptr;
@@ -3710,23 +3710,24 @@ Error HostController::Initialize() {
 		hcsparams2.bits.max_scratchpad_buffers_low
 		| (hcsparams2.bits.max_scratchpad_buffers_high << 5);
 	if (max_scratchpad_buffers > 0) {
-		auto scratchpad_buf_arr = AllocArray<void*>(max_scratchpad_buffers, 64, 0);
+		// xHCI Scratchpad Buffer Array entries are 64-bit addresses, even on a 32-bit CPU.
+		auto scratchpad_buf_arr = AllocArray<uint64_t>(max_scratchpad_buffers, 64, 0);
 		if (scratchpad_buf_arr == nullptr) return MAKE_ERROR(Error::NoEnoughMemory);
 		for (int i = 0; i < max_scratchpad_buffers; ++i) {
-			scratchpad_buf_arr[i] = uni_hostenv_allocator->allocate(
+			auto* buffer = uni_hostenv_allocator->allocate(
 				page_size_, 12 + page_size_shift, 12 + page_size_shift);
-			if (scratchpad_buf_arr[i] == nullptr) {
+			if (buffer == nullptr) {
 				for (int j = 0; j < i; ++j) {
-					uni_hostenv_allocator->deallocate(scratchpad_buf_arr[j]);
+					uni_hostenv_allocator->deallocate(reinterpret_cast<void*>(uintptr_t(scratchpad_buf_arr[j])));
 				}
 				uni_hostenv_allocator->deallocate(scratchpad_buf_arr);
 				return MAKE_ERROR(Error::NoEnoughMemory);
 			}
-			Log(kDebug, "scratchpad buffer array %d = %p\n",
-				i, scratchpad_buf_arr[i]);
+			scratchpad_buf_arr[i] = uint64_t(reinterpret_cast<uintptr_t>(buffer));
+			Log(kDebug, "scratchpad buffer array %d = %p\n", i, buffer);
 		}
 		// Store the physical address of the pointer array into DCBAAP array entry 0
-		devmgr_.DeviceContexts()[0] = scratchpad_buf_arr;
+		devmgr_.DeviceContexts()[0] = uint64_t(reinterpret_cast<uintptr_t>(scratchpad_buf_arr));
 		Log(kInfo, "wrote scratchpad buffer array %p to dev ctx array 0\n",
 			scratchpad_buf_arr);
 	}

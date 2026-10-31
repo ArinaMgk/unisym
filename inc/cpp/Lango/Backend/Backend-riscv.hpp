@@ -23,6 +23,7 @@
 #define UNISYM_LANGO_BACKEND_RISCV_HPP
 
 #include "../Backend.hpp"
+#include "./RISCV/Output.hpp"
 
 namespace uni::lango {
 
@@ -33,14 +34,23 @@ struct RISCVTargetInfo {
 	bool extension_m = true; // Integer multiplication and division extension.
 };
 
+// Output controls that do not change the target RISC-V instruction set.
+struct RISCVBackendOptions {
+	RISCVAssemblySyntax assembly_syntax = RISCVAssemblySyntax::GCC;
+	bool debug_symbols = false;
+};
+
 // RISC-V backend producing GNU assembler source.
 class BackendRISCV : public BackendInterface {
 private:
 	RISCVTargetInfo target;
+	RISCVBackendOptions options;
 
 public:
 	// Construct a backend for the requested register width and extensions.
-	BackendRISCV(const RISCVTargetInfo& target_info = RISCVTargetInfo()) : target(target_info) {}
+	BackendRISCV(const RISCVTargetInfo& target_info = RISCVTargetInfo(),
+		const RISCVBackendOptions& backend_options = RISCVBackendOptions()) :
+		target(target_info), options(backend_options) {}
 
 	// Lower all functions in module to RISC-V assembly.
 	virtual bool Generate(const clover::Module& module, uni::OstreamTrait& output) override;

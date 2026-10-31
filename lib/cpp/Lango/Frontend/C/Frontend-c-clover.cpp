@@ -167,6 +167,7 @@ namespace clover {
 			const FrontendCDebugInfo* debug_info = nullptr;
 			const FrontendCDiagnostics* diagnostics = nullptr;
 			unsigned* next_string_literal = nullptr;
+			uint32 debug_file_id = 0;
 			bool failed = false;
 
 			BasicBlock& CurrentBlock() {
@@ -255,6 +256,10 @@ namespace clover {
 				const uni::String* source = debug_info->Find(statement);
 				if (!source) return;
 				instruction.debug_source = *source;
+				const uni::TnodeField* field =
+					const_cast<uni::Nnode*>(statement)->GetTnodeField();
+				instruction.debug_file = debug_file_id;
+				instruction.debug_line = (uint32)field->row;
 				emitted_sources.Append(statement);
 			}
 
@@ -1170,14 +1175,15 @@ namespace clover {
 				const FrontendCTypeInfo& semantic_types,
 				const FrontendCDiagnostics& diagnostic_output,
 				const FrontendCDebugInfo* debug_information,
-				unsigned& string_literal_index)
+				unsigned& string_literal_index, uint32 source_file_id)
 				: module(&output_module), function(&function), return_type(function_return_type),
 					next_value(function.parameters.Count()),
 					visible_functions(&functions), visible_globals(&globals),
 					target(&target_info), type_info(&semantic_types),
 					debug_info(debug_information),
 					diagnostics(&diagnostic_output),
-					next_string_literal(&string_literal_index)
+					next_string_literal(&string_literal_index),
+					debug_file_id(source_file_id)
 			{
 				function.blocks.Append(BasicBlock());
 				function.blocks[0].name = "entry";
@@ -1563,6 +1569,14 @@ namespace clover {
 		const FrontendCDebugInfo* debug_info) {
 		module.globals.Clear();
 		module.functions.Clear();
+		module.source_files.Clear();
+		uint32 debug_file_id = 0;
+		if (debug_info) {
+			SourceFile source;
+			source.id = debug_file_id = 1;
+			source.path = diagnostics.source_name ? diagnostics.source_name : "<input>";
+			module.source_files.Append(source);
+		}
 		uni::Vector<FrontendCFunction> visible_functions;
 		uni::Vector<FrontendCGlobal> visible_globals;
 		unsigned next_string_literal = 0;
@@ -1631,7 +1645,8 @@ namespace clover {
 			visible_functions.Append(signature);
 			FunctionBuilder builder(module, function, visible_functions, visible_globals,
 				*function_return_type,
-				target, type_info, diagnostics, debug_info, next_string_literal);
+				target, type_info, diagnostics, debug_info, next_string_literal,
+				debug_file_id);
 			if (!builder.Lower(body, node->subf)) return false;
 			module.functions.Append(function);
 			node = body->next;

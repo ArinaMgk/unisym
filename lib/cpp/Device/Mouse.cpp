@@ -47,7 +47,7 @@ void Mouse_Init()
 
 #endif
 
-#if defined(_INC_CPP) && ((defined(_UEFI) && (defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600))) || defined(_MCU_STM32H7x))
+#if defined(_INC_CPP) && ((defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600)) || defined(_MCU_STM32H7x))
 
 #if defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600)
 void* uni::device::SpaceUSB::HIDMouseDriver::operator new(size_t size) {

@@ -99,11 +99,19 @@ struct Instruction {
 	uni::Vector<Value> operands;    // Ordered input values.
 	uni::String name;               // Optional source name retained by Local.
 	uni::String debug_source;       // Optional source statement printed before this instruction.
+	uint32 debug_file = 0;          // One-based source file identifier; zero means unavailable.
+	uint32 debug_line = 0;          // One-based source line; zero means unavailable.
 	uni::String callee;             // Named function target used by Call.
 	uni::String target;             // Jump target, or true target for a conditional jump.
 	uni::String target_false;       // False target for a conditional jump.
 	stdsint immediate = 0;          // Const literal, or Local element count.
 	ICmpPredicate predicate = ICmpPredicate::EQ; // Comparison mode for ICmp.
+};
+
+// One source path referenced by instruction debug_file fields.
+struct SourceFile {
+	uint32 id = 0;
+	uni::String path;
 };
 
 // A named straight-line instruction sequence.
@@ -139,6 +147,7 @@ struct Function {
 
 // Compilation unit exchanged between a Clover frontend and backend.
 struct Module {
+	uni::Vector<SourceFile> source_files;
 	uni::Vector<Global> globals;
 	uni::Vector<Function> functions;
 };

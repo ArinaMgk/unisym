@@ -56,10 +56,8 @@ namespace uni::device::SpaceUSB {
 	class HIDMouseDriver : public HIDBaseDriver {
 	public:
 		HIDMouseDriver(USBHostDevice* dev, int interface_index);
-#if defined(_UEFI)
 		void* operator new(size_t size);
 		void operator delete(void* ptr) noexcept;
-#endif
 
 		Error OnDataReceived() override;
 

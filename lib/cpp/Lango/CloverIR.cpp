@@ -87,8 +87,26 @@ namespace clover {
 			output.OutFormat("^%s", name.reference());
 		}
 
+		void PrintQuoted(uni::OstreamTrait& output, const uni::String& text) {
+			output.OutChar('"');
+			for (const char* current = text.reference(); current && *current; current++) {
+				if (*current == '"' || *current == '\\') output.OutChar('\\');
+				output.OutChar(*current);
+			}
+			output.OutChar('"');
+		}
+
 		// Serialize one instruction according to its operand layout.
-		bool PrintInstruction(const Instruction& instruction, uni::OstreamTrait& output) {
+		bool PrintInstruction(const Instruction& instruction, uni::OstreamTrait& output,
+			uint32& current_file, uint32& current_line) {
+			if (instruction.debug_file && instruction.debug_file != current_file) {
+				output.OutFormat("    file %[u]\n", instruction.debug_file);
+				current_file = instruction.debug_file;
+			}
+			if (instruction.debug_line && instruction.debug_line != current_line) {
+				output.OutFormat("    line %[u]\n", instruction.debug_line);
+				current_line = instruction.debug_line;
+			}
 			if (instruction.debug_source.getByteCount())
 				output.OutFormat("    ; %s\n", instruction.debug_source.reference());
 			output.OutFormat("    ");
@@ -246,6 +264,19 @@ namespace clover {
 				SkipIgnored();
 				uni::String token;
 				if (current < 0) return token;
+				if (current == '"') {
+					Read();
+					while (current >= 0 && current != '"') {
+						if (current == '\\') {
+							Read();
+							if (current < 0) break;
+						}
+						token << (char)current;
+						Read();
+					}
+					if (current == '"') Read();
+					return token;
+				}
 
 				if (IsPunctuation(current)) {
 					token << (char)current;
@@ -283,6 +314,8 @@ namespace clover {
 			Lexer lexer;
 			uni::String token;
 			uni::Vector<DefinedValue> definitions;
+			uint32 debug_file = 0;
+			uint32 debug_line = 0;
 			bool failed = false;
 
 			void Advance() {
@@ -330,6 +363,13 @@ namespace clover {
 				if (!token.getByteCount()) return Error("expected integer");
 				number = atoins(token.reference());
 				Advance();
+				return true;
+			}
+
+			bool ReadDebugNumber(uint32& number) {
+				stdsint parsed;
+				if (!ReadNumber(parsed) || parsed <= 0) return Error("invalid debug number");
+				number = (uint32)parsed;
 				return true;
 			}
 
@@ -415,7 +455,17 @@ namespace clover {
 			}
 
 			bool ParseInstruction(BasicBlock& block) {
+				while (Is("file") || Is("line")) {
+					bool is_file = Is("file");
+					Advance();
+					uint32 value;
+					if (!ReadDebugNumber(value)) return false;
+					if (is_file) debug_file = value;
+					else debug_line = value;
+				}
 				Instruction instruction;
+				instruction.debug_file = debug_file;
+				instruction.debug_line = debug_line;
 				unsigned result_id = 0;
 				bool has_result = false;
 				if (Is("%")) {
@@ -587,6 +637,8 @@ namespace clover {
 			bool ParseFunction(Module& module) {
 				Function function;
 				definitions.Clear();
+				debug_file = 0;
+				debug_line = 0;
 				if (!Expect("func") || !Expect("@") || !ReadName(function.name) ||
 					!Expect("(")) return false;
 				while (!Is(")")) {
@@ -623,6 +675,17 @@ namespace clover {
 					}
 				}
 				module.functions.Append(function);
+				return true;
+			}
+
+			bool ParseSource(Module& module) {
+				SourceFile source;
+				if (!Expect("source") || !ReadDebugNumber(source.id) ||
+					!ReadName(source.path) || !source.path.getByteCount())
+					return Error("invalid source declaration");
+				for (const SourceFile& previous : module.source_files)
+					if (previous.id == source.id) return Error("duplicate source identifier");
+				module.source_files.Append(source);
 				return true;
 			}
 
@@ -665,10 +728,14 @@ namespace clover {
 			}
 
 			bool ParseModule(Module& module) {
+				module.source_files.Clear();
 				module.globals.Clear();
 				module.functions.Clear();
 				while (token.getByteCount()) {
-					if (Is("global") || Is("constant")) {
+					if (Is("source")) {
+						if (!ParseSource(module)) return false;
+					}
+					else if (Is("global") || Is("constant")) {
 						bool read_only = Is("constant");
 						if (!ParseGlobal(module, read_only)) return false;
 					}
@@ -686,6 +753,11 @@ namespace clover {
 	}
 
 	bool Print(const Module& module, uni::OstreamTrait& output) {
+		for (const SourceFile& source : module.source_files) {
+			output.OutFormat("source %[u] ", source.id);
+			PrintQuoted(output, source.path);
+			output.OutChar('\n');
+		}
 		for (const Global& global : module.globals) {
 			output.OutFormat("%s @%s %s", global.is_read_only ? "constant" : "global",
 				global.name.reference(), TypeName(global.type));
@@ -702,6 +774,8 @@ namespace clover {
 			else output.OutFormat("%[i]\n", global.initializer);
 		}
 		for (const Function& function : module.functions) {
+			uint32 current_file = 0;
+			uint32 current_line = 0;
 			output.OutFormat("func @%s(", function.name.reference());
 			for (stduint index = 0; index < function.parameters.Count(); index++) {
 				if (index) output.OutFormat(", ");
@@ -713,7 +787,8 @@ namespace clover {
 			for (const BasicBlock& block : function.blocks) {
 				output.OutFormat("^%s:\n", block.name.reference());
 				for (const Instruction& instruction : block.instructions)
-					if (!PrintInstruction(instruction, output)) return false;
+					if (!PrintInstruction(instruction, output,
+						current_file, current_line)) return false;
 			}
 			output.OutFormat("}\n");
 		}

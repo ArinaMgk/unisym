@@ -48,7 +48,7 @@ static void PrintMagicHelp() {
 	uni::Console.OutFormat("Options:\n");
 	uni::Console.OutFormat("  --emit-ir               Emit Clover IR\n");
 	uni::Console.OutFormat("  --emit-ast              Emit the parsed AST\n");
-	uni::Console.OutFormat("  -g                      Add source comments to Clover IR\n");
+	uni::Console.OutFormat("  -g                      Add source locations and comments to Clover IR\n");
 	uni::Console.OutFormat("  --lango=c               Select the source-language frontend\n");
 	uni::Console.OutFormat("  --std=c99               Pass the language standard to the frontend\n");
 	uni::Console.OutFormat("  -o output               Write output to a file\n");

@@ -29,13 +29,16 @@ static void PrintHelp() {
 	uni::Console.OutFormat("Usage: clover-riscv input.ir [options]\n");
 	uni::Console.OutFormat("Options:\n");
 	uni::Console.OutFormat("  -o output.s   Write assembly to output.s\n");
+	uni::Console.OutFormat("  -g            Emit source line directives when present in IR\n");
+	uni::Console.OutFormat("  --asm=gcc     Emit GCC-compatible GNU assembly syntax\n");
 	uni::Console.OutFormat("  -mbits=64     Select register width\n");
 	uni::Console.OutFormat("  -minst=i      Select the base integer instruction set\n");
 	uni::Console.OutFormat("  -minst=im     Enable integer multiply and divide\n");
-	uni::Console.OutFormat("  -h            Print this help\n");
+	uni::Console.OutFormat("  -h, --help    Print this help\n");
 	uni::Console.OutFormat("Supported bits: 64\n");
 	uni::Console.OutFormat("Supported inst: i, m\n");
-	uni::Console.OutFormat("Default target: -mbits=64 -minst=im\n");
+	uni::Console.OutFormat("Supported asm: gcc\n");
+	uni::Console.OutFormat("Default target: -mbits=64 -minst=im --asm=gcc\n");
 }
 
 int main(int argc, char** argv) {
@@ -44,6 +47,7 @@ int main(int argc, char** argv) {
 	rostr input_path = nullptr;
 	rostr output_path = nullptr;
 	uni::lango::RISCVTargetInfo target;
+	uni::lango::RISCVBackendOptions backend_options;
 	for (int index = 1; index < argc; index++) {
 		if (!StrCompare(argv[index], "-h") || !StrCompare(argv[index], "--help")) {
 			PrintHelp();
@@ -55,6 +59,17 @@ int main(int argc, char** argv) {
 				return 1;
 			}
 			output_path = argv[index];
+		}
+		else if (!StrCompare(argv[index], "-g")) {
+			backend_options.debug_symbols = true;
+		}
+		else if (!StrCompareN(argv[index], "--asm=", 6)) {
+			rostr value = argv[index] + 6;
+			if (StrCompare(value, "gcc")) {
+				plogerro("clover-riscv: unsupported --asm=%s; supported values: gcc", value);
+				return 1;
+			}
+			backend_options.assembly_syntax = uni::lango::RISCVAssemblySyntax::GCC;
 		}
 		else if (!StrCompareN(argv[index], "-mbits=", 7)) {
 			rostr value = argv[index] + 7;
@@ -109,7 +124,7 @@ int main(int argc, char** argv) {
 	}
 
 	clover::Module module;
-	uni::lango::BackendRISCV backend(target);
+	uni::lango::BackendRISCV backend(target, backend_options);
 	bool success = clover::Parse(input, module) && backend.Generate(module, *output);
 	if (output_file) delete output_file;
 	return success ? 0 : 1;

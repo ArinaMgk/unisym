@@ -19,7 +19,7 @@ mgc [options] input...
 | `--emit-ast` | 输出前端 AST |
 | `--lango=c` | 选择 C 前端 |
 | `--std=c99` | 将 C99 标准选项传递给 C 前端 |
-| `-g` | 在 Clover IR 中保留对应的源代码注释 |
+| `-g` | 在 Clover IR 中保留对应的源文件、行号和源代码注释 |
 | `-o file` | 将结果写入指定文件 |
 | `-h`、`--help` | 显示帮助信息 |
 | `--` | 结束命令选项解析 |
@@ -39,10 +39,13 @@ clover-riscv input.ir [options]
 | `-mbits=64` | 选择 64 位 RISC-V 目标 |
 | `-minst=i` | 使用基础整数指令集 |
 | `-minst=im` | 启用基础整数及乘除法指令集 |
+| `-g` | IR 含源位置时输出 `.file`、`.loc` 等 GCC 汇编调试指令 |
+| `--asm=gcc` | 输出 GCC 工具链接受的 GNU 汇编语法 |
 | `-o file` | 将汇编写入指定文件 |
 | `-h`、`--help` | 显示帮助信息及已支持的目标信息 |
 
-当前默认后端目标为 `-mbits=64 -minst=im`。
+当前默认后端目标为 `-mbits=64 -minst=im --asm=gcc`。目前只实现
+`--asm=gcc`，汇编格式选项与目标位数、指令集选项相互独立。
 
 ## IR 中间语言设计
 
@@ -66,6 +69,24 @@ IR 采用强类型、SSA、三地址形式：
 | `@name` | 函数 | `@main` |
 | `^name` | 基本块 | `^entry` |
 | `; text` | 行注释 | `; comment` |
+
+启用前端调试信息时，模块使用 `source` 建立源文件编号，并在函数内用
+`file`、`line` 两个伪指令选择后续 IR 指令的源位置：
+
+```clover
+source 1 "main.c"
+
+func @main() -> i32 {
+^entry:
+    file 1
+    line 3
+    %0 = const i32 0
+    ret i32 %0
+}
+```
+
+`file` 和 `line` 的操作数均为 32 位无符号编号，不产生 SSA 值，也不会
+直接生成机器指令。后端仅在启用 `-g` 时把它们转换为目标汇编的调试指令。
 
 第一版支持以下类型：
 

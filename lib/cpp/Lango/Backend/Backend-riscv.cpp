@@ -20,6 +20,7 @@
 */
 
 #include "../../../../inc/cpp/Lango/Backend/Backend-riscv.hpp"
+#include "../../../../inc/cpp/Lango/Backend/RISCV/Output-gcc.hpp"
 
 namespace uni::lango {
 
@@ -42,6 +43,13 @@ namespace uni::lango {
 			return nullptr;
 		}
 
+		const clover::SourceFile* FindSourceFile(const clover::Module& module,
+			uint32 id) {
+			for (const clover::SourceFile& source : module.source_files)
+				if (source.id == id) return &source;
+			return nullptr;
+		}
+
 		// Check target-wide requirements before writing partial assembly output.
 		bool ValidateTarget(const RISCVTargetInfo& target, const clover::Module& module) {
 			if (target.bits != 64) {
@@ -51,6 +59,19 @@ namespace uni::lango {
 			if (!target.extension_i) {
 				plogerro("RISC-V backend: the I instruction set is required");
 				return false;
+			}
+			for (stduint index = 0; index < module.source_files.Count(); index++) {
+				const clover::SourceFile& source = module.source_files.begin()[index];
+				if (!source.id || !source.path.getByteCount()) {
+					plogerro("RISC-V backend: invalid source file entry");
+					return false;
+				}
+				for (stduint previous = 0; previous < index; previous++)
+					if (module.source_files.begin()[previous].id == source.id) {
+						plogerro("RISC-V backend: duplicate source file identifier %[u]",
+							source.id);
+						return false;
+					}
 			}
 			for (stduint index = 0; index < module.globals.Count(); index++) {
 				const clover::Global& global = module.globals.begin()[index];
@@ -92,6 +113,17 @@ namespace uni::lango {
 				}
 				for (const clover::BasicBlock& block : function.blocks) {
 					for (const clover::Instruction& instruction : block.instructions) {
+						if ((instruction.debug_file == 0) !=
+							(instruction.debug_line == 0)) {
+							plogerro("RISC-V backend: incomplete instruction source location");
+							return false;
+						}
+						if (instruction.debug_file &&
+							!FindSourceFile(module, instruction.debug_file)) {
+							plogerro("RISC-V backend: instruction references undefined source file %[u]",
+								instruction.debug_file);
+							return false;
+						}
 						if (instruction.opcode == clover::Opcode::GlobalAddr &&
 							!FindGlobal(module, instruction.name)) {
 							plogerro("RISC-V backend: undefined global '%s'",
@@ -331,7 +363,15 @@ namespace uni::lango {
 		// Lower one Clover instruction to RV64 assembler.
 		bool EmitInstruction(const clover::Instruction& instruction, const FunctionLayout& layout,
 			const clover::Function& function, const RISCVTargetInfo& target,
-			uni::OstreamTrait& output) {
+			uni::OstreamTrait& output, RISCVAssemblyOutputInterface* assembly_output,
+			uint32& current_file, uint32& current_line) {
+			if (assembly_output && instruction.debug_file && instruction.debug_line &&
+				(instruction.debug_file != current_file || instruction.debug_line != current_line)) {
+				if (!assembly_output->EmitLocation(instruction.debug_file,
+					instruction.debug_line, output)) return false;
+				current_file = instruction.debug_file;
+				current_line = instruction.debug_line;
+			}
 			switch (instruction.opcode) {
 			case clover::Opcode::Const:
 				output.OutFormat("\tli t0, %[i]\n", instruction.immediate);
@@ -531,7 +571,7 @@ namespace uni::lango {
 
 		// Emit one function with a conservative stack slot for every SSA result.
 		bool EmitFunction(const clover::Function& function, const RISCVTargetInfo& target,
-			uni::OstreamTrait& output) {
+			uni::OstreamTrait& output, RISCVAssemblyOutputInterface* assembly_output) {
 			FunctionLayout layout;
 			if (!BuildLayout(function, target, layout)) return false;
 
@@ -552,10 +592,13 @@ namespace uni::lango {
 				output.OutFormat("\tsd %s, -%[i](s0)\n", reg, slot->value_offset);
 			}
 
+			uint32 current_file = 0;
+			uint32 current_line = 0;
 			for (const clover::BasicBlock& block : function.blocks) {
 				output.OutFormat(".L%s_%s:\n", function.name.reference(), block.name.reference());
 				for (const clover::Instruction& instruction : block.instructions)
-					if (!EmitInstruction(instruction, layout, function, target, output)) return false;
+					if (!EmitInstruction(instruction, layout, function, target, output,
+						assembly_output, current_file, current_line)) return false;
 			}
 			bool terminated = false;
 			if (function.blocks.Count()) {
@@ -579,6 +622,14 @@ namespace uni::lango {
 
 	bool BackendRISCV::Generate(const clover::Module& module, uni::OstreamTrait& output) {
 		if (!ValidateTarget(target, module)) return false;
+		RISCVAssemblyOutputGCC gcc_output;
+		RISCVAssemblyOutputInterface* assembly_output = nullptr;
+		switch (options.assembly_syntax) {
+		case RISCVAssemblySyntax::GCC: assembly_output = &gcc_output; break;
+		}
+		if (!assembly_output) return false;
+		if (options.debug_symbols && !assembly_output->EmitSourceFiles(module, output))
+			return false;
 		for (const clover::Global& global : module.globals) {
 			stdsint element_size = TypeStorageBytes(global.type, target);
 			stdsint object_size = element_size * global.element_count;
@@ -618,7 +669,8 @@ namespace uni::lango {
 		}
 		output.OutFormat(".text\n");
 		for (const clover::Function& function : module.functions)
-			if (!EmitFunction(function, target, output)) return false;
+			if (!EmitFunction(function, target, output,
+				options.debug_symbols ? assembly_output : nullptr)) return false;
 		return true;
 	}
 

@@ -29,6 +29,8 @@ namespace uni::lango {
 			"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"
 		};
 
+		stdsint TypeStorageBytes(clover::Type type, const RISCVTargetInfo& target);
+
 		const clover::Function* FindFunction(const clover::Module& module,
 			const uni::String& name) {
 			for (const clover::Function& function : module.functions)
@@ -136,6 +138,14 @@ namespace uni::lango {
 							instruction.alignment > 16)) {
 							plogerro("RISC-V backend: local alignment must be a power of two up to 16 bytes");
 							return false;
+						}
+						if ((instruction.opcode == clover::Opcode::Load ||
+							instruction.opcode == clover::Opcode::Store) &&
+							instruction.alignment) {
+							if (instruction.alignment & (instruction.alignment - 1)) {
+								plogerro("RISC-V backend: memory alignment must be a power of two");
+								return false;
+							}
 						}
 						if (!target.extension_m &&
 							(instruction.opcode == clover::Opcode::Mul ||
@@ -299,17 +309,48 @@ namespace uni::lango {
 			return false;
 		}
 
+		bool FitsSignedImmediate12(stdsint value) {
+			return value >= -2048 && value <= 2047;
+		}
+
+		// Materialize an address below s0 without assuming a 12-bit frame offset.
+		void EmitFrameAddress(const char* reg, stdsint offset,
+			uni::OstreamTrait& output) {
+			if (FitsSignedImmediate12(-offset))
+				output.OutFormat("\taddi %s, s0, -%[i]\n", reg, offset);
+			else {
+				output.OutFormat("\tli %s, -%[i]\n", reg, offset);
+				output.OutFormat("\tadd %s, s0, %s\n", reg, reg);
+			}
+		}
+
+		void EmitFrameStore(const char* source, stdsint offset,
+			uni::OstreamTrait& output) {
+			if (FitsSignedImmediate12(-offset))
+				output.OutFormat("\tsd %s, -%[i](s0)\n", source, offset);
+			else {
+				const char* address = StrCompare(source, "t3") ? "t3" : "t4";
+				EmitFrameAddress(address, offset, output);
+				output.OutFormat("\tsd %s, 0(%s)\n", source, address);
+			}
+		}
+
 		// Load a spilled SSA value, or rematerialize a Local frame address.
 		bool LoadValue(const FunctionLayout& layout, clover::Value value,
 			const char* reg, uni::OstreamTrait& output) {
 			const ValueSlot* slot;
 			if (!SlotOf(layout, value, slot)) return false;
 			if (slot->local_offset) {
-				output.OutFormat("\taddi %s, s0, -%[i]\n", reg, slot->local_offset);
+				EmitFrameAddress(reg, slot->local_offset, output);
 				return true;
 			}
 			if (!slot->value_offset) return false;
-			output.OutFormat("\tld %s, -%[i](s0)\n", reg, slot->value_offset);
+			if (FitsSignedImmediate12(-slot->value_offset))
+				output.OutFormat("\tld %s, -%[i](s0)\n", reg, slot->value_offset);
+			else {
+				EmitFrameAddress(reg, slot->value_offset, output);
+				output.OutFormat("\tld %s, 0(%s)\n", reg, reg);
+			}
 			return true;
 		}
 
@@ -319,7 +360,7 @@ namespace uni::lango {
 			const ValueSlot* slot;
 			if (!instruction.has_result || !SlotOf(layout, instruction.result, slot)) return false;
 			if (!slot->value_offset) return false;
-			output.OutFormat("\tsd %s, -%[i](s0)\n", reg, slot->value_offset);
+			EmitFrameStore(reg, slot->value_offset, output);
 			return true;
 		}
 
@@ -340,6 +381,39 @@ namespace uni::lango {
 				!LoadValue(layout, instruction.operands.begin()[1], "t1", output)) return false;
 			output.OutFormat("\t%s t2, t0, t1\n", mnemonic);
 			return StoreResult(layout, instruction, "t2", output);
+		}
+
+		// Assemble a little-endian unaligned integer from byte loads.
+		bool EmitUnalignedLoad(const clover::Instruction& instruction,
+			const FunctionLayout& layout, const RISCVTargetInfo& target,
+			uni::OstreamTrait& output) {
+			stdsint bytes = TypeStorageBytes(instruction.type, target);
+			if (bytes != 2 && bytes != 4 && bytes != 8) return false;
+			output.OutFormat("\tlbu t1, 0(t0)\n");
+			for (stdsint index = 1; index < bytes; index++) {
+				output.OutFormat("\tlbu t2, %[i](t0)\n", index);
+				output.OutFormat("\tslli t2, t2, %[i]\n", index * 8);
+				output.OutFormat("\tor t1, t1, t2\n");
+			}
+			if (instruction.type == clover::Type::I16)
+				output.OutFormat("\tslli t1, t1, 48\n\tsrai t1, t1, 48\n");
+			else if (instruction.type == clover::Type::I32)
+				output.OutFormat("\taddiw t1, t1, 0\n");
+			return StoreResult(layout, instruction, "t1", output);
+		}
+
+		// Split a little-endian unaligned integer store into byte stores.
+		bool EmitUnalignedStore(const clover::Instruction& instruction,
+			const RISCVTargetInfo& target, uni::OstreamTrait& output) {
+			stdsint bytes = TypeStorageBytes(instruction.type, target);
+			if (bytes != 2 && bytes != 4 && bytes != 8) return false;
+			output.OutFormat("\tsb t0, 0(t1)\n");
+			if (bytes > 1) output.OutFormat("\tsrli t2, t0, 8\n");
+			for (stdsint index = 1; index < bytes; index++) {
+				output.OutFormat("\tsb t2, %[i](t1)\n", index);
+				if (index + 1 < bytes) output.OutFormat("\tsrli t2, t2, 8\n");
+			}
+			return true;
 		}
 
 		// Scale a signed element index and add it to a target-width pointer.
@@ -397,6 +471,9 @@ namespace uni::lango {
 			case clover::Opcode::Load:
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
+				if (instruction.alignment &&
+					(stdsint)instruction.alignment < TypeStorageBytes(instruction.type, target))
+					return EmitUnalignedLoad(instruction, layout, target, output);
 				switch (instruction.type) {
 				case clover::Type::I1:
 				case clover::Type::I8: output.OutFormat("\tlb t1, 0(t0)\n"); break;
@@ -411,6 +488,9 @@ namespace uni::lango {
 				if (!RequireOperands(instruction, 2) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output) ||
 					!LoadValue(layout, instruction.operands.begin()[1], "t1", output)) return false;
+				if (instruction.alignment &&
+					(stdsint)instruction.alignment < TypeStorageBytes(instruction.type, target))
+					return EmitUnalignedStore(instruction, target, output);
 				switch (instruction.type) {
 				case clover::Type::I1:
 				case clover::Type::I8: output.OutFormat("\tsb t0, 0(t1)\n"); break;
@@ -588,10 +668,21 @@ namespace uni::lango {
 			output.OutFormat("\n.globl %s\n", function.name.reference());
 			output.OutFormat(".type %s, @function\n", function.name.reference());
 			output.OutFormat("%s:\n", function.name.reference());
-			output.OutFormat("\taddi sp, sp, -%[i]\n", layout.frame_size);
-			output.OutFormat("\tsd ra, %[i](sp)\n", layout.frame_size - 8);
-			output.OutFormat("\tsd s0, %[i](sp)\n", layout.frame_size - 16);
-			output.OutFormat("\taddi s0, sp, %[i]\n", layout.frame_size);
+			if (layout.frame_size <= 2047) {
+				output.OutFormat("\taddi sp, sp, -%[i]\n", layout.frame_size);
+				output.OutFormat("\tsd ra, %[i](sp)\n", layout.frame_size - 8);
+				output.OutFormat("\tsd s0, %[i](sp)\n", layout.frame_size - 16);
+				output.OutFormat("\taddi s0, sp, %[i]\n", layout.frame_size);
+			}
+			else {
+				// Preserve the caller frame pointer before constructing a large frame.
+				output.OutFormat("\tmv t1, s0\n");
+				output.OutFormat("\tli t0, %[i]\n", layout.frame_size);
+				output.OutFormat("\tsub sp, sp, t0\n");
+				output.OutFormat("\tadd s0, sp, t0\n");
+				output.OutFormat("\tsd ra, -8(s0)\n");
+				output.OutFormat("\tsd t1, -16(s0)\n");
+			}
 			for (stduint index = 0; index < function.parameters.Count(); index++) {
 				const clover::Parameter& parameter = function.parameters.begin()[index];
 				const ValueSlot* slot;
@@ -599,7 +690,7 @@ namespace uni::lango {
 				const char* reg = ArgumentRegisters[index];
 				if (parameter.value.type == clover::Type::I32)
 					output.OutFormat("\taddiw %s, %s, 0\n", reg, reg);
-				output.OutFormat("\tsd %s, -%[i](s0)\n", reg, slot->value_offset);
+				EmitFrameStore(reg, slot->value_offset, output);
 			}
 
 			uint32 current_file = 0;

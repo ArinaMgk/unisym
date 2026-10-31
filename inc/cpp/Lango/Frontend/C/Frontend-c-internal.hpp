@@ -33,6 +33,7 @@ enum class FrontendCToken : stduint {
 	Parameter,                // Typed function parameter normalized before expressions.
 	Declaration,              // Function-local object declaration.
 	GlobalDeclaration,        // Translation-unit object declaration.
+	RecordDeclaration,        // Translation-unit struct or union forward declaration.
 	RecordDefinition,         // Translation-unit struct or union type definition.
 	If,                       // If statement with its condition as children.
 	Else,                     // Else marker paired by statement composition.
@@ -155,6 +156,13 @@ struct FrontendCRecordMember {
 	stduint offset_bits = 0;
 };
 
+// Layout policy selected for one Magice record definition.
+enum class FrontendCRecordLayout {
+	Default, // Use the target C ABI without an explicit layout keyword.
+	Padded,  // Explicitly request the target C ABI layout.
+	Packed   // Omit implicit member padding.
+};
+
 // One tagged C structure or union retained independently from syntax nodes.
 struct FrontendCRecord {
 	uni::String tag;
@@ -162,6 +170,8 @@ struct FrontendCRecord {
 	stduint size_bits = 0;
 	stduint align_bits = 0;
 	bool is_union = false;
+	FrontendCRecordLayout layout = FrontendCRecordLayout::Default;
+	stduint explicit_align_bits = 0; // Alignment requested by alignb or aligne.
 	bool complete = false;
 };
 

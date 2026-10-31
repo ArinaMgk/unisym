@@ -99,7 +99,8 @@ namespace {
 			IsKeyword(node, "signed") || IsKeyword(node, "unsigned") ||
 			IsKeyword(node, "char") || IsKeyword(node, "short") ||
 			IsKeyword(node, "int") || IsKeyword(node, "long") ||
-			IsKeyword(node, "void") || IsKeyword(node, "struct");
+			IsKeyword(node, "void") || IsKeyword(node, "struct") ||
+			IsKeyword(node, "union");
 	}
 
 	// Consume one C99 scalar type-specifier sequence before its declarator.
@@ -115,17 +116,19 @@ namespace {
 			const_count++;
 			after_type = after_type->next;
 		}
-		if (IsKeyword(after_type, "struct")) {
+		bool is_union = IsKeyword(after_type, "union");
+		if (IsKeyword(after_type, "struct") || is_union) {
 			uni::Nnode* tag = after_type->next;
 			if (const_count > 1 || !tag || tag->type != tok_identy || !tag->addr) {
 				diagnostics.Report(DiagnosticStage::Parser,
-					"expected struct tag", after_type);
+					"expected record tag", after_type);
 				return false;
 			}
 			stduint record_id = type_info.FindRecord(tag->addr);
-			if (!record_id) {
+			const FrontendCRecord* record = type_info.GetRecord(record_id);
+			if (!record || record->is_union != is_union) {
 				diagnostics.Report(DiagnosticStage::Semantic,
-					"use of undefined struct type", tag);
+					"use of undefined or mismatched record type", tag);
 				return false;
 			}
 			after_type = tag->next;
@@ -137,7 +140,8 @@ namespace {
 		}
 		after_type = first;
 		const_count = 0;
-		while (IsTypeSpecifier(after_type) && !IsKeyword(after_type, "struct")) {
+		while (IsTypeSpecifier(after_type) && !IsKeyword(after_type, "struct") &&
+			!IsKeyword(after_type, "union")) {
 			if (IsKeyword(after_type, "const")) const_count++;
 			else if (IsKeyword(after_type, "signed")) signed_count++;
 			else if (IsKeyword(after_type, "unsigned")) unsigned_count++;
@@ -193,11 +197,6 @@ namespace {
 				"object cannot have void type", statement);
 			return false;
 		}
-		if (global && type.IsRecord()) {
-			diagnostics.Report(DiagnosticStage::Semantic,
-				"global struct objects are not supported yet", statement);
-			return false;
-		}
 		statement->type = ToToken(global ? FrontendCToken::GlobalDeclaration :
 			FrontendCToken::Declaration);
 		type_info.Add(statement, type);
@@ -231,7 +230,7 @@ namespace {
 			}
 			if (type.IsRecord()) {
 				diagnostics.Report(DiagnosticStage::Semantic,
-					"struct parameters by value are not supported yet", node);
+					"record parameters by value are not supported yet", node);
 				return false;
 			}
 			uni::Nnode* parameter = node;
@@ -271,79 +270,263 @@ namespace {
 		return remainder ? value + alignment - remainder : value;
 	}
 
+	constexpr stduint MaximumExplicitRecordAlignmentBytes = 16;
+
+	bool IsRecordLayoutModifier(const uni::Nnode* node) {
+		return IsKeyword(node, "packed") || IsKeyword(node, "padded") ||
+			(node && node->type == tok_func &&
+				(IsKeyword(node, "alignb") || IsKeyword(node, "aligne")));
+	}
+
+	const uni::Nnode* SkipRecordLayoutModifiers(const uni::Nnode* node) {
+		while (IsRecordLayoutModifier(node)) node = node->next;
+		return node;
+	}
+
 	bool IsRecordDefinition(const uni::Nnode* statement) {
-		const uni::Nnode* keyword = statement ? statement->subf : nullptr;
+		const uni::Nnode* keyword = SkipRecordLayoutModifiers(
+			statement ? statement->subf : nullptr);
 		const uni::Nnode* tag = keyword ? keyword->next : nullptr;
 		const uni::Nnode* body = tag ? tag->next : nullptr;
-		return IsKeyword(keyword, "struct") && tag && tag->type == tok_identy &&
-			tag->addr && body && body->type == tok_block && !body->next;
+		return (IsKeyword(keyword, "struct") || IsKeyword(keyword, "union")) &&
+			tag && tag->type == tok_identy && tag->addr && body &&
+			body->type == tok_block && !body->next;
+	}
+
+	bool IsRecordDeclaration(const uni::Nnode* statement) {
+		const uni::Nnode* keyword = statement ? statement->subf : nullptr;
+		const uni::Nnode* tag = keyword ? keyword->next : nullptr;
+		return (IsKeyword(keyword, "struct") || IsKeyword(keyword, "union")) &&
+			tag && tag->type == tok_identy && tag->addr && !tag->next;
+	}
+
+	bool ParseRecordAlignment(const uni::Nnode* modifier,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		stduint& align_bits) {
+		const uni::Nnode* argument = modifier ? modifier->subf : nullptr;
+		if (!argument || argument->next || argument->type != tok_number ||
+			!argument->addr) {
+			diagnostics.Report(DiagnosticStage::Parser,
+				"record alignment requires one integer argument", modifier);
+			return false;
+		}
+		stdsint value = atoins(argument->addr);
+		stduint align_bytes = 0;
+		if (IsKeyword(modifier, "alignb")) {
+			if (value <= 0) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"alignb requires a positive byte count", argument);
+				return false;
+			}
+			align_bytes = (stduint)value;
+		}
+		else {
+			if (value < 0 || value > 4) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"aligne exponent must be between 0 and 4", argument);
+				return false;
+			}
+			align_bytes = stduint(1) << value;
+		}
+		if ((align_bytes & (align_bytes - 1)) ||
+			align_bytes > MaximumExplicitRecordAlignmentBytes) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record alignment must be a power of two up to 16 bytes", argument);
+			return false;
+		}
+		align_bits = align_bytes * target.char_bits;
+		return true;
+	}
+
+	bool ParseRecordDefinitionPrefix(uni::Nnode* statement,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		uni::Nnode*& keyword, FrontendCRecordLayout& layout,
+		stduint& explicit_align_bits) {
+		keyword = statement ? statement->subf : nullptr;
+		layout = FrontendCRecordLayout::Default;
+		explicit_align_bits = 0;
+		while (IsRecordLayoutModifier(keyword)) {
+			if (IsKeyword(keyword, "packed") || IsKeyword(keyword, "padded")) {
+				if (layout != FrontendCRecordLayout::Default) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"conflicting or duplicate record layout modifier", keyword);
+					return false;
+				}
+				layout = IsKeyword(keyword, "packed") ?
+					FrontendCRecordLayout::Packed : FrontendCRecordLayout::Padded;
+			}
+			else {
+				if (explicit_align_bits) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"duplicate record alignment modifier", keyword);
+					return false;
+				}
+				if (!ParseRecordAlignment(keyword, diagnostics, target,
+					explicit_align_bits)) return false;
+			}
+			keyword = keyword->next;
+		}
+		return true;
+	}
+
+	bool PrepareRecordDeclaration(uni::Nnode* statement,
+		const FrontendCDiagnostics& diagnostics, FrontendCTypeInfo& type_info) {
+		uni::Nnode* keyword = statement->subf;
+		uni::Nnode* tag = keyword->next;
+		bool is_union = IsKeyword(keyword, "union");
+		stduint record_id = type_info.FindRecord(tag->addr);
+		FrontendCRecord* record = type_info.GetRecord(record_id);
+		if (record && record->is_union != is_union) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record tag redeclared with a different kind", tag);
+			return false;
+		}
+		if (!record) {
+			FrontendCRecord declaration;
+			declaration.tag = tag->addr;
+			declaration.is_union = is_union;
+			type_info.records.Append(declaration);
+		}
+		statement->type = ToToken(FrontendCToken::RecordDeclaration);
+		return true;
+	}
+
+	// Parse the identifier and array dimensions of one record member declarator.
+	bool ParseRecordMemberDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
+		FrontendCType& type) {
+		if (!node) return false;
+		if (node->type == tok_func && node->addr &&
+			!StrCompare(node->addr, "OP@PREMEMB") && node->subf &&
+			!node->subf->next) {
+			if (!ParseRecordMemberDeclarator(node->subf, identifier, type)) return false;
+			type = type.AddressType();
+			return true;
+		}
+		if (node->type == tok_func && node->addr &&
+			!StrCompare(node->addr, "operator[]")) {
+			uni::Nnode* declarator = node->subf;
+			uni::Nnode* dimension = declarator ? declarator->next : nullptr;
+			if (!declarator || !dimension || dimension->next ||
+				dimension->type != tok_number || !dimension->addr ||
+				!ParseRecordMemberDeclarator(declarator, identifier, type)) return false;
+			stdsint count = atoins(dimension->addr);
+			return count > 0 && type.AppendArrayDimension((stduint)count);
+		}
+		if (node->type != tok_identy || !node->addr) return false;
+		identifier = node;
+		return true;
 	}
 
 	bool PrepareRecordDefinition(uni::Nchain& syntax_tree, uni::Nnode* statement,
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 		FrontendCTypeInfo& type_info) {
-		uni::Nnode* tag = statement->subf->next;
+		uni::Nnode* keyword;
+		FrontendCRecordLayout layout;
+		stduint explicit_align_bits;
+		if (!ParseRecordDefinitionPrefix(statement, diagnostics, target,
+			keyword, layout, explicit_align_bits)) return false;
+		uni::Nnode* tag = keyword->next;
 		uni::Nnode* body = tag->next;
-		if (type_info.FindRecord(tag->addr)) {
+		bool is_union = IsKeyword(keyword, "union");
+		stduint record_id = type_info.FindRecord(tag->addr);
+		FrontendCRecord* record = type_info.GetRecord(record_id);
+		if (record && record->is_union != is_union) {
 			diagnostics.Report(DiagnosticStage::Semantic,
-				"redefinition of struct type", tag);
+				"record tag defined with a different kind", tag);
 			return false;
 		}
-
-		FrontendCRecord record;
-		record.tag = tag->addr;
-		type_info.records.Append(record);
-		stduint record_id = type_info.records.Count();
+		if (record && record->complete) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"redefinition of record type", tag);
+			return false;
+		}
+		if (!record) {
+			FrontendCRecord definition;
+			definition.tag = tag->addr;
+			definition.is_union = is_union;
+			type_info.records.Append(definition);
+			record_id = type_info.records.Count();
+			record = type_info.GetRecord(record_id);
+		}
+		record->layout = layout;
+		record->explicit_align_bits = explicit_align_bits;
 		stduint size_bits = 0;
 		stduint align_bits = 0;
 		for (uni::Nnode* member_statement = body->subf;
 			member_statement; member_statement = member_statement->next) {
 			if (member_statement->type != tok_statement || !member_statement->subf) {
 				diagnostics.Report(DiagnosticStage::Parser,
-					"expected struct member declaration", member_statement);
+					"expected record member declaration", member_statement);
 				return false;
 			}
 			uni::Nnode* declarator = member_statement->subf;
 			FrontendCType member_type;
 			if (!ParseTypeSpecifiers(syntax_tree, declarator, member_type,
 				diagnostics, target, type_info)) return false;
-			if (!member_type.IsInteger() || !declarator || declarator->next ||
-				declarator->type != tok_identy || !declarator->addr) {
+			while (declarator && declarator->type == tok_symbol && declarator->addr) {
+				stduint stars = 0;
+				while (declarator->addr[stars] == '*') stars++;
+				if (!stars || declarator->addr[stars]) break;
+				while (stars--) member_type = member_type.AddressType();
+				declarator = syntax_tree.Remove(declarator);
+			}
+			uni::Nnode* identifier = nullptr;
+			if (!declarator || declarator->next || member_type.IsVoid() ||
+				!ParseRecordMemberDeclarator(
+					declarator, identifier, member_type)) {
 				diagnostics.Report(DiagnosticStage::Semantic,
-					"only one integer member per declaration is supported", declarator);
+					"unsupported record member declaration", declarator);
 				return false;
 			}
 			FrontendCRecord* current = type_info.GetRecord(record_id);
 			for (const FrontendCRecordMember& previous : current->members)
-				if (!StrCompare(previous.name.reference(), declarator->addr)) {
+				if (!StrCompare(previous.name.reference(), identifier->addr)) {
 					diagnostics.Report(DiagnosticStage::Semantic,
-						"duplicate struct member", declarator);
+						"duplicate record member", identifier);
 					return false;
 				}
 			stduint member_size = type_info.SizeBits(member_type, target);
 			stduint member_align = type_info.AlignBits(member_type, target);
 			if (!member_size || !member_align) {
 				diagnostics.Report(DiagnosticStage::Semantic,
-					"invalid struct member type", declarator);
+					"record member has incomplete type", identifier);
 				return false;
 			}
-			size_bits = AlignUp(size_bits, member_align);
+			bool is_packed = layout == FrontendCRecordLayout::Packed;
+			if (!is_union && !is_packed) size_bits = AlignUp(size_bits, member_align);
 			FrontendCRecordMember member;
-			member.name = declarator->addr;
+			member.name = identifier->addr;
 			member.type = member_type;
-			member.offset_bits = size_bits;
+			member.offset_bits = is_union ? 0 : size_bits;
 			current->members.Append(member);
-			size_bits += member_size;
-			if (member_align > align_bits) align_bits = member_align;
+			if (is_union) {
+				if (member_size > size_bits) size_bits = member_size;
+			}
+			else size_bits += member_size;
+			if (!is_packed && member_align > align_bits) align_bits = member_align;
 		}
-		if (!align_bits) {
+		bool is_packed = layout == FrontendCRecordLayout::Packed;
+		if (!is_packed && !align_bits) {
 			diagnostics.Report(DiagnosticStage::Semantic,
-				"empty struct is not supported in C99", body);
+				"empty record is not supported in C99", body);
+			return false;
+		}
+		if (is_packed && !size_bits) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"empty packed record is not supported", body);
 			return false;
 		}
 		FrontendCRecord* completed = type_info.GetRecord(record_id);
-		completed->align_bits = align_bits;
-		completed->size_bits = AlignUp(size_bits, align_bits);
+		stduint natural_align_bits = is_packed ? target.char_align_bits : align_bits;
+		if (explicit_align_bits && !is_packed &&
+			explicit_align_bits < natural_align_bits) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"explicit alignment cannot reduce padded ABI alignment", statement);
+			return false;
+		}
+		completed->align_bits = explicit_align_bits ?
+			explicit_align_bits : natural_align_bits;
+		completed->size_bits = AlignUp(size_bits, completed->align_bits);
 		completed->complete = true;
 		statement->type = ToToken(FrontendCToken::RecordDefinition);
 		return true;
@@ -429,7 +612,7 @@ namespace {
 			}
 			if (IsRecordDefinition(node)) {
 				diagnostics.Report(DiagnosticStage::Semantic,
-					"block-scope struct definitions are not supported yet", node);
+					"block-scope record definitions are not supported yet", node);
 				return false;
 			}
 			if (IsTypeSpecifier(node->subf)) {
@@ -585,6 +768,11 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		if (node->type == tok_statement) {
 			uni::Nnode* next = node->next;
+			if (IsRecordDeclaration(node)) {
+				if (!PrepareRecordDeclaration(node, diagnostics, type_info)) return false;
+				node = next;
+				continue;
+			}
 			if (IsRecordDefinition(node)) {
 				if (!PrepareRecordDefinition(syntax_tree, node, diagnostics,
 					target, type_info)) return false;
@@ -611,7 +799,7 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 		}
 		if (return_type.IsRecord()) {
 			diagnostics.Report(DiagnosticStage::Semantic,
-				"struct return values are not supported yet", node);
+				"record return values are not supported yet", node);
 			return false;
 		}
 		uni::Nnode* function = node;
@@ -641,6 +829,7 @@ bool frontend_c_detail::Validate(uni::Nchain& syntax_tree,
 	const FrontendCDiagnostics& diagnostics) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		if (node->type == ToToken(FrontendCToken::GlobalDeclaration) ||
+			node->type == ToToken(FrontendCToken::RecordDeclaration) ||
 			node->type == ToToken(FrontendCToken::RecordDefinition)) {
 			node = node->next;
 			continue;

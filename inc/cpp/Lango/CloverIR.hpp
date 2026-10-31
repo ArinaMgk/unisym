@@ -105,7 +105,7 @@ struct Instruction {
 	uni::String target;             // Jump target, or true target for a conditional jump.
 	uni::String target_false;       // False target for a conditional jump.
 	stdsint immediate = 0;          // Const literal, or Local element count.
-	stduint alignment = 0;          // Optional Local storage alignment in bytes; zero is natural.
+	stduint alignment = 0;          // Optional Local or memory-access alignment in bytes.
 	ICmpPredicate predicate = ICmpPredicate::EQ; // Comparison mode for ICmp.
 };
 

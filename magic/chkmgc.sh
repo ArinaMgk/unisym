@@ -18,7 +18,7 @@ check()
 	feedback="$?"
 
 	if [ "$feedback" = "$expectation" ]; then
-		echo "passed: $arguments !"
+		printf '\033[1;32mpassed\033[0m: %s !\n' "$arguments"
 	else
 		echo "$arguments failed for $feedback, Expecting $expectation"
 		exit 1
@@ -116,14 +116,8 @@ check 'int main() { return "abc"[0]; }' 97
 check 'int main() { return ""[0]; }' 0
 check 'int main() { return "\101"[0]; }' 65
 
-# Structure layout
-check '../demo/test/clover/c/struct-layout.c' 44
-check 'struct S {int a; char b;}; int main(){struct S x; x.a=3; x.b=2; return x.a+x.b;}' 5
-check 'struct S {char a; int b;}; int main(){struct S x; x.b=7; return *&x.b;}' 7
-check 'struct S {char a; int b;}; int main(){struct S x; return sizeof(x.a)+sizeof(x.b);}' 5
-check 'struct S {char a; int b;}; int main(){struct S x; struct S *p=&x; p->a=2; p->b=5; return p->a+p->b;}' 7
-check 'struct S {char a; int b;}; int main(){struct S x; struct S *p=&x; p->b=9; return *&p->b;}' 9
-check 'struct S {char a; int b;}; int main(){struct S *p; return sizeof(p->a)+sizeof(p->b);}' 5
+# Structure and union layout
+check '../demo/test/clover/c/struct-layout.c' 254
 
 # Storage Area and Lifetime
 check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1

@@ -132,6 +132,8 @@ namespace clover {
 			case Opcode::Load:
 				output.OutFormat("load %s, ", TypeName(instruction.type));
 				PrintValue(output, instruction.operands.begin()[0]);
+				if (instruction.alignment)
+					output.OutFormat(" align %[u]", instruction.alignment);
 				output.OutFormat("\n");
 				break;
 			case Opcode::Store:
@@ -139,6 +141,8 @@ namespace clover {
 				PrintValue(output, instruction.operands.begin()[0]);
 				output.OutFormat(", ");
 				PrintValue(output, instruction.operands.begin()[1]);
+				if (instruction.alignment)
+					output.OutFormat(" align %[u]", instruction.alignment);
 				output.OutFormat("\n");
 				break;
 			case Opcode::Mov:
@@ -375,6 +379,17 @@ namespace clover {
 				return true;
 			}
 
+			bool ReadOptionalAlignment(Instruction& instruction) {
+				if (!Is("align")) return true;
+				Advance();
+				stdsint alignment;
+				if (!ReadNumber(alignment) || alignment <= 0 ||
+					(alignment & (alignment - 1)))
+					return Error("alignment must be a positive power of two");
+				instruction.alignment = (stduint)alignment;
+				return true;
+			}
+
 			bool ReadResultID(unsigned& id) {
 				if (!Expect("%")) return false;
 				if (!token.getByteCount()) return Error("expected SSA identifier");
@@ -494,13 +509,7 @@ namespace clover {
 						if (!ReadNumber(instruction.immediate) || instruction.immediate <= 0)
 							return Error("invalid local element count");
 					}
-					if (Is("align")) {
-						Advance();
-						stdsint alignment;
-						if (!ReadNumber(alignment) || alignment <= 0)
-							return Error("invalid local alignment");
-						instruction.alignment = (stduint)alignment;
-					}
+					if (!ReadOptionalAlignment(instruction)) return false;
 					instruction.result.type = Type::Ptr;
 				}
 				else if (!StrCompare(operation.reference(), "load")) {
@@ -509,12 +518,14 @@ namespace clover {
 					if (!has_result || !ReadType(instruction.type) || !Expect(",") || !ReadValue(address))
 						return Error("invalid load instruction");
 					instruction.operands.Append(address);
+					if (!ReadOptionalAlignment(instruction)) return false;
 					instruction.result.type = instruction.type;
 				}
 				else if (!StrCompare(operation.reference(), "store")) {
 					instruction.opcode = Opcode::Store;
 					if (has_result || !ReadType(instruction.type) || !ReadBinaryOperands(instruction))
 						return Error("invalid store instruction");
+					if (!ReadOptionalAlignment(instruction)) return false;
 				}
 				else if (!StrCompare(operation.reference(), "mov")) {
 					instruction.opcode = Opcode::Mov;

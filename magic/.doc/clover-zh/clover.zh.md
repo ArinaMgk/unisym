@@ -127,8 +127,8 @@ declare @putchar(i32) -> i32
 global @counter i32 = 0
 constant @.L.clover.string.0 i8, 4 = {97, 98, 99, 0}
 %global_address = globaladdr @counter
-%loaded = load i32, %address
-store i32 %value, %address
+%loaded = load i32, %address align 4
+store i32 %value, %address align 4
 %next = ptradd i32 %address, %index
 ```
 
@@ -139,9 +139,15 @@ store i32 %value, %address
 - `constant`：定义模块内部的只读聚合数据；初始化列表的元素数量必须与声明数量一致。
 - `globaladdr`：取得模块级对象的地址，结果类型为 `ptr`。
 - `mov`：复制一个 SSA 值，不读写内存。
-- `load`：从 `ptr` 地址读取值。
-- `store`：向 `ptr` 地址写入值，不产生结果。
+- `load`：从 `ptr` 地址读取值；可选的 `align` 表示地址至少具有多少字节对齐。
+- `store`：向 `ptr` 地址写入值，不产生结果；同样可以携带可选的 `align`。
 - `ptradd`：将整数索引乘以给定元素类型的存储大小，再加到 `ptr` 地址；结果类型为 `ptr`。
+
+`local`、`load` 和 `store` 的 `align N` 均以字节为单位，且 `N` 必须是正的
+二次幂。内存访问未写 `align` 时按照访问类型的自然对齐处理；显式写出的值表示
+前端能够保证的最低地址对齐。后端若不能直接完成低于自然对齐的访问，必须拆分
+访问或明确拒绝，不能静默假设地址已自然对齐。当前 RISC-V 后端会把未对齐的
+`i16`、`i32`、`i64` 访问拆成按小端顺序组合或分解的字节访问。
 
 `mov` 不统一表示 `load` 和 `store`。三者虽然都可能降低为机器的移动指令，
 但在 IR 中具有不同语义：`mov` 没有副作用，`load` 读取内存，`store` 修改

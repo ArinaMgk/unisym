@@ -32,6 +32,7 @@ namespace clover {
 			bool valid = false;
 			FrontendCType type;
 			bool is_lvalue = false;
+			stduint alignment = 0; // Known byte alignment of an lvalue or pointer value.
 		};
 
 		// Associates a source identifier with the Ptr value produced by Local.
@@ -39,6 +40,7 @@ namespace clover {
 			uni::String name;
 			Value address;
 			FrontendCType type;
+			stduint alignment = 0;
 			const uni::Nnode* declaration = nullptr;
 			const uni::Nnode* scope = nullptr;
 			bool active = false;
@@ -61,7 +63,17 @@ namespace clover {
 		struct FrontendCGlobal {
 			uni::String name;
 			FrontendCType type;
+			stduint alignment = 0;
 		};
+
+		stduint GreatestCommonDivisor(stduint left, stduint right) {
+			while (right) {
+				stduint remainder = left % right;
+				left = right;
+				right = remainder;
+			}
+			return left;
+		}
 
 		bool ParseIntegerLiteral(const char* text, stdsint& value) {
 			if (!text || !*text) return false;
@@ -304,6 +316,23 @@ namespace clover {
 			// Add a signed element index to a pointer while retaining pointee size.
 			Value EmitPtrAdd(Value pointer, Value index, const FrontendCType& pointer_type) {
 				FrontendCType pointee_type = pointer_type.DereferenceType();
+				if (pointee_type.record_id) {
+					stduint size_bits = type_info->SizeBits(pointee_type, *target);
+					stduint size_bytes = size_bits / target->char_bits;
+					Value scale = EmitConst((stdsint)size_bytes);
+					if (index.type == Type::I64)
+						scale = EmitConversion(Opcode::SExt, Type::I64, scale);
+					index = EmitResult(Opcode::Mul, index.type, index, scale);
+					Instruction instruction;
+					instruction.opcode = Opcode::PtrAdd;
+					instruction.type = Type::I8;
+					instruction.has_result = true;
+					instruction.result = NewValue(Type::Ptr);
+					instruction.operands.Append(pointer);
+					instruction.operands.Append(index);
+					CurrentBlock().instructions.Append(instruction);
+					return instruction.result;
+				}
 				stduint scalar_count = pointee_type.StorageElementCount();
 				if (scalar_count > 1) {
 					Value scale = EmitConst((stdsint)scalar_count);
@@ -337,13 +366,26 @@ namespace clover {
 				return instruction.result;
 			}
 
+			Value EmitLoad(Type type, Value address, stduint alignment) {
+				Instruction instruction;
+				instruction.opcode = Opcode::Load;
+				instruction.type = type;
+				instruction.has_result = true;
+				instruction.result = NewValue(type);
+				instruction.operands.Append(address);
+				instruction.alignment = alignment;
+				CurrentBlock().instructions.Append(instruction);
+				return instruction.result;
+			}
+
 			// Store is side-effecting and therefore has no SSA result.
-			void EmitStore(Value value, Value address) {
+			void EmitStore(Value value, Value address, stduint alignment) {
 				Instruction instruction;
 				instruction.opcode = Opcode::Store;
 				instruction.type = value.type;
 				instruction.operands.Append(value);
 				instruction.operands.Append(address);
+				instruction.alignment = alignment;
 				CurrentBlock().instructions.Append(instruction);
 			}
 
@@ -360,6 +402,34 @@ namespace clover {
 
 			Type CloverType(const FrontendCType& type) const {
 				return CloverTypeFor(type, *target);
+			}
+
+			stduint TypeAlignment(const FrontendCType& type) const {
+				if (type.IsVoid()) return 0;
+				stduint bits = type_info->AlignBits(type, *target);
+				return bits && !(bits % target->char_bits) ?
+					bits / target->char_bits : 0;
+			}
+
+			stduint TypeSize(const FrontendCType& type) const {
+				stduint bits = type_info->SizeBits(type, *target);
+				return bits && !(bits % target->char_bits) ?
+					bits / target->char_bits : 0;
+			}
+
+			stduint OffsetAlignment(stduint base_alignment, stduint offset) const {
+				if (!base_alignment) base_alignment = 1;
+				return offset ? GreatestCommonDivisor(base_alignment, offset) :
+					base_alignment;
+			}
+
+			stduint PointerStepAlignment(stduint pointer_alignment,
+				const FrontendCType& pointer_type) const {
+				if (!pointer_type.IsPointer()) return 0;
+				if (!pointer_alignment) pointer_alignment = 1;
+				stduint element_size = TypeSize(pointer_type.DereferenceType());
+				return element_size ? GreatestCommonDivisor(
+					pointer_alignment, element_size) : 0;
 			}
 
 			FrontendCType IntType() const {
@@ -435,11 +505,13 @@ namespace clover {
 					return lowered;
 				}
 				if (lowered.valid && lowered.type.IsRecord())
-					return Error("struct value operations are not supported yet", node);
+					return Error("record value operations are not supported yet", node);
 				if (!lowered.valid || !lowered.is_lvalue) return lowered;
-				lowered.value = EmitResult(Opcode::Load, CloverType(lowered.type),
-					lowered.value);
+				lowered.value = EmitLoad(CloverType(lowered.type), lowered.value,
+					lowered.alignment);
 				lowered.is_lvalue = false;
+				// Pointer alignment is not encoded in a loaded pointer value yet.
+				lowered.alignment = lowered.type.IsPointer() ? 1 : 0;
 				return lowered;
 			}
 
@@ -534,7 +606,7 @@ namespace clover {
 				type.integer_rank = FrontendCIntegerRank::Char;
 				type.is_signed = target->char_is_signed;
 				type.AppendArrayDimension(bytes.Count());
-				return { EmitGlobalAddress(global.name), true, type, true };
+				return { EmitGlobalAddress(global.name), true, type, true, 1 };
 			}
 
 			bool PredeclareLocal(const char* name, const FrontendCType& type,
@@ -548,19 +620,13 @@ namespace clover {
 					}
 				Instruction instruction;
 				instruction.opcode = Opcode::Local;
-			if (type.record_id && type.IsArray()) {
-				diagnostics->Report(DiagnosticStage::Semantic,
-					"arrays of struct are not supported yet", declaration);
-				failed = true;
-				return false;
-			}
-			if (type.IsRecord()) {
+			if (type.record_id && !type.IsPointer()) {
 				stduint size_bits = type_info->SizeBits(type, *target);
 				stduint align_bits = type_info->AlignBits(type, *target);
 				if (!size_bits || !align_bits || size_bits % target->char_bits ||
 					align_bits % target->char_bits) {
 					diagnostics->Report(DiagnosticStage::Semantic,
-						"invalid struct storage layout", declaration);
+						"invalid record storage layout", declaration);
 					failed = true;
 					return false;
 				}
@@ -582,6 +648,7 @@ namespace clover {
 				local.name = name;
 				local.address = instruction.result;
 				local.type = type;
+				local.alignment = TypeAlignment(type);
 				local.declaration = declaration;
 				local.scope = scope;
 				locals.Append(local);
@@ -706,7 +773,8 @@ namespace clover {
 					else value = EmitConst(0, element_type);
 					Value element_index = EmitConst((stdsint)index);
 					Value address = EmitPtrAdd(local.address, element_index, element_pointer);
-					EmitStore(value, address);
+					EmitStore(value, address, OffsetAlignment(local.alignment,
+						index * TypeSize(element_type)));
 				}
 				return true;
 			}
@@ -737,8 +805,8 @@ namespace clover {
 				LocalValue* local = ActivateLocal(identifier->addr, declaration);
 				if (!local) return Error("invalid local declaration", identifier).valid;
 				if (!initializer_node) return true;
-				if (local->type.IsRecord())
-					return Error("struct initialization is not supported yet", initializer_node).valid;
+				if (local->type.record_id && !local->type.IsPointer())
+					return Error("record initialization is not supported yet", initializer_node).valid;
 				if (local->type.IsArray())
 					return InitializeArray(*local, initializer_node);
 				LoweredValue initializer = ToRValue(
@@ -749,7 +817,7 @@ namespace clover {
 				else if (!local->type.CanAssignFrom(initializer.type))
 					return Error("incompatible initializer type", initializer_node).valid;
 				if (!initializer.valid) return false;
-				EmitStore(initializer.value, local->address);
+				EmitStore(initializer.value, local->address, local->alignment);
 				return true;
 			}
 
@@ -808,12 +876,9 @@ namespace clover {
 				return { instruction.result, true, signature->return_type, false };
 			}
 
-			LoweredValue LowerSubscript(uni::Nnode* node) {
-				uni::Nnode* left_node = node->subf;
-				uni::Nnode* right_node = left_node ? left_node->next : nullptr;
-				if (!left_node || !right_node || right_node->next)
-					return Error("array subscript requires two operands", node);
-				LoweredValue left = ToRValue(LowerExpression(left_node), left_node);
+			LoweredValue LowerSubscriptOperands(LoweredValue left,
+				uni::Nnode* left_node, uni::Nnode* right_node, uni::Nnode* node) {
+				left = ToRValue(left, left_node);
 				LoweredValue right = ToRValue(LowerExpression(right_node), right_node);
 				if (!left.valid || !right.valid) return {};
 				if (left.type.IsInteger() && right.type.IsPointer()) {
@@ -828,7 +893,17 @@ namespace clover {
 				if (!right.valid) return right;
 				Value index = right.value;
 				Value address = EmitPtrAdd(left.value, index, left.type);
-				return { address, !failed, left.type.DereferenceType(), true };
+				return { address, !failed, left.type.DereferenceType(), true,
+					PointerStepAlignment(left.alignment, left.type) };
+			}
+
+			LoweredValue LowerSubscript(uni::Nnode* node) {
+				uni::Nnode* left_node = node->subf;
+				uni::Nnode* right_node = left_node ? left_node->next : nullptr;
+				if (!left_node || !right_node || right_node->next)
+					return Error("array subscript requires two operands", node);
+				return LowerSubscriptOperands(LowerExpression(left_node),
+					left_node, right_node, node);
 			}
 
 			// Find one member without interpreting its name as an expression identifier.
@@ -854,33 +929,56 @@ namespace clover {
 				return type;
 			}
 
+			// Lower a member name and any array subscripts attached to that name.
+			LoweredValue LowerRecordMember(Value record_address,
+				const FrontendCType& record_type, stduint record_alignment,
+				uni::Nnode* designator) {
+				if (!designator)
+					return Error("member access requires a member name", designator);
+				if (designator->type == tok_func && designator->addr &&
+					!StrCompare(designator->addr, "operator[]")) {
+					uni::Nnode* base = designator->subf;
+					uni::Nnode* index = base ? base->next : nullptr;
+					if (!base || !index || index->next)
+						return Error("array subscript requires two operands", designator);
+					LoweredValue member = LowerRecordMember(
+						record_address, record_type, record_alignment, base);
+					if (!member.valid) return member;
+					return LowerSubscriptOperands(member, base, index, designator);
+				}
+				if (designator->type != tok_identy || !designator->addr)
+					return Error("member access requires a member name", designator);
+				const FrontendCRecordMember* member =
+					FindRecordMember(record_type, designator->addr);
+				if (!member) return Error("record has no such member", designator);
+				if (member->offset_bits % target->char_bits)
+					return Error("record member is not byte-addressable", designator);
+				Value address = EmitByteOffset(record_address,
+					member->offset_bits / target->char_bits);
+				return { address, true, MemberType(record_type, *member), true,
+					OffsetAlignment(record_alignment,
+						member->offset_bits / target->char_bits) };
+			}
+
 			// Lower object.member to an lvalue at the member's byte offset.
 			LoweredValue LowerMember(uni::Nnode* node) {
 				uni::Nnode* object_node = node ? node->subf : nullptr;
 				uni::Nnode* member_node = object_node ? object_node->next : nullptr;
-				if (!object_node || !member_node || member_node->next ||
-					member_node->type != tok_identy || !member_node->addr)
+				if (!object_node || !member_node || member_node->next)
 					return Error("member access requires a member name", node);
 				LoweredValue object = LowerExpression(object_node);
 				if (!object.valid) return object;
 				if (!object.is_lvalue || !object.type.IsRecord())
-					return Error("member access requires a struct object", object_node);
-				const FrontendCRecordMember* member =
-					FindRecordMember(object.type, member_node->addr);
-				if (!member) return Error("struct has no such member", member_node);
-				if (member->offset_bits % target->char_bits)
-					return Error("struct member is not byte-addressable", member_node);
-				Value address = EmitByteOffset(object.value,
-					member->offset_bits / target->char_bits);
-				return { address, true, MemberType(object.type, *member), true };
+					return Error("member access requires a record object", object_node);
+				return LowerRecordMember(object.value, object.type,
+					object.alignment, member_node);
 			}
 
 			// Lower pointer->member without loading the pointed-to record value.
 			LoweredValue LowerPointerMember(uni::Nnode* node) {
 				uni::Nnode* pointer_node = node ? node->subf : nullptr;
 				uni::Nnode* member_node = pointer_node ? pointer_node->next : nullptr;
-				if (!pointer_node || !member_node || member_node->next ||
-					member_node->type != tok_identy || !member_node->addr)
+				if (!pointer_node || !member_node || member_node->next)
 					return Error("pointer member access requires a member name", node);
 				LoweredValue pointer = ToRValue(
 					LowerExpression(pointer_node), pointer_node);
@@ -889,15 +987,34 @@ namespace clover {
 					return Error("pointer member access requires a pointer", pointer_node);
 				FrontendCType record_type = pointer.type.DereferenceType();
 				if (!record_type.IsRecord())
-					return Error("pointer member access requires a struct pointer", pointer_node);
+					return Error("pointer member access requires a record pointer", pointer_node);
+				return LowerRecordMember(pointer.value, record_type,
+					pointer.alignment, member_node);
+			}
+
+			// Resolve a member name and attached subscripts without evaluating them.
+			bool ResolveRecordMemberType(const FrontendCType& record_type,
+				uni::Nnode* designator, FrontendCType& type) {
+				if (!designator) return false;
+				if (designator->type == tok_func && designator->addr &&
+					!StrCompare(designator->addr, "operator[]")) {
+					uni::Nnode* base = designator->subf;
+					uni::Nnode* index = base ? base->next : nullptr;
+					FrontendCType index_type;
+					if (!base || !index || index->next ||
+						!ResolveRecordMemberType(record_type, base, type) ||
+						!ResolveExpressionType(index, index_type)) return false;
+					if (type.IsArray()) type = type.DecayType();
+					if (!type.IsPointer() || !index_type.IsInteger()) return false;
+					type = type.DereferenceType();
+					return true;
+				}
+				if (designator->type != tok_identy || !designator->addr) return false;
 				const FrontendCRecordMember* member =
-					FindRecordMember(record_type, member_node->addr);
-				if (!member) return Error("struct has no such member", member_node);
-				if (member->offset_bits % target->char_bits)
-					return Error("struct member is not byte-addressable", member_node);
-				Value address = EmitByteOffset(pointer.value,
-					member->offset_bits / target->char_bits);
-				return { address, true, MemberType(record_type, *member), true };
+					FindRecordMember(record_type, designator->addr);
+				if (!member) return false;
+				type = MemberType(record_type, *member);
+				return true;
 			}
 
 			LoweredValue LowerIncrement(uni::Nnode* operand, bool increment,
@@ -907,10 +1024,13 @@ namespace clover {
 				if (!lowered.is_lvalue || lowered.type.IsConstObject() ||
 					(!lowered.type.IsInteger() && !lowered.type.IsPointer()))
 					return Error("increment requires an arithmetic or pointer lvalue", operand);
-				Value previous = EmitResult(Opcode::Load, CloverType(lowered.type), lowered.value);
+				Value previous = EmitLoad(CloverType(lowered.type), lowered.value,
+					lowered.alignment);
 				Value one = EmitConst(1, lowered.type.IsInteger() ?
 					PromoteType(lowered.type) : IntType());
 				Value updated;
+				stduint previous_alignment = lowered.type.IsPointer() ? 1 : 0;
+				stduint updated_alignment = 0;
 				if (lowered.type.IsPointer()) {
 					Value index = one;
 					if (!increment) {
@@ -918,6 +1038,8 @@ namespace clover {
 						index = EmitResult(Opcode::Sub, Type::I32, zero, one);
 					}
 					updated = EmitPtrAdd(previous, index, lowered.type);
+					updated_alignment = PointerStepAlignment(
+						previous_alignment, lowered.type);
 				}
 				else {
 					FrontendCType arithmetic_type = PromoteType(lowered.type);
@@ -930,8 +1052,9 @@ namespace clover {
 					if (!converted.valid) return converted;
 					updated = converted.value;
 				}
-				EmitStore(updated, lowered.value);
-				return { return_updated ? updated : previous, true, lowered.type, false };
+				EmitStore(updated, lowered.value, lowered.alignment);
+				return { return_updated ? updated : previous, true, lowered.type, false,
+					return_updated ? updated_alignment : previous_alignment };
 			}
 
 			bool IsTypeWord(const uni::Nnode* node, const char* word) const {
@@ -939,10 +1062,34 @@ namespace clover {
 					!StrCompare(node->addr, word);
 			}
 
-				// Parse the integer, record, and pointer subset of a C type-name used by sizeof.
+			// Parse a tagged record name with array dimensions attached to the tag.
+			bool ParseRecordArrayType(uni::Nnode* node, FrontendCType& type,
+				bool expected_union) const {
+				if (!node) return false;
+				if (node->type == tok_func && node->addr &&
+					!StrCompare(node->addr, "operator[]")) {
+					uni::Nnode* declarator = node->subf;
+					uni::Nnode* dimension = declarator ? declarator->next : nullptr;
+					stdsint count;
+					if (!declarator || !dimension || dimension->next ||
+						dimension->type != tok_number || !dimension->addr ||
+						!ParseIntegerLiteral(dimension->addr, count) || count <= 0 ||
+						!ParseRecordArrayType(declarator, type, expected_union)) return false;
+					return type.AppendArrayDimension((stduint)count);
+				}
+				if (node->type != tok_identy || !node->addr) return false;
+				stduint record_id = type_info->FindRecord(node->addr);
+				const FrontendCRecord* record = type_info->GetRecord(record_id);
+				if (!record || !record->complete ||
+					record->is_union != expected_union) return false;
+				type.record_id = record_id;
+				return true;
+			}
+
+			// Parse the integer, record, and pointer subset of a C type-name used by sizeof.
 			bool ParseTypeName(uni::Nnode* node, FrontendCType& type,
 				const uni::Nnode* end = nullptr) const {
-				if (node && node->next == end && node->type == tok_func && node->addr &&
+				if (node && node->type == tok_func && node->addr &&
 					!StrCompare(node->addr, "operator[]")) {
 					uni::Nnode* dimension = node->subf ? node->subf->Tail() : nullptr;
 					if (!dimension || dimension == node->subf ||
@@ -957,13 +1104,22 @@ namespace clover {
 						is_const = true;
 						node = node->next;
 					}
-					if (IsTypeWord(node, "struct")) {
+					bool is_union = IsTypeWord(node, "union");
+					if (IsTypeWord(node, "struct") || is_union) {
 						uni::Nnode* tag = node->next;
+						if (tag && tag != end && tag->next == end &&
+							tag->type == tok_func && tag->addr &&
+							!StrCompare(tag->addr, "operator[]")) {
+							type = FrontendCType();
+							type.base_qualifiers.is_const = is_const;
+							return ParseRecordArrayType(tag, type, is_union);
+						}
 						if (!tag || tag == end || tag->type != tok_identy || !tag->addr)
 							return false;
 						stduint record_id = type_info->FindRecord(tag->addr);
 						const FrontendCRecord* record = type_info->GetRecord(record_id);
-						if (!record || !record->complete) return false;
+						if (!record || !record->complete ||
+							record->is_union != is_union) return false;
 						type = FrontendCType();
 						type.record_id = record_id;
 						type.base_qualifiers.is_const = is_const;
@@ -1075,24 +1231,14 @@ namespace clover {
 				FrontendCType left_type;
 				if (!ResolveExpressionType(left, left_type)) return false;
 				if (!StrCompare(node->addr, "OP@SUFMEMB")) {
-					if (!right || right->next || right->type != tok_identy ||
-						!right->addr || !left_type.IsRecord()) return false;
-					const FrontendCRecordMember* member =
-						FindRecordMember(left_type, right->addr);
-					if (!member) return false;
-					type = MemberType(left_type, *member);
-					return true;
+					return right && !right->next && left_type.IsRecord() &&
+						ResolveRecordMemberType(left_type, right, type);
 				}
 				if (!StrCompare(node->addr, "OP@SUFMEMP")) {
-					if (!right || right->next || right->type != tok_identy ||
-						!right->addr || !left_type.IsPointer()) return false;
+					if (!right || right->next || !left_type.IsPointer()) return false;
 					FrontendCType record_type = left_type.DereferenceType();
 					if (!record_type.IsRecord()) return false;
-					const FrontendCRecordMember* member =
-						FindRecordMember(record_type, right->addr);
-					if (!member) return false;
-					type = MemberType(record_type, *member);
-					return true;
+					return ResolveRecordMemberType(record_type, right, type);
 				}
 				if (!StrCompare(node->addr, "OP@PREADDR")) {
 					type = left_type.AddressType();
@@ -1191,14 +1337,16 @@ namespace clover {
 					if (!operand.valid) return operand;
 					if (!operand.is_lvalue)
 						return Error("cannot take the address of an rvalue", left_node);
-					return { operand.value, true, operand.type.AddressType(), false };
+					return { operand.value, true, operand.type.AddressType(), false,
+						operand.alignment };
 				}
 				if (!StrCompare(operation, "OP@PREMEMB")) {
 					LoweredValue operand = ToRValue(LowerExpression(left_node), left_node);
 					if (!operand.valid) return operand;
 					if (!operand.type.IsPointer())
 						return Error("dereference requires a pointer", left_node);
-					return { operand.value, true, operand.type.DereferenceType(), true };
+					return { operand.value, true, operand.type.DereferenceType(), true,
+						operand.alignment ? operand.alignment : 1 };
 				}
 				if (!StrCompare(operation, "OP@PREPOSI")) {
 					LoweredValue operand = ToRValue(LowerExpression(left_node), left_node);
@@ -1225,7 +1373,7 @@ namespace clover {
 					if (!left.valid) return left;
 					if (!left.is_lvalue) return Error("assignment requires an lvalue", left_node);
 					if (left.type.IsRecord())
-						return Error("struct assignment is not supported yet", node);
+						return Error("record assignment is not supported yet", node);
 					if (left.type.IsConstObject())
 						return Error("assignment to const-qualified object", left_node);
 					LoweredValue right = ToRValue(LowerExpression(right_node), right_node);
@@ -1235,7 +1383,7 @@ namespace clover {
 					else if (!left.type.CanAssignFrom(right.type))
 						return Error("incompatible assignment types", node);
 					if (!right.valid) return right;
-					EmitStore(right.value, left.value);
+					EmitStore(right.value, left.value, left.alignment);
 					return right;
 				}
 				if (!StrCompare(operation, "OP@COMMA")) {
@@ -1267,14 +1415,16 @@ namespace clover {
 							index = EmitResult(Opcode::Sub, CloverType(index_type), zero, index);
 						}
 						Value value = EmitPtrAdd(left.value, index, left.type);
-						return { value, !failed, left.type, false };
+						return { value, !failed, left.type, false,
+							PointerStepAlignment(left.alignment, left.type) };
 					}
 					if (!subtract && left.type.IsInteger() && right.type.IsPointer()) {
 						FrontendCType index_type = PromoteType(left.type);
 						left = ConvertInteger(left, index_type, left_node);
 						Value index = left.value;
 						Value value = EmitPtrAdd(right.value, index, right.type);
-						return { value, !failed, right.type, false };
+						return { value, !failed, right.type, false,
+							PointerStepAlignment(right.alignment, right.type) };
 					}
 					if (left.type.IsPointer() || right.type.IsPointer())
 						return Error("invalid operands to pointer arithmetic", node);
@@ -1374,10 +1524,12 @@ namespace clover {
 					return LowerStringLiteral(node);
 				case tok_identy: {
 					LocalValue* local = FindLocal(node->addr);
-					if (local) return { local->address, true, local->type, true };
+					if (local) return { local->address, true, local->type, true,
+						local->alignment };
 					const FrontendCGlobal* global = FindGlobal(node->addr);
 					if (!global) return Error("use of undeclared identifier", node);
-					return { EmitGlobalAddress(*global), true, global->type, true };
+					return { EmitGlobalAddress(*global), true, global->type, true,
+						global->alignment };
 				}
 				case tok_func:
 					if (node->addr && !StrCompare(node->addr, "sizeof"))
@@ -1620,7 +1772,8 @@ namespace clover {
 						parameter_node, body)) return false;
 					LocalValue* local = ActivateLocal(parameter_node->addr, parameter_node);
 					if (!local) return Error("invalid function parameter", parameter_node).valid;
-					EmitStore(function->parameters.begin()[index].value, local->address);
+					EmitStore(function->parameters.begin()[index].value,
+						local->address, local->alignment);
 				}
 				return index == function->parameters.Count();
 			}
@@ -1680,13 +1833,13 @@ namespace clover {
 
 		bool LowerGlobalDeclarator(uni::Nnode* node, const FrontendCType& base_type,
 			Module& module, uni::Vector<FrontendCGlobal>& globals,
-			const FrontendCTargetInfo& target, const FrontendCDiagnostics& diagnostics,
-			const uni::Nnode* declaration) {
+			const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
+			const FrontendCDiagnostics& diagnostics, const uni::Nnode* declaration) {
 			if (node && node->type == tok_func && node->addr &&
 				!StrCompare(node->addr, "OP@COMMA")) {
 				for (uni::Nnode* child = node->subf; child; child = child->next)
 					if (!LowerGlobalDeclarator(child, base_type, module, globals,
-						target, diagnostics, declaration)) return false;
+						target, type_info, diagnostics, declaration)) return false;
 				return true;
 			}
 			uni::Nnode* declarator = node;
@@ -1708,6 +1861,11 @@ namespace clover {
 					"invalid global declarator", declarator ? declarator : declaration);
 				return false;
 			}
+			if (type.record_id && !type.IsPointer()) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"global record objects are not supported yet", identifier);
+				return false;
+			}
 			for (const FrontendCGlobal& previous : globals)
 				if (!StrCompare(previous.name.reference(), identifier->addr)) {
 					diagnostics.Report(DiagnosticStage::Semantic,
@@ -1727,6 +1885,10 @@ namespace clover {
 			FrontendCGlobal frontend_global;
 			frontend_global.name = identifier->addr;
 			frontend_global.type = type;
+			stduint alignment_bits = type_info.AlignBits(type, target);
+			frontend_global.alignment = alignment_bits &&
+				!(alignment_bits % target.char_bits) ?
+				alignment_bits / target.char_bits : 0;
 			globals.Append(frontend_global);
 			return true;
 		}
@@ -1751,14 +1913,15 @@ namespace clover {
 		uni::Vector<FrontendCGlobal> visible_globals;
 		unsigned next_string_literal = 0;
 		for (uni::Nnode* node = syntax_tree.Root(); node;) {
-				if (node->type == ToToken(FrontendCToken::RecordDefinition)) {
+			if (node->type == ToToken(FrontendCToken::RecordDeclaration) ||
+				node->type == ToToken(FrontendCToken::RecordDefinition)) {
 					node = node->next;
 					continue;
 				}
 			if (node->type == ToToken(FrontendCToken::GlobalDeclaration)) {
 				const FrontendCType* base_type = type_info.Find(node);
 				if (!base_type || !LowerGlobalDeclarator(node->subf, *base_type,
-					module, visible_globals, target, diagnostics, node)) return false;
+					module, visible_globals, target, type_info, diagnostics, node)) return false;
 				node = node->next;
 				continue;
 			}

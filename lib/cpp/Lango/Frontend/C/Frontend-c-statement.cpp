@@ -42,7 +42,15 @@ namespace {
 
 	void AppendSourceNodes(uni::String& text, uni::Nnode* node) {
 		for (; node; node = node->next) {
-			if (node->addr) AppendSourceText(text, node->addr);
+			if (node->type == tok_string) {
+				text << '"';
+				if (node->addr) {
+					const char* source = node->addr;
+					while (*source) text << *source++;
+				}
+				text << '"';
+			}
+			else if (node->addr) AppendSourceText(text, node->addr);
 			if (node->subf) {
 				text << '(';
 				AppendSourceNodes(text, node->subf);
@@ -87,7 +95,8 @@ namespace {
 
 	bool IsTypeSpecifier(const uni::Nnode* node) {
 		if (!node || node->type != tok_identy || !node->addr) return false;
-		return IsKeyword(node, "signed") || IsKeyword(node, "unsigned") ||
+		return IsKeyword(node, "const") ||
+			IsKeyword(node, "signed") || IsKeyword(node, "unsigned") ||
 			IsKeyword(node, "char") || IsKeyword(node, "short") ||
 			IsKeyword(node, "int") || IsKeyword(node, "long") ||
 			IsKeyword(node, "void");
@@ -99,10 +108,12 @@ namespace {
 		const FrontendCTargetInfo& target) {
 		unsigned signed_count = 0, unsigned_count = 0, char_count = 0;
 		unsigned short_count = 0, int_count = 0, long_count = 0, void_count = 0;
+		unsigned const_count = 0;
 		uni::Nnode* first = node;
 		uni::Nnode* after_type = node;
 		while (IsTypeSpecifier(after_type)) {
-			if (IsKeyword(after_type, "signed")) signed_count++;
+			if (IsKeyword(after_type, "const")) const_count++;
+			else if (IsKeyword(after_type, "signed")) signed_count++;
 			else if (IsKeyword(after_type, "unsigned")) unsigned_count++;
 			else if (IsKeyword(after_type, "char")) char_count++;
 			else if (IsKeyword(after_type, "short")) short_count++;
@@ -112,7 +123,9 @@ namespace {
 			after_type = after_type->next;
 		}
 		if (after_type == first) return false;
-		if (signed_count > 1 || unsigned_count > 1 || void_count > 1 ||
+		if (const_count > 1 || signed_count > 1 || unsigned_count > 1 || void_count > 1 ||
+			!(signed_count || unsigned_count || char_count || short_count ||
+				int_count || long_count || void_count) ||
 			(signed_count && unsigned_count) || char_count > 1 ||
 			short_count > 1 || int_count > 1 || long_count > 2 ||
 			(char_count && (short_count || int_count || long_count)) ||
@@ -126,6 +139,7 @@ namespace {
 		while (node != after_type) node = syntax_tree.Remove(node);
 		type = FrontendCType();
 		type.is_void = void_count != 0;
+		type.base_qualifiers.is_const = const_count != 0;
 		type.is_signed = unsigned_count ? false :
 			(char_count && !signed_count ? target.char_is_signed : true);
 		if (char_count) type.integer_rank = FrontendCIntegerRank::Char;

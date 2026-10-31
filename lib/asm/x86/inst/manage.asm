@@ -91,7 +91,7 @@ RET
 
 ; ---- ---- JMPs ---- ---- ;
 
-;struct __attribute__((packed)) tmp48be_t { uint32 u_32fore; uint16 u_16back; };
+;_PACKED(struct) tmp48be_t { uint32 u_32fore; uint16 u_16back; };
 ;VER 1 may break the stack
 ;VER 2 since 20250122
 jmpFar:; + TSS_ID_inGDT

@@ -26,8 +26,8 @@
 
 namespace uni {
 	String::String(const char* str) {
-		allocated = str;
-		if (allocated) {
+		allocated = true;
+		if (str) {
 			this->counts = StrLength(str);
 			limits = counts + 1;
 			this->addr = (char*)malc(limits);
@@ -44,7 +44,7 @@ namespace uni {
 			counts = 0;
 			addr = NULL;
 			limits = 0;
-			allocated = false;
+			allocated = true;
 			charset = str.charset;
 			inn_direction = str.inn_direction;
 			return;
@@ -94,7 +94,7 @@ namespace uni {
 		str.addr = nullptr;
 		str.counts = 0;
 		str.limits = 0;
-		str.allocated = false;
+		str.allocated = true;
 	}
 
 	String& String::operator=(String&& str) noexcept {
@@ -114,7 +114,7 @@ namespace uni {
 		str.addr = nullptr;
 		str.counts = 0;
 		str.limits = 0;
-		str.allocated = false;
+		str.allocated = true;
 
 		#if defined(_USE_PROPERTY)
 		this->setthen(this);
@@ -134,7 +134,6 @@ namespace uni {
 			this->addr = nullptr;
 			this->counts = 0;
 			this->limits = 0;
-			this->allocated = false;
 			return;
 		}
 
@@ -269,7 +268,7 @@ namespace uni {
 			if (plus) {
 				limits = counts + plus + 1;
 				char* tmp = (char*)zalc(limits);
-				StrCopy(tmp, addr);
+				StrCopy(tmp, addr ? addr : "");
 				srs(addr, tmp);
 				Refresh();
 			}
@@ -307,11 +306,17 @@ namespace uni {
 		
 		// If source object is empty
 		if (!str.addr) {
-			if (allocated && this->addr) memf(this->addr);
-			this->addr = nullptr;
+			if (this->allocated) {
+				if (this->addr) memf(this->addr);
+				this->addr = nullptr;
+				this->limits = 0;
+			}
+			else if (this->addr && this->limits) {
+				this->addr[0] = '\0';
+			}
 			this->counts = 0;
-			this->allocated = false;
-			this->limits = 0;
+			this->charset = str.charset;
+			this->inn_direction = str.inn_direction;
 			return self;
 		}
 
@@ -359,6 +364,18 @@ namespace uni {
 	
 	String& String::operator=(const char* addr) {
 		if (this->addr == addr) return self;
+		if (!addr) {
+			if (allocated) {
+				if (this->addr) memf(this->addr);
+				this->addr = nullptr;
+				limits = 0;
+			}
+			else if (limits) {
+				this->addr[0] = '\0';
+			}
+			counts = 0;
+			return self;
+		}
 		switch (charset)
 		{
 		case Charset::UTF8:
@@ -368,7 +385,9 @@ namespace uni {
 				this->limits = this->counts + 1;
 			}
 			else if (limits) {
-				StrCopyN(this->addr, addr, this->limits);
+				StrCopyN(this->addr, addr, this->limits - 1);
+				this->addr[this->limits - 1] = '\0';
+				this->counts = StrLength(this->addr);
 			}
 			else {
 				this->addr = StrHeap(addr);
@@ -394,7 +413,7 @@ namespace uni {
 		if (allocated) {
 			if (limits <= counts + 1) {
 				char* tmp = (char*)zalc(Enlarge(counts + 1));
-				StrCopy(tmp, this->addr);
+				StrCopy(tmp, this->addr ? this->addr : "");
 				srs(addr, tmp);
 				Refresh();
 			}
@@ -434,8 +453,11 @@ namespace uni {
 			bytes[count++] = (char)(0x80u | (cp & 0x3Fu));
 		}
 		if (allocated) {
-			if (!addr) return false;
-			if (limits <= counts + count) {
+			if (!addr) {
+				limits = Enlarge(counts + count + 1);
+				addr = (char*)zalc(limits);
+			}
+			else if (limits <= counts + count) {
 				char* tmp = (char*)zalc(Enlarge(counts + count + 1));
 				StrCopy(tmp, addr);
 				srs(addr, tmp);
@@ -452,6 +474,7 @@ namespace uni {
 	}
 
 	String& String::Refresh(char* str) {
+		if (!str) return Refresh();
 		stduint newlen;
 		switch (charset)
 		{
@@ -479,7 +502,10 @@ namespace uni {
 	int String::Format(const char* fmt, ...) {
 		int ret = 0;
 		Letpara(args, fmt);
-		if (!allocated) ret = outsfmtlstbuf(addr, fmt, args);
+		if (!allocated) {
+			ret = outsfmtlstbufn(addr, limits, fmt, args);
+			counts = ret > 0 ? stduint(ret) : 0;
+		}
 		else {
 			ret = this->counts = outsfmtlstlen(fmt, args);
 			// ret = this->counts = OstreamTrait::CountFormat(fmt, args);
@@ -550,7 +576,6 @@ namespace uni {
 			this->addr = nullptr;
 			this->counts = 0;
 			this->limits = 0;
-			this->allocated = false;
 			return;
 		}
 

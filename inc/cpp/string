@@ -99,14 +99,16 @@ namespace uni {
 
 		//////// There are 4 UTF-8 constructors
 
-		// strheap
-		String(const char* utf8_str = "");
-		String(decltype(nullptr)) {
-			this->allocated = false;
+		// vacant heap string, storage is allocated on the first write
+		String() {
+			this->allocated = true;
 			this->counts = 0;
 			this->addr = nullptr;
 			this->limits = 0;
 		}
+		// strheap
+		String(const char* utf8_str);
+		String(decltype(nullptr)) : String() {}
 		// class-constructor
 		String(const String& str);
 		// give the [buffer_siz ? buffer : heap-in] string an alias
@@ -135,7 +137,7 @@ namespace uni {
 		}
 
 		char* reflect(size_t plus = 0);
-		const char* reference() const { return this->addr; }
+		const char* reference() const { return this->addr ? this->addr : ""; }
 		bool available();
 
 
@@ -154,7 +156,7 @@ namespace uni {
 		String& operator=(const char* addr);
 
 		String operator+ (const String& str) {
-			return String(StrHeapAppend(this->addr, str.addr), 0);
+			return String(StrHeapAppend(this->reference(), str.reference()), 0);
 		}
 
 		//{}: charset buffer new-alloc
@@ -169,18 +171,18 @@ namespace uni {
 		//{TODO} return String Slice
 		//{} ASCIZ
 		bool operator<=(const String& s) const {
-			const char* ptr = StrIndexString(s.addr, this->addr);
+			const char* ptr = StrIndexString(s.reference(), this->reference());
 			return ptr != nullptr;
 		}
 		//{TODO} return String Slice
 		//{} ASCIZ
 		bool operator>=(const String& s) const {
-			const char* ptr = StrIndexString(this->addr, s.addr);
+			const char* ptr = StrIndexString(this->reference(), s.reference());
 			return ptr != nullptr;
 		}
 		//{} ASCIZ
 		bool operator==(const String& s) const {
-			return !StrCompare(this->addr, s.addr);
+			return !StrCompare(this->reference(), s.reference());
 		}
 
 		//{TODO} getChar but Byte
@@ -227,13 +229,13 @@ namespace uni {
 		// ---- Buffer
 		//{}  (ASCIZ)
 		inline const char* Index(const char* str) {
-			return StrIndexString(this->addr, str);
+			return StrIndexString(this->reference(), str);
 		}
 		inline const char* Index(const String& str) {
-			return StrIndexString(this->addr, str.reference());
+			return StrIndexString(this->reference(), str.reference());
 		}
 		inline const char* Index(const char& ch) {
-			return StrIndexChar(this->addr, ch);
+			return StrIndexChar(this->reference(), ch);
 		}
 
 		// ----
@@ -241,14 +243,14 @@ namespace uni {
 		//{}  (ASCIZ)
 		// ! Call this after reflect()
 		String& Refresh() {
-			counts = minof(StrLength(addr), limits);
+			counts = addr ? minof(StrLength(addr), limits) : 0;
 			return self;
 		}
 		// like Reheap and reflect
 		String& Refresh(char* str);
 
 		String& Clear() {
-			asserv(addr)[0] = '\0';
+			if (addr) addr[0] = '\0';
 			counts = nil;
 			return self;
 		}
@@ -264,7 +266,7 @@ namespace uni {
 		}
 		//{}  (ASCIZ)
 		String& DesuffixSpaces() {
-			StrDesuffixSpaces(addr);
+			if (addr) StrDesuffixSpaces(addr);
 			Refresh();
 			return self;
 		}

@@ -8,9 +8,9 @@ namespace uni::device::SpaceUSB3 {
 	class Ring;
 	union TRB;
 
-	union SlotContext {
+	_PACKED(union) SlotContext {
 		uint32_t dwords[8];
-		struct {
+		_PACKED(struct) {
 			uint32_t route_string : 20;
 			uint32_t speed : 4;
 			uint32_t : 1; // reserved
@@ -32,12 +32,12 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t usb_device_address : 8;
 			uint32_t : 19;
 			uint32_t slot_state : 5;
-		} __attribute__((packed)) bits;
-	} __attribute__((packed));
+		} bits;
+	};
 
-	union EndpointContext {
+	_PACKED(union) EndpointContext {
 		uint32_t dwords[8];
-		struct {
+		_PACKED(struct) {
 			uint32_t ep_state : 3;
 			uint32_t : 5;
 			uint32_t mult : 2;
@@ -60,7 +60,7 @@ namespace uni::device::SpaceUSB3 {
 
 			uint32_t average_trb_length : 16;
 			uint32_t max_esit_payload_lo : 16;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		TRB* TransferRingBuffer() const {
 			return reinterpret_cast<TRB*>(bits.tr_dequeue_pointer << 4);
@@ -69,11 +69,11 @@ namespace uni::device::SpaceUSB3 {
 		void SetTransferRingBuffer(TRB* buffer) {
 			bits.tr_dequeue_pointer = reinterpret_cast<uint64_t>(buffer) >> 4;
 		}
-	} __attribute__((packed));
+	};
 
-	union StreamContext {
+	_PACKED(union) StreamContext {
 		uint32_t dwords[4];
-		struct {
+		_PACKED(struct) {
 			uint64_t dequeue_cycle_state : 1;
 			uint64_t stream_context_type : 3;
 			uint64_t tr_dequeue_pointer : 60;
@@ -82,14 +82,14 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t : 8;
 
 			uint32_t : 32;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		void SetTransferRingBuffer(TRB* buffer) {
 			bits.tr_dequeue_pointer = reinterpret_cast<uint64_t>(buffer) >> 4;
 			bits.dequeue_cycle_state = 1;
 			bits.stream_context_type = 1;
 		}
-	} __attribute__((packed));
+	};
 
 	struct DeviceContextIndex {
 		int value;
@@ -105,7 +105,7 @@ namespace uni::device::SpaceUSB3 {
 		DeviceContextIndex& operator =(const DeviceContextIndex& rhs) = default;
 	};
 
-	struct InputControlContext {
+	_PACKED(struct) InputControlContext {
 		uint32_t drop_context_flags;
 		uint32_t add_context_flags;
 		uint32_t reserved1[5];
@@ -113,7 +113,7 @@ namespace uni::device::SpaceUSB3 {
 		uint8_t interface_number;
 		uint8_t alternate_setting;
 		uint8_t reserved2;
-	} __attribute__((packed));
+	};
 
 	constexpr size_t kXHCIContextEntryCount = 32;
 	constexpr size_t kXHCIMaxContextSize = 64;
@@ -196,7 +196,7 @@ namespace uni::device::SpaceUSB3 {
 
 	union TRB {
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t parameter;
 			uint32_t status;
 			uint32_t cycle_bit : 1;
@@ -204,13 +204,13 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t : 8;
 			uint32_t trb_type : 6;
 			uint32_t control : 16;
-		} __attribute__((packed)) bits;
+		} bits;
 	};
 
 	union NormalTRB {
 		static const unsigned int Type = 1;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t data_buffer_pointer;
 
 			uint32_t trb_transfer_length : 17;
@@ -228,7 +228,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t block_event_interrupt : 1;
 			uint32_t trb_type : 6;
 			uint32_t : 16;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		NormalTRB() {
 			bits.trb_type = Type;
@@ -250,7 +250,7 @@ namespace uni::device::SpaceUSB3 {
 		static const unsigned int kInDataStage = 3;
 
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t request_type : 8;
 			uint32_t request : 8;
 			uint32_t value : 16;
@@ -270,7 +270,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t transfer_type : 2;
 			uint32_t : 14;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		SetupStageTRB() {
 			bits.trb_type = Type;
@@ -282,7 +282,7 @@ namespace uni::device::SpaceUSB3 {
 	union DataStageTRB {
 		static const unsigned int Type = 3;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t data_buffer_pointer;
 
 			uint32_t trb_transfer_length : 17;
@@ -300,7 +300,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t direction : 1;
 			uint32_t : 15;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		DataStageTRB() {
 			bits.trb_type = Type;
@@ -318,7 +318,7 @@ namespace uni::device::SpaceUSB3 {
 	union StatusStageTRB {
 		static const unsigned int Type = 4;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t : 64;
 
 			uint32_t : 22;
@@ -333,7 +333,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t direction : 1;
 			uint32_t : 15;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		StatusStageTRB() {
 			bits.trb_type = Type;
@@ -343,7 +343,7 @@ namespace uni::device::SpaceUSB3 {
 	union IsochronousTRB {
 		static const unsigned int Type = 5;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t data_buffer_pointer;
 
 			uint32_t trb_transfer_length : 17;
@@ -363,7 +363,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t transfer_last_burst_packet_count : 4;
 			uint32_t frame_id : 11;
 			uint32_t schedule_immediately : 1;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		IsochronousTRB() {
 			bits.trb_type = Type;
@@ -381,7 +381,7 @@ namespace uni::device::SpaceUSB3 {
 	union LinkTRB {
 		static const unsigned int Type = 6;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t : 4;
 			uint64_t ring_segment_pointer : 60;
 
@@ -396,7 +396,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t : 4;
 			uint32_t trb_type : 6;
 			uint32_t : 16;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		LinkTRB(const TRB* ring_segment_pointer) {
 			bits.trb_type = Type;
@@ -415,7 +415,7 @@ namespace uni::device::SpaceUSB3 {
 	union NoOpTRB {
 		static const unsigned int Type = 8;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t : 64;
 
 			uint32_t : 22;
@@ -429,7 +429,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t : 4;
 			uint32_t trb_type : 6;
 			uint32_t : 16;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		NoOpTRB() {
 			bits.trb_type = Type;
@@ -439,7 +439,7 @@ namespace uni::device::SpaceUSB3 {
 	union EnableSlotCommandTRB {
 		static const unsigned int Type = 9;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t : 32;
 
 			uint32_t : 32;
@@ -451,7 +451,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t slot_type : 5;
 			uint32_t : 11;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		EnableSlotCommandTRB() {
 			bits.trb_type = Type;
@@ -461,7 +461,7 @@ namespace uni::device::SpaceUSB3 {
 	union DisableSlotCommandTRB {
 		static const unsigned int Type = 10;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t : 32;
 
 			uint32_t : 32;
@@ -473,7 +473,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t : 8;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		explicit DisableSlotCommandTRB(uint8_t slot_id) {
 			bits.trb_type = Type;
@@ -484,7 +484,7 @@ namespace uni::device::SpaceUSB3 {
 	union AddressDeviceCommandTRB {
 		static const unsigned int Type = 11;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t : 4;
 			uint64_t input_context_pointer : 60;
 
@@ -496,7 +496,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t : 8;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		AddressDeviceCommandTRB(const void* input_context, uint8_t slot_id) {
 			bits.trb_type = Type;
@@ -516,7 +516,7 @@ namespace uni::device::SpaceUSB3 {
 	union ConfigureEndpointCommandTRB {
 		static const unsigned int Type = 12;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t : 4;
 			uint64_t input_context_pointer : 60;
 
@@ -528,7 +528,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t : 8;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		ConfigureEndpointCommandTRB(const void* input_context, uint8_t slot_id) {
 			bits.trb_type = Type;
@@ -548,7 +548,7 @@ namespace uni::device::SpaceUSB3 {
 	union ResetEndpointCommandTRB {
 		static const unsigned int Type = 14;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t : 32;
 
 			uint32_t : 32;
@@ -562,7 +562,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t endpoint_id : 5;
 			uint32_t : 3;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		ResetEndpointCommandTRB(EndpointID endpoint_id, uint8_t slot_id,
 			bool preserve_transfer_state) {
@@ -580,7 +580,7 @@ namespace uni::device::SpaceUSB3 {
 	union StopEndpointCommandTRB {
 		static const unsigned int Type = 15;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t : 32;
 
 			uint32_t : 32;
@@ -594,7 +594,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t : 2;
 			uint32_t suspend : 1;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		StopEndpointCommandTRB(EndpointID endpoint_id, uint8_t slot_id,
 			bool suspend = false) {
@@ -612,7 +612,7 @@ namespace uni::device::SpaceUSB3 {
 	union SetTRDequeuePointerCommandTRB {
 		static const unsigned int Type = 16;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t dequeue_cycle_state : 1;
 			uint64_t stream_context_type : 3;
 			uint64_t new_tr_dequeue_pointer : 60;
@@ -626,7 +626,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t endpoint_id : 5;
 			uint32_t : 3;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		SetTRDequeuePointerCommandTRB(const TRB* dequeue_pointer, bool cycle_state,
 			EndpointID endpoint_id, uint8_t slot_id, uint16_t stream_id = 0) {
@@ -655,7 +655,7 @@ namespace uni::device::SpaceUSB3 {
 	union SetLatencyToleranceValueCommandTRB {
 		static const unsigned int Type = 20;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t : 32;
 
 			uint32_t : 32;
@@ -667,7 +667,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t best_effort_latency_tolerance : 12;
 			uint32_t : 4;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		explicit SetLatencyToleranceValueCommandTRB(uint16_t value) {
 			bits.trb_type = Type;
@@ -683,7 +683,7 @@ namespace uni::device::SpaceUSB3 {
 	union NoOpCommandTRB {
 		static const unsigned int Type = 23;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t : 32;
 
 			uint32_t : 32;
@@ -694,7 +694,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t : 9;
 			uint32_t trb_type : 6;
 			uint32_t : 16;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		NoOpCommandTRB() {
 			bits.trb_type = Type;
@@ -704,7 +704,7 @@ namespace uni::device::SpaceUSB3 {
 	union TransferEventTRB {
 		static const unsigned int Type = 32;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t trb_pointer : 64;
 
 			uint32_t trb_transfer_length : 24;
@@ -718,7 +718,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t endpoint_id : 5;
 			uint32_t : 3;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		TransferEventTRB() {
 			bits.trb_type = Type;
@@ -740,7 +740,7 @@ namespace uni::device::SpaceUSB3 {
 	union CommandCompletionEventTRB {
 		static const unsigned int Type = 33;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t : 4;
 			uint64_t command_trb_pointer : 60;
 
@@ -752,7 +752,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t vf_id : 8;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		CommandCompletionEventTRB() {
 			bits.trb_type = Type;
@@ -770,7 +770,7 @@ namespace uni::device::SpaceUSB3 {
 	union PortStatusChangeEventTRB {
 		static const unsigned int Type = 34;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t : 24;
 			uint32_t port_id : 8;
 
@@ -782,7 +782,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t cycle_bit : 1;
 			uint32_t : 9;
 			uint32_t trb_type : 6;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		PortStatusChangeEventTRB() {
 			bits.trb_type = Type;
@@ -792,7 +792,7 @@ namespace uni::device::SpaceUSB3 {
 	union BandwidthRequestEventTRB {
 		static const unsigned int Type = 35;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t : 64;
 			uint32_t : 24;
 			uint32_t completion_code : 8;
@@ -801,13 +801,13 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t : 8;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 	};
 
 	union DoorbellEventTRB {
 		static const unsigned int Type = 36;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t doorbell_reason : 5;
 			uint32_t : 27;
 			uint32_t : 32;
@@ -818,13 +818,13 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t vf_id : 8;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 	};
 
 	union HostControllerEventTRB {
 		static const unsigned int Type = 37;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t : 64;
 			uint32_t : 24;
 			uint32_t completion_code : 8;
@@ -832,13 +832,13 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t : 9;
 			uint32_t trb_type : 6;
 			uint32_t : 16;
-		} __attribute__((packed)) bits;
+		} bits;
 	};
 
 	union DeviceNotificationEventTRB {
 		static const unsigned int Type = 38;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint32_t : 4;
 			uint32_t notification_type : 4;
 			uint32_t notification_data_low : 24;
@@ -850,7 +850,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t trb_type : 6;
 			uint32_t : 8;
 			uint32_t slot_id : 8;
-		} __attribute__((packed)) bits;
+		} bits;
 
 		uint64 NotificationData() const {
 			return (uint64(bits.notification_data_high) << 24) |
@@ -861,7 +861,7 @@ namespace uni::device::SpaceUSB3 {
 	union MFINDEXWrapEventTRB {
 		static const unsigned int Type = 39;
 		uni::Array<uint32_t, 4> data{};
-		struct {
+		_PACKED(struct) {
 			uint64_t : 64;
 			uint32_t : 24;
 			uint32_t completion_code : 8;
@@ -869,7 +869,7 @@ namespace uni::device::SpaceUSB3 {
 			uint32_t : 9;
 			uint32_t trb_type : 6;
 			uint32_t : 16;
-		} __attribute__((packed)) bits;
+		} bits;
 	};
 
 	static_assert(sizeof(IsochronousTRB) == 16 &&

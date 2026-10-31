@@ -309,6 +309,8 @@ static inline void enInterrupt(int enable) {
 		InterruptDisable();
 }
 
+#ifndef _DEV_MSVC
+
 // Load Series
 void InterruptDTabLoad(void* addr);
 inline static void loadGDT(stduint address, uint16 length) {
@@ -402,6 +404,11 @@ unsigned IfSupport_IA32E();
 inline static void RefreshVirtualAddress(stduint addr) {
 	__asm__ volatile("invlpg (%0)" : : "r"(addr) : "memory");
 }
+
+#else
+inline void _IO_CPUID(unsigned mop, unsigned sop, unsigned* a, unsigned* b, unsigned* c, unsigned* d) {}
+inline static void RefreshVirtualAddress(stduint addr) {}
+#endif // _DEV_MSVC
 
 #if defined(_INC_CPP) || defined(__cplusplus)
 }

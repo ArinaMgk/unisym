@@ -59,6 +59,11 @@ namespace uni::lango {
 					plogerro("RISC-V backend: invalid global object");
 					return false;
 				}
+				if (global.initializer_values.Count() &&
+					global.initializer_values.Count() != (stduint)global.element_count) {
+					plogerro("RISC-V backend: global initializer element count mismatch");
+					return false;
+				}
 				for (stduint previous = 0; previous < index; previous++)
 					if (!StrCompare(global.name.reference(),
 						module.globals.begin()[previous].name.reference())) {
@@ -578,12 +583,28 @@ namespace uni::lango {
 			stdsint element_size = TypeStorageBytes(global.type, target);
 			stdsint object_size = element_size * global.element_count;
 			if (!element_size || object_size <= 0) return false;
-			output.OutFormat(global.initializer ? ".data\n" : ".bss\n");
-			output.OutFormat(".globl %s\n.type %s, @object\n.size %s, %[i]\n",
-				global.name.reference(), global.name.reference(), global.name.reference(), object_size);
+			bool has_initializer = global.initializer != 0 ||
+				global.initializer_values.Count() != 0;
+			output.OutFormat(global.is_read_only ? ".section .rodata\n" :
+				has_initializer ? ".data\n" : ".bss\n");
+			if (!global.is_internal) output.OutFormat(".globl %s\n", global.name.reference());
+			output.OutFormat(".type %s, @object\n.size %s, %[i]\n",
+				global.name.reference(), global.name.reference(), object_size);
 			output.OutFormat(".balign %[i]\n%s:\n", element_size,
 				global.name.reference());
-			if (!global.initializer) output.OutFormat("\t.zero %[i]\n", object_size);
+			if (global.initializer_values.Count()) {
+				for (stduint index = 0; index < global.initializer_values.Count(); index++) {
+					stdsint value = global.initializer_values.begin()[index];
+					switch (element_size) {
+					case 1: output.OutFormat("\t.byte %[i]\n", value); break;
+					case 2: output.OutFormat("\t.half %[i]\n", value); break;
+					case 4: output.OutFormat("\t.word %[i]\n", value); break;
+					case 8: output.OutFormat("\t.quad %[i]\n", value); break;
+					default: return false;
+					}
+				}
+			}
+			else if (!global.initializer) output.OutFormat("\t.zero %[i]\n", object_size);
 			else if (global.element_count != 1) return false;
 			else {
 				switch (element_size) {

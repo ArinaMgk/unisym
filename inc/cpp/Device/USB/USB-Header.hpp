@@ -160,7 +160,10 @@ namespace uni::device::SpaceUSB {
 		const int kSuperspeedPlusIsochronousEndpointCompanion = 49;
 	}
 
-	struct SetupData {
+#ifdef _DEV_MSVC
+#pragma pack(push, 1)
+#endif
+	_PACKED(struct) SetupData {
 		union {
 			uint8_t data;
 			struct {
@@ -173,7 +176,10 @@ namespace uni::device::SpaceUSB {
 		uint16_t value;
 		uint16_t index;
 		uint16_t length;
-	} __attribute__((packed));
+	};
+#ifdef _DEV_MSVC
+#pragma pack(pop)
+#endif
 
 	inline bool operator ==(SetupData lhs, SetupData rhs) {
 		return
@@ -364,7 +370,10 @@ namespace uni::device::SpaceUSB {
 
 
 namespace uni::device::SpaceUSB {
-	struct DeviceDescriptor {
+#ifdef _DEV_MSVC
+#pragma pack(push, 1)
+#endif
+	_PACKED(struct) DeviceDescriptor {
 		static const uint8_t kType = 1;
 
 		uint8_t length;             // offset 0
@@ -381,9 +390,9 @@ namespace uni::device::SpaceUSB {
 		uint8_t product;            // offset 15
 		uint8_t serial_number;      // offset 16
 		uint8_t num_configurations; // offset 17
-	} __attribute__((packed));
+	};
 
-	struct ConfigurationDescriptor {
+	_PACKED(struct) ConfigurationDescriptor {
 		static const uint8_t kType = 2;
 
 		uint8_t length;             // offset 0
@@ -394,35 +403,35 @@ namespace uni::device::SpaceUSB {
 		uint8_t configuration_id;   // offset 6
 		uint8_t attributes;         // offset 7
 		uint8_t max_power;          // offset 8
-	} __attribute__((packed));
+	};
 
-	struct BOSDescriptor {
+	_PACKED(struct) BOSDescriptor {
 		static const uint8_t kType = descriptor_type::kBOS;
 
 		uint8_t length;
 		uint8_t descriptor_type;
 		uint16_t total_length;
 		uint8_t num_device_capabilities;
-	} __attribute__((packed));
+	};
 
-	struct DeviceCapabilityDescriptor {
+	_PACKED(struct) DeviceCapabilityDescriptor {
 		static const uint8_t kType = descriptor_type::kDeviceCapability;
 
 		uint8_t length;
 		uint8_t descriptor_type;
 		uint8_t capability_type;
-	} __attribute__((packed));
+	};
 
-	struct USB20ExtensionCapabilityDescriptor {
+	_PACKED(struct) USB20ExtensionCapabilityDescriptor {
 		static const uint8_t kType = descriptor_type::kDeviceCapability;
 
 		uint8_t length;
 		uint8_t descriptor_type;
 		uint8_t capability_type;
 		uint32_t attributes;
-	} __attribute__((packed));
+	};
 
-	struct SuperSpeedUSBCapabilityDescriptor {
+	_PACKED(struct) SuperSpeedUSBCapabilityDescriptor {
 		static const uint8_t kType = descriptor_type::kDeviceCapability;
 
 		uint8_t length;
@@ -433,9 +442,9 @@ namespace uni::device::SpaceUSB {
 		uint8_t functionality_support;
 		uint8_t u1_device_exit_latency;
 		uint16_t u2_device_exit_latency;
-	} __attribute__((packed));
+	};
 
-	struct SuperSpeedPlusUSBCapabilityDescriptor {
+	_PACKED(struct) SuperSpeedPlusUSBCapabilityDescriptor {
 		static const uint8_t kType = descriptor_type::kDeviceCapability;
 
 		uint8_t length;
@@ -445,11 +454,11 @@ namespace uni::device::SpaceUSB {
 		uint32_t attributes;
 		uint16_t functionality_support;
 		uint16_t reserved2;
-	} __attribute__((packed));
+	};
 
-	union SuperSpeedPlusSublinkSpeedAttribute {
+	_PACKED(union) SuperSpeedPlusSublinkSpeedAttribute {
 		uint32_t data;
-		struct {
+		_PACKED(struct) {
 			uint32_t id : 4;
 			uint32_t lane_speed_exponent : 2;
 			uint32_t asymmetric : 1;
@@ -457,10 +466,10 @@ namespace uni::device::SpaceUSB {
 			uint32_t reserved : 6;
 			uint32_t link_protocol : 2;
 			uint32_t lane_speed_mantissa : 16;
-		} __attribute__((packed)) bits;
-	} __attribute__((packed));
+		} bits;
+	};
 
-	struct ContainerIDCapabilityDescriptor {
+	_PACKED(struct) ContainerIDCapabilityDescriptor {
 		static const uint8_t kType = descriptor_type::kDeviceCapability;
 
 		uint8_t length;
@@ -468,7 +477,7 @@ namespace uni::device::SpaceUSB {
 		uint8_t capability_type;
 		uint8_t reserved;
 		uint8_t container_id[16];
-	} __attribute__((packed));
+	};
 
 	static_assert(sizeof(BOSDescriptor) == 5,
 		"BOS descriptor must be 5 bytes");
@@ -483,7 +492,7 @@ namespace uni::device::SpaceUSB {
 	static_assert(sizeof(ContainerIDCapabilityDescriptor) == 20,
 		"Container ID capability descriptor must be 20 bytes");
 
-	struct InterfaceDescriptor {
+	_PACKED(struct) InterfaceDescriptor {
 		static const uint8_t kType = 4;
 
 		uint8_t length;             // offset 0
@@ -495,35 +504,35 @@ namespace uni::device::SpaceUSB {
 		uint8_t interface_sub_class;// offset 6
 		uint8_t interface_protocol; // offset 7
 		uint8_t interface_id;       // offset 8
-	} __attribute__((packed));
+	};
 
-	struct EndpointDescriptor {
+	_PACKED(struct) EndpointDescriptor {
 		static const uint8_t kType = 5;
 
 		uint8_t length;             // offset 0
 		uint8_t descriptor_type;    // offset 1
 		union {
 			uint8_t data;
-			struct {
+			_PACKED(struct) {
 				uint8_t number : 4;
 				uint8_t : 3;
 				uint8_t dir_in : 1;
-			} __attribute__((packed)) bits;
+			} bits;
 		} endpoint_address;         // offset 2
 		union {
 			uint8_t data;
-			struct {
+			_PACKED(struct) {
 				uint8_t transfer_type : 2;
 				uint8_t sync_type : 2;
 				uint8_t usage_type : 2;
 				uint8_t : 2;
-			} __attribute__((packed)) bits;
+			} bits;
 		} attributes;               // offset 3
 		uint16_t max_packet_size;   // offset 4
 		uint8_t interval;           // offset 6
-	} __attribute__((packed));
+	};
 
-	struct SuperSpeedEndpointCompanionDescriptor {
+	_PACKED(struct) SuperSpeedEndpointCompanionDescriptor {
 		static const uint8_t kType = descriptor_type::kSuperspeedUSBEndpointCompanion;
 
 		uint8_t length;
@@ -531,23 +540,23 @@ namespace uni::device::SpaceUSB {
 		uint8_t max_burst;
 		uint8_t attributes;
 		uint16_t bytes_per_interval;
-	} __attribute__((packed));
+	};
 
-	struct SuperSpeedPlusIsochronousEndpointCompanionDescriptor {
+	_PACKED(struct) SuperSpeedPlusIsochronousEndpointCompanionDescriptor {
 		static const uint8_t kType = descriptor_type::kSuperspeedPlusIsochronousEndpointCompanion;
 
 		uint8_t length;
 		uint8_t descriptor_type;
 		uint16_t reserved;
 		uint32_t bytes_per_interval;
-	} __attribute__((packed));
+	};
 
 	static_assert(sizeof(SuperSpeedEndpointCompanionDescriptor) == 6,
 		"SuperSpeed endpoint companion descriptor must be 6 bytes");
 	static_assert(sizeof(SuperSpeedPlusIsochronousEndpointCompanionDescriptor) == 8,
 		"SuperSpeedPlus isochronous endpoint companion descriptor must be 8 bytes");
 
-	struct HubDescriptor {
+	_PACKED(struct) HubDescriptor {
 		static const uint8_t kType = descriptor_type::kHub;
 
 		uint8_t length;
@@ -556,9 +565,9 @@ namespace uni::device::SpaceUSB {
 		uint16_t characteristics;
 		uint8_t power_on_to_power_good;
 		uint8_t hub_control_current;
-	} __attribute__((packed));
+	};
 
-	struct SuperSpeedHubDescriptor {
+	_PACKED(struct) SuperSpeedHubDescriptor {
 		static const uint8_t kType = descriptor_type::kSuperSpeedHub;
 
 		uint8_t length;
@@ -570,26 +579,26 @@ namespace uni::device::SpaceUSB {
 		uint8_t hub_header_decode_latency;
 		uint16_t hub_delay;
 		uint16_t device_removable;
-	} __attribute__((packed));
+	};
 
 	static_assert(sizeof(SuperSpeedHubDescriptor) == 12,
 		"SuperSpeed hub descriptor must be 12 bytes");
 
-	struct HubPortStatus {
+	_PACKED(struct) HubPortStatus {
 		uint16_t status;
 		uint16_t change;
-	} __attribute__((packed));
+	};
 
-	struct ExtendedHubPortStatus {
+	_PACKED(struct) ExtendedHubPortStatus {
 		uint16_t status;
 		uint16_t change;
 		uint32_t extended_status;
-	} __attribute__((packed));
+	};
 
 	static_assert(sizeof(ExtendedHubPortStatus) == 8,
 		"Extended hub port status must be 8 bytes");
 
-	struct HIDDescriptor {
+	_PACKED(struct) HIDDescriptor {
 		static const uint8_t kType = 33;
 
 		uint8_t length;             // offset 0
@@ -598,12 +607,12 @@ namespace uni::device::SpaceUSB {
 		uint8_t country_code;       // offset 4
 		uint8_t num_descriptors;    // offset 5
 
-		struct ClassDescriptor {
+		_PACKED(struct) ClassDescriptor {
 		  /** @brief Type value of the class-specific descriptor. */
 			uint8_t descriptor_type;
 			/** @brief Byte count of the class-specific descriptor. */
 			uint16_t descriptor_length;
-		} __attribute__((packed));
+		};
 
 		/** @brief Get information about HID-specific descriptors.
 			 *
@@ -623,7 +632,10 @@ namespace uni::device::SpaceUSB {
 				reinterpret_cast<stduint>(this) + sizeof(HIDDescriptor);
 			return reinterpret_cast<ClassDescriptor*>(end_of_struct) + index;
 		}
-	} __attribute__((packed));
+	};
+#ifdef _DEV_MSVC
+#pragma pack(pop)
+#endif
 
 	template <class T>
 	T* DescriptorDynamicCast(uint8_t* desc_data) {

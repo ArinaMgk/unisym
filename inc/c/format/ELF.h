@@ -416,6 +416,19 @@ struct elf_known_section {
 	typedef uint64   Elf_Xword;
 	typedef sint64   Elf_Sxword;
 
+	#if defined(_DEV_MSVC) && !defined(_INC_CPP)
+	#define _ELF_Header_Head \
+		byte MagicNumber[4]; \
+		byte Bitmode; \
+		byte Endianness; \
+		byte ELFVersion; \
+		byte OSABI; \
+		byte ABIVersion; \
+		byte Pads[7]; \
+		Elf_Half e_type     ; \
+		Elf_Half e_machine  ; \
+		Elf_Word e_version
+	#else
 	#define _ELF_Header_Head \
 		union { \
 			byte  e_ident[EI_NIDENT]; \
@@ -432,6 +445,8 @@ struct elf_known_section {
 		Elf_Half e_type     ; \
 		Elf_Half e_machine  ; \
 		Elf_Word e_version  ; \
+		//
+	#endif
 	// end #define _ELF_Header_Head
 
 	struct _ELF32_EHDR_TAG {

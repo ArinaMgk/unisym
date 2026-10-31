@@ -199,7 +199,7 @@ cplpref=_uvc_
 cpppref=_uxxvc_
 dest_obj=$(uobjpath)/CVWin32
 CC = ${msvcpath}/bin/Hostx86/x86/cl.exe
-CX = ${CC}
+CX = ${CC} /std:c++17
 AR = ${msvcpath}/bin/Hostx86/x86/lib.exe
 MKDIR:=$(shell which mkdir.exe)
 # contain x86 - x64 can run this

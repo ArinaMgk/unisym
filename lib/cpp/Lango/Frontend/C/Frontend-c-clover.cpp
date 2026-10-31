@@ -86,6 +86,53 @@ namespace clover {
 			return true;
 		}
 
+		// Decode the ordinary C99 escape sequences needed by narrow string literals.
+		bool DecodeCString(const char* text, uni::Vector<stdsint>& bytes) {
+			if (!text) return true;
+			while (*text) {
+				unsigned value = (unsigned char)*text++;
+				if (value != '\\') {
+					bytes.Append((stdsint)value);
+					continue;
+				}
+				if (!*text) return false;
+				char escaped = *text++;
+				if (escaped >= '0' && escaped <= '7') {
+					value = (unsigned)(escaped - '0');
+					for (unsigned count = 1; count < 3 && *text >= '0' && *text <= '7'; count++)
+						value = value * 8 + (unsigned)(*text++ - '0');
+				}
+				else if (escaped == 'x') {
+					if (!ascii_isxdigit(*text)) return false;
+					value = 0;
+					while (ascii_isxdigit(*text)) {
+						char digit = *text++;
+						value = value * 16 + (unsigned)(digit >= '0' && digit <= '9' ?
+							digit - '0' : digit >= 'A' && digit <= 'F' ?
+							digit - 'A' + 10 : digit - 'a' + 10);
+					}
+				}
+				else {
+					switch (escaped) {
+					case 'a': value = 7; break;
+					case 'b': value = 8; break;
+					case 'f': value = 12; break;
+					case 'n': value = 10; break;
+					case 'r': value = 13; break;
+					case 't': value = 9; break;
+					case 'v': value = 11; break;
+					case '\\': value = '\\'; break;
+					case '\'': value = '\''; break;
+					case '"': value = '"'; break;
+					case '?': value = '?'; break;
+					default: return false;
+					}
+				}
+				bytes.Append((stdsint)(value & 0xFF));
+			}
+			return true;
+		}
+
 		Type CloverTypeFor(const FrontendCType& type,
 			const FrontendCTargetInfo& target) {
 			if (type.IsVoid()) return Type::Void;
@@ -105,6 +152,7 @@ namespace clover {
 		// Lowers one C function body into one Clover function.
 		class FunctionBuilder {
 		private:
+			Module* module = nullptr;
 			Function* function = nullptr;
 			FrontendCType return_type;
 			stduint current_block = 0;
@@ -118,6 +166,7 @@ namespace clover {
 			const FrontendCTypeInfo* type_info = nullptr;
 			const FrontendCDebugInfo* debug_info = nullptr;
 			const FrontendCDiagnostics* diagnostics = nullptr;
+			unsigned* next_string_literal = nullptr;
 			bool failed = false;
 
 			BasicBlock& CurrentBlock() {
@@ -428,15 +477,42 @@ namespace clover {
 				return nullptr;
 			}
 
-			Value EmitGlobalAddress(const FrontendCGlobal& global) {
+			Value EmitGlobalAddress(const uni::String& name) {
 				Instruction instruction;
 				instruction.opcode = Opcode::GlobalAddr;
 				instruction.type = Type::Ptr;
 				instruction.has_result = true;
 				instruction.result = NewValue(Type::Ptr);
-				instruction.name = global.name;
+				instruction.name = name;
 				CurrentBlock().instructions.Append(instruction);
 				return instruction.result;
+			}
+
+			Value EmitGlobalAddress(const FrontendCGlobal& global) {
+				return EmitGlobalAddress(global.name);
+			}
+
+			LoweredValue LowerStringLiteral(uni::Nnode* node) {
+				uni::Vector<stdsint> bytes;
+				if (!DecodeCString(node->addr, bytes))
+					return Error("invalid string literal escape", node);
+				bytes.Append(0);
+
+				Global global;
+				global.name = ".L.clover.string.";
+				AppendUnsigned(global.name, (*next_string_literal)++);
+				global.type = Type::I8;
+				global.element_count = (stdsint)bytes.Count();
+				global.is_read_only = true;
+				global.is_internal = true;
+				global.initializer_values = bytes;
+				module->globals.Append(global);
+
+				FrontendCType type;
+				type.integer_rank = FrontendCIntegerRank::Char;
+				type.is_signed = target->char_is_signed;
+				type.AppendArrayDimension(bytes.Count());
+				return { EmitGlobalAddress(global.name), true, type, true };
 			}
 
 			bool PredeclareLocal(const char* name, const FrontendCType& type,
@@ -625,7 +701,7 @@ namespace clover {
 				if (!initializer.valid) return false;
 				if (local->type.IsInteger())
 					initializer = ConvertInteger(initializer, local->type, initializer_node);
-				else if (!local->type.IsSame(initializer.type))
+				else if (!local->type.CanAssignFrom(initializer.type))
 					return Error("incompatible initializer type", initializer_node).valid;
 				if (!initializer.valid) return false;
 				EmitStore(initializer.value, local->address);
@@ -676,7 +752,7 @@ namespace clover {
 						signature->parameter_types.begin()[index];
 					if (parameter_type.IsInteger())
 						argument = ConvertInteger(argument, parameter_type, argument_node);
-					else if (!argument.type.IsSame(parameter_type))
+					else if (!parameter_type.CanAssignFrom(argument.type))
 						return Error("incompatible function argument type", argument_node);
 					if (!argument.valid) return argument;
 					instruction.operands.Append(argument.value);
@@ -714,7 +790,7 @@ namespace clover {
 				bool return_updated) {
 				LoweredValue lowered = LowerExpression(operand);
 				if (!lowered.valid) return lowered;
-				if (!lowered.is_lvalue ||
+				if (!lowered.is_lvalue || lowered.type.IsConstObject() ||
 					(!lowered.type.IsInteger() && !lowered.type.IsPointer()))
 					return Error("increment requires an arithmetic or pointer lvalue", operand);
 				Value previous = EmitResult(Opcode::Load, CloverType(lowered.type), lowered.value);
@@ -763,9 +839,11 @@ namespace clover {
 				}
 				unsigned signed_count = 0, unsigned_count = 0, char_count = 0;
 				unsigned short_count = 0, int_count = 0, long_count = 0, void_count = 0;
+				unsigned const_count = 0;
 				bool found = false;
 				for (; node != end && node && node->type == tok_identy; node = node->next) {
-					if (IsTypeWord(node, "signed")) signed_count++;
+					if (IsTypeWord(node, "const")) const_count++;
+					else if (IsTypeWord(node, "signed")) signed_count++;
 					else if (IsTypeWord(node, "unsigned")) unsigned_count++;
 					else if (IsTypeWord(node, "char")) char_count++;
 					else if (IsTypeWord(node, "short")) short_count++;
@@ -775,7 +853,10 @@ namespace clover {
 					else break;
 					found = true;
 				}
-				if (!found || signed_count > 1 || unsigned_count > 1 || void_count > 1 ||
+				if (!found || const_count > 1 || signed_count > 1 || unsigned_count > 1 ||
+					void_count > 1 ||
+					!(signed_count || unsigned_count || char_count || short_count ||
+						int_count || long_count || void_count) ||
 					(signed_count && unsigned_count) || char_count > 1 ||
 					short_count > 1 || int_count > 1 || long_count > 2 ||
 					(char_count && (short_count || int_count || long_count)) ||
@@ -784,6 +865,7 @@ namespace clover {
 						short_count || int_count || long_count))) return false;
 				type = FrontendCType();
 				type.is_void = void_count != 0;
+				type.base_qualifiers.is_const = const_count != 0;
 				type.is_signed = !unsigned_count;
 				if (char_count) type.integer_rank = FrontendCIntegerRank::Char;
 				else if (short_count) type.integer_rank = FrontendCIntegerRank::Short;
@@ -802,6 +884,14 @@ namespace clover {
 				if (node->type == tok_number) {
 					type = IntType();
 					return true;
+				}
+				if (node->type == tok_string) {
+					uni::Vector<stdsint> bytes;
+					if (!DecodeCString(node->addr, bytes)) return false;
+					type = FrontendCType();
+					type.integer_rank = FrontendCIntegerRank::Char;
+					type.is_signed = target->char_is_signed;
+					return type.AppendArrayDimension(bytes.Count() + 1);
 				}
 				if (node->type == tok_identy) {
 					LocalValue* local = FindLocal(node->addr);
@@ -970,11 +1060,13 @@ namespace clover {
 					LoweredValue left = LowerExpression(left_node);
 					if (!left.valid) return left;
 					if (!left.is_lvalue) return Error("assignment requires an lvalue", left_node);
+					if (left.type.IsConstObject())
+						return Error("assignment to const-qualified object", left_node);
 					LoweredValue right = ToRValue(LowerExpression(right_node), right_node);
 					if (!right.valid) return right;
 					if (left.type.IsInteger())
 						right = ConvertInteger(right, left.type, right_node);
-					else if (!left.type.IsSame(right.type))
+					else if (!left.type.CanAssignFrom(right.type))
 						return Error("incompatible assignment types", node);
 					if (!right.valid) return right;
 					EmitStore(right.value, left.value);
@@ -1070,20 +1162,22 @@ namespace clover {
 
 		public:
 			// The expression frontend currently requires one entry block.
-			FunctionBuilder(Function& function,
+			FunctionBuilder(Module& output_module, Function& function,
 				const uni::Vector<FrontendCFunction>& functions,
 				const uni::Vector<FrontendCGlobal>& globals,
 				const FrontendCType& function_return_type,
 				const FrontendCTargetInfo& target_info,
 				const FrontendCTypeInfo& semantic_types,
 				const FrontendCDiagnostics& diagnostic_output,
-				const FrontendCDebugInfo* debug_information)
-				: function(&function), return_type(function_return_type),
+				const FrontendCDebugInfo* debug_information,
+				unsigned& string_literal_index)
+				: module(&output_module), function(&function), return_type(function_return_type),
 					next_value(function.parameters.Count()),
 					visible_functions(&functions), visible_globals(&globals),
-					debug_info(debug_information),
 					target(&target_info), type_info(&semantic_types),
-					diagnostics(&diagnostic_output)
+					debug_info(debug_information),
+					diagnostics(&diagnostic_output),
+					next_string_literal(&string_literal_index)
 			{
 				function.blocks.Append(BasicBlock());
 				function.blocks[0].name = "entry";
@@ -1100,6 +1194,8 @@ namespace clover {
 						return Error("invalid integer literal", node);
 					return { EmitConst(immediate), true };
 				}
+				case tok_string:
+					return LowerStringLiteral(node);
 				case tok_identy: {
 					LocalValue* local = FindLocal(node->addr);
 					if (local) return { local->address, true, local->type, true };
@@ -1469,6 +1565,7 @@ namespace clover {
 		module.functions.Clear();
 		uni::Vector<FrontendCFunction> visible_functions;
 		uni::Vector<FrontendCGlobal> visible_globals;
+		unsigned next_string_literal = 0;
 		for (uni::Nnode* node = syntax_tree.Root(); node;) {
 			if (node->type == ToToken(FrontendCToken::GlobalDeclaration)) {
 				const FrontendCType* base_type = type_info.Find(node);
@@ -1532,9 +1629,9 @@ namespace clover {
 				function.parameters.Append(parameter);
 			}
 			visible_functions.Append(signature);
-			FunctionBuilder builder(function, visible_functions, visible_globals,
+			FunctionBuilder builder(module, function, visible_functions, visible_globals,
 				*function_return_type,
-				target, type_info, diagnostics, debug_info);
+				target, type_info, diagnostics, debug_info, next_string_literal);
 			if (!builder.Lower(body, node->subf)) return false;
 			module.functions.Append(function);
 			node = body->next;

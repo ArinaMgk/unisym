@@ -52,14 +52,22 @@ enum class FrontendCIntegerRank {
 	LongLong  // long long int or unsigned long long int.
 };
 
+// Type qualifiers attached to one level of a C declarator.
+struct FrontendCTypeQualifier {
+	bool is_const = false; // The object represented by this type level is not writable.
+};
+
 // Semantic integer, pointer, and array type retained by the C frontend.
 struct FrontendCType {
 	static constexpr stduint MaxArrayDimensions = 16;
+	static constexpr stduint MaxPointerDepth = 16;
 
 	FrontendCIntegerRank integer_rank = FrontendCIntegerRank::Int;
 	bool is_signed = true;
 	bool is_void = false;
+	FrontendCTypeQualifier base_qualifiers;
 	unsigned pointer_depth = 0;
+	FrontendCTypeQualifier pointer_qualifiers[MaxPointerDepth] = {};
 	stduint array_dimension_count = 0;
 	stduint array_dimensions[MaxArrayDimensions] = {};
 
@@ -69,7 +77,7 @@ struct FrontendCType {
 	bool IsInteger() const {
 		return !is_void && pointer_depth == 0 && !array_dimension_count;
 	}
-	bool IsSame(const FrontendCType& other) const {
+	bool HasSameShape(const FrontendCType& other) const {
 		if (integer_rank != other.integer_rank || is_signed != other.is_signed ||
 			is_void != other.is_void ||
 			pointer_depth != other.pointer_depth ||
@@ -77,6 +85,26 @@ struct FrontendCType {
 		for (stduint index = 0; index < array_dimension_count; index++)
 			if (array_dimensions[index] != other.array_dimensions[index]) return false;
 		return true;
+	}
+	bool IsSame(const FrontendCType& other) const {
+		if (!HasSameShape(other) ||
+			base_qualifiers.is_const != other.base_qualifiers.is_const) return false;
+		for (stduint index = 0; index < pointer_depth; index++)
+			if (pointer_qualifiers[index].is_const !=
+				other.pointer_qualifiers[index].is_const) return false;
+		return true;
+	}
+	bool CanAssignFrom(const FrontendCType& source) const {
+		if (!HasSameShape(source)) return false;
+		if (source.base_qualifiers.is_const && !base_qualifiers.is_const) return false;
+		for (stduint index = 0; index < pointer_depth; index++)
+			if (source.pointer_qualifiers[index].is_const &&
+				!pointer_qualifiers[index].is_const) return false;
+		return true;
+	}
+	bool IsConstObject() const {
+		return pointer_depth ? pointer_qualifiers[pointer_depth - 1].is_const :
+			base_qualifiers.is_const;
 	}
 	bool AppendArrayDimension(stduint count) {
 		if (array_dimension_count >= MaxArrayDimensions) return false;
@@ -91,7 +119,8 @@ struct FrontendCType {
 	}
 	FrontendCType AddressType() const {
 		FrontendCType result = *this;
-		result.pointer_depth++;
+		if (result.pointer_depth < MaxPointerDepth)
+			result.pointer_qualifiers[result.pointer_depth++] = {};
 		return result;
 	}
 	FrontendCType DecayType() const {
@@ -101,12 +130,15 @@ struct FrontendCType {
 				result.array_dimensions[index - 1] = result.array_dimensions[index];
 			result.array_dimensions[--result.array_dimension_count] = 0;
 		}
-		result.pointer_depth++;
+		if (result.pointer_depth < MaxPointerDepth)
+			result.pointer_qualifiers[result.pointer_depth++] = {};
 		return result;
 	}
 	FrontendCType DereferenceType() const {
 		FrontendCType result = *this;
-		if (result.pointer_depth) result.pointer_depth--;
+		if (result.pointer_depth) {
+			result.pointer_qualifiers[--result.pointer_depth] = {};
+		}
 		return result;
 	}
 };

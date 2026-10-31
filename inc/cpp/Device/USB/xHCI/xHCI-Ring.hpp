@@ -60,14 +60,14 @@ namespace uni::device::SpaceUSB3 {
 
 	union EventRingSegmentTableEntry {
 		uni::Array<uint32_t, 4> data;
-		struct {
+		_PACKED(struct) {
 			uint64_t ring_segment_base_address;  // 64-byte alignment
 
 			uint32_t ring_segment_size : 16;
 			uint32_t : 16;
 
 			uint32_t : 32;
-		} __attribute__((packed)) bits;
+		} bits;
 	};
 
 	class EventRing {

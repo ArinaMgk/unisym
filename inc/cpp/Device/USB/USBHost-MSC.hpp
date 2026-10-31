@@ -52,7 +52,7 @@ namespace uni::device::SpaceUSB {
 			uint32 command_id, void* context);
 
 		// AKA USBH_MSC_BOT_CBWTypeDef (31 bytes on the wire)
-		struct BotCBW {
+		_PACKED(struct) BotCBW {
 			uint32 signature;// 0x43425355, "USBC" little-endian on the wire
 			uint32 tag;
 			uint32 transfer_length;
@@ -60,15 +60,15 @@ namespace uni::device::SpaceUSB {
 			uint8 lun;
 			uint8 cb_length;
 			uint8 cb[16];
-		} __attribute__((packed));
+		};
 
 		// AKA USBH_MSC_BOT_CSWTypeDef (13 bytes on the wire)
-		struct BotCSW {
+		_PACKED(struct) BotCSW {
 			uint32 signature;// 0x53425355, "USBS" little-endian on the wire
 			uint32 tag;
 			uint32 residue;
 			uint8 status;// 0 = passed, 1 = failed, 2 = phase error
-		} __attribute__((packed));
+		};
 
 		// Result of the last transaction or of the bring-up sequence, AKA the
 		// DRESULT a FatFS diskio layer would collapse into RES_OK/RES_ERROR.

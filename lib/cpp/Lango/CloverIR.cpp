@@ -626,9 +626,12 @@ namespace clover {
 				return true;
 			}
 
-			bool ParseGlobal(Module& module) {
+			bool ParseGlobal(Module& module, bool read_only) {
 				Global global;
-				if (!Expect("global") || !Expect("@") || !ReadName(global.name) ||
+				global.is_read_only = read_only;
+				global.is_internal = read_only;
+				if (!Expect(read_only ? "constant" : "global") ||
+					!Expect("@") || !ReadName(global.name) ||
 					!ReadType(global.type) || global.type == Type::Void)
 					return Error("invalid global declaration");
 				if (Is(",")) {
@@ -636,7 +639,21 @@ namespace clover {
 					if (!ReadNumber(global.element_count) || global.element_count <= 0)
 						return Error("invalid global element count");
 				}
-				if (!Expect("=") || !ReadNumber(global.initializer))
+				if (!Expect("=")) return Error("invalid global initializer");
+				if (Is("{")) {
+					Advance();
+					while (!Is("}")) {
+						stdsint value;
+						if (!ReadNumber(value)) return false;
+						global.initializer_values.Append(value);
+						if (Is("}")) break;
+						if (!Expect(",")) return false;
+					}
+					if (!Expect("}") ||
+						global.initializer_values.Count() != (stduint)global.element_count)
+						return Error("global initializer element count mismatch");
+				}
+				else if (!ReadNumber(global.initializer))
 					return Error("invalid global initializer");
 				module.globals.Append(global);
 				return true;
@@ -651,8 +668,9 @@ namespace clover {
 				module.globals.Clear();
 				module.functions.Clear();
 				while (token.getByteCount()) {
-					if (Is("global")) {
-						if (!ParseGlobal(module)) return false;
+					if (Is("global") || Is("constant")) {
+						bool read_only = Is("constant");
+						if (!ParseGlobal(module, read_only)) return false;
 					}
 					else if (!ParseFunction(module)) return false;
 				}
@@ -669,9 +687,19 @@ namespace clover {
 
 	bool Print(const Module& module, uni::OstreamTrait& output) {
 		for (const Global& global : module.globals) {
-			output.OutFormat("global @%s %s", global.name.reference(), TypeName(global.type));
+			output.OutFormat("%s @%s %s", global.is_read_only ? "constant" : "global",
+				global.name.reference(), TypeName(global.type));
 			if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
-			output.OutFormat(" = %[i]\n", global.initializer);
+			output.OutFormat(" = ");
+			if (global.initializer_values.Count()) {
+				output.OutFormat("{");
+				for (stduint index = 0; index < global.initializer_values.Count(); index++) {
+					if (index) output.OutFormat(", ");
+					output.OutFormat("%[i]", global.initializer_values.begin()[index]);
+				}
+				output.OutFormat("}\n");
+			}
+			else output.OutFormat("%[i]\n", global.initializer);
 		}
 		for (const Function& function : module.functions) {
 			output.OutFormat("func @%s(", function.name.reference());

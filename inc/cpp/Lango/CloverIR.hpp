@@ -124,6 +124,9 @@ struct Global {
 	Type type = Type::I8;
 	stdsint initializer = 0;
 	stdsint element_count = 1;
+	bool is_read_only = false; // Emit the object in target read-only storage.
+	bool is_internal = false;  // Do not export the object outside this module.
+	uni::Vector<stdsint> initializer_values; // Explicit elements for aggregate data.
 };
 
 // Function-level Clover IR container.

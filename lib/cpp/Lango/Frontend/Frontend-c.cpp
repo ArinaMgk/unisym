@@ -99,7 +99,11 @@ namespace uni::lango {
 			lexer.GHT = false;
 			lexer.handler_comment = LineParse_Comment_C_Cpp;
 			lexer.method_omit_comment = true;
+			lexer.method_string_double_quote = true;
+			// Preserve C escapes for the frontend so embedded zero bytes are not lost.
+			lexer.method_string_escape_sequence = false;
 			lexer.Parse(tokens);
+			LinearParser::StringConcatenation(tokens);
 			JoinCHexadecimalTokens(tokens);
 
 			frontend_c_detail::ListOperators(operators);

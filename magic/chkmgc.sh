@@ -103,6 +103,9 @@ check 'int main() {int x=1; int n=sizeof(x++); return x*10+n;}' 14
 check 'int main() {char x=1; return sizeof(x++);}' 1
 check 'int main() {int a[2][3]; return sizeof(a)+sizeof(a[0])+sizeof(a[0][0]);}' 40
 check 'int main() {return sizeof(int*)+sizeof(char[3]);}' 11
+check 'int main() { return "abc"[0]; }' 97
+check 'int main() { return ""[0]; }' 0
+check 'int main() { return "\101"[0]; }' 65
 
 # Storage Area and Lifetime
 check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1

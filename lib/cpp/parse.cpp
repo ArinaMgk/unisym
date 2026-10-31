@@ -242,6 +242,7 @@ namespace uni
 		toktype CrtTType = tok_any;
 		stduint crtline_ento = pos.x, crtcol_ento = pos.y;
 		int YoString = 0;
+		bool YoStringRawEscape = false;
 		signed char strtok;
 		int c;
 
@@ -263,7 +264,11 @@ namespace uni
 			Letvar(dbg_chr, char, c);
 			if (YoString)
 			{
-				if (strtok == c) {
+				if (!method_string_escape_sequence && YoStringRawEscape) {
+					setChar(c);
+					YoStringRawEscape = false;
+				}
+				else if (strtok == c) {
 					apd();// including terminated-symbol
 					//pos.x += 2;
 					crtline_ento = pos.y;
@@ -274,6 +279,10 @@ namespace uni
 				else if (method_string_escape_sequence && c == '\\') {
 					if (handler_escape_sequence())
 						continue; else break;
+				}
+				else if (c == '\\') {
+					setChar(c);
+					YoStringRawEscape = true;
 				}
 				else setChar(c);
 			}
@@ -354,6 +363,7 @@ namespace uni
 				crtcol_ento = pos.x - 1;
 				CrtTType = tok_string;
 				YoString = 1;
+				YoStringRawEscape = false;
 				strtok = c;
 			}
 			else if (

@@ -49,6 +49,10 @@
 
 #include "../unisym"
 
+#if defined(_DEV_MSVC) && !defined(_HAS_STD_TYPE_TRAITS)
+#	define _HAS_STD_TYPE_TRAITS
+#endif
+
 namespace uni {
 
 	// Only the subset required by the local <utility> and <memory> is provided.

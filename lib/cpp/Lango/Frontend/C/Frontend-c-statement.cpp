@@ -42,13 +42,15 @@ namespace {
 
 	void AppendSourceNodes(uni::String& text, uni::Nnode* node) {
 		for (; node; node = node->next) {
-			if (node->type == tok_string) {
-				text << '"';
+			if (node->type == tok_string ||
+				node->type == ToToken(FrontendCToken::CharacterLiteral)) {
+				char quote = node->type == tok_string ? '"' : '\'';
+				text << quote;
 				if (node->addr) {
 					const char* source = node->addr;
 					while (*source) text << *source++;
 				}
-				text << '"';
+				text << quote;
 			}
 			else if (node->addr) AppendSourceText(text, node->addr);
 			if (node->subf) {
@@ -310,7 +312,14 @@ namespace {
 				"record alignment requires one integer argument", modifier);
 			return false;
 		}
-		stdsint value = atoins(argument->addr);
+		stdsint value;
+		FrontendCType literal_type;
+		if (!frontend_c_detail::ParseIntegerLiteral(
+			argument->addr, target, value, literal_type)) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record alignment requires a valid integer constant", argument);
+			return false;
+		}
 		stduint align_bytes = 0;
 		if (IsKeyword(modifier, "alignb")) {
 			if (value <= 0) {
@@ -393,12 +402,13 @@ namespace {
 
 	// Parse the identifier and array dimensions of one record member declarator.
 	bool ParseRecordMemberDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
-		FrontendCType& type) {
+		FrontendCType& type, const FrontendCTargetInfo& target) {
 		if (!node) return false;
 		if (node->type == tok_func && node->addr &&
 			!StrCompare(node->addr, "OP@PREMEMB") && node->subf &&
 			!node->subf->next) {
-			if (!ParseRecordMemberDeclarator(node->subf, identifier, type)) return false;
+			if (!ParseRecordMemberDeclarator(
+				node->subf, identifier, type, target)) return false;
 			type = type.AddressType();
 			return true;
 		}
@@ -408,9 +418,13 @@ namespace {
 			uni::Nnode* dimension = declarator ? declarator->next : nullptr;
 			if (!declarator || !dimension || dimension->next ||
 				dimension->type != tok_number || !dimension->addr ||
-				!ParseRecordMemberDeclarator(declarator, identifier, type)) return false;
-			stdsint count = atoins(dimension->addr);
-			return count > 0 && type.AppendArrayDimension((stduint)count);
+				!ParseRecordMemberDeclarator(
+					declarator, identifier, type, target)) return false;
+			stdsint count;
+			FrontendCType literal_type;
+			return frontend_c_detail::ParseIntegerLiteral(
+				dimension->addr, target, count, literal_type) && count > 0 &&
+				type.AppendArrayDimension((stduint)count);
 		}
 		if (node->type != tok_identy || !node->addr) return false;
 		identifier = node;
@@ -473,7 +487,7 @@ namespace {
 			uni::Nnode* identifier = nullptr;
 			if (!declarator || declarator->next || member_type.IsVoid() ||
 				!ParseRecordMemberDeclarator(
-					declarator, identifier, member_type)) {
+					declarator, identifier, member_type, target)) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"unsupported record member declaration", declarator);
 				return false;
@@ -691,8 +705,11 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 		if (!dimension || dimension == node->subf || dimension->type != tok_number ||
 			!dimension->addr || !ParseTypeName(node->subf, type,
 				target, type_info, dimension)) return false;
-		stdsint count = atoins(dimension->addr);
-		return count > 0 && type.AppendArrayDimension((stduint)count);
+		stdsint count;
+		FrontendCType literal_type;
+		return frontend_c_detail::ParseIntegerLiteral(
+			dimension->addr, target, count, literal_type) && count > 0 &&
+			type.AppendArrayDimension((stduint)count);
 	}
 	const uni::Nnode* current = node;
 	unsigned const_count = 0;
@@ -713,8 +730,11 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 				dimension->type != tok_number || !dimension->addr) return false;
 			stduint record_id = type_info.FindRecord(tag_name->addr);
 			const FrontendCRecord* record = type_info.GetRecord(record_id);
-			stdsint count = atoins(dimension->addr);
-			if (!record || record->is_union != is_union || count <= 0) return false;
+			stdsint count;
+			FrontendCType literal_type;
+			if (!record || record->is_union != is_union ||
+				!frontend_c_detail::ParseIntegerLiteral(
+					dimension->addr, target, count, literal_type) || count <= 0) return false;
 			type = FrontendCType();
 			type.record_id = record_id;
 			type.base_qualifiers.is_const = const_count != 0;

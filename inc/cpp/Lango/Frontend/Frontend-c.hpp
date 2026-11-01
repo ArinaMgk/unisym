@@ -51,20 +51,33 @@ struct FrontendCTargetInfo {
 	bool char_is_signed = true;
 
 	static FrontendCTargetInfo FromTarget(const TargetInfo& target);
+	static FrontendCTargetInfo FromDataModel(CDataModel data_model);
 };
 
-inline FrontendCTargetInfo FrontendCTargetInfo::FromTarget(const TargetInfo& target) {
+inline FrontendCTargetInfo FrontendCTargetInfo::FromDataModel(
+	CDataModel selected_data_model) {
 	FrontendCTargetInfo info;
+	info.data_model = selected_data_model;
+	if (selected_data_model == CDataModel::ILP32) {
+		info.long_bits = 32;
+		info.pointer_bits = 32;
+		info.long_align_bits = 32;
+		info.pointer_align_bits = 32;
+	}
+	else if (selected_data_model == CDataModel::LLP64) {
+		info.long_bits = 32;
+		info.long_align_bits = 32;
+	}
+	return info;
+}
+
+inline FrontendCTargetInfo FrontendCTargetInfo::FromTarget(const TargetInfo& target) {
+	FrontendCTargetInfo info = FrontendCTargetInfo::FromDataModel(
+		target.pointer_bits == 32 ? CDataModel::ILP32 : CDataModel::LP64);
 	info.char_bits = target.byte_bits;
 	info.char_align_bits = target.byte_bits;
 	info.pointer_bits = target.pointer_bits;
 	info.pointer_align_bits = target.pointer_bits;
-	if (target.pointer_bits == 32) {
-		info.data_model = CDataModel::ILP32;
-		info.long_bits = 32;
-		info.long_align_bits = 32;
-		info.pointer_align_bits = 32;
-	}
 	return info;
 }
 

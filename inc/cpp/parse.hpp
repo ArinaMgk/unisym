@@ -95,6 +95,9 @@ namespace uni {
 
 		// symbol
 		bool method_treatiden_underscore = true;// else, treat as symbol
+
+		// Frontends may assign language-specific semantics to single-quoted text.
+		stduint method_string_single_quote_type = tok_string;
 	public:
 		// [1] use heap string
 		LinearParser(IstreamTrait& lparser);

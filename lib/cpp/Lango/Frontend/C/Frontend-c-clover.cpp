@@ -52,12 +52,18 @@ namespace clover {
 			return true;
 		}
 
-		bool ParseGlobalConstant(uni::Nnode* node, stdsint& value) {
+		bool ParseGlobalConstant(uni::Nnode* node,
+			const FrontendCTargetInfo& target, stdsint& value) {
 			if (!node) return false;
-			if (node->type == tok_number) return ParseIntegerLiteral(node->addr, value);
+			if (node->type == tok_number) {
+				FrontendCType type;
+				return ParseIntegerLiteral(node->addr, target, value, type);
+			}
+			if (node->type == ToToken(FrontendCToken::CharacterLiteral))
+				return ParseCharacterLiteral(node->addr, target, value);
 			if (node->type == tok_func && node->addr && node->subf &&
 				!node->subf->next && !StrCompare(node->addr, "OP@PRENEGA")) {
-				if (!ParseGlobalConstant(node->subf, value)) return false;
+				if (!ParseGlobalConstant(node->subf, target, value)) return false;
 				value = -value;
 				return true;
 			}
@@ -109,7 +115,8 @@ namespace clover {
 			global.name = identifier->addr;
 			global.type = CloverTypeFor(type, target);
 			global.element_count = (stdsint)type.StorageElementCount();
-			if (initializer_node && !ParseGlobalConstant(initializer_node, global.initializer)) {
+			if (initializer_node && !ParseGlobalConstant(
+				initializer_node, target, global.initializer)) {
 				diagnostics.Report(DiagnosticStage::Lowering,
 					"global initializer must be an integer constant", initializer_node);
 				return false;
@@ -135,6 +142,7 @@ namespace clover {
 		module.globals.Clear();
 		module.functions.Clear();
 		module.source_files.Clear();
+		module.pointer_bits = target.pointer_bits;
 		uint32 debug_file_id = 0;
 		if (debug_info) {
 			SourceFile source;

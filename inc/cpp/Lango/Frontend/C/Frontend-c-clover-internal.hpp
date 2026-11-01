@@ -70,6 +70,10 @@ struct FrontendCGlobal {
 
 stduint GreatestCommonDivisor(stduint left, stduint right);
 bool ParseIntegerLiteral(const char* text, stdsint& value);
+bool ParseIntegerLiteral(const char* text, const FrontendCTargetInfo& target,
+	stdsint& value, FrontendCType& type);
+bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,
+	stdsint& value);
 bool DecodeCString(const char* text, uni::Vector<stdsint>& bytes);
 Type CloverTypeFor(const FrontendCType& type, const FrontendCTargetInfo& target);
 

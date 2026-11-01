@@ -58,6 +58,11 @@ namespace uni::lango {
 				plogerro("RISC-V backend: unsupported -mbits=%[u]; supported bits: 64", target.bits);
 				return false;
 			}
+			if (module.pointer_bits && module.pointer_bits != target.bits) {
+				plogerro("RISC-V backend: IR requires %[u]-bit pointers, but target uses %[u]-bit pointers",
+					module.pointer_bits, target.bits);
+				return false;
+			}
 			if (!target.extension_i) {
 				plogerro("RISC-V backend: the I instruction set is required");
 				return false;

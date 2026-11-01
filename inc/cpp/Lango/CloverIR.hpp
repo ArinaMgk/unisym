@@ -150,6 +150,7 @@ struct Function {
 
 // Compilation unit exchanged between a Clover frontend and backend.
 struct Module {
+	unsigned pointer_bits = 0; // Address width required by Ptr; zero means unspecified.
 	uni::Vector<SourceFile> source_files;
 	uni::Vector<Global> globals;
 	uni::Vector<Function> functions;

@@ -64,10 +64,11 @@ namespace uni
 		size_t contlen,
 		size_t ttype,
 		size_t row,
-		size_t col
+		size_t col,
+		bool allow_empty = false
 	)
 	{
-		if (!contlen && ttype != tok_string) return 0;
+		if (!contlen && ttype != tok_string && !allow_empty) return 0;
 		Letvar(tn, Tnode*, chn.Append(StrHeapN(content, contlen), false));
 		tn->type = ttype;
 		tn->row = row;
@@ -84,7 +85,7 @@ namespace uni
 
 	#define apd() do { \
 		if (!(method_omit_spaces && CrtTType == tok_spaces || method_omit_comment && CrtTType == tok_comment)) \
-		{ TokenAppend(dc, linebuf->reference(), linebuf->getByteCount(), CrtTType, crtline_ento, crtcol_ento); } \
+		{ TokenAppend(dc, linebuf->reference(), linebuf->getByteCount(), CrtTType, crtline_ento, crtcol_ento, YoString != 0); } \
 		linebuf->Clear();\
 		} while (0)
 
@@ -239,7 +240,7 @@ namespace uni
 	}
 
 	Dchain& LinearParser::Parse(Dchain& dc) {
-		toktype CrtTType = tok_any;
+		stduint CrtTType = tok_any;
 		stduint crtline_ento = pos.x, crtcol_ento = pos.y;
 		int YoString = 0;
 		bool YoStringRawEscape = false;
@@ -305,7 +306,7 @@ namespace uni
 				}
 				else if (dc.Count()) {
 					linebuf->Clear();
-					CrtTType = (_token_t)dc.Last()->type;
+					CrtTType = dc.Last()->type;
 					auto tmpp = dc.Last()->addr;
 					if (tmpp) while (*tmpp) {
 						setChar(*tmpp++);
@@ -361,7 +362,7 @@ namespace uni
 				apd();
 				crtline_ento = pos.y;
 				crtcol_ento = pos.x - 1;
-				CrtTType = tok_string;
+				CrtTType = c == '\'' ? method_string_single_quote_type : tok_string;
 				YoString = 1;
 				YoStringRawEscape = false;
 				strtok = c;

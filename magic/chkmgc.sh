@@ -11,7 +11,12 @@ check()
 {
 	arguments="$1"
 	expectation="$2"
-	mgc --emit-ir "$arguments" -o "$uobjpath/check.ir" || exit 1
+	frontend_option="$3"
+	if [ -n "$frontend_option" ]; then
+		mgc --emit-ir "$arguments" "$frontend_option" -o "$uobjpath/check.ir" || exit 1
+	else
+		mgc --emit-ir "$arguments" -o "$uobjpath/check.ir" || exit 1
+	fi
 	clover-riscv "$uobjpath/check.ir" -mbits=64 -minst=im -o "$uobjpath/check.s" || exit 1
 	riscv64-linux-gnu-gcc -static -o "$uobjpath/check" "$uobjpath/check.s" || exit 1
 	qemu-riscv64 -L "$RISCV/sysroot" "$uobjpath/check"
@@ -79,6 +84,8 @@ check 'int main() {int a[2][3]; a[0][1]=5; a[1][2]=7; return a[0][1]+a[1][2];}' 
 
 # Basic Types
 check 'int main() {char a=1; short b=2; long c=3; long long d=4; return a+b+c+d;}' 10
+check 'int main() {return sizeof(long)+sizeof(void*);}' 16 '-Fdata-model=lp64'
+check 'int main() {return sizeof(long)+sizeof(void*);}' 12 '-Fdata-model=llp64'
 check 'int main() {return sizeof(char)+sizeof(short)+sizeof(int)+sizeof(long)+sizeof(long long);}' 23
 check 'int main() {signed char x=-1; unsigned char y=255; y=y+2; return (x<0)+(y==1);}' 2
 check 'int main() {unsigned int x=0; x=x-1; return x>1;}' 1
@@ -90,6 +97,14 @@ check 'int main() {return sizeof(int*)+sizeof(char[3]);}' 11
 check 'int main() { return "abc"[0]; }' 97
 check 'int main() { return ""[0]; }' 0
 check 'int main() { return "\101"[0]; }' 65
+
+# Integer and character literals
+check "int main(){return 'A';}" 65
+check "int main(){return '\\n'+'\\x41'+'\\101';}" 140
+check 'int main(){return sizeof(1U)+sizeof(1L)+sizeof(1LL);}' 20 '-Fdata-model=lp64'
+check 'int main(){return sizeof(1U)+sizeof(1L)+sizeof(1LL);}' 16 '-Fdata-model=llp64'
+check 'int main(){return (0xFFFFFFFF>0)+(18446744073709551615ULL+2);}' 2
+check 'int main(){int values[0x3U]; return sizeof(values);}' 12
 
 # Structure and union layout
 check '../demo/test/clover/c/struct-layout.c' 254

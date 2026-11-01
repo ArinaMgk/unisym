@@ -51,8 +51,23 @@ static void PrintMagicHelp() {
 	uni::Console.OutFormat("  -g                      Add source locations and comments to Clover IR\n");
 	uni::Console.OutFormat("  --lango=c               Select the source-language frontend\n");
 	uni::Console.OutFormat("  --std=c99               Pass the language standard to the frontend\n");
+	uni::Console.OutFormat("  -Fname[=value]           Pass one option to the selected frontend\n");
+	uni::Console.OutFormat("  -Fdata-model=MODEL      C model: ilp32, lp64, or llp64\n");
 	uni::Console.OutFormat("  -o output               Write output to a file\n");
 	uni::Console.OutFormat("  -h, --help              Print this help\n");
+}
+
+static bool ParseFrontendLanguageOption(const char* argument,
+	uni::lango::FrontendLanguageOption& option) {
+	const char* text = argument + 2;
+	while (*text && *text != '=') option.name << *text++;
+	if (!option.name.getByteCount()) return false;
+	if (*text == '=') {
+		option.has_value = true;
+		text++;
+		while (*text) option.value << *text++;
+	}
+	return true;
 }
 
 int magic(int argc, char** argv) {
@@ -69,6 +84,7 @@ int magic(int argc, char** argv) {
 	bool has_source_suffix = false;
 	rostr output_path = nullptr;
 	Vector<rostr> inputs;
+	Vector<lango::FrontendLanguageOption> frontend_language_options;
 	for (int i = 1; i < argc; i++) {
 		if (!options_ended && !StrCompare(argv[i], "--")) {
 			options_ended = true;
@@ -91,6 +107,14 @@ int magic(int argc, char** argv) {
 		}
 		else if (!options_ended && !StrCompareN(argv[i], "--std=", 6)) {
 			language_standard = argv[i] + 6;
+		}
+		else if (!options_ended && !StrCompareN(argv[i], "-F", 2)) {
+			lango::FrontendLanguageOption option;
+			if (!ParseFrontendLanguageOption(argv[i], option)) {
+				plogerro("invalid frontend option %s", argv[i]);
+				return 1;
+			}
+			frontend_language_options.Append(option);
 		}
 		else if (!options_ended &&
 			(!StrCompare(argv[i], "-h") || !StrCompare(argv[i], "--help"))) {
@@ -162,6 +186,7 @@ int magic(int argc, char** argv) {
 		frontend_options.debug_source = debug_symbols;
 		frontend_options.source_name = source_name;
 		frontend_options.language_standard = language_standard;
+		frontend_options.language_options = frontend_language_options;
 		if (emit_ast) {
 			if (!FrontendPrintAST(selected_frontend, input, *output, frontend_options)) {
 				if (output_file) delete output_file;

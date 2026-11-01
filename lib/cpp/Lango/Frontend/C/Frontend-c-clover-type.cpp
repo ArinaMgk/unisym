@@ -186,6 +186,12 @@ namespace clover::frontend_c_internal {
 	bool FunctionBuilder::ResolveExpressionType(uni::Nnode* node, FrontendCType& type) {
 		if (!node) return false;
 		if (node->type == tok_number) {
+			stdsint value;
+			return ParseIntegerLiteral(node->addr, *target, value, type);
+		}
+		if (node->type == ToToken(FrontendCToken::CharacterLiteral)) {
+			stdsint value;
+			if (!ParseCharacterLiteral(node->addr, *target, value)) return false;
 			type = IntType();
 			return true;
 		}

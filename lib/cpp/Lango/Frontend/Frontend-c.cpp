@@ -25,6 +25,29 @@
 namespace uni::lango {
 
 	namespace {
+		stduint LineParseNumberC(LinearParser& lexer) {
+			stduint length = 0;
+			int previous = 0;
+			for (;;) {
+				int current = lexer.getChar();
+				bool exponent_sign = (current == '+' || current == '-') &&
+					(previous == 'e' || previous == 'E' ||
+					previous == 'p' || previous == 'P');
+				bool number_character =
+					(current >= '0' && current <= '9') ||
+					(current >= 'a' && current <= 'z') ||
+					(current >= 'A' && current <= 'Z') ||
+					current == '_' || current == '.' || exponent_sign;
+				if (current < 0 || !number_character) {
+					if (current >= 0) lexer.backChar((char)current);
+					return length;
+				}
+				lexer.setChar((char)current);
+				previous = current;
+				length++;
+			}
+		}
+
 		bool IsHexDigits(const char* text) {
 			if (!text || !*text) return false;
 			for (; *text; text++)
@@ -53,15 +76,47 @@ namespace uni::lango {
 			}
 		}
 
-		bool ValidateOptions(const FrontendOptions& options,
-			const FrontendCDiagnostics& diagnostics) {
+		bool ResolveOptions(const FrontendOptions& options,
+			const FrontendCDiagnostics& diagnostics, FrontendCTargetInfo& target) {
 			if (options.language_standard &&
 				StrCompare(options.language_standard, "c99")) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"unsupported C standard; supported standard: c99");
 				return false;
 			}
-			FrontendCTargetInfo target = FrontendCTargetInfo::FromTarget(options.target);
+			target = FrontendCTargetInfo::FromTarget(options.target);
+			bool has_data_model = false;
+			for (const FrontendLanguageOption& option : options.language_options) {
+				if (StrCompare(option.name.reference(), "data-model")) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"unsupported C frontend option");
+					return false;
+				}
+				if (has_data_model) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"duplicate C frontend option: data-model");
+					return false;
+				}
+				if (!option.has_value || !option.value.getByteCount()) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"C frontend option data-model requires a value");
+					return false;
+				}
+				CDataModel data_model;
+				if (!StrCompare(option.value.reference(), "ilp32"))
+					data_model = CDataModel::ILP32;
+				else if (!StrCompare(option.value.reference(), "lp64"))
+					data_model = CDataModel::LP64;
+				else if (!StrCompare(option.value.reference(), "llp64"))
+					data_model = CDataModel::LLP64;
+				else {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"unsupported C data model; supported values: ilp32, lp64, llp64");
+					return false;
+				}
+				target = FrontendCTargetInfo::FromDataModel(data_model);
+				has_data_model = true;
+			}
 			if (target.int_bits != 32) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"unsupported target int width; supported width: 32");
@@ -125,7 +180,11 @@ namespace uni::lango {
 			Dchain tokens;
 			lexer.GHT = false;
 			lexer.handler_comment = LineParse_Comment_C_Cpp;
+			lexer.handler_numchk = LineParseNumberC;
 			lexer.method_omit_comment = true;
+			lexer.method_string_single_quote = true;
+			lexer.method_string_single_quote_type =
+				ToToken(FrontendCToken::CharacterLiteral);
 			lexer.method_string_double_quote = true;
 			// Preserve C escapes for the frontend so embedded zero bytes are not lost.
 			lexer.method_string_escape_sequence = false;
@@ -159,8 +218,8 @@ namespace uni::lango {
 		diagnostics.output = options.diagnostics ? options.diagnostics :
 			&DefaultDiagnosticInterface();
 		diagnostics.source_name = options.source_name ? options.source_name : "<input>";
-		if (!ValidateOptions(options, diagnostics)) return false;
-		FrontendCTargetInfo target = FrontendCTargetInfo::FromTarget(options.target);
+		FrontendCTargetInfo target;
+		if (!ResolveOptions(options, diagnostics, target)) return false;
 		FrontendCTypeInfo type_info;
 		FrontendCDebugInfo debug_info;
 		FrontendCDebugInfo* requested_debug_info = options.debug_source ? &debug_info : nullptr;
@@ -181,8 +240,8 @@ namespace uni::lango {
 		diagnostics.output = options.diagnostics ? options.diagnostics :
 			&DefaultDiagnosticInterface();
 		diagnostics.source_name = options.source_name ? options.source_name : "<input>";
-		if (!ValidateOptions(options, diagnostics)) return false;
-		FrontendCTargetInfo target = FrontendCTargetInfo::FromTarget(options.target);
+		FrontendCTargetInfo target;
+		if (!ResolveOptions(options, diagnostics, target)) return false;
 		FrontendCTypeInfo type_info;
 		if (!ParseC(input, operators, syntax, diagnostics, target,
 			type_info, nullptr)) return false;

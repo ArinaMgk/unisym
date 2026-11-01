@@ -961,8 +961,15 @@ namespace clover::frontend_c_internal {
 		switch (node->type) {
 		case tok_number: {
 			stdsint immediate;
-			if (!ParseIntegerLiteral(node->addr, immediate))
+			FrontendCType type;
+			if (!ParseIntegerLiteral(node->addr, *target, immediate, type))
 				return Error("invalid integer literal", node);
+			return { EmitConst(immediate, type), true, type, false };
+		}
+		case ToToken(FrontendCToken::CharacterLiteral): {
+			stdsint immediate;
+			if (!ParseCharacterLiteral(node->addr, *target, immediate))
+				return Error("invalid character literal", node);
 			FrontendCType type = IntType();
 			return { EmitConst(immediate, type), true, type, false };
 		}

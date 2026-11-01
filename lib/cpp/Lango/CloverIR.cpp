@@ -737,6 +737,17 @@ namespace clover {
 				return true;
 			}
 
+			bool ParseTarget(Module& module) {
+				if (!Expect("target") || !Expect("ptrbits")) return false;
+				stdsint pointer_bits;
+				if (!ReadNumber(pointer_bits) ||
+					(pointer_bits != 32 && pointer_bits != 64))
+					return Error("target pointer width must be 32 or 64");
+				if (module.pointer_bits) return Error("duplicate target pointer width");
+				module.pointer_bits = (unsigned)pointer_bits;
+				return true;
+			}
+
 			bool ParseGlobal(Module& module, bool read_only) {
 				Global global;
 				global.is_read_only = read_only;
@@ -776,11 +787,15 @@ namespace clover {
 			}
 
 			bool ParseModule(Module& module) {
+				module.pointer_bits = 0;
 				module.source_files.Clear();
 				module.globals.Clear();
 				module.functions.Clear();
 				while (token.getByteCount()) {
-					if (Is("source")) {
+					if (Is("target")) {
+						if (!ParseTarget(module)) return false;
+					}
+					else if (Is("source")) {
 						if (!ParseSource(module)) return false;
 					}
 					else if (Is("global") || Is("constant")) {
@@ -801,6 +816,8 @@ namespace clover {
 	}
 
 	bool Print(const Module& module, uni::OstreamTrait& output) {
+		if (module.pointer_bits)
+			output.OutFormat("target ptrbits %[u]\n", module.pointer_bits);
 		for (const SourceFile& source : module.source_files) {
 			output.OutFormat("source %[u] ", source.id);
 			PrintQuoted(output, source.path);

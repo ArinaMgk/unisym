@@ -28,6 +28,13 @@
 
 namespace uni::lango {
 
+// One opaque option passed through the compiler driver to a language frontend.
+struct FrontendLanguageOption {
+	uni::String name;
+	uni::String value;
+	bool has_value = false;
+};
+
 // Options shared by source-language frontends.
 struct FrontendOptions {
 	bool debug_source = false; // Retain source statements in generated Clover IR.
@@ -35,6 +42,7 @@ struct FrontendOptions {
 	DiagnosticInterface* diagnostics = nullptr; // Uses the default logger when null.
 	const char* language_standard = nullptr; // Frontend-specific standard such as c99.
 	TargetInfo target; // ABI sizes used while lowering source-language types.
+	uni::Vector<FrontendLanguageOption> language_options; // Options interpreted by one frontend.
 };
 
 // Common interface implemented by source-language Clover IR frontends.

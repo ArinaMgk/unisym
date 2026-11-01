@@ -86,8 +86,10 @@ namespace clover::frontend_c_internal {
 			if (!declarator || !dimension || dimension->next ||
 				dimension->type != tok_number || !dimension->addr ||
 				!ParseDeclaratorNode(declarator, identifier, type)) return false;
-			stdsint count = atoins(dimension->addr);
-			if (count <= 0) return false;
+			stdsint count;
+			FrontendCType literal_type;
+			if (!uni::lango::frontend_c_detail::ParseIntegerLiteral(
+				dimension->addr, *target, count, literal_type) || count <= 0) return false;
 			return type.AppendArrayDimension((stduint)count);
 		}
 		if (node->type != tok_identy || !node->addr) return false;

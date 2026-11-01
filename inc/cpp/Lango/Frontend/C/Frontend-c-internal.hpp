@@ -42,6 +42,7 @@ enum class FrontendCToken : stduint {
 	Empty,                    // Empty statement represented by a semicolon.
 	Return,                   // Return statement or inline return marker.
 	ReturnVoid,               // Return statement without a value.
+	CharacterLiteral,         // C ordinary character constant delimited by single quotes.
 	End                       // First token value available after the C frontend range.
 };
 
@@ -226,6 +227,10 @@ struct FrontendCDiagnostics {
 };
 
 namespace frontend_c_detail {
+
+	// Parse one C99 integer constant and select its target-dependent C type.
+	bool ParseIntegerLiteral(const char* text, const FrontendCTargetInfo& target,
+		stdsint& value, FrontendCType& type);
 
 	// Append each C operator stage only when its operands are ready to fold.
 	void ListPostfixOperators(uni::Chain& operators);

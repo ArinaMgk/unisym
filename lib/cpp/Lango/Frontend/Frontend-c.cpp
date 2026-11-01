@@ -74,7 +74,9 @@ namespace uni::lango {
 			const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info,
 			FrontendCDebugInfo* debug_info) {
 			Nchain& syntax_tree = *parser.GetNetwork();
-			if (!parser.ParseParen(syntax_tree.Root())) {
+			// C must retain single-item parentheses until type names are distinguished
+			// from grouped expressions such as (identifier).
+			if (!parser.ParseParen(syntax_tree.Root(), false)) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"unmatched or invalid delimiter", syntax_tree.Root());
 				return false;
@@ -84,7 +86,32 @@ namespace uni::lango {
 				type_info, debug_info)) return false;
 			if (!parser.ParseOperator(syntax_tree.Root())) {
 				diagnostics.Report(DiagnosticStage::Parser,
-					"invalid operator expression", syntax_tree.Root());
+					"invalid postfix operator expression", syntax_tree.Root());
+				return false;
+			}
+			if (!frontend_c_detail::ParseCastOperators(
+				syntax_tree, diagnostics, target, type_info)) return false;
+			frontend_c_detail::ListPrefixOperators(
+				*parser.TokenOperatorGroupChain);
+			if (!parser.ParseOperator(syntax_tree.Root())) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"invalid prefix or cast expression", syntax_tree.Root());
+				return false;
+			}
+			frontend_c_detail::ListBinaryOperators(
+				*parser.TokenOperatorGroupChain);
+			if (!parser.ParseOperator(syntax_tree.Root())) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"invalid binary operator expression", syntax_tree.Root());
+				return false;
+			}
+			if (!frontend_c_detail::ParseConditionalOperators(
+				syntax_tree, diagnostics)) return false;
+			frontend_c_detail::ListTrailingOperators(
+				*parser.TokenOperatorGroupChain);
+			if (!parser.ParseOperator(syntax_tree.Root())) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"invalid trailing operator expression", syntax_tree.Root());
 				return false;
 			}
 			return frontend_c_detail::Validate(syntax_tree, diagnostics);
@@ -106,7 +133,7 @@ namespace uni::lango {
 			LinearParser::StringConcatenation(tokens);
 			JoinCHexadecimalTokens(tokens);
 
-			frontend_c_detail::ListOperators(operators);
+			frontend_c_detail::ListPostfixOperators(operators);
 			syntax = new NestedParseUnit(tokens, &operators, sizeof(mag_node_t));
 			if (AnalyzeC(*syntax, diagnostics, target, type_info, debug_info)) return true;
 			delete syntax;

@@ -227,8 +227,21 @@ struct FrontendCDiagnostics {
 
 namespace frontend_c_detail {
 
-	// Populate the operator-precedence groups used by the C frontend.
-	void ListOperators(uni::Chain& operators);
+	// Append each C operator stage only when its operands are ready to fold.
+	void ListPostfixOperators(uni::Chain& operators);
+	void ListPrefixOperators(uni::Chain& operators);
+	void ListBinaryOperators(uni::Chain& operators);
+	void ListTrailingOperators(uni::Chain& operators);
+	// Distinguish parenthesized type names from ordinary grouped expressions.
+	bool ParseCastOperators(uni::Nchain& syntax_tree,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		FrontendCTypeInfo& type_info);
+	bool ParseConditionalOperators(uni::Nchain& syntax_tree,
+		const FrontendCDiagnostics& diagnostics);
+	// Parse one complete C type-name without modifying its syntax nodes.
+	bool ParseTypeName(const uni::Nnode* node, FrontendCType& type,
+		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
+		const uni::Nnode* end = nullptr);
 
 	// Classify C statements before and validate them after operator parsing.
 	bool Prepare(uni::Nchain& syntax_tree, const FrontendCDiagnostics& diagnostics,

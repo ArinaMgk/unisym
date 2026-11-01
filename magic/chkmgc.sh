@@ -29,34 +29,9 @@ cd ../
 make magice
 cd magic
 
-# + and -
+# Operators
 check 'int main(){return 0;}' 0
-check 'int main(){return 27;}' 27
-check 'int main(){return 20 - 13 + 12;}' 19
-
-# pref+- and * and /
-check 'int main(){return -1+1;}' 0
-check 'int main(){return 1-8/(2*2)+3*6;}' 17
-check 'int main(){return - - 12* + - - + + +4;}' 48
-
-# == and !=
-check 'int main(){return -5==-2-3;}' 1
-check 'int main(){return 2*3==2+3;}' 0
-check 'int main(){return 1!=0;}'     1
-check 'int main(){return 2+2!=2*2;}' 0
-
-# signed < <= > >= by inst "SLT (I) (U)", where I for immediate, U for unsigned
-check 'int main(){return 2<3; }' 1
-check 'int main(){return 2<=3;}' 1
-check 'int main(){return 3<=3;}' 1
-check 'int main(){return 4<=3;}' 0
-#
-check 'int main(){return -2>-3; }' 1
-check 'int main(){return -2>=-3;}' 1
-check 'int main(){return -3>=-3;}' 1
-check 'int main(){return -4>=-3;}' 0
-#
-check 'int main(){return -4>=-3==-0*-1;}' 1
+check '../demo/test/clover/c/operators.c' 75
 # Expression statements
 check 'int main(){1+2;;return 6;}' 6
 check 'int main(){12+23;12+99/3; return 78-66;}' 12

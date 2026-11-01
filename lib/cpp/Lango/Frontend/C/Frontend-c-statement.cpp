@@ -681,6 +681,117 @@ namespace {
 
 }
 
+// Parse the shared type-name form used by sizeof and explicit casts.
+bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
+	FrontendCType& type, const FrontendCTargetInfo& target,
+	const FrontendCTypeInfo& type_info, const uni::Nnode* end) {
+	if (!end && node && node->type == tok_func && node->addr &&
+		!StrCompare(node->addr, "operator[]")) {
+		const uni::Nnode* dimension = node->subf ? node->subf->Tail() : nullptr;
+		if (!dimension || dimension == node->subf || dimension->type != tok_number ||
+			!dimension->addr || !ParseTypeName(node->subf, type,
+				target, type_info, dimension)) return false;
+		stdsint count = atoins(dimension->addr);
+		return count > 0 && type.AppendArrayDimension((stduint)count);
+	}
+	const uni::Nnode* current = node;
+	unsigned const_count = 0;
+	while (current != end && IsKeyword(current, "const")) {
+		const_count++;
+		current = current->next;
+	}
+
+	bool is_union = IsKeyword(current, "union");
+	if (IsKeyword(current, "struct") || is_union) {
+		const uni::Nnode* tag = current->next;
+		if (tag && tag != end && tag->next == end && tag->type == tok_func &&
+			tag->addr && !StrCompare(tag->addr, "operator[]")) {
+			const uni::Nnode* tag_name = tag->subf;
+			const uni::Nnode* dimension = tag_name ? tag_name->next : nullptr;
+			if (const_count > 1 || !tag_name || !dimension || dimension->next ||
+				tag_name->type != tok_identy || !tag_name->addr ||
+				dimension->type != tok_number || !dimension->addr) return false;
+			stduint record_id = type_info.FindRecord(tag_name->addr);
+			const FrontendCRecord* record = type_info.GetRecord(record_id);
+			stdsint count = atoins(dimension->addr);
+			if (!record || record->is_union != is_union || count <= 0) return false;
+			type = FrontendCType();
+			type.record_id = record_id;
+			type.base_qualifiers.is_const = const_count != 0;
+			return type.AppendArrayDimension((stduint)count);
+		}
+		if (const_count > 1 || !tag || tag == end ||
+			tag->type != tok_identy || !tag->addr) return false;
+		stduint record_id = type_info.FindRecord(tag->addr);
+		const FrontendCRecord* record = type_info.GetRecord(record_id);
+		if (!record || record->is_union != is_union) return false;
+		type = FrontendCType();
+		type.record_id = record_id;
+		type.base_qualifiers.is_const = const_count != 0;
+		current = tag->next;
+		while (current != end && IsKeyword(current, "const")) {
+			if (type.base_qualifiers.is_const) return false;
+			type.base_qualifiers.is_const = true;
+			current = current->next;
+		}
+	}
+	else {
+		unsigned signed_count = 0, unsigned_count = 0, char_count = 0;
+		unsigned short_count = 0, int_count = 0, long_count = 0, void_count = 0;
+		bool found_specifier = false;
+		const_count = 0;
+		current = node;
+		for (; current != end && current && current->type == tok_identy;
+			current = current->next) {
+			if (IsKeyword(current, "const")) const_count++;
+			else if (IsKeyword(current, "signed")) signed_count++;
+			else if (IsKeyword(current, "unsigned")) unsigned_count++;
+			else if (IsKeyword(current, "char")) char_count++;
+			else if (IsKeyword(current, "short")) short_count++;
+			else if (IsKeyword(current, "int")) int_count++;
+			else if (IsKeyword(current, "long")) long_count++;
+			else if (IsKeyword(current, "void")) void_count++;
+			else break;
+			if (!IsKeyword(current, "const")) found_specifier = true;
+		}
+		if (!found_specifier || const_count > 1 || signed_count > 1 ||
+			unsigned_count > 1 || void_count > 1 ||
+			(signed_count && unsigned_count) || char_count > 1 ||
+			short_count > 1 || int_count > 1 || long_count > 2 ||
+			(char_count && (short_count || int_count || long_count)) ||
+			(short_count && long_count) ||
+			(void_count && (signed_count || unsigned_count || char_count ||
+				short_count || int_count || long_count))) return false;
+		type = FrontendCType();
+		type.is_void = void_count != 0;
+		type.base_qualifiers.is_const = const_count != 0;
+		type.is_signed = unsigned_count ? false :
+			(char_count && !signed_count ? target.char_is_signed : true);
+		if (char_count) type.integer_rank = FrontendCIntegerRank::Char;
+		else if (short_count) type.integer_rank = FrontendCIntegerRank::Short;
+		else if (long_count == 1) type.integer_rank = FrontendCIntegerRank::Long;
+		else if (long_count == 2) type.integer_rank = FrontendCIntegerRank::LongLong;
+	}
+
+	while (current != end && current && current->type == tok_symbol &&
+		current->addr) {
+		stduint stars = 0;
+		while (current->addr[stars] == '*') stars++;
+		if (!stars || current->addr[stars]) break;
+		while (stars--) {
+			if (type.pointer_depth >= FrontendCType::MaxPointerDepth) return false;
+			type = type.AddressType();
+		}
+		current = current->next;
+		if (current != end && IsKeyword(current, "const")) {
+			type.pointer_qualifiers[type.pointer_depth - 1].is_const = true;
+			current = current->next;
+			if (current != end && IsKeyword(current, "const")) return false;
+		}
+	}
+	return current == end;
+}
+
 void FrontendCDebugInfo::Add(const uni::Nnode* node, const uni::String& text) {
 	FrontendCDebugSource source;
 	source.node = node;

@@ -62,6 +62,8 @@ typedef bool (*ParseOperatorFunction_t)(uni::Nnode*, uni::NnodeChain*, bool&);
 
 inline static bool should_divide_unary_symbol(uni::Nnode* crt, const char* idx, const uni::TokenOperator* op, bool op_suffix) {
 	if (!crt || !crt->addr || !idx || !op) return false;
+	// Logical AND must remain intact when unary address-of is parsed first.
+	if (!StrCompare(op->idnop, "&") && !StrCompare(crt->addr, "&&")) return false;
 	stduint width = StrLength(op->idnop);
 	stduint slen = StrLength(crt->addr);
 	stduint offset = idx - crt->addr;
@@ -133,8 +135,12 @@ static bool ParseOperatorGroup(uni::Nnode*& head, uni::NnodeChain* nc, uni::Toke
 						if (c && ascii_ispunct(c)) pass_divsym = true;
 					}
 					if (!pass_divsym) {
-						nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
-						cont = false;
+						if (condi != 1 || should_divide_unary_symbol(
+							crt, idx, tmpop, op_suffix)) {
+							nc->DivideSymbols(crt, StrLength(tmpop->idnop), idx - crt->addr);
+							cont = false;
+						}
+						else tmpop++;
 					}
 					else {
 						// For unary groups, only split when the matched operator sits on the

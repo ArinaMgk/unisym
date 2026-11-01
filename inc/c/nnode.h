@@ -265,7 +265,7 @@ protected:
 struct TokenOperator {
 	const char* idnop;
 	const char* ident;
-	_tok_bindfunc_t bindfn;
+	_tok_bindfunc_t bindfn = nullptr;
 };
 
 class TokenOperatorGroup {

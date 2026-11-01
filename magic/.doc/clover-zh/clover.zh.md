@@ -198,6 +198,18 @@ ult ule ugt uge
 - `zext`：零扩展。
 - `sext`：符号扩展。
 
+#### 整数与指针转换
+
+```clover
+%address = inttoptr i64 %integer to ptr
+%integer = ptrtoint ptr %address to i64
+```
+
+- `inttoptr`：把整数位模式转换为目标地址；前端应先把整数调整到目标指针位宽。
+- `ptrtoint`：把地址位模式转换为指定宽度的整数，目标较窄时保留低位。
+
+这两条指令明确表达地址空间与整数域之间的转换，不能使用 `mov` 代替。
+
 #### 控制流
 
 ```clover

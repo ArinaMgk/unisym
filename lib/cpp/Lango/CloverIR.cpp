@@ -190,6 +190,14 @@ namespace clover {
 				PrintValue(output, instruction.operands.begin()[0]);
 				output.OutFormat(" to %s\n", TypeName(instruction.type));
 				break;
+			case Opcode::IntToPtr:
+			case Opcode::PtrToInt:
+				output.OutFormat("%s %s ",
+					instruction.opcode == Opcode::IntToPtr ? "inttoptr" : "ptrtoint",
+					TypeName(instruction.operands.begin()[0].type));
+				PrintValue(output, instruction.operands.begin()[0]);
+				output.OutFormat(" to %s\n", TypeName(instruction.type));
+				break;
 			case Opcode::GlobalAddr:
 				output.OutFormat("globaladdr @%s\n", instruction.name.reference());
 				break;
@@ -588,6 +596,26 @@ namespace clover {
 						return Error("invalid integer conversion instruction");
 					if (operand.type != source_type)
 						return Error("integer conversion source type does not match value");
+					instruction.operands.Append(operand);
+					instruction.result.type = instruction.type;
+				}
+				else if (!StrCompare(operation.reference(), "inttoptr") ||
+					!StrCompare(operation.reference(), "ptrtoint")) {
+					bool integer_to_pointer = !StrCompare(
+						operation.reference(), "inttoptr");
+					instruction.opcode = integer_to_pointer ?
+						Opcode::IntToPtr : Opcode::PtrToInt;
+					Type source_type;
+					Value operand;
+					if (!has_result || !ReadType(source_type) || !ReadValue(operand) ||
+						!Expect("to") || !ReadType(instruction.type))
+						return Error("invalid pointer conversion instruction");
+					if (operand.type != source_type ||
+						(integer_to_pointer &&
+							(!IsIntegerType(source_type) || instruction.type != Type::Ptr)) ||
+						(!integer_to_pointer &&
+							(source_type != Type::Ptr || !IsIntegerType(instruction.type))))
+						return Error("pointer conversion type mismatch");
 					instruction.operands.Append(operand);
 					instruction.result.type = instruction.type;
 				}

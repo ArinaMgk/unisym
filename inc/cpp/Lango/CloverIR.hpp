@@ -64,6 +64,8 @@ enum class Opcode {
 	ZExt,  // Zero-extension to a wider integer type.
 	SExt,  // Sign-extension to a wider integer type.
 	Trunc, // Truncate an integer to a narrower integer type.
+	IntToPtr, // Convert an integer bit pattern to a pointer value.
+	PtrToInt, // Convert a pointer bit pattern to an integer value.
 	GlobalAddr, // Produce the address of a named module global object.
 	Call,  // Call a named function and produce its return value.
 	Jmp,   // Unconditional or condition-selected basic-block transfer.

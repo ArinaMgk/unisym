@@ -11,6 +11,12 @@
 - 支持局部及全局变量、词法作用域、指针、取地址、解引用、指针算术、字符串和
   单维/多维数组。
 - 支持函数定义与调用、return、if/else、while、for、空语句和逗号运算符。
+- 支持整数一元 `!`、`~`，前后缀 `++`、`--`，以及算术、余数、移位和位运算的
+  复合赋值；指针支持 `+=`、`-=`。复合赋值只求值左值一次。
+- 支持具有短路副作用语义的 `&&`、`||`，以及右结合的条件运算符 `?:`；当前通过
+  隐藏 local 汇合分支结果，尚未要求 Clover IR 提供 `phi`。
+- 支持 C99 显式标量转换：整数宽度/符号转换、指针间转换、整数与指针互转及
+  转换为 `void`。整数转指针会先按源整数的符号属性扩展到目标指针位宽。
 - 支持 struct/union 的 ABI 布局、嵌套成员、成员数组、记录数组、`.`、`->` 和
   对应的 `sizeof`；聚合初始化、整体赋值和按值传参/返回尚未实现。
 - 支持 record 前向声明、指针成员和自引用结构。
@@ -19,6 +25,20 @@
   标准关键字。
 - C 左值会跟踪已知字节对齐，并写入 Clover `load/store align N`，供目标后端判断
   是否可以直接访问。
+
+## C前端架构规划
+
+- `Frontend-c.cpp`：C 前端入口、词法分析和各分析阶段调度。
+- `Frontend-c-operator.cpp`：C 运算符分级、cast 识别和条件运算符整理。
+- `Frontend-c-statement.cpp`：语句分类与基础语义分析；以后可继续按声明、record
+  和类型处理拆分。
+- `Frontend-c-clover.cpp`：Clover lowering 总入口，以及翻译单元、函数和全局符号组织。
+- `Frontend-c-clover-expression.cpp`：表达式、调用、数组、成员访问和运算符 lowering。
+- `Frontend-c-clover-statement.cpp`：局部声明、作用域和控制流 lowering。
+- `Frontend-c-clover-type.cpp`：表达式类型推导、整数提升和类型转换。
+- `Frontend-c-clover-literal.cpp`：整数与字符串字面量解析，以及字符串常量生成。
+- Clover lowering 的共享内部声明统一放在
+  `inc/cpp/Lango/Frontend/C/Frontend-c-clover-internal.hpp`，不放入 `lib/cpp`。
 
 ## 后端
 

@@ -481,6 +481,7 @@ namespace uni::lango {
 				case clover::Type::I32: output.OutFormat("\tlw t1, 0(t0)\n"); break;
 				case clover::Type::I64:
 				case clover::Type::Ptr: output.OutFormat("\tld t1, 0(t0)\n"); break;
+				default: break;
 				}
 				return StoreResult(layout, instruction, "t1", output);
 
@@ -498,6 +499,7 @@ namespace uni::lango {
 				case clover::Type::I32: output.OutFormat("\tsw t0, 0(t1)\n"); break;
 				case clover::Type::I64:
 				case clover::Type::Ptr: output.OutFormat("\tsd t0, 0(t1)\n"); break;
+				default: break;
 				}
 				return true;
 
@@ -595,6 +597,26 @@ namespace uni::lango {
 			case clover::Opcode::Trunc:
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
+				switch (TypeBits(instruction.type, target)) {
+				case 1: output.OutFormat("\tandi t0, t0, 1\n"); break;
+				case 8: output.OutFormat("\tandi t0, t0, 255\n"); break;
+				case 16: output.OutFormat("\tslli t0, t0, 48\n\tsrli t0, t0, 48\n"); break;
+				case 32: output.OutFormat("\tslli t0, t0, 32\n\tsrli t0, t0, 32\n"); break;
+				}
+				return StoreResult(layout, instruction, "t0", output);
+
+			case clover::Opcode::IntToPtr:
+				if (!RequireOperands(instruction, 1) ||
+					instruction.type != clover::Type::Ptr ||
+					!LoadValue(layout, instruction.operands.begin()[0], "t0", output))
+					return false;
+				return StoreResult(layout, instruction, "t0", output);
+
+			case clover::Opcode::PtrToInt:
+				if (!RequireOperands(instruction, 1) ||
+					instruction.operands.begin()[0].type != clover::Type::Ptr ||
+					!LoadValue(layout, instruction.operands.begin()[0], "t0", output))
+					return false;
 				switch (TypeBits(instruction.type, target)) {
 				case 1: output.OutFormat("\tandi t0, t0, 1\n"); break;
 				case 8: output.OutFormat("\tandi t0, t0, 255\n"); break;

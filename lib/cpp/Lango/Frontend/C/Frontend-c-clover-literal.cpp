@@ -107,6 +107,7 @@ namespace clover::frontend_c_internal {
 		unsigned IntegerBits(FrontendCIntegerRank rank,
 			const FrontendCTargetInfo& target) {
 			switch (rank) {
+			case FrontendCIntegerRank::Bool: return 1;
 			case FrontendCIntegerRank::Char: return target.char_bits;
 			case FrontendCIntegerRank::Short: return target.short_bits;
 			case FrontendCIntegerRank::Int: return target.int_bits;
@@ -299,4 +300,9 @@ bool uni::lango::frontend_c_detail::ParseIntegerLiteral(const char* text,
 	const FrontendCTargetInfo& target, stdsint& value, FrontendCType& type) {
 	return clover::frontend_c_internal::ParseIntegerLiteral(
 		text, target, value, type);
+}
+
+bool uni::lango::frontend_c_detail::ParseCharacterLiteral(const char* text,
+	const FrontendCTargetInfo& target, stdsint& value) {
+	return clover::frontend_c_internal::ParseCharacterLiteral(text, target, value);
 }

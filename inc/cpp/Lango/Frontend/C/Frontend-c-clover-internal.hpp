@@ -68,6 +68,13 @@ struct FrontendCGlobal {
 	stduint alignment = 0;
 };
 
+// One block-scope enumerator activated in source order while lowering a function.
+struct FrontendCLocalConstant {
+	const FrontendCEnumerator* constant = nullptr;
+	const uni::Nnode* scope = nullptr;
+	bool active = false;
+};
+
 stduint GreatestCommonDivisor(stduint left, stduint right);
 bool ParseIntegerLiteral(const char* text, stdsint& value);
 bool ParseIntegerLiteral(const char* text, const FrontendCTargetInfo& target,
@@ -87,9 +94,11 @@ private:
 	unsigned next_block = 0;
 	unsigned next_value = 0;
 	uni::Vector<LocalValue> locals;
+	uni::Vector<FrontendCLocalConstant> local_constants;
 	uni::Vector<const uni::Nnode*> emitted_sources;
 	const uni::Vector<FrontendCFunction>* visible_functions = nullptr;
 	const uni::Vector<FrontendCGlobal>* visible_globals = nullptr;
+	const uni::Vector<FrontendCEnumerator>* visible_constants = nullptr;
 	const FrontendCTargetInfo* target = nullptr;
 	const FrontendCTypeInfo* type_info = nullptr;
 	const FrontendCDebugInfo* debug_info = nullptr;
@@ -153,6 +162,8 @@ private:
 	LocalValue* FindLocal(const char* name);
 	const FrontendCFunction* FindFunction(const char* name) const;
 	const FrontendCGlobal* FindGlobal(const char* name) const;
+	const FrontendCEnumerator* FindConstant(const char* name) const;
+	bool ActivateEnum(const uni::Nnode* declaration, const uni::Nnode* scope);
 	Value EmitGlobalAddress(const uni::String& name);
 	Value EmitGlobalAddress(const FrontendCGlobal& global);
 	LoweredValue LowerStringLiteral(uni::Nnode* node);
@@ -232,6 +243,7 @@ public:
 	FunctionBuilder(Module& output_module, Function& function,
 		const uni::Vector<FrontendCFunction>& functions,
 		const uni::Vector<FrontendCGlobal>& globals,
+		const uni::Vector<FrontendCEnumerator>& constants,
 		const FrontendCType& function_return_type,
 		const FrontendCTargetInfo& target_info,
 		const FrontendCTypeInfo& semantic_types,

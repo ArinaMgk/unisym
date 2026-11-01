@@ -26,6 +26,13 @@ namespace clover {
 	using namespace frontend_c_internal;
 
 	namespace {
+		const FrontendCEnumerator* FindConstant(
+			const uni::Vector<FrontendCEnumerator>& constants, const char* name) {
+			for (const FrontendCEnumerator& constant : constants)
+				if (!StrCompare(constant.name.reference(), name)) return &constant;
+			return nullptr;
+		}
+
 		bool ParseGlobalDeclaratorNode(uni::Nnode* node, uni::Nnode*& identifier,
 			FrontendCType& type) {
 			if (!node) return false;
@@ -53,7 +60,8 @@ namespace clover {
 		}
 
 		bool ParseGlobalConstant(uni::Nnode* node,
-			const FrontendCTargetInfo& target, stdsint& value) {
+			const FrontendCTargetInfo& target,
+			const uni::Vector<FrontendCEnumerator>& constants, stdsint& value) {
 			if (!node) return false;
 			if (node->type == tok_number) {
 				FrontendCType type;
@@ -61,9 +69,16 @@ namespace clover {
 			}
 			if (node->type == ToToken(FrontendCToken::CharacterLiteral))
 				return ParseCharacterLiteral(node->addr, target, value);
+			if (node->type == tok_identy) {
+				const FrontendCEnumerator* constant = FindConstant(constants, node->addr);
+				if (!constant) return false;
+				value = constant->value;
+				return true;
+			}
 			if (node->type == tok_func && node->addr && node->subf &&
 				!node->subf->next && !StrCompare(node->addr, "OP@PRENEGA")) {
-				if (!ParseGlobalConstant(node->subf, target, value)) return false;
+				if (!ParseGlobalConstant(
+					node->subf, target, constants, value)) return false;
 				value = -value;
 				return true;
 			}
@@ -72,13 +87,14 @@ namespace clover {
 
 		bool LowerGlobalDeclarator(uni::Nnode* node, const FrontendCType& base_type,
 			Module& module, uni::Vector<FrontendCGlobal>& globals,
+			const uni::Vector<FrontendCEnumerator>& constants,
 			const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
 			const FrontendCDiagnostics& diagnostics, const uni::Nnode* declaration) {
 			if (node && node->type == tok_func && node->addr &&
 				!StrCompare(node->addr, "OP@COMMA")) {
 				for (uni::Nnode* child = node->subf; child; child = child->next)
 					if (!LowerGlobalDeclarator(child, base_type, module, globals,
-						target, type_info, diagnostics, declaration)) return false;
+						constants, target, type_info, diagnostics, declaration)) return false;
 				return true;
 			}
 			uni::Nnode* declarator = node;
@@ -105,22 +121,35 @@ namespace clover {
 					"global record objects are not supported yet", identifier);
 				return false;
 			}
+			if (type.enum_id && !type.IsPointer() &&
+				!type_info.SizeBits(type, target)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"global object has incomplete enum type", identifier);
+				return false;
+			}
 			for (const FrontendCGlobal& previous : globals)
 				if (!StrCompare(previous.name.reference(), identifier->addr)) {
 					diagnostics.Report(DiagnosticStage::Semantic,
 						"redefinition of global variable", identifier);
 					return false;
 				}
+			if (FindConstant(constants, identifier->addr)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"global variable conflicts with enumerator", identifier);
+				return false;
+			}
 			Global global;
 			global.name = identifier->addr;
 			global.type = CloverTypeFor(type, target);
 			global.element_count = (stdsint)type.StorageElementCount();
 			if (initializer_node && !ParseGlobalConstant(
-				initializer_node, target, global.initializer)) {
+				initializer_node, target, constants, global.initializer)) {
 				diagnostics.Report(DiagnosticStage::Lowering,
 					"global initializer must be an integer constant", initializer_node);
 				return false;
 			}
+			if (type.integer_rank == FrontendCIntegerRank::Bool && !type.enum_id)
+				global.initializer = global.initializer != 0;
 			module.globals.Append(global);
 			FrontendCGlobal frontend_global;
 			frontend_global.name = identifier->addr;
@@ -152,8 +181,43 @@ namespace clover {
 		}
 		uni::Vector<FrontendCFunction> visible_functions;
 		uni::Vector<FrontendCGlobal> visible_globals;
+		uni::Vector<FrontendCEnumerator> visible_constants;
 		unsigned next_string_literal = 0;
 		for (uni::Nnode* node = syntax_tree.Root(); node;) {
+			if (node->type == ToToken(FrontendCToken::EnumDeclaration)) {
+				node = node->next;
+				continue;
+			}
+			if (node->type == ToToken(FrontendCToken::EnumDefinition)) {
+				const FrontendCEnum* enumeration = nullptr;
+				for (const FrontendCEnum& candidate : type_info.enums)
+					if (candidate.declaration == node) {
+						enumeration = &candidate;
+						break;
+					}
+				if (!enumeration || !enumeration->complete) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"incomplete enum definition", node);
+					return false;
+				}
+				for (const FrontendCEnumerator& enumerator : enumeration->enumerators) {
+					for (const FrontendCGlobal& global : visible_globals)
+						if (!StrCompare(global.name.reference(), enumerator.name.reference())) {
+							diagnostics.Report(DiagnosticStage::Semantic,
+								"enumerator conflicts with global variable", enumerator.declaration);
+							return false;
+						}
+					for (const FrontendCFunction& function : visible_functions)
+						if (!StrCompare(function.name.reference(), enumerator.name.reference())) {
+							diagnostics.Report(DiagnosticStage::Semantic,
+								"enumerator conflicts with function", enumerator.declaration);
+							return false;
+						}
+					visible_constants.Append(enumerator);
+				}
+				node = node->next;
+				continue;
+			}
 			if (node->type == ToToken(FrontendCToken::RecordDeclaration) ||
 				node->type == ToToken(FrontendCToken::RecordDefinition)) {
 					node = node->next;
@@ -162,7 +226,8 @@ namespace clover {
 			if (node->type == ToToken(FrontendCToken::GlobalDeclaration)) {
 				const FrontendCType* base_type = type_info.Find(node);
 				if (!base_type || !LowerGlobalDeclarator(node->subf, *base_type,
-					module, visible_globals, target, type_info, diagnostics, node)) return false;
+					module, visible_globals, visible_constants,
+					target, type_info, diagnostics, node)) return false;
 				node = node->next;
 				continue;
 			}
@@ -186,6 +251,11 @@ namespace clover {
 						"function conflicts with global variable", node);
 					return false;
 				}
+			if (FindConstant(visible_constants, node->addr)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"function conflicts with enumerator", node);
+				return false;
+			}
 
 			Function function;
 			function.name = node->addr;
@@ -193,6 +263,12 @@ namespace clover {
 			if (!function_return_type) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"missing function return type", node);
+				return false;
+			}
+			if (function_return_type->enum_id && !function_return_type->IsPointer() &&
+				!type_info.SizeBits(*function_return_type, target)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"function returns incomplete enum type", node);
 				return false;
 			}
 			function.return_type = CloverTypeFor(*function_return_type, target);
@@ -213,6 +289,12 @@ namespace clover {
 						"missing function parameter type", parameter_node);
 					return false;
 				}
+				if (parameter_type->enum_id && !parameter_type->IsPointer() &&
+					!type_info.SizeBits(*parameter_type, target)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"parameter has incomplete enum type", parameter_node);
+					return false;
+				}
 				signature.parameter_types.Append(*parameter_type);
 				Parameter parameter;
 				parameter.name = parameter_node->addr;
@@ -222,6 +304,7 @@ namespace clover {
 			}
 			visible_functions.Append(signature);
 			FunctionBuilder builder(module, function, visible_functions, visible_globals,
+				visible_constants,
 				*function_return_type,
 				target, type_info, diagnostics, debug_info, next_string_literal,
 				debug_file_id);

@@ -32,6 +32,13 @@ namespace clover::frontend_c_internal {
 				failed = true;
 				return false;
 			}
+		if (type.enum_id && !type.IsPointer() &&
+			!type_info->SizeBits(type, *target)) {
+			diagnostics->Report(DiagnosticStage::Semantic,
+				"object has incomplete enum type", declaration);
+			failed = true;
+			return false;
+		}
 		Instruction instruction;
 		instruction.opcode = Opcode::Local;
 	if (type.record_id && !type.IsPointer()) {
@@ -143,6 +150,15 @@ namespace clover::frontend_c_internal {
 		for (LocalValue& local : locals) {
 			if (local.declaration == declaration &&
 				!StrCompare(local.name.reference(), name)) {
+				for (const FrontendCLocalConstant& constant : local_constants)
+					if (constant.active && constant.scope == local.scope &&
+						constant.constant && !StrCompare(
+							constant.constant->name.reference(), name)) {
+						diagnostics->Report(DiagnosticStage::Semantic,
+							"local variable conflicts with enumerator", declaration);
+						failed = true;
+						return nullptr;
+					}
 				local.active = true;
 				return &local;
 			}
@@ -219,7 +235,8 @@ namespace clover::frontend_c_internal {
 			declared_type, *base_type))
 			return Error("invalid declarator", declarator).valid;
 		LocalValue* local = ActivateLocal(identifier->addr, declaration);
-		if (!local) return Error("invalid local declaration", identifier).valid;
+		if (!local) return failed ? false :
+			Error("invalid local declaration", identifier).valid;
 		if (!initializer_node) return true;
 		if (local->type.record_id && !local->type.IsPointer())
 			return Error("record initialization is not supported yet", initializer_node).valid;
@@ -240,11 +257,39 @@ namespace clover::frontend_c_internal {
 	void FunctionBuilder::LeaveScope(const uni::Nnode* block) {
 		for (LocalValue& local : locals)
 			if (local.scope == block) local.active = false;
+		for (FrontendCLocalConstant& constant : local_constants)
+			if (constant.scope == block) constant.active = false;
+	}
+
+	bool FunctionBuilder::ActivateEnum(
+		const uni::Nnode* declaration, const uni::Nnode* scope) {
+		const FrontendCEnum* enumeration = nullptr;
+		for (const FrontendCEnum& candidate : type_info->enums)
+			if (candidate.declaration == declaration) {
+				enumeration = &candidate;
+				break;
+			}
+		if (!enumeration || !enumeration->complete)
+			return Error("incomplete enum definition", declaration).valid;
+		for (const FrontendCEnumerator& enumerator : enumeration->enumerators) {
+			for (const LocalValue& local : locals)
+				if (local.active && local.scope == scope &&
+					!StrCompare(local.name.reference(), enumerator.name.reference()))
+					return Error("enumerator conflicts with local variable",
+						enumerator.declaration).valid;
+			FrontendCLocalConstant constant;
+			constant.constant = &enumerator;
+			constant.scope = scope;
+			constant.active = true;
+			local_constants.Append(constant);
+		}
+		return true;
 	}
 
 	FunctionBuilder::FunctionBuilder(Module& output_module, Function& function,
 		const uni::Vector<FrontendCFunction>& functions,
 		const uni::Vector<FrontendCGlobal>& globals,
+		const uni::Vector<FrontendCEnumerator>& constants,
 		const FrontendCType& function_return_type,
 		const FrontendCTargetInfo& target_info,
 		const FrontendCTypeInfo& semantic_types,
@@ -254,6 +299,7 @@ namespace clover::frontend_c_internal {
 		: module(&output_module), function(&function), return_type(function_return_type),
 			next_value(function.parameters.Count()),
 			visible_functions(&functions), visible_globals(&globals),
+			visible_constants(&constants),
 			target(&target_info), type_info(&semantic_types),
 			debug_info(debug_information),
 			diagnostics(&diagnostic_output),
@@ -403,6 +449,10 @@ namespace clover::frontend_c_internal {
 		if (!node) return Error("missing statement", node).valid;
 
 		if (node->type == ToToken(FrontendCToken::Empty)) return true;
+		if (node->type == ToToken(FrontendCToken::EnumDeclaration)) return true;
+		if (node->type == ToToken(FrontendCToken::EnumDefinition))
+			return ActivateEnum(node,
+				const_cast<uni::Nnode*>(node)->getParent());
 		if (node->type == ToToken(FrontendCToken::Else))
 			return Error("else has no matching if", node).valid;
 		if (node->type == ToToken(FrontendCToken::If)) {

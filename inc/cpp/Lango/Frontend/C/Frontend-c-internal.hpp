@@ -35,6 +35,8 @@ enum class FrontendCToken : stduint {
 	GlobalDeclaration,        // Translation-unit object declaration.
 	RecordDeclaration,        // Translation-unit struct or union forward declaration.
 	RecordDefinition,         // Translation-unit struct or union type definition.
+	EnumDeclaration,          // Enumeration tag declaration without an enumerator list.
+	EnumDefinition,           // Translation-unit enumeration type definition.
 	If,                       // If statement with its condition as children.
 	Else,                     // Else marker paired by statement composition.
 	While,                    // While loop with its condition as children.
@@ -48,6 +50,7 @@ enum class FrontendCToken : stduint {
 
 // Relative rank used by the C99 integer promotions and conversions.
 enum class FrontendCIntegerRank {
+	Bool,     // C99 _Bool.
 	Char,     // char, signed char, or unsigned char.
 	Short,    // short int or unsigned short int.
 	Int,      // int or unsigned int.
@@ -68,8 +71,10 @@ struct FrontendCType {
 	FrontendCIntegerRank integer_rank = FrontendCIntegerRank::Int;
 	bool is_signed = true;
 	bool is_void = false;
+	bool is_incomplete = false; // The enum tag was incomplete at this use location.
 	FrontendCTypeQualifier base_qualifiers;
 	stduint record_id = 0; // One-based identity in FrontendCTypeInfo::records; zero is scalar.
+	stduint enum_id = 0; // One-based identity in FrontendCTypeInfo::enums; zero is not enum.
 	unsigned pointer_depth = 0;
 	FrontendCTypeQualifier pointer_qualifiers[MaxPointerDepth] = {};
 	stduint array_dimension_count = 0;
@@ -81,12 +86,16 @@ struct FrontendCType {
 	bool IsRecord() const {
 		return record_id != 0 && pointer_depth == 0 && !array_dimension_count;
 	}
+	bool IsEnum() const {
+		return enum_id != 0 && pointer_depth == 0 && !array_dimension_count;
+	}
 	bool IsInteger() const {
 		return !is_void && !record_id && pointer_depth == 0 && !array_dimension_count;
 	}
 	bool HasSameShape(const FrontendCType& other) const {
 		if (integer_rank != other.integer_rank || is_signed != other.is_signed ||
 			is_void != other.is_void || record_id != other.record_id ||
+			enum_id != other.enum_id ||
 			pointer_depth != other.pointer_depth ||
 			array_dimension_count != other.array_dimension_count) return false;
 		for (stduint index = 0; index < array_dimension_count; index++)
@@ -176,6 +185,27 @@ struct FrontendCRecord {
 	bool complete = false;
 };
 
+// One enumeration constant in the ordinary C identifier namespace.
+struct FrontendCEnumerator {
+	uni::String name;
+	stdsint value = 0;
+	FrontendCType type;
+	const uni::Nnode* declaration = nullptr;
+};
+
+// One tagged C enumeration definition.
+struct FrontendCEnum {
+	uni::String tag;
+	uni::Vector<FrontendCEnumerator> enumerators;
+	const uni::Nnode* declaration = nullptr;
+	const uni::Nnode* tag_declaration = nullptr;
+	const uni::Nnode* body = nullptr;
+	const uni::Nnode* scope = nullptr;
+	FrontendCIntegerRank integer_rank = FrontendCIntegerRank::Int;
+	bool is_signed = true;
+	bool complete = false;
+};
+
 // Associates normalized syntax nodes with their C types without extending Nnode.
 struct FrontendCTypedNode {
 	const uni::Nnode* node = nullptr;
@@ -186,12 +216,19 @@ struct FrontendCTypedNode {
 struct FrontendCTypeInfo {
 	uni::Vector<FrontendCTypedNode> nodes;
 	uni::Vector<FrontendCRecord> records;
+	uni::Vector<FrontendCEnum> enums;
 
 	void Add(const uni::Nnode* node, const FrontendCType& type);
 	const FrontendCType* Find(const uni::Nnode* node) const;
 	stduint FindRecord(const char* tag) const;
 	const FrontendCRecord* GetRecord(stduint record_id) const;
 	FrontendCRecord* GetRecord(stduint record_id);
+	stduint FindEnum(const char* tag, const uni::Nnode* use = nullptr) const;
+	stduint FindEnumInScope(const char* tag, const uni::Nnode* scope) const;
+	const FrontendCEnum* GetEnum(stduint enum_id) const;
+	FrontendCEnum* GetEnum(stduint enum_id);
+	const FrontendCEnumerator* FindEnumerator(
+		const char* name, const uni::Nnode* use) const;
 	stduint SizeBits(const FrontendCType& type,
 		const FrontendCTargetInfo& target) const;
 	stduint AlignBits(const FrontendCType& type,
@@ -231,6 +268,8 @@ namespace frontend_c_detail {
 	// Parse one C99 integer constant and select its target-dependent C type.
 	bool ParseIntegerLiteral(const char* text, const FrontendCTargetInfo& target,
 		stdsint& value, FrontendCType& type);
+	bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,
+		stdsint& value);
 
 	// Append each C operator stage only when its operands are ready to fold.
 	void ListPostfixOperators(uni::Chain& operators);
@@ -243,6 +282,9 @@ namespace frontend_c_detail {
 		FrontendCTypeInfo& type_info);
 	bool ParseConditionalOperators(uni::Nchain& syntax_tree,
 		const FrontendCDiagnostics& diagnostics);
+	bool FinalizeEnums(uni::Nchain& syntax_tree,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		FrontendCTypeInfo& type_info);
 	// Parse one complete C type-name without modifying its syntax nodes.
 	bool ParseTypeName(const uni::Nnode* node, FrontendCType& type,
 		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,

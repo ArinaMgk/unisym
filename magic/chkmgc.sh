@@ -30,6 +30,21 @@ check()
 	fi	
 }
 
+check_fail()
+{
+	arguments="$1"
+	expectation="$2"
+	feedback="$(mgc --emit-ir "$arguments" 2>&1)"
+	result="$?"
+	if [ "$result" != 0 ] && printf '%s' "$feedback" | grep -Fq "$expectation"; then
+		printf '\033[1;32mpassed\033[0m: rejected %s !\n' "$arguments"
+	else
+		printf '%s\n' "$feedback"
+		echo "$arguments was not rejected with: $expectation"
+		exit 1
+	fi
+}
+
 cd ../
 make magice
 cd magic
@@ -84,6 +99,8 @@ check 'int main() {int a[2][3]; a[0][1]=5; a[1][2]=7; return a[0][1]+a[1][2];}' 
 
 # Basic Types
 check 'int main() {char a=1; short b=2; long c=3; long long d=4; return a+b+c+d;}' 10
+check 'int main(){_Bool a=0,b=2,c=-3; return a+b+c+sizeof(_Bool);}' 3
+check '_Bool flag=7; _Bool pass(_Bool value){return value;} int main(){_Bool x=pass(3); return flag+x;}' 2
 check 'int main() {return sizeof(long)+sizeof(void*);}' 16 '-Fdata-model=lp64'
 check 'int main() {return sizeof(long)+sizeof(void*);}' 12 '-Fdata-model=llp64'
 check 'int main() {return sizeof(char)+sizeof(short)+sizeof(int)+sizeof(long)+sizeof(long long);}' 23
@@ -105,6 +122,13 @@ check 'int main(){return sizeof(1U)+sizeof(1L)+sizeof(1LL);}' 20 '-Fdata-model=l
 check 'int main(){return sizeof(1U)+sizeof(1L)+sizeof(1LL);}' 16 '-Fdata-model=llp64'
 check 'int main(){return (0xFFFFFFFF>0)+(18446744073709551615ULL+2);}' 2
 check 'int main(){int values[0x3U]; return sizeof(values);}' 12
+
+# Enumeration
+check '../demo/test/clover/c/enum.c' 66
+check_fail 'enum E {A}; enum E {B}; int main(){return 0;}' 'redefinition of enum tag'
+check_fail 'enum E {A,A}; int main(){return 0;}' 'redefinition of enumerator'
+check_fail 'struct E {int value;}; enum E {A}; int main(){return 0;}' 'enum tag conflicts with record tag'
+check_fail 'enum E {A}; int A; int main(){return 0;}' 'global variable conflicts with enumerator'
 
 # Structure and union layout
 check '../demo/test/clover/c/struct-layout.c' 254

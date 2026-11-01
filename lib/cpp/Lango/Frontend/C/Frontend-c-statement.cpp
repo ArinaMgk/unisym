@@ -95,21 +95,50 @@ namespace {
 		return node && node->addr && !StrCompare(node->addr, keyword);
 	}
 
+	const uni::Nnode* ParentNode(const uni::Nnode* node) {
+		return node ? const_cast<uni::Nnode*>(node)->getParent() : nullptr;
+	}
+
+	const uni::Nnode* EnclosingBlock(const uni::Nnode* node) {
+		for (const uni::Nnode* current = node; current; current = ParentNode(current))
+			if (current->type == tok_block) return current;
+		return nullptr;
+	}
+
+	bool ScopeContains(const uni::Nnode* outer, const uni::Nnode* inner) {
+		if (!outer) return true;
+		for (const uni::Nnode* scope = inner; scope;
+			scope = EnclosingBlock(ParentNode(scope)))
+			if (scope == outer) return true;
+		return false;
+	}
+
+	bool NodePrecedes(const uni::Nnode* declaration, const uni::Nnode* use) {
+		if (!declaration || !use) return true;
+		const uni::TnodeField* left =
+			const_cast<uni::Nnode*>(declaration)->GetTnodeField();
+		const uni::TnodeField* right =
+			const_cast<uni::Nnode*>(use)->GetTnodeField();
+		return left->row < right->row ||
+			(left->row == right->row && left->col <= right->col);
+	}
+
 	bool IsTypeSpecifier(const uni::Nnode* node) {
 		if (!node || node->type != tok_identy || !node->addr) return false;
 		return IsKeyword(node, "const") ||
 			IsKeyword(node, "signed") || IsKeyword(node, "unsigned") ||
+			IsKeyword(node, "_Bool") ||
 			IsKeyword(node, "char") || IsKeyword(node, "short") ||
 			IsKeyword(node, "int") || IsKeyword(node, "long") ||
 			IsKeyword(node, "void") || IsKeyword(node, "struct") ||
-			IsKeyword(node, "union");
+			IsKeyword(node, "union") || IsKeyword(node, "enum");
 	}
 
 	// Consume one C99 scalar type-specifier sequence before its declarator.
 	bool ParseTypeSpecifiers(uni::Nchain& syntax_tree, uni::Nnode*& node,
 		FrontendCType& type, const FrontendCDiagnostics& diagnostics,
 		const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info) {
-		unsigned signed_count = 0, unsigned_count = 0, char_count = 0;
+		unsigned signed_count = 0, unsigned_count = 0, bool_count = 0, char_count = 0;
 		unsigned short_count = 0, int_count = 0, long_count = 0, void_count = 0;
 		unsigned const_count = 0;
 		uni::Nnode* first = node;
@@ -119,24 +148,45 @@ namespace {
 			after_type = after_type->next;
 		}
 		bool is_union = IsKeyword(after_type, "union");
-		if (IsKeyword(after_type, "struct") || is_union) {
+		bool is_enum = IsKeyword(after_type, "enum");
+		if (IsKeyword(after_type, "struct") || is_union || is_enum) {
 			uni::Nnode* tag = after_type->next;
 			if (const_count > 1 || !tag || tag->type != tok_identy || !tag->addr) {
 				diagnostics.Report(DiagnosticStage::Parser,
-					"expected record tag", after_type);
+					is_enum ? "expected enum tag" : "expected record tag", after_type);
 				return false;
 			}
-			stduint record_id = type_info.FindRecord(tag->addr);
-			const FrontendCRecord* record = type_info.GetRecord(record_id);
-			if (!record || record->is_union != is_union) {
-				diagnostics.Report(DiagnosticStage::Semantic,
-					"use of undefined or mismatched record type", tag);
-				return false;
+			stduint type_id = is_enum ? type_info.FindEnum(tag->addr, tag) :
+				type_info.FindRecord(tag->addr);
+			if (is_enum) {
+				if (!type_id) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"use of undefined enum type", tag);
+					return false;
+				}
+			}
+			else {
+				if (type_info.FindEnum(tag->addr, tag)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"record tag is hidden by an enum tag", tag);
+					return false;
+				}
+				const FrontendCRecord* record = type_info.GetRecord(type_id);
+				if (!record || record->is_union != is_union) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"use of undefined or mismatched record type", tag);
+					return false;
+				}
 			}
 			after_type = tag->next;
 			while (node != after_type) node = syntax_tree.Remove(node);
 			type = FrontendCType();
-			type.record_id = record_id;
+			if (is_enum) {
+				type.enum_id = type_id;
+				const FrontendCEnum* enumeration = type_info.GetEnum(type_id);
+				type.is_incomplete = !enumeration || !enumeration->body;
+			}
+			else type.record_id = type_id;
 			type.base_qualifiers.is_const = const_count != 0;
 			return true;
 		}
@@ -147,6 +197,7 @@ namespace {
 			if (IsKeyword(after_type, "const")) const_count++;
 			else if (IsKeyword(after_type, "signed")) signed_count++;
 			else if (IsKeyword(after_type, "unsigned")) unsigned_count++;
+			else if (IsKeyword(after_type, "_Bool")) bool_count++;
 			else if (IsKeyword(after_type, "char")) char_count++;
 			else if (IsKeyword(after_type, "short")) short_count++;
 			else if (IsKeyword(after_type, "int")) int_count++;
@@ -156,10 +207,12 @@ namespace {
 		}
 		if (after_type == first) return false;
 		if (const_count > 1 || signed_count > 1 || unsigned_count > 1 || void_count > 1 ||
-			!(signed_count || unsigned_count || char_count || short_count ||
+			!(signed_count || unsigned_count || bool_count || char_count || short_count ||
 				int_count || long_count || void_count) ||
 			(signed_count && unsigned_count) || char_count > 1 ||
-			short_count > 1 || int_count > 1 || long_count > 2 ||
+			bool_count > 1 || short_count > 1 || int_count > 1 || long_count > 2 ||
+			(bool_count && (signed_count || unsigned_count || char_count ||
+				short_count || int_count || long_count || void_count)) ||
 			(char_count && (short_count || int_count || long_count)) ||
 			(short_count && long_count) ||
 			(void_count && (signed_count || unsigned_count || char_count ||
@@ -174,7 +227,11 @@ namespace {
 		type.base_qualifiers.is_const = const_count != 0;
 		type.is_signed = unsigned_count ? false :
 			(char_count && !signed_count ? target.char_is_signed : true);
-		if (char_count) type.integer_rank = FrontendCIntegerRank::Char;
+		if (bool_count) {
+			type.integer_rank = FrontendCIntegerRank::Bool;
+			type.is_signed = false;
+		}
+		else if (char_count) type.integer_rank = FrontendCIntegerRank::Char;
 		else if (short_count) type.integer_rank = FrontendCIntegerRank::Short;
 		else if (long_count == 1) type.integer_rank = FrontendCIntegerRank::Long;
 		else if (long_count == 2) type.integer_rank = FrontendCIntegerRank::LongLong;
@@ -302,6 +359,74 @@ namespace {
 			tag && tag->type == tok_identy && tag->addr && !tag->next;
 	}
 
+	bool IsEnumDefinition(const uni::Nnode* statement) {
+		const uni::Nnode* keyword = statement ? statement->subf : nullptr;
+		const uni::Nnode* tag = keyword ? keyword->next : nullptr;
+		const uni::Nnode* body = tag ? tag->next : nullptr;
+		return IsKeyword(keyword, "enum") && tag && tag->type == tok_identy &&
+			tag->addr && body && body->type == tok_block;
+	}
+
+	bool IsEnumForwardDeclaration(const uni::Nnode* statement) {
+		const uni::Nnode* keyword = statement ? statement->subf : nullptr;
+		const uni::Nnode* tag = keyword ? keyword->next : nullptr;
+		return IsKeyword(keyword, "enum") && tag && tag->type == tok_identy &&
+			tag->addr && !tag->next;
+	}
+
+	bool PrepareEnumStatement(uni::Nchain& syntax_tree, uni::Nnode* statement,
+		const uni::Nnode* scope, bool global,
+		const FrontendCDiagnostics& diagnostics, FrontendCTypeInfo& type_info) {
+		uni::Nnode* keyword = statement ? statement->subf : nullptr;
+		uni::Nnode* tag = keyword ? keyword->next : nullptr;
+		if (!tag || !tag->addr) return false;
+		uni::Nnode* body = tag->next && tag->next->type == tok_block ?
+			tag->next : nullptr;
+		stduint enum_id = type_info.FindEnumInScope(tag->addr, scope);
+		FrontendCEnum* enumeration = type_info.GetEnum(enum_id);
+		if (!scope && type_info.FindRecord(tag->addr)) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"enum tag conflicts with record tag", tag);
+			return false;
+		}
+		if (body && enumeration && enumeration->body) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"redefinition of enum tag", tag);
+			return false;
+		}
+		if (!enumeration) {
+			FrontendCEnum declaration;
+			declaration.tag = tag->addr;
+			declaration.scope = scope;
+			declaration.tag_declaration = statement;
+			type_info.enums.Append(declaration);
+			enum_id = type_info.enums.Count();
+			enumeration = type_info.GetEnum(enum_id);
+		}
+		if (!body) {
+			statement->type = ToToken(FrontendCToken::EnumDeclaration);
+			if (!enumeration->declaration) enumeration->declaration = statement;
+			return true;
+		}
+
+		uni::Nnode* marker = statement;
+		if (body->next) {
+			uni::Nnode* declarator = body->next;
+			uni::Nnode* declaration = syntax_tree.Append(nullptr, false, statement);
+			*declaration->GetTnodeField() = *statement->GetTnodeField();
+			syntax_tree.Adopt(declaration, declarator, declarator->Tail(), false);
+			declaration->type = ToToken(global ? FrontendCToken::GlobalDeclaration :
+				FrontendCToken::Declaration);
+			FrontendCType type;
+			type.enum_id = enum_id;
+			type_info.Add(declaration, type);
+		}
+		marker->type = ToToken(FrontendCToken::EnumDefinition);
+		enumeration->declaration = marker;
+		enumeration->body = body;
+		return true;
+	}
+
 	bool ParseRecordAlignment(const uni::Nnode* modifier,
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 		stduint& align_bits) {
@@ -383,6 +508,11 @@ namespace {
 		uni::Nnode* keyword = statement->subf;
 		uni::Nnode* tag = keyword->next;
 		bool is_union = IsKeyword(keyword, "union");
+		if (type_info.FindEnum(tag->addr)) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record tag conflicts with enum tag", tag);
+			return false;
+		}
 		stduint record_id = type_info.FindRecord(tag->addr);
 		FrontendCRecord* record = type_info.GetRecord(record_id);
 		if (record && record->is_union != is_union) {
@@ -442,6 +572,11 @@ namespace {
 		uni::Nnode* tag = keyword->next;
 		uni::Nnode* body = tag->next;
 		bool is_union = IsKeyword(keyword, "union");
+		if (type_info.FindEnum(tag->addr)) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record tag conflicts with enum tag", tag);
+			return false;
+		}
 		stduint record_id = type_info.FindRecord(tag->addr);
 		FrontendCRecord* record = type_info.GetRecord(record_id);
 		if (record && record->is_union != is_union) {
@@ -599,6 +734,13 @@ namespace {
 		}
 
 		for (uni::Nnode* node = block->subf; node; node = node->next) {
+			if (node->type == ToToken(FrontendCToken::Declaration)) {
+				SaveStatementSource(debug_info, node);
+				MarkPrefixKeywords(node->subf);
+				continue;
+			}
+			if (node->type == ToToken(FrontendCToken::EnumDeclaration) ||
+				node->type == ToToken(FrontendCToken::EnumDefinition)) continue;
 			if (node->type == tok_block) {
 				if (!PrepareBlock(syntax_tree, node, diagnostics, target, type_info, debug_info)) return false;
 				continue;
@@ -622,6 +764,11 @@ namespace {
 			SaveStatementSource(debug_info, node);
 			if (!node->subf) {
 				node->type = ToToken(FrontendCToken::Empty);
+				continue;
+			}
+			if (IsEnumDefinition(node) || IsEnumForwardDeclaration(node)) {
+				if (!PrepareEnumStatement(syntax_tree, node, block, false,
+					diagnostics, type_info)) return false;
 				continue;
 			}
 			if (IsRecordDefinition(node)) {
@@ -676,6 +823,8 @@ namespace {
 				node->type == ToToken(FrontendCToken::While) ||
 				node->type == ToToken(FrontendCToken::For) ||
 				node->type == ToToken(FrontendCToken::Empty) ||
+				node->type == ToToken(FrontendCToken::EnumDeclaration) ||
+				node->type == ToToken(FrontendCToken::EnumDefinition) ||
 				node->type == ToToken(FrontendCToken::Declaration)) continue;
 			else if (node->type == ToToken(FrontendCToken::Return) &&
 				(!node->subf || node->subf->next)) {
@@ -719,9 +868,10 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 	}
 
 	bool is_union = IsKeyword(current, "union");
-	if (IsKeyword(current, "struct") || is_union) {
+	bool is_enum = IsKeyword(current, "enum");
+	if (IsKeyword(current, "struct") || is_union || is_enum) {
 		const uni::Nnode* tag = current->next;
-		if (tag && tag != end && tag->next == end && tag->type == tok_func &&
+		if (!is_enum && tag && tag != end && tag->next == end && tag->type == tok_func &&
 			tag->addr && !StrCompare(tag->addr, "operator[]")) {
 			const uni::Nnode* tag_name = tag->subf;
 			const uni::Nnode* dimension = tag_name ? tag_name->next : nullptr;
@@ -742,11 +892,24 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 		}
 		if (const_count > 1 || !tag || tag == end ||
 			tag->type != tok_identy || !tag->addr) return false;
-		stduint record_id = type_info.FindRecord(tag->addr);
-		const FrontendCRecord* record = type_info.GetRecord(record_id);
-		if (!record || record->is_union != is_union) return false;
 		type = FrontendCType();
-		type.record_id = record_id;
+		if (is_enum) {
+			type.enum_id = type_info.FindEnum(tag->addr, tag);
+			if (!type.enum_id) return false;
+			const FrontendCEnum* enumeration = type_info.GetEnum(type.enum_id);
+			type.is_incomplete = !enumeration || !enumeration->body ||
+				!NodePrecedes(enumeration->declaration, tag);
+			if (enumeration && enumeration->complete) {
+				type.integer_rank = enumeration->integer_rank;
+				type.is_signed = enumeration->is_signed;
+			}
+		}
+		else {
+			if (type_info.FindEnum(tag->addr, tag)) return false;
+			type.record_id = type_info.FindRecord(tag->addr);
+			const FrontendCRecord* record = type_info.GetRecord(type.record_id);
+			if (!record || record->is_union != is_union) return false;
+		}
 		type.base_qualifiers.is_const = const_count != 0;
 		current = tag->next;
 		while (current != end && IsKeyword(current, "const")) {
@@ -756,7 +919,7 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 		}
 	}
 	else {
-		unsigned signed_count = 0, unsigned_count = 0, char_count = 0;
+		unsigned signed_count = 0, unsigned_count = 0, bool_count = 0, char_count = 0;
 		unsigned short_count = 0, int_count = 0, long_count = 0, void_count = 0;
 		bool found_specifier = false;
 		const_count = 0;
@@ -766,6 +929,7 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 			if (IsKeyword(current, "const")) const_count++;
 			else if (IsKeyword(current, "signed")) signed_count++;
 			else if (IsKeyword(current, "unsigned")) unsigned_count++;
+			else if (IsKeyword(current, "_Bool")) bool_count++;
 			else if (IsKeyword(current, "char")) char_count++;
 			else if (IsKeyword(current, "short")) short_count++;
 			else if (IsKeyword(current, "int")) int_count++;
@@ -777,7 +941,9 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 		if (!found_specifier || const_count > 1 || signed_count > 1 ||
 			unsigned_count > 1 || void_count > 1 ||
 			(signed_count && unsigned_count) || char_count > 1 ||
-			short_count > 1 || int_count > 1 || long_count > 2 ||
+			bool_count > 1 || short_count > 1 || int_count > 1 || long_count > 2 ||
+			(bool_count && (signed_count || unsigned_count || char_count ||
+				short_count || int_count || long_count || void_count)) ||
 			(char_count && (short_count || int_count || long_count)) ||
 			(short_count && long_count) ||
 			(void_count && (signed_count || unsigned_count || char_count ||
@@ -787,7 +953,11 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 		type.base_qualifiers.is_const = const_count != 0;
 		type.is_signed = unsigned_count ? false :
 			(char_count && !signed_count ? target.char_is_signed : true);
-		if (char_count) type.integer_rank = FrontendCIntegerRank::Char;
+		if (bool_count) {
+			type.integer_rank = FrontendCIntegerRank::Bool;
+			type.is_signed = false;
+		}
+		else if (char_count) type.integer_rank = FrontendCIntegerRank::Char;
 		else if (short_count) type.integer_rank = FrontendCIntegerRank::Short;
 		else if (long_count == 1) type.integer_rank = FrontendCIntegerRank::Long;
 		else if (long_count == 2) type.integer_rank = FrontendCIntegerRank::LongLong;
@@ -855,9 +1025,62 @@ FrontendCRecord* FrontendCTypeInfo::GetRecord(stduint record_id) {
 		&records.begin()[record_id - 1] : nullptr;
 }
 
+stduint FrontendCTypeInfo::FindEnumInScope(
+	const char* tag, const uni::Nnode* scope) const {
+	if (!tag) return 0;
+	for (stduint index = enums.Count(); index; index--) {
+		const FrontendCEnum& enumeration = enums.begin()[index - 1];
+		if (enumeration.scope == scope &&
+			!StrCompare(enumeration.tag.reference(), tag)) return index;
+	}
+	return 0;
+}
+
+stduint FrontendCTypeInfo::FindEnum(
+	const char* tag, const uni::Nnode* use) const {
+	if (!tag) return 0;
+	const uni::Nnode* use_scope = EnclosingBlock(use);
+	for (stduint index = enums.Count(); index; index--) {
+		const FrontendCEnum& enumeration = enums.begin()[index - 1];
+		if (StrCompare(enumeration.tag.reference(), tag) ||
+			!ScopeContains(enumeration.scope, use_scope) ||
+			!NodePrecedes(enumeration.tag_declaration, use)) continue;
+		return index;
+	}
+	return 0;
+}
+
+const FrontendCEnum* FrontendCTypeInfo::GetEnum(stduint enum_id) const {
+	return enum_id && enum_id <= enums.Count() ?
+		&enums.begin()[enum_id - 1] : nullptr;
+}
+
+FrontendCEnum* FrontendCTypeInfo::GetEnum(stduint enum_id) {
+	return enum_id && enum_id <= enums.Count() ?
+		&enums.begin()[enum_id - 1] : nullptr;
+}
+
+const FrontendCEnumerator* FrontendCTypeInfo::FindEnumerator(
+	const char* name, const uni::Nnode* use) const {
+	if (!name) return nullptr;
+	const uni::Nnode* use_scope = EnclosingBlock(use);
+	for (stduint enum_index = enums.Count(); enum_index; enum_index--) {
+		const FrontendCEnum& enumeration = enums.begin()[enum_index - 1];
+		if (!ScopeContains(enumeration.scope, use_scope)) continue;
+		for (stduint item_index = enumeration.enumerators.Count(); item_index; item_index--) {
+			const FrontendCEnumerator& enumerator =
+				enumeration.enumerators.begin()[item_index - 1];
+			if (!StrCompare(enumerator.name.reference(), name) &&
+				NodePrecedes(enumerator.declaration, use)) return &enumerator;
+		}
+	}
+	return nullptr;
+}
+
 stduint FrontendCTypeInfo::SizeBits(const FrontendCType& type,
 	const FrontendCTargetInfo& target) const {
 	if (type.IsPointer()) return target.pointer_bits;
+	if (type.enum_id && type.is_incomplete) return 0;
 	stduint bits = 0;
 	if (type.record_id) {
 		const FrontendCRecord* record = GetRecord(type.record_id);
@@ -865,7 +1088,14 @@ stduint FrontendCTypeInfo::SizeBits(const FrontendCType& type,
 		bits = record->size_bits;
 	}
 	else {
-		switch (type.integer_rank) {
+		FrontendCIntegerRank rank = type.integer_rank;
+		if (type.enum_id) {
+			const FrontendCEnum* enumeration = GetEnum(type.enum_id);
+			if (!enumeration || !enumeration->complete) return 0;
+			rank = enumeration->integer_rank;
+		}
+		switch (rank) {
+		case FrontendCIntegerRank::Bool: bits = target.char_bits; break;
 		case FrontendCIntegerRank::Char: bits = target.char_bits; break;
 		case FrontendCIntegerRank::Short: bits = target.short_bits; break;
 		case FrontendCIntegerRank::Int: bits = target.int_bits; break;
@@ -879,11 +1109,19 @@ stduint FrontendCTypeInfo::SizeBits(const FrontendCType& type,
 stduint FrontendCTypeInfo::AlignBits(const FrontendCType& type,
 	const FrontendCTargetInfo& target) const {
 	if (type.IsPointer()) return target.pointer_align_bits;
+	if (type.enum_id && type.is_incomplete) return 0;
 	if (type.record_id) {
 		const FrontendCRecord* record = GetRecord(type.record_id);
 		return record && record->complete ? record->align_bits : 0;
 	}
-	switch (type.integer_rank) {
+	FrontendCIntegerRank rank = type.integer_rank;
+	if (type.enum_id) {
+		const FrontendCEnum* enumeration = GetEnum(type.enum_id);
+		if (!enumeration || !enumeration->complete) return 0;
+		rank = enumeration->integer_rank;
+	}
+	switch (rank) {
+	case FrontendCIntegerRank::Bool: return target.char_align_bits;
 	case FrontendCIntegerRank::Char: return target.char_align_bits;
 	case FrontendCIntegerRank::Short: return target.short_align_bits;
 	case FrontendCIntegerRank::Int: return target.int_align_bits;
@@ -899,6 +1137,15 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		if (node->type == tok_statement) {
 			uni::Nnode* next = node->next;
+			if (IsEnumDefinition(node) || IsEnumForwardDeclaration(node)) {
+				if (!PrepareEnumStatement(syntax_tree, node, nullptr, true,
+					diagnostics, type_info)) return false;
+				if (node->next &&
+					node->next->type == ToToken(FrontendCToken::GlobalDeclaration))
+					MarkPrefixKeywords(node->next->subf);
+				node = next;
+				continue;
+			}
 			if (IsRecordDeclaration(node)) {
 				if (!PrepareRecordDeclaration(node, diagnostics, type_info)) return false;
 				node = next;
@@ -956,12 +1203,346 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 	return true;
 }
 
+namespace {
+
+	void AppendEnumeratorNodes(uni::Nnode* node,
+		uni::Vector<uni::Nnode*>& enumerators) {
+		if (node && node->type == tok_func && node->addr &&
+			!StrCompare(node->addr, "OP@COMMA")) {
+			for (uni::Nnode* child = node->subf; child; child = child->next)
+				AppendEnumeratorNodes(child, enumerators);
+			return;
+		}
+		if (node) enumerators.Append(node);
+	}
+
+	unsigned IntegerRankBits(FrontendCIntegerRank rank,
+		const FrontendCTargetInfo& target) {
+		switch (rank) {
+		case FrontendCIntegerRank::Bool: return 1;
+		case FrontendCIntegerRank::Char: return target.char_bits;
+		case FrontendCIntegerRank::Short: return target.short_bits;
+		case FrontendCIntegerRank::Int: return target.int_bits;
+		case FrontendCIntegerRank::Long: return target.long_bits;
+		case FrontendCIntegerRank::LongLong: return target.long_long_bits;
+		}
+		return 0;
+	}
+
+	bool FitsSigned(stdsint value, unsigned bits) {
+		if (!bits || bits > sizeof(stdsint) * 8) return false;
+		if (bits == sizeof(stdsint) * 8) return true;
+		stdsint minimum = -(stdsint)(stduint(1) << (bits - 1));
+		stdsint maximum = (stdsint)((stduint(1) << (bits - 1)) - 1);
+		return value >= minimum && value <= maximum;
+	}
+
+	bool FitsUnsigned(stdsint value, unsigned bits) {
+		if (value < 0 || !bits || bits > sizeof(stduint) * 8) return false;
+		if (bits == sizeof(stduint) * 8) return true;
+		return (stduint)value <= ((stduint(1) << bits) - 1);
+	}
+
+	stdsint SignedMinimum() {
+		return (stdsint)(stduint(1) << (sizeof(stdsint) * 8 - 1));
+	}
+
+	stdsint SignedMaximum() {
+		return (stdsint)((stduint)-1 >> 1);
+	}
+
+	bool CastIntegerValue(stdsint& value, const FrontendCType& type,
+		const FrontendCTargetInfo& target) {
+		unsigned bits = IntegerRankBits(type.integer_rank, target);
+		if (!bits || bits > sizeof(stduint) * 8) return false;
+		if (type.integer_rank == FrontendCIntegerRank::Bool) {
+			value = value != 0;
+			return true;
+		}
+		stduint pattern = (stduint)value;
+		if (bits < sizeof(stduint) * 8)
+			pattern &= (stduint(1) << bits) - 1;
+		if (type.is_signed && bits < sizeof(stduint) * 8 &&
+			(pattern & (stduint(1) << (bits - 1))))
+			pattern |= ~((stduint(1) << bits) - 1);
+		value = (stdsint)pattern;
+		return true;
+	}
+
+	bool SelectEnumCompatibleType(stdsint minimum, stdsint maximum,
+		const FrontendCTargetInfo& target, FrontendCIntegerRank& rank,
+		bool& is_signed) {
+		const FrontendCIntegerRank ranks[] = {
+			FrontendCIntegerRank::Int,
+			FrontendCIntegerRank::Long,
+			FrontendCIntegerRank::LongLong
+		};
+		for (FrontendCIntegerRank candidate : ranks) {
+			unsigned bits = IntegerRankBits(candidate, target);
+			if (FitsSigned(minimum, bits) && FitsSigned(maximum, bits)) {
+				rank = candidate;
+				is_signed = true;
+				return true;
+			}
+			if (minimum >= 0 && FitsUnsigned(maximum, bits)) {
+				rank = candidate;
+				is_signed = false;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool EvaluateEnumeratorValue(uni::Nnode* node,
+		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
+		stdsint& value) {
+		if (!node) return false;
+		if (node->type == tok_number) {
+			FrontendCType literal_type;
+			if (!frontend_c_detail::ParseIntegerLiteral(
+				node->addr, target, value, literal_type)) return false;
+			return literal_type.is_signed || value >= 0 ||
+				IntegerRankBits(literal_type.integer_rank, target) < 64;
+		}
+		if (node->type == ToToken(FrontendCToken::CharacterLiteral))
+			return frontend_c_detail::ParseCharacterLiteral(node->addr, target, value);
+		if (node->type == tok_identy) {
+			const FrontendCEnumerator* enumerator =
+				type_info.FindEnumerator(node->addr, node);
+			if (!enumerator) return false;
+			value = enumerator->value;
+			return true;
+		}
+		if (node->type != tok_func || !node->subf) return false;
+		if (!node->addr)
+			return !node->subf->next && EvaluateEnumeratorValue(
+				node->subf, target, type_info, value);
+		uni::Nnode* left_node = node->subf;
+		uni::Nnode* right_node = left_node->next;
+		if (!StrCompare(node->addr, "OP@CAST")) {
+			const FrontendCType* cast_type = type_info.Find(node);
+			if (right_node || !cast_type || !cast_type->IsInteger() ||
+				!EvaluateEnumeratorValue(left_node, target, type_info, value) ||
+				!CastIntegerValue(value, *cast_type, target)) return false;
+			return cast_type->is_signed || value >= 0 ||
+				IntegerRankBits(cast_type->integer_rank, target) < 64;
+		}
+		if (!StrCompare(node->addr, "OP@SIZEOF") ||
+			!StrCompare(node->addr, "sizeof")) {
+			FrontendCType operand_type;
+			if (right_node || !frontend_c_detail::ParseTypeName(
+				left_node, operand_type, target, type_info)) return false;
+			stduint bits = type_info.SizeBits(operand_type, target);
+			if (!bits || bits % target.char_bits) return false;
+			value = (stdsint)(bits / target.char_bits);
+			return true;
+		}
+		if (!right_node) {
+			if (!EvaluateEnumeratorValue(left_node, target, type_info, value)) return false;
+			if (!StrCompare(node->addr, "OP@PREPOSI")) return true;
+			if (!StrCompare(node->addr, "OP@PRENEGA")) {
+				if (value == SignedMinimum()) return false;
+				value = -value;
+				return true;
+			}
+			if (!StrCompare(node->addr, "OP@BITNOT")) {
+				value = ~value;
+				return true;
+			}
+			if (!StrCompare(node->addr, "OP@LOGNOT")) {
+				value = !value;
+				return true;
+			}
+			return false;
+		}
+		if (!StrCompare(node->addr, "OP@LOGAND")) {
+			if (!EvaluateEnumeratorValue(left_node, target, type_info, value)) return false;
+			if (!value) return true;
+			return EvaluateEnumeratorValue(right_node, target, type_info, value) &&
+				(value = value != 0, true);
+		}
+		if (!StrCompare(node->addr, "OP@LOGIOR")) {
+			if (!EvaluateEnumeratorValue(left_node, target, type_info, value)) return false;
+			if (value) {
+				value = 1;
+				return true;
+			}
+			return EvaluateEnumeratorValue(right_node, target, type_info, value) &&
+				(value = value != 0, true);
+		}
+		if (!StrCompare(node->addr, "OP@TERNAR")) {
+			uni::Nnode* false_node = right_node->next;
+			if (!false_node || false_node->next ||
+				!EvaluateEnumeratorValue(left_node, target, type_info, value)) return false;
+			return EvaluateEnumeratorValue(value ? right_node : false_node,
+				target, type_info, value);
+		}
+		if (right_node->next) return false;
+		stdsint left, right;
+		if (!EvaluateEnumeratorValue(left_node, target, type_info, left) ||
+			!EvaluateEnumeratorValue(right_node, target, type_info, right)) return false;
+		if (!StrCompare(node->addr, "OP@ARIADD"))
+			return !__builtin_add_overflow(left, right, &value);
+		if (!StrCompare(node->addr, "OP@ARISUB"))
+			return !__builtin_sub_overflow(left, right, &value);
+		if (!StrCompare(node->addr, "OP@ARIMUL"))
+			return !__builtin_mul_overflow(left, right, &value);
+		if (!StrCompare(node->addr, "OP@ARIDIV")) {
+			if (!right || (left == SignedMinimum() && right == -1)) return false;
+			value = left / right;
+			return true;
+		}
+		if (!StrCompare(node->addr, "OP@ARIREM")) {
+			if (!right || (left == SignedMinimum() && right == -1)) return false;
+			value = left % right;
+			return true;
+		}
+		if (!StrCompare(node->addr, "OP@BITSHL")) {
+			if (left < 0 || right < 0 || right >= (stdsint)(sizeof(stdsint) * 8) ||
+				left > (SignedMaximum() >> right)) return false;
+			value = left << right;
+			return true;
+		}
+		if (!StrCompare(node->addr, "OP@BITSHR")) {
+			if (right < 0 || right >= (stdsint)(sizeof(stdsint) * 8)) return false;
+			value = left >> right;
+			return true;
+		}
+		if (!StrCompare(node->addr, "OP@BITAND")) value = left & right;
+		else if (!StrCompare(node->addr, "OP@BITXOR")) value = left ^ right;
+		else if (!StrCompare(node->addr, "OP@BITWOR")) value = left | right;
+		else if (!StrCompare(node->addr, "OP@JEQUAL")) value = left == right;
+		else if (!StrCompare(node->addr, "OP@JNOTEQ")) value = left != right;
+		else if (!StrCompare(node->addr, "OP@JBELOW")) value = left < right;
+		else if (!StrCompare(node->addr, "OP@JBEEQU")) value = left <= right;
+		else if (!StrCompare(node->addr, "OP@JGREAT")) value = left > right;
+		else if (!StrCompare(node->addr, "OP@JGREQU")) value = left >= right;
+		else return false;
+		return true;
+	}
+
+	bool EnumeratorExistsInScope(const FrontendCTypeInfo& type_info,
+		const char* name, const uni::Nnode* scope) {
+		for (const FrontendCEnum& enumeration : type_info.enums) {
+			if (enumeration.scope != scope) continue;
+			for (const FrontendCEnumerator& enumerator : enumeration.enumerators)
+				if (!StrCompare(enumerator.name.reference(), name)) return true;
+		}
+		return false;
+	}
+
+	void ApplyEnumCompatibleType(FrontendCType& type,
+		const FrontendCTypeInfo& type_info) {
+		if (!type.enum_id) return;
+		const FrontendCEnum* enumeration = type_info.GetEnum(type.enum_id);
+		if (!enumeration || !enumeration->complete) return;
+		type.integer_rank = enumeration->integer_rank;
+		type.is_signed = enumeration->is_signed;
+	}
+
+}
+
+bool frontend_c_detail::FinalizeEnums(uni::Nchain& syntax_tree,
+	const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+	FrontendCTypeInfo& type_info) {
+	(void)syntax_tree;
+	for (FrontendCEnum& enumeration : type_info.enums) {
+		if (!enumeration.body) continue;
+		uni::Nnode* statement = const_cast<uni::Nnode*>(enumeration.declaration);
+		uni::Nnode* body = const_cast<uni::Nnode*>(enumeration.body);
+		if (!body || body->type != tok_block || !body->subf) {
+			diagnostics.Report(DiagnosticStage::Parser,
+				"enum requires at least one enumerator", statement);
+			return false;
+		}
+		uni::Vector<uni::Nnode*> nodes;
+		for (uni::Nnode* node = body->subf; node; node = node->next)
+			AppendEnumeratorNodes(node, nodes);
+		// C99 permits one comma after the final enumerator.
+		if (nodes.Count()) {
+			uni::Nnode* tail = nodes.begin()[nodes.Count() - 1];
+			if (tail && tail->type == tok_symbol && tail->addr &&
+				!StrCompare(tail->addr, ",")) nodes.Remove(nodes.Count() - 1);
+		}
+		if (!nodes.Count()) {
+			diagnostics.Report(DiagnosticStage::Parser,
+				"enum requires at least one enumerator", statement);
+			return false;
+		}
+		stdsint next_value = 0;
+		stdsint minimum = 0;
+		stdsint maximum = 0;
+		for (stduint index = 0; index < nodes.Count(); index++) {
+			uni::Nnode* node = nodes.begin()[index];
+			uni::Nnode* name_node = node;
+			uni::Nnode* value_node = nullptr;
+			if (node->type == tok_func && node->addr &&
+				!StrCompare(node->addr, "OP@ASSIGN")) {
+				name_node = node->subf;
+				value_node = name_node ? name_node->next : nullptr;
+				if (!name_node || !value_node || value_node->next) name_node = nullptr;
+			}
+			if (!name_node || name_node->type != tok_identy || !name_node->addr) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"invalid enum enumerator", node);
+				return false;
+			}
+			if (EnumeratorExistsInScope(
+				type_info, name_node->addr, enumeration.scope)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"redefinition of enumerator", name_node);
+				return false;
+			}
+			stdsint value = next_value;
+			if (value_node && !EvaluateEnumeratorValue(
+				value_node, target, type_info, value)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"enum value must be an integer constant", value_node);
+				return false;
+			}
+			FrontendCEnumerator enumerator;
+			enumerator.name = name_node->addr;
+			enumerator.value = value;
+			enumerator.declaration = name_node;
+			enumeration.enumerators.Append(enumerator);
+			if (!index || value < minimum) minimum = value;
+			if (!index || value > maximum) maximum = value;
+			if (index + 1 < nodes.Count() && value == SignedMaximum()) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"implicit enum value overflows the supported integer range", name_node);
+				return false;
+			}
+			if (index + 1 < nodes.Count()) next_value = value + 1;
+		}
+		if (!SelectEnumCompatibleType(minimum, maximum, target,
+			enumeration.integer_rank, enumeration.is_signed)) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"enum values exceed the supported integer range", statement);
+			return false;
+		}
+		enumeration.complete = true;
+		FrontendCType compatible_type;
+		compatible_type.integer_rank = enumeration.integer_rank;
+		compatible_type.is_signed = enumeration.is_signed;
+		for (FrontendCEnumerator& enumerator : enumeration.enumerators)
+			enumerator.type = compatible_type;
+	}
+	for (FrontendCTypedNode& typed_node : type_info.nodes)
+		ApplyEnumCompatibleType(typed_node.type, type_info);
+	for (FrontendCRecord& record : type_info.records)
+		for (FrontendCRecordMember& member : record.members)
+			ApplyEnumCompatibleType(member.type, type_info);
+	return true;
+}
+
 bool frontend_c_detail::Validate(uni::Nchain& syntax_tree,
 	const FrontendCDiagnostics& diagnostics) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		if (node->type == ToToken(FrontendCToken::GlobalDeclaration) ||
 			node->type == ToToken(FrontendCToken::RecordDeclaration) ||
-			node->type == ToToken(FrontendCToken::RecordDefinition)) {
+			node->type == ToToken(FrontendCToken::RecordDefinition) ||
+			node->type == ToToken(FrontendCToken::EnumDeclaration) ||
+			node->type == ToToken(FrontendCToken::EnumDefinition)) {
 			node = node->next;
 			continue;
 		}

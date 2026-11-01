@@ -345,6 +345,19 @@ namespace clover::frontend_c_internal {
 		return nullptr;
 	}
 
+	const FrontendCEnumerator* FunctionBuilder::FindConstant(const char* name) const {
+		for (stduint index = local_constants.Count(); index; index--) {
+			const FrontendCLocalConstant& candidate = local_constants.begin()[index - 1];
+			if (candidate.active && candidate.constant &&
+				!StrCompare(candidate.constant->name.reference(), name))
+				return candidate.constant;
+		}
+		if (!visible_constants) return nullptr;
+		for (const FrontendCEnumerator& candidate : *visible_constants)
+			if (!StrCompare(candidate.name.reference(), name)) return &candidate;
+		return nullptr;
+	}
+
 	Value FunctionBuilder::EmitGlobalAddress(const uni::String& name) {
 		Instruction instruction;
 		instruction.opcode = Opcode::GlobalAddr;
@@ -979,6 +992,11 @@ namespace clover::frontend_c_internal {
 			LocalValue* local = FindLocal(node->addr);
 			if (local) return { local->address, true, local->type, true,
 				local->alignment };
+			const FrontendCEnumerator* constant = FindConstant(node->addr);
+			if (constant) {
+				FrontendCType type = constant->type;
+				return { EmitConst(constant->value, type), true, type, false };
+			}
 			const FrontendCGlobal* global = FindGlobal(node->addr);
 			if (!global) return Error("use of undeclared identifier", node);
 			return { EmitGlobalAddress(*global), true, global->type, true,

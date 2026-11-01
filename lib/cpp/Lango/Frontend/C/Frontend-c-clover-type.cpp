@@ -29,6 +29,7 @@ namespace clover::frontend_c_internal {
 		if (type.IsPointer()) return Type::Ptr;
 		unsigned bits = target.int_bits;
 		switch (type.integer_rank) {
+		case FrontendCIntegerRank::Bool: return Type::I1;
 		case FrontendCIntegerRank::Char: bits = target.char_bits; break;
 		case FrontendCIntegerRank::Short: bits = target.short_bits; break;
 		case FrontendCIntegerRank::Int: bits = target.int_bits; break;
@@ -41,6 +42,7 @@ namespace clover::frontend_c_internal {
 
 	unsigned FunctionBuilder::IntegerBits(const FrontendCType& type) const {
 		switch (type.integer_rank) {
+		case FrontendCIntegerRank::Bool: return 1;
 		case FrontendCIntegerRank::Char: return target->char_bits;
 		case FrontendCIntegerRank::Short: return target->short_bits;
 		case FrontendCIntegerRank::Int: return target->int_bits;
@@ -106,6 +108,25 @@ namespace clover::frontend_c_internal {
 		lowered = ToRValue(lowered, node);
 		if (!lowered.valid || !lowered.type.IsInteger() || !destination.IsInteger())
 			return Error("integer conversion requires integer operands", node);
+		if (destination.integer_rank == FrontendCIntegerRank::Bool &&
+			!destination.enum_id) {
+			if (lowered.value.type != Type::I1) {
+				Value zero = EmitConst(0, lowered.type);
+				Instruction instruction;
+				instruction.opcode = Opcode::ICmp;
+				instruction.type = CloverType(lowered.type);
+				instruction.has_result = true;
+				instruction.result = NewValue(Type::I1);
+				instruction.operands.Append(lowered.value);
+				instruction.operands.Append(zero);
+				instruction.predicate = ICmpPredicate::NE;
+				CurrentBlock().instructions.Append(instruction);
+				lowered.value = instruction.result;
+			}
+			lowered.type = destination;
+			lowered.is_lvalue = false;
+			return lowered;
+		}
 		if (lowered.value.type == Type::I1 && CloverType(lowered.type) != Type::I1)
 			lowered.value = EmitConversion(Opcode::ZExt,
 				CloverType(lowered.type), lowered.value);
@@ -123,8 +144,8 @@ namespace clover::frontend_c_internal {
 	}
 
 	FrontendCType FunctionBuilder::PromoteType(FrontendCType type) const {
-		if (type.IsInteger() &&
-			type.integer_rank < FrontendCIntegerRank::Int) return IntType();
+		if (type.IsInteger() && type.integer_rank < FrontendCIntegerRank::Int)
+			return IntType();
 		return type;
 	}
 
@@ -206,6 +227,8 @@ namespace clover::frontend_c_internal {
 		if (node->type == tok_identy) {
 			LocalValue* local = FindLocal(node->addr);
 			if (local) type = local->type;
+			else if (const FrontendCEnumerator* constant = FindConstant(node->addr))
+				type = constant->type;
 			else {
 				const FrontendCGlobal* global = FindGlobal(node->addr);
 				if (!global) return false;

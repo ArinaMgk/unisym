@@ -401,7 +401,8 @@ namespace uni
 					crtline_ento = pos.y;
 					crtcol_ento = pos.x - 1;
 					setChar(c);
-					CrtTType = getctype(c);
+					CrtTType = c == '_' && method_treatiden_underscore ?
+						tok_identy : getctype(c);
 				}
 			}
 			else if (CrtTType == getctype(c) || CrtTType == tok_any)

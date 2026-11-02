@@ -79,9 +79,9 @@ check 'int main(){{1;};;{}{int b=2;} return 3;}' 3
 # Statement
 check 'int main() { if (2-1) return 2; return(3); }' 2
 check 'int main() { if(1) {1;2;return 3;} else if (0) {4;return 5;6;} else;}' 3
-check 'int main() { for(;;) {return 1;} return 2;}' 1
-check 'int main() { int i=0; int j=0; for(i=0;i<10;i++) {j=j+1;} return j;} // comment-test' 10
-check 'int main() { int i=1; while(i<10) i=i+i+1; return i; } /*comment-test*/ ' 15 # 1 -> 3 -> 7 -> 15
+check '../demo/test/clover/c/loop.c' 28
+check_fail 'int main(){break;}' 'break statement not within a loop'
+check_fail 'int main(){continue;}' 'continue statement not within a loop'
 
 # Prefix * and &, and arithmetic for pointer
 check 'int main() {int x=3; return *&x;}' 3
@@ -93,9 +93,13 @@ check 'int f(int x) {return x+1;} int main() {int x = f(1); x++; return x;} ' 3
 check 'int add(int x, int y) {return x+y;} int main() { return add(-1, 4);} ' 3
 
 # Array
-check 'int main() {int a[3]; a[0]=2; a[1]=3; a[2]=4; return a[0]+a[1]+a[2];}' 9
-check 'int main() {int a[4]={1,2,3,4}; return a[2];}' 3
-check 'int main() {int a[2][3]; a[0][1]=5; a[1][2]=7; return a[0][1]+a[1][2];}' 12
+check '../demo/test/clover/c/array.c' 38
+check_fail 'int main(){int values[];return 0;}' 'object has incomplete array type'
+
+# Label and goto
+check '../demo/test/clover/c/goto.c' 10
+check_fail 'int main(){label:return 1;label:return 2;}' 'redefinition of label'
+check_fail 'int main(){goto missing;return 0;}' 'use of undefined label'
 
 # Basic Types
 check 'int main() {char a=1; short b=2; long c=3; long long d=4; return a+b+c+d;}' 10

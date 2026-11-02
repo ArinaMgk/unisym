@@ -95,6 +95,11 @@ namespace {
 		return node && node->addr && !StrCompare(node->addr, keyword);
 	}
 
+	bool IsSymbol(const uni::Nnode* node, const char* symbol) {
+		return node && node->type == tok_symbol && node->addr &&
+			!StrCompare(node->addr, symbol);
+	}
+
 	const uni::Nnode* ParentNode(const uni::Nnode* node) {
 		return node ? const_cast<uni::Nnode*>(node)->getParent() : nullptr;
 	}
@@ -262,6 +267,33 @@ namespace {
 		return true;
 	}
 
+	bool ParseParameterDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
+		FrontendCType& type, const FrontendCTargetInfo& target) {
+		if (!node) return false;
+		if (node->type == tok_func && node->addr &&
+			!StrCompare(node->addr, "operator[]")) {
+			uni::Nnode* declarator = node->subf;
+			uni::Nnode* dimension = declarator ? declarator->next : nullptr;
+			if (!declarator || (dimension && dimension->next) ||
+				!ParseParameterDeclarator(declarator, identifier, type, target))
+				return false;
+			if (!dimension) {
+				// Only the first array bound may be omitted in this C99 subset.
+				return !type.array_dimension_count && type.AppendArrayDimension(0);
+			}
+			stdsint count;
+			FrontendCType literal_type;
+			if (dimension->type != tok_number || !dimension->addr ||
+				!frontend_c_detail::ParseIntegerLiteral(
+					dimension->addr, target, count, literal_type) || count <= 0)
+				return false;
+			return type.AppendArrayDimension((stduint)count);
+		}
+		if (node->type != tok_identy || !node->addr) return false;
+		identifier = node;
+		return true;
+	}
+
 	bool PrepareFunctionParameters(uni::Nchain& syntax_tree, uni::Nnode* function,
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 		FrontendCTypeInfo& type_info) {
@@ -293,11 +325,15 @@ namespace {
 				return false;
 			}
 			uni::Nnode* parameter = node;
-			if (!parameter || parameter->type != tok_identy || !parameter->addr) {
+			uni::Nnode* identifier = nullptr;
+			if (!ParseParameterDeclarator(parameter, identifier, type, target)) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"expected parameter name", parameter ? parameter : function);
 				return false;
 			}
+			if (type.array_dimension_count) type = type.DecayType();
+			if (parameter != identifier)
+				srs(parameter->addr, StrHeap(identifier->addr));
 			parameter->type = ToToken(FrontendCToken::Parameter);
 			type_info.Add(parameter, type);
 			if (++count > 8) {
@@ -706,6 +742,33 @@ namespace {
 		else if (node->type == tok_identy && IsKeyword(node, "else")) {
 			node->type = ToToken(FrontendCToken::Else);
 		}
+		else if (node->type == tok_identy && IsKeyword(node, "break")) {
+			node->type = ToToken(FrontendCToken::Break);
+		}
+		else if (node->type == tok_identy && IsKeyword(node, "continue")) {
+			node->type = ToToken(FrontendCToken::Continue);
+		}
+		else if (node->type == tok_identy && IsKeyword(node, "goto")) {
+			node->type = ToToken(FrontendCToken::Goto);
+		}
+	}
+
+	void PrepareStatementLabels(uni::Nchain& syntax_tree, uni::Nnode* statement) {
+		uni::Nnode* node = statement ? statement->subf : nullptr;
+		uni::Nnode* last_label = nullptr;
+		while (node && node->type == tok_identy && node->addr &&
+			IsSymbol(node->next, ":")) {
+			uni::Nnode* colon = node->next;
+			node->type = ToToken(FrontendCToken::Label);
+			last_label = node;
+			syntax_tree.Remove(colon);
+			node = node->next;
+		}
+		if (last_label && !node) {
+			uni::Nnode* empty = syntax_tree.Append(nullptr, false, last_label);
+			empty->type = ToToken(FrontendCToken::Empty);
+			*empty->GetTnodeField() = *last_label->GetTnodeField();
+		}
 	}
 
 	void AppendTrailingEmptyStatement(uni::Nchain& syntax_tree,
@@ -734,6 +797,13 @@ namespace {
 		}
 
 		for (uni::Nnode* node = block->subf; node; node = node->next) {
+			if (node->type == tok_identy && node->addr &&
+				IsSymbol(node->next, ":")) {
+				uni::Nnode* colon = node->next;
+				node->type = ToToken(FrontendCToken::Label);
+				syntax_tree.Remove(colon);
+				continue;
+			}
 			if (node->type == ToToken(FrontendCToken::Declaration)) {
 				SaveStatementSource(debug_info, node);
 				MarkPrefixKeywords(node->subf);
@@ -764,6 +834,18 @@ namespace {
 			SaveStatementSource(debug_info, node);
 			if (!node->subf) {
 				node->type = ToToken(FrontendCToken::Empty);
+				continue;
+			}
+			PrepareStatementLabels(syntax_tree, node);
+			if (IsKeyword(node->subf, "break") ||
+				IsKeyword(node->subf, "continue")) {
+				if (node->subf->next) {
+					diagnostics.Report(DiagnosticStage::Parser,
+						"loop jump does not accept an expression", node->subf->next);
+					return false;
+				}
+				node->type = ToToken(IsKeyword(node->subf, "break") ?
+					FrontendCToken::Break : FrontendCToken::Continue);
 				continue;
 			}
 			if (IsEnumDefinition(node) || IsEnumForwardDeclaration(node)) {
@@ -822,6 +904,9 @@ namespace {
 				node->type == ToToken(FrontendCToken::Else) ||
 				node->type == ToToken(FrontendCToken::While) ||
 				node->type == ToToken(FrontendCToken::For) ||
+				node->type == ToToken(FrontendCToken::Break) ||
+				node->type == ToToken(FrontendCToken::Continue) ||
+				node->type == ToToken(FrontendCToken::Label) ||
 				node->type == ToToken(FrontendCToken::Empty) ||
 				node->type == ToToken(FrontendCToken::EnumDeclaration) ||
 				node->type == ToToken(FrontendCToken::EnumDefinition) ||
@@ -851,9 +936,14 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 	if (!end && node && node->type == tok_func && node->addr &&
 		!StrCompare(node->addr, "operator[]")) {
 		const uni::Nnode* dimension = node->subf ? node->subf->Tail() : nullptr;
-		if (!dimension || dimension == node->subf || dimension->type != tok_number ||
-			!dimension->addr || !ParseTypeName(node->subf, type,
-				target, type_info, dimension)) return false;
+		if (!dimension) return false;
+		if (dimension == node->subf) {
+			if (!ParseTypeName(node->subf, type, target, type_info) ||
+				type.array_dimension_count) return false;
+			return type.AppendArrayDimension(0);
+		}
+		if (dimension->type != tok_number || !dimension->addr ||
+			!ParseTypeName(node->subf, type, target, type_info, dimension)) return false;
 		stdsint count;
 		FrontendCType literal_type;
 		return frontend_c_detail::ParseIntegerLiteral(

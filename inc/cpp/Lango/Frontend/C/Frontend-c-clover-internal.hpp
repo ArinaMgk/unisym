@@ -54,6 +54,19 @@ struct StatementAtom {
 	const uni::Nnode* source = nullptr;
 };
 
+// Branch destinations selected by the nearest enclosing loop statement.
+struct LoopContext {
+	uni::String break_target;    // Destination after the complete loop.
+	uni::String continue_target; // Condition or step destination for the next iteration.
+};
+
+// One named C label and its preallocated Clover basic block.
+struct FunctionLabel {
+	uni::String name;
+	stduint block = 0;
+	const uni::Nnode* declaration = nullptr;
+};
+
 // Function declaration visible at the current C translation-unit position.
 struct FrontendCFunction {
 	uni::String name;
@@ -95,6 +108,8 @@ private:
 	unsigned next_value = 0;
 	uni::Vector<LocalValue> locals;
 	uni::Vector<FrontendCLocalConstant> local_constants;
+	uni::Vector<LoopContext> loop_contexts;
+	uni::Vector<FunctionLabel> labels;
 	uni::Vector<const uni::Nnode*> emitted_sources;
 	const uni::Vector<FrontendCFunction>* visible_functions = nullptr;
 	const uni::Vector<FrontendCGlobal>* visible_globals = nullptr;
@@ -229,6 +244,8 @@ private:
 	void EndIfBranch(const uni::String& end_block);
 	void AppendStatementAtoms(uni::Nnode* node,
 		uni::Vector<StatementAtom>& atoms);
+	FunctionLabel* FindLabel(const char* name);
+	bool CollectLabels(uni::Nnode* node);
 	uni::Nnode* ForClause(uni::Nnode* clause);
 	bool LowerWhile(uni::Nnode* node, const uni::Nnode* source_statement,
 		uni::Vector<StatementAtom>& atoms, stduint& index);

@@ -39,6 +39,12 @@ namespace clover::frontend_c_internal {
 			failed = true;
 			return false;
 		}
+		if (type.HasIncompleteArray()) {
+			diagnostics->Report(DiagnosticStage::Semantic,
+				"object has incomplete array type", declaration);
+			failed = true;
+			return false;
+		}
 		Instruction instruction;
 		instruction.opcode = Opcode::Local;
 	if (type.record_id && !type.IsPointer()) {
@@ -57,7 +63,8 @@ namespace clover::frontend_c_internal {
 	}
 	else {
 		instruction.type = CloverType(type);
-		instruction.immediate = (stdsint)type.StorageElementCount();
+		instruction.immediate = type.IsPointer() ? 1 :
+			(stdsint)type.StorageElementCount();
 	}
 		instruction.has_result = true;
 		instruction.result = NewValue(Type::Ptr);
@@ -90,13 +97,15 @@ namespace clover::frontend_c_internal {
 			!StrCompare(node->addr, "operator[]")) {
 			uni::Nnode* declarator = node->subf;
 			uni::Nnode* dimension = declarator ? declarator->next : nullptr;
-			if (!declarator || !dimension || dimension->next ||
-				dimension->type != tok_number || !dimension->addr ||
+			if (!declarator || (dimension && dimension->next) ||
 				!ParseDeclaratorNode(declarator, identifier, type)) return false;
+			if (!dimension)
+				return !type.array_dimension_count && type.AppendArrayDimension(0);
 			stdsint count;
 			FrontendCType literal_type;
-			if (!uni::lango::frontend_c_detail::ParseIntegerLiteral(
-				dimension->addr, *target, count, literal_type) || count <= 0) return false;
+			if (dimension->type != tok_number || !dimension->addr ||
+				!uni::lango::frontend_c_detail::ParseIntegerLiteral(
+					dimension->addr, *target, count, literal_type) || count <= 0) return false;
 			return type.AppendArrayDimension((stduint)count);
 		}
 		if (node->type != tok_identy || !node->addr) return false;
@@ -366,6 +375,31 @@ namespace clover::frontend_c_internal {
 		}
 	}
 
+	FunctionLabel* FunctionBuilder::FindLabel(const char* name) {
+		if (!name) return nullptr;
+		for (FunctionLabel& label : labels)
+			if (!StrCompare(label.name.reference(), name)) return &label;
+		return nullptr;
+	}
+
+	bool FunctionBuilder::CollectLabels(uni::Nnode* node) {
+		for (; node; node = node->next) {
+			if (node->type == ToToken(FrontendCToken::Label)) {
+				if (!node->addr)
+					return Error("label requires a name", node).valid;
+				if (FindLabel(node->addr))
+					return Error("redefinition of label", node).valid;
+				FunctionLabel label;
+				label.name = node->addr;
+				label.block = NewBlock("label");
+				label.declaration = node;
+				labels.Append(label);
+			}
+			if (node->subf && !CollectLabels(node->subf)) return false;
+		}
+		return true;
+	}
+
 	uni::Nnode* FunctionBuilder::ForClause(uni::Nnode* clause) {
 		return clause && clause->type == tok_statement ? clause->subf : nullptr;
 	}
@@ -388,7 +422,13 @@ namespace clover::frontend_c_internal {
 		EmitJump(condition, function->blocks[body_block].name, end_name);
 
 		current_block = body_block;
-		if (!LowerStatement(atoms, index)) return false;
+		LoopContext loop;
+		loop.break_target = end_name;
+		loop.continue_target = function->blocks[condition_block].name;
+		loop_contexts.Append(loop);
+		bool body_lowered = LowerStatement(atoms, index);
+		loop_contexts.Remove(loop_contexts.Count() - 1);
+		if (!body_lowered) return false;
 		if (!BlockTerminated()) EmitJump(condition_block);
 		current_block = AppendBlock(end_name);
 		return true;
@@ -431,7 +471,13 @@ namespace clover::frontend_c_internal {
 		else EmitJump(body_block);
 
 		current_block = body_block;
-		if (!LowerStatement(atoms, index)) return false;
+		LoopContext loop;
+		loop.break_target = end_name;
+		loop.continue_target = step_name;
+		loop_contexts.Append(loop);
+		bool body_lowered = LowerStatement(atoms, index);
+		loop_contexts.Remove(loop_contexts.Count() - 1);
+		if (!body_lowered) return false;
 		if (!BlockTerminated()) EmitJump(step_name);
 
 		current_block = AppendBlock(step_name);
@@ -478,6 +524,46 @@ namespace clover::frontend_c_internal {
 			return LowerWhile(node, atom.source, atoms, index);
 		if (node->type == ToToken(FrontendCToken::For))
 			return LowerFor(node, atom.source, atoms, index);
+		if (node->type == ToToken(FrontendCToken::Label)) {
+			FunctionLabel* label = FindLabel(node->addr);
+			if (!label) return Error("undefined label", node).valid;
+			stduint first_instruction = CurrentBlock().instructions.Count();
+			if (current_block != label->block && !BlockTerminated()) {
+				EmitJump(label->block);
+				AttachSource(first_instruction, atom.source);
+			}
+			current_block = label->block;
+			if (index >= atoms.Count())
+				return Error("label requires a statement", node).valid;
+			return LowerStatement(atoms, index);
+		}
+		if (node->type == ToToken(FrontendCToken::Goto)) {
+			if (index >= atoms.Count())
+				return Error("goto requires a label name", node).valid;
+			uni::Nnode* target_node = atoms.begin()[index++].node;
+			if (!target_node || target_node->type != tok_identy || !target_node->addr)
+				return Error("goto requires a label name", target_node).valid;
+			FunctionLabel* label = FindLabel(target_node->addr);
+			if (!label) return Error("use of undefined label", target_node).valid;
+			stduint first_instruction = CurrentBlock().instructions.Count();
+			EmitJump(label->block);
+			AttachSource(first_instruction, atom.source);
+			return true;
+		}
+		if (node->type == ToToken(FrontendCToken::Break) ||
+			node->type == ToToken(FrontendCToken::Continue)) {
+			if (!loop_contexts.Count())
+				return Error(node->type == ToToken(FrontendCToken::Break) ?
+					"break statement not within a loop" :
+					"continue statement not within a loop", node).valid;
+			const LoopContext& loop =
+				loop_contexts.begin()[loop_contexts.Count() - 1];
+			stduint first_instruction = CurrentBlock().instructions.Count();
+			EmitJump(node->type == ToToken(FrontendCToken::Break) ?
+				loop.break_target : loop.continue_target);
+			AttachSource(first_instruction, atom.source);
+			return true;
+		}
 
 		if (node->type == tok_block) return LowerBlock(node);
 		stduint first_instruction = CurrentBlock().instructions.Count();
@@ -519,6 +605,10 @@ namespace clover::frontend_c_internal {
 		uni::Vector<StatementAtom> atoms;
 		AppendStatementAtoms(block->subf, atoms);
 		for (stduint index = 0; index < atoms.Count();) {
+			uni::Nnode* next = atoms.begin()[index].node;
+			if (BlockTerminated() && next &&
+				next->type != ToToken(FrontendCToken::Label))
+				current_block = NewBlock("unreachable");
 			if (!LowerStatement(atoms, index) || failed) return false;
 		}
 		LeaveScope(block);
@@ -546,6 +636,7 @@ namespace clover::frontend_c_internal {
 	}
 
 	bool FunctionBuilder::Lower(uni::Nnode* body, uni::Nnode* parameters) {
+		if (!CollectLabels(body)) return false;
 		if (!InitializeParameters(parameters, body)) return false;
 		if (!PredeclareBlock(body)) return false;
 		if (!LowerBlock(body)) return false;

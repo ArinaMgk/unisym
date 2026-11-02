@@ -41,6 +41,10 @@ enum class FrontendCToken : stduint {
 	Else,                     // Else marker paired by statement composition.
 	While,                    // While loop with its condition as children.
 	For,                      // For loop with init, condition, and step clauses.
+	Break,                    // Leave the nearest enclosing loop.
+	Continue,                 // Continue the nearest enclosing loop.
+	Label,                    // Function-scope destination preceding one statement.
+	Goto,                     // Unconditional jump to a function-scope label.
 	Empty,                    // Empty statement represented by a semicolon.
 	Return,                   // Return statement or inline return marker.
 	ReturnVoid,               // Return statement without a value.
@@ -126,6 +130,11 @@ struct FrontendCType {
 		if (array_dimension_count >= MaxArrayDimensions) return false;
 		array_dimensions[array_dimension_count++] = count;
 		return true;
+	}
+	bool HasIncompleteArray() const {
+		for (stduint index = 0; index < array_dimension_count; index++)
+			if (!array_dimensions[index]) return true;
+		return false;
 	}
 	stduint StorageElementCount() const {
 		stduint count = 1;

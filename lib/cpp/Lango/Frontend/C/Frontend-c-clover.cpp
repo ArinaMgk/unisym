@@ -47,11 +47,13 @@ namespace clover {
 				!StrCompare(node->addr, "operator[]")) {
 				uni::Nnode* declarator = node->subf;
 				uni::Nnode* dimension = declarator ? declarator->next : nullptr;
-				stdsint count;
-				if (!declarator || !dimension || dimension->next ||
-					dimension->type != tok_number || !dimension->addr ||
-					!ParseIntegerLiteral(dimension->addr, count) || count <= 0 ||
+				if (!declarator || (dimension && dimension->next) ||
 					!ParseGlobalDeclaratorNode(declarator, identifier, type)) return false;
+				if (!dimension)
+					return !type.array_dimension_count && type.AppendArrayDimension(0);
+				stdsint count;
+				if (dimension->type != tok_number || !dimension->addr ||
+					!ParseIntegerLiteral(dimension->addr, count) || count <= 0) return false;
 				return type.AppendArrayDimension((stduint)count);
 			}
 			if (node->type != tok_identy || !node->addr) return false;
@@ -114,6 +116,11 @@ namespace clover {
 			if (!ParseGlobalDeclaratorNode(declarator, identifier, type)) {
 				diagnostics.Report(DiagnosticStage::Lowering,
 					"invalid global declarator", declarator ? declarator : declaration);
+				return false;
+			}
+			if (type.HasIncompleteArray()) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"global object has incomplete array type", identifier);
 				return false;
 			}
 			if (type.record_id && !type.IsPointer()) {

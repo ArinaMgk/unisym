@@ -41,7 +41,10 @@ enum class FrontendCToken : stduint {
 	Else,                     // Else marker paired by statement composition.
 	While,                    // While loop with its condition as children.
 	For,                      // For loop with init, condition, and step clauses.
-	Break,                    // Leave the nearest enclosing loop.
+	Switch,                   // Integer selection statement followed by its body.
+	Case,                     // Constant selection label within the nearest switch.
+	Default,                  // Fallback selection label within the nearest switch.
+	Break,                    // Leave the nearest enclosing loop or switch.
 	Continue,                 // Continue the nearest enclosing loop.
 	Label,                    // Function-scope destination preceding one statement.
 	Goto,                     // Unconditional jump to a function-scope label.
@@ -62,6 +65,13 @@ enum class FrontendCIntegerRank {
 	LongLong  // long long int or unsigned long long int.
 };
 
+// Arithmetic category retained independently from integer rank and signedness.
+enum class FrontendCScalarKind {
+	Integer,
+	Float,
+	Double
+};
+
 // Type qualifiers attached to one level of a C declarator.
 struct FrontendCTypeQualifier {
 	bool is_const = false; // The object represented by this type level is not writable.
@@ -73,6 +83,7 @@ struct FrontendCType {
 	static constexpr stduint MaxPointerDepth = 16;
 
 	FrontendCIntegerRank integer_rank = FrontendCIntegerRank::Int;
+	FrontendCScalarKind scalar_kind = FrontendCScalarKind::Integer;
 	bool is_signed = true;
 	bool is_void = false;
 	bool is_incomplete = false; // The enum tag was incomplete at this use location.
@@ -94,10 +105,19 @@ struct FrontendCType {
 		return enum_id != 0 && pointer_depth == 0 && !array_dimension_count;
 	}
 	bool IsInteger() const {
-		return !is_void && !record_id && pointer_depth == 0 && !array_dimension_count;
+		return scalar_kind == FrontendCScalarKind::Integer && !is_void &&
+			!record_id && pointer_depth == 0 && !array_dimension_count;
 	}
+	bool IsFloating() const {
+		return (scalar_kind == FrontendCScalarKind::Float ||
+			scalar_kind == FrontendCScalarKind::Double) && !is_void &&
+			!record_id && pointer_depth == 0 && !array_dimension_count;
+	}
+	bool IsArithmetic() const { return IsInteger() || IsFloating(); }
+	bool IsScalar() const { return IsArithmetic() || IsPointer(); }
 	bool HasSameShape(const FrontendCType& other) const {
-		if (integer_rank != other.integer_rank || is_signed != other.is_signed ||
+		if (integer_rank != other.integer_rank || scalar_kind != other.scalar_kind ||
+			is_signed != other.is_signed ||
 			is_void != other.is_void || record_id != other.record_id ||
 			enum_id != other.enum_id ||
 			pointer_depth != other.pointer_depth ||
@@ -278,6 +298,9 @@ namespace frontend_c_detail {
 	bool ParseIntegerLiteral(const char* text, const FrontendCTargetInfo& target,
 		stdsint& value, FrontendCType& type);
 	bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,
+		stdsint& value);
+	bool EvaluateIntegerConstant(uni::Nnode* node,
+		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
 		stdsint& value);
 
 	// Append each C operator stage only when its operands are ready to fold.

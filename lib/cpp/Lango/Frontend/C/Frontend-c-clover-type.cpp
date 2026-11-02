@@ -27,6 +27,8 @@ namespace clover::frontend_c_internal {
 		const FrontendCTargetInfo& target) {
 		if (type.IsVoid()) return Type::Void;
 		if (type.IsPointer()) return Type::Ptr;
+		if (type.scalar_kind == FrontendCScalarKind::Float) return Type::F32;
+		if (type.scalar_kind == FrontendCScalarKind::Double) return Type::F64;
 		unsigned bits = target.int_bits;
 		switch (type.integer_rank) {
 		case FrontendCIntegerRank::Bool: return Type::I1;
@@ -143,9 +145,53 @@ namespace clover::frontend_c_internal {
 		return lowered;
 	}
 
+	LoweredValue FunctionBuilder::ConvertArithmetic(LoweredValue lowered,
+		const FrontendCType& destination, const uni::Nnode* node) {
+		lowered = ToRValue(lowered, node);
+		if (!lowered.valid || !lowered.type.IsArithmetic() ||
+			!destination.IsArithmetic())
+			return Error("arithmetic conversion requires arithmetic operands", node);
+		if (destination.scalar_kind == FrontendCScalarKind::Integer &&
+			destination.integer_rank == FrontendCIntegerRank::Bool &&
+			!destination.enum_id) {
+			lowered.value = AsCondition(lowered, node);
+			lowered.type = destination;
+			lowered.is_lvalue = false;
+			return lowered;
+		}
+		if (lowered.type.IsInteger() && destination.IsInteger())
+			return ConvertInteger(lowered, destination, node);
+		if (lowered.type.IsFloating() && destination.IsFloating()) {
+			if (lowered.type.scalar_kind != destination.scalar_kind)
+				lowered.value = EmitConversion(
+					destination.scalar_kind == FrontendCScalarKind::Double ?
+					Opcode::FPExt : Opcode::FPTrunc,
+					CloverType(destination), lowered.value);
+		}
+		else if (lowered.type.IsInteger())
+			lowered.value = EmitConversion(lowered.type.is_signed ?
+				Opcode::SIToFP : Opcode::UIToFP,
+				CloverType(destination), lowered.value);
+		else
+			lowered.value = EmitConversion(destination.is_signed ?
+				Opcode::FPToSI : Opcode::FPToUI,
+				CloverType(destination), lowered.value);
+		lowered.type = destination;
+		lowered.is_lvalue = false;
+		return lowered;
+	}
+
 	FrontendCType FunctionBuilder::PromoteType(FrontendCType type) const {
-		if (type.IsInteger() && type.integer_rank < FrontendCIntegerRank::Int)
-			return IntType();
+		if (!type.IsInteger()) return type;
+		type.base_qualifiers = {};
+		type.enum_id = 0;
+		type.is_incomplete = false;
+		if (type.integer_rank < FrontendCIntegerRank::Int) {
+			if (type.is_signed || IntegerBits(type) < target->int_bits)
+				return IntType();
+			type.integer_rank = FrontendCIntegerRank::Int;
+			type.is_signed = false;
+		}
 		return type;
 	}
 
@@ -153,22 +199,57 @@ namespace clover::frontend_c_internal {
 		FrontendCType right) const {
 		left = PromoteType(left);
 		right = PromoteType(right);
-		if (left.integer_rank == right.integer_rank) {
-			if (!left.is_signed || !right.is_signed) left.is_signed = false;
-			return left;
+		if (left.is_signed == right.is_signed)
+			return left.integer_rank >= right.integer_rank ? left : right;
+		FrontendCType signed_type = left.is_signed ? left : right;
+		FrontendCType unsigned_type = left.is_signed ? right : left;
+		if (unsigned_type.integer_rank >= signed_type.integer_rank)
+			return unsigned_type;
+		if (IntegerBits(signed_type) > IntegerBits(unsigned_type))
+			return signed_type;
+		signed_type.is_signed = false;
+		return signed_type;
+	}
+
+	FrontendCType FunctionBuilder::CommonArithmeticType(FrontendCType left,
+		FrontendCType right) const {
+		if (left.scalar_kind == FrontendCScalarKind::Double ||
+			right.scalar_kind == FrontendCScalarKind::Double) {
+			FrontendCType result;
+			result.scalar_kind = FrontendCScalarKind::Double;
+			return result;
 		}
-		FrontendCType higher = left.integer_rank > right.integer_rank ? left : right;
-		FrontendCType lower = left.integer_rank > right.integer_rank ? right : left;
-		if (higher.is_signed == lower.is_signed || !higher.is_signed) return higher;
-		if (IntegerBits(higher) > IntegerBits(lower)) return higher;
-		higher.is_signed = false;
-		return higher;
+		if (left.scalar_kind == FrontendCScalarKind::Float ||
+			right.scalar_kind == FrontendCScalarKind::Float) {
+			FrontendCType result;
+			result.scalar_kind = FrontendCScalarKind::Float;
+			return result;
+		}
+		return CommonIntegerType(left, right);
+	}
+
+	bool FunctionBuilder::NormalizeIntegerConstant(stdsint& value,
+		const FrontendCType& type) const {
+		unsigned bits = IntegerBits(type);
+		if (!bits || bits > sizeof(stduint) * 8) return false;
+		if (type.integer_rank == FrontendCIntegerRank::Bool) {
+			value = value != 0;
+			return true;
+		}
+		stduint pattern = (stduint)value;
+		if (bits < sizeof(stduint) * 8)
+			pattern &= (stduint(1) << bits) - 1;
+		if (type.is_signed && bits < sizeof(stduint) * 8 &&
+			(pattern & (stduint(1) << (bits - 1))))
+			pattern |= ~((stduint(1) << bits) - 1);
+		value = (stdsint)pattern;
+		return true;
 	}
 
 	bool FunctionBuilder::CommonConditionalType(const FrontendCType& true_type,
 		const FrontendCType& false_type, FrontendCType& result) const {
-		if (true_type.IsInteger() && false_type.IsInteger()) {
-			result = CommonIntegerType(true_type, false_type);
+		if (true_type.IsArithmetic() && false_type.IsArithmetic()) {
+			result = CommonArithmeticType(true_type, false_type);
 			return true;
 		}
 		if (true_type.IsPointer() && false_type.IsPointer()) {
@@ -208,7 +289,8 @@ namespace clover::frontend_c_internal {
 		if (!node) return false;
 		if (node->type == tok_number) {
 			stdsint value;
-			return ParseIntegerLiteral(node->addr, *target, value, type);
+			return ParseIntegerLiteral(node->addr, *target, value, type) ||
+				ParseFloatingLiteral(node->addr, value, type);
 		}
 		if (node->type == ToToken(FrontendCToken::CharacterLiteral)) {
 			stdsint value;
@@ -355,8 +437,8 @@ namespace clover::frontend_c_internal {
 			type = right_type;
 			return true;
 		}
-		if (!left_type.IsInteger() || !right_type.IsInteger()) return false;
-		type = CommonIntegerType(left_type, right_type);
+		if (!left_type.IsArithmetic() || !right_type.IsArithmetic()) return false;
+		type = CommonArithmeticType(left_type, right_type);
 		return true;
 	}
 
@@ -390,8 +472,8 @@ namespace clover::frontend_c_internal {
 		}
 		lowered = ToRValue(lowered, operand);
 		if (!lowered.valid) return lowered;
-		if (destination->IsInteger() && lowered.type.IsInteger())
-			return ConvertInteger(lowered, *destination, operand);
+		if (destination->IsArithmetic() && lowered.type.IsArithmetic())
+			return ConvertArithmetic(lowered, *destination, operand);
 		if (destination->IsPointer() && lowered.type.IsPointer()) {
 			lowered.type = *destination;
 			return lowered;

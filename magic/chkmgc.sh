@@ -12,12 +12,15 @@ check()
 	arguments="$1"
 	expectation="$2"
 	frontend_option="$3"
+	backend_inst="${4:-im}"
+	backend_abi="${5:-lp64}"
 	if [ -n "$frontend_option" ]; then
 		mgc --emit-ir "$arguments" "$frontend_option" -o "$uobjpath/check.ir" || exit 1
 	else
 		mgc --emit-ir "$arguments" -o "$uobjpath/check.ir" || exit 1
 	fi
-	clover-riscv "$uobjpath/check.ir" -mbits=64 -minst=im -o "$uobjpath/check.s" || exit 1
+	clover-riscv "$uobjpath/check.ir" -mbits=64 -minst="$backend_inst" \
+		-mabi="$backend_abi" -o "$uobjpath/check.s" || exit 1
 	riscv64-linux-gnu-gcc -static -o "$uobjpath/check" "$uobjpath/check.s" || exit 1
 	qemu-riscv64 -L "$RISCV/sysroot" "$uobjpath/check"
 	feedback="$?"
@@ -80,8 +83,12 @@ check 'int main(){{1;};;{}{int b=2;} return 3;}' 3
 check 'int main() { if (2-1) return 2; return(3); }' 2
 check 'int main() { if(1) {1;2;return 3;} else if (0) {4;return 5;6;} else;}' 3
 check '../demo/test/clover/c/loop.c' 28
-check_fail 'int main(){break;}' 'break statement not within a loop'
+check '../demo/test/clover/c/switch.c' 51
+check_fail 'int main(){break;}' 'break statement not within a loop or switch'
 check_fail 'int main(){continue;}' 'continue statement not within a loop'
+check_fail 'int main(){switch(1){case 1:return 1;case 1:return 2;}}' 'duplicate case value'
+check_fail 'int main(){switch(1){default:return 1;default:return 2;}}' 'multiple default labels in one switch'
+check_fail 'int main(){case 1:return 2;}' 'case label not within a switch'
 
 # Prefix * and &, and arithmetic for pointer
 check 'int main() {int x=3; return *&x;}' 3
@@ -107,6 +114,12 @@ check 'int main(){_Bool a=0,b=2,c=-3; return a+b+c+sizeof(_Bool);}' 3
 check '_Bool flag=7; _Bool pass(_Bool value){return value;} int main(){_Bool x=pass(3); return flag+x;}' 2
 check 'int main() {return sizeof(long)+sizeof(void*);}' 16 '-Fdata-model=lp64'
 check 'int main() {return sizeof(long)+sizeof(void*);}' 12 '-Fdata-model=llp64'
+check 'int main(){return -1L < 1U;}' 1 '-Fdata-model=lp64'
+check 'int main(){return -1L < 1U;}' 0 '-Fdata-model=llp64'
+check 'int main(){float x=1.5f; double y=2.25; return (int)(x+y);}' 3 '' imfd
+check 'int main(){float a[2]={0x1.4p0f,2.75f}; float *p=a; return (int)(p[0]+p[1]+sizeof(float)+sizeof(double));}' 16 '' imfd
+check 'float add(float x,float y){return x+y;} double mix(float x,double y,int z){return add(x,1.5f)+y+z;} int main(){return (int)mix(1.25f,2.5,3);}' 8 '' imfd lp64d
+check 'int main(){unsigned char a=255; short b=-1; unsigned int c=1; long d=-2; float f=1.5f; double g=2.5; unsigned long n=3; return (a+b==254)+(d+c==-1)+(int)(f+g)+(1<<n);}' 14 '' imfd lp64d
 check 'int main() {return sizeof(char)+sizeof(short)+sizeof(int)+sizeof(long)+sizeof(long long);}' 23
 check 'int main() {signed char x=-1; unsigned char y=255; y=y+2; return (x<0)+(y==1);}' 2
 check 'int main() {unsigned int x=0; x=x-1; return x>1;}' 1

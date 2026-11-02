@@ -36,12 +36,15 @@ enum class Type {
 	I16, // Sixteen-bit integer value.
 	I32, // Thirty-two-bit integer value.
 	I64, // Signed or unsigned 64-bit integer value.
+	F32, // IEEE 754 binary32 floating-point value.
+	F64, // IEEE 754 binary64 floating-point value.
 	Ptr, // Target-independent address value.
 };
 
 // Operations represented by the in-memory Clover IR.
 enum class Opcode {
 	Const, // Create an integer constant.
+	FConst, // Create a floating-point constant from its exact IEEE bit pattern.
 	Local, // Allocate a function-local storage object.
 	Load,  // Read a value from a Ptr operand.
 	Store, // Write a value to a Ptr operand.
@@ -61,15 +64,36 @@ enum class Opcode {
 	LShr,  // Logical right shift.
 	PtrAdd, // Add an integer index scaled by the pointee type to a pointer.
 	ICmp,  // Integer comparison producing I1.
+	FAdd,  // Floating-point addition.
+	FSub,  // Floating-point subtraction.
+	FMul,  // Floating-point multiplication.
+	FDiv,  // Floating-point division.
+	FCmp,  // Floating-point comparison producing I1.
 	ZExt,  // Zero-extension to a wider integer type.
 	SExt,  // Sign-extension to a wider integer type.
 	Trunc, // Truncate an integer to a narrower integer type.
 	IntToPtr, // Convert an integer bit pattern to a pointer value.
 	PtrToInt, // Convert a pointer bit pattern to an integer value.
+	SIToFP, // Convert a signed integer to floating point.
+	UIToFP, // Convert an unsigned integer to floating point.
+	FPToSI, // Convert floating point to a signed integer, rounding toward zero.
+	FPToUI, // Convert floating point to an unsigned integer, rounding toward zero.
+	FPExt, // Extend f32 to f64.
+	FPTrunc, // Round f64 to f32.
 	GlobalAddr, // Produce the address of a named module global object.
 	Call,  // Call a named function and produce its return value.
 	Jmp,   // Unconditional or condition-selected basic-block transfer.
 	Ret,   // Return from the current function.
+};
+
+// C-compatible floating comparison carried by an FCmp instruction.
+enum class FCmpPredicate {
+	EQ, // Equal; false when either operand is NaN.
+	NE, // Not equal; true when either operand is NaN.
+	LT, // Less than; false when either operand is NaN.
+	LE, // Less than or equal; false when either operand is NaN.
+	GT, // Greater than; false when either operand is NaN.
+	GE  // Greater than or equal; false when either operand is NaN.
 };
 
 // Predicate carried by an ICmp instruction.
@@ -106,9 +130,10 @@ struct Instruction {
 	uni::String callee;             // Named function target used by Call.
 	uni::String target;             // Jump target, or true target for a conditional jump.
 	uni::String target_false;       // False target for a conditional jump.
-	stdsint immediate = 0;          // Const literal, or Local element count.
+	stdsint immediate = 0;          // Integer literal, float bits, or Local element count.
 	stduint alignment = 0;          // Optional Local or memory-access alignment in bytes.
 	ICmpPredicate predicate = ICmpPredicate::EQ; // Comparison mode for ICmp.
+	FCmpPredicate float_predicate = FCmpPredicate::EQ; // Comparison mode for FCmp.
 };
 
 // One source path referenced by instruction debug_file fields.

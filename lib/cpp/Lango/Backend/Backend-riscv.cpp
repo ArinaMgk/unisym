@@ -28,8 +28,59 @@ namespace uni::lango {
 		const char* ArgumentRegisters[] = {
 			"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"
 		};
+		const char* FloatArgumentRegisters[] = {
+			"fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"
+		};
 
+		stdsint TypeBits(clover::Type type, const RISCVTargetInfo& target);
 		stdsint TypeStorageBytes(clover::Type type, const RISCVTargetInfo& target);
+
+		bool IsFloatType(clover::Type type) {
+			return type == clover::Type::F32 || type == clover::Type::F64;
+		}
+
+		unsigned ABIFloatBits(const RISCVTargetInfo& target) {
+			switch (target.abi) {
+			case RISCVABI::LP64: return 0;
+			case RISCVABI::LP64F: return 32;
+			case RISCVABI::LP64D: return 64;
+			}
+			return 0;
+		}
+
+		bool AllocateArgumentRegister(clover::Type type,
+			const RISCVTargetInfo& target, unsigned& integer_count,
+			unsigned& float_count, bool& use_float_register,
+			unsigned& register_index) {
+			if (IsFloatType(type) &&
+				TypeBits(type, target) <= ABIFloatBits(target) &&
+				float_count < numsof(FloatArgumentRegisters)) {
+				use_float_register = true;
+				register_index = float_count++;
+				return true;
+			}
+			if (integer_count >= numsof(ArgumentRegisters)) return false;
+			use_float_register = false;
+			register_index = integer_count++;
+			return true;
+		}
+
+		bool ValidateRegisterArguments(const clover::Function& function,
+			const RISCVTargetInfo& target) {
+			unsigned integer_count = 0;
+			unsigned float_count = 0;
+			for (const clover::Parameter& parameter : function.parameters) {
+				bool use_float_register;
+				unsigned register_index;
+				if (!AllocateArgumentRegister(parameter.value.type, target,
+					integer_count, float_count, use_float_register,
+					register_index)) {
+					plogerro("RISC-V backend: stack function arguments are not supported yet");
+					return false;
+				}
+			}
+			return true;
+		}
 
 		const clover::Function* FindFunction(const clover::Module& module,
 			const uni::String& name) {
@@ -67,6 +118,18 @@ namespace uni::lango {
 				plogerro("RISC-V backend: the I instruction set is required");
 				return false;
 			}
+			if (target.extension_d && !target.extension_f) {
+				plogerro("RISC-V backend: the D extension requires the F extension");
+				return false;
+			}
+			if (target.abi == RISCVABI::LP64F && !target.extension_f) {
+				plogerro("RISC-V backend: -mabi=lp64f requires -minst=imf or imfd");
+				return false;
+			}
+			if (target.abi == RISCVABI::LP64D && !target.extension_d) {
+				plogerro("RISC-V backend: -mabi=lp64d requires -minst=imfd");
+				return false;
+			}
 			for (stduint index = 0; index < module.source_files.Count(); index++) {
 				const clover::SourceFile& source = module.source_files.begin()[index];
 				if (!source.id || !source.path.getByteCount()) {
@@ -82,6 +145,14 @@ namespace uni::lango {
 			}
 			for (stduint index = 0; index < module.globals.Count(); index++) {
 				const clover::Global& global = module.globals.begin()[index];
+				if (global.type == clover::Type::F32 && !target.extension_f) {
+					plogerro("RISC-V backend: f32 globals require -minst=imf or imfd");
+					return false;
+				}
+				if (global.type == clover::Type::F64 && !target.extension_d) {
+					plogerro("RISC-V backend: f64 globals require -minst=imfd");
+					return false;
+				}
 				if (!global.name.getByteCount() || global.type == clover::Type::Void ||
 					global.element_count <= 0) {
 					plogerro("RISC-V backend: invalid global object");
@@ -114,12 +185,23 @@ namespace uni::lango {
 							function.name.reference());
 						return false;
 					}
-				if (function.parameters.Count() > numsof(ArgumentRegisters)) {
-					plogerro("RISC-V backend: more than 8 register parameters are not supported");
-					return false;
-				}
+				if (!ValidateRegisterArguments(function, target)) return false;
 				for (const clover::BasicBlock& block : function.blocks) {
 					for (const clover::Instruction& instruction : block.instructions) {
+						bool uses_f32 = instruction.type == clover::Type::F32;
+						bool uses_f64 = instruction.type == clover::Type::F64;
+						for (const clover::Value& operand : instruction.operands) {
+							uses_f32 = uses_f32 || operand.type == clover::Type::F32;
+							uses_f64 = uses_f64 || operand.type == clover::Type::F64;
+						}
+						if (uses_f32 && !target.extension_f) {
+							plogerro("RISC-V backend: f32 Clover operations require -minst=imf or imfd");
+							return false;
+						}
+						if (uses_f64 && !target.extension_d) {
+							plogerro("RISC-V backend: f64 Clover operations require -minst=imfd");
+							return false;
+						}
 						if ((instruction.debug_file == 0) !=
 							(instruction.debug_line == 0)) {
 							plogerro("RISC-V backend: incomplete instruction source location");
@@ -214,6 +296,8 @@ namespace uni::lango {
 			case clover::Type::I16: return 16;
 			case clover::Type::I32: return 32;
 			case clover::Type::I64: return 64;
+			case clover::Type::F32: return 32;
+			case clover::Type::F64: return 64;
 			case clover::Type::Ptr: return target.bits;
 			}
 			return 0;
@@ -340,6 +424,17 @@ namespace uni::lango {
 			}
 		}
 
+		void EmitFrameFloatStore(clover::Type type, const char* source,
+			stdsint offset, uni::OstreamTrait& output) {
+			const char* mnemonic = type == clover::Type::F32 ? "fsw" : "fsd";
+			if (FitsSignedImmediate12(-offset))
+				output.OutFormat("\t%s %s, -%[i](s0)\n", mnemonic, source, offset);
+			else {
+				EmitFrameAddress("t3", offset, output);
+				output.OutFormat("\t%s %s, 0(t3)\n", mnemonic, source);
+			}
+		}
+
 		// Load a spilled SSA value, or rematerialize a Local frame address.
 		bool LoadValue(const FunctionLayout& layout, clover::Value value,
 			const char* reg, uni::OstreamTrait& output) {
@@ -369,6 +464,47 @@ namespace uni::lango {
 			return true;
 		}
 
+		bool LoadFloatValue(const FunctionLayout& layout, clover::Value value,
+			const char* reg, uni::OstreamTrait& output) {
+			if (!IsFloatType(value.type)) return false;
+			const ValueSlot* slot;
+			if (!SlotOf(layout, value, slot) || !slot->value_offset) return false;
+			const char* mnemonic = value.type == clover::Type::F32 ? "flw" : "fld";
+			if (FitsSignedImmediate12(-slot->value_offset))
+				output.OutFormat("\t%s %s, -%[i](s0)\n", mnemonic, reg, slot->value_offset);
+			else {
+				EmitFrameAddress("t3", slot->value_offset, output);
+				output.OutFormat("\t%s %s, 0(t3)\n", mnemonic, reg);
+			}
+			return true;
+		}
+
+		bool LoadFloatBits(const FunctionLayout& layout, clover::Value value,
+			const char* reg, uni::OstreamTrait& output) {
+			if (!IsFloatType(value.type)) return false;
+			const ValueSlot* slot;
+			if (!SlotOf(layout, value, slot) || !slot->value_offset) return false;
+			const char* mnemonic = value.type == clover::Type::F32 ? "lw" : "ld";
+			if (FitsSignedImmediate12(-slot->value_offset))
+				output.OutFormat("\t%s %s, -%[i](s0)\n", mnemonic, reg,
+					slot->value_offset);
+			else {
+				EmitFrameAddress("t3", slot->value_offset, output);
+				output.OutFormat("\t%s %s, 0(t3)\n", mnemonic, reg);
+			}
+			return true;
+		}
+
+		bool StoreFloatResult(const FunctionLayout& layout,
+			const clover::Instruction& instruction, const char* reg,
+			uni::OstreamTrait& output) {
+			if (!IsFloatType(instruction.type) || !instruction.has_result) return false;
+			const ValueSlot* slot;
+			if (!SlotOf(layout, instruction.result, slot) || !slot->value_offset) return false;
+			EmitFrameFloatStore(instruction.type, reg, slot->value_offset, output);
+			return true;
+		}
+
 		// Emit the common function epilogue. t0 temporarily holds the caller's s0.
 		void EmitEpilogue(uni::OstreamTrait& output) {
 			output.OutFormat("\tld ra, -8(s0)\n");
@@ -386,6 +522,18 @@ namespace uni::lango {
 				!LoadValue(layout, instruction.operands.begin()[1], "t1", output)) return false;
 			output.OutFormat("\t%s t2, t0, t1\n", mnemonic);
 			return StoreResult(layout, instruction, "t2", output);
+		}
+
+		bool EmitFloatBinary(const clover::Instruction& instruction,
+			const FunctionLayout& layout, const char* operation,
+			uni::OstreamTrait& output) {
+			if (!RequireOperands(instruction, 2) ||
+				!LoadFloatValue(layout, instruction.operands.begin()[0], "ft0", output) ||
+				!LoadFloatValue(layout, instruction.operands.begin()[1], "ft1", output))
+				return false;
+			output.OutFormat("\t%s.%c ft2, ft0, ft1\n", operation,
+				instruction.type == clover::Type::F32 ? 's' : 'd');
+			return StoreFloatResult(layout, instruction, "ft2", output);
 		}
 
 		// Assemble a little-endian unaligned integer from byte loads.
@@ -416,6 +564,37 @@ namespace uni::lango {
 			if (bytes > 1) output.OutFormat("\tsrli t2, t0, 8\n");
 			for (stdsint index = 1; index < bytes; index++) {
 				output.OutFormat("\tsb t2, %[i](t1)\n", index);
+				if (index + 1 < bytes) output.OutFormat("\tsrli t2, t2, 8\n");
+			}
+			return true;
+		}
+
+		bool EmitUnalignedFloatLoad(const clover::Instruction& instruction,
+			const FunctionLayout& layout, const RISCVTargetInfo& target,
+			uni::OstreamTrait& output) {
+			stdsint bytes = TypeStorageBytes(instruction.type, target);
+			if (bytes != 4 && bytes != 8) return false;
+			output.OutFormat("\tlbu t1, 0(t0)\n");
+			for (stdsint index = 1; index < bytes; index++) {
+				output.OutFormat("\tlbu t2, %[i](t0)\n", index);
+				output.OutFormat("\tslli t2, t2, %[i]\n", index * 8);
+				output.OutFormat("\tor t1, t1, t2\n");
+			}
+			output.OutFormat(instruction.type == clover::Type::F32 ?
+				"\tfmv.w.x ft0, t1\n" : "\tfmv.d.x ft0, t1\n");
+			return StoreFloatResult(layout, instruction, "ft0", output);
+		}
+
+		bool EmitUnalignedFloatStore(const clover::Instruction& instruction,
+			const RISCVTargetInfo& target, uni::OstreamTrait& output) {
+			stdsint bytes = TypeStorageBytes(instruction.type, target);
+			if (bytes != 4 && bytes != 8) return false;
+			output.OutFormat(instruction.type == clover::Type::F32 ?
+				"\tfmv.x.w t1, ft0\n" : "\tfmv.x.d t1, ft0\n");
+			output.OutFormat("\tsb t1, 0(t0)\n");
+			if (bytes > 1) output.OutFormat("\tsrli t2, t1, 8\n");
+			for (stdsint index = 1; index < bytes; index++) {
+				output.OutFormat("\tsb t2, %[i](t0)\n", index);
 				if (index + 1 < bytes) output.OutFormat("\tsrli t2, t2, 8\n");
 			}
 			return true;
@@ -465,6 +644,9 @@ namespace uni::lango {
 			case clover::Opcode::Const:
 				output.OutFormat("\tli t0, %[i]\n", instruction.immediate);
 				return StoreResult(layout, instruction, "t0", output);
+			case clover::Opcode::FConst:
+				output.OutFormat("\tli t0, %[i]\n", instruction.immediate);
+				return StoreResult(layout, instruction, "t0", output);
 
 			case clover::Opcode::Local: {
 				const ValueSlot* slot;
@@ -476,6 +658,14 @@ namespace uni::lango {
 			case clover::Opcode::Load:
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
+				if (IsFloatType(instruction.type)) {
+					if (instruction.alignment &&
+						(stdsint)instruction.alignment < TypeStorageBytes(instruction.type, target))
+						return EmitUnalignedFloatLoad(instruction, layout, target, output);
+					output.OutFormat(instruction.type == clover::Type::F32 ?
+						"\tflw ft0, 0(t0)\n" : "\tfld ft0, 0(t0)\n");
+					return StoreFloatResult(layout, instruction, "ft0", output);
+				}
 				if (instruction.alignment &&
 					(stdsint)instruction.alignment < TypeStorageBytes(instruction.type, target))
 					return EmitUnalignedLoad(instruction, layout, target, output);
@@ -491,8 +681,18 @@ namespace uni::lango {
 				return StoreResult(layout, instruction, "t1", output);
 
 			case clover::Opcode::Store:
-				if (!RequireOperands(instruction, 2) ||
-					!LoadValue(layout, instruction.operands.begin()[0], "t0", output) ||
+				if (!RequireOperands(instruction, 2)) return false;
+				if (IsFloatType(instruction.type)) {
+					if (!LoadFloatValue(layout, instruction.operands.begin()[0], "ft0", output) ||
+						!LoadValue(layout, instruction.operands.begin()[1], "t0", output)) return false;
+					if (instruction.alignment &&
+						(stdsint)instruction.alignment < TypeStorageBytes(instruction.type, target))
+						return EmitUnalignedFloatStore(instruction, target, output);
+					output.OutFormat(instruction.type == clover::Type::F32 ?
+						"\tfsw ft0, 0(t0)\n" : "\tfsd ft0, 0(t0)\n");
+					return true;
+				}
+				if (!LoadValue(layout, instruction.operands.begin()[0], "t0", output) ||
 					!LoadValue(layout, instruction.operands.begin()[1], "t1", output)) return false;
 				if (instruction.alignment &&
 					(stdsint)instruction.alignment < TypeStorageBytes(instruction.type, target))
@@ -509,6 +709,12 @@ namespace uni::lango {
 				return true;
 
 			case clover::Opcode::Mov:
+				if (IsFloatType(instruction.type)) {
+					if (!RequireOperands(instruction, 1) ||
+						!LoadFloatValue(layout, instruction.operands.begin()[0], "ft0", output))
+						return false;
+					return StoreFloatResult(layout, instruction, "ft0", output);
+				}
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
 				return StoreResult(layout, instruction, "t0", output);
@@ -536,6 +742,14 @@ namespace uni::lango {
 				BinaryMnemonic(instruction, "sra", "sraw"), output);
 			case clover::Opcode::LShr: return EmitBinary(instruction, layout,
 				BinaryMnemonic(instruction, "srl", "srlw"), output);
+			case clover::Opcode::FAdd:
+				return EmitFloatBinary(instruction, layout, "fadd", output);
+			case clover::Opcode::FSub:
+				return EmitFloatBinary(instruction, layout, "fsub", output);
+			case clover::Opcode::FMul:
+				return EmitFloatBinary(instruction, layout, "fmul", output);
+			case clover::Opcode::FDiv:
+				return EmitFloatBinary(instruction, layout, "fdiv", output);
 			case clover::Opcode::PtrAdd:
 				return EmitPtrAdd(instruction, layout, target, output);
 
@@ -573,6 +787,39 @@ namespace uni::lango {
 					break;
 				case clover::ICmpPredicate::UGE:
 					output.OutFormat("\tsltu t2, t0, t1\n\txori t2, t2, 1\n");
+					break;
+				}
+				return StoreResult(layout, instruction, "t2", output);
+
+			case clover::Opcode::FCmp:
+				if (!RequireOperands(instruction, 2) ||
+					!LoadFloatValue(layout, instruction.operands.begin()[0], "ft0", output) ||
+					!LoadFloatValue(layout, instruction.operands.begin()[1], "ft1", output))
+					return false;
+				switch (instruction.float_predicate) {
+				case clover::FCmpPredicate::EQ:
+					output.OutFormat("\tfeq.%c t2, ft0, ft1\n",
+						instruction.type == clover::Type::F32 ? 's' : 'd');
+					break;
+				case clover::FCmpPredicate::NE:
+					output.OutFormat("\tfeq.%c t2, ft0, ft1\n\txori t2, t2, 1\n",
+						instruction.type == clover::Type::F32 ? 's' : 'd');
+					break;
+				case clover::FCmpPredicate::LT:
+					output.OutFormat("\tflt.%c t2, ft0, ft1\n",
+						instruction.type == clover::Type::F32 ? 's' : 'd');
+					break;
+				case clover::FCmpPredicate::LE:
+					output.OutFormat("\tfle.%c t2, ft0, ft1\n",
+						instruction.type == clover::Type::F32 ? 's' : 'd');
+					break;
+				case clover::FCmpPredicate::GT:
+					output.OutFormat("\tflt.%c t2, ft1, ft0\n",
+						instruction.type == clover::Type::F32 ? 's' : 'd');
+					break;
+				case clover::FCmpPredicate::GE:
+					output.OutFormat("\tfle.%c t2, ft1, ft0\n",
+						instruction.type == clover::Type::F32 ? 's' : 'd');
 					break;
 				}
 				return StoreResult(layout, instruction, "t2", output);
@@ -630,25 +877,82 @@ namespace uni::lango {
 				}
 				return StoreResult(layout, instruction, "t0", output);
 
+			case clover::Opcode::SIToFP:
+			case clover::Opcode::UIToFP: {
+				if (!RequireOperands(instruction, 1) ||
+					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
+				bool wide = instruction.operands.begin()[0].type == clover::Type::I64;
+				output.OutFormat("\tfcvt.%c.%s ft0, t0\n",
+					instruction.type == clover::Type::F32 ? 's' : 'd',
+					wide ? instruction.opcode == clover::Opcode::SIToFP ? "l" : "lu" :
+						instruction.opcode == clover::Opcode::SIToFP ? "w" : "wu");
+				return StoreFloatResult(layout, instruction, "ft0", output);
+			}
+
+			case clover::Opcode::FPToSI:
+			case clover::Opcode::FPToUI: {
+				if (!RequireOperands(instruction, 1) ||
+					!LoadFloatValue(layout, instruction.operands.begin()[0], "ft0", output))
+					return false;
+				bool wide = instruction.type == clover::Type::I64;
+				output.OutFormat("\tfcvt.%s.%c t0, ft0, rtz\n",
+					wide ? instruction.opcode == clover::Opcode::FPToSI ? "l" : "lu" :
+						instruction.opcode == clover::Opcode::FPToSI ? "w" : "wu",
+					instruction.operands.begin()[0].type == clover::Type::F32 ? 's' : 'd');
+				return StoreResult(layout, instruction, "t0", output);
+			}
+
+			case clover::Opcode::FPExt:
+			case clover::Opcode::FPTrunc:
+				if (!RequireOperands(instruction, 1) ||
+					!LoadFloatValue(layout, instruction.operands.begin()[0], "ft0", output))
+					return false;
+				output.OutFormat(instruction.opcode == clover::Opcode::FPExt ?
+					"\tfcvt.d.s ft1, ft0\n" : "\tfcvt.s.d ft1, ft0\n");
+				return StoreFloatResult(layout, instruction, "ft1", output);
+
 			case clover::Opcode::GlobalAddr:
 				if (!instruction.name.getByteCount()) return false;
 				output.OutFormat("\tla t0, %s\n", instruction.name.reference());
 				return StoreResult(layout, instruction, "t0", output);
 
-			case clover::Opcode::Call:
-				if (instruction.operands.Count() > numsof(ArgumentRegisters)) return false;
+			case clover::Opcode::Call: {
+				unsigned integer_count = 0;
+				unsigned float_count = 0;
 				for (stduint index = 0; index < instruction.operands.Count(); index++) {
-					const char* reg = ArgumentRegisters[index];
-					if (!LoadValue(layout, instruction.operands.begin()[index], reg, output))
-						return false;
-					if (instruction.operands.begin()[index].type == clover::Type::I32)
-						output.OutFormat("\taddiw %s, %s, 0\n", reg, reg);
+					clover::Value argument = instruction.operands.begin()[index];
+					bool use_float_register;
+					unsigned register_index;
+					if (!AllocateArgumentRegister(argument.type, target,
+						integer_count, float_count, use_float_register,
+						register_index)) return false;
+					if (use_float_register) {
+						if (!LoadFloatValue(layout, argument,
+							FloatArgumentRegisters[register_index], output)) return false;
+					}
+					else {
+						const char* reg = ArgumentRegisters[register_index];
+						if (IsFloatType(argument.type)) {
+							if (!LoadFloatBits(layout, argument, reg, output)) return false;
+						}
+						else {
+							if (!LoadValue(layout, argument, reg, output)) return false;
+							if (argument.type == clover::Type::I32)
+								output.OutFormat("\taddiw %s, %s, 0\n", reg, reg);
+						}
+					}
 				}
 				output.OutFormat("\tcall %s\n", instruction.callee.reference());
 				if (instruction.type == clover::Type::Void) return true;
+				if (IsFloatType(instruction.type)) {
+					if (TypeBits(instruction.type, target) <= ABIFloatBits(target))
+						return StoreFloatResult(layout, instruction, "fa0", output);
+					return StoreResult(layout, instruction, "a0", output);
+				}
 				if (instruction.type == clover::Type::I32)
 					output.OutFormat("\taddiw a0, a0, 0\n");
 				return StoreResult(layout, instruction, "a0", output);
+			}
 
 			case clover::Opcode::Jmp:
 				if (!HasBlock(function, instruction.target) ||
@@ -678,8 +982,17 @@ namespace uni::lango {
 					EmitEpilogue(output);
 					return true;
 				}
-				if (!RequireOperands(instruction, 1) ||
-					!LoadValue(layout, instruction.operands.begin()[0], "a0", output)) return false;
+				if (!RequireOperands(instruction, 1)) return false;
+				if (IsFloatType(instruction.type)) {
+					if (TypeBits(instruction.type, target) <= ABIFloatBits(target)) {
+						if (!LoadFloatValue(layout, instruction.operands.begin()[0],
+							"fa0", output)) return false;
+					}
+					else if (!LoadFloatBits(layout, instruction.operands.begin()[0],
+						"a0", output)) return false;
+				}
+				else if (!LoadValue(layout, instruction.operands.begin()[0], "a0", output))
+					return false;
 				EmitEpilogue(output);
 				return true;
 			}
@@ -710,14 +1023,27 @@ namespace uni::lango {
 				output.OutFormat("\tsd ra, -8(s0)\n");
 				output.OutFormat("\tsd t1, -16(s0)\n");
 			}
+			unsigned integer_count = 0;
+			unsigned float_count = 0;
 			for (stduint index = 0; index < function.parameters.Count(); index++) {
 				const clover::Parameter& parameter = function.parameters.begin()[index];
 				const ValueSlot* slot;
 				if (!SlotOf(layout, parameter.value, slot) || !slot->value_offset) return false;
-				const char* reg = ArgumentRegisters[index];
-				if (parameter.value.type == clover::Type::I32)
-					output.OutFormat("\taddiw %s, %s, 0\n", reg, reg);
-				EmitFrameStore(reg, slot->value_offset, output);
+				bool use_float_register;
+				unsigned register_index;
+				if (!AllocateArgumentRegister(parameter.value.type, target,
+					integer_count, float_count, use_float_register,
+					register_index)) return false;
+				if (use_float_register)
+					EmitFrameFloatStore(parameter.value.type,
+						FloatArgumentRegisters[register_index], slot->value_offset, output);
+				else {
+					const char* reg = ArgumentRegisters[register_index];
+					if (!IsFloatType(parameter.value.type) &&
+						parameter.value.type == clover::Type::I32)
+						output.OutFormat("\taddiw %s, %s, 0\n", reg, reg);
+					EmitFrameStore(reg, slot->value_offset, output);
+				}
 			}
 
 			uint32 current_file = 0;
@@ -739,7 +1065,11 @@ namespace uni::lango {
 				}
 			}
 			if (!terminated) {
-				output.OutFormat("\tli a0, 0\n");
+				if (IsFloatType(function.return_type) &&
+					TypeBits(function.return_type, target) <= ABIFloatBits(target))
+					output.OutFormat(function.return_type == clover::Type::F32 ?
+						"\tfmv.w.x fa0, zero\n" : "\tfmv.d.x fa0, zero\n");
+				else output.OutFormat("\tli a0, 0\n");
 				EmitEpilogue(output);
 			}
 			output.OutFormat(".size %s, .-%s\n", function.name.reference(), function.name.reference());

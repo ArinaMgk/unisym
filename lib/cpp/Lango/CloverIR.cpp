@@ -34,7 +34,21 @@ namespace clover {
 			case Type::I16: return "i16";
 			case Type::I32: return "i32";
 			case Type::I64: return "i64";
+			case Type::F32: return "f32";
+			case Type::F64: return "f64";
 			case Type::Ptr: return "ptr";
+			}
+			return "?";
+		}
+
+		const char* FloatPredicateName(FCmpPredicate predicate) {
+			switch (predicate) {
+			case FCmpPredicate::EQ: return "eq";
+			case FCmpPredicate::NE: return "ne";
+			case FCmpPredicate::LT: return "lt";
+			case FCmpPredicate::LE: return "le";
+			case FCmpPredicate::GT: return "gt";
+			case FCmpPredicate::GE: return "ge";
 			}
 			return "?";
 		}
@@ -119,6 +133,9 @@ namespace clover {
 			case Opcode::Const:
 				output.OutFormat("const %s %[i]\n", TypeName(instruction.type), instruction.immediate);
 				break;
+			case Opcode::FConst:
+				output.OutFormat("fconst %s %[i]\n", TypeName(instruction.type), instruction.immediate);
+				break;
 			case Opcode::Local:
 				output.OutFormat("local %s", TypeName(instruction.type));
 				if (instruction.immediate > 1)
@@ -181,6 +198,28 @@ namespace clover {
 				PrintValue(output, instruction.operands.begin()[1]);
 				output.OutFormat("\n");
 				break;
+			case Opcode::FAdd:
+			case Opcode::FSub:
+			case Opcode::FMul:
+			case Opcode::FDiv:
+				output.OutFormat("%s %s ", instruction.opcode == Opcode::FAdd ? "fadd" :
+					instruction.opcode == Opcode::FSub ? "fsub" :
+					instruction.opcode == Opcode::FMul ? "fmul" : "fdiv",
+					TypeName(instruction.type));
+				PrintValue(output, instruction.operands.begin()[0]);
+				output.OutFormat(", ");
+				PrintValue(output, instruction.operands.begin()[1]);
+				output.OutFormat("\n");
+				break;
+			case Opcode::FCmp:
+				output.OutFormat("fcmp %s %s ",
+					FloatPredicateName(instruction.float_predicate),
+					TypeName(instruction.type));
+				PrintValue(output, instruction.operands.begin()[0]);
+				output.OutFormat(", ");
+				PrintValue(output, instruction.operands.begin()[1]);
+				output.OutFormat("\n");
+				break;
 			case Opcode::ZExt:
 			case Opcode::SExt:
 			case Opcode::Trunc:
@@ -194,6 +233,22 @@ namespace clover {
 			case Opcode::PtrToInt:
 				output.OutFormat("%s %s ",
 					instruction.opcode == Opcode::IntToPtr ? "inttoptr" : "ptrtoint",
+					TypeName(instruction.operands.begin()[0].type));
+				PrintValue(output, instruction.operands.begin()[0]);
+				output.OutFormat(" to %s\n", TypeName(instruction.type));
+				break;
+			case Opcode::SIToFP:
+			case Opcode::UIToFP:
+			case Opcode::FPToSI:
+			case Opcode::FPToUI:
+			case Opcode::FPExt:
+			case Opcode::FPTrunc:
+				output.OutFormat("%s %s ",
+					instruction.opcode == Opcode::SIToFP ? "sitofp" :
+					instruction.opcode == Opcode::UIToFP ? "uitofp" :
+					instruction.opcode == Opcode::FPToSI ? "fptosi" :
+					instruction.opcode == Opcode::FPToUI ? "fptoui" :
+					instruction.opcode == Opcode::FPExt ? "fpext" : "fptrunc",
 					TypeName(instruction.operands.begin()[0].type));
 				PrintValue(output, instruction.operands.begin()[0]);
 				output.OutFormat(" to %s\n", TypeName(instruction.type));
@@ -367,6 +422,8 @@ namespace clover {
 				else if (Is("i16")) type = Type::I16;
 				else if (Is("i32")) type = Type::I32;
 				else if (Is("i64")) type = Type::I64;
+				else if (Is("f32")) type = Type::F32;
+				else if (Is("f64")) type = Type::F64;
 				else if (Is("ptr")) type = Type::Ptr;
 				else return Error("expected Clover type");
 				Advance();
@@ -453,6 +510,18 @@ namespace clover {
 				return true;
 			}
 
+			bool ReadFloatPredicate(FCmpPredicate& predicate) {
+				if (Is("eq")) predicate = FCmpPredicate::EQ;
+				else if (Is("ne")) predicate = FCmpPredicate::NE;
+				else if (Is("lt")) predicate = FCmpPredicate::LT;
+				else if (Is("le")) predicate = FCmpPredicate::LE;
+				else if (Is("gt")) predicate = FCmpPredicate::GT;
+				else if (Is("ge")) predicate = FCmpPredicate::GE;
+				else return Error("expected fcmp predicate");
+				Advance();
+				return true;
+			}
+
 			bool ReadBinaryOperands(Instruction& instruction) {
 				Value left, right;
 				if (!ReadValue(left) || !Expect(",") || !ReadValue(right)) return false;
@@ -462,7 +531,12 @@ namespace clover {
 			}
 
 			bool IsIntegerType(Type type) const {
-				return type != Type::Void && type != Type::Ptr;
+				return type == Type::I1 || type == Type::I8 || type == Type::I16 ||
+					type == Type::I32 || type == Type::I64;
+			}
+
+			bool IsFloatType(Type type) const {
+				return type == Type::F32 || type == Type::F64;
 			}
 
 			bool ReadCallOperands(Instruction& instruction) {
@@ -506,6 +580,20 @@ namespace clover {
 					instruction.opcode = Opcode::Const;
 					if (!has_result || !ReadType(instruction.type) || !ReadNumber(instruction.immediate))
 						return Error("invalid const instruction");
+					if (!IsIntegerType(instruction.type))
+						return Error("const requires an integer type");
+					instruction.result.type = instruction.type;
+				}
+				else if (!StrCompare(operation.reference(), "fconst")) {
+					instruction.opcode = Opcode::FConst;
+					if (!has_result || !ReadType(instruction.type) ||
+						!ReadNumber(instruction.immediate) || !IsFloatType(instruction.type))
+						return Error("invalid fconst instruction");
+					if (instruction.type == Type::F32 &&
+						(instruction.immediate < (stdsint)INT32_MIN ||
+							(instruction.immediate >= 0 &&
+								(uint64)instruction.immediate > (uint64)UINT32_MAX)))
+						return Error("f32 constant bit pattern is out of range");
 					instruction.result.type = instruction.type;
 				}
 				else if (!StrCompare(operation.reference(), "local")) {
@@ -526,6 +614,8 @@ namespace clover {
 					if (!has_result || !ReadType(instruction.type) || !Expect(",") || !ReadValue(address))
 						return Error("invalid load instruction");
 					instruction.operands.Append(address);
+					if (address.type != Type::Ptr || instruction.type == Type::Void)
+						return Error("load type mismatch");
 					if (!ReadOptionalAlignment(instruction)) return false;
 					instruction.result.type = instruction.type;
 				}
@@ -533,6 +623,10 @@ namespace clover {
 					instruction.opcode = Opcode::Store;
 					if (has_result || !ReadType(instruction.type) || !ReadBinaryOperands(instruction))
 						return Error("invalid store instruction");
+					if (instruction.type == Type::Void ||
+						instruction.operands.begin()[0].type != instruction.type ||
+						instruction.operands.begin()[1].type != Type::Ptr)
+						return Error("store type mismatch");
 					if (!ReadOptionalAlignment(instruction)) return false;
 				}
 				else if (!StrCompare(operation.reference(), "mov")) {
@@ -541,6 +635,8 @@ namespace clover {
 					if (!has_result || !ReadType(instruction.type) || !ReadValue(operand))
 						return Error("invalid mov instruction");
 					instruction.operands.Append(operand);
+					if (operand.type != instruction.type || instruction.type == Type::Void)
+						return Error("mov type mismatch");
 					instruction.result.type = instruction.type;
 				}
 				else if (!StrCompare(operation.reference(), "add") || !StrCompare(operation.reference(), "sub") ||
@@ -565,6 +661,28 @@ namespace clover {
 					else instruction.opcode = Opcode::LShr;
 					if (!has_result || !ReadType(instruction.type) || !ReadBinaryOperands(instruction))
 						return Error("invalid binary instruction");
+					bool is_shift = instruction.opcode == Opcode::Shl ||
+						instruction.opcode == Opcode::AShr ||
+						instruction.opcode == Opcode::LShr;
+					if (!IsIntegerType(instruction.type) ||
+						instruction.operands.begin()[0].type != instruction.type ||
+						(is_shift ? !IsIntegerType(instruction.operands.begin()[1].type) :
+							instruction.operands.begin()[1].type != instruction.type))
+						return Error("integer binary type mismatch");
+					instruction.result.type = instruction.type;
+				}
+				else if (!StrCompare(operation.reference(), "fadd") ||
+					!StrCompare(operation.reference(), "fsub") ||
+					!StrCompare(operation.reference(), "fmul") ||
+					!StrCompare(operation.reference(), "fdiv")) {
+					instruction.opcode = !StrCompare(operation.reference(), "fadd") ? Opcode::FAdd :
+						!StrCompare(operation.reference(), "fsub") ? Opcode::FSub :
+						!StrCompare(operation.reference(), "fmul") ? Opcode::FMul : Opcode::FDiv;
+					if (!has_result || !ReadType(instruction.type) ||
+						!ReadBinaryOperands(instruction) || !IsFloatType(instruction.type) ||
+						instruction.operands.begin()[0].type != instruction.type ||
+						instruction.operands.begin()[1].type != instruction.type)
+						return Error("invalid floating binary instruction");
 					instruction.result.type = instruction.type;
 				}
 				else if (!StrCompare(operation.reference(), "ptradd")) {
@@ -582,6 +700,24 @@ namespace clover {
 					if (!has_result || !ReadPredicate(instruction.predicate) ||
 						!ReadType(instruction.type) || !ReadBinaryOperands(instruction))
 						return Error("invalid icmp instruction");
+					if ((!IsIntegerType(instruction.type) && instruction.type != Type::Ptr) ||
+						instruction.operands.begin()[0].type != instruction.type ||
+						instruction.operands.begin()[1].type != instruction.type)
+						return Error("icmp type mismatch");
+					if (instruction.type == Type::Ptr &&
+						instruction.predicate != ICmpPredicate::EQ &&
+						instruction.predicate != ICmpPredicate::NE)
+						return Error("pointer icmp requires eq or ne");
+					instruction.result.type = Type::I1;
+				}
+				else if (!StrCompare(operation.reference(), "fcmp")) {
+					instruction.opcode = Opcode::FCmp;
+					if (!has_result || !ReadFloatPredicate(instruction.float_predicate) ||
+						!ReadType(instruction.type) || !ReadBinaryOperands(instruction) ||
+						!IsFloatType(instruction.type) ||
+						instruction.operands.begin()[0].type != instruction.type ||
+						instruction.operands.begin()[1].type != instruction.type)
+						return Error("invalid fcmp instruction");
 					instruction.result.type = Type::I1;
 				}
 				else if (!StrCompare(operation.reference(), "zext") ||
@@ -616,6 +752,39 @@ namespace clover {
 						(!integer_to_pointer &&
 							(source_type != Type::Ptr || !IsIntegerType(instruction.type))))
 						return Error("pointer conversion type mismatch");
+					instruction.operands.Append(operand);
+					instruction.result.type = instruction.type;
+				}
+				else if (!StrCompare(operation.reference(), "sitofp") ||
+					!StrCompare(operation.reference(), "uitofp") ||
+					!StrCompare(operation.reference(), "fptosi") ||
+					!StrCompare(operation.reference(), "fptoui") ||
+					!StrCompare(operation.reference(), "fpext") ||
+					!StrCompare(operation.reference(), "fptrunc")) {
+					bool signed_to_float = !StrCompare(operation.reference(), "sitofp");
+					bool unsigned_to_float = !StrCompare(operation.reference(), "uitofp");
+					bool float_to_signed = !StrCompare(operation.reference(), "fptosi");
+					bool float_to_unsigned = !StrCompare(operation.reference(), "fptoui");
+					bool extend = !StrCompare(operation.reference(), "fpext");
+					instruction.opcode = signed_to_float ? Opcode::SIToFP :
+						unsigned_to_float ? Opcode::UIToFP :
+						float_to_signed ? Opcode::FPToSI :
+						float_to_unsigned ? Opcode::FPToUI :
+						extend ? Opcode::FPExt : Opcode::FPTrunc;
+					Type source_type;
+					Value operand;
+					if (!has_result || !ReadType(source_type) || !ReadValue(operand) ||
+						!Expect("to") || !ReadType(instruction.type) || operand.type != source_type)
+						return Error("invalid floating conversion instruction");
+					if (((signed_to_float || unsigned_to_float) &&
+						(!IsIntegerType(source_type) || !IsFloatType(instruction.type))) ||
+						((float_to_signed || float_to_unsigned) &&
+						(!IsFloatType(source_type) || !IsIntegerType(instruction.type))) ||
+						(extend && (source_type != Type::F32 || instruction.type != Type::F64)) ||
+						(!signed_to_float && !unsigned_to_float && !float_to_signed &&
+							!float_to_unsigned && !extend &&
+							(source_type != Type::F64 || instruction.type != Type::F32)))
+						return Error("floating conversion type mismatch");
 					instruction.operands.Append(operand);
 					instruction.result.type = instruction.type;
 				}

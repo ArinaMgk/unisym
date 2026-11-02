@@ -135,6 +135,7 @@ namespace {
 			IsKeyword(node, "_Bool") ||
 			IsKeyword(node, "char") || IsKeyword(node, "short") ||
 			IsKeyword(node, "int") || IsKeyword(node, "long") ||
+			IsKeyword(node, "float") || IsKeyword(node, "double") ||
 			IsKeyword(node, "void") || IsKeyword(node, "struct") ||
 			IsKeyword(node, "union") || IsKeyword(node, "enum");
 	}
@@ -145,6 +146,7 @@ namespace {
 		const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info) {
 		unsigned signed_count = 0, unsigned_count = 0, bool_count = 0, char_count = 0;
 		unsigned short_count = 0, int_count = 0, long_count = 0, void_count = 0;
+		unsigned float_count = 0, double_count = 0;
 		unsigned const_count = 0;
 		uni::Nnode* first = node;
 		uni::Nnode* after_type = node;
@@ -207,15 +209,20 @@ namespace {
 			else if (IsKeyword(after_type, "short")) short_count++;
 			else if (IsKeyword(after_type, "int")) int_count++;
 			else if (IsKeyword(after_type, "long")) long_count++;
+			else if (IsKeyword(after_type, "float")) float_count++;
+			else if (IsKeyword(after_type, "double")) double_count++;
 			else if (IsKeyword(after_type, "void")) void_count++;
 			after_type = after_type->next;
 		}
 		if (after_type == first) return false;
 		if (const_count > 1 || signed_count > 1 || unsigned_count > 1 || void_count > 1 ||
 			!(signed_count || unsigned_count || bool_count || char_count || short_count ||
-				int_count || long_count || void_count) ||
+				int_count || long_count || float_count || double_count || void_count) ||
 			(signed_count && unsigned_count) || char_count > 1 ||
 			bool_count > 1 || short_count > 1 || int_count > 1 || long_count > 2 ||
+			float_count > 1 || double_count > 1 || (float_count && double_count) ||
+			((float_count || double_count) && (signed_count || unsigned_count ||
+				bool_count || char_count || short_count || int_count || long_count || void_count)) ||
 			(bool_count && (signed_count || unsigned_count || char_count ||
 				short_count || int_count || long_count || void_count)) ||
 			(char_count && (short_count || int_count || long_count)) ||
@@ -223,13 +230,18 @@ namespace {
 			(void_count && (signed_count || unsigned_count || char_count ||
 				short_count || int_count || long_count))) {
 			diagnostics.Report(DiagnosticStage::Parser,
-				"invalid integer type specifier sequence", first);
+				"invalid type specifier sequence", first);
 			return false;
 		}
 		while (node != after_type) node = syntax_tree.Remove(node);
 		type = FrontendCType();
 		type.is_void = void_count != 0;
 		type.base_qualifiers.is_const = const_count != 0;
+		if (float_count || double_count) {
+			type.scalar_kind = float_count ? FrontendCScalarKind::Float :
+				FrontendCScalarKind::Double;
+			return true;
+		}
 		type.is_signed = unsigned_count ? false :
 			(char_count && !signed_count ? target.char_is_signed : true);
 		if (bool_count) {
@@ -739,6 +751,10 @@ namespace {
 			SaveControlSource(debug_info, node);
 			node->type = ToToken(FrontendCToken::For);
 		}
+		else if (node->type == tok_func && IsKeyword(node, "switch")) {
+			SaveControlSource(debug_info, node);
+			node->type = ToToken(FrontendCToken::Switch);
+		}
 		else if (node->type == tok_identy && IsKeyword(node, "else")) {
 			node->type = ToToken(FrontendCToken::Else);
 		}
@@ -753,15 +769,57 @@ namespace {
 		}
 	}
 
-	void PrepareStatementLabels(uni::Nchain& syntax_tree, uni::Nnode* statement) {
+	bool PrepareOneLabel(uni::Nchain& syntax_tree, uni::Nnode* node,
+		const FrontendCDiagnostics& diagnostics, bool& matched) {
+		matched = false;
+		if (!node || node->type != tok_identy || !node->addr) return true;
+		if (IsSymbol(node->next, ":")) {
+			if (IsKeyword(node, "case")) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"case requires a constant expression", node);
+				return false;
+			}
+			matched = true;
+			node->type = IsKeyword(node, "default") ?
+				ToToken(FrontendCToken::Default) : ToToken(FrontendCToken::Label);
+			syntax_tree.Remove(node->next);
+			return true;
+		}
+		if (!IsKeyword(node, "case")) return true;
+
+		uni::Nnode* expression = node->next;
+		uni::Nnode* colon = expression;
+		unsigned conditional_depth = 0;
+		for (; colon; colon = colon->next) {
+			if (IsSymbol(colon, "?")) conditional_depth++;
+			else if (IsSymbol(colon, ":")) {
+				if (conditional_depth) conditional_depth--;
+				else break;
+			}
+		}
+		if (!expression || !colon || expression == colon) {
+			diagnostics.Report(DiagnosticStage::Parser,
+				"case requires a constant expression", node);
+			return false;
+		}
+		matched = true;
+		syntax_tree.Adopt(node, expression, colon->getLeft());
+		// Adopt classifies a node with children as a function-like node. Restore
+		// the C statement kind after attaching the case constant expression.
+		node->type = ToToken(FrontendCToken::Case);
+		syntax_tree.Remove(colon);
+		return true;
+	}
+
+	bool PrepareStatementLabels(uni::Nchain& syntax_tree, uni::Nnode* statement,
+		const FrontendCDiagnostics& diagnostics) {
 		uni::Nnode* node = statement ? statement->subf : nullptr;
 		uni::Nnode* last_label = nullptr;
-		while (node && node->type == tok_identy && node->addr &&
-			IsSymbol(node->next, ":")) {
-			uni::Nnode* colon = node->next;
-			node->type = ToToken(FrontendCToken::Label);
+		while (node) {
+			bool matched;
+			if (!PrepareOneLabel(syntax_tree, node, diagnostics, matched)) return false;
+			if (!matched) break;
 			last_label = node;
-			syntax_tree.Remove(colon);
 			node = node->next;
 		}
 		if (last_label && !node) {
@@ -769,6 +827,7 @@ namespace {
 			empty->type = ToToken(FrontendCToken::Empty);
 			*empty->GetTnodeField() = *last_label->GetTnodeField();
 		}
+		return true;
 	}
 
 	void AppendTrailingEmptyStatement(uni::Nchain& syntax_tree,
@@ -778,7 +837,8 @@ namespace {
 		if (tail->type != ToToken(FrontendCToken::If) &&
 			tail->type != ToToken(FrontendCToken::Else) &&
 			tail->type != ToToken(FrontendCToken::While) &&
-			tail->type != ToToken(FrontendCToken::For)) return;
+			tail->type != ToToken(FrontendCToken::For) &&
+			tail->type != ToToken(FrontendCToken::Switch)) return;
 		uni::Nnode* empty = syntax_tree.Append(nullptr, false, tail);
 		empty->type = ToToken(FrontendCToken::Empty);
 		*empty->GetTnodeField() = *tail->GetTnodeField();
@@ -797,11 +857,9 @@ namespace {
 		}
 
 		for (uni::Nnode* node = block->subf; node; node = node->next) {
-			if (node->type == tok_identy && node->addr &&
-				IsSymbol(node->next, ":")) {
-				uni::Nnode* colon = node->next;
-				node->type = ToToken(FrontendCToken::Label);
-				syntax_tree.Remove(colon);
+			bool raw_label;
+			if (!PrepareOneLabel(syntax_tree, node, diagnostics, raw_label)) return false;
+			if (raw_label) {
 				continue;
 			}
 			if (node->type == ToToken(FrontendCToken::Declaration)) {
@@ -817,7 +875,7 @@ namespace {
 			}
 			if (node->type == tok_func &&
 				(IsKeyword(node, "if") || IsKeyword(node, "while") ||
-					IsKeyword(node, "for"))) {
+					IsKeyword(node, "for") || IsKeyword(node, "switch"))) {
 				ClassifyControlNode(node, debug_info);
 				continue;
 			}
@@ -836,12 +894,12 @@ namespace {
 				node->type = ToToken(FrontendCToken::Empty);
 				continue;
 			}
-			PrepareStatementLabels(syntax_tree, node);
+			if (!PrepareStatementLabels(syntax_tree, node, diagnostics)) return false;
 			if (IsKeyword(node->subf, "break") ||
 				IsKeyword(node->subf, "continue")) {
 				if (node->subf->next) {
 					diagnostics.Report(DiagnosticStage::Parser,
-						"loop jump does not accept an expression", node->subf->next);
+						"jump statement does not accept an expression", node->subf->next);
 					return false;
 				}
 				node->type = ToToken(IsKeyword(node->subf, "break") ?
@@ -869,6 +927,10 @@ namespace {
 					if (!PrepareBlock(syntax_tree, child, diagnostics, target, type_info, debug_info)) return false;
 				}
 				else {
+					bool child_label;
+					if (!PrepareOneLabel(syntax_tree, child,
+						diagnostics, child_label)) return false;
+					if (child_label) continue;
 					ClassifyControlNode(child, debug_info);
 					if ((child->type == tok_identy || child->type == tok_func) &&
 						IsKeyword(child, "return"))
@@ -904,6 +966,9 @@ namespace {
 				node->type == ToToken(FrontendCToken::Else) ||
 				node->type == ToToken(FrontendCToken::While) ||
 				node->type == ToToken(FrontendCToken::For) ||
+				node->type == ToToken(FrontendCToken::Switch) ||
+				node->type == ToToken(FrontendCToken::Case) ||
+				node->type == ToToken(FrontendCToken::Default) ||
 				node->type == ToToken(FrontendCToken::Break) ||
 				node->type == ToToken(FrontendCToken::Continue) ||
 				node->type == ToToken(FrontendCToken::Label) ||
@@ -1011,6 +1076,7 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 	else {
 		unsigned signed_count = 0, unsigned_count = 0, bool_count = 0, char_count = 0;
 		unsigned short_count = 0, int_count = 0, long_count = 0, void_count = 0;
+		unsigned float_count = 0, double_count = 0;
 		bool found_specifier = false;
 		const_count = 0;
 		current = node;
@@ -1024,6 +1090,8 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 			else if (IsKeyword(current, "short")) short_count++;
 			else if (IsKeyword(current, "int")) int_count++;
 			else if (IsKeyword(current, "long")) long_count++;
+			else if (IsKeyword(current, "float")) float_count++;
+			else if (IsKeyword(current, "double")) double_count++;
 			else if (IsKeyword(current, "void")) void_count++;
 			else break;
 			if (!IsKeyword(current, "const")) found_specifier = true;
@@ -1032,6 +1100,9 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 			unsigned_count > 1 || void_count > 1 ||
 			(signed_count && unsigned_count) || char_count > 1 ||
 			bool_count > 1 || short_count > 1 || int_count > 1 || long_count > 2 ||
+			float_count > 1 || double_count > 1 || (float_count && double_count) ||
+			((float_count || double_count) && (signed_count || unsigned_count ||
+				bool_count || char_count || short_count || int_count || long_count || void_count)) ||
 			(bool_count && (signed_count || unsigned_count || char_count ||
 				short_count || int_count || long_count || void_count)) ||
 			(char_count && (short_count || int_count || long_count)) ||
@@ -1041,9 +1112,13 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 		type = FrontendCType();
 		type.is_void = void_count != 0;
 		type.base_qualifiers.is_const = const_count != 0;
+		if (float_count || double_count) {
+			type.scalar_kind = float_count ? FrontendCScalarKind::Float :
+				FrontendCScalarKind::Double;
+		}
 		type.is_signed = unsigned_count ? false :
 			(char_count && !signed_count ? target.char_is_signed : true);
-		if (bool_count) {
+		if (!(float_count || double_count) && bool_count) {
 			type.integer_rank = FrontendCIntegerRank::Bool;
 			type.is_signed = false;
 		}
@@ -1178,6 +1253,10 @@ stduint FrontendCTypeInfo::SizeBits(const FrontendCType& type,
 		bits = record->size_bits;
 	}
 	else {
+		if (type.scalar_kind == FrontendCScalarKind::Float)
+			return target.float_bits * type.StorageElementCount();
+		if (type.scalar_kind == FrontendCScalarKind::Double)
+			return target.double_bits * type.StorageElementCount();
 		FrontendCIntegerRank rank = type.integer_rank;
 		if (type.enum_id) {
 			const FrontendCEnum* enumeration = GetEnum(type.enum_id);
@@ -1204,6 +1283,10 @@ stduint FrontendCTypeInfo::AlignBits(const FrontendCType& type,
 		const FrontendCRecord* record = GetRecord(type.record_id);
 		return record && record->complete ? record->align_bits : 0;
 	}
+	if (type.scalar_kind == FrontendCScalarKind::Float)
+		return target.float_align_bits;
+	if (type.scalar_kind == FrontendCScalarKind::Double)
+		return target.double_align_bits;
 	FrontendCIntegerRank rank = type.integer_rank;
 	if (type.enum_id) {
 		const FrontendCEnum* enumeration = GetEnum(type.enum_id);
@@ -1530,6 +1613,12 @@ namespace {
 		type.is_signed = enumeration->is_signed;
 	}
 
+}
+
+bool frontend_c_detail::EvaluateIntegerConstant(uni::Nnode* node,
+	const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
+	stdsint& value) {
+	return EvaluateEnumeratorValue(node, target, type_info, value);
 }
 
 bool frontend_c_detail::FinalizeEnums(uni::Nchain& syntax_tree,

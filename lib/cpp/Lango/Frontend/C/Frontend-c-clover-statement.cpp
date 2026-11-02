@@ -205,13 +205,14 @@ namespace clover::frontend_c_internal {
 				uni::Nnode* value_node = values.begin()[index];
 				LoweredValue lowered = ToRValue(LowerExpression(value_node), value_node);
 				if (!lowered.valid) return false;
-				if (!lowered.type.IsInteger())
-					return Error("array initializer requires an integer", value_node).valid;
-				lowered = ConvertInteger(lowered, element_type, value_node);
+				if (!lowered.type.IsArithmetic() || !element_type.IsArithmetic())
+					return Error("array initializer requires arithmetic values", value_node).valid;
+				lowered = ConvertArithmetic(lowered, element_type, value_node);
 				if (!lowered.valid) return false;
 				value = lowered.value;
 			}
-			else value = EmitConst(0, element_type);
+			else value = element_type.IsFloating() ?
+				EmitFloatConst(0, element_type) : EmitConst(0, element_type);
 			Value element_index = EmitConst((stdsint)index);
 			Value address = EmitPtrAdd(local.address, element_index, element_pointer);
 			EmitStore(value, address, OffsetAlignment(local.alignment,
@@ -254,8 +255,8 @@ namespace clover::frontend_c_internal {
 		LoweredValue initializer = ToRValue(
 			LowerExpression(initializer_node), initializer_node);
 		if (!initializer.valid) return false;
-		if (local->type.IsInteger())
-			initializer = ConvertInteger(initializer, local->type, initializer_node);
+		if (local->type.IsArithmetic())
+			initializer = ConvertArithmetic(initializer, local->type, initializer_node);
 		else if (!local->type.CanAssignFrom(initializer.type))
 			return Error("incompatible initializer type", initializer_node).valid;
 		if (!initializer.valid) return false;
@@ -324,9 +325,13 @@ namespace clover::frontend_c_internal {
 			return Error("return requires a value", expression).valid;
 		LoweredValue lowered = LowerExpression(expression);
 		if (!lowered.valid) return false;
-		if (!return_type.IsInteger())
-			return Error("unsupported function return type", expression).valid;
-		lowered = ConvertInteger(lowered, return_type, expression);
+		if (return_type.IsArithmetic())
+			lowered = ConvertArithmetic(lowered, return_type, expression);
+		else {
+			lowered = ToRValue(lowered, expression);
+			if (!lowered.valid || !return_type.CanAssignFrom(lowered.type))
+				return Error("incompatible function return type", expression).valid;
+		}
 		if (!lowered.valid) return false;
 		Instruction instruction;
 		instruction.opcode = Opcode::Ret;
@@ -400,8 +405,160 @@ namespace clover::frontend_c_internal {
 		return true;
 	}
 
+	bool FunctionBuilder::CollectSwitchBlock(
+		uni::Nnode* block, SwitchContext& context) {
+		uni::Vector<StatementAtom> atoms;
+		AppendStatementAtoms(block ? block->subf : nullptr, atoms);
+		for (stduint index = 0; index < atoms.Count();)
+			if (!CollectSwitchStatement(atoms, index, context, true)) return false;
+		return true;
+	}
+
+	bool FunctionBuilder::CollectSwitchStatement(
+		uni::Vector<StatementAtom>& atoms, stduint& index,
+		SwitchContext& context, bool collect) {
+		if (index >= atoms.Count())
+			return Error("control statement requires a body", nullptr).valid;
+		uni::Nnode* node = atoms.begin()[index++].node;
+		if (!node) return Error("missing statement", node).valid;
+
+		if (node->type == ToToken(FrontendCToken::Case) ||
+			node->type == ToToken(FrontendCToken::Default)) {
+			if (collect) {
+				SwitchLabelTarget label;
+				label.node = node;
+				label.is_default =
+					node->type == ToToken(FrontendCToken::Default);
+				context.labels.Append(label);
+			}
+			return CollectSwitchStatement(atoms, index, context, collect);
+		}
+		if (node->type == ToToken(FrontendCToken::Label))
+			return CollectSwitchStatement(atoms, index, context, collect);
+		if (node->type == ToToken(FrontendCToken::Switch))
+			return CollectSwitchStatement(atoms, index, context, false);
+		if (node->type == ToToken(FrontendCToken::If)) {
+			if (!CollectSwitchStatement(atoms, index, context, collect)) return false;
+			if (index < atoms.Count() && atoms.begin()[index].node &&
+				atoms.begin()[index].node->type == ToToken(FrontendCToken::Else)) {
+				index++;
+				return CollectSwitchStatement(atoms, index, context, collect);
+			}
+			return true;
+		}
+		if (node->type == ToToken(FrontendCToken::While) ||
+			node->type == ToToken(FrontendCToken::For))
+			return CollectSwitchStatement(atoms, index, context, collect);
+		if (node->type == tok_block)
+			return collect ? CollectSwitchBlock(node, context) : true;
+		if (node->type == ToToken(FrontendCToken::Goto)) {
+			if (index < atoms.Count()) index++;
+			return true;
+		}
+		if (node->type == ToToken(FrontendCToken::Return) && !node->subf) {
+			if (index < atoms.Count()) index++;
+			return true;
+		}
+		return true;
+	}
+
 	uni::Nnode* FunctionBuilder::ForClause(uni::Nnode* clause) {
 		return clause && clause->type == tok_statement ? clause->subf : nullptr;
+	}
+
+	bool FunctionBuilder::LowerSwitch(uni::Nnode* node,
+		const uni::Nnode* source_statement,
+		uni::Vector<StatementAtom>& atoms, stduint& index) {
+		if (!node->subf || node->subf->next)
+			return Error("switch requires one controlling expression", node).valid;
+
+		SwitchContext context;
+		stduint scan = index;
+		if (!CollectSwitchStatement(atoms, scan, context, true)) return false;
+
+		stduint first_instruction = CurrentBlock().instructions.Count();
+		LoweredValue controlling = ToRValue(
+			LowerExpression(node->subf), node->subf);
+		if (!controlling.valid) return false;
+		if (!controlling.type.IsInteger())
+			return Error("switch expression requires an integer type", node->subf).valid;
+		FrontendCType comparison_type = PromoteType(controlling.type);
+		controlling = ConvertInteger(controlling, comparison_type, node->subf);
+		if (!controlling.valid) return false;
+		AttachSource(first_instruction, source_statement);
+
+		bool has_default = false;
+		stduint default_block = 0;
+		for (stduint label_index = 0;
+			label_index < context.labels.Count(); label_index++) {
+			SwitchLabelTarget& label = context.labels[label_index];
+			if (label.is_default) {
+				if (has_default)
+					return Error("multiple default labels in one switch",
+						const_cast<uni::Nnode*>(label.node)).valid;
+				has_default = true;
+				label.block = NewBlock("switch.default");
+				default_block = label.block;
+				continue;
+			}
+			if (!label.node->subf || label.node->subf->next ||
+				!uni::lango::frontend_c_detail::EvaluateIntegerConstant(
+					const_cast<uni::Nnode*>(label.node->subf), *target,
+					*type_info, label.value) ||
+				!NormalizeIntegerConstant(label.value, comparison_type))
+				return Error("case requires an integer constant expression",
+					const_cast<uni::Nnode*>(label.node)).valid;
+			for (stduint previous = 0; previous < label_index; previous++)
+				if (!context.labels[previous].is_default &&
+					context.labels[previous].value == label.value)
+					return Error("duplicate case value",
+						const_cast<uni::Nnode*>(label.node)).valid;
+			label.block = NewBlock("switch.case");
+		}
+
+		uni::String end_name = NewBlockName("switch.end");
+		uni::String fallback = has_default ?
+			function->blocks[default_block].name : end_name;
+		bool emitted_test = false;
+		for (stduint label_index = 0;
+			label_index < context.labels.Count(); label_index++) {
+			SwitchLabelTarget& label = context.labels[label_index];
+			if (label.is_default) continue;
+			emitted_test = true;
+			bool has_more = false;
+			for (stduint next = label_index + 1;
+				next < context.labels.Count(); next++)
+				if (!context.labels[next].is_default) {
+					has_more = true;
+					break;
+				}
+			stduint next_test = has_more ? NewBlock("switch.test") : 0;
+			Value constant = EmitConst(label.value, comparison_type);
+			Instruction comparison;
+			comparison.opcode = Opcode::ICmp;
+			comparison.type = CloverType(comparison_type);
+			comparison.has_result = true;
+			comparison.result = NewValue(Type::I1);
+			comparison.operands.Append(controlling.value);
+			comparison.operands.Append(constant);
+			comparison.predicate = ICmpPredicate::EQ;
+			CurrentBlock().instructions.Append(comparison);
+			EmitJump(comparison.result, function->blocks[label.block].name,
+				has_more ? function->blocks[next_test].name : fallback);
+			if (has_more) current_block = next_test;
+		}
+		if (!emitted_test) EmitJump(fallback);
+
+		current_block = NewBlock("switch.body");
+		switch_contexts.Append(context);
+		break_targets.Append(end_name);
+		bool body_lowered = LowerStatement(atoms, index);
+		break_targets.Remove(break_targets.Count() - 1);
+		switch_contexts.Remove(switch_contexts.Count() - 1);
+		if (!body_lowered) return false;
+		if (!BlockTerminated()) EmitJump(end_name);
+		current_block = AppendBlock(end_name);
+		return true;
 	}
 
 	bool FunctionBuilder::LowerWhile(uni::Nnode* node, const uni::Nnode* source_statement,
@@ -423,10 +580,11 @@ namespace clover::frontend_c_internal {
 
 		current_block = body_block;
 		LoopContext loop;
-		loop.break_target = end_name;
 		loop.continue_target = function->blocks[condition_block].name;
 		loop_contexts.Append(loop);
+		break_targets.Append(end_name);
 		bool body_lowered = LowerStatement(atoms, index);
+		break_targets.Remove(break_targets.Count() - 1);
 		loop_contexts.Remove(loop_contexts.Count() - 1);
 		if (!body_lowered) return false;
 		if (!BlockTerminated()) EmitJump(condition_block);
@@ -472,10 +630,11 @@ namespace clover::frontend_c_internal {
 
 		current_block = body_block;
 		LoopContext loop;
-		loop.break_target = end_name;
 		loop.continue_target = step_name;
 		loop_contexts.Append(loop);
+		break_targets.Append(end_name);
 		bool body_lowered = LowerStatement(atoms, index);
+		break_targets.Remove(break_targets.Count() - 1);
 		loop_contexts.Remove(loop_contexts.Count() - 1);
 		if (!body_lowered) return false;
 		if (!BlockTerminated()) EmitJump(step_name);
@@ -524,6 +683,31 @@ namespace clover::frontend_c_internal {
 			return LowerWhile(node, atom.source, atoms, index);
 		if (node->type == ToToken(FrontendCToken::For))
 			return LowerFor(node, atom.source, atoms, index);
+		if (node->type == ToToken(FrontendCToken::Switch))
+			return LowerSwitch(node, atom.source, atoms, index);
+		if (node->type == ToToken(FrontendCToken::Case) ||
+			node->type == ToToken(FrontendCToken::Default)) {
+			if (!switch_contexts.Count())
+				return Error(node->type == ToToken(FrontendCToken::Case) ?
+					"case label not within a switch" :
+					"default label not within a switch", node).valid;
+			SwitchContext& context =
+				switch_contexts[switch_contexts.Count() - 1];
+			SwitchLabelTarget* target_label = nullptr;
+			for (SwitchLabelTarget& candidate : context.labels)
+				if (candidate.node == node) {
+					target_label = &candidate;
+					break;
+				}
+			if (!target_label)
+				return Error("switch label belongs to another switch", node).valid;
+			if (current_block != target_label->block && !BlockTerminated())
+				EmitJump(target_label->block);
+			current_block = target_label->block;
+			if (index >= atoms.Count())
+				return Error("switch label requires a statement", node).valid;
+			return LowerStatement(atoms, index);
+		}
 		if (node->type == ToToken(FrontendCToken::Label)) {
 			FunctionLabel* label = FindLabel(node->addr);
 			if (!label) return Error("undefined label", node).valid;
@@ -550,17 +734,20 @@ namespace clover::frontend_c_internal {
 			AttachSource(first_instruction, atom.source);
 			return true;
 		}
-		if (node->type == ToToken(FrontendCToken::Break) ||
-			node->type == ToToken(FrontendCToken::Continue)) {
-			if (!loop_contexts.Count())
-				return Error(node->type == ToToken(FrontendCToken::Break) ?
-					"break statement not within a loop" :
-					"continue statement not within a loop", node).valid;
-			const LoopContext& loop =
-				loop_contexts.begin()[loop_contexts.Count() - 1];
+		if (node->type == ToToken(FrontendCToken::Break)) {
+			if (!break_targets.Count())
+				return Error("break statement not within a loop or switch", node).valid;
 			stduint first_instruction = CurrentBlock().instructions.Count();
-			EmitJump(node->type == ToToken(FrontendCToken::Break) ?
-				loop.break_target : loop.continue_target);
+			EmitJump(break_targets[break_targets.Count() - 1]);
+			AttachSource(first_instruction, atom.source);
+			return true;
+		}
+		if (node->type == ToToken(FrontendCToken::Continue)) {
+			if (!loop_contexts.Count())
+				return Error("continue statement not within a loop", node).valid;
+			const LoopContext& loop = loop_contexts[loop_contexts.Count() - 1];
+			stduint first_instruction = CurrentBlock().instructions.Count();
+			EmitJump(loop.continue_target);
 			AttachSource(first_instruction, atom.source);
 			return true;
 		}
@@ -607,7 +794,9 @@ namespace clover::frontend_c_internal {
 		for (stduint index = 0; index < atoms.Count();) {
 			uni::Nnode* next = atoms.begin()[index].node;
 			if (BlockTerminated() && next &&
-				next->type != ToToken(FrontendCToken::Label))
+				next->type != ToToken(FrontendCToken::Label) &&
+				next->type != ToToken(FrontendCToken::Case) &&
+				next->type != ToToken(FrontendCToken::Default))
 				current_block = NewBlock("unreachable");
 			if (!LowerStatement(atoms, index) || failed) return false;
 		}

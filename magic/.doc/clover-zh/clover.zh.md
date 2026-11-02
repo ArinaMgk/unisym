@@ -35,7 +35,8 @@ mgc [options] input...
 
 C 前端支持 C99 十进制、八进制、十六进制整数常量及 `U`、`L`、`LL` 组合后缀，
 其类型由数值、后缀和当前数据模型共同决定；普通字符常量支持 C99 转义序列。
-浮点、宽字符和多字符常量暂未实现。
+支持十进制及十六进制 `float`、`double` 常量，`F` 后缀选择 `float`；`long double`、
+宽字符和多字符常量暂未实现。
 
 C99 `_Bool` 对象占一个 C 字节，赋值时归一化为 0 或 1，参与整数运算时提升为
 `int`。有标签 `enum` 支持文件及块作用域、作用域遮蔽、前向声明、定义后直接
@@ -60,13 +61,20 @@ clover-riscv input.ir [options]
 | `-mbits=64` | 选择 64 位 RISC-V 目标 |
 | `-minst=i` | 使用基础整数指令集 |
 | `-minst=im` | 启用基础整数及乘除法指令集 |
+| `-minst=imf` | 启用单精度硬浮点指令 |
+| `-minst=imfd` | 启用单精度和双精度硬浮点指令 |
+| `-mabi=lp64` | 浮点参数和返回值按照整数调用约定传递 |
+| `-mabi=lp64f` | `f32` 参数和返回值使用浮点寄存器，`f64` 使用整数调用约定 |
+| `-mabi=lp64d` | `f32`、`f64` 参数和返回值使用浮点寄存器 |
 | `-g` | IR 含源位置时输出 `.file`、`.loc` 等 GCC 汇编调试指令 |
 | `--asm=gcc` | 输出 GCC 工具链接受的 GNU 汇编语法 |
 | `-o file` | 将汇编写入指定文件 |
 | `-h`、`--help` | 显示帮助信息及已支持的目标信息 |
 
-当前默认后端目标为 `-mbits=64 -minst=im --asm=gcc`。目前只实现
-`--asm=gcc`，汇编格式选项与目标位数、指令集选项相互独立。
+当前默认后端目标为 `-mbits=64 -minst=im -mabi=lp64 --asm=gcc`。
+`lp64f` 要求 F 扩展，`lp64d` 要求 F、D 扩展。生成的汇编交给 GCC 或汇编器时，
+应向后续工具传递相同的 `-mabi`。目前只实现 `--asm=gcc`，汇编格式选项与
+目标位数、指令集和 ABI 选项相互独立。
 
 ## IR 中间语言设计
 
@@ -121,11 +129,12 @@ target ptrbits 64
 第一版支持以下类型：
 
 ```text
-void  i1  i8  i16  i32  i64  ptr
+void  i1  i8  i16  i32  i64  f32  f64  ptr
 ```
 
 整数类型本身不区分有符号和无符号；由 `sdiv`、`udiv` 和 `icmp` 的谓词
-决定如何解释整数。`ptr` 的实际位宽由 `target ptrbits` 约束，并由目标后端实现。
+决定如何解释整数。`f32`、`f64` 分别表示 IEEE 754 binary32、binary64。
+`ptr` 的实际位宽由 `target ptrbits` 约束，并由目标后端实现。
 
 函数定义格式：
 
@@ -149,6 +158,7 @@ declare @putchar(i32) -> i32
 
 ```clover
 %value = const i32 42
+%floating = fconst f32 1069547520
 %copy = mov i32 %value
 
 %address = local i32
@@ -163,6 +173,7 @@ store i32 %value, %address align 4
 ```
 
 - `const`：产生整数常量。
+- `fconst`：使用十进制整数写出的精确 IEEE 位模式产生 `f32` 或 `f64` 常量。
 - `local`：创建函数局部存储，结果类型为 `ptr`；可选元素数量用于连续数组存储，
   可选的 `align` 指定以字节计的存储对齐，且必须是二的幂。
 - `global`：定义具有静态存储期的模块级对象，未显式初始化时由前端写入零初始化值。
@@ -178,6 +189,7 @@ store i32 %value, %address align 4
 前端能够保证的最低地址对齐。后端若不能直接完成低于自然对齐的访问，必须拆分
 访问或明确拒绝，不能静默假设地址已自然对齐。当前 RISC-V 后端会把未对齐的
 `i16`、`i32`、`i64` 访问拆成按小端顺序组合或分解的字节访问。
+`f32`、`f64` 的未对齐访问也会通过整数位模式拆分为字节访问。
 
 `mov` 不统一表示 `load` 和 `store`。三者虽然都可能降低为机器的移动指令，
 但在 IR 中具有不同语义：`mov` 没有副作用，`load` 读取内存，`store` 修改
@@ -201,6 +213,19 @@ shl  lshr ashr
 
 `sdiv`、`srem` 和 `ashr` 按有符号整数处理；`udiv`、`urem` 和 `lshr`
 按无符号整数处理。
+`shl`、`ashr`、`lshr` 的结果类型和左操作数类型一致，右操作数可以是另一种
+整数类型，以保留 C 等前端分别对两个操作数执行整数提升后的结果。
+
+#### 浮点运算与比较
+
+```clover
+%sum = fadd f32 %left, %right
+%quotient = fdiv f64 %value, %divisor
+%condition = fcmp lt f64 %left, %right
+```
+
+浮点四则运算使用 `fadd`、`fsub`、`fmul`、`fdiv`。`fcmp` 的结果为 `i1`，
+支持 `eq`、`ne`、`lt`、`le`、`gt`、`ge`；谓词遵循 C 对 NaN 的比较结果。
 
 #### 比较
 
@@ -240,6 +265,20 @@ ult ule ugt uge
 
 这两条指令明确表达地址空间与整数域之间的转换，不能使用 `mov` 代替。
 
+#### 浮点转换
+
+```clover
+%single = fptrunc f64 %wide to f32
+%wide = fpext f32 %single to f64
+%floating1 = sitofp i32 %signed to f64
+%floating2 = uitofp i32 %unsigned to f64
+%signed = fptosi f64 %floating to i32
+%unsigned = fptoui f64 %floating to i32
+```
+
+`fptosi`、`fptoui` 转换为整数时向零舍入。浮点常量和转换在 IR 中不记录
+软浮点或硬浮点策略，该选择由目标后端完成。
+
 #### 控制流
 
 ```clover
@@ -262,5 +301,6 @@ call void @abort()
 调用的参数和返回类型必须与函数声明一致。具体的参数寄存器、返回值寄存器
 和栈布局由目标后端按照 ABI 处理。
 
-第一版暂不支持浮点、聚合类型、指针差值、`phi`、原子操作和
-可变参数。
+当前暂不支持聚合值、指针差值、`phi`、原子操作和可变参数。RISC-V 后端支持
+函数内部的 F/D 硬浮点运算，并可按 `lp64`、`lp64f`、`lp64d` 降低标量浮点
+参数和返回值；超出可用参数寄存器而需要栈传参的情况尚未实现。

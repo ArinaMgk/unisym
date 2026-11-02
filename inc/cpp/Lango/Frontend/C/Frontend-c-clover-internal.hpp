@@ -56,8 +56,20 @@ struct StatementAtom {
 
 // Branch destinations selected by the nearest enclosing loop statement.
 struct LoopContext {
-	uni::String break_target;    // Destination after the complete loop.
 	uni::String continue_target; // Condition or step destination for the next iteration.
+};
+
+// One case or default label and the Clover block entered by switch dispatch.
+struct SwitchLabelTarget {
+	const uni::Nnode* node = nullptr;
+	stdsint value = 0;
+	stduint block = 0;
+	bool is_default = false;
+};
+
+// Case labels owned by one active switch statement.
+struct SwitchContext {
+	uni::Vector<SwitchLabelTarget> labels;
 };
 
 // One named C label and its preallocated Clover basic block.
@@ -92,6 +104,7 @@ stduint GreatestCommonDivisor(stduint left, stduint right);
 bool ParseIntegerLiteral(const char* text, stdsint& value);
 bool ParseIntegerLiteral(const char* text, const FrontendCTargetInfo& target,
 	stdsint& value, FrontendCType& type);
+bool ParseFloatingLiteral(const char* text, stdsint& bits, FrontendCType& type);
 bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,
 	stdsint& value);
 bool DecodeCString(const char* text, uni::Vector<stdsint>& bytes);
@@ -109,6 +122,8 @@ private:
 	uni::Vector<LocalValue> locals;
 	uni::Vector<FrontendCLocalConstant> local_constants;
 	uni::Vector<LoopContext> loop_contexts;
+	uni::Vector<uni::String> break_targets;
+	uni::Vector<SwitchContext> switch_contexts;
 	uni::Vector<FunctionLabel> labels;
 	uni::Vector<const uni::Nnode*> emitted_sources;
 	const uni::Vector<FrontendCFunction>* visible_functions = nullptr;
@@ -161,9 +176,15 @@ private:
 	Value EmitConversion(Opcode opcode, Type destination, Value operand);
 	LoweredValue ConvertInteger(LoweredValue lowered,
 		const FrontendCType& destination, const uni::Nnode* node);
+	LoweredValue ConvertArithmetic(LoweredValue lowered,
+		const FrontendCType& destination, const uni::Nnode* node);
 	FrontendCType PromoteType(FrontendCType type) const;
 	FrontendCType CommonIntegerType(FrontendCType left,
 		FrontendCType right) const;
+	FrontendCType CommonArithmeticType(FrontendCType left,
+		FrontendCType right) const;
+	bool NormalizeIntegerConstant(stdsint& value,
+		const FrontendCType& type) const;
 	bool CommonConditionalType(const FrontendCType& true_type,
 		const FrontendCType& false_type, FrontendCType& result) const;
 
@@ -172,6 +193,7 @@ private:
 	Value AsCondition(LoweredValue lowered, const uni::Nnode* node);
 	Value EmitConst(stdsint immediate,
 		const FrontendCType& type = FrontendCType());
+	Value EmitFloatConst(stdsint bits, const FrontendCType& type);
 	Value EmitTypedConst(Type type, stdsint immediate);
 	LoweredValue CreateTemporaryStorage(const FrontendCType& type);
 	LocalValue* FindLocal(const char* name);
@@ -246,7 +268,12 @@ private:
 		uni::Vector<StatementAtom>& atoms);
 	FunctionLabel* FindLabel(const char* name);
 	bool CollectLabels(uni::Nnode* node);
+	bool CollectSwitchStatement(uni::Vector<StatementAtom>& atoms,
+		stduint& index, SwitchContext& context, bool collect);
+	bool CollectSwitchBlock(uni::Nnode* block, SwitchContext& context);
 	uni::Nnode* ForClause(uni::Nnode* clause);
+	bool LowerSwitch(uni::Nnode* node, const uni::Nnode* source_statement,
+		uni::Vector<StatementAtom>& atoms, stduint& index);
 	bool LowerWhile(uni::Nnode* node, const uni::Nnode* source_statement,
 		uni::Vector<StatementAtom>& atoms, stduint& index);
 	bool LowerFor(uni::Nnode* node, const uni::Nnode* source_statement,

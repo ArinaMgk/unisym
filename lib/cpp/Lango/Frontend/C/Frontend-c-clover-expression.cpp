@@ -267,22 +267,30 @@ namespace clover::frontend_c_internal {
 
 	Value FunctionBuilder::AsCondition(LoweredValue lowered, const uni::Nnode* node) {
 		lowered = ToRValue(lowered, node);
-		if (!lowered.valid ||
-			(!lowered.type.IsInteger() && !lowered.type.IsPointer())) {
+		if (!lowered.valid || !lowered.type.IsScalar()) {
 			Error("condition requires a scalar expression", node);
 			return lowered.value;
 		}
 		if (lowered.value.type == Type::I1) return lowered.value;
 		Value scalar = lowered.value;
-		Value zero = EmitConst(0, lowered.type);
 		Instruction instruction;
-		instruction.opcode = Opcode::ICmp;
+		instruction.opcode = lowered.type.IsFloating() ? Opcode::FCmp : Opcode::ICmp;
 		instruction.type = CloverType(lowered.type);
 		instruction.has_result = true;
 		instruction.result = NewValue(Type::I1);
 		instruction.operands.Append(scalar);
+		Value zero;
+		if (lowered.type.IsFloating()) zero = EmitFloatConst(0, lowered.type);
+		else if (lowered.type.IsPointer()) {
+			Type integer_type = target->pointer_bits == 32 ? Type::I32 : Type::I64;
+			zero = EmitConversion(Opcode::IntToPtr, Type::Ptr,
+				EmitTypedConst(integer_type, 0));
+		}
+		else zero = EmitConst(0, lowered.type);
 		instruction.operands.Append(zero);
-		instruction.predicate = ICmpPredicate::NE;
+		if (lowered.type.IsFloating())
+			instruction.float_predicate = FCmpPredicate::NE;
+		else instruction.predicate = ICmpPredicate::NE;
 		CurrentBlock().instructions.Append(instruction);
 		return instruction.result;
 	}
@@ -306,6 +314,18 @@ namespace clover::frontend_c_internal {
 		instruction.has_result = true;
 		instruction.result = NewValue(type);
 		instruction.immediate = immediate;
+		CurrentBlock().instructions.Append(instruction);
+		return instruction.result;
+	}
+
+	Value FunctionBuilder::EmitFloatConst(stdsint bits,
+		const FrontendCType& type) {
+		Instruction instruction;
+		instruction.opcode = Opcode::FConst;
+		instruction.type = CloverType(type);
+		instruction.has_result = true;
+		instruction.result = NewValue(instruction.type);
+		instruction.immediate = bits;
 		CurrentBlock().instructions.Append(instruction);
 		return instruction.result;
 	}
@@ -409,8 +429,8 @@ namespace clover::frontend_c_internal {
 			if (!argument.valid) return argument;
 			const FrontendCType& parameter_type =
 				signature->parameter_types.begin()[index];
-			if (parameter_type.IsInteger())
-				argument = ConvertInteger(argument, parameter_type, argument_node);
+			if (parameter_type.IsArithmetic())
+				argument = ConvertArithmetic(argument, parameter_type, argument_node);
 			else if (!parameter_type.CanAssignFrom(argument.type))
 				return Error("incompatible function argument type", argument_node);
 			if (!argument.valid) return argument;
@@ -538,12 +558,23 @@ namespace clover::frontend_c_internal {
 		LoweredValue lowered = LowerExpression(operand);
 		if (!lowered.valid) return lowered;
 		if (!lowered.is_lvalue || lowered.type.IsConstObject() ||
-			(!lowered.type.IsInteger() && !lowered.type.IsPointer()))
+			(!lowered.type.IsArithmetic() && !lowered.type.IsPointer()))
 			return Error("increment requires an arithmetic or pointer lvalue", operand);
 		Value previous = EmitLoad(CloverType(lowered.type), lowered.value,
 			lowered.alignment);
-		Value one = EmitConst(1, lowered.type.IsInteger() ?
-			PromoteType(lowered.type) : IntType());
+		FrontendCType arithmetic_type = lowered.type.IsInteger() ?
+			PromoteType(lowered.type) : lowered.type;
+		Value one;
+		if (lowered.type.IsFloating()) {
+			stdsint bits;
+			FrontendCType literal_type;
+			if (!ParseFloatingLiteral(lowered.type.scalar_kind ==
+				FrontendCScalarKind::Float ? "1.0f" : "1.0", bits, literal_type))
+				return Error("cannot create floating increment constant", operand);
+			one = EmitFloatConst(bits, literal_type);
+		}
+		else one = EmitConst(1, lowered.type.IsInteger() ?
+			arithmetic_type : IntType());
 		Value updated;
 		stduint previous_alignment = lowered.type.IsPointer() ? 1 : 0;
 		stduint updated_alignment = 0;
@@ -558,12 +589,13 @@ namespace clover::frontend_c_internal {
 				previous_alignment, lowered.type);
 		}
 		else {
-			FrontendCType arithmetic_type = PromoteType(lowered.type);
-			LoweredValue promoted = ConvertInteger(
+			LoweredValue promoted = ConvertArithmetic(
 				{ previous, true, lowered.type, false }, arithmetic_type, operand);
-			updated = EmitResult(increment ? Opcode::Add : Opcode::Sub,
+			updated = EmitResult(lowered.type.IsFloating() ?
+				(increment ? Opcode::FAdd : Opcode::FSub) :
+				(increment ? Opcode::Add : Opcode::Sub),
 				CloverType(arithmetic_type), promoted.value, one);
-			LoweredValue converted = ConvertInteger(
+			LoweredValue converted = ConvertArithmetic(
 				{ updated, true, arithmetic_type, false }, lowered.type, operand);
 			if (!converted.valid) return converted;
 			updated = converted.value;
@@ -625,24 +657,41 @@ namespace clover::frontend_c_internal {
 				node);
 		}
 
-		if (!left.type.IsInteger() || !right.type.IsInteger())
-			return Error("compound assignment requires integer operands", node);
+		if (!left.type.IsArithmetic() || !right.type.IsArithmetic())
+			return Error("compound assignment requires arithmetic operands", node);
 		FrontendCType arithmetic_type;
 		bool is_shift = !StrCompare(operation, "OP@AGNSHL") ||
 			!StrCompare(operation, "OP@AGNSHR");
-		if (is_shift) arithmetic_type = PromoteType(left.type);
-		else arithmetic_type = CommonIntegerType(left.type, right.type);
-		LoweredValue lhs = ConvertInteger(
+		bool integer_only = is_shift || !StrCompare(operation, "OP@AGNREM") ||
+			!StrCompare(operation, "OP@AGNAND") ||
+			!StrCompare(operation, "OP@AGNXOR") ||
+			!StrCompare(operation, "OP@ASGNOR");
+		if (integer_only && (!left.type.IsInteger() || !right.type.IsInteger()))
+			return Error("integer-only compound assignment used with floating operands", node);
+		FrontendCType right_arithmetic_type;
+		if (is_shift) {
+			arithmetic_type = PromoteType(left.type);
+			right_arithmetic_type = PromoteType(right.type);
+		}
+		else {
+			arithmetic_type = CommonArithmeticType(left.type, right.type);
+			right_arithmetic_type = arithmetic_type;
+		}
+		LoweredValue lhs = ConvertArithmetic(
 			{ previous, true, left.type, false }, arithmetic_type, left_node);
-		right = ConvertInteger(right, arithmetic_type, right_node);
+		right = ConvertArithmetic(right, right_arithmetic_type, right_node);
 		if (!lhs.valid || !right.valid) return {};
 
 		Opcode opcode;
-		if (!StrCompare(operation, "OP@AGNSUM")) opcode = Opcode::Add;
-		else if (!StrCompare(operation, "OP@AGNDIF")) opcode = Opcode::Sub;
-		else if (!StrCompare(operation, "OP@AGNPRO")) opcode = Opcode::Mul;
+		if (!StrCompare(operation, "OP@AGNSUM"))
+			opcode = arithmetic_type.IsFloating() ? Opcode::FAdd : Opcode::Add;
+		else if (!StrCompare(operation, "OP@AGNDIF"))
+			opcode = arithmetic_type.IsFloating() ? Opcode::FSub : Opcode::Sub;
+		else if (!StrCompare(operation, "OP@AGNPRO"))
+			opcode = arithmetic_type.IsFloating() ? Opcode::FMul : Opcode::Mul;
 		else if (!StrCompare(operation, "OP@AGNQUO"))
-			opcode = arithmetic_type.is_signed ? Opcode::SDiv : Opcode::UDiv;
+			opcode = arithmetic_type.IsFloating() ? Opcode::FDiv :
+				arithmetic_type.is_signed ? Opcode::SDiv : Opcode::UDiv;
 		else if (!StrCompare(operation, "OP@AGNREM"))
 			opcode = arithmetic_type.is_signed ? Opcode::SRem : Opcode::URem;
 		else if (!StrCompare(operation, "OP@AGNSHL")) opcode = Opcode::Shl;
@@ -654,7 +703,7 @@ namespace clover::frontend_c_internal {
 
 		Value calculated = EmitResult(opcode, CloverType(arithmetic_type),
 			lhs.value, right.value);
-		LoweredValue converted = ConvertInteger(
+		LoweredValue converted = ConvertArithmetic(
 			{ calculated, true, arithmetic_type, false }, left.type, node);
 		if (!converted.valid) return converted;
 		EmitStore(converted.value, left.value, left.alignment);
@@ -703,8 +752,8 @@ namespace clover::frontend_c_internal {
 		const FrontendCType& result_type, uni::Nnode* branch_node) {
 		branch = ToRValue(branch, branch_node);
 		if (!branch.valid) return branch;
-		if (result_type.IsInteger())
-			return ConvertInteger(branch, result_type, branch_node);
+		if (result_type.IsArithmetic())
+			return ConvertArithmetic(branch, result_type, branch_node);
 		if (result_type.IsPointer() && result_type.CanAssignFrom(branch.type)) {
 			branch.type = result_type;
 			return branch;
@@ -804,18 +853,24 @@ namespace clover::frontend_c_internal {
 		if (!StrCompare(operation, "OP@PREPOSI")) {
 			LoweredValue operand = ToRValue(LowerExpression(left_node), left_node);
 			if (!operand.valid) return operand;
-			if (!operand.type.IsInteger())
-				return Error("unary plus requires an integer", left_node);
-			return ConvertInteger(operand, PromoteType(operand.type), left_node);
+			if (!operand.type.IsArithmetic())
+				return Error("unary plus requires an arithmetic operand", left_node);
+			return operand.type.IsInteger() ?
+				ConvertInteger(operand, PromoteType(operand.type), left_node) : operand;
 		}
 		if (!StrCompare(operation, "OP@PRENEGA")) {
 			LoweredValue operand = ToRValue(LowerExpression(left_node), left_node);
 			if (!operand.valid) return operand;
-			FrontendCType arithmetic_type = PromoteType(operand.type);
-			operand = ConvertInteger(operand, arithmetic_type, left_node);
+			if (!operand.type.IsArithmetic())
+				return Error("unary minus requires an arithmetic operand", left_node);
+			FrontendCType arithmetic_type = operand.type.IsInteger() ?
+				PromoteType(operand.type) : operand.type;
+			operand = ConvertArithmetic(operand, arithmetic_type, left_node);
 			if (!operand.valid) return operand;
-			Value zero = EmitConst(0, arithmetic_type);
-			Value value = EmitResult(Opcode::Sub, CloverType(arithmetic_type),
+			Value zero = arithmetic_type.IsFloating() ?
+				EmitFloatConst(0, arithmetic_type) : EmitConst(0, arithmetic_type);
+			Value value = EmitResult(arithmetic_type.IsFloating() ?
+				Opcode::FSub : Opcode::Sub, CloverType(arithmetic_type),
 				zero, operand.value);
 			return { value, !failed, arithmetic_type, false };
 		}
@@ -861,8 +916,8 @@ namespace clover::frontend_c_internal {
 				return Error("assignment to const-qualified object", left_node);
 			LoweredValue right = ToRValue(LowerExpression(right_node), right_node);
 			if (!right.valid) return right;
-			if (left.type.IsInteger())
-				right = ConvertInteger(right, left.type, right_node);
+			if (left.type.IsArithmetic())
+				right = ConvertArithmetic(right, left.type, right_node);
 			else if (!left.type.CanAssignFrom(right.type))
 				return Error("incompatible assignment types", node);
 			if (!right.valid) return right;
@@ -915,23 +970,50 @@ namespace clover::frontend_c_internal {
 
 		left = ToRValue(left, left_node);
 		right = ToRValue(right, right_node);
-		if (!left.valid || !right.valid || !left.type.IsInteger() ||
-			!right.type.IsInteger()) return Error("expected integer operands", node);
-		FrontendCType arithmetic_type = CommonIntegerType(left.type, right.type);
-		left = ConvertInteger(left, arithmetic_type, left_node);
-		right = ConvertInteger(right, arithmetic_type, right_node);
+		if (!left.valid || !right.valid || !left.type.IsArithmetic() ||
+			!right.type.IsArithmetic()) return Error("expected arithmetic operands", node);
+		bool is_shift = !StrCompare(operation, "OP@BITSHL") ||
+			!StrCompare(operation, "OP@BITSHR");
+		FrontendCType arithmetic_type;
+		FrontendCType right_arithmetic_type;
+		if (is_shift) {
+			if (!left.type.IsInteger() || !right.type.IsInteger())
+				return Error("shift requires integer operands", node);
+			arithmetic_type = PromoteType(left.type);
+			right_arithmetic_type = PromoteType(right.type);
+		}
+		else {
+			arithmetic_type = CommonArithmeticType(left.type, right.type);
+			right_arithmetic_type = arithmetic_type;
+		}
+		left = ConvertArithmetic(left, arithmetic_type, left_node);
+		right = ConvertArithmetic(right, right_arithmetic_type, right_node);
 		if (!left.valid || !right.valid) return {};
 		Value lhs = left.value;
 		Value rhs = right.value;
+		if (arithmetic_type.IsFloating() &&
+			(!StrCompare(operation, "OP@ARIREM") ||
+			!StrCompare(operation, "OP@BITAND") ||
+			!StrCompare(operation, "OP@BITWOR") ||
+			!StrCompare(operation, "OP@BITXOR") ||
+			!StrCompare(operation, "OP@BITSHL") ||
+			!StrCompare(operation, "OP@BITSHR")))
+			return Error("integer-only operator used with floating operands", node);
 
 		Opcode opcode;
-		if (!StrCompare(operation, "OP@ARIADD")) opcode = Opcode::Add;
-		else if (!StrCompare(operation, "OP@ARISUB")) opcode = Opcode::Sub;
-		else if (!StrCompare(operation, "OP@ARIMUL")) opcode = Opcode::Mul;
+		if (!StrCompare(operation, "OP@ARIADD"))
+			opcode = arithmetic_type.IsFloating() ? Opcode::FAdd : Opcode::Add;
+		else if (!StrCompare(operation, "OP@ARISUB"))
+			opcode = arithmetic_type.IsFloating() ? Opcode::FSub : Opcode::Sub;
+		else if (!StrCompare(operation, "OP@ARIMUL"))
+			opcode = arithmetic_type.IsFloating() ? Opcode::FMul : Opcode::Mul;
 		else if (!StrCompare(operation, "OP@ARIDIV"))
-			opcode = arithmetic_type.is_signed ? Opcode::SDiv : Opcode::UDiv;
+			opcode = arithmetic_type.IsFloating() ? Opcode::FDiv :
+				arithmetic_type.is_signed ? Opcode::SDiv : Opcode::UDiv;
 		else if (!StrCompare(operation, "OP@ARIREM"))
-			opcode = arithmetic_type.is_signed ? Opcode::SRem : Opcode::URem;
+			if (arithmetic_type.IsFloating())
+				return Error("remainder requires integer operands", node);
+			else opcode = arithmetic_type.is_signed ? Opcode::SRem : Opcode::URem;
 		else if (!StrCompare(operation, "OP@BITAND")) opcode = Opcode::And;
 		else if (!StrCompare(operation, "OP@BITWOR")) opcode = Opcode::Or;
 		else if (!StrCompare(operation, "OP@BITXOR")) opcode = Opcode::Xor;
@@ -939,6 +1021,26 @@ namespace clover::frontend_c_internal {
 		else if (!StrCompare(operation, "OP@BITSHR"))
 			opcode = arithmetic_type.is_signed ? Opcode::AShr : Opcode::LShr;
 		else {
+			if (arithmetic_type.IsFloating()) {
+				FCmpPredicate predicate;
+				if (!StrCompare(operation, "OP@JEQUAL")) predicate = FCmpPredicate::EQ;
+				else if (!StrCompare(operation, "OP@JNOTEQ")) predicate = FCmpPredicate::NE;
+				else if (!StrCompare(operation, "OP@JBELOW")) predicate = FCmpPredicate::LT;
+				else if (!StrCompare(operation, "OP@JBEEQU")) predicate = FCmpPredicate::LE;
+				else if (!StrCompare(operation, "OP@JGREAT")) predicate = FCmpPredicate::GT;
+				else if (!StrCompare(operation, "OP@JGREQU")) predicate = FCmpPredicate::GE;
+				else return Error("integer-only operator used with floating operands", node);
+				Instruction instruction;
+				instruction.opcode = Opcode::FCmp;
+				instruction.type = CloverType(arithmetic_type);
+				instruction.has_result = true;
+				instruction.result = NewValue(Type::I1);
+				instruction.operands.Append(lhs);
+				instruction.operands.Append(rhs);
+				instruction.float_predicate = predicate;
+				CurrentBlock().instructions.Append(instruction);
+				return { instruction.result, true, IntType(), false };
+			}
 			ICmpPredicate predicate;
 			if (!StrCompare(operation, "OP@JEQUAL")) predicate = ICmpPredicate::EQ;
 			else if (!StrCompare(operation, "OP@JNOTEQ")) predicate = ICmpPredicate::NE;
@@ -975,9 +1077,11 @@ namespace clover::frontend_c_internal {
 		case tok_number: {
 			stdsint immediate;
 			FrontendCType type;
-			if (!ParseIntegerLiteral(node->addr, *target, immediate, type))
-				return Error("invalid integer literal", node);
-			return { EmitConst(immediate, type), true, type, false };
+			if (ParseIntegerLiteral(node->addr, *target, immediate, type))
+				return { EmitConst(immediate, type), true, type, false };
+			if (ParseFloatingLiteral(node->addr, immediate, type))
+				return { EmitFloatConst(immediate, type), true, type, false };
+			return Error("invalid numeric literal", node);
 		}
 		case ToToken(FrontendCToken::CharacterLiteral): {
 			stdsint immediate;

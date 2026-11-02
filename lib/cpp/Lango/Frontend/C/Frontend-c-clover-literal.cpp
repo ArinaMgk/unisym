@@ -50,6 +50,84 @@ namespace clover::frontend_c_internal {
 			return character == expected || character == expected - 'a' + 'A';
 		}
 
+		double ScaleFloat(double value, double base, int exponent) {
+			bool divide = exponent < 0;
+			unsigned magnitude = divide ? (unsigned)(-(exponent + 1)) + 1 :
+				(unsigned)exponent;
+			double scale = 1.0;
+			while (magnitude) {
+				if (magnitude & 1) scale *= base;
+				base *= base;
+				magnitude >>= 1;
+			}
+			return divide ? value / scale : value * scale;
+		}
+
+		bool ParseSignedExponent(const char*& cursor, int& exponent) {
+			bool negative = false;
+			if (*cursor == '+' || *cursor == '-') negative = *cursor++ == '-';
+			if (!ascii_isdigit(*cursor)) return false;
+			unsigned magnitude = 0;
+			while (ascii_isdigit(*cursor)) {
+				if (magnitude < 100000)
+					magnitude = magnitude * 10 + (unsigned)(*cursor - '0');
+				cursor++;
+			}
+			exponent = negative ? -(int)magnitude : (int)magnitude;
+			return true;
+		}
+
+		bool ParseDecimalFloat(const char*& cursor, double& value) {
+			bool has_digit = false;
+			while (ascii_isdigit(*cursor)) {
+				value = value * 10.0 + (*cursor++ - '0');
+				has_digit = true;
+			}
+			int fractional_digits = 0;
+			bool has_point = *cursor == '.';
+			if (has_point) {
+				cursor++;
+				while (ascii_isdigit(*cursor)) {
+					value = value * 10.0 + (*cursor++ - '0');
+					fractional_digits++;
+					has_digit = true;
+				}
+			}
+			bool has_exponent = *cursor == 'e' || *cursor == 'E';
+			int exponent = 0;
+			if (has_exponent) {
+				cursor++;
+				if (!ParseSignedExponent(cursor, exponent)) return false;
+			}
+			if (!has_digit || (!has_point && !has_exponent)) return false;
+			value = ScaleFloat(value, 10.0, exponent - fractional_digits);
+			return true;
+		}
+
+		bool ParseHexadecimalFloat(const char*& cursor, double& value) {
+			cursor += 2;
+			bool has_digit = false;
+			while (DigitValue(*cursor) < 16) {
+				value = value * 16.0 + DigitValue(*cursor++);
+				has_digit = true;
+			}
+			int fractional_digits = 0;
+			if (*cursor == '.') {
+				cursor++;
+				while (DigitValue(*cursor) < 16) {
+					value = value * 16.0 + DigitValue(*cursor++);
+					fractional_digits++;
+					has_digit = true;
+				}
+			}
+			if (!has_digit || (*cursor != 'p' && *cursor != 'P')) return false;
+			cursor++;
+			int exponent;
+			if (!ParseSignedExponent(cursor, exponent)) return false;
+			value = ScaleFloat(value, 2.0, exponent - fractional_digits * 4);
+			return true;
+		}
+
 		bool ParseIntegerLiteralParts(const char* text, IntegerLiteralParts& parts) {
 			if (!text || !*text) return false;
 			const char* cursor = text;
@@ -244,6 +322,41 @@ namespace clover::frontend_c_internal {
 		FrontendCType type;
 		return ParseIntegerLiteral(text,
 			FrontendCTargetInfo::FromDataModel(CDataModel::LP64), value, type);
+	}
+
+	bool ParseFloatingLiteral(const char* text, stdsint& bits,
+		FrontendCType& type) {
+		if (!text || !*text) return false;
+		const char* cursor = text;
+		double value = 0.0;
+		bool valid = cursor[0] == '0' && (cursor[1] == 'x' || cursor[1] == 'X') ?
+			ParseHexadecimalFloat(cursor, value) : ParseDecimalFloat(cursor, value);
+		if (!valid) return false;
+		bool is_float = *cursor == 'f' || *cursor == 'F';
+		if (is_float) cursor++;
+		else if (*cursor == 'l' || *cursor == 'L') return false;
+		if (*cursor) return false;
+
+		type = FrontendCType();
+		type.scalar_kind = is_float ? FrontendCScalarKind::Float :
+			FrontendCScalarKind::Double;
+		if (is_float) {
+			union {
+				float value;
+				uint32 bits;
+			} encoded;
+			encoded.value = (float)value;
+			bits = (stdsint)encoded.bits;
+		}
+		else {
+			union {
+				double value;
+				uint64 bits;
+			} encoded;
+			encoded.value = value;
+			bits = (stdsint)encoded.bits;
+		}
+		return true;
 	}
 
 	bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,

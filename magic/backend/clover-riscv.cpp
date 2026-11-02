@@ -34,11 +34,17 @@ static void PrintHelp() {
 	uni::Console.OutFormat("  -mbits=64     Select register width\n");
 	uni::Console.OutFormat("  -minst=i      Select the base integer instruction set\n");
 	uni::Console.OutFormat("  -minst=im     Enable integer multiply and divide\n");
+	uni::Console.OutFormat("  -minst=imf    Enable single-precision floating point\n");
+	uni::Console.OutFormat("  -minst=imfd   Enable single- and double-precision floating point\n");
+	uni::Console.OutFormat("  -mabi=lp64    Pass floating values through integer registers\n");
+	uni::Console.OutFormat("  -mabi=lp64f   Use FP registers for f32 arguments and returns\n");
+	uni::Console.OutFormat("  -mabi=lp64d   Use FP registers for f32/f64 arguments and returns\n");
 	uni::Console.OutFormat("  -h, --help    Print this help\n");
 	uni::Console.OutFormat("Supported bits: 64\n");
-	uni::Console.OutFormat("Supported inst: i, m\n");
+	uni::Console.OutFormat("Supported inst: i, m, f, d\n");
+	uni::Console.OutFormat("Supported ABI: lp64, lp64f, lp64d\n");
 	uni::Console.OutFormat("Supported asm: gcc\n");
-	uni::Console.OutFormat("Default target: -mbits=64 -minst=im --asm=gcc\n");
+	uni::Console.OutFormat("Default target: -mbits=64 -minst=im -mabi=lp64 --asm=gcc\n");
 }
 
 int main(int argc, char** argv) {
@@ -81,13 +87,44 @@ int main(int argc, char** argv) {
 		}
 		else if (!StrCompareN(argv[index], "-minst=", 7)) {
 			rostr value = argv[index] + 7;
-			if (!StrCompare(value, "i")) target.extension_m = false;
-			else if (!StrCompare(value, "im")) target.extension_m = true;
+			if (!StrCompare(value, "i")) {
+				target.extension_m = false;
+				target.extension_f = false;
+				target.extension_d = false;
+			}
+			else if (!StrCompare(value, "im")) {
+				target.extension_m = true;
+				target.extension_f = false;
+				target.extension_d = false;
+			}
+			else if (!StrCompare(value, "imf")) {
+				target.extension_m = true;
+				target.extension_f = true;
+				target.extension_d = false;
+			}
+			else if (!StrCompare(value, "imfd")) {
+				target.extension_m = true;
+				target.extension_f = true;
+				target.extension_d = true;
+			}
 			else {
-				plogerro("clover-riscv: unsupported -minst=%s; supported values: i, im", value);
+				plogerro("clover-riscv: unsupported -minst=%s; supported values: i, im, imf, imfd", value);
 				return 1;
 			}
 			target.extension_i = true;
+		}
+		else if (!StrCompareN(argv[index], "-mabi=", 6)) {
+			rostr value = argv[index] + 6;
+			if (!StrCompare(value, "lp64"))
+				target.abi = uni::lango::RISCVABI::LP64;
+			else if (!StrCompare(value, "lp64f"))
+				target.abi = uni::lango::RISCVABI::LP64F;
+			else if (!StrCompare(value, "lp64d"))
+				target.abi = uni::lango::RISCVABI::LP64D;
+			else {
+				plogerro("clover-riscv: unsupported -mabi=%s; supported values: lp64, lp64f, lp64d", value);
+				return 1;
+			}
 		}
 		else if (argv[index][0] == '-') {
 			plogerro("clover-riscv: unknown option %s", argv[index]);

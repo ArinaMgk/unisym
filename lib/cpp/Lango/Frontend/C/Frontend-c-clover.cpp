@@ -87,6 +87,64 @@ namespace clover {
 			return false;
 		}
 
+		bool EncodeFloatingConstant(double value, const FrontendCType& destination,
+			stdsint& bits) {
+			if (destination.scalar_kind == FrontendCScalarKind::Float) {
+				union { float value; uint32 bits; } encoded;
+				encoded.value = (float)value;
+				bits = (stdsint)encoded.bits;
+				return true;
+			}
+			if (destination.scalar_kind == FrontendCScalarKind::Double) {
+				union { double value; uint64 bits; } encoded;
+				encoded.value = value;
+				bits = (stdsint)encoded.bits;
+				return true;
+			}
+			return false;
+		}
+
+		bool ParseGlobalFloatingConstant(uni::Nnode* node,
+			const FrontendCTargetInfo& target,
+			const uni::Vector<FrontendCEnumerator>& constants,
+			const FrontendCType& destination, stdsint& bits) {
+			if (!node) return false;
+			if (node->type == tok_func && node->addr && node->subf &&
+				!node->subf->next && !StrCompare(node->addr, "OP@PRENEGA")) {
+				if (!ParseGlobalFloatingConstant(node->subf, target, constants,
+					destination, bits)) return false;
+				bits ^= destination.scalar_kind == FrontendCScalarKind::Float ?
+					(stdsint)UINT32_C(0x80000000) :
+					(stdsint)UINT64_C(0x8000000000000000);
+				return true;
+			}
+			double value;
+			if (node->type == tok_number) {
+				FrontendCType source_type;
+				stdsint source_bits;
+				if (ParseFloatingLiteral(node->addr, source_bits, source_type)) {
+					if (source_type.scalar_kind == FrontendCScalarKind::Float) {
+						union { uint32 bits; float value; } decoded;
+						decoded.bits = (uint32)source_bits;
+						value = decoded.value;
+					}
+					else {
+						union { uint64 bits; double value; } decoded;
+						decoded.bits = (uint64)source_bits;
+						value = decoded.value;
+					}
+					return EncodeFloatingConstant(value, destination, bits);
+				}
+				stdsint integer;
+				if (!ParseIntegerLiteral(node->addr, target, integer, source_type)) return false;
+				value = source_type.is_signed ? (double)integer : (double)(uint64)integer;
+				return EncodeFloatingConstant(value, destination, bits);
+			}
+			stdsint integer;
+			if (!ParseGlobalConstant(node, target, constants, integer)) return false;
+			return EncodeFloatingConstant((double)integer, destination, bits);
+		}
+
 		bool LowerGlobalDeclarator(uni::Nnode* node, const FrontendCType& base_type,
 			Module& module, uni::Vector<FrontendCGlobal>& globals,
 			const uni::Vector<FrontendCEnumerator>& constants,
@@ -149,10 +207,14 @@ namespace clover {
 			global.name = identifier->addr;
 			global.type = CloverTypeFor(type, target);
 			global.element_count = (stdsint)type.StorageElementCount();
-			if (initializer_node && !ParseGlobalConstant(
-				initializer_node, target, constants, global.initializer)) {
+			bool initializer_valid = !initializer_node ||
+				(type.IsFloating() ? ParseGlobalFloatingConstant(initializer_node,
+					target, constants, type, global.initializer) :
+					ParseGlobalConstant(initializer_node, target,
+						constants, global.initializer));
+			if (!initializer_valid) {
 				diagnostics.Report(DiagnosticStage::Lowering,
-					"global initializer must be an integer constant", initializer_node);
+					"global initializer must be an arithmetic constant", initializer_node);
 				return false;
 			}
 			if (type.integer_rank == FrontendCIntegerRank::Bool && !type.enum_id)

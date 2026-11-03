@@ -319,13 +319,14 @@ namespace clover::frontend_c_internal {
 	}
 
 	Value FunctionBuilder::EmitFloatConst(stdsint bits,
-		const FrontendCType& type) {
+		const FrontendCType& type, stdsint high_bits) {
 		Instruction instruction;
 		instruction.opcode = Opcode::FConst;
 		instruction.type = CloverType(type);
 		instruction.has_result = true;
 		instruction.result = NewValue(instruction.type);
 		instruction.immediate = bits;
+		instruction.immediate_high = high_bits;
 		CurrentBlock().instructions.Append(instruction);
 		return instruction.result;
 	}
@@ -415,7 +416,9 @@ namespace clover::frontend_c_internal {
 		if (!signature) return Error("call to undeclared function", node);
 		uni::Vector<uni::Nnode*> arguments;
 		AppendCallArguments(node->subf, arguments);
-		if (arguments.Count() != signature->parameter_types.Count())
+		if (arguments.Count() < signature->parameter_types.Count() ||
+			(!signature->is_variadic &&
+				arguments.Count() != signature->parameter_types.Count()))
 			return Error("function argument count mismatch", node);
 
 		Instruction instruction;
@@ -424,15 +427,45 @@ namespace clover::frontend_c_internal {
 		instruction.callee = signature->name;
 		for (stduint index = 0; index < arguments.Count(); index++) {
 			uni::Nnode* argument_node = arguments.begin()[index];
-			LoweredValue argument = ToRValue(
-				LowerExpression(argument_node), argument_node);
+			LoweredValue argument = LowerExpression(argument_node);
 			if (!argument.valid) return argument;
-			const FrontendCType& parameter_type =
-				signature->parameter_types.begin()[index];
-			if (parameter_type.IsArithmetic())
-				argument = ConvertArithmetic(argument, parameter_type, argument_node);
-			else if (!parameter_type.CanAssignFrom(argument.type))
-				return Error("incompatible function argument type", argument_node);
+			if (index < signature->parameter_types.Count()) {
+				const FrontendCType& parameter_type =
+					signature->parameter_types.begin()[index];
+				if (parameter_type.IsRecord()) {
+					if (!argument.is_lvalue || !parameter_type.IsSame(argument.type))
+						return Error("record argument type mismatch", argument_node);
+					const FrontendCRecord* record =
+						type_info->GetRecord(parameter_type.record_id);
+					if (!record) return Error("missing record argument layout", argument_node);
+					for (const FrontendCRecordMember& member : record->members) {
+						Value address = EmitByteOffset(argument.value,
+							member.offset_bits / target->char_bits);
+						instruction.operands.Append(EmitLoad(CloverType(member.type),
+							address, OffsetAlignment(argument.alignment,
+								member.offset_bits / target->char_bits)));
+					}
+					continue;
+				}
+				argument = ToRValue(argument, argument_node);
+				if (parameter_type.IsArithmetic())
+					argument = ConvertArithmetic(argument, parameter_type, argument_node);
+				else if (!parameter_type.CanAssignFrom(argument.type))
+					return Error("incompatible function argument type", argument_node);
+			}
+			else {
+				argument = ToRValue(argument, argument_node);
+				if (!argument.valid) return argument;
+				if (argument.type.IsInteger())
+				argument = ConvertInteger(argument, PromoteType(argument.type), argument_node);
+				else if (argument.type.scalar_kind == FrontendCScalarKind::Float) {
+				FrontendCType promoted;
+				promoted.scalar_kind = FrontendCScalarKind::Double;
+				argument = ConvertArithmetic(argument, promoted, argument_node);
+				}
+				else if (!argument.type.IsFloating() && !argument.type.IsPointer())
+				return Error("unsupported variadic argument type", argument_node);
+			}
 			if (!argument.valid) return argument;
 			instruction.operands.Append(argument.value);
 		}
@@ -568,10 +601,16 @@ namespace clover::frontend_c_internal {
 		if (lowered.type.IsFloating()) {
 			stdsint bits;
 			FrontendCType literal_type;
-			if (!ParseFloatingLiteral(lowered.type.scalar_kind ==
+			stdsint high_bits = 0;
+			if (lowered.type.scalar_kind == FrontendCScalarKind::LongDouble) {
+				if (!ParseLongDoubleLiteral("1.0L", bits, high_bits))
+					return Error("cannot create floating increment constant", operand);
+				literal_type.scalar_kind = FrontendCScalarKind::LongDouble;
+			}
+			else if (!ParseFloatingLiteral(lowered.type.scalar_kind ==
 				FrontendCScalarKind::Float ? "1.0f" : "1.0", bits, literal_type))
 				return Error("cannot create floating increment constant", operand);
-			one = EmitFloatConst(bits, literal_type);
+			one = EmitFloatConst(bits, literal_type, high_bits);
 		}
 		else one = EmitConst(1, lowered.type.IsInteger() ?
 			arithmetic_type : IntType());
@@ -1079,6 +1118,12 @@ namespace clover::frontend_c_internal {
 			FrontendCType type;
 			if (ParseIntegerLiteral(node->addr, *target, immediate, type))
 				return { EmitConst(immediate, type), true, type, false };
+			stdsint high_immediate;
+			if (ParseLongDoubleLiteral(node->addr, immediate, high_immediate)) {
+				type.scalar_kind = FrontendCScalarKind::LongDouble;
+				return { EmitFloatConst(immediate, type, high_immediate),
+					true, type, false };
+			}
 			if (ParseFloatingLiteral(node->addr, immediate, type))
 				return { EmitFloatConst(immediate, type), true, type, false };
 			return Error("invalid numeric literal", node);

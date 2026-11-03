@@ -31,6 +31,7 @@ namespace uni::lango {
 enum class FrontendCToken : stduint {
 	Function = tok__continue, // Function definition followed by its body block.
 	Parameter,                // Typed function parameter normalized before expressions.
+	VariadicParameter,        // Ellipsis terminating the fixed parameter list.
 	Declaration,              // Function-local object declaration.
 	GlobalDeclaration,        // Translation-unit object declaration.
 	RecordDeclaration,        // Translation-unit struct or union forward declaration.
@@ -69,7 +70,8 @@ enum class FrontendCIntegerRank {
 enum class FrontendCScalarKind {
 	Integer,
 	Float,
-	Double
+	Double,
+	LongDouble
 };
 
 // Type qualifiers attached to one level of a C declarator.
@@ -110,7 +112,8 @@ struct FrontendCType {
 	}
 	bool IsFloating() const {
 		return (scalar_kind == FrontendCScalarKind::Float ||
-			scalar_kind == FrontendCScalarKind::Double) && !is_void &&
+			scalar_kind == FrontendCScalarKind::Double ||
+			scalar_kind == FrontendCScalarKind::LongDouble) && !is_void &&
 			!record_id && pointer_depth == 0 && !array_dimension_count;
 	}
 	bool IsArithmetic() const { return IsInteger() || IsFloating(); }

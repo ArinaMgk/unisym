@@ -43,6 +43,7 @@ struct FrontendCTargetInfo {
 	unsigned long_long_bits = 64;
 	unsigned float_bits = 32;
 	unsigned double_bits = 64;
+	unsigned long_double_bits = 128;
 	unsigned pointer_bits = 64;
 	unsigned char_align_bits = 8;
 	unsigned short_align_bits = 16;
@@ -51,6 +52,7 @@ struct FrontendCTargetInfo {
 	unsigned long_long_align_bits = 64;
 	unsigned float_align_bits = 32;
 	unsigned double_align_bits = 64;
+	unsigned long_double_align_bits = 128;
 	unsigned pointer_align_bits = 64;
 	bool char_is_signed = true;
 

@@ -16,9 +16,14 @@
 ## 代码职责
 
 - `aasm-prep.cpp` 实现 Preprocessor。
-- `aasm.cpp` 负责程序入口和 Assembler 多遍调度。
+- `aasm.cpp` 负责程序入口、运行模式分派和输入输出生命周期。
+- `aasm-assembler.cpp` 实现 Assembler，负责架构无关的多遍调度、directive 处理和
+  pass 收敛。
 - `aasm-label.cpp` 和 `aasm-eval.cpp` 负责符号与表达式。
-- `aasm-parse.cpp` 和 `aasm-gena.cpp` 构成当前 x86 Archend 的主要实现。
+- `inc/cpp/Lango/Archend.hpp` 定义 Archend 的标准契约。
+- `lib/cpp/Lango/Archend/Archend-x86.cpp` 是当前 x86 Archend 适配层，管理
+  架构相关的行处理与前向引用。
+- `aasm-parse.cpp` 和 `aasm-gena.cpp` 是 x86 Archend 内部使用的解析与编码实现。
 - `asm/todata` 和 `asm/data` 保存 x86 指令、寄存器和 token 表的生成输入与结果。
 - `lib/cpp/Format/Code` 保存现有 Codeend 格式实现，继续使用各格式原有文件名。
 
@@ -37,4 +42,14 @@ GCC AS 或 AASM 处理。
 
 已增加 `asm/check.sh` 自动回归入口，检查机器码、前缀、寻址、数据与结构、
 预处理结果、分支优化、ELF64 section、符号与 relocation，以及无效寻址诊断。
+
+已引入 `AssemblerOptions` 和 `AssemblySession`。命令行配置统一写入
+`AssemblerOptions`，主调度和多遍汇编通过 `AssemblySession` 记录一次汇编任务的
+运行状态；现有解析与编码模块暂时通过兼容状态继续工作。
+
+已从程序入口提取 `Assembler`，多遍汇编、directive 识别与处理和 pass 收敛现由
+`aasm-assembler.cpp` 管理。
+
+已建立 `ArchendInterface`，并将 x86 指令行解析、前向引用、尺寸计算和编码接入
+`ArchendX86`；Assembler 仅通过标准契约驱动架构相关处理。
 

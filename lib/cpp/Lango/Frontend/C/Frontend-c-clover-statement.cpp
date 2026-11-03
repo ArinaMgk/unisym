@@ -807,8 +807,9 @@ namespace clover::frontend_c_internal {
 	bool FunctionBuilder::InitializeParameters(uni::Nnode* parameter_node,
 		const uni::Nnode* body) {
 		stduint index = 0;
-		for (; parameter_node; parameter_node = parameter_node->next, index++) {
-			if (index >= function->parameters.Count() || !parameter_node->addr)
+		for (; parameter_node; parameter_node = parameter_node->next) {
+			if (parameter_node->addr && !StrCompare(parameter_node->addr, "...")) break;
+			if (!parameter_node->addr)
 				return Error("invalid function parameter", parameter_node).valid;
 			const FrontendCType* parameter_type = type_info->Find(parameter_node);
 			if (!parameter_type)
@@ -818,8 +819,25 @@ namespace clover::frontend_c_internal {
 				parameter_node, body)) return false;
 			LocalValue* local = ActivateLocal(parameter_node->addr, parameter_node);
 			if (!local) return Error("invalid function parameter", parameter_node).valid;
-			EmitStore(function->parameters.begin()[index].value,
-				local->address, local->alignment);
+			if (type.IsRecord()) {
+				const FrontendCRecord* record = type_info->GetRecord(type.record_id);
+				if (!record) return Error("missing record parameter layout", parameter_node).valid;
+				for (const FrontendCRecordMember& member : record->members) {
+					if (index >= function->parameters.Count())
+						return Error("invalid flattened record parameter", parameter_node).valid;
+					Value address = EmitByteOffset(local->address,
+						member.offset_bits / target->char_bits);
+					EmitStore(function->parameters.begin()[index++].value, address,
+						OffsetAlignment(local->alignment,
+							member.offset_bits / target->char_bits));
+				}
+			}
+			else {
+				if (index >= function->parameters.Count())
+					return Error("invalid function parameter", parameter_node).valid;
+				EmitStore(function->parameters.begin()[index++].value,
+					local->address, local->alignment);
+			}
 		}
 		return index == function->parameters.Count();
 	}

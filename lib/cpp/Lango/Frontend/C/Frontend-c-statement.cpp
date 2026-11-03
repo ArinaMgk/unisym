@@ -221,8 +221,10 @@ namespace {
 			(signed_count && unsigned_count) || char_count > 1 ||
 			bool_count > 1 || short_count > 1 || int_count > 1 || long_count > 2 ||
 			float_count > 1 || double_count > 1 || (float_count && double_count) ||
-			((float_count || double_count) && (signed_count || unsigned_count ||
-				bool_count || char_count || short_count || int_count || long_count || void_count)) ||
+			(float_count && (signed_count || unsigned_count || bool_count ||
+				char_count || short_count || int_count || long_count || void_count)) ||
+			(double_count && (signed_count || unsigned_count || bool_count ||
+				char_count || short_count || int_count || void_count || long_count > 1)) ||
 			(bool_count && (signed_count || unsigned_count || char_count ||
 				short_count || int_count || long_count || void_count)) ||
 			(char_count && (short_count || int_count || long_count)) ||
@@ -239,6 +241,7 @@ namespace {
 		type.base_qualifiers.is_const = const_count != 0;
 		if (float_count || double_count) {
 			type.scalar_kind = float_count ? FrontendCScalarKind::Float :
+				long_count ? FrontendCScalarKind::LongDouble :
 				FrontendCScalarKind::Double;
 			return true;
 		}
@@ -312,6 +315,16 @@ namespace {
 		uni::Nnode* node = function ? function->subf : nullptr;
 		stduint count = 0;
 		while (node) {
+			if (node->type == tok_symbol && node->addr &&
+				!StrCompare(node->addr, "...")) {
+				if (!count || node->next) {
+					diagnostics.Report(DiagnosticStage::Parser,
+						"ellipsis must terminate a non-empty parameter list", node);
+					return false;
+				}
+				node->type = ToToken(FrontendCToken::VariadicParameter);
+				return true;
+			}
 			FrontendCType type;
 			if (!ParseTypeSpecifiers(syntax_tree, node, type, diagnostics,
 				target, type_info)) {
@@ -329,11 +342,6 @@ namespace {
 			if (type.IsVoid()) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"parameter cannot have void type", node ? node : function);
-				return false;
-			}
-			if (type.IsRecord()) {
-				diagnostics.Report(DiagnosticStage::Semantic,
-					"record parameters by value are not supported yet", node);
 				return false;
 			}
 			uni::Nnode* parameter = node;
@@ -356,6 +364,18 @@ namespace {
 
 			node = parameter->next;
 			if (!node) break;
+			if (node->type == tok_symbol && node->addr &&
+				(!StrCompare(node->addr, "...") ||
+					!StrCompare(node->addr, ",..."))) {
+				srs(node->addr, StrHeap("..."));
+				node->type = ToToken(FrontendCToken::VariadicParameter);
+				if (node->next) {
+					diagnostics.Report(DiagnosticStage::Parser,
+						"ellipsis must terminate the parameter list", node);
+					return false;
+				}
+				return true;
+			}
 			if (node->type != tok_symbol || !node->addr || StrCompare(node->addr, ",")) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"expected ',' between function parameters", node);
@@ -1101,8 +1121,10 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 			(signed_count && unsigned_count) || char_count > 1 ||
 			bool_count > 1 || short_count > 1 || int_count > 1 || long_count > 2 ||
 			float_count > 1 || double_count > 1 || (float_count && double_count) ||
-			((float_count || double_count) && (signed_count || unsigned_count ||
-				bool_count || char_count || short_count || int_count || long_count || void_count)) ||
+			(float_count && (signed_count || unsigned_count || bool_count ||
+				char_count || short_count || int_count || long_count || void_count)) ||
+			(double_count && (signed_count || unsigned_count || bool_count ||
+				char_count || short_count || int_count || void_count || long_count > 1)) ||
 			(bool_count && (signed_count || unsigned_count || char_count ||
 				short_count || int_count || long_count || void_count)) ||
 			(char_count && (short_count || int_count || long_count)) ||
@@ -1114,6 +1136,7 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 		type.base_qualifiers.is_const = const_count != 0;
 		if (float_count || double_count) {
 			type.scalar_kind = float_count ? FrontendCScalarKind::Float :
+				long_count ? FrontendCScalarKind::LongDouble :
 				FrontendCScalarKind::Double;
 		}
 		type.is_signed = unsigned_count ? false :
@@ -1257,6 +1280,8 @@ stduint FrontendCTypeInfo::SizeBits(const FrontendCType& type,
 			return target.float_bits * type.StorageElementCount();
 		if (type.scalar_kind == FrontendCScalarKind::Double)
 			return target.double_bits * type.StorageElementCount();
+		if (type.scalar_kind == FrontendCScalarKind::LongDouble)
+			return target.long_double_bits * type.StorageElementCount();
 		FrontendCIntegerRank rank = type.integer_rank;
 		if (type.enum_id) {
 			const FrontendCEnum* enumeration = GetEnum(type.enum_id);
@@ -1287,6 +1312,8 @@ stduint FrontendCTypeInfo::AlignBits(const FrontendCType& type,
 		return target.float_align_bits;
 	if (type.scalar_kind == FrontendCScalarKind::Double)
 		return target.double_align_bits;
+	if (type.scalar_kind == FrontendCScalarKind::LongDouble)
+		return target.long_double_align_bits;
 	FrontendCIntegerRank rank = type.integer_rank;
 	if (type.enum_id) {
 		const FrontendCEnum* enumeration = GetEnum(type.enum_id);

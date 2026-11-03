@@ -50,10 +50,12 @@ AASM 当前代码可以按职责理解为以下部分：
 
 - **Preprocessor**：宏、include、条件预处理和依赖信息，主要位于
   `aasm-prep.cpp`。
-- **Assembler**：命令行入口、多遍汇编、符号、表达式、section 和诊断调度，
-  主要位于 `aasm.cpp`、`aasm-label.cpp` 和 `aasm-eval.cpp`。
-- **Archend**：架构相关汇编语法、寄存器、指令匹配与机器码编码。当前 x86 实现
-  主要位于 `aasm-parse.cpp`、`aasm-gena.cpp` 及 `asm/data`。
+- **Assembler**：`aasm.cpp` 负责入口和运行模式分派，`aasm-assembler.cpp` 负责
+  架构无关的多遍调度、directive 和 pass 收敛；符号与表达式位于
+  `aasm-label.cpp` 和 `aasm-eval.cpp`。
+- **Archend**：`inc/cpp/Lango/Archend.hpp` 定义架构汇编契约；当前 x86 适配层位于
+  `lib/cpp/Lango/Archend/Archend-x86.cpp`，内部使用 `aasm-parse.cpp`、
+  `aasm-gena.cpp` 和 `asm/data` 完成语法解析、前向引用、指令匹配与机器码编码。
 - **Codeend**：目标文件和代码格式输出，对应 `lib/cpp/Format/Code` 中的现有实现。
 
 `Frontend` 一词保留给 Magice 的源语言前端，不用于命名 AASM 的预处理或汇编

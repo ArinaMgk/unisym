@@ -141,15 +141,6 @@ static Preproc no_pp = {
 };
 
 _ESYM_C int opt_verbose_info = nil;
-_ESYM_C int using_debug_info;
-enum op_type {
-	op_normal,                  /* Preprocess and assemble */
-	op_preprocess,              /* Preprocess only */
-	op_depend,                  /* Generate dependencies */
-};//{dupl}
-_ESYM_C enum op_type operating_mode = op_normal;
-
-
 struct textargs {
 	const char* label;
 	int value;
@@ -163,26 +154,11 @@ static struct textargs textopts[] = {
 	{NULL, 0}
 };
 
-_ESYM_C bool stopoptions;
 _ESYM_C FILE* error_file;
-_ESYM_C char inname[FILENAME_MAX];
-_ESYM_C char outname[FILENAME_MAX];
-_ESYM_C char listname[FILENAME_MAX];
-_ESYM_C char errname[FILENAME_MAX];
 _ESYM_C const struct warning warnings[ERR_WARN_MAX + 1];
-_ESYM_C bool warning_on[ERR_WARN_MAX + 1];
-_ESYM_C bool warning_on_global[ERR_WARN_MAX + 1];
 _ESYM_C outffmt** ofmt_f();
-_ESYM_C int optimizing;
-_ESYM_C bool tasm_compatible_mode;
-_ESYM_C bool depend_emit_phony;
-_ESYM_C bool depend_missing_ok;
-_ESYM_C const char* depend_target;
-_ESYM_C const char* depend_file;
-//
-_ESYM_C Preproc* preproc;
 _ESYM_C int drop(); _ESYM_C void exit(int);
-bool process_arg(char* p, char* q)
+bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 {
 	char* param;
 	int i;
@@ -193,7 +169,7 @@ bool process_arg(char* p, char* q)
 	if (!p || !p[0])
 		return false;
 
-	if (p[0] == '-' && !stopoptions) {
+	if (p[0] == '-' && !options.StopOptionParsing) {
 		if (StrIndexChar("oOfpPdDiIlFXuUZwW", p[1])) {
 			/* These parameters take values */
 			if (!(param = get_param(p, q, (bool*) & advance)))
@@ -206,17 +182,19 @@ bool process_arg(char* p, char* q)
 			break;
 
 		case 'o':		/* output file */
-			copy_filename(outname, param);
+			copy_filename(options.OutputName, param);
 			break;
 
 		case 'f':		/* output format */
-			*ofmt_f() = ofmt_find(param);
-			if (!(*ofmt_f())) {
+			options.OutputFormat = ofmt_find(param);
+			*ofmt_f() = options.OutputFormat;
+			if (!options.OutputFormat) {
 				//--auto clean flag
 				log_0file = 1;
 				want_usage = 1;
 				aasm_log(_LOG_FATAL, "unrecognised output format `%s' - use -hf for a list", param);
 			}
+			options.DebugFormat = options.OutputFormat->current_dfmt;
 			break;
 
 		case 'O':		/* Optimization level */
@@ -225,7 +203,7 @@ bool process_arg(char* p, char* q)
 
 			if (!*param) {
 				/* Naked -O == -Ox */
-				optimizing = INT_MAX >> 1; /* Almost unlimited */
+				options.OptimizationLevel = INT_MAX >> 1; /* Almost unlimited */
 			}
 			else {
 				while (*param) {
@@ -237,9 +215,9 @@ bool process_arg(char* p, char* q)
 						/* -O0 -> optimizing == -1, 0.98 behaviour */
 						/* -O1 -> optimizing == 0, 0.98.09 behaviour */
 						if (opt < 2)
-							optimizing = opt - 1;
+							options.OptimizationLevel = opt - 1;
 						else
-							optimizing = opt;
+							options.OptimizationLevel = opt;
 						break;
 
 					case 'v':
@@ -250,7 +228,7 @@ bool process_arg(char* p, char* q)
 
 					case 'x':
 						param++;
-						optimizing = INT_MAX >> 1; /* Almost unlimited */
+						options.OptimizationLevel = INT_MAX >> 1; /* Almost unlimited */
 						break;
 
 					default:
@@ -273,22 +251,23 @@ bool process_arg(char* p, char* q)
 			Preprocessor::include_path(param); break;
 
 		case 'l':			/* listing file */
-			copy_filename(listname, param);
+			copy_filename(options.ListName, param);
 			break;
 
 		case 'Z':			/* error messages file */
-			StrCopy(errname, param);
+			StrCopy(options.ErrorName, param);
 			break;
 
 		case 'F':			/* specify debug format */
-			(*ofmt_f())->current_dfmt = dfmt_find((*ofmt_f()), param);
-			if (!(*ofmt_f())->current_dfmt) {
+			options.DebugFormat = dfmt_find(options.OutputFormat, param);
+			options.OutputFormat->current_dfmt = options.DebugFormat;
+			if (!options.DebugFormat) {
 				//--auto clean flag
 				log_0file = 1;
 				want_usage = 1;
-				aasm_log(_LOG_FATAL, "unrecognized debug format `%s' for output format `%s'", param, (*ofmt_f())->shortname);
+				aasm_log(_LOG_FATAL, "unrecognized debug format `%s' for output format `%s'", param, options.OutputFormat->shortname);
 			}
-			using_debug_info = true;
+			options.EnableDebugInfo = true;
 			break;
 
 		case 'X':		/* specify error reporting format */
@@ -305,7 +284,7 @@ bool process_arg(char* p, char* q)
 			break;
 
 		case 'g':
-			using_debug_info = true;
+			options.EnableDebugInfo = true;
 			break;
 
 		case 'h':
@@ -344,7 +323,7 @@ bool process_arg(char* p, char* q)
 			if (p[2] == 'f') {
 				printf("\nvalid output formats for -f are"
 					" (`*' denotes default):\n");
-				ofmt_list((*ofmt_f()), stdout);
+				ofmt_list(options.OutputFormat, stdout);
 			}
 			else {
 				printf("\nFor a list of valid output formats, use -hf.\n");
@@ -356,12 +335,12 @@ bool process_arg(char* p, char* q)
 		case 'y':
 			printf("\nvalid debug formats for '%s' output format are"
 				" ('*' denotes default):\n", (*ofmt_f())->shortname);
-			dfmt_list((*ofmt_f()), stdout);
+			dfmt_list(options.OutputFormat, stdout);
 			drop(); exit(0);// exit(drop());
 			break;
 
 		case 't':
-			tasm_compatible_mode = true;
+			options.TasmCompatible = true;
 			break;
 
 		case 'v':
@@ -372,11 +351,11 @@ bool process_arg(char* p, char* q)
 
 		case 'e':              /* preprocess only */
 		case 'E':
-			operating_mode = op_preprocess;
+			options.Mode = AssemblyMode::Preprocess;
 			break;
 
 		case 'a':              /* assemble only - don't preprocess */
-			preproc = &no_pp;
+			options.Preprocessor = &no_pp;
 			break;
 
 		case 'W':
@@ -405,13 +384,13 @@ bool process_arg(char* p, char* q)
 				if (!StrCompareInsensitive(param, warnings[i].name))
 					break;
 			if (i <= ERR_WARN_MAX)
-				warning_on_global[i] = do_warn;
+				options.WarningEnabled[i] = do_warn;
 			else if (!StrCompareInsensitive(param, "all"))
 				for (i = 1; i <= ERR_WARN_MAX; i++)
-					warning_on_global[i] = do_warn;
+					options.WarningEnabled[i] = do_warn;
 			else if (!StrCompareInsensitive(param, "none"))
 				for (i = 1; i <= ERR_WARN_MAX; i++)
-					warning_on_global[i] = !do_warn;
+					options.WarningEnabled[i] = !do_warn;
 			else {
 				//--auto clean flag
 				log_0file = 1;
@@ -423,25 +402,25 @@ bool process_arg(char* p, char* q)
 		case 'M':
 			switch (p[2]) {
 			case 0:
-				operating_mode = op_depend;
+				options.Mode = AssemblyMode::Dependency;
 				break;
 			case 'G':
-				operating_mode = op_depend;
-				depend_missing_ok = true;
+				options.Mode = AssemblyMode::Dependency;
+				options.AllowMissingDependencies = true;
 				break;
 			case 'P':
-				depend_emit_phony = true;
+				options.EmitPhonyDependencies = true;
 				break;
 			case 'D':
-				depend_file = q;
+				options.DependencyFile = q;
 				advance = true;
 				break;
 			case 'T':
-				depend_target = q;
+				options.DependencyTarget = q;
 				advance = true;
 				break;
 			case 'Q':
-				depend_target = quote_for_make(q);
+				options.DependencyTarget = quote_for_make(q);
 				advance = true;
 				break;
 			default:
@@ -465,7 +444,7 @@ bool process_arg(char* p, char* q)
 			int s;
 
 			if (p[2] == 0) {        /* -- => stop processing options */
-				stopoptions = 1;
+				options.StopOptionParsing = true;
 				break;
 			}
 			for (s = 0; textopts[s].label; s++) {
@@ -515,7 +494,7 @@ bool process_arg(char* p, char* q)
 		}
 
 		default:
-			if (!(*ofmt_f())->setinfo(GI_SWITCH, &p)) {
+			if (!options.OutputFormat->setinfo(GI_SWITCH, &p)) {
 				//--auto clean flag
 				log_0file = 1;
 				want_usage = 1;
@@ -525,13 +504,13 @@ bool process_arg(char* p, char* q)
 		}
 	}
 	else {
-		if (*inname) {
+		if (*options.InputName) {
 			log_0file = 1;
 			want_usage = 1;
 			aasm_log(_LOG_ERROR, "more than one input file specified");
 		}
 		else {
-			copy_filename(inname, p);
+			copy_filename(options.InputName, p);
 		}
 	}
 
@@ -539,7 +518,7 @@ bool process_arg(char* p, char* q)
 }
 
 // Process args from a string of args, rather than the argv array. Used by the environment variable and response file processing.
-void process_args(char* args)
+void ProcessArguments(AssemblerOptions& options, char* args)
 {
 	char* p, * q, * arg, * prevarg;
 	char separator = ' ';
@@ -556,33 +535,33 @@ void process_args(char* args)
 			*p++ = '\0';
 		prevarg = arg;
 		arg = q;
-		if (process_arg(prevarg, arg))
+		if (ProcessArgument(options, prevarg, arg))
 			arg = NULL;
 	}
 	if (arg)
-		process_arg(arg, NULL);
+		ProcessArgument(options, arg, NULL);
 }
 
 _ESYM_CPP{
-void process_respfile(FILE* rfile);
-void process_response_file(const char* file);
+void ProcessResponseFile(AssemblerOptions& options, FILE* rfile);
+void ProcessResponsePath(AssemblerOptions& options, const char* file);
 }
 
 // Parse paths of necessary files and options
-void parse_cmdline(int argc, char** argv)
+void ParseCommandLine(AssemblerOptions& options, int argc, char** argv)
 {
 	FILE* rfile;
 	char* envreal, * envcopy = NULL, * p, * arg;
 	int i;
 
-	*inname = *outname = *listname = *errname = '\0';
-	for0(i, numsof(warning_on_global)) warning_on_global[i] = warnings[i].enabled;// init
+	*options.InputName = *options.OutputName = *options.ListName = *options.ErrorName = '\0';
+	for0(i, numsof(options.WarningEnabled)) options.WarningEnabled[i] = warnings[i].enabled;// init
 
 	// AASM adapt for NASM
 	arg = NULL;
 	if (envreal = getenv("NASMENV")) {
 		uni::String nasmenv(envreal);
-		process_args(nasmenv.reflect());
+		ProcessArguments(options, nasmenv.reflect());
 	}
 
 	// Default using $uincpath/Kasha/n_ and $uincpath/naasm/n_ if
@@ -591,13 +570,13 @@ void parse_cmdline(int argc, char** argv)
 		uni::String uinc = "-I ";
 		uinc += envreal;
 		uinc += "/Kasha/n_";
-		process_args(uinc.reflect());
+		ProcessArguments(options, uinc.reflect());
 	}
 	if (envreal = getenv("uincpath")) {
 		uni::String uinc = "-I ";
 		uinc += envreal;
 		uinc += "/naasm/n_";
-		process_args(uinc.reflect());
+		ProcessArguments(options, uinc.reflect());
 	}
 
 	// process the actual command line
@@ -608,17 +587,17 @@ void parse_cmdline(int argc, char** argv)
 		// @resp
 		if (argv[0][0] == '@') {
 			// allow multiple arguments on a single line
-			process_response_file(argv[0] + 1);
+			ProcessResponsePath(options, argv[0] + 1);
 			//{} why advance here: ...
 			argc--; argv++;
 		}
 		// -@resp
-		if (!stopoptions && argv[0][0] == '-' && argv[0][1] == '@') {
+		if (!options.StopOptionParsing && argv[0][0] == '-' && argv[0][1] == '@') {
 			p = get_param(argv[0], argc > 1 ? argv[1] : NULL, &advance);
 			if (p) {
 				rfile = fopen(p, "r");
 				if (rfile) {
-					process_respfile(rfile);
+					ProcessResponseFile(options, rfile);
 					fclose(rfile);
 				}
 				else {
@@ -630,35 +609,35 @@ void parse_cmdline(int argc, char** argv)
 		}
 		// other args
 		else
-			advance = process_arg(argv[0], argc > 1 ? argv[1] : NULL);
+			advance = ProcessArgument(options, argv[0], argc > 1 ? argv[1] : NULL);
 		argv += advance, argc -= advance;
 	}
 
 	/* Look for basic command line typos.  This definitely doesn't
 	   catch all errors, but it might help cases of fumbled fingers. */
-	if (!*inname) {
+	if (!*options.InputName) {
 		//--auto clean flag
 		log_0file = 1;
 		want_usage = 1;
 		aasm_log(_LOG_ERROR, "no input file specified");
 	}
 	else if (
-		!StrCompare(inname, errname) ||
-		!StrCompare(inname, outname) ||
-		!StrCompare(inname, listname) ||
-		(depend_file && !StrCompare(inname, depend_file))) {
+		!StrCompare(options.InputName, options.ErrorName) ||
+		!StrCompare(options.InputName, options.OutputName) ||
+		!StrCompare(options.InputName, options.ListName) ||
+		(options.DependencyFile && !StrCompare(options.InputName, options.DependencyFile))) {
 		log_0file = 1;
 		want_usage = 1;
-		aasm_log(_LOG_FATAL, "file `%s' is both input and output file", inname);
+		aasm_log(_LOG_FATAL, "file `%s' is both input and output file", options.InputName);
 	}
 
-	if (*errname) {
-		error_file = fopen(errname, "w");
+	if (*options.ErrorName) {
+		error_file = fopen(options.ErrorName, "w");
 		if (!error_file) {
 			error_file = stderr;        /* Revert to default! */
 			log_0file = 1;
 			want_usage = 1;
-			aasm_log(_LOG_FATAL, "cannot open file `%s' for error messages", errname);
+			aasm_log(_LOG_FATAL, "cannot open file `%s' for error messages", options.ErrorName);
 		}
 	}
 }

@@ -36,6 +36,7 @@ namespace clover {
 			case Type::I64: return "i64";
 			case Type::F32: return "f32";
 			case Type::F64: return "f64";
+			case Type::F128: return "f128";
 			case Type::Ptr: return "ptr";
 			}
 			return "?";
@@ -134,7 +135,10 @@ namespace clover {
 				output.OutFormat("const %s %[i]\n", TypeName(instruction.type), instruction.immediate);
 				break;
 			case Opcode::FConst:
-				output.OutFormat("fconst %s %[i]\n", TypeName(instruction.type), instruction.immediate);
+				output.OutFormat("fconst %s %[i]", TypeName(instruction.type), instruction.immediate);
+				if (instruction.type == Type::F128)
+					output.OutFormat(", %[i]", instruction.immediate_high);
+				output.OutFormat("\n");
 				break;
 			case Opcode::Local:
 				output.OutFormat("local %s", TypeName(instruction.type));
@@ -424,6 +428,7 @@ namespace clover {
 				else if (Is("i64")) type = Type::I64;
 				else if (Is("f32")) type = Type::F32;
 				else if (Is("f64")) type = Type::F64;
+				else if (Is("f128")) type = Type::F128;
 				else if (Is("ptr")) type = Type::Ptr;
 				else return Error("expected Clover type");
 				Advance();
@@ -536,7 +541,12 @@ namespace clover {
 			}
 
 			bool IsFloatType(Type type) const {
-				return type == Type::F32 || type == Type::F64;
+				return type == Type::F32 || type == Type::F64 || type == Type::F128;
+			}
+
+			unsigned FloatBits(Type type) const {
+				return type == Type::F32 ? 32 : type == Type::F64 ? 64 :
+					type == Type::F128 ? 128 : 0;
 			}
 
 			bool ReadCallOperands(Instruction& instruction) {
@@ -594,6 +604,9 @@ namespace clover {
 							(instruction.immediate >= 0 &&
 								(uint64)instruction.immediate > (uint64)UINT32_MAX)))
 						return Error("f32 constant bit pattern is out of range");
+					if (instruction.type == Type::F128 &&
+						(!Expect(",") || !ReadNumber(instruction.immediate_high)))
+						return Error("f128 constant requires two 64-bit words");
 					instruction.result.type = instruction.type;
 				}
 				else if (!StrCompare(operation.reference(), "local")) {
@@ -780,10 +793,12 @@ namespace clover {
 						(!IsIntegerType(source_type) || !IsFloatType(instruction.type))) ||
 						((float_to_signed || float_to_unsigned) &&
 						(!IsFloatType(source_type) || !IsIntegerType(instruction.type))) ||
-						(extend && (source_type != Type::F32 || instruction.type != Type::F64)) ||
+						(extend && (!IsFloatType(source_type) || !IsFloatType(instruction.type) ||
+							FloatBits(source_type) >= FloatBits(instruction.type))) ||
 						(!signed_to_float && !unsigned_to_float && !float_to_signed &&
 							!float_to_unsigned && !extend &&
-							(source_type != Type::F64 || instruction.type != Type::F32)))
+							(!IsFloatType(source_type) || !IsFloatType(instruction.type) ||
+								FloatBits(source_type) <= FloatBits(instruction.type))))
 						return Error("floating conversion type mismatch");
 					instruction.operands.Append(operand);
 					instruction.result.type = instruction.type;
@@ -859,9 +874,21 @@ namespace clover {
 				if (!Expect("func") || !Expect("@") || !ReadName(function.name) ||
 					!Expect("(")) return false;
 				while (!Is(")")) {
+					if (Is("...")) {
+						Advance();
+						function.is_variadic = true;
+						if (!Is(")")) return Error("ellipsis must end function parameters");
+						break;
+					}
 					Parameter parameter;
 					if (!ReadType(parameter.value.type) ||
 						!ReadResultID(parameter.value.id) || !Define(parameter.value)) return false;
+					if (Is("abiagg")) {
+						Advance();
+						stdsint group;
+						if (!ReadNumber(group) || group <= 0) return Error("invalid aggregate parameter group");
+						parameter.aggregate_group = (unsigned)group;
+					}
 					function.parameters.Append(parameter);
 					if (Is(")")) break;
 					if (!Expect(",")) return false;
@@ -944,8 +971,13 @@ namespace clover {
 						global.initializer_values.Count() != (stduint)global.element_count)
 						return Error("global initializer element count mismatch");
 				}
-				else if (!ReadNumber(global.initializer))
-					return Error("invalid global initializer");
+				else {
+					if (!ReadNumber(global.initializer))
+						return Error("invalid global initializer");
+					if (global.type == Type::F128 &&
+						(!Expect(",") || !ReadNumber(global.initializer_high)))
+						return Error("f128 global initializer requires two 64-bit words");
+				}
 				module.globals.Append(global);
 				return true;
 			}
@@ -1005,7 +1037,12 @@ namespace clover {
 				}
 				output.OutFormat("}\n");
 			}
-			else output.OutFormat("%[i]\n", global.initializer);
+			else {
+				output.OutFormat("%[i]", global.initializer);
+				if (global.type == Type::F128)
+					output.OutFormat(", %[i]", global.initializer_high);
+				output.OutFormat("\n");
+			}
 		}
 		for (const Function& function : module.functions) {
 			uint32 current_file = 0;
@@ -1016,7 +1053,11 @@ namespace clover {
 				const Parameter& parameter = function.parameters.begin()[index];
 				output.OutFormat("%s ", TypeName(parameter.value.type));
 				PrintValue(output, parameter.value);
+				if (parameter.aggregate_group)
+					output.OutFormat(" abiagg %[u]", parameter.aggregate_group);
 			}
+			if (function.is_variadic)
+				output.OutFormat(function.parameters.Count() ? ", ..." : "...");
 			output.OutFormat(") -> %s {\n", TypeName(function.return_type));
 			for (const BasicBlock& block : function.blocks) {
 				output.OutFormat("^%s:\n", block.name.reference());

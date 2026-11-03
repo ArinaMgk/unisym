@@ -129,11 +129,12 @@ target ptrbits 64
 第一版支持以下类型：
 
 ```text
-void  i1  i8  i16  i32  i64  f32  f64  ptr
+void  i1  i8  i16  i32  i64  f32  f64  f128  ptr
 ```
 
 整数类型本身不区分有符号和无符号；由 `sdiv`、`udiv` 和 `icmp` 的谓词
-决定如何解释整数。`f32`、`f64` 分别表示 IEEE 754 binary32、binary64。
+决定如何解释整数。`f32`、`f64`、`f128` 分别表示 IEEE 754 binary32、
+binary64、binary128。
 `ptr` 的实际位宽由 `target ptrbits` 约束，并由目标后端实现。
 
 函数定义格式：
@@ -159,6 +160,7 @@ declare @putchar(i32) -> i32
 ```clover
 %value = const i32 42
 %floating = fconst f32 1069547520
+%long_double = fconst f128 0, 4611545280939032576
 %copy = mov i32 %value
 
 %address = local i32
@@ -173,7 +175,8 @@ store i32 %value, %address align 4
 ```
 
 - `const`：产生整数常量。
-- `fconst`：使用十进制整数写出的精确 IEEE 位模式产生 `f32` 或 `f64` 常量。
+- `fconst`：使用十进制整数写出的精确 IEEE 位模式产生浮点常量；`f128` 依次写
+  低 64 位和高 64 位。
 - `local`：创建函数局部存储，结果类型为 `ptr`；可选元素数量用于连续数组存储，
   可选的 `align` 指定以字节计的存储对齐，且必须是二的幂。
 - `global`：定义具有静态存储期的模块级对象，未显式初始化时由前端写入零初始化值。
@@ -189,7 +192,7 @@ store i32 %value, %address align 4
 前端能够保证的最低地址对齐。后端若不能直接完成低于自然对齐的访问，必须拆分
 访问或明确拒绝，不能静默假设地址已自然对齐。当前 RISC-V 后端会把未对齐的
 `i16`、`i32`、`i64` 访问拆成按小端顺序组合或分解的字节访问。
-`f32`、`f64` 的未对齐访问也会通过整数位模式拆分为字节访问。
+`f32`、`f64`、`f128` 的未对齐访问也会通过整数位模式拆分为字节访问。
 
 `mov` 不统一表示 `load` 和 `store`。三者虽然都可能降低为机器的移动指令，
 但在 IR 中具有不同语义：`mov` 没有副作用，`load` 读取内存，`store` 修改
@@ -221,6 +224,7 @@ shl  lshr ashr
 ```clover
 %sum = fadd f32 %left, %right
 %quotient = fdiv f64 %value, %divisor
+%extended = fmul f128 %left, %right
 %condition = fcmp lt f64 %left, %right
 ```
 
@@ -270,6 +274,7 @@ ult ule ugt uge
 ```clover
 %single = fptrunc f64 %wide to f32
 %wide = fpext f32 %single to f64
+%long_double = fpext f64 %wide to f128
 %floating1 = sitofp i32 %signed to f64
 %floating2 = uitofp i32 %unsigned to f64
 %signed = fptosi f64 %floating to i32
@@ -301,6 +306,11 @@ call void @abort()
 调用的参数和返回类型必须与函数声明一致。具体的参数寄存器、返回值寄存器
 和栈布局由目标后端按照 ABI 处理。
 
-当前暂不支持聚合值、指针差值、`phi`、原子操作和可变参数。RISC-V 后端支持
-函数内部的 F/D 硬浮点运算，并可按 `lp64`、`lp64f`、`lp64d` 降低标量浮点
-参数和返回值；超出可用参数寄存器而需要栈传参的情况尚未实现。
+可变参数函数在固定参数末尾写 `...`。展平的小型聚合参数成员可附加
+`abiagg N`，同一非零编号表示它们来自同一个源语言聚合参数。RISC-V 后端要求
+其中浮点成员的精度不超过所选硬浮点 ABI 的 FLEN。
+
+当前暂不支持通用聚合值、聚合返回值、指针差值、`phi` 和原子操作。RISC-V
+后端支持 F/D 硬浮点运算，并通过 libgcc helper 降低 binary128 运算；可按
+`lp64`、`lp64f`、`lp64d` 处理标量浮点参数和返回值。超出可用参数寄存器而
+需要栈传参的情况尚未实现。

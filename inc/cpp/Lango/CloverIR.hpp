@@ -38,6 +38,7 @@ enum class Type {
 	I64, // Signed or unsigned 64-bit integer value.
 	F32, // IEEE 754 binary32 floating-point value.
 	F64, // IEEE 754 binary64 floating-point value.
+	F128, // IEEE 754 binary128 floating-point value.
 	Ptr, // Target-independent address value.
 };
 
@@ -131,6 +132,7 @@ struct Instruction {
 	uni::String target;             // Jump target, or true target for a conditional jump.
 	uni::String target_false;       // False target for a conditional jump.
 	stdsint immediate = 0;          // Integer literal, float bits, or Local element count.
+	stdsint immediate_high = 0;     // High 64 bits for an f128 constant.
 	stduint alignment = 0;          // Optional Local or memory-access alignment in bytes.
 	ICmpPredicate predicate = ICmpPredicate::EQ; // Comparison mode for ICmp.
 	FCmpPredicate float_predicate = FCmpPredicate::EQ; // Comparison mode for FCmp.
@@ -152,6 +154,7 @@ struct BasicBlock {
 struct Parameter {
 	uni::String name;
 	Value value;
+	unsigned aggregate_group = 0; // Nonzero for a flattened aggregate ABI member.
 };
 
 // One module-scope object with static storage duration.
@@ -159,6 +162,7 @@ struct Global {
 	uni::String name;
 	Type type = Type::I8;
 	stdsint initializer = 0;
+	stdsint initializer_high = 0; // High 64 bits for an f128 initializer.
 	stdsint element_count = 1;
 	bool is_read_only = false; // Emit the object in target read-only storage.
 	bool is_internal = false;  // Do not export the object outside this module.
@@ -170,6 +174,7 @@ struct Function {
 	uni::String name;
 	Type return_type = Type::I64;
 	uni::Vector<Parameter> parameters;
+	bool is_variadic = false; // Accept call operands after the fixed parameter list.
 	uni::Vector<BasicBlock> blocks;
 };
 

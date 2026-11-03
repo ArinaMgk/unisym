@@ -242,6 +242,98 @@ enum warn_t {
 #define ERR_WARN_MAX		11
 _ESYM_C enum warn_t log_warnt;
 
+#define AASM_FILENAME_MAX 260
+
+#ifdef _INC_CPP
+typedef struct Strpage Strpage;
+
+namespace uni::lango {
+	class ArchendInterface;
+}
+
+enum class AssemblyMode {
+	Assemble,
+	Preprocess,
+	Dependency
+};
+
+struct AssemblerOptions {
+	AssemblyMode Mode;
+	char InputName[AASM_FILENAME_MAX];
+	char OutputName[AASM_FILENAME_MAX];
+	char ListName[AASM_FILENAME_MAX];
+	char ErrorName[AASM_FILENAME_MAX];
+	int OptimizationLevel;
+	int DefaultBits;
+	uint32_t CpuLevel;
+	bool EnableDebugInfo;
+	bool TasmCompatible;
+	bool StopOptionParsing;
+	bool EmitPhonyDependencies;
+	bool AllowMissingDependencies;
+	const char* DependencyTarget;
+	const char* DependencyFile;
+	Preproc* Preprocessor;
+	uni::lango::ArchendInterface* Archend;
+	struct outffmt* OutputFormat;
+	struct dbgffmt* DebugFormat;
+	bool WarningEnabled[ERR_WARN_MAX + 1];
+};
+
+struct AssemblySession {
+	AssemblerOptions* Options;
+	FILE* OutputFile;
+	Strpage* Offsets;
+	struct location Location;
+	StrList* Dependencies;
+	int PassPhase;
+	int PassNumber;
+	int GlobalLineNumber;
+	int CurrentBits;
+	int SectionBits;
+	uint32_t CurrentCpu;
+	int64_t GlobalOffsetChanged;
+	int64_t PreviousOffsetChanged;
+	int32_t StallCount;
+	bool InAbsoluteSection;
+	int32_t AbsoluteSection;
+	int32_t AbsoluteOffset;
+	bool TerminateAfterPhase;
+};
+
+class Assembler {
+public:
+	explicit Assembler(AssemblySession& session);
+	void AssembleFile(char* filename, StrList** dependencies);
+
+private:
+	enum class Directive {
+		None,
+		Absolute,
+		Bits,
+		Common,
+		Cpu,
+		Debug,
+		Default,
+		Extern,
+		Float,
+		Global,
+		List,
+		Section,
+		Segment,
+		Warning
+	};
+
+	AssemblySession& Session;
+
+	int64_t CurrentOffset() const;
+	void SetCurrentOffset(int64_t offset);
+	Directive ParseDirective(char** directive, char** value);
+	uint32_t ParseCpu(char* value);
+	int ParseBits(char* value);
+};
+#endif
+
 
 #include "./inst.h"
 
@@ -391,9 +483,11 @@ extern "C" {
 #include "../data/pptok.h"
 
 	// ---- cmdparam ---- //
-	bool process_arg(char* p, char* q);
-	void process_args(char* args);
-	void parse_cmdline(int argc, char** argv);
+#ifdef _INC_CPP
+	bool ProcessArgument(AssemblerOptions& options, char* p, char* q);
+	void ProcessArguments(AssemblerOptions& options, char* args);
+	void ParseCommandLine(AssemblerOptions& options, int argc, char** argv);
+#endif
 	
 	// ---- list ---- //
 	extern ListGen aasmlist;

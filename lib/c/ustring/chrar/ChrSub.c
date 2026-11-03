@@ -103,7 +103,7 @@ char* ChrSub(const char* a, const char* b)
 	{
 		signed char regichar = *(endofa--) - 0x30;
 		if (endofb >= b) regichar -= *(endofb--) - 0x30;
-		if (flag.borrow = ((regichar -= flag.borrow) < 0)) regichar += 10;
+		if ((flag.borrow = ((regichar -= flag.borrow) < 0))) regichar += 10;
 		#ifndef _ARN_FLAG_DISABLE
 		q[loop_time - 1 + aflaga.signsym] = regichar + 0x30;
 		#else

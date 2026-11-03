@@ -29,6 +29,7 @@ namespace clover::frontend_c_internal {
 		if (type.IsPointer()) return Type::Ptr;
 		if (type.scalar_kind == FrontendCScalarKind::Float) return Type::F32;
 		if (type.scalar_kind == FrontendCScalarKind::Double) return Type::F64;
+		if (type.scalar_kind == FrontendCScalarKind::LongDouble) return Type::F128;
 		unsigned bits = target.int_bits;
 		switch (type.integer_rank) {
 		case FrontendCIntegerRank::Bool: return Type::I1;
@@ -162,11 +163,13 @@ namespace clover::frontend_c_internal {
 		if (lowered.type.IsInteger() && destination.IsInteger())
 			return ConvertInteger(lowered, destination, node);
 		if (lowered.type.IsFloating() && destination.IsFloating()) {
-			if (lowered.type.scalar_kind != destination.scalar_kind)
-				lowered.value = EmitConversion(
-					destination.scalar_kind == FrontendCScalarKind::Double ?
+			if (lowered.type.scalar_kind != destination.scalar_kind) {
+				stduint source_bits = type_info->SizeBits(lowered.type, *target);
+				stduint destination_bits = type_info->SizeBits(destination, *target);
+				lowered.value = EmitConversion(source_bits < destination_bits ?
 					Opcode::FPExt : Opcode::FPTrunc,
 					CloverType(destination), lowered.value);
+			}
 		}
 		else if (lowered.type.IsInteger())
 			lowered.value = EmitConversion(lowered.type.is_signed ?
@@ -213,6 +216,12 @@ namespace clover::frontend_c_internal {
 
 	FrontendCType FunctionBuilder::CommonArithmeticType(FrontendCType left,
 		FrontendCType right) const {
+		if (left.scalar_kind == FrontendCScalarKind::LongDouble ||
+			right.scalar_kind == FrontendCScalarKind::LongDouble) {
+			FrontendCType result;
+			result.scalar_kind = FrontendCScalarKind::LongDouble;
+			return result;
+		}
 		if (left.scalar_kind == FrontendCScalarKind::Double ||
 			right.scalar_kind == FrontendCScalarKind::Double) {
 			FrontendCType result;
@@ -289,8 +298,14 @@ namespace clover::frontend_c_internal {
 		if (!node) return false;
 		if (node->type == tok_number) {
 			stdsint value;
-			return ParseIntegerLiteral(node->addr, *target, value, type) ||
-				ParseFloatingLiteral(node->addr, value, type);
+			stdsint high;
+			if (ParseIntegerLiteral(node->addr, *target, value, type)) return true;
+			if (ParseLongDoubleLiteral(node->addr, value, high)) {
+				type = FrontendCType();
+				type.scalar_kind = FrontendCScalarKind::LongDouble;
+				return true;
+			}
+			return ParseFloatingLiteral(node->addr, value, type);
 		}
 		if (node->type == ToToken(FrontendCToken::CharacterLiteral)) {
 			stdsint value;

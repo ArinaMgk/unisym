@@ -76,6 +76,31 @@ namespace uni::lango {
 			}
 		}
 
+		void NormalizeCEllipsis(Dchain& tokens) {
+			for (Dnode* node = tokens.Root(); node; node = node->next) {
+				if (node->addr && !StrCompare(node->addr, "...")) {
+					node->type = tok_symbol;
+					continue;
+				}
+				Dnode* second = node->next;
+				Dnode* third = second ? second->next : nullptr;
+				if (!node->addr || !second || !second->addr || !third || !third->addr ||
+					StrCompare(node->addr, ".") || StrCompare(second->addr, ".") ||
+					StrCompare(third->addr, ".")) continue;
+				TnodeField* first_field = node->GetTnodeField();
+				TnodeField* second_field = second->GetTnodeField();
+				TnodeField* third_field = third->GetTnodeField();
+				if (first_field->row != second_field->row ||
+					first_field->row != third_field->row ||
+					second_field->col != first_field->col + 1 ||
+					third_field->col != second_field->col + 1) continue;
+				srs(node->addr, StrHeap("..."));
+				node->type = tok_symbol;
+				tokens.Remove(second);
+				tokens.Remove(third);
+			}
+		}
+
 		bool ResolveOptions(const FrontendOptions& options,
 			const FrontendCDiagnostics& diagnostics, FrontendCTargetInfo& target) {
 			if (options.language_standard &&
@@ -193,6 +218,7 @@ namespace uni::lango {
 			lexer.Parse(tokens);
 			LinearParser::StringConcatenation(tokens);
 			JoinCHexadecimalTokens(tokens);
+			NormalizeCEllipsis(tokens);
 
 			frontend_c_detail::ListPostfixOperators(operators);
 			syntax = new NestedParseUnit(tokens, &operators, sizeof(mag_node_t));

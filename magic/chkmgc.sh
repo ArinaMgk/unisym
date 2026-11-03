@@ -48,6 +48,20 @@ check_fail()
 	fi
 }
 
+check_ir()
+{
+	arguments="$1"
+	expectation="$2"
+	feedback="$(mgc --emit-ir "$arguments")" || exit 1
+	if printf '%s\n' "$feedback" | grep -Fq "$expectation"; then
+		printf '\033[1;32mpassed\033[0m: IR contains %s !\n' "$expectation"
+	else
+		printf '%s\n' "$feedback"
+		echo "IR did not contain: $expectation"
+		exit 1
+	fi
+}
+
 cd ../
 make magice
 cd magic
@@ -116,10 +130,9 @@ check 'int main() {return sizeof(long)+sizeof(void*);}' 16 '-Fdata-model=lp64'
 check 'int main() {return sizeof(long)+sizeof(void*);}' 12 '-Fdata-model=llp64'
 check 'int main(){return -1L < 1U;}' 1 '-Fdata-model=lp64'
 check 'int main(){return -1L < 1U;}' 0 '-Fdata-model=llp64'
-check 'int main(){float x=1.5f; double y=2.25; return (int)(x+y);}' 3 '' imfd
-check 'int main(){float a[2]={0x1.4p0f,2.75f}; float *p=a; return (int)(p[0]+p[1]+sizeof(float)+sizeof(double));}' 16 '' imfd
-check 'float add(float x,float y){return x+y;} double mix(float x,double y,int z){return add(x,1.5f)+y+z;} int main(){return (int)mix(1.25f,2.5,3);}' 8 '' imfd lp64d
-check 'int main(){unsigned char a=255; short b=-1; unsigned int c=1; long d=-2; float f=1.5f; double g=2.5; unsigned long n=3; return (a+b==254)+(d+c==-1)+(int)(f+g)+(1<<n);}' 14 '' imfd lp64d
+check '../demo/test/clover/c/floating.c' 77 '' imfd lp64d
+check_ir 'int head(int x,...){return x;} int main(){return head(1,(char)2,3.0f);}' 'fpext f32'
+check_ir 'int head(int x,...){return x;} int main(){return head(1,(char)2,3.0f);}' 'sext i8'
 check 'int main() {return sizeof(char)+sizeof(short)+sizeof(int)+sizeof(long)+sizeof(long long);}' 23
 check 'int main() {signed char x=-1; unsigned char y=255; y=y+2; return (x<0)+(y==1);}' 2
 check 'int main() {unsigned int x=0; x=x-1; return x>1;}' 1

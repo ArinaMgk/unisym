@@ -20,6 +20,7 @@
 */
 
 #include "../../../../../inc/cpp/Lango/Frontend/C/Frontend-c-clover-internal.hpp"
+#include "../../../../../inc/c/datype/floating.h"
 
 namespace clover::frontend_c_internal {
 
@@ -357,6 +358,38 @@ namespace clover::frontend_c_internal {
 			bits = (stdsint)encoded.bits;
 		}
 		return true;
+	}
+
+	bool ParseLongDoubleConstant(const char* text, stdsint& low, stdsint& high) {
+		if (!text || !*text) return false;
+		stduint length = StrLength(text);
+		if (!length) return false;
+		bool has_suffix = text[length - 1] == 'l' || text[length - 1] == 'L' ||
+			text[length - 1] == 'f' || text[length - 1] == 'F';
+		stduint literal_length = length - (has_suffix ? 1 : 0);
+		char* literal = new char[literal_length + 1];
+		MemCopyN(literal, text, literal_length);
+		literal[literal_length] = 0;
+		uint8 bytes[16] = {};
+		bool valid = float_const(literal, 1, bytes, 16) != 0;
+		delete[] literal;
+		if (!valid) return false;
+		uint64 low_word = 0;
+		uint64 high_word = 0;
+		for (unsigned index = 0; index < 8; index++) {
+			low_word |= (uint64)bytes[index] << (index * 8);
+			high_word |= (uint64)bytes[index + 8] << (index * 8);
+		}
+		low = (stdsint)low_word;
+		high = (stdsint)high_word;
+		return true;
+	}
+
+	bool ParseLongDoubleLiteral(const char* text, stdsint& low, stdsint& high) {
+		if (!text) return false;
+		stduint length = StrLength(text);
+		return length && (text[length - 1] == 'l' || text[length - 1] == 'L') &&
+			ParseLongDoubleConstant(text, low, high);
 	}
 
 	bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,

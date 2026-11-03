@@ -84,6 +84,7 @@ struct FrontendCFunction {
 	uni::String name;
 	FrontendCType return_type;
 	uni::Vector<FrontendCType> parameter_types;
+	bool is_variadic = false;
 };
 
 // Module-scope object visible at the current translation-unit position.
@@ -105,6 +106,8 @@ bool ParseIntegerLiteral(const char* text, stdsint& value);
 bool ParseIntegerLiteral(const char* text, const FrontendCTargetInfo& target,
 	stdsint& value, FrontendCType& type);
 bool ParseFloatingLiteral(const char* text, stdsint& bits, FrontendCType& type);
+bool ParseLongDoubleLiteral(const char* text, stdsint& low, stdsint& high);
+bool ParseLongDoubleConstant(const char* text, stdsint& low, stdsint& high);
 bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,
 	stdsint& value);
 bool DecodeCString(const char* text, uni::Vector<stdsint>& bytes);
@@ -193,7 +196,8 @@ private:
 	Value AsCondition(LoweredValue lowered, const uni::Nnode* node);
 	Value EmitConst(stdsint immediate,
 		const FrontendCType& type = FrontendCType());
-	Value EmitFloatConst(stdsint bits, const FrontendCType& type);
+	Value EmitFloatConst(stdsint bits, const FrontendCType& type,
+		stdsint high_bits = 0);
 	Value EmitTypedConst(Type type, stdsint immediate);
 	LoweredValue CreateTemporaryStorage(const FrontendCType& type);
 	LocalValue* FindLocal(const char* name);

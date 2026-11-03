@@ -107,19 +107,24 @@ namespace clover {
 		bool ParseGlobalFloatingConstant(uni::Nnode* node,
 			const FrontendCTargetInfo& target,
 			const uni::Vector<FrontendCEnumerator>& constants,
-			const FrontendCType& destination, stdsint& bits) {
+			const FrontendCType& destination, stdsint& bits,
+			stdsint& high_bits) {
 			if (!node) return false;
 			if (node->type == tok_func && node->addr && node->subf &&
 				!node->subf->next && !StrCompare(node->addr, "OP@PRENEGA")) {
 				if (!ParseGlobalFloatingConstant(node->subf, target, constants,
-					destination, bits)) return false;
-				bits ^= destination.scalar_kind == FrontendCScalarKind::Float ?
+					destination, bits, high_bits)) return false;
+				if (destination.scalar_kind == FrontendCScalarKind::LongDouble)
+					high_bits ^= (stdsint)UINT64_C(0x8000000000000000);
+				else bits ^= destination.scalar_kind == FrontendCScalarKind::Float ?
 					(stdsint)UINT32_C(0x80000000) :
 					(stdsint)UINT64_C(0x8000000000000000);
 				return true;
 			}
 			double value;
 			if (node->type == tok_number) {
+				if (destination.scalar_kind == FrontendCScalarKind::LongDouble)
+					return ParseLongDoubleConstant(node->addr, bits, high_bits);
 				FrontendCType source_type;
 				stdsint source_bits;
 				if (ParseFloatingLiteral(node->addr, source_bits, source_type)) {
@@ -209,7 +214,8 @@ namespace clover {
 			global.element_count = (stdsint)type.StorageElementCount();
 			bool initializer_valid = !initializer_node ||
 				(type.IsFloating() ? ParseGlobalFloatingConstant(initializer_node,
-					target, constants, type, global.initializer) :
+					target, constants, type, global.initializer,
+					global.initializer_high) :
 					ParseGlobalConstant(initializer_node, target,
 						constants, global.initializer));
 			if (!initializer_valid) {
@@ -229,6 +235,25 @@ namespace clover {
 				alignment_bits / target.char_bits : 0;
 			globals.Append(frontend_global);
 			return true;
+		}
+
+		bool FlattenableFloatAggregate(const FrontendCType& type,
+			const FrontendCTypeInfo& type_info,
+			uni::Vector<FrontendCType>& members) {
+			if (!type.IsRecord()) return false;
+			const FrontendCRecord* record = type_info.GetRecord(type.record_id);
+			if (!record || !record->complete || record->is_union ||
+				record->layout == FrontendCRecordLayout::Packed ||
+				!record->members.Count() || record->members.Count() > 2) return false;
+			bool has_float = false;
+			for (const FrontendCRecordMember& member : record->members) {
+				if (!member.type.IsArithmetic() || member.type.IsArray() ||
+					member.type.scalar_kind == FrontendCScalarKind::LongDouble)
+					return false;
+				has_float = has_float || member.type.IsFloating();
+				members.Append(member.type);
+			}
+			return has_float;
 		}
 
 	}
@@ -346,6 +371,13 @@ namespace clover {
 			signature.return_type = *function_return_type;
 			for (uni::Nnode* parameter_node = node->subf;
 				parameter_node; parameter_node = parameter_node->next) {
+				if ((parameter_node->type ==
+					ToToken(FrontendCToken::VariadicParameter)) ||
+					(parameter_node->addr && !StrCompare(parameter_node->addr, "..."))) {
+					signature.is_variadic = true;
+					function.is_variadic = true;
+					continue;
+				}
 				if (parameter_node->type != ToToken(FrontendCToken::Parameter) ||
 					!parameter_node->addr) {
 					diagnostics.Report(DiagnosticStage::Semantic,
@@ -365,11 +397,31 @@ namespace clover {
 					return false;
 				}
 				signature.parameter_types.Append(*parameter_type);
-				Parameter parameter;
-				parameter.name = parameter_node->addr;
-				parameter.value.type = CloverTypeFor(*parameter_type, target);
-				parameter.value.id = function.parameters.Count();
-				function.parameters.Append(parameter);
+				if (parameter_type->IsRecord()) {
+					uni::Vector<FrontendCType> aggregate_members;
+					if (!FlattenableFloatAggregate(*parameter_type, type_info,
+						aggregate_members)) {
+						diagnostics.Report(DiagnosticStage::Semantic,
+							"unsupported record parameter ABI shape", parameter_node);
+						return false;
+					}
+					unsigned group = function.parameters.Count() + 1;
+					for (const FrontendCType& member_type : aggregate_members) {
+						Parameter parameter;
+						parameter.name = parameter_node->addr;
+						parameter.value.type = CloverTypeFor(member_type, target);
+						parameter.value.id = function.parameters.Count();
+						parameter.aggregate_group = group;
+						function.parameters.Append(parameter);
+					}
+				}
+				else {
+					Parameter parameter;
+					parameter.name = parameter_node->addr;
+					parameter.value.type = CloverTypeFor(*parameter_type, target);
+					parameter.value.id = function.parameters.Count();
+					function.parameters.Append(parameter);
+				}
 			}
 			visible_functions.Append(signature);
 			FunctionBuilder builder(module, function, visible_functions, visible_globals,

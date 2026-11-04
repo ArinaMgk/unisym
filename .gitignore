@@ -23,6 +23,9 @@ lib/make/c*
 lib/c/auxiliary/*
 asm/data/*.c
 asm/data/*.h
+lib/cpp/Lango/Archend/X86/data/*.c
+lib/cpp/Lango/Archend/X86/data/*.stamp
+inc/cpp/Lango/Archend/X86/data/*.h
 asm/todata/perllib/pptok.ph
 # .Net Class Library
 lib/dotNet/udotnet/.vs

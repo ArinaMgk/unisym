@@ -148,6 +148,11 @@ dest_dll=$(ubinpath)/libl32d.so.""" + __LibVersion
 
 
 text_gcc_mecocoa += comhead2 + """
+mecocoa_lango_end_cpp := \\
+	$(wildcard lib/cpp/Lango/*end/*.cpp) \\
+	$(wildcard lib/cpp/Lango/*end/**/*.cpp)
+cppfile := $(filter-out $(mecocoa_lango_end_cpp),$(cppfile))
+
 asmfile=$(wildcard lib/asm/x86/*.asm) $(wildcard lib/asm/x86/**/*.asm)
 asmobjs=$(addprefix $(dest_obj)/$(asmpref),$(patsubst %asm,%o,$(notdir $(asmfile))))
 

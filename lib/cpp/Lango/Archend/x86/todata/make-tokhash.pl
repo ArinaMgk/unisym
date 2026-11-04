@@ -5,7 +5,8 @@
 # Usage: perl make-tokhash.pl c  make-ins.dat make-reg.dat tokens.dat > ../data/tokhash.c
 # Usage: perl make-tokhash.pl h  make-ins.dat make-reg.dat tokens.dat > ../data/tokens.h
 #
-use lib './perllib';
+use FindBin;
+use lib "$FindBin::Bin/../../../../../../asm/todata/perllib";
 require 'phash.ph';
 
 my($output, $insns_dat, $regs_dat, $tokens_dat) = @ARGV;
@@ -169,9 +170,9 @@ if ($output eq 'h') {
     print " */\n";
     print "\n";
 
-    print "#include <c/stdinc.h>\n";
+    print "#include \"../../../../../../inc/c/stdinc.h\"\n";
     print "#include <string.h>\n";
-    print "#include \"../inc/inst.h\"\n";
+    print "#include \"../../../../../../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp\"\n";
     print "uint64_t crc64(uint64_t crc, const char* string);\n";
     print "uint64_t crc64i(uint64_t crc, const char* string);\n";
     print "\n";

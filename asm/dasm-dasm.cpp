@@ -1,9 +1,9 @@
 
 #include "../inc/c/stdinc.h"
-#include "inc/inst.h"
+#include "../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp"
 #include "inc/aasm.h"
 extern "C" {
-#include "data/regdis.h"
+#include "../inc/cpp/Lango/Archend/x86/data/regdis.h"
 }
 
 // sync

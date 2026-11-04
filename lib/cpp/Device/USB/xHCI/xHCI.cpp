@@ -2191,6 +2191,7 @@ namespace {
 		else {
 			const auto port_phase = state.port_config_phase[port.Number()];
 			if (port_phase != ConfigPhase::NotConnected &&
+				port_phase != ConfigPhase::DebouncingPort &&
 				port_phase != ConfigPhase::WaitingAddressed) {
 				return MAKE_ERROR(Error::InvalidPhase);
 			}
@@ -2423,7 +2424,9 @@ namespace {
 		// Log(kDebug, "PortStatusChangeEvent: port_id = %d", trb.bits.port_id);
 		auto port_id = trb.bits.port_id;
 		auto port = xhc.PortAt(port_id);
-		if (port.IsConnectStatusChanged()) {
+		auto& state = xhc.EnumerationState();
+		const bool connect_status_changed = port.IsConnectStatusChanged();
+		if (connect_status_changed) {
 			port.ClearConnectStatusChanged();
 		}
 		if (port.IsPortLinkStateChanged()) {
@@ -2434,10 +2437,23 @@ namespace {
 			}
 		}
 
-		auto& state = xhc.EnumerationState();
 		switch (state.port_config_phase[port_id]) {
 		case ConfigPhase::NotConnected:
-			return ResetPort(xhc, port);
+			if (!port.IsConnected() || xhc.RootPortDebounceTicks() == 0) {
+				return ResetPort(xhc, port);
+			}
+			state.port_config_phase[port_id] = ConfigPhase::DebouncingPort;
+			state.root_port_debounce_ticks[port_id] = xhc.RootPortDebounceTicks();
+			return MAKE_ERROR(Error::Success);
+		case ConfigPhase::DebouncingPort:
+			if (!port.IsConnected()) {
+				state.root_port_debounce_ticks[port_id] = 0;
+				state.port_config_phase[port_id] = ConfigPhase::NotConnected;
+			}
+			else if (connect_status_changed) {
+				state.root_port_debounce_ticks[port_id] = xhc.RootPortDebounceTicks();
+			}
+			return MAKE_ERROR(Error::Success);
 		case ConfigPhase::ResettingPort:
 			return EnableSlot(xhc, port);
 		case ConfigPhase::WaitingAddressed:
@@ -2841,6 +2857,21 @@ namespace uni::device::SpaceUSB3 {
 	Error HostController::ProcessDelayed() {
 		if (controller_failed_) return MAKE_ERROR(Error::TransferFailed);
 		Error first_error = MAKE_ERROR(Error::Success);
+		for (uint16 port_id = 1; port_id <= max_ports_; ++port_id) {
+			if (enumeration_state_.port_config_phase[port_id] !=
+				ConfigPhase::DebouncingPort) continue;
+			auto& ticks = enumeration_state_.root_port_debounce_ticks[port_id];
+			if (ticks != 0 && --ticks != 0) continue;
+			auto port = PortAt(static_cast<uint8>(port_id));
+			if (!port.IsConnected()) {
+				enumeration_state_.port_config_phase[port_id] =
+					ConfigPhase::NotConnected;
+				continue;
+			}
+			if (auto error = ResetPort(self, port)) {
+				if (!first_error) first_error = error;
+			}
+		}
 		static const uint16 HubPortResetTimeoutTicks = 2000;
 		if (enumeration_state_.resetting_hub_port_valid &&
 			++enumeration_state_.resetting_hub_port_ticks >= HubPortResetTimeoutTicks) {

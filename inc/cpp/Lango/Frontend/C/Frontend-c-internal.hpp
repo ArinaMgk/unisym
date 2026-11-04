@@ -74,6 +74,12 @@ enum class FrontendCScalarKind {
 	LongDouble
 };
 
+// C storage-class information retained separately from the declared type.
+enum class FrontendCStorageClass {
+	None,
+	Static
+};
+
 // Type qualifiers attached to one level of a C declarator.
 struct FrontendCTypeQualifier {
 	bool is_const = false; // The object represented by this type level is not writable.
@@ -244,14 +250,23 @@ struct FrontendCTypedNode {
 	FrontendCType type;
 };
 
+// Associates one declaration node with its C storage-class specifier.
+struct FrontendCStorageNode {
+	const uni::Nnode* node = nullptr;
+	FrontendCStorageClass storage_class = FrontendCStorageClass::None;
+};
+
 // Type information collected before generic operator parsing rearranges nodes.
 struct FrontendCTypeInfo {
 	uni::Vector<FrontendCTypedNode> nodes;
+	uni::Vector<FrontendCStorageNode> storage_nodes;
 	uni::Vector<FrontendCRecord> records;
 	uni::Vector<FrontendCEnum> enums;
 
 	void Add(const uni::Nnode* node, const FrontendCType& type);
 	const FrontendCType* Find(const uni::Nnode* node) const;
+	void AddStorage(const uni::Nnode* node, FrontendCStorageClass storage_class);
+	FrontendCStorageClass FindStorage(const uni::Nnode* node) const;
 	stduint FindRecord(const char* tag) const;
 	const FrontendCRecord* GetRecord(stduint record_id) const;
 	FrontendCRecord* GetRecord(stduint record_id);

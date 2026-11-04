@@ -42,6 +42,12 @@ enum class Type {
 	Ptr, // Target-independent address value.
 };
 
+// Link visibility retained independently from mutability and storage section.
+enum class Linkage {
+	External, // Symbol may be referenced by another translation unit.
+	Internal  // Symbol is private to this Clover module.
+};
+
 // Operations represented by the in-memory Clover IR.
 enum class Opcode {
 	Const, // Create an integer constant.
@@ -165,7 +171,7 @@ struct Global {
 	stdsint initializer_high = 0; // High 64 bits for an f128 initializer.
 	stdsint element_count = 1;
 	bool is_read_only = false; // Emit the object in target read-only storage.
-	bool is_internal = false;  // Do not export the object outside this module.
+	Linkage linkage = Linkage::External;
 	uni::Vector<stdsint> initializer_values; // Explicit elements for aggregate data.
 };
 
@@ -175,6 +181,7 @@ struct Function {
 	Type return_type = Type::I64;
 	uni::Vector<Parameter> parameters;
 	bool is_variadic = false; // Accept call operands after the fixed parameter list.
+	Linkage linkage = Linkage::External;
 	uni::Vector<BasicBlock> blocks;
 };
 

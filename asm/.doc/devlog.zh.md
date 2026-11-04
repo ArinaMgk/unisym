@@ -23,8 +23,11 @@
 - `inc/cpp/Lango/Archend.hpp` 定义 Archend 的标准契约。
 - `lib/cpp/Lango/Archend/Archend-x86.cpp` 是当前 x86 Archend 适配层，管理
   架构相关的行处理与前向引用。
-- `aasm-parse.cpp` 和 `aasm-gena.cpp` 是 x86 Archend 内部使用的解析与编码实现。
-- `asm/todata` 和 `asm/data` 保存 x86 指令、寄存器和 token 表的生成输入与结果。
+- `inc/cpp/Lango/Archend/X86` 和 `lib/cpp/Lango/Archend/X86` 分别保存 x86 内部头、
+  解析器、编码器、生成输入和生成结果。
+- `asm/todata` 和 `asm/data` 保存预处理宏等 AASM 通用生成输入与结果。
+- `inc/cpp/Format/Code.hpp` 定义 Codeend 的标准契约和只读格式信息。
+- `aasm-format.cpp` 负责 Codeend 注册、选择和现有格式函数表的适配。
 - `lib/cpp/Format/Code` 保存现有 Codeend 格式实现，继续使用各格式原有文件名。
 
 ## 架构命名
@@ -52,4 +55,25 @@ GCC AS 或 AASM 处理。
 
 已建立 `ArchendInterface`，并将 x86 指令行解析、前向引用、尺寸计算和编码接入
 `ArchendX86`；Assembler 仅通过标准契约驱动架构相关处理。
+
+已建立 `CodeendInterface`。格式元信息通过 `DumpCodeend()` 只读返回，命令行、
+Assembler 和输出生命周期通过 Codeend 调用；现有格式实现由 `aasm-format.cpp`
+适配并保持原有文件和函数表。
+
+x86 编码器已改为通过 `CodeendOutput` 提交数据和重定位事件，`aasm-format.cpp`
+负责转换为现有格式输出类型。listing 继续使用原接口；解析器、表达式、标签和
+`EQU` 保留在兼容边界内。
+
+x86 私有指令类型已集中到
+`inc/cpp/Lango/Archend/X86/Instruction-x86.hpp`，公共 AASM 头文件不再隐式包含
+opcode、operand、instruction、REX/VEX 和指令模板定义。x86 parser 与 encoder 的内部入口
+统一使用 `X86*` 命名；CPU、位宽和默认寻址模式策略由 `ArchendX86` 提供。
+
+x86 parser、encoder、指令与寄存器表、反汇编索引、token hash 及其生成输入已收归
+对应的 `inc`、`lib` 架构目录。生成脚本使用固定架构目录输出，不再把 x86 数据
+写入 AASM 通用 `asm/data` 目录。
+
+标签系统已增加 `Labelsys` 静态接口，Assembler、ArchendX86 和 x86 parser 通过
+统一的 Codeend 契约定义、重定义和提交 common 符号。表达式求值器通过 Codeend
+查询 section base；`NativeHandle()` 不再被 Archend、Assembler 或表达式求值器使用。
 

@@ -39,6 +39,10 @@ public:
 	ArchendX86& operator=(const ArchendX86&) = delete;
 
 	virtual const char* Name() const override;
+	virtual uint32_t DefaultCpu() const override;
+	virtual bool ParseCpu(const char* name, uint32_t& cpu) const override;
+	virtual bool ValidateBits(int bits, uint32_t cpu) const override;
+	virtual bool ProcessDefault(char* value) const override;
 	virtual void Initialize(AssemblySession& session) override;
 	virtual void BeginPass(AssemblySession& session,
 		int parse_pass, int output_pass) override;

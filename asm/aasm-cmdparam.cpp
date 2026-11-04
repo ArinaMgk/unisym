@@ -3,6 +3,7 @@
 // Command Line Parameter Parsing and Processing
 
 #include "inc/aasm.h"
+#include "../inc/cpp/Format/Code.hpp"
 #include "../inc/cpp/string"
 
 // #include <stdlib.h>
@@ -156,7 +157,6 @@ static struct textargs textopts[] = {
 
 _ESYM_C FILE* error_file;
 _ESYM_C const struct warning warnings[ERR_WARN_MAX + 1];
-_ESYM_C outffmt** ofmt_f();
 _ESYM_C int drop(); _ESYM_C void exit(int);
 bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 {
@@ -186,15 +186,14 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 			break;
 
 		case 'f':		/* output format */
-			options.OutputFormat = ofmt_find(param);
-			*ofmt_f() = options.OutputFormat;
-			if (!options.OutputFormat) {
+			options.Codeend = uni::FindCodeend(param);
+			if (!options.Codeend) {
 				//--auto clean flag
 				log_0file = 1;
 				want_usage = 1;
 				aasm_log(_LOG_FATAL, "unrecognised output format `%s' - use -hf for a list", param);
 			}
-			options.DebugFormat = options.OutputFormat->current_dfmt;
+			uni::SelectCodeend(*options.Codeend);
 			break;
 
 		case 'O':		/* Optimization level */
@@ -259,13 +258,11 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 			break;
 
 		case 'F':			/* specify debug format */
-			options.DebugFormat = dfmt_find(options.OutputFormat, param);
-			options.OutputFormat->current_dfmt = options.DebugFormat;
-			if (!options.DebugFormat) {
+			if (!options.Codeend->SelectDebugFormat(param)) {
 				//--auto clean flag
 				log_0file = 1;
 				want_usage = 1;
-				aasm_log(_LOG_FATAL, "unrecognized debug format `%s' for output format `%s'", param, options.OutputFormat->shortname);
+				aasm_log(_LOG_FATAL, "unrecognized debug format `%s' for output format `%s'", param, options.Codeend->DumpCodeend().shortname);
 			}
 			options.EnableDebugInfo = true;
 			break;
@@ -323,7 +320,7 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 			if (p[2] == 'f') {
 				printf("\nvalid output formats for -f are"
 					" (`*' denotes default):\n");
-				ofmt_list(options.OutputFormat, stdout);
+				uni::ListCodeends(*options.Codeend, stdout);
 			}
 			else {
 				printf("\nFor a list of valid output formats, use -hf.\n");
@@ -334,8 +331,9 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 
 		case 'y':
 			printf("\nvalid debug formats for '%s' output format are"
-				" ('*' denotes default):\n", (*ofmt_f())->shortname);
-			dfmt_list(options.OutputFormat, stdout);
+				" ('*' denotes default):\n",
+				options.Codeend->DumpCodeend().shortname);
+			options.Codeend->ListDebugFormats(stdout);
 			drop(); exit(0);// exit(drop());
 			break;
 
@@ -494,7 +492,7 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 		}
 
 		default:
-			if (!options.OutputFormat->setinfo(GI_SWITCH, &p)) {
+			if (!options.Codeend->ProcessOption(&p)) {
 				//--auto clean flag
 				log_0file = 1;
 				want_usage = 1;

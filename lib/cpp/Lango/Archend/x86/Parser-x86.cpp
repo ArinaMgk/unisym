@@ -18,10 +18,9 @@
 	limitations under the License.
 */
 
-#include "inc/aasm.h"
-#include "../inc/c/stdinc.h"
-
-#include "data/_asm_inst.h"
+#include "../../../../../asm/inc/aasm.h"
+#include "../../../../../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp"
+#include "../../../../../inc/c/stdinc.h"
 
 
 
@@ -33,12 +32,12 @@ static int is_comma_next(void);
 
 static int i;
 static struct tokenval tokval;
-static struct outffmt *outfmt;     /* Structure of addresses of output routines */
+static uni::CodeendInterface *codeend;
 static struct location *location;         /* Pointer to current line's segment,offset */
 
-void Parser::parser_global_info(outffmt *output, struct location * locp)
+void X86Parser::Initialize(uni::CodeendInterface& output, struct location* locp)
 {
-	outfmt = output;
+	codeend = &output;
 	location = locp;
 }
 
@@ -84,8 +83,8 @@ static void process_size_override(insn* result, int operand)
 		switch ((int)tokval.t_integer) {
 			/* For TASM compatibility a size override inside the
 			 * brackets changes the size of the operand, not the
-			 * address type of the operand as it does in standard
-			 * NASM syntax. Hence:
+			 * address type of the operand as it does in the default
+			 * syntax. Hence:
 			 *
 			 *  mov     eax,[DWORD val]
 			 *
@@ -120,7 +119,7 @@ static void process_size_override(insn* result, int operand)
 		}
 	}
 	else {
-		/* Standard NASM compatible syntax */
+		/* Default addressing syntax */
 		switch ((int)tokval.t_integer) {
 		case S_NOSPLIT:
 			result->oprs[operand].eaflags |= EAF_TIMESTWO;
@@ -168,8 +167,11 @@ static void process_size_override(insn* result, int operand)
 	}
 }
 
-insn* Parser::parse_line(int pass, char* buffer, insn* result, evalfunc evaluate, ldfunc ldef)
+X86Instruction* X86Parser::ParseLine(int pass, char* buffer,
+	X86Instruction* result, evalfunc evaluate,
+	X86LabelDefinition ldef, uni::CodeendInterface& output)
 {
+	codeend = &output;
 	int operand;
 	int critical;
 	struct eval_hints hints;
@@ -225,7 +227,7 @@ restart_parse:
 			 * am still not certain.
 			 */
 			ldef(result->label, in_abs_seg ? abs_seg : location->segment,
-				location->offset, NULL, true, false, outfmt);
+				location->offset, NULL, true, false, *codeend);
 		}
 	}
 
@@ -997,7 +999,7 @@ static int is_comma_next(void)
 	return (i == ',' || i == ';' || !i);
 }
 
-void Parser::cleanup_insn(insn* i)
+void X86Parser::CleanupInstruction(X86Instruction* i)
 {
 	extop* e;
 

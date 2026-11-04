@@ -98,12 +98,15 @@ namespace uni::device::SpaceUSB3 {
 		uint16 best_effort_latency_tolerance = 0;
 		bool enable_link_power_management = _OPT_BUS_USB_xHCI_LinkPower != 0;
 		bool enable_u3 = _OPT_BUS_USB_xHCI_LinkPower != 0;
+		// ProcessDelayed calls to wait before resetting a newly connected root port.
+		uint16 root_port_debounce_ticks = 0;
 		// Zero enables every slot reported by HCSPARAMS1.MaxSlots.
 		uint8 max_slots = 0;
 	};
 
 	enum class ConfigPhase {
 		NotConnected,
+		DebouncingPort,
 		WaitingAddressed,
 		ResettingPort,
 		EnablingSlot,
@@ -137,6 +140,7 @@ namespace uni::device::SpaceUSB3 {
 		bool resetting_hub_port_valid = false;
 		uint16 resetting_hub_port_ticks = 0;
 		uni::Array<ConfigPhase, 256> port_config_phase{};
+		uni::Array<uint16, 256> root_port_debounce_ticks{};
 		uint8 addressing_port = 0;
 		bool enable_slot_command_pending = false;
 	};
@@ -239,6 +243,9 @@ namespace uni::device::SpaceUSB3 {
 		uint8 U2Timeout() const { return resource_config_.u2_timeout; }
 		uint16 BestEffortLatencyTolerance() const {
 			return resource_config_.best_effort_latency_tolerance;
+		}
+		uint16 RootPortDebounceTicks() const {
+			return resource_config_.root_port_debounce_ticks;
 		}
 		bool LinkPowerManagementEnabled() const {
 			return resource_config_.enable_link_power_management;

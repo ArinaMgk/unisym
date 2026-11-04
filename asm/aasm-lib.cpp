@@ -28,7 +28,8 @@
 #include <c/multichar.h>
 //#include <c/uctype.h>
 #include <time.h>
-#include "inc/inst.h"
+#include "inc/aasm.h"
+#include "../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp"
 
 
 _ESYM_C uint64_t _crc64_tab_nasm[256];
@@ -136,7 +137,7 @@ _ESYM_C{
 }
 
 // ---- CPU ----
-uint32 get_cpu_id(rostr iden) {
+uint32 X86CpuId(rostr iden) {
 	for0a(i, cpu_list) if (!StrCompareInsensitive(cpu_list[i].idn, iden)) {
 		return cpu_list[i].val;
 	}

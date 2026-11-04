@@ -140,6 +140,31 @@ namespace {
 			IsKeyword(node, "union") || IsKeyword(node, "enum");
 	}
 
+	bool ExtractStorageClass(uni::Nchain& syntax_tree, uni::Nnode*& node,
+		FrontendCStorageClass& storage_class,
+		const FrontendCDiagnostics& diagnostics) {
+		storage_class = FrontendCStorageClass::None;
+		uni::Nnode* cursor = node;
+		while (cursor && cursor->type == tok_identy && cursor->addr &&
+			(IsTypeSpecifier(cursor) || IsKeyword(cursor, "static"))) {
+			if (!IsKeyword(cursor, "static")) {
+				cursor = cursor->next;
+				continue;
+			}
+			if (storage_class != FrontendCStorageClass::None) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"duplicate storage-class specifier", cursor);
+				return false;
+			}
+			storage_class = FrontendCStorageClass::Static;
+			uni::Nnode* next = cursor->next;
+			if (cursor == node) node = next;
+			syntax_tree.Remove(cursor);
+			cursor = next;
+		}
+		return true;
+	}
+
 	// Consume one C99 scalar type-specifier sequence before its declarator.
 	bool ParseTypeSpecifiers(uni::Nchain& syntax_tree, uni::Nnode*& node,
 		FrontendCType& type, const FrontendCDiagnostics& diagnostics,
@@ -263,6 +288,10 @@ namespace {
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 		FrontendCTypeInfo& type_info, bool global = false) {
 		uni::Nnode* declarator = statement ? statement->subf : nullptr;
+		FrontendCStorageClass storage_class;
+		if (!ExtractStorageClass(syntax_tree, declarator, storage_class,
+			diagnostics)) return false;
+		if (statement) statement->subf = declarator;
 		FrontendCType type;
 		if (!ParseTypeSpecifiers(syntax_tree, declarator, type, diagnostics,
 			target, type_info)) return false;
@@ -279,6 +308,7 @@ namespace {
 		statement->type = ToToken(global ? FrontendCToken::GlobalDeclaration :
 			FrontendCToken::Declaration);
 		type_info.Add(statement, type);
+		type_info.AddStorage(statement, storage_class);
 		return true;
 	}
 
@@ -936,7 +966,7 @@ namespace {
 					"block-scope record definitions are not supported yet", node);
 				return false;
 			}
-			if (IsTypeSpecifier(node->subf)) {
+			if (IsTypeSpecifier(node->subf) || IsKeyword(node->subf, "static")) {
 				if (!PrepareDeclaration(syntax_tree, node, diagnostics, target, type_info)) return false;
 				MarkPrefixKeywords(node->subf);
 				continue;
@@ -1196,6 +1226,20 @@ const FrontendCType* FrontendCTypeInfo::Find(const uni::Nnode* node) const {
 	return nullptr;
 }
 
+void FrontendCTypeInfo::AddStorage(const uni::Nnode* node,
+	FrontendCStorageClass storage_class) {
+	FrontendCStorageNode storage_node;
+	storage_node.node = node;
+	storage_node.storage_class = storage_class;
+	storage_nodes.Append(storage_node);
+}
+
+FrontendCStorageClass FrontendCTypeInfo::FindStorage(const uni::Nnode* node) const {
+	for (const FrontendCStorageNode& storage_node : storage_nodes)
+		if (storage_node.node == node) return storage_node.storage_class;
+	return FrontendCStorageClass::None;
+}
+
 stduint FrontendCTypeInfo::FindRecord(const char* tag) const {
 	if (!tag) return 0;
 	for (stduint index = 0; index < records.Count(); index++)
@@ -1357,7 +1401,8 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 				node = next;
 				continue;
 			}
-			if (!node->subf || !IsTypeSpecifier(node->subf)) {
+			if (!node->subf || (!IsTypeSpecifier(node->subf) &&
+				!IsKeyword(node->subf, "static"))) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"expected global declaration", node);
 				return false;
@@ -1368,6 +1413,9 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 			node = next;
 			continue;
 		}
+		FrontendCStorageClass storage_class;
+		if (!ExtractStorageClass(syntax_tree, node, storage_class,
+			diagnostics)) return false;
 		FrontendCType return_type;
 		if (!ParseTypeSpecifiers(syntax_tree, node, return_type, diagnostics,
 			target, type_info)) {
@@ -1387,6 +1435,7 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 			return false;
 		}
 		type_info.Add(function, return_type);
+		type_info.AddStorage(function, storage_class);
 		if (!PrepareFunctionParameters(syntax_tree, function, diagnostics, target, type_info)) return false;
 
 		uni::Nnode* body = function->next;

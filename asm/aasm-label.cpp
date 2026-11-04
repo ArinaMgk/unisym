@@ -21,6 +21,7 @@
 #include "../inc/c/stdinc.h"
 #include "inc/aasm.h"
 #include "inc/hashtbl.hpp"
+#include "../inc/cpp/Format/Code.hpp"
 
 
 /*
@@ -354,6 +355,116 @@ void define_common(char *label, int32_t segment, int32_t size, char *special, st
 	ofmt->current_dfmt->debug_deflabel(lptr->defn.label, segment, size, 2,
 					   special ? special : lptr->defn.
 					   special);
+}
+
+static void EmitCodeendSymbol(uni::CodeendInterface& codeend,
+	char* name, int32_t segment, int64_t value, int binding,
+	char* special)
+{
+	codeend.DefineSymbol(name, segment, value, binding, special);
+	codeend.DefineDebugSymbol(name, segment, value, binding, special);
+}
+
+void Labelsys::Redefine(rostr label, int32_t segment, int64_t offset,
+	char* special, bool is_norm, bool isextrn,
+	uni::CodeendInterface& codeend)
+{
+	(void)is_norm;
+	(void)isextrn;
+	union label *lptr = find_label(label, 1);
+	int exi;
+	if (!lptr) {
+		aasm_log(_LOG_PANIC, "can't find label `%s' on pass two", label);
+		return;
+	}
+
+	if (!islocal(label) && !islocalchar(*label) && lptr->defn.is_norm)
+		prevlabel = lptr->defn.label;
+	if (lptr->defn.offset != offset) global_offset_changed++;
+	lptr->defn.offset = offset;
+	lptr->defn.segment = segment;
+
+	if (pass0 != 1) return;
+	exi = !!(lptr->defn.is_global & GLOBAL_BIT);
+	if (exi) {
+		int slen = StrLength(lprefix) + StrLength(lptr->defn.label) +
+			StrLength(lpostfix) + 1;
+		char* xsymbol = (char*)malc(slen);
+		snprintf(xsymbol, slen, "%s%s%s", lprefix, lptr->defn.label,
+			lpostfix);
+		EmitCodeendSymbol(codeend, xsymbol, segment, offset, exi,
+			special ? special : lptr->defn.special);
+	}
+	else if ((lptr->defn.is_global & (GLOBAL_BIT | EXTERN_BIT)) !=
+		EXTERN_BIT) {
+		EmitCodeendSymbol(codeend, lptr->defn.label, segment, offset, exi,
+			special ? special : lptr->defn.special);
+	}
+}
+
+void Labelsys::Define(rostr label, int32_t segment, int64_t offset,
+	char* special, bool is_norm, bool isextrn,
+	uni::CodeendInterface& codeend)
+{
+	union label *lptr = find_label(label, 1);
+	int exi;
+	if (lptr->defn.is_global & DEFINED_BIT) {
+		aasm_log(_LOG_ERROR, "symbol `%s' redefined", label);
+		return;
+	}
+	lptr->defn.is_global |= DEFINED_BIT;
+	if (isextrn) lptr->defn.is_global |= EXTERN_BIT;
+
+	if (!islocalchar(label[0]) && is_norm)
+		prevlabel = lptr->defn.label;
+	else if (islocal(label) && !*prevlabel)
+		aasm_log(_LOG_ERROR,
+			"attempt to define a local label before any non-local label");
+
+	lptr->defn.segment = segment;
+	lptr->defn.offset = offset;
+	lptr->defn.is_norm = (!islocalchar(label[0]) && is_norm);
+
+	if (!(pass0 == 1 || (!is_norm && !isextrn && (segment > 0) &&
+		(segment & 1)))) return;
+	exi = !!(lptr->defn.is_global & GLOBAL_BIT);
+	if (exi) {
+		int slen = StrLength(lprefix) + StrLength(lptr->defn.label) +
+			StrLength(lpostfix) + 1;
+		char* xsymbol = (char*)malc(slen);
+		snprintf(xsymbol, slen, "%s%s%s", lprefix, lptr->defn.label,
+			lpostfix);
+		EmitCodeendSymbol(codeend, xsymbol, segment, offset, exi,
+			special ? special : lptr->defn.special);
+	}
+	else if ((lptr->defn.is_global & (GLOBAL_BIT | EXTERN_BIT)) !=
+		EXTERN_BIT) {
+		EmitCodeendSymbol(codeend, lptr->defn.label, segment, offset, exi,
+			special ? special : lptr->defn.special);
+	}
+}
+
+void Labelsys::Common(char* label, int32_t segment, int32_t size,
+	char* special, uni::CodeendInterface& codeend)
+{
+	union label *lptr = find_label(label, 1);
+	if ((lptr->defn.is_global & DEFINED_BIT) &&
+		(passn == 1 || !(lptr->defn.is_global & COMMON_BIT))) {
+		aasm_log(_LOG_ERROR, "symbol `%s' redefined", label);
+		return;
+	}
+	lptr->defn.is_global |= DEFINED_BIT | COMMON_BIT;
+	if (!islocalchar(label[0])) prevlabel = lptr->defn.label;
+	else {
+		aasm_log(_LOG_ERROR,
+			"attempt to define a local label as a common variable");
+		return;
+	}
+	lptr->defn.segment = segment;
+	lptr->defn.offset = 0;
+	if (pass0 == 0) return;
+	EmitCodeendSymbol(codeend, lptr->defn.label, segment, size, 2,
+		special ? special : lptr->defn.special);
 }
 
 void declare_as_global(char *label, char *special)

@@ -5,6 +5,7 @@
 #include <c/stdinc.h>
 #include <c/strpage.h>
 #include "inc/aasm.h"
+#include "../inc/cpp/Format/Code.hpp"
 #include "../inc/cpp/Lango/Archend.hpp"
 
 _ESYM_C {
@@ -19,10 +20,7 @@ extern int64_t global_offset_changed;
 extern int in_abs_seg;
 extern int32_t abs_seg;
 extern int32_t abs_offset;
-struct outffmt** ofmt_f();
 }
-
-uint32 get_cpu_id(rostr iden);
 
 Assembler::Assembler(AssemblySession& session)
 	: Session(session)
@@ -60,11 +58,13 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 	int pass_max;
 
 	AssemblerOptions& options = *Session.Options;
+	uni::CodeendInterface& codeend = *options.Codeend;
 	uni::lango::ArchendInterface& archend = *options.Archend;
 	archend.Initialize(Session);
-	if (options.DefaultBits == 32 && options.CpuLevel < IF_386) {
+	if (!archend.ValidateBits(options.DefaultBits, options.CpuLevel)) {
 		//--auto clean flag
-		aasm_log(_LOG_FATAL, "command line: 32-bit segment size requires a higher cpu");
+		aasm_log(_LOG_FATAL,
+			"command line: default segment size is not supported by the selected architecture or cpu");
 	}
 
 	pass_max = Session.PreviousOffsetChanged = (INT_MAX >> 1) + 2; /* Almost unlimited */
@@ -86,8 +86,8 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 		in_abs_seg = false;
 		Session.InAbsoluteSection = false;
 		global_offset_changed = 0;  /* set by redefine_label */
-		Session.Location.segment = (*ofmt_f())->section(
-			NULL, pass2, &Session.SectionBits);
+		Session.Location.segment = codeend.SelectSection(
+			NULL, pass2, Session.SectionBits);
 		globalbits = Session.SectionBits;
 		Session.CurrentBits = globalbits;
 		if (passn > 1) {
@@ -120,8 +120,8 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 				switch (d) {
 				case Directive::Segment:		/* [SEGMENT n] */
 				case Directive::Section:
-					seg = (*ofmt_f())->section(
-						value, pass2, &Session.SectionBits);
+					seg = codeend.SelectSection(
+						value, pass2, Session.SectionBits);
 					if (seg == NO_SEG) {
 						//--auto clean flag
 						aasm_log(pass1 == 1 ? _LOG_ERROR : _LOG_PANIC, "segment name `%s' not recognized", value);
@@ -141,7 +141,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 							q++;
 						if (*q == ':') {
 							*q++ = '\0';
-							(*ofmt_f())->symdef(value, 0L, 0L, 3, q);
+							codeend.DefineSymbol(value, 0L, 0L, 3, q);
 						}
 					}
 					else if (passn == 1) {
@@ -170,8 +170,8 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 							pass0 = 1;  /* fake pass 1 in labels.c */
 							declare_as_global(value, special
 							);
-							define_label(value, SegAlloc(), 0L, NULL,
-								false, true, (*ofmt_f()));
+							Labelsys::Define(value, SegAlloc(), 0L, NULL,
+								false, true, codeend);
 							pass0 = temp;
 						}
 					}           /* else  pass0 == 1 */
@@ -189,7 +189,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 							q++;
 						if (*q == ':') {
 							*q++ = '\0';
-							(*ofmt_f())->symdef(value, 0L, 0L, 3, q);
+							codeend.DefineSymbol(value, 0L, 0L, 3, q);
 						}
 					}
 					else if (pass2 == 1) {    /* pass == 1 */
@@ -263,12 +263,12 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 					}
 
 					if (pass0 < 2) {
-						define_common(value, SegAlloc(), size,
-							special, (*ofmt_f()));
+					Labelsys::Common(value, SegAlloc(), size,
+						special, codeend);
 					}
 					else if (pass0 == 2) {
 						if (special)
-							(*ofmt_f())->symdef(value, 0L, 0L, 3, special);
+							codeend.DefineSymbol(value, 0L, 0L, 3, special);
 					}
 					break;
 				}
@@ -320,7 +320,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 					while (*p && ascii_isspace(*p))
 						p++;
 					if (pass0 == 2)
-						(*ofmt_f())->current_dfmt->debug_directive(debugid, p);
+					codeend.ProcessDebugDirective(debugid, p);
 					break;
 				case Directive::Warning:		/* [WARNING {+|-|*}warn-name] */
 					while (*value && ascii_isspace(*value))
@@ -374,25 +374,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 					}
 					break;
 				case Directive::Default:		/* [DEFAULT] */
-					stdscan_reset();
-					stdscan_bufptr = value;
-					tokval.t_type = TOKEN_INVALID;
-					if (stdscan(NULL, &tokval) == TOKEN_SPECIAL) {
-						switch ((int)tokval.t_integer) {
-						case S_REL:
-							globalrel = 1;
-							break;
-						case S_ABS:
-							globalrel = 0;
-							break;
-						default:
-							err = 1;
-							break;
-						}
-					}
-					else {
-						err = 1;
-					}
+					if (!archend.ProcessDefault(value)) err = 1;
 					break;
 				case Directive::Float:
 					if (float_option(value)) {
@@ -401,7 +383,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 					}
 					break;
 				default:
-					if (!(*ofmt_f())->directive(directive, value, pass2)) {
+					if (!codeend.ProcessDirective(directive, value, pass2)) {
 						//--auto clean flag
 						aasm_log(pass1 == 1 ? _LOG_ERROR : _LOG_PANIC, "unrecognised directive [%s]", directive);
 					}
@@ -549,12 +531,12 @@ Assembler::Directive Assembler::ParseDirective(char** directive, char** value)
 
 uint32_t Assembler::ParseCpu(char* value)
 {
-	uint32 tmp = get_cpu_id(value);
-	if (tmp == IF_PLEVEL) {
+	uint32_t cpu;
+	if (!Session.Options->Archend->ParseCpu(value, cpu)) {
 		//--auto clean flag
 		aasm_log(pass0 < 2 ? _LOG_ERROR : _LOG_FATAL, "unknown 'cpu' type");
 	}
-	return tmp;
+	return cpu;
 }
 
 int Assembler::ParseBits(char* value)
@@ -564,21 +546,24 @@ int Assembler::ParseBits(char* value)
 	if ((i = atoins(value)) == 16)
 		return i;               /* set for a 16-bit segment */
 	else if (i == 32) {
-		if (Session.CurrentCpu < IF_386) {
+		if (!Session.Options->Archend->ValidateBits(i, Session.CurrentCpu)) {
 			//--auto clean flag
-			aasm_log(_LOG_ERROR, "cannot specify 32-bit segment on processor below a 386");
+			aasm_log(_LOG_ERROR,
+				"cannot specify 32-bit segment for the selected architecture or cpu");
 			i = 16;
 		}
 	}
 	else if (i == 64) {
-		if (Session.CurrentCpu < IF_X86_64) {
+		if (!Session.Options->Archend->ValidateBits(i, Session.CurrentCpu)) {
 			//--auto clean flag
-			aasm_log(_LOG_ERROR, "cannot specify 64-bit segment on processor below an x86-64");
+			aasm_log(_LOG_ERROR,
+				"cannot specify 64-bit segment for the selected architecture or cpu");
 			i = 16;
 		}
 		if (i != maxbits) {
 			//--auto clean flag
-			aasm_log(_LOG_ERROR, "%s output format does not support 64-bit code", (*ofmt_f())->shortname);
+			aasm_log(_LOG_ERROR, "%s output format does not support 64-bit code",
+				Session.Options->Codeend->DumpCodeend().shortname);
 			i = 16;
 		}
 	}

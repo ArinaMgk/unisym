@@ -27,15 +27,10 @@
 #define __AUTHOR__ "@dosconio"
 #define __LICENSE__ "Apache License 2"
 
-#define MAX_OPERANDS 5
-
-
 #include "../../inc/c/stdinc.h"
 #include "aasm-main.h"
 #include "aasm-typedef.h"
 #include "aasm-limits.h"
-
-typedef uint32_t opflags_t;
 
 #define aasm_isalpha(x)  ascii_isalpha((unsigned char)(x))
 #define aasm_isdigit(x)  ascii_isdigit((unsigned char)(x))
@@ -247,6 +242,10 @@ _ESYM_C enum warn_t log_warnt;
 #ifdef _INC_CPP
 typedef struct Strpage Strpage;
 
+namespace uni {
+	class CodeendInterface;
+}
+
 namespace uni::lango {
 	class ArchendInterface;
 }
@@ -275,8 +274,7 @@ struct AssemblerOptions {
 	const char* DependencyFile;
 	Preproc* Preprocessor;
 	uni::lango::ArchendInterface* Archend;
-	struct outffmt* OutputFormat;
-	struct dbgffmt* DebugFormat;
+	uni::CodeendInterface* Codeend;
 	bool WarningEnabled[ERR_WARN_MAX + 1];
 };
 
@@ -334,9 +332,6 @@ private:
 };
 #endif
 
-
-#include "./inst.h"
-
 #define CRITICAL 0x100
 // The actual expression evaluator function looks like this. When called, it expects the first token of its expression to already be in `*tv'; if it is not, set tv->t_type to TOKEN_INVALID and it will start by calling the scanner.
 // If a forward reference happens during evaluation, the evaluator must set `*fwref' to true if `fwref' is non-NULL.
@@ -374,20 +369,6 @@ _ESYM_C const unsigned char aasm_stdmac[];
 _ESYM_C const unsigned char* const aasm_stdmac_after_tasm;
 _ESYM_C const unsigned char* aasm_stdmac_find_package(const char*);
 
-/* --- From insns.dat via insns.pl: --- */
-
-/* insnsn.c */
-_ESYM_C const char* const _asm_inst_literal_list[];
-
-/* --- From regs.dat via regs.pl: --- */
-
-/* regs.c */
-_ESYM_C const char* const aasm_reg_names[];
-/* regflags.c */
-_ESYM_C const int32_t aasm_reg_flags[];
-/* regvals.c */
-_ESYM_C const int aasm_regvals[];
-
 #ifdef _INC_CPP
 
 
@@ -406,13 +387,6 @@ struct Preprocessor {
 	static void extra_stdmac(macros_t*);
 };
 
-struct Parser {
-	static void parser_global_info(outffmt *output, struct location * locp);
-	static insn *parse_line(int pass, char *buffer, insn * result, evalfunc evaluate, ldfunc ldef);
-	static void cleanup_insn(insn * instruction);
-};
-
-
 extern "C" {
 #endif
 
@@ -427,16 +401,6 @@ extern "C" {
 	void SegInit();
 	stdint SegAlloc();
 
-	/*
-	* Special values for expr->type.  These come after EXPR_REG_END
-	* as defined in regs.h.
-	*/
-
-	#define EXPR_UNKNOWN	(EXPR_REG_END+1) /* forward references */
-	#define EXPR_SIMPLE	(EXPR_REG_END+2)
-	#define EXPR_WRT	(EXPR_REG_END+3)
-	#define EXPR_SEGBASE	(EXPR_REG_END+4)
-	
 	int is_reloc(expr*);
 	int is_simple(expr *);
 	int is_really_simple(expr *);
@@ -452,26 +416,10 @@ extern "C" {
 	// Convert a character constant into a number. Sets `*warn' to true if an overflow occurs. str points to and length covers the middle of the string, without the quotes.
 	int64_t readstrnum(char* str, int length, bool* warn);
 
-	enum strfunc {
-		STRFUNC_UTF16,
-		STRFUNC_UTF32,
-	};
-
 	size_t string_transform(char *, size_t, char **, enum strfunc);
-
-	// ---- asm ---- //
-
-	int64_t insn_size
-	(int32_t segment, int64_t offset, int bits, uint32_t cp, insn* instruction);
-
-	int64_t assemble
-	(int32_t segment, int64_t offset, int bits, uint32_t cp, insn* instruction, struct outffmt* output, ListGen* listgen);
 
 	// ---- eval ---- //
 	
-	// Called once to tell the evaluator what output format is providing segment-base details, and what function can be used to look labels up.
-	void eval_global_info(struct outffmt *output, lfunc lookup_label, struct location * locp);
-
 	// The evaluator itself.
 	expr *eval_evaluate(scanner sc, void *scprivate, struct tokenval *tv, int *fwref, int critical, struct eval_hints *hints);
 	
@@ -525,8 +473,6 @@ extern "C" {
 	// ---- lib ---- //
 
 	void* aasm_realloc(void*, size_t);
-
-	const char* prefix_name(int);
 
 	void assert_failed(const char*, int, const char*);
 	#define aasm_assert(x)						\
@@ -620,5 +566,20 @@ extern "C" {
 	
 #ifdef _INC_CPP
 }
+
+class Labelsys {
+public:
+	static void Define(rostr label, int32_t segment, int64_t offset,
+		char* special, bool is_norm, bool isextrn,
+		uni::CodeendInterface& codeend);
+	static void Redefine(rostr label, int32_t segment, int64_t offset,
+		char* special, bool is_norm, bool isextrn,
+		uni::CodeendInterface& codeend);
+	static void Common(char* label, int32_t segment, int32_t size,
+		char* special, uni::CodeendInterface& codeend);
+};
+
+void EvalGlobalInfo(uni::CodeendInterface& codeend, lfunc lookup_label,
+	struct location* locp);
 #endif
 #endif

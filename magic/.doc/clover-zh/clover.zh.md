@@ -147,6 +147,15 @@ func @add(i32 %0, i32 %1) -> i32 {
 }
 ```
 
+模块内部函数在 `func` 前使用 `internal`：
+
+```clover
+internal func @helper(i32 %0) -> i32 {
+^entry:
+    ret i32 %0
+}
+```
+
 外部函数只声明签名：
 
 ```clover
@@ -167,7 +176,8 @@ declare @putchar(i32) -> i32
 %array = local i32, 12
 %buffer = local i8, 24 align 8
 global @counter i32 = 0
-constant @.L.clover.string.0 i8, 4 = {97, 98, 99, 0}
+internal global @private_counter i32 = 0
+internal constant @.L.clover.string.0 i8, 4 = {97, 98, 99, 0}
 %global_address = globaladdr @counter
 %loaded = load i32, %address align 4
 store i32 %value, %address align 4
@@ -181,6 +191,8 @@ store i32 %value, %address align 4
   可选的 `align` 指定以字节计的存储对齐，且必须是二的幂。
 - `global`：定义具有静态存储期的模块级对象，未显式初始化时由前端写入零初始化值。
 - `constant`：定义模块内部的只读聚合数据；初始化列表的元素数量必须与声明数量一致。
+- `internal`：可用于 `global`、`constant` 或 `func`，表示符号只在当前 Clover
+  模块中可见；它与对象是否只读相互独立。
 - `globaladdr`：取得模块级对象的地址，结果类型为 `ptr`。
 - `mov`：复制一个 SSA 值，不读写内存。
 - `load`：从 `ptr` 地址读取值；可选的 `align` 表示地址至少具有多少字节对齐。

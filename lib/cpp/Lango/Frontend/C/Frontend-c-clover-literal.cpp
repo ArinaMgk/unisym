@@ -429,7 +429,7 @@ namespace clover::frontend_c_internal {
 		global.type = Type::I8;
 		global.element_count = (stdsint)bytes.Count();
 		global.is_read_only = true;
-		global.is_internal = true;
+		global.linkage = Linkage::Internal;
 		global.initializer_values = bytes;
 		module->globals.Append(global);
 

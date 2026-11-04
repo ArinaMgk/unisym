@@ -1,11 +1,18 @@
 #!/usr/bin/perl
 # Parse make-ins.dat and produce generated source code files
 
+use FindBin;
+use File::Path qw(make_path);
+
+$data_dir = "$FindBin::Bin/../data";
+$header_dir = "$FindBin::Bin/../../../../../../inc/cpp/Lango/Archend/x86/data";
+make_path($data_dir, $header_dir);
+
 # Opcode prefixes which need their own opcode tables
 # LONGER PREFIXES FIRST!
 @disasm_prefixes = qw(0F24 0F25 0F38 0F3A 0F7A 0FA6 0FA7 0F);
 
-# This should match MAX_OPERANDS from aasm.h
+# This should match MAX_OPERANDS from inst.h
 $MAX_OPERANDS = 5;
 
 # Add VEX/XOP prefixes
@@ -41,7 +48,7 @@ foreach $arg ( @ARGV ) {
     }
 }
 
-$fname = "make-ins.dat" unless $fname = $args[0];
+$fname = "$FindBin::Bin/make-ins.dat" unless $fname = $args[0];
 open (F, $fname) || die "unable to open $fname";
 
 %dinstables = ();
@@ -155,13 +162,13 @@ undef @bytecode_list;
 if ( !defined($output) || $output eq 'b') {
     print STDERR "Writing insnsb.c...\n";
 
-    open B, ">../data/insnsb.c";
+    open B, ">$data_dir/insnsb.c";
 
     print B "/* This file auto-generated from make-ins.dat by make-ins.pl" .
         " - don't edit it */\n\n";
 
-    print B "#include \"../inc/aasm.h\"\n";
-    print B "#include \"_asm_inst.h\"\n\n";
+    print B "#include \"../../../../../../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp\"\n";
+    print B "#include \"../../../../../../inc/cpp/Lango/Archend/x86/data/_asm_inst.h\"\n\n";
 
     print B "const uint8_t aasm_bytecodes[$bytecode_next] = {\n";
 
@@ -196,13 +203,13 @@ if ( !defined($output) || $output eq 'b') {
 if ( !defined($output) || $output eq 'a' ) {
     print STDERR "Writing insnsa.c...\n";
 
-    open A, ">../data/insnsa.c";
+    open A, ">$data_dir/insnsa.c";
 
     print A "/* This file auto-generated from make-ins.dat by make-ins.pl" .
         " - don't edit it */\n\n";
 
-    print A "#include \"../inc/aasm.h\"\n";
-    print A "#include \"_asm_inst.h\"\n\n";
+    print A "#include \"../../../../../../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp\"\n";
+    print A "#include \"../../../../../../inc/cpp/Lango/Archend/x86/data/_asm_inst.h\"\n\n";
 
     foreach $i (@opcodes, @opcodes_cc) {
 	print A "static const struct itemplate instrux_${i}[] = {\n";
@@ -224,13 +231,13 @@ if ( !defined($output) || $output eq 'a' ) {
 if ( !defined($output) || $output eq 'd' ) {
     print STDERR "Writing insnsd.c...\n";
 
-    open D, ">../data/insnsd.c";
+    open D, ">$data_dir/insnsd.c";
 
     print D "/* This file auto-generated from make-ins.dat by make-ins.pl" .
         " - don't edit it */\n\n";
 
-    print D "#include \"../inc/aasm.h\"\n";
-    print D "#include \"_asm_inst.h\"\n\n";
+    print D "#include \"../../../../../../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp\"\n";
+    print D "#include \"../../../../../../inc/cpp/Lango/Archend/x86/data/_asm_inst.h\"\n\n";
 
     print D "static const struct itemplate instrux[] = {\n";
     $n = 0;
@@ -310,7 +317,7 @@ if ( !defined($output) || $output eq 'd' ) {
 if ( !defined($output) || $output eq 'i' ) {
     print STDERR "Writing _asm_inst.h...\n";
 
-    open I, ">../data/_asm_inst.h";
+    open I, ">$header_dir/_asm_inst.h";
 
     print I "// ASCII C99 TAB4 CRLF\n";
     print I "// Docutitle: (Common) Instructions\n";
@@ -342,7 +349,7 @@ if ( !defined($output) || $output eq 'i' ) {
 if ( !defined($output) || $output eq 'n' ) {
     print STDERR "Writing _asm_inst.c...\n";
 
-    open N, ">../data/_asm_inst.c";
+    open N, ">$data_dir/_asm_inst.c";
 
     print N "// ASCII C99 TAB4 CRLF\n";
     print N "// Docutitle: (Common) Instructions\n";
@@ -763,7 +770,7 @@ sub byte_code_compile($$) {
 		die "$fname: $line: DREX without a 'd' operand\n";
 	    }
 	    # Note the use of *unshift* here, as opposed to *push*.
-	    # This is because NASM 2.7 want this byte code at the start of
+	    # The legacy encoder expects this byte code at the start of
 	    # the instruction sequence, but the AMD documentation puts
 	    # this at (roughly) the position of the drex byte itself.
 	    # This allows us to match the AMD documentation and still

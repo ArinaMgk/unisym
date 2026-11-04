@@ -45,6 +45,7 @@ struct LocalValue {
 	stduint alignment = 0;
 	const uni::Nnode* declaration = nullptr;
 	const uni::Nnode* scope = nullptr;
+	stduint global_index = 0; // One-based module global index for block static storage.
 	bool active = false;
 };
 
@@ -111,6 +112,10 @@ bool ParseLongDoubleConstant(const char* text, stdsint& low, stdsint& high);
 bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,
 	stdsint& value);
 bool DecodeCString(const char* text, uni::Vector<stdsint>& bytes);
+bool ParseStaticScalarInitializer(uni::Nnode* node,
+	const FrontendCTargetInfo& target,
+	const uni::Vector<FrontendCEnumerator>& constants,
+	const FrontendCType& destination, stdsint& low, stdsint& high);
 Type CloverTypeFor(const FrontendCType& type, const FrontendCTargetInfo& target);
 
 // Lowers one C function body into one Clover function.
@@ -122,6 +127,7 @@ private:
 	stduint current_block = 0;
 	unsigned next_block = 0;
 	unsigned next_value = 0;
+	unsigned next_static_local = 0;
 	uni::Vector<LocalValue> locals;
 	uni::Vector<FrontendCLocalConstant> local_constants;
 	uni::Vector<LoopContext> loop_contexts;
@@ -211,7 +217,8 @@ private:
 
 	// Local declarator collection, activation, initialization, and scope exit.
 	bool PredeclareLocal(const char* name, const FrontendCType& type,
-		const uni::Nnode* declaration, const uni::Nnode* scope);
+		const uni::Nnode* declaration, const uni::Nnode* scope,
+		FrontendCStorageClass storage_class = FrontendCStorageClass::None);
 	bool ParseDeclaratorNode(uni::Nnode* node, uni::Nnode*& identifier,
 		FrontendCType& type);
 	bool ParseDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
@@ -223,6 +230,7 @@ private:
 	void AppendInitializerValues(uni::Nnode* node,
 		uni::Vector<uni::Nnode*>& values);
 	bool InitializeArray(LocalValue& local, uni::Nnode* initializer);
+	bool InitializeStatic(LocalValue& local, uni::Nnode* initializer);
 	bool LowerDeclarator(uni::Nnode* node, const uni::Nnode* declaration);
 	void LeaveScope(const uni::Nnode* block);
 

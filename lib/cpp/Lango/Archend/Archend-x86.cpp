@@ -19,8 +19,10 @@
 	limitations under the License.
 */
 
-#include <c/strbuff.h>
+#include "../../../../inc/c/strbuff.h"
 #include "../../../../asm/inc/aasm.h"
+#include "../../../../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp"
+#include "../../../../inc/cpp/Format/Code.hpp"
 #include "../../../../inc/cpp/Lango/Archend/Archend-x86.hpp"
 
 _ESYM_C {
@@ -42,7 +44,7 @@ public:
 
 namespace {
 
-void EmitDebugType(const insn& instruction, outffmt& output)
+void EmitDebugType(const insn& instruction, uni::CodeendInterface& codeend)
 {
 	int32_t type = TYS_ELEMENTS(instruction.operands);
 	switch (instruction.opcode) {
@@ -92,11 +94,10 @@ void EmitDebugType(const insn& instruction, outffmt& output)
 		type = TY_LABEL;
 		break;
 	}
-	output.current_dfmt->debug_typevalue(type);
+	codeend.SetDebugType(type);
 }
 
-void DefineEqu(insn& instruction, int parse_pass, ldfunc define,
-	outffmt& output)
+void DefineEqu(insn& instruction, int parse_pass, X86LabelDefinition define, uni::CodeendInterface& output)
 {
 	if (parse_pass == 1) {
 		if (!instruction.label) {
@@ -111,7 +112,7 @@ void DefineEqu(insn& instruction, int parse_pass, ldfunc define,
 			instruction.oprs[0].wrt == NO_SEG) {
 			bool external = !!(instruction.oprs[0].opflags & OPFLAG_EXTERN);
 			define(instruction.label, instruction.oprs[0].segment,
-				instruction.oprs[0].offset, nullptr, false, external, &output);
+				instruction.oprs[0].offset, nullptr, false, external, output);
 			return;
 		}
 		if (instruction.operands == 2 &&
@@ -125,7 +126,7 @@ void DefineEqu(insn& instruction, int parse_pass, ldfunc define,
 			define(instruction.label,
 				instruction.oprs[0].offset | SEG_ABS,
 				instruction.oprs[1].offset,
-				nullptr, false, false, &output);
+				nullptr, false, false, output);
 			return;
 		}
 		aasm_log(_LOG_ERROR, "bad syntax for EQU");
@@ -137,8 +138,8 @@ void DefineEqu(insn& instruction, int parse_pass, ldfunc define,
 
 	if (instruction.operands == 1 &&
 		(instruction.oprs[0].type & IMMEDIATE)) {
-		define_label(instruction.label, instruction.oprs[0].segment,
-			instruction.oprs[0].offset, nullptr, false, false, &output);
+		Labelsys::Define(instruction.label, instruction.oprs[0].segment,
+			instruction.oprs[0].offset, nullptr, false, false, output);
 		return;
 	}
 	if (instruction.operands == 2 &&
@@ -147,10 +148,10 @@ void DefineEqu(insn& instruction, int parse_pass, ldfunc define,
 		instruction.oprs[0].segment == NO_SEG &&
 		(instruction.oprs[1].type & IMMEDIATE) &&
 		instruction.oprs[1].segment == NO_SEG) {
-		define_label(instruction.label,
+		Labelsys::Define(instruction.label,
 			instruction.oprs[0].offset | SEG_ABS,
 			instruction.oprs[1].offset,
-			nullptr, false, false, &output);
+			nullptr, false, false, output);
 		return;
 	}
 	aasm_log(_LOG_ERROR, "bad syntax for EQU");
@@ -173,13 +174,57 @@ const char* ArchendX86::Name() const
 	return "x86";
 }
 
+uint32_t ArchendX86::DefaultCpu() const
+{
+	return IF_PLEVEL;
+}
+
+bool ArchendX86::ParseCpu(const char* name, uint32_t& cpu) const
+{
+	cpu = X86CpuId(name);
+	return cpu != IF_PLEVEL;
+}
+
+bool ArchendX86::ValidateBits(int bits, uint32_t cpu) const
+{
+	switch (bits) {
+	case 16:
+		return true;
+	case 32:
+		return cpu >= IF_386;
+	case 64:
+		return cpu >= IF_X86_64;
+	default:
+		return false;
+	}
+}
+
+bool ArchendX86::ProcessDefault(char* value) const
+{
+	tokenval token;
+	stdscan_reset();
+	stdscan_bufptr = value;
+	token.t_type = TOKEN_INVALID;
+	if (stdscan(nullptr, &token) != TOKEN_SPECIAL) return false;
+	switch (static_cast<int>(token.t_integer)) {
+	case S_REL:
+		globalrel = 1;
+		return true;
+	case S_ABS:
+		globalrel = 0;
+		return true;
+	default:
+		return false;
+	}
+}
+
 void ArchendX86::Initialize(AssemblySession& session)
 {
 	if (!State->ForwardReferences)
 		State->ForwardReferences = StrbuffNew(
 			sizeof(Implementation::ForwardReference));
 	State->CurrentForwardReference = nullptr;
-	Parser::parser_global_info(session.Options->OutputFormat, &session.Location);
+	X86Parser::Initialize(*session.Options->Codeend, &session.Location);
 }
 
 void ArchendX86::BeginPass(AssemblySession& session,
@@ -199,11 +244,13 @@ ArchendLineResult ArchendX86::ProcessLine(AssemblySession& session,
 {
 	(void)output_pass;
 	ArchendLineResult result;
-	insn instruction;
-	ldfunc define = session.PassNumber > 1 ? redefine_label : define_label;
-	outffmt& output = *session.Options->OutputFormat;
+	X86Instruction instruction;
+	X86LabelDefinition define = session.PassNumber > 1 ?
+		Labelsys::Redefine : Labelsys::Define;
+	uni::CodeendInterface& codeend = *session.Options->Codeend;
 
-	Parser::parse_line(parse_pass, source, &instruction, eval_evaluate, define);
+	X86Parser::ParseLine(parse_pass, source, &instruction,
+		eval_evaluate, define, codeend);
 
 	if (optimizing > 0) {
 		if (State->CurrentForwardReference &&
@@ -236,23 +283,23 @@ ArchendLineResult ArchendX86::ProcessLine(AssemblySession& session,
 	}
 
 	if (instruction.opcode == I_EQU) {
-		DefineEqu(instruction, parse_pass, define, output);
+		DefineEqu(instruction, parse_pass, define, codeend);
 	}
 	else if (parse_pass == 1) {
-		int64_t size = insn_size(session.Location.segment,
+		int64_t size = X86InstructionSize(session.Location.segment,
 			session.Location.offset, session.SectionBits,
 			session.CurrentCpu, &instruction);
-		if (using_debug_info) EmitDebugType(instruction, output);
+		if (using_debug_info) EmitDebugType(instruction, codeend);
 		if (size != -1) result.size = size;
 		else result.valid = false;
 	}
 	else {
-		result.size = assemble(session.Location.segment,
+		result.size = X86Assemble(session.Location.segment,
 			session.Location.offset, session.SectionBits,
-			session.CurrentCpu, &instruction, &output, &aasmlist);
+			session.CurrentCpu, &instruction, &codeend, &aasmlist);
 	}
 
-	Parser::cleanup_insn(&instruction);
+	X86Parser::CleanupInstruction(&instruction);
 	return result;
 }
 

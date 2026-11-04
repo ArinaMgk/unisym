@@ -24,7 +24,8 @@
 namespace clover::frontend_c_internal {
 
 	bool FunctionBuilder::PredeclareLocal(const char* name, const FrontendCType& type,
-		const uni::Nnode* declaration, const uni::Nnode* scope) {
+		const uni::Nnode* declaration, const uni::Nnode* scope,
+		FrontendCStorageClass storage_class) {
 		for (const LocalValue& local : locals)
 			if (local.scope == scope && !StrCompare(local.name.reference(), name)) {
 				diagnostics->Report(DiagnosticStage::Semantic,
@@ -46,7 +47,14 @@ namespace clover::frontend_c_internal {
 			return false;
 		}
 		Instruction instruction;
-		instruction.opcode = Opcode::Local;
+		bool is_static = storage_class == FrontendCStorageClass::Static;
+		if (is_static && type.record_id && !type.IsPointer()) {
+			diagnostics->Report(DiagnosticStage::Semantic,
+				"block static record objects are not supported yet", declaration);
+			failed = true;
+			return false;
+		}
+		instruction.opcode = is_static ? Opcode::GlobalAddr : Opcode::Local;
 	if (type.record_id && !type.IsPointer()) {
 		stduint size_bits = type_info->SizeBits(type, *target);
 		stduint align_bits = type_info->AlignBits(type, *target);
@@ -69,6 +77,24 @@ namespace clover::frontend_c_internal {
 		instruction.has_result = true;
 		instruction.result = NewValue(Type::Ptr);
 		instruction.name = name;
+		stduint global_index = 0;
+		if (is_static) {
+			Global global;
+			global.name = ".L.clover.static.";
+			global.name += function->name;
+			global.name += ".";
+			AppendUnsigned(global.name, next_static_local++);
+			global.type = CloverType(type);
+			global.is_read_only = type.IsConstObject();
+			global.element_count = type.IsPointer() ? 1 :
+				(stdsint)type.StorageElementCount();
+			global.linkage = Linkage::Internal;
+			module->globals.Append(global);
+			global_index = module->globals.Count();
+			instruction.name = global.name;
+			instruction.type = Type::Ptr;
+			instruction.immediate = 0;
+		}
 		AttachSource(instruction, declaration);
 		EntryBlock().instructions.Append(instruction);
 
@@ -79,6 +105,7 @@ namespace clover::frontend_c_internal {
 		local.alignment = TypeAlignment(type);
 		local.declaration = declaration;
 		local.scope = scope;
+		local.global_index = global_index;
 		locals.Append(local);
 		return true;
 	}
@@ -134,7 +161,8 @@ namespace clover::frontend_c_internal {
 		uni::Nnode* identifier = nullptr;
 		FrontendCType type;
 		if (!ParseDeclarator(declarator, identifier, type, base_type)) return false;
-		return PredeclareLocal(identifier->addr, type, declaration, scope);
+		return PredeclareLocal(identifier->addr, type, declaration, scope,
+			type_info->FindStorage(declaration));
 	}
 
 	bool FunctionBuilder::PredeclareBlock(uni::Nnode* block) {
@@ -221,6 +249,46 @@ namespace clover::frontend_c_internal {
 		return true;
 	}
 
+	bool FunctionBuilder::InitializeStatic(LocalValue& local,
+		uni::Nnode* initializer) {
+		if (!local.global_index || local.global_index > module->globals.Count())
+			return Error("invalid block static object", initializer).valid;
+		if (!initializer) return true;
+		Global& global = module->globals[local.global_index - 1];
+		if (local.type.IsArray()) {
+			FrontendCType element_type = local.type;
+			element_type.array_dimension_count = 0;
+			if (element_type.scalar_kind == FrontendCScalarKind::LongDouble)
+				return Error("block static long double array initialization is not supported yet",
+					initializer).valid;
+			uni::Vector<uni::Nnode*> values;
+			AppendInitializerValues(initializer, values);
+			stduint count = local.type.StorageElementCount();
+			if (values.Count() > count)
+				return Error("too many block static array initializer values",
+					initializer).valid;
+			for (stduint index = 0; index < count; index++) {
+				stdsint low = 0;
+				stdsint high = 0;
+				if (index < values.Count() && !ParseStaticScalarInitializer(
+					values[index], *target, *visible_constants,
+					element_type, low, high))
+					return Error("block static array initializer must contain constant expressions",
+						values[index]).valid;
+				global.initializer_values.Append(low);
+			}
+			return true;
+		}
+		if (!ParseStaticScalarInitializer(initializer, *target,
+			*visible_constants, local.type, global.initializer,
+			global.initializer_high))
+			return Error("block static initializer must be a constant expression",
+				initializer).valid;
+		if (local.type.integer_rank == FrontendCIntegerRank::Bool &&
+			!local.type.enum_id) global.initializer = global.initializer != 0;
+		return true;
+	}
+
 	bool FunctionBuilder::LowerDeclarator(uni::Nnode* node, const uni::Nnode* declaration) {
 		if (!node) return Error("missing declarator", declaration).valid;
 		if (node->type == tok_func && node->addr &&
@@ -247,6 +315,7 @@ namespace clover::frontend_c_internal {
 		LocalValue* local = ActivateLocal(identifier->addr, declaration);
 		if (!local) return failed ? false :
 			Error("invalid local declaration", identifier).valid;
+		if (local->global_index) return InitializeStatic(*local, initializer_node);
 		if (!initializer_node) return true;
 		if (local->type.record_id && !local->type.IsPointer())
 			return Error("record initialization is not supported yet", initializer_node).valid;

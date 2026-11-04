@@ -165,6 +165,11 @@ check '../demo/test/clover/c/struct-layout.c' 254
 
 # Storage Area and Lifetime
 check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1
+check '../demo/test/clover/c/static.c' 163 '' imfd lp64d
+check_ir 'static int value; static int helper(int x){return x;} int main(){return helper(value);}' 'internal global @value'
+check_ir 'static int value; static int helper(int x){return x;} int main(){return helper(value);}' 'internal func @helper'
+check_fail 'int source(){return 1;} int main(){static int value=source();return value;}' 'block static initializer must be a constant expression'
+check_fail 'static static int value; int main(){return value;}' 'duplicate storage-class specifier'
 
 
 echo pass!

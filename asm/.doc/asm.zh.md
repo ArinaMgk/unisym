@@ -54,13 +54,29 @@ AASM 当前代码可以按职责理解为以下部分：
   架构无关的多遍调度、directive 和 pass 收敛；符号与表达式位于
   `aasm-label.cpp` 和 `aasm-eval.cpp`。
 - **Archend**：`inc/cpp/Lango/Archend.hpp` 定义架构汇编契约；当前 x86 适配层位于
-  `lib/cpp/Lango/Archend/Archend-x86.cpp`，内部使用 `aasm-parse.cpp`、
-  `aasm-gena.cpp` 和 `asm/data` 完成语法解析、前向引用、指令匹配与机器码编码。
-- **Codeend**：目标文件和代码格式输出，对应 `lib/cpp/Format/Code` 中的现有实现。
+  `lib/cpp/Lango/Archend/Archend-x86.cpp`。x86 内部头和生成头位于
+  `inc/cpp/Lango/Archend/X86`，解析器、编码器、生成源和生成输入位于对应的 `lib` 目录。
+- **Codeend**：`inc/cpp/Format/Code.hpp` 定义代码格式输出契约，
+  `aasm-format.cpp` 将现有格式函数表接入该契约；BIN、ELF、COFF、Mach-O 等实现
+  继续保存在 `lib/cpp/Format/Code`。
+
+Codeend 负责格式信息、格式选择、输出生命周期、section、symbol、directive 和
+调试格式操作。x86 编码器通过标准输出事件提交原始数据、地址、保留空间和相对
+地址，由 `aasm-format.cpp` 适配为现有格式函数表使用的输出类型。listing 保留原有
+接口；`NativeHandle()` 目前仅保留在 Codeend 适配和旧格式兼容代码中。
+
+标签操作统一通过 `Labelsys::Define`、`Labelsys::Redefine` 和 `Labelsys::Common`
+调用。标签状态管理仍位于 `aasm-label.cpp`，符号和调试符号分别通过 Codeend
+契约提交。Archend、Assembler 和表达式求值器不再直接依赖旧格式驱动类型。
 
 `Frontend` 一词保留给 Magice 的源语言前端，不用于命名 AASM 的预处理或汇编
 调度部分。`Backend` 表示 Magice 从 Clover IR 生成汇编文本的目标后端；
 `Archend` 表示 AASM 中与指令集架构相关的解析和编码部分。
+
+x86 operand、instruction、指令模板、寄存器、opcode、REX/VEX 和 CPU 等级定义集中
+在 `inc/cpp/Lango/Archend/X86/Instruction-x86.hpp`。x86 parser、encoder、生成表和
+生成输入按 `inc`、`lib` 职责归入对应架构目录；反汇编器与表达式兼容实现显式引用 x86 内部头。CPU、
+位宽和默认寻址模式策略由 `ArchendX86` 实现，Assembler 不直接解释 x86 CPU 等级。
 
 ## 开发约束
 

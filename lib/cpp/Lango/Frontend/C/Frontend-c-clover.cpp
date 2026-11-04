@@ -210,6 +210,9 @@ namespace clover {
 			}
 			Global global;
 			global.name = identifier->addr;
+			global.is_read_only = type.IsConstObject();
+			if (type_info.FindStorage(declaration) == FrontendCStorageClass::Static)
+				global.linkage = Linkage::Internal;
 			global.type = CloverTypeFor(type, target);
 			global.element_count = (stdsint)type.StorageElementCount();
 			bool initializer_valid = !initializer_node ||
@@ -353,6 +356,8 @@ namespace clover {
 
 			Function function;
 			function.name = node->addr;
+			if (type_info.FindStorage(node) == FrontendCStorageClass::Static)
+				function.linkage = Linkage::Internal;
 			const FrontendCType* function_return_type = type_info.Find(node);
 			if (!function_return_type) {
 				diagnostics.Report(DiagnosticStage::Semantic,
@@ -434,6 +439,21 @@ namespace clover {
 			node = body->next;
 		}
 		return true;
+	}
+
+	bool frontend_c_internal::ParseStaticScalarInitializer(uni::Nnode* node,
+		const FrontendCTargetInfo& target,
+		const uni::Vector<FrontendCEnumerator>& constants,
+		const FrontendCType& destination, stdsint& low, stdsint& high) {
+		high = 0;
+		if (destination.IsFloating())
+			return ParseGlobalFloatingConstant(node, target, constants,
+				destination, low, high);
+		if (destination.IsPointer()) {
+			return ParseGlobalConstant(node, target, constants, low) && !low;
+		}
+		return destination.IsInteger() &&
+			ParseGlobalConstant(node, target, constants, low);
 	}
 
 }

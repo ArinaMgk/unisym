@@ -866,8 +866,9 @@ namespace clover {
 				return true;
 			}
 
-			bool ParseFunction(Module& module) {
+			bool ParseFunction(Module& module, Linkage linkage = Linkage::External) {
 				Function function;
+				function.linkage = linkage;
 				definitions.Clear();
 				debug_file = 0;
 				debug_line = 0;
@@ -944,10 +945,11 @@ namespace clover {
 				return true;
 			}
 
-			bool ParseGlobal(Module& module, bool read_only) {
+			bool ParseGlobal(Module& module, bool read_only,
+				Linkage linkage = Linkage::External) {
 				Global global;
 				global.is_read_only = read_only;
-				global.is_internal = read_only;
+				global.linkage = linkage;
 				if (!Expect(read_only ? "constant" : "global") ||
 					!Expect("@") || !ReadName(global.name) ||
 					!ReadType(global.type) || global.type == Type::Void)
@@ -999,6 +1001,17 @@ namespace clover {
 					else if (Is("source")) {
 						if (!ParseSource(module)) return false;
 					}
+					else if (Is("internal")) {
+						Advance();
+						if (Is("global") || Is("constant")) {
+							bool read_only = Is("constant");
+							if (!ParseGlobal(module, read_only, Linkage::Internal)) return false;
+						}
+						else if (Is("func")) {
+							if (!ParseFunction(module, Linkage::Internal)) return false;
+						}
+						else return Error("internal requires a global, constant, or function");
+					}
 					else if (Is("global") || Is("constant")) {
 						bool read_only = Is("constant");
 						if (!ParseGlobal(module, read_only)) return false;
@@ -1025,6 +1038,7 @@ namespace clover {
 			output.OutChar('\n');
 		}
 		for (const Global& global : module.globals) {
+			if (global.linkage == Linkage::Internal) output.OutFormat("internal ");
 			output.OutFormat("%s @%s %s", global.is_read_only ? "constant" : "global",
 				global.name.reference(), TypeName(global.type));
 			if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
@@ -1047,6 +1061,7 @@ namespace clover {
 		for (const Function& function : module.functions) {
 			uint32 current_file = 0;
 			uint32 current_line = 0;
+			if (function.linkage == Linkage::Internal) output.OutFormat("internal ");
 			output.OutFormat("func @%s(", function.name.reference());
 			for (stduint index = 0; index < function.parameters.Count(); index++) {
 				if (index) output.OutFormat(", ");

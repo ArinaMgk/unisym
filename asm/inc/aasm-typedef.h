@@ -4,11 +4,9 @@
 
 #include "../../inc/c/ustdbool.h"
 #include "../../inc/c/ustring.h"
-#include "../data/_asm_inst.h"
-#include "../data/regs.h"
 #include "stdio.h"
 
-// [x86]
+// Assembly location shared by the driver and expression evaluator.
 struct location {
 	int64_t offset;
 	int32_t segment;
@@ -22,21 +20,6 @@ typedef struct string_list {
 } StrList;
 
 /// ---- ---- * ---- ----
-
-/*
- * Note that because segment registers may be used as instruction
- * prefixes, we must ensure the enumerations for prefixes and
- * register names do not overlap.
- */
-enum prefixes {			/* instruction prefixes */
-	P_none = 0,
-	PREFIX_ENUM_START = REG_ENUM_LIMIT,
-	P_A16 = PREFIX_ENUM_START, P_A32, P_A64, P_ASP,
-	P_LOCK, P_O16, P_O32, P_O64, P_OSP,
-	P_REP, P_REPE, P_REPNE, P_REPNZ, P_REPZ, P_TIMES,
-	P_WAIT,
-	PREFIX_ENUM_LIMIT
-};
 
 /// ---- ---- Token ---- ----
 
@@ -66,17 +49,8 @@ enum token_type {		/* token types, other than chars */
 	TOKEN_STRFUNC,		/* __utf16__, __utf32__ */
 };
 
-enum special_tokens {
-	SPECIAL_ENUM_START = PREFIX_ENUM_LIMIT,
-	S_ABS = SPECIAL_ENUM_START,
-	S_BYTE, S_DWORD, S_FAR, S_LONG, S_NEAR, S_NOSPLIT,
-	S_OWORD, S_QWORD, S_REL, S_SHORT, S_STRICT, S_TO, S_TWORD, S_WORD, S_YWORD,
-	SPECIAL_ENUM_LIMIT
-};
-
-
 // The expression evaluator must be passed a scanner function
-//{} a standard scanner is provided as part of nasmlib.c.
+//{} the assembler and preprocessor provide scanner implementations.
 // Preprocessor will use a different one. Scanners, and the token-value structures they return, look like this.
 // return value from the scanner is always a copy of the `t_type' field in the structure.
 struct tokenval {
@@ -85,64 +59,15 @@ struct tokenval {
 	int64_t t_integer, t_inttwo;
 };
 
-
-enum eval_hint {                /* values for `hinttype' */
-	EAH_NOHINT   = 0,           /* no hint at all - our discretion */
-	EAH_MAKEBASE = 1,           /* try to make given reg the base */
-	EAH_NOTBASE  = 2            /* try _not_ to make reg the base */
-};
-typedef struct operand {	/* operand to an instruction */
-	int32_t type;               /* type of operand */
-	int disp_size;              /* 0 means default; 16; 32; 64 */
-	enum reg_enum basereg, indexreg; /* address registers */
-	int scale;			/* index scale */
-	int hintbase;
-	enum eval_hint hinttype;    /* hint as to real base register */
-	int32_t segment;            /* immediate segment, if needed */
-	int64_t offset;             /* any immediate number */
-	int32_t wrt;                /* segment base it's relative to */
-	int eaflags;                /* special EA flags */
-	int opflags;                /* see OPFLAG_* defines below */
-} operand;
-
-#define OPFLAG_FORWARD		1       /* operand is a forward reference */
-#define OPFLAG_EXTERN		2       /* operand is an external reference */
-#define OPFLAG_UNKNOWN		4	/* operand is an unknown reference */
-					/* (always a forward reference also) */
-
-enum extop_type {		/* extended operand types */
-	EOT_NOTHING,
-	EOT_DB_STRING,		/* Byte string */
-	EOT_DB_STRING_FREE,		/* Byte string which should be aasm_free'd*/
-	EOT_DB_NUMBER,		/* Integer */
-};
-typedef struct extop {          /* extended operand */
-	struct extop *next;         /* linked list */
-	char *stringval;	        /* if it's a string, then here it is */
-	size_t stringlen;           /* ... and here's how long it is */
-	int64_t offset;             /* ... it's given here ... */
-	int32_t segment;            /* if it's a number/address, then... */
-	int32_t wrt;                /* ... and here */
-	enum extop_type type;	/* defined above */
-} extop;
-
-/* Prefix positions: each type of prefix goes in a specific slot.
-   This affects the final ordering of the assembled output, which
-   shouldn't matter to the processor, but if you have stylistic
-   preferences, you can change this.  REX prefixes are handled
-   differently for the time being.
-
-   Note that LOCK and REP are in the same slot.  This is
-   an x86 architectural constraint. */
-enum prefix_pos {
-	PPS_WAIT,			/* WAIT (technically not a prefix!) */
-	PPS_LREP,			/* Lock or REP prefix */
-	PPS_SEG,			/* Segment override prefix */
-	PPS_OSIZE,			/* Operand size prefix */
-	PPS_ASIZE,			/* Address size prefix */
-	MAXPREFIX			/* Total number of prefix slots */
+enum eval_hint {
+	EAH_NOHINT = 0,
+	EAH_MAKEBASE = 1,
+	EAH_NOTBASE = 2
 };
 
+#define OPFLAG_FORWARD 1
+#define OPFLAG_EXTERN  2
+#define OPFLAG_UNKNOWN 4
 
 
 /// ---- ---- * ---- ----
@@ -194,15 +119,6 @@ struct eval_hints {
 
 
 
-enum ea_flags {			/* special EA flags */
-	EAF_BYTEOFFS =  1,          /* force offset part to byte size */
-	EAF_WORDOFFS =  2,          /* force offset part to [d]word size */
-	EAF_TIMESTWO =  4,          /* really do EAX*2 not EAX+EAX */
-	EAF_REL	 =  8,		/* IP-relative addressing */
-	EAF_ABS      = 16,		/* non-IP-relative addressing */
-	EAF_FSGS	 = 32		/* fs/gs segment override present */
-};
-
 
 /*
  * Data-type flags that get passed to listing-file routines.
@@ -234,6 +150,11 @@ typedef void (*ldfunc) (rostr label, int32_t segment, int64_t offset, char *spec
 typedef const unsigned char macros_t;
 typedef expr* (*evalfunc)
 (scanner sc, void* scprivate, struct tokenval* tv, int* fwref, int critical, struct eval_hints* hints);
+
+enum strfunc {
+	STRFUNC_UTF16,
+	STRFUNC_UTF32,
+};
 
 
 // DebugFileFormat
@@ -446,261 +367,6 @@ typedef struct preproc_ops {
 _ESYM_C Preproc nasmpp;
 
 //{TODO} AASM::PrepTrait
-
-/// ---- ---- Inst ---- ----
-
-enum ccode {			/* condition code names */
-	C_A, C_AE, C_B, C_BE, C_C, C_E, C_G, C_GE, C_L, C_LE, C_NA, C_NAE,
-	C_NB, C_NBE, C_NC, C_NE, C_NG, C_NGE, C_NL, C_NLE, C_NO, C_NP,
-	C_NS, C_NZ, C_O, C_P, C_PE, C_PO, C_S, C_Z,
-	C_none = -1
-};
-typedef struct insn {		/* an instruction itself */
-	char *label;		/* the label defined, or NULL */
-	enum prefixes prefixes[MAXPREFIX]; /* instruction prefixes, if any */
-	enum _asm_opcode opcode;         /* the opcode - not just the string */
-	enum ccode condition;       /* the condition code, if Jcc/SETcc */
-	int operands;               /* how many operands? 0-3
-								 * (more if db et al) */
-	int addr_size;		/* address size */
-	operand oprs[MAX_OPERANDS]; /* the operands, defined as above */
-	extop *eops;                /* extended operands */
-	int eops_float;             /* true if DD and floating */
-	int32_t times;              /* repeat count (TIMES prefix) */
-	bool forw_ref;              /* is there a forward reference? */
-	int rex;			/* Special REX Prefix */
-	int drexdst;		/* Destination register for DREX/VEX suffix */
-	int vex_cm;			/* Class and M field for VEX prefix */
-	int vex_wlp;		/* W, P and L information for VEX prefix */
-} insn;
-
-/*
- * -----------------------------------------------------------
- * Format of the `insn' structure returned from `parser.c' and
- * passed into `assemble.c'
- * -----------------------------------------------------------
- */
-
-/*
- * Here we define the operand types. These are implemented as bit
- * masks, since some are subsets of others; e.g. AX in a MOV
- * instruction is a special operand type, whereas AX in other
- * contexts is just another 16-bit register. (Also, consider CL in
- * shift instructions, DX in OUT, etc.)
- *
- * The basic concept here is that
- *    (class & ~operand) == 0
- *
- * if and only if "operand" belongs to class type "class".
- *
- * The bits are assigned as follows:
- *
- * Bits 0-7, 23, 29: sizes
- *  0:  8 bits (BYTE)
- *  1: 16 bits (WORD)
- *  2: 32 bits (DWORD)
- *  3: 64 bits (QWORD)
- *  4: 80 bits (TWORD)
- *  5: FAR
- *  6: NEAR
- *  7: SHORT
- * 23: 256 bits (YWORD)
- * 29: 128 bits (OWORD)
- *
- * Bits 8-11 modifiers
- *  8: TO
- *  9: COLON
- * 10: STRICT
- * 11: (reserved)
- *
- * Bits 12-15: type of operand
- * 12: REGISTER
- * 13: IMMEDIATE
- * 14: MEMORY (always has REGMEM attribute as well)
- * 15: REGMEM (valid EA operand)
- *
- * Bits 16-19, 28: subclasses
- * With REG_CDT:
- * 16: REG_CREG (CRx)
- * 17: REG_DREG (DRx)
- * 18: REG_TREG (TRx)
-
- * With REG_GPR:
- * 16: REG_ACCUM  (AL, AX, EAX, RAX)
- * 17: REG_COUNT  (CL, CX, ECX, RCX)
- * 18: REG_DATA   (DL, DX, EDX, RDX)
- * 19: REG_HIGH   (AH, CH, DH, BH)
- * 28: REG_NOTACC (not REG_ACCUM)
- *
- * With REG_SREG:
- * 16: REG_CS
- * 17: REG_DESS (DS, ES, SS)
- * 18: REG_FSGS
- * 19: REG_SEG67
- *
- * With FPUREG:
- * 16: FPU0
- *
- * With XMMREG:
- * 16: XMM0
- *
- * With YMMREG:
- * 16: YMM0
- *
- * With MEMORY:
- * 16: MEM_OFFS (this is a simple offset)
- * 17: IP_REL (IP-relative offset)
- *
- * With IMMEDIATE:
- * 16: UNITY (1)
- * 17: BYTENESS16 (-128..127)
- * 18: BYTENESS32 (-128..127)
- * 19: BYTENESS64 (-128..127)
- *
- * Bits 20-22, 24-27: register classes
- * 20: REG_CDT (CRx, DRx, TRx)
- * 21: RM_GPR (REG_GPR) (integer register)
- * 22: REG_SREG
- * 24: FPUREG
- * 25: RM_MMX (MMXREG)
- * 26: RM_XMM (XMMREG)
- * 27: RM_YMM (YMMREG)
- *
- * Bit 31 is currently unallocated.
- *
- * 30: SAME_AS
- * Special flag only used in instruction patterns; means this operand
- * has to be identical to another operand.  Currently only supported
- * for registers.
- */
-
-
-
-/* Size, and other attributes, of the operand */
-#define BITS8		0x00000001U
-#define BITS16		0x00000002U
-#define BITS32		0x00000004U
-#define BITS64		0x00000008U   /* x64 and FPU only */
-#define BITS80		0x00000010U   /* FPU only */
-#define BITS128		0x20000000U
-#define BITS256		0x00800000U
-#define FAR		0x00000020U   /* grotty: this means 16:16 or */
-									   /* 16:32, like in CALL/JMP */
-#define NEAR		0x00000040U
-#define SHORT		0x00000080U   /* and this means what it says :) */
-
-#define SIZE_MASK	0x208000FFU   /* all the size attributes */
-
-/* Modifiers */
-#define MODIFIER_MASK	0x00000f00U
-#define TO		0x00000100U   /* reverse effect in FADD, FSUB &c */
-#define COLON		0x00000200U   /* operand is followed by a colon */
-#define STRICT		0x00000400U   /* do not optimize this operand */
-
-/* Type of operand: memory reference, register, etc. */
-#define OPTYPE_MASK	0x0000f000U
-#define REGISTER	0x00001000U   /* register number in 'basereg' */
-#define IMMEDIATE	0x00002000U
-#define MEMORY		0x0000c000U
-#define REGMEM		0x00008000U   /* for r/m, ie EA, operands */
-
-/* Register classes */
-#define REG_EA		0x00009000U   /* 'normal' reg, qualifies as EA */
-#define RM_GPR		0x00208000U   /* integer operand */
-#define REG_GPR		0x00209000U   /* integer register */
-#define REG8		0x00209001U   /*  8-bit GPR  */
-#define REG16		0x00209002U   /* 16-bit GPR */
-#define REG32		0x00209004U   /* 32-bit GPR */
-#define REG64		0x00209008U   /* 64-bit GPR */
-#define FPUREG		0x01001000U   /* floating point stack registers */
-#define FPU0		0x01011000U   /* FPU stack register zero */
-#define RM_MMX		0x02008000U   /* MMX operand */
-#define MMXREG		0x02009000U   /* MMX register */
-#define RM_XMM		0x04008000U   /* XMM (SSE) operand */
-#define XMMREG		0x04009000U   /* XMM (SSE) register */
-#define XMM0		0x04019000U   /* XMM register zero */
-#define RM_YMM		0x08008000U   /* YMM (AVX) operand */
-#define YMMREG		0x08009000U   /* YMM (AVX) register */
-#define YMM0		0x08019000U   /* YMM register zero */
-#define REG_CDT		0x00101004U   /* CRn, DRn and TRn */
-#define REG_CREG	0x00111004U   /* CRn */
-#define REG_DREG	0x00121004U   /* DRn */
-#define REG_TREG	0x00141004U   /* TRn */
-#define REG_SREG	0x00401002U   /* any segment register */
-#define REG_CS		0x00411002U   /* CS */
-#define REG_DESS	0x00421002U   /* DS, ES, SS */
-#define REG_FSGS	0x00441002U   /* FS, GS */
-#define REG_SEG67	0x00481002U   /* Unimplemented segment registers */
-
-#define REG_RIP		0x00801008U   /* RIP relative addressing */
-#define REG_EIP		0x00801004U   /* EIP relative addressing */
-
-/* Special GPRs */
-#define REG_SMASK	0x100f0000U   /* a mask for the following */
-#define REG_ACCUM	0x00219000U   /* accumulator: AL, AX, EAX, RAX */
-#define REG_AL		0x00219001U
-#define REG_AX		0x00219002U
-#define REG_EAX		0x00219004U
-#define REG_RAX		0x00219008U
-#define REG_COUNT	0x10229000U   /* counter: CL, CX, ECX, RCX */
-#define REG_CL		0x10229001U
-#define REG_CX		0x10229002U
-#define REG_ECX		0x10229004U
-#define REG_RCX		0x10229008U
-#define REG_DL		0x10249001U   /* data: DL, DX, EDX, RDX */
-#define REG_DX		0x10249002U
-#define REG_EDX		0x10249004U
-#define REG_RDX		0x10249008U
-#define REG_HIGH	0x10289001U   /* high regs: AH, CH, DH, BH */
-#define REG_NOTACC	0x10000000U   /* non-accumulator register */
-#define REG8NA		0x10209001U   /*  8-bit non-acc GPR  */
-#define REG16NA		0x10209002U   /* 16-bit non-acc GPR */
-#define REG32NA		0x10209004U   /* 32-bit non-acc GPR */
-#define REG64NA		0x10209008U   /* 64-bit non-acc GPR */
-
-/* special types of EAs */
-#define MEM_OFFS	0x0001c000U   /* simple [address] offset - absolute! */
-#define IP_REL		0x0002c000U   /* IP-relative offset */
-
-/* memory which matches any type of r/m operand */
-#define MEMORY_ANY	(MEMORY|RM_GPR|RM_MMX|RM_XMM|RM_YMM)
-
-/* special type of immediate operand */
-#define UNITY		0x00012000U   /* for shift/rotate instructions */
-#define SBYTE16		0x00022000U   /* for op r16,immediate instrs. */
-#define SBYTE32		0x00042000U   /* for op r32,immediate instrs. */
-#define SBYTE64		0x00082000U   /* for op r64,immediate instrs. */
-#define BYTENESS	0x000e0000U   /* for testing for byteness */
-
-/* special flags */
-#define SAME_AS		0x40000000U
-
-
-
-/*
- * REX flags
- */
-#define REX_REAL	0x4f	/* Actual REX prefix bits */
-#define REX_B		0x01	/* ModRM r/m extension */
-#define REX_X		0x02	/* SIB index extension */
-#define REX_R		0x04	/* ModRM reg extension */
-#define REX_W		0x08	/* 64-bit operand size */
-#define REX_L		0x20	/* Use LOCK prefix instead of REX.R */
-#define REX_P		0x40	/* REX prefix present/required */
-#define REX_H		0x80	/* High register present, REX forbidden */
-#define REX_D		0x0100	/* Instruction uses DREX instead of REX */
-#define REX_OC		0x0200	/* DREX suffix has the OC0 bit set */
-#define REX_V		0x0400	/* Instruction uses VEX/XOP instead of REX */
-#define REX_NH		0x0800	/* Instruction which doesn't use high regs */
-
-/*
- * REX_V "classes" (prefixes which behave like VEX)
- */
-enum vex_class {
-	RV_VEX		= 0,	/* C4/C5 */
-	RV_XOP		= 1	/* 8F */
-};
-
 
 enum floatize {
 	FLOAT_8,

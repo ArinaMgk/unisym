@@ -217,6 +217,48 @@ CheckRelocation()
 	Pass "ELF sections, symbols, and relocations"
 }
 
+CheckDebugOutput()
+{
+	ObjectFile="$WorkDirectory/debug.o"
+	SectionFile="$WorkDirectory/debug.sections"
+
+	"$AasmExecutable" -Ox -f elf64 -g -F dwarf -o "$ObjectFile" \
+		"$TestDirectory/basic.asm" \
+		>"$WorkDirectory/debug.stdout" 2>"$WorkDirectory/debug.stderr" || \
+		Fail "debug input did not assemble"
+
+	[ ! -s "$WorkDirectory/debug.stderr" ] || \
+		Fail "debug input produced diagnostics"
+
+	LC_ALL=C readelf -SW "$ObjectFile" > "$SectionFile" 2> /dev/null
+	grep -Eq '[[:space:]]\.debug_info[[:space:]]+PROGBITS' "$SectionFile" || \
+		Fail "missing .debug_info section"
+	grep -Eq '[[:space:]]\.debug_line[[:space:]]+PROGBITS' "$SectionFile" || \
+		Fail "missing .debug_line section"
+	grep -Eq '[[:space:]]\.rela\.debug_line[[:space:]]+RELA' "$SectionFile" || \
+		Fail "missing .rela.debug_line section"
+	Pass "ELF debug output"
+}
+
+CheckListing()
+{
+	ObjectFile="$WorkDirectory/listing.o"
+	ListingFile="$WorkDirectory/listing.lst"
+
+	"$AasmExecutable" -Ox -f elf64 -l "$ListingFile" -o "$ObjectFile" \
+		"$TestDirectory/relocation.asm" \
+		>"$WorkDirectory/listing.stdout" 2>"$WorkDirectory/listing.stderr" || \
+		Fail "listing input did not assemble"
+
+	[ ! -s "$WorkDirectory/listing.stderr" ] || \
+		Fail "listing input produced diagnostics"
+	grep -Eq 'E8\(00000000\).*call external_function' "$ListingFile" || \
+		Fail "relative call listing differs"
+	grep -Eq '488B05\(00000000\).*mov rax' "$ListingFile" || \
+		Fail "relative address listing differs"
+	Pass "listing output"
+}
+
 CheckInvalidAddress()
 {
 	OutputFile="$WorkDirectory/invalid-address.bin"
@@ -245,6 +287,43 @@ CheckInvalidAddress()
 	Pass "invalid-address rejection"
 }
 
+CheckCodeends()
+{
+	FormatOutput="$WorkDirectory/formats.txt"
+	FormatError="$WorkDirectory/formats.stderr"
+	DebugOutput="$WorkDirectory/debug-formats.txt"
+	TextOutput="$WorkDirectory/basic.ith"
+	InvalidError="$WorkDirectory/invalid-format.stderr"
+
+	"$AasmExecutable" -hf > "$FormatOutput" 2> "$FormatError" || \
+		Fail "output format listing failed"
+	[ ! -s "$FormatError" ] || Fail "output format listing produced diagnostics"
+	grep -Eq '^  \* bin[[:space:]]' "$FormatOutput" || \
+		Fail "default output format differs"
+	grep -Eq '^    elf64[[:space:]]' "$FormatOutput" || \
+		Fail "ELF64 output format is missing"
+
+	"$AasmExecutable" -f elf64 -y > "$DebugOutput" 2> "$FormatError" || \
+		Fail "debug format listing failed"
+	[ ! -s "$FormatError" ] || Fail "debug format listing produced diagnostics"
+	grep -Fq "valid debug formats for 'elf64'" "$DebugOutput" || \
+		Fail "debug format listing selected the wrong Codeend"
+
+	"$AasmExecutable" -Ox -f ith -o "$TextOutput" "$TestDirectory/basic.asm" \
+		>"$WorkDirectory/text-format.stdout" 2> "$FormatError" || \
+		Fail "text Codeend output failed"
+	[ ! -s "$FormatError" ] || Fail "text Codeend output produced diagnostics"
+	grep -Eq '^:[0-9A-F]+$' "$TextOutput" || Fail "text Codeend output differs"
+
+	"$AasmExecutable" -f invalid-codeend "$TestDirectory/basic.asm" \
+		>"$WorkDirectory/invalid-format.stdout" 2> "$InvalidError"
+	ResultCode="$?"
+	[ "$ResultCode" -ne 0 ] || Fail "invalid output format was accepted"
+	grep -Fq "unrecognised output format \`invalid-codeend'" "$InvalidError" || \
+		Fail "invalid output format diagnostic differs"
+	Pass "Codeend selection"
+}
+
 CheckHex basic '48 b8 01 00 00 00 00 00 00 00 48 83 c0 02 48 83 f8 03 75 03 31 c0 c3 b8 01 00 00 00 c3 00 00 00 ef cd ab 89 67 45 23 01' -Ox
 CheckHex encoding '48 b8 88 77 66 55 44 33 22 11 49 89 c0 49 83 c1 7f 49 83 ea ff 31 c0 49 d1 e3 41 54 41 5d c3' -Ox
 CheckHex addressing '48 8b 03 48 8b 4d 00 4b 8b 94 ec 34 12 00 00 44 89 46 07 4c 8d 0d 01 00 00 00 c3 11 22 33 44 55 66 77 88' -Ox
@@ -255,6 +334,9 @@ CheckHex structure '8b 45 01 00 7a 78 56 34 12' -Ox
 CheckBranch
 CheckPreprocessor
 CheckRelocation
+CheckDebugOutput
+CheckListing
 CheckInvalidAddress
+CheckCodeends
 
 printf '\033[1;32mall AASM x86-64 regression checks passed\033[0m\n'

@@ -29,6 +29,7 @@
 #include <c/datime.h>
 #include <c/strpage.h>
 #include "inc/aasm.h"
+#include "../inc/cpp/Format/Code.hpp"
 #include "../inc/cpp/Lango/Archend/Archend-x86.hpp"
 
 
@@ -218,7 +219,6 @@ void ProcessResponsePath(AssemblerOptions& options, const char* file)
 	fclose(f);
 }
 
-_ESYM_C struct outffmt** ofmt_f();
 void mainx();
 
 //{TODO} UNI DATIME
@@ -278,11 +278,10 @@ static void InitializeAssemblerOptions(AssemblerOptions& options)
 	options.Mode = AssemblyMode::Assemble;
 	options.OptimizationLevel = -1;
 	options.DefaultBits = 16;
-	options.CpuLevel = IF_PLEVEL;
 	options.Preprocessor = &nasmpp;
 	options.Archend = &uni::lango::X86Archend();
-	options.OutputFormat = *ofmt_f();
-	options.DebugFormat = options.OutputFormat->current_dfmt;
+	options.CpuLevel = options.Archend->DefaultCpu();
+	options.Codeend = &uni::DefaultCodeend();
 }
 
 static void SyncLegacyOptions(const AssemblerOptions& options)
@@ -300,8 +299,7 @@ static void SyncLegacyOptions(const AssemblerOptions& options)
 	depend_target = options.DependencyTarget;
 	depend_file = options.DependencyFile;
 	preproc = options.Preprocessor;
-	*ofmt_f() = options.OutputFormat;
-	options.OutputFormat->current_dfmt = options.DebugFormat;
+	uni::SelectCodeend(*options.Codeend);
 	MemCopyN(warning_on_global, options.WarningEnabled,
 		(ERR_WARN_MAX + 1) * sizeof(bool));
 }
@@ -347,14 +345,15 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
+	uni::CodeendInterface& codeend = *assembler_options.Codeend;
 	if (!using_debug_info)// If debugging info is disabled, suppress any debug calls
-		(*ofmt_f())->current_dfmt = &null_debug_form;
+		codeend.DisableDebug();
 
-	if ((*ofmt_f())->stdmac)
-		Preprocessor::extra_stdmac((*ofmt_f())->stdmac);
-	eval_global_info((*ofmt_f()), lookup_label, &assembly_session.Location);
+	if (codeend.StandardMacros())
+		Preprocessor::extra_stdmac(codeend.StandardMacros());
+	EvalGlobalInfo(codeend, lookup_label, &assembly_session.Location);
 
-	define_macros_late((*ofmt_f())->shortname);
+	define_macros_late(codeend.DumpCodeend().shortname);
 
 	StrList** depend_ptr;
 	depend_ptr = (assembler_options.DependencyFile ||
@@ -374,7 +373,7 @@ int main(int argc, char** argv) {
 		preproc->reset(inname, 0, eval_evaluate, &aasmlist,
 			depend_ptr);
 		if (outname[0] == '\0')
-			(*ofmt_f())->filename(inname, outname);
+			codeend.PrepareFilename(inname, outname);
 		outfile = NULL;
 		while ((line = preproc->getline()))
 			memf(line);
@@ -437,16 +436,12 @@ int main(int argc, char** argv) {
 
 	case AssemblyMode::Assemble:
 	{
-		/*
-		 * We must call (*ofmt_f())->filename _anyway_, even if the user
-		 * has specified their own output file, because some
-		 * formats (eg OBJ and COFF) use (*ofmt_f())->filename to find out
-		 * the name of the input file and then put that inside the
-		 * file.
-		 */
-		(*ofmt_f())->filename(inname, outname);
+		codeend.PrepareFilename(inname, outname);
 
-		outfile = fopen(outname, ((*ofmt_f())->flags & OFMT_TEXT) ? "w" : "wb");
+		bool text_output =
+			(codeend.DumpCodeend().flags & uni::CodeendFlag::Text) !=
+			uni::CodeendFlag::None;
+		outfile = fopen(outname, text_output ? "w" : "wb");
 		assembly_session.OutputFile = outfile;
 		if (!outfile) {
 			//--auto clean flag
@@ -454,29 +449,21 @@ int main(int argc, char** argv) {
 			aasm_log(_LOG_FATAL, "unable to open output file `%s'", outname);
 		}
 
-		/*
-		 * We must call init_labels() before (*ofmt_f())->init() since
-		 * some object formats will want to define labels in their
-		 * init routines. (eg OS/2 defines the FLAT group)
-		 */
+		// Some formats define labels during initialization.
 		init_labels();
 
-		(*ofmt_f())->init(outfile, define_label, eval_evaluate);
-		(*ofmt_f())->current_dfmt->init((*ofmt_f()), NULL, outfile);
+		codeend.Initialize(outfile);
+		codeend.InitializeDebug(outfile);
 
 		Assembler assembler(assembly_session);
 		assembler.AssembleFile(inname, depend_ptr);
 
 		if (!terminate_after_phase) {
-			(*ofmt_f())->cleanup(using_debug_info);
+			codeend.Cleanup(using_debug_info);
 			cleanup_labels();
 		}
 		else {
-			/*
-			 * Despite earlier comments, we need this fclose.
-			 * The object output drivers only fclose on cleanup,
-			 * and we just skipped that.
-			 */
+			// Codeend cleanup normally owns the file closure.
 			fclose(outfile);
 
 			remove(outname);

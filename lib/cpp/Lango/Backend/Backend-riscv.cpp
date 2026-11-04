@@ -1231,7 +1231,9 @@ namespace uni::lango {
 			FunctionLayout layout;
 			if (!BuildLayout(function, target, layout)) return false;
 
-			output.OutFormat("\n.globl %s\n", function.name.reference());
+			output.OutFormat("\n");
+			if (function.linkage == clover::Linkage::External)
+				output.OutFormat(".globl %s\n", function.name.reference());
 			output.OutFormat(".type %s, @function\n", function.name.reference());
 			output.OutFormat("%s:\n", function.name.reference());
 			if (layout.frame_size <= 2047) {
@@ -1331,7 +1333,8 @@ namespace uni::lango {
 				global.initializer_values.Count() != 0;
 			output.OutFormat(global.is_read_only ? ".section .rodata\n" :
 				has_initializer ? ".data\n" : ".bss\n");
-			if (!global.is_internal) output.OutFormat(".globl %s\n", global.name.reference());
+			if (global.linkage == clover::Linkage::External)
+				output.OutFormat(".globl %s\n", global.name.reference());
 			output.OutFormat(".type %s, @object\n.size %s, %[i]\n",
 				global.name.reference(), global.name.reference(), object_size);
 			output.OutFormat(".balign %[i]\n%s:\n", element_size,

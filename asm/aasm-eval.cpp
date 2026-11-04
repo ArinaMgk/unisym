@@ -19,7 +19,9 @@
 */
 
 #include "inc/aasm.h"
+#include "../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp"
 #include "../inc/c/stdinc.h"
+#include "../inc/cpp/Format/Code.hpp"
 
 
 
@@ -30,7 +32,7 @@
 static scanner scan;            /* Address of scanner routine */
 static lfunc labelfunc;         /* Address of label routine */
 
-static struct outffmt *outfmt;     /* Structure of addresses of output routines */
+static uni::CodeendInterface* codeend;
 
 static expr **tempexprs = NULL;
 static int ntempexprs;
@@ -213,7 +215,7 @@ static expr *segment_part(expr * e)
         aasm_log(_LOG_ERROR, "SEG applied to something which is already a segment base");
         return NULL;
     } else {
-        int32_t base = outfmt->segbase(seg + 1);
+        int32_t base = codeend->ResolveSegmentBase(seg + 1);
 
         begintemp();
         addtotemp((base == NO_SEG ? EXPR_UNKNOWN : EXPR_SEGBASE + base),
@@ -887,10 +889,10 @@ static expr *expr6(int critical)
     }
 }
 
-void eval_global_info(struct outffmt *output, lfunc lookup_label,
-                      struct location * locp)
+void EvalGlobalInfo(uni::CodeendInterface& output, lfunc lookup_label,
+                    struct location * locp)
 {
-    outfmt = output;
+    codeend = &output;
     labelfunc = lookup_label;
     location = locp;
 }

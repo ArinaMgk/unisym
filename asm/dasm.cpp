@@ -3,7 +3,8 @@
 #include "../inc/cpp/string"
 #include <stdarg.h>
 #include <errno.h>
-#include "inc/inst.h"
+#include "inc/aasm.h"
+#include "../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp"
 
 //unuse
 _ESYM_C{
@@ -31,7 +32,7 @@ int32_t eatbyte(uint8_t *data, char *output, int outbufsize, int segsize);
 #define BPL 8                   /* bytes per line of hex dump */
 
 static const char *help =
-	"usage: ndisasm [-a] [-i] [-h] [-r] [-u] [-b bits] [-o origin] [-s sync...]\n"
+	"usage: dasm [-a] [-i] [-h] [-r] [-u] [-b bits] [-o origin] [-s sync...]\n"
 	"               [-e bytes] [-k start,bytes] [-p vendor] file\n"
 	"   -a or -i activates auto (intelligent) sync\n"
 	"   -u same as -b 32\n"
@@ -44,17 +45,6 @@ static const char *help =
 
 static void output_ins(uint32_t, uint8_t *, int, char *);
 static void skip(uint32_t dist, FILE * fp);
-
-static void ndisasm_error(int severity, const char *fmt, ...)
-{
-	va_list va;
-
-	va_start(va, fmt);
-	vfprintf(stderr, fmt, va);
-
-	if (severity == _LOG_FATAL)
-	exit(1);
-}
 
 int main(int argc, char **argv)
 {
@@ -93,8 +83,7 @@ int main(int argc, char **argv)
 					return 0;
 				case 'r':
 				case 'v':
-					fprintf(stderr,
-							"NDISASM version %s compiled on %s\n",
+					fprintf(stderr, "DASM version %s compiled on %s\n",
 				aasm_version, aasm_date);
 					return 0;
 				case 'u':	/* -u for -b 32, -uu for -b 64 */

@@ -26,6 +26,10 @@
 
 namespace uni::lango {
 
+enum class ArchitectureKind : uint8_t {
+	X86
+};
+
 // Language-independent machine properties shared by frontends and backends.
 struct TargetInfo {
 	unsigned register_bits = 64;

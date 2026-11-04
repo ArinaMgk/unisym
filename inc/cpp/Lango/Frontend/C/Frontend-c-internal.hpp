@@ -77,7 +77,8 @@ enum class FrontendCScalarKind {
 // C storage-class information retained separately from the declared type.
 enum class FrontendCStorageClass {
 	None,
-	Static
+	Static,
+	Extern
 };
 
 // Type qualifiers attached to one level of a C declarator.

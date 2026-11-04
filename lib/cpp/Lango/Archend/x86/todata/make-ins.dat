@@ -11,22 +11,6 @@
 ; -- No action is taken except to register the opcode as being present: `\0`
 ; - AASM style
 
-;# Special instructions...
-DB		ignore				ignore						ignore
-DW		ignore				ignore						ignore
-DD		ignore				ignore						ignore
-DQ		ignore				ignore						ignore
-DT		ignore				ignore						ignore
-DO		ignore				ignore						ignore
-DY		ignore				ignore						ignore
-RESB		imm				\340						8086
-RESW		ignore				ignore						ignore
-RESD		ignore				ignore						ignore
-RESQ		ignore				ignore						ignore
-REST		ignore				ignore						ignore
-RESO		ignore				ignore						ignore
-RESY		ignore				ignore						ignore
-
 ;# why not \2\x55\xAA?
 ARINA		void				\x55\xAA					8086,NOLONG
 
@@ -305,8 +289,6 @@ DIV		rm64				\324\1\xF7\206					X64
 DMINT		void				\2\x0F\x39					P6,CYRIX
 EMMS		void				\2\x0F\x77					PENT,MMX
 ENTER		imm,imm				\1\xC8\30\25					186
-EQU		imm				\0						8086
-EQU		imm:imm				\0						8086
 F2XM1		void				\2\xD9\xF0					8086,FPU
 FABS		void				\2\xD9\xE1					8086,FPU
 FADD		mem32				\1\xD8\200					8086,FPU
@@ -593,7 +575,6 @@ INC		rm8				\1\xFE\200					8086
 INC		rm16				\320\1\xFF\200					8086
 INC		rm32				\321\1\xFF\200					386
 INC		rm64				\324\1\xFF\200					X64
-INCBIN		ignore				ignore						ignore
 INSB		void				\1\x6C						186
 INSD		void				\321\1\x6D					386
 INSW		void				\320\1\x6D					186

@@ -119,8 +119,6 @@
  * \336          - force a REP(E) prefix (0xF2) even if not specified.
  * \337		 - force a REPNE prefix (0xF3) even if not specified.
  *                 \336-\337 are still listed as prefixes in the disassembler.
- * \340          - reserve <operand 0> bytes of uninitialized storage.
- *                 Operand 0 had better be a segmentless constant.
  * \341		 - this instruction needs a WAIT "prefix"
  * \344,\345     - the PUSH/POP (respectively) codes for CS, DS, ES, SS
  *                 (POP is never used for CS) depending on operand 0
@@ -140,7 +138,6 @@
  *		   used for conditional jump over longer jump
  */
 
-#include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
 
@@ -296,6 +293,117 @@ static void Output(int64_t offset, int32_t section, const void* data,
 	codeend->Emit(output);
 }
 
+static uint8_t PrefixByte(enum prefixes prefix, int bits)
+{
+	switch (static_cast<int>(prefix)) {
+	case P_WAIT: return 0x9B;
+	case P_LOCK: return 0xF0;
+	case P_REPNE:
+	case P_REPNZ: return 0xF2;
+	case P_REPE:
+	case P_REPZ:
+	case P_REP: return 0xF3;
+	case R_CS:
+		if (bits == 64) {
+			log_pass2 = 1;
+			aasm_log(_LOG_WARN,
+				"cs segment base generated, but will be ignored in 64-bit mode");
+		}
+		return 0x2E;
+	case R_DS:
+		if (bits == 64) {
+			log_pass2 = 1;
+			aasm_log(_LOG_WARN,
+				"ds segment base generated, but will be ignored in 64-bit mode");
+		}
+		return 0x3E;
+	case R_ES:
+		if (bits == 64) {
+			log_pass2 = 1;
+			aasm_log(_LOG_WARN,
+				"es segment base generated, but will be ignored in 64-bit mode");
+		}
+		return 0x26;
+	case R_FS: return 0x64;
+	case R_GS: return 0x65;
+	case R_SS:
+		if (bits == 64) {
+			log_pass2 = 1;
+			aasm_log(_LOG_WARN,
+				"ss segment base generated, but will be ignored in 64-bit mode");
+		}
+		return 0x36;
+	case R_SEGR6:
+	case R_SEGR7:
+		aasm_log(_LOG_ERROR, "segr6 and segr7 cannot be used as prefixes");
+		return 0;
+	case P_A16:
+		if (bits == 64) {
+			aasm_log(_LOG_ERROR,
+				"16-bit addressing is not supported in 64-bit mode");
+			return 0;
+		}
+		return bits != 16 ? 0x67 : 0;
+	case P_A32: return bits != 32 ? 0x67 : 0;
+	case P_A64:
+		if (bits != 64)
+			aasm_log(_LOG_ERROR,
+				"64-bit addressing is only supported in 64-bit mode");
+		return 0;
+	case P_ASP: return 0x67;
+	case P_O16: return bits != 16 ? 0x66 : 0;
+	case P_O32: return bits == 16 ? 0x66 : 0;
+	case P_O64: return 0;
+	case P_OSP: return 0x66;
+	case P_none: return 0;
+	default:
+		aasm_log(_LOG_PANIC, "invalid instruction prefix");
+		return 0;
+	}
+}
+
+static int64_t PrefixSize(const insn* instruction, int bits)
+{
+	int64_t size = 0;
+	for (int index = 0; index < MAXPREFIX; index++) {
+		switch (static_cast<int>(instruction->prefixes[index])) {
+		case P_A16:
+			size += bits != 16;
+			break;
+		case P_A32:
+			size += bits != 32;
+			break;
+		case P_O16:
+			size += bits != 16;
+			break;
+		case P_O32:
+			size += bits == 16;
+			break;
+		case P_A64:
+		case P_O64:
+		case P_none:
+			break;
+		default:
+			size++;
+			break;
+		}
+	}
+	return size;
+}
+
+static int64_t EmitPrefixes(int64_t offset, int32_t section,
+	const insn* instruction, int bits)
+{
+	int64_t start = offset;
+	for (int index = 0; index < MAXPREFIX; index++) {
+		uint8_t byte = PrefixByte(instruction->prefixes[index], bits);
+		if (!byte) continue;
+		Output(offset++, section, &byte,
+			uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+	}
+	return offset - start;
+}
+
 static bool jmp_match(int32_t segment, int64_t offset, int bits,
 	insn* ins, const uint8_t* code)
 {
@@ -327,178 +435,29 @@ int64_t X86Assemble(int32_t segment, int64_t offset, int bits, uint32_t cp,
 	ListGen* listgen)
 {
 	const struct itemplate* temp;
-	int j;
 	int size_prob;
 	int64_t insn_end;
 	int32_t itimes;
 	int64_t start = offset;
-	int64_t wsize = 0;             /* size for DB etc. */
 
 	cpu = cp;
 	codeend = output;
 	list = listgen;             /* and again */
 
-	switch (instruction->opcode) {
-	case -1:
-		return 0;
-	case I_DB:
-		wsize = 1;
-		break;
-	case I_DW:
-		wsize = 2;
-		break;
-	case I_DD:
-		wsize = 4;
-		break;
-	case I_DQ:
-		wsize = 8;
-		break;
-	case I_DT:
-		wsize = 10;
-		break;
-	case I_DO:
-		wsize = 16;
-		break;
-	case I_DY:
-		wsize = 32;
-		break;
-	default:
-		break;
-	}
-
-	if (wsize) {
-		extop* e;
-		int32_t t = instruction->times;
-		if (t < 0) {
-			//--auto clean flag
-			aasm_log(_LOG_PANIC, "instruction->times < 0 (%ld) in assemble()", t);
-		}
-
-		while (t--) {           /* repeat TIMES times */
-			for (e = instruction->eops; e; e = e->next) {
-				if (e->type == EOT_DB_NUMBER) {
-					if (wsize == 1) {
-						if (e->segment != NO_SEG) {
-							//--auto clean flag
-							aasm_log(_LOG_ERROR, "one-byte relocation attempted");
-						}
-						else {
-							uint8_t out_byte = e->offset;
-							Output(offset, segment, &out_byte,
-								uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
-						}
-					}
-					else if (wsize > 8) {
-						//--auto clean flag
-						aasm_log(_LOG_ERROR, "integer supplied to a DT, DO or DY instruction");
-					}
-					else
-						Output(offset, segment, &e->offset,
-							uni::CodeendOutputType::Address, wsize, e->segment, e->wrt);
-					offset += wsize;
-				}
-				else if (e->type == EOT_DB_STRING ||
-					e->type == EOT_DB_STRING_FREE) {
-					int align;
-
-					Output(offset, segment, e->stringval,
-						uni::CodeendOutputType::RawData, e->stringlen, NO_SEG, NO_SEG);
-					align = e->stringlen % wsize;
-
-					if (align) {
-						align = wsize - align;
-						Output(offset, segment, zero_buffer,
-							uni::CodeendOutputType::RawData, align, NO_SEG, NO_SEG);
-					}
-					offset += e->stringlen + align;
-				}
-			}
-			if (t > 0 && t == instruction->times - 1) {
-				/*
-				 * Dummy call to list->output to give the offset to the
-				 * listing module.
-				 */
+	if (instruction->prefix_only) {
+		itimes = instruction->times;
+		while (itimes--) {
+			offset += EmitPrefixes(offset, segment, instruction, bits);
+			if (itimes > 0 && itimes == instruction->times - 1) {
 				list->output(offset, NULL, OUT_RAWDATA, 0);
 				list->uplevel(LIST_TIMES);
 			}
 		}
-		if (instruction->times > 1)
-			list->downlevel(LIST_TIMES);
+		if (instruction->times > 1) list->downlevel(LIST_TIMES);
 		return offset - start;
 	}
+	if (instruction->opcode == I_none) return 0;
 
-	if (instruction->opcode == I_INCBIN) {
-		const char* fname = instruction->eops->stringval;
-		FILE* fp;
-
-		fp = fopen(fname, "rb");
-		if (!fp) {
-			//--auto clean flag
-			aasm_log(_LOG_ERROR, "`incbin': unable to open file `%s'", fname);
-		}
-		else if (fseek(fp, 0L, SEEK_END) < 0) {
-			//--auto clean flag
-			aasm_log(_LOG_ERROR, "`incbin': unable to seek on file `%s'", fname);
-		}
-		else {
-			static char buf[4096];
-			size_t t = instruction->times;
-			size_t base = 0;
-			size_t len;
-
-			len = ftell(fp);
-			if (instruction->eops->next) {
-				base = instruction->eops->next->offset;
-				len -= base;
-				if (instruction->eops->next->next &&
-					len > (size_t)instruction->eops->next->next->offset)
-					len = (size_t)instruction->eops->next->next->offset;
-			}
-			/*
-			 * Dummy call to list->output to give the offset to the
-			 * listing module.
-			 */
-			list->output(offset, NULL, OUT_RAWDATA, 0);
-			list->uplevel(LIST_INCBIN);
-			while (t--) {
-				size_t l;
-
-				fseek(fp, base, SEEK_SET);
-				l = len;
-				while (l > 0) {
-					int32_t m;
-					m = fread(buf, 1, l > sizeof(buf) ? sizeof(buf) : l, fp);
-					if (!m) {
-						/*
-						 * This shouldn't happen unless the file
-						 * actually changes while we are reading
-						 * it.
-						 */
-						//--auto clean flag
-						aasm_log(_LOG_ERROR, "`incbin': unexpected EOF while reading file `%s'", fname);
-						t = 0;  /* Try to exit cleanly */
-						break;
-					}
-					Output(offset, segment, buf, uni::CodeendOutputType::RawData, m,
-						NO_SEG, NO_SEG);
-					l -= m;
-				}
-			}
-			list->downlevel(LIST_INCBIN);
-			if (instruction->times > 1) {
-				/*
-				 * Dummy call to list->output to give the offset to the
-				 * listing module.
-				 */
-				list->output(offset, NULL, OUT_RAWDATA, 0);
-				list->uplevel(LIST_TIMES);
-				list->downlevel(LIST_TIMES);
-			}
-			fclose(fp);
-			return instruction->times * len;
-		}
-		return 0;               /* if we're here, there's an error */
-	}
 
 	/* Check to see if we need an address-size prefix */
 	add_asp(instruction, bits);
@@ -521,114 +480,7 @@ int64_t X86Assemble(int32_t segment, int64_t offset, int bits, uint32_t cp,
 			}
 			else
 				while (itimes--) {
-					for (j = 0; j < MAXPREFIX; j++) {
-						uint8_t c = 0;
-						switch (instruction->prefixes[j]) {
-						case P_WAIT:
-							c = 0x9B;
-							break;
-						case P_LOCK:
-							c = 0xF0;
-							break;
-						case P_REPNE:
-						case P_REPNZ:
-							c = 0xF2;
-							break;
-						case P_REPE:
-						case P_REPZ:
-						case P_REP:
-							c = 0xF3;
-							break;
-						case R_CS:
-							if (bits == 64) {
-								//--auto clean flag
-								log_pass2 = 1;
-								aasm_log(_LOG_WARN, "cs segment base generated, but will be ignored in 64-bit mode");
-							}
-							c = 0x2E;
-							break;
-						case R_DS:
-							if (bits == 64) {
-								//--auto clean flag
-								log_pass2 = 1;
-								aasm_log(_LOG_WARN, "ds segment base generated, but will be ignored in 64-bit mode");
-							}
-							c = 0x3E;
-							break;
-						case R_ES:
-							if (bits == 64) {
-								//--auto clean flag
-								log_pass2 = 1;
-								aasm_log(_LOG_WARN, "es segment base generated, but will be ignored in 64-bit mode");
-							}
-							c = 0x26;
-							break;
-						case R_FS:
-							c = 0x64;
-							break;
-						case R_GS:
-							c = 0x65;
-							break;
-						case R_SS:
-							if (bits == 64) {
-								//--auto clean flag
-								log_pass2 = 1;
-								aasm_log(_LOG_WARN, "ss segment base generated, but will be ignored in 64-bit mode");
-							}
-							c = 0x36;
-							break;
-						case R_SEGR6:
-						case R_SEGR7:
-							//--auto clean flag
-							aasm_log(_LOG_ERROR, "segr6 and segr7 cannot be used as prefixes");
-							break;
-						case P_A16:
-							if (bits == 64) {
-								//--auto clean flag
-								aasm_log(_LOG_ERROR, "16-bit addressing is not supported in 64-bit mode");
-							}
-							else if (bits != 16)
-								c = 0x67;
-							break;
-						case P_A32:
-							if (bits != 32)
-								c = 0x67;
-							break;
-						case P_A64:
-							if (bits != 64) {
-								//--auto clean flag
-								aasm_log(_LOG_ERROR, "64-bit addressing is only supported in 64-bit mode");
-							}
-							break;
-						case P_ASP:
-							c = 0x67;
-							break;
-						case P_O16:
-							if (bits != 16)
-								c = 0x66;
-							break;
-						case P_O32:
-							if (bits == 16)
-								c = 0x66;
-							break;
-						case P_O64:
-							/* REX.W */
-							break;
-						case P_OSP:
-							c = 0x66;
-							break;
-						case P_none:
-							break;
-						default:
-							//--auto clean flag
-							aasm_log(_LOG_PANIC, "invalid instruction prefix");
-						}
-						if (c != 0) {
-							Output(offset, segment, &c, uni::CodeendOutputType::RawData, 1,
-								NO_SEG, NO_SEG);
-							offset++;
-						}
-					}
+					offset += EmitPrefixes(offset, segment, instruction, bits);
 					insn_end = offset + insn_size;
 					gencode(segment, offset, bits, instruction,
 						temp, insn_end);
@@ -681,85 +533,10 @@ int64_t X86InstructionSize(int32_t segment, int64_t offset, int bits,
 
 	cpu = cp;
 
-	if (instruction->opcode == -1)
-		return 0;
+	if (instruction->prefix_only)
+		return PrefixSize(instruction, bits) * instruction->times;
+	if (instruction->opcode == I_none) return 0;
 
-	if (instruction->opcode == I_DB || instruction->opcode == I_DW ||
-		instruction->opcode == I_DD || instruction->opcode == I_DQ ||
-		instruction->opcode == I_DT || instruction->opcode == I_DO ||
-		instruction->opcode == I_DY) {
-		extop* e;
-		int32_t isize, osize, wsize = 0;   /* placate gcc */
-
-		isize = 0;
-		switch (instruction->opcode) {
-		case I_DB:
-			wsize = 1;
-			break;
-		case I_DW:
-			wsize = 2;
-			break;
-		case I_DD:
-			wsize = 4;
-			break;
-		case I_DQ:
-			wsize = 8;
-			break;
-		case I_DT:
-			wsize = 10;
-			break;
-		case I_DO:
-			wsize = 16;
-			break;
-		case I_DY:
-			wsize = 32;
-			break;
-		default:
-			break;
-		}
-
-		for (e = instruction->eops; e; e = e->next) {
-			int32_t align;
-
-			osize = 0;
-			if (e->type == EOT_DB_NUMBER)
-				osize = 1;
-			else if (e->type == EOT_DB_STRING ||
-				e->type == EOT_DB_STRING_FREE)
-				osize = e->stringlen;
-
-			align = (-osize) % wsize;
-			if (align < 0)
-				align += wsize;
-			isize += osize + align;
-		}
-		return isize * instruction->times;
-	}
-
-	if (instruction->opcode == I_INCBIN) {
-		const char* fname = instruction->eops->stringval;
-		FILE* fp;
-		size_t len;
-
-		fp = fopen(fname, "rb");
-		if (!fp)
-			aasm_log(_LOG_ERROR, "`incbin': unable to open file `%s'", fname);
-		else if (fseek(fp, 0L, SEEK_END) < 0)
-			aasm_log(_LOG_ERROR, "`incbin': unable to seek on file `%s'", fname);
-		else {
-			len = ftell(fp);
-			fclose(fp);
-			if (instruction->eops->next) {
-				len -= instruction->eops->next->offset;
-				if (instruction->eops->next->next &&
-					len > (size_t)instruction->eops->next->next->offset) {
-					len = (size_t)instruction->eops->next->next->offset;
-				}
-			}
-			return instruction->times * len;
-		}
-		return 0;               /* if we're here, there's an error */
-	}
 
 	/* Check to see if we need an address-size prefix */
 	add_asp(instruction, bits);
@@ -772,38 +549,11 @@ int64_t X86InstructionSize(int32_t segment, int64_t offset, int bits,
 		  /* we've matched an instruction. */
 			int64_t isize;
 			const uint8_t* codes = temp->code;
-			int j;
 
 			isize = calcsize(segment, offset, bits, instruction, codes);
 			if (isize < 0)
 				return -1;
-			for (j = 0; j < MAXPREFIX; j++) {
-				switch (instruction->prefixes[j]) {
-				case P_A16:
-					if (bits != 16)
-						isize++;
-					break;
-				case P_A32:
-					if (bits != 32)
-						isize++;
-					break;
-				case P_O16:
-					if (bits != 16)
-						isize++;
-					break;
-				case P_O32:
-					if (bits == 16)
-						isize++;
-					break;
-				case P_A64:
-				case P_O64:
-				case P_none:
-					break;
-				default:
-					isize++;
-					break;
-				}
-			}
+			isize += PrefixSize(instruction, bits);
 			return isize * instruction->times;
 		}
 	}
@@ -1081,15 +831,6 @@ static int64_t calcsize(int32_t segment, int64_t offset, int bits,
 		case 0337:
 			if (!ins->prefixes[PPS_LREP])
 				ins->prefixes[PPS_LREP] = P_REPNE;
-			break;
-
-		case 0340:
-			if (ins->oprs[0].segment != NO_SEG) {
-				//--auto clean flag
-				aasm_log(_LOG_ERROR, "attempt to reserve non-constant quantity of BSS space");
-			}
-			else
-				length += ins->oprs[0].offset;
 			break;
 
 		case 0341:
@@ -1795,20 +1536,6 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 
 		case 0336:
 		case 0337:
-			break;
-
-		case 0340:
-			if (ins->oprs[0].segment != NO_SEG) {
-				//--auto clean flag
-				aasm_log(_LOG_PANIC, "non-constant BSS size in pass two");
-			}
-			else {
-				int64_t size = ins->oprs[0].offset;
-				if (size > 0)
-					Output(offset, segment, NULL,
-						uni::CodeendOutputType::Reserve, size, NO_SEG, NO_SEG);
-				offset += size;
-			}
 			break;
 
 		case 0341:

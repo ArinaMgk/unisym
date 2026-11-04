@@ -170,6 +170,7 @@ struct Global {
 	stdsint initializer = 0;
 	stdsint initializer_high = 0; // High 64 bits for an f128 initializer.
 	stdsint element_count = 1;
+	bool is_declaration = false; // Refer to externally provided storage without defining it.
 	bool is_read_only = false; // Emit the object in target read-only storage.
 	Linkage linkage = Linkage::External;
 	uni::Vector<stdsint> initializer_values; // Explicit elements for aggregate data.

@@ -93,6 +93,10 @@ struct FrontendCGlobal {
 	uni::String name;
 	FrontendCType type;
 	stduint alignment = 0;
+	stduint module_index = 0; // One-based Clover global declaration or definition index.
+	Linkage linkage = Linkage::External;
+	bool has_definition = false;
+	bool has_provisional_array_bound = false;
 };
 
 // One block-scope enumerator activated in source order while lowering a function.
@@ -112,6 +116,14 @@ bool ParseLongDoubleConstant(const char* text, stdsint& low, stdsint& high);
 bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,
 	stdsint& value);
 bool DecodeCString(const char* text, uni::Vector<stdsint>& bytes);
+bool IsCharacterArray(const FrontendCType& type);
+uni::Nnode* FindStringArrayInitializer(uni::Nnode* initializer);
+bool CompleteArrayTypeFromInitializer(FrontendCType& type,
+	uni::Nnode* initializer);
+bool BuildArrayInitializerSlots(const FrontendCType& type,
+	uni::Nnode* initializer, uni::Vector<uni::Nnode*>& slots);
+bool BuildStringArrayValues(const FrontendCType& type,
+	uni::Nnode* initializer, uni::Vector<stdsint>& values);
 bool ParseStaticScalarInitializer(uni::Nnode* node,
 	const FrontendCTargetInfo& target,
 	const uni::Vector<FrontendCEnumerator>& constants,
@@ -227,8 +239,6 @@ private:
 		const uni::Nnode* scope, const FrontendCType& base_type);
 	bool PredeclareBlock(uni::Nnode* block);
 	LocalValue* ActivateLocal(const char* name, const uni::Nnode* declaration);
-	void AppendInitializerValues(uni::Nnode* node,
-		uni::Vector<uni::Nnode*>& values);
 	bool InitializeArray(LocalValue& local, uni::Nnode* initializer);
 	bool InitializeStatic(LocalValue& local, uni::Nnode* initializer);
 	bool LowerDeclarator(uni::Nnode* node, const uni::Nnode* declaration);

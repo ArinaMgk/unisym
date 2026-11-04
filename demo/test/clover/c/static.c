@@ -6,6 +6,14 @@
 static int file_value = 2;
 static double file_scale = 1.5;
 static int file_slots[2];
+extern int external_value;
+int external_value;
+int external_value;
+extern int external_value;
+extern int initialized_value;
+int initialized_value = 4;
+int completed_array[];
+int completed_array[2];
 
 static int add_file_value(int value) {
 	return value + file_value;
@@ -66,5 +74,6 @@ int main() {
 		zero_first + zero_second + slot_first + slot_second +
 		shadow_first + shadow_second + shadow_first_again +
 		shadow_second_again + array_first + array_second +
-		factorial(4) + (int)file_scale;
+		factorial(4) + (int)file_scale + initialized_value +
+		completed_array[1] + external_value;
 }

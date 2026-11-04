@@ -81,6 +81,14 @@ typedef struct {
 	int64_t value; // must be >= 32 bits
 } expr;
 
+enum expression_type : int32_t {
+	EXPR_ARCHITECTURE_LIMIT = 0x0000FFFF,
+	EXPR_UNKNOWN,
+	EXPR_SIMPLE,
+	EXPR_WRT,
+	EXPR_SEGBASE
+};
+
 //{} ?: give an example?
 // The evaluator can also return hints about which of two registers used in an expression should be the base register. See also the `operand' structure.
 struct eval_hints {

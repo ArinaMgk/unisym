@@ -23,10 +23,18 @@
 #define UNISYM_LANGO_ARCHEND_HPP
 
 #include "../../c/stdinc.h"
+#include "./Target.hpp"
 
 struct AssemblySession;
 
 namespace uni::lango {
+
+struct ArchendInfo {
+	const char* fullname;
+	const char* shortname;
+	ArchitectureKind architecture;
+	int default_bits;
+};
 
 // Result of parsing and encoding one architecture-specific source line.
 struct ArchendLineResult {
@@ -39,7 +47,7 @@ class ArchendInterface {
 public:
 	virtual ~ArchendInterface() = default;
 
-	virtual const char* Name() const = 0;
+	virtual const ArchendInfo& DumpArchend() const = 0;
 	virtual uint32_t DefaultCpu() const = 0;
 	virtual bool ParseCpu(const char* name, uint32_t& cpu) const = 0;
 	virtual bool ValidateBits(int bits, uint32_t cpu) const = 0;
@@ -47,11 +55,17 @@ public:
 	virtual void Initialize(AssemblySession& session) = 0;
 	virtual void BeginPass(AssemblySession& session,
 		int parse_pass, int output_pass) = 0;
-	virtual ArchendLineResult ProcessLine(AssemblySession& session,
-		char* source, int parse_pass, int output_pass) = 0;
+	virtual bool IsInstructionStart(const char* word) const = 0;
+	virtual ArchendLineResult ProcessInstruction(AssemblySession& session,
+		char* source, int64_t repeat,
+		int parse_pass, int output_pass) = 0;
 	virtual void EndPass(AssemblySession& session) = 0;
 	virtual void Cleanup(AssemblySession& session) = 0;
 };
+
+ArchendInterface& DefaultArchend();
+ArchendInterface* FindArchend(const char* name);
+void ListArchends(const ArchendInterface& selected, FILE* output);
 
 }
 

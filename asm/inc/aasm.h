@@ -248,6 +248,7 @@ namespace uni {
 
 namespace uni::lango {
 	class ArchendInterface;
+	struct ArchendLineResult;
 }
 
 enum class AssemblyMode {
@@ -256,15 +257,36 @@ enum class AssemblyMode {
 	Dependency
 };
 
+class AssemblyTarget {
+public:
+	void Initialize(uni::lango::ArchendInterface& archend,
+		uni::CodeendInterface& codeend);
+	void SelectArchend(uni::lango::ArchendInterface& archend);
+	void SelectCodeend(uni::CodeendInterface& codeend);
+	void SelectCpu(uint32_t cpu);
+
+	uni::lango::ArchendInterface& Archend() const;
+	uni::CodeendInterface& Codeend() const;
+	int DefaultBits() const;
+	uint32_t Cpu() const;
+	bool IsValid() const;
+	bool IsCodeendCompatible() const;
+
+private:
+	uni::lango::ArchendInterface* ArchendDriver = nullptr;
+	uni::CodeendInterface* CodeendDriver = nullptr;
+	int DefaultBitWidth = 0;
+	uint32_t CpuLevel = 0;
+};
+
 struct AssemblerOptions {
 	AssemblyMode Mode;
+	AssemblyTarget Target;
 	char InputName[AASM_FILENAME_MAX];
 	char OutputName[AASM_FILENAME_MAX];
 	char ListName[AASM_FILENAME_MAX];
 	char ErrorName[AASM_FILENAME_MAX];
 	int OptimizationLevel;
-	int DefaultBits;
-	uint32_t CpuLevel;
 	bool EnableDebugInfo;
 	bool TasmCompatible;
 	bool StopOptionParsing;
@@ -273,8 +295,6 @@ struct AssemblerOptions {
 	const char* DependencyTarget;
 	const char* DependencyFile;
 	Preproc* Preprocessor;
-	uni::lango::ArchendInterface* Archend;
-	uni::CodeendInterface* Codeend;
 	bool WarningEnabled[ERR_WARN_MAX + 1];
 };
 
@@ -297,6 +317,35 @@ struct AssemblySession {
 	int32_t AbsoluteSection;
 	int32_t AbsoluteOffset;
 	bool TerminateAfterPhase;
+};
+
+enum class AssemblyDataWidth : uint16_t {
+	Bits8 = 8,
+	Bits16 = 16,
+	Bits32 = 32,
+	Bits64 = 64,
+	Bits80 = 80,
+	Bits128 = 128,
+	Bits256 = 256
+};
+
+class AssemblyStatementParser {
+public:
+	explicit AssemblyStatementParser(AssemblySession& session);
+	uni::lango::ArchendLineResult ProcessLine(
+		char* source, int parse_pass, int output_pass);
+
+private:
+	AssemblySession& Session;
+
+	char* ParseLabel(char*& source, bool& explicit_label);
+	bool ParseRepeat(char*& source, int64_t& repeat);
+	bool IsEquStatement(const char* source, char*& expression) const;
+	bool ProcessCommonStatement(char* source, int64_t repeat,
+		int parse_pass, uni::lango::ArchendLineResult& result);
+	uni::lango::ArchendLineResult ProcessEqu(
+		char* label, char* expression, int parse_pass);
+	void DefineLabel(char* label);
 };
 
 class Assembler {
@@ -467,6 +516,7 @@ extern "C" {
 	extern char* stdscan_bufptr;
 	void stdscan_reset(void);
 	int stdscan(void* private_data, struct tokenval* tv);
+	int common_stdscan(void* private_data, struct tokenval* tv);
 	int aasm_token_hash(const char* token, struct tokenval* tv);
 	void stdscan_cleanup(void);
 

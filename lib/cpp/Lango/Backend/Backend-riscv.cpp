@@ -1325,6 +1325,7 @@ namespace uni::lango {
 		if (options.debug_symbols && !assembly_output->EmitSourceFiles(module, output))
 			return false;
 		for (const clover::Global& global : module.globals) {
+			if (global.is_declaration) continue;
 			stdsint element_size = TypeStorageBytes(global.type, target);
 			stdsint object_size = element_size * global.element_count;
 			if (!element_size || object_size <= 0) return false;

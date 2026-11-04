@@ -34,11 +34,6 @@
 #define MAX_OPERANDS 5
 typedef uint32_t opflags_t;
 
-#define EXPR_UNKNOWN (EXPR_REG_END + 1)
-#define EXPR_SIMPLE  (EXPR_REG_END + 2)
-#define EXPR_WRT     (EXPR_REG_END + 3)
-#define EXPR_SEGBASE (EXPR_REG_END + 4)
-
 #ifdef _INC_CPP
 extern "C" {
 #endif
@@ -53,7 +48,7 @@ enum prefixes {			/* instruction prefixes */
 	PREFIX_ENUM_START = REG_ENUM_LIMIT,
 	P_A16 = PREFIX_ENUM_START, P_A32, P_A64, P_ASP,
 	P_LOCK, P_O16, P_O32, P_O64, P_OSP,
-	P_REP, P_REPE, P_REPNE, P_REPNZ, P_REPZ, P_TIMES,
+	P_REP, P_REPE, P_REPNE, P_REPNZ, P_REPZ,
 	P_WAIT,
 	PREFIX_ENUM_LIMIT
 };
@@ -77,22 +72,6 @@ typedef struct operand {	/* operand to an instruction */
 	int eaflags;                /* special EA flags */
 	int opflags;                /* see OPFLAG_* defines below */
 } operand;
-
-enum extop_type {		/* extended operand types */
-	EOT_NOTHING,
-	EOT_DB_STRING,		/* Byte string */
-	EOT_DB_STRING_FREE,		/* Byte string which should be aasm_free'd*/
-	EOT_DB_NUMBER,		/* Integer */
-};
-typedef struct extop {          /* extended operand */
-	struct extop *next;         /* linked list */
-	char *stringval;	        /* if it's a string, then here it is */
-	size_t stringlen;           /* ... and here's how long it is */
-	int64_t offset;             /* ... it's given here ... */
-	int32_t segment;            /* if it's a number/address, then... */
-	int32_t wrt;                /* ... and here */
-	enum extop_type type;	/* defined above */
-} extop;
 
 /* Prefix positions: each type of prefix goes in a specific slot.
    This affects the final ordering of the assembled output, which
@@ -125,17 +104,14 @@ enum ccode {			/* condition code names */
 	C_none = -1
 };
 typedef struct insn {		/* an instruction itself */
-	char *label;		/* the label defined, or NULL */
 	enum prefixes prefixes[MAXPREFIX]; /* instruction prefixes, if any */
 	enum _asm_opcode opcode;         /* the opcode - not just the string */
 	enum ccode condition;       /* the condition code, if Jcc/SETcc */
-	int operands;               /* how many operands? 0-3
-								 * (more if db et al) */
+	int operands;               /* how many operands? 0-5 */
 	int addr_size;		/* address size */
 	operand oprs[MAX_OPERANDS]; /* the operands, defined as above */
-	extop *eops;                /* extended operands */
-	int eops_float;             /* true if DD and floating */
 	int32_t times;              /* repeat count (TIMES prefix) */
+	bool prefix_only;           /* emit prefixes without an opcode */
 	bool forw_ref;              /* is there a forward reference? */
 	int rex;			/* Special REX Prefix */
 	int drexdst;		/* Destination register for DREX/VEX suffix */
@@ -409,25 +385,16 @@ namespace uni {
 	class CodeendInterface;
 }
 
-using X86LabelDefinition = void (*) (rostr label, int32_t segment,
-	int64_t offset, char* special, bool is_norm, bool isextrn,
-	uni::CodeendInterface& codeend);
-
 using X86Instruction = insn;
 using X86Operand = operand;
-using X86ExtendedOperand = extop;
 using X86InstructionTemplate = itemplate;
 
 uint32 X86CpuId(rostr identifier);
 const char* prefix_name(int token);
 
 struct X86Parser {
-	static void Initialize(uni::CodeendInterface& codeend,
-		struct location* locp);
 	static X86Instruction* ParseLine(int pass, char* buffer,
-		X86Instruction* result, evalfunc evaluate,
-		X86LabelDefinition define, uni::CodeendInterface& codeend);
-	static void CleanupInstruction(X86Instruction* instruction);
+		X86Instruction* result, evalfunc evaluate);
 };
 
 int64_t X86InstructionSize(int32_t section, int64_t offset,

@@ -34,6 +34,12 @@ public:
 		return Info;
 	}
 
+	virtual bool SupportsArchitecture(
+		uni::lango::ArchitectureKind architecture) const override
+	{
+		return architecture == uni::lango::ArchitectureKind::X86;
+	}
+
 	virtual const unsigned char* StandardMacros() const override
 	{
 		return Driver->stdmac;

@@ -42,123 +42,6 @@ public:
 	const ForwardReference* CurrentForwardReference = nullptr;
 };
 
-namespace {
-
-void EmitDebugType(const insn& instruction, uni::CodeendInterface& codeend)
-{
-	int32_t type = TYS_ELEMENTS(instruction.operands);
-	switch (instruction.opcode) {
-	case I_RESB:
-		type = TYS_ELEMENTS(instruction.oprs[0].offset) | TY_BYTE;
-		break;
-	case I_RESW:
-		type = TYS_ELEMENTS(instruction.oprs[0].offset) | TY_WORD;
-		break;
-	case I_RESD:
-		type = TYS_ELEMENTS(instruction.oprs[0].offset) | TY_DWORD;
-		break;
-	case I_RESQ:
-		type = TYS_ELEMENTS(instruction.oprs[0].offset) | TY_QWORD;
-		break;
-	case I_REST:
-		type = TYS_ELEMENTS(instruction.oprs[0].offset) | TY_TBYTE;
-		break;
-	case I_RESO:
-		type = TYS_ELEMENTS(instruction.oprs[0].offset) | TY_OWORD;
-		break;
-	case I_RESY:
-		type = TYS_ELEMENTS(instruction.oprs[0].offset) | TY_YWORD;
-		break;
-	case I_DB:
-		type |= TY_BYTE;
-		break;
-	case I_DW:
-		type |= TY_WORD;
-		break;
-	case I_DD:
-		type |= instruction.eops_float ? TY_FLOAT : TY_DWORD;
-		break;
-	case I_DQ:
-		type |= TY_QWORD;
-		break;
-	case I_DT:
-		type |= TY_TBYTE;
-		break;
-	case I_DO:
-		type |= TY_OWORD;
-		break;
-	case I_DY:
-		type |= TY_YWORD;
-		break;
-	default:
-		type = TY_LABEL;
-		break;
-	}
-	codeend.SetDebugType(type);
-}
-
-void DefineEqu(insn& instruction, int parse_pass, X86LabelDefinition define, uni::CodeendInterface& output)
-{
-	if (parse_pass == 1) {
-		if (!instruction.label) {
-			aasm_log(_LOG_ERROR, "EQU not preceded by label");
-			return;
-		}
-		if (instruction.label[0] == '.' && instruction.label[1] == '.' &&
-			instruction.label[2] != '@') return;
-
-		if (instruction.operands == 1 &&
-			(instruction.oprs[0].type & IMMEDIATE) &&
-			instruction.oprs[0].wrt == NO_SEG) {
-			bool external = !!(instruction.oprs[0].opflags & OPFLAG_EXTERN);
-			define(instruction.label, instruction.oprs[0].segment,
-				instruction.oprs[0].offset, nullptr, false, external, output);
-			return;
-		}
-		if (instruction.operands == 2 &&
-			(instruction.oprs[0].type & IMMEDIATE) &&
-			(instruction.oprs[0].type & COLON) &&
-			instruction.oprs[0].segment == NO_SEG &&
-			instruction.oprs[0].wrt == NO_SEG &&
-			(instruction.oprs[1].type & IMMEDIATE) &&
-			instruction.oprs[1].segment == NO_SEG &&
-			instruction.oprs[1].wrt == NO_SEG) {
-			define(instruction.label,
-				instruction.oprs[0].offset | SEG_ABS,
-				instruction.oprs[1].offset,
-				nullptr, false, false, output);
-			return;
-		}
-		aasm_log(_LOG_ERROR, "bad syntax for EQU");
-		return;
-	}
-
-	if (!instruction.label || instruction.label[0] != '.' ||
-		instruction.label[1] != '.' || instruction.label[2] == '@') return;
-
-	if (instruction.operands == 1 &&
-		(instruction.oprs[0].type & IMMEDIATE)) {
-		Labelsys::Define(instruction.label, instruction.oprs[0].segment,
-			instruction.oprs[0].offset, nullptr, false, false, output);
-		return;
-	}
-	if (instruction.operands == 2 &&
-		(instruction.oprs[0].type & IMMEDIATE) &&
-		(instruction.oprs[0].type & COLON) &&
-		instruction.oprs[0].segment == NO_SEG &&
-		(instruction.oprs[1].type & IMMEDIATE) &&
-		instruction.oprs[1].segment == NO_SEG) {
-		Labelsys::Define(instruction.label,
-			instruction.oprs[0].offset | SEG_ABS,
-			instruction.oprs[1].offset,
-			nullptr, false, false, output);
-		return;
-	}
-	aasm_log(_LOG_ERROR, "bad syntax for EQU");
-}
-
-}
-
 ArchendX86::ArchendX86() : State(new Implementation())
 {
 }
@@ -169,9 +52,15 @@ ArchendX86::~ArchendX86()
 	delete State;
 }
 
-const char* ArchendX86::Name() const
+const ArchendInfo& ArchendX86::DumpArchend() const
 {
-	return "x86";
+	static const ArchendInfo info {
+		"Intel and AMD x86 architecture",
+		"x86",
+		ArchitectureKind::X86,
+		16
+	};
+	return info;
 }
 
 uint32_t ArchendX86::DefaultCpu() const
@@ -224,7 +113,7 @@ void ArchendX86::Initialize(AssemblySession& session)
 		State->ForwardReferences = StrbuffNew(
 			sizeof(Implementation::ForwardReference));
 	State->CurrentForwardReference = nullptr;
-	X86Parser::Initialize(*session.Options->Codeend, &session.Location);
+	(void)session;
 }
 
 void ArchendX86::BeginPass(AssemblySession& session,
@@ -239,18 +128,33 @@ void ArchendX86::BeginPass(AssemblySession& session,
 	}
 }
 
-ArchendLineResult ArchendX86::ProcessLine(AssemblySession& session,
-	char* source, int parse_pass, int output_pass)
+bool ArchendX86::IsInstructionStart(const char* word) const
+{
+	char keyword[MAX_KEYWORD + 1];
+	struct tokenval value;
+	size_t length = StrLength(word);
+
+	if (!length || length > MAX_KEYWORD) return false;
+	for (size_t index = 0; index < length; index++)
+		keyword[index] = ascii_tolower(word[index]);
+	keyword[length] = '\0';
+
+	int token = aasm_token_hash(keyword, &value);
+	if (token == TOKEN_INSN || token == TOKEN_PREFIX) return true;
+	return token == TOKEN_REG &&
+		!(REG_SREG & ~aasm_reg_flags[value.t_integer]);
+}
+
+ArchendLineResult ArchendX86::ProcessInstruction(AssemblySession& session,
+	char* source, int64_t repeat, int parse_pass, int output_pass)
 {
 	(void)output_pass;
 	ArchendLineResult result;
 	X86Instruction instruction;
-	X86LabelDefinition define = session.PassNumber > 1 ?
-		Labelsys::Redefine : Labelsys::Define;
-	uni::CodeendInterface& codeend = *session.Options->Codeend;
+	uni::CodeendInterface& codeend = session.Options->Target.Codeend();
 
-	X86Parser::ParseLine(parse_pass, source, &instruction,
-		eval_evaluate, define, codeend);
+	X86Parser::ParseLine(parse_pass, source, &instruction, eval_evaluate);
+	instruction.times = repeat;
 
 	if (optimizing > 0) {
 		if (State->CurrentForwardReference &&
@@ -282,14 +186,11 @@ ArchendLineResult ArchendX86::ProcessLine(AssemblySession& session,
 		}
 	}
 
-	if (instruction.opcode == I_EQU) {
-		DefineEqu(instruction, parse_pass, define, codeend);
-	}
-	else if (parse_pass == 1) {
+	if (parse_pass == 1) {
 		int64_t size = X86InstructionSize(session.Location.segment,
 			session.Location.offset, session.SectionBits,
 			session.CurrentCpu, &instruction);
-		if (using_debug_info) EmitDebugType(instruction, codeend);
+		if (using_debug_info) codeend.SetDebugType(TY_LABEL);
 		if (size != -1) result.size = size;
 		else result.valid = false;
 	}
@@ -299,7 +200,6 @@ ArchendLineResult ArchendX86::ProcessLine(AssemblySession& session,
 			session.CurrentCpu, &instruction, &codeend, &aasmlist);
 	}
 
-	X86Parser::CleanupInstruction(&instruction);
 	return result;
 }
 
@@ -322,6 +222,48 @@ ArchendInterface& X86Archend()
 {
 	static ArchendX86 archend;
 	return archend;
+}
+
+namespace {
+
+ArchendInterface** RegisteredArchends(size_t& count)
+{
+	static ArchendInterface* archends[] = {
+		&X86Archend()
+	};
+	count = numsof(archends);
+	return archends;
+}
+
+}
+
+ArchendInterface& DefaultArchend()
+{
+	return X86Archend();
+}
+
+ArchendInterface* FindArchend(const char* name)
+{
+	size_t count;
+	ArchendInterface** archends = RegisteredArchends(count);
+	for (size_t index = 0; index < count; index++) {
+		if (!StrCompareInsensitive(
+			name, archends[index]->DumpArchend().shortname))
+			return archends[index];
+	}
+	return nullptr;
+}
+
+void ListArchends(const ArchendInterface& selected, FILE* output)
+{
+	size_t count;
+	ArchendInterface** archends = RegisteredArchends(count);
+	for (size_t index = 0; index < count; index++) {
+		const ArchendInfo& info = archends[index]->DumpArchend();
+		fprintf(output, "  %c %-10s%s\n",
+			archends[index] == &selected ? '*' : ' ',
+			info.shortname, info.fullname);
+	}
 }
 
 }

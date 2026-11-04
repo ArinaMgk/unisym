@@ -16,14 +16,16 @@
 ## 代码职责
 
 - `aasm-prep.cpp` 实现 Preprocessor。
-- `aasm.cpp` 负责程序入口、运行模式分派和输入输出生命周期。
+- `aasm.cpp` 负责程序入口、目标初始化、运行模式分派和输入输出生命周期。
 - `aasm-assembler.cpp` 实现 Assembler，负责架构无关的多遍调度、directive 处理和
   pass 收敛。
+- `aasm-statement.cpp` 负责标签、`EQU`、`TIMES`、数据定义、保留空间和 `INCBIN`
+  等架构无关汇编语句。
 - `aasm-label.cpp` 和 `aasm-eval.cpp` 负责符号与表达式。
 - `inc/cpp/Lango/Archend.hpp` 定义 Archend 的标准契约。
 - `lib/cpp/Lango/Archend/Archend-x86.cpp` 是当前 x86 Archend 适配层，管理
-  架构相关的行处理与前向引用。
-- `inc/cpp/Lango/Archend/X86` 和 `lib/cpp/Lango/Archend/X86` 分别保存 x86 内部头、
+  架构指令解析、编码与前向引用。
+- `inc/cpp/Lango/Archend/x86` 和 `lib/cpp/Lango/Archend/x86` 分别保存 x86 内部头、
   解析器、编码器、生成输入和生成结果。
 - `asm/todata` 和 `asm/data` 保存预处理宏等 AASM 通用生成输入与结果。
 - `inc/cpp/Format/Code.hpp` 定义 Codeend 的标准契约和只读格式信息。
@@ -50,6 +52,14 @@ GCC AS 或 AASM 处理。
 `AssemblerOptions`，主调度和多遍汇编通过 `AssemblySession` 记录一次汇编任务的
 运行状态；现有解析与编码模块暂时通过兼容状态继续工作。
 
+已建立 `AssemblyTarget`，集中保存 Archend、Codeend、默认位宽和 CPU。命令行、
+Assembler、通用语句解析和 Archend 通过目标对象访问架构与输出格式；每个 pass
+仍将可变位宽和 CPU 状态恢复到 `AssemblySession`。
+
+Archend 已提供只读信息、默认项、查找和列表接口。命令行可以通过 `-march` 或
+`--arch` 选择已注册架构；切换 Archend 时同步恢复默认位宽和 CPU，并在汇编前检查
+Codeend 声明的架构兼容性。
+
 已从程序入口提取 `Assembler`，多遍汇编、directive 识别与处理和 pass 收敛现由
 `aasm-assembler.cpp` 管理。
 
@@ -61,11 +71,10 @@ Assembler 和输出生命周期通过 Codeend 调用；现有格式实现由 `aa
 适配并保持原有文件和函数表。
 
 x86 编码器已改为通过 `CodeendOutput` 提交数据和重定位事件，`aasm-format.cpp`
-负责转换为现有格式输出类型。listing 继续使用原接口；解析器、表达式、标签和
-`EQU` 保留在兼容边界内。
+负责转换为现有格式输出类型。listing 继续使用原接口。
 
 x86 私有指令类型已集中到
-`inc/cpp/Lango/Archend/X86/Instruction-x86.hpp`，公共 AASM 头文件不再隐式包含
+`inc/cpp/Lango/Archend/x86/Instruction-x86.hpp`，公共 AASM 头文件不再隐式包含
 opcode、operand、instruction、REX/VEX 和指令模板定义。x86 parser 与 encoder 的内部入口
 统一使用 `X86*` 命名；CPU、位宽和默认寻址模式策略由 `ArchendX86` 提供。
 
@@ -76,4 +85,11 @@ x86 parser、encoder、指令与寄存器表、反汇编索引、token hash 及�
 标签系统已增加 `Labelsys` 静态接口，Assembler、ArchendX86 和 x86 parser 通过
 统一的 Codeend 契约定义、重定义和提交 common 符号。表达式求值器通过 Codeend
 查询 section base；`NativeHandle()` 不再被 Archend、Assembler 或表达式求值器使用。
+
+通用汇编语句已从 x86 parser 中分离。Assembler 先解析标签、`EQU`、`TIMES`、
+数据定义、保留空间和 `INCBIN`，再将架构指令交给 Archend；通用表达式扫描不再
+依赖 x86 指令和寄存器 token 表。
+
+x86 parser、encoder 和生成表已移除通用语句伪 opcode 及其扩展 operand 数据结构。
+prefix-only 行改用 x86 instruction 的独立状态，并保持原有前缀字节输出。
 

@@ -114,8 +114,10 @@ check 'int f(int x) {return x+1;} int main() {int x = f(1); x++; return x;} ' 3
 check 'int add(int x, int y) {return x+y;} int main() { return add(-1, 4);} ' 3
 
 # Array
-check '../demo/test/clover/c/array.c' 38
+check '../demo/test/clover/c/array.c' 67
+check 'int values[]; int main(){return sizeof(values);}' 4
 check_fail 'int main(){int values[];return 0;}' 'object has incomplete array type'
+check_fail 'int values[2]={1,2,3}; int main(){return 0;}' 'invalid or excessive global array initializer'
 
 # Label and goto
 check '../demo/test/clover/c/goto.c' 10
@@ -165,11 +167,14 @@ check '../demo/test/clover/c/struct-layout.c' 254
 
 # Storage Area and Lifetime
 check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1
-check '../demo/test/clover/c/static.c' 163 '' imfd lp64d
+check '../demo/test/clover/c/static.c' 167 '' imfd lp64d
 check_ir 'static int value; static int helper(int x){return x;} int main(){return helper(value);}' 'internal global @value'
 check_ir 'static int value; static int helper(int x){return x;} int main(){return helper(value);}' 'internal func @helper'
+check_ir 'extern int value; int main(){return value;}' 'declare global @value i32'
 check_fail 'int source(){return 1;} int main(){static int value=source();return value;}' 'block static initializer must be a constant expression'
 check_fail 'static static int value; int main(){return value;}' 'duplicate storage-class specifier'
+check_fail 'int value=1; int value=2; int main(){return value;}' 'redefinition of global variable'
+check_fail 'extern int value; static int value; int main(){return value;}' 'global variable linkage conflicts'
 
 
 echo pass!

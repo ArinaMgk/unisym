@@ -146,8 +146,11 @@ namespace {
 		storage_class = FrontendCStorageClass::None;
 		uni::Nnode* cursor = node;
 		while (cursor && cursor->type == tok_identy && cursor->addr &&
-			(IsTypeSpecifier(cursor) || IsKeyword(cursor, "static"))) {
-			if (!IsKeyword(cursor, "static")) {
+			(IsTypeSpecifier(cursor) || IsKeyword(cursor, "static") ||
+				IsKeyword(cursor, "extern"))) {
+			bool is_static = IsKeyword(cursor, "static");
+			bool is_extern = IsKeyword(cursor, "extern");
+			if (!is_static && !is_extern) {
 				cursor = cursor->next;
 				continue;
 			}
@@ -156,7 +159,8 @@ namespace {
 					"duplicate storage-class specifier", cursor);
 				return false;
 			}
-			storage_class = FrontendCStorageClass::Static;
+			storage_class = is_static ? FrontendCStorageClass::Static :
+				FrontendCStorageClass::Extern;
 			uni::Nnode* next = cursor->next;
 			if (cursor == node) node = next;
 			syntax_tree.Remove(cursor);
@@ -966,7 +970,8 @@ namespace {
 					"block-scope record definitions are not supported yet", node);
 				return false;
 			}
-			if (IsTypeSpecifier(node->subf) || IsKeyword(node->subf, "static")) {
+			if (IsTypeSpecifier(node->subf) || IsKeyword(node->subf, "static") ||
+				IsKeyword(node->subf, "extern")) {
 				if (!PrepareDeclaration(syntax_tree, node, diagnostics, target, type_info)) return false;
 				MarkPrefixKeywords(node->subf);
 				continue;
@@ -1402,7 +1407,8 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 				continue;
 			}
 			if (!node->subf || (!IsTypeSpecifier(node->subf) &&
-				!IsKeyword(node->subf, "static"))) {
+				!IsKeyword(node->subf, "static") &&
+				!IsKeyword(node->subf, "extern"))) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"expected global declaration", node);
 				return false;

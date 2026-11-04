@@ -30,7 +30,64 @@
 #include <c/strpage.h>
 #include "inc/aasm.h"
 #include "../inc/cpp/Format/Code.hpp"
-#include "../inc/cpp/Lango/Archend/Archend-x86.hpp"
+#include "../inc/cpp/Lango/Archend.hpp"
+
+void AssemblyTarget::Initialize(uni::lango::ArchendInterface& archend,
+	uni::CodeendInterface& codeend)
+{
+	SelectArchend(archend);
+	SelectCodeend(codeend);
+}
+
+void AssemblyTarget::SelectArchend(uni::lango::ArchendInterface& archend)
+{
+	ArchendDriver = &archend;
+	DefaultBitWidth = archend.DumpArchend().default_bits;
+	CpuLevel = archend.DefaultCpu();
+}
+
+void AssemblyTarget::SelectCodeend(uni::CodeendInterface& codeend)
+{
+	CodeendDriver = &codeend;
+}
+
+void AssemblyTarget::SelectCpu(uint32_t cpu)
+{
+	CpuLevel = cpu;
+}
+
+uni::lango::ArchendInterface& AssemblyTarget::Archend() const
+{
+	return *ArchendDriver;
+}
+
+uni::CodeendInterface& AssemblyTarget::Codeend() const
+{
+	return *CodeendDriver;
+}
+
+int AssemblyTarget::DefaultBits() const
+{
+	return DefaultBitWidth;
+}
+
+uint32_t AssemblyTarget::Cpu() const
+{
+	return CpuLevel;
+}
+
+bool AssemblyTarget::IsValid() const
+{
+	return ArchendDriver && CodeendDriver &&
+		ArchendDriver->ValidateBits(DefaultBitWidth, CpuLevel);
+}
+
+bool AssemblyTarget::IsCodeendCompatible() const
+{
+	return ArchendDriver && CodeendDriver &&
+		CodeendDriver->SupportsArchitecture(
+			ArchendDriver->DumpArchend().architecture);
+}
 
 
 _ESYM_C{
@@ -274,14 +331,12 @@ void printlog0(loglevel_t level, const char* fmt, ...);
 
 static void InitializeAssemblerOptions(AssemblerOptions& options)
 {
-	MemSet(&options, 0, sizeof(options));
+	options = AssemblerOptions{};
 	options.Mode = AssemblyMode::Assemble;
 	options.OptimizationLevel = -1;
-	options.DefaultBits = 16;
 	options.Preprocessor = &nasmpp;
-	options.Archend = &uni::lango::X86Archend();
-	options.CpuLevel = options.Archend->DefaultCpu();
-	options.Codeend = &uni::DefaultCodeend();
+	options.Target.Initialize(
+		uni::lango::DefaultArchend(), uni::DefaultCodeend());
 }
 
 static void SyncLegacyOptions(const AssemblerOptions& options)
@@ -299,7 +354,7 @@ static void SyncLegacyOptions(const AssemblerOptions& options)
 	depend_target = options.DependencyTarget;
 	depend_file = options.DependencyFile;
 	preproc = options.Preprocessor;
-	uni::SelectCodeend(*options.Codeend);
+	uni::SelectCodeend(options.Target.Codeend());
 	MemCopyN(warning_on_global, options.WarningEnabled,
 		(ERR_WARN_MAX + 1) * sizeof(bool));
 }
@@ -307,11 +362,11 @@ static void SyncLegacyOptions(const AssemblerOptions& options)
 static void InitializeAssemblySession(AssemblySession& session,
 	AssemblerOptions& options)
 {
-	MemSet(&session, 0, sizeof(session));
+	session = AssemblySession{};
 	session.Options = &options;
-	session.CurrentBits = options.DefaultBits;
-	session.SectionBits = options.DefaultBits;
-	session.CurrentCpu = options.CpuLevel;
+	session.CurrentBits = options.Target.DefaultBits();
+	session.SectionBits = options.Target.DefaultBits();
+	session.CurrentCpu = options.Target.Cpu();
 	session.PassPhase = 0;
 	session.PassNumber = 0;
 	session.Location.known = false;
@@ -335,6 +390,16 @@ int main(int argc, char** argv) {
 
 
 	ParseCommandLine(assembler_options, argc, argv);
+	if (!assembler_options.Target.IsValid()) {
+		aasm_log(_LOG_FATAL,
+			"selected architecture has an invalid default target");
+	}
+	if (!assembler_options.Target.IsCodeendCompatible()) {
+		aasm_log(_LOG_FATAL,
+			"output format `%s' does not support architecture `%s'",
+			assembler_options.Target.Codeend().DumpCodeend().shortname,
+			assembler_options.Target.Archend().DumpArchend().shortname);
+	}
 	SyncLegacyOptions(assembler_options);
 	InitializeAssemblySession(assembly_session, assembler_options);
 	if (terminate_after_phase) {
@@ -345,7 +410,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	uni::CodeendInterface& codeend = *assembler_options.Codeend;
+	uni::CodeendInterface& codeend = assembler_options.Target.Codeend();
 	if (!using_debug_info)// If debugging info is disabled, suppress any debug calls
 		codeend.DisableDebug();
 

@@ -20,13 +20,19 @@
 - 支持 C99 十进制、八进制、十六进制整数常量及 `U`、`L`、`LL` 组合后缀；
   常量类型按数值、后缀和数据模型选择。支持普通字符常量及 C99 转义序列。
 - 支持局部及全局变量、词法作用域、指针、取地址、解引用、指针算术、字符串和
-  单维/多维数组。函数形式参数支持 `T array[]`、`T array[N]` 和
-  `T array[][N]`，并按照 C99 规则调整为对应指针类型；普通对象仍须具有完整数组类型。
-- 支持文件作用域 `static` 变量和函数的内部链接，以及块作用域 `static` 标量、
+  单维/多维数组。数组初始化支持缺省元素补零、嵌套括号划分子数组，以及通过
+  初始化列表推导最外层数组长度。窄字符串可以初始化 `char`、`signed char`、
+  `unsigned char` 及其 const 数组，显式数组长度恰好容纳字符时允许省略结尾零。
+  函数形式参数支持 `T array[]`、`T array[N]` 和 `T array[][N]`，并按照 C99
+  规则调整为对应指针类型；无初始化器的普通局部对象仍须具有完整数组类型。
+- 支持文件作用域 `static` 变量和函数的内部链接、文件作用域 `extern` 对象声明，
+  以及同名兼容声明、tentative definition 和完整定义的合并。仅有 `extern` 声明的
+  对象降低为 Clover `declare global`，不在当前模块分配存储。
+- 支持块作用域 `static` 标量、
   指针和数组的静态存储期。块静态对象降低为具有唯一内部名称的 Clover global，
   初始化只写入模块数据，不会在每次进入函数或代码块时重复执行。当前静态初始化
-  沿用全局常量初始化能力；块静态 record、`long double` 数组初始化、tentative
-  definition 合并以及 `extern` 尚未实现。
+  沿用全局常量初始化能力；块静态 record、`long double` 数组初始化和块作用域
+  `extern` 尚未实现。
 - 支持函数定义与调用、return、if/else、while、for、switch/case/default、空语句和
   逗号运算符。switch 支持整数常量 case、default、贯穿、嵌套及重复标签诊断；
   当前降低为 Clover 的整数比较和基本块跳转链，不要求增加专用 IR 指令。
@@ -95,5 +101,7 @@
   与自身目标位数不一致的 IR。
 - Clover 的 global、constant 和 function 均可携带独立的 internal 链接属性；
   RISC-V 汇编输出不会为内部符号生成 `.globl`。
+- Clover 支持 `declare global` 和 `declare constant` 外部对象声明；RISC-V 后端不为
+  声明分配存储，但允许 `globaladdr` 生成交由链接器解析的符号引用。
 - 局部对象支持显式存储对齐；`load/store` 会读取访问对齐信息。RISC-V 后端会将
   未对齐的 i16/i32/i64 load/store 拆为小端字节访问。

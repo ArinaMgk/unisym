@@ -22,10 +22,170 @@
 #include "../../../../../inc/cpp/Lango/Frontend/C/Frontend-c-clover-internal.hpp"
 
 namespace clover::frontend_c_internal {
+	namespace {
+		bool IsCommaNode(const uni::Nnode* node) {
+			return node && node->type == tok_func && node->addr &&
+				!StrCompare(node->addr, "OP@COMMA");
+		}
+
+		void AppendInitializerListItems(uni::Nnode* node,
+			uni::Vector<uni::Nnode*>& items) {
+			if (!node) return;
+			if (IsCommaNode(node)) {
+				for (uni::Nnode* child = node->subf; child; child = child->next)
+					AppendInitializerListItems(child, items);
+				return;
+			}
+			items.Append(node);
+		}
+
+		void AppendDirectInitializerItems(uni::Nnode* node,
+			uni::Vector<uni::Nnode*>& items) {
+			if (node && node->type == tok_block) node = node->subf;
+			AppendInitializerListItems(node, items);
+		}
+
+		stduint ArraySubobjectElements(const FrontendCType& type,
+			stduint first_dimension) {
+			stduint count = 1;
+			for (stduint index = first_dimension;
+				index < type.array_dimension_count; index++)
+				count *= type.array_dimensions[index];
+			return count;
+		}
+
+		stduint ScalarInitializerCount(uni::Nnode* node) {
+			uni::Vector<uni::Nnode*> items;
+			AppendDirectInitializerItems(node, items);
+			if (!items.Count()) return 0;
+			stduint count = 0;
+			for (uni::Nnode* item : items)
+				count += item->type == tok_block ? ScalarInitializerCount(item) : 1;
+			return count;
+		}
+
+		stduint RequiredArrayElements(const FrontendCType& type,
+			uni::Nnode* initializer) {
+			uni::Vector<uni::Nnode*> items;
+			AppendDirectInitializerItems(initializer, items);
+			stduint cursor = 0;
+			stduint child_elements = type.array_dimension_count > 1 ?
+				ArraySubobjectElements(type, 1) : 1;
+			for (uni::Nnode* item : items) {
+				if (type.array_dimension_count > 1 && item->type == tok_block) {
+					stduint remainder = cursor % child_elements;
+					if (remainder) cursor += child_elements - remainder;
+					cursor += child_elements;
+				}
+				else cursor += item->type == tok_block ?
+					ScalarInitializerCount(item) : 1;
+			}
+			return cursor;
+		}
+
+		bool FillArrayInitializerSlots(const FrontendCType& type,
+			stduint dimension, uni::Nnode* initializer,
+			uni::Vector<uni::Nnode*>& slots, stduint start, stduint capacity) {
+			uni::Vector<uni::Nnode*> items;
+			AppendDirectInitializerItems(initializer, items);
+			stduint cursor = 0;
+			bool has_child_array = dimension + 1 < type.array_dimension_count;
+			stduint child_elements = has_child_array ?
+				ArraySubobjectElements(type, dimension + 1) : 1;
+			for (uni::Nnode* item : items) {
+				if (has_child_array && item->type == tok_block) {
+					stduint remainder = cursor % child_elements;
+					if (remainder) cursor += child_elements - remainder;
+					if (cursor + child_elements > capacity ||
+						!FillArrayInitializerSlots(type, dimension + 1, item,
+							slots, start + cursor, child_elements)) return false;
+					cursor += child_elements;
+					continue;
+				}
+				if (item->type == tok_block) {
+					uni::Vector<uni::Nnode*> scalar_items;
+					AppendDirectInitializerItems(item, scalar_items);
+					if (scalar_items.Count() != 1 || scalar_items[0]->type == tok_block)
+						return false;
+					item = scalar_items[0];
+				}
+				if (cursor >= capacity) return false;
+				slots[start + cursor++] = item;
+			}
+			return true;
+		}
+	}
+
+	bool IsCharacterArray(const FrontendCType& type) {
+		return type.IsArray() && type.scalar_kind == FrontendCScalarKind::Integer &&
+			!type.record_id && !type.enum_id &&
+			type.integer_rank == FrontendCIntegerRank::Char;
+	}
+
+	uni::Nnode* FindStringArrayInitializer(uni::Nnode* initializer) {
+		if (!initializer) return nullptr;
+		if (initializer->type == tok_string) return initializer;
+		if (initializer->type != tok_block) return nullptr;
+		uni::Vector<uni::Nnode*> items;
+		AppendDirectInitializerItems(initializer, items);
+		return items.Count() == 1 && items[0]->type == tok_string ? items[0] : nullptr;
+	}
+
+	bool CompleteArrayTypeFromInitializer(FrontendCType& type,
+		uni::Nnode* initializer) {
+		if (!type.IsArray() || !type.array_dimension_count ||
+			type.array_dimensions[0]) return !type.HasIncompleteArray();
+		for (stduint index = 1; index < type.array_dimension_count; index++)
+			if (!type.array_dimensions[index]) return false;
+		if (!initializer) return false;
+		uni::Nnode* string = FindStringArrayInitializer(initializer);
+		if (string) {
+			if (!IsCharacterArray(type) || type.array_dimension_count != 1) return false;
+			uni::Vector<stdsint> bytes;
+			if (!DecodeCString(string->addr, bytes)) return false;
+			type.array_dimensions[0] = bytes.Count() + 1;
+			return true;
+		}
+		if (initializer->type != tok_block) return false;
+		stduint inner_elements = ArraySubobjectElements(type, 1);
+		stduint required = RequiredArrayElements(type, initializer);
+		if (!required || !inner_elements) return false;
+		type.array_dimensions[0] =
+			(required + inner_elements - 1) / inner_elements;
+		return true;
+	}
+
+	bool BuildArrayInitializerSlots(const FrontendCType& type,
+		uni::Nnode* initializer, uni::Vector<uni::Nnode*>& slots) {
+		if (!type.IsArray() || type.HasIncompleteArray() || !initializer ||
+			initializer->type != tok_block) return false;
+		stduint count = type.StorageElementCount();
+		for (stduint index = 0; index < count; index++) slots.Append(nullptr);
+		return FillArrayInitializerSlots(type, 0, initializer, slots, 0, count);
+	}
+
+	bool BuildStringArrayValues(const FrontendCType& type,
+		uni::Nnode* initializer, uni::Vector<stdsint>& values) {
+		uni::Nnode* string = FindStringArrayInitializer(initializer);
+		if (!string || !IsCharacterArray(type) || type.array_dimension_count != 1 ||
+			type.HasIncompleteArray()) return false;
+		uni::Vector<stdsint> bytes;
+		if (!DecodeCString(string->addr, bytes) ||
+			type.array_dimensions[0] < bytes.Count()) return false;
+		for (stdsint byte : bytes) values.Append(byte);
+		while (values.Count() < type.array_dimensions[0]) values.Append(0);
+		return true;
+	}
 
 	bool FunctionBuilder::PredeclareLocal(const char* name, const FrontendCType& type,
 		const uni::Nnode* declaration, const uni::Nnode* scope,
 		FrontendCStorageClass storage_class) {
+		if (storage_class == FrontendCStorageClass::Extern) {
+			diagnostics->Report(DiagnosticStage::Semantic,
+				"block-scope extern objects are not supported yet", declaration);
+			failed = true;
+			return false;
+		}
 		for (const LocalValue& local : locals)
 			if (local.scope == scope && !StrCompare(local.name.reference(), name)) {
 				diagnostics->Report(DiagnosticStage::Semantic,
@@ -156,11 +316,22 @@ namespace clover::frontend_c_internal {
 			return true;
 		}
 		uni::Nnode* declarator = node;
+		uni::Nnode* initializer = nullptr;
 		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "OP@ASSIGN")) declarator = node->subf;
+			!StrCompare(node->addr, "OP@ASSIGN")) {
+			declarator = node->subf;
+			initializer = declarator ? declarator->next : nullptr;
+		}
 		uni::Nnode* identifier = nullptr;
 		FrontendCType type;
 		if (!ParseDeclarator(declarator, identifier, type, base_type)) return false;
+		if (type.HasIncompleteArray() &&
+			!CompleteArrayTypeFromInitializer(type, initializer)) {
+			diagnostics->Report(DiagnosticStage::Semantic,
+				"object has incomplete array type", declaration);
+			failed = true;
+			return false;
+		}
 		return PredeclareLocal(identifier->addr, type, declaration, scope,
 			type_info->FindStorage(declaration));
 	}
@@ -203,34 +374,24 @@ namespace clover::frontend_c_internal {
 		return nullptr;
 	}
 
-	void FunctionBuilder::AppendInitializerValues(uni::Nnode* node,
-		uni::Vector<uni::Nnode*>& values) {
-		if (node && node->type == tok_block && node->subf) {
-			AppendInitializerValues(node->subf, values);
-			return;
-		}
-		if (node && node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "OP@COMMA")) {
-			for (uni::Nnode* child = node->subf; child; child = child->next)
-				AppendInitializerValues(child, values);
-			return;
-		}
-		if (node) values.Append(node);
-	}
-
 	bool FunctionBuilder::InitializeArray(LocalValue& local, uni::Nnode* initializer) {
+		uni::Vector<stdsint> string_values;
+		bool is_string = FindStringArrayInitializer(initializer) != nullptr;
+		if (is_string && !BuildStringArrayValues(
+			local.type, initializer, string_values))
+			return Error("invalid character array string initializer", initializer).valid;
 		uni::Vector<uni::Nnode*> values;
-		AppendInitializerValues(initializer, values);
+		if (!is_string && !BuildArrayInitializerSlots(local.type, initializer, values))
+			return Error("invalid or excessive array initializer", initializer).valid;
 		stduint element_count = local.type.StorageElementCount();
-		if (values.Count() > element_count)
-			return Error("too many array initializer values", initializer).valid;
 		FrontendCType element_type = local.type;
 		element_type.array_dimension_count = 0;
 		FrontendCType element_pointer = element_type.AddressType();
 		for (stduint index = 0; index < element_count; index++) {
 			Value value;
-			if (index < values.Count()) {
-				uni::Nnode* value_node = values.begin()[index];
+			if (is_string) value = EmitConst(string_values[index], element_type);
+			else if (values[index]) {
+				uni::Nnode* value_node = values[index];
 				LoweredValue lowered = ToRValue(LowerExpression(value_node), value_node);
 				if (!lowered.valid) return false;
 				if (!lowered.type.IsArithmetic() || !element_type.IsArithmetic())
@@ -261,20 +422,28 @@ namespace clover::frontend_c_internal {
 			if (element_type.scalar_kind == FrontendCScalarKind::LongDouble)
 				return Error("block static long double array initialization is not supported yet",
 					initializer).valid;
-			uni::Vector<uni::Nnode*> values;
-			AppendInitializerValues(initializer, values);
-			stduint count = local.type.StorageElementCount();
-			if (values.Count() > count)
-				return Error("too many block static array initializer values",
+			uni::Vector<stdsint> string_values;
+			bool is_string = FindStringArrayInitializer(initializer) != nullptr;
+			if (is_string && !BuildStringArrayValues(
+				local.type, initializer, string_values))
+				return Error("invalid block static character array string initializer",
 					initializer).valid;
+			uni::Vector<uni::Nnode*> values;
+			if (!is_string && !BuildArrayInitializerSlots(
+				local.type, initializer, values))
+				return Error("invalid or excessive block static array initializer",
+					initializer).valid;
+			stduint count = local.type.StorageElementCount();
 			for (stduint index = 0; index < count; index++) {
-				stdsint low = 0;
+				stdsint low = is_string ? string_values[index] : 0;
 				stdsint high = 0;
-				if (index < values.Count() && !ParseStaticScalarInitializer(
+				if (!is_string && values[index] && !ParseStaticScalarInitializer(
 					values[index], *target, *visible_constants,
 					element_type, low, high))
 					return Error("block static array initializer must contain constant expressions",
 						values[index]).valid;
+				if (element_type.integer_rank == FrontendCIntegerRank::Bool &&
+					!element_type.enum_id) low = low != 0;
 				global.initializer_values.Append(low);
 			}
 			return true;

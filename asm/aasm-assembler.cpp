@@ -58,14 +58,16 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 	int pass_max;
 
 	AssemblerOptions& options = *Session.Options;
-	uni::CodeendInterface& codeend = *options.Codeend;
-	uni::lango::ArchendInterface& archend = *options.Archend;
-	archend.Initialize(Session);
-	if (!archend.ValidateBits(options.DefaultBits, options.CpuLevel)) {
+	AssemblyTarget& target = options.Target;
+	if (!target.IsValid()) {
 		//--auto clean flag
 		aasm_log(_LOG_FATAL,
 			"command line: default segment size is not supported by the selected architecture or cpu");
 	}
+	uni::CodeendInterface& codeend = target.Codeend();
+	uni::lango::ArchendInterface& archend = target.Archend();
+	AssemblyStatementParser statement_parser(Session);
+	archend.Initialize(Session);
 
 	pass_max = Session.PreviousOffsetChanged = (INT_MAX >> 1) + 2; /* Almost unlimited */
 	for (passn = 1; pass0 <= 2; passn++) {
@@ -74,8 +76,8 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 		pass2 = passn > 1 ? 2 : 1;     /* 1, 2, 2, ..., 2, 2 */
 		/* pass0                           0, 0, 0, ..., 1, 2 */
 
-		globalbits = Session.SectionBits = options.DefaultBits;
-		Session.CurrentCpu = options.CpuLevel;
+		globalbits = Session.SectionBits = target.DefaultBits();
+		Session.CurrentCpu = target.Cpu();
 		Session.PassPhase = pass0;
 		Session.PassNumber = passn;
 		Session.CurrentBits = globalbits;
@@ -395,7 +397,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 			}
 			else {
 				uni::lango::ArchendLineResult result =
-					archend.ProcessLine(Session, line, pass1, pass2);
+					statement_parser.ProcessLine(line, pass1, pass2);
 				if (result.valid) {
 					offs += result.size;
 					SetCurrentOffset(offs);
@@ -532,7 +534,7 @@ Assembler::Directive Assembler::ParseDirective(char** directive, char** value)
 uint32_t Assembler::ParseCpu(char* value)
 {
 	uint32_t cpu;
-	if (!Session.Options->Archend->ParseCpu(value, cpu)) {
+	if (!Session.Options->Target.Archend().ParseCpu(value, cpu)) {
 		//--auto clean flag
 		aasm_log(pass0 < 2 ? _LOG_ERROR : _LOG_FATAL, "unknown 'cpu' type");
 	}
@@ -546,7 +548,8 @@ int Assembler::ParseBits(char* value)
 	if ((i = atoins(value)) == 16)
 		return i;               /* set for a 16-bit segment */
 	else if (i == 32) {
-		if (!Session.Options->Archend->ValidateBits(i, Session.CurrentCpu)) {
+		if (!Session.Options->Target.Archend().ValidateBits(
+			i, Session.CurrentCpu)) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR,
 				"cannot specify 32-bit segment for the selected architecture or cpu");
@@ -554,7 +557,8 @@ int Assembler::ParseBits(char* value)
 		}
 	}
 	else if (i == 64) {
-		if (!Session.Options->Archend->ValidateBits(i, Session.CurrentCpu)) {
+		if (!Session.Options->Target.Archend().ValidateBits(
+			i, Session.CurrentCpu)) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR,
 				"cannot specify 64-bit segment for the selected architecture or cpu");
@@ -563,7 +567,7 @@ int Assembler::ParseBits(char* value)
 		if (i != maxbits) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "%s output format does not support 64-bit code",
-				Session.Options->Codeend->DumpCodeend().shortname);
+				Session.Options->Target.Codeend().DumpCodeend().shortname);
 			i = 16;
 		}
 	}

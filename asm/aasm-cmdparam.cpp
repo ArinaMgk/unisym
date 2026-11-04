@@ -4,6 +4,7 @@
 
 #include "inc/aasm.h"
 #include "../inc/cpp/Format/Code.hpp"
+#include "../inc/cpp/Lango/Archend.hpp"
 #include "../inc/cpp/string"
 
 // #include <stdlib.h>
@@ -158,6 +159,20 @@ static struct textargs textopts[] = {
 _ESYM_C FILE* error_file;
 _ESYM_C const struct warning warnings[ERR_WARN_MAX + 1];
 _ESYM_C int drop(); _ESYM_C void exit(int);
+
+static void SelectArchitecture(AssemblerOptions& options, const char* name)
+{
+	uni::lango::ArchendInterface* archend = uni::lango::FindArchend(name);
+	if (!archend) {
+		log_0file = 1;
+		want_usage = 1;
+		aasm_log(_LOG_FATAL,
+			"unrecognised architecture `%s' - use -ha for a list", name);
+		return;
+	}
+	options.Target.SelectArchend(*archend);
+}
+
 bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 {
 	char* param;
@@ -168,6 +183,32 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 
 	if (!p || !p[0])
 		return false;
+
+	if (p[0] == '-' && !options.StopOptionParsing) {
+		bool architecture_option = false;
+		if (!StrCompareInsensitive(p, "-march") ||
+			!StrCompareInsensitive(p, "--arch")) {
+			architecture_option = true;
+			param = q;
+			advance = true;
+		}
+		else if (!StrCompareNInsensitive(p, "-march=", 7) ||
+			!StrCompareNInsensitive(p, "--arch=", 7)) {
+			architecture_option = true;
+			param = p + 7;
+		}
+		if (architecture_option) {
+			if (!param || !param[0]) {
+				log_0file = 1;
+				want_usage = 1;
+				aasm_log(_LOG_ERROR,
+					"option `%s' requires an argument", p);
+				return advance;
+			}
+			SelectArchitecture(options, param);
+			return advance;
+		}
+	}
 
 	if (p[0] == '-' && !options.StopOptionParsing) {
 		if (StrIndexChar("oOfpPdDiIlFXuUZwW", p[1])) {
@@ -186,15 +227,18 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 			break;
 
 		case 'f':		/* output format */
-			options.Codeend = uni::FindCodeend(param);
-			if (!options.Codeend) {
+		{
+			uni::CodeendInterface* codeend = uni::FindCodeend(param);
+			if (!codeend) {
 				//--auto clean flag
 				log_0file = 1;
 				want_usage = 1;
 				aasm_log(_LOG_FATAL, "unrecognised output format `%s' - use -hf for a list", param);
 			}
-			uni::SelectCodeend(*options.Codeend);
+			options.Target.SelectCodeend(*codeend);
+			uni::SelectCodeend(options.Target.Codeend());
 			break;
+		}
 
 		case 'O':		/* Optimization level */
 		{
@@ -258,11 +302,11 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 			break;
 
 		case 'F':			/* specify debug format */
-			if (!options.Codeend->SelectDebugFormat(param)) {
+			if (!options.Target.Codeend().SelectDebugFormat(param)) {
 				//--auto clean flag
 				log_0file = 1;
 				want_usage = 1;
-				aasm_log(_LOG_FATAL, "unrecognized debug format `%s' for output format `%s'", param, options.Codeend->DumpCodeend().shortname);
+				aasm_log(_LOG_FATAL, "unrecognized debug format `%s' for output format `%s'", param, options.Target.Codeend().DumpCodeend().shortname);
 			}
 			options.EnableDebugInfo = true;
 			break;
@@ -303,6 +347,8 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 				"    -I<path>    adds a pathname to the include file path\n");
 			printf
 			("    -O<digit>   optimize branch offsets (-O0 disables, default)\n"
+				"    -march=name select the instruction architecture\n"
+				"    --arch name select the instruction architecture\n"
 				"    -P<file>    pre-includes a file\n"
 				"    -D<macro>[=<value>] pre-defines a macro\n"
 				"    -U<macro>   undefines a macro\n"
@@ -317,10 +363,16 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 			printf
 			("\nresponse files should contain command line parameters"
 				", one per line.\n");
-			if (p[2] == 'f') {
+			if (p[2] == 'a') {
+				printf("\nvalid architectures for -march are"
+					" (`*' denotes default):\n");
+				uni::lango::ListArchends(
+					options.Target.Archend(), stdout);
+			}
+			else if (p[2] == 'f') {
 				printf("\nvalid output formats for -f are"
 					" (`*' denotes default):\n");
-				uni::ListCodeends(*options.Codeend, stdout);
+				uni::ListCodeends(options.Target.Codeend(), stdout);
 			}
 			else {
 				printf("\nFor a list of valid output formats, use -hf.\n");
@@ -332,8 +384,8 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 		case 'y':
 			printf("\nvalid debug formats for '%s' output format are"
 				" ('*' denotes default):\n",
-				options.Codeend->DumpCodeend().shortname);
-			options.Codeend->ListDebugFormats(stdout);
+				options.Target.Codeend().DumpCodeend().shortname);
+			options.Target.Codeend().ListDebugFormats(stdout);
 			drop(); exit(0);// exit(drop());
 			break;
 
@@ -492,7 +544,7 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 		}
 
 		default:
-			if (!options.Codeend->ProcessOption(&p)) {
+			if (!options.Target.Codeend().ProcessOption(&p)) {
 				//--auto clean flag
 				log_0file = 1;
 				want_usage = 1;

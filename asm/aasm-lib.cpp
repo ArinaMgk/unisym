@@ -546,6 +546,42 @@ static char *stdscan_copy(char *p, int len)
 }
 
 char *stdscan_bufptr = NULL;
+static bool stdscan_common_identifiers = false;
+
+static int common_token_hash(const char* token, struct tokenval* tv)
+{
+	struct Entry {
+		const char* Name;
+		token_type Type;
+		int64_t Value;
+	};
+	static const Entry entries[] = {
+		{"__float8__", TOKEN_FLOATIZE, FLOAT_8},
+		{"__float16__", TOKEN_FLOATIZE, FLOAT_16},
+		{"__float32__", TOKEN_FLOATIZE, FLOAT_32},
+		{"__float64__", TOKEN_FLOATIZE, FLOAT_64},
+		{"__float80m__", TOKEN_FLOATIZE, FLOAT_80M},
+		{"__float80e__", TOKEN_FLOATIZE, FLOAT_80E},
+		{"__float128l__", TOKEN_FLOATIZE, FLOAT_128L},
+		{"__float128h__", TOKEN_FLOATIZE, FLOAT_128H},
+		{"__utf16__", TOKEN_STRFUNC, STRFUNC_UTF16},
+		{"__utf32__", TOKEN_STRFUNC, STRFUNC_UTF32},
+		{"__infinity__", TOKEN_FLOAT, 0},
+		{"__nan__", TOKEN_FLOAT, 0},
+		{"__qnan__", TOKEN_FLOAT, 0},
+		{"__snan__", TOKEN_FLOAT, 0},
+		{"seg", TOKEN_SEG, 0},
+		{"wrt", TOKEN_WRT, 0}
+	};
+	for (const Entry& entry : entries) {
+		if (!StrCompare(token, entry.Name)) {
+			tv->t_integer = entry.Value;
+			return tv->t_type = entry.Type;
+		}
+	}
+	return tv->t_type = TOKEN_ID;
+}
+
 int stdscan(void* private_data, struct tokenval* tv)
 {
 	char ourcopy[MAX_KEYWORD + 1], * r, * s;
@@ -585,7 +621,8 @@ int stdscan(void* private_data, struct tokenval* tv)
 		*r = '\0';
 		/* right, so we have an identifier sitting in temp storage. now,
 		 * is it actually a register or instruction name, or what? */
-		return aasm_token_hash(ourcopy, tv);
+		return stdscan_common_identifiers ?
+			common_token_hash(ourcopy, tv) : aasm_token_hash(ourcopy, tv);
 	}
 	else if (*stdscan_bufptr == '$' && !isnumchar(stdscan_bufptr[1])) {
 	 /*
@@ -732,6 +769,15 @@ int stdscan(void* private_data, struct tokenval* tv)
 		return tv->t_type = (token_type)(uint8_t)(*stdscan_bufptr++);
 }
 
+int common_stdscan(void* private_data, struct tokenval* tv)
+{
+	bool previous = stdscan_common_identifiers;
+	stdscan_common_identifiers = true;
+	int token = stdscan(private_data, tv);
+	stdscan_common_identifiers = previous;
+	return token;
+}
+
 #endif
 
 // ---- * ----
@@ -756,7 +802,7 @@ void* aasm_realloc(void* q, size_t size)
  */
 static const char *prefix_names[] = {
 	"a16", "a32", "a64", "asp", "lock", "o16", "o32", "o64", "osp",
-	"rep", "repe", "repne", "repnz", "repz", "times", "wait"
+	"rep", "repe", "repne", "repnz", "repz", "wait"
 };
 const char *prefix_name(int token)
 {

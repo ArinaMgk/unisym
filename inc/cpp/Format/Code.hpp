@@ -23,6 +23,7 @@
 #define UNISYM_FORMAT_CODE_HPP
 
 #include "../../c/stdinc.h"
+#include "../Lango/Target.hpp"
 
 namespace uni {
 
@@ -71,6 +72,8 @@ public:
 	virtual ~CodeendInterface() = default;
 
 	virtual const CodeendInfo& DumpCodeend() const = 0;
+	virtual bool SupportsArchitecture(
+		uni::lango::ArchitectureKind architecture) const = 0;
 	virtual const unsigned char* StandardMacros() const = 0;
 	virtual void PrepareFilename(char* input_name, char* output_name) = 0;
 	virtual void Initialize(FILE* output) = 0;

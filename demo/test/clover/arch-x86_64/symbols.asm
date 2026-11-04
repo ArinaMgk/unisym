@@ -2,6 +2,8 @@
 
 bits 64
 
+symbol_constant equ 0x2a
+
 section .text
 symbol_base:
 	db 0x11
@@ -12,4 +14,5 @@ symbol_base:
 	times 3 db 0xaa
 symbol_end:
 	db $-symbol_base
+	db symbol_constant
 

@@ -324,10 +324,135 @@ CheckCodeends()
 	Pass "Codeend selection"
 }
 
+CheckArchends()
+{
+	ArchitectureOutput="$WorkDirectory/architectures.txt"
+	ArchitectureError="$WorkDirectory/architectures.stderr"
+	DefaultOutput="$WorkDirectory/architecture-default.bin"
+	MarchOutput="$WorkDirectory/architecture-march.bin"
+	LongOutput="$WorkDirectory/architecture-long.bin"
+	InvalidError="$WorkDirectory/invalid-architecture.stderr"
+
+	"$AasmExecutable" -ha > "$ArchitectureOutput" 2> "$ArchitectureError" || \
+		Fail "architecture listing failed"
+	[ ! -s "$ArchitectureError" ] || \
+		Fail "architecture listing produced diagnostics"
+	grep -Eq '^  \* x86[[:space:]]' "$ArchitectureOutput" || \
+		Fail "default architecture differs"
+
+	"$AasmExecutable" -Ox -f bin -o "$DefaultOutput" \
+		"$TestDirectory/basic.asm" \
+		>"$WorkDirectory/architecture-default.stdout" 2> "$ArchitectureError" || \
+		Fail "default architecture did not assemble"
+	[ ! -s "$ArchitectureError" ] || \
+		Fail "default architecture produced diagnostics"
+
+	"$AasmExecutable" -march=x86 -Ox -f bin -o "$MarchOutput" \
+		"$TestDirectory/basic.asm" \
+		>"$WorkDirectory/architecture-march.stdout" 2> "$ArchitectureError" || \
+		Fail "-march architecture did not assemble"
+	[ ! -s "$ArchitectureError" ] || \
+		Fail "-march architecture produced diagnostics"
+
+	"$AasmExecutable" --arch x86 -Ox -f bin -o "$LongOutput" \
+		"$TestDirectory/basic.asm" \
+		>"$WorkDirectory/architecture-long.stdout" 2> "$ArchitectureError" || \
+		Fail "--arch architecture did not assemble"
+	[ ! -s "$ArchitectureError" ] || \
+		Fail "--arch architecture produced diagnostics"
+
+	cmp -s "$DefaultOutput" "$MarchOutput" || \
+		Fail "-march changed x86 output"
+	cmp -s "$DefaultOutput" "$LongOutput" || \
+		Fail "--arch changed x86 output"
+
+	"$AasmExecutable" -march=invalid-architecture \
+		"$TestDirectory/basic.asm" \
+		>"$WorkDirectory/invalid-architecture.stdout" 2> "$InvalidError"
+	ResultCode="$?"
+	[ "$ResultCode" -ne 0 ] || Fail "invalid architecture was accepted"
+	grep -Fq "unrecognised architecture \`invalid-architecture'" \
+		"$InvalidError" || Fail "invalid architecture diagnostic differs"
+	Pass "Archend selection"
+}
+
+CheckCommonStatements()
+{
+	SourceFile="$WorkDirectory/common-statements.asm"
+	InputFile="$WorkDirectory/common-statements.input"
+	OutputFile="$WorkDirectory/common-statements.bin"
+	ExpectedFile="$WorkDirectory/common-statements.expected"
+	ActualHexFile="$WorkDirectory/common-statements.hex"
+	ExpectedHexFile="$WorkDirectory/common-statements.expected.hex"
+
+	printf '\x10\x20\x30\x40\x50' > "$InputFile"
+	printf '\x03\x04\x34\x12\x34\x12\x88\x77\x66\x55\x08\x07\x06\x05\x04\x03\x02\x01' > "$ExpectedFile"
+	printf '\x54\x00\x00\x00\x00\x00\x00\x00\x00\x00' >> "$ExpectedFile"
+	printf '\x4f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' >> "$ExpectedFile"
+	printf '\x59\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' >> "$ExpectedFile"
+	printf '\x20\x30\x40' >> "$ExpectedFile"
+	printf '%s\n' \
+		'bits 64' \
+		'section .data' \
+		'constant equ 3' \
+		'db constant' \
+		'eax: equ 4' \
+		'db eax' \
+		'times 2 dw 0x1234' \
+		'dd 0x55667788' \
+		'dq 0x0102030405060708' \
+		'dt "T"' \
+		'do "O"' \
+		'dy "Y"' \
+		"incbin \"$InputFile\", 1, 3" \
+		'section .bss' \
+		'resb constant' > "$SourceFile"
+
+	"$AasmExecutable" -Ox -f bin -o "$OutputFile" "$SourceFile" \
+		>"$WorkDirectory/common-statements.stdout" \
+		2>"$WorkDirectory/common-statements.stderr" || \
+		Fail "common statements did not assemble"
+	[ ! -s "$WorkDirectory/common-statements.stderr" ] || \
+		Fail "common statements produced diagnostics"
+
+	if ! cmp -s "$ExpectedFile" "$OutputFile"; then
+		NormalizeHex "$ExpectedFile" > "$ExpectedHexFile"
+		NormalizeHex "$OutputFile" > "$ActualHexFile"
+		diff -u "$ExpectedHexFile" "$ActualHexFile" >&2
+		Fail "common statement bytes differ"
+	fi
+	Pass "common statement bytes"
+}
+
+CheckPrefixOnly()
+{
+	SourceFile="$WorkDirectory/prefix-only.asm"
+	OutputFile="$WorkDirectory/prefix-only.bin"
+	ExpectedFile="$WorkDirectory/prefix-only.expected"
+
+	printf '%s\n' \
+		'bits 64' \
+		'section .text' \
+		'lock' \
+		'rep' \
+		'o16' \
+		'times 2 lock' > "$SourceFile"
+	printf '\xf0\xf3\x66\xf0\xf0' > "$ExpectedFile"
+
+	"$AasmExecutable" -Ox -f bin -o "$OutputFile" "$SourceFile" \
+		>"$WorkDirectory/prefix-only.stdout" \
+		2>"$WorkDirectory/prefix-only.stderr" || \
+		Fail "prefix-only input did not assemble"
+	[ ! -s "$WorkDirectory/prefix-only.stderr" ] || \
+		Fail "prefix-only input produced diagnostics"
+	cmp -s "$ExpectedFile" "$OutputFile" || Fail "prefix-only bytes differ"
+	Pass "prefix-only bytes"
+}
+
 CheckHex basic '48 b8 01 00 00 00 00 00 00 00 48 83 c0 02 48 83 f8 03 75 03 31 c0 c3 b8 01 00 00 00 c3 00 00 00 ef cd ab 89 67 45 23 01' -Ox
 CheckHex encoding '48 b8 88 77 66 55 44 33 22 11 49 89 c0 49 83 c1 7f 49 83 ea ff 31 c0 49 d1 e3 41 54 41 5d c3' -Ox
 CheckHex addressing '48 8b 03 48 8b 4d 00 4b 8b 94 ec 34 12 00 00 44 89 46 07 4c 8d 0d 01 00 00 00 c3 11 22 33 44 55 66 77 88' -Ox
-CheckHex symbols '11 01 00 03 00 00 00 12 00 00 00 00 00 00 00 aa aa aa 12' -Ox
+CheckHex symbols '11 01 00 03 00 00 00 12 00 00 00 00 00 00 00 aa aa aa 12 2a' -Ox
 CheckHex data '41 41 53 4d 00 34 12 ef cd ab 89 ef cd ab 89 67 45 23 01 5a 5a 5a 5a cc cc cc cc cc cc cc cc cc' -Ox
 CheckHex prefix 'f0 ff 00 f3 a4 64 48 8b 04 25 20 00 00 00 66 89 d8 67 8b 40 04 c3' -Ox
 CheckHex structure '8b 45 01 00 7a 78 56 34 12' -Ox
@@ -338,5 +463,8 @@ CheckDebugOutput
 CheckListing
 CheckInvalidAddress
 CheckCodeends
+CheckArchends
+CheckCommonStatements
+CheckPrefixOnly
 
 printf '\033[1;32mall AASM x86-64 regression checks passed\033[0m\n'

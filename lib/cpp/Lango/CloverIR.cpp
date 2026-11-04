@@ -946,10 +946,11 @@ namespace clover {
 			}
 
 			bool ParseGlobal(Module& module, bool read_only,
-				Linkage linkage = Linkage::External) {
+				Linkage linkage = Linkage::External, bool declaration = false) {
 				Global global;
 				global.is_read_only = read_only;
 				global.linkage = linkage;
+				global.is_declaration = declaration;
 				if (!Expect(read_only ? "constant" : "global") ||
 					!Expect("@") || !ReadName(global.name) ||
 					!ReadType(global.type) || global.type == Type::Void)
@@ -958,6 +959,10 @@ namespace clover {
 					Advance();
 					if (!ReadNumber(global.element_count) || global.element_count <= 0)
 						return Error("invalid global element count");
+				}
+				if (declaration) {
+					module.globals.Append(global);
+					return true;
 				}
 				if (!Expect("=")) return Error("invalid global initializer");
 				if (Is("{")) {
@@ -1012,6 +1017,13 @@ namespace clover {
 						}
 						else return Error("internal requires a global, constant, or function");
 					}
+					else if (Is("declare")) {
+						Advance();
+						if (!Is("global") && !Is("constant"))
+							return Error("declare requires a global or constant");
+						bool read_only = Is("constant");
+						if (!ParseGlobal(module, read_only, Linkage::External, true)) return false;
+					}
 					else if (Is("global") || Is("constant")) {
 						bool read_only = Is("constant");
 						if (!ParseGlobal(module, read_only)) return false;
@@ -1038,6 +1050,13 @@ namespace clover {
 			output.OutChar('\n');
 		}
 		for (const Global& global : module.globals) {
+			if (global.is_declaration) {
+				output.OutFormat("declare %s @%s %s", global.is_read_only ?
+					"constant" : "global", global.name.reference(), TypeName(global.type));
+				if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
+				output.OutChar('\n');
+				continue;
+			}
 			if (global.linkage == Linkage::Internal) output.OutFormat("internal ");
 			output.OutFormat("%s @%s %s", global.is_read_only ? "constant" : "global",
 				global.name.reference(), TypeName(global.type));

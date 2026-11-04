@@ -24,26 +24,12 @@
 
 
 
-_ESYM_C int in_abs_seg;          /* ABSOLUTE segment flag */
-_ESYM_C int32_t abs_seg;            /* ABSOLUTE segment */
-_ESYM_C int32_t abs_offset;         /* ABSOLUTE segment offset */
-
-static int is_comma_next(void);
-
 static int i;
 static struct tokenval tokval;
-static uni::CodeendInterface *codeend;
-static struct location *location;         /* Pointer to current line's segment,offset */
-
-void X86Parser::Initialize(uni::CodeendInterface& output, struct location* locp)
-{
-	codeend = &output;
-	location = locp;
-}
 
 static int prefix_slot(enum prefixes prefix)
 {
-	switch (prefix) {
+	switch (static_cast<int>(prefix)) {
 	case P_WAIT:
 		return PPS_WAIT;
 	case R_CS:
@@ -168,71 +154,32 @@ static void process_size_override(insn* result, int operand)
 }
 
 X86Instruction* X86Parser::ParseLine(int pass, char* buffer,
-	X86Instruction* result, evalfunc evaluate,
-	X86LabelDefinition ldef, uni::CodeendInterface& output)
+	X86Instruction* result, evalfunc evaluate)
 {
-	codeend = &output;
 	int operand;
 	int critical;
 	struct eval_hints hints;
 	int j;
-	bool first;
-	bool insn_is_label = false;
 	bool recover;
 
-restart_parse:
-	first = true;
 	result->forw_ref = false;
+	result->prefix_only = false;
 
 	stdscan_reset();
 	stdscan_bufptr = buffer;
 	i = stdscan(NULL, &tokval);
 
-	result->label = NULL;       /* Assume no label */
-	result->eops = NULL;        /* must do this, whatever happens */
 	result->operands = 0;       /* must initialize this */
 
 	if (i == 0) {               /* blank line - ignore */
 		result->opcode = I_none;    /* and no instruction either */
 		return result;
 	}
-	if (i != TOKEN_ID && i != TOKEN_INSN && i != TOKEN_PREFIX &&
+	if (i != TOKEN_INSN && i != TOKEN_PREFIX &&
 		(i != TOKEN_REG || (REG_SREG & ~aasm_reg_flags[tokval.t_integer]))) {
 		//--auto clean flag
-		aasm_log(_LOG_ERROR, "label or instruction expected at start of line");
+		aasm_log(_LOG_ERROR, "instruction expected at start of line");
 		result->opcode = I_none;
-		return result;
-	}
-
-	if (i == TOKEN_ID || (insn_is_label && i == TOKEN_INSN)) {
-		/* there's a label here */
-		first = false;
-		result->label = tokval.t_charptr;
-		i = stdscan(NULL, &tokval);
-		if (i == ':') {         /* skip over the optional colon */
-			i = stdscan(NULL, &tokval);
-		}
-		else if (i == 0) {
-			//--auto clean flag
-			log_pass1 = 1;
-			log_warnt = ERR_WARN_OL;
-			aasm_log(_LOG_WARN, "label alone on a line without a colon might be in error");
-		}
-		if (i != TOKEN_INSN || tokval.t_integer != I_EQU) {
-			/*
-			 * FIXME: location->segment could be NO_SEG, in which case
-			 * it is possible we should be passing 'abs_seg'. Look into this.
-			 * Work out whether that is *really* what we should be doing.
-			 * Generally fix things. I think this is right as it is, but
-			 * am still not certain.
-			 */
-			ldef(result->label, in_abs_seg ? abs_seg : location->segment,
-				location->offset, NULL, true, false, *codeend);
-		}
-	}
-
-	if (i == 0) {
-		result->opcode = I_none;    /* this line contains just a label */
 		return result;
 	}
 
@@ -243,51 +190,21 @@ restart_parse:
 	while (i == TOKEN_PREFIX ||
 		(i == TOKEN_REG && !(REG_SREG & ~aasm_reg_flags[tokval.t_integer])))
 	{
-		first = false;
-
-			/*
-			 * Handle special case: the TIMES prefix.
-			 */
-		if (i == TOKEN_PREFIX && tokval.t_integer == P_TIMES) {
-			expr* value;
-
-			i = stdscan(NULL, &tokval);
-			value = evaluate(stdscan, NULL, &tokval, NULL, pass0, NULL);
-			i = tokval.t_type;
-			if (!value) {       /* but, error in evaluator */
-				result->opcode = I_none;    /* unrecoverable parse error: */
-				return result;  /* ignore this instruction */
-			}
-			if (!is_simple(value)) {
+		int slot = prefix_slot((prefixes)tokval.t_integer);
+		if (result->prefixes[slot]) {
+			if (result->prefixes[slot] == tokval.t_integer)
+			{
 				//--auto clean flag
-				aasm_log(_LOG_ERROR, "non-constant argument supplied to TIMES");
-				result->times = 1L;
+				aasm_log(_LOG_WARN, "instruction has redundant prefixes");
 			}
-			else {
-				result->times = value->value;
-				if (value->value < 0 && pass0 == 2) {
-					aasm_log(_LOG_ERROR, "TIMES value %d is negative", value->value);
-					result->times = 0;
-				}
+			else
+			{
+				//--auto clean flag
+				aasm_log(_LOG_ERROR, "instruction has conflicting prefixes");
 			}
 		}
-		else {
-			int slot = prefix_slot((prefixes)tokval.t_integer);
-			if (result->prefixes[slot]) {
-				if (result->prefixes[slot] == tokval.t_integer)
-				{
-					//--auto clean flag
-					aasm_log(_LOG_WARN, "instruction has redundant prefixes");
-				}
-				else
-				{
-					//--auto clean flag
-					aasm_log(_LOG_ERROR, "instruction has conflicting prefixes");
-				}
-			}
-			result->prefixes[slot] = (prefixes)tokval.t_integer;
-			i = stdscan(NULL, &tokval);
-		}
+		result->prefixes[slot] = (prefixes)tokval.t_integer;
+		i = stdscan(NULL, &tokval);
 	}
 
 	if (i != TOKEN_INSN) {
@@ -299,16 +216,8 @@ restart_parse:
 				break;
 
 		if (i == 0 && pfx != P_none) {
-			/*
-			 * Instruction prefixes are present, but no actual
-			 * instruction. This is allowed: at this point we
-			 * invent a notional instruction of RESB 0.
-			 */
-			result->opcode = I_RESB;
-			result->operands = 1;
-			result->oprs[0].type = IMMEDIATE;
-			result->oprs[0].offset = 0L;
-			result->oprs[0].segment = result->oprs[0].wrt = NO_SEG;
+			result->opcode = I_none;
+			result->prefix_only = true;
 			return result;
 		}
 		else {
@@ -322,238 +231,7 @@ restart_parse:
 	result->opcode = (_asm_opcode)tokval.t_integer;
 	result->condition = (ccode)tokval.t_inttwo;
 
-	/*
-	 * INCBIN cannot be satisfied with incorrectly
-	 * evaluated operands, since the correct values _must_ be known
-	 * on the first pass. Hence, even in pass one, we set the
-	 * `critical' flag on calling evaluate(), so that it will bomb
-	 * out on undefined symbols.
-	 */
-	if (result->opcode == I_INCBIN) {
-		critical = (pass0 < 2 ? 1 : 2);
-
-	}
-	else
-		critical = (pass == 2 ? 2 : 0);
-
-	if (result->opcode == I_DB || result->opcode == I_DW ||
-		result->opcode == I_DD || result->opcode == I_DQ ||
-		result->opcode == I_DT || result->opcode == I_DO ||
-		result->opcode == I_DY || result->opcode == I_INCBIN) {
-		extop* eop, ** tail = &result->eops, ** fixptr;
-		int oper_num = 0;
-		int32_t sign;
-
-		result->eops_float = false;
-
-		/*
-		 * Begin to read the DB/DW/DD/DQ/DT/DO/INCBIN operands.
-		 */
-		while (1) {
-			i = stdscan(NULL, &tokval);
-			if (i == 0)
-				break;
-			else if (first && i == ':') {
-				insn_is_label = true;
-				goto restart_parse;
-			}
-			first = false;
-			fixptr = tail;
-			eop = *tail = (extop*)malc(sizeof(extop));
-			tail = &eop->next;
-			eop->next = NULL;
-			eop->type = EOT_NOTHING;
-			oper_num++;
-			sign = +1;
-
-			/* is_comma_next() here is to distinguish this from
-			   a string used as part of an expression... */
-			if (i == TOKEN_STR && is_comma_next()) {
-				eop->type = EOT_DB_STRING;
-				eop->stringval = tokval.t_charptr;
-				eop->stringlen = tokval.t_inttwo;
-				i = stdscan(NULL, &tokval);     /* eat the comma */
-			}
-			else if (i == TOKEN_STRFUNC) {
-				bool parens = false;
-				const char* funcname = tokval.t_charptr;
-				enum strfunc func = (enum strfunc)tokval.t_integer;
-				i = stdscan(NULL, &tokval);
-				if (i == '(') {
-					parens = true;
-					i = stdscan(NULL, &tokval);
-				}
-				if (i != TOKEN_STR) {
-					//--auto clean flag
-					aasm_log(_LOG_ERROR, "%s must be followed by a string constant", funcname);
-					eop->type = EOT_NOTHING;
-				}
-				else {
-					eop->type = EOT_DB_STRING_FREE;
-					eop->stringlen =
-						string_transform(tokval.t_charptr, tokval.t_inttwo,
-							&eop->stringval, func);
-					if (eop->stringlen == (size_t)-1) {
-						//--auto clean flag
-						aasm_log(_LOG_ERROR, "invalid string for transform");
-						eop->type = EOT_NOTHING;
-					}
-				}
-				if (parens && i && i != ')') {
-					i = stdscan(NULL, &tokval);
-					if (i != ')') {
-						//--auto clean flag
-						aasm_log(_LOG_ERROR, "unterminated %s function", funcname);
-					}
-				}
-				if (i && i != ',')
-					i = stdscan(NULL, &tokval);
-			}
-			else if (i == '-' || i == '+') {
-				char* save = stdscan_bufptr;
-				int token = i;
-				sign = (i == '-') ? -1 : 1;
-				i = stdscan(NULL, &tokval);
-				if (i != TOKEN_FLOAT) {
-					stdscan_bufptr = save;
-					i = tokval.t_type = (token_type)token;
-					goto is_expression;
-				}
-				else {
-					goto is_float;
-				}
-			}
-			else if (i == TOKEN_FLOAT) {
-			is_float:
-				eop->type = EOT_DB_STRING;
-				result->eops_float = true;
-				switch (result->opcode) {
-				case I_DB:
-					eop->stringlen = 1;
-					break;
-				case I_DW:
-					eop->stringlen = 2;
-					break;
-				case I_ARINA:
-				case I_DD:
-					eop->stringlen = 4;
-					break;
-				case I_DQ:
-					eop->stringlen = 8;
-					break;
-				case I_DT:
-					eop->stringlen = 10;
-					break;
-				case I_DO:
-					eop->stringlen = 16;
-					break;
-				case I_DY:
-					//--auto clean flag
-					aasm_log(_LOG_ERROR, "floating-point constant encountered in DY instruction");
-					eop->stringlen = 0;
-					break;
-				default:
-					//--auto clean flag
-					aasm_log(_LOG_ERROR, "floating-point constant encountered in unknown instruction");
-					/*
-					 * fix suggested by Pedro Gimeno... original line
-					 * was:
-					 * eop->type = EOT_NOTHING;
-					 */
-					eop->stringlen = 0;
-					break;
-				}
-				eop = (extop*)aasm_realloc(eop, sizeof(extop) + eop->stringlen);
-				tail = &eop->next;
-				*fixptr = eop;
-				eop->stringval = (char*)eop + sizeof(extop);
-				if (!eop->stringlen ||
-					!float_const(tokval.t_charptr, sign, (uint8_t*)eop->stringval, eop->stringlen))
-					eop->type = EOT_NOTHING;
-				i = stdscan(NULL, &tokval); /* eat the comma */
-			}
-			else {
-		 /* anything else, assume it is an expression */
-				expr* value;
-
-			is_expression:
-				value = evaluate(stdscan, NULL, &tokval, NULL, critical, NULL);
-				i = tokval.t_type;
-				if (!value) {   /* error in evaluator */
-					result->opcode = I_none;        /* unrecoverable parse error: */
-					return result;      /* ignore this instruction */
-				}
-				if (is_unknown(value)) {
-					eop->type = EOT_DB_NUMBER;
-					eop->offset = 0;    /* doesn't matter what we put */
-					eop->segment = eop->wrt = NO_SEG;   /* likewise */
-				}
-				else if (is_reloc(value)) {
-					eop->type = EOT_DB_NUMBER;
-					eop->offset = reloc_value(value);
-					eop->segment = reloc_seg(value);
-					eop->wrt = reloc_wrt(value);
-				}
-				else {
-					//--auto clean flag
-					aasm_log(_LOG_ERROR, "operand %d: expression is not simple or relocatable", oper_num);
-				}
-			}
-
-			/*
-			 * We're about to call stdscan(), which will eat the
-			 * comma that we're currently sitting on between
-			 * arguments. However, we'd better check first that it
-			 * _is_ a comma.
-			 */
-			if (i == 0)         /* also could be EOL */
-				break;
-			if (i != ',') {
-				//--auto clean flag
-				aasm_log(_LOG_ERROR, "comma expected after operand %d", oper_num);
-				result->opcode = I_none;    /* unrecoverable parse error: */
-				return result;  /* ignore this instruction */
-			}
-		}
-
-		if (result->opcode == I_INCBIN) {
-			/*
-			 * Correct syntax for INCBIN is that there should be
-			 * one string operand, followed by one or two numeric
-			 * operands.
-			 */
-			//--auto clean flag
-			if (!result->eops || result->eops->type != EOT_DB_STRING)
-				aasm_log(_LOG_ERROR, "`incbin' expects a file name");
-			else if (result->eops->next &&
-				result->eops->next->type != EOT_DB_NUMBER)
-				aasm_log(_LOG_ERROR, "`incbin': second parameter is", " non-numeric");
-			else if (result->eops->next && result->eops->next->next &&
-				result->eops->next->next->type != EOT_DB_NUMBER)
-				aasm_log(_LOG_ERROR, "`incbin': third parameter is", " non-numeric");
-			else if (result->eops->next && result->eops->next->next &&
-				result->eops->next->next->next)
-				aasm_log(_LOG_ERROR, "`incbin': more than three parameters");
-			else
-				return result;
-			/*
-			 * If we reach here, one of the above errors happened.
-			 * Throw the instruction away.
-			 */
-			result->opcode = I_none;
-			return result;
-		}
-		else /* DB ... */ if (oper_num == 0)
-		{
-			//--auto clean flag
-			log_pass1 = 1;
-			aasm_log(_LOG_WARN, "no operand for data declaration");
-		}
-		else
-			result->operands = oper_num;
-
-		return result;
-	}
+	critical = (pass == 2 ? 2 : 0);
 
 	/* right. Now we begin to parse the operands. There may be up to four
 	 * of these, separated by commas, and terminated by a zero token. */
@@ -571,11 +249,6 @@ restart_parse:
 		i = stdscan(NULL, &tokval);
 		if (i == 0)
 			break;              /* end of operands: get out of here */
-		else if (first && i == ':') {
-			insn_is_label = true;
-			goto restart_parse;
-		}
-		first = false;
 		result->oprs[operand].type = 0; /* so far, no override */
 		while (i == TOKEN_SPECIAL) {    /* size specifiers */
 			switch ((int)tokval.t_integer) {
@@ -948,66 +621,11 @@ restart_parse:
 
 	result->operands = operand; /* set operand count */
 
-/* clear remaining operands */
+	/* clear remaining operands */
 	while (operand < MAX_OPERANDS)
 		result->oprs[operand++].type = 0;
-
-		/*
-		 * Transform RESW, RESD, RESQ, REST, RESO, RESY into RESB.
-		 */
-	switch (result->opcode) {
-	case I_RESW:
-		result->opcode = (_asm_opcode)I_RESB;
-		result->oprs[0].offset *= 2;
-		break;
-	case I_RESD:
-		result->opcode = I_RESB;
-		result->oprs[0].offset *= 4;
-		break;
-	case I_RESQ:
-		result->opcode = I_RESB;
-		result->oprs[0].offset *= 8;
-		break;
-	case I_REST:
-		result->opcode = I_RESB;
-		result->oprs[0].offset *= 10;
-		break;
-	case I_RESO:
-		result->opcode = I_RESB;
-		result->oprs[0].offset *= 16;
-		break;
-	case I_RESY:
-		result->opcode = I_RESB;
-		result->oprs[0].offset *= 32;
-		break;
-	default:
-		break;
-	}
 
 	return result;
 }
 
-static int is_comma_next(void)
-{
-	char* p;
-	int i;
-	struct tokenval tv;
-
-	p = stdscan_bufptr;
-	i = stdscan(NULL, &tv);
-	stdscan_bufptr = p;
-	return (i == ',' || i == ';' || !i);
-}
-
-void X86Parser::CleanupInstruction(X86Instruction* i)
-{
-	extop* e;
-
-	while ((e = i->eops)) {
-		i->eops = e->next;
-		if (e->type == EOT_DB_STRING_FREE)
-			memf(e->stringval);
-		memf(e);
-	}
-}
 

@@ -150,6 +150,83 @@ namespace clover {
 			return EncodeFloatingConstant((double)integer, destination, bits);
 		}
 
+		FrontendCGlobal* FindGlobal(uni::Vector<FrontendCGlobal>& globals,
+			const char* name) {
+			for (FrontendCGlobal& global : globals)
+				if (!StrCompare(global.name.reference(), name)) return &global;
+			return nullptr;
+		}
+
+		bool MergeGlobalType(const FrontendCType& previous,
+			const FrontendCType& current, FrontendCType& merged) {
+			if (previous.array_dimension_count != current.array_dimension_count)
+				return false;
+			FrontendCType left = previous;
+			FrontendCType right = current;
+			for (stduint index = 0; index < left.array_dimension_count; index++) {
+				if (left.array_dimensions[index] && right.array_dimensions[index] &&
+					left.array_dimensions[index] != right.array_dimensions[index]) return false;
+				stduint dimension = left.array_dimensions[index] ?
+					left.array_dimensions[index] : right.array_dimensions[index];
+				left.array_dimensions[index] = dimension;
+				right.array_dimensions[index] = dimension;
+			}
+			if (!left.IsSame(right)) return false;
+			merged = left;
+			return true;
+		}
+
+		void SetGlobalShape(Global& global, const FrontendCType& type,
+			const FrontendCTargetInfo& target) {
+			global.type = CloverTypeFor(type, target);
+			global.element_count = type.HasIncompleteArray() ? 1 :
+				(stdsint)type.StorageElementCount();
+		}
+
+		bool LowerGlobalArrayInitializer(Global& global, const FrontendCType& type,
+			uni::Nnode* initializer,
+			const uni::Vector<FrontendCEnumerator>& constants,
+			const FrontendCTargetInfo& target,
+			const FrontendCDiagnostics& diagnostics) {
+			FrontendCType element_type = type;
+			element_type.array_dimension_count = 0;
+			if (element_type.scalar_kind == FrontendCScalarKind::LongDouble) {
+				diagnostics.Report(DiagnosticStage::Lowering,
+					"global long double array initialization is not supported yet",
+					initializer);
+				return false;
+			}
+			uni::Vector<stdsint> string_values;
+			bool is_string = FindStringArrayInitializer(initializer) != nullptr;
+			if (is_string && !BuildStringArrayValues(type, initializer, string_values)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"invalid global character array string initializer", initializer);
+				return false;
+			}
+			uni::Vector<uni::Nnode*> slots;
+			if (!is_string && !BuildArrayInitializerSlots(type, initializer, slots)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"invalid or excessive global array initializer", initializer);
+				return false;
+			}
+			for (stduint index = 0; index < type.StorageElementCount(); index++) {
+				stdsint low = is_string ? string_values[index] : 0;
+				stdsint high = 0;
+				if (!is_string && slots[index] &&
+					!ParseStaticScalarInitializer(slots[index], target, constants,
+						element_type, low, high)) {
+					diagnostics.Report(DiagnosticStage::Lowering,
+						"global array initializer must contain constant expressions",
+						slots[index]);
+					return false;
+				}
+				if (element_type.integer_rank == FrontendCIntegerRank::Bool &&
+					!element_type.enum_id) low = low != 0;
+				global.initializer_values.Append(low);
+			}
+			return true;
+		}
+
 		bool LowerGlobalDeclarator(uni::Nnode* node, const FrontendCType& base_type,
 			Module& module, uni::Vector<FrontendCGlobal>& globals,
 			const uni::Vector<FrontendCEnumerator>& constants,
@@ -181,9 +258,10 @@ namespace clover {
 					"invalid global declarator", declarator ? declarator : declaration);
 				return false;
 			}
-			if (type.HasIncompleteArray()) {
+			if (type.HasIncompleteArray() && initializer_node &&
+				!CompleteArrayTypeFromInitializer(type, initializer_node)) {
 				diagnostics.Report(DiagnosticStage::Semantic,
-					"global object has incomplete array type", identifier);
+					"cannot infer global array bound from initializer", identifier);
 				return false;
 			}
 			if (type.record_id && !type.IsPointer()) {
@@ -197,46 +275,102 @@ namespace clover {
 					"global object has incomplete enum type", identifier);
 				return false;
 			}
-			for (const FrontendCGlobal& previous : globals)
-				if (!StrCompare(previous.name.reference(), identifier->addr)) {
-					diagnostics.Report(DiagnosticStage::Semantic,
-						"redefinition of global variable", identifier);
-					return false;
-				}
-			if (FindConstant(constants, identifier->addr)) {
+			FrontendCGlobal* previous = FindGlobal(globals, identifier->addr);
+			if (!previous && FindConstant(constants, identifier->addr)) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"global variable conflicts with enumerator", identifier);
 				return false;
 			}
-			Global global;
-			global.name = identifier->addr;
+			FrontendCStorageClass storage = type_info.FindStorage(declaration);
+			Linkage requested_linkage = storage == FrontendCStorageClass::Static ?
+				Linkage::Internal : Linkage::External;
+			bool definition = initializer_node != nullptr;
+			bool tentative = !definition && storage != FrontendCStorageClass::Extern;
+			if (previous) {
+				FrontendCType merged_type;
+				FrontendCType previous_type = previous->type;
+				if (previous->has_provisional_array_bound && type.IsArray() &&
+					type.array_dimensions[0]) previous_type.array_dimensions[0] = 0;
+				if (!MergeGlobalType(previous_type, type, merged_type)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"conflicting global variable types", identifier);
+					return false;
+				}
+				if (storage == FrontendCStorageClass::Static &&
+					previous->linkage == Linkage::External) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"global variable linkage conflicts with previous declaration",
+						identifier);
+					return false;
+				}
+				if (definition && previous->has_definition) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"redefinition of global variable", identifier);
+					return false;
+				}
+				previous->type = merged_type;
+				type = merged_type;
+				if (type.IsArray() && type.array_dimensions[0] &&
+					(previous_type.array_dimensions[0] == 0 ||
+					initializer_node)) previous->has_provisional_array_bound = false;
+			}
+			else {
+				FrontendCGlobal frontend_global;
+				frontend_global.name = identifier->addr;
+				if (tentative && type.HasIncompleteArray()) {
+					type.array_dimensions[0] = 1;
+					frontend_global.has_provisional_array_bound = true;
+				}
+				frontend_global.type = type;
+				frontend_global.linkage = requested_linkage;
+				Global global;
+				global.name = identifier->addr;
+				global.is_read_only = type.IsConstObject();
+				global.linkage = requested_linkage;
+				global.is_declaration = !definition && !tentative;
+				SetGlobalShape(global, type, target);
+				module.globals.Append(global);
+				frontend_global.module_index = module.globals.Count();
+				globals.Append(frontend_global);
+				previous = &globals[globals.Count() - 1];
+			}
+			if (tentative && type.HasIncompleteArray()) {
+				type.array_dimensions[0] = 1;
+				previous->type = type;
+				previous->has_provisional_array_bound = true;
+			}
+			Global& global = module.globals[previous->module_index - 1];
+			SetGlobalShape(global, type, target);
 			global.is_read_only = type.IsConstObject();
-			if (type_info.FindStorage(declaration) == FrontendCStorageClass::Static)
-				global.linkage = Linkage::Internal;
-			global.type = CloverTypeFor(type, target);
-			global.element_count = (stdsint)type.StorageElementCount();
-			bool initializer_valid = !initializer_node ||
+			global.linkage = previous->linkage;
+			stduint alignment_bits = type_info.AlignBits(type, target);
+			previous->alignment = alignment_bits &&
+				!(alignment_bits % target.char_bits) ?
+				alignment_bits / target.char_bits : 0;
+			if (tentative) {
+				global.is_declaration = false;
+			}
+			if (!definition) return true;
+			global.is_declaration = false;
+			global.initializer = 0;
+			global.initializer_high = 0;
+			global.initializer_values.Clear();
+			bool initializer_valid = type.IsArray() ?
+				LowerGlobalArrayInitializer(global, type, initializer_node,
+					constants, target, diagnostics) :
 				(type.IsFloating() ? ParseGlobalFloatingConstant(initializer_node,
 					target, constants, type, global.initializer,
 					global.initializer_high) :
 					ParseGlobalConstant(initializer_node, target,
 						constants, global.initializer));
 			if (!initializer_valid) {
-				diagnostics.Report(DiagnosticStage::Lowering,
+				if (!type.IsArray()) diagnostics.Report(DiagnosticStage::Lowering,
 					"global initializer must be an arithmetic constant", initializer_node);
 				return false;
 			}
-			if (type.integer_rank == FrontendCIntegerRank::Bool && !type.enum_id)
-				global.initializer = global.initializer != 0;
-			module.globals.Append(global);
-			FrontendCGlobal frontend_global;
-			frontend_global.name = identifier->addr;
-			frontend_global.type = type;
-			stduint alignment_bits = type_info.AlignBits(type, target);
-			frontend_global.alignment = alignment_bits &&
-				!(alignment_bits % target.char_bits) ?
-				alignment_bits / target.char_bits : 0;
-			globals.Append(frontend_global);
+			if (!type.IsArray() && type.integer_rank == FrontendCIntegerRank::Bool &&
+				!type.enum_id) global.initializer = global.initializer != 0;
+			previous->has_definition = true;
 			return true;
 		}
 

@@ -87,7 +87,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 		}
 		in_abs_seg = false;
 		Session.InAbsoluteSection = false;
-		global_offset_changed = 0;  /* set by redefine_label */
+		global_offset_changed = 0;  /* Set when a label offset changes. */
 		Session.Location.segment = codeend.SelectSection(
 			NULL, pass2, Session.SectionBits);
 		globalbits = Session.SectionBits;
@@ -167,10 +167,10 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 						}
 						else
 							special = NULL;
-						if (!is_extern(value)) {        /* allow re-EXTERN to be ignored */
+						if (!Labelsys::IsExternal(value)) { /* Allow repeated EXTERN. */
 							int temp = pass0;
 							pass0 = 1;  /* fake pass 1 in labels.c */
-							declare_as_global(value, special
+							Labelsys::DeclareGlobal(value, special
 							);
 							Labelsys::Define(value, SegAlloc(), 0L, NULL,
 								false, true, codeend);
@@ -215,7 +215,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 						}
 						else
 							special = NULL;
-						declare_as_global(value, special);
+						Labelsys::DeclareGlobal(value, special);
 					}           /* pass == 1 */
 					break;
 				case Directive::Common:		/* [COMMON symbol size:special] */
@@ -528,7 +528,7 @@ Assembler::Directive Assembler::ParseDirective(char** directive, char** value)
 	for0(index, numsof(Entries))
 		if (!StrCompareInsensitive(*directive, Entries[index].Name))
 			return Entries[index].Value;
-	return Directive::None;
+	return Directive::Codeend;
 }
 
 uint32_t Assembler::ParseCpu(char* value)

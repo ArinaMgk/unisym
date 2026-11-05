@@ -4197,9 +4197,12 @@ static bool parse_mmacro_spec(Token* tline, MMacro* def, const char* directive)
  */
 static int parse_size(const char* str) {
 	static const char* size_names[] =
-	{ "byte", "dword", "oword", "qword", "tword", "word", "yword" };
+	{
+		"byt10", "byt16", "byt2", "byt32", "byt4", "byt8", "byte",
+		"dword", "oword", "qword", "tword", "word", "yword"
+	};
 	static const int sizes[] =
-	{ 0, 1, 4, 16, 8, 10, 2, 32 };
+	{ 0, 10, 16, 2, 32, 4, 8, 1, 4, 16, 8, 10, 2, 32 };
 
 	return sizes[bsii(str, size_names, numsof(size_names)) + 1];
 }

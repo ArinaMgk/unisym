@@ -29,6 +29,8 @@
 
 #include "../../cpp/trait/StorageTrait.hpp"
 #include "../../cpp/interrupt"
+#include "../../cpp/vector"
+#include "../../cpp/ISO_IEC_STD/memory"
 #include "AHCI.h"
 #include "NVMe.h"
 
@@ -239,15 +241,128 @@ namespace uni {
 		virtual PartitionSlice getSlice(stduint dev) override;
 	};
 
-	class Harddisk_SCSI : public StorageTrait {
-	public:
-		using ExecCommandFn = bool(*)(void* context,
-			byte target_id, byte lun,
+	namespace SCSI {
+		// Controller-neutral results retain the existing ExecCommandFn success value.
+		enum class Completion : byte { Completed = 0x01, Failed = 0xFF };
+		enum class HostStatus : byte { Good = 0x00, Error = 0xFF };
+		enum class Status : byte { Good = 0x00, CheckCondition = 0x02 };
+
+		using ExecuteCommandFn = bool(*)(void* context,
+			stduint target_id, byte lun,
 			const byte* cdb, byte cdb_length,
 			void* data_buf, stduint data_length, bool data_in,
 			byte& completion_code, byte& adapter_status, byte& target_status);
 
-		byte target_id = 0;
+		struct CommandResult {
+			byte completion = byte(Completion::Failed);
+			byte host_status = byte(HostStatus::Error);
+			byte target_status = 0xFF;
+
+			bool Succeeded() const {
+				return completion == byte(Completion::Completed) &&
+					host_status == byte(HostStatus::Good) && target_status == byte(Status::Good);
+			}
+		};
+
+		struct CommandDma {
+			byte* virt = nullptr;
+			uint32 device_address = 0;
+			stduint size = 0;
+			void* token = nullptr;
+		};
+		struct CommandServices {
+			void* context = nullptr;
+			bool (*AllocateDma)(void*, stduint, CommandDma&) = nullptr;
+			void (*ReleaseDma)(void*, CommandDma&) = nullptr;
+			uint32 (*Milliseconds)(void*) = nullptr;
+			// Called in host-serialized thread context, never from the hardware interrupt entry.
+			void (*Completed)(void*, stduint origin) = nullptr;
+		};
+		struct TargetQueueState {
+			byte bus = 0, target = 0, lun = 0;
+			bool tagged = false;
+		};
+		struct CommandSense {
+			stduint origin = 0;
+			byte bus = 0, target = 0, lun = 0;
+			bool valid = false;
+			byte bytes[32]{};
+		};
+		struct CommandRequest {
+			CommandServices services{};
+			CommandDma dma{};
+			SharedPtr<TargetQueueState> target_state;
+			SharedPtr<CommandSense> cached_sense;
+			Atomic<byte> done{0};
+			CommandResult result{};
+			byte bus = 0, target = 0, lun = 0, cdb_length = 0;
+			byte cdb[16]{};
+			stduint data_length = 0, sense_offset = 0, data_offset = 0, origin = 0;
+			uint32 context = 0, started = 0, timeout_ms = 0, transferred = 0;
+			bool data_in = false, active = false, pinned = false, received = false;
+			~CommandRequest() {
+				if (!pinned && dma.virt && services.ReleaseDma) services.ReleaseDma(services.context, dma);
+			}
+			byte* Data() const { return dma.virt + data_offset; }
+			byte* Sense() const { return dma.virt + sense_offset; }
+			// Complete input copying on the submitting thread: its address space may differ from the service thread's.
+			bool CopyResult(void* data, byte& completion, byte& host, byte& target_status) const;
+		};
+		using CommandHandle = SharedPtr<CommandRequest>;
+
+		// The host serializes queue operations with a sleepable lock; IRQ entries only mask and notify.
+		class CommandQueue {
+			Vector<SharedPtr<TargetQueueState>> targets;
+			Vector<SharedPtr<CommandSense>> sense_cache;
+		public:
+			CommandServices services{};
+			Vector<CommandHandle> requests;
+			// IN results remain in request-owned Data(); OUT data and the CDB are copied before submission returns.
+			CommandHandle Enqueue(byte bus, byte target, byte lun, const byte* cdb, byte cdb_length,
+				const void* data, stduint bytes, bool data_in, stduint frame_bytes, uint32 timeout_ms, stduint origin);
+			bool CanStart(const CommandRequest& request) const;
+			void Complete(CommandRequest& request, bool received, const CommandResult& result, uint32 transferred, stduint sense_bytes = 0);
+			void Prune();
+			void ExpireQueued();
+			uint32 NextTimeout() const;
+			stduint NextOrigin() const;
+			bool HasExpired(bool active) const;
+			void FailAll(bool quiesced);
+		};
+
+		// SPC INQUIRY and SBC READ CAPACITY(10) payloads contain no controller-specific fields.
+		_PACKED(struct) InquiryReply {
+			byte peripheral;
+			byte rmb;
+			byte version;
+			byte response_format;
+			byte additional_length;
+			byte flags5;
+			byte flags6;
+			byte flags7;
+			char vendor[8];
+			char product[16];
+			char revision[4];
+		};
+
+		_PACKED(struct) ReadCapacity10Reply {
+			byte last_lba[4];
+			byte block_size[4];
+		};
+		static_assert(sizeof(InquiryReply) == 36);
+		static_assert(sizeof(ReadCapacity10Reply) == 8);
+
+		bool Inquiry(ExecuteCommandFn execute, void* context, stduint target, byte lun,
+			InquiryReply& reply, CommandResult& result);
+		bool ReadCapacity10(ExecuteCommandFn execute, void* context, stduint target, byte lun,
+			ReadCapacity10Reply& reply, CommandResult& result);
+	}
+
+	class Harddisk_SCSI : public StorageTrait {
+	public:
+		using ExecCommandFn = SCSI::ExecuteCommandFn;
+
+		stduint target_id = 0;
 		byte lun = 0;
 		uint64 total_blocks = 0;
 		HD_Info hd_info = {};
@@ -261,7 +376,7 @@ namespace uni {
 			Block_Size = 512;
 		}
 
-		void Bind(byte target, byte lunx, void* context, ExecCommandFn exec_fn);
+		void Bind(stduint target, byte lunx, void* context, ExecCommandFn exec_fn);
 		void UpdateCapacity(uint32 last_lba, uint32 block_size);
 		bool ReadBlocks(uint64 lba, void* dest, stduint block_count);
 		bool WriteBlocks(uint64 lba, const void* src, stduint block_count);
@@ -277,7 +392,7 @@ namespace uni {
 	public:
 		using ExecCommandFn = Harddisk_SCSI::ExecCommandFn;
 
-		byte target_id = 0;
+		stduint target_id = 0;
 		byte lun = 0;
 		uint32 total_blocks = 0;
 		void* exec_context = nullptr;
@@ -289,7 +404,7 @@ namespace uni {
 			Block_Size = 2048;
 		}
 
-		void Bind(byte target, byte lunx, void* context, ExecCommandFn exec_fn);
+		void Bind(stduint target, byte lunx, void* context, ExecCommandFn exec_fn);
 		void UpdateCapacity(uint32 last_lba, uint32 block_size);
 
 		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override;

@@ -854,7 +854,7 @@ static expr *expr6(int critical)
                 label_ofs = in_abs_seg ? abs_offset : location->offset;
             } else {
                 if (!labelfunc(tokval->t_charptr, &label_seg, &label_ofs)) {
-                    scope = local_scope(tokval->t_charptr);
+                    scope = Labelsys::LocalScope(tokval->t_charptr);
 					if (critical == 2) {
 						//--auto clean flag
 						aasm_log(_LOG_ERROR, "symbol `%s%s' undefined", scope,tokval->t_charptr);
@@ -870,7 +870,7 @@ static expr *expr6(int critical)
                         label_ofs = 1;
                     }
                 }
-                if (opflags && is_extern(tokval->t_charptr))
+                if (opflags && Labelsys::IsExternal(tokval->t_charptr))
                     *opflags |= OPFLAG_EXTERN;
             }
             addtotemp(type, label_ofs);
@@ -888,11 +888,11 @@ static expr *expr6(int critical)
     }
 }
 
-void EvalGlobalInfo(uni::CodeendInterface& output, lfunc lookup_label,
+void EvalGlobalInfo(uni::CodeendInterface& output, lfunc lookup,
                     struct location * locp)
 {
     codeend = &output;
-    labelfunc = lookup_label;
+    labelfunc = lookup;
     location = locp;
 }
 

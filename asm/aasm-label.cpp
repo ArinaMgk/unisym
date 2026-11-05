@@ -157,7 +157,7 @@ static union label *find_label(rostr label, int create)
 	return lfree++;
 }
 
-bool lookup_label(char *label, int32_t *segment, int64_t *offset)
+bool Labelsys::Lookup(char* label, int32_t* segment, int64_t* offset)
 {
 	union label *lptr;
 
@@ -173,7 +173,7 @@ bool lookup_label(char *label, int32_t *segment, int64_t *offset)
 		return false;
 }
 
-bool is_extern(char *label)
+bool Labelsys::IsExternal(char* label)
 {
 	union label *lptr;
 
@@ -184,79 +184,8 @@ bool is_extern(char *label)
 	return (lptr && (lptr->defn.is_global & EXTERN_BIT));
 }
 
-void redefine_label(rostr label, int32_t segment, int64_t offset, char *special, bool is_norm, bool isextrn, struct outffmt *ofmt)
-{
-	union label *lptr;
-	int exi;
-
-	/* This routine possibly ought to check for phase errors.  Most assemblers
-	 * check for phase errors at this point.  I don't know whether phase errors
-	 * are even possible, nor whether they are checked somewhere else
-	 */
-
-	(void)special;              /* Don't warn that this parameter is unused */
-	(void)is_norm;              /* Don't warn that this parameter is unused */
-	(void)isextrn;              /* Don't warn that this parameter is unused */
-	(void)ofmt;                 /* Don't warn that this parameter is unused */
-
-#ifdef DEBUG
-#if DEBUG<3
-	if (!strncmp(label, "debugdump", 9))
-	#endif
-		//--auto clean flag
-		aasm_log(_LOG_DEBUG, "redefine_label (%s, %ld, %08lx, %s, %d, %d)", label, segment, offset, special, is_norm, isextrn);
-#endif
-
-	lptr = find_label(label, 1);
-	if (!lptr) {
-		//--auto clean flag
-		aasm_log(_LOG_PANIC, "can't find label `%s' on pass two", label);
-	}
-
-	if (!islocal(label)) {
-		if (!islocalchar(*label) && lptr->defn.is_norm)
-			prevlabel = lptr->defn.label;
-	}
-
-	if (lptr->defn.offset != offset)
-	global_offset_changed++;
-
-	lptr->defn.offset = offset;
-	lptr->defn.segment = segment;
-
-	if (pass0 == 1) {
-		exi = !!(lptr->defn.is_global & GLOBAL_BIT);
-		if (exi) {
-			char *xsymbol;
-			int slen;
-			slen = StrLength(lprefix);
-			slen += StrLength(lptr->defn.label);
-			slen += StrLength(lpostfix);
-			slen++;             /* room for that null char */
-			xsymbol = (char*)malc(slen);
-			snprintf(xsymbol, slen, "%s%s%s", lprefix, lptr->defn.label,
-					 lpostfix);
-
-			ofmt->symdef(xsymbol, segment, offset, exi,
-						 special ? special : lptr->defn.special);
-			ofmt->current_dfmt->debug_deflabel(xsymbol, segment, offset,
-											   exi,
-											   special ? special : lptr->
-											   defn.special);
-/**	memf(xsymbol);  ! outobj.c stores the pointer; ouch!!! **/
-		} else {
-			if ((lptr->defn.is_global & (GLOBAL_BIT | EXTERN_BIT)) !=
-				EXTERN_BIT) {
-				ofmt->symdef(lptr->defn.label, segment, offset, exi,
-							 special ? special : lptr->defn.special);
-				ofmt->current_dfmt->debug_deflabel((char*)label, segment, offset, exi, special ? special : lptr->defn.special);
-			}
-		}
-	}
-	/* if (pass0 == 1) */
-}
-
-void define_label(rostr label, int32_t segment, int64_t offset, char *special, bool is_norm, bool isextrn, struct outffmt *ofmt)
+void Labelsys::Define(rostr label, int32_t segment, int64_t offset,
+	char* special, bool is_norm, bool isextrn, outffmt* format)
 {
 	union label *lptr;
 	int exi;
@@ -266,7 +195,9 @@ void define_label(rostr label, int32_t segment, int64_t offset, char *special, b
 	if (!strncmp(label, "debugdump", 9))
 	#endif
 		//--auto clean flag
-		aasm_log(_LOG_DEBUG, "define_label (%s, %ld, %08lx, %s, %d, %d)", label, segment, offset, special, is_norm, isextrn);
+		aasm_log(_LOG_DEBUG,
+			"Labelsys::Define legacy (%s, %ld, %08lx, %s, %d, %d)",
+			label, segment, offset, special, is_norm, isextrn);
 #endif
 	lptr = find_label(label, 1);
 	if (lptr->defn.is_global & DEFINED_BIT) {
@@ -304,9 +235,9 @@ void define_label(rostr label, int32_t segment, int64_t offset, char *special, b
 			snprintf(xsymbol, slen, "%s%s%s", lprefix, lptr->defn.label,
 					 lpostfix);
 
-			ofmt->symdef(xsymbol, segment, offset, exi,
+			format->symdef(xsymbol, segment, offset, exi,
 						 special ? special : lptr->defn.special);
-			ofmt->current_dfmt->debug_deflabel(xsymbol, segment, offset,
+			format->current_dfmt->debug_deflabel(xsymbol, segment, offset,
 											   exi,
 											   special ? special : lptr->
 											   defn.special);
@@ -314,47 +245,12 @@ void define_label(rostr label, int32_t segment, int64_t offset, char *special, b
 		} else {
 			if ((lptr->defn.is_global & (GLOBAL_BIT | EXTERN_BIT)) !=
 				EXTERN_BIT) {
-				ofmt->symdef(lptr->defn.label, segment, offset, exi,
+				format->symdef(lptr->defn.label, segment, offset, exi,
 							 special ? special : lptr->defn.special);
-				ofmt->current_dfmt->debug_deflabel((char*)label, segment, offset, exi, special ? special : lptr->defn.special);
+				format->current_dfmt->debug_deflabel((char*)label, segment, offset, exi, special ? special : lptr->defn.special);
 			}
 		}
 	}                           /* if (pass0 == 1) */
-}
-
-void define_common(char *label, int32_t segment, int32_t size, char *special, struct outffmt *ofmt)
-{
-	union label *lptr;
-
-	lptr = find_label(label, 1);
-	if ((lptr->defn.is_global & DEFINED_BIT) &&
-		(passn == 1 || !(lptr->defn.is_global & COMMON_BIT))) {
-		//--auto clean flag
-		aasm_log(_LOG_ERROR, "symbol `%s' redefined", label);
-		return;
-	}
-	lptr->defn.is_global |= DEFINED_BIT|COMMON_BIT;
-
-	if (!islocalchar(label[0])) {
-		prevlabel = lptr->defn.label;
-	}
-	else {
-		//--auto clean flag
-		aasm_log(_LOG_ERROR, "attempt to define a local label as a common variable");
-	return;
-	}
-
-	lptr->defn.segment = segment;
-	lptr->defn.offset = 0;
-
-	if (pass0 == 0)
-	return;
-
-	ofmt->symdef(lptr->defn.label, segment, size, 2,
-		 special ? special : lptr->defn.special);
-	ofmt->current_dfmt->debug_deflabel(lptr->defn.label, segment, size, 2,
-					   special ? special : lptr->defn.
-					   special);
 }
 
 static void EmitCodeendSymbol(uni::CodeendInterface& codeend,
@@ -467,7 +363,7 @@ void Labelsys::Common(char* label, int32_t segment, int32_t size,
 		special ? special : lptr->defn.special);
 }
 
-void declare_as_global(char *label, char *special)
+void Labelsys::DeclareGlobal(char* label, char* special)
 {
 	union label *lptr;
 
@@ -495,7 +391,7 @@ void declare_as_global(char *label, char *special)
 	}
 }
 
-int init_labels(void)
+void Labelsys::Initialize()
 {
 	ltab.hash_init(HASH_LARGE);
 	//hash_init(&ltab, HASH_LARGE);
@@ -514,10 +410,9 @@ int init_labels(void)
 
 	initialized = true;
 
-	return 0;
 }
 
-void cleanup_labels(void)
+void Labelsys::Cleanup()
 {
 	union label *lptr, *lhold;
 
@@ -572,46 +467,8 @@ static char *perm_copy(const char *string)
 	return p;
 }
 
-char *local_scope(char *label)
+char* Labelsys::LocalScope(char* label)
 {
-   return islocal(label) ? prevlabel : (char*)"";
+	return islocal(label) ? prevlabel : (char*)"";
 }
-
-/*
- * Notes regarding bug involving redefinition of external segments.
- *
- * Up to and including v0.97, the following code didn't work. From 0.97
- * developers release 2 onwards, it will generate an error.
- *
- * EXTERN extlabel
- * newlabel EQU extlabel + 1
- *
- * The results of allowing this code through are that two import records
- * are generated, one for 'extlabel' and one for 'newlabel'.
- *
- * The reason for this is an inadequacy in the defined interface between
- * the label manager and the output formats. The problem lies in how the
- * output format driver tells that a label is an external label for which
- * a label import record must be produced. Most (all except bin?) produce
- * the record if the segment number of the label is not one of the internal
- * segments that the output driver is producing.
- *
- * A simple fix to this would be to make the output formats keep track of
- * which symbols they've produced import records for, and make them not
- * produce import records for segments that are already defined.
- *
- * The best way, which is slightly harder but reduces duplication of code
- * and should therefore make the entire system smaller and more stable is
- * to change the interface between assembler, define_label(), and
- * the output module. The changes that are needed are:
- *
- * The semantics of the 'isextern' flag passed to define_label() need
- * examining. This information may or may not tell us what we need to
- * know (ie should we be generating an import record at this point for this
- * label). If these aren't the semantics, the semantics should be changed
- * to this.
- *
- * The output module interface needs changing, so that the `isextern' flag
- * is passed to the module, so that it can be easily tested for.
- */
 

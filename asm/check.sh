@@ -217,6 +217,45 @@ CheckRelocation()
 	Pass "ELF sections, symbols, and relocations"
 }
 
+CheckBinaryOutputChain()
+{
+	OutputFile="$WorkDirectory/binary-output.bin"
+	ActualFile="$WorkDirectory/binary-output.hex"
+	ExpectedFile="$WorkDirectory/binary-output.expected"
+	UnresolvedOutput="$WorkDirectory/binary-unresolved.bin"
+	UnresolvedError="$WorkDirectory/binary-unresolved.stderr"
+	ExpectedHex='30 10 00 00 00 00 00 00 48 8d 05 21 00 00 00 e8 0c 00 00 00 e9 08 00 00 00 5a 00 00 00 00 00 00 c3 c3 00 00 00 00 00 00 00 00 00 00 00 00 00 00 78 56 34 12 40 10 00 00 00 00 00 00'
+
+	"$AasmExecutable" -Ox -f bin -o "$OutputFile" \
+		"$TestDirectory/binary-output.asm" \
+		>"$WorkDirectory/binary-output.stdout" \
+		2>"$WorkDirectory/binary-output.stderr" || \
+		Fail "Binary output chain did not assemble"
+	[ ! -s "$WorkDirectory/binary-output.stderr" ] || \
+		Fail "Binary output chain produced diagnostics"
+
+	NormalizeHex "$OutputFile" > "$ActualFile"
+	printf '%s\n' "$ExpectedHex" > "$ExpectedFile"
+	if ! cmp -s "$ExpectedFile" "$ActualFile"; then
+		diff -u "$ExpectedFile" "$ActualFile" >&2
+		Fail "Binary output chain bytes differ"
+	fi
+
+	"$AasmExecutable" -Ox -f bin -o "$UnresolvedOutput" \
+		"$TestDirectory/relocation.asm" \
+		>"$WorkDirectory/binary-unresolved.stdout" 2>"$UnresolvedError"
+	ResultCode="$?"
+	[ "$ResultCode" -ne 0 ] || Fail "Binary accepted unresolved symbols"
+	[ ! -e "$UnresolvedOutput" ] || \
+		Fail "Binary unresolved symbols left an output file"
+	ReferenceErrors="$(grep -Fc \
+		'binary output format does not support external references' \
+		"$UnresolvedError")"
+	[ "$ReferenceErrors" -eq 3 ] || \
+		Fail "Binary unresolved-symbol diagnostics differ"
+	Pass "Binary raw data, reserve, layout, and local fixups"
+}
+
 CheckDebugOutput()
 {
 	ObjectFile="$WorkDirectory/debug.o"
@@ -450,7 +489,7 @@ CheckPrefixOnly()
 }
 
 CheckHex basic '48 b8 01 00 00 00 00 00 00 00 48 83 c0 02 48 83 f8 03 75 03 31 c0 c3 b8 01 00 00 00 c3 00 00 00 ef cd ab 89 67 45 23 01' -Ox
-CheckHex encoding '48 b8 88 77 66 55 44 33 22 11 49 89 c0 49 83 c1 7f 49 83 ea ff 31 c0 49 d1 e3 41 54 41 5d c3' -Ox
+CheckHex encoding '48 b8 88 77 66 55 44 33 22 11 49 89 c0 49 83 c1 7f 49 83 ea ff 31 c0 49 d1 e3 41 54 41 5d 88 18 66 89 18 89 18 48 89 18 db 28 f3 0f 6f 00 c5 fe 6f 00 c3' -Ox
 CheckHex addressing '48 8b 03 48 8b 4d 00 4b 8b 94 ec 34 12 00 00 44 89 46 07 4c 8d 0d 01 00 00 00 c3 11 22 33 44 55 66 77 88' -Ox
 CheckHex symbols '11 01 00 03 00 00 00 12 00 00 00 00 00 00 00 aa aa aa 12 2a' -Ox
 CheckHex data '41 41 53 4d 00 34 12 ef cd ab 89 ef cd ab 89 67 45 23 01 5a 5a 5a 5a cc cc cc cc cc cc cc cc cc' -Ox
@@ -459,6 +498,7 @@ CheckHex structure '8b 45 01 00 7a 78 56 34 12' -Ox
 CheckBranch
 CheckPreprocessor
 CheckRelocation
+CheckBinaryOutputChain
 CheckDebugOutput
 CheckListing
 CheckInvalidAddress

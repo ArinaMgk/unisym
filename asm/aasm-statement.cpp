@@ -369,8 +369,10 @@ void AssemblyStatementParser::DefineLabel(char* label)
 	if (!label) return;
 	int32_t section = Session.InAbsoluteSection ?
 		Session.AbsoluteSection : Session.Location.segment;
+	using DefineFunction = void (*)(rostr, int32_t, int64_t, char*, bool,
+		bool, uni::CodeendInterface&);
 	auto define = Session.PassNumber > 1 ?
-		Labelsys::Redefine : Labelsys::Define;
+		&Labelsys::Redefine : static_cast<DefineFunction>(&Labelsys::Define);
 	define(label, section, Session.Location.offset, nullptr,
 		true, false, Session.Options->Target.Codeend());
 }
@@ -431,8 +433,10 @@ uni::lango::ArchendLineResult AssemblyStatementParser::ProcessEqu(
 	if (parse_pass == 1) {
 		if (label[0] == '.' && label[1] == '.' && label[2] != '@')
 			return result;
+		using DefineFunction = void (*)(rostr, int32_t, int64_t, char*, bool,
+			bool, uni::CodeendInterface&);
 		auto define = Session.PassNumber > 1 ?
-			Labelsys::Redefine : Labelsys::Define;
+			&Labelsys::Redefine : static_cast<DefineFunction>(&Labelsys::Define);
 		define(label,
 			far_absolute ? (int32_t)(first_offset | SEG_ABS) : first_section,
 			far_absolute ? second_offset : first_offset,

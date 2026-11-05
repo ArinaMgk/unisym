@@ -75,9 +75,16 @@ Codeend 负责格式信息、格式选择、输出生命周期、section、symbo
 `NativeHandle()` 目前仅保留在 Codeend 适配和旧格式兼容代码中。开始汇编前会检查
 所选 Codeend 是否声明支持当前 Archend 的架构种类。
 
-标签操作统一通过 `Labelsys::Define`、`Labelsys::Redefine` 和 `Labelsys::Common`
+Binary 输出回归覆盖原始数据、保留空间、`ORG`、section 对齐，以及本地跨 section
+的绝对地址、PC 相对地址、分支和调用。外部未解析符号不会生成平坦二进制文件。
+
+标签初始化、查询、作用域、外部符号判断、全局声明和定义操作统一通过 `Labelsys`
 调用。标签状态管理仍位于 `aasm-label.cpp`，符号和调试符号分别通过 Codeend
-契约提交。Archend、Assembler 和表达式求值器不再直接依赖旧格式驱动类型。
+契约提交。接收 `outffmt` 的 `Labelsys::Define` 重载仅用于旧格式驱动兼容。
+
+固定数据宽度限定符使用 `BYTE`、`BYT2`、`BYT4`、`BYT8`、`BYT10`、`BYT16`
+和 `BYT32`。`BYTE` 始终表示 1 字节，`BYTn` 中的数字始终表示字节数；它们不随
+目标架构或汇编位宽改变。其他传统宽度名称继续用于现有源码兼容。
 
 `Frontend` 一词保留给 Magice 的源语言前端，不用于命名 AASM 的预处理或汇编
 调度部分。`Backend` 表示 Magice 从 Clover IR 生成汇编文本的目标后端；

@@ -82,9 +82,9 @@ x86 parser、encoder、指令与寄存器表、反汇编索引、token hash 及�
 对应的 `inc`、`lib` 架构目录。生成脚本使用固定架构目录输出，不再把 x86 数据
 写入 AASM 通用 `asm/data` 目录。
 
-标签系统已增加 `Labelsys` 静态接口，Assembler、ArchendX86 和 x86 parser 通过
-统一的 Codeend 契约定义、重定义和提交 common 符号。表达式求值器通过 Codeend
-查询 section base；`NativeHandle()` 不再被 Archend、Assembler 或表达式求值器使用。
+标签系统已统一使用 `Labelsys` 静态接口完成生命周期、查询、作用域、外部符号判断、
+全局声明、定义、重定义和 common 符号提交。无调用的旧标签函数已删除；接收
+`outffmt` 的 `Define` 重载仅保留给旧格式初始化回调，并标记为随旧接口移除。
 
 通用汇编语句已从 x86 parser 中分离。Assembler 先解析标签、`EQU`、`TIMES`、
 数据定义、保留空间和 `INCBIN`，再将架构指令交给 Archend；通用表达式扫描不再
@@ -97,4 +97,11 @@ Codeend 已增加语义化 `CodeFixup` 契约，区分绝对地址、PC 相对�
 并描述存储宽度、有效位、位偏移、右移量、符号属性、目标 section、加数和 PC 偏移。
 x86 编码器与通用数据语句通过 fixup 提交重定位；现有格式实现暂由
 `aasm-format.cpp` 转换到原有输出接口，生成的机器码和 relocation 保持不变。
+
+Binary 回归已覆盖 `CodeendOutput` 和本地 `CodeFixup` 的完整输出链，包括 `ORG`、
+section 对齐、nobits reserve、绝对地址、PC 相对地址、分支和调用。格式专用 directive
+现在会交给所选 Codeend 处理，平坦二进制继续拒绝外部未解析符号。
+
+已建立 `BYTE`、`BYT2` 至 `BYT32` 固定数据宽度限定符，并接入 x86 操作数解析与
+回归测试；`BYTE` 已从 x86 私有特殊 token 调整为架构无关的 1 字节宽度定义。
 

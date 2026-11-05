@@ -235,14 +235,8 @@ static void SetOutputDebugLine(int32_t section)
 }
 
 static void Output(int64_t offset, int32_t section, const void* data,
-	uni::CodeendOutputType type, uint64_t size,
-	int32_t target_section, int32_t wrt)
+	uni::CodeendOutputType type, uint64_t size)
 {
-	if (target_section != NO_SEG || wrt != NO_SEG) {
-		aasm_log(_LOG_PANIC, "raw output cannot contain a relocation");
-		return;
-	}
-
 	list->output(offset, data, ListingOutputType(type), size);
 	SetOutputDebugLine(section);
 
@@ -311,7 +305,7 @@ static void OutputAbsolute(int64_t offset, int32_t section, int64_t data,
 	uint8_t* cursor = converted;
 	WRITEADDR(cursor, data, size);
 	Output(offset, section, converted, uni::CodeendOutputType::RawData,
-		size, NO_SEG, NO_SEG);
+		size);
 }
 
 static void OutputRelative(int64_t offset, int32_t section, int64_t addend,
@@ -428,7 +422,7 @@ static int64_t EmitPrefixes(int64_t offset, int32_t section,
 		uint8_t byte = PrefixByte(instruction->prefixes[index], bits);
 		if (!byte) continue;
 		Output(offset++, section, &byte,
-			uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			uni::CodeendOutputType::RawData, 1);
 	}
 	return offset - start;
 }
@@ -1034,7 +1028,7 @@ static int64_t calcsize(int32_t segment, int64_t offset, int bits,
 #define EMIT_REX()							\
 	if (!(ins->rex & (REX_D|REX_V)) && (ins->rex & REX_REAL) && (bits == 64)) { \
 	ins->rex = (ins->rex & REX_REAL)|REX_P;				\
-	Output(offset, segment, &ins->rex, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG); \
+	Output(offset, segment, &ins->rex, uni::CodeendOutputType::RawData, 1); \
 	ins->rex = 0;							\
 	offset += 1; \
 	}
@@ -1057,7 +1051,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 	const uint8_t* codes = temp->code;
 	uint8_t opex = 0;
 	if (ins->opcode == I_ARINA) {
-		Output(offset, segment, codes, uni::CodeendOutputType::RawData, 2, NO_SEG, NO_SEG);
+		Output(offset, segment, codes, uni::CodeendOutputType::RawData, 2);
 	}
 	else while (*codes) {
 		c = *codes++;
@@ -1072,7 +1066,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 03:
 		case 04:
 			EMIT_REX();
-			Output(offset, segment, codes, uni::CodeendOutputType::RawData, c, NO_SEG, NO_SEG);
+			Output(offset, segment, codes, uni::CodeendOutputType::RawData, c);
 			codes += c;
 			offset += c;
 			break;
@@ -1086,7 +1080,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			case4(010) :
 				EMIT_REX();
 			bytes[0] = *codes++ + (regval(opx) & 7);
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset += 1;
 			break;
 
@@ -1106,8 +1100,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			}
 			else {
 				bytes[0] = opx->offset;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG,
-					NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			}
 			offset += 1;
 			break;
@@ -1125,8 +1118,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			}
 			else {
 				bytes[0] = opx->offset;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG,
-					NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			}
 			offset += 1;
 			break;
@@ -1144,8 +1136,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			}
 			else {
 				bytes[0] = opx->offset;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG,
-					NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			}
 			offset += 1;
 			break;
@@ -1195,7 +1186,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				aasm_log(_LOG_ERROR, "short jump is out of range");
 			}
 			bytes[0] = data;
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset += 1;
 			break;
 
@@ -1271,8 +1262,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			warn_overflow(2, opx);
 			if (is_sbyte16(opx)) {
 				bytes[0] = data;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG,
-					NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 				offset++;
 			}
 			else {
@@ -1286,7 +1276,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			bytes[0] = *codes++;
 			if (is_sbyte16(opx))
 				bytes[0] |= 2;  /* s-bit */
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset++;
 			break;
 
@@ -1295,8 +1285,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			warn_overflow(4, opx);
 			if (is_sbyte32(opx)) {
 				bytes[0] = data;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG,
-					NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 				offset++;
 			}
 			else {
@@ -1310,7 +1299,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			bytes[0] = *codes++;
 			if (is_sbyte32(opx))
 				bytes[0] |= 2;  /* s-bit */
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset++;
 			break;
 
@@ -1324,7 +1313,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				(ins->rex & REX_OC ? 0x08 : 0) |
 				(ins->rex & (REX_R | REX_X | REX_B));
 			ins->rex = 0;
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset++;
 			break;
 
@@ -1346,7 +1335,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				}
 				bytes[0] |= opx->offset & 15;
 			}
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset++;
 			break;
 
@@ -1355,7 +1344,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			opx = &ins->oprs[c >> 4];
 			bytes[0] = aasm_regvals[opx->basereg] << 4;
 			bytes[0] |= c & 15;
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset++;
 			break;
 
@@ -1363,7 +1352,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			c = *codes++;
 			opx = &ins->oprs[c];
 			bytes[0] = aasm_regvals[opx->basereg] << 4;
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset++;
 			break;
 
@@ -1378,8 +1367,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			}
 			if (is_sbyte32(opx)) {
 				bytes[0] = data;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG,
-					NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 				offset++;
 			}
 			else {
@@ -1409,14 +1397,14 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				bytes[1] = (ins->vex_cm & 31) | ((~ins->rex & 7) << 5);
 				bytes[2] = ((ins->rex & REX_W) << (7 - 3)) |
 					((~ins->drexdst & 15) << 3) | (ins->vex_wlp & 07);
-				Output(offset, segment, &bytes, uni::CodeendOutputType::RawData, 3, NO_SEG, NO_SEG);
+				Output(offset, segment, &bytes, uni::CodeendOutputType::RawData, 3);
 				offset += 3;
 			}
 			else {
 				bytes[0] = 0xc5;
 				bytes[1] = ((~ins->rex & REX_R) << (7 - 2)) |
 					((~ins->drexdst & 15) << 3) | (ins->vex_wlp & 07);
-				Output(offset, segment, &bytes, uni::CodeendOutputType::RawData, 2, NO_SEG, NO_SEG);
+				Output(offset, segment, &bytes, uni::CodeendOutputType::RawData, 2);
 				offset += 2;
 			}
 			break;
@@ -1451,8 +1439,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			}
 			else {
 				bytes[0] = uv;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG,
-					NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			}
 			offset += 1;
 			break;
@@ -1464,7 +1451,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 0310:
 			if (bits == 32 && !has_prefix(ins, PPS_ASIZE, P_A16)) {
 				*bytes = 0x67;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 				offset += 1;
 			}
 			else
@@ -1474,7 +1461,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 0311:
 			if (bits != 32 && !has_prefix(ins, PPS_ASIZE, P_A32)) {
 				*bytes = 0x67;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 				offset += 1;
 			}
 			else
@@ -1494,7 +1481,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 0320:
 			if (bits != 16) {
 				*bytes = 0x66;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 				offset += 1;
 			}
 			else
@@ -1504,7 +1491,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 0321:
 			if (bits == 16) {
 				*bytes = 0x66;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 				offset += 1;
 			}
 			else
@@ -1524,7 +1511,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 
 		case 0330:
 			*bytes = *codes++ ^ condval[ins->condition];
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset += 1;
 			break;
 
@@ -1534,14 +1521,14 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 0332:
 		case 0333:
 			*bytes = c - 0332 + 0xF2;
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset += 1;
 			break;
 
 		case 0334:
 			if (ins->rex & REX_R) {
 				*bytes = 0xF0;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 				offset += 1;
 			}
 			ins->rex &= ~(REX_L | REX_R);
@@ -1577,7 +1564,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				//--auto clean flag
 				aasm_log(_LOG_PANIC, "bizarre 8086 segment register received");
 			}
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset++;
 			break;
 
@@ -1595,7 +1582,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				//--auto clean flag
 				aasm_log(_LOG_PANIC, "bizarre 386 segment register received");
 			}
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset++;
 			break;
 
@@ -1604,14 +1591,14 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 
 		case 0361:
 			bytes[0] = 0x66;
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset += 1;
 			break;
 
 		case 0362:
 		case 0363:
 			bytes[0] = c - 0362 + 0xf2;
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset += 1;
 			break;
 
@@ -1622,7 +1609,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case 0366:
 		case 0367:
 			*bytes = c - 0366 + 0x66;
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset += 1;
 			break;
 
@@ -1633,7 +1620,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 
 		case 0373:
 			*bytes = bits == 16 ? 3 : 5;
-			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1, NO_SEG, NO_SEG);
+			Output(offset, segment, bytes, uni::CodeendOutputType::RawData, 1);
 			offset += 1;
 			break;
 
@@ -1689,7 +1676,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				}
 
 				s = p - bytes;
-				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, s, NO_SEG, NO_SEG);
+				Output(offset, segment, bytes, uni::CodeendOutputType::RawData, s);
 
 				/*
 				 * Make sure the address gets the right offset in case

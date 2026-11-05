@@ -53,43 +53,51 @@ namespace uni {
 		stduint limit;
 		stduint count;
 		//
-		void Enlarge(stduint to_limit = 0) {
+		bool Enlarge(stduint to_limit = 0) {
 			type0* last = addr;
-			if (!to_limit) (++limit) <<= 1;// dosconio method (0)(2)(6)(14)(30)...
-			else if (to_limit > limit) limit = to_limit;
-			else return;
-			addr = new type0[limit]; //ralcof(type0, addr, limit);
-			for0(i, count) {
-				addr[i] = last[i];
+			const stduint cookie = alignof(type0) > sizeof(size_t) ? alignof(type0) : sizeof(size_t);
+			const stduint maximum = (~stduint(0) - cookie) / sizeof(type0);
+			if (!to_limit) {
+				if (limit >= maximum) return false;
+				to_limit = limit < (maximum - 2) / 2 ? (limit + 1) * 2 : maximum;// dosconio method (0)(2)(6)(14)(30)...
 			}
+			if (to_limit <= limit) return true;
+			if (to_limit > maximum) return false;
+			auto* replacement = new (std::nothrow_t{}) type0[to_limit]; //ralcof(type0, addr, limit);
+			if (!replacement) return false;
+			for0(i, count) {
+				replacement[i] = last[i];
+			}
+			// Commit only after allocation succeeds; callers keep the original contents on failure.
+			addr = replacement;
+			limit = to_limit;
 			// for0(i, limit - count) new(&addr[count + i]) type0;//{TODO} why increase malc_count ?
 			if (last) delete[] last;
+			return true;
 		}
 	public:
 
 		Vector() : addr(nullptr), limit(nil), count(nil) {
 
 		}
-		Vector(const Vector& v) {
-			limit = v.limit;
+		Vector(const Vector& v) : Vector() {
+			if (v.count && !Enlarge(v.count)) return;
+			for0 (i, v.count) addr[i] = v.addr[i];
 			count = v.count;
-			addr = new type0[limit];
-			for0 (i, count) addr[i] = v.addr[i];
 		}
 		Vector& operator=(const Vector& v) {
 			if (this != &v) {
-				if (addr) delete[] addr;
-				limit = v.limit;
+				if (v.count > limit && !Enlarge(v.count)) return *this;
+				for0 (i, v.count) addr[i] = v.addr[i];
+				for (stduint i = v.count; i < count; ++i) addr[i] = type0{};
 				count = v.count;
-				addr = new type0[limit];
-				for0 (i, count) addr[i] = v.addr[i];
 			}
 			return *this;
 		}
 		static Vector<type0> From(const type0& content, stduint times) {
 			Vector<type0> v;
-			v.limit = v.count = times;
-			v.addr = new type0[v.limit];
+			if (times && !v.Enlarge(times)) return v;
+			v.count = times;
 			for0 (i, v.count) v.addr[i] = content;
 			return v;
 		}
@@ -101,9 +109,18 @@ namespace uni {
 		}
 
 		virtual void Iterate() {
+			if (count > (~stduint(0) - sizeof(size_t)) / sizeof(pureptr_t)) {
+				_iterate_crt = _iterate_lim = 0;
+				return;
+			}
+			auto* replacement = count ? new (std::nothrow_t{}) pureptr_t[count] : nullptr;
+			if (count && !replacement) {
+				_iterate_crt = _iterate_lim = 0;
+				return;
+			}
 			if (_iterate_datas)
 				delete[] _iterate_datas;
-			_iterate_datas = new pureptr_t[count];
+			_iterate_datas = replacement;
 			_iterate_crt = nil;
 			_iterate_lim = count;
 			for0(i, count) _iterate_datas[i] = &addr[i];
@@ -156,8 +173,11 @@ namespace uni {
 			return Insert(idx, (pureptr_t)&x);
 		}
 		bool Append(const type0& x) {
-			while (count >= limit) Enlarge();
-			addr[count++] = type0(x);
+			// x may refer to an element of this vector; preserve it before growth invalidates addr.
+			type0 item(x);
+			if (count >= limit && !Enlarge()) return false;
+			addr[count] = item;
+			++count;
 			return true;
 		}
 		inline Vector& operator<< (const type0& apd) {
@@ -167,9 +187,10 @@ namespace uni {
 
 		virtual bool      Remove(stduint idx, stduint times = 1) {
 			if (!times) return true;
-			if (!count || idx + times > count) return false;
+			if (idx >= count || times > count - idx) return false;
 			for0(i, count - idx - times)
 				addr[idx + i] = addr[idx + times + i];
+			for (stduint i = count - times; i < count; ++i) addr[i] = type0{};
 			count -= times;
 			return true;
 		}
@@ -185,6 +206,7 @@ namespace uni {
 		}
 
 		virtual bool      Clear() {
+			for0(i, count) addr[i] = type0{};
 			count = 0;
 			return true;
 		}

@@ -178,12 +178,34 @@ namespace uni {
 
 		template <typename type2>
 		explicit SharedPtr(type2* ptr) : ptr_(ptr), block_(nullptr) {
-			if (ptr) block_ = new _Local_SharedBlockOf<type2, DefaultDelete<type2>>(ptr, DefaultDelete<type2>());
+			if (ptr) {
+			#if defined(_SMARTPTR_NOTHROW)
+				block_ = ::new (std::nothrow_t{}) _Local_SharedBlockOf<type2, DefaultDelete<type2>>(ptr, DefaultDelete<type2>());
+			#else
+				try {
+					block_ = ::new (std::nothrow_t{}) _Local_SharedBlockOf<type2, DefaultDelete<type2>>(ptr, DefaultDelete<type2>());
+				} catch (...) {
+					DefaultDelete<type2>()(ptr);
+					throw;
+				}
+			#endif
+			}
 			_GuardBlock(ptr, DefaultDelete<type2>());
 		}
 		template <typename type2, typename deleter>
 		SharedPtr(type2* ptr, deleter del) : ptr_(ptr), block_(nullptr) {
-			if (ptr) block_ = new _Local_SharedBlockOf<type2, deleter>(ptr, del);
+			if (ptr) {
+			#if defined(_SMARTPTR_NOTHROW)
+				block_ = ::new (std::nothrow_t{}) _Local_SharedBlockOf<type2, deleter>(ptr, del);
+			#else
+				try {
+					block_ = ::new (std::nothrow_t{}) _Local_SharedBlockOf<type2, deleter>(ptr, del);
+				} catch (...) {
+					del(ptr);
+					throw;
+				}
+			#endif
+			}
 			_GuardBlock(ptr, del);
 		}
 		// Aliasing: shares ownership with other while pointing at ptr
@@ -277,16 +299,16 @@ namespace uni {
 		// A failed block allocation must not leak the object it was meant to own
 		template <typename type2, typename deleter>
 		void _GuardBlock(type2* ptr, const deleter& del) {
-		#if defined(_SMARTPTR_NOTHROW)
 			if (ptr && !block_) {
-				plogerro("shared_ptr: out of memory");
 				del(ptr);
 				ptr_ = nullptr;
+			#if defined(_SMARTPTR_NOTHROW)
+				plogerro("shared_ptr: out of memory");
 				return;
+			#else
+				throw std::bad_alloc();
+			#endif
 			}
-		#else
-			(void)del;
-		#endif
 			if (block_) _Local_EsftLink<type2>::Install(ptr, block_);
 		}
 
@@ -585,13 +607,15 @@ namespace uni {
 	// allocation of the hosted implementations.
 	template <typename type, typename... args_t>
 	SharedPtr<type> make_shared(args_t&&... args) {
-		type* ptr = new type(static_cast<args_t&&>(args)...);
-	#if defined(_SMARTPTR_NOTHROW)
+		type* ptr = ::new (std::nothrow_t{}) type(static_cast<args_t&&>(args)...);
 		if (!ptr) {
+		#if defined(_SMARTPTR_NOTHROW)
 			plogerro("make_shared: out of memory");
 			return SharedPtr<type>();
+		#else
+			throw std::bad_alloc();
+		#endif
 		}
-	#endif
 		return SharedPtr<type>(ptr);
 	}
 

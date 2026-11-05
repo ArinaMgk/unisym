@@ -10,9 +10,9 @@ namespace uni {
 
 	enum : byte {
 		SCSI_CMD_READ10 = 0x28,
-		SCSI_CMD_COMPLETE_GOOD = 0x01,
-		SCSI_ADAPTER_STATUS_OK = 0x00,
-		SCSI_TARGET_STATUS_GOOD = 0x00,
+		SCSI_CMD_COMPLETE_GOOD = byte(SCSI::Completion::Completed),
+		SCSI_ADAPTER_STATUS_OK = byte(SCSI::HostStatus::Good),
+		SCSI_TARGET_STATUS_GOOD = byte(SCSI::Status::Good),
 	};
 
 	static bool _LOCAL_ExecuteRead10(CDROM_SCSI& cdrom, uint32 lba, void* data_buf, stduint block_count) {
@@ -43,7 +43,7 @@ namespace uni {
 			target_status == SCSI_TARGET_STATUS_GOOD;
 	}
 
-	void CDROM_SCSI::Bind(byte target, byte lunx, void* context, ExecCommandFn exec_fn) {
+	void CDROM_SCSI::Bind(stduint target, byte lunx, void* context, ExecCommandFn exec_fn) {
 		target_id = target;
 		lun = lunx;
 		exec_context = context;

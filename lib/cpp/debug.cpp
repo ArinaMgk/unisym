@@ -13,6 +13,14 @@ void* operator new(size_t size) {
 void* operator new[](size_t size) {
 	return malc(size);
 }
+void* operator new(size_t size, const std::nothrow_t&) noexcept {
+	return malc(size);
+}
+void* operator new[](size_t size, const std::nothrow_t&) noexcept {
+	return malc(size);
+}
+void operator delete(void* p, const std::nothrow_t&) noexcept { memf(p); }
+void operator delete[](void* p, const std::nothrow_t&) noexcept { memf(p); }
 //{TOIN} memory.cpp
 void operator delete(void* p) {
 	memf(p);

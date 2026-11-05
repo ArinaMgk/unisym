@@ -416,7 +416,7 @@ int main(int argc, char** argv) {
 
 	if (codeend.StandardMacros())
 		Preprocessor::extra_stdmac(codeend.StandardMacros());
-	EvalGlobalInfo(codeend, lookup_label, &assembly_session.Location);
+	EvalGlobalInfo(codeend, Labelsys::Lookup, &assembly_session.Location);
 
 	define_macros_late(codeend.DumpCodeend().shortname);
 
@@ -515,7 +515,7 @@ int main(int argc, char** argv) {
 		}
 
 		// Some formats define labels during initialization.
-		init_labels();
+		Labelsys::Initialize();
 
 		codeend.Initialize(outfile);
 		codeend.InitializeDebug(outfile);
@@ -525,7 +525,7 @@ int main(int argc, char** argv) {
 
 		if (!terminate_after_phase) {
 			codeend.Cleanup(using_debug_info);
-			cleanup_labels();
+			Labelsys::Cleanup();
 		}
 		else {
 			// Codeend cleanup normally owns the file closure.

@@ -27,6 +27,20 @@
 static int i;
 static struct tokenval tokval;
 
+static int FixedSizeOperandType(int64_t bytes)
+{
+	switch (bytes) {
+	case 1: return BITS8;
+	case 2: return BITS16;
+	case 4: return BITS32;
+	case 8: return BITS64;
+	case 10: return BITS80;
+	case 16: return BITS128;
+	case 32: return BITS256;
+	default: return 0;
+	}
+}
+
 static int prefix_slot(enum prefixes prefix)
 {
 	switch (static_cast<int>(prefix)) {
@@ -65,6 +79,13 @@ static int prefix_slot(enum prefixes prefix)
 
 static void process_size_override(insn* result, int operand)
 {
+	if (tokval.t_type == TOKEN_FIXED_SIZE) {
+		int type = FixedSizeOperandType(tokval.t_integer);
+		if (type) result->oprs[operand].type |= type;
+		else aasm_log(_LOG_ERROR, "invalid fixed operand size");
+		return;
+	}
+
 	if (tasm_compatible_mode) {
 		switch ((int)tokval.t_integer) {
 			/* For TASM compatibility a size override inside the
@@ -79,9 +100,6 @@ static void process_size_override(insn* result, int operand)
 			 * type for the instruction, but we never use anything
 			 * but 32-bit flat model addressing in our code.
 			 */
-		case S_BYTE:
-			result->oprs[operand].type |= BITS8;
-			break;
 		case S_WORD:
 			result->oprs[operand].type |= BITS16;
 			break;
@@ -115,10 +133,6 @@ static void process_size_override(insn* result, int operand)
 			break;
 		case S_ABS:
 			result->oprs[operand].eaflags |= EAF_ABS;
-			break;
-		case S_BYTE:
-			result->oprs[operand].disp_size = 8;
-			result->oprs[operand].eaflags |= EAF_BYTEOFFS;
 			break;
 		case P_A16:
 		case P_A32:
@@ -250,13 +264,18 @@ X86Instruction* X86Parser::ParseLine(int pass, char* buffer,
 		if (i == 0)
 			break;              /* end of operands: get out of here */
 		result->oprs[operand].type = 0; /* so far, no override */
-		while (i == TOKEN_SPECIAL) {    /* size specifiers */
-			switch ((int)tokval.t_integer) {
-			case S_BYTE:
-				if (!setsize)   /* we want to use only the first */
-					result->oprs[operand].type |= BITS8;
+		while (i == TOKEN_SPECIAL || i == TOKEN_FIXED_SIZE) {
+			if (i == TOKEN_FIXED_SIZE) {
+				int type = FixedSizeOperandType(tokval.t_integer);
+				if (!type) {
+					aasm_log(_LOG_ERROR, "invalid fixed operand size");
+				}
+				else if (!setsize) {
+					result->oprs[operand].type |= type;
+				}
 				setsize = 1;
-				break;
+			}
+			else switch ((int)tokval.t_integer) {
 			case S_WORD:
 				if (!setsize)
 					result->oprs[operand].type |= BITS16;
@@ -314,7 +333,8 @@ X86Instruction* X86Parser::ParseLine(int pass, char* buffer,
 			mref = true;
 			bracket = (i == '[');
 			i = stdscan(NULL, &tokval); /* then skip the colon */
-			while (i == TOKEN_SPECIAL || i == TOKEN_PREFIX) {
+			while (i == TOKEN_SPECIAL || i == TOKEN_FIXED_SIZE ||
+				i == TOKEN_PREFIX) {
 				process_size_override(result, operand);
 				i = stdscan(NULL, &tokval);
 			}
@@ -361,7 +381,8 @@ X86Instruction* X86Parser::ParseLine(int pass, char* buffer,
 			}
 
 			i = stdscan(NULL, &tokval); /* then skip the colon */
-			while (i == TOKEN_SPECIAL || i == TOKEN_PREFIX) {
+			while (i == TOKEN_SPECIAL || i == TOKEN_FIXED_SIZE ||
+				i == TOKEN_PREFIX) {
 				process_size_override(result, operand);
 				i = stdscan(NULL, &tokval);
 			}

@@ -677,7 +677,7 @@ static void bin_cleanup(int debuginfo)
 					fputc('-', rf);
 				fprintf(rf, "\n\nValue     Name\n");
 				for (l = no_seg_labels; l; l = l->next) {
-					lookup_label(l->name, &segment, &offset);
+					Labelsys::Lookup(l->name, &segment, &offset);
 					fprintf(rf, "%08" PRIX64 "  %s\n", offset, l->name);
 				}
 				fprintf(rf, "\n\n");
@@ -689,7 +689,7 @@ static void bin_cleanup(int debuginfo)
 						fputc('-', rf);
 					fprintf(rf, "\n\nReal              Virtual           Name\n");
 					for (l = s->labels; l; l = l->next) {
-						lookup_label(l->name, &segment, &offset);
+						Labelsys::Lookup(l->name, &segment, &offset);
 						fprintf(rf, "%16" PRIX64 "  %16" PRIX64 "  %s\n",
 								s->start + offset, s->vstart + offset,
 								l->name);
@@ -1221,13 +1221,13 @@ static void bin_define_section_labels(void)
 
 		/* section.<name>.start */
 		StrCopy(label_name + base_len, ".start");
-		define_label(label_name, sec->start_index, 0L,
-					 NULL, 0, 0, my_ofmt);
+		Labelsys::Define(label_name, sec->start_index, 0L,
+			NULL, false, false, my_ofmt);
 
 		/* section.<name>.vstart */
 		StrCopy(label_name + base_len, ".vstart");
-		define_label(label_name, sec->vstart_index, 0L,
-					 NULL, 0, 0, my_ofmt);
+		Labelsys::Define(label_name, sec->vstart_index, 0L,
+			NULL, false, false, my_ofmt);
 
 		memf(label_name);
 	}

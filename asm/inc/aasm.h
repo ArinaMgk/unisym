@@ -368,7 +368,8 @@ private:
 		List,
 		Section,
 		Segment,
-		Warning
+		Warning,
+		Codeend
 	};
 
 	AssemblySession& Session;
@@ -494,16 +495,6 @@ extern "C" {
 
 	extern char lprefix[PREFIX_MAX];
 	extern char lpostfix[PREFIX_MAX];
-	
-	bool lookup_label(char* label, int32_t* segment, int64_t* offset);
-	bool is_extern(char *label);
-	void define_label(rostr label, int32_t segment, int64_t offset, char *special, bool is_norm, bool isextrn, struct outffmt *ofmt);
-	void redefine_label(rostr label, int32_t segment, int64_t offset, char *special, bool is_norm, bool isextrn, struct outffmt *ofmt);
-	void define_common(char *label, int32_t segment, int32_t size, char *special, struct outffmt *ofmt);
-	void declare_as_global(char *label, char *special);
-	int init_labels(void);
-	void cleanup_labels(void);
-	char *local_scope(char *label);
 
 	// ---- quote ---- //
 
@@ -619,9 +610,19 @@ extern "C" {
 
 class Labelsys {
 public:
+	static void Initialize();
+	static void Cleanup();
+	static bool Lookup(char* label, int32_t* segment, int64_t* offset);
+	static bool IsExternal(char* label);
+	static char* LocalScope(char* label);
+	static void DeclareGlobal(char* label, char* special);
+
 	static void Define(rostr label, int32_t segment, int64_t offset,
 		char* special, bool is_norm, bool isextrn,
 		uni::CodeendInterface& codeend);
+	// Compatibility overload for legacy output drivers; remove with outffmt.
+	static void Define(rostr label, int32_t segment, int64_t offset,
+		char* special, bool is_norm, bool isextrn, outffmt* format);
 	static void Redefine(rostr label, int32_t segment, int64_t offset,
 		char* special, bool is_norm, bool isextrn,
 		uni::CodeendInterface& codeend);
@@ -629,7 +630,7 @@ public:
 		char* special, uni::CodeendInterface& codeend);
 };
 
-void EvalGlobalInfo(uni::CodeendInterface& codeend, lfunc lookup_label,
+void EvalGlobalInfo(uni::CodeendInterface& codeend, lfunc lookup,
 	struct location* locp);
 #endif
 #endif

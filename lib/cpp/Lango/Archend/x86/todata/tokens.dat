@@ -21,7 +21,6 @@ wait
 
 % TOKEN_SPECIAL, 0, S_*
 abs
-byte
 dword
 far
 long

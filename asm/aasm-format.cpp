@@ -52,7 +52,8 @@ public:
 
 	virtual void Initialize(FILE* output) override
 	{
-		Driver->init(output, define_label, eval_evaluate);
+		Driver->init(output,
+			static_cast<ldfunc>(&Labelsys::Define), eval_evaluate);
 	}
 
 	virtual void InitializeDebug(FILE* output) override

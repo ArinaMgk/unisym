@@ -38,7 +38,8 @@ enum token_type {		/* token types, other than chars */
 	TOKEN_REG,			/* register name */
 	TOKEN_INSN,			/* instruction name */
 	TOKEN_HERE, TOKEN_BASE,     /* $ and $$ */
-	TOKEN_SPECIAL,              /* BYTE, WORD, DWORD, QWORD, FAR, NEAR, etc */
+	TOKEN_SPECIAL,              /* WORD, DWORD, QWORD, FAR, NEAR, etc */
+	TOKEN_FIXED_SIZE,           /* BYTE, BYT2, BYT4, etc */
 	TOKEN_PREFIX,               /* A32, O16, LOCK, REPNZ, TIMES, etc */
 	TOKEN_SHL, TOKEN_SHR,       /* << and >> */
 	TOKEN_SDIV, TOKEN_SMOD,     /* // and %% */

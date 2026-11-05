@@ -570,6 +570,13 @@ static int common_token_hash(const char* token, struct tokenval* tv)
 		{"__nan__", TOKEN_FLOAT, 0},
 		{"__qnan__", TOKEN_FLOAT, 0},
 		{"__snan__", TOKEN_FLOAT, 0},
+		{"byte", TOKEN_FIXED_SIZE, 1},
+		{"byt2", TOKEN_FIXED_SIZE, 2},
+		{"byt4", TOKEN_FIXED_SIZE, 4},
+		{"byt8", TOKEN_FIXED_SIZE, 8},
+		{"byt10", TOKEN_FIXED_SIZE, 10},
+		{"byt16", TOKEN_FIXED_SIZE, 16},
+		{"byt32", TOKEN_FIXED_SIZE, 32},
 		{"seg", TOKEN_SEG, 0},
 		{"wrt", TOKEN_WRT, 0}
 	};
@@ -621,8 +628,10 @@ int stdscan(void* private_data, struct tokenval* tv)
 		*r = '\0';
 		/* right, so we have an identifier sitting in temp storage. now,
 		 * is it actually a register or instruction name, or what? */
-		return stdscan_common_identifiers ?
-			common_token_hash(ourcopy, tv) : aasm_token_hash(ourcopy, tv);
+		int common_token = common_token_hash(ourcopy, tv);
+		if (common_token != TOKEN_ID || stdscan_common_identifiers)
+			return common_token;
+		return aasm_token_hash(ourcopy, tv);
 	}
 	else if (*stdscan_bufptr == '$' && !isnumchar(stdscan_bufptr[1])) {
 	 /*

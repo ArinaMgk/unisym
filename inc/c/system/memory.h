@@ -76,6 +76,8 @@ namespace std {
 }
 _ESYM_CPP
 void* operator new(size_t size, const std::nothrow_t&) noexcept;
+_ESYM_CPP
+void* operator new[](size_t size, const std::nothrow_t&) noexcept;
 #define _NEW// GCC Header Guard
 #endif
 

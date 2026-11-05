@@ -4,7 +4,7 @@
 
 ## 工具链位置
 
-AASM 是 UNISYM 的汇编器，当前实现以 x86、x86-64 汇编语法和指令编码为主。
+AASM 是 UNISYM 的汇编器，当前支持 x86 指令编码，并已接入最小 RISC-V Archend。
 Magice 与 AASM 之间通过汇编文本连接：Magice 的目标后端输出
 `.asm`，随后可以交给 GCC AS 或 AASM 生成目标文件或平坦二进制。
 
@@ -41,12 +41,162 @@ aasm [options] input
 | `-g` | 生成所选格式支持的调试信息 |
 | `-O level` | 设置分支优化级别 |
 
-未指定 `-march` 时使用 x86 架构，默认汇编位宽为 16 位；源文件可以通过
-`[BITS]` 调整当前位宽。
+未指定 `-march` 或 `--arch` 时，默认目标为 `x86`，默认位宽为 16 位。
 
-当前输出实现位于 `lib/cpp/Format/Code`，包括 BIN、ELF、COFF、Mach-O、AOUT、
-OMF、IEEE 和 AS86 等格式。`AsmTrace.cpp` 提供文本跟踪格式，用于观察汇编器传递
-给输出层的 section、symbol、data、relocation 和 debug 事件，不是可链接目标文件。
+## 目标架构
+
+命令行使用 `-march=name`、`-march name`、`--arch=name` 或 `--arch name` 选择
+源文件的初始架构。源文件中的 `[ARCH name]` 可以切换后续区域使用的架构。
+
+### Arch、CPU 与 BITS
+
+| Arch | 默认 BITS | 支持的 BITS | 默认 CPU/INST | `[CPU]`、`[INST]` 支持的名称 |
+| :--- | ---: | :--- | :--- | :--- |
+| `x86` | 16 | 16；386 及以上支持 32；`x64`、`x86-64` 支持 64 | 不限制指令等级 | 见下方 x86 CPU 名称 |
+| `riscv` | 64 | 32、64 | `i` | `i` |
+
+x86 当前识别以下 CPU 名称：
+
+```text
+8086
+186
+286
+386
+486
+586, pentium
+686, ppro, pentiumpro, p2
+p3, katmai
+p4, willamette
+prescott
+x64, x86-64
+```
+
+这些名称用于限制可选指令等级。16 位模式接受全部已识别的 x86 CPU；32 位模式要求
+CPU 等级不低于 386；64 位模式要求 CPU 为 `x64` 或 `x86-64`。
+
+`[INST value]` 是 `[CPU value]` 的等价写法，两者使用完全相同的 Archend 解析和验证
+逻辑。x86 可以继续使用 `[CPU]` 表示处理器指令等级；RISC-V 可以使用 `[INST]`
+突出指令集扩展，也可以统一使用 `[CPU]`。
+
+`[ARCH]`、`[CPU]`、`[INST]` 和 `[BITS]` 的规则如下：
+
+- `[ARCH name]` 切换 Archend，并把 CPU 与 BITS 恢复为该 Arch 的默认值。
+- `[BITS n]` 必须同时满足当前 Arch 和当前 CPU 的约束。
+- `[CPU name]` 与 `[INST name]` 必须同时满足当前 Arch 和当前 BITS 的约束。
+- 当前 Codeend 不支持目标 Arch 时，AASM 会在切换处报错。
+
+例如：
+
+```asm
+[ARCH riscv]
+[BITS 32]
+[INST i]
+```
+
+同一源文件可以包含多个架构区域，但所选 Codeend 必须支持其中的全部架构：
+
+```asm
+[ARCH x86]
+[BITS 64]
+RET
+
+[ARCH riscv]
+[BITS 32]
+NOP
+```
+
+### Codeend 兼容性
+
+| Codeend | x86 | RISC-V |
+| :--- | :---: | :---: |
+| `bin` | 支持 | 支持 |
+| ELF、COFF、Mach-O、AOUT、OMF、IEEE、AS86 等现有格式 | 支持 | 暂不支持 |
+
+因此 RISC-V 以及 x86/RISC-V 混合架构源文件当前必须使用 Binary 输出。文本跟踪格式
+只用于观察汇编器提交的 section、symbol、data、relocation 和 debug 事件，不是可链接
+目标文件。
+
+## 通用汇编语法
+
+标签、表达式、`EQU`、`TIMES`、`INCBIN`、数据定义和保留空间由通用汇编层处理，
+不属于某个 Archend。数据定义支持 `DB`、`DW`、`DD`、`DQ`、`DT`、`DO`、`DY`；
+保留空间支持 `RESB`、`RESW`、`RESD`、`RESQ`、`REST`、`RESO`、`RESY`。
+
+固定数据宽度限定符不随 Arch、CPU 或 BITS 改变：
+
+| 限定符 | 固定宽度 |
+| :--- | ---: |
+| `BYTE` | 1 字节 |
+| `BYT2` | 2 字节 |
+| `BYT4` | 4 字节 |
+| `BYT8` | 8 字节 |
+| `BYT10` | 10 字节 |
+| `BYT16` | 16 字节 |
+| `BYT32` | 32 字节 |
+
+## RISC-V 汇编语法
+
+当前 RISC-V Archend 提供 RV32I 和 RV64I 基础整数指令编码。寄存器可以写为
+`x0` 至 `x31`，也可以使用 `zero`、`ra`、`sp`、`gp`、`tp`、`t0` 至 `t6`、
+`s0` 至 `s11`、`fp`、`a0` 至 `a7` 等 ABI 名称。
+
+内存地址统一使用方括号：
+
+```asm
+LW   x5, [x6]
+LW   x5, [x6 + 12]
+SW   x5, [x6 - 4]
+JALR x1, [x6 + 8]
+```
+
+分支和直接跳转的目标也使用方括号，以便与立即数区分：
+
+```asm
+BEQ x5, x6, [target]
+JAL x1, [function]
+J   [finished]
+```
+
+寄存器型与立即数型运算同时支持完整三操作数形式和原地二操作数形式：
+
+```asm
+ADD  x1, x2, x3
+ADD  x1, x2       ; ADD x1, x1, x2
+ADDI x1, 4        ; ADDI x1, x1, 4
+```
+
+`MOV` 和 `MOVU` 只展开为一条机器指令。内存操作必须显式指定固定宽度：
+
+```asm
+MOV  x1, x2             ; ADDI x1, x2, 0
+MOV  x2, BYT4 [x1]      ; signed load
+MOVU x2, BYT2 [x1 + 2]  ; unsigned load
+MOV  BYT4 [x1], x2      ; store
+```
+
+RV32 可使用 `BYTE`、`BYT2`、`BYT4`；RV64 还可使用 `BYT8`。`MOVU BYT4` 在 RV64
+中使用无符号 4 字节加载。`NOP`、`RET`、`J` 和 `JR` 同样只展开为一条机器指令。
+
+当前直接支持的指令为：
+
+```text
+LUI AUIPC JAL JALR
+BEQ BNE BLT BGE BLTU BGEU
+LB LH LW LBU LHU SB SH SW
+ADDI SLTI SLTIU XORI ORI ANDI SLLI SRLI SRAI
+ADD SUB SLL SLT SLTU XOR SRL SRA OR AND
+FENCE ECALL EBREAK
+```
+
+RV64 另外支持：
+
+```text
+LWU LD SD
+ADDIW SLLIW SRLIW SRAIW
+ADDW SUBW SLLW SRLW SRAW
+```
+
+当前不包含乘除法、原子操作、压缩指令、浮点指令和 CSR 指令扩展。
 
 ## 当前结构
 
@@ -61,7 +211,8 @@ AASM 当前代码可以按职责理解为以下部分：
   Archend、Codeend、默认位宽和 CPU；`AssemblySession` 保存 pass、section、当前
   位宽和当前 CPU 等运行状态。
 - **Archend**：`inc/cpp/Lango/Archend.hpp` 定义架构汇编契约；当前 x86 适配层位于
-  `lib/cpp/Lango/Archend/Archend-x86.cpp`。Archend 只接收架构指令；x86 内部头和
+  `lib/cpp/Lango/Archend/Archend-x86.cpp`，RISC-V 适配层位于对应的
+  `Archend-riscv.cpp`。Archend 只接收架构指令；x86 内部头和
   生成头位于 `inc/cpp/Lango/Archend/x86`，解析器、编码器、生成源和生成输入位于
   对应的 `lib` 目录。Archend 通过只读信息、注册和查找接口参与目标选择。
 - **Codeend**：`inc/cpp/Format/Code.hpp` 定义代码格式输出契约，
@@ -81,10 +232,6 @@ Binary 输出回归覆盖原始数据、保留空间、`ORG`、section 对齐，
 标签初始化、查询、作用域、外部符号判断、全局声明和定义操作统一通过 `Labelsys`
 调用。标签状态管理仍位于 `aasm-label.cpp`，符号和调试符号分别通过 Codeend
 契约提交。接收 `outffmt` 的 `Labelsys::Define` 重载仅用于旧格式驱动兼容。
-
-固定数据宽度限定符使用 `BYTE`、`BYT2`、`BYT4`、`BYT8`、`BYT10`、`BYT16`
-和 `BYT32`。`BYTE` 始终表示 1 字节，`BYTn` 中的数字始终表示字节数；它们不随
-目标架构或汇编位宽改变。其他传统宽度名称继续用于现有源码兼容。
 
 `Frontend` 一词保留给 Magice 的源语言前端，不用于命名 AASM 的预处理或汇编
 调度部分。`Backend` 表示 Magice 从 Clover IR 生成汇编文本的目标后端；

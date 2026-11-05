@@ -263,7 +263,7 @@ char* AssemblyStatementParser::ParseLabel(
 	char saved = *end;
 	*end = '\0';
 	bool instruction = IsCommonStatementStart(label) ||
-		Session.Options->Target.Archend().IsInstructionStart(label);
+		Session.ActiveArchend->IsInstructionStart(label);
 	if (!explicit_label && instruction) {
 		*end = saved;
 		return nullptr;
@@ -326,7 +326,7 @@ bool AssemblyStatementParser::ParseRepeat(char*& source, int64_t& repeat)
 			char saved = *end;
 			*end = '\0';
 			bool instruction = IsCommonStatementStart(cursor) ||
-				Session.Options->Target.Archend().IsInstructionStart(cursor);
+				Session.ActiveArchend->IsInstructionStart(cursor);
 			*end = saved;
 			if (instruction && separator) {
 				char saved_separator = *separator;
@@ -805,6 +805,6 @@ uni::lango::ArchendLineResult AssemblyStatementParser::ProcessLine(
 	}
 	if (ProcessCommonStatement(
 		source, repeat, parse_pass, result)) return result;
-	return Session.Options->Target.Archend().ProcessInstruction(
+	return Session.ActiveArchend->ProcessInstruction(
 		Session, source, repeat, parse_pass, output_pass);
 }

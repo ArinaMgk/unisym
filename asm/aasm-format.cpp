@@ -37,7 +37,9 @@ public:
 	virtual bool SupportsArchitecture(
 		uni::lango::ArchitectureKind architecture) const override
 	{
-		return architecture == uni::lango::ArchitectureKind::X86;
+		if (architecture == uni::lango::ArchitectureKind::X86) return true;
+		return architecture == uni::lango::ArchitectureKind::RISCV &&
+			Driver == &of_bin;
 	}
 
 	virtual const unsigned char* StandardMacros() const override

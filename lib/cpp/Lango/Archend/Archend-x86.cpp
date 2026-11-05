@@ -224,46 +224,4 @@ ArchendInterface& X86Archend()
 	return archend;
 }
 
-namespace {
-
-ArchendInterface** RegisteredArchends(size_t& count)
-{
-	static ArchendInterface* archends[] = {
-		&X86Archend()
-	};
-	count = numsof(archends);
-	return archends;
-}
-
-}
-
-ArchendInterface& DefaultArchend()
-{
-	return X86Archend();
-}
-
-ArchendInterface* FindArchend(const char* name)
-{
-	size_t count;
-	ArchendInterface** archends = RegisteredArchends(count);
-	for (size_t index = 0; index < count; index++) {
-		if (!StrCompareInsensitive(
-			name, archends[index]->DumpArchend().shortname))
-			return archends[index];
-	}
-	return nullptr;
-}
-
-void ListArchends(const ArchendInterface& selected, FILE* output)
-{
-	size_t count;
-	ArchendInterface** archends = RegisteredArchends(count);
-	for (size_t index = 0; index < count; index++) {
-		const ArchendInfo& info = archends[index]->DumpArchend();
-		fprintf(output, "  %c %-10s%s\n",
-			archends[index] == &selected ? '*' : ' ',
-			info.shortname, info.fullname);
-	}
-}
-
 }

@@ -2,8 +2,8 @@
 // Docutitle: AASM Assembly Driver
 // Copyright: UNISYM, under Apache License 2.0
 
-#include <c/stdinc.h>
-#include <c/strpage.h>
+#include "../inc/c/stdinc.h"
+#include "../inc/c/strpage.h"
 #include "inc/aasm.h"
 #include "../inc/cpp/Format/Code.hpp"
 #include "../inc/cpp/Lango/Archend.hpp"
@@ -65,9 +65,39 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 			"command line: default segment size is not supported by the selected architecture or cpu");
 	}
 	uni::CodeendInterface& codeend = target.Codeend();
-	uni::lango::ArchendInterface& archend = target.Archend();
 	AssemblyStatementParser statement_parser(Session);
-	archend.Initialize(Session);
+	uni::lango::ArchendInterface* initial_archend = &target.Archend();
+	struct ArchendState {
+		uni::lango::ArchendInterface* Driver;
+		int LastPass;
+	};
+	ArchendState archend_states[8] = {};
+	size_t archend_count = 0;
+	auto ActivateArchend = [&](uni::lango::ArchendInterface& driver,
+		int parse_pass, int output_pass) {
+		ArchendState* state = nullptr;
+		for (size_t index = 0; index < archend_count; index++) {
+			if (archend_states[index].Driver == &driver) {
+				state = &archend_states[index];
+				break;
+			}
+		}
+		if (!state) {
+			if (archend_count >= numsof(archend_states)) {
+				aasm_log(_LOG_FATAL, "too many architectures used in one assembly");
+				return;
+			}
+			state = &archend_states[archend_count++];
+			state->Driver = &driver;
+			state->LastPass = 0;
+			driver.Initialize(Session);
+		}
+		if (state->LastPass != passn) {
+			driver.BeginPass(Session, parse_pass, output_pass);
+			state->LastPass = passn;
+		}
+		Session.ActiveArchend = &driver;
+	};
 
 	pass_max = Session.PreviousOffsetChanged = (INT_MAX >> 1) + 2; /* Almost unlimited */
 	for (passn = 1; pass0 <= 2; passn++) {
@@ -78,6 +108,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 
 		globalbits = Session.SectionBits = target.DefaultBits();
 		Session.CurrentCpu = target.Cpu();
+		Session.ActiveArchend = initial_archend;
 		Session.PassPhase = pass0;
 		Session.PassNumber = passn;
 		Session.CurrentBits = globalbits;
@@ -96,7 +127,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 			StrpageFree(Session.Offsets);
 			Session.Offsets = StrpageNew();
 		}
-		archend.BeginPass(Session, pass1, pass2);
+		ActivateArchend(*initial_archend, pass1, pass2);
 		preproc->reset(fname, pass1, eval_evaluate, &aasmlist,
 			pass1 == 2 ? depend_ptr : NULL);
 		MemCopyN(warning_on, warning_on_global, (ERR_WARN_MAX + 1) * sizeof(bool));
@@ -120,6 +151,31 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 				int err = 0;
 
 				switch (d) {
+				case Directive::Arch:
+				{
+					char* end = value + StrLength(value);
+					while (end > value && ascii_isspace(end[-1])) *--end = '\0';
+					uni::lango::ArchendInterface* selected =
+						uni::lango::FindArchend(value);
+					if (!selected) {
+						aasm_log(_LOG_ERROR, "unknown architecture `%s'", value);
+						break;
+					}
+					if (!codeend.SupportsArchitecture(
+						selected->DumpArchend().architecture)) {
+						aasm_log(_LOG_ERROR,
+							"output format `%s' does not support architecture `%s'",
+							codeend.DumpCodeend().shortname,
+							selected->DumpArchend().shortname);
+						break;
+					}
+					ActivateArchend(*selected, pass1, pass2);
+					Session.CurrentCpu = selected->DefaultCpu();
+					globalbits = Session.SectionBits =
+						selected->DumpArchend().default_bits;
+					Session.CurrentBits = globalbits;
+					break;
+				}
 				case Directive::Segment:		/* [SEGMENT n] */
 				case Directive::Section:
 					seg = codeend.SelectSection(
@@ -357,8 +413,14 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 					}
 					break;
 				case Directive::Cpu:		/* [CPU] */
-					Session.CurrentCpu = ParseCpu(value);
+				{
+					uint32_t cpu = ParseCpu(value);
+					if (Session.ActiveArchend->ValidateBits(
+						Session.CurrentBits, cpu)) Session.CurrentCpu = cpu;
+					else aasm_log(_LOG_ERROR,
+						"cpu is incompatible with the current architecture or bit width");
 					break;
+				}
 				case Directive::List:		/* [LIST {+|-}] */
 					while (*value && ascii_isspace(*value))
 						value++;
@@ -376,7 +438,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 					}
 					break;
 				case Directive::Default:		/* [DEFAULT] */
-					if (!archend.ProcessDefault(value)) err = 1;
+					if (!Session.ActiveArchend->ProcessDefault(value)) err = 1;
 					break;
 				case Directive::Float:
 					if (float_option(value)) {
@@ -406,7 +468,10 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 			memf(line);
 			Session.Location.offset = offs = CurrentOffset();
 		}                       /* end while (line = preproc->getline... */
-		archend.EndPass(Session);
+		for (size_t index = 0; index < archend_count; index++) {
+			if (archend_states[index].LastPass == passn)
+				archend_states[index].Driver->EndPass(Session);
+		}
 
 		if (pass0 == 2 && global_offset_changed && !terminate_after_phase) {
 			//--auto clean flag
@@ -449,7 +514,8 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 	Session.AbsoluteSection = abs_seg;
 	Session.AbsoluteOffset = abs_offset;
 	Session.TerminateAfterPhase = terminate_after_phase;
-	archend.Cleanup(Session);
+	for (size_t index = 0; index < archend_count; index++)
+		archend_states[index].Driver->Cleanup(Session);
 
 	preproc->cleanup(0);
 	aasmlist.cleanup();
@@ -467,6 +533,7 @@ Assembler::Directive Assembler::ParseDirective(char** directive, char** value)
 	};
 	static const DirectiveEntry Entries[] = {
 		{"absolute", Directive::Absolute},
+		{"arch", Directive::Arch},
 		{"bits", Directive::Bits},
 		{"common", Directive::Common},
 		{"cpu", Directive::Cpu},
@@ -475,6 +542,7 @@ Assembler::Directive Assembler::ParseDirective(char** directive, char** value)
 		{"extern", Directive::Extern},
 		{"float", Directive::Float},
 		{"global", Directive::Global},
+		{"inst", Directive::Cpu},
 		{"list", Directive::List},
 		{"section", Directive::Section},
 		{"segment", Directive::Segment},
@@ -533,8 +601,8 @@ Assembler::Directive Assembler::ParseDirective(char** directive, char** value)
 
 uint32_t Assembler::ParseCpu(char* value)
 {
-	uint32_t cpu;
-	if (!Session.Options->Target.Archend().ParseCpu(value, cpu)) {
+	uint32_t cpu = Session.CurrentCpu;
+	if (!Session.ActiveArchend->ParseCpu(value, cpu)) {
 		//--auto clean flag
 		aasm_log(pass0 < 2 ? _LOG_ERROR : _LOG_FATAL, "unknown 'cpu' type");
 	}
@@ -545,36 +613,24 @@ int Assembler::ParseBits(char* value)
 {
 	int i;
 
-	if ((i = atoins(value)) == 16)
-		return i;               /* set for a 16-bit segment */
-	else if (i == 32) {
-		if (!Session.Options->Target.Archend().ValidateBits(
-			i, Session.CurrentCpu)) {
-			//--auto clean flag
-			aasm_log(_LOG_ERROR,
-				"cannot specify 32-bit segment for the selected architecture or cpu");
-			i = 16;
-		}
+	i = atoins(value);
+	if (i != 16 && i != 32 && i != 64) {
+		aasm_log(pass0 < 2 ? _LOG_ERROR : _LOG_FATAL,
+			"`%s' is not a valid segment size; must be 16, 32 or 64", value);
+		return Session.CurrentBits;
 	}
-	else if (i == 64) {
-		if (!Session.Options->Target.Archend().ValidateBits(
-			i, Session.CurrentCpu)) {
-			//--auto clean flag
-			aasm_log(_LOG_ERROR,
-				"cannot specify 64-bit segment for the selected architecture or cpu");
-			i = 16;
-		}
+	if (!Session.ActiveArchend->ValidateBits(i, Session.CurrentCpu)) {
+		aasm_log(_LOG_ERROR,
+			"cannot specify %d-bit mode for the selected architecture or cpu", i);
+		return Session.CurrentBits;
+	}
+	if (i == 64) {
 		if (i != maxbits) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "%s output format does not support 64-bit code",
 				Session.Options->Target.Codeend().DumpCodeend().shortname);
-			i = 16;
+			return Session.CurrentBits;
 		}
-	}
-	else {
-		//--auto clean flag
-		aasm_log(pass0 < 2 ? _LOG_ERROR : _LOG_FATAL, "`%s' is not a valid segment size; must be 16, 32 or 64", value);
-		i = 16;
 	}
 	return i;
 }

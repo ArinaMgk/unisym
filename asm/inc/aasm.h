@@ -300,6 +300,7 @@ struct AssemblerOptions {
 
 struct AssemblySession {
 	AssemblerOptions* Options;
+	uni::lango::ArchendInterface* ActiveArchend;
 	FILE* OutputFile;
 	Strpage* Offsets;
 	struct location Location;
@@ -357,6 +358,7 @@ private:
 	enum class Directive {
 		None,
 		Absolute,
+		Arch,
 		Bits,
 		Common,
 		Cpu,

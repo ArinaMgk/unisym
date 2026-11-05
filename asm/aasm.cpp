@@ -364,6 +364,7 @@ static void InitializeAssemblySession(AssemblySession& session,
 {
 	session = AssemblySession{};
 	session.Options = &options;
+	session.ActiveArchend = &options.Target.Archend();
 	session.CurrentBits = options.Target.DefaultBits();
 	session.SectionBits = options.Target.DefaultBits();
 	session.CurrentCpu = options.Target.Cpu();

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ASCII ShellScript TAB4 LF
-# Docutitle: AASM x86-64 Regression Check
+# Docutitle: AASM Regression Check
 # Copyright: UNISYM, under Apache License 2.0
 
 set -u
@@ -378,6 +378,8 @@ CheckArchends()
 		Fail "architecture listing produced diagnostics"
 	grep -Eq '^  \* x86[[:space:]]' "$ArchitectureOutput" || \
 		Fail "default architecture differs"
+	grep -Eq '^    riscv[[:space:]]' "$ArchitectureOutput" || \
+		Fail "RISC-V architecture is missing"
 
 	"$AasmExecutable" -Ox -f bin -o "$DefaultOutput" \
 		"$TestDirectory/basic.asm" \
@@ -413,6 +415,51 @@ CheckArchends()
 	grep -Fq "unrecognised architecture \`invalid-architecture'" \
 		"$InvalidError" || Fail "invalid architecture diagnostic differs"
 	Pass "Archend selection"
+}
+
+CheckRISCV()
+{
+	RV32Output="$WorkDirectory/riscv32.bin"
+	RV64Output="$WorkDirectory/riscv64.bin"
+	MixedSource="$WorkDirectory/mixed-architecture.asm"
+	MixedOutput="$WorkDirectory/mixed-architecture.bin"
+	RV32Expected='13 05 10 00 33 05 b5 00 13 06 05 00 a3 01 c1 00 83 06 31 00 03 47 31 00 63 06 b5 00 6f 00 80 00 13 00 00 00 67 80 00 00 b7 50 34 12 17 11 00 00 ef 00 00 08 e7 00 41 00 63 9c 20 06 63 ca 20 06 63 d8 20 06 63 e6 20 06 63 f4 20 06 83 11 82 ff 83 21 82 ff 83 51 82 ff 23 1c 32 fe 23 2c 32 fe 93 22 c3 ff 93 32 c3 ff 93 42 c3 ff 93 62 c3 ff 93 72 c3 ff 93 12 73 00 93 52 73 00 93 52 73 40 b3 03 94 40 b3 13 94 00 b3 23 94 00 b3 33 94 00 b3 43 94 00 b3 53 94 00 b3 53 94 40 b3 63 94 00 b3 73 94 00 0f 00 f0 0f 73 00 00 00 73 00 10 00 13 00 00 00'
+	RV64Expected='13 01 01 ff 23 34 11 00 03 35 81 00 83 65 01 00 3b 05 b5 00 1b 55 35 40 63 14 05 00 ef 00 40 00 83 30 81 00 13 01 01 01 67 80 00 00 9b 02 c3 ff 9b 12 73 00 9b 52 73 00 bb 03 94 40 bb 13 94 00 bb 53 94 00 bb 53 94 40 03 35 01 00'
+
+	"$AasmExecutable" -march=riscv -f bin -o "$RV32Output" \
+		"$RepositoryDirectory/demo/test/clover/arch-riscv32/basic.asm" \
+		>"$WorkDirectory/riscv32.stdout" 2>"$WorkDirectory/riscv32.stderr" || \
+		Fail "RISC-V 32-bit input did not assemble"
+	[ ! -s "$WorkDirectory/riscv32.stderr" ] || \
+		Fail "RISC-V 32-bit input produced diagnostics"
+	[ "$(NormalizeHex "$RV32Output")" = "$RV32Expected" ] || \
+		Fail "RISC-V 32-bit bytes differ"
+
+	"$AasmExecutable" -march=riscv -f bin -o "$RV64Output" \
+		"$RepositoryDirectory/demo/test/clover/arch-riscv64/basic.asm" \
+		>"$WorkDirectory/riscv64.stdout" 2>"$WorkDirectory/riscv64.stderr" || \
+		Fail "RISC-V 64-bit input did not assemble"
+	[ ! -s "$WorkDirectory/riscv64.stderr" ] || \
+		Fail "RISC-V 64-bit input produced diagnostics"
+	[ "$(NormalizeHex "$RV64Output")" = "$RV64Expected" ] || \
+		Fail "RISC-V 64-bit bytes differ"
+
+	printf '%s\n' \
+		'[ARCH x86]' \
+		'[BITS 64]' \
+		'RET' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'NOP' > "$MixedSource"
+	"$AasmExecutable" -f bin -o "$MixedOutput" "$MixedSource" \
+		>"$WorkDirectory/mixed-architecture.stdout" \
+		2>"$WorkDirectory/mixed-architecture.stderr" || \
+		Fail "mixed architecture input did not assemble"
+	[ ! -s "$WorkDirectory/mixed-architecture.stderr" ] || \
+		Fail "mixed architecture input produced diagnostics"
+	[ "$(NormalizeHex "$MixedOutput")" = 'c3 13 00 00 00' ] || \
+		Fail "mixed architecture bytes differ"
+	Pass "RISC-V encoding and ARCH switching"
 }
 
 CheckCommonStatements()
@@ -504,7 +551,8 @@ CheckListing
 CheckInvalidAddress
 CheckCodeends
 CheckArchends
+CheckRISCV
 CheckCommonStatements
 CheckPrefixOnly
 
-printf '\033[1;32mall AASM x86-64 regression checks passed\033[0m\n'
+printf '\033[1;32mall AASM regression checks passed\033[0m\n'

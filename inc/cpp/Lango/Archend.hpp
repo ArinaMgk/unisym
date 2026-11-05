@@ -22,6 +22,7 @@
 #ifndef UNISYM_LANGO_ARCHEND_HPP
 #define UNISYM_LANGO_ARCHEND_HPP
 
+#include <stdio.h>
 #include "../../c/stdinc.h"
 #include "./Target.hpp"
 

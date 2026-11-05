@@ -27,12 +27,13 @@
 #include "../../../../inc/cpp/Device/Storage/HD-DEPEND.h"
 #include "../../../../inc/c/board/IBM.h"
 #pragma GCC optimize("O0")
+#define ATA_CTRL_nIEN (1 << 1)
 namespace uni {
 
 	bool Harddisk_PATA::Hdisk_OUT(HdiskCommand* hd_cmd) {
 		if (fn_cmd_wait && !fn_cmd_wait(this)) return false;
 		// Interrupt Enable (nIEN)
-		outpb(ctrl_base, 0);
+		outpb(ctrl_base, react_type == ReactType::Loop ? ATA_CTRL_nIEN : 0);
 		// Load required parameters in the Command Block Registers
 		outpb(io_base + REG_FEATURES, hd_cmd->feature);
 		outpb(io_base + REG_NSECTOR, hd_cmd->count);
@@ -53,10 +54,12 @@ namespace uni {
 		// EMPTY
 	}
 	void Harddisk_PATA::setInterrupt(Handler_t unused_func) const {
+		#if _MCCA == 0x8632
 		if (id >= 4) return;// ide00 ide01 ide10 ide11
 		// ploginfo("Harddisk_PATA::setInterrupt(%d)", id);
 		i8259Slaver_Enable(_IMM(IRQ_ATA_DISK0) + (id >> 1) - PIC_SLV_IDSTART);
 		i8259Master_Enable(2);
+		#endif
 	}
 
 	// __attribute__((optimize("O0")))// NO OPTIMIZE
@@ -153,7 +156,6 @@ namespace uni {
 	}
 
 	#define ATA_CTRL_SRST  (1 << 2)
-	#define ATA_CTRL_nIEN (1 << 1)
 	void Harddisk_PATA::Reset() {
 		outpb(ctrl_base, ATA_CTRL_SRST | ATA_CTRL_nIEN);
 		for (volatile int i = 0; i < 1000; i = i + 1) _TEMP;//{} delay010us();

@@ -215,82 +215,111 @@ static void warn_overflow(int size, const struct operand *o)
 		}
 	}
 }
-static out_type ListingOutputType(
-	uni::CodeendOutputType type, uint64_t size)
+static out_type ListingOutputType(uni::CodeendOutputType type)
 {
 	switch (type) {
 	case uni::CodeendOutputType::RawData:
 		return OUT_RAWDATA;
-	case uni::CodeendOutputType::Address:
-		return OUT_ADDRESS;
 	case uni::CodeendOutputType::Reserve:
 		return OUT_RESERVE;
-	case uni::CodeendOutputType::Relative:
-		switch (size) {
-		case 2: return OUT_REL2ADR;
-		case 4: return OUT_REL4ADR;
-		case 8: return OUT_REL8ADR;
-		default:
-			aasm_log(_LOG_PANIC,
-				"invalid relative listing size: %" PRIu64, size);
-			return OUT_RAWDATA;
-		}
 	}
 	return OUT_RAWDATA;
 }
 
+static void SetOutputDebugLine(int32_t section)
+{
+	static int32_t lineno = 0;
+	static char *lnfname = NULL;
+	if (src_get(&lineno, &lnfname))
+		codeend->SetDebugLine(lnfname, lineno, section);
+}
+
 static void Output(int64_t offset, int32_t section, const void* data,
 	uni::CodeendOutputType type, uint64_t size,
-	int32_t target_section, int32_t wrt, uint64_t relative_base = 0)
+	int32_t target_section, int32_t wrt)
 {
-	static int32_t lineno = 0;     /* static!!! */
-	static char *lnfname = NULL;
-	uint8_t p[8];
-
-	if (type == uni::CodeendOutputType::Address &&
-		target_section == NO_SEG && wrt == NO_SEG) {
-	/*
-	 * This is a non-relocated address, and we're going to
-	 * convert it into RAWDATA format.
-	 */
-	uint8_t *q = p;
-
-	if (size > 8) {
-		//--auto clean flag
-		aasm_log(_LOG_PANIC, "OUT_ADDRESS with size > 8");
+	if (target_section != NO_SEG || wrt != NO_SEG) {
+		aasm_log(_LOG_PANIC, "raw output cannot contain a relocation");
 		return;
 	}
 
-	WRITEADDR(q, *(int64_t*)data, size);
-	data = p;
-	type = uni::CodeendOutputType::RawData;
-	}
-
-	list->output(offset, data, ListingOutputType(type, size), size);
-
-	/*
-	 * this call to src_get determines when we call the
-	 * debug-format-specific "linenum" function
-	 * it updates lineno and lnfname to the current values
-	 * returning 0 if "same as last time", -2 if lnfname
-	 * changed, and the amount by which lineno changed,
-	 * if it did. thus, these variables must be static
-	 */
-
-	if (src_get(&lineno, &lnfname)) {
-		codeend->SetDebugLine(lnfname, lineno, section);
-	}
+	list->output(offset, data, ListingOutputType(type), size);
+	SetOutputDebugLine(section);
 
 	uni::CodeendOutput output {
 		section,
 		data,
 		type,
-		size,
-		relative_base,
-		target_section,
-		wrt
+		size
 	};
 	codeend->Emit(output);
+}
+
+static void OutputFixup(int64_t offset, int32_t section, int64_t addend,
+	uni::CodeFixupKind kind, uint64_t size, int32_t target_section,
+	int32_t wrt, int64_t pc_bias)
+{
+	out_type listing_type = OUT_ADDRESS;
+	if (kind == uni::CodeFixupKind::PcRelative ||
+		kind == uni::CodeFixupKind::Branch ||
+		kind == uni::CodeFixupKind::Call) {
+		switch (size) {
+		case 2: listing_type = OUT_REL2ADR; break;
+		case 4: listing_type = OUT_REL4ADR; break;
+		case 8: listing_type = OUT_REL8ADR; break;
+		default:
+			aasm_log(_LOG_PANIC, "invalid relative fixup size: %" PRIu64, size);
+			return;
+		}
+	}
+
+	list->output(offset, &addend, listing_type, size);
+	SetOutputDebugLine(section);
+	uni::CodeFixup fixup {
+		section,
+		static_cast<uint64_t>(offset),
+		kind,
+		{
+			static_cast<uint16_t>(size * 8),
+			static_cast<uint16_t>(size * 8),
+			0,
+			0,
+			kind != uni::CodeFixupKind::Absolute
+		},
+		target_section,
+		addend,
+		pc_bias,
+		wrt,
+		0
+	};
+	codeend->EmitFixup(fixup);
+}
+
+static void OutputAbsolute(int64_t offset, int32_t section, int64_t data,
+	uint64_t size, int32_t target_section, int32_t wrt)
+{
+	if (target_section != NO_SEG || wrt != NO_SEG) {
+		OutputFixup(offset, section, data, uni::CodeFixupKind::Absolute,
+			size, target_section, wrt, 0);
+		return;
+	}
+	if (size > 8) {
+		aasm_log(_LOG_PANIC, "absolute data is wider than 64 bits");
+		return;
+	}
+	uint8_t converted[8];
+	uint8_t* cursor = converted;
+	WRITEADDR(cursor, data, size);
+	Output(offset, section, converted, uni::CodeendOutputType::RawData,
+		size, NO_SEG, NO_SEG);
+}
+
+static void OutputRelative(int64_t offset, int32_t section, int64_t addend,
+	uni::CodeFixupKind kind, uint64_t size, int32_t target_section,
+	int32_t wrt, int64_t pc_bias)
+{
+	OutputFixup(offset, section, addend, kind, size,
+		target_section, wrt, pc_bias);
 }
 
 static uint8_t PrefixByte(enum prefixes prefix, int bits)
@@ -1073,8 +1102,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			}
 			if (opx->segment != NO_SEG) {
 				data = opx->offset;
-				Output(offset, segment, &data, uni::CodeendOutputType::Address, 1,
-					opx->segment, opx->wrt);
+				OutputAbsolute(offset, segment, data, 1, opx->segment, opx->wrt);
 			}
 			else {
 				bytes[0] = opx->offset;
@@ -1093,8 +1121,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			}
 			if (opx->segment != NO_SEG) {
 				data = opx->offset;
-				Output(offset, segment, &data, uni::CodeendOutputType::Address, 1,
-					opx->segment, opx->wrt);
+				OutputAbsolute(offset, segment, data, 1, opx->segment, opx->wrt);
 			}
 			else {
 				bytes[0] = opx->offset;
@@ -1113,8 +1140,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			}
 			if (opx->segment != NO_SEG) {
 				data = opx->offset;
-				Output(offset, segment, &data, uni::CodeendOutputType::Address, 1,
-					opx->segment, opx->wrt);
+				OutputAbsolute(offset, segment, data, 1, opx->segment, opx->wrt);
 			}
 			else {
 				bytes[0] = opx->offset;
@@ -1127,8 +1153,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case4(030) :
 			warn_overflow(2, opx);
 			data = opx->offset;
-			Output(offset, segment, &data, uni::CodeendOutputType::Address, 2,
-				opx->segment, opx->wrt);
+			OutputAbsolute(offset, segment, data, 2, opx->segment, opx->wrt);
 			offset += 2;
 			break;
 
@@ -1139,16 +1164,14 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				size = (bits == 16) ? 2 : 4;
 			warn_overflow(size, opx);
 			data = opx->offset;
-			Output(offset, segment, &data, uni::CodeendOutputType::Address, size,
-				opx->segment, opx->wrt);
+			OutputAbsolute(offset, segment, data, size, opx->segment, opx->wrt);
 			offset += size;
 			break;
 
 		case4(040) :
 			warn_overflow(4, opx);
 			data = opx->offset;
-			Output(offset, segment, &data, uni::CodeendOutputType::Address, 4,
-				opx->segment, opx->wrt);
+			OutputAbsolute(offset, segment, data, 4, opx->segment, opx->wrt);
 			offset += 4;
 			break;
 
@@ -1156,8 +1179,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			data = opx->offset;
 			size = ins->addr_size >> 3;
 			warn_overflow(size, opx);
-			Output(offset, segment, &data, uni::CodeendOutputType::Address, size,
-				opx->segment, opx->wrt);
+			OutputAbsolute(offset, segment, data, size, opx->segment, opx->wrt);
 			offset += size;
 			break;
 
@@ -1179,22 +1201,21 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 
 		case4(054) :
 			data = (int64_t)opx->offset;
-			Output(offset, segment, &data, uni::CodeendOutputType::Address, 8,
-				opx->segment, opx->wrt);
+			OutputAbsolute(offset, segment, data, 8, opx->segment, opx->wrt);
 			offset += 8;
 			break;
 
 		case4(060) :
 			if (opx->segment != segment) {
 				data = opx->offset;
-				Output(offset, segment, &data,
-					uni::CodeendOutputType::Relative, 2,
-					opx->segment, opx->wrt, insn_end - offset);
+				OutputRelative(offset, segment, data,
+					ins->opcode == I_CALL ? uni::CodeFixupKind::Call :
+					uni::CodeFixupKind::Branch,
+					2, opx->segment, opx->wrt, insn_end - offset);
 			}
 			else {
 				data = opx->offset - insn_end;
-				Output(offset, segment, &data,
-					uni::CodeendOutputType::Address, 2, NO_SEG, NO_SEG);
+				OutputAbsolute(offset, segment, data, 2, NO_SEG, NO_SEG);
 			}
 			offset += 2;
 			break;
@@ -1206,14 +1227,14 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				size = (bits == 16) ? 2 : 4;
 			if (opx->segment != segment) {
 				data = opx->offset;
-				Output(offset, segment, &data,
-					uni::CodeendOutputType::Relative, size,
-					opx->segment, opx->wrt, insn_end - offset);
+				OutputRelative(offset, segment, data,
+					ins->opcode == I_CALL ? uni::CodeFixupKind::Call :
+					uni::CodeFixupKind::Branch,
+					size, opx->segment, opx->wrt, insn_end - offset);
 			}
 			else {
 				data = opx->offset - insn_end;
-				Output(offset, segment, &data,
-					uni::CodeendOutputType::Address, size, NO_SEG, NO_SEG);
+				OutputAbsolute(offset, segment, data, size, NO_SEG, NO_SEG);
 			}
 			offset += size;
 			break;
@@ -1221,14 +1242,14 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 		case4(070) :
 			if (opx->segment != segment) {
 				data = opx->offset;
-				Output(offset, segment, &data,
-					uni::CodeendOutputType::Relative, 4,
-					opx->segment, opx->wrt, insn_end - offset);
+				OutputRelative(offset, segment, data,
+					ins->opcode == I_CALL ? uni::CodeFixupKind::Call :
+					uni::CodeFixupKind::Branch,
+					4, opx->segment, opx->wrt, insn_end - offset);
 			}
 			else {
 				data = opx->offset - insn_end;
-				Output(offset, segment, &data,
-					uni::CodeendOutputType::Address, 4, NO_SEG, NO_SEG);
+				OutputAbsolute(offset, segment, data, 4, NO_SEG, NO_SEG);
 			}
 			offset += 4;
 			break;
@@ -1239,7 +1260,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				aasm_log(_LOG_ERROR, "value referenced by FAR is not relocatable");
 			}
 			data = 0;
-			Output(offset, segment, &data, uni::CodeendOutputType::Address, 2,
+			OutputAbsolute(offset, segment, data, 2,
 				codeend->ResolveSegmentBase(1 + opx->segment),
 				opx->wrt);
 			offset += 2;
@@ -1255,8 +1276,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				offset++;
 			}
 			else {
-				Output(offset, segment, &data, uni::CodeendOutputType::Address, 2,
-					opx->segment, opx->wrt);
+				OutputAbsolute(offset, segment, data, 2, opx->segment, opx->wrt);
 				offset += 2;
 			}
 			break;
@@ -1280,8 +1300,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				offset++;
 			}
 			else {
-				Output(offset, segment, &data, uni::CodeendOutputType::Address, 4,
-					opx->segment, opx->wrt);
+				OutputAbsolute(offset, segment, data, 4, opx->segment, opx->wrt);
 				offset += 4;
 			}
 			break;
@@ -1364,8 +1383,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				offset++;
 			}
 			else {
-				Output(offset, segment, &data, uni::CodeendOutputType::Address, 4,
-					opx->segment, opx->wrt);
+				OutputAbsolute(offset, segment, data, 4, opx->segment, opx->wrt);
 				offset += 4;
 			}
 			break;
@@ -1379,8 +1397,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 				log_warnt = ERR_WARN_NOV;
 				aasm_log(_LOG_WARN, "signed dword immediate exceeds bounds");
 			}
-			Output(offset, segment, &data, uni::CodeendOutputType::Address, 4,
-				opx->segment, opx->wrt);
+			OutputAbsolute(offset, segment, data, 4, opx->segment, opx->wrt);
 			offset += 4;
 			break;
 
@@ -1430,8 +1447,7 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 			}
 			if (opx->segment != NO_SEG) {
 				data = uv;
-				Output(offset, segment, &data, uni::CodeendOutputType::Address, 1,
-					opx->segment, opx->wrt);
+				OutputAbsolute(offset, segment, data, 1, opx->segment, opx->wrt);
 			}
 			else {
 				bytes[0] = uv;
@@ -1695,17 +1711,18 @@ static void gencode(int32_t segment, int64_t offset, int bits,
 					if (ea_data.rip) {
 						if (opy->segment == segment) {
 							data -= insn_end;
-							Output(offset, segment, &data, uni::CodeendOutputType::Address,
+							OutputAbsolute(offset, segment, data,
 								ea_data.bytes, NO_SEG, NO_SEG);
 						}
 						else {
-							Output(offset, segment, &data, uni::CodeendOutputType::Relative,
-								ea_data.bytes, opy->segment, opy->wrt,
+							OutputRelative(offset, segment, data,
+								uni::CodeFixupKind::PcRelative, ea_data.bytes,
+								opy->segment, opy->wrt,
 								insn_end - offset);
 						}
 					}
 					else {
-						Output(offset, segment, &data, uni::CodeendOutputType::Address,
+						OutputAbsolute(offset, segment, data,
 							ea_data.bytes, opy->segment, opy->wrt);
 					}
 					break;

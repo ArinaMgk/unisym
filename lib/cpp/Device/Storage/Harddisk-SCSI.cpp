@@ -5,7 +5,7 @@
 
 #include "../../../../inc/c/storage/harddisk.h"
 
-#if defined(_MCCA) && (_MCCA == 0x8632)
+#if defined(_MCCA) && ((_MCCA) == 0x8632 || _MCCA == 0x8664)
 namespace uni {
 
 	enum : byte {
@@ -88,8 +88,10 @@ namespace uni {
 	static bool _LOCAL_ExecuteRw10(Harddisk_SCSI& disk, byte opcode, uint64 lba,
 		void* data_buf, stduint block_count, bool data_in, const char* op_name) {
 		if (!disk.fn_exec || !data_buf || !block_count || !disk.Block_Size) return false;
-		if (lba >= disk.total_blocks || lba + block_count > disk.total_blocks) return false;
+		if (lba >= disk.total_blocks || block_count > disk.total_blocks - lba) return false;
 		if (lba > 0xFFFFFFFFull || block_count > 0xFFFFu) return false;
+		const uint64 data_bytes = uint64(disk.Block_Size) * block_count;
+		if (data_bytes > 0xFFFFFFFFull) return false;
 
 		byte cdb[10] = {};
 		cdb[0] = opcode;
@@ -100,7 +102,7 @@ namespace uni {
 		cdb[7] = byte(block_count >> 8);
 		cdb[8] = byte(block_count);
 
-		const stduint data_len = disk.Block_Size * block_count;
+		const stduint data_len = stduint(data_bytes);
 		for (int attempt = 0; attempt < 3; ++attempt) {
 			byte completion_code = 0xFF;
 			byte adapter_status = 0xFF;

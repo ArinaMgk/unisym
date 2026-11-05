@@ -69,10 +69,11 @@ AASM 当前代码可以按职责理解为以下部分：
   继续保存在 `lib/cpp/Format/Code`。
 
 Codeend 负责格式信息、格式选择、输出生命周期、section、symbol、directive 和
-调试格式操作。x86 编码器通过标准输出事件提交原始数据、地址、保留空间和相对
-地址，由 `aasm-format.cpp` 适配为现有格式函数表使用的输出类型。listing 保留原有
-接口；`NativeHandle()` 目前仅保留在 Codeend 适配和旧格式兼容代码中。开始汇编前
-会检查所选 Codeend 是否声明支持当前 Archend 的架构种类。
+调试格式操作。普通数据与保留空间通过 `CodeendOutput` 提交；需要重定位的值通过
+`CodeFixup` 描述目标 section、加数、PC 偏移语义和编码位域。`aasm-format.cpp` 当前
+将语义化 fixup 适配为现有格式函数表使用的输出类型。listing 保留原有接口；
+`NativeHandle()` 目前仅保留在 Codeend 适配和旧格式兼容代码中。开始汇编前会检查
+所选 Codeend 是否声明支持当前 Archend 的架构种类。
 
 标签操作统一通过 `Labelsys::Define`、`Labelsys::Redefine` 和 `Labelsys::Common`
 调用。标签状态管理仍位于 `aasm-label.cpp`，符号和调试符号分别通过 Codeend

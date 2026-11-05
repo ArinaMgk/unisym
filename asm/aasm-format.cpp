@@ -140,43 +140,66 @@ public:
 	virtual void Emit(const uni::CodeendOutput& output) override
 	{
 		out_type type;
-		uint64_t size = output.size;
 
 		switch (output.type) {
 		case uni::CodeendOutputType::RawData:
 			type = OUT_RAWDATA;
 			break;
-		case uni::CodeendOutputType::Address:
-			type = OUT_ADDRESS;
-			break;
 		case uni::CodeendOutputType::Reserve:
 			type = OUT_RESERVE;
-			break;
-		case uni::CodeendOutputType::Relative:
-			switch (output.size) {
-			case 2:
-				type = OUT_REL2ADR;
-				break;
-			case 4:
-				type = OUT_REL4ADR;
-				break;
-			case 8:
-				type = OUT_REL8ADR;
-				break;
-			default:
-				aasm_log(_LOG_PANIC,
-					"invalid relative output size: %" PRIu64, output.size);
-				return;
-			}
-			size = output.relative_base;
 			break;
 		default:
 			aasm_log(_LOG_PANIC, "invalid Codeend output type");
 			return;
 		}
 
-		Driver->output(output.section, output.data, type, size,
-			output.target_section, output.wrt);
+		Driver->output(output.section, output.data, type, output.size,
+			NO_SEG, NO_SEG);
+	}
+
+	virtual void EmitFixup(const uni::CodeFixup& fixup) override
+	{
+		const uni::CodeFixupEncoding& encoding = fixup.encoding;
+		if (encoding.bit_offset || encoding.right_shift ||
+			encoding.value_bits != encoding.storage_bits ||
+			(encoding.storage_bits != 16 && encoding.storage_bits != 32 &&
+			encoding.storage_bits != 64)) {
+			aasm_log(_LOG_PANIC, "unsupported fixup encoding");
+			return;
+		}
+
+		out_type type;
+		uint64_t size;
+		switch (fixup.kind) {
+		case uni::CodeFixupKind::Absolute:
+			type = OUT_ADDRESS;
+			size = encoding.storage_bits / 8;
+			break;
+		case uni::CodeFixupKind::PcRelative:
+		case uni::CodeFixupKind::Branch:
+		case uni::CodeFixupKind::Call:
+			switch (encoding.storage_bits) {
+			case 16: type = OUT_REL2ADR; break;
+			case 32: type = OUT_REL4ADR; break;
+			case 64: type = OUT_REL8ADR; break;
+			default:
+				aasm_log(_LOG_PANIC, "unsupported relative fixup width");
+				return;
+			}
+			if (fixup.pc_bias < 0) {
+				aasm_log(_LOG_PANIC, "negative fixup PC bias");
+				return;
+			}
+			size = static_cast<uint64_t>(fixup.pc_bias);
+			break;
+		default:
+			aasm_log(_LOG_PANIC, "unsupported fixup kind");
+			return;
+		}
+
+		int64_t addend = fixup.addend;
+		Driver->output(fixup.section, &addend, type, size,
+			fixup.target_section, fixup.legacy_wrt);
 	}
 
 	virtual int32_t ResolveSegmentBase(int32_t section) override

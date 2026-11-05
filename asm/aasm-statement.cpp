@@ -149,59 +149,63 @@ void FreeDataItems(DataItem* item)
 	}
 }
 
-out_type StatementListingType(
-	uni::CodeendOutputType type, uint64_t size)
+out_type StatementListingType(uni::CodeendOutputType type)
 {
 	switch (type) {
 	case uni::CodeendOutputType::RawData: return OUT_RAWDATA;
-	case uni::CodeendOutputType::Address: return OUT_ADDRESS;
 	case uni::CodeendOutputType::Reserve: return OUT_RESERVE;
-	case uni::CodeendOutputType::Relative:
-		switch (size) {
-		case 2: return OUT_REL2ADR;
-		case 4: return OUT_REL4ADR;
-		case 8: return OUT_REL8ADR;
-		default: return OUT_RAWDATA;
-		}
 	}
 	return OUT_RAWDATA;
 }
 
-void EmitStatementData(AssemblySession& session, int64_t offset,
-	const void* data, uni::CodeendOutputType type, uint64_t size,
-	int32_t target_section = NO_SEG, int32_t wrt = NO_SEG)
+void SetStatementDebugLine(AssemblySession& session)
 {
 	static int32_t line_number = 0;
 	static char* line_filename = nullptr;
-	uint8_t converted[8];
-
-	if (type == uni::CodeendOutputType::Address &&
-		target_section == NO_SEG && wrt == NO_SEG) {
-		if (size > sizeof(converted)) {
-			aasm_log(_LOG_PANIC, "address data is wider than 64 bits");
-			return;
-		}
-		uint8_t* cursor = converted;
-		WRITEADDR(cursor, *(const int64_t*)data, size);
-		data = converted;
-		type = uni::CodeendOutputType::RawData;
-	}
-
-	aasmlist.output(offset, data, StatementListingType(type, size), size);
 	if (src_get(&line_number, &line_filename))
 		session.Options->Target.Codeend().SetDebugLine(
 			line_filename, line_number, session.Location.segment);
+}
+
+void EmitStatementData(AssemblySession& session, int64_t offset,
+	const void* data, uni::CodeendOutputType type, uint64_t size)
+{
+	aasmlist.output(offset, data, StatementListingType(type), size);
+	SetStatementDebugLine(session);
 
 	uni::CodeendOutput output {
 		session.Location.segment,
 		data,
 		type,
-		size,
-		0,
-		target_section,
-		wrt
+		size
 	};
 	session.Options->Target.Codeend().Emit(output);
+}
+
+void EmitStatementFixup(AssemblySession& session, int64_t offset,
+	int64_t addend, size_t size, int32_t target_section, int32_t wrt)
+{
+	aasmlist.output(offset, &addend, OUT_ADDRESS, size);
+	SetStatementDebugLine(session);
+
+	uni::CodeFixup fixup {
+		session.Location.segment,
+		static_cast<uint64_t>(offset),
+		uni::CodeFixupKind::Absolute,
+		{
+			static_cast<uint16_t>(size * 8),
+			static_cast<uint16_t>(size * 8),
+			0,
+			0,
+			false
+		},
+		target_section,
+		addend,
+		0,
+		wrt,
+		0
+	};
+	session.Options->Target.Codeend().EmitFixup(fixup);
 }
 
 int64_t DataItemSize(const DataItem& item, size_t width)
@@ -717,7 +721,8 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 	for (int64_t iteration = 0; iteration < repeat; iteration++) {
 		for (DataItem* item = first; item; item = item->Next) {
 			if (item->Kind == DataItemKind::Number) {
-				if (width_bytes == 1 && item->Section != NO_SEG) {
+				if (width_bytes == 1 &&
+					(item->Section != NO_SEG || item->Wrt != NO_SEG)) {
 					aasm_log(_LOG_ERROR, "one-byte relocation attempted");
 				}
 				else if (width_bytes == 1) {
@@ -729,10 +734,16 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 					aasm_log(_LOG_ERROR,
 						"integer supplied to data wider than 64 bits");
 				}
-				else {
-					EmitStatementData(Session, output_offset, &item->Offset,
-						uni::CodeendOutputType::Address,
+				else if (item->Section != NO_SEG || item->Wrt != NO_SEG) {
+					EmitStatementFixup(Session, output_offset, item->Offset,
 						width_bytes, item->Section, item->Wrt);
+				}
+				else {
+					uint8_t converted[8];
+					uint8_t* cursor = converted;
+					WRITEADDR(cursor, item->Offset, width_bytes);
+					EmitStatementData(Session, output_offset, converted,
+						uni::CodeendOutputType::RawData, width_bytes);
 				}
 				output_offset += width_bytes;
 			}

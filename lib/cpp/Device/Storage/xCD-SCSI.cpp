@@ -5,7 +5,7 @@
 
 #include "../../../../inc/c/storage/harddisk.h"
 
-#if defined(_MCCA) && (_MCCA == 0x8632)
+#if defined(_MCCA) && (_MCCA == 0x8632 || _MCCA == 0x8664)
 namespace uni {
 
 	enum : byte {
@@ -17,8 +17,10 @@ namespace uni {
 
 	static bool _LOCAL_ExecuteRead10(CDROM_SCSI& cdrom, uint32 lba, void* data_buf, stduint block_count) {
 		if (!cdrom.fn_exec || !data_buf || !block_count || !cdrom.Block_Size) return false;
-		if (lba >= cdrom.total_blocks || uint64(lba) + block_count > cdrom.total_blocks) return false;
+		if (lba >= cdrom.total_blocks || block_count > cdrom.total_blocks - lba) return false;
 		if (block_count > 0xFFFFu) return false;
+		const uint64 data_bytes = uint64(cdrom.Block_Size) * block_count;
+		if (data_bytes > 0xFFFFFFFFull) return false;
 
 		byte cdb[10] = {};
 		cdb[0] = SCSI_CMD_READ10;
@@ -32,7 +34,7 @@ namespace uni {
 		byte completion_code = 0xFF;
 		byte adapter_status = 0xFF;
 		byte target_status = 0xFF;
-		const stduint data_len = cdrom.Block_Size * block_count;
+		const stduint data_len = stduint(data_bytes);
 		if (!cdrom.fn_exec(cdrom.exec_context, cdrom.target_id, cdrom.lun,
 			cdb, 10, data_buf, data_len, true,
 			completion_code, adapter_status, target_status)) return false;
@@ -56,6 +58,7 @@ namespace uni {
 	}
 
 	bool CDROM_SCSI::Read(stduint BlockIden, void* Dest, stduint Times) {
+		if (uint64(BlockIden) > 0xFFFFFFFFull) return false;
 		return _LOCAL_ExecuteRead10(*this, (uint32)BlockIden, Dest, Times);
 	}
 

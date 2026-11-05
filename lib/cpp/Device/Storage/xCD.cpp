@@ -33,6 +33,7 @@
 namespace uni {
 
 	bool xCD_ATAPI::Read(stduint BlockIden, void* Dest, stduint Times) {
+		const byte idle_control = react_type == ReactType::Loop ? ATA_CTRL_nIEN : 0;
 		for0(t, Times) {
 			stduint blk = BlockIden + t;
 			byte* dst = (byte*)Dest + t * Block_Size;
@@ -41,7 +42,7 @@ namespace uni {
 			// Wait for the controller BSY to clear
 			stduint timeout = 1000000;
 			while ((innpb(io_base + REG_STATUS) & STATUS_BSY) && --timeout);
-			if (!timeout) { outpb(ctrl_base, 0); return false; }
+			if (!timeout) { outpb(ctrl_base, idle_control); return false; }
 			
 			// Select the drive (Master or Slave)
 			outpb(io_base + REG_DEVICE, MAKE_DEVICE_REG(0, getLowID(), 0));
@@ -49,7 +50,7 @@ namespace uni {
 			// Wait for both BSY and DRQ to be cleared
 			timeout = 1000000;
 			while ((innpb(io_base + REG_STATUS) & (STATUS_BSY | STATUS_DRQ)) && --timeout);
-			if (!timeout) { outpb(ctrl_base, 0); return false; }
+			if (!timeout) { outpb(ctrl_base, idle_control); return false; }
 			
 			// Set feature register to 0 (PIO mode)
 			outpb(io_base + REG_FEATURES, 0);
@@ -69,7 +70,7 @@ namespace uni {
 					break;
 				}
 			}
-			if (!timeout) { outpb(ctrl_base, 0); return false; }
+			if (!timeout) { outpb(ctrl_base, idle_control); return false; }
 			
 			// Construct the 12-byte SCSI READ (12) command packet
 			byte packet[12] = {0};
@@ -104,23 +105,24 @@ namespace uni {
 					}
 				}
 			}
-			if (!ok) { outpb(ctrl_base, 0); return false; }
+			if (!ok) { outpb(ctrl_base, idle_control); return false; }
 			
 			// Read 2048 bytes of sector data from the data register
 			IN_wn(io_base + REG_DATA, (word*)dst, 2048);
 			
-			outpb(ctrl_base, 0);
+			outpb(ctrl_base, idle_control);
 		}
 		return true;
 	}
 
 	stduint xCD_ATAPI::getUnits() {
+		const byte idle_control = react_type == ReactType::Loop ? ATA_CTRL_nIEN : 0;
 		outpb(ctrl_base, ATA_CTRL_nIEN);
 		
 		// Wait for the controller BSY to clear
 		stduint timeout = 1000000;
 		while ((innpb(io_base + REG_STATUS) & STATUS_BSY) && --timeout);
-		if (!timeout) { outpb(ctrl_base, 0); return 0; }
+		if (!timeout) { outpb(ctrl_base, idle_control); return 0; }
 		
 		// Select the drive (Master or Slave)
 		outpb(io_base + REG_DEVICE, MAKE_DEVICE_REG(0, getLowID(), 0));
@@ -138,7 +140,7 @@ namespace uni {
 		// Wait for DRQ to be set, indicating ready to receive packet
 		timeout = 1000000;
 		while (!(innpb(io_base + REG_STATUS) & STATUS_DRQ) && --timeout);
-		if (!timeout) { outpb(ctrl_base, 0); return 0; }
+		if (!timeout) { outpb(ctrl_base, idle_control); return 0; }
 		
 		// 12-byte SCSI command package (READ CAPACITY 10)
 		byte packet[12] = {0};
@@ -162,7 +164,7 @@ namespace uni {
 				}
 			}
 		}
-		if (!ok) { outpb(ctrl_base, 0); return 0; }
+		if (!ok) { outpb(ctrl_base, idle_control); return 0; }
 		
 		// Read 8 bytes of capacity data
 		uint32 buffer[2] = {0};
@@ -172,11 +174,12 @@ namespace uni {
 		byte* p_lba = (byte*)&buffer[0];
 		uint32 max_lba = ((uint32)p_lba[0] << 24) | ((uint32)p_lba[1] << 16) | ((uint32)p_lba[2] << 8) | p_lba[3];
 		
-		outpb(ctrl_base, 0);
+		outpb(ctrl_base, idle_control);
 		return max_lba + 1;
 	}
 
 	PartitionSlice xCD_ATAPI::getSlice(stduint dev) {
+		const byte idle_control = react_type == ReactType::Loop ? ATA_CTRL_nIEN : 0;
 		outpb(ctrl_base, ATA_CTRL_nIEN);
 		
 		PartitionSlice slice;
@@ -187,7 +190,7 @@ namespace uni {
 		// filesystem probe chain decide whether the medium is ISO9660/UDF/etc.
 		slice.sys_id = ClassicFilesysType::None;
 		
-		outpb(ctrl_base, 0);
+		outpb(ctrl_base, idle_control);
 		return slice;
 	}
 

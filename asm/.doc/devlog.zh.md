@@ -93,3 +93,8 @@ x86 parser、encoder、指令与寄存器表、反汇编索引、token hash 及�
 x86 parser、encoder 和生成表已移除通用语句伪 opcode 及其扩展 operand 数据结构。
 prefix-only 行改用 x86 instruction 的独立状态，并保持原有前缀字节输出。
 
+Codeend 已增加语义化 `CodeFixup` 契约，区分绝对地址、PC 相对地址、分支和调用，
+并描述存储宽度、有效位、位偏移、右移量、符号属性、目标 section、加数和 PC 偏移。
+x86 编码器与通用数据语句通过 fixup 提交重定位；现有格式实现暂由
+`aasm-format.cpp` 转换到原有输出接口，生成的机器码和 relocation 保持不变。
+

@@ -9,6 +9,7 @@
 GLOBAL OUT_b, IN_b;
 GLOBAL OUT_w, IN_w;
 GLOBAL OUT_d, IN_d;
+GLOBAL IN_wn, OUT_wn;
 
 [BITS 64]
 
@@ -49,4 +50,21 @@ IN_d:
 	IN  EAX, DX
 RET
 
+; System V AMD64 ABI section 3.2.3: RDI = port, RSI = buffer, EDX = byte count.
+IN_wn:
+	MOV ECX, EDX
+	SHR ECX, 1
+	MOV DX, DI
+	MOV RDI, RSI
+	CLD
+	REP INSW
+RET
+
+OUT_wn:
+	MOV ECX, EDX
+	SHR ECX, 1
+	MOV DX, DI
+	CLD
+	REP OUTSW
+RET
 

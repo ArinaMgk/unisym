@@ -52,9 +52,7 @@ struct CodeendInfo {
 
 enum class CodeendOutputType : uint8_t {
 	RawData,
-	Address,
-	Reserve,
-	Relative
+	Reserve
 };
 
 struct CodeendOutput {
@@ -62,9 +60,41 @@ struct CodeendOutput {
 	const void* data;
 	CodeendOutputType type;
 	uint64_t size;
-	uint64_t relative_base;
+};
+
+enum class CodeFixupKind : uint8_t {
+	Absolute,
+	PcRelative,
+	Branch,
+	Call,
+	Got,
+	Plt,
+	Tls,
+	PageRelative,
+	PageOffset,
+	High,
+	Low,
+	ArchitectureSpecific
+};
+
+struct CodeFixupEncoding {
+	uint16_t storage_bits;
+	uint16_t value_bits;
+	uint16_t bit_offset;
+	uint8_t right_shift;
+	bool signed_value;
+};
+
+struct CodeFixup {
+	int32_t section;
+	uint64_t offset;
+	CodeFixupKind kind;
+	CodeFixupEncoding encoding;
 	int32_t target_section;
-	int32_t wrt;
+	int64_t addend;
+	int64_t pc_bias;
+	int32_t legacy_wrt;
+	uint32_t architecture_kind;
 };
 
 class CodeendInterface {
@@ -97,6 +127,7 @@ public:
 	virtual void SetDebugLine(
 		const char* filename, int32_t line, int32_t section) = 0;
 	virtual void Emit(const CodeendOutput& output) = 0;
+	virtual void EmitFixup(const CodeFixup& fixup) = 0;
 	virtual int32_t ResolveSegmentBase(int32_t section) = 0;
 	virtual void* NativeHandle() const = 0;
 };

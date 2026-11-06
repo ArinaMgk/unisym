@@ -10,10 +10,10 @@ start:
 	ADD a0, a1
 	MOV a2, a0
 	MOV BYTE [sp + 3], a2
-	MOV a3, BYTE [sp + 3]
-	MOVU a4, BYTE [sp + 3]
-	BEQ a0, a1, [done]
-	J [done]
+	MOV a3, SIGNED BYTE [sp + 3]
+	MOV a4, BYTE [sp + 3]
+	BEQ a0, a1, done
+	J done
 	NOP
 done:
 	RET
@@ -21,13 +21,13 @@ done:
 native_forms:
 	LUI x1, 0x12345
 	AUIPC x2, 1
-	JAL x1, [native_done]
-	JALR x1, [x2 + 4]
-	BNE x1, x2, [native_done]
-	BLT x1, x2, [native_done]
-	BGE x1, x2, [native_done]
-	BLTU x1, x2, [native_done]
-	BGEU x1, x2, [native_done]
+	JAL x1, native_done
+	JALR x1, x2 + 4
+	BNE x1, x2, native_done
+	BLT x1, x2, native_done
+	BGE x1, x2, native_done
+	BLTU x1, x2, native_done
+	BGEU x1, x2, native_done
 	LH x3, [x4 - 8]
 	LW x3, [x4 - 8]
 	LHU x3, [x4 - 8]

@@ -423,6 +423,16 @@ CheckRISCV()
 	RV64Output="$WorkDirectory/riscv64.bin"
 	MixedSource="$WorkDirectory/mixed-architecture.asm"
 	MixedOutput="$WorkDirectory/mixed-architecture.bin"
+	IndirectTargetSource="$WorkDirectory/riscv-indirect-target.asm"
+	IndirectTargetError="$WorkDirectory/riscv-indirect-target.stderr"
+	LoadExtensionSource="$WorkDirectory/riscv-load-extension.asm"
+	LoadExtensionOutput="$WorkDirectory/riscv-load-extension.bin"
+	SignednessSource="$WorkDirectory/riscv-signedness.asm"
+	SignednessOutput="$WorkDirectory/riscv-signedness.bin"
+	SignednessNativeSource="$WorkDirectory/riscv-signedness-native.asm"
+	SignednessNativeOutput="$WorkDirectory/riscv-signedness-native.bin"
+	InvalidSignednessSource="$WorkDirectory/riscv-invalid-signedness.asm"
+	InvalidSignednessError="$WorkDirectory/riscv-invalid-signedness.stderr"
 	RV32Expected='13 05 10 00 33 05 b5 00 13 06 05 00 a3 01 c1 00 83 06 31 00 03 47 31 00 63 06 b5 00 6f 00 80 00 13 00 00 00 67 80 00 00 b7 50 34 12 17 11 00 00 ef 00 00 08 e7 00 41 00 63 9c 20 06 63 ca 20 06 63 d8 20 06 63 e6 20 06 63 f4 20 06 83 11 82 ff 83 21 82 ff 83 51 82 ff 23 1c 32 fe 23 2c 32 fe 93 22 c3 ff 93 32 c3 ff 93 42 c3 ff 93 62 c3 ff 93 72 c3 ff 93 12 73 00 93 52 73 00 93 52 73 40 b3 03 94 40 b3 13 94 00 b3 23 94 00 b3 33 94 00 b3 43 94 00 b3 53 94 00 b3 53 94 40 b3 63 94 00 b3 73 94 00 0f 00 f0 0f 73 00 00 00 73 00 10 00 13 00 00 00'
 	RV64Expected='13 01 01 ff 23 34 11 00 03 35 81 00 83 65 01 00 3b 05 b5 00 1b 55 35 40 63 14 05 00 ef 00 40 00 83 30 81 00 13 01 01 01 67 80 00 00 9b 02 c3 ff 9b 12 73 00 9b 52 73 00 bb 03 94 40 bb 13 94 00 bb 53 94 00 bb 53 94 40 03 35 01 00'
 
@@ -459,6 +469,112 @@ CheckRISCV()
 		Fail "mixed architecture input produced diagnostics"
 	[ "$(NormalizeHex "$MixedOutput")" = 'c3 13 00 00 00' ] || \
 		Fail "mixed architecture bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'J [target]' \
+		'JALR x1, [x2 + 4]' \
+		'target:' \
+		'NOP' > "$IndirectTargetSource"
+	"$AasmExecutable" -f bin -o "$WorkDirectory/riscv-indirect-target.bin" \
+		"$IndirectTargetSource" \
+		>"$WorkDirectory/riscv-indirect-target.stdout" \
+		2>"$IndirectTargetError"
+	ResultCode="$?"
+	[ "$ResultCode" -ne 0 ] || \
+		Fail "RISC-V direct jump accepted a memory operand"
+	grep -Fq 'target expression expected' "$IndirectTargetError" || \
+		Fail "RISC-V direct jump memory diagnostic differs"
+	grep -Fq 'operand 2: indirect target expression expected' \
+		"$IndirectTargetError" || \
+		Fail "RISC-V indirect jump accepted a memory operand"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'MOV a0, BYTE [sp]' \
+		'MOV a1, SIGNED BYTE [sp]' \
+		'MOV a2, UNSIGNED BYT4 [sp]' > "$LoadExtensionSource"
+	"$AasmExecutable" -f bin -o "$LoadExtensionOutput" \
+		"$LoadExtensionSource" \
+		>"$WorkDirectory/riscv-load-extension.stdout" \
+		2>"$WorkDirectory/riscv-load-extension.stderr" || \
+		Fail "RISC-V load extension input did not assemble"
+	[ ! -s "$WorkDirectory/riscv-load-extension.stderr" ] || \
+		Fail "RISC-V load extension input produced diagnostics"
+	[ "$(NormalizeHex "$LoadExtensionOutput")" = \
+		'03 45 01 00 83 05 01 00 03 66 01 00' ] || \
+		Fail "RISC-V load extension bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'UNSIGNED MOV a0, BYTE [sp]' \
+		'MOV a1, BYTE SIGNED [sp]' \
+		'MOV a2, BYT4 [sp] UNSIGNED' \
+		'MOV x13, SIGNED x14' \
+		'LB x15, UNSIGNED [sp]' \
+		'LBU SIGNED x16, [sp]' \
+		'UNSIGNED SLT x5, x6, x7' \
+		'SLTU SIGNED x8, x9, x10' \
+		'SLTI x11, UNSIGNED x12, 7' \
+		'BLT x1, x2, UNSIGNED target' \
+		'BGEU x3, x4, target SIGNED' \
+		'target:' \
+		'MOV SIGNED BYTE [sp], a0' > "$SignednessSource"
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'MOV a0, BYTE [sp]' \
+		'MOV a1, SIGNED BYTE [sp]' \
+		'MOV a2, UNSIGNED BYT4 [sp]' \
+		'MOV x13, x14' \
+		'LBU x15, [sp]' \
+		'LB x16, [sp]' \
+		'SLTU x5, x6, x7' \
+		'SLT x8, x9, x10' \
+		'SLTIU x11, x12, 7' \
+		'BLTU x1, x2, target' \
+		'BGE x3, x4, target' \
+		'target:' \
+		'MOV BYTE [sp], a0' > "$SignednessNativeSource"
+	"$AasmExecutable" -f bin -o "$SignednessOutput" "$SignednessSource" \
+		>"$WorkDirectory/riscv-signedness.stdout" \
+		2>"$WorkDirectory/riscv-signedness.stderr" || \
+		Fail "RISC-V signedness input did not assemble"
+	[ ! -s "$WorkDirectory/riscv-signedness.stderr" ] || \
+		Fail "RISC-V signedness input produced diagnostics"
+	"$AasmExecutable" -f bin -o "$SignednessNativeOutput" \
+		"$SignednessNativeSource" \
+		>"$WorkDirectory/riscv-signedness-native.stdout" \
+		2>"$WorkDirectory/riscv-signedness-native.stderr" || \
+		Fail "RISC-V native signedness input did not assemble"
+	[ ! -s "$WorkDirectory/riscv-signedness-native.stderr" ] || \
+		Fail "RISC-V native signedness input produced diagnostics"
+	cmp -s "$SignednessOutput" "$SignednessNativeOutput" || \
+		Fail "RISC-V signedness variants differ from native instructions"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'ADD SIGNED x1, x2, x3' \
+		'XOR x1, UNSIGNED x2, x3' \
+		'SLT SIGNED x1, UNSIGNED x2, x3' > "$InvalidSignednessSource"
+	"$AasmExecutable" -f bin \
+		-o "$WorkDirectory/riscv-invalid-signedness.bin" \
+		"$InvalidSignednessSource" \
+		>"$WorkDirectory/riscv-invalid-signedness.stdout" \
+		2>"$InvalidSignednessError"
+	ResultCode="$?"
+	[ "$ResultCode" -ne 0 ] || \
+		Fail "RISC-V accepted invalid signedness qualifiers"
+	[ "$(grep -Fc 'instruction does not have a signedness variant' \
+		"$InvalidSignednessError")" -eq 2 ] || \
+		Fail "RISC-V unsupported signedness diagnostics differ"
+	grep -Fq 'instruction has multiple signedness qualifiers' \
+		"$InvalidSignednessError" || \
+		Fail "RISC-V duplicate signedness diagnostic differs"
 	Pass "RISC-V encoding and ARCH switching"
 }
 

@@ -136,67 +136,8 @@ NOP
 
 ## RISC-V 汇编语法
 
-当前 RISC-V Archend 提供 RV32I 和 RV64I 基础整数指令编码。寄存器可以写为
-`x0` 至 `x31`，也可以使用 `zero`、`ra`、`sp`、`gp`、`tp`、`t0` 至 `t6`、
-`s0` 至 `s11`、`fp`、`a0` 至 `a7` 等 ABI 名称。
-
-内存地址统一使用方括号：
-
-```asm
-LW   x5, [x6]
-LW   x5, [x6 + 12]
-SW   x5, [x6 - 4]
-JALR x1, [x6 + 8]
-```
-
-分支和直接跳转的目标也使用方括号，以便与立即数区分：
-
-```asm
-BEQ x5, x6, [target]
-JAL x1, [function]
-J   [finished]
-```
-
-寄存器型与立即数型运算同时支持完整三操作数形式和原地二操作数形式：
-
-```asm
-ADD  x1, x2, x3
-ADD  x1, x2       ; ADD x1, x1, x2
-ADDI x1, 4        ; ADDI x1, x1, 4
-```
-
-`MOV` 和 `MOVU` 只展开为一条机器指令。内存操作必须显式指定固定宽度：
-
-```asm
-MOV  x1, x2             ; ADDI x1, x2, 0
-MOV  x2, BYT4 [x1]      ; signed load
-MOVU x2, BYT2 [x1 + 2]  ; unsigned load
-MOV  BYT4 [x1], x2      ; store
-```
-
-RV32 可使用 `BYTE`、`BYT2`、`BYT4`；RV64 还可使用 `BYT8`。`MOVU BYT4` 在 RV64
-中使用无符号 4 字节加载。`NOP`、`RET`、`J` 和 `JR` 同样只展开为一条机器指令。
-
-当前直接支持的指令为：
-
-```text
-LUI AUIPC JAL JALR
-BEQ BNE BLT BGE BLTU BGEU
-LB LH LW LBU LHU SB SH SW
-ADDI SLTI SLTIU XORI ORI ANDI SLLI SRLI SRAI
-ADD SUB SLL SLT SLTU XOR SRL SRA OR AND
-FENCE ECALL EBREAK
-```
-
-RV64 另外支持：
-
-```text
-LWU LD SD
-ADDIW SLLIW SRLIW SRAIW
-ADDW SUBW SLLW SRLW SRAW
-```
-
-当前不包含乘除法、原子操作、压缩指令、浮点指令和 CSR 指令扩展。
+当前 RISC-V Archend 提供 RV32I 和 RV64I 基础整数指令编码。完整的寄存器、操作数、
+原生指令及单指令简化形式见 `inst-riscv.zh.md`。
 
 ## 当前结构
 

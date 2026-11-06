@@ -30,6 +30,12 @@ struct AssemblySession;
 
 namespace uni::lango {
 
+enum class AssemblySignedness : uint8_t {
+	Default,
+	Signed,
+	Unsigned
+};
+
 struct ArchendInfo {
 	const char* fullname;
 	const char* shortname;

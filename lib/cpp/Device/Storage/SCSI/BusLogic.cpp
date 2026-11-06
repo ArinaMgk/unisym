@@ -124,7 +124,7 @@ namespace uni::SCSI {
 		// Compatibility for hosts without a scheduler; Mecocoa waits outside the command mutex.
 		for0(attempt, 10000000u) {
 			Service();
-			if (request->done.load(MemoryOrder_Acquire)) return request->CopyResult(data, completion, host, target_status);
+			if (request->IsDone()) return request->CopyResult(data, completion, host, target_status);
 			_ASM volatile("pause" ::: "memory");
 		}
 		(void)Recover();
@@ -405,13 +405,11 @@ namespace uni::SCSI {
 	}
 
 	void BusLogic::StartQueued() {
-		for (auto& owner : queue.requests) {
+		queue.ExpireQueued();
+		for0(i, queue.Count()) {
+			auto owner = queue.getCommand(i);
 			auto& command = *owner;
-			if (command.active || command.done.load(MemoryOrder_Acquire)) continue;
-			if (uint32(queue.services.Milliseconds(queue.services.context) - command.started) >= command.timeout_ms) {
-				queue.Complete(command, false, {}, 0);
-				continue;
-			}
+			if (!command.IsQueued()) continue;
 			if (active_count >= mailbox_count) break;
 			if (!queue.CanStart(command)) continue;
 			stduint index = next_outbox_index;
@@ -438,7 +436,7 @@ namespace uni::SCSI {
 			}
 			MemCopyN(ccb->cdb, command.cdb, command.cdb_length);
 			ccb->sense_addr = command.dma.device_address + uint32(command.sense_offset);
-			command.active = true;
+			if (!command.Start(queue.services.Milliseconds(queue.services.context))) continue;
 			++active_count;
 			outboxes[index].ccb = command.dma.device_address;
 			// Publish ownership only after the CCB, data and mailbox address are visible to the adapter.
@@ -509,8 +507,9 @@ namespace uni::SCSI {
 				const uint32 address = inbox->ccb;
 				const byte host = inbox->adapter_status, target_status = inbox->target_status;
 				CommandHandle command;
-				for (auto& pending : queue.requests) {
-					if (pending->active && !pending->done.load(MemoryOrder_Acquire) && pending->dma.device_address == address) {
+				for0(index, queue.Count()) {
+					auto pending = queue.getCommand(index);
+					if (pending->IsActive() && pending->dma.device_address == address) {
 						command = pending;
 						break;
 					}
@@ -540,7 +539,6 @@ namespace uni::SCSI {
 				}
 				__sync_synchronize();
 				inbox->completion_code = BLOGIC_INBOX_FREE;
-				command->active = false;
 				--active_count;
 				const bool received = completion == BLOGIC_CMD_COMPLETE_GOOD || completion == BLOGIC_CMD_COMPLETE_ERROR;
 				const CommandResult result{byte(received ? Completion::Completed : Completion::Failed),
@@ -557,10 +555,11 @@ namespace uni::SCSI {
 		}
 		if (queue.HasExpired(true)) {
 			const uint32 now = queue.services.Milliseconds(queue.services.context);
-			for (const auto& request : queue.requests) {
-				if (request->active && uint32(now - request->started) >= request->timeout_ms) {
+			for0(i, queue.Count()) {
+				auto request = queue.getCommand(i);
+				if (request->IsActive() && request->HasExpired(now)) {
 					plogwarn("[SCSI/BusLogic] request timeout CCB=%[32H] t%ul%u origin=%u",
-						request->dma.device_address, (unsigned)request->target, (unsigned)request->lun, request->origin);
+						request->dma.device_address, (unsigned)request->target, (unsigned)request->lun, request->getOrigin());
 				}
 			}
 			(void)Recover();

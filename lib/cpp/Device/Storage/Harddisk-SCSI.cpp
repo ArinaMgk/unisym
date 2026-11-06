@@ -8,13 +8,13 @@
 #if defined(_MCCA) && ((_MCCA) == 0x8632 || _MCCA == 0x8664)
 namespace uni {
 	bool SCSI::CommandRequest::CopyResult(void* data, byte& completion, byte& host, byte& target_status) const {
-		if (!done.load(MemoryOrder_Acquire)) return false;
+		if (!IsDone()) return false;
 		completion = result.completion;
 		host = result.host_status;
 		target_status = result.target_status;
 		if (data_in && data_length && result.Succeeded() && data) {
 			MemSet(data, 0, data_length);
-			MemCopyN(data, Data(), transferred);
+			MemCopyN(data, Data(), getCompletion().transferred);
 		}
 		return received;
 	}
@@ -24,6 +24,7 @@ namespace uni {
 		if (!cdb || !cdb_length || cdb_length > 16 || (bytes && !data && !data_in) || !timeout_ms || timeout_ms > 0x7FFFFFFFu ||
 			!services.AllocateDma || !services.ReleaseDma || !services.Milliseconds || frame_bytes > 4096 ||
 			uint64(bytes) + frame_bytes + 47 > 0xFFFFFFFFull || uint64(bytes) + frame_bytes + 47 > ~stduint(0)) return {};
+		const uint32 started = services.Milliseconds(services.context);
 		// Failed probes must not leave a target-by-LUN-by-caller allocation matrix behind.
 		for (stduint i = targets.Count(); i--;) {
 			if (!targets[i]->tagged && targets[i].use_count() == 1) targets.Remove(i);
@@ -37,13 +38,10 @@ namespace uni {
 		request->bus = bus;
 		request->target = target;
 		request->lun = lun;
-		request->origin = origin;
 		request->cdb_length = cdb_length;
 		MemCopyN(request->cdb, cdb, cdb_length);
 		request->data_length = bytes;
 		request->data_in = data_in;
-		request->timeout_ms = timeout_ms;
-		request->started = services.Milliseconds(services.context);
 		request->sense_offset = (frame_bytes + 7) & ~stduint(7);
 		request->data_offset = request->sense_offset + 32;
 		for (auto& state : targets) {
@@ -77,7 +75,7 @@ namespace uni {
 			uint64(request->dma.device_address) + request->dma.size > 0x100000000ull) return {};
 		MemSet(request->dma.virt, 0, request->data_offset + bytes);
 		if (bytes && !data_in) MemCopyN(request->Data(), data, bytes);
-		if (!requests.Append(request)) return {};
+		if (!StorageRequestQueue::Enqueue(request, started, timeout_ms, origin, services.context, services.Completed)) return {};
 		if (cdb[0] == 0x03 && cdb_length == 6 && !(cdb[1] & 1) && data_in && request->cached_sense->valid) {
 			const stduint allocation = cdb[4] < 32 ? cdb[4] : 32;
 			const stduint copied = bytes < allocation ? bytes : allocation;
@@ -91,18 +89,18 @@ namespace uni {
 
 	bool SCSI::CommandQueue::CanStart(const CommandRequest& request) const {
 		if (request.target_state->tagged) return true;
-		for (const auto& other : requests) {
-			if (other->active && !other->done.load(MemoryOrder_Acquire) && other->target_state.get() == request.target_state.get()) return false;
+		for0(i, Count()) {
+			auto other = getCommand(i);
+			if (other->IsActive() && other->target_state.get() == request.target_state.get()) return false;
 		}
 		return true;
 	}
 
 	void SCSI::CommandQueue::Complete(CommandRequest& request, bool received, const CommandResult& result,
 		uint32 transferred, stduint sense_bytes) {
-		if (request.done.load(MemoryOrder_Acquire)) return;
+		if (request.IsDone()) return;
 		request.result = result;
 		request.received = received;
-		request.transferred = transferred <= request.data_length ? transferred : 0;
 		if (sense_bytes) {
 			MemSet(request.cached_sense->bytes, 0, sizeof(request.cached_sense->bytes));
 			MemCopyN(request.cached_sense->bytes, request.Sense(), sense_bytes < 32 ? sense_bytes : 32);
@@ -111,60 +109,21 @@ namespace uni {
 		if (result.Succeeded() && request.cdb[0] == 0x12 && !(request.cdb[1] & 1) && transferred >= 8) {
 			request.target_state->tagged = (request.Data()[7] & 2) != 0; // SPC INQUIRY byte 7, CmdQue.
 		}
-		request.done.store(1, MemoryOrder_Release);
-		if (services.Completed) services.Completed(services.context, request.origin);
-	}
-
-	void SCSI::CommandQueue::Prune() {
-		for (stduint i = requests.Count(); i--;) {
-			if (!requests[i]->done.load(MemoryOrder_Acquire) || requests[i]->pinned) continue;
-			requests.Remove(i);
-		}
+		StorageRequestQueue::Complete(request,
+			{received && result.Succeeded() ? StorageRequestStatus::Success : StorageRequestStatus::Failed,
+			transferred <= request.data_length ? stduint(transferred) : 0}, true);
 	}
 
 	void SCSI::CommandQueue::ExpireQueued() {
-		const uint32 now = services.Milliseconds(services.context);
-		for (auto& request : requests) {
-			if (!request->active && !request->done.load(MemoryOrder_Acquire) && uint32(now - request->started) >= request->timeout_ms) {
-				Complete(*request, false, {}, 0);
-			}
-		}
+		StorageRequestQueue::ExpireQueued(services.Milliseconds(services.context));
 	}
 
 	uint32 SCSI::CommandQueue::NextTimeout() const {
-		uint32 remaining = 0xFFFFFFFFu;
-		const uint32 now = services.Milliseconds(services.context);
-		for (const auto& request : requests) {
-			if (request->done.load(MemoryOrder_Acquire)) continue;
-			const uint32 elapsed = now - request->started;
-			const uint32 wait = elapsed >= request->timeout_ms ? 1 : request->timeout_ms - elapsed;
-			if (wait < remaining) remaining = wait;
-		}
-		return remaining;
+		return StorageRequestQueue::NextTimeout(services.Milliseconds(services.context));
 	}
 
 	bool SCSI::CommandQueue::HasExpired(bool active) const {
-		const uint32 now = services.Milliseconds(services.context);
-		for (const auto& request : requests) {
-			if (!request->done.load(MemoryOrder_Acquire) && request->active == active && uint32(now - request->started) >= request->timeout_ms) return true;
-		}
-		return false;
-	}
-
-	stduint SCSI::CommandQueue::NextOrigin() const {
-		for (const auto& request : requests) {
-			if (!request->done.load(MemoryOrder_Acquire)) return request->origin;
-		}
-		return ~stduint(0);
-	}
-
-	void SCSI::CommandQueue::FailAll(bool quiesced) {
-		for (auto& request : requests) {
-			if (request->done.load(MemoryOrder_Acquire)) continue;
-			request->pinned = request->active && !quiesced;
-			Complete(*request, false, {}, 0);
-		}
-		Prune();
+		return StorageRequestQueue::HasExpired(services.Milliseconds(services.context), active);
 	}
 
 

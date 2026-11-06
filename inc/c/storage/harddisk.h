@@ -288,20 +288,19 @@ namespace uni {
 			bool valid = false;
 			byte bytes[32]{};
 		};
-		struct CommandRequest {
+		struct CommandRequest : StorageRequest {
 			CommandServices services{};
 			CommandDma dma{};
 			SharedPtr<TargetQueueState> target_state;
 			SharedPtr<CommandSense> cached_sense;
-			Atomic<byte> done{0};
 			CommandResult result{};
 			byte bus = 0, target = 0, lun = 0, cdb_length = 0;
 			byte cdb[16]{};
-			stduint data_length = 0, sense_offset = 0, data_offset = 0, origin = 0;
-			uint32 context = 0, started = 0, timeout_ms = 0, transferred = 0;
-			bool data_in = false, active = false, pinned = false, received = false;
+			stduint data_length = 0, sense_offset = 0, data_offset = 0;
+			uint32 context = 0;
+			bool data_in = false, received = false;
 			~CommandRequest() {
-				if (!pinned && dma.virt && services.ReleaseDma) services.ReleaseDma(services.context, dma);
+				if (!IsPinned() && !IsActive() && dma.virt && services.ReleaseDma) services.ReleaseDma(services.context, dma);
 			}
 			byte* Data() const { return dma.virt + data_offset; }
 			byte* Sense() const { return dma.virt + sense_offset; }
@@ -311,23 +310,23 @@ namespace uni {
 		using CommandHandle = SharedPtr<CommandRequest>;
 
 		// The host serializes queue operations with a sleepable lock; IRQ entries only mask and notify.
-		class CommandQueue {
+		class CommandQueue : public StorageRequestQueue {
 			Vector<SharedPtr<TargetQueueState>> targets;
 			Vector<SharedPtr<CommandSense>> sense_cache;
 		public:
 			CommandServices services{};
-			Vector<CommandHandle> requests;
+			CommandHandle getCommand(stduint index) const {
+				auto request = getRequest(index);
+				return CommandHandle(request, static_cast<CommandRequest*>(request.get()));
+			}
 			// IN results remain in request-owned Data(); OUT data and the CDB are copied before submission returns.
 			CommandHandle Enqueue(byte bus, byte target, byte lun, const byte* cdb, byte cdb_length,
 				const void* data, stduint bytes, bool data_in, stduint frame_bytes, uint32 timeout_ms, stduint origin);
 			bool CanStart(const CommandRequest& request) const;
 			void Complete(CommandRequest& request, bool received, const CommandResult& result, uint32 transferred, stduint sense_bytes = 0);
-			void Prune();
 			void ExpireQueued();
 			uint32 NextTimeout() const;
-			stduint NextOrigin() const;
 			bool HasExpired(bool active) const;
-			void FailAll(bool quiesced);
 		};
 
 		// SPC INQUIRY and SBC READ CAPACITY(10) payloads contain no controller-specific fields.

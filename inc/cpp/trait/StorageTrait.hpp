@@ -29,6 +29,9 @@
 #define _INCPP_TRAIT_Storage
 #include "../trait/BlockTrait.hpp"
 #include "../System/Filesys/Partition.hpp"
+#include "../atomic"
+#include "../vector"
+#include "../ISO_IEC_STD/memory"
 
 namespace uni {
 	class StorageTrait : public BlockTrait {
@@ -47,6 +50,67 @@ namespace uni {
 			default_slice.sys_id = ClassicFilesysType::None;
 			return default_slice;
 		}
+	};
+
+	enum class StorageRequestState : byte { Created, Queued, Active, Completed };
+	enum class StorageRequestStatus : byte { Success, Failed, TimedOut };
+	struct StorageRequestResult {
+		StorageRequestStatus status = StorageRequestStatus::Failed;
+		stduint transferred = 0;
+	};
+
+	class StorageRequestQueue;
+	// The host serializes state changes; readers acquire Completed before accessing the result or payload.
+	class StorageRequest {
+		friend class StorageRequestQueue;
+		Atomic<byte> state{byte(StorageRequestState::Created)};
+		StorageRequestResult completion{};
+		StorageRequestQueue* owner = nullptr;
+		uint32 started = 0, timeout_ms = 0;
+		stduint origin = 0;
+		bool pinned = false;
+		void* completion_context = nullptr;
+		void (*completed)(void*, stduint) = nullptr;
+	public:
+		StorageRequest() = default;
+		virtual ~StorageRequest() = default;
+		StorageRequest(const StorageRequest&) = delete;
+		StorageRequest& operator=(const StorageRequest&) = delete;
+		StorageRequestState getState() const { return StorageRequestState(state.load(MemoryOrder_Acquire)); }
+		const StorageRequestResult& getCompletion() const { return completion; }
+		stduint getOrigin() const { return origin; }
+		bool IsDone() const { return getState() == StorageRequestState::Completed; }
+		bool IsQueued() const { return getState() == StorageRequestState::Queued; }
+		bool IsActive() const { return getState() == StorageRequestState::Active; }
+		// Logical completion does not prove that hardware has stopped accessing request-owned resources.
+		bool IsPinned() const { return pinned; }
+		bool HasExpired(uint32 now) const;
+		uint32 Remaining(uint32 now) const;
+		bool Start(uint32 now);
+	};
+	using StorageRequestHandle = SharedPtr<StorageRequest>;
+
+	/* The host serializes queue access and stops hardware before destroying the queue.
+	   IRQ routing, scheduling, DMA allocation and protocol fields remain outside this layer. */
+	class StorageRequestQueue {
+		Vector<StorageRequestHandle> requests;
+	public:
+		StorageRequestQueue() = default;
+		StorageRequestQueue(const StorageRequestQueue&) = delete;
+		StorageRequestQueue& operator=(const StorageRequestQueue&) = delete;
+		// origin is an opaque host token; completed only notifies and must not reenter or mutate this queue.
+		bool Enqueue(const StorageRequestHandle& request, uint32 now, uint32 timeout_ms,
+			stduint origin = 0, void* context = nullptr, void (*completed)(void*, stduint) = nullptr);
+		bool Complete(StorageRequest& request, const StorageRequestResult& result, bool quiesced);
+		void ExpireQueued(uint32 now);
+		uint32 NextTimeout(uint32 now) const;
+		bool HasExpired(uint32 now, bool active) const;
+		stduint NextOrigin() const;
+		void Prune();
+		// quiesced must follow a confirmed stop/reset; otherwise active resources stay pinned even after failure.
+		void FailAll(bool quiesced);
+		stduint Count() const { return requests.Count(); }
+		StorageRequestHandle getRequest(stduint index) const;
 	};
 
 	class MemoryBlockDevice : public StorageTrait {

@@ -378,20 +378,21 @@ namespace uni::SCSI {
 	}
 
 	void LsiLogicMPI::StartQueued() {
-		for (auto& owner : queue.requests) {
+		queue.ExpireQueued();
+		for0(i, queue.Count()) {
+			auto owner = queue.getCommand(i);
 			auto& command = *owner;
-			if (command.active || command.done.load(MemoryOrder_Acquire)) continue;
-			if (uint32(services.Milliseconds(services.context) - command.started) >= command.timeout_ms) {
-				queue.Complete(command, false, {}, 0);
-				continue;
-			}
+			if (!command.IsQueued()) continue;
 			if (active_count >= credits) break;
 			if (!queue.CanStart(command)) continue;
 			bool collision;
 			do {
 				if (++next_context > ContextMask) next_context = 1;
 				collision = false;
-				for (const auto& other : queue.requests) if (other->active && other->context == next_context) collision = true;
+				for0(index, queue.Count()) {
+					auto other = queue.getCommand(index);
+					if (other->IsActive() && other->context == next_context) collision = true;
+				}
 			} while (collision);
 			command.context = next_context;
 			MemSet(command.dma.virt, 0, request_frame_size);
@@ -422,7 +423,7 @@ namespace uni::SCSI {
 			}
 			const stduint request_bytes = sizeof(ScsiRequest) + sge_count * sizeof(SimpleSge);
 			const uint32 blocks = uint32((request_bytes - 1) / request_block_bytes + 1) & RequestBlockMask;
-			command.active = true;
+			if (!command.Start(services.Milliseconds(services.context))) continue;
 			++active_count;
 			__sync_synchronize();
 			WriteRegister(RequestQueue, command.dma.device_address | blocks);
@@ -492,8 +493,9 @@ namespace uni::SCSI {
 			}
 			else reply.context = descriptor;
 			CommandHandle command;
-			for (auto& pending : queue.requests) {
-				if (pending->active && !pending->done.load(MemoryOrder_Acquire) && pending->context == reply.context) {
+			for0(i, queue.Count()) {
+				auto pending = queue.getCommand(i);
+				if (pending->IsActive() && pending->context == reply.context) {
 					command = pending;
 					break;
 				}
@@ -529,7 +531,6 @@ namespace uni::SCSI {
 				complete_report && !(reply.scsi_state & (NoScsiStatus | Terminated)) &&
 				(!(reply.scsi_state & ResponseInfoValid) || !reply.response_info) &&
 				(reply.transfer_count == command->data_length || short_reply || reply.scsi_status != byte(Status::Good));
-			command->active = false;
 			--active_count;
 			const CommandResult result{byte(Completion::Completed), byte(good ? HostStatus::Good : HostStatus::Error), reply.scsi_status};
 			queue.Complete(*command, true, result, reply.transfer_count, (reply.scsi_state & AutosenseValid) ? reply.sense_count : 0);
@@ -542,10 +543,11 @@ namespace uni::SCSI {
 		}
 		if (queue.HasExpired(true)) {
 			const uint32 now = services.Milliseconds(services.context);
-			for (const auto& request : queue.requests) {
-				if (request->active && uint32(now - request->started) >= request->timeout_ms) {
+			for0(i, queue.Count()) {
+				auto request = queue.getCommand(i);
+				if (request->IsActive() && request->HasExpired(now)) {
 					plogwarn("[%s] request timeout ctx=%[32H] b%ut%ul%u origin=%u", log_name,
-						request->context, (unsigned)request->bus, (unsigned)request->target, (unsigned)request->lun, request->origin);
+						request->context, (unsigned)request->bus, (unsigned)request->target, (unsigned)request->lun, request->getOrigin());
 				}
 			}
 			(void)Recover();
@@ -569,7 +571,7 @@ namespace uni::SCSI {
 		// Compatibility for hosts without a scheduler; Mecocoa uses SubmitScsi plus interrupt-driven waits.
 		for0(attempt, 10000000u) {
 			Service();
-			if (request->done.load(MemoryOrder_Acquire)) return request->CopyResult(data, completion, host, target_status);
+			if (request->IsDone()) return request->CopyResult(data, completion, host, target_status);
 			_ASM volatile("pause" ::: "memory");
 		}
 		(void)Recover(); // Also bounds early-boot waits when the host clock cannot advance.

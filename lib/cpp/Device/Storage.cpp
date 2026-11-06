@@ -22,8 +22,10 @@
 
 #include "../../../inc/cpp/unisym"
 #include "../../../inc/cpp/string"
+#include "../../../inc/cpp/trait/StorageTrait.hpp"
 #include "../../../inc/cpp/System/Filesys.hpp"
 
+#pragma GCC push_options
 #pragma GCC optimize("O0")
 #define DRV_OF_DEV
 namespace uni {
@@ -173,5 +175,107 @@ namespace uni {
 		}
 	}
 
+}
+
+#pragma GCC pop_options
+
+namespace uni {
+
+	bool StorageRequest::HasExpired(uint32 now) const {
+		return (IsQueued() || IsActive()) && uint32(now - started) >= timeout_ms;
+	}
+
+	uint32 StorageRequest::Remaining(uint32 now) const {
+		if (!IsQueued() && !IsActive()) return 0xFFFFFFFFu;
+		const uint32 elapsed = now - started;
+		return elapsed >= timeout_ms ? 1 : timeout_ms - elapsed;
+	}
+
+	bool StorageRequest::Start(uint32 now) {
+		if (!owner || !IsQueued()) return false;
+		if (HasExpired(now)) {
+			owner->Complete(*this, {StorageRequestStatus::TimedOut, 0}, true);
+			return false;
+		}
+		state.store(byte(StorageRequestState::Active), MemoryOrder_Release);
+		return true;
+	}
+
+	bool StorageRequestQueue::Enqueue(const StorageRequestHandle& request, uint32 now, uint32 timeout_ms,
+		stduint origin, void* context, void (*completed)(void*, stduint)) {
+		if (!request || request->owner || request->getState() != StorageRequestState::Created ||
+			!timeout_ms || timeout_ms > 0x7FFFFFFFu) return false;
+		if (!requests.Append(request)) return false;
+		// Publish ownership only after vector growth succeeds; rejected requests remain reusable and unowned.
+		request->owner = this;
+		request->started = now;
+		request->timeout_ms = timeout_ms;
+		request->origin = origin;
+		request->completion_context = context;
+		request->completed = completed;
+		request->state.store(byte(StorageRequestState::Queued), MemoryOrder_Release);
+		return true;
+	}
+
+	bool StorageRequestQueue::Complete(StorageRequest& request, const StorageRequestResult& result, bool quiesced) {
+		if (request.owner != this || request.IsDone()) return false;
+		request.pinned = request.IsActive() && !quiesced;
+		request.completion = result;
+		request.state.store(byte(StorageRequestState::Completed), MemoryOrder_Release);
+		if (request.completed) request.completed(request.completion_context, request.origin);
+		return true;
+	}
+
+	void StorageRequestQueue::ExpireQueued(uint32 now) {
+		for (auto& request : requests) {
+			if (request->IsQueued() && request->HasExpired(now)) {
+				Complete(*request, {StorageRequestStatus::TimedOut, 0}, true);
+			}
+		}
+	}
+
+	uint32 StorageRequestQueue::NextTimeout(uint32 now) const {
+		uint32 remaining = 0xFFFFFFFFu;
+		for (const auto& request : requests) {
+			const uint32 wait = request->Remaining(now);
+			if (wait < remaining) remaining = wait;
+		}
+		return remaining;
+	}
+
+	bool StorageRequestQueue::HasExpired(uint32 now, bool active) const {
+		for (const auto& request : requests) {
+			if ((active ? request->IsActive() : request->IsQueued()) && request->HasExpired(now)) return true;
+		}
+		return false;
+	}
+
+	stduint StorageRequestQueue::NextOrigin() const {
+		for (const auto& request : requests) {
+			if (!request->IsDone()) return request->getOrigin();
+		}
+		return ~stduint(0);
+	}
+
+	void StorageRequestQueue::Prune() {
+		for (stduint i = requests.Count(); i--;) {
+			if (!requests[i]->IsDone() || requests[i]->IsPinned()) continue;
+			requests[i]->owner = nullptr;
+			requests.Remove(i);
+		}
+	}
+
+	void StorageRequestQueue::FailAll(bool quiesced) {
+		for (auto& request : requests) {
+			// A later confirmed reset may also retire resources retained by an earlier failed reset.
+			if (quiesced) request->pinned = false;
+			if (!request->IsDone()) Complete(*request, {StorageRequestStatus::Failed, 0}, quiesced);
+		}
+		Prune();
+	}
+
+	StorageRequestHandle StorageRequestQueue::getRequest(stduint index) const {
+		return index < requests.Count() ? requests.begin()[index] : StorageRequestHandle{};
+	}
 }
 

@@ -30,6 +30,8 @@ enum class RISCVOperandKind : uint8_t {
 	None,
 	Register,
 	Immediate,
+	Target,
+	IndirectTarget,
 	Address
 };
 
@@ -50,6 +52,7 @@ struct RISCVOperand {
 
 struct RISCVInstruction {
 	RISCVOpcode opcode = RISCVOpcode::None;
+	AssemblySignedness signedness = AssemblySignedness::Default;
 	RISCVOperand operands[3];
 	unsigned operand_count = 0;
 };

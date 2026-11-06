@@ -38,7 +38,7 @@ using namespace uni;
 ::uni::trait::Malloc* uni_hostenv_allocator
 = nullptr;
 
-static bool PrepareNextPool(SinglePool* root, SinglePool* tail)
+static bool PrepareNextPool(SinglePool* root, SinglePool* tail, const Slice* excluded = nullptr)
 {
 	const stduint pool_size = 0x1000;
 
@@ -61,8 +61,13 @@ static bool PrepareNextPool(SinglePool* root, SinglePool* tail)
 				stduint addr =
 					ceilAlign(pool_size, p->address);
 
-				if (addr + pool_size <=
-					(stduint)p->getEndoaddr())
+				// A pending removal must not become storage for the pool being grown.
+				if (excluded && addr < (stduint)excluded->getEndoaddr() &&
+					addr + pool_size > excluded->address)
+					addr = ceilAlign(pool_size, (stduint)excluded->getEndoaddr());
+
+				const stduint end = (stduint)p->getEndoaddr();
+				if (addr >= p->address && addr <= end && pool_size <= end - addr)
 				{
 					new_pool_addr = addr;
 					new_pool = (SinglePool*)addr;
@@ -158,6 +163,7 @@ bool SinglePool::Append(const Slice& slice) {
 bool SinglePool::Remove(const Slice& slice) {
 	// e.g. remove {1,2} from {0,10} -> {0,1}&{3,7}
 	//{FUTURE} for R3APP, left&unmap page if throw a pool
+_RETRY_REMOVE:
 	auto idx = ifContainAll(slice);
 	if (-1 == idx) return false;
 	stduint level = idx / CNT_SLICES_PER_POOL;
@@ -188,11 +194,22 @@ bool SinglePool::Remove(const Slice& slice) {
 	}
 	else {
 		// Case remove {1,2} from {0,10}
+		auto physical_tail = this;
+		while (physical_tail->nextpool)
+			physical_tail = physical_tail->nextpool;
+		// Grow before truncating the parent, while its remaining free memory is still visible.
+		if (physical_tail->slicecnt >= CNT_SLICES_PER_POOL - 2) {
+			if (!PrepareNextPool(this, physical_tail, &slice)) return false;
+			goto _RETRY_REMOVE;// Growing may move slices or split the parent around the new pool.
+		}
+		const stduint original_length = parent->length;
 		parent->length = left_len;
 		Slice new_right_part;
 		new_right_part.address = slice_end;
 		new_right_part.length  = right_len;
-		return Insert(idx + 1, &new_right_part); 
+		if (Insert(idx + 1, &new_right_part)) return true;
+		parent->length = original_length;
+		return false;
 	}
 }
 
@@ -438,14 +455,17 @@ _RETRY_ALLOC:
 			else {
 				continue;
 			}
-			header->size = size;
-			header->prop = _IMM(0xFEDC5AA5);
+			const Slice source = *p;
 			auto succ = pool_available.Remove(Slice{ _IMM(header), total_size });
 			if (!succ) {
 				plogerro("Remove failed in Mempool::allocate %u a%u b%u", size, alignment, boundary);
 				plogerro("\t Remove(Slice{ %[x], %[x] })", _IMM(header), total_size);
-				plogerro("\t Current Slice{ %[x], %[x] }", p->address, p->length);
+				plogerro("\t Current Slice{ %[x], %[x] }", source.address, source.length);
+				return nullptr;
 			}
+			// Commit the header only after removing the range; pool growth can use other free bytes.
+			header->size = size;
+			header->prop = _IMM(0xFEDC5AA5);
 			// if (1) MemSet(ret, 0, size);
 			// ploginfo("Mempool::allocate %u a%u b%u -> %[x]", size, alignment, boundary, ret);
 			return ret;

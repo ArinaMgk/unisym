@@ -9,11 +9,11 @@ start:
 	ADDI sp, sp, -16
 	MOV BYT8 [sp + 8], ra
 	MOV a0, BYT8 [sp + 8]
-	MOVU a1, BYT4 [sp]
+	MOV a1, BYT4 [sp]
 	ADDW a0, a1
 	SRAIW a0, 3
-	BNE a0, zero, [done]
-	JAL ra, [done]
+	BNE a0, zero, done
+	JAL ra, done
 done:
 	MOV ra, BYT8 [sp + 8]
 	ADDI sp, sp, 16
@@ -27,4 +27,4 @@ native_word_forms:
 	SLLW x7, x8, x9
 	SRLW x7, x8, x9
 	SRAW x7, x8, x9
-	MOVU x10, BYT8 [sp]
+	MOV x10, UNSIGNED BYT8 [sp]

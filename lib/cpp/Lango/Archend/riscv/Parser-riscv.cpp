@@ -71,7 +71,7 @@ RISCVOpcode FindOpcode(const char* name)
 bool IsAlias(const char* name)
 {
 	static const char* const aliases[] = {
-		"j", "jr", "mov", "movu", "nop", "ret"
+		"j", "jr", "mov", "nop", "ret"
 	};
 	for (const char* alias : aliases)
 		if (Equal(name, alias)) return true;
@@ -159,6 +159,61 @@ bool ParseWidth(char*& text, uint8_t& width)
 	return true;
 }
 
+bool ReadSignedness(const char* text, size_t length,
+	AssemblySignedness& signedness)
+{
+	static const char signed_name[] = "signed";
+	static const char unsigned_name[] = "unsigned";
+	const char* name = nullptr;
+	AssemblySignedness value = AssemblySignedness::Default;
+	if (length == sizeof(signed_name) - 1) {
+		name = signed_name;
+		value = AssemblySignedness::Signed;
+	}
+	else if (length == sizeof(unsigned_name) - 1) {
+		name = unsigned_name;
+		value = AssemblySignedness::Unsigned;
+	}
+	if (!name) return false;
+	for (size_t index = 0; index < length; index++)
+		if (ascii_tolower(text[index]) != name[index]) return false;
+	signedness = value;
+	return true;
+}
+
+bool ExtractSignedness(char* source, AssemblySignedness& signedness)
+{
+	unsigned brackets = 0;
+	for (char* cursor = source; *cursor && *cursor != ';';) {
+		if (*cursor == '[') {
+			brackets++;
+			cursor++;
+			continue;
+		}
+		if (*cursor == ']') {
+			if (brackets) brackets--;
+			cursor++;
+			continue;
+		}
+		if (brackets || !isidchar(*cursor)) {
+			cursor++;
+			continue;
+		}
+		char* start = cursor;
+		while (isidchar(*cursor)) cursor++;
+		AssemblySignedness value;
+		if (!ReadSignedness(start, cursor - start, value)) continue;
+		if (signedness != AssemblySignedness::Default) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V instruction has multiple signedness qualifiers");
+			return false;
+		}
+		signedness = value;
+		while (start != cursor) *start++ = ' ';
+	}
+	return true;
+}
+
 bool ParseRegisterOperand(char* text, RISCVOperand& operand)
 {
 	text = SkipSpace(text);
@@ -176,13 +231,40 @@ bool ParseImmediateOperand(char* text, int parse_pass, RISCVOperand& operand)
 	return ParseValue(text, parse_pass, operand.value);
 }
 
-bool ParseAddressOperand(char* text, int parse_pass, bool require_base,
-	bool require_width, RISCVOperand& operand)
+bool ParseTargetOperand(char* text, int parse_pass, RISCVOperand& operand)
+{
+	operand.kind = RISCVOperandKind::Target;
+	return ParseValue(text, parse_pass, operand.value);
+}
+
+bool ParseIndirectTargetOperand(char* text, int parse_pass,
+	RISCVOperand& operand)
 {
 	text = SkipSpace(text);
-	uint8_t width = 0;
-	ParseWidth(text, width);
-	if (require_width && !width) return false;
+	TrimEnd(text);
+	char* register_end = text;
+	while (isidchar(*register_end)) register_end++;
+	char saved = *register_end;
+	*register_end = '\0';
+	if (!ParseRegister(text, operand.reg)) {
+		*register_end = saved;
+		return false;
+	}
+	*register_end = saved;
+	operand.kind = RISCVOperandKind::IndirectTarget;
+	char* displacement = SkipSpace(register_end);
+	if (!*displacement) return true;
+	if (*displacement != '+' && *displacement != '-') return false;
+	return ParseValue(displacement, parse_pass, operand.value);
+}
+
+bool ParseAddressOperand(char* text, int parse_pass, bool move_operand,
+	RISCVOperand& operand)
+{
+	text = SkipSpace(text);
+	if (move_operand) {
+		if (!ParseWidth(text, operand.width)) return false;
+	}
 	if (*text != '[') return false;
 	char* close = text + StrLength(text);
 	while (close > text && ascii_isspace(close[-1])) close--;
@@ -192,8 +274,6 @@ bool ParseAddressOperand(char* text, int parse_pass, bool require_base,
 	TrimEnd(content);
 
 	operand.kind = RISCVOperandKind::Address;
-	operand.width = width;
-	if (!require_base) return ParseValue(content, parse_pass, operand.value);
 
 	char* register_end = content;
 	while (isidchar(*register_end)) register_end++;
@@ -250,10 +330,27 @@ bool RequireImmediate(char* text, int parse_pass,
 	return false;
 }
 
-bool RequireAddress(char* text, int parse_pass, bool base, bool width,
+bool RequireTarget(char* text, int parse_pass,
 	RISCVOperand& operand, unsigned number)
 {
-	if (ParseAddressOperand(text, parse_pass, base, width, operand)) return true;
+	if (ParseTargetOperand(text, parse_pass, operand)) return true;
+	aasm_log(_LOG_ERROR, "RISC-V operand %u: target expression expected", number);
+	return false;
+}
+
+bool RequireIndirectTarget(char* text, int parse_pass,
+	RISCVOperand& operand, unsigned number)
+{
+	if (ParseIndirectTargetOperand(text, parse_pass, operand)) return true;
+	aasm_log(_LOG_ERROR,
+		"RISC-V operand %u: indirect target expression expected", number);
+	return false;
+}
+
+bool RequireAddress(char* text, int parse_pass, bool move_operand,
+	RISCVOperand& operand, unsigned number)
+{
+	if (ParseAddressOperand(text, parse_pass, move_operand, operand)) return true;
 	aasm_log(_LOG_ERROR, "RISC-V operand %u: address expression expected", number);
 	return false;
 }
@@ -292,16 +389,60 @@ RISCVOpcode StoreOpcode(unsigned width)
 	}
 }
 
+bool ApplySignedness(RISCVInstruction& instruction, int bits)
+{
+	if (instruction.signedness == AssemblySignedness::Default) return true;
+	bool use_unsigned = instruction.signedness == AssemblySignedness::Unsigned;
+	switch (instruction.opcode) {
+	case RISCVOpcode::Blt:
+	case RISCVOpcode::Bltu:
+		instruction.opcode = use_unsigned ? RISCVOpcode::Bltu : RISCVOpcode::Blt;
+		return true;
+	case RISCVOpcode::Bge:
+	case RISCVOpcode::Bgeu:
+		instruction.opcode = use_unsigned ? RISCVOpcode::Bgeu : RISCVOpcode::Bge;
+		return true;
+	case RISCVOpcode::Lb:
+	case RISCVOpcode::Lbu:
+		instruction.opcode = use_unsigned ? RISCVOpcode::Lbu : RISCVOpcode::Lb;
+		return true;
+	case RISCVOpcode::Lh:
+	case RISCVOpcode::Lhu:
+		instruction.opcode = use_unsigned ? RISCVOpcode::Lhu : RISCVOpcode::Lh;
+		return true;
+	case RISCVOpcode::Lw:
+	case RISCVOpcode::Lwu:
+		instruction.opcode = use_unsigned && bits == 64 ?
+			RISCVOpcode::Lwu : RISCVOpcode::Lw;
+		return true;
+	case RISCVOpcode::Slti:
+	case RISCVOpcode::Sltiu:
+		instruction.opcode = use_unsigned ? RISCVOpcode::Sltiu : RISCVOpcode::Slti;
+		return true;
+	case RISCVOpcode::Slt:
+	case RISCVOpcode::Sltu:
+		instruction.opcode = use_unsigned ? RISCVOpcode::Sltu : RISCVOpcode::Slt;
+		return true;
+	default:
+		aasm_log(_LOG_ERROR,
+			"RISC-V instruction does not have a signedness variant");
+		return false;
+	}
+}
+
 }
 
 bool RISCVParser::IsInstructionStart(const char* word)
 {
-	return FindOpcode(word) != RISCVOpcode::None || IsAlias(word);
+	return FindOpcode(word) != RISCVOpcode::None || IsAlias(word) ||
+		Equal(word, "signed") || Equal(word, "unsigned");
 }
 
 bool RISCVParser::Parse(AssemblySession& session, char* source,
 	int parse_pass, RISCVInstruction& instruction)
 {
+	if (!ExtractSignedness(source, instruction.signedness)) return false;
+	source = SkipSpace(source);
 	char* mnemonic_end = source;
 	while (isidchar(*mnemonic_end)) mnemonic_end++;
 	char saved = *mnemonic_end;
@@ -318,6 +459,8 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 	}
 
 	if (Equal(mnemonic, "nop")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
 		if (count) goto bad_count;
 		instruction.opcode = RISCVOpcode::Addi;
 		instruction.operand_count = 3;
@@ -327,43 +470,43 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		return true;
 	}
 	if (Equal(mnemonic, "ret")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
 		if (count) goto bad_count;
 		instruction.opcode = RISCVOpcode::Jalr;
 		instruction.operand_count = 2;
 		instruction.operands[0].kind = RISCVOperandKind::Register;
-		instruction.operands[1].kind = RISCVOperandKind::Address;
+		instruction.operands[1].kind = RISCVOperandKind::IndirectTarget;
 		instruction.operands[1].reg = 1;
 		return true;
 	}
 	if (Equal(mnemonic, "j")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
 		if (count != 1) goto bad_count;
 		instruction.opcode = RISCVOpcode::Jal;
 		instruction.operand_count = 2;
 		instruction.operands[0].kind = RISCVOperandKind::Register;
-		if (!RequireAddress(operands[0], parse_pass, false, false,
+		if (!RequireTarget(operands[0], parse_pass,
 			instruction.operands[1], 1)) return false;
 		return true;
 	}
 	if (Equal(mnemonic, "jr")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
 		if (count != 1) goto bad_count;
 		instruction.opcode = RISCVOpcode::Jalr;
 		instruction.operand_count = 2;
 		instruction.operands[0].kind = RISCVOperandKind::Register;
-		if (!RequireRegister(operands[0], instruction.operands[1], 1)) return false;
-		instruction.operands[1].kind = RISCVOperandKind::Address;
-		return true;
+		return RequireIndirectTarget(operands[0], parse_pass,
+			instruction.operands[1], 1);
 	}
-	if (Equal(mnemonic, "mov") || Equal(mnemonic, "movu")) {
+	if (Equal(mnemonic, "mov")) {
 		if (count != 2) goto bad_count;
-		bool zero_extend = Equal(mnemonic, "movu");
 		RISCVOperand destination;
 		if (ParseRegisterOperand(operands[0], destination)) {
 			RISCVOperand source_operand;
 			if (ParseRegisterOperand(operands[1], source_operand)) {
-				if (zero_extend) {
-					aasm_log(_LOG_ERROR, "RISC-V MOVU requires a memory source");
-					return false;
-				}
 				instruction.opcode = RISCVOpcode::Addi;
 				instruction.operand_count = 3;
 				instruction.operands[0] = destination;
@@ -371,10 +514,12 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 				instruction.operands[2].kind = RISCVOperandKind::Immediate;
 				return true;
 			}
-			if (!RequireAddress(operands[1], parse_pass, true, true,
+			if (!RequireAddress(operands[1], parse_pass, true,
 				source_operand, 2)) return false;
+			bool unsigned_load =
+				instruction.signedness != AssemblySignedness::Signed;
 			instruction.opcode = LoadOpcode(
-				source_operand.width, zero_extend, session.CurrentBits);
+				source_operand.width, unsigned_load, session.CurrentBits);
 			if (instruction.opcode == RISCVOpcode::None) {
 				aasm_log(_LOG_ERROR, "RISC-V MOV load width is not supported");
 				return false;
@@ -384,11 +529,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 			instruction.operands[1] = source_operand;
 			return true;
 		}
-		if (zero_extend) {
-			aasm_log(_LOG_ERROR, "RISC-V MOVU cannot store to memory");
-			return false;
-		}
-		if (!RequireAddress(operands[0], parse_pass, true, true,
+		if (!RequireAddress(operands[0], parse_pass, true,
 			destination, 1) ||
 			!RequireRegister(operands[1], instruction.operands[0], 2)) return false;
 		instruction.opcode = StoreOpcode(destination.width);
@@ -406,6 +547,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		aasm_log(_LOG_ERROR, "RISC-V instruction expected");
 		return false;
 	}
+	if (!ApplySignedness(instruction, session.CurrentBits)) return false;
 	if (instruction.opcode == RISCVOpcode::Fence ||
 		instruction.opcode == RISCVOpcode::Ecall ||
 		instruction.opcode == RISCVOpcode::Ebreak) {
@@ -425,18 +567,18 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		if (count == 1) {
 			instruction.operands[0].kind = RISCVOperandKind::Register;
 			instruction.operands[0].reg = 1;
-			return RequireAddress(operands[0], parse_pass, false, false,
+			return RequireTarget(operands[0], parse_pass,
 				instruction.operands[1], 1);
 		}
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
-			RequireAddress(operands[1], parse_pass, false, false,
+			RequireTarget(operands[1], parse_pass,
 				instruction.operands[1], 2);
 	}
 	if (instruction.opcode == RISCVOpcode::Jalr) {
 		if (count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
-			RequireAddress(operands[1], parse_pass, true, false,
+			RequireIndirectTarget(operands[1], parse_pass,
 				instruction.operands[1], 2);
 	}
 	if (instruction.opcode >= RISCVOpcode::Beq &&
@@ -445,7 +587,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		instruction.operand_count = 3;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
 			RequireRegister(operands[1], instruction.operands[1], 2) &&
-			RequireAddress(operands[2], parse_pass, false, false,
+			RequireTarget(operands[2], parse_pass,
 				instruction.operands[2], 3);
 	}
 	if (instruction.opcode >= RISCVOpcode::Lb &&
@@ -453,7 +595,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		if (count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
-			RequireAddress(operands[1], parse_pass, true, false,
+			RequireAddress(operands[1], parse_pass, false,
 				instruction.operands[1], 2);
 	}
 	if (instruction.opcode >= RISCVOpcode::Sb &&
@@ -461,7 +603,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		if (count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
-			RequireAddress(operands[1], parse_pass, true, false,
+			RequireAddress(operands[1], parse_pass, false,
 				instruction.operands[1], 2);
 	}
 	if (IsRegisterOperation(instruction.opcode)) {
@@ -494,6 +636,11 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 bad_count:
 	aasm_log(_LOG_ERROR, "RISC-V %s: invalid operand count", mnemonic);
 	(void)session;
+	return false;
+
+bad_signedness:
+	aasm_log(_LOG_ERROR,
+		"RISC-V instruction does not have a signedness variant");
 	return false;
 }
 

@@ -106,7 +106,11 @@ section 对齐、nobits reserve、绝对地址、PC 相对地址、分支和调�
 回归测试；`BYTE` 已从 x86 私有特殊 token 调整为架构无关的 1 字节宽度定义。
 
 已接入最小 RISC-V Archend，通过 `riscv` 目标的 BITS 选择 RV32I/RV64I，并提供
-基础整数编码、AASM 地址语法、单指令简化形式和 Binary 回归。`[CPU i]` 与
+基础整数编码、内存方括号地址语法、单指令简化形式和 Binary 回归。直接分支和跳转
+使用裸地址表达式，方括号仅表示间接访问。`[CPU i]` 与
 `[INST i]` 使用相同的基础整数指令集选择逻辑。新增 `[ARCH]` 用于切换后续区域的
 Archend；`[CPU]`、`[INST]` 与 `[BITS]` 由当前架构共同验证。
+已建立通用 `AssemblySignedness` 指令属性。RISC-V 的 `SIGNED` 和 `UNSIGNED`
+限定词可以在指令行顶层任意位置切换现有有符号、无符号指令族；`MOV` 默认使用
+无符号语义。
 

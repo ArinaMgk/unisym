@@ -215,6 +215,7 @@ namespace uni::lango {
 			lexer.method_string_double_quote = true;
 			// Preserve C escapes for the frontend so embedded zero bytes are not lost.
 			lexer.method_string_escape_sequence = false;
+			lexer.escape_sequence_rules = EscapeSequenceRules::C();
 			lexer.Parse(tokens);
 			LinearParser::StringConcatenation(tokens);
 			JoinCHexadecimalTokens(tokens);

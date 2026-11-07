@@ -21,6 +21,7 @@
 
 #include "../../../../../inc/cpp/Lango/Frontend/C/Frontend-c-clover-internal.hpp"
 #include "../../../../../inc/c/datype/floating.h"
+#include "../../../../../inc/c/multichar.h"
 
 namespace clover::frontend_c_internal {
 
@@ -258,44 +259,41 @@ namespace clover::frontend_c_internal {
 			return -1 - (stdsint)(UINT64_MAX - magnitude);
 		}
 
-		bool DecodeCEscape(const char*& text, unsigned& value) {
+		bool DecodeCCharacter(const char*& text, uint64& value,
+			uni::EscapeSequenceType& type) {
 			if (!text || !*text) return false;
 			value = (unsigned char)*text++;
+			type = uni::EscapeSequenceType::Byte;
 			if (value != '\\') return true;
 			if (!*text) return false;
-			char escaped = *text++;
-			if (escaped >= '0' && escaped <= '7') {
-				value = (unsigned)(escaped - '0');
-				for (unsigned count = 1;
-					count < 3 && *text >= '0' && *text <= '7'; count++)
-					value = value * 8 + (unsigned)(*text++ - '0');
+			uni::EscapeSequenceResult result = uni::DecodeEscapeSequence(
+				text, StrLength(text), uni::EscapeSequenceRules::C());
+			if (result.status != uni::EscapeSequenceStatus::Success) return false;
+			text += result.consumed;
+			value = result.value;
+			type = result.type;
+			return true;
+		}
+
+		bool AppendCStringCharacter(const char*& text,
+			uni::Vector<stdsint>& bytes) {
+			uint64 value;
+			uni::EscapeSequenceType type;
+			if (!DecodeCCharacter(text, value, type)) return false;
+			if (type == uni::EscapeSequenceType::Byte) {
+				if (value > 0xFF) return false;
+				bytes.Append((stdsint)value);
+				return true;
 			}
-			else if (escaped == 'x') {
-				if (!ascii_isxdigit(*text)) return false;
-				value = 0;
-				while (ascii_isxdigit(*text)) {
-					unsigned digit = DigitValue(*text++);
-					if (value > (0xFFU - digit) / 16) return false;
-					value = value * 16 + digit;
-				}
-			}
-			else {
-				switch (escaped) {
-				case 'a': value = 7; break;
-				case 'b': value = 8; break;
-				case 'f': value = 12; break;
-				case 'n': value = 10; break;
-				case 'r': value = 13; break;
-				case 't': value = 9; break;
-				case 'v': value = 11; break;
-				case '\\': value = '\\'; break;
-				case '\'': value = '\''; break;
-				case '"': value = '"'; break;
-				case '?': value = '?'; break;
-				default: return false;
-				}
-			}
-			return value <= 0xFF;
+			uint32 codepoint = (uint32)value;
+			byte encoded[6];
+			pureptr_t destination = encoded;
+			stduint length = CscUTF(32, 8, &codepoint,
+				byteof(codepoint), &destination);
+			if (length == NONE) return false;
+			for (stduint index = 0; index < length; index++)
+				bytes.Append((stdsint)encoded[index]);
+			return true;
 		}
 	}
 
@@ -395,8 +393,9 @@ namespace clover::frontend_c_internal {
 	bool ParseCharacterLiteral(const char* text, const FrontendCTargetInfo& target,
 		stdsint& value) {
 		if (!text || !*text || !target.char_bits || target.char_bits > 8) return false;
-		unsigned character;
-		if (!DecodeCEscape(text, character) || *text) return false;
+		uint64 character;
+		uni::EscapeSequenceType type;
+		if (!DecodeCCharacter(text, character, type) || *text) return false;
 		uint64 character_limit = (uint64(1) << target.char_bits) - 1;
 		if (character > character_limit) return false;
 		value = (stdsint)character;
@@ -409,11 +408,8 @@ namespace clover::frontend_c_internal {
 	// Decode the ordinary C99 escape sequences needed by narrow string literals.
 	bool DecodeCString(const char* text, uni::Vector<stdsint>& bytes) {
 		if (!text) return true;
-		while (*text) {
-			unsigned value;
-			if (!DecodeCEscape(text, value)) return false;
-			bytes.Append((stdsint)value);
-		}
+		while (*text)
+			if (!AppendCStringCharacter(text, bytes)) return false;
 		return true;
 	}
 

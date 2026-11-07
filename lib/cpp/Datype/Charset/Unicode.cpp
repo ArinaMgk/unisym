@@ -125,6 +125,48 @@ static stduint CscFromUTF8(const byte* src, stduint slen, pureptr_t des, byte to
 	return expected ? NONE : dlen;
 }
 
+static stduint CscFromUTF32(const char_utf32_t* src, stduint slen, byte* des) {
+	if (slen % byteof(char_utf32_t)) return NONE;
+	stduint dlen = 0;
+	stduint count = slen / byteof(char_utf32_t);
+	for0(i, count) {
+		dword value = *src++;
+		byte length;
+		if (value <= 0x7F) length = 1;
+		else if (value <= 0x7FF) length = 2;
+		else if (value >= 0xD800 && value <= 0xDFFF) return NONE;
+		else if (value <= 0xFFFF) length = 3;
+		else if (value <= 0x1FFFFF) length = 4;
+		else if (value <= 0x3FFFFFF) {
+			length = 5;
+			if (des) plogwarn(
+				"CscUTF uses 5-byte UTF-8 compatibility encoding for U+%[32H]", value);
+		}
+		else if (value <= 0x7FFFFFFF) {
+			length = 6;
+			if (des) plogwarn(
+				"CscUTF uses 6-byte UTF-8 compatibility encoding for U+%[32H]", value);
+		}
+		else return NONE;
+
+		if (des) {
+			byte* output = des + dlen;
+			if (length == 1) {
+				output[0] = (byte)value;
+				dlen++;
+				continue;
+			}
+			for (byte index = length - 1; index; index--) {
+				output[index] = 0x80 | (value & 0x3F);
+				value >>= 6;
+			}
+			output[0] = (byte)(0x100 - (0x100 >> length)) | value;
+		}
+		dlen += length;
+	}
+	return dlen;
+}
+
 #define UNICHAR_LEN_CRTMAX 4
 
 // Result in Heap
@@ -138,6 +180,15 @@ stduint CscUTF(byte from, byte to, const pureptr_t src, stduint slen, pureptr_t*
 		if (!*des) *des = zalc(res + UNICHAR_LEN_CRTMAX);
 		MemSet(*des, nil, UNICHAR_LEN_CRTMAX);
 		return CscFromUTF8((const byte*)src, slen, *des, to);
+	}
+	if (from == 32 && to == 8) {
+		stduint res = CscFromUTF32((const char_utf32_t*)src, slen,
+			(byte*)*des);
+		if (res == NONE) return NONE;
+		if (*des) return res;
+		*des = zalc(res + 1);
+		if (!*des) return NONE;
+		return CscFromUTF32((const char_utf32_t*)src, slen, (byte*)*des);
 	}
 	return NONE;
 }

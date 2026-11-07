@@ -39,6 +39,7 @@ typedef struct {
 extern "C" {
 #endif
 	
+	// Convert UTF-8 to UTF-16/32 or UTF-32 to UTF-8.
 	stduint CscUTF(byte from, byte to, const pureptr_t src, stduint slen, pureptr_t* des);
 
 	// return the length of the next UTF-8 char

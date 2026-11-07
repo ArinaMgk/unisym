@@ -48,6 +48,74 @@ namespace uni {
 	bool LineParse_Comment_Cpp(LinearParser& lp, bool just_chk);// // ...
 	bool LineParse_Comment_C_Cpp(LinearParser& lp, bool just_chk);// mixture of C and Cpp
 
+	enum class EscapeSequenceType {
+		Byte,
+		Unicode
+	};
+
+	enum class EscapeSequenceStatus {
+		Success,
+		Incomplete,
+		Invalid
+	};
+
+	enum class EscapeSequenceError {
+		None,
+		MissingDigits,
+		InsufficientDigits,
+		UnknownEscape,
+		NumericOverflow,
+		InvalidUnicodeScalar,
+		UnicodeConversionFailed
+	};
+
+	enum class UnknownEscapeAction {
+		Reject,
+		KeepCharacter
+	};
+
+	enum class MissingDigitsAction {
+		Reject,
+		KeepPrefix
+	};
+
+	struct NumericEscapeRule {
+		stduint minimum_digits;
+		stduint maximum_digits;
+		MissingDigitsAction missing_digits;
+	};
+
+	struct EscapeSequenceRules {
+		NumericEscapeRule octal;
+		NumericEscapeRule hexadecimal;
+		NumericEscapeRule unicode_short;
+		NumericEscapeRule unicode_long;
+		UnknownEscapeAction unknown_escape;
+		bool allow_escape_character;
+		bool validate_unicode_scalar;
+
+		static EscapeSequenceRules Permissive();
+		static EscapeSequenceRules AASM();
+		static EscapeSequenceRules C();
+		static EscapeSequenceRules CWithExtensions();
+	};
+
+	struct EscapeSequenceResult {
+		EscapeSequenceType type;
+		EscapeSequenceStatus status;
+		EscapeSequenceError error;
+		uint64 value;
+		stduint consumed;
+		stduint digits;
+	};
+
+	EscapeSequenceResult DecodeEscapeSequence(
+		const char* text, stduint length,
+		const EscapeSequenceRules& rules);
+
+	typedef void(*EscapeDiagnosticHandler)(
+		LinearParser&, const EscapeSequenceResult&);
+
 	// [used name]  TokenParseManager
 	// [uni.String] FILO
 	class LinearParser
@@ -86,6 +154,9 @@ namespace uni {
 		bool method_string_single_quote = false;
 		bool method_string_double_quote = false;
 		bool method_string_escape_sequence = true;
+		EscapeSequenceRules escape_sequence_rules =
+			EscapeSequenceRules::Permissive();
+		EscapeDiagnosticHandler handler_escape_diagnostic = nullptr;
 
 		// directive (do not add comment)
 		char method_directive = '\0';// e.g. '%' in "%include"

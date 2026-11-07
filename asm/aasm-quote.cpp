@@ -20,9 +20,9 @@
 
 #include "inc/aasm.h"
 #include "../inc/c/stdinc.h"
+#include "../inc/c/multichar.h"
+#include "../inc/cpp/parse.hpp"
 
-
-#define numvalue(c)  ((c)>='a' ? (c)-'a'+10 : (c)>='A' ? (c)-'A'+10 : (c)-'0')
 
 char *aasm_quote(char *str, size_t len)
 {
@@ -161,39 +161,23 @@ char *aasm_quote(char *str, size_t len)
 	return nstr;
 }
 
-static char *emit_utf8(char *q, int32_t v)
+static bool append_utf8(char*& output, uint64 value)
 {
-	if (v < 0) {
-	/* Impossible - do nothing */
-	} else if (v <= 0x7f) {
-	*q++ = v;
-	} else if (v <= 0x000007ff) {
-	*q++ = 0xc0 | (v >> 6);
-	*q++ = 0x80 | (v & 63);
-	} else if (v <= 0x0000ffff) {
-	*q++ = 0xe0 | (v >> 12);
-	*q++ = 0x80 | ((v >> 6) & 63);
-	*q++ = 0x80 | (v & 63);
-	} else if (v <= 0x001fffff) {
-	*q++ = 0xf0 | (v >> 18);
-	*q++ = 0x80 | ((v >> 12) & 63);
-	*q++ = 0x80 | ((v >> 6) & 63);
-	*q++ = 0x80 | (v & 63);
-	} else if (v <= 0x03ffffff) {
-	*q++ = 0xf8 | (v >> 24);
-	*q++ = 0x80 | ((v >> 18) & 63);
-	*q++ = 0x80 | ((v >> 12) & 63);
-	*q++ = 0x80 | ((v >> 6) & 63);
-	*q++ = 0x80 | (v & 63);
-	} else {
-	*q++ = 0xfc | (v >> 30);
-	*q++ = 0x80 | ((v >> 24) & 63);
-	*q++ = 0x80 | ((v >> 18) & 63);
-	*q++ = 0x80 | ((v >> 12) & 63);
-	*q++ = 0x80 | ((v >> 6) & 63);
-	*q++ = 0x80 | (v & 63);
+	if (value > 0xFFFFFFFF) {
+		aasm_log(_LOG_ERROR, "Unicode code point is out of range: U+%" PRIX64,
+			value);
+		return false;
 	}
-	return q;
+	uint32 codepoint = (uint32)value;
+	pureptr_t destination = output;
+	stduint length = CscUTF(32, 8, &codepoint,
+		byteof(codepoint), &destination);
+	if (length == NONE) {
+		aasm_log(_LOG_ERROR, "invalid Unicode code point: U+%" PRIX64, value);
+		return false;
+	}
+	output += length;
+	return true;
 }
 
 /*
@@ -209,17 +193,7 @@ size_t aasm_unquote(char* str, char** ep)
 {
 	char bq;
 	char* p, * q;
-	char* escp = NULL;
 	char c;
-	enum unq_state {
-		st_start,
-		st_backslash,
-		st_hex,
-		st_oct,
-		st_ucs,
-	} state;
-	int ndig = 0;
-	int32_t nval = 0;
 
 	p = q = str;
 
@@ -238,159 +212,38 @@ size_t aasm_unquote(char* str, char** ep)
 		*q = '\0';
 		break;
 
-	case '`':
+	case '`': {
 	/* `...` string */
-		state = st_start;
-
+		static const uni::EscapeSequenceRules rules =
+			uni::EscapeSequenceRules::AASM();
+		const char* end = (const char*)StrIndexChar(p, '\0');
 		while ((c = *p)) {
 			p++;
-			switch (state) {
-			case st_start:
-				switch (c) {
-				case '\\':
-					state = st_backslash;
-					break;
-				case '`':
-					p--;
-					goto out;
-				default:
-					*q++ = c;
-					break;
-				}
-				break;
-
-			case st_backslash:
-				state = st_start;
-				escp = p;	/* Beginning of argument sequence */
-				nval = 0;
-				switch (c) {
-				case 'a':
-					*q++ = 7;
-					break;
-				case 'b':
-					*q++ = 8;
-					break;
-				case 'e':
-					*q++ = 27;
-					break;
-				case 'f':
-					*q++ = 12;
-					break;
-				case 'n':
-					*q++ = 10;
-					break;
-				case 'r':
-					*q++ = 13;
-					break;
-				case 't':
-					*q++ = 9;
-					break;
-				case 'u':
-					state = st_ucs;
-					ndig = 4;
-					break;
-				case 'U':
-					state = st_ucs;
-					ndig = 8;
-					break;
-				case 'v':
-					*q++ = 11;
-					break;
-				case 'x':
-				case 'X':
-					state = st_hex;
-					ndig = 2;
-					break;
-				case '0':
-				case '1':
-				case '2':
-				case '3':
-				case '4':
-				case '5':
-				case '6':
-				case '7':
-					state = st_oct;
-					ndig = 2;	/* Up to two more digits */
-					nval = c - '0';
-					break;
-				default:
-					*q++ = c;
-					break;
-				}
-				break;
-
-			case st_oct:
-				if (c >= '0' && c <= '7') {
-					nval = (nval << 3) + (c - '0');
-					if (!--ndig) {
-						*q++ = nval;
-						state = st_start;
-					}
-				}
-				else {
-					p--;	/* Process this character again */
-					*q++ = nval;
-					state = st_start;
-				}
-				break;
-
-			case st_hex:
-				if ((c >= '0' && c <= '9') ||
-					(c >= 'A' && c <= 'F') ||
-					(c >= 'a' && c <= 'f')) {
-					nval = (nval << 4) + numvalue(c);
-					if (!--ndig) {
-						*q++ = nval;
-						state = st_start;
-					}
-				}
-				else {
-					p--;	/* Process this character again */
-					*q++ = (p > escp) ? nval : escp[-1];
-					state = st_start;
-				}
-				break;
-
-			case st_ucs:
-				if ((c >= '0' && c <= '9') ||
-					(c >= 'A' && c <= 'F') ||
-					(c >= 'a' && c <= 'f')) {
-					nval = (nval << 4) + numvalue(c);
-					if (!--ndig) {
-						q = emit_utf8(q, nval);
-						state = st_start;
-					}
-				}
-				else {
-					p--;	/* Process this character again */
-					if (p > escp)
-						q = emit_utf8(q, nval);
-					else
-						*q++ = escp[-1];
-					state = st_start;
-				}
+			if (c == '`') {
+				p--;
 				break;
 			}
-		}
-		switch (state) {
-		case st_start:
-		case st_backslash:
-			break;
-		case st_oct:
-			*q++ = nval;
-			break;
-		case st_hex:
-			*q++ = (p > escp) ? nval : escp[-1];
-			break;
-		case st_ucs:
-			if (p > escp)
-				q = emit_utf8(q, nval);
+			if (c != '\\') {
+				*q++ = c;
+				continue;
+			}
+
+			stduint remaining = end - p;
+			uni::EscapeSequenceResult result =
+				uni::DecodeEscapeSequence(p, remaining, rules);
+			if (result.status != uni::EscapeSequenceStatus::Success) {
+				if (result.status == uni::EscapeSequenceStatus::Invalid)
+					aasm_log(_LOG_ERROR, "invalid escape sequence");
+				break;
+			}
+			p += result.consumed;
+			if (result.type == uni::EscapeSequenceType::Byte)
+				*q++ = (char)result.value;
 			else
-				*q++ = escp[-1];
-			break;
+				append_utf8(q, result.value);
 		}
-	out:
 		break;
+	}
 
 	default:
 	/* Not a quoted string, just return the input... */

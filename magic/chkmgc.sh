@@ -150,6 +150,13 @@ check 'int main() { return "\101"[0]; }' 65
 # Integer and character literals
 check "int main(){return 'A';}" 65
 check "int main(){return '\\n'+'\\x41'+'\\101';}" 140
+check "int main(){return \"\\x41\"[0]+\"\\101\"[0]+'\u0041';}" 195
+check 'int main(){return "\u4E2D"[0]&255;}' 228
+check_fail 'int main(){return "\x"[0];}' 'invalid string literal escape'
+check_fail 'int main(){return "\u41"[0];}' 'invalid string literal escape'
+check_fail 'int main(){return "\q"[0];}' 'invalid string literal escape'
+check_fail 'int main(){return "\e"[0];}' 'invalid string literal escape'
+check_fail 'int main(){return "\uD800"[0];}' 'invalid string literal escape'
 check 'int main(){return sizeof(1U)+sizeof(1L)+sizeof(1LL);}' 20 '-Fdata-model=lp64'
 check 'int main(){return sizeof(1U)+sizeof(1L)+sizeof(1LL);}' 16 '-Fdata-model=llp64'
 check 'int main(){return (0xFFFFFFFF>0)+(18446744073709551615ULL+2);}' 2

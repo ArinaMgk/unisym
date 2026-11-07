@@ -21,6 +21,7 @@
 */
 
 #include "../../inc/cpp/parse.hpp"
+#include "../../inc/c/multichar.h"
 
 
 static toktype getctype(signed char chr)// Excluding Number
@@ -37,11 +38,159 @@ static toktype getctype(signed char chr)// Excluding Number
 // It may be better to use Regular Expression
 const char static EscSeq[] =
 {
-	'n','\n','r','\r','a','\a','b','\b','f','\f','t','\t','v','\v'
-};// other equal to literal char except the "\x"[0~2] "\"[0~2]
+	'n','\n','r','\r','a','\a','b','\b','f','\f','t','\t','v','\v',
+	'\\','\\','\'','\'','"','"','?','?'
+};
 
 namespace uni
 {
+	static int EscapeHexValue(char character) {
+		if (character >= '0' && character <= '9') return character - '0';
+		if (character >= 'A' && character <= 'F') return character - 'A' + 10;
+		if (character >= 'a' && character <= 'f') return character - 'a' + 10;
+		return -1;
+	}
+
+	EscapeSequenceRules EscapeSequenceRules::Permissive() {
+		return EscapeSequenceRules {
+			{1, 3, MissingDigitsAction::Reject},
+			{0, 2, MissingDigitsAction::KeepPrefix},
+			{0, 4, MissingDigitsAction::KeepPrefix},
+			{0, 8, MissingDigitsAction::KeepPrefix},
+			UnknownEscapeAction::KeepCharacter,
+			true,
+			false
+		};
+	}
+
+	EscapeSequenceRules EscapeSequenceRules::AASM() {
+		return Permissive();
+	}
+
+	EscapeSequenceRules EscapeSequenceRules::C() {
+		return EscapeSequenceRules {
+			{1, 3, MissingDigitsAction::Reject},
+			{1, 0, MissingDigitsAction::Reject},
+			{4, 4, MissingDigitsAction::Reject},
+			{8, 8, MissingDigitsAction::Reject},
+			UnknownEscapeAction::Reject,
+			false,
+			true
+		};
+	}
+
+	EscapeSequenceRules EscapeSequenceRules::CWithExtensions() {
+		EscapeSequenceRules rules = C();
+		rules.allow_escape_character = true;
+		return rules;
+	}
+
+	static EscapeSequenceResult DecodeNumericEscape(
+		const char* text, stduint length, stduint prefix_length,
+		unsigned base, EscapeSequenceType type,
+		const NumericEscapeRule& rule, bool validate_unicode_scalar) {
+		EscapeSequenceResult result {
+			type,
+			EscapeSequenceStatus::Success,
+			EscapeSequenceError::None,
+			0,
+			prefix_length,
+			0
+		};
+		bool overflow = false;
+		uint64 maximum_value = ~(uint64)0;
+		while (result.consumed < length &&
+			(!rule.maximum_digits || result.digits < rule.maximum_digits)) {
+			int digit = EscapeHexValue(text[result.consumed]);
+			if (digit < 0 || (unsigned)digit >= base) break;
+			if (result.value > (maximum_value - (unsigned)digit) / base)
+				overflow = true;
+			else if (!overflow)
+				result.value = result.value * base + (unsigned)digit;
+			result.consumed++;
+			result.digits++;
+		}
+
+		if (!result.digits &&
+			rule.missing_digits == MissingDigitsAction::KeepPrefix) {
+			result.type = EscapeSequenceType::Byte;
+			result.value = (byte)text[0];
+			result.consumed = 1;
+			return result;
+		}
+		if (result.digits < rule.minimum_digits) {
+			result.status = result.consumed == length ?
+				EscapeSequenceStatus::Incomplete : EscapeSequenceStatus::Invalid;
+			result.error = result.digits ? EscapeSequenceError::InsufficientDigits :
+				EscapeSequenceError::MissingDigits;
+			return result;
+		}
+		if (overflow) {
+			result.status = EscapeSequenceStatus::Invalid;
+			result.error = EscapeSequenceError::NumericOverflow;
+			return result;
+		}
+		if (type == EscapeSequenceType::Unicode && validate_unicode_scalar &&
+			(result.value > 0x10FFFF ||
+			(result.value >= 0xD800 && result.value <= 0xDFFF))) {
+			result.status = EscapeSequenceStatus::Invalid;
+			result.error = EscapeSequenceError::InvalidUnicodeScalar;
+		}
+		return result;
+	}
+
+	EscapeSequenceResult DecodeEscapeSequence(
+		const char* text, stduint length,
+		const EscapeSequenceRules& rules) {
+		EscapeSequenceResult result {
+			EscapeSequenceType::Byte,
+			EscapeSequenceStatus::Incomplete,
+			EscapeSequenceError::None,
+			0,
+			0,
+			0
+		};
+		if (!text || !length) return result;
+
+		char first = text[0];
+		result.status = EscapeSequenceStatus::Success;
+		result.value = (byte)first;
+		result.consumed = 1;
+
+		if (first >= '0' && first <= '7')
+			return DecodeNumericEscape(text, length, 0, 8,
+				EscapeSequenceType::Byte, rules.octal,
+				rules.validate_unicode_scalar);
+		if (first == 'x' || first == 'X')
+			return DecodeNumericEscape(text, length, 1, 16,
+				EscapeSequenceType::Byte, rules.hexadecimal,
+				rules.validate_unicode_scalar);
+		if (first == 'u')
+			return DecodeNumericEscape(text, length, 1, 16,
+				EscapeSequenceType::Unicode, rules.unicode_short,
+				rules.validate_unicode_scalar);
+		if (first == 'U')
+			return DecodeNumericEscape(text, length, 1, 16,
+				EscapeSequenceType::Unicode, rules.unicode_long,
+				rules.validate_unicode_scalar);
+		if (first == 'e' && rules.allow_escape_character) {
+			result.value = 27;
+			return result;
+		}
+
+		for (stduint i = 0; i < sizeof(EscSeq) / 2; i++) {
+			if (EscSeq[i << 1] == first) {
+				result.value = (byte)EscSeq[(i << 1) + 1];
+				return result;
+			}
+		}
+		if (rules.unknown_escape == UnknownEscapeAction::Reject) {
+			result.status = EscapeSequenceStatus::Invalid;
+			result.error = EscapeSequenceError::UnknownEscape;
+		}
+		return result;
+	}
+
 	LinearParser::LinearParser(IstreamTrait& lparser) {
 		src = &lparser;
 		buf = new String(String::Charset::Memory);
@@ -166,76 +315,67 @@ namespace uni
 
 	// return true for continue, false for break
 	bool LinearParser::handler_escape_sequence() {
-		signed char c;
-		if ((c = getChar()) == EOF) return false;
-		if (ascii_isdigit(c))
-		{
-			// octal: nest 0~2 3 numbers at most
-			int nest1 = getChar();
-			if (nest1 == EOF) return false;
-			if (ascii_isdigit(nest1))
-			{
-				int nest2 = getChar();
-				if (nest2 == EOF) return false;
-				if (ascii_isdigit(nest2)) {
-					// \123
-					setChar((unsigned char)(nest2 - '0' + (nest1 - '0') * 8 + (c - '0') * 8 * 8));
-				}
-				else {
-					// \12;
-					setChar((nest1 - '0') + (c - '0'));
-					backChar(nest2);
-				}
-			}
-			else {
-				// \1;
-				setChar(c - '0');
-				backChar(nest1);
-			}
+		int character = getChar();
+		if (character == EOF) return false;
+		String sequence(String::Charset::Memory);
+		sequence << (char)character;
+		const NumericEscapeRule* rule = nullptr;
+		bool hexadecimal = false;
+		if (character >= '0' && character <= '7')
+			rule = &escape_sequence_rules.octal;
+		else if (character == 'x' || character == 'X') {
+			rule = &escape_sequence_rules.hexadecimal;
+			hexadecimal = true;
 		}
-		else if (c == 'x')// nest 0~3 and use isxdigit()
-		{
-			c = getChar();
-			if (c == EOF) return false;
-			if (ascii_isxdigit(c))
-			{
-				int nest1 = getChar();
-				if (nest1 == EOF) return false;
-				if (ascii_isxdigit(nest1))
-				{
-					// \x12;
-					nest1 = (ascii_isdigit(nest1)) ? (nest1 - '0') : (ascii_isupper(nest1)) ? (nest1 - 'A' + 10) : (nest1 - 'a' + 10);
-					c = (ascii_isdigit(c)) ? (c - '0') : (ascii_isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
-					setChar(c * 16 + nest1);
-				}
-				else {
-					// \x1;
-					c = (ascii_isdigit(c)) ? (c - '0') : (ascii_isupper(c)) ? (c - 'A' + 10) : (c - 'a' + 10);
-					setChar(c);
-					backChar(nest1);
-				}
-			}
-			else {
-				// \x; = \0;
-				setChar(0);
-				backChar(c);
-			}
+		else if (character == 'u') {
+			rule = &escape_sequence_rules.unicode_short;
+			hexadecimal = true;
 		}
-		else {
-			// escape char and other
-			if (c == EOF) return false;
-			size_t listlen = sizeof(EscSeq) / 2;
-			for0(i, listlen) {
-				if (EscSeq[i << 1] == c)
-				{
-					setChar(EscSeq[(i << 1) + 1]);
-					listlen = 0;
-					return true;
-				}
-			}
-			if (!listlen) return true;
-			setChar(c);
+		else if (character == 'U') {
+			rule = &escape_sequence_rules.unicode_long;
+			hexadecimal = true;
 		}
+
+		stduint digits = character >= '0' && character <= '7' ? 1 : 0;
+		while (rule &&
+			(!rule->maximum_digits || digits < rule->maximum_digits)) {
+			character = getChar();
+			if (character == EOF) break;
+			bool accepted = hexadecimal ? ascii_isxdigit(character) :
+				(character >= '0' && character <= '7');
+			if (!accepted) {
+				backChar((char)character);
+				break;
+			}
+			sequence << (char)character;
+			digits++;
+		}
+
+		EscapeSequenceResult result = DecodeEscapeSequence(
+			sequence.reference(), sequence.getByteCount(), escape_sequence_rules);
+		if (result.status != EscapeSequenceStatus::Success) {
+			if (handler_escape_diagnostic)
+				handler_escape_diagnostic(*this, result);
+			return false;
+		}
+		if (result.type == EscapeSequenceType::Byte) {
+			setChar((char)result.value);
+			return true;
+		}
+
+		byte encoded[6];
+		pureptr_t destination = encoded;
+		uint32 codepoint = (uint32)result.value;
+		stduint length = result.value > 0xFFFFFFFF ? NONE :
+			CscUTF(32, 8, &codepoint, byteof(codepoint), &destination);
+		if (length == NONE) {
+			result.status = EscapeSequenceStatus::Invalid;
+			result.error = EscapeSequenceError::UnicodeConversionFailed;
+			if (handler_escape_diagnostic)
+				handler_escape_diagnostic(*this, result);
+			return false;
+		}
+		for0(i, length) setChar((char)encoded[i]);
 		return true;
 	}
 

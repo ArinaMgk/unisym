@@ -113,4 +113,10 @@ Archend；`[CPU]`、`[INST]` 与 `[BITS]` 由当前架构共同验证。
 已建立通用 `AssemblySignedness` 指令属性。RISC-V 的 `SIGNED` 和 `UNSIGNED`
 限定词可以在指令行顶层任意位置切换现有有符号、无符号指令族；`MOV` 默认使用
 无符号语义。
+RISC-V 原生指令的名称、操作数形式、固定编码、XLEN、扩展要求和符号变体已改由
+指令数据表生成；简化形式、表达式解析和编码字段装配继续由 Archend 实现。
+
+listing 状态已收归 `AssemblyListing`，并接入 `AssemblySession`。通用语句、x86
+和 RISC-V Archend 通过语义化代码与 fixup 接口提交 listing；`ListGen` 仅保留为
+Preprocessor 的兼容适配。
 

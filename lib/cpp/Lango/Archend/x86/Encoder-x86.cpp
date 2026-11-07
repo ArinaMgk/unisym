@@ -153,7 +153,7 @@ typedef struct {
 
 static uint32_t cpu;            /* CPU level for the current assembly */
 static uni::CodeendInterface* codeend;
-static ListGen *list;
+static AssemblyListing* listing;
 
 static int64_t calcsize(int32_t, int64_t, int, insn *, const uint8_t *);
 static void gencode(int32_t segment, int64_t offset, int bits,
@@ -215,17 +215,6 @@ static void warn_overflow(int size, const struct operand *o)
 		}
 	}
 }
-static out_type ListingOutputType(uni::CodeendOutputType type)
-{
-	switch (type) {
-	case uni::CodeendOutputType::RawData:
-		return OUT_RAWDATA;
-	case uni::CodeendOutputType::Reserve:
-		return OUT_RESERVE;
-	}
-	return OUT_RAWDATA;
-}
-
 static void SetOutputDebugLine(int32_t section)
 {
 	static int32_t lineno = 0;
@@ -237,15 +226,14 @@ static void SetOutputDebugLine(int32_t section)
 static void Output(int64_t offset, int32_t section, const void* data,
 	uni::CodeendOutputType type, uint64_t size)
 {
-	list->output(offset, data, ListingOutputType(type), size);
-	SetOutputDebugLine(section);
-
 	uni::CodeendOutput output {
 		section,
 		data,
 		type,
 		size
 	};
+	listing->EmitCode(offset, output);
+	SetOutputDebugLine(section);
 	codeend->Emit(output);
 }
 
@@ -253,22 +241,6 @@ static void OutputFixup(int64_t offset, int32_t section, int64_t addend,
 	uni::CodeFixupKind kind, uint64_t size, int32_t target_section,
 	int32_t wrt, int64_t pc_bias)
 {
-	out_type listing_type = OUT_ADDRESS;
-	if (kind == uni::CodeFixupKind::PcRelative ||
-		kind == uni::CodeFixupKind::Branch ||
-		kind == uni::CodeFixupKind::Call) {
-		switch (size) {
-		case 2: listing_type = OUT_REL2ADR; break;
-		case 4: listing_type = OUT_REL4ADR; break;
-		case 8: listing_type = OUT_REL8ADR; break;
-		default:
-			aasm_log(_LOG_PANIC, "invalid relative fixup size: %" PRIu64, size);
-			return;
-		}
-	}
-
-	list->output(offset, &addend, listing_type, size);
-	SetOutputDebugLine(section);
 	uni::CodeFixup fixup {
 		section,
 		static_cast<uint64_t>(offset),
@@ -286,6 +258,8 @@ static void OutputFixup(int64_t offset, int32_t section, int64_t addend,
 		wrt,
 		0
 	};
+	listing->EmitFixup(fixup);
+	SetOutputDebugLine(section);
 	codeend->EmitFixup(fixup);
 }
 
@@ -455,7 +429,7 @@ static bool jmp_match(int32_t segment, int64_t offset, int bits,
 
 int64_t X86Assemble(int32_t segment, int64_t offset, int bits, uint32_t cp,
 	X86Instruction* instruction, uni::CodeendInterface* output,
-	ListGen* listgen)
+	AssemblyListing* assembly_listing)
 {
 	const struct itemplate* temp;
 	int size_prob;
@@ -465,18 +439,18 @@ int64_t X86Assemble(int32_t segment, int64_t offset, int bits, uint32_t cp,
 
 	cpu = cp;
 	codeend = output;
-	list = listgen;             /* and again */
+	listing = assembly_listing;
 
 	if (instruction->prefix_only) {
 		itimes = instruction->times;
 		while (itimes--) {
 			offset += EmitPrefixes(offset, segment, instruction, bits);
 			if (itimes > 0 && itimes == instruction->times - 1) {
-				list->output(offset, NULL, OUT_RAWDATA, 0);
-				list->uplevel(LIST_TIMES);
+				listing->SetOffset(offset);
+				listing->Enter(LIST_TIMES);
 			}
 		}
-		if (instruction->times > 1) list->downlevel(LIST_TIMES);
+		if (instruction->times > 1) listing->Leave(LIST_TIMES);
 		return offset - start;
 	}
 	if (instruction->opcode == I_none) return 0;
@@ -509,16 +483,13 @@ int64_t X86Assemble(int32_t segment, int64_t offset, int bits, uint32_t cp,
 						temp, insn_end);
 					offset += insn_size;
 					if (itimes > 0 && itimes == instruction->times - 1) {
-						/*
-						 * Dummy call to list->output to give the offset to the
-						 * listing module.
-						 */
-						list->output(offset, NULL, OUT_RAWDATA, 0);
-						list->uplevel(LIST_TIMES);
+						/* Set the listing offset before suppressing repeated bytes. */
+						listing->SetOffset(offset);
+						listing->Enter(LIST_TIMES);
 					}
 				}
 			if (instruction->times > 1)
-				list->downlevel(LIST_TIMES);
+				listing->Leave(LIST_TIMES);
 			return offset - start;
 		}
 		else if (m > 0 && m > size_prob) {

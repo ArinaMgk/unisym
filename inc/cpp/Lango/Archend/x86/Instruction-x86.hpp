@@ -385,6 +385,8 @@ namespace uni {
 	class CodeendInterface;
 }
 
+class AssemblyListing;
+
 using X86Instruction = insn;
 using X86Operand = operand;
 using X86InstructionTemplate = itemplate;
@@ -401,7 +403,7 @@ int64_t X86InstructionSize(int32_t section, int64_t offset,
 	int bits, uint32_t cpu, X86Instruction* instruction);
 int64_t X86Assemble(int32_t section, int64_t offset,
 	int bits, uint32_t cpu, X86Instruction* instruction,
-	uni::CodeendInterface* codeend, ListGen* listgen);
+	uni::CodeendInterface* codeend, AssemblyListing* listing);
 #endif
 // signify the end of an itemplate
 #define ITEMPLATE_END {-1,-1,{-1,-1,-1},NULL,0}

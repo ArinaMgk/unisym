@@ -43,6 +43,7 @@ namespace uni::SCSI {
 		bool OnInterrupt();
 		bool IsInterruptDriven() const { return interrupts_enabled.load(MemoryOrder_Acquire) != 0; }
 		void SetInterrupts(bool enabled);
+		StorageRecoveryResult RecoverDetailed();
 		bool Recover();
 		uint32 NextTimeout() const { return queue.NextTimeout(); }
 		stduint getWaiter() const { return queue.NextOrigin(); }

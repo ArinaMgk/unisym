@@ -49,7 +49,7 @@ void Mouse_Init()
 
 #if defined(_INC_CPP) && ((defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600)) || defined(_MCU_STM32H7x))
 
-#if defined(_MCCA) && ((_MCCA & 0xFF00)==0x8600)
+#if defined(_MCCA)
 void* uni::device::SpaceUSB::HIDMouseDriver::operator new(size_t size) {
 	auto ret = uni_hostenv_allocator->allocate(sizeof(HIDMouseDriver));
 	return ret;

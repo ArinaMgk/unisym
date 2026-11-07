@@ -1,0 +1,61 @@
+; ASCII TAB4 LF
+; name enum format operands fixed-bits xlen extension signed-variant unsigned-variant
+
+LUI     Lui     Upper           RdImmediate             0x00000037  32|64  I  -      -
+AUIPC   Auipc   Upper           RdImmediate             0x00000017  32|64  I  -      -
+JAL     Jal     Jump            RdTarget                0x0000006f  32|64  I  -      -
+JALR    Jalr    IndirectJump    RdIndirectTarget        0x00000067  32|64  I  -      -
+
+BEQ     Beq     Branch          RsRsTarget              0x00000063  32|64  I  -      -
+BNE     Bne     Branch          RsRsTarget              0x00001063  32|64  I  -      -
+BLT     Blt     Branch          RsRsTarget              0x00004063  32|64  I  Blt    Bltu
+BGE     Bge     Branch          RsRsTarget              0x00005063  32|64  I  Bge    Bgeu
+BLTU    Bltu    Branch          RsRsTarget              0x00006063  32|64  I  Blt    Bltu
+BGEU    Bgeu    Branch          RsRsTarget              0x00007063  32|64  I  Bge    Bgeu
+
+LB      Lb      Load            RdAddress               0x00000003  32|64  I  Lb     Lbu
+LH      Lh      Load            RdAddress               0x00001003  32|64  I  Lh     Lhu
+LW      Lw      Load            RdAddress               0x00002003  32|64  I  Lw     Lwu
+LBU     Lbu     Load            RdAddress               0x00004003  32|64  I  Lb     Lbu
+LHU     Lhu     Load            RdAddress               0x00005003  32|64  I  Lh     Lhu
+LWU     Lwu     Load            RdAddress               0x00006003  64     I  Lw     Lwu
+LD      Ld      Load            RdAddress               0x00003003  64     I  -      -
+SB      Sb      Store           RsAddress               0x00000023  32|64  I  -      -
+SH      Sh      Store           RsAddress               0x00001023  32|64  I  -      -
+SW      Sw      Store           RsAddress               0x00002023  32|64  I  -      -
+SD      Sd      Store           RsAddress               0x00003023  64     I  -      -
+
+ADDI    Addi    Immediate       RdRsImmediateOptional   0x00000013  32|64  I  -      -
+SLTI    Slti    Immediate       RdRsImmediateOptional   0x00002013  32|64  I  Slti   Sltiu
+SLTIU   Sltiu   Immediate       RdRsImmediateOptional   0x00003013  32|64  I  Slti   Sltiu
+XORI    Xori    Immediate       RdRsImmediateOptional   0x00004013  32|64  I  -      -
+ORI     Ori     Immediate       RdRsImmediateOptional   0x00006013  32|64  I  -      -
+ANDI    Andi    Immediate       RdRsImmediateOptional   0x00007013  32|64  I  -      -
+SLLI    Slli    Shift           RdRsImmediateOptional   0x00001013  32|64  I  -      -
+SRLI    Srli    Shift           RdRsImmediateOptional   0x00005013  32|64  I  -      -
+SRAI    Srai    Shift           RdRsImmediateOptional   0x40005013  32|64  I  -      -
+
+ADD     Add     Register        RdRsRsOptional          0x00000033  32|64  I  -      -
+SUB     Sub     Register        RdRsRsOptional          0x40000033  32|64  I  -      -
+SLL     Sll     Register        RdRsRsOptional          0x00001033  32|64  I  -      -
+SLT     Slt     Register        RdRsRsOptional          0x00002033  32|64  I  Slt    Sltu
+SLTU    Sltu    Register        RdRsRsOptional          0x00003033  32|64  I  Slt    Sltu
+XOR     Xor     Register        RdRsRsOptional          0x00004033  32|64  I  -      -
+SRL     Srl     Register        RdRsRsOptional          0x00005033  32|64  I  -      -
+SRA     Sra     Register        RdRsRsOptional          0x40005033  32|64  I  -      -
+OR      Or      Register        RdRsRsOptional          0x00006033  32|64  I  -      -
+AND     And     Register        RdRsRsOptional          0x00007033  32|64  I  -      -
+
+ADDIW   Addiw   ImmediateWord   RdRsImmediateOptional   0x0000001b  64     I  -      -
+SLLIW   Slliw   ShiftWord       RdRsImmediateOptional   0x0000101b  64     I  -      -
+SRLIW   Srliw   ShiftWord       RdRsImmediateOptional   0x0000501b  64     I  -      -
+SRAIW   Sraiw   ShiftWord       RdRsImmediateOptional   0x4000501b  64     I  -      -
+ADDW    Addw    RegisterWord    RdRsRsOptional          0x0000003b  64     I  -      -
+SUBW    Subw    RegisterWord    RdRsRsOptional          0x4000003b  64     I  -      -
+SLLW    Sllw    RegisterWord    RdRsRsOptional          0x0000103b  64     I  -      -
+SRLW    Srlw    RegisterWord    RdRsRsOptional          0x0000503b  64     I  -      -
+SRAW    Sraw    RegisterWord    RdRsRsOptional          0x4000503b  64     I  -      -
+
+FENCE   Fence   System          None                    0x0ff0000f  32|64  I  -      -
+ECALL   Ecall   System          None                    0x00000073  32|64  I  -      -
+EBREAK  Ebreak  System          None                    0x00100073  32|64  I  -      -

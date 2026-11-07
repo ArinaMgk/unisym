@@ -20,140 +20,158 @@
 
 #include "inc/aasm.h"
 #include "../inc/c/stdinc.h"
-
-
-
-
+#include "../inc/cpp/Format/Code.hpp"
 
 #define LIST_MAX_LEN 216        /* something sensible */
 #define LIST_INDENT  40
 #define LIST_HEXBIT  18
 
-typedef struct MacroInhibit MacroInhibit;
+class AssemblyListing::Implementation {
+public:
+	struct MacroInhibit {
+		MacroInhibit* Next;
+		int Level;
+		bool Inhibiting;
+	};
 
-static struct MacroInhibit {
-	MacroInhibit *next;
-	int level;
-	int inhibiting;
-} *mistack;
+	MacroInhibit* InhibitStack = nullptr;
+	char Line[LIST_MAX_LEN] = {};
+	bool HasLine = false;
+	char Error[LIST_MAX_LEN] = {};
+	char Data[2 * LIST_INDENT] = {};
+	int64_t Offset = 0;
+	int32_t LineNumber = 0;
+	int Suppress = 0;
+	int Level = 0;
+	int EmittedLevel = 0;
+	FILE* File = nullptr;
+};
 
-static char xdigit[] = "0123456789ABCDEF";
+AssemblyListing* AssemblyListing::LegacyTarget = nullptr;
 
-#define HEX(a,b) (*(a)=xdigit[((b)>>4)&15],(a)[1]=xdigit[(b)&15]);
+static const char HexDigits[] = "0123456789ABCDEF";
 
-static char listline[LIST_MAX_LEN];
-static bool listlinep;
+#define HEX(a,b) (*(a)=HexDigits[((b)>>4)&15],(a)[1]=HexDigits[(b)&15]);
 
-static char listerror[LIST_MAX_LEN];
+AssemblyListing::AssemblyListing()
+	: State(new Implementation()), LegacyAdapter {
+		LegacyInitialize,
+		LegacyCleanup,
+		LegacyOutput,
+		LegacyLine,
+		LegacyEnter,
+		LegacyLeave,
+		LegacyError
+	}
+{
+}
 
-static char listdata[2 * LIST_INDENT];  /* we need less than that actually */
-static int32_t listoffset;
+AssemblyListing::~AssemblyListing()
+{
+	Cleanup();
+	delete State;
+}
 
-static int32_t listlineno;
-
-static int32_t listp;
-
-static int suppress;            /* for INCBIN & TIMES special cases */
-
-static int listlevel, listlevel_e;
-
-static FILE *listfp;
-
-static void list_emit(void)
+void AssemblyListing::Flush()
 {
 	int i;
 
-	if (!listlinep && !listdata[0])
+	if (!State->File || (!State->HasLine && !State->Data[0]))
 		return;
 
-	fprintf(listfp, "%6" PRId32 " ", ++listlineno);
+	fprintf(State->File, "%6" PRId32 " ", ++State->LineNumber);
 
-	if (listdata[0])
-		fprintf(listfp, "%08" PRIX32 " %-*s", listoffset, LIST_HEXBIT + 1,
-				listdata);
+	if (State->Data[0])
+		fprintf(State->File, "%08" PRIX64 " %-*s",
+			static_cast<uint64_t>(State->Offset), LIST_HEXBIT + 1, State->Data);
 	else
-		fprintf(listfp, "%*s", LIST_HEXBIT + 10, "");
+		fprintf(State->File, "%*s", LIST_HEXBIT + 10, "");
 
-	if (listlevel_e)
-		fprintf(listfp, "%s<%d>", (listlevel < 10 ? " " : ""),
-				listlevel_e);
-	else if (listlinep)
-		fprintf(listfp, "    ");
+	if (State->EmittedLevel)
+		fprintf(State->File, "%s<%d>", (State->Level < 10 ? " " : ""),
+			State->EmittedLevel);
+	else if (State->HasLine)
+		fprintf(State->File, "    ");
 
-	if (listlinep)
-		fprintf(listfp, " %s", listline);
+	if (State->HasLine)
+		fprintf(State->File, " %s", State->Line);
 
-	putc('\n', listfp);
-	listlinep = false;
-	listdata[0] = '\0';
+	putc('\n', State->File);
+	State->HasLine = false;
+	State->Data[0] = '\0';
 
-	if (listerror[0]) {
-	fprintf(listfp, "%6" PRId32 "          ", ++listlineno);
-	for (i = 0; i < LIST_HEXBIT; i++)
-		putc('*', listfp);
+	if (State->Error[0]) {
+		fprintf(State->File, "%6" PRId32 "          ", ++State->LineNumber);
+		for (i = 0; i < LIST_HEXBIT; i++)
+			putc('*', State->File);
 	
-	if (listlevel_e)
-		fprintf(listfp, " %s<%d>", (listlevel < 10 ? " " : ""),
-			listlevel_e);
-	else
-		fprintf(listfp, "     ");
+		if (State->EmittedLevel)
+			fprintf(State->File, " %s<%d>", (State->Level < 10 ? " " : ""),
+				State->EmittedLevel);
+		else
+			fprintf(State->File, "     ");
 
-	fprintf(listfp, "  %s\n", listerror);
-	listerror[0] = '\0';
+		fprintf(State->File, "  %s\n", State->Error);
+		State->Error[0] = '\0';
 	}
 }
 
-static void list_init(char *fname)
+void AssemblyListing::Initialize(const char* filename)
 {
-	listfp = fopen(fname, "w");
-	if (!listfp) {
+	Cleanup();
+	State->File = fopen(filename, "w");
+	if (!State->File) {
 		//--auto clean flag
-		aasm_log(_LOG_ERROR, "unable to open listing file `%s'", fname);
+		aasm_log(_LOG_ERROR, "unable to open listing file `%s'", filename);
 		return;
 	}
 
-	*listline = '\0';
-	listlineno = 0;
-	*listerror = '\0';
-	listp = true;
-	listlevel = 0;
-	suppress = 0;
-	mistack = malcof(MacroInhibit);
-	mistack->next = NULL;
-	mistack->level = 0;
-	mistack->inhibiting = true;
+	State->Line[0] = '\0';
+	State->HasLine = false;
+	State->LineNumber = 0;
+	State->Error[0] = '\0';
+	State->Data[0] = '\0';
+	State->Offset = 0;
+	State->Level = 0;
+	State->EmittedLevel = 0;
+	State->Suppress = 0;
+	State->InhibitStack = malcof(Implementation::MacroInhibit);
+	State->InhibitStack->Next = nullptr;
+	State->InhibitStack->Level = 0;
+	State->InhibitStack->Inhibiting = true;
+	LegacyTarget = this;
 }
 
-static void list_cleanup(void)
+void AssemblyListing::Cleanup()
 {
-	if (!listp)
-		return;
-
-	while (mistack) {
-		MacroInhibit *temp = mistack;
-		mistack = temp->next;
+	while (State->InhibitStack) {
+		Implementation::MacroInhibit* temp = State->InhibitStack;
+		State->InhibitStack = temp->Next;
 		memf(temp);
 	}
 
-	list_emit();
-	fclose(listfp);
-}
-
-static void list_out(int32_t offset, char *str)
-{
-	if (StrLength(listdata) + StrLength(str) > LIST_HEXBIT) {
-		StrAppend(listdata, "-");
-		list_emit();
+	if (State->File) {
+		Flush();
+		fclose(State->File);
+		State->File = nullptr;
 	}
-	if (!listdata[0])
-		listoffset = offset;
-	StrAppend(listdata, str);
+	if (LegacyTarget == this) LegacyTarget = nullptr;
 }
 
-static void list_output(int32_t offset, const void *data,
-			enum out_type type, uint64_t size)
+void AssemblyListing::Append(int64_t offset, const char* text)
 {
-	if (!listp || suppress || user_nolist)      /* fbk - 9/2/00 */
+	if (StrLength(State->Data) + StrLength(text) > LIST_HEXBIT) {
+		StrAppend(State->Data, "-");
+		Flush();
+	}
+	if (!State->Data[0]) State->Offset = offset;
+	StrAppend(State->Data, text);
+}
+
+void AssemblyListing::EmitLegacy(int64_t offset, const void* data,
+	enum out_type type, uint64_t size)
+{
+	if (!State->File || State->Suppress || user_nolist)
 		return;
 
 	switch (type) {
@@ -161,12 +179,12 @@ static void list_output(int32_t offset, const void *data,
 	{
 		uint8_t const *p = (uint8_t const*)data;
 		char q[3];
-	if (size == 0 && !listdata[0])
-		listoffset = offset;
+	if (size == 0 && !State->Data[0])
+		State->Offset = offset;
 		while (size--) {
 			HEX(q, *p);
 			q[2] = '\0';
-			list_out(offset++, q);
+			Append(offset++, q);
 			p++;
 		}
 	break;
@@ -185,7 +203,7 @@ static void list_output(int32_t offset, const void *data,
 			HEX(q + 3, p[1]);
 			HEX(q + 5, p[2]);
 			HEX(q + 7, p[3]);
-			list_out(offset, q);
+			Append(offset, q);
 		} else if (size == 8) {
 			q[0] = '[';
 			q[17] = ']';
@@ -199,7 +217,7 @@ static void list_output(int32_t offset, const void *data,
 			HEX(q + 11, p[5]);
 			HEX(q + 13, p[6]);
 			HEX(q + 15, p[7]);
-			list_out(offset, q);
+			Append(offset, q);
 		} else {
 			q[0] = '[';
 			q[5] = ']';
@@ -207,7 +225,7 @@ static void list_output(int32_t offset, const void *data,
 			WRITESHORT(r, d); //(uni::cast<void*>(r), d);
 			HEX(q + 1, p[0]);
 			HEX(q + 3, p[1]);
-			list_out(offset, q);
+			Append(offset, q);
 		}
 	break;
 	}
@@ -222,7 +240,7 @@ static void list_output(int32_t offset, const void *data,
 		WRITESHORT(r, d); //(uni::cast<void*>(r), d);
 		HEX(q + 1, p[0]);
 		HEX(q + 3, p[1]);
-		list_out(offset, q);
+		Append(offset, q);
 	break;
 	}
 	case OUT_REL4ADR:
@@ -238,7 +256,7 @@ static void list_output(int32_t offset, const void *data,
 		HEX(q + 3, p[1]);
 		HEX(q + 5, p[2]);
 		HEX(q + 7, p[3]);
-		list_out(offset, q);
+		Append(offset, q);
 	break;
 	}
 	case OUT_REL8ADR:
@@ -258,106 +276,172 @@ static void list_output(int32_t offset, const void *data,
 		HEX(q + 11, p[5]);
 		HEX(q + 13, p[6]);
 		HEX(q + 15, p[7]);
-		list_out(offset, q);
+		Append(offset, q);
 	break;
 	}
 	case OUT_RESERVE:
 	{
 		char q[20];
 		snprintf(q, sizeof(q), "<res %08" PRIX64 ">", size);
-		list_out(offset, q);
+		Append(offset, q);
 	break;
 	}
 	}
 }
 
-static void list_line(int type, char *line)
+void AssemblyListing::EmitCode(
+	int64_t offset, const uni::CodeendOutput& output)
 {
-	if (!listp)
-		return;
+	EmitLegacy(offset, output.data,
+		output.type == uni::CodeendOutputType::Reserve ?
+		OUT_RESERVE : OUT_RAWDATA, output.size);
+}
+
+void AssemblyListing::EmitFixup(const uni::CodeFixup& fixup)
+{
+	uint64_t size = (fixup.encoding.storage_bits + 7) / 8;
+	out_type type = OUT_ADDRESS;
+	if (fixup.kind == uni::CodeFixupKind::PcRelative ||
+		fixup.kind == uni::CodeFixupKind::Branch ||
+		fixup.kind == uni::CodeFixupKind::Call) {
+		switch (size) {
+		case 2: type = OUT_REL2ADR; break;
+		case 4: type = OUT_REL4ADR; break;
+		case 8: type = OUT_REL8ADR; break;
+		default: type = OUT_ADDRESS; break;
+		}
+	}
+	EmitLegacy(fixup.offset, &fixup.addend, type, size);
+}
+
+void AssemblyListing::SetOffset(int64_t offset)
+{
+	EmitLegacy(offset, nullptr, OUT_RAWDATA, 0);
+}
+
+void AssemblyListing::Line(int type, const char* line)
+{
+	if (!State->File) return;
 	if (user_nolist) {          /* fbk - 9/2/00 */
-		listlineno++;
+		State->LineNumber++;
 		return;
 	}
 
-	if (mistack && mistack->inhibiting) {
+	if (State->InhibitStack && State->InhibitStack->Inhibiting) {
 		if (type == LIST_MACRO)
 			return;
 		else {                  /* pop the m i stack */
-			MacroInhibit *temp = mistack;
-			mistack = temp->next;
+			Implementation::MacroInhibit* temp = State->InhibitStack;
+			State->InhibitStack = temp->Next;
 			memf(temp);
 		}
 	}
-	list_emit();
-	listlinep = true;
-	StrCopyN(listline, line, LIST_MAX_LEN - 1);
-	listline[LIST_MAX_LEN - 1] = '\0';
-	listlevel_e = listlevel;
+	Flush();
+	State->HasLine = true;
+	StrCopyN(State->Line, line, LIST_MAX_LEN - 1);
+	State->Line[LIST_MAX_LEN - 1] = '\0';
+	State->EmittedLevel = State->Level;
 }
 
-static void list_uplevel(int type)
+void AssemblyListing::Enter(int type)
 {
-	if (!listp)
-		return;
+	if (!State->File) return;
 	if (type == LIST_INCBIN || type == LIST_TIMES) {
-		suppress |= (type == LIST_INCBIN ? 1 : 2);
-		list_out(listoffset, (char*)(type == LIST_INCBIN ? "<incbin>" : "<rept>"));
+		State->Suppress |= (type == LIST_INCBIN ? 1 : 2);
+		Append(State->Offset,
+			type == LIST_INCBIN ? "<incbin>" : "<rept>");
 		return;
 	}
 
-	listlevel++;
+	State->Level++;
 
-	if (mistack && mistack->inhibiting && type == LIST_INCLUDE) {
-		MacroInhibit *temp = malcof(MacroInhibit);
-		temp->next = mistack;
-		temp->level = listlevel;
-		temp->inhibiting = false;
-		mistack = temp;
+	if (State->InhibitStack && State->InhibitStack->Inhibiting &&
+		type == LIST_INCLUDE) {
+		Implementation::MacroInhibit* temp =
+			malcof(Implementation::MacroInhibit);
+		temp->Next = State->InhibitStack;
+		temp->Level = State->Level;
+		temp->Inhibiting = false;
+		State->InhibitStack = temp;
 	} else if (type == LIST_MACRO_NOLIST) {
-		MacroInhibit *temp = malcof(MacroInhibit);
-		temp->next = mistack;
-		temp->level = listlevel;
-		temp->inhibiting = true;
-		mistack = temp;
+		Implementation::MacroInhibit* temp =
+			malcof(Implementation::MacroInhibit);
+		temp->Next = State->InhibitStack;
+		temp->Level = State->Level;
+		temp->Inhibiting = true;
+		State->InhibitStack = temp;
 	}
 }
 
-static void list_downlevel(int type)
+void AssemblyListing::Leave(int type)
 {
-	if (!listp)
-		return;
+	if (!State->File) return;
 
 	if (type == LIST_INCBIN || type == LIST_TIMES) {
-		suppress &= ~(type == LIST_INCBIN ? 1 : 2);
+		State->Suppress &= ~(type == LIST_INCBIN ? 1 : 2);
 		return;
 	}
 
-	listlevel--;
-	while (mistack && mistack->level > listlevel) {
-		MacroInhibit *temp = mistack;
-		mistack = temp->next;
+	State->Level--;
+	while (State->InhibitStack &&
+		State->InhibitStack->Level > State->Level) {
+		Implementation::MacroInhibit* temp = State->InhibitStack;
+		State->InhibitStack = temp->Next;
 		memf(temp);
 	}
 }
 
-static void list_error(loglevel_t severity, const char *pfx, const char *msg)
+void AssemblyListing::Error(loglevel_t severity,
+	const char* prefix, const char* message)
 {
-	if (!listfp)
-	return;
+	if (!State->File) return;
 
-	snprintf(listerror, sizeof listerror, "%s%s", pfx, msg);
+	snprintf(State->Error, sizeof State->Error, "%s%s", prefix, message);
 
-	if (severity == _LOG_FATAL)
-	list_emit();
+	if (severity == _LOG_FATAL) Flush();
 }
 
-ListGen aasmlist = {
-	list_init,
-	list_cleanup,
-	list_output,
-	list_line,
-	list_uplevel,
-	list_downlevel,
-	list_error
-};
+ListGen& AssemblyListing::Legacy()
+{
+	LegacyTarget = this;
+	return LegacyAdapter;
+}
+
+void AssemblyListing::LegacyInitialize(char* filename)
+{
+	if (LegacyTarget) LegacyTarget->Initialize(filename);
+}
+
+void AssemblyListing::LegacyCleanup()
+{
+	if (LegacyTarget) LegacyTarget->Cleanup();
+}
+
+void AssemblyListing::LegacyOutput(int32_t offset, const void* data,
+	enum out_type type, uint64_t size)
+{
+	if (LegacyTarget) LegacyTarget->EmitLegacy(offset, data, type, size);
+}
+
+void AssemblyListing::LegacyLine(int type, char* line)
+{
+	if (LegacyTarget) LegacyTarget->Line(type, line);
+}
+
+void AssemblyListing::LegacyEnter(int type)
+{
+	if (LegacyTarget) LegacyTarget->Enter(type);
+}
+
+void AssemblyListing::LegacyLeave(int type)
+{
+	if (LegacyTarget) LegacyTarget->Leave(type);
+}
+
+void AssemblyListing::LegacyError(loglevel_t severity,
+	const char* prefix, const char* message)
+{
+	if (LegacyTarget) LegacyTarget->Error(severity, prefix, message);
+}
+
+AssemblyListing aasmlist;

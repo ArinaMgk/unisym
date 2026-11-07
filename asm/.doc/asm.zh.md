@@ -151,6 +151,9 @@ AASM 当前代码可以按职责理解为以下部分：
   位于 `aasm-label.cpp` 和 `aasm-eval.cpp`。`AssemblyTarget` 保存一次汇编任务选择的
   Archend、Codeend、默认位宽和 CPU；`AssemblySession` 保存 pass、section、当前
   位宽和当前 CPU 等运行状态。
+- **Listing**：`aasm-list.cpp` 的 `AssemblyListing` 保存一次 listing 输出的文件、
+  行、机器码、嵌套层级和抑制状态。通用语句与 Archend 通过 `CodeendOutput`、
+  `CodeFixup` 语义接口提交 listing 事件；旧 `ListGen` 只作为 Preprocessor 适配接口。
 - **Archend**：`inc/cpp/Lango/Archend.hpp` 定义架构汇编契约；当前 x86 适配层位于
   `lib/cpp/Lango/Archend/Archend-x86.cpp`，RISC-V 适配层位于对应的
   `Archend-riscv.cpp`。Archend 只接收架构指令；x86 内部头和
@@ -163,7 +166,8 @@ AASM 当前代码可以按职责理解为以下部分：
 Codeend 负责格式信息、格式选择、输出生命周期、section、symbol、directive 和
 调试格式操作。普通数据与保留空间通过 `CodeendOutput` 提交；需要重定位的值通过
 `CodeFixup` 描述目标 section、加数、PC 偏移语义和编码位域。`aasm-format.cpp` 当前
-将语义化 fixup 适配为现有格式函数表使用的输出类型。listing 保留原有接口；
+将语义化 fixup 适配为现有格式函数表使用的输出类型。listing 状态由
+`AssemblyListing` 管理；
 `NativeHandle()` 目前仅保留在 Codeend 适配和旧格式兼容代码中。开始汇编前会检查
 所选 Codeend 是否声明支持当前 Archend 的架构种类。
 

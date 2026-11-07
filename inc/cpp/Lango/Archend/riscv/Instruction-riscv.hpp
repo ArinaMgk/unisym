@@ -8,23 +8,11 @@
 
 #include "../../../../../asm/inc/aasm-limits.h"
 #include "../../Archend.hpp"
+#include "data/Instructions-riscv.hpp"
 
 struct AssemblySession;
 
 namespace uni::lango {
-
-enum class RISCVOpcode : uint8_t {
-	None,
-	Lui, Auipc, Jal, Jalr,
-	Beq, Bne, Blt, Bge, Bltu, Bgeu,
-	Lb, Lh, Lw, Lbu, Lhu, Lwu, Ld,
-	Sb, Sh, Sw, Sd,
-	Addi, Slti, Sltiu, Xori, Ori, Andi, Slli, Srli, Srai,
-	Add, Sub, Sll, Slt, Sltu, Xor, Srl, Sra, Or, And,
-	Addiw, Slliw, Srliw, Sraiw,
-	Addw, Subw, Sllw, Srlw, Sraw,
-	Fence, Ecall, Ebreak
-};
 
 enum class RISCVOperandKind : uint8_t {
 	None,

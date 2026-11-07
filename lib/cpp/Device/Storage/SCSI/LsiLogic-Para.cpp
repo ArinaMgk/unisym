@@ -444,13 +444,17 @@ namespace uni::SCSI {
 	}
 
 	bool LsiLogicMPI::Recover() {
+		return RecoverDetailed().can_submit;
+	}
+
+	StorageRecoveryResult LsiLogicMPI::RecoverDetailed() {
 		const bool restore_interrupts = interrupts_enabled.load(MemoryOrder_Acquire);
 		SetInterrupts(false);
 		plogwarn("[%s] resetting IOC; outstanding commands fail without replay", log_name);
 		if (!Reset()) {
 			DisableAfterFailure("recovery reset failed");
 			queue.FailAll(false); // An unconfirmed reset cannot release device-reachable request buffers.
-			return false;
+			return {};
 		}
 		active_count = 0;
 		queue.FailAll(true);
@@ -458,10 +462,10 @@ namespace uni::SCSI {
 		faulted = false;
 		if (!InitializePort(port_type) || !ValidateAfterReset()) {
 			DisableAfterFailure("recovery initialization or target identity validation failed");
-			return false;
+			return { false, true, false };
 		}
 		SetInterrupts(restore_interrupts);
-		return true;
+		return { true, true, false };
 	}
 
 	void LsiLogicMPI::Service() {

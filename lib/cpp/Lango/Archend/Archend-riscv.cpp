@@ -90,13 +90,13 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 			static_cast<uint8_t>(encoding >> 16),
 			static_cast<uint8_t>(encoding >> 24)
 		};
-		aasmlist.output(offset, bytes, OUT_RAWDATA, sizeof(bytes));
 		uni::CodeendOutput output {
 			session.Location.segment,
 			bytes,
 			uni::CodeendOutputType::RawData,
 			sizeof(bytes)
 		};
+		session.Listing->EmitCode(offset, output);
 		codeend.Emit(output);
 	}
 	return result;

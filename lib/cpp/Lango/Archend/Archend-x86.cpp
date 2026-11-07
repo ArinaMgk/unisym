@@ -197,7 +197,7 @@ ArchendLineResult ArchendX86::ProcessInstruction(AssemblySession& session,
 	else {
 		result.size = X86Assemble(session.Location.segment,
 			session.Location.offset, session.SectionBits,
-			session.CurrentCpu, &instruction, &codeend, &aasmlist);
+			session.CurrentCpu, &instruction, &codeend, session.Listing);
 	}
 
 	return result;

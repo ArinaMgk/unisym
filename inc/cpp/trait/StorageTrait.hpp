@@ -52,6 +52,13 @@ namespace uni {
 		}
 	};
 
+	// Recovery describes the caller's affected requests and submission path, not command success.
+	struct StorageRecoveryResult {
+		bool can_submit = false; // The original submission path can accept new requests.
+		bool requests_quiesced = false; // DMA for the affected requests is confirmed stopped or was never submitted.
+		bool engine_stopped = false; // Confirmed stopped now; retiring old requests alone does not retire shared DMA workspaces.
+	};
+
 	enum class StorageRequestState : byte { Created, Queued, Active, Completed };
 	enum class StorageRequestStatus : byte { Success, Failed, TimedOut };
 	struct StorageRequestResult {

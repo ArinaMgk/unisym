@@ -10,40 +10,6 @@ namespace uni::lango {
 
 namespace {
 
-struct OpcodeEntry {
-	const char* name;
-	RISCVOpcode opcode;
-};
-
-const OpcodeEntry Opcodes[] = {
-	{"lui", RISCVOpcode::Lui}, {"auipc", RISCVOpcode::Auipc},
-	{"jal", RISCVOpcode::Jal}, {"jalr", RISCVOpcode::Jalr},
-	{"beq", RISCVOpcode::Beq}, {"bne", RISCVOpcode::Bne},
-	{"blt", RISCVOpcode::Blt}, {"bge", RISCVOpcode::Bge},
-	{"bltu", RISCVOpcode::Bltu}, {"bgeu", RISCVOpcode::Bgeu},
-	{"lb", RISCVOpcode::Lb}, {"lh", RISCVOpcode::Lh},
-	{"lw", RISCVOpcode::Lw}, {"lbu", RISCVOpcode::Lbu},
-	{"lhu", RISCVOpcode::Lhu}, {"lwu", RISCVOpcode::Lwu},
-	{"ld", RISCVOpcode::Ld}, {"sb", RISCVOpcode::Sb},
-	{"sh", RISCVOpcode::Sh}, {"sw", RISCVOpcode::Sw},
-	{"sd", RISCVOpcode::Sd}, {"addi", RISCVOpcode::Addi},
-	{"slti", RISCVOpcode::Slti}, {"sltiu", RISCVOpcode::Sltiu},
-	{"xori", RISCVOpcode::Xori}, {"ori", RISCVOpcode::Ori},
-	{"andi", RISCVOpcode::Andi}, {"slli", RISCVOpcode::Slli},
-	{"srli", RISCVOpcode::Srli}, {"srai", RISCVOpcode::Srai},
-	{"add", RISCVOpcode::Add}, {"sub", RISCVOpcode::Sub},
-	{"sll", RISCVOpcode::Sll}, {"slt", RISCVOpcode::Slt},
-	{"sltu", RISCVOpcode::Sltu}, {"xor", RISCVOpcode::Xor},
-	{"srl", RISCVOpcode::Srl}, {"sra", RISCVOpcode::Sra},
-	{"or", RISCVOpcode::Or}, {"and", RISCVOpcode::And},
-	{"addiw", RISCVOpcode::Addiw}, {"slliw", RISCVOpcode::Slliw},
-	{"srliw", RISCVOpcode::Srliw}, {"sraiw", RISCVOpcode::Sraiw},
-	{"addw", RISCVOpcode::Addw}, {"subw", RISCVOpcode::Subw},
-	{"sllw", RISCVOpcode::Sllw}, {"srlw", RISCVOpcode::Srlw},
-	{"sraw", RISCVOpcode::Sraw}, {"fence", RISCVOpcode::Fence},
-	{"ecall", RISCVOpcode::Ecall}, {"ebreak", RISCVOpcode::Ebreak}
-};
-
 char* SkipSpace(char* text)
 {
 	while (*text && ascii_isspace(*text)) text++;
@@ -59,13 +25,6 @@ void TrimEnd(char* text)
 bool Equal(const char* left, const char* right)
 {
 	return !StrCompareInsensitive(left, right);
-}
-
-RISCVOpcode FindOpcode(const char* name)
-{
-	for (const OpcodeEntry& entry : Opcodes)
-		if (Equal(name, entry.name)) return entry.opcode;
-	return RISCVOpcode::None;
 }
 
 bool IsAlias(const char* name)
@@ -355,18 +314,6 @@ bool RequireAddress(char* text, int parse_pass, bool move_operand,
 	return false;
 }
 
-bool IsRegisterOperation(RISCVOpcode opcode)
-{
-	return (opcode >= RISCVOpcode::Add && opcode <= RISCVOpcode::And) ||
-		(opcode >= RISCVOpcode::Addw && opcode <= RISCVOpcode::Sraw);
-}
-
-bool IsImmediateOperation(RISCVOpcode opcode)
-{
-	return (opcode >= RISCVOpcode::Addi && opcode <= RISCVOpcode::Srai) ||
-		(opcode >= RISCVOpcode::Addiw && opcode <= RISCVOpcode::Sraiw);
-}
-
 RISCVOpcode LoadOpcode(unsigned width, bool zero_extend, int bits)
 {
 	switch (width) {
@@ -393,48 +340,25 @@ bool ApplySignedness(RISCVInstruction& instruction, int bits)
 {
 	if (instruction.signedness == AssemblySignedness::Default) return true;
 	bool use_unsigned = instruction.signedness == AssemblySignedness::Unsigned;
-	switch (instruction.opcode) {
-	case RISCVOpcode::Blt:
-	case RISCVOpcode::Bltu:
-		instruction.opcode = use_unsigned ? RISCVOpcode::Bltu : RISCVOpcode::Blt;
-		return true;
-	case RISCVOpcode::Bge:
-	case RISCVOpcode::Bgeu:
-		instruction.opcode = use_unsigned ? RISCVOpcode::Bgeu : RISCVOpcode::Bge;
-		return true;
-	case RISCVOpcode::Lb:
-	case RISCVOpcode::Lbu:
-		instruction.opcode = use_unsigned ? RISCVOpcode::Lbu : RISCVOpcode::Lb;
-		return true;
-	case RISCVOpcode::Lh:
-	case RISCVOpcode::Lhu:
-		instruction.opcode = use_unsigned ? RISCVOpcode::Lhu : RISCVOpcode::Lh;
-		return true;
-	case RISCVOpcode::Lw:
-	case RISCVOpcode::Lwu:
-		instruction.opcode = use_unsigned && bits == 64 ?
-			RISCVOpcode::Lwu : RISCVOpcode::Lw;
-		return true;
-	case RISCVOpcode::Slti:
-	case RISCVOpcode::Sltiu:
-		instruction.opcode = use_unsigned ? RISCVOpcode::Sltiu : RISCVOpcode::Slti;
-		return true;
-	case RISCVOpcode::Slt:
-	case RISCVOpcode::Sltu:
-		instruction.opcode = use_unsigned ? RISCVOpcode::Sltu : RISCVOpcode::Slt;
-		return true;
-	default:
+	const RISCVInstructionInfo& info = DumpRISCVInstruction(instruction.opcode);
+	RISCVOpcode variant = use_unsigned ?
+		info.unsigned_variant : info.signed_variant;
+	if (variant == RISCVOpcode::None) {
 		aasm_log(_LOG_ERROR,
 			"RISC-V instruction does not have a signedness variant");
 		return false;
 	}
+	if (bits == 32 && instruction.opcode == RISCVOpcode::Lw && use_unsigned)
+		variant = RISCVOpcode::Lw;
+	instruction.opcode = variant;
+	return true;
 }
 
 }
 
 bool RISCVParser::IsInstructionStart(const char* word)
 {
-	return FindOpcode(word) != RISCVOpcode::None || IsAlias(word) ||
+	return FindRISCVInstruction(word) || IsAlias(word) ||
 		Equal(word, "signed") || Equal(word, "unsigned");
 }
 
@@ -452,6 +376,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 	*mnemonic_end = saved;
 	char* operand_text = SkipSpace(mnemonic_end);
 	char* operands[3];
+	const RISCVInstructionInfo* info = nullptr;
 	unsigned count = SplitOperands(operand_text, operands, numsof(operands));
 	if (count > numsof(operands)) {
 		aasm_log(_LOG_ERROR, "RISC-V: invalid operand list");
@@ -542,26 +467,25 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		return true;
 	}
 
-	instruction.opcode = FindOpcode(mnemonic);
-	if (instruction.opcode == RISCVOpcode::None) {
+	info = FindRISCVInstruction(mnemonic);
+	if (!info) {
 		aasm_log(_LOG_ERROR, "RISC-V instruction expected");
 		return false;
 	}
+	instruction.opcode = info->opcode;
 	if (!ApplySignedness(instruction, session.CurrentBits)) return false;
-	if (instruction.opcode == RISCVOpcode::Fence ||
-		instruction.opcode == RISCVOpcode::Ecall ||
-		instruction.opcode == RISCVOpcode::Ebreak) {
+	info = &DumpRISCVInstruction(instruction.opcode);
+	if (info->operands == RISCVOperandForm::None) {
 		if (count) goto bad_count;
 		return true;
 	}
-	if (instruction.opcode == RISCVOpcode::Lui ||
-		instruction.opcode == RISCVOpcode::Auipc) {
+	if (info->operands == RISCVOperandForm::RdImmediate) {
 		if (count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
 			RequireImmediate(operands[1], parse_pass, instruction.operands[1], 2);
 	}
-	if (instruction.opcode == RISCVOpcode::Jal) {
+	if (info->operands == RISCVOperandForm::RdTarget) {
 		if (count != 1 && count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		if (count == 1) {
@@ -574,15 +498,14 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 			RequireTarget(operands[1], parse_pass,
 				instruction.operands[1], 2);
 	}
-	if (instruction.opcode == RISCVOpcode::Jalr) {
+	if (info->operands == RISCVOperandForm::RdIndirectTarget) {
 		if (count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
 			RequireIndirectTarget(operands[1], parse_pass,
 				instruction.operands[1], 2);
 	}
-	if (instruction.opcode >= RISCVOpcode::Beq &&
-		instruction.opcode <= RISCVOpcode::Bgeu) {
+	if (info->operands == RISCVOperandForm::RsRsTarget) {
 		if (count != 3) goto bad_count;
 		instruction.operand_count = 3;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
@@ -590,23 +513,21 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 			RequireTarget(operands[2], parse_pass,
 				instruction.operands[2], 3);
 	}
-	if (instruction.opcode >= RISCVOpcode::Lb &&
-		instruction.opcode <= RISCVOpcode::Ld) {
+	if (info->operands == RISCVOperandForm::RdAddress) {
 		if (count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
 			RequireAddress(operands[1], parse_pass, false,
 				instruction.operands[1], 2);
 	}
-	if (instruction.opcode >= RISCVOpcode::Sb &&
-		instruction.opcode <= RISCVOpcode::Sd) {
+	if (info->operands == RISCVOperandForm::RsAddress) {
 		if (count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
 			RequireAddress(operands[1], parse_pass, false,
 				instruction.operands[1], 2);
 	}
-	if (IsRegisterOperation(instruction.opcode)) {
+	if (info->operands == RISCVOperandForm::RdRsRsOptional) {
 		if (count != 2 && count != 3) goto bad_count;
 		instruction.operand_count = 3;
 		if (!RequireRegister(operands[0], instruction.operands[0], 1)) return false;
@@ -617,7 +538,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		return RequireRegister(operands[1], instruction.operands[1], 2) &&
 			RequireRegister(operands[2], instruction.operands[2], 3);
 	}
-	if (IsImmediateOperation(instruction.opcode)) {
+	if (info->operands == RISCVOperandForm::RdRsImmediateOptional) {
 		if (count != 2 && count != 3) goto bad_count;
 		instruction.operand_count = 3;
 		if (!RequireRegister(operands[0], instruction.operands[0], 1)) return false;

@@ -149,15 +149,6 @@ void FreeDataItems(DataItem* item)
 	}
 }
 
-out_type StatementListingType(uni::CodeendOutputType type)
-{
-	switch (type) {
-	case uni::CodeendOutputType::RawData: return OUT_RAWDATA;
-	case uni::CodeendOutputType::Reserve: return OUT_RESERVE;
-	}
-	return OUT_RAWDATA;
-}
-
 void SetStatementDebugLine(AssemblySession& session)
 {
 	static int32_t line_number = 0;
@@ -170,24 +161,20 @@ void SetStatementDebugLine(AssemblySession& session)
 void EmitStatementData(AssemblySession& session, int64_t offset,
 	const void* data, uni::CodeendOutputType type, uint64_t size)
 {
-	aasmlist.output(offset, data, StatementListingType(type), size);
-	SetStatementDebugLine(session);
-
 	uni::CodeendOutput output {
 		session.Location.segment,
 		data,
 		type,
 		size
 	};
+	session.Listing->EmitCode(offset, output);
+	SetStatementDebugLine(session);
 	session.Options->Target.Codeend().Emit(output);
 }
 
 void EmitStatementFixup(AssemblySession& session, int64_t offset,
 	int64_t addend, size_t size, int32_t target_section, int32_t wrt)
 {
-	aasmlist.output(offset, &addend, OUT_ADDRESS, size);
-	SetStatementDebugLine(session);
-
 	uni::CodeFixup fixup {
 		session.Location.segment,
 		static_cast<uint64_t>(offset),
@@ -205,6 +192,8 @@ void EmitStatementFixup(AssemblySession& session, int64_t offset,
 		wrt,
 		0
 	};
+	session.Listing->EmitFixup(fixup);
+	SetStatementDebugLine(session);
 	session.Options->Target.Codeend().EmitFixup(fixup);
 }
 
@@ -552,8 +541,8 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 		}
 
 		static char buffer[4096];
-		aasmlist.output(Session.Location.offset, nullptr, OUT_RAWDATA, 0);
-		aasmlist.uplevel(LIST_INCBIN);
+		Session.Listing->SetOffset(Session.Location.offset);
+		Session.Listing->Enter(LIST_INCBIN);
 		int64_t output_offset = Session.Location.offset;
 		for (int64_t iteration = 0; iteration < repeat; iteration++) {
 			fseek(file, base, SEEK_SET);
@@ -575,11 +564,11 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 				remaining -= read;
 			}
 		}
-		aasmlist.downlevel(LIST_INCBIN);
+		Session.Listing->Leave(LIST_INCBIN);
 		if (repeat > 1) {
-			aasmlist.output(output_offset, nullptr, OUT_RAWDATA, 0);
-			aasmlist.uplevel(LIST_TIMES);
-			aasmlist.downlevel(LIST_TIMES);
+			Session.Listing->SetOffset(output_offset);
+			Session.Listing->Enter(LIST_TIMES);
+			Session.Listing->Leave(LIST_TIMES);
 		}
 		fclose(file);
 		return true;
@@ -765,11 +754,11 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 			}
 		}
 		if (iteration == 0 && repeat > 1) {
-			aasmlist.output(output_offset, nullptr, OUT_RAWDATA, 0);
-			aasmlist.uplevel(LIST_TIMES);
+			Session.Listing->SetOffset(output_offset);
+			Session.Listing->Enter(LIST_TIMES);
 		}
 	}
-	if (repeat > 1) aasmlist.downlevel(LIST_TIMES);
+	if (repeat > 1) Session.Listing->Leave(LIST_TIMES);
 	FreeDataItems(first);
 	return true;
 }

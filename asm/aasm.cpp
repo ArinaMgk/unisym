@@ -365,6 +365,7 @@ static void InitializeAssemblySession(AssemblySession& session,
 	session = AssemblySession{};
 	session.Options = &options;
 	session.ActiveArchend = &options.Target.Archend();
+	session.Listing = &aasmlist;
 	session.CurrentBits = options.Target.DefaultBits();
 	session.SectionBits = options.Target.DefaultBits();
 	session.CurrentCpu = options.Target.Cpu();
@@ -436,7 +437,7 @@ int main(int argc, char** argv) {
 		if (depend_missing_ok)
 			pp_include_path(NULL);	/* "assume generated" */
 
-		preproc->reset(inname, 0, eval_evaluate, &aasmlist,
+		preproc->reset(inname, 0, eval_evaluate, &aasmlist.Legacy(),
 			depend_ptr);
 		if (outname[0] == '\0')
 			codeend.PrepareFilename(inname, outname);
@@ -468,7 +469,7 @@ int main(int argc, char** argv) {
 		assembly_session.Location.known = false;
 
 		/* pass = 1; */
-		preproc->reset(inname, 3, eval_evaluate, &aasmlist,
+		preproc->reset(inname, 3, eval_evaluate, &aasmlist.Legacy(),
 			depend_ptr);
 
 		while ((line = preproc->getline())) {

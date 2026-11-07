@@ -244,6 +244,8 @@ typedef struct Strpage Strpage;
 
 namespace uni {
 	class CodeendInterface;
+	struct CodeendOutput;
+	struct CodeFixup;
 }
 
 namespace uni::lango {
@@ -256,6 +258,49 @@ enum class AssemblyMode {
 	Preprocess,
 	Dependency
 };
+
+class AssemblyListing {
+private:
+	class Implementation;
+	Implementation* State;
+	ListGen LegacyAdapter;
+
+	static AssemblyListing* LegacyTarget;
+	static void LegacyInitialize(char* filename);
+	static void LegacyCleanup();
+	static void LegacyOutput(int32_t offset, const void* data,
+		enum out_type type, uint64_t size);
+	static void LegacyLine(int type, char* line);
+	static void LegacyEnter(int type);
+	static void LegacyLeave(int type);
+	static void LegacyError(
+		loglevel_t severity, const char* prefix, const char* message);
+
+	void Flush();
+	void Append(int64_t offset, const char* text);
+	void EmitLegacy(int64_t offset, const void* data,
+		enum out_type type, uint64_t size);
+
+public:
+	AssemblyListing();
+	~AssemblyListing();
+	AssemblyListing(const AssemblyListing&) = delete;
+	AssemblyListing& operator=(const AssemblyListing&) = delete;
+
+	void Initialize(const char* filename);
+	void Cleanup();
+	void EmitCode(int64_t offset, const uni::CodeendOutput& output);
+	void EmitFixup(const uni::CodeFixup& fixup);
+	void SetOffset(int64_t offset);
+	void Line(int type, const char* line);
+	void Enter(int type);
+	void Leave(int type);
+	void Error(loglevel_t severity,
+		const char* prefix, const char* message);
+	ListGen& Legacy();
+};
+
+extern AssemblyListing aasmlist;
 
 class AssemblyTarget {
 public:
@@ -301,6 +346,7 @@ struct AssemblerOptions {
 struct AssemblySession {
 	AssemblerOptions* Options;
 	uni::lango::ArchendInterface* ActiveArchend;
+	AssemblyListing* Listing;
 	FILE* OutputFile;
 	Strpage* Offsets;
 	struct location Location;
@@ -490,7 +536,6 @@ extern "C" {
 #endif
 	
 	// ---- list ---- //
-	extern ListGen aasmlist;
 	extern int user_nolist; // fbk - 9/1/00
 	
 	// ---- label ---- //

@@ -474,13 +474,17 @@ namespace uni::SCSI {
 	}
 
 	bool BusLogic::Recover() {
+		return RecoverDetailed().can_submit;
+	}
+
+	StorageRecoveryResult BusLogic::RecoverDetailed() {
 		const bool restore_interrupts = interrupts_enabled.load(MemoryOrder_Acquire);
 		SetInterrupts(false);
 		plogwarn("[SCSI/BusLogic] resetting adapter; outstanding commands fail without replay");
 		if (!HardwareReset(true)) {
 			DisableAfterCommandFailure();
 			queue.FailAll(false);
-			return false;
+			return {};
 		}
 		active_count = 0;
 		queue.FailAll(true);
@@ -490,10 +494,10 @@ namespace uni::SCSI {
 		if (!PreparePolling(false) || !InitializeMailbox(count) ||
 			(extended_ccb && !SetCcbFormat(BLOGIC_EXT_LUN_CCB))) {
 			DisableAfterCommandFailure();
-			return false;
+			return { false, true, false };
 		}
 		SetInterrupts(restore_interrupts);
-		return true;
+		return { true, true, false };
 	}
 
 	void BusLogic::Service() {

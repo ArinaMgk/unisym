@@ -114,7 +114,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 		Session.CurrentBits = globalbits;
 		if (pass0 == 2) {
 			if (*listname)
-				aasmlist.init(listname);
+				Session.Listing->Initialize(listname);
 		}
 		in_abs_seg = false;
 		Session.InAbsoluteSection = false;
@@ -128,7 +128,8 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 			Session.Offsets = StrpageNew();
 		}
 		ActivateArchend(*initial_archend, pass1, pass2);
-		preproc->reset(fname, pass1, eval_evaluate, &aasmlist,
+		preproc->reset(fname, pass1, eval_evaluate,
+			&Session.Listing->Legacy(),
 			pass1 == 2 ? depend_ptr : NULL);
 		MemCopyN(warning_on, warning_on_global, (ERR_WARN_MAX + 1) * sizeof(bool));
 
@@ -518,7 +519,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 		archend_states[index].Driver->Cleanup(Session);
 
 	preproc->cleanup(0);
-	aasmlist.cleanup();
+	Session.Listing->Cleanup();
 	if (!terminate_after_phase && opt_verbose_info) {
 		/*  -On and -Ov switches */
 		fprintf(stdout, "info: assembly required 1+%d+1 passes\n", passn - 3);

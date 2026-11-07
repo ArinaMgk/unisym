@@ -151,7 +151,7 @@ void printlog0(loglevel_t level, const char* fmt, ...)
 
 		snprintf(msg, sizeof msg, "%s", fmt);
 		if (*listname)
-			aasmlist.error(level, *_tab_pref[_IMM(level)], msg);
+			aasmlist.Error(level, *_tab_pref[_IMM(level)], msg);
 	}
 	printlogx(level, fmt, paras);
 }

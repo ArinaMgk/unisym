@@ -24,19 +24,136 @@
 #define _INC_DEVICE_Touch_X
 
 #include "../unisym"
+#include "../ISO_IEC_STD/memory"
 #include "../../c/graphic.h"
 #include "../../c/system/alice.h"// Handler_t
 #include "./_Video.hpp"// LayerManager / SheetTrait / SheetEvent
 
 namespace uni {
 
-	// Touch trait: working-state interface for touch controllers (capacitive GT9xx /
-	// FT5206 / OTT2001A and resistive XPT2046 etc.), similar to RuptTrait / VideoControlInterface.
+	constexpr uint16 TouchIndexNone = 0xFFFFu;
+
+	enum TouchContactFields : uint16 {
+		TouchContactField_Id = 1u << 0,
+		TouchContactField_Size = 1u << 1,
+		TouchContactField_Pressure = 1u << 2,
+	};
+
+	struct TouchContact {
+		Point position;
+		uint16 id = 0;
+		uint16 valid = 0;
+		uint16 size = 0;
+		uint16 pressure = 0;
+	};
+
+	enum TouchFeatures : uint16 {
+		TouchFeature_HardwareId = 1u << 0,
+		TouchFeature_ContactSize = 1u << 1,
+		TouchFeature_Pressure = 1u << 2,
+	};
+
+	struct TouchCapabilities {
+		Rectangle bounds;
+		uint16 max_contacts = 0;
+		uint16 features = 0;
+	};
+
+	enum class TouchReadResult : uint8 {
+		NoData,
+		Frame,
+		Retry,
+		Invalid,
+		Stopped,
+		Unsupported,
+		InvalidTarget,
+	};
+
+	struct TouchFrameInfo {
+		uint64 timestamp_us = 0;// monotonic acquisition time, not the interrupt time
+		uint32 sequence = 0;
+		uint16 count = 0;
+		uint16 flags = 0;// reserved, must be zero
+	};
+
+	// Borrowed storage: Retry keeps the same target alive; only Frame permits publication.
+	struct TouchFrameWriter {
+		TouchContact* data = nullptr;
+		TouchFrameInfo* info = nullptr;
+		uint16 capacity = 0;
+	};
+
+	struct TouchFrameView {
+		const TouchContact* data = nullptr;
+		const TouchFrameInfo* info = nullptr;
+	};
+
+	struct TouchFrameToken {
+		uint32 generation = 0;
+		uint16 slot = TouchIndexNone;
+	};
+
+	enum class TouchSlotState : uint8 { Free, Writing, Queued, Reading };
+
+	struct TouchFrameSlot {
+		TouchFrameInfo info;
+		uint32 generation = 0;
+		uint32 epoch = 0;
+		uint16 next = TouchIndexNone;
+		TouchSlotState state = TouchSlotState::Free;
+	};
+
+	struct TouchTrack {
+		TouchContact last;
+		uint32 lifetime = 0;
+		uint16 matched_index = TouchIndexNone;
+		bool active = false;
+	};
+
+	enum class TouchPhase : uint8 { Down, Move, Up, Cancel };
+	enum class TouchCancelReason : uint8 { InvalidFrame, Overflow, Stopped, Detached };
+
+	struct TouchEvent {
+		TouchContact contact;
+		uint64 timestamp_us = 0;
+		uint32 sequence = 0;
+		uint32 lifetime = 0;
+		uint16 track = TouchIndexNone;
+		TouchPhase phase = TouchPhase::Move;
+		TouchCancelReason reason = TouchCancelReason::InvalidFrame;
+	};
+
+	using TouchEventObserver = void (*)(const TouchEvent& event, void* context);
+
+	class TouchControlBlock;
+
+	// Allocate before binding; destroy only after capture and consumption have drained.
+	class TouchStorage {
+		friend class TouchControlBlock;
+		UniquePtr<TouchFrameSlot[]> slots_;
+		UniquePtr<TouchContact[]> contacts_;
+		UniquePtr<TouchTrack[]> tracks_;
+		UniquePtr<uint16[]> matches_;
+		uint16 contact_capacity_ = 0;
+		uint16 frame_slots_ = 0;
+		TouchControlBlock* owner_ = nullptr;
+	public:
+		TouchStorage() = default;
+		TouchStorage(const TouchStorage&) = delete;
+		TouchStorage& operator=(const TouchStorage&) = delete;
+
+		bool Initialize(uint16 contact_capacity, uint16 frame_slots, bool position_matching = false);
+
+		bool isInitialized() const { return contact_capacity_ != 0; }
+		uint16 getContactCapacity() const { return contact_capacity_; }
+		uint16 getFrameSlotCount() const { return frame_slots_; }
+		bool isPositionMatchingEnabled() const { return bool(matches_); }
+	};
+
+	// Touch trait: working-state interface for touch controllers (capacitive GT9xx / FT5206 / OTT2001A and resistive XPT2046 etc.), similar to RuptTrait / VideoControlInterface.
 	// Initialization (e.g. reset / chip-ID check / calibration) is DECOUPLED from this trait:
-	// each driver performs it in its own constructor or a driver-specific Initialize()
-	// method before the device is used through this trait.
-	// Coordinate convention: drivers return SCREEN coordinates; the panel-orientation
-	// transform is done inside each driver (like the HAL does per panel ID).
+	// each driver performs it in its own constructor or a driver-specific Initialize() method before the device is used through this trait.
+	// Coordinate convention: drivers return SCREEN coordinates; the panel-orientation transform is done inside each driver (like the HAL does per panel ID).
 	class TouchTrait {
 	public:
 		virtual ~TouchTrait() = default;
@@ -44,145 +161,120 @@ namespace uni {
 		// and records each point internally.
 		virtual byte Scan() = 0;
 		// Number of valid points from the latest Scan().
-		virtual byte GetPointCount() const = 0;
-		// Screen coordinate of the i-th point (0 <= i < GetPointCount()).
-		virtual Point GetPoint(byte i) const = 0;
+		virtual byte getPointCount() const = 0;
+		// Screen coordinate of the i-th point (0 <= i < getPointCount()).
+		virtual Point getPoint(byte i) const = 0;
 		// ---- resistive-touch hooks (capacitive drivers may use the defaults) ----
 		// true for capacitive controllers; resistive ones return false.
-		virtual bool IsCapacitive() const { return true; }
+		virtual bool isCapacitive() const { return true; }
 		// true if calibration is required before use (resistive only).
 		virtual bool NeedsAdjust() const { return false; }
 		// Run the calibration procedure (resistive only); true when calibration is done.
 		virtual bool Adjust() { return true; }
 		// ---- conveniences ----
-		Point GetPrimary() const { return GetPoint(0); }
-		bool isTouched() const { return GetPointCount() > 0; }
+		Point getPrimary() const { return getPoint(0); }
+		bool isTouched() const { return getPointCount() > 0; }
+		virtual bool getCapabilities(TouchCapabilities& caps) const { (void)caps; return false; }
+		// Unsupported leaves the target untouched; InvalidTarget must be rejected before I/O.
+		virtual TouchReadResult ReadFrame(TouchFrameWriter& target) { (void)target; return TouchReadResult::Unsupported; }
 	};
 
-	// Touch manager: hosts the INT-driven scan and dispatches Sheet events per point.
+	// Touch manager: separates complete-frame acquisition from consumer-side tracking.
 	// Wiring:
 	//   - the GPIO-EXTI ISR calls HandleInterrupt() (never touch I2C inside the ISR),
-	//   - the main loop calls Process() periodically.
-	// After each scan the points are matched to the previous frame's tracks by
-	// NEAREST POSITION (greedy), so the dispatched track id is a STABLE per-finger
-	// identity, independent of the chip's point ordering (which shifts when fingers
+	//   - standalone callers use Process(); RTOS producers and consumers use frame slots.
+	// Hardware IDs identify contacts when available; otherwise nearest-position matching
+	// provides a per-finger track identity, independent of the chip's point ordering (which shifts when fingers
 	// are added or removed). Tracking by the raw point index instead would connect
 	// different fingers' positions into straight lines (2 points -> line, 3 -> triangle)
 	// and falsely lift a still-pressed finger (broken stroke).
 	// Each scan dispatches to the top sheet covering the point (LayerManager::getTop),
 	// with coordinates converted to sheet-relative ones:
-	//   newly-pressed point -> onClick  (0x10 = left-button down, same as the mouse)
+	//   newly-pressed point -> onClick  (0x11 = left-button change and down)
 	//   moved point         -> onMoved  (pressure / range radius passed as 0)
 	//   lifted point        -> onLeave  (type 0 = moved out)
 	// Every dispatched event additionally carries the STABLE track id (0-based) as its
 	// LAST variadic argument, so a sheet can track per-finger state (e.g. last
 	// position for connecting strokes) across scans. Variadic layout per event
 	// (the consumer must read according to the event type):
-	//   onClick: (0x10 left-button-down byte, track id)
+	//   onClick: (0x11 left-button change/down byte, track id)
 	//   onMoved: (pressure 0, range radius 0, track id)
 	//   onLeave: (leave type 0, track id)
+	using TouchLockEnter = stduint (*)(void* context);
+	using TouchLockLeave = void (*)(void* context, stduint state);
+
 	class TouchControlBlock {
+		class Guard;
+		TouchStorage* storage_ = nullptr;
+		UniquePtr<TouchStorage> legacy_storage_;
+		TouchFrameToken legacy_token_;
+		TouchFrameWriter legacy_writer_;
+		bool legacy_capture_ = false;
+		TouchCapabilities caps_;
+		TouchLockEnter enter_ = nullptr;
+		TouchLockLeave leave_ = nullptr;
+		void* lock_context_ = nullptr;
+		TouchEventObserver observer_ = nullptr, pointer_observer_ = nullptr;
+		void* observer_context_ = nullptr;
+		void* pointer_context_ = nullptr;
+		Atomic<bool> int_pending_{false};
+		uint16 free_ = TouchIndexNone, ready_ = TouchIndexNone, tail_ = TouchIndexNone;
+		uint16 writing_ = TouchIndexNone, reading_ = TouchIndexNone;
+		uint16 primary_ = TouchIndexNone;
+		uint32 serial_ = 0, epoch_ = 1, lifetime_ = 0;
+		uint32 overflows_ = 0;
+		uint32 submitted_sequence_ = 0, event_sequence_ = 0;
+		uint64 event_time_ = 0;
+		bool have_sequence_ = false, quarantined_ = false, cancel_pending_ = false;
+		bool detaching_ = false, wait_empty_ = false, processing_ = false;
+		TouchCancelReason cancel_reason_ = TouchCancelReason::InvalidFrame;
+		TouchEvent event_;
+		bool isToken(const TouchFrameToken& token, TouchSlotState state) const;
+		bool isFrameValid(const TouchFrameView& frame) const;
+		void FreeSlot(uint16 slot);
+		void CancelQueued(TouchCancelReason reason);
+		void Emit(uint16 track, TouchPhase phase, TouchCancelReason reason = TouchCancelReason::InvalidFrame);
+		void DispatchLegacy(const TouchEvent& event);
 	public:
-		static constexpr stduint MAX_POINTS = 10;// largest known: GT9271 (10-point)
-		// Max distance (pixels) for matching a point to a previous-frame track.
-		// Too small: fast strokes get split into new/lost fingers (broken strokes);
-		// too large: a newly-pressed finger near an old one is mistaken for a move.
+		static constexpr stduint MAX_POINTS = 10;// legacy capacity; new devices supply their own limit
 		static constexpr stduint MATCH_MAX_DIST = 160;
 		TouchTrait* ptrait = nullptr;
-		LayerManager* pmanager = nullptr;// sheet-event dispatch target (optional)
-		Handler_t InterruptCallback = nullptr;// optional, invoked by HandleInterrupt()
-		// true: scan only after HandleInterrupt() recorded a pending event;
-		// false: polling mode, scan on every Process() call.
+		LayerManager* pmanager = nullptr;
+		Handler_t InterruptCallback = nullptr;
 		bool use_interrupt = true;
-	private:
-		volatile bool int_pending = false;
-		Point track_pos[MAX_POINTS] = {};// last dispatched position of each track
-		bool track_active[MAX_POINTS] = {};// whether the track currently holds a finger
-	public:
-		TouchControlBlock(TouchTrait* p = nullptr, LayerManager* pm = nullptr) : ptrait(p), pmanager(pm) {}
-		// ISR entry: record the pending flag and invoke the optional callback.
-		// The actual I2C scan is deferred to Process() in the main loop.
-		void HandleInterrupt() {
-			int_pending = true;
-			if (InterruptCallback) InterruptCallback();
-		}
-		inline byte Scan() { return ptrait ? ptrait->Scan() : 0; }
-		inline bool isTouched() const { return ptrait && ptrait->isTouched(); }
-		inline Point GetPrimary() const { return ptrait ? ptrait->GetPrimary() : Point(0, 0); }
-		// Main-loop pump: scan when needed, then match points to tracks and
-		// dispatch Sheet events (see class comment).
-		void Process() {
-			if (!ptrait) return;
-			if (use_interrupt && !int_pending) return;
-			int_pending = false;
-			ptrait->Scan();
-			DispatchEvents();
-		}
-	private:
-		byte AllocTrack() {
-			for (byte t = 0; t < MAX_POINTS; t++)
-				if (!track_active[t]) return t;
-			return MAX_POINTS;// no free track (should not happen with current chips)
-		}
-		void DispatchEvents() {
-			byte n = ptrait->GetPointCount();
-			if (n > MAX_POINTS) n = MAX_POINTS;
-			Point cur[MAX_POINTS];
-			bool matched[MAX_POINTS] = {};// current point already paired to a track
-			bool trk_used[MAX_POINTS] = {};// track already paired this frame
-			bool was_active[MAX_POINTS] = {};// track active at the frame start
-			for (byte t = 0; t < MAX_POINTS; t++) was_active[t] = track_active[t];
-			for (byte i = 0; i < n; i++) cur[i] = ptrait->GetPoint(i);
-			// 1) greedy nearest-neighbor match within MATCH_MAX_DIST; a matched
-			//    point continues its track (onMoved when the position changed).
-			const stduint max_d2 = (stduint)MATCH_MAX_DIST * MATCH_MAX_DIST;
-			for (byte i = 0; i < n; i++) {
-				byte best = MAX_POINTS;
-				stduint best_d2 = max_d2;
-				for (byte t = 0; t < MAX_POINTS; t++) {
-					if (!track_active[t] || trk_used[t]) continue;
-					stduint dx = cur[i].x > track_pos[t].x ? cur[i].x - track_pos[t].x : track_pos[t].x - cur[i].x;
-					stduint dy = cur[i].y > track_pos[t].y ? cur[i].y - track_pos[t].y : track_pos[t].y - cur[i].y;
-					stduint d2 = dx * dx + dy * dy;
-					if (d2 <= best_d2) { best_d2 = d2; best = t; }
-				}
-				if (best < MAX_POINTS) {
-					matched[i] = true;
-					trk_used[best] = true;
-					if (cur[i].x != track_pos[best].x || cur[i].y != track_pos[best].y)
-						Dispatch(SheetEvent::onMoved, cur[i], best);
-					track_pos[best] = cur[i];
-				}
-			}
-			// 2) unmatched current points -> press on a free track.
-			for (byte i = 0; i < n; i++) {
-				if (matched[i]) continue;
-				byte t = AllocTrack();
-				if (t >= MAX_POINTS) continue;
-				track_pos[t] = cur[i];
-				track_active[t] = true;
-				Dispatch(SheetEvent::onClick, cur[i], t);
-			}
-			// 3) tracks that were active at the frame start but unmatched -> lift.
-			for (byte t = 0; t < MAX_POINTS; t++) {
-				if (was_active[t] && !trk_used[t]) {
-					track_active[t] = false;
-					Dispatch(SheetEvent::onLeave, track_pos[t], t);
-				}
-			}
-		}
-		void Dispatch(SheetEvent evt, const Point& p, byte idx) {
-			if (!pmanager) return;
-			SheetTrait* sheet = pmanager->getTop(p);
-			if (!sheet) return;
-			Point rel = p - sheet->sheet_area.getVertex();
-			if (evt == SheetEvent::onClick)
-				sheet->onrupt(evt, rel, 0x10, idx);// L button down (upper 0RML nibble), track id
-			else if (evt == SheetEvent::onMoved)
-				sheet->onrupt(evt, rel, 0, 0, idx);// pressure, range radius, track id
-			else
-				sheet->onrupt(evt, rel, 0, idx);// leave type 0 = moved out, track id
-		}
+
+		TouchControlBlock(TouchTrait* device = nullptr, LayerManager* manager = nullptr) : ptrait(device), pmanager(manager) {}
+		~TouchControlBlock();
+		TouchControlBlock(const TouchControlBlock&) = delete;
+		TouchControlBlock& operator=(const TouchControlBlock&) = delete;
+		bool Initialize(TouchTrait& device, TouchStorage& storage);
+		bool isInitialized() const { return storage_ != nullptr; }
+		// Configure only while quiescent, before publishing this block to another thread.
+		bool setSynchronization(TouchLockEnter enter, TouchLockLeave leave, void* context);
+		// Observers are configured before registration or after the consumer has drained.
+		void setObserver(TouchEventObserver observer, void* context = nullptr) { observer_ = observer; observer_context_ = context; }
+		void setPointerObserver(TouchEventObserver observer, void* context = nullptr) { pointer_observer_ = observer; pointer_context_ = context; }
+
+		bool BeginCapture(TouchFrameToken& token, TouchFrameWriter& target);
+		bool CommitCapture(const TouchFrameToken& token);
+		bool AbortCapture(const TouchFrameToken& token);
+		bool TakeFrame(TouchFrameToken& token, TouchFrameView& frame);
+		bool ReleaseFrame(const TouchFrameToken& token);
+		void RequestCancel(TouchCancelReason reason);
+		bool TakeCancel(TouchCancelReason& reason);
+		void BeginDetach();
+		bool isDrained() const;
+		bool isDetaching() const;
+		uint32 getOverflowCount() const;
+
+		// Consumer only; callbacks run without the handoff lock and must not reenter processing.
+		bool ProcessFrame(const TouchFrameView& frame);
+		void CancelActiveTouches(TouchCancelReason reason);
+		void HandleInterrupt();
+		void Process();
+		byte Scan() { return ptrait ? ptrait->Scan() : 0; }
+		bool isTouched() const { return ptrait && ptrait->isTouched(); }
+		Point getPrimary() const { return ptrait ? ptrait->getPrimary() : Point(0, 0); }
 	};
 
 }

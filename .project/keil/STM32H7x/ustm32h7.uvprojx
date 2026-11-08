@@ -622,6 +622,11 @@
               <FilePath>..\..\..\lib\cpp\Device\Video.cpp</FilePath>
             </File>
             <File>
+              <FileName>Touch.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\Device\Touch.cpp</FilePath>
+            </File>
+            <File>
               <FileName>font-8x5.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\lib\c\data\font\font-8x5.c</FilePath>

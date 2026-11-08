@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include "inc/hashtbl.hpp"
+#include "../inc/cpp/pnode"
 _ESYM_C char* getenv(const char* name);
 
 // ---- ---- LOC DEF ---- ---- //
@@ -49,8 +50,8 @@ _ESYM_C char* getenv(const char* name);
 
 struct Cond;
 struct Line;
-struct Token;
 struct SMacro;
+using Token = uni::Pnode;
 
 struct SMacro {
 	SMacro *next;
@@ -142,14 +143,12 @@ enum pp_token_type {
 	TOK_MAX = INT_MAX		/* Keep compiler from reducing the range */
 };
 
-struct Token {
-	Token *next;
-	char *text;
+struct PreprocessorTokenField {
+	uni::TnodeField location;
 	union {
-	SMacro *mac;	        /* associated macro for TOK_SMAC_END */
-		size_t len;		/* scratch length field */
-	} a;			/* Auxiliary data */
-	enum pp_token_type type;
+		SMacro *mac;
+		size_t len;
+	} auxiliary;
 };
 
 /*
@@ -342,22 +341,25 @@ _ESYM_C bool any_extrastdmac = NULL;
  * Tokens are allocated in blocks to improve speed
  */
 #define TOKEN_BLOCKSIZE 4096
-_ESYM_C Token* freeTokens = NULL;//{TODO} static
-struct Blocks {
-	Blocks* next;
-	void* chunk;
-};
+static uni::Pchain token_pool(sizeof(PreprocessorTokenField), TOKEN_BLOCKSIZE);
 
-//{TODO} static
-_ESYM_C Blocks blocks = { NULL, NULL };
+static PreprocessorTokenField& token_field(Token* token)
+{
+	return *(PreprocessorTokenField*)token_pool.GetExtnField(token);
+}
+
+static const PreprocessorTokenField& token_field(const Token* token)
+{
+	return *(const PreprocessorTokenField*)token_pool.GetExtnField(token);
+}
 
 /*
  * Macros for safe checking of token pointers, avoid *(NULL)
  */
 #define tok_type_(x,t) ((x) && (x)->type == (t))
 #define skip_white_(x) if (tok_type_((x), TOK_WHITESPACE)) (x)=(x)->next
-#define tok_is_(x,v) (tok_type_((x), TOK_OTHER) && !StrCompare((x)->text,(v)))
-#define tok_isnt_(x,v) ((x) && ((x)->type!=TOK_OTHER || StrCompare((x)->text,(v))))
+#define tok_is_(x,v) (tok_type_((x), TOK_OTHER) && !StrCompare((x)->addr,(v)))
+#define tok_isnt_(x,v) ((x) && ((x)->type!=TOK_OTHER || StrCompare((x)->addr,(v))))
 
 //{TODO} static:
 extern "C"     Context* cstk  = NULL;
@@ -412,7 +414,7 @@ static void make_tok_num(Token* tok, int64_t val)
 {
 	char numbuf[20];
 	snprintf(numbuf, sizeof(numbuf), "%" PRId64 "", val);
-	tok->text = StrHeap(numbuf);
+	tok->addr = StrHeap(numbuf);
 	tok->type = TOK_NUMBER;
 }
 
@@ -438,10 +440,9 @@ void Preprocessor::include_path(char* path) {
 	}
 }
 
-static void* new_Block(size_t size);
-static void delete_Blocks(void);
-static Token* new_Token(Token* next, enum pp_token_type type,
+static Token* new_Token(Token* next, stduint type,
 	const char* text, int txtlen);
+static Token* clone_Token(Token* next, const Token* source);
 static Token* delete_Token(Token* t);
 void Preprocessor::pre_include(char* fname) {
 	Token* inc, * space, * name;
@@ -527,91 +528,47 @@ void Preprocessor::extra_stdmac(macros_t* macros) {
 
 // ---- ---- STATIC ---- ---- //
 
-
-/*
- * this function allocates a new managed block of memory and
- * returns a pointer to the block.  The managed blocks are
- * deleted only all at once by the delete_Blocks function.
- */
-static void *new_Block(size_t size)
-{
-	Blocks *b = &blocks;
-
-	/* first, get to the end of the linked list */
-	while (b->next)
-		b = b->next;
-	/* now allocate the requested chunk */
-	b->chunk = malc(size);
-
-	/* now allocate a new block for the next request */
-	b->next = malcof(Blocks);
-	/* and initialize the contents of the new block */
-	b->next->next = NULL;
-	b->next->chunk = NULL;
-	return b->chunk;
-}
-
-/*
- * this function deletes all managed blocks of memory
- */
-static void delete_Blocks(void)
-{
-	Blocks *a, *b = &blocks;
-
-	/*
-	 * keep in mind that the first block, pointed to by blocks
-	 * is a static and not dynamically allocated, so we don't
-	 * free it.
-	 */
-	while (b) {
-		if (b->chunk)
-			memf(b->chunk);
-		a = b;
-		b = b->next;
-		if (a != &blocks)
-			memf(a);
-	}
-}
-
 /*
  *  this function creates a new Token and passes a pointer to it
  *  back to the caller.  It sets the type and text elements, and
- *  also the a.mac and next elements to NULL.
+ *  also the auxiliary and next elements to NULL.
  */
-static Token *new_Token(Token * next, enum pp_token_type type, const char *text, int txtlen)
+static Token *new_Token(Token * next, stduint type, const char *text, int txtlen)
 {
-	Token *t;
-	int i;
-
-	if (freeTokens == NULL) {
-		freeTokens = (Token *) new_Block(TOKEN_BLOCKSIZE * sizeof(Token));
-		for (i = 0; i < TOKEN_BLOCKSIZE - 1; i++)
-			freeTokens[i].next = &freeTokens[i + 1];
-		freeTokens[i].next = NULL;
-	}
-	t = freeTokens;
-	freeTokens = t->next;
+	Token *t = (Token*)token_pool.Acquire();
 	t->next = next;
-	t->a.mac = NULL;
 	t->type = type;
+	token_field(t).location.row = src_get_linnum();
+	token_field(t).location.col = 0;
 	if (type == TOK_WHITESPACE || text == NULL) {
-		t->text = NULL;
+		t->addr = NULL;
 	} else {
 		if (txtlen == 0)
 			txtlen = StrLength(text);
-		t->text = (char*)malc(txtlen+1);
-		MemCopyN(t->text, text, txtlen);
-		t->text[txtlen] = '\0';
+		t->addr = (char*)malc(txtlen+1);
+		MemCopyN(t->addr, text, txtlen);
+		t->addr[txtlen] = '\0';
 	}
 	return t;
+}
+
+static Token *clone_Token(Token *next, const Token *source)
+{
+	Token *token = new_Token(next, source->type, source->addr, 0);
+	token_field(token).location = token_field(source).location;
+	return token;
+}
+
+static void inherit_token_location(Token *token, const Token *source)
+{
+	token_field(token).location = token_field(source).location;
 }
 
 static Token *delete_Token(Token * t)
 {
 	Token *next = t->next;
-	memf(t->text);
-	t->next = freeTokens;
-	freeTokens = t;
+	memf(t->addr);
+	token_pool.Release(t);
 	return next;
 }
 
@@ -625,6 +582,7 @@ static Token *delete_Token(Token * t)
 static Token *tokenize(char *line)
 {
 	char c, *p = line;
+	char *line_begin = line;
 	pp_token_type type;
 	Token *list = NULL;
 	Token *t, **tail = &list;
@@ -844,12 +802,13 @@ static Token *tokenize(char *line)
 		/*if (type == -1)
 		   {
 		   *tail = t = new_Token(NULL, TOK_STRING, line, p-line+1);
-		   t->text[p-line] = *line;
+		   t->addr[p-line] = *line;
 		   tail = &t->next;
 		   }
 		   else */
 		if (type != TOK_COMMENT) {
 			*tail = t = new_Token(NULL, type, line, p - line);
+			token_field(t).location.col = (stduint)(line - line_begin + 1);
 			tail = &t->next;
 		}
 		line = p;
@@ -873,41 +832,41 @@ static char *detoken(Token * tlist, bool expand_locals)
 
 	len = 0;
 	for (t = tlist; t; t = t->next) {
-		if (t->type == TOK_PREPROC_ID && t->text[1] == '!') {
-			char *p = getenv(t->text + 2);
-			memf(t->text);
+		if (t->type == TOK_PREPROC_ID && t->addr[1] == '!') {
+			char *p = getenv(t->addr + 2);
+			memf(t->addr);
 			if (p)
-				t->text = StrHeap(p);
+				t->addr = StrHeap(p);
 			else
-				t->text = NULL;
+				t->addr = NULL;
 		}
 		/* Expand local macros here and not during preprocessing */
 		if (expand_locals &&
-			t->type == TOK_PREPROC_ID && t->text &&
-			t->text[0] == '%' && t->text[1] == '$') {
+			t->type == TOK_PREPROC_ID && t->addr &&
+			t->addr[0] == '%' && t->addr[1] == '$') {
 		const char *q;
 		char *p;
-			Context *ctx = get_ctx(t->text, &q, false);
+			Context *ctx = get_ctx(t->addr, &q, false);
 			if (ctx) {
 				char buffer[40];
 				snprintf(buffer, sizeof(buffer), "..@%" PRIu32 ".", ctx->number);//{} outsfmt series
 				p = StrHeapAppend(buffer, q);
-				memf(t->text);
-				t->text = p;
+				memf(t->addr);
+				t->addr = p;
 			}
 		}
 		if (t->type == TOK_WHITESPACE) {
 			len++;
-		} else if (t->text) {
-			len += StrLength(t->text);
+		} else if (t->addr) {
+			len += StrLength(t->addr);
 		}
 	}
 	p = line = (char*)malc(len + 1);
 	for (t = tlist; t; t = t->next) {
 		if (t->type == TOK_WHITESPACE) {
 			*p++ = ' ';
-		} else if (t->text) {
-		q = t->text;
+		} else if (t->addr) {
+		q = t->addr;
 		while (*q)
 		*p++ = *q++;
 		}
@@ -1060,15 +1019,15 @@ static int ppscan(void* private_data, struct tokenval* tokval)
 	if (!tline)
 		return tokval->t_type = TOKEN_EOS;
 
-	tokval->t_charptr = tline->text;
+	tokval->t_charptr = tline->addr;
 
-	if (tline->text[0] == '$' && !tline->text[1])
+	if (tline->addr[0] == '$' && !tline->addr[1])
 		return tokval->t_type = TOKEN_HERE;
-	if (tline->text[0] == '$' && tline->text[1] == '$' && !tline->text[2])
+	if (tline->addr[0] == '$' && tline->addr[1] == '$' && !tline->addr[2])
 		return tokval->t_type = TOKEN_BASE;
 
 	if (tline->type == TOK_ID) {
-		p = tokval->t_charptr = tline->text;
+		p = tokval->t_charptr = tline->addr;
 		if (p[0] == '$') {
 			tokval->t_charptr++;
 			return tokval->t_type = TOKEN_ID;
@@ -1087,8 +1046,8 @@ static int ppscan(void* private_data, struct tokenval* tokval)
 
 	if (tline->type == TOK_NUMBER) {
 		bool rn_error;
-		tokval->t_integer = readnum(tline->text, &rn_error);
-		tokval->t_charptr = tline->text;
+		tokval->t_integer = readnum(tline->addr, &rn_error);
+		tokval->t_charptr = tline->addr;
 		if (rn_error)
 			return tokval->t_type = TOKEN_ERRNUM;
 		else
@@ -1102,9 +1061,9 @@ static int ppscan(void* private_data, struct tokenval* tokval)
 	if (tline->type == TOK_STRING) {
 		char bq, * ep;
 
-		bq = tline->text[0];
-		tokval->t_charptr = tline->text;
-		tokval->t_inttwo = aasm_unquote(tline->text, &ep);
+		bq = tline->addr[0];
+		tokval->t_charptr = tline->addr;
+		tokval->t_inttwo = aasm_unquote(tline->addr, &ep);
 
 		if (ep[0] != bq || ep[1] != '\0')
 			return tokval->t_type = TOKEN_ERRSTR;
@@ -1113,29 +1072,29 @@ static int ppscan(void* private_data, struct tokenval* tokval)
 	}
 
 	if (tline->type == TOK_OTHER) {
-		if (!StrCompare(tline->text, "<<"))
+		if (!StrCompare(tline->addr, "<<"))
 			return tokval->t_type = TOKEN_SHL;
-		if (!StrCompare(tline->text, ">>"))
+		if (!StrCompare(tline->addr, ">>"))
 			return tokval->t_type = TOKEN_SHR;
-		if (!StrCompare(tline->text, "//"))
+		if (!StrCompare(tline->addr, "//"))
 			return tokval->t_type = TOKEN_SDIV;
-		if (!StrCompare(tline->text, "%%"))
+		if (!StrCompare(tline->addr, "%%"))
 			return tokval->t_type = TOKEN_SMOD;
-		if (!StrCompare(tline->text, "=="))
+		if (!StrCompare(tline->addr, "=="))
 			return tokval->t_type = TOKEN_EQ;
-		if (!StrCompare(tline->text, "<>"))
+		if (!StrCompare(tline->addr, "<>"))
 			return tokval->t_type = TOKEN_NE;
-		if (!StrCompare(tline->text, "!="))
+		if (!StrCompare(tline->addr, "!="))
 			return tokval->t_type = TOKEN_NE;
-		if (!StrCompare(tline->text, "<="))
+		if (!StrCompare(tline->addr, "<="))
 			return tokval->t_type = TOKEN_LE;
-		if (!StrCompare(tline->text, ">="))
+		if (!StrCompare(tline->addr, ">="))
 			return tokval->t_type = TOKEN_GE;
-		if (!StrCompare(tline->text, "&&"))
+		if (!StrCompare(tline->addr, "&&"))
 			return tokval->t_type = TOKEN_DBL_AND;
-		if (!StrCompare(tline->text, "^^"))
+		if (!StrCompare(tline->addr, "^^"))
 			return tokval->t_type = TOKEN_DBL_XOR;
-		if (!StrCompare(tline->text, "||"))
+		if (!StrCompare(tline->addr, "||"))
 			return tokval->t_type = TOKEN_DBL_OR;
 	}
 
@@ -1143,7 +1102,7 @@ static int ppscan(void* private_data, struct tokenval* tokval)
 	 * We have no other options: just return the first character of
 	 * the token text.
 	 */
-	return tokval->t_type = (token_type)tline->text[0];
+	return tokval->t_type = (token_type)tline->addr[0];
 }
 
 // ---- if
@@ -1182,7 +1141,7 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 				free_tlist(origline);
 				return -1;
 			}
-			if (cstk && cstk->name && !StrCompareInsensitive(tline->text, cstk->name))
+			if (cstk && cstk->name && !StrCompareInsensitive(tline->addr, cstk->name))
 				j = true;
 			tline = tline->next;
 		}
@@ -1194,12 +1153,12 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 			skip_white_(tline);
 			if (!tline || (tline->type != TOK_ID &&
 				(tline->type != TOK_PREPROC_ID ||
-					tline->text[1] != '$'))) {
+					tline->addr[1] != '$'))) {
 				//--auto clean flag
 				aasm_log(_LOG_ERROR, "`%s' expects macro identifiers", pp_directives[ct]);
 				goto fail;
 			}
-			if (smacro_defined(NULL, tline->text, 0, NULL, true))
+			if (smacro_defined(NULL, tline->addr, 0, NULL, true))
 				j = true;
 			tline = tline->next;
 		}
@@ -1218,8 +1177,8 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 		}
 		tt = tt->next;
 		j = true;               /* assume equality unless proved not */
-		while ((t->type != TOK_OTHER || StrCompare(t->text, ",")) && tt) {
-			if (tt->type == TOK_OTHER && !StrCompare(tt->text, ",")) {
+		while ((t->type != TOK_OTHER || StrCompare(t->addr, ",")) && tt) {
+			if (tt->type == TOK_OTHER && !StrCompare(tt->addr, ",")) {
 				//--auto clean flag
 				aasm_log(_LOG_ERROR, "`%s': more than one comma on line", pp_directives[ct]);
 				goto fail;
@@ -1238,19 +1197,19 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 			}
 			/* When comparing strings, need to unquote them first */
 			if (t->type == TOK_STRING) {
-				size_t l1 = aasm_unquote(t->text, NULL);
-				size_t l2 = aasm_unquote(tt->text, NULL);
+				size_t l1 = aasm_unquote(t->addr, NULL);
+				size_t l2 = aasm_unquote(tt->addr, NULL);
 
 				if (l1 != l2) {
 					j = false;
 					break;
 				}
-				if (mmemcmp(t->text, tt->text, l1, i == PPC_IFIDN)) {
+				if (mmemcmp(t->addr, tt->addr, l1, i == PPC_IFIDN)) {
 					j = false;
 					break;
 				}
 			}
-			else if (mStrCompare(tt->text, t->text, i == PPC_IFIDN) != 0) {
+			else if (mStrCompare(tt->addr, t->addr, i == PPC_IFIDN) != 0) {
 				j = false;      /* found mismatching tokens */
 				break;
 			}
@@ -1258,7 +1217,7 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 			t = t->next;
 			tt = tt->next;
 		}
-		if ((t->type != TOK_OTHER || StrCompare(t->text, ",")) || tt)
+		if ((t->type != TOK_OTHER || StrCompare(t->addr, ",")) || tt)
 			j = false;          /* trailing gunk on one end or other */
 		break;
 
@@ -1274,7 +1233,7 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 			aasm_log(_LOG_ERROR, "`%s' expects a macro name", pp_directives[ct]);
 			goto fail;
 		}
-		searching.name = StrHeap(tline->text);
+		searching.name = StrHeap(tline->addr);
 		searching.casesense = true;
 		searching.plus = false;
 		searching.nolist = false;
@@ -1292,10 +1251,10 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 		}
 		else {
 			searching.nparam_min = searching.nparam_max =
-				readnum(tline->text, &j);
+				readnum(tline->addr, &j);
 			if (j) {
 				//--auto clean flag
-				aasm_log(_LOG_ERROR, "unable to parse parameter count `%s'", tline->text);
+				aasm_log(_LOG_ERROR, "unable to parse parameter count `%s'", tline->addr);
 			}
 		}
 		if (tline && tok_is_(tline->next, "-")) {
@@ -1307,10 +1266,10 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 				aasm_log(_LOG_ERROR, "`%s' expects a parameter count after `-'", pp_directives[ct]);
 			}
 			else {
-				searching.nparam_max = readnum(tline->text, &j);
+				searching.nparam_max = readnum(tline->addr, &j);
 				if (j) {
 					//--auto clean flag
-					aasm_log(_LOG_ERROR, "unable to parse parameter count `%s'", tline->text);
+					aasm_log(_LOG_ERROR, "unable to parse parameter count `%s'", tline->addr);
 				}
 				if (searching.nparam_min > searching.nparam_max) {
 					//--auto clean flag
@@ -1360,8 +1319,8 @@ static bool if_condition(Token* tline, enum preproc_token ct)
 		while (tok_type_(t, TOK_WHITESPACE) ||
 			(needtype == TOK_NUMBER &&
 				tok_type_(t, TOK_OTHER) &&
-				(t->text[0] == '-' || t->text[0] == '+') &&
-				!t->text[1]))
+				(t->addr[0] == '-' || t->addr[0] == '+') &&
+				!t->addr[1]))
 			t = t->next;
 
 		j = tok_type_(t, needtype);
@@ -1861,11 +1820,11 @@ static int do_directive(Token* tline)
 
 	skip_white_(tline);
 	if (!tline || !tok_type_(tline, TOK_PREPROC_ID) ||
-		(tline->text[1] == '%' || tline->text[1] == '$'
-			|| tline->text[1] == '!'))
+		(tline->addr[1] == '%' || tline->addr[1] == '$'
+			|| tline->addr[1] == '!'))
 		return NO_DIRECTIVE_FOUND;
 
-	i = pp_token_hash(tline->text);
+	i = pp_token_hash(tline->addr);
 
 	/*
 	 * If we're in a non-emitting branch of a condition construct,
@@ -1918,7 +1877,7 @@ static int do_directive(Token* tline)
 	switch (i) {
 	case PP_INVALID:
 		//--auto clean flag
-		aasm_log(_LOG_ERROR, "unknown preprocessor directive `%s'", tline->text);
+		aasm_log(_LOG_ERROR, "unknown preprocessor directive `%s'", tline->addr);
 		return NO_DIRECTIVE_FOUND;      /* didn't get it */
 
 	case PP_STACKSIZE:
@@ -1938,21 +1897,21 @@ static int do_directive(Token* tline)
 			free_tlist(origline);
 			return DIRECTIVE_FOUND;
 		}
-		if (StrCompareInsensitive(tline->text, "flat") == 0) {
+		if (StrCompareInsensitive(tline->addr, "flat") == 0) {
 			/* All subsequent ARG directives are for a 32-bit stack */
 			StackSize = 4;
 			StackPointer = "ebp";
 			ArgOffset = 8;
 			LocalOffset = 0;
 		}
-		else if (StrCompareInsensitive(tline->text, "flat64") == 0) {
+		else if (StrCompareInsensitive(tline->addr, "flat64") == 0) {
 			/* All subsequent ARG directives are for a 64-bit stack */
 			StackSize = 8;
 			StackPointer = "rbp";
 			ArgOffset = 8;
 			LocalOffset = 0;
 		}
-		else if (StrCompareInsensitive(tline->text, "large") == 0) {
+		else if (StrCompareInsensitive(tline->addr, "large") == 0) {
 			/* All subsequent ARG directives are for a 16-bit stack,
 			 * far function call.
 			 */
@@ -1961,7 +1920,7 @@ static int do_directive(Token* tline)
 			ArgOffset = 4;
 			LocalOffset = 0;
 		}
-		else if (StrCompareInsensitive(tline->text, "small") == 0) {
+		else if (StrCompareInsensitive(tline->addr, "small") == 0) {
 			/* All subsequent ARG directives are for a 16-bit stack,
 			 * far function call. We don't support near functions.
 			 */
@@ -2000,12 +1959,12 @@ static int do_directive(Token* tline)
 				free_tlist(origline);
 				return DIRECTIVE_FOUND;
 			}
-			arg = tline->text;
+			arg = tline->addr;
 
 			/* Find the argument size type */
 			tline = tline->next;
 			if (!tline || tline->type != TOK_OTHER
-				|| tline->text[0] != ':') {
+				|| tline->addr[0] != ':') {
 				//--auto clean flag
 				aasm_log(_LOG_ERROR, "Syntax error processing `%%arg' directive");
 				free_tlist(origline);
@@ -2020,9 +1979,9 @@ static int do_directive(Token* tline)
 			}
 
 			/* Allow macro expansion of type parameter */
-			tt = tokenize(tline->text);
+			tt = tokenize(tline->addr);
 			tt = expand_smacro(tt);
-			size = parse_size(tt->text);
+			size = parse_size(tt->addr);
 			if (!size) {
 				//--auto clean flag
 				aasm_log(_LOG_ERROR, "Invalid size type for `%%arg' missing directive");
@@ -2045,7 +2004,7 @@ static int do_directive(Token* tline)
 			tline = tline->next;
 			if (tline && tline->type == TOK_WHITESPACE)
 				tline = tline->next;
-		} while (tline && tline->type == TOK_OTHER && tline->text[0] == ',');
+		} while (tline && tline->type == TOK_OTHER && tline->addr[0] == ',');
 		ArgOffset = offset;
 		free_tlist(origline);
 		return DIRECTIVE_FOUND;
@@ -2075,12 +2034,12 @@ static int do_directive(Token* tline)
 				free_tlist(origline);
 				return DIRECTIVE_FOUND;
 			}
-			local = tline->text;
+			local = tline->addr;
 
 			/* Find the argument size type */
 			tline = tline->next;
 			if (!tline || tline->type != TOK_OTHER
-				|| tline->text[0] != ':') {
+				|| tline->addr[0] != ':') {
 				//--auto clean flag
 				aasm_log(_LOG_ERROR, "Syntax error processing `%%local' directive");
 				free_tlist(origline);
@@ -2095,9 +2054,9 @@ static int do_directive(Token* tline)
 			}
 
 			/* Allow macro expansion of type parameter */
-			tt = tokenize(tline->text);
+			tt = tokenize(tline->addr);
 			tt = expand_smacro(tt);
-			size = parse_size(tt->text);
+			size = parse_size(tt->addr);
 			if (!size) {
 				//--auto clean flag
 				aasm_log(_LOG_ERROR, "Invalid size type for `%%local' missing directive");
@@ -2126,7 +2085,7 @@ static int do_directive(Token* tline)
 			tline = tline->next;
 			if (tline && tline->type == TOK_WHITESPACE)
 				tline = tline->next;
-		} while (tline && tline->type == TOK_OTHER && tline->text[0] == ',');
+		} while (tline && tline->type == TOK_OTHER && tline->addr[0] == ',');
 		LocalOffset = offset;
 		free_tlist(origline);
 		return DIRECTIVE_FOUND;
@@ -2156,7 +2115,7 @@ static int do_directive(Token* tline)
 			log_pass1 = 1;
 			aasm_log(_LOG_WARN, "trailing garbage after `%%depend' ignored");
 		}
-		p = t->text;
+		p = t->addr;
 		if (t->type != TOK_INTERNAL_STRING)
 			aasm_unquote(p, NULL);
 		if (dephead && !in_list(*dephead, p)) {
@@ -2184,7 +2143,7 @@ static int do_directive(Token* tline)
 			log_pass1 = 1;
 			aasm_log(_LOG_WARN, "trailing garbage after `%%include' ignored");
 		}
-		p = t->text;
+		p = t->addr;
 		if (t->type != TOK_INTERNAL_STRING)
 			aasm_unquote(p, NULL);
 		inc = malcof(Include);
@@ -2230,11 +2189,11 @@ static int do_directive(Token* tline)
 			aasm_log(_LOG_WARN, "trailing garbage after `%%use' ignored");
 		}
 		if (tline->type == TOK_STRING)
-			aasm_unquote(tline->text, NULL);
-		use_pkg = aasm_stdmac_find_package(tline->text);
+			aasm_unquote(tline->addr, NULL);
+		use_pkg = aasm_stdmac_find_package(tline->addr);
 		if (!use_pkg) {
 			//--auto clean flag
-			aasm_log(_LOG_ERROR, "unknown `%%use' package: %s", tline->text);
+			aasm_log(_LOG_ERROR, "unknown `%%use' package: %s", tline->addr);
 		}
 		/* The first string will be <%define>__USE_*__ */
 		pkg_macro = (char*)use_pkg + 1;
@@ -2263,7 +2222,7 @@ static int do_directive(Token* tline)
 				log_pass1 = 1;
 				aasm_log(_LOG_WARN, "trailing garbage after `%s' ignored", pp_directives[i]);
 			}
-			p = StrHeap(tline->text);
+			p = StrHeap(tline->addr);
 		}
 		else {
 			p = NULL;		/* Anonymous */
@@ -2327,7 +2286,7 @@ static int do_directive(Token* tline)
 			skip_white_(t);
 			if (tok_type_(tline, TOK_STRING) && !t) {
 				/* The line contains only a quoted string */
-				p = tline->text;
+				p = tline->addr;
 				aasm_unquote(p, NULL);
 				aasm_log((loglevel_t)severity, "%s", p);
 			}
@@ -2482,7 +2441,7 @@ static int do_directive(Token* tline)
 	case PP_ENDMACRO:
 		if (!(defining && defining->name)) {
 			//--auto clean flag
-			aasm_log(_LOG_ERROR, "`%s': not defining a macro", tline->text);
+			aasm_log(_LOG_ERROR, "`%s': not defining a macro", tline->addr);
 			return DIRECTIVE_FOUND;
 		}
 		mmhead = (MMacro**)hash_findi_add(&mmacros, defining->name);
@@ -2581,7 +2540,7 @@ static int do_directive(Token* tline)
 		} while (tok_type_(tline, TOK_WHITESPACE));
 
 		if (tok_type_(tline, TOK_ID) &&
-			StrCompareInsensitive(tline->text, ".nolist") == 0) {
+			StrCompareInsensitive(tline->addr, ".nolist") == 0) {
 			nolist = true;
 			do {
 				tline = tline->next;
@@ -2694,14 +2653,14 @@ static int do_directive(Token* tline)
 		tline = expand_id(tline);
 		if (!tline || (tline->type != TOK_ID &&
 			(tline->type != TOK_PREPROC_ID ||
-				tline->text[1] != '$'))) {
+				tline->addr[1] != '$'))) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "`%s' expects a macro identifier", pp_directives[i]);
 			free_tlist(origline);
 			return DIRECTIVE_FOUND;
 		}
 
-		ctx = get_ctx(tline->text, &mname, false);
+		ctx = get_ctx(tline->addr, &mname, false);
 		last = tline;
 		param_start = tline = tline->next;
 		nparam = 0;
@@ -2726,7 +2685,7 @@ static int do_directive(Token* tline)
 				}
 				if (tline->type != TOK_ID) {
 					//--auto clean flag
-					aasm_log(_LOG_ERROR, "`%s': parameter identifier expected", tline->text);
+					aasm_log(_LOG_ERROR, "`%s': parameter identifier expected", tline->addr);
 					free_tlist(origline);
 					return DIRECTIVE_FOUND;
 				}
@@ -2758,7 +2717,7 @@ static int do_directive(Token* tline)
 			if (t->type == TOK_ID) {
 				for (tt = param_start; tt; tt = tt->next)
 					if (tt->type >= TOK_SMAC_PARAM &&
-						!StrCompare(tt->text, t->text))
+						!StrCompare(tt->addr, t->addr))
 						t->type = tt->type;
 			}
 			tt = t->next;
@@ -2784,7 +2743,7 @@ static int do_directive(Token* tline)
 		tline = expand_id(tline);
 		if (!tline || (tline->type != TOK_ID &&
 			(tline->type != TOK_PREPROC_ID ||
-				tline->text[1] != '$'))) {
+				tline->addr[1] != '$'))) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "`%%undef' expects a macro identifier");
 			free_tlist(origline);
@@ -2797,7 +2756,7 @@ static int do_directive(Token* tline)
 		}
 
 		/* Find the context that symbol belongs to */
-		ctx = get_ctx(tline->text, &mname, false);
+		ctx = get_ctx(tline->addr, &mname, false);
 		undef_smacro(ctx, mname);
 		free_tlist(origline);
 		return DIRECTIVE_FOUND;
@@ -2811,14 +2770,14 @@ static int do_directive(Token* tline)
 		tline = expand_id(tline);
 		if (!tline || (tline->type != TOK_ID &&
 			(tline->type != TOK_PREPROC_ID ||
-				tline->text[1] != '$'))) {
+				tline->addr[1] != '$'))) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "`%s' expects a macro identifier", pp_directives[i]);
 			free_tlist(origline);
 			return DIRECTIVE_FOUND;
 		}
 
-		ctx = get_ctx(tline->text, &mname, false);
+		ctx = get_ctx(tline->addr, &mname, false);
 		last = tline;
 		tline = expand_smacro(tline->next);
 		last->next = NULL;
@@ -2827,11 +2786,8 @@ static int do_directive(Token* tline)
 			tline = delete_Token(tline);
 
 		p = detoken(tline, false);
-		macro_start = malcof(Token);
-		macro_start->next = NULL;
-		macro_start->text = aasm_quote(p, StrLength(p));
-		macro_start->type = TOK_STRING;
-		macro_start->a.mac = NULL;
+		macro_start = new_Token(NULL, TOK_STRING, NULL, 0);
+		macro_start->addr = aasm_quote(p, StrLength(p));
 		memf(p);
 
 		/*
@@ -2856,13 +2812,13 @@ static int do_directive(Token* tline)
 		tline = expand_id(tline);
 		if (!tline || (tline->type != TOK_ID &&
 			(tline->type != TOK_PREPROC_ID ||
-				tline->text[1] != '$'))) {
+				tline->addr[1] != '$'))) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "`%%pathsearch' expects a macro identifier as first parameter");
 			free_tlist(origline);
 			return DIRECTIVE_FOUND;
 		}
-		ctx = get_ctx(tline->text, &mname, false);
+		ctx = get_ctx(tline->addr, &mname, false);
 		last = tline;
 		tline = expand_smacro(tline->next);
 		last->next = NULL;
@@ -2884,7 +2840,7 @@ static int do_directive(Token* tline)
 			log_pass1 = 1;
 			aasm_log(_LOG_WARN, "trailing garbage after `%%pathsearch' ignored");
 		}
-		p = t->text;
+		p = t->addr;
 		if (t->type != TOK_INTERNAL_STRING)
 			aasm_unquote(p, NULL);
 
@@ -2893,11 +2849,8 @@ static int do_directive(Token* tline)
 			p = xsl->str;
 			fclose(fp);		/* Don't actually care about the file */
 		}
-		macro_start = malcof(Token);
-		macro_start->next = NULL;
-		macro_start->text = aasm_quote(p, StrLength(p));
-		macro_start->type = TOK_STRING;
-		macro_start->a.mac = NULL;
+		macro_start = new_Token(NULL, TOK_STRING, NULL, 0);
+		macro_start->addr = aasm_quote(p, StrLength(p));
 		if (xsl)
 			memf(xsl);
 
@@ -2920,13 +2873,13 @@ static int do_directive(Token* tline)
 		tline = expand_id(tline);
 		if (!tline || (tline->type != TOK_ID &&
 			(tline->type != TOK_PREPROC_ID ||
-				tline->text[1] != '$'))) {
+				tline->addr[1] != '$'))) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "`%%StrLength' expects a macro identifier as first parameter");
 			free_tlist(origline);
 			return DIRECTIVE_FOUND;
 		}
-		ctx = get_ctx(tline->text, &mname, false);
+		ctx = get_ctx(tline->addr, &mname, false);
 		last = tline;
 		tline = expand_smacro(tline->next);
 		last->next = NULL;
@@ -2943,10 +2896,8 @@ static int do_directive(Token* tline)
 			return DIRECTIVE_FOUND;
 		}
 
-		macro_start = malcof(Token);
-		macro_start->next = NULL;
-		make_tok_num(macro_start, aasm_unquote(t->text, NULL));
-		macro_start->a.mac = NULL;
+		macro_start = new_Token(NULL, TOK_NUMBER, NULL, 0);
+		make_tok_num(macro_start, aasm_unquote(t->addr, NULL));
 
 		/*
 		 * We now have a macro name, an implicit parameter count of
@@ -2966,13 +2917,13 @@ static int do_directive(Token* tline)
 		tline = expand_id(tline);
 		if (!tline || (tline->type != TOK_ID &&
 			(tline->type != TOK_PREPROC_ID ||
-				tline->text[1] != '$'))) {
+				tline->addr[1] != '$'))) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "`%%strcat' expects a macro identifier as first parameter");
 			free_tlist(origline);
 			return DIRECTIVE_FOUND;
 		}
-		ctx = get_ctx(tline->text, &mname, false);
+		ctx = get_ctx(tline->addr, &mname, false);
 		last = tline;
 		tline = expand_smacro(tline->next);
 		last->next = NULL;
@@ -2983,10 +2934,10 @@ static int do_directive(Token* tline)
 			case TOK_WHITESPACE:
 				break;
 			case TOK_STRING:
-				len += t->a.len = aasm_unquote(t->text, NULL);
+				len += token_field(t).auxiliary.len = aasm_unquote(t->addr, NULL);
 				break;
 			case TOK_OTHER:
-				if (!StrCompare(t->text, ",")) /* permit comma separators */
+				if (!StrCompare(t->addr, ",")) /* permit comma separators */
 					break;
 				/* else fall through */
 			default:
@@ -3002,8 +2953,8 @@ static int do_directive(Token* tline)
 		t = tline;
 		for (t = tline; t; t = t->next) {
 			if (t->type == TOK_STRING) {
-				MemCopyN(p, t->text, t->a.len);
-				p += t->a.len;
+				MemCopyN(p, t->addr, token_field(t).auxiliary.len);
+				p += token_field(t).auxiliary.len;
 			}
 		}
 
@@ -3013,7 +2964,7 @@ static int do_directive(Token* tline)
 		 * and store an SMacro.
 		 */
 		macro_start = new_Token(NULL, TOK_STRING, NULL, 0);
-		macro_start->text = aasm_quote(pp, len);
+		macro_start->addr = aasm_quote(pp, len);
 		memf(pp);
 		define_smacro(ctx, mname, casesense, 0, macro_start);
 		free_tlist(tline);
@@ -3032,13 +2983,13 @@ static int do_directive(Token* tline)
 		tline = expand_id(tline);
 		if (!tline || (tline->type != TOK_ID &&
 			(tline->type != TOK_PREPROC_ID ||
-				tline->text[1] != '$'))) {
+				tline->addr[1] != '$'))) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "`%%substr' expects a macro identifier as first parameter");
 			free_tlist(origline);
 			return DIRECTIVE_FOUND;
 		}
-		ctx = get_ctx(tline->text, &mname, false);
+		ctx = get_ctx(tline->addr, &mname, false);
 		last = tline;
 		tline = expand_smacro(tline->next);
 		last->next = NULL;
@@ -3098,17 +3049,14 @@ static int do_directive(Token* tline)
 			a2 = evalresult->value;
 		}
 
-		len = aasm_unquote(t->text, NULL);
+		len = aasm_unquote(t->addr, NULL);
 		if (a2 < 0)
 			a2 = a2 + 1 + len - a1;
 		if (a1 + a2 > (int64_t)len)
 			a2 = len - a1;
 
-		macro_start = malcof(Token);
-		macro_start->next = NULL;
-		macro_start->text = aasm_quote((a1 < 0) ? (char*)"" : t->text + a1, a2);
-		macro_start->type = TOK_STRING;
-		macro_start->a.mac = NULL;
+		macro_start = new_Token(NULL, TOK_STRING, NULL, 0);
+		macro_start->addr = aasm_quote((a1 < 0) ? (char*)"" : t->addr + a1, a2);
 
 		/*
 		 * We now have a macro name, an implicit parameter count of
@@ -3130,13 +3078,13 @@ static int do_directive(Token* tline)
 		tline = expand_id(tline);
 		if (!tline || (tline->type != TOK_ID &&
 			(tline->type != TOK_PREPROC_ID ||
-				tline->text[1] != '$'))) {
+				tline->addr[1] != '$'))) {
 			//--auto clean flag
 			aasm_log(_LOG_ERROR, "`%%%sassign' expects a macro identifier", (i == PP_IASSIGN ? "i" : ""));
 			free_tlist(origline);
 			return DIRECTIVE_FOUND;
 		}
-		ctx = get_ctx(tline->text, &mname, false);
+		ctx = get_ctx(tline->addr, &mname, false);
 		last = tline;
 		tline = expand_smacro(tline->next);
 		last->next = NULL;
@@ -3165,10 +3113,8 @@ static int do_directive(Token* tline)
 			return DIRECTIVE_FOUND;
 		}
 
-		macro_start = malcof(Token);
-		macro_start->next = NULL;
+		macro_start = new_Token(NULL, TOK_NUMBER, NULL, 0);
 		make_tok_num(macro_start, reloc_value(evalresult));
-		macro_start->a.mac = NULL;
 
 		/*
 		 * We now have a macro name, an implicit parameter count of
@@ -3191,7 +3137,7 @@ static int do_directive(Token* tline)
 			free_tlist(origline);
 			return DIRECTIVE_FOUND;
 		}
-		k = readnum(tline->text, &err);
+		k = readnum(tline->addr, &err);
 		m = 1;
 		tline = tline->next;
 		if (tok_is_(tline, "+")) {
@@ -3202,7 +3148,7 @@ static int do_directive(Token* tline)
 				free_tlist(origline);
 				return DIRECTIVE_FOUND;
 			}
-			m = readnum(tline->text, &err);
+			m = readnum(tline->addr, &err);
 			tline = tline->next;
 		}
 		skip_white_(tline);
@@ -3242,14 +3188,14 @@ static int find_cc(Token* t)
 		return -1;
 	tt = t->next;
 	skip_white_(tt);
-	if (tt && (tt->type != TOK_OTHER || StrCompare(tt->text, ",")))
+	if (tt && (tt->type != TOK_OTHER || StrCompare(tt->addr, ",")))
 		return -1;
 
 	i = -1;
 	j = numsof(conditions);
 	while (j - i > 1) {
 		k = (j + i) / 2;
-		m = StrCompareInsensitive(t->text, conditions[k]);
+		m = StrCompareInsensitive(t->addr, conditions[k]);
 		if (m == 0) {
 			i = k;
 			j = -2;
@@ -3300,7 +3246,7 @@ static bool paste_tokens(Token** head, bool handle_paste_tokens)
 			while (tt && (tt->type == TOK_ID || tt->type == TOK_PREPROC_ID ||
 				tt->type == TOK_NUMBER || tt->type == TOK_FLOAT ||
 				tt->type == TOK_OTHER)) {
-				len += StrLength(tt->text);
+				len += StrLength(tt->addr);
 				tt = tt->next;
 			}
 
@@ -3308,11 +3254,11 @@ static bool paste_tokens(Token** head, bool handle_paste_tokens)
 			   paste area... */
 			if (tt != t->next) {
 				/* We have at least two tokens... */
-				len += StrLength(t->text);
+				len += StrLength(t->addr);
 				p = tmp = (char*)malc(len + 1);
 
 				while (t != tt) {
-					StrCopy(p, t->text);
+					StrCopy(p, t->addr);
 					p = (char*)StrIndexChar(p, '\0');
 					t = delete_Token(t);
 				}
@@ -3347,7 +3293,7 @@ static bool paste_tokens(Token** head, bool handle_paste_tokens)
 					tt = t->next = delete_Token(tt);
 
 				if (tt) {
-					tmp = StrHeapAppend(t->text, tt->text);
+					tmp = StrHeapAppend(t->addr, tt->addr);
 					delete_Token(t);
 					tt = delete_Token(tt);
 					t = *tail = tokenize(tmp);
@@ -3388,7 +3334,7 @@ static MMacro* is_mmacro(Token* tline, Token*** params_array)
 	Token** params;
 	int nparam;
 
-	head = (MMacro*)hash_findix(&mmacros, tline->text);
+	head = (MMacro*)hash_findix(&mmacros, tline->addr);
 
 	/*
 	 * Efficiency: first we see if any macro exists with the given
@@ -3397,7 +3343,7 @@ static MMacro* is_mmacro(Token* tline, Token*** params_array)
 	 * list if necessary to find the proper MMacro.
 	 */
 	for (m = head; m; m = m->next)
-		if (!mStrCompare(m->name, tline->text, m->casesense))
+		if (!mStrCompare(m->name, tline->addr, m->casesense))
 			break;
 	if (!m)
 		return NULL;
@@ -3461,7 +3407,7 @@ static MMacro* is_mmacro(Token* tline, Token*** params_array)
 		 * same name.
 		 */
 		for (m = m->next; m; m = m->next)
-			if (!mStrCompare(m->name, tline->text, m->casesense))
+			if (!mStrCompare(m->name, tline->addr, m->casesense))
 				break;
 	}
 
@@ -3472,7 +3418,7 @@ static MMacro* is_mmacro(Token* tline, Token*** params_array)
 	 //--auto clean flag
 	log_pass1 = 1;
 	log_warnt = ERR_WARN_MNP;
-	aasm_log(_LOG_WARN, "macro `%s' exists, but not taking %d parameters", tline->text, nparam);
+	aasm_log(_LOG_WARN, "macro `%s' exists, but not taking %d parameters", tline->addr, nparam);
 	memf(params);
 	return NULL;
 }
@@ -3540,9 +3486,9 @@ static Token* expand_mmac_params(Token* tline)
 
 	while (tline) {
 		if (tline->type == TOK_PREPROC_ID &&
-			(((tline->text[1] == '+' || tline->text[1] == '-')
-				&& tline->text[2]) || tline->text[1] == '%'
-				|| (tline->text[1] >= '0' && tline->text[1] <= '9'))) {
+			(((tline->addr[1] == '+' || tline->addr[1] == '-')
+				&& tline->addr[2]) || tline->addr[1] == '%'
+				|| (tline->addr[1] >= '0' && tline->addr[1] <= '9'))) {
 			char* text = NULL;
 			int type = 0, cc;   /* type = 0 to placate optimisers */
 			char tmpbuf[30];
@@ -3558,10 +3504,10 @@ static Token* expand_mmac_params(Token* tline)
 				mac = mac->next_active;
 			if (!mac) {
 				//--auto clean flag
-				aasm_log(_LOG_ERROR, "`%s': not in a macro call", t->text);
+				aasm_log(_LOG_ERROR, "`%s': not in a macro call", t->addr);
 			}
 			else
-				switch (t->text[1]) {
+				switch (t->addr[1]) {
 					/*
 					 * We have to make a substitution of one of the
 					 * forms %1, %-1, %+1, %%foo, %0.
@@ -3575,10 +3521,10 @@ static Token* expand_mmac_params(Token* tline)
 					type = TOK_ID;
 					snprintf(tmpbuf, sizeof(tmpbuf), "..@%" PRIu64 ".",
 						mac->unique);
-					text = StrHeapAppend(tmpbuf, t->text + 2);
+					text = StrHeapAppend(tmpbuf, t->addr + 2);
 					break;
 				case '-':
-					n = atoins(t->text + 2) - 1;
+					n = atoins(t->addr + 2) - 1;
 					if (n >= mac->nparam)
 						tt = NULL;
 					else {
@@ -3604,7 +3550,7 @@ static Token* expand_mmac_params(Token* tline)
 					}
 					break;
 				case '+':
-					n = atoins(t->text + 2) - 1;
+					n = atoins(t->addr + 2) - 1;
 					if (n >= mac->nparam)
 						tt = NULL;
 					else {
@@ -3624,7 +3570,7 @@ static Token* expand_mmac_params(Token* tline)
 					}
 					break;
 				default:
-					n = atoins(t->text + 1) - 1;
+					n = atoins(t->addr + 1) - 1;
 					if (n >= mac->nparam)
 						tt = NULL;
 					else {
@@ -3634,7 +3580,7 @@ static Token* expand_mmac_params(Token* tline)
 					}
 					if (tt) {
 						for (i = 0; i < mac->paramlen[n]; i++) {
-							*tail = new_Token(NULL, tt->type, tt->text, 0);
+							*tail = clone_Token(NULL, tt);
 							tail = &(*tail)->next;
 							tt = tt->next;
 						}
@@ -3649,9 +3595,9 @@ static Token* expand_mmac_params(Token* tline)
 				*tail = t;
 				tail = &t->next;
 				t->type = (pp_token_type)type;
-				memf(t->text);
-				t->text = text;
-				t->a.mac = NULL;
+				memf(t->addr);
+				t->addr = text;
+				token_field(t).auxiliary.mac = NULL;
 			}
 			changed = true;
 			continue;
@@ -3659,12 +3605,12 @@ static Token* expand_mmac_params(Token* tline)
 		else if (tline->type == TOK_INDIRECT) {
 			t = tline;
 			tline = tline->next;
-			tt = tokenize(t->text);
+			tt = tokenize(t->addr);
 			tt = expand_mmac_params(tt);
 			tt = expand_smacro(tt);
 			*tail = tt;
 			while (tt) {
-				tt->a.mac = NULL; /* Necessary? */
+				token_field(tt).auxiliary.mac = NULL; /* Necessary? */
 				tail = &tt->next;
 				tt = tt->next;
 			}
@@ -3674,7 +3620,7 @@ static Token* expand_mmac_params(Token* tline)
 		else {
 			t = *tail = tline;
 			tline = tline->next;
-			t->a.mac = NULL;
+			token_field(t).auxiliary.mac = NULL;
 			tail = &t->next;
 		}
 	}
@@ -3718,10 +3664,10 @@ static Token* expand_smacro(Token* tline)
 	 * routine we copy it back
 	 */
 	if (org_tline) {
-		tline = new_Token(org_tline->next, org_tline->type, org_tline->text, 0);
-		tline->a.mac = org_tline->a.mac;
-		memf(org_tline->text);
-		org_tline->text = NULL;
+		tline = clone_Token(org_tline->next, org_tline);
+		token_field(tline).auxiliary.mac = token_field(org_tline).auxiliary.mac;
+		memf(org_tline->addr);
+		org_tline->addr = NULL;
 	}
 
 	expanded = true;		/* Always expand %+ at least once */
@@ -3737,7 +3683,7 @@ again:
 			break;
 		}
 
-		if ((mname = tline->text)) {
+		if ((mname = tline->addr)) {
 			/* if this token is a local macro, look in local context */
 			if (tline->type == TOK_ID || tline->type == TOK_PREPROC_ID)
 				ctx = get_ctx(mname, &mname, true);
@@ -3770,18 +3716,18 @@ again:
 							int32_t num = 0;
 							char* file = NULL;
 							src_get(&num, &file);
-							tline->text = aasm_quote(file, StrLength(file));
+							tline->addr = aasm_quote(file, StrLength(file));
 							tline->type = TOK_STRING;
 							memf(file);
 							continue;
 						}
 						if (!StrCompare("__LINE__", m->name)) {
-							memf(tline->text);
+							memf(tline->addr);
 							make_tok_num(tline, src_get_linnum());
 							continue;
 						}
 						if (!StrCompare("__BITS__", m->name)) {
-							memf(tline->text);
+							memf(tline->addr);
 							make_tok_num(tline, globalbits);
 							continue;
 						}
@@ -3803,8 +3749,8 @@ again:
 					do {
 						t = tline->next;
 						while (tok_type_(t, TOK_SMAC_END)) {
-							t->a.mac->in_progress = false;
-							t->text = NULL;
+							token_field(t).auxiliary.mac->in_progress = false;
+							t->addr = NULL;
 							t = tline->next = delete_Token(t);
 						}
 						tline = t;
@@ -3834,8 +3780,8 @@ again:
 							 */
 							t = tline->next;
 							while (tok_type_(t, TOK_SMAC_END)) {
-								t->a.mac->in_progress = false;
-								t->text = NULL;
+								token_field(t).auxiliary.mac->in_progress = false;
+								t->addr = NULL;
 								t = tline->next = delete_Token(t);
 							}
 							tline = t;
@@ -3854,8 +3800,8 @@ again:
 								continue;       /* parameter loop */
 							}
 							if (tline->type == TOK_OTHER
-								&& tline->text[1] == 0) {
-								char ch = tline->text[0];
+								&& tline->addr[1] == 0) {
+								char ch = tline->addr[0];
 								if (ch == ',' && !paren && brackets <= 0) {
 									if (++nparam >= sparam) {
 										sparam += PARAM_DELTA;
@@ -3905,7 +3851,7 @@ again:
 							//--auto clean flag
 							log_pass1 = 1;
 							log_warnt = ERR_WARN_MNP;
-							aasm_log(_LOG_WARN, "macro `%s' exists, but not taking %d parameters", mstart->text, nparam);
+							aasm_log(_LOG_WARN, "macro `%s' exists, but not taking %d parameters", mstart->addr, nparam);
 						}
 					}
 				}
@@ -3935,7 +3881,7 @@ again:
 						t->next = NULL;
 					}
 					tt = new_Token(tline, TOK_SMAC_END, NULL, 0);
-					tt->a.mac = m;
+					token_field(tt).auxiliary.mac = m;
 					m->in_progress = true;
 					tline = tt;
 					for (t = m->expansion; t; t = t->next) {
@@ -3947,9 +3893,7 @@ again:
 							ttt = params[t->type - TOK_SMAC_PARAM];
 							for (i = paramsize[t->type - TOK_SMAC_PARAM];
 								--i >= 0;) {
-								pt = *ptail =
-									new_Token(tline, ttt->type, ttt->text,
-										0);
+								pt = *ptail = clone_Token(tline, ttt);
 								ptail = &pt->next;
 								ttt = ttt->next;
 							}
@@ -3957,14 +3901,16 @@ again:
 						}
 						else if (t->type == TOK_PREPROC_Q) {
 							tt = new_Token(tline, TOK_ID, mname, 0);
+							inherit_token_location(tt, t);
 							tline = tt;
 						}
 						else if (t->type == TOK_PREPROC_QQ) {
 							tt = new_Token(tline, TOK_ID, m->name, 0);
+							inherit_token_location(tt, t);
 							tline = tt;
 						}
 						else {
-							tt = new_Token(tline, t->type, t->text, 0);
+							tt = clone_Token(tline, t);
 							tline = tt;
 						}
 					}
@@ -3983,13 +3929,13 @@ again:
 		}
 
 		if (tline->type == TOK_SMAC_END) {
-			tline->a.mac->in_progress = false;
+			token_field(tline).auxiliary.mac->in_progress = false;
 			tline = delete_Token(tline);
 		}
 		else {
 			t = *tail = tline;
 			tline = tline->next;
-			t->a.mac = NULL;
+			token_field(t).auxiliary.mac = NULL;
 			t->next = NULL;
 			tail = &t->next;
 		}
@@ -4016,7 +3962,7 @@ again:
 		if (thead) {
 			*org_tline = *thead;
 			/* since we just gave text to org_line, don't free it */
-			thead->text = NULL;
+			thead->addr = NULL;
 			delete_Token(thead);
 		}
 		else {
@@ -4024,7 +3970,7 @@ again:
 			   we can't return NULL for some reasons
 			   we just set the line to a single WHITESPACE token. */
 			MemSet(org_tline, 0, sizeof(*org_tline));
-			org_tline->text = NULL;
+			org_tline->addr = NULL;
 			org_tline->type = TOK_WHITESPACE;
 		}
 		thead = org_tline;
@@ -4111,7 +4057,7 @@ static bool parse_mmacro_spec(Token* tline, MMacro* def, const char* directive)
 		return false;
 	}
 
-	def->name = StrHeap(tline->text);
+	def->name = StrHeap(tline->addr);
 	def->plus = false;
 	def->nolist = false;
 	def->in_progress = 0;
@@ -4127,10 +4073,10 @@ static bool parse_mmacro_spec(Token* tline, MMacro* def, const char* directive)
 	}
 	else {
 		def->nparam_min = def->nparam_max =
-			readnum(tline->text, &err);
+			readnum(tline->addr, &err);
 		if (err) {
 			//--auto clean flag
-			aasm_log(_LOG_ERROR, "unable to parse parameter count `%s'", tline->text);
+			aasm_log(_LOG_ERROR, "unable to parse parameter count `%s'", tline->addr);
 		}
 	}
 	if (tline && tok_is_(tline->next, "-")) {
@@ -4143,11 +4089,11 @@ static bool parse_mmacro_spec(Token* tline, MMacro* def, const char* directive)
 			aasm_log(_LOG_ERROR, "`%s' expects a parameter count after `-'", directive);
 		}
 		else {
-			def->nparam_max = readnum(tline->text, &err);
+			def->nparam_max = readnum(tline->addr, &err);
 			if (err) {
 				//--auto clean flag
 				aasm_log(_LOG_ERROR, "unable to parse parameter count `%s'",
-					tline->text);
+					tline->addr);
 			}
 			if (def->nparam_min > def->nparam_max) {
 				//--auto clean flag
@@ -4160,7 +4106,7 @@ static bool parse_mmacro_spec(Token* tline, MMacro* def, const char* directive)
 		def->plus = true;
 	}
 	if (tline && tok_type_(tline->next, TOK_ID) &&
-		!StrCompareInsensitive(tline->next->text, ".nolist")) {
+		!StrCompareInsensitive(tline->next->addr, ".nolist")) {
 		tline = tline->next;
 		def->nolist = true;
 	}
@@ -4273,10 +4219,8 @@ pp_reset(char* file, int apass, evalfunc eval, ListGen* listgen, StrList** depli
 	 * all the other builtins, because it is special -- it varies between
 	 * passes.
 	 */
-	t = malcof(Token);
-	t->next = NULL;
+	t = new_Token(NULL, TOK_NUMBER, NULL, 0);
 	make_tok_num(t, apass);
-	t->a.mac = NULL;
 	define_smacro(NULL, "__PASS__", true, 0, t);
 }
 
@@ -4371,7 +4315,7 @@ static char* read_line(void)
 					head = NULL;
 					tail = &head;
 					for (t = pd->first; t; t = t->next) {
-						*tail = new_Token(NULL, t->type, t->text, 0);
+						*tail = clone_Token(NULL, t);
 						tail = &(*tail)->next;
 					}
 					l = malcof(Line);
@@ -4472,7 +4416,7 @@ static int expand_mmacro(Token* tline)
 	mtok = t;
 	m = is_mmacro(t, &params);
 	if (m) {
-		mname = t->text;
+		mname = t->addr;
 	}
 	else {
 		Token* last;
@@ -4495,7 +4439,7 @@ static int expand_mmacro(Token* tline)
 		if (!tok_type_(t, TOK_ID) || (m = is_mmacro(t, &params)) == NULL)
 			return 0;
 		last->next = NULL;
-		mname = t->text;
+		mname = t->addr;
 		tline = t;
 	}
 
@@ -4518,12 +4462,12 @@ static int expand_mmacro(Token* tline)
 		params[i] = t;
 		paramlen[i] = 0;
 		while (t) {
-			if (comma && t->type == TOK_OTHER && !StrCompare(t->text, ","))
+			if (comma && t->type == TOK_OTHER && !StrCompare(t->addr, ","))
 				break;          /* ... because we have hit a comma */
 			if (comma && t->type == TOK_WHITESPACE
 				&& tok_is_(t->next, ","))
 				break;          /* ... or a space then a comma */
-			if (brace && t->type == TOK_OTHER && !StrCompare(t->text, "}"))
+			if (brace && t->type == TOK_OTHER && !StrCompare(t->addr, "}"))
 				break;          /* ... or a brace */
 			t = t->next;
 			paramlen[i]++;
@@ -4575,12 +4519,14 @@ static int expand_mmacro(Token* tline)
 			switch (t->type) {
 			case TOK_PREPROC_Q:
 				tt = *tail = new_Token(NULL, TOK_ID, mname, 0);
+				inherit_token_location(tt, t);
 				break;
 			case TOK_PREPROC_QQ:
 				tt = *tail = new_Token(NULL, TOK_ID, m->name, 0);
+				inherit_token_location(tt, t);
 				break;
 			case TOK_PREPROC_ID:
-				if (t->text[1] == '0' && t->text[2] == '0') {
+				if (t->addr[1] == '0' && t->addr[2] == '0') {
 					dont_prepend = -1;
 					x = label;
 					if (!x)
@@ -4588,7 +4534,7 @@ static int expand_mmacro(Token* tline)
 				}
 				/* fall through */
 			default:
-				tt = *tail = new_Token(NULL, x->type, x->text, 0);
+				tt = *tail = clone_Token(NULL, x);
 				break;
 			}
 			tail = &tt->next;
@@ -4613,6 +4559,7 @@ static int expand_mmacro(Token* tline)
 				while (label->next)
 					label = label->next;
 				label->next = tt = new_Token(NULL, TOK_OTHER, ":", 0);
+				inherit_token_location(tt, label);
 			}
 		}
 	}
@@ -4661,9 +4608,8 @@ static char* pp_getline(void)
 					tail = &ll->first;
 
 					for (t = l->first; t; t = t->next) {
-						if (t->text || t->type == TOK_WHITESPACE) {
-							tt = *tail =
-								new_Token(NULL, t->type, t->text, 0);
+						if (t->addr || t->type == TOK_WHITESPACE) {
+							tt = *tail = clone_Token(NULL, t);
 							tail = &tt->next;
 						}
 					}
@@ -4867,7 +4813,7 @@ static void pp_cleanup(int pass)
 	if (pass == 0) {
 		IncPath* i;
 		free_llist(predef);
-		delete_Blocks();
+		token_pool.Clear();
 		while ((i = ipath)) {
 			ipath = i->next;
 			if (i->path)

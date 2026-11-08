@@ -23,13 +23,82 @@
 #ifndef _INC_PoolNode_X
 #define _INC_PoolNode_X
 
+#include "dnode"
+#include "trait/ArrayTrait.hpp"
+#include "trait/IterateTrait.hpp"
+
 namespace uni {
-	struct Pnode {
-		struct Pnode* head;
-		struct Pnode* left;
-		struct Pnode* next;//dosconio trial design: points to inner for the pool has position.
-		void* offs[0x10];//{TODO} store multi-objects
+
+	using Pnode = Dnode;
+
+	class Pchain : public trait::Array, public IterateTrait {
+	private:
+		struct Block {
+			Block* next;
+		};
+
+		Block* root_block;
+		Block* last_block;
+		Pnode* free_node;
+		Pnode* root_node;
+		Pnode* last_node;
+		stduint extn_field;
+		stduint node_stride;
+		stduint block_capacity;
+		stduint node_count;
+		stduint acquired_count;
+		stduint node_capacity;
+		_tofree_ft func_free;
+
+		bool AllocateBlock();
+		void LinkNode(Pnode* node, Pnode* left, Pnode* right);
+		void UnlinkNode(Pnode* node);
+
+		Pchain(const Pchain&) = delete;
+		Pchain& operator=(const Pchain&) = delete;
+
+	public:
+		explicit Pchain(stduint extension_size = 0, stduint capacity_per_block = 0x1000,
+			_tofree_ft free_function = nullptr);
+		~Pchain();
+
+		Pnode* Acquire();
+		void Release(Pnode* node);
+		void ReleaseList(Pnode* first);
+		void Clear();
+
+		Pnode* Append(pureptr_t addr, bool onleft = false, Pnode* node = nullptr);
+		bool Insert(stduint index, pureptr_t addr) override;
+		bool Remove(stduint index, stduint times = 1) override;
+		Pnode* Remove(Pnode* node);
+		Pnode* Remove(pureptr_t content);
+
+		pureptr_t Locate(stduint index) const override;
+		Pnode* LocateNode(stduint index) const;
+		stduint Locate(pureptr_t content, bool from_right = false) const override;
+		Pnode* FindNode(pureptr_t content, _tocomp_ft compare = nullptr) const;
+
+		bool Exchange(stduint index1, stduint index2) override;
+		void Iterate() override;
+		void Reverse();
+		bool Match(pureptr_t content, stduint type) const;
+
+		Pnode* Root() const { return root_node; }
+		Pnode* Last() const { return last_node; }
+		Pnode* operator[](stduint index) const { return LocateNode(index); }
+
+		byte* GetExtnField(Pnode* node) const;
+		const byte* GetExtnField(const Pnode* node) const;
+
+		stduint Length() const override { return node_count; }
+		stduint Count() const { return Length(); }
+		stduint AcquiredCount() const { return acquired_count; }
+		stduint Capacity() const { return node_capacity; }
+		stduint ExtensionSize() const { return extn_field; }
+		stduint BlockCapacity() const { return block_capacity; }
+		void SetFreeFunction(_tofree_ft free_function) { func_free = free_function; }
 	};
+
 }
 
 #endif

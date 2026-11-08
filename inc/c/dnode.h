@@ -294,7 +294,4 @@ inline static Dnode* Dnode_getLeft(Dnode* nod) {
 }}
 #endif // _INC_CPP
 
-
-#include "tnode.h"
-
 #endif// !_INC_DNODE

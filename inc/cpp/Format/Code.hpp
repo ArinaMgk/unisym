@@ -29,7 +29,8 @@ namespace uni {
 
 enum class CodeendFlag : uint32_t {
 	None = 0,
-	Text = 1u << 0
+	Text = 1u << 0,
+	MultipleArchitectures = 1u << 1
 };
 
 constexpr CodeendFlag operator|(CodeendFlag left, CodeendFlag right)
@@ -90,6 +91,7 @@ struct CodeFixup {
 	uint64_t offset;
 	CodeFixupKind kind;
 	CodeFixupEncoding encoding;
+	uint64_t initial_value;
 	int32_t target_section;
 	int64_t addend;
 	int64_t pc_bias;
@@ -104,9 +106,12 @@ public:
 	virtual const CodeendInfo& DumpCodeend() const = 0;
 	virtual bool SupportsArchitecture(
 		uni::lango::ArchitectureKind architecture) const = 0;
+	virtual bool SupportsBitWidth(
+		uni::lango::ArchitectureKind architecture, int bits) const = 0;
 	virtual const unsigned char* StandardMacros() const = 0;
 	virtual void PrepareFilename(char* input_name, char* output_name) = 0;
-	virtual void Initialize(FILE* output) = 0;
+	virtual void Initialize(FILE* output,
+		uni::lango::ArchitectureKind architecture) = 0;
 	virtual void InitializeDebug(FILE* output) = 0;
 	virtual void Cleanup(bool debug_info) = 0;
 	virtual int32_t SelectSection(

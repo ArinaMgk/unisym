@@ -45,8 +45,9 @@ GCC AS 或 AASM 处理。
 处理相关的基线例程。测试文件用于观察指令编码、标签、分支、section 和目标格式
 输出是否保持稳定。
 
-已增加 `asm/check.sh` 自动回归入口，检查机器码、前缀、寻址、数据与结构、
-预处理结果、分支优化、ELF64 section、符号与 relocation，以及无效寻址诊断。
+`asm/check.sh` 是自动回归入口，公共支持及 x86、RISC-V、Codeend 测试分别位于
+`asm/.check`。入口支持 `all`、`x86`、`riscv`、`elf`、`codeend` 和 `common`
+测试组；无参数时仍运行全部回归。
 
 已引入 `AssemblerOptions` 和 `AssemblySession`。命令行配置统一写入
 `AssemblerOptions`，主调度和多遍汇编通过 `AssemblySession` 记录一次汇编任务的
@@ -115,6 +116,13 @@ Archend；`[CPU]`、`[INST]` 与 `[BITS]` 由当前架构共同验证。
 无符号语义。
 RISC-V 原生指令的名称、操作数形式、固定编码、XLEN、扩展要求和符号变体已改由
 指令数据表生成；简化形式、表达式解析和编码字段装配继续由 Archend 实现。
+
+ELF32 与 ELF64 已按初始 Archend 写入目标机器类型。RISC-V 可以输出 32 位或 64 位
+ELF 基础对象；ELF 会校验 RISC-V 位宽并拒绝中途切换机器架构。
+
+RISC-V ELF 已支持外部符号的分支、直接跳转及 32/64 位绝对数据 relocation。
+ELF32 的 RISC-V relocation 已改用 RELA，机器指令初值与 relocation 加数分别保存；
+分支和直接跳转也可以通过 section symbol 与 addend 引用其他 section 中的本地标签。
 
 listing 状态已收归 `AssemblyListing`，并接入 `AssemblySession`。通用语句、x86
 和 RISC-V Archend 通过语义化代码与 fixup 接口提交 listing；`ListGen` 仅保留为

@@ -67,14 +67,14 @@ namespace uni::device::SpaceUSB {
 		const auto& last_buf = Buffer();
 		const auto& prev_buf = PreviousBuffer();
 		for (stduint i = 2; i < 8; ++i) {
-			if (prev_buf[i] && std::find(last_buf.begin(), last_buf.end(), prev_buf[i]) == last_buf.end()) {
+			if (prev_buf[i] && std::find(last_buf.begin() + 2, last_buf.begin() + 8, prev_buf[i]) == last_buf.begin() + 8) {
 				keyevent.keycode = prev_buf[i];
 				NotifyKeyPush(keyevent);
 			}
 		}
 		keyevent.method = keyboard_event_t::method_t::keydown;
 		for (stduint i = 2; i < 8; ++i) {
-			if (last_buf[i] && std::find(prev_buf.begin(), prev_buf.end(), last_buf[i]) == prev_buf.end()) {
+			if (last_buf[i] && std::find(prev_buf.begin() + 2, prev_buf.begin() + 8, last_buf[i]) == prev_buf.begin() + 8) {
 				keyevent.keycode = last_buf[i];
 				ToggleLockLed(last_buf[i]);
 				NotifyKeyPush(keyevent);

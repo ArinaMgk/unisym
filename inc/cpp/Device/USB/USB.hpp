@@ -107,6 +107,10 @@ namespace uni::device::SpaceUSB {
 		}
 		// AKA periodic service; the host transport ticks this about once per millisecond
 		virtual Error ProcessDelayed() { return MAKE_ERROR(Error::Success); }
+		virtual Error ProcessDelayed(uint32 elapsed_ms) {
+			(void)elapsed_ms;
+			return ProcessDelayed();
+		}
 		virtual ClassDriverType Type() const { return ClassDriverType::Unknown; }
 		virtual int InterfaceNumber() const { return -1; }
 

@@ -331,6 +331,11 @@ namespace uni::device::SpaceUSB {
 		case _USB_REQ_GET_STATUS:
 			if (dev_state == PeripheralState::Address || dev_state == PeripheralState::Configured) {
 				byte status[2] = { 0, 0 };
+				uint16 length = 0;
+				const byte* config = pclass ? pclass->getConfigurationDescriptor(length) : nullptr;
+				// USB 2.0 sections 9.4.5/9.6.3: report the power source declared by this configuration.
+				if (config && length >= 9 && config[0] >= 9 && config[0] <= length &&
+					config[1] == _USB_DESC_TYPE_CONFIGURATION && (config[7] & 0x40)) status[0] |= 0x01;
 				if (dev_remote_wakeup) status[0] |= 0x02;   // USB_CONFIG_REMOTE_WAKEUP
 				SendControl(status, 2);
 			}

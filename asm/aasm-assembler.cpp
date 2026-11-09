@@ -170,6 +170,18 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 							selected->DumpArchend().shortname);
 						break;
 					}
+					if (selected->DumpArchend().architecture !=
+						initial_archend->DumpArchend().architecture &&
+						(codeend.DumpCodeend().flags &
+							uni::CodeendFlag::MultipleArchitectures) ==
+							uni::CodeendFlag::None) {
+						aasm_log(_LOG_ERROR,
+							"output format `%s' cannot switch architecture from `%s' to `%s'",
+							codeend.DumpCodeend().shortname,
+							initial_archend->DumpArchend().shortname,
+							selected->DumpArchend().shortname);
+						break;
+					}
 					ActivateArchend(*selected, pass1, pass2);
 					Session.CurrentCpu = selected->DefaultCpu();
 					globalbits = Session.SectionBits =
@@ -623,6 +635,14 @@ int Assembler::ParseBits(char* value)
 	if (!Session.ActiveArchend->ValidateBits(i, Session.CurrentCpu)) {
 		aasm_log(_LOG_ERROR,
 			"cannot specify %d-bit mode for the selected architecture or cpu", i);
+		return Session.CurrentBits;
+	}
+	if (!Session.Options->Target.Codeend().SupportsBitWidth(
+		Session.ActiveArchend->DumpArchend().architecture, i)) {
+		aasm_log(_LOG_ERROR,
+			"%s output format does not support %d-bit `%s' code",
+			Session.Options->Target.Codeend().DumpCodeend().shortname, i,
+			Session.ActiveArchend->DumpArchend().shortname);
 		return Session.CurrentBits;
 	}
 	if (i == 64) {

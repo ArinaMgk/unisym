@@ -39,6 +39,7 @@ namespace uni::device::SpaceUSB {
 	public:
 		static const int kMaxBridges = 8;
 		static const int kMaxHubChildren = 4;
+		static constexpr stduint kMaxBulkTransferBytes = 8 * 1024;
 
 		// the root device takes kDefaultDeviceAddress, a hub child the next free one
 		OTGHostDevice(HCD& hcd, byte dev_address, byte speed,
@@ -63,6 +64,9 @@ namespace uni::device::SpaceUSB {
 		Error InterruptOut(EndpointID ep_id, void* buf, int len) override;
 		// Bulk transport for class drivers (AKA a host MSC disk)
 		Error BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len) override;
+		stduint getBulkTransferLimit();
+		// The owner masks the HCD IRQ before polling; FIFO cleanup follows a true result.
+		bool StopTransfers();
 		Error OnHubPortStatusReceived(uint8 port_num, uint16 status,
 			uint16 change, uint8 speed_id = 0) override;
 
@@ -74,6 +78,9 @@ namespace uni::device::SpaceUSB {
 
 		// URB completion dispatcher; called from HCD.NotifyURBChangeHandler
 		void OnChannelURBCompleted(byte ch_num, URBState urb_state);
+		// A deferred result must be consumed before the control watchdog may stop this submission.
+		void DeferControlCompletion() { ctrl_completion_pending_ = true; }
+		uint32 getControlSubmission() const { return ctrl_submission_; }
 		// Submit every interrupt poll that was held back and whose interval is over
 		void ProcessDeferredInterrupts();
 		// the channel table: an URB completion goes to the device that took the channel
@@ -87,6 +94,8 @@ namespace uni::device::SpaceUSB {
 		static OTGHostDevice* BridgeAt(int index);
 		static int NumBridges();
 		static void TickAll();// tick every bridge about once per millisecond
+		static void AdvanceTime(uint32 elapsed_ms);
+		static void ServiceAll(uint32 elapsed_ms);
 		void Tick();
 		static void PollBus();// drive the bus transfers, called from the main loop
 		void Service();
@@ -134,12 +143,20 @@ namespace uni::device::SpaceUSB {
 		byte DeviceAddress() const { return dev_address_; }
 
 	private:
+		void Tick(uint32 elapsed_ms, bool elapsed_time);
+		static void ServiceAll(uint32 elapsed_ms, bool elapsed_time);
+		stduint last_service_tick_ = 0;
 		// control transfer stage machine (AKA HCD control pipe state)
 		enum class ControlStage : byte {
 			Idle, Setup, DataIn, DataOut, StatusIn, StatusOut, Done
 		};
 		ControlStage ctrl_stage_ = ControlStage::Idle;
 		bool ctrl_retry_pending_ = false;
+		volatile bool ctrl_completion_pending_ = false, ctrl_halt_pending_ = false;
+		bool ctrl_reset_pending_ = false;
+		uint32 ctrl_submission_ = 0;
+		byte ctrl_submit_failures_ = 0;
+		stduint ctrl_retry_tick_ = 0;
 		EndpointID ctrl_ep_id_{};
 		SetupData ctrl_setup_{};
 		void* ctrl_buf_ = nullptr;
@@ -148,6 +165,7 @@ namespace uni::device::SpaceUSB {
 		static OTGHostDevice* ch_owner_[16];// who took a host channel
 		byte ctrl_ch_ = kNoChannel;// the default control pipe channel of this device
 
+		bool transfers_stopping_ = false;
 		HCD& hcd_;
 		byte dev_address_;
 		const byte speed_;

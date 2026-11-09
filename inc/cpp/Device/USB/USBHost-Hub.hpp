@@ -64,6 +64,7 @@ namespace uni::device::SpaceUSB {
 
 		// AKA the port policy, ticked by the host transport about once per millisecond
 		Error ProcessDelayed() override;
+		Error ProcessDelayed(uint32 elapsed_ms) override;
 		Error RequestSetPortFeature(uint8 port_num, HubPortFeature feature_selector);
 		Error RequestSetHubDepth();
 		Error RecordPortStatus(uint8 port_num, const void* buf, int len);
@@ -86,6 +87,8 @@ namespace uni::device::SpaceUSB {
 		uint8 delayed_step_ = 0;
 		uint8 port_cursor_ = 0;
 		uint8 wait_ticks_ = 0;
+		bool wait_fresh_ = false, elapsed_time_mode_ = false;
+		Error ProcessDelayed(uint32 elapsed_ms, bool elapsed_time);
 		uint8 power_good_ticks_ = 0;
 		uint16 rescan_ticks_ = 0;
 		uint16 settle_ticks_ = 0;

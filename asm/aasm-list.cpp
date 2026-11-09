@@ -311,7 +311,7 @@ void AssemblyListing::EmitFixup(const uni::CodeFixup& fixup)
 		default: type = OUT_ADDRESS; break;
 		}
 	}
-	EmitLegacy(fixup.offset, &fixup.addend, type, size);
+	EmitLegacy(fixup.offset, &fixup.initial_value, type, size);
 }
 
 void AssemblyListing::SetOffset(int64_t offset)

@@ -66,9 +66,10 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error HIDMouseDriver::OnDataReceived() {
-		MouseMessage mmsg;
-		MemCopyN(&mmsg, (const void*)&Buffer()[0], sizeof(MouseMessage));
-		NotifyMouseMove(mmsg);
+		MouseMessage raw{};
+		MemCopyN(&raw, (const void*)&Buffer()[0], sizeof(raw));
+		// USB HID 1.11 Appendix B.2: boot mouse X/Y are signed bytes, not PS/2 sign-bit fields.
+		NotifyMouseMove(MouseGeneralMessage(raw, false));
 		return MAKE_ERROR(Error::Success);
 	}
 
@@ -79,7 +80,7 @@ namespace uni::device::SpaceUSB {
 
 	HIDMouseDriver::ObserverType HIDMouseDriver::default_observer;
 
-	void HIDMouseDriver::NotifyMouseMove(MouseMessage mmsg) {
+	void HIDMouseDriver::NotifyMouseMove(MouseGeneralMessage mmsg) {
 		for (int i = 0; i < num_observers_; ++i) {
 			observers_[i](mmsg);
 		}

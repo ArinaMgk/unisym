@@ -28,6 +28,7 @@
 #include "../../../../inc/c/strpage.h"
 #include "../../../../inc/c/format/ELF.h"
 #include "../../../../inc/c/format/DWARF.h"
+#include "../../../../inc/cpp/Format/Code.hpp"
 #include "../../../../asm/inc/aasm.h"
 #include "../../../../asm/inc/rbtree.hpp"
 
@@ -110,6 +111,15 @@ static char elf_module[FILENAME_MAX];
 
 static uint8_t elf_osabi = 0;	/* Default OSABI = 0 (System V or Linux) */
 static uint8_t elf_abiver = 0;	/* Current ABI version */
+static uint16_t elf_machine = EM_X86_64;
+static uint32_t elf_flags = 0;
+
+void elf64_set_architecture(uni::lango::ArchitectureKind architecture)
+{
+	elf_machine = architecture == uni::lango::ArchitectureKind::RISCV ?
+		EM_RISCV : EM_X86_64;
+	elf_flags = 0;
+}
 
 _ESYM_C struct outffmt of_elf64;
 
@@ -256,7 +266,7 @@ static void elf_filename(char* inname, char* outname);
 static void elf_cleanup(int debuginfo);
 
 struct outffmt of_elf64 = {
-	"ELF64 (x86_64) object files (e.g. Linux)",
+	"ELF64 object files (e.g. Linux)",
 	"elf64",
 	0,
 	elf64_debugs_arr,
@@ -753,6 +763,52 @@ static void elf_add_reloc(struct Section *sect, int32_t segment,
 	sect->nrelocs++;
 }
 
+static int riscv_reloc_type(const uni::CodeFixup& fixup)
+{
+	if (fixup.kind == uni::CodeFixupKind::Absolute) {
+		if (fixup.encoding.storage_bits == 32) return R_RISCV_32;
+		if (fixup.encoding.storage_bits == 64) return R_RISCV_64;
+	}
+	if (fixup.kind == uni::CodeFixupKind::Branch &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 13) return R_RISCV_BRANCH;
+	if ((fixup.kind == uni::CodeFixupKind::Branch ||
+		fixup.kind == uni::CodeFixupKind::Call) &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 21) return R_RISCV_JAL;
+	return -1;
+}
+
+void elf64_emit_fixup(const uni::CodeFixup& fixup)
+{
+	struct Section* section = NULL;
+	for (int index = 0; index < nsects; index++)
+		if (sects[index]->index == fixup.section) {
+			section = sects[index];
+			break;
+		}
+	if (!section) {
+		aasm_log(_LOG_PANIC, "RISC-V ELF64 fixup has an invalid section");
+		return;
+	}
+	if (section->len != fixup.offset) {
+		aasm_log(_LOG_PANIC, "RISC-V ELF64 fixup is not at the section end");
+		return;
+	}
+	if (fixup.target_section == NO_SEG || fixup.legacy_wrt != NO_SEG) {
+		aasm_log(_LOG_ERROR, "RISC-V ELF64 fixup has an invalid target");
+		return;
+	}
+	int type = riscv_reloc_type(fixup);
+	if (type < 0) {
+		aasm_log(_LOG_ERROR, "unsupported RISC-V ELF64 relocation");
+		return;
+	}
+	size_t size = fixup.encoding.storage_bits / 8;
+	elf_add_reloc(section, fixup.target_section, fixup.addend, type);
+	elf_sect_writeaddr(section, static_cast<int64_t>(fixup.initial_value), size);
+}
+
 /*
  * This routine deals with ..got and ..sym relocations: the more
  * complicated kinds. In shared-library writing, some relocations
@@ -1151,13 +1207,13 @@ static void elf_write(void)
 	fputc(elf_abiver, elffp);
 	fwritezero(7, elffp);
 	fwriteint16_t(ET_REL, elffp);      /* relocatable file */
-	fwriteint16_t(EM_X86_64, elffp);      /* processor ID */
+	fwriteint16_t(elf_machine, elffp);      /* processor ID */
 	fwriteint32_t(1L, elffp);      /* EV_CURRENT file format version */
 	fwriteint64_t(0L, elffp);      /* no entry point */
 	fwriteint64_t(0L, elffp);      /* no program header table */
 	fwriteint64_t(0x40L, elffp);   /* section headers straight after
 								 * ELF header plus alignment */
-	fwriteint32_t(0L, elffp);      /* 386 defines no special flags */
+	fwriteint32_t(elf_flags, elffp);      /* processor flags */
 	fwriteint16_t(0x40, elffp);   /* size of ELF header */
 	fwriteint16_t(0, elffp);      /* no program header table, again */
 	fwriteint16_t(0, elffp);      /* still no program header table */

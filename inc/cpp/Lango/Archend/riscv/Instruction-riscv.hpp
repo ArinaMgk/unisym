@@ -45,6 +45,18 @@ struct RISCVInstruction {
 	unsigned operand_count = 0;
 };
 
+enum class RISCVFixupKind : uint8_t {
+	None,
+	Branch,
+	Jump
+};
+
+struct RISCVEncodingResult {
+	uint32_t encoding = 0;
+	RISCVFixupKind fixup = RISCVFixupKind::None;
+	RISCVValue target;
+};
+
 class RISCVParser {
 public:
 	static bool IsInstructionStart(const char* word);
@@ -56,7 +68,7 @@ class RISCVEncoder {
 public:
 	static bool Encode(const AssemblySession& session,
 		const RISCVInstruction& instruction,
-		int64_t offset, uint32_t& encoding);
+		int64_t offset, RISCVEncodingResult& result);
 };
 
 }

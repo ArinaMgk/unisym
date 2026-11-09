@@ -519,7 +519,8 @@ int main(int argc, char** argv) {
 		// Some formats define labels during initialization.
 		Labelsys::Initialize();
 
-		codeend.Initialize(outfile);
+		codeend.Initialize(outfile,
+			assembler_options.Target.Archend().DumpArchend().architecture);
 		codeend.InitializeDebug(outfile);
 
 		Assembler assembler(assembly_session);

@@ -40,9 +40,37 @@ _PACKED(struct) MouseMessage {
 	byte DirY : 1;
 	byte OvfX : 1;
 	byte OvfY : 1;
-	int8 X;
-	int8 Y;
+	int8 X;// sign of PS2 depends on DirX; sign of USB is always signed.
+	int8 Y;// sign of PS2 depends on DirY; sign of USB is always signed.
 };
+
+#ifdef _INC_CPP
+#include "../graphic.h"
+
+// 1. avoid usual overflow of 8-bit
+struct MouseGeneralMessage {
+	bool btn_left;
+	bool btn_middle;
+	bool btn_right;
+	uni::Size2dif movement;
+	MouseGeneralMessage() : btn_left(false), btn_middle(false), btn_right(false), movement(0, 0) {}
+	// IBM PS/2 Hardware Interface Technical Reference, Mouse: signed 9-bit packet displacement.
+	MouseGeneralMessage(const MouseMessage& mmsg, bool xy_depends_on_dir = true)
+		: btn_left(mmsg.BtnLeft), btn_middle(mmsg.BtnMiddle), btn_right(mmsg.BtnRight) {
+		const uint8 raw_x = uint8(mmsg.X);
+		const uint8 raw_y = uint8(mmsg.Y);
+		if (xy_depends_on_dir) {
+			movement.x = int(raw_x) - (mmsg.DirX ? 256 : 0);
+			movement.y = -(int(raw_y) - (mmsg.DirY ? 256 : 0));
+		}
+		else {
+			// USB HID 1.11 Appendix B.2: signed 8-bit displacement, without PS/2 Y inversion.
+			movement.x = int(raw_x) - ((raw_x & 0x80) ? 256 : 0);
+			movement.y = int(raw_y) - ((raw_y & 0x80) ? 256 : 0);
+		}
+	}
+};
+#endif
 
 // pres: init keyboard
 _ESYM_C void Mouse_Init();
@@ -61,7 +89,7 @@ namespace uni::device::SpaceUSB {
 
 		Error OnDataReceived() override;
 
-		using ObserverType = void(*)(MouseMessage mmsg);
+		using ObserverType = void(*)(MouseGeneralMessage mmsg);
 		void SubscribeMouseMove(ObserverType observer);
 		static ObserverType default_observer;
 
@@ -69,7 +97,7 @@ namespace uni::device::SpaceUSB {
 		std::array<ObserverType, 4> observers_;
 		int num_observers_ = 0;
 
-		void NotifyMouseMove(MouseMessage mmsg);
+		void NotifyMouseMove(MouseGeneralMessage mmsg);
 	};
 }
 

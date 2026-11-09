@@ -252,11 +252,12 @@ static void OutputFixup(int64_t offset, int32_t section, int64_t addend,
 			0,
 			kind != uni::CodeFixupKind::Absolute
 		},
+		static_cast<uint64_t>(addend),
 		target_section,
 		addend,
 		pc_bias,
 		wrt,
-		0
+		static_cast<uint32_t>(uni::lango::ArchitectureKind::X86)
 	};
 	listing->EmitFixup(fixup);
 	SetOutputDebugLine(section);

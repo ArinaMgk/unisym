@@ -186,11 +186,15 @@ void EmitStatementFixup(AssemblySession& session, int64_t offset,
 			0,
 			false
 		},
+		session.ActiveArchend->DumpArchend().architecture ==
+			uni::lango::ArchitectureKind::RISCV ? 0 :
+			static_cast<uint64_t>(addend),
 		target_section,
 		addend,
 		0,
 		wrt,
-		0
+		static_cast<uint32_t>(
+			session.ActiveArchend->DumpArchend().architecture)
 	};
 	session.Listing->EmitFixup(fixup);
 	SetStatementDebugLine(session);
@@ -794,6 +798,17 @@ uni::lango::ArchendLineResult AssemblyStatementParser::ProcessLine(
 	}
 	if (ProcessCommonStatement(
 		source, repeat, parse_pass, result)) return result;
+	uni::CodeendInterface& codeend = Session.Options->Target.Codeend();
+	if (!codeend.SupportsBitWidth(
+		Session.ActiveArchend->DumpArchend().architecture,
+		Session.CurrentBits)) {
+		aasm_log(_LOG_ERROR,
+			"%s output format does not support %d-bit `%s' code",
+			codeend.DumpCodeend().shortname, Session.CurrentBits,
+			Session.ActiveArchend->DumpArchend().shortname);
+		result.valid = false;
+		return result;
+	}
 	return Session.ActiveArchend->ProcessInstruction(
 		Session, source, repeat, parse_pass, output_pass);
 }

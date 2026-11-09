@@ -79,16 +79,41 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 	uni::CodeendInterface& codeend = session.Options->Target.Codeend();
 	for (int64_t index = 0; index < repeat; index++) {
 		int64_t offset = session.Location.offset + index * 4;
-		uint32_t encoding;
-		if (!RISCVEncoder::Encode(session, instruction, offset, encoding)) {
+		RISCVEncodingResult encoded;
+		if (!RISCVEncoder::Encode(session, instruction, offset, encoded)) {
 			result.valid = false;
 			return result;
 		}
+		if (encoded.fixup != RISCVFixupKind::None) {
+			bool jump = encoded.fixup == RISCVFixupKind::Jump;
+			uni::CodeFixup fixup {
+				session.Location.segment,
+				static_cast<uint64_t>(offset),
+				jump && instruction.operands[0].reg ?
+					uni::CodeFixupKind::Call : uni::CodeFixupKind::Branch,
+				{
+					32,
+					static_cast<uint16_t>(jump ? 21 : 13),
+					0,
+					1,
+					true
+				},
+				encoded.encoding,
+				encoded.target.section,
+				encoded.target.offset,
+				0,
+				encoded.target.wrt,
+				static_cast<uint32_t>(ArchitectureKind::RISCV)
+			};
+			session.Listing->EmitFixup(fixup);
+			codeend.EmitFixup(fixup);
+			continue;
+		}
 		uint8_t bytes[4] = {
-			static_cast<uint8_t>(encoding),
-			static_cast<uint8_t>(encoding >> 8),
-			static_cast<uint8_t>(encoding >> 16),
-			static_cast<uint8_t>(encoding >> 24)
+			static_cast<uint8_t>(encoded.encoding),
+			static_cast<uint8_t>(encoded.encoding >> 8),
+			static_cast<uint8_t>(encoded.encoding >> 16),
+			static_cast<uint8_t>(encoded.encoding >> 24)
 		};
 		uni::CodeendOutput output {
 			session.Location.segment,

@@ -5,6 +5,11 @@
 #include "inc/aasm.h"
 #include "../inc/cpp/Format/Code.hpp"
 
+void elf32_set_architecture(uni::lango::ArchitectureKind architecture);
+void elf64_set_architecture(uni::lango::ArchitectureKind architecture);
+void elf32_emit_fixup(const uni::CodeFixup& fixup);
+void elf64_emit_fixup(const uni::CodeFixup& fixup);
+
 outffmt* OutfileFormat::crt_format = NULL;
 
 #ifndef OF_DEFAULT
@@ -12,6 +17,15 @@ outffmt* OutfileFormat::crt_format = NULL;
 #endif
 
 namespace {
+
+uni::CodeendFlag CodeendFlags(outffmt& driver)
+{
+	uni::CodeendFlag flags = (driver.flags & OFMT_TEXT) ?
+		uni::CodeendFlag::Text : uni::CodeendFlag::None;
+	if (&driver == &of_bin)
+		flags = flags | uni::CodeendFlag::MultipleArchitectures;
+	return flags;
+}
 
 class AasmCodeend final : public uni::CodeendInterface {
 private:
@@ -23,8 +37,7 @@ public:
 		: Driver(&driver), Info {
 			driver.fullname,
 			driver.shortname,
-			(driver.flags & OFMT_TEXT) ?
-				uni::CodeendFlag::Text : uni::CodeendFlag::None
+			CodeendFlags(driver)
 		}
 	{
 	}
@@ -39,7 +52,19 @@ public:
 	{
 		if (architecture == uni::lango::ArchitectureKind::X86) return true;
 		return architecture == uni::lango::ArchitectureKind::RISCV &&
-			Driver == &of_bin;
+			(Driver == &of_bin || Driver == &of_elf32 || Driver == &of_elf ||
+			Driver == &of_elf64);
+	}
+
+	virtual bool SupportsBitWidth(
+		uni::lango::ArchitectureKind architecture, int bits) const override
+	{
+		if (!SupportsArchitecture(architecture)) return false;
+		if (architecture == uni::lango::ArchitectureKind::X86) return true;
+		if (Driver == &of_bin) return bits == 32 || bits == 64;
+		if (Driver == &of_elf32 || Driver == &of_elf) return bits == 32;
+		if (Driver == &of_elf64) return bits == 64;
+		return false;
 	}
 
 	virtual const unsigned char* StandardMacros() const override
@@ -52,8 +77,13 @@ public:
 		Driver->filename(input_name, output_name);
 	}
 
-	virtual void Initialize(FILE* output) override
+	virtual void Initialize(FILE* output,
+		uni::lango::ArchitectureKind architecture) override
 	{
+		if (Driver == &of_elf32 || Driver == &of_elf)
+			elf32_set_architecture(architecture);
+		else if (Driver == &of_elf64)
+			elf64_set_architecture(architecture);
 		Driver->init(output,
 			static_cast<ldfunc>(&Labelsys::Define), eval_evaluate);
 	}
@@ -162,6 +192,21 @@ public:
 
 	virtual void EmitFixup(const uni::CodeFixup& fixup) override
 	{
+		if (fixup.architecture_kind == static_cast<uint32_t>(
+			uni::lango::ArchitectureKind::RISCV)) {
+			if (Driver == &of_elf32 || Driver == &of_elf) {
+				elf32_emit_fixup(fixup);
+				return;
+			}
+			if (Driver == &of_elf64) {
+				elf64_emit_fixup(fixup);
+				return;
+			}
+			aasm_log(_LOG_ERROR,
+				"output format `%s' does not support RISC-V relocation",
+				Info.shortname);
+			return;
+		}
 		const uni::CodeFixupEncoding& encoding = fixup.encoding;
 		if (encoding.bit_offset || encoding.right_shift ||
 			encoding.value_bits != encoding.storage_bits ||

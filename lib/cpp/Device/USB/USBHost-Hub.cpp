@@ -131,6 +131,19 @@ namespace uni::device::SpaceUSB {
 
 	// the port policy: no wait may run in the interrupt, so every step is ticked here
 	Error USBHubDriver::ProcessDelayed() {
+		return ProcessDelayed(1, false);
+	}
+
+	Error USBHubDriver::ProcessDelayed(uint32 elapsed_ms) {
+		return ProcessDelayed(elapsed_ms, true);
+	}
+
+	Error USBHubDriver::ProcessDelayed(uint32 elapsed_ms, bool elapsed_time) {
+		elapsed_time_mode_ = elapsed_time;
+		const uint8 entering_step = delayed_step_;
+		const auto add_elapsed = [elapsed_ms](uint16 value) -> uint16 {
+			return elapsed_ms >= uint32(0xFFFFu - value) ? uint16(0xFFFFu) : uint16(value + elapsed_ms);
+		};
 		static const uint16 kRescanTicks = 250;
 		static const uint16 kSettleTicks = 100;
 		static const uint16 kPendingTicks = 300;
@@ -141,16 +154,19 @@ namespace uni::device::SpaceUSB {
 		}
 		// hold the policy back while a downstream device uses the bus, bounded so it can never starve
 		if (ParentDevice()->ChildBusy() && child_busy_ticks_ < kChildBusyWaitTicks) {
-			child_busy_ticks_++;
+			child_busy_ticks_ = add_elapsed(child_busy_ticks_);
 			return MAKE_ERROR(Error::Success);
 		}
 		child_busy_ticks_ = 0;
 		if (wait_ticks_) {
-			--wait_ticks_;
+			if (wait_fresh_ && elapsed_time) { wait_fresh_ = false; return MAKE_ERROR(Error::Success); }
+			wait_fresh_ = false;
+			wait_ticks_ = elapsed_ms >= wait_ticks_ ? 0 : uint8(wait_ticks_ - elapsed_ms);
 			return MAKE_ERROR(Error::Success);
 		}
 		if (pending_kind_) {
-			if (++pending_ticks_ > kPendingTicks) {
+			pending_ticks_ = add_elapsed(pending_ticks_);
+			if (pending_ticks_ > kPendingTicks) {
 				pending_ticks_ = 0;
 				pending_kind_ = 0;
 			}
@@ -167,6 +183,7 @@ namespace uni::device::SpaceUSB {
 			}
 			wait_ticks_ = power_good_ticks_;
 			delayed_step_ = 2;
+			if (wait_ticks_ && elapsed_time) return MAKE_ERROR(Error::Success);
 		}
 		if (delayed_step_ == 2) {
 			port_cursor_ = 1;// after power-good: read every port status once
@@ -180,7 +197,8 @@ namespace uni::device::SpaceUSB {
 			delayed_step_ = 4;
 		}
 		if (delayed_step_ == 4) {
-			if (++rescan_ticks_ >= kRescanTicks) {
+			if (!elapsed_time || entering_step == 4) rescan_ticks_ = add_elapsed(rescan_ticks_);
+			if (rescan_ticks_ >= kRescanTicks) {
 				rescan_ticks_ = 0;
 				delayed_step_ = 2;// back to reading every port status once
 				return MAKE_ERROR(Error::Success);
@@ -226,7 +244,8 @@ namespace uni::device::SpaceUSB {
 					return error;
 				}
 			}
-			if (++settle_ticks_ > kSettleTicks) {
+			if (!elapsed_time || entering_step == 4) settle_ticks_ = add_elapsed(settle_ticks_);
+			if (settle_ticks_ > kSettleTicks) {
 				settle_ticks_ = 0;
 				for (uint8 port = 1; port <= num_ports_; port++) {
 					if (!(reset_mask_ & uint16(1u << (port - 1)))) continue;
@@ -270,6 +289,7 @@ namespace uni::device::SpaceUSB {
 		if (delayed_step_ == 5) {
 			wait_ticks_ = 60;// the reset recovery window, then read that port again
 			delayed_step_ = 6;
+			if (elapsed_time) return MAKE_ERROR(Error::Success);
 		}
 		if (delayed_step_ == 6 && port_cursor_) {
 			const uint8 port = port_cursor_;
@@ -372,6 +392,7 @@ namespace uni::device::SpaceUSB {
 		(void)ep_id;
 		const uint8 pending_kind = pending_kind_;
 		pending_kind_ = 0;
+		if (elapsed_time_mode_) pending_ticks_ = 0;
 		if (pending_kind == 1) {
 			return MAKE_ERROR(Error::Success);// the SET_FEATURE of the port policy needs no further step
 		}
@@ -383,6 +404,7 @@ namespace uni::device::SpaceUSB {
 			delayed_step_ = 3;
 			port_cursor_ = 1;
 			wait_ticks_ = 10;
+			wait_fresh_ = true;
 			return MAKE_ERROR(Error::Success);
 		}
 		if (initialize_phase_ == 1) {

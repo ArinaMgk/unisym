@@ -124,6 +124,7 @@ enum machine_t {
 	EM_X86_64 = 62,
 	EM_CRIS = 76,
 	EM_V850 = 87,
+	EM_RISCV = 243,
 	EM_ALPHA = 0x9026, /* Interrim Alpha that stuck around */
 	EM_CYGNUS_V850 = 0x9080, /* Old v850 ID used by Cygnus */
 	EM_S390_OLD = 0xA390, /* Obsolete interrim value for S/390 */
@@ -635,13 +636,15 @@ struct elf_known_section {
 		R_ARM_RELATIVE      = 23    /* Adjust by program base */
 	};
 
-	// RISC-V (RV32/RV64) dynamic relocations
+	// RISC-V (RV32/RV64) relocations
 	enum reloc32_riscv_type {
 		R_RISCV_NONE        =  0,   /* No reloc */
 		R_RISCV_32          =  1,   /* Direct 32 bit */
 		R_RISCV_64          =  2,   /* Direct 64 bit */
 		R_RISCV_RELATIVE    =  3,   /* Adjust by program base */
-		R_RISCV_JUMP_SLOT   =  5    /* PLT slot */
+		R_RISCV_JUMP_SLOT   =  5,   /* PLT slot */
+		R_RISCV_BRANCH      = 16,   /* PC-relative branch */
+		R_RISCV_JAL         = 17    /* PC-relative jump */
 	};
 
 	// Unified 32-bit dynamic relocation ids for the arch-neutral flat PIE loader

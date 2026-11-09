@@ -31,6 +31,17 @@ namespace uni::device::SpaceUSB {
 	OTGHostDevice* OTGHostDevice::ch_owner_[16] = {};
 
 	namespace {
+		class ControlIrqGuard {
+			stduint mask_;
+		public:
+			ControlIrqGuard() {
+				_ASM volatile("mrs %0, primask\n\tcpsid i" : "=r"(mask_) : : "memory");
+			}
+			~ControlIrqGuard() {
+				if (!mask_) _ASM volatile("cpsie i" : : : "memory");
+			}
+		};
+
 		const stduint kChildSettleTicks = 100;
 		// wait limit of one enumeration round, and how many rounds are tried before giving the port up
 		const stduint kChildEnumTimeoutMs = 4000;
@@ -42,6 +53,7 @@ namespace uni::device::SpaceUSB {
 		stduint s_addr_used[4] = {};
 		// the bus millisecond clock: getCurrentFrame() wraps every 14 bits, so timeouts count these
 		stduint s_bus_tick = 0;
+		uint32 s_control_submission = 0;
 	}
 
 	OTGHostDevice* OTGHostDevice::OwnerOfChannel(byte ch_num) {
@@ -120,6 +132,7 @@ namespace uni::device::SpaceUSB {
 		assigned_addr_ = assigned_address ? assigned_address : kDefaultDeviceAddress;
 		SetAssignedAddress(assigned_addr_);
 		ReserveDeviceAddress(assigned_addr_);
+		last_service_tick_ = s_bus_tick;
 		RegisterBridge(this);
 		ctrl_ch_ = hcd_.AllocChannel();
 		if (ctrl_ch_ == kNoChannel) return;// no channel left: every request below fails
@@ -169,6 +182,7 @@ namespace uni::device::SpaceUSB {
 
 	Error OTGHostDevice::ControlIn(EndpointID ep_id, SetupData setup_data,
 		void* buf, int len, ClassDriver* issuer) {
+		if (transfers_stopping_) return MAKE_ERROR(Error::InvalidPhase);
 		if (ep_id.Number() != 0) {
 			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
@@ -190,6 +204,7 @@ namespace uni::device::SpaceUSB {
 		mps_probe_ = false;
 		ch_nak_retry_[ctrl_ch_] = 0;
 		ctrl_err_retry_ = 0;
+		ctrl_submit_failures_ = 0;
 		if (!mps_known_ && setup_data.request == static_cast<uint8>(StandardRequest::GetDescriptor) &&
 			(setup_data.value >> 8) == DeviceDescriptor::kType && ctrl_len_ > 8) {
 			// the 8-byte header fits every bMaxPacketSize0
@@ -206,6 +221,7 @@ namespace uni::device::SpaceUSB {
 
 	Error OTGHostDevice::ControlOut(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len, ClassDriver* issuer) {
+		if (transfers_stopping_) return MAKE_ERROR(Error::InvalidPhase);
 		if (ep_id.Number() != 0) {
 			return MAKE_ERROR(Error::InvalidEndpointNumber);
 		}
@@ -222,6 +238,7 @@ namespace uni::device::SpaceUSB {
 		ctrl_len_ = len;
 		ch_nak_retry_[ctrl_ch_] = 0;
 		ctrl_err_retry_ = 0;
+		ctrl_submit_failures_ = 0;
 		ctrl_retry_pending_ = false;
 		ctrl_stage_ = ControlStage::Setup;
 		ResubmitControlStage();
@@ -230,8 +247,10 @@ namespace uni::device::SpaceUSB {
 
 	// called from the main loop, far more often than a frame: the transfer goes out the moment the window opens
 	void OTGHostDevice::Service() {
+		if (transfers_stopping_) return;
 		// a control stage waiting for the bus goes first, a periodic poll can wait for the next frame
 		if (ctrl_retry_pending_) {
+			if (ctrl_halt_pending_ || ctrl_completion_pending_ || s_bus_tick == ctrl_retry_tick_) return;
 			ctrl_retry_pending_ = false;
 			ResubmitControlStage();
 			return;
@@ -256,6 +275,7 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error OTGHostDevice::InterruptIn(EndpointID ep_id, void* buf, int len) {
+		if (transfers_stopping_) return MAKE_ERROR(Error::InvalidPhase);
 		if (auto err = USBHostDevice::InterruptIn(ep_id, buf, len)) {
 			return err;
 		}
@@ -281,6 +301,7 @@ namespace uni::device::SpaceUSB {
 
 	// Submit every interrupt poll that was held back and whose interval is over
 	void OTGHostDevice::ProcessDeferredInterrupts() {
+		if (transfers_stopping_) return;
 		const stduint now_tick = s_bus_tick;
 		for (byte ch = 0; ch < 16; ch++) {
 			if (ch_deferred_buf_[ch] == nullptr) continue;
@@ -295,6 +316,7 @@ namespace uni::device::SpaceUSB {
 	}
 
 	Error OTGHostDevice::InterruptOut(EndpointID ep_id, void* buf, int len) {
+		if (transfers_stopping_) return MAKE_ERROR(Error::InvalidPhase);
 		if (auto err = USBHostDevice::InterruptOut(ep_id, buf, len)) {
 			return err;
 		}
@@ -309,17 +331,74 @@ namespace uni::device::SpaceUSB {
 
 	// the bulk pipe of a host class driver
 	Error OTGHostDevice::BulkTransfer(EndpointID ep_id, bool dir_in, void* buf, int len) {
+		if (transfers_stopping_) return MAKE_ERROR(Error::InvalidPhase);
+		if (!buf || len <= 0 || stduint(len) > kMaxBulkTransferBytes ||
+			stduint(len) > 0xFFFFu || ep_id.IsIn() != dir_in)
+			return MAKE_ERROR(Error::IndexOutOfRange);
 		const byte ch = ChannelOfEndpoint(ep_id);
-		if (!ch || buf == nullptr || len <= 0) {
+		if (ch >= hcd_.host_channels || ch >= numsof(hcd_.hc) || hcd_.hc[ch].ep_type != 2)
 			return MAKE_ERROR(Error::InvalidEndpointNumber);
-		}
+		const stduint mps = hcd_.hc[ch].max_packet;
+		// STM32H7 LL USB_HC_StartXfer limits a host request to 256 packets.
+		if (!mps || stduint(len) > 256u * mps) return MAKE_ERROR(Error::IndexOutOfRange);
 		ch_xfer_base_[ch] = static_cast<byte*>(buf);
 		ch_xfer_len_[ch] = static_cast<uint16>(len);
 		ch_nak_retry_[ch] = 0;
 		// token 1 = DATA1; BULK takes the PID from the per-channel toggle
-		hcd_.SubmitRequest(ch, dir_in ? 1 : 0, 2, 1, static_cast<byte*>(buf),
-			static_cast<uint16>(len), 0);// EP_TYPE_BULK
+		if (!hcd_.SubmitRequest(ch, dir_in ? 1 : 0, 2, 1, static_cast<byte*>(buf),
+			static_cast<uint16>(len), 0)) {
+			ch_xfer_base_[ch] = nullptr;
+			ch_xfer_len_[ch] = 0;
+			return MAKE_ERROR(Error::TransferFailed);
+		}
 		return MAKE_ERROR(Error::Success);
+	}
+
+	stduint OTGHostDevice::getBulkTransferLimit() {
+		stduint limit = kMaxBulkTransferBytes;
+		bool have_in = false, have_out = false;
+		for (int i = 0; i < NumEndpointConfigs(); ++i) {
+			const auto& endpoint = EndpointConfigs()[i];
+			if (endpoint.ep_type != EndpointType::kBulk) continue;
+			if (endpoint.max_packet_size <= 0) return 0;
+			limit = minof(limit, stduint(256) * endpoint.max_packet_size);
+			if (endpoint.ep_id.IsIn()) have_in = true;
+			else have_out = true;
+		}
+		return have_in && have_out ? limit : 0;
+	}
+
+	bool OTGHostDevice::StopTransfers() {
+		ControlIrqGuard guard;
+		if (!transfers_stopping_) {
+			transfers_stopping_ = true;
+			ctrl_retry_pending_ = ctrl_waiting_ = false;
+			ctrl_completion_pending_ = ctrl_halt_pending_ = false;
+			ctrl_stage_ = ControlStage::Done;
+			for (byte ch = 0; ch < hcd_.host_channels && ch < numsof(hcd_.hc); ++ch) {
+				if (OwnerOfChannel(ch) != this) continue;
+				ch_deferred_buf_[ch] = nullptr;
+				ch_waiting_since_[ch] = 0;
+				if (hcd_.ChannelReg(ch, 0x000).bitof(USB_OTG_HCCHAR_CHENA_Pos))
+					(void)hcd_.HaltHostChannel(ch);
+			}
+		}
+		for (byte ch = 0; ch < hcd_.host_channels && ch < numsof(hcd_.hc); ++ch) {
+			if (OwnerOfChannel(ch) == this &&
+				hcd_.ChannelReg(ch, 0x000).bitof(USB_OTG_HCCHAR_CHENA_Pos)) return false;
+		}
+		for (byte ch = 0; ch < hcd_.host_channels && ch < numsof(hcd_.hc); ++ch) {
+			if (OwnerOfChannel(ch) != this) continue;
+			hcd_.ChannelReg(ch, 0x00C) = 0;
+			hcd_.ChannelReg(ch, 0x008) = 0xFFFFFFFFu;
+			hcd_.hc[ch].xfer_buff = nullptr;
+			hcd_.hc[ch].xfer_len = hcd_.hc[ch].xfer_count = 0;
+			ch_xfer_base_[ch] = nullptr;
+			ch_xfer_len_[ch] = 0;
+			OTG::ClearHaltPending(ch);
+		}
+		ctrl_buf_ = nullptr;
+		return true;
 	}
 
 	// the hub class driver reports one downstream port here; only here can a child get an address
@@ -498,24 +577,27 @@ namespace uni::device::SpaceUSB {
 
 	// one millisecond of this bridge: the bus transfers are driven from PollBus instead
 	void OTGHostDevice::Tick() {
+		Tick(1, false);
+	}
+
+	void OTGHostDevice::Tick(uint32 elapsed_ms, bool elapsed_time) {
+		if (transfers_stopping_) return;
 		TickAddressing();
-		ProcessDelayed();
+		if (elapsed_time) ProcessDelayed(elapsed_ms);
+		else ProcessDelayed();
 		// the caller may tick without ever calling PollBus: a held-back poll or a control stage waiting to be
 		// re-sent must not park forever, the poll interval and the retry both live on this tick
 		Service();
-		// the core can drop a control stage without any interrupt: re-send it instead of parking the enumeration
+		// Stop a timed-out stage before reusing its channel; a queued completion wins the race.
 		if (ctrl_waiting_ && ctrl_ch_ != kNoChannel
 			&& (s_bus_tick - ctrl_submit_tick_) > kCtrlWatchdogTicks) {
-			ctrl_waiting_ = false;
-			if (ctrl_err_retry_ < kCtrlErrRetryLimit) {
-				ctrl_err_retry_++;
-				ctrl_stage_ = ControlStage::Setup;
-				hcd_.InitializeHostChannel(ctrl_ch_, 0x00, dev_address_, speed_, 0, hcd_.hc[ctrl_ch_].max_packet);
-				ResubmitControlStage();
-			}
-			else {
-				ctrl_stage_ = ControlStage::Done;
-				OnControlCompleted(ctrl_ep_id_, ctrl_setup_, ctrl_buf_, -1);
+			ControlIrqGuard guard;
+			const stduint pending = stduint(hcd_.ChannelReg(ctrl_ch_, 0x008)) &
+				stduint(hcd_.ChannelReg(ctrl_ch_, 0x00C));
+			if (ctrl_waiting_ && !ctrl_completion_pending_ && !ctrl_halt_pending_ && !pending) {
+				ctrl_halt_pending_ = true;
+				if (hcd_.HaltHostChannel(ctrl_ch_)) ctrl_waiting_ = false;
+				else ctrl_halt_pending_ = false;
 			}
 		}
 		// the same silent loss parks an interrupt or bulk endpoint: re-program the left-over channel and hand the
@@ -534,7 +616,19 @@ namespace uni::device::SpaceUSB {
 
 	// tick every device on the bus
 	void OTGHostDevice::TickAll() {
-		++s_bus_tick;
+		AdvanceTime(1);
+		ServiceAll(1, false);
+	}
+
+	void OTGHostDevice::AdvanceTime(uint32 elapsed_ms) {
+		s_bus_tick += elapsed_ms;
+	}
+
+	void OTGHostDevice::ServiceAll(uint32 elapsed_ms) {
+		ServiceAll(elapsed_ms, true);
+	}
+
+	void OTGHostDevice::ServiceAll(uint32 elapsed_ms, bool elapsed_time) {
 		OTGHostDevice* list[kMaxBridges] = {};
 		int count = 0;
 		for (int i = 0; i < kMaxBridges; i++) {
@@ -547,7 +641,10 @@ namespace uni::device::SpaceUSB {
 				if (s_bridges[j] == list[i]) { alive = true; break; }
 			}
 			if (!alive) continue;
-			list[i]->Tick();
+			// A bridge created by a completion starts at the current bus time.
+			const uint32 elapsed = uint32(s_bus_tick - list[i]->last_service_tick_);
+			list[i]->last_service_tick_ = s_bus_tick;
+			list[i]->Tick(elapsed_time ? elapsed : elapsed_ms, elapsed_time);
 		}
 	}
 
@@ -591,34 +688,66 @@ namespace uni::device::SpaceUSB {
 
 	// Send the stage in flight again: a NAK means the device was not ready for it
 	Error OTGHostDevice::ResubmitControlStage() {
-		switch (ctrl_stage_) {
-		case ControlStage::Setup:
-			hcd_.SubmitRequest(ctrl_ch_, 0, 0, 0, reinterpret_cast<byte*>(&ctrl_setup_), 8, 0);
-			break;
-		case ControlStage::DataIn:
-			hcd_.SubmitRequest(ctrl_ch_, 1, 0, 1, static_cast<byte*>(ctrl_buf_),
-				static_cast<uint16>(ctrl_len_), 0);
-			break;
-		case ControlStage::DataOut:
-			hcd_.SubmitRequest(ctrl_ch_, 0, 0, 1, static_cast<byte*>(ctrl_buf_),
-				static_cast<uint16>(ctrl_len_), 0);
-			break;
-		case ControlStage::StatusIn:
-			hcd_.SubmitRequest(ctrl_ch_, 1, 0, 1, nullptr, 0, 0);
-			break;
-		case ControlStage::StatusOut:
-			hcd_.SubmitRequest(ctrl_ch_, 0, 0, 1, nullptr, 0, 0);
-			break;
-		default:
-			break;
+		if (ctrl_stage_ == ControlStage::Idle || ctrl_stage_ == ControlStage::Done)
+			return MAKE_ERROR(Error::InvalidPhase);
+		bool submitted = false;
+		{
+			ControlIrqGuard guard;
+			const stduint active = stduint(hcd_.ChannelReg(ctrl_ch_, 0x000)) &
+				(USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS);
+			const stduint pending = stduint(hcd_.ChannelReg(ctrl_ch_, 0x008)) &
+				stduint(hcd_.ChannelReg(ctrl_ch_, 0x00C));
+			if (ctrl_completion_pending_ || ctrl_halt_pending_ || active || pending) {
+				ctrl_retry_pending_ = true;
+				ctrl_retry_tick_ = s_bus_tick;
+				return MAKE_ERROR(Error::Full);
+			}
+			if (ctrl_reset_pending_) {
+				hcd_.InitializeHostChannel(ctrl_ch_, 0x00, dev_address_, speed_, 0, hcd_.hc[ctrl_ch_].max_packet);
+				ctrl_reset_pending_ = false;
+			}
+			if (!++s_control_submission) ++s_control_submission;
+			ctrl_submission_ = s_control_submission;
+			switch (ctrl_stage_) {
+			case ControlStage::Setup:
+				submitted = hcd_.SubmitRequest(ctrl_ch_, 0, 0, 0, reinterpret_cast<byte*>(&ctrl_setup_), 8, 0);
+				break;
+			case ControlStage::DataIn:
+				submitted = hcd_.SubmitRequest(ctrl_ch_, 1, 0, 1, static_cast<byte*>(ctrl_buf_),
+					static_cast<uint16>(ctrl_len_), 0);
+				break;
+			case ControlStage::DataOut:
+				submitted = hcd_.SubmitRequest(ctrl_ch_, 0, 0, 1, static_cast<byte*>(ctrl_buf_),
+					static_cast<uint16>(ctrl_len_), 0);
+				break;
+			case ControlStage::StatusIn:
+				submitted = hcd_.SubmitRequest(ctrl_ch_, 1, 0, 1, nullptr, 0, 0);
+				break;
+			case ControlStage::StatusOut:
+				submitted = hcd_.SubmitRequest(ctrl_ch_, 0, 0, 1, nullptr, 0, 0);
+				break;
+			default:
+				break;
+			}
+			ctrl_waiting_ = submitted;
+			ctrl_retry_pending_ = !submitted;
+			if (submitted) {
+				ctrl_submit_tick_ = s_bus_tick;
+				ctrl_submit_failures_ = 0;
+			}
+			else ctrl_retry_tick_ = s_bus_tick;
 		}
-		ctrl_waiting_ = true;
-		ctrl_submit_tick_ = s_bus_tick;
-		return MAKE_ERROR(Error::Success);
+		if (submitted) return MAKE_ERROR(Error::Success);
+		if (++ctrl_submit_failures_ <= kCtrlErrRetryLimit) return MAKE_ERROR(Error::Full);
+		ctrl_retry_pending_ = false;
+		ctrl_stage_ = ControlStage::Done;
+		OnControlCompleted(ctrl_ep_id_, ctrl_setup_, ctrl_buf_, -1);
+		return MAKE_ERROR(Error::TransferFailed);
 	}
 
 	// Advance the control stage machine on a control-channel URB completion.
 	void OTGHostDevice::OnChannelURBCompleted(byte ch_num, URBState urb_state) {
+		if (transfers_stopping_ || ch_num >= hcd_.host_channels || ch_num >= numsof(hcd_.hc)) return;
 		ch_waiting_since_[ch_num] = 0;
 		if (ch_num != ctrl_ch_) {
 			// route by the endpoint type; the class driver gets its own buffer back
@@ -644,9 +773,8 @@ namespace uni::device::SpaceUSB {
 				// Bulk endpoints retry the same request until the device becomes ready.
 				if (ch_xfer_base_[ch_num] && ch_xfer_len_[ch_num]
 					&& ch_nak_retry_[ch_num]++ < kNakRetryLimit) {
-					hcd_.SubmitRequest(ch_num, dir_in ? 1 : 0, ep_type, 1,
-						ch_xfer_base_[ch_num], ch_xfer_len_[ch_num], 0);
-					return;
+					if (hcd_.SubmitRequest(ch_num, dir_in ? 1 : 0, ep_type, 1,
+						ch_xfer_base_[ch_num], ch_xfer_len_[ch_num], 0)) return;
 				}
 				OnBulkCompleted(ep_id, nullptr, 0);
 			}
@@ -663,7 +791,24 @@ namespace uni::device::SpaceUSB {
 			}
 			return;
 		}
+		ctrl_completion_pending_ = false;
 		ctrl_waiting_ = false;
+		if (ctrl_halt_pending_) {
+			ctrl_halt_pending_ = false;
+			if (ctrl_err_retry_ < kCtrlErrRetryLimit) {
+				++ctrl_err_retry_;
+				ctrl_stage_ = ControlStage::Setup;
+				ctrl_reset_pending_ = true;
+				ctrl_retry_pending_ = true;
+				ctrl_retry_tick_ = s_bus_tick;
+			}
+			else {
+				ctrl_stage_ = ControlStage::Done;
+				OnControlCompleted(ctrl_ep_id_, ctrl_setup_, ctrl_buf_, -1);
+			}
+			return;
+		}
+		if (ctrl_stage_ == ControlStage::Idle || ctrl_stage_ == ControlStage::Done) return;
 		if (urb_state != URBState::Done) {
 			const bool retryable = urb_state == URBState::NotReady
 				|| urb_state == URBState::NYET || urb_state == URBState::Idle;
@@ -675,15 +820,12 @@ namespace uni::device::SpaceUSB {
 				ctrl_retry_pending_ = true;
 				return;
 			}
-			// A NAKed OUT stage is still sitting in the Tx FIFO and the channel handler already armed it again:
-			// submitting the stage a second time would push a second copy of the same bytes into the FIFO, and the
-			// core would then send the packet twice. Only an IN stage needs to be asked for again here.
-			if (retryable && ctrl_stage_ != ControlStage::DataOut && ch_nak_retry_[ctrl_ch_]++ < kNakRetryLimit) {
+			// ST USBH_HandleControl/CTRL_DATA_OUT_WAIT: a halted OUT NAK requires host resubmission.
+			if (retryable && ch_nak_retry_[ctrl_ch_]++ < kNakRetryLimit) {
 				// Retry from the bus tick, never from inside the channel ISR.
 				ctrl_retry_pending_ = true;
 				return;
 			}
-			if (retryable && ctrl_stage_ == ControlStage::DataOut) return;// the core owns this retry
 			ctrl_retry_pending_ = false;
 			ctrl_stage_ = ControlStage::Done;
 			// a negative length tells the device layer this transfer failed

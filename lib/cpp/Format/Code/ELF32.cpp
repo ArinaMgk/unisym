@@ -28,6 +28,7 @@
 #include "../../../../inc/c/strpage.h"
 #include "../../../../inc/c/format/ELF.h"
 #include "../../../../inc/c/format/DWARF.h"
+#include "../../../../inc/cpp/Format/Code.hpp"
 #include "../../../../asm/inc/aasm.h"
 #include "../../../../asm/inc/rbtree.hpp"
 
@@ -52,6 +53,7 @@ struct Reloc {
 	struct Reloc* next;
 	int32_t address;               /* relative to _start_ of section */
 	int32_t symbol;                /*  symbol index */
+	int32_t offset;                /* symbol addend for RELA */
 	int type;                   /* type of relocation */
 };
 
@@ -109,6 +111,15 @@ static char elf_module[FILENAME_MAX];
 
 static uint8_t elf_osabi = 0;	/* Default OSABI = 0 (System V or Linux) */
 static uint8_t elf_abiver = 0;	/* Current ABI version */
+static uint16_t elf_machine = EM_386;
+static uint32_t elf_flags = 0;
+
+void elf32_set_architecture(uni::lango::ArchitectureKind architecture)
+{
+	elf_machine = architecture == uni::lango::ArchitectureKind::RISCV ?
+		EM_RISCV : EM_386;
+	elf_flags = 0;
+}
 
 _ESYM_C struct outffmt of_elf32;
 _ESYM_C struct outffmt of_elf;
@@ -251,7 +262,7 @@ static void elf_cleanup(int debuginfo);
 
 _ESYM_C
 struct outffmt of_elf32 = {
-	"ELF32 (i386) object files (e.g. Linux)",
+	"ELF32 object files (e.g. Linux)",
 	"elf32",
 	0,
 	elf32_debugs_arr,
@@ -270,7 +281,7 @@ struct outffmt of_elf32 = {
 
 _ESYM_C
 struct outffmt of_elf = {
-	"ELF (short name for ELF32) ",
+	"ELF (short name for ELF32)",
 	"elf",
 	0,
 	elf32_debugs_arr,
@@ -773,7 +784,8 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 	}
 }
 
-static void elf_add_reloc(struct Section* sect, int32_t segment, int type)
+static void elf_add_reloc(struct Section* sect, int32_t segment, int type,
+	int32_t offset = 0)
 {
 	struct Reloc* r;
 
@@ -794,8 +806,56 @@ static void elf_add_reloc(struct Section* sect, int32_t segment, int type)
 			r->symbol = GLOBAL_TEMP_BASE + StrpageGet(bsym, segment);
 	}
 	r->type = type;
+	r->offset = offset;
 
 	sect->nrelocs++;
+}
+
+static int riscv_reloc_type(const uni::CodeFixup& fixup)
+{
+	if (fixup.kind == uni::CodeFixupKind::Absolute &&
+		fixup.encoding.storage_bits == 32) return R_RISCV_32;
+	if (fixup.kind == uni::CodeFixupKind::Branch &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 13) return R_RISCV_BRANCH;
+	if ((fixup.kind == uni::CodeFixupKind::Branch ||
+		fixup.kind == uni::CodeFixupKind::Call) &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 21) return R_RISCV_JAL;
+	return -1;
+}
+
+void elf32_emit_fixup(const uni::CodeFixup& fixup)
+{
+	struct Section* section = NULL;
+	for (int index = 0; index < nsects; index++)
+		if (sects[index]->index == fixup.section) {
+			section = sects[index];
+			break;
+		}
+	if (!section) {
+		aasm_log(_LOG_PANIC, "RISC-V ELF32 fixup has an invalid section");
+		return;
+	}
+	if (section->len != fixup.offset) {
+		aasm_log(_LOG_PANIC, "RISC-V ELF32 fixup is not at the section end");
+		return;
+	}
+	if (fixup.target_section == NO_SEG || fixup.legacy_wrt != NO_SEG) {
+		aasm_log(_LOG_ERROR, "RISC-V ELF32 fixup has an invalid target");
+		return;
+	}
+	int type = riscv_reloc_type(fixup);
+	if (type < 0) {
+		aasm_log(_LOG_ERROR, "unsupported RISC-V ELF32 relocation");
+		return;
+	}
+	uint8_t bytes[4];
+	uint8_t* cursor = bytes;
+	WRITELONG(cursor, static_cast<uint32_t>(fixup.initial_value));
+	elf_add_reloc(section, fixup.target_section, type,
+		static_cast<int32_t>(fixup.addend));
+	elf_sect_write(section, bytes, sizeof(bytes));
 }
 
 /*
@@ -867,6 +927,7 @@ static int32_t elf_add_gsym_reloc(struct Section* sect,
 
 	r->address = sect->len;
 	r->symbol = GLOBAL_TEMP_BASE + sym->globnum;
+	r->offset = 0;
 	r->type = type;
 
 	sect->nrelocs++;
@@ -1107,7 +1168,8 @@ static void elf_write(void)
 		nsections++;            /* for the section itself */
 		if (sects[i]->head) {
 			nsections++;        /* for its relocations */
-			add_sectname(".rel", sects[i]->name);
+			add_sectname(elf_machine == EM_RISCV ? ".rela" : ".rel",
+				sects[i]->name);
 		}
 	}
 
@@ -1141,13 +1203,13 @@ static void elf_write(void)
 	fputc(elf_abiver, elffp);
 	fwritezero(7, elffp);
 	fwriteint16_t(1, elffp);      /* ET_REL relocatable file */
-	fwriteint16_t(3, elffp);      /* EM_386 processor ID */
+	fwriteint16_t(elf_machine, elffp);      /* processor ID */
 	fwriteint32_t(1L, elffp);      /* EV_CURRENT file format version */
 	fwriteint32_t(0L, elffp);      /* no entry point */
 	fwriteint32_t(0L, elffp);      /* no program header table */
 	fwriteint32_t(0x40L, elffp);   /* section headers straight after
 					* ELF header plus alignment */
-	fwriteint32_t(0L, elffp);      /* 386 defines no special flags */
+	fwriteint32_t(elf_flags, elffp);      /* processor flags */
 	fwriteint16_t(0x34, elffp);   /* size of ELF header */
 	fwriteint16_t(0, elffp);      /* no program header table, again */
 	fwriteint16_t(0, elffp);      /* still no program header table */
@@ -1209,8 +1271,10 @@ static void elf_write(void)
 	/* The relocation sections */
 	for (i = 0; i < nsects; i++)
 		if (sects[i]->head) {
-			elf_section_header(p - shstrtab, SHT_REL, 0, sects[i]->rel, true,
-				sects[i]->rellen, sec_symtab, i + 1, 4, 8);
+			bool rela = elf_machine == EM_RISCV;
+			elf_section_header(p - shstrtab, rela ? SHT_RELA : SHT_REL, 0,
+				sects[i]->rel, true, sects[i]->rellen, sec_symtab, i + 1, 4,
+				rela ? 12 : 8);
 			p += StrLength(p) + 1;
 
 		}
@@ -1421,7 +1485,7 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 static Strbuff* elf_build_reltab(int32_t* len, struct Reloc* r)
 {
 	Strbuff* s;
-	uint8_t* p, entry[8];
+	uint8_t* p, entry[12];
 	int32_t global_offset;
 
 	if (!r)
@@ -1450,8 +1514,15 @@ static Strbuff* elf_build_reltab(int32_t* len, struct Reloc* r)
 		p = entry;
 		WRITELONG(p, r->address);
 		WRITELONG(p, (sym << 8) + r->type);
-		StrbuffSend(s, entry, 8L);
-		*len += 8;
+		if (elf_machine == EM_RISCV) {
+			WRITELONG(p, r->offset);
+			StrbuffSend(s, entry, 12L);
+			*len += 12;
+		}
+		else {
+			StrbuffSend(s, entry, 8L);
+			*len += 8;
+		}
 
 		r = r->next;
 	}

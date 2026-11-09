@@ -27,20 +27,28 @@ bool RequireImmediate(const RISCVValue& value, int64_t& immediate)
 	return true;
 }
 
-bool ResolveTarget(const AssemblySession& session, const RISCVValue& value,
-	int64_t offset, int64_t& displacement)
+enum class TargetResolution {
+	Resolved,
+	Fixup,
+	Error
+};
+
+TargetResolution ResolveTarget(const AssemblySession& session,
+	const RISCVValue& value, int64_t offset, int64_t& displacement)
 {
-	if (value.unknown || value.external || value.wrt != NO_SEG) {
+	if (value.wrt != NO_SEG) {
+		aasm_log(_LOG_ERROR, "RISC-V target does not support WRT");
+		return TargetResolution::Error;
+	}
+	if (value.external) return TargetResolution::Fixup;
+	if (value.unknown) {
 		aasm_log(_LOG_ERROR, "RISC-V target is unresolved");
-		return false;
+		return TargetResolution::Error;
 	}
-	if (value.section != NO_SEG && value.section != session.Location.segment) {
-		aasm_log(_LOG_ERROR,
-			"RISC-V cross-section target requires relocation support");
-		return false;
-	}
+	if (value.section != NO_SEG && value.section != session.Location.segment)
+		return TargetResolution::Fixup;
 	displacement = value.offset - offset;
-	return true;
+	return TargetResolution::Resolved;
 }
 
 uint32_t EncodeR(uint32_t fixed, uint32_t rd, uint32_t rs1, uint32_t rs2)
@@ -93,8 +101,10 @@ bool RequireIImmediate(const RISCVOperand& operand, int64_t& immediate)
 }
 
 bool RISCVEncoder::Encode(const AssemblySession& session,
-	const RISCVInstruction& instruction, int64_t offset, uint32_t& encoding)
+	const RISCVInstruction& instruction, int64_t offset,
+	RISCVEncodingResult& result)
 {
+	result = RISCVEncodingResult{};
 	const RISCVInstructionInfo& info = DumpRISCVInstruction(instruction.opcode);
 	if (info.opcode == RISCVOpcode::None) {
 		aasm_log(_LOG_ERROR, "RISC-V instruction encoding is not implemented");
@@ -115,51 +125,73 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 			aasm_log(_LOG_ERROR, "RISC-V upper immediate is outside 20 bits");
 			return false;
 		}
-		encoding = info.fixed_bits | static_cast<uint32_t>(operand[0].reg) << 7 |
+		result.encoding = info.fixed_bits |
+			static_cast<uint32_t>(operand[0].reg) << 7 |
 			(static_cast<uint32_t>(immediate) & 0xfffff) << 12;
 		return true;
 
 	case RISCVEncodingFormat::Jump:
-		if (!ResolveTarget(session, operand[1].value, offset, immediate)) return false;
+		result.encoding = EncodeJ(info.fixed_bits, operand[0].reg, 0);
+		switch (ResolveTarget(session, operand[1].value, offset, immediate)) {
+		case TargetResolution::Fixup:
+			result.fixup = RISCVFixupKind::Jump;
+			result.target = operand[1].value;
+			return true;
+		case TargetResolution::Error:
+			return false;
+		case TargetResolution::Resolved:
+			break;
+		}
 		if ((immediate & 1) || !SignedRange(immediate, 21)) {
 			aasm_log(_LOG_ERROR, "RISC-V jump target is outside the J range");
 			return false;
 		}
-		encoding = EncodeJ(info.fixed_bits, operand[0].reg, immediate);
+		result.encoding = EncodeJ(info.fixed_bits, operand[0].reg, immediate);
 		return true;
 
 	case RISCVEncodingFormat::IndirectJump:
 		if (!RequireIImmediate(operand[1], immediate)) return false;
-		encoding = EncodeI(info.fixed_bits,
+		result.encoding = EncodeI(info.fixed_bits,
 			operand[0].reg, operand[1].reg, immediate);
 		return true;
 
 	case RISCVEncodingFormat::Branch:
-		if (!ResolveTarget(session, operand[2].value, offset, immediate)) return false;
+		result.encoding = EncodeB(info.fixed_bits,
+			operand[0].reg, operand[1].reg, 0);
+		switch (ResolveTarget(session, operand[2].value, offset, immediate)) {
+		case TargetResolution::Fixup:
+			result.fixup = RISCVFixupKind::Branch;
+			result.target = operand[2].value;
+			return true;
+		case TargetResolution::Error:
+			return false;
+		case TargetResolution::Resolved:
+			break;
+		}
 		if ((immediate & 1) || !SignedRange(immediate, 13)) {
 			aasm_log(_LOG_ERROR, "RISC-V branch target is outside the B range");
 			return false;
 		}
-		encoding = EncodeB(info.fixed_bits,
+		result.encoding = EncodeB(info.fixed_bits,
 			operand[0].reg, operand[1].reg, immediate);
 		return true;
 
 	case RISCVEncodingFormat::Load:
 		if (!RequireIImmediate(operand[1], immediate)) return false;
-		encoding = EncodeI(info.fixed_bits,
+		result.encoding = EncodeI(info.fixed_bits,
 			operand[0].reg, operand[1].reg, immediate);
 		return true;
 
 	case RISCVEncodingFormat::Store:
 		if (!RequireIImmediate(operand[1], immediate)) return false;
-		encoding = EncodeS(info.fixed_bits,
+		result.encoding = EncodeS(info.fixed_bits,
 			operand[1].reg, operand[0].reg, immediate);
 		return true;
 
 	case RISCVEncodingFormat::Immediate:
 	case RISCVEncodingFormat::ImmediateWord:
 		if (!RequireIImmediate(operand[2], immediate)) return false;
-		encoding = EncodeI(info.fixed_bits,
+		result.encoding = EncodeI(info.fixed_bits,
 			operand[0].reg, operand[1].reg, immediate);
 		return true;
 
@@ -174,18 +206,18 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 				"RISC-V shift amount is outside the register width");
 			return false;
 		}
-		encoding = EncodeI(info.fixed_bits,
+		result.encoding = EncodeI(info.fixed_bits,
 			operand[0].reg, operand[1].reg, immediate);
 		return true;
 
 	case RISCVEncodingFormat::Register:
 	case RISCVEncodingFormat::RegisterWord:
-		encoding = EncodeR(info.fixed_bits, operand[0].reg,
+		result.encoding = EncodeR(info.fixed_bits, operand[0].reg,
 			operand[1].reg, operand[2].reg);
 		return true;
 
 	case RISCVEncodingFormat::System:
-		encoding = info.fixed_bits;
+		result.encoding = info.fixed_bits;
 		return true;
 	}
 	aasm_log(_LOG_ERROR, "RISC-V instruction encoding is not implemented");

@@ -73,6 +73,7 @@ namespace uni::device::SpaceUSB {
 		Error OnEndpointsConfigured();
 		// AKA the periodic tick: hand every class driver its timed work (about once per ms)
 		Error ProcessDelayed();
+		Error ProcessDelayed(uint32 elapsed_ms);
 		uint16 VendorID() const { return vendor_id_; }
 		uint16 ProductID() const { return product_id_; }
 		uint8 DeviceClass() const { return device_class_; }

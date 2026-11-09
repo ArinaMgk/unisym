@@ -81,7 +81,7 @@ CPU 等级不低于 386；64 位模式要求 CPU 为 `x64` 或 `x86-64`。
 `[ARCH]`、`[CPU]`、`[INST]` 和 `[BITS]` 的规则如下：
 
 - `[ARCH name]` 切换 Archend，并把 CPU 与 BITS 恢复为该 Arch 的默认值。
-- `[BITS n]` 必须同时满足当前 Arch 和当前 CPU 的约束。
+- `[BITS n]` 必须同时满足当前 Arch、CPU 和 Codeend 的约束。
 - `[CPU name]` 与 `[INST name]` 必须同时满足当前 Arch 和当前 BITS 的约束。
 - 当前 Codeend 不支持目标 Arch 时，AASM 会在切换处报错。
 
@@ -93,7 +93,7 @@ CPU 等级不低于 386；64 位模式要求 CPU 为 `x64` 或 `x86-64`。
 [INST i]
 ```
 
-同一源文件可以包含多个架构区域，但所选 Codeend 必须支持其中的全部架构：
+Binary 输出可以在同一源文件中包含多个架构区域：
 
 ```asm
 [ARCH x86]
@@ -110,11 +110,19 @@ NOP
 | Codeend | x86 | RISC-V |
 | :--- | :---: | :---: |
 | `bin` | 支持 | 支持 |
-| ELF、COFF、Mach-O、AOUT、OMF、IEEE、AS86 等现有格式 | 支持 | 暂不支持 |
+| `elf32`、`elf` | 支持 | 支持 32 位基础对象输出 |
+| `elf64` | 支持 | 支持 64 位基础对象输出 |
+| COFF、Mach-O、AOUT、OMF、IEEE、AS86 等现有格式 | 支持 | 暂不支持 |
 
-因此 RISC-V 以及 x86/RISC-V 混合架构源文件当前必须使用 Binary 输出。文本跟踪格式
-只用于观察汇编器提交的 section、symbol、data、relocation 和 debug 事件，不是可链接
-目标文件。
+ELF 的机器架构由命令行 `-march` 或 `--arch` 固定；ELF 源文件中的 `[ARCH]` 只能
+再次选择同一架构，不能在 x86 与 RISC-V 之间切换。RISC-V ELF32 只接受 32 位指令
+区域，ELF64 只接受 64 位指令区域。RISC-V ELF 当前支持外部符号的
+`R_RISCV_BRANCH`、`R_RISCV_JAL`、`R_RISCV_32` 和 `R_RISCV_64` relocation；
+ELF32 与 ELF64 均使用带显式加数的 RELA section。分支和直接跳转可以引用外部
+符号，也可以引用其他 section 中的本地标签。
+
+x86/RISC-V 混合架构源文件必须使用 Binary 输出。文本跟踪格式只用于观察汇编器提交的
+section、symbol、data、relocation 和 debug 事件，不是可链接目标文件。
 
 ## 通用汇编语法
 

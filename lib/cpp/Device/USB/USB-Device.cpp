@@ -337,6 +337,13 @@ namespace uni::device::SpaceUSB {
 		return MAKE_ERROR(Error::Success);
 	}
 
+	Error USBHostDevice::ProcessDelayed(uint32 elapsed_ms) {
+		for (auto* class_driver : class_driver_instances_) {
+			if (auto err = class_driver->ProcessDelayed(elapsed_ms)) return err;
+		}
+		return MAKE_ERROR(Error::Success);
+	}
+
 	Error USBHostDevice::OnControlCompleted(EndpointID ep_id, SetupData setup_data,
 		const void* buf, int len) {
 		// Log(kDebug, "Device::OnControlCompleted: buf 0x%08x, len %d, dir %d", buf, len, setup_data.request_type.bits.direction);

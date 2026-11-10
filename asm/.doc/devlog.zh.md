@@ -124,6 +124,10 @@ RISC-V ELF 已支持外部符号的分支、直接跳转及 32/64 位绝对数�
 ELF32 的 RISC-V relocation 已改用 RELA，机器指令初值与 relocation 加数分别保存；
 分支和直接跳转也可以通过 section symbol 与 addend 引用其他 section 中的本地标签。
 
+RISC-V Archend 已支持多指令展开。`MOV` 可以加载完整 RV32/RV64 数值和标签地址；
+加载与存储指令可以使用标签或绝对表达式地址，表达式地址存储由第三个操作数显式提供
+临时寄存器。ELF 已接入 PC 相对高低位 relocation。
+
 listing 状态已收归 `AssemblyListing`，并接入 `AssemblySession`。通用语句、x86
 和 RISC-V Archend 通过语义化代码与 fixup 接口提交 listing；`ListGen` 仅保留为
 Preprocessor 的兼容适配。

@@ -33,6 +33,22 @@ namespace uni {
 		return backend ? backend->capabilities : 0;
 	}
 
+	bool GeneralPurposeInputOutputPin::getState(GPIOPinState& state) const {
+		state = {};
+		const auto* backend = ResolveGPIOBackend(self);
+		if (!backend) return false;
+		if (backend->get_state) {
+			if (backend->get_state(backend->context, getID(), state)) return true;
+			state = {};
+			return false;
+		}
+		if (backend->read_pin && backend->read_pin(backend->context, getID(), state.input_value)) {
+			state.valid_fields = GPIOPinStateField_Input;
+			return true;
+		}
+		return false;
+	}
+
 	bool GeneralPurposeInputOutputPort::Available() const {
 		return GPIO.getBackend(getID()) != nullptr;
 	}
@@ -58,6 +74,14 @@ namespace uni {
 	bool GeneralPurposeInputOutputPin::AcknowledgeInterrupt() const {
 		const auto* backend = ResolveGPIOBackend(self);
 		return backend && backend->acknowledge_interrupt && backend->acknowledge_interrupt(backend->context, getID());
+	}
+
+	stduint GeneralPurposeInputOutput::Count() const {
+		stduint count = 0;
+		if (port_backends) {
+			for0(index, port_backend_capacity) if (port_backends[index].context) ++count;
+		}
+		return count;
 	}
 
 	bool GeneralPurposeInputOutput::Attach(const GeneralPurposeInputOutputPortBackend& backend, stduint& portid) {

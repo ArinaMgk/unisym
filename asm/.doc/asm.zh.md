@@ -117,7 +117,9 @@ NOP
 ELF 的机器架构由命令行 `-march` 或 `--arch` 固定；ELF 源文件中的 `[ARCH]` 只能
 再次选择同一架构，不能在 x86 与 RISC-V 之间切换。RISC-V ELF32 只接受 32 位指令
 区域，ELF64 只接受 64 位指令区域。RISC-V ELF 当前支持外部符号的
-`R_RISCV_BRANCH`、`R_RISCV_JAL`、`R_RISCV_32` 和 `R_RISCV_64` relocation；
+`R_RISCV_BRANCH`、`R_RISCV_JAL`、`R_RISCV_32`、`R_RISCV_64`、
+`R_RISCV_PCREL_HI20`、`R_RISCV_PCREL_LO12_I` 和 `R_RISCV_PCREL_LO12_S`
+relocation；
 ELF32 与 ELF64 均使用带显式加数的 RELA section。分支和直接跳转可以引用外部
 符号，也可以引用其他 section 中的本地标签。
 
@@ -146,6 +148,9 @@ section、symbol、data、relocation 和 debug 事件，不是可链接目标文
 
 当前 RISC-V Archend 提供 RV32I 和 RV64I 基础整数指令编码。完整的寄存器、操作数、
 原生指令及单指令简化形式见 `inst-riscv.zh.md`。
+
+RISC-V 的 `MOV` 可以加载完整 XLEN 数值、标签地址及表达式地址中的数据。原生加载
+指令同样接受表达式地址；表达式地址存储必须通过第三个操作数显式指定临时寄存器。
 
 ## 当前结构
 

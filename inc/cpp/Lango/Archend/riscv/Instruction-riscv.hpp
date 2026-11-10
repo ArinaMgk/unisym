@@ -23,6 +23,16 @@ enum class RISCVOperandKind : uint8_t {
 	Address
 };
 
+enum class RISCVAddressKind : uint8_t {
+	RegisterRelative,
+	Expression
+};
+
+enum class RISCVInstructionKind : uint8_t {
+	Native,
+	MoveExpression
+};
+
 struct RISCVValue {
 	int64_t offset = 0;
 	int32_t section = NO_SEG;
@@ -33,12 +43,14 @@ struct RISCVValue {
 
 struct RISCVOperand {
 	RISCVOperandKind kind = RISCVOperandKind::None;
+	RISCVAddressKind address_kind = RISCVAddressKind::RegisterRelative;
 	uint8_t reg = 0;
 	uint8_t width = 0;
 	RISCVValue value;
 };
 
 struct RISCVInstruction {
+	RISCVInstructionKind kind = RISCVInstructionKind::Native;
 	RISCVOpcode opcode = RISCVOpcode::None;
 	AssemblySignedness signedness = AssemblySignedness::Default;
 	RISCVOperand operands[3];
@@ -48,13 +60,21 @@ struct RISCVInstruction {
 enum class RISCVFixupKind : uint8_t {
 	None,
 	Branch,
-	Jump
+	Jump,
+	PcRelativeHigh,
+	PcRelativeLowI,
+	PcRelativeLowS
 };
 
 struct RISCVEncodingResult {
 	uint32_t encoding = 0;
 	RISCVFixupKind fixup = RISCVFixupKind::None;
 	RISCVValue target;
+};
+
+struct RISCVEncodingSequence {
+	RISCVEncodingResult instructions[10];
+	unsigned count = 0;
 };
 
 class RISCVParser {
@@ -66,9 +86,11 @@ public:
 
 class RISCVEncoder {
 public:
+	static bool Measure(const AssemblySession& session,
+		const RISCVInstruction& instruction, unsigned& count);
 	static bool Encode(const AssemblySession& session,
 		const RISCVInstruction& instruction,
-		int64_t offset, RISCVEncodingResult& result);
+		int64_t offset, RISCVEncodingSequence& result);
 };
 
 }

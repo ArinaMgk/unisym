@@ -45,6 +45,7 @@ RunRISCVChecks()
 	CheckRISCV
 	CheckRISCVELFTarget
 	CheckRISCVRelocation
+	CheckRISCVExpansion
 }
 
 RunCodeendChecks()

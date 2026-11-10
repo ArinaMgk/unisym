@@ -378,3 +378,100 @@ CheckRISCVRelocation()
 	Pass "RISC-V ELF relocations"
 }
 
+CheckRISCVExpansion()
+{
+	RV32Source="$WorkDirectory/riscv-expansion32.asm"
+	RV64Source="$WorkDirectory/riscv-expansion64.asm"
+	RV32Output="$WorkDirectory/riscv-expansion32.bin"
+	RV64Output="$WorkDirectory/riscv-expansion64.bin"
+	ELFSource="$WorkDirectory/riscv-expansion-elf.asm"
+	ELFObject="$WorkDirectory/riscv-expansion-elf.o"
+	ELFRelocations="$WorkDirectory/riscv-expansion-elf.relocations"
+	InvalidSource="$WorkDirectory/riscv-expansion-invalid.asm"
+	InvalidError="$WorkDirectory/riscv-expansion-invalid.stderr"
+	RV32Expected='93 02 70 00 37 53 34 12 13 03 83 67 93 03 f0 ff 17 04 00 00 13 04 84 02 97 04 00 00 83 c4 04 02 17 05 00 00 23 2e 55 00 b7 15 00 00 93 85 45 23 b7 15 00 00 93 85 45 23 00 00 00 00 00 00 00 00'
+	RV64Expected='37 35 12 00 1b 05 65 45 13 15 c5 00 13 05 a5 78 13 15 c5 00 13 05 d5 ab 13 15 c5 00 13 05 f5 de b7 35 12 00 9b 85 65 45 93 95 c5 00 93 85 a5 78 93 95 c5 00 93 85 d5 ab 93 95 c5 00 93 85 f5 de 83 e5 05 00 17 06 00 00 13 06 06 02 97 06 00 00 83 a6 46 01 17 07 00 00 23 38 a7 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00'
+
+	printf '%s\n' \
+		'[BITS 32]' \
+		'SECTION .text' \
+		'MOV x5, 7' \
+		'MOV x6, 0x12345678' \
+		'MOV x7, 0xffffffff' \
+		'MOV x8, target' \
+		'MOV x9, BYTE [target]' \
+		'MOV BYT4 [target + 4], x5, x10' \
+		'TIMES 2 MOV x11, 0x1234' \
+		'target:' \
+		'DD 0' \
+		'DD 0' > "$RV32Source"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'SECTION .text' \
+		'MOV a0, 0x123456789ABCDEF' \
+		'MOV a1, BYT4 [0x123456789ABCDEF]' \
+		'MOV a2, target + 8' \
+		'MOV a3, SIGNED BYT4 [target + 4]' \
+		'MOV BYT8 [target + 8], a0, a4' \
+		'target:' \
+		'DQ 0' \
+		'DQ 0' > "$RV64Source"
+	AssembleSuccess riscv-expansion32 -march=riscv -f bin \
+		-o "$RV32Output" "$RV32Source"
+	AssembleSuccess riscv-expansion64 -march=riscv -f bin \
+		-o "$RV64Output" "$RV64Source"
+	[ "$(NormalizeHex "$RV32Output")" = "$RV32Expected" ] || \
+		Fail "RISC-V 32-bit expansion bytes differ"
+	[ "$(NormalizeHex "$RV64Output")" = "$RV64Expected" ] || \
+		Fail "RISC-V 64-bit expansion bytes differ"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'EXTERN external_data' \
+		'SECTION .text' \
+		'MOV a0, external_data + 8' \
+		'MOV a1, BYT4 [external_data + 12]' \
+		'MOV BYT8 [external_data + 16], a0, a2' \
+		'LW a3, [local_data + 4]' \
+		'SD a1, [local_data + 8], a4' \
+		'SECTION .data' \
+		'local_data:' \
+		'DQ 0' \
+		'DQ 0' > "$ELFSource"
+	AssembleSuccess riscv-expansion-elf -march=riscv -f elf64 \
+		-o "$ELFObject" "$ELFSource"
+	LC_ALL=C readelf -rW "$ELFObject" > "$ELFRelocations"
+	[ "$(grep -c 'R_RISCV_PCREL_HI20' "$ELFRelocations")" -eq 5 ] || \
+		Fail "RISC-V expansion high relocations differ"
+	[ "$(grep -c 'R_RISCV_PCREL_LO12_I' "$ELFRelocations")" -eq 3 ] || \
+		Fail "RISC-V expansion I-type low relocations differ"
+	[ "$(grep -c 'R_RISCV_PCREL_LO12_S' "$ELFRelocations")" -eq 2 ] || \
+		Fail "RISC-V expansion S-type low relocations differ"
+	[ "$(grep -Ec 'R_RISCV_PCREL_LO12_[IS].*\.\.@riscv\.pcrel\..* \+ 0$' \
+		"$ELFRelocations")" -eq 5 ] || \
+		Fail "RISC-V expansion low relocation anchors differ"
+	grep -Eq 'R_RISCV_PCREL_HI20[[:space:]]+.*external_data \+ 8$' \
+		"$ELFRelocations" || Fail "RISC-V MOV address addend differs"
+	grep -Eq 'R_RISCV_PCREL_HI20[[:space:]]+.*external_data \+ c$' \
+		"$ELFRelocations" || Fail "RISC-V load address addend differs"
+	grep -Eq 'R_RISCV_PCREL_HI20[[:space:]]+.*external_data \+ 10$' \
+		"$ELFRelocations" || Fail "RISC-V store address addend differs"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'EXTERN external_data' \
+		'MOV BYT4 [external_data], a0' \
+		'MOV BYT4 [external_data], a0, zero' \
+		'SW a0, [external_data], a0' > "$InvalidSource"
+	AssembleFailure riscv-expansion-invalid -march=riscv -f elf64 \
+		-o "$WorkDirectory/riscv-expansion-invalid.o" "$InvalidSource"
+	InvalidError="$WorkDirectory/riscv-expansion-invalid.stderr"
+	grep -Fq 'expression-address store requires a temporary register' \
+		"$InvalidError" || Fail "RISC-V missing temporary diagnostic differs"
+	grep -Fq 'temporary register cannot be zero' "$InvalidError" || \
+		Fail "RISC-V zero temporary diagnostic differs"
+	grep -Fq 'temporary register overlaps the source' "$InvalidError" || \
+		Fail "RISC-V overlapping temporary diagnostic differs"
+	Pass "RISC-V multi-instruction expansion"
+}
+

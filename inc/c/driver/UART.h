@@ -42,7 +42,7 @@ namespace uni {
 		None, Odd, Even, Mark
 	};
 	enum class UARTStopBit {
-		One, OneHalf, Two
+		Half, One, OneHalf, Two
 	};
 
 	class DMAStream; // forward declaration for UART DMA integration
@@ -105,7 +105,7 @@ namespace uni {
 		bool lock_t = false;
 		#endif
 	protected:
-		#if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x)\
+		#if defined(_MCU_STM32) \
 		|| (defined(_WinNT) || defined(_Linux)) \
 		|| (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000))
 		stduint baudrate = 1;
@@ -130,11 +130,9 @@ namespace uni {
 		UARTCheck parity;
 		#endif
 
-		#if defined(_MCU_STM32H7x)
-		XARTStopBits_E stopbits = XARTStopBits_E::One;
-		#elif (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)) \
+		#if defined(_MCU_STM32H7x) || (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)) \
 		|| (defined(_WinNT) || defined(_Linux))
-		UARTStopBit stopbits;
+		UARTStopBit stopbits = UARTStopBit::One;
 		#endif
 
 		#if defined(_MCU_STM32)
@@ -187,6 +185,12 @@ namespace uni {
 	public:
 		bool sync;
 		#endif
+	public:
+		#if defined(_MCU_STM32) \
+		|| (defined(_WinNT) || defined(_Linux)) \
+		|| (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000))
+		stduint getBaudRate() const { return baudrate; }
+		#endif
 		#ifdef _WinNT
 		HANDLE pHandle;
 		#elif defined(_Linux)
@@ -228,7 +232,7 @@ namespace uni {
 		#elif (defined(_MCCA) && ((_MCCA & 0xFF00) == 0x1000)) \
 		|| (defined(_WinNT) || defined(_Linux))
 		UART_t(PORTNAME_TYPE portname, stduint baudrate = 115200) :
-			baudrate(baudrate), state(false), databits(8), parity(UARTCheck::None), stopbits(UARTStopBit::One)
+			baudrate(baudrate), state(false), databits(8), parity(UARTCheck::None)
 			, portname(portname)
 			, sync(true)
 		{
@@ -282,7 +286,10 @@ namespace uni {
 
 		#if defined(_MCU_STM32H7x)
 		UART_t& setDataBits(stduint bits);
+		UARTCheck getCheck() const;
 		UART_t& setCheck(UARTCheck val);
+		stduint getStopHalfBits() const;
+		// not apply immediately
 		UART_t& setStopBit(UARTStopBit val);
 		#else
 		UART_t& setDataBits(stduint bits) { databits = bits; return self; }
@@ -290,9 +297,20 @@ namespace uni {
 		UART_t& setStopBit(UARTStopBit val) { stopbit = val; return self; }
 		#endif
 		#if defined(_MCU_STM32H7x)
+		WordLength_E getWordLength() const { return wordlen; }
+		stduint getWordLengthBits() {
+			switch (wordlen) {
+			case WordLength_E::Bits7: return 7;
+			case WordLength_E::Bits8: return 8;
+			case WordLength_E::Bits9: return 9;
+			default: return 0;
+			}
+		}
 		UART_t& setWordLength(WordLength_E val) { wordlen = val; return self; }
+		XARTParity_E getParity() const { return parity; }
 		UART_t& setParity(XARTParity_E val) { parity = val; return self; }
-		UART_t& setStopBits(XARTStopBits_E val) { stopbits = val; return self; }
+		UARTStopBit getStopBits() const { return stopbits; }
+		// UART_t& setStopBits(XARTStopBits_E val) { stopbits = val; return self; }
 		UART_t& setHardwareFlowControl(XARTHwFlowCtl_E val) { hwflow = val; return self; }
 		UART_t& setOverSampling8(bool ena = true) { oversampling8 = ena; return self; }
 		UART_t& setOneBitSampling(bool ena = true) { onebit_sampling = ena; return self; }

@@ -233,20 +233,21 @@ bool ParseAddressOperand(char* text, int parse_pass, bool move_operand,
 	TrimEnd(content);
 
 	operand.kind = RISCVOperandKind::Address;
-
 	char* register_end = content;
 	while (isidchar(*register_end)) register_end++;
 	char saved = *register_end;
 	*register_end = '\0';
-	if (!ParseRegister(content, operand.reg)) {
+	if (ParseRegister(content, operand.reg)) {
 		*register_end = saved;
-		return false;
+		operand.address_kind = RISCVAddressKind::RegisterRelative;
+		char* displacement = SkipSpace(register_end);
+		if (!*displacement) return true;
+		if (*displacement != '+' && *displacement != '-') return false;
+		return ParseValue(displacement, parse_pass, operand.value);
 	}
 	*register_end = saved;
-	char* displacement = SkipSpace(register_end);
-	if (!*displacement) return true;
-	if (*displacement != '+' && *displacement != '-') return false;
-	return ParseValue(displacement, parse_pass, operand.value);
+	operand.address_kind = RISCVAddressKind::Expression;
+	return ParseValue(content, parse_pass, operand.value);
 }
 
 unsigned SplitOperands(char* text, char* operands[], unsigned capacity)
@@ -312,6 +313,22 @@ bool RequireAddress(char* text, int parse_pass, bool move_operand,
 	if (ParseAddressOperand(text, parse_pass, move_operand, operand)) return true;
 	aasm_log(_LOG_ERROR, "RISC-V operand %u: address expression expected", number);
 	return false;
+}
+
+bool ValidateStoreTemporary(const RISCVOperand& source,
+	const RISCVOperand& temporary)
+{
+	if (!temporary.reg) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V expression-address store temporary register cannot be zero");
+		return false;
+	}
+	if (temporary.reg == source.reg) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V expression-address store temporary register overlaps the source");
+		return false;
+	}
+	return true;
 }
 
 RISCVOpcode LoadOpcode(unsigned width, bool zero_extend, int bits)
@@ -427,9 +444,10 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 			instruction.operands[1], 1);
 	}
 	if (Equal(mnemonic, "mov")) {
-		if (count != 2) goto bad_count;
+		if (count != 2 && count != 3) goto bad_count;
 		RISCVOperand destination;
 		if (ParseRegisterOperand(operands[0], destination)) {
+			if (count != 2) goto bad_count;
 			RISCVOperand source_operand;
 			if (ParseRegisterOperand(operands[1], source_operand)) {
 				instruction.opcode = RISCVOpcode::Addi;
@@ -439,8 +457,19 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 				instruction.operands[2].kind = RISCVOperandKind::Immediate;
 				return true;
 			}
-			if (!RequireAddress(operands[1], parse_pass, true,
-				source_operand, 2)) return false;
+			if (!ParseAddressOperand(operands[1], parse_pass, true,
+				source_operand)) {
+				if (!ParseImmediateOperand(operands[1], parse_pass, source_operand)) {
+					aasm_log(_LOG_ERROR,
+						"RISC-V operand 2: expression or address expected");
+					return false;
+				}
+				instruction.kind = RISCVInstructionKind::MoveExpression;
+				instruction.operand_count = 2;
+				instruction.operands[0] = destination;
+				instruction.operands[1] = source_operand;
+				return true;
+			}
 			bool unsigned_load =
 				instruction.signedness != AssemblySignedness::Signed;
 			instruction.opcode = LoadOpcode(
@@ -454,8 +483,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 			instruction.operands[1] = source_operand;
 			return true;
 		}
-		if (!RequireAddress(operands[0], parse_pass, true,
-			destination, 1) ||
+		if (!RequireAddress(operands[0], parse_pass, true, destination, 1) ||
 			!RequireRegister(operands[1], instruction.operands[0], 2)) return false;
 		instruction.opcode = StoreOpcode(destination.width);
 		if (instruction.opcode == RISCVOpcode::None) {
@@ -464,6 +492,19 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		}
 		instruction.operand_count = 2;
 		instruction.operands[1] = destination;
+		if (destination.address_kind == RISCVAddressKind::Expression) {
+			if (count != 3) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V expression-address store requires a temporary register");
+				return false;
+			}
+			instruction.operand_count = 3;
+			if (!RequireRegister(operands[2], instruction.operands[2], 3))
+				return false;
+			if (!ValidateStoreTemporary(instruction.operands[0],
+				instruction.operands[2])) return false;
+		}
+		else if (count != 2) goto bad_count;
 		return true;
 	}
 
@@ -521,11 +562,25 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 				instruction.operands[1], 2);
 	}
 	if (info->operands == RISCVOperandForm::RsAddress) {
+		if (count != 2 && count != 3) goto bad_count;
+		instruction.operand_count = count;
+		if (!RequireRegister(operands[0], instruction.operands[0], 1) ||
+			!RequireAddress(operands[1], parse_pass, false,
+				instruction.operands[1], 2)) return false;
+		if (instruction.operands[1].address_kind ==
+			RISCVAddressKind::Expression) {
+			if (count != 3) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V expression-address store requires a temporary register");
+				return false;
+			}
+			if (!RequireRegister(operands[2], instruction.operands[2], 3))
+				return false;
+			return ValidateStoreTemporary(instruction.operands[0],
+				instruction.operands[2]);
+		}
 		if (count != 2) goto bad_count;
-		instruction.operand_count = 2;
-		return RequireRegister(operands[0], instruction.operands[0], 1) &&
-			RequireAddress(operands[1], parse_pass, false,
-				instruction.operands[1], 2);
+		return true;
 	}
 	if (info->operands == RISCVOperandForm::RdRsRsOptional) {
 		if (count != 2 && count != 3) goto bad_count;

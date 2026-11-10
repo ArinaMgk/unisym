@@ -644,7 +644,10 @@ struct elf_known_section {
 		R_RISCV_RELATIVE    =  3,   /* Adjust by program base */
 		R_RISCV_JUMP_SLOT   =  5,   /* PLT slot */
 		R_RISCV_BRANCH      = 16,   /* PC-relative branch */
-		R_RISCV_JAL         = 17    /* PC-relative jump */
+		R_RISCV_JAL         = 17,   /* PC-relative jump */
+		R_RISCV_PCREL_HI20  = 23,   /* PC-relative high 20 bits */
+		R_RISCV_PCREL_LO12_I = 24,  /* PC-relative low 12-bit I field */
+		R_RISCV_PCREL_LO12_S = 25   /* PC-relative low 12-bit S field */
 	};
 
 	// Unified 32-bit dynamic relocation ids for the arch-neutral flat PIE loader

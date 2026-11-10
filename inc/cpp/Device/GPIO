@@ -52,6 +52,7 @@ namespace uni {
 
 	class GeneralPurposeInputOutputPin;
 	class GeneralPurposeInputOutputPort;
+	struct GeneralPurposeInputOutputPortBackend;
 
 #if defined(_MCU_STM32F1x)
 	enum class GPIOReg {
@@ -164,6 +165,8 @@ namespace uni {
 #include "../../c/driver/GPIO/GPIO_MSP432.hpp"
 #endif
 
+#include "_inner/GPIO.def.hpp"
+
 // 20260221's phina: 
 // Shift ID left 8 bits to evade pointer alignment assumptions in Keil O2.
 // Reason: Inheritance (e.g., RuptTrait) forces object alignment. 
@@ -190,6 +193,7 @@ namespace uni {
 		// STM32 GPIO lock is hardware one-way until reset; false cannot unlock it.
 		void Lock(bool tolock_orunlock = true) const;
 		bool isInput() const;
+		bool getState(GPIOPinState& state) const;
 		_COM_DEF_Interrupt_Interface();
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 		SelfGpin setMode(GPIOInterruptTrigger trigger, GPIOInterruptPolarity polarity, Handler_t handler = nullptr) const;
@@ -206,6 +210,7 @@ namespace uni {
 		//! AFRx Register should be set by other device.
 	#endif
 	#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+		stduint getAlternate() const;//{TEMP}
 		bool _set_alternate(byte selection) const;
 	#endif
 	};
@@ -238,7 +243,11 @@ namespace uni {
 	#else
 		stduint getID() const { return (_IMM(this) & ~_IMM(0xFFF)) >> 12; }
 	#endif
-		void enClock(bool enable = true) const;
+	#if defined(_MCU_STM32)
+		stduint getAddress() const;
+		bool isAble() const;
+	#endif
+		void enClock(bool enable = true) const;// enAble
 		operator stduint() const;
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 		constexpr SelfGpin operator[](int pinid) const { return treat<GPIO_Pin>((_IMM(this) & ~_IMM(0xFFFFFF)) + ((_IMM(pinid) & 0xFFFF) << 8)); }
@@ -271,6 +280,7 @@ namespace uni {
 		bool Detach(stduint portid, void* context = nullptr);
 		const GeneralPurposeInputOutputPortBackend* getBackend(stduint portid) const;
 	#endif
+		stduint Count() const;
 		SelfGpor operator[](unsigned portid) const;
 	};
 	extern GeneralPurposeInputOutput GPIO;

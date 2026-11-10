@@ -811,6 +811,48 @@ static void elf_add_reloc(struct Section* sect, int32_t segment, int type,
 	sect->nrelocs++;
 }
 
+static int32_t elf_find_local_reloc_symbol(int32_t segment, int32_t offset)
+{
+	int32_t section = SHN_UNDEF;
+	for (int index = 0; index < nsects; index++)
+		if (segment == sects[index]->index) {
+			section = index + 1;
+			break;
+		}
+	if (section == SHN_UNDEF) return 0;
+
+	int32_t local = 0;
+	struct Symbol* symbol;
+	StrbuffRewind(syms);
+	while ((symbol = (Symbol*)StrbuffEread(syms))) {
+		if (symbol->type & SYM_GLOBAL) continue;
+		if (symbol->section == section && symbol->symv.key == offset)
+			return -(local + 1);
+		local++;
+	}
+	return 0;
+}
+
+static bool elf_add_local_reloc(struct Section* sect, int32_t segment,
+	int32_t offset, int type)
+{
+	int32_t symbol = elf_find_local_reloc_symbol(segment, offset);
+	if (!symbol) {
+		aasm_log(_LOG_PANIC,
+			"RISC-V ELF32 low relocation has no matching local anchor");
+		return false;
+	}
+	struct Reloc* relocation = *sect->tail = malcof(Reloc);
+	sect->tail = &relocation->next;
+	relocation->next = NULL;
+	relocation->address = sect->len;
+	relocation->symbol = symbol;
+	relocation->type = type;
+	relocation->offset = 0;
+	sect->nrelocs++;
+	return true;
+}
+
 static int riscv_reloc_type(const uni::CodeFixup& fixup)
 {
 	if (fixup.kind == uni::CodeFixupKind::Absolute &&
@@ -822,6 +864,16 @@ static int riscv_reloc_type(const uni::CodeFixup& fixup)
 		fixup.kind == uni::CodeFixupKind::Call) &&
 		fixup.encoding.storage_bits == 32 &&
 		fixup.encoding.value_bits == 21) return R_RISCV_JAL;
+	if (fixup.kind == uni::CodeFixupKind::PageRelative &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 20 &&
+		fixup.encoding.bit_offset == 12) return R_RISCV_PCREL_HI20;
+	if (fixup.kind == uni::CodeFixupKind::PageOffset &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 12) {
+		if (fixup.encoding.bit_offset == 20) return R_RISCV_PCREL_LO12_I;
+		if (fixup.encoding.bit_offset == 7) return R_RISCV_PCREL_LO12_S;
+	}
 	return -1;
 }
 
@@ -853,7 +905,11 @@ void elf32_emit_fixup(const uni::CodeFixup& fixup)
 	uint8_t bytes[4];
 	uint8_t* cursor = bytes;
 	WRITELONG(cursor, static_cast<uint32_t>(fixup.initial_value));
-	elf_add_reloc(section, fixup.target_section, type,
+	if (fixup.kind == uni::CodeFixupKind::PageOffset) {
+		if (!elf_add_local_reloc(section, fixup.target_section,
+			static_cast<int32_t>(fixup.addend), type)) return;
+	}
+	else elf_add_reloc(section, fixup.target_section, type,
 		static_cast<int32_t>(fixup.addend));
 	elf_sect_write(section, bytes, sizeof(bytes));
 }
@@ -1508,7 +1564,9 @@ static Strbuff* elf_build_reltab(int32_t* len, struct Reloc* r)
 		 * Create a real symbol index; the +2 refers to the two special
 		 * entries, the null entry and the filename entry.
 		 */
-		if (sym >= GLOBAL_TEMP_BASE)
+		if (sym < 0)
+			sym = nsects + 2 + (-sym - 1);
+		else if (sym >= GLOBAL_TEMP_BASE)
 			sym += global_offset;
 
 		p = entry;

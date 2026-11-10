@@ -240,6 +240,7 @@ namespace uni {
 	}
 
 	bool UART_t::setMode(stduint _baudrate) {
+		baudrate = _baudrate;
 		self[XARTReg::IER] = 0x00;// disable interrupts
 		// Setting baud rate
 		// Some registers have same address. To change what the base address points to,  open the "divisor latch" by writing 1 into the Divisor Latch Access Bit (DLAB), which is bit index 7 of the Line Control Register (LCR).
@@ -634,7 +635,9 @@ namespace uni {
 			self[XARTReg::CR2] |= _IMM(0x2 << 12);
 		else if (stopbit == UARTStopBit::OneHalf)
 			self[XARTReg::CR2] |= _IMM(0x3 << 12);
-		return enAble(true);
+		if (!enAble(true)) return false;
+		self.baudrate = band_rate;
+		return true;
 	}
 	bool UART_t::enAble(bool ena) {
 		self[XARTReg::CR1].setof(0, ena);
@@ -779,6 +782,8 @@ namespace uni {
 	}
 	static XARTStopBits_E xart_stopBitsFromStopBit(UARTStopBit val) {
 		switch (val) {
+		case UARTStopBit::Half:
+			return XARTStopBits_E::Half;
 		case UARTStopBit::Two:
 			return XARTStopBits_E::Two;
 		case UARTStopBit::OneHalf:
@@ -1161,12 +1166,28 @@ namespace uni {
 		wordlen = xart_wordLengthFromDataBits(bits);
 		return self;
 	}
+	UARTCheck UART_t::getCheck() const {
+		switch (parity) {
+		case XARTParity_E::Odd: return UARTCheck::Odd;
+		case XARTParity_E::Even: return UARTCheck::Even;
+		default: return UARTCheck::None;
+		}
+	}
 	UART_t& UART_t::setCheck(UARTCheck val) {
 		parity = xart_parityFromCheck(val);
 		return self;
 	}
+	stduint UART_t::getStopHalfBits() const {
+		switch (stopbits) {
+		case UARTStopBit::Half: return 1;
+		case UARTStopBit::One: return 2;
+		case UARTStopBit::OneHalf: return 3;
+		case UARTStopBit::Two: return 4;
+		default: return 0;
+		}
+	}
 	UART_t& UART_t::setStopBit(UARTStopBit val) {
-		stopbits = xart_stopBitsFromStopBit(val);
+		stopbits = val;
 		return self;
 	}
 	void UART_t::abortTransmit() {
@@ -1218,7 +1239,7 @@ namespace uni {
 			USART_CR1_FIFOEN_REF(cr1) = fifo_mode;
 			self[XARTReg::CR1] = cr1;
 
-			USART_CR2_STOP(self) = _IMM(stopbits) >> 12;
+			USART_CR2_STOP(self) = _IMM(xart_stopBitsFromStopBit(stopbits)) >> 12;
 			self[XARTReg::CR2] &= ~(USART_CR2_LINEN | USART_CR2_CLKEN);
 
 			Reflocal(cr3) = 0;
@@ -1304,6 +1325,7 @@ namespace uni {
 		}
 		// AKA UART_MASK_COMPUTATION
 		mask = xart_mask(wordlen, xart_parityEnable(parity));
+		self.baudrate = band_rate;
 		return mask != 0;
 	}
 
@@ -1338,7 +1360,7 @@ namespace uni {
 		Reflocal(cr2) = self[XARTReg::CR2];
 		cr2 &= ~_IMM(USART_CR2_CPHA | USART_CR2_CPOL | USART_CR2_DIS_NSS |
 			USART_CR2_CLKEN | USART_CR2_LBCL | (0x3U << 12) | USART_CR2_SLVEN | USART_CR2_LINEN);
-		cr2 |= USART_CR2_CLKEN | _IMM(stopbits);
+		cr2 |= USART_CR2_CLKEN | _IMM(xart_stopBitsFromStopBit(stopbits));
 		if (clock_polarity) cr2 |= USART_CR2_CPOL;
 		if (clock_phase) cr2 |= USART_CR2_CPHA;
 		if (lastbit_ena) cr2 |= USART_CR2_LBCL;
@@ -1401,6 +1423,7 @@ namespace uni {
 		}
 		// AKA UART_MASK_COMPUTATION
 		mask = xart_mask(wordlen, parity_enable);
+		self.baudrate = band_rate;
 		return mask != 0;
 	}
 	//
@@ -1439,7 +1462,7 @@ namespace uni {
 		lock_t = false;
 		wordlen = WordLength_E::Bits8;
 		parity = XARTParity_E::None;
-		stopbits = XARTStopBits_E::One;
+		stopbits = UARTStopBit::One;
 		hwflow = XARTHwFlowCtl_E::None;
 		tx_fifo_threshold = XARTFIFOThreshold_E::_1_8;
 		rx_fifo_threshold = XARTFIFOThreshold_E::_1_8;

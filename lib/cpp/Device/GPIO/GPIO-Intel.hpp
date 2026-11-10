@@ -78,6 +78,7 @@ namespace uni {
 		uint32 Revision() const;
 		uint32 PadBase() const;
 		IntelGPIOStatus InspectPin(stduint pin, IntelGPIOPinState& state) const;
+		IntelGPIOStatus getState(stduint pin, GPIOPinState& state) const;
 		IntelGPIOStatus ReadPin(stduint pin, bool& value) const;
 		IntelGPIOStatus WritePin(stduint pin, bool value);
 		IntelGPIOStatus ConfigurePin(stduint pin, GPIOMode mode);

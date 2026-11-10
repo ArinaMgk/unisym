@@ -132,6 +132,27 @@ namespace uni {
 		return IntelGPIOStatus::Success;
 	}
 
+	IntelGPIOStatus IntelGPIOCommunity::getState(stduint pin, GPIOPinState& state) const {
+		state = {};
+		IntelGPIOPinState inspected{};
+		const auto status = InspectPin(pin, inspected);
+		if (status != IntelGPIOStatus::Success) return status;
+		state.valid_fields = GPIOPinStateField_Input | GPIOPinStateField_Output |
+			GPIOPinStateField_Alternate | GPIOPinStateField_Locked | GPIOPinStateField_OutputLocked;
+		state.input_value = inspected.input_value;
+		state.output_value = inspected.output_value;
+		state.locked = inspected.configuration_locked;
+		state.output_locked = inspected.output_locked;
+		state.alternate = uint8((inspected.pad_configuration0 & PadConfiguration0ModeMask) >> 10);
+		const uint32 termination = inspected.pad_configuration1 & PadConfiguration1TerminationMask;
+		if (!termination || termination == PadConfiguration1Termination5K) {
+			state.pull = !termination ? GPIOPull::None :
+				(inspected.pad_configuration1 & PadConfiguration1TerminationUp) ? GPIOPull::Up : GPIOPull::Down;
+			state.valid_fields |= GPIOPinStateField_Pull;
+		}
+		return IntelGPIOStatus::Success;
+	}
+
 	IntelGPIOStatus IntelGPIOCommunity::RequireWritablePin(stduint pin, bool output_only) const {
 		IntelGPIOPinState state{};
 		auto status = InspectOwnership(pin, state);

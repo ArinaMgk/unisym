@@ -166,7 +166,64 @@ namespace uni
 	#endif
 	}
 
+	#if !defined(_MCCA) || ((_MCCA & 0xFF00) != 0x8600)
+	bool GeneralPurposeInputOutputPin::getState(GPIOPinState& state) const {
+		state = {};
+	#if defined(_MCU_STM32H7x)
+		const auto& port = getParent();
+		if (!port.isAble()) return false;
+		// RM0433 GPIO register map: configuration, latch and input registers are read-only here.
+		const stduint pin = getID();
+		const stduint mode = port[GPIOReg::MODER].masof(pin * 2, 2);
+		const stduint pull = port[GPIOReg::PULLS].masof(pin * 2, 2);
+		const bool open_drain = port[GPIOReg::OTYPER].bitof(pin);
+		state.valid_fields = GPIOPinStateField_Input | GPIOPinStateField_Output | GPIOPinStateField_Locked;
+		state.input_value = port[GPIOReg::IDR].bitof(pin);
+		state.output_value = port[GPIOReg::ODR].bitof(pin);
+		const stduint lock = port[GPIOReg::LCKR];
+		state.locked = (lock & (1u << 16)) && (lock & (1u << pin));
+		switch (pull) {
+		case 0: state.pull = GPIOPull::None; break;
+		case 1: state.pull = GPIOPull::Up; break;
+		case 2: state.pull = GPIOPull::Down; break;
+		}
+		if (pull < 3) state.valid_fields |= GPIOPinStateField_Pull;
+		switch (mode) {
+		case 0:
+			if (pull == 3) break;
+			state.mode = pull ? GPIOMode::IN_Pull : GPIOMode::IN_Floating;
+			state.valid_fields |= GPIOPinStateField_Mode;
+			break;
+		case 1:
+			state.mode = open_drain ? GPIOMode::OUT_OpenDrain : GPIOMode::OUT_PushPull;
+			state.valid_fields |= GPIOPinStateField_Mode;
+			break;
+		case 2:
+			state.mode = open_drain ? GPIOMode::OUT_AF_OpenDrain : GPIOMode::OUT_AF_PushPull;
+			state.alternate = uint8(getAlternate());
+			state.valid_fields |= GPIOPinStateField_Mode | GPIOPinStateField_Alternate;
+			break;
+		case 3:
+			state.mode = GPIOMode::IN_Analog;
+			state.valid_fields |= GPIOPinStateField_Mode;
+			break;
+		}
+		if (mode == 1 || mode == 2) {
+			state.speed = GPIOSpeed(port[GPIOReg::SPEED].masof(pin * 2, 2));
+			state.valid_fields |= GPIOPinStateField_Speed;
+		}
+		return true;
+	#else
+		return false;
+	#endif
+	}
+	#endif
+
 #if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+	stduint GeneralPurposeInputOutputPin::getAlternate() const {
+		return getParent()[getID() < 8 ? GPIOReg::AFRL : GPIOReg::AFRH].masof((getID() & 0x7) * 4, 4);
+	}
+
 	// Old Style
 	bool GeneralPurposeInputOutputPin::_set_alternate(byte selection) const {
 	#if 1
@@ -182,6 +239,19 @@ namespace uni
 
 	// ---- ---- ---- ---- GPORT ---- ---- ---- ----
 	GeneralPurposeInputOutput GPIO;
+
+	#if !defined(_MCCA) || ((_MCCA & 0xFF00) != 0x8600)
+	stduint GeneralPurposeInputOutputPort::getAddress() const {
+		const stduint index = getID();
+		return index < numsof(_TAB_ADDR_GPIOx) ? _TAB_ADDR_GPIOx[index] : 0;
+	}
+	#endif
+
+	#if defined(_MCU_STM32H7x)
+	bool GeneralPurposeInputOutputPort::isAble() const {
+		return getAddress() && Reference(_RCC_AHB4ENR_ADDR).bitof(_RCC_AHB4ENR_POSI_ENCLK_GPIOA + getID());
+	}
+	#endif
 
 	void GeneralPurposeInputOutputPort::enClock(bool enable) const {
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
@@ -275,6 +345,14 @@ namespace uni
 
 	// ---- ---- ---- ---- GPIO ---- ---- ---- ----
 	
+	#if !defined(_MCCA) || ((_MCCA & 0xFF00) != 0x8600)
+	stduint GeneralPurposeInputOutput::Count() const {
+		stduint count = 0;
+		for0(index, numsof(_TAB_ADDR_GPIOx)) if (_TAB_ADDR_GPIOx[index]) ++count;
+		return count;
+	}
+	#endif
+
 	const GeneralPurposeInputOutputPort& GeneralPurposeInputOutput::operator[](unsigned portid) const {
 	#if defined(_MCCA) && ((_MCCA & 0xFF00) == 0x8600)
 		return treat<GeneralPurposeInputOutputPort>(_IMM(portid & 0xFFu) << 24);

@@ -46,6 +46,9 @@ RunRISCVChecks()
 	CheckRISCVELFTarget
 	CheckRISCVRelocation
 	CheckRISCVExpansion
+	CheckRISCVExtensions
+	CheckRISCVFloatingCompressedVector
+	CheckRISCVELFMetadata
 }
 
 RunCodeendChecks()

@@ -251,6 +251,9 @@ CheckRISCVRelocation()
 	CrossSection64Object="$WorkDirectory/riscv-cross-section64.o"
 	CrossSection32Relocations="$WorkDirectory/riscv-cross-section32.relocations"
 	CrossSection64Relocations="$WorkDirectory/riscv-cross-section64.relocations"
+	CompressedSource="$WorkDirectory/riscv-compressed-relocation.asm"
+	CompressedObject="$WorkDirectory/riscv-compressed-relocation.o"
+	CompressedRelocations="$WorkDirectory/riscv-compressed-relocation.relocations"
 
 	printf '%s\n' \
 		'[BITS 32]' \
@@ -375,6 +378,22 @@ CheckRISCVRelocation()
 	grep -Eq 'R_RISCV_JAL[[:space:]]+.*\.jump_target \+ 10$' \
 		"$CrossSection64Relocations" || \
 		Fail "RISC-V ELF64 cross-section jump relocation differs"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'[INST ic]' \
+		'EXTERN external_branch' \
+		'EXTERN external_jump' \
+		'SECTION .text' \
+		'C.BEQZ x8, external_branch' \
+		'C.J external_jump' > "$CompressedSource"
+	AssembleSuccess riscv-compressed-relocation -march=riscv -f elf64 \
+		-o "$CompressedObject" "$CompressedSource"
+	LC_ALL=C readelf -rW "$CompressedObject" > "$CompressedRelocations"
+	grep -Fq 'R_RISCV_RVC_BRANCH' "$CompressedRelocations" || \
+		Fail "RISC-V compressed branch relocation differs"
+	grep -Fq 'R_RISCV_RVC_JUMP' "$CompressedRelocations" || \
+		Fail "RISC-V compressed jump relocation differs"
 	Pass "RISC-V ELF relocations"
 }
 
@@ -473,5 +492,239 @@ CheckRISCVExpansion()
 	grep -Fq 'temporary register overlaps the source' "$InvalidError" || \
 		Fail "RISC-V overlapping temporary diagnostic differs"
 	Pass "RISC-V multi-instruction expansion"
+}
+
+CheckRISCVExtensions()
+{
+	CPUSource="$WorkDirectory/riscv-extensions-cpu.asm"
+	INSTSource="$WorkDirectory/riscv-extensions-inst.asm"
+	CPUOutput="$WorkDirectory/riscv-extensions-cpu.bin"
+	INSTOutput="$WorkDirectory/riscv-extensions-inst.bin"
+	RV32Source="$WorkDirectory/riscv-extensions-rv32.asm"
+	RV32Output="$WorkDirectory/riscv-extensions-rv32.bin"
+	RV32InvalidSource="$WorkDirectory/riscv-extensions-rv32-invalid.asm"
+	DisabledSource="$WorkDirectory/riscv-extensions-disabled.asm"
+	FormsSource="$WorkDirectory/riscv-extensions-forms.asm"
+	CSRSource="$WorkDirectory/riscv-extensions-csr.asm"
+	OrderSource="$WorkDirectory/riscv-extensions-order.asm"
+	Expected='33 85 c5 02 b3 56 f7 02 3b 68 18 03 73 95 05 30 73 e6 5f 30 f3 16 f7 3e 73 00 20 30 73 00 20 10 73 00 50 10 73 00 00 12 73 00 b5 12 2f a5 05 14 2f 35 b6 1a 2f 25 b6 86 2f 35 b6 e0'
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[CPU ima_zicsr]' \
+		'MUL a0, a1, a2' \
+		'DIV UNSIGNED a3, a4, a5' \
+		'REMW a6, a7' \
+		'CSRRW a0, mstatus, a1' \
+		'CSRRSI a2, mtvec, 31' \
+		'CSRRW a3, pmpaddr63, a4' \
+		'MRET' \
+		'SRET' \
+		'WFI' \
+		'SFENCE.VMA' \
+		'SFENCE.VMA a0, a1' \
+		'LR.W AQ a0, [a1]' \
+		'SC.D RL a0, a1, [a2]' \
+		'AQ RL AMOMIN.W a0, a1, [a2]' \
+		'AMOMAX.D UNSIGNED a0, a1, [a2]' > "$CPUSource"
+	sed 's/\[CPU ima_zicsr\]/[INST ima_zicsr]/' "$CPUSource" > "$INSTSource"
+	AssembleSuccess riscv-extensions-cpu -f bin -o "$CPUOutput" "$CPUSource"
+	AssembleSuccess riscv-extensions-inst -f bin -o "$INSTOutput" "$INSTSource"
+	[ "$(NormalizeHex "$CPUOutput")" = "$Expected" ] || \
+		Fail "RISC-V extension bytes differ"
+	cmp -s "$CPUOutput" "$INSTOutput" || \
+		Fail "RISC-V CPU and INST selections differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST ima_zicsr]' \
+		'MUL x5, x6, x7' \
+		'DIVU x8, x9, x10' \
+		'CSRRW x11, mstatus, x12' \
+		'AQ RL AMOADD.W x13, x14, [x15]' > "$RV32Source"
+	AssembleSuccess riscv-extensions-rv32 -f bin \
+		-o "$RV32Output" "$RV32Source"
+	[ "$(NormalizeHex "$RV32Output")" = \
+		'b3 02 73 02 33 d4 a4 02 f3 15 06 30 af a6 e7 06' ] || \
+		Fail "RISC-V RV32 extension bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST ima]' \
+		'MULW x5, x6, x7' \
+		'LR.D x5, [x6]' > "$RV32InvalidSource"
+	AssembleFailure riscv-extensions-rv32-invalid -f bin \
+		-o "$WorkDirectory/riscv-extensions-rv32-invalid.bin" \
+		"$RV32InvalidSource"
+	[ "$(grep -Fc 'not available in the current bit mode' \
+		"$WorkDirectory/riscv-extensions-rv32-invalid.stderr")" -eq 2 ] || \
+		Fail "RISC-V RV32 extension diagnostics differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i]' \
+		'MUL a0, a1, a2' \
+		'CSRRW a0, mstatus, a1' \
+		'LR.W a0, [a1]' > "$DisabledSource"
+	AssembleFailure riscv-extensions-disabled -f bin \
+		-o "$WorkDirectory/riscv-extensions-disabled.bin" "$DisabledSource"
+	[ "$(grep -Fc 'is disabled by the current instruction set' \
+		"$WorkDirectory/riscv-extensions-disabled.stderr")" -eq 3 ] || \
+		Fail "RISC-V disabled-extension diagnostics differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST ima_zicsr]' \
+		'LR.W a0, [a1 + 4]' \
+		'SC.W a0, a1, [target]' \
+		'AQ ADD a0, a1, a2' \
+		'target:' \
+		'DD 0' > "$FormsSource"
+	AssembleFailure riscv-extensions-forms -f bin \
+		-o "$WorkDirectory/riscv-extensions-forms.bin" "$FormsSource"
+	[ "$(grep -Fc 'atomic register address expected' \
+		"$WorkDirectory/riscv-extensions-forms.stderr")" -eq 2 ] || \
+		Fail "RISC-V atomic-address diagnostics differ"
+	grep -Fq 'does not support atomic ordering qualifiers' \
+		"$WorkDirectory/riscv-extensions-forms.stderr" || \
+		Fail "RISC-V atomic-ordering diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i_zicsr]' \
+		'CSRRWI a0, mstatus, 32' > "$CSRSource"
+	AssembleFailure riscv-extensions-csr -f bin \
+		-o "$WorkDirectory/riscv-extensions-csr.bin" "$CSRSource"
+	grep -Fq 'CSR immediate is outside the 5-bit range' \
+		"$WorkDirectory/riscv-extensions-csr.stderr" || \
+		Fail "RISC-V CSR immediate diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST iam]' \
+		'ADD a0, a1, a2' > "$OrderSource"
+	AssembleFailure riscv-extensions-order -f bin \
+		-o "$WorkDirectory/riscv-extensions-order.bin" "$OrderSource"
+	grep -Fq "unknown 'cpu' type" \
+		"$WorkDirectory/riscv-extensions-order.stderr" || \
+		Fail "RISC-V extension-order diagnostic differs"
+	Pass "RISC-V instruction-set extensions"
+}
+
+CheckRISCVFloatingCompressedVector()
+{
+	Source="$WorkDirectory/riscv-fdcv.asm"
+	Output="$WorkDirectory/riscv-fdcv.bin"
+	DisabledSource="$WorkDirectory/riscv-fdcv-disabled.asm"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST imafdcv]' \
+		'FADD.S f5, f6, f7, rtz' \
+		'FSGNJ.D f8, f9, f10' \
+		'FCVT.D.S f30, f31' \
+		'C.NOP' \
+		'NOP' \
+		'C.LW x8, [x9 + 68]' \
+		'VSETVLI x5, x6, e32, m4, ta, mu' \
+		'VADD.VV v4, v5, v6, v0.t' \
+		'VLE32.V v21, [x22]' > "$Source"
+	AssembleSuccess riscv-fdcv -f bin -o "$Output" "$Source"
+	[ "$(NormalizeHex "$Output")" = \
+		'd3 12 73 00 53 84 a4 22 53 8f 0f 42 01 00 13 00 00 00 e0 40 d7 72 23 05 57 02 53 00 87 6a 0b 02' ] || \
+		Fail "RISC-V F/D/C/V bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i]' \
+		'FADD.S f1, f2, f3' \
+		'C.NOP' \
+		'VADD.VV v1, v2, v3' > "$DisabledSource"
+	AssembleFailure riscv-fdcv-disabled -f bin \
+		-o "$WorkDirectory/riscv-fdcv-disabled.bin" "$DisabledSource"
+	[ "$(grep -Fc 'is disabled by the current instruction set' \
+		"$WorkDirectory/riscv-fdcv-disabled.stderr")" -eq 3 ] || \
+		Fail "RISC-V F/D/C/V extension diagnostics differ"
+	Pass "RISC-V floating-point, compressed, and vector encoding"
+}
+
+CheckRISCVELFMetadata()
+{
+	RV32Source="$WorkDirectory/riscv-metadata32.asm"
+	RV64Source="$WorkDirectory/riscv-metadata64.asm"
+	RV32Object="$WorkDirectory/riscv-metadata32.o"
+	RV64Object="$WorkDirectory/riscv-metadata64.o"
+	InvalidSource="$WorkDirectory/riscv-abi-invalid.asm"
+	ConflictSource="$WorkDirectory/riscv-abi-conflict.asm"
+
+	printf '%s\n' \
+		'[BITS 32]' \
+		'[INST imafdcv]' \
+		'[ABI ilp32d]' \
+		'SECTION .text' \
+		'C.NOP' > "$RV32Source"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'[INST imafdcv]' \
+		'[ABI lp64d]' \
+		'SECTION .text' \
+		'C.NOP' > "$RV64Source"
+	AssembleSuccess riscv-metadata32 -march=riscv -f elf32 \
+		-o "$RV32Object" "$RV32Source"
+	AssembleSuccess riscv-metadata64 -march=riscv -f elf64 \
+		-o "$RV64Object" "$RV64Source"
+	LC_ALL=C readelf -hW "$RV32Object" > "$WorkDirectory/riscv-metadata32.header"
+	LC_ALL=C readelf -hW "$RV64Object" > "$WorkDirectory/riscv-metadata64.header"
+	LC_ALL=C readelf -A "$RV32Object" > "$WorkDirectory/riscv-metadata32.attributes"
+	LC_ALL=C readelf -A "$RV64Object" > "$WorkDirectory/riscv-metadata64.attributes"
+	grep -Fq 'Flags:                             0x5, RVC, double-float ABI' \
+		"$WorkDirectory/riscv-metadata32.header" || \
+		Fail "RISC-V ELF32 target flags differ"
+	grep -Fq 'Flags:                             0x5, RVC, double-float ABI' \
+		"$WorkDirectory/riscv-metadata64.header" || \
+		Fail "RISC-V ELF64 target flags differ"
+	grep -Fq 'Tag_RISCV_stack_align: 16-bytes' \
+		"$WorkDirectory/riscv-metadata32.attributes" || \
+		Fail "RISC-V ELF32 stack alignment attribute differs"
+	grep -Fq 'Tag_RISCV_arch: "rv32i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_v1p0' \
+		"$WorkDirectory/riscv-metadata32.attributes" || \
+		Fail "RISC-V ELF32 architecture attribute differs"
+	grep -Fq 'Tag_RISCV_arch: "rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_v1p0' \
+		"$WorkDirectory/riscv-metadata64.attributes" || \
+		Fail "RISC-V ELF64 architecture attribute differs"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'[INST i]' \
+		'[ABI lp64d]' \
+		'NOP' > "$InvalidSource"
+	AssembleFailure riscv-abi-invalid -march=riscv -f bin \
+		-o "$WorkDirectory/riscv-abi-invalid.bin" "$InvalidSource"
+	grep -Fq 'abi is incompatible with the current architecture, bit width, or instruction set' \
+		"$WorkDirectory/riscv-abi-invalid.stderr" || \
+		Fail "RISC-V ABI compatibility diagnostic differs"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'[INST imafd]' \
+		'[ABI lp64f]' \
+		'NOP' \
+		'[ABI lp64d]' \
+		'NOP' > "$ConflictSource"
+	AssembleFailure riscv-abi-conflict -march=riscv -f elf64 \
+		-o "$WorkDirectory/riscv-abi-conflict.o" "$ConflictSource"
+	grep -Fq 'RISC-V ELF output cannot contain multiple ABI selections' \
+		"$WorkDirectory/riscv-abi-conflict.stderr" || \
+		Fail "RISC-V ELF ABI conflict diagnostic differs"
+	Pass "RISC-V ELF ABI and attributes"
 }
 

@@ -58,6 +58,24 @@ public:
 	virtual uint32_t DefaultCpu() const = 0;
 	virtual bool ParseCpu(const char* name, uint32_t& cpu) const = 0;
 	virtual bool ValidateBits(int bits, uint32_t cpu) const = 0;
+	virtual uint32_t DefaultAbi(int bits, uint32_t cpu) const
+	{
+		(void)bits;
+		(void)cpu;
+		return 0;
+	}
+	virtual bool ParseAbi(const char* name, uint32_t& abi) const
+	{
+		(void)name;
+		(void)abi;
+		return false;
+	}
+	virtual bool ValidateAbi(int bits, uint32_t cpu, uint32_t abi) const
+	{
+		(void)bits;
+		(void)cpu;
+		return abi == 0;
+	}
 	virtual bool ProcessDefault(char* value) const = 0;
 	virtual void Initialize(AssemblySession& session) = 0;
 	virtual void BeginPass(AssemblySession& session,

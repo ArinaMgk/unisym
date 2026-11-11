@@ -7,6 +7,8 @@
 
 void elf32_set_architecture(uni::lango::ArchitectureKind architecture);
 void elf64_set_architecture(uni::lango::ArchitectureKind architecture);
+void elf32_configure_target(const uni::lango::AssemblyTargetProfile& target);
+void elf64_configure_target(const uni::lango::AssemblyTargetProfile& target);
 void elf32_emit_fixup(const uni::CodeFixup& fixup);
 void elf64_emit_fixup(const uni::CodeFixup& fixup);
 
@@ -86,6 +88,15 @@ public:
 			elf64_set_architecture(architecture);
 		Driver->init(output,
 			static_cast<ldfunc>(&Labelsys::Define), eval_evaluate);
+	}
+
+	virtual void ConfigureTarget(
+		const uni::lango::AssemblyTargetProfile& target) override
+	{
+		if (Driver == &of_elf32 || Driver == &of_elf)
+			elf32_configure_target(target);
+		else if (Driver == &of_elf64)
+			elf64_configure_target(target);
 	}
 
 	virtual void InitializeDebug(FILE* output) override

@@ -5,6 +5,7 @@
 
 #include "../../../../../asm/inc/aasm.h"
 #include "../../../../../inc/cpp/Lango/Archend/riscv/Instruction-riscv.hpp"
+#include "../../../../../inc/cpp/Lango/Archend/riscv/Vector-riscv.hpp"
 
 namespace uni::lango {
 
@@ -39,35 +40,11 @@ bool IsAlias(const char* name)
 
 bool ParseRegister(const char* text, uint8_t& reg)
 {
-	if ((text[0] == 'x' || text[0] == 'X') && text[1]) {
-		char* end;
-		long number = strtol(text + 1, &end, 10);
-		if (!*end && number >= 0 && number <= 31) {
-			reg = static_cast<uint8_t>(number);
-			return true;
-		}
-	}
-	struct RegisterEntry {
-		const char* name;
-		uint8_t number;
-	};
-	static const RegisterEntry registers[] = {
-		{"zero", 0}, {"ra", 1}, {"sp", 2}, {"gp", 3}, {"tp", 4},
-		{"t0", 5}, {"t1", 6}, {"t2", 7}, {"s0", 8}, {"fp", 8},
-		{"s1", 9}, {"a0", 10}, {"a1", 11}, {"a2", 12}, {"a3", 13},
-		{"a4", 14}, {"a5", 15}, {"a6", 16}, {"a7", 17},
-		{"s2", 18}, {"s3", 19}, {"s4", 20}, {"s5", 21},
-		{"s6", 22}, {"s7", 23}, {"s8", 24}, {"s9", 25},
-		{"s10", 26}, {"s11", 27}, {"t3", 28}, {"t4", 29},
-		{"t5", 30}, {"t6", 31}
-	};
-	for (const RegisterEntry& entry : registers) {
-		if (Equal(text, entry.name)) {
-			reg = entry.number;
-			return true;
-		}
-	}
-	return false;
+	RISCVRegister parsed;
+	if (!ParseRISCVRegister(text, parsed) ||
+		parsed.kind != RISCVRegisterClass::Integer) return false;
+	reg = parsed.index;
+	return true;
 }
 
 bool ParseValue(char* text, int parse_pass, RISCVValue& result)
@@ -173,6 +150,65 @@ bool ExtractSignedness(char* source, AssemblySignedness& signedness)
 	return true;
 }
 
+bool ExtractAtomicOrdering(char* source, RISCVAtomicOrdering& ordering)
+{
+	unsigned brackets = 0;
+	for (char* cursor = source; *cursor && *cursor != ';';) {
+		if (*cursor == '[') {
+			brackets++;
+			cursor++;
+			continue;
+		}
+		if (*cursor == ']') {
+			if (brackets) brackets--;
+			cursor++;
+			continue;
+		}
+		if (brackets || !isidchar(*cursor)) {
+			cursor++;
+			continue;
+		}
+		char* start = cursor;
+		while (isidchar(*cursor)) cursor++;
+		size_t length = cursor - start;
+		RISCVAtomicOrdering value = RISCVAtomicOrdering::None;
+		if (length == 2 && ascii_tolower(start[0]) == 'a' &&
+			ascii_tolower(start[1]) == 'q')
+			value = RISCVAtomicOrdering::Acquire;
+		else if (length == 2 && ascii_tolower(start[0]) == 'r' &&
+			ascii_tolower(start[1]) == 'l')
+			value = RISCVAtomicOrdering::Release;
+		if (value == RISCVAtomicOrdering::None) continue;
+		if ((static_cast<uint8_t>(ordering) & static_cast<uint8_t>(value))) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V instruction has duplicate atomic ordering qualifiers");
+			return false;
+		}
+		ordering = static_cast<RISCVAtomicOrdering>(
+			static_cast<uint8_t>(ordering) | static_cast<uint8_t>(value));
+		while (start != cursor) *start++ = ' ';
+	}
+	return true;
+}
+
+bool ExtractRoundingMode(char* source, RISCVRoundingMode& rounding,
+	bool& specified)
+{
+	char* start = SkipSpace(source);
+	char* cursor = start;
+	while (isidchar(*cursor)) cursor++;
+	char saved = *cursor;
+	*cursor = '\0';
+	RISCVRoundingMode value;
+	bool matched = ParseRISCVRoundingMode(start, value);
+	*cursor = saved;
+	if (!matched) return true;
+	rounding = value;
+	specified = true;
+	while (start != cursor) *start++ = ' ';
+	return true;
+}
+
 bool ParseRegisterOperand(char* text, RISCVOperand& operand)
 {
 	text = SkipSpace(text);
@@ -184,10 +220,40 @@ bool ParseRegisterOperand(char* text, RISCVOperand& operand)
 	return true;
 }
 
+bool ParseTypedRegisterOperand(char* text, RISCVRegisterClass kind,
+	RISCVOperand& operand)
+{
+	text = SkipSpace(text);
+	TrimEnd(text);
+	RISCVRegister reg;
+	if (!ParseRISCVRegister(text, reg) || reg.kind != kind) return false;
+	operand.kind = RISCVOperandKind::Register;
+	operand.reg = reg.index;
+	operand.reg_class = reg.kind;
+	return true;
+}
+
 bool ParseImmediateOperand(char* text, int parse_pass, RISCVOperand& operand)
 {
 	operand.kind = RISCVOperandKind::Immediate;
 	return ParseValue(text, parse_pass, operand.value);
+}
+
+bool ParseCSROperand(char* text, int parse_pass, RISCVOperand& operand)
+{
+	text = SkipSpace(text);
+	TrimEnd(text);
+	uint16_t csr;
+	if (!ParseRISCVCSR(text, csr)) {
+		RISCVValue value;
+		if (!ParseValue(text, parse_pass, value) || value.unknown ||
+			value.external || value.section != NO_SEG || value.wrt != NO_SEG ||
+			value.offset < 0 || value.offset > 0xfff) return false;
+		csr = static_cast<uint16_t>(value.offset);
+	}
+	operand.kind = RISCVOperandKind::CSR;
+	operand.value.offset = csr;
+	return true;
 }
 
 bool ParseTargetOperand(char* text, int parse_pass, RISCVOperand& operand)
@@ -250,6 +316,23 @@ bool ParseAddressOperand(char* text, int parse_pass, bool move_operand,
 	return ParseValue(content, parse_pass, operand.value);
 }
 
+bool ParseAtomicAddressOperand(char* text, RISCVOperand& operand)
+{
+	text = SkipSpace(text);
+	TrimEnd(text);
+	size_t length = StrLength(text);
+	if (length < 3 || text[0] != '[' || text[length - 1] != ']') return false;
+	text[length - 1] = '\0';
+	char* content = SkipSpace(text + 1);
+	TrimEnd(content);
+	uint8_t reg;
+	if (!ParseRegister(content, reg)) return false;
+	operand.kind = RISCVOperandKind::Address;
+	operand.address_kind = RISCVAddressKind::RegisterRelative;
+	operand.reg = reg;
+	return true;
+}
+
 unsigned SplitOperands(char* text, char* operands[], unsigned capacity)
 {
 	text = SkipSpace(text);
@@ -282,11 +365,37 @@ bool RequireRegister(char* text, RISCVOperand& operand, unsigned number)
 	return false;
 }
 
+bool RequireTypedRegister(char* text, RISCVRegisterClass kind,
+	RISCVOperand& operand, unsigned number)
+{
+	if (ParseTypedRegisterOperand(text, kind, operand)) return true;
+	const char* name = kind == RISCVRegisterClass::Float ? "floating-point" :
+		kind == RISCVRegisterClass::Vector ? "vector" : "integer";
+	aasm_log(_LOG_ERROR, "RISC-V operand %u: %s register expected", number, name);
+	return false;
+}
+
 bool RequireImmediate(char* text, int parse_pass,
 	RISCVOperand& operand, unsigned number)
 {
 	if (ParseImmediateOperand(text, parse_pass, operand)) return true;
 	aasm_log(_LOG_ERROR, "RISC-V operand %u: immediate expression expected", number);
+	return false;
+}
+
+bool RequireCSR(char* text, int parse_pass,
+	RISCVOperand& operand, unsigned number)
+{
+	if (ParseCSROperand(text, parse_pass, operand)) return true;
+	aasm_log(_LOG_ERROR, "RISC-V operand %u: CSR name or number expected", number);
+	return false;
+}
+
+bool RequireAtomicAddress(char* text, RISCVOperand& operand, unsigned number)
+{
+	if (ParseAtomicAddressOperand(text, operand)) return true;
+	aasm_log(_LOG_ERROR,
+		"RISC-V operand %u: atomic register address expected", number);
 	return false;
 }
 
@@ -371,32 +480,99 @@ bool ApplySignedness(RISCVInstruction& instruction, int bits)
 	return true;
 }
 
+bool SupportsExtensions(const AssemblySession& session,
+	const RISCVInstructionInfo& instruction)
+{
+	return (session.CurrentCpu & instruction.required_extensions) ==
+		instruction.required_extensions;
+}
+
+bool IsAtomicFormat(RISCVEncodingFormat format)
+{
+	return format == RISCVEncodingFormat::AtomicLoad ||
+		format == RISCVEncodingFormat::Atomic;
+}
+
+bool InstructionUsesRounding(const RISCVInstructionInfo& info)
+{
+	if (info.format == RISCVEncodingFormat::FloatUnary ||
+		info.format == RISCVEncodingFormat::FloatConvertToInteger ||
+		info.format == RISCVEncodingFormat::FloatConvertFromInteger ||
+		info.format == RISCVEncodingFormat::FloatFused) return true;
+	if (info.format == RISCVEncodingFormat::FloatConvertFormat)
+		return info.opcode == RISCVOpcode::FcvtSD;
+	if (info.format != RISCVEncodingFormat::FloatRegister) return false;
+	switch (info.opcode) {
+	case RISCVOpcode::FaddS: case RISCVOpcode::FsubS:
+	case RISCVOpcode::FmulS: case RISCVOpcode::FdivS:
+	case RISCVOpcode::FaddD: case RISCVOpcode::FsubD:
+	case RISCVOpcode::FmulD: case RISCVOpcode::FdivD:
+		return true;
+	default: return false;
+	}
+}
+
+bool ParseRoundingOperand(char* text, RISCVInstruction& instruction,
+	bool& specified)
+{
+	text = SkipSpace(text);
+	TrimEnd(text);
+	RISCVRoundingMode value;
+	if (!ParseRISCVRoundingMode(text, value)) return false;
+	if (specified) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V instruction has multiple rounding-mode qualifiers");
+		return false;
+	}
+	instruction.rounding = value;
+	specified = true;
+	return true;
+}
+
 }
 
 bool RISCVParser::IsInstructionStart(const char* word)
 {
 	return FindRISCVInstruction(word) || IsAlias(word) ||
-		Equal(word, "signed") || Equal(word, "unsigned");
+		Equal(word, "signed") || Equal(word, "unsigned") ||
+		Equal(word, "aq") || Equal(word, "rl") ||
+		Equal(word, "rne") || Equal(word, "rtz") || Equal(word, "rdn") ||
+		Equal(word, "rup") || Equal(word, "rmm") || Equal(word, "dyn");
 }
 
 bool RISCVParser::Parse(AssemblySession& session, char* source,
 	int parse_pass, RISCVInstruction& instruction)
 {
 	if (!ExtractSignedness(source, instruction.signedness)) return false;
+	if (!ExtractAtomicOrdering(source, instruction.atomic_ordering)) return false;
+	bool rounding_specified = false;
+	if (!ExtractRoundingMode(source, instruction.rounding,
+		rounding_specified)) return false;
 	source = SkipSpace(source);
 	char* mnemonic_end = source;
 	while (isidchar(*mnemonic_end)) mnemonic_end++;
 	char saved = *mnemonic_end;
 	*mnemonic_end = '\0';
-	char mnemonic[16];
+	char mnemonic[32];
 	StrCopyN(mnemonic, source, sizeof(mnemonic));
 	*mnemonic_end = saved;
 	char* operand_text = SkipSpace(mnemonic_end);
-	char* operands[3];
+	char* operands[8];
 	const RISCVInstructionInfo* info = nullptr;
 	unsigned count = SplitOperands(operand_text, operands, numsof(operands));
 	if (count > numsof(operands)) {
 		aasm_log(_LOG_ERROR, "RISC-V: invalid operand list");
+		return false;
+	}
+	if (instruction.atomic_ordering != RISCVAtomicOrdering::None &&
+		IsAlias(mnemonic)) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V instruction does not support atomic ordering qualifiers");
+		return false;
+	}
+	if (rounding_specified && IsAlias(mnemonic)) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V instruction does not support a rounding-mode qualifier");
 		return false;
 	}
 
@@ -516,6 +692,23 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 	instruction.opcode = info->opcode;
 	if (!ApplySignedness(instruction, session.CurrentBits)) return false;
 	info = &DumpRISCVInstruction(instruction.opcode);
+	if (!SupportsExtensions(session, *info)) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V instruction `%s' is disabled by the current instruction set",
+			info->name);
+		return false;
+	}
+	if (instruction.atomic_ordering != RISCVAtomicOrdering::None &&
+		!IsAtomicFormat(info->format)) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V instruction does not support atomic ordering qualifiers");
+		return false;
+	}
+	if (rounding_specified && !InstructionUsesRounding(*info)) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V instruction does not support a rounding-mode qualifier");
+		return false;
+	}
 	if (info->operands == RISCVOperandForm::None) {
 		if (count) goto bad_count;
 		return true;
@@ -604,6 +797,196 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		}
 		return RequireRegister(operands[1], instruction.operands[1], 2) &&
 			RequireImmediate(operands[2], parse_pass, instruction.operands[2], 3);
+	}
+	if (info->operands == RISCVOperandForm::RdCsrRs) {
+		if (count != 3) goto bad_count;
+		instruction.operand_count = 3;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireCSR(operands[1], parse_pass, instruction.operands[1], 2) &&
+			RequireRegister(operands[2], instruction.operands[2], 3);
+	}
+	if (info->operands == RISCVOperandForm::RdCsrImmediate) {
+		if (count != 3) goto bad_count;
+		instruction.operand_count = 3;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireCSR(operands[1], parse_pass, instruction.operands[1], 2) &&
+			RequireImmediate(operands[2], parse_pass, instruction.operands[2], 3);
+	}
+	if (info->operands == RISCVOperandForm::RdAtomicAddress) {
+		if (count != 2) goto bad_count;
+		instruction.operand_count = 2;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireAtomicAddress(operands[1], instruction.operands[1], 2);
+	}
+	if (info->operands == RISCVOperandForm::RdRsAtomicAddress) {
+		if (count != 3) goto bad_count;
+		instruction.operand_count = 3;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2) &&
+			RequireAtomicAddress(operands[2], instruction.operands[2], 3);
+	}
+	if (info->operands == RISCVOperandForm::RsRsOptional) {
+		if (count != 0 && count != 2) goto bad_count;
+		instruction.operand_count = 2;
+		if (!count) {
+			instruction.operands[0].kind = RISCVOperandKind::Register;
+			instruction.operands[1].kind = RISCVOperandKind::Register;
+			return true;
+		}
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2);
+	}
+	if (info->operands == RISCVOperandForm::FdAddress ||
+		info->operands == RISCVOperandForm::FsAddress) {
+		if (count != 2 && count != 3) goto bad_count;
+		instruction.operand_count = count;
+		if (!RequireTypedRegister(operands[0], RISCVRegisterClass::Float,
+			instruction.operands[0], 1) ||
+			!RequireAddress(operands[1], parse_pass, false,
+				instruction.operands[1], 2)) return false;
+		if (instruction.operands[1].address_kind == RISCVAddressKind::Expression) {
+			if (count != 3) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V floating expression address requires a temporary integer register");
+				return false;
+			}
+			return RequireRegister(operands[2], instruction.operands[2], 3);
+		}
+		if (count != 2) goto bad_count;
+		return true;
+	}
+	if (info->operands == RISCVOperandForm::FdFsFs ||
+		info->operands == RISCVOperandForm::RdFsFs) {
+		unsigned base_count = 3;
+		if (count != base_count && count != base_count + 1) goto bad_count;
+		instruction.operand_count = 3;
+		RISCVRegisterClass destination = info->operands == RISCVOperandForm::FdFsFs ?
+			RISCVRegisterClass::Float : RISCVRegisterClass::Integer;
+		if (!RequireTypedRegister(operands[0], destination,
+			instruction.operands[0], 1) ||
+			!RequireTypedRegister(operands[1], RISCVRegisterClass::Float,
+				instruction.operands[1], 2) ||
+			!RequireTypedRegister(operands[2], RISCVRegisterClass::Float,
+				instruction.operands[2], 3)) return false;
+		if (count == 4 && (!InstructionUsesRounding(*info) ||
+			!ParseRoundingOperand(operands[3], instruction,
+			rounding_specified))) goto bad_count;
+		return true;
+	}
+	if (info->operands == RISCVOperandForm::FdFs ||
+		info->operands == RISCVOperandForm::RdFs ||
+		info->operands == RISCVOperandForm::FdRs) {
+		if (count != 2 && count != 3) goto bad_count;
+		instruction.operand_count = 2;
+		RISCVRegisterClass destination = info->operands == RISCVOperandForm::RdFs ?
+			RISCVRegisterClass::Integer : RISCVRegisterClass::Float;
+		RISCVRegisterClass source_class = info->operands == RISCVOperandForm::FdRs ?
+			RISCVRegisterClass::Integer : RISCVRegisterClass::Float;
+		if (!RequireTypedRegister(operands[0], destination,
+			instruction.operands[0], 1) ||
+			!RequireTypedRegister(operands[1], source_class,
+				instruction.operands[1], 2)) return false;
+		if (count == 3 && (!InstructionUsesRounding(*info) ||
+			!ParseRoundingOperand(operands[2], instruction,
+				rounding_specified))) goto bad_count;
+		return true;
+	}
+	if (info->operands == RISCVOperandForm::FdFsFsFs) {
+		if (count != 4 && count != 5) goto bad_count;
+		instruction.operand_count = 4;
+		for (unsigned index = 0; index < 4; index++)
+			if (!RequireTypedRegister(operands[index], RISCVRegisterClass::Float,
+				instruction.operands[index], index + 1)) return false;
+		if (count == 5 && (!InstructionUsesRounding(*info) ||
+			!ParseRoundingOperand(operands[4], instruction,
+				rounding_specified))) goto bad_count;
+		return true;
+	}
+	if (info->operands == RISCVOperandForm::VdVsVs ||
+		info->operands == RISCVOperandForm::VdVsRs ||
+		info->operands == RISCVOperandForm::VdVsImmediate) {
+		if (count != 3 && count != 4) goto bad_count;
+		instruction.operand_count = 3;
+		if (!RequireTypedRegister(operands[0], RISCVRegisterClass::Vector,
+			instruction.operands[0], 1) ||
+			!RequireTypedRegister(operands[1], RISCVRegisterClass::Vector,
+				instruction.operands[1], 2)) return false;
+		if (info->operands == RISCVOperandForm::VdVsVs) {
+			if (!RequireTypedRegister(operands[2], RISCVRegisterClass::Vector,
+				instruction.operands[2], 3)) return false;
+		}
+		else if (info->operands == RISCVOperandForm::VdVsRs) {
+			if (!RequireRegister(operands[2], instruction.operands[2], 3)) return false;
+		}
+		else if (!RequireImmediate(operands[2], parse_pass,
+			instruction.operands[2], 3)) return false;
+		if (count == 4 && !ParseRISCVVectorMask(operands[3], instruction.masked))
+			goto bad_count;
+		return true;
+	}
+	if (info->operands == RISCVOperandForm::RdRsVtype ||
+		info->operands == RISCVOperandForm::RdImmediateVtype) {
+		if (count < 4 || count > 6) goto bad_count;
+		instruction.operand_count = 2;
+		if (!RequireRegister(operands[0], instruction.operands[0], 1)) return false;
+		if (info->operands == RISCVOperandForm::RdRsVtype) {
+			if (!RequireRegister(operands[1], instruction.operands[1], 2)) return false;
+		}
+		else if (!RequireImmediate(operands[1], parse_pass,
+			instruction.operands[1], 2)) return false;
+		if (!ParseRISCVVectorType(operands, 2, count, instruction.vector_type)) {
+			aasm_log(_LOG_ERROR, "RISC-V vector type is invalid");
+			return false;
+		}
+		return true;
+	}
+	if (info->operands == RISCVOperandForm::RdRsRs) {
+		if (count != 3) goto bad_count;
+		instruction.operand_count = 3;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2) &&
+			RequireRegister(operands[2], instruction.operands[2], 3);
+	}
+	if (info->operands == RISCVOperandForm::VdAddress ||
+		info->operands == RISCVOperandForm::VsAddress) {
+		if (count != 2) goto bad_count;
+		instruction.operand_count = 2;
+		return RequireTypedRegister(operands[0], RISCVRegisterClass::Vector,
+			instruction.operands[0], 1) &&
+			RequireAddress(operands[1], parse_pass, false,
+				instruction.operands[1], 2) &&
+			instruction.operands[1].address_kind == RISCVAddressKind::RegisterRelative;
+	}
+	if (info->operands == RISCVOperandForm::CRegImmediate) {
+		if (count != 2) goto bad_count;
+		instruction.operand_count = 2;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireImmediate(operands[1], parse_pass, instruction.operands[1], 2);
+	}
+	if (info->operands == RISCVOperandForm::CReg) {
+		if (count != 2) goto bad_count;
+		instruction.operand_count = 2;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2);
+	}
+	if (info->operands == RISCVOperandForm::CJump) {
+		if (count != 1) goto bad_count;
+		instruction.operand_count = 1;
+		return RequireTarget(operands[0], parse_pass, instruction.operands[0], 1);
+	}
+	if (info->operands == RISCVOperandForm::CBranch) {
+		if (count != 2) goto bad_count;
+		instruction.operand_count = 2;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireTarget(operands[1], parse_pass, instruction.operands[1], 2);
+	}
+	if (info->operands == RISCVOperandForm::CLoad ||
+		info->operands == RISCVOperandForm::CStore) {
+		if (count != 2) goto bad_count;
+		instruction.operand_count = 2;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireAddress(operands[1], parse_pass, false,
+				instruction.operands[1], 2);
 	}
 
 	aasm_log(_LOG_ERROR, "RISC-V instruction form is not implemented");

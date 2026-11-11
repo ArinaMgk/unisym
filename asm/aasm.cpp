@@ -369,6 +369,9 @@ static void InitializeAssemblySession(AssemblySession& session,
 	session.CurrentBits = options.Target.DefaultBits();
 	session.SectionBits = options.Target.DefaultBits();
 	session.CurrentCpu = options.Target.Cpu();
+	session.CurrentAbi = session.ActiveArchend->DefaultAbi(
+		session.CurrentBits, session.CurrentCpu);
+	session.AbiExplicit = false;
 	session.PassPhase = 0;
 	session.PassNumber = 0;
 	session.Location.known = false;

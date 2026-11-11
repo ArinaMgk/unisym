@@ -272,6 +272,10 @@ _Comment("Interrupt") namespace uni {
 		IRQ_USART6, Request_None, Request_None
 		#endif
 	};
+	Request_t UART_t::getRequest() const {
+		return XART_ID < sizeof(XART_Request_list) / sizeof(XART_Request_list[0])
+			? XART_Request_list[XART_ID] : Request_None;
+	}
 	void UART_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority(XART_Request_list[XART_ID], preempt, sub_priority);
 	}
@@ -332,7 +336,7 @@ namespace uni {
 		{
 			//{TODO} busy flag
 			if (!enClock()) return false;
-			if (XART_ID == 1) setMode_initGPIO(XART_ID);// HAL_UART_MspInit
+			if (auto_setmode_apio && _TEMP XART_ID == 1) setMode_initGPIO(XART_ID);// HAL_UART_MspInit
 			enAble(false);
 			//aka UART_SetConfig(UART_HandleTypeDef *huart)
 			{
@@ -589,6 +593,10 @@ namespace uni {
 	void UART_t::setInterrupt(Handler_t f) const {
 		FUNC_XART[XART_ID] = f;
 	}
+	Request_t UART_t::getRequest() const {
+		return XART_ID < sizeof(XART_Request_list) / sizeof(XART_Request_list[0])
+			? XART_Request_list[XART_ID] : Request_None;
+	}
 	void UART_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		(void)sub_priority;
 		GIC.setPriority(XART_Request_list[XART_ID], preempt);
@@ -677,7 +685,7 @@ namespace uni {
 		return true;
 	}
 
-	static const stduint xart_addr[8]{
+	static const stduint xart_addr[XART.Count()]{
 	D2_APB2PERIPH_BASE + 0x1000, D2_APB1PERIPH_BASE + 0x4400, D2_APB1PERIPH_BASE + 0x4800, D2_APB1PERIPH_BASE + 0x4C00,
 	D2_APB1PERIPH_BASE + 0x5000, D2_APB2PERIPH_BASE + 0x1400, D2_APB1PERIPH_BASE + 0x7800, D2_APB1PERIPH_BASE + 0x7C00,
 	};
@@ -689,47 +697,40 @@ namespace uni {
 	};
 
 	static Request_t xart_getRequest(byte xart_id) {
-		return Ranglin(xart_id, 1, 8) ? XART_Request_list[xart_id] : Request_None;
+		return Ranglin(xart_id, 1, XART.Count()) ? XART_Request_list[xart_id] : Request_None;
+	}
+
+	// Resolve the RCC register and enable bit shared by enClock() and isAble(), without register access.
+	static bool xart_getClockGate(byte xart_id, RCCReg::RCCReg& reg, byte& bit) {
+		reg = RCCReg::APB1LENR;
+		switch (xart_id) {
+		case 1: reg = RCCReg::APB2ENR; bit = 4; break;
+		case 2: bit = RCC_APB1LENR_USART2EN_Pos; break;
+		case 3: bit = RCC_APB1LENR_USART3EN_Pos; break;
+		case 4: bit = RCC_APB1LENR_UART4EN_Pos; break;
+		case 5: bit = RCC_APB1LENR_UART5EN_Pos; break;
+		case 6: reg = RCCReg::APB2ENR; bit = RCC_APB2ENR_USART6EN_Pos; break;
+		case 7: bit = RCC_APB1LENR_UART7EN_Pos; break;
+		case 8: bit = RCC_APB1LENR_UART8EN_Pos; break;
+		default: return false;
+		}
+		return true;
+	}
+
+	static bool xart_enClock(byte xart_id, bool ena) {
+		RCCReg::RCCReg reg;
+		byte bit;
+		if (!xart_getClockGate(xart_id, reg, bit)) return false;
+		RCC[reg].setof(bit, ena);
+		return RCC[reg].bitof(bit) == ena;
 	}
 
 	static bool xart_enClock_USART(byte xart_id, bool ena) {
-		if (!XART.isSync(xart_id)) return false;
-		switch (xart_id) {
-		case 1:
-			RCC[RCCReg::APB2ENR].setof(4, ena);
-			return RCC[RCCReg::APB2ENR].bitof(4) == ena;
-		case 2:
-			RCC[RCCReg::APB1LENR].setof(RCC_APB1LENR_USART2EN_Pos, ena);
-			return RCC[RCCReg::APB1LENR].bitof(RCC_APB1LENR_USART2EN_Pos) == ena;
-		case 3:
-			RCC[RCCReg::APB1LENR].setof(RCC_APB1LENR_USART3EN_Pos, ena);
-			return RCC[RCCReg::APB1LENR].bitof(RCC_APB1LENR_USART3EN_Pos) == ena;
-		case 6:
-			RCC[RCCReg::APB2ENR].setof(RCC_APB2ENR_USART6EN_Pos, ena);
-			return RCC[RCCReg::APB2ENR].bitof(RCC_APB2ENR_USART6EN_Pos) == ena;
-		default:
-			return false;
-		}
+		return XART.isSync(xart_id) && xart_enClock(xart_id, ena);
 	}
 
 	static bool xart_enClock_UART(byte xart_id, bool ena) {
-		if (XART.isSync(xart_id)) return false;
-		switch (xart_id) {
-		case 4:
-			RCC[RCCReg::APB1LENR].setof(RCC_APB1LENR_UART4EN_Pos, ena);
-			return RCC[RCCReg::APB1LENR].bitof(RCC_APB1LENR_UART4EN_Pos) == ena;
-		case 5:
-			RCC[RCCReg::APB1LENR].setof(RCC_APB1LENR_UART5EN_Pos, ena);
-			return RCC[RCCReg::APB1LENR].bitof(RCC_APB1LENR_UART5EN_Pos) == ena;
-		case 7:
-			RCC[RCCReg::APB1LENR].setof(RCC_APB1LENR_UART7EN_Pos, ena);
-			return RCC[RCCReg::APB1LENR].bitof(RCC_APB1LENR_UART7EN_Pos) == ena;
-		case 8:
-			RCC[RCCReg::APB1LENR].setof(RCC_APB1LENR_UART8EN_Pos, ena);
-			return RCC[RCCReg::APB1LENR].bitof(RCC_APB1LENR_UART8EN_Pos) == ena;
-		default:
-			return false;
-		}
+		return !XART.isSync(xart_id) && xart_enClock(xart_id, ena);
 	}
 
 	static UART_CLKSRC xart_getClockSource(byte xart_id) {
@@ -806,7 +807,7 @@ namespace uni {
 	};
 
 	stduint UART_t::getAddress() const {
-		return Ranglin(XART_ID, 1, 8) ? xart_addr[XART_ID - 1] : nil;
+		return Ranglin(XART_ID, 1, XART.Count()) ? xart_addr[XART_ID - 1] : nil;
 	}
 
 	Reference UART_t::operator[](XARTReg::USARTReg idx) const { return getAddress() + _IMM(idx); }
@@ -849,6 +850,9 @@ namespace uni {
 
 	void UART_t::setInterrupt(Handler_t _func) const {
 		FUNC_XART[XART_ID] = _func;
+	}
+	Request_t UART_t::getRequest() const {
+		return xart_getRequest(XART_ID);
 	}
 	void UART_t::setInterruptPriority(byte preempt, byte sub_priority) const {
 		NVIC.setPriority(xart_getRequest(XART_ID), preempt, sub_priority);
@@ -1223,7 +1227,7 @@ namespace uni {
 		uint16 usartdiv = 0;
 
 		if (!enClock()) return false;
-		if (!setMode_initGPIO(XART_ID)) {
+		if (auto_setmode_apio && !setMode_initGPIO(XART_ID)) {
 			enClock(false);
 			return false;
 		}
@@ -1335,7 +1339,7 @@ namespace uni {
 	// - BRR computation still follows UART_SetConfig clock-source handling.
 	bool USART_t::setModeSync(stduint band_rate, bool clock_polarity, bool clock_phase, bool lastbit_ena, bool slave_ena) {
 		if (!enClock()) return false;
-		if (!setMode_initGPIO(XART_ID) || !setMode_initSyncGPIO(XART_ID)) {
+		if (auto_setmode_apio && (!setMode_initGPIO(XART_ID) || !setMode_initSyncGPIO(XART_ID))) {
 			enClock(false);
 			return false;
 		}
@@ -1432,6 +1436,11 @@ namespace uni {
 		return self[XARTReg::CR1].bitof(0);
 	}
 	//
+	bool UART_t::isAble() const {
+		RCCReg::RCCReg reg;
+		byte bit;
+		return xart_getClockGate(XART_ID, reg, bit) && RCC[reg].bitof(bit);
+	}
 	bool UART_t::enClock(bool ena) {
 		return xart_enClock_UART(XART_ID, ena);
 	}

@@ -6,7 +6,10 @@ use warnings;
 use FindBin;
 use File::Path qw(make_path);
 
-my $input = "$FindBin::Bin/instructions.dat";
+my @inputs = (
+	"$FindBin::Bin/instructions.dat",
+	"$FindBin::Bin/instructions-vector.dat"
+);
 my $source_directory = "$FindBin::Bin/../data";
 my $header_directory = "$FindBin::Bin/../../../../../../inc/cpp/Lango/Archend/riscv/data";
 my $source_path = "$source_directory/Instructions-riscv.cpp";
@@ -14,60 +17,72 @@ my $header_path = "$header_directory/Instructions-riscv.hpp";
 
 my %formats = map { $_ => 1 } qw(
 	Upper Jump IndirectJump Branch Load Store Immediate Shift Register
-	ImmediateWord ShiftWord RegisterWord System
+	ImmediateWord ShiftWord RegisterWord CSRRegister CSRImmediate
+	AtomicLoad Atomic System SystemRegisters FloatLoad FloatStore FloatRegister
+	FloatUnary FloatCompare FloatConvertToInteger FloatConvertFromInteger
+	FloatMoveToInteger FloatMoveFromInteger FloatFused FloatConvertFormat
+	Compressed VectorVV VectorVX VectorVI VectorConfigI VectorConfigR
+	VectorLoad VectorStore
 );
 my %operands = map { $_ => 1 } qw(
 	None RdImmediate RdTarget RdIndirectTarget RsRsTarget RdAddress RsAddress
-	RdRsImmediateOptional RdRsRsOptional
+	RdRsImmediateOptional RdRsRsOptional RdCsrRs RdCsrImmediate
+	RdAtomicAddress RdRsAtomicAddress RsRsOptional FdAddress FsAddress
+	FdFsFs FdFs FdFsFsFs RdFsFs RdFs FdRs VdVsVs VdVsRs VdVsImmediate
+	RdRsVtype RdImmediateVtype RdRsRs VdAddress VsAddress
+	CRegImmediate CReg CJump CBranch CLoad CStore
 );
-my %extensions = map { $_ => 1 } qw(I);
+my %extensions = map { $_ => 1 } qw(I M A F D C V Zicsr);
 
-open my $input_file, '<', $input or die "unable to open $input: $!\n";
 my @instructions;
 my %names;
 my %enums;
-my $line_number = 0;
-while (my $line = <$input_file>) {
-	$line_number++;
-	$line =~ s/\r?\n$//;
-	$line =~ s/;.*$//;
-	next if $line =~ /^\s*$/;
-	my @fields = split /\s+/, $line;
-	die "$input:$line_number: expected 9 fields\n" unless @fields == 9;
-	my ($name, $enum, $format, $operand, $fixed, $xlen, $extension,
-		$signed, $unsigned) = @fields;
-	die "$input:$line_number: invalid instruction name\n"
-		unless $name =~ /^[A-Z][A-Z0-9]*$/;
-	die "$input:$line_number: invalid enum name\n"
-		unless $enum =~ /^[A-Z][A-Za-z0-9]*$/;
-	die "$input:$line_number: duplicate instruction $name\n" if $names{$name}++;
-	die "$input:$line_number: duplicate enum $enum\n" if $enums{$enum}++;
-	die "$input:$line_number: unknown format $format\n" unless $formats{$format};
-	die "$input:$line_number: unknown operand form $operand\n" unless $operands{$operand};
-	die "$input:$line_number: invalid fixed bits $fixed\n"
-		unless $fixed =~ /^0x[0-9a-fA-F]{8}$/;
-	die "$input:$line_number: invalid XLEN $xlen\n"
-		unless $xlen eq '32' || $xlen eq '64' || $xlen eq '32|64';
-	die "$input:$line_number: unknown extension $extension\n"
-		unless $extensions{$extension};
-	push @instructions, {
-		name => $name, enum => $enum, format => $format, operand => $operand,
-		fixed => lc($fixed), xlen => $xlen, extension => $extension,
-		signed => $signed, unsigned => $unsigned, line => $line_number
-	};
+for my $input (@inputs) {
+	open my $input_file, '<', $input or die "unable to open $input: $!\n";
+	my $line_number = 0;
+	while (my $line = <$input_file>) {
+		$line_number++;
+		$line =~ s/\r?\n$//;
+		$line =~ s/;.*$//;
+		next if $line =~ /^\s*$/;
+		my @fields = split /\s+/, $line;
+		die "$input:$line_number: expected 9 fields\n" unless @fields == 9;
+		my ($name, $enum, $format, $operand, $fixed, $xlen, $extension,
+			$signed, $unsigned) = @fields;
+		die "$input:$line_number: invalid instruction name\n"
+			unless $name =~ /^[A-Z][A-Z0-9]*(?:\.[A-Z0-9]+)*$/;
+		die "$input:$line_number: invalid enum name\n"
+			unless $enum =~ /^[A-Z][A-Za-z0-9]*$/;
+		die "$input:$line_number: duplicate instruction $name\n" if $names{$name}++;
+		die "$input:$line_number: duplicate enum $enum\n" if $enums{$enum}++;
+		die "$input:$line_number: unknown format $format\n" unless $formats{$format};
+		die "$input:$line_number: unknown operand form $operand\n" unless $operands{$operand};
+		die "$input:$line_number: invalid fixed bits $fixed\n"
+			unless $fixed =~ /^0x[0-9a-fA-F]{8}$/;
+		die "$input:$line_number: invalid XLEN $xlen\n"
+			unless $xlen eq '32' || $xlen eq '64' || $xlen eq '32|64';
+		die "$input:$line_number: unknown extension $extension\n"
+			unless $extensions{$extension};
+		push @instructions, {
+			name => $name, enum => $enum, format => $format, operand => $operand,
+			fixed => lc($fixed), xlen => $xlen, extension => $extension,
+			signed => $signed, unsigned => $unsigned, source => $input,
+			line => $line_number
+		};
+	}
+	close $input_file;
 }
-close $input_file;
 
 for my $instruction (@instructions) {
 	for my $variant_name (qw(signed unsigned)) {
 		my $variant = $instruction->{$variant_name};
 		next if $variant eq '-';
-		die "$input:$instruction->{line}: unknown $variant_name variant $variant\n"
+		die "$instruction->{source}:$instruction->{line}: unknown $variant_name variant $variant\n"
 			unless $enums{$variant};
 	}
 	my $has_signed = $instruction->{signed} ne '-';
 	my $has_unsigned = $instruction->{unsigned} ne '-';
-	die "$input:$instruction->{line}: incomplete signedness variants\n"
+	die "$instruction->{source}:$instruction->{line}: incomplete signedness variants\n"
 		if $has_signed != $has_unsigned;
 }
 
@@ -76,7 +91,7 @@ make_path($source_directory, $header_directory);
 open my $header, '>', $header_path or die "unable to write $header_path: $!\n";
 print $header <<'HEADER';
 // ASCII C++11 TAB4 LF
-// Generated by make-instructions.pl from instructions.dat. Do not edit.
+// Generated by make-instructions.pl from instruction data files. Do not edit.
 
 #ifndef UNISYM_LANGO_ARCHEND_RISCV_DATA_INSTRUCTIONS_HPP
 #define UNISYM_LANGO_ARCHEND_RISCV_DATA_INSTRUCTIONS_HPP
@@ -108,7 +123,31 @@ enum class RISCVEncodingFormat : uint8_t {
 	ImmediateWord,
 	ShiftWord,
 	RegisterWord,
-	System
+	CSRRegister,
+	CSRImmediate,
+	AtomicLoad,
+	Atomic,
+	System,
+	SystemRegisters,
+	FloatLoad,
+	FloatStore,
+	FloatRegister,
+	FloatUnary,
+	FloatCompare,
+	FloatConvertToInteger,
+	FloatConvertFromInteger,
+	FloatMoveToInteger,
+	FloatMoveFromInteger,
+	FloatFused,
+	FloatConvertFormat,
+	Compressed,
+	VectorVV,
+	VectorVX,
+	VectorVI,
+	VectorConfigI,
+	VectorConfigR,
+	VectorLoad,
+	VectorStore
 };
 
 enum class RISCVOperandForm : uint8_t {
@@ -120,11 +159,46 @@ enum class RISCVOperandForm : uint8_t {
 	RdAddress,
 	RsAddress,
 	RdRsImmediateOptional,
-	RdRsRsOptional
+	RdRsRsOptional,
+	RdCsrRs,
+	RdCsrImmediate,
+	RdAtomicAddress,
+	RdRsAtomicAddress,
+	RsRsOptional,
+	FdAddress,
+	FsAddress,
+	FdFsFs,
+	FdFs,
+	FdFsFsFs,
+	RdFsFs,
+	RdFs,
+	FdRs,
+	VdVsVs,
+	VdVsRs,
+	VdVsImmediate,
+	RdRsVtype,
+	RdImmediateVtype,
+	RdRsRs,
+	VdAddress,
+	VsAddress,
+	CRegImmediate,
+	CReg,
+	CJump,
+	CBranch,
+	CLoad,
+	CStore
 };
 
 enum class RISCVExtension : uint32_t {
-	I = UINT32_C(1) << 0
+	None = 0,
+	I = UINT32_C(1) << 0,
+	M = UINT32_C(1) << 1,
+	A = UINT32_C(1) << 2,
+	F = UINT32_C(1) << 3,
+	D = UINT32_C(1) << 4,
+	C = UINT32_C(1) << 5,
+	V = UINT32_C(1) << 6,
+	Zicsr = UINT32_C(1) << 7
 };
 
 enum class RISCVXLen : uint8_t {
@@ -157,7 +231,7 @@ close $header;
 open my $source, '>', $source_path or die "unable to write $source_path: $!\n";
 print $source <<'SOURCE';
 // ASCII C++11 TAB4 LF
-// Generated by make-instructions.pl from instructions.dat. Do not edit.
+// Generated by make-instructions.pl from instruction data files. Do not edit.
 
 #include "../../../../../../inc/c/ustring.h"
 #include "../../../../../../inc/cpp/Lango/Archend/riscv/data/Instructions-riscv.hpp"

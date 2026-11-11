@@ -203,9 +203,18 @@ enum {
 	SHT_NUM      = 12,
 	SHT_LOPROC   = 0x70000000,
 	SHT_HIPROC   = 0x7fffffff,
+	SHT_RISCV_ATTRIBUTES = 0x70000003,
 	SHT_LOUSER   = 0x80000000,
 	SHT_HIUSER   = 0xffffffff,
 };// Section header types
+
+enum {
+	EF_RISCV_RVC = 0x0001,
+	EF_RISCV_FLOAT_ABI_SINGLE = 0x0002,
+	EF_RISCV_FLOAT_ABI_DOUBLE = 0x0004,
+	EF_RISCV_FLOAT_ABI_QUAD = 0x0006,
+	EF_RISCV_FLOAT_ABI = 0x0006
+};
 
 enum {
 	SHF_WRITE             = _IMM1S(0) ,  /* Writable */
@@ -645,9 +654,19 @@ struct elf_known_section {
 		R_RISCV_JUMP_SLOT   =  5,   /* PLT slot */
 		R_RISCV_BRANCH      = 16,   /* PC-relative branch */
 		R_RISCV_JAL         = 17,   /* PC-relative jump */
+		R_RISCV_CALL        = 18,   /* PC-relative call pair */
+		R_RISCV_CALL_PLT    = 19,   /* PC-relative PLT call pair */
+		R_RISCV_GOT_HI20    = 20,   /* PC-relative GOT high 20 bits */
 		R_RISCV_PCREL_HI20  = 23,   /* PC-relative high 20 bits */
 		R_RISCV_PCREL_LO12_I = 24,  /* PC-relative low 12-bit I field */
-		R_RISCV_PCREL_LO12_S = 25   /* PC-relative low 12-bit S field */
+		R_RISCV_PCREL_LO12_S = 25,  /* PC-relative low 12-bit S field */
+		R_RISCV_HI20         = 26,  /* Absolute high 20 bits */
+		R_RISCV_LO12_I       = 27,  /* Absolute low 12-bit I field */
+		R_RISCV_LO12_S       = 28,  /* Absolute low 12-bit S field */
+		R_RISCV_ALIGN        = 43,  /* Alignment for linker relaxation */
+		R_RISCV_RVC_BRANCH   = 44,  /* PC-relative compressed branch */
+		R_RISCV_RVC_JUMP     = 45,  /* PC-relative compressed jump */
+		R_RISCV_RELAX        = 51   /* Linker relaxation marker */
 	};
 
 	// Unified 32-bit dynamic relocation ids for the arch-neutral flat PIE loader

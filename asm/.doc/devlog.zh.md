@@ -128,6 +128,17 @@ RISC-V Archend 已支持多指令展开。`MOV` 可以加载完整 RV32/RV64 数
 加载与存储指令可以使用标签或绝对表达式地址，表达式地址存储由第三个操作数显式提供
 临时寄存器。ELF 已接入 PC 相对高低位 relocation。
 
+RISC-V 的 `[CPU]` 与 `[INST]` 已实际约束启用的 I、M、A、F、D、C、V 和 Zicsr
+指令集。Archend 已接入 M 乘除法、CSR 访问、基础特权指令、带 AQ/RL 限定词的 A
+原子指令、浮点寄存器与舍入模式、显式压缩指令和基础向量操作数及编码。
+
+RISC-V 指令数据已按普通指令和向量指令拆分生成输入。浮点、向量和 CSR 使用独立的
+类型化操作数模型；C 指令按 2 字节尺寸参与 pass、listing 和 relocation。
+
+已增加 RISC-V ABI 选择及目标描述。ELF32/ELF64 根据 ABI 写入浮点调用约定 flags，
+根据 C 扩展写入 RVC flag，并生成包含栈对齐、架构扩展和扩展版本的
+`.riscv.attributes`。
+
 listing 状态已收归 `AssemblyListing`，并接入 `AssemblySession`。通用语句、x86
 和 RISC-V Archend 通过语义化代码与 fixup 接口提交 listing；`ListGen` 仅保留为
 Preprocessor 的兼容适配。

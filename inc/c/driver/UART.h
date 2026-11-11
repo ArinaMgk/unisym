@@ -95,6 +95,9 @@ namespace uni {
 		public Console_t
 	{
 	public:
+		#if defined(_MCU_STM32)
+		bool auto_setmode_apio = true;// Configure default GPIO during mode initialization.
+		#endif
 		#if defined(_MCU_STM32H7x)
 		Slice rx_buffer = { 0, 0 };
 		Slice tx_buffer = { 0, 0 };
@@ -273,6 +276,8 @@ namespace uni {
 		#endif
 
 		#if defined(_MCU_STM32)
+		byte getID() const { return XART_ID; }
+		Request_t getRequest() const;
 		#if defined(_MCU_STM32H7x)
 		stduint getAddress() const;
 		#else
@@ -281,6 +286,9 @@ namespace uni {
 
 
 		bool enAble(bool ena = true);
+		#if defined(_MCU_STM32H7x)
+		bool isAble() const;// RCC clock gate state.
+		#endif
 		virtual bool enClock(bool ena = true);
 
 
@@ -432,6 +440,9 @@ namespace uni {
 #if defined(_MCU_STM32)
 namespace uni {
 	static struct {
+		#if defined(_MCU_STM32H7x)
+		static constexpr stduint Count() { return 8; }
+		#endif
 		pureptr_t operator[](byte id) {
 			switch (id) {
 			case 1: return (pureptr_t)&XART1;

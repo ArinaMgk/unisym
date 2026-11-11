@@ -53,7 +53,7 @@ aasm [options] input
 | Arch | 默认 BITS | 支持的 BITS | 默认 CPU/INST | `[CPU]`、`[INST]` 支持的名称 |
 | :--- | ---: | :--- | :--- | :--- |
 | `x86` | 16 | 16；386 及以上支持 32；`x64`、`x86-64` 支持 64 | 不限制指令等级 | 见下方 x86 CPU 名称 |
-| `riscv` | 64 | 32、64 | `i` | `i` |
+| `riscv` | 64 | 32、64 | `i` | `i[m][a][f][d][c][v][_zicsr]` |
 
 x86 当前识别以下 CPU 名称：
 
@@ -78,11 +78,45 @@ CPU 等级不低于 386；64 位模式要求 CPU 为 `x64` 或 `x86-64`。
 逻辑。x86 可以继续使用 `[CPU]` 表示处理器指令等级；RISC-V 可以使用 `[INST]`
 突出指令集扩展，也可以统一使用 `[CPU]`。
 
+RISC-V 指令集名称必须以 `i` 开始，单字母扩展按 `m`、`a`、`f`、`d`、`c`、`v`
+的顺序书写，多字母扩展使用下划线分隔。例如：
+
+```asm
+[INST i]
+[INST im]
+[INST ima]
+[INST imafdc]
+[INST imafdcv_zicsr]
+[INST ia_zicsr]
+[CPU ima_zicsr]
+```
+
+顺序错误、重复扩展和尚未实现的扩展会被拒绝。D 自动包含 F；V 自动包含 F、D；
+F、D、V 自动包含 Zicsr。未启用对应扩展时，使用该扩展的指令会在指令处报错。
+
+### RISC-V ABI
+
+`[ABI name]` 选择目标文件调用约定。RV32 支持 `ilp32`、`ilp32f`、`ilp32d`；RV64
+支持 `lp64`、`lp64f`、`lp64d`。未写 `[ABI]` 时，RV32 默认 `ilp32`，RV64 默认
+`lp64`。ABI 与硬件指令是否可用是两个维度：F/D 指令可以配合软浮点 ABI；选择
+`ilp32f` 或 `lp64f` 时必须启用 F，选择 `ilp32d` 或 `lp64d` 时必须启用 D。
+
+```asm
+[BITS 64]
+[INST imafd]
+[ABI lp64d]
+```
+
+ELF header 的浮点 ABI flags 来自 `[ABI]`，RVC flag 来自 C 扩展。RISC-V ELF 同时
+生成 `.riscv.attributes`，记录 16 字节栈对齐及带扩展版本的架构字符串。同一个 ELF
+对象不能选择多个不同 ABI。
+
 `[ARCH]`、`[CPU]`、`[INST]` 和 `[BITS]` 的规则如下：
 
 - `[ARCH name]` 切换 Archend，并把 CPU 与 BITS 恢复为该 Arch 的默认值。
-- `[BITS n]` 必须同时满足当前 Arch、CPU 和 Codeend 的约束。
-- `[CPU name]` 与 `[INST name]` 必须同时满足当前 Arch 和当前 BITS 的约束。
+- `[BITS n]` 必须同时满足当前 Arch、CPU、ABI 和 Codeend 的约束。
+- `[CPU name]` 与 `[INST name]` 必须同时满足当前 Arch、BITS 和 ABI 的约束。
+- `[ABI name]` 必须同时满足当前 Arch、BITS 和已启用扩展的约束。
 - 当前 Codeend 不支持目标 Arch 时，AASM 会在切换处报错。
 
 例如：
@@ -118,7 +152,8 @@ ELF 的机器架构由命令行 `-march` 或 `--arch` 固定；ELF 源文件中�
 再次选择同一架构，不能在 x86 与 RISC-V 之间切换。RISC-V ELF32 只接受 32 位指令
 区域，ELF64 只接受 64 位指令区域。RISC-V ELF 当前支持外部符号的
 `R_RISCV_BRANCH`、`R_RISCV_JAL`、`R_RISCV_32`、`R_RISCV_64`、
-`R_RISCV_PCREL_HI20`、`R_RISCV_PCREL_LO12_I` 和 `R_RISCV_PCREL_LO12_S`
+`R_RISCV_PCREL_HI20`、`R_RISCV_PCREL_LO12_I`、`R_RISCV_PCREL_LO12_S`、
+`R_RISCV_RVC_BRANCH` 和 `R_RISCV_RVC_JUMP`
 relocation；
 ELF32 与 ELF64 均使用带显式加数的 RELA section。分支和直接跳转可以引用外部
 符号，也可以引用其他 section 中的本地标签。
@@ -146,8 +181,8 @@ section、symbol、data、relocation 和 debug 事件，不是可链接目标文
 
 ## RISC-V 汇编语法
 
-当前 RISC-V Archend 提供 RV32I 和 RV64I 基础整数指令编码。完整的寄存器、操作数、
-原生指令及单指令简化形式见 `inst-riscv.zh.md`。
+当前 RISC-V Archend 提供 RV32/RV64 的 I、M、A、F、D、C、V、Zicsr 指令编码及
+基础特权指令。完整的寄存器、操作数、原生指令及简化形式见 `inst-riscv.zh.md`。
 
 RISC-V 的 `MOV` 可以加载完整 XLEN 数值、标签地址及表达式地址中的数据。原生加载
 指令同样接受表达式地址；表达式地址存储必须通过第三个操作数显式指定临时寄存器。
@@ -163,7 +198,7 @@ AASM 当前代码可以按职责理解为以下部分：
   `EQU`、`TIMES`、数据定义、保留空间和 `INCBIN` 等通用汇编语句；符号与表达式
   位于 `aasm-label.cpp` 和 `aasm-eval.cpp`。`AssemblyTarget` 保存一次汇编任务选择的
   Archend、Codeend、默认位宽和 CPU；`AssemblySession` 保存 pass、section、当前
-  位宽和当前 CPU 等运行状态。
+  位宽、当前 CPU/指令集和 ABI 等运行状态。
 - **Listing**：`aasm-list.cpp` 的 `AssemblyListing` 保存一次 listing 输出的文件、
   行、机器码、嵌套层级和抑制状态。通用语句与 Archend 通过 `CodeendOutput`、
   `CodeFixup` 语义接口提交 listing 事件；旧 `ListGen` 只作为 Preprocessor 适配接口。

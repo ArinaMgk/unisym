@@ -86,6 +86,20 @@ struct CodeFixupEncoding {
 	bool signed_value;
 };
 
+enum class CodeFixupPairRole : uint8_t {
+	None,
+	Head,
+	Tail
+};
+
+struct CodeFixupPair {
+	static constexpr int32_t NoSection = -1;
+
+	int32_t section = NoSection;
+	uint64_t offset = 0;
+	CodeFixupPairRole role = CodeFixupPairRole::None;
+};
+
 struct CodeFixup {
 	int32_t section;
 	uint64_t offset;
@@ -97,6 +111,7 @@ struct CodeFixup {
 	int64_t pc_bias;
 	int32_t legacy_wrt;
 	uint32_t architecture_kind;
+	CodeFixupPair pair;
 };
 
 class CodeendInterface {
@@ -112,6 +127,8 @@ public:
 	virtual void PrepareFilename(char* input_name, char* output_name) = 0;
 	virtual void Initialize(FILE* output,
 		uni::lango::ArchitectureKind architecture) = 0;
+	virtual void ConfigureTarget(
+		const uni::lango::AssemblyTargetProfile& target) = 0;
 	virtual void InitializeDebug(FILE* output) = 0;
 	virtual void Cleanup(bool debug_info) = 0;
 	virtual int32_t SelectSection(

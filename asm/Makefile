@@ -15,12 +15,12 @@ riscvinc = $(uincpath)/cpp/Lango/Archend/riscv
 riscvinsstamp = $(riscvdata)/instructions.stamp
 
 build: data # for linux64 [no use O3]
-	cc asm/data/*.c $(x86data)/*.c asm/about.c asm/aasm*.cpp $(ulibpath)/cpp/Format/Code/*.cpp $(ulibpath)/cpp/Lango/Archend/*.cpp $(x86path)/*.cpp $(riscvpath)/*.cpp $(riscvdata)/*.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -o $(ubinpath)/AMD64/Lin64/aasm --static -w
+	cc asm/data/*.c $(x86data)/*.c asm/about.c asm/aasm*.cpp $(ulibpath)/cpp/Datype/pnode.cpp $(ulibpath)/cpp/Format/Code/*.cpp $(ulibpath)/cpp/Format/Code/ELF/*.cpp $(ulibpath)/cpp/Lango/Archend/*.cpp $(x86path)/*.cpp $(riscvpath)/*.cpp $(riscvdata)/*.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -o $(ubinpath)/AMD64/Lin64/aasm --static -w
 	cc asm/data/_*.c $(x86data)/_asm_inst.c $(x86data)/insnsb.c $(x86data)/insnsd.c $(x86data)/regs.c $(x86data)/regdis.c asm/about.c asm/dasm*.cpp asm/aasm-lib.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -DNO_STDSCAN -o $(ubinpath)/AMD64/Lin64/dasm --static -w
 
 #{TEMP}
 build-win64: data
-	cc asm/data/*.c $(x86data)/*.c asm/about.c asm/aasm*.cpp $(ulibpath)/cpp/Format/Code/*.cpp $(ulibpath)/cpp/Lango/Archend/*.cpp $(x86path)/*.cpp $(riscvpath)/*.cpp $(riscvdata)/*.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -o $(ubinpath)/AMD64/Win64/aasm --static -w
+	cc asm/data/*.c $(x86data)/*.c asm/about.c asm/aasm*.cpp $(ulibpath)/cpp/Format/Code/*.cpp $(ulibpath)/cpp/Format/Code/ELF/*.cpp $(ulibpath)/cpp/Lango/Archend/*.cpp $(x86path)/*.cpp $(riscvpath)/*.cpp $(riscvdata)/*.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -o $(ubinpath)/AMD64/Win64/aasm --static -w
 	cc asm/data/_*.c $(x86data)/_asm_inst.c $(x86data)/insnsb.c $(x86data)/insnsd.c $(x86data)/regs.c $(x86data)/regdis.c asm/about.c asm/dasm*.cpp asm/aasm-lib.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -DNO_STDSCAN -o $(ubinpath)/AMD64/Win64/dasm --static -w
 
 data: asm/data/_crc64_tab.c $(x86insstamp) $(riscvinsstamp) asm/data/pptok.h asm/data/pptok.c asm/todata/perllib/pptok.ph asm/data/macros.c $(x86data)/tokhash.c $(x86inc)/data/tokens.h $(x86inc)/data/regs.h $(x86data)/regs.c $(x86data)/regflags.c $(x86data)/regvals.c $(x86data)/regdis.c $(x86inc)/data/regdis.h
@@ -32,7 +32,7 @@ $(x86insstamp): $(x86tod)/make-ins.pl $(x86tod)/make-ins.dat | $(x86data) $(x86i
 	perl $(x86tod)/make-ins.pl
 	printf 'generated\n' > $@
 
-$(riscvinsstamp): $(riscvtod)/make-instructions.pl $(riscvtod)/instructions.dat | $(riscvdata) $(riscvinc)/data
+$(riscvinsstamp): $(riscvtod)/make-instructions.pl $(riscvtod)/instructions.dat $(riscvtod)/instructions-vector.dat | $(riscvdata) $(riscvinc)/data
 	perl $(riscvtod)/make-instructions.pl
 	printf 'generated\n' > $@
 

@@ -23,16 +23,10 @@
 #define UNISYM_LANGO_BACKEND_RISCV_HPP
 
 #include "../Backend.hpp"
+#include "../Archend/riscv/Target-riscv.hpp"
 #include "./RISCV/Output.hpp"
 
 namespace uni::lango {
-
-// RISC-V ELF psABI used for scalar function arguments and return values.
-enum class RISCVABI {
-	LP64,  // Integer calling convention; floating values use integer registers.
-	LP64F, // Single-precision floating arguments and returns use FP registers.
-	LP64D  // Single- and double-precision arguments and returns use FP registers.
-};
 
 // Target features selected for one RISC-V backend instance.
 struct RISCVTargetInfo {

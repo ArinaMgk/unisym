@@ -5,6 +5,7 @@
 
 #include "../../../../../asm/inc/aasm.h"
 #include "../../../../../inc/cpp/Lango/Archend/riscv/Instruction-riscv.hpp"
+#include "../../../../../inc/cpp/Lango/Archend/riscv/Vector-riscv.hpp"
 
 namespace uni::lango {
 
@@ -110,7 +111,9 @@ uint32_t EncodeJ(uint32_t fixed, uint32_t rd, int64_t immediate)
 
 bool Append(RISCVEncodingSequence& sequence, uint32_t encoding,
 	RISCVFixupKind fixup = RISCVFixupKind::None,
-	const RISCVValue& target = RISCVValue{})
+	const RISCVValue& target = RISCVValue{}, uint8_t size = 4,
+	uint64_t pair_offset = 0,
+	RISCVFixupPairRole pair_role = RISCVFixupPairRole::None)
 {
 	if (sequence.count >= numsof(sequence.instructions)) {
 		aasm_log(_LOG_PANIC, "RISC-V expansion exceeds its instruction capacity");
@@ -118,9 +121,49 @@ bool Append(RISCVEncodingSequence& sequence, uint32_t encoding,
 	}
 	RISCVEncodingResult& result = sequence.instructions[sequence.count++];
 	result.encoding = encoding;
+	result.size = size;
 	result.fixup = fixup;
 	result.target = target;
+	result.pair_offset = pair_offset;
+	result.pair_role = pair_role;
 	return true;
+}
+
+uint16_t EncodeCJ(uint16_t fixed, int64_t immediate)
+{
+	uint16_t value = static_cast<uint16_t>(immediate);
+	return fixed | ((value >> 11) & 1) << 12 | ((value >> 4) & 1) << 11 |
+		((value >> 8) & 3) << 9 | ((value >> 10) & 1) << 8 |
+		((value >> 6) & 1) << 7 | ((value >> 7) & 1) << 6 |
+		((value >> 1) & 7) << 3 | ((value >> 5) & 1) << 2;
+}
+
+uint16_t EncodeCB(uint16_t fixed, uint8_t reg, int64_t immediate)
+{
+	uint16_t value = static_cast<uint16_t>(immediate);
+	return fixed | ((value >> 8) & 1) << 12 | ((value >> 3) & 3) << 10 |
+		(reg - 8) << 7 | ((value >> 6) & 3) << 5 |
+		((value >> 1) & 3) << 3 | ((value >> 5) & 1) << 2;
+}
+
+bool UsesRoundingMode(const RISCVInstructionInfo& info)
+{
+	if (info.format == RISCVEncodingFormat::FloatUnary ||
+		info.format == RISCVEncodingFormat::FloatConvertToInteger ||
+		info.format == RISCVEncodingFormat::FloatConvertFromInteger ||
+		info.format == RISCVEncodingFormat::FloatFused) return true;
+	if (info.format == RISCVEncodingFormat::FloatConvertFormat)
+		return info.opcode == RISCVOpcode::FcvtSD;
+	if (info.format != RISCVEncodingFormat::FloatRegister) return false;
+	switch (info.opcode) {
+	case RISCVOpcode::FaddS: case RISCVOpcode::FsubS:
+	case RISCVOpcode::FmulS: case RISCVOpcode::FdivS:
+	case RISCVOpcode::FaddD: case RISCVOpcode::FsubD:
+	case RISCVOpcode::FmulD: case RISCVOpcode::FdivD:
+		return true;
+	default:
+		return false;
+	}
 }
 
 bool AppendSigned32(RISCVEncodingSequence& sequence, uint8_t reg,
@@ -194,15 +237,16 @@ bool AppendPcRelativePair(const AssemblySession& session,
 			EncodeI(second_fixed, second_reg, address_reg, low));
 	}
 	if (!Append(sequence, EncodeU(0x00000017, address_reg, 0),
-		RISCVFixupKind::PcRelativeHigh, target)) return false;
-	RISCVValue anchor;
-	anchor.section = session.Location.segment;
-	anchor.offset = offset;
+		RISCVFixupKind::PcRelativeHigh, target, 4,
+		static_cast<uint64_t>(offset),
+		RISCVFixupPairRole::Head)) return false;
 	return Append(sequence, store ?
 		EncodeS(second_fixed, address_reg, second_reg, 0) :
 		EncodeI(second_fixed, second_reg, address_reg, 0),
 		store ? RISCVFixupKind::PcRelativeLowS :
-			RISCVFixupKind::PcRelativeLowI, anchor);
+			RISCVFixupKind::PcRelativeLowI, target, 4,
+		static_cast<uint64_t>(offset),
+		RISCVFixupPairRole::Tail);
 }
 
 bool AppendExpressionAddress(const AssemblySession& session,
@@ -261,16 +305,34 @@ bool MeasureExpression(const AssemblySession& session, const RISCVValue& value,
 bool RISCVEncoder::Measure(const AssemblySession& session,
 	const RISCVInstruction& instruction, unsigned& count)
 {
-	if (instruction.kind == RISCVInstructionKind::MoveExpression)
-		return MeasureExpression(session, instruction.operands[1].value,
-			false, count);
 	const RISCVInstructionInfo& info = DumpRISCVInstruction(instruction.opcode);
+	if (info.format == RISCVEncodingFormat::Compressed) {
+		count = 2;
+		return true;
+	}
+	if (instruction.kind == RISCVInstructionKind::MoveExpression) {
+		if (!MeasureExpression(session, instruction.operands[1].value,
+			false, count)) return false;
+		count *= 4;
+		return true;
+	}
 	if ((info.format == RISCVEncodingFormat::Load ||
 		info.format == RISCVEncodingFormat::Store) &&
-		instruction.operands[1].address_kind == RISCVAddressKind::Expression)
-		return MeasureExpression(session, instruction.operands[1].value,
-			true, count);
-	count = 1;
+		instruction.operands[1].address_kind == RISCVAddressKind::Expression) {
+		if (!MeasureExpression(session, instruction.operands[1].value,
+			true, count)) return false;
+		count *= 4;
+		return true;
+	}
+	if ((info.format == RISCVEncodingFormat::FloatLoad ||
+		info.format == RISCVEncodingFormat::FloatStore) &&
+		instruction.operands[1].address_kind == RISCVAddressKind::Expression) {
+		if (!MeasureExpression(session, instruction.operands[1].value,
+			true, count)) return false;
+		count *= 4;
+		return true;
+	}
+	count = 4;
 	return true;
 }
 
@@ -310,6 +372,8 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 	const RISCVOperand* operand = instruction.operands;
 	int64_t immediate;
 	uint32_t encoding;
+	uint32_t rounding = UsesRoundingMode(info) ?
+		static_cast<uint32_t>(instruction.rounding) << 12 : 0;
 
 	switch (info.format) {
 	case RISCVEncodingFormat::Upper:
@@ -421,8 +485,227 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 		return Append(result, EncodeR(info.fixed_bits, operand[0].reg,
 			operand[1].reg, operand[2].reg));
 
+	case RISCVEncodingFormat::CSRRegister:
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			operand[2].reg << 15 |
+			(static_cast<uint32_t>(operand[1].value.offset) & 0xfff) << 20);
+
+	case RISCVEncodingFormat::CSRImmediate:
+		if (!RequireImmediate(operand[2].value, immediate)) return false;
+		if (immediate < 0 || immediate > 31) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V CSR immediate is outside the 5-bit range");
+			return false;
+		}
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			static_cast<uint32_t>(immediate) << 15 |
+			(static_cast<uint32_t>(operand[1].value.offset) & 0xfff) << 20);
+
+	case RISCVEncodingFormat::AtomicLoad:
+		encoding = info.fixed_bits | operand[0].reg << 7 |
+			operand[1].reg << 15;
+		if ((static_cast<uint8_t>(instruction.atomic_ordering) &
+			static_cast<uint8_t>(RISCVAtomicOrdering::Acquire)) != 0)
+			encoding |= UINT32_C(1) << 26;
+		if ((static_cast<uint8_t>(instruction.atomic_ordering) &
+			static_cast<uint8_t>(RISCVAtomicOrdering::Release)) != 0)
+			encoding |= UINT32_C(1) << 25;
+		return Append(result, encoding);
+
+	case RISCVEncodingFormat::Atomic:
+		encoding = info.fixed_bits | operand[0].reg << 7 |
+			operand[2].reg << 15 | operand[1].reg << 20;
+		if ((static_cast<uint8_t>(instruction.atomic_ordering) &
+			static_cast<uint8_t>(RISCVAtomicOrdering::Acquire)) != 0)
+			encoding |= UINT32_C(1) << 26;
+		if ((static_cast<uint8_t>(instruction.atomic_ordering) &
+			static_cast<uint8_t>(RISCVAtomicOrdering::Release)) != 0)
+			encoding |= UINT32_C(1) << 25;
+		return Append(result, encoding);
+
 	case RISCVEncodingFormat::System:
 		return Append(result, info.fixed_bits);
+
+	case RISCVEncodingFormat::SystemRegisters:
+		return Append(result, info.fixed_bits |
+			operand[0].reg << 15 | operand[1].reg << 20);
+
+	case RISCVEncodingFormat::FloatLoad:
+	case RISCVEncodingFormat::FloatStore:
+		if (operand[1].address_kind == RISCVAddressKind::Expression) {
+			uint8_t temporary = operand[2].reg;
+			if (!temporary) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V floating expression-address temporary register cannot be zero");
+				return false;
+			}
+			return AppendExpressionAddress(session, result, offset, temporary,
+				info.fixed_bits, operand[0].reg,
+				info.format == RISCVEncodingFormat::FloatStore,
+				operand[1].value);
+		}
+		if (!RequireIImmediate(operand[1], immediate)) return false;
+		return Append(result, info.format == RISCVEncodingFormat::FloatStore ?
+			EncodeS(info.fixed_bits, operand[1].reg, operand[0].reg, immediate) :
+			EncodeI(info.fixed_bits, operand[0].reg, operand[1].reg, immediate));
+
+	case RISCVEncodingFormat::FloatRegister:
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			rounding | operand[1].reg << 15 | operand[2].reg << 20);
+
+	case RISCVEncodingFormat::FloatUnary:
+	case RISCVEncodingFormat::FloatConvertToInteger:
+	case RISCVEncodingFormat::FloatConvertFromInteger:
+	case RISCVEncodingFormat::FloatConvertFormat:
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			rounding | operand[1].reg << 15);
+
+	case RISCVEncodingFormat::FloatCompare:
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			operand[1].reg << 15 | operand[2].reg << 20);
+
+	case RISCVEncodingFormat::FloatMoveToInteger:
+	case RISCVEncodingFormat::FloatMoveFromInteger:
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			operand[1].reg << 15);
+
+	case RISCVEncodingFormat::FloatFused:
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			rounding | operand[1].reg << 15 | operand[2].reg << 20 |
+			operand[3].reg << 27);
+
+	case RISCVEncodingFormat::VectorVV:
+	case RISCVEncodingFormat::VectorVX:
+	case RISCVEncodingFormat::VectorVI:
+		encoding = info.fixed_bits | operand[0].reg << 7 |
+			operand[1].reg << 20;
+		if (info.format == RISCVEncodingFormat::VectorVI) {
+			if (!RequireImmediate(operand[2].value, immediate)) return false;
+			if (!SignedRange(immediate, 5)) {
+				aasm_log(_LOG_ERROR, "RISC-V vector immediate is outside 5 bits");
+				return false;
+			}
+			encoding |= (static_cast<uint32_t>(immediate) & 0x1f) << 15;
+		}
+		else encoding |= operand[2].reg << 15;
+		if (instruction.masked) encoding &= ~(UINT32_C(1) << 25);
+		return Append(result, encoding);
+
+	case RISCVEncodingFormat::VectorConfigI:
+		if (info.opcode == RISCVOpcode::Vsetivli) {
+			if (!RequireImmediate(operand[1].value, immediate)) return false;
+			if (immediate < 0 || immediate > 31) {
+				aasm_log(_LOG_ERROR, "RISC-V AVL immediate is outside 5 bits");
+				return false;
+			}
+			return Append(result, info.fixed_bits | operand[0].reg << 7 |
+				static_cast<uint32_t>(immediate) << 15 |
+				EncodeRISCVVectorType(instruction.vector_type) << 20);
+		}
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			operand[1].reg << 15 |
+			EncodeRISCVVectorType(instruction.vector_type) << 20);
+
+	case RISCVEncodingFormat::VectorConfigR:
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			operand[1].reg << 15 | operand[2].reg << 20);
+
+	case RISCVEncodingFormat::VectorLoad:
+	case RISCVEncodingFormat::VectorStore:
+		if (operand[1].address_kind != RISCVAddressKind::RegisterRelative ||
+			operand[1].value.offset || operand[1].value.section != NO_SEG) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V vector unit-stride address must be a register without offset");
+			return false;
+		}
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			operand[1].reg << 15);
+
+	case RISCVEncodingFormat::Compressed:
+		break;
+	}
+
+	uint16_t compressed = static_cast<uint16_t>(info.fixed_bits);
+	if (info.opcode == RISCVOpcode::CNop)
+		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+	if (info.opcode == RISCVOpcode::CAddi || info.opcode == RISCVOpcode::CLi ||
+		info.opcode == RISCVOpcode::CLui) {
+		if (!RequireImmediate(operand[1].value, immediate)) return false;
+		if (!SignedRange(immediate, 6) || !operand[0].reg ||
+			(info.opcode == RISCVOpcode::CLui && operand[0].reg == 2)) {
+			aasm_log(_LOG_ERROR, "RISC-V compressed immediate or register is invalid");
+			return false;
+		}
+		compressed |= operand[0].reg << 7 |
+			(static_cast<uint16_t>(immediate) & 0x1f) << 2 |
+			((static_cast<uint16_t>(immediate) >> 5) & 1) << 12;
+		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+	}
+	if (info.opcode == RISCVOpcode::CMv || info.opcode == RISCVOpcode::CAdd) {
+		if (!operand[0].reg || !operand[1].reg) {
+			aasm_log(_LOG_ERROR, "RISC-V compressed register cannot be zero");
+			return false;
+		}
+		compressed |= operand[0].reg << 7 | operand[1].reg << 2;
+		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+	}
+	if (info.opcode == RISCVOpcode::CJ || info.opcode == RISCVOpcode::CJal) {
+		switch (ResolveTarget(session, operand[0].value, offset, immediate)) {
+		case TargetResolution::Fixup:
+			return Append(result, compressed, RISCVFixupKind::CompressedJump,
+				operand[0].value, 2);
+		case TargetResolution::Error: return false;
+		case TargetResolution::Resolved: break;
+		}
+		if ((immediate & 1) || !SignedRange(immediate, 12)) {
+			aasm_log(_LOG_ERROR, "RISC-V compressed jump target is outside range");
+			return false;
+		}
+		return Append(result, EncodeCJ(compressed, immediate),
+			RISCVFixupKind::None, {}, 2);
+	}
+	if (info.opcode == RISCVOpcode::CBeqz || info.opcode == RISCVOpcode::CBnez) {
+		if (operand[0].reg < 8 || operand[0].reg > 15) {
+			aasm_log(_LOG_ERROR, "RISC-V compressed branch requires x8..x15");
+			return false;
+		}
+		switch (ResolveTarget(session, operand[1].value, offset, immediate)) {
+		case TargetResolution::Fixup:
+			return Append(result, compressed | (operand[0].reg - 8) << 7,
+				RISCVFixupKind::CompressedBranch, operand[1].value, 2);
+		case TargetResolution::Error: return false;
+		case TargetResolution::Resolved: break;
+		}
+		if ((immediate & 1) || !SignedRange(immediate, 9)) {
+			aasm_log(_LOG_ERROR, "RISC-V compressed branch target is outside range");
+			return false;
+		}
+		return Append(result, EncodeCB(compressed, operand[0].reg, immediate),
+			RISCVFixupKind::None, {}, 2);
+	}
+	if (info.opcode == RISCVOpcode::CLw || info.opcode == RISCVOpcode::CSw ||
+		info.opcode == RISCVOpcode::CLd || info.opcode == RISCVOpcode::CSd) {
+		if (operand[0].reg < 8 || operand[0].reg > 15 ||
+			operand[1].reg < 8 || operand[1].reg > 15 ||
+			!RequireImmediate(operand[1].value, immediate) || immediate < 0) {
+			aasm_log(_LOG_ERROR, "RISC-V compressed memory operand is invalid");
+			return false;
+		}
+		bool wide = info.opcode == RISCVOpcode::CLd || info.opcode == RISCVOpcode::CSd;
+		if ((!wide && (immediate & 3 || immediate > 124)) ||
+			(wide && (immediate & 7 || immediate > 248))) {
+			aasm_log(_LOG_ERROR, "RISC-V compressed memory offset is invalid");
+			return false;
+		}
+		compressed |= (operand[1].reg - 8) << 7;
+		if (info.opcode == RISCVOpcode::CLw || info.opcode == RISCVOpcode::CLd)
+			compressed |= (operand[0].reg - 8) << 2;
+		else compressed |= (operand[0].reg - 8) << 2;
+		compressed |= ((immediate >> 3) & 7) << 10;
+		if (wide) compressed |= ((immediate >> 6) & 3) << 5;
+		else compressed |= ((immediate >> 2) & 1) << 6 |
+			((immediate >> 6) & 1) << 5;
+		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
 	}
 	aasm_log(_LOG_ERROR, "RISC-V instruction encoding is not implemented");
 	return false;

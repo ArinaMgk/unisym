@@ -9,6 +9,7 @@
 #include "../../../../../asm/inc/aasm-limits.h"
 #include "../../Archend.hpp"
 #include "data/Instructions-riscv.hpp"
+#include "Operand-riscv.hpp"
 
 struct AssemblySession;
 
@@ -18,6 +19,7 @@ enum class RISCVOperandKind : uint8_t {
 	None,
 	Register,
 	Immediate,
+	CSR,
 	Target,
 	IndirectTarget,
 	Address
@@ -33,6 +35,12 @@ enum class RISCVInstructionKind : uint8_t {
 	MoveExpression
 };
 
+enum class RISCVAtomicOrdering : uint8_t {
+	None = 0,
+	Acquire = 1,
+	Release = 2
+};
+
 struct RISCVValue {
 	int64_t offset = 0;
 	int32_t section = NO_SEG;
@@ -45,6 +53,7 @@ struct RISCVOperand {
 	RISCVOperandKind kind = RISCVOperandKind::None;
 	RISCVAddressKind address_kind = RISCVAddressKind::RegisterRelative;
 	uint8_t reg = 0;
+	RISCVRegisterClass reg_class = RISCVRegisterClass::Integer;
 	uint8_t width = 0;
 	RISCVValue value;
 };
@@ -53,7 +62,11 @@ struct RISCVInstruction {
 	RISCVInstructionKind kind = RISCVInstructionKind::Native;
 	RISCVOpcode opcode = RISCVOpcode::None;
 	AssemblySignedness signedness = AssemblySignedness::Default;
-	RISCVOperand operands[3];
+	RISCVAtomicOrdering atomic_ordering = RISCVAtomicOrdering::None;
+	RISCVRoundingMode rounding = RISCVRoundingMode::DYN;
+	RISCVVectorType vector_type;
+	bool masked = false;
+	RISCVOperand operands[5];
 	unsigned operand_count = 0;
 };
 
@@ -61,15 +74,26 @@ enum class RISCVFixupKind : uint8_t {
 	None,
 	Branch,
 	Jump,
+	CompressedBranch,
+	CompressedJump,
 	PcRelativeHigh,
 	PcRelativeLowI,
 	PcRelativeLowS
 };
 
+enum class RISCVFixupPairRole : uint8_t {
+	None,
+	Head,
+	Tail
+};
+
 struct RISCVEncodingResult {
 	uint32_t encoding = 0;
+	uint8_t size = 4;
 	RISCVFixupKind fixup = RISCVFixupKind::None;
 	RISCVValue target;
+	uint64_t pair_offset = 0;
+	RISCVFixupPairRole pair_role = RISCVFixupPairRole::None;
 };
 
 struct RISCVEncodingSequence {

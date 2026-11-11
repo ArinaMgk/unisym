@@ -27,6 +27,9 @@
 | `x14` | `a4` | `x30` | `t5` |
 | `x15` | `a5` | `x31` | `t6` |
 
+浮点寄存器可以写成 `f0` 至 `f31`，也可以使用 ABI 名称 `ft0..ft11`、`fs0..fs11`
+和 `fa0..fa7`。向量寄存器写成 `v0` 至 `v31`；掩码操作数固定写成 `v0.t`。
+
 `imm` 表示立即数表达式。需要 I 型立即数的指令接受 12 位有符号值。移位立即数
 在 RV32 中为 `0..31`，在 RV64 中为 `0..63`；字运算移位量为 `0..31`。
 
@@ -42,8 +45,10 @@ SLTU SIGNED x5, x6, x7
 
 以上三条分别生成 `SLTU`、`SLTU` 和 `SLT`。当前支持切换的原生指令族为
 `SLT/SLTU`、`SLTI/SLTIU`、`BLT/BLTU`、`BGE/BGEU`、`LB/LBU`、`LH/LHU` 和
-`LW/LWU`。RV32 的 `LW` 结果已经占满寄存器宽度，因此 `LW UNSIGNED` 仍生成
-`LW`。不具有符号变体的指令使用限定词会报错。
+`LW/LWU`、`DIV/DIVU`、`REM/REMU`、`DIVW/DIVUW`、`REMW/REMUW`、
+`AMOMIN/AMOMINU`、`AMOMAX/AMOMAXU`、`VDIV.VV/VDIVU.VV` 和
+`VREM.VV/VREMU.VV`。RV32 的 `LW` 结果已经占满寄存器宽度，
+因此 `LW UNSIGNED` 仍生成 `LW`。不具有符号变体的指令使用限定词会报错。
 
 内存操作数使用方括号：
 
@@ -158,6 +163,159 @@ ADDI x5, 4       ; ADDI x5, x5, 4
 | `SRLW` | 64 | `SRLW rd, rs1, rs2` |
 | `SRAW` | 64 | `SRAW rd, rs1, rs2` |
 
+## M 扩展
+
+使用 M 指令前必须选择含 `m` 的指令集，例如 `[INST im]` 或 `[INST ima_zicsr]`。
+以下指令均支持完整三寄存器形式和省略 `rs1` 的原地形式。
+
+| 指令 | BITS | 语法 |
+| :--- | :---: | :--- |
+| `MUL`、`MULH`、`MULHSU`、`MULHU` | 32、64 | `OP rd, rs1, rs2` |
+| `DIV`、`DIVU`、`REM`、`REMU` | 32、64 | `OP rd, rs1, rs2` |
+| `MULW`、`DIVW`、`DIVUW`、`REMW`、`REMUW` | 64 | `OP rd, rs1, rs2` |
+
+`DIV`、`REM` 及其 W 形式可以通过 `SIGNED`、`UNSIGNED` 切换有符号属性。
+`MULH`、`MULHSU` 和 `MULHU` 分别保留各自明确的操作数符号组合，不接受符号限定词。
+
+## Zicsr 与 CSR
+
+CSR 访问指令要求指令集包含 `_zicsr`：
+
+| 指令 | 语法 |
+| :--- | :--- |
+| `CSRRW`、`CSRRS`、`CSRRC` | `OP rd, csr, rs` |
+| `CSRRWI`、`CSRRSI`、`CSRRCI` | `OP rd, csr, uimm5` |
+
+`csr` 可以是 `0..0xFFF` 的绝对编号，也可以使用已知名称，例如 `fflags`、`fcsr`、
+`sstatus`、`stvec`、`satp`、`mstatus`、`misa`、`mtvec`、`mepc`、`mcause`、
+`cycle`、`time` 和 `instret`。计数器、事件和物理内存保护系列名称支持
+`hpmcounter3..31`、`mhpmcounter3..31`、`mhpmevent3..31`、`pmpcfg0..15` 和
+`pmpaddr0..63`；RV32 高半计数器使用末尾 `h`。立即数形式的 `uimm5` 范围是
+`0..31`。
+
+```asm
+[INST i_zicsr]
+CSRRW  a0, mstatus, a1
+CSRRSI a2, mtvec, 31
+CSRRW  a0, 0x300, a1
+```
+
+## A 扩展
+
+A 指令要求指令集包含 `a`。地址必须是纯寄存器形式 `[base]`；原子指令不接受
+`[base + offset]`、标签地址或表达式地址。
+
+| 指令族 | BITS | 语法 |
+| :--- | :---: | :--- |
+| `LR.W` | 32、64 | `LR.W rd, [base]` |
+| `SC.W` | 32、64 | `SC.W rd, rs, [base]` |
+| `AMOSWAP.W`、`AMOADD.W`、`AMOXOR.W`、`AMOAND.W`、`AMOOR.W` | 32、64 | `OP rd, rs, [base]` |
+| `AMOMIN.W`、`AMOMAX.W`、`AMOMINU.W`、`AMOMAXU.W` | 32、64 | `OP rd, rs, [base]` |
+| 上述 `.D` 形式 | 64 | 与 `.W` 形式相同 |
+
+`AQ` 和 `RL` 是原子顺序限定词，可以在指令行顶层任意位置分别或同时使用：
+
+```asm
+LR.W AQ a0, [a1]
+RL SC.D a0, a1, [a2]
+AQ RL AMOADD.W a0, a1, [a2]
+```
+
+重复限定词或在非原子指令上使用 `AQ`、`RL` 会报错。
+
+## F 扩展
+
+F 指令使用浮点寄存器，内存地址继续使用方括号。支持的舍入模式为 `RNE`、`RTZ`、
+`RDN`、`RUP`、`RMM` 和 `DYN`；可以写在助记符之前，或作为支持舍入模式的指令的
+最后一个操作数。未写时使用 `DYN`。
+
+| 指令族 | 语法 |
+| :--- | :--- |
+| `FLW` | `FLW fd, [base + offset]` |
+| `FSW` | `FSW fs, [base + offset]` |
+| `FADD.S`、`FSUB.S`、`FMUL.S`、`FDIV.S` | `OP fd, fs1, fs2 [, rm]` |
+| `FSQRT.S` | `FSQRT.S fd, fs [, rm]` |
+| `FSGNJ.S`、`FSGNJN.S`、`FSGNJX.S` | `OP fd, fs1, fs2` |
+| `FMIN.S`、`FMAX.S` | `OP fd, fs1, fs2` |
+| `FMADD.S`、`FMSUB.S`、`FNMSUB.S`、`FNMADD.S` | `OP fd, fs1, fs2, fs3 [, rm]` |
+| `FEQ.S`、`FLT.S`、`FLE.S` | `OP rd, fs1, fs2` |
+| `FCLASS.S`、`FMV.X.W` | `OP rd, fs` |
+| `FMV.W.X` | `FMV.W.X fd, rs` |
+| `FCVT.W.S`、`FCVT.WU.S` | `OP rd, fs [, rm]` |
+| `FCVT.L.S`、`FCVT.LU.S` | `OP rd, fs [, rm]`，仅 RV64 |
+| `FCVT.S.W`、`FCVT.S.WU` | `OP fd, rs [, rm]` |
+| `FCVT.S.L`、`FCVT.S.LU` | `OP fd, rs [, rm]`，仅 RV64 |
+
+浮点表达式地址加载和存储需要显式提供通用临时寄存器，因为浮点目标寄存器不能保存
+中间地址：
+
+```asm
+FLW f0, [message], t0
+FSW f1, [message + 4], t0
+```
+
+## D 扩展
+
+D 自动启用 F。D 指令的操作数规则与 F 相同：
+
+| 指令族 | 语法 |
+| :--- | :--- |
+| `FLD`、`FSD` | `FLD fd, [base + offset]`；`FSD fs, [base + offset]` |
+| `FADD.D`、`FSUB.D`、`FMUL.D`、`FDIV.D` | `OP fd, fs1, fs2 [, rm]` |
+| `FSQRT.D` | `FSQRT.D fd, fs [, rm]` |
+| `FSGNJ.D`、`FSGNJN.D`、`FSGNJX.D` | `OP fd, fs1, fs2` |
+| `FMIN.D`、`FMAX.D` | `OP fd, fs1, fs2` |
+| `FMADD.D`、`FMSUB.D`、`FNMSUB.D`、`FNMADD.D` | `OP fd, fs1, fs2, fs3 [, rm]` |
+| `FEQ.D`、`FLT.D`、`FLE.D` | `OP rd, fs1, fs2` |
+| `FCLASS.D` | `FCLASS.D rd, fs` |
+| `FCVT.W.D`、`FCVT.WU.D` | `OP rd, fs [, rm]` |
+| `FCVT.L.D`、`FCVT.LU.D` | `OP rd, fs [, rm]`，仅 RV64 |
+| `FCVT.D.W`、`FCVT.D.WU` | `OP fd, rs [, rm]` |
+| `FCVT.D.L`、`FCVT.D.LU` | `OP fd, rs [, rm]`，仅 RV64 |
+| `FCVT.S.D` | `FCVT.S.D fd, fs [, rm]` |
+| `FCVT.D.S` | `FCVT.D.S fd, fs` |
+| `FMV.X.D`、`FMV.D.X` | `FMV.X.D rd, fs`；`FMV.D.X fd, rs`，仅 RV64 |
+
+`FCVT.D.S` 是精确拓宽，不接受舍入模式。
+
+## C 扩展
+
+当前只在显式写出 `C.*` 时生成 16 位指令，不会自动把普通 32 位指令压缩。
+
+| 指令 | 语法 |
+| :--- | :--- |
+| `C.NOP` | `C.NOP` |
+| `C.ADDI`、`C.LI`、`C.LUI` | `OP rd, imm` |
+| `C.MV`、`C.ADD` | `OP rd, rs` |
+| `C.J` | `C.J target` |
+| `C.JAL` | `C.JAL target`，仅 RV32 |
+| `C.BEQZ`、`C.BNEZ` | `OP rs, target`，`rs` 必须为 `x8..x15` |
+| `C.LW`、`C.SW` | `OP rd/rs, [base + offset]`，寄存器必须为 `x8..x15` |
+| `C.LD`、`C.SD` | 与上项相同，仅 RV64 |
+
+压缩分支和跳转仍使用裸目标表达式。ELF 跨 section 或外部目标分别使用
+`R_RISCV_RVC_BRANCH`、`R_RISCV_RVC_JUMP` relocation。
+
+## V 扩展
+
+V 自动启用 F、D 和 Zicsr。当前提供基础向量配置、整数运算和 unit-stride
+加载/存储：
+
+| 指令族 | 语法 |
+| :--- | :--- |
+| `VSETVLI` | `VSETVLI rd, rs, e8/e16/e32/e64, mf8/mf4/mf2/m1/m2/m4/m8 [, ta/tu] [, ma/mu]` |
+| `VSETIVLI` | `VSETIVLI rd, uimm5, vtype...` |
+| `VSETVL` | `VSETVL rd, rs1, rs2` |
+| `VADD.VV`、`VSUB.VV`、`VMUL.VV` | `OP vd, vs2, vs1 [, v0.t]` |
+| `VDIV.VV`、`VDIVU.VV`、`VREM.VV`、`VREMU.VV` | `OP vd, vs2, vs1 [, v0.t]` |
+| `VADD.VX`、`VSUB.VX`、`VMUL.VX` | `OP vd, vs2, rs1 [, v0.t]` |
+| `VADD.VI` | `VADD.VI vd, vs2, imm5 [, v0.t]` |
+| `VLE8.V`、`VLE16.V`、`VLE32.V`、`VLE64.V` | `OP vd, [base]` |
+| `VSE8.V`、`VSE16.V`、`VSE32.V`、`VSE64.V` | `OP vs3, [base]` |
+
+向量 unit-stride 内存指令当前只接受无偏移寄存器地址。V 实现尚不包含完整向量指令
+全集，也不自动推导或插入 `VSETVL*`。
+
 ## 系统指令
 
 | 指令 | 语法 |
@@ -165,8 +323,14 @@ ADDI x5, 4       ; ADDI x5, x5, 4
 | `FENCE` | `FENCE` |
 | `ECALL` | `ECALL` |
 | `EBREAK` | `EBREAK` |
+| `MRET` | `MRET` |
+| `SRET` | `SRET` |
+| `WFI` | `WFI` |
+| `SFENCE.VMA` | `SFENCE.VMA` 或 `SFENCE.VMA rs1, rs2` |
 
 当前 `FENCE` 不接受 predecessor、successor 或 `fm` 操作数，固定生成完整内存屏障。
+特权指令与 CSR 访问是不同类别；`MRET`、`SRET`、`WFI` 和 `SFENCE.VMA` 不要求
+Zicsr。AASM 只负责验证和编码，不判断指令执行时所处的权限级别。
 
 ## 单指令简化形式
 
@@ -236,5 +400,6 @@ MOV BYT4 [a1 + 8], a0
 
 ## 当前范围
 
-当前实现覆盖 RV32I 和 RV64I 中上述指令。尚未实现 M、A、F、D、C、CSR 等扩展，
-也未实现远距离控制流改写和 linker relaxation。
+当前实现覆盖 RV32I、RV64I、M、A、F、D、C、V、Zicsr 以及上述基础特权指令。
+C 只支持显式压缩形式，V 只覆盖本节列出的基础子集。尚未实现完整特权体系、自动压缩、
+完整向量指令集、远距离控制流改写和 linker relaxation。

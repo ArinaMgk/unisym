@@ -1,0 +1,25 @@
+; ASCII TAB4 LF
+; name enum format operands fixed-bits xlen extension signed-variant unsigned-variant
+
+VSETVLI     Vsetvli     VectorConfigI   RdRsVtype        0x00007057  32|64  V  -  -
+VSETIVLI    Vsetivli    VectorConfigI   RdImmediateVtype 0xc0007057  32|64  V  -  -
+VSETVL      Vsetvl      VectorConfigR   RdRsRs           0x80007057  32|64  V  -  -
+VADD.VV     VaddVv      VectorVV        VdVsVs           0x02000057  32|64  V  -  -
+VADD.VX     VaddVx      VectorVX        VdVsRs           0x02004057  32|64  V  -  -
+VADD.VI     VaddVi      VectorVI        VdVsImmediate    0x02003057  32|64  V  -  -
+VSUB.VV     VsubVv      VectorVV        VdVsVs           0x0a000057  32|64  V  -  -
+VSUB.VX     VsubVx      VectorVX        VdVsRs           0x0a004057  32|64  V  -  -
+VMUL.VV     VmulVv      VectorVV        VdVsVs           0x96002057  32|64  V  -  -
+VMUL.VX     VmulVx      VectorVX        VdVsRs           0x96006057  32|64  V  -  -
+VDIV.VV     VdivVv      VectorVV        VdVsVs           0x86002057  32|64  V  VdivVv VdivuVv
+VDIVU.VV    VdivuVv     VectorVV        VdVsVs           0x82002057  32|64  V  VdivVv VdivuVv
+VREM.VV     VremVv      VectorVV        VdVsVs           0x8e002057  32|64  V  VremVv VremuVv
+VREMU.VV    VremuVv     VectorVV        VdVsVs           0x8a002057  32|64  V  VremVv VremuVv
+VLE8.V      Vle8V       VectorLoad      VdAddress        0x02000007  32|64  V  -  -
+VLE16.V     Vle16V      VectorLoad      VdAddress        0x02005007  32|64  V  -  -
+VLE32.V     Vle32V      VectorLoad      VdAddress        0x02006007  32|64  V  -  -
+VLE64.V     Vle64V      VectorLoad      VdAddress        0x02007007  32|64  V  -  -
+VSE8.V      Vse8V       VectorStore     VsAddress        0x02000027  32|64  V  -  -
+VSE16.V     Vse16V      VectorStore     VsAddress        0x02005027  32|64  V  -  -
+VSE32.V     Vse32V      VectorStore     VsAddress        0x02006027  32|64  V  -  -
+VSE64.V     Vse64V      VectorStore     VsAddress        0x02007027  32|64  V  -  -

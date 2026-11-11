@@ -65,6 +65,15 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 			"command line: default segment size is not supported by the selected architecture or cpu");
 	}
 	uni::CodeendInterface& codeend = target.Codeend();
+	auto ConfigureTarget = [&]() {
+		codeend.ConfigureTarget({
+			Session.ActiveArchend->DumpArchend().architecture,
+			Session.CurrentBits,
+			Session.CurrentCpu,
+			Session.CurrentAbi,
+			Session.AbiExplicit
+		});
+	};
 	AssemblyStatementParser statement_parser(Session);
 	uni::lango::ArchendInterface* initial_archend = &target.Archend();
 	struct ArchendState {
@@ -112,6 +121,10 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 		Session.PassPhase = pass0;
 		Session.PassNumber = passn;
 		Session.CurrentBits = globalbits;
+		Session.CurrentAbi = initial_archend->DefaultAbi(
+			Session.CurrentBits, Session.CurrentCpu);
+		Session.AbiExplicit = false;
+		ConfigureTarget();
 		if (pass0 == 2) {
 			if (*listname)
 				Session.Listing->Initialize(listname);
@@ -152,6 +165,25 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 				int err = 0;
 
 				switch (d) {
+				case Directive::Abi:
+				{
+					uint32_t abi = Session.CurrentAbi;
+					if (!Session.ActiveArchend->ParseAbi(value, abi)) {
+						aasm_log(_LOG_ERROR,
+							"unknown abi for the current architecture");
+						break;
+					}
+					if (!Session.ActiveArchend->ValidateAbi(
+						Session.CurrentBits, Session.CurrentCpu, abi)) {
+						aasm_log(_LOG_ERROR,
+							"abi is incompatible with the current architecture, bit width, or instruction set");
+						break;
+					}
+					Session.CurrentAbi = abi;
+					Session.AbiExplicit = true;
+					ConfigureTarget();
+					break;
+				}
 				case Directive::Arch:
 				{
 					char* end = value + StrLength(value);
@@ -187,6 +219,10 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 					globalbits = Session.SectionBits =
 						selected->DumpArchend().default_bits;
 					Session.CurrentBits = globalbits;
+					Session.CurrentAbi = selected->DefaultAbi(
+						Session.CurrentBits, Session.CurrentCpu);
+					Session.AbiExplicit = false;
+					ConfigureTarget();
 					break;
 				}
 				case Directive::Segment:		/* [SEGMENT n] */
@@ -248,9 +284,22 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 					}           /* else  pass0 == 1 */
 					break;
 				case Directive::Bits:		/* [BITS bits] */
-					globalbits = Session.SectionBits = ParseBits(value);
+				{
+					int bits = ParseBits(value);
+					uint32_t abi = Session.AbiExplicit ? Session.CurrentAbi :
+						Session.ActiveArchend->DefaultAbi(bits, Session.CurrentCpu);
+					if (!Session.ActiveArchend->ValidateAbi(
+						bits, Session.CurrentCpu, abi)) {
+						aasm_log(_LOG_ERROR,
+							"bit width is incompatible with the selected abi");
+						break;
+					}
+					globalbits = Session.SectionBits = bits;
 					Session.CurrentBits = globalbits;
+					Session.CurrentAbi = abi;
+					ConfigureTarget();
 					break;
+				}
 				case Directive::Global:		/* [GLOBAL symbol:special] */
 					if (*value == '$')
 						value++;        /* skip initial $ if present */
@@ -429,9 +478,14 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 				{
 					uint32_t cpu = ParseCpu(value);
 					if (Session.ActiveArchend->ValidateBits(
-						Session.CurrentBits, cpu)) Session.CurrentCpu = cpu;
+						Session.CurrentBits, cpu) &&
+						Session.ActiveArchend->ValidateAbi(Session.CurrentBits,
+							cpu, Session.CurrentAbi)) {
+						Session.CurrentCpu = cpu;
+						ConfigureTarget();
+					}
 					else aasm_log(_LOG_ERROR,
-						"cpu is incompatible with the current architecture or bit width");
+						"cpu is incompatible with the current architecture, bit width, or abi");
 					break;
 				}
 				case Directive::List:		/* [LIST {+|-}] */
@@ -545,6 +599,7 @@ Assembler::Directive Assembler::ParseDirective(char** directive, char** value)
 		Directive Value;
 	};
 	static const DirectiveEntry Entries[] = {
+		{"abi", Directive::Abi},
 		{"absolute", Directive::Absolute},
 		{"arch", Directive::Arch},
 		{"bits", Directive::Bits},

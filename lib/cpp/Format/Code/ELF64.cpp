@@ -29,6 +29,7 @@
 #include "../../../../inc/c/format/ELF.h"
 #include "../../../../inc/c/format/DWARF.h"
 #include "../../../../inc/cpp/Format/Code.hpp"
+#include "../../../../inc/cpp/Format/Code/ELF/ELF-riscv.hpp"
 #include "../../../../asm/inc/aasm.h"
 #include "../../../../asm/inc/rbtree.hpp"
 
@@ -113,12 +114,23 @@ static uint8_t elf_osabi = 0;	/* Default OSABI = 0 (System V or Linux) */
 static uint8_t elf_abiver = 0;	/* Current ABI version */
 static uint16_t elf_machine = EM_X86_64;
 static uint32_t elf_flags = 0;
+static uni::RISCVELFTarget riscv_target;
+static struct Section* riscv_attributes = NULL;
 
 void elf64_set_architecture(uni::lango::ArchitectureKind architecture)
 {
 	elf_machine = architecture == uni::lango::ArchitectureKind::RISCV ?
 		EM_RISCV : EM_X86_64;
 	elf_flags = 0;
+	if (elf_machine == EM_RISCV) riscv_target.Reset(64);
+}
+
+void elf64_configure_target(const uni::lango::AssemblyTargetProfile& target)
+{
+	if (elf_machine == EM_RISCV && !riscv_target.Update(target.bits,
+		target.cpu, target.abi, target.abi_explicit))
+		aasm_log(_LOG_ERROR,
+			"RISC-V ELF output cannot contain multiple ABI selections");
 }
 
 _ESYM_C struct outffmt of_elf64;
@@ -132,6 +144,7 @@ static int elf_nsect, nsections;
 static int64_t elf_foffs;
 
 static void elf_write(void);
+static int elf_make_section(rostr, int, int, int);
 static void elf_sect_write(struct Section *, const void *, size_t);
 static void elf_sect_writeaddr(struct Section *, int64_t, size_t);
 static void elf_section_header(int, int, uint64_t, void *, bool, uint64_t, int, int,
@@ -334,6 +347,12 @@ static void elf_init(FILE * fp, ldfunc ldef, evalfunc eval)
 		 );
 
 	def_seg = SegAlloc();
+	riscv_attributes = NULL;
+	if (elf_machine == EM_RISCV) {
+		int index = elf_make_section(".riscv.attributes",
+			SHT_RISCV_ATTRIBUTES, 0, 1);
+		riscv_attributes = sects[index];
+	}
 
 }
 
@@ -818,6 +837,12 @@ static int riscv_reloc_type(const uni::CodeFixup& fixup)
 		fixup.kind == uni::CodeFixupKind::Call) &&
 		fixup.encoding.storage_bits == 32 &&
 		fixup.encoding.value_bits == 21) return R_RISCV_JAL;
+	if (fixup.kind == uni::CodeFixupKind::Branch &&
+		fixup.encoding.storage_bits == 16 &&
+		fixup.encoding.value_bits == 9) return R_RISCV_RVC_BRANCH;
+	if (fixup.kind == uni::CodeFixupKind::Branch &&
+		fixup.encoding.storage_bits == 16 &&
+		fixup.encoding.value_bits == 12) return R_RISCV_RVC_JUMP;
 	if (fixup.kind == uni::CodeFixupKind::PageRelative &&
 		fixup.encoding.storage_bits == 32 &&
 		fixup.encoding.value_bits == 20 &&
@@ -851,6 +876,20 @@ void elf64_emit_fixup(const uni::CodeFixup& fixup)
 		aasm_log(_LOG_ERROR, "RISC-V ELF64 fixup has an invalid target");
 		return;
 	}
+	if (fixup.kind == uni::CodeFixupKind::PageRelative &&
+		(fixup.pair.role != uni::CodeFixupPairRole::Head ||
+		fixup.pair.section != fixup.section ||
+		fixup.pair.offset != fixup.offset)) {
+		aasm_log(_LOG_PANIC, "RISC-V ELF64 high relocation has an invalid pair");
+		return;
+	}
+	if (fixup.kind == uni::CodeFixupKind::PageOffset &&
+		(fixup.pair.role != uni::CodeFixupPairRole::Tail ||
+		fixup.pair.section != fixup.section ||
+		fixup.pair.offset >= fixup.offset)) {
+		aasm_log(_LOG_PANIC, "RISC-V ELF64 low relocation has an invalid pair");
+		return;
+	}
 	int type = riscv_reloc_type(fixup);
 	if (type < 0) {
 		aasm_log(_LOG_ERROR, "unsupported RISC-V ELF64 relocation");
@@ -858,8 +897,8 @@ void elf64_emit_fixup(const uni::CodeFixup& fixup)
 	}
 	size_t size = fixup.encoding.storage_bits / 8;
 	if (fixup.kind == uni::CodeFixupKind::PageOffset) {
-		if (!elf_add_local_reloc(section, fixup.target_section,
-			fixup.addend, type)) return;
+		if (!elf_add_local_reloc(section, fixup.pair.section,
+			static_cast<int64_t>(fixup.pair.offset), type)) return;
 	}
 	else elf_add_reloc(section, fixup.target_section, fixup.addend, type);
 	elf_sect_writeaddr(section, static_cast<int64_t>(fixup.initial_value), size);
@@ -1204,6 +1243,18 @@ static void elf_write(void)
 
 	Strbuff *symtab;
 	int32_t symtablen, symtablocal;
+	if (riscv_attributes) {
+		uint8_t attributes[512];
+		size_t length = riscv_target.BuildAttributes(
+			attributes, sizeof(attributes));
+		if (!length)
+			aasm_log(_LOG_PANIC, "unable to build RISC-V ELF attributes");
+		else {
+			StrbuffSend(riscv_attributes->data, attributes, length);
+			riscv_attributes->len += length;
+		}
+		elf_flags = riscv_target.Flags();
+	}
 
 	/*
 	 * Work out how many sections we will have. We have SHN_UNDEF,
@@ -1304,7 +1355,7 @@ static void elf_write(void)
 	/* The normal sections */
 	for (i = 0; i < nsects; i++) {
 		elf_section_header(p - shstrtab, sects[i]->type, sects[i]->flags,
-						   (sects[i]->type == SHT_PROGBITS ?
+						   (sects[i]->type != SHT_NOBITS ?
 							sects[i]->data : NULL), true,
 						   sects[i]->len, 0, 0, sects[i]->align, 0);
 		p += StrLength(p) + 1;

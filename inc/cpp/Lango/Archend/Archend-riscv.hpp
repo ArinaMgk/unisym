@@ -32,6 +32,9 @@ public:
 	virtual uint32_t DefaultCpu() const override;
 	virtual bool ParseCpu(const char* name, uint32_t& cpu) const override;
 	virtual bool ValidateBits(int bits, uint32_t cpu) const override;
+	virtual uint32_t DefaultAbi(int bits, uint32_t cpu) const override;
+	virtual bool ParseAbi(const char* name, uint32_t& abi) const override;
+	virtual bool ValidateAbi(int bits, uint32_t cpu, uint32_t abi) const override;
 	virtual bool ProcessDefault(char* value) const override;
 	virtual void Initialize(AssemblySession& session) override;
 	virtual void BeginPass(AssemblySession& session,

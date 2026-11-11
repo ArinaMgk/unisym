@@ -357,6 +357,8 @@ struct AssemblySession {
 	int CurrentBits;
 	int SectionBits;
 	uint32_t CurrentCpu;
+	uint32_t CurrentAbi;
+	bool AbiExplicit;
 	int64_t GlobalOffsetChanged;
 	int64_t PreviousOffsetChanged;
 	int32_t StallCount;
@@ -403,6 +405,7 @@ public:
 private:
 	enum class Directive {
 		None,
+		Abi,
 		Absolute,
 		Arch,
 		Bits,

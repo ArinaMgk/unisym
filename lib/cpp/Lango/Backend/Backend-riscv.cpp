@@ -42,9 +42,16 @@ namespace uni::lango {
 
 		unsigned ABIFloatBits(const RISCVTargetInfo& target) {
 			switch (target.abi) {
-			case RISCVABI::LP64: return 0;
-			case RISCVABI::LP64F: return 32;
-			case RISCVABI::LP64D: return 64;
+			case RISCVABI::Default:
+			case RISCVABI::ILP32:
+			case RISCVABI::LP64:
+				return 0;
+			case RISCVABI::ILP32F:
+			case RISCVABI::LP64F:
+				return 32;
+			case RISCVABI::ILP32D:
+			case RISCVABI::LP64D:
+				return 64;
 			}
 			return 0;
 		}
@@ -120,6 +127,11 @@ namespace uni::lango {
 		bool ValidateTarget(const RISCVTargetInfo& target, const clover::Module& module) {
 			if (target.bits != 64) {
 				plogerro("RISC-V backend: unsupported -mbits=%[u]; supported bits: 64", target.bits);
+				return false;
+			}
+			if (target.abi == RISCVABI::ILP32 || target.abi == RISCVABI::ILP32F ||
+				target.abi == RISCVABI::ILP32D) {
+				plogerro("RISC-V backend: ILP32 ABIs require a 32-bit backend target");
 				return false;
 			}
 			if (module.pointer_bits && module.pointer_bits != target.bits) {

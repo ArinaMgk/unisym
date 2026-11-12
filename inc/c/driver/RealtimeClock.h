@@ -47,7 +47,7 @@ void RTC_SetAlarm(uint32 secs);
 #endif
 
 
-#elif defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
+#elif defined(_INC_CPP) && (defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x))
 
 // ---- Base addresses ----
 #if defined(_MCU_STM32F4x)

@@ -175,12 +175,12 @@ namespace uni {
 		virtual uint32 getVolume() const { return 100; }
 
 	public: // ---- Float Overloads (0.0f ~ 1.0f Normalized Range) ----
-		virtual void setVolume(float percent) {
+		virtual void setVolumeFloat(float percent) {
 			if (percent < 0.0f) setVolume(0U);
 			else if (percent > 1.0f) setVolume(100U);
 			else setVolume(uint32(percent * 100.0f));
 		}
-		virtual void setVolume(float left, float right) {
+		virtual void setVolumeFloat(float left, float right) {
 			setVolume((left + right) * 0.5f);
 		}
 

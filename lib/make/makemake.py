@@ -384,7 +384,7 @@ STM32F4   += """IDEN=STM32F4
 FLAG=-O2 -D_MCU_$(IDEN)x -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 """
 STM32H7   += """IDEN=STM32H7
-FLAG=-O2 -D_MCU_$(IDEN)x -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
+FLAG=-O2 -D_MCU_$(IDEN)x -D_MCCA=0x1A072032 -D_DEBUG -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
 """
 STM32MP13 += """IDEN=STM32MP13
 FLAG=-O2 -D_MPU_$(IDEN)  -mcpu=cortex-a7 -mthumb -mfpu=vfpv4-d16   -mfloat-abi=hard
@@ -427,7 +427,74 @@ init:
 '''
 STM32F1   += tmp
 STM32F4   += tmp
-STM32H7   += tmp
+STM32H7   += """
+.DEFAULT_GOAL := all
+.DELETE_ON_ERROR:
+H7_MAKEFILE := $(lastword $(MAKEFILE_LIST))
+FLAG+=-I$(uincpath)
+FLAG+=-fdata-sections -ffunction-sections -fno-strict-aliasing -fno-exceptions
+FLAG+=-Wextra
+FLAX=$(FLAG) -fno-rtti -fno-use-cxa-atexit
+
+# TEMP
+FLAX+=-fno-threadsafe-statics
+
+PREF=arm-none-eabi-
+DEST=$(ubinpath)/lib$(IDEN).a
+CC=$(PREF)gcc -c
+CX=$(PREF)g++ -c
+AR=$(PREF)ar
+OPATH=$(uobjpath)/$(IDEN)
+
+# Follow the shared library's directory wildcard rules, including data and format modules.
+cplfile := $(sort $(wildcard lib/c/*.c lib/c/**/*.c lib/c/**/**/*.c lib/c/**/**/**/*.c))
+cppfile := $(sort $(wildcard lib/cpp/*.cpp lib/cpp/**/*.cpp lib/cpp/**/**/*.cpp lib/cpp/**/**/**/*.cpp lib/cpp/**/**/**/**/*.cpp))
+# ARM does not need the Lango compiler frontends or backends.
+h7_lango_end_cpp := $(wildcard lib/cpp/Lango/*end/*.cpp lib/cpp/Lango/*end/**/*.cpp lib/cpp/Lango/*end/**/**/*.cpp)
+cppfile := $(filter-out $(h7_lango_end_cpp),$(cppfile))
+
+# Encode the source path and language in each member name to avoid archive collisions.
+define c_to_o
+$(OPATH)/_cc_$(subst /,_,$(1:.c=.o)): $(1)
+endef
+define cpp_to_o
+$(OPATH)/_cx_$(subst /,_,$(1:.cpp=.o)): $(1)
+endef
+cplobjs := $(foreach source,$(cplfile),$(OPATH)/_cc_$(subst /,_,$(source:.c=.o)))
+cppobjs := $(foreach source,$(cppfile),$(OPATH)/_cx_$(subst /,_,$(source:.cpp=.o)))
+objects := $(cplobjs) $(cppobjs)
+depfiles := $(objects:.o=.d)
+
+.PHONY: all clean
+all: $(DEST)
+
+$(OPATH):
+	mkdir -p $@
+
+$(DEST): $(objects) $(H7_MAKEFILE)
+	@mkdir -p $(dir $@)
+	@echo AR $@
+	rm -f $@
+	@$(AR) -rcs $@ $(objects)
+
+$(foreach source,$(cplfile),$(eval $(call c_to_o,$(source))))
+$(foreach source,$(cppfile),$(eval $(call cpp_to_o,$(source))))
+
+$(objects): $(H7_MAKEFILE) | $(OPATH)
+
+$(cplobjs):
+	@echo CC $<
+	@$(CC) $(FLAG) -MMD -MP -MF $(@:.o=.d) -MT $@ $< -o $@
+
+$(cppobjs):
+	@echo CX $<
+	@$(CX) $(FLAX) -MMD -MP -MF $(@:.o=.d) -MT $@ $< -o $@
+
+clean:
+	rm -f $(objects) $(depfiles) $(DEST)
+
+-include $(depfiles)
+"""
 STM32MP13 += tmp
 with open('./lib/make/cortexm3-Gnu-STM32F1.make', 'w+b') as fobj:
 	fobj.write(bytes(STM32F1, encoding = "utf8"))

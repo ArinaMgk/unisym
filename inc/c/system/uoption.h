@@ -27,6 +27,9 @@
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)|| defined(_MPU_STM32MP13)
 	#define _MCU_STM32
+	#ifndef _OPT_ARM32
+	#define _OPT_ARM32
+	#endif
 	#ifndef __BITS__
 	#define __BITS__ 32
 	#endif

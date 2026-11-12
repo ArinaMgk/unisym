@@ -13,6 +13,32 @@ namespace uni::lango {
 
 namespace {
 
+void AppendUnsigned(char*& cursor, uint64_t value)
+{
+	char digits[24];
+	unsigned count = 0;
+	do {
+		digits[count++] = static_cast<char>('0' + value % 10);
+		value /= 10;
+	} while (value);
+	while (count) *cursor++ = digits[--count];
+}
+
+void MakePairAnchor(char* output, int32_t section, uint64_t offset)
+{
+	char* cursor = output;
+	const char prefix[] = "..@riscv.pcrel.";
+	for (const char* item = prefix; *item; item++) *cursor++ = *item;
+	if (section < 0) {
+		*cursor++ = '-';
+		AppendUnsigned(cursor, static_cast<uint64_t>(-static_cast<int64_t>(section)));
+	}
+	else AppendUnsigned(cursor, static_cast<uint64_t>(section));
+	*cursor++ = '.';
+	AppendUnsigned(cursor, offset);
+	*cursor = '\0';
+}
+
 constexpr uint32_t Extension(RISCVExtension extension)
 {
 	return static_cast<uint32_t>(extension);
@@ -192,7 +218,8 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 			RISCVEncodingResult& encoded = sequence.instructions[item];
 			if (encoded.fixup != RISCVFixupKind::None) {
 				bool paired = encoded.pair_role != RISCVFixupPairRole::None;
-				bool pair_fixup = encoded.fixup == RISCVFixupKind::PcRelativeHigh ||
+				bool pair_fixup = encoded.fixup == RISCVFixupKind::GotHigh ||
+					encoded.fixup == RISCVFixupKind::PcRelativeHigh ||
 					encoded.fixup == RISCVFixupKind::PcRelativeLowI ||
 					encoded.fixup == RISCVFixupKind::PcRelativeLowS;
 				if (paired != pair_fixup) {
@@ -203,9 +230,8 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 				}
 				if (encoded.pair_role == RISCVFixupPairRole::Head) {
 					char anchor[96];
-					snprintf(anchor, sizeof(anchor), "..@riscv.pcrel.%d.%lld",
-						session.Location.segment,
-						static_cast<long long>(encoded.pair_offset));
+					MakePairAnchor(anchor, session.Location.segment,
+						encoded.pair_offset);
 					codeend.DefineSymbol(anchor, session.Location.segment,
 						static_cast<int64_t>(encoded.pair_offset), 0, nullptr);
 				}
@@ -220,6 +246,30 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 					kind = instruction.operands[0].reg ?
 						uni::CodeFixupKind::Call : uni::CodeFixupKind::Branch;
 					encoding = {32, 21, 0, 1, true};
+					break;
+				case RISCVFixupKind::Call:
+					kind = uni::CodeFixupKind::Call;
+					encoding = {64, 32, 0, 0, true};
+					break;
+				case RISCVFixupKind::CallPlt:
+					kind = uni::CodeFixupKind::Plt;
+					encoding = {64, 32, 0, 0, true};
+					break;
+				case RISCVFixupKind::High:
+					kind = uni::CodeFixupKind::High;
+					encoding = {32, 20, 12, 12, true};
+					break;
+				case RISCVFixupKind::LowI:
+					kind = uni::CodeFixupKind::Low;
+					encoding = {32, 12, 20, 0, true};
+					break;
+				case RISCVFixupKind::LowS:
+					kind = uni::CodeFixupKind::Low;
+					encoding = {32, 12, 7, 0, true};
+					break;
+				case RISCVFixupKind::GotHigh:
+					kind = uni::CodeFixupKind::Got;
+					encoding = {32, 20, 12, 12, true};
 					break;
 				case RISCVFixupKind::CompressedBranch:
 					kind = uni::CodeFixupKind::Branch;
@@ -265,7 +315,8 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 							(encoded.pair_role == RISCVFixupPairRole::Tail ?
 								uni::CodeFixupPairRole::Tail :
 								uni::CodeFixupPairRole::None)
-					}
+					},
+					session.Options->EnableRISCVRelax
 				};
 				session.Listing->EmitFixup(fixup);
 				codeend.EmitFixup(fixup);

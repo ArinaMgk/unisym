@@ -123,6 +123,10 @@ ELF 基础对象；ELF 会校验 RISC-V 位宽并拒绝中途切换机器架构�
 RISC-V ELF 已支持外部符号的分支、直接跳转及 32/64 位绝对数据 relocation。
 ELF32 的 RISC-V relocation 已改用 RELA，机器指令初值与 relocation 加数分别保存；
 分支和直接跳转也可以通过 section symbol 与 addend 引用其他 section 中的本地标签。
+已接入 `CALL`、`CALL_PLT`、绝对 `HI20/LO12`、`GOT_HI20` 和成对的
+`PCREL_HI20/PCREL_LO12_I/PCREL_LO12_S` relocation；`-mrelax` 输出 `RELAX` 提示，
+RISC-V `align` 输出 `ALIGN` relocation 及最大 NOP padding。
+预处理器新增 `__ARCH__` 内建宏，架构切换时更新其值，供通用宏选择架构相关语句。
 
 RISC-V Archend 已支持多指令展开。`MOV` 可以加载完整 RV32/RV64 数值和标签地址；
 加载与存储指令可以使用标签或绝对表达式地址，表达式地址存储由第三个操作数显式提供

@@ -31,7 +31,7 @@ bool Equal(const char* left, const char* right)
 bool IsAlias(const char* name)
 {
 	static const char* const aliases[] = {
-		"j", "jr", "mov", "nop", "ret"
+		"call", "call_plt", "j", "jr", "mov", "nop", "ret"
 	};
 	for (const char* alias : aliases)
 		if (Equal(name, alias)) return true;
@@ -235,8 +235,58 @@ bool ParseTypedRegisterOperand(char* text, RISCVRegisterClass kind,
 
 bool ParseImmediateOperand(char* text, int parse_pass, RISCVOperand& operand)
 {
+	text = SkipSpace(text);
+	char* word_end = text;
+	while (isidchar(*word_end)) word_end++;
+	char saved = *word_end;
+	*word_end = '\0';
+	if (Equal(text, "high"))
+		operand.relocation = RISCVRelocationKind::High;
+	else if (Equal(text, "low"))
+		operand.relocation = RISCVRelocationKind::Low;
+	else if (Equal(text, "got"))
+		operand.relocation = RISCVRelocationKind::Got;
+	else if (Equal(text, "pcrel_high"))
+		operand.relocation = RISCVRelocationKind::PcRelativeHigh;
+	else if (Equal(text, "pcrel_low"))
+		operand.relocation = RISCVRelocationKind::PcRelativeLow;
+	*word_end = saved;
+	if (operand.relocation != RISCVRelocationKind::None) {
+		if (*word_end && !ascii_isspace(*word_end)) return false;
+		text = SkipSpace(word_end);
+	}
 	operand.kind = RISCVOperandKind::Immediate;
 	return ParseValue(text, parse_pass, operand.value);
+}
+
+bool ParseRelocationValue(char* text, int parse_pass,
+	RISCVRelocationKind& relocation, RISCVValue& value)
+{
+	text = SkipSpace(text);
+	char* expression = text;
+	char sign = '\0';
+	if (*text == '+' || *text == '-') {
+		sign = *text++;
+		text = SkipSpace(text);
+	}
+	char* word_end = text;
+	while (isidchar(*word_end)) word_end++;
+	char saved = *word_end;
+	*word_end = '\0';
+	if (Equal(text, "high")) relocation = RISCVRelocationKind::High;
+	else if (Equal(text, "low")) relocation = RISCVRelocationKind::Low;
+	else if (Equal(text, "got")) relocation = RISCVRelocationKind::Got;
+	else if (Equal(text, "pcrel_high"))
+		relocation = RISCVRelocationKind::PcRelativeHigh;
+	else if (Equal(text, "pcrel_low"))
+		relocation = RISCVRelocationKind::PcRelativeLow;
+	*word_end = saved;
+	if (relocation == RISCVRelocationKind::None)
+		return ParseValue(expression, parse_pass, value);
+	if (*word_end && !ascii_isspace(*word_end)) return false;
+	if (!ParseValue(SkipSpace(word_end), parse_pass, value)) return false;
+	if (sign == '-') value.offset = -value.offset;
+	return true;
 }
 
 bool ParseCSROperand(char* text, int parse_pass, RISCVOperand& operand)
@@ -309,7 +359,8 @@ bool ParseAddressOperand(char* text, int parse_pass, bool move_operand,
 		char* displacement = SkipSpace(register_end);
 		if (!*displacement) return true;
 		if (*displacement != '+' && *displacement != '-') return false;
-		return ParseValue(displacement, parse_pass, operand.value);
+		return ParseRelocationValue(displacement, parse_pass,
+			operand.relocation, operand.value);
 	}
 	*register_end = saved;
 	operand.address_kind = RISCVAddressKind::Expression;
@@ -574,6 +625,16 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		aasm_log(_LOG_ERROR,
 			"RISC-V instruction does not support a rounding-mode qualifier");
 		return false;
+	}
+	if (Equal(mnemonic, "call") || Equal(mnemonic, "call_plt")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 1) goto bad_count;
+		instruction.kind = Equal(mnemonic, "call") ?
+			RISCVInstructionKind::Call : RISCVInstructionKind::CallPlt;
+		instruction.operand_count = 1;
+		return RequireTarget(operands[0], parse_pass,
+			instruction.operands[0], 1);
 	}
 
 	if (Equal(mnemonic, "nop")) {

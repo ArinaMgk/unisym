@@ -24,6 +24,7 @@
 #define _INC_ELF
 
 #include "../stdinc.h"
+#include "../../cpp/Format/Code/ELF/ELF-riscv.hpp"
 
 enum Bitmode_t {
 	ELF32 = 1,
@@ -207,14 +208,6 @@ enum {
 	SHT_LOUSER   = 0x80000000,
 	SHT_HIUSER   = 0xffffffff,
 };// Section header types
-
-enum {
-	EF_RISCV_RVC = 0x0001,
-	EF_RISCV_FLOAT_ABI_SINGLE = 0x0002,
-	EF_RISCV_FLOAT_ABI_DOUBLE = 0x0004,
-	EF_RISCV_FLOAT_ABI_QUAD = 0x0006,
-	EF_RISCV_FLOAT_ABI = 0x0006
-};
 
 enum {
 	SHF_WRITE             = _IMM1S(0) ,  /* Writable */
@@ -643,30 +636,6 @@ struct elf_known_section {
 		R_ARM_NONE          =  0,   /* No reloc */
 		R_ARM_ABS32         =  2,   /* Direct 32 bit */
 		R_ARM_RELATIVE      = 23    /* Adjust by program base */
-	};
-
-	// RISC-V (RV32/RV64) relocations
-	enum reloc32_riscv_type {
-		R_RISCV_NONE        =  0,   /* No reloc */
-		R_RISCV_32          =  1,   /* Direct 32 bit */
-		R_RISCV_64          =  2,   /* Direct 64 bit */
-		R_RISCV_RELATIVE    =  3,   /* Adjust by program base */
-		R_RISCV_JUMP_SLOT   =  5,   /* PLT slot */
-		R_RISCV_BRANCH      = 16,   /* PC-relative branch */
-		R_RISCV_JAL         = 17,   /* PC-relative jump */
-		R_RISCV_CALL        = 18,   /* PC-relative call pair */
-		R_RISCV_CALL_PLT    = 19,   /* PC-relative PLT call pair */
-		R_RISCV_GOT_HI20    = 20,   /* PC-relative GOT high 20 bits */
-		R_RISCV_PCREL_HI20  = 23,   /* PC-relative high 20 bits */
-		R_RISCV_PCREL_LO12_I = 24,  /* PC-relative low 12-bit I field */
-		R_RISCV_PCREL_LO12_S = 25,  /* PC-relative low 12-bit S field */
-		R_RISCV_HI20         = 26,  /* Absolute high 20 bits */
-		R_RISCV_LO12_I       = 27,  /* Absolute low 12-bit I field */
-		R_RISCV_LO12_S       = 28,  /* Absolute low 12-bit S field */
-		R_RISCV_ALIGN        = 43,  /* Alignment for linker relaxation */
-		R_RISCV_RVC_BRANCH   = 44,  /* PC-relative compressed branch */
-		R_RISCV_RVC_JUMP     = 45,  /* PC-relative compressed jump */
-		R_RISCV_RELAX        = 51   /* Linker relaxation marker */
 	};
 
 	// Unified 32-bit dynamic relocation ids for the arch-neutral flat PIE loader

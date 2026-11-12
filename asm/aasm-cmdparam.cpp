@@ -171,6 +171,7 @@ static void SelectArchitecture(AssemblerOptions& options, const char* name)
 		return;
 	}
 	options.Target.SelectArchend(*archend);
+		globalarch = archend->DumpArchend().shortname;
 }
 
 bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
@@ -185,6 +186,11 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 		return false;
 
 	if (p[0] == '-' && !options.StopOptionParsing) {
+		if (!StrCompareInsensitive(p, "-mrelax") ||
+			!StrCompareInsensitive(p, "--mrelax")) {
+			options.EnableRISCVRelax = true;
+			return false;
+		}
 		bool architecture_option = false;
 		if (!StrCompareInsensitive(p, "-march") ||
 			!StrCompareInsensitive(p, "--arch")) {
@@ -347,6 +353,7 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 				"    -I<path>    adds a pathname to the include file path\n");
 			printf
 			("    -O<digit>   optimize branch offsets (-O0 disables, default)\n"
+				"    -mrelax     emit RISC-V linker-relaxation hints\n"
 				"    -march=name select the instruction architecture\n"
 				"    --arch name select the instruction architecture\n"
 				"    -P<file>    pre-includes a file\n"

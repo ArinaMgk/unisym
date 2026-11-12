@@ -872,10 +872,35 @@ static bool elf_add_local_reloc(struct Section* sect, int32_t segment,
 	return true;
 }
 
+static void elf_add_riscv_relax_reloc(struct Section* sect)
+{
+	elf_add_reloc(sect, NO_SEG, R_RISCV_RELAX, 0);
+}
+
 static int riscv_reloc_type(const uni::CodeFixup& fixup)
 {
 	if (fixup.kind == uni::CodeFixupKind::Absolute &&
 		fixup.encoding.storage_bits == 32) return R_RISCV_32;
+	if ((fixup.kind == uni::CodeFixupKind::Call ||
+		fixup.kind == uni::CodeFixupKind::Plt) &&
+		fixup.encoding.storage_bits == 64 &&
+		fixup.encoding.value_bits == 32)
+		return fixup.kind == uni::CodeFixupKind::Plt ?
+			R_RISCV_CALL_PLT : R_RISCV_CALL;
+	if (fixup.kind == uni::CodeFixupKind::Got &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 20 &&
+		fixup.encoding.bit_offset == 12) return R_RISCV_GOT_HI20;
+	if (fixup.kind == uni::CodeFixupKind::High &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 20 &&
+		fixup.encoding.bit_offset == 12) return R_RISCV_HI20;
+	if (fixup.kind == uni::CodeFixupKind::Low &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 12) {
+		if (fixup.encoding.bit_offset == 20) return R_RISCV_LO12_I;
+		if (fixup.encoding.bit_offset == 7) return R_RISCV_LO12_S;
+	}
 	if (fixup.kind == uni::CodeFixupKind::Branch &&
 		fixup.encoding.storage_bits == 32 &&
 		fixup.encoding.value_bits == 13) return R_RISCV_BRANCH;
@@ -918,11 +943,39 @@ void elf32_emit_fixup(const uni::CodeFixup& fixup)
 		aasm_log(_LOG_PANIC, "RISC-V ELF32 fixup is not at the section end");
 		return;
 	}
+	if (fixup.kind == uni::CodeFixupKind::ArchitectureSpecific) {
+		if (fixup.addend <= 0 ||
+			(fixup.initial_value != 2 && fixup.initial_value != 4) ||
+			fixup.addend % static_cast<int64_t>(fixup.initial_value)) {
+			aasm_log(_LOG_ERROR, "invalid RISC-V alignment relocation");
+			return;
+		}
+		elf_add_reloc(section, NO_SEG, R_RISCV_ALIGN,
+			static_cast<int32_t>(fixup.addend));
+		uint8_t padding[256];
+		size_t instruction_size = static_cast<size_t>(fixup.initial_value);
+		for (size_t index = 0; index < sizeof(padding); index += instruction_size) {
+			padding[index] = instruction_size == 2 ? 0x01 : 0x13;
+			padding[index + 1] = 0;
+			if (instruction_size == 4) {
+				padding[index + 2] = 0;
+				padding[index + 3] = 0;
+			}
+		}
+		for (int64_t remaining = fixup.addend; remaining > 0;) {
+			size_t chunk = remaining < static_cast<int64_t>(sizeof(padding)) ?
+				static_cast<size_t>(remaining) : sizeof(padding);
+			elf_sect_write(section, padding, chunk);
+			remaining -= chunk;
+		}
+		return;
+	}
 	if (fixup.target_section == NO_SEG || fixup.legacy_wrt != NO_SEG) {
 		aasm_log(_LOG_ERROR, "RISC-V ELF32 fixup has an invalid target");
 		return;
 	}
-	if (fixup.kind == uni::CodeFixupKind::PageRelative &&
+	if ((fixup.kind == uni::CodeFixupKind::PageRelative ||
+		fixup.kind == uni::CodeFixupKind::Got) &&
 		(fixup.pair.role != uni::CodeFixupPairRole::Head ||
 		fixup.pair.section != fixup.section ||
 		fixup.pair.offset != fixup.offset)) {
@@ -941,16 +994,27 @@ void elf32_emit_fixup(const uni::CodeFixup& fixup)
 		aasm_log(_LOG_ERROR, "unsupported RISC-V ELF32 relocation");
 		return;
 	}
-	uint8_t bytes[4];
+	uint8_t bytes[8];
 	uint8_t* cursor = bytes;
 	WRITELONG(cursor, static_cast<uint32_t>(fixup.initial_value));
 	size_t size = fixup.encoding.storage_bits / 8;
+	if (size == 8)
+		WRITELONG(cursor, static_cast<uint32_t>(fixup.initial_value >> 32));
 	if (fixup.kind == uni::CodeFixupKind::PageOffset) {
 		if (!elf_add_local_reloc(section, fixup.pair.section,
 			static_cast<int32_t>(fixup.pair.offset), type)) return;
 	}
 	else elf_add_reloc(section, fixup.target_section, type,
 		static_cast<int32_t>(fixup.addend));
+	if (fixup.relaxable && (fixup.kind == uni::CodeFixupKind::Branch ||
+		fixup.kind == uni::CodeFixupKind::Call ||
+		fixup.kind == uni::CodeFixupKind::Plt ||
+		fixup.kind == uni::CodeFixupKind::Got ||
+		fixup.kind == uni::CodeFixupKind::High ||
+		fixup.kind == uni::CodeFixupKind::Low ||
+		fixup.kind == uni::CodeFixupKind::PageRelative ||
+		fixup.kind == uni::CodeFixupKind::PageOffset))
+		elf_add_riscv_relax_reloc(section);
 	elf_sect_write(section, bytes, size);
 }
 

@@ -254,6 +254,23 @@ CheckRISCVRelocation()
 	CompressedSource="$WorkDirectory/riscv-compressed-relocation.asm"
 	CompressedObject="$WorkDirectory/riscv-compressed-relocation.o"
 	CompressedRelocations="$WorkDirectory/riscv-compressed-relocation.relocations"
+	RelaxObject="$WorkDirectory/riscv-branch-relax.o"
+	RelaxRelocations="$WorkDirectory/riscv-branch-relax.relocations"
+	FormsSource="$WorkDirectory/riscv-relocation-forms.asm"
+	Forms32Object="$WorkDirectory/riscv-relocation-forms32.o"
+	Forms64Object="$WorkDirectory/riscv-relocation-forms64.o"
+	Forms32Relocations="$WorkDirectory/riscv-relocation-forms32.relocations"
+	Forms64Relocations="$WorkDirectory/riscv-relocation-forms64.relocations"
+	AlignSource="$WorkDirectory/riscv-align-relocation.asm"
+	Align32Source="$WorkDirectory/riscv-align-relocation32.asm"
+	AlignObject="$WorkDirectory/riscv-align-relocation.o"
+	Align32Object="$WorkDirectory/riscv-align-relocation32.o"
+	AlignRelocations="$WorkDirectory/riscv-align-relocation.relocations"
+	AlignSections="$WorkDirectory/riscv-align-relocation.sections"
+	Align32Relocations="$WorkDirectory/riscv-align-relocation32.relocations"
+	CompressedAlignSource="$WorkDirectory/riscv-compressed-align.asm"
+	CompressedAlignObject="$WorkDirectory/riscv-compressed-align.o"
+	CompressedAlignRelocations="$WorkDirectory/riscv-compressed-align.relocations"
 
 	printf '%s\n' \
 		'[BITS 32]' \
@@ -313,6 +330,117 @@ CheckRISCVRelocation()
 		"$RV64Relocations" || Fail "RISC-V ELF64 jump relocation differs"
 	grep -Eq 'R_RISCV_64[[:space:]]+.*external_data \+ 8$' \
 		"$RV64Relocations" || Fail "RISC-V ELF64 data relocation differs"
+	AssembleSuccess riscv-branch-relax -march=riscv -mrelax -f elf64 \
+		-o "$RelaxObject" "$RV64Source"
+	LC_ALL=C readelf -rW "$RelaxObject" > "$RelaxRelocations"
+	[ "$(grep -c 'R_RISCV_RELAX' "$RelaxRelocations")" -eq 2 ] || \
+		Fail "RISC-V branch and jump relaxation hints differ"
+	[ "$(grep -Ec 'R_RISCV_RELAX[[:space:]]+0$' \
+		"$RelaxRelocations")" -eq 2 ] || \
+		Fail "RISC-V branch and jump relaxation hint records differ"
+
+	printf '%s\n' \
+		'EXTERN external_call' \
+		'EXTERN external_plt' \
+		'EXTERN external_data' \
+		'EXTERN external_got' \
+		'EXTERN external_store' \
+		'SECTION .text' \
+		'CALL external_call' \
+		'CALL_PLT external_plt' \
+		'LUI x5, HIGH external_data + 0x123' \
+		'ADDI x5, x5, LOW external_data + 0x123' \
+		'got_anchor:' \
+		'AUIPC x6, GOT external_got' \
+		'LW x8, [x6 + PCREL_LOW got_anchor]' \
+		'pcrel_anchor:' \
+		'AUIPC x9, PCREL_HIGH external_data + 0x20' \
+		'LW x10, [x9 + PCREL_LOW pcrel_anchor]' \
+		'LW x7, [x6 + LOW external_data + 8]' \
+		'SW x7, [x6 + LOW external_store + 12]' \
+		> "$FormsSource"
+	AssembleSuccess riscv-relocation-forms32 -march=riscv -f elf32 \
+		-o "$Forms32Object" "$FormsSource"
+	AssembleSuccess riscv-relocation-forms64 -march=riscv -f elf64 \
+		-o "$Forms64Object" "$FormsSource"
+	LC_ALL=C readelf -rW "$Forms32Object" > "$Forms32Relocations"
+	LC_ALL=C readelf -rW "$Forms64Object" > "$Forms64Relocations"
+	for RelocationFile in "$Forms32Relocations" "$Forms64Relocations"; do
+		grep -Eq 'R_RISCV_CALL[[:space:]]+.*external_call \+ 0$' \
+			"$RelocationFile" || Fail "RISC-V CALL relocation differs"
+		grep -Eq 'R_RISCV_CALL_PLT[[:space:]]+.*external_plt \+ 0$' \
+			"$RelocationFile" || Fail "RISC-V CALL_PLT relocation differs"
+		grep -Eq 'R_RISCV_HI20[[:space:]]+.*external_data \+ 123$' \
+			"$RelocationFile" || Fail "RISC-V HI20 relocation differs"
+		grep -Eq 'R_RISCV_LO12_I[[:space:]]+.*external_data \+ 123$' \
+			"$RelocationFile" || Fail "RISC-V LO12_I relocation differs"
+		grep -Eq 'R_RISCV_GOT_HI20[[:space:]]+.*external_got \+ 0$' \
+			"$RelocationFile" || Fail "RISC-V GOT_HI20 relocation differs"
+		grep -Eq 'R_RISCV_PCREL_LO12_I[[:space:]]+.*got_anchor \+ 0$' \
+			"$RelocationFile" || Fail "RISC-V GOT low relocation pair differs"
+		grep -Eq 'R_RISCV_PCREL_HI20[[:space:]]+.*external_data \+ 20$' \
+			"$RelocationFile" || Fail "RISC-V explicit PCREL_HI20 differs"
+		grep -Eq 'R_RISCV_PCREL_LO12_I[[:space:]]+.*pcrel_anchor \+ 0$' \
+			"$RelocationFile" || Fail "RISC-V PCREL low relocation pair differs"
+		grep -Eq 'R_RISCV_LO12_I[[:space:]]+.*external_data \+ 8$' \
+			"$RelocationFile" || Fail "RISC-V load LO12 relocation differs"
+		grep -Eq 'R_RISCV_LO12_S[[:space:]]+.*external_store \+ c$' \
+			"$RelocationFile" || Fail "RISC-V store LO12 relocation differs"
+	done
+	AssembleSuccess riscv-relocation-forms-relax -march=riscv -mrelax \
+		-f elf64 -o "$WorkDirectory/riscv-relocation-forms-relax.o" \
+		"$FormsSource"
+	LC_ALL=C readelf -rW \
+		"$WorkDirectory/riscv-relocation-forms-relax.o" \
+		> "$WorkDirectory/riscv-relocation-forms-relax.relocations"
+	[ "$(grep -c 'R_RISCV_RELAX' \
+		"$WorkDirectory/riscv-relocation-forms-relax.relocations")" -eq 10 ] || \
+		Fail "RISC-V relocation-form relaxation hints differ"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'SECTION .text' \
+		'NOP' \
+		'NOP' \
+		'align 16' \
+		'NOP' > "$AlignSource"
+	printf '%s\n' \
+		'[BITS 32]' \
+		'SECTION .text' \
+		'NOP' \
+		'NOP' \
+		'align 16' \
+		'NOP' > "$Align32Source"
+	AssembleSuccess riscv-align-relocation -march=riscv -mrelax -f elf64 \
+		-o "$AlignObject" "$AlignSource"
+	AssembleSuccess riscv-align-relocation32 -march=riscv -mrelax -f elf32 \
+		-o "$Align32Object" "$Align32Source"
+	LC_ALL=C readelf -rW "$AlignObject" > "$AlignRelocations"
+	LC_ALL=C readelf -rW "$Align32Object" > "$Align32Relocations"
+	LC_ALL=C readelf -SW "$AlignObject" > "$AlignSections"
+	grep -Eq 'R_RISCV_ALIGN[[:space:]]+c$' \
+		"$AlignRelocations" || Fail "RISC-V ALIGN relocation differs"
+	[ "$(grep -c 'R_RISCV_RELAX' "$AlignRelocations")" -eq 0 ] || \
+		Fail "RISC-V ALIGN emitted an invalid RELAX hint"
+	grep -Eq '[[:space:]]\.text[[:space:]]+PROGBITS.*000018' \
+		"$AlignSections" || Fail "RISC-V ALIGN padding size differs"
+	grep -Eq 'R_RISCV_ALIGN[[:space:]]+c$' \
+		"$Align32Relocations" || \
+		Fail "RISC-V ELF32 ALIGN relocation differs"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'[INST ic]' \
+		'SECTION .text' \
+		'C.NOP' \
+		'align 16' \
+		'C.NOP' > "$CompressedAlignSource"
+	AssembleSuccess riscv-compressed-align -march=riscv -mrelax -f elf64 \
+		-o "$CompressedAlignObject" "$CompressedAlignSource"
+	LC_ALL=C readelf -rW "$CompressedAlignObject" \
+		> "$CompressedAlignRelocations"
+	grep -Eq 'R_RISCV_ALIGN[[:space:]]+e$' \
+		"$CompressedAlignRelocations" || \
+		Fail "RISC-V compressed ALIGN relocation differs"
 
 	"$AasmExecutable" -march=riscv -f bin \
 		-o "$WorkDirectory/riscv-relocation-binary.bin" "$RV32Source" \
@@ -406,6 +534,8 @@ CheckRISCVExpansion()
 	ELFSource="$WorkDirectory/riscv-expansion-elf.asm"
 	ELFObject="$WorkDirectory/riscv-expansion-elf.o"
 	ELFRelocations="$WorkDirectory/riscv-expansion-elf.relocations"
+	RelaxObject="$WorkDirectory/riscv-expansion-relax.o"
+	RelaxRelocations="$WorkDirectory/riscv-expansion-relax.relocations"
 	InvalidSource="$WorkDirectory/riscv-expansion-invalid.asm"
 	InvalidError="$WorkDirectory/riscv-expansion-invalid.stderr"
 	RV32Expected='93 02 70 00 37 53 34 12 13 03 83 67 93 03 f0 ff 17 04 00 00 13 04 84 02 97 04 00 00 83 c4 04 02 17 05 00 00 23 2e 55 00 b7 15 00 00 93 85 45 23 b7 15 00 00 93 85 45 23 00 00 00 00 00 00 00 00'
@@ -460,6 +590,8 @@ CheckRISCVExpansion()
 	AssembleSuccess riscv-expansion-elf -march=riscv -f elf64 \
 		-o "$ELFObject" "$ELFSource"
 	LC_ALL=C readelf -rW "$ELFObject" > "$ELFRelocations"
+	[ "$(grep -c 'R_RISCV_RELAX' "$ELFRelocations")" -eq 0 ] || \
+		Fail "RISC-V relaxation hints were emitted by default"
 	[ "$(grep -c 'R_RISCV_PCREL_HI20' "$ELFRelocations")" -eq 5 ] || \
 		Fail "RISC-V expansion high relocations differ"
 	[ "$(grep -c 'R_RISCV_PCREL_LO12_I' "$ELFRelocations")" -eq 3 ] || \
@@ -475,6 +607,14 @@ CheckRISCVExpansion()
 		"$ELFRelocations" || Fail "RISC-V load address addend differs"
 	grep -Eq 'R_RISCV_PCREL_HI20[[:space:]]+.*external_data \+ 10$' \
 		"$ELFRelocations" || Fail "RISC-V store address addend differs"
+	AssembleSuccess riscv-expansion-relax -march=riscv -mrelax -f elf64 \
+		-o "$RelaxObject" "$ELFSource"
+	LC_ALL=C readelf -rW "$RelaxObject" > "$RelaxRelocations"
+	[ "$(grep -c 'R_RISCV_RELAX' "$RelaxRelocations")" -eq 10 ] || \
+		Fail "RISC-V relaxation hint count differs"
+	[ "$(grep -Ec 'R_RISCV_RELAX[[:space:]]+0$' \
+		"$RelaxRelocations")" -eq 10 ] || \
+		Fail "RISC-V relaxation hint records differ"
 
 	printf '%s\n' \
 		'[BITS 64]' \

@@ -21,6 +21,7 @@
 %define __FILE__
 %define __LINE__
 %define __BITS__
+%define __ARCH__
 
 %define __SECT__		; it ought to be defined, even if as nothing
 
@@ -65,7 +66,15 @@ __SECT__
 %endmacro
 
 %imacro align 1-2+.nolist nop
+	%ifidni __ARCH__,riscv
+		%ifidni %2,nop
+			RAlign %1
+		%else
+			times (((%1) - (($-$$) % (%1))) % (%1)) %2
+		%endif
+	%else
 	  times (((%1) - (($-$$) % (%1))) % (%1)) %2
+	%endif
 %endmacro
 %imacro alignb 1-2+.nolist
 	  %ifempty %2

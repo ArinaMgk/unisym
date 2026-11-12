@@ -109,7 +109,7 @@ uint32_t EncodeJ(uint32_t fixed, uint32_t rd, int64_t immediate)
 		((value >> 20) & 1) << 31;
 }
 
-bool Append(RISCVEncodingSequence& sequence, uint32_t encoding,
+bool Append(RISCVEncodingSequence& sequence, uint64_t encoding,
 	RISCVFixupKind fixup = RISCVFixupKind::None,
 	const RISCVValue& target = RISCVValue{}, uint8_t size = 4,
 	uint64_t pair_offset = 0,
@@ -305,6 +305,11 @@ bool MeasureExpression(const AssemblySession& session, const RISCVValue& value,
 bool RISCVEncoder::Measure(const AssemblySession& session,
 	const RISCVInstruction& instruction, unsigned& count)
 {
+	if (instruction.kind == RISCVInstructionKind::Call ||
+		instruction.kind == RISCVInstructionKind::CallPlt) {
+		count = 8;
+		return true;
+	}
 	const RISCVInstructionInfo& info = DumpRISCVInstruction(instruction.opcode);
 	if (info.format == RISCVEncodingFormat::Compressed) {
 		count = 2;
@@ -341,6 +346,43 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 	RISCVEncodingSequence& result)
 {
 	result = RISCVEncodingSequence{};
+	if (instruction.kind == RISCVInstructionKind::Call ||
+		instruction.kind == RISCVInstructionKind::CallPlt) {
+		const RISCVValue& target = instruction.operands[0].value;
+		if (target.wrt != NO_SEG || target.unknown) {
+			aasm_log(_LOG_ERROR, "RISC-V call target is not relocatable");
+			return false;
+		}
+		if (instruction.kind == RISCVInstructionKind::CallPlt &&
+			!target.external && target.section == NO_SEG) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V CALL_PLT requires a relocatable symbol");
+			return false;
+		}
+		int64_t displacement = 0;
+		TargetResolution resolution = ResolveTarget(
+			session, target, offset, displacement);
+		if (instruction.kind == RISCVInstructionKind::CallPlt ||
+			resolution == TargetResolution::Fixup) {
+			uint32_t auipc = EncodeU(0x00000017, 1, 0);
+			uint32_t jalr = EncodeI(0x00000067, 1, 1, 0);
+			uint64_t pair = static_cast<uint64_t>(auipc) |
+				static_cast<uint64_t>(jalr) << 32;
+			return Append(result, pair,
+				instruction.kind == RISCVInstructionKind::CallPlt ?
+					RISCVFixupKind::CallPlt : RISCVFixupKind::Call,
+				target, 8);
+		}
+		if (resolution == TargetResolution::Error ||
+			(displacement & 1) || !SignedRange(displacement, 32)) {
+			aasm_log(_LOG_ERROR, "RISC-V call target is outside the range");
+			return false;
+		}
+		int64_t high, low;
+		SplitSigned12(displacement, high, low);
+		return Append(result, EncodeU(0x00000017, 1, high)) &&
+			Append(result, EncodeI(0x00000067, 1, 1, low));
+	}
 	if (instruction.kind == RISCVInstructionKind::MoveExpression) {
 		const RISCVOperand& destination = instruction.operands[0];
 		const RISCVValue& value = instruction.operands[1].value;
@@ -377,6 +419,37 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 
 	switch (info.format) {
 	case RISCVEncodingFormat::Upper:
+		if (operand[1].relocation != RISCVRelocationKind::None) {
+			const RISCVValue& target = operand[1].value;
+			if (target.unknown || target.wrt != NO_SEG ||
+				(!target.external && target.section == NO_SEG)) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V relocation requires a relocatable symbol");
+				return false;
+			}
+			RISCVFixupKind fixup;
+			if (operand[1].relocation == RISCVRelocationKind::High &&
+				instruction.opcode == RISCVOpcode::Lui)
+				fixup = RISCVFixupKind::High;
+			else if (operand[1].relocation == RISCVRelocationKind::Got &&
+				instruction.opcode == RISCVOpcode::Auipc)
+				fixup = RISCVFixupKind::GotHigh;
+			else if (operand[1].relocation ==
+				RISCVRelocationKind::PcRelativeHigh &&
+				instruction.opcode == RISCVOpcode::Auipc)
+				fixup = RISCVFixupKind::PcRelativeHigh;
+			else {
+				aasm_log(_LOG_ERROR,
+					"RISC-V relocation qualifier is invalid for this instruction");
+				return false;
+			}
+			bool paired = fixup == RISCVFixupKind::GotHigh ||
+				fixup == RISCVFixupKind::PcRelativeHigh;
+			return Append(result,
+				EncodeU(info.fixed_bits, operand[0].reg, 0), fixup, target, 4,
+				paired ? static_cast<uint64_t>(offset) : 0,
+				paired ? RISCVFixupPairRole::Head : RISCVFixupPairRole::None);
+		}
 		if (!RequireImmediate(operand[1].value, immediate)) return false;
 		if (immediate < INT64_C(-0x80000) || immediate > INT64_C(0xfffff)) {
 			aasm_log(_LOG_ERROR, "RISC-V upper immediate is outside 20 bits");
@@ -426,6 +499,31 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 			operand[0].reg, operand[1].reg, immediate));
 
 	case RISCVEncodingFormat::Load:
+		if (operand[1].relocation != RISCVRelocationKind::None) {
+			bool pcrel = operand[1].relocation ==
+				RISCVRelocationKind::PcRelativeLow;
+			if ((!pcrel && operand[1].relocation !=
+				RISCVRelocationKind::Low) ||
+				operand[1].address_kind != RISCVAddressKind::RegisterRelative ||
+				operand[1].value.unknown ||
+				operand[1].value.wrt != NO_SEG ||
+				(!operand[1].value.external &&
+				operand[1].value.section == NO_SEG) ||
+				(pcrel && (operand[1].value.external ||
+				operand[1].value.section == NO_SEG ||
+				operand[1].value.offset < 0))) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V low relocation is invalid for this load address");
+				return false;
+			}
+			return Append(result,
+				EncodeI(info.fixed_bits, operand[0].reg, operand[1].reg, 0),
+				pcrel ? RISCVFixupKind::PcRelativeLowI :
+					RISCVFixupKind::LowI,
+				operand[1].value, 4,
+				pcrel ? static_cast<uint64_t>(operand[1].value.offset) : 0,
+				pcrel ? RISCVFixupPairRole::Tail : RISCVFixupPairRole::None);
+		}
 		if (operand[1].address_kind == RISCVAddressKind::Expression) {
 			if (!operand[0].reg) {
 				aasm_log(_LOG_ERROR,
@@ -441,6 +539,31 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 			operand[0].reg, operand[1].reg, immediate));
 
 	case RISCVEncodingFormat::Store:
+		if (operand[1].relocation != RISCVRelocationKind::None) {
+			bool pcrel = operand[1].relocation ==
+				RISCVRelocationKind::PcRelativeLow;
+			if ((!pcrel && operand[1].relocation !=
+				RISCVRelocationKind::Low) ||
+				operand[1].address_kind != RISCVAddressKind::RegisterRelative ||
+				operand[1].value.unknown ||
+				operand[1].value.wrt != NO_SEG ||
+				(!operand[1].value.external &&
+				operand[1].value.section == NO_SEG) ||
+				(pcrel && (operand[1].value.external ||
+				operand[1].value.section == NO_SEG ||
+				operand[1].value.offset < 0))) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V low relocation is invalid for this store address");
+				return false;
+			}
+			return Append(result,
+				EncodeS(info.fixed_bits, operand[1].reg, operand[0].reg, 0),
+				pcrel ? RISCVFixupKind::PcRelativeLowS :
+					RISCVFixupKind::LowS,
+				operand[1].value, 4,
+				pcrel ? static_cast<uint64_t>(operand[1].value.offset) : 0,
+				pcrel ? RISCVFixupPairRole::Tail : RISCVFixupPairRole::None);
+		}
 		if (operand[1].address_kind == RISCVAddressKind::Expression) {
 			uint8_t temporary = operand[2].reg;
 			if (!temporary) {
@@ -462,6 +585,21 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 
 	case RISCVEncodingFormat::Immediate:
 	case RISCVEncodingFormat::ImmediateWord:
+		if (operand[2].relocation != RISCVRelocationKind::None) {
+			if (operand[2].relocation != RISCVRelocationKind::Low ||
+				instruction.opcode != RISCVOpcode::Addi ||
+				operand[2].value.unknown ||
+				operand[2].value.wrt != NO_SEG ||
+				(!operand[2].value.external &&
+				operand[2].value.section == NO_SEG)) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V low relocation requires ADDI and a relocatable symbol");
+				return false;
+			}
+			return Append(result,
+				EncodeI(info.fixed_bits, operand[0].reg, operand[1].reg, 0),
+				RISCVFixupKind::LowI, operand[2].value);
+		}
 		if (!RequireIImmediate(operand[2], immediate)) return false;
 		return Append(result, EncodeI(info.fixed_bits,
 			operand[0].reg, operand[1].reg, immediate));

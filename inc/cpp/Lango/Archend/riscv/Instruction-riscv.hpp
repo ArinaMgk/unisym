@@ -32,7 +32,18 @@ enum class RISCVAddressKind : uint8_t {
 
 enum class RISCVInstructionKind : uint8_t {
 	Native,
-	MoveExpression
+	MoveExpression,
+	Call,
+	CallPlt
+};
+
+enum class RISCVRelocationKind : uint8_t {
+	None,
+	High,
+	Low,
+	Got,
+	PcRelativeHigh,
+	PcRelativeLow
 };
 
 enum class RISCVAtomicOrdering : uint8_t {
@@ -55,6 +66,7 @@ struct RISCVOperand {
 	uint8_t reg = 0;
 	RISCVRegisterClass reg_class = RISCVRegisterClass::Integer;
 	uint8_t width = 0;
+	RISCVRelocationKind relocation = RISCVRelocationKind::None;
 	RISCVValue value;
 };
 
@@ -76,6 +88,12 @@ enum class RISCVFixupKind : uint8_t {
 	Jump,
 	CompressedBranch,
 	CompressedJump,
+	Call,
+	CallPlt,
+	High,
+	LowI,
+	LowS,
+	GotHigh,
 	PcRelativeHigh,
 	PcRelativeLowI,
 	PcRelativeLowS
@@ -88,7 +106,7 @@ enum class RISCVFixupPairRole : uint8_t {
 };
 
 struct RISCVEncodingResult {
-	uint32_t encoding = 0;
+	uint64_t encoding = 0;
 	uint8_t size = 4;
 	RISCVFixupKind fixup = RISCVFixupKind::None;
 	RISCVValue target;

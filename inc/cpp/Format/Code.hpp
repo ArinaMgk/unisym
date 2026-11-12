@@ -112,6 +112,7 @@ struct CodeFixup {
 	int32_t legacy_wrt;
 	uint32_t architecture_kind;
 	CodeFixupPair pair;
+	bool relaxable = false;
 };
 
 class CodeendInterface {

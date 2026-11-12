@@ -372,7 +372,24 @@ MOV a2, message + 8
 
 绝对表达式按照数值范围展开为 `ADDI`、`LUI`、`ADDIW`、`SLLI` 等指令。裸标签
 表示标签地址；同 section 标签直接计算 PC 相对高低位，跨 section 或外部符号由
-ELF relocation 处理。
+ELF relocation 处理包括 `CALL`、`CALL_PLT`、绝对 `HI20/LO12_I/LO12_S`、
+`GOT_HI20`、成对的 `PCREL_HI20/PCREL_LO12_I/PCREL_LO12_S`，以及 `ALIGN` 和
+可选 `RELAX` 提示。PC-relative 低位 relocation 的符号必须指向对应高位指令位置。
+
+```asm
+CALL external_function
+CALL_PLT external_function
+LUI x5, HIGH external_data
+ADDI x5, x5, LOW external_data
+
+got_address:
+AUIPC x6, GOT external_data
+LW x7, [x6 + PCREL_LOW got_address]
+
+data_address:
+AUIPC x8, PCREL_HIGH external_data + 8
+SW x7, [x8 + PCREL_LOW data_address]
+```
 
 加载指令和内存 `MOV` 可以直接使用标签或绝对地址表达式：
 

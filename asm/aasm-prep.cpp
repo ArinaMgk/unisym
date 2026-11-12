@@ -3731,6 +3731,12 @@ again:
 							make_tok_num(tline, globalbits);
 							continue;
 						}
+						if (!StrCompare("__ARCH__", m->name)) {
+							memf(tline->addr);
+							tline->addr = StrHeap(globalarch);
+							tline->type = TOK_ID;
+							continue;
+						}
 						tline = delete_Token(tline);
 						continue;
 					}

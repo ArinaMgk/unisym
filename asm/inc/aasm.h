@@ -193,6 +193,7 @@ extern int passn;		/* Actual pass number */
 extern bool tasm_compatible_mode;
 extern int optimizing;
 extern int globalbits;          /* 16, 32 or 64-bit mode */
+extern const char* globalarch;
 extern int globalrel;		/* default to relative addressing? */
 extern int maxbits;		/* max bits supported by output */
 
@@ -333,6 +334,7 @@ struct AssemblerOptions {
 	char ErrorName[AASM_FILENAME_MAX];
 	int OptimizationLevel;
 	bool EnableDebugInfo;
+	bool EnableRISCVRelax;
 	bool TasmCompatible;
 	bool StopOptionParsing;
 	bool EmitPhonyDependencies;

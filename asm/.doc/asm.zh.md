@@ -31,7 +31,6 @@ aasm [options] input
 | :--- | :--- |
 | `-o file` | 指定输出文件 |
 | `-f format` | 选择输出格式 |
-| `-march=name`、`--arch name` | 选择指令架构 |
 | `-E`、`-e` | 仅进行预处理 |
 | `-a` | 跳过预处理，直接汇编 |
 | `-I path` | 增加 include 搜索路径 |
@@ -40,8 +39,15 @@ aasm [options] input
 | `-l file` | 生成 listing 文件 |
 | `-g` | 生成所选格式支持的调试信息 |
 | `-O level` | 设置分支优化级别 |
+| `-march=name`、`--arch name` | 选择指令架构 |
+| `-mrelax` | 为支持的 RISC-V relocation 输出链接器松弛提示 |
 
 未指定 `-march` 或 `--arch` 时，默认目标为 `x86`，默认位宽为 16 位。
+
+预处理器内建宏 `__ARCH__` 展开为当前 Archend 名称，当前为 `x86` 或 `riscv`。
+源文件使用 `[ARCH name]` 切换架构后，后续预处理内容中的 `__ARCH__` 随之更新；
+命令行 `-march`/`--arch` 也决定初始值。该宏主要供通用宏按架构选择语句，例如
+RISC-V 的默认 `align` 使用 `RALIGN`，以便 ELF 输出 `R_RISCV_ALIGN`。
 
 ## 目标架构
 
@@ -156,7 +162,20 @@ ELF 的机器架构由命令行 `-march` 或 `--arch` 固定；ELF 源文件中�
 `R_RISCV_RVC_BRANCH` 和 `R_RISCV_RVC_JUMP`
 relocation；
 ELF32 与 ELF64 均使用带显式加数的 RELA section。分支和直接跳转可以引用外部
-符号，也可以引用其他 section 中的本地标签。
+符号，也可以引用其他 section 中的本地标签。还支持 `R_RISCV_CALL`、
+`R_RISCV_CALL_PLT`、`R_RISCV_HI20`、`R_RISCV_LO12_I`、`R_RISCV_LO12_S`、
+`R_RISCV_GOT_HI20`、`R_RISCV_PCREL_HI20`、`R_RISCV_PCREL_LO12_I`、
+`R_RISCV_PCREL_LO12_S`、`R_RISCV_ALIGN` 及可选的 `R_RISCV_RELAX`。
+PC-relative 低位 relocation 使用指向高位指令位置的本地标签，例如：
+
+```asm
+address_pair:
+AUIPC x5, GOT external_data
+LW x6, [x5 + PCREL_LOW address_pair]
+```
+
+启用 `-mrelax` 后，可松弛 relocation 会附带 `R_RISCV_RELAX` 提示；RISC-V 的
+`align` 会保留供链接器调整的最大 NOP padding。
 
 x86/RISC-V 混合架构源文件必须使用 Binary 输出。文本跟踪格式只用于观察汇编器提交的
 section、symbol、data、relocation 和 debug 事件，不是可链接目标文件。

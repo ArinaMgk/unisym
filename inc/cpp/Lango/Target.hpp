@@ -28,7 +28,9 @@ namespace uni::lango {
 
 enum class ArchitectureKind : uint8_t {
 	X86,
-	RISCV
+	RISCV,
+	ARM32,
+	ARM64,
 };
 
 // Language-independent machine properties shared by frontends and backends.

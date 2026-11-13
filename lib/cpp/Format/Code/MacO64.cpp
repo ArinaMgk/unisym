@@ -25,7 +25,8 @@
 // ---- ---- AASM ---- ---- //
 
 #include "../../../../inc/c/strbuff.h"
-#include "../../../../inc/c/strpage.h"
+#include "../../../../inc/cpp/Datype/Map/SparseMap.hpp"
+#include "../../../../inc/cpp/endian"
 #include "../../../../asm/inc/aasm.h"
 
 #if defined(OF_MACHO64)
@@ -176,7 +177,7 @@ static uint32_t nundefsym;
 static struct symbol **extdefsyms = NULL;
 static struct symbol **undefsyms = NULL;
 
-static Strpage *extsyms;
+static uni::SparseMap extsyms;
 static Strbuff *strs;
 static uint32_t strslen;
 
@@ -378,7 +379,7 @@ static void macho_init(FILE * fp, ldfunc ldef,
 	nextdefsym = 0;
 	nundefsym = 0;
 
-	extsyms = StrpageNew();
+	extsyms.Clear();
 	strs = StrbuffNew(1L);
 
 	/* string table starts with a zero byte - don't ask why */
@@ -462,7 +463,7 @@ static int32_t add_reloc(struct section *sect, int32_t section,
 			
 			/* external */
 			if (fi == NO_SECT) {
-				r->snum = StrpageGet(extsyms, section);
+				r->snum = extsyms.Get(section);
 				
 			/* local */
 			} else {
@@ -487,7 +488,7 @@ static int32_t add_reloc(struct section *sect, int32_t section,
 			/* external */
 			if (fi == NO_SECT) {
 				sect->extreloc = 1;
-				r->snum = StrpageGet(extsyms, section);
+				r->snum = extsyms.Get(section);
 		
 			/* local */
 			} else {
@@ -524,7 +525,8 @@ static void macho_output(int32_t secto, const void *data,
 {
 	struct section *s, *sbss;
 	int64_t addr;
-	uint8_t mydata[16], *p, gotload;
+	LitEndian<uint64_t, true> mydata;
+	uint8_t gotload;
 
 	if (secto == NO_SEG) {
 		if (type != OUT_RESERVE)
@@ -601,14 +603,12 @@ static void macho_output(int32_t secto, const void *data,
 			}
 		}
 
-		p = mydata;
-		WRITEADDR(p, addr, size);
-		sect_write(s, mydata, size);
+		mydata = addr;
+		sect_write(s, mydata.v, size);
 		break;
 
 	case OUT_REL2ADR:
-		p = mydata;
-		WRITESHORT(p, *(int64_t *)data);
+		mydata = *(int64_t*)data;
 
 		if (section == secto)
 			aasm_log(_LOG_PANIC, "intra-section OUT_REL2ADR");
@@ -623,12 +623,11 @@ static void macho_output(int32_t secto, const void *data,
 				  " Macho-O relocation [2]");
 		}
 
-		sect_write(s, mydata, 2L);
+		sect_write(s, mydata.v, 2L);
 		break;
 
-	case OUT_REL4ADR:
-		p = mydata;
-		WRITELONG(p, *(int64_t *)data);
+	case OUT_REL4ADR: {
+		int64_t relative = *(int64_t*)data;
 
 		if (section == secto)
 			aasm_log(_LOG_PANIC, "intra-section OUT_REL4ADR");
@@ -638,7 +637,7 @@ static void macho_output(int32_t secto, const void *data,
 				  " section base references");
 		} else {
 			if (wrt == NO_SEG) {
-				*mydata -= add_reloc(s, section, 1, 4, (int64_t)*mydata);				// X86_64_RELOC_SIGNED/BRANCH
+				relative -= add_reloc(s, section, 1, 4, relative);				// X86_64_RELOC_SIGNED/BRANCH
 			} else if (wrt == macho_gotpcrel_sect) {
 				if (s->data->total_len > 1) {
 					StrbuffPopx(s->data, s->data->total_len-2, &gotload, 1);				// Retrieve Instruction Opcode
@@ -646,9 +645,9 @@ static void macho_output(int32_t secto, const void *data,
 					gotload = 0;
 				}
 				if (gotload == 0x8B) {													// Check for MOVQ Opcode
-					*mydata -= add_reloc(s, section, 4, 4, (int64_t)*mydata);			// X86_64_GOT_LOAD (MOVQ load)
+					relative -= add_reloc(s, section, 4, 4, relative);			// X86_64_GOT_LOAD (MOVQ load)
 				} else {
-					*mydata -= add_reloc(s, section, 3, 4, (int64_t)*mydata);			// X86_64_GOT
+					relative -= add_reloc(s, section, 3, 4, relative);			// X86_64_GOT
 				}
 			} else {
 				aasm_log(_LOG_ERROR, "Mach-O format does not support"
@@ -657,8 +656,10 @@ static void macho_output(int32_t secto, const void *data,
 			}
 		}
 
-		sect_write(s, mydata, 4L);
+		mydata = relative;
+		sect_write(s, mydata.v, 4L);
 		break;
+	}
 
 	default:
 		aasm_log(_LOG_PANIC, "unknown output type?");
@@ -839,7 +840,8 @@ static void macho_symdef(char *name, int32_t section, int64_t offset,
 			 ** symbols, this works because every external symbol gets
 			 ** its own section number allocated internally and
 			 ** can so be used as a key */
-			extsyms = StrpageSet(extsyms, section, nsyms);
+			if (!extsyms.Set(section, nsyms))
+				aasm_log(_LOG_FATAL, "unable to store a Mach-O64 symbol mapping");
 
 			switch (is_global) {
 			case 1:
@@ -1141,7 +1143,9 @@ static void macho_write_section (void)
 {
 	struct section *s, *s2;
 	struct reloc *r;
-	uint8_t fi, *p, *q, blk[8];
+	uint8_t fi;
+	LitEndian<uint64_t, true> blk;
+	uint8_t* p;
 	int32_t len;
 	int64_t l;
 
@@ -1159,8 +1163,8 @@ static void macho_write_section (void)
 	for (r = s->relocs; r != NULL; r = r->next) {
 		len = (int32_t)r->length << 1;
 		if(len > 4) len = 8;
-		StrbuffPopx(s->data, r->addr, blk, len);
-		p = q = blk;
+		StrbuffPopx(s->data, r->addr, blk.v, len);
+		p = blk.v;
 		l = *p++;
 
 		/* get offset based on relocation type */
@@ -1198,16 +1202,9 @@ static void macho_write_section (void)
 		}
 
 		/* write new offset back */
-		if (r->length == 3)
-		WRITEDLONG(q, l);
-		else if (r->length == 2)
-		WRITELONG(q, l);
-		else if (r->length == 1)
-		WRITESHORT(q, l);
-		else
-		*q++ = l & 0xFF;
+		blk = l;
 
-		StrbuffSendx(s->data, r->addr, blk, len);
+		StrbuffSendx(s->data, r->addr, blk.v, len);
 	}
 
 	/* dump the section data to file */
@@ -1467,7 +1464,7 @@ static void macho_cleanup(int debuginfo)
 	}
 
 	StrbuffFree(strs);
-	StrpageFree(extsyms);
+	extsyms.Clear();
 
 	if (syms) {
 	while (syms->next) {

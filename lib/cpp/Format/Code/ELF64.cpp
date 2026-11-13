@@ -25,13 +25,40 @@
 #define ELFBIT 64
 
 #include "../../../../inc/c/strbuff.h"
-#include "../../../../inc/c/strpage.h"
+#include "../../../../inc/cpp/Datype/Map/SparseMap.hpp"
 #include "../../../../inc/c/format/ELF.h"
 #include "../../../../inc/c/format/DWARF.h"
+#include "../../../../inc/cpp/endian"
 #include "../../../../inc/cpp/Format/Code.hpp"
 #include "../../../../inc/cpp/Format/Code/ELF/ELF-riscv.hpp"
 #include "../../../../asm/inc/aasm.h"
 #include "../../../../asm/inc/rbtree.hpp"
+
+struct ELF64SymbolEntry {
+	LitEndian<uint32_t, true> Name;
+	uint8_t Info;
+	uint8_t Other;
+	LitEndian<uint16_t, true> Section;
+	LitEndian<uint64_t, true> Value;
+	LitEndian<uint64_t, true> Size;
+};
+
+struct ELF64RelocationEntry {
+	LitEndian<uint64_t, true> Address;
+	LitEndian<uint32_t, true> Type;
+	LitEndian<uint32_t, true> Symbol;
+	LitEndian<uint64_t, true> Addend;
+};
+
+struct ELF64RelEntry {
+	LitEndian<uint64_t, true> Address;
+	LitEndian<uint32_t, true> Type;
+	LitEndian<uint32_t, true> Symbol;
+};
+
+static_assert(sizeof(ELF64SymbolEntry) == 24);
+static_assert(sizeof(ELF64RelocationEntry) == 24);
+static_assert(sizeof(ELF64RelEntry) == 16);
 
 static const struct elf_known_section elf_known_sections[] = {
 	{ ".text",    SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR,     16 },
@@ -97,7 +124,7 @@ static uint32_t nlocals, nglobs, ndebugs;
 
 static int32_t def_seg;
 
-static Strpage *bsym;
+static uni::SparseMap bsym;
 
 static Strbuff *strs;
 static uint32_t strslen;
@@ -119,8 +146,19 @@ static struct Section* riscv_attributes = NULL;
 
 void elf64_set_architecture(uni::lango::ArchitectureKind architecture)
 {
-	elf_machine = architecture == uni::lango::ArchitectureKind::RISCV ?
-		EM_RISCV : EM_X86_64;
+	switch (architecture) {
+	case uni::lango::ArchitectureKind::X86:
+		elf_machine = EM_X86_64;
+		break;
+	case uni::lango::ArchitectureKind::RISCV:
+		elf_machine = EM_RISCV;
+		break;
+	default:
+		elf_machine = EM_NONE;
+		aasm_log(_LOG_PANIC,
+			"unsupported architecture reached ELF64 output");
+		return;
+	}
 	elf_flags = 0;
 	if (elf_machine == EM_RISCV) riscv_target.Reset(64);
 }
@@ -162,12 +200,14 @@ static void add_sectname(rostr firsthalf, rostr secondhalf);
 #define N_SLINE 0x44
 
 struct stabentry {
-	uint32_t n_strx;
+	LitEndian<uint32_t, true> n_strx;
 	uint8_t n_type;
 	uint8_t n_other;
-	uint16_t n_desc;
-	uint32_t n_value;
+	LitEndian<uint16_t, true> n_desc;
+	LitEndian<uint32_t, true> n_value;
 };
+
+static_assert(sizeof(stabentry) == 12);
 
 struct erel {
 	int offset, info;
@@ -316,7 +356,7 @@ static void elf_init(FILE * fp, ldfunc ldef, evalfunc eval)
 	nsects = sectlen = 0;
 	syms = StrbuffNew((int32_t)sizeof(struct Symbol));
 	nlocals = nglobs = ndebugs = 0;
-	bsym = StrpageNew();
+	bsym.Clear();
 	strs = StrbuffNew(1L);
 	StrbuffSend(strs, (pureptr_t)"\0", 1L);
 	StrbuffSend(strs, (pureptr_t)elf_module, (int32_t)(StrLength(elf_module) + 1));
@@ -378,7 +418,7 @@ static void elf_cleanup(int debuginfo)
 	}
 	memf(sects);
 	StrbuffFree(syms);
-	StrpageFree(bsym);
+	bsym.Clear();
 	StrbuffFree(strs);
 	if (of_elf64.current_dfmt) {
 		of_elf64.current_dfmt->cleanup();
@@ -665,7 +705,8 @@ static void elf_deflabel(char *name, int32_t segment, int64_t offset,
 		 * This may not be the best solution.
 		 */
 		if (sym->section == SHN_UNDEF || sym->section == SHN_COMMON) {
-			bsym = StrpageSet(bsym, segment, nglobs);
+			if (!bsym.Set(segment, nglobs))
+				aasm_log(_LOG_FATAL, "unable to store an ELF64 symbol mapping");
 		} else if (sym->section != SHN_ABS) {
 			/*
 			 * This is a global symbol; so we must add it to the rbtree
@@ -775,7 +816,7 @@ static void elf_add_reloc(struct Section *sect, int32_t segment,
 			if (segment == sects[i]->index)
 				r->symbol = i + 2;
 		if (!r->symbol)
-			r->symbol = GLOBAL_TEMP_BASE + StrpageGet(bsym, segment);
+			r->symbol = GLOBAL_TEMP_BASE + bsym.Get(segment);
 	}
 	r->type = type;
 
@@ -1529,7 +1570,7 @@ static Strbuff *elf_build_symtab(int32_t *len, int32_t *local)
 {
 	Strbuff *s = StrbuffNew(1L);
 	struct Symbol *sym;
-	uint8_t entry[24], *p;
+	ELF64SymbolEntry entry {};
 	int i;
 
 	*len = *local = 0;
@@ -1544,13 +1585,10 @@ static Strbuff *elf_build_symtab(int32_t *len, int32_t *local)
 	/*
 	 * Next, an entry for the file name.
 	 */
-	p = entry;
-	WRITELONG(p, 1);            /* we know it's 1st entry in strtab */
-	WRITESHORT(p, STT_FILE);    /* type FILE */
-	WRITESHORT(p, SHN_ABS);
-	WRITEDLONG(p, (uint64_t) 0);  /* no value */
-	WRITEDLONG(p, (uint64_t) 0);  /* no size either */
-	StrbuffSend(s, entry, 24L);
+	entry.Name = 1;             /* we know it's 1st entry in strtab */
+	entry.Info = STT_FILE;
+	entry.Section = SHN_ABS;
+	StrbuffSend(s, &entry, sizeof(entry));
 	*len += 24;
 	(*local)++;
 
@@ -1559,13 +1597,10 @@ static Strbuff *elf_build_symtab(int32_t *len, int32_t *local)
 	 * purposes.
 	 */
 	for (i = 1; i <= nsects; i++) {
-		p = entry;
-		WRITELONG(p, 0);        /* no symbol name */
-		WRITESHORT(p, STT_SECTION);       /* type, binding, and visibility */
-		WRITESHORT(p, i);       /* section id */
-		WRITEDLONG(p, (uint64_t) 0);        /* offset zero */
-		WRITEDLONG(p, (uint64_t) 0);        /* size zero */
-		StrbuffSend(s, entry, 24L);
+		entry = {};
+		entry.Info = STT_SECTION;
+		entry.Section = i;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 24;
 		(*local)++;
 	}
@@ -1578,14 +1613,13 @@ static Strbuff *elf_build_symtab(int32_t *len, int32_t *local)
 	while ((sym = (Symbol*)StrbuffEread(syms))) {
 		if (sym->type & SYM_GLOBAL)
 			continue;
-		p = entry;
-		WRITELONG(p, sym->strpos);	/* index into symbol string table */
-		WRITECHAR(p, sym->type);        /* type and binding */
-		WRITECHAR(p, sym->other);	/* visibility */
-		WRITESHORT(p, sym->section);    /* index into section header table */
-		WRITEDLONG(p, (int64_t)sym->symv.key); /* value of symbol */
-		WRITEDLONG(p, (int64_t)sym->size);  /* size of symbol */
-		StrbuffSend(s, entry, 24L);
+		entry.Name = sym->strpos;
+		entry.Info = sym->type;
+		entry.Other = sym->other;
+		entry.Section = sym->section;
+		entry.Value = sym->symv.key;
+		entry.Size = sym->size;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 24;
 		(*local)++;
 	}
@@ -1595,33 +1629,24 @@ static Strbuff *elf_build_symtab(int32_t *len, int32_t *local)
 	  */  
 	 if (of_elf64.current_dfmt == &df_dwarf) {
 		dwarf_infosym = *local;
-		p = entry;
-		WRITELONG(p, 0);        /* no symbol name */
-		WRITESHORT(p, STT_SECTION);       /* type, binding, and visibility */
-		WRITESHORT(p, debug_info);       /* section id */
-		WRITEDLONG(p, (uint64_t) 0);        /* offset zero */
-		WRITEDLONG(p, (uint64_t) 0);        /* size zero */
-		StrbuffSend(s, entry, 24L);
+		entry = {};
+		entry.Info = STT_SECTION;
+		entry.Section = debug_info;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 24;
 		(*local)++;
 		dwarf_abbrevsym = *local;
-		p = entry;
-		WRITELONG(p, 0);        /* no symbol name */
-		WRITESHORT(p, STT_SECTION);       /* type, binding, and visibility */
-		WRITESHORT(p, debug_abbrev);       /* section id */
-		WRITEDLONG(p, (uint64_t) 0);        /* offset zero */
-		WRITEDLONG(p, (uint64_t) 0);        /* size zero */
-		StrbuffSend(s, entry, 24L);
+		entry = {};
+		entry.Info = STT_SECTION;
+		entry.Section = debug_abbrev;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 24;
 		(*local)++;
 		dwarf_linesym = *local;
-		p = entry;
-		WRITELONG(p, 0);        /* no symbol name */
-		WRITESHORT(p, STT_SECTION);       /* type, binding, and visibility */
-		WRITESHORT(p, debug_line);       /* section id */
-		WRITEDLONG(p, (uint64_t) 0);        /* offset zero */
-		WRITEDLONG(p, (uint64_t) 0);        /* size zero */
-		StrbuffSend(s, entry, 24L);
+		entry = {};
+		entry.Info = STT_SECTION;
+		entry.Section = debug_line;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 24;
 		(*local)++;
 	 }
@@ -1633,14 +1658,13 @@ static Strbuff *elf_build_symtab(int32_t *len, int32_t *local)
 	while ((sym = (Symbol*)StrbuffEread(syms))) {
 		if (!(sym->type & SYM_GLOBAL))
 			continue;
-		p = entry;
-		WRITELONG(p, sym->strpos);
-		WRITECHAR(p, sym->type);        /* type and binding */
-		WRITECHAR(p, sym->other);       /* visibility */
-		WRITESHORT(p, sym->section);
-		WRITEDLONG(p, (int64_t)sym->symv.key);
-		WRITEDLONG(p, (int64_t)sym->size);
-		StrbuffSend(s, entry, 24L);
+		entry.Name = sym->strpos;
+		entry.Info = sym->type;
+		entry.Other = sym->other;
+		entry.Section = sym->section;
+		entry.Value = sym->symv.key;
+		entry.Size = sym->size;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 24;
 	}
 
@@ -1650,7 +1674,7 @@ static Strbuff *elf_build_symtab(int32_t *len, int32_t *local)
 static Strbuff* elf_build_reltab(uint64_t* len, struct Reloc* r)
 {
 	Strbuff* s;
-	uint8_t* p, entry[24];
+	ELF64RelocationEntry entry {};
 	int32_t global_offset;
 
 	if (!r)
@@ -1674,12 +1698,11 @@ static Strbuff* elf_build_reltab(uint64_t* len, struct Reloc* r)
 		else if (sym >= GLOBAL_TEMP_BASE)
 			sym += global_offset;
 
-		p = entry;
-		WRITEDLONG(p, r->address);
-		WRITELONG(p, r->type);
-		WRITELONG(p, sym);
-		WRITEDLONG(p, r->offset);
-		StrbuffSend(s, entry, 24L);
+		entry.Address = r->address;
+		entry.Type = r->type;
+		entry.Symbol = sym;
+		entry.Addend = r->offset;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 24;
 
 		r = r->next;
@@ -1932,21 +1955,14 @@ static void stabs64_output(int type, void *param)
 	debug_immcall = 0;
 }
 
-#define WRITE_STAB(p,n_strx,n_type,n_other,n_desc,n_value) \
-  do {\
-	WRITELONG(p,n_strx); \
-	WRITECHAR(p,n_type); \
-	WRITECHAR(p,n_other); \
-	WRITESHORT(p,n_desc); \
-	WRITELONG(p,n_value); \
-  } while (0)
-
 /* for creating the .stab , .stabstr and .rel.stab sections in memory */
 
 static void stabs64_generate(void)
 {
 	int i, numfiles, strsize, numstabs = 0, currfile, mainfileindex;
 	uint8_t *sbuf, *ssbuf, *rbuf, *sptr, *rptr;
+	struct stabentry* stab;
+	ELF64RelEntry* relocation;
 	char **allfiles;
 	int *fileidx;
 
@@ -2016,10 +2032,22 @@ static void stabs64_generate(void)
 		the source-file, the n_desc field should be set to the number
 		of remaining stabs
 		*/
-		WRITE_STAB(sptr, fileidx[0], 0, 0, 0, StrLength(allfiles[0] + 12));
+		stab = (struct stabentry*)sptr;
+		stab->n_strx = fileidx[0];
+		stab->n_type = 0;
+		stab->n_other = 0;
+		stab->n_desc = 0;
+		stab->n_value = StrLength(allfiles[0] + 12);
+		sptr += sizeof(*stab);
 
 		/* this is the stab for the main source file */
-		WRITE_STAB(sptr, fileidx[mainfileindex], N_SO, 0, 0, 0);
+		stab = (struct stabentry*)sptr;
+		stab->n_strx = fileidx[mainfileindex];
+		stab->n_type = N_SO;
+		stab->n_other = 0;
+		stab->n_desc = 0;
+		stab->n_value = 0;
+		sptr += sizeof(*stab);
 
 		/* relocation table entry */
 
@@ -2027,9 +2055,11 @@ static void stabs64_generate(void)
 		/* the section symbols, the index in the info.section */
 		/* member must be adjusted by adding 2 */
 
-		WRITEDLONG(rptr, (int64_t)(sptr - sbuf) - 4);
-	WRITELONG(rptr, R_X86_64_32);
-	WRITELONG(rptr, ptr->info.section + 2);
+		relocation = (ELF64RelEntry*)rptr;
+		relocation->Address = (int64_t)(sptr - sbuf) - 4;
+		relocation->Type = R_X86_64_32;
+		relocation->Symbol = ptr->info.section + 2;
+		rptr += sizeof(*relocation);
 
 		numstabs++;
 		currfile = mainfileindex;
@@ -2042,25 +2072,40 @@ static void stabs64_generate(void)
 				if (!StrCompare(allfiles[i], ptr->filename))
 					break;
 			currfile = i;
-			WRITE_STAB(sptr, fileidx[currfile], N_SOL, 0, 0,
-					   ptr->info.offset);
+			stab = (struct stabentry*)sptr;
+			stab->n_strx = fileidx[currfile];
+			stab->n_type = N_SOL;
+			stab->n_other = 0;
+			stab->n_desc = 0;
+			stab->n_value = ptr->info.offset;
+			sptr += sizeof(*stab);
 			numstabs++;
 
 			/* relocation table entry */
 
-			WRITEDLONG(rptr, (int64_t)(sptr - sbuf) - 4);
-		WRITELONG(rptr, R_X86_64_32);
-		WRITELONG(rptr, ptr->info.section + 2);
+			relocation = (ELF64RelEntry*)rptr;
+			relocation->Address = (int64_t)(sptr - sbuf) - 4;
+			relocation->Type = R_X86_64_32;
+			relocation->Symbol = ptr->info.section + 2;
+			rptr += sizeof(*relocation);
 		}
 
-		WRITE_STAB(sptr, 0, N_SLINE, 0, ptr->line, ptr->info.offset);
+		stab = (struct stabentry*)sptr;
+		stab->n_strx = 0;
+		stab->n_type = N_SLINE;
+		stab->n_other = 0;
+		stab->n_desc = ptr->line;
+		stab->n_value = ptr->info.offset;
+		sptr += sizeof(*stab);
 		numstabs++;
 
 		/* relocation table entry */
 
-		WRITEDLONG(rptr, (int64_t)(sptr - sbuf) - 4);
-	WRITELONG(rptr, R_X86_64_32);
-	WRITELONG(rptr, ptr->info.section + 2);
+		relocation = (ELF64RelEntry*)rptr;
+		relocation->Address = (int64_t)(sptr - sbuf) - 4;
+		relocation->Type = R_X86_64_32;
+		relocation->Symbol = ptr->info.section + 2;
+		rptr += sizeof(*relocation);
 
 		ptr = ptr->next;
 
@@ -2182,6 +2227,9 @@ static void dwarf64_output(int type, void *param)
 static void dwarf64_generate(void)
 {
 	uint8_t* pbuf;
+	LitEndian<uint16_t, true>* field16;
+	LitEndian<uint32_t, true>* field32;
+	LitEndian<uint64_t, true>* field64;
 	int indx;
 	struct linelist* ftentry;
 	Strbuff* paranges, * ppubnames, * pinfo, * pabbrev, * plines, * plinep;
@@ -2231,7 +2279,9 @@ static void dwarf64_generate(void)
 	saalen = paranges->total_len;
 	arangeslen = saalen + 4;
 	arangesbuf = pbuf = (uint8*)malc(arangeslen);
-	WRITELONG(pbuf, saalen);			/* initial length */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = saalen;			/* initial length */
+	pbuf += sizeof(*field32);
 	StrbuffPop(paranges, pbuf, saalen);
 	StrbuffFree(paranges);
 
@@ -2250,7 +2300,9 @@ static void dwarf64_generate(void)
 	saalen = ppubnames->total_len;
 	pubnameslen = saalen + 4;
 	pubnamesbuf = pbuf = (uint8*)malc(pubnameslen);
-	WRITELONG(pbuf, saalen);	/* initial length */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = saalen;	/* initial length */
+	pbuf += sizeof(*field32);
 	StrbuffPop(ppubnames, pbuf, saalen);
 	StrbuffFree(ppubnames);
 
@@ -2289,7 +2341,9 @@ static void dwarf64_generate(void)
 	saalen = pinfo->total_len;
 	infolen = saalen + 4;
 	infobuf = pbuf = (uint8*)malc(infolen);
-	WRITELONG(pbuf, saalen);		/* initial length */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = saalen;		/* initial length */
+	pbuf += sizeof(*field32);
 	StrbuffPop(pinfo, pbuf, saalen);
 	StrbuffFree(pinfo);
 
@@ -2369,9 +2423,15 @@ static void dwarf64_generate(void)
 	linepoff = plines->total_len;
 	linelen = linepoff + totlen + 10;
 	linebuf = pbuf = (uint8*)malc(linelen);
-	WRITELONG(pbuf, linelen - 4);		/* initial length */
-	WRITESHORT(pbuf, 3);			/* dwarf version */
-	WRITELONG(pbuf, linepoff);		/* offset to line number program */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = linelen - 4;		/* initial length */
+	pbuf += sizeof(*field32);
+	field16 = (LitEndian<uint16_t, true>*)pbuf;
+	*field16 = 3;			/* dwarf version */
+	pbuf += sizeof(*field16);
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = linepoff;		/* offset to line number program */
+	pbuf += sizeof(*field32);
 	/* write line header */
 	saalen = linepoff;
 	StrbuffPop(plines, pbuf, saalen);   /* read a given no. of bytes */
@@ -2406,13 +2466,17 @@ static void dwarf64_generate(void)
 	/* build frame section */
 	framelen = 4;
 	framebuf = pbuf = (uint8*)malc(framelen);
-	WRITELONG(pbuf, framelen - 4);		/* initial length */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = framelen - 4;		/* initial length */
+	pbuf += sizeof(*field32);
 
 	/* build loc section */
 	loclen = 16;
 	locbuf = pbuf = (uint8*)malc(loclen);
-	WRITEDLONG(pbuf, 0);		/* null  beginning offset */
-	WRITEDLONG(pbuf, 0);		/* null  ending offset */
+	field64 = (LitEndian<uint64_t, true>*)pbuf;
+	*field64++ = 0;		/* null beginning offset */
+	*field64++ = 0;		/* null ending offset */
+	pbuf = (uint8_t*)field64;
 }
 
 static void dwarf64_cleanup(void)

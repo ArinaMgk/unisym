@@ -20,6 +20,7 @@
 
 #include "inc/aasm.h"
 #include "../inc/c/stdinc.h"
+#include "../inc/cpp/endian"
 #include "../inc/cpp/Format/Code.hpp"
 
 #define LIST_MAX_LEN 216        /* something sensible */
@@ -193,38 +194,36 @@ void AssemblyListing::EmitLegacy(int64_t offset, const void* data,
 	{
 		uint64_t d = *(int64_t *)data;
 		char q[20];
-		uint8_t p[8], *r = p;
+		LitEndian<uint64_t, true> encoded;
+		encoded = d;
 		if (size == 4) {
 			q[0] = '[';
 			q[9] = ']';
 			q[10] = '\0';
-			WRITELONG(r, d); //(uni::cast<void*>(r), d);
-			HEX(q + 1, p[0]);
-			HEX(q + 3, p[1]);
-			HEX(q + 5, p[2]);
-			HEX(q + 7, p[3]);
+			HEX(q + 1, encoded.v[0]);
+			HEX(q + 3, encoded.v[1]);
+			HEX(q + 5, encoded.v[2]);
+			HEX(q + 7, encoded.v[3]);
 			Append(offset, q);
 		} else if (size == 8) {
 			q[0] = '[';
 			q[17] = ']';
 			q[18] = '\0';
-			WRITEDLONG(r, d); //(uni::cast<void*>(r), d);
-			HEX(q + 1,  p[0]);
-			HEX(q + 3,  p[1]);
-			HEX(q + 5,  p[2]);
-			HEX(q + 7,  p[3]);
-			HEX(q + 9,  p[4]);
-			HEX(q + 11, p[5]);
-			HEX(q + 13, p[6]);
-			HEX(q + 15, p[7]);
+			HEX(q + 1,  encoded.v[0]);
+			HEX(q + 3,  encoded.v[1]);
+			HEX(q + 5,  encoded.v[2]);
+			HEX(q + 7,  encoded.v[3]);
+			HEX(q + 9,  encoded.v[4]);
+			HEX(q + 11, encoded.v[5]);
+			HEX(q + 13, encoded.v[6]);
+			HEX(q + 15, encoded.v[7]);
 			Append(offset, q);
 		} else {
 			q[0] = '[';
 			q[5] = ']';
 			q[6] = '\0';
-			WRITESHORT(r, d); //(uni::cast<void*>(r), d);
-			HEX(q + 1, p[0]);
-			HEX(q + 3, p[1]);
+			HEX(q + 1, encoded.v[0]);
+			HEX(q + 3, encoded.v[1]);
 			Append(offset, q);
 		}
 	break;
@@ -233,13 +232,13 @@ void AssemblyListing::EmitLegacy(int64_t offset, const void* data,
 	{
 		uint32_t d = *(int32_t *)data;
 		char q[11];
-		uint8_t p[4], *r = p;
+		LitEndian<uint16_t, true> encoded;
+		encoded = d;
 		q[0] = '(';
 		q[5] = ')';
 		q[6] = '\0';
-		WRITESHORT(r, d); //(uni::cast<void*>(r), d);
-		HEX(q + 1, p[0]);
-		HEX(q + 3, p[1]);
+		HEX(q + 1, encoded.v[0]);
+		HEX(q + 3, encoded.v[1]);
 		Append(offset, q);
 	break;
 	}
@@ -247,15 +246,15 @@ void AssemblyListing::EmitLegacy(int64_t offset, const void* data,
 	{
 		uint32_t d = *(int32_t *)data;
 		char q[11];
-		uint8_t p[4], *r = p;
+		LitEndian<uint32_t, true> encoded;
+		encoded = d;
 		q[0] = '(';
 		q[9] = ')';
 		q[10] = '\0';
-		WRITELONG(r, d); //(uni::cast<void*>(r), d);
-		HEX(q + 1, p[0]);
-		HEX(q + 3, p[1]);
-		HEX(q + 5, p[2]);
-		HEX(q + 7, p[3]);
+		HEX(q + 1, encoded.v[0]);
+		HEX(q + 3, encoded.v[1]);
+		HEX(q + 5, encoded.v[2]);
+		HEX(q + 7, encoded.v[3]);
 		Append(offset, q);
 	break;
 	}
@@ -263,19 +262,19 @@ void AssemblyListing::EmitLegacy(int64_t offset, const void* data,
 	{
 		uint64_t d = *(int64_t *)data;
 		char q[19];
-		uint8_t p[8], *r = p;
+		LitEndian<uint64_t, true> encoded;
+		encoded = d;
 		q[0] = '(';
 		q[17] = ')';
 		q[18] = '\0';
-		WRITEDLONG(r, d); //(uni::cast<void*>(r), d);
-		HEX(q + 1, p[0]);
-		HEX(q + 3, p[1]);
-		HEX(q + 5, p[2]);
-		HEX(q + 7, p[3]);
-		HEX(q + 9, p[4]);
-		HEX(q + 11, p[5]);
-		HEX(q + 13, p[6]);
-		HEX(q + 15, p[7]);
+		HEX(q + 1, encoded.v[0]);
+		HEX(q + 3, encoded.v[1]);
+		HEX(q + 5, encoded.v[2]);
+		HEX(q + 7, encoded.v[3]);
+		HEX(q + 9, encoded.v[4]);
+		HEX(q + 11, encoded.v[5]);
+		HEX(q + 13, encoded.v[6]);
+		HEX(q + 15, encoded.v[7]);
 		Append(offset, q);
 	break;
 	}

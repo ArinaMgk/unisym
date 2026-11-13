@@ -44,6 +44,14 @@ CheckArchends()
 	DefaultOutput="$WorkDirectory/architecture-default.bin"
 	MarchOutput="$WorkDirectory/architecture-march.bin"
 	LongOutput="$WorkDirectory/architecture-long.bin"
+	ARM32Source="$WorkDirectory/architecture-arm32.asm"
+	ARM32Output="$WorkDirectory/architecture-arm32.bin"
+	ARM64Source="$WorkDirectory/architecture-arm64.asm"
+	ARM64Output="$WorkDirectory/architecture-arm64.bin"
+	ARMMixedSource="$WorkDirectory/architecture-arm-mixed.asm"
+	ARMMixedOutput="$WorkDirectory/architecture-arm-mixed.bin"
+	ARMInvalidBitsSource="$WorkDirectory/architecture-arm-invalid-bits.asm"
+	ARMELFSource="$WorkDirectory/architecture-arm-elf.asm"
 	InvalidError="$WorkDirectory/invalid-architecture.stderr"
 
 	"$AasmExecutable" -ha > "$ArchitectureOutput" 2> "$ArchitectureError" || \
@@ -54,6 +62,10 @@ CheckArchends()
 		Fail "default architecture differs"
 	grep -Eq '^    riscv[[:space:]]' "$ArchitectureOutput" || \
 		Fail "RISC-V architecture is missing"
+	grep -Eq '^    arm32[[:space:]]' "$ArchitectureOutput" || \
+		Fail "ARM32 architecture is missing"
+	grep -Eq '^    arm64[[:space:]]' "$ArchitectureOutput" || \
+		Fail "ARM64 architecture is missing"
 
 	"$AasmExecutable" -Ox -f bin -o "$DefaultOutput" \
 		"$TestDirectory/basic.asm" \
@@ -80,6 +92,72 @@ CheckArchends()
 		Fail "-march changed x86 output"
 	cmp -s "$DefaultOutput" "$LongOutput" || \
 		Fail "--arch changed x86 output"
+
+	printf '%s\n' \
+		'[BITS 32]' \
+		'%ifidni __ARCH__,arm32' \
+		'DB 0x32' \
+		'%else' \
+		'DB 0' \
+		'%endif' > "$ARM32Source"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'%ifidni __ARCH__,arm64' \
+		'DB 0x64' \
+		'%else' \
+		'DB 0' \
+		'%endif' > "$ARM64Source"
+	AssembleSuccess architecture-arm32 -march=arm32 -f bin \
+		-o "$ARM32Output" "$ARM32Source"
+	AssembleSuccess architecture-arm64 -march=arm64 -f bin \
+		-o "$ARM64Output" "$ARM64Source"
+	[ "$(NormalizeHex "$ARM32Output")" = '32' ] || \
+		Fail "ARM32 architecture macro differs"
+	[ "$(NormalizeHex "$ARM64Output")" = '64' ] || \
+		Fail "ARM64 architecture macro differs"
+
+	printf '%s\n' \
+		'[ARCH arm32]' \
+		'[BITS 32]' \
+		'%ifidni __ARCH__,arm32' \
+		'DB 0x32' \
+		'%endif' \
+		'[ARCH arm64]' \
+		'[BITS 64]' \
+		'%ifidni __ARCH__,arm64' \
+		'DB 0x64' \
+		'%endif' > "$ARMMixedSource"
+	AssembleSuccess architecture-arm-mixed -f bin \
+		-o "$ARMMixedOutput" "$ARMMixedSource"
+	[ "$(NormalizeHex "$ARMMixedOutput")" = '32 64' ] || \
+		Fail "ARM architecture switching differs"
+
+	printf '%s\n' '[BITS 64]' 'DB 0' > "$ARMInvalidBitsSource"
+	AssembleFailure architecture-arm32-invalid-bits -march=arm32 -f bin \
+		-o "$WorkDirectory/architecture-arm32-invalid-bits.bin" \
+		"$ARMInvalidBitsSource"
+	grep -Fq 'cannot specify 64-bit mode for the selected architecture or cpu' \
+		"$WorkDirectory/architecture-arm32-invalid-bits.stderr" || \
+		Fail "ARM32 invalid bit-width diagnostic differs"
+	printf '%s\n' '[BITS 32]' 'DB 0' > "$ARMInvalidBitsSource"
+	AssembleFailure architecture-arm64-invalid-bits -march=arm64 -f bin \
+		-o "$WorkDirectory/architecture-arm64-invalid-bits.bin" \
+		"$ARMInvalidBitsSource"
+	grep -Fq 'cannot specify 32-bit mode for the selected architecture or cpu' \
+		"$WorkDirectory/architecture-arm64-invalid-bits.stderr" || \
+		Fail "ARM64 invalid bit-width diagnostic differs"
+
+	printf '%s\n' 'DB 0' > "$ARMELFSource"
+	AssembleFailure architecture-arm32-elf -march=arm32 -f elf32 \
+		-o "$WorkDirectory/architecture-arm32.o" "$ARMELFSource"
+	grep -Fq "output format \`elf32' does not support architecture \`arm32'" \
+		"$WorkDirectory/architecture-arm32-elf.stderr" || \
+		Fail "ARM32 ELF compatibility diagnostic differs"
+	AssembleFailure architecture-arm64-elf -march=arm64 -f elf64 \
+		-o "$WorkDirectory/architecture-arm64.o" "$ARMELFSource"
+	grep -Fq "output format \`elf64' does not support architecture \`arm64'" \
+		"$WorkDirectory/architecture-arm64-elf.stderr" || \
+		Fail "ARM64 ELF compatibility diagnostic differs"
 
 	AssembleFailure invalid-architecture -march=invalid-architecture \
 		"$TestDirectory/basic.asm"

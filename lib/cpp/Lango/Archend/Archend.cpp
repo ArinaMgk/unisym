@@ -4,6 +4,8 @@
 // Copyright: UNISYM, under Apache License 2.0
 
 #include "../../../../inc/c/ustring.h"
+#include "../../../../inc/cpp/Lango/Archend/Archend-arm32.hpp"
+#include "../../../../inc/cpp/Lango/Archend/Archend-arm64.hpp"
 #include "../../../../inc/cpp/Lango/Archend/Archend-riscv.hpp"
 #include "../../../../inc/cpp/Lango/Archend/Archend-x86.hpp"
 
@@ -15,7 +17,9 @@ ArchendInterface** RegisteredArchends(size_t& count)
 {
 	static ArchendInterface* archends[] = {
 		&X86Archend(),
-		&RISCVArchend()
+		&RISCVArchend(),
+		&ARM32Archend(),
+		&ARM64Archend(),
 	};
 	count = numsof(archends);
 	return archends;

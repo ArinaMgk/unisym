@@ -23,7 +23,8 @@
 // ---- ---- AASM ---- ---- //
 #ifndef _MCCA
 #include "../../../../inc/c/strbuff.h"
-#include "../../../../inc/c/strpage.h"
+#include "../../../../inc/cpp/Datype/Map/SparseMap.hpp"
+#include "../../../../inc/cpp/endian"
 #include "../../../../asm/inc/aasm.h"
 
 
@@ -98,7 +99,7 @@ static struct Section stext, sdata, sbss;
 static Strbuff *syms;
 static uint32_t nsyms;
 
-static Strpage *bsym;
+static uni::SparseMap bsym;
 
 static Strbuff *strs;
 static uint32_t strslen;
@@ -150,7 +151,7 @@ static void aoutg_init(FILE * fp, ldfunc ldef,
 	stext.asym = sdata.asym = sbss.asym = NULL;
 	syms = StrbuffNew((int32_t)sizeof(struct Symbol));
 	nsyms = 0;
-	bsym = StrpageNew();
+	bsym.Clear();
 	strs = StrbuffNew(1L);
 	strslen = 0;
 	fwds = NULL;
@@ -221,7 +222,7 @@ static void aout_cleanup(int debuginfo)
 		memf(r);
 	}
 	StrbuffFree(syms);
-	StrpageFree(bsym);
+	bsym.Clear();
 	StrbuffFree(strs);
 }
 
@@ -407,7 +408,8 @@ static void aout_deflabel(char *name, int32_t segment, int64_t offset,
 	 */
 	if (segment != NO_SEG && segment != stext.index &&
 		segment != sdata.index && segment != sbss.index)
-		bsym = StrpageSet(bsym, segment, nsyms);
+		if (!bsym.Set(segment, nsyms))
+			aasm_log(_LOG_FATAL, "unable to store an a.out symbol mapping");
 	sym->symnum = nsyms;
 
 	nsyms++;
@@ -432,7 +434,7 @@ static void aout_add_reloc(struct Section *sect, int32_t segment,
 				 segment == stext.index ? -SECT_TEXT :
 				 segment == sdata.index ? -SECT_DATA :
 				 segment == sbss.index ? -SECT_BSS :
-				 StrpageGet(bsym, segment));
+				 bsym.Get(segment));
 	r->reltype = reltype;
 	if (r->symbol >= 0)
 		r->reltype |= RELTYPE_SYMFLAG;
@@ -577,7 +579,7 @@ static void aout_out(int32_t segto, const void *data,
 {
 	struct Section *s;
 	int32_t addr;
-	uint8_t mydata[4], *p;
+	LitEndian<uint32_t, true> mydata;
 
 	/*
 	 * handle absolute-assembly (structure definitions)
@@ -664,12 +666,8 @@ static void aout_out(int32_t segto, const void *data,
 				}
 			}
 		}
-		p = mydata;
-		if (size == 2)
-			WRITESHORT(p, addr);
-		else
-			WRITELONG(p, addr);
-		aout_sect_write(s, mydata, size);
+		mydata = addr;
+		aout_sect_write(s, mydata.v, size);
 	} else if (type == OUT_REL2ADR) {
 		if (segment == segto)
 			aasm_log(_LOG_PANIC, "intra-segment OUT_REL2ADR");
@@ -697,9 +695,8 @@ static void aout_out(int32_t segto, const void *data,
 				wrt = NO_SEG;   /* we can at least _try_ to continue */
 			}
 		}
-		p = mydata;
-		WRITESHORT(p, *(int64_t *)data - (size + s->len));
-		aout_sect_write(s, mydata, 2L);
+		mydata = *(int64_t*)data - (size + s->len);
+		aout_sect_write(s, mydata.v, 2L);
 	} else if (type == OUT_REL4ADR) {
 		if (segment == segto)
 			aasm_log(_LOG_PANIC, "intra-segment OUT_REL4ADR");
@@ -727,9 +724,8 @@ static void aout_out(int32_t segto, const void *data,
 				wrt = NO_SEG;   /* we can at least _try_ to continue */
 			}
 		}
-		p = mydata;
-		WRITELONG(p, *(int64_t *)data - (size + s->len));
-		aout_sect_write(s, mydata, 4L);
+		mydata = *(int64_t*)data - (size + s->len);
+		aout_sect_write(s, mydata.v, 4L);
 	}
 }
 
@@ -761,11 +757,11 @@ static void aout_fixup_relocs(struct Section *sect)
 
 	StrbuffRewind(sect->data);
 	for (r = sect->head; r; r = r->next) {
-		uint8_t *p, *q, blk[4];
+		LitEndian<uint32_t, true> blk;
+		uint8_t* p = blk.v;
 		int32_t l;
 
-		StrbuffPopx(sect->data, r->address, blk, (int32_t)r->bytes);
-		p = q = blk;
+		StrbuffPopx(sect->data, r->address, blk.v, (int32_t)r->bytes);
 		l = *p++;
 		if (r->bytes > 1) {
 			l += ((int32_t)*p++) << 8;
@@ -778,13 +774,8 @@ static void aout_fixup_relocs(struct Section *sect)
 			l += stext.len;
 		else if (r->symbol == -SECT_BSS)
 			l += stext.len + sdata.len;
-		if (r->bytes == 4)
-			WRITELONG(q, l);
-		else if (r->bytes == 2)
-			WRITESHORT(q, l);
-		else
-			*q++ = l & 0xFF;
-		StrbuffSendx(sect->data, r->address, blk, (int32_t)r->bytes);
+		blk = l;
+		StrbuffSendx(sect->data, r->address, blk.v, (int32_t)r->bytes);
 	}
 }
 

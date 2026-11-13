@@ -23,7 +23,7 @@
 // E X P O S T U ** DO NOT TRAP IN C TOO MUCH! BE YOURSELF(Practical). ** L A T I O N //
 /* {} Component
 * common heap operations
-* strpool
+* strpool -> now BumpArena
 * Buf-special part
 * General String Function
 * ChrAr

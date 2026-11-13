@@ -3,6 +3,7 @@
 // Copyright: UNISYM, under Apache License 2.0
 
 #include "inc/aasm.h"
+#include "../inc/cpp/endian"
 #include "../inc/cpp/Format/Code.hpp"
 #include "../inc/cpp/Lango/Archend.hpp"
 
@@ -738,10 +739,9 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 						width_bytes, item->Section, item->Wrt);
 				}
 				else {
-					uint8_t converted[8];
-					uint8_t* cursor = converted;
-					WRITEADDR(cursor, item->Offset, width_bytes);
-					EmitStatementData(Session, output_offset, converted,
+					LitEndian<uint64_t, true> converted;
+					converted = item->Offset;
+					EmitStatementData(Session, output_offset, converted.v,
 						uni::CodeendOutputType::RawData, width_bytes);
 				}
 				output_offset += width_bytes;

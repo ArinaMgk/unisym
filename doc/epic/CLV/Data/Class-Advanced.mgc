@@ -16,12 +16,3 @@ Title(5, "stack");
 
 Title(5, "queue");
 
-
-Title(5, "strpool");
-
-
-Title(5, "strpage");
-
-
-Title(5, "strbuff");
-

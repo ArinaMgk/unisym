@@ -25,13 +25,38 @@
 #define ELFBIT 32
 
 #include "../../../../inc/c/strbuff.h"
-#include "../../../../inc/c/strpage.h"
+#include "../../../../inc/cpp/Datype/Map/SparseMap.hpp"
 #include "../../../../inc/c/format/ELF.h"
 #include "../../../../inc/c/format/DWARF.h"
+#include "../../../../inc/cpp/endian"
 #include "../../../../inc/cpp/Format/Code.hpp"
 #include "../../../../inc/cpp/Format/Code/ELF/ELF-riscv.hpp"
 #include "../../../../asm/inc/aasm.h"
 #include "../../../../asm/inc/rbtree.hpp"
+
+struct ELF32SymbolEntry {
+	LitEndian<uint32_t, true> Name;
+	LitEndian<uint32_t, true> Value;
+	LitEndian<uint32_t, true> Size;
+	uint8_t Info;
+	uint8_t Other;
+	LitEndian<uint16_t, true> Section;
+};
+
+struct ELF32RelocationEntry {
+	LitEndian<uint32_t, true> Address;
+	LitEndian<uint32_t, true> Info;
+	LitEndian<uint32_t, true> Addend;
+};
+
+struct ELF32RelEntry {
+	LitEndian<uint32_t, true> Address;
+	LitEndian<uint32_t, true> Info;
+};
+
+static_assert(sizeof(ELF32SymbolEntry) == 16);
+static_assert(sizeof(ELF32RelocationEntry) == 12);
+static_assert(sizeof(ELF32RelEntry) == 8);
 
 static const struct elf_known_section elf_known_sections[] = {
 	{ ".text",    SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR,     16 },
@@ -97,7 +122,7 @@ static uint32_t nlocals, nglobs, ndebugs; /* Symbol counts */
 
 static int32_t def_seg;
 
-static Strpage* bsym;
+static uni::SparseMap bsym;
 
 static Strbuff* strs;
 static uint32_t strslen;
@@ -119,8 +144,19 @@ static struct Section* riscv_attributes = NULL;
 
 void elf32_set_architecture(uni::lango::ArchitectureKind architecture)
 {
-	elf_machine = architecture == uni::lango::ArchitectureKind::RISCV ?
-		EM_RISCV : EM_386;
+	switch (architecture) {
+	case uni::lango::ArchitectureKind::X86:
+		elf_machine = EM_386;
+		break;
+	case uni::lango::ArchitectureKind::RISCV:
+		elf_machine = EM_RISCV;
+		break;
+	default:
+		elf_machine = EM_NONE;
+		aasm_log(_LOG_PANIC,
+			"unsupported architecture reached ELF32 output");
+		return;
+	}
 	elf_flags = 0;
 	if (elf_machine == EM_RISCV) riscv_target.Reset(32);
 }
@@ -158,12 +194,14 @@ static Strbuff* elf_build_reltab(int32_t*, struct Reloc*);
 static void add_sectname(rostr, rostr);
 
 struct stabentry {
-	uint32_t n_strx;
+	LitEndian<uint32_t, true> n_strx;
 	uint8_t n_type;
 	uint8_t n_other;
-	uint16_t n_desc;
-	uint32_t n_value;
+	LitEndian<uint16_t, true> n_desc;
+	LitEndian<uint32_t, true> n_value;
 };
+
+static_assert(sizeof(stabentry) == 12);
 
 struct erel {
 	int offset, info;
@@ -330,7 +368,7 @@ static void elf_init(FILE* fp, ldfunc ldef, evalfunc eval)
 	nsects = sectlen = 0;
 	syms = StrbuffNew((int32_t)sizeof(struct Symbol));
 	nlocals = nglobs = ndebugs = 0;
-	bsym = StrpageNew();
+	bsym.Clear();
 	strs = StrbuffNew(1L);
 	StrbuffSend(strs, (pureptr_t)"\0", 1L);
 	StrbuffSend(strs, (pureptr_t)elf_module, StrLength(elf_module) + 1);
@@ -397,7 +435,7 @@ static void elf_cleanup(int debuginfo)
 	}
 	memf(sects);
 	StrbuffFree(syms);
-	StrpageFree(bsym);
+	bsym.Clear();
 	StrbuffFree(strs);
 	if (of_elf32.current_dfmt) {
 		of_elf32.current_dfmt->cleanup();
@@ -705,7 +743,8 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 		 * This may not be the best solution.
 		 */
 		if (sym->section == SHN_UNDEF || sym->section == SHN_COMMON) {
-			bsym = StrpageSet(bsym, segment, nglobs);
+			if (!bsym.Set(segment, nglobs))
+				aasm_log(_LOG_FATAL, "unable to store an ELF32 symbol mapping");
 		}
 		else if (sym->section != SHN_ABS) {
 			/*
@@ -822,7 +861,7 @@ static void elf_add_reloc(struct Section* sect, int32_t segment, int type,
 			if (segment == sects[i]->index)
 				r->symbol = i + 2;
 		if (!r->symbol)
-			r->symbol = GLOBAL_TEMP_BASE + StrpageGet(bsym, segment);
+			r->symbol = GLOBAL_TEMP_BASE + bsym.Get(segment);
 	}
 	r->type = type;
 	r->offset = offset;
@@ -994,12 +1033,9 @@ void elf32_emit_fixup(const uni::CodeFixup& fixup)
 		aasm_log(_LOG_ERROR, "unsupported RISC-V ELF32 relocation");
 		return;
 	}
-	uint8_t bytes[8];
-	uint8_t* cursor = bytes;
-	WRITELONG(cursor, static_cast<uint32_t>(fixup.initial_value));
+	LitEndian<uint64_t, true> bytes;
+	bytes = fixup.initial_value;
 	size_t size = fixup.encoding.storage_bits / 8;
-	if (size == 8)
-		WRITELONG(cursor, static_cast<uint32_t>(fixup.initial_value >> 32));
 	if (fixup.kind == uni::CodeFixupKind::PageOffset) {
 		if (!elf_add_local_reloc(section, fixup.pair.section,
 			static_cast<int32_t>(fixup.pair.offset), type)) return;
@@ -1015,7 +1051,7 @@ void elf32_emit_fixup(const uni::CodeFixup& fixup)
 		fixup.kind == uni::CodeFixupKind::PageRelative ||
 		fixup.kind == uni::CodeFixupKind::PageOffset))
 		elf_add_riscv_relax_reloc(section);
-	elf_sect_write(section, bytes, size);
+	elf_sect_write(section, bytes.v, size);
 }
 
 /*
@@ -1101,7 +1137,7 @@ static void elf_out(int32_t segto, const void* data,
 {
 	struct Section* s;
 	int32_t addr;
-	uint8_t mydata[4], * p;
+	LitEndian<uint32_t, true> mydata;
 	int i;
 	static struct symlininfo sinfo;
 
@@ -1226,21 +1262,20 @@ static void elf_out(int32_t segto, const void* data,
 				}
 			}
 		}
-		p = mydata;
 		if (gnu16) {
 			//--auto clean flag
 			log_warnt = ERR_WARN_GNUELF;
 			aasm_log(_LOG_WARN, "16-bit relocations in ELF is a GNU extension");
-			WRITESHORT(p, addr);
+			mydata = addr;
 		}
 		else {
 			if (size != 4 && segment != NO_SEG) {
 				//--auto clean flag
 				aasm_log(_LOG_ERROR, "Unsupported non-32-bit ELF relocation");
 			}
-			WRITELONG(p, addr);
+			mydata = addr;
 		}
-		elf_sect_write(s, mydata, size);
+		elf_sect_write(s, mydata.v, size);
 	}
 	else if (type == OUT_REL2ADR) {
 		if (segment == segto) {
@@ -1262,9 +1297,8 @@ static void elf_out(int32_t segto, const void* data,
 				aasm_log(_LOG_ERROR, "Unsupported non-32-bit ELF relocation");
 			}
 		}
-		p = mydata;
-		WRITESHORT(p, *(int64_t*)data - size);
-		elf_sect_write(s, mydata, 2L);
+		mydata = *(int64_t*)data - size;
+		elf_sect_write(s, mydata.v, 2L);
 	}
 	else if (type == OUT_REL4ADR) {
 		if (segment == segto) {
@@ -1294,9 +1328,8 @@ static void elf_out(int32_t segto, const void* data,
 				wrt = NO_SEG;   /* we can at least _try_ to continue */
 			}
 		}
-		p = mydata;
-		WRITELONG(p, *(int64_t*)data - size);
-		elf_sect_write(s, mydata, 4L);
+		mydata = *(int64_t*)data - size;
+		elf_sect_write(s, mydata.v, 4L);
 	}
 }
 
@@ -1536,7 +1569,7 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 {
 	Strbuff* s = StrbuffNew(1L);
 	struct Symbol* sym;
-	uint8_t entry[16], * p;
+	ELF32SymbolEntry entry {};
 	int i;
 
 	*len = *local = 0;
@@ -1551,13 +1584,10 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 	/*
 	 * Next, an entry for the file name.
 	 */
-	p = entry;
-	WRITELONG(p, 1);            /* we know it's 1st entry in strtab */
-	WRITELONG(p, 0);            /* no value */
-	WRITELONG(p, 0);            /* no size either */
-	WRITESHORT(p, STT_FILE);    /* type FILE */
-	WRITESHORT(p, SHN_ABS);
-	StrbuffSend(s, entry, 16L);
+	entry.Name = 1;             /* we know it's 1st entry in strtab */
+	entry.Info = STT_FILE;
+	entry.Section = SHN_ABS;
+	StrbuffSend(s, &entry, sizeof(entry));
 	*len += 16;
 	(*local)++;
 
@@ -1566,13 +1596,10 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 	 * purposes.
 	 */
 	for (i = 1; i <= nsects; i++) {
-		p = entry;
-		WRITELONG(p, 0);        /* no symbol name */
-		WRITELONG(p, 0);        /* offset zero */
-		WRITELONG(p, 0);        /* size zero */
-		WRITESHORT(p, STT_SECTION);       /* type, binding, and visibility */
-		WRITESHORT(p, i);       /* section id */
-		StrbuffSend(s, entry, 16L);
+		entry = {};
+		entry.Info = STT_SECTION;
+		entry.Section = i;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 16;
 		(*local)++;
 	}
@@ -1584,14 +1611,13 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 	while ((sym = (Symbol*)StrbuffEread(syms))) {
 		if (sym->type & SYM_GLOBAL)
 			continue;
-		p = entry;
-		WRITELONG(p, sym->strpos);
-		WRITELONG(p, sym->symv.key);
-		WRITELONG(p, sym->size);
-		WRITECHAR(p, sym->type);        /* type and binding */
-		WRITECHAR(p, sym->other);       /* visibility */
-		WRITESHORT(p, sym->section);
-		StrbuffSend(s, entry, 16L);
+		entry.Name = sym->strpos;
+		entry.Value = sym->symv.key;
+		entry.Size = sym->size;
+		entry.Info = sym->type;
+		entry.Other = sym->other;
+		entry.Section = sym->section;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 16;
 		(*local)++;
 	}
@@ -1602,33 +1628,24 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 	 //*** fix for 32 bit
 	if (of_elf32.current_dfmt == &df_dwarf) {
 		dwarf_infosym = *local;
-		p = entry;
-		WRITELONG(p, 0);        /* no symbol name */
-		WRITELONG(p, (uint32_t)0);        /* offset zero */
-		WRITELONG(p, (uint32_t)0);        /* size zero */
-		WRITESHORT(p, STT_SECTION);       /* type, binding, and visibility */
-		WRITESHORT(p, sec_debug_info);       /* section id */
-		StrbuffSend(s, entry, 16L);
+		entry = {};
+		entry.Info = STT_SECTION;
+		entry.Section = sec_debug_info;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 16;
 		(*local)++;
 		dwarf_abbrevsym = *local;
-		p = entry;
-		WRITELONG(p, 0);        /* no symbol name */
-		WRITELONG(p, (uint32_t)0);        /* offset zero */
-		WRITELONG(p, (uint32_t)0);        /* size zero */
-		WRITESHORT(p, STT_SECTION);       /* type, binding, and visibility */
-		WRITESHORT(p, sec_debug_abbrev);       /* section id */
-		StrbuffSend(s, entry, 16L);
+		entry = {};
+		entry.Info = STT_SECTION;
+		entry.Section = sec_debug_abbrev;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 16;
 		(*local)++;
 		dwarf_linesym = *local;
-		p = entry;
-		WRITELONG(p, 0);        /* no symbol name */
-		WRITELONG(p, (uint32_t)0);        /* offset zero */
-		WRITELONG(p, (uint32_t)0);        /* size zero */
-		WRITESHORT(p, STT_SECTION);       /* type, binding, and visibility */
-		WRITESHORT(p, sec_debug_line);       /* section id */
-		StrbuffSend(s, entry, 16L);
+		entry = {};
+		entry.Info = STT_SECTION;
+		entry.Section = sec_debug_line;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 16;
 		(*local)++;
 	}
@@ -1640,14 +1657,13 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 	while ((sym = (Symbol*)StrbuffEread(syms))) {
 		if (!(sym->type & SYM_GLOBAL))
 			continue;
-		p = entry;
-		WRITELONG(p, sym->strpos);
-		WRITELONG(p, sym->symv.key);
-		WRITELONG(p, sym->size);
-		WRITECHAR(p, sym->type);        /* type and binding */
-		WRITECHAR(p, sym->other);       /* visibility */
-		WRITESHORT(p, sym->section);
-		StrbuffSend(s, entry, 16L);
+		entry.Name = sym->strpos;
+		entry.Value = sym->symv.key;
+		entry.Size = sym->size;
+		entry.Info = sym->type;
+		entry.Other = sym->other;
+		entry.Section = sym->section;
+		StrbuffSend(s, &entry, sizeof(entry));
 		*len += 16;
 	}
 
@@ -1657,7 +1673,7 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 static Strbuff* elf_build_reltab(int32_t* len, struct Reloc* r)
 {
 	Strbuff* s;
-	uint8_t* p, entry[12];
+	ELF32RelocationEntry entry {};
 	int32_t global_offset;
 
 	if (!r)
@@ -1685,16 +1701,15 @@ static Strbuff* elf_build_reltab(int32_t* len, struct Reloc* r)
 		else if (sym >= GLOBAL_TEMP_BASE)
 			sym += global_offset;
 
-		p = entry;
-		WRITELONG(p, r->address);
-		WRITELONG(p, (sym << 8) + r->type);
+		entry.Address = r->address;
+		entry.Info = (sym << 8) + r->type;
 		if (elf_machine == EM_RISCV) {
-			WRITELONG(p, r->offset);
-			StrbuffSend(s, entry, 12L);
+			entry.Addend = r->offset;
+			StrbuffSend(s, &entry, sizeof(entry));
 			*len += 12;
 		}
 		else {
-			StrbuffSend(s, entry, 8L);
+			StrbuffSend(s, &entry, 8L);
 			*len += 8;
 		}
 
@@ -1950,21 +1965,14 @@ static void stabs32_output(int type, void* param)
 	debug_immcall = 0;
 }
 
-#define WRITE_STAB(p,n_strx,n_type,n_other,n_desc,n_value) \
-  do {\
-	WRITELONG(p,n_strx); \
-	WRITECHAR(p,n_type); \
-	WRITECHAR(p,n_other); \
-	WRITESHORT(p,n_desc); \
-	WRITELONG(p,n_value); \
-  } while (0)
-
 /* for creating the .stab , .stabstr and .rel.stab sections in memory */
 
 static void stabs32_generate(void)
 {
 	int i, numfiles, strsize, numstabs = 0, currfile, mainfileindex;
 	uint8_t* sbuf, * ssbuf, * rbuf, * sptr, * rptr;
+	struct stabentry* stab;
+	ELF32RelEntry* relocation;
 	char** allfiles;
 	int* fileidx;
 
@@ -2035,10 +2043,22 @@ static void stabs32_generate(void)
 		the source-file, the n_desc field should be set to the number
 		of remaining stabs
 		*/
-		WRITE_STAB(sptr, fileidx[0], 0, 0, 0, StrLength(allfiles[0] + 12));
+		stab = (struct stabentry*)sptr;
+		stab->n_strx = fileidx[0];
+		stab->n_type = 0;
+		stab->n_other = 0;
+		stab->n_desc = 0;
+		stab->n_value = StrLength(allfiles[0] + 12);
+		sptr += sizeof(*stab);
 
 		/* this is the stab for the main source file */
-		WRITE_STAB(sptr, fileidx[mainfileindex], N_SO, 0, 0, 0);
+		stab = (struct stabentry*)sptr;
+		stab->n_strx = fileidx[mainfileindex];
+		stab->n_type = N_SO;
+		stab->n_other = 0;
+		stab->n_desc = 0;
+		stab->n_value = 0;
+		sptr += sizeof(*stab);
 
 		/* relocation table entry */
 
@@ -2046,8 +2066,10 @@ static void stabs32_generate(void)
 		/* the section symbols, the index in the info.section */
 		/* member must be adjusted by adding 2 */
 
-		WRITELONG(rptr, (sptr - sbuf) - 4);
-		WRITELONG(rptr, ((ptr->info.section + 2) << 8) | R_386_32);
+		relocation = (ELF32RelEntry*)rptr;
+		relocation->Address = (sptr - sbuf) - 4;
+		relocation->Info = ((ptr->info.section + 2) << 8) | R_386_32;
+		rptr += sizeof(*relocation);
 
 		numstabs++;
 		currfile = mainfileindex;
@@ -2060,22 +2082,37 @@ static void stabs32_generate(void)
 				if (!StrCompare(allfiles[i], ptr->filename))
 					break;
 			currfile = i;
-			WRITE_STAB(sptr, fileidx[currfile], N_SOL, 0, 0,
-				ptr->info.offset);
+			stab = (struct stabentry*)sptr;
+			stab->n_strx = fileidx[currfile];
+			stab->n_type = N_SOL;
+			stab->n_other = 0;
+			stab->n_desc = 0;
+			stab->n_value = ptr->info.offset;
+			sptr += sizeof(*stab);
 			numstabs++;
 
 			/* relocation table entry */
-			WRITELONG(rptr, (sptr - sbuf) - 4);
-			WRITELONG(rptr, ((ptr->info.section + 2) << 8) | R_386_32);
+			relocation = (ELF32RelEntry*)rptr;
+			relocation->Address = (sptr - sbuf) - 4;
+			relocation->Info = ((ptr->info.section + 2) << 8) | R_386_32;
+			rptr += sizeof(*relocation);
 		}
 
-		WRITE_STAB(sptr, 0, N_SLINE, 0, ptr->line, ptr->info.offset);
+		stab = (struct stabentry*)sptr;
+		stab->n_strx = 0;
+		stab->n_type = N_SLINE;
+		stab->n_other = 0;
+		stab->n_desc = ptr->line;
+		stab->n_value = ptr->info.offset;
+		sptr += sizeof(*stab);
 		numstabs++;
 
 		/* relocation table entry */
 
-		WRITELONG(rptr, (sptr - sbuf) - 4);
-		WRITELONG(rptr, ((ptr->info.section + 2) << 8) | R_386_32);
+		relocation = (ELF32RelEntry*)rptr;
+		relocation->Address = (sptr - sbuf) - 4;
+		relocation->Info = ((ptr->info.section + 2) << 8) | R_386_32;
+		rptr += sizeof(*relocation);
 
 		ptr = ptr->next;
 
@@ -2199,6 +2236,8 @@ static void dwarf32_output(int type, void* param)
 static void dwarf32_generate(void)
 {
 	uint8_t* pbuf;
+	LitEndian<uint16_t, true>* field16;
+	LitEndian<uint32_t, true>* field32;
 	int indx;
 	struct linelist* ftentry;
 	Strbuff* paranges, * ppubnames, * pinfo, * pabbrev, * plines, * plinep;
@@ -2248,7 +2287,9 @@ static void dwarf32_generate(void)
 	saalen = paranges->total_len;
 	arangeslen = saalen + 4;
 	arangesbuf = pbuf = (uint8*)malc(arangeslen);
-	WRITELONG(pbuf, saalen);			/* initial length */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = saalen;			/* initial length */
+	pbuf += sizeof(*field32);
 	StrbuffPop(paranges, pbuf, saalen);
 	StrbuffFree(paranges);
 
@@ -2267,7 +2308,9 @@ static void dwarf32_generate(void)
 	saalen = ppubnames->total_len;
 	pubnameslen = saalen + 4;
 	pubnamesbuf = pbuf = (uint8*)malc(pubnameslen);
-	WRITELONG(pbuf, saalen);	/* initial length */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = saalen;	/* initial length */
+	pbuf += sizeof(*field32);
 	StrbuffPop(ppubnames, pbuf, saalen);
 	StrbuffFree(ppubnames);
 
@@ -2306,7 +2349,9 @@ static void dwarf32_generate(void)
 	saalen = pinfo->total_len;
 	infolen = saalen + 4;
 	infobuf = pbuf = (uint8*)malc(infolen);
-	WRITELONG(pbuf, saalen);		/* initial length */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = saalen;		/* initial length */
+	pbuf += sizeof(*field32);
 	StrbuffPop(pinfo, pbuf, saalen);
 	StrbuffFree(pinfo);
 
@@ -2386,9 +2431,15 @@ static void dwarf32_generate(void)
 	linepoff = plines->total_len;
 	linelen = linepoff + totlen + 10;
 	linebuf = pbuf = (uint8*)malc(linelen);
-	WRITELONG(pbuf, linelen - 4);		/* initial length */
-	WRITESHORT(pbuf, 3);			/* dwarf version */
-	WRITELONG(pbuf, linepoff);		/* offset to line number program */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = linelen - 4;		/* initial length */
+	pbuf += sizeof(*field32);
+	field16 = (LitEndian<uint16_t, true>*)pbuf;
+	*field16 = 3;			/* dwarf version */
+	pbuf += sizeof(*field16);
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = linepoff;		/* offset to line number program */
+	pbuf += sizeof(*field32);
 	/* write line header */
 	saalen = linepoff;
 	StrbuffPop(plines, pbuf, saalen);   /* read a given no. of bytes */
@@ -2423,13 +2474,17 @@ static void dwarf32_generate(void)
 	/* build frame section */
 	framelen = 4;
 	framebuf = pbuf = (uint8*)malc(framelen);
-	WRITELONG(pbuf, framelen - 4);		/* initial length */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32 = framelen - 4;		/* initial length */
+	pbuf += sizeof(*field32);
 
 	/* build loc section */
 	loclen = 16;
 	locbuf = pbuf = (uint8*)malc(loclen);
-	WRITELONG(pbuf, 0);		/* null  beginning offset */
-	WRITELONG(pbuf, 0);		/* null  ending offset */
+	field32 = (LitEndian<uint32_t, true>*)pbuf;
+	*field32++ = 0;		/* null beginning offset */
+	*field32++ = 0;		/* null ending offset */
+	pbuf = (uint8_t*)field32;
 }
 
 static void dwarf32_cleanup(void)

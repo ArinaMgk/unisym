@@ -24,7 +24,8 @@
 // ---- ---- AASM ---- ---- //
 
 #include "../../../../inc/c/strbuff.h"
-#include "../../../../inc/c/strpage.h"
+#include "../../../../inc/cpp/Datype/Map/SparseMap.hpp"
+#include "../../../../inc/cpp/endian"
 #include "../../../../asm/inc/aasm.h"
 #include <time.h>
 
@@ -144,7 +145,7 @@ static int32_t def_seg;
 
 static int initsym;
 
-static Strpage *bsym, *symval;
+static uni::SparseMap bsym, symval;
 
 static Strbuff *strs;
 static uint32_t strslen;
@@ -197,8 +198,8 @@ static void coff_gen_init(FILE * fp)
 	nsects = sectlen = 0;
 	syms = StrbuffNew(sizeof(struct Symbol));
 	nsyms = 0;
-	bsym = StrpageNew();
-	symval = StrpageNew();
+	bsym.Clear();
+	symval.Clear();
 	strs = StrbuffNew(1);
 	strslen = 0;
 	def_seg = SegAlloc();
@@ -225,8 +226,8 @@ static void coff_cleanup(int debuginfo)
 	}
 	memf(sects);
 	StrbuffFree(syms);
-	StrpageFree(bsym);
-	StrpageFree(symval);
+	bsym.Clear();
+	symval.Clear();
 	StrbuffFree(strs);
 }
 
@@ -440,11 +441,13 @@ static void coff_deflabel(char *name, int32_t segment, int64_t offset,
 	 * to these symbol records.
 	 */
 	if (sym->section == 0) {
-		bsym = StrpageSet(bsym, segment, nsyms);
+		if (!bsym.Set(segment, nsyms))
+			aasm_log(_LOG_FATAL, "unable to store a COFF symbol mapping");
 	}
 
 	if (segment != NO_SEG)
-		symval = StrpageSet(symval, segment, sym->section ? 0 : sym->value);
+		if (!symval.Set(segment, sym->section ? 0 : sym->value))
+			aasm_log(_LOG_FATAL, "unable to store a COFF symbol value");
 
 	nsyms++;
 }
@@ -471,7 +474,7 @@ static int32_t coff_add_reloc(struct Section *sect, int32_t segment,
 				break;
 			}
 		if (r->symbase == Reloc::REAL_SYMBOLS)
-			r->symbol = StrpageGet(bsym, segment);
+			r->symbol = bsym.Get(segment);
 	}
 	r->type = type;
 
@@ -481,7 +484,7 @@ static int32_t coff_add_reloc(struct Section *sect, int32_t segment,
 	 * Return the fixup for standard COFF common variables.
 	 */
 	if (r->symbase == Reloc::REAL_SYMBOLS && !(win32 | win64))
-		return StrpageGet(symval, segment);
+		return symval.Get(segment);
 	else
 		return 0;
 }
@@ -491,7 +494,7 @@ static void coff_out(int32_t segto, const void *data,
 					 int32_t segment, int32_t wrt)
 {
 	struct Section *s;
-	uint8_t mydata[8], *p;
+	LitEndian<uint64_t, true> mydata;
 	int i;
 
 	if (wrt != NO_SEG && !win64) {
@@ -563,27 +566,25 @@ static void coff_out(int32_t segto, const void *data,
 					} else
 						fix = coff_add_reloc(s, segment, IMAGE_REL_I386_DIR32);
 				}
-				p = mydata;
-				WRITELONG(p, *(int64_t *)data + fix);
-				coff_sect_write(s, mydata, size);
+				mydata = *(int64_t*)data + fix;
+				coff_sect_write(s, mydata.v, size);
 			}
 		} else {
 			int32_t fix = 0;
-			p = mydata;
 			if (size == 8) {
 			if (wrt == imagebase_sect) {
 			aasm_log(_LOG_ERROR, "operand size mismatch: 'wrt "
 			WRT_IMAGEBASE "' is a 32-bit operand");
 		}
 				fix = coff_add_reloc(s, segment, IMAGE_REL_AMD64_ADDR64);
-				WRITEDLONG(p, *(int64_t *)data + fix);
-				coff_sect_write(s, mydata, size);
+				mydata = *(int64_t*)data + fix;
+				coff_sect_write(s, mydata.v, size);
 			} else {
 				fix = coff_add_reloc(s, segment,
 			wrt == imagebase_sect ?	IMAGE_REL_AMD64_ADDR32NB:
 						IMAGE_REL_AMD64_ADDR32);
-				WRITELONG(p, *(int64_t *)data + fix);
-				coff_sect_write(s, mydata, size);
+				mydata = *(int64_t*)data + fix;
+				coff_sect_write(s, mydata.v, size);
 			}
 		}
 	} else if (type == OUT_REL2ADR) {
@@ -603,13 +604,12 @@ static void coff_out(int32_t segto, const void *data,
 			} else
 				fix = coff_add_reloc(s, segment,
 			win64 ? IMAGE_REL_AMD64_REL32 : IMAGE_REL_I386_REL32);
-			p = mydata;
 			if (win32 | win64) {
-				WRITELONG(p, *(int64_t *)data + 4 - size + fix);
+				mydata = *(int64_t*)data + 4 - size + fix;
 			} else {
-				WRITELONG(p, *(int64_t *)data - (size + s->len) + fix);
+				mydata = *(int64_t*)data - (size + s->len) + fix;
 			}
-			coff_sect_write(s, mydata, 4L);
+			coff_sect_write(s, mydata.v, 4L);
 		}
 
 	}
@@ -753,9 +753,9 @@ static int coff_directives(char *directive, char *value, int pass)
 			/* this value arithmetics effectively reflects
 			 * initsym in coff_write(): 2 for file, 1 for
 			 * .absolute and two per each section */
-			unsigned char value[4],*p=value;
-			WRITELONG(p,n + 2 + 1 + nsects*2);
-			coff_sect_write(sects[sxseg],value,4);
+			LitEndian<uint32_t, true> value;
+			value = n + 2 + 1 + nsects * 2;
+			coff_sect_write(sects[sxseg], value.v, 4);
 			sym->type = 0x20;
 			break;
 		}

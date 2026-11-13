@@ -52,21 +52,38 @@ public:
 	virtual bool SupportsArchitecture(
 		uni::lango::ArchitectureKind architecture) const override
 	{
-		if (architecture == uni::lango::ArchitectureKind::X86) return true;
-		return architecture == uni::lango::ArchitectureKind::RISCV &&
-			(Driver == &of_bin || Driver == &of_elf32 || Driver == &of_elf ||
-			Driver == &of_elf64);
+		switch (architecture) {
+		case uni::lango::ArchitectureKind::X86:
+			return true;
+		case uni::lango::ArchitectureKind::RISCV:
+			return Driver == &of_bin || Driver == &of_elf32 ||
+				Driver == &of_elf || Driver == &of_elf64;
+		case uni::lango::ArchitectureKind::ARM32:
+		case uni::lango::ArchitectureKind::ARM64:
+			return Driver == &of_bin;
+		default:
+			return false;
+		}
 	}
 
 	virtual bool SupportsBitWidth(
 		uni::lango::ArchitectureKind architecture, int bits) const override
 	{
 		if (!SupportsArchitecture(architecture)) return false;
-		if (architecture == uni::lango::ArchitectureKind::X86) return true;
-		if (Driver == &of_bin) return bits == 32 || bits == 64;
-		if (Driver == &of_elf32 || Driver == &of_elf) return bits == 32;
-		if (Driver == &of_elf64) return bits == 64;
-		return false;
+		switch (architecture) {
+		case uni::lango::ArchitectureKind::X86:
+			return true;
+		case uni::lango::ArchitectureKind::RISCV:
+			if (Driver == &of_bin) return bits == 32 || bits == 64;
+			if (Driver == &of_elf32 || Driver == &of_elf) return bits == 32;
+			return Driver == &of_elf64 && bits == 64;
+		case uni::lango::ArchitectureKind::ARM32:
+			return Driver == &of_bin && bits == 32;
+		case uni::lango::ArchitectureKind::ARM64:
+			return Driver == &of_bin && bits == 64;
+		default:
+			return false;
+		}
 	}
 
 	virtual const unsigned char* StandardMacros() const override

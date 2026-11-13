@@ -24,7 +24,7 @@
 // ---- ---- AASM ---- ---- //
 
 #include "../../../../inc/c/strbuff.h"
-#include "../../../../inc/c/strpage.h"
+#include "../../../../inc/cpp/endian"
 #include "../../../../asm/inc/aasm.h"
 
 
@@ -537,11 +537,11 @@ static void bin_cleanup(int debuginfo)
 		StrbuffRewind(s->contents);
 	/* Apply relocations. */
 	for (r = relocs; r; r = r->next) {
-		uint8_t *p, *q, mydata[8];
+		LitEndian<uint64_t, true> mydata;
+		uint8_t* p = mydata.v;
 		int64_t l;
 
-		StrbuffPopx(r->target->contents, r->posn, mydata, r->bytes);
-		p = q = mydata;
+		StrbuffPopx(r->target->contents, r->posn, mydata.v, r->bytes);
 		l = *p++;
 
 		if (r->bytes > 1) {
@@ -573,13 +573,8 @@ static void bin_cleanup(int debuginfo)
 				l -= s->vstart;
 		}
 
-		if (r->bytes >= 4)
-			WRITEDLONG(q, l);
-		else if (r->bytes == 2)
-			WRITESHORT(q, l);
-		else
-			*q++ = (uint8_t)(l & 0xFF);
-		StrbuffSendx(r->target->contents, r->posn, mydata, r->bytes);
+		mydata = l;
+		StrbuffSendx(r->target->contents, r->posn, mydata.v, r->bytes);
 	}
 
 	/* Step 6: Write the section data to the output file. */
@@ -743,7 +738,7 @@ static void bin_out(int32_t segto, const void *data,
 			enum out_type type, uint64_t size,
 					int32_t segment, int32_t wrt)
 {
-	uint8_t *p, mydata[8];
+	LitEndian<uint64_t, true> mydata;
 	struct Section *s;
 
 	if (wrt != NO_SEG) {
@@ -793,9 +788,8 @@ static void bin_out(int32_t segto, const void *data,
 		if (s->flags & TYPE_PROGBITS) {
 			if (segment != NO_SEG)
 				add_reloc(s, size, segment, -1L);
-			p = mydata;
-			WRITEADDR(p, *(int64_t *)data, size);
-			StrbuffSend(s->contents, mydata, size);
+			mydata = *(int64_t*)data;
+			StrbuffSend(s->contents, mydata.v, size);
 		}
 		s->length += size;
 	} else if (type == OUT_RAWDATA) {
@@ -824,9 +818,8 @@ static void bin_out(int32_t segto, const void *data,
 		}
 		if (s->flags & TYPE_PROGBITS) {
 			add_reloc(s, size, segment, segto);
-			p = mydata;
-			WRITEADDR(p, addr - s->length, size);
-			StrbuffSend(s->contents, mydata, size);
+			mydata = addr - s->length;
+			StrbuffSend(s->contents, mydata.v, size);
 		}
 		s->length += size;
 	}

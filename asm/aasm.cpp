@@ -27,7 +27,6 @@
 
 #include <time.h>
 #include <c/datime.h>
-#include <c/strpage.h>
 #include "inc/aasm.h"
 #include "../inc/cpp/Format/Code.hpp"
 #include "../inc/cpp/Lango/Archend.hpp"
@@ -661,7 +660,7 @@ int drop() {
 #ifdef _DEBUG
 	 //printinfo();
 #endif
-	StrpageFree(assembly_session.Offsets);
+	assembly_session.Offsets.Clear();
 	//{TODO} eval_cleanup();
 	//{TODO} stdscan_cleanup();
 	return malc_count;

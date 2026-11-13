@@ -19,6 +19,7 @@
 */
 
 #include "../../../../../asm/inc/aasm.h"
+#include "../../../../../inc/cpp/endian"
 #include "../../../../../inc/cpp/Format/Code.hpp"
 #include "../../../../../inc/c/stdinc.h"
 
@@ -276,10 +277,9 @@ static void OutputAbsolute(int64_t offset, int32_t section, int64_t data,
 		aasm_log(_LOG_PANIC, "absolute data is wider than 64 bits");
 		return;
 	}
-	uint8_t converted[8];
-	uint8_t* cursor = converted;
-	WRITEADDR(cursor, data, size);
-	Output(offset, section, converted, uni::CodeendOutputType::RawData,
+	LitEndian<uint64_t, true> converted;
+	converted = data;
+	Output(offset, section, converted.v, uni::CodeendOutputType::RawData,
 		size);
 }
 

@@ -4,7 +4,8 @@
 
 ## 工具链位置
 
-AASM 是 UNISYM 的汇编器，当前支持 x86 指令编码和 RISC-V Archend。
+AASM 是 UNISYM 的汇编器，支持 x86 和 RISC-V 指令编码。`arm32`、`arm64` 目标
+目前可以配合 Binary 输出使用通用汇编语句，但不接受 ARM 架构指令。
 Magice 与 AASM 之间通过汇编文本连接：Magice 的目标后端输出
 `.asm`，随后可以交给 GCC AS 或 AASM 生成目标文件或平坦二进制。
 
@@ -44,7 +45,8 @@ aasm [options] input
 
 未指定 `-march` 或 `--arch` 时，默认目标为 `x86`，默认位宽为 16 位。
 
-预处理器内建宏 `__ARCH__` 展开为当前 Archend 名称，当前为 `x86` 或 `riscv`。
+预处理器内建宏 `__ARCH__` 展开为当前 Archend 名称，可以是 `x86`、`riscv`、
+`arm32` 或 `arm64`。
 源文件使用 `[ARCH name]` 切换架构后，后续预处理内容中的 `__ARCH__` 随之更新；
 命令行 `-march`/`--arch` 也决定初始值。该宏主要供通用宏按架构选择语句，例如
 RISC-V 的默认 `align` 使用 `RALIGN`，以便 ELF 输出 `R_RISCV_ALIGN`。
@@ -60,6 +62,8 @@ RISC-V 的默认 `align` 使用 `RALIGN`，以便 ELF 输出 `R_RISCV_ALIGN`。
 | :--- | ---: | :--- | :--- | :--- |
 | `x86` | 16 | 16；386 及以上支持 32；`x64`、`x86-64` 支持 64 | 不限制指令等级 | 见下方 x86 CPU 名称 |
 | `riscv` | 64 | 32、64 | `i` | `i[m][a][f][d][c][v][_zicsr]` |
+| `arm32` | 32 | 32 | 无 | 不支持 |
+| `arm64` | 64 | 64 | 无 | 不支持 |
 
 x86 当前识别以下 CPU 名称：
 
@@ -147,12 +151,12 @@ NOP
 
 ### Codeend 兼容性
 
-| Codeend | x86 | RISC-V |
-| :--- | :---: | :---: |
-| `bin` | 支持 | 支持 |
-| `elf32`、`elf` | 支持 | 支持 32 位基础对象输出 |
-| `elf64` | 支持 | 支持 64 位基础对象输出 |
-| COFF、Mach-O、AOUT、OMF、IEEE、AS86 等现有格式 | 支持 | 不支持 |
+| Codeend | x86 | RISC-V | ARM32 | ARM64 |
+| :--- | :---: | :---: | :---: | :---: |
+| `bin` | 支持 | 支持 | 支持通用语句 | 支持通用语句 |
+| `elf32`、`elf` | 支持 | 支持 32 位基础对象输出 | 不支持 | 不支持 |
+| `elf64` | 支持 | 支持 64 位基础对象输出 | 不支持 | 不支持 |
+| COFF、Mach-O、AOUT、OMF、IEEE、AS86 等现有格式 | 支持 | 不支持 | 不支持 | 不支持 |
 
 ELF 的机器架构由命令行 `-march` 或 `--arch` 固定；ELF 源文件中的 `[ARCH]` 只能
 再次选择同一架构，不能在 x86 与 RISC-V 之间切换。RISC-V ELF32 只接受 32 位指令

@@ -104,42 +104,63 @@ long long int atollong(const char* inp) // sint64
 
 long int StrTokenLong(const char* restrict inp, char** restrict endptr, int base) // hosted-dep
 {
-	long int result = 0;
-	const char* ptr = inp;
 	if (!inp) {
-		asserv(endptr)[0] = NULL;
+		if (endptr) *endptr = NULL;
 		return 0;
 	}
-	while (*ptr == ' ' || *ptr == '\t') ptr++;
-	setsym(&inp);
-	if (!base) {
-		if (*ptr == '0') {
-			if (ascii_toupper(ptr[1]) == 'X') {
-				base = 16;
-				ptr += 2;
-			}
-			else base = 8;
-		}
-		else base = 10;
-	}
-	else if (base < 2 || base > 36) {
-		asserv(endptr)[0] = (char*)inp;
-		return 0;
-	}
-	while (ascii_isalnum(*ptr)) {
-		int digit = _MAP_ALNUM_DIGIT(*ptr);
-		if (!digit || digit >= base) break;
-		if (result > (LONG_MAX - digit) / base) {
-			//{TODO} errno = ERANGE;
-			return sign >= 0 ? LONG_MAX : LONG_MIN;
-		}
-		result = result * base + digit;
+	const char* const original = inp;
+	const char* ptr = inp;
+	while (ascii_isspace(*ptr)) ptr++;
+	bool negative = false;
+	if (*ptr == '-' || *ptr == '+') {
+		negative = *ptr == '-';
 		ptr++;
 	}
-	if (endptr != NULL) {
-		*endptr = (char*)ptr;
+	if (base && (base < 2 || base > 36)) {
+		if (endptr) *endptr = (char*)original;
+		return 0;
 	}
-	return sign * result;
+	if ((!base || base == 16) && ptr[0] == '0' &&
+		ascii_toupper(ptr[1]) == 'X') {
+		char next = ptr[2];
+		int digit = ascii_isdigit(next) ? ascii_digtoins(next) :
+			(ascii_isalpha(next) ? ascii_tolower(next) - 'a' + 10 : -1);
+		if (digit >= 0 && digit < 16) {
+			base = 16;
+			ptr += 2;
+		}
+	}
+	if (!base) base = *ptr == '0' ? 8 : 10;
+	unsigned long limit = negative ?
+		(unsigned long)(-(LONG_MIN + 1L)) + 1UL : (unsigned long)LONG_MAX;
+	unsigned long result = 0;
+	bool converted = false;
+	bool overflow = false;
+	for (;;) {
+		char current = *ptr;
+		int digit = ascii_isdigit(current) ? ascii_digtoins(current) :
+			(ascii_isalpha(current) ? ascii_tolower(current) - 'a' + 10 : -1);
+		if (digit < 0 || digit >= base) break;
+		converted = true;
+		if (result > (limit - (unsigned)digit) / (unsigned)base)
+			overflow = true;
+		else if (!overflow) {
+			result = result * (unsigned)base + (unsigned)digit;
+		}
+		ptr++;
+	}
+	if (!converted) {
+		if (endptr) *endptr = (char*)original;
+		return 0;
+	}
+	if (endptr) *endptr = (char*)ptr;
+	if (overflow) {
+		//{TODO} errno = ERANGE;
+		return negative ? LONG_MIN : LONG_MAX;
+	}
+	if (!negative) return (long int)result;
+	if (result == limit) return LONG_MIN;
+	return -(long int)result;
 }/*
 int main() {
 	const char* str = "12345.";

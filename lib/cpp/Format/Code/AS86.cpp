@@ -25,7 +25,8 @@
 // ---- ---- AASM ---- ---- //
 
 #include "../../../../inc/c/strbuff.h"
-#include "../../../../inc/c/strpage.h"
+#include "../../../../inc/cpp/Datype/Map/SparseMap.hpp"
+#include "../../../../inc/cpp/endian"
 #include "../../../../asm/inc/aasm.h"
 
 
@@ -78,7 +79,7 @@ static int32_t bssindex;
 static Strbuff *syms;
 static uint32_t nsyms;
 
-static Strpage *bsym;
+static uni::SparseMap bsym;
 
 static Strbuff *strs;
 static uint32_t strslen;
@@ -114,7 +115,7 @@ static void as86_init(FILE * fp, ldfunc ldef, evalfunc eval)
 	bssindex = SegAlloc();
 	syms = StrbuffNew(sizeof(struct Symbol));
 	nsyms = 0;
-	bsym = StrpageNew();
+	bsym.Clear();
 	strs = StrbuffNew(1L);
 	strslen = 0;
 
@@ -142,7 +143,7 @@ static void as86_cleanup(int debuginfo)
 		memf(p);
 	}
 	StrbuffFree(syms);
-	StrpageFree(bsym);
+	bsym.Clear();
 	StrbuffFree(strs);
 }
 
@@ -236,7 +237,8 @@ static void as86_deflabel(char *name, int32_t segment, int64_t offset,
 	 */
 	if (segment != NO_SEG && segment != stext.index &&
 		segment != sdata.index && segment != bssindex)
-		bsym = StrpageSet(bsym, segment, nsyms);
+		if (!bsym.Set(segment, nsyms))
+			aasm_log(_LOG_FATAL, "unable to store an as86 symbol mapping");
 
 	nsyms++;
 }
@@ -269,7 +271,7 @@ static void as86_add_piece(struct Section *sect, int type, int32_t offset,
 	else if (type == 1 && segment == bssindex)
 		p->number = SECT_BSS;
 	else if (type == 1)
-		p->number = StrpageGet(bsym, segment), p->type = 2;
+		p->number = bsym.Get(segment), p->type = 2;
 }
 
 static void as86_out(int32_t segto, const void *data,
@@ -278,7 +280,7 @@ static void as86_out(int32_t segto, const void *data,
 {
 	struct Section *s;
 	int32_t offset;
-	uint8_t mydata[4], *p;
+	LitEndian<uint32_t, true> mydata;
 
 	if (wrt != NO_SEG) {
 		wrt = NO_SEG;           /* continue to do _something_ */
@@ -338,9 +340,8 @@ static void as86_out(int32_t segto, const void *data,
 				as86_add_piece(s, 1, offset, segment, size, 0);
 			}
 		} else {
-			p = mydata;
-			WRITELONG(p, *(int64_t *)data);
-			as86_sect_write(s, (uint8*)data, size);
+			mydata = *(int64_t*)data;
+			as86_sect_write(s, mydata.v, size);
 			as86_add_piece(s, 0, 0L, 0L, size, 0);
 		}
 	} else if (type == OUT_REL2ADR) {

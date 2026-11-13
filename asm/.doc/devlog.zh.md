@@ -161,3 +161,6 @@ RISC-V 短 `JAL`、压缩分支和压缩跳转已补充正负链接边界回归�
 数据、调用、PC-relative 配对和 GOT relocation 已接入最终链接验证，并覆盖
 `CALL_PLT`、`RELAX` 和 `ALIGN` 的链接结果。
 
+已注册 `arm32` 与 `arm64` Archend，分别固定使用 32 位和 64 位目标。两者可以通过
+命令行或 `[ARCH]` 选择，并支持 Binary 通用语句及对应的 `__ARCH__` 值。
+

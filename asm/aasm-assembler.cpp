@@ -3,7 +3,6 @@
 // Copyright: UNISYM, under Apache License 2.0
 
 #include "../inc/c/stdinc.h"
-#include "../inc/c/strpage.h"
 #include "inc/aasm.h"
 #include "../inc/cpp/Format/Code.hpp"
 #include "../inc/cpp/Lango/Archend.hpp"
@@ -25,13 +24,12 @@ extern int32_t abs_offset;
 Assembler::Assembler(AssemblySession& session)
 	: Session(session)
 {
-	if (!Session.Offsets) Session.Offsets = StrpageNew();
 }
 
 int64_t Assembler::CurrentOffset() const
 {
 	if (in_abs_seg) return abs_offset;
-	return StrpageGet(Session.Offsets, Session.Location.segment);
+	return Session.Offsets.Get(Session.Location.segment);
 }
 
 void Assembler::SetCurrentOffset(int64_t offset)
@@ -41,8 +39,8 @@ void Assembler::SetCurrentOffset(int64_t offset)
 		Session.AbsoluteOffset = abs_offset;
 	}
 	else {
-		Session.Offsets = StrpageSet(
-			Session.Offsets, Session.Location.segment, offset);
+		if (!Session.Offsets.Set(Session.Location.segment, offset))
+			aasm_log(_LOG_FATAL, "unable to store the current assembly offset");
 	}
 }
 
@@ -137,8 +135,7 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 		globalbits = Session.SectionBits;
 		Session.CurrentBits = globalbits;
 		if (passn > 1) {
-			StrpageFree(Session.Offsets);
-			Session.Offsets = StrpageNew();
+			Session.Offsets.Clear();
 		}
 		ActivateArchend(*initial_archend, pass1, pass2);
 		preproc->reset(fname, pass1, eval_evaluate,

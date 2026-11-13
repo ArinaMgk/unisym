@@ -4,6 +4,7 @@
 #include "../inc/c/stdinc.h"
 
 #include "inc/aasm.h"
+#include "../inc/cpp/Lango/Archend.hpp"
 #include "../inc/cpp/Lango/Archend/x86/data/tokens.h"
 #include <stdarg.h>
 #include <ctype.h>
@@ -12,6 +13,8 @@
 _ESYM_C char* getenv(const char* name);
 
 // ---- ---- LOC DEF ---- ---- //
+
+static AssemblySession* assembly_session;
 
 /* Typical flow of text through preproc
  *
@@ -524,6 +527,10 @@ void Preprocessor::runtime(char* definition) {
 
 void Preprocessor::extra_stdmac(macros_t* macros) {
 	extrastdmac = macros;
+}
+
+void Preprocessor::SetAssemblySession(AssemblySession* session) {
+	assembly_session = session;
 }
 
 // ---- ---- STATIC ---- ---- //
@@ -3732,8 +3739,12 @@ again:
 							continue;
 						}
 						if (!StrCompare("__ARCH__", m->name)) {
+							const char* architecture = assembly_session &&
+								assembly_session->ActiveArchend ?
+								assembly_session->ActiveArchend->DumpArchend().shortname :
+								"x86";
 							memf(tline->addr);
-							tline->addr = StrHeap(globalarch);
+							tline->addr = StrHeap(architecture);
 							tline->type = TOK_ID;
 							continue;
 						}

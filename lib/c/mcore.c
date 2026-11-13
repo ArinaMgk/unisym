@@ -33,7 +33,10 @@ size_t malc_count = 0;
 size_t malc_limit = _MALLIMIT_DEFAULT;// you can use such `malc_limit = 100;` to change this.
 #endif
 
-_WEAK void memf(void* m) { memfree(m); }
+#ifndef _WinNT
+_WEAK
+#endif // for COFF
+void memf(void* m) { memfree(m); }
 
 // ---- { calling } ----
 

@@ -80,6 +80,23 @@ public:
 	virtual void Initialize(AssemblySession& session) = 0;
 	virtual void BeginPass(AssemblySession& session,
 		int parse_pass, int output_pass) = 0;
+	virtual bool ProcessArchitectureStatement(AssemblySession& session,
+		char* source, int64_t repeat, int parse_pass, int output_pass,
+		ArchendLineResult& result)
+	{
+		(void)session;
+		(void)source;
+		(void)repeat;
+		(void)parse_pass;
+		(void)output_pass;
+		(void)result;
+		return false;
+	}
+	virtual bool IsArchitectureStatementStart(const char* word) const
+	{
+		(void)word;
+		return false;
+	}
 	virtual bool IsInstructionStart(const char* word) const = 0;
 	virtual ArchendLineResult ProcessInstruction(AssemblySession& session,
 		char* source, int64_t repeat,

@@ -87,6 +87,28 @@ AssembleFailure()
 	[ "$ResultCode" -ne 0 ] || Fail "$CheckName was accepted"
 }
 
+LinkSuccess()
+{
+	local CheckName="$1"
+	shift
+	"$@" >"$WorkDirectory/$CheckName.stdout" \
+		2>"$WorkDirectory/$CheckName.stderr" || {
+		sed -n '1,20p' "$WorkDirectory/$CheckName.stderr" >&2
+		Fail "$CheckName did not link"
+	}
+}
+
+LinkFailure()
+{
+	local CheckName="$1"
+	local ResultCode
+	shift
+	"$@" >"$WorkDirectory/$CheckName.stdout" \
+		2>"$WorkDirectory/$CheckName.stderr"
+	ResultCode="$?"
+	[ "$ResultCode" -ne 0 ] || Fail "$CheckName linked"
+}
+
 CheckPreprocessor()
 {
 	RawFile="$WorkDirectory/preprocess.raw"

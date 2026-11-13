@@ -127,10 +127,17 @@ ELF32 的 RISC-V relocation 已改用 RELA，机器指令初值与 relocation �
 `PCREL_HI20/PCREL_LO12_I/PCREL_LO12_S` relocation；`-mrelax` 输出 `RELAX` 提示，
 RISC-V `align` 输出 `ALIGN` relocation 及最大 NOP padding。
 预处理器新增 `__ARCH__` 内建宏，架构切换时更新其值，供通用宏选择架构相关语句。
+`__ARCH__` 现直接读取当前 `AssemblySession` 的活动 Archend，不再维护重复的架构状态。
+`RALIGN` 的解析、NOP 填充和 alignment fixup 已移入 RISC-V Archend，通用语句层只通过
+Archend 契约分派架构专用语句。
 
 RISC-V Archend 已支持多指令展开。`MOV` 可以加载完整 RV32/RV64 数值和标签地址；
 加载与存储指令可以使用标签或绝对表达式地址，表达式地址存储由第三个操作数显式提供
 临时寄存器。ELF 已接入 PC 相对高低位 relocation。
+
+RISC-V 分支和跳转已支持按目标距离扩大编码。普通跳转可扩大为 8 字节 PC 相对指令对，
+普通分支可扩大为 8 或 12 字节序列；压缩控制流指令也会逐级扩大。需要中间地址寄存器
+时由源代码显式指定，跨 section 长序列使用成对的 PC 相对 relocation。
 
 RISC-V 的 `[CPU]` 与 `[INST]` 已实际约束启用的 I、M、A、F、D、C、V 和 Zicsr
 指令集。Archend 已接入 M 乘除法、CSR 访问、基础特权指令、带 AQ/RL 限定词的 A
@@ -146,4 +153,11 @@ RISC-V 指令数据已按普通指令和向量指令拆分生成输入。浮点�
 listing 状态已收归 `AssemblyListing`，并接入 `AssemblySession`。通用语句、x86
 和 RISC-V Archend 通过语义化代码与 fixup 接口提交 listing；`ListGen` 仅保留为
 Preprocessor 的兼容适配。
+
+RISC-V 长控制流范围按 AUIPC 高 20 位和低 12 位的实际拆分结果验证；回归覆盖正负
+边界、跨 section relocation 配对及链接器对越界短 relocation 的诊断。
+
+RISC-V 短 `JAL`、压缩分支和压缩跳转已补充正负链接边界回归。ELF32/ELF64 的绝对
+数据、调用、PC-relative 配对和 GOT relocation 已接入最终链接验证，并覆盖
+`CALL_PLT`、`RELAX` 和 `ALIGN` 的链接结果。
 

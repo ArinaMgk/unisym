@@ -24,21 +24,23 @@
 #ifndef _INC_ARCHITECTURE
 #define _INC_ARCHITECTURE
 
-//{TEMP} Do not change the order for Magice making use of it.
 enum Architecture_t // for instruction sets
 {
-	Architecture_x86,
-	Architecture_RISCV64,
+	Architecture_RISCV32 = 0x1032,
+	Architecture_RISCV64 = 0x1064,
 	
-	Architecture_x86_64,
+	Architecture_ARM = 0x2032,
+	Architecture_ARM64 = 0x2064,
 
-	Architecture_ARM,
-	Architecture_ARM64,
+	Architecture_x86 = 0x8632,
+	Architecture_x86_64 = 0x8664,
+
 	Architecture_MIPS,
 	Architecture_MIPS64,
-	Architecture_RISCV32,
+
 	Architecture_POWERPC64,
 	Architecture_POWERPC32,
+
 	Architecture_SPARC64,
 	Architecture_SPARC32,
 	//
@@ -59,63 +61,66 @@ enum Architecture_ARMv_t {
 // If no host-environment will be used, you can define __BITS__ by yourself.
 #if defined(__BITS__) && defined(__ARCH__)
 	//
-#elif defined(_Win32) // "_WIN32" is for many Windows Series but just 32-bit
-	#undef _WinNT // if this cause warnings, add `#ifdef` more.
-	#define _WinNT 32
-	#define _Intelx86_Windows_32
-	#define __ARCH__ Architecture_x86
-	#ifndef _ARC_x86
-		#define _ARC_x86 0
-		#endif
-	#define __BITS__ 32
-#elif defined(_Win64)
-	#undef _WinNT
-	#define _WinNT 64
-	#define _Intelx86o64_Windows_64
-	#define __ARCH__ Architecture_x86
-	#ifndef _ARC_x64
-		#define _ARC_x64 0
-		#endif
-	#define __BITS__ 64
 #elif defined(_Win16)
 	#undef _WinNT
 	#define _WinNT 16
-	#define _Intelx86_Windows_16
-	#define __ARCH__ Architecture_x86
+	#define __ARCH__ "x86"
+	#define __ARCH_ENUM__ Architecture_x86
+	#define __ARCH_CODE__ 0x8616
 	#ifndef _ARC_x86
 		#define _ARC_x86 0
 		#endif
 	#define __BITS__ 16
-//
-#elif defined(_Linux32)
+#elif defined(_Win32) || defined(_Linux32)
+	// "_WIN32" is for many Windows Series but just 32-bit
+	#ifdef _Win32
+	#undef _WinNT // if this cause warnings, add `#ifdef` more.
+	#define _WinNT 32
+	#elif defined(_Linux32)
 	#undef _Linux
 	#define _Linux 32
-	#define _Intelx86_Linux_32
-	#define __ARCH__ Architecture_x86
+	#endif
+	//
+	#define __ARCH__ "x86"
+	#define __ARCH_ENUM__ Architecture_x86
+	#define __ARCH_CODE__ 0x8632
 	#ifndef _ARC_x86
 		#define _ARC_x86 0
 		#endif
 	#define __BITS__ 32
-#elif defined(_Linux64)
+#elif defined(_Win64) || defined(_Linux64)
+	#ifdef _Win64
+	#undef _WinNT
+	#define _WinNT 64
+	#define _Intelx86o64_Windows_64 //{TEMP}
+	#elif defined(_Linux64)
 	#undef _Linux
 	#define _Linux 64
-	#define _Intelx86o64_Linux_64
-	#define __ARCH__ Architecture_x86_64
+	#endif
+	#define __ARCH__ "x86"
+	#define __ARCH_ENUM__ Architecture_x86_64
+	#define __ARCH_CODE__ 0x8664
 	#ifndef _ARC_x64
-		#define _ARC_x64
+		#define _ARC_x64 0
 		#endif
 	#define __BITS__ 64
+
+//
 // [Special for Mecocoa]
 #elif (defined(_MCCA) && _MCCA==0x8664) || (defined(_ACCM) && _ACCM==0x8664)// defined(_ARC_x64)
 	#define _Intelx64_Mcca_64
-	#define __ARCH__ Architecture_x86_64
+	#define __ARCH__ "x86"
+	#define __ARCH_ENUM__ Architecture_x86_64
+	#define __ARCH_CODE__ 0x8664
 	#ifndef _ARC_x64
 		#define _ARC_x64 1
 		#endif
 	#define __BITS__ 64
 #elif (defined(_MCCA) && _MCCA==0x8632) || (defined(_ACCM) && _ACCM==0x8632)// defined(_ARC_x86)
 	#define _Intelx86_Mcca_32
-	#define __ARCH__ Architecture_x86
+	#define __ARCH__ "x86"
+	#define __ARCH_ENUM__ Architecture_x86
+	#define __ARCH_CODE__ 0x8632
 	#ifndef _ARC_x86
 		#define _ARC_x86 5
 		#endif
@@ -130,19 +135,27 @@ enum Architecture_ARMv_t {
 	#define __BITS__ 16
 */
 #elif defined(_OPT_ARM32)
-	#define __ARCH__ Architecture_ARM
+	#define __ARCH__ "arm32"
+	#define __ARCH_ENUM__ Architecture_ARM
+	#define __ARCH_CODE__ 0x2032
 	#define _ARC_ARM_32
 	#define __BITS__ 32
 #elif defined(_OPT_ARM64)
-	#define __ARCH__ Architecture_ARM64
+	#define __ARCH__ "arm64"
+	#define __ARCH_ENUM__ Architecture_ARM64
+	#define __ARCH_CODE__ 0x2064
 	#define _ARC_ARM_64
 	#define __BITS__ 64
 #elif defined(_OPT_RISCV32)
-	#define __ARCH__ Architecture_RISCV32
+	#define __ARCH__ "riscv"
+	#define __ARCH_ENUM__ Architecture_RISCV32
+	#define __ARCH_CODE__ 0x1032
 	#define _ARC_RISCV_32
 	#define __BITS__   32
 #elif defined(_OPT_RISCV64)
-	#define __ARCH__ Architecture_RISCV64
+	#define __ARCH__ "riscv"
+	#define __ARCH_ENUM__ Architecture_RISCV64
+	#define __ARCH_CODE__ 0x1064
 	#define _ARC_RISCV_64
 	#define __BITS__   64
 #endif

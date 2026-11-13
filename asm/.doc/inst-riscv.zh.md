@@ -79,20 +79,38 @@ LW x5, [x6 + 12]   ; read memory at x6 + 12
 
 | 指令 | 语法 |
 | :--- | :--- |
-| `JAL` | `JAL target` 或 `JAL rd, target` |
+| `JAL` | `JAL target` 或 `JAL rd, target [, temporary]` |
 | `JALR` | `JALR rd, base` 或 `JALR rd, base + offset` |
-| `BEQ` | `BEQ rs1, rs2, target` |
-| `BNE` | `BNE rs1, rs2, target` |
-| `BLT` | `BLT rs1, rs2, target` |
-| `BGE` | `BGE rs1, rs2, target` |
-| `BLTU` | `BLTU rs1, rs2, target` |
-| `BGEU` | `BGEU rs1, rs2, target` |
+| `BEQ` | `BEQ rs1, rs2, target [, temporary]` |
+| `BNE` | `BNE rs1, rs2, target [, temporary]` |
+| `BLT` | `BLT rs1, rs2, target [, temporary]` |
+| `BGE` | `BGE rs1, rs2, target [, temporary]` |
+| `BLTU` | `BLTU rs1, rs2, target [, temporary]` |
+| `BGEU` | `BGEU rs1, rs2, target [, temporary]` |
 
-`target` 是裸地址表达式，不使用方括号。当前 Binary 输出要求目标能够在当前 section
-内解析；分支和跳转目标还必须满足相应编码范围及 2 字节对齐要求。
+`target` 是裸地址表达式，不使用方括号，并且必须满足 2 字节对齐要求。Binary 输出
+要求目标能够在当前 section 内解析；ELF 可以通过 relocation 引用外部符号或其他
+section。
 
 单操作数 `JAL target` 将返回地址写入 `ra`。`JALR` 计算 `base + offset` 后跳转，
 不会访问该地址处的内存，因此不接受 `JALR rd, [base + offset]`。
+
+当目标超出直接编码范围时，Archend 按距离扩大指令序列：
+
+- `JAL` 从 4 字节扩大为 `AUIPC + JALR` 的 8 字节序列。`rd` 非 `zero` 时可以同时
+  保存中间地址；`J` 或 `JAL zero, target` 必须显式提供 `temporary`。
+- 条件分支先扩大为“反向条件分支 + JAL”的 8 字节序列；目标继续超出 `JAL` 范围时，
+  扩大为“反向条件分支 + AUIPC + JALR”的 12 字节序列，并要求 `temporary`。
+- PC 相对长序列覆盖有符号 32 位距离；超出该范围仍会报错。
+
+显式临时寄存器也可以让 ELF 的外部或跨 section 目标直接生成成对的
+`PCREL_HI20/PCREL_LO12_I` relocation：
+
+```asm
+J   external_target, t0
+JAL ra, external_target, t0
+BEQ a0, a1, other_section_target, t0
+```
 
 ## 加载与存储
 
@@ -287,14 +305,17 @@ D 自动启用 F。D 指令的操作数规则与 F 相同：
 | `C.NOP` | `C.NOP` |
 | `C.ADDI`、`C.LI`、`C.LUI` | `OP rd, imm` |
 | `C.MV`、`C.ADD` | `OP rd, rs` |
-| `C.J` | `C.J target` |
-| `C.JAL` | `C.JAL target`，仅 RV32 |
-| `C.BEQZ`、`C.BNEZ` | `OP rs, target`，`rs` 必须为 `x8..x15` |
+| `C.J` | `C.J target [, temporary]` |
+| `C.JAL` | `C.JAL target [, temporary]`，仅 RV32 |
+| `C.BEQZ`、`C.BNEZ` | `OP rs, target [, temporary]`，`rs` 必须为 `x8..x15` |
 | `C.LW`、`C.SW` | `OP rd/rs, [base + offset]`，寄存器必须为 `x8..x15` |
 | `C.LD`、`C.SD` | 与上项相同，仅 RV64 |
 
 压缩分支和跳转仍使用裸目标表达式。ELF 跨 section 或外部目标分别使用
-`R_RISCV_RVC_BRANCH`、`R_RISCV_RVC_JUMP` relocation。
+`R_RISCV_RVC_BRANCH`、`R_RISCV_RVC_JUMP` relocation。已解析目标超出压缩编码范围
+时，压缩跳转按 2、4、8 字节逐级扩大，压缩分支按 2、4、8、12 字节逐级扩大；需要
+`AUIPC + JALR` 时遵循上一节的临时寄存器规则。跨 section 的短压缩 relocation
+由最终链接器按布局检查范围，超范围时链接失败。
 
 ## V 扩展
 
@@ -313,8 +334,8 @@ V 自动启用 F、D 和 Zicsr。当前提供基础向量配置、整数运算�
 | `VLE8.V`、`VLE16.V`、`VLE32.V`、`VLE64.V` | `OP vd, [base]` |
 | `VSE8.V`、`VSE16.V`、`VSE32.V`、`VSE64.V` | `OP vs3, [base]` |
 
-向量 unit-stride 内存指令当前只接受无偏移寄存器地址。V 实现尚不包含完整向量指令
-全集，也不自动推导或插入 `VSETVL*`。
+向量 unit-stride 内存指令只接受无偏移寄存器地址。V 只支持上表列出的指令，
+也不自动推导或插入 `VSETVL*`。
 
 ## 系统指令
 
@@ -330,7 +351,7 @@ V 自动启用 F、D 和 Zicsr。当前提供基础向量配置、整数运算�
 
 当前 `FENCE` 不接受 predecessor、successor 或 `fm` 操作数，固定生成完整内存屏障。
 特权指令与 CSR 访问是不同类别；`MRET`、`SRET`、`WFI` 和 `SFENCE.VMA` 不要求
-Zicsr。AASM 只负责验证和编码，不判断指令执行时所处的权限级别。
+Zicsr。AASM 不检查指令执行时所处的权限级别。
 
 ## 单指令简化形式
 
@@ -340,7 +361,7 @@ Zicsr。AASM 只负责验证和编码，不判断指令执行时所处的权限�
 | :--- | :--- | :--- |
 | `NOP` | `NOP` | `ADDI zero, zero, 0` |
 | `RET` | `RET` | `JALR zero, ra` |
-| `J` | `J target` | `JAL zero, target` |
+| `J` | `J target [, temporary]` | `JAL zero, target` |
 | `JR` | `JR base` 或 `JR base + offset` | `JALR zero, base + offset` |
 | `MOV` | `MOV rd, rs` | `ADDI rd, rs, 0` |
 | `MOV` | `MOV rd, width [base + offset]` | 对应的无符号加载指令 |
@@ -375,6 +396,8 @@ MOV a2, message + 8
 ELF relocation 处理包括 `CALL`、`CALL_PLT`、绝对 `HI20/LO12_I/LO12_S`、
 `GOT_HI20`、成对的 `PCREL_HI20/PCREL_LO12_I/PCREL_LO12_S`，以及 `ALIGN` 和
 可选 `RELAX` 提示。PC-relative 低位 relocation 的符号必须指向对应高位指令位置。
+AASM 输出静态可重定位对象；最终链接器负责根据 `CALL_PLT` 和 GOT 引用建立需要的
+PLT、GOT 及动态 relocation。
 
 ```asm
 CALL external_function
@@ -415,8 +438,8 @@ SW a0, [a1 + 8]
 MOV BYT4 [a1 + 8], a0
 ```
 
-## 当前范围
+## 支持范围
 
-当前实现覆盖 RV32I、RV64I、M、A、F、D、C、V、Zicsr 以及上述基础特权指令。
-C 只支持显式压缩形式，V 只覆盖本节列出的基础子集。尚未实现完整特权体系、自动压缩、
-完整向量指令集、远距离控制流改写和 linker relaxation。
+支持 RV32I、RV64I、M、A、F、D、C、V、Zicsr 以及上述基础特权指令。
+C 只支持显式压缩形式，V 只覆盖本节列出的基础子集。不支持完整特权体系、普通指令
+自动压缩和完整向量指令集；AASM 可以输出 `RELAX` 提示，实际松弛由链接器完成。

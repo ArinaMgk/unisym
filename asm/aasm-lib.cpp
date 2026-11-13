@@ -34,7 +34,6 @@
 
 _ESYM_C uint64_t _crc64_tab_nasm[256];
 _ESYM_C int globalbits = 0;
-_ESYM_C const char* globalarch = "x86";
 
 struct cpu_list_t { rostr idn; uint32 val; };
 cpu_list_t cpu_list[] = {

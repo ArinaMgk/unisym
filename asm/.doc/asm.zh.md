@@ -1,10 +1,10 @@
 # 【ZH-CN】AASM 汇编器参考手册
 
-版本 0.1.0
+版本 1.0
 
 ## 工具链位置
 
-AASM 是 UNISYM 的汇编器，当前支持 x86 指令编码，并已接入最小 RISC-V Archend。
+AASM 是 UNISYM 的汇编器，当前支持 x86 指令编码和 RISC-V Archend。
 Magice 与 AASM 之间通过汇编文本连接：Magice 的目标后端输出
 `.asm`，随后可以交给 GCC AS 或 AASM 生成目标文件或平坦二进制。
 
@@ -97,7 +97,7 @@ RISC-V 指令集名称必须以 `i` 开始，单字母扩展按 `m`、`a`、`f`�
 [CPU ima_zicsr]
 ```
 
-顺序错误、重复扩展和尚未实现的扩展会被拒绝。D 自动包含 F；V 自动包含 F、D；
+顺序错误、重复扩展和不支持的扩展会被拒绝。D 自动包含 F；V 自动包含 F、D；
 F、D、V 自动包含 Zicsr。未启用对应扩展时，使用该扩展的指令会在指令处报错。
 
 ### RISC-V ABI
@@ -152,7 +152,7 @@ NOP
 | `bin` | 支持 | 支持 |
 | `elf32`、`elf` | 支持 | 支持 32 位基础对象输出 |
 | `elf64` | 支持 | 支持 64 位基础对象输出 |
-| COFF、Mach-O、AOUT、OMF、IEEE、AS86 等现有格式 | 支持 | 暂不支持 |
+| COFF、Mach-O、AOUT、OMF、IEEE、AS86 等现有格式 | 支持 | 不支持 |
 
 ELF 的机器架构由命令行 `-march` 或 `--arch` 固定；ELF 源文件中的 `[ARCH]` 只能
 再次选择同一架构，不能在 x86 与 RISC-V 之间切换。RISC-V ELF32 只接受 32 位指令
@@ -174,6 +174,14 @@ AUIPC x5, GOT external_data
 LW x6, [x5 + PCREL_LOW address_pair]
 ```
 
+对汇编时可确定的本 section 目标，AASM 检查短分支和跳转范围，并在需要时扩大指令。
+对外部符号或其他 section 的短形式，AASM 保留短 relocation；最终链接器负责按实际布局
+检查范围，超范围时必须报错。显式临时寄存器允许 AASM 为跨 section 控制流生成
+`AUIPC/JALR` 配对，但配对超出 PC-relative 可编码范围仍由最终链接器诊断。AASM 当前
+输出静态可重定位 ELF 对象，不生成 `RELATIVE`、`JUMP_SLOT` 等动态链接表 relocation；
+`CALL_PLT` 和 GOT relocation 可以由最终链接器转换为 PLT、GOT 及动态 relocation。
+当前数据定义没有 PC-relative 数据 relocation 语义。
+
 启用 `-mrelax` 后，可松弛 relocation 会附带 `R_RISCV_RELAX` 提示；RISC-V 的
 `align` 会保留供链接器调整的最大 NOP padding。
 
@@ -185,6 +193,7 @@ section、symbol、data、relocation 和 debug 事件，不是可链接目标文
 标签、表达式、`EQU`、`TIMES`、`INCBIN`、数据定义和保留空间由通用汇编层处理，
 不属于某个 Archend。数据定义支持 `DB`、`DW`、`DD`、`DQ`、`DT`、`DO`、`DY`；
 保留空间支持 `RESB`、`RESW`、`RESD`、`RESQ`、`REST`、`RESO`、`RESY`。
+`RALIGN` 是 RISC-V Archend 语句，不属于通用语句层。
 
 固定数据宽度限定符不随 Arch、CPU 或 BITS 改变：
 
@@ -200,11 +209,13 @@ section、symbol、data、relocation 和 debug 事件，不是可链接目标文
 
 ## RISC-V 汇编语法
 
-当前 RISC-V Archend 提供 RV32/RV64 的 I、M、A、F、D、C、V、Zicsr 指令编码及
-基础特权指令。完整的寄存器、操作数、原生指令及简化形式见 `inst-riscv.zh.md`。
+RISC-V Archend 支持 RV32/RV64 的 I、M、A、F、D、C、Zicsr、V 扩展基础子集及
+基础特权指令。支持的寄存器、操作数、原生指令及简化形式见 `inst-riscv.zh.md`。
 
 RISC-V 的 `MOV` 可以加载完整 XLEN 数值、标签地址及表达式地址中的数据。原生加载
 指令同样接受表达式地址；表达式地址存储必须通过第三个操作数显式指定临时寄存器。
+超出直接编码范围的跳转和条件分支会扩大为 `JAL` 或 `AUIPC + JALR` 序列；需要
+`AUIPC` 保存中间地址且没有可复用链接寄存器时，指令必须显式提供临时寄存器。
 
 ## 当前结构
 
@@ -238,7 +249,7 @@ Codeend 负责格式信息、格式选择、输出生命周期、section、symbo
 `NativeHandle()` 目前仅保留在 Codeend 适配和旧格式兼容代码中。开始汇编前会检查
 所选 Codeend 是否声明支持当前 Archend 的架构种类。
 
-Binary 输出回归覆盖原始数据、保留空间、`ORG`、section 对齐，以及本地跨 section
+Binary 输出支持原始数据、保留空间、`ORG`、section 对齐，以及本地跨 section
 的绝对地址、PC 相对地址、分支和调用。外部未解析符号不会生成平坦二进制文件。
 
 标签初始化、查询、作用域、外部符号判断、全局声明和定义操作统一通过 `Labelsys`

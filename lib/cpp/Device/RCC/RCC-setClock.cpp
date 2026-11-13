@@ -36,34 +36,39 @@ namespace uni {
 
 
 	
-	bool RCC_t::setClock(SysclkSource::RCCSysclockSource source) {
-		// run this multiple times for different sources
-		PWR_CR3_SCUEN = 0;
-		PWR.ConfigVoltageScaling(1);
-		while (!_IMM(PWR_D3CR_VOSRDY));
-		// HAL_RCC_OscConfig switch
-		{
-			HSE.setMode();
-			PLL1.setModePLL(PLLSource::HSE, 2, 0,
-				.m = 5, .n = 160, .p = 2,
-				.q = 4, .r = 4);
-		}
-		if (_TEMP 0) switch (source) {
-		case SysclkSource::HSE:
-			HSE.setMode();
-			PLL1.setModePLL(PLLSource::HSE, 2, 0,
-				.m = 5, .n = 160, .p = 2,
-				.q = 4, .r = 4);
-			break;
-		case SysclkSource::HSI: HSI.setMode(true, _TEMP 0, _TEMP 0); break;
-		case SysclkSource::CSI: CSI.setMode(true, _TEMP 0); break;
-		case SysclkSource::PLL1: (void _TEMP)PLL1; break;
-		// not for LSI, LSE, HSI48
+	bool RCC_t::setClock(SysclkSource::RCCSysclockSource source, const RCCClockConfig_t* config) {
+		const RCCClockConfig_t defaults{};
+		const RCCClockConfig_t& clock = config ? *config : defaults;
+		if (clock.HSEHz) HSE_VALUE = clock.HSEHz;
+		if (source != SysclkSource::HSI && source != SysclkSource::CSI &&
+			source != SysclkSource::HSE && source != SysclkSource::PLL1) return false;
+		if (source == SysclkSource::PLL1 && !clock.UsePLL1) return false;
+		PLLSource::PLLSource pllSource = PLLSource::HSE;
+		switch (source) {
+		case SysclkSource::HSI: pllSource = PLLSource::HSI; break;
+		case SysclkSource::CSI: pllSource = PLLSource::CSI; break;
+		case SysclkSource::HSE: pllSource = PLLSource::HSE; break;
+		case SysclkSource::PLL1: break;
 		default: return false;
 		}
+
+		PWR_CR3_SCUEN = 0;
+		PWR.ConfigVoltageScaling(clock.VoltageScale);
+		while (!_IMM(PWR_D3CR_VOSRDY));
+		if (source == SysclkSource::HSE && !HSE.setMode(true, clock.HSEBypass)) return false;
+		if (source == SysclkSource::HSI && !HSI.setMode(true, _TEMP 0, _TEMP 0)) return false;
+		if (source == SysclkSource::CSI && !CSI.setMode(true, _TEMP 0)) return false;
+		if (clock.UsePLL1 && source != SysclkSource::PLL1) {
+			if (Sysclock.CurrentSource() == SysclkSource::PLL1) {
+				if (!Sysclock.setMode(source)) return false;
+			}
+			if (!PLL1.setMode(pllSource, clock.PLL1InputRange,
+				clock.PLL1VcoSelect, clock.PLL1Parameters)) return false;
+		}
+
 		// HAL_RCC_ClockConfig block
 		{
-			uint32 _TEMP FLatency = _TEMP 2;// flash latency
+			uint32 FLatency = clock.FlashLatency;
 			asrtret(FLatency < 8);// 0..8
 			/* To correctly read data from FLASH memory, the number of wait states (LATENCY)
 				  must be correctly programmed according to the frequency of the CPU clock
@@ -77,24 +82,25 @@ namespace uni {
 				// Check that the new number of wait states is taken into account to access the Flash memory by reading the FLASH_ACR register
 				asrtret(_IMM(FLASH_ACR_LATENCY) == FLatency)
 			}
-			AHB.setMode(1);
-			Sysclock.setMode();
+			if (!AHB.setMode(clock.AHBPrescaler)) return false;
+			const auto systemSource = clock.UsePLL1 ? SysclkSource::PLL1 : source;
+			if (!Sysclock.setMode(systemSource)) return false;
 			/* Decreasing the number of wait states because of lower CPU frequency */
 			if (FLatency < _IMM(FLASH_ACR_LATENCY))
 			{
 				FLASH_ACR_LATENCY = FLatency;
 				asrtret(_IMM(FLASH_ACR_LATENCY) == FLatency)
 			}
-			D1PCLK1.setMode(1);// DIV2
-			PCLK1.setMode(1);// DIV2
-			PCLK2.setMode(1);// DIV2
-			D3PCLK1.setMode(2);// APB4 DIV4
+			if (!D1PCLK1.setMode(clock.APB3Prescaler)) return false;
+			if (!PCLK1.setMode(clock.APB1Prescaler)) return false;
+			if (!PCLK2.setMode(clock.APB2Prescaler)) return false;
+			if (!D3PCLK1.setMode(clock.APB4Prescaler)) return false;
 			Sysclock.getCoreFrequency();
 		}
 		CSI.enAble();
 		RCC_APB4ENR_SYSCFGEN = 1; stduint tmp = RCC_APB4ENR_SYSCFGEN;// __HAL_RCC_SYSCFG_CLK_ENABLE();
 		SYSCFG->CCCSR |= 0x00000001;//SYSCFG_CCCSR_EN, HAL_EnableCompensationCell();
-		return SysTick::enClock(1000);// default 1kHz
+		return SysTick::enClock(clock.SysTickFrequency);
 	}
 
 #endif

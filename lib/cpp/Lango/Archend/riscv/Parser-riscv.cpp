@@ -662,12 +662,23 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 	if (Equal(mnemonic, "j")) {
 		if (instruction.signedness != AssemblySignedness::Default)
 			goto bad_signedness;
-		if (count != 1) goto bad_count;
+		if (count != 1 && count != 2) goto bad_count;
 		instruction.opcode = RISCVOpcode::Jal;
 		instruction.operand_count = 2;
 		instruction.operands[0].kind = RISCVOperandKind::Register;
 		if (!RequireTarget(operands[0], parse_pass,
 			instruction.operands[1], 1)) return false;
+		if (count == 2) {
+			RISCVOperand temporary;
+			if (!RequireRegister(operands[1], temporary, 2)) return false;
+			if (!temporary.reg) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V long jump temporary register cannot be zero");
+				return false;
+			}
+			instruction.temporary_reg = temporary.reg;
+			instruction.has_temporary = true;
+		}
 		return true;
 	}
 	if (Equal(mnemonic, "jr")) {
@@ -781,7 +792,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 			RequireImmediate(operands[1], parse_pass, instruction.operands[1], 2);
 	}
 	if (info->operands == RISCVOperandForm::RdTarget) {
-		if (count != 1 && count != 2) goto bad_count;
+		if (count != 1 && count != 2 && count != 3) goto bad_count;
 		instruction.operand_count = 2;
 		if (count == 1) {
 			instruction.operands[0].kind = RISCVOperandKind::Register;
@@ -789,9 +800,21 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 			return RequireTarget(operands[0], parse_pass,
 				instruction.operands[1], 1);
 		}
-		return RequireRegister(operands[0], instruction.operands[0], 1) &&
-			RequireTarget(operands[1], parse_pass,
-				instruction.operands[1], 2);
+		if (!RequireRegister(operands[0], instruction.operands[0], 1) ||
+			!RequireTarget(operands[1], parse_pass,
+				instruction.operands[1], 2)) return false;
+		if (count == 3) {
+			RISCVOperand temporary;
+			if (!RequireRegister(operands[2], temporary, 3)) return false;
+			if (!temporary.reg) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V long jump temporary register cannot be zero");
+				return false;
+			}
+			instruction.temporary_reg = temporary.reg;
+			instruction.has_temporary = true;
+		}
+		return true;
 	}
 	if (info->operands == RISCVOperandForm::RdIndirectTarget) {
 		if (count != 2) goto bad_count;
@@ -801,12 +824,24 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 				instruction.operands[1], 2);
 	}
 	if (info->operands == RISCVOperandForm::RsRsTarget) {
-		if (count != 3) goto bad_count;
+		if (count != 3 && count != 4) goto bad_count;
 		instruction.operand_count = 3;
-		return RequireRegister(operands[0], instruction.operands[0], 1) &&
-			RequireRegister(operands[1], instruction.operands[1], 2) &&
-			RequireTarget(operands[2], parse_pass,
-				instruction.operands[2], 3);
+		if (!RequireRegister(operands[0], instruction.operands[0], 1) ||
+			!RequireRegister(operands[1], instruction.operands[1], 2) ||
+			!RequireTarget(operands[2], parse_pass,
+				instruction.operands[2], 3)) return false;
+		if (count == 4) {
+			RISCVOperand temporary;
+			if (!RequireRegister(operands[3], temporary, 4)) return false;
+			if (!temporary.reg) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V long branch temporary register cannot be zero");
+				return false;
+			}
+			instruction.temporary_reg = temporary.reg;
+			instruction.has_temporary = true;
+		}
+		return true;
 	}
 	if (info->operands == RISCVOperandForm::RdAddress) {
 		if (count != 2) goto bad_count;
@@ -1031,15 +1066,41 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 			RequireRegister(operands[1], instruction.operands[1], 2);
 	}
 	if (info->operands == RISCVOperandForm::CJump) {
-		if (count != 1) goto bad_count;
+		if (count != 1 && count != 2) goto bad_count;
 		instruction.operand_count = 1;
-		return RequireTarget(operands[0], parse_pass, instruction.operands[0], 1);
+		if (!RequireTarget(operands[0], parse_pass,
+			instruction.operands[0], 1)) return false;
+		if (count == 2) {
+			RISCVOperand temporary;
+			if (!RequireRegister(operands[1], temporary, 2)) return false;
+			if (!temporary.reg) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V long jump temporary register cannot be zero");
+				return false;
+			}
+			instruction.temporary_reg = temporary.reg;
+			instruction.has_temporary = true;
+		}
+		return true;
 	}
 	if (info->operands == RISCVOperandForm::CBranch) {
-		if (count != 2) goto bad_count;
+		if (count != 2 && count != 3) goto bad_count;
 		instruction.operand_count = 2;
-		return RequireRegister(operands[0], instruction.operands[0], 1) &&
-			RequireTarget(operands[1], parse_pass, instruction.operands[1], 2);
+		if (!RequireRegister(operands[0], instruction.operands[0], 1) ||
+			!RequireTarget(operands[1], parse_pass,
+				instruction.operands[1], 2)) return false;
+		if (count == 3) {
+			RISCVOperand temporary;
+			if (!RequireRegister(operands[2], temporary, 3)) return false;
+			if (!temporary.reg) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V long branch temporary register cannot be zero");
+				return false;
+			}
+			instruction.temporary_reg = temporary.reg;
+			instruction.has_temporary = true;
+		}
+		return true;
 	}
 	if (info->operands == RISCVOperandForm::CLoad ||
 		info->operands == RISCVOperandForm::CStore) {

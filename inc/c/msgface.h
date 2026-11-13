@@ -61,15 +61,11 @@ void _cast_panic();
 */
 
 // GNU::stddef.h)
-#if defined(_DEV_GCC)
+#if defined(_DEV_GCC) && defined(_WinNT)
 #define _CRT_ERRNO_DEFINED
-#ifdef _WinNT
+_ESYM_C
  __attribute__((__dllimport__))
-#endif
-extern int*
-#if defined(_Linux) && (__BITS__ == 32)
-__attribute__((__cdecl__)) 
-#endif
+int*
 _errno(void);
 #define errno (*_errno())
 #endif

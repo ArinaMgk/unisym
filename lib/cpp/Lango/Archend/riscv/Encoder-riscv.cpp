@@ -31,6 +31,13 @@ void SplitSigned12(int64_t value, int64_t& upper, int64_t& low)
 	}
 }
 
+bool CanEncodePcRelativePair(int64_t displacement)
+{
+	int64_t upper, low;
+	SplitSigned12(displacement, upper, low);
+	return SignedRange(upper, 20) && SignedRange(low, 12);
+}
+
 bool RequireImmediate(const RISCVValue& value, int64_t& immediate)
 {
 	if (value.unknown || value.external || value.section != NO_SEG ||
@@ -45,6 +52,7 @@ bool RequireImmediate(const RISCVValue& value, int64_t& immediate)
 enum class TargetResolution {
 	Resolved,
 	Fixup,
+	Unknown,
 	Error
 };
 
@@ -56,10 +64,7 @@ TargetResolution ResolveTarget(const AssemblySession& session,
 		return TargetResolution::Error;
 	}
 	if (value.external) return TargetResolution::Fixup;
-	if (value.unknown) {
-		aasm_log(_LOG_ERROR, "RISC-V target is unresolved");
-		return TargetResolution::Error;
-	}
+	if (value.unknown) return TargetResolution::Unknown;
 	if (value.section != NO_SEG && value.section != session.Location.segment)
 		return TargetResolution::Fixup;
 	displacement = value.offset - offset;
@@ -109,6 +114,158 @@ uint32_t EncodeJ(uint32_t fixed, uint32_t rd, int64_t immediate)
 		((value >> 20) & 1) << 31;
 }
 
+enum class ControlFlowForm {
+	CompressedDirect,
+	Direct,
+	BranchJump,
+	JumpPair,
+	BranchPair
+};
+
+struct ControlFlowPlan {
+	ControlFlowForm form = ControlFlowForm::Direct;
+	TargetResolution resolution = TargetResolution::Resolved;
+	int64_t displacement = 0;
+	unsigned size = 4;
+};
+
+bool IsCompressedJump(RISCVOpcode opcode)
+{
+	return opcode == RISCVOpcode::CJ || opcode == RISCVOpcode::CJal;
+}
+
+bool IsCompressedBranch(RISCVOpcode opcode)
+{
+	return opcode == RISCVOpcode::CBeqz || opcode == RISCVOpcode::CBnez;
+}
+
+uint8_t JumpLinkRegister(const RISCVInstruction& instruction)
+{
+	if (instruction.opcode == RISCVOpcode::CJal) return 1;
+	if (instruction.opcode == RISCVOpcode::CJ) return 0;
+	return instruction.operands[0].reg;
+}
+
+uint32_t StandardBranchFixed(const RISCVInstruction& instruction,
+	const RISCVInstructionInfo& info)
+{
+	if (instruction.opcode == RISCVOpcode::CBeqz) return 0x00000063;
+	if (instruction.opcode == RISCVOpcode::CBnez) return 0x00001063;
+	return info.fixed_bits;
+}
+
+bool PlanJump(const AssemblySession& session,
+	const RISCVInstruction& instruction, int64_t offset,
+	ControlFlowPlan& plan)
+{
+	bool compressed = IsCompressedJump(instruction.opcode);
+	const RISCVValue& target = instruction.operands[compressed ? 0 : 1].value;
+	plan.resolution = ResolveTarget(session, target, offset, plan.displacement);
+	if (plan.resolution == TargetResolution::Error) return false;
+	if (plan.resolution == TargetResolution::Unknown) {
+		plan.form = compressed ? ControlFlowForm::CompressedDirect :
+			ControlFlowForm::Direct;
+		plan.size = compressed ? 2 : 4;
+		return true;
+	}
+	if (plan.resolution == TargetResolution::Fixup) {
+		if (instruction.has_temporary) {
+			plan.form = ControlFlowForm::JumpPair;
+			plan.size = 8;
+		}
+		else {
+			plan.form = compressed ? ControlFlowForm::CompressedDirect :
+				ControlFlowForm::Direct;
+			plan.size = compressed ? 2 : 4;
+		}
+		return true;
+	}
+	if (compressed && !(plan.displacement & 1) &&
+		SignedRange(plan.displacement, 12)) {
+		plan.form = ControlFlowForm::CompressedDirect;
+		plan.size = 2;
+		return true;
+	}
+	if (!(plan.displacement & 1) && SignedRange(plan.displacement, 21)) {
+		plan.form = ControlFlowForm::Direct;
+		plan.size = 4;
+		return true;
+	}
+	uint8_t scratch = instruction.has_temporary ? instruction.temporary_reg :
+		JumpLinkRegister(instruction);
+	if (!scratch) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V long jump requires a temporary register");
+		return false;
+	}
+	if (!CanEncodePcRelativePair(plan.displacement)) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V jump target is outside the PC-relative 32-bit range");
+		return false;
+	}
+	plan.form = ControlFlowForm::JumpPair;
+	plan.size = 8;
+	return true;
+}
+
+bool PlanBranch(const AssemblySession& session,
+	const RISCVInstruction& instruction, int64_t offset,
+	ControlFlowPlan& plan)
+{
+	bool compressed = IsCompressedBranch(instruction.opcode);
+	const RISCVValue& target = instruction.operands[compressed ? 1 : 2].value;
+	plan.resolution = ResolveTarget(session, target, offset, plan.displacement);
+	if (plan.resolution == TargetResolution::Error) return false;
+	if (plan.resolution == TargetResolution::Unknown) {
+		plan.form = compressed ? ControlFlowForm::CompressedDirect :
+			ControlFlowForm::Direct;
+		plan.size = compressed ? 2 : 4;
+		return true;
+	}
+	if (plan.resolution == TargetResolution::Fixup) {
+		if (instruction.has_temporary) {
+			plan.form = ControlFlowForm::BranchPair;
+			plan.size = 12;
+		}
+		else {
+			plan.form = compressed ? ControlFlowForm::CompressedDirect :
+				ControlFlowForm::Direct;
+			plan.size = compressed ? 2 : 4;
+		}
+		return true;
+	}
+	if (compressed && !(plan.displacement & 1) &&
+		SignedRange(plan.displacement, 9)) {
+		plan.form = ControlFlowForm::CompressedDirect;
+		plan.size = 2;
+		return true;
+	}
+	if (!(plan.displacement & 1) && SignedRange(plan.displacement, 13)) {
+		plan.form = ControlFlowForm::Direct;
+		plan.size = 4;
+		return true;
+	}
+	int64_t jump_displacement = plan.displacement - 4;
+	if (!(jump_displacement & 1) && SignedRange(jump_displacement, 21)) {
+		plan.form = ControlFlowForm::BranchJump;
+		plan.size = 8;
+		return true;
+	}
+	if (!instruction.has_temporary) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V long branch requires a temporary register");
+		return false;
+	}
+	if (!CanEncodePcRelativePair(jump_displacement)) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V branch target is outside the PC-relative 32-bit range");
+		return false;
+	}
+	plan.form = ControlFlowForm::BranchPair;
+	plan.size = 12;
+	return true;
+}
+
 bool Append(RISCVEncodingSequence& sequence, uint64_t encoding,
 	RISCVFixupKind fixup = RISCVFixupKind::None,
 	const RISCVValue& target = RISCVValue{}, uint8_t size = 4,
@@ -144,6 +301,117 @@ uint16_t EncodeCB(uint16_t fixed, uint8_t reg, int64_t immediate)
 	return fixed | ((value >> 8) & 1) << 12 | ((value >> 3) & 3) << 10 |
 		(reg - 8) << 7 | ((value >> 6) & 3) << 5 |
 		((value >> 1) & 3) << 3 | ((value >> 5) & 1) << 2;
+}
+
+bool AppendPcRelativeJumpPair(RISCVEncodingSequence& sequence,
+	int64_t offset, uint8_t scratch, uint8_t link,
+	const RISCVValue& target, TargetResolution resolution)
+{
+	if (resolution == TargetResolution::Resolved) {
+		int64_t displacement = target.offset - offset;
+		int64_t high, low;
+		SplitSigned12(displacement, high, low);
+		if (!SignedRange(high, 20)) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V jump target is outside the PC-relative 32-bit range");
+			return false;
+		}
+		return Append(sequence, EncodeU(0x00000017, scratch, high)) &&
+			Append(sequence, EncodeI(0x00000067, link, scratch, low));
+	}
+	if (resolution != TargetResolution::Fixup) {
+		aasm_log(_LOG_ERROR, "RISC-V long jump target is unresolved");
+		return false;
+	}
+	if (!Append(sequence, EncodeU(0x00000017, scratch, 0),
+		RISCVFixupKind::PcRelativeHigh, target, 4,
+		static_cast<uint64_t>(offset), RISCVFixupPairRole::Head)) return false;
+	return Append(sequence, EncodeI(0x00000067, link, scratch, 0),
+		RISCVFixupKind::PcRelativeLowI, target, 4,
+		static_cast<uint64_t>(offset), RISCVFixupPairRole::Tail);
+}
+
+bool EncodeJumpControlFlow(const RISCVInstruction& instruction,
+	const RISCVInstructionInfo& info, int64_t offset,
+	const ControlFlowPlan& plan, RISCVEncodingSequence& result)
+{
+	bool compressed = IsCompressedJump(instruction.opcode);
+	const RISCVValue& target = instruction.operands[compressed ? 0 : 1].value;
+	uint8_t link = JumpLinkRegister(instruction);
+	if (plan.form == ControlFlowForm::CompressedDirect) {
+		if (plan.resolution == TargetResolution::Fixup)
+			return Append(result, static_cast<uint16_t>(info.fixed_bits),
+				RISCVFixupKind::CompressedJump, target, 2);
+		if (plan.resolution != TargetResolution::Resolved) {
+			aasm_log(_LOG_ERROR, "RISC-V jump target is unresolved");
+			return false;
+		}
+		return Append(result,
+			EncodeCJ(static_cast<uint16_t>(info.fixed_bits), plan.displacement),
+			RISCVFixupKind::None, {}, 2);
+	}
+	if (plan.form == ControlFlowForm::Direct) {
+		uint32_t fixed = compressed ? 0x0000006f : info.fixed_bits;
+		if (plan.resolution == TargetResolution::Fixup)
+			return Append(result, EncodeJ(fixed, link, 0),
+				RISCVFixupKind::Jump, target);
+		if (plan.resolution != TargetResolution::Resolved) {
+			aasm_log(_LOG_ERROR, "RISC-V jump target is unresolved");
+			return false;
+		}
+		return Append(result, EncodeJ(fixed, link, plan.displacement));
+	}
+	uint8_t scratch = instruction.has_temporary ? instruction.temporary_reg : link;
+	return AppendPcRelativeJumpPair(result, offset, scratch, link,
+		target, plan.resolution);
+}
+
+bool EncodeBranchControlFlow(const RISCVInstruction& instruction,
+	const RISCVInstructionInfo& info, int64_t offset,
+	const ControlFlowPlan& plan, RISCVEncodingSequence& result)
+{
+	bool compressed = IsCompressedBranch(instruction.opcode);
+	const RISCVValue& target = instruction.operands[compressed ? 1 : 2].value;
+	uint8_t left = instruction.operands[0].reg;
+	uint8_t right = compressed ? 0 : instruction.operands[1].reg;
+	uint32_t fixed = StandardBranchFixed(instruction, info);
+	if (plan.form == ControlFlowForm::CompressedDirect) {
+		if (plan.resolution == TargetResolution::Fixup)
+			return Append(result,
+				static_cast<uint16_t>(info.fixed_bits) | (left - 8) << 7,
+				RISCVFixupKind::CompressedBranch, target, 2);
+		if (plan.resolution != TargetResolution::Resolved) {
+			aasm_log(_LOG_ERROR, "RISC-V branch target is unresolved");
+			return false;
+		}
+		return Append(result,
+			EncodeCB(static_cast<uint16_t>(info.fixed_bits),
+				left, plan.displacement), RISCVFixupKind::None, {}, 2);
+	}
+	if (plan.form == ControlFlowForm::Direct) {
+		if (plan.resolution == TargetResolution::Fixup)
+			return Append(result, EncodeB(fixed, left, right, 0),
+				RISCVFixupKind::Branch, target);
+		if (plan.resolution != TargetResolution::Resolved) {
+			aasm_log(_LOG_ERROR, "RISC-V branch target is unresolved");
+			return false;
+		}
+		return Append(result,
+			EncodeB(fixed, left, right, plan.displacement));
+	}
+	uint32_t inverse = fixed ^ 0x00001000;
+	unsigned skip = plan.form == ControlFlowForm::BranchJump ? 8 : 12;
+	if (!Append(result, EncodeB(inverse, left, right, skip))) return false;
+	if (plan.form == ControlFlowForm::BranchJump) {
+		if (plan.resolution != TargetResolution::Resolved) {
+			aasm_log(_LOG_ERROR, "RISC-V long branch target is unresolved");
+			return false;
+		}
+		return Append(result,
+			EncodeJ(0x0000006f, 0, target.offset - (offset + 4)));
+	}
+	return AppendPcRelativeJumpPair(result, offset + 4,
+		instruction.temporary_reg, 0, target, plan.resolution);
 }
 
 bool UsesRoundingMode(const RISCVInstructionInfo& info)
@@ -223,7 +491,7 @@ bool AppendPcRelativePair(const AssemblySession& session,
 		(target.section != NO_SEG && target.section != session.Location.segment);
 	if (!relocation) {
 		int64_t displacement = target.offset - offset;
-		if (!SignedRange(displacement, 32)) {
+		if (!CanEncodePcRelativePair(displacement)) {
 			aasm_log(_LOG_ERROR,
 				"RISC-V PC-relative address is outside the 32-bit range");
 			return false;
@@ -303,7 +571,7 @@ bool MeasureExpression(const AssemblySession& session, const RISCVValue& value,
 }
 
 bool RISCVEncoder::Measure(const AssemblySession& session,
-	const RISCVInstruction& instruction, unsigned& count)
+	const RISCVInstruction& instruction, int64_t offset, unsigned& count)
 {
 	if (instruction.kind == RISCVInstructionKind::Call ||
 		instruction.kind == RISCVInstructionKind::CallPlt) {
@@ -311,6 +579,20 @@ bool RISCVEncoder::Measure(const AssemblySession& session,
 		return true;
 	}
 	const RISCVInstructionInfo& info = DumpRISCVInstruction(instruction.opcode);
+	if (info.format == RISCVEncodingFormat::Jump ||
+		IsCompressedJump(instruction.opcode)) {
+		ControlFlowPlan plan;
+		if (!PlanJump(session, instruction, offset, plan)) return false;
+		count = plan.size;
+		return true;
+	}
+	if (info.format == RISCVEncodingFormat::Branch ||
+		IsCompressedBranch(instruction.opcode)) {
+		ControlFlowPlan plan;
+		if (!PlanBranch(session, instruction, offset, plan)) return false;
+		count = plan.size;
+		return true;
+	}
 	if (info.format == RISCVEncodingFormat::Compressed) {
 		count = 2;
 		return true;
@@ -374,7 +656,7 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 				target, 8);
 		}
 		if (resolution == TargetResolution::Error ||
-			(displacement & 1) || !SignedRange(displacement, 32)) {
+			(displacement & 1) || !CanEncodePcRelativePair(displacement)) {
 			aasm_log(_LOG_ERROR, "RISC-V call target is outside the range");
 			return false;
 		}
@@ -410,6 +692,18 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 		aasm_log(_LOG_ERROR,
 			"RISC-V instruction is not available in the current bit mode");
 		return false;
+	}
+	if (info.format == RISCVEncodingFormat::Jump ||
+		IsCompressedJump(instruction.opcode)) {
+		ControlFlowPlan plan;
+		if (!PlanJump(session, instruction, offset, plan)) return false;
+		return EncodeJumpControlFlow(instruction, info, offset, plan, result);
+	}
+	if (info.format == RISCVEncodingFormat::Branch ||
+		IsCompressedBranch(instruction.opcode)) {
+		ControlFlowPlan plan;
+		if (!PlanBranch(session, instruction, offset, plan)) return false;
+		return EncodeBranchControlFlow(instruction, info, offset, plan, result);
 	}
 	const RISCVOperand* operand = instruction.operands;
 	int64_t immediate;

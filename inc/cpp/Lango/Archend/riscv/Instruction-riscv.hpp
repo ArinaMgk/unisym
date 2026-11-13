@@ -77,6 +77,8 @@ struct RISCVInstruction {
 	RISCVAtomicOrdering atomic_ordering = RISCVAtomicOrdering::None;
 	RISCVRoundingMode rounding = RISCVRoundingMode::DYN;
 	RISCVVectorType vector_type;
+	uint8_t temporary_reg = 0;
+	bool has_temporary = false;
 	bool masked = false;
 	RISCVOperand operands[5];
 	unsigned operand_count = 0;
@@ -129,7 +131,7 @@ public:
 class RISCVEncoder {
 public:
 	static bool Measure(const AssemblySession& session,
-		const RISCVInstruction& instruction, unsigned& count);
+		const RISCVInstruction& instruction, int64_t offset, unsigned& count);
 	static bool Encode(const AssemblySession& session,
 		const RISCVInstruction& instruction,
 		int64_t offset, RISCVEncodingSequence& result);

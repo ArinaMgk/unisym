@@ -20,7 +20,7 @@ namespace uni::lango {
 		{
 			if (ascii_tolower(text[0]) != prefix || !text[1]) return false;
 			char* end;
-			long number = strtol(text + 1, &end, 10);
+			long number = StrTokenLong(text + 1, &end, 10);
 			if (*end || number < 0 || number > static_cast<long>(maximum)) return false;
 			result = static_cast<uint8_t>(number);
 			return true;
@@ -122,7 +122,7 @@ namespace uni::lango {
 			size_t length = StrLength(family.prefix);
 			if (StrCompareNInsensitive(text, family.prefix, length)) continue;
 			char* end;
-			long number = strtol(text + length, &end, 10);
+			long number = StrTokenLong(text + length, &end, 10);
 			if (number < static_cast<long>(family.first) || number > static_cast<long>(family.last)) continue;
 			if (family.high) { if (ascii_tolower(*end) != 'h' || end[1]) continue; }
 			else if (*end) continue;

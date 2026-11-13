@@ -1,7 +1,6 @@
 
 
 #include "../inc/cpp/string"
-#include <stdarg.h>
 #include <errno.h>
 #include "inc/aasm.h"
 #include "../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp"

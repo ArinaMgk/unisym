@@ -39,6 +39,10 @@ public:
 	virtual void Initialize(AssemblySession& session) override;
 	virtual void BeginPass(AssemblySession& session,
 		int parse_pass, int output_pass) override;
+	virtual bool ProcessArchitectureStatement(AssemblySession& session,
+		char* source, int64_t repeat, int parse_pass, int output_pass,
+		ArchendLineResult& result) override;
+	virtual bool IsArchitectureStatementStart(const char* word) const override;
 	virtual bool IsInstructionStart(const char* word) const override;
 	virtual ArchendLineResult ProcessInstruction(AssemblySession& session,
 		char* source, int64_t repeat,

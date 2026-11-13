@@ -13,6 +13,35 @@ namespace uni::lango {
 
 namespace {
 
+char* SkipSpace(char* text)
+{
+	while (*text && ascii_isspace(*text)) text++;
+	return text;
+}
+
+void SetStatementDebugLine(AssemblySession& session)
+{
+	static int32_t line_number = 0;
+	static char* line_filename = nullptr;
+	if (src_get(&line_number, &line_filename))
+		session.Options->Target.Codeend().SetDebugLine(
+			line_filename, line_number, session.Location.segment);
+}
+
+void EmitAlignmentCode(AssemblySession& session, int64_t offset,
+	const void* data, uint64_t size)
+{
+	uni::CodeendOutput output {
+		session.Location.segment,
+		data,
+		uni::CodeendOutputType::RawData,
+		size
+	};
+	session.Listing->EmitCode(offset, output);
+	SetStatementDebugLine(session);
+	session.Options->Target.Codeend().Emit(output);
+}
+
 void AppendUnsigned(char*& cursor, uint64_t value)
 {
 	char digits[24];
@@ -172,6 +201,113 @@ void ArchendRISCV::BeginPass(AssemblySession& session,
 	(void)output_pass;
 }
 
+bool ArchendRISCV::ProcessArchitectureStatement(AssemblySession& session,
+	char* source, int64_t repeat, int parse_pass, int output_pass,
+	ArchendLineResult& result)
+{
+	(void)output_pass;
+	char* mnemonic = SkipSpace(source);
+	char* end = mnemonic;
+	while (isidchar(*end)) end++;
+	char saved = *end;
+	*end = '\0';
+	bool alignment_statement = !StrCompareInsensitive(mnemonic, "ralign");
+	*end = saved;
+	if (!alignment_statement) return false;
+
+	if (repeat != 1) {
+		aasm_log(_LOG_ERROR, "RALIGN does not support TIMES");
+		result.valid = false;
+		return true;
+	}
+	stdscan_reset();
+	stdscan_bufptr = SkipSpace(end);
+	struct tokenval token;
+	token.t_type = TOKEN_INVALID;
+	expr* value = eval_evaluate(common_stdscan, nullptr, &token,
+		nullptr, parse_pass == 2 ? 2 : 0, nullptr);
+	if (!value || token.t_type != TOKEN_EOS || !is_simple(value)) {
+		aasm_log(_LOG_ERROR, "RALIGN expects a constant alignment");
+		result.valid = false;
+		return true;
+	}
+	int64_t alignment = reloc_value(value);
+	if (alignment < 1 || (alignment & (alignment - 1))) {
+		aasm_log(_LOG_ERROR,
+			"RALIGN alignment must be a positive power of two");
+		result.valid = false;
+		return true;
+	}
+	size_t instruction_size = (session.CurrentCpu &
+		static_cast<uint32_t>(RISCVExtension::C)) ? 2 : 4;
+	int64_t padding = session.Options->EnableRISCVRelax ?
+		(alignment > static_cast<int64_t>(instruction_size) ?
+			alignment - instruction_size : 0) :
+		((alignment - (session.Location.offset & (alignment - 1))) &
+			(alignment - 1));
+	if (padding % static_cast<int64_t>(instruction_size)) {
+		aasm_log(_LOG_ERROR,
+			"RALIGN padding is incompatible with the RISC-V instruction size");
+		result.valid = false;
+		return true;
+	}
+	result.size = padding;
+	if (parse_pass == 1 || !padding) return true;
+
+	uint8_t bytes[256];
+	for (size_t index = 0; index < sizeof(bytes); index += instruction_size) {
+		bytes[index] = instruction_size == 2 ? 0x01 : 0x13;
+		bytes[index + 1] = 0;
+		if (instruction_size == 4) {
+			bytes[index + 2] = 0;
+			bytes[index + 3] = 0;
+		}
+	}
+	if (session.Options->EnableRISCVRelax) {
+		int64_t listing_offset = session.Location.offset;
+		for (int64_t remaining = padding; remaining > 0;) {
+			size_t chunk = remaining < static_cast<int64_t>(sizeof(bytes)) ?
+				static_cast<size_t>(remaining) : sizeof(bytes);
+			session.Listing->EmitCode(listing_offset, uni::CodeendOutput {
+				session.Location.segment, bytes,
+				uni::CodeendOutputType::RawData, chunk
+			});
+			listing_offset += chunk;
+			remaining -= chunk;
+		}
+		uni::CodeFixup fixup {
+			session.Location.segment,
+			static_cast<uint64_t>(session.Location.offset),
+			uni::CodeFixupKind::Alignment,
+			{0, 0, 0, 0, false},
+			instruction_size,
+			NO_SEG,
+			padding,
+			0,
+			NO_SEG,
+			static_cast<uint32_t>(ArchitectureKind::RISCV)
+		};
+		SetStatementDebugLine(session);
+		session.Options->Target.Codeend().EmitFixup(fixup);
+	}
+	else {
+		int64_t output_offset = session.Location.offset;
+		for (int64_t remaining = padding; remaining > 0;) {
+			size_t chunk = remaining < static_cast<int64_t>(sizeof(bytes)) ?
+				static_cast<size_t>(remaining) : sizeof(bytes);
+			EmitAlignmentCode(session, output_offset, bytes, chunk);
+			output_offset += chunk;
+			remaining -= chunk;
+		}
+	}
+	return true;
+}
+
+bool ArchendRISCV::IsArchitectureStatementStart(const char* word) const
+{
+	return !StrCompareInsensitive(word, "ralign");
+}
+
 bool ArchendRISCV::IsInstructionStart(const char* word) const
 {
 	return RISCVParser::IsInstructionStart(word);
@@ -187,18 +323,28 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 		result.valid = false;
 		return result;
 	}
-	unsigned measured_size;
-	if (!RISCVEncoder::Measure(session, instruction, measured_size)) {
-		result.valid = false;
-		return result;
+	int64_t measured_offset = session.Location.offset;
+	for (int64_t index = 0; index < repeat; index++) {
+		unsigned measured_size;
+		if (!RISCVEncoder::Measure(
+			session, instruction, measured_offset, measured_size)) {
+			result.valid = false;
+			return result;
+		}
+		result.size += measured_size;
+		measured_offset += measured_size;
 	}
-	int64_t single_size = measured_size;
-	result.size = repeat * single_size;
 	if (parse_pass == 1) return result;
 
 	uni::CodeendInterface& codeend = session.Options->Target.Codeend();
+	int64_t offset = session.Location.offset;
 	for (int64_t index = 0; index < repeat; index++) {
-		int64_t offset = session.Location.offset + index * single_size;
+		unsigned measured_size;
+		if (!RISCVEncoder::Measure(
+			session, instruction, offset, measured_size)) {
+			result.valid = false;
+			return result;
+		}
 		RISCVEncodingSequence sequence;
 		if (!RISCVEncoder::Encode(session, instruction, offset, sequence)) {
 			result.valid = false;
@@ -339,6 +485,7 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 			codeend.Emit(output);
 			instruction_offset += encoded.size;
 		}
+		offset += measured_size;
 	}
 	return result;
 }

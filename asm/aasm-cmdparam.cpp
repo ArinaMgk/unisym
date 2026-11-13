@@ -171,7 +171,6 @@ static void SelectArchitecture(AssemblerOptions& options, const char* name)
 		return;
 	}
 	options.Target.SelectArchend(*archend);
-		globalarch = archend->DumpArchend().shortname;
 }
 
 bool ProcessArgument(AssemblerOptions& options, char* p, char* q)

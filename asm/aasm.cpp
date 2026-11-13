@@ -407,6 +407,7 @@ int main(int argc, char** argv) {
 	}
 	SyncLegacyOptions(assembler_options);
 	InitializeAssemblySession(assembly_session, assembler_options);
+	Preprocessor::SetAssemblySession(&assembly_session);
 	if (terminate_after_phase) {
 		if (want_usage)
 			usage();

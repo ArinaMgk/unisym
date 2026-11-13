@@ -177,6 +177,23 @@ namespace uni {
 #define    PCLK2 APB2
 #define  D1PCLK1 APB3
 #define  D3PCLK1 APB4
+	struct RCCClockConfig_t {
+		bool UsePLL1 = true;
+		stduint HSEHz = 0;
+		bool HSEBypass = false;
+		byte VoltageScale = 1;
+		byte FlashLatency = 2;
+		byte AHBPrescaler = 1;
+		byte APB3Prescaler = 1;
+		byte APB1Prescaler = 1;
+		byte APB2Prescaler = 1;
+		byte APB4Prescaler = 2;
+		byte PLL1InputRange = 2;
+		byte PLL1VcoSelect = 0;
+		PLLPara_t PLL1Parameters = { 5, 160, 2, 4, 4, 0 };
+		stduint SysTickFrequency = 1000;
+	};
+
 	class RCC_t {
 	public:
 
@@ -191,12 +208,12 @@ namespace uni {
 		RCCAHB AHB;
 		RCCAPB APB1, APB2, APB3, APB4;
 		
-		RCC_t() : APB1(0), APB2(1), APB3(2), APB4(3), PLL1(1), PLL2(2), PLL3(3) {}
+		RCC_t() : APB1(1), APB2(2), APB3(3), APB4(4), PLL1(1), PLL2(2), PLL3(3) {}
 
 		inline Reference operator[](RCCReg::RCCReg idx) const { return _RCC_ADDR + _IMMx4(idx); }
 
 		// Config using recommended parameters
-		bool setClock(SysclkSource::RCCSysclockSource source);
+		bool setClock(SysclkSource::RCCSysclockSource source, const RCCClockConfig_t* config = nullptr);
 
 
 		stduint getFrequencyHCLK();

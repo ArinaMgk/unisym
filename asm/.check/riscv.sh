@@ -634,6 +634,674 @@ CheckRISCVExpansion()
 	Pass "RISC-V multi-instruction expansion"
 }
 
+CheckRISCVLongControlFlow()
+{
+	BranchSource="$WorkDirectory/riscv-long-branch.asm"
+	BranchOutput="$WorkDirectory/riscv-long-branch.bin"
+	LongSource="$WorkDirectory/riscv-long-control-flow.asm"
+	LongOutput="$WorkDirectory/riscv-long-control-flow.bin"
+	BackwardSource="$WorkDirectory/riscv-long-backward.asm"
+	BackwardOutput="$WorkDirectory/riscv-long-backward.bin"
+	CompressedSource="$WorkDirectory/riscv-compressed-upgrade.asm"
+	CompressedOutput="$WorkDirectory/riscv-compressed-upgrade.bin"
+	CompressedLongSource="$WorkDirectory/riscv-compressed-long.asm"
+	CompressedLongOutput="$WorkDirectory/riscv-compressed-long.bin"
+	CompressedJalSource="$WorkDirectory/riscv-compressed-jal.asm"
+	CompressedJalOutput="$WorkDirectory/riscv-compressed-jal.bin"
+	RepeatSource="$WorkDirectory/riscv-long-repeat.asm"
+	RepeatOutput="$WorkDirectory/riscv-long-repeat.bin"
+	MissingTemporarySource="$WorkDirectory/riscv-long-missing-temporary.asm"
+	CrossSectionSource="$WorkDirectory/riscv-long-cross-section.asm"
+	CrossSectionObject="$WorkDirectory/riscv-long-cross-section.o"
+	CrossSectionRelocations="$WorkDirectory/riscv-long-cross-section.relocations"
+	RangeSource="$WorkDirectory/riscv-control-flow-range.asm"
+	RangeObject="$WorkDirectory/riscv-control-flow-range.o"
+	RangeScript="$WorkDirectory/riscv-control-flow-range.ld"
+	RangeLinkOutput="$WorkDirectory/riscv-control-flow-range.elf"
+	RangeLinkError="$WorkDirectory/riscv-control-flow-range-link.stderr"
+	ShortRangeSource="$WorkDirectory/riscv-short-relocation-range.asm"
+	ShortRangeObject="$WorkDirectory/riscv-short-relocation-range.o"
+	LocalRangeSource="$WorkDirectory/riscv-local-control-flow-range.asm"
+	LocalRangeOutput="$WorkDirectory/riscv-local-control-flow-range.bin"
+	ArchitectureSource="$WorkDirectory/riscv-architecture-macro.asm"
+	ArchitectureOutput="$WorkDirectory/riscv-architecture-macro.bin"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'BEQ x5, x6, target' \
+		'BNE x5, x6, target' \
+		'BLT x5, x6, target' \
+		'BGE x5, x6, target' \
+		'BLTU x5, x6, target' \
+		'BGEU x5, x6, target' \
+		'TIMES 5000 DB 0' \
+		'target:' \
+		'NOP' > "$BranchSource"
+	AssembleSuccess riscv-long-branch -f bin \
+		-o "$BranchOutput" "$BranchSource"
+	[ "$(wc -c < "$BranchOutput")" -eq 5052 ] || \
+		Fail "RISC-V long branch size differs"
+	[ "$(od -An -v -tx1 -N 48 "$BranchOutput" | tr -s '[:space:]' ' ' | \
+		sed 's/^ //;s/ $//')" = \
+		'63 94 62 00 6f 10 40 3b 63 84 62 00 6f 10 c0 3a 63 d4 62 00 6f 10 40 3a 63 c4 62 00 6f 10 c0 39 63 f4 62 00 6f 10 40 39 63 e4 62 00 6f 10 c0 38' ] || \
+		Fail "RISC-V inverted branch sequence differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'BEQ x5, x6, far, t0' \
+		'J far, t1' \
+		'JAL ra, far' \
+		'TIMES 1100000 DB 0' \
+		'far:' \
+		'NOP' > "$LongSource"
+	AssembleSuccess riscv-long-control-flow -f bin \
+		-o "$LongOutput" "$LongSource"
+	[ "$(wc -c < "$LongOutput")" -eq 1100032 ] || \
+		Fail "RISC-V long control-flow size differs"
+	[ "$(od -An -v -tx1 -N 28 "$LongOutput" | tr -s '[:space:]' ' ' | \
+		sed 's/^ //;s/ $//')" = \
+		'63 96 62 00 97 d2 10 00 67 80 82 8f 17 d3 10 00 67 00 03 8f 97 d0 10 00 e7 80 80 8e' ] || \
+		Fail "RISC-V AUIPC control-flow sequence differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'target:' \
+		'NOP' \
+		'TIMES 5000 DB 0' \
+		'BEQ x5, x6, target' > "$BackwardSource"
+	AssembleSuccess riscv-long-backward -f bin \
+		-o "$BackwardOutput" "$BackwardSource"
+	[ "$(wc -c < "$BackwardOutput")" -eq 5012 ] || \
+		Fail "RISC-V backward long branch size differs"
+	[ "$(od -An -v -tx1 -j 5004 -N 8 "$BackwardOutput" | \
+		tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')" = \
+		'63 94 62 00 6f e0 1f c7' ] || \
+		Fail "RISC-V backward long branch bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST ic]' \
+		'C.BEQZ x8, medium' \
+		'TIMES 500 DB 0' \
+		'medium:' \
+		'C.BNEZ x9, far' \
+		'C.J far' \
+		'TIMES 5000 DB 0' \
+		'far:' \
+		'NOP' > "$CompressedSource"
+	AssembleSuccess riscv-compressed-upgrade -f bin \
+		-o "$CompressedOutput" "$CompressedSource"
+	[ "$(wc -c < "$CompressedOutput")" -eq 5520 ] || \
+		Fail "RISC-V compressed upgrade size differs"
+	[ "$(od -An -v -tx1 -N 4 "$CompressedOutput" | \
+		tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')" = \
+		'63 0c 04 1e' ] || \
+		Fail "RISC-V compressed branch direct upgrade differs"
+	[ "$(od -An -v -tx1 -j 504 -N 12 "$CompressedOutput" | \
+		tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')" = \
+		'63 84 04 00 6f 10 00 39 6f 10 c0 38' ] || \
+		Fail "RISC-V compressed control-flow upgrade differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST ic]' \
+		'C.J far, t0' \
+		'C.BEQZ x8, far, t1' \
+		'TIMES 1100000 DB 0' \
+		'far:' \
+		'NOP' > "$CompressedLongSource"
+	AssembleSuccess riscv-compressed-long -f bin \
+		-o "$CompressedLongOutput" "$CompressedLongSource"
+	[ "$(wc -c < "$CompressedLongOutput")" -eq 1100024 ] || \
+		Fail "RISC-V compressed long control-flow size differs"
+	[ "$(od -An -v -tx1 -N 20 "$CompressedLongOutput" | \
+		tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')" = \
+		'97 d2 10 00 67 80 42 8f 63 16 04 00 17 d3 10 00 67 00 83 8e' ] || \
+		Fail "RISC-V compressed long control-flow bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST ic]' \
+		'C.JAL target' \
+		'TIMES 3000 DB 0' \
+		'target:' \
+		'NOP' > "$CompressedJalSource"
+	AssembleSuccess riscv-compressed-jal -f bin \
+		-o "$CompressedJalOutput" "$CompressedJalSource"
+	[ "$(od -An -v -tx1 -N 4 "$CompressedJalOutput" | \
+		tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')" = \
+		'ef 00 d0 3b' ] || \
+		Fail "RISC-V C.JAL direct upgrade differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'TIMES 2 BEQ x1, x2, target' \
+		'TIMES 4088 DB 0' \
+		'target:' \
+		'NOP' > "$RepeatSource"
+	AssembleSuccess riscv-long-repeat -f bin \
+		-o "$RepeatOutput" "$RepeatSource"
+	[ "$(wc -c < "$RepeatOutput")" -eq 4104 ] || \
+		Fail "RISC-V repeated branch measurement size differs"
+	[ "$(od -An -v -tx1 -N 12 "$RepeatOutput" | \
+		tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')" = \
+		'63 94 20 00 6f 10 00 00 e3 8e 20 7e' ] || \
+		Fail "RISC-V repeated branch measurement differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'J far_jump' \
+		'BEQ x1, x2, far_branch' \
+		'TIMES 1100000 DB 0' \
+		'far_jump:' \
+		'NOP' \
+		'far_branch:' \
+		'NOP' > "$MissingTemporarySource"
+	AssembleFailure riscv-long-missing-temporary -f bin \
+		-o "$WorkDirectory/riscv-long-missing-temporary.bin" \
+		"$MissingTemporarySource"
+	grep -Fq 'long jump requires a temporary register' \
+		"$WorkDirectory/riscv-long-missing-temporary.stderr" || \
+		Fail "RISC-V missing long-jump temporary diagnostic differs"
+	grep -Fq 'long branch requires a temporary register' \
+		"$WorkDirectory/riscv-long-missing-temporary.stderr" || \
+		Fail "RISC-V missing long-branch temporary diagnostic differs"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'[INST ic]' \
+		'SECTION .text' \
+		'J data_label, t0' \
+		'BEQ x1, x2, data_label, t1' \
+		'C.J data_label, t2' \
+		'C.BNEZ x8, data_label, t3' \
+		'SECTION .data' \
+		'data_label:' \
+		'DQ 0' > "$CrossSectionSource"
+	AssembleSuccess riscv-long-cross-section -march=riscv -f elf64 \
+		-o "$CrossSectionObject" "$CrossSectionSource"
+	LC_ALL=C readelf -rW "$CrossSectionObject" > "$CrossSectionRelocations"
+	[ "$(grep -c 'R_RISCV_PCREL_HI20' "$CrossSectionRelocations")" -eq 4 ] || \
+		Fail "RISC-V long control-flow high relocation count differs"
+	[ "$(grep -c 'R_RISCV_PCREL_LO12_I' "$CrossSectionRelocations")" -eq 4 ] || \
+		Fail "RISC-V long control-flow low relocation count differs"
+	[ "$(grep -c 'R_RISCV_BRANCH\|R_RISCV_JAL\|R_RISCV_RVC' \
+		"$CrossSectionRelocations")" -eq 0 ] || \
+		Fail "RISC-V long control-flow retained a short relocation"
+	[ "$(grep -Ec 'R_RISCV_PCREL_LO12_I.*\.\.@riscv\.pcrel\..* \+ 0$' \
+		"$CrossSectionRelocations")" -eq 4 ] || \
+		Fail "RISC-V long control-flow relocation pairing differs"
+
+	printf '%s\n' '[BITS 64]' 'J 0x7ffff7fe, t0' > "$LocalRangeSource"
+	AssembleSuccess riscv-local-range-positive -march=riscv -f bin \
+		-o "$LocalRangeOutput" "$LocalRangeSource"
+	printf '%s\n' '[BITS 64]' 'J -0x80000800, t0' > "$LocalRangeSource"
+	AssembleSuccess riscv-local-range-negative -march=riscv -f bin \
+		-o "$LocalRangeOutput" "$LocalRangeSource"
+	printf '%s\n' '[BITS 64]' 'BEQ x1, x2, 0x7ffff802, t0' \
+		> "$LocalRangeSource"
+	AssembleSuccess riscv-local-branch-range-positive -march=riscv -f bin \
+		-o "$LocalRangeOutput" "$LocalRangeSource"
+	printf '%s\n' '[BITS 64]' 'BEQ x1, x2, -0x800007fc, t0' \
+		> "$LocalRangeSource"
+	AssembleSuccess riscv-local-branch-range-negative -march=riscv -f bin \
+		-o "$LocalRangeOutput" "$LocalRangeSource"
+	printf '%s\n' '[BITS 64]' 'J 0x7ffff800, t0' > "$LocalRangeSource"
+	AssembleFailure riscv-local-range-positive-overflow -march=riscv -f bin \
+		-o "$LocalRangeOutput" "$LocalRangeSource"
+	grep -Fq 'outside the PC-relative 32-bit range' \
+		"$WorkDirectory/riscv-local-range-positive-overflow.stderr" || \
+		Fail "RISC-V positive local long-jump overflow diagnostic differs"
+	printf '%s\n' '[BITS 64]' 'J -0x80000802, t0' > "$LocalRangeSource"
+	AssembleFailure riscv-local-range-negative-overflow -march=riscv -f bin \
+		-o "$LocalRangeOutput" "$LocalRangeSource"
+	grep -Fq 'outside the PC-relative 32-bit range' \
+		"$WorkDirectory/riscv-local-range-negative-overflow.stderr" || \
+		Fail "RISC-V negative local long-jump overflow diagnostic differs"
+	printf '%s\n' '[BITS 64]' 'BEQ x1, x2, 0x7ffff804, t0' \
+		> "$LocalRangeSource"
+	AssembleFailure riscv-local-branch-range-positive-overflow -march=riscv \
+		-f bin -o "$LocalRangeOutput" "$LocalRangeSource"
+	grep -Fq 'outside the PC-relative 32-bit range' \
+		"$WorkDirectory/riscv-local-branch-range-positive-overflow.stderr" || \
+		Fail "RISC-V positive local long-branch overflow diagnostic differs"
+	printf '%s\n' '[BITS 64]' 'BEQ x1, x2, -0x800007fe, t0' \
+		> "$LocalRangeSource"
+	AssembleFailure riscv-local-branch-range-negative-overflow -march=riscv \
+		-f bin -o "$LocalRangeOutput" "$LocalRangeSource"
+	grep -Fq 'outside the PC-relative 32-bit range' \
+		"$WorkDirectory/riscv-local-branch-range-negative-overflow.stderr" || \
+		Fail "RISC-V negative local long-branch overflow diagnostic differs"
+
+	RequireCommand ld.lld
+	printf '%s\n' \
+		'[BITS 64]' \
+		'SECTION .text' \
+		'BEQ x1, x2, target, t0' \
+		'SECTION .target' \
+		'target:' \
+		'NOP' > "$RangeSource"
+	AssembleSuccess riscv-control-flow-range -march=riscv -f elf64 \
+		-o "$RangeObject" "$RangeSource"
+
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x1000 : { *(.text) }' \
+		'  .target 0x80000802 : { *(.target) }' \
+		'}' > "$RangeScript"
+	ld.lld -m elf64lriscv --no-relax \
+		-T "$RangeScript" -o "$RangeLinkOutput" "$RangeObject" \
+		>"$WorkDirectory/riscv-range-positive.stdout" 2>"$RangeLinkError" || \
+		Fail "RISC-V positive PC-relative pair boundary did not link"
+
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x80000800 : { *(.text) }' \
+		'  .target 0x4 : { *(.target) }' \
+		'}' > "$RangeScript"
+	ld.lld -m elf64lriscv --no-relax \
+		-T "$RangeScript" -o "$RangeLinkOutput" "$RangeObject" \
+		>"$WorkDirectory/riscv-range-negative.stdout" 2>"$RangeLinkError" || \
+		Fail "RISC-V negative PC-relative pair boundary did not link"
+
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x1000 : { *(.text) }' \
+		'  .target 0x80000804 : { *(.target) }' \
+		'}' > "$RangeScript"
+	ld.lld -m elf64lriscv --no-relax \
+		-T "$RangeScript" -o "$RangeLinkOutput" "$RangeObject" \
+		>"$WorkDirectory/riscv-range-positive-overflow.stdout" \
+		2>"$RangeLinkError"
+	ResultCode="$?"
+	[ "$ResultCode" -ne 0 ] || \
+		Fail "RISC-V positive PC-relative pair overflow linked"
+	grep -Fq 'R_RISCV_PCREL_HI20' "$RangeLinkError" || \
+		Fail "RISC-V positive PC-relative overflow diagnostic differs"
+
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x80000800 : { *(.text) }' \
+		'  .target 0x2 : { *(.target) }' \
+		'}' > "$RangeScript"
+	ld.lld -m elf64lriscv --no-relax \
+		-T "$RangeScript" -o "$RangeLinkOutput" "$RangeObject" \
+		>"$WorkDirectory/riscv-range-negative-overflow.stdout" \
+		2>"$RangeLinkError"
+	ResultCode="$?"
+	[ "$ResultCode" -ne 0 ] || \
+		Fail "RISC-V negative PC-relative pair overflow linked"
+	grep -Fq 'R_RISCV_PCREL_HI20' "$RangeLinkError" || \
+		Fail "RISC-V negative PC-relative overflow diagnostic differs"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'SECTION .text' \
+		'BEQ x1, x2, target' \
+		'SECTION .target' \
+		'target:' \
+		'NOP' > "$ShortRangeSource"
+	AssembleSuccess riscv-short-relocation-range -march=riscv -f elf64 \
+		-o "$ShortRangeObject" "$ShortRangeSource"
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x1000 : { *(.text) }' \
+		'  .target 0x3000 : { *(.target) }' \
+		'}' > "$RangeScript"
+	ld.lld -m elf64lriscv --no-relax \
+		-T "$RangeScript" -o "$RangeLinkOutput" "$ShortRangeObject" \
+		>"$WorkDirectory/riscv-short-range-link.stdout" \
+		2>"$RangeLinkError"
+	ResultCode="$?"
+	[ "$ResultCode" -ne 0 ] || \
+		Fail "out-of-range RISC-V short branch relocation linked"
+	grep -Fq 'R_RISCV_BRANCH' "$RangeLinkError" || \
+		Fail "RISC-V short branch overflow diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH x86]' \
+		'[BITS 64]' \
+		'%ifidni __ARCH__,x86' \
+		'DB 0x86' \
+		'%else' \
+		'DB 0' \
+		'%endif' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'%ifidni __ARCH__,riscv' \
+		'DB 0x52' \
+		'%else' \
+		'DB 0' \
+		'%endif' > "$ArchitectureSource"
+	AssembleSuccess riscv-architecture-macro -f bin \
+		-o "$ArchitectureOutput" "$ArchitectureSource"
+	[ "$(NormalizeHex "$ArchitectureOutput")" = '86 52' ] || \
+		Fail "__ARCH__ did not follow the active Archend"
+
+	Pass "RISC-V long branch and jump expansion"
+}
+
+CheckRISCVShortRangeLink()
+{
+	local CheckName="$1"
+	local ObjectFile="$2"
+	local TextAddress="$3"
+	local TargetAddress="$4"
+	local ExpectedResult="$5"
+	local RelocationName="$6"
+	local LinkScript="$WorkDirectory/$CheckName.ld"
+	local LinkOutput="$WorkDirectory/$CheckName.elf"
+
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		"  .text $TextAddress : { *(.text) }" \
+		"  .target $TargetAddress : { *(.target) }" \
+		'}' > "$LinkScript"
+	if [ "$ExpectedResult" = success ]; then
+		LinkSuccess "$CheckName" ld.lld -m elf64lriscv --no-relax \
+			-T "$LinkScript" -o "$LinkOutput" "$ObjectFile"
+	else
+		LinkFailure "$CheckName" ld.lld -m elf64lriscv --no-relax \
+			-T "$LinkScript" -o "$LinkOutput" "$ObjectFile"
+		grep -Fq "$RelocationName" "$WorkDirectory/$CheckName.stderr" || \
+			Fail "$CheckName diagnostic differs"
+	fi
+}
+
+CheckRISCVShortRelocationRange()
+{
+	local JALSource="$WorkDirectory/riscv-short-jal-range.asm"
+	local JALObject="$WorkDirectory/riscv-short-jal-range.o"
+	local BranchSource="$WorkDirectory/riscv-short-rvc-branch-range.asm"
+	local BranchObject="$WorkDirectory/riscv-short-rvc-branch-range.o"
+	local JumpSource="$WorkDirectory/riscv-short-rvc-jump-range.asm"
+	local JumpObject="$WorkDirectory/riscv-short-rvc-jump-range.o"
+
+	RequireCommand ld.lld
+	printf '%s\n' \
+		'[BITS 64]' \
+		'SECTION .text' \
+		'JAL ra, target' \
+		'SECTION .target' \
+		'target:' \
+		'NOP' > "$JALSource"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'[INST ic]' \
+		'SECTION .text' \
+		'C.BEQZ x8, target' \
+		'SECTION .target' \
+		'target:' \
+		'C.NOP' > "$BranchSource"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'[INST ic]' \
+		'SECTION .text' \
+		'C.J target' \
+		'SECTION .target' \
+		'target:' \
+		'C.NOP' > "$JumpSource"
+
+	AssembleSuccess riscv-short-jal-range -march=riscv -f elf64 \
+		-o "$JALObject" "$JALSource"
+	AssembleSuccess riscv-short-rvc-branch-range -march=riscv -f elf64 \
+		-o "$BranchObject" "$BranchSource"
+	AssembleSuccess riscv-short-rvc-jump-range -march=riscv -f elf64 \
+		-o "$JumpObject" "$JumpSource"
+
+	CheckRISCVShortRangeLink riscv-jal-range-positive "$JALObject" \
+		0x1000 0x100ffe success R_RISCV_JAL
+	CheckRISCVShortRangeLink riscv-jal-range-negative "$JALObject" \
+		0x101000 0x1000 success R_RISCV_JAL
+	CheckRISCVShortRangeLink riscv-jal-range-positive-overflow "$JALObject" \
+		0x1000 0x101000 failure R_RISCV_JAL
+	CheckRISCVShortRangeLink riscv-jal-range-negative-overflow "$JALObject" \
+		0x101002 0x1000 failure R_RISCV_JAL
+
+	CheckRISCVShortRangeLink riscv-rvc-branch-range-positive "$BranchObject" \
+		0x1000 0x10fe success R_RISCV_RVC_BRANCH
+	CheckRISCVShortRangeLink riscv-rvc-branch-range-negative "$BranchObject" \
+		0x1100 0x1000 success R_RISCV_RVC_BRANCH
+	CheckRISCVShortRangeLink riscv-rvc-branch-range-positive-overflow \
+		"$BranchObject" 0x1000 0x1100 failure R_RISCV_RVC_BRANCH
+	CheckRISCVShortRangeLink riscv-rvc-branch-range-negative-overflow \
+		"$BranchObject" 0x1102 0x1000 failure R_RISCV_RVC_BRANCH
+
+	CheckRISCVShortRangeLink riscv-rvc-jump-range-positive "$JumpObject" \
+		0x1000 0x17fe success R_RISCV_RVC_JUMP
+	CheckRISCVShortRangeLink riscv-rvc-jump-range-negative "$JumpObject" \
+		0x1800 0x1000 success R_RISCV_RVC_JUMP
+	CheckRISCVShortRangeLink riscv-rvc-jump-range-positive-overflow \
+		"$JumpObject" 0x1000 0x1800 failure R_RISCV_RVC_JUMP
+	CheckRISCVShortRangeLink riscv-rvc-jump-range-negative-overflow \
+		"$JumpObject" 0x1802 0x1000 failure R_RISCV_RVC_JUMP
+
+	Pass "RISC-V short relocation ranges"
+}
+
+CheckRISCVELFLinking()
+{
+	local RV32Source="$WorkDirectory/riscv-link32.asm"
+	local RV64Source="$WorkDirectory/riscv-link64.asm"
+	local RV32Object="$WorkDirectory/riscv-link32.o"
+	local RV64Object="$WorkDirectory/riscv-link64.o"
+	local RV32Output="$WorkDirectory/riscv-link32.elf"
+	local RV64Output="$WorkDirectory/riscv-link64.elf"
+	local StaticScript="$WorkDirectory/riscv-link-static.ld"
+	local RV32Relocations="$WorkDirectory/riscv-link32.relocations"
+	local RV64Relocations="$WorkDirectory/riscv-link64.relocations"
+	local RV32References="$WorkDirectory/riscv-link32.references"
+	local RV64References="$WorkDirectory/riscv-link64.references"
+	local DynamicSource="$WorkDirectory/riscv-link-dynamic.asm"
+	local DynamicObject="$WorkDirectory/riscv-link-dynamic.o"
+	local DynamicOutput="$WorkDirectory/riscv-link-dynamic.so"
+	local DynamicSections="$WorkDirectory/riscv-link-dynamic.sections"
+	local DynamicRelocations="$WorkDirectory/riscv-link-dynamic.relocations"
+	local RelaxSource="$WorkDirectory/riscv-link-relax.asm"
+	local RelaxObject="$WorkDirectory/riscv-link-relax.o"
+	local RelaxScript="$WorkDirectory/riscv-link-relax.ld"
+	local RelaxedOutput="$WorkDirectory/riscv-link-relaxed.elf"
+	local UnrelaxedOutput="$WorkDirectory/riscv-link-unrelaxed.elf"
+	local RelaxedText="$WorkDirectory/riscv-link-relaxed.text"
+	local UnrelaxedText="$WorkDirectory/riscv-link-unrelaxed.text"
+	local AlignSource="$WorkDirectory/riscv-link-align.asm"
+	local AlignObject="$WorkDirectory/riscv-link-align.o"
+	local AlignScript="$WorkDirectory/riscv-link-align.ld"
+	local AlignOutput="$WorkDirectory/riscv-link-align.elf"
+	local AlignText="$WorkDirectory/riscv-link-align.text"
+	local AlignSymbols="$WorkDirectory/riscv-link-align.symbols"
+	local AlignSize
+
+	RequireCommand ld.lld
+	RequireCommand llvm-objcopy
+
+	printf '%s\n' \
+		'[BITS 32]' \
+		'SECTION .text' \
+		'GLOBAL start' \
+		'start:' \
+		'CALL function' \
+		'load_anchor:' \
+		'AUIPC t0, PCREL_HIGH data' \
+		'LW t1, [t0 + PCREL_LOW load_anchor]' \
+		'store_anchor:' \
+		'AUIPC t2, PCREL_HIGH data + 4' \
+		'SW t1, [t2 + PCREL_LOW store_anchor]' \
+		'got_anchor:' \
+		'AUIPC t3, GOT data' \
+		'LW t4, [t3 + PCREL_LOW got_anchor]' \
+		'RET' \
+		'SECTION .target' \
+		'function:' \
+		'RET' \
+		'SECTION .data' \
+		'data:' \
+		'DD 0x11223344' \
+		'DD 0x55667788' \
+		'SECTION .refs' \
+		'DD data + 4' > "$RV32Source"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'SECTION .text' \
+		'GLOBAL start' \
+		'start:' \
+		'CALL function' \
+		'load_anchor:' \
+		'AUIPC t0, PCREL_HIGH data' \
+		'LD t1, [t0 + PCREL_LOW load_anchor]' \
+		'store_anchor:' \
+		'AUIPC t2, PCREL_HIGH data + 8' \
+		'SD t1, [t2 + PCREL_LOW store_anchor]' \
+		'got_anchor:' \
+		'AUIPC t3, GOT data' \
+		'LD t4, [t3 + PCREL_LOW got_anchor]' \
+		'RET' \
+		'SECTION .target' \
+		'function:' \
+		'RET' \
+		'SECTION .data' \
+		'data:' \
+		'DQ 0x1122334455667788' \
+		'DQ 0x8877665544332211' \
+		'SECTION .refs' \
+		'DQ data + 8' > "$RV64Source"
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x10000 : { *(.text) }' \
+		'  .target 0x18000 : { *(.target) }' \
+		'  .data 0x20000 : { *(.data) }' \
+		'  .refs 0x30000 : { *(.refs) }' \
+		'}' > "$StaticScript"
+
+	AssembleSuccess riscv-link32 -march=riscv -f elf32 \
+		-o "$RV32Object" "$RV32Source"
+	AssembleSuccess riscv-link64 -march=riscv -f elf64 \
+		-o "$RV64Object" "$RV64Source"
+	LinkSuccess riscv-static-link32 ld.lld -m elf32lriscv --no-relax \
+		-e start -T "$StaticScript" -o "$RV32Output" "$RV32Object"
+	LinkSuccess riscv-static-link64 ld.lld -m elf64lriscv --no-relax \
+		-e start -T "$StaticScript" -o "$RV64Output" "$RV64Object"
+	LC_ALL=C readelf -rW "$RV32Output" > "$RV32Relocations"
+	LC_ALL=C readelf -rW "$RV64Output" > "$RV64Relocations"
+	grep -Fq 'There are no relocations in this file.' "$RV32Relocations" || \
+		Fail "RISC-V ELF32 link retained static relocations"
+	grep -Fq 'There are no relocations in this file.' "$RV64Relocations" || \
+		Fail "RISC-V ELF64 link retained static relocations"
+	llvm-objcopy --dump-section .refs="$RV32References" "$RV32Output"
+	llvm-objcopy --dump-section .refs="$RV64References" "$RV64Output"
+	[ "$(NormalizeHex "$RV32References")" = '04 00 02 00' ] || \
+		Fail "RISC-V ELF32 absolute data relocation linked incorrectly"
+	[ "$(NormalizeHex "$RV64References")" = \
+		'08 00 02 00 00 00 00 00' ] || \
+		Fail "RISC-V ELF64 absolute data relocation linked incorrectly"
+	LC_ALL=C readelf -SW "$RV32Output" | grep -Eq \
+		'[[:space:]]\.got[[:space:]]+PROGBITS' || \
+		Fail "RISC-V ELF32 link did not create a GOT"
+	LC_ALL=C readelf -SW "$RV64Output" | grep -Eq \
+		'[[:space:]]\.got[[:space:]]+PROGBITS' || \
+		Fail "RISC-V ELF64 link did not create a GOT"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'EXTERN dynamic_function' \
+		'EXTERN dynamic_data' \
+		'SECTION .text' \
+		'GLOBAL caller' \
+		'caller:' \
+		'CALL_PLT dynamic_function' \
+		'got_anchor:' \
+		'AUIPC t0, GOT dynamic_data' \
+		'LD t1, [t0 + PCREL_LOW got_anchor]' \
+		'RET' > "$DynamicSource"
+	AssembleSuccess riscv-dynamic-link -march=riscv -f elf64 \
+		-o "$DynamicObject" "$DynamicSource"
+	LinkSuccess riscv-shared-link ld.lld -m elf64lriscv -shared \
+		-o "$DynamicOutput" "$DynamicObject"
+	LC_ALL=C readelf -SW "$DynamicOutput" > "$DynamicSections"
+	LC_ALL=C readelf -rW "$DynamicOutput" > "$DynamicRelocations"
+	grep -Eq '[[:space:]]\.plt[[:space:]]+PROGBITS' "$DynamicSections" || \
+		Fail "RISC-V shared link did not create a PLT"
+	grep -Eq '[[:space:]]\.got[[:space:]]+PROGBITS' "$DynamicSections" || \
+		Fail "RISC-V shared link did not create a GOT"
+	grep -Eq 'R_RISCV_JUMP_SLOT[[:space:]]+.*dynamic_function' \
+		"$DynamicRelocations" || \
+		Fail "RISC-V CALL_PLT was not consumed by the shared link"
+	grep -Eq 'R_RISCV_64[[:space:]]+.*dynamic_data' "$DynamicRelocations" || \
+		Fail "RISC-V GOT reference was not consumed by the shared link"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'SECTION .text' \
+		'GLOBAL start' \
+		'start:' \
+		'CALL target' \
+		'RET' \
+		'SECTION .target' \
+		'target:' \
+		'RET' > "$RelaxSource"
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x10000 : { *(.text) }' \
+		'  .target 0x11000 : { *(.target) }' \
+		'}' > "$RelaxScript"
+	AssembleSuccess riscv-link-relax -march=riscv -mrelax -f elf64 \
+		-o "$RelaxObject" "$RelaxSource"
+	LinkSuccess riscv-link-no-relax ld.lld -m elf64lriscv --no-relax \
+		-e start -T "$RelaxScript" -o "$UnrelaxedOutput" "$RelaxObject"
+	LinkSuccess riscv-link-with-relax ld.lld -m elf64lriscv --relax \
+		-e start -T "$RelaxScript" -o "$RelaxedOutput" "$RelaxObject"
+	llvm-objcopy --dump-section .text="$UnrelaxedText" "$UnrelaxedOutput"
+	llvm-objcopy --dump-section .text="$RelaxedText" "$RelaxedOutput"
+	[ "$(wc -c < "$UnrelaxedText")" -eq 12 ] || \
+		Fail "RISC-V unrelaxed CALL size differs"
+	[ "$(wc -c < "$RelaxedText")" -eq 8 ] || \
+		Fail "RISC-V relaxed CALL size differs"
+
+	printf '%s\n' \
+		'[BITS 64]' \
+		'SECTION .text' \
+		'GLOBAL start' \
+		'start:' \
+		'NOP' \
+		'align 16' \
+		'aligned_instruction:' \
+		'NOP' > "$AlignSource"
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x1004 : SUBALIGN(1) { *(.text) }' \
+		'}' > "$AlignScript"
+	AssembleSuccess riscv-link-align -march=riscv -mrelax -f elf64 \
+		-o "$AlignObject" "$AlignSource"
+	LinkSuccess riscv-link-align ld.lld -m elf64lriscv --relax \
+		-e start -T "$AlignScript" -o "$AlignOutput" "$AlignObject"
+	llvm-objcopy --dump-section .text="$AlignText" "$AlignOutput"
+	LC_ALL=C readelf -sW "$AlignOutput" > "$AlignSymbols"
+	AlignSize="$(wc -c < "$AlignText")"
+	[ "$AlignSize" -eq 16 ] || \
+		Fail "RISC-V linked ALIGN padding size differs: $AlignSize"
+	grep -Eq '0000000000001010[[:space:]].*[[:space:]]aligned_instruction$' \
+		"$AlignSymbols" || Fail "RISC-V linked ALIGN address differs"
+
+	Pass "RISC-V ELF end-to-end linking"
+}
+
 CheckRISCVExtensions()
 {
 	CPUSource="$WorkDirectory/riscv-extensions-cpu.asm"

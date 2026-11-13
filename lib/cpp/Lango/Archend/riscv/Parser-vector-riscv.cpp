@@ -38,7 +38,7 @@ bool ParseRISCVVectorType(char* operands[], unsigned start, unsigned count,
 		TrimEnd(text);
 		if ((text[0] == 'e' || text[0] == 'E') && text[1]) {
 			char* end;
-			long bits = strtol(text + 1, &end, 10);
+			long bits = StrTokenLong(text + 1, &end, 10);
 			if (*end || (bits != 8 && bits != 16 && bits != 32 && bits != 64) ||
 				have_element) return false;
 			type.element_bits = static_cast<uint16_t>(bits);

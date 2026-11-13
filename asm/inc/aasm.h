@@ -193,7 +193,6 @@ extern int passn;		/* Actual pass number */
 extern bool tasm_compatible_mode;
 extern int optimizing;
 extern int globalbits;          /* 16, 32 or 64-bit mode */
-extern const char* globalarch;
 extern int globalrel;		/* default to relative addressing? */
 extern int maxbits;		/* max bits supported by output */
 
@@ -488,6 +487,7 @@ struct Preprocessor {
 	static void pre_undefine(char*);
 	static void runtime(char*);
 	static void extra_stdmac(macros_t*);
+	static void SetAssemblySession(AssemblySession*);
 };
 
 extern "C" {

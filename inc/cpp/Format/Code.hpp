@@ -75,7 +75,7 @@ enum class CodeFixupKind : uint8_t {
 	PageOffset,
 	High,
 	Low,
-	ArchitectureSpecific
+	Alignment
 };
 
 struct CodeFixupEncoding {

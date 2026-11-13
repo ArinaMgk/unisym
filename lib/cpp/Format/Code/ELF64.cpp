@@ -897,7 +897,7 @@ void elf64_emit_fixup(const uni::CodeFixup& fixup)
 		aasm_log(_LOG_PANIC, "RISC-V ELF64 fixup is not at the section end");
 		return;
 	}
-	if (fixup.kind == uni::CodeFixupKind::ArchitectureSpecific) {
+	if (fixup.kind == uni::CodeFixupKind::Alignment) {
 		if (fixup.addend <= 0 ||
 			(fixup.initial_value != 2 && fixup.initial_value != 4) ||
 			fixup.addend % static_cast<int64_t>(fixup.initial_value)) {

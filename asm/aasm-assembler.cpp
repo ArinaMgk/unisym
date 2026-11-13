@@ -121,7 +121,6 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 		Session.PassPhase = pass0;
 		Session.PassNumber = passn;
 		Session.CurrentBits = globalbits;
-		globalarch = initial_archend->DumpArchend().shortname;
 		Session.CurrentAbi = initial_archend->DefaultAbi(
 			Session.CurrentBits, Session.CurrentCpu);
 		Session.AbiExplicit = false;
@@ -216,7 +215,6 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 						break;
 					}
 					ActivateArchend(*selected, pass1, pass2);
-					globalarch = selected->DumpArchend().shortname;
 					Session.CurrentCpu = selected->DefaultCpu();
 					globalbits = Session.SectionBits =
 						selected->DumpArchend().default_bits;

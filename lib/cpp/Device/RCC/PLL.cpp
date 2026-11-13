@@ -118,37 +118,60 @@ namespace uni {
 	}
 
 	bool RCCPLL::setMode(PLLSource::PLLSource src, stduint range, stduint vcosel, PLLPara_t para) const {
-		// RCC_PLL_ON
-		/* Check if the PLL is used as system clock or not */
-		if (RCC.Sysclock.CurrentSource() != SysclkSource::PLL1)
-		{
-			asrtret(Rangein(para.m, 1, 64));
-			asrtret(Rangein(para.n, 4, 513));
-			asrtret(Rangein(para.p, 1, 129));
-			asrtret(Rangein(para.q, 1, 129));
-			asrtret(Rangein(para.r, 1, 129));
-			enAble(false);
-			// Configure the main PLL clock source, multiplication and division factors
-			//__HAL_RCC_PLL_CONFIG
-			{
-				// maybe need write whole u32 by once ?
-				RCC_PLLCKSELR_PLLSRC = _IMM(src);
-				RCC_PLLCKSELR_DIVM1 = para.m;
-				RCC_PLL1DIVR_N1 = para.n - 1;
-				RCC_PLL1DIVR_P1 = para.p - 1;
-				RCC_PLL1DIVR_Q1 = para.q - 1;
-				RCC_PLL1DIVR_R1 = para.r - 1;
-			}
-			RCC_PLL1FRACR_FRACN1 = para.frac;// __HAL_RCC_PLLFRACN_CONFIG
-			RCC_PLLCFGR_PLL1RGE = range;// PLL1 input reference frequency range: VCI
-			RCC_PLLCFGR_PLL1VCOSEL = vcosel;// PLL1 output frequency range : VCO
-			RCC[RCCReg::PLLCFGR].setof(16);// RCC_PLLCFGR_DIVP1EN, Enable PLL System Clock output
-			RCC[RCCReg::PLLCFGR].setof(17);// RCC_PLLCFGR_DIVQ1EN, Enable PLL1Q Clock output
-			RCC[RCCReg::PLLCFGR].setof(18);// RCC_PLLCFGR_DIVR1EN, Enable PLL1R  Clock output
-			RCC[RCCReg::PLLCFGR].setof(0);// RCC_PLLCFGR_PLL1FRACEN, Enable PLL1FRACN
-			enAble(true);
-		}
-		else return false;
+		const byte pllId = getID();
+		if (pllId < 1 || pllId > 3) return false;
+		if (src != PLLSource::HSI && src != PLLSource::CSI && src != PLLSource::HSE) return false;
+
+		const byte id = pllId - 1;
+		if (pllId == 1 && RCC.Sysclock.CurrentSource() == SysclkSource::PLL1) return false;
+
+		asrtret(Rangein(para.m, 1, 64));
+		asrtret(Rangein(para.n, 4, 513));
+		asrtret(Rangein(para.p, 1, 129));
+		asrtret(Rangein(para.q, 1, 129));
+		asrtret(Rangein(para.r, 1, 129));
+		if (range >= 4 || vcosel >= 2) return false;
+		asrtret(Rangein(para.frac, 0, 8192));
+
+		static const RCCReg::RCCReg divrRegs[] = {
+			RCCReg::PLL1DIVR, RCCReg::PLL2DIVR, RCCReg::PLL3DIVR
+		};
+		static const RCCReg::RCCReg fracrRegs[] = {
+			RCCReg::PLL1FRACR, RCCReg::PLL2FRACR, RCCReg::PLL3FRACR
+		};
+
+		const bool sourceChange = RCC.PLL1.CurrentSource() != src;
+		if (sourceChange &&
+			((id != 0 && RCC.PLL1.isEnabled()) ||
+				(id != 1 && RCC.PLL2.isEnabled()) ||
+				(id != 2 && RCC.PLL3.isEnabled()))) return false;
+
+		enAble(false);
+		if (sourceChange) RCC_PLLCKSELR_PLLSRC = _IMM(src);
+
+		Stdfield divm(RCC[RCCReg::PLLCKSELR], 4 + 8 * id, 6);
+		Stdfield n(RCC[divrRegs[id]], 0, 9);
+		Stdfield p(RCC[divrRegs[id]], 9, 7);
+		Stdfield q(RCC[divrRegs[id]], 16, 7);
+		Stdfield r(RCC[divrRegs[id]], 24, 7);
+		Stdfield frac(RCC[fracrRegs[id]], 3, 13);
+		Stdfield pllcfgrRge(RCC[RCCReg::PLLCFGR], 2 + 4 * id, 2);
+		Stdfield pllcfgrVco(RCC[RCCReg::PLLCFGR], 1 + 4 * id, 1);
+
+		divm = para.m;
+		n = para.n - 1;
+		p = para.p - 1;
+		q = para.q - 1;
+		r = para.r - 1;
+		frac = para.frac;
+		pllcfgrRge = range;
+		pllcfgrVco = vcosel;
+
+		RCC[RCCReg::PLLCFGR].setof(4 * id, para.frac != 0);
+		for (byte output = 0; output < 3; ++output)
+			RCC[RCCReg::PLLCFGR].setof(16 + 3 * id + output, true);
+
+		enAble(true);
 		return true;
 	}
 

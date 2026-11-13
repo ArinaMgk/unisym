@@ -4,17 +4,59 @@
 // Copyright: UNISYM, under Apache License 2.0
 
 #include "../../../../../asm/inc/aasm.h"
-#include "../../../../../inc/cpp/Lango/Archend/riscv/Instruction-riscv.hpp"
 #include "../../../../../inc/cpp/Lango/Archend/riscv/Target-riscv.hpp"
 
 namespace uni::lango {
 
 namespace {
 
+enum class ExtensionNameKind : uint8_t {
+	SingleLetter,
+	MultiLetter
+};
+
+struct ExtensionInfo {
+	RISCVExtension extension;
+	const char* name;
+	const char* attribute;
+	ExtensionNameKind kind;
+	uint8_t order;
+	uint32_t implied;
+};
+
 constexpr uint32_t Extension(RISCVExtension extension)
 {
-	return static_cast<uint32_t>(extension);
+	return RISCVExtensionMask(extension);
 }
+
+const ExtensionInfo ExtensionTable[] = {
+	{RISCVExtension::I, "i", "i2p1", ExtensionNameKind::SingleLetter, 0, 0},
+	{RISCVExtension::M, "m", "m2p0", ExtensionNameKind::SingleLetter, 1, 0},
+	{RISCVExtension::A, "a", "a2p1", ExtensionNameKind::SingleLetter, 2, 0},
+	{RISCVExtension::F, "f", "f2p2", ExtensionNameKind::SingleLetter, 3,
+		Extension(RISCVExtension::Zicsr)},
+	{RISCVExtension::D, "d", "d2p2", ExtensionNameKind::SingleLetter, 4,
+		Extension(RISCVExtension::F)},
+	{RISCVExtension::C, "c", "c2p0", ExtensionNameKind::SingleLetter, 5, 0},
+	{RISCVExtension::V, "v", "v1p0", ExtensionNameKind::SingleLetter, 6,
+		Extension(RISCVExtension::F) | Extension(RISCVExtension::D) |
+		Extension(RISCVExtension::Zicsr)},
+	{RISCVExtension::Zicsr, "zicsr", "zicsr2p0",
+		ExtensionNameKind::MultiLetter, 7, 0},
+	{RISCVExtension::Zifencei, "zifencei", "zifencei2p0",
+		ExtensionNameKind::MultiLetter, 8, 0}
+};
+
+constexpr uint32_t ImplementedExtensions =
+	Extension(RISCVExtension::I) |
+	Extension(RISCVExtension::M) |
+	Extension(RISCVExtension::A) |
+	Extension(RISCVExtension::F) |
+	Extension(RISCVExtension::D) |
+	Extension(RISCVExtension::C) |
+	Extension(RISCVExtension::V) |
+	Extension(RISCVExtension::Zicsr) |
+	Extension(RISCVExtension::Zifencei);
 
 bool Equal(const char* left, const char* right)
 {
@@ -31,6 +73,76 @@ bool Append(char* output, size_t capacity, size_t& length, const char* text)
 	return true;
 }
 
+const ExtensionInfo* FindExtension(const char* name, size_t length,
+	ExtensionNameKind kind)
+{
+	for (const ExtensionInfo& extension : ExtensionTable)
+		if (extension.kind == kind && StrLength(extension.name) == length &&
+			!StrCompareNInsensitive(name, extension.name, length))
+			return &extension;
+	return nullptr;
+}
+
+uint32_t ApplyImpliedExtensions(uint32_t extensions)
+{
+	for (;;) {
+		uint32_t previous = extensions;
+		for (const ExtensionInfo& extension : ExtensionTable)
+			if (extensions & Extension(extension.extension))
+				extensions |= extension.implied;
+		if (extensions == previous) return extensions;
+	}
+}
+
+}
+
+bool ParseRISCVInstructionSet(const char* name, uint32_t& extensions)
+{
+	if (!name || ascii_tolower(*name) != 'i') return false;
+	uint32_t result = Extension(RISCVExtension::I);
+	const char* cursor = name + 1;
+	uint8_t previous_order = 0;
+	while (*cursor && *cursor != '_') {
+		const ExtensionInfo* extension = FindExtension(
+			cursor, 1, ExtensionNameKind::SingleLetter);
+		if (!extension || extension->extension == RISCVExtension::I ||
+			extension->order <= previous_order) return false;
+		uint32_t mask = Extension(extension->extension);
+		if (result & mask) return false;
+		result |= mask;
+		previous_order = extension->order;
+		cursor++;
+	}
+	while (*cursor) {
+		if (*cursor++ != '_') return false;
+		const char* start = cursor;
+		while (*cursor && *cursor != '_') cursor++;
+		size_t length = static_cast<size_t>(cursor - start);
+		if (!length) return false;
+		const ExtensionInfo* extension = FindExtension(
+			start, length, ExtensionNameKind::MultiLetter);
+		if (!extension || extension->order <= previous_order) return false;
+		uint32_t mask = Extension(extension->extension);
+		if (result & mask) return false;
+		result |= mask;
+		previous_order = extension->order;
+	}
+	result = ApplyImpliedExtensions(result);
+	if (!ValidateRISCVInstructionSet(result)) return false;
+	extensions = result;
+	return true;
+}
+
+bool ValidateRISCVInstructionSet(uint32_t extensions)
+{
+	if (!(extensions & Extension(RISCVExtension::I)) ||
+		(extensions & ~ImplementedExtensions)) return false;
+	return ApplyImpliedExtensions(extensions) == extensions;
+}
+
+bool HasRISCVExtension(uint32_t extensions, RISCVExtension extension)
+{
+	return (extensions & Extension(extension)) != 0;
 }
 
 RISCVABI DefaultRISCVABI(int bits)
@@ -58,9 +170,9 @@ bool ValidateRISCVABI(int bits, uint32_t extensions, RISCVABI abi)
 		abi == RISCVABI::LP64D;
 	if ((bits == 32 && !bits32) || (bits == 64 && !bits64)) return false;
 	if (abi == RISCVABI::ILP32F || abi == RISCVABI::LP64F)
-		return extensions & Extension(RISCVExtension::F);
+		return HasRISCVExtension(extensions, RISCVExtension::F);
 	if (abi == RISCVABI::ILP32D || abi == RISCVABI::LP64D)
-		return extensions & Extension(RISCVExtension::D);
+		return HasRISCVExtension(extensions, RISCVExtension::D);
 	return bits32 || bits64;
 }
 
@@ -78,16 +190,12 @@ bool FormatRISCVArchitecture(int bits, uint32_t extensions,
 	int written = outsfmtbufn(output, capacity, "rv%di2p1", bits);
 	if (written < 0 || static_cast<size_t>(written) >= capacity) return false;
 	size_t length = static_cast<size_t>(written);
-	struct Entry { RISCVExtension extension; const char* name; };
-	static const Entry entries[] = {
-		{RISCVExtension::M, "_m2p0"}, {RISCVExtension::A, "_a2p1"},
-		{RISCVExtension::F, "_f2p2"}, {RISCVExtension::D, "_d2p2"},
-		{RISCVExtension::C, "_c2p0"}, {RISCVExtension::V, "_v1p0"},
-		{RISCVExtension::Zicsr, "_zicsr2p0"}
-	};
-	for (const Entry& entry : entries)
-		if ((extensions & Extension(entry.extension)) &&
-			!Append(output, capacity, length, entry.name)) return false;
+	for (const ExtensionInfo& extension : ExtensionTable) {
+		if (extension.extension == RISCVExtension::I ||
+			!HasRISCVExtension(extensions, extension.extension)) continue;
+		if (!Append(output, capacity, length, "_") ||
+			!Append(output, capacity, length, extension.attribute)) return false;
+	}
 	if ((extensions & Extension(RISCVExtension::M)) &&
 		!Append(output, capacity, length, "_zmmul1p0")) return false;
 	if (extensions & Extension(RISCVExtension::A)) {

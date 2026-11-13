@@ -21,7 +21,9 @@ my %formats = map { $_ => 1 } qw(
 	AtomicLoad Atomic System SystemRegisters FloatLoad FloatStore FloatRegister
 	FloatUnary FloatCompare FloatConvertToInteger FloatConvertFromInteger
 	FloatMoveToInteger FloatMoveFromInteger FloatFused FloatConvertFormat
-	Compressed VectorVV VectorVX VectorVI VectorConfigI VectorConfigR
+	Fence CompressedCI CompressedCIW CompressedCL CompressedCS CompressedCA
+	CompressedCB CompressedCJ CompressedCR CompressedCSS
+	VectorVV VectorVX VectorVI VectorConfigI VectorConfigR
 	VectorLoad VectorStore
 );
 my %operands = map { $_ => 1 } qw(
@@ -30,9 +32,10 @@ my %operands = map { $_ => 1 } qw(
 	RdAtomicAddress RdRsAtomicAddress RsRsOptional FdAddress FsAddress
 	FdFsFs FdFs FdFsFsFs RdFsFs RdFs FdRs VdVsVs VdVsRs VdVsImmediate
 	RdRsVtype RdImmediateVtype RdRsRs VdAddress VsAddress
-	CRegImmediate CReg CJump CBranch CLoad CStore
+	Fence CRegImmediate CRegSpImmediate CReg CRegister CJump CBranch
+	CLoad CStore CFloatLoad CFloatStore CStackLoad CStackStore
+	CFloatStackLoad CFloatStackStore
 );
-my %extensions = map { $_ => 1 } qw(I M A F D C V Zicsr);
 
 my @instructions;
 my %names;
@@ -61,8 +64,8 @@ for my $input (@inputs) {
 			unless $fixed =~ /^0x[0-9a-fA-F]{8}$/;
 		die "$input:$line_number: invalid XLEN $xlen\n"
 			unless $xlen eq '32' || $xlen eq '64' || $xlen eq '32|64';
-		die "$input:$line_number: unknown extension $extension\n"
-			unless $extensions{$extension};
+		die "$input:$line_number: invalid extension requirement $extension\n"
+			unless $extension =~ /^[A-Z][A-Za-z0-9]*(?:\+[A-Z][A-Za-z0-9]*)*$/;
 		push @instructions, {
 			name => $name, enum => $enum, format => $format, operand => $operand,
 			fixed => lc($fixed), xlen => $xlen, extension => $extension,
@@ -96,7 +99,7 @@ print $header <<'HEADER';
 #ifndef UNISYM_LANGO_ARCHEND_RISCV_DATA_INSTRUCTIONS_HPP
 #define UNISYM_LANGO_ARCHEND_RISCV_DATA_INSTRUCTIONS_HPP
 
-#include <stdint.h>
+#include "../Target-riscv.hpp"
 
 namespace uni::lango {
 
@@ -140,7 +143,16 @@ enum class RISCVEncodingFormat : uint8_t {
 	FloatMoveFromInteger,
 	FloatFused,
 	FloatConvertFormat,
-	Compressed,
+	Fence,
+	CompressedCI,
+	CompressedCIW,
+	CompressedCL,
+	CompressedCS,
+	CompressedCA,
+	CompressedCB,
+	CompressedCJ,
+	CompressedCR,
+	CompressedCSS,
 	VectorVV,
 	VectorVX,
 	VectorVI,
@@ -181,24 +193,21 @@ enum class RISCVOperandForm : uint8_t {
 	RdRsRs,
 	VdAddress,
 	VsAddress,
+	Fence,
 	CRegImmediate,
+	CRegSpImmediate,
 	CReg,
+	CRegister,
 	CJump,
 	CBranch,
 	CLoad,
-	CStore
-};
-
-enum class RISCVExtension : uint32_t {
-	None = 0,
-	I = UINT32_C(1) << 0,
-	M = UINT32_C(1) << 1,
-	A = UINT32_C(1) << 2,
-	F = UINT32_C(1) << 3,
-	D = UINT32_C(1) << 4,
-	C = UINT32_C(1) << 5,
-	V = UINT32_C(1) << 6,
-	Zicsr = UINT32_C(1) << 7
+	CStore,
+	CFloatLoad,
+	CFloatStore,
+	CStackLoad,
+	CStackStore,
+	CFloatStackLoad,
+	CFloatStackStore
 };
 
 enum class RISCVXLen : uint8_t {
@@ -253,10 +262,13 @@ for my $instruction (@instructions) {
 		'static_cast<uint8_t>(RISCVXLen::Bits32) | static_cast<uint8_t>(RISCVXLen::Bits64)';
 	my $signed = $instruction->{signed} eq '-' ? 'None' : $instruction->{signed};
 	my $unsigned = $instruction->{unsigned} eq '-' ? 'None' : $instruction->{unsigned};
+	my $extensions = join ' | ', map {
+		"static_cast<uint32_t>(RISCVExtension::$_)"
+	} split /\+/, $instruction->{extension};
 	my $name = lc($instruction->{name});
 	print $source "\t{\"$name\", RISCVOpcode::$instruction->{enum},\n";
 	print $source "\t\tRISCVEncodingFormat::$instruction->{format}, RISCVOperandForm::$instruction->{operand},\n";
-	print $source "\t\tUINT32_C($instruction->{fixed}), static_cast<uint32_t>(RISCVExtension::$instruction->{extension}),\n";
+	print $source "\t\tUINT32_C($instruction->{fixed}), $extensions,\n";
 	print $source "\t\t$xlen, RISCVOpcode::$signed, RISCVOpcode::$unsigned},\n";
 }
 print $source <<'SOURCE';

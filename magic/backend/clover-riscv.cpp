@@ -31,6 +31,7 @@ static void PrintHelp() {
 	uni::Console.OutFormat("  -o output.s   Write assembly to output.s\n");
 	uni::Console.OutFormat("  -g            Emit source line directives when present in IR\n");
 	uni::Console.OutFormat("  --asm=gcc     Emit GCC-compatible GNU assembly syntax\n");
+	uni::Console.OutFormat("  --asm=aasm    Emit Unisym assembler syntax\n");
 	uni::Console.OutFormat("  -mbits=64     Select register width\n");
 	uni::Console.OutFormat("  -minst=i      Select the base integer instruction set\n");
 	uni::Console.OutFormat("  -minst=im     Enable integer multiply and divide\n");
@@ -43,7 +44,7 @@ static void PrintHelp() {
 	uni::Console.OutFormat("Supported bits: 64\n");
 	uni::Console.OutFormat("Supported inst: i, m, f, d\n");
 	uni::Console.OutFormat("Supported ABI: lp64, lp64f, lp64d\n");
-	uni::Console.OutFormat("Supported asm: gcc\n");
+	uni::Console.OutFormat("Supported asm: gcc, aasm\n");
 	uni::Console.OutFormat("Default target: -mbits=64 -minst=im -mabi=lp64 --asm=gcc\n");
 }
 
@@ -71,11 +72,14 @@ int main(int argc, char** argv) {
 		}
 		else if (!StrCompareN(argv[index], "--asm=", 6)) {
 			rostr value = argv[index] + 6;
-			if (StrCompare(value, "gcc")) {
-				plogerro("clover-riscv: unsupported --asm=%s; supported values: gcc", value);
+			if (!StrCompare(value, "gcc"))
+				backend_options.assembly_syntax = uni::lango::RISCVAssemblySyntax::GCC;
+			else if (!StrCompare(value, "aasm"))
+				backend_options.assembly_syntax = uni::lango::RISCVAssemblySyntax::AASM;
+			else {
+				plogerro("clover-riscv: unsupported --asm=%s; supported values: gcc, aasm", value);
 				return 1;
 			}
-			backend_options.assembly_syntax = uni::lango::RISCVAssemblySyntax::GCC;
 		}
 		else if (!StrCompareN(argv[index], "-mbits=", 7)) {
 			rostr value = argv[index] + 7;

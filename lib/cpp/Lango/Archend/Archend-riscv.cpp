@@ -70,67 +70,7 @@ void MakePairAnchor(char* output, int32_t section, uint64_t offset)
 
 constexpr uint32_t Extension(RISCVExtension extension)
 {
-	return static_cast<uint32_t>(extension);
-}
-
-constexpr uint32_t ImplementedExtensions =
-	Extension(RISCVExtension::I) |
-	Extension(RISCVExtension::M) |
-	Extension(RISCVExtension::A) |
-	Extension(RISCVExtension::F) |
-	Extension(RISCVExtension::D) |
-	Extension(RISCVExtension::C) |
-	Extension(RISCVExtension::V) |
-	Extension(RISCVExtension::Zicsr);
-
-bool ParseInstructionSet(const char* name, uint32_t& extensions)
-{
-	if (!name || ascii_tolower(*name) != 'i') return false;
-	uint32_t result = Extension(RISCVExtension::I);
-	const char* cursor = name + 1;
-	const char order[] = "mafdcv";
-	int previous = -1;
-	while (*cursor && *cursor != '_') {
-		char letter = ascii_tolower(*cursor++);
-		int current = -1;
-		for (int index = 0; order[index]; index++)
-			if (order[index] == letter) {
-				current = index;
-				break;
-			}
-		if (current < 0) return false;
-		if (current <= previous) return false;
-		previous = current;
-		switch (letter) {
-		case 'm': result |= Extension(RISCVExtension::M); break;
-		case 'a': result |= Extension(RISCVExtension::A); break;
-		case 'f': result |= Extension(RISCVExtension::F); break;
-		case 'd': result |= Extension(RISCVExtension::D); break;
-		case 'c': result |= Extension(RISCVExtension::C); break;
-		case 'v': result |= Extension(RISCVExtension::V); break;
-		default: return false;
-		}
-	}
-	while (*cursor) {
-		if (*cursor++ != '_') return false;
-		const char* start = cursor;
-		while (*cursor && *cursor != '_') cursor++;
-		size_t length = cursor - start;
-		if (length != 5 || StrCompareNInsensitive(start, "zicsr", length))
-			return false;
-		if (result & Extension(RISCVExtension::Zicsr)) return false;
-		result |= Extension(RISCVExtension::Zicsr);
-	}
-	if (result & ~ImplementedExtensions) return false;
-	if (result & Extension(RISCVExtension::D))
-		result |= Extension(RISCVExtension::F);
-	if (result & Extension(RISCVExtension::V))
-		result |= Extension(RISCVExtension::F) | Extension(RISCVExtension::D);
-	if (result & (Extension(RISCVExtension::F) |
-		Extension(RISCVExtension::D) | Extension(RISCVExtension::V)))
-		result |= Extension(RISCVExtension::Zicsr);
-	extensions = result;
-	return true;
+	return RISCVExtensionMask(extension);
 }
 
 }
@@ -153,14 +93,13 @@ uint32_t ArchendRISCV::DefaultCpu() const
 
 bool ArchendRISCV::ParseCpu(const char* name, uint32_t& cpu) const
 {
-	return ParseInstructionSet(name, cpu);
+	return ParseRISCVInstructionSet(name, cpu);
 }
 
 bool ArchendRISCV::ValidateBits(int bits, uint32_t cpu) const
 {
 	if (bits != 32 && bits != 64) return false;
-	return (cpu & Extension(RISCVExtension::I)) &&
-		!(cpu & ~ImplementedExtensions);
+	return ValidateRISCVInstructionSet(cpu);
 }
 
 uint32_t ArchendRISCV::DefaultAbi(int bits, uint32_t cpu) const

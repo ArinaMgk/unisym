@@ -117,7 +117,7 @@ check 'int add(int x, int y) {return x+y;} int main() { return add(-1, 4);} ' 3
 check '../demo/test/clover/c/array.c' 67
 check 'int values[]; int main(){return sizeof(values);}' 4
 check_fail 'int main(){int values[];return 0;}' 'object has incomplete array type'
-check_fail 'int values[2]={1,2,3}; int main(){return 0;}' 'invalid or excessive global array initializer'
+check_fail 'int values[2]={1,2,3}; int main(){return 0;}' 'excess elements in array initializer'
 
 # Label and goto
 check '../demo/test/clover/c/goto.c' 10
@@ -171,6 +171,9 @@ check_fail 'enum E {A}; int A; int main(){return 0;}' 'global variable conflicts
 
 # Structure and union layout
 check '../demo/test/clover/c/struct-layout.c' 254
+check '../demo/test/clover/c/initializer.c' 250
+check_fail 'struct P{int x;}; int main(){struct P value={1,2};return 0;}' 'excess elements in struct initializer'
+check_fail 'union U{int x;char y;}; int main(){union U value={1,2};return 0;}' 'excess elements in union initializer'
 
 # Storage Area and Lifetime
 check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1

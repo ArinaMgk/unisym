@@ -20,6 +20,7 @@
 */
 
 #include "../../../../inc/cpp/Lango/Backend/Backend-riscv.hpp"
+#include "../../../../inc/cpp/Lango/Backend/RISCV/Output-aasm.hpp"
 #include "../../../../inc/cpp/Lango/Backend/RISCV/Output-gcc.hpp"
 
 namespace uni::lango {
@@ -183,10 +184,42 @@ namespace uni::lango {
 					plogerro("RISC-V backend: invalid global object");
 					return false;
 				}
+				if (global.alignment &&
+					((global.alignment & (global.alignment - 1)) ||
+					global.alignment > 16)) {
+					plogerro("RISC-V backend: global alignment must be a power of two up to 16 bytes");
+					return false;
+				}
+				if (global.initializer_values.Count() &&
+					global.initializer_fragments.Count()) {
+					plogerro("RISC-V backend: global object has conflicting initializer forms");
+					return false;
+				}
 				if (global.initializer_values.Count() &&
 					global.initializer_values.Count() != (stduint)global.element_count) {
 					plogerro("RISC-V backend: global initializer element count mismatch");
 					return false;
+				}
+				stdsint object_size = TypeStorageBytes(global.type, target) *
+					global.element_count;
+				stdsint fragment_end = 0;
+				for (const clover::GlobalInitializerFragment& fragment :
+					global.initializer_fragments) {
+					stdsint fragment_size = TypeStorageBytes(fragment.type, target);
+					if (!fragment_size || fragment.offset < (stduint)fragment_end ||
+						fragment.offset + fragment_size > (stduint)object_size) {
+						plogerro("RISC-V backend: invalid global initializer fragment");
+						return false;
+					}
+					if (fragment.type == clover::Type::F32 && !target.extension_f) {
+						plogerro("RISC-V backend: f32 global data requires -minst=imf or imfd");
+						return false;
+					}
+					if (fragment.type == clover::Type::F64 && !target.extension_d) {
+						plogerro("RISC-V backend: f64 global data requires -minst=imfd");
+						return false;
+					}
+					fragment_end = (stdsint)fragment.offset + fragment_size;
 				}
 				for (stduint previous = 0; previous < index; previous++)
 					if (!StrCompare(global.name.reference(),
@@ -256,6 +289,20 @@ namespace uni::lango {
 							instruction.alignment) {
 							if (instruction.alignment & (instruction.alignment - 1)) {
 								plogerro("RISC-V backend: memory alignment must be a power of two");
+								return false;
+							}
+						}
+						if (instruction.opcode == clover::Opcode::MemCopy) {
+							if (instruction.immediate <= 0 ||
+								instruction.operands.Count() != 2 ||
+								instruction.operands.begin()[0].type != clover::Type::Ptr ||
+								instruction.operands.begin()[1].type != clover::Type::Ptr ||
+								(instruction.alignment &&
+									(instruction.alignment & (instruction.alignment - 1))) ||
+								(instruction.source_alignment &&
+									(instruction.source_alignment &
+										(instruction.source_alignment - 1)))) {
+								plogerro("RISC-V backend: invalid memcopy instruction");
 								return false;
 							}
 						}
@@ -724,7 +771,7 @@ namespace uni::lango {
 			const clover::Function& function, const clover::Module& module,
 			const RISCVTargetInfo& target,
 			uni::OstreamTrait& output, RISCVAssemblyOutputInterface* assembly_output,
-			uint32& current_file, uint32& current_line) {
+			uint32& current_file, uint32& current_line, unsigned& private_label) {
 			if (assembly_output && instruction.debug_file && instruction.debug_line &&
 				(instruction.debug_file != current_file || instruction.debug_line != current_line)) {
 				if (!assembly_output->EmitLocation(instruction.debug_file,
@@ -838,6 +885,22 @@ namespace uni::lango {
 				case clover::Type::Ptr: output.OutFormat("\tsd t0, 0(t1)\n"); break;
 				default: break;
 				}
+				return true;
+
+			case clover::Opcode::MemCopy:
+				if (!RequireOperands(instruction, 2) || instruction.immediate <= 0 ||
+					!LoadValue(layout, instruction.operands.begin()[0], "t0", output) ||
+					!LoadValue(layout, instruction.operands.begin()[1], "t1", output))
+					return false;
+				private_label++;
+				output.OutFormat("\tli t3, %[i]\n", instruction.immediate);
+				output.OutFormat(".Lmemcopy_loop_%[u]:\n", private_label);
+				output.OutFormat("\tbeqz t3, .Lmemcopy_end_%[u]\n", private_label);
+				output.OutFormat("\tlbu t2, 0(t1)\n\tsb t2, 0(t0)\n");
+				output.OutFormat("\taddi t0, t0, 1\n\taddi t1, t1, 1\n");
+				output.OutFormat("\taddi t3, t3, -1\n\tj .Lmemcopy_loop_%[u]\n",
+					private_label);
+				output.OutFormat(".Lmemcopy_end_%[u]:\n", private_label);
 				return true;
 
 			case clover::Opcode::Mov:
@@ -1294,11 +1357,12 @@ namespace uni::lango {
 
 			uint32 current_file = 0;
 			uint32 current_line = 0;
+			unsigned private_label = 0;
 			for (const clover::BasicBlock& block : function.blocks) {
 				output.OutFormat(".L%s_%s:\n", function.name.reference(), block.name.reference());
 				for (const clover::Instruction& instruction : block.instructions)
 					if (!EmitInstruction(instruction, layout, function, module, target, output,
-						assembly_output, current_file, current_line)) return false;
+						assembly_output, current_file, current_line, private_label)) return false;
 			}
 			bool terminated = false;
 			if (function.blocks.Count()) {
@@ -1329,12 +1393,28 @@ namespace uni::lango {
 	bool BackendRISCV::Generate(const clover::Module& module, uni::OstreamTrait& output) {
 		if (!ValidateTarget(target, module)) return false;
 		RISCVAssemblyOutputGCC gcc_output;
+		char instruction_set[8] = {'i', '\0'};
+		unsigned instruction_length = 1;
+		if (target.extension_m) instruction_set[instruction_length++] = 'm';
+		if (target.extension_f) instruction_set[instruction_length++] = 'f';
+		if (target.extension_d) instruction_set[instruction_length++] = 'd';
+		instruction_set[instruction_length] = '\0';
+		const char* abi = target.abi == RISCVABI::LP64D ? "lp64d" :
+			target.abi == RISCVABI::LP64F ? "lp64f" : "lp64";
+		RISCVAssemblyOutputAASM aasm_output(target.bits, instruction_set, abi, output);
 		RISCVAssemblyOutputInterface* assembly_output = nullptr;
+		uni::OstreamTrait* assembly_stream = &output;
 		switch (options.assembly_syntax) {
 		case RISCVAssemblySyntax::GCC: assembly_output = &gcc_output; break;
+		case RISCVAssemblySyntax::AASM:
+			assembly_output = &aasm_output;
+			assembly_stream = &aasm_output;
+			if (!aasm_output.Begin()) return false;
+			break;
 		}
 		if (!assembly_output) return false;
-		if (options.debug_symbols && !assembly_output->EmitSourceFiles(module, output))
+		if (options.debug_symbols &&
+			!assembly_output->EmitSourceFiles(module, *assembly_stream))
 			return false;
 		for (const clover::Global& global : module.globals) {
 			if (global.is_declaration) continue;
@@ -1343,49 +1423,88 @@ namespace uni::lango {
 			if (!element_size || object_size <= 0) return false;
 			bool has_initializer = global.initializer != 0 ||
 				global.initializer_high != 0 ||
-				global.initializer_values.Count() != 0;
-			output.OutFormat(global.is_read_only ? ".section .rodata\n" :
+				global.initializer_values.Count() != 0 ||
+				global.initializer_fragments.Count() != 0;
+			assembly_stream->OutFormat(global.is_read_only ? ".section .rodata\n" :
 				has_initializer ? ".data\n" : ".bss\n");
 			if (global.linkage == clover::Linkage::External)
-				output.OutFormat(".globl %s\n", global.name.reference());
-			output.OutFormat(".type %s, @object\n.size %s, %[i]\n",
+				assembly_stream->OutFormat(".globl %s\n", global.name.reference());
+			assembly_stream->OutFormat(".type %s, @object\n.size %s, %[i]\n",
 				global.name.reference(), global.name.reference(), object_size);
-			output.OutFormat(".balign %[i]\n%s:\n", element_size,
+			assembly_stream->OutFormat(".balign %[u]\n%s:\n",
+				global.alignment ? global.alignment : (stduint)element_size,
 				global.name.reference());
-			if (global.initializer_values.Count()) {
+			if (global.initializer_fragments.Count()) {
+				stdsint offset = 0;
+				for (const clover::GlobalInitializerFragment& fragment :
+					global.initializer_fragments) {
+					if ((stdsint)fragment.offset > offset)
+						assembly_stream->OutFormat("\t.zero %[i]\n",
+							(stdsint)fragment.offset - offset);
+					stdsint fragment_size = TypeStorageBytes(fragment.type, target);
+					switch (fragment.type) {
+					case clover::Type::I1:
+					case clover::Type::I8:
+						assembly_stream->OutFormat("\t.byte %[i]\n", fragment.initializer);
+						break;
+					case clover::Type::I16:
+						assembly_stream->OutFormat("\t.half %[i]\n", fragment.initializer);
+						break;
+					case clover::Type::I32:
+					case clover::Type::F32:
+						assembly_stream->OutFormat("\t.word %[i]\n", fragment.initializer);
+						break;
+					case clover::Type::I64:
+					case clover::Type::F64:
+					case clover::Type::Ptr:
+						assembly_stream->OutFormat("\t.quad %[i]\n", fragment.initializer);
+						break;
+					case clover::Type::F128:
+						assembly_stream->OutFormat("\t.quad %[i]\n\t.quad %[i]\n",
+							fragment.initializer, fragment.initializer_high);
+						break;
+					default: return false;
+					}
+					offset = (stdsint)fragment.offset + fragment_size;
+				}
+				if (offset < object_size)
+					assembly_stream->OutFormat("\t.zero %[i]\n", object_size - offset);
+			}
+			else if (global.initializer_values.Count()) {
 				for (stduint index = 0; index < global.initializer_values.Count(); index++) {
 					stdsint value = global.initializer_values.begin()[index];
 					switch (element_size) {
-					case 1: output.OutFormat("\t.byte %[i]\n", value); break;
-					case 2: output.OutFormat("\t.half %[i]\n", value); break;
-					case 4: output.OutFormat("\t.word %[i]\n", value); break;
-					case 8: output.OutFormat("\t.quad %[i]\n", value); break;
+					case 1: assembly_stream->OutFormat("\t.byte %[i]\n", value); break;
+					case 2: assembly_stream->OutFormat("\t.half %[i]\n", value); break;
+					case 4: assembly_stream->OutFormat("\t.word %[i]\n", value); break;
+					case 8: assembly_stream->OutFormat("\t.quad %[i]\n", value); break;
 					default: return false;
 					}
 				}
 			}
 			else if (!global.initializer && !global.initializer_high)
-				output.OutFormat("\t.zero %[i]\n", object_size);
+				assembly_stream->OutFormat("\t.zero %[i]\n", object_size);
 			else if (global.element_count != 1) return false;
 			else {
 				switch (element_size) {
-				case 1: output.OutFormat("\t.byte %[i]\n", global.initializer); break;
-				case 2: output.OutFormat("\t.half %[i]\n", global.initializer); break;
-				case 4: output.OutFormat("\t.word %[i]\n", global.initializer); break;
-				case 8: output.OutFormat("\t.quad %[i]\n", global.initializer); break;
+				case 1: assembly_stream->OutFormat("\t.byte %[i]\n", global.initializer); break;
+				case 2: assembly_stream->OutFormat("\t.half %[i]\n", global.initializer); break;
+				case 4: assembly_stream->OutFormat("\t.word %[i]\n", global.initializer); break;
+				case 8: assembly_stream->OutFormat("\t.quad %[i]\n", global.initializer); break;
 				case 16:
-					output.OutFormat("\t.quad %[i]\n\t.quad %[i]\n",
+					assembly_stream->OutFormat("\t.quad %[i]\n\t.quad %[i]\n",
 						global.initializer, global.initializer_high);
 					break;
 				default: return false;
 				}
 			}
 		}
-		output.OutFormat(".text\n");
+		assembly_stream->OutFormat(".text\n");
 		for (const clover::Function& function : module.functions)
-			if (!EmitFunction(function, target, module, output,
+			if (!EmitFunction(function, target, module, *assembly_stream,
 				options.debug_symbols ? assembly_output : nullptr)) return false;
-		return true;
+		return options.assembly_syntax != RISCVAssemblySyntax::AASM ||
+			aasm_output.Flush();
 	}
 
 }

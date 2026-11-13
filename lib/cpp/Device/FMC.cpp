@@ -27,11 +27,13 @@ namespace uni {
 
 #if defined(_MCU_STM32H7x)
 
+	static constexpr unsigned FmcClockEnableBit = 12;// RCC_AHB3ENR.FMCEN.
+
 	// AKA HAL_SDRAM_Init + FMC_SDRAM_Init + FMC_SDRAM_Timing_Init + __FMC_ENABLE
 	bool FMC_SDRAM_t::setMode(const SDRAMInit& _init, const SDRAMTiming& timing) {
 		Init = _init;
 		// HAL_SDRAM_MspInit: enable FMC clock (D1 AHB3)
-		RCC[RCCReg::AHB3ENR].setof(12);// FMCEN
+		RCC[RCCReg::AHB3ENR].setof(FmcClockEnableBit);
 
 		State = SDRAMState::Busy;
 
@@ -100,7 +102,7 @@ namespace uni {
 		self[FMC_SDRAMReg::SDRTR] = 0;
 		self[FMC_SDRAMReg::SDSR] = 0;
 		// HAL_SDRAM_MspDeInit: disable FMC clock
-		RCC[RCCReg::AHB3ENR].setof(12, false);// FMCEN
+		RCC[RCCReg::AHB3ENR].setof(FmcClockEnableBit, false);
 		State = SDRAMState::Reset;
 		return true;
 	}
@@ -228,6 +230,10 @@ namespace uni {
 	}
 
 	FMC_t FMC;
+
+	bool FMC_t::isAble() const {
+		return RCC[RCCReg::AHB3ENR].bitof(FmcClockEnableBit);
+	}
 
 	// AKA HAL_SetFMCMemorySwappingConfig (global FMC bank mapping, BTCR[0].BMAP)
 	void FMC_t::setMemorySwapping(stduint bank_map) {

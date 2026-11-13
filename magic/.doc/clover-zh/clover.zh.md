@@ -66,15 +66,19 @@ clover-riscv input.ir [options]
 | `-mabi=lp64` | 浮点参数和返回值按照整数调用约定传递 |
 | `-mabi=lp64f` | `f32` 参数和返回值使用浮点寄存器，`f64` 使用整数调用约定 |
 | `-mabi=lp64d` | `f32`、`f64` 参数和返回值使用浮点寄存器 |
-| `-g` | IR 含源位置时输出 `.file`、`.loc` 等 GCC 汇编调试指令 |
+| `-g` | IR 含源位置时输出当前汇编格式对应的源文件与行号信息 |
 | `--asm=gcc` | 输出 GCC 工具链接受的 GNU 汇编语法 |
+| `--asm=aasm` | 输出 Unisym `aasm` 接受的汇编语法 |
 | `-o file` | 将汇编写入指定文件 |
 | `-h`、`--help` | 显示帮助信息及已支持的目标信息 |
 
 当前默认后端目标为 `-mbits=64 -minst=im -mabi=lp64 --asm=gcc`。
 `lp64f` 要求 F 扩展，`lp64d` 要求 F、D 扩展。生成的汇编交给 GCC 或汇编器时，
-应向后续工具传递相同的 `-mabi`。目前只实现 `--asm=gcc`，汇编格式选项与
-目标位数、指令集和 ABI 选项相互独立。
+应向后续工具传递相同的 `-mabi`。`--asm=aasm` 会输出 `[ARCH]`、`[BITS]`、
+`[INST]`、`[ABI]` 目标指令，以及 aasm 的 section、符号、数据、地址和指令语法；
+可使用 `aasm -march=riscv -f elf64` 生成目标文件。启用 `-g` 时，GNU 格式使用
+`.file/.loc`，aasm 格式使用源行指令。汇编格式选项与目标位数、指令集和 ABI
+选项相互独立。
 
 ## IR 中间语言设计
 
@@ -178,10 +182,12 @@ declare @putchar(i32) -> i32
 global @counter i32 = 0
 internal global @private_counter i32 = 0
 internal constant @.L.clover.string.0 i8, 4 = {97, 98, 99, 0}
+global @packet i8, 12 align 4 = data {0: i8 1, 4: i32 2, 8: i32 3}
 declare global @external_counter i32
 %global_address = globaladdr @counter
 %loaded = load i32, %address align 4
 store i32 %value, %address align 4
+memcopy %destination, %source, 12 align 4, 4
 %next = ptradd i32 %address, %index
 ```
 
@@ -190,7 +196,9 @@ store i32 %value, %address align 4
   低 64 位和高 64 位。
 - `local`：创建函数局部存储，结果类型为 `ptr`；可选元素数量用于连续数组存储，
   可选的 `align` 指定以字节计的存储对齐，且必须是二的幂。
-- `global`：定义具有静态存储期的模块级对象，未显式初始化时由前端写入零初始化值。
+- `global`：定义具有静态存储期的模块级对象；可选的 `align` 指定对象对齐。
+  `data` 初始化器由“字节偏移、标量类型、常量值”片段组成，未覆盖的对象区域补零；
+  片段保留标量类型，由后端按照目标字节序输出，不要求前端提前编码原始字节。
 - `constant`：定义模块内部的只读聚合数据；初始化列表的元素数量必须与声明数量一致。
 - `declare global` / `declare constant`：声明由其他模块提供存储的模块级对象，不分配
   存储且不携带初始化值；`globaladdr` 可以引用这种声明，最终由链接器解析符号。
@@ -200,9 +208,11 @@ store i32 %value, %address align 4
 - `mov`：复制一个 SSA 值，不读写内存。
 - `load`：从 `ptr` 地址读取值；可选的 `align` 表示地址至少具有多少字节对齐。
 - `store`：向 `ptr` 地址写入值，不产生结果；同样可以携带可选的 `align`。
+- `memcopy`：在两个不重叠的 `ptr` 对象之间复制固定字节数；两个 `align` 值依次
+  表示目标和源地址的最低已知字节对齐。
 - `ptradd`：将整数索引乘以给定元素类型的存储大小，再加到 `ptr` 地址；结果类型为 `ptr`。
 
-`local`、`load` 和 `store` 的 `align N` 均以字节为单位，且 `N` 必须是正的
+`global`、`local`、`load` 和 `store` 的 `align N` 均以字节为单位，且 `N` 必须是正的
 二次幂。内存访问未写 `align` 时按照访问类型的自然对齐处理；显式写出的值表示
 前端能够保证的最低地址对齐。后端若不能直接完成低于自然对齐的访问，必须拆分
 访问或明确拒绝，不能静默假设地址已自然对齐。当前 RISC-V 后端会把未对齐的

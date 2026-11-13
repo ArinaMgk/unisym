@@ -119,15 +119,18 @@ bool DecodeCString(const char* text, uni::Vector<stdsint>& bytes);
 bool IsCharacterArray(const FrontendCType& type);
 uni::Nnode* FindStringArrayInitializer(uni::Nnode* initializer);
 bool CompleteArrayTypeFromInitializer(FrontendCType& type,
-	uni::Nnode* initializer);
-bool BuildArrayInitializerSlots(const FrontendCType& type,
-	uni::Nnode* initializer, uni::Vector<uni::Nnode*>& slots);
+	uni::Nnode* initializer, const FrontendCTypeInfo& type_info);
 bool BuildStringArrayValues(const FrontendCType& type,
 	uni::Nnode* initializer, uni::Vector<stdsint>& values);
 bool ParseStaticScalarInitializer(uni::Nnode* node,
 	const FrontendCTargetInfo& target,
 	const uni::Vector<FrontendCEnumerator>& constants,
 	const FrontendCType& destination, stdsint& low, stdsint& high);
+bool BuildStaticObjectInitializer(Global& global, const FrontendCType& type,
+	uni::Nnode* initializer, const FrontendCTargetInfo& target,
+	const FrontendCTypeInfo& type_info,
+	const uni::Vector<FrontendCEnumerator>& constants,
+	const FrontendCDiagnostics& diagnostics);
 Type CloverTypeFor(const FrontendCType& type, const FrontendCTargetInfo& target);
 
 // Lowers one C function body into one Clover function.
@@ -239,7 +242,20 @@ private:
 		const uni::Nnode* scope, const FrontendCType& base_type);
 	bool PredeclareBlock(uni::Nnode* block);
 	LocalValue* ActivateLocal(const char* name, const uni::Nnode* declaration);
-	bool InitializeArray(LocalValue& local, uni::Nnode* initializer);
+	bool InitializeScalar(Value address, const FrontendCType& type,
+		stduint alignment, uni::Nnode* initializer);
+	bool InitializeRecordCopy(Value address, const FrontendCType& type,
+		stduint alignment, uni::Nnode* initializer);
+	bool ZeroInitializeObject(Value address, const FrontendCType& type,
+		stduint alignment, const uni::Nnode* source);
+	bool InitializeAggregateFromItems(Value address, const FrontendCType& type,
+		stduint alignment, uni::Vector<uni::Nnode*>& items, stduint& cursor,
+		const uni::Nnode* source);
+	bool InitializeObjectFromItems(Value address, const FrontendCType& type,
+		stduint alignment, uni::Vector<uni::Nnode*>& items, stduint& cursor,
+		const uni::Nnode* source);
+	bool InitializeObject(Value address, const FrontendCType& type,
+		stduint alignment, uni::Nnode* initializer);
 	bool InitializeStatic(LocalValue& local, uni::Nnode* initializer);
 	bool LowerDeclarator(uni::Nnode* node, const uni::Nnode* declaration);
 	void LeaveScope(const uni::Nnode* block);

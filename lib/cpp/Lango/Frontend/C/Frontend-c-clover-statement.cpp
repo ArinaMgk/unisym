@@ -83,37 +83,44 @@ namespace clover::frontend_c_internal {
 			return cursor;
 		}
 
-		bool FillArrayInitializerSlots(const FrontendCType& type,
-			stduint dimension, uni::Nnode* initializer,
-			uni::Vector<uni::Nnode*>& slots, stduint start, stduint capacity) {
-			uni::Vector<uni::Nnode*> items;
-			AppendDirectInitializerItems(initializer, items);
-			stduint cursor = 0;
-			bool has_child_array = dimension + 1 < type.array_dimension_count;
-			stduint child_elements = has_child_array ?
-				ArraySubobjectElements(type, dimension + 1) : 1;
-			for (uni::Nnode* item : items) {
-				if (has_child_array && item->type == tok_block) {
-					stduint remainder = cursor % child_elements;
-					if (remainder) cursor += child_elements - remainder;
-					if (cursor + child_elements > capacity ||
-						!FillArrayInitializerSlots(type, dimension + 1, item,
-							slots, start + cursor, child_elements)) return false;
-					cursor += child_elements;
-					continue;
-				}
-				if (item->type == tok_block) {
-					uni::Vector<uni::Nnode*> scalar_items;
-					AppendDirectInitializerItems(item, scalar_items);
-					if (scalar_items.Count() != 1 || scalar_items[0]->type == tok_block)
-						return false;
-					item = scalar_items[0];
-				}
-				if (cursor >= capacity) return false;
-				slots[start + cursor++] = item;
+		FrontendCType ArrayElementType(const FrontendCType& type) {
+			FrontendCType element = type;
+			if (!element.array_dimension_count) return element;
+			for (stduint index = 1; index < element.array_dimension_count; index++)
+				element.array_dimensions[index - 1] = element.array_dimensions[index];
+			element.array_dimensions[--element.array_dimension_count] = 0;
+			return element;
+		}
+
+		bool ConsumeInitializerObject(const FrontendCType& type,
+			uni::Vector<uni::Nnode*>& items, stduint& cursor,
+			const FrontendCTypeInfo& type_info) {
+			if (cursor >= items.Count()) return true;
+			if (!type.IsArray() && !type.IsRecord()) {
+				cursor++;
+				return true;
 			}
+			if (items[cursor]->type == tok_block) {
+				cursor++;
+				return true;
+			}
+			if (type.IsArray()) {
+				FrontendCType element = ArrayElementType(type);
+				for (stduint index = 0;
+					index < type.array_dimensions[0] && cursor < items.Count(); index++)
+					if (!ConsumeInitializerObject(element, items, cursor, type_info))
+						return false;
+				return true;
+			}
+			const FrontendCRecord* record = type_info.GetRecord(type.record_id);
+			if (!record || !record->complete || !record->members.Count()) return false;
+			stduint member_count = record->is_union ? 1 : record->members.Count();
+			for (stduint index = 0; index < member_count && cursor < items.Count(); index++)
+				if (!ConsumeInitializerObject(record->members.begin()[index].type,
+					items, cursor, type_info)) return false;
 			return true;
 		}
+
 	}
 
 	bool IsCharacterArray(const FrontendCType& type) {
@@ -132,7 +139,7 @@ namespace clover::frontend_c_internal {
 	}
 
 	bool CompleteArrayTypeFromInitializer(FrontendCType& type,
-		uni::Nnode* initializer) {
+		uni::Nnode* initializer, const FrontendCTypeInfo& type_info) {
 		if (!type.IsArray() || !type.array_dimension_count ||
 			type.array_dimensions[0]) return !type.HasIncompleteArray();
 		for (stduint index = 1; index < type.array_dimension_count; index++)
@@ -147,21 +154,28 @@ namespace clover::frontend_c_internal {
 			return true;
 		}
 		if (initializer->type != tok_block) return false;
-		stduint inner_elements = ArraySubobjectElements(type, 1);
-		stduint required = RequiredArrayElements(type, initializer);
-		if (!required || !inner_elements) return false;
-		type.array_dimensions[0] =
-			(required + inner_elements - 1) / inner_elements;
+		if (!type.record_id) {
+			stduint inner_elements = ArraySubobjectElements(type, 1);
+			stduint required = RequiredArrayElements(type, initializer);
+			if (!required || !inner_elements) return false;
+			type.array_dimensions[0] =
+				(required + inner_elements - 1) / inner_elements;
+			return true;
+		}
+		uni::Vector<uni::Nnode*> items;
+		AppendDirectInitializerItems(initializer, items);
+		FrontendCType element = ArrayElementType(type);
+		stduint cursor = 0;
+		stduint count = 0;
+		while (cursor < items.Count()) {
+			stduint previous = cursor;
+			if (!ConsumeInitializerObject(element, items, cursor, type_info) ||
+				cursor == previous) return false;
+			count++;
+		}
+		if (!count) return false;
+		type.array_dimensions[0] = count;
 		return true;
-	}
-
-	bool BuildArrayInitializerSlots(const FrontendCType& type,
-		uni::Nnode* initializer, uni::Vector<uni::Nnode*>& slots) {
-		if (!type.IsArray() || type.HasIncompleteArray() || !initializer ||
-			initializer->type != tok_block) return false;
-		stduint count = type.StorageElementCount();
-		for (stduint index = 0; index < count; index++) slots.Append(nullptr);
-		return FillArrayInitializerSlots(type, 0, initializer, slots, 0, count);
 	}
 
 	bool BuildStringArrayValues(const FrontendCType& type,
@@ -208,12 +222,6 @@ namespace clover::frontend_c_internal {
 		}
 		Instruction instruction;
 		bool is_static = storage_class == FrontendCStorageClass::Static;
-		if (is_static && type.record_id && !type.IsPointer()) {
-			diagnostics->Report(DiagnosticStage::Semantic,
-				"block static record objects are not supported yet", declaration);
-			failed = true;
-			return false;
-		}
 		instruction.opcode = is_static ? Opcode::GlobalAddr : Opcode::Local;
 	if (type.record_id && !type.IsPointer()) {
 		stduint size_bits = type_info->SizeBits(type, *target);
@@ -244,10 +252,17 @@ namespace clover::frontend_c_internal {
 			global.name += function->name;
 			global.name += ".";
 			AppendUnsigned(global.name, next_static_local++);
-			global.type = CloverType(type);
+			if (type.record_id && !type.IsPointer()) {
+				global.type = Type::I8;
+				global.element_count = (stdsint)TypeSize(type);
+			}
+			else {
+				global.type = CloverType(type);
+				global.element_count = type.IsPointer() ? 1 :
+					(stdsint)type.StorageElementCount();
+			}
+			global.alignment = TypeAlignment(type);
 			global.is_read_only = type.IsConstObject();
-			global.element_count = type.IsPointer() ? 1 :
-				(stdsint)type.StorageElementCount();
 			global.linkage = Linkage::Internal;
 			module->globals.Append(global);
 			global_index = module->globals.Count();
@@ -326,7 +341,7 @@ namespace clover::frontend_c_internal {
 		FrontendCType type;
 		if (!ParseDeclarator(declarator, identifier, type, base_type)) return false;
 		if (type.HasIncompleteArray() &&
-			!CompleteArrayTypeFromInitializer(type, initializer)) {
+			!CompleteArrayTypeFromInitializer(type, initializer, *type_info)) {
 			diagnostics->Report(DiagnosticStage::Semantic,
 				"object has incomplete array type", declaration);
 			failed = true;
@@ -374,79 +389,17 @@ namespace clover::frontend_c_internal {
 		return nullptr;
 	}
 
-	bool FunctionBuilder::InitializeArray(LocalValue& local, uni::Nnode* initializer) {
-		uni::Vector<stdsint> string_values;
-		bool is_string = FindStringArrayInitializer(initializer) != nullptr;
-		if (is_string && !BuildStringArrayValues(
-			local.type, initializer, string_values))
-			return Error("invalid character array string initializer", initializer).valid;
-		uni::Vector<uni::Nnode*> values;
-		if (!is_string && !BuildArrayInitializerSlots(local.type, initializer, values))
-			return Error("invalid or excessive array initializer", initializer).valid;
-		stduint element_count = local.type.StorageElementCount();
-		FrontendCType element_type = local.type;
-		element_type.array_dimension_count = 0;
-		FrontendCType element_pointer = element_type.AddressType();
-		for (stduint index = 0; index < element_count; index++) {
-			Value value;
-			if (is_string) value = EmitConst(string_values[index], element_type);
-			else if (values[index]) {
-				uni::Nnode* value_node = values[index];
-				LoweredValue lowered = ToRValue(LowerExpression(value_node), value_node);
-				if (!lowered.valid) return false;
-				if (!lowered.type.IsArithmetic() || !element_type.IsArithmetic())
-					return Error("array initializer requires arithmetic values", value_node).valid;
-				lowered = ConvertArithmetic(lowered, element_type, value_node);
-				if (!lowered.valid) return false;
-				value = lowered.value;
-			}
-			else value = element_type.IsFloating() ?
-				EmitFloatConst(0, element_type) : EmitConst(0, element_type);
-			Value element_index = EmitConst((stdsint)index);
-			Value address = EmitPtrAdd(local.address, element_index, element_pointer);
-			EmitStore(value, address, OffsetAlignment(local.alignment,
-				index * TypeSize(element_type)));
-		}
-		return true;
-	}
-
 	bool FunctionBuilder::InitializeStatic(LocalValue& local,
 		uni::Nnode* initializer) {
 		if (!local.global_index || local.global_index > module->globals.Count())
 			return Error("invalid block static object", initializer).valid;
 		if (!initializer) return true;
 		Global& global = module->globals[local.global_index - 1];
-		if (local.type.IsArray()) {
-			FrontendCType element_type = local.type;
-			element_type.array_dimension_count = 0;
-			if (element_type.scalar_kind == FrontendCScalarKind::LongDouble)
-				return Error("block static long double array initialization is not supported yet",
-					initializer).valid;
-			uni::Vector<stdsint> string_values;
-			bool is_string = FindStringArrayInitializer(initializer) != nullptr;
-			if (is_string && !BuildStringArrayValues(
-				local.type, initializer, string_values))
-				return Error("invalid block static character array string initializer",
-					initializer).valid;
-			uni::Vector<uni::Nnode*> values;
-			if (!is_string && !BuildArrayInitializerSlots(
-				local.type, initializer, values))
-				return Error("invalid or excessive block static array initializer",
-					initializer).valid;
-			stduint count = local.type.StorageElementCount();
-			for (stduint index = 0; index < count; index++) {
-				stdsint low = is_string ? string_values[index] : 0;
-				stdsint high = 0;
-				if (!is_string && values[index] && !ParseStaticScalarInitializer(
-					values[index], *target, *visible_constants,
-					element_type, low, high))
-					return Error("block static array initializer must contain constant expressions",
-						values[index]).valid;
-				if (element_type.integer_rank == FrontendCIntegerRank::Bool &&
-					!element_type.enum_id) low = low != 0;
-				global.initializer_values.Append(low);
-			}
-			return true;
+		if (local.type.IsArray() || local.type.IsRecord()) {
+			global.initializer_values.Clear();
+			global.initializer_fragments.Clear();
+			return BuildStaticObjectInitializer(global, local.type, initializer,
+				*target, *type_info, *visible_constants, *diagnostics);
 		}
 		if (!ParseStaticScalarInitializer(initializer, *target,
 			*visible_constants, local.type, global.initializer,
@@ -486,20 +439,8 @@ namespace clover::frontend_c_internal {
 			Error("invalid local declaration", identifier).valid;
 		if (local->global_index) return InitializeStatic(*local, initializer_node);
 		if (!initializer_node) return true;
-		if (local->type.record_id && !local->type.IsPointer())
-			return Error("record initialization is not supported yet", initializer_node).valid;
-		if (local->type.IsArray())
-			return InitializeArray(*local, initializer_node);
-		LoweredValue initializer = ToRValue(
-			LowerExpression(initializer_node), initializer_node);
-		if (!initializer.valid) return false;
-		if (local->type.IsArithmetic())
-			initializer = ConvertArithmetic(initializer, local->type, initializer_node);
-		else if (!local->type.CanAssignFrom(initializer.type))
-			return Error("incompatible initializer type", initializer_node).valid;
-		if (!initializer.valid) return false;
-		EmitStore(initializer.value, local->address, local->alignment);
-		return true;
+		return InitializeObject(local->address, local->type,
+			local->alignment, initializer_node);
 	}
 
 	void FunctionBuilder::LeaveScope(const uni::Nnode* block) {

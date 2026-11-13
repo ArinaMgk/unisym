@@ -139,6 +139,19 @@ bool IsCompressedBranch(RISCVOpcode opcode)
 	return opcode == RISCVOpcode::CBeqz || opcode == RISCVOpcode::CBnez;
 }
 
+bool IsCompressedFormat(RISCVEncodingFormat format)
+{
+	return format == RISCVEncodingFormat::CompressedCI ||
+		format == RISCVEncodingFormat::CompressedCIW ||
+		format == RISCVEncodingFormat::CompressedCL ||
+		format == RISCVEncodingFormat::CompressedCS ||
+		format == RISCVEncodingFormat::CompressedCA ||
+		format == RISCVEncodingFormat::CompressedCB ||
+		format == RISCVEncodingFormat::CompressedCJ ||
+		format == RISCVEncodingFormat::CompressedCR ||
+		format == RISCVEncodingFormat::CompressedCSS;
+}
+
 uint8_t JumpLinkRegister(const RISCVInstruction& instruction)
 {
 	if (instruction.opcode == RISCVOpcode::CJal) return 1;
@@ -593,7 +606,7 @@ bool RISCVEncoder::Measure(const AssemblySession& session,
 		count = plan.size;
 		return true;
 	}
-	if (info.format == RISCVEncodingFormat::Compressed) {
+	if (IsCompressedFormat(info.format)) {
 		count = 2;
 		return true;
 	}
@@ -958,6 +971,12 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 	case RISCVEncodingFormat::System:
 		return Append(result, info.fixed_bits);
 
+	case RISCVEncodingFormat::Fence:
+		return Append(result, info.fixed_bits |
+			static_cast<uint32_t>(instruction.fence.mode) << 28 |
+			static_cast<uint32_t>(instruction.fence.predecessor) << 24 |
+			static_cast<uint32_t>(instruction.fence.successor) << 20);
+
 	case RISCVEncodingFormat::SystemRegisters:
 		return Append(result, info.fixed_bits |
 			operand[0].reg << 15 | operand[1].reg << 20);
@@ -1053,18 +1072,100 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 		return Append(result, info.fixed_bits | operand[0].reg << 7 |
 			operand[1].reg << 15);
 
-	case RISCVEncodingFormat::Compressed:
+	case RISCVEncodingFormat::CompressedCI:
+	case RISCVEncodingFormat::CompressedCIW:
+	case RISCVEncodingFormat::CompressedCL:
+	case RISCVEncodingFormat::CompressedCS:
+	case RISCVEncodingFormat::CompressedCA:
+	case RISCVEncodingFormat::CompressedCB:
+	case RISCVEncodingFormat::CompressedCJ:
+	case RISCVEncodingFormat::CompressedCR:
+	case RISCVEncodingFormat::CompressedCSS:
 		break;
 	}
 
 	uint16_t compressed = static_cast<uint16_t>(info.fixed_bits);
 	if (info.opcode == RISCVOpcode::CNop)
 		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
-	if (info.opcode == RISCVOpcode::CAddi || info.opcode == RISCVOpcode::CLi ||
-		info.opcode == RISCVOpcode::CLui) {
+	if (info.format == RISCVEncodingFormat::CompressedCIW) {
+		if (operand[0].reg < 8 || operand[0].reg > 15 ||
+			operand[1].reg != 2 ||
+			!RequireImmediate(operand[2].value, immediate) ||
+			!immediate || immediate < 0 || immediate > 1020 ||
+			(immediate & 3)) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V C.ADDI4SPN requires x8..x15, sp, and a nonzero aligned offset");
+			return false;
+		}
+		compressed |= (operand[0].reg - 8) << 2 |
+			((immediate >> 4) & 3) << 11 |
+			((immediate >> 6) & 15) << 7 |
+			((immediate >> 2) & 1) << 6 |
+			((immediate >> 3) & 1) << 5;
+		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+	}
+	if (info.format == RISCVEncodingFormat::CompressedCI &&
+		(info.opcode == RISCVOpcode::CLwsp ||
+		info.opcode == RISCVOpcode::CLdsp ||
+		info.opcode == RISCVOpcode::CFlwsp ||
+		info.opcode == RISCVOpcode::CFldsp)) {
+		if (operand[1].address_kind != RISCVAddressKind::RegisterRelative ||
+			operand[1].reg != 2 || !RequireImmediate(operand[1].value, immediate) ||
+			immediate < 0 || (!operand[0].reg &&
+			operand[0].reg_class == RISCVRegisterClass::Integer)) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V compressed stack load operand is invalid");
+			return false;
+		}
+		bool wide = info.opcode == RISCVOpcode::CLdsp ||
+			info.opcode == RISCVOpcode::CFldsp;
+		if ((!wide && ((immediate & 3) || immediate > 252)) ||
+			(wide && ((immediate & 7) || immediate > 504))) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V compressed stack load offset is invalid");
+			return false;
+		}
+		compressed |= operand[0].reg << 7;
+		if (wide)
+			compressed |= ((immediate >> 5) & 1) << 12 |
+				((immediate >> 3) & 3) << 5 |
+				((immediate >> 6) & 7) << 2;
+		else
+			compressed |= ((immediate >> 5) & 1) << 12 |
+				((immediate >> 2) & 7) << 4 |
+				((immediate >> 6) & 3) << 2;
+		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+	}
+	if (info.format == RISCVEncodingFormat::CompressedCI) {
 		if (!RequireImmediate(operand[1].value, immediate)) return false;
-		if (!SignedRange(immediate, 6) || !operand[0].reg ||
-			(info.opcode == RISCVOpcode::CLui && operand[0].reg == 2)) {
+		if (info.opcode == RISCVOpcode::CAddi16sp) {
+			if (operand[0].reg != 2 || !immediate ||
+				immediate < -512 || immediate > 496 || (immediate & 15)) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V C.ADDI16SP requires sp and a nonzero aligned immediate");
+				return false;
+			}
+			uint16_t value = static_cast<uint16_t>(immediate);
+			compressed |= operand[0].reg << 7 |
+				((value >> 9) & 1) << 12 |
+				((value >> 4) & 1) << 6 |
+				((value >> 6) & 1) << 5 |
+				((value >> 7) & 3) << 3 |
+				((value >> 5) & 1) << 2;
+			return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+		}
+		if (info.opcode == RISCVOpcode::CSlli) {
+			if (!operand[0].reg || immediate <= 0 ||
+				immediate >= session.CurrentBits) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V C.SLLI register or shift amount is invalid");
+				return false;
+			}
+		}
+		else if (!SignedRange(immediate, 6) || !operand[0].reg ||
+			(info.opcode == RISCVOpcode::CLui &&
+				(operand[0].reg == 2 || !immediate)) ||
+			(info.opcode == RISCVOpcode::CAddi && !immediate)) {
 			aasm_log(_LOG_ERROR, "RISC-V compressed immediate or register is invalid");
 			return false;
 		}
@@ -1073,7 +1174,51 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 			((static_cast<uint16_t>(immediate) >> 5) & 1) << 12;
 		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
 	}
-	if (info.opcode == RISCVOpcode::CMv || info.opcode == RISCVOpcode::CAdd) {
+	if (info.format == RISCVEncodingFormat::CompressedCB &&
+		!IsCompressedBranch(info.opcode)) {
+		if (operand[0].reg < 8 || operand[0].reg > 15 ||
+			!RequireImmediate(operand[1].value, immediate)) {
+			aasm_log(_LOG_ERROR, "RISC-V compressed immediate register is invalid");
+			return false;
+		}
+		if (info.opcode == RISCVOpcode::CAndi) {
+			if (!SignedRange(immediate, 6)) {
+				aasm_log(_LOG_ERROR, "RISC-V C.ANDI immediate is outside 6 bits");
+				return false;
+			}
+		}
+		else if (immediate <= 0 || immediate >= session.CurrentBits) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V compressed shift amount is outside the register width");
+			return false;
+		}
+		compressed |= (operand[0].reg - 8) << 7 |
+			(static_cast<uint16_t>(immediate) & 0x1f) << 2 |
+			((static_cast<uint16_t>(immediate) >> 5) & 1) << 12;
+		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+	}
+	if (info.format == RISCVEncodingFormat::CompressedCA) {
+		if (operand[0].reg < 8 || operand[0].reg > 15 ||
+			operand[1].reg < 8 || operand[1].reg > 15) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V compressed arithmetic requires x8..x15");
+			return false;
+		}
+		compressed |= (operand[0].reg - 8) << 7 |
+			(operand[1].reg - 8) << 2;
+		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+	}
+	if (info.format == RISCVEncodingFormat::CompressedCR) {
+		if (info.opcode == RISCVOpcode::CEbreak)
+			return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+		if (info.opcode == RISCVOpcode::CJr || info.opcode == RISCVOpcode::CJalr) {
+			if (!operand[0].reg) {
+				aasm_log(_LOG_ERROR, "RISC-V compressed jump register cannot be zero");
+				return false;
+			}
+			compressed |= operand[0].reg << 7;
+			return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+		}
 		if (!operand[0].reg || !operand[1].reg) {
 			aasm_log(_LOG_ERROR, "RISC-V compressed register cannot be zero");
 			return false;
@@ -1081,62 +1226,54 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 		compressed |= operand[0].reg << 7 | operand[1].reg << 2;
 		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
 	}
-	if (info.opcode == RISCVOpcode::CJ || info.opcode == RISCVOpcode::CJal) {
-		switch (ResolveTarget(session, operand[0].value, offset, immediate)) {
-		case TargetResolution::Fixup:
-			return Append(result, compressed, RISCVFixupKind::CompressedJump,
-				operand[0].value, 2);
-		case TargetResolution::Error: return false;
-		case TargetResolution::Resolved: break;
-		}
-		if ((immediate & 1) || !SignedRange(immediate, 12)) {
-			aasm_log(_LOG_ERROR, "RISC-V compressed jump target is outside range");
-			return false;
-		}
-		return Append(result, EncodeCJ(compressed, immediate),
-			RISCVFixupKind::None, {}, 2);
-	}
-	if (info.opcode == RISCVOpcode::CBeqz || info.opcode == RISCVOpcode::CBnez) {
-		if (operand[0].reg < 8 || operand[0].reg > 15) {
-			aasm_log(_LOG_ERROR, "RISC-V compressed branch requires x8..x15");
-			return false;
-		}
-		switch (ResolveTarget(session, operand[1].value, offset, immediate)) {
-		case TargetResolution::Fixup:
-			return Append(result, compressed | (operand[0].reg - 8) << 7,
-				RISCVFixupKind::CompressedBranch, operand[1].value, 2);
-		case TargetResolution::Error: return false;
-		case TargetResolution::Resolved: break;
-		}
-		if ((immediate & 1) || !SignedRange(immediate, 9)) {
-			aasm_log(_LOG_ERROR, "RISC-V compressed branch target is outside range");
-			return false;
-		}
-		return Append(result, EncodeCB(compressed, operand[0].reg, immediate),
-			RISCVFixupKind::None, {}, 2);
-	}
-	if (info.opcode == RISCVOpcode::CLw || info.opcode == RISCVOpcode::CSw ||
-		info.opcode == RISCVOpcode::CLd || info.opcode == RISCVOpcode::CSd) {
+	if (info.format == RISCVEncodingFormat::CompressedCL ||
+		info.format == RISCVEncodingFormat::CompressedCS) {
 		if (operand[0].reg < 8 || operand[0].reg > 15 ||
 			operand[1].reg < 8 || operand[1].reg > 15 ||
+			operand[1].address_kind != RISCVAddressKind::RegisterRelative ||
 			!RequireImmediate(operand[1].value, immediate) || immediate < 0) {
 			aasm_log(_LOG_ERROR, "RISC-V compressed memory operand is invalid");
 			return false;
 		}
-		bool wide = info.opcode == RISCVOpcode::CLd || info.opcode == RISCVOpcode::CSd;
+		bool wide = info.opcode == RISCVOpcode::CLd ||
+			info.opcode == RISCVOpcode::CSd || info.opcode == RISCVOpcode::CFld ||
+			info.opcode == RISCVOpcode::CFsd;
 		if ((!wide && (immediate & 3 || immediate > 124)) ||
 			(wide && (immediate & 7 || immediate > 248))) {
 			aasm_log(_LOG_ERROR, "RISC-V compressed memory offset is invalid");
 			return false;
 		}
 		compressed |= (operand[1].reg - 8) << 7;
-		if (info.opcode == RISCVOpcode::CLw || info.opcode == RISCVOpcode::CLd)
-			compressed |= (operand[0].reg - 8) << 2;
-		else compressed |= (operand[0].reg - 8) << 2;
+		compressed |= (operand[0].reg - 8) << 2;
 		compressed |= ((immediate >> 3) & 7) << 10;
 		if (wide) compressed |= ((immediate >> 6) & 3) << 5;
 		else compressed |= ((immediate >> 2) & 1) << 6 |
 			((immediate >> 6) & 1) << 5;
+		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
+	}
+	if (info.format == RISCVEncodingFormat::CompressedCSS) {
+		if (operand[1].address_kind != RISCVAddressKind::RegisterRelative ||
+			operand[1].reg != 2 || !RequireImmediate(operand[1].value, immediate) ||
+			immediate < 0) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V compressed stack store operand is invalid");
+			return false;
+		}
+		bool wide = info.opcode == RISCVOpcode::CSdsp ||
+			info.opcode == RISCVOpcode::CFsdsp;
+		if ((!wide && ((immediate & 3) || immediate > 252)) ||
+			(wide && ((immediate & 7) || immediate > 504))) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V compressed stack store offset is invalid");
+			return false;
+		}
+		compressed |= operand[0].reg << 2;
+		if (wide)
+			compressed |= ((immediate >> 3) & 7) << 10 |
+				((immediate >> 6) & 7) << 7;
+		else
+			compressed |= ((immediate >> 2) & 15) << 9 |
+				((immediate >> 6) & 3) << 7;
 		return Append(result, compressed, RISCVFixupKind::None, {}, 2);
 	}
 	aasm_log(_LOG_ERROR, "RISC-V instruction encoding is not implemented");

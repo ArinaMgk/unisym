@@ -166,6 +166,18 @@ namespace clover {
 					output.OutFormat(" align %[u]", instruction.alignment);
 				output.OutFormat("\n");
 				break;
+			case Opcode::MemCopy:
+				output.OutFormat("memcopy ");
+				PrintValue(output, instruction.operands.begin()[0]);
+				output.OutFormat(", ");
+				PrintValue(output, instruction.operands.begin()[1]);
+				output.OutFormat(", %[i]", instruction.immediate);
+				if (instruction.alignment || instruction.source_alignment)
+					output.OutFormat(" align %[u], %[u]",
+						instruction.alignment ? instruction.alignment : 1,
+						instruction.source_alignment ? instruction.source_alignment : 1);
+				output.OutFormat("\n");
+				break;
 			case Opcode::Mov:
 			case Opcode::Add:
 			case Opcode::Sub:
@@ -642,6 +654,29 @@ namespace clover {
 						return Error("store type mismatch");
 					if (!ReadOptionalAlignment(instruction)) return false;
 				}
+				else if (!StrCompare(operation.reference(), "memcopy")) {
+					instruction.opcode = Opcode::MemCopy;
+					instruction.type = Type::Void;
+					if (has_result || !ReadBinaryOperands(instruction) ||
+						!Expect(",") || !ReadNumber(instruction.immediate) ||
+						instruction.immediate <= 0 ||
+						instruction.operands.begin()[0].type != Type::Ptr ||
+						instruction.operands.begin()[1].type != Type::Ptr)
+						return Error("invalid memcopy instruction");
+					if (Is("align")) {
+						Advance();
+						stdsint destination_alignment;
+						stdsint source_alignment;
+						if (!ReadNumber(destination_alignment) ||
+							!Expect(",") || !ReadNumber(source_alignment) ||
+							destination_alignment <= 0 || source_alignment <= 0 ||
+							(destination_alignment & (destination_alignment - 1)) ||
+							(source_alignment & (source_alignment - 1)))
+							return Error("memcopy alignments must be positive powers of two");
+						instruction.alignment = (stduint)destination_alignment;
+						instruction.source_alignment = (stduint)source_alignment;
+					}
+				}
 				else if (!StrCompare(operation.reference(), "mov")) {
 					instruction.opcode = Opcode::Mov;
 					Value operand;
@@ -960,12 +995,40 @@ namespace clover {
 					if (!ReadNumber(global.element_count) || global.element_count <= 0)
 						return Error("invalid global element count");
 				}
+				if (Is("align")) {
+					Advance();
+					stdsint alignment;
+					if (!ReadNumber(alignment) || alignment <= 0 ||
+						(alignment & (alignment - 1)))
+						return Error("global alignment must be a positive power of two");
+					global.alignment = (stduint)alignment;
+				}
 				if (declaration) {
 					module.globals.Append(global);
 					return true;
 				}
 				if (!Expect("=")) return Error("invalid global initializer");
-				if (Is("{")) {
+				if (Is("data")) {
+					Advance();
+					if (!Expect("{")) return false;
+					while (!Is("}")) {
+						GlobalInitializerFragment fragment;
+						stdsint offset;
+						if (!ReadNumber(offset) || offset < 0 || !Expect(":") ||
+							!ReadType(fragment.type) || fragment.type == Type::Void ||
+							!ReadNumber(fragment.initializer))
+							return Error("invalid global initializer fragment");
+						fragment.offset = (stduint)offset;
+						if (fragment.type == Type::F128 &&
+							(!Expect(",") || !ReadNumber(fragment.initializer_high)))
+							return Error("f128 global fragment requires two 64-bit words");
+						global.initializer_fragments.Append(fragment);
+						if (Is("}")) break;
+						if (!Expect(",")) return false;
+					}
+					if (!Expect("}")) return false;
+				}
+				else if (Is("{")) {
 					Advance();
 					while (!Is("}")) {
 						stdsint value;
@@ -1054,6 +1117,7 @@ namespace clover {
 				output.OutFormat("declare %s @%s %s", global.is_read_only ?
 					"constant" : "global", global.name.reference(), TypeName(global.type));
 				if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
+				if (global.alignment) output.OutFormat(" align %[u]", global.alignment);
 				output.OutChar('\n');
 				continue;
 			}
@@ -1061,8 +1125,23 @@ namespace clover {
 			output.OutFormat("%s @%s %s", global.is_read_only ? "constant" : "global",
 				global.name.reference(), TypeName(global.type));
 			if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
+			if (global.alignment) output.OutFormat(" align %[u]", global.alignment);
 			output.OutFormat(" = ");
-			if (global.initializer_values.Count()) {
+			if (global.initializer_fragments.Count()) {
+				output.OutFormat("data {");
+				for (stduint index = 0;
+					index < global.initializer_fragments.Count(); index++) {
+					if (index) output.OutFormat(", ");
+					const GlobalInitializerFragment& fragment =
+						global.initializer_fragments.begin()[index];
+					output.OutFormat("%[u]: %s %[i]", fragment.offset,
+						TypeName(fragment.type), fragment.initializer);
+					if (fragment.type == Type::F128)
+						output.OutFormat(", %[i]", fragment.initializer_high);
+				}
+				output.OutFormat("}\n");
+			}
+			else if (global.initializer_values.Count()) {
 				output.OutFormat("{");
 				for (stduint index = 0; index < global.initializer_values.Count(); index++) {
 					if (index) output.OutFormat(", ");

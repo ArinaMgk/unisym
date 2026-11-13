@@ -177,54 +177,23 @@ namespace clover {
 		}
 
 		void SetGlobalShape(Global& global, const FrontendCType& type,
-			const FrontendCTargetInfo& target) {
+			const FrontendCTargetInfo& target,
+			const FrontendCTypeInfo& type_info) {
+			stduint alignment_bits = type_info.AlignBits(type, target);
+			global.alignment = alignment_bits &&
+				!(alignment_bits % target.char_bits) ?
+				alignment_bits / target.char_bits : 0;
+			if (type.record_id && !type.IsPointer()) {
+				stduint size_bits = type_info.SizeBits(type, target);
+				global.type = Type::I8;
+				global.element_count = size_bits &&
+					!(size_bits % target.char_bits) ?
+					(stdsint)(size_bits / target.char_bits) : 0;
+				return;
+			}
 			global.type = CloverTypeFor(type, target);
 			global.element_count = type.HasIncompleteArray() ? 1 :
 				(stdsint)type.StorageElementCount();
-		}
-
-		bool LowerGlobalArrayInitializer(Global& global, const FrontendCType& type,
-			uni::Nnode* initializer,
-			const uni::Vector<FrontendCEnumerator>& constants,
-			const FrontendCTargetInfo& target,
-			const FrontendCDiagnostics& diagnostics) {
-			FrontendCType element_type = type;
-			element_type.array_dimension_count = 0;
-			if (element_type.scalar_kind == FrontendCScalarKind::LongDouble) {
-				diagnostics.Report(DiagnosticStage::Lowering,
-					"global long double array initialization is not supported yet",
-					initializer);
-				return false;
-			}
-			uni::Vector<stdsint> string_values;
-			bool is_string = FindStringArrayInitializer(initializer) != nullptr;
-			if (is_string && !BuildStringArrayValues(type, initializer, string_values)) {
-				diagnostics.Report(DiagnosticStage::Semantic,
-					"invalid global character array string initializer", initializer);
-				return false;
-			}
-			uni::Vector<uni::Nnode*> slots;
-			if (!is_string && !BuildArrayInitializerSlots(type, initializer, slots)) {
-				diagnostics.Report(DiagnosticStage::Semantic,
-					"invalid or excessive global array initializer", initializer);
-				return false;
-			}
-			for (stduint index = 0; index < type.StorageElementCount(); index++) {
-				stdsint low = is_string ? string_values[index] : 0;
-				stdsint high = 0;
-				if (!is_string && slots[index] &&
-					!ParseStaticScalarInitializer(slots[index], target, constants,
-						element_type, low, high)) {
-					diagnostics.Report(DiagnosticStage::Lowering,
-						"global array initializer must contain constant expressions",
-						slots[index]);
-					return false;
-				}
-				if (element_type.integer_rank == FrontendCIntegerRank::Bool &&
-					!element_type.enum_id) low = low != 0;
-				global.initializer_values.Append(low);
-			}
-			return true;
 		}
 
 		bool LowerGlobalDeclarator(uni::Nnode* node, const FrontendCType& base_type,
@@ -259,14 +228,15 @@ namespace clover {
 				return false;
 			}
 			if (type.HasIncompleteArray() && initializer_node &&
-				!CompleteArrayTypeFromInitializer(type, initializer_node)) {
+				!CompleteArrayTypeFromInitializer(type, initializer_node, type_info)) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"cannot infer global array bound from initializer", identifier);
 				return false;
 			}
-			if (type.record_id && !type.IsPointer()) {
+			if (type.record_id && !type.IsPointer() &&
+				!type_info.SizeBits(type, target)) {
 				diagnostics.Report(DiagnosticStage::Semantic,
-					"global record objects are not supported yet", identifier);
+					"global object has incomplete record type", identifier);
 				return false;
 			}
 			if (type.enum_id && !type.IsPointer() &&
@@ -328,7 +298,7 @@ namespace clover {
 				global.is_read_only = type.IsConstObject();
 				global.linkage = requested_linkage;
 				global.is_declaration = !definition && !tentative;
-				SetGlobalShape(global, type, target);
+				SetGlobalShape(global, type, target, type_info);
 				module.globals.Append(global);
 				frontend_global.module_index = module.globals.Count();
 				globals.Append(frontend_global);
@@ -340,7 +310,7 @@ namespace clover {
 				previous->has_provisional_array_bound = true;
 			}
 			Global& global = module.globals[previous->module_index - 1];
-			SetGlobalShape(global, type, target);
+			SetGlobalShape(global, type, target, type_info);
 			global.is_read_only = type.IsConstObject();
 			global.linkage = previous->linkage;
 			stduint alignment_bits = type_info.AlignBits(type, target);
@@ -355,16 +325,17 @@ namespace clover {
 			global.initializer = 0;
 			global.initializer_high = 0;
 			global.initializer_values.Clear();
-			bool initializer_valid = type.IsArray() ?
-				LowerGlobalArrayInitializer(global, type, initializer_node,
-					constants, target, diagnostics) :
+			global.initializer_fragments.Clear();
+			bool initializer_valid = type.IsArray() || type.IsRecord() ?
+				BuildStaticObjectInitializer(global, type, initializer_node,
+					target, type_info, constants, diagnostics) :
 				(type.IsFloating() ? ParseGlobalFloatingConstant(initializer_node,
 					target, constants, type, global.initializer,
 					global.initializer_high) :
 					ParseGlobalConstant(initializer_node, target,
 						constants, global.initializer));
 			if (!initializer_valid) {
-				if (!type.IsArray()) diagnostics.Report(DiagnosticStage::Lowering,
+				if (!type.IsArray() && !type.IsRecord()) diagnostics.Report(DiagnosticStage::Lowering,
 					"global initializer must be an arithmetic constant", initializer_node);
 				return false;
 			}

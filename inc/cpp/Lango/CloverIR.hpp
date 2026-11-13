@@ -55,6 +55,7 @@ enum class Opcode {
 	Local, // Allocate a function-local storage object.
 	Load,  // Read a value from a Ptr operand.
 	Store, // Write a value to a Ptr operand.
+	MemCopy, // Copy a fixed byte count between non-overlapping Ptr operands.
 	Mov,   // Copy an SSA value without accessing memory.
 	Add,   // Integer addition.
 	Sub,   // Integer subtraction.
@@ -140,6 +141,7 @@ struct Instruction {
 	stdsint immediate = 0;          // Integer literal, float bits, or Local element count.
 	stdsint immediate_high = 0;     // High 64 bits for an f128 constant.
 	stduint alignment = 0;          // Optional Local or memory-access alignment in bytes.
+	stduint source_alignment = 0;   // Optional source alignment used by MemCopy.
 	ICmpPredicate predicate = ICmpPredicate::EQ; // Comparison mode for ICmp.
 	FCmpPredicate float_predicate = FCmpPredicate::EQ; // Comparison mode for FCmp.
 };
@@ -163,6 +165,14 @@ struct Parameter {
 	unsigned aggregate_group = 0; // Nonzero for a flattened aggregate ABI member.
 };
 
+// One typed constant placed at a byte offset within a global object.
+struct GlobalInitializerFragment {
+	stduint offset = 0; // Byte offset from the beginning of the global object.
+	Type type = Type::I8; // Stored scalar type; target byte order is chosen by the backend.
+	stdsint initializer = 0;
+	stdsint initializer_high = 0; // High 64 bits for an f128 initializer.
+};
+
 // One module-scope object with static storage duration.
 struct Global {
 	uni::String name;
@@ -170,10 +180,12 @@ struct Global {
 	stdsint initializer = 0;
 	stdsint initializer_high = 0; // High 64 bits for an f128 initializer.
 	stdsint element_count = 1;
+	stduint alignment = 0; // Required object alignment in bytes; zero selects natural alignment.
 	bool is_declaration = false; // Refer to externally provided storage without defining it.
 	bool is_read_only = false; // Emit the object in target read-only storage.
 	Linkage linkage = Linkage::External;
 	uni::Vector<stdsint> initializer_values; // Explicit elements for aggregate data.
+	uni::Vector<GlobalInitializerFragment> initializer_fragments; // Heterogeneous aggregate data.
 };
 
 // Function-level Clover IR container.

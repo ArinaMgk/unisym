@@ -27,6 +27,12 @@ t.me/phinaren
 	- **Fields:** `a_b`
 	- **Methods:** `(aaa)Bbb`, where `aaa` may be `en`, `get`, or `set`.
 
+## Code / Text File
+
+- Mixed line endings are not allowed. LF only or CRLF only is fine.
+- Normally please use LF only.
+- Use ASCII/UTF-8 encoding.
+
 ## C/C++
 
 - Avoid including `stddef.h`, `stdint.h`, and `inttypes.h`. Prefer the project's established types and headers.

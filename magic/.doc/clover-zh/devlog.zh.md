@@ -33,7 +33,7 @@
 - 支持块作用域 `static` 标量、
   指针和数组的静态存储期。块静态对象降低为具有唯一内部名称的 Clover global，
   初始化只写入模块数据，不会在每次进入函数或代码块时重复执行。当前静态初始化
-  沿用全局常量初始化能力；块静态 record、`long double` 数组初始化和块作用域
+  沿用全局常量初始化能力，并支持 record 和 `long double` 数组；块作用域
   `extern` 尚未实现。
 - 支持函数定义与调用、return、if/else、while、for、switch/case/default、空语句和
   逗号运算符。switch 支持整数常量 case、default、贯穿、嵌套及重复标签诊断；
@@ -52,7 +52,9 @@
   转换为 `void`。整数转指针会先按源整数的符号属性扩展到目标指针位宽。
 - 支持 struct/union 的 ABI 布局、嵌套成员、成员数组、记录数组、`.`、`->` 和
   对应的 `sizeof`；RISC-V 硬浮点 ABI 已支持由一至两个整数/浮点成员组成、且至少
-  含一个浮点成员的 struct 按值参数。聚合初始化、整体赋值和按值返回尚未实现。
+  含一个浮点成员的 struct 按值参数。局部、全局和块静态聚合初始化支持嵌套
+  struct/union、成员数组、缺省成员补零、内部初始化列表括号省略和最外层数组长度
+  推导；兼容 struct/union 对象可用于局部整体复制初始化。整体赋值和按值返回尚未实现。
 - 支持 record 前向声明、指针成员和自引用结构。
 - 支持有标签 `enum` 的文件及块作用域、内外层遮蔽、前向声明、定义后直接声明
   对象，以及枚举对象、函数参数和返回值。枚举常量表达式支持整数和字符常量、
@@ -77,6 +79,7 @@
 - `Frontend-c-clover.cpp`：Clover lowering 总入口，以及翻译单元、函数和全局符号组织。
 - `Frontend-c-clover-expression.cpp`：表达式、调用、数组、成员访问和运算符 lowering。
 - `Frontend-c-clover-statement.cpp`：局部声明、作用域和控制流 lowering。
+- `Frontend-c-clover-initializer.cpp`：数组、struct 和 union 的递归初始化规划及 lowering。
 - `Frontend-c-clover-type.cpp`：表达式类型推导、整数提升和类型转换。
 - `Frontend-c-clover-literal.cpp`：整数、字符与字符串字面量解析，以及字符串常量生成。
 - Clover lowering 的共享内部声明统一放在
@@ -97,12 +100,17 @@
 - 可变浮点实参遵循 RISC-V 调用约定走整数参数寄存器；binary128 固定参数占用
   连续两个整数参数寄存器，可变参数还按偶数编号寄存器对齐。硬浮点 ABI 可处理成员精度不超过 ABI FLEN 的
   前端展平小型浮点聚合参数。
-- 当前实现 GCC/GNU 汇编输出，并预留 `--asm` 选择其他汇编格式的接口。
-- `-g` 可以把 Clover 的文件和行号信息输出为 `.file`、`.loc` 等汇编指令。
+- 支持 `--asm=gcc` 和 `--asm=aasm`。aasm 输出包含目标位数、指令集、ABI、
+  section、符号和数据指令，并转换地址写法及后端使用的 RISC-V 伪指令；可由
+  Unisym 内建汇编器生成 RISC-V ELF64 目标文件。
+- `-g` 可以把 Clover 的文件和行号信息转换为所选汇编格式对应的源位置指令。
 - Clover 模块使用 `target ptrbits` 保留前端确定的指针宽度；RISC-V 后端会拒绝
   与自身目标位数不一致的 IR。
 - Clover 的 global、constant 和 function 均可携带独立的 internal 链接属性；
   RISC-V 汇编输出不会为内部符号生成 `.globl`。
+- Clover global 支持显式对象对齐和带字节偏移的有类型初始化片段；未覆盖区域由
+  后端补零，目标后端负责按照自身字节序输出片段。`memcopy` 支持固定大小的
+  非重叠对象复制，当前 RISC-V 后端使用字节循环降低。
 - Clover 支持 `declare global` 和 `declare constant` 外部对象声明；RISC-V 后端不为
   声明分配存储，但允许 `globaladdr` 生成交由链接器解析的符号引用。
 - 局部对象支持显式存储对齐；`load/store` 会读取访问对齐信息。RISC-V 后端会将

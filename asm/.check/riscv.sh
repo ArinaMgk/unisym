@@ -1315,6 +1315,12 @@ CheckRISCVExtensions()
 	FormsSource="$WorkDirectory/riscv-extensions-forms.asm"
 	CSRSource="$WorkDirectory/riscv-extensions-csr.asm"
 	OrderSource="$WorkDirectory/riscv-extensions-order.asm"
+	FenceSource="$WorkDirectory/riscv-fence.asm"
+	FenceOutput="$WorkDirectory/riscv-fence.bin"
+	FenceDisabledSource="$WorkDirectory/riscv-fence-disabled.asm"
+	FenceInvalidSource="$WorkDirectory/riscv-fence-invalid.asm"
+	MultiExtensionOrderSource="$WorkDirectory/riscv-multi-extension-order.asm"
+	UnknownExtensionSource="$WorkDirectory/riscv-unknown-extension.asm"
 	Expected='33 85 c5 02 b3 56 f7 02 3b 68 18 03 73 95 05 30 73 e6 5f 30 f3 16 f7 3e 73 00 20 30 73 00 20 10 73 00 50 10 73 00 00 12 73 00 b5 12 2f a5 05 14 2f 35 b6 1a 2f 25 b6 86 2f 35 b6 e0'
 
 	printf '%s\n' \
@@ -1423,6 +1429,68 @@ CheckRISCVExtensions()
 	grep -Fq "unknown 'cpu' type" \
 		"$WorkDirectory/riscv-extensions-order.stderr" || \
 		Fail "RISC-V extension-order diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i_zifencei]' \
+		'FENCE' \
+		'FENCE rw, rw' \
+		'FENCE 0, i, orw' \
+		'FENCE.I' > "$FenceSource"
+	AssembleSuccess riscv-fence -f bin -o "$FenceOutput" "$FenceSource"
+	[ "$(NormalizeHex "$FenceOutput")" = \
+		'0f 00 f0 0f 0f 00 30 03 0f 00 70 08 0f 10 00 00' ] || \
+		Fail "RISC-V FENCE bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i]' \
+		'FENCE.I' > "$FenceDisabledSource"
+	AssembleFailure riscv-fence-disabled -f bin \
+		-o "$WorkDirectory/riscv-fence-disabled.bin" "$FenceDisabledSource"
+	grep -Fq 'is disabled by the current instruction set' \
+		"$WorkDirectory/riscv-fence-disabled.stderr" || \
+		Fail "RISC-V Zifencei extension diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i_zifencei]' \
+		'FENCE rr, rw' \
+		'FENCE 1, rw, rw' > "$FenceInvalidSource"
+	AssembleFailure riscv-fence-invalid -f bin \
+		-o "$WorkDirectory/riscv-fence-invalid.bin" "$FenceInvalidSource"
+	grep -Fq 'set must contain unique I, O, R, W letters or 0' \
+		"$WorkDirectory/riscv-fence-invalid.stderr" || \
+		Fail "RISC-V invalid FENCE set diagnostic differs"
+	grep -Fq 'mode must be the supported value 0' \
+		"$WorkDirectory/riscv-fence-invalid.stderr" || \
+		Fail "RISC-V invalid FENCE mode diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i_zifencei_zicsr]' \
+		'NOP' > "$MultiExtensionOrderSource"
+	AssembleFailure riscv-multi-extension-order -f bin \
+		-o "$WorkDirectory/riscv-multi-extension-order.bin" \
+		"$MultiExtensionOrderSource"
+	grep -Fq "unknown 'cpu' type" \
+		"$WorkDirectory/riscv-multi-extension-order.stderr" || \
+		Fail "RISC-V multi-letter extension-order diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i_zba]' \
+		'NOP' > "$UnknownExtensionSource"
+	AssembleFailure riscv-unknown-extension -f bin \
+		-o "$WorkDirectory/riscv-unknown-extension.bin" "$UnknownExtensionSource"
+	grep -Fq "unknown 'cpu' type" \
+		"$WorkDirectory/riscv-unknown-extension.stderr" || \
+		Fail "RISC-V unknown extension diagnostic differs"
 	Pass "RISC-V instruction-set extensions"
 }
 
@@ -1431,6 +1499,13 @@ CheckRISCVFloatingCompressedVector()
 	Source="$WorkDirectory/riscv-fdcv.asm"
 	Output="$WorkDirectory/riscv-fdcv.bin"
 	DisabledSource="$WorkDirectory/riscv-fdcv-disabled.asm"
+	Compressed64Source="$WorkDirectory/riscv-compressed64.asm"
+	Compressed64Output="$WorkDirectory/riscv-compressed64.bin"
+	Compressed32Source="$WorkDirectory/riscv-compressed32.asm"
+	Compressed32Output="$WorkDirectory/riscv-compressed32.bin"
+	CompressedInvalidSource="$WorkDirectory/riscv-compressed-invalid.asm"
+	CompressedBitModeSource="$WorkDirectory/riscv-compressed-bit-mode.asm"
+	CompressedExtensionSource="$WorkDirectory/riscv-compressed-extension.asm"
 
 	printf '%s\n' \
 		'[ARCH riscv]' \
@@ -1462,6 +1537,102 @@ CheckRISCVFloatingCompressedVector()
 	[ "$(grep -Fc 'is disabled by the current instruction set' \
 		"$WorkDirectory/riscv-fdcv-disabled.stderr")" -eq 3 ] || \
 		Fail "RISC-V F/D/C/V extension diagnostics differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST imafdc]' \
+		'C.ADDI4SPN a0, sp, 16' \
+		'C.ADDI a0, -1' \
+		'C.ADDIW a0, 1' \
+		'C.LI a1, -2' \
+		'C.ADDI16SP sp, -16' \
+		'C.LUI a2, 1' \
+		'C.SRLI a0, 3' \
+		'C.SRAI a0, 3' \
+		'C.ANDI a0, -2' \
+		'C.SUB a0, a1' \
+		'C.XOR a0, a1' \
+		'C.OR a0, a1' \
+		'C.AND a0, a1' \
+		'C.SUBW a0, a1' \
+		'C.ADDW a0, a1' \
+		'C.SLLI a0, 4' \
+		'C.LW a0, [a1 + 68]' \
+		'C.SW a0, [a1 + 68]' \
+		'C.LD a0, [a1 + 24]' \
+		'C.SD a0, [a1 + 24]' \
+		'C.FLD f8, [a1 + 24]' \
+		'C.FSD f8, [a1 + 24]' \
+		'C.LWSP a0, [sp + 12]' \
+		'C.SWSP a0, [sp + 12]' \
+		'C.LDSP a0, [sp + 24]' \
+		'C.SDSP a0, [sp + 24]' \
+		'C.FLDSP f8, [sp + 24]' \
+		'C.FSDSP f8, [sp + 24]' \
+		'C.JR a0' \
+		'C.JALR a0' \
+		'C.EBREAK' > "$Compressed64Source"
+	AssembleSuccess riscv-compressed64 -f bin \
+		-o "$Compressed64Output" "$Compressed64Source"
+	[ "$(NormalizeHex "$Compressed64Output")" = \
+		'08 08 7d 15 05 25 f9 55 7d 71 05 66 0d 81 0d 85 79 99 0d 8d 2d 8d 4d 8d 6d 8d 0d 9d 2d 9d 12 05 e8 41 e8 c1 88 6d 88 ed 80 2d 80 ad 32 45 2a c6 62 65 2a ec 62 24 22 ac 02 85 02 95 02 90' ] || \
+		Fail "RISC-V RV64 compressed bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST imafdc]' \
+		'C.ADDI4SPN a0, sp, 16' \
+		'C.FLW f8, [a1 + 68]' \
+		'C.FSW f8, [a1 + 68]' \
+		'C.FLWSP f8, [sp + 12]' \
+		'C.FSWSP f8, [sp + 12]' \
+		'C.FLD f9, [a1 + 24]' \
+		'C.FSD f9, [a1 + 24]' \
+		'C.FLDSP f9, [sp + 24]' \
+		'C.FSDSP f9, [sp + 24]' > "$Compressed32Source"
+	AssembleSuccess riscv-compressed32 -f bin \
+		-o "$Compressed32Output" "$Compressed32Source"
+	[ "$(NormalizeHex "$Compressed32Output")" = \
+		'08 08 e0 61 e0 e1 32 64 22 e6 84 2d 84 ad e2 24 26 ac' ] || \
+		Fail "RISC-V RV32 compressed bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST ic]' \
+		'C.ADDI4SPN x5, sp, 4' > "$CompressedInvalidSource"
+	AssembleFailure riscv-compressed-invalid -f bin \
+		-o "$WorkDirectory/riscv-compressed-invalid.bin" \
+		"$CompressedInvalidSource"
+	grep -Fq 'C.ADDI4SPN requires x8..x15' \
+		"$WorkDirectory/riscv-compressed-invalid.stderr" || \
+		Fail "RISC-V compressed operand diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST ic]' \
+		'C.ADDIW x8, 1' > "$CompressedBitModeSource"
+	AssembleFailure riscv-compressed-bit-mode -f bin \
+		-o "$WorkDirectory/riscv-compressed-bit-mode.bin" \
+		"$CompressedBitModeSource"
+	grep -Fq 'is not available in the current bit mode' \
+		"$WorkDirectory/riscv-compressed-bit-mode.stderr" || \
+		Fail "RISC-V compressed bit-mode diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST ic]' \
+		'C.FLW f8, [x9]' > "$CompressedExtensionSource"
+	AssembleFailure riscv-compressed-extension -f bin \
+		-o "$WorkDirectory/riscv-compressed-extension.bin" \
+		"$CompressedExtensionSource"
+	grep -Fq 'is disabled by the current instruction set' \
+		"$WorkDirectory/riscv-compressed-extension.stderr" || \
+		Fail "RISC-V compressed combined-extension diagnostic differs"
 	Pass "RISC-V floating-point, compressed, and vector encoding"
 }
 
@@ -1482,7 +1653,7 @@ CheckRISCVELFMetadata()
 		'C.NOP' > "$RV32Source"
 	printf '%s\n' \
 		'[BITS 64]' \
-		'[INST imafdcv]' \
+		'[INST imafdcv_zifencei]' \
 		'[ABI lp64d]' \
 		'SECTION .text' \
 		'C.NOP' > "$RV64Source"
@@ -1509,6 +1680,9 @@ CheckRISCVELFMetadata()
 	grep -Fq 'Tag_RISCV_arch: "rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_v1p0' \
 		"$WorkDirectory/riscv-metadata64.attributes" || \
 		Fail "RISC-V ELF64 architecture attribute differs"
+	grep -Fq '_zicsr2p0_zifencei2p0' \
+		"$WorkDirectory/riscv-metadata64.attributes" || \
+		Fail "RISC-V ELF64 multi-letter attributes differ"
 
 	printf '%s\n' \
 		'[BITS 64]' \

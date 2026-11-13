@@ -12,8 +12,6 @@ namespace uni {
 
 namespace { 
 
-constexpr uint32_t CompressedExtensionMask = UINT32_C(1) << 5;
-
 void Write32(uint8_t* output, uint32_t value)
 {
 	output[0] = static_cast<uint8_t>(value);
@@ -67,7 +65,7 @@ bool RISCVELFTarget::Update(int bits, unsigned int cpu,
 unsigned int RISCVELFTarget::Flags() const
 {
 	unsigned int flags = 0;
-	if (Extensions & CompressedExtensionMask) flags |= 1;
+	if (lango::HasRISCVExtension(Extensions, lango::RISCVExtension::C)) flags |= 1;
 	flags |= lango::RISCVABIFlags(static_cast<lango::RISCVABI>(Abi));
 	return flags;
 }

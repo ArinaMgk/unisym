@@ -28,7 +28,8 @@ namespace uni::lango {
 
 // Textual assembly dialect selected independently from the RISC-V target.
 enum class RISCVAssemblySyntax {
-	GCC // GNU assembler syntax accepted by GCC toolchains.
+	GCC, // GNU assembler syntax accepted by GCC toolchains.
+	AASM // Unisym assembler syntax.
 };
 
 // Dialect-specific directives used by the common RISC-V lowering path.

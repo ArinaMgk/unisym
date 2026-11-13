@@ -302,14 +302,31 @@ D 自动启用 F。D 指令的操作数规则与 F 相同：
 
 | 指令 | 语法 |
 | :--- | :--- |
+| `C.ADDI4SPN` | `C.ADDI4SPN rd, sp, offset`，`rd` 为 `x8..x15` |
 | `C.NOP` | `C.NOP` |
-| `C.ADDI`、`C.LI`、`C.LUI` | `OP rd, imm` |
+| `C.ADDI`、`C.LI`、`C.LUI`、`C.SLLI` | `OP rd, imm` |
+| `C.ADDIW` | `C.ADDIW rd, imm`，仅 RV64 |
+| `C.ADDI16SP` | `C.ADDI16SP sp, imm` |
+| `C.SRLI`、`C.SRAI`、`C.ANDI` | `OP rd, imm`，`rd` 为 `x8..x15` |
+| `C.SUB`、`C.XOR`、`C.OR`、`C.AND` | `OP rd, rs`，寄存器为 `x8..x15` |
+| `C.SUBW`、`C.ADDW` | 与上项相同，仅 RV64 |
 | `C.MV`、`C.ADD` | `OP rd, rs` |
+| `C.JR`、`C.JALR` | `OP rs` |
+| `C.EBREAK` | `C.EBREAK` |
 | `C.J` | `C.J target [, temporary]` |
 | `C.JAL` | `C.JAL target [, temporary]`，仅 RV32 |
 | `C.BEQZ`、`C.BNEZ` | `OP rs, target [, temporary]`，`rs` 必须为 `x8..x15` |
 | `C.LW`、`C.SW` | `OP rd/rs, [base + offset]`，寄存器必须为 `x8..x15` |
 | `C.LD`、`C.SD` | 与上项相同，仅 RV64 |
+| `C.LWSP`、`C.SWSP` | `OP rd/rs, [sp + offset]` |
+| `C.LDSP`、`C.SDSP` | 与上项相同，仅 RV64 |
+| `C.FLD`、`C.FSD` | `OP fd/fs, [base + offset]`，要求 C 和 D，寄存器为 `f8..f15` |
+| `C.FLDSP`、`C.FSDSP` | `OP fd/fs, [sp + offset]`，要求 C 和 D |
+| `C.FLW`、`C.FSW` | `OP fd/fs, [base + offset]`，仅 RV32，要求 C 和 F，寄存器为 `f8..f15` |
+| `C.FLWSP`、`C.FSWSP` | `OP fd/fs, [sp + offset]`，仅 RV32，要求 C 和 F |
+
+压缩访存偏移必须为非负数，并满足对应数据宽度的对齐及编码范围。`C.ADDI4SPN`、
+`C.ADDI16SP` 使用非零对齐立即数；栈形式的基址必须是 `sp`。
 
 压缩分支和跳转仍使用裸目标表达式。ELF 跨 section 或外部目标分别使用
 `R_RISCV_RVC_BRANCH`、`R_RISCV_RVC_JUMP` relocation。已解析目标超出压缩编码范围
@@ -341,7 +358,8 @@ V 自动启用 F、D 和 Zicsr。当前提供基础向量配置、整数运算�
 
 | 指令 | 语法 |
 | :--- | :--- |
-| `FENCE` | `FENCE` |
+| `FENCE` | `FENCE`、`FENCE predecessor, successor` 或 `FENCE 0, predecessor, successor` |
+| `FENCE.I` | `FENCE.I`，要求 Zifencei |
 | `ECALL` | `ECALL` |
 | `EBREAK` | `EBREAK` |
 | `MRET` | `MRET` |
@@ -349,7 +367,9 @@ V 自动启用 F、D 和 Zicsr。当前提供基础向量配置、整数运算�
 | `WFI` | `WFI` |
 | `SFENCE.VMA` | `SFENCE.VMA` 或 `SFENCE.VMA rs1, rs2` |
 
-当前 `FENCE` 不接受 predecessor、successor 或 `fm` 操作数，固定生成完整内存屏障。
+`FENCE` 的 predecessor 和 successor 是由 `i`、`o`、`r`、`w` 组成的集合，`0`
+表示空集合；集合内不能出现重复字符。无操作数形式等价于 `FENCE iorw, iorw`。
+三操作数形式当前只接受 `fm=0`。
 特权指令与 CSR 访问是不同类别；`MRET`、`SRET`、`WFI` 和 `SFENCE.VMA` 不要求
 Zicsr。AASM 不检查指令执行时所处的权限级别。
 
@@ -440,6 +460,6 @@ MOV BYT4 [a1 + 8], a0
 
 ## 支持范围
 
-支持 RV32I、RV64I、M、A、F、D、C、V、Zicsr 以及上述基础特权指令。
+支持 RV32I、RV64I、M、A、F、D、C、V、Zicsr、Zifencei 以及上述基础特权指令。
 C 只支持显式压缩形式，V 只覆盖本节列出的基础子集。不支持完整特权体系、普通指令
 自动压缩和完整向量指令集；AASM 可以输出 `RELAX` 提示，实际松弛由链接器完成。

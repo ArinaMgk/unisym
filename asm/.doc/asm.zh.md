@@ -97,12 +97,15 @@ RISC-V 指令集名称必须以 `i` 开始，单字母扩展按 `m`、`a`、`f`�
 [INST ima]
 [INST imafdc]
 [INST imafdcv_zicsr]
+[INST i_zifencei]
+[INST imafdcv_zicsr_zifencei]
 [INST ia_zicsr]
 [CPU ima_zicsr]
 ```
 
 顺序错误、重复扩展和不支持的扩展会被拒绝。D 自动包含 F；V 自动包含 F、D；
-F、D、V 自动包含 Zicsr。未启用对应扩展时，使用该扩展的指令会在指令处报错。
+F、D、V 自动包含 Zicsr。Zifencei 使用 `_zifencei` 启用。未启用对应扩展时，使用
+该扩展的指令会在指令处报错。
 
 ### RISC-V ABI
 
@@ -213,7 +216,7 @@ section、symbol、data、relocation 和 debug 事件，不是可链接目标文
 
 ## RISC-V 汇编语法
 
-RISC-V Archend 支持 RV32/RV64 的 I、M、A、F、D、C、Zicsr、V 扩展基础子集及
+RISC-V Archend 支持 RV32/RV64 的 I、M、A、F、D、C、Zicsr、Zifencei、V 扩展及
 基础特权指令。支持的寄存器、操作数、原生指令及简化形式见 `inst-riscv.zh.md`。
 
 RISC-V 的 `MOV` 可以加载完整 XLEN 数值、标签地址及表达式地址中的数据。原生加载

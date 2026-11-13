@@ -52,6 +52,19 @@ enum class RISCVAtomicOrdering : uint8_t {
 	Release = 2
 };
 
+enum class RISCVFenceAccess : uint8_t {
+	Write = 1,
+	Read = 2,
+	Output = 4,
+	Input = 8
+};
+
+struct RISCVFenceOptions {
+	uint8_t mode = 0;
+	uint8_t predecessor = 15;
+	uint8_t successor = 15;
+};
+
 struct RISCVValue {
 	int64_t offset = 0;
 	int32_t section = NO_SEG;
@@ -77,6 +90,7 @@ struct RISCVInstruction {
 	RISCVAtomicOrdering atomic_ordering = RISCVAtomicOrdering::None;
 	RISCVRoundingMode rounding = RISCVRoundingMode::DYN;
 	RISCVVectorType vector_type;
+	RISCVFenceOptions fence;
 	uint8_t temporary_reg = 0;
 	bool has_temporary = false;
 	bool masked = false;

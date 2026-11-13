@@ -580,6 +580,42 @@ bool ParseRoundingOperand(char* text, RISCVInstruction& instruction,
 	return true;
 }
 
+bool ParseFenceSet(char* text, uint8_t& result)
+{
+	text = SkipSpace(text);
+	TrimEnd(text);
+	if (text[0] == '0' && !text[1]) {
+		result = 0;
+		return true;
+	}
+	if (!*text) return false;
+	uint8_t value = 0;
+	for (; *text; text++) {
+		uint8_t access;
+		switch (ascii_tolower(*text)) {
+		case 'i': access = static_cast<uint8_t>(RISCVFenceAccess::Input); break;
+		case 'o': access = static_cast<uint8_t>(RISCVFenceAccess::Output); break;
+		case 'r': access = static_cast<uint8_t>(RISCVFenceAccess::Read); break;
+		case 'w': access = static_cast<uint8_t>(RISCVFenceAccess::Write); break;
+		default: return false;
+		}
+		if (value & access) return false;
+		value |= access;
+	}
+	result = value;
+	return true;
+}
+
+bool ParseFenceMode(char* text, int parse_pass, uint8_t& result)
+{
+	RISCVValue value;
+	if (!ParseValue(text, parse_pass, value) || value.unknown ||
+		value.external || value.section != NO_SEG || value.wrt != NO_SEG ||
+		value.offset != 0) return false;
+	result = 0;
+	return true;
+}
+
 }
 
 bool RISCVParser::IsInstructionStart(const char* word)
@@ -780,6 +816,29 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		aasm_log(_LOG_ERROR,
 			"RISC-V instruction does not support a rounding-mode qualifier");
 		return false;
+	}
+	if (info->operands == RISCVOperandForm::Fence) {
+		if (!count) return true;
+		unsigned first_set = 0;
+		if (count == 3) {
+			if (!ParseFenceMode(operands[0], parse_pass,
+				instruction.fence.mode)) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V FENCE mode must be the supported value 0");
+				return false;
+			}
+			first_set = 1;
+		}
+		else if (count != 2) goto bad_count;
+		if (!ParseFenceSet(operands[first_set],
+			instruction.fence.predecessor) ||
+			!ParseFenceSet(operands[first_set + 1],
+				instruction.fence.successor)) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V FENCE set must contain unique I, O, R, W letters or 0");
+			return false;
+		}
+		return true;
 	}
 	if (info->operands == RISCVOperandForm::None) {
 		if (count) goto bad_count;
@@ -1059,11 +1118,23 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
 			RequireImmediate(operands[1], parse_pass, instruction.operands[1], 2);
 	}
+	if (info->operands == RISCVOperandForm::CRegSpImmediate) {
+		if (count != 3) goto bad_count;
+		instruction.operand_count = 3;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2) &&
+			RequireImmediate(operands[2], parse_pass, instruction.operands[2], 3);
+	}
 	if (info->operands == RISCVOperandForm::CReg) {
 		if (count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
 			RequireRegister(operands[1], instruction.operands[1], 2);
+	}
+	if (info->operands == RISCVOperandForm::CRegister) {
+		if (count != 1) goto bad_count;
+		instruction.operand_count = 1;
+		return RequireRegister(operands[0], instruction.operands[0], 1);
 	}
 	if (info->operands == RISCVOperandForm::CJump) {
 		if (count != 1 && count != 2) goto bad_count;
@@ -1103,10 +1174,23 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		return true;
 	}
 	if (info->operands == RISCVOperandForm::CLoad ||
-		info->operands == RISCVOperandForm::CStore) {
+		info->operands == RISCVOperandForm::CStore ||
+		info->operands == RISCVOperandForm::CStackLoad ||
+		info->operands == RISCVOperandForm::CStackStore) {
 		if (count != 2) goto bad_count;
 		instruction.operand_count = 2;
 		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireAddress(operands[1], parse_pass, false,
+				instruction.operands[1], 2);
+	}
+	if (info->operands == RISCVOperandForm::CFloatLoad ||
+		info->operands == RISCVOperandForm::CFloatStore ||
+		info->operands == RISCVOperandForm::CFloatStackLoad ||
+		info->operands == RISCVOperandForm::CFloatStackStore) {
+		if (count != 2) goto bad_count;
+		instruction.operand_count = 2;
+		return RequireTypedRegister(operands[0], RISCVRegisterClass::Float,
+			instruction.operands[0], 1) &&
 			RequireAddress(operands[1], parse_pass, false,
 				instruction.operands[1], 2);
 	}

@@ -83,8 +83,12 @@ CheckArchends()
 		Fail "x86 instruction selection summary is missing"
 	grep -Fq 'INST: I, M, A, F, D, C, V, Zicsr, Zifencei (combine in canonical order; default I)' "$ArchitectureOutput" || \
 		Fail "RISC-V instruction-set summary is missing"
-	grep -Fq 'INST: none (instruction encoding not implemented)' "$ArchitectureOutput" || \
-		Fail "unimplemented ARM instruction status is missing"
+	grep -Fq 'INST: ARMv7-A A32 minimal integer and load/store subset' \
+		"$ArchitectureOutput" || \
+		Fail "ARM32 instruction-set summary is missing"
+	grep -Fq 'INST: A64 minimal integer and load/store subset' \
+		"$ArchitectureOutput" || \
+		Fail "ARM64 instruction-set summary is missing"
 
 	"$AasmExecutable" -Ox -f bin -o "$DefaultOutput" \
 		"$TestDirectory/basic.asm" \

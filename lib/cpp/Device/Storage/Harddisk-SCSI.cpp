@@ -133,6 +133,12 @@ namespace uni {
 		SCSI_CMD_READ_CAPACITY10 = 0x25,
 		SCSI_CMD_READ10 = 0x28,
 		SCSI_CMD_WRITE10 = 0x2A,
+		SCSI_CMD_ATA_PASS_THROUGH16 = 0x85, // SAT: ATA PASS-THROUGH(16).
+		// SBC: READ(16), WRITE(16) and READ CAPACITY(16) operation and service-action codes.
+		SCSI_CMD_READ16 = 0x88,
+		SCSI_CMD_WRITE16 = 0x8A,
+		SCSI_CMD_SERVICE_ACTION_IN16 = 0x9E,
+		SCSI_SA_READ_CAPACITY16 = 0x10,
 		SCSI_CMD_COMPLETE_GOOD = byte(SCSI::Completion::Completed),
 		SCSI_ADAPTER_STATUS_OK = byte(SCSI::HostStatus::Good),
 		SCSI_TARGET_STATUS_GOOD = byte(SCSI::Status::Good),
@@ -162,6 +168,62 @@ namespace uni {
 		MemSet(&reply, 0, sizeof(reply));
 		return execute(context, target, lun, cdb, sizeof(cdb), &reply, sizeof(reply), true,
 			result.completion, result.host_status, result.target_status);
+	}
+
+	bool SCSI::ReadCapacity16(ExecuteCommandFn execute, void* context, stduint target, byte lun,
+		ReadCapacity16Reply& reply, CommandResult& result) {
+		result = {};
+		if (!execute) return false;
+		byte cdb[16] = {};
+		cdb[0] = SCSI_CMD_SERVICE_ACTION_IN16;
+		cdb[1] = SCSI_SA_READ_CAPACITY16;
+		cdb[13] = sizeof(reply); // SBC READ CAPACITY(16): allocation length occupies bytes 10 through 13.
+		MemSet(&reply, 0, sizeof(reply));
+		return execute(context, target, lun, cdb, sizeof(cdb), &reply, sizeof(reply), true,
+			result.completion, result.host_status, result.target_status);
+	}
+
+	bool SCSI::IdentifyAtaDevice(ExecuteCommandFn execute, void* context, stduint target, byte lun,
+		byte* data, stduint bytes, AtaIdentifyInfo& info, CommandResult& result) {
+		info = {};
+		result = {};
+		if (!execute || !data || bytes < AtaIdentifyDataSize) return false;
+		byte cdb[16] = {};
+		cdb[0] = SCSI_CMD_ATA_PASS_THROUGH16;
+		cdb[1] = 4u << 1; // SAT PROTOCOL: PIO data-in.
+		cdb[2] = (1u << 3) | (1u << 2) | 2u; // SAT: from device, 512-byte blocks, length from sector count; CK_COND clear.
+		cdb[6] = 1;
+		cdb[14] = ATA_IDENTIFY;
+		MemSet(data, 0, AtaIdentifyDataSize);
+		if (!execute(context, target, lun, cdb, sizeof(cdb), data, AtaIdentifyDataSize, true,
+			result.completion, result.host_status, result.target_status) || !result.Succeeded()) return false;
+
+		auto read_word = [data](stduint index) -> uint16 {
+			return uint16(data[2 * index]) | (uint16(data[2 * index + 1]) << 8);
+		};
+		// ATA ACS IDENTIFY DEVICE: word 0 distinguishes ATA from packet devices; model is words 27 through 46.
+		const uint16 config = read_word(0);
+		if (!config || (config & 0x8000u)) return false;
+		constexpr stduint model_bytes = sizeof(info.model) - 1;
+		for0(i, model_bytes) {
+			const byte ch = data[2 * 27 + (i ^ 1)];
+			info.model[i] = ch == 0 ? ' ' : (ch >= 0x20 && ch <= 0x7E ? char(ch) : '?');
+		}
+		stduint model_len = model_bytes;
+		while (model_len && info.model[model_len - 1] == ' ') --model_len;
+		info.model[model_len] = 0;
+		if (!model_len) return false;
+
+		// ATA ACS: word 83 validates words 82 and 83; word 169 bit 0 advertises TRIM, not SAT UNMAP support.
+		const uint16 command_sets = read_word(83);
+		const uint16 major = read_word(80);
+		const uint16 data_set_management = read_word(169);
+		const bool command_sets_valid = (command_sets & 0xC000u) == 0x4000u;
+		info.smart = command_sets_valid && (read_word(82) & 1u);
+		info.lba48 = command_sets_valid && (command_sets & (1u << 10));
+		info.trim = major != 0xFFFFu && (major & 0xFF80u) &&
+			data_set_management != 0xFFFFu && (data_set_management & 1u);
+		return true;
 	}
 
 	_PACKED(struct) ScsiFixedSenseData {
@@ -229,30 +291,39 @@ namespace uni {
 		}
 	}
 
-	static bool _LOCAL_ExecuteRw10(Harddisk_SCSI& disk, byte opcode, uint64 lba,
-		void* data_buf, stduint block_count, bool data_in, const char* op_name) {
+	static bool _LOCAL_ExecuteRw(Harddisk_SCSI& disk, uint64 lba,
+		void* data_buf, stduint block_count, bool data_in) {
 		if (!disk.fn_exec || !data_buf || !block_count || !disk.Block_Size) return false;
 		if (lba >= disk.total_blocks || block_count > disk.total_blocks - lba) return false;
-		if (lba > 0xFFFFFFFFull || block_count > 0xFFFFu) return false;
-		const uint64 data_bytes = uint64(disk.Block_Size) * block_count;
-		if (data_bytes > 0xFFFFFFFFull) return false;
+		// Large LBAs do not change the existing per-command transfer limits.
+		if (block_count > 0xFFFFu || block_count > 0xFFFFFFFFull / disk.Block_Size) return false;
+		const bool wide = lba + (block_count - 1) > 0xFFFFFFFFull;
+		const byte cdb_length = wide ? 16 : 10;
+		const char* op_name = wide ? (data_in ? "READ(16)" : "WRITE(16)") : (data_in ? "READ(10)" : "WRITE(10)");
+		byte cdb[16] = {};
+		if (wide) {
+			// SBC READ/WRITE(16): bytes 2..9 hold the LBA and bytes 10..13 hold the block count.
+			cdb[0] = data_in ? SCSI_CMD_READ16 : SCSI_CMD_WRITE16;
+			for0(i, 8) cdb[2 + i] = byte(lba >> (56 - 8 * i));
+			for0(i, 4) cdb[10 + i] = byte(block_count >> (24 - 8 * i));
+		}
+		else {
+			cdb[0] = data_in ? SCSI_CMD_READ10 : SCSI_CMD_WRITE10;
+			cdb[2] = byte(lba >> 24);
+			cdb[3] = byte(lba >> 16);
+			cdb[4] = byte(lba >> 8);
+			cdb[5] = byte(lba);
+			cdb[7] = byte(block_count >> 8);
+			cdb[8] = byte(block_count);
+		}
 
-		byte cdb[10] = {};
-		cdb[0] = opcode;
-		cdb[2] = byte(lba >> 24);
-		cdb[3] = byte(lba >> 16);
-		cdb[4] = byte(lba >> 8);
-		cdb[5] = byte(lba);
-		cdb[7] = byte(block_count >> 8);
-		cdb[8] = byte(block_count);
-
-		const stduint data_len = stduint(data_bytes);
+		const stduint data_len = stduint(uint64(disk.Block_Size) * block_count);
 		for (int attempt = 0; attempt < 3; ++attempt) {
 			byte completion_code = 0xFF;
 			byte adapter_status = 0xFF;
 			byte target_status = 0xFF;
 			if (!disk.fn_exec(disk.exec_context, disk.target_id, disk.lun,
-				cdb, 10, data_buf, data_len, data_in,
+				cdb, cdb_length, data_buf, data_len, data_in,
 				completion_code, adapter_status, target_status)) {
 				_LOCAL_LogSenseFailure(op_name, lba, block_count,
 					completion_code, adapter_status, target_status,
@@ -296,8 +367,8 @@ namespace uni {
 		total_blocks = 0;
 	}
 
-	void Harddisk_SCSI::UpdateCapacity(uint32 last_lba, uint32 block_size) {
-		total_blocks = uint64(last_lba) + 1;
+	void Harddisk_SCSI::UpdateCapacity(uint64 last_lba, uint32 block_size) {
+		total_blocks = last_lba + 1;
 		Block_Size = block_size ? block_size : 512;
 		hd_info.whole_disk.address = 0;
 		hd_info.whole_disk.length = (stduint)total_blocks;
@@ -308,12 +379,11 @@ namespace uni {
 	}
 
 	bool Harddisk_SCSI::ReadBlocks(uint64 lba, void* dest, stduint block_count) {
-		return _LOCAL_ExecuteRw10(*this, SCSI_CMD_READ10, lba, dest, block_count, true, "READ(10)");
+		return _LOCAL_ExecuteRw(*this, lba, dest, block_count, true);
 	}
 
 	bool Harddisk_SCSI::WriteBlocks(uint64 lba, const void* src, stduint block_count) {
-		return _LOCAL_ExecuteRw10(*this, SCSI_CMD_WRITE10, lba,
-			const_cast<void*>(src), block_count, false, "WRITE(10)");
+		return _LOCAL_ExecuteRw(*this, lba, const_cast<void*>(src), block_count, false);
 	}
 
 	bool Harddisk_SCSI::Read(stduint BlockIden, void* Dest, stduint Times) {

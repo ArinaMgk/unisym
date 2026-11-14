@@ -84,6 +84,15 @@ struct CodeFixupEncoding {
 	uint16_t bit_offset;
 	uint8_t right_shift;
 	bool signed_value;
+
+	struct Field {
+		uint8_t value_offset = 0;
+		uint8_t value_bits = 0;
+		uint8_t bit_offset = 0;
+	};
+
+	Field fields[4] {};
+	uint8_t field_count = 0;
 };
 
 enum class CodeFixupPairRole : uint8_t {

@@ -18,6 +18,7 @@ namespace uni::SCSI {
 		bool IsReady() const { return discovery_complete && LsiLogicMPI::IsReady(); }
 		stduint getTargetCount() const { return targets.Count(); }
 		bool IsTargetPresent(stduint target) const { return IsReady() && target < targets.Count(); }
+		bool IsSataTarget(stduint target) const;
 		bool ExecuteScsi(stduint target_id, byte lun, const byte* cdb, byte cdb_length,
 			void* data_buf, stduint data_length, bool data_in,
 			byte& completion_code, byte& adapter_status, byte& target_status);

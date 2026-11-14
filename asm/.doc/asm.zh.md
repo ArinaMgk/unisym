@@ -4,8 +4,8 @@
 
 ## 工具链位置
 
-AASM 是 UNISYM 的汇编器，支持 x86 和 RISC-V 指令编码。`arm32`、`arm64` 目标
-目前可以配合 Binary 输出使用通用汇编语句，但不接受 ARM 架构指令。
+AASM 是 UNISYM 的汇编器，支持 x86、RISC-V、ARM32 和 ARM64 指令编码。ARM32
+与 ARM64 已分别接入 Binary 最小整数指令集、标签控制流和标签地址构造。
 Magice 与 AASM 之间通过汇编文本连接：Magice 的目标后端输出
 `.asm`，随后可以交给 GCC AS 或 AASM 生成目标文件或平坦二进制。
 
@@ -62,8 +62,8 @@ RISC-V 的默认 `align` 使用 `RALIGN`，以便 ELF 输出 `R_RISCV_ALIGN`。
 | :--- | ---: | :--- | :--- | :--- |
 | `x86` | 16 | 16；386 及以上支持 32；`x64`、`x86-64` 支持 64 | 不限制指令等级 | 见下方 x86 CPU 名称 |
 | `riscv` | 64 | 32、64 | `i` | `i[m][a][f][d][c][v][_zicsr]` |
-| `arm32` | 32 | 32 | 无 | 不支持 |
-| `arm64` | 64 | 64 | 无 | 不支持 |
+| `arm32` | 32 | 32 | ARMv7-A A32 最小整数子集 | 不支持 `[CPU]`、`[INST]` |
+| `arm64` | 64 | 64 | A64 最小整数子集 | 不支持 `[CPU]`、`[INST]` |
 
 x86 当前识别以下 CPU 名称：
 
@@ -156,7 +156,7 @@ NOP
 
 | Codeend | x86 | RISC-V | ARM32 | ARM64 |
 | :--- | :---: | :---: | :---: | :---: |
-| `bin` | 支持 | 支持 | 支持通用语句 | 支持通用语句 |
+| `bin` | 支持 | 支持 | 支持最小整数指令集 | 支持最小整数指令集 |
 | `elf32`、`elf` | 支持 | 支持 32 位基础对象输出 | 不支持 | 不支持 |
 | `elf64` | 支持 | 支持 64 位基础对象输出 | 不支持 | 不支持 |
 | COFF、Mach-O、AOUT、OMF、IEEE、AS86 等现有格式 | 支持 | 不支持 | 不支持 | 不支持 |
@@ -224,6 +224,37 @@ RISC-V 的 `MOV` 可以加载完整 XLEN 数值、标签地址及表达式地址
 超出直接编码范围的跳转和条件分支会扩大为 `JAL` 或 `AUIPC + JALR` 序列；需要
 `AUIPC` 保存中间地址且没有可复用链接寄存器时，指令必须显式提供临时寄存器。
 
+## ARM 汇编语法
+
+`arm32` 表示固定 32 位的 A32 指令状态，不包含 Thumb/T32；`arm64` 表示固定 64 位
+目标下的 A64 指令状态。两者的机器指令均为 4 字节，但使用相互独立的寄存器、指令
+和编码模型。ARM32 与 ARM64 均已支持 Binary 最小整数、控制流和寄存器基址加载
+存储；本地标签可以跨 section 跳转、调用或作为 `MOV` 的地址源。ARM32 暂不支持
+Thumb/T32。
+
+ARM 操作数继续遵循 AASM 的统一地址规则：裸立即数和标签表示数值或地址，方括号
+只表示内存访问，控制流目标和寄存器间接跳转不使用方括号。立即数不使用 `#` 前缀。
+
+```asm
+MOV X0, 0x123456789ABCDEF0
+MOV X1, message
+MOV X0, BYT8 [X1 + 8]
+ADD X0, X1, 16
+B target
+BR X2
+```
+
+ARM64 当前支持的寄存器、原生指令、语义化 `MOV` 和限制见 `inst-arm64.zh.md`。
+ARM32 对应内容见 `inst-arm32.zh.md`。
+
+语义化 `MOV` 允许展开为多条机器指令。内存 `MOV` 必须使用 `BYTE`、
+`BYT2`、`BYT4` 或 `BYT8` 指明固定访问宽度，默认加载采用无符号扩展；`SIGNED` 和
+`UNSIGNED` 可以显式选择加载属性。ARM32 条件执行使用 `.EQ`、`.NE` 等点限定形式，
+更新标志使用 `.S`，例如 `ADD.EQ.S R0, R1, R2`。ARM64 条件分支同样写成
+`B.EQ target`。
+
+ARM32 和 ARM64 的完整语法约定分别见 `inst-arm32.zh.md` 与 `inst-arm64.zh.md`。
+
 ## 当前结构
 
 AASM 当前代码可以按职责理解为以下部分：
@@ -239,9 +270,8 @@ AASM 当前代码可以按职责理解为以下部分：
 - **Listing**：`aasm-list.cpp` 的 `AssemblyListing` 保存一次 listing 输出的文件、
   行、机器码、嵌套层级和抑制状态。通用语句与 Archend 通过 `CodeendOutput`、
   `CodeFixup` 语义接口提交 listing 事件；旧 `ListGen` 只作为 Preprocessor 适配接口。
-- **Archend**：`inc/cpp/Lango/Archend.hpp` 定义架构汇编契约；当前 x86 适配层位于
-  `lib/cpp/Lango/Archend/Archend-x86.cpp`，RISC-V 适配层位于对应的
-  `Archend-riscv.cpp`。Archend 只接收架构指令；x86 内部头和
+- **Archend**：`inc/cpp/Lango/Archend.hpp` 定义架构汇编契约；x86、RISC-V、
+  ARM32 和 ARM64 适配层位于 `lib/cpp/Lango/Archend`。Archend 只接收架构指令；x86 内部头和
   生成头位于 `inc/cpp/Lango/Archend/x86`，解析器、编码器、生成源和生成输入位于
   对应的 `lib` 目录。Archend 通过只读信息、注册和查找接口参与目标选择。
 - **Codeend**：`inc/cpp/Format/Code.hpp` 定义代码格式输出契约，

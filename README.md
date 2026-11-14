@@ -20,17 +20,18 @@ including not only implementation, library, tool-kits, chroming engine and demon
 
 **Hsyster** `HERSYS` (Alice.wiki Family)
 
+
+Maintaining
 - Hierarchical Data System: `HERNOT` and public `HEREPC`
     - Herepic
         - Style Color: <font color="#FF619D">Herpink</font> <!-- (R255, G97, B157, #double-0.618)  -->
         - TeX&PDF, HTML, Markdown
 - `HERPRO` and static `HERDAT`
     - opensrc **UNISYM** (this Abstract Centre, Apache), up-to chip-level `arch-objfmt-env`
-		- `IBM.BIOS` **Kasha** IBMx86 Legacy-BIOS ROM Firmware and Macros (UNDONE.SUSPEND)
 		- `Embedded` HAL for Cortex Series MCU/MPU
 		- `Compiler`
 			- Magice ([`mgc`](magice.org)) : Compiler for Marking/Software/HardwareDescription Language
-			- AASM(`aasm`) x86&x64
+			- AASM(`aasm`) assembler. Support x86/64, riscv, arm32 and aarch64
 			- doscon.io/COTLAB(`cot`)
 		- (Linker)
 		- Kits
@@ -38,6 +39,9 @@ including not only implementation, library, tool-kits, chroming engine and demon
 	- Mecocoa (General Hosted Environment), up-to board-level `board-arch-mode`
 	- Websec (Webnet Server&Client and Secure) 
 	- Witch and Nova (Graphics Rendering and Gaming)
+
+Suspended
+- UNISYM.`IBM.BIOS` **Kasha** IBMx86 Legacy-BIOS ROM Firmware and Macros (UNDONE)
 
 <font color="magenta">⚠︎ Before 2026-April, All the code are by hands, so these big changes and mistakes in codes may be forgiven.</font>
 

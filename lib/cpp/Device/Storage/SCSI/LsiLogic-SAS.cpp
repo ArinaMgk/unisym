@@ -172,6 +172,10 @@ namespace uni::SCSI {
 		return true;
 	}
 
+	bool LsiLogicSAS::IsSataTarget(stduint target) const {
+		return IsTargetPresent(target) && (targets.begin()[target]->device_info & SataDevice);
+	}
+
 	bool LsiLogicSAS::ExecuteScsi(stduint target_id, byte lun, const byte* cdb, byte cdb_length,
 		void* data_buf, stduint data_length, bool data_in,
 		byte& completion_code, byte& adapter_status, byte& target_status) {

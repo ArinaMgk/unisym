@@ -25,6 +25,7 @@
 
 #include "../../../../inc/c/strbuff.h"
 #include "../../../../inc/cpp/endian"
+#include "../../../../inc/cpp/Format/Code.hpp"
 #include "../../../../asm/inc/aasm.h"
 
 
@@ -130,6 +131,22 @@ static struct Reloc {
 	struct Section *target;
 } *relocs, **reloctail;
 
+struct CodeReloc {
+	CodeReloc* next;
+	uni::CodeFixup fixup;
+
+	explicit CodeReloc(const uni::CodeFixup& value)
+		: next(nullptr), fixup(value)
+	{
+	}
+};
+
+static CodeReloc* code_relocs;
+static CodeReloc** code_reloc_tail;
+
+static void bin_out(int32_t segto, const void *data,
+	enum out_type type, uint64_t size, int32_t segment, int32_t wrt);
+
 extern char *stdscan_bufptr;
 
 static uint8_t format_mode;       /* 0 = original bin, 1 = extended bin */
@@ -180,6 +197,211 @@ static struct Section *find_section_by_index(int32_t index)
 		if ((index == s->vstart_index) || (index == s->start_index))
 			break;
 	return s;
+}
+
+static bool section_address(int32_t index, int64_t& address)
+{
+	struct Section* section = find_section_by_index(index);
+	if (!section) return false;
+	address = static_cast<int64_t>(index == section->start_index ?
+		section->start : section->vstart);
+	return true;
+}
+
+static uint64_t field_mask(unsigned bits)
+{
+	return bits >= 64 ? UINT64_MAX : (UINT64_C(1) << bits) - 1;
+}
+
+static bool signed_range(int64_t value, unsigned bits)
+{
+	if (!bits || bits >= 64) return true;
+	int64_t limit = INT64_C(1) << (bits - 1);
+	return value >= -limit && value < limit;
+}
+
+static const char* fixup_architecture(const uni::CodeFixup& fixup)
+{
+	switch (static_cast<uni::lango::ArchitectureKind>(
+		fixup.architecture_kind)) {
+	case uni::lango::ArchitectureKind::ARM32: return "ARM32";
+	case uni::lango::ArchitectureKind::ARM64: return "ARM64";
+	default: return "architecture";
+	}
+}
+
+static void apply_code_reloc(const uni::CodeFixup& fixup)
+{
+	struct Section* source = find_section_by_index(fixup.section);
+	if (!source) {
+		aasm_log(_LOG_PANIC, "fixup refers to a nonexistent source section");
+		return;
+	}
+	uint64_t storage_size = (fixup.encoding.storage_bits + 7) / 8;
+	if (!storage_size || storage_size > 8 ||
+		fixup.offset + storage_size > static_cast<uint64_t>(source->length)) {
+		aasm_log(_LOG_PANIC, "fixup storage is outside its source section");
+		return;
+	}
+
+	int64_t target = fixup.addend;
+	if (fixup.target_section != NO_SEG) {
+		int64_t base;
+		if (!section_address(fixup.target_section, base)) {
+			aasm_log(_LOG_ERROR,
+				"binary output format does not support external references");
+			return;
+		}
+		target += base;
+	}
+	int64_t place;
+	if (!section_address(fixup.section, place)) {
+		aasm_log(_LOG_PANIC, "cannot resolve fixup source address");
+		return;
+	}
+	place += static_cast<int64_t>(fixup.offset);
+	if (fixup.architecture_kind == static_cast<uint32_t>(
+			uni::lango::ArchitectureKind::ARM32) &&
+		(fixup.kind == uni::CodeFixupKind::Low ||
+			fixup.kind == uni::CodeFixupKind::High) &&
+		fixup.pair.role != uni::CodeFixupPairRole::Tail &&
+		(target < 0 || static_cast<uint64_t>(target) > UINT32_MAX)) {
+		aasm_log(_LOG_ERROR, "ARM32 label address is out of range");
+		return;
+	}
+
+	int64_t value;
+	bool check_range = false;
+	switch (fixup.kind) {
+	case uni::CodeFixupKind::Absolute:
+		value = target;
+		check_range = true;
+		break;
+	case uni::CodeFixupKind::PcRelative:
+	case uni::CodeFixupKind::Branch:
+	case uni::CodeFixupKind::Call:
+		value = target - (place + fixup.pc_bias);
+		check_range = true;
+		break;
+	case uni::CodeFixupKind::Low:
+		value = target;
+		break;
+	case uni::CodeFixupKind::High:
+		value = target >> 16;
+		break;
+	case uni::CodeFixupKind::PageRelative:
+		value = (target & ~INT64_C(0xfff)) -
+			(place & ~INT64_C(0xfff));
+		check_range = true;
+		break;
+	case uni::CodeFixupKind::PageOffset:
+		value = target & INT64_C(0xfff);
+		break;
+	default:
+		aasm_log(_LOG_PANIC, "binary output format does not support fixup kind");
+		return;
+	}
+
+	const uni::CodeFixupEncoding& encoding = fixup.encoding;
+	if (encoding.right_shift >= 64) {
+		aasm_log(_LOG_PANIC, "fixup right shift is invalid");
+		return;
+	}
+	if (encoding.right_shift) {
+		uint64_t alignment = UINT64_C(1) << encoding.right_shift;
+		if (static_cast<uint64_t>(value) & (alignment - 1)) {
+			if (fixup.kind == uni::CodeFixupKind::Branch ||
+				fixup.kind == uni::CodeFixupKind::Call)
+				aasm_log(_LOG_ERROR, "%s branch target is unaligned",
+					fixup_architecture(fixup));
+			else
+				aasm_log(_LOG_ERROR, "%s fixup value is not properly aligned",
+					fixup_architecture(fixup));
+			return;
+		}
+	}
+	if (check_range && encoding.signed_value &&
+		!signed_range(value, encoding.value_bits)) {
+		if (fixup.kind == uni::CodeFixupKind::Branch ||
+			fixup.kind == uni::CodeFixupKind::Call)
+			aasm_log(_LOG_ERROR, "%s branch target is out of range",
+				fixup_architecture(fixup));
+		else if (fixup.kind == uni::CodeFixupKind::PageRelative)
+			aasm_log(_LOG_ERROR, "%s label address is out of range",
+				fixup_architecture(fixup));
+		else
+			aasm_log(_LOG_ERROR, "%s fixup value is out of range",
+				fixup_architecture(fixup));
+		return;
+	}
+	if (check_range && !encoding.signed_value && encoding.value_bits < 64 &&
+		(value < 0 || static_cast<uint64_t>(value) >
+			field_mask(encoding.value_bits))) {
+		aasm_log(_LOG_ERROR, "%s fixup value is out of range",
+			fixup_architecture(fixup));
+		return;
+	}
+	value >>= encoding.right_shift;
+
+	uint8_t bytes[8] {};
+	StrbuffPopx(source->contents, fixup.offset, bytes, storage_size);
+	uint64_t storage = 0;
+	for (uint64_t index = 0; index < storage_size; index++)
+		storage |= static_cast<uint64_t>(bytes[index]) << (index * 8);
+	if (encoding.field_count) {
+		if (encoding.field_count > numsof(encoding.fields)) {
+			aasm_log(_LOG_PANIC, "fixup has too many encoded fields");
+			return;
+		}
+		for (unsigned index = 0; index < encoding.field_count; index++) {
+			const uni::CodeFixupEncoding::Field& field = encoding.fields[index];
+			if (!field.value_bits || field.value_bits > 64 ||
+				field.bit_offset + field.value_bits > encoding.storage_bits ||
+				field.value_offset + field.value_bits > 64) {
+				aasm_log(_LOG_PANIC, "fixup field is invalid");
+				return;
+			}
+			uint64_t mask = field_mask(field.value_bits);
+			storage &= ~(mask << field.bit_offset);
+			storage |= ((static_cast<uint64_t>(value) >> field.value_offset) &
+				mask) << field.bit_offset;
+		}
+	}
+	else {
+		unsigned stored_bits = encoding.value_bits > encoding.right_shift ?
+			encoding.value_bits - encoding.right_shift : encoding.value_bits;
+		if (!stored_bits || encoding.bit_offset + stored_bits >
+			encoding.storage_bits) {
+			aasm_log(_LOG_PANIC, "fixup encoding is invalid");
+			return;
+		}
+		uint64_t mask = field_mask(stored_bits);
+		storage &= ~(mask << encoding.bit_offset);
+		storage |= (static_cast<uint64_t>(value) & mask) << encoding.bit_offset;
+	}
+	for (uint64_t index = 0; index < storage_size; index++)
+		bytes[index] = static_cast<uint8_t>(storage >> (index * 8));
+	StrbuffSendx(source->contents, fixup.offset, bytes, storage_size);
+}
+
+void bin_emit_fixup(const uni::CodeFixup& fixup)
+{
+	uint64_t storage_size = (fixup.encoding.storage_bits + 7) / 8;
+	if (!storage_size || storage_size > 8 ||
+		fixup.encoding.storage_bits % 8) {
+		aasm_log(_LOG_PANIC, "binary fixup storage width is invalid");
+		return;
+	}
+	if (fixup.legacy_wrt != NO_SEG)
+		aasm_log(_LOG_ERROR, "WRT not supported by binary output format");
+	CodeReloc* reloc = new CodeReloc(fixup);
+	*code_reloc_tail = reloc;
+	code_reloc_tail = &reloc->next;
+	uint8_t bytes[8];
+	for (uint64_t index = 0; index < storage_size; index++)
+		bytes[index] = static_cast<uint8_t>(fixup.initial_value >> (index * 8));
+	bin_out(fixup.section, bytes, OUT_RAWDATA,
+		storage_size, NO_SEG, NO_SEG);
 }
 
 static struct Section *create_section(char *name)
@@ -576,6 +798,9 @@ static void bin_cleanup(int debuginfo)
 		mydata = l;
 		StrbuffSendx(r->target->contents, r->posn, mydata.v, r->bytes);
 	}
+	for (CodeReloc* code_reloc = code_relocs;
+		code_reloc; code_reloc = code_reloc->next)
+		apply_code_reloc(code_reloc->fixup);
 
 	/* Step 6: Write the section data to the output file. */
 	do_output();
@@ -731,6 +956,11 @@ static void bin_cleanup(int debuginfo)
 		r = relocs->next;
 		memf(relocs);
 		relocs = r;
+	}
+	while (code_relocs) {
+		CodeReloc* code_reloc = code_relocs;
+		code_relocs = code_relocs->next;
+		delete code_reloc;
 	}
 }
 
@@ -1512,6 +1742,8 @@ static void binfmt_init(FILE *afp, ldfunc ldef, evalfunc eval)
 	maxbits = 64;               /* Support 64-bit Segments */
 	relocs = NULL;
 	reloctail = &relocs;
+	code_relocs = nullptr;
+	code_reloc_tail = &code_relocs;
 	origin_defined = 0;
 	no_seg_labels = NULL;
 	nsl_tail = &no_seg_labels;

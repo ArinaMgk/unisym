@@ -12,6 +12,8 @@ CheckDirectory="$ScriptDirectory/.check"
 . "$CheckDirectory/x86.sh"
 . "$CheckDirectory/codeend.sh"
 . "$CheckDirectory/riscv.sh"
+. "$CheckDirectory/arm64.sh"
+. "$CheckDirectory/arm32.sh"
 
 RunX86Checks()
 {
@@ -54,6 +56,20 @@ RunRISCVChecks()
 	CheckRISCVELFMetadata
 }
 
+RunARM64Checks()
+{
+	CheckARM64
+	CheckARM64Fixups
+	CheckARM64Diagnostics
+}
+
+RunARM32Checks()
+{
+	CheckARM32
+	CheckARM32Fixups
+	CheckARM32Diagnostics
+}
+
 RunCodeendChecks()
 {
 	CheckCodeends
@@ -72,6 +88,8 @@ RunAllChecks()
 	CheckPreprocessor
 	RunCodeendChecks
 	RunRISCVChecks
+	RunARM32Checks
+	RunARM64Checks
 	CheckCommonStatements
 }
 
@@ -81,6 +99,8 @@ RunCheckGroup()
 	all) RunAllChecks; AllChecks=true ;;
 	x86) RunX86Checks ;;
 	riscv) RunRISCVChecks ;;
+	arm32) RunARM32Checks ;;
+	arm64) RunARM64Checks ;;
 	elf) RunELFChecks ;;
 	codeend) RunCodeendChecks ;;
 	common) RunCommonChecks ;;

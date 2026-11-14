@@ -69,8 +69,42 @@ namespace uni {
 	SecureDigitalCard_t SDCard1(1);
 	SecureDigitalCard_t SDCard2(2);
 
+#if defined(_MCU_STM32H7x)
+	static bool sdmmc_getClockGate(byte id, RCCReg::RCCReg& reg, unsigned& bit) {
+		switch (id) {
+		case 1: reg = RCCReg::AHB3ENR; bit = 16; return true;// SDMMC1EN
+		case 2: reg = RCCReg::AHB2ENR; bit = 9; return true;// SDMMC2EN
+		default: return false;
+		}
+	}
+
+	stduint SDMMC_t::getAddress() const {
+		return getID() <= 2 ? _REFADDR_SDMMC[getID()] : 0;
+	}
+
+	Request_t SDMMC_t::getRequest() const {
+		return getID() == 1 ? IRQ_SDMMC1 : IRQ_SDMMC2;
+	}
+
+	bool SDMMC_t::isAble() const {
+		RCCReg::RCCReg reg;
+		unsigned bit;
+		return sdmmc_getClockGate(getID(), reg, bit) && RCC[reg].bitof(bit);
+	}
+
+	void SDMMC_t::enClock(bool enable) const {
+		RCCReg::RCCReg reg;
+		unsigned bit;
+		if (sdmmc_getClockGate(getID(), reg, bit)) RCC[reg].setof(bit, enable);
+	}
+#endif
+
 	Reference SDMMC_t::operator[](SDReg idx) const {
+#if defined(_MCU_STM32H7x)
+		return getAddress() + _IMMx4(idx);
+#else
 		return _REFADDR_SDMMC[getID()] + _IMMx4(idx);
+#endif
 	}
 
 #if defined(_MPU_STM32MP13)

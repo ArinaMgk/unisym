@@ -90,21 +90,23 @@ namespace uni {
 #if defined(_MPU_STM32MP13)
 		RCC[RCCReg::MP_AHB6ENSETR].setof(16 + _id);
 #elif defined(_MCU_STM32H7x)
-		if (getID() == 1)
-			RCC[RCCReg::AHB3ENR].setof(16);// SDMMC1EN
-		else
-			RCC[RCCReg::AHB2ENR].setof(9);// SDMMC2EN
+		enClock();
 #endif
 		if (getID() == 1) {
 
 			// __HAL_RCC_SDMMC1_CONFIG
 			// GPIN Configure
-			for (unsigned i = 8; i < 13; i++) {
-				GPIOC[i].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);
-				GPIOC[i]._set_alternate(12);// GPIO_AF12_SDIO1
+#if defined(_MCU_STM32H7x)
+			if (auto_setmode_apio)
+#endif
+			{
+				for (unsigned i = 8; i < 13; i++) {
+					GPIOC[i].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);
+					GPIOC[i]._set_alternate(12);// GPIO_AF12_SDIO1
+				}
+				GPIOD[2].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);
+				GPIOD[2]._set_alternate(12);// GPIO_AF12_SDIO1
 			}
-			GPIOD[2].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);
-			GPIOD[2]._set_alternate(12);// GPIO_AF12_SDIO1
 			// interrupt controller configuration for SDIO interrupts
 #if defined(_MPU_STM32MP13)
 			GIC.setPriority(IRQ_SDMMC1, 0x00);
@@ -119,12 +121,14 @@ namespace uni {
 		else {
 			// __HAL_RCC_SDMMC2_CONFIG
 			// GPIN Configure (AF9)
-			GPIOB[14].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High); GPIOB[14]._set_alternate(9);// SDMMC2_D0
-			GPIOB[15].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High); GPIOB[15]._set_alternate(9);// SDMMC2_D1
-			GPIOB[3].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOB[3]._set_alternate(9);// SDMMC2_D2
-			GPIOB[4].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOB[4]._set_alternate(9);// SDMMC2_D3
-			GPIOC[1].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOC[1]._set_alternate(9);// SDMMC2_CK
-			GPIOA[0].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOA[0]._set_alternate(9);// SDMMC2_CMD
+			if (auto_setmode_apio) {
+				GPIOB[14].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High); GPIOB[14]._set_alternate(9);// SDMMC2_D0
+				GPIOB[15].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High); GPIOB[15]._set_alternate(9);// SDMMC2_D1
+				GPIOB[3].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOB[3]._set_alternate(9);// SDMMC2_D2
+				GPIOB[4].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOB[4]._set_alternate(9);// SDMMC2_D3
+				GPIOC[1].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOC[1]._set_alternate(9);// SDMMC2_CK
+				GPIOA[0].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOA[0]._set_alternate(9);// SDMMC2_CMD
+			}
 			// interrupt controller configuration
 			NVIC.setPriority(IRQ_SDMMC2, 0x00);
 			NVIC.setAble(IRQ_SDMMC2);

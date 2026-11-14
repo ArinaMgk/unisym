@@ -12,6 +12,7 @@ void elf32_configure_target(const uni::lango::AssemblyTargetProfile& target);
 void elf64_configure_target(const uni::lango::AssemblyTargetProfile& target);
 void elf32_emit_fixup(const uni::CodeFixup& fixup);
 void elf64_emit_fixup(const uni::CodeFixup& fixup);
+void bin_emit_fixup(const uni::CodeFixup& fixup);
 
 outffmt* OutfileFormat::crt_format = NULL;
 
@@ -221,6 +222,19 @@ public:
 
 	virtual void EmitFixup(const uni::CodeFixup& fixup) override
 	{
+		if (fixup.architecture_kind == static_cast<uint32_t>(
+				uni::lango::ArchitectureKind::ARM32) ||
+			fixup.architecture_kind == static_cast<uint32_t>(
+				uni::lango::ArchitectureKind::ARM64)) {
+			if (Driver == &of_bin) {
+				bin_emit_fixup(fixup);
+				return;
+			}
+			aasm_log(_LOG_ERROR,
+				"output format `%s' does not support ARM relocation",
+				Info.shortname);
+			return;
+		}
 		if (fixup.architecture_kind == static_cast<uint32_t>(
 			uni::lango::ArchitectureKind::RISCV)) {
 			if (Driver == &of_elf32 || Driver == &of_elf) {

@@ -84,6 +84,12 @@ namespace uni {
 	public:
 		SDMMC_t(byte _SDMMC_ID) : SDMMC_ID(_SDMMC_ID) {}
 		byte getID() const { return SDMMC_ID; }
+#if defined(_MCU_STM32H7x)
+		stduint getAddress() const;
+		Request_t getRequest() const;
+		bool isAble() const;
+		void enClock(bool enable = true) const;
+#endif
 		Reference operator[](SDReg idx) const;
 		// ---- RuptTrait ----
 		virtual void setInterrupt(Handler_t _func) const override { _TODO }
@@ -230,6 +236,7 @@ namespace uni {
 		Handler_t ErrorHandler = 0;        // AKA HAL_SD_ErrorCallback
 		Handler_t AbortCpltHandler = 0;    // AKA HAL_SD_AbortCallback
 #if defined(_MCU_STM32H7x)
+		bool auto_setmode_apio = true;// Configure default GPIO during mode initialization.
 		Handler_t Read_DMADoubleBuffer0CpltHandler = 0;// AKA HAL_SDEx_Read_DMADoubleBuffer0CpltCallback
 		Handler_t Read_DMADoubleBuffer1CpltHandler = 0;
 		Handler_t Write_DMADoubleBuffer0CpltHandler = 0;

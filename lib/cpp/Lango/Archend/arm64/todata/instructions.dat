@@ -1,0 +1,29 @@
+; ASCII TAB4 LF
+; name enum format operands fixed32 fixed64 access-size
+
+NOP     Nop             Fixed               None            0xd503201f  0xd503201f  0
+RET     Ret             RegisterBranch      RegisterOptional 0xd65f0000  0xd65f0000  0
+BR      Br              RegisterBranch      Register         0xd61f0000  0xd61f0000  0
+BLR     Blr             RegisterBranch      Register         0xd63f0000  0xd63f0000  0
+B       B               Branch              Target           0x14000000  0x14000000  0
+BL      Bl              Branch              Target           0x94000000  0x94000000  0
+
+ADD     AddRegister     AddSubRegister      RdRnRm           0x0b000000  0x8b000000  0
+ADD     AddImmediate    AddSubImmediate     RdRnImmediate    0x11000000  0x91000000  0
+SUB     SubRegister     AddSubRegister      RdRnRm           0x4b000000  0xcb000000  0
+SUB     SubImmediate    AddSubImmediate     RdRnImmediate    0x51000000  0xd1000000  0
+CMP     CmpRegister     CompareRegister     RnRm             0x6b00001f  0xeb00001f  0
+CMP     CmpImmediate    CompareImmediate    RnImmediate      0x7100001f  0xf100001f  0
+AND     AndRegister     LogicalRegister     RdRnRm           0x0a000000  0x8a000000  0
+ORR     OrrRegister     LogicalRegister     RdRnRm           0x2a000000  0xaa000000  0
+EOR     EorRegister     LogicalRegister     RdRnRm           0x4a000000  0xca000000  0
+
+LDR     Ldr             LoadStore           RtAddress        0xb9400000  0xf9400000  4|8
+STR     Str             LoadStore           RtAddress        0xb9000000  0xf9000000  4|8
+LDRB    Ldrb            LoadStore           RtAddress        0x39400000  -           1
+LDRH    Ldrh            LoadStore           RtAddress        0x79400000  -           2
+LDRSB   Ldrsb           LoadStore           RtAddress        0x39c00000  0x39800000  1
+LDRSH   Ldrsh           LoadStore           RtAddress        0x79c00000  0x79800000  2
+LDRSW   Ldrsw           LoadStore           RtAddress        -           0xb9800000  4
+STRB    Strb            LoadStore           RtAddress        0x39000000  -           1
+STRH    Strh            LoadStore           RtAddress        0x79000000  -           2

@@ -1,0 +1,24 @@
+; ASCII TAB4 LF
+; name enum format operands fixed supports-s access-size
+
+NOP     Nop             Fixed           None            0x0320f000  0  0
+BX      Bx              RegisterBranch  Register        0x012fff10  0  0
+BLX     Blx             RegisterBranch  Register        0x012fff30  0  0
+B       B               Branch          Target          0x0a000000  0  0
+BL      Bl              Branch          Target          0x0b000000  0  0
+
+ADD     Add             DataProcessing  RdRnOperand2    0x00800000  1  0
+SUB     Sub             DataProcessing  RdRnOperand2    0x00400000  1  0
+CMP     Cmp             Compare         RnOperand2      0x01500000  0  0
+AND     And             DataProcessing  RdRnOperand2    0x00000000  1  0
+ORR     Orr             DataProcessing  RdRnOperand2    0x01800000  1  0
+EOR     Eor             DataProcessing  RdRnOperand2    0x00200000  1  0
+
+LDR     Ldr             LoadStore       RtAddress       0x05900000  0  4
+STR     Str             LoadStore       RtAddress       0x05800000  0  4
+LDRB    Ldrb            LoadStore       RtAddress       0x05d00000  0  1
+STRB    Strb            LoadStore       RtAddress       0x05c00000  0  1
+LDRH    Ldrh            LoadStoreExtra  RtAddress       0x01d000b0  0  2
+STRH    Strh            LoadStoreExtra  RtAddress       0x01c000b0  0  2
+LDRSB   Ldrsb           LoadStoreExtra  RtAddress       0x01d000d0  0  1
+LDRSH   Ldrsh           LoadStoreExtra  RtAddress       0x01d000f0  0  2

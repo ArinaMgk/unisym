@@ -348,13 +348,30 @@ namespace uni {
 			byte last_lba[4];
 			byte block_size[4];
 		};
+
+		_PACKED(struct) ReadCapacity16Reply {
+			byte last_lba[8];
+			byte block_size[4];
+			byte other_fields[20];
+		};
 		static_assert(sizeof(InquiryReply) == 36);
 		static_assert(sizeof(ReadCapacity10Reply) == 8);
+		static_assert(sizeof(ReadCapacity16Reply) == 32);
+
+		static constexpr stduint AtaIdentifyDataSize = 512;
+		struct AtaIdentifyInfo {
+			char model[41] = {};
+			bool smart = false, lba48 = false, trim = false;
+		};
 
 		bool Inquiry(ExecuteCommandFn execute, void* context, stduint target, byte lun,
 			InquiryReply& reply, CommandResult& result);
 		bool ReadCapacity10(ExecuteCommandFn execute, void* context, stduint target, byte lun,
 			ReadCapacity10Reply& reply, CommandResult& result);
+		bool ReadCapacity16(ExecuteCommandFn execute, void* context, stduint target, byte lun,
+			ReadCapacity16Reply& reply, CommandResult& result);
+		bool IdentifyAtaDevice(ExecuteCommandFn execute, void* context, stduint target, byte lun,
+			byte* data, stduint bytes, AtaIdentifyInfo& info, CommandResult& result);
 	}
 
 	class Harddisk_SCSI : public StorageTrait {
@@ -376,7 +393,7 @@ namespace uni {
 		}
 
 		void Bind(stduint target, byte lunx, void* context, ExecCommandFn exec_fn);
-		void UpdateCapacity(uint32 last_lba, uint32 block_size);
+		void UpdateCapacity(uint64 last_lba, uint32 block_size);
 		bool ReadBlocks(uint64 lba, void* dest, stduint block_count);
 		bool WriteBlocks(uint64 lba, const void* src, stduint block_count);
 

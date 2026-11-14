@@ -81,7 +81,7 @@ namespace uni {
 	}
 
 	static bool _LOCAL_ReadBlock(StorageTrait& base, uint64 lba, byte* dest) {
-		const uint64 max_stduint = (uint64)(stduint)~0u;
+		const uint64 max_stduint = uint64(stduint(-1));
 		if (lba > max_stduint) return false;
 		return base.Read((stduint)lba, dest);
 	}
@@ -116,8 +116,8 @@ namespace uni {
 		uint64 entry_bytes = (uint64)hdr.number_of_partition_entries * hdr.size_of_partition_entry;
 		uint64 entry_blocks = (entry_bytes + block_size - 1) / block_size;
 		if (!entry_blocks) return false;
-		if (hdr.partition_entry_lba < 2) return false;
-		if (hdr.partition_entry_lba + entry_blocks - 1 > disk_last_lba) return false;
+		if (hdr.partition_entry_lba < 2 || hdr.partition_entry_lba > disk_last_lba) return false;
+		if (entry_blocks - 1 > disk_last_lba - hdr.partition_entry_lba) return false;
 		if (hdr.first_usable_lba < 2 || hdr.last_usable_lba > disk_last_lba) return false;
 
 		byte* hdr_copy = new byte[hdr.header_size];
@@ -131,8 +131,9 @@ namespace uni {
 	static bool _LOCAL_LoadGpt(StorageTrait& base, HD_Info& hdi, byte* block_buf, const GptHeader& hdr, PartitionSchemeKind kind) {
 		stduint block_size = base.Block_Size ? base.Block_Size : 512;
 		uint64 entry_bytes64 = (uint64)hdr.number_of_partition_entries * hdr.size_of_partition_entry;
-		const uint64 max_stduint = (uint64)(stduint)~0u;
-		if (entry_bytes64 > max_stduint) return false;
+		const uint64 max_stduint = uint64(stduint(-1));
+		// Widen disk addresses without raising the existing entry-array allocation limit.
+		if (entry_bytes64 > 0xFFFFFFFFull || entry_bytes64 > max_stduint) return false;
 		stduint entry_bytes = (stduint)entry_bytes64;
 		byte* entry_buf = new byte[entry_bytes];
 		stduint blocks = (entry_bytes + block_size - 1) / block_size;
@@ -169,7 +170,7 @@ namespace uni {
 				return false;
 			}
 			uint64 slice_len = ent.last_lba - ent.first_lba + 1;
-			if (ent.first_lba > max_stduint || slice_len > max_stduint) {
+			if (ent.last_lba > max_stduint || slice_len > max_stduint) {
 				delete[] entry_buf;
 				return false;
 			}

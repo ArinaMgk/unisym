@@ -157,8 +157,8 @@ NOP
 | Codeend | x86 | RISC-V | ARM32 | ARM64 |
 | :--- | :---: | :---: | :---: | :---: |
 | `bin` | 支持 | 支持 | 支持最小整数指令集 | 支持最小整数指令集 |
-| `elf32`、`elf` | 支持 | 支持 32 位基础对象输出 | 不支持 | 不支持 |
-| `elf64` | 支持 | 支持 64 位基础对象输出 | 不支持 | 不支持 |
+| `elf32`、`elf` | 支持 | 支持 32 位基础对象输出 | 支持 | 不支持 |
+| `elf64` | 支持 | 支持 64 位基础对象输出 | 不支持 | 支持 |
 | COFF、Mach-O、AOUT、OMF、IEEE、AS86 等现有格式 | 支持 | 不支持 | 不支持 | 不支持 |
 
 ELF 的机器架构由命令行 `-march` 或 `--arch` 固定；ELF 源文件中的 `[ARCH]` 只能
@@ -188,6 +188,10 @@ LW x6, [x5 + PCREL_LOW address_pair]
 输出静态可重定位 ELF 对象，不生成 `RELATIVE`、`JUMP_SLOT` 等动态链接表 relocation；
 `CALL_PLT` 和 GOT relocation 可以由最终链接器转换为 PLT、GOT 及动态 relocation。
 当前数据定义没有 PC-relative 数据 relocation 语义。
+
+ARM32 使用 ELF32 对象格式，支持 A32 分支、调用、`MOVW/MOVT` 标签地址和绝对数据
+引用；ARM64 使用 ELF64 对象格式，支持 A64 分支、调用、条件分支、`ADRP/ADD`
+标签地址和绝对数据引用。ARM32 不接受 ELF64，ARM64 不接受 ELF32。
 
 启用 `-mrelax` 后，可松弛 relocation 会附带 `R_RISCV_RELAX` 提示；RISC-V 的
 `align` 会保留供链接器调整的最大 NOP padding。

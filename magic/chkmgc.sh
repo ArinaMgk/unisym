@@ -177,6 +177,10 @@ check_fail 'enum E {A}; int A; int main(){return 0;}' 'global variable conflicts
 # Structure and union layout
 check '../demo/test/clover/c/struct-layout.c' 254
 check '../demo/test/clover/c/initializer.c' 102
+check '../demo/test/clover/c/compound-literal.c' 198
+check_fail 'int main(){return (void){0};}' 'compound literal requires an object type'
+check_fail 'struct X;int main(){return ((struct X){0},0);}' 'compound literal requires a complete object type'
+check_fail 'int main(){(const int){1}=2;return 0;}' 'assignment to const-qualified object'
 check_fail 'struct P{int x;}; int main(){struct P value={1,2};return 0;}' 'excess elements in struct initializer'
 check_fail 'union U{int x;char y;}; int main(){union U value={1,2};return 0;}' 'excess elements in union initializer'
 check_fail 'struct P{int x;}; int main(){struct P value={.missing=1};return 0;}' 'record has no such designated member'
@@ -186,6 +190,7 @@ check_fail 'int main(){int index=1;int values[2]={[index]=1};return 0;}' 'array 
 # Storage Area and Lifetime
 check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1
 check '../demo/test/clover/c/static.c' 167 '' imfd lp64d
+check '../demo/test/clover/c/static-relocation.c' 61
 check_ir 'static int value; static int helper(int x){return x;} int main(){return helper(value);}' 'internal global @value'
 check_ir 'static int value; static int helper(int x){return x;} int main(){return helper(value);}' 'internal func @helper'
 check_ir 'extern int value; int main(){return value;}' 'declare global @value i32'

@@ -57,6 +57,7 @@ enum class FrontendCToken : stduint {
 	ReturnVoid,               // Return statement without a value.
 	CharacterLiteral,         // C ordinary character constant delimited by single quotes.
 	CallExpression,           // Call through a parenthesized callee expression.
+	CompoundLiteral,          // C99 object created from a parenthesized type and initializer.
 	DesignatedInitializer,    // C99 designation followed by one initializer value.
 	MemberDesignator,         // A .member component in a C99 designation.
 	IndexDesignator,          // An [index] component in a C99 designation.
@@ -469,6 +470,10 @@ namespace frontend_c_detail {
 	void ListTrailingOperators(uni::Chain& operators);
 	// Distinguish parenthesized type names from ordinary grouped expressions.
 	bool ParseCastOperators(uni::Nchain& syntax_tree,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		FrontendCTypeInfo& type_info);
+	bool PreserveCompoundLiteralSyntax(uni::Nchain& syntax_tree);
+	bool PrepareCompoundLiterals(uni::Nchain& syntax_tree,
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 		FrontendCTypeInfo& type_info);
 	bool ParseConditionalOperators(uni::Nchain& syntax_tree,

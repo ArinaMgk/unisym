@@ -60,6 +60,7 @@ RunARM64Checks()
 {
 	CheckARM64
 	CheckARM64Fixups
+	CheckARM64ELF
 	CheckARM64Diagnostics
 }
 
@@ -67,6 +68,7 @@ RunARM32Checks()
 {
 	CheckARM32
 	CheckARM32Fixups
+	CheckARM32ELF
 	CheckARM32Diagnostics
 }
 

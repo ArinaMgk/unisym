@@ -335,8 +335,15 @@ namespace clover::frontend_c_internal {
 	LoweredValue FunctionBuilder::CreateTemporaryStorage(const FrontendCType& type) {
 		Instruction instruction;
 		instruction.opcode = Opcode::Local;
-		instruction.type = CloverType(type);
-		instruction.immediate = 1;
+		if (type.record_id && !type.StorageElementIsPointer()) {
+			instruction.type = Type::I8;
+			instruction.immediate = (stdsint)TypeSize(type);
+		}
+		else {
+			instruction.type = CloverType(type);
+			instruction.immediate = type.IsPointer() ? 1 :
+				(stdsint)type.StorageElementCount();
+		}
 		instruction.alignment = TypeAlignment(type);
 		instruction.has_result = true;
 		instruction.result = NewValue(Type::Ptr);
@@ -1185,6 +1192,8 @@ namespace clover::frontend_c_internal {
 		using namespace uni;
 		if (!node) return Error("missing expression", node);
 		switch (node->type) {
+		case ToToken(FrontendCToken::CompoundLiteral):
+			return LowerCompoundLiteral(node);
 		case ToToken(FrontendCToken::CallExpression): {
 			uni::Nnode* callee = node->subf;
 			uni::Nnode* arguments = callee ? callee->next : nullptr;

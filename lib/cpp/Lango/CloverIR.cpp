@@ -111,6 +111,17 @@ namespace clover {
 			output.OutChar('"');
 		}
 
+		void PrintSymbolInitializer(uni::OstreamTrait& output,
+			const uni::String& symbol, stdsint addend) {
+			output.OutFormat("@%s", symbol.reference());
+			if (addend > 0) output.OutFormat(" + %[i]", addend);
+			else if (addend < 0) {
+				stduint magnitude = (stduint)(-(addend + 1));
+				magnitude++;
+				output.OutFormat(" - %[u]", magnitude);
+			}
+		}
+
 		// Serialize one instruction according to its operand layout.
 		bool PrintInstruction(const Instruction& instruction, uni::OstreamTrait& output,
 			uint32& current_file, uint32& current_line) {
@@ -331,7 +342,8 @@ namespace clover {
 
 			bool IsPunctuation(int ch) const {
 				return ch == '@' || ch == '%' || ch == '^' || ch == '(' || ch == ')' ||
-					ch == '{' || ch == '}' || ch == ',' || ch == '=' || ch == ':';
+					ch == '{' || ch == '}' || ch == ',' || ch == '=' || ch == ':' ||
+					ch == '+';
 			}
 
 			void SkipIgnored() {
@@ -457,6 +469,19 @@ namespace clover {
 				if (!token.getByteCount()) return Error("expected integer");
 				number = atoins(token.reference());
 				Advance();
+				return true;
+			}
+
+			bool ReadSymbolInitializer(uni::String& symbol, stdsint& addend) {
+				if (!Expect("@") || !ReadName(symbol)) return false;
+				addend = 0;
+				if (!Is("+") && !Is("-")) return true;
+				bool subtract = Is("-");
+				Advance();
+				stdsint magnitude;
+				if (!ReadNumber(magnitude) || magnitude < 0)
+					return Error("symbol addend requires a nonnegative integer");
+				addend = subtract ? -magnitude : magnitude;
 				return true;
 			}
 
@@ -1072,11 +1097,19 @@ namespace clover {
 						GlobalInitializerFragment fragment;
 						stdsint offset;
 						if (!ReadNumber(offset) || offset < 0 || !Expect(":") ||
-							!ReadType(fragment.type) || fragment.type == Type::Void ||
-							!ReadNumber(fragment.initializer))
+							!ReadType(fragment.type) || fragment.type == Type::Void)
 							return Error("invalid global initializer fragment");
 						fragment.offset = (stduint)offset;
-						if (fragment.type == Type::F128 &&
+						if (Is("@")) {
+							if (fragment.type != Type::Ptr || !ReadSymbolInitializer(
+								fragment.initializer_symbol,
+								fragment.initializer_addend))
+								return Error("symbol fragment requires ptr type");
+						}
+						else if (!ReadNumber(fragment.initializer))
+							return Error("invalid global initializer fragment");
+						if (!fragment.initializer_symbol.getByteCount() &&
+							fragment.type == Type::F128 &&
 							(!Expect(",") || !ReadNumber(fragment.initializer_high)))
 							return Error("f128 global fragment requires two 64-bit words");
 						global.initializer_fragments.Append(fragment);
@@ -1100,9 +1133,8 @@ namespace clover {
 				}
 				else {
 					if (Is("@")) {
-						Advance();
-						if (global.type != Type::Ptr ||
-							!ReadName(global.initializer_symbol))
+						if (global.type != Type::Ptr || !ReadSymbolInitializer(
+							global.initializer_symbol, global.initializer_addend))
 							return Error("symbol initializer requires ptr type");
 					}
 					else if (!ReadNumber(global.initializer))
@@ -1203,9 +1235,14 @@ namespace clover {
 					if (index) output.OutFormat(", ");
 					const GlobalInitializerFragment& fragment =
 						global.initializer_fragments.begin()[index];
-					output.OutFormat("%[u]: %s %[i]", fragment.offset,
-						TypeName(fragment.type), fragment.initializer);
-					if (fragment.type == Type::F128)
+					output.OutFormat("%[u]: %s ", fragment.offset,
+						TypeName(fragment.type));
+					if (fragment.initializer_symbol.getByteCount())
+						PrintSymbolInitializer(output, fragment.initializer_symbol,
+							fragment.initializer_addend);
+					else output.OutFormat("%[i]", fragment.initializer);
+					if (!fragment.initializer_symbol.getByteCount() &&
+						fragment.type == Type::F128)
 						output.OutFormat(", %[i]", fragment.initializer_high);
 				}
 				output.OutFormat("}\n");
@@ -1220,7 +1257,8 @@ namespace clover {
 			}
 			else {
 				if (global.initializer_symbol.getByteCount())
-					output.OutFormat("@%s", global.initializer_symbol.reference());
+					PrintSymbolInitializer(output, global.initializer_symbol,
+						global.initializer_addend);
 				else output.OutFormat("%[i]", global.initializer);
 				if (global.type == Type::F128)
 					output.OutFormat(", %[i]", global.initializer_high);

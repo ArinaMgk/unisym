@@ -384,7 +384,8 @@ bool EncodeOne(const AssemblySession& session,
 		break;
 	case ARM32EncodingFormat::Branch:
 		if (!EncodeBranch(session, instruction, offset,
-			info.fixed, instruction.opcode == ARM32Opcode::Bl ?
+			info.fixed, instruction.opcode == ARM32Opcode::Bl &&
+				instruction.condition == ARM32Condition::AL ?
 				ARM32FixupKind::Call : ARM32FixupKind::Branch,
 			encoded)) return false;
 		break;

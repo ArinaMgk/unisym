@@ -101,6 +101,13 @@ namespace uni::lango {
 			}
 		}
 
+		void NormalizeCReturnKeyword(Dchain& tokens) {
+			for (Dnode* node = tokens.Root(); node; node = node->next)
+				if (node->type == tok_identy && node->addr &&
+					!StrCompare(node->addr, "return"))
+					node->type = ToToken(FrontendCToken::Return);
+		}
+
 		bool ResolveOptions(const FrontendOptions& options,
 			const FrontendCDiagnostics& diagnostics, FrontendCTargetInfo& target) {
 			if (options.language_standard &&
@@ -161,9 +168,13 @@ namespace uni::lango {
 					"unmatched or invalid delimiter", syntax_tree.Root());
 				return false;
 			}
+			if (!frontend_c_detail::PreserveCompoundLiteralSyntax(syntax_tree))
+				return false;
 			parser.ParseStatements_CPL();
 			if (!frontend_c_detail::Prepare(syntax_tree, diagnostics, target,
 				type_info, debug_info)) return false;
+			if (!frontend_c_detail::PrepareCompoundLiterals(
+				syntax_tree, diagnostics, target, type_info)) return false;
 			if (!parser.ParseOperator(syntax_tree.Root())) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"invalid postfix operator expression", syntax_tree.Root());
@@ -221,6 +232,7 @@ namespace uni::lango {
 			LinearParser::StringConcatenation(tokens);
 			JoinCHexadecimalTokens(tokens);
 			NormalizeCEllipsis(tokens);
+			NormalizeCReturnKeyword(tokens);
 
 			frontend_c_detail::ListPostfixOperators(operators);
 			syntax = new NestedParseUnit(tokens, &operators, sizeof(mag_node_t));

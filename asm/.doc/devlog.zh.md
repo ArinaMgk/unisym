@@ -178,5 +178,8 @@ ARM32 与 ARM64 已通过语义化 fixup 支持 Binary 本地跨 section 分支�
 标签地址使用 `MOVW + MOVT`，ARM64 标签地址使用 `ADRP + ADD`；Binary 在 section
 布局完成后回填分散的指令立即数字段，并检查对齐和范围。
 
+ARM32 与 ARM64 已分别接入 ELF32 和 ELF64 对象输出，支持标签控制流、标签地址和
+绝对数据引用，并在可执行 section 中标记代码与数据区域。
+
 +8=2026111319 RISC-V 指令集选择已改为统一的目标扩展描述，支持多字母扩展及组合指令依赖。已增加Zifencei、带 predecessor/successor 的 `FENCE`，并补充 RV32/RV64 常用 C 压缩整数和浮点访存指令。
 

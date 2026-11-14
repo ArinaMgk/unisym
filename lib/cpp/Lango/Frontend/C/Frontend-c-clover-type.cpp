@@ -296,6 +296,8 @@ namespace clover::frontend_c_internal {
 
 	bool FunctionBuilder::ResolveExpressionType(uni::Nnode* node, FrontendCType& type) {
 		if (!node) return false;
+		if (node->type == ToToken(FrontendCToken::CompoundLiteral))
+			return CompleteCompoundLiteralType(node, type);
 		if (node->type == ToToken(FrontendCToken::CallExpression)) {
 			uni::Nnode* callee = node->subf;
 			FrontendCType callee_type;

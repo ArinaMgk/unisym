@@ -12,6 +12,8 @@ void elf32_configure_target(const uni::lango::AssemblyTargetProfile& target);
 void elf64_configure_target(const uni::lango::AssemblyTargetProfile& target);
 void elf32_emit_fixup(const uni::CodeFixup& fixup);
 void elf64_emit_fixup(const uni::CodeFixup& fixup);
+void elf32_note_output(const uni::CodeendOutput& output);
+void elf64_note_output(const uni::CodeendOutput& output);
 void bin_emit_fixup(const uni::CodeFixup& fixup);
 
 outffmt* OutfileFormat::crt_format = NULL;
@@ -61,8 +63,10 @@ public:
 			return Driver == &of_bin || Driver == &of_elf32 ||
 				Driver == &of_elf || Driver == &of_elf64;
 		case uni::lango::ArchitectureKind::ARM32:
+			return Driver == &of_bin || Driver == &of_elf32 ||
+				Driver == &of_elf;
 		case uni::lango::ArchitectureKind::ARM64:
-			return Driver == &of_bin;
+			return Driver == &of_bin || Driver == &of_elf64;
 		default:
 			return false;
 		}
@@ -80,9 +84,10 @@ public:
 			if (Driver == &of_elf32 || Driver == &of_elf) return bits == 32;
 			return Driver == &of_elf64 && bits == 64;
 		case uni::lango::ArchitectureKind::ARM32:
-			return Driver == &of_bin && bits == 32;
+			return (Driver == &of_bin || Driver == &of_elf32 ||
+				Driver == &of_elf) && bits == 32;
 		case uni::lango::ArchitectureKind::ARM64:
-			return Driver == &of_bin && bits == 64;
+			return (Driver == &of_bin || Driver == &of_elf64) && bits == 64;
 		default:
 			return false;
 		}
@@ -203,9 +208,14 @@ public:
 	virtual void Emit(const uni::CodeendOutput& output) override
 	{
 		out_type type;
+		if (Driver == &of_elf32 || Driver == &of_elf)
+			elf32_note_output(output);
+		else if (Driver == &of_elf64)
+			elf64_note_output(output);
 
 		switch (output.type) {
 		case uni::CodeendOutputType::RawData:
+		case uni::CodeendOutputType::Instruction:
 			type = OUT_RAWDATA;
 			break;
 		case uni::CodeendOutputType::Reserve:
@@ -223,15 +233,32 @@ public:
 	virtual void EmitFixup(const uni::CodeFixup& fixup) override
 	{
 		if (fixup.architecture_kind == static_cast<uint32_t>(
-				uni::lango::ArchitectureKind::ARM32) ||
-			fixup.architecture_kind == static_cast<uint32_t>(
+				uni::lango::ArchitectureKind::ARM32)) {
+			if (Driver == &of_bin) {
+				bin_emit_fixup(fixup);
+				return;
+			}
+			if (Driver == &of_elf32 || Driver == &of_elf) {
+				elf32_emit_fixup(fixup);
+				return;
+			}
+			aasm_log(_LOG_ERROR,
+				"output format `%s' does not support ARM32 relocation",
+				Info.shortname);
+			return;
+		}
+		if (fixup.architecture_kind == static_cast<uint32_t>(
 				uni::lango::ArchitectureKind::ARM64)) {
 			if (Driver == &of_bin) {
 				bin_emit_fixup(fixup);
 				return;
 			}
+			if (Driver == &of_elf64) {
+				elf64_emit_fixup(fixup);
+				return;
+			}
 			aasm_log(_LOG_ERROR,
-				"output format `%s' does not support ARM relocation",
+				"output format `%s' does not support ARM64 relocation",
 				Info.shortname);
 			return;
 		}

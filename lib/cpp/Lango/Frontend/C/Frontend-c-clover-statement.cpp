@@ -250,20 +250,42 @@ namespace clover::frontend_c_internal {
 		if (!local.global_index || local.global_index > module->globals.Count())
 			return Error("invalid block static object", initializer).valid;
 		if (!initializer) return true;
-		Global& global = module->globals[local.global_index - 1];
+		StaticInitializerContext context;
+		context.module = module;
+		context.globals = visible_globals;
+		context.functions = visible_functions;
+		context.file_scope = false;
+		Global global = module->globals[local.global_index - 1];
+		global.initializer = 0;
+		global.initializer_high = 0;
+		global.initializer_symbol.Clear();
+		global.initializer_addend = 0;
+		global.initializer_values.Clear();
+		global.initializer_fragments.Clear();
+		bool initialized = false;
 		if (local.type.IsArray() || local.type.IsRecord()) {
-			global.initializer_values.Clear();
-			global.initializer_fragments.Clear();
-			return BuildStaticObjectInitializer(global, local.type, initializer,
-				*target, *type_info, *visible_constants, *diagnostics);
+			initialized = BuildStaticObjectInitializer(global, local.type,
+				initializer, *target, *type_info, *visible_constants,
+				*diagnostics, context);
 		}
-		if (!ParseStaticScalarInitializer(initializer, *target,
-			*visible_constants, local.type, global.initializer,
-			global.initializer_high))
+		else {
+			StaticScalarInitializer value;
+			initialized = ParseStaticScalarInitializer(initializer, local.type,
+				*target, *type_info, *visible_constants, *diagnostics, context,
+				value);
+			if (initialized) {
+				global.initializer = value.low;
+				global.initializer_high = value.high;
+				global.initializer_symbol = value.symbol;
+				global.initializer_addend = value.addend;
+			}
+		}
+		if (!initialized)
 			return Error("block static initializer must be a constant expression",
 				initializer).valid;
 		if (local.type.integer_rank == FrontendCIntegerRank::Bool &&
 			!local.type.enum_id) global.initializer = global.initializer != 0;
+		module->globals[local.global_index - 1] = global;
 		return true;
 	}
 

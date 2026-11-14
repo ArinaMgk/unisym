@@ -61,7 +61,10 @@ void _cast_panic();
 */
 
 // GNU::stddef.h)
-#if defined(_DEV_GCC) && defined(_WinNT)
+#if defined(_ACCM)
+_ESYM_C int* _errno(void);
+#define errno (*_errno())
+#elif defined(_DEV_GCC) && defined(_WinNT)
 #define _CRT_ERRNO_DEFINED
 _ESYM_C
  __attribute__((__dllimport__))

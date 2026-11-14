@@ -1,7 +1,7 @@
 # 【ZH-CN】AASM ARM32 指令语法
 
 本文定义 `arm32` Archend 的指令语法。当前接入 ARMv7-A A32 最小整数、控制流和
-加载存储子集，输出格式限于 Binary。
+加载存储子集，可以输出 Binary 或 ELF32 对象。
 
 ## 目标模式
 

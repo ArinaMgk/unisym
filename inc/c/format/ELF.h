@@ -24,6 +24,7 @@
 #define _INC_ELF
 
 #include "../stdinc.h"
+#include "../../cpp/Format/Code/ELF/ELF-arm.hpp"
 #include "../../cpp/Format/Code/ELF/ELF-riscv.hpp"
 
 enum Bitmode_t {
@@ -117,6 +118,7 @@ enum machine_t {
 	EM_PPC = 20,
 	EM_PPC64 = 21,
 	EM_S390 = 22,
+	EM_ARM = 40,
 	EM_SH = 42,
 	EM_SPARCV9 = 43, /* v9 = SPARC64 */
 	EM_H8_300H = 47,
@@ -125,6 +127,7 @@ enum machine_t {
 	EM_X86_64 = 62,
 	EM_CRIS = 76,
 	EM_V850 = 87,
+	EM_AARCH64 = 183,
 	EM_RISCV = 243,
 	EM_ALPHA = 0x9026, /* Interrim Alpha that stuck around */
 	EM_CYGNUS_V850 = 0x9080, /* Old v850 ID used by Cygnus */
@@ -630,13 +633,6 @@ struct elf_known_section {
 		R_X86_64_TLSDESC    = 36 	/* word64×2 */
 	};
 
-
-	// ARM (A32/T32) dynamic relocations used by static PIE images
-	enum reloc32_arm_type {
-		R_ARM_NONE          =  0,   /* No reloc */
-		R_ARM_ABS32         =  2,   /* Direct 32 bit */
-		R_ARM_RELATIVE      = 23    /* Adjust by program base */
-	};
 
 	// Unified 32-bit dynamic relocation ids for the arch-neutral flat PIE loader
 	#if (_MCCA & 0xFFFF) == 0x2032

@@ -107,6 +107,13 @@ struct Section {
 	int32_t rellen;
 	struct Reloc* head, ** tail;
 	struct rbtree* gsyms;       /* global symbols in section */
+	uint8_t arm_mapping;
+};
+
+enum {
+	ARM_MAPPING_NONE,
+	ARM_MAPPING_CODE,
+	ARM_MAPPING_DATA
 };
 
 #define SECT_DELTA 32
@@ -142,6 +149,11 @@ static uint32_t elf_flags = 0;
 static uni::RISCVELFTarget riscv_target;
 static struct Section* riscv_attributes = NULL;
 
+static bool elf_uses_rela()
+{
+	return elf_machine == EM_RISCV;
+}
+
 void elf32_set_architecture(uni::lango::ArchitectureKind architecture)
 {
 	switch (architecture) {
@@ -151,13 +163,16 @@ void elf32_set_architecture(uni::lango::ArchitectureKind architecture)
 	case uni::lango::ArchitectureKind::RISCV:
 		elf_machine = EM_RISCV;
 		break;
+	case uni::lango::ArchitectureKind::ARM32:
+		elf_machine = EM_ARM;
+		break;
 	default:
 		elf_machine = EM_NONE;
 		aasm_log(_LOG_PANIC,
 			"unsupported architecture reached ELF32 output");
 		return;
 	}
-	elf_flags = 0;
+	elf_flags = elf_machine == EM_ARM ? EF_ARM_EABI_VER5 : 0;
 	if (elf_machine == EM_RISCV) riscv_target.Reset(32);
 }
 
@@ -405,6 +420,20 @@ static void elf_init(FILE* fp, ldfunc ldef, evalfunc eval)
 			SHT_RISCV_ATTRIBUTES, 0, 1);
 		riscv_attributes = sects[index];
 	}
+	else if (elf_machine == EM_ARM) {
+		static const uint8_t attributes[] = {
+			0x41, 0x1a, 0x00, 0x00, 0x00,
+			'a', 'e', 'a', 'b', 'i', 0x00,
+			0x01, 0x10, 0x00, 0x00, 0x00,
+			0x05, '7', '-', 'A', 0x00,
+			0x06, 0x0a,
+			0x07, 'A',
+			0x08, 0x01
+		};
+		int index = elf_make_section((char*)".ARM.attributes",
+			SHT_ARM_ATTRIBUTES, 0, 1);
+		elf_sect_write(sects[index], attributes, sizeof(attributes));
+	}
 }
 
 static void elf_init_hack(FILE* fp, ldfunc ldef, evalfunc eval)
@@ -475,6 +504,7 @@ static int elf_make_section(char* name, int type, int flags, int align)
 	s->flags = flags;
 	s->align = align;
 	s->gsyms = NULL;
+	s->arm_mapping = ARM_MAPPING_NONE;
 
 	if (nsects >= sectlen)
 		sects = (Section**)aasm_realloc(sects, (sectlen += SECT_DELTA) * sizeof(*sects));
@@ -842,6 +872,67 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 	}
 }
 
+static struct Section* elf_find_section(int32_t segment)
+{
+	for (int index = 0; index < nsects; index++)
+		if (sects[index]->index == segment) return sects[index];
+	return NULL;
+}
+
+static void elf_add_mapping_symbol(struct Section* section, const char* name)
+{
+	int section_number = 0;
+	for (int index = 0; index < nsects; index++)
+		if (sects[index] == section) {
+			section_number = index + 1;
+			break;
+		}
+	if (!section_number) {
+		aasm_log(_LOG_PANIC, "ARM ELF32 mapping symbol has no section");
+		return;
+	}
+	int pos = strslen;
+	StrbuffSend(strs, (pureptr_t)name,
+		static_cast<int32_t>(StrLength(name) + 1));
+	strslen += StrLength(name) + 1;
+	struct Symbol* symbol = (Symbol*)StrbuffEalloc(syms);
+	MemSet(symbol, 0, sizeof(*symbol));
+	symbol->strpos = pos;
+	symbol->section = section_number;
+	symbol->other = STV_DEFAULT;
+	symbol->symv.key = section->len;
+	nlocals++;
+}
+
+static void elf_note_arm_mapping(struct Section* section,
+	uni::CodeendOutputType type)
+{
+	if (elf_machine != EM_ARM || section->type != SHT_PROGBITS ||
+		!(section->flags & SHF_EXECINSTR)) return;
+	uint8_t mapping = type == uni::CodeendOutputType::Instruction ?
+		ARM_MAPPING_CODE : ARM_MAPPING_DATA;
+	if (mapping == section->arm_mapping) return;
+	elf_add_mapping_symbol(section,
+		mapping == ARM_MAPPING_CODE ? "$a" : "$d");
+	section->arm_mapping = mapping;
+}
+
+void elf32_note_output(const uni::CodeendOutput& output)
+{
+	if (elf_machine != EM_ARM) return;
+	struct Section* section = elf_find_section(output.section);
+	if (!section && output.section == def_seg) {
+		int bits;
+		elf_section_names((char*)".text", 2, &bits);
+		section = elf_find_section(output.section);
+	}
+	if (!section) {
+		aasm_log(_LOG_PANIC, "ARM ELF32 output has an invalid section");
+		return;
+	}
+	elf_note_arm_mapping(section, output.type);
+}
+
 static void elf_add_reloc(struct Section* sect, int32_t segment, int type,
 	int32_t offset = 0)
 {
@@ -916,6 +1007,123 @@ static void elf_add_riscv_relax_reloc(struct Section* sect)
 	elf_add_reloc(sect, NO_SEG, R_RISCV_RELAX, 0);
 }
 
+static uint64_t arm32_field_mask(unsigned bits)
+{
+	return bits >= 64 ? UINT64_MAX : (UINT64_C(1) << bits) - 1;
+}
+
+static int arm32_reloc_type(const uni::CodeFixup& fixup)
+{
+	if (fixup.kind == uni::CodeFixupKind::Absolute) {
+		if (fixup.encoding.storage_bits == 8) return R_ARM_ABS8;
+		if (fixup.encoding.storage_bits == 16) return R_ARM_ABS16;
+		if (fixup.encoding.storage_bits == 32) return R_ARM_ABS32;
+	}
+	if (fixup.kind == uni::CodeFixupKind::Branch &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 26) return R_ARM_JUMP24;
+	if (fixup.kind == uni::CodeFixupKind::Call &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 26) return R_ARM_CALL;
+	if (fixup.kind == uni::CodeFixupKind::Low &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 32) return R_ARM_MOVW_ABS_NC;
+	if (fixup.kind == uni::CodeFixupKind::High &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 32) return R_ARM_MOVT_ABS;
+	return -1;
+}
+
+static bool arm32_encode_addend(const uni::CodeFixup& fixup,
+	uint64_t& storage)
+{
+	const uni::CodeFixupEncoding& encoding = fixup.encoding;
+	int64_t value;
+	switch (fixup.kind) {
+	case uni::CodeFixupKind::Absolute:
+	case uni::CodeFixupKind::Low:
+		value = fixup.addend;
+		break;
+	case uni::CodeFixupKind::High:
+		value = fixup.addend >> 16;
+		break;
+	case uni::CodeFixupKind::Branch:
+	case uni::CodeFixupKind::Call:
+		value = fixup.addend - fixup.pc_bias;
+		break;
+	default:
+		return false;
+	}
+	if (encoding.right_shift) {
+		uint64_t alignment = UINT64_C(1) << encoding.right_shift;
+		if (static_cast<uint64_t>(value) & (alignment - 1)) {
+			aasm_log(_LOG_ERROR, "ARM32 relocation addend is unaligned");
+			return false;
+		}
+		value >>= encoding.right_shift;
+	}
+	if (encoding.field_count) {
+		for (unsigned index = 0; index < encoding.field_count; index++) {
+			const uni::CodeFixupEncoding::Field& field = encoding.fields[index];
+			uint64_t mask = arm32_field_mask(field.value_bits);
+			storage &= ~(mask << field.bit_offset);
+			storage |= ((static_cast<uint64_t>(value) >> field.value_offset) &
+				mask) << field.bit_offset;
+		}
+	}
+	else {
+		uint64_t mask = arm32_field_mask(encoding.storage_bits);
+		storage = static_cast<uint64_t>(value) & mask;
+	}
+	return true;
+}
+
+static void elf32_emit_arm_fixup(const uni::CodeFixup& fixup)
+{
+	struct Section* section = elf_find_section(fixup.section);
+	if (!section) {
+		aasm_log(_LOG_PANIC, "ARM ELF32 fixup has an invalid section");
+		return;
+	}
+	if (section->len != fixup.offset) {
+		aasm_log(_LOG_PANIC, "ARM ELF32 fixup is not at the section end");
+		return;
+	}
+	if (fixup.target_section == NO_SEG || fixup.legacy_wrt != NO_SEG) {
+		aasm_log(_LOG_ERROR, "ARM ELF32 fixup has an invalid target");
+		return;
+	}
+	if (fixup.kind == uni::CodeFixupKind::Low &&
+		(fixup.pair.role != uni::CodeFixupPairRole::Head ||
+		fixup.pair.section != fixup.section ||
+		fixup.pair.offset != fixup.offset)) {
+		aasm_log(_LOG_PANIC, "ARM ELF32 low relocation has an invalid pair");
+		return;
+	}
+	if (fixup.kind == uni::CodeFixupKind::High &&
+		(fixup.pair.role != uni::CodeFixupPairRole::Tail ||
+		fixup.pair.section != fixup.section ||
+		fixup.pair.offset >= fixup.offset)) {
+		aasm_log(_LOG_PANIC, "ARM ELF32 high relocation has an invalid pair");
+		return;
+	}
+	int type = arm32_reloc_type(fixup);
+	if (type < 0) {
+		aasm_log(_LOG_ERROR, "unsupported ARM ELF32 relocation");
+		return;
+	}
+	uint64_t storage = fixup.initial_value;
+	if (!arm32_encode_addend(fixup, storage)) return;
+	LitEndian<uint64_t, true> bytes;
+	bytes = storage;
+	elf_note_arm_mapping(section,
+		fixup.kind == uni::CodeFixupKind::Absolute ?
+			uni::CodeendOutputType::RawData :
+			uni::CodeendOutputType::Instruction);
+	elf_add_reloc(section, fixup.target_section, type);
+	elf_sect_write(section, bytes.v, fixup.encoding.storage_bits / 8);
+}
+
 static int riscv_reloc_type(const uni::CodeFixup& fixup)
 {
 	if (fixup.kind == uni::CodeFixupKind::Absolute &&
@@ -966,7 +1174,7 @@ static int riscv_reloc_type(const uni::CodeFixup& fixup)
 	return -1;
 }
 
-void elf32_emit_fixup(const uni::CodeFixup& fixup)
+static void elf32_emit_riscv_fixup(const uni::CodeFixup& fixup)
 {
 	struct Section* section = NULL;
 	for (int index = 0; index < nsects; index++)
@@ -1052,6 +1260,22 @@ void elf32_emit_fixup(const uni::CodeFixup& fixup)
 		fixup.kind == uni::CodeFixupKind::PageOffset))
 		elf_add_riscv_relax_reloc(section);
 	elf_sect_write(section, bytes.v, size);
+}
+
+void elf32_emit_fixup(const uni::CodeFixup& fixup)
+{
+	switch (static_cast<uni::lango::ArchitectureKind>(
+		fixup.architecture_kind)) {
+	case uni::lango::ArchitectureKind::RISCV:
+		elf32_emit_riscv_fixup(fixup);
+		break;
+	case uni::lango::ArchitectureKind::ARM32:
+		elf32_emit_arm_fixup(fixup);
+		break;
+	default:
+		aasm_log(_LOG_PANIC, "invalid architecture reached ELF32 fixup output");
+		break;
+	}
 }
 
 /*
@@ -1373,7 +1597,7 @@ static void elf_write(void)
 		nsections++;            /* for the section itself */
 		if (sects[i]->head) {
 			nsections++;        /* for its relocations */
-			add_sectname(elf_machine == EM_RISCV ? ".rela" : ".rel",
+			add_sectname(elf_uses_rela() ? ".rela" : ".rel",
 				sects[i]->name);
 		}
 	}
@@ -1476,7 +1700,7 @@ static void elf_write(void)
 	/* The relocation sections */
 	for (i = 0; i < nsects; i++)
 		if (sects[i]->head) {
-			bool rela = elf_machine == EM_RISCV;
+			bool rela = elf_uses_rela();
 			elf_section_header(p - shstrtab, rela ? SHT_RELA : SHT_REL, 0,
 				sects[i]->rel, true, sects[i]->rellen, sec_symtab, i + 1, 4,
 				rela ? 12 : 8);
@@ -1703,7 +1927,7 @@ static Strbuff* elf_build_reltab(int32_t* len, struct Reloc* r)
 
 		entry.Address = r->address;
 		entry.Info = (sym << 8) + r->type;
-		if (elf_machine == EM_RISCV) {
+		if (elf_uses_rela()) {
 			entry.Addend = r->offset;
 			StrbuffSend(s, &entry, sizeof(entry));
 			*len += 12;

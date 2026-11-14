@@ -65,6 +65,12 @@
   推导；兼容 struct/union 对象可用于局部整体复制初始化。支持 C99 指定初始化器
   `.member =`、`[constant-index] =` 及连续 designator，覆盖局部、全局和块静态对象、
   union 非首成员、指定项后的普通项游标推进、重复指定覆盖和不完整数组长度推导。
+  支持 C99 复合字面量，包括标量、数组、struct/union、指定初始化器、最外层
+  数组长度推导、成员访问、下标和取地址；结果保留 C99 左值属性。文件作用域
+  复合字面量降低为具有唯一内部名称的 Clover global，并可用于静态指针初始化；
+  普通全局对象和函数的地址也可作为静态指针初始化器。静态标量、数组、struct、
+  union 和块静态聚合体中的指针成员支持全局对象地址、数组退化、成员/下标取址、
+  常量指针算术、函数地址及文件作用域复合字面量，并保留有符号字节加数。
   静态存储期初始化暂不支持不同类型或宽度的重叠覆盖。整体赋值和按值返回尚未实现。
 - 支持 record 前向声明、指针成员和自引用结构。
 - 支持有标签 `enum` 的文件及块作用域、内外层遮蔽、前向声明、定义后直接声明
@@ -88,6 +94,8 @@
 - `Frontend-c-declaration.cpp`：共享声明符解析，以及指针、数组、函数等派生类型
   层的组合顺序。
 - `Frontend-c-initializer.cpp`：在通用运算符整理前识别并隔离 C99 指定初始化器语法。
+- `Frontend-c-compound-literal.cpp`：识别 `(type-name){initializer}`，记录对象类型并
+  将初始化列表整理为独立的 C99 复合字面量节点。
 - `Frontend-c-statement.cpp`：语句分类、声明准备、作用域与基础语义分析；以后
   可继续把 typedef、函数签名和 record 分析迁入独立模块。
 - `Frontend-c-clover.cpp`：Clover lowering 总入口，以及翻译单元、函数和全局符号组织。
@@ -125,6 +133,9 @@
 - Clover global 支持显式对象对齐和带字节偏移的有类型初始化片段；未覆盖区域由
   后端补零，目标后端负责按照自身字节序输出片段。`memcopy` 支持固定大小的
   非重叠对象复制，当前 RISC-V 后端使用字节循环降低。
+- Clover 的标量 `ptr` global 和聚合 `data` 中的 `ptr` 片段支持符号重定位及
+  有符号字节加数；RISC-V 后端按目标指针宽度输出对应地址数据，并校验函数符号
+  不携带非零加数。
 - Clover 支持 `declare global` 和 `declare constant` 外部对象声明；RISC-V 后端不为
   声明分配存储，但允许 `globaladdr` 生成交由链接器解析的符号引用。
 - Clover 支持 `declare func` 外部函数签名；RISC-V 后端使用声明验证直接调用，

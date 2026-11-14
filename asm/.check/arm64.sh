@@ -81,6 +81,69 @@ CheckARM64Fixups()
 	Pass "ARM64 branch and address fixups"
 }
 
+CheckARM64ELF()
+{
+	RequireCommand llvm-readelf
+	RequireCommand ld.lld
+	SourceFile="$WorkDirectory/arm64-elf.asm"
+	ProviderSource="$WorkDirectory/arm64-elf-provider.asm"
+	ObjectFile="$WorkDirectory/arm64-elf.o"
+	ProviderObject="$WorkDirectory/arm64-elf-provider.o"
+	LinkedFile="$WorkDirectory/arm64-elf-linked"
+	HeaderFile="$WorkDirectory/arm64-elf.header"
+	RelocationFile="$WorkDirectory/arm64-elf.relocations"
+	SymbolFile="$WorkDirectory/arm64-elf.symbols"
+	printf '%s\n' \
+		'[ARCH arm64]' \
+		'[BITS 64]' \
+		'[SECTION .text]' \
+		'GLOBAL entry' \
+		'EXTERN external_call' \
+		'entry:' \
+		'CALL external_call' \
+		'B.EQ other' \
+		'B other' \
+		'MOV X0, data_item + 8' \
+		'DQ data_item' \
+		'NOP' \
+		'[SECTION .text.other exec]' \
+		'other:' \
+		'RET' \
+		'[SECTION .data]' \
+		'data_item:' \
+		'DQ other' > "$SourceFile"
+	printf '%s\n' \
+		'[ARCH arm64]' \
+		'[SECTION .text]' \
+		'GLOBAL external_call' \
+		'external_call:' \
+		'RET' > "$ProviderSource"
+	AssembleSuccess arm64-elf -march=arm64 -f elf64 \
+		-o "$ObjectFile" "$SourceFile"
+	AssembleSuccess arm64-elf-provider -march=arm64 -f elf64 \
+		-o "$ProviderObject" "$ProviderSource"
+	llvm-readelf -h "$ObjectFile" > "$HeaderFile"
+	llvm-readelf -r "$ObjectFile" > "$RelocationFile"
+	llvm-readelf -s "$ObjectFile" > "$SymbolFile"
+	grep -Fq 'Class:                             ELF64' "$HeaderFile" || \
+		Fail "ARM64 ELF class differs"
+	grep -Fq 'Machine:                           AArch64' "$HeaderFile" || \
+		Fail "ARM64 ELF machine differs"
+	for Relocation in R_AARCH64_CALL26 R_AARCH64_CONDBR19 \
+		R_AARCH64_JUMP26 R_AARCH64_ADR_PREL_PG_HI21 \
+		R_AARCH64_ADD_ABS_LO12_NC R_AARCH64_ABS64; do
+		grep -Fq "$Relocation" "$RelocationFile" || \
+			Fail "ARM64 ELF relocation is missing: $Relocation"
+	done
+	grep -Eq '[[:space:]]\$x$' "$SymbolFile" || \
+		Fail "ARM64 code mapping symbol is missing"
+	grep -Eq '[[:space:]]\$d$' "$SymbolFile" || \
+		Fail "ARM64 data mapping symbol is missing"
+	LinkSuccess arm64-elf-link ld.lld -m aarch64elf -e entry \
+		-o "$LinkedFile" "$ObjectFile" "$ProviderObject"
+	Pass "ARM64 ELF object output"
+}
+
 CheckARM64Diagnostics()
 {
 	InvalidSource="$WorkDirectory/arm64-invalid.asm"

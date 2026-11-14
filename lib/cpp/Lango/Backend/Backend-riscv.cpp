@@ -117,6 +117,17 @@ namespace uni::lango {
 			return nullptr;
 		}
 
+		void EmitSymbolInitializer(uni::OstreamTrait& output,
+			const uni::String& symbol, stdsint addend) {
+			output.OutFormat("%s", symbol.reference());
+			if (addend > 0) output.OutFormat(" + %[i]", addend);
+			else if (addend < 0) {
+				stduint magnitude = (stduint)(-(addend + 1));
+				magnitude++;
+				output.OutFormat(" - %[u]", magnitude);
+			}
+		}
+
 		const clover::SourceFile* FindSourceFile(const clover::Module& module,
 			uint32 id) {
 			for (const clover::SourceFile& source : module.source_files)
@@ -199,12 +210,23 @@ namespace uni::lango {
 					plogerro("RISC-V backend: global object has conflicting initializer forms");
 					return false;
 				}
+				if (!global.initializer_symbol.getByteCount() &&
+					global.initializer_addend) {
+					plogerro("RISC-V backend: global symbol addend requires a symbol");
+					return false;
+				}
 				if (global.initializer_symbol.getByteCount() &&
 					(global.type != clover::Type::Ptr || global.element_count != 1 ||
 						(!FindFunction(module, global.initializer_symbol) &&
 							!FindGlobal(module, global.initializer_symbol)))) {
 					plogerro("RISC-V backend: invalid global symbol initializer '%s'",
 						global.initializer_symbol.reference());
+					return false;
+				}
+				if (global.initializer_symbol.getByteCount() &&
+					global.initializer_addend &&
+					FindFunction(module, global.initializer_symbol)) {
+					plogerro("RISC-V backend: function relocation cannot have an addend");
 					return false;
 				}
 				if (global.initializer_values.Count() &&
@@ -222,6 +244,26 @@ namespace uni::lango {
 						fragment.offset + fragment_size > (stduint)object_size) {
 						plogerro("RISC-V backend: invalid global initializer fragment");
 						return false;
+					}
+					if (!fragment.initializer_symbol.getByteCount() &&
+						fragment.initializer_addend) {
+						plogerro("RISC-V backend: fragment symbol addend requires a symbol");
+						return false;
+					}
+					if (fragment.initializer_symbol.getByteCount()) {
+						if (fragment.type != clover::Type::Ptr ||
+							fragment.initializer || fragment.initializer_high ||
+							(!FindFunction(module, fragment.initializer_symbol) &&
+								!FindGlobal(module, fragment.initializer_symbol))) {
+							plogerro("RISC-V backend: invalid fragment symbol initializer '%s'",
+								fragment.initializer_symbol.reference());
+							return false;
+						}
+						if (fragment.initializer_addend &&
+							FindFunction(module, fragment.initializer_symbol)) {
+							plogerro("RISC-V backend: function fragment relocation cannot have an addend");
+							return false;
+						}
 					}
 					if (fragment.type == clover::Type::F32 && !target.extension_f) {
 						plogerro("RISC-V backend: f32 global data requires -minst=imf or imfd");
@@ -1493,8 +1535,17 @@ namespace uni::lango {
 						break;
 					case clover::Type::I64:
 					case clover::Type::F64:
-					case clover::Type::Ptr:
 						assembly_stream->OutFormat("\t.quad %[i]\n", fragment.initializer);
+						break;
+					case clover::Type::Ptr:
+						assembly_stream->OutFormat(fragment_size == 4 ?
+							"\t.word " : "\t.quad ");
+						if (fragment.initializer_symbol.getByteCount())
+							EmitSymbolInitializer(*assembly_stream,
+								fragment.initializer_symbol,
+								fragment.initializer_addend);
+						else assembly_stream->OutFormat("%[i]", fragment.initializer);
+						assembly_stream->OutChar('\n');
 						break;
 					case clover::Type::F128:
 						assembly_stream->OutFormat("\t.quad %[i]\n\t.quad %[i]\n",
@@ -1522,8 +1573,10 @@ namespace uni::lango {
 			else if (global.initializer_symbol.getByteCount()) {
 				if (global.element_count != 1 || global.type != clover::Type::Ptr)
 					return false;
-				assembly_stream->OutFormat(element_size == 4 ? "\t.word %s\n" :
-					"\t.quad %s\n", global.initializer_symbol.reference());
+				assembly_stream->OutFormat(element_size == 4 ? "\t.word " : "\t.quad ");
+				EmitSymbolInitializer(*assembly_stream, global.initializer_symbol,
+					global.initializer_addend);
+				assembly_stream->OutChar('\n');
 			}
 			else if (!global.initializer && !global.initializer_high)
 				assembly_stream->OutFormat("\t.zero %[i]\n", object_size);

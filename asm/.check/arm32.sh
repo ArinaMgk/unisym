@@ -83,6 +83,76 @@ CheckARM32Fixups()
 	Pass "ARM32 branch and address fixups"
 }
 
+CheckARM32ELF()
+{
+	RequireCommand llvm-readelf
+	RequireCommand ld.lld
+	SourceFile="$WorkDirectory/arm32-elf.asm"
+	ProviderSource="$WorkDirectory/arm32-elf-provider.asm"
+	ObjectFile="$WorkDirectory/arm32-elf.o"
+	ProviderObject="$WorkDirectory/arm32-elf-provider.o"
+	LinkedFile="$WorkDirectory/arm32-elf-linked"
+	HeaderFile="$WorkDirectory/arm32-elf.header"
+	RelocationFile="$WorkDirectory/arm32-elf.relocations"
+	SymbolFile="$WorkDirectory/arm32-elf.symbols"
+	AttributeFile="$WorkDirectory/arm32-elf.attributes"
+	printf '%s\n' \
+		'[ARCH arm32]' \
+		'[BITS 32]' \
+		'[SECTION .text]' \
+		'GLOBAL entry' \
+		'EXTERN external_call' \
+		'entry:' \
+		'CALL external_call' \
+		'BL.NE external_call' \
+		'B other' \
+		'MOV R0, data_item + 4' \
+		'DD data_item' \
+		'NOP' \
+		'[SECTION .text.other exec]' \
+		'other:' \
+		'RET' \
+		'[SECTION .data]' \
+		'data_item:' \
+		'DD other' > "$SourceFile"
+	printf '%s\n' \
+		'[ARCH arm32]' \
+		'[SECTION .text]' \
+		'GLOBAL external_call' \
+		'external_call:' \
+		'RET' > "$ProviderSource"
+	AssembleSuccess arm32-elf -march=arm32 -f elf32 \
+		-o "$ObjectFile" "$SourceFile"
+	AssembleSuccess arm32-elf-provider -march=arm32 -f elf32 \
+		-o "$ProviderObject" "$ProviderSource"
+	llvm-readelf -h "$ObjectFile" > "$HeaderFile"
+	llvm-readelf -r "$ObjectFile" > "$RelocationFile"
+	llvm-readelf -s "$ObjectFile" > "$SymbolFile"
+	llvm-readelf --arch-specific "$ObjectFile" > "$AttributeFile"
+	grep -Fq 'Class:                             ELF32' "$HeaderFile" || \
+		Fail "ARM32 ELF class differs"
+	grep -Fq 'Machine:                           ARM' "$HeaderFile" || \
+		Fail "ARM32 ELF machine differs"
+	grep -Fq 'Flags:                             0x5000000' "$HeaderFile" || \
+		Fail "ARM32 ELF flags differ"
+	grep -Fq 'Description: ARM v7' "$AttributeFile" || \
+		Fail "ARM32 ELF CPU attribute differs"
+	grep -Fq 'Description: Application' "$AttributeFile" || \
+		Fail "ARM32 ELF profile attribute differs"
+	for Relocation in R_ARM_CALL R_ARM_JUMP24 R_ARM_MOVW_ABS_NC \
+		R_ARM_MOVT_ABS R_ARM_ABS32; do
+		grep -Fq "$Relocation" "$RelocationFile" || \
+			Fail "ARM32 ELF relocation is missing: $Relocation"
+	done
+	grep -Eq '[[:space:]]\$a$' "$SymbolFile" || \
+		Fail "ARM32 code mapping symbol is missing"
+	grep -Eq '[[:space:]]\$d$' "$SymbolFile" || \
+		Fail "ARM32 data mapping symbol is missing"
+	LinkSuccess arm32-elf-link ld.lld -m armelf_linux_eabi -e entry \
+		-o "$LinkedFile" "$ObjectFile" "$ProviderObject"
+	Pass "ARM32 ELF object output"
+}
+
 CheckARM32Diagnostics()
 {
 	InvalidSource="$WorkDirectory/arm32-invalid.asm"

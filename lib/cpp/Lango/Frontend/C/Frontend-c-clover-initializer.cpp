@@ -265,6 +265,7 @@ namespace clover::frontend_c_internal {
 			const FrontendCTypeInfo& type_info;
 			const uni::Vector<FrontendCEnumerator>& constants;
 			const FrontendCDiagnostics& diagnostics;
+			const StaticInitializerContext& context;
 
 			bool Error(const char* message, const uni::Nnode* node,
 				DiagnosticStage stage = DiagnosticStage::Semantic) const {
@@ -308,19 +309,20 @@ namespace clover::frontend_c_internal {
 
 			bool AppendScalar(const FrontendCType& type,
 				uni::Nnode* initializer, stduint offset) {
-				stdsint low = 0;
-				stdsint high = 0;
-				if (!ParseStaticScalarInitializer(initializer, target,
-					constants, type, low, high))
+				StaticScalarInitializer value;
+				if (!ParseStaticScalarInitializer(initializer, type, target,
+					type_info, constants, diagnostics, context, value))
 					return Error("static initializer must contain constant expressions",
 						initializer, DiagnosticStage::Lowering);
 				if (type.integer_rank == FrontendCIntegerRank::Bool &&
-					!type.enum_id) low = low != 0;
+					!type.enum_id) value.low = value.low != 0;
 				GlobalInitializerFragment fragment;
 				fragment.offset = offset;
 				fragment.type = CloverTypeFor(type, target);
-				fragment.initializer = low;
-				fragment.initializer_high = high;
+				fragment.initializer = value.low;
+				fragment.initializer_high = value.high;
+				fragment.initializer_symbol = value.symbol;
+				fragment.initializer_addend = value.addend;
 				return AppendFragment(fragment);
 			}
 
@@ -471,9 +473,11 @@ namespace clover::frontend_c_internal {
 				const FrontendCTargetInfo& target_info,
 				const FrontendCTypeInfo& semantic_types,
 				const uni::Vector<FrontendCEnumerator>& visible_constants,
-				const FrontendCDiagnostics& diagnostic_output) :
+				const FrontendCDiagnostics& diagnostic_output,
+				const StaticInitializerContext& initializer_context) :
 				global(output_global), target(target_info), type_info(semantic_types),
-				constants(visible_constants), diagnostics(diagnostic_output) {}
+				constants(visible_constants), diagnostics(diagnostic_output),
+				context(initializer_context) {}
 
 			bool Build(const FrontendCType& type, uni::Nnode* initializer) {
 				if (!InitializeObject(type, initializer, 0)) return false;
@@ -592,10 +596,42 @@ namespace clover::frontend_c_internal {
 		const FrontendCTargetInfo& target,
 		const FrontendCTypeInfo& type_info,
 		const uni::Vector<FrontendCEnumerator>& constants,
-		const FrontendCDiagnostics& diagnostics) {
+		const FrontendCDiagnostics& diagnostics,
+		const StaticInitializerContext& context) {
 		StaticInitializerBuilder builder(global, target, type_info,
-			constants, diagnostics);
+			constants, diagnostics, context);
 		return builder.Build(type, initializer);
+	}
+
+	bool CompleteCompoundLiteralObjectType(uni::Nnode* node,
+		FrontendCType& type, const FrontendCTargetInfo& target,
+		const FrontendCTypeInfo& type_info,
+		const FrontendCDiagnostics& diagnostics) {
+		const FrontendCType* stored = type_info.Find(node);
+		uni::Nnode* initializer = node ? node->subf : nullptr;
+		if (!stored || !initializer || initializer->next ||
+			initializer->type != tok_block) return false;
+		type = *stored;
+		if (type.HasIncompleteArray() && !CompleteArrayTypeFromInitializer(
+			type, initializer, target, type_info, diagnostics)) return false;
+		return !type.IsVoid() && !type.IsFunction() &&
+			type_info.SizeBits(type, target) && type_info.AlignBits(type, target);
+	}
+
+	bool FunctionBuilder::CompleteCompoundLiteralType(
+		uni::Nnode* node, FrontendCType& type) {
+		return CompleteCompoundLiteralObjectType(node, type, *target,
+			*type_info, *diagnostics);
+	}
+
+	LoweredValue FunctionBuilder::LowerCompoundLiteral(uni::Nnode* node) {
+		FrontendCType type;
+		if (!CompleteCompoundLiteralType(node, type))
+			return Error("invalid compound literal type or initializer", node);
+		LoweredValue storage = CreateTemporaryStorage(type);
+		if (!storage.valid || !InitializeObject(storage.value, type,
+			storage.alignment, node->subf)) return LoweredValue();
+		return storage;
 	}
 
 	bool FunctionBuilder::InitializeScalar(Value address,

@@ -104,6 +104,23 @@ struct FrontendCGlobal {
 	bool has_provisional_array_bound = false;
 };
 
+// Symbols and module state available while evaluating one static initializer.
+struct StaticInitializerContext {
+	Module* module = nullptr;
+	const uni::Vector<FrontendCGlobal>* globals = nullptr;
+	const uni::Vector<FrontendCFunction>* functions = nullptr;
+	unsigned* next_compound_literal = nullptr;
+	bool file_scope = false;
+};
+
+// One scalar constant represented either by bits or by a symbol relocation.
+struct StaticScalarInitializer {
+	stdsint low = 0;
+	stdsint high = 0;
+	uni::String symbol;
+	stdsint addend = 0;
+};
+
 // One block-scope enumerator activated in source order while lowering a function.
 struct FrontendCLocalConstant {
 	const FrontendCEnumerator* constant = nullptr;
@@ -127,17 +144,25 @@ bool CompleteArrayTypeFromInitializer(FrontendCType& type,
 	uni::Nnode* initializer, const FrontendCTargetInfo& target,
 	const FrontendCTypeInfo& type_info,
 	const FrontendCDiagnostics& diagnostics);
+bool CompleteCompoundLiteralObjectType(uni::Nnode* node,
+	FrontendCType& type, const FrontendCTargetInfo& target,
+	const FrontendCTypeInfo& type_info,
+	const FrontendCDiagnostics& diagnostics);
 bool BuildStringArrayValues(const FrontendCType& type,
 	uni::Nnode* initializer, uni::Vector<stdsint>& values);
 bool ParseStaticScalarInitializer(uni::Nnode* node,
-	const FrontendCTargetInfo& target,
+	const FrontendCType& destination, const FrontendCTargetInfo& target,
+	const FrontendCTypeInfo& type_info,
 	const uni::Vector<FrontendCEnumerator>& constants,
-	const FrontendCType& destination, stdsint& low, stdsint& high);
+	const FrontendCDiagnostics& diagnostics,
+	const StaticInitializerContext& context,
+	StaticScalarInitializer& initializer);
 bool BuildStaticObjectInitializer(Global& global, const FrontendCType& type,
 	uni::Nnode* initializer, const FrontendCTargetInfo& target,
 	const FrontendCTypeInfo& type_info,
 	const uni::Vector<FrontendCEnumerator>& constants,
-	const FrontendCDiagnostics& diagnostics);
+	const FrontendCDiagnostics& diagnostics,
+	const StaticInitializerContext& context);
 Type CloverTypeFor(const FrontendCType& type, const FrontendCTargetInfo& target);
 
 // Lowers one C function body into one Clover function.
@@ -294,6 +319,8 @@ private:
 	LoweredValue LowerPointerMember(uni::Nnode* node);
 	bool ResolveRecordMemberType(const FrontendCType& record_type,
 		uni::Nnode* designator, FrontendCType& type);
+	bool CompleteCompoundLiteralType(uni::Nnode* node, FrontendCType& type);
+	LoweredValue LowerCompoundLiteral(uni::Nnode* node);
 	LoweredValue LowerIncrement(uni::Nnode* operand, bool increment,
 		bool return_updated);
 	bool ResolveExpressionType(uni::Nnode* node, FrontendCType& type);

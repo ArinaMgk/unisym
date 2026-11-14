@@ -29,7 +29,7 @@ CheckCodeends()
 		Fail "binary architecture support listing differs"
 	grep -Eq '^    elf64[[:space:]]' "$FormatOutput" || \
 		Fail "ELF64 output format is missing"
-	grep -Eq '^      Architectures: x86, riscv$' "$FormatOutput" || \
+	grep -Eq '^      Architectures: x86, riscv, arm64$' "$FormatOutput" || \
 		Fail "ELF64 architecture support listing differs"
 
 	"$AasmExecutable" -f elf64 -y > "$DebugOutput" 2> "$FormatError" || \
@@ -171,16 +171,20 @@ CheckArchends()
 		Fail "ARM64 invalid bit-width diagnostic differs"
 
 	printf '%s\n' 'DB 0' > "$ARMELFSource"
-	AssembleFailure architecture-arm32-elf -march=arm32 -f elf32 \
+	AssembleSuccess architecture-arm32-elf -march=arm32 -f elf32 \
 		-o "$WorkDirectory/architecture-arm32.o" "$ARMELFSource"
-	grep -Fq "output format \`elf32' does not support architecture \`arm32'" \
-		"$WorkDirectory/architecture-arm32-elf.stderr" || \
-		Fail "ARM32 ELF compatibility diagnostic differs"
-	AssembleFailure architecture-arm64-elf -march=arm64 -f elf64 \
+	AssembleSuccess architecture-arm64-elf -march=arm64 -f elf64 \
 		-o "$WorkDirectory/architecture-arm64.o" "$ARMELFSource"
-	grep -Fq "output format \`elf64' does not support architecture \`arm64'" \
-		"$WorkDirectory/architecture-arm64-elf.stderr" || \
-		Fail "ARM64 ELF compatibility diagnostic differs"
+	AssembleFailure architecture-arm32-elf64 -march=arm32 -f elf64 \
+		-o "$WorkDirectory/architecture-arm32-elf64.o" "$ARMELFSource"
+	grep -Fq "output format \`elf64' does not support architecture \`arm32'" \
+		"$WorkDirectory/architecture-arm32-elf64.stderr" || \
+		Fail "ARM32 ELF64 compatibility diagnostic differs"
+	AssembleFailure architecture-arm64-elf32 -march=arm64 -f elf32 \
+		-o "$WorkDirectory/architecture-arm64-elf32.o" "$ARMELFSource"
+	grep -Fq "output format \`elf32' does not support architecture \`arm64'" \
+		"$WorkDirectory/architecture-arm64-elf32.stderr" || \
+		Fail "ARM64 ELF32 compatibility diagnostic differs"
 
 	AssembleFailure invalid-architecture -march=invalid-architecture \
 		"$TestDirectory/basic.asm"

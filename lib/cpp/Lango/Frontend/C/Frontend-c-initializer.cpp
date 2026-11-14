@@ -75,8 +75,16 @@ namespace {
 				continue;
 			}
 			if (!IsDesignator(node)) {
-				if (!PrepareInitializerNode(syntax_tree, node, diagnostics)) return false;
-				node = node->next;
+				uni::Nnode* value_last = node;
+				while (value_last->next && !IsSymbol(value_last->next, ","))
+					value_last = value_last->next;
+				uni::Nnode* next = value_last->next;
+				for (uni::Nnode* value = node; value; value = value->next) {
+					if (!PrepareInitializerNode(syntax_tree, value, diagnostics))
+						return false;
+					if (value == value_last) break;
+				}
+				node = next;
 				continue;
 			}
 

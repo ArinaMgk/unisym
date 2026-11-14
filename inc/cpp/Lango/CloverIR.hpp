@@ -174,6 +174,8 @@ struct GlobalInitializerFragment {
 	Type type = Type::I8; // Stored scalar type; target byte order is chosen by the backend.
 	stdsint initializer = 0;
 	stdsint initializer_high = 0; // High 64 bits for an f128 initializer.
+	uni::String initializer_symbol; // Optional symbol relocation for a Ptr fragment.
+	stdsint initializer_addend = 0; // Signed byte displacement from initializer_symbol.
 };
 
 // One module-scope object with static storage duration.
@@ -183,6 +185,7 @@ struct Global {
 	stdsint initializer = 0;
 	stdsint initializer_high = 0; // High 64 bits for an f128 initializer.
 	uni::String initializer_symbol; // Optional relocated address initializer for Ptr.
+	stdsint initializer_addend = 0; // Signed byte displacement from initializer_symbol.
 	stdsint element_count = 1;
 	stduint alignment = 0; // Required object alignment in bytes; zero selects natural alignment.
 	bool is_declaration = false; // Refer to externally provided storage without defining it.

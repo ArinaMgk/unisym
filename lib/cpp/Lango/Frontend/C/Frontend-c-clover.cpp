@@ -26,6 +26,16 @@ namespace clover {
 	using namespace frontend_c_internal;
 
 	namespace {
+		void AppendUnsigned(uni::String& text, unsigned value) {
+			char digits[16];
+			stduint count = 0;
+			do {
+				digits[count++] = (char)('0' + value % 10);
+				value /= 10;
+			} while (value);
+			while (count) text << digits[--count];
+		}
+
 		const FrontendCEnumerator* FindConstant(
 			const uni::Vector<FrontendCEnumerator>& constants, const char* name) {
 			for (const FrontendCEnumerator& constant : constants)
@@ -86,29 +96,6 @@ namespace clover {
 				return true;
 			}
 			return false;
-		}
-
-		bool ParseGlobalFunctionAddress(uni::Nnode* node,
-			const FrontendCType& destination,
-			const uni::Vector<FrontendCFunction>& functions,
-			uni::String& symbol) {
-			while (node && node->type == tok_func && !node->addr && node->subf &&
-				!node->subf->next) node = node->subf;
-			if (node && node->type == tok_func && node->addr && node->subf &&
-				!node->subf->next && !StrCompare(node->addr, "OP@PREADDR"))
-				node = node->subf;
-			if (!node || node->type != tok_identy || !node->addr) return false;
-			const FrontendCFunction* function = FindFunction(functions, node->addr);
-			if (!function) return false;
-			FrontendCType source = function->return_type;
-			FrontendCTypeLayer function_layer;
-			function_layer.kind = FrontendCTypeLayerKind::Function;
-			function_layer.function_type_id = function->function_type_id;
-			if (!source.PrependLayer(function_layer)) return false;
-			source = source.DecayType();
-			if (!destination.CanAssignFrom(source)) return false;
-			symbol = function->name;
-			return true;
 		}
 
 		bool EncodeFloatingConstant(double value, const FrontendCType& destination,
@@ -183,6 +170,13 @@ namespace clover {
 			return nullptr;
 		}
 
+		const FrontendCGlobal* FindGlobal(
+			const uni::Vector<FrontendCGlobal>& globals, const char* name) {
+			for (const FrontendCGlobal& global : globals)
+				if (!StrCompare(global.name.reference(), name)) return &global;
+			return nullptr;
+		}
+
 		bool MergeGlobalType(const FrontendCType& previous,
 			const FrontendCType& current, FrontendCType& merged) {
 			if (previous.layer_count != current.layer_count)
@@ -224,12 +218,285 @@ namespace clover {
 				(stdsint)type.StorageElementCount();
 		}
 
+		uni::Nnode* StripGroupedExpression(uni::Nnode* node) {
+			while (node && node->type == tok_func && !node->addr && node->subf &&
+				!node->subf->next) node = node->subf;
+			return node;
+		}
+
+		bool IsReadOnlyObject(FrontendCType type) {
+			while (type.IsArray()) type = type.RemoveOuterLayer();
+			return type.IsConstObject();
+		}
+
+		bool CreateFileScopeCompoundLiteral(uni::Nnode* node,
+			const FrontendCType& type,
+			const FrontendCTargetInfo& target,
+			const FrontendCTypeInfo& type_info,
+			const uni::Vector<FrontendCEnumerator>& constants,
+			const FrontendCDiagnostics& diagnostics,
+			const StaticInitializerContext& context, uni::String& symbol) {
+			if (!context.file_scope || !context.module ||
+				!context.next_compound_literal) return false;
+			// A C99 file-scope compound literal denotes one unnamed object with
+			// static storage duration. Clover gives that object an internal symbol.
+			Global global;
+			global.name = ".L.clover.compound.";
+			AppendUnsigned(global.name, (*context.next_compound_literal)++);
+			global.is_read_only = IsReadOnlyObject(type);
+			global.linkage = Linkage::Internal;
+			SetGlobalShape(global, type, target, type_info);
+			if (!BuildStaticObjectInitializer(global, type, node->subf,
+				target, type_info, constants, diagnostics, context)) return false;
+			symbol = global.name;
+			return context.module->globals.Append(global);
+		}
+
+		struct StaticAddressValue {
+			FrontendCType type;
+			uni::String symbol;
+			stdsint addend = 0;
+		};
+
+		class StaticAddressEvaluator {
+		private:
+			const FrontendCTargetInfo& target;
+			const FrontendCTypeInfo& type_info;
+			const uni::Vector<FrontendCEnumerator>& constants;
+			const FrontendCDiagnostics& diagnostics;
+			const StaticInitializerContext& context;
+
+			bool IntegerConstant(uni::Nnode* node, stdsint& value) const {
+				return frontend_c_detail::EvaluateIntegerConstant(
+					StripGroupedExpression(node), target, type_info, value);
+			}
+
+			bool TypeSize(const FrontendCType& type, stdsint& bytes) const {
+				stduint bits = type_info.SizeBits(type, target);
+				if (!bits || bits % target.char_bits) return false;
+				stduint unsigned_bytes = bits / target.char_bits;
+				bytes = (stdsint)unsigned_bytes;
+				return bytes >= 0 && (stduint)bytes == unsigned_bytes;
+			}
+
+			bool AddOffset(StaticAddressValue& value, stdsint offset) const {
+				return !__builtin_add_overflow(value.addend, offset, &value.addend);
+			}
+
+			bool AddElementOffset(StaticAddressValue& value,
+				stdsint element_offset) const {
+				if (!value.type.IsPointer()) return false;
+				stdsint element_size;
+				stdsint byte_offset;
+				if (!TypeSize(value.type.DereferenceType(), element_size) ||
+					__builtin_mul_overflow(element_offset, element_size,
+						&byte_offset)) return false;
+				return AddOffset(value, byte_offset);
+			}
+
+			bool FunctionType(const FrontendCFunction& function,
+				FrontendCType& type) const {
+				type = function.return_type;
+				FrontendCTypeLayer layer;
+				layer.kind = FrontendCTypeLayerKind::Function;
+				layer.function_type_id = function.function_type_id;
+				return type.PrependLayer(layer);
+			}
+
+			const FrontendCRecordMember* FindMember(
+				const FrontendCType& type, const char* name) const {
+				if (!type.IsRecord() || !name) return nullptr;
+				const FrontendCRecord* record = type_info.GetRecord(type.record_id);
+				if (!record || !record->complete) return nullptr;
+				for (const FrontendCRecordMember& member : record->members)
+					if (!StrCompare(member.name.reference(), name)) return &member;
+				return nullptr;
+			}
+
+			FrontendCType MemberType(const FrontendCType& record_type,
+				const FrontendCRecordMember& member) const {
+				FrontendCType type = member.type;
+				if (record_type.IsConstObject()) {
+					if (type.IsPointer()) type.layers[0].qualifiers.is_const = true;
+					else type.base_qualifiers.is_const = true;
+				}
+				return type;
+			}
+
+			bool ResolveMemberLValue(StaticAddressValue base,
+				const FrontendCType& record_type, uni::Nnode* designator,
+				StaticAddressValue& value) {
+				if (!designator) return false;
+				if (designator->type == tok_func && designator->addr &&
+					!StrCompare(designator->addr, "operator[]")) {
+					uni::Nnode* member_node = designator->subf;
+					uni::Nnode* index_node = member_node ? member_node->next : nullptr;
+					StaticAddressValue member;
+					stdsint index;
+					if (!member_node || !index_node || index_node->next ||
+						!ResolveMemberLValue(base, record_type, member_node, member) ||
+						!member.type.IsArray() || !IntegerConstant(index_node, index))
+						return false;
+					member.type = member.type.DecayType();
+					if (!AddElementOffset(member, index)) return false;
+					member.type = member.type.DereferenceType();
+					value = member;
+					return true;
+				}
+				if (designator->type != tok_identy || !designator->addr) return false;
+				const FrontendCRecordMember* member =
+					FindMember(record_type, designator->addr);
+				if (!member || member->offset_bits % target.char_bits) return false;
+				stduint unsigned_offset = member->offset_bits / target.char_bits;
+				stdsint offset = (stdsint)unsigned_offset;
+				if (offset < 0 || (stduint)offset != unsigned_offset ||
+					!AddOffset(base, offset)) return false;
+				base.type = MemberType(record_type, *member);
+				value = base;
+				return true;
+			}
+
+			bool ResolveSubscript(uni::Nnode* left, uni::Nnode* right,
+				StaticAddressValue& value) {
+				StaticAddressValue pointer;
+				stdsint index;
+				if (!ResolveAddress(left, pointer) || !IntegerConstant(right, index)) {
+					if (!ResolveAddress(right, pointer) ||
+						!IntegerConstant(left, index)) return false;
+				}
+				if (!AddElementOffset(pointer, index)) return false;
+				pointer.type = pointer.type.DereferenceType();
+				value = pointer;
+				return true;
+			}
+
+		public:
+			StaticAddressEvaluator(const FrontendCTargetInfo& target_info,
+				const FrontendCTypeInfo& semantic_types,
+				const uni::Vector<FrontendCEnumerator>& visible_constants,
+				const FrontendCDiagnostics& diagnostic_output,
+				const StaticInitializerContext& initializer_context) :
+				target(target_info), type_info(semantic_types),
+				constants(visible_constants), diagnostics(diagnostic_output),
+				context(initializer_context) {}
+
+			bool ResolveLValue(uni::Nnode* node, StaticAddressValue& value) {
+				node = StripGroupedExpression(node);
+				if (!node) return false;
+				if (node->type == tok_identy && node->addr) {
+					if (context.globals) {
+						const FrontendCGlobal* global =
+							FindGlobal(*context.globals, node->addr);
+						if (global) {
+							value.type = global->type;
+							value.symbol = global->name;
+							value.addend = 0;
+							return true;
+						}
+					}
+					if (context.functions) {
+						const FrontendCFunction* function =
+							FindFunction(*context.functions, node->addr);
+						if (function && FunctionType(*function, value.type)) {
+							value.symbol = function->name;
+							value.addend = 0;
+							return true;
+						}
+					}
+					return false;
+				}
+				if (node->type == ToToken(FrontendCToken::CompoundLiteral)) {
+					FrontendCType type;
+					if (!CompleteCompoundLiteralObjectType(node, type,
+						target, type_info, diagnostics) ||
+						!CreateFileScopeCompoundLiteral(node, type, target,
+							type_info, constants, diagnostics, context,
+							value.symbol)) return false;
+					value.type = type;
+					value.addend = 0;
+					return true;
+				}
+				if (node->type != tok_func || !node->addr) return false;
+				uni::Nnode* left = node->subf;
+				uni::Nnode* right = left ? left->next : nullptr;
+				if (!StrCompare(node->addr, "operator[]"))
+					return left && right && !right->next &&
+						ResolveSubscript(left, right, value);
+				if (!StrCompare(node->addr, "OP@PREMEMB")) {
+					StaticAddressValue pointer;
+					if (!left || left->next || !ResolveAddress(left, pointer) ||
+						!pointer.type.IsPointer()) return false;
+					pointer.type = pointer.type.DereferenceType();
+					value = pointer;
+					return true;
+				}
+				if (!StrCompare(node->addr, "OP@SUFMEMB")) {
+					StaticAddressValue object;
+					return left && right && !right->next &&
+						ResolveLValue(left, object) && object.type.IsRecord() &&
+						ResolveMemberLValue(object, object.type, right, value);
+				}
+				if (!StrCompare(node->addr, "OP@SUFMEMP")) {
+					StaticAddressValue pointer;
+					if (!left || !right || right->next ||
+						!ResolveAddress(left, pointer) ||
+						!pointer.type.IsPointer()) return false;
+					FrontendCType record_type = pointer.type.DereferenceType();
+					return record_type.IsRecord() &&
+						ResolveMemberLValue(pointer, record_type, right, value);
+				}
+				return false;
+			}
+
+			bool ResolveAddress(uni::Nnode* node, StaticAddressValue& value) {
+				node = StripGroupedExpression(node);
+				if (!node) return false;
+				if (node->type == tok_func && node->addr) {
+					uni::Nnode* left = node->subf;
+					uni::Nnode* right = left ? left->next : nullptr;
+					if (!StrCompare(node->addr, "OP@PREADDR")) {
+						if (!left || left->next || !ResolveLValue(left, value))
+							return false;
+						value.type = value.type.AddressType();
+						return true;
+					}
+					if (!StrCompare(node->addr, "OP@CAST")) {
+						const FrontendCType* cast_type = type_info.Find(node);
+						if (!cast_type || !cast_type->IsPointer() || !left ||
+							left->next || !ResolveAddress(left, value)) return false;
+						value.type = *cast_type;
+						return true;
+					}
+					bool addition = !StrCompare(node->addr, "OP@ARIADD");
+					bool subtraction = !StrCompare(node->addr, "OP@ARISUB");
+					if (addition || subtraction) {
+						stdsint offset;
+						if (!left || !right || right->next) return false;
+						if (ResolveAddress(left, value) &&
+							IntegerConstant(right, offset)) {
+							if (subtraction && __builtin_sub_overflow(
+								stdsint(0), offset, &offset)) return false;
+							return AddElementOffset(value, offset);
+						}
+						return addition && ResolveAddress(right, value) &&
+							IntegerConstant(left, offset) &&
+							AddElementOffset(value, offset);
+					}
+				}
+				if (!ResolveLValue(node, value)) return false;
+				if (!value.type.IsArray() && !value.type.IsFunction()) return false;
+				value.type = value.type.DecayType();
+				return true;
+			}
+		};
+
 		bool LowerGlobalDeclarator(const FrontendCObjectDeclarator& object,
 			Module& module, uni::Vector<FrontendCGlobal>& globals,
 			const uni::Vector<FrontendCFunction>& functions,
 			const uni::Vector<FrontendCEnumerator>& constants,
 			const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
-			const FrontendCDiagnostics& diagnostics) {
+			const FrontendCDiagnostics& diagnostics,
+			unsigned& next_compound_literal) {
 			FrontendCType type = object.type;
 			uni::Nnode* identifier = object.identifier;
 			uni::Nnode* initializer_node = object.initializer;
@@ -317,7 +584,8 @@ namespace clover {
 				previous->type = type;
 				previous->has_provisional_array_bound = true;
 			}
-			Global& global = module.globals[previous->module_index - 1];
+			stduint global_index = previous->module_index - 1;
+			Global& global = module.globals[global_index];
 			SetGlobalShape(global, type, target, type_info);
 			global.is_read_only = type.IsConstObject();
 			global.linkage = previous->linkage;
@@ -329,30 +597,46 @@ namespace clover {
 				global.is_declaration = false;
 			}
 			if (!definition) return true;
-			global.is_declaration = false;
-			global.initializer = 0;
-			global.initializer_high = 0;
-			global.initializer_symbol.Clear();
-			global.initializer_values.Clear();
-			global.initializer_fragments.Clear();
-			bool initializer_valid = type.IsFunctionPointer() &&
-				ParseGlobalFunctionAddress(initializer_node, type, functions,
-					global.initializer_symbol);
-			if (!initializer_valid) initializer_valid = type.IsArray() || type.IsRecord() ?
-				BuildStaticObjectInitializer(global, type, initializer_node,
-					target, type_info, constants, diagnostics) :
-				(type.IsFloating() ? ParseGlobalFloatingConstant(initializer_node,
-					target, constants, type, global.initializer,
-					global.initializer_high) :
-					ParseGlobalConstant(initializer_node, target,
-						constants, global.initializer));
+			StaticInitializerContext context;
+			context.module = &module;
+			context.globals = &globals;
+			context.functions = &functions;
+			context.next_compound_literal = &next_compound_literal;
+			context.file_scope = true;
+			Global initialized_global = module.globals[global_index];
+			initialized_global.is_declaration = false;
+			initialized_global.initializer = 0;
+			initialized_global.initializer_high = 0;
+			initialized_global.initializer_symbol.Clear();
+			initialized_global.initializer_addend = 0;
+			initialized_global.initializer_values.Clear();
+			initialized_global.initializer_fragments.Clear();
+			bool initializer_valid;
+			if (type.IsArray() || type.IsRecord())
+				initializer_valid = BuildStaticObjectInitializer(initialized_global,
+					type, initializer_node, target, type_info, constants,
+					diagnostics, context);
+			else {
+				StaticScalarInitializer initializer;
+				initializer_valid = ParseStaticScalarInitializer(initializer_node,
+					type, target, type_info, constants, diagnostics, context,
+					initializer);
+				if (initializer_valid) {
+					initialized_global.initializer = initializer.low;
+					initialized_global.initializer_high = initializer.high;
+					initialized_global.initializer_symbol = initializer.symbol;
+					initialized_global.initializer_addend = initializer.addend;
+				}
+			}
 			if (!initializer_valid) {
 				if (!type.IsArray() && !type.IsRecord()) diagnostics.Report(DiagnosticStage::Lowering,
 					"global initializer must be a constant expression", initializer_node);
 				return false;
 			}
 			if (!type.IsArray() && type.integer_rank == FrontendCIntegerRank::Bool &&
-				!type.enum_id) global.initializer = global.initializer != 0;
+				!type.enum_id) initialized_global.initializer =
+					initialized_global.initializer != 0;
+			module.globals[global_index] = initialized_global;
 			previous->has_definition = true;
 			return true;
 		}
@@ -435,6 +719,7 @@ namespace clover {
 		uni::Vector<FrontendCGlobal> visible_globals;
 		uni::Vector<FrontendCEnumerator> visible_constants;
 		unsigned next_string_literal = 0;
+		unsigned next_compound_literal = 0;
 		for (uni::Nnode* node = syntax_tree.Root(); node;) {
 			if (node->type == ToToken(FrontendCToken::TypedefDeclaration)) {
 				node = node->next;
@@ -556,7 +841,7 @@ namespace clover {
 					found = true;
 					if (!LowerGlobalDeclarator(object, module, visible_globals,
 						visible_functions, visible_constants, target, type_info,
-						diagnostics)) return false;
+						diagnostics, next_compound_literal)) return false;
 				}
 				if (!found) {
 					diagnostics.Report(DiagnosticStage::Lowering,
@@ -715,18 +1000,42 @@ namespace clover {
 	}
 
 	bool frontend_c_internal::ParseStaticScalarInitializer(uni::Nnode* node,
-		const FrontendCTargetInfo& target,
+		const FrontendCType& destination, const FrontendCTargetInfo& target,
+		const FrontendCTypeInfo& type_info,
 		const uni::Vector<FrontendCEnumerator>& constants,
-		const FrontendCType& destination, stdsint& low, stdsint& high) {
-		high = 0;
+		const FrontendCDiagnostics& diagnostics,
+		const StaticInitializerContext& context,
+		StaticScalarInitializer& initializer) {
+		initializer = StaticScalarInitializer();
 		if (destination.IsFloating())
 			return ParseGlobalFloatingConstant(node, target, constants,
-				destination, low, high);
+				destination, initializer.low, initializer.high);
 		if (destination.IsPointer()) {
-			return ParseGlobalConstant(node, target, constants, low) && !low;
+			stdsint integer;
+			if (ParseGlobalConstant(node, target, constants, integer) && !integer)
+				return true;
+			StaticAddressEvaluator evaluator(target, type_info, constants,
+				diagnostics, context);
+			StaticAddressValue address;
+			if (evaluator.ResolveAddress(node, address) &&
+				destination.CanAssignFrom(address.type)) {
+				initializer.symbol = address.symbol;
+				initializer.addend = address.addend;
+				return true;
+			}
+			uni::Nnode* cast = StripGroupedExpression(node);
+			if (!cast || cast->type != tok_func || !cast->addr ||
+				StrCompare(cast->addr, "OP@CAST") || !cast->subf ||
+				cast->subf->next) return false;
+			const FrontendCType* cast_type = type_info.Find(cast);
+			if (!cast_type || !cast_type->IsPointer() ||
+				!frontend_c_detail::EvaluateIntegerConstant(cast->subf,
+					target, type_info, integer)) return false;
+			initializer.low = integer;
+			return destination.CanAssignFrom(*cast_type);
 		}
 		return destination.IsInteger() &&
-			ParseGlobalConstant(node, target, constants, low);
+			ParseGlobalConstant(node, target, constants, initializer.low);
 	}
 
 }

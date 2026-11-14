@@ -109,6 +109,13 @@ struct Section {
 	uint64_t rellen;
 	struct Reloc *head, **tail;
 	struct rbtree *gsyms;       /* global symbols in section */
+	uint8_t arm_mapping;
+};
+
+enum {
+	ARM_MAPPING_NONE,
+	ARM_MAPPING_CODE,
+	ARM_MAPPING_DATA
 };
 
 #define SECT_DELTA 32
@@ -152,6 +159,9 @@ void elf64_set_architecture(uni::lango::ArchitectureKind architecture)
 		break;
 	case uni::lango::ArchitectureKind::RISCV:
 		elf_machine = EM_RISCV;
+		break;
+	case uni::lango::ArchitectureKind::ARM64:
+		elf_machine = EM_AARCH64;
 		break;
 	default:
 		elf_machine = EM_NONE;
@@ -458,6 +468,7 @@ static int elf_make_section(rostr name, int type, int flags, int align)
 	s->flags = flags;
 	s->align = align;
 	s->gsyms = NULL;
+	s->arm_mapping = ARM_MAPPING_NONE;
 
 	if (nsects >= sectlen)
 		sects = (Section**)realloc(sects, (sectlen += SECT_DELTA) * sizeof(*sects));
@@ -797,6 +808,67 @@ static void elf_deflabel(char *name, int32_t segment, int64_t offset,
 		aasm_log(_LOG_ERROR, "no special symbol features supported here");
 }
 
+static struct Section* elf_find_section(int32_t segment)
+{
+	for (int index = 0; index < nsects; index++)
+		if (sects[index]->index == segment) return sects[index];
+	return NULL;
+}
+
+static void elf_add_mapping_symbol(struct Section* section, const char* name)
+{
+	int section_number = 0;
+	for (int index = 0; index < nsects; index++)
+		if (sects[index] == section) {
+			section_number = index + 1;
+			break;
+		}
+	if (!section_number) {
+		aasm_log(_LOG_PANIC, "ARM ELF64 mapping symbol has no section");
+		return;
+	}
+	int pos = strslen;
+	StrbuffSend(strs, (pureptr_t)name,
+		static_cast<int32_t>(StrLength(name) + 1));
+	strslen += StrLength(name) + 1;
+	struct Symbol* symbol = (Symbol*)StrbuffEalloc(syms);
+	MemSet(symbol, 0, sizeof(*symbol));
+	symbol->strpos = pos;
+	symbol->section = section_number;
+	symbol->other = STV_DEFAULT;
+	symbol->symv.key = section->len;
+	nlocals++;
+}
+
+static void elf_note_arm_mapping(struct Section* section,
+	uni::CodeendOutputType type)
+{
+	if (elf_machine != EM_AARCH64 || section->type != SHT_PROGBITS ||
+		!(section->flags & SHF_EXECINSTR)) return;
+	uint8_t mapping = type == uni::CodeendOutputType::Instruction ?
+		ARM_MAPPING_CODE : ARM_MAPPING_DATA;
+	if (mapping == section->arm_mapping) return;
+	elf_add_mapping_symbol(section,
+		mapping == ARM_MAPPING_CODE ? "$x" : "$d");
+	section->arm_mapping = mapping;
+}
+
+void elf64_note_output(const uni::CodeendOutput& output)
+{
+	if (elf_machine != EM_AARCH64) return;
+	struct Section* section = elf_find_section(output.section);
+	if (!section && output.section == def_seg) {
+		int bits;
+		elf_section_names(".text", 2, &bits);
+		section = elf_find_section(output.section);
+	}
+	if (!section) {
+		aasm_log(_LOG_PANIC, "ARM ELF64 output has an invalid section");
+		return;
+	}
+	elf_note_arm_mapping(section, output.type);
+}
+
 static void elf_add_reloc(struct Section *sect, int32_t segment,
 			  int64_t offset, int type)
 {
@@ -870,6 +942,79 @@ static void elf_add_riscv_relax_reloc(struct Section* sect)
 	elf_add_reloc(sect, NO_SEG, 0, R_RISCV_RELAX);
 }
 
+static int arm64_reloc_type(const uni::CodeFixup& fixup)
+{
+	if (fixup.kind == uni::CodeFixupKind::Absolute) {
+		if (fixup.encoding.storage_bits == 16) return R_AARCH64_ABS16;
+		if (fixup.encoding.storage_bits == 32) return R_AARCH64_ABS32;
+		if (fixup.encoding.storage_bits == 64) return R_AARCH64_ABS64;
+	}
+	if (fixup.kind == uni::CodeFixupKind::Branch &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 28) return R_AARCH64_JUMP26;
+	if (fixup.kind == uni::CodeFixupKind::Call &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 28) return R_AARCH64_CALL26;
+	if (fixup.kind == uni::CodeFixupKind::Branch &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 21) return R_AARCH64_CONDBR19;
+	if (fixup.kind == uni::CodeFixupKind::PageRelative &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 33) return R_AARCH64_ADR_PREL_PG_HI21;
+	if (fixup.kind == uni::CodeFixupKind::PageOffset &&
+		fixup.encoding.storage_bits == 32 &&
+		fixup.encoding.value_bits == 12) return R_AARCH64_ADD_ABS_LO12_NC;
+	return -1;
+}
+
+static void elf64_emit_arm_fixup(const uni::CodeFixup& fixup)
+{
+	struct Section* section = elf_find_section(fixup.section);
+	if (!section) {
+		aasm_log(_LOG_PANIC, "ARM ELF64 fixup has an invalid section");
+		return;
+	}
+	if (section->len != fixup.offset) {
+		aasm_log(_LOG_PANIC, "ARM ELF64 fixup is not at the section end");
+		return;
+	}
+	if (fixup.target_section == NO_SEG || fixup.legacy_wrt != NO_SEG) {
+		aasm_log(_LOG_ERROR, "ARM ELF64 fixup has an invalid target");
+		return;
+	}
+	if (fixup.kind == uni::CodeFixupKind::PageRelative &&
+		(fixup.pair.role != uni::CodeFixupPairRole::Head ||
+		fixup.pair.section != fixup.section ||
+		fixup.pair.offset != fixup.offset)) {
+		aasm_log(_LOG_PANIC, "ARM ELF64 page relocation has an invalid pair");
+		return;
+	}
+	if (fixup.kind == uni::CodeFixupKind::PageOffset &&
+		(fixup.pair.role != uni::CodeFixupPairRole::Tail ||
+		fixup.pair.section != fixup.section ||
+		fixup.pair.offset >= fixup.offset)) {
+		aasm_log(_LOG_PANIC, "ARM ELF64 page offset relocation has an invalid pair");
+		return;
+	}
+	int type = arm64_reloc_type(fixup);
+	if (type < 0) {
+		aasm_log(_LOG_ERROR, "unsupported ARM ELF64 relocation");
+		return;
+	}
+	elf_note_arm_mapping(section,
+		fixup.kind == uni::CodeFixupKind::Absolute ?
+			uni::CodeendOutputType::RawData :
+			uni::CodeendOutputType::Instruction);
+	int64_t addend = fixup.addend;
+	if (fixup.kind == uni::CodeFixupKind::Branch ||
+		fixup.kind == uni::CodeFixupKind::Call)
+		addend -= fixup.pc_bias;
+	elf_add_reloc(section, fixup.target_section, addend, type);
+	int64_t storage = fixup.kind == uni::CodeFixupKind::Absolute ?
+		0 : static_cast<int64_t>(fixup.initial_value);
+	elf_sect_writeaddr(section, storage, fixup.encoding.storage_bits / 8);
+}
+
 static int riscv_reloc_type(const uni::CodeFixup& fixup)
 {
 	if (fixup.kind == uni::CodeFixupKind::Absolute) {
@@ -922,7 +1067,7 @@ static int riscv_reloc_type(const uni::CodeFixup& fixup)
 	return -1;
 }
 
-void elf64_emit_fixup(const uni::CodeFixup& fixup)
+static void elf64_emit_riscv_fixup(const uni::CodeFixup& fixup)
 {
 	struct Section* section = NULL;
 	for (int index = 0; index < nsects; index++)
@@ -1004,6 +1149,22 @@ void elf64_emit_fixup(const uni::CodeFixup& fixup)
 		fixup.kind == uni::CodeFixupKind::PageOffset))
 		elf_add_riscv_relax_reloc(section);
 	elf_sect_writeaddr(section, static_cast<int64_t>(fixup.initial_value), size);
+}
+
+void elf64_emit_fixup(const uni::CodeFixup& fixup)
+{
+	switch (static_cast<uni::lango::ArchitectureKind>(
+		fixup.architecture_kind)) {
+	case uni::lango::ArchitectureKind::RISCV:
+		elf64_emit_riscv_fixup(fixup);
+		break;
+	case uni::lango::ArchitectureKind::ARM64:
+		elf64_emit_arm_fixup(fixup);
+		break;
+	default:
+		aasm_log(_LOG_PANIC, "invalid architecture reached ELF64 fixup output");
+		break;
+	}
 }
 
 /*

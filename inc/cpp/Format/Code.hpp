@@ -53,6 +53,7 @@ struct CodeendInfo {
 
 enum class CodeendOutputType : uint8_t {
 	RawData,
+	Instruction,
 	Reserve
 };
 

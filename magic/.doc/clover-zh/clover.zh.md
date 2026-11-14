@@ -185,8 +185,9 @@ declare func @putchar(i32) -> i32
 global @counter i32 = 0
 internal global @private_counter i32 = 0
 global @handler ptr align 8 = @handle
+global @third ptr align 8 = @values + 8
 internal constant @.L.clover.string.0 i8, 4 = {97, 98, 99, 0}
-global @packet i8, 12 align 4 = data {0: i8 1, 4: i32 2, 8: i32 3}
+global @packet i8, 16 align 8 = data {0: i8 1, 8: ptr @values + 4}
 declare global @external_counter i32
 %global_address = globaladdr @counter
 %function_address = funcaddr @handle
@@ -204,7 +205,9 @@ memcopy %destination, %source, 12 align 4, 4
 - `global`：定义具有静态存储期的模块级对象；可选的 `align` 指定对象对齐。
   `data` 初始化器由“字节偏移、标量类型、常量值”片段组成，未覆盖的对象区域补零；
   片段保留标量类型，由后端按照目标字节序输出，不要求前端提前编码原始字节。
-  标量 `ptr` 对象也可用 `@symbol` 初始化，由目标文件或链接阶段完成地址重定位。
+  标量 `ptr` 对象及 `data` 中的 `ptr` 片段可使用 `@symbol`、`@symbol + N` 或
+  `@symbol - N` 初始化，由目标文件或链接阶段完成地址重定位。`N` 是十进制字节
+  加数，而不是元素下标；非零加数当前只用于全局对象符号，函数符号只接受零加数。
 - `constant`：定义模块内部的只读聚合数据；初始化列表的元素数量必须与声明数量一致。
 - `declare global` / `declare constant`：声明由其他模块提供存储的模块级对象，不分配
   存储且不携带初始化值；`globaladdr` 可以引用这种声明，最终由链接器解析符号。

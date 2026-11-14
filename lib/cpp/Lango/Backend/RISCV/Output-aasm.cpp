@@ -201,14 +201,26 @@ bool RISCVAssemblyOutputAASM::EmitLine() {
 		if (bss_section) destination.OutFormat("ALIGNB %s\n", text + 8);
 		else destination.OutFormat("ALIGNB %s, DB 0\n", text + 8);
 	}
-	else if (StartsWith(text, "\t.byte "))
-		destination.OutFormat("\tDB %s\n", text + 7);
-	else if (StartsWith(text, "\t.half "))
-		destination.OutFormat("\tDW %s\n", text + 7);
-	else if (StartsWith(text, "\t.word "))
-		destination.OutFormat("\tDD %s\n", text + 7);
-	else if (StartsWith(text, "\t.quad "))
-		destination.OutFormat("\tDQ %s\n", text + 7);
+	else if (StartsWith(text, "\t.byte ")) {
+		destination.OutFormat("\tDB ");
+		EmitSymbolText(text + 7, destination);
+		destination.OutChar('\n');
+	}
+	else if (StartsWith(text, "\t.half ")) {
+		destination.OutFormat("\tDW ");
+		EmitSymbolText(text + 7, destination);
+		destination.OutChar('\n');
+	}
+	else if (StartsWith(text, "\t.word ")) {
+		destination.OutFormat("\tDD ");
+		EmitSymbolText(text + 7, destination);
+		destination.OutChar('\n');
+	}
+	else if (StartsWith(text, "\t.quad ")) {
+		destination.OutFormat("\tDQ ");
+		EmitSymbolText(text + 7, destination);
+		destination.OutChar('\n');
+	}
 	else if (StartsWith(text, "\t.zero ")) {
 		if (bss_section) destination.OutFormat("\tRESB %s\n", text + 7);
 		else destination.OutFormat("\tTIMES %s DB 0\n", text + 7);

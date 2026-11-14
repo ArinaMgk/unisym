@@ -186,7 +186,7 @@ ArchendLineResult ArchendARM32::ProcessInstruction(AssemblySession& session,
 			uni::CodeendOutput output {
 				session.Location.segment,
 				bytes,
-				uni::CodeendOutputType::RawData,
+				uni::CodeendOutputType::Instruction,
 				sizeof(bytes)
 			};
 			session.Listing->EmitCode(instruction_offset, output);

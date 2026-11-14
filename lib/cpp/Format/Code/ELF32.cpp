@@ -754,7 +754,7 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 			 * In addition, we check the special text for symbol
 			 * type and size information.
 			 */
-			sects[sym->section - 1]->gsyms = sects[sym->section - 1]->gsyms->rb_insert(&sym->symv);
+			sects[sym->section - 1]->gsyms = rbtree::rb_insert(sects[sym->section - 1]->gsyms, &sym->symv);
 
 			if (special) {
 				int n = StrSpanExclude(special, " \t");

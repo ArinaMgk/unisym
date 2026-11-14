@@ -45,82 +45,6 @@ namespace clover::frontend_c_internal {
 			AppendInitializerListItems(node, items);
 		}
 
-		stduint ArraySubobjectElements(const FrontendCType& type,
-			stduint first_dimension) {
-			stduint count = 1;
-			for (stduint index = first_dimension;
-				index < type.array_dimension_count; index++)
-				count *= type.array_dimensions[index];
-			return count;
-		}
-
-		stduint ScalarInitializerCount(uni::Nnode* node) {
-			uni::Vector<uni::Nnode*> items;
-			AppendDirectInitializerItems(node, items);
-			if (!items.Count()) return 0;
-			stduint count = 0;
-			for (uni::Nnode* item : items)
-				count += item->type == tok_block ? ScalarInitializerCount(item) : 1;
-			return count;
-		}
-
-		stduint RequiredArrayElements(const FrontendCType& type,
-			uni::Nnode* initializer) {
-			uni::Vector<uni::Nnode*> items;
-			AppendDirectInitializerItems(initializer, items);
-			stduint cursor = 0;
-			stduint child_elements = type.array_dimension_count > 1 ?
-				ArraySubobjectElements(type, 1) : 1;
-			for (uni::Nnode* item : items) {
-				if (type.array_dimension_count > 1 && item->type == tok_block) {
-					stduint remainder = cursor % child_elements;
-					if (remainder) cursor += child_elements - remainder;
-					cursor += child_elements;
-				}
-				else cursor += item->type == tok_block ?
-					ScalarInitializerCount(item) : 1;
-			}
-			return cursor;
-		}
-
-		FrontendCType ArrayElementType(const FrontendCType& type) {
-			FrontendCType element = type;
-			if (!element.array_dimension_count) return element;
-			for (stduint index = 1; index < element.array_dimension_count; index++)
-				element.array_dimensions[index - 1] = element.array_dimensions[index];
-			element.array_dimensions[--element.array_dimension_count] = 0;
-			return element;
-		}
-
-		bool ConsumeInitializerObject(const FrontendCType& type,
-			uni::Vector<uni::Nnode*>& items, stduint& cursor,
-			const FrontendCTypeInfo& type_info) {
-			if (cursor >= items.Count()) return true;
-			if (!type.IsArray() && !type.IsRecord()) {
-				cursor++;
-				return true;
-			}
-			if (items[cursor]->type == tok_block) {
-				cursor++;
-				return true;
-			}
-			if (type.IsArray()) {
-				FrontendCType element = ArrayElementType(type);
-				for (stduint index = 0;
-					index < type.array_dimensions[0] && cursor < items.Count(); index++)
-					if (!ConsumeInitializerObject(element, items, cursor, type_info))
-						return false;
-				return true;
-			}
-			const FrontendCRecord* record = type_info.GetRecord(type.record_id);
-			if (!record || !record->complete || !record->members.Count()) return false;
-			stduint member_count = record->is_union ? 1 : record->members.Count();
-			for (stduint index = 0; index < member_count && cursor < items.Count(); index++)
-				if (!ConsumeInitializerObject(record->members.begin()[index].type,
-					items, cursor, type_info)) return false;
-			return true;
-		}
-
 	}
 
 	bool IsCharacterArray(const FrontendCType& type) {
@@ -138,56 +62,16 @@ namespace clover::frontend_c_internal {
 		return items.Count() == 1 && items[0]->type == tok_string ? items[0] : nullptr;
 	}
 
-	bool CompleteArrayTypeFromInitializer(FrontendCType& type,
-		uni::Nnode* initializer, const FrontendCTypeInfo& type_info) {
-		if (!type.IsArray() || !type.array_dimension_count ||
-			type.array_dimensions[0]) return !type.HasIncompleteArray();
-		for (stduint index = 1; index < type.array_dimension_count; index++)
-			if (!type.array_dimensions[index]) return false;
-		if (!initializer) return false;
-		uni::Nnode* string = FindStringArrayInitializer(initializer);
-		if (string) {
-			if (!IsCharacterArray(type) || type.array_dimension_count != 1) return false;
-			uni::Vector<stdsint> bytes;
-			if (!DecodeCString(string->addr, bytes)) return false;
-			type.array_dimensions[0] = bytes.Count() + 1;
-			return true;
-		}
-		if (initializer->type != tok_block) return false;
-		if (!type.record_id) {
-			stduint inner_elements = ArraySubobjectElements(type, 1);
-			stduint required = RequiredArrayElements(type, initializer);
-			if (!required || !inner_elements) return false;
-			type.array_dimensions[0] =
-				(required + inner_elements - 1) / inner_elements;
-			return true;
-		}
-		uni::Vector<uni::Nnode*> items;
-		AppendDirectInitializerItems(initializer, items);
-		FrontendCType element = ArrayElementType(type);
-		stduint cursor = 0;
-		stduint count = 0;
-		while (cursor < items.Count()) {
-			stduint previous = cursor;
-			if (!ConsumeInitializerObject(element, items, cursor, type_info) ||
-				cursor == previous) return false;
-			count++;
-		}
-		if (!count) return false;
-		type.array_dimensions[0] = count;
-		return true;
-	}
-
 	bool BuildStringArrayValues(const FrontendCType& type,
 		uni::Nnode* initializer, uni::Vector<stdsint>& values) {
 		uni::Nnode* string = FindStringArrayInitializer(initializer);
-		if (!string || !IsCharacterArray(type) || type.array_dimension_count != 1 ||
+		if (!string || !IsCharacterArray(type) || type.ArrayDimensionCount() != 1 ||
 			type.HasIncompleteArray()) return false;
 		uni::Vector<stdsint> bytes;
 		if (!DecodeCString(string->addr, bytes) ||
-			type.array_dimensions[0] < bytes.Count()) return false;
+			type.ArrayDimension(0) < bytes.Count()) return false;
 		for (stdsint byte : bytes) values.Append(byte);
-		while (values.Count() < type.array_dimensions[0]) values.Append(0);
+		while (values.Count() < type.ArrayDimension(0)) values.Append(0);
 		return true;
 	}
 
@@ -207,7 +91,7 @@ namespace clover::frontend_c_internal {
 				failed = true;
 				return false;
 			}
-		if (type.enum_id && !type.IsPointer() &&
+		if (type.enum_id && !type.StorageElementIsPointer() &&
 			!type_info->SizeBits(type, *target)) {
 			diagnostics->Report(DiagnosticStage::Semantic,
 				"object has incomplete enum type", declaration);
@@ -223,7 +107,7 @@ namespace clover::frontend_c_internal {
 		Instruction instruction;
 		bool is_static = storage_class == FrontendCStorageClass::Static;
 		instruction.opcode = is_static ? Opcode::GlobalAddr : Opcode::Local;
-	if (type.record_id && !type.IsPointer()) {
+	if (type.record_id && !type.StorageElementIsPointer()) {
 		stduint size_bits = type_info->SizeBits(type, *target);
 		stduint align_bits = type_info->AlignBits(type, *target);
 		if (!size_bits || !align_bits || size_bits % target->char_bits ||
@@ -252,7 +136,7 @@ namespace clover::frontend_c_internal {
 			global.name += function->name;
 			global.name += ".";
 			AppendUnsigned(global.name, next_static_local++);
-			if (type.record_id && !type.IsPointer()) {
+			if (type.record_id && !type.StorageElementIsPointer()) {
 				global.type = Type::I8;
 				global.element_count = (stdsint)TypeSize(type);
 			}
@@ -286,69 +170,41 @@ namespace clover::frontend_c_internal {
 	}
 
 	bool FunctionBuilder::ParseDeclaratorNode(uni::Nnode* node, uni::Nnode*& identifier,
-		FrontendCType& type) {
-		if (!node) return false;
-		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "OP@PREMEMB") && node->subf &&
-			!node->subf->next) {
-			if (!ParseDeclaratorNode(node->subf, identifier, type)) return false;
-			type = type.AddressType();
-			return true;
-		}
-		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "operator[]")) {
-			uni::Nnode* declarator = node->subf;
-			uni::Nnode* dimension = declarator ? declarator->next : nullptr;
-			if (!declarator || (dimension && dimension->next) ||
-				!ParseDeclaratorNode(declarator, identifier, type)) return false;
-			if (!dimension)
-				return !type.array_dimension_count && type.AppendArrayDimension(0);
-			stdsint count;
-			FrontendCType literal_type;
-			if (dimension->type != tok_number || !dimension->addr ||
-				!uni::lango::frontend_c_detail::ParseIntegerLiteral(
-					dimension->addr, *target, count, literal_type) || count <= 0) return false;
-			return type.AppendArrayDimension((stduint)count);
-		}
-		if (node->type != tok_identy || !node->addr) return false;
-		identifier = node;
-		return true;
+		FrontendCType& type, const uni::Nnode* end) {
+		return uni::lango::frontend_c_detail::ParseDeclarator(
+			node, type, identifier, *target, *type_info, end);
 	}
 
 	bool FunctionBuilder::ParseDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
-		FrontendCType& type, const FrontendCType& base_type) {
+		FrontendCType& type, const FrontendCType& base_type,
+		const uni::Nnode* end) {
 		type = base_type;
-		return ParseDeclaratorNode(node, identifier, type);
+		return ParseDeclaratorNode(node, identifier, type, end);
 	}
 
 	bool FunctionBuilder::PredeclareDeclarator(uni::Nnode* node, const uni::Nnode* declaration,
 		const uni::Nnode* scope, const FrontendCType& base_type) {
-		if (!node) return false;
-		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "OP@COMMA")) {
-			for (uni::Nnode* child = node->subf; child; child = child->next)
-				if (!PredeclareDeclarator(child, declaration, scope, base_type)) return false;
-			return true;
+		(void)node;
+		(void)base_type;
+		bool found = false;
+		for (const FrontendCObjectDeclarator& object :
+			type_info->object_declarators) {
+			if (object.declaration != declaration) continue;
+			found = true;
+			FrontendCType type = object.type;
+			if (type.HasIncompleteArray() &&
+				!CompleteArrayTypeFromInitializer(
+					type, object.initializer, *target,
+					*type_info, *diagnostics)) {
+				diagnostics->Report(DiagnosticStage::Semantic,
+					"object has incomplete array type", declaration);
+				failed = true;
+				return false;
+			}
+			if (!PredeclareLocal(object.identifier->addr, type, declaration, scope,
+				type_info->FindStorage(declaration))) return false;
 		}
-		uni::Nnode* declarator = node;
-		uni::Nnode* initializer = nullptr;
-		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "OP@ASSIGN")) {
-			declarator = node->subf;
-			initializer = declarator ? declarator->next : nullptr;
-		}
-		uni::Nnode* identifier = nullptr;
-		FrontendCType type;
-		if (!ParseDeclarator(declarator, identifier, type, base_type)) return false;
-		if (type.HasIncompleteArray() &&
-			!CompleteArrayTypeFromInitializer(type, initializer, *type_info)) {
-			diagnostics->Report(DiagnosticStage::Semantic,
-				"object has incomplete array type", declaration);
-			failed = true;
-			return false;
-		}
-		return PredeclareLocal(identifier->addr, type, declaration, scope,
-			type_info->FindStorage(declaration));
+		return found;
 	}
 
 	bool FunctionBuilder::PredeclareBlock(uni::Nnode* block) {
@@ -412,35 +268,24 @@ namespace clover::frontend_c_internal {
 	}
 
 	bool FunctionBuilder::LowerDeclarator(uni::Nnode* node, const uni::Nnode* declaration) {
-		if (!node) return Error("missing declarator", declaration).valid;
-		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "OP@COMMA")) {
-			for (uni::Nnode* child = node->subf; child; child = child->next)
-				if (!LowerDeclarator(child, declaration)) return false;
-			return true;
+		(void)node;
+		bool found = false;
+		for (const FrontendCObjectDeclarator& object :
+			type_info->object_declarators) {
+			if (object.declaration != declaration) continue;
+			found = true;
+			LocalValue* local = ActivateLocal(
+				object.identifier->addr, declaration);
+			if (!local) return failed ? false :
+				Error("invalid local declaration", object.identifier).valid;
+			if (local->global_index) {
+				if (!InitializeStatic(*local, object.initializer)) return false;
+				continue;
+			}
+			if (object.initializer && !InitializeObject(local->address, local->type,
+				local->alignment, object.initializer)) return false;
 		}
-		uni::Nnode* declarator = node;
-		uni::Nnode* initializer_node = nullptr;
-		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "OP@ASSIGN")) {
-			declarator = node->subf;
-			initializer_node = declarator ? declarator->next : nullptr;
-			if (!initializer_node || initializer_node->next)
-				return Error("invalid initializer", node).valid;
-		}
-		uni::Nnode* identifier = nullptr;
-		FrontendCType declared_type;
-		const FrontendCType* base_type = type_info->Find(declaration);
-		if (!base_type || !ParseDeclarator(declarator, identifier,
-			declared_type, *base_type))
-			return Error("invalid declarator", declarator).valid;
-		LocalValue* local = ActivateLocal(identifier->addr, declaration);
-		if (!local) return failed ? false :
-			Error("invalid local declaration", identifier).valid;
-		if (local->global_index) return InitializeStatic(*local, initializer_node);
-		if (!initializer_node) return true;
-		return InitializeObject(local->address, local->type,
-			local->alignment, initializer_node);
+		return found ? true : Error("missing declarator", declaration).valid;
 	}
 
 	void FunctionBuilder::LeaveScope(const uni::Nnode* block) {
@@ -626,6 +471,7 @@ namespace clover::frontend_c_internal {
 			return true;
 		}
 		if (node->type == ToToken(FrontendCToken::While) ||
+			node->type == ToToken(FrontendCToken::Do) ||
 			node->type == ToToken(FrontendCToken::For))
 			return CollectSwitchStatement(atoms, index, context, collect);
 		if (node->type == tok_block)
@@ -771,13 +617,58 @@ namespace clover::frontend_c_internal {
 		return true;
 	}
 
+	bool FunctionBuilder::LowerDoWhile(uni::Nnode* node,
+		const uni::Nnode* source_statement,
+		uni::Vector<StatementAtom>& atoms, stduint& index) {
+		stduint body_block = NewBlock("do.body");
+		stduint condition_block = NewBlock("do.cond");
+		uni::String end_name = NewBlockName("do.end");
+		EmitJump(body_block);
+
+		current_block = body_block;
+		LoopContext loop;
+		loop.continue_target = function->blocks[condition_block].name;
+		loop_contexts.Append(loop);
+		break_targets.Append(end_name);
+		bool body_lowered = LowerStatement(atoms, index);
+		break_targets.Remove(break_targets.Count() - 1);
+		loop_contexts.Remove(loop_contexts.Count() - 1);
+		if (!body_lowered) return false;
+		if (!BlockTerminated()) EmitJump(condition_block);
+
+		if (index >= atoms.Count() || !atoms.begin()[index].node ||
+			atoms.begin()[index].node->type != ToToken(FrontendCToken::While))
+			return Error("do statement requires trailing while", node).valid;
+		StatementAtom condition_atom = atoms.begin()[index++];
+		uni::Nnode* while_node = condition_atom.node;
+		if (!while_node->subf)
+			return Error("do while requires a condition", while_node).valid;
+		if (index >= atoms.Count() || !atoms.begin()[index].node ||
+			atoms.begin()[index].node->type != ToToken(FrontendCToken::Empty))
+			return Error("do while requires a trailing semicolon", while_node).valid;
+		index++;
+
+		current_block = condition_block;
+		stduint first_instruction = CurrentBlock().instructions.Count();
+		LoweredValue lowered = LowerExpression(while_node->subf);
+		if (!lowered.valid) return false;
+		Value condition = AsCondition(lowered, while_node->subf);
+		if (failed) return false;
+		AttachSource(first_instruction,
+			condition_atom.source ? condition_atom.source : source_statement);
+		EmitJump(condition, function->blocks[body_block].name, end_name);
+		current_block = AppendBlock(end_name);
+		return true;
+	}
+
 	bool FunctionBuilder::LowerFor(uni::Nnode* node, const uni::Nnode* source_statement,
 		uni::Vector<StatementAtom>& atoms, stduint& index) {
 		uni::Nnode* init_clause = node->subf;
 		uni::Nnode* condition_clause = init_clause ? init_clause->next : nullptr;
 		uni::Nnode* step_clause = condition_clause ? condition_clause->next : nullptr;
 		if (!init_clause || !condition_clause ||
-			init_clause->type != tok_statement ||
+			(init_clause->type != tok_statement &&
+				init_clause->type != ToToken(FrontendCToken::Declaration)) ||
 			condition_clause->type != tok_statement ||
 			(step_clause && (step_clause->type != tok_statement || step_clause->next)))
 			return Error("invalid for clauses", node).valid;
@@ -786,7 +677,13 @@ namespace clover::frontend_c_internal {
 		uni::Nnode* condition_node = ForClause(condition_clause);
 		uni::Nnode* step = ForClause(step_clause);
 		stduint source_instruction = CurrentBlock().instructions.Count();
-		if (init && !LowerExpression(init).valid) return false;
+		if (init_clause->type == ToToken(FrontendCToken::Declaration)) {
+			const FrontendCType* base_type = type_info->Find(init_clause);
+			if (!base_type || !PredeclareDeclarator(init_clause->subf,
+				init_clause, node, *base_type) ||
+				!LowerDeclarator(init_clause->subf, init_clause)) return false;
+		}
+		else if (init && !LowerExpression(init).valid) return false;
 		AttachSource(source_instruction, source_statement);
 
 		stduint condition_block = NewBlock("for.cond");
@@ -822,6 +719,7 @@ namespace clover::frontend_c_internal {
 		if (step && !LowerExpression(step).valid) return false;
 		if (!BlockTerminated()) EmitJump(condition_block);
 		current_block = AppendBlock(end_name);
+		LeaveScope(node);
 		return true;
 	}
 
@@ -833,6 +731,7 @@ namespace clover::frontend_c_internal {
 		if (!node) return Error("missing statement", node).valid;
 
 		if (node->type == ToToken(FrontendCToken::Empty)) return true;
+		if (node->type == ToToken(FrontendCToken::TypedefDeclaration)) return true;
 		if (node->type == ToToken(FrontendCToken::EnumDeclaration)) return true;
 		if (node->type == ToToken(FrontendCToken::EnumDefinition))
 			return ActivateEnum(node,
@@ -860,6 +759,8 @@ namespace clover::frontend_c_internal {
 		}
 		if (node->type == ToToken(FrontendCToken::While))
 			return LowerWhile(node, atom.source, atoms, index);
+		if (node->type == ToToken(FrontendCToken::Do))
+			return LowerDoWhile(node, atom.source, atoms, index);
 		if (node->type == ToToken(FrontendCToken::For))
 			return LowerFor(node, atom.source, atoms, index);
 		if (node->type == ToToken(FrontendCToken::Switch))

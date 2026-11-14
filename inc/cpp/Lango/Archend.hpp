@@ -41,6 +41,8 @@ struct ArchendInfo {
 	const char* shortname;
 	ArchitectureKind architecture;
 	int default_bits;
+	const char* supported_bits;
+	const char* instruction_sets;
 };
 
 // Result of parsing and encoding one architecture-specific source line.

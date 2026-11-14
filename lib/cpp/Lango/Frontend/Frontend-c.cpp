@@ -178,6 +178,7 @@ namespace uni::lango {
 					"invalid prefix or cast expression", syntax_tree.Root());
 				return false;
 			}
+			if (!frontend_c_detail::ParseCallExpressions(syntax_tree)) return false;
 			frontend_c_detail::ListBinaryOperators(
 				*parser.TokenOperatorGroupChain);
 			if (!parser.ParseOperator(syntax_tree.Root())) {

@@ -34,5 +34,21 @@ int main() {
 	while (1) break;
 	for (i = 0; i < 1; i++) continue;
 
+	i = 0;
+	do {
+		i++;
+		if (i == 1) continue;
+		score++;
+	} while (i < 3);
+
+	for (int k = 0; k < 4; k++) {
+		if (k == 1) continue;
+		score += k;
+	}
+
+	int k = 7;
+	for (int k = 0; k < 2; k++) score += k;
+	score += k;
+
 	return score;
 }

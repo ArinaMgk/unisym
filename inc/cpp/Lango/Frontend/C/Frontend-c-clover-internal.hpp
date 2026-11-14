@@ -85,7 +85,12 @@ struct FrontendCFunction {
 	uni::String name;
 	FrontendCType return_type;
 	uni::Vector<FrontendCType> parameter_types;
+	stduint function_type_id = 0;
 	bool is_variadic = false;
+	bool has_prototype = true;
+	bool has_definition = false;
+	stduint module_index = 0; // One-based Clover declaration or definition index.
+	Linkage linkage = Linkage::External;
 };
 
 // Module-scope object visible at the current translation-unit position.
@@ -119,7 +124,9 @@ bool DecodeCString(const char* text, uni::Vector<stdsint>& bytes);
 bool IsCharacterArray(const FrontendCType& type);
 uni::Nnode* FindStringArrayInitializer(uni::Nnode* initializer);
 bool CompleteArrayTypeFromInitializer(FrontendCType& type,
-	uni::Nnode* initializer, const FrontendCTypeInfo& type_info);
+	uni::Nnode* initializer, const FrontendCTargetInfo& target,
+	const FrontendCTypeInfo& type_info,
+	const FrontendCDiagnostics& diagnostics);
 bool BuildStringArrayValues(const FrontendCType& type,
 	uni::Nnode* initializer, uni::Vector<stdsint>& values);
 bool ParseStaticScalarInitializer(uni::Nnode* node,
@@ -223,11 +230,14 @@ private:
 	LoweredValue CreateTemporaryStorage(const FrontendCType& type);
 	LocalValue* FindLocal(const char* name);
 	const FrontendCFunction* FindFunction(const char* name) const;
+	const FrontendCFunctionType* FunctionType(const FrontendCType& type,
+		FrontendCType& return_type) const;
 	const FrontendCGlobal* FindGlobal(const char* name) const;
 	const FrontendCEnumerator* FindConstant(const char* name) const;
 	bool ActivateEnum(const uni::Nnode* declaration, const uni::Nnode* scope);
 	Value EmitGlobalAddress(const uni::String& name);
 	Value EmitGlobalAddress(const FrontendCGlobal& global);
+	Value EmitFunctionAddress(const uni::String& name);
 	LoweredValue LowerStringLiteral(uni::Nnode* node);
 
 	// Local declarator collection, activation, initialization, and scope exit.
@@ -235,9 +245,10 @@ private:
 		const uni::Nnode* declaration, const uni::Nnode* scope,
 		FrontendCStorageClass storage_class = FrontendCStorageClass::None);
 	bool ParseDeclaratorNode(uni::Nnode* node, uni::Nnode*& identifier,
-		FrontendCType& type);
+		FrontendCType& type, const uni::Nnode* end = nullptr);
 	bool ParseDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
-		FrontendCType& type, const FrontendCType& base_type);
+		FrontendCType& type, const FrontendCType& base_type,
+		const uni::Nnode* end = nullptr);
 	bool PredeclareDeclarator(uni::Nnode* node, const uni::Nnode* declaration,
 		const uni::Nnode* scope, const FrontendCType& base_type);
 	bool PredeclareBlock(uni::Nnode* block);
@@ -248,6 +259,9 @@ private:
 		stduint alignment, uni::Nnode* initializer);
 	bool ZeroInitializeObject(Value address, const FrontendCType& type,
 		stduint alignment, const uni::Nnode* source);
+	bool InitializeDesignatedAggregate(Value address, const FrontendCType& type,
+		stduint alignment, uni::Vector<uni::Nnode*>& items,
+		const uni::Nnode* source);
 	bool InitializeAggregateFromItems(Value address, const FrontendCType& type,
 		stduint alignment, uni::Vector<uni::Nnode*>& items, stduint& cursor,
 		const uni::Nnode* source);
@@ -264,7 +278,8 @@ private:
 	LoweredValue Error(const char* message, const uni::Nnode* node);
 	void AppendCallArguments(uni::Nnode* node,
 		uni::Vector<uni::Nnode*>& arguments);
-	LoweredValue LowerCall(uni::Nnode* node);
+	LoweredValue LowerCall(uni::Nnode* node, uni::Nnode* callee_node = nullptr,
+		uni::Nnode* argument_node = nullptr);
 	LoweredValue LowerSubscriptOperands(LoweredValue left,
 		uni::Nnode* left_node, uni::Nnode* right_node, uni::Nnode* node);
 	LoweredValue LowerSubscript(uni::Nnode* node);
@@ -313,6 +328,8 @@ private:
 	bool LowerSwitch(uni::Nnode* node, const uni::Nnode* source_statement,
 		uni::Vector<StatementAtom>& atoms, stduint& index);
 	bool LowerWhile(uni::Nnode* node, const uni::Nnode* source_statement,
+		uni::Vector<StatementAtom>& atoms, stduint& index);
+	bool LowerDoWhile(uni::Nnode* node, const uni::Nnode* source_statement,
 		uni::Vector<StatementAtom>& atoms, stduint& index);
 	bool LowerFor(uni::Nnode* node, const uni::Nnode* source_statement,
 		uni::Vector<StatementAtom>& atoms, stduint& index);

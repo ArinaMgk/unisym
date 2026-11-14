@@ -89,7 +89,8 @@ enum class Opcode {
 	FPExt, // Extend f32 to f64.
 	FPTrunc, // Round f64 to f32.
 	GlobalAddr, // Produce the address of a named module global object.
-	Call,  // Call a named function and produce its return value.
+	FunctionAddr, // Produce the address of a named module function.
+	Call,  // Call a named function or function pointer and produce its return value.
 	Jmp,   // Unconditional or condition-selected basic-block transfer.
 	Ret,   // Return from the current function.
 };
@@ -131,11 +132,13 @@ struct Instruction {
 	bool has_result = false;        // Whether this instruction defines result.
 	Value result;                   // SSA result when has_result is true.
 	uni::Vector<Value> operands;    // Ordered input values.
-	uni::String name;               // Optional source name retained by Local.
+	uni::String name;               // Local source name or referenced global symbol.
 	uni::String debug_source;       // Optional source statement printed before this instruction.
 	uint32 debug_file = 0;          // One-based source file identifier; zero means unavailable.
 	uint32 debug_line = 0;          // One-based source line; zero means unavailable.
 	uni::String callee;             // Named function target used by Call.
+	Value callee_value;             // Pointer target used by an indirect Call.
+	bool has_callee_value = false;  // Select callee_value instead of the named callee.
 	uni::String target;             // Jump target, or true target for a conditional jump.
 	uni::String target_false;       // False target for a conditional jump.
 	stdsint immediate = 0;          // Integer literal, float bits, or Local element count.
@@ -179,6 +182,7 @@ struct Global {
 	Type type = Type::I8;
 	stdsint initializer = 0;
 	stdsint initializer_high = 0; // High 64 bits for an f128 initializer.
+	uni::String initializer_symbol; // Optional relocated address initializer for Ptr.
 	stdsint element_count = 1;
 	stduint alignment = 0; // Required object alignment in bytes; zero selects natural alignment.
 	bool is_declaration = false; // Refer to externally provided storage without defining it.
@@ -194,6 +198,7 @@ struct Function {
 	Type return_type = Type::I64;
 	uni::Vector<Parameter> parameters;
 	bool is_variadic = false; // Accept call operands after the fixed parameter list.
+	bool is_declaration = false; // Refer to a function supplied by this or another module.
 	Linkage linkage = Linkage::External;
 	uni::Vector<BasicBlock> blocks;
 };

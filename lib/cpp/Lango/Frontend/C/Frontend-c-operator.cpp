@@ -161,11 +161,20 @@ namespace {
 			!StrCompare(node->addr, symbol);
 	}
 
+	bool IsPreparedDeclaration(const uni::Nnode* node) {
+		return node && (node->type == ToToken(uni::lango::FrontendCToken::Function) ||
+			node->type == ToToken(uni::lango::FrontendCToken::FunctionDeclaration) ||
+			node->type == ToToken(uni::lango::FrontendCToken::TypedefDeclaration) ||
+			node->type == ToToken(uni::lango::FrontendCToken::Declaration) ||
+			node->type == ToToken(uni::lango::FrontendCToken::GlobalDeclaration));
+	}
+
 	bool ClassifyCastList(uni::Nchain& syntax_tree, uni::Nnode* node,
 		const uni::lango::FrontendCDiagnostics& diagnostics,
 		const uni::lango::FrontendCTargetInfo& target,
 		uni::lango::FrontendCTypeInfo& type_info) {
 		for (; node; node = node->next) {
+			if (IsPreparedDeclaration(node)) continue;
 			if (node->subf && !ClassifyCastList(syntax_tree, node->subf,
 				diagnostics, target, type_info)) return false;
 			if (node->type != tok_func || node->addr || !node->subf) continue;
@@ -198,6 +207,25 @@ namespace {
 		*wrapper->GetTnodeField() = *first->GetTnodeField();
 		syntax_tree.Adopt(wrapper, first, last);
 		return wrapper;
+	}
+
+	bool ParseCallList(uni::Nchain& syntax_tree, uni::Nnode*& head) {
+		for (uni::Nnode* node = head; node; node = node->next) {
+			if (!IsPreparedDeclaration(node) && node->subf &&
+				!ParseCallList(syntax_tree, node->subf)) return false;
+			while (!IsPreparedDeclaration(node) && node->type != tok_symbol && node->next &&
+				node->next->type == tok_func && !node->next->addr) {
+				uni::Nnode* arguments = node->next;
+				uni::Nnode* call = syntax_tree.Append(nullptr, true, node);
+				*call->GetTnodeField() = *node->GetTnodeField();
+				if (head == node) head = call;
+				syntax_tree.Adopt(call, node, arguments);
+				call->type = uni::lango::ToToken(
+					uni::lango::FrontendCToken::CallExpression);
+				node = call;
+			}
+		}
+		return true;
 	}
 
 	bool ParseConditionalList(uni::Nchain& syntax_tree, uni::Nnode*& head,
@@ -251,4 +279,10 @@ bool uni::lango::frontend_c_detail::ParseConditionalOperators(
 	uni::Nchain& syntax_tree, const FrontendCDiagnostics& diagnostics) {
 	uni::Nnode*& root = syntax_tree.RootRef();
 	return !root || ParseConditionalList(syntax_tree, root, diagnostics);
+}
+
+bool uni::lango::frontend_c_detail::ParseCallExpressions(
+	uni::Nchain& syntax_tree) {
+	uni::Nnode*& root = syntax_tree.RootRef();
+	return !root || ParseCallList(syntax_tree, root);
 }

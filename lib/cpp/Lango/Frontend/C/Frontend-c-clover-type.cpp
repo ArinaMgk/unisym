@@ -26,7 +26,7 @@ namespace clover::frontend_c_internal {
 	Type CloverTypeFor(const FrontendCType& type,
 		const FrontendCTargetInfo& target) {
 		if (type.IsVoid()) return Type::Void;
-		if (type.IsPointer()) return Type::Ptr;
+		if (type.StorageElementIsPointer()) return Type::Ptr;
 		if (type.scalar_kind == FrontendCScalarKind::Float) return Type::F32;
 		if (type.scalar_kind == FrontendCScalarKind::Double) return Type::F64;
 		if (type.scalar_kind == FrontendCScalarKind::LongDouble) return Type::F128;
@@ -296,6 +296,12 @@ namespace clover::frontend_c_internal {
 
 	bool FunctionBuilder::ResolveExpressionType(uni::Nnode* node, FrontendCType& type) {
 		if (!node) return false;
+		if (node->type == ToToken(FrontendCToken::CallExpression)) {
+			uni::Nnode* callee = node->subf;
+			FrontendCType callee_type;
+			return callee && ResolveExpressionType(callee, callee_type) &&
+				FunctionType(callee_type, type) != nullptr;
+		}
 		if (node->type == tok_number) {
 			stdsint value;
 			stdsint high;
@@ -328,13 +334,31 @@ namespace clover::frontend_c_internal {
 				type = constant->type;
 			else {
 				const FrontendCGlobal* global = FindGlobal(node->addr);
-				if (!global) return false;
-				type = global->type;
+				if (global) type = global->type;
+				else {
+					const FrontendCFunction* function = FindFunction(node->addr);
+					if (!function) return false;
+					type = function->return_type;
+					FrontendCTypeLayer layer;
+					layer.kind = FrontendCTypeLayerKind::Function;
+					layer.function_type_id = function->function_type_id;
+					type.PrependLayer(layer);
+				}
 			}
 			return true;
 		}
 		if (node->type != tok_func) return false;
-		if (!node->addr) return ResolveExpressionType(node->subf, type);
+		if (!node->addr) {
+			if (node->subf && node->subf->next &&
+				node->subf->next->type == tok_func &&
+				!node->subf->next->addr && !node->subf->next->next) {
+				FrontendCType callee_type;
+				if (!ResolveExpressionType(node->subf, callee_type)) return false;
+				const FrontendCFunctionType* signature = FunctionType(callee_type, type);
+				return signature != nullptr;
+			}
+			return ResolveExpressionType(node->subf, type);
+		}
 		if (!StrCompare(node->addr, "sizeof") ||
 			!StrCompare(node->addr, "OP@SIZEOF")) {
 			type = SizeType();
@@ -357,9 +381,19 @@ namespace clover::frontend_c_internal {
 		if (StrLength(node->addr) < 3 || node->addr[0] != 'O' ||
 			node->addr[1] != 'P' || node->addr[2] != '@') {
 			const FrontendCFunction* signature = FindFunction(node->addr);
-			if (!signature) return false;
-			type = signature->return_type;
-			return true;
+			if (signature) {
+				type = signature->return_type;
+				return true;
+			}
+			FrontendCType callee_type;
+			LocalValue* local = FindLocal(node->addr);
+			if (local) callee_type = local->type;
+			else {
+				const FrontendCGlobal* global = FindGlobal(node->addr);
+				if (!global) return false;
+				callee_type = global->type;
+			}
+			return FunctionType(callee_type, type) != nullptr;
 		}
 		if (!StrCompare(node->addr, "OP@CAST")) {
 			const FrontendCType* cast_type = type_info->Find(node);
@@ -386,6 +420,8 @@ namespace clover::frontend_c_internal {
 			return true;
 		}
 		if (!StrCompare(node->addr, "OP@PREMEMB")) {
+			if (left_type.IsArray() || left_type.IsFunction())
+				left_type = left_type.DecayType();
 			if (!left_type.IsPointer()) return false;
 			type = left_type.DereferenceType();
 			return true;

@@ -53,6 +53,8 @@ void ListArchends(const ArchendInterface& selected, FILE* output)
 		fprintf(output, "  %c %-10s%s\n",
 			archends[index] == &selected ? '*' : ' ',
 			info.shortname, info.fullname);
+		fprintf(output, "      BITS: %s\n      INST: %s\n",
+			info.supported_bits, info.instruction_sets);
 	}
 }
 

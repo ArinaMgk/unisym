@@ -49,14 +49,214 @@ namespace clover::frontend_c_internal {
 			return type.IsArray() || type.IsRecord();
 		}
 
-		FrontendCType ArrayElementType(const FrontendCType& type) {
-			FrontendCType element = type;
-			if (!element.array_dimension_count) return element;
-			for (stduint index = 1; index < element.array_dimension_count; index++)
-				element.array_dimensions[index - 1] = element.array_dimensions[index];
-			element.array_dimensions[--element.array_dimension_count] = 0;
-			return element;
+		bool IsDesignatedInitializer(const uni::Nnode* node) {
+			return node && node->type ==
+				ToToken(FrontendCToken::DesignatedInitializer);
 		}
+
+		uni::Nnode* DesignatedInitializerValue(uni::Nnode* node) {
+			for (uni::Nnode* child = node ? node->subf : nullptr;
+				child; child = child->next)
+				if (child->type == ToToken(FrontendCToken::InitializerValue))
+					return child->subf;
+			return nullptr;
+		}
+
+		uni::Nnode* UnwrapInitializerExpression(uni::Nnode* node) {
+			if (node && node->next) node = node->Tail();
+			while (node && !node->next && !node->addr && node->subf)
+				node = node->subf;
+			return node;
+		}
+
+		bool HasDesignatedInitializer(const uni::Vector<uni::Nnode*>& items) {
+			for (uni::Nnode* item : items)
+				if (IsDesignatedInitializer(item)) return true;
+			return false;
+		}
+
+		FrontendCType ArrayElementType(const FrontendCType& type) {
+			return type.IsArray() ? type.RemoveOuterLayer() : type;
+		}
+
+		struct InitializerTarget {
+			FrontendCType type;
+			stduint offset = 0;
+		};
+
+		struct InitializerCursorLevel {
+			FrontendCType aggregate;
+			stduint offset = 0;
+			stduint child = 0;
+		};
+
+		class InitializerCursor {
+		private:
+			FrontendCType root_type;
+			const FrontendCTargetInfo& target;
+			const FrontendCTypeInfo& type_info;
+			const FrontendCDiagnostics& diagnostics;
+			uni::Vector<InitializerCursorLevel> levels;
+
+			bool Error(const char* message, const uni::Nnode* node) const {
+				diagnostics.Report(DiagnosticStage::Semantic, message, node);
+				return false;
+			}
+
+			stduint TypeSize(const FrontendCType& type) const {
+				stduint bits = type_info.SizeBits(type, target);
+				return bits && !(bits % target.char_bits) ?
+					bits / target.char_bits : 0;
+			}
+
+			stduint ChildCount(const FrontendCType& type) const {
+				if (type.IsArray()) return type.ArrayDimension(0);
+				if (!type.IsRecord()) return 0;
+				const FrontendCRecord* record = type_info.GetRecord(type.record_id);
+				return record && record->complete ? record->members.Count() : 0;
+			}
+
+			bool TargetAt(const InitializerCursorLevel& level,
+				InitializerTarget& result) const {
+				if (level.aggregate.IsArray()) {
+					if (level.child >= level.aggregate.ArrayDimension(0)) return false;
+					result.type = ArrayElementType(level.aggregate);
+					stduint size = TypeSize(result.type);
+					if (!size) return false;
+					result.offset = level.offset + level.child * size;
+					return true;
+				}
+				const FrontendCRecord* record =
+					type_info.GetRecord(level.aggregate.record_id);
+				if (!record || !record->complete ||
+					level.child >= record->members.Count()) return false;
+				const FrontendCRecordMember& member =
+					record->members.begin()[level.child];
+				if (member.offset_bits % target.char_bits) return false;
+				result.type = member.type;
+				result.offset = level.offset +
+					member.offset_bits / target.char_bits;
+				return true;
+			}
+
+			bool SelectChild(const FrontendCType& aggregate,
+				uni::Nnode* designator, stduint& child) const {
+				if (aggregate.IsArray()) {
+					if (!designator || designator->type !=
+						ToToken(FrontendCToken::IndexDesignator))
+						return Error("array initializer requires an index designator",
+							designator);
+					stdsint value;
+					if (!frontend_c_detail::EvaluateIntegerConstant(
+						UnwrapInitializerExpression(designator->subf),
+						target, type_info, value))
+						return Error("array designator index must be an integer constant expression",
+							designator);
+					if (value < 0)
+						return Error("array designator index cannot be negative", designator);
+					if ((stduint)value >= aggregate.ArrayDimension(0))
+						return Error("array designator index is out of bounds", designator);
+					child = (stduint)value;
+					return true;
+				}
+				if (!aggregate.IsRecord())
+					return Error("initializer designator requires an aggregate object",
+						designator);
+				if (!designator || designator->type !=
+					ToToken(FrontendCToken::MemberDesignator))
+					return Error("record initializer requires a member designator",
+						designator);
+				const FrontendCRecord* record = type_info.GetRecord(aggregate.record_id);
+				if (!record || !record->complete)
+					return Error("member designator requires a complete record type",
+						designator);
+				for (stduint index = 0; index < record->members.Count(); index++)
+					if (!StrCompare(record->members.begin()[index].name.reference(),
+						designator->addr)) {
+						child = index;
+						return true;
+					}
+				return Error("record has no such designated member", designator);
+			}
+
+		public:
+			InitializerCursor(const FrontendCType& type,
+				const FrontendCTargetInfo& target_info,
+				const FrontendCTypeInfo& semantic_types,
+				const FrontendCDiagnostics& diagnostic_output) :
+				root_type(type), target(target_info), type_info(semantic_types),
+				diagnostics(diagnostic_output) {}
+
+			bool Reset() {
+				levels.Clear();
+				if (!ChildCount(root_type)) return false;
+				InitializerCursorLevel level;
+				level.aggregate = root_type;
+				return levels.Append(level);
+			}
+
+			bool Current(InitializerTarget& result) const {
+				return levels.Count() &&
+					TargetAt(levels.begin()[levels.Count() - 1], result);
+			}
+
+			bool OuterIndex(stduint& index) const {
+				if (!levels.Count() || !levels.begin()[0].aggregate.IsArray())
+					return false;
+				index = levels.begin()[0].child;
+				return true;
+			}
+
+			bool Descend() {
+				InitializerTarget current;
+				if (!Current(current) || !IsAggregateType(current.type) ||
+					!ChildCount(current.type)) return false;
+				InitializerCursorLevel level;
+				level.aggregate = current.type;
+				level.offset = current.offset;
+				return levels.Append(level);
+			}
+
+			bool Advance() {
+				while (levels.Count()) {
+					stduint index = levels.Count() - 1;
+					InitializerCursorLevel& level = levels[index];
+					const FrontendCRecord* record = level.aggregate.IsRecord() ?
+						type_info.GetRecord(level.aggregate.record_id) : nullptr;
+					if (!record || !record->is_union) {
+						level.child++;
+						if (level.child < ChildCount(level.aggregate)) return true;
+					}
+					levels.Remove(index);
+				}
+				return false;
+			}
+
+			bool Select(uni::Nnode* initializer) {
+				levels.Clear();
+				FrontendCType aggregate = root_type;
+				stduint offset = 0;
+				bool found = false;
+				for (uni::Nnode* designator = initializer ? initializer->subf : nullptr;
+					designator && designator->type !=
+						ToToken(FrontendCToken::InitializerValue);
+					designator = designator->next) {
+					stduint child;
+					if (!SelectChild(aggregate, designator, child)) return false;
+					InitializerCursorLevel level;
+					level.aggregate = aggregate;
+					level.offset = offset;
+					level.child = child;
+					if (!levels.Append(level)) return false;
+					InitializerTarget selected;
+					if (!Current(selected)) return false;
+					aggregate = selected.type;
+					offset = selected.offset;
+					found = true;
+				}
+				return found;
+			}
+		};
 
 		class StaticInitializerBuilder {
 		private:
@@ -78,6 +278,34 @@ namespace clover::frontend_c_internal {
 					bits / target.char_bits : 0;
 			}
 
+			bool AppendFragment(const GlobalInitializerFragment& fragment) {
+				for (stduint index = 0;
+					index < global.initializer_fragments.Count(); index++) {
+					GlobalInitializerFragment& previous =
+						global.initializer_fragments[index];
+					if (previous.offset != fragment.offset ||
+						previous.type != fragment.type) continue;
+					previous = fragment;
+					return true;
+				}
+				return global.initializer_fragments.Append(fragment);
+			}
+
+			stduint FragmentSize(const GlobalInitializerFragment& fragment) const {
+				switch (fragment.type) {
+				case Type::I1:
+				case Type::I8: return 1;
+				case Type::I16: return 2;
+				case Type::I32:
+				case Type::F32: return 4;
+				case Type::I64:
+				case Type::F64: return 8;
+				case Type::F128: return 16;
+				case Type::Ptr: return target.pointer_bits / target.char_bits;
+				default: return 0;
+				}
+			}
+
 			bool AppendScalar(const FrontendCType& type,
 				uni::Nnode* initializer, stduint offset) {
 				stdsint low = 0;
@@ -93,8 +321,7 @@ namespace clover::frontend_c_internal {
 				fragment.type = CloverTypeFor(type, target);
 				fragment.initializer = low;
 				fragment.initializer_high = high;
-				global.initializer_fragments.Append(fragment);
-				return true;
+				return AppendFragment(fragment);
 			}
 
 			bool InitializeScalar(const FrontendCType& type,
@@ -123,8 +350,46 @@ namespace clover::frontend_c_internal {
 					fragment.offset = offset + index * element_size;
 					fragment.type = CloverTypeFor(element_type, target);
 					fragment.initializer = values[index];
-					global.initializer_fragments.Append(fragment);
+					if (!AppendFragment(fragment)) return false;
 				}
+				return true;
+			}
+
+			bool InitializeDesignatedAggregate(const FrontendCType& type,
+				uni::Vector<uni::Nnode*>& items, stduint offset,
+				const uni::Nnode* source) {
+				InitializerCursor cursor(type, target, type_info, diagnostics);
+				bool has_current = cursor.Reset();
+				for (uni::Nnode* item : items) {
+					if (IsDesignatedInitializer(item)) {
+						if (!cursor.Select(item)) return false;
+						InitializerTarget selected;
+						uni::Nnode* value = DesignatedInitializerValue(item);
+						if (!value || !cursor.Current(selected))
+							return Error("invalid designated initializer", item);
+						if (!InitializeObject(selected.type, value,
+							offset + selected.offset)) return false;
+						has_current = cursor.Advance();
+						continue;
+					}
+
+					InitializerTarget selected;
+					if (!has_current || !cursor.Current(selected))
+						return Error(type.IsArray() ?
+							"excess elements in array initializer" :
+							"excess elements in record initializer", item);
+					while (IsAggregateType(selected.type) &&
+						item->type != tok_block &&
+						!(selected.type.IsArray() &&
+							FindStringArrayInitializer(item))) {
+						if (!cursor.Descend() || !cursor.Current(selected))
+							return Error("invalid aggregate initializer target", item);
+					}
+					if (!InitializeObject(selected.type, item,
+						offset + selected.offset)) return false;
+					has_current = cursor.Advance();
+				}
+				(void)source;
 				return true;
 			}
 
@@ -135,7 +400,7 @@ namespace clover::frontend_c_internal {
 					FrontendCType element_type = ArrayElementType(type);
 					stduint element_size = TypeSize(element_type);
 					if (!element_size) return Error("invalid array element size", source);
-					for (stduint index = 0; index < type.array_dimensions[0]; index++)
+					for (stduint index = 0; index < type.ArrayDimension(0); index++)
 						if (!InitializeObjectFromItems(element_type, items, cursor,
 							offset + index * element_size, source)) return false;
 					return true;
@@ -186,6 +451,9 @@ namespace clover::frontend_c_internal {
 					return Error("static aggregate initializer requires braces", initializer);
 				uni::Vector<uni::Nnode*> items;
 				AppendDirectInitializerItems(initializer, items);
+				if (HasDesignatedInitializer(items))
+					return InitializeDesignatedAggregate(type, items,
+						offset, initializer);
 				stduint cursor = 0;
 				if (!InitializeAggregateFromItems(type, items, cursor,
 					offset, initializer)) return false;
@@ -208,9 +476,115 @@ namespace clover::frontend_c_internal {
 				constants(visible_constants), diagnostics(diagnostic_output) {}
 
 			bool Build(const FrontendCType& type, uni::Nnode* initializer) {
-				return InitializeObject(type, initializer, 0);
+				if (!InitializeObject(type, initializer, 0)) return false;
+				for (stduint left = 0;
+					left < global.initializer_fragments.Count(); left++)
+					for (stduint right = left + 1;
+						right < global.initializer_fragments.Count(); right++)
+						if (global.initializer_fragments[right].offset <
+							global.initializer_fragments[left].offset)
+							global.initializer_fragments.Exchange(left, right);
+				for (stduint index = 1;
+					index < global.initializer_fragments.Count(); index++) {
+					const GlobalInitializerFragment& previous =
+						global.initializer_fragments.begin()[index - 1];
+					const GlobalInitializerFragment& current =
+						global.initializer_fragments.begin()[index];
+					if (previous.offset + FragmentSize(previous) > current.offset)
+						return Error("overlapping static designated initializers are not supported",
+							initializer);
+				}
+				return true;
 			}
 		};
+	}
+
+	bool CompleteArrayTypeFromInitializer(FrontendCType& type,
+		uni::Nnode* initializer, const FrontendCTargetInfo& target,
+		const FrontendCTypeInfo& type_info,
+		const FrontendCDiagnostics& diagnostics) {
+		if (!type.IsArray() || type.ArrayDimension(0))
+			return !type.HasIncompleteArray();
+		for (stduint index = 1; index < type.ArrayDimensionCount(); index++)
+			if (!type.ArrayDimension(index)) return false;
+		if (!initializer) return false;
+		uni::Nnode* string = FindStringArrayInitializer(initializer);
+		if (string) {
+			if (!IsCharacterArray(type) || type.ArrayDimensionCount() != 1)
+				return false;
+			uni::Vector<stdsint> bytes;
+			if (!DecodeCString(string->addr, bytes)) return false;
+			type.SetArrayDimension(0, bytes.Count() + 1);
+			return true;
+		}
+		if (initializer->type != tok_block) return false;
+
+		uni::Vector<uni::Nnode*> items;
+		AppendDirectInitializerItems(initializer, items);
+		if (!items.Count()) return false;
+		stduint maximum_designated = 0;
+		for (uni::Nnode* item : items) {
+			if (!IsDesignatedInitializer(item)) continue;
+			uni::Nnode* designator = item->subf;
+			if (!designator || designator->type !=
+				ToToken(FrontendCToken::IndexDesignator)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"incomplete array initializer requires an index designator",
+					designator ? designator : item);
+				return false;
+			}
+			stdsint value;
+			if (!frontend_c_detail::EvaluateIntegerConstant(
+				UnwrapInitializerExpression(designator->subf),
+				target, type_info, value)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"array designator index must be an integer constant expression",
+					designator);
+				return false;
+			}
+			if (value < 0) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"array designator index cannot be negative", designator);
+				return false;
+			}
+			if ((stduint)value > maximum_designated)
+				maximum_designated = (stduint)value;
+		}
+
+		stduint spare = items.Count() + 1;
+		if (maximum_designated > ~stduint(0) - spare) return false;
+		FrontendCType provisional = type;
+		provisional.SetArrayDimension(0, maximum_designated + spare);
+		InitializerCursor cursor(provisional, target, type_info, diagnostics);
+		bool has_current = cursor.Reset();
+		bool touched = false;
+		stduint maximum_touched = 0;
+		for (uni::Nnode* item : items) {
+			if (IsDesignatedInitializer(item)) {
+				if (!cursor.Select(item)) return false;
+			}
+			else if (!has_current) return false;
+
+			InitializerTarget selected;
+			if (!cursor.Current(selected)) return false;
+			bool whole_object = IsDesignatedInitializer(item) ||
+				item->type == tok_block ||
+				(selected.type.IsArray() && FindStringArrayInitializer(item));
+			while (IsAggregateType(selected.type) && !whole_object) {
+				if (!cursor.Descend() || !cursor.Current(selected)) return false;
+				whole_object = item->type == tok_block ||
+					(selected.type.IsArray() && FindStringArrayInitializer(item));
+			}
+			stduint outer_index;
+			if (!cursor.OuterIndex(outer_index)) return false;
+			if (!touched || outer_index > maximum_touched)
+				maximum_touched = outer_index;
+			touched = true;
+			has_current = cursor.Advance();
+		}
+		if (!touched || maximum_touched == ~stduint(0)) return false;
+		type.SetArrayDimension(0, maximum_touched + 1);
+		return true;
 	}
 
 	bool BuildStaticObjectInitializer(Global& global,
@@ -279,7 +653,7 @@ namespace clover::frontend_c_internal {
 			stduint element_size = TypeSize(element_type);
 			if (!element_size)
 				return Error("invalid array element size", source).valid;
-			for (stduint index = 0; index < type.array_dimensions[0]; index++) {
+			for (stduint index = 0; index < type.ArrayDimension(0); index++) {
 				stduint offset = index * element_size;
 				if (!ZeroInitializeObject(EmitByteOffset(address, offset), element_type,
 					OffsetAlignment(alignment, offset), source)) return false;
@@ -313,6 +687,60 @@ namespace clover::frontend_c_internal {
 		return true;
 	}
 
+	bool FunctionBuilder::InitializeDesignatedAggregate(Value address,
+		const FrontendCType& type, stduint alignment,
+		uni::Vector<uni::Nnode*>& items, const uni::Nnode* source) {
+		if (!ZeroInitializeObject(address, type, alignment, source)) return false;
+		InitializerCursor cursor(type, *target, *type_info, *diagnostics);
+		bool has_current = cursor.Reset();
+		for (uni::Nnode* item : items) {
+			if (IsDesignatedInitializer(item)) {
+				if (!cursor.Select(item)) return false;
+				InitializerTarget selected;
+				uni::Nnode* value = DesignatedInitializerValue(item);
+				if (!value || !cursor.Current(selected))
+					return Error("invalid designated initializer", item).valid;
+				stduint selected_alignment =
+					OffsetAlignment(alignment, selected.offset);
+				if (!InitializeObject(EmitByteOffset(address, selected.offset),
+					selected.type, selected_alignment, value)) return false;
+				has_current = cursor.Advance();
+				continue;
+			}
+
+			InitializerTarget selected;
+			if (!has_current || !cursor.Current(selected))
+				return Error(type.IsArray() ?
+					"excess elements in array initializer" :
+					"excess elements in record initializer", item).valid;
+			bool whole_object = item->type == tok_block ||
+				(selected.type.IsArray() && FindStringArrayInitializer(item));
+			if (!whole_object && selected.type.IsRecord()) {
+				FrontendCType source_type;
+				whole_object = ResolveExpressionType(item, source_type) &&
+					source_type.IsRecord() &&
+					selected.type.HasSameShape(source_type);
+			}
+			while (IsAggregateType(selected.type) && !whole_object) {
+				if (!cursor.Descend() || !cursor.Current(selected))
+					return Error("invalid aggregate initializer target", item).valid;
+				whole_object = item->type == tok_block ||
+					(selected.type.IsArray() && FindStringArrayInitializer(item));
+				if (!whole_object && selected.type.IsRecord()) {
+					FrontendCType source_type;
+					whole_object = ResolveExpressionType(item, source_type) &&
+						source_type.IsRecord() &&
+						selected.type.HasSameShape(source_type);
+				}
+			}
+			stduint selected_alignment = OffsetAlignment(alignment, selected.offset);
+			if (!InitializeObject(EmitByteOffset(address, selected.offset),
+				selected.type, selected_alignment, item)) return false;
+			has_current = cursor.Advance();
+		}
+		return true;
+	}
+
 	bool FunctionBuilder::InitializeAggregateFromItems(Value address,
 		const FrontendCType& type, stduint alignment,
 		uni::Vector<uni::Nnode*>& items, stduint& cursor,
@@ -322,7 +750,7 @@ namespace clover::frontend_c_internal {
 			stduint element_size = TypeSize(element_type);
 			if (!element_size)
 				return Error("invalid array element size", source).valid;
-			for (stduint index = 0; index < type.array_dimensions[0]; index++) {
+			for (stduint index = 0; index < type.ArrayDimension(0); index++) {
 				stduint offset = index * element_size;
 				if (!InitializeObjectFromItems(EmitByteOffset(address, offset),
 					element_type, OffsetAlignment(alignment, offset),
@@ -406,6 +834,9 @@ namespace clover::frontend_c_internal {
 		}
 		uni::Vector<uni::Nnode*> items;
 		AppendDirectInitializerItems(initializer, items);
+		if (HasDesignatedInitializer(items))
+			return InitializeDesignatedAggregate(address, type, alignment,
+				items, initializer);
 		stduint cursor = 0;
 		if (!InitializeAggregateFromItems(address, type, alignment,
 			items, cursor, initializer)) return false;

@@ -7,17 +7,30 @@ CheckCodeends()
 {
 	FormatOutput="$WorkDirectory/formats.txt"
 	FormatError="$WorkDirectory/formats.stderr"
+	HelpOutput="$WorkDirectory/help.txt"
 	DebugOutput="$WorkDirectory/debug-formats.txt"
 	TextOutput="$WorkDirectory/basic.ith"
 	InvalidError="$WorkDirectory/invalid-format.stderr"
+
+	"$AasmExecutable" -h > "$HelpOutput" 2> "$FormatError" || \
+		Fail "general help listing failed"
+	[ ! -s "$FormatError" ] || Fail "general help listing produced diagnostics"
+	grep -Fq 'Supported architectures and INST/CPU choices:' "$HelpOutput" || \
+		Fail "general help omits architecture and INST summary"
+	grep -Fq -- '-ha         list architectures, BITS, and INST/CPU choices' "$HelpOutput" || \
+		Fail "general help omits the architecture-list option"
 
 	"$AasmExecutable" -hf > "$FormatOutput" 2> "$FormatError" || \
 		Fail "output format listing failed"
 	[ ! -s "$FormatError" ] || Fail "output format listing produced diagnostics"
 	grep -Eq '^  \* bin[[:space:]]' "$FormatOutput" || \
 		Fail "default output format differs"
+	grep -Eq '^      Architectures: x86, riscv, arm32, arm64$' "$FormatOutput" || \
+		Fail "binary architecture support listing differs"
 	grep -Eq '^    elf64[[:space:]]' "$FormatOutput" || \
 		Fail "ELF64 output format is missing"
+	grep -Eq '^      Architectures: x86, riscv$' "$FormatOutput" || \
+		Fail "ELF64 architecture support listing differs"
 
 	"$AasmExecutable" -f elf64 -y > "$DebugOutput" 2> "$FormatError" || \
 		Fail "debug format listing failed"
@@ -66,6 +79,12 @@ CheckArchends()
 		Fail "ARM32 architecture is missing"
 	grep -Eq '^    arm64[[:space:]]' "$ArchitectureOutput" || \
 		Fail "ARM64 architecture is missing"
+	grep -Fq 'INST: CPU levels: 8086, 186, 286, 386, 486, 586, 686, P3, P4, Prescott, x64, IA64' "$ArchitectureOutput" || \
+		Fail "x86 instruction selection summary is missing"
+	grep -Fq 'INST: I, M, A, F, D, C, V, Zicsr, Zifencei (combine in canonical order; default I)' "$ArchitectureOutput" || \
+		Fail "RISC-V instruction-set summary is missing"
+	grep -Fq 'INST: none (instruction encoding not implemented)' "$ArchitectureOutput" || \
+		Fail "unimplemented ARM instruction status is missing"
 
 	"$AasmExecutable" -Ox -f bin -o "$DefaultOutput" \
 		"$TestDirectory/basic.asm" \

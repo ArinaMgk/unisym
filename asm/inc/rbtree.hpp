@@ -12,23 +12,22 @@ struct rbtree {
 	struct rbtree* left, * right;
 	bool red;
 	//
-	rbtree* rb_insert(rbtree* node)
+	static rbtree* rb_insert(rbtree* tree, rbtree* node)
 	{
-		rbtree* tree = this;
 		if (!tree) {
 			node->red = true;
 			return node;
 		}
-		if (tree->left->is_red() && tree->right->is_red())
-			color_flip();
+		if (is_red(tree->left) && is_red(tree->right))
+			tree->color_flip();
 		if (node->key < tree->key)
-			tree->left = tree->left->rb_insert(node);
+			tree->left = rb_insert(tree->left, node);
 		else
-			tree->right = tree->right->rb_insert(node);
-		if (tree->right->is_red())
-			tree = rotate_left();
-		if (tree->left->is_red() && tree->left->left->is_red())
-			tree = rotate_right();
+			tree->right = rb_insert(tree->right, node);
+		if (is_red(tree->right))
+			tree = tree->rotate_left();
+		if (is_red(tree->left) && is_red(tree->left->left))
+			tree = tree->rotate_right();
 		return tree;
 	}
 	rbtree* rb_search(uint64_t key) {
@@ -48,9 +47,9 @@ struct rbtree {
 	}
 	//
 
-	bool is_red()
+	static bool is_red(const rbtree* tree)
 	{
-		return asrtand(this)->red;
+		return tree && tree->red;
 	}
 
 	rbtree* rotate_left()

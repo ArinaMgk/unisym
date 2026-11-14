@@ -35,8 +35,16 @@
   初始化只写入模块数据，不会在每次进入函数或代码块时重复执行。当前静态初始化
   沿用全局常量初始化能力，并支持 record 和 `long double` 数组；块作用域
   `extern` 尚未实现。
-- 支持函数定义与调用、return、if/else、while、for、switch/case/default、空语句和
-  逗号运算符。switch 支持整数常量 case、default、贯穿、嵌套及重复标签诊断；
+- 支持函数定义、声明、原型与调用；原型支持无名参数、`(void)` 空参数列表、
+  可变参数、数组参数调整和指针返回类型，并检查后续声明及定义的签名兼容性。
+  未在本模块定义的函数会降低为 Clover `declare func`。
+- 支持通用括号声明符、函数指针和数组指针，包括函数指针参数、返回函数指针、
+  函数指针数组、显式复杂函数定义及连续复杂声明。函数名可退化为函数指针，
+  支持直接、解引用及表达式结果的间接调用；可变参数间接调用暂未实现。
+- 支持文件及块作用域 `typedef`，包括标量、指针、数组和括号声明符，并按照 C
+  普通标识符命名空间处理内层变量、参数及 typedef 的遮蔽与同作用域冲突。
+- 支持 return、if/else、while、do-while、for、switch/case/default、空语句和
+  逗号运算符；`for` 第一子句可声明对象，并具有独立块作用域。switch 支持整数常量 case、default、贯穿、嵌套及重复标签诊断；
   当前降低为 Clover 的整数比较和基本块跳转链，不要求增加专用 IR 指令。
 - 支持可变参数函数定义和调用端默认参数提升：窄整数提升为 `int` 或
   `unsigned int`，`float` 提升为 `double`；`va_list` 系列尚未实现。
@@ -54,7 +62,10 @@
   对应的 `sizeof`；RISC-V 硬浮点 ABI 已支持由一至两个整数/浮点成员组成、且至少
   含一个浮点成员的 struct 按值参数。局部、全局和块静态聚合初始化支持嵌套
   struct/union、成员数组、缺省成员补零、内部初始化列表括号省略和最外层数组长度
-  推导；兼容 struct/union 对象可用于局部整体复制初始化。整体赋值和按值返回尚未实现。
+  推导；兼容 struct/union 对象可用于局部整体复制初始化。支持 C99 指定初始化器
+  `.member =`、`[constant-index] =` 及连续 designator，覆盖局部、全局和块静态对象、
+  union 非首成员、指定项后的普通项游标推进、重复指定覆盖和不完整数组长度推导。
+  静态存储期初始化暂不支持不同类型或宽度的重叠覆盖。整体赋值和按值返回尚未实现。
 - 支持 record 前向声明、指针成员和自引用结构。
 - 支持有标签 `enum` 的文件及块作用域、内外层遮蔽、前向声明、定义后直接声明
   对象，以及枚举对象、函数参数和返回值。枚举常量表达式支持整数和字符常量、
@@ -74,8 +85,11 @@
 
 - `Frontend-c.cpp`：C 前端入口、词法分析和各分析阶段调度。
 - `Frontend-c-operator.cpp`：C 运算符分级、cast 识别和条件运算符整理。
-- `Frontend-c-statement.cpp`：语句分类与基础语义分析；以后可继续按声明、record
-  和类型处理拆分。
+- `Frontend-c-declaration.cpp`：共享声明符解析，以及指针、数组、函数等派生类型
+  层的组合顺序。
+- `Frontend-c-initializer.cpp`：在通用运算符整理前识别并隔离 C99 指定初始化器语法。
+- `Frontend-c-statement.cpp`：语句分类、声明准备、作用域与基础语义分析；以后
+  可继续把 typedef、函数签名和 record 分析迁入独立模块。
 - `Frontend-c-clover.cpp`：Clover lowering 总入口，以及翻译单元、函数和全局符号组织。
 - `Frontend-c-clover-expression.cpp`：表达式、调用、数组、成员访问和运算符 lowering。
 - `Frontend-c-clover-statement.cpp`：局部声明、作用域和控制流 lowering。
@@ -113,5 +127,10 @@
   非重叠对象复制，当前 RISC-V 后端使用字节循环降低。
 - Clover 支持 `declare global` 和 `declare constant` 外部对象声明；RISC-V 后端不为
   声明分配存储，但允许 `globaladdr` 生成交由链接器解析的符号引用。
+- Clover 支持 `declare func` 外部函数签名；RISC-V 后端使用声明验证直接调用，
+  但不会为其输出函数体，符号由链接阶段解析。
+- Clover 使用 `funcaddr` 表示函数地址，并允许 `call` 以 `ptr` SSA 值作为间接
+  目标；RISC-V 后端分别降低为地址装载和 `jalr`。标量全局 `ptr` 可使用函数或
+  全局符号初始化，并由汇编器、链接器完成重定位。
 - 局部对象支持显式存储对齐；`load/store` 会读取访问对齐信息。RISC-V 后端会将
   未对齐的 i16/i32/i64 load/store 拆为小端字节访问。

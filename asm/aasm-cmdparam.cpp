@@ -349,7 +349,9 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 				"    -Z<file>    redirect error messages to file\n"
 				"    -s          redirect error messages to stdout\n\n"
 				"    -F format   select a debugging format\n\n"
-				"    -I<path>    adds a pathname to the include file path\n");
+				"    -I<path>    adds a pathname to the include file path\n"
+				"    -ha         list architectures, BITS, and INST/CPU choices\n"
+				"    -hf         list output formats and supported architectures\n");
 			printf
 			("    -O<digit>   optimize branch offsets (-O0 disables, default)\n"
 				"    -mrelax     emit RISC-V linker-relaxation hints\n"
@@ -381,7 +383,11 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 				uni::ListCodeends(options.Target.Codeend(), stdout);
 			}
 			else {
+				printf("\nSupported architectures and INST/CPU choices:\n");
+				uni::lango::ListArchends(
+					options.Target.Archend(), stdout);
 				printf("\nFor a list of valid output formats, use -hf.\n");
+				printf("For an architecture list, use -ha.\n");
 				printf("For a list of debug formats, use -f <form> -y.\n");
 			}
 			drop();	exit(0); // never need usage message here

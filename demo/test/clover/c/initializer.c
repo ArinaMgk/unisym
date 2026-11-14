@@ -33,12 +33,22 @@ struct Packet global_packet = {1, {1, 1}, {1, 1}};
 struct Pair global_pairs[] = {{1, 2}, {3}};
 union Number global_number = {1};
 struct PackedValue global_packed = {1, 1};
+struct Packet designated_global = {
+	.values[2] = 5,
+	.pair.right = 4,
+	.tag = 1,
+	.pair.left = 3
+};
+int designated_values[] = {[3] = 7, [1] = 5, 6};
+union Number designated_number = {.bytes = {8, 9}};
 
 int static_score() {
 	static struct Packet packet = {1, {1, 1}, {1, 1}};
 	static union Number number = {1};
+	static struct Pair designated_pair = {.right = 3, .left = 2};
 	return packet.tag + packet.pair.left + packet.pair.right +
-		packet.values[0] + packet.values[1] + packet.values[2] + number.word;
+		packet.values[0] + packet.values[1] + packet.values[2] + number.word +
+		designated_pair.left + designated_pair.right;
 }
 
 int main() {
@@ -53,6 +63,14 @@ int main() {
 	struct Holder holder = {partial, 2};
 	union Number copied_number = first;
 	struct Pair inferred[] = {{1, 2}, {3, 4}};
+	struct Packet designated_local = {
+		.pair.right = 4,
+		.values[2] = 5,
+		.tag = 1,
+		.pair.left = 3
+	};
+	int overwritten[2] = {[1] = 2, [1] = 5};
+	struct Pair continued[2] = {[0].right = 6, 7, 8};
 	return partial.left + partial.right +
 		flat.tag + flat.pair.left + flat.pair.right +
 		flat.values[0] + flat.values[1] + flat.values[2] +
@@ -74,5 +92,13 @@ int main() {
 		holder.tail + copied_number.word +
 		inferred[0].left + inferred[0].right +
 		inferred[1].left + inferred[1].right +
-		(sizeof(global_pairs) == 16) + (sizeof(inferred) == 16);
+		(sizeof(global_pairs) == 16) + (sizeof(inferred) == 16) +
+		designated_global.tag + designated_global.pair.left +
+		designated_global.pair.right + designated_global.values[2] +
+		designated_values[1] + designated_values[2] + designated_values[3] +
+		sizeof(designated_values) + designated_number.bytes[0] +
+		designated_number.bytes[1] + designated_local.tag +
+		designated_local.pair.left + designated_local.pair.right +
+		designated_local.values[2] + overwritten[1] +
+		continued[0].right + continued[1].left + continued[1].right;
 }

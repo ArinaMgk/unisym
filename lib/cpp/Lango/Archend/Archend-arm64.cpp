@@ -13,7 +13,9 @@ const ArchendInfo& ArchendARM64::DumpArchend() const
 		"ARM 64-bit architecture",
 		"arm64",
 		ArchitectureKind::ARM64,
-		64
+		64,
+		"64",
+		"none (instruction encoding not implemented)"
 	};
 	return info;
 }

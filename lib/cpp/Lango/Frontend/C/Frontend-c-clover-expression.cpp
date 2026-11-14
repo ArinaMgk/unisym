@@ -249,7 +249,8 @@ namespace clover::frontend_c_internal {
 	}
 
 	LoweredValue FunctionBuilder::ToRValue(LoweredValue lowered, const uni::Nnode* node) {
-		if (lowered.valid && lowered.type.IsArray()) {
+		if (lowered.valid &&
+			(lowered.type.IsArray() || lowered.type.IsFunction())) {
 			lowered.type = lowered.type.DecayType();
 			lowered.is_lvalue = false;
 			return lowered;
@@ -359,6 +360,18 @@ namespace clover::frontend_c_internal {
 		return nullptr;
 	}
 
+	const FrontendCFunctionType* FunctionBuilder::FunctionType(
+		const FrontendCType& type, FrontendCType& function_return_type) const {
+		FrontendCType function_type = type;
+		if (function_type.IsPointer()) function_type = function_type.RemoveOuterLayer();
+		if (!function_type.IsFunction()) return nullptr;
+		const FrontendCFunctionType* signature = type_info->GetFunctionType(
+			function_type.layers[0].function_type_id);
+		if (!signature) return nullptr;
+		function_return_type = function_type.RemoveOuterLayer();
+		return signature;
+	}
+
 	const FrontendCGlobal* FunctionBuilder::FindGlobal(const char* name) const {
 		if (!visible_globals) return nullptr;
 		for (const FrontendCGlobal& candidate : *visible_globals)
@@ -394,10 +407,21 @@ namespace clover::frontend_c_internal {
 		return EmitGlobalAddress(global.name);
 	}
 
+	Value FunctionBuilder::EmitFunctionAddress(const uni::String& name) {
+		Instruction instruction;
+		instruction.opcode = Opcode::FunctionAddr;
+		instruction.type = Type::Ptr;
+		instruction.has_result = true;
+		instruction.result = NewValue(Type::Ptr);
+		instruction.name = name;
+		CurrentBlock().instructions.Append(instruction);
+		return instruction.result;
+	}
+
 	LoweredValue FunctionBuilder::Error(const char* message, const uni::Nnode* node) {
 		failed = true;
 		diagnostics->Report(DiagnosticStage::Lowering, message, node);
-		return {};
+		return LoweredValue();
 	}
 
 	void FunctionBuilder::AppendCallArguments(uni::Nnode* node,
@@ -411,27 +435,73 @@ namespace clover::frontend_c_internal {
 		if (node) arguments.Append(node);
 	}
 
-	LoweredValue FunctionBuilder::LowerCall(uni::Nnode* node) {
-		const FrontendCFunction* signature = FindFunction(node->addr);
-		if (!signature) return Error("call to undeclared function", node);
+	LoweredValue FunctionBuilder::LowerCall(uni::Nnode* node,
+		uni::Nnode* callee_node, uni::Nnode* argument_node) {
+		const FrontendCFunction* direct = !callee_node && node->addr ?
+			FindFunction(node->addr) : nullptr;
+		LoweredValue indirect;
+		FrontendCType return_type;
+		const uni::Vector<FrontendCType>* parameter_types = nullptr;
+		bool has_prototype = false;
+		bool is_variadic = false;
+		if (direct) {
+			return_type = direct->return_type;
+			parameter_types = &direct->parameter_types;
+			has_prototype = direct->has_prototype;
+			is_variadic = direct->is_variadic;
+		}
+		else {
+			if (!callee_node) {
+				LocalValue* local = FindLocal(node->addr);
+				if (local) indirect = { local->address, true, local->type, true,
+					local->alignment };
+				else {
+					const FrontendCGlobal* global = FindGlobal(node->addr);
+					if (!global) return Error("call to undeclared function", node);
+					indirect = { EmitGlobalAddress(*global), true, global->type, true,
+						global->alignment };
+				}
+			}
+			else {
+				while (callee_node->type == tok_func && !callee_node->addr &&
+					callee_node->subf && !callee_node->subf->next)
+					callee_node = callee_node->subf;
+				indirect = LowerExpression(callee_node);
+			}
+			if (!indirect.valid) return indirect;
+			indirect = ToRValue(indirect, callee_node ? callee_node : node);
+			if (!indirect.valid) return indirect;
+			const FrontendCFunctionType* signature = FunctionType(
+				indirect.type, return_type);
+			if (!signature) return Error("called expression is not a function pointer", node);
+			if (signature->is_variadic || !signature->has_prototype)
+				return Error("variadic indirect calls are not supported yet", node);
+			parameter_types = &signature->parameter_types;
+			has_prototype = signature->has_prototype;
+			is_variadic = signature->is_variadic;
+		}
 		uni::Vector<uni::Nnode*> arguments;
-		AppendCallArguments(node->subf, arguments);
-		if (arguments.Count() < signature->parameter_types.Count() ||
-			(!signature->is_variadic &&
-				arguments.Count() != signature->parameter_types.Count()))
+		AppendCallArguments(argument_node ? argument_node : node->subf, arguments);
+		if (has_prototype &&
+			(arguments.Count() < parameter_types->Count() ||
+			(!is_variadic && arguments.Count() != parameter_types->Count())))
 			return Error("function argument count mismatch", node);
 
 		Instruction instruction;
 		instruction.opcode = Opcode::Call;
-		instruction.type = CloverType(signature->return_type);
-		instruction.callee = signature->name;
+		instruction.type = CloverType(return_type);
+		if (direct) instruction.callee = direct->name;
+		else {
+			instruction.callee_value = indirect.value;
+			instruction.has_callee_value = true;
+		}
 		for (stduint index = 0; index < arguments.Count(); index++) {
 			uni::Nnode* argument_node = arguments.begin()[index];
 			LoweredValue argument = LowerExpression(argument_node);
 			if (!argument.valid) return argument;
-			if (index < signature->parameter_types.Count()) {
+			if (has_prototype && index < parameter_types->Count()) {
 				const FrontendCType& parameter_type =
-					signature->parameter_types.begin()[index];
+					parameter_types->begin()[index];
 				if (parameter_type.IsRecord()) {
 					if (!argument.is_lvalue || !parameter_type.IsSame(argument.type))
 						return Error("record argument type mismatch", argument_node);
@@ -469,17 +539,17 @@ namespace clover::frontend_c_internal {
 			if (!argument.valid) return argument;
 			instruction.operands.Append(argument.value);
 		}
-		instruction.has_result = !signature->return_type.IsVoid();
+		instruction.has_result = !return_type.IsVoid();
 		if (instruction.has_result) instruction.result = NewValue(instruction.type);
 		CurrentBlock().instructions.Append(instruction);
-		return { instruction.result, true, signature->return_type, false };
+		return { instruction.result, true, return_type, false };
 	}
 
 	LoweredValue FunctionBuilder::LowerSubscriptOperands(LoweredValue left,
 		uni::Nnode* left_node, uni::Nnode* right_node, uni::Nnode* node) {
 		left = ToRValue(left, left_node);
 		LoweredValue right = ToRValue(LowerExpression(right_node), right_node);
-		if (!left.valid || !right.valid) return {};
+		if (!left.valid || !right.valid) return LoweredValue();
 		if (left.type.IsInteger() && right.type.IsPointer()) {
 			LoweredValue temporary = left;
 			left = right;
@@ -519,8 +589,7 @@ namespace clover::frontend_c_internal {
 		const FrontendCRecordMember& member) const {
 		FrontendCType type = member.type;
 		if (record_type.IsConstObject()) {
-			if (type.pointer_depth)
-				type.pointer_qualifiers[type.pointer_depth - 1].is_const = true;
+			if (type.IsPointer()) type.layers[0].qualifiers.is_const = true;
 			else type.base_qualifiers.is_const = true;
 		}
 		return type;
@@ -719,7 +788,7 @@ namespace clover::frontend_c_internal {
 		LoweredValue lhs = ConvertArithmetic(
 			{ previous, true, left.type, false }, arithmetic_type, left_node);
 		right = ConvertArithmetic(right, right_arithmetic_type, right_node);
-		if (!lhs.valid || !right.valid) return {};
+		if (!lhs.valid || !right.valid) return LoweredValue();
 
 		Opcode opcode;
 		if (!StrCompare(operation, "OP@AGNSUM"))
@@ -758,7 +827,7 @@ namespace clover::frontend_c_internal {
 		LoweredValue left = LowerExpression(left_node);
 		if (!left.valid) return left;
 		Value condition = AsCondition(left, left_node);
-		if (failed) return {};
+		if (failed) return LoweredValue();
 
 		stduint right_block = NewBlock(is_and ? "land.right" : "lor.right");
 		stduint short_block = NewBlock(is_and ? "land.short" : "lor.short");
@@ -775,7 +844,7 @@ namespace clover::frontend_c_internal {
 		LoweredValue right = LowerExpression(right_node);
 		if (!right.valid) return right;
 		Value right_condition = AsCondition(right, right_node);
-		if (failed) return {};
+		if (failed) return LoweredValue();
 		LoweredValue right_value = ConvertInteger(
 			{ right_condition, true, result_type, false }, result_type, right_node);
 		if (!right_value.valid) return right_value;
@@ -814,7 +883,7 @@ namespace clover::frontend_c_internal {
 		LoweredValue condition_value = LowerExpression(condition_node);
 		if (!condition_value.valid) return condition_value;
 		Value condition = AsCondition(condition_value, condition_node);
-		if (failed) return {};
+		if (failed) return LoweredValue();
 		stduint true_block = NewBlock("cond.true");
 		stduint false_block = NewBlock("cond.false");
 		stduint end_block = NewBlock("cond.end");
@@ -876,6 +945,9 @@ namespace clover::frontend_c_internal {
 		if (!StrCompare(operation, "OP@PREADDR")) {
 			LoweredValue operand = LowerExpression(left_node);
 			if (!operand.valid) return operand;
+			if (operand.type.IsFunction())
+				return { operand.value, true, operand.type.AddressType(), false,
+					operand.alignment };
 			if (!operand.is_lvalue)
 				return Error("cannot take the address of an rvalue", left_node);
 			return { operand.value, true, operand.type.AddressType(), false,
@@ -915,7 +987,7 @@ namespace clover::frontend_c_internal {
 		}
 		if (!StrCompare(operation, "OP@LOGNOT")) {
 			Value condition = AsCondition(LowerExpression(left_node), left_node);
-			if (failed) return {};
+			if (failed) return LoweredValue();
 			Value zero = EmitTypedConst(Type::I1, 0);
 			Instruction instruction;
 			instruction.opcode = Opcode::ICmp;
@@ -976,7 +1048,7 @@ namespace clover::frontend_c_internal {
 		if (!right_node) return Error("binary operator requires two operands", node);
 		LoweredValue left = LowerExpression(left_node);
 		LoweredValue right = LowerExpression(right_node);
-		if (!left.valid || !right.valid) return {};
+		if (!left.valid || !right.valid) return LoweredValue();
 
 		if (!StrCompare(operation, "OP@ARIADD") ||
 			!StrCompare(operation, "OP@ARISUB")) {
@@ -1027,7 +1099,7 @@ namespace clover::frontend_c_internal {
 		}
 		left = ConvertArithmetic(left, arithmetic_type, left_node);
 		right = ConvertArithmetic(right, right_arithmetic_type, right_node);
-		if (!left.valid || !right.valid) return {};
+		if (!left.valid || !right.valid) return LoweredValue();
 		Value lhs = left.value;
 		Value rhs = right.value;
 		if (arithmetic_type.IsFloating() &&
@@ -1113,6 +1185,14 @@ namespace clover::frontend_c_internal {
 		using namespace uni;
 		if (!node) return Error("missing expression", node);
 		switch (node->type) {
+		case ToToken(FrontendCToken::CallExpression): {
+			uni::Nnode* callee = node->subf;
+			uni::Nnode* arguments = callee ? callee->next : nullptr;
+			if (!callee || !arguments || arguments->next ||
+				arguments->type != tok_func || arguments->addr)
+				return Error("invalid indirect call expression", node);
+			return LowerCall(node, callee, arguments->subf);
+		}
 		case tok_number: {
 			stdsint immediate;
 			FrontendCType type;
@@ -1147,9 +1227,16 @@ namespace clover::frontend_c_internal {
 				return { EmitConst(constant->value, type), true, type, false };
 			}
 			const FrontendCGlobal* global = FindGlobal(node->addr);
-			if (!global) return Error("use of undeclared identifier", node);
-			return { EmitGlobalAddress(*global), true, global->type, true,
+			if (global) return { EmitGlobalAddress(*global), true, global->type, true,
 				global->alignment };
+			const FrontendCFunction* function = FindFunction(node->addr);
+			if (!function) return Error("use of undeclared identifier", node);
+			FrontendCType type = function->return_type;
+			FrontendCTypeLayer layer;
+			layer.kind = FrontendCTypeLayerKind::Function;
+			layer.function_type_id = function->function_type_id;
+			type.PrependLayer(layer);
+			return { EmitFunctionAddress(function->name), true, type, false };
 		}
 		case tok_func:
 			if (node->addr && !StrCompare(node->addr, "sizeof"))

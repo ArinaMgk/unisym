@@ -81,7 +81,9 @@ const ArchendInfo& ArchendRISCV::DumpArchend() const
 		"RISC-V base integer architecture",
 		"riscv",
 		ArchitectureKind::RISCV,
-		64
+		64,
+		"32/64",
+		"I, M, A, F, D, C, V, Zicsr, Zifencei (combine in canonical order; default I)"
 	};
 	return info;
 }

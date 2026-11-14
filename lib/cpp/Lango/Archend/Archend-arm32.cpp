@@ -13,7 +13,9 @@ const ArchendInfo& ArchendARM32::DumpArchend() const
 		"ARM 32-bit architecture",
 		"arm32",
 		ArchitectureKind::ARM32,
-		32
+		32,
+		"32",
+		"none (instruction encoding not implemented)"
 	};
 	return info;
 }

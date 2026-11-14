@@ -27,13 +27,14 @@ riscvtod = $(riscvpath)/todata
 riscvinc = $(uincpath)/cpp/Lango/Archend/riscv
 riscvinsstamp = $(riscvdata)/instructions.stamp
 
+# Build the Linux x64 library first so -ll64d provides the shared C++ implementations.
 build: data | $(lin64out) # for linux64 [no use O3]
-	cc $(asmdata)/*.c $(x86data)/*.c $(asmpath)/about.c $(asmpath)/aasm*.cpp $(ulibpath)/cpp/Datype/pnode.cpp $(ulibpath)/cpp/Datype/Map/SparseMap.cpp $(ulibpath)/cpp/Format/Code/*.cpp $(ulibpath)/cpp/Format/Code/ELF/*.cpp $(ulibpath)/cpp/Lango/Archend/*.cpp $(x86path)/*.cpp $(riscvpath)/*.cpp $(riscvdata)/*.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -o $(ubinpath)/AMD64/Lin64/aasm --static -w
+	cc $(asmdata)/*.c $(x86data)/*.c $(asmpath)/about.c $(asmpath)/aasm*.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -o $(ubinpath)/AMD64/Lin64/aasm --static -w
 	cc $(asmdata)/_*.c $(x86data)/_asm_inst.c $(x86data)/insnsb.c $(x86data)/insnsd.c $(x86data)/regs.c $(x86data)/regdis.c $(asmpath)/about.c $(asmpath)/dasm*.cpp $(asmpath)/aasm-lib.cpp -I$(uincpath) -L$(ubinpath) -ll64d -lstdc++ -D_DEBUG -D_Linux64 -DNO_STDSCAN -o $(ubinpath)/AMD64/Lin64/dasm --static -w
 
-#{TEMP}
+# Build the Windows x64 library first so -lw64d provides the shared C++ implementations.
 build-win64: data | $(win64out)
-	cc $(asmdata)/*.c $(x86data)/*.c $(asmpath)/about.c $(asmpath)/aasm*.cpp $(ulibpath)/cpp/Datype/pnode.cpp $(ulibpath)/cpp/Datype/Map/SparseMap.cpp $(ulibpath)/cpp/Format/Code/*.cpp $(ulibpath)/cpp/Format/Code/ELF/*.cpp $(ulibpath)/cpp/Lango/Archend/*.cpp $(x86path)/*.cpp $(riscvpath)/*.cpp $(riscvdata)/*.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -o $(ubinpath)/AMD64/Win64/aasm --static -w
+	cc $(asmdata)/*.c $(x86data)/*.c $(asmpath)/about.c $(asmpath)/aasm*.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -o $(ubinpath)/AMD64/Win64/aasm --static -w
 	cc $(asmdata)/_*.c $(x86data)/_asm_inst.c $(x86data)/insnsb.c $(x86data)/insnsd.c $(x86data)/regs.c $(x86data)/regdis.c $(asmpath)/about.c $(asmpath)/dasm*.cpp $(asmpath)/aasm-lib.cpp -I$(uincpath) -L$(ubinpath) -lw64d -lstdc++ -D_DEBUG -D_Win64 -DNO_STDSCAN -o $(ubinpath)/AMD64/Win64/dasm --static -w
 
 data: $(asmdata)/_crc64_tab.c $(x86insstamp) $(riscvinsstamp) $(asmdata)/pptok.h $(asmdata)/pptok.c $(asmtodata)/perllib/pptok.ph $(asmdata)/macros.c $(x86data)/tokhash.c $(x86inc)/data/tokens.h $(x86inc)/data/regs.h $(x86data)/regs.c $(x86data)/regflags.c $(x86data)/regvals.c $(x86data)/regdis.c $(x86inc)/data/regdis.h

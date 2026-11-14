@@ -100,6 +100,11 @@ namespace {
 			!StrCompare(node->addr, symbol);
 	}
 
+	bool IsAssignmentStart(const uni::Nnode* node) {
+		return node && node->type == tok_symbol && node->addr &&
+			node->addr[0] == '=';
+	}
+
 	const uni::Nnode* ParentNode(const uni::Nnode* node) {
 		return node ? const_cast<uni::Nnode*>(node)->getParent() : nullptr;
 	}
@@ -140,6 +145,66 @@ namespace {
 			IsKeyword(node, "union") || IsKeyword(node, "enum");
 	}
 
+	bool IsTypeSpecifierName(const char* name) {
+		if (!name) return false;
+		return !StrCompare(name, "const") || !StrCompare(name, "signed") ||
+			!StrCompare(name, "unsigned") || !StrCompare(name, "_Bool") ||
+			!StrCompare(name, "char") || !StrCompare(name, "short") ||
+			!StrCompare(name, "int") || !StrCompare(name, "long") ||
+			!StrCompare(name, "float") || !StrCompare(name, "double") ||
+			!StrCompare(name, "void");
+	}
+
+	uni::Nnode* FindEmbeddedDeclaratorType(uni::Nnode* node,
+		const FrontendCTypeInfo& type_info, bool allow_tag) {
+		while (node) {
+			bool declarator_operator = node->addr &&
+				(!StrCompare(node->addr, "operator[]") ||
+					!StrCompare(node->addr, "OP@PREMEMB"));
+			if (node->type == tok_func && node->addr && node->subf &&
+				(IsTypeSpecifierName(node->addr) ||
+					(allow_tag && !declarator_operator) ||
+					type_info.FindTypedef(node->addr, node))) return node;
+			if (node->type != tok_func || !node->subf) return nullptr;
+			if (node->addr && !declarator_operator) return nullptr;
+			node = node->subf;
+		}
+		return nullptr;
+	}
+
+	// ParseParen treats an identifier immediately before '(' as a call target.
+	// Restore C declarations such as int (*pointer)[3] before type parsing.
+	void NormalizeParenthesizedDeclarator(uni::Nchain& syntax_tree,
+		uni::Nnode*& declaration, const FrontendCTypeInfo& type_info) {
+		uni::Nnode* cursor = declaration;
+		bool allow_tag = false;
+		while (cursor && cursor->type == tok_identy && cursor->addr &&
+			(IsTypeSpecifier(cursor) || IsKeyword(cursor, "static") ||
+				IsKeyword(cursor, "extern") || IsKeyword(cursor, "typedef"))) {
+			allow_tag = IsKeyword(cursor, "struct") ||
+				IsKeyword(cursor, "union") || IsKeyword(cursor, "enum");
+			cursor = cursor->next;
+		}
+		if (!cursor) return;
+		uni::Nnode* embedded = FindEmbeddedDeclaratorType(
+			cursor, type_info, allow_tag);
+		if (!embedded) return;
+		uni::Nnode* specifier = syntax_tree.Append(
+			StrHeap(embedded->addr), true, cursor);
+		specifier->type = tok_identy;
+		*specifier->GetTnodeField() = *embedded->GetTnodeField();
+		srs(embedded->addr, nullptr);
+		if (cursor == declaration) declaration = specifier;
+	}
+
+	bool IsDeclarationStart(const uni::Nnode* node,
+		const FrontendCTypeInfo& type_info) {
+		return IsTypeSpecifier(node) || IsKeyword(node, "static") ||
+			IsKeyword(node, "extern") || IsKeyword(node, "typedef") ||
+			(node && node->type == tok_identy && node->addr &&
+				type_info.FindTypedef(node->addr, node));
+	}
+
 	bool ExtractStorageClass(uni::Nchain& syntax_tree, uni::Nnode*& node,
 		FrontendCStorageClass& storage_class,
 		const FrontendCDiagnostics& diagnostics) {
@@ -147,10 +212,11 @@ namespace {
 		uni::Nnode* cursor = node;
 		while (cursor && cursor->type == tok_identy && cursor->addr &&
 			(IsTypeSpecifier(cursor) || IsKeyword(cursor, "static") ||
-				IsKeyword(cursor, "extern"))) {
+				IsKeyword(cursor, "extern") || IsKeyword(cursor, "typedef"))) {
 			bool is_static = IsKeyword(cursor, "static");
 			bool is_extern = IsKeyword(cursor, "extern");
-			if (!is_static && !is_extern) {
+			bool is_typedef = IsKeyword(cursor, "typedef");
+			if (!is_static && !is_extern && !is_typedef) {
 				cursor = cursor->next;
 				continue;
 			}
@@ -160,7 +226,8 @@ namespace {
 				return false;
 			}
 			storage_class = is_static ? FrontendCStorageClass::Static :
-				FrontendCStorageClass::Extern;
+				is_extern ? FrontendCStorageClass::Extern :
+				FrontendCStorageClass::Typedef;
 			uni::Nnode* next = cursor->next;
 			if (cursor == node) node = next;
 			syntax_tree.Remove(cursor);
@@ -185,6 +252,24 @@ namespace {
 		}
 		bool is_union = IsKeyword(after_type, "union");
 		bool is_enum = IsKeyword(after_type, "enum");
+		const FrontendCTypedef* alias = after_type && after_type->type == tok_identy ?
+			type_info.FindTypedef(after_type->addr, after_type) : nullptr;
+		if (alias) {
+			type = alias->type;
+			if (const_count) {
+				FrontendCTypeQualifier* qualifiers = type.layer_count ?
+					&type.layers[0].qualifiers : &type.base_qualifiers;
+				if (const_count > 1 || qualifiers->is_const) {
+					diagnostics.Report(DiagnosticStage::Parser,
+						"duplicate const qualifier", after_type);
+					return false;
+				}
+				qualifiers->is_const = true;
+			}
+			after_type = after_type->next;
+			while (node != after_type) node = syntax_tree.Remove(node);
+			return true;
+		}
 		if (IsKeyword(after_type, "struct") || is_union || is_enum) {
 			uni::Nnode* tag = after_type->next;
 			if (const_count > 1 || !tag || tag->type != tok_identy || !tag->addr) {
@@ -288,6 +373,173 @@ namespace {
 		return true;
 	}
 
+	const FrontendCOrdinaryName* FindOrdinaryNameInScope(
+		const FrontendCTypeInfo& type_info, const char* name,
+		const uni::Nnode* scope) {
+		for (stduint index = type_info.ordinary_names.Count(); index; index--) {
+			const FrontendCOrdinaryName& ordinary =
+				type_info.ordinary_names.begin()[index - 1];
+			if (ordinary.scope == scope &&
+				!StrCompare(ordinary.name.reference(), name)) return &ordinary;
+		}
+		return nullptr;
+	}
+
+	bool AddOrdinaryName(FrontendCTypeInfo& type_info, const char* name,
+		const uni::Nnode* declaration, const uni::Nnode* scope,
+		const FrontendCDiagnostics& diagnostics) {
+		if (!name) return false;
+		for (const FrontendCTypedef& alias : type_info.typedefs)
+			if (alias.scope == scope &&
+				!StrCompare(alias.name.reference(), name)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"ordinary identifier conflicts with typedef name", declaration);
+				return false;
+			}
+		if (FindOrdinaryNameInScope(type_info, name, scope)) return true;
+		FrontendCOrdinaryName ordinary;
+		ordinary.name = name;
+		ordinary.declaration = declaration;
+		ordinary.scope = scope;
+		type_info.ordinary_names.Append(ordinary);
+		return true;
+	}
+
+	bool RegisterObjectDeclarators(uni::Nchain& syntax_tree, uni::Nnode* node,
+		const FrontendCType& base_type, const uni::Nnode* declaration,
+		const uni::Nnode* scope, const FrontendCTargetInfo& target,
+		FrontendCTypeInfo& type_info, const FrontendCDiagnostics& diagnostics) {
+		while (node) {
+			uni::Nnode* equal = nullptr;
+			uni::Nnode* comma = nullptr;
+			for (uni::Nnode* cursor = node; cursor; cursor = cursor->next) {
+				if (!equal && IsAssignmentStart(cursor)) equal = cursor;
+				if (IsSymbol(cursor, ",")) {
+					comma = cursor;
+					break;
+				}
+			}
+			FrontendCType type = base_type;
+			uni::Nnode* identifier = nullptr;
+			const uni::Nnode* end = equal ? equal : comma;
+			if (!frontend_c_detail::PrepareDeclarator(syntax_tree, node, type,
+				identifier, diagnostics, target, type_info, false, end)) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"invalid object declarator", node);
+				return false;
+			}
+			if (type.IsFunction() || type.IsVoid()) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					type.IsFunction() ? "function declaration is not valid here" :
+					"object cannot have void type", identifier);
+				return false;
+			}
+			if (!identifier || !AddOrdinaryName(type_info, identifier->addr,
+				declaration, scope, diagnostics)) return false;
+			type_info.Add(identifier, type);
+			uni::Nnode* initializer = equal ? equal->next : nullptr;
+			if (equal && (!initializer || initializer == comma)) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"initializer requires an expression", equal);
+				return false;
+			}
+			if (initializer) {
+				uni::Nnode* initializer_last = comma ? comma->getLeft() : node->Tail();
+				if (initializer != initializer_last) {
+					uni::Nnode* wrapper = syntax_tree.Append(nullptr, true, initializer);
+					*wrapper->GetTnodeField() = *initializer->GetTnodeField();
+					syntax_tree.Adopt(wrapper, initializer, initializer_last);
+					initializer = wrapper;
+				}
+				if (!frontend_c_detail::PrepareInitializer(
+					syntax_tree, initializer, diagnostics)) return false;
+			}
+			FrontendCObjectDeclarator object;
+			object.declaration = declaration;
+			object.identifier = identifier;
+			object.initializer = initializer;
+			object.type = type;
+			type_info.object_declarators.Append(object);
+			node = comma ? comma->next : nullptr;
+		}
+		return true;
+	}
+
+	void NormalizeDeclaratorSeparators(uni::Nchain& syntax_tree,
+		uni::Nnode* head) {
+		bool changed;
+		do {
+			changed = false;
+			for (uni::Nnode* node = head; node; node = node->next) {
+				if (node->type != tok_symbol || !node->addr) continue;
+				const char* comma = StrIndexChar(node->addr, ',');
+				if (comma && StrLength(node->addr) != 1) {
+					syntax_tree.DivideSymbols(node, 1, comma - node->addr);
+					changed = true;
+					break;
+				}
+				if (node->addr[0] == '=' && node->addr[1] && node->addr[1] != '=') {
+					syntax_tree.DivideSymbols(node, 1, 0);
+					changed = true;
+					break;
+				}
+			}
+		} while (changed);
+	}
+
+	bool PrepareTypedefDeclarators(uni::Nchain& syntax_tree,
+		uni::Nnode* declarator,
+		const FrontendCType& base_type, const uni::Nnode* declaration,
+		const uni::Nnode* scope, const FrontendCDiagnostics& diagnostics,
+		const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info) {
+		uni::Nnode* node = declarator;
+		while (node) {
+			FrontendCType type = base_type;
+			uni::Nnode* comma = node;
+			while (comma && !IsSymbol(comma, ",")) comma = comma->next;
+			if (IsSymbol(node, ",")) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"typedef requires a declarator", node);
+				return false;
+			}
+			uni::Nnode* identifier = nullptr;
+			if (!frontend_c_detail::PrepareDeclarator(syntax_tree,
+				node, type, identifier, diagnostics, target, type_info,
+				false, comma)) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"invalid typedef declarator", node);
+				return false;
+			}
+			for (const FrontendCTypedef& previous : type_info.typedefs)
+				if (previous.scope == scope &&
+					!StrCompare(previous.name.reference(), identifier->addr)) {
+					if (!previous.type.IsSame(type)) {
+						diagnostics.Report(DiagnosticStage::Semantic,
+							"conflicting typedef declaration", identifier);
+						return false;
+					}
+					identifier = nullptr;
+					break;
+				}
+			if (identifier) {
+				if (FindOrdinaryNameInScope(
+					type_info, identifier->addr, scope)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"typedef name conflicts with ordinary identifier", identifier);
+					return false;
+				}
+				FrontendCTypedef alias;
+				alias.name = identifier->addr;
+				alias.type = type;
+				alias.declaration = declaration;
+				alias.scope = scope;
+				type_info.typedefs.Append(alias);
+			}
+			node = comma ? comma->next : nullptr;
+		}
+		return true;
+	}
+
 	bool PrepareDeclaration(uni::Nchain& syntax_tree, uni::Nnode* statement,
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 		FrontendCTypeInfo& type_info, bool global = false) {
@@ -295,6 +547,7 @@ namespace {
 		FrontendCStorageClass storage_class;
 		if (!ExtractStorageClass(syntax_tree, declarator, storage_class,
 			diagnostics)) return false;
+		NormalizeParenthesizedDeclarator(syntax_tree, declarator, type_info);
 		if (statement) statement->subf = declarator;
 		FrontendCType type;
 		if (!ParseTypeSpecifiers(syntax_tree, declarator, type, diagnostics,
@@ -304,51 +557,89 @@ namespace {
 				"expected declarator after type", statement);
 			return false;
 		}
-		if (type.IsVoid()) {
-			diagnostics.Report(DiagnosticStage::Semantic,
-				"object cannot have void type", statement);
+		NormalizeDeclaratorSeparators(syntax_tree, declarator);
+		if (storage_class == FrontendCStorageClass::Typedef) {
+			const uni::Nnode* scope = global ? nullptr :
+				const_cast<uni::Nnode*>(statement)->getParent();
+			if (!PrepareTypedefDeclarators(syntax_tree, declarator, type, statement, scope,
+				diagnostics, target, type_info)) return false;
+			statement->type = ToToken(FrontendCToken::TypedefDeclaration);
+			type_info.Add(statement, type);
+			type_info.AddStorage(statement, storage_class);
+			return true;
+		}
+		uni::Nnode* delimiter = declarator;
+		while (delimiter && !IsSymbol(delimiter, ",") &&
+			!IsAssignmentStart(delimiter)) delimiter = delimiter->next;
+		FrontendCType declared_type = type;
+		uni::Nnode* declared_identifier = nullptr;
+		bool one_declarator = !delimiter;
+		if (one_declarator && !frontend_c_detail::PrepareDeclarator(
+			syntax_tree, declarator, declared_type, declared_identifier,
+			diagnostics, target, type_info)) {
+			diagnostics.Report(DiagnosticStage::Parser,
+				"invalid declarator", declarator);
 			return false;
+		}
+		if (global && one_declarator && declared_type.IsFunction()) {
+			const FrontendCFunctionType* function_type = type_info.GetFunctionType(
+				declared_type.layers[0].function_type_id);
+			if (!function_type) return false;
+			bool top_level_identifier = false;
+			for (uni::Nnode* cursor = statement->subf; cursor; cursor = cursor->next)
+				if (cursor == declared_identifier) {
+					top_level_identifier = true;
+					break;
+				}
+			if (top_level_identifier)
+				while (statement->subf != declared_identifier)
+					statement->subf = syntax_tree.Remove(statement->subf);
+			FrontendCFunctionDeclaration function;
+			function.node = statement;
+			function.name = declared_identifier->addr;
+			function.return_type = declared_type.RemoveOuterLayer();
+			function.parameter_types = function_type->parameter_types;
+			function.function_type_id = declared_type.layers[0].function_type_id;
+			function.is_variadic = function_type->is_variadic;
+			function.has_prototype = function_type->has_prototype;
+			statement->type = ToToken(FrontendCToken::FunctionDeclaration);
+			type_info.Add(statement, function.return_type);
+			type_info.AddStorage(statement, storage_class);
+			type_info.functions.Append(function);
+			if (!AddOrdinaryName(type_info, declared_identifier->addr,
+				statement, nullptr, diagnostics)) return false;
+			return true;
 		}
 		statement->type = ToToken(global ? FrontendCToken::GlobalDeclaration :
 			FrontendCToken::Declaration);
 		type_info.Add(statement, type);
 		type_info.AddStorage(statement, storage_class);
+		const uni::Nnode* scope = global ? nullptr : statement->getParent();
+		if (!RegisterObjectDeclarators(syntax_tree, statement->subf, type,
+			statement, scope, target, type_info, diagnostics)) return false;
 		return true;
 	}
 
-	bool ParseParameterDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
-		FrontendCType& type, const FrontendCTargetInfo& target) {
-		if (!node) return false;
-		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "operator[]")) {
-			uni::Nnode* declarator = node->subf;
-			uni::Nnode* dimension = declarator ? declarator->next : nullptr;
-			if (!declarator || (dimension && dimension->next) ||
-				!ParseParameterDeclarator(declarator, identifier, type, target))
-				return false;
-			if (!dimension) {
-				// Only the first array bound may be omitted in this C99 subset.
-				return !type.array_dimension_count && type.AppendArrayDimension(0);
-			}
-			stdsint count;
-			FrontendCType literal_type;
-			if (dimension->type != tok_number || !dimension->addr ||
-				!frontend_c_detail::ParseIntegerLiteral(
-					dimension->addr, target, count, literal_type) || count <= 0)
-				return false;
-			return type.AppendArrayDimension((stduint)count);
-		}
-		if (node->type != tok_identy || !node->addr) return false;
-		identifier = node;
-		return true;
-	}
-
-	bool PrepareFunctionParameters(uni::Nchain& syntax_tree, uni::Nnode* function,
+	bool PrepareFunctionTypeCore(uni::Nchain& syntax_tree,
+		uni::Nnode*& parameter_head, const uni::Nnode* function,
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
-		FrontendCTypeInfo& type_info) {
-		uni::Nnode* node = function ? function->subf : nullptr;
+		FrontendCTypeInfo& type_info, FrontendCFunctionType& function_type,
+		bool require_names) {
+		uni::Nnode* node = parameter_head;
+		if (!node) return true;
+		if (node->type == tok_identy && IsKeyword(node, "void") && !node->next) {
+			function_type.has_prototype = true;
+			syntax_tree.Remove(node);
+			parameter_head = nullptr;
+			return true;
+		}
 		stduint count = 0;
 		while (node) {
+			uni::Nnode* normalized = node;
+			NormalizeParenthesizedDeclarator(
+				syntax_tree, normalized, type_info);
+			if (node == parameter_head) parameter_head = normalized;
+			node = normalized;
 			if (node->type == tok_symbol && node->addr &&
 				!StrCompare(node->addr, "...")) {
 				if (!count || node->next) {
@@ -357,6 +648,8 @@ namespace {
 					return false;
 				}
 				node->type = ToToken(FrontendCToken::VariadicParameter);
+				function_type.is_variadic = true;
+				function_type.has_prototype = true;
 				return true;
 			}
 			FrontendCType type;
@@ -366,11 +659,12 @@ namespace {
 					"expected integer parameter type", node);
 				return false;
 			}
+			stduint pointer_count = 0;
 			while (node && node->type == tok_symbol && node->addr) {
 				stduint stars = 0;
 				while (node->addr[stars] == '*') stars++;
 				if (!stars || node->addr[stars]) break;
-				while (stars--) type = type.AddressType();
+				pointer_count += stars;
 				node = syntax_tree.Remove(node);
 			}
 			if (type.IsVoid()) {
@@ -380,29 +674,48 @@ namespace {
 			}
 			uni::Nnode* parameter = node;
 			uni::Nnode* identifier = nullptr;
-			if (!ParseParameterDeclarator(parameter, identifier, type, target)) {
+			bool unnamed = !parameter ||
+				(parameter->type == tok_symbol && parameter->addr &&
+					!StrCompare(parameter->addr, ","));
+			if (!unnamed && !frontend_c_detail::PrepareDeclarator(
+				syntax_tree, parameter, type, identifier, diagnostics,
+				target, type_info, false, parameter->next)) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"expected parameter name", parameter ? parameter : function);
 				return false;
 			}
-			if (type.array_dimension_count) type = type.DecayType();
-			if (parameter != identifier)
-				srs(parameter->addr, StrHeap(identifier->addr));
-			parameter->type = ToToken(FrontendCToken::Parameter);
-			type_info.Add(parameter, type);
+			if (unnamed && require_names) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"function definition parameter requires a name",
+					parameter ? parameter : function);
+				return false;
+			}
+			while (pointer_count--)
+				if (!type.AppendPointer()) return false;
+			if (type.IsArray()) type = type.DecayType();
+			else if (type.IsFunction()) type = type.DecayType();
+			function_type.parameter_types.Append(type);
+			function_type.has_prototype = true;
+			if (!unnamed) {
+				if (parameter != identifier)
+					srs(parameter->addr, StrHeap(identifier->addr));
+				parameter->type = ToToken(FrontendCToken::Parameter);
+				type_info.Add(parameter, type);
+			}
 			if (++count > 8) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"more than 8 function parameters are not supported", parameter);
 				return false;
 			}
 
-			node = parameter->next;
+			node = unnamed ? parameter : parameter->next;
 			if (!node) break;
 			if (node->type == tok_symbol && node->addr &&
 				(!StrCompare(node->addr, "...") ||
 					!StrCompare(node->addr, ",..."))) {
 				srs(node->addr, StrHeap("..."));
 				node->type = ToToken(FrontendCToken::VariadicParameter);
+				function_type.is_variadic = true;
 				if (node->next) {
 					diagnostics.Report(DiagnosticStage::Parser,
 						"ellipsis must terminate the parameter list", node);
@@ -418,7 +731,7 @@ namespace {
 			node = syntax_tree.Remove(node);
 			if (!node) {
 				diagnostics.Report(DiagnosticStage::Parser,
-					"expected parameter after ','", parameter);
+					"expected parameter after ','", parameter ? parameter : function);
 				return false;
 			}
 		}
@@ -478,7 +791,8 @@ namespace {
 
 	bool PrepareEnumStatement(uni::Nchain& syntax_tree, uni::Nnode* statement,
 		const uni::Nnode* scope, bool global,
-		const FrontendCDiagnostics& diagnostics, FrontendCTypeInfo& type_info) {
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		FrontendCTypeInfo& type_info) {
 		uni::Nnode* keyword = statement ? statement->subf : nullptr;
 		uni::Nnode* tag = keyword ? keyword->next : nullptr;
 		if (!tag || !tag->addr) return false;
@@ -522,6 +836,10 @@ namespace {
 			FrontendCType type;
 			type.enum_id = enum_id;
 			type_info.Add(declaration, type);
+			NormalizeDeclaratorSeparators(syntax_tree, declaration->subf);
+			if (!RegisterObjectDeclarators(syntax_tree, declaration->subf, type,
+				declaration, scope, target, type_info, diagnostics)) return false;
+			type_info.AddStorage(declaration, FrontendCStorageClass::None);
 		}
 		marker->type = ToToken(FrontendCToken::EnumDefinition);
 		enumeration->declaration = marker;
@@ -641,8 +959,7 @@ namespace {
 			!node->subf->next) {
 			if (!ParseRecordMemberDeclarator(
 				node->subf, identifier, type, target)) return false;
-			type = type.AddressType();
-			return true;
+			return type.AppendPointer();
 		}
 		if (node->type == tok_func && node->addr &&
 			!StrCompare(node->addr, "operator[]")) {
@@ -714,11 +1031,12 @@ namespace {
 			FrontendCType member_type;
 			if (!ParseTypeSpecifiers(syntax_tree, declarator, member_type,
 				diagnostics, target, type_info)) return false;
+			stduint pointer_count = 0;
 			while (declarator && declarator->type == tok_symbol && declarator->addr) {
 				stduint stars = 0;
 				while (declarator->addr[stars] == '*') stars++;
 				if (!stars || declarator->addr[stars]) break;
-				while (stars--) member_type = member_type.AddressType();
+				pointer_count += stars;
 				declarator = syntax_tree.Remove(declarator);
 			}
 			uni::Nnode* identifier = nullptr;
@@ -729,6 +1047,8 @@ namespace {
 					"unsupported record member declaration", declarator);
 				return false;
 			}
+			while (pointer_count--)
+				if (!member_type.AppendPointer()) return false;
 			FrontendCRecord* current = type_info.GetRecord(record_id);
 			for (const FrontendCRecordMember& previous : current->members)
 				if (!StrCompare(previous.name.reference(), identifier->addr)) {
@@ -801,6 +1121,10 @@ namespace {
 			SaveControlSource(debug_info, node);
 			node->type = ToToken(FrontendCToken::While);
 		}
+		else if (node->type == tok_identy && IsKeyword(node, "do")) {
+			SaveControlSource(debug_info, node);
+			node->type = ToToken(FrontendCToken::Do);
+		}
 		else if (node->type == tok_func && IsKeyword(node, "for")) {
 			SaveControlSource(debug_info, node);
 			node->type = ToToken(FrontendCToken::For);
@@ -821,6 +1145,23 @@ namespace {
 		else if (node->type == tok_identy && IsKeyword(node, "goto")) {
 			node->type = ToToken(FrontendCToken::Goto);
 		}
+	}
+
+	bool PrepareForInitializer(uni::Nchain& syntax_tree, uni::Nnode* node,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		FrontendCTypeInfo& type_info) {
+		if (!node || node->type != ToToken(FrontendCToken::For)) return true;
+		uni::Nnode* initializer = node->subf;
+		if (!initializer || initializer->type != tok_statement ||
+			!initializer->subf) return true;
+		uni::Nnode* first = initializer->subf;
+		NormalizeParenthesizedDeclarator(syntax_tree, first, type_info);
+		initializer->subf = first;
+		if (!IsDeclarationStart(first, type_info)) return true;
+		if (!PrepareDeclaration(syntax_tree, initializer, diagnostics,
+			target, type_info)) return false;
+		MarkPrefixKeywords(initializer->subf);
+		return true;
 	}
 
 	bool PrepareOneLabel(uni::Nchain& syntax_tree, uni::Nnode* node,
@@ -891,6 +1232,7 @@ namespace {
 		if (tail->type != ToToken(FrontendCToken::If) &&
 			tail->type != ToToken(FrontendCToken::Else) &&
 			tail->type != ToToken(FrontendCToken::While) &&
+			tail->type != ToToken(FrontendCToken::Do) &&
 			tail->type != ToToken(FrontendCToken::For) &&
 			tail->type != ToToken(FrontendCToken::Switch)) return;
 		uni::Nnode* empty = syntax_tree.Append(nullptr, false, tail);
@@ -921,6 +1263,7 @@ namespace {
 				MarkPrefixKeywords(node->subf);
 				continue;
 			}
+			if (node->type == ToToken(FrontendCToken::TypedefDeclaration)) continue;
 			if (node->type == ToToken(FrontendCToken::EnumDeclaration) ||
 				node->type == ToToken(FrontendCToken::EnumDefinition)) continue;
 			if (node->type == tok_block) {
@@ -930,6 +1273,12 @@ namespace {
 			if (node->type == tok_func &&
 				(IsKeyword(node, "if") || IsKeyword(node, "while") ||
 					IsKeyword(node, "for") || IsKeyword(node, "switch"))) {
+				ClassifyControlNode(node, debug_info);
+				if (!PrepareForInitializer(syntax_tree, node, diagnostics,
+					target, type_info)) return false;
+				continue;
+			}
+			if (node->type == tok_identy && IsKeyword(node, "do")) {
 				ClassifyControlNode(node, debug_info);
 				continue;
 			}
@@ -962,7 +1311,7 @@ namespace {
 			}
 			if (IsEnumDefinition(node) || IsEnumForwardDeclaration(node)) {
 				if (!PrepareEnumStatement(syntax_tree, node, block, false,
-					diagnostics, type_info)) return false;
+					diagnostics, target, type_info)) return false;
 				continue;
 			}
 			if (IsRecordDefinition(node)) {
@@ -970,8 +1319,11 @@ namespace {
 					"block-scope record definitions are not supported yet", node);
 				return false;
 			}
-			if (IsTypeSpecifier(node->subf) || IsKeyword(node->subf, "static") ||
-				IsKeyword(node->subf, "extern")) {
+			uni::Nnode* declaration = node->subf;
+			NormalizeParenthesizedDeclarator(
+				syntax_tree, declaration, type_info);
+			node->subf = declaration;
+			if (IsDeclarationStart(node->subf, type_info)) {
 				if (!PrepareDeclaration(syntax_tree, node, diagnostics, target, type_info)) return false;
 				MarkPrefixKeywords(node->subf);
 				continue;
@@ -987,6 +1339,8 @@ namespace {
 						diagnostics, child_label)) return false;
 					if (child_label) continue;
 					ClassifyControlNode(child, debug_info);
+					if (!PrepareForInitializer(syntax_tree, child, diagnostics,
+						target, type_info)) return false;
 					if ((child->type == tok_identy || child->type == tok_func) &&
 						IsKeyword(child, "return"))
 						child->type = ToToken(FrontendCToken::Return);
@@ -1020,6 +1374,7 @@ namespace {
 			else if (node->type == ToToken(FrontendCToken::If) ||
 				node->type == ToToken(FrontendCToken::Else) ||
 				node->type == ToToken(FrontendCToken::While) ||
+				node->type == ToToken(FrontendCToken::Do) ||
 				node->type == ToToken(FrontendCToken::For) ||
 				node->type == ToToken(FrontendCToken::Switch) ||
 				node->type == ToToken(FrontendCToken::Case) ||
@@ -1030,6 +1385,7 @@ namespace {
 				node->type == ToToken(FrontendCToken::Empty) ||
 				node->type == ToToken(FrontendCToken::EnumDeclaration) ||
 				node->type == ToToken(FrontendCToken::EnumDefinition) ||
+				node->type == ToToken(FrontendCToken::TypedefDeclaration) ||
 				node->type == ToToken(FrontendCToken::Declaration)) continue;
 			else if (node->type == ToToken(FrontendCToken::Return) &&
 				(!node->subf || node->subf->next)) {
@@ -1049,6 +1405,14 @@ namespace {
 
 }
 
+bool frontend_c_detail::PrepareFunctionType(uni::Nchain& syntax_tree,
+	uni::Nnode*& parameters, const FrontendCDiagnostics& diagnostics,
+	const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info,
+	FrontendCFunctionType& function_type, bool require_names) {
+	return PrepareFunctionTypeCore(syntax_tree, parameters, nullptr,
+		diagnostics, target, type_info, function_type, require_names);
+}
+
 // Parse the shared type-name form used by sizeof and explicit casts.
 bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 	FrontendCType& type, const FrontendCTargetInfo& target,
@@ -1059,7 +1423,7 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 		if (!dimension) return false;
 		if (dimension == node->subf) {
 			if (!ParseTypeName(node->subf, type, target, type_info) ||
-				type.array_dimension_count) return false;
+				type.IsArray()) return false;
 			return type.AppendArrayDimension(0);
 		}
 		if (dimension->type != tok_number || !dimension->addr ||
@@ -1079,7 +1443,20 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 
 	bool is_union = IsKeyword(current, "union");
 	bool is_enum = IsKeyword(current, "enum");
-	if (IsKeyword(current, "struct") || is_union || is_enum) {
+	const FrontendCTypedef* alias = current && current != end &&
+		current->type == tok_identy && current->addr ?
+		type_info.FindTypedef(current->addr, current) : nullptr;
+	if (alias) {
+		type = alias->type;
+		if (const_count) {
+			FrontendCTypeQualifier* qualifiers = type.layer_count ?
+				&type.layers[0].qualifiers : &type.base_qualifiers;
+			if (const_count > 1 || qualifiers->is_const) return false;
+			qualifiers->is_const = true;
+		}
+		current = current->next;
+	}
+	else if (IsKeyword(current, "struct") || is_union || is_enum) {
 		const uni::Nnode* tag = current->next;
 		if (!is_enum && tag && tag != end && tag->next == end && tag->type == tok_func &&
 			tag->addr && !StrCompare(tag->addr, "operator[]")) {
@@ -1192,12 +1569,13 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 		while (current->addr[stars] == '*') stars++;
 		if (!stars || current->addr[stars]) break;
 		while (stars--) {
-			if (type.pointer_depth >= FrontendCType::MaxPointerDepth) return false;
+			if (type.layer_count >= FrontendCType::MaxTypeLayers) return false;
 			type = type.AddressType();
 		}
 		current = current->next;
 		if (current != end && IsKeyword(current, "const")) {
-			type.pointer_qualifiers[type.pointer_depth - 1].is_const = true;
+			if (!type.IsPointer()) return false;
+			type.layers[0].qualifiers.is_const = true;
 			current = current->next;
 			if (current != end && IsKeyword(current, "const")) return false;
 		}
@@ -1231,6 +1609,52 @@ const FrontendCType* FrontendCTypeInfo::Find(const uni::Nnode* node) const {
 	return nullptr;
 }
 
+stduint FrontendCTypeInfo::InternFunctionType(
+	const FrontendCFunctionType& type) {
+	for (stduint index = 0; index < function_types.Count(); index++) {
+		const FrontendCFunctionType& previous = function_types.begin()[index];
+		if (previous.is_variadic != type.is_variadic ||
+			previous.has_prototype != type.has_prototype ||
+			previous.parameter_types.Count() != type.parameter_types.Count()) continue;
+		bool same = true;
+		for (stduint parameter = 0;
+			parameter < type.parameter_types.Count(); parameter++)
+			if (!previous.parameter_types.begin()[parameter].IsSame(
+				type.parameter_types.begin()[parameter])) {
+				same = false;
+				break;
+			}
+		if (same) return index + 1;
+	}
+	function_types.Append(type);
+	return function_types.Count();
+}
+
+void FrontendCTypeInfo::AddFunctionTypeNode(
+	const uni::Nnode* node, stduint function_type_id) {
+	for (FrontendCFunctionTypeNode& previous : function_type_nodes)
+		if (previous.node == node) {
+			previous.function_type_id = function_type_id;
+			return;
+		}
+	FrontendCFunctionTypeNode typed_node;
+	typed_node.node = node;
+	typed_node.function_type_id = function_type_id;
+	function_type_nodes.Append(typed_node);
+}
+
+stduint FrontendCTypeInfo::FindFunctionTypeNode(const uni::Nnode* node) const {
+	for (const FrontendCFunctionTypeNode& typed_node : function_type_nodes)
+		if (typed_node.node == node) return typed_node.function_type_id;
+	return 0;
+}
+
+const FrontendCFunctionType* FrontendCTypeInfo::GetFunctionType(
+	stduint function_type_id) const {
+	return function_type_id && function_type_id <= function_types.Count() ?
+		&function_types.begin()[function_type_id - 1] : nullptr;
+}
+
 void FrontendCTypeInfo::AddStorage(const uni::Nnode* node,
 	FrontendCStorageClass storage_class) {
 	FrontendCStorageNode storage_node;
@@ -1243,6 +1667,38 @@ FrontendCStorageClass FrontendCTypeInfo::FindStorage(const uni::Nnode* node) con
 	for (const FrontendCStorageNode& storage_node : storage_nodes)
 		if (storage_node.node == node) return storage_node.storage_class;
 	return FrontendCStorageClass::None;
+}
+
+const FrontendCFunctionDeclaration* FrontendCTypeInfo::FindFunction(
+	const uni::Nnode* node) const {
+	for (const FrontendCFunctionDeclaration& function : functions)
+		if (function.node == node) return &function;
+	return nullptr;
+}
+
+const FrontendCTypedef* FrontendCTypeInfo::FindTypedef(
+	const char* name, const uni::Nnode* use) const {
+	if (!name) return nullptr;
+	const uni::Nnode* use_scope = EnclosingBlock(use);
+	for (stduint index = typedefs.Count(); index; index--) {
+		const FrontendCTypedef& alias = typedefs.begin()[index - 1];
+		if (StrCompare(alias.name.reference(), name) ||
+			!ScopeContains(alias.scope, use_scope) ||
+			!NodePrecedes(alias.declaration, use)) continue;
+		bool hidden = false;
+		for (const FrontendCOrdinaryName& ordinary : ordinary_names)
+			if (!StrCompare(ordinary.name.reference(), name) &&
+				ScopeContains(alias.scope, ordinary.scope) &&
+				ScopeContains(ordinary.scope, use_scope) &&
+				NodePrecedes(alias.declaration, ordinary.declaration) &&
+				NodePrecedes(ordinary.declaration, use)) {
+				hidden = true;
+				break;
+			}
+		if (hidden) continue;
+		return &alias;
+	}
+	return nullptr;
 }
 
 stduint FrontendCTypeInfo::FindRecord(const char* tag) const {
@@ -1316,42 +1772,66 @@ const FrontendCEnumerator* FrontendCTypeInfo::FindEnumerator(
 
 stduint FrontendCTypeInfo::SizeBits(const FrontendCType& type,
 	const FrontendCTargetInfo& target) const {
-	if (type.IsPointer()) return target.pointer_bits;
-	if (type.enum_id && type.is_incomplete) return 0;
+	bool has_pointer = false;
+	for (stduint index = 0; index < type.layer_count; index++)
+		if (type.layers[index].kind == FrontendCTypeLayerKind::Pointer) {
+			has_pointer = true;
+			break;
+		}
+	if (!has_pointer && type.enum_id && type.is_incomplete) return 0;
 	stduint bits = 0;
-	if (type.record_id) {
+	if (has_pointer) {
+		// A pointer layer makes any still-incomplete pointee layout irrelevant.
+	}
+	else if (type.record_id) {
 		const FrontendCRecord* record = GetRecord(type.record_id);
 		if (!record || !record->complete) return 0;
 		bits = record->size_bits;
 	}
 	else {
 		if (type.scalar_kind == FrontendCScalarKind::Float)
-			return target.float_bits * type.StorageElementCount();
-		if (type.scalar_kind == FrontendCScalarKind::Double)
-			return target.double_bits * type.StorageElementCount();
-		if (type.scalar_kind == FrontendCScalarKind::LongDouble)
-			return target.long_double_bits * type.StorageElementCount();
+			bits = target.float_bits;
+		else if (type.scalar_kind == FrontendCScalarKind::Double)
+			bits = target.double_bits;
+		else if (type.scalar_kind == FrontendCScalarKind::LongDouble)
+			bits = target.long_double_bits;
 		FrontendCIntegerRank rank = type.integer_rank;
 		if (type.enum_id) {
 			const FrontendCEnum* enumeration = GetEnum(type.enum_id);
 			if (!enumeration || !enumeration->complete) return 0;
 			rank = enumeration->integer_rank;
 		}
-		switch (rank) {
-		case FrontendCIntegerRank::Bool: bits = target.char_bits; break;
-		case FrontendCIntegerRank::Char: bits = target.char_bits; break;
-		case FrontendCIntegerRank::Short: bits = target.short_bits; break;
-		case FrontendCIntegerRank::Int: bits = target.int_bits; break;
-		case FrontendCIntegerRank::Long: bits = target.long_bits; break;
-		case FrontendCIntegerRank::LongLong: bits = target.long_long_bits; break;
+		if (type.scalar_kind == FrontendCScalarKind::Integer) {
+			switch (rank) {
+			case FrontendCIntegerRank::Bool: bits = target.char_bits; break;
+			case FrontendCIntegerRank::Char: bits = target.char_bits; break;
+			case FrontendCIntegerRank::Short: bits = target.short_bits; break;
+			case FrontendCIntegerRank::Int: bits = target.int_bits; break;
+			case FrontendCIntegerRank::Long: bits = target.long_bits; break;
+			case FrontendCIntegerRank::LongLong: bits = target.long_long_bits; break;
+			}
 		}
 	}
-	return bits * type.StorageElementCount();
+	for (stduint index = type.layer_count; index; index--) {
+		const FrontendCTypeLayer& layer = type.layers[index - 1];
+		if (layer.kind == FrontendCTypeLayerKind::Pointer)
+			bits = target.pointer_bits;
+		else if (layer.kind == FrontendCTypeLayerKind::Array) {
+			if (!layer.array_count) return 0;
+			bits *= layer.array_count;
+		}
+		else bits = 0;
+	}
+	return bits;
 }
 
 stduint FrontendCTypeInfo::AlignBits(const FrontendCType& type,
 	const FrontendCTargetInfo& target) const {
-	if (type.IsPointer()) return target.pointer_align_bits;
+	for (stduint index = 0; index < type.layer_count; index++) {
+		if (type.layers[index].kind == FrontendCTypeLayerKind::Pointer)
+			return target.pointer_align_bits;
+		if (type.layers[index].kind == FrontendCTypeLayerKind::Function) return 0;
+	}
 	if (type.enum_id && type.is_incomplete) return 0;
 	if (type.record_id) {
 		const FrontendCRecord* record = GetRecord(type.record_id);
@@ -1388,7 +1868,7 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 			uni::Nnode* next = node->next;
 			if (IsEnumDefinition(node) || IsEnumForwardDeclaration(node)) {
 				if (!PrepareEnumStatement(syntax_tree, node, nullptr, true,
-					diagnostics, type_info)) return false;
+					diagnostics, target, type_info)) return false;
 				if (node->next &&
 					node->next->type == ToToken(FrontendCToken::GlobalDeclaration))
 					MarkPrefixKeywords(node->next->subf);
@@ -1406,9 +1886,11 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 				node = next;
 				continue;
 			}
-			if (!node->subf || (!IsTypeSpecifier(node->subf) &&
-				!IsKeyword(node->subf, "static") &&
-				!IsKeyword(node->subf, "extern"))) {
+			uni::Nnode* declaration = node->subf;
+			NormalizeParenthesizedDeclarator(
+				syntax_tree, declaration, type_info);
+			node->subf = declaration;
+			if (!node->subf || !IsDeclarationStart(node->subf, type_info)) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"expected global declaration", node);
 				return false;
@@ -1419,6 +1901,10 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 			node = next;
 			continue;
 		}
+		uni::Nnode* normalized_declaration = node;
+		NormalizeParenthesizedDeclarator(
+			syntax_tree, normalized_declaration, type_info);
+		node = normalized_declaration;
 		FrontendCStorageClass storage_class;
 		if (!ExtractStorageClass(syntax_tree, node, storage_class,
 			diagnostics)) return false;
@@ -1429,27 +1915,79 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 				"expected function return type", node);
 			return false;
 		}
-		if (return_type.IsRecord()) {
-			diagnostics.Report(DiagnosticStage::Semantic,
-				"record return values are not supported yet", node);
+		uni::Nnode* body = node;
+		while (body && body->type != tok_block) body = body->next;
+		if (!body) {
+			diagnostics.Report(DiagnosticStage::Parser,
+				"expected function body", node);
 			return false;
 		}
-		uni::Nnode* function = node;
-		if (!function || function->type != tok_func || !function->addr) {
+		FrontendCType function_type = return_type;
+		uni::Nnode* function = nullptr;
+		if (!frontend_c_detail::PrepareDeclarator(syntax_tree, node,
+			function_type, function, diagnostics, target, type_info, true, body) ||
+			!function_type.IsFunction()) {
 			diagnostics.Report(DiagnosticStage::Parser,
-				"expected function definition", function);
+				"expected function definition", function ? function : node);
 			return false;
+		}
+		return_type = function_type.RemoveOuterLayer();
+		if (return_type.IsRecord()) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record return values are not supported yet", function);
+			return false;
+		}
+		const FrontendCFunctionType* signature = type_info.GetFunctionType(
+			function_type.layers[0].function_type_id);
+		if (!signature) return false;
+		bool top_level_function = false;
+		for (uni::Nnode* cursor = node; cursor && cursor != body;
+			cursor = cursor->next)
+			if (cursor == function) {
+				top_level_function = true;
+				break;
+			}
+		if (top_level_function) {
+			while (node != function) node = syntax_tree.Remove(node);
+		}
+		else {
+			uni::Nnode* normalized_function = syntax_tree.Append(
+				StrHeap(function->addr), true, node);
+			normalized_function->type = function->type;
+			*normalized_function->GetTnodeField() = *function->GetTnodeField();
+			if (function->subf)
+				syntax_tree.Adopt(normalized_function,
+					function->subf, function->subf->Tail());
+			while (normalized_function->next != body)
+				syntax_tree.Remove(normalized_function->next);
+			function = normalized_function;
+			node = function;
 		}
 		type_info.Add(function, return_type);
 		type_info.AddStorage(function, storage_class);
-		if (!PrepareFunctionParameters(syntax_tree, function, diagnostics, target, type_info)) return false;
+		if (!AddOrdinaryName(type_info, function->addr,
+			function, nullptr, diagnostics)) return false;
+		FrontendCFunctionDeclaration declaration;
+		declaration.node = function;
+		declaration.name = function->addr;
+		declaration.return_type = return_type;
+		declaration.parameter_types = signature->parameter_types;
+		declaration.function_type_id = function_type.layers[0].function_type_id;
+		declaration.is_variadic = signature->is_variadic;
+		declaration.has_prototype = signature->has_prototype;
+		declaration.is_definition = true;
+		type_info.functions.Append(declaration);
 
-		uni::Nnode* body = function->next;
 		if (!body || body->type != tok_block) {
 			diagnostics.Report(DiagnosticStage::Parser,
 				"expected function body", body ? body : function);
 			return false;
 		}
+		for (uni::Nnode* parameter = function->subf;
+			parameter; parameter = parameter->next)
+			if (parameter->type == ToToken(FrontendCToken::Parameter) &&
+				!AddOrdinaryName(type_info, parameter->addr,
+					parameter, body, diagnostics)) return false;
 
 		function->type = ToToken(FrontendCToken::Function);
 		if (!PrepareBlock(syntax_tree, body, diagnostics, target, type_info, debug_info)) return false;
@@ -1790,6 +2328,10 @@ bool frontend_c_detail::FinalizeEnums(uni::Nchain& syntax_tree,
 	}
 	for (FrontendCTypedNode& typed_node : type_info.nodes)
 		ApplyEnumCompatibleType(typed_node.type, type_info);
+	for (FrontendCTypedef& alias : type_info.typedefs)
+		ApplyEnumCompatibleType(alias.type, type_info);
+	for (FrontendCObjectDeclarator& object : type_info.object_declarators)
+		ApplyEnumCompatibleType(object.type, type_info);
 	for (FrontendCRecord& record : type_info.records)
 		for (FrontendCRecordMember& member : record.members)
 			ApplyEnumCompatibleType(member.type, type_info);
@@ -1800,6 +2342,8 @@ bool frontend_c_detail::Validate(uni::Nchain& syntax_tree,
 	const FrontendCDiagnostics& diagnostics) {
 	for (uni::Nnode* node = syntax_tree.Root(); node;) {
 		if (node->type == ToToken(FrontendCToken::GlobalDeclaration) ||
+			node->type == ToToken(FrontendCToken::FunctionDeclaration) ||
+			node->type == ToToken(FrontendCToken::TypedefDeclaration) ||
 			node->type == ToToken(FrontendCToken::RecordDeclaration) ||
 			node->type == ToToken(FrontendCToken::RecordDefinition) ||
 			node->type == ToToken(FrontendCToken::EnumDeclaration) ||

@@ -163,8 +163,11 @@ internal func @helper(i32 %0) -> i32 {
 外部函数只声明签名：
 
 ```clover
-declare @putchar(i32) -> i32
+declare func @putchar(i32) -> i32
 ```
+
+函数声明只保留参数类型，不写参数 SSA 名，也没有基本块；后端可用它校验调用
+签名，但不会为声明输出函数体。
 
 ### 指令
 
@@ -181,10 +184,12 @@ declare @putchar(i32) -> i32
 %buffer = local i8, 24 align 8
 global @counter i32 = 0
 internal global @private_counter i32 = 0
+global @handler ptr align 8 = @handle
 internal constant @.L.clover.string.0 i8, 4 = {97, 98, 99, 0}
 global @packet i8, 12 align 4 = data {0: i8 1, 4: i32 2, 8: i32 3}
 declare global @external_counter i32
 %global_address = globaladdr @counter
+%function_address = funcaddr @handle
 %loaded = load i32, %address align 4
 store i32 %value, %address align 4
 memcopy %destination, %source, 12 align 4, 4
@@ -199,12 +204,14 @@ memcopy %destination, %source, 12 align 4, 4
 - `global`：定义具有静态存储期的模块级对象；可选的 `align` 指定对象对齐。
   `data` 初始化器由“字节偏移、标量类型、常量值”片段组成，未覆盖的对象区域补零；
   片段保留标量类型，由后端按照目标字节序输出，不要求前端提前编码原始字节。
+  标量 `ptr` 对象也可用 `@symbol` 初始化，由目标文件或链接阶段完成地址重定位。
 - `constant`：定义模块内部的只读聚合数据；初始化列表的元素数量必须与声明数量一致。
 - `declare global` / `declare constant`：声明由其他模块提供存储的模块级对象，不分配
   存储且不携带初始化值；`globaladdr` 可以引用这种声明，最终由链接器解析符号。
 - `internal`：可用于 `global`、`constant` 或 `func`，表示符号只在当前 Clover
   模块中可见；它与对象是否只读相互独立。
 - `globaladdr`：取得模块级对象的地址，结果类型为 `ptr`。
+- `funcaddr`：取得模块级函数的地址，结果类型为 `ptr`。
 - `mov`：复制一个 SSA 值，不读写内存。
 - `load`：从 `ptr` 地址读取值；可选的 `align` 表示地址至少具有多少字节对齐。
 - `store`：向 `ptr` 地址写入值，不产生结果；同样可以携带可选的 `align`。
@@ -325,11 +332,13 @@ ret i32 %value
 
 ```clover
 %result = call i32 @add(i32 %0, i32 %1)
+%indirect = call i32 %callee(i32 %0, i32 %1)
 call void @abort()
 ```
 
-调用的参数和返回类型必须与函数声明一致。具体的参数寄存器、返回值寄存器
-和栈布局由目标后端按照 ABI 处理。
+直接调用使用 `@函数名`，间接调用使用 `ptr` SSA 值。调用的参数和返回类型必须
+与源语言函数类型一致；具体的参数寄存器、返回值寄存器和栈布局由目标后端按照
+ABI 处理。当前 C 前端暂不生成可变参数函数的间接调用。
 
 可变参数函数在固定参数末尾写 `...`。展平的小型聚合参数成员可附加
 `abiagg N`，同一非零编号表示它们来自同一个源语言聚合参数。RISC-V 后端要求

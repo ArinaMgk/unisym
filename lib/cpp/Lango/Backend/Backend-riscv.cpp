@@ -190,9 +190,21 @@ namespace uni::lango {
 					plogerro("RISC-V backend: global alignment must be a power of two up to 16 bytes");
 					return false;
 				}
-				if (global.initializer_values.Count() &&
-					global.initializer_fragments.Count()) {
+				if ((global.initializer_values.Count() &&
+					global.initializer_fragments.Count()) ||
+					(global.initializer_symbol.getByteCount() &&
+						(global.initializer_values.Count() ||
+						global.initializer_fragments.Count() || global.initializer ||
+						global.initializer_high))) {
 					plogerro("RISC-V backend: global object has conflicting initializer forms");
+					return false;
+				}
+				if (global.initializer_symbol.getByteCount() &&
+					(global.type != clover::Type::Ptr || global.element_count != 1 ||
+						(!FindFunction(module, global.initializer_symbol) &&
+							!FindGlobal(module, global.initializer_symbol)))) {
+					plogerro("RISC-V backend: invalid global symbol initializer '%s'",
+						global.initializer_symbol.reference());
 					return false;
 				}
 				if (global.initializer_values.Count() &&
@@ -277,6 +289,12 @@ namespace uni::lango {
 								instruction.name.reference());
 							return false;
 						}
+						if (instruction.opcode == clover::Opcode::FunctionAddr &&
+							!FindFunction(module, instruction.name)) {
+							plogerro("RISC-V backend: undefined function '%s'",
+								instruction.name.reference());
+							return false;
+						}
 						if (instruction.opcode == clover::Opcode::Local &&
 							instruction.alignment &&
 							((instruction.alignment & (instruction.alignment - 1)) ||
@@ -316,6 +334,13 @@ namespace uni::lango {
 							return false;
 						}
 						if (instruction.opcode == clover::Opcode::Call) {
+							if (instruction.has_callee_value) {
+								if (instruction.callee_value.type != clover::Type::Ptr) {
+									plogerro("RISC-V backend: indirect call target must be ptr");
+									return false;
+								}
+								continue;
+							}
 							const clover::Function* callee = FindFunction(module, instruction.callee);
 							if (!callee) {
 								plogerro("RISC-V backend: call to undefined function '%s'",
@@ -1190,16 +1215,23 @@ namespace uni::lango {
 				output.OutFormat("\tla t0, %s\n", instruction.name.reference());
 				return StoreResult(layout, instruction, "t0", output);
 
+			case clover::Opcode::FunctionAddr:
+				if (!instruction.name.getByteCount()) return false;
+				output.OutFormat("\tla t0, %s\n", instruction.name.reference());
+				return StoreResult(layout, instruction, "t0", output);
+
 			case clover::Opcode::Call: {
 				unsigned integer_count = 0;
 				unsigned float_count = 0;
-				const clover::Function* callee = FindFunction(module, instruction.callee);
-				if (!callee) return false;
+				const clover::Function* callee = instruction.has_callee_value ? nullptr :
+					FindFunction(module, instruction.callee);
+				if (!instruction.has_callee_value && !callee) return false;
 				for (stduint index = 0; index < instruction.operands.Count(); index++) {
 					clover::Value argument = instruction.operands.begin()[index];
 					bool use_float_register;
 					unsigned register_index;
-					if (callee->is_variadic && index >= callee->parameters.Count()) {
+					if (callee && callee->is_variadic &&
+						index >= callee->parameters.Count()) {
 						if (argument.type == clover::Type::F128) {
 							integer_count = (integer_count + 1) & ~1U;
 							if (integer_count + 1 >= numsof(ArgumentRegisters)) return false;
@@ -1236,7 +1268,11 @@ namespace uni::lango {
 						}
 					}
 				}
-				output.OutFormat("\tcall %s\n", instruction.callee.reference());
+				if (instruction.has_callee_value) {
+					if (!LoadValue(layout, instruction.callee_value, "t0", output)) return false;
+					output.OutFormat("\tjalr ra, 0(t0)\n");
+				}
+				else output.OutFormat("\tcall %s\n", instruction.callee.reference());
 				if (instruction.type == clover::Type::Void) return true;
 				if (IsFloatType(instruction.type)) {
 					if (instruction.type == clover::Type::F128)
@@ -1423,6 +1459,7 @@ namespace uni::lango {
 			if (!element_size || object_size <= 0) return false;
 			bool has_initializer = global.initializer != 0 ||
 				global.initializer_high != 0 ||
+				global.initializer_symbol.getByteCount() != 0 ||
 				global.initializer_values.Count() != 0 ||
 				global.initializer_fragments.Count() != 0;
 			assembly_stream->OutFormat(global.is_read_only ? ".section .rodata\n" :
@@ -1482,6 +1519,12 @@ namespace uni::lango {
 					}
 				}
 			}
+			else if (global.initializer_symbol.getByteCount()) {
+				if (global.element_count != 1 || global.type != clover::Type::Ptr)
+					return false;
+				assembly_stream->OutFormat(element_size == 4 ? "\t.word %s\n" :
+					"\t.quad %s\n", global.initializer_symbol.reference());
+			}
 			else if (!global.initializer && !global.initializer_high)
 				assembly_stream->OutFormat("\t.zero %[i]\n", object_size);
 			else if (global.element_count != 1) return false;
@@ -1501,7 +1544,8 @@ namespace uni::lango {
 		}
 		assembly_stream->OutFormat(".text\n");
 		for (const clover::Function& function : module.functions)
-			if (!EmitFunction(function, target, module, *assembly_stream,
+			if (!function.is_declaration &&
+				!EmitFunction(function, target, module, *assembly_stream,
 				options.debug_symbols ? assembly_output : nullptr)) return false;
 		return options.assembly_syntax != RISCVAssemblySyntax::AASM ||
 			aasm_output.Flush();

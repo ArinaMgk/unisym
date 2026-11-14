@@ -4,6 +4,7 @@
 
 #include "inc/aasm.h"
 #include "../inc/cpp/Format/Code.hpp"
+#include "../inc/cpp/Lango/Archend.hpp"
 
 void elf32_set_architecture(uni::lango::ArchitectureKind architecture);
 void elf64_set_architecture(uni::lango::ArchitectureKind architecture);
@@ -342,11 +343,31 @@ void SelectCodeend(CodeendInterface& codeend)
 
 void ListCodeends(const CodeendInterface& selected, FILE* output)
 {
+	static const char* architecture_names[] = {
+		"x86", "riscv", "arm32", "arm64"
+	};
+
 	for (AasmCodeend& codeend : Drivers) {
 		const CodeendInfo& info = codeend.DumpCodeend();
 		fprintf(output, "  %c %-10s%s\n",
 			&codeend == &selected ? '*' : ' ',
 			info.shortname, info.fullname);
+		fputs("      Architectures:", output);
+		bool first_architecture = true;
+		for (const char* name : architecture_names) {
+			lango::ArchendInterface* archend = lango::FindArchend(name);
+			if (!archend || !codeend.SupportsArchitecture(
+				archend->DumpArchend().architecture)) continue;
+
+			if (first_architecture) {
+				fputc(' ', output);
+				first_architecture = false;
+			}
+			else fputs(", ", output);
+			fputs(name, output);
+		}
+		if (first_architecture) fputs(" none", output);
+		fputc('\n', output);
 	}
 }
 

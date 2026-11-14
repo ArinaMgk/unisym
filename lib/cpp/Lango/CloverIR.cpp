@@ -272,9 +272,15 @@ namespace clover {
 			case Opcode::GlobalAddr:
 				output.OutFormat("globaladdr @%s\n", instruction.name.reference());
 				break;
+			case Opcode::FunctionAddr:
+				output.OutFormat("funcaddr @%s\n", instruction.name.reference());
+				break;
 			case Opcode::Call:
-				output.OutFormat("call %s @%s(", TypeName(instruction.type),
-					instruction.callee.reference());
+				output.OutFormat("call %s ", TypeName(instruction.type));
+				if (instruction.has_callee_value)
+					PrintValue(output, instruction.callee_value);
+				else output.OutFormat("@%s", instruction.callee.reference());
+				output.OutFormat("(");
 				for (stduint index = 0; index < instruction.operands.Count(); index++) {
 					if (index) output.OutFormat(", ");
 					Value operand = instruction.operands.begin()[index];
@@ -845,10 +851,29 @@ namespace clover {
 					instruction.type = Type::Ptr;
 					instruction.result.type = Type::Ptr;
 				}
+				else if (!StrCompare(operation.reference(), "funcaddr")) {
+					instruction.opcode = Opcode::FunctionAddr;
+					if (!has_result || !Expect("@") || !ReadName(instruction.name))
+						return Error("invalid funcaddr instruction");
+					instruction.type = Type::Ptr;
+					instruction.result.type = Type::Ptr;
+				}
 				else if (!StrCompare(operation.reference(), "call")) {
 					instruction.opcode = Opcode::Call;
-					if (!ReadType(instruction.type) || !Expect("@") ||
-						!ReadName(instruction.callee) || !ReadCallOperands(instruction))
+					if (!ReadType(instruction.type))
+						return Error("invalid call instruction");
+					if (Is("@")) {
+						Advance();
+						if (!ReadName(instruction.callee))
+							return Error("invalid call target");
+					}
+					else {
+						if (!ReadValue(instruction.callee_value) ||
+							instruction.callee_value.type != Type::Ptr)
+							return Error("indirect call target must be ptr");
+						instruction.has_callee_value = true;
+					}
+					if (!ReadCallOperands(instruction))
 						return Error("invalid call instruction");
 					if ((instruction.type == Type::Void) == has_result)
 						return Error("void call result mismatch");
@@ -958,6 +983,38 @@ namespace clover {
 				return true;
 			}
 
+			bool ParseFunctionDeclaration(Module& module) {
+				Function function;
+				function.is_declaration = true;
+				if (!Expect("func") || !Expect("@") || !ReadName(function.name) ||
+					!Expect("(")) return false;
+				while (!Is(")")) {
+					if (Is("...")) {
+						Advance();
+						function.is_variadic = true;
+						if (!Is(")")) return Error("ellipsis must end function parameters");
+						break;
+					}
+					Parameter parameter;
+					if (!ReadType(parameter.value.type)) return false;
+					parameter.value.id = function.parameters.Count();
+					if (Is("abiagg")) {
+						Advance();
+						stdsint group;
+						if (!ReadNumber(group) || group <= 0)
+							return Error("invalid aggregate parameter group");
+						parameter.aggregate_group = (unsigned)group;
+					}
+					function.parameters.Append(parameter);
+					if (Is(")")) break;
+					if (!Expect(",")) return false;
+				}
+				if (!Expect(")") || !Expect("->") ||
+					!ReadType(function.return_type)) return false;
+				module.functions.Append(function);
+				return true;
+			}
+
 			bool ParseSource(Module& module) {
 				SourceFile source;
 				if (!Expect("source") || !ReadDebugNumber(source.id) ||
@@ -1042,7 +1099,13 @@ namespace clover {
 						return Error("global initializer element count mismatch");
 				}
 				else {
-					if (!ReadNumber(global.initializer))
+					if (Is("@")) {
+						Advance();
+						if (global.type != Type::Ptr ||
+							!ReadName(global.initializer_symbol))
+							return Error("symbol initializer requires ptr type");
+					}
+					else if (!ReadNumber(global.initializer))
 						return Error("invalid global initializer");
 					if (global.type == Type::F128 &&
 						(!Expect(",") || !ReadNumber(global.initializer_high)))
@@ -1082,10 +1145,16 @@ namespace clover {
 					}
 					else if (Is("declare")) {
 						Advance();
-						if (!Is("global") && !Is("constant"))
-							return Error("declare requires a global or constant");
-						bool read_only = Is("constant");
-						if (!ParseGlobal(module, read_only, Linkage::External, true)) return false;
+						if (Is("func")) {
+							if (!ParseFunctionDeclaration(module)) return false;
+						}
+						else {
+							if (!Is("global") && !Is("constant"))
+								return Error("declare requires a global, constant, or function");
+							bool read_only = Is("constant");
+							if (!ParseGlobal(module, read_only,
+								Linkage::External, true)) return false;
+						}
 					}
 					else if (Is("global") || Is("constant")) {
 						bool read_only = Is("constant");
@@ -1150,7 +1219,9 @@ namespace clover {
 				output.OutFormat("}\n");
 			}
 			else {
-				output.OutFormat("%[i]", global.initializer);
+				if (global.initializer_symbol.getByteCount())
+					output.OutFormat("@%s", global.initializer_symbol.reference());
+				else output.OutFormat("%[i]", global.initializer);
 				if (global.type == Type::F128)
 					output.OutFormat(", %[i]", global.initializer_high);
 				output.OutFormat("\n");
@@ -1159,19 +1230,28 @@ namespace clover {
 		for (const Function& function : module.functions) {
 			uint32 current_file = 0;
 			uint32 current_line = 0;
-			if (function.linkage == Linkage::Internal) output.OutFormat("internal ");
+			if (function.is_declaration) output.OutFormat("declare ");
+			else if (function.linkage == Linkage::Internal) output.OutFormat("internal ");
 			output.OutFormat("func @%s(", function.name.reference());
 			for (stduint index = 0; index < function.parameters.Count(); index++) {
 				if (index) output.OutFormat(", ");
 				const Parameter& parameter = function.parameters.begin()[index];
-				output.OutFormat("%s ", TypeName(parameter.value.type));
-				PrintValue(output, parameter.value);
+				output.OutFormat("%s", TypeName(parameter.value.type));
+				if (!function.is_declaration) {
+					output.OutFormat(" ");
+					PrintValue(output, parameter.value);
+				}
 				if (parameter.aggregate_group)
 					output.OutFormat(" abiagg %[u]", parameter.aggregate_group);
 			}
 			if (function.is_variadic)
 				output.OutFormat(function.parameters.Count() ? ", ..." : "...");
-			output.OutFormat(") -> %s {\n", TypeName(function.return_type));
+			output.OutFormat(") -> %s", TypeName(function.return_type));
+			if (function.is_declaration) {
+				output.OutFormat("\n");
+				continue;
+			}
+			output.OutFormat(" {\n");
 			for (const BasicBlock& block : function.blocks) {
 				output.OutFormat("^%s:\n", block.name.reference());
 				for (const Instruction& instruction : block.instructions)

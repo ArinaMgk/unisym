@@ -96,7 +96,7 @@ check 'int main(){{1;};;{}{int b=2;} return 3;}' 3
 # Statement
 check 'int main() { if (2-1) return 2; return(3); }' 2
 check 'int main() { if(1) {1;2;return 3;} else if (0) {4;return 5;6;} else;}' 3
-check '../demo/test/clover/c/loop.c' 28
+check '../demo/test/clover/c/loop.c' 43
 check '../demo/test/clover/c/switch.c' 51
 check_fail 'int main(){break;}' 'break statement not within a loop or switch'
 check_fail 'int main(){continue;}' 'continue statement not within a loop'
@@ -112,6 +112,11 @@ check 'int main() {int x=3, y=5, z=3; return *(&y-1);}' 3 # not standard C
 # Calling
 check 'int f(int x) {return x+1;} int main() {int x = f(1); x++; return x;} ' 3
 check 'int add(int x, int y) {return x+y;} int main() { return add(-1, 4);} ' 3
+
+# Declarations and typedef names
+check '../demo/test/clover/c/declaration.c' 50
+check_ir 'extern int function(int); int main(void){return 0;}' 'declare func @function(i32) -> i32'
+check_fail 'typedef int T; T T; int main(void){return 0;}' 'ordinary identifier conflicts with typedef name'
 
 # Array
 check '../demo/test/clover/c/array.c' 67
@@ -171,9 +176,12 @@ check_fail 'enum E {A}; int A; int main(){return 0;}' 'global variable conflicts
 
 # Structure and union layout
 check '../demo/test/clover/c/struct-layout.c' 254
-check '../demo/test/clover/c/initializer.c' 250
+check '../demo/test/clover/c/initializer.c' 102
 check_fail 'struct P{int x;}; int main(){struct P value={1,2};return 0;}' 'excess elements in struct initializer'
 check_fail 'union U{int x;char y;}; int main(){union U value={1,2};return 0;}' 'excess elements in union initializer'
+check_fail 'struct P{int x;}; int main(){struct P value={.missing=1};return 0;}' 'record has no such designated member'
+check_fail 'int main(){int values[2]={[2]=1};return 0;}' 'array designator index is out of bounds'
+check_fail 'int main(){int index=1;int values[2]={[index]=1};return 0;}' 'array designator index must be an integer constant expression'
 
 # Storage Area and Lifetime
 check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1

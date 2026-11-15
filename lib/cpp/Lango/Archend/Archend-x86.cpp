@@ -54,40 +54,41 @@ ArchendX86::~ArchendX86()
 
 const ArchendInfo& ArchendX86::DumpArchend() const
 {
-	static const ArchendInfo info {
-		"Intel and AMD x86 architecture",
-		"x86",
-		ArchitectureKind::X86,
-		16,
-		"16/32/64 (32/64 depend on CPU)",
-		"CPU levels: 8086, 186, 286, 386, 486, 586, 686, P3, P4, Prescott, x64, IA64"
-	};
-	return info;
+	return X86Decoder().DumpArchend();
 }
 
 uint32_t ArchendX86::DefaultCpu() const
 {
-	return IF_PLEVEL;
+	return X86Decoder().DefaultCpu();
 }
 
 bool ArchendX86::ParseCpu(const char* name, uint32_t& cpu) const
 {
-	cpu = X86CpuId(name);
-	return cpu != IF_PLEVEL;
+	return X86Decoder().ParseCpu(name, cpu);
 }
 
 bool ArchendX86::ValidateBits(int bits, uint32_t cpu) const
 {
-	switch (bits) {
-	case 16:
-		return true;
-	case 32:
-		return cpu >= IF_386;
-	case 64:
-		return cpu >= IF_X86_64;
-	default:
-		return false;
-	}
+	return X86Decoder().ValidateBits(bits, cpu);
+}
+
+bool ArchendX86::SupportsDisassembly() const
+{
+	return X86Decoder().SupportsDisassembly();
+}
+
+bool ArchendX86::ConfigureDisassembly(
+	const char* option, const char* value)
+{
+	return X86Decoder().ConfigureDisassembly(option, value);
+}
+
+bool ArchendX86::DecodeInstruction(const ArchendDecodeRequest& request,
+	char* output, stduint output_capacity,
+	ArchendDecodeResult& result) const
+{
+	return X86Decoder().DecodeInstruction(
+		request, output, output_capacity, result);
 }
 
 bool ArchendX86::ProcessDefault(char* value) const

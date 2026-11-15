@@ -31,6 +31,7 @@ RunX86Checks()
 	CheckListing
 	CheckInvalidAddress
 	CheckPrefixOnly
+	CheckDisassembler
 }
 
 RunELFChecks()
@@ -52,6 +53,8 @@ RunRISCVChecks()
 	CheckRISCVShortRelocationRange
 	CheckRISCVELFLinking
 	CheckRISCVExtensions
+	CheckRISCVBitManipulation
+	CheckRISCVPseudoInstructions
 	CheckRISCVFloatingCompressedVector
 	CheckRISCVELFMetadata
 }

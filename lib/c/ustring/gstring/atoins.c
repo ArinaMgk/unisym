@@ -102,64 +102,79 @@ long long int atollong(const char* inp) // sint64
 
 #define restrict //{TEMP}
 
-long int StrTokenLong(const char* restrict inp, char** restrict endptr, int base) // hosted-dep
+static int StrTokenDigit(char current)
+{
+	if (ascii_isdigit(current)) return ascii_digtoins(current);
+	if (ascii_isalpha(current)) return ascii_tolower(current) - 'a' + 10;
+	return -1;
+}
+
+static bool StrTokenMagnitude(const char* inp, char** endptr, int base,
+	unsigned long long positive_limit, unsigned long long negative_limit,
+	unsigned long long* magnitude, bool* negative, bool* overflow)
 {
 	if (!inp) {
 		if (endptr) *endptr = NULL;
-		return 0;
+		return false;
 	}
 	const char* const original = inp;
 	const char* ptr = inp;
 	while (ascii_isspace(*ptr)) ptr++;
-	bool negative = false;
+	*negative = false;
 	if (*ptr == '-' || *ptr == '+') {
-		negative = *ptr == '-';
+		*negative = *ptr == '-';
 		ptr++;
 	}
 	if (base && (base < 2 || base > 36)) {
 		if (endptr) *endptr = (char*)original;
-		return 0;
+		return false;
 	}
 	if ((!base || base == 16) && ptr[0] == '0' &&
 		ascii_toupper(ptr[1]) == 'X') {
-		char next = ptr[2];
-		int digit = ascii_isdigit(next) ? ascii_digtoins(next) :
-			(ascii_isalpha(next) ? ascii_tolower(next) - 'a' + 10 : -1);
+		int digit = StrTokenDigit(ptr[2]);
 		if (digit >= 0 && digit < 16) {
 			base = 16;
 			ptr += 2;
 		}
 	}
 	if (!base) base = *ptr == '0' ? 8 : 10;
-	unsigned long limit = negative ?
-		(unsigned long)(-(LONG_MIN + 1L)) + 1UL : (unsigned long)LONG_MAX;
-	unsigned long result = 0;
+	unsigned long long limit = *negative ? negative_limit : positive_limit;
+	unsigned long long result = 0;
 	bool converted = false;
-	bool overflow = false;
+	*overflow = false;
 	for (;;) {
-		char current = *ptr;
-		int digit = ascii_isdigit(current) ? ascii_digtoins(current) :
-			(ascii_isalpha(current) ? ascii_tolower(current) - 'a' + 10 : -1);
+		int digit = StrTokenDigit(*ptr);
 		if (digit < 0 || digit >= base) break;
 		converted = true;
 		if (result > (limit - (unsigned)digit) / (unsigned)base)
-			overflow = true;
-		else if (!overflow) {
+			*overflow = true;
+		else if (!*overflow)
 			result = result * (unsigned)base + (unsigned)digit;
-		}
 		ptr++;
 	}
 	if (!converted) {
 		if (endptr) *endptr = (char*)original;
-		return 0;
+		return false;
 	}
 	if (endptr) *endptr = (char*)ptr;
+	*magnitude = *overflow ? limit : result;
+	return true;
+}
+
+long int StrTokenLong(const char* restrict inp, char** restrict endptr, int base) // hosted-dep
+{
+	unsigned long long result;
+	bool negative, overflow;
+	unsigned long long negative_limit =
+		(unsigned long long)(-(LONG_MIN + 1L)) + 1ULL;
+	if (!StrTokenMagnitude(inp, endptr, base, (unsigned long long)LONG_MAX,
+		negative_limit, &result, &negative, &overflow)) return 0;
 	if (overflow) {
 		//{TODO} errno = ERANGE;
 		return negative ? LONG_MIN : LONG_MAX;
 	}
-	if (!negative) return (long int)result;
-	if (result == limit) return LONG_MIN;
+	if (!negative) return (long)result;
+	if (result == negative_limit) return LONG_MIN;
 	return -(long int)result;
 }/*
 int main() {
@@ -176,120 +191,47 @@ End pointer: .
 
 unsigned long int StrTokenULong(const char* restrict inp, char** restrict endptr, int base)
 {
-	unsigned long int result = 0;
-	const char* ptr = inp;
-	if (!inp) {
-		asserv(endptr)[0] = NULL;
-		return 0;
+	unsigned long long result;
+	bool negative, overflow;
+	if (!StrTokenMagnitude(inp, endptr, base, (unsigned long long)ULONG_MAX,
+		(unsigned long long)ULONG_MAX, &result, &negative, &overflow)) return 0;
+	if (overflow) {
+		//{TODO} errno = ERANGE;
+		return ULONG_MAX;
 	}
-	while (*ptr == ' ' || *ptr == '\t') ptr++;
-	if (!base) {
-		if (*ptr == '0') {
-			if (ascii_toupper(ptr[1]) == 'X') {
-				base = 16;
-				ptr += 2;
-			}
-			else base = 8;
-		}
-		else base = 10;
-	}
-	else if (base < 2 || base > 36) {
-		asserv(endptr)[0] = (char*)inp;
-		return 0;
-	}
-	while (ascii_isalnum(*ptr)) {
-		int digit = _MAP_ALNUM_DIGIT(*ptr);
-		if (!digit || digit >= base) break;
-		if (result > (ULONG_MAX - digit) / base) {
-			//{TODO} errno = ERANGE;
-			return ULONG_MAX;
-		}
-		result = result * base + digit;
-		ptr++;
-	}
-	if (endptr != NULL) {
-		*endptr = (char*)ptr;
-	}
-	return result;
+	unsigned long value = (unsigned long)result;
+	return negative ? 0UL - value : value;
 }
 #ifdef _BIT_SUPPORT_64
 long long int StrTokenLLong(const char* restrict inp, char** restrict endptr, int base)
 {
-	long long int result = 0;
-	const char* ptr = inp;
-	if (!inp) {
-		asserv(endptr)[0] = NULL;
-		return 0;
+	unsigned long long result;
+	bool negative, overflow;
+	unsigned long long negative_limit =
+		(unsigned long long)(-(LLONG_MIN + 1LL)) + 1ULL;
+	if (!StrTokenMagnitude(inp, endptr, base,
+		(unsigned long long)LLONG_MAX, negative_limit,
+		&result, &negative, &overflow)) return 0;
+	if (overflow) {
+		//{TODO} errno = ERANGE;
+		return negative ? LLONG_MIN : LLONG_MAX;
 	}
-	while (*ptr == ' ' || *ptr == '\t') ptr++;
-	setsym(&inp);
-	if (!base) {
-		if (*ptr == '0') {
-			if (ascii_toupper(ptr[1]) == 'X') {
-				base = 16;
-				ptr += 2;
-			}
-			else base = 8;
-		}
-		else base = 10;
-	}
-	else if (base < 2 || base > 36) {
-		asserv(endptr)[0] = (char*)inp;
-		return 0;
-	}
-	while (ascii_isalnum(*ptr)) {
-		int digit = _MAP_ALNUM_DIGIT(*ptr);
-		if (!digit || digit >= base) break;
-		if (result > (LLONG_MAX - digit) / base) {
-			//{TODO} errno = ERANGE;
-			return sign >= 0 ? LLONG_MAX : LONG_MIN;
-		}
-		result = result * base + digit;
-		ptr++;
-	}
-	if (endptr != NULL) {
-		*endptr = (char*)ptr;
-	}
-	return sign * result;
+	if (!negative) return (long long)result;
+	if (result == negative_limit) return LLONG_MIN;
+	return -(long long)result;
 }
 
 unsigned long long int StrTokenULLong(const char* restrict inp, char** restrict endptr, int base)
 {
-	unsigned long long int result = 0;
-	const char* ptr = inp;
-	if (!inp) {
-		asserv(endptr)[0] = NULL;
-		return 0;
+	unsigned long long result;
+	bool negative, overflow;
+	if (!StrTokenMagnitude(inp, endptr, base, ULLONG_MAX, ULLONG_MAX,
+		&result, &negative, &overflow)) return 0;
+	if (overflow) {
+		//{TODO} errno = ERANGE;
+		return ULLONG_MAX;
 	}
-	while (*ptr == ' ' || *ptr == '\t') ptr++;
-	if (!base) {
-		if (*ptr == '0') {
-			if (ascii_toupper(ptr[1]) == 'X') {
-				base = 16;
-				ptr += 2;
-			}
-			else base = 8;
-		}
-		else base = 10;
-	}
-	else if (base < 2 || base > 36) {
-		asserv(endptr)[0] = (char*)inp;
-		return 0;
-	}
-	while (ascii_isalnum(*ptr)) {
-		int digit = _MAP_ALNUM_DIGIT(*ptr);
-		if (!digit || digit >= base) break;
-		if (result > (ULLONG_MAX - digit) / base) {
-			//{TODO} errno = ERANGE;
-			return ULLONG_MAX;
-		}
-		result = result * base + digit;
-		ptr++;
-	}
-	if (endptr != NULL) {
-		*endptr = (char*)ptr;
-	}
-	return result;
+	return negative ? 0ULL - result : result;
 }
 #endif
 

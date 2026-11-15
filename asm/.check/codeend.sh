@@ -81,7 +81,7 @@ CheckArchends()
 		Fail "ARM64 architecture is missing"
 	grep -Fq 'INST: CPU levels: 8086, 186, 286, 386, 486, 586, 686, P3, P4, Prescott, x64, IA64' "$ArchitectureOutput" || \
 		Fail "x86 instruction selection summary is missing"
-	grep -Fq 'INST: I, M, A, F, D, C, V, Zicsr, Zifencei (combine in canonical order; default I)' "$ArchitectureOutput" || \
+	grep -Fq 'INST: I, M, A, F, D, C, V, Zba, Zbb, Zbs, Zicond, Zicsr, Zifencei (combine in canonical order; default I)' "$ArchitectureOutput" || \
 		Fail "RISC-V instruction-set summary is missing"
 	grep -Fq 'INST: ARMv7-A A32 minimal integer and load/store subset' \
 		"$ArchitectureOutput" || \

@@ -11,16 +11,20 @@
 namespace uni::lango {
 
 enum class RISCVExtension : uint32_t {
-	None = 0,
-	I = UINT32_C(1) << 0,
-	M = UINT32_C(1) << 1,
-	A = UINT32_C(1) << 2,
-	F = UINT32_C(1) << 3,
-	D = UINT32_C(1) << 4,
-	C = UINT32_C(1) << 5,
-	V = UINT32_C(1) << 6,
-	Zicsr = UINT32_C(1) << 7,
-	Zifencei = UINT32_C(1) << 8
+	None = 0,                       // No instruction-set extension.
+	I = UINT32_C(1) << 0,          // Base integer instruction set.
+	M = UINT32_C(1) << 1,          // Integer multiplication and division.
+	A = UINT32_C(1) << 2,          // Atomic memory operations.
+	F = UINT32_C(1) << 3,          // Single-precision floating point.
+	D = UINT32_C(1) << 4,          // Double-precision floating point.
+	C = UINT32_C(1) << 5,          // Compressed instructions.
+	V = UINT32_C(1) << 6,          // Vector instructions.
+	Zba = UINT32_C(1) << 7,        // Address-generation bit operations.
+	Zbb = UINT32_C(1) << 8,        // Basic bit-manipulation operations.
+	Zbs = UINT32_C(1) << 9,        // Single-bit operations.
+	Zicond = UINT32_C(1) << 10,    // Integer conditional operations.
+	Zicsr = UINT32_C(1) << 11,     // Control and status register access.
+	Zifencei = UINT32_C(1) << 12   // Instruction-fetch fence.
 };
 
 constexpr uint32_t RISCVExtensionMask(RISCVExtension extension)
@@ -29,13 +33,13 @@ constexpr uint32_t RISCVExtensionMask(RISCVExtension extension)
 }
 
 enum class RISCVABI : uint32_t {
-	Default,
-	ILP32,
-	ILP32F,
-	ILP32D,
-	LP64,
-	LP64F,
-	LP64D
+	Default, // Select the default ABI for the active XLEN and extensions.
+	ILP32,   // 32-bit integer ABI with software floating-point calling convention.
+	ILP32F,  // 32-bit integer ABI with single-precision floating-point arguments.
+	ILP32D,  // 32-bit integer ABI with double-precision floating-point arguments.
+	LP64,    // 64-bit integer ABI with software floating-point calling convention.
+	LP64F,   // 64-bit integer ABI with single-precision floating-point arguments.
+	LP64D    // 64-bit integer ABI with double-precision floating-point arguments.
 };
 
 RISCVABI DefaultRISCVABI(int bits);

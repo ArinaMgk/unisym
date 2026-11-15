@@ -1484,7 +1484,7 @@ CheckRISCVExtensions()
 	printf '%s\n' \
 		'[ARCH riscv]' \
 		'[BITS 64]' \
-		'[INST i_zba]' \
+		'[INST i_zbc]' \
 		'NOP' > "$UnknownExtensionSource"
 	AssembleFailure riscv-unknown-extension -f bin \
 		-o "$WorkDirectory/riscv-unknown-extension.bin" "$UnknownExtensionSource"
@@ -1492,6 +1492,266 @@ CheckRISCVExtensions()
 		"$WorkDirectory/riscv-unknown-extension.stderr" || \
 		Fail "RISC-V unknown extension diagnostic differs"
 	Pass "RISC-V instruction-set extensions"
+}
+
+CheckRISCVBitManipulation()
+{
+	RV32Source="$WorkDirectory/riscv-bitmanip32.asm"
+	RV32Output="$WorkDirectory/riscv-bitmanip32.bin"
+	RV64Source="$WorkDirectory/riscv-bitmanip64.asm"
+	RV64Output="$WorkDirectory/riscv-bitmanip64.bin"
+	DisabledSource="$WorkDirectory/riscv-bitmanip-disabled.asm"
+	BitModeSource="$WorkDirectory/riscv-bitmanip-bit-mode.asm"
+	ImmediateSource="$WorkDirectory/riscv-bitmanip-immediate.asm"
+	OrderSource="$WorkDirectory/riscv-bitmanip-order.asm"
+	RV32Expected='b3 20 31 20 33 c2 62 20 b3 63 94 20 33 f5 c5 40 b3 66 f7 40 33 c8 28 41 93 10 01 60 93 11 12 60 93 12 23 60 b3 43 94 0a 33 d5 c5 0a b3 66 f7 0a 33 f8 28 0b 93 19 4a 60 93 1a 5b 60 b3 4b 0c 08 b3 1c bd 61 33 de ee 61 93 df f0 61 13 d1 71 28 13 d2 82 69 33 93 83 48 93 14 f5 49 b3 55 d6 48 13 d7 f7 49 33 98 28 69 93 19 fa 69 b3 1a 7b 29 13 9c fc 29 33 dd cd 0f b3 7e ff 0f'
+	RV64Expected='bb 00 31 08 3b a2 62 20 bb 43 94 20 3b e5 c5 20 9b 16 f7 0b 9b 17 08 60 9b 18 19 60 9b 19 2a 60 bb 4a 0b 08 bb 1b 9c 61 3b dd cd 61 9b 5e ff 61 93 df 80 6b 13 91 f1 4b 13 d2 f2 4b 13 93 f3 6b 13 94 f4 2b'
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST i_zba_zbb_zbs_zicond]' \
+		'sh1add x1, x2, x3' \
+		'sh2add x4, x5, x6' \
+		'sh3add x7, x8, x9' \
+		'andn x10, x11, x12' \
+		'orn x13, x14, x15' \
+		'xnor x16, x17, x18' \
+		'clz x1, x2' \
+		'ctz x3, x4' \
+		'cpop x5, x6' \
+		'min x7, x8, x9' \
+		'minu x10, x11, x12' \
+		'max x13, x14, x15' \
+		'maxu x16, x17, x18' \
+		'sext.b x19, x20' \
+		'sext.h x21, x22' \
+		'zext.h x23, x24' \
+		'rol x25, x26, x27' \
+		'ror x28, x29, x30' \
+		'rori x31, x1, 31' \
+		'orc.b x2, x3' \
+		'rev8 x4, x5' \
+		'bclr x6, x7, x8' \
+		'bclri x9, x10, 31' \
+		'bext x11, x12, x13' \
+		'bexti x14, x15, 31' \
+		'binv x16, x17, x18' \
+		'binvi x19, x20, 31' \
+		'bset x21, x22, x23' \
+		'bseti x24, x25, 31' \
+		'czero.eqz x26, x27, x28' \
+		'czero.nez x29, x30, x31' > "$RV32Source"
+	AssembleSuccess riscv-bitmanip32 -f bin -o "$RV32Output" "$RV32Source"
+	[ "$(NormalizeHex "$RV32Output")" = "$RV32Expected" ] || \
+		Fail "RISC-V RV32 bit-manipulation bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i_zba_zbb_zbs]' \
+		'add.uw x1, x2, x3' \
+		'sh1add.uw x4, x5, x6' \
+		'sh2add.uw x7, x8, x9' \
+		'sh3add.uw x10, x11, x12' \
+		'slli.uw x13, x14, 63' \
+		'clzw x15, x16' \
+		'ctzw x17, x18' \
+		'cpopw x19, x20' \
+		'zext.h x21, x22' \
+		'rolw x23, x24, x25' \
+		'rorw x26, x27, x28' \
+		'roriw x29, x30, 31' \
+		'rev8 x31, x1' \
+		'bclri x2, x3, 63' \
+		'bexti x4, x5, 63' \
+		'binvi x6, x7, 63' \
+		'bseti x8, x9, 63' > "$RV64Source"
+	AssembleSuccess riscv-bitmanip64 -f bin -o "$RV64Output" "$RV64Source"
+	[ "$(NormalizeHex "$RV64Output")" = "$RV64Expected" ] || \
+		Fail "RISC-V RV64 bit-manipulation bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i]' \
+		'sh1add x1, x2, x3' \
+		'clz x1, x2' \
+		'bset x1, x2, x3' \
+		'czero.eqz x1, x2, x3' > "$DisabledSource"
+	AssembleFailure riscv-bitmanip-disabled -f bin \
+		-o "$WorkDirectory/riscv-bitmanip-disabled.bin" "$DisabledSource"
+	[ "$(grep -Fc 'is disabled by the current instruction set' \
+		"$WorkDirectory/riscv-bitmanip-disabled.stderr")" -eq 4 ] || \
+		Fail "RISC-V bit-manipulation extension diagnostics differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST i_zba_zbb]' \
+		'add.uw x1, x2, x3' \
+		'clzw x1, x2' > "$BitModeSource"
+	AssembleFailure riscv-bitmanip-bit-mode -f bin \
+		-o "$WorkDirectory/riscv-bitmanip-bit-mode.bin" "$BitModeSource"
+	[ "$(grep -Fc 'not available in the current bit mode' \
+		"$WorkDirectory/riscv-bitmanip-bit-mode.stderr")" -eq 2 ] || \
+		Fail "RISC-V bit-manipulation XLEN diagnostics differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST i_zbb_zbs]' \
+		'rori x1, x2, 32' \
+		'bseti x1, x2, 32' > "$ImmediateSource"
+	AssembleFailure riscv-bitmanip-immediate -f bin \
+		-o "$WorkDirectory/riscv-bitmanip-immediate.bin" "$ImmediateSource"
+	[ "$(grep -Fc 'shift amount is outside the register width' \
+		"$WorkDirectory/riscv-bitmanip-immediate.stderr")" -eq 2 ] || \
+		Fail "RISC-V bit-manipulation immediate diagnostics differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i_zbb_zba]' \
+		'nop' > "$OrderSource"
+	AssembleFailure riscv-bitmanip-order -f bin \
+		-o "$WorkDirectory/riscv-bitmanip-order.bin" "$OrderSource"
+	grep -Fq "unknown 'cpu' type" \
+		"$WorkDirectory/riscv-bitmanip-order.stderr" || \
+		Fail "RISC-V bit-manipulation extension order diagnostic differs"
+	Pass "RISC-V bit-manipulation and conditional extensions"
+}
+
+CheckRISCVPseudoInstructions()
+{
+	RV64Source="$WorkDirectory/riscv-pseudo64.asm"
+	RV64Output="$WorkDirectory/riscv-pseudo64.bin"
+	RV32Source="$WorkDirectory/riscv-pseudo32.asm"
+	RV32Output="$WorkDirectory/riscv-pseudo32.bin"
+	NativeSource="$WorkDirectory/riscv-pseudo-native.asm"
+	NativeOutput="$WorkDirectory/riscv-pseudo-native.bin"
+	InvalidSource="$WorkDirectory/riscv-pseudo-invalid.asm"
+	DisabledSource="$WorkDirectory/riscv-pseudo-disabled.asm"
+	ImmediateSource="$WorkDirectory/riscv-pseudo-immediate.asm"
+	RelocationSource="$WorkDirectory/riscv-pseudo-relocation.asm"
+	RelocationObject="$WorkDirectory/riscv-pseudo-relocation.o"
+	RV64Expected='37 25 01 00 1b 05 55 34 97 05 00 00 93 85 45 06 17 03 00 00 67 00 c3 05 63 0a 05 04 13 36 15 00 b3 06 a0 40 13 47 f5 ff 9b 07 05 00 13 78 f5 0f 93 18 85 03 93 d8 88 43 13 14 05 03 13 54 04 43 93 14 05 03 93 d4 04 03 13 19 05 02 13 59 09 02 f3 29 00 30 73 90 09 30 73 a0 09 30 73 b0 09 30 73 d0 00 30 73 60 01 30 73 f0 01 30 67 80 00 00'
+	RV32Expected='13 95 85 01 13 55 85 41 13 96 06 01 13 56 06 41 13 97 07 01 13 57 07 01'
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i_zicsr]' \
+		'start:' \
+		'li a0, 0x12345' \
+		'la a1, target' \
+		'tail target' \
+		'beqz a0, target' \
+		'seqz a2, a0' \
+		'neg a3, a0' \
+		'not a4, a0' \
+		'sext.w a5, a0' \
+		'zext.b a6, a0' \
+		'sext.b a7, a0' \
+		'sext.h s0, a0' \
+		'zext.h s1, a0' \
+		'zext.w s2, a0' \
+		'csrr s3, mstatus' \
+		'csrw mstatus, s3' \
+		'csrs mstatus, s3' \
+		'csrc mstatus, s3' \
+		'csrwi mstatus, 1' \
+		'csrsi mstatus, 2' \
+		'csrci mstatus, 3' \
+		'target:' \
+		'ret' > "$RV64Source"
+	AssembleSuccess riscv-pseudo64 -f bin -o "$RV64Output" "$RV64Source"
+	[ "$(NormalizeHex "$RV64Output")" = "$RV64Expected" ] || \
+		Fail "RISC-V RV64 pseudo-instruction bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST i]' \
+		'sext.b a0, a1' \
+		'sext.h a2, a3' \
+		'zext.h a4, a5' > "$RV32Source"
+	AssembleSuccess riscv-pseudo32 -f bin -o "$RV32Output" "$RV32Source"
+	[ "$(NormalizeHex "$RV32Output")" = "$RV32Expected" ] || \
+		Fail "RISC-V RV32 pseudo-instruction bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i_zba_zbb]' \
+		'sext.b a0, a1' \
+		'sext.h a2, a3' \
+		'zext.h a4, a5' \
+		'zext.w a6, a7' > "$NativeSource"
+	AssembleSuccess riscv-pseudo-native -f bin \
+		-o "$NativeOutput" "$NativeSource"
+	[ "$(NormalizeHex "$NativeOutput")" = \
+		'13 95 45 60 13 96 56 60 3b c7 07 08 3b 88 08 08' ] || \
+		Fail "RISC-V extension-aware pseudo-instruction bytes differ"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 32]' \
+		'[INST i]' \
+		'zext.w a0, a1' > "$InvalidSource"
+	AssembleFailure riscv-pseudo-invalid -f bin \
+		-o "$WorkDirectory/riscv-pseudo-invalid.bin" "$InvalidSource"
+	grep -Fq 'integer extension is not available in the current bit mode' \
+		"$WorkDirectory/riscv-pseudo-invalid.stderr" || \
+		Fail "RISC-V ZEXT.W bit-mode diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i]' \
+		'csrr a0, mstatus' > "$DisabledSource"
+	AssembleFailure riscv-pseudo-disabled -f bin \
+		-o "$WorkDirectory/riscv-pseudo-disabled.bin" "$DisabledSource"
+	grep -Fq 'CSR alias is disabled by the current instruction set' \
+		"$WorkDirectory/riscv-pseudo-disabled.stderr" || \
+		Fail "RISC-V CSR alias extension diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i]' \
+		'li a0, target' \
+		'target:' \
+		'nop' > "$ImmediateSource"
+	AssembleFailure riscv-pseudo-immediate -f bin \
+		-o "$WorkDirectory/riscv-pseudo-immediate.bin" "$ImmediateSource"
+	grep -Fq 'LI requires an absolute expression' \
+		"$WorkDirectory/riscv-pseudo-immediate.stderr" || \
+		Fail "RISC-V LI expression diagnostic differs"
+
+	printf '%s\n' \
+		'[ARCH riscv]' \
+		'[BITS 64]' \
+		'[INST i]' \
+		'SECTION .text' \
+		'EXTERN object' \
+		'EXTERN function' \
+		'la a0, object' \
+		'tail function' > "$RelocationSource"
+	AssembleSuccess riscv-pseudo-relocation -march=riscv -f elf64 \
+		-o "$RelocationObject" "$RelocationSource"
+	LC_ALL=C readelf -rW "$RelocationObject" > \
+		"$WorkDirectory/riscv-pseudo-relocation.relocations"
+	grep -Fq 'R_RISCV_PCREL_HI20' \
+		"$WorkDirectory/riscv-pseudo-relocation.relocations" || \
+		Fail "RISC-V LA high relocation is missing"
+	grep -Fq 'R_RISCV_PCREL_LO12_I' \
+		"$WorkDirectory/riscv-pseudo-relocation.relocations" || \
+		Fail "RISC-V LA low relocation is missing"
+	grep -Fq 'R_RISCV_CALL_PLT' \
+		"$WorkDirectory/riscv-pseudo-relocation.relocations" || \
+		Fail "RISC-V TAIL relocation is missing"
+	Pass "RISC-V pseudo-instructions"
 }
 
 CheckRISCVFloatingCompressedVector()
@@ -1653,7 +1913,7 @@ CheckRISCVELFMetadata()
 		'C.NOP' > "$RV32Source"
 	printf '%s\n' \
 		'[BITS 64]' \
-		'[INST imafdcv_zifencei]' \
+		'[INST imafdcv_zba_zbb_zbs_zicond_zifencei]' \
 		'[ABI lp64d]' \
 		'SECTION .text' \
 		'C.NOP' > "$RV64Source"
@@ -1680,7 +1940,7 @@ CheckRISCVELFMetadata()
 	grep -Fq 'Tag_RISCV_arch: "rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_v1p0' \
 		"$WorkDirectory/riscv-metadata64.attributes" || \
 		Fail "RISC-V ELF64 architecture attribute differs"
-	grep -Fq '_zicsr2p0_zifencei2p0' \
+	grep -Fq '_zba1p0_zbb1p0_zbs1p0_zicond1p0_zicsr2p0_zifencei2p0' \
 		"$WorkDirectory/riscv-metadata64.attributes" || \
 		Fail "RISC-V ELF64 multi-letter attributes differ"
 

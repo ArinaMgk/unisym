@@ -56,6 +56,58 @@ SLLW    Sllw    RegisterWord    RdRsRsOptional          0x0000103b  64     I  - 
 SRLW    Srlw    RegisterWord    RdRsRsOptional          0x0000503b  64     I  -      -
 SRAW    Sraw    RegisterWord    RdRsRsOptional          0x4000503b  64     I  -      -
 
+; RISC-V Unprivileged ISA: Zba address-generation extension, version 1.0.
+SH1ADD      Sh1add      Register        RdRsRsOptional  0x20002033  32|64  Zba  -  -
+SH2ADD      Sh2add      Register        RdRsRsOptional  0x20004033  32|64  Zba  -  -
+SH3ADD      Sh3add      Register        RdRsRsOptional  0x20006033  32|64  Zba  -  -
+ADD.UW      AddUw       RegisterWord    RdRsRsOptional  0x0800003b  64     Zba  -  -
+SH1ADD.UW   Sh1addUw    RegisterWord    RdRsRsOptional  0x2000203b  64     Zba  -  -
+SH2ADD.UW   Sh2addUw    RegisterWord    RdRsRsOptional  0x2000403b  64     Zba  -  -
+SH3ADD.UW   Sh3addUw    RegisterWord    RdRsRsOptional  0x2000603b  64     Zba  -  -
+SLLI.UW     SlliUw      Shift           RdRsImmediateOptional 0x0800101b 64 Zba - -
+
+; RISC-V Unprivileged ISA: Zbb basic bit-manipulation extension, version 1.0.
+ANDN    Andn    Register        RdRsRsOptional  0x40007033  32|64  Zbb  -     -
+ORN     Orn     Register        RdRsRsOptional  0x40006033  32|64  Zbb  -     -
+XNOR    Xnor    Register        RdRsRsOptional  0x40004033  32|64  Zbb  -     -
+CLZ     Clz     UnaryRegister   RdRs            0x60001013  32|64  Zbb  -     -
+CTZ     Ctz     UnaryRegister   RdRs            0x60101013  32|64  Zbb  -     -
+CPOP    Cpop    UnaryRegister   RdRs            0x60201013  32|64  Zbb  -     -
+CLZW    Clzw    UnaryRegister   RdRs            0x6000101b  64     Zbb  -     -
+CTZW    Ctzw    UnaryRegister   RdRs            0x6010101b  64     Zbb  -     -
+CPOPW   Cpopw   UnaryRegister   RdRs            0x6020101b  64     Zbb  -     -
+MIN     Min     Register        RdRsRsOptional  0x0a004033  32|64  Zbb  Min   Minu
+MINU    Minu    Register        RdRsRsOptional  0x0a005033  32|64  Zbb  Min   Minu
+MAX     Max     Register        RdRsRsOptional  0x0a006033  32|64  Zbb  Max   Maxu
+MAXU    Maxu    Register        RdRsRsOptional  0x0a007033  32|64  Zbb  Max   Maxu
+SEXT.B  SextB   UnaryRegister   RdRs            0x60401013  32|64  Zbb  -     -
+SEXT.H  SextH   UnaryRegister   RdRs            0x60501013  32|64  Zbb  -     -
+ZEXT.H  ZextH32 UnaryRegister   RdRs            0x08004033  32     Zbb  -     -
+ZEXT.H  ZextH64 UnaryRegister   RdRs            0x0800403b  64     Zbb  -     -
+ROL     Rol     Register        RdRsRsOptional  0x60001033  32|64  Zbb  -     -
+ROR     Ror     Register        RdRsRsOptional  0x60005033  32|64  Zbb  -     -
+RORI    Rori    Shift           RdRsImmediateOptional 0x60005013 32|64 Zbb - -
+ROLW    Rolw    RegisterWord    RdRsRsOptional  0x6000103b  64     Zbb  -     -
+RORW    Rorw    RegisterWord    RdRsRsOptional  0x6000503b  64     Zbb  -     -
+RORIW   Roriw   ShiftWord      RdRsImmediateOptional 0x6000501b 64 Zbb - -
+ORC.B   OrcB    UnaryRegister   RdRs            0x28705013  32|64  Zbb  -     -
+REV8    Rev832  UnaryRegister   RdRs            0x69805013  32     Zbb  -     -
+REV8    Rev864  UnaryRegister   RdRs            0x6b805013  64     Zbb  -     -
+
+; RISC-V Unprivileged ISA: Zbs single-bit extension, version 1.0.
+BCLR    Bclr    Register        RdRsRsOptional          0x48001033  32|64  Zbs  -  -
+BCLRI   Bclri   Shift           RdRsImmediateOptional  0x48001013  32|64  Zbs  -  -
+BEXT    Bext    Register        RdRsRsOptional          0x48005033  32|64  Zbs  -  -
+BEXTI   Bexti   Shift           RdRsImmediateOptional  0x48005013  32|64  Zbs  -  -
+BINV    Binv    Register        RdRsRsOptional          0x68001033  32|64  Zbs  -  -
+BINVI   Binvi   Shift           RdRsImmediateOptional  0x68001013  32|64  Zbs  -  -
+BSET    Bset    Register        RdRsRsOptional          0x28001033  32|64  Zbs  -  -
+BSETI   Bseti   Shift           RdRsImmediateOptional  0x28001013  32|64  Zbs  -  -
+
+; RISC-V Unprivileged ISA: Zicond integer conditional operations, version 1.0.
+CZERO.EQZ   CzeroEqz    Register    RdRsRsOptional  0x0e005033  32|64  Zicond  -  -
+CZERO.NEZ   CzeroNez    Register    RdRsRsOptional  0x0e007033  32|64  Zicond  -  -
+
 MUL     Mul     Register        RdRsRsOptional          0x02000033  32|64  M  -      -
 MULH    Mulh    Register        RdRsRsOptional          0x02001033  32|64  M  -      -
 MULHSU  Mulhsu  Register        RdRsRsOptional          0x02002033  32|64  M  -      -

@@ -1,9 +1,11 @@
+// ASCII C++11 TAB4 LF
+// Docutitle: AASM Disassembler Command
+// Codifiers: @ArinaMgk
+// Copyright: UNISYM, under Apache License 2.0
 
-
-#include "../inc/cpp/string"
 #include <errno.h>
 #include "inc/aasm.h"
-#include "../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp"
+#include "../inc/cpp/Lango/Archend.hpp"
 
 //unuse
 _ESYM_C{
@@ -22,211 +24,277 @@ void init_sync(void);
 void add_sync(uint32_t position, uint32_t length);
 uint32_t next_sync(uint32_t position, uint32_t *length);
 
-// dasm
-#define INSN_MAX 32             /* one instruction can't be longer than this */
-int32_t disasm(uint8_t *data, char *output, int outbufsize, int segsize, int32_t offset, int autosync, uint32_t prefer);
-int32_t eatbyte(uint8_t *data, char *output, int outbufsize, int segsize);
-
-
-#define BPL 8                   /* bytes per line of hex dump */
-
-static const char *help =
-	"usage: dasm [-a] [-i] [-h] [-r] [-u] [-b bits] [-o origin] [-s sync...]\n"
-	"               [-e bytes] [-k start,bytes] [-p vendor] file\n"
-	"   -a or -i activates auto (intelligent) sync\n"
-	"   -u same as -b 32\n"
-	"   -b 16, -b 32 or -b 64 sets the processor mode\n"
-	"   -h displays this text\n"
-	"   -r or -v displays the version number\n"
-	"   -e skips <bytes> bytes of header\n"
-	"   -k avoids disassembling <bytes> bytes from position <start>\n"
-	"   -p selects the preferred vendor instruction set (intel, amd, cyrix, idt)\n";
+#define DASM_MAX_INSTRUCTION_BYTES 32
+#define BPL 8
 
 static void output_ins(uint32_t, uint8_t *, int, char *);
 static void skip(uint32_t dist, FILE * fp);
 
+static void PrintArchitectures(
+	const uni::lango::ArchendDecodeInterface& selected)
+{
+	printf("Supported disassembly architectures and CPU/INST choices:\n");
+	uni::lango::ListArchendDecoders(selected, stdout);
+}
+
+static void PrintInputFormats()
+{
+	printf("Supported input formats:\n"
+		"  * bin       flat binary byte stream\n"
+		"      Architectures: ");
+	uni::lango::ListArchendDecoderNames(stdout);
+	printf("\n");
+}
+
+static void PrintCodeendInformation()
+{
+	printf("Codeend output formats:\n"
+		"  not applicable; DASM reads input formats selected by -f\n");
+}
+
+static void PrintHelp(const uni::lango::ArchendDecodeInterface& selected)
+{
+	printf(
+		"usage: dasm [-f format] [-march=name] [-b bits] [options...] [--] file\n"
+		"    or dasm -v   for version info\n\n"
+		"    -a or -i    enable automatic instruction synchronization\n"
+		"    -b bits     select the processor bit width\n"
+		"    -e bytes    skip bytes at the beginning of the input\n"
+		"    -f format   select the input format\n"
+		"    -ha         list disassembly architectures and bit widths\n"
+		"    -hf         list input formats and supported architectures\n"
+		"    -k start,bytes\n"
+		"                treat an input range as data\n"
+		"    -march=name select the instruction architecture\n"
+		"    --arch name select the instruction architecture\n"
+		"    -o origin   set the origin address for raw binary input\n"
+		"    -p vendor   select the preferred x86 vendor\n"
+		"    -s offset   add an instruction synchronization point\n"
+		"    -u          same as -b 32; -uu selects 64 bits\n"
+		"    -v          display version information\n\n");
+	PrintArchitectures(selected);
+	printf("\n");
+	PrintCodeendInformation();
+	printf("\n");
+	PrintInputFormats();
+}
+
+static char* RequireValue(const char* program, const char* option,
+	char* attached, int& index, int argc, char** argv)
+{
+	if (attached && *attached == '=') attached++;
+	if (attached && *attached) return attached;
+	if (index + 1 < argc) return argv[++index];
+	fprintf(stderr, "%s: option `%s' requires an argument\n",
+		program, option);
+	return nullptr;
+}
+
+static bool ParseUint32(const char* text, uint32_t& result)
+{
+	char* end;
+	uint64 value = StrTokenULong(text, &end, 10);
+	if (*end || value > UINT32_MAX) return false;
+	result = static_cast<uint32>(value);
+	return true;
+}
+
 int main(int argc, char **argv)
 {
-	char buffer[INSN_MAX * 2], *p, *ep, *q;
+	byte buffer[DASM_MAX_INSTRUCTION_BYTES * 2], *p, *q;
 	char outbuf[256];
 	char *pname = *argv;
 	char *filename = NULL;
+	const char* vendor = "intel";
 	uint32_t nextsync, synclen, initskip = 0L;
 	int lenread;
 	int32_t lendis;
 	bool autosync = false;
-	int bits = 16, b;
+	bool bits_explicit = false;
+	bool stop_options = false;
+	bool vendor_explicit = false;
 	bool eof = false;
-	uint32_t prefer = 0;
 	bool rn_error;
-	int32_t offset;
+	uint32 offset = 0;
+	uni::lango::ArchendDecodeInterface* archend =
+		&uni::lango::DefaultArchendDecoder();
+	uint32 cpu = archend->DefaultCpu();
+	int bits = archend->DumpArchend().default_bits;
 	FILE *fp;
 
-
-	offset = 0;
 	init_sync();
 
-	while (--argc) {
-		char *v, *vv, *p = *++argv;
-		if (*p == '-' && p[1]) {
-			p++;
-			while (*p)
-				switch (ascii_tolower(*p)) {
-				case 'a':      /* auto or intelligent sync */
-				case 'i':
-					autosync = true;
-					p++;
-					break;
-				case 'h':
-					fprintf(stderr, help);
-					return 0;
-				case 'r':
-				case 'v':
-					fprintf(stderr, "DASM version %s compiled on %s\n",
-				aasm_version, aasm_date);
-					return 0;
-				case 'u':	/* -u for -b 32, -uu for -b 64 */
-			if (bits < 64)
-			bits <<= 1;
-					p++;
-					break;
-				case 'b':      /* bits */
-					v = p[1] ? p + 1 : --argc ? *++argv : NULL;
-					if (!v) {
-						fprintf(stderr, "%s: `-b' requires an argument\n",
-								pname);
-						return 1;
-					}
-			b = StrTokenULong(v, &ep, 10);
-			if (*ep || !(bits == 16 || bits == 32 || bits == 64)) {
-						fprintf(stderr, "%s: argument to `-b' should"
-								" be 16, 32 or 64\n", pname);
-					} else {
-			bits = b;
+	for (int index = 1; index < argc; index++) {
+		char* argument = argv[index];
+		if (!stop_options && !StrCompare(argument, "--")) {
+			stop_options = true;
+			continue;
+		}
+		if (!stop_options && argument[0] == '-' && argument[1]) {
+			if (!StrCompareInsensitive(argument, "-h")) {
+				PrintHelp(*archend);
+				return 0;
 			}
-					p = (char*)"";     /* force to next argument */
-					break;
-				case 'o':      /* origin */
-					v = p[1] ? p + 1 : --argc ? *++argv : NULL;
-					if (!v) {
-						fprintf(stderr, "%s: `-o' requires an argument\n",
-								pname);
-						return 1;
-					}
-					offset = readnum(v, &rn_error);
-					if (rn_error) {
-						fprintf(stderr,
-								"%s: `-o' requires a numeric argument\n",
-								pname);
-						return 1;
-					}
-					p = (char*)"";     /* force to next argument */
-					break;
-				case 's':      /* sync point */
-					v = p[1] ? p + 1 : --argc ? *++argv : NULL;
-					if (!v) {
-						fprintf(stderr, "%s: `-s' requires an argument\n",
-								pname);
-						return 1;
-					}
-					add_sync(readnum(v, &rn_error), 0L);
-					if (rn_error) {
-						fprintf(stderr,
-								"%s: `-s' requires a numeric argument\n",
-								pname);
-						return 1;
-					}
-					p = (char*)"";     /* force to next argument */
-					break;
-				case 'e':      /* skip a header */
-					v = p[1] ? p + 1 : --argc ? *++argv : NULL;
-					if (!v) {
-						fprintf(stderr, "%s: `-e' requires an argument\n",
-								pname);
-						return 1;
-					}
-					initskip = readnum(v, &rn_error);
-					if (rn_error) {
-						fprintf(stderr,
-								"%s: `-e' requires a numeric argument\n",
-								pname);
-						return 1;
-					}
-					p = (char*)"";     /* force to next argument */
-					break;
-				case 'k':      /* skip a region */
-					v = p[1] ? p + 1 : --argc ? *++argv : NULL;
-					if (!v) {
-						fprintf(stderr, "%s: `-k' requires an argument\n",
-								pname);
-						return 1;
-					}
-					vv = (char*)StrIndexChar(v, ',');
-					if (!vv) {
-						fprintf(stderr,
-								"%s: `-k' requires two numbers separated"
-								" by a comma\n", pname);
-						return 1;
-					}
-					*vv++ = '\0';
-					nextsync = readnum(v, &rn_error);
-					if (rn_error) {
-						fprintf(stderr,
-								"%s: `-k' requires numeric arguments\n",
-								pname);
-						return 1;
-					}
-					synclen = readnum(vv, &rn_error);
-					if (rn_error) {
-						fprintf(stderr,
-								"%s: `-k' requires numeric arguments\n",
-								pname);
-						return 1;
-					}
-					add_sync(nextsync, synclen);
-					p = (char*)"";     /* force to next argument */
-					break;
-				case 'p':      /* preferred vendor */
-					v = p[1] ? p + 1 : --argc ? *++argv : NULL;
-					if (!v) {
-						fprintf(stderr, "%s: `-p' requires an argument\n",
-								pname);
-						return 1;
-					}
-					if (!StrCompare(v, "intel")) {
-						prefer = 0;     /* Default */
-					} else if (!StrCompare(v, "amd")) {
-						prefer = IF_AMD | IF_3DNOW;
-					} else if (!StrCompare(v, "cyrix")) {
-						prefer = IF_CYRIX | IF_3DNOW;
-					} else if (!StrCompare(v, "idt") || !StrCompare(v, "centaur")
-							   || !StrCompare(v, "winchip")) {
-						prefer = IF_3DNOW;
-					} else {
-						fprintf(stderr,
-								"%s: unknown vendor `%s' specified with `-p'\n",
-								pname, v);
-						return 1;
-					}
-					p = (char*)"";     /* force to next argument */
-					break;
-				default:       /*bf */
-					fprintf(stderr, "%s: unrecognised option `-%c'\n",
-							pname, *p);
+			if (!StrCompareInsensitive(argument, "-ha")) {
+				PrintArchitectures(*archend);
+				return 0;
+			}
+			if (!StrCompareInsensitive(argument, "-hf")) {
+				PrintInputFormats();
+				return 0;
+			}
+			if (!StrCompareInsensitive(argument, "-v") ||
+				!StrCompareInsensitive(argument, "-r")) {
+				printf("DASM version %s compiled on %s\n",
+					aasm_version, aasm_date);
+				return 0;
+			}
+
+			char* value = nullptr;
+			if (!StrCompareInsensitive(argument, "-march") ||
+				!StrCompareInsensitive(argument, "--arch"))
+				value = RequireValue(pname, argument,
+					nullptr, index, argc, argv);
+			else if (!StrCompareNInsensitive(argument, "-march=", 7) ||
+				!StrCompareNInsensitive(argument, "--arch=", 7))
+				value = argument + 7;
+			if (value) {
+				uni::lango::ArchendDecodeInterface* selected =
+					uni::lango::FindArchendDecoder(value);
+				if (!selected || !selected->SupportsDisassembly()) {
+					fprintf(stderr,
+						"%s: unsupported disassembly architecture `%s'"
+						" - use -ha for a list\n", pname, value);
 					return 1;
 				}
-		} else if (!filename) {
-			filename = p;
-		} else {
-			fprintf(stderr, "%s: more than one filename specified\n",
-					pname);
+				archend = selected;
+				cpu = archend->DefaultCpu();
+				if (!bits_explicit) bits = archend->DumpArchend().default_bits;
+				continue;
+			}
+			if (!StrCompareInsensitive(argument, "-march") ||
+				!StrCompareInsensitive(argument, "--arch")) return 1;
+
+			if (!StrCompareInsensitive(argument, "-a") ||
+				!StrCompareInsensitive(argument, "-i")) {
+				autosync = true;
+				continue;
+			}
+			if (!StrCompareInsensitive(argument, "-u") ||
+				!StrCompareInsensitive(argument, "-uu")) {
+				bits = argument[2] == 'u' ? 64 : 32;
+				bits_explicit = true;
+				continue;
+			}
+
+			char option = argument[1];
+			char* attached = argument[2] ? argument + 2 : nullptr;
+			if (option == 'b' || option == 'B' || option == 'e' ||
+				option == 'E' || option == 'f' || option == 'F' ||
+				option == 'k' || option == 'K' || option == 'o' ||
+				option == 'O' || option == 'p' || option == 'P' ||
+				option == 's' || option == 'S') {
+				value = RequireValue(pname, argument,
+					attached, index, argc, argv);
+				if (!value) return 1;
+			}
+			else {
+				fprintf(stderr, "%s: unrecognised option `%s'\n",
+					pname, argument);
+				return 1;
+			}
+
+			switch (ascii_tolower(option)) {
+			case 'b': {
+				uint32 parsed;
+				if (!ParseUint32(value, parsed) || parsed > INT_MAX) {
+					fprintf(stderr, "%s: invalid bit width `%s'\n",
+						pname, value);
+					return 1;
+				}
+				bits = static_cast<int>(parsed);
+				bits_explicit = true;
+				break;
+			}
+			case 'e':
+				if (!ParseUint32(value, initskip)) {
+					fprintf(stderr, "%s: `-e' requires a 32-bit number\n", pname);
+					return 1;
+				}
+				break;
+			case 'f':
+				if (StrCompareInsensitive(value, "bin")) {
+					fprintf(stderr,
+						"%s: unsupported input format `%s' - use -hf for a list\n",
+						pname, value);
+					return 1;
+				}
+				break;
+			case 'k': {
+				char* comma = (char*)StrIndexChar(value, ',');
+				if (!comma) {
+					fprintf(stderr,
+						"%s: `-k' requires start,bytes\n", pname);
+					return 1;
+				}
+				*comma++ = '\0';
+				if (!ParseUint32(value, nextsync) ||
+					!ParseUint32(comma, synclen)) {
+					fprintf(stderr,
+						"%s: `-k' requires 32-bit numbers\n", pname);
+					return 1;
+				}
+				add_sync(nextsync, synclen);
+				break;
+			}
+			case 'o': {
+				int64 parsed = readnum(value, &rn_error);
+				if (rn_error || parsed < 0 ||
+					static_cast<uint64>(parsed) > UINT32_MAX) {
+					fprintf(stderr,
+						"%s: `-o' requires a 32-bit address\n", pname);
+					return 1;
+				}
+				offset = static_cast<uint32>(parsed);
+				break;
+			}
+			case 'p':
+				vendor = value;
+				vendor_explicit = true;
+				break;
+			case 's':
+				if (!ParseUint32(value, nextsync)) {
+					fprintf(stderr, "%s: `-s' requires a 32-bit address\n", pname);
+					return 1;
+				}
+				add_sync(nextsync, 0);
+				break;
+			}
+			continue;
+		}
+
+		if (!filename) filename = argument;
+		else {
+			fprintf(stderr, "%s: more than one filename specified\n", pname);
 			return 1;
 		}
 	}
 
 	if (!filename) {
-		fprintf(stderr, help, pname);
+		PrintHelp(*archend);
 		return 0;
+	}
+	if (!archend->ValidateBits(bits, cpu)) {
+		fprintf(stderr, "%s: architecture `%s' does not support %d-bit code\n",
+			pname, archend->DumpArchend().shortname, bits);
+		return 1;
+	}
+	if (vendor_explicit &&
+		!archend->ConfigureDisassembly("vendor", vendor)) {
+		fprintf(stderr,
+			"%s: vendor `%s' is not supported by architecture `%s'\n",
+			pname, vendor, archend->DumpArchend().shortname);
+		return 1;
 	}
 
 	if (StrCompare(filename, "-")) {
@@ -273,19 +341,36 @@ int main(int argc, char **argv)
 			p = q = buffer;
 			nextsync = next_sync(offset, &synclen);
 		}
-		while (p > q && (p - q >= INSN_MAX || lenread == 0)) {
-			lendis =
-				disasm((uint8_t *) q, outbuf, sizeof(outbuf), bits,
-			   offset, autosync, prefer);
-			if (!lendis || lendis > (p - q)
-				|| ((nextsync || synclen) &&
-			(uint32_t)lendis > nextsync - offset))
-				lendis = eatbyte((uint8_t *) q, outbuf, sizeof(outbuf), bits);
+		while (p > q &&
+			(p - q >= DASM_MAX_INSTRUCTION_BYTES || lenread == 0)) {
+			stduint available = static_cast<stduint>(p - q);
+			if ((nextsync || synclen) && available > nextsync - offset)
+				available = nextsync - offset;
+			uni::lango::ArchendDecodeRequest request;
+			request.data = q;
+			request.available = available;
+			request.address = offset;
+			request.bits = bits;
+			request.cpu = cpu;
+			uni::lango::ArchendDecodeResult decoded;
+			if (!archend->DecodeInstruction(
+				request, outbuf, sizeof(outbuf), decoded) ||
+				!decoded.consumed || decoded.consumed > available) {
+				fprintf(stderr,
+					"%s: architecture `%s' failed to decode input at 0x%08" PRIX32 "\n",
+					pname, archend->DumpArchend().shortname, offset);
+				if (fp != stdin) fclose(fp);
+				return 1;
+			}
+			lendis = static_cast<int32>(decoded.consumed);
+			if (autosync && decoded.has_target &&
+				decoded.target <= UINT32_MAX)
+				add_sync(static_cast<uint32>(decoded.target), 0);
 			output_ins(offset, (uint8_t *) q, lendis, outbuf);
 			q += lendis;
 			offset += lendis;
 		}
-		if (q >= buffer + INSN_MAX) {
+		if (q >= buffer + DASM_MAX_INSTRUCTION_BYTES) {
 			uint8_t *r = (uint8_t *) buffer, *s = (uint8_t *) q;
 			int count = p - q;
 			while (count--)

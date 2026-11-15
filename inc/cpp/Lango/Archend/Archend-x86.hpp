@@ -42,6 +42,12 @@ public:
 	virtual uint32_t DefaultCpu() const override;
 	virtual bool ParseCpu(const char* name, uint32_t& cpu) const override;
 	virtual bool ValidateBits(int bits, uint32_t cpu) const override;
+	virtual bool SupportsDisassembly() const override;
+	virtual bool ConfigureDisassembly(
+		const char* option, const char* value) override;
+	virtual bool DecodeInstruction(const ArchendDecodeRequest& request,
+		char* output, stduint output_capacity,
+		ArchendDecodeResult& result) const override;
 	virtual bool ProcessDefault(char* value) const override;
 	virtual void Initialize(AssemblySession& session) override;
 	virtual void BeginPass(AssemblySession& session,
@@ -55,6 +61,7 @@ public:
 };
 
 ArchendInterface& X86Archend();
+ArchendDecodeInterface& X86Decoder();
 
 }
 

@@ -17,7 +17,7 @@ my $header_path = "$header_directory/Instructions-riscv.hpp";
 
 my %formats = map { $_ => 1 } qw(
 	Upper Jump IndirectJump Branch Load Store Immediate Shift Register
-	ImmediateWord ShiftWord RegisterWord CSRRegister CSRImmediate
+	ImmediateWord ShiftWord RegisterWord UnaryRegister CSRRegister CSRImmediate
 	AtomicLoad Atomic System SystemRegisters FloatLoad FloatStore FloatRegister
 	FloatUnary FloatCompare FloatConvertToInteger FloatConvertFromInteger
 	FloatMoveToInteger FloatMoveFromInteger FloatFused FloatConvertFormat
@@ -27,7 +27,7 @@ my %formats = map { $_ => 1 } qw(
 	VectorLoad VectorStore
 );
 my %operands = map { $_ => 1 } qw(
-	None RdImmediate RdTarget RdIndirectTarget RsRsTarget RdAddress RsAddress
+	None RdImmediate RdTarget RdIndirectTarget RsRsTarget RdAddress RsAddress RdRs
 	RdRsImmediateOptional RdRsRsOptional RdCsrRs RdCsrImmediate
 	RdAtomicAddress RdRsAtomicAddress RsRsOptional FdAddress FsAddress
 	FdFsFs FdFs FdFsFsFs RdFsFs RdFs FdRs VdVsVs VdVsRs VdVsImmediate
@@ -38,7 +38,7 @@ my %operands = map { $_ => 1 } qw(
 );
 
 my @instructions;
-my %names;
+my %name_xlens;
 my %enums;
 for my $input (@inputs) {
 	open my $input_file, '<', $input or die "unable to open $input: $!\n";
@@ -56,7 +56,6 @@ for my $input (@inputs) {
 			unless $name =~ /^[A-Z][A-Z0-9]*(?:\.[A-Z0-9]+)*$/;
 		die "$input:$line_number: invalid enum name\n"
 			unless $enum =~ /^[A-Z][A-Za-z0-9]*$/;
-		die "$input:$line_number: duplicate instruction $name\n" if $names{$name}++;
 		die "$input:$line_number: duplicate enum $enum\n" if $enums{$enum}++;
 		die "$input:$line_number: unknown format $format\n" unless $formats{$format};
 		die "$input:$line_number: unknown operand form $operand\n" unless $operands{$operand};
@@ -64,6 +63,10 @@ for my $input (@inputs) {
 			unless $fixed =~ /^0x[0-9a-fA-F]{8}$/;
 		die "$input:$line_number: invalid XLEN $xlen\n"
 			unless $xlen eq '32' || $xlen eq '64' || $xlen eq '32|64';
+		my $xlen_mask = $xlen eq '32' ? 1 : $xlen eq '64' ? 2 : 3;
+		die "$input:$line_number: duplicate instruction $name for overlapping XLEN\n"
+			if (($name_xlens{$name} // 0) & $xlen_mask);
+		$name_xlens{$name} = ($name_xlens{$name} // 0) | $xlen_mask;
 		die "$input:$line_number: invalid extension requirement $extension\n"
 			unless $extension =~ /^[A-Z][A-Za-z0-9]*(?:\+[A-Z][A-Za-z0-9]*)*$/;
 		push @instructions, {
@@ -126,6 +129,7 @@ enum class RISCVEncodingFormat : uint8_t {
 	ImmediateWord,
 	ShiftWord,
 	RegisterWord,
+	UnaryRegister,
 	CSRRegister,
 	CSRImmediate,
 	AtomicLoad,
@@ -170,6 +174,7 @@ enum class RISCVOperandForm : uint8_t {
 	RsRsTarget,
 	RdAddress,
 	RsAddress,
+	RdRs,
 	RdRsImmediateOptional,
 	RdRsRsOptional,
 	RdCsrRs,
@@ -228,6 +233,7 @@ struct RISCVInstructionInfo {
 };
 
 const RISCVInstructionInfo* FindRISCVInstruction(const char* name);
+const RISCVInstructionInfo* FindRISCVInstruction(const char* name, int bits);
 const RISCVInstructionInfo& DumpRISCVInstruction(RISCVOpcode opcode);
 bool SupportsRISCVXLen(const RISCVInstructionInfo& instruction, int bits);
 
@@ -291,7 +297,7 @@ print $source <<'SOURCE';
 
 }
 
-const RISCVInstructionInfo* FindRISCVInstruction(const char* name)
+static size_t FindRISCVInstructionNameStart(const char* name)
 {
 	size_t lower = 0;
 	size_t upper = sizeof(InstructionNameOrder) /
@@ -301,11 +307,35 @@ const RISCVInstructionInfo* FindRISCVInstruction(const char* name)
 		const RISCVInstructionInfo& instruction =
 			Instructions[InstructionNameOrder[middle]];
 		int comparison = StrCompareInsensitive(name, instruction.name);
-		if (!comparison) return &instruction;
-		if (comparison < 0) upper = middle;
+		if (comparison <= 0) upper = middle;
 		else lower = middle + 1;
 	}
-	return nullptr;
+	return lower;
+}
+
+const RISCVInstructionInfo* FindRISCVInstruction(const char* name)
+{
+	size_t index = FindRISCVInstructionNameStart(name);
+	if (index >= sizeof(InstructionNameOrder) /
+		sizeof(InstructionNameOrder[0])) return nullptr;
+	const RISCVInstructionInfo& instruction =
+		Instructions[InstructionNameOrder[index]];
+	return StrCompareInsensitive(name, instruction.name) ? nullptr : &instruction;
+}
+
+const RISCVInstructionInfo* FindRISCVInstruction(const char* name, int bits)
+{
+	size_t index = FindRISCVInstructionNameStart(name);
+	const RISCVInstructionInfo* fallback = nullptr;
+	for (; index < sizeof(InstructionNameOrder) /
+		sizeof(InstructionNameOrder[0]); index++) {
+		const RISCVInstructionInfo& instruction =
+			Instructions[InstructionNameOrder[index]];
+		if (StrCompareInsensitive(name, instruction.name)) break;
+		if (!fallback) fallback = &instruction;
+		if (SupportsRISCVXLen(instruction, bits)) return &instruction;
+	}
+	return fallback;
 }
 
 const RISCVInstructionInfo& DumpRISCVInstruction(RISCVOpcode opcode)

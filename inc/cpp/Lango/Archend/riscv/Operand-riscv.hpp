@@ -11,9 +11,9 @@
 namespace uni::lango {
 
 enum class RISCVRegisterClass : uint8_t {
-	Integer,
-	Float,
-	Vector
+	Integer, // General-purpose integer register.
+	Float,   // Floating-point register.
+	Vector   // Vector register.
 };
 
 struct RISCVRegister {
@@ -22,12 +22,12 @@ struct RISCVRegister {
 };
 
 enum class RISCVRoundingMode : uint8_t {
-	RNE = 0,
-	RTZ = 1,
-	RDN = 2,
-	RUP = 3,
-	RMM = 4,
-	DYN = 7
+	RNE = 0, // Round to nearest, ties to even.
+	RTZ = 1, // Round toward zero.
+	RDN = 2, // Round down toward negative infinity.
+	RUP = 3, // Round up toward positive infinity.
+	RMM = 4, // Round to nearest, ties to maximum magnitude.
+	DYN = 7  // Select the dynamic rounding mode from frm.
 };
 
 struct RISCVVectorType {

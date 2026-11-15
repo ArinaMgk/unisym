@@ -143,6 +143,14 @@ RISC-V 的 `[CPU]` 与 `[INST]` 已实际约束启用的 I、M、A、F、D、C�
 指令集。Archend 已接入 M 乘除法、CSR 访问、基础特权指令、带 AQ/RL 限定词的 A
 原子指令、浮点寄存器与舍入模式、显式压缩指令和基础向量操作数及编码。
 
+RISC-V 指令集选择已增加 Zba、Zbb、Zbs 和 Zicond，按规范顺序解析多字母扩展并写入
+ELF 架构属性。Archend 已接入这些扩展的基础指令；指令生成器允许同名但 XLEN 不重叠
+的数据项，RV32/RV64 的 `REV8` 和 `ZEXT.H` 会按当前位数选择编码。
+
+RISC-V Archend 已增加 `LI`、`LA`、`TAIL`、`BEQZ`、`SEQZ`、`NEG`、`NOT`、整数
+扩展和常用 CSR 伪指令。`SEXT.B/H`、`ZEXT.H/W` 根据 Zbb/Zba 是否启用选择原生指令
+或基础整数展开；`LA` 和 `TAIL` 已接入 ELF relocation。
+
 RISC-V 指令数据已按普通指令和向量指令拆分生成输入。浮点、向量和 CSR 使用独立的
 类型化操作数模型；C 指令按 2 字节尺寸参与 pass、listing 和 relocation。
 
@@ -180,6 +188,11 @@ ARM32 与 ARM64 已通过语义化 fixup 支持 Binary 本地跨 section 分支�
 
 ARM32 与 ARM64 已分别接入 ELF32 和 ELF64 对象输出，支持标签控制流、标签地址和
 绝对数据引用，并在可执行 section 中标记代码与数据区域。
+
+DASM 已接入 Archend 的轻量解码契约。x86 解码实现迁入
+`lib/cpp/Lango/Archend/x86/Decoder-x86.cpp`，DASM 通过标准请求和结果结构完成
+单条指令解码；控制流目标由解码结果返回，自动同步仍由 DASM 管理。当前反汇编支持
+x86 的 16/32/64 位模式和 `bin` 输入，`-h`、`-ha`、`-hf` 会列出架构能力与输入格式。
 
 +8=2026111319 RISC-V 指令集选择已改为统一的目标扩展描述，支持多字母扩展及组合指令依赖。已增加Zifencei、带 predecessor/successor 的 `FENCE`，并补充 RV32/RV64 常用 C 压缩整数和浮点访存指令。
 

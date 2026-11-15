@@ -31,11 +31,26 @@ bool Equal(const char* left, const char* right)
 bool IsAlias(const char* name)
 {
 	static const char* const aliases[] = {
-		"call", "call_plt", "j", "jr", "mov", "nop", "ret"
+		"beqz", "call", "call_plt", "csrc", "csrci", "csrr", "csrs",
+		"csrsi", "csrw", "csrwi", "j", "jr", "la", "li", "mov",
+		"neg", "nop", "not", "ret", "seqz", "sext.b", "sext.h",
+		"sext.w", "tail", "zext.b", "zext.h", "zext.w"
 	};
 	for (const char* alias : aliases)
 		if (Equal(name, alias)) return true;
 	return false;
+}
+
+void SetRegisterOperand(RISCVOperand& operand, uint8_t reg)
+{
+	operand.kind = RISCVOperandKind::Register;
+	operand.reg = reg;
+}
+
+void SetImmediateOperand(RISCVOperand& operand, int64_t value)
+{
+	operand.kind = RISCVOperandKind::Immediate;
+	operand.value.offset = value;
 }
 
 bool ParseRegister(const char* text, uint8_t& reg)
@@ -672,6 +687,178 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		return RequireTarget(operands[0], parse_pass,
 			instruction.operands[0], 1);
 	}
+	if (Equal(mnemonic, "li") || Equal(mnemonic, "la")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.kind = Equal(mnemonic, "li") ?
+			RISCVInstructionKind::LoadImmediate :
+			RISCVInstructionKind::LoadAddress;
+		instruction.operand_count = 2;
+		if (!RequireRegister(operands[0], instruction.operands[0], 1) ||
+			!RequireImmediate(operands[1], parse_pass,
+				instruction.operands[1], 2)) return false;
+		if (instruction.operands[1].relocation !=
+			RISCVRelocationKind::None) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V LI and LA do not accept relocation modifiers");
+			return false;
+		}
+		return true;
+	}
+	if (Equal(mnemonic, "tail")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 1) goto bad_count;
+		instruction.kind = RISCVInstructionKind::Tail;
+		instruction.operand_count = 1;
+		return RequireTarget(operands[0], parse_pass,
+			instruction.operands[0], 1);
+	}
+	if (Equal(mnemonic, "beqz")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.opcode = RISCVOpcode::Beq;
+		instruction.operand_count = 3;
+		SetRegisterOperand(instruction.operands[1], 0);
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireTarget(operands[1], parse_pass,
+				instruction.operands[2], 2);
+	}
+	if (Equal(mnemonic, "seqz")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.opcode = RISCVOpcode::Sltiu;
+		instruction.operand_count = 3;
+		SetImmediateOperand(instruction.operands[2], 1);
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2);
+	}
+	if (Equal(mnemonic, "neg")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.opcode = RISCVOpcode::Sub;
+		instruction.operand_count = 3;
+		SetRegisterOperand(instruction.operands[1], 0);
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[2], 2);
+	}
+	if (Equal(mnemonic, "not")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.opcode = RISCVOpcode::Xori;
+		instruction.operand_count = 3;
+		SetImmediateOperand(instruction.operands[2], -1);
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2);
+	}
+	if (Equal(mnemonic, "sext.w")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.opcode = RISCVOpcode::Addiw;
+		instruction.operand_count = 3;
+		SetImmediateOperand(instruction.operands[2], 0);
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2);
+	}
+	if (Equal(mnemonic, "zext.b")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.opcode = RISCVOpcode::Andi;
+		instruction.operand_count = 3;
+		SetImmediateOperand(instruction.operands[2], 255);
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2);
+	}
+	if ((Equal(mnemonic, "sext.b") || Equal(mnemonic, "sext.h") ||
+		Equal(mnemonic, "zext.h")) &&
+		!HasRISCVExtension(session.CurrentCpu, RISCVExtension::Zbb)) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.kind = RISCVInstructionKind::IntegerExtend;
+		instruction.integer_extend.signedness = Equal(mnemonic, "zext.h") ?
+			AssemblySignedness::Unsigned : AssemblySignedness::Signed;
+		instruction.integer_extend.source_bytes =
+			Equal(mnemonic, "sext.b") ? 1 : 2;
+		instruction.operand_count = 2;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2);
+	}
+	if (Equal(mnemonic, "zext.w")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.operand_count = HasRISCVExtension(
+			session.CurrentCpu, RISCVExtension::Zba) ? 3 : 2;
+		if (!RequireRegister(operands[0], instruction.operands[0], 1) ||
+			!RequireRegister(operands[1], instruction.operands[1], 2))
+			return false;
+		if (instruction.operand_count == 3) {
+			instruction.opcode = RISCVOpcode::AddUw;
+			SetRegisterOperand(instruction.operands[2], 0);
+		}
+		else {
+			instruction.kind = RISCVInstructionKind::IntegerExtend;
+			instruction.integer_extend.signedness = AssemblySignedness::Unsigned;
+			instruction.integer_extend.source_bytes = 4;
+		}
+		return true;
+	}
+	if (Equal(mnemonic, "csrr")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.opcode = RISCVOpcode::Csrrs;
+		instruction.operand_count = 3;
+		SetRegisterOperand(instruction.operands[2], 0);
+		if (!RequireRegister(operands[0], instruction.operands[0], 1) ||
+			!RequireCSR(operands[1], parse_pass,
+				instruction.operands[1], 2)) return false;
+	}
+	else if (Equal(mnemonic, "csrw") || Equal(mnemonic, "csrs") ||
+		Equal(mnemonic, "csrc")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.opcode = Equal(mnemonic, "csrw") ? RISCVOpcode::Csrrw :
+			Equal(mnemonic, "csrs") ? RISCVOpcode::Csrrs : RISCVOpcode::Csrrc;
+		instruction.operand_count = 3;
+		SetRegisterOperand(instruction.operands[0], 0);
+		if (!RequireCSR(operands[0], parse_pass,
+			instruction.operands[1], 1) ||
+			!RequireRegister(operands[1], instruction.operands[2], 2))
+			return false;
+	}
+	else if (Equal(mnemonic, "csrwi") || Equal(mnemonic, "csrsi") ||
+		Equal(mnemonic, "csrci")) {
+		if (instruction.signedness != AssemblySignedness::Default)
+			goto bad_signedness;
+		if (count != 2) goto bad_count;
+		instruction.opcode = Equal(mnemonic, "csrwi") ? RISCVOpcode::Csrrwi :
+			Equal(mnemonic, "csrsi") ? RISCVOpcode::Csrrsi : RISCVOpcode::Csrrci;
+		instruction.operand_count = 3;
+		SetRegisterOperand(instruction.operands[0], 0);
+		if (!RequireCSR(operands[0], parse_pass,
+			instruction.operands[1], 1) ||
+			!RequireImmediate(operands[1], parse_pass,
+				instruction.operands[2], 2)) return false;
+	}
+	else goto not_csr_alias;
+	if (!HasRISCVExtension(session.CurrentCpu, RISCVExtension::Zicsr)) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V CSR alias is disabled by the current instruction set");
+		return false;
+	}
+	return true;
+
+not_csr_alias:
 
 	if (Equal(mnemonic, "nop")) {
 		if (instruction.signedness != AssemblySignedness::Default)
@@ -792,7 +979,7 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		return true;
 	}
 
-	info = FindRISCVInstruction(mnemonic);
+	info = FindRISCVInstruction(mnemonic, session.CurrentBits);
 	if (!info) {
 		aasm_log(_LOG_ERROR, "RISC-V instruction expected");
 		return false;
@@ -929,6 +1116,12 @@ bool RISCVParser::Parse(AssemblySession& session, char* source,
 		}
 		if (count != 2) goto bad_count;
 		return true;
+	}
+	if (info->operands == RISCVOperandForm::RdRs) {
+		if (count != 2) goto bad_count;
+		instruction.operand_count = 2;
+		return RequireRegister(operands[0], instruction.operands[0], 1) &&
+			RequireRegister(operands[1], instruction.operands[1], 2);
 	}
 	if (info->operands == RISCVOperandForm::RdRsRsOptional) {
 		if (count != 2 && count != 3) goto bad_count;

@@ -83,7 +83,8 @@ const ArchendInfo& ArchendRISCV::DumpArchend() const
 		ArchitectureKind::RISCV,
 		64,
 		"32/64",
-		"I, M, A, F, D, C, V, Zicsr, Zifencei (combine in canonical order; default I)"
+		"I, M, A, F, D, C, V, Zba, Zbb, Zbs, Zicond, Zicsr, Zifencei "
+		"(combine in canonical order; default I)"
 	};
 	return info;
 }

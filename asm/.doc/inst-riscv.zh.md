@@ -195,6 +195,61 @@ ADDI x5, 4       ; ADDI x5, x5, 4
 `DIV`、`REM` 及其 W 形式可以通过 `SIGNED`、`UNSIGNED` 切换有符号属性。
 `MULH`、`MULHSU` 和 `MULHU` 分别保留各自明确的操作数符号组合，不接受符号限定词。
 
+## Zba 扩展
+
+Zba 指令要求指令集包含 `_zba`。三寄存器指令支持完整形式和省略 `rs1` 的原地形式。
+
+| 指令 | BITS | 语法 |
+| :--- | :---: | :--- |
+| `SH1ADD`、`SH2ADD`、`SH3ADD` | 32、64 | `OP rd, rs1, rs2` |
+| `ADD.UW` | 64 | `ADD.UW rd, rs1, rs2` |
+| `SH1ADD.UW`、`SH2ADD.UW`、`SH3ADD.UW` | 64 | `OP rd, rs1, rs2` |
+| `SLLI.UW` | 64 | `SLLI.UW rd, rs1, shamt` |
+
+`SLLI.UW` 的移位量范围为 `0..63`。`ZEXT.W rd, rs` 在启用 Zba 时使用
+`ADD.UW rd, rs, zero`；未启用 Zba 时使用基础整数移位序列。
+
+## Zbb 扩展
+
+Zbb 指令要求指令集包含 `_zbb`。普通三寄存器指令支持省略 `rs1` 的原地形式；一元
+指令固定使用 `OP rd, rs`。
+
+| 指令 | BITS | 语法 |
+| :--- | :---: | :--- |
+| `ANDN`、`ORN`、`XNOR` | 32、64 | `OP rd, rs1, rs2` |
+| `CLZ`、`CTZ`、`CPOP` | 32、64 | `OP rd, rs` |
+| `CLZW`、`CTZW`、`CPOPW` | 64 | `OP rd, rs` |
+| `MIN`、`MINU`、`MAX`、`MAXU` | 32、64 | `OP rd, rs1, rs2` |
+| `SEXT.B`、`SEXT.H`、`ZEXT.H` | 32、64 | `OP rd, rs` |
+| `ROL`、`ROR` | 32、64 | `OP rd, rs1, rs2` |
+| `RORI` | 32、64 | `RORI rd, rs1, shamt` |
+| `ROLW`、`RORW` | 64 | `OP rd, rs1, rs2` |
+| `RORIW` | 64 | `RORIW rd, rs1, shamt` |
+| `ORC.B`、`REV8` | 32、64 | `OP rd, rs` |
+
+`REV8` 和 `ZEXT.H` 在 RV32、RV64 中使用不同编码；Archend 根据当前 `[BITS]` 选择
+对应数据项。`MIN/MINU` 和 `MAX/MAXU` 可以使用 `SIGNED`、`UNSIGNED` 切换符号形式。
+
+## Zbs 扩展
+
+Zbs 指令要求指令集包含 `_zbs`。寄存器形式支持省略 `rs1` 的原地形式，立即数形式
+遵循当前 XLEN 的移位量范围。
+
+| 指令 | BITS | 语法 |
+| :--- | :---: | :--- |
+| `BCLR`、`BEXT`、`BINV`、`BSET` | 32、64 | `OP rd, rs1, rs2` |
+| `BCLRI`、`BEXTI`、`BINVI`、`BSETI` | 32、64 | `OP rd, rs1, shamt` |
+
+## Zicond 扩展
+
+Zicond 指令要求指令集包含 `_zicond`：
+
+| 指令 | BITS | 语法 |
+| :--- | :---: | :--- |
+| `CZERO.EQZ`、`CZERO.NEZ` | 32、64 | `OP rd, rs1, rs2` |
+
+这两条指令也支持省略 `rs1` 的原地形式 `OP rd, rs2`。
+
 ## Zicsr 与 CSR
 
 CSR 访问指令要求指令集包含 `_zicsr`：
@@ -401,6 +456,41 @@ Zicsr。AASM 不检查指令执行时所处的权限级别。
 `MOV` 默认采用无符号语义。内存加载根据限定词选择扩展方式；寄存器复制和内存存储
 也接受限定词，但其机器码不因符号属性改变。限定词位置不受上表写法限制。
 
+## 常用伪指令
+
+以下伪指令在 Parser 阶段降低为原生指令或固定的多指令序列，不进入原生指令数据表：
+
+| 伪指令 | BITS | 降低结果 |
+| :--- | :---: | :--- |
+| `LI rd, expression` | 32、64 | 按数值范围生成常量构造序列；表达式必须为绝对值 |
+| `LA rd, expression` | 32、64 | 标签使用 `AUIPC + ADDI`，绝对地址使用常量构造序列 |
+| `TAIL target` | 32、64 | 使用 `t1` 暂存目标地址，以 `JALR zero` 跳转 |
+| `BEQZ rs, target` | 32、64 | `BEQ rs, zero, target` |
+| `SEQZ rd, rs` | 32、64 | `SLTIU rd, rs, 1` |
+| `NEG rd, rs` | 32、64 | `SUB rd, zero, rs` |
+| `NOT rd, rs` | 32、64 | `XORI rd, rs, -1` |
+| `SEXT.W rd, rs` | 64 | `ADDIW rd, rs, 0` |
+| `ZEXT.B rd, rs` | 32、64 | `ANDI rd, rs, 255` |
+| `SEXT.B rd, rs` | 32、64 | 有 Zbb 时使用原生指令，否则使用 `SLLI + SRAI` |
+| `SEXT.H rd, rs` | 32、64 | 有 Zbb 时使用原生指令，否则使用 `SLLI + SRAI` |
+| `ZEXT.H rd, rs` | 32、64 | 有 Zbb 时使用原生指令，否则使用 `SLLI + SRLI` |
+| `ZEXT.W rd, rs` | 64 | 有 Zba 时使用 `ADD.UW`，否则使用 `SLLI + SRLI` |
+
+`LA` 的外部或跨 section 符号使用成对的 `PCREL_HI20/PCREL_LO12_I` relocation。
+`TAIL` 的外部目标使用 `CALL_PLT` relocation，但不写入返回地址。
+
+Zicsr 启用时还支持以下 CSR 别名：
+
+| 伪指令 | 降低结果 |
+| :--- | :--- |
+| `CSRR rd, csr` | `CSRRS rd, csr, zero` |
+| `CSRW csr, rs` | `CSRRW zero, csr, rs` |
+| `CSRS csr, rs` | `CSRRS zero, csr, rs` |
+| `CSRC csr, rs` | `CSRRC zero, csr, rs` |
+| `CSRWI csr, uimm5` | `CSRRWI zero, csr, uimm5` |
+| `CSRSI csr, uimm5` | `CSRRSI zero, csr, uimm5` |
+| `CSRCI csr, uimm5` | `CSRRCI zero, csr, uimm5` |
+
 ## 多指令 MOV 与表达式地址
 
 `MOV rd, expression` 可以加载完整的 RV32/RV64 数值或标签地址：
@@ -460,6 +550,7 @@ MOV BYT4 [a1 + 8], a0
 
 ## 支持范围
 
-支持 RV32I、RV64I、M、A、F、D、C、V、Zicsr、Zifencei 以及上述基础特权指令。
-C 只支持显式压缩形式，V 只覆盖本节列出的基础子集。不支持完整特权体系、普通指令
-自动压缩和完整向量指令集；AASM 可以输出 `RELAX` 提示，实际松弛由链接器完成。
+支持 RV32I、RV64I、M、A、F、D、C、V、Zba、Zbb、Zbs、Zicond、Zicsr、Zifencei
+以及上述基础特权指令。C 只支持显式压缩形式，V 只覆盖本节列出的基础子集。
+不支持完整特权体系、普通指令自动压缩和完整向量指令集；AASM 可以输出 `RELAX`
+提示，实际松弛由链接器完成。

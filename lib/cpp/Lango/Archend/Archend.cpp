@@ -44,11 +44,14 @@ ArchendInterface* FindArchend(const char* name)
 	return nullptr;
 }
 
-void ListArchends(const ArchendInterface& selected, FILE* output)
+void ListArchends(const ArchendInterface& selected,
+	FILE* output, bool disassembly_only)
 {
 	size_t count;
 	ArchendInterface** archends = RegisteredArchends(count);
 	for (size_t index = 0; index < count; index++) {
+		if (disassembly_only && !archends[index]->SupportsDisassembly())
+			continue;
 		const ArchendInfo& info = archends[index]->DumpArchend();
 		fprintf(output, "  %c %-10s%s\n",
 			archends[index] == &selected ? '*' : ' ',
@@ -56,6 +59,21 @@ void ListArchends(const ArchendInterface& selected, FILE* output)
 		fprintf(output, "      BITS: %s\n      INST: %s\n",
 			info.supported_bits, info.instruction_sets);
 	}
+}
+
+void ListArchendNames(FILE* output, bool disassembly_only)
+{
+	size_t count;
+	ArchendInterface** archends = RegisteredArchends(count);
+	bool first = true;
+	for (size_t index = 0; index < count; index++) {
+		if (disassembly_only && !archends[index]->SupportsDisassembly())
+			continue;
+		fprintf(output, "%s%s", first ? "" : ", ",
+			archends[index]->DumpArchend().shortname);
+		first = false;
+	}
+	if (first) fprintf(output, "none");
 }
 
 }

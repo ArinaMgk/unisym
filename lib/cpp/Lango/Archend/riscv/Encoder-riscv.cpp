@@ -50,10 +50,10 @@ bool RequireImmediate(const RISCVValue& value, int64_t& immediate)
 }
 
 enum class TargetResolution {
-	Resolved,
-	Fixup,
-	Unknown,
-	Error
+	Resolved, // Target displacement is known locally.
+	Fixup,    // Target requires a linker relocation.
+	Unknown,  // Target is not known during the current pass.
+	Error     // Target expression is invalid for control flow.
 };
 
 TargetResolution ResolveTarget(const AssemblySession& session,
@@ -115,11 +115,11 @@ uint32_t EncodeJ(uint32_t fixed, uint32_t rd, int64_t immediate)
 }
 
 enum class ControlFlowForm {
-	CompressedDirect,
-	Direct,
-	BranchJump,
-	JumpPair,
-	BranchPair
+	CompressedDirect, // One compressed jump or branch instruction.
+	Direct,           // One regular jump or branch instruction.
+	BranchJump,       // Inverted branch followed by a direct jump.
+	JumpPair,         // AUIPC and JALR pair for a distant jump.
+	BranchPair        // Inverted branch followed by an AUIPC/JALR pair.
 };
 
 struct ControlFlowPlan {
@@ -581,13 +581,52 @@ bool MeasureExpression(const AssemblySession& session, const RISCVValue& value,
 	return true;
 }
 
+bool ValidateIntegerExtend(const AssemblySession& session,
+	const RISCVInstruction& instruction)
+{
+	unsigned source_bits = instruction.integer_extend.source_bytes * 8;
+	if ((instruction.integer_extend.signedness != AssemblySignedness::Signed &&
+		instruction.integer_extend.signedness != AssemblySignedness::Unsigned) ||
+		!source_bits) {
+		aasm_log(_LOG_PANIC, "RISC-V integer extension description is invalid");
+		return false;
+	}
+	if (source_bits >= static_cast<unsigned>(session.CurrentBits)) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V integer extension is not available in the current bit mode");
+		return false;
+	}
+	return true;
+}
+
+bool AppendIntegerExtend(const AssemblySession& session,
+	const RISCVInstruction& instruction, RISCVEncodingSequence& result)
+{
+	if (!ValidateIntegerExtend(session, instruction)) return false;
+	uint8_t destination = instruction.operands[0].reg;
+	uint8_t source = instruction.operands[1].reg;
+	unsigned shift = session.CurrentBits -
+		instruction.integer_extend.source_bytes * 8;
+	if (!Append(result, EncodeI(0x00001013, destination, source, shift)))
+		return false;
+	uint32_t fixed = instruction.integer_extend.signedness ==
+		AssemblySignedness::Signed ? 0x40005013 : 0x00005013;
+	return Append(result, EncodeI(fixed, destination, destination, shift));
+}
+
 }
 
 bool RISCVEncoder::Measure(const AssemblySession& session,
 	const RISCVInstruction& instruction, int64_t offset, unsigned& count)
 {
 	if (instruction.kind == RISCVInstructionKind::Call ||
-		instruction.kind == RISCVInstructionKind::CallPlt) {
+		instruction.kind == RISCVInstructionKind::CallPlt ||
+		instruction.kind == RISCVInstructionKind::Tail) {
+		count = 8;
+		return true;
+	}
+	if (instruction.kind == RISCVInstructionKind::IntegerExtend) {
+		if (!ValidateIntegerExtend(session, instruction)) return false;
 		count = 8;
 		return true;
 	}
@@ -610,7 +649,9 @@ bool RISCVEncoder::Measure(const AssemblySession& session,
 		count = 2;
 		return true;
 	}
-	if (instruction.kind == RISCVInstructionKind::MoveExpression) {
+	if (instruction.kind == RISCVInstructionKind::MoveExpression ||
+		instruction.kind == RISCVInstructionKind::LoadImmediate ||
+		instruction.kind == RISCVInstructionKind::LoadAddress) {
 		if (!MeasureExpression(session, instruction.operands[1].value,
 			false, count)) return false;
 		count *= 4;
@@ -642,10 +683,14 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 {
 	result = RISCVEncodingSequence{};
 	if (instruction.kind == RISCVInstructionKind::Call ||
-		instruction.kind == RISCVInstructionKind::CallPlt) {
+		instruction.kind == RISCVInstructionKind::CallPlt ||
+		instruction.kind == RISCVInstructionKind::Tail) {
 		const RISCVValue& target = instruction.operands[0].value;
+		bool tail = instruction.kind == RISCVInstructionKind::Tail;
 		if (target.wrt != NO_SEG || target.unknown) {
-			aasm_log(_LOG_ERROR, "RISC-V call target is not relocatable");
+			aasm_log(_LOG_ERROR, tail ?
+				"RISC-V tail target is not relocatable" :
+				"RISC-V call target is not relocatable");
 			return false;
 		}
 		if (instruction.kind == RISCVInstructionKind::CallPlt &&
@@ -657,28 +702,36 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 		int64_t displacement = 0;
 		TargetResolution resolution = ResolveTarget(
 			session, target, offset, displacement);
+		uint8_t scratch = tail ? 6 : 1;
+		uint8_t link = tail ? 0 : 1;
 		if (instruction.kind == RISCVInstructionKind::CallPlt ||
 			resolution == TargetResolution::Fixup) {
-			uint32_t auipc = EncodeU(0x00000017, 1, 0);
-			uint32_t jalr = EncodeI(0x00000067, 1, 1, 0);
+			uint32_t auipc = EncodeU(0x00000017, scratch, 0);
+			uint32_t jalr = EncodeI(0x00000067, link, scratch, 0);
 			uint64_t pair = static_cast<uint64_t>(auipc) |
 				static_cast<uint64_t>(jalr) << 32;
 			return Append(result, pair,
-				instruction.kind == RISCVInstructionKind::CallPlt ?
+				instruction.kind == RISCVInstructionKind::CallPlt || tail ?
 					RISCVFixupKind::CallPlt : RISCVFixupKind::Call,
 				target, 8);
 		}
 		if (resolution == TargetResolution::Error ||
 			(displacement & 1) || !CanEncodePcRelativePair(displacement)) {
-			aasm_log(_LOG_ERROR, "RISC-V call target is outside the range");
+			aasm_log(_LOG_ERROR, tail ?
+				"RISC-V tail target is outside the range" :
+				"RISC-V call target is outside the range");
 			return false;
 		}
 		int64_t high, low;
 		SplitSigned12(displacement, high, low);
-		return Append(result, EncodeU(0x00000017, 1, high)) &&
-			Append(result, EncodeI(0x00000067, 1, 1, low));
+		return Append(result, EncodeU(0x00000017, scratch, high)) &&
+			Append(result, EncodeI(0x00000067, link, scratch, low));
 	}
-	if (instruction.kind == RISCVInstructionKind::MoveExpression) {
+	if (instruction.kind == RISCVInstructionKind::IntegerExtend)
+		return AppendIntegerExtend(session, instruction, result);
+	if (instruction.kind == RISCVInstructionKind::MoveExpression ||
+		instruction.kind == RISCVInstructionKind::LoadImmediate ||
+		instruction.kind == RISCVInstructionKind::LoadAddress) {
 		const RISCVOperand& destination = instruction.operands[0];
 		const RISCVValue& value = instruction.operands[1].value;
 		if (value.wrt != NO_SEG) {
@@ -686,7 +739,13 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 			return false;
 		}
 		if (value.unknown) {
-			aasm_log(_LOG_ERROR, "RISC-V MOV expression is unresolved");
+			aasm_log(_LOG_ERROR,
+				"RISC-V immediate or address expression is unresolved");
+			return false;
+		}
+		if (instruction.kind == RISCVInstructionKind::LoadImmediate &&
+			(value.section != NO_SEG || value.external)) {
+			aasm_log(_LOG_ERROR, "RISC-V LI requires an absolute expression");
 			return false;
 		}
 		if (value.section != NO_SEG || value.external)
@@ -929,6 +988,10 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 	case RISCVEncodingFormat::RegisterWord:
 		return Append(result, EncodeR(info.fixed_bits, operand[0].reg,
 			operand[1].reg, operand[2].reg));
+
+	case RISCVEncodingFormat::UnaryRegister:
+		return Append(result, info.fixed_bits | operand[0].reg << 7 |
+			operand[1].reg << 15);
 
 	case RISCVEncodingFormat::CSRRegister:
 		return Append(result, info.fixed_bits | operand[0].reg << 7 |

@@ -41,10 +41,18 @@ const ExtensionInfo ExtensionTable[] = {
 	{RISCVExtension::V, "v", "v1p0", ExtensionNameKind::SingleLetter, 6,
 		Extension(RISCVExtension::F) | Extension(RISCVExtension::D) |
 		Extension(RISCVExtension::Zicsr)},
-	{RISCVExtension::Zicsr, "zicsr", "zicsr2p0",
+	{RISCVExtension::Zba, "zba", "zba1p0",
 		ExtensionNameKind::MultiLetter, 7, 0},
+	{RISCVExtension::Zbb, "zbb", "zbb1p0",
+		ExtensionNameKind::MultiLetter, 8, 0},
+	{RISCVExtension::Zbs, "zbs", "zbs1p0",
+		ExtensionNameKind::MultiLetter, 9, 0},
+	{RISCVExtension::Zicond, "zicond", "zicond1p0",
+		ExtensionNameKind::MultiLetter, 10, 0},
+	{RISCVExtension::Zicsr, "zicsr", "zicsr2p0",
+		ExtensionNameKind::MultiLetter, 11, 0},
 	{RISCVExtension::Zifencei, "zifencei", "zifencei2p0",
-		ExtensionNameKind::MultiLetter, 8, 0}
+		ExtensionNameKind::MultiLetter, 12, 0}
 };
 
 constexpr uint32_t ImplementedExtensions =
@@ -55,6 +63,10 @@ constexpr uint32_t ImplementedExtensions =
 	Extension(RISCVExtension::D) |
 	Extension(RISCVExtension::C) |
 	Extension(RISCVExtension::V) |
+	Extension(RISCVExtension::Zba) |
+	Extension(RISCVExtension::Zbb) |
+	Extension(RISCVExtension::Zbs) |
+	Extension(RISCVExtension::Zicond) |
 	Extension(RISCVExtension::Zicsr) |
 	Extension(RISCVExtension::Zifencei);
 

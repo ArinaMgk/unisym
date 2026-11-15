@@ -51,15 +51,60 @@ struct ArchendLineResult {
 	bool valid = true;
 };
 
-// Common interface implemented by architecture-specific assemblers.
-class ArchendInterface {
+// Disassembly request used by DASM to decode one architecture instruction.
+struct ArchendDecodeRequest {
+	const byte* data = nullptr;
+	stduint available = 0;
+	uint64 address = 0;
+	int bits = 0;
+	uint32 cpu = 0;
+};
+
+struct ArchendDecodeResult {
+	stduint consumed = 0;
+	bool instruction = false;
+	bool need_more_data = false;
+	bool has_target = false;
+	uint64 target = 0;
+};
+
+// Common interface implemented by architecture-specific decoders.
+class ArchendDecodeInterface {
 public:
-	virtual ~ArchendInterface() = default;
+	virtual ~ArchendDecodeInterface() = default;
 
 	virtual const ArchendInfo& DumpArchend() const = 0;
 	virtual uint32_t DefaultCpu() const = 0;
 	virtual bool ParseCpu(const char* name, uint32_t& cpu) const = 0;
 	virtual bool ValidateBits(int bits, uint32_t cpu) const = 0;
+	virtual bool SupportsDisassembly() const
+	{
+		return false;
+	}
+	virtual bool ConfigureDisassembly(
+		const char* option, const char* value)
+	{
+		(void)option;
+		(void)value;
+		return false;
+	}
+	virtual bool DecodeInstruction(const ArchendDecodeRequest& request,
+		char* output, stduint output_capacity,
+		ArchendDecodeResult& result) const
+	{
+		(void)request;
+		(void)output;
+		(void)output_capacity;
+		(void)result;
+		return false;
+	}
+};
+
+// Common interface implemented by architecture-specific assemblers.
+class ArchendInterface : public ArchendDecodeInterface {
+public:
+	virtual ~ArchendInterface() override = default;
+
 	virtual uint32_t DefaultAbi(int bits, uint32_t cpu) const
 	{
 		(void)bits;
@@ -109,7 +154,15 @@ public:
 
 ArchendInterface& DefaultArchend();
 ArchendInterface* FindArchend(const char* name);
-void ListArchends(const ArchendInterface& selected, FILE* output);
+void ListArchends(const ArchendInterface& selected,
+	FILE* output, bool disassembly_only = false);
+void ListArchendNames(FILE* output, bool disassembly_only = false);
+
+ArchendDecodeInterface& DefaultArchendDecoder();
+ArchendDecodeInterface* FindArchendDecoder(const char* name);
+void ListArchendDecoders(
+	const ArchendDecodeInterface& selected, FILE* output);
+void ListArchendDecoderNames(FILE* output);
 
 }
 

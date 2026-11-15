@@ -61,7 +61,7 @@ RISC-V 的默认 `align` 使用 `RALIGN`，以便 ELF 输出 `R_RISCV_ALIGN`。
 | Arch | 默认 BITS | 支持的 BITS | 默认 CPU/INST | `[CPU]`、`[INST]` 支持的名称 |
 | :--- | ---: | :--- | :--- | :--- |
 | `x86` | 16 | 16；386 及以上支持 32；`x64`、`x86-64` 支持 64 | 不限制指令等级 | 见下方 x86 CPU 名称 |
-| `riscv` | 64 | 32、64 | `i` | `i[m][a][f][d][c][v][_zicsr]` |
+| `riscv` | 64 | 32、64 | `i` | `i[m][a][f][d][c][v][_zba][_zbb][_zbs][_zicond][_zicsr][_zifencei]` |
 | `arm32` | 32 | 32 | ARMv7-A A32 最小整数子集 | 不支持 `[CPU]`、`[INST]` |
 | `arm64` | 64 | 64 | A64 最小整数子集 | 不支持 `[CPU]`、`[INST]` |
 
@@ -89,23 +89,29 @@ CPU 等级不低于 386；64 位模式要求 CPU 为 `x64` 或 `x86-64`。
 突出指令集扩展，也可以统一使用 `[CPU]`。
 
 RISC-V 指令集名称必须以 `i` 开始，单字母扩展按 `m`、`a`、`f`、`d`、`c`、`v`
-的顺序书写，多字母扩展使用下划线分隔。例如：
+的顺序书写，多字母扩展使用下划线分隔，并按 `zba`、`zbb`、`zbs`、`zicond`、
+`zicsr`、`zifencei` 的规范顺序书写。例如：
 
 ```asm
 [INST i]
 [INST im]
 [INST ima]
 [INST imafdc]
+[INST i_zba_zbb_zbs_zicond]
 [INST imafdcv_zicsr]
 [INST i_zifencei]
-[INST imafdcv_zicsr_zifencei]
+[INST imafdcv_zba_zbb_zbs_zicond_zicsr_zifencei]
 [INST ia_zicsr]
 [CPU ima_zicsr]
 ```
 
 顺序错误、重复扩展和不支持的扩展会被拒绝。D 自动包含 F；V 自动包含 F、D；
-F、D、V 自动包含 Zicsr。Zifencei 使用 `_zifencei` 启用。未启用对应扩展时，使用
-该扩展的指令会在指令处报错。
+F、D、V 自动包含 Zicsr。Zba、Zbb、Zbs、Zicond 和 Zifencei 分别使用对应的
+`_z...` 名称启用。未启用对应扩展时，使用该扩展的指令会在指令处报错。
+
+AASM 当前把 XLEN 独立放在 `[BITS 32]` 或 `[BITS 64]` 中，因此 `[INST]` 不接受
+`rv32`、`rv64` 前缀，也不接受扩展版本后缀或 `g` 缩写。这是 AASM 的目标选择语法，
+不是 GNU `-march=rv64...` 字符串的直接别名。
 
 ### RISC-V ABI
 
@@ -220,13 +226,16 @@ section、symbol、data、relocation 和 debug 事件，不是可链接目标文
 
 ## RISC-V 汇编语法
 
-RISC-V Archend 支持 RV32/RV64 的 I、M、A、F、D、C、Zicsr、Zifencei、V 扩展及
-基础特权指令。支持的寄存器、操作数、原生指令及简化形式见 `inst-riscv.zh.md`。
+RISC-V Archend 支持 RV32/RV64 的 I、M、A、F、D、C、V、Zba、Zbb、Zbs、Zicond、
+Zicsr、Zifencei 扩展及基础特权指令。支持的寄存器、操作数、原生指令及简化形式见
+`inst-riscv.zh.md`。
 
 RISC-V 的 `MOV` 可以加载完整 XLEN 数值、标签地址及表达式地址中的数据。原生加载
 指令同样接受表达式地址；表达式地址存储必须通过第三个操作数显式指定临时寄存器。
 超出直接编码范围的跳转和条件分支会扩大为 `JAL` 或 `AUIPC + JALR` 序列；需要
 `AUIPC` 保存中间地址且没有可复用链接寄存器时，指令必须显式提供临时寄存器。
+Archend 还支持 `LI`、`LA`、`TAIL`、`BEQZ`、`SEQZ`、`NEG`、`NOT`、整数扩展和
+常用 CSR 别名；有 Zba/Zbb 时优先使用对应原生指令，否则使用基础整数序列。
 
 ## ARM 汇编语法
 

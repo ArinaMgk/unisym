@@ -58,39 +58,174 @@ double atoflt(const char* astr)
 
 #define restrict
 
+static bool MatchInsensitive(const char* input, const char* token)
+{
+	while (*token) {
+		if (ascii_tolower(*input++) != ascii_tolower(*token++)) return false;
+	}
+	return true;
+}
+
+static int FloatingDigit(char current, int base)
+{
+	int digit;
+	if (ascii_isdigit(current)) digit = ascii_digtoins(current);
+	else if (ascii_isalpha(current)) digit = ascii_tolower(current) - 'a' + 10;
+	else return -1;
+	return digit < base ? digit : -1;
+}
+
+enum { StrTokenExponentLimit = 1000000 };
+
+static void AdjustFloatingExponent(int* exponent, int amount)
+{
+	if (amount > 0 && *exponent > StrTokenExponentLimit - amount)
+		*exponent = StrTokenExponentLimit;
+	else if (amount < 0 && *exponent < -StrTokenExponentLimit - amount)
+		*exponent = -StrTokenExponentLimit;
+	else *exponent += amount;
+}
+
+static int ParseFloatingExponent(const char** input)
+{
+	const char* ptr = *input;
+	bool negative = false;
+	if (*ptr == '-' || *ptr == '+') {
+		negative = *ptr == '-';
+		ptr++;
+	}
+	int exponent = 0;
+	while (ascii_isdigit(*ptr)) {
+		int digit = ascii_digtoins(*ptr++);
+		if (exponent <= (StrTokenExponentLimit - digit) / 10)
+			exponent = exponent * 10 + digit;
+		else exponent = StrTokenExponentLimit;
+	}
+	*input = ptr;
+	return negative ? -exponent : exponent;
+}
+
+static long double ScaleFloating(long double value, int exponent,
+	long double factor)
+{
+	bool negative = exponent < 0;
+	unsigned int magnitude = negative ?
+		(unsigned int)(-exponent) : (unsigned int)exponent;
+	while (magnitude) {
+		if (magnitude & 1U)
+			value = negative ? value / factor : value * factor;
+		magnitude >>= 1;
+		if (magnitude) factor *= factor;
+	}
+	return value;
+}
+
+static long double ParseFloating(const char* restrict inp,
+	char** restrict endptr)
+{
+	if (!inp) {
+		if (endptr) *endptr = NULL;
+		return 0.0L;
+	}
+	const char* const original = inp;
+	const char* ptr = inp;
+	while (ascii_isspace(*ptr)) ptr++;
+	bool negative = false;
+	if (*ptr == '-' || *ptr == '+') {
+		negative = *ptr == '-';
+		ptr++;
+	}
+	if (MatchInsensitive(ptr, "inf")) {
+		ptr += MatchInsensitive(ptr, "infinity") ? 8 : 3;
+		if (endptr) *endptr = (char*)ptr;
+		return negative ? -HUGE_VALL : HUGE_VALL;
+	}
+	if (MatchInsensitive(ptr, "nan")) {
+		ptr += 3;
+		if (*ptr == '(') {
+			const char* payload = ptr + 1;
+			const char* close = payload;
+			while (ascii_isalnum(*close) || *close == '_') close++;
+			if (*close == ')') ptr = close + 1;
+		}
+		if (endptr) *endptr = (char*)ptr;
+		long double value = NAN;
+		return negative ? -value : value;
+	}
+
+	bool hexadecimal = false;
+	if (ptr[0] == '0' && ascii_toupper(ptr[1]) == 'X') {
+		const char* first = ptr + 2;
+		if (FloatingDigit(*first, 16) >= 0 ||
+			(*first == '.' && FloatingDigit(first[1], 16) >= 0)) {
+			hexadecimal = true;
+			ptr += 2;
+		}
+	}
+	const int base = hexadecimal ? 16 : 10;
+	const int digit_exponent = hexadecimal ? 4 : 1;
+#ifdef LDBL_DECIMAL_DIG
+	const unsigned decimal_digits = LDBL_DECIMAL_DIG + 2;
+#else
+	const unsigned decimal_digits = 40;
+#endif
+	const unsigned significant_limit = hexadecimal ?
+		(unsigned)((LDBL_MANT_DIG + 3) / 4 + 2) : decimal_digits;
+	long double result = 0.0L;
+	unsigned significant = 0;
+	int exponent = 0;
+	bool converted = false;
+	bool point = false;
+	bool nonzero = false;
+	for (;;) {
+		int digit = FloatingDigit(*ptr, base);
+		if (digit >= 0) {
+			converted = true;
+			if (point) AdjustFloatingExponent(&exponent, -digit_exponent);
+			if (digit || nonzero) {
+				nonzero = true;
+				if (significant < significant_limit) {
+					result = result * (long double)base + digit;
+					significant++;
+				}
+				else AdjustFloatingExponent(&exponent, digit_exponent);
+			}
+			ptr++;
+			continue;
+		}
+		if (!point && *ptr == '.') {
+			point = true;
+			ptr++;
+			continue;
+		}
+		break;
+	}
+	if (!converted) {
+		if (endptr) *endptr = (char*)original;
+		return 0.0L;
+	}
+	char exponent_marker = hexadecimal ? 'P' : 'E';
+	if (ascii_toupper(*ptr) == exponent_marker) {
+		const char* exponent_start = ptr;
+		const char* exponent_digits = ptr + 1;
+		if (*exponent_digits == '-' || *exponent_digits == '+')
+			exponent_digits++;
+		if (ascii_isdigit(*exponent_digits)) {
+			ptr++;
+			AdjustFloatingExponent(&exponent, ParseFloatingExponent(&ptr));
+		}
+		else ptr = exponent_start;
+	}
+	if (result != 0.0L)
+		result = ScaleFloating(result, exponent,
+			hexadecimal ? 2.0L : 10.0L);
+	if (endptr) *endptr = (char*)ptr;
+	return negative ? -result : result;
+}
+
 double StrTokenDouble(const char* restrict inp, char** restrict endptr)
 {
-	double result = 0.0;
-	int sign = 1;
-	int decimal = 0;
-	int exponent = 0;
-	int exp_sign = 1;
-	char* ptr = (char*)inp;
-	while (ascii_isspace(*ptr)) ptr++;
-	if (issign(*ptr) && *ptr++ != '-')
-		sign = -1;
-	while (ascii_isdigit(*ptr)) {
-		result = result * 10 + (*ptr++ - '0');
-	}
-	if (*ptr == '.') {
-		ptr++;
-		while (ascii_isdigit(*ptr)) {
-			result = result * 10 + (*ptr++ - '0');
-			decimal++;
-		}
-	}
-	if (ascii_toupper(*ptr) == 'E') {
-		ptr++;
-		if (issign(*ptr) && *ptr++ != '-')
-			exp_sign = -1;
-		while (ascii_isdigit(*ptr)) {
-			exponent = exponent * 10 + (*ptr++ - '0');
-		}
-		exponent *= exp_sign;
-	}
-	asserv(endptr)[0] = ptr;
-	result *= sign * pow(10.0, exponent - decimal);
-	return result;
+	return (double)ParseFloating(inp, endptr);
 }
 /* 20240822
 int main() {
@@ -107,12 +242,12 @@ Endptr: e
 
 long double StrTokenLDouble(const char* restrict inp, char** restrict endptr)
 {
-	_TEMP return (long double)StrTokenDouble(inp, endptr);
+	return ParseFloating(inp, endptr);
 }
 
 float StrTokenFloat(const char* restrict inp, char** restrict endptr)
 {
-	return (float)StrTokenDouble(inp, endptr);
+	return (float)ParseFloating(inp, endptr);
 }
 
 

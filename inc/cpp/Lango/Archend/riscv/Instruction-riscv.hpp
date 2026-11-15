@@ -16,47 +16,56 @@ struct AssemblySession;
 namespace uni::lango {
 
 enum class RISCVOperandKind : uint8_t {
-	None,
-	Register,
-	Immediate,
-	CSR,
-	Target,
-	IndirectTarget,
-	Address
+	None,           // Operand is absent.
+	Register,       // Integer, floating-point, or vector register.
+	Immediate,      // Absolute or relocatable expression value.
+	CSR,            // Control and status register number.
+	Target,         // Direct control-flow target.
+	IndirectTarget, // Register-relative indirect control-flow target.
+	Address         // Memory address operand.
 };
 
 enum class RISCVAddressKind : uint8_t {
-	RegisterRelative,
-	Expression
+	RegisterRelative, // Immediate displacement relative to a base register.
+	Expression        // Standalone address expression requiring expansion.
 };
 
 enum class RISCVInstructionKind : uint8_t {
-	Native,
-	MoveExpression,
-	Call,
-	CallPlt
+	Native,         // One instruction described by the generated instruction table.
+	MoveExpression, // Semantic MOV of an immediate value or symbol address.
+	LoadImmediate,  // LI pseudo-instruction with an absolute expression.
+	LoadAddress,    // LA pseudo-instruction with an address expression.
+	Call,           // CALL expansion using the standard call relocation.
+	CallPlt,        // CALL_PLT expansion using the PLT call relocation.
+	Tail,           // TAIL expansion using t1 as scratch and zero as link.
+	IntegerExtend   // Extension-aware integer sign or zero extension sequence.
+};
+
+struct RISCVIntegerExtend {
+	AssemblySignedness signedness = AssemblySignedness::Default; // Result extension kind.
+	uint8_t source_bytes = 0; // Source value width before extension.
 };
 
 enum class RISCVRelocationKind : uint8_t {
-	None,
-	High,
-	Low,
-	Got,
-	PcRelativeHigh,
-	PcRelativeLow
+	None,           // No explicit relocation modifier.
+	High,           // Absolute high 20 bits.
+	Low,            // Absolute low 12 bits.
+	Got,            // Global-offset-table address.
+	PcRelativeHigh, // PC-relative high 20 bits.
+	PcRelativeLow   // PC-relative low 12 bits paired with a high relocation.
 };
 
 enum class RISCVAtomicOrdering : uint8_t {
-	None = 0,
-	Acquire = 1,
-	Release = 2
+	None = 0,    // No acquire or release ordering bit.
+	Acquire = 1, // Set the aq bit.
+	Release = 2  // Set the rl bit.
 };
 
 enum class RISCVFenceAccess : uint8_t {
-	Write = 1,
-	Read = 2,
-	Output = 4,
-	Input = 8
+	Write = 1,  // Memory writes.
+	Read = 2,   // Memory reads.
+	Output = 4, // Device output operations.
+	Input = 8   // Device input operations.
 };
 
 struct RISCVFenceOptions {
@@ -91,6 +100,7 @@ struct RISCVInstruction {
 	RISCVRoundingMode rounding = RISCVRoundingMode::DYN;
 	RISCVVectorType vector_type;
 	RISCVFenceOptions fence;
+	RISCVIntegerExtend integer_extend;
 	uint8_t temporary_reg = 0;
 	bool has_temporary = false;
 	bool masked = false;
@@ -99,26 +109,26 @@ struct RISCVInstruction {
 };
 
 enum class RISCVFixupKind : uint8_t {
-	None,
-	Branch,
-	Jump,
-	CompressedBranch,
-	CompressedJump,
-	Call,
-	CallPlt,
-	High,
-	LowI,
-	LowS,
-	GotHigh,
-	PcRelativeHigh,
-	PcRelativeLowI,
-	PcRelativeLowS
+	None,             // Encoding needs no linker fixup.
+	Branch,           // B-type PC-relative branch relocation.
+	Jump,             // J-type PC-relative jump relocation.
+	CompressedBranch, // Compressed branch relocation.
+	CompressedJump,   // Compressed jump relocation.
+	Call,             // AUIPC/JALR direct call relocation pair.
+	CallPlt,          // AUIPC/JALR PLT call relocation pair.
+	High,             // Absolute U-type high relocation.
+	LowI,             // Absolute I-type low relocation.
+	LowS,             // Absolute S-type low relocation.
+	GotHigh,          // GOT-relative high relocation.
+	PcRelativeHigh,   // PC-relative high relocation.
+	PcRelativeLowI,   // PC-relative I-type low relocation.
+	PcRelativeLowS    // PC-relative S-type low relocation.
 };
 
 enum class RISCVFixupPairRole : uint8_t {
-	None,
-	Head,
-	Tail
+	None, // Fixup is independent.
+	Head, // First instruction of a paired relocation.
+	Tail  // Second instruction of a paired relocation.
 };
 
 struct RISCVEncodingResult {

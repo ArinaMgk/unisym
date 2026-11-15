@@ -246,3 +246,56 @@ CheckPrefixOnly()
 	Pass "prefix-only bytes"
 }
 
+CheckDisassembler()
+{
+	DasmExecutable="${DASM:-$(dirname "$AasmExecutable")/dasm}"
+	[ -x "$DasmExecutable" ] || Fail "disassembler is not executable: $DasmExecutable"
+
+	HelpFile="$WorkDirectory/dasm-help.txt"
+	ArchitectureFile="$WorkDirectory/dasm-architectures.txt"
+	FormatFile="$WorkDirectory/dasm-formats.txt"
+	"$DasmExecutable" -h > "$HelpFile" || Fail "dasm -h failed"
+	"$DasmExecutable" -ha > "$ArchitectureFile" || Fail "dasm -ha failed"
+	"$DasmExecutable" -hf > "$FormatFile" || Fail "dasm -hf failed"
+	grep -Fq 'Supported disassembly architectures' "$HelpFile" ||
+		Fail "dasm help omits architectures"
+	grep -Fq 'Supported input formats' "$HelpFile" ||
+		Fail "dasm help omits input formats"
+	grep -Fq 'Codeend output formats' "$HelpFile" ||
+		Fail "dasm help omits Codeend information"
+	grep -Fq 'x86' "$ArchitectureFile" ||
+		Fail "dasm architecture list omits x86"
+	grep -Fq 'bin' "$FormatFile" ||
+		Fail "dasm format list omits bin"
+
+	Input16="$WorkDirectory/dasm16.bin"
+	Input32="$WorkDirectory/dasm32.bin"
+	Input64="$WorkDirectory/dasm64.bin"
+	Output16="$WorkDirectory/dasm16.txt"
+	Output32="$WorkDirectory/dasm32.txt"
+	Output64="$WorkDirectory/dasm64.txt"
+	printf '\xb8\x34\x12\xc3' > "$Input16"
+	printf '\xb8\x78\x56\x34\x12\xc3' > "$Input32"
+	printf '\x48\x89\xd8\xc3' > "$Input64"
+	"$DasmExecutable" -f bin -march=x86 -b16 "$Input16" > "$Output16" ||
+		Fail "dasm 16-bit input failed"
+	"$DasmExecutable" -f bin --arch x86 -b32 "$Input32" > "$Output32" ||
+		Fail "dasm 32-bit input failed"
+	"$DasmExecutable" -f bin -march=x86 -b64 "$Input64" > "$Output64" ||
+		Fail "dasm 64-bit input failed"
+	grep -Fq 'mov ax,0x1234' "$Output16" || Fail "dasm 16-bit output differs"
+	grep -Fq 'mov eax,0x12345678' "$Output32" || Fail "dasm 32-bit output differs"
+	grep -Fq 'mov rax,rbx' "$Output64" || Fail "dasm 64-bit output differs"
+
+	InvalidError="$WorkDirectory/dasm-invalid.stderr"
+	"$DasmExecutable" -b20 "$Input16" > /dev/null 2> "$InvalidError"
+	[ "$?" -ne 0 ] || Fail "dasm accepted an invalid bit width"
+	grep -Fq 'invalid bit width `20' "$InvalidError" ||
+		Fail "dasm bit-width diagnostic differs"
+	"$DasmExecutable" -march=riscv "$Input16" > /dev/null 2> "$InvalidError"
+	[ "$?" -ne 0 ] || Fail "dasm accepted an unsupported architecture"
+	grep -Fq 'unsupported disassembly architecture `riscv' "$InvalidError" ||
+		Fail "dasm architecture diagnostic differs"
+	Pass "x86 disassembler interface and options"
+}
+

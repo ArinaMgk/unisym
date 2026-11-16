@@ -570,11 +570,35 @@ extern "C" {
 #ifdef _INC_CPP
 }
 
+struct EvalRelocTerm {
+	const char* Identity;
+	int32_t Section;
+	int64_t Offset;
+	int Coefficient;
+	bool Global;
+	bool External;
+};
+
+struct EvalRelocExpression {
+	static constexpr size_t TermLimit = 4;
+
+	bool Available;
+	int64_t Constant;
+	size_t TermCount;
+	EvalRelocTerm Terms[TermLimit];
+};
+
+expr* EvaluateRelocExpression(scanner sc, void* scprivate,
+	struct tokenval* tv, int* fwref, int critical,
+	struct eval_hints* hints, EvalRelocExpression& relocation);
+
 class Labelsys {
 public:
 	static void Initialize();
 	static void Cleanup();
 	static bool Lookup(char* label, int32_t* segment, int64_t* offset);
+	static bool Inspect(char* label, const char** identity,
+		bool* global, bool* external);
 	static bool IsExternal(char* label);
 	static char* LocalScope(char* label);
 	static void DeclareGlobal(char* label, char* special);

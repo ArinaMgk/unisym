@@ -179,6 +179,32 @@ ELF32 与 ELF64 均使用带显式加数的 RELA section。分支和直接跳转
 `R_RISCV_CALL_PLT`、`R_RISCV_HI20`、`R_RISCV_LO12_I`、`R_RISCV_LO12_S`、
 `R_RISCV_GOT_HI20`、`R_RISCV_PCREL_HI20`、`R_RISCV_PCREL_LO12_I`、
 `R_RISCV_PCREL_LO12_S`、`R_RISCV_ALIGN` 及可选的 `R_RISCV_RELAX`。
+`DB`、`DW`、`DD` 和 `DQ` 可以为符号差值生成成对的
+`R_RISCV_ADD8/16/32/64` 与 `R_RISCV_SUB8/16/32/64` relocation。同一 section
+内的标签差值会保留具体标签目标，由 ELF 符号表完成最终解析，避免链接松弛前提前折叠。
+`ULEB128` 生成无符号 LEB128 数据，支持常量列表以及同一 section 内的标签差值：
+
+```asm
+ULEB128 0, 127, 128
+ULEB128 end_label - begin_label + 3
+```
+
+RISC-V ELF 标签差值生成同址的 `R_RISCV_SET_ULEB128` 与
+`R_RISCV_SUB_ULEB128` relocation。对象文件保留汇编时确定的编码长度，链接松弛后在该
+长度内更新最终差值；负值、外部符号和跨 section 差值会在汇编阶段报错。
+RISC-V ELF 还支持最小 CFI 地址推进记录：
+
+```asm
+[DEBUG cfi_startproc]
+[DEBUG cfi_def_cfa_offset 16]
+CALL target
+[DEBUG cfi_def_cfa_offset 32]
+[DEBUG cfi_endproc]
+```
+
+这些指令生成 `.debug_frame`。地址推进按跨度选择
+`R_RISCV_SET6/8/16/32`，并与同址的 `R_RISCV_SUB6/8/16/32` 配对；CFI 边界使用
+匿名本地符号，因此链接松弛改变代码长度后，frame 中的推进距离会同步更新。
 PC-relative 低位 relocation 使用指向高位指令位置的本地标签，例如：
 
 ```asm
@@ -193,7 +219,16 @@ LW x6, [x5 + PCREL_LOW address_pair]
 `AUIPC/JALR` 配对，但配对超出 PC-relative 可编码范围仍由最终链接器诊断。AASM 当前
 输出静态可重定位 ELF 对象，不生成 `RELATIVE`、`JUMP_SLOT` 等动态链接表 relocation；
 `CALL_PLT` 和 GOT relocation 可以由最终链接器转换为 PLT、GOT 及动态 relocation。
-当前数据定义没有 PC-relative 数据 relocation 语义。
+RISC-V 还提供三个固定 4 字节的数据 relocation 语句，表达式必须是符号加数：
+
+```asm
+PCREL32 target + 4
+GOT32 target + 8
+PLT32 function + 12
+```
+
+它们分别生成 `R_RISCV_32_PCREL`、`R_RISCV_GOT32_PCREL` 和
+`R_RISCV_PLT32`。这些 relocation 不附带 `R_RISCV_RELAX`。
 
 ARM32 使用 ELF32 对象格式，支持 A32 分支、调用、`MOVW/MOVT` 标签地址和绝对数据
 引用；ARM64 使用 ELF64 对象格式，支持 A64 分支、调用、条件分支、`ADRP/ADD`

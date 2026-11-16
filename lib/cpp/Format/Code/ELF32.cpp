@@ -81,6 +81,10 @@ struct Reloc {
 	int32_t symbol;                /*  symbol index */
 	int32_t offset;                /* symbol addend for RELA */
 	int type;                   /* type of relocation */
+	bool symbol_by_location;
+	int32_t symbol_section;
+	int32_t symbol_offset;
+	bool symbol_global;
 };
 
 struct Symbol {
@@ -260,12 +264,31 @@ static int stablen, stabStrLength, stabrellen;
 /* dwarf debug variables */
 static struct linelist* dwarf_flist = 0, * dwarf_clist = 0, * dwarf_elist = 0;
 static struct sectlist* dwarf_fsect = 0, * dwarf_csect = 0, * dwarf_esect = 0;
+struct DwarfCFIEvent32 {
+	DwarfCFIEvent32* next;
+	uint64_t offset;
+	uint32_t cfa_offset;
+};
+struct DwarfCFIProcedure32 {
+	DwarfCFIProcedure32* next;
+	int32_t section;
+	uint64_t begin;
+	uint64_t end;
+	DwarfCFIEvent32* first;
+	DwarfCFIEvent32** tail;
+	bool closed;
+};
+static DwarfCFIProcedure32* dwarf_cfi_first = 0;
+static DwarfCFIProcedure32** dwarf_cfi_tail = &dwarf_cfi_first;
+static DwarfCFIProcedure32* dwarf_cfi_current = 0;
 static int dwarf_numfiles = 0, dwarf_nsections;
 static uint8_t* arangesbuf = 0, * arangesrelbuf = 0, * pubnamesbuf = 0, * infobuf = 0, * inforelbuf = 0,
 * abbrevbuf = 0, * linebuf = 0, * linerelbuf = 0, * framebuf = 0, * locbuf = 0;
+static Strbuff* framerelbuf = 0;
+static struct Reloc* framerelhead = 0, ** framereltail = &framerelhead;
 static int8_t line_base = -5, line_range = 14, opcode_base = 13;
 static int arangeslen, arangesrellen, pubnameslen, infolen, inforellen,
-abbrevlen, linelen, linerellen, framelen, loclen;
+abbrevlen, linelen, linerellen, framelen, framerellen, loclen;
 static int32_t dwarf_infosym, dwarf_abbrevsym, dwarf_linesym;
 
 static struct Symbol* lastsym;
@@ -286,6 +309,7 @@ static void dwarf32_init(struct outffmt*, void*, FILE*);
 static void dwarf32_linenum(const char* filename, int32_t linenumber, int32_t);
 static void dwarf32_output(int, void*);
 static void dwarf32_generate(void);
+static void dwarf32_generate_frame(void);
 static void dwarf32_cleanup(void);
 static void dwarf32_findfile(const char*);
 static void dwarf32_findsect(const int);
@@ -469,6 +493,9 @@ static void elf_cleanup(int debuginfo)
 	if (of_elf32.current_dfmt) {
 		of_elf32.current_dfmt->cleanup();
 	}
+	if (of_elf32.current_dfmt != &df_dwarf &&
+		(framebuf || dwarf_cfi_first))
+		dwarf32_cleanup();
 }
 
 static void add_sectname(rostr firsthalf, rostr secondhalf)
@@ -933,8 +960,8 @@ void elf32_note_output(const uni::CodeendOutput& output)
 	elf_note_arm_mapping(section, output.type);
 }
 
-static void elf_add_reloc(struct Section* sect, int32_t segment, int type,
-	int32_t offset = 0)
+static struct Reloc* elf_add_reloc_at(struct Section* sect, uint32_t address,
+	int32_t segment, int type, int32_t offset = 0)
 {
 	struct Reloc* r;
 
@@ -942,7 +969,7 @@ static void elf_add_reloc(struct Section* sect, int32_t segment, int type,
 	sect->tail = &r->next;
 	r->next = NULL;
 
-	r->address = sect->len;
+	r->address = address;
 	if (segment == NO_SEG)
 		r->symbol = 0;
 	else {
@@ -956,11 +983,23 @@ static void elf_add_reloc(struct Section* sect, int32_t segment, int type,
 	}
 	r->type = type;
 	r->offset = offset;
+	r->symbol_by_location = false;
+	r->symbol_section = NO_SEG;
+	r->symbol_offset = 0;
+	r->symbol_global = false;
 
 	sect->nrelocs++;
+	return r;
 }
 
-static int32_t elf_find_local_reloc_symbol(int32_t segment, int32_t offset)
+static void elf_add_reloc(struct Section* sect, int32_t segment, int type,
+	int32_t offset = 0)
+{
+	elf_add_reloc_at(sect, sect->len, segment, type, offset);
+}
+
+static bool elf_find_reloc_symbol(int32_t segment, int32_t offset,
+	bool global, int32_t& result)
 {
 	int32_t section = SHN_UNDEF;
 	for (int index = 0; index < nsects; index++)
@@ -968,22 +1007,32 @@ static int32_t elf_find_local_reloc_symbol(int32_t segment, int32_t offset)
 			section = index + 1;
 			break;
 		}
-	if (section == SHN_UNDEF) return 0;
+	if (section == SHN_UNDEF) return false;
 
 	int32_t local = 0;
 	struct Symbol* symbol;
 	StrbuffRewind(syms);
 	while ((symbol = (Symbol*)StrbuffEread(syms))) {
-		if (symbol->type & SYM_GLOBAL) continue;
-		if (symbol->section == section && symbol->symv.key == offset)
-			return -(local + 1);
-		local++;
+		bool symbol_global = !!(symbol->type & SYM_GLOBAL);
+		if (symbol_global == global && symbol->section == section &&
+			symbol->symv.key == offset) {
+			result = symbol_global ?
+				GLOBAL_TEMP_BASE + symbol->globnum : -(local + 1);
+			return true;
+		}
+		if (!symbol_global) local++;
 	}
-	return 0;
+	return false;
 }
 
-static bool elf_add_local_reloc(struct Section* sect, int32_t segment,
-	int32_t offset, int type)
+static int32_t elf_find_local_reloc_symbol(int32_t segment, int32_t offset)
+{
+	int32_t symbol = 0;
+	return elf_find_reloc_symbol(segment, offset, false, symbol) ? symbol : 0;
+}
+
+static bool elf_add_local_reloc(struct Section* sect, uint32_t address,
+	int32_t segment, int32_t offset, int type)
 {
 	int32_t symbol = elf_find_local_reloc_symbol(segment, offset);
 	if (!symbol) {
@@ -994,17 +1043,22 @@ static bool elf_add_local_reloc(struct Section* sect, int32_t segment,
 	struct Reloc* relocation = *sect->tail = malcof(Reloc);
 	sect->tail = &relocation->next;
 	relocation->next = NULL;
-	relocation->address = sect->len;
+	relocation->address = address;
 	relocation->symbol = symbol;
 	relocation->type = type;
 	relocation->offset = 0;
+	relocation->symbol_by_location = false;
+	relocation->symbol_section = NO_SEG;
+	relocation->symbol_offset = 0;
+	relocation->symbol_global = false;
 	sect->nrelocs++;
 	return true;
 }
 
-static void elf_add_riscv_relax_reloc(struct Section* sect)
+static void elf_add_riscv_relax_reloc(
+	struct Section* sect, uint32_t address)
 {
-	elf_add_reloc(sect, NO_SEG, R_RISCV_RELAX, 0);
+	elf_add_reloc_at(sect, address, NO_SEG, R_RISCV_RELAX, 0);
 }
 
 static uint64_t arm32_field_mask(unsigned bits)
@@ -1124,56 +1178,6 @@ static void elf32_emit_arm_fixup(const uni::CodeFixup& fixup)
 	elf_sect_write(section, bytes.v, fixup.encoding.storage_bits / 8);
 }
 
-static int riscv_reloc_type(const uni::CodeFixup& fixup)
-{
-	if (fixup.kind == uni::CodeFixupKind::Absolute &&
-		fixup.encoding.storage_bits == 32) return R_RISCV_32;
-	if ((fixup.kind == uni::CodeFixupKind::Call ||
-		fixup.kind == uni::CodeFixupKind::Plt) &&
-		fixup.encoding.storage_bits == 64 &&
-		fixup.encoding.value_bits == 32)
-		return fixup.kind == uni::CodeFixupKind::Plt ?
-			R_RISCV_CALL_PLT : R_RISCV_CALL;
-	if (fixup.kind == uni::CodeFixupKind::Got &&
-		fixup.encoding.storage_bits == 32 &&
-		fixup.encoding.value_bits == 20 &&
-		fixup.encoding.bit_offset == 12) return R_RISCV_GOT_HI20;
-	if (fixup.kind == uni::CodeFixupKind::High &&
-		fixup.encoding.storage_bits == 32 &&
-		fixup.encoding.value_bits == 20 &&
-		fixup.encoding.bit_offset == 12) return R_RISCV_HI20;
-	if (fixup.kind == uni::CodeFixupKind::Low &&
-		fixup.encoding.storage_bits == 32 &&
-		fixup.encoding.value_bits == 12) {
-		if (fixup.encoding.bit_offset == 20) return R_RISCV_LO12_I;
-		if (fixup.encoding.bit_offset == 7) return R_RISCV_LO12_S;
-	}
-	if (fixup.kind == uni::CodeFixupKind::Branch &&
-		fixup.encoding.storage_bits == 32 &&
-		fixup.encoding.value_bits == 13) return R_RISCV_BRANCH;
-	if ((fixup.kind == uni::CodeFixupKind::Branch ||
-		fixup.kind == uni::CodeFixupKind::Call) &&
-		fixup.encoding.storage_bits == 32 &&
-		fixup.encoding.value_bits == 21) return R_RISCV_JAL;
-	if (fixup.kind == uni::CodeFixupKind::Branch &&
-		fixup.encoding.storage_bits == 16 &&
-		fixup.encoding.value_bits == 9) return R_RISCV_RVC_BRANCH;
-	if (fixup.kind == uni::CodeFixupKind::Branch &&
-		fixup.encoding.storage_bits == 16 &&
-		fixup.encoding.value_bits == 12) return R_RISCV_RVC_JUMP;
-	if (fixup.kind == uni::CodeFixupKind::PageRelative &&
-		fixup.encoding.storage_bits == 32 &&
-		fixup.encoding.value_bits == 20 &&
-		fixup.encoding.bit_offset == 12) return R_RISCV_PCREL_HI20;
-	if (fixup.kind == uni::CodeFixupKind::PageOffset &&
-		fixup.encoding.storage_bits == 32 &&
-		fixup.encoding.value_bits == 12) {
-		if (fixup.encoding.bit_offset == 20) return R_RISCV_PCREL_LO12_I;
-		if (fixup.encoding.bit_offset == 7) return R_RISCV_PCREL_LO12_S;
-	}
-	return -1;
-}
-
 static void elf32_emit_riscv_fixup(const uni::CodeFixup& fixup)
 {
 	struct Section* section = NULL;
@@ -1186,18 +1190,21 @@ static void elf32_emit_riscv_fixup(const uni::CodeFixup& fixup)
 		aasm_log(_LOG_PANIC, "RISC-V ELF32 fixup has an invalid section");
 		return;
 	}
-	if (section->len != fixup.offset) {
-		aasm_log(_LOG_PANIC, "RISC-V ELF32 fixup is not at the section end");
-		return;
-	}
 	if (fixup.kind == uni::CodeFixupKind::Alignment) {
+		if (fixup.placement != uni::CodeFixupPlacement::AppendStorage ||
+			section->len != fixup.offset) {
+			aasm_log(_LOG_PANIC,
+				"RISC-V ELF32 alignment fixup is not at the section end");
+			return;
+		}
 		if (fixup.addend <= 0 ||
 			(fixup.initial_value != 2 && fixup.initial_value != 4) ||
 			fixup.addend % static_cast<int64_t>(fixup.initial_value)) {
 			aasm_log(_LOG_ERROR, "invalid RISC-V alignment relocation");
 			return;
 		}
-		elf_add_reloc(section, NO_SEG, R_RISCV_ALIGN,
+		elf_add_reloc_at(section, static_cast<uint32_t>(fixup.offset),
+			NO_SEG, R_RISCV_ALIGN,
 			static_cast<int32_t>(fixup.addend));
 		uint8_t padding[256];
 		size_t instruction_size = static_cast<size_t>(fixup.initial_value);
@@ -1221,45 +1228,88 @@ static void elf32_emit_riscv_fixup(const uni::CodeFixup& fixup)
 		aasm_log(_LOG_ERROR, "RISC-V ELF32 fixup has an invalid target");
 		return;
 	}
-	if ((fixup.kind == uni::CodeFixupKind::PageRelative ||
-		fixup.kind == uni::CodeFixupKind::Got) &&
+	int type = uni::RISCVRelocationType(fixup);
+	if (type < 0) {
+		aasm_log(_LOG_ERROR, "unsupported RISC-V ELF32 relocation");
+		return;
+	}
+	if ((type == R_RISCV_PCREL_HI20 || type == R_RISCV_GOT_HI20) &&
 		(fixup.pair.role != uni::CodeFixupPairRole::Head ||
 		fixup.pair.section != fixup.section ||
 		fixup.pair.offset != fixup.offset)) {
 		aasm_log(_LOG_PANIC, "RISC-V ELF32 high relocation has an invalid pair");
 		return;
 	}
-	if (fixup.kind == uni::CodeFixupKind::PageOffset &&
+	if ((type == R_RISCV_PCREL_LO12_I ||
+		type == R_RISCV_PCREL_LO12_S) &&
 		(fixup.pair.role != uni::CodeFixupPairRole::Tail ||
 		fixup.pair.section != fixup.section ||
 		fixup.pair.offset >= fixup.offset)) {
 		aasm_log(_LOG_PANIC, "RISC-V ELF32 low relocation has an invalid pair");
 		return;
 	}
-	int type = riscv_reloc_type(fixup);
-	if (type < 0) {
-		aasm_log(_LOG_ERROR, "unsupported RISC-V ELF32 relocation");
+	bool unsigned_leb128 = fixup.encoding.form ==
+		uni::CodeFixupEncodingForm::UnsignedLeb128;
+	if (unsigned_leb128 &&
+		fixup.placement != uni::CodeFixupPlacement::ExistingStorage) {
+		aasm_log(_LOG_PANIC,
+			"RISC-V ELF32 ULEB128 relocation must reference existing storage");
+		return;
+	}
+	if (unsigned_leb128 && fixup.kind == uni::CodeFixupKind::Subtract &&
+		fixup.addend != 0) {
+		aasm_log(_LOG_ERROR,
+			"RISC-V ELF32 SUB_ULEB128 relocation has a non-zero addend");
 		return;
 	}
 	LitEndian<uint64_t, true> bytes;
 	bytes = fixup.initial_value;
 	size_t size = fixup.encoding.storage_bits / 8;
-	if (fixup.kind == uni::CodeFixupKind::PageOffset) {
-		if (!elf_add_local_reloc(section, fixup.pair.section,
+	if (fixup.placement == uni::CodeFixupPlacement::AppendStorage) {
+		if (section->len != fixup.offset) {
+			aasm_log(_LOG_PANIC,
+				"RISC-V ELF32 fixup is not at the section end");
+			return;
+		}
+	}
+	else if (fixup.offset > section->len ||
+		size > section->len - fixup.offset) {
+		aasm_log(_LOG_PANIC,
+			"RISC-V ELF32 fixup does not reference existing storage");
+		return;
+	}
+	if (unsigned_leb128) {
+		uint8_t encoded[10];
+		StrbuffPopx(section->data, fixup.offset, encoded, size);
+		for (size_t index = 0; index < size; index++) {
+			bool continuation = !!(encoded[index] & 0x80);
+			if (continuation != (index + 1 < size)) {
+				aasm_log(_LOG_PANIC,
+					"RISC-V ELF32 ULEB128 relocation has invalid storage");
+				return;
+			}
+		}
+	}
+	uint32_t address = static_cast<uint32_t>(fixup.offset);
+	if (type == R_RISCV_PCREL_LO12_I ||
+		type == R_RISCV_PCREL_LO12_S) {
+		if (!elf_add_local_reloc(section, address, fixup.pair.section,
 			static_cast<int32_t>(fixup.pair.offset), type)) return;
 	}
-	else elf_add_reloc(section, fixup.target_section, type,
-		static_cast<int32_t>(fixup.addend));
-	if (fixup.relaxable && (fixup.kind == uni::CodeFixupKind::Branch ||
-		fixup.kind == uni::CodeFixupKind::Call ||
-		fixup.kind == uni::CodeFixupKind::Plt ||
-		fixup.kind == uni::CodeFixupKind::Got ||
-		fixup.kind == uni::CodeFixupKind::High ||
-		fixup.kind == uni::CodeFixupKind::Low ||
-		fixup.kind == uni::CodeFixupKind::PageRelative ||
-		fixup.kind == uni::CodeFixupKind::PageOffset))
-		elf_add_riscv_relax_reloc(section);
-	elf_sect_write(section, bytes.v, size);
+	else {
+		struct Reloc* relocation = elf_add_reloc_at(section, address,
+			fixup.target_section, type, static_cast<int32_t>(fixup.addend));
+		if (fixup.target.kind == uni::CodeFixupTargetKind::Symbol) {
+			relocation->symbol_by_location = true;
+			relocation->symbol_section = fixup.target.section;
+			relocation->symbol_offset = static_cast<int32_t>(fixup.target.offset);
+			relocation->symbol_global = fixup.target.global;
+		}
+	}
+	if (fixup.relaxable && uni::RISCVFixupSupportsRelaxation(fixup))
+		elf_add_riscv_relax_reloc(section, address);
+	if (fixup.placement == uni::CodeFixupPlacement::AppendStorage)
+		elf_sect_write(section, bytes.v, size);
 }
 
 void elf32_emit_fixup(const uni::CodeFixup& fixup)
@@ -1349,6 +1399,10 @@ static int32_t elf_add_gsym_reloc(struct Section* sect,
 	r->symbol = GLOBAL_TEMP_BASE + sym->globnum;
 	r->offset = 0;
 	r->type = type;
+	r->symbol_by_location = false;
+	r->symbol_section = NO_SEG;
+	r->symbol_offset = 0;
+	r->symbol_global = false;
 
 	sect->nrelocs++;
 
@@ -1562,6 +1616,11 @@ static void elf_write(void)
 	int align;
 	char* p;
 	int i;
+	bool has_frame_relocations =
+		elf_machine == EM_RISCV && dwarf_cfi_first != 0;
+	bool frame_with_dwarf = has_frame_relocations &&
+		of_elf32.current_dfmt == &df_dwarf;
+	bool separate_frame = has_frame_relocations && !frame_with_dwarf;
 
 	Strbuff* symtab;
 	int32_t symtablen, symtablocal;
@@ -1588,7 +1647,9 @@ static void elf_write(void)
 	if (of_elf32.current_dfmt == &df_stabs)
 		nsections += 3;
 	else if (of_elf32.current_dfmt == &df_dwarf)
-		nsections += 10;
+		nsections += frame_with_dwarf ? 11 : 10;
+	if (separate_frame)
+		nsections += 2;
 
 	add_sectname("", ".shstrtab");
 	add_sectname("", ".symtab");
@@ -1601,6 +1662,10 @@ static void elf_write(void)
 				sects[i]->name);
 		}
 	}
+	if (separate_frame) {
+		add_sectname("", ".debug_frame");
+		add_sectname(".rela", ".debug_frame");
+	}
 
 	if (of_elf32.current_dfmt == &df_stabs) {
 		/* in case the debug information is wanted, just add these three sections... */
@@ -1612,6 +1677,8 @@ static void elf_write(void)
 		/* the dwarf debug standard specifies the following ten sections,
 		   not all of which are currently implemented,
 		   although all of them are defined. */
+		if (frame_with_dwarf)
+			add_sectname(".rela", ".debug_frame");
 		add_sectname("", ".debug_aranges");
 		add_sectname(".rela", ".debug_aranges");
 		add_sectname("", ".debug_pubnames");
@@ -1707,6 +1774,17 @@ static void elf_write(void)
 			p += StrLength(p) + 1;
 
 		}
+	if (separate_frame) {
+		dwarf32_generate_frame();
+		int frame_section = elf_nsect;
+		elf_section_header(p - shstrtab, SHT_PROGBITS, 0,
+			framebuf, false, framelen, 0, 0, 4, 0);
+		p += StrLength(p) + 1;
+		elf_section_header(p - shstrtab, SHT_RELA, 0,
+			framerelbuf, true, framerellen, sec_symtab,
+			frame_section, 4, 12);
+		p += StrLength(p) + 1;
+	}
 
 	if (of_elf32.current_dfmt == &df_stabs) {
 		/* for debugging information, create the last three sections
@@ -1736,6 +1814,13 @@ static void elf_write(void)
 		/* this function call creates the dwarf sections in memory */
 		if (dwarf_fsect)
 			dwarf32_generate();
+
+		if (frame_with_dwarf) {
+			elf_section_header(p - shstrtab, SHT_RELA, 0,
+				framerelbuf, true, framerellen, sec_symtab,
+				sec_debug_frame, 4, 12);
+			p += StrLength(p) + 1;
+		}
 
 		elf_section_header(p - shstrtab, SHT_PROGBITS, 0, arangesbuf, false,
 			arangeslen, 0, 0, 1, 0);
@@ -1915,6 +2000,13 @@ static Strbuff* elf_build_reltab(int32_t* len, struct Reloc* r)
 
 	while (r) {
 		int32_t sym = r->symbol;
+		if (r->symbol_by_location && !elf_find_reloc_symbol(
+			r->symbol_section, r->symbol_offset,
+			r->symbol_global, sym)) {
+			aasm_log(_LOG_PANIC,
+				"RISC-V ELF32 relocation target symbol was not emitted");
+			sym = 0;
+		}
 
 		/*
 		 * Create a real symbol index; the +2 refers to the two special
@@ -2084,6 +2176,129 @@ static void debug32_deflabel(char* name, int32_t segment, int64_t offset, int is
 	(void)offset;
 	(void)is_global;
 	(void)special;
+}
+
+static bool dwarf32_parse_cfa_offset(const char* params, uint32_t& value)
+{
+	while (ascii_isspace(*params)) params++;
+	if (!aasm_isdigit(*params)) return false;
+	uint64_t parsed = 0;
+	while (aasm_isdigit(*params)) {
+		parsed = parsed * 10 + (*params++ - '0');
+		if (parsed > UINT32_MAX) return false;
+	}
+	while (ascii_isspace(*params)) params++;
+	if (*params) return false;
+	value = static_cast<uint32_t>(parsed);
+	return true;
+}
+
+static bool dwarf32_add_cfi_symbol(int32_t segment, uint64_t offset)
+{
+	if (offset > UINT32_MAX) return false;
+	int32_t unused;
+	if (elf_find_reloc_symbol(segment, static_cast<int32_t>(offset),
+		false, unused)) return true;
+	int32_t section = SHN_UNDEF;
+	for (int index = 0; index < nsects; index++)
+		if (segment == sects[index]->index) {
+			section = index + 1;
+			break;
+		}
+	if (section == SHN_UNDEF) return false;
+	Symbol* symbol = (Symbol*)StrbuffEalloc(syms);
+	MemSet(symbol, 0, sizeof(*symbol));
+	symbol->section = section;
+	symbol->type = STT_NOTYPE;
+	symbol->other = STV_DEFAULT;
+	symbol->symv.key = static_cast<int32_t>(offset);
+	nlocals++;
+	return true;
+}
+
+bool elf32_process_cfi(const uni::CodeendDebugDirective& directive_info)
+{
+	const char* directive = directive_info.name;
+	const char* params = directive_info.parameters;
+	int32_t section = directive_info.section;
+	uint64_t offset = directive_info.offset;
+	if (StrCompareInsensitive(directive, "cfi_startproc") == 0) {
+		if (elf_machine != EM_RISCV) {
+			aasm_log(_LOG_ERROR,
+				"CFI directives are not supported by this ELF32 target");
+			return true;
+		}
+		if (dwarf_cfi_current && !dwarf_cfi_current->closed) {
+			aasm_log(_LOG_ERROR, "nested CFI procedures are not supported");
+			return true;
+		}
+		if (!dwarf32_add_cfi_symbol(section, offset)) {
+			aasm_log(_LOG_ERROR, "invalid ELF32 CFI location");
+			return true;
+		}
+		DwarfCFIProcedure32* procedure = malcof(DwarfCFIProcedure32);
+		procedure->next = 0;
+		procedure->section = section;
+		procedure->begin = offset;
+		procedure->end = offset;
+		procedure->first = 0;
+		procedure->tail = &procedure->first;
+		procedure->closed = false;
+		*dwarf_cfi_tail = procedure;
+		dwarf_cfi_tail = &procedure->next;
+		dwarf_cfi_current = procedure;
+		return true;
+	}
+	if (StrCompareInsensitive(directive, "cfi_def_cfa_offset") == 0) {
+		if (!dwarf_cfi_current || dwarf_cfi_current->closed) {
+			aasm_log(_LOG_ERROR,
+				"CFI CFA offset appears outside a procedure");
+			return true;
+		}
+		if (section != dwarf_cfi_current->section ||
+			offset < dwarf_cfi_current->begin) {
+			aasm_log(_LOG_ERROR,
+				"CFI procedure cannot cross ELF sections");
+			return true;
+		}
+		uint32_t cfa_offset;
+		if (!dwarf32_parse_cfa_offset(params, cfa_offset)) {
+			aasm_log(_LOG_ERROR, "invalid CFI CFA offset");
+			return true;
+		}
+		if (!dwarf32_add_cfi_symbol(section, offset)) {
+			aasm_log(_LOG_ERROR, "invalid ELF32 CFI location");
+			return true;
+		}
+		DwarfCFIEvent32* event = malcof(DwarfCFIEvent32);
+		event->next = 0;
+		event->offset = offset;
+		event->cfa_offset = cfa_offset;
+		*dwarf_cfi_current->tail = event;
+		dwarf_cfi_current->tail = &event->next;
+		return true;
+	}
+	if (StrCompareInsensitive(directive, "cfi_endproc") == 0) {
+		if (!dwarf_cfi_current || dwarf_cfi_current->closed) {
+			aasm_log(_LOG_ERROR, "CFI end appears outside a procedure");
+			return true;
+		}
+		if (section != dwarf_cfi_current->section ||
+			offset < dwarf_cfi_current->begin) {
+			aasm_log(_LOG_ERROR,
+				"CFI procedure cannot cross ELF sections");
+			return true;
+		}
+		if (!dwarf32_add_cfi_symbol(section, offset)) {
+			aasm_log(_LOG_ERROR, "invalid ELF32 CFI location");
+			return true;
+		}
+		dwarf_cfi_current->end = offset;
+		dwarf_cfi_current->closed = true;
+		dwarf_cfi_current = 0;
+		return true;
+	}
+	return false;
 }
 
 static void debug32_directive(const char* directive, const char* params)
@@ -2456,6 +2671,170 @@ static void dwarf32_output(int type, void* param)
 	}
 }
 
+static int dwarf32_frame_relocation_type(
+	uni::CodeFixupKind kind, unsigned storage_bits, unsigned value_bits)
+{
+	uni::CodeFixup fixup {};
+	fixup.kind = kind;
+	fixup.encoding.storage_bits = static_cast<uint16_t>(storage_bits);
+	fixup.encoding.value_bits = static_cast<uint16_t>(value_bits);
+	int type = uni::RISCVRelocationType(fixup);
+	if (type < 0)
+		aasm_log(_LOG_PANIC, "invalid RISC-V ELF32 CFI relocation");
+	return type;
+}
+
+static void dwarf32_add_frame_relocation(uint32_t address,
+	int32_t section, int32_t offset, int type)
+{
+	Reloc* relocation = *framereltail = malcof(Reloc);
+	framereltail = &relocation->next;
+	relocation->next = 0;
+	relocation->address = address;
+	relocation->symbol = 0;
+	relocation->offset = 0;
+	relocation->type = type;
+	relocation->symbol_by_location = true;
+	relocation->symbol_section = section;
+	relocation->symbol_offset = offset;
+	relocation->symbol_global = false;
+}
+
+static void dwarf32_append_frame_record(Strbuff* frame, Strbuff* body)
+{
+	while ((body->total_len + 4) & 3)
+		StrbuffSend8(body, 0);
+	StrbuffSend32(frame, body->total_len);
+	size_t length = body->total_len;
+	uint8_t bytes[256];
+	while (length) {
+		size_t chunk = length < sizeof(bytes) ? length : sizeof(bytes);
+		StrbuffPop(body, bytes, chunk);
+		StrbuffSend(frame, bytes, chunk);
+		length -= chunk;
+	}
+	StrbuffFree(body);
+}
+
+static void dwarf32_emit_frame_advance(Strbuff* body,
+	uint32_t record_start, int32_t section,
+	uint64_t begin, uint64_t end)
+{
+	if (end < begin || end - begin > UINT32_MAX) {
+		aasm_log(_LOG_ERROR, "RISC-V ELF32 CFI advance is out of range");
+		return;
+	}
+	uint32_t delta = static_cast<uint32_t>(end - begin);
+	unsigned storage_bits;
+	unsigned value_bits;
+	uint32_t relocation_address;
+	if (delta <= 0x3f) {
+		relocation_address = record_start + 4 + body->total_len;
+		StrbuffSend8(body, DW_CFA_advance_loc | delta);
+		storage_bits = 8;
+		value_bits = 6;
+	}
+	else if (delta <= UINT8_MAX) {
+		StrbuffSend8(body, DW_CFA_advance_loc1);
+		relocation_address = record_start + 4 + body->total_len;
+		StrbuffSend8(body, delta);
+		storage_bits = value_bits = 8;
+	}
+	else if (delta <= UINT16_MAX) {
+		StrbuffSend8(body, DW_CFA_advance_loc2);
+		relocation_address = record_start + 4 + body->total_len;
+		StrbuffSend16(body, delta);
+		storage_bits = value_bits = 16;
+	}
+	else {
+		StrbuffSend8(body, DW_CFA_advance_loc4);
+		relocation_address = record_start + 4 + body->total_len;
+		StrbuffSend32(body, delta);
+		storage_bits = value_bits = 32;
+	}
+	dwarf32_add_frame_relocation(relocation_address, section,
+		static_cast<int32_t>(end), dwarf32_frame_relocation_type(
+			uni::CodeFixupKind::Set, storage_bits, value_bits));
+	dwarf32_add_frame_relocation(relocation_address, section,
+		static_cast<int32_t>(begin), dwarf32_frame_relocation_type(
+			uni::CodeFixupKind::Subtract, storage_bits, value_bits));
+}
+
+static void dwarf32_generate_frame(void)
+{
+	Strbuff* frame = StrbuffNew(1L);
+	if (!dwarf_cfi_first) {
+		StrbuffSend32(frame, 0);
+	}
+	else {
+		Strbuff* cie = StrbuffNew(1L);
+		StrbuffSend32(cie, UINT32_MAX);
+		StrbuffSend8(cie, 3);
+		StrbuffSend8(cie, 0);
+		StrbuffSendWleb128u(cie, 1);
+		StrbuffSendWleb128s(cie, -4);
+		StrbuffSendWleb128u(cie, 1);
+		StrbuffSend8(cie, DW_CFA_def_cfa);
+		StrbuffSendWleb128u(cie, 2);
+		StrbuffSendWleb128u(cie, 0);
+		dwarf32_append_frame_record(frame, cie);
+
+		for (DwarfCFIProcedure32* procedure = dwarf_cfi_first;
+			procedure; procedure = procedure->next) {
+			if (!procedure->closed) {
+				aasm_log(_LOG_ERROR, "unterminated CFI procedure");
+				continue;
+			}
+			if (procedure->begin > UINT32_MAX ||
+				procedure->end > UINT32_MAX) {
+				aasm_log(_LOG_ERROR,
+					"RISC-V ELF32 CFI procedure is out of range");
+				continue;
+			}
+			uint32_t record_start = frame->total_len;
+			Strbuff* fde = StrbuffNew(1L);
+			StrbuffSend32(fde, 0);
+			uint32_t initial_location = record_start + 4 + fde->total_len;
+			StrbuffSend32(fde, 0);
+			dwarf32_add_frame_relocation(initial_location,
+				procedure->section, static_cast<int32_t>(procedure->begin),
+				R_RISCV_32);
+			uint32_t range_location = record_start + 4 + fde->total_len;
+			StrbuffSend32(fde, 0);
+			dwarf32_add_frame_relocation(range_location,
+				procedure->section, static_cast<int32_t>(procedure->end),
+				R_RISCV_ADD32);
+			dwarf32_add_frame_relocation(range_location,
+				procedure->section, static_cast<int32_t>(procedure->begin),
+				R_RISCV_SUB32);
+
+			uint64_t previous = procedure->begin;
+			for (DwarfCFIEvent32* event = procedure->first;
+				event; event = event->next) {
+				if (event->offset < previous || event->offset > procedure->end) {
+					aasm_log(_LOG_ERROR,
+						"RISC-V ELF32 CFI events are not ordered");
+					continue;
+				}
+				if (event->offset != previous)
+					dwarf32_emit_frame_advance(fde, record_start,
+						procedure->section, previous, event->offset);
+				StrbuffSend8(fde, DW_CFA_def_cfa_offset);
+				StrbuffSendWleb128u(fde, event->cfa_offset);
+				previous = event->offset;
+			}
+			dwarf32_append_frame_record(frame, fde);
+		}
+	}
+	framelen = frame->total_len;
+	framebuf = (uint8_t*)malc(framelen);
+	size_t length = framelen;
+	StrbuffPop(frame, framebuf, length);
+	StrbuffFree(frame);
+	if (framerelhead)
+		framerelbuf = elf_build_reltab(&framerellen, framerelhead);
+}
+
 
 static void dwarf32_generate(void)
 {
@@ -2696,11 +3075,7 @@ static void dwarf32_generate(void)
 	StrbuffFree(plinesrel);
 
 	/* build frame section */
-	framelen = 4;
-	framebuf = pbuf = (uint8*)malc(framelen);
-	field32 = (LitEndian<uint32_t, true>*)pbuf;
-	*field32 = framelen - 4;		/* initial length */
-	pbuf += sizeof(*field32);
+	dwarf32_generate_frame();
 
 	/* build loc section */
 	loclen = 16;
@@ -2731,6 +3106,29 @@ static void dwarf32_cleanup(void)
 		memf(linerelbuf);
 	if (framebuf)
 		memf(framebuf);
+	framebuf = 0;
+	if (framerelbuf)
+		StrbuffFree(framerelbuf);
+	framerelbuf = 0;
+	framerellen = 0;
+	while (framerelhead) {
+		Reloc* relocation = framerelhead;
+		framerelhead = relocation->next;
+		memf(relocation);
+	}
+	framereltail = &framerelhead;
+	while (dwarf_cfi_first) {
+		DwarfCFIProcedure32* procedure = dwarf_cfi_first;
+		dwarf_cfi_first = procedure->next;
+		while (procedure->first) {
+			DwarfCFIEvent32* event = procedure->first;
+			procedure->first = event->next;
+			memf(event);
+		}
+		memf(procedure);
+	}
+	dwarf_cfi_tail = &dwarf_cfi_first;
+	dwarf_cfi_current = 0;
 	if (locbuf)
 		memf(locbuf);
 }

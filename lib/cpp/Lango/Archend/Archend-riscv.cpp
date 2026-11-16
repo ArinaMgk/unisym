@@ -73,6 +73,25 @@ constexpr uint32_t Extension(RISCVExtension extension)
 	return RISCVExtensionMask(extension);
 }
 
+enum class RISCVDataRelocationStatement {
+	None,
+	PcRelative,
+	Got,
+	Plt
+};
+
+RISCVDataRelocationStatement ParseDataRelocationStatement(
+	const char* mnemonic)
+{
+	if (!StrCompareInsensitive(mnemonic, "pcrel32"))
+		return RISCVDataRelocationStatement::PcRelative;
+	if (!StrCompareInsensitive(mnemonic, "got32"))
+		return RISCVDataRelocationStatement::Got;
+	if (!StrCompareInsensitive(mnemonic, "plt32"))
+		return RISCVDataRelocationStatement::Plt;
+	return RISCVDataRelocationStatement::None;
+}
+
 }
 
 const ArchendInfo& ArchendRISCV::DumpArchend() const
@@ -154,8 +173,67 @@ bool ArchendRISCV::ProcessArchitectureStatement(AssemblySession& session,
 	char saved = *end;
 	*end = '\0';
 	bool alignment_statement = !StrCompareInsensitive(mnemonic, "ralign");
+	RISCVDataRelocationStatement data_statement =
+		ParseDataRelocationStatement(mnemonic);
 	*end = saved;
-	if (!alignment_statement) return false;
+	if (!alignment_statement &&
+		data_statement == RISCVDataRelocationStatement::None) return false;
+
+	if (data_statement != RISCVDataRelocationStatement::None) {
+		stdscan_reset();
+		stdscan_bufptr = SkipSpace(end);
+		struct tokenval token;
+		token.t_type = TOKEN_INVALID;
+		EvalRelocExpression relocation {};
+		expr* value = EvaluateRelocExpression(common_stdscan, nullptr, &token,
+			nullptr, parse_pass == 2 ? 2 : 0, nullptr, relocation);
+		if (!value || token.t_type != TOKEN_EOS) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V 32-bit data relocation expects one expression");
+			result.valid = false;
+			return true;
+		}
+		result.size = repeat * 4;
+		if (parse_pass == 1) return true;
+		if (!relocation.Available || relocation.TermCount != 1 ||
+			relocation.Terms[0].Coefficient != 1) {
+			aasm_log(_LOG_ERROR,
+				"RISC-V 32-bit data relocation expects a symbol plus an addend");
+			result.valid = false;
+			return true;
+		}
+		const EvalRelocTerm& target = relocation.Terms[0];
+		uni::CodeFixupKind kind = uni::CodeFixupKind::PcRelative;
+		if (data_statement == RISCVDataRelocationStatement::Got)
+			kind = uni::CodeFixupKind::Got;
+		else if (data_statement == RISCVDataRelocationStatement::Plt)
+			kind = uni::CodeFixupKind::Plt;
+		for (int64_t index = 0; index < repeat; index++) {
+			uni::CodeFixup fixup {};
+			fixup.section = session.Location.segment;
+			fixup.offset = static_cast<uint64_t>(
+				session.Location.offset + index * 4);
+			fixup.kind = kind;
+			fixup.encoding.storage_bits = 32;
+			fixup.encoding.value_bits = 32;
+			fixup.encoding.signed_value = true;
+			fixup.target_section = target.Section;
+			fixup.addend = relocation.Constant;
+			fixup.legacy_wrt = NO_SEG;
+			fixup.architecture_kind =
+				static_cast<uint32_t>(ArchitectureKind::RISCV);
+			if (!target.External) {
+				fixup.target.kind = uni::CodeFixupTargetKind::Symbol;
+				fixup.target.section = target.Section;
+				fixup.target.offset = target.Offset;
+				fixup.target.global = target.Global;
+			}
+			session.Listing->EmitFixup(fixup);
+			SetStatementDebugLine(session);
+			session.Options->Target.Codeend().EmitFixup(fixup);
+		}
+		return true;
+	}
 
 	if (repeat != 1) {
 		aasm_log(_LOG_ERROR, "RALIGN does not support TIMES");
@@ -247,7 +325,9 @@ bool ArchendRISCV::ProcessArchitectureStatement(AssemblySession& session,
 
 bool ArchendRISCV::IsArchitectureStatementStart(const char* word) const
 {
-	return !StrCompareInsensitive(word, "ralign");
+	return !StrCompareInsensitive(word, "ralign") ||
+		ParseDataRelocationStatement(word) !=
+			RISCVDataRelocationStatement::None;
 }
 
 bool ArchendRISCV::IsInstructionStart(const char* word) const

@@ -16,6 +16,7 @@ namespace {
 enum class CommonStatementKind {
 	None,
 	Data,
+	UnsignedLeb128,
 	Reserve,
 	Incbin
 };
@@ -34,7 +35,12 @@ struct DataItem {
 	size_t Length;
 	int64_t Offset;
 	int32_t Section;
+	int32_t SubtractSection;
 	int32_t Wrt;
+	bool SymbolDifference;
+	uint64_t UnsignedValue;
+	EvalRelocTerm AddTerm;
+	EvalRelocTerm SubtractTerm;
 };
 
 char* SkipSpace(char* text)
@@ -57,7 +63,8 @@ bool IsCommonStatementStart(const char* word)
 {
 	static const char* const words[] = {
 		"db", "dd", "do", "dq", "dt", "dw", "dy", "equ", "incbin",
-		"resb", "resd", "reso", "resq", "rest", "resw", "resy", "times"
+		"resb", "resd", "reso", "resq", "rest", "resw", "resy", "times",
+		"uleb128"
 	};
 	for (const char* candidate : words)
 		if (!StrCompareInsensitive(word, candidate)) return true;
@@ -110,6 +117,8 @@ CommonStatementKind ClassifyCommonStatement(
 		{"dt", CommonStatementKind::Data, AssemblyDataWidth::Bits80},
 		{"do", CommonStatementKind::Data, AssemblyDataWidth::Bits128},
 		{"dy", CommonStatementKind::Data, AssemblyDataWidth::Bits256},
+		{"uleb128", CommonStatementKind::UnsignedLeb128,
+			AssemblyDataWidth::Bits8},
 		{"resb", CommonStatementKind::Reserve, AssemblyDataWidth::Bits8},
 		{"resw", CommonStatementKind::Reserve, AssemblyDataWidth::Bits16},
 		{"resd", CommonStatementKind::Reserve, AssemblyDataWidth::Bits32},
@@ -174,12 +183,18 @@ void EmitStatementData(AssemblySession& session, int64_t offset,
 }
 
 void EmitStatementFixup(AssemblySession& session, int64_t offset,
-	int64_t addend, size_t size, int32_t target_section, int32_t wrt)
+	int64_t addend, size_t size, int32_t target_section, int32_t wrt,
+	uni::CodeFixupKind kind = uni::CodeFixupKind::Absolute,
+	uni::CodeFixupPlacement placement =
+		uni::CodeFixupPlacement::AppendStorage,
+	const EvalRelocTerm* target_symbol = nullptr,
+	uni::CodeFixupEncodingForm encoding_form =
+		uni::CodeFixupEncodingForm::FixedWidth)
 {
 	uni::CodeFixup fixup {
 		session.Location.segment,
 		static_cast<uint64_t>(offset),
-		uni::CodeFixupKind::Absolute,
+		kind,
 		{
 			static_cast<uint16_t>(size * 8),
 			static_cast<uint16_t>(size * 8),
@@ -197,14 +212,36 @@ void EmitStatementFixup(AssemblySession& session, int64_t offset,
 		static_cast<uint32_t>(
 			session.ActiveArchend->DumpArchend().architecture)
 	};
+	fixup.placement = placement;
+	fixup.encoding.form = encoding_form;
+	if (target_symbol && !target_symbol->External) {
+		fixup.target.kind = uni::CodeFixupTargetKind::Symbol;
+		fixup.target.section = target_symbol->Section;
+		fixup.target.offset = target_symbol->Offset;
+		fixup.target.global = target_symbol->Global;
+	}
 	session.Listing->EmitFixup(fixup);
 	SetStatementDebugLine(session);
 	session.Options->Target.Codeend().EmitFixup(fixup);
 }
 
-int64_t DataItemSize(const DataItem& item, size_t width)
+size_t EncodeUnsignedLeb128(uint64_t value, uint8_t* output)
 {
-	if (item.Kind == DataItemKind::Number) return width;
+	size_t length = 0;
+	do {
+		uint8_t byte = static_cast<uint8_t>(value & 0x7f);
+		value >>= 7;
+		if (value) byte |= 0x80;
+		output[length++] = byte;
+	} while (value);
+	return length;
+}
+
+int64_t DataItemSize(const DataItem& item, size_t width,
+	bool unsigned_leb128)
+{
+	if (item.Kind == DataItemKind::Number)
+		return unsigned_leb128 ? item.Length : width;
 	if (item.Kind == DataItemKind::String ||
 		item.Kind == DataItemKind::OwnedString) {
 		size_t padding = item.Length % width;
@@ -228,6 +265,28 @@ bool ReadRelocatableExpression(expr* value, int opflags,
 	section = reloc_seg(value);
 	offset = reloc_value(value);
 	wrt = reloc_wrt(value);
+	return true;
+}
+
+bool ReadDifferenceExpression(const EvalRelocExpression& value,
+	int64_t& offset, EvalRelocTerm& add, EvalRelocTerm& subtract)
+{
+	if (!value.Available || value.TermCount != 2)
+		return false;
+	const EvalRelocTerm* add_term = nullptr;
+	const EvalRelocTerm* subtract_term = nullptr;
+	for (size_t index = 0; index < value.TermCount; index++) {
+		if (value.Terms[index].Coefficient == 1 && !add_term)
+			add_term = &value.Terms[index];
+		else if (value.Terms[index].Coefficient == -1 && !subtract_term)
+			subtract_term = &value.Terms[index];
+		else return false;
+	}
+	if (!add_term || !subtract_term)
+		return false;
+	offset = value.Constant;
+	add = *add_term;
+	subtract = *subtract_term;
 	return true;
 }
 
@@ -457,6 +516,7 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 	if (kind == CommonStatementKind::None) return false;
 
 	size_t width_bytes = DataBytes(width);
+	bool unsigned_leb128 = kind == CommonStatementKind::UnsignedLeb128;
 	uni::CodeendInterface& codeend = Session.Options->Target.Codeend();
 
 	if (kind == CommonStatementKind::Reserve) {
@@ -593,7 +653,8 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 	while ((current = common_stdscan(nullptr, &token)) != TOKEN_EOS) {
 		DataItem* item = (DataItem*)malc(sizeof(DataItem));
 		MemSet(item, 0, sizeof(DataItem));
-		item->Section = item->Wrt = NO_SEG;
+		item->Section = item->SubtractSection = item->Wrt = NO_SEG;
+		item->AddTerm.Section = item->SubtractTerm.Section = NO_SEG;
 		*tail = item;
 		tail = &item->Next;
 		operand_number++;
@@ -635,6 +696,7 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 			}
 		}
 		else {
+			int64_t evaluated_value = 0;
 			if (current == '-' || current == '+') {
 				char* saved_cursor = stdscan_bufptr;
 				int sign_token = current;
@@ -663,18 +725,30 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 				current = common_stdscan(nullptr, &token);
 			}
 			else {
-				expr* value = eval_evaluate(common_stdscan, nullptr, &token,
+				EvalRelocExpression relocation;
+				expr* value = EvaluateRelocExpression(
+					common_stdscan, nullptr, &token,
 					nullptr, kind == CommonStatementKind::Incbin ? 2 :
-					(parse_pass == 2 ? 2 : 0), nullptr);
+					(parse_pass == 2 ? 2 : 0), nullptr, relocation);
 				current = token.t_type;
 				if (!value) {
 					FreeDataItems(first);
 					result.valid = false;
 					return true;
 				}
+				evaluated_value = is_unknown(value) ? 0 : reloc_value(value);
 				if (is_unknown(value)) {
 					item->Kind = DataItemKind::Number;
 					item->Offset = 0;
+				}
+				else if (Session.ActiveArchend->DumpArchend().architecture ==
+					uni::lango::ArchitectureKind::RISCV &&
+					ReadDifferenceExpression(relocation, item->Offset,
+						item->AddTerm, item->SubtractTerm)) {
+					item->Kind = DataItemKind::Number;
+					item->Section = item->AddTerm.Section;
+					item->SubtractSection = item->SubtractTerm.Section;
+					item->SymbolDifference = true;
 				}
 				else if (is_reloc(value)) {
 					item->Kind = DataItemKind::Number;
@@ -687,7 +761,40 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 						"operand %d: expression is not simple or relocatable",
 						operand_number);
 				}
+				if (unsigned_leb128 && item->Kind == DataItemKind::Number) {
+					if (item->SymbolDifference &&
+						(item->AddTerm.External || item->SubtractTerm.External ||
+						item->Section != item->SubtractSection)) {
+						aasm_log(_LOG_ERROR,
+							"ULEB128 requires a local same-section symbol difference");
+						item->Kind = DataItemKind::None;
+					}
+					else if (!item->SymbolDifference &&
+						(item->Section != NO_SEG || item->Wrt != NO_SEG)) {
+						aasm_log(_LOG_ERROR,
+							"ULEB128 only supports constants or symbol differences");
+						item->Kind = DataItemKind::None;
+					}
+					else {
+						if (evaluated_value < 0 && parse_pass == 2) {
+							aasm_log(_LOG_ERROR,
+								"ULEB128 value cannot be negative");
+							item->Kind = DataItemKind::None;
+						}
+						item->UnsignedValue = evaluated_value < 0 ? 0 :
+							static_cast<uint64_t>(evaluated_value);
+						uint8_t encoded[10];
+						item->Length = EncodeUnsignedLeb128(
+							item->UnsignedValue, encoded);
+					}
+				}
 			}
+		}
+
+		if (unsigned_leb128 && item->Kind != DataItemKind::Number &&
+			item->Kind != DataItemKind::None) {
+			aasm_log(_LOG_ERROR, "ULEB128 expects an integer expression");
+			item->Kind = DataItemKind::None;
 		}
 
 		if (current == TOKEN_EOS) break;
@@ -706,13 +813,13 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 
 	int64_t single_size = 0;
 	for (DataItem* item = first; item; item = item->Next)
-		single_size += DataItemSize(*item, width_bytes);
+		single_size += DataItemSize(*item, width_bytes, unsigned_leb128);
 	result.size = single_size * repeat;
 
 	if (parse_pass == 1) {
 		if (using_debug_info)
-			codeend.SetDebugType(TYS_ELEMENTS(operand_number) |
-				DataDebugType(width, floating));
+			codeend.SetDebugType(unsigned_leb128 ? TY_LABEL :
+				(TYS_ELEMENTS(operand_number) | DataDebugType(width, floating)));
 		FreeDataItems(first);
 		return true;
 	}
@@ -721,7 +828,41 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 	for (int64_t iteration = 0; iteration < repeat; iteration++) {
 		for (DataItem* item = first; item; item = item->Next) {
 			if (item->Kind == DataItemKind::Number) {
-				if (width_bytes == 1 &&
+				if (unsigned_leb128) {
+					uint8_t encoded[10];
+					size_t length = EncodeUnsignedLeb128(
+						item->UnsignedValue, encoded);
+					EmitStatementData(Session, output_offset, encoded,
+						uni::CodeendOutputType::RawData, length);
+					if (item->SymbolDifference) {
+						EmitStatementFixup(Session, output_offset, item->Offset,
+							length, item->Section, NO_SEG,
+							uni::CodeFixupKind::Set,
+							uni::CodeFixupPlacement::ExistingStorage,
+							&item->AddTerm,
+							uni::CodeFixupEncodingForm::UnsignedLeb128);
+						EmitStatementFixup(Session, output_offset, 0,
+							length, item->SubtractSection, NO_SEG,
+							uni::CodeFixupKind::Subtract,
+							uni::CodeFixupPlacement::ExistingStorage,
+							&item->SubtractTerm,
+							uni::CodeFixupEncodingForm::UnsignedLeb128);
+					}
+					output_offset += length;
+				}
+				else if (item->SymbolDifference && width_bytes <= 8) {
+					EmitStatementFixup(Session, output_offset, item->Offset,
+						width_bytes, item->Section, NO_SEG,
+						uni::CodeFixupKind::Add,
+						uni::CodeFixupPlacement::AppendStorage,
+						&item->AddTerm);
+					EmitStatementFixup(Session, output_offset, 0,
+						width_bytes, item->SubtractSection, NO_SEG,
+						uni::CodeFixupKind::Subtract,
+						uni::CodeFixupPlacement::ExistingStorage,
+						&item->SubtractTerm);
+				}
+				else if (width_bytes == 1 &&
 					(item->Section != NO_SEG || item->Wrt != NO_SEG)) {
 					aasm_log(_LOG_ERROR, "one-byte relocation attempted");
 				}
@@ -744,7 +885,7 @@ bool AssemblyStatementParser::ProcessCommonStatement(
 					EmitStatementData(Session, output_offset, converted.v,
 						uni::CodeendOutputType::RawData, width_bytes);
 				}
-				output_offset += width_bytes;
+				if (!unsigned_leb128) output_offset += width_bytes;
 			}
 			else if (item->Kind == DataItemKind::String ||
 				item->Kind == DataItemKind::OwnedString) {

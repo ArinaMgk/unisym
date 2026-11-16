@@ -60,11 +60,20 @@ namespace uni {
 		//
 		bool Enlarge(stduint to_limit = 0) {
 			type0* last = addr;
-			const stduint cookie = alignof(type0) > sizeof(size_t) ? alignof(type0) : sizeof(size_t);
-			const stduint maximum = (~stduint(0) - cookie) / sizeof(type0);
+			constexpr stduint cookie = alignof(type0) > sizeof(size_t) ? alignof(type0) : sizeof(size_t);
+			// GCC's default allocation-size limit is PTRDIFF_MAX, including array overhead.
+			#if defined(__PTRDIFF_MAX__)
+			constexpr stduint object_limit = __PTRDIFF_MAX__;
+			#elif defined(PTRDIFF_MAX)
+			constexpr stduint object_limit = PTRDIFF_MAX;
+			#else
+			constexpr stduint object_limit = sizeof(ptrdiff_t) > sizeof(stduint) ? stduint(-1) :
+				stduint(-1) >> (1 + (sizeof(stduint) - sizeof(ptrdiff_t)) * CHAR_BIT);
+			#endif
+			constexpr stduint maximum = cookie < object_limit ? (object_limit - cookie) / sizeof(type0) : 0;
 			if (!to_limit) {
 				if (limit >= maximum) return false;
-				to_limit = limit < (maximum - 2) / 2 ? (limit + 1) * 2 : maximum;// dosconio method (0)(2)(6)(14)(30)...
+				to_limit = limit + 1 <= maximum / 2 ? (limit + 1) * 2 : maximum;// dosconio method (0)(2)(6)(14)(30)...
 			}
 			if (to_limit <= limit) return true;
 			if (to_limit > maximum) return false;

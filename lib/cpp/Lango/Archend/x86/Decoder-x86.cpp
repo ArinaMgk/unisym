@@ -5,46 +5,12 @@
 
 #include "../../../../../inc/c/stdinc.h"
 #include "../../../../../inc/cpp/Lango/Archend/Archend-x86.hpp"
-#include "../../../../../inc/cpp/Lango/Archend/x86/Instruction-x86.hpp"
+#include "../../../../../inc/cpp/Lango/Archend/x86/Decoder-x86.hpp"
 extern "C" {
 #include "../../../../../inc/cpp/Lango/Archend/x86/data/regdis.h"
 }
 
 namespace {
-
-/*
- * Flags that go into the `segment' field of `insn' structures
- * during disassembly.
- */
-#define SEG_RELATIVE	  1
-#define SEG_32BIT	  2
-#define SEG_RMREG	  4
-#define SEG_DISP8	  8
-#define SEG_DISP16	 16
-#define SEG_DISP32	 32
-#define SEG_NODISP	 64
-#define SEG_SIGNED	128
-#define SEG_64BIT	256
-
-/*
- * Prefix information
- */
-struct prefix_info {
-	uint8_t osize;		/* Operand size */
-	uint8_t asize;		/* Address size */
-	uint8_t osp;		/* Operand size prefix present */
-	uint8_t asp;		/* Address size prefix present */
-	uint8_t rep;		/* Rep prefix present */
-	uint8_t seg;		/* Segment override prefix present */
-	uint8_t wait;		/* WAIT "prefix" present */
-	uint8_t lock;		/* Lock prefix present */
-	uint8_t vex[3];		/* VEX prefix present */
-	uint8_t vex_c;		/* VEX "class" (VEX, XOP, ...) */
-	uint8_t vex_m;		/* VEX.M field */
-	uint8_t vex_v;
-	uint8_t vex_lp;		/* VEX.LP fields */
-	uint32_t rex;		/* REX prefix present */
-};
 
 #define getu8(x) (*(uint8_t *)(x))
 #if X86_MEMORY
@@ -72,282 +38,6 @@ static uint64_t getu64(uint8_t *data)
 #define gets32(x) ((int32_t)getu32(x))
 #define gets64(x) ((int64_t)getu64(x))
 
-/* Important: regval must already have been adjusted for rex extensions */
-static enum reg_enum whichreg(int32_t regflags, int regval, int rex)
-{
-	if (!(regflags & (REGISTER|REGMEM)))
-	return R_zero;		/* Registers not permissible?! */
-
-	regflags |= REGISTER;
-
-	if (!(REG_AL & ~regflags))
-		return R_AL;
-	if (!(REG_AX & ~regflags))
-		return R_AX;
-	if (!(REG_EAX & ~regflags))
-		return R_EAX;
-	if (!(REG_RAX & ~regflags))
-	return R_RAX;
-	if (!(REG_DL & ~regflags))
-		return R_DL;
-	if (!(REG_DX & ~regflags))
-		return R_DX;
-	if (!(REG_EDX & ~regflags))
-		return R_EDX;
-	if (!(REG_RDX & ~regflags))
-		return R_RDX;
-	if (!(REG_CL & ~regflags))
-		return R_CL;
-	if (!(REG_CX & ~regflags))
-		return R_CX;
-	if (!(REG_ECX & ~regflags))
-		return R_ECX;
-	if (!(REG_RCX & ~regflags))
-		return R_RCX;
-	if (!(FPU0 & ~regflags))
-		return R_ST0;
-	if (!(XMM0 & ~regflags))
-	return R_XMM0;
-	if (!(YMM0 & ~regflags))
-	return R_YMM0;
-	if (!(REG_CS & ~regflags))
-		return (regval == 1) ? R_CS : R_zero;
-	if (!(REG_DESS & ~regflags))
-		return (regval == 0 || regval == 2
-				|| regval == 3 ? aasm_rd_sreg[regval] : R_zero);
-	if (!(REG_FSGS & ~regflags))
-		return (regval == 4 || regval == 5 ? aasm_rd_sreg[regval] : R_zero);
-	if (!(REG_SEG67 & ~regflags))
-		return (regval == 6 || regval == 7 ? aasm_rd_sreg[regval] : R_zero);
-
-	/* All the entries below look up regval in an 16-entry array */
-	if (regval < 0 || regval > 15)
-		return R_zero;
-
-	if (!(REG8 & ~regflags)) {
-	if (rex & (REX_P|REX_NH))
-		return aasm_rd_reg8_rex[regval];
-	else
-		return aasm_rd_reg8[regval];
-	}
-	if (!(REG16 & ~regflags))
-		return aasm_rd_reg16[regval];
-	if (!(REG32 & ~regflags))
-		return aasm_rd_reg32[regval];
-	if (!(REG64 & ~regflags))
-		return aasm_rd_reg64[regval];
-	if (!(REG_SREG & ~regflags))
-		return aasm_rd_sreg[regval & 7]; /* Ignore REX */
-	if (!(REG_CREG & ~regflags))
-		return aasm_rd_creg[regval];
-	if (!(REG_DREG & ~regflags))
-		return aasm_rd_dreg[regval];
-	if (!(REG_TREG & ~regflags)) {
-	if (regval > 7)
-		return R_zero;		/* TR registers are ill-defined with rex */
-		return aasm_rd_treg[regval];
-	}
-	if (!(FPUREG & ~regflags))
-		return aasm_rd_fpureg[regval & 7]; /* Ignore REX */
-	if (!(MMXREG & ~regflags))
-		return aasm_rd_mmxreg[regval & 7]; /* Ignore REX */
-	if (!(XMMREG & ~regflags))
-		return aasm_rd_xmmreg[regval];
-	if (!(YMMREG & ~regflags))
-		return aasm_rd_ymmreg[regval];
-	return R_zero;
-}
-
-/*
- * Process a DREX suffix
- */
-static uint8_t *do_drex(uint8_t *data, insn *ins)
-{
-	uint8_t drex = *data++;
-	operand *dst = &ins->oprs[ins->drexdst];
-
-	if ((drex & 8) != ((ins->rex & REX_OC) ? 8 : 0))
-	return NULL;	/* OC0 mismatch */
-	ins->rex = (ins->rex & ~7) | (drex & 7);
-
-	dst->segment = SEG_RMREG;
-	dst->basereg = (reg_enum)(drex >> 4);
-	return data;
-}
-
-
-/*
- * Process an effective address (ModRM) specification.
- */
-static uint8_t *do_ea(uint8_t *data, int modrm, int asize,
-			  int segsize, operand * op, insn *ins)
-{
-	int mod, rm, scale, index, base;
-	int rex;
-	uint8_t sib = 0;
-
-	mod = (modrm >> 6) & 03;
-	rm = modrm & 07;
-
-	if (mod != 3 && rm == 4 && asize != 16)
-	sib = *data++;
-
-	if (ins->rex & REX_D) {
-	data = do_drex(data, ins);
-	if (!data)
-		return NULL;
-	}
-	rex = ins->rex;
-
-	if (mod == 3) {             /* pure register version */
-		op->basereg = (reg_enum)(rm + (rex & REX_B ? 8 : 0));
-		op->segment |= SEG_RMREG;
-		return data;
-	}
-
-	op->disp_size = 0;
-	op->eaflags = 0;
-
-	if (asize == 16) {
-		/*
-		 * <mod> specifies the displacement size (none, byte or
-		 * word), and <rm> specifies the register combination.
-		 * Exception: mod=0,rm=6 does not specify [BP] as one might
-		 * expect, but instead specifies [disp16].
-		 */
-		op->indexreg = op->basereg = (reg_enum)-1;
-		op->scale = 1;          /* always, in 16 bits */
-		switch (rm) {
-		case 0:
-			op->basereg = R_BX;
-			op->indexreg = R_SI;
-			break;
-		case 1:
-			op->basereg = R_BX;
-			op->indexreg = R_DI;
-			break;
-		case 2:
-			op->basereg = R_BP;
-			op->indexreg = R_SI;
-			break;
-		case 3:
-			op->basereg = R_BP;
-			op->indexreg = R_DI;
-			break;
-		case 4:
-			op->basereg = R_SI;
-			break;
-		case 5:
-			op->basereg = R_DI;
-			break;
-		case 6:
-			op->basereg = R_BP;
-			break;
-		case 7:
-			op->basereg = R_BX;
-			break;
-		}
-		if (rm == 6 && mod == 0) {      /* special case */
-			op->basereg = (reg_enum)-1;
-			if (segsize != 16)
-				op->disp_size = 16;
-			mod = 2;            /* fake disp16 */
-		}
-		switch (mod) {
-		case 0:
-			op->segment |= SEG_NODISP;
-			break;
-		case 1:
-			op->segment |= SEG_DISP8;
-			op->offset = (int8_t)*data++;
-			break;
-		case 2:
-			op->segment |= SEG_DISP16;
-			op->offset = *data++;
-			op->offset |= ((unsigned)*data++) << 8;
-			break;
-		}
-		return data;
-	} else {
-		/*
-		 * Once again, <mod> specifies displacement size (this time
-		 * none, byte or *dword*), while <rm> specifies the base
-		 * register. Again, [EBP] is missing, replaced by a pure
-		 * disp32 (this time that's mod=0,rm=*5*) in 32-bit mode,
-	 * and RIP-relative addressing in 64-bit mode.
-	 *
-	 * However, rm=4
-		 * indicates not a single base register, but instead the
-		 * presence of a SIB byte...
-		 */
-	int a64 = asize == 64;
-
-		op->indexreg = R_none;
-
-	if (a64)
-		op->basereg = aasm_rd_reg64[rm | ((rex & REX_B) ? 8 : 0)];
-	else
-		op->basereg = aasm_rd_reg32[rm | ((rex & REX_B) ? 8 : 0)];
-
-		if (rm == 5 && mod == 0) {
-		if (segsize == 64) {
-		op->eaflags |= EAF_REL;
-		op->segment |= SEG_RELATIVE;
-		mod = 2;	/* fake disp32 */
-		}
-
-		if (asize != 64)
-		op->disp_size = asize;
-
-		op->basereg = R_none;
-		mod = 2;            /* fake disp32 */
-		}
-
-		if (rm == 4) {          /* process SIB */
-			scale = (sib >> 6) & 03;
-			index = (sib >> 3) & 07;
-			base = sib & 07;
-
-			op->scale = 1 << scale;
-
-		if (index == 4 && !(rex & REX_X))
-		op->indexreg = R_none; /* ESP/RSP cannot be an index */
-		else if (a64)
-		op->indexreg = aasm_rd_reg64[index | ((rex & REX_X) ? 8 : 0)];
-		else
-		op->indexreg = aasm_rd_reg32[index | ((rex & REX_X) ? 8 : 0)];
-
-		if (base == 5 && mod == 0) {
-		op->basereg = R_none;
-		mod = 2;	/* Fake disp32 */
-		} else if (a64)
-		op->basereg = aasm_rd_reg64[base | ((rex & REX_B) ? 8 : 0)];
-		else
-		op->basereg = aasm_rd_reg32[base | ((rex & REX_B) ? 8 : 0)];
-
-		if (segsize == 16)
-		op->disp_size = 32;
-		}
-
-		switch (mod) {
-		case 0:
-			op->segment |= SEG_NODISP;
-			break;
-		case 1:
-			op->segment |= SEG_DISP8;
-			op->offset = gets8(data);
-		data++;
-			break;
-		case 2:
-			op->segment |= SEG_DISP32;
-			op->offset = gets32(data);
-		data += 4;
-			break;
-		}
-		return data;
-	}
-}
-
 /*
  * Determine whether the instruction template in t corresponds to the data
  * stream in data. Return the number of bytes matched if so.
@@ -355,7 +45,7 @@ static uint8_t *do_ea(uint8_t *data, int modrm, int asize,
 #define case4(x) case (x): case (x)+1: case (x)+2: case (x)+3
 
 static int matches(const struct itemplate *t, uint8_t *data,
-		   const struct prefix_info *prefix, int segsize, insn *ins)
+		   const X86DecodePrefixes *prefix, int segsize, insn *ins)
 {
 	uint8_t *r = (uint8_t *)(t->code);
 	uint8_t *origdata = data;
@@ -534,7 +224,8 @@ static int matches(const struct itemplate *t, uint8_t *data,
 	{
 		int modrm = *data++;
 			opx->segment |= SEG_RMREG;
-			data = do_ea(data, modrm, asize, segsize, opy, ins);
+			data = X86DecodeEffectiveAddress(
+				data, modrm, asize, segsize, opy, ins);
 		if (!data)
 		return false;
 		opx->basereg = (reg_enum)(((modrm >> 3) & 7) + (ins->rex & REX_R ? 8 : 0));
@@ -579,7 +270,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 		break;
 
 	case 0171:
-		data = do_drex(data, ins);
+		data = X86DecodeDrex(data, ins);
 		if (!data)
 		return false;
 		break;
@@ -629,7 +320,8 @@ static int matches(const struct itemplate *t, uint8_t *data,
 			int modrm = *data++;
 			if (((modrm >> 3) & 07) != (c & 07))
 				return false;   /* spare field doesn't match up */
-			data = do_ea(data, modrm, asize, segsize, opy, ins);
+			data = X86DecodeEffectiveAddress(
+				data, modrm, asize, segsize, opy, ins);
 		if (!data)
 		return false;
 		break;
@@ -976,7 +668,7 @@ int32 DecodeX86Buffer(byte* data, char* output, int outbufsize,
 	insn tmp_ins, ins;
 	uint32_t goodness, best;
 	int best_pref;
-	struct prefix_info prefix;
+	X86DecodePrefixes prefix;
 	bool end_prefix;
 
 	MemSet(&ins, 0, sizeof ins);
@@ -1152,7 +844,7 @@ int32 DecodeX86Buffer(byte* data, char* output, int outbufsize,
 			   die. */
 			((((*p)->opd[i] & (REGISTER | FPUREG)) ||
 			  (tmp_ins.oprs[i].segment & SEG_RMREG)) &&
-			 !whichreg((*p)->opd[i],
+			 !X86DecodeRegister((*p)->opd[i],
 				   tmp_ins.oprs[i].basereg, tmp_ins.rex))
 			)) {
 					works = false;
@@ -1257,7 +949,7 @@ int32 DecodeX86Buffer(byte* data, char* output, int outbufsize,
 		if ((t & (REGISTER | FPUREG)) ||
 			(o->segment & SEG_RMREG)) {
 		enum reg_enum reg;
-			reg = whichreg(t, o->basereg, ins.rex);
+			reg = X86DecodeRegister(t, o->basereg, ins.rex);
 			if (t & TO)
 				slen += snprintf(output + slen, outbufsize - slen, "to ");
 			slen += snprintf(output + slen, outbufsize - slen, "%s",
@@ -1665,34 +1357,6 @@ ArchendDecodeInterface& X86Decoder()
 {
 	static X86DecoderInterface decoder;
 	return decoder;
-}
-
-ArchendDecodeInterface& DefaultArchendDecoder()
-{
-	return X86Decoder();
-}
-
-ArchendDecodeInterface* FindArchendDecoder(const char* name)
-{
-	ArchendDecodeInterface& decoder = X86Decoder();
-	return StrCompareInsensitive(name, decoder.DumpArchend().shortname) ?
-		nullptr : &decoder;
-}
-
-void ListArchendDecoders(
-	const ArchendDecodeInterface& selected, FILE* output)
-{
-	ArchendDecodeInterface& decoder = X86Decoder();
-	const ArchendInfo& info = decoder.DumpArchend();
-	fprintf(output, "  %c %-10s%s\n",
-		&decoder == &selected ? '*' : ' ', info.shortname, info.fullname);
-	fprintf(output, "      BITS: %s\n      INST: %s\n",
-		info.supported_bits, info.instruction_sets);
-}
-
-void ListArchendDecoderNames(FILE* output)
-{
-	fprintf(output, "%s", X86Decoder().DumpArchend().shortname);
 }
 
 }

@@ -47,7 +47,7 @@ namespace uni {
 		stduint length = 0;
 		//
 		stduint getLength() const { return length * sizeof(type0); }
-		type0* getEndoaddr() const { return (type0*)(address + length); }
+		stduint getEndoaddr() const { return stduint(address + length); }
 	};
 
 	typedef Slice_T<byte> Slice;

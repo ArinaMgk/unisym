@@ -436,8 +436,14 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 					}
 					while (*p && ascii_isspace(*p))
 						p++;
-					if (pass0 == 2)
-					codeend.ProcessDebugDirective(debugid, p);
+					if (pass0 == 2) {
+						codeend.ProcessDebugDirective({
+							debugid,
+							p,
+							Session.Location.segment,
+							static_cast<uint64_t>(CurrentOffset())
+						});
+					}
 					break;
 				case Directive::Warning:		/* [WARNING {+|-|*}warn-name] */
 					while (*value && ascii_isspace(*value))

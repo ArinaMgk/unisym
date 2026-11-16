@@ -298,6 +298,7 @@ void AssemblyListing::EmitCode(
 
 void AssemblyListing::EmitFixup(const uni::CodeFixup& fixup)
 {
+	if (fixup.placement == uni::CodeFixupPlacement::ExistingStorage) return;
 	uint64_t size = (fixup.encoding.storage_bits + 7) / 8;
 	out_type type = OUT_ADDRESS;
 	if (fixup.kind == uni::CodeFixupKind::PcRelative ||

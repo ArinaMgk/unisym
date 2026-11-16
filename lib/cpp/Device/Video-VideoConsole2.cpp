@@ -774,7 +774,7 @@ namespace uni {
 
 		// Convert UTF-8 to UTF-32 (Unicode code points) using Unisym's CscUTF
 		uint32* u32_str = nullptr;
-		stduint u32_bytes = CscUTF(8, 32, (const pureptr_t)str, len, (pureptr_t*)&u32_str);
+		stduint u32_bytes = CscUTF(8, 32, (pureptr_t)str, len, (pureptr_t*)&u32_str);
 
 		stduint loop_len = len;
 		const uint32* src_chars = nullptr;

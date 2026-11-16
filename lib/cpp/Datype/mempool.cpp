@@ -62,11 +62,11 @@ static bool PrepareNextPool(SinglePool* root, SinglePool* tail, const Slice* exc
 					ceilAlign(pool_size, p->address);
 
 				// A pending removal must not become storage for the pool being grown.
-				if (excluded && addr < (stduint)excluded->getEndoaddr() &&
+				if (excluded && addr < excluded->getEndoaddr() &&
 					addr + pool_size > excluded->address)
-					addr = ceilAlign(pool_size, (stduint)excluded->getEndoaddr());
+					addr = ceilAlign(pool_size, excluded->getEndoaddr());
 
-				const stduint end = (stduint)p->getEndoaddr();
+				const stduint end = p->getEndoaddr();
 				if (addr >= p->address && addr <= end && pool_size <= end - addr)
 				{
 					new_pool_addr = addr;
@@ -442,13 +442,13 @@ _RETRY_ALLOC:
 					header = (Header*)p->address;
 					ret = (void*)_IMM(header + 1);
 				}
-				else if (next_align + size <= (stduint)p->getEndoaddr()) {
+				else if (next_align + size <= p->getEndoaddr()) {
 					header = (Header*)(next_align - sizeof(Header));
 					ret = (void*)next_align;
 				}
 				else continue;
 			}
-			else if (next_align + size <= (stduint)p->getEndoaddr()) {
+			else if (next_align + size <= p->getEndoaddr()) {
 				header = (Header*)(next_align - sizeof(Header));
 				ret = (void*)next_align;
 			}
@@ -532,7 +532,7 @@ PageMetaNode* Mempool::allocate_meta_page() {
 			Slice* p = &crtpool->slices[i];
 			if (p->length < MEMPOOL_PAGE_SIZE) continue;
 			stduint addr = ceilAlign(MEMPOOL_PAGE_SIZE, p->address);
-			if (addr + MEMPOOL_PAGE_SIZE > (stduint)p->getEndoaddr()) continue;
+			if (addr + MEMPOOL_PAGE_SIZE > p->getEndoaddr()) continue;
 			if (!pool_available.Remove(Slice{ addr, MEMPOOL_PAGE_SIZE })) continue;
 			PageMetaNode* node = (PageMetaNode*)addr;
 			MemSet(node, 0, MEMPOOL_PAGE_SIZE);
@@ -602,7 +602,7 @@ void* Mempool::allocate_pages(stduint page_count, stduint alignment) {
 			for0(i, crtpool->slicecnt) {
 				Slice* p = &crtpool->slices[i];
 				stduint aligned = ceilAlign(align, p->address);
-				if (aligned + size <= (stduint)p->getEndoaddr()) {
+				if (aligned + size <= p->getEndoaddr()) {
 					addr = aligned;
 					break;
 				}

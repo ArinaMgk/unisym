@@ -41,6 +41,12 @@
 #define DW_LNE_end_sequence  1
 #define DW_LNE_set_address   2
 #define DW_LNE_define_file   3
+#define DW_CFA_advance_loc   0x40
+#define DW_CFA_advance_loc1  0x02
+#define DW_CFA_advance_loc2  0x03
+#define DW_CFA_advance_loc4  0x04
+#define DW_CFA_def_cfa       0x0c
+#define DW_CFA_def_cfa_offset 0x0e
 #define DW_LANG_Mips_Assembler  0x8001
 
 #endif

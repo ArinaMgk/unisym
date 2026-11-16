@@ -126,6 +126,12 @@ ELF32 的 RISC-V relocation 已改用 RELA，机器指令初值与 relocation �
 已接入 `CALL`、`CALL_PLT`、绝对 `HI20/LO12`、`GOT_HI20` 和成对的
 `PCREL_HI20/PCREL_LO12_I/PCREL_LO12_S` relocation；`-mrelax` 输出 `RELAX` 提示，
 RISC-V `align` 输出 `ALIGN` relocation 及最大 NOP padding。
+RISC-V relocation 类型选择已集中到 ELF 目标实现；`CodeFixup` 可以区分追加存储与
+引用已有存储，数据定义的外部或跨 section 符号差值会生成同址的固定宽度 ADD/SUB
+relocation。
+表达式求值现在可保留线性符号轨迹；RISC-V 数据定义中的同 section 标签差值会将
+具体的局部或全局标签传递到 ELF32/ELF64，并在 relocation table 生成时解析符号编号；
+ELF32/ELF64 链接松弛后的标签差值结果已纳入回归检查。
 预处理器新增 `__ARCH__` 内建宏，架构切换时更新其值，供通用宏选择架构相关语句。
 `__ARCH__` 现直接读取当前 `AssemblySession` 的活动 Archend，不再维护重复的架构状态。
 `RALIGN` 的解析、NOP 填充和 alignment fixup 已移入 RISC-V Archend，通用语句层只通过
@@ -169,6 +175,16 @@ RISC-V 短 `JAL`、压缩分支和压缩跳转已补充正负链接边界回归�
 数据、调用、PC-relative 配对和 GOT relocation 已接入最终链接验证，并覆盖
 `CALL_PLT`、`RELAX` 和 `ALIGN` 的链接结果。
 
+RISC-V ELF32/ELF64 已增加最小 CFI frame 输出。CFI 地址推进根据字段宽度生成
+`SET6/8/16/32` 与对应的 `SUB6/8/16/32` relocation，并通过匿名本地符号保持链接
+松弛后的地址差值正确。
+
+已增加 `ULEB128` 数据语句。RISC-V ELF 标签差值生成成对的
+`SET_ULEB128/SUB_ULEB128` relocation，并在链接松弛后更新一字节和多字节编码值。
+
+RISC-V ELF 已增加 `PCREL32`、`GOT32` 和 `PLT32` 数据 relocation 语句，分别生成
+`32_PCREL`、`GOT32_PCREL` 和 `PLT32` relocation，并完成 ELF32/ELF64 链接验证。
+
 已注册 `arm32` 与 `arm64` Archend，分别固定使用 32 位和 64 位目标。两者可以通过
 命令行或 `[ARCH]` 选择，并支持 Binary 通用语句及对应的 `__ARCH__` 值。
 
@@ -195,4 +211,6 @@ DASM 已接入 Archend 的轻量解码契约。x86 解码实现迁入
 x86 的 16/32/64 位模式和 `bin` 输入，`-h`、`-ha`、`-hf` 会列出架构能力与输入格式。
 
 +8=2026111319 RISC-V 指令集选择已改为统一的目标扩展描述，支持多字母扩展及组合指令依赖。已增加Zifencei、带 predecessor/successor 的 `FENCE`，并补充 RV32/RV64 常用 C 压缩整数和浮点访存指令。
+
++8=2026111615 Archend 编码与解码注册已拆分；x86 寄存器、DREX、ModRM、SIB 和有效地址解码已移入 `Decoder-operand-x86.cpp`。
 

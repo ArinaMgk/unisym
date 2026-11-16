@@ -287,11 +287,51 @@ CheckDisassembler()
 	grep -Fq 'mov eax,0x12345678' "$Output32" || Fail "dasm 32-bit output differs"
 	grep -Fq 'mov rax,rbx' "$Output64" || Fail "dasm 64-bit output differs"
 
+	TruncatedOpcode="$WorkDirectory/dasm-truncated-opcode.bin"
+	TruncatedAddress="$WorkDirectory/dasm-truncated-address.bin"
+	TruncatedOpcodeOutput="$WorkDirectory/dasm-truncated-opcode.txt"
+	TruncatedAddressOutput="$WorkDirectory/dasm-truncated-address.txt"
+	printf '\x0f' > "$TruncatedOpcode"
+	printf '\x8b\x84\x25' > "$TruncatedAddress"
+	"$DasmExecutable" -b64 "$TruncatedOpcode" > "$TruncatedOpcodeOutput" ||
+		Fail "dasm truncated opcode failed"
+	"$DasmExecutable" -b64 "$TruncatedAddress" > "$TruncatedAddressOutput" ||
+		Fail "dasm truncated effective address failed"
+	grep -Fq 'db 0x0f' "$TruncatedOpcodeOutput" ||
+		Fail "dasm truncated opcode fallback differs"
+	grep -Fq 'db 0x8b' "$TruncatedAddressOutput" ||
+		Fail "dasm truncated effective-address fallback differs"
+
+	BoundaryInput="$WorkDirectory/dasm-prefix-boundary.bin"
+	BoundaryOutput="$WorkDirectory/dasm-prefix-boundary.txt"
+	printf '\x66\x66\x66\x66\x66\x66\x66\x66\x66\x66\x66\x66\x66\x90\xc3' \
+		> "$BoundaryInput"
+	"$DasmExecutable" -b64 "$BoundaryInput" > "$BoundaryOutput" ||
+		Fail "dasm instruction-length boundary failed"
+	grep -Fq 'xchg ax,ax' "$BoundaryOutput" ||
+		Fail "dasm instruction-length boundary differs"
+	grep -Fq 'ret' "$BoundaryOutput" ||
+		Fail "dasm instruction after boundary is missing"
+
+	VendorInput="$WorkDirectory/dasm-vendor.bin"
+	VendorOutput="$WorkDirectory/dasm-vendor.txt"
+	printf '\x0f\x0d\x00' > "$VendorInput"
+	for Vendor in intel amd cyrix; do
+		"$DasmExecutable" -b32 -p "$Vendor" "$VendorInput" \
+			> "$VendorOutput" || Fail "dasm vendor $Vendor failed"
+		grep -Fq 'prefetch [eax]' "$VendorOutput" ||
+			Fail "dasm vendor $Vendor output differs"
+	done
+
 	InvalidError="$WorkDirectory/dasm-invalid.stderr"
-	"$DasmExecutable" -b20 "$Input16" > /dev/null 2> "$InvalidError"
-	[ "$?" -ne 0 ] || Fail "dasm accepted an invalid bit width"
-	grep -Fq 'invalid bit width `20' "$InvalidError" ||
+	"$DasmExecutable" -binvalid "$Input16" > /dev/null 2> "$InvalidError"
+	[ "$?" -ne 0 ] || Fail "dasm accepted a malformed bit width"
+	grep -Fq 'invalid bit width `invalid' "$InvalidError" ||
 		Fail "dasm bit-width diagnostic differs"
+	"$DasmExecutable" -b20 "$Input16" > /dev/null 2> "$InvalidError"
+	[ "$?" -ne 0 ] || Fail "dasm accepted an unsupported bit width"
+	grep -Fq "architecture \`x86' does not support 20-bit code" \
+		"$InvalidError" || Fail "dasm unsupported bit-width diagnostic differs"
 	"$DasmExecutable" -march=riscv "$Input16" > /dev/null 2> "$InvalidError"
 	[ "$?" -ne 0 ] || Fail "dasm accepted an unsupported architecture"
 	grep -Fq 'unsupported disassembly architecture `riscv' "$InvalidError" ||

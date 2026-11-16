@@ -41,6 +41,16 @@ static expr *tempexpr;
 static int ntempexpr;
 static int tempexpr_size;
 
+struct EvalRelocRecord {
+    expr *expression;
+    EvalRelocExpression relocation;
+};
+
+static EvalRelocRecord *reloc_records;
+static int nreloc_records;
+static int reloc_records_size;
+static bool track_relocation;
+
 static struct tokenval *tokval; /* The current token */
 static int i;                   /* The t_type of tokval */
 
@@ -63,6 +73,118 @@ void eval_cleanup(void)
     while (ntempexprs)
         memf(tempexprs[--ntempexprs]);
     memf(tempexprs);
+    memf(reloc_records);
+}
+
+static EvalRelocExpression reloc_unavailable(void)
+{
+    EvalRelocExpression relocation = {};
+    return relocation;
+}
+
+static EvalRelocExpression reloc_constant(int64_t value)
+{
+    EvalRelocExpression relocation = {};
+    relocation.Available = true;
+    relocation.Constant = value;
+    return relocation;
+}
+
+static bool reloc_lookup(expr *expression, EvalRelocExpression *relocation)
+{
+    if (!track_relocation)
+        return false;
+    for (int index = nreloc_records - 1; index >= 0; index--)
+        if (reloc_records[index].expression == expression) {
+            if (relocation)
+                *relocation = reloc_records[index].relocation;
+            return true;
+        }
+    return false;
+}
+
+static void reloc_record(expr *expression,
+                         const EvalRelocExpression& relocation)
+{
+    if (!track_relocation)
+        return;
+    for (int index = nreloc_records - 1; index >= 0; index--)
+        if (reloc_records[index].expression == expression) {
+            reloc_records[index].relocation = relocation;
+            return;
+        }
+    if (nreloc_records >= reloc_records_size) {
+        reloc_records_size += TEMPEXPRS_DELTA;
+        reloc_records = (EvalRelocRecord*)aasm_realloc(reloc_records,
+            reloc_records_size * sizeof(*reloc_records));
+    }
+    reloc_records[nreloc_records].expression = expression;
+    reloc_records[nreloc_records++].relocation = relocation;
+}
+
+static void reloc_invalidate(expr *expression)
+{
+    reloc_record(expression, reloc_unavailable());
+}
+
+static bool reloc_has_terms(expr *expression)
+{
+    EvalRelocExpression relocation;
+    return reloc_lookup(expression, &relocation) &&
+        relocation.Available && relocation.TermCount;
+}
+
+static bool reloc_same_symbol(const EvalRelocTerm& left,
+                              const EvalRelocTerm& right)
+{
+    return left.Identity == right.Identity;
+}
+
+static EvalRelocExpression reloc_add(const EvalRelocExpression& left,
+                                     const EvalRelocExpression& right)
+{
+    if (!left.Available || !right.Available)
+        return reloc_unavailable();
+
+    EvalRelocExpression result = left;
+    result.Constant += right.Constant;
+    for (size_t right_index = 0;
+         right_index < right.TermCount; right_index++) {
+        const EvalRelocTerm& term = right.Terms[right_index];
+        size_t result_index = 0;
+        while (result_index < result.TermCount &&
+               !reloc_same_symbol(result.Terms[result_index], term))
+            result_index++;
+        if (result_index < result.TermCount) {
+            result.Terms[result_index].Coefficient += term.Coefficient;
+            if (!result.Terms[result_index].Coefficient) {
+                for (size_t move = result_index + 1;
+                     move < result.TermCount; move++)
+                    result.Terms[move - 1] = result.Terms[move];
+                result.TermCount--;
+            }
+        } else {
+            if (result.TermCount >= EvalRelocExpression::TermLimit)
+                return reloc_unavailable();
+            result.Terms[result.TermCount++] = term;
+        }
+    }
+    return result;
+}
+
+static EvalRelocExpression reloc_scale(EvalRelocExpression relocation,
+                                       int64_t scalar)
+{
+    if (!relocation.Available)
+        return relocation;
+    relocation.Constant *= scalar;
+    if (!scalar) {
+        relocation.TermCount = 0;
+        return relocation;
+    }
+    for (size_t index = 0; index < relocation.TermCount; index++)
+        relocation.Terms[index].Coefficient *= scalar;
+    return relocation;
 }
 
 /*
@@ -102,6 +224,12 @@ static expr *finishtemp(void)
 static expr *add_vectors(expr * p, expr * q)
 {
     int preserve;
+    expr *left = p;
+    expr *right = q;
+    EvalRelocExpression left_relocation;
+    EvalRelocExpression right_relocation;
+    bool have_left = reloc_lookup(left, &left_relocation);
+    bool have_right = reloc_lookup(right, &right_relocation);
 
     preserve = is_really_simple(p) || is_really_simple(q);
 
@@ -126,7 +254,9 @@ static expr *add_vectors(expr * p, expr * q)
             p++, q++;
         }
         if (lasttype == EXPR_UNKNOWN) {
-            return finishtemp();
+            expr *result = finishtemp();
+            reloc_invalidate(result);
+            return result;
         }
     }
     while (p->type && (preserve || p->type < EXPR_SEGBASE + SEG_ABS)) {
@@ -138,7 +268,12 @@ static expr *add_vectors(expr * p, expr * q)
         q++;
     }
 
-    return finishtemp();
+    expr *result = finishtemp();
+    if (have_left && have_right)
+        reloc_record(result, reloc_add(left_relocation, right_relocation));
+    else
+        reloc_invalidate(result);
+    return result;
 }
 
 /*
@@ -156,6 +291,8 @@ static expr *add_vectors(expr * p, expr * q)
 static expr *scalar_mult(expr * vect, int64_t scalar, int affect_hints)
 {
     expr *p = vect;
+    EvalRelocExpression relocation;
+    bool have_relocation = reloc_lookup(vect, &relocation);
 
     while (p->type && p->type < EXPR_SEGBASE + SEG_ABS) {
         p->value = scalar * (p->value);
@@ -166,6 +303,11 @@ static expr *scalar_mult(expr * vect, int64_t scalar, int affect_hints)
     }
     p->type = 0;
 
+    if (have_relocation)
+        reloc_record(vect, reloc_scale(relocation, scalar));
+    else
+        reloc_invalidate(vect);
+
     return vect;
 }
 
@@ -173,14 +315,18 @@ static expr *scalarvect(int64_t scalar)
 {
     begintemp();
     addtotemp(EXPR_SIMPLE, scalar);
-    return finishtemp();
+    expr *result = finishtemp();
+    reloc_record(result, reloc_constant(scalar));
+    return result;
 }
 
 static expr *unknown_expr(void)
 {
     begintemp();
     addtotemp(EXPR_UNKNOWN, 1L);
-    return finishtemp();
+    expr *result = finishtemp();
+    reloc_invalidate(result);
+    return result;
 }
 
 /*
@@ -219,7 +365,9 @@ static expr *segment_part(expr * e)
         begintemp();
         addtotemp((base == NO_SEG ? EXPR_UNKNOWN : EXPR_SEGBASE + base),
                   1L);
-        return finishtemp();
+        expr *result = finishtemp();
+        reloc_invalidate(result);
+        return result;
     }
 }
 
@@ -276,6 +424,7 @@ static expr *rexp0(int critical)
         f = rexp1(critical);
         if (!f)
             return NULL;
+        bool symbolic = reloc_has_terms(e) || reloc_has_terms(f);
         if (!(is_simple(e) || is_just_unknown(e)) ||
 			!(is_simple(f) || is_just_unknown(f))) {
 			//--auto clean flag
@@ -286,6 +435,8 @@ static expr *rexp0(int critical)
             e = unknown_expr();
         else
             e = scalarvect((int64_t)(reloc_value(e) || reloc_value(f)));
+        if (symbolic)
+            reloc_invalidate(e);
     }
     return e;
 }
@@ -303,6 +454,7 @@ static expr *rexp1(int critical)
         f = rexp2(critical);
         if (!f)
             return NULL;
+        bool symbolic = reloc_has_terms(e) || reloc_has_terms(f);
         if (!(is_simple(e) || is_just_unknown(e)) ||
 			!(is_simple(f) || is_just_unknown(f))) {
 			//--auto clean flag
@@ -313,6 +465,8 @@ static expr *rexp1(int critical)
             e = unknown_expr();
         else
             e = scalarvect((int64_t)(!reloc_value(e) ^ !reloc_value(f)));
+        if (symbolic)
+            reloc_invalidate(e);
     }
     return e;
 }
@@ -329,6 +483,7 @@ static expr *rexp2(int critical)
         f = rexp3(critical);
         if (!f)
             return NULL;
+        bool symbolic = reloc_has_terms(e) || reloc_has_terms(f);
         if (!(is_simple(e) || is_just_unknown(e)) ||
 			!(is_simple(f) || is_just_unknown(f))) {
 			//--auto clean flag
@@ -338,6 +493,8 @@ static expr *rexp2(int critical)
             e = unknown_expr();
         else
             e = scalarvect((int64_t)(reloc_value(e) && reloc_value(f)));
+        if (symbolic)
+            reloc_invalidate(e);
     }
     return e;
 }
@@ -358,6 +515,7 @@ static expr *rexp3(int critical)
         f = expr0(critical);
         if (!f)
             return NULL;
+		bool symbolic = reloc_has_terms(e) || reloc_has_terms(f);
 
         e = add_vectors(e, scalar_mult(f, -1L, false));
 
@@ -395,6 +553,8 @@ static expr *rexp3(int critical)
             e = unknown_expr();
         else
             e = scalarvect(v);
+		if (symbolic)
+			reloc_invalidate(e);
     }
     return e;
 }
@@ -412,6 +572,7 @@ static expr *expr0(int critical)
         f = expr1(critical);
         if (!f)
             return NULL;
+        bool symbolic = reloc_has_terms(e) || reloc_has_terms(f);
         if (!(is_simple(e) || is_just_unknown(e)) ||
 			!(is_simple(f) || is_just_unknown(f))) {
 			//--auto clean flag
@@ -421,6 +582,8 @@ static expr *expr0(int critical)
             e = unknown_expr();
         else
             e = scalarvect(reloc_value(e) | reloc_value(f));
+        if (symbolic)
+            reloc_invalidate(e);
     }
     return e;
 }
@@ -438,6 +601,7 @@ static expr *expr1(int critical)
         f = expr2(critical);
         if (!f)
             return NULL;
+        bool symbolic = reloc_has_terms(e) || reloc_has_terms(f);
         if (!(is_simple(e) || is_just_unknown(e)) ||
 			!(is_simple(f) || is_just_unknown(f))) {
 			//--auto clean flag
@@ -447,6 +611,8 @@ static expr *expr1(int critical)
             e = unknown_expr();
         else
             e = scalarvect(reloc_value(e) ^ reloc_value(f));
+        if (symbolic)
+            reloc_invalidate(e);
     }
     return e;
 }
@@ -464,6 +630,7 @@ static expr *expr2(int critical)
         f = expr3(critical);
         if (!f)
             return NULL;
+        bool symbolic = reloc_has_terms(e) || reloc_has_terms(f);
         if (!(is_simple(e) || is_just_unknown(e)) ||
 			!(is_simple(f) || is_just_unknown(f))) {
 			//--auto clean flag
@@ -473,6 +640,8 @@ static expr *expr2(int critical)
             e = unknown_expr();
         else
             e = scalarvect(reloc_value(e) & reloc_value(f));
+        if (symbolic)
+            reloc_invalidate(e);
     }
     return e;
 }
@@ -491,6 +660,7 @@ static expr *expr3(int critical)
         f = expr4(critical);
         if (!f)
             return NULL;
+        bool symbolic = reloc_has_terms(e) || reloc_has_terms(f);
         if (!(is_simple(e) || is_just_unknown(e)) ||
 			!(is_simple(f) || is_just_unknown(f))) {
 			//--auto clean flag
@@ -507,6 +677,8 @@ static expr *expr3(int critical)
                                reloc_value(f));
                 break;
             }
+        if (symbolic)
+            reloc_invalidate(e);
     }
     return e;
 }
@@ -550,6 +722,7 @@ static expr *expr5(int critical)
         f = expr6(critical);
         if (!f)
             return NULL;
+        bool symbolic = reloc_has_terms(e) || reloc_has_terms(f);
         if (j != '*' && (!(is_simple(e) || is_just_unknown(e)) ||
 			!(is_simple(f) || is_just_unknown(f)))) {
 			//--auto clean flag
@@ -604,6 +777,8 @@ static expr *expr5(int critical)
                                ((int64_t)reloc_value(f)));
             break;
         }
+		if (symbolic)
+			reloc_invalidate(e);
     }
     return e;
 }
@@ -663,7 +838,9 @@ static expr *eval_floatize(enum floatize type)
     addtotemp(EXPR_SIMPLE, val);
 
     i = scan(scpriv, tokval);
-    return finishtemp();
+    expr *expression = finishtemp();
+    reloc_record(expression, reloc_constant(val));
+    return expression;
 }
 
 static expr *eval_strfunc(enum strfunc type)
@@ -712,7 +889,9 @@ static expr *eval_strfunc(enum strfunc type)
     addtotemp(EXPR_SIMPLE, val);
 
     i = scan(scpriv, tokval);
-    return finishtemp();
+    expr *expression = finishtemp();
+    reloc_record(expression, reloc_constant(val));
+    return expression;
 }
 
 static expr *expr6(int critical)
@@ -724,6 +903,7 @@ static expr *expr6(int critical)
     int64_t tmpval;
     bool rn_warn;
     char *scope;
+    EvalRelocExpression relocation;
 
     switch (i) {
     case '-':
@@ -743,6 +923,8 @@ static expr *expr6(int critical)
         e = expr6(critical);
         if (!e)
             return NULL;
+		{
+			bool symbolic = reloc_has_terms(e);
         if (is_just_unknown(e))
             return unknown_expr();
 		else if (!is_simple(e)) {
@@ -750,13 +932,19 @@ static expr *expr6(int critical)
 			aasm_log(_LOG_ERROR, "`~' operator may only be applied to scalar values");
             return NULL;
         }
-        return scalarvect(~reloc_value(e));
+		expr* result = scalarvect(~reloc_value(e));
+		if (symbolic)
+			reloc_invalidate(result);
+		return result;
+		}
 
     case '!':
         i = scan(scpriv, tokval);
         e = expr6(critical);
         if (!e)
             return NULL;
+		{
+			bool symbolic = reloc_has_terms(e);
         if (is_just_unknown(e))
             return unknown_expr();
 		else if (!is_simple(e)) {
@@ -764,13 +952,19 @@ static expr *expr6(int critical)
 			aasm_log(_LOG_ERROR, "`!' operator may only be applied to scalar values");
             return NULL;
         }
-        return scalarvect(!reloc_value(e));
+		expr* result = scalarvect(!reloc_value(e));
+		if (symbolic)
+			reloc_invalidate(result);
+		return result;
+		}
 
     case TOKEN_SEG:
         i = scan(scpriv, tokval);
         e = expr6(critical);
         if (!e)
             return NULL;
+		{
+			bool symbolic = reloc_has_terms(e);
         e = segment_part(e);
         if (!e)
             return NULL;
@@ -779,7 +973,10 @@ static expr *expr6(int critical)
 			aasm_log(_LOG_ERROR, "unable to determine segment base");
             return NULL;
         }
+		if (symbolic)
+			reloc_invalidate(e);
         return e;
+		}
 
     case TOKEN_FLOATIZE:
 	return eval_floatize((floatize)tokval->t_integer);
@@ -808,9 +1005,11 @@ static expr *expr6(int critical)
     case TOKEN_HERE:
     case TOKEN_BASE:
         begintemp();
+        relocation = reloc_unavailable();
         switch (i) {
         case TOKEN_NUM:
             addtotemp(EXPR_SIMPLE, tokval->t_integer);
+            relocation = reloc_constant(tokval->t_integer);
             break;
 	case TOKEN_STR:
 	    tmpval = readstrnum(tokval->t_charptr, tokval->t_inttwo, &rn_warn);
@@ -820,6 +1019,7 @@ static expr *expr6(int critical)
 			aasm_log(_LOG_WARN, "character constant too long");
 		}
             addtotemp(EXPR_SIMPLE, tmpval);
+			relocation = reloc_constant(tmpval);
 	    break;
         case TOKEN_REG:
             addtotemp(tokval->t_integer, 1L);
@@ -876,10 +1076,29 @@ static expr *expr6(int critical)
             addtotemp(type, label_ofs);
             if (label_seg != NO_SEG)
                 addtotemp(EXPR_SEGBASE + label_seg, 1L);
+			if ((i == TOKEN_ID || i == TOKEN_INSN) && type != EXPR_UNKNOWN) {
+				const char* identity = NULL;
+				bool global = false;
+				bool external = false;
+				if (Labelsys::Inspect(tokval->t_charptr, &identity,
+					&global, &external)) {
+					relocation = reloc_constant(0);
+					EvalRelocTerm& term = relocation.Terms[0];
+					term.Identity = identity;
+					term.Section = label_seg;
+					term.Offset = label_ofs;
+					term.Coefficient = 1;
+					term.Global = global;
+					term.External = external;
+					relocation.TermCount = 1;
+				}
+			}
             break;
         }
         i = scan(scpriv, tokval);
-        return finishtemp();
+		e = finishtemp();
+		reloc_record(e, relocation);
+		return e;
 
 	default:
 		//--auto clean flag
@@ -961,5 +1180,20 @@ expr *eval_evaluate(scanner sc, void *scprivate, struct tokenval *tv, int *fwref
         e = add_vectors(e, g);
     }
     return e;
+}
+
+expr* EvaluateRelocExpression(scanner sc, void* scprivate,
+	struct tokenval* tv, int* fwref, int critical,
+	struct eval_hints* hints, EvalRelocExpression& relocation)
+{
+	relocation = reloc_unavailable();
+	nreloc_records = 0;
+	track_relocation = true;
+	expr* expression = eval_evaluate(sc, scprivate, tv, fwref,
+		critical, hints);
+	if (expression)
+		reloc_lookup(expression, &relocation);
+	track_relocation = false;
+	return expression;
 }
 

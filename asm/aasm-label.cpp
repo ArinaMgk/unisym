@@ -173,6 +173,24 @@ bool Labelsys::Lookup(char* label, int32_t* segment, int64_t* offset)
 		return false;
 }
 
+bool Labelsys::Inspect(char* label, const char** identity,
+	bool* global, bool* external)
+{
+	if (!initialized)
+		return false;
+
+	union label* lptr = find_label(label, 0);
+	if (!lptr)
+		return false;
+	if (identity)
+		*identity = lptr->defn.label;
+	if (global)
+		*global = !!(lptr->defn.is_global & GLOBAL_BIT);
+	if (external)
+		*external = !!(lptr->defn.is_global & EXTERN_BIT);
+	return true;
+}
+
 bool Labelsys::IsExternal(char* label)
 {
 	union label *lptr;

@@ -261,6 +261,18 @@ CheckRISCVRelocation()
 	Forms64Object="$WorkDirectory/riscv-relocation-forms64.o"
 	Forms32Relocations="$WorkDirectory/riscv-relocation-forms32.relocations"
 	Forms64Relocations="$WorkDirectory/riscv-relocation-forms64.relocations"
+	DataRelocation32Source="$WorkDirectory/riscv-data-relocation32.asm"
+	DataRelocation64Source="$WorkDirectory/riscv-data-relocation64.asm"
+	DataRelocation32Object="$WorkDirectory/riscv-data-relocation32.o"
+	DataRelocation64Object="$WorkDirectory/riscv-data-relocation64.o"
+	DataRelocation32Relocations="$WorkDirectory/riscv-data-relocation32.relocations"
+	DataRelocation64Relocations="$WorkDirectory/riscv-data-relocation64.relocations"
+	DataRelocationScript="$WorkDirectory/riscv-data-relocation.ld"
+	DataRelocation32Output="$WorkDirectory/riscv-data-relocation32.elf"
+	DataRelocation64Output="$WorkDirectory/riscv-data-relocation64.elf"
+	DataRelocation32Data="$WorkDirectory/riscv-data-relocation32.data"
+	DataRelocation64Data="$WorkDirectory/riscv-data-relocation64.data"
+	InvalidDataRelocationSource="$WorkDirectory/riscv-data-relocation-invalid.asm"
 	AlignSource="$WorkDirectory/riscv-align-relocation.asm"
 	Align32Source="$WorkDirectory/riscv-align-relocation32.asm"
 	AlignObject="$WorkDirectory/riscv-align-relocation.o"
@@ -271,6 +283,50 @@ CheckRISCVRelocation()
 	CompressedAlignSource="$WorkDirectory/riscv-compressed-align.asm"
 	CompressedAlignObject="$WorkDirectory/riscv-compressed-align.o"
 	CompressedAlignRelocations="$WorkDirectory/riscv-compressed-align.relocations"
+	ArithmeticSource="$WorkDirectory/riscv-arithmetic-relocation.asm"
+	Arithmetic32Object="$WorkDirectory/riscv-arithmetic-relocation32.o"
+	Arithmetic64Object="$WorkDirectory/riscv-arithmetic-relocation64.o"
+	Arithmetic32Relocations="$WorkDirectory/riscv-arithmetic-relocation32.relocations"
+	Arithmetic64Relocations="$WorkDirectory/riscv-arithmetic-relocation64.relocations"
+	Arithmetic32Data="$WorkDirectory/riscv-arithmetic-relocation32.data"
+	Arithmetic64Data="$WorkDirectory/riscv-arithmetic-relocation64.data"
+	LabelDifferenceSource="$WorkDirectory/riscv-label-difference.asm"
+	LabelDifference32Object="$WorkDirectory/riscv-label-difference32.o"
+	LabelDifference64Object="$WorkDirectory/riscv-label-difference64.o"
+	LabelDifference32Relocations="$WorkDirectory/riscv-label-difference32.relocations"
+	LabelDifference64Relocations="$WorkDirectory/riscv-label-difference64.relocations"
+	LabelDifferenceScript="$WorkDirectory/riscv-label-difference.ld"
+	LabelDifference32Output="$WorkDirectory/riscv-label-difference32.elf"
+	LabelDifference64Output="$WorkDirectory/riscv-label-difference64.elf"
+	LabelDifference32Data="$WorkDirectory/riscv-label-difference32.data"
+	LabelDifference64Data="$WorkDirectory/riscv-label-difference64.data"
+	ULEB32Source="$WorkDirectory/riscv-uleb128-relocation32.asm"
+	ULEB64Source="$WorkDirectory/riscv-uleb128-relocation64.asm"
+	ULEB32Object="$WorkDirectory/riscv-uleb128-relocation32.o"
+	ULEB64Object="$WorkDirectory/riscv-uleb128-relocation64.o"
+	ULEB32Relocations="$WorkDirectory/riscv-uleb128-relocation32.relocations"
+	ULEB64Relocations="$WorkDirectory/riscv-uleb128-relocation64.relocations"
+	ULEBScript="$WorkDirectory/riscv-uleb128-relocation.ld"
+	ULEB32Output="$WorkDirectory/riscv-uleb128-relocation32.elf"
+	ULEB64Output="$WorkDirectory/riscv-uleb128-relocation64.elf"
+	ULEB32Data="$WorkDirectory/riscv-uleb128-relocation32.data"
+	ULEB64Data="$WorkDirectory/riscv-uleb128-relocation64.data"
+	ULEBNegativeSource="$WorkDirectory/riscv-uleb128-negative.asm"
+	ULEBSymbolSource="$WorkDirectory/riscv-uleb128-symbol.asm"
+	ULEBTypeSource="$WorkDirectory/riscv-uleb128-type.asm"
+	CFI32Source="$WorkDirectory/riscv-cfi-relocation32.asm"
+	CFI64Source="$WorkDirectory/riscv-cfi-relocation64.asm"
+	CFI32Object="$WorkDirectory/riscv-cfi-relocation32.o"
+	CFI64Object="$WorkDirectory/riscv-cfi-relocation64.o"
+	CFI32Relocations="$WorkDirectory/riscv-cfi-relocation32.relocations"
+	CFI64Relocations="$WorkDirectory/riscv-cfi-relocation64.relocations"
+	CFIScript="$WorkDirectory/riscv-cfi-relocation.ld"
+	CFI32Output="$WorkDirectory/riscv-cfi-relocation32.elf"
+	CFI64Output="$WorkDirectory/riscv-cfi-relocation64.elf"
+	CFI32Frame="$WorkDirectory/riscv-cfi-relocation32.frame"
+	CFI64Frame="$WorkDirectory/riscv-cfi-relocation64.frame"
+
+	RequireCommand llvm-readelf
 
 	printf '%s\n' \
 		'[BITS 32]' \
@@ -397,6 +453,82 @@ CheckRISCVRelocation()
 		"$WorkDirectory/riscv-relocation-forms-relax.relocations")" -eq 10 ] || \
 		Fail "RISC-V relocation-form relaxation hints differ"
 
+	for DataRelocationBits in 32 64; do
+		case "$DataRelocationBits" in
+		32) DataRelocationSource="$DataRelocation32Source" ;;
+		64) DataRelocationSource="$DataRelocation64Source" ;;
+		esac
+		printf '%s\n' \
+			"[BITS $DataRelocationBits]" \
+			'SECTION .refs' \
+			'GLOBAL refs' \
+			'refs:' \
+			'PCREL32 target + 4' \
+			'GOT32 target + 8' \
+			'PLT32 function + 12' \
+			'SECTION .target' \
+			'target:' \
+			'DD 0' \
+			'SECTION .text' \
+			'function:' \
+			'RET' > "$DataRelocationSource"
+	done
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .refs 0x10000 : { *(.refs) }' \
+		'  .target 0x20000 : { *(.target) }' \
+		'  .text 0x30000 : { *(.text) }' \
+		'  .got 0x40000 : { *(.got) }' \
+		'}' > "$DataRelocationScript"
+	AssembleSuccess riscv-data-relocation32 -march=riscv -mrelax -f elf32 \
+		-o "$DataRelocation32Object" "$DataRelocation32Source"
+	AssembleSuccess riscv-data-relocation64 -march=riscv -mrelax -f elf64 \
+		-o "$DataRelocation64Object" "$DataRelocation64Source"
+	LC_ALL=C llvm-readelf -rW "$DataRelocation32Object" > \
+		"$DataRelocation32Relocations"
+	LC_ALL=C llvm-readelf -rW "$DataRelocation64Object" > \
+		"$DataRelocation64Relocations"
+	for RelocationFile in \
+		"$DataRelocation32Relocations" "$DataRelocation64Relocations"; do
+		grep -Eq 'R_RISCV_32_PCREL[[:space:]]+.*target \+ 4$' \
+			"$RelocationFile" || \
+			Fail "RISC-V 32_PCREL relocation differs"
+		grep -Eq 'R_RISCV_GOT32_PCREL[[:space:]]+.*target \+ 8$' \
+			"$RelocationFile" || \
+			Fail "RISC-V GOT32_PCREL relocation differs"
+		grep -Eq 'R_RISCV_PLT32[[:space:]]+.*function \+ c$' \
+			"$RelocationFile" || \
+			Fail "RISC-V PLT32 relocation differs"
+		[ "$(grep -c 'R_RISCV_RELAX' "$RelocationFile")" -eq 0 ] || \
+			Fail "RISC-V 32-bit data relocation emitted a RELAX hint"
+	done
+	LinkSuccess riscv-data-relocation32-link ld.lld -m elf32lriscv \
+		-e refs -T "$DataRelocationScript" -o "$DataRelocation32Output" \
+		"$DataRelocation32Object"
+	LinkSuccess riscv-data-relocation64-link ld.lld -m elf64lriscv \
+		-e refs -T "$DataRelocationScript" -o "$DataRelocation64Output" \
+		"$DataRelocation64Object"
+	llvm-objcopy --dump-section .refs="$DataRelocation32Data" \
+		"$DataRelocation32Output"
+	llvm-objcopy --dump-section .refs="$DataRelocation64Data" \
+		"$DataRelocation64Output"
+	[ "$(NormalizeHex "$DataRelocation32Data")" = \
+		'04 00 01 00 08 00 03 00 04 00 02 00' ] || \
+		Fail "RISC-V ELF32 linked data relocation values differ"
+	[ "$(NormalizeHex "$DataRelocation64Data")" = \
+		'04 00 01 00 0c 00 03 00 04 00 02 00' ] || \
+		Fail "RISC-V ELF64 linked data relocation values differ"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'PCREL32 7' > "$InvalidDataRelocationSource"
+	AssembleFailure riscv-data-relocation-invalid -march=riscv -f elf64 \
+		-o "$WorkDirectory/riscv-data-relocation-invalid.o" \
+		"$InvalidDataRelocationSource"
+	grep -Fq 'expects a symbol plus an addend' \
+		"$WorkDirectory/riscv-data-relocation-invalid.stderr" || \
+		Fail "RISC-V invalid data relocation diagnostic differs"
+
 	printf '%s\n' \
 		'[BITS 64]' \
 		'SECTION .text' \
@@ -441,6 +573,258 @@ CheckRISCVRelocation()
 	grep -Eq 'R_RISCV_ALIGN[[:space:]]+e$' \
 		"$CompressedAlignRelocations" || \
 		Fail "RISC-V compressed ALIGN relocation differs"
+
+	printf '%s\n' \
+		'EXTERN external_add' \
+		'EXTERN external_sub' \
+		'SECTION .data' \
+		'DB external_add - external_sub + 1' \
+		'DW external_add - external_sub + 2' \
+		'DD external_add - external_sub + 3' \
+		'DQ external_add - external_sub + 4' > "$ArithmeticSource"
+	AssembleSuccess riscv-arithmetic-relocation32 -march=riscv -f elf32 \
+		-o "$Arithmetic32Object" "$ArithmeticSource"
+	AssembleSuccess riscv-arithmetic-relocation64 -march=riscv -f elf64 \
+		-o "$Arithmetic64Object" "$ArithmeticSource"
+	LC_ALL=C readelf -rW "$Arithmetic32Object" > "$Arithmetic32Relocations"
+	LC_ALL=C readelf -rW "$Arithmetic64Object" > "$Arithmetic64Relocations"
+	LC_ALL=C readelf -x .data "$Arithmetic32Object" > "$Arithmetic32Data"
+	LC_ALL=C readelf -x .data "$Arithmetic64Object" > "$Arithmetic64Data"
+	for RelocationFile in \
+		"$Arithmetic32Relocations" "$Arithmetic64Relocations"; do
+		[ "$(grep -Ec 'R_RISCV_(ADD|SUB)(8|16|32|64)' \
+			"$RelocationFile")" -eq 8 ] || \
+			Fail "RISC-V arithmetic relocation count differs"
+		awk '
+			/R_RISCV_ADD(8|16|32|64)/ {
+				if (HasPending) Failed = 1
+				Pending = $1
+				HasPending = 1
+				Adds++
+				next
+			}
+			/R_RISCV_SUB(8|16|32|64)/ {
+				if (!HasPending || Pending != $1) Failed = 1
+				Pending = ""
+				HasPending = 0
+				Subtracts++
+			}
+			END {
+				if (Failed || HasPending || Adds != 4 || Subtracts != 4) exit 1
+			}
+		' "$RelocationFile" || \
+			Fail "RISC-V arithmetic relocation offsets or order differ"
+		for ArithmeticWidth in 8 16 32 64; do
+			case "$ArithmeticWidth" in
+			8) ArithmeticAddend=1 ;;
+			16) ArithmeticAddend=2 ;;
+			32) ArithmeticAddend=3 ;;
+			64) ArithmeticAddend=4 ;;
+			esac
+			grep -Eq "R_RISCV_ADD${ArithmeticWidth}[[:space:]]+.*external_add \\+ ${ArithmeticAddend}$" \
+				"$RelocationFile" || \
+				Fail "RISC-V ADD${ArithmeticWidth} relocation differs"
+			grep -Eq "R_RISCV_SUB${ArithmeticWidth}[[:space:]]+.*external_sub \\+ 0$" \
+				"$RelocationFile" || \
+				Fail "RISC-V SUB${ArithmeticWidth} relocation differs"
+		done
+	done
+	for DataFile in "$Arithmetic32Data" "$Arithmetic64Data"; do
+		DataHex="$(awk '
+			/^  0x/ {
+				for (Column = 2; Column <= NF; Column++)
+					if ($Column ~ /^[[:xdigit:]]+$/) printf "%s", tolower($Column)
+			}
+			END { print "" }
+		' "$DataFile")"
+		[ "$DataHex" = '000000000000000000000000000000' ] || \
+			Fail "RISC-V arithmetic relocation storage is not zero-initialized"
+	done
+
+	printf '%s\n' \
+		'GLOBAL global_begin' \
+		'GLOBAL global_end' \
+		'SECTION .text' \
+		'global_begin:' \
+		'local_begin:' \
+		'CALL relax_target' \
+		'local_end:' \
+		'global_end:' \
+		'NOP' \
+		'SECTION .data' \
+		'DB local_end - local_begin + 1' \
+		'DW global_end - global_begin + 2' \
+		'DD forward_end - forward_begin + 3' \
+		'DQ local_end - local_begin + 4' \
+		'SECTION .text' \
+		'forward_begin:' \
+		'NOP' \
+		'NOP' \
+		'forward_end:' \
+		'NOP' \
+		'SECTION .target' \
+		'relax_target:' \
+		'RET' > "$LabelDifferenceSource"
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x10000 : { *(.text) }' \
+		'  .target 0x11000 : { *(.target) }' \
+		'  .data 0x20000 : { *(.data) }' \
+		'}' > "$LabelDifferenceScript"
+	AssembleSuccess riscv-label-difference32 -march=riscv -mrelax -f elf32 \
+		-o "$LabelDifference32Object" "$LabelDifferenceSource"
+	AssembleSuccess riscv-label-difference64 -march=riscv -mrelax -f elf64 \
+		-o "$LabelDifference64Object" "$LabelDifferenceSource"
+	LC_ALL=C readelf -rW "$LabelDifference32Object" > \
+		"$LabelDifference32Relocations"
+	LC_ALL=C readelf -rW "$LabelDifference64Object" > \
+		"$LabelDifference64Relocations"
+	for RelocationFile in \
+		"$LabelDifference32Relocations" "$LabelDifference64Relocations"; do
+		[ "$(grep -Ec 'R_RISCV_(ADD|SUB)(8|16|32|64)' \
+			"$RelocationFile")" -eq 8 ] || \
+			Fail "RISC-V label difference relocation count differs"
+		grep -Eq 'R_RISCV_ADD8[[:space:]]+.*local_end \+ 1$' \
+			"$RelocationFile" || \
+			Fail "RISC-V local label ADD8 relocation differs"
+		grep -Eq 'R_RISCV_SUB8[[:space:]]+.*local_begin \+ 0$' \
+			"$RelocationFile" || \
+			Fail "RISC-V local label SUB8 relocation differs"
+		grep -Eq 'R_RISCV_ADD16[[:space:]]+.*global_end \+ 2$' \
+			"$RelocationFile" || \
+			Fail "RISC-V global label ADD16 relocation differs"
+		grep -Eq 'R_RISCV_SUB16[[:space:]]+.*global_begin \+ 0$' \
+			"$RelocationFile" || \
+			Fail "RISC-V global label SUB16 relocation differs"
+		grep -Eq 'R_RISCV_ADD32[[:space:]]+.*forward_end \+ 3$' \
+			"$RelocationFile" || \
+			Fail "RISC-V forward label ADD32 relocation differs"
+		grep -Eq 'R_RISCV_SUB32[[:space:]]+.*forward_begin \+ 0$' \
+			"$RelocationFile" || \
+			Fail "RISC-V forward label SUB32 relocation differs"
+		grep -Eq 'R_RISCV_ADD64[[:space:]]+.*local_end \+ 4$' \
+			"$RelocationFile" || \
+			Fail "RISC-V local label ADD64 relocation differs"
+		grep -Eq 'R_RISCV_SUB64[[:space:]]+.*local_begin \+ 0$' \
+			"$RelocationFile" || \
+			Fail "RISC-V local label SUB64 relocation differs"
+	done
+	LinkSuccess riscv-label-difference32-link ld.lld -m elf32lriscv --relax \
+		-e global_begin -T "$LabelDifferenceScript" \
+		-o "$LabelDifference32Output" "$LabelDifference32Object"
+	LinkSuccess riscv-label-difference64-link ld.lld -m elf64lriscv --relax \
+		-e global_begin -T "$LabelDifferenceScript" \
+		-o "$LabelDifference64Output" "$LabelDifference64Object"
+	llvm-objcopy --dump-section .data="$LabelDifference32Data" \
+		"$LabelDifference32Output"
+	llvm-objcopy --dump-section .data="$LabelDifference64Data" \
+		"$LabelDifference64Output"
+	for DataFile in "$LabelDifference32Data" "$LabelDifference64Data"; do
+		[ "$(NormalizeHex "$DataFile")" = \
+			'05 06 00 0b 00 00 00 08 00 00 00 00 00 00 00' ] || \
+			Fail "RISC-V linked label difference data differs"
+	done
+
+	for ULEBBits in 32 64; do
+		case "$ULEBBits" in
+		32) ULEBSource="$ULEB32Source" ;;
+		64) ULEBSource="$ULEB64Source" ;;
+		esac
+		printf '%s\n' \
+			"[BITS $ULEBBits]" \
+			'SECTION .text' \
+			'GLOBAL start' \
+			'start:' \
+			'begin:' \
+			'CALL target' \
+			'end:' \
+			'wide_begin:' \
+			'CALL target' \
+			'TIMES 32 NOP' \
+			'wide_end:' \
+			'SECTION .uleb_data' \
+			'ULEB128 0, 127, 128, 624485' \
+			'ULEB128 end - begin + 3' \
+			'ULEB128 wide_end - wide_begin' \
+			'SECTION .target' \
+			'target:' \
+			'RET' > "$ULEBSource"
+	done
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x10000 : { *(.text) }' \
+		'  .target 0x20000 : { *(.target) }' \
+		'  .uleb_data 0x30000 : { *(.uleb_data) }' \
+		'}' > "$ULEBScript"
+	AssembleSuccess riscv-uleb128-relocation32 -march=riscv -mrelax \
+		-f elf32 -o "$ULEB32Object" "$ULEB32Source"
+	AssembleSuccess riscv-uleb128-relocation64 -march=riscv -mrelax \
+		-f elf64 -o "$ULEB64Object" "$ULEB64Source"
+	LC_ALL=C readelf -rW "$ULEB32Object" > "$ULEB32Relocations"
+	LC_ALL=C readelf -rW "$ULEB64Object" > "$ULEB64Relocations"
+	for RelocationFile in "$ULEB32Relocations" "$ULEB64Relocations"; do
+		[ "$(grep -c 'R_RISCV_SET_ULEB128' "$RelocationFile")" -eq 2 ] || \
+			Fail "RISC-V SET_ULEB128 relocation count differs"
+		[ "$(grep -c 'R_RISCV_SUB_ULEB128' "$RelocationFile")" -eq 2 ] || \
+			Fail "RISC-V SUB_ULEB128 relocation count differs"
+		grep -Eq 'R_RISCV_SET_ULEB128[[:space:]]+.*end \+ 3$' \
+			"$RelocationFile" || \
+			Fail "RISC-V SET_ULEB128 addend differs"
+		[ "$(grep -Ec 'R_RISCV_SUB_ULEB128[[:space:]]+.* \+ 0$' \
+			"$RelocationFile")" -eq 2 ] || \
+			Fail "RISC-V SUB_ULEB128 addend differs"
+		awk '
+			/R_RISCV_SET_ULEB128/ {
+				if (Pending) Failed = 1
+				Pending = $1
+				next
+			}
+			/R_RISCV_SUB_ULEB128/ {
+				if (!Pending || Pending != $1) Failed = 1
+				Pending = ""
+			}
+			END { if (Failed || Pending) exit 1 }
+		' "$RelocationFile" || \
+			Fail "RISC-V ULEB128 relocation offsets or order differ"
+	done
+	LinkSuccess riscv-uleb128-relocation32-link ld.lld -m elf32lriscv \
+		--relax -e start -T "$ULEBScript" -o "$ULEB32Output" "$ULEB32Object"
+	LinkSuccess riscv-uleb128-relocation64-link ld.lld -m elf64lriscv \
+		--relax -e start -T "$ULEBScript" -o "$ULEB64Output" "$ULEB64Object"
+	llvm-objcopy --dump-section .uleb_data="$ULEB32Data" "$ULEB32Output"
+	llvm-objcopy --dump-section .uleb_data="$ULEB64Data" "$ULEB64Output"
+	for DataFile in "$ULEB32Data" "$ULEB64Data"; do
+		[ "$(NormalizeHex "$DataFile")" = \
+			'00 7f 80 01 e5 8e 26 07 84 01' ] || \
+			Fail "RISC-V linked ULEB128 data differs"
+	done
+	printf '%s\n' \
+		'[BITS 64]' \
+		'ULEB128 -1' > "$ULEBNegativeSource"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'EXTERN external_value' \
+		'ULEB128 external_value' > "$ULEBSymbolSource"
+	printf '%s\n' \
+		'[BITS 64]' \
+		'ULEB128 "text"' > "$ULEBTypeSource"
+	AssembleFailure riscv-uleb128-negative -march=riscv -f elf64 \
+		-o "$WorkDirectory/riscv-uleb128-negative.o" "$ULEBNegativeSource"
+	AssembleFailure riscv-uleb128-symbol -march=riscv -f elf64 \
+		-o "$WorkDirectory/riscv-uleb128-symbol.o" "$ULEBSymbolSource"
+	AssembleFailure riscv-uleb128-type -march=riscv -f elf64 \
+		-o "$WorkDirectory/riscv-uleb128-type.o" "$ULEBTypeSource"
+	grep -Fq 'ULEB128 value cannot be negative' \
+		"$WorkDirectory/riscv-uleb128-negative.stderr" || \
+		Fail "RISC-V negative ULEB128 diagnostic differs"
+	grep -Fq 'ULEB128 only supports constants or symbol differences' \
+		"$WorkDirectory/riscv-uleb128-symbol.stderr" || \
+		Fail "RISC-V symbolic ULEB128 diagnostic differs"
+	grep -Fq 'ULEB128 expects an integer expression' \
+		"$WorkDirectory/riscv-uleb128-type.stderr" || \
+		Fail "RISC-V ULEB128 type diagnostic differs"
 
 	"$AasmExecutable" -march=riscv -f bin \
 		-o "$WorkDirectory/riscv-relocation-binary.bin" "$RV32Source" \
@@ -522,6 +906,87 @@ CheckRISCVRelocation()
 		Fail "RISC-V compressed branch relocation differs"
 	grep -Fq 'R_RISCV_RVC_JUMP' "$CompressedRelocations" || \
 		Fail "RISC-V compressed jump relocation differs"
+
+	for CFIBits in 32 64; do
+		case "$CFIBits" in
+		32) CFISource="$CFI32Source" ;;
+		64) CFISource="$CFI64Source" ;;
+		esac
+		printf '%s\n' \
+			"[BITS $CFIBits]" \
+			'SECTION .text' \
+			'GLOBAL start' \
+			'start:' \
+			'[DEBUG cfi_startproc]' \
+			'[DEBUG cfi_def_cfa_offset 16]' \
+			'CALL target' \
+			'[DEBUG cfi_def_cfa_offset 32]' \
+			'TIMES 20 NOP' \
+			'[DEBUG cfi_def_cfa_offset 48]' \
+			'TIMES 100 NOP' \
+			'[DEBUG cfi_def_cfa_offset 64]' \
+			'TIMES 17000 NOP' \
+			'[DEBUG cfi_def_cfa_offset 80]' \
+			'RET' \
+			'[DEBUG cfi_endproc]' \
+			'second:' \
+			'[DEBUG cfi_startproc]' \
+			'[DEBUG cfi_def_cfa_offset 96]' \
+			'NOP' \
+			'[DEBUG cfi_endproc]' \
+			'SECTION .target' \
+			'target:' \
+			'RET' > "$CFISource"
+	done
+	printf '%s\n' \
+		'SECTIONS' \
+		'{' \
+		'  .text 0x10000 : { *(.text) }' \
+		'  .target 0x30000 : { *(.target) }' \
+		'}' > "$CFIScript"
+	AssembleSuccess riscv-cfi-relocation32 -march=riscv -mrelax -f elf32 \
+		-o "$CFI32Object" "$CFI32Source"
+	AssembleSuccess riscv-cfi-relocation64 -march=riscv -mrelax -f elf64 \
+		-o "$CFI64Object" "$CFI64Source"
+	LC_ALL=C readelf -rW "$CFI32Object" > "$CFI32Relocations"
+	LC_ALL=C readelf -rW "$CFI64Object" > "$CFI64Relocations"
+	for RelocationFile in "$CFI32Relocations" "$CFI64Relocations"; do
+		for CFIWidth in 6 8 16 32; do
+			[ "$(grep -c "R_RISCV_SET${CFIWidth}" "$RelocationFile")" -eq 1 ] || \
+				Fail "RISC-V SET${CFIWidth} CFI relocation differs"
+		done
+		awk '
+			/R_RISCV_SET(6|8|16|32)/ {
+				if (Pending) Failed = 1
+				Pending = $1
+				next
+			}
+			/R_RISCV_SUB(6|8|16|32)/ && Pending {
+				if ($1 != Pending) Failed = 1
+				Pending = ""
+			}
+			END { if (Failed || Pending) exit 1 }
+		' "$RelocationFile" || \
+			Fail "RISC-V SET/SUB CFI relocation order differs"
+	done
+	LinkSuccess riscv-cfi-relocation32-link ld.lld -m elf32lriscv --relax \
+		-e start -T "$CFIScript" -o "$CFI32Output" "$CFI32Object"
+	LinkSuccess riscv-cfi-relocation64-link ld.lld -m elf64lriscv --relax \
+		-e start -T "$CFIScript" -o "$CFI64Output" "$CFI64Object"
+	LC_ALL=C readelf -wf "$CFI32Output" > "$CFI32Frame"
+	LC_ALL=C readelf -wf "$CFI64Output" > "$CFI64Frame"
+	for FrameFile in "$CFI32Frame" "$CFI64Frame"; do
+		grep -Fq 'DW_CFA_advance_loc: 4 ' "$FrameFile" || \
+			Fail "RISC-V relaxed SET6 CFI value differs"
+		grep -Fq 'DW_CFA_advance_loc1: 80 ' "$FrameFile" || \
+			Fail "RISC-V linked SET8 CFI value differs"
+		grep -Fq 'DW_CFA_advance_loc2: 400 ' "$FrameFile" || \
+			Fail "RISC-V linked SET16 CFI value differs"
+		grep -Fq 'DW_CFA_advance_loc4: 68000 ' "$FrameFile" || \
+			Fail "RISC-V linked SET32 CFI value differs"
+		[ "$(grep -c 'FDE cie=' "$FrameFile")" -eq 2 ] || \
+			Fail "RISC-V multiple CFI procedures differ"
+	done
 	Pass "RISC-V ELF relocations"
 }
 

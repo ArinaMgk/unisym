@@ -14,6 +14,8 @@ void elf32_emit_fixup(const uni::CodeFixup& fixup);
 void elf64_emit_fixup(const uni::CodeFixup& fixup);
 void elf32_note_output(const uni::CodeendOutput& output);
 void elf64_note_output(const uni::CodeendOutput& output);
+bool elf32_process_cfi(const uni::CodeendDebugDirective& directive);
+bool elf64_process_cfi(const uni::CodeendDebugDirective& directive);
 void bin_emit_fixup(const uni::CodeFixup& fixup);
 
 outffmt* OutfileFormat::crt_format = NULL;
@@ -189,9 +191,13 @@ public:
 	}
 
 	virtual void ProcessDebugDirective(
-		const char* directive, const char* parameters) override
+		const uni::CodeendDebugDirective& directive) override
 	{
-		Driver->current_dfmt->debug_directive(directive, parameters);
+		if ((Driver == &of_elf32 || Driver == &of_elf) &&
+			elf32_process_cfi(directive)) return;
+		if (Driver == &of_elf64 && elf64_process_cfi(directive)) return;
+		Driver->current_dfmt->debug_directive(
+			directive.name, directive.parameters);
 	}
 
 	virtual void SetDebugType(int32_t type) override

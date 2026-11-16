@@ -154,9 +154,8 @@ public:
 
 ArchendInterface& DefaultArchend();
 ArchendInterface* FindArchend(const char* name);
-void ListArchends(const ArchendInterface& selected,
-	FILE* output, bool disassembly_only = false);
-void ListArchendNames(FILE* output, bool disassembly_only = false);
+void ListArchends(const ArchendInterface& selected, FILE* output);
+void ListArchendNames(FILE* output);
 
 ArchendDecodeInterface& DefaultArchendDecoder();
 ArchendDecodeInterface* FindArchendDecoder(const char* name);

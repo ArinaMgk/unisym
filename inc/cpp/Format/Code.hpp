@@ -22,6 +22,7 @@
 #ifndef UNISYM_FORMAT_CODE_HPP
 #define UNISYM_FORMAT_CODE_HPP
 
+#include <stdio.h>
 #include "../../c/stdinc.h"
 #include "../Lango/Target.hpp"
 
@@ -64,6 +65,13 @@ struct CodeendOutput {
 	uint64_t size;
 };
 
+struct CodeendDebugDirective {
+	const char* name;
+	const char* parameters;
+	int32_t section;
+	uint64_t offset;
+};
+
 enum class CodeFixupKind : uint8_t {
 	Absolute,
 	PcRelative,
@@ -76,7 +84,32 @@ enum class CodeFixupKind : uint8_t {
 	PageOffset,
 	High,
 	Low,
-	Alignment
+	Alignment,
+	Add,
+	Subtract,
+	Set
+};
+
+enum class CodeFixupPlacement : uint8_t {
+	AppendStorage,
+	ExistingStorage
+};
+
+enum class CodeFixupTargetKind : uint8_t {
+	Section,
+	Symbol
+};
+
+struct CodeFixupTarget {
+	CodeFixupTargetKind kind = CodeFixupTargetKind::Section;
+	int32_t section = -1;
+	int64_t offset = 0;
+	bool global = false;
+};
+
+enum class CodeFixupEncodingForm : uint8_t {
+	FixedWidth,
+	UnsignedLeb128
 };
 
 struct CodeFixupEncoding {
@@ -94,6 +127,7 @@ struct CodeFixupEncoding {
 
 	Field fields[4] {};
 	uint8_t field_count = 0;
+	CodeFixupEncodingForm form = CodeFixupEncodingForm::FixedWidth;
 };
 
 enum class CodeFixupPairRole : uint8_t {
@@ -123,6 +157,8 @@ struct CodeFixup {
 	uint32_t architecture_kind;
 	CodeFixupPair pair;
 	bool relaxable = false;
+	CodeFixupPlacement placement = CodeFixupPlacement::AppendStorage;
+	CodeFixupTarget target;
 };
 
 class CodeendInterface {
@@ -155,7 +191,7 @@ public:
 	virtual void ListDebugFormats(FILE* output) const = 0;
 	virtual void DisableDebug() = 0;
 	virtual void ProcessDebugDirective(
-		const char* directive, const char* parameters) = 0;
+		const CodeendDebugDirective& directive) = 0;
 	virtual void SetDebugType(int32_t type) = 0;
 	virtual void SetDebugLine(
 		const char* filename, int32_t line, int32_t section) = 0;

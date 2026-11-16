@@ -17,6 +17,7 @@ mgc [options] input...
 | :--- | :--- |
 | `--emit-ir` | 输出 Clover IR |
 | `--emit-ast` | 输出前端 AST |
+| `--relocation-model=MODEL` | 在 Clover IR 中记录 `static`、`pic` 或 `pie` 模式 |
 | `--lango=c` | 选择 C 前端 |
 | `--std=c99` | 将 C99 标准选项传递给 C 前端 |
 | `-Fname[=value]` | 将一个选项传递给当前选中的语言前端 |
@@ -73,6 +74,10 @@ clover-riscv input.ir [options]
 | `-h`、`--help` | 显示帮助信息及已支持的目标信息 |
 
 当前默认后端目标为 `-mbits=64 -minst=im -mabi=lp64 --asm=gcc`。
+`mgc` 默认记录 `static` relocation model；指定 PIC/PIE 时该设置随 Clover IR
+传给后端。RISC-V 后端在 PIC/PIE 下会按符号定义、链接属性、visibility 和 binding
+选择 PC-relative 或 GOT 地址形式；静态模式保留原有地址生成行为。汇编输出同时保留
+外部定义的 ELF visibility 与 weak binding。
 `lp64f` 要求 F 扩展，`lp64d` 要求 F、D 扩展。生成的汇编交给 GCC 或汇编器时，
 应向后续工具传递相同的 `-mabi`。`--asm=aasm` 会输出 `[ARCH]`、`[BITS]`、
 `[INST]`、`[ABI]` 目标指令，以及 aasm 的 section、符号、数据、地址和指令语法；
@@ -129,6 +134,20 @@ target ptrbits 64
 
 当前文本格式接受 32 或 64。旧 IR 未写该指令时，指针位数保持未指定；写出后，
 后端必须验证自身目标位数与之相符，不能静默采用不同宽度。
+
+模块还可使用 `target relocation static|pic|pie` 记录 relocation model；旧 IR
+未写时按 `static` 处理。Global 和 Function 声明可在类型后附加 `visibility`
+与 `binding` 属性，例如：
+
+```clover
+declare global @shared_value i32 visibility hidden binding weak
+declare func @shared_function() -> i32 visibility protected binding weak
+```
+
+visibility 接受 `default`、`hidden`、`protected`，binding 接受 `strong`、`weak`；
+默认分别为 `default` 和 `strong`，默认属性可省略。`internal` 表示 Clover 模块内
+链接，不等同于 ELF `hidden` visibility。RISC-V 后端据此选择符号地址形式，并将
+支持的 visibility 与 binding 属性传入 ELF 符号表。
 
 第一版支持以下类型：
 

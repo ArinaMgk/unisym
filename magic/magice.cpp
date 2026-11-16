@@ -48,6 +48,7 @@ static void PrintMagicHelp() {
 	uni::Console.OutFormat("Options:\n");
 	uni::Console.OutFormat("  --emit-ir               Emit Clover IR\n");
 	uni::Console.OutFormat("  --emit-ast              Emit the parsed AST\n");
+	uni::Console.OutFormat("  --relocation-model=MODEL Record static, pic, or pie in Clover IR\n");
 	uni::Console.OutFormat("  -g                      Add source locations and comments to Clover IR\n");
 	uni::Console.OutFormat("  --lango=c               Select the source-language frontend\n");
 	uni::Console.OutFormat("  --std=c99               Pass the language standard to the frontend\n");
@@ -77,6 +78,7 @@ int magic(int argc, char** argv) {
 	bool request_ir = false;
 	bool request_ast = false;
 	bool debug_symbols = false;
+	clover::RelocationModel relocation_model = clover::RelocationModel::Static;
 	rostr language_standard = "c99";
 	MagicFrontend selected_frontend = MagicFrontend::C;
 	bool frontend_explicit = false;
@@ -97,6 +99,16 @@ int magic(int argc, char** argv) {
 		}
 		else if (!options_ended && !StrCompare(argv[i], "-g")) {
 			debug_symbols = true;
+		}
+		else if (!options_ended && !StrCompareN(argv[i], "--relocation-model=", 19)) {
+			const char* value = argv[i] + 19;
+			if (!StrCompare(value, "static")) relocation_model = clover::RelocationModel::Static;
+			else if (!StrCompare(value, "pic")) relocation_model = clover::RelocationModel::PIC;
+			else if (!StrCompare(value, "pie")) relocation_model = clover::RelocationModel::PIE;
+			else {
+				plogerro("unsupported relocation model %s; expected static, pic, or pie", value);
+				return 1;
+			}
 		}
 		else if (!options_ended && !StrCompareN(argv[i], "--lango=", 8)) {
 			if (!FrontendFromName(argv[i] + 8, selected_frontend)) {
@@ -200,8 +212,9 @@ int magic(int argc, char** argv) {
 				return 1;
 			}
 			clover::Module module;
-			bool success = frontend->Generate(input, module, frontend_options) &&
-				clover::Print(module, *output);
+			bool success = frontend->Generate(input, module, frontend_options);
+			module.relocation_model = relocation_model;
+			success = success && clover::Print(module, *output);
 			delete frontend;
 			if (!success) {
 				if (output_file) delete output_file;

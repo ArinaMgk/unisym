@@ -29,6 +29,12 @@ namespace uni::lango {
 // GNU assembler directive emitter used by GCC-compatible toolchains.
 class RISCVAssemblyOutputGCC : public RISCVAssemblyOutputInterface {
 public:
+	virtual bool EmitAddress(const char* symbol, bool through_got,
+		bool external, bool weak, clover::SymbolVisibility visibility,
+		unsigned bits, uni::OstreamTrait& output) override;
+	virtual bool EmitSymbol(const char* symbol, bool function, bool weak,
+		clover::SymbolVisibility visibility, bool external, bool declaration,
+		uni::OstreamTrait& output) override;
 	virtual bool EmitSourceFiles(const clover::Module& module,
 		uni::OstreamTrait& output) override;
 	virtual bool EmitLocation(uint32 file, uint32 line,

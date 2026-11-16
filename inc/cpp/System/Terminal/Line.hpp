@@ -246,6 +246,9 @@ namespace uni {
 				for (stduint i = len_before; i < length; i++) Console.OutChar(buffer[i]);
 				shown += TerminalColumns(buffer, len_before, length);
 				cursor = shown;
+			#if defined(_WinNT) || defined(_Linux)
+				fflush(stdout);
+			#endif
 				continue;
 			}
 			if (key == _UKEY_BACKSPACE && pos_before == len_before && erased_columns) {
@@ -254,6 +257,9 @@ namespace uni {
 				for (stduint i = 0; i < erased_columns; i++) Console.OutChar('\b');
 				shown -= erased_columns;
 				cursor = shown;
+			#if defined(_WinNT) || defined(_Linux)
+				fflush(stdout);
+			#endif
 				continue;
 			}
 

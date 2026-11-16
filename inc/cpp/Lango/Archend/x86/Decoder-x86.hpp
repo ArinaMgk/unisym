@@ -40,8 +40,9 @@ struct X86DecodePrefixes {
 };
 
 reg_enum X86DecodeRegister(int32 regflags, int regval, int rex);
-uint8* X86DecodeDrex(uint8* data, insn* instruction);
-uint8* X86DecodeEffectiveAddress(uint8* data, int modrm, int address_size,
-	int segment_size, operand* destination, insn* instruction);
+uint8* X86DecodeDrex(uint8* data, const uint8* end, insn* instruction, bool& truncated);
+uint8* X86DecodeEffectiveAddress(uint8* data, const uint8* end,
+	int modrm, int address_size, int segment_size, operand* destination,
+	insn* instruction, bool& truncated);
 
 #endif

@@ -45,7 +45,8 @@ static uint64_t getu64(uint8_t *data)
 #define case4(x) case (x): case (x)+1: case (x)+2: case (x)+3
 
 static int matches(const struct itemplate *t, uint8_t *data,
-		   const X86DecodePrefixes *prefix, int segsize, insn *ins)
+		   const uint8_t* end, const X86DecodePrefixes *prefix,
+		   int segsize, insn *ins, bool& truncated)
 {
 	uint8_t *r = (uint8_t *)(t->code);
 	uint8_t *origdata = data;
@@ -67,6 +68,12 @@ static int matches(const struct itemplate *t, uint8_t *data,
 	ins->oprs[i].segment = ins->oprs[i].disp_size =
 		(segsize == 64 ? SEG_64BIT : segsize == 32 ? SEG_32BIT : 0);
 	}
+	#define X86_REQUIRE_INPUT(count) do { \
+		if (static_cast<size_t>(end - data) < (count)) { \
+			truncated = true; \
+			return false; \
+		} \
+	} while (0)
 	ins->condition = C_none;
 	ins->rex = prefix->rex;
 	MemSet(ins->prefixes, 0, sizeof ins->prefixes);
@@ -93,6 +100,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 	case 02:
 	case 03:
 	case 04:
+			X86_REQUIRE_INPUT(c);
 			while (c--)
 				if (*r++ != *data++)
 					return false;
@@ -106,6 +114,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	case4(010):
 	{
+			X86_REQUIRE_INPUT(1);
 			int t = *r++, d = *data++;
 			if (d < t || d > t + 7)
 				return false;
@@ -118,28 +127,34 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	case4(014):
 	case4(0274):
+			X86_REQUIRE_INPUT(1);
 			opx->offset = (int8_t)*data++;
 			opx->segment |= SEG_SIGNED;
 		break;
 
 	case4(020):
+			X86_REQUIRE_INPUT(1);
 			opx->offset = *data++;
 		break;
 
 	case4(024):
+			X86_REQUIRE_INPUT(1);
 			opx->offset = *data++;
 		break;
 
 	case4(030):
+			X86_REQUIRE_INPUT(2);
 			opx->offset = getu16(data);
 		data += 2;
 		break;
 
 	case4(034):
 		if (osize == 32) {
+		X86_REQUIRE_INPUT(4);
 		opx->offset = getu32(data);
 		data += 4;
 		} else {
+		X86_REQUIRE_INPUT(2);
 		opx->offset = getu16(data);
 		data += 2;
 		}
@@ -149,6 +164,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	case4(040):
 	case4(0254):
+			X86_REQUIRE_INPUT(4);
 			opx->offset = getu32(data);
 		data += 4;
 		break;
@@ -156,18 +172,21 @@ static int matches(const struct itemplate *t, uint8_t *data,
 	case4(044):
 		switch (asize) {
 		case 16:
+		X86_REQUIRE_INPUT(2);
 		opx->offset = getu16(data);
 		data += 2;
 		if (segsize != 16)
 			opx->disp_size = 16;
 		break;
 		case 32:
+		X86_REQUIRE_INPUT(4);
 		opx->offset = getu32(data);
 		data += 4;
 		if (segsize == 16)
 			opx->disp_size = 32;
 		break;
 		case 64:
+		X86_REQUIRE_INPUT(8);
 		opx->offset = getu64(data);
 		opx->disp_size = 64;
 		data += 8;
@@ -176,16 +195,19 @@ static int matches(const struct itemplate *t, uint8_t *data,
 		break;
 
 	case4(050):
+			X86_REQUIRE_INPUT(1);
 			opx->offset = gets8(data++);
 			opx->segment |= SEG_RELATIVE;
 		break;
 
 	case4(054):
+		X86_REQUIRE_INPUT(8);
 		opx->offset = getu64(data);
 		data += 8;
 		break;
 
 	case4(060):
+		X86_REQUIRE_INPUT(2);
 			opx->offset = gets16(data);
 		data += 2;
 			opx->segment |= SEG_RELATIVE;
@@ -195,10 +217,12 @@ static int matches(const struct itemplate *t, uint8_t *data,
 	case4(064):
 			opx->segment |= SEG_RELATIVE;
 		if (osize == 16) {
+		X86_REQUIRE_INPUT(2);
 		opx->offset = gets16(data);
 		data += 2;
 				opx->segment &= ~(SEG_32BIT|SEG_64BIT);
 		} else if (osize == 32) {
+		X86_REQUIRE_INPUT(4);
 		opx->offset = gets32(data);
 		data += 4;
 				opx->segment &= ~SEG_64BIT;
@@ -212,6 +236,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 		break;
 
 	case4(070):
+			X86_REQUIRE_INPUT(4);
 			opx->offset = gets32(data);
 		data += 4;
 			opx->segment |= SEG_32BIT | SEG_RELATIVE;
@@ -222,10 +247,11 @@ static int matches(const struct itemplate *t, uint8_t *data,
 	case4(0120):
 	case4(0130):
 	{
+		X86_REQUIRE_INPUT(1);
 		int modrm = *data++;
 			opx->segment |= SEG_RMREG;
 			data = X86DecodeEffectiveAddress(
-				data, modrm, asize, segsize, opy, ins);
+				data, end, modrm, asize, segsize, opy, ins, truncated);
 		if (!data)
 		return false;
 		opx->basereg = (reg_enum)(((modrm >> 3) & 7) + (ins->rex & REX_R ? 8 : 0));
@@ -234,9 +260,11 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	case4(0140):
 		if (s_field_for == op1) {
+		X86_REQUIRE_INPUT(1);
 		opx->offset = gets8(data);
 		data++;
 		} else {
+		X86_REQUIRE_INPUT(2);
 		opx->offset = getu16(data);
 		data += 2;
 		}
@@ -244,6 +272,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	case4(0144):
 	case4(0154):
+		X86_REQUIRE_INPUT(1);
 		s_field_for = (*data & 0x02) ? op1 : -1;
 		if ((*data++ & ~0x02) != *r++)
 		return false;
@@ -251,9 +280,11 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	case4(0150):
 		if (s_field_for == op1) {
+		X86_REQUIRE_INPUT(1);
 		opx->offset = gets8(data);
 		data++;
 		} else {
+		X86_REQUIRE_INPUT(4);
 		opx->offset = getu32(data);
 		data += 4;
 		}
@@ -270,13 +301,14 @@ static int matches(const struct itemplate *t, uint8_t *data,
 		break;
 
 	case 0171:
-		data = X86DecodeDrex(data, ins);
+		data = X86DecodeDrex(data, end, ins, truncated);
 		if (!data)
 		return false;
 		break;
 
 	case 0172:
 	{
+		X86_REQUIRE_INPUT(1);
 		uint8_t ximm = *data++;
 		c = *r++;
 		ins->oprs[c >> 3].basereg = (reg_enum)((ximm >> 4) & regmask);
@@ -287,6 +319,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	case 0173:
 	{
+		X86_REQUIRE_INPUT(1);
 		uint8_t ximm = *data++;
 		c = *r++;
 
@@ -300,6 +333,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	case 0174:
 	{
+		X86_REQUIRE_INPUT(1);
 		uint8_t ximm = *data++;
 		c = *r++;
 
@@ -317,11 +351,12 @@ static int matches(const struct itemplate *t, uint8_t *data,
 	case4(0230):
 	case4(0234):
 	{
+			X86_REQUIRE_INPUT(1);
 			int modrm = *data++;
 			if (((modrm >> 3) & 07) != (c & 07))
 				return false;   /* spare field doesn't match up */
 			data = X86DecodeEffectiveAddress(
-				data, modrm, asize, segsize, opy, ins);
+				data, end, modrm, asize, segsize, opy, ins, truncated);
 		if (!data)
 		return false;
 		break;
@@ -485,6 +520,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	case 0330:
 	{
+			X86_REQUIRE_INPUT(1);
 			int t = *r++, d = *data++;
 			if (d < t || d > t + 15)
 				return false;
@@ -536,6 +572,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 		break;
 
 	case4(0344):
+		X86_REQUIRE_INPUT(1);
 		ins->oprs[0].basereg = reg_enum((*data++ >> 3) & 7);
 		break;
 
@@ -644,6 +681,7 @@ static int matches(const struct itemplate *t, uint8_t *data,
 
 	/* Fix: check for redundant REX prefixes */
 
+	#undef X86_REQUIRE_INPUT
 	return data - origdata;
 }
 
@@ -653,9 +691,9 @@ static const char * const condition_name[16] = {
 	"s", "ns", "pe", "po", "l", "nl", "ng", "g"
 };
 
-int32 DecodeX86Buffer(byte* data, char* output, int outbufsize,
+int32 DecodeX86Buffer(byte* data, const uint8_t* end, char* output, int outbufsize,
 	int segsize, uint64 address, uint32 preference,
-	bool& has_target, uint64& target)
+	bool& has_target, uint64& target, bool& truncated)
 {
 	const struct itemplate * const *p, * const *best_p;
 	const struct disasm_index *ix;
@@ -686,6 +724,10 @@ int32 DecodeX86Buffer(byte* data, char* output, int outbufsize,
 
 	end_prefix = false;
 	while (!end_prefix) {
+	if (data == end) {
+		truncated = true;
+		return 0;
+	}
 	switch (*data) {
 	case 0xF2:
 	case 0xF3:
@@ -730,7 +772,15 @@ int32 DecodeX86Buffer(byte* data, char* output, int outbufsize,
 
 	case 0xC4:
 	case 0xC5:
+		if (end - data < 2) {
+			truncated = true;
+			return 0;
+		}
 		if (segsize == 64 || (data[1] & 0xc0) == 0xc0) {
+		if (data[0] == 0xc4 && end - data < 3) {
+			truncated = true;
+			return 0;
+		}
 		prefix.vex[0] = *data++;
 		prefix.vex[1] = *data++;
 
@@ -757,8 +807,16 @@ int32 DecodeX86Buffer(byte* data, char* output, int outbufsize,
 		break;
 
 	case 0x8F:
+		if (end - data < 2) {
+			truncated = true;
+			return 0;
+		}
 		if ((data[1] & 030) != 0 &&
 		(segsize == 64 || (data[1] & 0xc0) == 0xc0)) {
+		if (end - data < 3) {
+			truncated = true;
+			return 0;
+		}
 		prefix.vex[0] = *data++;
 		prefix.vex[1] = *data++;
 		prefix.vex[2] = *data++;
@@ -815,6 +873,10 @@ int32 DecodeX86Buffer(byte* data, char* output, int outbufsize,
 	return 0;		/* No instruction table at all... */
 
 	dp = data;
+	if (dp == end) {
+		truncated = true;
+		return 0;
+	}
 	ix += *dp++;
 	while (ix->n == -1) {
 	ix = (const struct disasm_index *)ix->p + *dp++;
@@ -822,7 +884,8 @@ int32 DecodeX86Buffer(byte* data, char* output, int outbufsize,
 
 	p = (const struct itemplate * const *)ix->p;
 	for (n = ix->n; n; n--, p++) {
-		if ((length = matches(*p, data, &prefix, segsize, &tmp_ins))) {
+		if ((length = matches(*p, data, end, &prefix, segsize, &tmp_ins,
+			truncated))) {
 			works = true;
 			/*
 			 * Final check to make sure the types of r/m match up.
@@ -1204,14 +1267,24 @@ int32 DecodeX86Byte(const byte* data,
 	}
 
 	if (str)
-	StrCopy(output, str);
+	snprintf(output, outbufsize, "%s", str);
 
 	return 1;
 }
 
 }
 
-constexpr stduint X86MaximumInstructionBytes = 32;
+constexpr stduint X86MaximumInstructionBytes = 15;
+
+static void X86CopyOutput(char* destination, stduint capacity,
+	const char* source)
+{
+	if (!capacity) return;
+	stduint length = StrLength(source);
+	if (length >= capacity) length = capacity - 1;
+	MemCopyN(destination, source, length);
+	destination[length] = '\0';
+}
 
 int32 X86DecodeInstruction(const byte* data, stduint available,
 	char* output, stduint output_capacity, int bits, uint64 address,
@@ -1223,22 +1296,23 @@ int32 X86DecodeInstruction(const byte* data, stduint available,
 	target = 0;
 	if (!data || !available || !output || !output_capacity) return 0;
 
-	byte staging[X86MaximumInstructionBytes] = {};
-	byte* source = const_cast<byte*>(data);
-	if (available < X86MaximumInstructionBytes) {
-		MemCopyN(staging, data, available);
-		source = staging;
-	}
+	const stduint bounded_available = available <
+		X86MaximumInstructionBytes ? available : X86MaximumInstructionBytes;
+	const uint8_t* end = data + bounded_available;
+	char formatted[512];
+	formatted[0] = '\0';
 
-	int32 consumed = DecodeX86Buffer(source, output,
-		static_cast<int>(output_capacity), bits, address, preference,
-		has_target, target);
-	if (consumed > static_cast<int32>(available)) {
-		need_more_data = true;
+	int32 consumed = DecodeX86Buffer(const_cast<byte*>(data), end, formatted,
+		static_cast<int>(sizeof formatted), bits, address, preference,
+		has_target, target, need_more_data);
+	if (consumed <= 0) {
+		if (bounded_available == X86MaximumInstructionBytes)
+			need_more_data = false;
 		has_target = false;
 		target = 0;
 		return 0;
 	}
+	X86CopyOutput(output, output_capacity, formatted);
 	return consumed;
 }
 
@@ -1246,8 +1320,11 @@ int32 X86DecodeByte(const byte* data,
 	char* output, stduint output_capacity, int bits)
 {
 	if (!data || !output || !output_capacity) return 0;
-	return DecodeX86Byte(data, output,
-		static_cast<int>(output_capacity), bits);
+	char formatted[32];
+	int32 consumed = DecodeX86Byte(data, formatted,
+		static_cast<int>(sizeof formatted), bits);
+	if (consumed > 0) X86CopyOutput(output, output_capacity, formatted);
+	return consumed;
 }
 
 namespace uni::lango {

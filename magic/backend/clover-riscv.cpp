@@ -32,6 +32,7 @@ static void PrintHelp() {
 	uni::Console.OutFormat("  -g            Emit source line directives when present in IR\n");
 	uni::Console.OutFormat("  --asm=gcc     Emit GCC-compatible GNU assembly syntax\n");
 	uni::Console.OutFormat("  --asm=aasm    Emit Unisym assembler syntax\n");
+	uni::Console.OutFormat("  Relocation model is read from the Clover IR module\n");
 	uni::Console.OutFormat("  -mbits=64     Select register width\n");
 	uni::Console.OutFormat("  -minst=i      Select the base integer instruction set\n");
 	uni::Console.OutFormat("  -minst=im     Enable integer multiply and divide\n");

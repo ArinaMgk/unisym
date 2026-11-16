@@ -952,19 +952,27 @@ bool RISCVEncoder::Encode(const AssemblySession& session,
 	case RISCVEncodingFormat::Immediate:
 	case RISCVEncodingFormat::ImmediateWord:
 		if (operand[2].relocation != RISCVRelocationKind::None) {
-			if (operand[2].relocation != RISCVRelocationKind::Low ||
+			bool pcrel = operand[2].relocation ==
+				RISCVRelocationKind::PcRelativeLow;
+			if ((!pcrel && operand[2].relocation != RISCVRelocationKind::Low) ||
 				instruction.opcode != RISCVOpcode::Addi ||
 				operand[2].value.unknown ||
 				operand[2].value.wrt != NO_SEG ||
 				(!operand[2].value.external &&
-				operand[2].value.section == NO_SEG)) {
+				 operand[2].value.section == NO_SEG) ||
+				(pcrel && (operand[2].value.external ||
+				 operand[2].value.section == NO_SEG ||
+				 operand[2].value.offset < 0))) {
 				aasm_log(_LOG_ERROR,
 					"RISC-V low relocation requires ADDI and a relocatable symbol");
 				return false;
 			}
 			return Append(result,
 				EncodeI(info.fixed_bits, operand[0].reg, operand[1].reg, 0),
-				RISCVFixupKind::LowI, operand[2].value);
+				pcrel ? RISCVFixupKind::PcRelativeLowI : RISCVFixupKind::LowI,
+				operand[2].value, 4,
+				pcrel ? static_cast<uint64_t>(operand[2].value.offset) : 0,
+				pcrel ? RISCVFixupPairRole::Tail : RISCVFixupPairRole::None);
 		}
 		if (!RequireIImmediate(operand[2], immediate)) return false;
 		return Append(result, EncodeI(info.fixed_bits,

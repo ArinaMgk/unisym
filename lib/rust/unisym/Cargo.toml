@@ -14,6 +14,11 @@ members = [
 	"unisym_x86_64"
 ]
 
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+
 [dependencies]
 
 # [profile.dev]

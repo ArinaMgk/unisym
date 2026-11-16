@@ -36,6 +36,26 @@ namespace {
 
 }
 
+bool RISCVAssemblyOutputGCC::EmitAddress(const char* symbol, bool through_got,
+	bool, bool, clover::SymbolVisibility, unsigned, uni::OstreamTrait& output) {
+	output.OutFormat("\t%s t0, %s\n", through_got ? "lga" : "lla", symbol);
+	return true;
+}
+
+bool RISCVAssemblyOutputGCC::EmitSymbol(const char* symbol, bool function,
+	bool weak, clover::SymbolVisibility visibility, bool external, bool,
+	uni::OstreamTrait& output) {
+	if (external)
+		output.OutFormat(".%s %s\n", weak ? "weak" : "globl", symbol);
+	if (visibility == clover::SymbolVisibility::Hidden)
+		output.OutFormat(".hidden %s\n", symbol);
+	else if (visibility == clover::SymbolVisibility::Protected)
+		output.OutFormat(".protected %s\n", symbol);
+	output.OutFormat(".type %s, @%s\n", symbol,
+		function ? "function" : "object");
+	return true;
+}
+
 bool RISCVAssemblyOutputGCC::EmitSourceFiles(const clover::Module& module,
 	uni::OstreamTrait& output) {
 	for (const clover::SourceFile& source : module.source_files) {

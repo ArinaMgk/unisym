@@ -128,6 +128,9 @@
 - `-g` 可以把 Clover 的文件和行号信息转换为所选汇编格式对应的源位置指令。
 - Clover 模块使用 `target ptrbits` 保留前端确定的指针宽度；RISC-V 后端会拒绝
   与自身目标位数不一致的 IR。
+- RISC-V PIC/PIE 地址生成按符号链接属性、visibility 与 binding 选择 PC-relative
+  或 GOT relocation；GCC 与 AASM 汇编输出均保留定义符号属性，AASM ELF32/ELF64
+  输出支持 weak binding。
 - Clover 的 global、constant 和 function 均可携带独立的 internal 链接属性；
   RISC-V 汇编输出不会为内部符号生成 `.globl`。
 - Clover global 支持显式对象对齐和带字节偏移的有类型初始化片段；未覆盖区域由

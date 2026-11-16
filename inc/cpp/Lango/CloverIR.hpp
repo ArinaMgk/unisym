@@ -48,6 +48,23 @@ enum class Linkage {
 	Internal  // Symbol is private to this Clover module.
 };
 
+enum class RelocationModel {
+	Static, // Default relocation model.
+	PIC, // Position-independent code for shared-library use.
+	PIE // Position-independent executable code.
+};
+
+enum class SymbolVisibility {
+	Default, // Visible to dynamic symbol resolution.
+	Hidden, // Not visible outside the defining module.
+	Protected // Externally visible but locally bound within the module.
+};
+
+enum class SymbolBinding {
+	Strong, // Regular symbol definition or reference.
+	Weak // Weak symbol definition or reference.
+};
+
 // Operations represented by the in-memory Clover IR.
 enum class Opcode {
 	Const, // Create an integer constant.
@@ -191,6 +208,8 @@ struct Global {
 	bool is_declaration = false; // Refer to externally provided storage without defining it.
 	bool is_read_only = false; // Emit the object in target read-only storage.
 	Linkage linkage = Linkage::External;
+	SymbolVisibility visibility = SymbolVisibility::Default;
+	SymbolBinding binding = SymbolBinding::Strong;
 	uni::Vector<stdsint> initializer_values; // Explicit elements for aggregate data.
 	uni::Vector<GlobalInitializerFragment> initializer_fragments; // Heterogeneous aggregate data.
 };
@@ -203,12 +222,15 @@ struct Function {
 	bool is_variadic = false; // Accept call operands after the fixed parameter list.
 	bool is_declaration = false; // Refer to a function supplied by this or another module.
 	Linkage linkage = Linkage::External;
+	SymbolVisibility visibility = SymbolVisibility::Default;
+	SymbolBinding binding = SymbolBinding::Strong;
 	uni::Vector<BasicBlock> blocks;
 };
 
 // Compilation unit exchanged between a Clover frontend and backend.
 struct Module {
 	unsigned pointer_bits = 0; // Address width required by Ptr; zero means unspecified.
+	RelocationModel relocation_model = RelocationModel::Static;
 	uni::Vector<SourceFile> source_files;
 	uni::Vector<Global> globals;
 	uni::Vector<Function> functions;

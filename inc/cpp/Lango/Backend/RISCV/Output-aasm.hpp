@@ -37,6 +37,7 @@ private:
 	uni::String target_instructions;
 	uni::String target_abi;
 	bool bss_section = false;
+	unsigned address_label = 0;
 
 	// Convert and write one complete assembly line.
 	bool EmitLine();
@@ -53,6 +54,12 @@ public:
 
 	// Write a final unterminated line, if one exists.
 	bool Flush();
+	virtual bool EmitAddress(const char* symbol, bool through_got,
+		bool external, bool weak, clover::SymbolVisibility visibility,
+		unsigned bits, uni::OstreamTrait& output) override;
+	virtual bool EmitSymbol(const char* symbol, bool function, bool weak,
+		clover::SymbolVisibility visibility, bool external, bool declaration,
+		uni::OstreamTrait& output) override;
 
 	virtual bool EmitSourceFiles(const clover::Module& module,
 		uni::OstreamTrait& output) override;

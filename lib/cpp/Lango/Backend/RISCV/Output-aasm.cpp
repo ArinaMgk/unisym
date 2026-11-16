@@ -153,6 +153,55 @@ RISCVAssemblyOutputAASM::RISCVAssemblyOutputAASM(unsigned bits,
 	destination(output), target_bits(bits), target_instructions(instructions),
 	target_abi(abi) {}
 
+bool RISCVAssemblyOutputAASM::EmitAddress(const char* symbol, bool through_got,
+	bool external, bool weak, clover::SymbolVisibility visibility, unsigned bits,
+	uni::OstreamTrait&) {
+	unsigned label = address_label++;
+	if (external && !weak &&
+		visibility == clover::SymbolVisibility::Default) {
+		destination.OutFormat("[EXTERN %s", symbol);
+		destination.OutFormat("]\n");
+	}
+	if (through_got) {
+		destination.OutFormat("__L_addr_%[u]:\n\tAUIPC t0, GOT %s\n",
+			label, symbol);
+		destination.OutFormat("\t%s t0, [t0 + PCREL_LOW __L_addr_%[u]]\n",
+			bits == 32 ? "LW" : "LD", label);
+	}
+	else {
+		destination.OutFormat("__L_addr_%[u]:\n\tAUIPC t0, PCREL_HIGH %s\n",
+			label, symbol);
+		destination.OutFormat("\tADDI t0, t0, PCREL_LOW __L_addr_%[u]\n",
+			label);
+	}
+	return true;
+}
+
+bool RISCVAssemblyOutputAASM::EmitSymbol(const char* symbol, bool function,
+	bool weak, clover::SymbolVisibility visibility, bool external, bool declaration,
+	uni::OstreamTrait&) {
+	if (!external) return true;
+	if (declaration) {
+		destination.OutFormat("EXTERN %s", symbol);
+		if (visibility == clover::SymbolVisibility::Hidden)
+			destination.OutFormat(":hidden");
+		else if (visibility == clover::SymbolVisibility::Protected)
+			destination.OutFormat(":protected");
+		if (weak) destination.OutFormat(" weak");
+		destination.OutChar('\n');
+		return true;
+	}
+	destination.OutFormat("GLOBAL %s:%s", symbol,
+		function ? "function" : "data");
+	if (visibility == clover::SymbolVisibility::Hidden)
+		destination.OutFormat(" hidden");
+	else if (visibility == clover::SymbolVisibility::Protected)
+		destination.OutFormat(" protected");
+	if (weak) destination.OutFormat(" weak");
+	destination.OutChar('\n');
+	return true;
+}
+
 bool RISCVAssemblyOutputAASM::Begin() {
 	destination.OutFormat("[ARCH riscv]\n[BITS %[u]]\n[INST %s]\n[ABI %s]\n",
 		target_bits, target_instructions.reference(), target_abi.reference());

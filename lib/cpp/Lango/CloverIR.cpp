@@ -42,6 +42,24 @@ namespace clover {
 			return "?";
 		}
 
+		const char* RelocationModelName(RelocationModel model) {
+			switch (model) {
+			case RelocationModel::Static: return "static";
+			case RelocationModel::PIC: return "pic";
+			case RelocationModel::PIE: return "pie";
+			}
+			return "?";
+		}
+
+		void PrintSymbolAttributes(uni::OstreamTrait& output,
+			SymbolVisibility visibility, SymbolBinding binding) {
+			if (visibility != SymbolVisibility::Default)
+				output.OutFormat(" visibility %s", visibility == SymbolVisibility::Hidden ?
+					"hidden" : "protected");
+			if (binding == SymbolBinding::Weak)
+				output.OutFormat(" binding weak");
+		}
+
 		const char* FloatPredicateName(FCmpPredicate predicate) {
 			switch (predicate) {
 			case FCmpPredicate::EQ: return "eq";
@@ -420,6 +438,7 @@ namespace clover {
 			uint32 debug_file = 0;
 			uint32 debug_line = 0;
 			bool failed = false;
+			bool relocation_model_seen = false;
 
 			void Advance() {
 				token = lexer.Next();
@@ -980,7 +999,9 @@ namespace clover {
 					if (!Expect(",")) return false;
 				}
 				if (!Expect(")") || !Expect("->") ||
-					!ReadType(function.return_type) || !Expect("{")) return false;
+					!ReadType(function.return_type) ||
+					!ReadSymbolAttributes(function.visibility, function.binding) ||
+					!Expect("{")) return false;
 				while (Is("^"))
 					if (!ParseBlock(function)) return false;
 				if (!Expect("}")) return false;
@@ -1035,7 +1056,8 @@ namespace clover {
 					if (!Expect(",")) return false;
 				}
 				if (!Expect(")") || !Expect("->") ||
-					!ReadType(function.return_type)) return false;
+					!ReadType(function.return_type) ||
+					!ReadSymbolAttributes(function.visibility, function.binding)) return false;
 				module.functions.Append(function);
 				return true;
 			}
@@ -1052,13 +1074,53 @@ namespace clover {
 			}
 
 			bool ParseTarget(Module& module) {
-				if (!Expect("target") || !Expect("ptrbits")) return false;
+				if (!Expect("target")) return false;
+				if (Is("relocation")) {
+					Advance();
+					if (relocation_model_seen) return Error("duplicate relocation model");
+					if (Is("static")) module.relocation_model = RelocationModel::Static;
+					else if (Is("pic")) module.relocation_model = RelocationModel::PIC;
+					else if (Is("pie")) module.relocation_model = RelocationModel::PIE;
+					else return Error("expected static, pic, or pie relocation model");
+					Advance();
+					relocation_model_seen = true;
+					return true;
+				}
+				if (!Expect("ptrbits")) return false;
 				stdsint pointer_bits;
 				if (!ReadNumber(pointer_bits) ||
 					(pointer_bits != 32 && pointer_bits != 64))
 					return Error("target pointer width must be 32 or 64");
 				if (module.pointer_bits) return Error("duplicate target pointer width");
 				module.pointer_bits = (unsigned)pointer_bits;
+				return true;
+			}
+
+			bool ReadSymbolAttributes(SymbolVisibility& visibility,
+				SymbolBinding& binding) {
+				bool visibility_seen = false;
+				bool binding_seen = false;
+				while (Is("visibility") || Is("binding")) {
+					if (Is("visibility")) {
+						if (visibility_seen) return Error("duplicate symbol visibility");
+						Advance();
+						if (Is("default")) visibility = SymbolVisibility::Default;
+						else if (Is("hidden")) visibility = SymbolVisibility::Hidden;
+						else if (Is("protected")) visibility = SymbolVisibility::Protected;
+						else return Error("expected default, hidden, or protected visibility");
+						Advance();
+						visibility_seen = true;
+					}
+					else {
+						if (binding_seen) return Error("duplicate symbol binding");
+						Advance();
+						if (Is("strong")) binding = SymbolBinding::Strong;
+						else if (Is("weak")) binding = SymbolBinding::Weak;
+						else return Error("expected strong or weak binding");
+						Advance();
+						binding_seen = true;
+					}
+				}
 				return true;
 			}
 
@@ -1070,7 +1132,8 @@ namespace clover {
 				global.is_declaration = declaration;
 				if (!Expect(read_only ? "constant" : "global") ||
 					!Expect("@") || !ReadName(global.name) ||
-					!ReadType(global.type) || global.type == Type::Void)
+					!ReadType(global.type) || global.type == Type::Void ||
+					!ReadSymbolAttributes(global.visibility, global.binding))
 					return Error("invalid global declaration");
 				if (Is(",")) {
 					Advance();
@@ -1154,6 +1217,8 @@ namespace clover {
 
 			bool ParseModule(Module& module) {
 				module.pointer_bits = 0;
+				module.relocation_model = RelocationModel::Static;
+				relocation_model_seen = false;
 				module.source_files.Clear();
 				module.globals.Clear();
 				module.functions.Clear();
@@ -1206,6 +1271,9 @@ namespace clover {
 	}
 
 	bool Print(const Module& module, uni::OstreamTrait& output) {
+		if (module.relocation_model != RelocationModel::Static)
+			output.OutFormat("target relocation %s\n",
+				RelocationModelName(module.relocation_model));
 		if (module.pointer_bits)
 			output.OutFormat("target ptrbits %[u]\n", module.pointer_bits);
 		for (const SourceFile& source : module.source_files) {
@@ -1217,6 +1285,7 @@ namespace clover {
 			if (global.is_declaration) {
 				output.OutFormat("declare %s @%s %s", global.is_read_only ?
 					"constant" : "global", global.name.reference(), TypeName(global.type));
+				PrintSymbolAttributes(output, global.visibility, global.binding);
 				if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
 				if (global.alignment) output.OutFormat(" align %[u]", global.alignment);
 				output.OutChar('\n');
@@ -1225,6 +1294,7 @@ namespace clover {
 			if (global.linkage == Linkage::Internal) output.OutFormat("internal ");
 			output.OutFormat("%s @%s %s", global.is_read_only ? "constant" : "global",
 				global.name.reference(), TypeName(global.type));
+			PrintSymbolAttributes(output, global.visibility, global.binding);
 			if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
 			if (global.alignment) output.OutFormat(" align %[u]", global.alignment);
 			output.OutFormat(" = ");
@@ -1285,6 +1355,7 @@ namespace clover {
 			if (function.is_variadic)
 				output.OutFormat(function.parameters.Count() ? ", ..." : "...");
 			output.OutFormat(") -> %s", TypeName(function.return_type));
+			PrintSymbolAttributes(output, function.visibility, function.binding);
 			if (function.is_declaration) {
 				output.OutFormat("\n");
 				continue;

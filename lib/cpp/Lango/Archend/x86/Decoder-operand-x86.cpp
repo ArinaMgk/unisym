@@ -79,8 +79,12 @@ reg_enum X86DecodeRegister(int32 regflags, int regval, int rex)
 	return R_zero;
 }
 
-uint8* X86DecodeDrex(uint8* data, insn* instruction)
+uint8* X86DecodeDrex(uint8* data, const uint8* end, insn* instruction, bool& truncated)
 {
+	if (data == end) {
+		truncated = true;
+		return nullptr;
+	}
 	uint8 drex = *data++;
 	operand* destination = &instruction->oprs[instruction->drexdst];
 
@@ -92,8 +96,9 @@ uint8* X86DecodeDrex(uint8* data, insn* instruction)
 	return data;
 }
 
-uint8* X86DecodeEffectiveAddress(uint8* data, int modrm, int address_size,
-	int segment_size, operand* destination, insn* instruction)
+uint8* X86DecodeEffectiveAddress(uint8* data, const uint8* end,
+	int modrm, int address_size, int segment_size, operand* destination,
+	insn* instruction, bool& truncated)
 {
 	int mod = (modrm >> 6) & 3;
 	int rm = modrm & 7;
@@ -102,9 +107,15 @@ uint8* X86DecodeEffectiveAddress(uint8* data, int modrm, int address_size,
 	int base;
 	uint8 sib = 0;
 
-	if (mod != 3 && rm == 4 && address_size != 16) sib = *data++;
+	if (mod != 3 && rm == 4 && address_size != 16) {
+		if (data == end) {
+			truncated = true;
+			return nullptr;
+		}
+		sib = *data++;
+	}
 	if (instruction->rex & REX_D) {
-		data = X86DecodeDrex(data, instruction);
+		data = X86DecodeDrex(data, end, instruction, truncated);
 		if (!data) return nullptr;
 	}
 	int rex = instruction->rex;
@@ -163,10 +174,18 @@ uint8* X86DecodeEffectiveAddress(uint8* data, int modrm, int address_size,
 			destination->segment |= SEG_NODISP;
 			break;
 		case 1:
+			if (data == end) {
+				truncated = true;
+				return nullptr;
+			}
 			destination->segment |= SEG_DISP8;
 			destination->offset = static_cast<int8>(*data++);
 			break;
 		case 2:
+			if (end - data < 2) {
+				truncated = true;
+				return nullptr;
+			}
 			destination->segment |= SEG_DISP16;
 			destination->offset = *data++;
 			destination->offset |= static_cast<unsigned>(*data++) << 8;
@@ -225,11 +244,19 @@ uint8* X86DecodeEffectiveAddress(uint8* data, int modrm, int address_size,
 		destination->segment |= SEG_NODISP;
 		break;
 	case 1:
+		if (data == end) {
+			truncated = true;
+			return nullptr;
+		}
 		destination->segment |= SEG_DISP8;
 		destination->offset = X86_DECODE_S8(data);
 		data++;
 		break;
 	case 2:
+		if (end - data < 4) {
+			truncated = true;
+			return nullptr;
+		}
 		destination->segment |= SEG_DISP32;
 		destination->offset = X86_DECODE_S32(data);
 		data += 4;

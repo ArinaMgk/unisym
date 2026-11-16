@@ -117,6 +117,26 @@ namespace uni::lango {
 			return nullptr;
 		}
 
+		bool IsLocallyBound(const clover::Module& module,
+			const clover::Global& symbol) {
+			if (symbol.linkage == clover::Linkage::Internal ||
+				module.relocation_model == clover::RelocationModel::Static) return true;
+			if (symbol.is_declaration || symbol.binding == clover::SymbolBinding::Weak)
+				return false;
+			if (module.relocation_model == clover::RelocationModel::PIE) return true;
+			return symbol.visibility != clover::SymbolVisibility::Default;
+		}
+
+		bool IsLocallyBound(const clover::Module& module,
+			const clover::Function& symbol) {
+			if (symbol.linkage == clover::Linkage::Internal ||
+				module.relocation_model == clover::RelocationModel::Static) return true;
+			if (symbol.is_declaration || symbol.binding == clover::SymbolBinding::Weak)
+				return false;
+			if (module.relocation_model == clover::RelocationModel::PIE) return true;
+			return symbol.visibility != clover::SymbolVisibility::Default;
+		}
+
 		void EmitSymbolInitializer(uni::OstreamTrait& output,
 			const uni::String& symbol, stdsint addend) {
 			output.OutFormat("%s", symbol.reference());
@@ -1253,13 +1273,27 @@ namespace uni::lango {
 			}
 
 			case clover::Opcode::GlobalAddr:
-				if (!instruction.name.getByteCount()) return false;
-				output.OutFormat("\tla t0, %s\n", instruction.name.reference());
+				if (!instruction.name.getByteCount() || !assembly_output) return false;
+				{
+					const clover::Global* symbol = FindGlobal(module, instruction.name);
+					if (!symbol || !assembly_output->EmitAddress(
+						symbol->name.reference(), !IsLocallyBound(module, *symbol),
+						symbol->is_declaration,
+						symbol->binding == clover::SymbolBinding::Weak,
+						symbol->visibility, target.bits, output)) return false;
+				}
 				return StoreResult(layout, instruction, "t0", output);
 
 			case clover::Opcode::FunctionAddr:
-				if (!instruction.name.getByteCount()) return false;
-				output.OutFormat("\tla t0, %s\n", instruction.name.reference());
+				if (!instruction.name.getByteCount() || !assembly_output) return false;
+				{
+					const clover::Function* symbol = FindFunction(module, instruction.name);
+					if (!symbol || !assembly_output->EmitAddress(
+						symbol->name.reference(), !IsLocallyBound(module, *symbol),
+						symbol->is_declaration,
+						symbol->binding == clover::SymbolBinding::Weak,
+						symbol->visibility, target.bits, output)) return false;
+				}
 				return StoreResult(layout, instruction, "t0", output);
 
 			case clover::Opcode::Call: {
@@ -1385,9 +1419,10 @@ namespace uni::lango {
 			if (!BuildLayout(function, target, layout)) return false;
 
 			output.OutFormat("\n");
-			if (function.linkage == clover::Linkage::External)
-				output.OutFormat(".globl %s\n", function.name.reference());
-			output.OutFormat(".type %s, @function\n", function.name.reference());
+			if (!assembly_output->EmitSymbol(function.name.reference(), true,
+				function.binding == clover::SymbolBinding::Weak,
+				function.visibility, function.linkage == clover::Linkage::External,
+				false, output)) return false;
 			output.OutFormat("%s:\n", function.name.reference());
 			if (layout.frame_size <= 2047) {
 				output.OutFormat("\taddi sp, sp, -%[i]\n", layout.frame_size);
@@ -1469,6 +1504,15 @@ namespace uni::lango {
 	}
 
 	bool BackendRISCV::Generate(const clover::Module& module, uni::OstreamTrait& output) {
+		switch (module.relocation_model) {
+		case clover::RelocationModel::Static:
+		case clover::RelocationModel::PIC:
+		case clover::RelocationModel::PIE:
+			break;
+		default:
+			plogerro("Clover RISC-V backend: invalid relocation model");
+			return false;
+		}
 		if (!ValidateTarget(target, module)) return false;
 		RISCVAssemblyOutputGCC gcc_output;
 		char instruction_set[8] = {'i', '\0'};
@@ -1494,6 +1538,26 @@ namespace uni::lango {
 		if (options.debug_symbols &&
 			!assembly_output->EmitSourceFiles(module, *assembly_stream))
 			return false;
+		for (const clover::Global& global : module.globals)
+			if (global.is_declaration &&
+				(global.binding == clover::SymbolBinding::Weak ||
+				 global.visibility != clover::SymbolVisibility::Default) &&
+				!assembly_output->EmitSymbol(
+				global.name.reference(), false,
+				global.binding == clover::SymbolBinding::Weak, global.visibility,
+				global.linkage == clover::Linkage::External, true,
+				*assembly_stream))
+				return false;
+		for (const clover::Function& function : module.functions)
+			if (function.is_declaration &&
+				(function.binding == clover::SymbolBinding::Weak ||
+				 function.visibility != clover::SymbolVisibility::Default) &&
+				!assembly_output->EmitSymbol(
+				function.name.reference(), true,
+				function.binding == clover::SymbolBinding::Weak, function.visibility,
+				function.linkage == clover::Linkage::External, true,
+				*assembly_stream))
+				return false;
 		for (const clover::Global& global : module.globals) {
 			if (global.is_declaration) continue;
 			stdsint element_size = TypeStorageBytes(global.type, target);
@@ -1506,10 +1570,14 @@ namespace uni::lango {
 				global.initializer_fragments.Count() != 0;
 			assembly_stream->OutFormat(global.is_read_only ? ".section .rodata\n" :
 				has_initializer ? ".data\n" : ".bss\n");
-			if (global.linkage == clover::Linkage::External)
-				assembly_stream->OutFormat(".globl %s\n", global.name.reference());
-			assembly_stream->OutFormat(".type %s, @object\n.size %s, %[i]\n",
-				global.name.reference(), global.name.reference(), object_size);
+			if (!assembly_output->EmitSymbol(global.name.reference(), false,
+				global.binding == clover::SymbolBinding::Weak, global.visibility,
+				global.linkage == clover::Linkage::External, false,
+				*assembly_stream))
+				return false;
+			if (options.assembly_syntax == RISCVAssemblySyntax::GCC)
+				assembly_stream->OutFormat(".size %s, %[i]\n",
+					global.name.reference(), object_size);
 			assembly_stream->OutFormat(".balign %[u]\n%s:\n",
 				global.alignment ? global.alignment : (stduint)element_size,
 				global.name.reference());
@@ -1599,7 +1667,7 @@ namespace uni::lango {
 		for (const clover::Function& function : module.functions)
 			if (!function.is_declaration &&
 				!EmitFunction(function, target, module, *assembly_stream,
-				options.debug_symbols ? assembly_output : nullptr)) return false;
+				assembly_output)) return false;
 		return options.assembly_syntax != RISCVAssemblySyntax::AASM ||
 			aasm_output.Flush();
 	}

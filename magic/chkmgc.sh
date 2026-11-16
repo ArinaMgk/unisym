@@ -62,6 +62,93 @@ check_ir()
 	fi
 }
 
+check_relocation_model()
+{
+	model="$1"
+	feedback="$(mgc --emit-ir "--relocation-model=$model" 'int main(void){return 0;}')" || exit 1
+	if [ "$model" = static ]; then
+		if ! printf '%s\n' "$feedback" | grep -Fq 'target relocation'; then
+			printf '\033[1;32mpassed\033[0m: default relocation model %s !\n' "$model"
+			return
+		fi
+	else
+		if printf '%s\n' "$feedback" | grep -Fq "target relocation $model"; then
+			printf '\033[1;32mpassed\033[0m: relocation model %s !\n' "$model"
+			return
+		fi
+	fi
+	printf '%s\n' "$feedback"
+	echo "IR did not retain relocation model: $model"
+	exit 1
+}
+
+check_ir_symbol_attributes()
+{
+	printf '%s\n' \
+		'target relocation pic' \
+		'target ptrbits 64' \
+		'declare global @shared_value i32 visibility hidden binding weak' \
+		'declare func @shared_function() -> i32 visibility protected binding weak' \
+		> "$uobjpath/check.ir"
+	if clover-riscv "$uobjpath/check.ir" -o "$uobjpath/check.s"; then
+		printf '\033[1;32mpassed\033[0m: Clover symbol attributes parse !\n'
+	else
+		exit 1
+	fi
+}
+
+check_pic_address_model()
+{
+	printf '%s\n' \
+		'target relocation pie' \
+		'target ptrbits 64' \
+		'global @local_value i32 = 0' \
+		'declare global @external_value i32' \
+		'func @get_local() -> ptr {' \
+		'^entry:' \
+		'  %value = globaladdr @local_value' \
+		'  ret ptr %value' \
+		'}' \
+		'func @get_external() -> ptr {' \
+		'^entry:' \
+		'  %value = globaladdr @external_value' \
+		'  ret ptr %value' \
+		'}' > "$uobjpath/check.ir"
+	clover-riscv "$uobjpath/check.ir" -o "$uobjpath/check.s" || exit 1
+	riscv64-linux-gnu-as -o "$uobjpath/check.o" "$uobjpath/check.s" || exit 1
+	LC_ALL=C readelf -rW "$uobjpath/check.o" > "$uobjpath/check.relocs"
+	grep -Eq 'R_RISCV_PCREL_HI20[[:space:]]+.*local_value' \
+		"$uobjpath/check.relocs" || exit 1
+	grep -Eq 'R_RISCV_GOT_HI20[[:space:]]+.*external_value' \
+		"$uobjpath/check.relocs" || exit 1
+	clover-riscv "$uobjpath/check.ir" --asm=aasm \
+		-o "$uobjpath/check.aasm" || exit 1
+	aasm -march=riscv -f elf64 -o "$uobjpath/check-aasm.o" \
+		"$uobjpath/check.aasm" || exit 1
+	LC_ALL=C readelf -rW "$uobjpath/check-aasm.o" > "$uobjpath/check-aasm.relocs"
+	grep -Eq 'R_RISCV_PCREL_HI20' \
+		"$uobjpath/check-aasm.relocs" || exit 1
+	grep -Eq 'R_RISCV_GOT_HI20[[:space:]]+.*external_value' \
+		"$uobjpath/check-aasm.relocs" || exit 1
+	printf '%s\n' \
+		'target relocation pic' \
+		'target ptrbits 64' \
+		'declare global @weak_value i32 visibility hidden binding weak' \
+		'func @get_weak() -> ptr {' \
+		'^entry:' \
+		'  %value = globaladdr @weak_value' \
+		'  ret ptr %value' \
+		'}' > "$uobjpath/check.ir"
+	clover-riscv "$uobjpath/check.ir" --asm=aasm \
+		-o "$uobjpath/check-weak.aasm" || exit 1
+	aasm -march=riscv -f elf64 -o "$uobjpath/check-weak.o" \
+		"$uobjpath/check-weak.aasm" || exit 1
+	LC_ALL=C readelf -Ws "$uobjpath/check-weak.o" > "$uobjpath/check-weak.symbols"
+	grep -Eq 'WEAK[[:space:]]+HIDDEN[[:space:]]+UND weak_value' \
+		"$uobjpath/check-weak.symbols" || exit 1
+	printf '\033[1;32mpassed\033[0m: PIC/PIE address relocations and symbol attributes !\n'
+}
+
 cd ../
 make magice
 cd magic
@@ -116,6 +203,11 @@ check 'int add(int x, int y) {return x+y;} int main() { return add(-1, 4);} ' 3
 # Declarations and typedef names
 check '../demo/test/clover/c/declaration.c' 50
 check_ir 'extern int function(int); int main(void){return 0;}' 'declare func @function(i32) -> i32'
+check_relocation_model pic
+check_relocation_model pie
+check_relocation_model static
+check_ir_symbol_attributes
+check_pic_address_model
 check_fail 'typedef int T; T T; int main(void){return 0;}' 'ordinary identifier conflicts with typedef name'
 
 # Array

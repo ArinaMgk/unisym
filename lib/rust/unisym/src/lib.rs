@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 //!ASCII Rust TAB4 CRLF
 //!Docutitle: (Module) System
 //!Codifiers: @dosconio: 20240504 ~ 20240504
@@ -19,6 +21,9 @@
 	See the License for the specific language governing permissions and
 	limitations under the License.
 */
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 /// This is just a template
 pub fn __add(left: isize, right: isize) -> isize {

@@ -93,6 +93,7 @@ struct Symbol {
 	int32_t section;	       /* section ID of the symbol */
 	int type;                  /* symbol type */
 	int other;		       /* symbol visibility */
+	bool weak;
 	int32_t size;	       /* size of symbol */
 	int32_t globnum;	       /* symbol table offset if global */
 	struct Symbol* nextfwd;    /* list of unresolved-size symbols */
@@ -738,6 +739,7 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 	sym->strpos = pos;
 	sym->type = is_global ? SYM_GLOBAL : 0;
 	sym->other = STV_DEFAULT;
+	sym->weak = false;
 	sym->size = 0;
 	if (segment == NO_SEG)
 		sym->section = SHN_ABS;
@@ -787,6 +789,25 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 	}
 	else
 		sym->symv.key = (sym->section == SHN_UNDEF ? 0 : offset);
+
+	if (sym->type == SYM_GLOBAL && sym->section == SHN_UNDEF && special) {
+		while (*special) {
+			while (ascii_isspace(*special)) ++special;
+			int n = StrSpanExclude(special, " \t");
+			if (!n) break;
+			if (!StrCompareNInsensitive(special, "weak", n))
+				sym->weak = true;
+			else if (!StrCompareNInsensitive(special, "hidden", n))
+				sym->other = STV_HIDDEN;
+			else if (!StrCompareNInsensitive(special, "protected", n))
+				sym->other = STV_PROTECTED;
+			else if (!StrCompareNInsensitive(special, "internal", n))
+				sym->other = STV_INTERNAL;
+			else break;
+			special_used = true;
+			special += n;
+		}
+	}
 
 	if (sym->type == SYM_GLOBAL) {
 		/*
@@ -843,6 +864,12 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 						sym->other = STV_PROTECTED;
 					else
 						n = 0;
+					special += n;
+				}
+				while (ascii_isspace(*special)) ++special;
+				n = StrSpanExclude(special, " \t");
+				if (n == 4 && !StrCompareNInsensitive(special, "weak", n)) {
+					sym->weak = true;
 					special += n;
 				}
 
@@ -1923,7 +1950,8 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 		entry.Name = sym->strpos;
 		entry.Value = sym->symv.key;
 		entry.Size = sym->size;
-		entry.Info = sym->type;
+		entry.Info = (sym->type & 0x0f) |
+			(sym->weak ? STB_WEAK << 4 : (sym->type & 0xf0));
 		entry.Other = sym->other;
 		entry.Section = sym->section;
 		StrbuffSend(s, &entry, sizeof(entry));
@@ -1969,7 +1997,8 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 		entry.Name = sym->strpos;
 		entry.Value = sym->symv.key;
 		entry.Size = sym->size;
-		entry.Info = sym->type;
+		entry.Info = (sym->type & 0x0f) |
+			(sym->weak ? STB_WEAK << 4 : (sym->type & 0xf0));
 		entry.Other = sym->other;
 		entry.Section = sym->section;
 		StrbuffSend(s, &entry, sizeof(entry));

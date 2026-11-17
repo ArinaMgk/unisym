@@ -154,14 +154,9 @@ RISCVAssemblyOutputAASM::RISCVAssemblyOutputAASM(unsigned bits,
 	target_abi(abi) {}
 
 bool RISCVAssemblyOutputAASM::EmitAddress(const char* symbol, bool through_got,
-	bool external, bool weak, clover::SymbolVisibility visibility, unsigned bits,
+	bool, bool, clover::SymbolVisibility, unsigned bits,
 	uni::OstreamTrait&) {
 	unsigned label = address_label++;
-	if (external && !weak &&
-		visibility == clover::SymbolVisibility::Default) {
-		destination.OutFormat("[EXTERN %s", symbol);
-		destination.OutFormat("]\n");
-	}
 	if (through_got) {
 		destination.OutFormat("__L_addr_%[u]:\n\tAUIPC t0, GOT %s\n",
 			label, symbol);
@@ -177,17 +172,26 @@ bool RISCVAssemblyOutputAASM::EmitAddress(const char* symbol, bool through_got,
 	return true;
 }
 
+bool RISCVAssemblyOutputAASM::EmitDirectCall(const char* symbol, bool through_plt,
+	uni::OstreamTrait& output) {
+	output.OutFormat("\t%s %s\n", through_plt ? "CALL_PLT" : "CALL", symbol);
+	return true;
+}
+
 bool RISCVAssemblyOutputAASM::EmitSymbol(const char* symbol, bool function,
 	bool weak, clover::SymbolVisibility visibility, bool external, bool declaration,
 	uni::OstreamTrait&) {
 	if (!external) return true;
 	if (declaration) {
 		destination.OutFormat("EXTERN %s", symbol);
-		if (visibility == clover::SymbolVisibility::Hidden)
-			destination.OutFormat(":hidden");
-		else if (visibility == clover::SymbolVisibility::Protected)
-			destination.OutFormat(":protected");
-		if (weak) destination.OutFormat(" weak");
+		if (weak || visibility != clover::SymbolVisibility::Default) {
+			destination.OutChar(':');
+			if (weak) destination.OutFormat("weak");
+			if (visibility == clover::SymbolVisibility::Hidden)
+				destination.OutFormat("%shidden", weak ? " " : "");
+			else if (visibility == clover::SymbolVisibility::Protected)
+				destination.OutFormat("%sprotected", weak ? " " : "");
+		}
 		destination.OutChar('\n');
 		return true;
 	}
@@ -321,10 +325,35 @@ bool RISCVAssemblyOutputAASM::EmitLine() {
 				destination.OutFormat(", zero, %s\n", right);
 			}
 		}
+		else if (EqualWord(mnemonic, mnemonic_length, "jalr")) {
+			const char* comma;
+			if (SplitTwoOperands(operands, comma)) {
+				const char* target = comma + 1;
+				while (ascii_isspace(*target)) target++;
+				if (target[0] == '0' && target[1] == '(') {
+					const char* base = target + 2;
+					const char* close = base;
+					while (IsIdentifierCharacter(*close)) close++;
+					if (*close == ')' && !close[1]) {
+						destination.OutFormat("\tjalr ");
+						destination.out(operands, comma - operands);
+						destination.OutFormat(", ");
+						destination.out(base, close - base);
+						destination.OutChar('\n');
+						line.Clear();
+						return true;
+					}
+				}
+			}
+			if (mnemonic != text) destination.out(text, mnemonic - text);
+			destination.out(mnemonic, mnemonic_length);
+			if (*operands) {
+				destination.OutChar(' ');
+				EmitConvertedOperands(operands, destination);
+			}
+			destination.OutChar('\n');
+		}
 		else {
-			if (EqualWord(mnemonic, mnemonic_length, "call") && operands[0] &&
-				operands[0] == '_' && operands[1] == '_')
-				destination.OutFormat("[EXTERN %s]\n", operands);
 			if (mnemonic != text) destination.out(text, mnemonic - text);
 			bool is_label = mnemonic_length && mnemonic[mnemonic_length - 1] == ':';
 			if (mnemonic_length >= 3 && mnemonic[0] == '.' &&

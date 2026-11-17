@@ -80,6 +80,10 @@ struct RISCVValue {
 	int32_t wrt = NO_SEG;
 	bool unknown = false;
 	bool external = false;
+	bool symbol = false;
+	bool global = false;
+	int64_t symbol_offset = 0;
+	int64_t addend = 0;
 };
 
 struct RISCVOperand {

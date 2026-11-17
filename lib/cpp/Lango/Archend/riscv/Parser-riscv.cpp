@@ -71,10 +71,18 @@ bool ParseValue(char* text, int parse_pass, RISCVValue& result)
 	struct tokenval token;
 	token.t_type = TOKEN_INVALID;
 	int flags = 0;
-	expr* value = eval_evaluate(common_stdscan, nullptr, &token, &flags,
-		parse_pass == 2 ? 2 : 0, nullptr);
+	EvalRelocExpression relocation {};
+	expr* value = EvaluateRelocExpression(common_stdscan, nullptr, &token,
+		&flags, parse_pass == 2 ? 2 : 0, nullptr, relocation);
 	if (!value || token.t_type != TOKEN_EOS) return false;
 	result.external = !!(flags & OPFLAG_EXTERN);
+	if (relocation.Available && relocation.TermCount == 1 &&
+		relocation.Terms[0].Coefficient == 1) {
+		result.symbol = !relocation.Terms[0].External;
+		result.global = relocation.Terms[0].Global;
+		result.symbol_offset = relocation.Terms[0].Offset;
+		result.addend = relocation.Constant;
+	}
 	if (is_unknown(value)) {
 		result.unknown = true;
 		return true;

@@ -878,16 +878,16 @@ CheckRISCVRelocation()
 		Fail "RISC-V ELF64 cross-section input produced diagnostics"
 	LC_ALL=C readelf -rW "$CrossSection32Object" > "$CrossSection32Relocations"
 	LC_ALL=C readelf -rW "$CrossSection64Object" > "$CrossSection64Relocations"
-	grep -Eq 'R_RISCV_BRANCH[[:space:]]+.*\.branch_target \+ 4$' \
+	grep -Eq 'R_RISCV_BRANCH[[:space:]]+.*branch_target \+ 0$' \
 		"$CrossSection32Relocations" || \
 		Fail "RISC-V ELF32 cross-section branch relocation differs"
-	grep -Eq 'R_RISCV_JAL[[:space:]]+.*\.jump_target \+ 8$' \
+	grep -Eq 'R_RISCV_JAL[[:space:]]+.*jump_target \+ 0$' \
 		"$CrossSection32Relocations" || \
 		Fail "RISC-V ELF32 cross-section jump relocation differs"
-	grep -Eq 'R_RISCV_BRANCH[[:space:]]+.*\.branch_target \+ 8$' \
+	grep -Eq 'R_RISCV_BRANCH[[:space:]]+.*branch_target \+ 0$' \
 		"$CrossSection64Relocations" || \
 		Fail "RISC-V ELF64 cross-section branch relocation differs"
-	grep -Eq 'R_RISCV_JAL[[:space:]]+.*\.jump_target \+ 10$' \
+	grep -Eq 'R_RISCV_JAL[[:space:]]+.*jump_target \+ 0$' \
 		"$CrossSection64Relocations" || \
 		Fail "RISC-V ELF64 cross-section jump relocation differs"
 

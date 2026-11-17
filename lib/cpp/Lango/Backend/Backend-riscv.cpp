@@ -117,7 +117,7 @@ namespace uni::lango {
 			return nullptr;
 		}
 
-		bool IsLocallyBound(const clover::Module& module,
+		bool IsSymbolLocallyBound(const clover::Module& module,
 			const clover::Global& symbol) {
 			if (symbol.linkage == clover::Linkage::Internal ||
 				module.relocation_model == clover::RelocationModel::Static) return true;
@@ -127,7 +127,7 @@ namespace uni::lango {
 			return symbol.visibility != clover::SymbolVisibility::Default;
 		}
 
-		bool IsLocallyBound(const clover::Module& module,
+		bool IsSymbolLocallyBound(const clover::Module& module,
 			const clover::Function& symbol) {
 			if (symbol.linkage == clover::Linkage::Internal ||
 				module.relocation_model == clover::RelocationModel::Static) return true;
@@ -135,6 +135,15 @@ namespace uni::lango {
 				return false;
 			if (module.relocation_model == clover::RelocationModel::PIE) return true;
 			return symbol.visibility != clover::SymbolVisibility::Default;
+		}
+
+		bool EmitRuntimeCall(const char* symbol, const clover::Module& module,
+			RISCVAssemblyOutputInterface& assembly_output,
+			uni::OstreamTrait& output) {
+			return assembly_output.EmitSymbol(symbol, true, false,
+				clover::SymbolVisibility::Default, true, true, output) &&
+				assembly_output.EmitDirectCall(symbol,
+					module.relocation_model != clover::RelocationModel::Static, output);
 		}
 
 		void EmitSymbolInitializer(uni::OstreamTrait& output,
@@ -249,6 +258,11 @@ namespace uni::lango {
 					plogerro("RISC-V backend: function relocation cannot have an addend");
 					return false;
 				}
+				if (global.is_read_only && global.initializer_symbol.getByteCount() &&
+					module.relocation_model != clover::RelocationModel::Static) {
+					plogerro("RISC-V backend: PIC/PIE read-only symbol pointer initializer is not supported");
+					return false;
+				}
 				if (global.initializer_values.Count() &&
 					global.initializer_values.Count() != (stduint)global.element_count) {
 					plogerro("RISC-V backend: global initializer element count mismatch");
@@ -282,6 +296,11 @@ namespace uni::lango {
 						if (fragment.initializer_addend &&
 							FindFunction(module, fragment.initializer_symbol)) {
 							plogerro("RISC-V backend: function fragment relocation cannot have an addend");
+							return false;
+						}
+						if (global.is_read_only &&
+							module.relocation_model != clover::RelocationModel::Static) {
+							plogerro("RISC-V backend: PIC/PIE read-only symbol pointer fragment is not supported");
 							return false;
 						}
 					}
@@ -751,12 +770,15 @@ namespace uni::lango {
 
 		bool EmitWideBinary(const clover::Instruction& instruction,
 			const FunctionLayout& layout, const char* helper,
+			const clover::Module& module,
+			RISCVAssemblyOutputInterface* assembly_output,
 			uni::OstreamTrait& output) {
 			if (!RequireOperands(instruction, 2) ||
 				!LoadWideValue(layout, instruction.operands.begin()[0], "a0", "a1", output) ||
 				!LoadWideValue(layout, instruction.operands.begin()[1], "a2", "a3", output))
 				return false;
-			output.OutFormat("\tcall %s\n", helper);
+			if (!assembly_output || !EmitRuntimeCall(helper, module, *assembly_output, output))
+				return false;
 			return StoreWideResult(layout, instruction, "a0", "a1", output);
 		}
 
@@ -1032,19 +1054,23 @@ namespace uni::lango {
 				BinaryMnemonic(instruction, "srl", "srlw"), output);
 			case clover::Opcode::FAdd:
 				if (instruction.type == clover::Type::F128)
-					return EmitWideBinary(instruction, layout, "__addtf3", output);
+					return EmitWideBinary(instruction, layout, "__addtf3", module,
+						assembly_output, output);
 				return EmitFloatBinary(instruction, layout, "fadd", output);
 			case clover::Opcode::FSub:
 				if (instruction.type == clover::Type::F128)
-					return EmitWideBinary(instruction, layout, "__subtf3", output);
+					return EmitWideBinary(instruction, layout, "__subtf3", module,
+						assembly_output, output);
 				return EmitFloatBinary(instruction, layout, "fsub", output);
 			case clover::Opcode::FMul:
 				if (instruction.type == clover::Type::F128)
-					return EmitWideBinary(instruction, layout, "__multf3", output);
+					return EmitWideBinary(instruction, layout, "__multf3", module,
+						assembly_output, output);
 				return EmitFloatBinary(instruction, layout, "fmul", output);
 			case clover::Opcode::FDiv:
 				if (instruction.type == clover::Type::F128)
-					return EmitWideBinary(instruction, layout, "__divtf3", output);
+					return EmitWideBinary(instruction, layout, "__divtf3", module,
+						assembly_output, output);
 				return EmitFloatBinary(instruction, layout, "fdiv", output);
 			case clover::Opcode::PtrAdd:
 				return EmitPtrAdd(instruction, layout, target, output);
@@ -1100,7 +1126,8 @@ namespace uni::lango {
 						"__lttf2" : instruction.float_predicate == clover::FCmpPredicate::LE ?
 						"__letf2" : instruction.float_predicate == clover::FCmpPredicate::GT ?
 						"__gttf2" : "__getf2";
-					output.OutFormat("\tcall %s\n", helper);
+					if (!assembly_output || !EmitRuntimeCall(helper, module,
+						*assembly_output, output)) return false;
 					switch (instruction.float_predicate) {
 					case clover::FCmpPredicate::EQ: output.OutFormat("\tseqz t2, a0\n"); break;
 					case clover::FCmpPredicate::NE: output.OutFormat("\tsnez t2, a0\n"); break;
@@ -1207,7 +1234,9 @@ namespace uni::lango {
 					const char* helper = instruction.opcode == clover::Opcode::SIToFP ?
 						(wide ? "__floatditf" : "__floatsitf") :
 						(wide ? "__floatunditf" : "__floatunsitf");
-					output.OutFormat("\tmv a0, t0\n\tcall %s\n", helper);
+					output.OutFormat("\tmv a0, t0\n");
+					if (!assembly_output || !EmitRuntimeCall(helper, module,
+						*assembly_output, output)) return false;
 					return StoreWideResult(layout, instruction, "a0", "a1", output);
 				}
 				output.OutFormat("\tfcvt.%c.%s ft0, t0\n",
@@ -1227,7 +1256,8 @@ namespace uni::lango {
 					const char* helper = instruction.opcode == clover::Opcode::FPToSI ?
 						(wide ? "__fixtfdi" : "__fixtfsi") :
 						(wide ? "__fixunstfdi" : "__fixunstfsi");
-					output.OutFormat("\tcall %s\n", helper);
+					if (!assembly_output || !EmitRuntimeCall(helper, module,
+						*assembly_output, output)) return false;
 					return StoreResult(layout, instruction, "a0", output);
 				}
 				if (!LoadFloatValue(layout, instruction.operands.begin()[0], "ft0", output))
@@ -1250,15 +1280,17 @@ namespace uni::lango {
 					}
 					else if (!LoadFloatBits(layout, instruction.operands.begin()[0], "a0", output))
 						return false;
-					output.OutFormat("\tcall %s\n", source_type == clover::Type::F32 ?
-						"__extendsftf2" : "__extenddftf2");
+					if (!assembly_output || !EmitRuntimeCall(
+						source_type == clover::Type::F32 ? "__extendsftf2" : "__extenddftf2",
+						module, *assembly_output, output)) return false;
 					return StoreWideResult(layout, instruction, "a0", "a1", output);
 				}
 				if (source_type == clover::Type::F128) {
 					if (!LoadWideValue(layout, instruction.operands.begin()[0],
 						"a0", "a1", output)) return false;
-					output.OutFormat("\tcall %s\n", instruction.type == clover::Type::F32 ?
-						"__trunctfsf2" : "__trunctfdf2");
+					if (!assembly_output || !EmitRuntimeCall(
+						instruction.type == clover::Type::F32 ? "__trunctfsf2" : "__trunctfdf2",
+						module, *assembly_output, output)) return false;
 					if (TypeBits(instruction.type, target) <= ABIFloatBits(target))
 						return StoreFloatResult(layout, instruction, "fa0", output);
 					output.OutFormat(instruction.type == clover::Type::F32 ?
@@ -1277,7 +1309,7 @@ namespace uni::lango {
 				{
 					const clover::Global* symbol = FindGlobal(module, instruction.name);
 					if (!symbol || !assembly_output->EmitAddress(
-						symbol->name.reference(), !IsLocallyBound(module, *symbol),
+						symbol->name.reference(), !IsSymbolLocallyBound(module, *symbol),
 						symbol->is_declaration,
 						symbol->binding == clover::SymbolBinding::Weak,
 						symbol->visibility, target.bits, output)) return false;
@@ -1289,7 +1321,7 @@ namespace uni::lango {
 				{
 					const clover::Function* symbol = FindFunction(module, instruction.name);
 					if (!symbol || !assembly_output->EmitAddress(
-						symbol->name.reference(), !IsLocallyBound(module, *symbol),
+						symbol->name.reference(), !IsSymbolLocallyBound(module, *symbol),
 						symbol->is_declaration,
 						symbol->binding == clover::SymbolBinding::Weak,
 						symbol->visibility, target.bits, output)) return false;
@@ -1348,7 +1380,9 @@ namespace uni::lango {
 					if (!LoadValue(layout, instruction.callee_value, "t0", output)) return false;
 					output.OutFormat("\tjalr ra, 0(t0)\n");
 				}
-				else output.OutFormat("\tcall %s\n", instruction.callee.reference());
+				else if (!assembly_output || !callee ||
+					!assembly_output->EmitDirectCall(callee->name.reference(),
+						!IsSymbolLocallyBound(module, *callee), output)) return false;
 				if (instruction.type == clover::Type::Void) return true;
 				if (IsFloatType(instruction.type)) {
 					if (instruction.type == clover::Type::F128)
@@ -1504,6 +1538,10 @@ namespace uni::lango {
 	}
 
 	bool BackendRISCV::Generate(const clover::Module& module, uni::OstreamTrait& output) {
+		if (module.ir_class != clover::IRClass::Soft) {
+			plogerro("Clover RISC-V backend: expected Soft IR module");
+			return false;
+		}
 		switch (module.relocation_model) {
 		case clover::RelocationModel::Static:
 		case clover::RelocationModel::PIC:
@@ -1540,8 +1578,7 @@ namespace uni::lango {
 			return false;
 		for (const clover::Global& global : module.globals)
 			if (global.is_declaration &&
-				(global.binding == clover::SymbolBinding::Weak ||
-				 global.visibility != clover::SymbolVisibility::Default) &&
+				global.linkage == clover::Linkage::External &&
 				!assembly_output->EmitSymbol(
 				global.name.reference(), false,
 				global.binding == clover::SymbolBinding::Weak, global.visibility,
@@ -1550,8 +1587,7 @@ namespace uni::lango {
 				return false;
 		for (const clover::Function& function : module.functions)
 			if (function.is_declaration &&
-				(function.binding == clover::SymbolBinding::Weak ||
-				 function.visibility != clover::SymbolVisibility::Default) &&
+				function.linkage == clover::Linkage::External &&
 				!assembly_output->EmitSymbol(
 				function.name.reference(), true,
 				function.binding == clover::SymbolBinding::Weak, function.visibility,

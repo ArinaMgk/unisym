@@ -28,6 +28,12 @@
 
 namespace clover {
 
+enum class IRClass {
+	Soft,
+	Hard,
+	Exec
+};
+
 // Scalar and address types currently represented by Clover IR.
 enum class Type {
 	Void, // No value; valid for function returns and side-effecting calls.
@@ -227,13 +233,63 @@ struct Function {
 	uni::Vector<BasicBlock> blocks;
 };
 
+struct BitType {
+	stduint width = 1;
+};
+
+enum class PortDirection {
+	Input,
+	Output,
+	InOut
+};
+
+struct HardwarePort {
+	uni::String name;
+	BitType type;
+	PortDirection direction = PortDirection::Input;
+};
+
+enum class HardwareOpcode {
+	Read,
+	Const,
+	Add,
+	Assign
+};
+
+struct HardwareValue {
+	BitType type;
+	unsigned id = 0;
+};
+
+struct HardwareOperation {
+	HardwareOpcode opcode = HardwareOpcode::Const;
+	bool has_result = false;
+	HardwareValue result;
+	uni::Vector<HardwareValue> operands;
+	uni::String symbol;
+	uint64 immediate = 0;
+};
+
+struct HardwareBlock {
+	uni::String name;
+	uni::Vector<HardwareOperation> operations;
+};
+
+struct HardwareModule {
+	uni::String name;
+	uni::Vector<HardwarePort> ports;
+	uni::Vector<HardwareBlock> blocks;
+};
+
 // Compilation unit exchanged between a Clover frontend and backend.
 struct Module {
+	IRClass ir_class = IRClass::Soft;
 	unsigned pointer_bits = 0; // Address width required by Ptr; zero means unspecified.
 	RelocationModel relocation_model = RelocationModel::Static;
 	uni::Vector<SourceFile> source_files;
 	uni::Vector<Global> globals;
 	uni::Vector<Function> functions;
+	uni::Vector<HardwareModule> hardware_modules;
 };
 
 // Parse the textual Clover IR representation from input.

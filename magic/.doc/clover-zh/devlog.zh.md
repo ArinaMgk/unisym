@@ -4,6 +4,7 @@
 
 ## 前端
 
+- 增加 SystemVerilog 可综合子集前端，支持 ANSI 风格 `logic` 端口、`assign`、标识符、十进制常量和加法，并降低为包含 `module`、`port`、`read`、`const`、`add` 和 `assign` 的 Clover Hard IR。
 - 已建立独立前端入口和严格命令选项解析；当前实现 C99 子集，并可通过
   `--lango=c`、`--std=c99` 选择。
 - 支持以 `-Fname[=value]` 向选中的前端传递专用选项；C 前端支持
@@ -107,6 +108,11 @@
 - Clover lowering 的共享内部声明统一放在
   `inc/cpp/Lango/Frontend/C/Frontend-c-clover-internal.hpp`，不放入 `lib/cpp`。
 
+## Pass
+
+- +8=2026/11/17:19 已建立独立的 Clover Pass API 和命令行工具 `clover-opt`。当前实现
+  `forward-jumps`，用于改写跳转目标并删除仅包含无条件跳转的非入口转发块。
+
 ## 后端
 
 - 已建立 `BackendInterface`，当前实现独立的 Clover RISC-V 后端和命令行工具
@@ -131,6 +137,13 @@
 - RISC-V PIC/PIE 地址生成按符号链接属性、visibility 与 binding 选择 PC-relative
   或 GOT relocation；GCC 与 AASM 汇编输出均保留定义符号属性，AASM ELF32/ELF64
   输出支持 weak binding。
+- RISC-V 的 Static、PIC 与 PIE 地址输出已覆盖数据地址、函数地址、可写符号指针
+  初始化及最终链接；PIC 共享对象和 PIE 不产生 `TEXTREL`，只读符号指针初始化在
+  PIC/PIE 下会明确拒绝。
+- AASM RISC-V 指令 relocation 保留目标符号与独立加数，weak GOT 取址和跨 section
+  控制流可由链接器按符号值正确处理。
+- RISC-V 直接调用与运行库 helper 按 relocation model 及符号属性选择 CALL 或
+  CALL_PLT；外部声明统一输出，GCC 与 AASM 后端均覆盖对应 relocation。
 - Clover 的 global、constant 和 function 均可携带独立的 internal 链接属性；
   RISC-V 汇编输出不会为内部符号生成 `.globl`。
 - Clover global 支持显式对象对齐和带字节偏移的有类型初始化片段；未覆盖区域由

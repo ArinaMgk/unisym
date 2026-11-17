@@ -12,6 +12,7 @@ Her-style, Code-reusing and Conceptual-razor.
     - `{memmec}` Default decreasing stack(SS:SP) direction.
     - `{digit }` Default binary and bitwise operations.
     - `{endian}` Default little endian.
+    - `{struct}` Default bit-field ` { LSB:1, xxx_bits:N, ..., MSB:1 }` .
 - `NULL` = `nullptr` = 0x0 ≠ 0.0
 - `sizeof` `std(/u/s)int` == address of pointer == `size_t` == `ptrdiff_t` 
 
@@ -53,18 +54,9 @@ Her-style, Code-reusing and Conceptual-razor.
 	- `addr` a $char*$ or $byte*$ pointer, usually unioned with `offs` (an alias);
 
 
-### delay
-
-instructional delay: in file whose name including a frequency, e.g. `delay11M.asm`;
-
-timer delay: in file whose name does not, e.g. `delay.c`;
-
 
 ## Contributing Rules 
 
-Tendency
-
-- use `nullptr` 
-- (TODO) wizard: from .mgc/.mgh -> .cpp/.h
+./CODE_OF_CONDUCT.md
 
 

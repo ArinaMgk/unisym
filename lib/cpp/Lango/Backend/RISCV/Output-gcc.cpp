@@ -42,6 +42,15 @@ bool RISCVAssemblyOutputGCC::EmitAddress(const char* symbol, bool through_got,
 	return true;
 }
 
+bool RISCVAssemblyOutputGCC::EmitDirectCall(const char* symbol, bool through_plt,
+	uni::OstreamTrait& output) {
+	if (through_plt) output.OutFormat("\tcall %s\n", symbol);
+	else output.OutFormat("\t.reloc ., R_RISCV_CALL, %s\n"
+		"\t.reloc ., R_RISCV_RELAX, 0\n"
+		"\tauipc ra, 0\n\tjalr ra, 0(ra)\n", symbol);
+	return true;
+}
+
 bool RISCVAssemblyOutputGCC::EmitSymbol(const char* symbol, bool function,
 	bool weak, clover::SymbolVisibility visibility, bool external, bool,
 	uni::OstreamTrait& output) {

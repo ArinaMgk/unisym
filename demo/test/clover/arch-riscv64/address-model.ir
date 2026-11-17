@@ -1,0 +1,59 @@
+target ptrbits 64
+internal global @private_data i32 = 3
+internal global @internal_data i32 = 0
+global @default_data i32 = 7
+global @hidden_data i32 visibility hidden = 0
+global @protected_data i32 visibility protected = 0
+global @weak_data i32 binding weak = 0
+declare global @external_data i32
+declare global @weak_external_data i32 binding weak
+internal func @internal_function() -> i32 {
+^entry:
+  %0 = const i32 0
+  ret i32 %0
+}
+func @default_function() -> i32 {
+^entry:
+  %1 = const i32 9
+  ret i32 %1
+}
+func @hidden_function() -> i32 visibility hidden {
+^entry:
+  %2 = const i32 0
+  ret i32 %2
+}
+func @protected_function() -> i32 visibility protected {
+^entry:
+  %3 = const i32 0
+  ret i32 %3
+}
+func @weak_function() -> i32 binding weak {
+^entry:
+  %4 = const i32 0
+  ret i32 %4
+}
+declare func @external_function() -> i32
+declare func @weak_external_function() -> i32 binding weak
+func @address_values() -> ptr {
+^entry:
+  %5 = globaladdr @internal_data
+  %6 = globaladdr @default_data
+  %7 = globaladdr @hidden_data
+  %8 = globaladdr @protected_data
+  %9 = globaladdr @weak_data
+  %10 = globaladdr @external_data
+  %11 = globaladdr @weak_external_data
+  %12 = funcaddr @internal_function
+  %13 = funcaddr @default_function
+  %14 = funcaddr @hidden_function
+  %15 = funcaddr @protected_function
+  %16 = funcaddr @weak_function
+  %17 = funcaddr @external_function
+  %18 = funcaddr @weak_external_function
+  ret ptr %18
+}
+global @default_data_ptr ptr align 8 = @default_data + 4
+global @external_data_ptr ptr align 8 = @external_data
+global @default_function_ptr ptr align 8 = @default_function
+global @external_function_ptr ptr align 8 = @external_function
+global @pointer_block i8, 16 align 8 = data {0: ptr @default_data + 8, 8: ptr @external_function}

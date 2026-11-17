@@ -71,6 +71,48 @@ void DnodeHeapFreeMagice(pureptr_t offs) {
 
 bool mark_debug = false;
 
+namespace {
+
+	struct DocumentBackendInfo {
+		const char* name;
+		const char* description;
+		MarkProcessor::TextFormat format;
+	};
+
+	const DocumentBackendInfo document_backend_infos[] = {
+		{ "html", "HTML", MarkProcessor::TextFormat::HTML },
+		{ "tex", "LaTeX", MarkProcessor::TextFormat::Tex },
+		{ "md", "Markdown", MarkProcessor::TextFormat::Markdown },
+		{ "stdout", "standard output", MarkProcessor::TextFormat::STDOUT },
+	};
+
+	bool DocumentBackendFromName(const char* name, MarkProcessor::TextFormat& format) {
+		for (const DocumentBackendInfo& info : document_backend_infos) {
+			if (!StrCompare(name, info.name)) {
+				format = info.format;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void PrintDocumentBackendColumn(uni::OstreamTrait& output, const char* text) {
+		output.OutFormat("%s", text);
+		stduint length = StrLength(text);
+		while (length++ < 10) output.OutChar(' ');
+	}
+
+}
+
+void PrintDocumentBackendInformation(uni::OstreamTrait& output) {
+	output.OutFormat("Built-in document backends:\n");
+	for (const DocumentBackendInfo& info : document_backend_infos) {
+		output.OutFormat("    ");
+		PrintDocumentBackendColumn(output, info.name);
+		output.OutFormat("%s\n", info.description);
+	}
+}
+
 //{issue}!!! why level-0 are not only one
 ///her/unisym/magic$ ./makmgc.sh && mgc /her/unisym/demo/test/mark/doc0/doc0.mgc
 int mark(int argc, char** argv) {
@@ -82,10 +124,10 @@ int mark(int argc, char** argv) {
 	for (int i = 1; i < argc; i++) {
 		if (!StrCompare(argv[i], "-f") && i + 1 < argc) {
 			i++;
-			if (!StrCompare(argv[i], "html")) out_fmt = MarkProcessor::TextFormat::HTML;
-			else if (!StrCompare(argv[i], "tex")) out_fmt = MarkProcessor::TextFormat::Tex;
-			else if (!StrCompare(argv[i], "md")) out_fmt = MarkProcessor::TextFormat::Markdown;
-			else if (!StrCompare(argv[i], "stdout")) out_fmt = MarkProcessor::TextFormat::STDOUT;
+			if (!DocumentBackendFromName(argv[i], out_fmt)) {
+				plogerro("unsupported document backend %s", argv[i]);
+				return 1;
+			}
 		}
 		else if (!StrCompare(argv[i], "-o") && i + 1 < argc) {
 			i++;

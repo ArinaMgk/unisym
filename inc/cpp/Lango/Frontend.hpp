@@ -50,7 +50,7 @@ class FrontendInterface {
 public:
 	virtual ~FrontendInterface() = default;
 
-	// Parse one translation unit and generate its in-memory Clover module.
+	// Parse one translation unit and generate its Soft, Hard, or Exec Clover module.
 	virtual bool Generate(uni::IstreamTrait& input, clover::Module& module,
 		const FrontendOptions& options = FrontendOptions()) = 0;
 };

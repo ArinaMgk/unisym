@@ -50,12 +50,16 @@ static void PrintMagicHelp() {
 	uni::Console.OutFormat("  --emit-ast              Emit the parsed AST\n");
 	uni::Console.OutFormat("  --relocation-model=MODEL Record static, pic, or pie in Clover IR\n");
 	uni::Console.OutFormat("  -g                      Add source locations and comments to Clover IR\n");
-	uni::Console.OutFormat("  --lango=c               Select the source-language frontend\n");
-	uni::Console.OutFormat("  --std=c99               Pass the language standard to the frontend\n");
+	uni::Console.OutFormat("  --lango=NAME            Select the source-language frontend\n");
+	uni::Console.OutFormat("  --std=NAME              Pass the language standard to the frontend\n");
 	uni::Console.OutFormat("  -Fname[=value]           Pass one option to the selected frontend\n");
 	uni::Console.OutFormat("  -Fdata-model=MODEL      C model: ilp32, lp64, or llp64\n");
 	uni::Console.OutFormat("  -o output               Write output to a file\n");
 	uni::Console.OutFormat("  -h, --help              Print this help\n");
+	uni::Console.OutFormat("\n");
+	PrintFrontendInformation(uni::Console);
+	uni::Console.OutFormat("\n");
+	PrintDocumentBackendInformation(uni::Console);
 }
 
 static bool ParseFrontendLanguageOption(const char* argument,
@@ -79,9 +83,14 @@ int magic(int argc, char** argv) {
 	bool request_ast = false;
 	bool debug_symbols = false;
 	clover::RelocationModel relocation_model = clover::RelocationModel::Static;
-	rostr language_standard = "c99";
+	rostr language_standard = nullptr;
 	MagicFrontend selected_frontend = MagicFrontend::C;
 	bool frontend_explicit = false;
+	bool language_standard_explicit = false;
+	bool relocation_model_explicit = false;
+	bool inferred_frontend_available = false;
+	bool conflicting_inferred_frontends = false;
+	MagicFrontend inferred_frontend = MagicFrontend::C;
 	bool options_ended = false;
 	bool has_source_suffix = false;
 	rostr output_path = nullptr;
@@ -101,6 +110,7 @@ int magic(int argc, char** argv) {
 			debug_symbols = true;
 		}
 		else if (!options_ended && !StrCompareN(argv[i], "--relocation-model=", 19)) {
+			relocation_model_explicit = true;
 			const char* value = argv[i] + 19;
 			if (!StrCompare(value, "static")) relocation_model = clover::RelocationModel::Static;
 			else if (!StrCompare(value, "pic")) relocation_model = clover::RelocationModel::PIC;
@@ -119,6 +129,7 @@ int magic(int argc, char** argv) {
 		}
 		else if (!options_ended && !StrCompareN(argv[i], "--std=", 6)) {
 			language_standard = argv[i] + 6;
+			language_standard_explicit = true;
 		}
 		else if (!options_ended && !StrCompareN(argv[i], "-F", 2)) {
 			lango::FrontendLanguageOption option;
@@ -149,9 +160,27 @@ int magic(int argc, char** argv) {
 			MagicFrontend suffix_frontend;
 			if (FrontendFromPath(argv[i], suffix_frontend)) {
 				has_source_suffix = true;
-				if (!frontend_explicit) selected_frontend = suffix_frontend;
+				if (!inferred_frontend_available) {
+					inferred_frontend = suffix_frontend;
+					inferred_frontend_available = true;
+				}
+				else if (inferred_frontend != suffix_frontend)
+					conflicting_inferred_frontends = true;
 			}
 		}
+	}
+	if (!frontend_explicit) {
+		if (conflicting_inferred_frontends) {
+			plogerro("input suffixes select different frontends; use --lango explicitly");
+			return 1;
+		}
+		if (inferred_frontend_available) selected_frontend = inferred_frontend;
+	}
+	const MagicFrontendInfo& frontend_info = FrontendInformation(selected_frontend);
+	if (!language_standard_explicit) language_standard = frontend_info.default_standard;
+	if (relocation_model_explicit && frontend_info.ir_class != clover::IRClass::Soft) {
+		plogerro("--relocation-model is only valid for Soft IR frontends");
+		return 1;
 	}
 
 	if (request_ir && request_ast) {
@@ -213,7 +242,8 @@ int magic(int argc, char** argv) {
 			}
 			clover::Module module;
 			bool success = frontend->Generate(input, module, frontend_options);
-			module.relocation_model = relocation_model;
+			if (module.ir_class == clover::IRClass::Soft)
+				module.relocation_model = relocation_model;
 			success = success && clover::Print(module, *output);
 			delete frontend;
 			if (!success) {
@@ -233,6 +263,13 @@ int main(int argc, char** argv)
 {
 	using namespace uni;
 	int stat = 0;
+	bool stop_options = false;
+	for (int i = 1; i < argc; i++) {
+		if (!stop_options && !StrCompare(argv[i], "--")) stop_options = true;
+		else if (!stop_options &&
+			(!StrCompare(argv[i], "-h") || !StrCompare(argv[i], "--help")))
+			return magic(argc, argv);
+	}
 
 	bool is_mark = false;
 

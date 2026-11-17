@@ -471,7 +471,8 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 					encoding,
 					encoded.encoding,
 					encoded.target.section,
-					encoded.target.offset,
+					encoded.target.symbol ? encoded.target.addend :
+						encoded.target.offset,
 					0,
 					encoded.target.wrt,
 					static_cast<uint32_t>(ArchitectureKind::RISCV),
@@ -486,6 +487,12 @@ ArchendLineResult ArchendRISCV::ProcessInstruction(AssemblySession& session,
 					},
 					session.Options->EnableRISCVRelax
 				};
+				if (encoded.target.symbol) {
+					fixup.target.kind = uni::CodeFixupTargetKind::Symbol;
+					fixup.target.section = encoded.target.section;
+					fixup.target.offset = encoded.target.symbol_offset;
+					fixup.target.global = encoded.target.global;
+				}
 				session.Listing->EmitFixup(fixup);
 				codeend.EmitFixup(fixup);
 				instruction_offset += encoded.size;

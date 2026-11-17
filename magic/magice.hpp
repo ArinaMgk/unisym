@@ -15,11 +15,26 @@
 // Frontend selected for the current Magice compilation unit.
 enum class MagicFrontend {
 	C, // C language frontend.
+	SystemVerilog, // SystemVerilog synthesis-subset frontend.
+};
+
+struct MagicFrontendInfo {
+	MagicFrontend frontend;
+	const char* name;
+	const char* alias;
+	const char* suffix;
+	const char* default_standard;
+	const char* description;
+	clover::IRClass ir_class;
+	bool is_default;
 };
 
 // Resolve an explicit --lango value or a recognized source-file suffix.
 bool FrontendFromName(rostr name, MagicFrontend& frontend);
 bool FrontendFromPath(rostr path, MagicFrontend& frontend);
+
+const MagicFrontendInfo& FrontendInformation(MagicFrontend frontend);
+void PrintFrontendInformation(uni::OstreamTrait& output);
 
 // Construct the selected source-language frontend.
 uni::lango::FrontendInterface* FrontendCreate(MagicFrontend frontend);
@@ -27,6 +42,8 @@ uni::lango::FrontendInterface* FrontendCreate(MagicFrontend frontend);
 // Print a language-specific syntax tree without extending the common interface.
 bool FrontendPrintAST(MagicFrontend frontend, uni::IstreamTrait& input,
 	uni::OstreamTrait& output, const uni::lango::FrontendOptions& options);
+
+void PrintDocumentBackendInformation(uni::OstreamTrait& output);
 
 // Frontend variable table. It will grow into the declaration and scope table.
 struct Variable {

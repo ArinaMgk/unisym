@@ -42,6 +42,10 @@ public:
 		bool external, bool weak, clover::SymbolVisibility visibility,
 		unsigned bits, uni::OstreamTrait& output) = 0;
 
+	// Emit a direct call with the selected local or PLT relocation.
+	virtual bool EmitDirectCall(const char* symbol, bool through_plt,
+		uni::OstreamTrait& output) = 0;
+
 	// Emit the ELF-facing attributes for a module symbol.
 	virtual bool EmitSymbol(const char* symbol, bool function, bool weak,
 		clover::SymbolVisibility visibility, bool external, bool declaration,

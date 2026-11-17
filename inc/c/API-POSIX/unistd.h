@@ -24,6 +24,14 @@ extern "C" {
 	/// @return: process id
 	pid_t getpid(void);
 
+	// POSIX.1 <unistd.h> process identity interfaces.
+	uid_t getuid(void);
+	uid_t geteuid(void);
+	gid_t getgid(void);
+	gid_t getegid(void);
+	int setuid(uid_t uid);
+	int setgid(gid_t gid);
+
 	/// @brief  execute a file
 	/// @param  path: path to the executable
 	/// @param  argv: argument vector

@@ -10,6 +10,9 @@
 #ifndef uid_t
 #define uid_t stdsint
 #endif
+#ifndef gid_t
+#define gid_t stdsint
+#endif
 #if !defined(_OFF_T_DECLARED) && !defined(__off_t_defined) && !defined(_OFF_T_DEFINED)
 typedef stdsint off_t;
 #define _OFF_T_DECLARED

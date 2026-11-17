@@ -120,6 +120,19 @@ namespace clover {
 			output.OutFormat("^%s", name.reference());
 		}
 
+		void PrintHardwareValue(uni::OstreamTrait& output, HardwareValue value) {
+			output.OutFormat("%%%[u]", value.id);
+		}
+
+		const char* PortDirectionName(PortDirection direction) {
+			switch (direction) {
+			case PortDirection::Input: return "input";
+			case PortDirection::Output: return "output";
+			case PortDirection::InOut: return "inout";
+			}
+			return "?";
+		}
+
 		void PrintQuoted(uni::OstreamTrait& output, const uni::String& text) {
 			output.OutChar('"');
 			for (const char* current = text.reference(); current && *current; current++) {
@@ -429,16 +442,22 @@ namespace clover {
 			Value value;
 		};
 
+		struct DefinedHardwareValue {
+			HardwareValue value;
+		};
+
 		// Recursive-descent parser for the printed Clover IR syntax.
 		class Parser {
 		private:
 			Lexer lexer;
 			uni::String token;
 			uni::Vector<DefinedValue> definitions;
+			uni::Vector<DefinedHardwareValue> hardware_definitions;
 			uint32 debug_file = 0;
 			uint32 debug_line = 0;
 			bool failed = false;
 			bool relocation_model_seen = false;
+			bool ir_class_seen = false;
 
 			void Advance() {
 				token = lexer.Next();
@@ -484,9 +503,30 @@ namespace clover {
 				return true;
 			}
 
+			bool ReadBitType(BitType& type) {
+				const char* text = token.reference();
+				if (text[0] != 'b' || !text[1]) return Error("expected hardware bit type");
+				char* end = nullptr;
+				uint64 width = StrTokenULong(text + 1, &end, 10);
+				if (*end || !width || width > 64)
+					return Error("hardware bit width must be between 1 and 64");
+				type.width = (stduint)width;
+				Advance();
+				return true;
+			}
+
 			bool ReadNumber(stdsint& number) {
 				if (!token.getByteCount()) return Error("expected integer");
 				number = atoins(token.reference());
+				Advance();
+				return true;
+			}
+
+			bool ReadHardwareNumber(uint64& number) {
+				if (!token.getByteCount()) return Error("expected hardware integer");
+				char* end = nullptr;
+				number = StrTokenULong(token.reference(), &end, 10);
+				if (*end) return Error("invalid hardware integer");
 				Advance();
 				return true;
 			}
@@ -559,6 +599,64 @@ namespace clover {
 				defined.value = value;
 				definitions.Append(defined);
 				return true;
+			}
+
+			bool FindHardwareValue(unsigned id, HardwareValue& value) {
+				for (const DefinedHardwareValue& defined : hardware_definitions) {
+					if (defined.value.id == id) {
+						value = defined.value;
+						return true;
+					}
+				}
+				return Error("use of undefined hardware SSA value");
+			}
+
+			bool ReadHardwareValue(HardwareValue& value) {
+				unsigned id;
+				if (!ReadResultID(id)) return false;
+				return FindHardwareValue(id, value);
+			}
+
+			bool DefineHardwareValue(HardwareValue value) {
+				for (const DefinedHardwareValue& defined : hardware_definitions)
+					if (defined.value.id == value.id)
+						return Error("duplicate hardware SSA identifier");
+				DefinedHardwareValue defined;
+				defined.value = value;
+				hardware_definitions.Append(defined);
+				return true;
+			}
+
+			bool SelectIRClass(Module& module, IRClass ir_class) {
+				if (ir_class_seen && module.ir_class != ir_class)
+					return Error("mixed Clover IR classes are not supported");
+				module.ir_class = ir_class;
+				ir_class_seen = true;
+				return true;
+			}
+
+			const HardwarePort* FindHardwarePort(const HardwareModule& module,
+				const uni::String& name) const {
+				for (const HardwarePort& port : module.ports)
+					if (!StrCompare(port.name.reference(), name.reference())) return &port;
+				return nullptr;
+			}
+
+			bool HasHardwareDriver(const HardwareModule& module,
+				const uni::String& name) const {
+				for (const HardwareBlock& block : module.blocks)
+					for (const HardwareOperation& operation : block.operations)
+						if (operation.opcode == HardwareOpcode::Assign &&
+							!StrCompare(operation.symbol.reference(), name.reference())) return true;
+				return false;
+			}
+
+			bool HasHardwareDriver(const HardwareBlock& block,
+				const uni::String& name) const {
+				for (const HardwareOperation& operation : block.operations)
+					if (operation.opcode == HardwareOpcode::Assign &&
+						!StrCompare(operation.symbol.reference(), name.reference())) return true;
+				return false;
 			}
 
 			bool ReadPredicate(ICmpPredicate& predicate) {
@@ -970,6 +1068,117 @@ namespace clover {
 				return true;
 			}
 
+			bool ParseHardwareOperation(HardwareModule& module, HardwareBlock& block) {
+				HardwareOperation operation;
+				unsigned result_id = 0;
+				bool has_result = false;
+				if (Is("%")) {
+					if (!ReadResultID(result_id) || !Expect("=")) return false;
+					has_result = true;
+				}
+				uni::String operation_name;
+				if (!ReadName(operation_name)) return false;
+				operation.has_result = has_result;
+				if (!StrCompare(operation_name.reference(), "read")) {
+					operation.opcode = HardwareOpcode::Read;
+					if (!has_result || !ReadBitType(operation.result.type) ||
+						!Expect("@") || !ReadName(operation.symbol))
+						return Error("invalid hardware read operation");
+					const HardwarePort* port = FindHardwarePort(module, operation.symbol);
+					if (!port) return Error("read from undefined hardware port");
+					if (port->type.width != operation.result.type.width)
+						return Error("hardware read width does not match port");
+				}
+				else if (!StrCompare(operation_name.reference(), "const")) {
+					operation.opcode = HardwareOpcode::Const;
+					if (!has_result || !ReadBitType(operation.result.type) ||
+						!ReadHardwareNumber(operation.immediate))
+						return Error("invalid hardware constant operation");
+					if (operation.result.type.width < 64 &&
+						operation.immediate >= ((uint64)1 << operation.result.type.width))
+						return Error("hardware constant does not fit result width");
+				}
+				else if (!StrCompare(operation_name.reference(), "add")) {
+					operation.opcode = HardwareOpcode::Add;
+					HardwareValue left, right;
+					if (!has_result || !ReadBitType(operation.result.type) ||
+						!ReadHardwareValue(left) || !Expect(",") ||
+						!ReadHardwareValue(right))
+						return Error("invalid hardware add operation");
+					if (left.type.width != operation.result.type.width ||
+						right.type.width != operation.result.type.width)
+						return Error("hardware add operands must match result width");
+					operation.operands.Append(left);
+					operation.operands.Append(right);
+				}
+				else if (!StrCompare(operation_name.reference(), "assign")) {
+					operation.opcode = HardwareOpcode::Assign;
+					HardwareValue value;
+					if (has_result || !Expect("@") || !ReadName(operation.symbol) ||
+						!Expect(",") || !ReadHardwareValue(value))
+						return Error("invalid hardware assign operation");
+					const HardwarePort* port = FindHardwarePort(module, operation.symbol);
+					if (!port) return Error("assign to undefined hardware port");
+					if (port->direction == PortDirection::Input)
+						return Error("cannot assign an input hardware port");
+					if (port->type.width != value.type.width)
+						return Error("hardware assignment width does not match port");
+					if (HasHardwareDriver(module, operation.symbol) ||
+						HasHardwareDriver(block, operation.symbol))
+						return Error("hardware port has multiple drivers");
+					operation.operands.Append(value);
+				}
+				else return Error("unsupported hardware operation");
+				if (has_result) {
+					operation.result.id = result_id;
+					if (!DefineHardwareValue(operation.result)) return false;
+				}
+				block.operations.Append(operation);
+				return true;
+			}
+
+			bool ParseHardwareBlock(HardwareModule& module) {
+				HardwareBlock block;
+				if (!Expect("^") || !ReadName(block.name) || !Expect(":")) return false;
+				for (const HardwareBlock& previous : module.blocks)
+					if (!StrCompare(previous.name.reference(), block.name.reference()))
+						return Error("duplicate hardware block name");
+				while (token.getByteCount() && !Is("^") && !Is("}"))
+					if (!ParseHardwareOperation(module, block)) return false;
+				module.blocks.Append(block);
+				return true;
+			}
+
+			bool ParseHardwareModule(Module& module) {
+				HardwareModule hardware_module;
+				hardware_definitions.Clear();
+				if (!Expect("module") || !Expect("@") || !ReadName(hardware_module.name) ||
+					!Expect("{")) return false;
+				for (const HardwareModule& previous : module.hardware_modules)
+					if (!StrCompare(previous.name.reference(), hardware_module.name.reference()))
+						return Error("duplicate hardware module name");
+				while (Is("port")) {
+					HardwarePort port;
+					Advance();
+					if (!Expect("@") || !ReadName(port.name) || !ReadBitType(port.type))
+						return Error("invalid hardware port declaration");
+					if (Is("input")) port.direction = PortDirection::Input;
+					else if (Is("output")) port.direction = PortDirection::Output;
+					else if (Is("inout")) port.direction = PortDirection::InOut;
+					else return Error("expected hardware port direction");
+					Advance();
+					if (FindHardwarePort(hardware_module, port.name))
+						return Error("duplicate hardware port name");
+					hardware_module.ports.Append(port);
+				}
+				while (Is("^"))
+					if (!ParseHardwareBlock(hardware_module)) return false;
+				if (!hardware_module.blocks.Count()) return Error("hardware module requires a block");
+				if (!Expect("}")) return false;
+				module.hardware_modules.Append(hardware_module);
+				return true;
+			}
+
 			bool ParseFunction(Module& module, Linkage linkage = Linkage::External) {
 				Function function;
 				function.linkage = linkage;
@@ -1216,20 +1425,30 @@ namespace clover {
 			}
 
 			bool ParseModule(Module& module) {
+				module.ir_class = IRClass::Soft;
 				module.pointer_bits = 0;
 				module.relocation_model = RelocationModel::Static;
 				relocation_model_seen = false;
+				ir_class_seen = false;
 				module.source_files.Clear();
 				module.globals.Clear();
 				module.functions.Clear();
+				module.hardware_modules.Clear();
 				while (token.getByteCount()) {
-					if (Is("target")) {
+					if (Is("module")) {
+						if (!SelectIRClass(module, IRClass::Hard) ||
+							!ParseHardwareModule(module)) return false;
+					}
+					else if (Is("target")) {
+						if (!SelectIRClass(module, IRClass::Soft)) return false;
 						if (!ParseTarget(module)) return false;
 					}
 					else if (Is("source")) {
+						if (!SelectIRClass(module, IRClass::Soft)) return false;
 						if (!ParseSource(module)) return false;
 					}
 					else if (Is("internal")) {
+						if (!SelectIRClass(module, IRClass::Soft)) return false;
 						Advance();
 						if (Is("global") || Is("constant")) {
 							bool read_only = Is("constant");
@@ -1241,6 +1460,7 @@ namespace clover {
 						else return Error("internal requires a global, constant, or function");
 					}
 					else if (Is("declare")) {
+						if (!SelectIRClass(module, IRClass::Soft)) return false;
 						Advance();
 						if (Is("func")) {
 							if (!ParseFunctionDeclaration(module)) return false;
@@ -1254,10 +1474,14 @@ namespace clover {
 						}
 					}
 					else if (Is("global") || Is("constant")) {
+						if (!SelectIRClass(module, IRClass::Soft)) return false;
 						bool read_only = Is("constant");
 						if (!ParseGlobal(module, read_only)) return false;
 					}
-					else if (!ParseFunction(module)) return false;
+					else {
+						if (!SelectIRClass(module, IRClass::Soft) || !ParseFunction(module))
+							return false;
+					}
 				}
 				return !failed;
 			}
@@ -1271,6 +1495,54 @@ namespace clover {
 	}
 
 	bool Print(const Module& module, uni::OstreamTrait& output) {
+		if (module.ir_class == IRClass::Hard) {
+			for (const HardwareModule& hardware_module : module.hardware_modules) {
+				output.OutFormat("module @%s {\n", hardware_module.name.reference());
+				for (const HardwarePort& port : hardware_module.ports)
+					output.OutFormat("    port @%s b%[u] %s\n", port.name.reference(),
+						port.type.width, PortDirectionName(port.direction));
+				if (hardware_module.ports.Count() && hardware_module.blocks.Count())
+					output.OutChar('\n');
+				for (const HardwareBlock& block : hardware_module.blocks) {
+					output.OutFormat("^%s:\n", block.name.reference());
+					for (const HardwareOperation& operation : block.operations) {
+						output.OutFormat("    ");
+						if (operation.has_result) {
+							PrintHardwareValue(output, operation.result);
+							output.OutFormat(" = ");
+						}
+						switch (operation.opcode) {
+						case HardwareOpcode::Read:
+							output.OutFormat("read b%[u] @%s\n", operation.result.type.width,
+								operation.symbol.reference());
+							break;
+						case HardwareOpcode::Const:
+							output.OutFormat("const b%[u] %[u]\n", operation.result.type.width,
+								(stduint)operation.immediate);
+							break;
+						case HardwareOpcode::Add:
+							output.OutFormat("add b%[u] ", operation.result.type.width);
+							PrintHardwareValue(output, operation.operands.begin()[0]);
+							output.OutFormat(", ");
+							PrintHardwareValue(output, operation.operands.begin()[1]);
+							output.OutChar('\n');
+							break;
+						case HardwareOpcode::Assign:
+							output.OutFormat("assign @%s, ", operation.symbol.reference());
+							PrintHardwareValue(output, operation.operands.begin()[0]);
+							output.OutChar('\n');
+							break;
+						}
+					}
+				}
+				output.OutFormat("}\n");
+			}
+			return true;
+		}
+		if (module.ir_class != IRClass::Soft) {
+			plogerro("Clover IR: Exec IR text output is not implemented");
+			return false;
+		}
 		if (module.relocation_model != RelocationModel::Static)
 			output.OutFormat("target relocation %s\n",
 				RelocationModelName(module.relocation_model));

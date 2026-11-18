@@ -29,7 +29,7 @@ static int copy_file(const char* src, const char* dest) {
 	}
 
 	// Open destination for writing, create if not exist, truncate if exist
-	int fd_out = open(dest, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+	int fd_out = open(dest, O_CREAT | O_WRONLY | O_TRUNC, (mode_t)0666);
 	if (fd_out < 0) {
 		close(fd_in);
 		return -1;

@@ -7,6 +7,9 @@
 #include "dirent.h"
 #include <sys/stat.h>
 #include <time.h>
+#include <stdlib.h>
+#include <pwd.h>
+#include <grp.h>
 #include <dirent.h>
 #include <c/consio.h>
 
@@ -77,14 +80,29 @@ static void format_time(char* buf, const struct stat& st) {
 }
 
 // Share the same metadata formatting for individual paths and enumerated directory entries.
-static void print_long_entry(const char* name, const struct stat& st, bool human) {
+static void print_long_entry(const char* name, const struct stat& st, bool human, char* identity_buffer) {
 	char modebuf[11];
 	char szbuf[32];
 	char timebuf[32];
 	format_mode(modebuf, st.st_mode);
 	format_size(szbuf, st.st_size, human);
 	format_time(timebuf, st);
-	outsfmt("%s  %ld  %ld  %s  %s  %s\n\r", modebuf, (long)st.st_uid, (long)st.st_gid, szbuf, timebuf, name);
+	char owner_number[24];
+	char group_number[24];
+	outsfmtbuf(owner_number, "%ld", (long)st.st_uid);
+	outsfmtbuf(group_number, "%ld", (long)st.st_gid);
+	const char* owner = owner_number;
+	const char* group_name = group_number;
+	if (identity_buffer) {
+		// Keep both query buffers alive until the row is printed; unknown IDs and lookup errors retain numbers.
+		struct passwd user{};
+		struct passwd* found_user = nullptr;
+		if (!getpwuid_r(st.st_uid, &user, identity_buffer, 256, &found_user) && found_user) owner = user.pw_name;
+		struct group group{};
+		struct group* found_group = nullptr;
+		if (!getgrgid_r(st.st_gid, &group, identity_buffer + 256, 256, &found_group) && found_group) group_name = group.gr_name;
+	}
+	outsfmt("%s  %s  %s  %s  %s  %s\n\r", modebuf, owner, group_name, szbuf, timebuf, name);
 }
 
 int main(int argc, char *argv[]) {
@@ -110,6 +128,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	// Reuse heap storage across rows instead of adding account buffers to the stack.
+	char* identity_buffer = opt_l ? (char*)malloc(512) : nullptr;
+
 	// Try to open the target path as a directory
 	DIR* dir = opendir(path);
 	if (!dir) {
@@ -117,12 +138,14 @@ int main(int argc, char *argv[]) {
 		struct stat st;
 		if (stat(path, &st) == 0) {
 			if (opt_l) {
-				print_long_entry(path, st, opt_h);
+				print_long_entry(path, st, opt_h, identity_buffer);
 			} else {
 				outsfmt("%s\n\r", path);
 			}
+			free(identity_buffer);
 			return 0;
 		}
+		free(identity_buffer);
 		outsfmt("ls: cannot access '%s': No such file or directory\n\r", path);
 		return 1;
 	}
@@ -149,7 +172,7 @@ int main(int argc, char *argv[]) {
 
 			struct stat st;
 			if (stat(fullpath, &st) == 0) {
-				print_long_entry(entry->d_name, st, opt_h);
+				print_long_entry(entry->d_name, st, opt_h, identity_buffer);
 			} else {
 				const char* type_str = (entry->d_type == DT_DIR) ? "d?????????" : "??????????";
 				outsfmt("%s  ?  ?  ?  -  %s\n\r", type_str, entry->d_name);
@@ -163,5 +186,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	closedir(dir);
+	free(identity_buffer);
 	return 0;
 }

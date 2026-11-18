@@ -21,6 +21,8 @@
 */
 
 #include "../../../inc/cpp/Device/_Power.hpp"
+#include "../../../inc/cpp/Device/AFIO"
+#include "../../../inc/cpp/Device/RCC/RCC"
 #include "../../../inc/cpp/Device/SysTick"
 #include "../../../inc/cpp/Device/EXTI"
 
@@ -40,10 +42,13 @@ namespace uni {
 
 	// flag-setting timeout, AKA PWR_FLAG_SETTING_DELAY_US (compared against SysTick ms tick, as HAL does)
 	#define _PWR_FLAG_SETTING_DELAY 1000U
+	#define _PWR_EARLY_READY_POLL_LIMIT 1000000U
 
-	void PWR_t::ConfigVoltageScaling(byte regulator) {
-		PWR_D3CR_VOS = regulator;
-		stduint tmpreg = PWR_D3CR_VOS;// Delay
+	static bool WaitPowerReady(stduint limit = _PWR_EARLY_READY_POLL_LIMIT) {
+		while (limit--) {
+			if (PWR[PWRReg::CSR1].bitof(13)) return true;// ACTVOSRDY
+		}
+		return false;
 	}
 
 	void PWR_t::setMode(PWRMode mode, PWREntry entry, PWRRegulator regulator, PWRDomain domain) {
@@ -84,12 +89,33 @@ namespace uni {
 	}
 
 	bool PWR_t::ControlVoltageScaling(PWRVoltageScale scaling) {
-		self[PWRReg::D3CR].maset(14, 2, (stduint)scaling);// VOS
-		uint64 tickstart = SysTick::getTick();
-		while (!self[PWRReg::D3CR].bitof(13)) {// VOSRDY
-			if ((SysTick::getTick() - tickstart) > _PWR_FLAG_SETTING_DELAY) return false;
+		if (scaling != PWRVoltageScale::SCALE0 &&
+			scaling != PWRVoltageScale::SCALE1 &&
+			scaling != PWRVoltageScale::SCALE2 &&
+			scaling != PWRVoltageScale::SCALE3) return false;
+
+		RCC[RCCReg::APB4ENR].setof(1);// SYSCFGEN
+		volatile stduint delay = RCC[RCCReg::APB4ENR];
+		Reference powerControl(&SYSCFG->PWRCR);
+
+		if (scaling == PWRVoltageScale::SCALE0) {
+			if (!self[PWRReg::CR3].bitof(1)) return false;// LDOEN
+			self[PWRReg::D3CR].maset(14, 2, (stduint)PWRVoltageScale::SCALE1);// VOS
+			delay = self[PWRReg::D3CR];
+			if (!WaitPowerReady()) return false;
+			powerControl.setof(0);// ODEN
+			delay = powerControl;
+			return WaitPowerReady();
 		}
-		return true;
+
+		if (powerControl.bitof(0)) {
+			powerControl.rstof(0);// ODEN
+			delay = powerControl;
+			if (!WaitPowerReady()) return false;
+		}
+		self[PWRReg::D3CR].maset(14, 2, (stduint)scaling);// VOS
+		delay = self[PWRReg::D3CR];
+		return WaitPowerReady();
 	}
 
 	stduint PWR_t::getVoltageRange() {
@@ -105,16 +131,17 @@ namespace uni {
 	}
 
 	bool PWR_t::ConfigSupply(stduint supply) {
+#if !defined(SMPS)
+		const stduint current = self[PWRReg::CR3].mask(0, 3);
+		if (!self[PWRReg::CR3].bitof(2)) return current == supply;// SCUEN
+#endif
 #if defined(SMPS)
 		self[PWRReg::CR3].maset(0, 6, supply);// SMPSLEVEL | SMPSEXTHP | SMPSEN | LDOEN | BYPASS
 #else
 		self[PWRReg::CR3].maset(0, 3, supply);// SCUEN | LDOEN | BYPASS
 #endif
-		uint64 tickstart = SysTick::getTick();
-		while (!self[PWRReg::CSR1].bitof(13) && self[PWRReg::CR3].bitof(2)) {// ACTVOSRDY && SCUEN
-			if ((SysTick::getTick() - tickstart) > _PWR_FLAG_SETTING_DELAY) return false;
-		}
-		return true;
+		volatile stduint delay = self[PWRReg::CR3];
+		return WaitPowerReady();
 	}
 
 	stduint PWR_t::getSupplyConfig() {

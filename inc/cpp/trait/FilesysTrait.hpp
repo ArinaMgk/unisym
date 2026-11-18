@@ -169,6 +169,20 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		FilesysPermissionStatus status = FilesysPermissionStatus::Unsupported;
 	};
 
+	// Initial metadata is committed by capable backends as part of creation, before namespace publication.
+	struct FilesysCreateAttributes {
+		uint32 uid = 0;
+		uint32 gid = 0;
+		stduint mode = 0644;
+	};
+
+	struct FilesysCreateParameter {
+		void* handler = nullptr; // Parent handle on input; created handle on success.
+		rostr linkdest = nullptr;
+		const FilesysCreateAttributes* attributes = nullptr;
+		void* exinfo = nullptr; // Optional backend-specific extension information.
+	};
+
 	class FilesysTrait
 	{
 	public:
@@ -184,8 +198,8 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 
 		virtual bool loadfs(void* moreinfo = 0) { return false; }
 
-		// create file/folder. usize{isfolder}
-		virtual bool create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest = 0) = 0;
+		// create file/folder. usize{isfolder}; handler changes only on success, linkdest/attributes are borrowed, and exinfo is backend-specific.
+		virtual bool create(rostr fullpath, stduint flags, FilesysCreateParameter& parameter) = 0;
 
 		// remove file/folder
 		virtual bool remove(rostr pathname) = 0;

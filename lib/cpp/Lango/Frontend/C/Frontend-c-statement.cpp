@@ -667,11 +667,6 @@ namespace {
 				pointer_count += stars;
 				node = syntax_tree.Remove(node);
 			}
-			if (type.IsVoid()) {
-				diagnostics.Report(DiagnosticStage::Semantic,
-					"parameter cannot have void type", node ? node : function);
-				return false;
-			}
 			uni::Nnode* parameter = node;
 			uni::Nnode* identifier = nullptr;
 			bool unnamed = !parameter ||
@@ -694,6 +689,11 @@ namespace {
 				if (!type.AppendPointer()) return false;
 			if (type.IsArray()) type = type.DecayType();
 			else if (type.IsFunction()) type = type.DecayType();
+			if (type.IsVoid()) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"parameter cannot have void type", parameter ? parameter : function);
+				return false;
+			}
 			function_type.parameter_types.Append(type);
 			function_type.has_prototype = true;
 			if (!unnamed) {

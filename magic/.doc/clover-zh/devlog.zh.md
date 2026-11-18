@@ -10,6 +10,11 @@
 - 支持以 `-Fname[=value]` 向选中的前端传递专用选项；C 前端支持
   `-Fdata-model=ilp32/lp64/llp64`，默认使用 `lp64`。
 - 支持 C/C++ 注释、AST 输出、Clover IR 输出，以及 `-g` 源文件、行号和源码注释。
+- 支持 C99 `#include`、`#define`、`#undef`、
+  `#if/#ifdef/#ifndef/#elif/#else/#endif`；`#include` 支持当前文件相对路径、
+  `-I` 搜索目录、引号及尖括号 header-name，以及宏展开产生的 header-name。
+  宏按 preprocessing token 展开，支持函数式及可变参数宏、`#` 字符串化、`##`
+  拼接、递归重扫和条件表达式短路求值。
 - 支持基础整数类型、C99 `_Bool`、signed/unsigned、const、目标相关数据模型、
   整数转换和 `sizeof`；`_Bool` 对象占一个 C 字节，参与整数运算前提升为 `int`。
 - 支持 `float`、`double`、RISC-V binary128 `long double` 类型及其局部/全局对象、数组、指针、record 成员和
@@ -93,6 +98,10 @@
 ## C前端架构规划
 
 - `Frontend-c.cpp`：C 前端入口、词法分析和各分析阶段调度。
+- `Frontend-c-preprocessor-lexer.cpp`：C 续行、注释和 preprocessing token 扫描。
+- `Frontend-c-preprocessor.cpp`：宏表、宏替换和条件编译指令处理。
+- `Frontend-c-preprocessor-include.cpp`：头文件名解析、搜索及递归预处理。
+- `Frontend-c-preprocessor-expression.cpp`：`#if/#elif` 整数常量表达式求值。
 - `Frontend-c-operator.cpp`：C 运算符分级、cast 识别和条件运算符整理。
 - `Frontend-c-declaration.cpp`：共享声明符解析，以及指针、数组、函数等派生类型
   层的组合顺序。

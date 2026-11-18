@@ -42,6 +42,7 @@ struct FrontendOptions {
 	DiagnosticInterface* diagnostics = nullptr; // Uses the default logger when null.
 	const char* language_standard = nullptr; // Frontend-specific standard such as c99.
 	TargetInfo target; // ABI sizes used while lowering source-language types.
+	uni::Vector<uni::String> include_paths; // Ordered header search directories.
 	uni::Vector<FrontendLanguageOption> language_options; // Options interpreted by one frontend.
 };
 

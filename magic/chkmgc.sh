@@ -536,6 +536,12 @@ cd magic
 check_clover_forward_jumps
 check_systemverilog_frontend
 
+# C preprocessor
+check '../demo/test/clover/c/preprocessor.c' 32
+check_fail $'#if 1\nint value;' 'unterminated conditional directive'
+check_fail $'#if 1\n#else\n#else\n#endif' 'duplicate #else'
+check_fail $'#define VALUE 1\n#define VALUE 2\nint main(void){return VALUE;}' 'incompatible macro redefinition'
+
 # Operators
 check 'int main(){return 0;}' 0
 check '../demo/test/clover/c/operators.c' 75

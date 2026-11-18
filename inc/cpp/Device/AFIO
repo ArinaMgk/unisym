@@ -105,7 +105,8 @@ namespace uni {
 		uint32  RESERVED1;
 		uint32 PMCR;           // SYSCFG peripheral mode configuration register,      offset: 0x04        */
 		uint32 EXTICR[4];      // SYSCFG external interrupt configuration registers,  offset: 0x08-0x14   */
-		uint32  RESERVED2[2];
+		uint32 PWRCR;          // SYSCFG power control register,                       offset: 0x18        */
+		uint32  RESERVED2;
 		uint32 CCCSR;          // SYSCFG compensation cell control/status register,   offset: 0x20        */
 		uint32 CCVR;           // SYSCFG compensation cell value register,            offset: 0x24        */
 		uint32 CCCR;           // SYSCFG compensation cell code register,             offset: 0x28        */

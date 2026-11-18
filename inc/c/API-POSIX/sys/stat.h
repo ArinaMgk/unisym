@@ -40,6 +40,7 @@ int stat(const char *path, struct stat *buf);
 int chmod(const char* path, mode_t mode);
 int fchmod(int fd, mode_t mode);
 int mkdir(const char *path, mode_t mode);
+mode_t umask(mode_t mask);
 
 #if defined(_INC_CPP) || defined(__cplusplus)
 }

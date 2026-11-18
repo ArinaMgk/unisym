@@ -26,7 +26,9 @@
 
 namespace uni {
 
-	bool FilesysFAT::create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest) {
+	bool FilesysFAT::create(rostr fullpath, stduint flags, FilesysCreateParameter& parameter) {
+		// FAT has no per-file Unix UID/GID/mode storage; creation retains the mount policy.
+		(void)parameter.attributes;
 		if (!fs_loaded) return false;
 
 		// Extract pure filename (Isolate from VFS absolute path)
@@ -34,12 +36,8 @@ namespace uni {
 		if (!filename) filename = fullpath;
 		else filename++; // skip the slash
 
-		// Retrieve Parent Cluster from VFS IN/OUT pointer
-		FAT_FileHandle* parent_h = nullptr;
-		if (exinfo) {
-			// Read the dereferenced void** as the parent handle
-			parent_h = (FAT_FileHandle*)(*(void**)exinfo);
-		}
+		// Retrieve Parent Cluster from the VFS input handle; extension information remains backend-specific.
+		FAT_FileHandle* parent_h = static_cast<FAT_FileHandle*>(parameter.handler);
 		// If VFS passed a valid parent, use its cluster. Otherwise fallback to root.
 		uint32_t parent_cluster = parent_h ? parent_h->start_cluster : root_cluster;
 
@@ -64,11 +62,16 @@ namespace uni {
 			fat_cache = &fat_table_cache;
 		}
 		if (!sector_buffer) return false;
+		FAT_FileHandle* new_fh = nullptr;
 		auto finish_create = [&](bool ret) -> bool {
+			if (!ret) delete new_fh;
 			if (fat_cache) delete[] fat_table_cache.buffer;
 			if (allocated_sector_buffer) delete[] sector_buffer;
 			return ret;
 		};
+		// Prepare the result before creating an entry, keeping the input handler unchanged on failure.
+		new_fh = new FAT_FileHandle();
+		if (!new_fh) return finish_create(false);
 
 #ifdef _FILESYS_DATETIME
 		uint16_t fat_date = 0;
@@ -170,21 +173,16 @@ namespace uni {
 			return finish_create(false);
 		}
 
-		// Output the new file handle back to VFS
-		if (exinfo) {
-			FAT_FileHandle* new_fh = new FAT_FileHandle();
-			new_fh->start_cluster = new_cluster;
-			new_fh->current_cluster = new_cluster;
-			new_fh->current_offset = 0;
-			new_fh->size = 0;
-			new_fh->is_dir = create_as_dir;
-			new_fh->is_unlinked = false;
-			new_fh->dir_sector = entry_sector;
-			new_fh->dir_index = entry_index;
-
-			// Override the IN pointer with our newly created OUT pointer
-			*(void**)exinfo = new_fh;
-		}
+		// Output the new file handle back to VFS only after creation succeeds.
+		new_fh->start_cluster = new_cluster;
+		new_fh->current_cluster = new_cluster;
+		new_fh->current_offset = 0;
+		new_fh->size = 0;
+		new_fh->is_dir = create_as_dir;
+		new_fh->is_unlinked = false;
+		new_fh->dir_sector = entry_sector;
+		new_fh->dir_index = entry_index;
+		parameter.handler = new_fh;
 
 		return finish_create(true);
 	}

@@ -169,6 +169,7 @@ mgc [options] input...
 | `--lango=systemverilog`、`--lango=sv` | 选择生成 Hard IR 的 SystemVerilog 前端 |
 | `--std=c99` | 选择 C99 子集 |
 | `--std=systemverilog-subset` | 选择当前 SystemVerilog 可综合子集 |
+| `-Ipath`、`-I path` | 增加头文件搜索目录，可重复指定 |
 | `-Fname[=value]` | 将一个选项传递给当前选中的语言前端 |
 | `-Fdata-model=ilp32/lp64/llp64` | 选择 C 前端使用的数据模型 |
 | `-g` | 在 Clover IR 中保留对应的源文件、行号和源代码注释 |
@@ -176,7 +177,7 @@ mgc [options] input...
 | `-h`、`--help` | 显示帮助信息 |
 | `--` | 结束命令选项解析 |
 
-前端选择顺序为：`--lango`、输入文件后缀、默认 C 前端。`.c` 选择 C 前端，`.sv` 选择 SystemVerilog 前端；不同前端的文件后缀不能在一次自动推断中混合。源文件在未指定输出形式时默认输出 AST，直接传入命令行源码时默认输出 Clover IR。`-F` 后面的选项由当前前端解释并严格验证；C 前端当前只接受 `data-model`，默认值为 `lp64`。`ilp32`、`lp64`、`llp64` 分别规定 C 的整数与指针 ABI 宽度，而不是所有语言共享的类型规则。`--relocation-model` 只适用于生成 Soft IR 的前端。
+前端选择顺序为：`--lango`、输入文件后缀、默认 C 前端。`.c` 选择 C 前端，`.sv` 选择 SystemVerilog 前端；不同前端的文件后缀不能在一次自动推断中混合。源文件在未指定输出形式时默认输出 AST，直接传入命令行源码时默认输出 Clover IR。C 前端的引号 `#include` 先搜索当前源文件目录，再依次搜索 `-I` 目录；尖括号 `#include` 只搜索 `-I` 目录。`-F` 后面的选项由当前前端解释并严格验证；C 前端当前只接受 `data-model`，默认值为 `lp64`。`ilp32`、`lp64`、`llp64` 分别规定 C 的整数与指针 ABI 宽度，而不是所有语言共享的类型规则。`--relocation-model` 只适用于生成 Soft IR 的前端。
 
 C 前端支持 C99 十进制、八进制、十六进制整数常量及 `U`、`L`、`LL` 组合后缀，
 其类型由数值、后缀和当前数据模型共同决定；普通字符常量支持 C99 转义序列。

@@ -52,9 +52,8 @@ namespace uni {
 		default: return false;
 		}
 
-		PWR_CR3_SCUEN = 0;
-		PWR.ConfigVoltageScaling(clock.VoltageScale);
-		while (!_IMM(PWR_D3CR_VOSRDY));
+		if (!PWR.ConfigSupply(clock.Supply)) return false;
+		if (!PWR.ControlVoltageScaling(clock.VoltageScale)) return false;
 		if (source == SysclkSource::HSE && !HSE.setMode(true, clock.HSEBypass)) return false;
 		if (source == SysclkSource::HSI && !HSI.setMode(true, _TEMP 0, _TEMP 0)) return false;
 		if (source == SysclkSource::CSI && !CSI.setMode(true, _TEMP 0)) return false;

@@ -36,6 +36,7 @@ enum class DiagnosticLevel {
 // Compiler stage which produced one diagnostic.
 enum class DiagnosticStage {
 	Lexer,    // Source character and token recognition.
+	Preprocessor, // Source inclusion, macro replacement, and conditional selection.
 	Parser,   // Source grammar and syntax-tree construction.
 	Semantic, // Declaration, scope, and type analysis.
 	Lowering, // Translation from a frontend tree to Clover IR.

@@ -21,61 +21,11 @@
 
 #include "../../../../inc/cpp/Lango/Frontend/Frontend-c.hpp"
 #include "../../../../inc/cpp/Lango/Frontend/C/Frontend-c-internal.hpp"
+#include "../../../../inc/cpp/Lango/Frontend/C/Frontend-c-preprocessor.hpp"
 
 namespace uni::lango {
 
 	namespace {
-		stduint LineParseNumberC(LinearParser& lexer) {
-			stduint length = 0;
-			int previous = 0;
-			for (;;) {
-				int current = lexer.getChar();
-				bool exponent_sign = (current == '+' || current == '-') &&
-					(previous == 'e' || previous == 'E' ||
-					previous == 'p' || previous == 'P');
-				bool number_character =
-					(current >= '0' && current <= '9') ||
-					(current >= 'a' && current <= 'z') ||
-					(current >= 'A' && current <= 'Z') ||
-					current == '_' || current == '.' || exponent_sign;
-				if (current < 0 || !number_character) {
-					if (current >= 0) lexer.backChar((char)current);
-					return length;
-				}
-				lexer.setChar((char)current);
-				previous = current;
-				length++;
-			}
-		}
-
-		bool IsHexDigits(const char* text) {
-			if (!text || !*text) return false;
-			for (; *text; text++)
-				if (!((*text >= '0' && *text <= '9') ||
-					(*text >= 'a' && *text <= 'f') ||
-					(*text >= 'A' && *text <= 'F'))) return false;
-			return true;
-		}
-
-		// The generic lexer separates the alphabetic tail of a hexadecimal token.
-		void JoinCHexadecimalTokens(Dchain& tokens) {
-			for (Dnode* node = tokens.Root(); node && node->next; node = node->next) {
-				Dnode* tail = node->next;
-				if (node->type != tok_number || tail->type != tok_identy ||
-					!node->addr || !tail->addr || StrLength(node->addr) < 2 ||
-					node->addr[0] != '0' ||
-					(node->addr[1] != 'x' && node->addr[1] != 'X') ||
-					!IsHexDigits(tail->addr)) continue;
-				TnodeField* head_field = node->GetTnodeField();
-				TnodeField* tail_field = tail->GetTnodeField();
-				if (head_field->row != tail_field->row ||
-					tail_field->col != head_field->col + StrLength(node->addr)) continue;
-				char* joined = StrHeapAppend(node->addr, tail->addr);
-				srs(node->addr, joined);
-				tokens.Remove(tail);
-			}
-		}
-
 		void NormalizeCEllipsis(Dchain& tokens) {
 			for (Dnode* node = tokens.Root(); node; node = node->next) {
 				if (node->addr && !StrCompare(node->addr, "...")) {
@@ -214,23 +164,13 @@ namespace uni::lango {
 		bool ParseC(IstreamTrait& input, NodeChain& operators,
 			NestedParseUnit*& syntax, const FrontendCDiagnostics& diagnostics,
 			const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info,
-			FrontendCDebugInfo* debug_info) {
-			LinearParser lexer(input);
+			FrontendCDebugInfo* debug_info,
+			const uni::Vector<uni::String>& include_paths) {
 			Dchain tokens;
-			lexer.GHT = false;
-			lexer.handler_comment = LineParse_Comment_C_Cpp;
-			lexer.handler_numchk = LineParseNumberC;
-			lexer.method_omit_comment = true;
-			lexer.method_string_single_quote = true;
-			lexer.method_string_single_quote_type =
-				ToToken(FrontendCToken::CharacterLiteral);
-			lexer.method_string_double_quote = true;
-			// Preserve C escapes for the frontend so embedded zero bytes are not lost.
-			lexer.method_string_escape_sequence = false;
-			lexer.escape_sequence_rules = EscapeSequenceRules::C();
-			lexer.Parse(tokens);
+			frontend_c_preprocessor::Preprocessor preprocessor(
+				diagnostics, target, include_paths);
+			if (!preprocessor.Process(input, tokens)) return false;
 			LinearParser::StringConcatenation(tokens);
-			JoinCHexadecimalTokens(tokens);
 			NormalizeCEllipsis(tokens);
 			NormalizeCReturnKeyword(tokens);
 
@@ -266,7 +206,7 @@ namespace uni::lango {
 		FrontendCDebugInfo debug_info;
 		FrontendCDebugInfo* requested_debug_info = options.debug_source ? &debug_info : nullptr;
 		if (!ParseC(input, operators, syntax, diagnostics, target,
-			type_info, requested_debug_info)) return false;
+			type_info, requested_debug_info, options.include_paths)) return false;
 		bool success = frontend_c_detail::Lower(
 			*syntax->GetNetwork(), module, diagnostics, target,
 			type_info, requested_debug_info);
@@ -286,7 +226,7 @@ namespace uni::lango {
 		if (!ResolveOptions(options, diagnostics, target)) return false;
 		FrontendCTypeInfo type_info;
 		if (!ParseC(input, operators, syntax, diagnostics, target,
-			type_info, nullptr)) return false;
+			type_info, nullptr, options.include_paths)) return false;
 		PrintNode(output, syntax->GetNetwork()->Root());
 		delete syntax;
 		return true;
@@ -306,5 +246,16 @@ void uni::lango::FrontendCDiagnostics::Report(DiagnosticStage stage,
 		diagnostic.location.row = field->row;
 		diagnostic.location.column = field->col;
 	}
+	(output ? output : &DefaultDiagnosticInterface())->Report(diagnostic);
+}
+
+void uni::lango::FrontendCDiagnostics::Report(DiagnosticStage stage,
+	const char* message, stduint row, stduint column) const {
+	Diagnostic diagnostic;
+	diagnostic.stage = stage;
+	diagnostic.message = message;
+	diagnostic.location.file = source_name ? source_name : "<input>";
+	diagnostic.location.row = row;
+	diagnostic.location.column = column;
 	(output ? output : &DefaultDiagnosticInterface())->Report(diagnostic);
 }

@@ -450,6 +450,8 @@ struct FrontendCDiagnostics {
 
 	void Report(DiagnosticStage stage, const char* message,
 		const uni::Nnode* node = nullptr) const;
+	void Report(DiagnosticStage stage, const char* message,
+		stduint row, stduint column) const;
 };
 
 namespace frontend_c_detail {

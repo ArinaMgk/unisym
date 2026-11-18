@@ -306,7 +306,7 @@ namespace uni {
 
 		virtual bool makefs(rostr vol_label, void* moreinfo = 0) override;
 		virtual bool loadfs(void* moreinfo = 0) override;
-		virtual bool create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest = 0) override;
+		virtual bool create(rostr fullpath, stduint flags, FilesysCreateParameter& parameter) override;
 		virtual bool remove(rostr pathname) override;
 		virtual void* search(rostr fullpath, FilesysSearchArgs* args) override;
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) override;
@@ -338,7 +338,7 @@ namespace uni {
 
 		virtual bool makefs(rostr vol_label, void* moreinfo = 0) override;
 		virtual bool loadfs(void* moreinfo = 0) override;
-		virtual bool create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest = 0) override;
+		virtual bool create(rostr fullpath, stduint flags, FilesysCreateParameter& parameter) override;
 		virtual bool remove(rostr pathname) override;
 		virtual void* search(rostr fullpath, FilesysSearchArgs* args) override;
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) override;

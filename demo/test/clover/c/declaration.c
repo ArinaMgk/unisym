@@ -7,6 +7,7 @@ typedef unsigned long Size;
 typedef int Row[3];
 typedef int (*RowPointer)[3];
 typedef int (*Unary)(int);
+typedef void (*VariadicCallback)(void*, ...);
 
 int add(int, int);
 int* identity(int*);

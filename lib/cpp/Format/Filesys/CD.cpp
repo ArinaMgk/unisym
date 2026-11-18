@@ -505,11 +505,10 @@ namespace uni {
 		return false;
 	}
 
-	bool FilesysISO9660::create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest) {
+	bool FilesysISO9660::create(rostr fullpath, stduint flags, FilesysCreateParameter& parameter) {
 		(void)fullpath;
 		(void)flags;
-		(void)exinfo;
-		(void)linkdest;
+		(void)parameter;
 		return false;
 	}
 
@@ -1020,11 +1019,10 @@ namespace uni {
 		return false;
 	}
 
-	bool FilesysUDF::create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest) {
+	bool FilesysUDF::create(rostr fullpath, stduint flags, FilesysCreateParameter& parameter) {
 		(void)fullpath;
 		(void)flags;
-		(void)exinfo;
-		(void)linkdest;
+		(void)parameter;
 		return false;
 	}
 

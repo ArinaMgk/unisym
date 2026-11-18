@@ -52,6 +52,7 @@ static void PrintMagicHelp() {
 	uni::Console.OutFormat("  -g                      Add source locations and comments to Clover IR\n");
 	uni::Console.OutFormat("  --lango=NAME            Select the source-language frontend\n");
 	uni::Console.OutFormat("  --std=NAME              Pass the language standard to the frontend\n");
+	uni::Console.OutFormat("  -Ipath, -I path         Add one header search directory\n");
 	uni::Console.OutFormat("  -Fname[=value]           Pass one option to the selected frontend\n");
 	uni::Console.OutFormat("  -Fdata-model=MODEL      C model: ilp32, lp64, or llp64\n");
 	uni::Console.OutFormat("  -o output               Write output to a file\n");
@@ -95,6 +96,7 @@ int magic(int argc, char** argv) {
 	bool has_source_suffix = false;
 	rostr output_path = nullptr;
 	Vector<rostr> inputs;
+	Vector<String> include_paths;
 	Vector<lango::FrontendLanguageOption> frontend_language_options;
 	for (int i = 1; i < argc; i++) {
 		if (!options_ended && !StrCompare(argv[i], "--")) {
@@ -130,6 +132,20 @@ int magic(int argc, char** argv) {
 		else if (!options_ended && !StrCompareN(argv[i], "--std=", 6)) {
 			language_standard = argv[i] + 6;
 			language_standard_explicit = true;
+		}
+		else if (!options_ended && !StrCompare(argv[i], "-I")) {
+			if (++i >= argc || !argv[i][0]) {
+				plogerro("expected directory after -I");
+				return 1;
+			}
+			include_paths.Append(String(argv[i]));
+		}
+		else if (!options_ended && !StrCompareN(argv[i], "-I", 2)) {
+			if (!argv[i][2]) {
+				plogerro("expected directory after -I");
+				return 1;
+			}
+			include_paths.Append(String(argv[i] + 2));
 		}
 		else if (!options_ended && !StrCompareN(argv[i], "-F", 2)) {
 			lango::FrontendLanguageOption option;
@@ -227,6 +243,7 @@ int magic(int argc, char** argv) {
 		frontend_options.debug_source = debug_symbols;
 		frontend_options.source_name = source_name;
 		frontend_options.language_standard = language_standard;
+		frontend_options.include_paths = include_paths;
 		frontend_options.language_options = frontend_language_options;
 		if (emit_ast) {
 			if (!FrontendPrintAST(selected_frontend, input, *output, frontend_options)) {

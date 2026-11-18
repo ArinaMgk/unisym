@@ -57,8 +57,11 @@ enum class PWRDomain : byte { D1, D2, D3 };
 enum class PWREntry : byte { WFI, WFE };
 // regulator state in STOP mode (maps to CR1.LPDS)
 enum class PWRRegulator : byte { MAIN, LOWPOWER };
-// main regulator voltage scaling (D3CR.VOS value)
-enum class PWRVoltageScale : byte { SCALE3 = 1, SCALE2 = 2, SCALE1 = 3 };
+// main regulator voltage scaling
+enum class PWRVoltageScale : byte { SCALE0 = 0,// SCALE0 is represented by VOS Scale 1 with SYSCFG overdrive enabled.
+	SCALE3 = 1, SCALE2 = 2, SCALE1 = 3 };
+// core domain power supply (PWR.CR3 common H7 values)
+enum class PWRSupply : byte { EXTERNAL = 1, LDO = 2 };
 // stop mode voltage scaling (CR1.SVOS value)
 enum class PWRStopVoltageScale : byte { SCALE3 = 1, SCALE4 = 2, SCALE5 = 3 };
 // wake-up pin identity (WKUPEPR/WKUPFR bit position)
@@ -79,10 +82,6 @@ public:
 		return _ADDR_PWR + _IMMx4(idx);
 	}
 
-	// Configure the main internal regulator output voltage, AKA __HAL_PWR_VOLTAGESCALING_CONFIG
-	// @param regulator: `[0 SCALE3, 1 SCALE2, 3 SCALE1]` the regulator output voltage to achieve a tradeoff between performance and power consumption when the device does not operate at the maximum frequency (refer to the datasheets for more details).
-	void ConfigVoltageScaling(byte regulator);
-
 	// ---- low power mode entry ----
 	// AKA HAL_PWR_EnterSLEEPMode / HAL_PWR_EnterSTOPMode / HAL_PWR_EnterSTANDBYMode
 	//      HAL_PWREx_EnterSTOPMode / HAL_PWREx_EnterSTANDBYMode
@@ -99,6 +98,7 @@ public:
 	stduint getStopModeVoltageRange();
 	// AKA HAL_PWREx_ConfigSupply
 	bool ConfigSupply(stduint supply);
+	bool ConfigSupply(PWRSupply supply) { return ConfigSupply((stduint)supply); }
 	// AKA HAL_PWREx_GetSupplyConfig
 	stduint getSupplyConfig();
 

@@ -206,7 +206,7 @@ namespace uni {
 
 		//{unchk}
 		// create file/folder. usize{isfolder}
-		virtual bool create(rostr fullpath, stduint flags, void* exinfo, rostr linkdest = 0) override;
+		virtual bool create(rostr fullpath, stduint flags, FilesysCreateParameter& parameter) override;
 
 		//{unchk}
 		// remove file/folder

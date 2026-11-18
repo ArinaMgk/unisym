@@ -28,6 +28,7 @@
 
 #include "../../unisym"
 #include "../../reference"
+#include "../_Power.hpp"
 
 #include "RCCAddress"
 #include "RCCClock"
@@ -181,7 +182,8 @@ namespace uni {
 		bool UsePLL1 = true;
 		stduint HSEHz = 0;
 		bool HSEBypass = false;
-		byte VoltageScale = 1;
+		PWRSupply Supply = PWRSupply::LDO;
+		PWRVoltageScale VoltageScale = PWRVoltageScale::SCALE3;
 		byte FlashLatency = 2;
 		byte AHBPrescaler = 1;
 		byte APB3Prescaler = 1;

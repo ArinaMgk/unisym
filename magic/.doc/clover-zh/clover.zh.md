@@ -43,7 +43,36 @@ port @data b4 input
 void  i1  i8  i16  i32  i64  f32  f64  f128  ptr
 ```
 
-广义 Clover 还需要允许领域类型扩展。Hard IR 可使用 `bN` 表示 N 位硬件位向量，例如 `b4`；以后支持四态逻辑时，应使用独立类型表示未知值和高阻值。Exec IR 可引入客户地址、客户寄存器或执行上下文相关类型，但不得把客户地址无条件等同于宿主 `ptr`。
+`bN` 表示精确 N bit 的位向量，例如 `b3`、`b28`。数组类型采用 C 风格后缀；
+`i32[10][20]` 表示外层 10 个元素、每个元素再包含 20 个 `i32`，等价于
+LLVM IR 的 `[10 x [20 x i32]]`。数组后缀也可以用于命名类型，例如
+`@Point[4]`。
+
+struct/union 类型定义格式如下：
+
+```clover
+type @Flags = struct size byt 4 align byt 4 {
+    mode: b3
+    ready: b1
+    b28
+}
+
+type @Value = union size byt 8 align byt 8 {
+    byte: i8
+    wide: i64
+}
+```
+
+`size` 可使用 `bit N` 或 `byt N`，`align` 使用 `byt N`。具名成员写作
+`name: Type`，只写 `Type` 表示匿名成员；匿名 `bN` 可明确表示布局中的间隙。
+Clover 不自动插入 padding：struct 成员按照文本顺序从 bit 0 向高位连续排列，
+union 的所有成员都从 bit 0 开始。struct 的成员尺寸总和、union 的最大成员尺寸
+必须与显式 `size` 相同，因此前端必须把 ABI padding 转换为匿名成员。
+`align` 只规定该类型对象的起始地址对齐，不改变任何成员位置。
+
+广义 Clover 允许继续增加领域类型。Hard IR 使用同一个 `bN` 表示二态硬件位向量；
+以后支持四态逻辑时，应使用独立类型表示未知值和高阻值。Exec IR 可引入客户地址、
+客户寄存器或执行上下文相关类型，但不得把客户地址无条件等同于宿主 `ptr`。
 
 ### IR 类别与操作归属
 
@@ -103,6 +132,10 @@ module @adder {
 ```
 
 Port 是模块连接点，不是具有软件链接地址的 global，通常不携带软件式的存储对齐和初始化值。`read` 取得端口当前值，`assign` 表示连续驱动；`@name` 表示具有稳定身份的端口，`%name` 表示操作产生的 SSA 临时值。当前实现的 `bN` 支持 1 至 64 位二态位向量。Hard IR 后续还需要定义模块实例、信号连接、组合运算、寄存器、时钟、复位及仿真事件；可综合 RTL 和完整事件仿真应作为不同的 lowering 阶段，不在初始 Hard IR 中混为一种语义。
+
+Hard IR 位向量的位编号与 Soft IR 对象在内存中的字节序是不同的语义。`{endian}` 规定多字节内存值的字节序，默认 little endian；它不决定硬件位向量的索引方向、packed 字段位置或端口连接顺序。`bN` 的规范位编号为 bit 0 至 bit N-1，其中 bit 0 是最低有效位。导入具有显式索引范围的 HDL 向量时，前端必须保留源语言索引到该规范位编号的映射，不能仅凭 `{endian}` 反转位序。
+
+Clover `struct` 类型定义的成员按文本顺序从 bit 0 向高位排列。这是 Clover 通用结构布局的规则，不覆盖 HDL 声明本身的布局语义。SystemVerilog packed struct 按声明顺序分配位：首个成员位于高位，后续成员依次向低位排列；packed array 的显式左、右界也必须保留，右界对应最低有效位。因而 `[N:0]` 与 `[0:N]` 的索引到位编号映射不同，不能仅保留位宽而丢失范围方向。HDL 前端应通过显式字段偏移/位映射属性，或等价的切片与拼接操作表达该布局；不得把源布局静默改成 Clover `struct` 的布局。这里的高低位布局不代表目标内存字节序，也不应称作内存大端/小端。
 
 ### Exec IR
 
@@ -343,12 +376,15 @@ declare func @putchar(i32) -> i32
 
 %address = local i32
 %array = local i32, 12
+%matrix = local i32[10][20]
+%point = local @Point align 4
 %buffer = local i8, 24 align 8
 global @counter i32 = 0
 internal global @private_counter i32 = 0
+global @points @Point[4] align 4 = 0
 global @handler ptr align 8 = @handle
 global @third ptr align 8 = @values + 8
-internal constant @.L.clover.string.0 i8, 4 = {97, 98, 99, 0}
+internal constant @.L.clover.string.0 i8[4] = {97, 98, 99, 0}
 global @packet i8, 16 align 8 = data {0: i8 1, 8: ptr @values + 4}
 declare global @external_counter i32
 %global_address = globaladdr @counter
@@ -362,8 +398,9 @@ memcopy %destination, %source, 12 align 4, 4
 - `const`：产生整数常量。
 - `fconst`：使用十进制整数写出的精确 IEEE 位模式产生浮点常量；`f128` 依次写
   低 64 位和高 64 位。
-- `local`：创建函数局部存储，结果类型为 `ptr`；可选元素数量用于连续数组存储，
-  可选的 `align` 指定以字节计的存储对齐，且必须是二的幂。
+- `local`：创建函数局部存储，结果类型为 `ptr`；对象类型可以是标量、`bN`、
+  命名 struct/union 或数组。旧式可选元素数量仍可表示连续数组存储；类型后缀可
+  精确保留多维数组。可选的 `align` 指定以字节计的存储对齐，且必须是二的幂。
 - `global`：定义具有静态存储期的模块级对象；可选的 `align` 指定对象对齐。
   `data` 初始化器由“字节偏移、标量类型、常量值”片段组成，未覆盖的对象区域补零；
   片段保留标量类型，由后端按照目标字节序输出，不要求前端提前编码原始字节。
@@ -382,7 +419,8 @@ memcopy %destination, %source, 12 align 4, 4
 - `store`：向 `ptr` 地址写入值，不产生结果；同样可以携带可选的 `align`。
 - `memcopy`：在两个不重叠的 `ptr` 对象之间复制固定字节数；两个 `align` 值依次
   表示目标和源地址的最低已知字节对齐。
-- `ptradd`：将整数索引乘以给定元素类型的存储大小，再加到 `ptr` 地址；结果类型为 `ptr`。
+- `ptradd`：将整数索引乘以给定对象类型的完整存储大小，再加到 `ptr` 地址；
+  对象类型可以是标量、命名 struct/union 或数组，结果类型为 `ptr`。
 
 `global`、`local`、`load` 和 `store` 的 `align N` 均以字节为单位，且 `N` 必须是正的
 二次幂。内存访问未写 `align` 时按照访问类型的自然对齐处理；显式写出的值表示

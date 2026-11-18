@@ -205,17 +205,8 @@ namespace clover {
 			global.alignment = alignment_bits &&
 				!(alignment_bits % target.char_bits) ?
 				alignment_bits / target.char_bits : 0;
-			if (type.record_id && !type.StorageElementIsPointer()) {
-				stduint size_bits = type_info.SizeBits(type, target);
-				global.type = Type::I8;
-				global.element_count = size_bits &&
-					!(size_bits % target.char_bits) ?
-					(stdsint)(size_bits / target.char_bits) : 0;
-				return;
-			}
-			global.type = CloverTypeFor(type, target);
-			global.element_count = type.HasIncompleteArray() ? 1 :
-				(stdsint)type.StorageElementCount();
+			global.type = CloverObjectTypeFor(type, target, type_info);
+			global.element_count = 1;
 		}
 
 		uni::Nnode* StripGroupedExpression(uni::Nnode* node) {
@@ -708,6 +699,12 @@ namespace clover {
 		module.functions.Clear();
 		module.source_files.Clear();
 		module.pointer_bits = target.pointer_bits;
+		if (!AppendCloverTypeDefinitions(module, target, type_info)) {
+			diagnostics.Report(DiagnosticStage::Lowering,
+				"failed to lower C struct or union type definitions",
+				syntax_tree.Root());
+			return false;
+		}
 		uint32 debug_file_id = 0;
 		if (debug_info) {
 			SourceFile source;

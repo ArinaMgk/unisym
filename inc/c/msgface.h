@@ -75,7 +75,7 @@ _errno(void);
 
 
 // ---- errno.h ----
-#if defined(_MCCA)
+#if defined(_MCCA) || defined(_ACCM)
 
 #define _BITS_ERRNO_H 1
 

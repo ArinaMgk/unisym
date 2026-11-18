@@ -216,6 +216,7 @@ namespace uni {
 		virtual void* search(rostr fullpath, FilesysSearchArgs* args) override;
 
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) override;// set proper
+		virtual bool permit(void* handler, FilesysPermissionResult& result, bool set_or_get = false) override;
 
 		virtual bool enumer(void* dir_handler, _tocall_ft _fn, FilesysEnumState* state = nullptr) override;
 

@@ -22,6 +22,34 @@
 #include "../../../../../inc/cpp/Lango/Frontend/C/Frontend-c-clover-internal.hpp"
 
 namespace clover::frontend_c_internal {
+	namespace {
+		void AppendUnsigned(uni::String& text, stduint value) {
+			char digits[32];
+			stduint count = 0;
+			do {
+				digits[count++] = (char)('0' + value % 10);
+				value /= 10;
+			} while (value);
+			while (count) text << digits[--count];
+		}
+
+		uni::String CloverRecordName(const FrontendCRecord& record,
+			stduint record_id) {
+			if (record.tag.getByteCount()) return record.tag;
+			uni::String name = ".record.";
+			AppendUnsigned(name, record_id);
+			return name;
+		}
+
+		bool AppendPadding(TypeDefinition& definition, stduint offset,
+			stduint bit_count) {
+			if (!bit_count) return true;
+			TypeMember padding;
+			padding.type.bit_width = bit_count;
+			padding.offset_bits = offset;
+			return definition.members.Append(padding);
+		}
+	}
 
 	Type CloverTypeFor(const FrontendCType& type,
 		const FrontendCTargetInfo& target) {
@@ -41,6 +69,81 @@ namespace clover::frontend_c_internal {
 		}
 		return bits == 8 ? Type::I8 : bits == 16 ? Type::I16 :
 			bits == 64 ? Type::I64 : Type::I32;
+	}
+
+	TypeReference CloverObjectTypeFor(const FrontendCType& type,
+		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info) {
+		TypeReference result;
+		FrontendCType element = type;
+		while (element.IsArray()) {
+			if (result.array_depth >= TypeReference::MaxArrayDepth) return TypeReference();
+			result.array_counts[result.array_depth++] = element.ArrayDimension(0);
+			element = element.RemoveOuterLayer();
+		}
+		if (element.IsPointer()) result.scalar = Type::Ptr;
+		else if (element.record_id) {
+			const FrontendCRecord* record = type_info.GetRecord(element.record_id);
+			if (!record || !record->complete) return TypeReference();
+			result.defined_name = CloverRecordName(*record, element.record_id);
+		}
+		else result.scalar = CloverTypeFor(element, target);
+		return result;
+	}
+
+	bool AppendCloverTypeDefinitions(Module& module,
+		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info) {
+		module.type_definitions.Clear();
+		for (stduint index = 0; index < type_info.records.Count(); index++) {
+			const FrontendCRecord& record = type_info.records.begin()[index];
+			if (!record.complete) continue;
+			TypeDefinition definition;
+			definition.name = CloverRecordName(record, index + 1);
+			definition.kind = record.is_union ? TypeDefinitionKind::Union :
+				TypeDefinitionKind::Structure;
+			definition.size_bits = record.size_bits;
+			definition.alignment_bits = record.align_bits;
+			if (!module.type_definitions.Append(definition)) return false;
+		}
+
+		for (stduint index = 0; index < type_info.records.Count(); index++) {
+			const FrontendCRecord& record = type_info.records.begin()[index];
+			if (!record.complete) continue;
+			TypeDefinition* definition = FindTypeDefinition(
+				module, CloverRecordName(record, index + 1).reference());
+			if (!definition) return false;
+			stduint occupied = 0;
+			for (const FrontendCRecordMember& source : record.members) {
+				stduint member_size = type_info.SizeBits(source.type, target);
+				if (!member_size) return false;
+				if (!record.is_union) {
+					if (source.offset_bits < occupied ||
+						!AppendPadding(*definition, occupied,
+							source.offset_bits - occupied))
+						return false;
+				}
+				TypeMember member;
+				member.name = source.name;
+				member.type = CloverObjectTypeFor(source.type, target, type_info);
+				member.offset_bits = record.is_union ? 0 : source.offset_bits;
+				stduint lowered_size;
+				if (!TypeSizeBits(module, member.type, lowered_size) ||
+					lowered_size != member_size ||
+					!definition->members.Append(member)) return false;
+				if (record.is_union) {
+					if (member_size > occupied) occupied = member_size;
+				}
+				else occupied = source.offset_bits + member_size;
+			}
+			if (occupied > record.size_bits) return false;
+			if (record.is_union) {
+				if (occupied < record.size_bits &&
+					!AppendPadding(*definition, 0, record.size_bits)) return false;
+			}
+			else if (!AppendPadding(*definition, occupied,
+				record.size_bits - occupied))
+				return false;
+		}
+		return true;
 	}
 
 	unsigned FunctionBuilder::IntegerBits(const FrontendCType& type) const {

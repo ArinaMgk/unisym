@@ -162,33 +162,13 @@ namespace clover::frontend_c_internal {
 
 	Value FunctionBuilder::EmitPtrAdd(Value pointer, Value index, const FrontendCType& pointer_type) {
 		FrontendCType pointee_type = pointer_type.DereferenceType();
-		if (pointee_type.record_id) {
-			stduint size_bits = type_info->SizeBits(pointee_type, *target);
-			stduint size_bytes = size_bits / target->char_bits;
-			Value scale = EmitConst((stdsint)size_bytes);
-			if (index.type == Type::I64)
-				scale = EmitConversion(Opcode::SExt, Type::I64, scale);
-			index = EmitResult(Opcode::Mul, index.type, index, scale);
-			Instruction instruction;
-			instruction.opcode = Opcode::PtrAdd;
-			instruction.type = Type::I8;
-			instruction.has_result = true;
-			instruction.result = NewValue(Type::Ptr);
-			instruction.operands.Append(pointer);
-			instruction.operands.Append(index);
-			CurrentBlock().instructions.Append(instruction);
-			return instruction.result;
-		}
-		stduint scalar_count = pointee_type.StorageElementCount();
-		if (scalar_count > 1) {
-			Value scale = EmitConst((stdsint)scalar_count);
-			if (index.type == Type::I64)
-				scale = EmitConversion(Opcode::SExt, Type::I64, scale);
-			index = EmitResult(Opcode::Mul, index.type, index, scale);
-		}
 		Instruction instruction;
 		instruction.opcode = Opcode::PtrAdd;
-		instruction.type = CloverType(pointee_type);
+		instruction.object_type = CloverObjectTypeFor(
+			pointee_type, *target, *type_info);
+		instruction.has_object_type = true;
+		instruction.type = instruction.object_type.IsScalar() ?
+			instruction.object_type.scalar : Type::I8;
 		instruction.has_result = true;
 		instruction.result = NewValue(Type::Ptr);
 		instruction.operands.Append(pointer);
@@ -335,15 +315,11 @@ namespace clover::frontend_c_internal {
 	LoweredValue FunctionBuilder::CreateTemporaryStorage(const FrontendCType& type) {
 		Instruction instruction;
 		instruction.opcode = Opcode::Local;
-		if (type.record_id && !type.StorageElementIsPointer()) {
-			instruction.type = Type::I8;
-			instruction.immediate = (stdsint)TypeSize(type);
-		}
-		else {
-			instruction.type = CloverType(type);
-			instruction.immediate = type.IsPointer() ? 1 :
-				(stdsint)type.StorageElementCount();
-		}
+		instruction.object_type = CloverObjectTypeFor(type, *target, *type_info);
+		instruction.has_object_type = true;
+		instruction.type = instruction.object_type.IsScalar() ?
+			instruction.object_type.scalar : Type::I8;
+		instruction.immediate = 1;
 		instruction.alignment = TypeAlignment(type);
 		instruction.has_result = true;
 		instruction.result = NewValue(Type::Ptr);

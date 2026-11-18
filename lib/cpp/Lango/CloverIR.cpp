@@ -42,6 +42,56 @@ namespace clover {
 			return "?";
 		}
 
+		void PrintTypeReference(uni::OstreamTrait& output,
+			const TypeReference& type) {
+			if (type.IsBits()) output.OutFormat("b%[u]", type.bit_width);
+			else if (type.IsDefined())
+				output.OutFormat("@%s", type.defined_name.reference());
+			else output.OutFormat("%s", TypeName(type.scalar));
+			for (unsigned index = 0; index < type.array_depth; index++)
+				output.OutFormat("[%[u]]", type.array_counts[index]);
+		}
+
+		void PrintLayoutSize(uni::OstreamTrait& output, stduint bits) {
+			if (!(bits % 8)) output.OutFormat("byt %[u]", bits / 8);
+			else output.OutFormat("bit %[u]", bits);
+		}
+
+		bool TypeArrayElementCount(const TypeReference& type, stduint& count) {
+			count = 1;
+			for (unsigned index = 0; index < type.array_depth; index++) {
+				if (!type.array_counts[index] ||
+					count > stduint(-1) / type.array_counts[index]) return false;
+				count *= type.array_counts[index];
+			}
+			return true;
+		}
+
+		bool IsVoidObjectType(const TypeReference& type) {
+			return !type.IsBits() && !type.IsDefined() && type.scalar == Type::Void;
+		}
+
+		void PrintTypeDefinitions(const Module& module, uni::OstreamTrait& output) {
+			for (const TypeDefinition& definition : module.type_definitions) {
+				output.OutFormat("type @%s = %s size ", definition.name.reference(),
+					definition.kind == TypeDefinitionKind::Structure ? "struct" : "union");
+				PrintLayoutSize(output, definition.size_bits);
+				if (definition.alignment_bits) {
+					output.OutFormat(" align ");
+					PrintLayoutSize(output, definition.alignment_bits);
+				}
+				output.OutFormat(" {\n");
+				for (const TypeMember& member : definition.members) {
+					output.OutFormat("    ");
+					if (member.name.getByteCount())
+						output.OutFormat("%s: ", member.name.reference());
+					PrintTypeReference(output, member.type);
+					output.OutChar('\n');
+				}
+				output.OutFormat("}\n");
+			}
+		}
+
 		const char* RelocationModelName(RelocationModel model) {
 			switch (model) {
 			case RelocationModel::Static: return "static";
@@ -183,7 +233,10 @@ namespace clover {
 				output.OutFormat("\n");
 				break;
 			case Opcode::Local:
-				output.OutFormat("local %s", TypeName(instruction.type));
+				output.OutFormat("local ");
+				if (instruction.has_object_type)
+					PrintTypeReference(output, instruction.object_type);
+				else output.OutFormat("%s", TypeName(instruction.type));
 				if (instruction.immediate > 1)
 					output.OutFormat(", %[i]", instruction.immediate);
 				if (instruction.alignment)
@@ -243,7 +296,11 @@ namespace clover {
 				output.OutFormat("\n");
 				break;
 			case Opcode::PtrAdd:
-				output.OutFormat("ptradd %s ", TypeName(instruction.type));
+				output.OutFormat("ptradd ");
+				if (instruction.has_object_type)
+					PrintTypeReference(output, instruction.object_type);
+				else output.OutFormat("%s", TypeName(instruction.type));
+				output.OutFormat(" ");
 				PrintValue(output, instruction.operands.begin()[0]);
 				output.OutFormat(", ");
 				PrintValue(output, instruction.operands.begin()[1]);
@@ -373,7 +430,8 @@ namespace clover {
 
 			bool IsPunctuation(int ch) const {
 				return ch == '@' || ch == '%' || ch == '^' || ch == '(' || ch == ')' ||
-					ch == '{' || ch == '}' || ch == ',' || ch == '=' || ch == ':' ||
+					ch == '{' || ch == '}' || ch == '[' || ch == ']' ||
+					ch == ',' || ch == '=' || ch == ':' ||
 					ch == '+';
 			}
 
@@ -458,6 +516,7 @@ namespace clover {
 			bool failed = false;
 			bool relocation_model_seen = false;
 			bool ir_class_seen = false;
+			Module* current_module = nullptr;
 
 			void Advance() {
 				token = lexer.Next();
@@ -503,15 +562,60 @@ namespace clover {
 				return true;
 			}
 
-			bool ReadBitType(BitType& type) {
-				const char* text = token.reference();
-				if (text[0] != 'b' || !text[1]) return Error("expected hardware bit type");
-				char* end = nullptr;
-				uint64 width = StrTokenULong(text + 1, &end, 10);
-				if (*end || !width || width > 64)
-					return Error("hardware bit width must be between 1 and 64");
-				type.width = (stduint)width;
+			bool ReadTypeSuffix(TypeReference& type) {
+				while (Is("[")) {
+					Advance();
+					stdsint count;
+					if (!ReadNumber(count) || count <= 0 || !Expect("]"))
+						return Error("invalid array type dimension");
+					if (type.array_depth >= TypeReference::MaxArrayDepth)
+						return Error("array type nesting is too deep");
+					type.array_counts[type.array_depth++] = (stduint)count;
+				}
+				return true;
+			}
+
+			bool ReadTypeFromFirst(const uni::String& first, TypeReference& type) {
+				const char* text = first.reference();
+				if (!StrCompare(text, "void")) type = Type::Void;
+				else if (!StrCompare(text, "i1")) type = Type::I1;
+				else if (!StrCompare(text, "i8")) type = Type::I8;
+				else if (!StrCompare(text, "i16")) type = Type::I16;
+				else if (!StrCompare(text, "i32")) type = Type::I32;
+				else if (!StrCompare(text, "i64")) type = Type::I64;
+				else if (!StrCompare(text, "f32")) type = Type::F32;
+				else if (!StrCompare(text, "f64")) type = Type::F64;
+				else if (!StrCompare(text, "f128")) type = Type::F128;
+				else if (!StrCompare(text, "ptr")) type = Type::Ptr;
+				else if (text[0] == 'b' && text[1]) {
+					char* end = nullptr;
+					uint64 width = StrTokenULong(text + 1, &end, 10);
+					if (*end || !width) return Error("invalid bit-vector type");
+					type = Type::Void;
+					type.bit_width = (stduint)width;
+				}
+				else return Error("expected Clover type");
+				return ReadTypeSuffix(type);
+			}
+
+			bool ReadTypeReference(Module& module, TypeReference& type) {
+				if (Is("@")) {
+					Advance();
+					if (!ReadName(type.defined_name)) return false;
+					if (!FindTypeDefinition(module, type.defined_name.reference()))
+						return Error("reference to undefined Clover type");
+					return ReadTypeSuffix(type);
+				}
+				uni::String first = token;
+				if (!first.getByteCount()) return Error("expected Clover type");
 				Advance();
+				return ReadTypeFromFirst(first, type);
+			}
+
+			bool ReadHardwareType(Module& module, TypeReference& type) {
+				if (!ReadTypeReference(module, type) || !type.IsBits() || type.IsArray() ||
+					type.bit_width > 64)
+					return Error("hardware value type must be b1 through b64");
 				return true;
 			}
 
@@ -771,7 +875,13 @@ namespace clover {
 				}
 				else if (!StrCompare(operation.reference(), "local")) {
 					instruction.opcode = Opcode::Local;
-					if (!has_result || !ReadType(instruction.type)) return Error("invalid local instruction");
+					if (!has_result || !ReadTypeReference(*current_module,
+						instruction.object_type) ||
+						IsVoidObjectType(instruction.object_type))
+						return Error("invalid local instruction");
+					instruction.has_object_type = true;
+					if (instruction.object_type.IsScalar())
+						instruction.type = instruction.object_type.scalar;
 					instruction.immediate = 1;
 					if (Is(",")) {
 						Advance();
@@ -883,9 +993,13 @@ namespace clover {
 				}
 				else if (!StrCompare(operation.reference(), "ptradd")) {
 					instruction.opcode = Opcode::PtrAdd;
-					if (!has_result || !ReadType(instruction.type) ||
+					if (!has_result || !ReadTypeReference(*current_module,
+						instruction.object_type) || IsVoidObjectType(instruction.object_type) ||
 						!ReadBinaryOperands(instruction))
 						return Error("invalid ptradd instruction");
+					instruction.has_object_type = true;
+					if (instruction.object_type.IsScalar())
+						instruction.type = instruction.object_type.scalar;
 					if (instruction.operands.begin()[0].type != Type::Ptr ||
 						!IsIntegerType(instruction.operands.begin()[1].type))
 						return Error("ptradd requires a pointer and an integer index");
@@ -1081,32 +1195,32 @@ namespace clover {
 				operation.has_result = has_result;
 				if (!StrCompare(operation_name.reference(), "read")) {
 					operation.opcode = HardwareOpcode::Read;
-					if (!has_result || !ReadBitType(operation.result.type) ||
+					if (!has_result || !ReadHardwareType(*current_module, operation.result.type) ||
 						!Expect("@") || !ReadName(operation.symbol))
 						return Error("invalid hardware read operation");
 					const HardwarePort* port = FindHardwarePort(module, operation.symbol);
 					if (!port) return Error("read from undefined hardware port");
-					if (port->type.width != operation.result.type.width)
+					if (!SameType(port->type, operation.result.type))
 						return Error("hardware read width does not match port");
 				}
 				else if (!StrCompare(operation_name.reference(), "const")) {
 					operation.opcode = HardwareOpcode::Const;
-					if (!has_result || !ReadBitType(operation.result.type) ||
+					if (!has_result || !ReadHardwareType(*current_module, operation.result.type) ||
 						!ReadHardwareNumber(operation.immediate))
 						return Error("invalid hardware constant operation");
-					if (operation.result.type.width < 64 &&
-						operation.immediate >= ((uint64)1 << operation.result.type.width))
+					if (operation.result.type.bit_width < 64 &&
+						operation.immediate >= ((uint64)1 << operation.result.type.bit_width))
 						return Error("hardware constant does not fit result width");
 				}
 				else if (!StrCompare(operation_name.reference(), "add")) {
 					operation.opcode = HardwareOpcode::Add;
 					HardwareValue left, right;
-					if (!has_result || !ReadBitType(operation.result.type) ||
+					if (!has_result || !ReadHardwareType(*current_module, operation.result.type) ||
 						!ReadHardwareValue(left) || !Expect(",") ||
 						!ReadHardwareValue(right))
 						return Error("invalid hardware add operation");
-					if (left.type.width != operation.result.type.width ||
-						right.type.width != operation.result.type.width)
+					if (!SameType(left.type, operation.result.type) ||
+						!SameType(right.type, operation.result.type))
 						return Error("hardware add operands must match result width");
 					operation.operands.Append(left);
 					operation.operands.Append(right);
@@ -1121,7 +1235,7 @@ namespace clover {
 					if (!port) return Error("assign to undefined hardware port");
 					if (port->direction == PortDirection::Input)
 						return Error("cannot assign an input hardware port");
-					if (port->type.width != value.type.width)
+					if (!SameType(port->type, value.type))
 						return Error("hardware assignment width does not match port");
 					if (HasHardwareDriver(module, operation.symbol) ||
 						HasHardwareDriver(block, operation.symbol))
@@ -1160,7 +1274,8 @@ namespace clover {
 				while (Is("port")) {
 					HardwarePort port;
 					Advance();
-					if (!Expect("@") || !ReadName(port.name) || !ReadBitType(port.type))
+					if (!Expect("@") || !ReadName(port.name) ||
+						!ReadHardwareType(module, port.type))
 						return Error("invalid hardware port declaration");
 					if (Is("input")) port.direction = PortDirection::Input;
 					else if (Is("output")) port.direction = PortDirection::Output;
@@ -1282,6 +1397,94 @@ namespace clover {
 				return true;
 			}
 
+			bool ReadLayoutSize(stduint& bits, bool alignment = false) {
+				bool bytes = Is("byt");
+				if (!bytes && !Is("bit"))
+					return Error(alignment ? "alignment requires byt" :
+						"size requires bit or byt");
+				if (alignment && !bytes) return Error("alignment requires byt");
+				Advance();
+				stdsint value;
+				if (!ReadNumber(value) || value <= 0)
+					return Error("layout size must be positive");
+				bits = (stduint)value;
+				if (bytes) {
+					if (bits > stduint(-1) / 8) return Error("layout size is too large");
+					bits *= 8;
+				}
+				if (alignment) {
+					stduint alignment_bytes = bits / 8;
+					if (alignment_bytes & (alignment_bytes - 1))
+						return Error("alignment must be a power of two bytes");
+				}
+				return true;
+			}
+
+			bool ParseTypeDefinition(Module& module) {
+				TypeDefinition definition;
+				if (!Expect("type") || !Expect("@") || !ReadName(definition.name) ||
+					!Expect("=")) return false;
+				if (FindTypeDefinition(module, definition.name.reference()))
+					return Error("duplicate Clover type definition");
+				if (Is("struct")) definition.kind = TypeDefinitionKind::Structure;
+				else if (Is("union")) definition.kind = TypeDefinitionKind::Union;
+				else return Error("expected struct or union type definition");
+				Advance();
+				if (!Expect("size") || !ReadLayoutSize(definition.size_bits)) return false;
+				if (Is("align")) {
+					Advance();
+					if (!ReadLayoutSize(definition.alignment_bits, true)) return false;
+				}
+				if (!Expect("{")) return false;
+				module.type_definitions.Append(definition);
+				TypeDefinition& output = module.type_definitions[
+					module.type_definitions.Count() - 1];
+				stduint structure_offset = 0;
+				stduint union_size = 0;
+				while (!Is("}")) {
+					if (!token.getByteCount()) return Error("unterminated type definition");
+					TypeMember member;
+					if (Is("@")) {
+						if (!ReadTypeReference(module, member.type)) return false;
+					}
+					else {
+						uni::String first = token;
+						Advance();
+						if (Is(":")) {
+							member.name = first;
+							Advance();
+							if (!ReadTypeReference(module, member.type)) return false;
+						}
+						else if (!ReadTypeFromFirst(first, member.type)) return false;
+					}
+					if (member.type == Type::Void)
+						return Error("void cannot be a type member");
+					if (member.name.getByteCount())
+						for (const TypeMember& previous : output.members)
+							if (previous.name.getByteCount() && !StrCompare(
+								previous.name.reference(), member.name.reference()))
+								return Error("duplicate type member name");
+					stduint member_size;
+					if (!TypeSizeBits(module, member.type, member_size) || !member_size)
+						return Error("type member has invalid size");
+					if (output.kind == TypeDefinitionKind::Structure) {
+						member.offset_bits = structure_offset;
+						if (structure_offset > stduint(-1) - member_size)
+							return Error("struct layout is too large");
+						structure_offset += member_size;
+					}
+					else if (member_size > union_size) union_size = member_size;
+					output.members.Append(member);
+				}
+				Advance();
+				if (!output.members.Count()) return Error("empty aggregate type is not supported");
+				stduint occupied = output.kind == TypeDefinitionKind::Structure ?
+					structure_offset : union_size;
+				if (occupied != output.size_bits)
+					return Error("aggregate size does not match its members");
+				return true;
+			}
+
 			bool ParseTarget(Module& module) {
 				if (!Expect("target")) return false;
 				if (Is("relocation")) {
@@ -1341,7 +1544,7 @@ namespace clover {
 				global.is_declaration = declaration;
 				if (!Expect(read_only ? "constant" : "global") ||
 					!Expect("@") || !ReadName(global.name) ||
-					!ReadType(global.type) || global.type == Type::Void ||
+					!ReadTypeReference(module, global.type) || IsVoidObjectType(global.type) ||
 					!ReadSymbolAttributes(global.visibility, global.binding))
 					return Error("invalid global declaration");
 				if (Is(",")) {
@@ -1399,8 +1602,11 @@ namespace clover {
 						if (Is("}")) break;
 						if (!Expect(",")) return false;
 					}
-					if (!Expect("}") ||
-						global.initializer_values.Count() != (stduint)global.element_count)
+					stduint array_elements;
+					if (!Expect("}") || !TypeArrayElementCount(global.type, array_elements) ||
+						array_elements > stduint(-1) / (stduint)global.element_count ||
+						global.initializer_values.Count() !=
+							array_elements * (stduint)global.element_count)
 						return Error("global initializer element count mismatch");
 				}
 				else {
@@ -1411,6 +1617,8 @@ namespace clover {
 					}
 					else if (!ReadNumber(global.initializer))
 						return Error("invalid global initializer");
+					if (!global.type.IsScalar() && global.initializer)
+						return Error("aggregate direct initializer must be zero");
 					if (global.type == Type::F128 &&
 						(!Expect(",") || !ReadNumber(global.initializer_high)))
 						return Error("f128 global initializer requires two 64-bit words");
@@ -1425,17 +1633,22 @@ namespace clover {
 			}
 
 			bool ParseModule(Module& module) {
+				current_module = &module;
 				module.ir_class = IRClass::Soft;
 				module.pointer_bits = 0;
 				module.relocation_model = RelocationModel::Static;
 				relocation_model_seen = false;
 				ir_class_seen = false;
 				module.source_files.Clear();
+				module.type_definitions.Clear();
 				module.globals.Clear();
 				module.functions.Clear();
 				module.hardware_modules.Clear();
 				while (token.getByteCount()) {
-					if (Is("module")) {
+					if (Is("type")) {
+						if (!ParseTypeDefinition(module)) return false;
+					}
+					else if (Is("module")) {
 						if (!SelectIRClass(module, IRClass::Hard) ||
 							!ParseHardwareModule(module)) return false;
 					}
@@ -1483,10 +1696,124 @@ namespace clover {
 							return false;
 					}
 				}
-				return !failed;
+				return !failed && ValidateTypeDefinitions(module);
+			}
+
+			bool ValidateTypeDefinition(const Module& module, stduint index,
+				uni::Vector<unsigned>& states) {
+				if (states[index] == 1) return Error("recursive aggregate value type");
+				if (states[index] == 2) return true;
+				states[index] = 1;
+				const TypeDefinition& definition = module.type_definitions.begin()[index];
+				for (const TypeMember& member : definition.members) {
+					if (!member.type.IsDefined()) continue;
+					stduint target = module.type_definitions.Count();
+					for (stduint candidate = 0;
+						candidate < module.type_definitions.Count(); candidate++)
+						if (!StrCompare(module.type_definitions.begin()[candidate].name.reference(),
+							member.type.defined_name.reference())) {
+							target = candidate;
+							break;
+						}
+					if (target == module.type_definitions.Count())
+						return Error("reference to undefined Clover type");
+					if (!ValidateTypeDefinition(module, target, states)) return false;
+				}
+				states[index] = 2;
+				return true;
+			}
+
+			bool ValidateTypeDefinitions(const Module& module) {
+				uni::Vector<unsigned> states = uni::Vector<unsigned>::From(
+					0, module.type_definitions.Count());
+				for (stduint index = 0; index < module.type_definitions.Count(); index++)
+					if (!ValidateTypeDefinition(module, index, states)) return false;
+				return true;
 			}
 		};
 
+	}
+
+	const TypeDefinition* FindTypeDefinition(const Module& module, const char* name) {
+		if (!name) return nullptr;
+		for (const TypeDefinition& definition : module.type_definitions)
+			if (!StrCompare(definition.name.reference(), name)) return &definition;
+		return nullptr;
+	}
+
+	TypeDefinition* FindTypeDefinition(Module& module, const char* name) {
+		if (!name) return nullptr;
+		for (TypeDefinition& definition : module.type_definitions)
+			if (!StrCompare(definition.name.reference(), name)) return &definition;
+		return nullptr;
+	}
+
+	bool SameType(const TypeReference& left, const TypeReference& right) {
+		if (left.scalar != right.scalar || left.bit_width != right.bit_width ||
+			left.array_depth != right.array_depth ||
+			StrCompare(left.defined_name.reference(), right.defined_name.reference()))
+			return false;
+		for (unsigned index = 0; index < left.array_depth; index++)
+			if (left.array_counts[index] != right.array_counts[index]) return false;
+		return true;
+	}
+
+	bool TypeSizeBits(const Module& module, const TypeReference& type, stduint& bits) {
+		if (type.IsBits()) bits = type.bit_width;
+		else if (type.IsDefined()) {
+			const TypeDefinition* definition = FindTypeDefinition(
+				module, type.defined_name.reference());
+			if (!definition || !definition->size_bits) return false;
+			bits = definition->size_bits;
+		}
+		else switch (type.scalar) {
+			case Type::Void: return false;
+			case Type::I1: bits = 1; break;
+			case Type::I8: bits = 8; break;
+			case Type::I16: bits = 16; break;
+			case Type::I32:
+			case Type::F32: bits = 32; break;
+			case Type::I64:
+			case Type::F64: bits = 64; break;
+			case Type::F128: bits = 128; break;
+			case Type::Ptr:
+				if (!module.pointer_bits) return false;
+				bits = module.pointer_bits;
+				break;
+		}
+		for (unsigned index = 0; index < type.array_depth; index++) {
+			stduint count = type.array_counts[index];
+			if (!count || bits > stduint(-1) / count) return false;
+			bits *= count;
+		}
+		return bits != 0;
+	}
+
+	bool TypeAlignmentBits(const Module& module, const TypeReference& type,
+		stduint& bits) {
+		if (type.IsBits()) bits = 1;
+		else if (type.IsDefined()) {
+			const TypeDefinition* definition = FindTypeDefinition(
+				module, type.defined_name.reference());
+			if (!definition) return false;
+			bits = definition->alignment_bits;
+		}
+		else switch (type.scalar) {
+			case Type::Void: return false;
+			case Type::I1: bits = 1; break;
+			case Type::I8: bits = 8; break;
+			case Type::I16: bits = 16; break;
+			case Type::I32:
+			case Type::F32: bits = 32; break;
+			case Type::I64:
+			case Type::F64: bits = 64; break;
+			case Type::F128: bits = 128; break;
+			case Type::Ptr:
+				if (!module.pointer_bits) return false;
+				bits = module.pointer_bits;
+				break;
+		}
+		return true;
 	}
 
 	bool Parse(uni::IstreamTrait& input, Module& module) {
@@ -1496,11 +1823,14 @@ namespace clover {
 
 	bool Print(const Module& module, uni::OstreamTrait& output) {
 		if (module.ir_class == IRClass::Hard) {
+			PrintTypeDefinitions(module, output);
 			for (const HardwareModule& hardware_module : module.hardware_modules) {
 				output.OutFormat("module @%s {\n", hardware_module.name.reference());
-				for (const HardwarePort& port : hardware_module.ports)
-					output.OutFormat("    port @%s b%[u] %s\n", port.name.reference(),
-						port.type.width, PortDirectionName(port.direction));
+				for (const HardwarePort& port : hardware_module.ports) {
+					output.OutFormat("    port @%s ", port.name.reference());
+					PrintTypeReference(output, port.type);
+					output.OutFormat(" %s\n", PortDirectionName(port.direction));
+				}
 				if (hardware_module.ports.Count() && hardware_module.blocks.Count())
 					output.OutChar('\n');
 				for (const HardwareBlock& block : hardware_module.blocks) {
@@ -1513,15 +1843,19 @@ namespace clover {
 						}
 						switch (operation.opcode) {
 						case HardwareOpcode::Read:
-							output.OutFormat("read b%[u] @%s\n", operation.result.type.width,
-								operation.symbol.reference());
+							output.OutFormat("read ");
+							PrintTypeReference(output, operation.result.type);
+							output.OutFormat(" @%s\n", operation.symbol.reference());
 							break;
 						case HardwareOpcode::Const:
-							output.OutFormat("const b%[u] %[u]\n", operation.result.type.width,
-								(stduint)operation.immediate);
+							output.OutFormat("const ");
+							PrintTypeReference(output, operation.result.type);
+							output.OutFormat(" %[u]\n", (stduint)operation.immediate);
 							break;
 						case HardwareOpcode::Add:
-							output.OutFormat("add b%[u] ", operation.result.type.width);
+							output.OutFormat("add ");
+							PrintTypeReference(output, operation.result.type);
+							output.OutFormat(" ");
 							PrintHardwareValue(output, operation.operands.begin()[0]);
 							output.OutFormat(", ");
 							PrintHardwareValue(output, operation.operands.begin()[1]);
@@ -1553,10 +1887,12 @@ namespace clover {
 			PrintQuoted(output, source.path);
 			output.OutChar('\n');
 		}
+		PrintTypeDefinitions(module, output);
 		for (const Global& global : module.globals) {
 			if (global.is_declaration) {
-				output.OutFormat("declare %s @%s %s", global.is_read_only ?
-					"constant" : "global", global.name.reference(), TypeName(global.type));
+				output.OutFormat("declare %s @%s ", global.is_read_only ?
+					"constant" : "global", global.name.reference());
+				PrintTypeReference(output, global.type);
 				PrintSymbolAttributes(output, global.visibility, global.binding);
 				if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
 				if (global.alignment) output.OutFormat(" align %[u]", global.alignment);
@@ -1564,8 +1900,9 @@ namespace clover {
 				continue;
 			}
 			if (global.linkage == Linkage::Internal) output.OutFormat("internal ");
-			output.OutFormat("%s @%s %s", global.is_read_only ? "constant" : "global",
-				global.name.reference(), TypeName(global.type));
+			output.OutFormat("%s @%s ", global.is_read_only ? "constant" : "global",
+				global.name.reference());
+			PrintTypeReference(output, global.type);
 			PrintSymbolAttributes(output, global.visibility, global.binding);
 			if (global.element_count > 1) output.OutFormat(", %[i]", global.element_count);
 			if (global.alignment) output.OutFormat(" align %[u]", global.alignment);

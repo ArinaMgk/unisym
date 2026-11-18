@@ -107,25 +107,12 @@ namespace clover::frontend_c_internal {
 		Instruction instruction;
 		bool is_static = storage_class == FrontendCStorageClass::Static;
 		instruction.opcode = is_static ? Opcode::GlobalAddr : Opcode::Local;
-	if (type.record_id && !type.StorageElementIsPointer()) {
-		stduint size_bits = type_info->SizeBits(type, *target);
-		stduint align_bits = type_info->AlignBits(type, *target);
-		if (!size_bits || !align_bits || size_bits % target->char_bits ||
-			align_bits % target->char_bits) {
-			diagnostics->Report(DiagnosticStage::Semantic,
-				"invalid record storage layout", declaration);
-			failed = true;
-			return false;
-		}
-		instruction.type = Type::I8;
-		instruction.immediate = (stdsint)(size_bits / target->char_bits);
-		instruction.alignment = align_bits / target->char_bits;
-	}
-	else {
-		instruction.type = CloverType(type);
-		instruction.immediate = type.IsPointer() ? 1 :
-			(stdsint)type.StorageElementCount();
-	}
+		instruction.object_type = CloverObjectTypeFor(type, *target, *type_info);
+		instruction.has_object_type = !is_static;
+		instruction.type = instruction.object_type.IsScalar() ?
+			instruction.object_type.scalar : Type::I8;
+		instruction.immediate = 1;
+		instruction.alignment = TypeAlignment(type);
 		instruction.has_result = true;
 		instruction.result = NewValue(Type::Ptr);
 		instruction.name = name;
@@ -136,15 +123,8 @@ namespace clover::frontend_c_internal {
 			global.name += function->name;
 			global.name += ".";
 			AppendUnsigned(global.name, next_static_local++);
-			if (type.record_id && !type.StorageElementIsPointer()) {
-				global.type = Type::I8;
-				global.element_count = (stdsint)TypeSize(type);
-			}
-			else {
-				global.type = CloverType(type);
-				global.element_count = type.IsPointer() ? 1 :
-					(stdsint)type.StorageElementCount();
-			}
+			global.type = CloverObjectTypeFor(type, *target, *type_info);
+			global.element_count = 1;
 			global.alignment = TypeAlignment(type);
 			global.is_read_only = type.IsConstObject();
 			global.linkage = Linkage::Internal;

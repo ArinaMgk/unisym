@@ -10,6 +10,40 @@
 #include <dirent.h>
 #include <c/consio.h>
 
+// POSIX ls long format uses the file type, rwx bits, and set-ID/sticky substitutions from st_mode.
+static void format_mode(char* buf, stduint mode) {
+	switch (mode & S_IFMT) {
+	case S_IFREG: buf[0] = '-'; break;
+	case S_IFDIR: buf[0] = 'd'; break;
+	case S_IFCHR: buf[0] = 'c'; break;
+	#ifdef S_IFBLK
+	case S_IFBLK: buf[0] = 'b'; break;
+	#endif
+	#ifdef S_IFIFO
+	case S_IFIFO: buf[0] = 'p'; break;
+	#endif
+	#ifdef S_IFLNK
+	case S_IFLNK: buf[0] = 'l'; break;
+	#endif
+	#ifdef S_IFSOCK
+	case S_IFSOCK: buf[0] = 's'; break;
+	#endif
+	default: buf[0] = '?'; break;
+	}
+	const char* bits = "rwxrwxrwx";
+	for (unsigned i = 0; i < 9; i++) buf[i + 1] = (mode & (0400u >> i)) ? bits[i] : '-';
+	#ifdef S_ISUID
+	if (mode & S_ISUID) buf[3] = buf[3] == 'x' ? 's' : 'S';
+	#endif
+	#ifdef S_ISGID
+	if (mode & S_ISGID) buf[6] = buf[6] == 'x' ? 's' : 'S';
+	#endif
+	#ifdef S_ISVTX
+	if (mode & S_ISVTX) buf[9] = buf[9] == 'x' ? 't' : 'T';
+	#endif
+	buf[10] = '\0';
+}
+
 // Format file size into human-readable or raw bytes representation using integer math
 static void format_size(char *buf, stduint size, bool human) {
 	if (!human) {
@@ -42,6 +76,17 @@ static void format_time(char* buf, const struct stat& st) {
 	buf[1] = '\0';
 }
 
+// Share the same metadata formatting for individual paths and enumerated directory entries.
+static void print_long_entry(const char* name, const struct stat& st, bool human) {
+	char modebuf[11];
+	char szbuf[32];
+	char timebuf[32];
+	format_mode(modebuf, st.st_mode);
+	format_size(szbuf, st.st_size, human);
+	format_time(timebuf, st);
+	outsfmt("%s  %ld  %ld  %s  %s  %s\n\r", modebuf, (long)st.st_uid, (long)st.st_gid, szbuf, timebuf, name);
+}
+
 int main(int argc, char *argv[]) {
 	bool opt_l = false;
 	bool opt_h = false;
@@ -72,11 +117,7 @@ int main(int argc, char *argv[]) {
 		struct stat st;
 		if (stat(path, &st) == 0) {
 			if (opt_l) {
-				char szbuf[32];
-				char timebuf[32];
-				format_size(szbuf, st.st_size, opt_h);
-				format_time(timebuf, st);
-				outsfmt("-rw-r--r--  %s  %s  %s\n\r", szbuf, timebuf, path);
+				print_long_entry(path, st, opt_h);
 			} else {
 				outsfmt("%s\n\r", path);
 			}
@@ -108,15 +149,10 @@ int main(int argc, char *argv[]) {
 
 			struct stat st;
 			if (stat(fullpath, &st) == 0) {
-				char szbuf[32];
-				char timebuf[32];
-				format_size(szbuf, st.st_size, opt_h);
-				format_time(timebuf, st);
-				const char* type_str = S_ISDIR(st.st_mode) ? "drwxr-xr-x" : "-rw-r--r--";
-				outsfmt("%s  %s  %s  %s\n\r", type_str, szbuf, timebuf, entry->d_name);
+				print_long_entry(entry->d_name, st, opt_h);
 			} else {
-				const char* type_str = (entry->d_type == DT_DIR) ? "drwxr-xr-x" : "-rw-r--r--";
-				outsfmt("%s  ?  -  %s\n\r", type_str, entry->d_name);
+				const char* type_str = (entry->d_type == DT_DIR) ? "d?????????" : "??????????";
+				outsfmt("%s  ?  ?  ?  -  %s\n\r", type_str, entry->d_name);
 			}
 		} else {
 			outsfmt("%s  ", entry->d_name);

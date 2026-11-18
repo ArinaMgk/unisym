@@ -164,6 +164,10 @@ bool BuildStaticObjectInitializer(Global& global, const FrontendCType& type,
 	const FrontendCDiagnostics& diagnostics,
 	const StaticInitializerContext& context);
 Type CloverTypeFor(const FrontendCType& type, const FrontendCTargetInfo& target);
+TypeReference CloverObjectTypeFor(const FrontendCType& type,
+	const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info);
+bool AppendCloverTypeDefinitions(Module& module,
+	const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info);
 
 // Lowers one C function body into one Clover function.
 class FunctionBuilder {

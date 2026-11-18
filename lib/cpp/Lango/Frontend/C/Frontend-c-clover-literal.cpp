@@ -423,7 +423,9 @@ namespace clover::frontend_c_internal {
 		global.name = ".L.clover.string.";
 		AppendUnsigned(global.name, (*next_string_literal)++);
 		global.type = Type::I8;
-		global.element_count = (stdsint)bytes.Count();
+		global.type.array_depth = 1;
+		global.type.array_counts[0] = bytes.Count();
+		global.element_count = 1;
 		global.is_read_only = true;
 		global.linkage = Linkage::Internal;
 		global.initializer_values = bytes;

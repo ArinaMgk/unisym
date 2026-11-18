@@ -48,6 +48,56 @@ enum class Type {
 	Ptr, // Target-independent address value.
 };
 
+// A scalar, exact-width bit vector, named type, or array type used for objects.
+struct TypeReference {
+	static constexpr unsigned MaxArrayDepth = 32;
+
+	Type scalar = Type::Void; // Built-in scalar type when this is not Bits or Defined.
+	stduint bit_width = 0; // Exact width for bN; zero when this is not a bit vector.
+	uni::String defined_name; // Named type without the leading @.
+	unsigned array_depth = 0; // Number of C-style array suffixes in array_counts.
+	stduint array_counts[MaxArrayDepth] = {}; // Outer-to-inner element counts.
+
+	TypeReference() = default;
+	TypeReference(Type type) : scalar(type) {}
+	TypeReference& operator=(Type type) {
+		scalar = type;
+		bit_width = 0;
+		defined_name.Clear();
+		array_depth = 0;
+		return *this;
+	}
+	bool IsBits() const { return bit_width != 0; }
+	bool IsDefined() const { return defined_name.getByteCount() != 0; }
+	bool IsArray() const { return array_depth != 0; }
+	bool IsScalar() const { return !IsBits() && !IsDefined() && !IsArray(); }
+	bool operator==(Type type) const {
+		return !IsBits() && !IsDefined() && !IsArray() && scalar == type;
+	}
+	bool operator!=(Type type) const { return !(*this == type); }
+};
+
+enum class TypeDefinitionKind {
+	Structure, // Members occupy consecutive bits in textual order.
+	Union // Every member begins at bit zero.
+};
+
+// One named or anonymous member of a struct or union definition.
+struct TypeMember {
+	uni::String name; // Empty for an anonymous layout member.
+	TypeReference type;
+	stduint offset_bits = 0; // Computed from the explicit member sequence.
+};
+
+// One named aggregate type shared by Soft, Hard, and Exec IR.
+struct TypeDefinition {
+	uni::String name; // Type name without the leading @.
+	TypeDefinitionKind kind = TypeDefinitionKind::Structure;
+	stduint size_bits = 0; // Explicit total size; Clover never inserts padding.
+	stduint alignment_bits = 0; // Zero when the type has no memory alignment.
+	uni::Vector<TypeMember> members; // Textual member order defines bit placement.
+};
+
 // Link visibility retained independently from mutability and storage section.
 enum class Linkage {
 	External, // Symbol may be referenced by another translation unit.
@@ -152,6 +202,8 @@ struct Value {
 struct Instruction {
 	Opcode opcode = Opcode::Const;
 	Type type = Type::I64;          // Result type, or accessed integer type.
+	TypeReference object_type;      // Local or PtrAdd object type when explicitly present.
+	bool has_object_type = false;
 	bool has_result = false;        // Whether this instruction defines result.
 	Value result;                   // SSA result when has_result is true.
 	uni::Vector<Value> operands;    // Ordered input values.
@@ -204,7 +256,7 @@ struct GlobalInitializerFragment {
 // One module-scope object with static storage duration.
 struct Global {
 	uni::String name;
-	Type type = Type::I8;
+	TypeReference type = Type::I8;
 	stdsint initializer = 0;
 	stdsint initializer_high = 0; // High 64 bits for an f128 initializer.
 	uni::String initializer_symbol; // Optional relocated address initializer for Ptr.
@@ -233,10 +285,6 @@ struct Function {
 	uni::Vector<BasicBlock> blocks;
 };
 
-struct BitType {
-	stduint width = 1;
-};
-
 enum class PortDirection {
 	Input,
 	Output,
@@ -245,7 +293,7 @@ enum class PortDirection {
 
 struct HardwarePort {
 	uni::String name;
-	BitType type;
+	TypeReference type;
 	PortDirection direction = PortDirection::Input;
 };
 
@@ -257,7 +305,7 @@ enum class HardwareOpcode {
 };
 
 struct HardwareValue {
-	BitType type;
+	TypeReference type;
 	unsigned id = 0;
 };
 
@@ -287,6 +335,7 @@ struct Module {
 	unsigned pointer_bits = 0; // Address width required by Ptr; zero means unspecified.
 	RelocationModel relocation_model = RelocationModel::Static;
 	uni::Vector<SourceFile> source_files;
+	uni::Vector<TypeDefinition> type_definitions;
 	uni::Vector<Global> globals;
 	uni::Vector<Function> functions;
 	uni::Vector<HardwareModule> hardware_modules;
@@ -297,6 +346,14 @@ bool Parse(uni::IstreamTrait& input, Module& module);
 
 // Serialize an in-memory Clover module using the textual Clover syntax.
 bool Print(const Module& module, uni::OstreamTrait& output);
+
+const TypeDefinition* FindTypeDefinition(const Module& module, const char* name);
+TypeDefinition* FindTypeDefinition(Module& module, const char* name);
+// Compute the complete size or natural alignment of one object type in bits.
+bool TypeSizeBits(const Module& module, const TypeReference& type, stduint& bits);
+bool TypeAlignmentBits(const Module& module, const TypeReference& type, stduint& bits);
+// Compare the base kind, named identity, bit width, and every array dimension.
+bool SameType(const TypeReference& left, const TypeReference& right);
 
 }
 

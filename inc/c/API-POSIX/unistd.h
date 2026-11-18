@@ -31,6 +31,8 @@ extern "C" {
 	gid_t getegid(void);
 	int setuid(uid_t uid);
 	int setgid(gid_t gid);
+	int chown(const char* path, uid_t owner, gid_t group);
+	int fchown(int fd, uid_t owner, gid_t group);
 
 	/// @brief  execute a file
 	/// @param  path: path to the executable

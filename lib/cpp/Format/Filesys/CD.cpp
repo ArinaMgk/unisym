@@ -772,6 +772,14 @@ namespace uni {
 		return handle;
 	}
 
+	// ISO9660 permissions remain mount-synthesized until native Rock Ridge permission decoding is supported.
+	bool FilesysISO9660::permit(void* handler, FilesysPermissionResult& result, bool set_or_get) {
+		if (!set_or_get) result = {};
+		result.status = set_or_get ? FilesysPermissionStatus::ReadOnly : FilesysPermissionStatus::Unsupported;
+		if (!handler) result.status = FilesysPermissionStatus::InvalidArgument;
+		return false;
+	}
+
 	bool FilesysISO9660::proper(void* handler, stduint cmd, const void* moreinfo) {
 		ISO9660_FileHandle* fh = (ISO9660_FileHandle*)handler;
 		if (!fh || !moreinfo) return false;
@@ -1199,6 +1207,50 @@ namespace uni {
 			if (*p && !handle->is_dir) return nullptr;
 		}
 		return handle;
+	}
+
+	// Read ECMA-167 4/14.9 native permissions; the current UDF backend remains read-only.
+	bool FilesysUDF::permit(void* handler, FilesysPermissionResult& result, bool set_or_get) {
+		if (!set_or_get) result = {};
+		result.status = FilesysPermissionStatus::InvalidArgument;
+		auto* file = static_cast<UDF_FileHandle*>(handler);
+		if (!file || !storage || !sector_buffer || logical_block_size < sizeof(UDF_ExtendedFileEntry) || storage->Block_Size < sizeof(UDF_ExtendedFileEntry)) return false;
+		if (set_or_get) {
+			result.status = FilesysPermissionStatus::ReadOnly;
+			return false;
+		}
+		result.status = FilesysPermissionStatus::IoError;
+		if (!storage->Read(file->entry_lba, sector_buffer)) return false;
+		const auto* tag = reinterpret_cast<const UDF_DescriptorTag*>(sector_buffer);
+		uint32 permissions;
+		uint16 flags;
+		if (tag->tag_identifier == 261) {
+			const auto* entry = reinterpret_cast<const UDF_FileEntry*>(sector_buffer);
+			result.uid = entry->uid;
+			result.gid = entry->gid;
+			permissions = entry->permissions;
+			flags = entry->icb_tag.flags;
+		}
+		else if (tag->tag_identifier == 266) {
+			const auto* entry = reinterpret_cast<const UDF_ExtendedFileEntry*>(sector_buffer);
+			result.uid = entry->uid;
+			result.gid = entry->gid;
+			permissions = entry->permissions;
+			flags = entry->icb_tag.flags;
+		}
+		else return false;
+		// ECMA-167 4/14.9.5 uses five bits per class; 4/14.6.8 stores set-ID and sticky in ICB flags.
+		result.mode = ((permissions >> 10) & 7) << 6;
+		result.mode |= ((permissions >> 5) & 7) << 3;
+		result.mode |= permissions & 7;
+		if (flags & 0x0040) result.mode |= 04000;
+		if (flags & 0x0080) result.mode |= 02000;
+		if (flags & 0x0100) result.mode |= 01000;
+		result.fields.uid = result.uid != uint32(0xFFFFFFFFu);
+		result.fields.gid = result.gid != uint32(0xFFFFFFFFu);
+		result.fields.mode = true;
+		result.status = FilesysPermissionStatus::Success;
+		return true;
 	}
 
 	bool FilesysUDF::proper(void* handler, stduint cmd, const void* moreinfo) {

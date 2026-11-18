@@ -519,6 +519,52 @@ namespace uni {
 		return finish_search(handle);
 	}
 
+	// FAT stores one read-only attribute for regular files; mode_mask exposes only the representable write bits.
+	bool FilesysFAT::permit(void* handler, FilesysPermissionResult& result, bool set_or_get) {
+		if (!set_or_get) result = {};
+		auto* file = static_cast<FAT_FileHandle*>(handler);
+		result.status = FilesysPermissionStatus::InvalidArgument;
+		if (!file || !storage || storage->Block_Size < sizeof(FAT_DirEntry)) return false;
+		result.status = FilesysPermissionStatus::Unsupported;
+		if (file->is_dir || file->is_unlinked || !file->dir_sector) return false;
+		if (set_or_get) {
+			if (result.fields.uid || result.fields.gid || !result.fields.mode ||
+				!result.mode_mask || (result.mode_mask & ~stduint(0222))) return false;
+			if (result.mode & ~stduint(07777)) {
+				result.status = FilesysPermissionStatus::InvalidArgument;
+				return false;
+			}
+			// A single FAT bit cannot encode different write permissions for owner, group, and other.
+			if (result.mode_mask != 0222 || ((result.mode & 0222) != 0 && (result.mode & 0222) != 0222)) return false;
+		}
+		if (file->dir_index >= storage->Block_Size / sizeof(FAT_DirEntry)) {
+			result.status = FilesysPermissionStatus::InvalidArgument;
+			return false;
+		}
+		auto buffer = make_unique<byte[]>(storage->Block_Size);
+		result.status = FilesysPermissionStatus::NoMemory;
+		if (!buffer) return false;
+		result.status = FilesysPermissionStatus::IoError;
+		if (!storage->Read(file->dir_sector, buffer.get())) return false;
+		auto* entry = reinterpret_cast<FAT_DirEntry*>(buffer.get()) + file->dir_index;
+		uint32 cluster = entry->getFirstClusterNumber();
+		if (fat_type != 32) cluster &= 0xFFFF;
+		if (!entry->name[0] || uint8_t(entry->name[0]) == 0xE5 || entry->attribute.isLongName() ||
+			entry->attribute.directory || cluster != file->start_cluster) return false;
+		if (set_or_get) {
+			const bool read_only = !(result.mode & 0222);
+			if (bool(entry->attribute.read_only) != read_only) {
+				entry->attribute.read_only = read_only;
+				if (!storage->Write(file->dir_sector, buffer.get())) return false;
+			}
+		}
+		result.mode = entry->attribute.read_only ? 0 : 0222;
+		result.mode_mask = 0222;
+		result.fields.mode = true;
+		result.status = FilesysPermissionStatus::Success;
+		return true;
+	}
+
 	bool FilesysFAT::proper(void* handler, stduint cmd, const void* moreinfo) {
 		FAT_FileHandle* fh = (FAT_FileHandle*)handler;
 		if (!fh || !moreinfo) return false;

@@ -346,7 +346,7 @@ namespace uni::lango {
 			clover::HardwareOperation operation;
 			operation.has_result = true;
 			operation.result.id = next_id++;
-			operation.result.type.width = width;
+			operation.result.type.bit_width = width;
 			if (operand.kind == SVOperandKind::Identifier) {
 				const SVPort* port = FindPort(source, operand.name);
 				if (!port || port->width != width) return false;
@@ -372,7 +372,7 @@ namespace uni::lango {
 				for (const SVPort& source_port : source.ports) {
 					clover::HardwarePort port;
 					port.name = source_port.name;
-					port.type.width = source_port.width;
+					port.type.bit_width = source_port.width;
 					port.direction = source_port.direction;
 					target.ports.Append(port);
 				}
@@ -400,7 +400,7 @@ namespace uni::lango {
 						add.opcode = clover::HardwareOpcode::Add;
 						add.has_result = true;
 						add.result.id = next_id++;
-						add.result.type.width = output->width;
+						add.result.type.bit_width = output->width;
 						add.operands.Append(result);
 						add.operands.Append(right);
 						block.operations.Append(add);

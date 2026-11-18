@@ -35,6 +35,13 @@ namespace uni::lango {
 
 		stdsint TypeBits(clover::Type type, const RISCVTargetInfo& target);
 		stdsint TypeStorageBytes(clover::Type type, const RISCVTargetInfo& target);
+		stdsint TypeBits(const clover::Module& module,
+			const clover::TypeReference& type, const RISCVTargetInfo& target);
+		stdsint TypeStorageBytes(const clover::Module& module,
+			const clover::TypeReference& type, const RISCVTargetInfo& target);
+		stdsint TypeStorageAlignmentBytes(const clover::Module& module,
+			const clover::TypeReference& type, const RISCVTargetInfo& target);
+		stdsint TypeArrayElements(const clover::TypeReference& type);
 
 		bool IsFloatType(clover::Type type) {
 			return type == clover::Type::F32 || type == clover::Type::F64 ||
@@ -263,13 +270,31 @@ namespace uni::lango {
 					plogerro("RISC-V backend: PIC/PIE read-only symbol pointer initializer is not supported");
 					return false;
 				}
+				stdsint initializer_elements = TypeArrayElements(global.type);
+				const stduint max_signed = stduint(-1) >> 1;
+				if (initializer_elements > 0 &&
+					(stduint)initializer_elements <= max_signed /
+						(stduint)global.element_count)
+					initializer_elements *= global.element_count;
+				else initializer_elements = 0;
 				if (global.initializer_values.Count() &&
-					global.initializer_values.Count() != (stduint)global.element_count) {
+					(!initializer_elements || global.initializer_values.Count() !=
+						(stduint)initializer_elements)) {
 					plogerro("RISC-V backend: global initializer element count mismatch");
 					return false;
 				}
-				stdsint object_size = TypeStorageBytes(global.type, target) *
-					global.element_count;
+				stdsint type_size = TypeStorageBytes(module, global.type, target);
+				if (!type_size || (stduint)type_size > (stduint(-1) >> 1) /
+					(stduint)global.element_count) {
+					plogerro("RISC-V backend: global object size is invalid");
+					return false;
+				}
+				stdsint object_size = type_size * global.element_count;
+				if (!global.alignment && !TypeStorageAlignmentBytes(
+					module, global.type, target)) {
+					plogerro("RISC-V backend: global object requires explicit alignment");
+					return false;
+				}
 				stdsint fragment_end = 0;
 				for (const clover::GlobalInitializerFragment& fragment :
 					global.initializer_fragments) {
@@ -489,6 +514,63 @@ namespace uni::lango {
 			return bits ? (bits + 7) / 8 : 0;
 		}
 
+		stdsint TypeArrayElements(const clover::TypeReference& type) {
+			stdsint count = 1;
+			const stduint max_signed = stduint(-1) >> 1;
+			for (unsigned index = 0; index < type.array_depth; index++) {
+				if (!type.array_counts[index] ||
+					(stduint)count > (max_signed /
+						type.array_counts[index])) return 0;
+				count *= (stdsint)type.array_counts[index];
+			}
+			return count;
+		}
+
+		stdsint TypeBits(const clover::Module& module,
+			const clover::TypeReference& type, const RISCVTargetInfo& target) {
+			stduint bits = 0;
+			if (type.IsBits()) bits = type.bit_width;
+			else if (type.IsDefined()) {
+				const clover::TypeDefinition* definition = clover::FindTypeDefinition(
+					module, type.defined_name.reference());
+				if (!definition) return 0;
+				bits = definition->size_bits;
+			}
+			else {
+				stdsint scalar_bits = TypeBits(type.scalar, target);
+				if (scalar_bits <= 0) return 0;
+				bits = (stduint)scalar_bits;
+			}
+			stdsint elements = TypeArrayElements(type);
+			if (!bits || !elements || bits > ((stduint(-1) >> 1) /
+				(stduint)elements)) return 0;
+			return (stdsint)(bits * (stduint)elements);
+		}
+
+		stdsint TypeStorageBytes(const clover::Module& module,
+			const clover::TypeReference& type, const RISCVTargetInfo& target) {
+			stdsint bits = TypeBits(module, type, target);
+			return bits > 0 ? (bits + 7) / 8 : 0;
+		}
+
+		stdsint TypeStorageAlignmentBytes(const clover::Module& module,
+			const clover::TypeReference& type, const RISCVTargetInfo& target) {
+			stduint bits = 0;
+			if (type.IsBits()) bits = 1;
+			else if (type.IsDefined()) {
+				const clover::TypeDefinition* definition = clover::FindTypeDefinition(
+					module, type.defined_name.reference());
+				if (!definition) return 0;
+				bits = definition->alignment_bits;
+			}
+			else {
+				stdsint scalar_bits = TypeBits(type.scalar, target);
+				if (scalar_bits <= 0) return 0;
+				bits = (stduint)scalar_bits;
+			}
+			return bits ? (stdsint)((bits + 7) / 8) : 0;
+		}
+
 		stdsint AlignOffset(stdsint offset, stdsint alignment) {
 			return (offset + alignment - 1) & ~(alignment - 1);
 		}
@@ -512,8 +594,8 @@ namespace uni::lango {
 		}
 
 		// Spill ordinary SSA results; Local results retain only their object offset.
-		bool BuildLayout(const clover::Function& function, const RISCVTargetInfo& target,
-			FunctionLayout& layout) {
+		bool BuildLayout(const clover::Function& function, const clover::Module& module,
+			const RISCVTargetInfo& target, FunctionLayout& layout) {
 			bool found;
 			unsigned largest = LargestValueID(function, found);
 			layout.slots = uni::Vector<ValueSlot>::From(ValueSlot(), found ? largest + 1 : 0);
@@ -541,12 +623,17 @@ namespace uni::lango {
 					}
 					slot.defined = true;
 					if (instruction.opcode == clover::Opcode::Local) {
-						stdsint element_size = TypeStorageBytes(instruction.type, target);
+						stdsint element_size = instruction.has_object_type ?
+							TypeStorageBytes(module, instruction.object_type, target) :
+							TypeStorageBytes(instruction.type, target);
 						stdsint element_count = instruction.immediate > 0 ?
 							instruction.immediate : 1;
 						if (!element_size || element_count <= 0) return false;
 						stdsint alignment = instruction.alignment ?
-							(stdsint)instruction.alignment : element_size;
+							(stdsint)instruction.alignment : instruction.has_object_type ?
+							TypeStorageAlignmentBytes(module, instruction.object_type, target) :
+							element_size;
+						if (!alignment) return false;
 						slot.local_offset = AlignOffset(
 							offset + element_size * element_count, alignment);
 						offset = slot.local_offset;
@@ -848,14 +935,17 @@ namespace uni::lango {
 
 		// Scale a signed element index and add it to a target-width pointer.
 		bool EmitPtrAdd(const clover::Instruction& instruction,
-			const FunctionLayout& layout, const RISCVTargetInfo& target,
+			const FunctionLayout& layout, const clover::Module& module,
+			const RISCVTargetInfo& target,
 			uni::OstreamTrait& output) {
 			if (!RequireOperands(instruction, 2) ||
 				instruction.operands.begin()[0].type != clover::Type::Ptr ||
 				instruction.operands.begin()[1].type == clover::Type::Ptr ||
 				!LoadValue(layout, instruction.operands.begin()[0], "t0", output) ||
 				!LoadValue(layout, instruction.operands.begin()[1], "t1", output)) return false;
-			stdsint element_size = TypeStorageBytes(instruction.type, target);
+			stdsint element_size = instruction.has_object_type ?
+				TypeStorageBytes(module, instruction.object_type, target) :
+				TypeStorageBytes(instruction.type, target);
 			switch (element_size) {
 			case 1: break;
 			case 2: output.OutFormat("\tslli t1, t1, 1\n"); break;
@@ -863,8 +953,19 @@ namespace uni::lango {
 			case 8: output.OutFormat("\tslli t1, t1, 3\n"); break;
 			case 16: output.OutFormat("\tslli t1, t1, 4\n"); break;
 			default:
-				plogerro("RISC-V backend: unsupported ptradd element size %[i]", element_size);
-				return false;
+				if (element_size <= 0) {
+					plogerro("RISC-V backend: invalid ptradd element size %[i]",
+						element_size);
+					return false;
+				}
+				output.OutFormat("\tli t2, 0\n");
+				for (stduint multiplier = (stduint)element_size; multiplier;
+					multiplier >>= 1) {
+					if (multiplier & 1) output.OutFormat("\tadd t2, t2, t1\n");
+					if (multiplier >> 1) output.OutFormat("\tslli t1, t1, 1\n");
+				}
+				output.OutFormat("\tmv t1, t2\n");
+				break;
 			}
 			output.OutFormat("\tadd t2, t0, t1\n");
 			return StoreResult(layout, instruction, "t2", output);
@@ -1073,7 +1174,7 @@ namespace uni::lango {
 						assembly_output, output);
 				return EmitFloatBinary(instruction, layout, "fdiv", output);
 			case clover::Opcode::PtrAdd:
-				return EmitPtrAdd(instruction, layout, target, output);
+				return EmitPtrAdd(instruction, layout, module, target, output);
 
 			case clover::Opcode::ICmp:
 				if (!RequireOperands(instruction, 2) ||
@@ -1450,7 +1551,7 @@ namespace uni::lango {
 			const clover::Module& module, uni::OstreamTrait& output,
 			RISCVAssemblyOutputInterface* assembly_output) {
 			FunctionLayout layout;
-			if (!BuildLayout(function, target, layout)) return false;
+			if (!BuildLayout(function, module, target, layout)) return false;
 
 			output.OutFormat("\n");
 			if (!assembly_output->EmitSymbol(function.name.reference(), true,
@@ -1596,7 +1697,7 @@ namespace uni::lango {
 				return false;
 		for (const clover::Global& global : module.globals) {
 			if (global.is_declaration) continue;
-			stdsint element_size = TypeStorageBytes(global.type, target);
+			stdsint element_size = TypeStorageBytes(module, global.type, target);
 			stdsint object_size = element_size * global.element_count;
 			if (!element_size || object_size <= 0) return false;
 			bool has_initializer = global.initializer != 0 ||
@@ -1614,8 +1715,10 @@ namespace uni::lango {
 			if (options.assembly_syntax == RISCVAssemblySyntax::GCC)
 				assembly_stream->OutFormat(".size %s, %[i]\n",
 					global.name.reference(), object_size);
+			stdsint natural_alignment = TypeStorageAlignmentBytes(
+				module, global.type, target);
 			assembly_stream->OutFormat(".balign %[u]\n%s:\n",
-				global.alignment ? global.alignment : (stduint)element_size,
+				global.alignment ? global.alignment : (stduint)natural_alignment,
 				global.name.reference());
 			if (global.initializer_fragments.Count()) {
 				stdsint offset = 0;
@@ -1663,9 +1766,12 @@ namespace uni::lango {
 					assembly_stream->OutFormat("\t.zero %[i]\n", object_size - offset);
 			}
 			else if (global.initializer_values.Count()) {
+				clover::TypeReference base_type = global.type;
+				base_type.array_depth = 0;
+				stdsint value_size = TypeStorageBytes(module, base_type, target);
 				for (stduint index = 0; index < global.initializer_values.Count(); index++) {
 					stdsint value = global.initializer_values.begin()[index];
-					switch (element_size) {
+					switch (value_size) {
 					case 1: assembly_stream->OutFormat("\t.byte %[i]\n", value); break;
 					case 2: assembly_stream->OutFormat("\t.half %[i]\n", value); break;
 					case 4: assembly_stream->OutFormat("\t.word %[i]\n", value); break;

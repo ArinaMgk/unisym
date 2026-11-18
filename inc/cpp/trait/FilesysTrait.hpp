@@ -145,6 +145,30 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		}
 	};
 
+	enum class FilesysPermissionStatus {
+		Success,
+		Unsupported,
+		ReadOnly,
+		InvalidArgument,
+		IoError,
+		NoMemory,
+	};
+
+	struct FilesysPermissionFields {
+		bool uid = false;
+		bool gid = false;
+		bool mode = false;
+	};
+
+	struct FilesysPermissionResult {
+		uint32 uid = 0;
+		uint32 gid = 0;
+		stduint mode = 0;
+		stduint mode_mask = 07777; // Only these permission bits are available or requested; file type is excluded.
+		FilesysPermissionFields fields; // Valid output for get; selected updates for set.
+		FilesysPermissionStatus status = FilesysPermissionStatus::Unsupported;
+	};
+
 	class FilesysTrait
 	{
 	public:
@@ -170,6 +194,14 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		virtual void* search(rostr fullpath, FilesysSearchArgs* args) = 0;
 
 		virtual bool proper(void* handler, stduint cmd, const void* moreinfo = 0) = 0;// set proper
+
+		// False gets native fields, true sets selected fields; callers serialize access and enforce authorization and mount restrictions.
+		virtual bool permit(void* handler, FilesysPermissionResult& result, bool set_or_get = false) {
+			(void)handler;
+			if (!set_or_get) result = {};
+			result.status = FilesysPermissionStatus::Unsupported;
+			return false;
+		}
 
 		// _fn(is_folder, flinfo)
 		virtual bool enumer(void* dir_handler, _tocall_ft _fn, FilesysEnumState* state = nullptr) = 0;

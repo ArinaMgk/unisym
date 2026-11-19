@@ -31,6 +31,7 @@ extern "C" {
 	gid_t getegid(void);
 	int setuid(uid_t uid);
 	int setgid(gid_t gid);
+	int getgroups(int size, gid_t list[]);
 	int chown(const char* path, uid_t owner, gid_t group);
 	int fchown(int fd, uid_t owner, gid_t group);
 

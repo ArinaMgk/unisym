@@ -33,9 +33,7 @@ namespace clover::frontend_c_internal {
 			while (count) text << digits[--count];
 		}
 
-		uni::String CloverRecordName(const FrontendCRecord& record,
-			stduint record_id) {
-			if (record.tag.getByteCount()) return record.tag;
+		uni::String CloverRecordName(stduint record_id) {
 			uni::String name = ".record.";
 			AppendUnsigned(name, record_id);
 			return name;
@@ -84,7 +82,7 @@ namespace clover::frontend_c_internal {
 		else if (element.record_id) {
 			const FrontendCRecord* record = type_info.GetRecord(element.record_id);
 			if (!record || !record->complete) return TypeReference();
-			result.defined_name = CloverRecordName(*record, element.record_id);
+			result.defined_name = CloverRecordName(element.record_id);
 		}
 		else result.scalar = CloverTypeFor(element, target);
 		return result;
@@ -97,7 +95,7 @@ namespace clover::frontend_c_internal {
 			const FrontendCRecord& record = type_info.records.begin()[index];
 			if (!record.complete) continue;
 			TypeDefinition definition;
-			definition.name = CloverRecordName(record, index + 1);
+			definition.name = CloverRecordName(index + 1);
 			definition.kind = record.is_union ? TypeDefinitionKind::Union :
 				TypeDefinitionKind::Structure;
 			definition.size_bits = record.size_bits;
@@ -109,7 +107,7 @@ namespace clover::frontend_c_internal {
 			const FrontendCRecord& record = type_info.records.begin()[index];
 			if (!record.complete) continue;
 			TypeDefinition* definition = FindTypeDefinition(
-				module, CloverRecordName(record, index + 1).reference());
+				module, CloverRecordName(index + 1).reference());
 			if (!definition) return false;
 			stduint occupied = 0;
 			for (const FrontendCRecordMember& source : record.members) {

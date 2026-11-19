@@ -295,6 +295,10 @@ enum class FrontendCRecordLayout {
 struct FrontendCRecord {
 	uni::String tag;
 	uni::Vector<FrontendCRecordMember> members;
+	const uni::Nnode* declaration = nullptr;
+	const uni::Nnode* tag_declaration = nullptr;
+	const uni::Nnode* body = nullptr;
+	const uni::Nnode* scope = nullptr;
 	stduint size_bits = 0;
 	stduint align_bits = 0;
 	bool is_union = false;
@@ -324,6 +328,19 @@ struct FrontendCEnum {
 	bool complete = false;
 };
 
+// One visible tag from C's shared struct, union, and enum tag namespace.
+enum class FrontendCTagKind {
+	None,
+	Structure,
+	Union,
+	Enumeration
+};
+
+struct FrontendCTagReference {
+	FrontendCTagKind kind = FrontendCTagKind::None;
+	stduint type_id = 0;
+};
+
 // Associates normalized syntax nodes with their C types without extending Nnode.
 struct FrontendCTypedNode {
 	const uni::Nnode* node = nullptr;
@@ -346,6 +363,7 @@ struct FrontendCFunctionTypeNode {
 // One function declaration or definition after parameter type normalization.
 struct FrontendCFunctionDeclaration {
 	const uni::Nnode* node = nullptr;
+	const uni::Nnode* scope = nullptr;
 	uni::String name;
 	FrontendCType return_type;
 	uni::Vector<FrontendCType> parameter_types;
@@ -409,11 +427,18 @@ struct FrontendCTypeInfo {
 		const uni::Nnode* node) const;
 	const FrontendCTypedef* FindTypedef(const char* name,
 		const uni::Nnode* use = nullptr) const;
-	stduint FindRecord(const char* tag) const;
+	stduint FindRecord(const char* tag,
+		const uni::Nnode* use = nullptr) const;
+	stduint FindRecordInScope(const char* tag,
+		const uni::Nnode* scope) const;
 	const FrontendCRecord* GetRecord(stduint record_id) const;
 	FrontendCRecord* GetRecord(stduint record_id);
 	stduint FindEnum(const char* tag, const uni::Nnode* use = nullptr) const;
 	stduint FindEnumInScope(const char* tag, const uni::Nnode* scope) const;
+	FrontendCTagReference FindTagInScope(const char* tag,
+		const uni::Nnode* scope) const;
+	FrontendCTagReference FindTag(const char* tag,
+		const uni::Nnode* use = nullptr) const;
 	const FrontendCEnum* GetEnum(stduint enum_id) const;
 	FrontendCEnum* GetEnum(stduint enum_id);
 	const FrontendCEnumerator* FindEnumerator(

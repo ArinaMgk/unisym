@@ -25,7 +25,7 @@
 
 namespace uni {
 
-	bool FilesysFAT::rename(rostr src_path, rostr dst_path) {
+	bool FilesysFAT::rename(rostr src_path, rostr dst_path, void* handler) {
 		if (!fs_loaded) return false;
 
 		stduint bytes_per_sector = storage->Block_Size;
@@ -47,7 +47,14 @@ namespace uni {
 			fat_cache = &fat_table_cache;
 		}
 		if (!sector_buffer) return false;
+		uint32_t updated_sector = 0, updated_index = 0;
 		auto finish_rename = [&](bool ret) -> bool {
+			if (ret && handler) {
+				// Rename relocates the short entry; preserve the source object's allocation, data state, and cursor.
+				auto* source_handle = static_cast<FAT_FileHandle*>(handler);
+				source_handle->dir_sector = updated_sector;
+				source_handle->dir_index = updated_index;
+			}
 			if (fat_cache) delete[] fat_table_cache.buffer;
 			if (allocated_sector_buffer) delete[] sector_buffer;
 			return ret;
@@ -150,9 +157,26 @@ namespace uni {
 		const uint32_t old_block_index = src_lfn_count ? src_lfn_index : src_entry_index;
 		const stduint old_block_count = src_lfn_count + 1;
 
+		// Resolve the short-entry slot before changing directory entries, including LFN runs crossing sectors or clusters.
+		auto prepare_handle = [&](uint32_t dir_cluster, uint32_t run_sector, uint32_t run_index) -> bool {
+			if (!handler) return true;
+			const stduint slots_per_sector = bytes_per_sector / sizeof(FAT_DirEntry);
+			if (!slots_per_sector || run_index >= slots_per_sector) return false;
+			updated_sector = run_sector;
+			stduint index = run_index + new_count;
+			while (index >= slots_per_sector) {
+				updated_sector = dir_next_sector(dir_cluster, updated_sector, fat_cache);
+				if (!updated_sector) return false;
+				index -= slots_per_sector;
+			}
+			updated_index = (uint32_t)index;
+			return true;
+		};
+
 		if (is_same_dir && src_lfn_count >= new_count) {
 			// In-place: clear the old block, then lay the new pieces and short entry over its front
-			if (!erase_dir_run(src_parent_h.start_cluster, old_block_sector, old_block_index, old_block_count) ||
+			if (!prepare_handle(src_parent_h.start_cluster, old_block_sector, old_block_index) ||
+				!erase_dir_run(src_parent_h.start_cluster, old_block_sector, old_block_index, old_block_count) ||
 				!write_dir_run(src_parent_h.start_cluster, old_block_sector, old_block_index, run, new_count + 1)) {
 				drop_run();
 				return finish_rename(false);
@@ -164,6 +188,7 @@ namespace uni {
 		uint32_t written_sector = 0;
 		uint32_t written_index = 0;
 		if (!alloc_dir_run(dst_parent_cluster, new_count + 2, written_sector, written_index, sector_buffer, fat_cache) ||
+			!prepare_handle(dst_parent_cluster, written_sector, written_index) ||
 			!write_dir_run(dst_parent_cluster, written_sector, written_index, run, new_count + 2)) {
 			drop_run();
 			return finish_rename(false);

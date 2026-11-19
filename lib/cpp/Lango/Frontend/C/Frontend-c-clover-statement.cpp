@@ -78,27 +78,34 @@ namespace clover::frontend_c_internal {
 	bool FunctionBuilder::PredeclareLocal(const char* name, const FrontendCType& type,
 		const uni::Nnode* declaration, const uni::Nnode* scope,
 		FrontendCStorageClass storage_class) {
-		if (storage_class == FrontendCStorageClass::Extern) {
-			diagnostics->Report(DiagnosticStage::Semantic,
-				"block-scope extern objects are not supported yet", declaration);
-			failed = true;
-			return false;
-		}
+		bool is_extern = storage_class == FrontendCStorageClass::Extern;
 		for (const LocalValue& local : locals)
 			if (local.scope == scope && !StrCompare(local.name.reference(), name)) {
+				if (is_extern && local.is_external_alias) continue;
 				diagnostics->Report(DiagnosticStage::Semantic,
 					"redefinition of local variable", declaration);
 				failed = true;
 				return false;
 			}
-		if (type.enum_id && !type.StorageElementIsPointer() &&
+		for (const LocalFunction& local : local_functions)
+			if (local.scope == scope && !StrCompare(local.name.reference(), name))
+				return Error("local object declaration conflicts with function",
+					declaration).valid;
+		if (!is_extern && type.record_id && !type.StorageElementIsPointer() &&
+			!type_info->SizeBits(type, *target)) {
+			diagnostics->Report(DiagnosticStage::Semantic,
+				"object has incomplete record type", declaration);
+			failed = true;
+			return false;
+		}
+		if (!is_extern && type.enum_id && !type.StorageElementIsPointer() &&
 			!type_info->SizeBits(type, *target)) {
 			diagnostics->Report(DiagnosticStage::Semantic,
 				"object has incomplete enum type", declaration);
 			failed = true;
 			return false;
 		}
-		if (type.HasIncompleteArray()) {
+		if (!is_extern && type.HasIncompleteArray()) {
 			diagnostics->Report(DiagnosticStage::Semantic,
 				"object has incomplete array type", declaration);
 			failed = true;
@@ -106,17 +113,32 @@ namespace clover::frontend_c_internal {
 		}
 		Instruction instruction;
 		bool is_static = storage_class == FrontendCStorageClass::Static;
-		instruction.opcode = is_static ? Opcode::GlobalAddr : Opcode::Local;
-		instruction.object_type = CloverObjectTypeFor(type, *target, *type_info);
-		instruction.has_object_type = !is_static;
-		instruction.type = instruction.object_type.IsScalar() ?
-			instruction.object_type.scalar : Type::I8;
-		instruction.immediate = 1;
-		instruction.alignment = TypeAlignment(type);
+		stduint global_index = 0;
+		if (is_extern) {
+			if (!visible_globals || !module ||
+				!RegisterBlockExternObject(*module, *visible_globals,
+					*visible_functions, *visible_constants, name, type, declaration,
+					*target, *type_info, *diagnostics, global_index)) {
+				failed = true;
+				return false;
+			}
+			instruction.opcode = Opcode::GlobalAddr;
+			instruction.name = module->globals[global_index - 1].name;
+			instruction.type = Type::Ptr;
+			instruction.alignment = module->globals[global_index - 1].alignment;
+		}
+		else {
+			instruction.opcode = is_static ? Opcode::GlobalAddr : Opcode::Local;
+			instruction.object_type = CloverObjectTypeFor(type, *target, *type_info);
+			instruction.has_object_type = !is_static;
+			instruction.type = instruction.object_type.IsScalar() ?
+				instruction.object_type.scalar : Type::I8;
+			instruction.immediate = 1;
+			instruction.alignment = TypeAlignment(type);
+		}
 		instruction.has_result = true;
 		instruction.result = NewValue(Type::Ptr);
-		instruction.name = name;
-		stduint global_index = 0;
+		if (!is_extern) instruction.name = name;
 		if (is_static) {
 			Global global;
 			global.name = ".L.clover.static.";
@@ -145,6 +167,7 @@ namespace clover::frontend_c_internal {
 		local.declaration = declaration;
 		local.scope = scope;
 		local.global_index = global_index;
+		local.is_external_alias = is_extern;
 		locals.Append(local);
 		return true;
 	}
@@ -166,13 +189,47 @@ namespace clover::frontend_c_internal {
 		const uni::Nnode* scope, const FrontendCType& base_type) {
 		(void)node;
 		(void)base_type;
+		if (type_info->FindFunction(declaration)) {
+			const FrontendCFunctionDeclaration* function_declaration =
+				type_info->FindFunction(declaration);
+			if (!function_declaration->scope) return true;
+			for (const LocalValue& local : locals)
+				if (local.scope == scope && !StrCompare(
+					local.name.reference(), function_declaration->name.reference()))
+					return Error("function declaration conflicts with local object",
+						declaration).valid;
+			for (const FrontendCEnum& enumeration : type_info->enums) {
+				if (enumeration.scope != scope) continue;
+				for (const FrontendCEnumerator& enumerator : enumeration.enumerators)
+					if (!StrCompare(enumerator.name.reference(),
+						function_declaration->name.reference()))
+						return Error("function declaration conflicts with enumerator",
+							declaration).valid;
+			}
+			for (const LocalFunction& local : local_functions)
+				if (local.declaration == declaration) return true;
+			LocalFunction local;
+			local.name = function_declaration->name;
+			local.declaration = declaration;
+			local.scope = scope;
+			local_functions.Append(local);
+			return true;
+		}
 		bool found = false;
 		for (const FrontendCObjectDeclarator& object :
 			type_info->object_declarators) {
 			if (object.declaration != declaration) continue;
 			found = true;
 			FrontendCType type = object.type;
-			if (type.HasIncompleteArray() &&
+			FrontendCStorageClass storage = type_info->FindStorage(declaration);
+			if (storage == FrontendCStorageClass::Extern && object.initializer) {
+				diagnostics->Report(DiagnosticStage::Semantic,
+					"block-scope extern declaration cannot have an initializer",
+					object.identifier);
+				failed = true;
+				return false;
+			}
+			if (storage != FrontendCStorageClass::Extern && type.HasIncompleteArray() &&
 				!CompleteArrayTypeFromInitializer(
 					type, object.initializer, *target,
 					*type_info, *diagnostics)) {
@@ -182,16 +239,19 @@ namespace clover::frontend_c_internal {
 				return false;
 			}
 			if (!PredeclareLocal(object.identifier->addr, type, declaration, scope,
-				type_info->FindStorage(declaration))) return false;
+				storage)) return false;
 		}
 		return found;
 	}
 
 	bool FunctionBuilder::PredeclareBlock(uni::Nnode* block) {
 		for (uni::Nnode* node = block ? block->subf : nullptr; node; node = node->next) {
-			if (node->type == ToToken(FrontendCToken::Declaration)) {
+			if (node->type == ToToken(FrontendCToken::Declaration) ||
+				node->type == ToToken(FrontendCToken::FunctionDeclaration)) {
 				const FrontendCType* base_type = type_info->Find(node);
-				if (!base_type || !PredeclareDeclarator(node->subf, node, block, *base_type)) {
+				if ((!base_type && !type_info->FindFunction(node)) ||
+					!PredeclareDeclarator(node->subf, node, block,
+						base_type ? *base_type : FrontendCType())) {
 					if (failed) return false;
 					return Error("invalid int declaration", node).valid;
 				}
@@ -204,6 +264,7 @@ namespace clover::frontend_c_internal {
 		}
 		return true;
 	}
+
 
 	LocalValue* FunctionBuilder::ActivateLocal(const char* name, const uni::Nnode* declaration) {
 		for (LocalValue& local : locals) {
@@ -233,6 +294,7 @@ namespace clover::frontend_c_internal {
 		StaticInitializerContext context;
 		context.module = module;
 		context.globals = visible_globals;
+		context.locals = &locals;
 		context.functions = visible_functions;
 		context.file_scope = false;
 		Global global = module->globals[local.global_index - 1];
@@ -280,6 +342,7 @@ namespace clover::frontend_c_internal {
 				object.identifier->addr, declaration);
 			if (!local) return failed ? false :
 				Error("invalid local declaration", object.identifier).valid;
+			if (local->is_external_alias) continue;
 			if (local->global_index) {
 				if (!InitializeStatic(*local, object.initializer)) return false;
 				continue;
@@ -292,6 +355,8 @@ namespace clover::frontend_c_internal {
 
 	void FunctionBuilder::LeaveScope(const uni::Nnode* block) {
 		for (LocalValue& local : locals)
+			if (local.scope == block) local.active = false;
+		for (LocalFunction& local : local_functions)
 			if (local.scope == block) local.active = false;
 		for (FrontendCLocalConstant& constant : local_constants)
 			if (constant.scope == block) constant.active = false;
@@ -323,8 +388,8 @@ namespace clover::frontend_c_internal {
 	}
 
 	FunctionBuilder::FunctionBuilder(Module& output_module, Function& function,
-		const uni::Vector<FrontendCFunction>& functions,
-		const uni::Vector<FrontendCGlobal>& globals,
+		uni::Vector<FrontendCFunction>& functions,
+		uni::Vector<FrontendCGlobal>& globals,
 		const uni::Vector<FrontendCEnumerator>& constants,
 		const FrontendCType& function_return_type,
 		const FrontendCTargetInfo& target_info,
@@ -733,6 +798,8 @@ namespace clover::frontend_c_internal {
 		if (!node) return Error("missing statement", node).valid;
 
 		if (node->type == ToToken(FrontendCToken::Empty)) return true;
+		if (node->type == ToToken(FrontendCToken::RecordDeclaration) ||
+			node->type == ToToken(FrontendCToken::RecordDefinition)) return true;
 		if (node->type == ToToken(FrontendCToken::TypedefDeclaration)) return true;
 		if (node->type == ToToken(FrontendCToken::EnumDeclaration)) return true;
 		if (node->type == ToToken(FrontendCToken::EnumDefinition))
@@ -836,7 +903,19 @@ namespace clover::frontend_c_internal {
 
 		if (node->type == tok_block) return LowerBlock(node);
 		stduint first_instruction = CurrentBlock().instructions.Count();
-		if (node->type == ToToken(FrontendCToken::Declaration)) {
+		if (node->type == ToToken(FrontendCToken::Declaration) ||
+			node->type == ToToken(FrontendCToken::FunctionDeclaration)) {
+			if (type_info->FindFunction(node)) {
+				if (!RegisterBlockFunctionDeclaration(*module,
+					*visible_functions, *visible_globals, *visible_constants,
+					node, *type_info, *target, *diagnostics)) {
+					failed = true;
+					return false;
+				}
+				for (LocalFunction& local : local_functions)
+					if (local.declaration == node) local.active = true;
+				return true;
+			}
 			bool success = LowerDeclarator(node->subf, node);
 			if (success) AttachSource(first_instruction, atom.source);
 			return success;

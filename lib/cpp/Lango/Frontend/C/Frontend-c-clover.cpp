@@ -173,7 +173,8 @@ namespace clover {
 		const FrontendCGlobal* FindGlobal(
 			const uni::Vector<FrontendCGlobal>& globals, const char* name) {
 			for (const FrontendCGlobal& global : globals)
-				if (!StrCompare(global.name.reference(), name)) return &global;
+				if (global.file_scope_visible &&
+					!StrCompare(global.name.reference(), name)) return &global;
 			return nullptr;
 		}
 
@@ -375,6 +376,21 @@ namespace clover {
 				node = StripGroupedExpression(node);
 				if (!node) return false;
 				if (node->type == tok_identy && node->addr) {
+					if (context.locals)
+						for (stduint index = context.locals->Count(); index; index--) {
+							const LocalValue& local = context.locals->begin()[index - 1];
+							if (!local.active || StrCompare(
+								local.name.reference(), node->addr)) continue;
+							if (!local.is_external_alias || !context.module ||
+								!local.global_index || local.global_index >
+								context.module->globals.Count()) return false;
+							const Global& global = context.module->globals[
+								local.global_index - 1];
+							value.type = local.type;
+							value.symbol = global.name;
+							value.addend = 0;
+							return true;
+						}
 					if (context.globals) {
 						const FrontendCGlobal* global =
 							FindGlobal(*context.globals, node->addr);
@@ -386,8 +402,13 @@ namespace clover {
 						}
 					}
 					if (context.functions) {
-						const FrontendCFunction* function =
-							FindFunction(*context.functions, node->addr);
+						const FrontendCFunction* function = nullptr;
+						for (const FrontendCFunction& candidate : *context.functions)
+							if (candidate.file_scope_visible &&
+								!StrCompare(candidate.name.reference(), node->addr)) {
+								function = &candidate;
+								break;
+							}
 						if (function && FunctionType(*function, value.type)) {
 							value.symbol = function->name;
 							value.addend = 0;
@@ -492,6 +513,12 @@ namespace clover {
 			uni::Nnode* identifier = object.identifier;
 			uni::Nnode* initializer_node = object.initializer;
 			const uni::Nnode* declaration = object.declaration;
+			for (const FrontendCFunction& function : functions)
+				if (!StrCompare(function.name.reference(), identifier->addr)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"global variable conflicts with function", identifier);
+					return false;
+				}
 			if (type.HasIncompleteArray() && initializer_node &&
 				!CompleteArrayTypeFromInitializer(type, initializer_node,
 					target, type_info, diagnostics)) {
@@ -545,6 +572,7 @@ namespace clover {
 					return false;
 				}
 				previous->type = merged_type;
+				previous->file_scope_visible = true;
 				type = merged_type;
 				if (type.IsArray() && type.ArrayDimension(0) &&
 					(previous_type.ArrayDimension(0) == 0 ||
@@ -691,6 +719,147 @@ namespace clover {
 
 	}
 
+	bool frontend_c_internal::RegisterBlockExternObject(Module& module,
+		uni::Vector<FrontendCGlobal>& globals,
+		const uni::Vector<FrontendCFunction>& functions,
+		const uni::Vector<FrontendCEnumerator>& constants, const char* name,
+		const FrontendCType& source_type, const uni::Nnode* declaration,
+		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
+		const FrontendCDiagnostics& diagnostics, stduint& global_index) {
+		if (!name) return false;
+		for (const FrontendCFunction& function : functions)
+			if (!StrCompare(function.name.reference(), name)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"block-scope extern object conflicts with function", declaration);
+				return false;
+			}
+		if (FindConstant(constants, name)) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"block-scope extern object conflicts with enumerator", declaration);
+			return false;
+		}
+
+		FrontendCType type = source_type;
+		FrontendCGlobal* previous = FindGlobal(globals, name);
+		if (previous) {
+			FrontendCType merged_type;
+			FrontendCType previous_type = previous->type;
+			if (previous->has_provisional_array_bound && type.IsArray() &&
+				type.ArrayDimension(0)) previous_type.SetArrayDimension(0, 0);
+			if (!MergeGlobalType(previous_type, type, merged_type)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"conflicting global variable types", declaration);
+				return false;
+			}
+			type = merged_type;
+			previous->type = type;
+			if (type.IsArray() && type.ArrayDimension(0) &&
+				previous_type.ArrayDimension(0) == 0)
+				previous->has_provisional_array_bound = false;
+		}
+		else {
+			FrontendCGlobal object;
+			object.name = name;
+			object.type = type;
+			object.linkage = Linkage::External;
+			object.file_scope_visible = false;
+			Global global;
+			global.name = name;
+			global.linkage = Linkage::External;
+			global.is_declaration = true;
+			global.is_read_only = type.IsConstObject();
+			SetGlobalShape(global, type, target, type_info);
+			module.globals.Append(global);
+			object.module_index = module.globals.Count();
+			globals.Append(object);
+			previous = &globals[globals.Count() - 1];
+		}
+		global_index = previous->module_index;
+		Global& global = module.globals[global_index - 1];
+		SetGlobalShape(global, type, target, type_info);
+		global.linkage = previous->linkage;
+		global.is_read_only = type.IsConstObject();
+		stduint alignment_bits = type_info.AlignBits(type, target);
+		previous->alignment = alignment_bits &&
+			!(alignment_bits % target.char_bits) ?
+			alignment_bits / target.char_bits : 0;
+		return true;
+	}
+
+	bool frontend_c_internal::RegisterBlockFunctionDeclaration(Module& module,
+		uni::Vector<FrontendCFunction>& functions,
+		const uni::Vector<FrontendCGlobal>& globals,
+		const uni::Vector<FrontendCEnumerator>& constants,
+		const uni::Nnode* node, const FrontendCTypeInfo& type_info,
+		const FrontendCTargetInfo& target,
+		const FrontendCDiagnostics& diagnostics) {
+		const FrontendCFunctionDeclaration* declaration =
+			type_info.FindFunction(node);
+		if (!declaration || !declaration->scope) return false;
+		for (const FrontendCGlobal& global : globals)
+			if (!StrCompare(global.name.reference(), declaration->name.reference())) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"block-scope function declaration conflicts with object", node);
+				return false;
+			}
+		for (const FrontendCEnumerator& constant : constants)
+			if (!StrCompare(constant.name.reference(), declaration->name.reference())) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"block-scope function declaration conflicts with enumerator", node);
+				return false;
+			}
+
+		FrontendCFunction* previous = FindFunction(
+			functions, declaration->name.reference());
+		if (previous) {
+			if (!CompatibleFunctionTypes(*previous, *declaration)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"conflicting function types", node);
+				return false;
+			}
+			if (!previous->has_prototype && declaration->has_prototype) {
+				previous->parameter_types = declaration->parameter_types;
+				previous->function_type_id = declaration->function_type_id;
+				previous->is_variadic = declaration->is_variadic;
+				previous->has_prototype = true;
+				if (previous->module_index && previous->module_index <=
+					module.functions.Count()) {
+					Function& function = module.functions[previous->module_index - 1];
+					function.parameters.Clear();
+					function.is_variadic = declaration->is_variadic ||
+						!declaration->has_prototype;
+					if (!AppendDeclarationParameters(*declaration, function,
+						type_info, target, diagnostics)) return false;
+				}
+			}
+			return true;
+		}
+
+		Function function;
+		function.name = declaration->name;
+		function.return_type = CloverTypeFor(declaration->return_type, target);
+		function.is_variadic = declaration->is_variadic ||
+			!declaration->has_prototype;
+		function.is_declaration = true;
+		function.linkage = Linkage::External;
+		if (!AppendDeclarationParameters(*declaration, function,
+			type_info, target, diagnostics)) return false;
+		module.functions.Append(function);
+
+		FrontendCFunction visible;
+		visible.name = declaration->name;
+		visible.return_type = declaration->return_type;
+		visible.parameter_types = declaration->parameter_types;
+		visible.function_type_id = declaration->function_type_id;
+		visible.is_variadic = declaration->is_variadic;
+		visible.has_prototype = declaration->has_prototype;
+		visible.module_index = module.functions.Count();
+		visible.linkage = Linkage::External;
+		visible.file_scope_visible = false;
+		functions.Append(visible);
+		return true;
+	}
+
 	bool LowerFrontendC(uni::Nchain& syntax_tree, Module& module,
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 		const FrontendCTypeInfo& type_info,
@@ -758,9 +927,9 @@ namespace clover {
 			}
 			if (node->type == ToToken(FrontendCToken::RecordDeclaration) ||
 				node->type == ToToken(FrontendCToken::RecordDefinition)) {
-					node = node->next;
-					continue;
-				}
+				node = node->next;
+				continue;
+			}
 			if (node->type == ToToken(FrontendCToken::FunctionDeclaration)) {
 				const FrontendCFunctionDeclaration* declaration =
 					type_info.FindFunction(node);
@@ -802,6 +971,7 @@ namespace clover {
 						previous->is_variadic = declaration->is_variadic;
 						previous->has_prototype = true;
 					}
+					previous->file_scope_visible = true;
 					node = node->next;
 					continue;
 				}
@@ -826,6 +996,7 @@ namespace clover {
 				visible.has_prototype = declaration->has_prototype;
 				visible.module_index = module.functions.Count();
 				visible.linkage = linkage;
+				visible.file_scope_visible = true;
 				visible_functions.Append(visible);
 				node = node->next;
 				continue;
@@ -920,6 +1091,7 @@ namespace clover {
 			signature.has_prototype = declaration->has_prototype;
 			signature.has_definition = true;
 			signature.linkage = linkage;
+			signature.file_scope_visible = true;
 			for (uni::Nnode* parameter_node = node->subf;
 				parameter_node; parameter_node = parameter_node->next) {
 				if ((parameter_node->type ==

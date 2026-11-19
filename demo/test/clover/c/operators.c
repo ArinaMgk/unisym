@@ -12,6 +12,7 @@ int main() {
 	char byte;
 	int values[3] = {2, 4, 6};
 	int* pointer = values;
+	int comma_values[2] = {(1, 2), 3};
 
 	score = score + (20 - 13 + 12 == 19);
 	score = score + (1 - 8 / (2 * 2) + 3 * 6 == 17);
@@ -38,6 +39,10 @@ int main() {
 	score = score + (!7 == 0);
 	score = score + (~~5 == 5);
 	score = score + (~0 == -1);
+	score = score + ((1, 2, 3) == 3);
+	score = score + ((value = 1, value + 2) == 3);
+	score = score + (comma_values[0] == 2 && comma_values[1] == 3);
+	score = score + ('\n' == 10) + ('\x41' == 65) + ('\101' == 65);
 
 	value = 10;
 	value += 5;
@@ -128,5 +133,5 @@ int main() {
 	score = score + ((unsigned long long)pointer == 0);
 	score = score + ((long long)(int*)-1 == -1);
 
-	return score;
+	return score + (1, 2);
 }

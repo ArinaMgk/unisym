@@ -51,6 +51,7 @@ typedef long fpos_t;
 
 // ---- { Operations on files } ----
 //{} int remove(const char* filename);
+_ESYM_C int rename(const char* oldpath, const char* newpath);
 //{} FILE* tmpfile(void);
 //{} char* tmpnam(char* s);
 

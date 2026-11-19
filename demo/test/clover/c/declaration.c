@@ -51,11 +51,20 @@ int main(void) {
 	Size layout_size = sizeof(Row) + sizeof(RowPointer);
 	typedef int Scalar;
 	Scalar value = 4;
+	int local_score;
+	int local_increment(int);
+	local_score = local_increment(4);
 	{
 		typedef char Scalar;
 		Scalar byte_value = 5;
 		value += sizeof(byte_value);
+		extern int local_increment(int);
+		local_score += local_increment(1);
 	}
 	return layout_size + row_sum(pointer) + *identity(&value) + (*pointer)[1] +
-		apply(callbacks[0], 7) + select_unary()(8);
+		apply(callbacks[0], 7) + select_unary()(8) + local_score;
+}
+
+int local_increment(int value) {
+	return value + 1;
 }

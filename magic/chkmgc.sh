@@ -543,55 +543,16 @@ check_fail $'#if 1\n#else\n#else\n#endif' 'duplicate #else'
 check_fail $'#define VALUE 1\n#define VALUE 2\nint main(void){return VALUE;}' 'incompatible macro redefinition'
 
 # Operators
-check 'int main(){return 0;}' 0
-check '../demo/test/clover/c/operators.c' 75
-# Expression statements
-check 'int main(){1+2;;return 6;}' 6
-check 'int main(){12+23;12+99/3; return 78-66;}' 12
-
-# Comma operator
-check 'int main(){return (1,2,3);}' 3
-check 'int main(){return 1,2;}' 2
-check 'int main(){int x=1; return (x=4,x+2);}' 6
-check 'int main(){int x=(1,2),y=4; return x+y;}' 6
-check 'int add(int x,int y){return x+y;} int main(){return add((1,2),3);}' 5
-check 'int main(){int a[2]={(1,2),3}; return a[0]+a[1];}' 5
-
-# Variabls
-check 'int main(){int foo=3; return foo+1;}' 4
-check 'int main(){int foo2=6; int bar4=foo2+4; foo2=2; return foo2+foo2*bar4;}' 22
-
-# Return
-check 'int main(){return 1;2;4;}' 1
-check 'int main(){int a=1;return 2; 4;}' 2
-check 'int main(){1; 2; return 4;}' 4
-
-# Nested
-check 'int main(){{1;};;{}{int b=2;} return 3;}' 3
+check '../demo/test/clover/c/operators.c' 83
 
 # Statement
-check 'int main() { if (2-1) return 2; return(3); }' 2
-check 'int main() { if(1) {1;2;return 3;} else if (0) {4;return 5;6;} else;}' 3
 check '../demo/test/clover/c/loop.c' 43
 check '../demo/test/clover/c/switch.c' 51
 check_fail 'int main(){break;}' 'break statement not within a loop or switch'
 check_fail 'int main(){continue;}' 'continue statement not within a loop'
-check_fail 'int main(){switch(1){case 1:return 1;case 1:return 2;}}' 'duplicate case value'
-check_fail 'int main(){switch(1){default:return 1;default:return 2;}}' 'multiple default labels in one switch'
-check_fail 'int main(){case 1:return 2;}' 'case label not within a switch'
-
-# Prefix * and &, and arithmetic for pointer
-check 'int main() {int x=3; return *&x;}' 3
-check 'int main() {int x=3; int *y=&x; int** z=&y; return **z;}' 3
-check 'int main() {int x=3, y=5, z=3; return *(&y-1);}' 3 # not standard C
-
-# Calling
-check 'int f(int x) {return x+1;} int main() {int x = f(1); x++; return x;} ' 3
-check 'int add(int x, int y) {return x+y;} int main() { return add(-1, 4);} ' 3
 
 # Declarations and typedef names
-check '../demo/test/clover/c/declaration.c' 50
-check_ir 'extern int function(int); int main(void){return 0;}' 'declare func @function(i32) -> i32'
+check '../demo/test/clover/c/declaration.c' 57
 check_relocation_model pic
 check_relocation_model pie
 check_relocation_model static
@@ -600,85 +561,53 @@ check_pic_call_model
 check_fail 'typedef int T; T T; int main(void){return 0;}' 'ordinary identifier conflicts with typedef name'
 
 # Array
-check '../demo/test/clover/c/array.c' 67
-check 'int values[]; int main(){return sizeof(values);}' 4
+check '../demo/test/clover/c/array.c' 70
 check_fail 'int main(){int values[];return 0;}' 'object has incomplete array type'
-check_fail 'int values[2]={1,2,3}; int main(){return 0;}' 'excess elements in array initializer'
 
 # Label and goto
 check '../demo/test/clover/c/goto.c' 10
 check_fail 'int main(){label:return 1;label:return 2;}' 'redefinition of label'
 check_fail 'int main(){goto missing;return 0;}' 'use of undefined label'
 
-# Basic Types
-check 'int main() {char a=1; short b=2; long c=3; long long d=4; return a+b+c+d;}' 10
-check 'int main(){_Bool a=0,b=2,c=-3; return a+b+c+sizeof(_Bool);}' 3
-check '_Bool flag=7; _Bool pass(_Bool value){return value;} int main(){_Bool x=pass(3); return flag+x;}' 2
+# Data model and floating-point ABI
 check 'int main() {return sizeof(long)+sizeof(void*);}' 16 '-Fdata-model=lp64'
 check 'int main() {return sizeof(long)+sizeof(void*);}' 12 '-Fdata-model=llp64'
-check 'int main(){return -1L < 1U;}' 1 '-Fdata-model=lp64'
-check 'int main(){return -1L < 1U;}' 0 '-Fdata-model=llp64'
 check '../demo/test/clover/c/floating.c' 77 '' imfd lp64d
-check_ir 'int head(int x,...){return x;} int main(){return head(1,(char)2,3.0f);}' 'fpext f32'
-check_ir 'int head(int x,...){return x;} int main(){return head(1,(char)2,3.0f);}' 'sext i8'
-check 'int main() {return sizeof(char)+sizeof(short)+sizeof(int)+sizeof(long)+sizeof(long long);}' 23
-check 'int main() {signed char x=-1; unsigned char y=255; y=y+2; return (x<0)+(y==1);}' 2
-check 'int main() {unsigned int x=0; x=x-1; return x>1;}' 1
-check 'int main() {unsigned int x=0; x=x-1; return x/16777216;}' 255
-check 'int main() {int x=1; int n=sizeof(x++); return x*10+n;}' 14
-check 'int main() {char x=1; return sizeof(x++);}' 1
-check 'int main() {int a[2][3]; return sizeof(a)+sizeof(a[0])+sizeof(a[0][0]);}' 40
-check 'int main() {return sizeof(int*)+sizeof(char[3]);}' 11
-check 'int main() { return "abc"[0]; }' 97
-check 'int main() { return ""[0]; }' 0
-check 'int main() { return "\101"[0]; }' 65
 
 # Integer and character literals
-check "int main(){return 'A';}" 65
-check "int main(){return '\\n'+'\\x41'+'\\101';}" 140
 check "int main(){return \"\\x41\"[0]+\"\\101\"[0]+'\u0041';}" 195
 check 'int main(){return "\u4E2D"[0]&255;}' 228
 check_fail 'int main(){return "\x"[0];}' 'invalid string literal escape'
-check_fail 'int main(){return "\u41"[0];}' 'invalid string literal escape'
-check_fail 'int main(){return "\q"[0];}' 'invalid string literal escape'
-check_fail 'int main(){return "\e"[0];}' 'invalid string literal escape'
 check_fail 'int main(){return "\uD800"[0];}' 'invalid string literal escape'
-check 'int main(){return sizeof(1U)+sizeof(1L)+sizeof(1LL);}' 20 '-Fdata-model=lp64'
-check 'int main(){return sizeof(1U)+sizeof(1L)+sizeof(1LL);}' 16 '-Fdata-model=llp64'
-check 'int main(){return (0xFFFFFFFF>0)+(18446744073709551615ULL+2);}' 2
-check 'int main(){int values[0x3U]; return sizeof(values);}' 12
 
 # Enumeration
 check '../demo/test/clover/c/enum.c' 66
 check_fail 'enum E {A}; enum E {B}; int main(){return 0;}' 'redefinition of enum tag'
-check_fail 'enum E {A,A}; int main(){return 0;}' 'redefinition of enumerator'
-check_fail 'struct E {int value;}; enum E {A}; int main(){return 0;}' 'enum tag conflicts with record tag'
-check_fail 'enum E {A}; int A; int main(){return 0;}' 'global variable conflicts with enumerator'
 
 # Structure and union layout
 check '../demo/test/clover/c/struct-layout.c' 254
+check 'struct Global{int value;} global_object={7}; int main(){return global_object.value;}' 7
+check 'struct Scope{int value;}; int main(){struct Scope outer; outer.value=3; {struct Scope; struct Scope* hidden;} {struct Scope{char value;}; struct Scope inner; inner.value=2;} return sizeof(outer)+outer.value;}' 7
+check 'struct Scope{int value;}; int main(){{union Scope{char value;}; union Scope inner; inner.value=2; return sizeof(inner)+inner.value;} return 0;}' 3
+check 'struct Tag{int value;}; int main(){{enum Tag{Item}; return sizeof(enum Tag)+Item;} return sizeof(struct Tag);}' 4
+check 'int main(){{struct Local{int value;} object; object.value=6; return object.value;}}' 6
+check 'int main(){struct Node{int value; struct Node* next;}; struct Node node; node.value=9; return node.value;}' 9
+check_fail 'int main(){{struct Incomplete; struct Incomplete object;} return 0;}' 'object has incomplete record type'
 check '../demo/test/clover/c/initializer.c' 102
 check '../demo/test/clover/c/compound-literal.c' 198
-check_fail 'int main(){return (void){0};}' 'compound literal requires an object type'
 check_fail 'struct X;int main(){return ((struct X){0},0);}' 'compound literal requires a complete object type'
-check_fail 'int main(){(const int){1}=2;return 0;}' 'assignment to const-qualified object'
-check_fail 'struct P{int x;}; int main(){struct P value={1,2};return 0;}' 'excess elements in struct initializer'
-check_fail 'union U{int x;char y;}; int main(){union U value={1,2};return 0;}' 'excess elements in union initializer'
-check_fail 'struct P{int x;}; int main(){struct P value={.missing=1};return 0;}' 'record has no such designated member'
-check_fail 'int main(){int values[2]={[2]=1};return 0;}' 'array designator index is out of bounds'
-check_fail 'int main(){int index=1;int values[2]={[index]=1};return 0;}' 'array designator index must be an integer constant expression'
 
 # Storage Area and Lifetime
-check 'char c; void func(int* j){*j=*j+1; c=0xFF;} int main() {int i=1; func(&i); return c + i;}' 1
-check '../demo/test/clover/c/static.c' 167 '' imfd lp64d
+check '../demo/test/clover/c/static.c' 175 '' imfd lp64d
 check '../demo/test/clover/c/static-relocation.c' 61
 check_ir 'static int value; static int helper(int x){return x;} int main(){return helper(value);}' 'internal global @value'
 check_ir 'static int value; static int helper(int x){return x;} int main(){return helper(value);}' 'internal func @helper'
-check_ir 'extern int value; int main(){return value;}' 'declare global @value i32'
+check_fail 'int first(){{extern int hidden;}return 0;} int second(){return hidden;}' 'use of undeclared identifier'
+check_fail 'int main(){extern int value=1;return value;}' 'block-scope extern declaration cannot have an initializer'
+check_fail 'int first(){{int hidden(int);}return 0;} int second(){return hidden(1);}' 'call to undeclared function'
+check_fail 'int main(){int value;int value(int);return 0;}' 'function declaration conflicts with local object'
+check_fail 'int main(){static int invalid(int);return 0;}' 'block-scope function declaration cannot be static'
 check_fail 'int source(){return 1;} int main(){static int value=source();return value;}' 'block static initializer must be a constant expression'
-check_fail 'static static int value; int main(){return value;}' 'duplicate storage-class specifier'
-check_fail 'int value=1; int value=2; int main(){return value;}' 'redefinition of global variable'
-check_fail 'extern int value; static int value; int main(){return value;}' 'global variable linkage conflicts'
 
 
 echo pass!

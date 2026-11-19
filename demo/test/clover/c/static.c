@@ -57,6 +57,22 @@ int static_array_value() {
 	return values[0] + values[1] + values[2];
 }
 
+int block_external_value() {
+	extern int late_external;
+	extern int late_external;
+	{
+		extern int late_external;
+		return late_external;
+	}
+}
+
+int block_static_alias() {
+	extern int file_value;
+	return file_value;
+}
+
+int late_external = 6;
+
 int main() {
 	int first = next_value();
 	int second = next_value();
@@ -75,5 +91,6 @@ int main() {
 		shadow_first + shadow_second + shadow_first_again +
 		shadow_second_again + array_first + array_second +
 		factorial(4) + (int)file_scale + initialized_value +
+		block_external_value() + block_static_alias() +
 		completed_array[1] + external_value;
 }

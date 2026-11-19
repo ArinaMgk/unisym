@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <c/consio.h>
+#include <c/ISO_IEC_STD/errno.h>
 
 // Helper to copy from fd to stdout (1)
 static bool copy_fd_to_stdout(int fd) {
@@ -54,7 +55,10 @@ int main(int argc, char *argv[]) {
 			// Otherwise open the file
 			int fd = open(arg, O_RDONLY);
 			if (fd < 0) {
-				outsfmt("cat: %s: No such file or directory\n\r", arg);
+				const int error = errno;
+				const char* message = error == EACCES ? "Permission denied" :
+					error == ENOENT ? "No such file or directory" : "Failed to open file";
+				outsfmt("cat: %s: %s (errno=%d)\n\r", arg, message, error);
 				has_error = true;
 				continue;
 			}

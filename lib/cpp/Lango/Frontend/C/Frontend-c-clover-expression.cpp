@@ -336,10 +336,28 @@ namespace clover::frontend_c_internal {
 		return nullptr;
 	}
 
-	const FrontendCFunction* FunctionBuilder::FindFunction(const char* name) const {
+	LocalFunction* FunctionBuilder::FindLocalFunction(const char* name) {
+		for (stduint index = local_functions.Count(); index; index--) {
+			LocalFunction& local = local_functions[index - 1];
+			if (local.active && !StrCompare(local.name.reference(), name))
+				return &local;
+		}
+		return nullptr;
+	}
+
+	const FrontendCFunction* FunctionBuilder::FindFunctionEntity(
+		const char* name) const {
 		if (!visible_functions) return nullptr;
 		for (const FrontendCFunction& candidate : *visible_functions)
 			if (!StrCompare(candidate.name.reference(), name)) return &candidate;
+		return nullptr;
+	}
+
+	const FrontendCFunction* FunctionBuilder::FindFunction(const char* name) const {
+		if (!visible_functions) return nullptr;
+		for (const FrontendCFunction& candidate : *visible_functions)
+			if (candidate.file_scope_visible &&
+				!StrCompare(candidate.name.reference(), name)) return &candidate;
 		return nullptr;
 	}
 
@@ -358,7 +376,8 @@ namespace clover::frontend_c_internal {
 	const FrontendCGlobal* FunctionBuilder::FindGlobal(const char* name) const {
 		if (!visible_globals) return nullptr;
 		for (const FrontendCGlobal& candidate : *visible_globals)
-			if (!StrCompare(candidate.name.reference(), name)) return &candidate;
+			if (candidate.file_scope_visible &&
+				!StrCompare(candidate.name.reference(), name)) return &candidate;
 		return nullptr;
 	}
 
@@ -420,8 +439,13 @@ namespace clover::frontend_c_internal {
 
 	LoweredValue FunctionBuilder::LowerCall(uni::Nnode* node,
 		uni::Nnode* callee_node, uni::Nnode* argument_node) {
-		const FrontendCFunction* direct = !callee_node && node->addr ?
-			FindFunction(node->addr) : nullptr;
+		LocalValue* local_callee = !callee_node && node->addr ?
+			FindLocal(node->addr) : nullptr;
+		LocalFunction* local_function = !callee_node && node->addr && !local_callee ?
+			FindLocalFunction(node->addr) : nullptr;
+		const FrontendCFunction* direct = !callee_node && node->addr && !local_callee ?
+			(local_function ? FindFunctionEntity(node->addr) :
+				FindFunction(node->addr)) : nullptr;
 		LoweredValue indirect;
 		FrontendCType return_type;
 		const uni::Vector<FrontendCType>* parameter_types = nullptr;
@@ -435,7 +459,7 @@ namespace clover::frontend_c_internal {
 		}
 		else {
 			if (!callee_node) {
-				LocalValue* local = FindLocal(node->addr);
+				LocalValue* local = local_callee;
 				if (local) indirect = { local->address, true, local->type, true,
 					local->alignment };
 				else {
@@ -1214,7 +1238,9 @@ namespace clover::frontend_c_internal {
 			const FrontendCGlobal* global = FindGlobal(node->addr);
 			if (global) return { EmitGlobalAddress(*global), true, global->type, true,
 				global->alignment };
-			const FrontendCFunction* function = FindFunction(node->addr);
+			LocalFunction* local_function = FindLocalFunction(node->addr);
+			const FrontendCFunction* function = local_function ?
+				FindFunctionEntity(node->addr) : FindFunction(node->addr);
 			if (!function) return Error("use of undeclared identifier", node);
 			FrontendCType type = function->return_type;
 			FrontendCTypeLayer layer;

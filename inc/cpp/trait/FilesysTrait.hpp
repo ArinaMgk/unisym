@@ -231,7 +231,8 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 
 		virtual bool truncate(void* fil_handler, stduint size) { return false; }// adjust file size
 
-		virtual bool rename(rostr src_path, rostr dst_path) { return false; }// rename or move file/directory
+		// Rename the entry and update the optional source handle only on success, preserving its identity and stream position.
+		virtual bool rename(rostr src_path, rostr dst_path, void* handler = nullptr) { return false; }
 
 		// Remove a namespace entry while retaining data referenced by an open handle.
 		virtual bool unlink(rostr pathname, void* fil_handler) {

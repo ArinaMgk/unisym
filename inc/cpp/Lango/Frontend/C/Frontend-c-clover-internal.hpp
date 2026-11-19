@@ -37,7 +37,7 @@ struct LoweredValue {
 	stduint alignment = 0; // Known byte alignment of an lvalue or pointer value.
 };
 
-// Associates a source identifier with the Ptr value produced by Local.
+// Associates a source identifier with its object address.
 struct LocalValue {
 	uni::String name;
 	Value address;
@@ -46,6 +46,7 @@ struct LocalValue {
 	const uni::Nnode* declaration = nullptr;
 	const uni::Nnode* scope = nullptr;
 	stduint global_index = 0; // One-based module global index for block static storage.
+	bool is_external_alias = false; // Block-scope extern name bound to a module object.
 	bool active = false;
 };
 
@@ -91,9 +92,18 @@ struct FrontendCFunction {
 	bool has_definition = false;
 	stduint module_index = 0; // One-based Clover declaration or definition index.
 	Linkage linkage = Linkage::External;
+	bool file_scope_visible = true;
 };
 
-// Module-scope object visible at the current translation-unit position.
+// A block-scope function name activated at its declaration point.
+struct LocalFunction {
+	uni::String name;
+	const uni::Nnode* declaration = nullptr;
+	const uni::Nnode* scope = nullptr;
+	bool active = false;
+};
+
+// One module object plus whether its name is visible at file scope here.
 struct FrontendCGlobal {
 	uni::String name;
 	FrontendCType type;
@@ -102,12 +112,14 @@ struct FrontendCGlobal {
 	Linkage linkage = Linkage::External;
 	bool has_definition = false;
 	bool has_provisional_array_bound = false;
+	bool file_scope_visible = true;
 };
 
 // Symbols and module state available while evaluating one static initializer.
 struct StaticInitializerContext {
 	Module* module = nullptr;
 	const uni::Vector<FrontendCGlobal>* globals = nullptr;
+	const uni::Vector<LocalValue>* locals = nullptr;
 	const uni::Vector<FrontendCFunction>* functions = nullptr;
 	unsigned* next_compound_literal = nullptr;
 	bool file_scope = false;
@@ -168,6 +180,20 @@ TypeReference CloverObjectTypeFor(const FrontendCType& type,
 	const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info);
 bool AppendCloverTypeDefinitions(Module& module,
 	const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info);
+bool RegisterBlockExternObject(Module& module,
+	uni::Vector<FrontendCGlobal>& globals,
+	const uni::Vector<FrontendCFunction>& functions,
+	const uni::Vector<FrontendCEnumerator>& constants, const char* name,
+	const FrontendCType& type, const uni::Nnode* declaration,
+	const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
+	const FrontendCDiagnostics& diagnostics, stduint& global_index);
+bool RegisterBlockFunctionDeclaration(Module& module,
+	uni::Vector<FrontendCFunction>& functions,
+	const uni::Vector<FrontendCGlobal>& globals,
+	const uni::Vector<FrontendCEnumerator>& constants,
+	const uni::Nnode* declaration, const FrontendCTypeInfo& type_info,
+	const FrontendCTargetInfo& target,
+	const FrontendCDiagnostics& diagnostics);
 
 // Lowers one C function body into one Clover function.
 class FunctionBuilder {
@@ -180,14 +206,15 @@ private:
 	unsigned next_value = 0;
 	unsigned next_static_local = 0;
 	uni::Vector<LocalValue> locals;
+	uni::Vector<LocalFunction> local_functions;
 	uni::Vector<FrontendCLocalConstant> local_constants;
 	uni::Vector<LoopContext> loop_contexts;
 	uni::Vector<uni::String> break_targets;
 	uni::Vector<SwitchContext> switch_contexts;
 	uni::Vector<FunctionLabel> labels;
 	uni::Vector<const uni::Nnode*> emitted_sources;
-	const uni::Vector<FrontendCFunction>* visible_functions = nullptr;
-	const uni::Vector<FrontendCGlobal>* visible_globals = nullptr;
+	uni::Vector<FrontendCFunction>* visible_functions = nullptr;
+	uni::Vector<FrontendCGlobal>* visible_globals = nullptr;
 	const uni::Vector<FrontendCEnumerator>* visible_constants = nullptr;
 	const FrontendCTargetInfo* target = nullptr;
 	const FrontendCTypeInfo* type_info = nullptr;
@@ -258,6 +285,8 @@ private:
 	Value EmitTypedConst(Type type, stdsint immediate);
 	LoweredValue CreateTemporaryStorage(const FrontendCType& type);
 	LocalValue* FindLocal(const char* name);
+	LocalFunction* FindLocalFunction(const char* name);
+	const FrontendCFunction* FindFunctionEntity(const char* name) const;
 	const FrontendCFunction* FindFunction(const char* name) const;
 	const FrontendCFunctionType* FunctionType(const FrontendCType& type,
 		FrontendCType& return_type) const;
@@ -371,8 +400,8 @@ private:
 
 public:
 	FunctionBuilder(Module& output_module, Function& function,
-		const uni::Vector<FrontendCFunction>& functions,
-		const uni::Vector<FrontendCGlobal>& globals,
+		uni::Vector<FrontendCFunction>& functions,
+		uni::Vector<FrontendCGlobal>& globals,
 		const uni::Vector<FrontendCEnumerator>& constants,
 		const FrontendCType& function_return_type,
 		const FrontendCTargetInfo& target_info,

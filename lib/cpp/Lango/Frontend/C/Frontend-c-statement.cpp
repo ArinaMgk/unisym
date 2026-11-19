@@ -277,23 +277,33 @@ namespace {
 					is_enum ? "expected enum tag" : "expected record tag", after_type);
 				return false;
 			}
-			stduint type_id = is_enum ? type_info.FindEnum(tag->addr, tag) :
-				type_info.FindRecord(tag->addr);
+			FrontendCTagReference tag_reference =
+				type_info.FindTag(tag->addr, tag);
+			stduint type_id = tag_reference.type_id;
 			if (is_enum) {
-				if (!type_id) {
+				if (tag_reference.kind != FrontendCTagKind::Enumeration) {
 					diagnostics.Report(DiagnosticStage::Semantic,
 						"use of undefined enum type", tag);
 					return false;
 				}
 			}
 			else {
-				if (type_info.FindEnum(tag->addr, tag)) {
-					diagnostics.Report(DiagnosticStage::Semantic,
-						"record tag is hidden by an enum tag", tag);
-					return false;
+				FrontendCTagKind expected_kind = is_union ?
+					FrontendCTagKind::Union : FrontendCTagKind::Structure;
+				if (tag_reference.kind == FrontendCTagKind::None) {
+					FrontendCRecord incomplete;
+					incomplete.tag = tag->addr;
+					incomplete.is_union = is_union;
+					incomplete.declaration = tag;
+					incomplete.tag_declaration = tag;
+					incomplete.scope = EnclosingBlock(tag);
+					type_info.records.Append(incomplete);
+					type_id = type_info.records.Count();
+					tag_reference.kind = expected_kind;
 				}
 				const FrontendCRecord* record = type_info.GetRecord(type_id);
-				if (!record || record->is_union != is_union) {
+				if (tag_reference.kind != expected_kind || !record ||
+					record->is_union != is_union) {
 					diagnostics.Report(DiagnosticStage::Semantic,
 						"use of undefined or mismatched record type", tag);
 					return false;
@@ -581,7 +591,12 @@ namespace {
 				"invalid declarator", declarator);
 			return false;
 		}
-		if (global && one_declarator && declared_type.IsFunction()) {
+		if (one_declarator && declared_type.IsFunction()) {
+			if (!global && storage_class == FrontendCStorageClass::Static) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"block-scope function declaration cannot be static", statement);
+				return false;
+			}
 			const FrontendCFunctionType* function_type = type_info.GetFunctionType(
 				declared_type.layers[0].function_type_id);
 			if (!function_type) return false;
@@ -596,6 +611,7 @@ namespace {
 					statement->subf = syntax_tree.Remove(statement->subf);
 			FrontendCFunctionDeclaration function;
 			function.node = statement;
+			function.scope = global ? nullptr : statement->getParent();
 			function.name = declared_identifier->addr;
 			function.return_type = declared_type.RemoveOuterLayer();
 			function.parameter_types = function_type->parameter_types;
@@ -607,7 +623,7 @@ namespace {
 			type_info.AddStorage(statement, storage_class);
 			type_info.functions.Append(function);
 			if (!AddOrdinaryName(type_info, declared_identifier->addr,
-				statement, nullptr, diagnostics)) return false;
+				statement, function.scope, diagnostics)) return false;
 			return true;
 		}
 		statement->type = ToToken(global ? FrontendCToken::GlobalDeclaration :
@@ -764,7 +780,7 @@ namespace {
 		const uni::Nnode* body = tag ? tag->next : nullptr;
 		return (IsKeyword(keyword, "struct") || IsKeyword(keyword, "union")) &&
 			tag && tag->type == tok_identy && tag->addr && body &&
-			body->type == tok_block && !body->next;
+			body->type == tok_block;
 	}
 
 	bool IsRecordDeclaration(const uni::Nnode* statement) {
@@ -800,7 +816,10 @@ namespace {
 			tag->next : nullptr;
 		stduint enum_id = type_info.FindEnumInScope(tag->addr, scope);
 		FrontendCEnum* enumeration = type_info.GetEnum(enum_id);
-		if (!scope && type_info.FindRecord(tag->addr)) {
+		FrontendCTagReference visible_tag = type_info.FindTagInScope(
+			tag->addr, scope);
+		if (visible_tag.kind == FrontendCTagKind::Structure ||
+			visible_tag.kind == FrontendCTagKind::Union) {
 			diagnostics.Report(DiagnosticStage::Semantic,
 				"enum tag conflicts with record tag", tag);
 			return false;
@@ -924,16 +943,20 @@ namespace {
 	}
 
 	bool PrepareRecordDeclaration(uni::Nnode* statement,
-		const FrontendCDiagnostics& diagnostics, FrontendCTypeInfo& type_info) {
-		uni::Nnode* keyword = statement->subf;
+		const uni::Nnode* scope, const FrontendCDiagnostics& diagnostics,
+		FrontendCTypeInfo& type_info) {
+		uni::Nnode* keyword = const_cast<uni::Nnode*>(SkipRecordLayoutModifiers(
+			statement->subf));
 		uni::Nnode* tag = keyword->next;
 		bool is_union = IsKeyword(keyword, "union");
-		if (type_info.FindEnum(tag->addr)) {
+		FrontendCTagReference visible_tag = type_info.FindTagInScope(
+			tag->addr, scope);
+		if (visible_tag.kind == FrontendCTagKind::Enumeration) {
 			diagnostics.Report(DiagnosticStage::Semantic,
 				"record tag conflicts with enum tag", tag);
 			return false;
 		}
-		stduint record_id = type_info.FindRecord(tag->addr);
+		stduint record_id = type_info.FindRecordInScope(tag->addr, scope);
 		FrontendCRecord* record = type_info.GetRecord(record_id);
 		if (record && record->is_union != is_union) {
 			diagnostics.Report(DiagnosticStage::Semantic,
@@ -944,8 +967,12 @@ namespace {
 			FrontendCRecord declaration;
 			declaration.tag = tag->addr;
 			declaration.is_union = is_union;
+			declaration.declaration = statement;
+			declaration.tag_declaration = statement;
+			declaration.scope = scope;
 			type_info.records.Append(declaration);
 		}
+		else if (!record->tag_declaration) record->tag_declaration = statement;
 		statement->type = ToToken(FrontendCToken::RecordDeclaration);
 		return true;
 	}
@@ -981,6 +1008,7 @@ namespace {
 	}
 
 	bool PrepareRecordDefinition(uni::Nchain& syntax_tree, uni::Nnode* statement,
+		const uni::Nnode* scope, bool global,
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 		FrontendCTypeInfo& type_info) {
 		uni::Nnode* keyword;
@@ -991,12 +1019,14 @@ namespace {
 		uni::Nnode* tag = keyword->next;
 		uni::Nnode* body = tag->next;
 		bool is_union = IsKeyword(keyword, "union");
-		if (type_info.FindEnum(tag->addr)) {
+		FrontendCTagReference visible_tag = type_info.FindTagInScope(
+			tag->addr, scope);
+		if (visible_tag.kind == FrontendCTagKind::Enumeration) {
 			diagnostics.Report(DiagnosticStage::Semantic,
 				"record tag conflicts with enum tag", tag);
 			return false;
 		}
-		stduint record_id = type_info.FindRecord(tag->addr);
+		stduint record_id = type_info.FindRecordInScope(tag->addr, scope);
 		FrontendCRecord* record = type_info.GetRecord(record_id);
 		if (record && record->is_union != is_union) {
 			diagnostics.Report(DiagnosticStage::Semantic,
@@ -1012,10 +1042,16 @@ namespace {
 			FrontendCRecord definition;
 			definition.tag = tag->addr;
 			definition.is_union = is_union;
+			definition.declaration = statement;
+			definition.tag_declaration = statement;
+			definition.scope = scope;
 			type_info.records.Append(definition);
 			record_id = type_info.records.Count();
 			record = type_info.GetRecord(record_id);
 		}
+		record->declaration = statement;
+		if (!record->tag_declaration) record->tag_declaration = statement;
+		record->body = body;
 		record->layout = layout;
 		record->explicit_align_bits = explicit_align_bits;
 		stduint size_bits = 0;
@@ -1099,6 +1135,21 @@ namespace {
 			explicit_align_bits : natural_align_bits;
 		completed->size_bits = AlignUp(size_bits, completed->align_bits);
 		completed->complete = true;
+		if (body->next) {
+			uni::Nnode* declarator = body->next;
+			uni::Nnode* declaration = syntax_tree.Append(nullptr, false, statement);
+			*declaration->GetTnodeField() = *statement->GetTnodeField();
+			syntax_tree.Adopt(declaration, declarator, declarator->Tail(), false);
+			declaration->type = ToToken(global ? FrontendCToken::GlobalDeclaration :
+				FrontendCToken::Declaration);
+			FrontendCType type;
+			type.record_id = record_id;
+			type_info.Add(declaration, type);
+			NormalizeDeclaratorSeparators(syntax_tree, declaration->subf);
+			if (!RegisterObjectDeclarators(syntax_tree, declaration->subf, type,
+				declaration, scope, target, type_info, diagnostics)) return false;
+			type_info.AddStorage(declaration, FrontendCStorageClass::None);
+		}
 		statement->type = ToToken(FrontendCToken::RecordDefinition);
 		return true;
 	}
@@ -1266,6 +1317,8 @@ namespace {
 			if (node->type == ToToken(FrontendCToken::TypedefDeclaration)) continue;
 			if (node->type == ToToken(FrontendCToken::EnumDeclaration) ||
 				node->type == ToToken(FrontendCToken::EnumDefinition)) continue;
+			if (node->type == ToToken(FrontendCToken::RecordDeclaration) ||
+				node->type == ToToken(FrontendCToken::RecordDefinition)) continue;
 			if (node->type == tok_block) {
 				if (!PrepareBlock(syntax_tree, node, diagnostics, target, type_info, debug_info)) return false;
 				continue;
@@ -1314,10 +1367,15 @@ namespace {
 					diagnostics, target, type_info)) return false;
 				continue;
 			}
+			if (IsRecordDeclaration(node)) {
+				if (!PrepareRecordDeclaration(node, block, diagnostics, type_info))
+					return false;
+				continue;
+			}
 			if (IsRecordDefinition(node)) {
-				diagnostics.Report(DiagnosticStage::Semantic,
-					"block-scope record definitions are not supported yet", node);
-				return false;
+				if (!PrepareRecordDefinition(syntax_tree, node, block, false,
+					diagnostics, target, type_info)) return false;
+				continue;
 			}
 			uni::Nnode* declaration = node->subf;
 			NormalizeParenthesizedDeclarator(
@@ -1383,9 +1441,12 @@ namespace {
 				node->type == ToToken(FrontendCToken::Continue) ||
 				node->type == ToToken(FrontendCToken::Label) ||
 				node->type == ToToken(FrontendCToken::Empty) ||
+				node->type == ToToken(FrontendCToken::RecordDeclaration) ||
+				node->type == ToToken(FrontendCToken::RecordDefinition) ||
 				node->type == ToToken(FrontendCToken::EnumDeclaration) ||
 				node->type == ToToken(FrontendCToken::EnumDefinition) ||
 				node->type == ToToken(FrontendCToken::TypedefDeclaration) ||
+				node->type == ToToken(FrontendCToken::FunctionDeclaration) ||
 				node->type == ToToken(FrontendCToken::Declaration)) continue;
 			else if (node->type == ToToken(FrontendCToken::Return) &&
 				(!node->subf || node->subf->next)) {
@@ -1465,11 +1526,15 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 			if (const_count > 1 || !tag_name || !dimension || dimension->next ||
 				tag_name->type != tok_identy || !tag_name->addr ||
 				dimension->type != tok_number || !dimension->addr) return false;
-			stduint record_id = type_info.FindRecord(tag_name->addr);
+			FrontendCTagReference tag_reference =
+				type_info.FindTag(tag_name->addr, tag_name);
+			stduint record_id = tag_reference.type_id;
 			const FrontendCRecord* record = type_info.GetRecord(record_id);
 			stdsint count;
 			FrontendCType literal_type;
-			if (!record || record->is_union != is_union ||
+			if (tag_reference.kind != (is_union ? FrontendCTagKind::Union :
+				FrontendCTagKind::Structure) || !record ||
+				record->is_union != is_union ||
 				!frontend_c_detail::ParseIntegerLiteral(
 					dimension->addr, target, count, literal_type) || count <= 0) return false;
 			type = FrontendCType();
@@ -1492,8 +1557,11 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 			}
 		}
 		else {
-			if (type_info.FindEnum(tag->addr, tag)) return false;
-			type.record_id = type_info.FindRecord(tag->addr);
+			FrontendCTagReference tag_reference =
+				type_info.FindTag(tag->addr, tag);
+			if (tag_reference.kind != (is_union ? FrontendCTagKind::Union :
+				FrontendCTagKind::Structure)) return false;
+			type.record_id = tag_reference.type_id;
 			const FrontendCRecord* record = type_info.GetRecord(type.record_id);
 			if (!record || record->is_union != is_union) return false;
 		}
@@ -1701,11 +1769,22 @@ const FrontendCTypedef* FrontendCTypeInfo::FindTypedef(
 	return nullptr;
 }
 
-stduint FrontendCTypeInfo::FindRecord(const char* tag) const {
+stduint FrontendCTypeInfo::FindRecordInScope(
+	const char* tag, const uni::Nnode* scope) const {
 	if (!tag) return 0;
-	for (stduint index = 0; index < records.Count(); index++)
-		if (!StrCompare(records.begin()[index].tag.reference(), tag)) return index + 1;
+	for (stduint index = records.Count(); index; index--) {
+		const FrontendCRecord& record = records.begin()[index - 1];
+		if (record.scope == scope &&
+			!StrCompare(record.tag.reference(), tag)) return index;
+	}
 	return 0;
+}
+
+stduint FrontendCTypeInfo::FindRecord(
+	const char* tag, const uni::Nnode* use) const {
+	FrontendCTagReference reference = FindTag(tag, use);
+	return reference.kind == FrontendCTagKind::Structure ||
+		reference.kind == FrontendCTagKind::Union ? reference.type_id : 0;
 }
 
 const FrontendCRecord* FrontendCTypeInfo::GetRecord(stduint record_id) const {
@@ -1729,18 +1808,53 @@ stduint FrontendCTypeInfo::FindEnumInScope(
 	return 0;
 }
 
+FrontendCTagReference FrontendCTypeInfo::FindTagInScope(
+	const char* tag, const uni::Nnode* scope) const {
+	FrontendCTagReference result;
+	if (!tag) return result;
+	stduint record_id = FindRecordInScope(tag, scope);
+	stduint enum_id = FindEnumInScope(tag, scope);
+	if (record_id) {
+		const FrontendCRecord* record = GetRecord(record_id);
+		result.kind = record && record->is_union ? FrontendCTagKind::Union :
+			FrontendCTagKind::Structure;
+		result.type_id = record_id;
+	}
+	else if (enum_id) {
+		result.kind = FrontendCTagKind::Enumeration;
+		result.type_id = enum_id;
+	}
+	return result;
+}
+
+FrontendCTagReference FrontendCTypeInfo::FindTag(
+	const char* tag, const uni::Nnode* use) const {
+	if (!tag) return FrontendCTagReference();
+	const uni::Nnode* scope = EnclosingBlock(use);
+	for (;;) {
+		FrontendCTagReference result = FindTagInScope(tag, scope);
+		if (result.kind != FrontendCTagKind::None) {
+			const uni::Nnode* declaration = nullptr;
+			if (result.kind == FrontendCTagKind::Enumeration) {
+				const FrontendCEnum* enumeration = GetEnum(result.type_id);
+				declaration = enumeration ? enumeration->tag_declaration : nullptr;
+			}
+			else {
+				const FrontendCRecord* record = GetRecord(result.type_id);
+				declaration = record ? record->tag_declaration : nullptr;
+			}
+			if (NodePrecedes(declaration, use)) return result;
+		}
+		if (!scope) break;
+		scope = EnclosingBlock(ParentNode(scope));
+	}
+	return FrontendCTagReference();
+}
+
 stduint FrontendCTypeInfo::FindEnum(
 	const char* tag, const uni::Nnode* use) const {
-	if (!tag) return 0;
-	const uni::Nnode* use_scope = EnclosingBlock(use);
-	for (stduint index = enums.Count(); index; index--) {
-		const FrontendCEnum& enumeration = enums.begin()[index - 1];
-		if (StrCompare(enumeration.tag.reference(), tag) ||
-			!ScopeContains(enumeration.scope, use_scope) ||
-			!NodePrecedes(enumeration.tag_declaration, use)) continue;
-		return index;
-	}
-	return 0;
+	FrontendCTagReference reference = FindTag(tag, use);
+	return reference.kind == FrontendCTagKind::Enumeration ? reference.type_id : 0;
 }
 
 const FrontendCEnum* FrontendCTypeInfo::GetEnum(stduint enum_id) const {
@@ -1876,13 +1990,13 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 				continue;
 			}
 			if (IsRecordDeclaration(node)) {
-				if (!PrepareRecordDeclaration(node, diagnostics, type_info)) return false;
+				if (!PrepareRecordDeclaration(node, nullptr, diagnostics, type_info)) return false;
 				node = next;
 				continue;
 			}
 			if (IsRecordDefinition(node)) {
-				if (!PrepareRecordDefinition(syntax_tree, node, diagnostics,
-					target, type_info)) return false;
+				if (!PrepareRecordDefinition(syntax_tree, node, nullptr, true,
+					diagnostics, target, type_info)) return false;
 				node = next;
 				continue;
 			}
@@ -2292,6 +2406,19 @@ bool frontend_c_detail::FinalizeEnums(uni::Nchain& syntax_tree,
 					"redefinition of enumerator", name_node);
 				return false;
 			}
+			if (FindOrdinaryNameInScope(
+				type_info, name_node->addr, enumeration.scope)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"enumerator conflicts with ordinary identifier", name_node);
+				return false;
+			}
+			for (const FrontendCTypedef& alias : type_info.typedefs)
+				if (alias.scope == enumeration.scope &&
+					!StrCompare(alias.name.reference(), name_node->addr)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"enumerator conflicts with typedef name", name_node);
+					return false;
+				}
 			stdsint value = next_value;
 			if (value_node && !EvaluateEnumeratorValue(
 				value_node, target, type_info, value)) {
@@ -2304,6 +2431,11 @@ bool frontend_c_detail::FinalizeEnums(uni::Nchain& syntax_tree,
 			enumerator.value = value;
 			enumerator.declaration = name_node;
 			enumeration.enumerators.Append(enumerator);
+			FrontendCOrdinaryName ordinary;
+			ordinary.name = name_node->addr;
+			ordinary.declaration = name_node;
+			ordinary.scope = enumeration.scope;
+			type_info.ordinary_names.Append(ordinary);
 			if (!index || value < minimum) minimum = value;
 			if (!index || value > maximum) maximum = value;
 			if (index + 1 < nodes.Count() && value == SignedMaximum()) {

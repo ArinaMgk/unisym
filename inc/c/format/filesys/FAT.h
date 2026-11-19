@@ -228,7 +228,7 @@ namespace uni {
 
 		virtual bool truncate(void* fil_handler, stduint size) override;
 
-		virtual bool rename(rostr src_path, rostr dst_path) override;
+		virtual bool rename(rostr src_path, rostr dst_path, void* handler = nullptr) override;
 		virtual bool unlink(rostr pathname, void* fil_handler) override;
 		virtual bool reclaim(void* fil_handler) override;
 

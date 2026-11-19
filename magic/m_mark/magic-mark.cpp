@@ -106,6 +106,7 @@ namespace {
 
 void PrintDocumentBackendInformation(uni::OstreamTrait& output) {
 	output.OutFormat("Built-in document backends:\n");
+	output.OutFormat("  Docu IR:\n");
 	for (const DocumentBackendInfo& info : document_backend_infos) {
 		output.OutFormat("    ");
 		PrintDocumentBackendColumn(output, info.name);

@@ -130,6 +130,8 @@ _PACKED(struct) FAT_LongDirEntry {
 
 namespace uni {
 
+	class BlockChangeSet;
+
 	struct FAT_FileHandle {
 		uint32_t start_cluster;
 		uint32_t current_cluster;
@@ -228,9 +230,36 @@ namespace uni {
 
 		virtual bool truncate(void* fil_handler, stduint size) override;
 
-		virtual bool rename(rostr src_path, rostr dst_path, void* handler = nullptr) override;
+		virtual bool rename(rostr src_path, rostr dst_path, FilesysRenameParameter& parameter) override;
 		virtual bool unlink(rostr pathname, void* fil_handler) override;
 		virtual bool reclaim(void* fil_handler) override;
+		virtual FilesysDirectoryRemoveResult rmdir(rostr pathname, void* handler) override;
+
+	private:
+		BlockChangeSet* mutation = nullptr;
+		// A scope owns or borrows preparation state; destruction only discards staged changes.
+		class Mutation {
+			FilesysFAT& fs;
+			UniquePtr<BlockChangeSet> changes;
+			bool active = false;
+			bool owner = false;
+		public:
+			explicit Mutation(FilesysFAT& filesystem);
+			~Mutation();
+			Mutation(const Mutation&) = delete;
+			Mutation& operator=(const Mutation&) = delete;
+			bool IsReady() const { return active; }
+			// Only the owning scope commits; borrowed scopes leave publication to their caller.
+			bool Finish(bool success);
+		};
+		// All format helpers observe the same staged blocks while their caller serializes the filesystem.
+		bool ReadBlock(stduint block, void* destination);
+		bool WriteBlock(stduint block, const void* source);
+		// Checked FAT access is required before destructive directory and cluster operations.
+		bool ReadFatEntry(uint32_t cluster, uint32_t& value, FAT_TableScratch* cache);
+		bool IsDataCluster(uint32_t cluster) const;
+		// Optional scratch buffers let rmdir reuse its existing operation workspace.
+		FilesysDirectoryState CheckDirectoryContents(void* handler, byte* sector = nullptr, FAT_TableScratch* fat_cache = nullptr);
 
 	public:
 		uint32_t getSector_foCluster(uint32_t cluster) {
@@ -245,7 +274,9 @@ namespace uni {
 
 		stduint find_free_cluster(FAT_TableScratch* fat_cache = nullptr) {
 			for (uint32_t i = 2; i < total_clusters + 2; i++) {
-				if (get_fat_entry(i, fat_cache) == 0) return i;
+				uint32_t value = 0;
+				if (!ReadFatEntry(i, value, fat_cache)) return 0;
+				if (value == 0) return i;
 			}
 			return 0; // the part is full
 		}
@@ -255,8 +286,8 @@ namespace uni {
 		static void setFatCreationTime(FAT_DirEntry& entry, uint16_t date, uint16_t time, uint8_t hundredths);
 		static void setFatWriteTime(FAT_DirEntry& entry, uint16_t date, uint16_t time);
 #endif
-		// Walk a cluster directory looking for `target_name`; the LFN pieces before it are reported by start position and count
-		bool find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer = nullptr, FAT_TableScratch* fat_cache = nullptr, uint32_t* out_lfn_sector = nullptr, uint32_t* out_lfn_index = nullptr, stduint* out_lfn_count = nullptr);
+		// Walk a cluster directory looking for `target_name`; report preceding LFN positions/count and distinguish absence from scan failure through lookup_complete.
+		bool find_entry_in_dir(uint32_t dir_cluster, const char* target_name, FAT_DirEntry* out_entry, uint32_t* out_sector, uint32_t* out_index, byte* sector_buffer = nullptr, FAT_TableScratch* fat_cache = nullptr, uint32_t* out_lfn_sector = nullptr, uint32_t* out_lfn_index = nullptr, stduint* out_lfn_count = nullptr, bool* lookup_complete = nullptr);
 
 		// Long file name write support
 		bool build_lfn_entries(const char* name, const FAT_DirEntry& short_entry, byte* out_entries, stduint capacity, stduint& out_count);

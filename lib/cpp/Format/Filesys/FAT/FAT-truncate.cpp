@@ -27,7 +27,10 @@ namespace uni {
 
 	bool FilesysFAT::truncate(void* fil_handler, stduint size) {
 		FAT_FileHandle* fh = (FAT_FileHandle*)fil_handler;
-		if (!fh || fh->is_dir) return false;
+		if (!fs_loaded || !fh || !storage || getFaultState() != FilesysFaultState::Healthy) return false;
+		bool metadata_changed = false;
+		const FAT_FileHandle original = *fh;
+		if (fh->is_dir) return false;
 
 		stduint bytes_per_sector = storage->Block_Size;
 		uint32_t cluster_size = sectors_per_cluster * bytes_per_sector;
@@ -40,6 +43,9 @@ namespace uni {
 			fat_cache = &fat_table_cache;
 		}
 		auto finish_truncate = [&](bool ret) -> bool {
+			if (!ret && metadata_changed) MarkWriteFault();
+			ret = ret && getFaultState() == FilesysFaultState::Healthy;
+			if (!ret) *fh = original;
 			if (fat_cache) delete[] fat_table_cache.buffer;
 			return ret;
 		};
@@ -69,7 +75,9 @@ namespace uni {
 				uint32_t cluster = fh->start_cluster;
 				while (cluster >= 2 && !is_eof(cluster)) {
 					uint32_t next = get_fat_entry(cluster, fat_cache);
-					set_fat_entry(cluster, 0, fat_cache); // Mark cluster as free
+					if (next == 0xFFFFFFFFu) return finish_truncate(false);
+					if (!set_fat_entry(cluster, 0, fat_cache)) return finish_truncate(false); // Mark cluster as free
+					metadata_changed = true;
 					cluster = next;
 				}
 				fh->start_cluster = 0;
@@ -80,17 +88,22 @@ namespace uni {
 				uint32_t last = fh->start_cluster;
 				for (uint32_t i = 1; i < clusters_needed; i++) {
 					last = get_fat_entry(last, fat_cache);
+					if (last == 0xFFFFFFFFu) return finish_truncate(false);
 					if (is_eof(last)) break;
 				}
 
 				if (!is_eof(last)) {
 					uint32_t to_free = get_fat_entry(last, fat_cache);
-					set_fat_entry(last, eoc_mark, fat_cache); // Mark new end of file
+					if (to_free == 0xFFFFFFFFu) return finish_truncate(false);
+					if (!set_fat_entry(last, eoc_mark, fat_cache)) return finish_truncate(false); // Mark new end of file
+					metadata_changed = true;
 
 					// Free remaining clusters
 					while (to_free >= 2 && !is_eof(to_free)) {
 						uint32_t next = get_fat_entry(to_free, fat_cache);
-						set_fat_entry(to_free, 0, fat_cache);
+						if (next == 0xFFFFFFFFu) return finish_truncate(false);
+						if (!set_fat_entry(to_free, 0, fat_cache)) return finish_truncate(false);
+						metadata_changed = true;
 						to_free = next;
 					}
 				}
@@ -101,7 +114,9 @@ namespace uni {
 			// Write updated size to directory entry
 			if (!fh->is_unlinked) {
 				byte* dir_buf = new byte[bytes_per_sector];
-				if (storage->Read(fh->dir_sector, dir_buf)) {
+				if (!dir_buf) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+				if (!ReadBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+				{
 					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 					entry->file_size = fh->size;
 					entry->cluster_low = (uint16_t)(fh->start_cluster & 0xFFFF);
@@ -113,7 +128,7 @@ namespace uni {
 					if (getFatDateTime(fat_date, fat_time, fat_hundredths))
 						setFatWriteTime(*entry, fat_date, fat_time);
 #endif
-					storage->Write(fh->dir_sector, dir_buf);
+					if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_truncate(false); }
 				}
 				delete[] dir_buf;
 			}
@@ -130,17 +145,20 @@ namespace uni {
 			if (is_eof(cluster)) {
 				cluster = find_free_cluster(fat_cache);
 				if (cluster == 0) return finish_truncate(false);
-				set_fat_entry(cluster, eoc_mark, fat_cache);
+				if (!set_fat_entry(cluster, eoc_mark, fat_cache)) return finish_truncate(false);
+				metadata_changed = true;
 				fh->start_cluster = cluster;
 				fh->current_cluster = cluster;
 
 				if (!fh->is_unlinked) {
 					byte* dir_buf = new byte[bytes_per_sector];
-					if (storage->Read(fh->dir_sector, dir_buf)) {
+					if (!dir_buf) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+					if (!ReadBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+					{
 						FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 						entry->cluster_low = (uint16_t)(cluster & 0xFFFF);
 						entry->cluster_high = (uint16_t)(cluster >> 16);
-						storage->Write(fh->dir_sector, dir_buf);
+						if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_truncate(false); }
 					}
 					delete[] dir_buf;
 				}
@@ -151,6 +169,7 @@ namespace uni {
 				uint32_t last = fh->start_cluster;
 				while (true) {
 					uint32_t next = get_fat_entry(last, fat_cache);
+					if (next == 0xFFFFFFFFu) return finish_truncate(false);
 					if (is_eof(next)) break;
 					last = next;
 				}
@@ -159,8 +178,10 @@ namespace uni {
 				for (uint32_t i = current_cluster_count; i < clusters_needed; i++) {
 					uint32_t next = find_free_cluster(fat_cache);
 					if (next == 0) return finish_truncate(false); // Disk full
-					set_fat_entry(last, next, fat_cache);
-					set_fat_entry(next, eoc_mark, fat_cache);
+					if (!set_fat_entry(last, next, fat_cache)) return finish_truncate(false);
+					metadata_changed = true;
+					if (!set_fat_entry(next, eoc_mark, fat_cache)) return finish_truncate(false);
+					metadata_changed = true;
 					last = next;
 				}
 			}
@@ -169,7 +190,9 @@ namespace uni {
 
 			if (!fh->is_unlinked) {
 				byte* dir_buf = new byte[bytes_per_sector];
-				if (storage->Read(fh->dir_sector, dir_buf)) {
+				if (!dir_buf) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+				if (!ReadBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+				{
 					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 					entry->file_size = fh->size;
 #ifdef _FILESYS_DATETIME
@@ -179,7 +202,7 @@ namespace uni {
 					if (getFatDateTime(fat_date, fat_time, fat_hundredths))
 						setFatWriteTime(*entry, fat_date, fat_time);
 #endif
-					storage->Write(fh->dir_sector, dir_buf);
+					if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_truncate(false); }
 				}
 				delete[] dir_buf;
 			}

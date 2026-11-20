@@ -21,6 +21,7 @@
 */
 
 #include "../../../../../inc/c/format/filesys/FAT.h"
+#include "../../../../../inc/cpp/System/Filesys.hpp"
 #include "../../../../../inc/c/proctrl/x86/inst_x86_64.h"
 #include "../../../../../inc/c/API-POSIX/fcntl.h"
 
@@ -29,12 +30,14 @@ namespace uni {
 	bool FilesysFAT::create(rostr fullpath, stduint flags, FilesysCreateParameter& parameter) {
 		// FAT has no per-file Unix UID/GID/mode storage; creation retains the mount policy.
 		(void)parameter.attributes;
-		if (!fs_loaded) return false;
+		if (!fs_loaded || getFaultState() != FilesysFaultState::Healthy) return false;
+		Mutation transaction(*this);
+		if (!transaction.IsReady()) return false;
 
 		// Extract pure filename (Isolate from VFS absolute path)
-		const char* filename = StrIndexCharRight(fullpath, '/');
-		if (!filename) filename = fullpath;
-		else filename++; // skip the slash
+		FilesysPathParts path;
+		if (!uni::SplitParentAndName(fullpath, path) || path.trailing_separator) return false;
+		const char* filename = path.name.data;
 
 		// Retrieve Parent Cluster from the VFS input handle; extension information remains backend-specific.
 		FAT_FileHandle* parent_h = static_cast<FAT_FileHandle*>(parameter.handler);
@@ -64,6 +67,8 @@ namespace uni {
 		if (!sector_buffer) return false;
 		FAT_FileHandle* new_fh = nullptr;
 		auto finish_create = [&](bool ret) -> bool {
+			ret = transaction.Finish(ret);
+			if (ret) parameter.handler = new_fh;
 			if (!ret) delete new_fh;
 			if (fat_cache) delete[] fat_table_cache.buffer;
 			if (allocated_sector_buffer) delete[] sector_buffer;
@@ -88,10 +93,11 @@ namespace uni {
 			}
 			uint32_t end_mark = (fat_type == 32) ? 0x0FFFFFFF :
 				(fat_type == 16) ? 0xFFFF : 0xFFF;
-			set_fat_entry(new_cluster, end_mark, fat_cache);
+			if (!set_fat_entry(new_cluster, end_mark, fat_cache)) return finish_create(false);
 
 			// --- [NEW LOGIC]: Initialize "." and ".." for the new directory ---
 			byte* dir_init_buf = new byte[storage->Block_Size];
+			if (!dir_init_buf) return finish_create(false);
 			MemSet(dir_init_buf, 0, storage->Block_Size);
 
 			FAT_DirEntry* dot = (FAT_DirEntry*)&dir_init_buf[0];
@@ -121,7 +127,11 @@ namespace uni {
 #endif
 
 			// Flush the initialization sector to disk
-			storage->Write(getSector_foCluster(new_cluster), dir_init_buf);
+			if (!WriteBlock(getSector_foCluster(new_cluster), dir_init_buf)) { delete[] dir_init_buf; return finish_create(false); }
+			MemSet(dir_init_buf, 0, storage->Block_Size);
+			for (uint32_t offset = 1; offset < sectors_per_cluster; ++offset) {
+				if (!WriteBlock(getSector_foCluster(new_cluster) + offset, dir_init_buf)) { delete[] dir_init_buf; return finish_create(false); }
+			}
 			delete[] dir_init_buf;
 			// ------------------------------------------------------------------
 		}
@@ -182,7 +192,6 @@ namespace uni {
 		new_fh->is_unlinked = false;
 		new_fh->dir_sector = entry_sector;
 		new_fh->dir_index = entry_index;
-		parameter.handler = new_fh;
 
 		return finish_create(true);
 	}

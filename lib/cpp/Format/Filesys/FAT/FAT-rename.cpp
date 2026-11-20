@@ -21,205 +21,151 @@
 */
 
 #include "../../../../../inc/c/format/filesys/FAT.h"
+#include "../../../../../inc/cpp/System/Filesys.hpp"
 #include "../../../../../inc/c/proctrl/x86/inst_x86_64.h"
 
 namespace uni {
 
-	bool FilesysFAT::rename(rostr src_path, rostr dst_path, void* handler) {
-		if (!fs_loaded) return false;
-
-		stduint bytes_per_sector = storage->Block_Size;
-		byte* sector_buffer = buffer_sector;
-		bool allocated_sector_buffer = false;
-		FAT_TableScratch fat_table_cache = {};
-		FAT_TableScratch* fat_cache = nullptr;
+	bool FilesysFAT::rename(rostr src_path, rostr dst_path, FilesysRenameParameter& parameter) {
+		if (!fs_loaded || !storage || storage->Block_Size < 64 || storage->Block_Size % sizeof(FAT_DirEntry) ||
+			!sectors_per_cluster || getFaultState() != FilesysFaultState::Healthy) return false;
+		auto* source = static_cast<FAT_FileHandle*>(parameter.handler);
+		auto* target = static_cast<FAT_FileHandle*>(parameter.replaced_handler);
+		if (!source || source->is_unlinked || !source->dir_sector || (target && target->is_unlinked)) return false;
+		Mutation transaction(*this);
+		if (!transaction.IsReady()) return false;
+		// Keep path, parent handles and entry snapshots off embedded service stacks.
+		struct Scratch {
+			char source_parent_path[256];
+			char target_parent_path[256];
+			FAT_FileHandle source_parent{};
+			FAT_FileHandle target_parent{};
+			FAT_DirEntry source_entry{};
+			FAT_DirEntry target_entry{};
+		};
+		auto work = make_unique<Scratch>();
+		if (!work) return false;
+		UniquePtr<byte[]> sector_owner;
+		UniquePtr<byte[]> fat_owner;
 		if (allow_allocate) {
-			sector_buffer = new byte[bytes_per_sector];
-			if (!sector_buffer) return false;
-			allocated_sector_buffer = true;
-
-			fat_table_cache.buffer = new byte[bytes_per_sector];
-			if (!fat_table_cache.buffer) {
-				delete[] sector_buffer;
-				return false;
-			}
-			fat_table_cache.current_sector = 0xFFFFFFFF;
-			fat_cache = &fat_table_cache;
+			sector_owner = make_unique<byte[]>(storage->Block_Size);
+			fat_owner = make_unique<byte[]>(storage->Block_Size);
+			if (!sector_owner || !fat_owner) return false;
 		}
-		if (!sector_buffer) return false;
+		byte* sector = allow_allocate ? sector_owner.get() : buffer_sector;
+		FAT_TableScratch cache{};
+		cache.buffer = allow_allocate ? fat_owner.get() : buffer_fatable;
+		cache.current_sector = 0xFFFFFFFF;
+		FAT_TableScratch* fat_cache = allow_allocate ? &cache : nullptr;
+		if (!sector || !cache.buffer || sector == cache.buffer) return false;
+		FilesysPathParts source_parts, target_parts;
+		if (!SplitParentAndName(src_path, source_parts) || source_parts.trailing_separator ||
+			!SplitParentAndName(dst_path, target_parts) || target_parts.trailing_separator ||
+			source_parts.parent.length >= sizeof(work->source_parent_path) || target_parts.parent.length >= sizeof(work->target_parent_path)) return false;
+		auto parent_path = [](const FilesysPathComponent& part, char* path) {
+			if (!part.length) StrCopy(path, "/");
+			else { MemCopyN(path, part.data, part.length); path[part.length] = 0; }
+		};
+		parent_path(source_parts.parent, work->source_parent_path);
+		parent_path(target_parts.parent, work->target_parent_path);
+		FilesysSearchArgs args = { &work->source_parent, nullptr, nullptr, nullptr };
+		if (!search(work->source_parent_path, &args) || !work->source_parent.is_dir) return false;
+		args.handle_buffer = &work->target_parent;
+		if (!search(work->target_parent_path, &args) || !work->target_parent.is_dir) return false;
+		const uint32_t source_parent = work->source_parent.start_cluster;
+		const uint32_t target_parent = work->target_parent.start_cluster;
+		const bool same_parent = source_parent == target_parent;
+		uint32_t source_sector = 0, source_index = 0, lfn_sector = 0, lfn_index = 0;
+		stduint lfn_count = 0;
+		if (!find_entry_in_dir(source_parent, source_parts.name.data, &work->source_entry, &source_sector, &source_index, sector, fat_cache, &lfn_sector, &lfn_index, &lfn_count) || lfn_count > 20) return false;
+		const uint32_t cluster_mask = fat_type == 32 ? 0x0FFFFFFFu : 0xFFFFu;
+		auto matches = [&](const FAT_FileHandle& handle, const FAT_DirEntry& entry, uint32_t address, uint32_t index) {
+			return !handle.is_unlinked && handle.dir_sector == address && handle.dir_index == index &&
+				handle.is_dir == bool(entry.attribute.directory) && (handle.start_cluster & cluster_mask) == (entry.getFirstClusterNumber() & cluster_mask);
+		};
+		if (!matches(*source, work->source_entry, source_sector, source_index)) return false;
+		uint32_t target_sector = 0, target_index = 0;
+		bool lookup_complete = false;
+		const bool exists = find_entry_in_dir(target_parent, target_parts.name.data, &work->target_entry, &target_sector, &target_index, sector, fat_cache, nullptr, nullptr, nullptr, &lookup_complete);
+		if (!lookup_complete) return false;
+		if (exists && source_sector == target_sector && source_index == target_index) return transaction.Finish(true);
+		if (exists != bool(target)) return false;
+		if (target) {
+			// FAT has no hard links; distinct entries sharing a data start must not reclaim each other.
+			if (source->start_cluster && (source->start_cluster & cluster_mask) == (target->start_cluster & cluster_mask)) return false;
+			if (!matches(*target, work->target_entry, target_sector, target_index) || source->is_dir != target->is_dir) return false;
+			if (target->is_dir && CheckDirectoryContents(target, sector, fat_cache) != FilesysDirectoryState::Empty) return false;
+		}
+		const uint32_t old_sector = lfn_count ? lfn_sector : source_sector;
+		const uint32_t old_index = lfn_count ? lfn_index : source_index;
 		uint32_t updated_sector = 0, updated_index = 0;
-		auto finish_rename = [&](bool ret) -> bool {
-			if (ret && handler) {
-				// Rename relocates the short entry; preserve the source object's allocation, data state, and cursor.
-				auto* source_handle = static_cast<FAT_FileHandle*>(handler);
-				source_handle->dir_sector = updated_sector;
-				source_handle->dir_index = updated_index;
-			}
-			if (fat_cache) delete[] fat_table_cache.buffer;
-			if (allocated_sector_buffer) delete[] sector_buffer;
-			return ret;
-		};
-
-		// Split src_path into parent path and filename
-		char src_parent_path[256];
-		const char* src_filename = StrIndexCharRight(src_path, '/');
-		if (!src_filename) {
-			StrCopy(src_parent_path, "/");
-			src_filename = src_path;
-		}
-		else {
-			stduint len = src_filename - src_path;
-			if (len == 0) len = 1;
-			MemCopyN(src_parent_path, src_path, len);
-			src_parent_path[len] = '\0';
-			src_filename++;
-		}
-
-		// Split dst_path into parent path and filename
-		char dst_parent_path[256];
-		const char* dst_filename = StrIndexCharRight(dst_path, '/');
-		if (!dst_filename) {
-			StrCopy(dst_parent_path, "/");
-			dst_filename = dst_path;
-		}
-		else {
-			stduint len = dst_filename - dst_path;
-			if (len == 0) len = 1;
-			MemCopyN(dst_parent_path, dst_path, len);
-			dst_parent_path[len] = '\0';
-			dst_filename++;
-		}
-
-		// Locate source parent handle and entry
-		FAT_FileHandle src_parent_h;
-		FilesysSearchArgs src_search_args = { &src_parent_h, nullptr, nullptr, nullptr };
-		if (!this->search(src_parent_path, &src_search_args)) {
-			StrCopy(src_parent_path, "/");
-			if (!this->search(src_parent_path, &src_search_args)) return finish_rename(false);
-		}
-
-		if (!src_parent_h.is_dir) return finish_rename(false);
-
-		FAT_DirEntry entry;
-		uint32_t src_entry_sector = 0;
-		uint32_t src_entry_index = 0;
-		uint32_t src_lfn_sector = 0;
-		uint32_t src_lfn_index = 0;
-		stduint src_lfn_count = 0;
-		if (!find_entry_in_dir(src_parent_h.start_cluster, src_filename, &entry, &src_entry_sector, &src_entry_index, sector_buffer, fat_cache, &src_lfn_sector, &src_lfn_index, &src_lfn_count)) {
-			return finish_rename(false); // Source file not found
-		}
-
-		const bool is_same_dir = StrCompare(src_parent_path, dst_parent_path) == 0;
-		uint32_t dst_parent_cluster = src_parent_h.start_cluster;
-		if (!is_same_dir) {
-			FAT_FileHandle dst_parent_h;
-			FilesysSearchArgs dst_search_args = { &dst_parent_h, nullptr, nullptr, nullptr };
-			if (!this->search(dst_parent_path, &dst_search_args)) {
-				StrCopy(dst_parent_path, "/");
-				if (!this->search(dst_parent_path, &dst_search_args)) return finish_rename(false);
-			}
-			if (!dst_parent_h.is_dir) return finish_rename(false);
-			dst_parent_cluster = dst_parent_h.start_cluster;
-			FAT_DirEntry existing_entry;
-			if (find_entry_in_dir(dst_parent_cluster, dst_filename, &existing_entry, nullptr, nullptr, sector_buffer, fat_cache)) {
-				return finish_rename(false); // Target already exists
-			}
-		}
-
-		// Prepare new entry based on the source entry with the destination name
-		FAT_DirEntry new_entry = entry;
-		FAT_DirEntry shaped;
-		bool needs_lfn = false;
-		if (!build_short_entry(dst_filename, dst_parent_cluster, sector_buffer, fat_cache, shaped, needs_lfn)) {
-			return finish_rename(false);
-		}
-		MemCopyN(new_entry.name, shaped.name, 8);
-		MemCopyN(new_entry.ext, shaped.ext, 3);
-
-		constexpr stduint lfn_capacity = 20;
-		stduint new_count = 0;
-		byte* run = new byte[(lfn_capacity + 2) * 32];
-		if (!run) return finish_rename(false);
-		auto drop_run = [&]() {
-			delete[] run;
-			run = nullptr;
-		};
-		if (needs_lfn &&
-			(!build_lfn_entries(dst_filename, new_entry, run, lfn_capacity, new_count) || !new_count)) {
-			drop_run();
-			return finish_rename(false);
-		}
-		MemCopyN(run + new_count * 32, &new_entry, 32);
-		MemSet(run + (new_count + 1) * 32, 0, 32);
-
-		const uint32_t old_block_sector = src_lfn_count ? src_lfn_sector : src_entry_sector;
-		const uint32_t old_block_index = src_lfn_count ? src_lfn_index : src_entry_index;
-		const stduint old_block_count = src_lfn_count + 1;
-
-		// Resolve the short-entry slot before changing directory entries, including LFN runs crossing sectors or clusters.
-		auto prepare_handle = [&](uint32_t dir_cluster, uint32_t run_sector, uint32_t run_index) -> bool {
-			if (!handler) return true;
-			const stduint slots_per_sector = bytes_per_sector / sizeof(FAT_DirEntry);
-			if (!slots_per_sector || run_index >= slots_per_sector) return false;
-			updated_sector = run_sector;
-			stduint index = run_index + new_count;
-			while (index >= slots_per_sector) {
-				updated_sector = dir_next_sector(dir_cluster, updated_sector, fat_cache);
-				if (!updated_sector) return false;
-				index -= slots_per_sector;
-			}
-			updated_index = (uint32_t)index;
+		auto finish = [&]() {
+			if (!transaction.Finish(true)) return false;
+			// Publish only namespace locations; open descriptors retain allocation, size and stream position.
+			source->dir_sector = updated_sector;
+			source->dir_index = updated_index;
+			if (target) target->is_unlinked = true;
 			return true;
 		};
-
-		if (is_same_dir && src_lfn_count >= new_count) {
-			// In-place: clear the old block, then lay the new pieces and short entry over its front
-			if (!prepare_handle(src_parent_h.start_cluster, old_block_sector, old_block_index) ||
-				!erase_dir_run(src_parent_h.start_cluster, old_block_sector, old_block_index, old_block_count) ||
-				!write_dir_run(src_parent_h.start_cluster, old_block_sector, old_block_index, run, new_count + 1)) {
-				drop_run();
-				return finish_rename(false);
+		// A directory's parent link belongs to the same change set as both namespace entries.
+		if (source->is_dir && !same_parent) {
+			if (!IsDataCluster(source->start_cluster) || !ReadBlock(getSector_foCluster(source->start_cluster), sector)) return false;
+			auto* dotdot = reinterpret_cast<FAT_DirEntry*>(sector) + 1;
+			if (dotdot->name[0] != '.' || dotdot->name[1] != '.' || !dotdot->attribute.directory) return false;
+			const uint32_t parent = fat_type != 32 && target_parent == root_cluster ? 0 : target_parent;
+			dotdot->cluster_low = uint16_t(parent);
+			dotdot->cluster_high = uint16_t(parent >> 16);
+			if (!WriteBlock(getSector_foCluster(source->start_cluster), sector)) return false;
+		}
+		if (target) {
+			// Retain the target name and LFN checksum while replacing its allocation and metadata with the source's.
+			FAT_DirEntry replacement = work->source_entry;
+			MemCopyN(replacement.name, work->target_entry.name, sizeof(replacement.name));
+			MemCopyN(replacement.ext, work->target_entry.ext, sizeof(replacement.ext));
+			replacement.nt_reserved = work->target_entry.nt_reserved;
+			if (!ReadBlock(target_sector, sector)) return false;
+			auto* slot = reinterpret_cast<FAT_DirEntry*>(sector) + target_index;
+			if (MemCompare(reinterpret_cast<const char*>(slot), reinterpret_cast<const char*>(&work->target_entry), sizeof(FAT_DirEntry))) return false;
+			MemCopyN(slot, &replacement, sizeof(replacement));
+			if (!WriteBlock(target_sector, sector) || !erase_dir_run(source_parent, old_sector, old_index, lfn_count + 1)) return false;
+			updated_sector = target_sector;
+			updated_index = target_index;
+			return finish();
+		}
+		// An absent target retains the existing short-name and LFN construction path.
+		FAT_DirEntry shaped;
+		bool needs_lfn = false;
+		if (!build_short_entry(target_parts.name.data, target_parent, sector, fat_cache, shaped, needs_lfn)) return false;
+		MemCopyN(work->source_entry.name, shaped.name, sizeof(shaped.name));
+		MemCopyN(work->source_entry.ext, shaped.ext, sizeof(shaped.ext));
+		constexpr stduint capacity = 20;
+		auto run = make_unique<byte[]>((capacity + 2) * sizeof(FAT_DirEntry));
+		if (!run) return false;
+		stduint count = 0;
+		if (needs_lfn && (!build_lfn_entries(target_parts.name.data, work->source_entry, run.get(), capacity, count) || !count)) return false;
+		MemCopyN(run.get() + count * sizeof(FAT_DirEntry), &work->source_entry, sizeof(FAT_DirEntry));
+		auto locate_short = [&](uint32_t address, uint32_t index) {
+			const stduint slots = storage->Block_Size / sizeof(FAT_DirEntry);
+			stduint offset = index + count;
+			while (offset >= slots) {
+				address = dir_next_sector(target_parent, address, fat_cache);
+				if (!address) return false;
+				offset -= slots;
 			}
-			drop_run();
-			return finish_rename(true);
+			updated_sector = address;
+			updated_index = uint32_t(offset);
+			return true;
+		};
+		if (same_parent && lfn_count >= count) {
+			if (!locate_short(old_sector, old_index) || !erase_dir_run(source_parent, old_sector, old_index, lfn_count + 1) ||
+				!write_dir_run(target_parent, old_sector, old_index, run.get(), count + 1)) return false;
+			return finish();
 		}
-
-		uint32_t written_sector = 0;
-		uint32_t written_index = 0;
-		if (!alloc_dir_run(dst_parent_cluster, new_count + 2, written_sector, written_index, sector_buffer, fat_cache) ||
-			!prepare_handle(dst_parent_cluster, written_sector, written_index) ||
-			!write_dir_run(dst_parent_cluster, written_sector, written_index, run, new_count + 2)) {
-			drop_run();
-			return finish_rename(false);
-		}
-		drop_run();
-
-		// If the entry is a directory, update its ".." pointer to the new parent
-		if (new_entry.attribute.directory) {
-			uint32_t dir_start_cluster = new_entry.getFirstClusterNumber();
-			if (fat_type != 32) dir_start_cluster &= 0xFFFF;
-
-			if (dir_start_cluster >= 2) {
-				uint32_t dir_sector = getSector_foCluster(dir_start_cluster);
-				if (storage->Read(dir_sector, sector_buffer)) {
-					FAT_DirEntry* dotdot = (FAT_DirEntry*)&sector_buffer[32];
-					if (dotdot->name[0] == '.' && dotdot->name[1] == '.') {
-						uint32_t pp_clus = (dst_parent_cluster == root_cluster && fat_type != 32) ? 0 : dst_parent_cluster;
-						dotdot->cluster_low = (uint16_t)(pp_clus & 0xFFFF);
-						dotdot->cluster_high = (uint16_t)(pp_clus >> 16);
-						storage->Write(dir_sector, sector_buffer);
-					}
-				}
-			}
-		}
-
-		// Mark the whole source block, LFN pieces and short entry, as deleted
-		if (!erase_dir_run(src_parent_h.start_cluster, old_block_sector, old_block_index, old_block_count)) {
-			return finish_rename(false);
-		}
-
-		return finish_rename(true);
+		uint32_t address = 0, index = 0;
+		if (!alloc_dir_run(target_parent, count + 2, address, index, sector, fat_cache) || !locate_short(address, index) ||
+			!write_dir_run(target_parent, address, index, run.get(), count + 2) ||
+			!erase_dir_run(source_parent, old_sector, old_index, lfn_count + 1)) return false;
+		return finish();
 	}
 
 }

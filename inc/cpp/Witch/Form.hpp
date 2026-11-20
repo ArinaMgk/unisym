@@ -205,15 +205,44 @@ namespace uni::Witch {
 		}
 
 		virtual void Update(SheetTrait* who, const Rectangle& rect) override {
-			if (sheet_buffer) {
-				Color* p = sheet_buffer;
-				for0(j, sheet_area.height) for0(i, sheet_area.width) {
-					*p++ = getPoint(Point(i, j));
-				}
-				if (title_visable && Title.reference()) DrawString_16(self, Point2(3, 3), Title, Color::Black);
-				if (title_visable && Title.reference()) DrawString_16(self, Point2(2, 2), Title, Color::White);
+			stduint offset_x = 0;
+			stduint offset_y = 0;
+			if (who == &client_area) {
+				offset_x = client_area.sheet_area.x;
+				offset_y = client_area.sheet_area.y;
+			} else if (who) {
+				offset_x = who->sheet_area.x;
+				offset_y = who->sheet_area.y;
 			}
-			if (sheet_parent) sheet_parent->Update(this, who->sheet_area);
+			if (!rect.width || !rect.height ||
+				offset_x >= sheet_area.width || offset_y >= sheet_area.height) return;
+			stduint available_width = sheet_area.width - offset_x;
+			stduint available_height = sheet_area.height - offset_y;
+			if (rect.x >= available_width || rect.y >= available_height) return;
+			Rectangle dirty;
+			dirty.x = offset_x + rect.x;
+			dirty.y = offset_y + rect.y;
+			dirty.width = minof(rect.width, available_width - rect.x);
+			dirty.height = minof(rect.height, available_height - rect.y);
+			if (!dirty.width || !dirty.height) return;
+
+			if (sheet_buffer) {
+				for0(j, dirty.height) {
+					Color* p = sheet_buffer + (dirty.y + j) * sheet_area.width + dirty.x;
+					for0(i, dirty.width) {
+						p[i] = getPoint(Point(dirty.x + i, dirty.y + j));
+					}
+				}
+				if (title_visable && Title.reference() &&
+					dirty.x < title_bar.sheet_area.x + title_bar.sheet_area.width &&
+					title_bar.sheet_area.x < dirty.x + dirty.width &&
+					dirty.y < title_bar.sheet_area.y + title_bar.sheet_area.height &&
+					title_bar.sheet_area.y < dirty.y + dirty.height) {
+					DrawString_16(self, Point2(3, 3), Title, Color::Black);
+					DrawString_16(self, Point2(2, 2), Title, Color::White);
+				}
+			}
+			if (sheet_parent) sheet_parent->Update(this, dirty);
 		}
 
 	};// SheetT

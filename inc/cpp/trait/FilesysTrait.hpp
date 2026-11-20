@@ -25,6 +25,7 @@
 
 #include "../trait/BlockTrait.hpp"
 #include "../trait/StorageTrait.hpp"
+#include "../atomic"
 
 
 #ifndef _FILESYS_DATETIME
@@ -76,6 +77,8 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 #ifdef _FILESYS_DATETIME
 		FS_CMD_GET_INFO = 0x03,  // moreinfo points to FilesysFileInfo for output
 #endif
+		FS_CMD_INSPECT_DIRECTORY = 0x04, // moreinfo points to FilesysDirectoryState; true means a result was supplied.
+		FS_CMD_COMPARE_HANDLE = 0x05, // moreinfo points to FilesysHandleComparison; true means a comparison was supplied.
 	};
 
 #ifdef _FILESYS_DATETIME
@@ -106,6 +109,22 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		void* dir_info;          // formerly moreinfo[1]
 		stduint (*on_segment)(void* handle, const char* name, stduint is_dir, stduint size, void* user_data);
 		void* user_data;
+	};
+
+	enum class FilesysDirectoryState {
+		Empty,
+		NotEmpty,
+		Unsupported,
+		Invalid,
+		IoError,
+	};
+
+	enum class FilesysDirectoryRemoveResult {
+		Success,
+		NotEmpty,
+		Unsupported,
+		Invalid,
+		IoError,
 	};
 
 	struct FilesysEnumState {
@@ -176,12 +195,24 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		stduint mode = 0644;
 	};
 
+	struct FilesysHandleComparison {
+		void* other = nullptr;
+		bool same = false;
+	};
+
+	struct FilesysRenameParameter {
+		void* handler = nullptr; // Source handle; only its namespace location changes on success.
+		void* replaced_handler = nullptr; // Expected target to unlink on success; retain its data until the last reference is released.
+	};
+
 	struct FilesysCreateParameter {
 		void* handler = nullptr; // Parent handle on input; created handle on success.
 		rostr linkdest = nullptr;
 		const FilesysCreateAttributes* attributes = nullptr;
 		void* exinfo = nullptr; // Optional backend-specific extension information.
 	};
+
+	enum class FilesysFaultState : byte { Healthy, WriteBlocked };
 
 	class FilesysTrait
 	{
@@ -231,8 +262,8 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 
 		virtual bool truncate(void* fil_handler, stduint size) { return false; }// adjust file size
 
-		// Rename the entry and update the optional source handle only on success, preserving its identity and stream position.
-		virtual bool rename(rostr src_path, rostr dst_path, void* handler = nullptr) { return false; }
+		// Commit replacement before updating either handle; a null replaced_handler requires an absent destination.
+		virtual bool rename(rostr src_path, rostr dst_path, FilesysRenameParameter& parameter) { return false; }
 
 		// Remove a namespace entry while retaining data referenced by an open handle.
 		virtual bool unlink(rostr pathname, void* fil_handler) {
@@ -241,11 +272,16 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 			return false;
 		}
 
+		// Remove an empty directory entry while retaining storage owned by the supplied handle.
+		virtual FilesysDirectoryRemoveResult rmdir(rostr pathname, void* handler) { return FilesysDirectoryRemoveResult::Unsupported; }
+
 		// Reclaim data retained for an unlinked open handle.
 		virtual bool reclaim(void* fil_handler) {
 			(void)fil_handler;
 			return false;
 		}
+
+		// end of virtual functions
 
 #ifdef _FILESYS_DATETIME
 	protected:
@@ -257,9 +293,23 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		FilesysTimeSource time_source = {};
 #endif
 
+	public: // Fault state
+		// The fault latch is independent of mount permissions and never clears during ordinary reloads.
+		FilesysFaultState getFaultState() const { return FilesysFaultState(fault_state.load(MemoryOrder_Acquire)); }
+
+	protected:
+		// Backends latch uncertain modifications after unsuccessful recovery or unprotected writes.
+		void MarkWriteFault() { fault_state.store(byte(FilesysFaultState::WriteBlocked), MemoryOrder_Release); }
+
+	private:
+		Atomic<byte> fault_state{byte(FilesysFaultState::Healthy)};
+
+	public: // Queries
+		// Caller serializes access; inspection preserves namespace, allocation and the caller's stream position.
+		FilesysDirectoryState InspectDirectory(void* handler);
+
 		//{} extfunc()
 	};
-
 
 	// Loopback Device
 	class FileBlockBridge : public BlockTrait {

@@ -58,8 +58,8 @@ static int remove_recursive(const char* path) {
 		}
 	}
 
-	// Remove the file or the empty directory
-	return unlink(path);
+	// Directory emptiness is checked again by the backend at removal time.
+	return S_ISDIR(st.st_mode) ? rmdir(path) : unlink(path);
 }
 
 int main(int argc, char* argv[]) {
@@ -69,6 +69,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	int opt_recursive = 0;
+	int opt_directory = 0;
 	int start_idx = 1;
 
 	// Parse command line arguments
@@ -77,6 +78,8 @@ int main(int argc, char* argv[]) {
 			for (int j = 1; argv[i][j] != '\0'; j++) {
 				if (argv[i][j] == 'r' || argv[i][j] == 'R') {
 					opt_recursive = 1;
+				} else if (argv[i][j] == 'd') {
+					opt_directory = 1;
 				} else {
 					outsfmt("rm: invalid option -- '%c'\n\r", argv[i][j]);
 					return 1;
@@ -103,13 +106,13 @@ int main(int argc, char* argv[]) {
 			continue;
 		}
 
-		if (S_ISDIR(st.st_mode) && !opt_recursive) {
+		if (S_ISDIR(st.st_mode) && !opt_recursive && !opt_directory) {
 			outsfmt("rm: cannot remove '%s': Is a directory\n\r", path);
 			has_error = 1;
 			continue;
 		}
 
-		if (remove_recursive(path) < 0) {
+		if ((S_ISDIR(st.st_mode) && !opt_recursive ? rmdir(path) : remove_recursive(path)) < 0) {
 			outsfmt("rm: cannot remove '%s'\n\r", path);
 			has_error = 1;
 		}

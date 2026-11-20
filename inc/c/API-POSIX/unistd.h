@@ -110,6 +110,7 @@ extern "C" {
 	/// @param  pathname: path to the file
 	/// @return 0 if successful, -1 if error
 	int unlink(const char* pathname);
+	int rmdir(const char* pathname);
 
 // ----
 

@@ -1158,6 +1158,11 @@
           <GroupName>FS</GroupName>
           <Files>
             <File>
+              <FileName>Filesys.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\System\Filesys.cpp</FilePath>
+            </File>
+            <File>
               <FileName>FAT.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\Format\Filesys\FAT.cpp</FilePath>

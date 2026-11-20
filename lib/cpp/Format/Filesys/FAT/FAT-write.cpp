@@ -27,7 +27,8 @@ namespace uni {
 
 	stduint FilesysFAT::writfl(void* fil_handler, Slice file_slice, const byte* sors) {
 		FAT_FileHandle* fh = (FAT_FileHandle*)fil_handler;
-		if (fh->is_dir) return 0;
+		if (!fs_loaded || !fh || !sors || !storage || getFaultState() != FilesysFaultState::Healthy) return 0;
+		if (fh->is_dir || !file_slice.length) return 0;
 		
 		uint64_t start_offset = file_slice.address;
 		uint64_t to_write = file_slice.length;
@@ -76,7 +77,7 @@ namespace uni {
 		if (is_eof(cluster)) {
 			cluster = find_free_cluster(fat_cache);
 			if (cluster == 0) return finish_write(0);
-			set_fat_entry(cluster, eoc_mark, fat_cache);
+			if (!set_fat_entry(cluster, eoc_mark, fat_cache)) return finish_write(0);
 			fh->start_cluster = cluster;
 			fh->current_cluster = cluster;
 
@@ -84,11 +85,13 @@ namespace uni {
 			// Use dynamically allocated buffer to prevent stack overflow on large sector sizes
 			if (!fh->is_unlinked) {
 				byte* dir_buf = new byte[bytes_per_sector];
-				if (storage->Read(fh->dir_sector, dir_buf)) {
+				if (!dir_buf) { MarkWriteFault(); return finish_write(0); }
+				if (!ReadBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; MarkWriteFault(); return finish_write(0); }
+				{
 					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 					entry->cluster_low = (uint16_t)(cluster & 0xFFFF);
 					entry->cluster_high = (uint16_t)(cluster >> 16);
-					storage->Write(fh->dir_sector, dir_buf);
+					if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_write(0); }
 				}
 				delete[] dir_buf;
 			}
@@ -104,6 +107,7 @@ namespace uni {
 			uint32_t last = fh->start_cluster;
 			while (true) {
 				uint32_t next = get_fat_entry(last, fat_cache);
+				if (next == 0xFFFFFFFFu) return finish_write(0);
 				if (is_eof(next)) break;
 				last = next;
 			}
@@ -111,8 +115,8 @@ namespace uni {
 			for (uint32_t i = current_cluster_count; i < clusters_needed; i++) {
 				uint32_t next = find_free_cluster(fat_cache);
 				if (next == 0) break; // disk full
-				set_fat_entry(last, next, fat_cache);
-				set_fat_entry(next, eoc_mark, fat_cache);
+				if (!set_fat_entry(last, next, fat_cache)) return finish_write(0);
+				if (!set_fat_entry(next, eoc_mark, fat_cache)) { MarkWriteFault(); return finish_write(0); }
 				last = next;
 			}
 		}
@@ -125,6 +129,7 @@ namespace uni {
 		uint64_t seek_pos = current_pos;
 		while (seek_pos >= cluster_size) {
 			cluster = get_fat_entry(cluster, fat_cache);
+			if (cluster == 0xFFFFFFFFu) return finish_write(0);
 			if (is_eof(cluster)) break;
 			seek_pos -= cluster_size;
 		}
@@ -151,11 +156,11 @@ namespace uni {
 				MemCopyN(sector_buffer, sors + total_written, bytes_per_sector);
 			}
 			else {
-				storage->Read(target_sector, sector_buffer);
+				if (!ReadBlock(target_sector, sector_buffer)) break;
 				MemCopyN(sector_buffer + offset_in_sector, sors + total_written, can_write_in_sector);
 			}
 			// plogwarn("FATWrite %u %s", target_sector, sector_buffer);
-			if (!storage->Write(target_sector, sector_buffer)) break;
+			if (!WriteBlock(target_sector, sector_buffer)) break;
 
 			total_written += can_write_in_sector;
 			current_pos += can_write_in_sector;
@@ -163,14 +168,16 @@ namespace uni {
 			// If we crossed a cluster boundary, move to the next cluster
 			if ((current_pos % cluster_size) == 0 && total_written < to_write) {
 				cluster = get_fat_entry(cluster, fat_cache);
+				if (cluster == 0xFFFFFFFFu) break;
 			}
 		}
 
 		// Update the directory entry after a successful write.
-		bool size_changed = current_pos > fh->size;
-		if (size_changed) {
-			fh->size = (uint32_t)current_pos;
-		}
+		bool size_changed = total_written && current_pos > fh->size;
+		auto finish_data = [&]() -> stduint {
+			if (size_changed) fh->size = uint32_t(current_pos);
+			return finish_write(stduint(total_written));
+		};
 		bool update_entry = size_changed;
 #ifdef _FILESYS_DATETIME
 		uint16_t fat_date = 0;
@@ -182,18 +189,27 @@ namespace uni {
 #endif
 		if (update_entry && !fh->is_unlinked) {
 			byte* dir_buf = new byte[bytes_per_sector];
-			if (storage->Read(fh->dir_sector, dir_buf)) {
+			if (!dir_buf) {
+				if (size_changed) MarkWriteFault();
+				return finish_data();
+			}
+			if (!ReadBlock(fh->dir_sector, dir_buf)) {
+				delete[] dir_buf;
+				if (size_changed) MarkWriteFault();
+				return finish_data();
+			}
+			{
 				FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
-				if (size_changed) entry->file_size = fh->size;
+				if (size_changed) entry->file_size = uint32_t(current_pos);
 #ifdef _FILESYS_DATETIME
 				if (update_time) setFatWriteTime(*entry, fat_date, fat_time);
 #endif
-				storage->Write(fh->dir_sector, dir_buf);
+				if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_data(); }
 			}
 			delete[] dir_buf;
 		}
 
-		return finish_write((stduint)total_written);
+		return finish_data();
 	}
 
 }

@@ -25,10 +25,66 @@
 
 #include "../../cpp/trait/FilesysTrait.hpp"
 #include "../../cpp/System/Filesys/Partition.hpp"
+#include "../vector"
+#include "../ISO_IEC_STD/memory"
 
 
 class HD_Info;
 namespace uni {
+
+	// Views borrow the input path, are not necessarily terminated, and require the original string to remain alive.
+	struct FilesysPathComponent {
+		rostr data = nullptr;
+		stduint length = 0;
+	};
+
+	struct FilesysPathParts {
+		FilesysPathComponent parent;
+		FilesysPathComponent name;
+		bool absolute = false;
+		bool trailing_separator = false;
+	};
+
+	// Emit one decoded entry and update logical pagination; the backend retains its physical cursor.
+	bool EmitDirectoryEntry(FilesysEnumState* state, _tocall_ft callback, bool directory, rostr name);
+	// Return a borrowed component, leaving dot names and backend naming rules uninterpreted.
+	bool NextPathComponent(rostr& cursor, FilesysPathComponent& component);
+	// Split the leaf from its parent; an empty parent view leaves the base choice to the caller.
+	bool SplitParentAndName(rostr path, FilesysPathParts& result);
+
+
+	enum class BlockCommitResult { Success, FailedRestored, FailedUncertain };
+
+	// Callers serialize the entire preparation and commit; synchronous device calls must retire their I/O before returning.
+	class BlockChangeSet {
+		struct Change {
+			stduint block = 0;
+			stduint phase = 0;
+			UniquePtr<byte[]> before;
+			UniquePtr<byte[]> after;
+		};
+		BlockTrait& device;
+		stduint block_size;
+		stduint phase = 0;
+		Vector<SharedPtr<Change>> changes;
+		bool sealed = false;
+		bool failed = false;
+		BlockCommitResult result = BlockCommitResult::FailedRestored;
+	public:
+		explicit BlockChangeSet(BlockTrait& source) : device(source), block_size(source.Block_Size) {}
+		BlockChangeSet(const BlockChangeSet&) = delete;
+		BlockChangeSet& operator=(const BlockChangeSet&) = delete;
+		// Preparation reads the latest staged image and never publishes bytes to the device.
+		bool Read(stduint block, void* destination);
+		// Edits within one phase share a stable buffer; callers stop editing it before advancing the phase.
+		bool Edit(stduint block, byte*& image);
+		// Preserve intermediate block images when the backend requires a later publication phase.
+		bool NextPhase();
+		// Stage a complete block and advance the phase to preserve backend write order.
+		bool Write(stduint block, const void* source);
+		// Commit once; failure restores every attempted block in reverse order without allocating memory.
+		BlockCommitResult Commit();
+	};
 
 	#define	MBR_PARTITION_TABLE_OFFSET 0x1BE
 

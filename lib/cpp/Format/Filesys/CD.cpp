@@ -3,6 +3,7 @@
 // Attribute: Arn-Covenant Any-Architect Non-Dependence
 
 #include "../../../../inc/c/format/filesys/CD.h"
+#include "../../../../inc/cpp/System/Filesys.hpp"
 
 namespace uni {
 
@@ -705,15 +706,13 @@ namespace uni {
 		}
 
 		const char* p = fullpath;
-		if (*p == '/') p++;
-		while (*p) {
+		FilesysPathComponent component;
+		while (uni::NextPathComponent(p, component)) {
 			char segment[128];
-			stduint seg_len = 0;
-			while (*p && *p != '/' && seg_len + 1 < sizeof(segment)) {
-				segment[seg_len++] = *p++;
-			}
+			const stduint seg_len = component.length;
+			if (seg_len >= sizeof(segment)) return nullptr;
+			MemCopyN(segment, component.data, seg_len);
 			segment[seg_len] = '\0';
-			while (*p == '/') p++;
 
 			if (!seg_len || !StrCompare(segment, ".")) continue;
 			if (!StrCompare(segment, "..")) {
@@ -829,19 +828,7 @@ namespace uni {
 
 				char name[128];
 				iso_decode_name(this, rec, name, sizeof(name));
-				if (state) {
-					if (state->should_emit()) {
-						_fn((void*)(stduint)(rec->flags & 0x02u ? 1 : 0), (void*)name);
-						state->emit_one();
-						if (state->full()) return true;
-					}
-					else {
-						state->skip_one();
-					}
-				}
-				else {
-					_fn((void*)(stduint)(rec->flags & 0x02u ? 1 : 0), (void*)name);
-				}
+				if (!uni::EmitDirectoryEntry(state, _fn, rec->flags & 0x02u, name)) return true;
 				off += rec->length;
 			}
 			processed += sector_used;
@@ -1175,15 +1162,13 @@ namespace uni {
 		if (!fullpath || !*fullpath || !StrCompare(fullpath, "/")) return handle;
 
 		const char* p = fullpath;
-		if (*p == '/') p++;
-		while (*p) {
+		FilesysPathComponent component;
+		while (uni::NextPathComponent(p, component)) {
 			char segment[256];
-			stduint seg_len = 0;
-			while (*p && *p != '/' && seg_len + 1 < sizeof(segment)) {
-				segment[seg_len++] = *p++;
-			}
+			const stduint seg_len = component.length;
+			if (seg_len >= sizeof(segment)) return nullptr;
+			MemCopyN(segment, component.data, seg_len);
 			segment[seg_len] = '\0';
-			while (*p == '/') p++;
 
 			if (!seg_len || !StrCompare(segment, ".")) continue;
 			if (!StrCompare(segment, "..")) {
@@ -1310,19 +1295,7 @@ namespace uni {
 				char name[256];
 				udf_decode_fid_name(fid, sector_buffer + name_off, name, sizeof(name));
 				if (name[0] && StrCompare(name, ".") && StrCompare(name, "..")) {
-					if (state) {
-						if (state->should_emit()) {
-							_fn((void*)(stduint)((fid->file_characteristics & 0x02u) ? 1 : 0), (void*)name);
-							state->emit_one();
-							if (state->full()) return true;
-						}
-						else {
-							state->skip_one();
-						}
-					}
-					else {
-						_fn((void*)(stduint)((fid->file_characteristics & 0x02u) ? 1 : 0), (void*)name);
-					}
+					if (!uni::EmitDirectoryEntry(state, _fn, (fid->file_characteristics & 0x02u), name)) return true;
 				}
 
 				stduint fid_len = sizeof(UDF_FileIdentifierDescriptor) + fid->length_of_implementation_use + fid->length_of_file_identifier;

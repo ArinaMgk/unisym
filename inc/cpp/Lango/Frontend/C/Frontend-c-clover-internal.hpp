@@ -36,6 +36,8 @@ struct LoweredValue {
 	bool is_lvalue = false;
 	stduint alignment = 0; // Known byte alignment of an lvalue or pointer value.
 	bool is_address_value = false; // A non-lvalue object result backed by an address.
+	stduint runtime_shape_id = 0; // One-based runtime array-shape identity.
+	stduint runtime_dimension = 0; // Current array dimension within the shape.
 };
 
 // Associates a source identifier with its object address.
@@ -46,9 +48,35 @@ struct LocalValue {
 	stduint alignment = 0;
 	const uni::Nnode* declaration = nullptr;
 	const uni::Nnode* scope = nullptr;
+	Value runtime_element_count; // VLA element count evaluated at the declaration.
+	Value runtime_size; // VLA storage size in bytes evaluated at the declaration.
+	Value stack_marker; // Dynamic local-storage position before the VLA allocation.
+	stduint runtime_shape_id = 0; // One-based runtime array-shape identity.
+	stduint runtime_dimension = 0; // Current array dimension within the shape.
 	stduint global_index = 0; // One-based module global index for block static storage.
 	bool is_external_alias = false; // Block-scope extern name bound to a module object.
+	bool is_variable_length = false; // The object itself is a variable-length array.
+	bool address_ready = false; // The declaration point has produced the object address.
 	bool active = false;
+};
+
+// One runtime-sized local object whose storage has been allocated.
+struct DynamicLocalAllocation {
+	const uni::Nnode* declaration = nullptr;
+	const uni::Nnode* scope = nullptr;
+	Value marker;
+};
+
+// A flat slice of byte sizes for the array dimensions of one VM type.
+struct RuntimeArrayShape {
+	stduint first_size = 0;
+	stduint size_count = 0;
+};
+
+// One structured branch destination and the dynamic storage active there.
+struct BranchTarget {
+	uni::String target;
+	stduint dynamic_depth = 0;
 };
 
 // One C statement atom after transparent tok_statement wrappers are removed.
@@ -60,6 +88,7 @@ struct StatementAtom {
 // Branch destinations selected by the nearest enclosing loop statement.
 struct LoopContext {
 	uni::String continue_target; // Condition or step destination for the next iteration.
+	stduint continue_dynamic_depth = 0;
 };
 
 // One case or default label and the Clover block entered by switch dispatch.
@@ -73,6 +102,7 @@ struct SwitchLabelTarget {
 // Case labels owned by one active switch statement.
 struct SwitchContext {
 	uni::Vector<SwitchLabelTarget> labels;
+	stduint entry_dynamic_depth = 0;
 };
 
 // One named C label and its preallocated Clover basic block.
@@ -209,8 +239,11 @@ private:
 	uni::Vector<LocalValue> locals;
 	uni::Vector<LocalFunction> local_functions;
 	uni::Vector<FrontendCLocalConstant> local_constants;
+	uni::Vector<DynamicLocalAllocation> dynamic_allocations;
+	uni::Vector<Value> runtime_array_sizes;
+	uni::Vector<RuntimeArrayShape> runtime_array_shapes;
 	uni::Vector<LoopContext> loop_contexts;
-	uni::Vector<uni::String> break_targets;
+	uni::Vector<BranchTarget> break_targets;
 	uni::Vector<SwitchContext> switch_contexts;
 	uni::Vector<FunctionLabel> labels;
 	uni::Vector<const uni::Nnode*> emitted_sources;
@@ -247,6 +280,9 @@ private:
 	Value EmitResult(Opcode opcode, Type type, Value left, Value right);
 	Value EmitPtrAdd(Value pointer, Value index, const FrontendCType& pointer_type);
 	Value EmitByteOffset(Value pointer, stduint offset);
+	Value EmitByteOffset(Value pointer, Value offset);
+	Value EmitPointerOffset(const LoweredValue& pointer, LoweredValue index,
+		const uni::Nnode* source);
 	Value EmitLoad(Type type, Value address, stduint alignment);
 	void EmitStore(Value value, Value address, stduint alignment);
 	bool EmitRecordCopy(Value destination, stduint destination_alignment,
@@ -315,7 +351,22 @@ private:
 	bool PredeclareDeclarator(uni::Nnode* node, const uni::Nnode* declaration,
 		const uni::Nnode* scope, const FrontendCType& base_type);
 	bool PredeclareBlock(uni::Nnode* block);
+	LocalValue* FindDeclaredLocal(const char* name,
+		const uni::Nnode* declaration);
 	LocalValue* ActivateLocal(const char* name, const uni::Nnode* declaration);
+	Value EmitStackSave();
+	void EmitStackRestore(Value marker);
+	void EmitDynamicCleanup(stduint target_depth);
+	void TruncateDynamicAllocations(stduint target_depth);
+	Value RuntimeArraySize(stduint shape_id, stduint dimension) const;
+	bool BuildRuntimeArrayShape(const FrontendCType& type,
+		stduint first_array_layer, const uni::Nnode* source,
+		stduint& shape_id, Value& element_count,
+		FrontendCType& element_type);
+	LoweredValue LowerRuntimeTypeSize(const FrontendCType& type,
+		const uni::Nnode* source);
+	bool LowerVariableLengthArray(LocalValue& local,
+		const FrontendCObjectDeclarator& object);
 	bool InitializeScalar(Value address, const FrontendCType& type,
 		stduint alignment, uni::Nnode* initializer);
 	bool InitializeRecordCopy(Value address, const FrontendCType& type,

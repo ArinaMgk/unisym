@@ -160,6 +160,8 @@ namespace uni::lango {
 				syntax_tree, diagnostics, target, type_info)) return false;
 			if (!frontend_c_detail::FinalizeArrayBounds(
 				diagnostics, target, type_info)) return false;
+			if (!frontend_c_detail::AnalyzeControlFlow(
+				syntax_tree, diagnostics, type_info)) return false;
 			return frontend_c_detail::Validate(syntax_tree, diagnostics);
 		}
 

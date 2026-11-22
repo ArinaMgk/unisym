@@ -91,15 +91,20 @@ namespace clover::frontend_c_internal {
 			if (local.scope == scope && !StrCompare(local.name.reference(), name))
 				return Error("local object declaration conflicts with function",
 					declaration).valid;
-		if (!is_extern && type.record_id && !type.StorageElementIsPointer() &&
-			!type_info->SizeBits(type, *target)) {
+		FrontendCType storage_element = type;
+		while (storage_element.IsArray())
+			storage_element = storage_element.RemoveOuterLayer();
+		if (!is_extern && storage_element.record_id &&
+			!type.StorageElementIsPointer() &&
+			!type_info->SizeBits(storage_element, *target)) {
 			diagnostics->Report(DiagnosticStage::Semantic,
 				"object has incomplete record type", declaration);
 			failed = true;
 			return false;
 		}
-		if (!is_extern && type.enum_id && !type.StorageElementIsPointer() &&
-			!type_info->SizeBits(type, *target)) {
+		if (!is_extern && storage_element.enum_id &&
+			!type.StorageElementIsPointer() &&
+			!type_info->SizeBits(storage_element, *target)) {
 			diagnostics->Report(DiagnosticStage::Semantic,
 				"object has incomplete enum type", declaration);
 			failed = true;
@@ -110,6 +115,18 @@ namespace clover::frontend_c_internal {
 				"object has incomplete array type", declaration);
 			failed = true;
 			return false;
+		}
+		if (!is_extern && type.IsArray() && type.HasVariableArrayBound()) {
+			LocalValue local;
+			local.name = name;
+			local.type = type;
+			local.alignment = TypeAlignment(type);
+			local.declaration = declaration;
+			local.scope = scope;
+			local.is_variable_length = type.IsArray() &&
+				type.HasVariableArrayBound();
+			locals.Append(local);
+			return true;
 		}
 		Instruction instruction;
 		bool is_static = storage_class == FrontendCStorageClass::Static;
@@ -168,6 +185,7 @@ namespace clover::frontend_c_internal {
 		local.scope = scope;
 		local.global_index = global_index;
 		local.is_external_alias = is_extern;
+		local.address_ready = true;
 		locals.Append(local);
 		return true;
 	}
@@ -256,7 +274,10 @@ namespace clover::frontend_c_internal {
 					return Error("invalid int declaration", node).valid;
 				}
 			}
-			if (node->type == tok_block && !PredeclareBlock(node)) return false;
+			if (node->type == tok_block) {
+				if (!PredeclareBlock(node)) return false;
+				continue;
+			}
 			if (node->subf) {
 				for (uni::Nnode* child = node->subf; child; child = child->next)
 					if (child->type == tok_block && !PredeclareBlock(child)) return false;
@@ -266,22 +287,29 @@ namespace clover::frontend_c_internal {
 	}
 
 
-	LocalValue* FunctionBuilder::ActivateLocal(const char* name, const uni::Nnode* declaration) {
+	LocalValue* FunctionBuilder::FindDeclaredLocal(const char* name,
+		const uni::Nnode* declaration) {
 		for (LocalValue& local : locals) {
 			if (local.declaration == declaration &&
-				!StrCompare(local.name.reference(), name)) {
-				for (const FrontendCLocalConstant& constant : local_constants)
-					if (constant.active && constant.scope == local.scope &&
-						constant.constant && !StrCompare(
-							constant.constant->name.reference(), name)) {
-						diagnostics->Report(DiagnosticStage::Semantic,
-							"local variable conflicts with enumerator", declaration);
-						failed = true;
-						return nullptr;
-					}
-				local.active = true;
-				return &local;
-			}
+				!StrCompare(local.name.reference(), name)) return &local;
+		}
+		return nullptr;
+	}
+
+	LocalValue* FunctionBuilder::ActivateLocal(const char* name, const uni::Nnode* declaration) {
+		LocalValue* local = FindDeclaredLocal(name, declaration);
+		if (local) {
+			for (const FrontendCLocalConstant& constant : local_constants)
+				if (constant.active && constant.scope == local->scope &&
+					constant.constant && !StrCompare(
+						constant.constant->name.reference(), name)) {
+					diagnostics->Report(DiagnosticStage::Semantic,
+						"local variable conflicts with enumerator", declaration);
+					failed = true;
+					return nullptr;
+				}
+			local->active = true;
+			return local;
 		}
 		return nullptr;
 	}
@@ -338,27 +366,35 @@ namespace clover::frontend_c_internal {
 			type_info->object_declarators) {
 			if (object.declaration != declaration) continue;
 			found = true;
+			if (object.type.IsArray() && object.type.HasVariableArrayBound()) {
+				LocalValue* local = FindDeclaredLocal(
+					object.identifier->addr, declaration);
+				if (!local) return Error("invalid local declaration",
+					object.identifier).valid;
+				if (!LowerVariableLengthArray(*local, object)) return false;
+				if (!ActivateLocal(object.identifier->addr, declaration))
+					return failed ? false : Error("invalid local declaration",
+						object.identifier).valid;
+				continue;
+			}
 			LocalValue* local = ActivateLocal(
 				object.identifier->addr, declaration);
 			if (!local) return failed ? false :
 				Error("invalid local declaration", object.identifier).valid;
-			if (object.type.HasVariablyModifiedType()) {
-				for (stduint layer = 0; layer < object.type.layer_count; layer++) {
-					const FrontendCTypeLayer& array = object.type.layers[layer];
-					if (array.kind != FrontendCTypeLayerKind::Array ||
-						array.array_bound_kind != FrontendCArrayBoundKind::Variable)
-						continue;
-					FrontendCType bound_type;
-					if (!ResolveExpressionType(const_cast<uni::Nnode*>(
-						array.array_bound_expression), bound_type) ||
-						!bound_type.IsInteger())
-						return Error("array bound expression must have integer type",
-							array.array_bound_expression).valid;
-				}
-				return Error("variable length array lowering is not implemented",
-					object.identifier).valid;
-			}
 			if (local->is_external_alias) continue;
+			if (object.type.HasVariablyModifiedType()) {
+				stduint first_array_layer = 0;
+				while (first_array_layer < object.type.layer_count &&
+					object.type.layers[first_array_layer].kind !=
+						FrontendCTypeLayerKind::Array)
+					first_array_layer++;
+				Value element_count;
+				FrontendCType element_type;
+				if (!BuildRuntimeArrayShape(object.type, first_array_layer,
+					object.identifier, local->runtime_shape_id,
+					element_count, element_type)) return false;
+				local->runtime_dimension = 0;
+			}
 			if (local->global_index) {
 				if (!InitializeStatic(*local, object.initializer)) return false;
 				continue;
@@ -440,6 +476,15 @@ namespace clover::frontend_c_internal {
 				return Error("incompatible function return type", expression).valid;
 		}
 		if (!lowered.valid) return false;
+		if (return_type.IsRecord() && dynamic_allocations.Count()) {
+			LoweredValue temporary = CreateTemporaryStorage(return_type);
+			if (!temporary.valid || !EmitRecordCopy(temporary.value,
+				temporary.alignment, lowered.value, lowered.alignment,
+				return_type, expression)) return false;
+			lowered = temporary;
+			lowered.is_lvalue = false;
+			lowered.is_address_value = true;
+		}
 		Instruction instruction;
 		instruction.opcode = Opcode::Ret;
 		instruction.by_value_return = return_type.IsRecord();
@@ -451,6 +496,7 @@ namespace clover::frontend_c_internal {
 			instruction.has_object_type = true;
 		}
 		instruction.operands.Append(lowered.value);
+		EmitDynamicCleanup(0);
 		CurrentBlock().instructions.Append(instruction);
 		return true;
 	}
@@ -588,6 +634,7 @@ namespace clover::frontend_c_internal {
 			return Error("switch requires one controlling expression", node).valid;
 
 		SwitchContext context;
+		context.entry_dynamic_depth = dynamic_allocations.Count();
 		stduint scan = index;
 		if (!CollectSwitchStatement(atoms, scan, context, true)) return false;
 
@@ -666,7 +713,10 @@ namespace clover::frontend_c_internal {
 
 		current_block = NewBlock("switch.body");
 		switch_contexts.Append(context);
-		break_targets.Append(end_name);
+		BranchTarget break_target;
+		break_target.target = end_name;
+		break_target.dynamic_depth = context.entry_dynamic_depth;
+		break_targets.Append(break_target);
 		bool body_lowered = LowerStatement(atoms, index);
 		break_targets.Remove(break_targets.Count() - 1);
 		switch_contexts.Remove(switch_contexts.Count() - 1);
@@ -679,6 +729,7 @@ namespace clover::frontend_c_internal {
 	bool FunctionBuilder::LowerWhile(uni::Nnode* node, const uni::Nnode* source_statement,
 		uni::Vector<StatementAtom>& atoms, stduint& index) {
 		if (!node->subf) return Error("while requires a condition", node).valid;
+		stduint loop_dynamic_depth = dynamic_allocations.Count();
 		stduint condition_block = NewBlock("while.cond");
 		stduint body_block = NewBlock("while.body");
 		uni::String end_name = NewBlockName("while.end");
@@ -696,8 +747,12 @@ namespace clover::frontend_c_internal {
 		current_block = body_block;
 		LoopContext loop;
 		loop.continue_target = function->blocks[condition_block].name;
+		loop.continue_dynamic_depth = loop_dynamic_depth;
 		loop_contexts.Append(loop);
-		break_targets.Append(end_name);
+		BranchTarget break_target;
+		break_target.target = end_name;
+		break_target.dynamic_depth = loop_dynamic_depth;
+		break_targets.Append(break_target);
 		bool body_lowered = LowerStatement(atoms, index);
 		break_targets.Remove(break_targets.Count() - 1);
 		loop_contexts.Remove(loop_contexts.Count() - 1);
@@ -710,6 +765,7 @@ namespace clover::frontend_c_internal {
 	bool FunctionBuilder::LowerDoWhile(uni::Nnode* node,
 		const uni::Nnode* source_statement,
 		uni::Vector<StatementAtom>& atoms, stduint& index) {
+		stduint loop_dynamic_depth = dynamic_allocations.Count();
 		stduint body_block = NewBlock("do.body");
 		stduint condition_block = NewBlock("do.cond");
 		uni::String end_name = NewBlockName("do.end");
@@ -718,8 +774,12 @@ namespace clover::frontend_c_internal {
 		current_block = body_block;
 		LoopContext loop;
 		loop.continue_target = function->blocks[condition_block].name;
+		loop.continue_dynamic_depth = loop_dynamic_depth;
 		loop_contexts.Append(loop);
-		break_targets.Append(end_name);
+		BranchTarget break_target;
+		break_target.target = end_name;
+		break_target.dynamic_depth = loop_dynamic_depth;
+		break_targets.Append(break_target);
 		bool body_lowered = LowerStatement(atoms, index);
 		break_targets.Remove(break_targets.Count() - 1);
 		loop_contexts.Remove(loop_contexts.Count() - 1);
@@ -766,6 +826,7 @@ namespace clover::frontend_c_internal {
 		uni::Nnode* init = ForClause(init_clause);
 		uni::Nnode* condition_node = ForClause(condition_clause);
 		uni::Nnode* step = ForClause(step_clause);
+		stduint outer_dynamic_depth = dynamic_allocations.Count();
 		stduint source_instruction = CurrentBlock().instructions.Count();
 		if (init_clause->type == ToToken(FrontendCToken::Declaration)) {
 			const FrontendCType* base_type = type_info->Find(init_clause);
@@ -775,6 +836,7 @@ namespace clover::frontend_c_internal {
 		}
 		else if (init && !LowerExpression(init).valid) return false;
 		AttachSource(source_instruction, source_statement);
+		stduint loop_dynamic_depth = dynamic_allocations.Count();
 
 		stduint condition_block = NewBlock("for.cond");
 		stduint body_block = NewBlock("for.body");
@@ -797,8 +859,12 @@ namespace clover::frontend_c_internal {
 		current_block = body_block;
 		LoopContext loop;
 		loop.continue_target = step_name;
+		loop.continue_dynamic_depth = loop_dynamic_depth;
 		loop_contexts.Append(loop);
-		break_targets.Append(end_name);
+		BranchTarget break_target;
+		break_target.target = end_name;
+		break_target.dynamic_depth = loop_dynamic_depth;
+		break_targets.Append(break_target);
 		bool body_lowered = LowerStatement(atoms, index);
 		break_targets.Remove(break_targets.Count() - 1);
 		loop_contexts.Remove(loop_contexts.Count() - 1);
@@ -809,6 +875,8 @@ namespace clover::frontend_c_internal {
 		if (step && !LowerExpression(step).valid) return false;
 		if (!BlockTerminated()) EmitJump(condition_block);
 		current_block = AppendBlock(end_name);
+		EmitDynamicCleanup(outer_dynamic_depth);
+		TruncateDynamicAllocations(outer_dynamic_depth);
 		LeaveScope(node);
 		return true;
 	}
@@ -921,7 +989,18 @@ namespace clover::frontend_c_internal {
 				return Error("goto requires a label name", target_node).valid;
 			FunctionLabel* label = FindLabel(target_node->addr);
 			if (!label) return Error("use of undefined label", target_node).valid;
+			const FrontendCGotoControl* control =
+				type_info->FindGotoControl(node);
+			if (!control || control->target_label != label->declaration)
+				return Error("missing goto control-flow information", node).valid;
+			const FrontendCVariablyModifiedState* source_state =
+				type_info->GetVariablyModifiedState(control->source_state);
+			stduint source_dynamic_depth = source_state ?
+				source_state->dynamic_depth : 0;
+			if (source_dynamic_depth != dynamic_allocations.Count())
+				return Error("inconsistent dynamic storage state at goto", node).valid;
 			stduint first_instruction = CurrentBlock().instructions.Count();
+			EmitDynamicCleanup(control->target_dynamic_depth);
 			EmitJump(label->block);
 			AttachSource(first_instruction, atom.source);
 			return true;
@@ -929,8 +1008,11 @@ namespace clover::frontend_c_internal {
 		if (node->type == ToToken(FrontendCToken::Break)) {
 			if (!break_targets.Count())
 				return Error("break statement not within a loop or switch", node).valid;
+			const BranchTarget& target =
+				break_targets[break_targets.Count() - 1];
 			stduint first_instruction = CurrentBlock().instructions.Count();
-			EmitJump(break_targets[break_targets.Count() - 1]);
+			EmitDynamicCleanup(target.dynamic_depth);
+			EmitJump(target.target);
 			AttachSource(first_instruction, atom.source);
 			return true;
 		}
@@ -939,6 +1021,7 @@ namespace clover::frontend_c_internal {
 				return Error("continue statement not within a loop", node).valid;
 			const LoopContext& loop = loop_contexts[loop_contexts.Count() - 1];
 			stduint first_instruction = CurrentBlock().instructions.Count();
+			EmitDynamicCleanup(loop.continue_dynamic_depth);
 			EmitJump(loop.continue_target);
 			AttachSource(first_instruction, atom.source);
 			return true;
@@ -978,6 +1061,7 @@ namespace clover::frontend_c_internal {
 			Instruction instruction;
 			instruction.opcode = Opcode::Ret;
 			instruction.type = Type::Void;
+			EmitDynamicCleanup(0);
 			CurrentBlock().instructions.Append(instruction);
 			AttachSource(first_instruction, atom.source);
 			return true;
@@ -993,6 +1077,7 @@ namespace clover::frontend_c_internal {
 			Error("expected block", block);
 			return false;
 		}
+		stduint dynamic_depth = dynamic_allocations.Count();
 		uni::Vector<StatementAtom> atoms;
 		AppendStatementAtoms(block->subf, atoms);
 		for (stduint index = 0; index < atoms.Count();) {
@@ -1004,6 +1089,8 @@ namespace clover::frontend_c_internal {
 				current_block = NewBlock("unreachable");
 			if (!LowerStatement(atoms, index) || failed) return false;
 		}
+		if (!BlockTerminated()) EmitDynamicCleanup(dynamic_depth);
+		TruncateDynamicAllocations(dynamic_depth);
 		LeaveScope(block);
 		return true;
 	}
@@ -1021,7 +1108,8 @@ namespace clover::frontend_c_internal {
 			FrontendCType type = *parameter_type;
 			if (!PredeclareLocal(parameter_node->addr, type,
 				parameter_node, body)) return false;
-			LocalValue* local = ActivateLocal(parameter_node->addr, parameter_node);
+			LocalValue* local = FindDeclaredLocal(
+				parameter_node->addr, parameter_node);
 			if (!local) return Error("invalid function parameter", parameter_node).valid;
 			if (type.IsRecord()) {
 				if (index >= function->parameters.Count())
@@ -1051,36 +1139,55 @@ namespace clover::frontend_c_internal {
 				EmitStore(function->parameters.begin()[index++].value,
 					local->address, local->alignment);
 			}
+
+			const FrontendCArrayParameter* array_parameter = nullptr;
+			for (const FrontendCArrayParameter& candidate :
+				type_info->array_parameters)
+				if (candidate.belongs_to_definition &&
+					candidate.parameter == parameter_node) {
+					array_parameter = &candidate;
+					break;
+				}
+			if (array_parameter) {
+				const FrontendCType& declared = array_parameter->declared_type;
+				stduint first_array_layer = 0;
+				if (declared.IsArray() &&
+					declared.layers[0].array_bound_kind ==
+						FrontendCArrayBoundKind::Incomplete)
+					first_array_layer = 1;
+				while (first_array_layer < declared.layer_count &&
+					declared.layers[first_array_layer].kind !=
+						FrontendCTypeLayerKind::Array)
+					first_array_layer++;
+				bool has_runtime_bound = false;
+				for (stduint layer = first_array_layer;
+					layer < declared.layer_count &&
+					declared.layers[layer].kind ==
+						FrontendCTypeLayerKind::Array; layer++)
+					has_runtime_bound = has_runtime_bound ||
+						declared.layers[layer].array_bound_kind ==
+							FrontendCArrayBoundKind::Variable;
+				if (has_runtime_bound) {
+					Value element_count;
+					FrontendCType element_type;
+					if (!BuildRuntimeArrayShape(declared, first_array_layer,
+						parameter_node, local->runtime_shape_id,
+						element_count, element_type)) return false;
+					local->runtime_dimension = declared.IsArray() &&
+						!first_array_layer ? 1 : 0;
+				}
+			}
+			if (!ActivateLocal(parameter_node->addr, parameter_node))
+				return failed ? false :
+					Error("invalid function parameter", parameter_node).valid;
 		}
 		return index == function->parameters.Count();
 	}
 
 	bool FunctionBuilder::Lower(uni::Nnode* body, uni::Nnode* parameters) {
-		if (!CollectLabels(body)) return false;
+		if (!CollectLabels(body ? body->subf : nullptr)) return false;
 		if (!InitializeParameters(parameters, body)) return false;
 		if (!PredeclareBlock(body)) return false;
-		for (const FrontendCArrayParameter& array_parameter :
-			type_info->array_parameters) {
-			if (!array_parameter.belongs_to_definition) continue;
-			bool belongs_to_function = false;
-			for (uni::Nnode* parameter = parameters; parameter;
-				parameter = parameter->next) {
-				if (parameter == array_parameter.parameter) {
-					belongs_to_function = true;
-					break;
-				}
-			}
-			if (!belongs_to_function || array_parameter.bound_kind !=
-				FrontendCArrayBoundKind::Variable) continue;
-			FrontendCType bound_type;
-			if (!ResolveExpressionType(const_cast<uni::Nnode*>(
-				array_parameter.bound_expression), bound_type) ||
-				!bound_type.IsInteger())
-				return Error("array bound expression must have integer type",
-					array_parameter.bound_expression).valid;
-			return Error("variable length array parameter lowering is not implemented",
-				array_parameter.parameter).valid;
-		}
 		if (!LowerBlock(body)) return false;
 		if (return_type.IsVoid() && !BlockTerminated()) {
 			Instruction instruction;

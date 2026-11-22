@@ -180,15 +180,40 @@ namespace clover::frontend_c_internal {
 	Value FunctionBuilder::EmitByteOffset(Value pointer, stduint offset) {
 		if (!offset) return pointer;
 		Value index = EmitConst((stdsint)offset);
+		return EmitByteOffset(pointer, index);
+	}
+
+	Value FunctionBuilder::EmitByteOffset(Value pointer, Value offset) {
 		Instruction instruction;
 		instruction.opcode = Opcode::PtrAdd;
 		instruction.type = Type::I8;
 		instruction.has_result = true;
 		instruction.result = NewValue(Type::Ptr);
 		instruction.operands.Append(pointer);
-		instruction.operands.Append(index);
+		instruction.operands.Append(offset);
 		CurrentBlock().instructions.Append(instruction);
 		return instruction.result;
+	}
+
+	Value FunctionBuilder::EmitPointerOffset(const LoweredValue& pointer,
+		LoweredValue index, const uni::Nnode* source) {
+		if (pointer.runtime_shape_id &&
+			pointer.runtime_shape_id <= runtime_array_shapes.Count()) {
+			const RuntimeArrayShape& shape =
+				runtime_array_shapes[pointer.runtime_shape_id - 1];
+			if (pointer.runtime_dimension < shape.size_count) {
+				FrontendCType offset_type =
+					PointerIntegerType(index.type.is_signed);
+				index = ConvertInteger(index, offset_type, source);
+				if (!index.valid) return Value();
+				Value step = RuntimeArraySize(pointer.runtime_shape_id,
+					pointer.runtime_dimension);
+				Value offset = EmitResult(Opcode::Mul, CloverType(offset_type),
+					index.value, step);
+				return EmitByteOffset(pointer.value, offset);
+			}
+		}
+		return EmitPtrAdd(pointer.value, index.value, pointer.type);
 	}
 
 	Value FunctionBuilder::EmitLoad(Type type, Value address, stduint alignment) {
@@ -264,6 +289,8 @@ namespace clover::frontend_c_internal {
 	LoweredValue FunctionBuilder::ToRValue(LoweredValue lowered, const uni::Nnode* node) {
 		if (lowered.valid &&
 			(lowered.type.IsArray() || lowered.type.IsFunction())) {
+			if (lowered.type.IsArray() && lowered.runtime_shape_id)
+				lowered.runtime_dimension++;
 			lowered.type = lowered.type.DecayType();
 			lowered.is_lvalue = false;
 			lowered.is_address_value = false;
@@ -652,9 +679,11 @@ namespace clover::frontend_c_internal {
 		right = ConvertInteger(right, index_type, right_node);
 		if (!right.valid) return right;
 		Value index = right.value;
-		Value address = EmitPtrAdd(left.value, index, left.type);
+		Value address = EmitPointerOffset(left, right, right_node);
+		if (failed) return LoweredValue();
 		return { address, !failed, left.type.DereferenceType(), true,
-			PointerStepAlignment(left.alignment, left.type) };
+			PointerStepAlignment(left.alignment, left.type), false,
+			left.runtime_shape_id, left.runtime_dimension };
 	}
 
 	LoweredValue FunctionBuilder::LowerSubscript(uni::Nnode* node) {
@@ -786,7 +815,12 @@ namespace clover::frontend_c_internal {
 				Value zero = EmitConst(0);
 				index = EmitResult(Opcode::Sub, Type::I32, zero, one);
 			}
-			updated = EmitPtrAdd(previous, index, lowered.type);
+			LoweredValue pointer = { previous, true, lowered.type, false,
+				previous_alignment, false, lowered.runtime_shape_id,
+				lowered.runtime_dimension };
+			updated = EmitPointerOffset(pointer,
+				{ index, true, IntType(), false }, operand);
+			if (failed) return LoweredValue();
 			updated_alignment = PointerStepAlignment(
 				previous_alignment, lowered.type);
 		}
@@ -804,7 +838,8 @@ namespace clover::frontend_c_internal {
 		}
 		EmitStore(updated, lowered.value, lowered.alignment);
 		return { return_updated ? updated : previous, true, lowered.type, false,
-			return_updated ? updated_alignment : previous_alignment };
+			return_updated ? updated_alignment : previous_alignment, false,
+			lowered.runtime_shape_id, lowered.runtime_dimension };
 	}
 
 	bool FunctionBuilder::IsCompoundAssignment(const char* operation) const {
@@ -850,10 +885,15 @@ namespace clover::frontend_c_internal {
 					index = EmitResult(Opcode::Sub,
 						CloverType(index_type), zero, index);
 				}
-				Value updated = EmitPtrAdd(previous, index, left.type);
+				LoweredValue pointer = { previous, true, left.type, false, 1,
+					false, left.runtime_shape_id, left.runtime_dimension };
+				Value updated = EmitPointerOffset(pointer,
+					{ index, true, index_type, false }, right_node);
+				if (failed) return LoweredValue();
 				EmitStore(updated, left.value, left.alignment);
 				return { updated, !failed, left.type, false,
-					PointerStepAlignment(1, left.type) };
+					PointerStepAlignment(1, left.type), false,
+					left.runtime_shape_id, left.runtime_dimension };
 			}
 			return Error("pointer compound assignment requires += or -= with an integer",
 				node);
@@ -974,6 +1014,41 @@ namespace clover::frontend_c_internal {
 			return Error("incompatible conditional branch types", node);
 
 		LoweredValue storage = CreateTemporaryStorage(result_type);
+		stduint shape_dimension_count = 0;
+		if (result_type.IsPointer())
+			while (shape_dimension_count + 1 < result_type.layer_count &&
+				result_type.layers[shape_dimension_count + 1].kind ==
+					FrontendCTypeLayerKind::Array)
+				shape_dimension_count++;
+		uni::Vector<LoweredValue> shape_storage;
+		for (stduint dimension = 0; dimension < shape_dimension_count; dimension++)
+			shape_storage.Append(CreateTemporaryStorage(SizeType()));
+		auto store_shape = [&](const LoweredValue& branch,
+			const uni::Nnode* branch_node) -> bool {
+			FrontendCType step_type = branch.type.DereferenceType();
+			for (stduint dimension = 0;
+				dimension < shape_dimension_count; dimension++) {
+				Value size;
+				bool has_runtime_size = branch.runtime_shape_id &&
+					branch.runtime_shape_id <= runtime_array_shapes.Count() &&
+					branch.runtime_dimension + dimension < runtime_array_shapes[
+						branch.runtime_shape_id - 1].size_count;
+				if (has_runtime_size)
+					size = RuntimeArraySize(branch.runtime_shape_id,
+						branch.runtime_dimension + dimension);
+				else {
+					stduint static_size = TypeSize(step_type);
+					if (!static_size)
+						return Error("conditional pointer runtime shape is unavailable",
+							branch_node).valid;
+					size = EmitConst((stdsint)static_size, SizeType());
+				}
+				EmitStore(size, shape_storage[dimension].value,
+					shape_storage[dimension].alignment);
+				if (step_type.IsArray()) step_type = step_type.RemoveOuterLayer();
+			}
+			return true;
+		};
 		LoweredValue condition_value = LowerExpression(condition_node);
 		if (!condition_value.valid) return condition_value;
 		Value condition = AsCondition(condition_value, condition_node);
@@ -988,6 +1063,7 @@ namespace clover::frontend_c_internal {
 			LowerExpression(true_node), result_type, true_node);
 		if (!true_value.valid) return true_value;
 		EmitStore(true_value.value, storage.value, storage.alignment);
+		if (!store_shape(true_value, true_node)) return LoweredValue();
 		EmitJump(end_block);
 
 		current_block = false_block;
@@ -995,13 +1071,25 @@ namespace clover::frontend_c_internal {
 			LowerExpression(false_node), result_type, false_node);
 		if (!false_value.valid) return false_value;
 		EmitStore(false_value.value, storage.value, storage.alignment);
+		if (!store_shape(false_value, false_node)) return LoweredValue();
 		EmitJump(end_block);
 
 		current_block = end_block;
 		Value result = EmitLoad(CloverType(result_type),
 			storage.value, storage.alignment);
+		stduint shape_id = 0;
+		if (shape_dimension_count) {
+			RuntimeArrayShape shape;
+			shape.first_size = runtime_array_sizes.Count();
+			shape.size_count = shape_dimension_count;
+			for (const LoweredValue& size_storage : shape_storage)
+				runtime_array_sizes.Append(EmitLoad(CloverType(SizeType()),
+					size_storage.value, size_storage.alignment));
+			runtime_array_shapes.Append(shape);
+			shape_id = runtime_array_shapes.Count();
+		}
 		return { result, true, result_type, false,
-			result_type.IsPointer() ? 1u : 0u };
+			result_type.IsPointer() ? 1u : 0u, false, shape_id, 0 };
 	}
 
 	LoweredValue FunctionBuilder::LowerOperator(uni::Nnode* node) {
@@ -1045,7 +1133,9 @@ namespace clover::frontend_c_internal {
 			if (!operand.is_lvalue)
 				return Error("cannot take the address of an rvalue", left_node);
 			return { operand.value, true, operand.type.AddressType(), false,
-				operand.alignment };
+				operand.alignment, false,
+				operand.type.IsArray() ? operand.runtime_shape_id : 0,
+				operand.type.IsArray() ? operand.runtime_dimension : 0 };
 		}
 		if (!StrCompare(operation, "OP@PREMEMB")) {
 			LoweredValue operand = ToRValue(LowerExpression(left_node), left_node);
@@ -1053,7 +1143,8 @@ namespace clover::frontend_c_internal {
 			if (!operand.type.IsPointer())
 				return Error("dereference requires a pointer", left_node);
 			return { operand.value, true, operand.type.DereferenceType(), true,
-				operand.alignment ? operand.alignment : 1 };
+				operand.alignment ? operand.alignment : 1, false,
+				operand.runtime_shape_id, operand.runtime_dimension };
 		}
 		if (!StrCompare(operation, "OP@PREPOSI")) {
 			LoweredValue operand = ToRValue(LowerExpression(left_node), left_node);
@@ -1170,17 +1261,23 @@ namespace clover::frontend_c_internal {
 					Value zero = EmitConst(0, index_type);
 					index = EmitResult(Opcode::Sub, CloverType(index_type), zero, index);
 				}
-				Value value = EmitPtrAdd(left.value, index, left.type);
+				Value value = EmitPointerOffset(left,
+					{ index, true, index_type, false }, right_node);
+				if (failed) return LoweredValue();
 				return { value, !failed, left.type, false,
-					PointerStepAlignment(left.alignment, left.type) };
+					PointerStepAlignment(left.alignment, left.type), false,
+					left.runtime_shape_id, left.runtime_dimension };
 			}
 			if (!subtract && left.type.IsInteger() && right.type.IsPointer()) {
 				FrontendCType index_type = PromoteType(left.type);
 				left = ConvertInteger(left, index_type, left_node);
 				Value index = left.value;
-				Value value = EmitPtrAdd(right.value, index, right.type);
+				Value value = EmitPointerOffset(right,
+					{ index, true, index_type, false }, left_node);
+				if (failed) return LoweredValue();
 				return { value, !failed, right.type, false,
-					PointerStepAlignment(right.alignment, right.type) };
+					PointerStepAlignment(right.alignment, right.type), false,
+					right.runtime_shape_id, right.runtime_dimension };
 			}
 			if (left.type.IsPointer() || right.type.IsPointer())
 				return Error("invalid operands to pointer arithmetic", node);
@@ -1329,7 +1426,8 @@ namespace clover::frontend_c_internal {
 		case tok_identy: {
 			LocalValue* local = FindLocal(node->addr);
 			if (local) return { local->address, true, local->type, true,
-				local->alignment };
+				local->alignment, false, local->runtime_shape_id,
+				local->runtime_dimension };
 			const FrontendCEnumerator* constant = FindConstant(node->addr);
 			if (constant) {
 				FrontendCType type = constant->type;

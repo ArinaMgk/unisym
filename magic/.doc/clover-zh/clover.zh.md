@@ -377,9 +377,12 @@ declare func @putchar(i32) -> i32
 
 %address = local i32
 %array = local i32, 12
+%stack_marker = stacksave
+%dynamic_array = local i32, %count align 4
 %matrix = local i32[10][20]
 %point = local @Point align 4
 %buffer = local i8, 24 align 8
+stackrestore %stack_marker
 global @counter i32 = 0
 internal global @private_counter i32 = 0
 global @points @Point[4] align 4 = 0
@@ -401,7 +404,12 @@ memcopy %destination, %source, 12 align 4, 4
   低 64 位和高 64 位。
 - `local`：创建函数局部存储，结果类型为 `ptr`；对象类型可以是标量、`bN`、
   命名 struct/union 或数组。旧式可选元素数量仍可表示连续数组存储；类型后缀可
-  精确保留多维数组。可选的 `align` 指定以字节计的存储对齐，且必须是二的幂。
+  精确保留多维数组。元素数量也可以是整数 SSA 值，此时存储尺寸在运行期确定。
+  可选的 `align` 指定以字节计的存储对齐，且必须是二的幂。动态 `local` 的结果
+  在恢复其分配前取得的栈位置后失效。
+- `stacksave`：取得当前动态局部存储位置，结果类型为 `ptr`。
+- `stackrestore`：恢复此前由 `stacksave` 取得的位置，并释放其后创建的动态局部
+  存储；同一位置之后的多个动态对象可以由一次恢复共同释放。
 - `global`：定义具有静态存储期的模块级对象；可选的 `align` 指定对象对齐。
   `data` 初始化器由“字节偏移、标量类型、常量值”片段组成，未覆盖的对象区域补零；
   片段保留标量类型，由后端按照目标字节序输出，不要求前端提前编码原始字节。

@@ -59,13 +59,13 @@ namespace clover {
 
 		bool CompatibleFunctionTypes(const FrontendCFunction& previous,
 			const FrontendCFunctionDeclaration& current) {
-			if (!previous.return_type.IsSame(current.return_type)) return false;
+			if (!previous.return_type.IsCompatible(current.return_type)) return false;
 			if (!previous.has_prototype || !current.has_prototype) return true;
 			if (previous.is_variadic != current.is_variadic ||
 				previous.parameter_types.Count() !=
 				current.parameter_types.Count()) return false;
 			for (stduint index = 0; index < previous.parameter_types.Count(); index++)
-				if (!previous.parameter_types.begin()[index].IsSame(
+				if (!previous.parameter_types.begin()[index].IsCompatible(
 					current.parameter_types.begin()[index])) return false;
 			return true;
 		}

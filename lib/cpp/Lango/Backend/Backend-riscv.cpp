@@ -414,6 +414,31 @@ namespace uni::lango {
 							plogerro("RISC-V backend: local alignment must be a power of two up to 16 bytes");
 							return false;
 						}
+						if (instruction.opcode == clover::Opcode::Local) {
+							clover::Type count_type = target.bits == 32 ?
+								clover::Type::I32 : clover::Type::I64;
+							bool dynamic = instruction.operands.Count() == 1;
+							if (!instruction.has_result || instruction.result.type != clover::Type::Ptr ||
+								instruction.operands.Count() > 1 ||
+								(dynamic && (instruction.immediate != 0 ||
+									instruction.operands.begin()[0].type != count_type)) ||
+								(!dynamic && instruction.immediate <= 0)) {
+								plogerro("RISC-V backend: invalid local instruction");
+								return false;
+							}
+						}
+						if (instruction.opcode == clover::Opcode::StackSave &&
+							(!instruction.has_result || instruction.result.type != clover::Type::Ptr ||
+							instruction.operands.Count())) {
+							plogerro("RISC-V backend: invalid stacksave instruction");
+							return false;
+						}
+						if (instruction.opcode == clover::Opcode::StackRestore &&
+							(instruction.has_result || instruction.operands.Count() != 1 ||
+							instruction.operands.begin()[0].type != clover::Type::Ptr)) {
+							plogerro("RISC-V backend: invalid stackrestore instruction");
+							return false;
+						}
 						if ((instruction.opcode == clover::Opcode::Load ||
 							instruction.opcode == clover::Opcode::Store) &&
 							instruction.alignment) {
@@ -485,11 +510,11 @@ namespace uni::lango {
 			return true;
 		}
 
-		// Stack location assigned to an SSA spill or a rematerialized Local object.
+		// Stack location assigned to an SSA spill or a rematerialized fixed Local object.
 		struct ValueSlot {
 			bool defined = false;
-			stdsint value_offset = 0; // Runtime SSA value spill; zero for Local.
-			stdsint local_offset = 0; // Local object address rematerialized from s0.
+			stdsint value_offset = 0; // Runtime SSA spill, including dynamic Local addresses.
+			stdsint local_offset = 0; // Fixed Local object address rematerialized from s0.
 			stdsint argument_object_offset = 0; // Direct by-value argument reconstruction.
 		};
 
@@ -686,7 +711,7 @@ namespace uni::lango {
 			return largest;
 		}
 
-		// Spill ordinary SSA results; Local results retain only their object offset.
+		// Spill ordinary SSA results; fixed Local results retain only their object offset.
 		bool BuildLayout(const clover::Function& function, const clover::Module& module,
 			const RISCVTargetInfo& target, FunctionLayout& layout) {
 			bool found;
@@ -735,7 +760,9 @@ namespace uni::lango {
 						return false;
 					}
 					slot.defined = true;
-					if (instruction.opcode == clover::Opcode::Local ||
+					bool dynamic_local = instruction.opcode == clover::Opcode::Local &&
+						instruction.operands.Count();
+					if ((instruction.opcode == clover::Opcode::Local && !dynamic_local) ||
 						instruction.by_value_return) {
 						stdsint element_size = instruction.has_object_type ?
 							TypeStorageBytes(module, instruction.object_type, target) :
@@ -811,6 +838,31 @@ namespace uni::lango {
 			else {
 				output.OutFormat("\tli t0, %[i]\n\tadd sp, sp, t0\n", bytes);
 			}
+		}
+
+		void EmitMultiplyByConstant(const char* reg, stdsint multiplier,
+			const RISCVTargetInfo& target, uni::OstreamTrait& output) {
+			if (multiplier <= 1) return;
+			stduint unsigned_multiplier = (stduint)multiplier;
+			if (!(unsigned_multiplier & (unsigned_multiplier - 1))) {
+				unsigned shift = 0;
+				while ((stduint(1) << shift) != unsigned_multiplier) shift++;
+				output.OutFormat("\tslli %s, %s, %[u]\n", reg, reg, shift);
+				return;
+			}
+			if (target.extension_m) {
+				output.OutFormat("\tli t1, %[i]\n\tmul %s, %s, t1\n",
+					multiplier, reg, reg);
+				return;
+			}
+			output.OutFormat("\tli t1, 0\n\tmv t2, %s\n", reg);
+			while (unsigned_multiplier) {
+				if (unsigned_multiplier & 1)
+					output.OutFormat("\tadd t1, t1, t2\n");
+				unsigned_multiplier >>= 1;
+				if (unsigned_multiplier) output.OutFormat("\tslli t2, t2, 1\n");
+			}
+			output.OutFormat("\tmv %s, t1\n", reg);
 		}
 
 		void EmitOutgoingStackStore(const char* reg, stduint offset,
@@ -1191,10 +1243,34 @@ namespace uni::lango {
 
 			case clover::Opcode::Local: {
 				const ValueSlot* slot;
-				if (!instruction.has_result || !SlotOf(layout, instruction.result, slot) || !slot->local_offset)
+				if (!instruction.has_result || !SlotOf(layout, instruction.result, slot))
 					return false;
-				return true;
+				if (!instruction.operands.Count()) return slot->local_offset != 0;
+				if (instruction.operands.Count() != 1 || !slot->value_offset ||
+					!LoadValue(layout, instruction.operands.begin()[0], "t0", output))
+					return false;
+				stdsint element_size = instruction.has_object_type ?
+					TypeStorageBytes(module, instruction.object_type, target) :
+					TypeStorageBytes(instruction.type, target);
+				if (element_size <= 0) return false;
+				EmitMultiplyByConstant("t0", element_size, target, output);
+				output.OutFormat("\taddi t0, t0, 15\n");
+				output.OutFormat("\tandi t0, t0, -16\n");
+				output.OutFormat("\tsub sp, sp, t0\n");
+				return StoreResult(layout, instruction, "sp", output);
 			}
+
+			case clover::Opcode::StackSave:
+				if (!instruction.has_result || instruction.operands.Count()) return false;
+				output.OutFormat("\tmv t0, sp\n");
+				return StoreResult(layout, instruction, "t0", output);
+
+			case clover::Opcode::StackRestore:
+				if (!RequireOperands(instruction, 1) ||
+					!LoadValue(layout, instruction.operands.begin()[0], "t0", output))
+					return false;
+				output.OutFormat("\tmv sp, t0\n");
+				return true;
 
 			case clover::Opcode::Load:
 				if (!RequireOperands(instruction, 1) ||

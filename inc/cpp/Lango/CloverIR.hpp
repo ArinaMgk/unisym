@@ -125,7 +125,9 @@ enum class SymbolBinding {
 enum class Opcode {
 	Const, // Create an integer constant.
 	FConst, // Create a floating-point constant from its exact IEEE bit pattern.
-	Local, // Allocate a function-local storage object.
+	Local, // Allocate a fixed or runtime-sized function-local storage object.
+	StackSave, // Capture the current dynamic local-storage position.
+	StackRestore, // Restore a previously captured dynamic local-storage position.
 	Load,  // Read a value from a Ptr operand.
 	Store, // Write a value to a Ptr operand.
 	MemCopy, // Copy fixed bytes; exact source and destination aliasing is allowed.
@@ -225,7 +227,7 @@ struct Instruction {
 	bool has_callee_value = false;  // Select callee_value instead of the named callee.
 	uni::String target;             // Jump target, or true target for a conditional jump.
 	uni::String target_false;       // False target for a conditional jump.
-	stdsint immediate = 0;          // Integer literal, float bits, or Local element count.
+	stdsint immediate = 0;          // Integer literal, float bits, or fixed Local element count.
 	stdsint immediate_high = 0;     // High 64 bits for an f128 constant.
 	stduint alignment = 0;          // Optional Local or memory-access alignment in bytes.
 	stduint source_alignment = 0;   // Optional source alignment used by MemCopy.

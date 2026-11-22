@@ -13,6 +13,28 @@ if [ -z "$riscv_sysroot" ] || [ ! -d "$riscv_sysroot" ]; then
 	exit 1
 fi
 
+chkmgc_object_root="${uobjpath:-/tmp}"
+if [ ! -d "$chkmgc_object_root" ]; then
+	echo "Temporary object root does not exist: $chkmgc_object_root"
+	exit 1
+fi
+chkmgc_workspace="$(mktemp -d "$chkmgc_object_root/chkmgc.XXXXXX")" || exit 1
+case "$chkmgc_workspace" in
+	"${chkmgc_object_root%/}"/chkmgc.*) ;;
+	*)
+		echo "Unexpected temporary workspace: $chkmgc_workspace"
+		exit 1
+		;;
+esac
+uobjpath="$chkmgc_workspace"
+cleanup_chkmgc()
+{
+	if [ -n "$chkmgc_workspace" ] && [ -d "$chkmgc_workspace" ]; then
+		find "$chkmgc_workspace" -depth -delete
+	fi
+}
+trap cleanup_chkmgc EXIT HUP INT TERM
+
 assemble_clover_object()
 {
 	input="$1"
@@ -576,9 +598,8 @@ check 'int values[2+2*2];int main(void){return sizeof(values);}' 24
 check_fail 'int main(){int values[];return 0;}' 'object has incomplete array type'
 
 # Variable-length array declarations
-check_fail 'int main(){int n=3;int values[n];return 0;}' 'variable length array lowering is not implemented'
-check_fail 'int main(){int n=3;int values[n+1];return 0;}' 'variable length array lowering is not implemented'
-check_fail 'int main(){int n=3;return sizeof(int[n]);}' 'runtime sizeof for variable length types is not implemented'
+check '../demo/test/clover/c/vla.c' 247
+check_fail 'int bad(int values[count],int count){return values[0];}' 'array bound expression must have integer type'
 check_fail 'int main(){float n=3;int values[n];return 0;}' 'array bound expression must have integer type'
 check_fail 'int main(){int values[0];return 0;}' 'array size must be greater than zero'
 check_fail 'int function(double n,int values[n]){return 0;}' 'array bound expression must have integer type'
@@ -586,6 +607,9 @@ check_fail 'int values[n];' 'variably modified type is not allowed at file scope
 check_fail 'int main(){int n=3;static int values[n];return 0;}' 'variably modified object cannot have linkage or static storage duration'
 check_fail 'int main(){int n=3;int values[n]={0};return 0;}' 'variable length array cannot have an initializer'
 check_fail 'int main(){int n=3;struct S{int values[n];};return 0;}' 'record member cannot have a variably modified type'
+check_fail 'int main(){int n=3;goto inside;int values[n];inside:return 0;}' 'goto enters scope of variably modified identifier'
+check_fail 'int main(){int n=3;goto inside;int (*pointer)[n];inside:return 0;}' 'goto enters scope of variably modified identifier'
+check_fail 'int main(){int n=3;switch(n){int values[n];case 1:return 1;}return 0;}' 'case label enters scope of variably modified identifier'
 check 'int f(int n,int values[*]);int main(void){return 0;}' 0
 
 # Label and goto

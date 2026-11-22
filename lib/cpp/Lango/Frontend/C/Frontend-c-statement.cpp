@@ -737,20 +737,22 @@ namespace {
 			if (type.IsArray() || type.HasVariablyModifiedType()) {
 				FrontendCArrayParameter array_parameter;
 				array_parameter.parameter = parameter;
-				for (stduint layer = 0; layer < type.layer_count; layer++)
-					if (type.layers[layer].kind == FrontendCTypeLayerKind::Array &&
-						(type.layers[layer].array_bound_kind ==
-							FrontendCArrayBoundKind::Variable ||
-						 type.layers[layer].array_bound_kind ==
-							FrontendCArrayBoundKind::UnspecifiedVariable)) {
-						array_parameter.bound_kind =
-							type.layers[layer].array_bound_kind;
-						array_parameter.bound_expression =
-							type.layers[layer].array_bound_expression;
-						break;
+				array_parameter.declared_type = type;
+				if (!require_names)
+					for (stduint layer = 0;
+						layer < array_parameter.declared_type.layer_count; layer++) {
+						FrontendCTypeLayer& array_layer =
+							array_parameter.declared_type.layers[layer];
+						if (array_layer.kind != FrontendCTypeLayerKind::Array ||
+							array_layer.array_bound_kind !=
+								FrontendCArrayBoundKind::Variable) continue;
+						array_layer.array_bound_kind =
+							FrontendCArrayBoundKind::UnspecifiedVariable;
+						array_layer.array_bound_expression = nullptr;
 					}
 				array_parameter.belongs_to_definition = require_names;
 				type_info.array_parameters.Append(array_parameter);
+				type = array_parameter.declared_type;
 			}
 			if (type.IsArray()) {
 				type = type.DecayType();
@@ -1565,7 +1567,12 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 				type.IsArray()) return false;
 			return type.AppendArrayDimension(0);
 		}
-		if (!ParseTypeName(node->subf, type, target, type_info, dimension))
+		const uni::Nnode* base = node->subf;
+		if (base->next == dimension && base->type == tok_func && base->addr &&
+			!StrCompare(base->addr, "operator[]")) {
+			if (!ParseTypeName(base, type, target, type_info)) return false;
+		}
+		else if (!ParseTypeName(base, type, target, type_info, dimension))
 			return false;
 		stdsint count;
 		if (frontend_c_detail::EvaluateIntegerConstant(
@@ -1765,7 +1772,7 @@ stduint FrontendCTypeInfo::InternFunctionType(
 		bool same = true;
 		for (stduint parameter = 0;
 			parameter < type.parameter_types.Count(); parameter++)
-			if (!previous.parameter_types.begin()[parameter].IsSame(
+			if (!previous.parameter_types.begin()[parameter].IsCompatible(
 				type.parameter_types.begin()[parameter])) {
 				same = false;
 				break;
@@ -2608,18 +2615,8 @@ bool frontend_c_detail::FinalizeArrayBounds(
 				return false;
 	}
 	for (FrontendCArrayParameter& parameter : type_info.array_parameters) {
-		if (parameter.bound_kind != FrontendCArrayBoundKind::Variable ||
-			!parameter.bound_expression) continue;
-		stdsint count;
-		if (!EvaluateIntegerConstant(const_cast<uni::Nnode*>(
-			parameter.bound_expression), target, type_info, count)) continue;
-		if (count <= 0) {
-			diagnostics.Report(DiagnosticStage::Semantic,
-				"array size must be greater than zero", parameter.bound_expression);
-			return false;
-		}
-		parameter.bound_kind = FrontendCArrayBoundKind::Constant;
-		parameter.bound_expression = nullptr;
+		if (!FinalizeTypeArrayBounds(parameter.declared_type,
+			diagnostics, target, type_info)) return false;
 	}
 	return true;
 }

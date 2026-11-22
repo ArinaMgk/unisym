@@ -237,12 +237,24 @@ namespace clover {
 				if (instruction.has_object_type)
 					PrintTypeReference(output, instruction.object_type);
 				else output.OutFormat("%s", TypeName(instruction.type));
-				if (instruction.immediate > 1)
+				if (instruction.operands.Count()) {
+					output.OutFormat(", ");
+					PrintValue(output, instruction.operands.begin()[0]);
+				}
+				else if (instruction.immediate > 1)
 					output.OutFormat(", %[i]", instruction.immediate);
 				if (instruction.alignment)
 					output.OutFormat(" align %[u]", instruction.alignment);
 				if (instruction.name.getByteCount())
 					output.OutFormat(" ; %s", instruction.name.reference());
+				output.OutFormat("\n");
+				break;
+			case Opcode::StackSave:
+				output.OutFormat("stacksave\n");
+				break;
+			case Opcode::StackRestore:
+				output.OutFormat("stackrestore ");
+				PrintValue(output, instruction.operands.begin()[0]);
 				output.OutFormat("\n");
 				break;
 			case Opcode::Load:
@@ -921,11 +933,32 @@ namespace clover {
 					instruction.immediate = 1;
 					if (Is(",")) {
 						Advance();
-						if (!ReadNumber(instruction.immediate) || instruction.immediate <= 0)
+						if (Is("%")) {
+							Value count;
+							if (!ReadValue(count) || !IsIntegerType(count.type))
+								return Error("dynamic local element count must be an integer value");
+							instruction.immediate = 0;
+							instruction.operands.Append(count);
+						}
+						else if (!ReadNumber(instruction.immediate) || instruction.immediate <= 0)
 							return Error("invalid local element count");
 					}
 					if (!ReadOptionalAlignment(instruction)) return false;
 					instruction.result.type = Type::Ptr;
+				}
+				else if (!StrCompare(operation.reference(), "stacksave")) {
+					instruction.opcode = Opcode::StackSave;
+					instruction.type = Type::Ptr;
+					instruction.result.type = Type::Ptr;
+					if (!has_result) return Error("stacksave requires a result");
+				}
+				else if (!StrCompare(operation.reference(), "stackrestore")) {
+					instruction.opcode = Opcode::StackRestore;
+					instruction.type = Type::Ptr;
+					Value marker;
+					if (has_result || !ReadValue(marker) || marker.type != Type::Ptr)
+						return Error("stackrestore requires one ptr operand");
+					instruction.operands.Append(marker);
 				}
 				else if (!StrCompare(operation.reference(), "load")) {
 					instruction.opcode = Opcode::Load;

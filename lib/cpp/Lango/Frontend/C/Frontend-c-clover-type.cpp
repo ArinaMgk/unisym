@@ -603,14 +603,27 @@ namespace clover::frontend_c_internal {
 
 	LoweredValue FunctionBuilder::LowerSizeof(uni::Nnode* operand) {
 		FrontendCType operand_type;
-		if (!frontend_c_detail::ParseTypeName(operand, operand_type,
-			*target, *type_info) &&
-			!ResolveExpressionType(operand, operand_type))
+		bool is_type_name = frontend_c_detail::ParseTypeName(operand, operand_type,
+			*target, *type_info);
+		if (!is_type_name && !ResolveExpressionType(operand, operand_type))
 			return Error("invalid sizeof operand", operand);
 		if (operand_type.IsVoid()) return Error("sizeof cannot be applied to void", operand);
-		if (operand_type.HasVariablyModifiedType())
-			return Error("runtime sizeof for variable length types is not implemented",
-				operand);
+		if (operand_type.IsArray() && operand_type.HasVariablyModifiedType()) {
+			if (!is_type_name) {
+				LoweredValue lowered = LowerExpression(operand);
+				if (!lowered.valid) return lowered;
+				if (lowered.runtime_shape_id &&
+					lowered.runtime_shape_id <= runtime_array_shapes.Count() &&
+					lowered.runtime_dimension < runtime_array_shapes[
+						lowered.runtime_shape_id - 1].size_count) {
+					FrontendCType result_type = SizeType();
+					return { RuntimeArraySize(lowered.runtime_shape_id,
+						lowered.runtime_dimension), true, result_type, false };
+				}
+				return Error("runtime array shape is unavailable", operand);
+			}
+			return LowerRuntimeTypeSize(operand_type, operand);
+		}
 		FrontendCType result_type = SizeType();
 		return { EmitConst(SizeOf(operand_type), result_type), true,
 			result_type, false };

@@ -223,6 +223,26 @@ struct FrontendCType {
 				other.layers[index].function_type_id) return false;
 		return true;
 	}
+	bool HasCompatibleShape(const FrontendCType& other) const {
+		if (integer_rank != other.integer_rank || scalar_kind != other.scalar_kind ||
+			is_signed != other.is_signed ||
+			is_void != other.is_void || record_id != other.record_id ||
+			enum_id != other.enum_id || layer_count != other.layer_count) return false;
+		for (stduint index = 0; index < layer_count; index++) {
+			if (layers[index].kind != other.layers[index].kind) return false;
+			if (layers[index].kind == FrontendCTypeLayerKind::Array) {
+				if (layers[index].array_bound_kind ==
+					FrontendCArrayBoundKind::Constant &&
+					other.layers[index].array_bound_kind ==
+						FrontendCArrayBoundKind::Constant &&
+					layers[index].array_count !=
+						other.layers[index].array_count) return false;
+			}
+			else if (layers[index].function_type_id !=
+				other.layers[index].function_type_id) return false;
+		}
+		return true;
+	}
 	bool IsSame(const FrontendCType& other) const {
 		if (!HasSameShape(other) ||
 			base_qualifiers.is_const != other.base_qualifiers.is_const) return false;
@@ -231,8 +251,16 @@ struct FrontendCType {
 				other.layers[index].qualifiers.is_const) return false;
 		return true;
 	}
+	bool IsCompatible(const FrontendCType& other) const {
+		if (!HasCompatibleShape(other) ||
+			base_qualifiers.is_const != other.base_qualifiers.is_const) return false;
+		for (stduint index = 0; index < layer_count; index++)
+			if (layers[index].qualifiers.is_const !=
+				other.layers[index].qualifiers.is_const) return false;
+		return true;
+	}
 	bool CanAssignFrom(const FrontendCType& source) const {
-		if (!HasSameShape(source)) return false;
+		if (!HasCompatibleShape(source)) return false;
 		if (source.base_qualifiers.is_const && !base_qualifiers.is_const) return false;
 		for (stduint index = 0; index < layer_count; index++)
 			if (source.layers[index].qualifiers.is_const &&
@@ -408,8 +436,7 @@ struct FrontendCFunctionType {
 // Retains the source bound from an array parameter before parameter adjustment.
 struct FrontendCArrayParameter {
 	const uni::Nnode* parameter = nullptr;
-	FrontendCArrayBoundKind bound_kind = FrontendCArrayBoundKind::Incomplete;
-	const uni::Nnode* bound_expression = nullptr;
+	FrontendCType declared_type; // Complete array type before parameter adjustment.
 	bool belongs_to_definition = false;
 };
 
@@ -461,6 +488,32 @@ struct FrontendCObjectDeclarator {
 	FrontendCType type;
 };
 
+// One lexical state entered after declaring an identifier of variably modified type.
+struct FrontendCVariablyModifiedState {
+	stduint parent = 0; // One-based parent state; zero is the function root state.
+	const uni::Nnode* declaration = nullptr;
+	const uni::Nnode* scope = nullptr;
+	stduint dynamic_depth = 0; // Number of active variable-length array objects.
+	bool owns_dynamic_storage = false;
+};
+
+// One function-scope label and the variably modified state at its destination.
+struct FrontendCLabelControl {
+	const uni::Nnode* statement = nullptr;
+	uni::String name;
+	stduint state = 0;
+};
+
+// One goto statement resolved to a label after the whole function is scanned.
+struct FrontendCGotoControl {
+	const uni::Nnode* statement = nullptr;
+	const uni::Nnode* target_name = nullptr;
+	const uni::Nnode* target_label = nullptr;
+	stduint source_state = 0;
+	stduint target_state = 0;
+	stduint target_dynamic_depth = 0;
+};
+
 // Type information collected before generic operator parsing rearranges nodes.
 struct FrontendCTypeInfo {
 	uni::Vector<FrontendCTypedNode> nodes;
@@ -474,6 +527,9 @@ struct FrontendCTypeInfo {
 	uni::Vector<FrontendCObjectDeclarator> object_declarators;
 	uni::Vector<FrontendCRecord> records;
 	uni::Vector<FrontendCEnum> enums;
+	uni::Vector<FrontendCVariablyModifiedState> variably_modified_states;
+	uni::Vector<FrontendCLabelControl> label_controls;
+	uni::Vector<FrontendCGotoControl> goto_controls;
 
 	void Add(const uni::Nnode* node, const FrontendCType& type);
 	const FrontendCType* Find(const uni::Nnode* node) const;
@@ -503,6 +559,10 @@ struct FrontendCTypeInfo {
 	FrontendCEnum* GetEnum(stduint enum_id);
 	const FrontendCEnumerator* FindEnumerator(
 		const char* name, const uni::Nnode* use) const;
+	const FrontendCVariablyModifiedState* GetVariablyModifiedState(
+		stduint state) const;
+	const FrontendCGotoControl* FindGotoControl(
+		const uni::Nnode* statement) const;
 	stduint SizeBits(const FrontendCType& type,
 		const FrontendCTargetInfo& target) const;
 	stduint AlignBits(const FrontendCType& type,
@@ -571,6 +631,9 @@ namespace frontend_c_detail {
 		FrontendCTypeInfo& type_info);
 	bool FinalizeArrayBounds(const FrontendCDiagnostics& diagnostics,
 		const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info);
+	// Resolve labels and validate jumps across variably modified identifier scopes.
+	bool AnalyzeControlFlow(uni::Nchain& syntax_tree,
+		const FrontendCDiagnostics& diagnostics, FrontendCTypeInfo& type_info);
 	// Parse one complete C type-name without modifying its syntax nodes.
 	bool ParseTypeName(const uni::Nnode* node, FrontendCType& type,
 		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,

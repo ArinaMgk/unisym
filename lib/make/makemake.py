@@ -453,15 +453,17 @@ cppfile := $(sort $(wildcard lib/cpp/*.cpp lib/cpp/**/*.cpp lib/cpp/**/**/*.cpp 
 h7_lango_end_cpp := $(wildcard lib/cpp/Lango/*end/*.cpp lib/cpp/Lango/*end/**/*.cpp lib/cpp/Lango/*end/**/**/*.cpp)
 cppfile := $(filter-out $(h7_lango_end_cpp),$(cppfile))
 
-# Encode the source path and language in each member name to avoid archive collisions.
+# Keep the established language prefix and source basename for archive members.
 define c_to_o
-$(OPATH)/_cc_$(subst /,_,$(1:.c=.o)): $(1)
+$(OPATH)/_cc_$(notdir $(1:.c=.o)): $(1)
 endef
 define cpp_to_o
-$(OPATH)/_cx_$(subst /,_,$(1:.cpp=.o)): $(1)
+$(OPATH)/_cx_$(notdir $(1:.cpp=.o)): $(1)
 endef
-cplobjs := $(foreach source,$(cplfile),$(OPATH)/_cc_$(subst /,_,$(source:.c=.o)))
-cppobjs := $(foreach source,$(cppfile),$(OPATH)/_cx_$(subst /,_,$(source:.cpp=.o)))
+cplobjs := $(foreach source,$(cplfile),$(OPATH)/_cc_$(notdir $(source:.c=.o)))
+cppobjs := $(foreach source,$(cppfile),$(OPATH)/_cx_$(notdir $(source:.cpp=.o)))
+o0cppfile := lib/cpp/Device/Cache.cpp lib/cpp/stream.cpp lib/cpp/Datype/mempool.cpp lib/cpp/Format/Filesys/FAT.cpp
+o0cppobjs := $(foreach source,$(o0cppfile),$(OPATH)/_cx_$(notdir $(source:.cpp=.o)))
 objects := $(cplobjs) $(cppobjs)
 depfiles := $(objects:.o=.d)
 
@@ -481,6 +483,7 @@ $(foreach source,$(cplfile),$(eval $(call c_to_o,$(source))))
 $(foreach source,$(cppfile),$(eval $(call cpp_to_o,$(source))))
 
 $(objects): $(H7_MAKEFILE) | $(OPATH)
+$(o0cppobjs): FLAX := $(filter-out -O%,$(FLAX)) -O0
 
 $(cplobjs):
 	@echo CC $<

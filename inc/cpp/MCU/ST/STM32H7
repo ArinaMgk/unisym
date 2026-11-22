@@ -31,6 +31,10 @@
 #undef RCC
 #include "../../../c/stdinc.h"
 
+#ifndef _SMARTPTR_NOTHROW
+#define _SMARTPTR_NOTHROW
+#endif
+
 #include "../../Device/DAC"
 #include "../../Device/ADC"
 #include "../../Device/TIM"

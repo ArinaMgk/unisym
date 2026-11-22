@@ -35,6 +35,7 @@ struct LoweredValue {
 	FrontendCType type;
 	bool is_lvalue = false;
 	stduint alignment = 0; // Known byte alignment of an lvalue or pointer value.
+	bool is_address_value = false; // A non-lvalue object result backed by an address.
 };
 
 // Associates a source identifier with its object address.
@@ -248,6 +249,9 @@ private:
 	Value EmitByteOffset(Value pointer, stduint offset);
 	Value EmitLoad(Type type, Value address, stduint alignment);
 	void EmitStore(Value value, Value address, stduint alignment);
+	bool EmitRecordCopy(Value destination, stduint destination_alignment,
+		Value source, stduint source_alignment, const FrontendCType& type,
+		const uni::Nnode* source_node);
 
 	// Target-aware C type queries, integer conversions, and common-type rules.
 	unsigned IntegerBits(const FrontendCType& type) const;
@@ -257,6 +261,7 @@ private:
 	stduint OffsetAlignment(stduint base_alignment, stduint offset) const;
 	stduint PointerStepAlignment(stduint pointer_alignment,
 		const FrontendCType& pointer_type) const;
+	bool IsModifiableObjectType(const FrontendCType& type) const;
 	FrontendCType IntType() const;
 	FrontendCType SizeType() const;
 	FrontendCType PointerIntegerType(bool is_signed) const;
@@ -347,7 +352,7 @@ private:
 		const FrontendCRecordMember& member) const;
 	LoweredValue LowerRecordMember(Value record_address,
 		const FrontendCType& record_type, stduint record_alignment,
-		uni::Nnode* designator);
+		bool record_is_lvalue, uni::Nnode* designator);
 	LoweredValue LowerMember(uni::Nnode* node);
 	LoweredValue LowerPointerMember(uni::Nnode* node);
 	bool ResolveRecordMemberType(const FrontendCType& record_type,

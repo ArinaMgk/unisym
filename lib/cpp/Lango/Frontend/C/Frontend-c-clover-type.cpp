@@ -608,6 +608,9 @@ namespace clover::frontend_c_internal {
 			!ResolveExpressionType(operand, operand_type))
 			return Error("invalid sizeof operand", operand);
 		if (operand_type.IsVoid()) return Error("sizeof cannot be applied to void", operand);
+		if (operand_type.HasVariablyModifiedType())
+			return Error("runtime sizeof for variable length types is not implemented",
+				operand);
 		FrontendCType result_type = SizeType();
 		return { EmitConst(SizeOf(operand_type), result_type), true,
 			result_type, false };

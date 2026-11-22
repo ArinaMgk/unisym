@@ -31,6 +31,8 @@ namespace {
 		FrontendCTypeInfo* prepared_types = nullptr;
 		const FrontendCTypeInfo* type_info = nullptr;
 		bool require_function_parameter_names = false;
+		bool allow_unspecified_array_bound = false;
+		const uni::Nnode* invalid_array_bound = nullptr;
 	};
 
 	bool IsOperator(const uni::Nnode* node, const char* name) {
@@ -99,19 +101,35 @@ namespace {
 		if (IsOperator(node, "operator[]") && node->next == end) {
 			uni::Nnode* declarator = node->subf;
 			uni::Nnode* dimension = declarator ? declarator->next : nullptr;
-			if (!declarator || (dimension && dimension->next) ||
-				!ParseDeclaratorNode(declarator, dimension, type, identifier,
+			if (!declarator || !ParseDeclaratorNode(declarator, dimension, type, identifier,
 					target, context))
 				return false;
 			if (type.layer_count && type.layers[type.layer_count - 1].kind ==
 				FrontendCTypeLayerKind::Function) return false;
 			if (!dimension) return type.AppendArrayDimension(0);
+			if (dimension->next) {
+				if (!context.syntax_tree) return false;
+				uni::Nnode* expression =
+					context.syntax_tree->Append(nullptr, true, dimension);
+				*expression->GetTnodeField() = *dimension->GetTnodeField();
+				context.syntax_tree->Adopt(
+					expression, dimension, dimension->Tail());
+				dimension = expression;
+			}
+			if (dimension->type == tok_symbol && dimension->addr &&
+				!StrCompare(dimension->addr, "*"))
+				return context.allow_unspecified_array_bound ?
+					type.AppendUnspecifiedVariableArray() : false;
 			stdsint count;
-			FrontendCType literal_type;
-			if (dimension->type != tok_number || !dimension->addr ||
-				!ParseIntegerLiteral(dimension->addr, target, count, literal_type) ||
-				count <= 0) return false;
-			return type.AppendArrayDimension((stduint)count);
+			if (context.type_info && EvaluateIntegerConstant(dimension, target,
+				*context.type_info, count)) {
+				if (count <= 0) {
+					context.invalid_array_bound = dimension;
+					return false;
+				}
+				return type.AppendArrayDimension((stduint)count);
+			}
+			return type.AppendVariableArray(dimension);
 		}
 		if (node->type == tok_func && node->addr && node->next == end &&
 			StrCompare(node->addr, "operator[]") &&
@@ -201,7 +219,8 @@ bool PrepareDeclarator(uni::Nchain& syntax_tree, uni::Nnode* node,
 	FrontendCType& type, uni::Nnode*& identifier,
 	const FrontendCDiagnostics& diagnostics,
 	const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info,
-	bool require_function_parameter_names, const uni::Nnode* end) {
+	bool require_function_parameter_names, const uni::Nnode* end,
+	bool allow_unspecified_array_bound) {
 	identifier = nullptr;
 	FrontendCType base = type;
 	type.layer_count = 0;
@@ -212,8 +231,13 @@ bool PrepareDeclarator(uni::Nchain& syntax_tree, uni::Nnode* node,
 	context.prepared_types = &type_info;
 	context.type_info = &type_info;
 	context.require_function_parameter_names = require_function_parameter_names;
-	return ParseDeclaratorSequence(node, end, type, identifier,
+	context.allow_unspecified_array_bound = allow_unspecified_array_bound;
+	bool success = ParseDeclaratorSequence(node, end, type, identifier,
 		target, context) && identifier && AppendBaseLayers(type, base);
+	if (!success && context.invalid_array_bound)
+		diagnostics.Report(DiagnosticStage::Semantic,
+			"array size must be greater than zero", context.invalid_array_bound);
+	return success;
 }
 
 }

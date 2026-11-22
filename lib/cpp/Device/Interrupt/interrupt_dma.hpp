@@ -178,8 +178,11 @@ static void _HandlerIRQ_DMAStreamx(byte dma_id, byte stream) {
 		crt[ifcr_reg] = (1U << (posi + _DMA_SxFLAG_POS_HTIF));
 		if ((cr & (1U << _DMA_SxCR_POS_DBM))) {
 			// Double buffer: CT selects the current buffer
-			if (ct) asserv(crt.XferM1HalfCpltCallback)();
-			else    asserv(crt.XferHalfCallback)();
+			if (ct) {
+				asserv(crt.XferM1HalfCpltCallback)();
+			} else {
+				asserv(crt.XferHalfCallback)();
+			}
 		} else {
 			if (!is_circ)
 				crt[CR[stream]].setof(_DMA_SxCR_POS_HTIE, false);
@@ -204,8 +207,11 @@ static void _HandlerIRQ_DMAStreamx(byte dma_id, byte stream) {
 		}
 		if ((cr & (1U << _DMA_SxCR_POS_DBM))) {
 			// Double buffer: on TC the CT bit is the *next* target, so the finished buffer is the opposite
-			if (ct) asserv(crt.XferCpltCallback)();
-			else    asserv(crt.XferM1CpltCallback)();
+			if (ct) {
+				asserv(crt.XferCpltCallback)();
+			} else {
+				asserv(crt.XferM1CpltCallback)();
+			}
 		} else {
 			if (!is_circ) {
 				crt[CR[stream]].setof(_DMA_SxCR_POS_TCIE, false);

@@ -862,6 +862,11 @@
               <FilePath>..\..\..\lib\cpp\System\Picture.cpp</FilePath>
             </File>
             <File>
+              <FileName>DCMI.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\Device\Graphic\DCMI.cpp</FilePath>
+            </File>
+            <File>
               <FileName>GPE-JPEG.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\Device\Graphic\GPE-JPEG.cpp</FilePath>

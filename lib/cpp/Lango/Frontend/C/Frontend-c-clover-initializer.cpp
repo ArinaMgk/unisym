@@ -663,22 +663,12 @@ namespace clover::frontend_c_internal {
 		uni::Nnode* initializer) {
 		LoweredValue source = LowerExpression(initializer);
 		if (!source.valid) return false;
-		if (!source.is_lvalue || !source.type.IsRecord() ||
+		if ((!source.is_lvalue && !source.is_address_value) ||
+			!source.type.IsRecord() ||
 			!type.HasSameShape(source.type))
 			return Error("incompatible record initializer", initializer).valid;
-		stduint size = TypeSize(type);
-		if (!size) return Error("invalid record initializer size", initializer).valid;
-		Instruction instruction;
-		instruction.opcode = Opcode::MemCopy;
-		instruction.type = Type::Void;
-		instruction.operands.Append(address);
-		instruction.operands.Append(source.value);
-		instruction.immediate = (stdsint)size;
-		instruction.alignment = alignment;
-		instruction.source_alignment = source.alignment;
-		AttachSource(instruction, initializer);
-		CurrentBlock().instructions.Append(instruction);
-		return true;
+		return EmitRecordCopy(address, alignment, source.value,
+			source.alignment, type, initializer);
 	}
 
 	bool FunctionBuilder::ZeroInitializeObject(Value address,

@@ -213,6 +213,26 @@ namespace clover::frontend_c_internal {
 		CurrentBlock().instructions.Append(instruction);
 	}
 
+	bool FunctionBuilder::EmitRecordCopy(Value destination,
+		stduint destination_alignment, Value source, stduint source_alignment,
+		const FrontendCType& type, const uni::Nnode* source_node) {
+		stduint size = TypeSize(type);
+		if (!size)
+			return Error("record copy requires a complete object type",
+				source_node).valid;
+		Instruction instruction;
+		instruction.opcode = Opcode::MemCopy;
+		instruction.type = Type::Void;
+		instruction.operands.Append(destination);
+		instruction.operands.Append(source);
+		instruction.immediate = (stdsint)size;
+		instruction.alignment = destination_alignment;
+		instruction.source_alignment = source_alignment;
+		AttachSource(instruction, source_node);
+		CurrentBlock().instructions.Append(instruction);
+		return true;
+	}
+
 	stduint FunctionBuilder::OffsetAlignment(stduint base_alignment, stduint offset) const {
 		if (!base_alignment) base_alignment = 1;
 		return offset ? GreatestCommonDivisor(base_alignment, offset) :
@@ -228,19 +248,40 @@ namespace clover::frontend_c_internal {
 			pointer_alignment, element_size) : 0;
 	}
 
+	bool FunctionBuilder::IsModifiableObjectType(
+		const FrontendCType& type) const {
+		if (type.IsArray())
+			return IsModifiableObjectType(type.RemoveOuterLayer());
+		if (type.IsConstObject()) return false;
+		if (!type.IsRecord()) return true;
+		const FrontendCRecord* record = type_info->GetRecord(type.record_id);
+		if (!record || !record->complete) return false;
+		for (const FrontendCRecordMember& member : record->members)
+			if (!IsModifiableObjectType(member.type)) return false;
+		return true;
+	}
+
 	LoweredValue FunctionBuilder::ToRValue(LoweredValue lowered, const uni::Nnode* node) {
 		if (lowered.valid &&
 			(lowered.type.IsArray() || lowered.type.IsFunction())) {
 			lowered.type = lowered.type.DecayType();
 			lowered.is_lvalue = false;
+			lowered.is_address_value = false;
 			return lowered;
 		}
-		if (lowered.valid && lowered.type.IsRecord())
-			return Error("record value operations are not supported yet", node);
-		if (!lowered.valid || !lowered.is_lvalue) return lowered;
+		if (lowered.valid && lowered.type.IsRecord()) {
+			if (!lowered.is_lvalue && !lowered.is_address_value)
+				return Error("record value has no object representation", node);
+			lowered.is_lvalue = false;
+			lowered.is_address_value = true;
+			return lowered;
+		}
+		if (!lowered.valid ||
+			(!lowered.is_lvalue && !lowered.is_address_value)) return lowered;
 		lowered.value = EmitLoad(CloverType(lowered.type), lowered.value,
 			lowered.alignment);
 		lowered.is_lvalue = false;
+		lowered.is_address_value = false;
 		// Pointer alignment is not encoded in a loaded pointer value yet.
 		lowered.alignment = lowered.type.IsPointer() ? 1 : 0;
 		return lowered;
@@ -496,7 +537,15 @@ namespace clover::frontend_c_internal {
 
 		Instruction instruction;
 		instruction.opcode = Opcode::Call;
-		instruction.type = CloverType(return_type);
+		instruction.by_value_return = return_type.IsRecord();
+		instruction.type = instruction.by_value_return ? Type::Ptr :
+			CloverType(return_type);
+		if (instruction.by_value_return) {
+			instruction.object_type = CloverObjectTypeFor(return_type,
+				*target, *type_info);
+			instruction.has_object_type = true;
+			instruction.alignment = TypeAlignment(return_type);
+		}
 		if (direct) instruction.callee = direct->name;
 		else {
 			instruction.callee_value = indirect.value;
@@ -510,18 +559,48 @@ namespace clover::frontend_c_internal {
 				const FrontendCType& parameter_type =
 					parameter_types->begin()[index];
 				if (parameter_type.IsRecord()) {
-					if (!argument.is_lvalue || !parameter_type.IsSame(argument.type))
+					if ((!argument.is_lvalue && !argument.is_address_value) ||
+						!parameter_type.IsSame(argument.type))
 						return Error("record argument type mismatch", argument_node);
 					const FrontendCRecord* record =
 						type_info->GetRecord(parameter_type.record_id);
-					if (!record) return Error("missing record argument layout", argument_node);
-					for (const FrontendCRecordMember& member : record->members) {
-						Value address = EmitByteOffset(argument.value,
-							member.offset_bits / target->char_bits);
-						instruction.operands.Append(EmitLoad(CloverType(member.type),
-							address, OffsetAlignment(argument.alignment,
-								member.offset_bits / target->char_bits)));
+					bool flatten = record && record->complete && !record->is_union &&
+						record->layout != FrontendCRecordLayout::Packed &&
+						record->members.Count() && record->members.Count() <= 2;
+					bool has_float = false;
+					if (flatten) for (const FrontendCRecordMember& member : record->members) {
+						if (!member.type.IsArithmetic() || member.type.IsArray() ||
+							member.type.scalar_kind == FrontendCScalarKind::LongDouble) {
+							flatten = false;
+							break;
+						}
+						has_float = has_float || member.type.IsFloating();
 					}
+					if (flatten && has_float) {
+						for (const FrontendCRecordMember& member : record->members) {
+							Value address = EmitByteOffset(argument.value,
+								member.offset_bits / target->char_bits);
+							Value value = EmitLoad(CloverType(member.type), address,
+								OffsetAlignment(argument.alignment,
+									member.offset_bits / target->char_bits));
+							instruction.operands.Append(value);
+							CallArgument call_argument;
+							call_argument.value = value;
+							instruction.call_arguments.Append(call_argument);
+						}
+						continue;
+					}
+					LoweredValue copy = CreateTemporaryStorage(parameter_type);
+					if (!copy.valid || !EmitRecordCopy(copy.value, copy.alignment,
+						argument.value, argument.alignment, parameter_type,
+						argument_node)) return LoweredValue();
+					CallArgument call_argument;
+					call_argument.value = copy.value;
+					call_argument.by_value = true;
+					call_argument.object_type = CloverObjectTypeFor(
+						parameter_type, *target, *type_info);
+					instruction.operands.Append(call_argument.value);
+					instruction.call_arguments.Append(call_argument);
 					continue;
 				}
 				argument = ToRValue(argument, argument_node);
@@ -545,11 +624,16 @@ namespace clover::frontend_c_internal {
 			}
 			if (!argument.valid) return argument;
 			instruction.operands.Append(argument.value);
+			CallArgument call_argument;
+			call_argument.value = argument.value;
+			instruction.call_arguments.Append(call_argument);
 		}
 		instruction.has_result = !return_type.IsVoid();
 		if (instruction.has_result) instruction.result = NewValue(instruction.type);
 		CurrentBlock().instructions.Append(instruction);
-		return { instruction.result, true, return_type, false };
+		return { instruction.result, true, return_type, false,
+			instruction.by_value_return ? TypeAlignment(return_type) : 0,
+			instruction.by_value_return };
 	}
 
 	LoweredValue FunctionBuilder::LowerSubscriptOperands(LoweredValue left,
@@ -604,7 +688,7 @@ namespace clover::frontend_c_internal {
 
 	LoweredValue FunctionBuilder::LowerRecordMember(Value record_address,
 		const FrontendCType& record_type, stduint record_alignment,
-		uni::Nnode* designator) {
+		bool record_is_lvalue, uni::Nnode* designator) {
 		if (!designator)
 			return Error("member access requires a member name", designator);
 		if (designator->type == tok_func && designator->addr &&
@@ -614,7 +698,8 @@ namespace clover::frontend_c_internal {
 			if (!base || !index || index->next)
 				return Error("array subscript requires two operands", designator);
 			LoweredValue member = LowerRecordMember(
-				record_address, record_type, record_alignment, base);
+				record_address, record_type, record_alignment,
+				record_is_lvalue, base);
 			if (!member.valid) return member;
 			return LowerSubscriptOperands(member, base, index, designator);
 		}
@@ -627,9 +712,10 @@ namespace clover::frontend_c_internal {
 			return Error("record member is not byte-addressable", designator);
 		Value address = EmitByteOffset(record_address,
 			member->offset_bits / target->char_bits);
-		return { address, true, MemberType(record_type, *member), true,
+		return { address, true, MemberType(record_type, *member),
+			record_is_lvalue,
 			OffsetAlignment(record_alignment,
-				member->offset_bits / target->char_bits) };
+				member->offset_bits / target->char_bits), !record_is_lvalue };
 	}
 
 	LoweredValue FunctionBuilder::LowerMember(uni::Nnode* node) {
@@ -639,10 +725,11 @@ namespace clover::frontend_c_internal {
 			return Error("member access requires a member name", node);
 		LoweredValue object = LowerExpression(object_node);
 		if (!object.valid) return object;
-		if (!object.is_lvalue || !object.type.IsRecord())
+		if ((!object.is_lvalue && !object.is_address_value) ||
+			!object.type.IsRecord())
 			return Error("member access requires a record object", object_node);
 		return LowerRecordMember(object.value, object.type,
-			object.alignment, member_node);
+			object.alignment, object.is_lvalue, member_node);
 	}
 
 	LoweredValue FunctionBuilder::LowerPointerMember(uni::Nnode* node) {
@@ -659,7 +746,7 @@ namespace clover::frontend_c_internal {
 		if (!record_type.IsRecord())
 			return Error("pointer member access requires a record pointer", pointer_node);
 		return LowerRecordMember(pointer.value, record_type,
-			pointer.alignment, member_node);
+			pointer.alignment, true, member_node);
 	}
 
 	LoweredValue FunctionBuilder::LowerIncrement(uni::Nnode* operand, bool increment,
@@ -1028,8 +1115,21 @@ namespace clover::frontend_c_internal {
 			LoweredValue left = LowerExpression(left_node);
 			if (!left.valid) return left;
 			if (!left.is_lvalue) return Error("assignment requires an lvalue", left_node);
-			if (left.type.IsRecord())
-				return Error("record assignment is not supported yet", node);
+			if (left.type.IsRecord()) {
+				if (!IsModifiableObjectType(left.type))
+					return Error("assignment to non-modifiable record object",
+						left_node);
+				LoweredValue right = LowerExpression(right_node);
+				if (!right.valid) return right;
+				if ((!right.is_lvalue && !right.is_address_value) ||
+					!right.type.IsRecord() ||
+					!left.type.HasSameShape(right.type))
+					return Error("incompatible record assignment", node);
+				if (!EmitRecordCopy(left.value, left.alignment, right.value,
+					right.alignment, left.type, node)) return LoweredValue();
+				return { left.value, true, left.type, false,
+					left.alignment, true };
+			}
 			if (left.type.IsConstObject())
 				return Error("assignment to const-qualified object", left_node);
 			LoweredValue right = ToRValue(LowerExpression(right_node), right_node);

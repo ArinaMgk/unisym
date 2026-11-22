@@ -375,16 +375,32 @@ namespace clover {
 				output.OutFormat("funcaddr @%s\n", instruction.name.reference());
 				break;
 			case Opcode::Call:
-				output.OutFormat("call %s ", TypeName(instruction.type));
+				output.OutFormat("call ");
+				if (instruction.by_value_return) {
+					output.OutFormat("byval ");
+					PrintTypeReference(output, instruction.object_type);
+					output.OutFormat(" ");
+				}
+				else output.OutFormat("%s ", TypeName(instruction.type));
 				if (instruction.has_callee_value)
 					PrintValue(output, instruction.callee_value);
 				else output.OutFormat("@%s", instruction.callee.reference());
 				output.OutFormat("(");
 				for (stduint index = 0; index < instruction.operands.Count(); index++) {
 					if (index) output.OutFormat(", ");
-					Value operand = instruction.operands.begin()[index];
-					output.OutFormat("%s ", TypeName(operand.type));
-					PrintValue(output, operand);
+					if (instruction.call_arguments.Count() &&
+						instruction.call_arguments.begin()[index].by_value) {
+						const CallArgument& argument = instruction.call_arguments.begin()[index];
+						output.OutFormat("byval ");
+						PrintTypeReference(output, argument.object_type);
+						output.OutFormat(" ");
+						PrintValue(output, argument.value);
+					}
+					else {
+						Value operand = instruction.operands.begin()[index];
+						output.OutFormat("%s ", TypeName(operand.type));
+						PrintValue(output, operand);
+					}
 				}
 				output.OutFormat(")\n");
 				break;
@@ -402,8 +418,13 @@ namespace clover {
 				output.OutFormat("\n");
 				break;
 			case Opcode::Ret:
-				output.OutFormat("ret %s", TypeName(instruction.type));
-				if (instruction.type != Type::Void) {
+				output.OutFormat("ret ");
+				if (instruction.by_value_return) {
+					output.OutFormat("byval ");
+					PrintTypeReference(output, instruction.object_type);
+				}
+				else output.OutFormat("%s", TypeName(instruction.type));
+				if (instruction.type != Type::Void || instruction.by_value_return) {
 					output.OutFormat(" ");
 					PrintValue(output, instruction.operands.begin()[0]);
 				}
@@ -816,11 +837,26 @@ namespace clover {
 			bool ReadCallOperands(Instruction& instruction) {
 				if (!Expect("(")) return false;
 				while (!Is(")")) {
-					Type type;
-					Value value;
-					if (!ReadType(type) || !ReadValue(value)) return false;
-					if (value.type != type) return Error("call argument type does not match value");
-					instruction.operands.Append(value);
+					if (Is("byval")) {
+						Advance();
+						CallArgument argument;
+						argument.by_value = true;
+						if (!ReadTypeReference(*current_module, argument.object_type) ||
+							!ReadValue(argument.value) || argument.value.type != Type::Ptr)
+							return Error("invalid by-value call argument");
+						instruction.operands.Append(argument.value);
+						instruction.call_arguments.Append(argument);
+					}
+					else {
+						Type type;
+						Value value;
+						if (!ReadType(type) || !ReadValue(value)) return false;
+						if (value.type != type) return Error("call argument type does not match value");
+						instruction.operands.Append(value);
+						CallArgument argument;
+						argument.value = value;
+						instruction.call_arguments.Append(argument);
+					}
 					if (Is(")")) break;
 					if (!Expect(",")) return false;
 				}
@@ -1116,7 +1152,16 @@ namespace clover {
 				}
 				else if (!StrCompare(operation.reference(), "call")) {
 					instruction.opcode = Opcode::Call;
-					if (!ReadType(instruction.type))
+					if (Is("byval")) {
+						Advance();
+						instruction.by_value_return = true;
+						instruction.has_object_type = true;
+						instruction.type = Type::Ptr;
+						if (!ReadTypeReference(*current_module, instruction.object_type) ||
+							!instruction.object_type.IsDefined())
+							return Error("invalid aggregate call result type");
+					}
+					else if (!ReadType(instruction.type))
 						return Error("invalid call instruction");
 					if (Is("@")) {
 						Advance();
@@ -1131,7 +1176,8 @@ namespace clover {
 					}
 					if (!ReadCallOperands(instruction))
 						return Error("invalid call instruction");
-					if ((instruction.type == Type::Void) == has_result)
+					if ((instruction.type == Type::Void &&
+						!instruction.by_value_return) == has_result)
 						return Error("void call result mismatch");
 					instruction.result.type = instruction.type;
 				}
@@ -1155,9 +1201,20 @@ namespace clover {
 				}
 				else if (!StrCompare(operation.reference(), "ret")) {
 					instruction.opcode = Opcode::Ret;
-					if (has_result || !ReadType(instruction.type))
+					if (has_result)
 						return Error("invalid ret instruction");
-					if (instruction.type != Type::Void) {
+					if (Is("byval")) {
+						Advance();
+						instruction.by_value_return = true;
+						instruction.has_object_type = true;
+						instruction.type = Type::Ptr;
+						if (!ReadTypeReference(*current_module, instruction.object_type) ||
+							!instruction.object_type.IsDefined())
+							return Error("invalid aggregate return type");
+					}
+					else if (!ReadType(instruction.type))
+						return Error("invalid ret instruction");
+					if (instruction.type != Type::Void || instruction.by_value_return) {
 						Value operand;
 						if (!ReadValue(operand)) return Error("invalid ret instruction");
 						instruction.operands.Append(operand);
@@ -1310,9 +1367,18 @@ namespace clover {
 						break;
 					}
 					Parameter parameter;
-					if (!ReadType(parameter.value.type) ||
+					if (Is("byval")) {
+						Advance();
+						parameter.by_value = true;
+						parameter.value.type = Type::Ptr;
+						if (!ReadTypeReference(module, parameter.object_type) ||
+							!parameter.object_type.IsDefined() ||
+						!ReadResultID(parameter.value.id) || !Define(parameter.value))
+							return Error("invalid by-value function parameter");
+					}
+					else if (!ReadType(parameter.value.type) ||
 						!ReadResultID(parameter.value.id) || !Define(parameter.value)) return false;
-					if (Is("abiagg")) {
+					if (!parameter.by_value && Is("abiagg")) {
 						Advance();
 						stdsint group;
 						if (!ReadNumber(group) || group <= 0) return Error("invalid aggregate parameter group");
@@ -1322,13 +1388,37 @@ namespace clover {
 					if (Is(")")) break;
 					if (!Expect(",")) return false;
 				}
-				if (!Expect(")") || !Expect("->") ||
-					!ReadType(function.return_type) ||
-					!ReadSymbolAttributes(function.visibility, function.binding) ||
+				if (!Expect(")") || !Expect("->")) return false;
+				if (Is("byval")) {
+					Advance();
+					function.returns_by_value = true;
+					function.return_type = Type::Ptr;
+					if (!ReadTypeReference(module, function.return_object_type) ||
+						!function.return_object_type.IsDefined())
+						return Error("invalid aggregate function return type");
+				}
+				else if (!ReadType(function.return_type)) return false;
+				if (!ReadSymbolAttributes(function.visibility, function.binding) ||
 					!Expect("{")) return false;
 				while (Is("^"))
 					if (!ParseBlock(function)) return false;
 				if (!Expect("}")) return false;
+				for (const BasicBlock& block : function.blocks) {
+					for (const Instruction& instruction : block.instructions) {
+						if (instruction.opcode != Opcode::Ret) continue;
+						bool valid = instruction.type == function.return_type &&
+							instruction.by_value_return == function.returns_by_value &&
+							instruction.operands.Count() ==
+								(function.return_type == Type::Void ? 0 : 1);
+						if (valid && function.returns_by_value)
+							valid = !StrCompare(instruction.object_type.defined_name.reference(),
+								function.return_object_type.defined_name.reference()) &&
+								instruction.operands.begin()[0].type == Type::Ptr;
+						else if (valid && instruction.type != Type::Void)
+							valid = instruction.operands.begin()[0].type == instruction.type;
+						if (!valid) return Error("return instruction does not match function type");
+					}
+				}
 				for (stduint index = 0; index < function.blocks.Count(); index++)
 					for (stduint other = index + 1; other < function.blocks.Count(); other++)
 						if (!StrCompare(function.blocks[index].name.reference(),
@@ -1366,9 +1456,17 @@ namespace clover {
 						break;
 					}
 					Parameter parameter;
-					if (!ReadType(parameter.value.type)) return false;
+					if (Is("byval")) {
+						Advance();
+						parameter.by_value = true;
+						parameter.value.type = Type::Ptr;
+						if (!ReadTypeReference(module, parameter.object_type) ||
+							!parameter.object_type.IsDefined())
+							return Error("invalid by-value function parameter");
+					}
+					else if (!ReadType(parameter.value.type)) return false;
 					parameter.value.id = function.parameters.Count();
-					if (Is("abiagg")) {
+					if (!parameter.by_value && Is("abiagg")) {
 						Advance();
 						stdsint group;
 						if (!ReadNumber(group) || group <= 0)
@@ -1379,9 +1477,17 @@ namespace clover {
 					if (Is(")")) break;
 					if (!Expect(",")) return false;
 				}
-				if (!Expect(")") || !Expect("->") ||
-					!ReadType(function.return_type) ||
-					!ReadSymbolAttributes(function.visibility, function.binding)) return false;
+				if (!Expect(")") || !Expect("->")) return false;
+				if (Is("byval")) {
+					Advance();
+					function.returns_by_value = true;
+					function.return_type = Type::Ptr;
+					if (!ReadTypeReference(module, function.return_object_type) ||
+						!function.return_object_type.IsDefined())
+						return Error("invalid aggregate function return type");
+				}
+				else if (!ReadType(function.return_type)) return false;
+				if (!ReadSymbolAttributes(function.visibility, function.binding)) return false;
 				module.functions.Append(function);
 				return true;
 			}
@@ -1953,7 +2059,11 @@ namespace clover {
 			for (stduint index = 0; index < function.parameters.Count(); index++) {
 				if (index) output.OutFormat(", ");
 				const Parameter& parameter = function.parameters.begin()[index];
-				output.OutFormat("%s", TypeName(parameter.value.type));
+				if (parameter.by_value) {
+					output.OutFormat("byval ");
+					PrintTypeReference(output, parameter.object_type);
+				}
+				else output.OutFormat("%s", TypeName(parameter.value.type));
 				if (!function.is_declaration) {
 					output.OutFormat(" ");
 					PrintValue(output, parameter.value);
@@ -1963,7 +2073,12 @@ namespace clover {
 			}
 			if (function.is_variadic)
 				output.OutFormat(function.parameters.Count() ? ", ..." : "...");
-			output.OutFormat(") -> %s", TypeName(function.return_type));
+			output.OutFormat(") -> ");
+			if (function.returns_by_value) {
+				output.OutFormat("byval ");
+				PrintTypeReference(output, function.return_object_type);
+			}
+			else output.OutFormat("%s", TypeName(function.return_type));
 			PrintSymbolAttributes(output, function.visibility, function.binding);
 			if (function.is_declaration) {
 				output.OutFormat("\n");

@@ -444,6 +444,26 @@ namespace {
 					"object cannot have void type", identifier);
 				return false;
 			}
+			FrontendCStorageClass storage = type_info.FindStorage(declaration);
+			if (type.HasVariablyModifiedType()) {
+				if (!scope) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"variably modified type is not allowed at file scope", identifier);
+					return false;
+				}
+				if (storage == FrontendCStorageClass::Static ||
+					storage == FrontendCStorageClass::Extern) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"variably modified object cannot have linkage or static storage duration",
+						identifier);
+					return false;
+				}
+				if (type.IsArray() && type.HasVariableArrayBound() && equal) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"variable length array cannot have an initializer", equal);
+					return false;
+				}
+			}
 			if (!identifier || !AddOrdinaryName(type_info, identifier->addr,
 				declaration, scope, diagnostics)) return false;
 			type_info.Add(identifier, type);
@@ -518,6 +538,11 @@ namespace {
 				false, comma)) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"invalid typedef declarator", node);
+				return false;
+			}
+			if (type.HasVariablyModifiedType() && !scope) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"variably modified typedef is not allowed at file scope", identifier);
 				return false;
 			}
 			for (const FrontendCTypedef& previous : type_info.typedefs)
@@ -614,6 +639,12 @@ namespace {
 			function.scope = global ? nullptr : statement->getParent();
 			function.name = declared_identifier->addr;
 			function.return_type = declared_type.RemoveOuterLayer();
+			if (function.return_type.HasVariablyModifiedType()) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"function cannot return a variably modified type",
+					declared_identifier);
+				return false;
+			}
 			function.parameter_types = function_type->parameter_types;
 			function.function_type_id = declared_type.layers[0].function_type_id;
 			function.is_variadic = function_type->is_variadic;
@@ -690,7 +721,7 @@ namespace {
 					!StrCompare(parameter->addr, ","));
 			if (!unnamed && !frontend_c_detail::PrepareDeclarator(
 				syntax_tree, parameter, type, identifier, diagnostics,
-				target, type_info, false, parameter->next)) {
+				target, type_info, false, parameter->next, !require_names)) {
 				diagnostics.Report(DiagnosticStage::Parser,
 					"expected parameter name", parameter ? parameter : function);
 				return false;
@@ -703,7 +734,27 @@ namespace {
 			}
 			while (pointer_count--)
 				if (!type.AppendPointer()) return false;
-			if (type.IsArray()) type = type.DecayType();
+			if (type.IsArray() || type.HasVariablyModifiedType()) {
+				FrontendCArrayParameter array_parameter;
+				array_parameter.parameter = parameter;
+				for (stduint layer = 0; layer < type.layer_count; layer++)
+					if (type.layers[layer].kind == FrontendCTypeLayerKind::Array &&
+						(type.layers[layer].array_bound_kind ==
+							FrontendCArrayBoundKind::Variable ||
+						 type.layers[layer].array_bound_kind ==
+							FrontendCArrayBoundKind::UnspecifiedVariable)) {
+						array_parameter.bound_kind =
+							type.layers[layer].array_bound_kind;
+						array_parameter.bound_expression =
+							type.layers[layer].array_bound_expression;
+						break;
+					}
+				array_parameter.belongs_to_definition = require_names;
+				type_info.array_parameters.Append(array_parameter);
+			}
+			if (type.IsArray()) {
+				type = type.DecayType();
+			}
 			else if (type.IsFunction()) type = type.DecayType();
 			if (type.IsVoid()) {
 				diagnostics.Report(DiagnosticStage::Semantic,
@@ -718,11 +769,7 @@ namespace {
 				parameter->type = ToToken(FrontendCToken::Parameter);
 				type_info.Add(parameter, type);
 			}
-			if (++count > 8) {
-				diagnostics.Report(DiagnosticStage::Semantic,
-					"more than 8 function parameters are not supported", parameter);
-				return false;
-			}
+			++count;
 
 			node = unnamed ? parameter : parameter->next;
 			if (!node) break;
@@ -977,33 +1024,97 @@ namespace {
 		return true;
 	}
 
-	// Parse the identifier and array dimensions of one record member declarator.
-	bool ParseRecordMemberDeclarator(uni::Nnode* node, uni::Nnode*& identifier,
-		FrontendCType& type, const FrontendCTargetInfo& target) {
-		if (!node) return false;
-		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "OP@PREMEMB") && node->subf &&
-			!node->subf->next) {
-			if (!ParseRecordMemberDeclarator(
-				node->subf, identifier, type, target)) return false;
-			return type.AppendPointer();
+	// Add one completely parsed member and update its structure or union layout.
+	bool AppendRecordMember(stduint record_id, uni::Nnode* identifier,
+		const FrontendCType& member_type, FrontendCRecordLayout layout,
+		stduint& size_bits, stduint& align_bits,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		FrontendCTypeInfo& type_info) {
+		FrontendCRecord* record = type_info.GetRecord(record_id);
+		if (!record || !identifier || !identifier->addr) return false;
+		if (member_type.IsVoid()) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record member cannot have void type", identifier);
+			return false;
 		}
-		if (node->type == tok_func && node->addr &&
-			!StrCompare(node->addr, "operator[]")) {
-			uni::Nnode* declarator = node->subf;
-			uni::Nnode* dimension = declarator ? declarator->next : nullptr;
-			if (!declarator || !dimension || dimension->next ||
-				dimension->type != tok_number || !dimension->addr ||
-				!ParseRecordMemberDeclarator(
-					declarator, identifier, type, target)) return false;
-			stdsint count;
-			FrontendCType literal_type;
-			return frontend_c_detail::ParseIntegerLiteral(
-				dimension->addr, target, count, literal_type) && count > 0 &&
-				type.AppendArrayDimension((stduint)count);
+		if (member_type.IsFunction()) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record member cannot have function type", identifier);
+			return false;
 		}
-		if (node->type != tok_identy || !node->addr) return false;
-		identifier = node;
+		if (member_type.HasVariablyModifiedType()) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record member cannot have a variably modified type", identifier);
+			return false;
+		}
+		for (const FrontendCRecordMember& previous : record->members)
+			if (!StrCompare(previous.name.reference(), identifier->addr)) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"duplicate record member", identifier);
+				return false;
+			}
+		stduint member_size = type_info.SizeBits(member_type, target);
+		stduint member_align = type_info.AlignBits(member_type, target);
+		if (!member_size || !member_align) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"record member has incomplete type", identifier);
+			return false;
+		}
+		bool is_packed = layout == FrontendCRecordLayout::Packed;
+		if (!record->is_union && !is_packed)
+			size_bits = AlignUp(size_bits, member_align);
+		FrontendCRecordMember member;
+		member.name = identifier->addr;
+		member.type = member_type;
+		member.offset_bits = record->is_union ? 0 : size_bits;
+		record->members.Append(member);
+		if (record->is_union) {
+			if (member_size > size_bits) size_bits = member_size;
+		}
+		else size_bits += member_size;
+		if (!is_packed && member_align > align_bits) align_bits = member_align;
+		return true;
+	}
+
+	// Parse all comma-separated declarators sharing one record member base type.
+	bool PrepareRecordMemberDeclarators(uni::Nchain& syntax_tree,
+		uni::Nnode* node, const FrontendCType& base_type, stduint record_id,
+		FrontendCRecordLayout layout, stduint& size_bits, stduint& align_bits,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		FrontendCTypeInfo& type_info) {
+		while (node) {
+			uni::Nnode* comma = node;
+			while (comma && !IsSymbol(comma, ",")) comma = comma->next;
+			if (IsSymbol(node, ",")) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"record member requires a declarator", node);
+				return false;
+			}
+			for (uni::Nnode* cursor = node; cursor && cursor != comma;
+				cursor = cursor->next)
+				if (IsAssignmentStart(cursor)) {
+					diagnostics.Report(DiagnosticStage::Semantic,
+						"record member cannot have an initializer", cursor);
+					return false;
+				}
+			FrontendCType member_type = base_type;
+			uni::Nnode* identifier = nullptr;
+			if (!frontend_c_detail::PrepareDeclarator(syntax_tree, node,
+				member_type, identifier, diagnostics, target, type_info,
+				false, comma)) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"invalid record member declarator", node);
+				return false;
+			}
+			if (!AppendRecordMember(record_id, identifier, member_type, layout,
+				size_bits, align_bits, diagnostics, target, type_info)) return false;
+			node = comma ? comma->next : nullptr;
+			if (comma && !node) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"record member requires a declarator", comma);
+				return false;
+			}
+		}
 		return true;
 	}
 
@@ -1064,53 +1175,20 @@ namespace {
 				return false;
 			}
 			uni::Nnode* declarator = member_statement->subf;
+			NormalizeParenthesizedDeclarator(syntax_tree, declarator, type_info);
+			member_statement->subf = declarator;
 			FrontendCType member_type;
 			if (!ParseTypeSpecifiers(syntax_tree, declarator, member_type,
 				diagnostics, target, type_info)) return false;
-			stduint pointer_count = 0;
-			while (declarator && declarator->type == tok_symbol && declarator->addr) {
-				stduint stars = 0;
-				while (declarator->addr[stars] == '*') stars++;
-				if (!stars || declarator->addr[stars]) break;
-				pointer_count += stars;
-				declarator = syntax_tree.Remove(declarator);
-			}
-			uni::Nnode* identifier = nullptr;
-			if (!declarator || declarator->next || member_type.IsVoid() ||
-				!ParseRecordMemberDeclarator(
-					declarator, identifier, member_type, target)) {
-				diagnostics.Report(DiagnosticStage::Semantic,
-					"unsupported record member declaration", declarator);
+			if (!declarator) {
+				diagnostics.Report(DiagnosticStage::Parser,
+					"record member requires a declarator", member_statement);
 				return false;
 			}
-			while (pointer_count--)
-				if (!member_type.AppendPointer()) return false;
-			FrontendCRecord* current = type_info.GetRecord(record_id);
-			for (const FrontendCRecordMember& previous : current->members)
-				if (!StrCompare(previous.name.reference(), identifier->addr)) {
-					diagnostics.Report(DiagnosticStage::Semantic,
-						"duplicate record member", identifier);
-					return false;
-				}
-			stduint member_size = type_info.SizeBits(member_type, target);
-			stduint member_align = type_info.AlignBits(member_type, target);
-			if (!member_size || !member_align) {
-				diagnostics.Report(DiagnosticStage::Semantic,
-					"record member has incomplete type", identifier);
-				return false;
-			}
-			bool is_packed = layout == FrontendCRecordLayout::Packed;
-			if (!is_union && !is_packed) size_bits = AlignUp(size_bits, member_align);
-			FrontendCRecordMember member;
-			member.name = identifier->addr;
-			member.type = member_type;
-			member.offset_bits = is_union ? 0 : size_bits;
-			current->members.Append(member);
-			if (is_union) {
-				if (member_size > size_bits) size_bits = member_size;
-			}
-			else size_bits += member_size;
-			if (!is_packed && member_align > align_bits) align_bits = member_align;
+			NormalizeDeclaratorSeparators(syntax_tree, declarator);
+			if (!PrepareRecordMemberDeclarators(syntax_tree, declarator,
+				member_type, record_id, layout, size_bits, align_bits,
+				diagnostics, target, type_info)) return false;
 		}
 		bool is_packed = layout == FrontendCRecordLayout::Packed;
 		if (!is_packed && !align_bits) {
@@ -1487,13 +1565,13 @@ bool frontend_c_detail::ParseTypeName(const uni::Nnode* node,
 				type.IsArray()) return false;
 			return type.AppendArrayDimension(0);
 		}
-		if (dimension->type != tok_number || !dimension->addr ||
-			!ParseTypeName(node->subf, type, target, type_info, dimension)) return false;
+		if (!ParseTypeName(node->subf, type, target, type_info, dimension))
+			return false;
 		stdsint count;
-		FrontendCType literal_type;
-		return frontend_c_detail::ParseIntegerLiteral(
-			dimension->addr, target, count, literal_type) && count > 0 &&
-			type.AppendArrayDimension((stduint)count);
+		if (frontend_c_detail::EvaluateIntegerConstant(
+			const_cast<uni::Nnode*>(dimension), target, type_info, count))
+			return count > 0 && type.AppendArrayDimension((stduint)count);
+		return type.AppendVariableArray(dimension);
 	}
 	const uni::Nnode* current = node;
 	unsigned const_count = 0;
@@ -1886,21 +1964,14 @@ const FrontendCEnumerator* FrontendCTypeInfo::FindEnumerator(
 
 stduint FrontendCTypeInfo::SizeBits(const FrontendCType& type,
 	const FrontendCTargetInfo& target) const {
-	bool has_pointer = false;
-	for (stduint index = 0; index < type.layer_count; index++)
-		if (type.layers[index].kind == FrontendCTypeLayerKind::Pointer) {
-			has_pointer = true;
-			break;
-		}
-	if (!has_pointer && type.enum_id && type.is_incomplete) return 0;
+	if (type.enum_id && type.is_incomplete && !type.StorageElementIsPointer())
+		return 0;
 	stduint bits = 0;
-	if (has_pointer) {
-		// A pointer layer makes any still-incomplete pointee layout irrelevant.
-	}
-	else if (type.record_id) {
+	bool complete = true;
+	if (type.record_id) {
 		const FrontendCRecord* record = GetRecord(type.record_id);
-		if (!record || !record->complete) return 0;
-		bits = record->size_bits;
+		if (!record || !record->complete) bits = 0;
+		else bits = record->size_bits;
 	}
 	else {
 		if (type.scalar_kind == FrontendCScalarKind::Float)
@@ -1928,15 +1999,21 @@ stduint FrontendCTypeInfo::SizeBits(const FrontendCType& type,
 	}
 	for (stduint index = type.layer_count; index; index--) {
 		const FrontendCTypeLayer& layer = type.layers[index - 1];
-		if (layer.kind == FrontendCTypeLayerKind::Pointer)
+		if (layer.kind == FrontendCTypeLayerKind::Pointer) {
 			bits = target.pointer_bits;
-		else if (layer.kind == FrontendCTypeLayerKind::Array) {
-			if (!layer.array_count) return 0;
-			bits *= layer.array_count;
+			complete = true;
 		}
-		else bits = 0;
+		else if (layer.kind == FrontendCTypeLayerKind::Array) {
+			if (layer.array_bound_kind != FrontendCArrayBoundKind::Constant)
+				complete = false;
+			else if (complete) bits *= layer.array_count;
+		}
+		else {
+			bits = 0;
+			complete = false;
+		}
 	}
-	return bits;
+	return complete ? bits : 0;
 }
 
 stduint FrontendCTypeInfo::AlignBits(const FrontendCType& type,
@@ -2046,9 +2123,9 @@ bool frontend_c_detail::Prepare(uni::Nchain& syntax_tree,
 			return false;
 		}
 		return_type = function_type.RemoveOuterLayer();
-		if (return_type.IsRecord()) {
+		if (return_type.HasVariablyModifiedType()) {
 			diagnostics.Report(DiagnosticStage::Semantic,
-				"record return values are not supported yet", function);
+				"function cannot return a variably modified type", function);
 			return false;
 		}
 		const FrontendCFunctionType* signature = type_info.GetFunctionType(
@@ -2198,6 +2275,124 @@ namespace {
 			}
 		}
 		return false;
+	}
+
+	bool EvaluateRawIntegerExpression(uni::Nnode*& node,
+		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
+		unsigned minimum_precedence, stdsint& value);
+
+	// Declarations are prepared before general expression parsing, so array bounds
+	// need a small constant-expression path over the still-flat token nodes.
+	bool EvaluateRawIntegerPrimary(uni::Nnode*& node,
+		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
+		stdsint& value) {
+		if (!node) return false;
+		if (node->type == tok_symbol && node->addr &&
+			(!StrCompare(node->addr, "+") || !StrCompare(node->addr, "-") ||
+			 !StrCompare(node->addr, "!") || !StrCompare(node->addr, "~"))) {
+			const char* operation = node->addr;
+			node = node->next;
+			if (!EvaluateRawIntegerPrimary(node, target, type_info, value)) return false;
+			if (!StrCompare(operation, "-")) {
+				if (value == SignedMinimum()) return false;
+				value = -value;
+			}
+			else if (!StrCompare(operation, "!")) value = !value;
+			else if (!StrCompare(operation, "~")) value = ~value;
+			return true;
+		}
+		if (node->type == tok_func && !node->addr && node->subf) {
+			uni::Nnode* expression = node->subf;
+			if (!EvaluateRawIntegerExpression(expression, target, type_info, 1, value) ||
+				expression) return false;
+			node = node->next;
+			return true;
+		}
+		if (node->type == tok_number) {
+			FrontendCType literal_type;
+			if (!frontend_c_detail::ParseIntegerLiteral(
+				node->addr, target, value, literal_type)) return false;
+		}
+		else if (node->type == ToToken(FrontendCToken::CharacterLiteral)) {
+			if (!frontend_c_detail::ParseCharacterLiteral(node->addr, target, value))
+				return false;
+		}
+		else if (node->type == tok_identy) {
+			const FrontendCEnumerator* enumerator =
+				type_info.FindEnumerator(node->addr, node);
+			if (!enumerator) return false;
+			value = enumerator->value;
+		}
+		else return false;
+		node = node->next;
+		return true;
+	}
+
+	unsigned RawIntegerOperatorPrecedence(const uni::Nnode* node) {
+		if (!node || node->type != tok_symbol || !node->addr) return 0;
+		if (!StrCompare(node->addr, "||")) return 1;
+		if (!StrCompare(node->addr, "&&")) return 2;
+		if (!StrCompare(node->addr, "|")) return 3;
+		if (!StrCompare(node->addr, "^")) return 4;
+		if (!StrCompare(node->addr, "&")) return 5;
+		if (!StrCompare(node->addr, "==") || !StrCompare(node->addr, "!=")) return 6;
+		if (!StrCompare(node->addr, "<") || !StrCompare(node->addr, "<=") ||
+			!StrCompare(node->addr, ">") || !StrCompare(node->addr, ">=")) return 7;
+		if (!StrCompare(node->addr, "<<") || !StrCompare(node->addr, ">>")) return 8;
+		if (!StrCompare(node->addr, "+") || !StrCompare(node->addr, "-")) return 9;
+		if (!StrCompare(node->addr, "*") || !StrCompare(node->addr, "/") ||
+			!StrCompare(node->addr, "%")) return 10;
+		return 0;
+	}
+
+	bool EvaluateRawIntegerExpression(uni::Nnode*& node,
+		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
+		unsigned minimum_precedence, stdsint& value) {
+		if (!EvaluateRawIntegerPrimary(node, target, type_info, value)) return false;
+		while (node) {
+			unsigned precedence = RawIntegerOperatorPrecedence(node);
+			if (precedence < minimum_precedence) break;
+			const char* operation = node->addr;
+			node = node->next;
+			stdsint right;
+			if (!EvaluateRawIntegerExpression(node, target, type_info,
+				precedence + 1, right)) return false;
+			stdsint result;
+			if (!StrCompare(operation, "+")) {
+				if (__builtin_add_overflow(value, right, &result)) return false;
+			}
+			else if (!StrCompare(operation, "-")) {
+				if (__builtin_sub_overflow(value, right, &result)) return false;
+			}
+			else if (!StrCompare(operation, "*")) {
+				if (__builtin_mul_overflow(value, right, &result)) return false;
+			}
+			else if (!StrCompare(operation, "/") || !StrCompare(operation, "%")) {
+				if (!right || (value == SignedMinimum() && right == -1)) return false;
+				result = !StrCompare(operation, "/") ? value / right : value % right;
+			}
+			else if (!StrCompare(operation, "<<") || !StrCompare(operation, ">>")) {
+				if (right < 0 || right >= (stdsint)(sizeof(stdsint) * 8)) return false;
+				if (!StrCompare(operation, "<<")) {
+					if (value < 0 || value > (SignedMaximum() >> right)) return false;
+					result = value << right;
+				}
+				else result = value >> right;
+			}
+			else if (!StrCompare(operation, "&")) result = value & right;
+			else if (!StrCompare(operation, "^")) result = value ^ right;
+			else if (!StrCompare(operation, "|")) result = value | right;
+			else if (!StrCompare(operation, "==")) result = value == right;
+			else if (!StrCompare(operation, "!=")) result = value != right;
+			else if (!StrCompare(operation, "<")) result = value < right;
+			else if (!StrCompare(operation, "<=")) result = value <= right;
+			else if (!StrCompare(operation, ">")) result = value > right;
+			else if (!StrCompare(operation, ">=")) result = value >= right;
+			else if (!StrCompare(operation, "&&")) result = value && right;
+			else result = value || right;
+			value = result;
+		}
+		return true;
 	}
 
 	bool EvaluateEnumeratorValue(uni::Nnode* node,
@@ -2352,7 +2547,81 @@ namespace {
 bool frontend_c_detail::EvaluateIntegerConstant(uni::Nnode* node,
 	const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
 	stdsint& value) {
-	return EvaluateEnumeratorValue(node, target, type_info, value);
+	if (EvaluateEnumeratorValue(node, target, type_info, value)) return true;
+	uni::Nnode* expression = node;
+	return EvaluateRawIntegerExpression(expression, target, type_info, 1, value) &&
+		!expression;
+}
+
+namespace {
+	bool FinalizeTypeArrayBounds(FrontendCType& type,
+		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+		const FrontendCTypeInfo& type_info) {
+		for (stduint index = 0; index < type.layer_count; index++) {
+			FrontendCTypeLayer& layer = type.layers[index];
+			if (layer.kind != FrontendCTypeLayerKind::Array ||
+				layer.array_bound_kind != FrontendCArrayBoundKind::Variable ||
+				!layer.array_bound_expression) continue;
+			stdsint count;
+			if (!frontend_c_detail::EvaluateIntegerConstant(
+				const_cast<uni::Nnode*>(layer.array_bound_expression),
+				target, type_info, count)) continue;
+			if (count <= 0) {
+				diagnostics.Report(DiagnosticStage::Semantic,
+					"array size must be greater than zero",
+					layer.array_bound_expression);
+				return false;
+			}
+			layer.array_bound_kind = FrontendCArrayBoundKind::Constant;
+			layer.array_count = (stduint)count;
+			layer.array_bound_expression = nullptr;
+		}
+		return true;
+	}
+}
+
+bool frontend_c_detail::FinalizeArrayBounds(
+	const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
+	FrontendCTypeInfo& type_info) {
+	for (FrontendCTypedNode& node : type_info.nodes)
+		if (!FinalizeTypeArrayBounds(node.type, diagnostics, target, type_info))
+			return false;
+	for (FrontendCObjectDeclarator& object : type_info.object_declarators)
+		if (!FinalizeTypeArrayBounds(object.type, diagnostics, target, type_info))
+			return false;
+	for (FrontendCTypedef& alias : type_info.typedefs)
+		if (!FinalizeTypeArrayBounds(alias.type, diagnostics, target, type_info))
+			return false;
+	for (FrontendCRecord& record : type_info.records)
+		for (FrontendCRecordMember& member : record.members)
+			if (!FinalizeTypeArrayBounds(member.type, diagnostics, target, type_info))
+				return false;
+	for (FrontendCFunctionType& function : type_info.function_types)
+		for (FrontendCType& parameter : function.parameter_types)
+			if (!FinalizeTypeArrayBounds(parameter, diagnostics, target, type_info))
+				return false;
+	for (FrontendCFunctionDeclaration& function : type_info.functions) {
+		if (!FinalizeTypeArrayBounds(function.return_type, diagnostics, target, type_info))
+			return false;
+		for (FrontendCType& parameter : function.parameter_types)
+			if (!FinalizeTypeArrayBounds(parameter, diagnostics, target, type_info))
+				return false;
+	}
+	for (FrontendCArrayParameter& parameter : type_info.array_parameters) {
+		if (parameter.bound_kind != FrontendCArrayBoundKind::Variable ||
+			!parameter.bound_expression) continue;
+		stdsint count;
+		if (!EvaluateIntegerConstant(const_cast<uni::Nnode*>(
+			parameter.bound_expression), target, type_info, count)) continue;
+		if (count <= 0) {
+			diagnostics.Report(DiagnosticStage::Semantic,
+				"array size must be greater than zero", parameter.bound_expression);
+			return false;
+		}
+		parameter.bound_kind = FrontendCArrayBoundKind::Constant;
+		parameter.bound_expression = nullptr;
+	}
+	return true;
 }
 
 bool frontend_c_detail::FinalizeEnums(uni::Nchain& syntax_tree,
@@ -2420,7 +2689,7 @@ bool frontend_c_detail::FinalizeEnums(uni::Nchain& syntax_tree,
 					return false;
 				}
 			stdsint value = next_value;
-			if (value_node && !EvaluateEnumeratorValue(
+			if (value_node && !frontend_c_detail::EvaluateIntegerConstant(
 				value_node, target, type_info, value)) {
 				diagnostics.Report(DiagnosticStage::Semantic,
 					"enum value must be an integer constant", value_node);

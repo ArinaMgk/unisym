@@ -7,6 +7,12 @@
 # Copyright: ArinaMgk UniSym, Apache License Version 2.0
 # Dependens: gcc-riscv64-linux-gnu-gcc (used riscv64-unknown-linux-gnu-gcc)
 
+riscv_sysroot="$(riscv64-linux-gnu-gcc -print-sysroot)" || exit 1
+if [ -z "$riscv_sysroot" ] || [ ! -d "$riscv_sysroot" ]; then
+	echo "Cannot determine the RISC-V sysroot"
+	exit 1
+fi
+
 assemble_clover_object()
 {
 	input="$1"
@@ -36,7 +42,7 @@ check()
 	clover-riscv "$uobjpath/check.ir" -mbits=64 -minst="$backend_inst" \
 		-mabi="$backend_abi" -o "$uobjpath/check.s" || exit 1
 	riscv64-linux-gnu-gcc -static -o "$uobjpath/check" "$uobjpath/check.s" || exit 1
-	qemu-riscv64 -L "$RISCV/sysroot" "$uobjpath/check"
+	qemu-riscv64 -L "$riscv_sysroot" "$uobjpath/check"
 	feedback="$?"
 
 	if [ "$feedback" = "$expectation" ]; then
@@ -163,7 +169,7 @@ check_pic_address_model()
 			static)
 				riscv64-linux-gnu-gcc -static -o "$stem.elf" \
 					"$address_provider" "$stem.o" || exit 1
-				qemu-riscv64 -L "$RISCV/sysroot" "$stem.elf" || exit 1
+				qemu-riscv64 -L "$riscv_sysroot" "$stem.elf" || exit 1
 				;;
 			pic)
 				ld.lld -m elf64lriscv -shared -o "$stem.so" "$stem.o" || exit 1
@@ -176,7 +182,7 @@ check_pic_address_model()
 			pie)
 				riscv64-linux-gnu-gcc -fPIE -pie -o "$stem.elf" \
 					"$address_provider" "$stem.o" || exit 1
-				qemu-riscv64 -L "$RISCV/sysroot" "$stem.elf" || exit 1
+				qemu-riscv64 -L "$riscv_sysroot" "$stem.elf" || exit 1
 				LC_ALL=C readelf -dW "$stem.elf" > "$stem.dynamic" || exit 1
 				if grep -Eq 'TEXTREL|FLAGS.*TEXTREL' "$stem.dynamic"; then exit 1; fi
 				;;
@@ -428,7 +434,7 @@ check_clover_forward_jumps()
 		clover-riscv "$runtime_ir" -o "$uobjpath/forward-jumps-$variant.s" || exit 1
 		riscv64-linux-gnu-gcc -static -o "$uobjpath/forward-jumps-$variant" \
 			"$uobjpath/forward-jumps-$variant.s" || exit 1
-		qemu-riscv64 -L "$RISCV/sysroot" "$uobjpath/forward-jumps-$variant"
+		qemu-riscv64 -L "$riscv_sysroot" "$uobjpath/forward-jumps-$variant"
 		runtime_result="$?"
 		[ "$runtime_result" = 42 ] || exit 1
 	done
@@ -562,7 +568,25 @@ check_fail 'typedef int T; T T; int main(void){return 0;}' 'ordinary identifier 
 
 # Array
 check '../demo/test/clover/c/array.c' 70
+check 'int main(){int values[2*3];return sizeof(values);}' 24
+check 'int main(){return sizeof(int[2*3]);}' 24
+check 'int values[2*3];int main(void){return sizeof(values);}' 24
+check 'struct S{int values[2*3];};int main(void){return sizeof(struct S);}' 24
+check 'int values[2+2*2];int main(void){return sizeof(values);}' 24
 check_fail 'int main(){int values[];return 0;}' 'object has incomplete array type'
+
+# Variable-length array declarations
+check_fail 'int main(){int n=3;int values[n];return 0;}' 'variable length array lowering is not implemented'
+check_fail 'int main(){int n=3;int values[n+1];return 0;}' 'variable length array lowering is not implemented'
+check_fail 'int main(){int n=3;return sizeof(int[n]);}' 'runtime sizeof for variable length types is not implemented'
+check_fail 'int main(){float n=3;int values[n];return 0;}' 'array bound expression must have integer type'
+check_fail 'int main(){int values[0];return 0;}' 'array size must be greater than zero'
+check_fail 'int function(double n,int values[n]){return 0;}' 'array bound expression must have integer type'
+check_fail 'int values[n];' 'variably modified type is not allowed at file scope'
+check_fail 'int main(){int n=3;static int values[n];return 0;}' 'variably modified object cannot have linkage or static storage duration'
+check_fail 'int main(){int n=3;int values[n]={0};return 0;}' 'variable length array cannot have an initializer'
+check_fail 'int main(){int n=3;struct S{int values[n];};return 0;}' 'record member cannot have a variably modified type'
+check 'int f(int n,int values[*]);int main(void){return 0;}' 0
 
 # Label and goto
 check '../demo/test/clover/c/goto.c' 10
@@ -573,6 +597,8 @@ check_fail 'int main(){goto missing;return 0;}' 'use of undefined label'
 check 'int main() {return sizeof(long)+sizeof(void*);}' 16 '-Fdata-model=lp64'
 check 'int main() {return sizeof(long)+sizeof(void*);}' 12 '-Fdata-model=llp64'
 check '../demo/test/clover/c/floating.c' 77 '' imfd lp64d
+check '../demo/test/clover/c/abi.c' 238 '' imfd lp64d
+check_ir 'struct Pair{int left;int right;}; int read_pair(struct Pair value){return value.left;} int main(){struct Pair value={4,5};return read_pair(value);}' 'byval @.record.1'
 
 # Integer and character literals
 check "int main(){return \"\\x41\"[0]+\"\\101\"[0]+'\u0041';}" 195
@@ -586,6 +612,7 @@ check_fail 'enum E {A}; enum E {B}; int main(){return 0;}' 'redefinition of enum
 
 # Structure and union layout
 check '../demo/test/clover/c/struct-layout.c' 254
+check '../demo/test/clover/c/record-value.c' 13
 check 'struct Global{int value;} global_object={7}; int main(){return global_object.value;}' 7
 check 'struct Scope{int value;}; int main(){struct Scope outer; outer.value=3; {struct Scope; struct Scope* hidden;} {struct Scope{char value;}; struct Scope inner; inner.value=2;} return sizeof(outer)+outer.value;}' 7
 check 'struct Scope{int value;}; int main(){{union Scope{char value;}; union Scope inner; inner.value=2; return sizeof(inner)+inner.value;} return 0;}' 3

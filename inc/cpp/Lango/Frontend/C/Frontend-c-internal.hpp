@@ -103,10 +103,19 @@ enum class FrontendCTypeLayerKind {
 	Function // Function returning the type represented by the following layers.
 };
 
+enum class FrontendCArrayBoundKind {
+	Incomplete,          // An array declarator with an empty bound: [].
+	Constant,            // An integer constant expression bound: [N].
+	Variable,            // A runtime-evaluated array bound: [expression].
+	UnspecifiedVariable  // An unspecified VLA bound in a function prototype: [*].
+};
+
 struct FrontendCTypeLayer {
 	FrontendCTypeLayerKind kind = FrontendCTypeLayerKind::Pointer;
 	FrontendCTypeQualifier qualifiers;
-	stduint array_count = 0; // Zero denotes an incomplete array bound.
+	FrontendCArrayBoundKind array_bound_kind = FrontendCArrayBoundKind::Incomplete;
+	stduint array_count = 0; // Valid only for a constant array bound.
+	const uni::Nnode* array_bound_expression = nullptr; // Original VLA bound syntax.
 	stduint function_type_id = 0; // One-based FrontendCFunctionType identity.
 };
 
@@ -180,7 +189,23 @@ struct FrontendCType {
 	bool AppendArrayDimension(stduint count) {
 		FrontendCTypeLayer layer;
 		layer.kind = FrontendCTypeLayerKind::Array;
+		layer.array_bound_kind = count ? FrontendCArrayBoundKind::Constant :
+			FrontendCArrayBoundKind::Incomplete;
 		layer.array_count = count;
+		return AppendLayer(layer);
+	}
+	bool AppendVariableArray(const uni::Nnode* expression) {
+		if (!expression) return false;
+		FrontendCTypeLayer layer;
+		layer.kind = FrontendCTypeLayerKind::Array;
+		layer.array_bound_kind = FrontendCArrayBoundKind::Variable;
+		layer.array_bound_expression = expression;
+		return AppendLayer(layer);
+	}
+	bool AppendUnspecifiedVariableArray() {
+		FrontendCTypeLayer layer;
+		layer.kind = FrontendCTypeLayerKind::Array;
+		layer.array_bound_kind = FrontendCArrayBoundKind::UnspecifiedVariable;
 		return AppendLayer(layer);
 	}
 	bool HasSameShape(const FrontendCType& other) const {
@@ -190,7 +215,10 @@ struct FrontendCType {
 			enum_id != other.enum_id || layer_count != other.layer_count) return false;
 		for (stduint index = 0; index < layer_count; index++)
 			if (layers[index].kind != other.layers[index].kind ||
-				layers[index].array_count != other.layers[index].array_count ||
+				(layers[index].kind == FrontendCTypeLayerKind::Array &&
+				 (layers[index].array_bound_kind != other.layers[index].array_bound_kind ||
+				  (layers[index].array_bound_kind == FrontendCArrayBoundKind::Constant &&
+				   layers[index].array_count != other.layers[index].array_count))) ||
 				layers[index].function_type_id !=
 				other.layers[index].function_type_id) return false;
 		return true;
@@ -217,7 +245,23 @@ struct FrontendCType {
 	bool HasIncompleteArray() const {
 		for (stduint index = 0; index < layer_count &&
 			layers[index].kind == FrontendCTypeLayerKind::Array; index++)
-			if (!layers[index].array_count) return true;
+			if (layers[index].array_bound_kind ==
+				FrontendCArrayBoundKind::Incomplete) return true;
+		return false;
+	}
+	bool HasVariablyModifiedType() const {
+		for (stduint index = 0; index < layer_count; index++)
+			if (layers[index].kind == FrontendCTypeLayerKind::Array &&
+				(layers[index].array_bound_kind == FrontendCArrayBoundKind::Variable ||
+				 layers[index].array_bound_kind ==
+					FrontendCArrayBoundKind::UnspecifiedVariable)) return true;
+		return false;
+	}
+	bool HasVariableArrayBound() const {
+		for (stduint index = 0; index < layer_count; index++)
+			if (layers[index].kind == FrontendCTypeLayerKind::Array &&
+				layers[index].array_bound_kind == FrontendCArrayBoundKind::Variable)
+				return true;
 		return false;
 	}
 	stduint ArrayDimensionCount() const {
@@ -232,13 +276,20 @@ struct FrontendCType {
 	bool SetArrayDimension(stduint index, stduint count) {
 		if (index >= ArrayDimensionCount()) return false;
 		layers[index].array_count = count;
+		layers[index].array_bound_kind = count ?
+			FrontendCArrayBoundKind::Constant :
+			FrontendCArrayBoundKind::Incomplete;
+		layers[index].array_bound_expression = nullptr;
 		return true;
 	}
 	stduint StorageElementCount() const {
 		stduint count = 1;
 		for (stduint index = 0; index < layer_count &&
-			layers[index].kind == FrontendCTypeLayerKind::Array; index++)
+			layers[index].kind == FrontendCTypeLayerKind::Array; index++) {
+			if (layers[index].array_bound_kind !=
+				FrontendCArrayBoundKind::Constant) return 0;
 			count *= layers[index].array_count;
+		}
 		return count;
 	}
 	bool StorageElementIsPointer() const {
@@ -354,6 +405,14 @@ struct FrontendCFunctionType {
 	bool has_prototype = false;
 };
 
+// Retains the source bound from an array parameter before parameter adjustment.
+struct FrontendCArrayParameter {
+	const uni::Nnode* parameter = nullptr;
+	FrontendCArrayBoundKind bound_kind = FrontendCArrayBoundKind::Incomplete;
+	const uni::Nnode* bound_expression = nullptr;
+	bool belongs_to_definition = false;
+};
+
 // Associates one declarator function suffix with its interned function type.
 struct FrontendCFunctionTypeNode {
 	const uni::Nnode* node = nullptr;
@@ -408,6 +467,7 @@ struct FrontendCTypeInfo {
 	uni::Vector<FrontendCStorageNode> storage_nodes;
 	uni::Vector<FrontendCFunctionType> function_types;
 	uni::Vector<FrontendCFunctionTypeNode> function_type_nodes;
+	uni::Vector<FrontendCArrayParameter> array_parameters;
 	uni::Vector<FrontendCFunctionDeclaration> functions;
 	uni::Vector<FrontendCTypedef> typedefs;
 	uni::Vector<FrontendCOrdinaryName> ordinary_names;
@@ -509,6 +569,8 @@ namespace frontend_c_detail {
 	bool FinalizeEnums(uni::Nchain& syntax_tree,
 		const FrontendCDiagnostics& diagnostics, const FrontendCTargetInfo& target,
 		FrontendCTypeInfo& type_info);
+	bool FinalizeArrayBounds(const FrontendCDiagnostics& diagnostics,
+		const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info);
 	// Parse one complete C type-name without modifying its syntax nodes.
 	bool ParseTypeName(const uni::Nnode* node, FrontendCType& type,
 		const FrontendCTargetInfo& target, const FrontendCTypeInfo& type_info,
@@ -523,7 +585,8 @@ namespace frontend_c_detail {
 		const FrontendCDiagnostics& diagnostics,
 		const FrontendCTargetInfo& target, FrontendCTypeInfo& type_info,
 		bool require_function_parameter_names = false,
-		const uni::Nnode* end = nullptr);
+		const uni::Nnode* end = nullptr,
+		bool allow_unspecified_array_bound = false);
 	// Normalize one function suffix parameter list and return its semantic signature.
 	bool PrepareFunctionType(uni::Nchain& syntax_tree, uni::Nnode*& parameters,
 		const FrontendCDiagnostics& diagnostics,

@@ -18,6 +18,7 @@
 #include "../../../../../mecocoa/include/devsman.com.hpp"
 #include "../../../../../mecocoa/include/taskman.com.hpp"
 #include "aaaaa.h"
+#include "../../../../inc/c/consio.h"
 #endif
 
 namespace {
@@ -162,69 +163,62 @@ namespace {
 #define Task_Audio_Serv 0
 #endif
 
-	static stdsint SendAudioRequest(AudioMsg type, const uni::AudioPlayRequest& request) {
-		CommMsg send_msg{};
-		send_msg.data.address = (stduint)&request;
-		send_msg.data.length = sizeof(request);
-		send_msg.type = (stduint)type;
-		syscomm(1, Task_Audio_Serv, &send_msg);
+	// A rejected send has no reply; report transport failures before returning to the player.
+	static stdsint ExchangeAudioMessage(AudioMsg type, const void* payload, stduint length, void* response, stduint capacity) {
+		CommMsg message{};
+		message.data.address = (stduint)payload;
+		message.data.length = length;
+		message.type = (stduint)type;
+		stdsint status = stdsint(syscall(syscall_t::COMM, COMM_SEND, Task_Audio_Serv, (stduint)&message));
+		if (status) {
+			outsfmt("[HostVideo] audio IPC send failed: type=%u target=%u rc=%d\n\r", unsigned(type), unsigned(Task_Audio_Serv), int(status));
+			return status < 0 ? status : -status;
+		}
+		CommMsg reply{};
+		reply.data.address = (stduint)response;
+		reply.data.length = capacity;
+		status = stdsint(syscall(syscall_t::COMM, COMM_RECV, Task_Audio_Serv, (stduint)&reply));
+		if (status) {
+			outsfmt("[HostVideo] audio IPC receive failed: type=%u target=%u rc=%d\n\r", unsigned(type), unsigned(Task_Audio_Serv), int(status));
+			return status < 0 ? status : -status;
+		}
+		return 0;
+	}
 
+	// Scalar replies are operation results or accepted byte counts, independently of transport status.
+	static stdsint SendAudioStatus(AudioMsg type, const void* payload, stduint length) {
 		stdsint result = -1;
-		CommMsg recv_msg{};
-		recv_msg.data.address = (stduint)&result;
-		recv_msg.data.length = sizeof(result);
-		syscomm(0, Task_Audio_Serv, &recv_msg);
+		const stdsint status = ExchangeAudioMessage(type, payload, length, &result, sizeof(result));
+		if (status) return status;
+		if (result < 0)
+			outsfmt("[HostVideo] audio request failed: type=%u target=%u result=%d\n\r", unsigned(type), unsigned(Task_Audio_Serv), int(result));
 		return result;
 	}
 
-	static bool SendAudioSeek(uint32 target_ms, uint64 target_samples) {
-		AudioSeekRequest req{};
-		req.target_ms = target_ms;
-		req.target_samples = target_samples;
-		CommMsg send_msg{};
-		send_msg.data.address = (stduint)&req;
-		send_msg.data.length = sizeof(req);
-		send_msg.type = (stduint)AudioMsg::STREAM_SEEK;
-		syscomm(1, Task_Audio_Serv, &send_msg);
-
-		stdsint result = -1;
-		CommMsg recv_msg{};
-		recv_msg.data.address = (stduint)&result;
-		recv_msg.data.length = sizeof(result);
-		syscomm(0, Task_Audio_Serv, &recv_msg);
-		return result == 0;
+	static stdsint SendAudioRequest(AudioMsg type, const uni::AudioPlayRequest& request) {
+		return SendAudioStatus(type, &request, sizeof(request));
 	}
 
-	static bool SendAudioGetPos(AudioStreamPosition& pos) {
-		CommMsg send_msg{};
-		send_msg.type = (stduint)AudioMsg::STREAM_GET_POS;
-		syscomm(1, Task_Audio_Serv, &send_msg);
+	static bool SendAudioSeek(uint32 target_ms, uint64 target_samples) {
+		AudioSeekRequest request{};
+		request.target_ms = target_ms;
+		request.target_samples = target_samples;
+		return SendAudioStatus(AudioMsg::STREAM_SEEK, &request, sizeof(request)) == 0;
+	}
 
-		CommMsg recv_msg{};
-		recv_msg.data.address = (stduint)&pos;
-		recv_msg.data.length = sizeof(pos);
-		syscomm(0, Task_Audio_Serv, &recv_msg);
-		return pos.is_active;
+	static bool SendAudioGetPos(AudioStreamPosition& position) {
+		position = {};
+		if (ExchangeAudioMessage(AudioMsg::STREAM_GET_POS, nullptr, 0, &position, sizeof(position))) return false;
+		return position.is_active;
 	}
 
 	static bool SendAudioSetVolume(uni::SoundBlasterMixerChannel channel, uint8 left, uint8 right, bool mute = false) {
-		AudioVolumeRequest req{};
-		req.channel = channel;
-		req.left = left;
-		req.right = right;
-		req.mute = mute;
-		CommMsg send_msg{};
-		send_msg.data.address = (stduint)&req;
-		send_msg.data.length = sizeof(req);
-		send_msg.type = (stduint)AudioMsg::SET_VOLUME;
-		syscomm(1, Task_Audio_Serv, &send_msg);
-
-		stdsint result = -1;
-		CommMsg recv_msg{};
-		recv_msg.data.address = (stduint)&result;
-		recv_msg.data.length = sizeof(result);
-		syscomm(0, Task_Audio_Serv, &recv_msg);
-		return result == 0;
+		AudioVolumeRequest request{};
+		request.channel = channel;
+		request.left = left;
+		request.right = right;
+		request.mute = mute;
+		return SendAudioStatus(AudioMsg::SET_VOLUME, &request, sizeof(request)) == 0;
 	}
 #endif
 
@@ -536,14 +530,15 @@ namespace uni {
 		if (internal->info.hasAudio) {
 			uni::AudioPlayRequest req{};
 			req.format = internal->info.audioInfo.format;
-			SendAudioRequest(AudioMsg::STREAM_BEGIN, req);
+			if (SendAudioRequest(AudioMsg::STREAM_BEGIN, req) != 0) {
+				state = HostVideoState::Error;
+				return false;
+			}
 		}
 #endif
 
 		state = HostVideoState::Playing;
-		if (internal->info.hasAudio) {
-			Update();
-		}
+		if (internal->info.hasAudio && !Update()) return false;
 		return true;
 	}
 
@@ -551,15 +546,15 @@ namespace uni {
 	bool HostVideo::Pause() {
 		if (state != HostVideoState::Playing || !impl) return false;
 		HostVideoInternal* internal = static_cast<HostVideoInternal*>(impl);
-		internal->pause_clock_ms = GetSystemClockMs();
 
 #if defined(_ACCM)
 		if (internal->info.hasAudio) {
 			uni::AudioPlayRequest req{};
-			SendAudioRequest(AudioMsg::STREAM_PAUSE, req);
+			if (SendAudioRequest(AudioMsg::STREAM_PAUSE, req) != 0) return false;
 		}
 #endif
 
+		internal->pause_clock_ms = GetSystemClockMs();
 		state = HostVideoState::Paused;
 		return true;
 	}
@@ -567,19 +562,19 @@ namespace uni {
 	bool HostVideo::Resume() {
 		if (state != HostVideoState::Paused || !impl) return false;
 		HostVideoInternal* internal = static_cast<HostVideoInternal*>(impl);
+
+#if defined(_ACCM)
+		if (internal->info.hasAudio) {
+			uni::AudioPlayRequest req{};
+			if (SendAudioRequest(AudioMsg::STREAM_RESUME, req) != 0) return false;
+		}
+#endif
+
 		uint32 now = GetSystemClockMs();
 		if (now >= internal->pause_clock_ms) {
 			internal->total_paused_ms += (now - internal->pause_clock_ms);
 		}
 		internal->pause_clock_ms = 0;
-
-#if defined(_ACCM)
-		if (internal->info.hasAudio) {
-			uni::AudioPlayRequest req{};
-			SendAudioRequest(AudioMsg::STREAM_RESUME, req);
-		}
-#endif
-
 		state = HostVideoState::Playing;
 		return true;
 	}
@@ -722,6 +717,10 @@ namespace uni {
 					write_req.buffer.data = internal->audio_proc_buf + internal->audio_chunk_offset;
 					write_req.buffer.byte_count = internal->audio_chunk_read - internal->audio_chunk_offset;
 					stdsint accepted = SendAudioRequest(AudioMsg::STREAM_WRITE, write_req);
+					if (accepted < 0) {
+						state = HostVideoState::Error;
+						return false;
+					}
 					if (accepted > 0) {
 						internal->audio_chunk_offset += (uint32)accepted;
 					} else {

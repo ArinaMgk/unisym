@@ -342,6 +342,22 @@ namespace clover::frontend_c_internal {
 				object.identifier->addr, declaration);
 			if (!local) return failed ? false :
 				Error("invalid local declaration", object.identifier).valid;
+			if (object.type.HasVariablyModifiedType()) {
+				for (stduint layer = 0; layer < object.type.layer_count; layer++) {
+					const FrontendCTypeLayer& array = object.type.layers[layer];
+					if (array.kind != FrontendCTypeLayerKind::Array ||
+						array.array_bound_kind != FrontendCArrayBoundKind::Variable)
+						continue;
+					FrontendCType bound_type;
+					if (!ResolveExpressionType(const_cast<uni::Nnode*>(
+						array.array_bound_expression), bound_type) ||
+						!bound_type.IsInteger())
+						return Error("array bound expression must have integer type",
+							array.array_bound_expression).valid;
+				}
+				return Error("variable length array lowering is not implemented",
+					object.identifier).valid;
+			}
 			if (local->is_external_alias) continue;
 			if (local->global_index) {
 				if (!InitializeStatic(*local, object.initializer)) return false;
@@ -426,7 +442,14 @@ namespace clover::frontend_c_internal {
 		if (!lowered.valid) return false;
 		Instruction instruction;
 		instruction.opcode = Opcode::Ret;
-		instruction.type = CloverType(return_type);
+		instruction.by_value_return = return_type.IsRecord();
+		instruction.type = instruction.by_value_return ? Type::Ptr :
+			CloverType(return_type);
+		if (instruction.by_value_return) {
+			instruction.object_type = CloverObjectTypeFor(return_type,
+				*target, *type_info);
+			instruction.has_object_type = true;
+		}
 		instruction.operands.Append(lowered.value);
 		CurrentBlock().instructions.Append(instruction);
 		return true;
@@ -800,7 +823,27 @@ namespace clover::frontend_c_internal {
 		if (node->type == ToToken(FrontendCToken::Empty)) return true;
 		if (node->type == ToToken(FrontendCToken::RecordDeclaration) ||
 			node->type == ToToken(FrontendCToken::RecordDefinition)) return true;
-		if (node->type == ToToken(FrontendCToken::TypedefDeclaration)) return true;
+		if (node->type == ToToken(FrontendCToken::TypedefDeclaration)) {
+			for (const FrontendCTypedef& alias : type_info->typedefs) {
+				if (alias.declaration != node ||
+					!alias.type.HasVariablyModifiedType()) continue;
+				for (stduint layer = 0; layer < alias.type.layer_count; layer++) {
+					const FrontendCTypeLayer& array = alias.type.layers[layer];
+					if (array.kind != FrontendCTypeLayerKind::Array ||
+						array.array_bound_kind != FrontendCArrayBoundKind::Variable)
+						continue;
+					FrontendCType bound_type;
+					if (!ResolveExpressionType(const_cast<uni::Nnode*>(
+						array.array_bound_expression), bound_type) ||
+						!bound_type.IsInteger())
+						return Error("array bound expression must have integer type",
+							array.array_bound_expression).valid;
+				}
+				return Error("variably modified typedef lowering is not implemented",
+					node).valid;
+			}
+			return true;
+		}
 		if (node->type == ToToken(FrontendCToken::EnumDeclaration)) return true;
 		if (node->type == ToToken(FrontendCToken::EnumDefinition))
 			return ActivateEnum(node,
@@ -981,16 +1024,25 @@ namespace clover::frontend_c_internal {
 			LocalValue* local = ActivateLocal(parameter_node->addr, parameter_node);
 			if (!local) return Error("invalid function parameter", parameter_node).valid;
 			if (type.IsRecord()) {
-				const FrontendCRecord* record = type_info->GetRecord(type.record_id);
-				if (!record) return Error("missing record parameter layout", parameter_node).valid;
-				for (const FrontendCRecordMember& member : record->members) {
-					if (index >= function->parameters.Count())
-						return Error("invalid flattened record parameter", parameter_node).valid;
-					Value address = EmitByteOffset(local->address,
-						member.offset_bits / target->char_bits);
-					EmitStore(function->parameters.begin()[index++].value, address,
-						OffsetAlignment(local->alignment,
-							member.offset_bits / target->char_bits));
+				if (index >= function->parameters.Count())
+					return Error("invalid record parameter", parameter_node).valid;
+				if (function->parameters.begin()[index].by_value) {
+					if (!EmitRecordCopy(local->address, local->alignment,
+						function->parameters.begin()[index++].value,
+						TypeAlignment(type), type, parameter_node)) return false;
+				}
+				else {
+					const FrontendCRecord* record = type_info->GetRecord(type.record_id);
+					if (!record) return Error("missing record parameter layout", parameter_node).valid;
+					for (const FrontendCRecordMember& member : record->members) {
+						if (index >= function->parameters.Count())
+							return Error("invalid flattened record parameter", parameter_node).valid;
+						Value address = EmitByteOffset(local->address,
+							member.offset_bits / target->char_bits);
+						EmitStore(function->parameters.begin()[index++].value, address,
+							OffsetAlignment(local->alignment,
+								member.offset_bits / target->char_bits));
+					}
 				}
 			}
 			else {
@@ -1007,6 +1059,28 @@ namespace clover::frontend_c_internal {
 		if (!CollectLabels(body)) return false;
 		if (!InitializeParameters(parameters, body)) return false;
 		if (!PredeclareBlock(body)) return false;
+		for (const FrontendCArrayParameter& array_parameter :
+			type_info->array_parameters) {
+			if (!array_parameter.belongs_to_definition) continue;
+			bool belongs_to_function = false;
+			for (uni::Nnode* parameter = parameters; parameter;
+				parameter = parameter->next) {
+				if (parameter == array_parameter.parameter) {
+					belongs_to_function = true;
+					break;
+				}
+			}
+			if (!belongs_to_function || array_parameter.bound_kind !=
+				FrontendCArrayBoundKind::Variable) continue;
+			FrontendCType bound_type;
+			if (!ResolveExpressionType(const_cast<uni::Nnode*>(
+				array_parameter.bound_expression), bound_type) ||
+				!bound_type.IsInteger())
+				return Error("array bound expression must have integer type",
+					array_parameter.bound_expression).valid;
+			return Error("variable length array parameter lowering is not implemented",
+				array_parameter.parameter).valid;
+		}
 		if (!LowerBlock(body)) return false;
 		if (return_type.IsVoid() && !BlockTerminated()) {
 			Instruction instruction;

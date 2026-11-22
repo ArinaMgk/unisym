@@ -186,13 +186,18 @@ namespace clover {
 			FrontendCType right = current;
 			for (stduint index = 0; index < left.layer_count; index++) {
 				if (left.layers[index].kind != FrontendCTypeLayerKind::Array) continue;
-				if (left.layers[index].array_count && right.layers[index].array_count &&
-					left.layers[index].array_count !=
-					right.layers[index].array_count) return false;
-				stduint dimension = left.layers[index].array_count ?
-					left.layers[index].array_count : right.layers[index].array_count;
-				left.layers[index].array_count = dimension;
-				right.layers[index].array_count = dimension;
+				FrontendCTypeLayer& left_layer = left.layers[index];
+				FrontendCTypeLayer& right_layer = right.layers[index];
+				bool left_incomplete = left_layer.array_bound_kind ==
+					FrontendCArrayBoundKind::Incomplete;
+				bool right_incomplete = right_layer.array_bound_kind ==
+					FrontendCArrayBoundKind::Incomplete;
+				if (!left_incomplete && !right_incomplete &&
+					(left_layer.array_bound_kind != right_layer.array_bound_kind ||
+					 (left_layer.array_bound_kind == FrontendCArrayBoundKind::Constant &&
+					  left_layer.array_count != right_layer.array_count))) return false;
+				if (left_incomplete && !right_incomplete) left_layer = right_layer;
+				else if (right_incomplete && !left_incomplete) right_layer = left_layer;
 			}
 			if (!left.IsSame(right)) return false;
 			merged = left;
@@ -660,25 +665,6 @@ namespace clover {
 			return true;
 		}
 
-		bool FlattenableFloatAggregate(const FrontendCType& type,
-			const FrontendCTypeInfo& type_info,
-			uni::Vector<FrontendCType>& members) {
-			if (!type.IsRecord()) return false;
-			const FrontendCRecord* record = type_info.GetRecord(type.record_id);
-			if (!record || !record->complete || record->is_union ||
-				record->layout == FrontendCRecordLayout::Packed ||
-				!record->members.Count() || record->members.Count() > 2) return false;
-			bool has_float = false;
-			for (const FrontendCRecordMember& member : record->members) {
-				if (!member.type.IsArithmetic() || member.type.IsArray() ||
-					member.type.scalar_kind == FrontendCScalarKind::LongDouble)
-					return false;
-				has_float = has_float || member.type.IsFloating();
-				members.Append(member.type);
-			}
-			return has_float;
-		}
-
 		bool AppendDeclarationParameters(const FrontendCFunctionDeclaration& source,
 			Function& function, const FrontendCTypeInfo& type_info,
 			const FrontendCTargetInfo& target,
@@ -691,21 +677,41 @@ namespace clover {
 					return false;
 				}
 				if (parameter_type.IsRecord()) {
-					uni::Vector<FrontendCType> aggregate_members;
-					if (!FlattenableFloatAggregate(parameter_type, type_info,
-						aggregate_members)) {
-						diagnostics.Report(DiagnosticStage::Semantic,
-							"unsupported record parameter ABI shape", source.node);
-						return false;
+					uni::Vector<FrontendCType> members;
+					const FrontendCRecord* record =
+						type_info.GetRecord(parameter_type.record_id);
+					bool flatten = record && record->complete && !record->is_union &&
+						record->layout != FrontendCRecordLayout::Packed &&
+						record->members.Count() && record->members.Count() <= 2;
+					bool has_float = false;
+					if (flatten) for (const FrontendCRecordMember& member : record->members) {
+						if (!member.type.IsArithmetic() || member.type.IsArray() ||
+							member.type.scalar_kind == FrontendCScalarKind::LongDouble) {
+							flatten = false;
+							break;
+						}
+						has_float = has_float || member.type.IsFloating();
+						members.Append(member.type);
 					}
-					unsigned group = function.parameters.Count() + 1;
-					for (const FrontendCType& member_type : aggregate_members) {
-						Parameter parameter;
-						parameter.value.type = CloverTypeFor(member_type, target);
-						parameter.value.id = function.parameters.Count();
-						parameter.aggregate_group = group;
-						function.parameters.Append(parameter);
+					flatten = flatten && has_float;
+					if (flatten) {
+						unsigned group = function.parameters.Count() + 1;
+						for (const FrontendCType& member_type : members) {
+							Parameter parameter;
+							parameter.value.type = CloverTypeFor(member_type, target);
+							parameter.value.id = function.parameters.Count();
+							parameter.aggregate_group = group;
+							function.parameters.Append(parameter);
+						}
+						continue;
 					}
+					Parameter parameter;
+					parameter.value.type = Type::Ptr;
+					parameter.value.id = function.parameters.Count();
+					parameter.by_value = true;
+					parameter.object_type = CloverObjectTypeFor(parameter_type,
+						target, type_info);
+					function.parameters.Append(parameter);
 				}
 				else {
 					Parameter parameter;
@@ -837,7 +843,12 @@ namespace clover {
 
 		Function function;
 		function.name = declaration->name;
-		function.return_type = CloverTypeFor(declaration->return_type, target);
+		function.returns_by_value = declaration->return_type.IsRecord();
+		function.return_type = function.returns_by_value ? Type::Ptr :
+			CloverTypeFor(declaration->return_type, target);
+		if (function.returns_by_value)
+			function.return_object_type = CloverObjectTypeFor(
+				declaration->return_type, target, type_info);
 		function.is_variadic = declaration->is_variadic ||
 			!declaration->has_prototype;
 		function.is_declaration = true;
@@ -978,7 +989,12 @@ namespace clover {
 
 				Function function;
 				function.name = declaration->name;
-				function.return_type = CloverTypeFor(declaration->return_type, target);
+				function.returns_by_value = declaration->return_type.IsRecord();
+				function.return_type = function.returns_by_value ? Type::Ptr :
+					CloverTypeFor(declaration->return_type, target);
+				if (function.returns_by_value)
+					function.return_object_type = CloverObjectTypeFor(
+						declaration->return_type, target, type_info);
 				function.is_variadic = declaration->is_variadic ||
 					!declaration->has_prototype;
 				function.is_declaration = true;
@@ -1084,6 +1100,12 @@ namespace clover {
 				return false;
 			}
 			function.return_type = CloverTypeFor(*function_return_type, target);
+			function.returns_by_value = function_return_type->IsRecord();
+			if (function.returns_by_value) {
+				function.return_type = Type::Ptr;
+				function.return_object_type = CloverObjectTypeFor(
+					*function_return_type, target, type_info);
+			}
 			FrontendCFunction signature;
 			signature.name = node->addr;
 			signature.return_type = *function_return_type;
@@ -1121,22 +1143,43 @@ namespace clover {
 				}
 				signature.parameter_types.Append(*parameter_type);
 				if (parameter_type->IsRecord()) {
-					uni::Vector<FrontendCType> aggregate_members;
-					if (!FlattenableFloatAggregate(*parameter_type, type_info,
-						aggregate_members)) {
-						diagnostics.Report(DiagnosticStage::Semantic,
-							"unsupported record parameter ABI shape", parameter_node);
-						return false;
+					const FrontendCRecord* record =
+						type_info.GetRecord(parameter_type->record_id);
+					uni::Vector<FrontendCType> members;
+					bool flatten = record && record->complete && !record->is_union &&
+						record->layout != FrontendCRecordLayout::Packed &&
+						record->members.Count() && record->members.Count() <= 2;
+					bool has_float = false;
+					if (flatten) for (const FrontendCRecordMember& member : record->members) {
+						if (!member.type.IsArithmetic() || member.type.IsArray() ||
+							member.type.scalar_kind == FrontendCScalarKind::LongDouble) {
+							flatten = false;
+							break;
+						}
+						has_float = has_float || member.type.IsFloating();
+						members.Append(member.type);
 					}
-					unsigned group = function.parameters.Count() + 1;
-					for (const FrontendCType& member_type : aggregate_members) {
-						Parameter parameter;
-						parameter.name = parameter_node->addr;
-						parameter.value.type = CloverTypeFor(member_type, target);
-						parameter.value.id = function.parameters.Count();
-						parameter.aggregate_group = group;
-						function.parameters.Append(parameter);
+					flatten = flatten && has_float;
+					if (flatten) {
+						unsigned group = function.parameters.Count() + 1;
+						for (const FrontendCType& member_type : members) {
+							Parameter parameter;
+							parameter.name = parameter_node->addr;
+							parameter.value.type = CloverTypeFor(member_type, target);
+							parameter.value.id = function.parameters.Count();
+							parameter.aggregate_group = group;
+							function.parameters.Append(parameter);
+						}
+						continue;
 					}
+					Parameter parameter;
+					parameter.name = parameter_node->addr;
+					parameter.value.type = Type::Ptr;
+					parameter.value.id = function.parameters.Count();
+					parameter.by_value = true;
+					parameter.object_type = CloverObjectTypeFor(*parameter_type,
+						target, type_info);
+					function.parameters.Append(parameter);
 				}
 				else {
 					Parameter parameter;

@@ -30,6 +30,13 @@
 #include "Audiosys.hpp"
 #include "Picture.hpp"
 
+/*
+* Video   Picture  ImageOut
+* Graphic          ImageInn
+* Audio   Audiosys AudioOut
+* Mcphone          AudioInn
+*/
+
 namespace uni {
 
 	enum class VideoResult {

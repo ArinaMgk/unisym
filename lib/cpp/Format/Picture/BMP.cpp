@@ -638,10 +638,70 @@ uni::ImageResult uni::BMPCodec::Encode(
 	trait::Malloc& allocator,
 	const ImageEncodeOptions& options
 ) const {
-	return uni::ImageResult::UNSUPPORTED;
+	(void)options;
+	if (!CanEncode(image.format)) return ImageResult::UNSUPPORTED;
+	if (!image.pixels || !image.width || !image.height ||
+		image.width > 0x7FFFFFFFU || image.height > 0x7FFFFFFFU)
+		return ImageResult::INVALID_ARGUMENT;
+	uint64 input_row_size = (uint64)image.width * 2;
+	uint64 required_size = (uint64)(image.height - 1) * image.stride + input_row_size;
+	if (image.stride < input_row_size || required_size > image.size ||
+		required_size > (stduint)-1 || _IMM(image.pixels) > (stduint)-1 - (stduint)(required_size - 1))
+		return ImageResult::INVALID_ARGUMENT;
+	uint64 output_row_size = ((uint64)image.width * 3 + 3) & ~3ULL;
+	uint64 pixel_size = output_row_size * image.height;
+	uint64 file_size = 54 + pixel_size;
+	if (file_size > 0xFFFFFFFFULL || file_size > (stduint)-1)
+		return ImageResult::INVALID_ARGUMENT;
+	stduint row_size = (stduint)output_row_size;
+	stduint block_size = storage.Block_Size ? storage.Block_Size : 512;
+	if (block_size > (stduint)-1 - row_size) return ImageResult::INVALID_ARGUMENT;
+	stduint work_size = row_size + block_size;
+	byte* row = (byte*)allocator.allocate(work_size, 2);
+	if (!row) return ImageResult::OUT_OF_MEMORY;
+	byte* block = row + row_size;
+	MemSet(row, 0, row_size);
+
+	// Microsoft BITMAPFILEHEADER / BITMAPINFOHEADER: little-endian, 24-bit BI_RGB, bottom-up.
+	byte header[54] = {0x42, 0x4D};
+	header[10] = 54;
+	header[14] = 40;
+	header[26] = 1;
+	header[28] = 24;
+	for (byte i = 0; i < 4; ++i) {
+		header[2 + i] = (byte)(file_size >> (i * 8));
+		header[18 + i] = (byte)(image.width >> (i * 8));
+		header[22 + i] = (byte)(image.height >> (i * 8));
+		header[34 + i] = (byte)(pixel_size >> (i * 8));
+	}
+	if (storage.Write(0, header, sizeof(header), block) != sizeof(header)) {
+		allocator.deallocate(row, work_size);
+		return ImageResult::IO_ERROR;
+	}
+	stduint offset = sizeof(header);
+	for (uint32 y = 0; y < image.height; ++y) {
+		const byte* source = (const byte*)image.pixels + (stduint)(image.height - 1 - y) * image.stride;
+		for (uint32 x = 0; x < image.width; ++x) {
+			uint16 pixel;
+			MemCopyN(&pixel, source + (stduint)x * 2, sizeof(pixel));
+			byte red = (byte)((pixel >> 11) & 0x1F);
+			byte green = (byte)((pixel >> 5) & 0x3F);
+			byte blue = (byte)(pixel & 0x1F);
+			row[x * 3] = (byte)((blue << 3) | (blue >> 2));
+			row[x * 3 + 1] = (byte)((green << 2) | (green >> 4));
+			row[x * 3 + 2] = (byte)((red << 3) | (red >> 2));
+		}
+		if (storage.Write(offset, row, row_size, block) != row_size) {
+			allocator.deallocate(row, work_size);
+			return ImageResult::IO_ERROR;
+		}
+		offset += row_size;
+	}
+	allocator.deallocate(row, work_size);
+	return ImageResult::OK;
 }
 
 bool uni::BMPCodec::CanEncode(PixelFormat format) const {
-	return false;
+	return format == PixelFormat::RGB565;
 }
 #endif

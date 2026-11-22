@@ -71,6 +71,18 @@ struct Link {
 	struct Link* next;
 };
 
+struct ComplexMembers {
+	int (*callback)(int);
+	int (*row)[3];
+	int *items[2];
+	int (*callbacks[2])(int);
+	int (*first)(int), (*second)(int);
+};
+
+int increment(int value) {
+	return value + 1;
+}
+
 int main() {
 	struct Header header;
 	struct WideValue wide_value;
@@ -91,6 +103,10 @@ int main() {
 	struct ExponentAlignedPadded exponent_aligned;
 	struct Link first_link;
 	struct Link second_link;
+	int row[3] = {2, 3, 4};
+	int left = 5;
+	int right = 7;
+	struct ComplexMembers complex;
 	int* packed_word_pointer = &packed_values[1].word;
 	header.tag = 1;
 	header_pointer->length = 20;
@@ -112,6 +128,14 @@ int main() {
 	exponent_aligned.value = 19;
 	second_link.value = 11;
 	first_link.next = &second_link;
+	complex.callback = increment;
+	complex.row = &row;
+	complex.items[0] = &left;
+	complex.items[1] = &right;
+	complex.callbacks[0] = increment;
+	complex.callbacks[1] = increment;
+	complex.first = increment;
+	complex.second = increment;
 	return header.tag + *&header.length + header.flags +
 		wide_pointer->payload + scalar_order.word +
 		packets[1].headers[1].length + packet_pointer->samples[2] +
@@ -125,5 +149,8 @@ int main() {
 		(packed_union.half == 257) + (sizeof(padded_value) == 8) +
 		(sizeof(byte_aligned[0]) == 16) + (byte_aligned[1].value == 17) +
 		(sizeof(exponent_aligned) == 16) + (exponent_aligned.value == 19) +
-		(first_link.next->value == 11);
+		(first_link.next->value == 11) + ((*complex.callback)(3) == 4) +
+		((*complex.row)[1] == 3) + (*complex.items[0] == 5) +
+		(*complex.items[1] == 7) + ((*complex.callbacks[1])(4) == 5) +
+		((*complex.first)(5) == 6) + ((*complex.second)(6) == 7) - 7;
 }

@@ -128,7 +128,7 @@ enum class Opcode {
 	Local, // Allocate a function-local storage object.
 	Load,  // Read a value from a Ptr operand.
 	Store, // Write a value to a Ptr operand.
-	MemCopy, // Copy a fixed byte count between non-overlapping Ptr operands.
+	MemCopy, // Copy fixed bytes; exact source and destination aliasing is allowed.
 	Mov,   // Copy an SSA value without accessing memory.
 	Add,   // Integer addition.
 	Sub,   // Integer subtraction.
@@ -198,15 +198,24 @@ struct Value {
 	unsigned id = 0;
 };
 
+// One function-call argument, either a scalar SSA value or an aggregate address.
+struct CallArgument {
+	Value value;
+	bool by_value = false;
+	TypeReference object_type;
+};
+
 // One Clover IR instruction. Fields unused by an opcode retain defaults.
 struct Instruction {
 	Opcode opcode = Opcode::Const;
 	Type type = Type::I64;          // Result type, or accessed integer type.
 	TypeReference object_type;      // Local or PtrAdd object type when explicitly present.
 	bool has_object_type = false;
+	bool by_value_return = false;    // Call or Ret carries an aggregate object address.
 	bool has_result = false;        // Whether this instruction defines result.
 	Value result;                   // SSA result when has_result is true.
 	uni::Vector<Value> operands;    // Ordered input values.
+	uni::Vector<CallArgument> call_arguments; // Typed call arguments, including by-value objects.
 	uni::String name;               // Local source name or referenced global symbol.
 	uni::String debug_source;       // Optional source statement printed before this instruction.
 	uint32 debug_file = 0;          // One-based source file identifier; zero means unavailable.
@@ -241,6 +250,8 @@ struct Parameter {
 	uni::String name;
 	Value value;
 	unsigned aggregate_group = 0; // Nonzero for a flattened aggregate ABI member.
+	bool by_value = false; // Value is an address to a copied object of object_type.
+	TypeReference object_type; // Source-level object type for a by-value aggregate.
 };
 
 // One typed constant placed at a byte offset within a global object.
@@ -276,6 +287,8 @@ struct Global {
 struct Function {
 	uni::String name;
 	Type return_type = Type::I64;
+	bool returns_by_value = false; // Return type is the aggregate object_type, not a scalar.
+	TypeReference return_object_type;
 	uni::Vector<Parameter> parameters;
 	bool is_variadic = false; // Accept call operands after the fixed parameter list.
 	bool is_declaration = false; // Refer to a function supplied by this or another module.

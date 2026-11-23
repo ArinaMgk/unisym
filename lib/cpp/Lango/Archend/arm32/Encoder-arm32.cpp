@@ -172,6 +172,21 @@ bool EncodeCompare(const ARM32InstructionInfo& info,
 	return true;
 }
 
+bool EncodeMultiply(const ARM32InstructionInfo& info,
+	const ARM32Instruction& instruction, uint32_t& encoding)
+{
+	const ARM32Register& rd = instruction.operands[0].reg;
+	const ARM32Register& rm = instruction.operands[1].reg;
+	const ARM32Register& rs = instruction.operands[2].reg;
+	if (!RequireGeneral(rd, "MUL destination") ||
+		!RequireGeneral(rm, "MUL operand") ||
+		!RequireGeneral(rs, "MUL operand")) return false;
+	encoding = ConditionBits(instruction.condition) | info.fixed |
+		(instruction.set_flags ? UINT32_C(1) << 20 : 0) |
+		rd.index << 16 | rs.index << 8 | rm.index;
+	return true;
+}
+
 bool ResolveRegisterAddress(const ARM32Operand& address,
 	unsigned maximum, uint32_t& base, uint32_t& magnitude, bool& positive)
 {
@@ -402,6 +417,9 @@ bool EncodeOne(const AssemblySession& session,
 	case ARM32EncodingFormat::Compare:
 		if (!EncodeCompare(info, instruction, encoded.encoding)) return false;
 		break;
+	case ARM32EncodingFormat::Multiply:
+		if (!EncodeMultiply(info, instruction, encoded.encoding)) return false;
+		break;
 	case ARM32EncodingFormat::LoadStore:
 	case ARM32EncodingFormat::LoadStoreExtra:
 		if (!EncodeLoadStore(
@@ -412,14 +430,200 @@ bool EncodeOne(const AssemblySession& session,
 	return true;
 }
 
+bool EncodeT32(const AssemblySession& session,
+	const ARM32Instruction& instruction, int64_t offset,
+	ARM32EncodingSequence& result)
+{
+	ARM32EncodingResult encoded;
+	encoded.size = 2;
+	uint32_t word = 0;
+	const ARM32InstructionInfo& info = DumpARM32Instruction(instruction.opcode);
+	const ARM32Operand* a = instruction.operands;
+	auto low_register = [](const ARM32Operand& operand) {
+		return operand.kind == ARM32OperandKind::Register &&
+			operand.reg.index < 8;
+	};
+	auto absolute = [](const ARM32Value& value, int64_t& number) {
+		return !value.unknown && !value.external && value.section == NO_SEG &&
+			value.wrt == NO_SEG && (number = value.offset, true);
+	};
+	if (instruction.kind == ARM32InstructionKind::MoveOperand) {
+		if (a[1].kind == ARM32OperandKind::Register) {
+			if (a[1].reg.index > 15 || a[1].shift.kind != ARM32ShiftKind::None)
+				goto unsupported;
+			if (instruction.set_flags) {
+				if (!low_register(a[0]) || a[1].reg.index > 7)
+					goto unsupported;
+				word = static_cast<uint32_t>(a[1].reg.index) << 3 |
+					a[0].reg.index;
+			}
+			else {
+				if (a[0].reg.index == 13) {
+					if (a[1].reg.index > 12) goto unsupported;
+				}
+				else if (!low_register(a[0]))
+					goto unsupported;
+				word = UINT32_C(0x4600) |
+					(static_cast<uint32_t>(a[1].reg.index) << 3) |
+					(a[0].reg.index & 7) |
+					((a[0].reg.index & 8) << 4);
+			}
+		}
+		else {
+			int64_t immediate;
+			if (!low_register(a[0]) || !instruction.set_flags ||
+				!absolute(a[1].value, immediate) || immediate < 0 ||
+				immediate > 255) goto unsupported;
+			word = UINT32_C(0x2000) | a[0].reg.index << 8 |
+				static_cast<uint32_t>(immediate);
+		}
+	}
+	else if (info.format == ARM32EncodingFormat::Fixed &&
+		instruction.opcode == ARM32Opcode::Nop) {
+		word = UINT32_C(0xbf00);
+	}
+	else if (info.format == ARM32EncodingFormat::DataProcessing &&
+		(instruction.opcode == ARM32Opcode::Add ||
+		 instruction.opcode == ARM32Opcode::Sub)) {
+		if (!instruction.set_flags || !low_register(a[0]) ||
+			!low_register(a[1])) goto unsupported;
+		if (a[2].kind == ARM32OperandKind::Register && low_register(a[2])) {
+			word = (instruction.opcode == ARM32Opcode::Add ?
+				UINT32_C(0x1800) : UINT32_C(0x1a00)) |
+				a[2].reg.index << 6 | a[1].reg.index << 3 |
+				a[0].reg.index;
+		}
+		else if (a[2].kind == ARM32OperandKind::Immediate) {
+			int64_t immediate;
+			if (!absolute(a[2].value, immediate) || immediate < 0 ||
+				immediate > 255 || a[0].reg.index != a[1].reg.index)
+				goto unsupported;
+			word = (instruction.opcode == ARM32Opcode::Add ?
+				UINT32_C(0x3000) : UINT32_C(0x3800)) |
+				a[0].reg.index << 8 | static_cast<uint32_t>(immediate);
+		}
+		else goto unsupported;
+	}
+	else if (info.format == ARM32EncodingFormat::Compare) {
+		if (instruction.opcode != ARM32Opcode::Cmp || !low_register(a[0]))
+			goto unsupported;
+		if (a[1].kind == ARM32OperandKind::Register && low_register(a[1]))
+			word = UINT32_C(0x4280) | a[1].reg.index << 3 | a[0].reg.index;
+		else if (a[1].kind == ARM32OperandKind::Immediate) {
+			int64_t immediate;
+			if (!absolute(a[1].value, immediate) || immediate < 0 ||
+				immediate > 255) goto unsupported;
+			word = UINT32_C(0x2800) | a[0].reg.index << 8 |
+				static_cast<uint32_t>(immediate);
+		}
+		else goto unsupported;
+	}
+	else if (info.format == ARM32EncodingFormat::DataProcessing &&
+		instruction.opcode == ARM32Opcode::Orr) {
+		if (!instruction.set_flags || !low_register(a[0]) || !low_register(a[2]) ||
+			a[0].reg.index != a[1].reg.index) goto unsupported;
+		word = UINT32_C(0x4300) | a[2].reg.index << 3 |
+			a[0].reg.index;
+	}
+	else if ((info.format == ARM32EncodingFormat::LoadStore) &&
+		(instruction.opcode == ARM32Opcode::Ldr ||
+		 instruction.opcode == ARM32Opcode::Str)) {
+		if (a[0].kind != ARM32OperandKind::Register ||
+			a[0].reg.index > 12 ||
+			a[1].kind != ARM32OperandKind::Address ||
+			a[1].reg.index > 12 ||
+			a[1].address_kind != ARM32AddressKind::RegisterRelative)
+			goto unsupported;
+		int64_t immediate;
+		if (!absolute(a[1].value, immediate) || immediate < 0 ||
+			immediate > 4095 || (immediate & 3)) goto unsupported;
+		if (low_register(a[0]) && a[1].reg.index < 8 && immediate <= 124) {
+			word = (instruction.opcode == ARM32Opcode::Ldr ?
+				UINT32_C(0x6800) : UINT32_C(0x6000)) |
+				(static_cast<uint32_t>(immediate) >> 2) << 6 |
+				a[1].reg.index << 3 | a[0].reg.index;
+		}
+		else {
+			uint32_t first_halfword =
+				(instruction.opcode == ARM32Opcode::Ldr ?
+					UINT32_C(0xf8d0) : UINT32_C(0xf8c0)) |
+				a[1].reg.index;
+			uint32_t second_halfword = a[0].reg.index << 12 |
+				static_cast<uint32_t>(immediate);
+			word = first_halfword | second_halfword << 16;
+			encoded.size = 4;
+		}
+	}
+	else if (info.format == ARM32EncodingFormat::RegisterBranch &&
+		instruction.opcode == ARM32Opcode::Bx) {
+		if (a[0].kind != ARM32OperandKind::Register || a[0].reg.index > 15)
+			goto unsupported;
+		word = UINT32_C(0x4700) | a[0].reg.index << 3;
+	}
+	else if (info.format == ARM32EncodingFormat::Branch &&
+		instruction.opcode == ARM32Opcode::B) {
+		int64_t displacement = 0;
+		TargetResolution resolution;
+		if (a[0].value.wrt != NO_SEG) resolution = TargetResolution::Deferred;
+		else if (a[0].value.unknown) resolution = TargetResolution::Deferred;
+		else if (a[0].value.external ||
+			(a[0].value.section != NO_SEG &&
+			 a[0].value.section != session.Location.segment))
+			resolution = TargetResolution::Deferred;
+		else {
+			displacement = a[0].value.offset - (offset + 4);
+			resolution = TargetResolution::Resolved;
+		}
+		if (resolution == TargetResolution::Error) return false;
+		bool conditional = instruction.condition != ARM32Condition::AL;
+		unsigned bits = conditional ? 9 : 12;
+		if (resolution == TargetResolution::Deferred) {
+			encoded.fixup = ARM32FixupKind::Branch;
+			encoded.target = a[0].value;
+			encoded.size = 2;
+			encoded.encoding = conditional ?
+				(static_cast<uint32_t>(instruction.condition) << 8 | 0xd000) :
+				0xe000;
+			result.instructions[result.count++] = encoded;
+			return true;
+		}
+		if ((displacement & 1) || !SignedRange(displacement, bits)) {
+			aasm_log(_LOG_ERROR, "T32 branch target is unaligned or out of range");
+			return false;
+		}
+		word = conditional ?
+			(static_cast<uint32_t>(instruction.condition) << 8 | 0xd000) : 0xe000;
+		word |= static_cast<uint32_t>(displacement >> 1) &
+			(conditional ? 0xff : 0x7ff);
+	}
+	else goto unsupported;
+	if (info.format != ARM32EncodingFormat::Branch &&
+		instruction.condition != ARM32Condition::AL) goto unsupported;
+
+	encoded.encoding = word;
+	result.instructions[result.count++] = encoded;
+	return true;
+
+unsupported:
+	aasm_log(_LOG_ERROR,
+		"instruction form is not supported for the selected ARM32 instruction set");
+	return false;
+}
+
 }
 
 bool ARM32Encoder::Measure(const AssemblySession& session,
 	const ARM32Instruction& instruction, int64_t offset, unsigned& size)
 {
 	ARM32EncodingSequence sequence;
-	if (!EncodeOne(session, instruction, offset, sequence)) return false;
-	size = sequence.count * 4;
+	bool encoded = session.CurrentInstructionSet ==
+		static_cast<uint32_t>(ARM32InstructionSet::T32) ?
+		EncodeT32(session, instruction, offset, sequence) :
+		EncodeOne(session, instruction, offset, sequence);
+	if (!encoded) return false;
+	size = 0;
+	for (unsigned index = 0; index < sequence.count; index++)
+		size += sequence.instructions[index].size;
 	return true;
 }
 
@@ -427,7 +631,10 @@ bool ARM32Encoder::Encode(const AssemblySession& session,
 	const ARM32Instruction& instruction,
 	int64_t offset, ARM32EncodingSequence& result)
 {
-	return EncodeOne(session, instruction, offset, result);
+	return session.CurrentInstructionSet ==
+		static_cast<uint32_t>(ARM32InstructionSet::T32) ?
+		EncodeT32(session, instruction, offset, result) :
+		EncodeOne(session, instruction, offset, result);
 }
 
 }

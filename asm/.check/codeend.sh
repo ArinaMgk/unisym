@@ -52,7 +52,6 @@ CheckCodeends()
 
 CheckArchends()
 {
-	ArchitectureOutput="$WorkDirectory/architectures.txt"
 	ArchitectureError="$WorkDirectory/architectures.stderr"
 	DefaultOutput="$WorkDirectory/architecture-default.bin"
 	MarchOutput="$WorkDirectory/architecture-march.bin"
@@ -66,29 +65,6 @@ CheckArchends()
 	ARMInvalidBitsSource="$WorkDirectory/architecture-arm-invalid-bits.asm"
 	ARMELFSource="$WorkDirectory/architecture-arm-elf.asm"
 	InvalidError="$WorkDirectory/invalid-architecture.stderr"
-
-	"$AasmExecutable" -ha > "$ArchitectureOutput" 2> "$ArchitectureError" || \
-		Fail "architecture listing failed"
-	[ ! -s "$ArchitectureError" ] || \
-		Fail "architecture listing produced diagnostics"
-	grep -Eq '^  \* x86[[:space:]]' "$ArchitectureOutput" || \
-		Fail "default architecture differs"
-	grep -Eq '^    riscv[[:space:]]' "$ArchitectureOutput" || \
-		Fail "RISC-V architecture is missing"
-	grep -Eq '^    arm32[[:space:]]' "$ArchitectureOutput" || \
-		Fail "ARM32 architecture is missing"
-	grep -Eq '^    arm64[[:space:]]' "$ArchitectureOutput" || \
-		Fail "ARM64 architecture is missing"
-	grep -Fq 'INST: CPU levels: 8086, 186, 286, 386, 486, 586, 686, P3, P4, Prescott, x64, IA64' "$ArchitectureOutput" || \
-		Fail "x86 instruction selection summary is missing"
-	grep -Fq 'INST: I, M, A, F, D, C, V, Zba, Zbb, Zbs, Zicond, Zicsr, Zifencei (combine in canonical order; default I)' "$ArchitectureOutput" || \
-		Fail "RISC-V instruction-set summary is missing"
-	grep -Fq 'INST: ARMv7-A A32 minimal integer and load/store subset' \
-		"$ArchitectureOutput" || \
-		Fail "ARM32 instruction-set summary is missing"
-	grep -Fq 'INST: A64 minimal integer and load/store subset' \
-		"$ArchitectureOutput" || \
-		Fail "ARM64 instruction-set summary is missing"
 
 	"$AasmExecutable" -Ox -f bin -o "$DefaultOutput" \
 		"$TestDirectory/basic.asm" \

@@ -106,12 +106,16 @@ public:
 	}
 
 	virtual void Initialize(FILE* output,
-		uni::lango::ArchitectureKind architecture) override
+		const uni::lango::AssemblyTargetProfile& target) override
 	{
 		if (Driver == &of_elf32 || Driver == &of_elf)
-			elf32_set_architecture(architecture);
+			elf32_set_architecture(target.architecture);
 		else if (Driver == &of_elf64)
-			elf64_set_architecture(architecture);
+			elf64_set_architecture(target.architecture);
+		if (Driver == &of_elf32 || Driver == &of_elf)
+			elf32_configure_target(target);
+		else if (Driver == &of_elf64)
+			elf64_configure_target(target);
 		Driver->init(output,
 			static_cast<ldfunc>(&Labelsys::Define), eval_evaluate);
 	}

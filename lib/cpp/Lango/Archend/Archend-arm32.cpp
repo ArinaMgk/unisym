@@ -31,7 +31,8 @@ const ArchendInfo& ArchendARM32::DumpArchend() const
 		ArchitectureKind::ARM32,
 		32,
 		"32",
-		"ARMv7-A A32 minimal integer and load/store subset"
+		"cortex-m7",
+		"ARMv7-A A32 and Cortex-M7 T32 integer subsets"
 	};
 	return info;
 }
@@ -46,6 +47,51 @@ bool ArchendARM32::ParseCpu(const char* name, uint32_t& cpu) const
 	(void)name;
 	(void)cpu;
 	return false;
+}
+
+bool ArchendARM32::ParseCore(const char* name, uint32_t& core) const
+{
+	if (!StrCompareInsensitive(name, "cortex-m7") ||
+		!StrCompareInsensitive(name, "cortexm7")) {
+		core = static_cast<uint32_t>(ARM32Core::CortexM7);
+		return true;
+	}
+	return false;
+}
+
+bool ArchendARM32::ParseInstructionSet(const char* name, uint32_t& set) const
+{
+	if (!StrCompareInsensitive(name, "a32")) {
+		set = static_cast<uint32_t>(ARM32InstructionSet::A32);
+		return true;
+	}
+	if (!StrCompareInsensitive(name, "t32")) {
+		set = static_cast<uint32_t>(ARM32InstructionSet::T32);
+		return true;
+	}
+	return false;
+}
+
+uint32_t ArchendARM32::DefaultInstructionSet(uint32_t core) const
+{
+	return core == static_cast<uint32_t>(ARM32Core::CortexM7) ?
+		static_cast<uint32_t>(ARM32InstructionSet::T32) :
+		static_cast<uint32_t>(ARM32InstructionSet::A32);
+}
+
+bool ArchendARM32::ValidateCore(uint32_t core, uint32_t set) const
+{
+	if (core == static_cast<uint32_t>(ARM32Core::Generic)) return true;
+	return core == static_cast<uint32_t>(ARM32Core::CortexM7) &&
+		set == static_cast<uint32_t>(ARM32InstructionSet::T32);
+}
+
+bool ArchendARM32::ValidateInstructionSet(uint32_t core, uint32_t set) const
+{
+	if (set == static_cast<uint32_t>(ARM32InstructionSet::A32))
+		return core == static_cast<uint32_t>(ARM32Core::Generic);
+	return set == static_cast<uint32_t>(ARM32InstructionSet::T32) &&
+		core == static_cast<uint32_t>(ARM32Core::CortexM7);
 }
 
 bool ArchendARM32::ValidateBits(int bits, uint32_t cpu) const
@@ -115,7 +161,10 @@ ArchendLineResult ArchendARM32::ProcessInstruction(AssemblySession& session,
 			result.valid = false;
 			return result;
 		}
-		if (sequence.count * 4 != measured_size) {
+		unsigned encoded_size = 0;
+		for (unsigned item = 0; item < sequence.count; item++)
+			encoded_size += sequence.instructions[item].size;
+		if (encoded_size != measured_size) {
 			aasm_log(_LOG_PANIC,
 				"ARM32 instruction expansion changed during output");
 			result.valid = false;
@@ -127,15 +176,18 @@ ArchendLineResult ArchendARM32::ProcessInstruction(AssemblySession& session,
 			if (encoded.fixup != ARM32FixupKind::None) {
 				uni::CodeFixupKind kind;
 				uni::CodeFixupEncoding encoding {};
-				encoding.storage_bits = 32;
+				encoding.storage_bits = encoded.size * 8;
 				if (encoded.fixup == ARM32FixupKind::Branch ||
 					encoded.fixup == ARM32FixupKind::Call) {
 					kind = encoded.fixup == ARM32FixupKind::Call ?
 						uni::CodeFixupKind::Call : uni::CodeFixupKind::Branch;
-					encoding.value_bits = 26;
-					encoding.right_shift = 2;
+					encoding.value_bits = encoded.size == 2 ?
+						(instruction.condition == ARM32Condition::AL ? 12 : 9) : 26;
+					encoding.right_shift = encoded.size == 2 ? 1 : 2;
 					encoding.signed_value = true;
-					encoding.fields[0] = {0, 24, 0};
+					encoding.fields[0] = {0,
+						static_cast<uint8_t>(encoded.size == 2 ?
+							(instruction.condition == ARM32Condition::AL ? 11 : 8) : 24), 0};
 					encoding.field_count = 1;
 				}
 				else {
@@ -156,7 +208,8 @@ ArchendLineResult ArchendARM32::ProcessInstruction(AssemblySession& session,
 					encoded.target.section,
 					encoded.target.offset,
 					encoded.fixup == ARM32FixupKind::Branch ||
-						encoded.fixup == ARM32FixupKind::Call ? 8 : 0,
+						encoded.fixup == ARM32FixupKind::Call ?
+							(encoded.size == 2 ? 4 : 8) : 0,
 					encoded.target.wrt,
 					static_cast<uint32_t>(ArchitectureKind::ARM32),
 					{
@@ -173,7 +226,7 @@ ArchendLineResult ArchendARM32::ProcessInstruction(AssemblySession& session,
 				session.Listing->EmitFixup(fixup);
 				SetStatementDebugLine(session);
 				codeend.EmitFixup(fixup);
-				instruction_offset += 4;
+				instruction_offset += encoded.size;
 				continue;
 			}
 			uint32_t encoding = encoded.encoding;
@@ -187,12 +240,12 @@ ArchendLineResult ArchendARM32::ProcessInstruction(AssemblySession& session,
 				session.Location.segment,
 				bytes,
 				uni::CodeendOutputType::Instruction,
-				sizeof(bytes)
+			encoded.size
 			};
 			session.Listing->EmitCode(instruction_offset, output);
 			SetStatementDebugLine(session);
 			codeend.Emit(output);
-			instruction_offset += sizeof(bytes);
+			instruction_offset += encoded.size;
 		}
 		offset += measured_size;
 	}

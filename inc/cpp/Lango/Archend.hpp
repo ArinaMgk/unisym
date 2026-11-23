@@ -42,6 +42,7 @@ struct ArchendInfo {
 	ArchitectureKind architecture;
 	int default_bits;
 	const char* supported_bits;
+	const char* cores;
 	const char* instruction_sets;
 };
 
@@ -76,6 +77,35 @@ public:
 	virtual const ArchendInfo& DumpArchend() const = 0;
 	virtual uint32_t DefaultCpu() const = 0;
 	virtual bool ParseCpu(const char* name, uint32_t& cpu) const = 0;
+	virtual bool ParseCore(const char* name, uint32_t& core) const
+	{
+		(void)name;
+		(void)core;
+		return false;
+	}
+	virtual bool ParseInstructionSet(const char* name, uint32_t& set) const
+	{
+		(void)name;
+		(void)set;
+		return false;
+	}
+	virtual uint32_t DefaultInstructionSet(uint32_t core) const
+	{
+		(void)core;
+		return 0;
+	}
+	virtual bool ValidateCore(uint32_t core, uint32_t set) const
+	{
+		(void)core;
+		(void)set;
+		return true;
+	}
+	virtual bool ValidateInstructionSet(uint32_t core, uint32_t set) const
+	{
+		(void)core;
+		(void)set;
+		return true;
+	}
 	virtual bool ValidateBits(int bits, uint32_t cpu) const = 0;
 	virtual bool SupportsDisassembly() const
 	{

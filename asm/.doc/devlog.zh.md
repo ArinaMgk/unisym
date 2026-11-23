@@ -205,6 +205,12 @@ ARM32 与 ARM64 已通过语义化 fixup 支持 Binary 本地跨 section 分支�
 ARM32 与 ARM64 已分别接入 ELF32 和 ELF64 对象输出，支持标签控制流、标签地址和
 绝对数据引用，并在可执行 section 中标记代码与数据区域。
 
+ARM64 已支持 scaled/unscaled 立即数访存、寄存器偏移、pre-index/post-index 写回及
+`LDP/STP` 成对访存。
+
+ARM32 A32 与 ARM64 A64 已补充常用整数运算指令，包括反向减法、带进位运算、标志测试、
+乘除法及寄存器移位，并加入对应的 Binary 编码回归。
+
 DASM 已接入 Archend 的轻量解码契约。x86 解码实现迁入
 `lib/cpp/Lango/Archend/x86/Decoder-x86.cpp`，DASM 通过标准请求和结果结构完成
 单条指令解码；控制流目标由解码结果返回，自动同步仍由 DASM 管理。当前反汇编支持
@@ -213,4 +219,8 @@ x86 的 16/32/64 位模式和 `bin` 输入，`-h`、`-ha`、`-hf` 会列出架�
 +8=2026111319 RISC-V 指令集选择已改为统一的目标扩展描述，支持多字母扩展及组合指令依赖。已增加Zifencei、带 predecessor/successor 的 `FENCE`，并补充 RV32/RV64 常用 C 压缩整数和浮点访存指令。
 
 +8=2026111615 Archend 编码与解码注册已拆分；x86 寄存器、DREX、ModRM、SIB 和有效地址解码已移入 `Decoder-operand-x86.cpp`。
+
++8=2026112318 ARM32 已增加 `CORE cortex-m7` 与 `INST T32` 目标选择，并支持 T32 的基础 16 位数据处理、访存、短分支和寄存器跳转 Binary 编码。
+
++8=2026112321 AASM 命令行已支持 `-mcore`、`-minst` 和 `-mbits` 设置初始目标配置；`-ha` 会列出 ARM32 的 `CORE cortex-m7`。当输出格式不支持架构默认位宽且未指定 `-mbits` 时，按格式支持的位宽初始化目标。
 

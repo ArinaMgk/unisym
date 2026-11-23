@@ -43,6 +43,10 @@ void AssemblyTarget::SelectArchend(uni::lango::ArchendInterface& archend)
 	ArchendDriver = &archend;
 	DefaultBitWidth = archend.DumpArchend().default_bits;
 	CpuLevel = archend.DefaultCpu();
+	CoreLevel = 0;
+	InstructionSetLevel = archend.DefaultInstructionSet(CoreLevel);
+	BitWidthExplicit = false;
+	InstructionSetExplicit = false;
 }
 
 void AssemblyTarget::SelectCodeend(uni::CodeendInterface& codeend)
@@ -53,6 +57,40 @@ void AssemblyTarget::SelectCodeend(uni::CodeendInterface& codeend)
 void AssemblyTarget::SelectCpu(uint32_t cpu)
 {
 	CpuLevel = cpu;
+}
+
+bool AssemblyTarget::SelectBits(int bits)
+{
+	if (bits != 16 && bits != 32 && bits != 64) return false;
+	DefaultBitWidth = bits;
+	BitWidthExplicit = true;
+	return true;
+}
+
+bool AssemblyTarget::SelectCore(const char* name)
+{
+	uint32_t core = CoreLevel;
+	if (!ArchendDriver || !ArchendDriver->ParseCore(name, core))
+		return false;
+	CoreLevel = core;
+	if (!InstructionSetExplicit)
+		InstructionSetLevel = ArchendDriver->DefaultInstructionSet(core);
+	return true;
+}
+
+bool AssemblyTarget::SelectInstructionSet(const char* name)
+{
+	if (!ArchendDriver) return false;
+	uint32_t instruction_set = InstructionSetLevel;
+	if (ArchendDriver->ParseInstructionSet(name, instruction_set)) {
+		InstructionSetLevel = instruction_set;
+		InstructionSetExplicit = true;
+		return true;
+	}
+	uint32_t cpu = CpuLevel;
+	if (!ArchendDriver->ParseCpu(name, cpu)) return false;
+	CpuLevel = cpu;
+	return true;
 }
 
 uni::lango::ArchendInterface& AssemblyTarget::Archend() const
@@ -75,10 +113,28 @@ uint32_t AssemblyTarget::Cpu() const
 	return CpuLevel;
 }
 
+uint32_t AssemblyTarget::Core() const
+{
+	return CoreLevel;
+}
+
+uint32_t AssemblyTarget::InstructionSet() const
+{
+	return InstructionSetLevel;
+}
+
+bool AssemblyTarget::BitsExplicit() const
+{
+	return BitWidthExplicit;
+}
+
 bool AssemblyTarget::IsValid() const
 {
 	return ArchendDriver && CodeendDriver &&
-		ArchendDriver->ValidateBits(DefaultBitWidth, CpuLevel);
+		ArchendDriver->ValidateBits(DefaultBitWidth, CpuLevel) &&
+		ArchendDriver->ValidateCore(CoreLevel, InstructionSetLevel) &&
+		ArchendDriver->ValidateInstructionSet(
+			CoreLevel, InstructionSetLevel);
 }
 
 bool AssemblyTarget::IsCodeendCompatible() const
@@ -368,12 +424,33 @@ static void InitializeAssemblySession(AssemblySession& session,
 	session.CurrentBits = options.Target.DefaultBits();
 	session.SectionBits = options.Target.DefaultBits();
 	session.CurrentCpu = options.Target.Cpu();
+	session.CurrentCore = options.Target.Core();
+	session.CurrentInstructionSet = options.Target.InstructionSet();
 	session.CurrentAbi = session.ActiveArchend->DefaultAbi(
 		session.CurrentBits, session.CurrentCpu);
 	session.AbiExplicit = false;
 	session.PassPhase = 0;
 	session.PassNumber = 0;
 	session.Location.known = false;
+}
+
+static void SelectCompatibleDefaultBits(AssemblyTarget& target)
+{
+	if (target.BitsExplicit()) return;
+	const uni::lango::ArchendInfo& arch_info =
+		target.Archend().DumpArchend();
+	if (target.Codeend().SupportsBitWidth(
+		arch_info.architecture, target.DefaultBits())) return;
+	static const int candidate_bits[] = { 16, 32, 64 };
+	for (stduint i = 0;
+		i < sizeof(candidate_bits) / sizeof(candidate_bits[0]); ++i) {
+		int bits = candidate_bits[i];
+		if (target.Archend().ValidateBits(bits, target.Cpu()) &&
+			target.Codeend().SupportsBitWidth(arch_info.architecture, bits)) {
+			target.SelectBits(bits);
+			return;
+		}
+	}
 }
 
 int main(int argc, char** argv) {
@@ -394,6 +471,7 @@ int main(int argc, char** argv) {
 
 
 	ParseCommandLine(assembler_options, argc, argv);
+	SelectCompatibleDefaultBits(assembler_options.Target);
 	if (!assembler_options.Target.IsValid()) {
 		aasm_log(_LOG_FATAL,
 			"selected architecture has an invalid default target");
@@ -402,6 +480,15 @@ int main(int argc, char** argv) {
 		aasm_log(_LOG_FATAL,
 			"output format `%s' does not support architecture `%s'",
 			assembler_options.Target.Codeend().DumpCodeend().shortname,
+			assembler_options.Target.Archend().DumpArchend().shortname);
+	}
+	if (!assembler_options.Target.Codeend().SupportsBitWidth(
+		assembler_options.Target.Archend().DumpArchend().architecture,
+		assembler_options.Target.DefaultBits())) {
+		aasm_log(_LOG_FATAL,
+			"output format `%s' does not support %d-bit `%s' code",
+			assembler_options.Target.Codeend().DumpCodeend().shortname,
+			assembler_options.Target.DefaultBits(),
 			assembler_options.Target.Archend().DumpArchend().shortname);
 	}
 	SyncLegacyOptions(assembler_options);
@@ -522,8 +609,15 @@ int main(int argc, char** argv) {
 		// Some formats define labels during initialization.
 		Labelsys::Initialize();
 
-		codeend.Initialize(outfile,
-			assembler_options.Target.Archend().DumpArchend().architecture);
+		codeend.Initialize(outfile, {
+			assembler_options.Target.Archend().DumpArchend().architecture,
+			assembler_options.Target.DefaultBits(),
+			assembler_options.Target.Cpu(),
+			assembler_options.Target.Core(),
+			assembler_options.Target.InstructionSet(),
+			0,
+			false
+		});
 		codeend.InitializeDebug(outfile);
 
 		Assembler assembler(assembly_session);

@@ -98,6 +98,7 @@ struct Symbol {
 	int32_t globnum;	       /* symbol table offset if global */
 	struct Symbol* nextfwd;    /* list of unresolved-size symbols */
 	char* name;		       /* used temporarily if in above list */
+	bool arm_thumb;
 };
 
 struct Section {
@@ -117,7 +118,8 @@ struct Section {
 
 enum {
 	ARM_MAPPING_NONE,
-	ARM_MAPPING_CODE,
+	ARM_MAPPING_A32,
+	ARM_MAPPING_T32,
 	ARM_MAPPING_DATA
 };
 
@@ -151,8 +153,40 @@ static uint8_t elf_osabi = 0;	/* Default OSABI = 0 (System V or Linux) */
 static uint8_t elf_abiver = 0;	/* Current ABI version */
 static uint16_t elf_machine = EM_386;
 static uint32_t elf_flags = 0;
+static uint32_t elf_arm_core = 0;
+static uint32_t elf_arm_instruction_set = 0;
 static uni::RISCVELFTarget riscv_target;
 static struct Section* riscv_attributes = NULL;
+static struct Section* arm_attributes = NULL;
+static void elf_sect_write(struct Section*, const uint8_t*, uint32_t);
+
+static void elf32_write_arm_attributes()
+{
+	if (!arm_attributes) return;
+	static const uint8_t arm_data[] = {
+		0x41, 0x1a, 0x00, 0x00, 0x00,
+		'a', 'e', 'a', 'b', 'i', 0x00,
+		0x01, 0x10, 0x00, 0x00, 0x00,
+		0x05, '7', '-', 'A', 0x00,
+		0x06, 0x0a,
+		0x07, 'A',
+		0x08, 0x01
+	};
+	static const uint8_t thumb_data[] = {
+		0x41, 0x1b, 0x00, 0x00, 0x00,
+		'a', 'e', 'a', 'b', 'i', 0x00,
+		0x01, 0x11, 0x00, 0x00, 0x00,
+		0x05, '7', 'E', '-', 'M', 0x00,
+		0x06, 0x0d, 0x07, 'M', 0x09, 0x02
+	};
+	StrbuffFree(arm_attributes->data);
+	arm_attributes->data = StrbuffNew(1L);
+	arm_attributes->len = 0;
+	if (elf_arm_core && elf_arm_instruction_set == 1)
+		elf_sect_write(arm_attributes, thumb_data, sizeof(thumb_data));
+	else
+		elf_sect_write(arm_attributes, arm_data, sizeof(arm_data));
+}
 
 static bool elf_uses_rela()
 {
@@ -178,11 +212,19 @@ void elf32_set_architecture(uni::lango::ArchitectureKind architecture)
 		return;
 	}
 	elf_flags = elf_machine == EM_ARM ? EF_ARM_EABI_VER5 : 0;
+	elf_arm_core = 0;
+	elf_arm_instruction_set = 0;
 	if (elf_machine == EM_RISCV) riscv_target.Reset(32);
 }
 
 void elf32_configure_target(const uni::lango::AssemblyTargetProfile& target)
 {
+	if (elf_machine == EM_ARM &&
+		target.architecture == uni::lango::ArchitectureKind::ARM32) {
+		elf_arm_core = target.core;
+		elf_arm_instruction_set = target.instruction_set;
+		elf32_write_arm_attributes();
+	}
 	if (elf_machine == EM_RISCV && !riscv_target.Update(target.bits,
 		target.cpu, target.abi, target.abi_explicit))
 		aasm_log(_LOG_ERROR,
@@ -440,24 +482,17 @@ static void elf_init(FILE* fp, ldfunc ldef, evalfunc eval)
 
 	def_seg = SegAlloc();
 	riscv_attributes = NULL;
+	arm_attributes = NULL;
 	if (elf_machine == EM_RISCV) {
 		int index = elf_make_section((char*)".riscv.attributes",
 			SHT_RISCV_ATTRIBUTES, 0, 1);
 		riscv_attributes = sects[index];
 	}
 	else if (elf_machine == EM_ARM) {
-		static const uint8_t attributes[] = {
-			0x41, 0x1a, 0x00, 0x00, 0x00,
-			'a', 'e', 'a', 'b', 'i', 0x00,
-			0x01, 0x10, 0x00, 0x00, 0x00,
-			0x05, '7', '-', 'A', 0x00,
-			0x06, 0x0a,
-			0x07, 'A',
-			0x08, 0x01
-		};
 		int index = elf_make_section((char*)".ARM.attributes",
 			SHT_ARM_ATTRIBUTES, 0, 1);
-		elf_sect_write(sects[index], attributes, sizeof(attributes));
+		arm_attributes = sects[index];
+		elf32_write_arm_attributes();
 	}
 }
 
@@ -740,6 +775,7 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 	sym->type = is_global ? SYM_GLOBAL : 0;
 	sym->other = STV_DEFAULT;
 	sym->weak = false;
+	sym->arm_thumb = false;
 	sym->size = 0;
 	if (segment == NO_SEG)
 		sym->section = SHN_ABS;
@@ -789,6 +825,11 @@ static void elf_deflabel(char* name, int32_t segment, int64_t offset,
 	}
 	else
 		sym->symv.key = (sym->section == SHN_UNDEF ? 0 : offset);
+	if (elf_machine == EM_ARM && elf_arm_instruction_set == 1 &&
+		sym->section > 0 && sym->section <= nsects &&
+		(sects[sym->section - 1]->flags & SHF_EXECINSTR) &&
+		(sym->type & SYM_GLOBAL))
+		sym->arm_thumb = true;
 
 	if (sym->type == SYM_GLOBAL && sym->section == SHN_UNDEF && special) {
 		while (*special) {
@@ -959,15 +1000,17 @@ static void elf_add_mapping_symbol(struct Section* section, const char* name)
 }
 
 static void elf_note_arm_mapping(struct Section* section,
-	uni::CodeendOutputType type)
+	uni::CodeendOutputType type, bool thumb)
 {
 	if (elf_machine != EM_ARM || section->type != SHT_PROGBITS ||
 		!(section->flags & SHF_EXECINSTR)) return;
-	uint8_t mapping = type == uni::CodeendOutputType::Instruction ?
-		ARM_MAPPING_CODE : ARM_MAPPING_DATA;
+	uint8_t mapping = type != uni::CodeendOutputType::Instruction ?
+		ARM_MAPPING_DATA :
+		(thumb ? ARM_MAPPING_T32 : ARM_MAPPING_A32);
 	if (mapping == section->arm_mapping) return;
 	elf_add_mapping_symbol(section,
-		mapping == ARM_MAPPING_CODE ? "$a" : "$d");
+		mapping == ARM_MAPPING_DATA ? "$d" :
+		(mapping == ARM_MAPPING_T32 ? "$t" : "$a"));
 	section->arm_mapping = mapping;
 }
 
@@ -984,7 +1027,8 @@ void elf32_note_output(const uni::CodeendOutput& output)
 		aasm_log(_LOG_PANIC, "ARM ELF32 output has an invalid section");
 		return;
 	}
-	elf_note_arm_mapping(section, output.type);
+	elf_note_arm_mapping(section, output.type,
+		elf_arm_instruction_set == 1);
 }
 
 static struct Reloc* elf_add_reloc_at(struct Section* sect, uint32_t address,
@@ -1103,6 +1147,12 @@ static int arm32_reloc_type(const uni::CodeFixup& fixup)
 	if (fixup.kind == uni::CodeFixupKind::Branch &&
 		fixup.encoding.storage_bits == 32 &&
 		fixup.encoding.value_bits == 26) return R_ARM_JUMP24;
+	if (fixup.kind == uni::CodeFixupKind::Branch &&
+		fixup.encoding.storage_bits == 16 &&
+		fixup.encoding.value_bits == 12) return R_ARM_THM_JUMP11;
+	if (fixup.kind == uni::CodeFixupKind::Branch &&
+		fixup.encoding.storage_bits == 16 &&
+		fixup.encoding.value_bits == 9) return R_ARM_THM_JUMP8;
 	if (fixup.kind == uni::CodeFixupKind::Call &&
 		fixup.encoding.storage_bits == 32 &&
 		fixup.encoding.value_bits == 26) return R_ARM_CALL;
@@ -1200,7 +1250,8 @@ static void elf32_emit_arm_fixup(const uni::CodeFixup& fixup)
 	elf_note_arm_mapping(section,
 		fixup.kind == uni::CodeFixupKind::Absolute ?
 			uni::CodeendOutputType::RawData :
-			uni::CodeendOutputType::Instruction);
+			uni::CodeendOutputType::Instruction,
+		elf_arm_instruction_set == 1);
 	elf_add_reloc(section, fixup.target_section, type);
 	elf_sect_write(section, bytes.v, fixup.encoding.storage_bits / 8);
 }
@@ -1948,7 +1999,7 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 		if (sym->type & SYM_GLOBAL)
 			continue;
 		entry.Name = sym->strpos;
-		entry.Value = sym->symv.key;
+		entry.Value = sym->symv.key | (sym->arm_thumb ? 1u : 0u);
 		entry.Size = sym->size;
 		entry.Info = (sym->type & 0x0f) |
 			(sym->weak ? STB_WEAK << 4 : (sym->type & 0xf0));
@@ -1995,7 +2046,7 @@ static Strbuff* elf_build_symtab(int32_t* len, int32_t* local)
 		if (!(sym->type & SYM_GLOBAL))
 			continue;
 		entry.Name = sym->strpos;
-		entry.Value = sym->symv.key;
+		entry.Value = sym->symv.key | (sym->arm_thumb ? 1u : 0u);
 		entry.Size = sym->size;
 		entry.Info = (sym->type & 0x0f) |
 			(sym->weak ? STB_WEAK << 4 : (sym->type & 0xf0));

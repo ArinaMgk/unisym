@@ -128,6 +128,8 @@ _PACKED(struct) FAT_LongDirEntry {
 
 #ifdef _INC_CPP
 
+#include "../../../cpp/ISO_IEC_STD/memory"
+
 namespace uni {
 
 	class BlockChangeSet;
@@ -156,6 +158,19 @@ namespace uni {
 	struct FAT_TableScratch {
 		byte*    buffer;
 		uint32_t current_sector;
+	};
+
+	class FATBlockBuffer {
+		byte* data;
+	public:
+		explicit FATBlockBuffer(stduint size = 0)
+			: data(size ? new (std::align_val_t(32)) byte[size] : nullptr) {}
+		~FATBlockBuffer() { ::operator delete[](data, std::align_val_t(32)); }
+		FATBlockBuffer(const FATBlockBuffer&) = delete;
+		FATBlockBuffer& operator=(const FATBlockBuffer&) = delete;
+		byte* Data() { return data; }
+		const byte* Data() const { return data; }
+		explicit operator bool() const { return data != nullptr; }
 	};
 
 	enum class FilesysFAT_Error {

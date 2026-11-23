@@ -58,28 +58,21 @@ namespace uni {
 
 		if (!parent_h.is_dir) return false;
 
+		FATBlockBuffer sector_owner(allow_allocate ? storage->Block_Size : 0);
 		byte* sector_buffer = buffer_sector;
-		bool allocated_sector_buffer = false;
 		FAT_TableScratch fat_table_cache = {};
 		FAT_TableScratch* fat_cache = nullptr;
+		FATBlockBuffer fat_owner(allow_allocate ? storage->Block_Size : 0);
 		if (allow_allocate) {
-			sector_buffer = new byte[storage->Block_Size];
-			if (!sector_buffer) return false;
-			allocated_sector_buffer = true;
-
-			fat_table_cache.buffer = new byte[storage->Block_Size];
-			if (!fat_table_cache.buffer) {
-				delete[] sector_buffer;
-				return false;
-			}
+			if (!sector_owner || !fat_owner) return false;
+			sector_buffer = sector_owner.Data();
+			fat_table_cache.buffer = fat_owner.Data();
 			fat_table_cache.current_sector = 0xFFFFFFFF;
 			fat_cache = &fat_table_cache;
 		}
 		if (!sector_buffer) return false;
 		auto finish_remove = [&](bool ret) -> bool {
 			ret = transaction.Finish(ret);
-			if (fat_cache) delete[] fat_table_cache.buffer;
-			if (allocated_sector_buffer) delete[] sector_buffer;
 			return ret;
 		};
 
@@ -123,18 +116,16 @@ namespace uni {
 		const bool fixed_root = fat_type != 32 && !fh->start_cluster && !fh->dir_sector;
 		const bool root = fixed_root || (fat_type == 32 && fh->start_cluster == root_cluster);
 		if ((fixed_root && !root_dir_sectors) || (!fixed_root && !IsDataCluster(fh->start_cluster))) return State::Invalid;
-		uni::UniquePtr<byte[]> sector_owner;
-		uni::UniquePtr<byte[]> fat_owner;
+		FATBlockBuffer sector_owner(!sector && allow_allocate ? storage->Block_Size : 0);
+		FATBlockBuffer fat_owner(!sector && allow_allocate ? storage->Block_Size : 0);
 		FAT_TableScratch local_cache{};
 		if (!sector) {
 			if (allow_allocate) {
-				sector_owner = uni::make_unique<byte[]>(storage->Block_Size);
-				fat_owner = uni::make_unique<byte[]>(storage->Block_Size);
 				if (!sector_owner || !fat_owner) return State::IoError;
-				local_cache.buffer = fat_owner.get();
+				local_cache.buffer = fat_owner.Data();
 				local_cache.current_sector = 0xFFFFFFFF;
 				fat_cache = &local_cache;
-				sector = sector_owner.get();
+				sector = sector_owner.Data();
 			}
 			else sector = buffer_sector;
 		}
@@ -210,16 +201,14 @@ namespace uni {
 		if (!*name || !StrCompare(name, ".") || !StrCompare(name, "..")) return Result::Invalid;
 		FilesysSearchArgs args = { &work->parent, nullptr, nullptr, nullptr };
 		if (!search(work->parent_path, &args) || !work->parent.is_dir) return Result::IoError;
-		uni::UniquePtr<byte[]> sector_owner;
-		uni::UniquePtr<byte[]> fat_owner;
+		FATBlockBuffer sector_owner(allow_allocate ? storage->Block_Size : 0);
+		FATBlockBuffer fat_owner(allow_allocate ? storage->Block_Size : 0);
 		if (allow_allocate) {
-			sector_owner = uni::make_unique<byte[]>(storage->Block_Size);
-			fat_owner = uni::make_unique<byte[]>(storage->Block_Size);
 			if (!sector_owner || !fat_owner) return Result::IoError;
 		}
-		byte* sector = allow_allocate ? sector_owner.get() : buffer_sector;
+		byte* sector = allow_allocate ? sector_owner.Data() : buffer_sector;
 		FAT_TableScratch cache{};
-		cache.buffer = allow_allocate ? fat_owner.get() : buffer_fatable;
+		cache.buffer = allow_allocate ? fat_owner.Data() : buffer_fatable;
 		cache.current_sector = 0xFFFFFFFF;
 		FAT_TableScratch* fat_cache = allow_allocate ? &cache : nullptr;
 		if (!sector || !cache.buffer || sector == cache.buffer) return Result::IoError;
@@ -257,13 +246,10 @@ namespace uni {
 		if (!fs_loaded || getFaultState() != FilesysFaultState::Healthy) return false;
 		auto* fh = static_cast<FAT_FileHandle*>(fil_handler);
 		if (!fh || !fh->is_unlinked || (fh->is_dir && (!fh->start_cluster || (fat_type == 32 && fh->start_cluster == root_cluster)))) return false;
-		uni::UniquePtr<byte[]> owner;
-		if (allow_allocate) {
-			owner = uni::make_unique<byte[]>(storage->Block_Size);
-			if (!owner) return false;
-		}
+		FATBlockBuffer owner(allow_allocate ? storage->Block_Size : 0);
+		if (allow_allocate && !owner) return false;
 		FAT_TableScratch cache{};
-		cache.buffer = allow_allocate ? owner.get() : buffer_fatable;
+		cache.buffer = allow_allocate ? owner.Data() : buffer_fatable;
 		cache.current_sector = 0xFFFFFFFF;
 		FAT_TableScratch* fat_cache = allow_allocate ? &cache : nullptr;
 		if (!cache.buffer) return false;

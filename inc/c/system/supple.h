@@ -66,9 +66,48 @@ typedef va_list para_list;
 
 #define para_copy(dest, src, type) va_copy(dest, src)
 
-// ---- { STDC:: setjmp.h } 20240902 (Win32) ----
+// ---- { STDC:: setjmp.h } 20240902 ----
 
-// x86
+#if defined(_ARC_x64)
+// System V AMD64 ABI 3.2.1: preserve the stack, instruction pointer and callee-saved registers.
+typedef struct {
+	uint64 rip;
+	uint64 rbx;
+	uint64 rbp;
+	uint64 rsp;
+	uint64 r12;
+	uint64 r13;
+	uint64 r14;
+	uint64 r15;
+} Retpoint;
+
+// Microsoft x64 ABI for the current -mno-sse target: preserve the stack, instruction pointer and nonvolatile GPRs.
+typedef struct {
+	uint64 rip;
+	uint64 rbx;
+	uint64 rbp;
+	uint64 rdi;
+	uint64 rsi;
+	uint64 rsp;
+	uint64 r12;
+	uint64 r13;
+	uint64 r14;
+	uint64 r15;
+} RetpointMS;
+#elif defined(_ARC_ARM_32)
+typedef struct {
+	uint32 pc;
+	uint32 sp;
+	uint32 r4;
+	uint32 r5;
+	uint32 r6;
+	uint32 r7;
+	uint32 r8;
+	uint32 r9;
+	uint32 r10;
+	uint32 r11;
+} Retpoint;
+#else
 typedef struct {
 	uint32 ret;
 	uint32 ebx;
@@ -77,13 +116,27 @@ typedef struct {
 	uint32 ebp;
 	uint32 esp;
 } Retpoint;
+#endif
 
 //{TEMP} only support 1 level of calling - please use setjmp.h now
 extern Retpoint _ERRO_JUMP;
-#define ErroPoint() (char*)MarkPoint(&_ERRO_JUMP)
+#define ErroPoint() (char*)(stduint)MarkPoint(&_ERRO_JUMP)
 //extern char* ErroPoint();
-extern pureptr_t MarkPoint(Retpoint* buf);
+#if defined(__GNUC__)
+extern int MarkPoint(Retpoint* buf) __attribute__((returns_twice));
+extern void JumpPoint(const Retpoint* buf, pureptr_t val) __attribute__((noreturn));
+#if defined(_ARC_x64)
+extern int MarkPointMS(RetpointMS* buf) __attribute__((ms_abi, returns_twice));
+extern void JumpPointMS(const RetpointMS* buf, pureptr_t val) __attribute__((ms_abi, noreturn));
+#endif
+#else
+extern int MarkPoint(Retpoint* buf);
 extern void JumpPoint(const Retpoint* buf, pureptr_t val);
+#if defined(_ARC_x64)
+extern int MarkPointMS(RetpointMS* buf);
+extern void JumpPointMS(const RetpointMS* buf, pureptr_t val);
+#endif
+#endif
 
 //#define setjmp MarkPoint
 //inline static void longjmp(jmp_buf buf, int v) { JumpPoint(&buf, v); }

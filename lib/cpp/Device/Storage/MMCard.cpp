@@ -77,7 +77,7 @@ namespace uni {
 			GIC.setPriority(IRQ_SDMMC1, 0x00);
 			GIC.enInterrupt(IRQ_SDMMC1);
 #elif defined(_MCU_STM32H7x)
-			NVIC.setPriority(IRQ_SDMMC1, 0x00);
+			NVIC.setPriority(IRQ_SDMMC1, 0x08);
 			NVIC.setAble(IRQ_SDMMC1);
 #endif
 		}
@@ -89,7 +89,7 @@ namespace uni {
 			GPIOB[4].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOB[4]._set_alternate(9);// SDMMC2_D3
 			GPIOC[1].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOC[1]._set_alternate(9);// SDMMC2_CK
 			GPIOA[0].setMode(GPIOMode::OUT_AF_PushPull, GPIOSpeed::High);  GPIOA[0]._set_alternate(9);// SDMMC2_CMD
-			NVIC.setPriority(IRQ_SDMMC2, 0x00);
+			NVIC.setPriority(IRQ_SDMMC2, 0x08);
 			NVIC.setAble(IRQ_SDMMC2);
 		}
 #endif

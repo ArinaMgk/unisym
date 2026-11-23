@@ -52,6 +52,8 @@ void ListArchendDecoders(
 			info.shortname, info.fullname);
 		fprintf(output, "      BITS: %s\n      INST: %s\n",
 			info.supported_bits, info.instruction_sets);
+		if (info.cores[0])
+			fprintf(output, "      CORE: %s\n", info.cores);
 	}
 }
 

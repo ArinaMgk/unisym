@@ -22,7 +22,9 @@ enum reloc32_arm_type {
 	R_ARM_CALL = 28,
 	R_ARM_JUMP24 = 29,
 	R_ARM_MOVW_ABS_NC = 43,
-	R_ARM_MOVT_ABS = 44
+	R_ARM_MOVT_ABS = 44,
+	R_ARM_THM_JUMP11 = 102,
+	R_ARM_THM_JUMP8 = 103
 };
 
 enum reloc64_aarch64_type {

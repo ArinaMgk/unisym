@@ -43,6 +43,16 @@ bool BaseName(const char* word, char output[], size_t capacity)
 	return true;
 }
 
+bool ParseBranchMnemonic(char* mnemonic, ARM32Condition& condition)
+{
+	if (ascii_tolower(mnemonic[0]) != 'b' || !mnemonic[1]) return false;
+	if (ParseARM32Condition(mnemonic + 1, condition)) {
+		mnemonic[1] = '\0';
+		return true;
+	}
+	return false;
+}
+
 bool ParseMnemonic(char* word, ARM32Condition& condition, bool& set_flags)
 {
 	bool seen_condition = false;
@@ -327,6 +337,13 @@ bool ParseNativeOperands(const ARM32InstructionInfo& info, char* operands[],
 			ParseOperand2(operands[1], count == 3 ? operands[2] : nullptr,
 				parse_pass, instruction.operands[1]);
 	}
+	if (info.operands == ARM32OperandForm::RdRnRm) {
+		if (count != 3) return false;
+		instruction.operand_count = 3;
+		return ParseRegisterOperand(operands[0], instruction.operands[0]) &&
+			ParseRegisterOperand(operands[1], instruction.operands[1]) &&
+			ParseRegisterOperand(operands[2], instruction.operands[2]);
+	}
 	if (info.operands == ARM32OperandForm::RtAddress) {
 		if (count != 2) return false;
 		instruction.operand_count = 2;
@@ -338,6 +355,7 @@ bool ParseNativeOperands(const ARM32InstructionInfo& info, char* operands[],
 }
 
 bool ParseMove(char* operands[], unsigned count, int parse_pass,
+	bool t32,
 	ARM32Instruction& instruction)
 {
 	if (count < 2 || count > 3) {
@@ -365,7 +383,8 @@ bool ParseMove(char* operands[], unsigned count, int parse_pass,
 				"ARM32 MOV source must be a register, immediate, or sized address");
 			return false;
 		}
-		if (source.kind == ARM32OperandKind::Immediate && instruction.set_flags) {
+		if (source.kind == ARM32OperandKind::Immediate && instruction.set_flags &&
+			!t32) {
 			aasm_log(_LOG_ERROR,
 				"ARM32 immediate MOV does not support .S");
 			return false;
@@ -445,6 +464,12 @@ bool ARM32Parser::IsInstructionStart(const char* word)
 	char base[32];
 	if (!BaseName(word, base, numsof(base))) return false;
 	if (IsAlias(base)) return true;
+	ARM32Condition branch_condition;
+	if (ParseBranchMnemonic(base, branch_condition)) return true;
+	if (!StrCompareInsensitive(base, "movs") ||
+		!StrCompareInsensitive(base, "adds") ||
+		!StrCompareInsensitive(base, "subs") ||
+		!StrCompareInsensitive(base, "orrs")) return true;
 	size_t count;
 	return FindARM32Instructions(base, count) != nullptr;
 }
@@ -452,7 +477,8 @@ bool ARM32Parser::IsInstructionStart(const char* word)
 bool ARM32Parser::Parse(AssemblySession& session, char* source,
 	int parse_pass, ARM32Instruction& instruction)
 {
-	(void)session;
+	bool t32 = session.CurrentInstructionSet ==
+		static_cast<uint32_t>(ARM32InstructionSet::T32);
 	if (!ExtractSignedness(source, instruction.signedness)) return false;
 	char* mnemonic = SkipSpace(source);
 	char* end = mnemonic;
@@ -460,8 +486,21 @@ bool ARM32Parser::Parse(AssemblySession& session, char* source,
 	char saved = *end;
 	*end = '\0';
 	char* operands_text = saved ? SkipSpace(end + 1) : end;
+	ParseBranchMnemonic(mnemonic, instruction.condition);
 	if (!ParseMnemonic(mnemonic, instruction.condition, instruction.set_flags))
 		return false;
+	if (t32) {
+		static const char* flag_mnemonics[] = {
+			"movs", "adds", "subs", "ands", "orrs", "eors"
+		};
+		for (size_t index = 0; index < numsof(flag_mnemonics); index++) {
+			if (!StrCompareInsensitive(mnemonic, flag_mnemonics[index])) {
+				mnemonic[3] = '\0';
+				instruction.set_flags = true;
+				break;
+			}
+		}
+	}
 	char* operands[4];
 	unsigned count = SplitOperands(operands_text, operands, numsof(operands));
 	if (count > numsof(operands)) {
@@ -470,7 +509,7 @@ bool ARM32Parser::Parse(AssemblySession& session, char* source,
 	}
 
 	if (Equal(mnemonic, "mov"))
-		return ParseMove(operands, count, parse_pass, instruction);
+		return ParseMove(operands, count, parse_pass, t32, instruction);
 	if (Equal(mnemonic, "jmp") || Equal(mnemonic, "call")) {
 		if (instruction.signedness != AssemblySignedness::Default) {
 			aasm_log(_LOG_ERROR,

@@ -45,16 +45,14 @@ namespace uni {
 		};
 		auto work = make_unique<Scratch>();
 		if (!work) return false;
-		UniquePtr<byte[]> sector_owner;
-		UniquePtr<byte[]> fat_owner;
+		FATBlockBuffer sector_owner(allow_allocate ? storage->Block_Size : 0);
+		FATBlockBuffer fat_owner(allow_allocate ? storage->Block_Size : 0);
 		if (allow_allocate) {
-			sector_owner = make_unique<byte[]>(storage->Block_Size);
-			fat_owner = make_unique<byte[]>(storage->Block_Size);
 			if (!sector_owner || !fat_owner) return false;
 		}
-		byte* sector = allow_allocate ? sector_owner.get() : buffer_sector;
+		byte* sector = allow_allocate ? sector_owner.Data() : buffer_sector;
 		FAT_TableScratch cache{};
-		cache.buffer = allow_allocate ? fat_owner.get() : buffer_fatable;
+		cache.buffer = allow_allocate ? fat_owner.Data() : buffer_fatable;
 		cache.current_sector = 0xFFFFFFFF;
 		FAT_TableScratch* fat_cache = allow_allocate ? &cache : nullptr;
 		if (!sector || !cache.buffer || sector == cache.buffer) return false;

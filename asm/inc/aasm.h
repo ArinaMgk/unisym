@@ -219,11 +219,17 @@ public:
 	void SelectArchend(uni::lango::ArchendInterface& archend);
 	void SelectCodeend(uni::CodeendInterface& codeend);
 	void SelectCpu(uint32_t cpu);
+	bool SelectBits(int bits);
+	bool SelectCore(const char* name);
+	bool SelectInstructionSet(const char* name);
 
 	uni::lango::ArchendInterface& Archend() const;
 	uni::CodeendInterface& Codeend() const;
 	int DefaultBits() const;
 	uint32_t Cpu() const;
+	uint32_t Core() const;
+	uint32_t InstructionSet() const;
+	bool BitsExplicit() const;
 	bool IsValid() const;
 	bool IsCodeendCompatible() const;
 
@@ -232,6 +238,10 @@ private:
 	uni::CodeendInterface* CodeendDriver = nullptr;
 	int DefaultBitWidth = 0;
 	uint32_t CpuLevel = 0;
+	uint32_t CoreLevel = 0;
+	uint32_t InstructionSetLevel = 0;
+	bool BitWidthExplicit = false;
+	bool InstructionSetExplicit = false;
 };
 
 struct AssemblerOptions {
@@ -268,6 +278,8 @@ struct AssemblySession {
 	int CurrentBits;
 	int SectionBits;
 	uint32_t CurrentCpu;
+	uint32_t CurrentCore;
+	uint32_t CurrentInstructionSet;
 	uint32_t CurrentAbi;
 	bool AbiExplicit;
 	int64_t GlobalOffsetChanged;
@@ -331,7 +343,9 @@ private:
 		Section,
 		Segment,
 		Warning,
-		Codeend
+		Codeend,
+		Core,
+		Inst
 	};
 
 	AssemblySession& Session;

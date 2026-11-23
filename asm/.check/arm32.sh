@@ -5,79 +5,83 @@
 
 CheckARM32()
 {
+	SourceDirectory="$RepositoryDirectory/demo/test/clover/arch-arm32"
 	OutputFile="$WorkDirectory/arm32-basic.bin"
-	CaseSource="$WorkDirectory/arm32-case.asm"
 	CaseOutput="$WorkDirectory/arm32-case.bin"
-	Expected='00 f0 20 e3 01 00 a0 e1 78 26 05 e3 34 22 41 e3 00 30 e0 e3 01 40 80 e0 10 50 94 e2 01 61 45 10 02 01 56 e3 06 70 04 e0 62 84 85 e1 06 90 27 e0 04 90 8d e5 04 a0 9d e5 01 80 cd e5 01 b0 dd e5 b2 80 4d e1 b2 c0 5d e1 d1 00 dd e1 f2 10 dd e1 01 c0 dd e5 d1 00 dd e1 b2 80 4d e1 00 00 00 0a 00 00 a0 e3 00 00 00 eb 00 00 00 ea 1e ff 2f e1 3a ff 2f e1 19 ff 2f e1 38 ff 2f e1 1e ff 2f e1'
+	Expected='00 f0 20 e3 01 00 a0 e1 78 26 05 e3 34 22 41 e3 00 30 e0 e3 01 40 80 e0 10 50 94 e2 01 61 45 10 02 00 61 e0 05 30 a4 e0 08 60 c7 e0 02 01 56 e3 0a 00 19 e1 0c 00 3b e1 06 70 04 e0 62 84 85 e1 06 90 27 e0 91 02 00 e0 95 06 14 e0 04 90 8d e5 04 a0 9d e5 01 80 cd e5 01 b0 dd e5 b2 80 4d e1 b2 c0 5d e1 d1 00 dd e1 f2 10 dd e1 01 c0 dd e5 d1 00 dd e1 b2 80 4d e1 00 00 00 0a 00 00 a0 e3 00 00 00 eb 00 00 00 ea 1e ff 2f e1 3a ff 2f e1 19 ff 2f e1 38 ff 2f e1 1e ff 2f e1'
 
 	AssembleSuccess arm32-basic -march=arm32 -f bin -o "$OutputFile" \
 		"$RepositoryDirectory/demo/test/clover/arch-arm32/basic.asm"
 	[ "$(NormalizeHex "$OutputFile")" = "$Expected" ] || \
 		Fail "ARM32 minimal instruction bytes differ"
-	printf '%s\n' \
-		'[arch arm32]' \
-		'[bits 32]' \
-		'mov r0, r1' \
-		'add.eq.s r2, r2, r3' \
-		'mov.eq r4, 0x12345678' \
-		'ret' > "$CaseSource"
-	AssembleSuccess arm32-case -f bin -o "$CaseOutput" "$CaseSource"
+	AssembleSuccess arm32-case -f bin -o "$CaseOutput" \
+		"$SourceDirectory/case-insensitive.asm"
 	[ "$(NormalizeHex "$CaseOutput")" = \
 		'01 00 a0 e1 03 20 92 00 78 46 05 03 34 42 41 03 1e ff 2f e1' ] || \
 		Fail "ARM32 case-insensitive instruction bytes differ"
 	Pass "ARM32 minimal instruction encoding"
 }
 
+CheckCortexM7T32()
+{
+	SourceDirectory="$RepositoryDirectory/demo/test/clover/arch-arm32"
+	OutputFile="$WorkDirectory/cortex-m7-t32.bin"
+	CaseOutput="$WorkDirectory/cortex-m7-t32-registers.bin"
+	AssembleSuccess cortex-m7-t32 -march=arm32 -f bin -o "$OutputFile" \
+		"$RepositoryDirectory/demo/test/clover/arch-arm32/cortex-m7.asm"
+	[ "$(NormalizeHex "$OutputFile")" = \
+		'01 20 01 30 02 39 01 28 08 43 48 60 4a 68 00 d2 05 23 00 bf 70 47' ] || \
+		Fail "Cortex-M7 T32 instruction bytes differ"
+	AssembleSuccess cortex-m7-t32-registers -f bin -o "$CaseOutput" \
+		"$SourceDirectory/cortex-m7-registers.asm"
+	Actual="$(NormalizeHex "$CaseOutput")"
+	[ "$Actual" = \
+		'6a 46 73 46 84 60 c0 f8 18 80 c0 f8 24 b0 94 68 d2 f8 18 80 d2 f8 24 b0 8d 46 18 47' ] || {
+		printf 'actual T32 bytes: %s\n' "$Actual" >&2
+		Fail "Cortex-M7 T32 high-register save/restore forms differ"
+	}
+	Pass "Cortex-M7 T32 register transfer and wide load/store encoding"
+}
+
+CheckCortexM7Jump()
+{
+	ObjectFile="$WorkDirectory/cortex-m7-jump.o"
+	TextFile="$WorkDirectory/cortex-m7-jump.text"
+	SymbolFile="$WorkDirectory/cortex-m7-jump.symbols"
+	RequireCommand arm-none-eabi-objcopy
+	RequireCommand arm-none-eabi-readelf
+	AssembleSuccess cortex-m7-jump -march=arm32 -f elf32 -o "$ObjectFile" \
+		"$RepositoryDirectory/lib/asm/arm32/jump.asm"
+	arm-none-eabi-objcopy --dump-section .text="$TextFile" "$ObjectFile"
+	[ "$(NormalizeHex "$TextFile")" = \
+		'71 46 01 60 69 46 41 60 84 60 c5 60 06 61 47 61 c0 f8 18 80 c0 f8 1c 90 c0 f8 20 a0 c0 f8 24 b0 00 20 70 47 02 46 0b 46 00 2b 00 d1 01 23 94 68 d5 68 16 69 57 69 d2 f8 18 80 d2 f8 1c 90 d2 f8 20 a0 d2 f8 24 b0 d2 f8 00 c0 51 68 8d 46 18 46 60 47' ] || \
+		Fail "Cortex-M7 jump implementation bytes differ"
+	arm-none-eabi-readelf -s "$ObjectFile" > "$SymbolFile"
+	grep -Eq '[[:space:]]FUNC[[:space:]]+GLOBAL[[:space:]].*[[:space:]]MarkPoint$' \
+		"$SymbolFile" || Fail "MarkPoint is not a global function symbol"
+	grep -Eq '[[:space:]]FUNC[[:space:]]+GLOBAL[[:space:]].*[[:space:]]JumpPoint$' \
+		"$SymbolFile" || Fail "JumpPoint is not a global function symbol"
+	Pass "Cortex-M7 non-local jump implementation encoding"
+}
+
 CheckARM32Fixups()
 {
-	SourceFile="$WorkDirectory/arm32-fixup.asm"
+	SourceDirectory="$RepositoryDirectory/demo/test/clover/arch-arm32"
 	OutputFile="$WorkDirectory/arm32-fixup.bin"
-	AddressSource="$WorkDirectory/arm32-address-fixup.asm"
 	AddressOutput="$WorkDirectory/arm32-address-fixup.bin"
-	CallSource="$WorkDirectory/arm32-call-fixup.asm"
 	CallOutput="$WorkDirectory/arm32-call-fixup.bin"
 	Expected='01 00 00 ea 20 00 00 e3 00 00 40 e3 00 00 00 eb 03 00 00 ea 24 10 00 e3 00 10 40 e3 1e ff 2f e1 00 00 00 00 00 f0 20 e3'
-	printf '%s\n' \
-		'[ARCH arm32]' \
-		'[BITS 32]' \
-		'[SECTION .text]' \
-		'start:' \
-		'B local' \
-		'MOV R0, data_label' \
-		'local:' \
-		'BL worker' \
-		'JMP data_code' \
-		'worker:' \
-		'MOV R1, data_label + 4' \
-		'RET' \
-		'[SECTION .data]' \
-		'data_label:' \
-		'DD 0' \
-		'data_code:' \
-		'NOP' > "$SourceFile"
-	AssembleSuccess arm32-fixup -f bin -o "$OutputFile" "$SourceFile"
+	AssembleSuccess arm32-fixup -f bin -o "$OutputFile" \
+		"$SourceDirectory/fixup.asm"
 	[ "$(NormalizeHex "$OutputFile")" = "$Expected" ] || \
 		Fail "ARM32 branch and address fixup bytes differ"
-	printf '%s\n' \
-		'[ARCH arm32]' \
-		'[SECTION .text]' \
-		'MOV R2, far_data + 0x678' \
-		'[SECTION .data vstart=0x12345000]' \
-		'far_data:' \
-		'DQ 0' > "$AddressSource"
 	AssembleSuccess arm32-address-fixup -f bin \
-		-o "$AddressOutput" "$AddressSource"
+		-o "$AddressOutput" "$SourceDirectory/address-fixup.asm"
 	[ "$(NormalizeHex "$AddressOutput")" = \
 		'78 26 05 e3 34 22 41 e3 00 00 00 00 00 00 00 00' ] || \
 		Fail "ARM32 split address fixup bytes differ"
-	printf '%s\n' \
-		'[ARCH arm32]' \
-		'[SECTION .text]' \
-		'CALL target' \
-		'[SECTION .other]' \
-		'target:' \
-		'RET' > "$CallSource"
-	AssembleSuccess arm32-call-fixup -f bin -o "$CallOutput" "$CallSource"
+	AssembleSuccess arm32-call-fixup -f bin -o "$CallOutput" \
+		"$SourceDirectory/call-fixup.asm"
 	[ "$(NormalizeHex "$CallOutput")" = 'ff ff ff eb 1e ff 2f e1' ] || \
 		Fail "ARM32 cross-section call fixup bytes differ"
 	Pass "ARM32 branch and address fixups"
@@ -85,10 +89,12 @@ CheckARM32Fixups()
 
 CheckARM32ELF()
 {
+	SourceDirectory="$RepositoryDirectory/demo/test/clover/arch-arm32"
 	RequireCommand llvm-readelf
 	RequireCommand ld.lld
-	SourceFile="$WorkDirectory/arm32-elf.asm"
-	ProviderSource="$WorkDirectory/arm32-elf-provider.asm"
+	RequireCommand arm-none-eabi-readelf
+	RequireCommand arm-none-eabi-ld
+	RequireCommand arm-none-eabi-gcc
 	ObjectFile="$WorkDirectory/arm32-elf.o"
 	ProviderObject="$WorkDirectory/arm32-elf-provider.o"
 	LinkedFile="$WorkDirectory/arm32-elf-linked"
@@ -96,35 +102,10 @@ CheckARM32ELF()
 	RelocationFile="$WorkDirectory/arm32-elf.relocations"
 	SymbolFile="$WorkDirectory/arm32-elf.symbols"
 	AttributeFile="$WorkDirectory/arm32-elf.attributes"
-	printf '%s\n' \
-		'[ARCH arm32]' \
-		'[BITS 32]' \
-		'[SECTION .text]' \
-		'GLOBAL entry' \
-		'EXTERN external_call' \
-		'entry:' \
-		'CALL external_call' \
-		'BL.NE external_call' \
-		'B other' \
-		'MOV R0, data_item + 4' \
-		'DD data_item' \
-		'NOP' \
-		'[SECTION .text.other exec]' \
-		'other:' \
-		'RET' \
-		'[SECTION .data]' \
-		'data_item:' \
-		'DD other' > "$SourceFile"
-	printf '%s\n' \
-		'[ARCH arm32]' \
-		'[SECTION .text]' \
-		'GLOBAL external_call' \
-		'external_call:' \
-		'RET' > "$ProviderSource"
 	AssembleSuccess arm32-elf -march=arm32 -f elf32 \
-		-o "$ObjectFile" "$SourceFile"
+		-o "$ObjectFile" "$SourceDirectory/elf-a32.asm"
 	AssembleSuccess arm32-elf-provider -march=arm32 -f elf32 \
-		-o "$ProviderObject" "$ProviderSource"
+		-o "$ProviderObject" "$SourceDirectory/elf-a32-provider.asm"
 	llvm-readelf -h "$ObjectFile" > "$HeaderFile"
 	llvm-readelf -r "$ObjectFile" > "$RelocationFile"
 	llvm-readelf -s "$ObjectFile" > "$SymbolFile"
@@ -150,30 +131,64 @@ CheckARM32ELF()
 		Fail "ARM32 data mapping symbol is missing"
 	LinkSuccess arm32-elf-link ld.lld -m armelf_linux_eabi -e entry \
 		-o "$LinkedFile" "$ObjectFile" "$ProviderObject"
+	ThumbObject="$WorkDirectory/arm32-thumb-elf.o"
+	ThumbProviderObject="$WorkDirectory/arm32-thumb-provider.o"
+	ThumbRelocations="$WorkDirectory/arm32-thumb-relocations"
+	ThumbSymbols="$WorkDirectory/arm32-thumb-symbols"
+	ThumbAttributes="$WorkDirectory/arm32-thumb-attributes"
+	ThumbLinked="$WorkDirectory/arm32-thumb-linked"
+	AssembleSuccess arm32-thumb-elf -march=arm32 -f elf32 \
+		-o "$ThumbObject" "$SourceDirectory/elf-t32.asm"
+	AssembleSuccess arm32-thumb-provider -march=arm32 -f elf32 \
+		-o "$ThumbProviderObject" "$SourceDirectory/elf-t32-provider.asm"
+	arm-none-eabi-readelf -r "$ThumbObject" > "$ThumbRelocations"
+	arm-none-eabi-readelf -s "$ThumbObject" > "$ThumbSymbols"
+	arm-none-eabi-readelf -A "$ThumbObject" > "$ThumbAttributes"
+	grep -Fq 'R_ARM_THM_JUMP11' "$ThumbRelocations" || \
+		Fail "Thumb short-branch relocation is missing"
+	grep -Fq 'R_ARM_THM_JUMP8' "$ThumbRelocations" || \
+		Fail "Thumb conditional-branch relocation is missing"
+	grep -Eq '[[:space:]]\$t$' "$ThumbSymbols" || \
+		Fail "Thumb code mapping symbol is missing"
+	grep -Fq '00000001     0 FUNC    GLOBAL' "$ThumbSymbols" || \
+		Fail "Thumb function symbol state bit is missing"
+	grep -Fq 'Tag_CPU_arch: v7E-M' "$ThumbAttributes" || \
+		Fail "Cortex-M7 ELF CPU attribute differs"
+	grep -Fq 'Tag_THUMB_ISA_use: Thumb-2' "$ThumbAttributes" || \
+		Fail "Thumb-2 ELF ISA attribute is missing"
+	LinkSuccess arm32-thumb-elf-link arm-none-eabi-ld -Ttext=0x08000000 \
+		-e entry -o "$ThumbLinked" "$ThumbObject" "$ThumbProviderObject"
+	ThumbCallerSource="$WorkDirectory/arm32-thumb-caller.c"
+	ThumbCallerObject="$WorkDirectory/arm32-thumb-caller.o"
+	ThumbABOLinked="$WorkDirectory/arm32-thumb-abi-linked.o"
+	ThumbJumpObject="$WorkDirectory/arm32-thumb-jump.o"
+	AssembleSuccess arm32-thumb-jump-elf -march=arm32 -f elf32 \
+		-o "$ThumbJumpObject" \
+		"$RepositoryDirectory/lib/asm/arm32/jump.asm"
+	printf '%s\n' \
+		'extern int MarkPoint(void*);' \
+		'extern void JumpPoint(const void*, unsigned);' \
+		'int invoke_jump(void* state) {' \
+		'  int value = MarkPoint(state);' \
+		'  if (value) JumpPoint(state, (unsigned)value);' \
+		'  return value;' \
+		'}' > "$ThumbCallerSource"
+	LinkSuccess arm32-thumb-caller-compile arm-none-eabi-gcc \
+		-mcpu=cortex-m7 -mthumb -ffreestanding -c "$ThumbCallerSource" \
+		-o "$ThumbCallerObject"
+	LinkSuccess arm32-thumb-abi-link arm-none-eabi-ld -r \
+		-o "$ThumbABOLinked" "$ThumbCallerObject" \
+		"$ThumbJumpObject"
 	Pass "ARM32 ELF object output"
 }
 
 CheckARM32Diagnostics()
 {
-	InvalidSource="$WorkDirectory/arm32-invalid.asm"
+	SourceDirectory="$RepositoryDirectory/demo/test/clover/arch-arm32"
 	InvalidError="$WorkDirectory/arm32-invalid.stderr"
-	ExternalSource="$WorkDirectory/arm32-external.asm"
-	RangeSource="$WorkDirectory/arm32-range.asm"
-	AddressRangeSource="$WorkDirectory/arm32-address-range.asm"
-	printf '%s\n' \
-		'[ARCH arm32]' \
-		'[BITS 32]' \
-		'MOV.S R0, 1' \
-		'ADD R15, R0, R1' \
-		'LDR R0, [PC]' \
-		'LDR R0, [R1 + 4096]' \
-		'LDRH R0, [R1 + 256]' \
-		'ADD.S.EQ R0, R1, R2' \
-		'B [target]' \
-		'target:' \
-		'NOP' > "$InvalidSource"
 	AssembleFailure arm32-invalid -f bin \
-		-o "$WorkDirectory/arm32-invalid.bin" "$InvalidSource"
+		-o "$WorkDirectory/arm32-invalid.bin" \
+		"$SourceDirectory/invalid.asm"
 	grep -Fq 'ARM32 immediate MOV does not support .S' "$InvalidError" || \
 		Fail "ARM32 immediate-MOV diagnostic differs"
 	grep -Fq 'ARM32 data-processing destination does not accept PC' \
@@ -187,36 +202,21 @@ CheckARM32Diagnostics()
 		"$InvalidError" || Fail "ARM32 qualifier-order diagnostic differs"
 	grep -Fq "ARM32 instruction operands do not match \`B'" \
 		"$InvalidError" || Fail "ARM32 direct-branch address diagnostic differs"
-	printf '%s\n' \
-		'[ARCH arm32]' \
-		'EXTERN external_target' \
-		'B external_target' > "$ExternalSource"
 	AssembleFailure arm32-external -f bin \
-		-o "$WorkDirectory/arm32-external.bin" "$ExternalSource"
+		-o "$WorkDirectory/arm32-external.bin" \
+		"$SourceDirectory/external-reference.asm"
 	grep -Fq 'binary output format does not support external references' \
 		"$WorkDirectory/arm32-external.stderr" || \
 		Fail "ARM32 external-reference diagnostic differs"
-	printf '%s\n' \
-		'[ARCH arm32]' \
-		'[SECTION .text]' \
-		'B far_target' \
-		'[SECTION .far vstart=0x02000008]' \
-		'far_target:' \
-		'NOP' > "$RangeSource"
 	AssembleFailure arm32-range -f bin \
-		-o "$WorkDirectory/arm32-range.bin" "$RangeSource"
+		-o "$WorkDirectory/arm32-range.bin" \
+		"$SourceDirectory/branch-range.asm"
 	grep -Fq 'ARM32 branch target is out of range' \
 		"$WorkDirectory/arm32-range.stderr" || \
 		Fail "ARM32 branch-range diagnostic differs"
-	printf '%s\n' \
-		'[ARCH arm32]' \
-		'[SECTION .text]' \
-		'MOV R0, far_data' \
-		'[SECTION .far vstart=0x100000000]' \
-		'far_data:' \
-		'DQ 0' > "$AddressRangeSource"
 	AssembleFailure arm32-address-range -f bin \
-		-o "$WorkDirectory/arm32-address-range.bin" "$AddressRangeSource"
+		-o "$WorkDirectory/arm32-address-range.bin" \
+		"$SourceDirectory/address-range.asm"
 	grep -Fq 'ARM32 label address is out of range' \
 		"$WorkDirectory/arm32-address-range.stderr" || \
 		Fail "ARM32 label-address range diagnostic differs"

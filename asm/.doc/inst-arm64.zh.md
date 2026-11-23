@@ -44,11 +44,17 @@ MOV W0, W1
 ## 立即数、标签和内存
 
 立即数直接书写，不使用 `#`。控制流的裸标签表示目标地址；方括号只表示内存访问。
-当前内存操作只接受 64 位寄存器基址和非负的 scaled 12 位偏移。
+当前内存操作接受 64 位寄存器基址、立即数偏移、寄存器偏移及写回寻址。
 
 ```asm
 ADD X0, X1, 16
 LDR X0, [X1 + 8]
+LDR X0, [X1 - 8]
+LDR X0, [X1 + X2, LSL 3]
+STR X29, [SP - 16]!
+LDR X0, [SP], 8
+STP X29, X30, [SP - 16]!
+LDP X29, X30, [SP], 16
 B target
 BR X2
 ```
@@ -62,16 +68,36 @@ BR [X2]
 LDR X0, message
 ```
 
-基础内存寻址使用以下形式：
+偏移和写回寻址使用以下形式：
 
 ```asm
 [X1]
 [X1 + 16]
+[X1 - 8]
+[X1 + 8]!
+[X1], 8
+[X1 + X2]
+[X1 + X2, LSL 3]
+[X1 + W2, UXTW 3]
+[X1 + W2, SXTW 3]
 ```
 
-内存地址的寄存器基址必须是 `Xn` 或 `SP`，不能是 `Wn` 或 `WSP`。pre-index、
-post-index、写回、scaled register offset 和 extend register offset 当前不属于本语法
-范围。负偏移、标签地址和绝对地址内存也尚未接入。
+内存基址必须是 `Xn` 或 `SP`，不能是 `Wn` 或 `WSP`。普通 `LDR/STR` 对非负、
+按访问宽度对齐的偏移使用 scaled 12 位编码；其他 `-256..255` 的偏移使用 unscaled
+编码。`LDUR`、`STUR` 及其字节、半字和符号加载形式显式选择 unscaled 编码，偏移
+范围为 `-256..255`。pre-index 和 post-index 的偏移为有符号 9 位字节偏移，范围同为
+`-256..255`。
+
+寄存器偏移写成 `[base + index, modifier shift]`。`X` 索引允许省略修饰符或使用
+`LSL`、`SXTX`；`W` 索引必须使用 `UXTW` 或 `SXTW`。shift 只能为 0 或当前访存宽度
+对应的移位量。寄存器偏移不支持减法、写回或额外地址表达式。
+
+`LDP` 和 `STP` 支持两个同宽的 `W` 或 `X` 寄存器，以及 offset、pre-index、
+post-index 三种立即数寻址。偏移按寄存器宽度缩放：W 寄存器范围为 `-256..252`，
+X 寄存器范围为 `-512..504`；必须按对应宽度对齐。成对访存不支持寄存器偏移。
+写回基址不能与数据寄存器重叠，`LDP` 的两个目标寄存器也必须不同。
+
+literal load、标签或绝对地址内存、成对访存的寄存器偏移当前不支持。
 
 ## 条件分支
 
@@ -130,14 +156,18 @@ MOV BYT8 [X1 + 8], X0
 ```asm
 LDR X0, [X1]
 LDR W0, [X1 + 4]
+LDUR X0, [X1 - 8]
 LDRB W0, [X1]
 LDRSB X0, [X1]
 LDRSW X0, [X1]
 STR X0, [X1 + 8]
 STRH W0, [X1]
+STP X29, X30, [SP - 16]!
+LDP X29, X30, [SP], 16
 ```
 
-当前不支持 literal load、表达式地址、`ADR` 或 `ADRP`。
+当前不支持 literal load、表达式地址、`ADR` 或 `ADRP`。普通 `LDR/STR` 根据偏移范围、
+对齐和寻址模式选择 scaled 或 unscaled 编码。
 
 ## 当前原生指令
 
@@ -145,13 +175,16 @@ STRH W0, [X1]
 
 ```text
 NOP, RET, BR, BLR, B, BL
-ADD, SUB, CMP
-AND, ORR, EOR
-LDR, STR, LDRB, LDRH, LDRSB, LDRSH, LDRSW, STRB, STRH
+ADD, ADDS, SUB, SUBS, ADC, SBC, CMP, TST
+AND, ORR, EOR, MUL, SDIV, UDIV, LSL, LSR, ASR, ROR
+LDR, STR, LDUR, STUR, LDRB, LDRH, LDRSB, LDRSH, LDRSW,
+LDURB, LDURH, LDURSB, LDURSH, LDURSW, STRB, STRH, STURB, STURH, LDP, STP
 ```
 
-`ADD`、`SUB` 和 `CMP` 支持寄存器形式，以及 12 位立即数和左移 12 位的立即数形式。
-寄存器移位、扩展寄存器和逻辑立即数尚未接入。
+`ADD`、`ADDS`、`SUB`、`SUBS` 和 `CMP` 支持寄存器形式，以及 12 位立即数和左移
+12 位的立即数形式。`ADC`、`SBC`、`TST`、`MUL`、`SDIV`、`UDIV` 以及 `LSL`、`LSR`、
+`ASR`、`ROR` 的寄存器移位形式均接受三个同宽寄存器操作数。立即数移位形式和逻辑
+立即数尚未接入。
 
 ## 控制流简化形式
 

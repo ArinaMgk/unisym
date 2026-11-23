@@ -31,7 +31,8 @@ const ArchendInfo& ArchendARM64::DumpArchend() const
 		ArchitectureKind::ARM64,
 		64,
 		"64",
-		"A64 minimal integer and load/store subset"
+		"",
+		"A64 integer, control-flow, and load/store subset"
 	};
 	return info;
 }

@@ -21,6 +21,13 @@ extern int32_t abs_seg;
 extern int32_t abs_offset;
 }
 
+static bool SupportsARM32ELFTarget(const uni::CodeendInterface& codeend)
+{
+	const char* name = codeend.DumpCodeend().shortname;
+	return !StrCompareInsensitive(name, "elf32") ||
+		!StrCompareInsensitive(name, "elf");
+}
+
 Assembler::Assembler(AssemblySession& session)
 	: Session(session)
 {
@@ -68,6 +75,8 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 			Session.ActiveArchend->DumpArchend().architecture,
 			Session.CurrentBits,
 			Session.CurrentCpu,
+			Session.CurrentCore,
+			Session.CurrentInstructionSet,
 			Session.CurrentAbi,
 			Session.AbiExplicit
 		});
@@ -115,6 +124,8 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 
 		globalbits = Session.SectionBits = target.DefaultBits();
 		Session.CurrentCpu = target.Cpu();
+		Session.CurrentCore = target.Core();
+		Session.CurrentInstructionSet = target.InstructionSet();
 		Session.ActiveArchend = initial_archend;
 		Session.PassPhase = pass0;
 		Session.PassNumber = passn;
@@ -132,6 +143,8 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 		global_offset_changed = 0;  /* Set when a label offset changes. */
 		Session.Location.segment = codeend.SelectSection(
 			NULL, pass2, Session.SectionBits);
+		if (target.BitsExplicit())
+			Session.SectionBits = target.DefaultBits();
 		globalbits = Session.SectionBits;
 		Session.CurrentBits = globalbits;
 		if (passn > 1) {
@@ -212,9 +225,16 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 						break;
 					}
 					ActivateArchend(*selected, pass1, pass2);
-					Session.CurrentCpu = selected->DefaultCpu();
-					globalbits = Session.SectionBits =
-						selected->DumpArchend().default_bits;
+					bool selected_initial_target = selected == initial_archend;
+					Session.CurrentCpu = selected_initial_target ?
+						target.Cpu() : selected->DefaultCpu();
+					Session.CurrentCore = selected_initial_target ?
+						target.Core() : 0;
+					Session.CurrentInstructionSet = selected_initial_target ?
+						target.InstructionSet() :
+						selected->DefaultInstructionSet(0);
+					globalbits = Session.SectionBits = selected_initial_target ?
+						target.DefaultBits() : selected->DumpArchend().default_bits;
 					Session.CurrentBits = globalbits;
 					Session.CurrentAbi = selected->DefaultAbi(
 						Session.CurrentBits, Session.CurrentCpu);
@@ -491,6 +511,77 @@ void Assembler::AssembleFile(char* fname, StrList** depend_ptr)
 						"cpu is incompatible with the current architecture, bit width, or abi");
 					break;
 				}
+				case Directive::Core:
+				{
+					uint32_t core = Session.CurrentCore;
+					if (!Session.ActiveArchend->ParseCore(value, core)) {
+						aasm_log(_LOG_ERROR,
+							"unknown core for the current architecture");
+						break;
+					}
+					uint32_t default_set =
+						Session.ActiveArchend->DefaultInstructionSet(core);
+					bool arm32_elf =
+						Session.ActiveArchend->DumpArchend().architecture ==
+							uni::lango::ArchitectureKind::ARM32 &&
+						SupportsARM32ELFTarget(codeend);
+					if (default_set && StrCompareInsensitive(
+						codeend.DumpCodeend().shortname, "bin") &&
+						!arm32_elf) {
+						aasm_log(_LOG_ERROR,
+							"selected core instruction set currently requires Binary output");
+						break;
+					}
+					Session.CurrentCore = core;
+					Session.CurrentInstructionSet = default_set;
+					ConfigureTarget();
+					break;
+				}
+				case Directive::Inst:
+				{
+					uint32_t set = Session.CurrentInstructionSet;
+					if (!Session.ActiveArchend->ParseInstructionSet(value, set)) {
+						uint32_t cpu = Session.CurrentCpu;
+						if (!Session.ActiveArchend->ParseCpu(value, cpu)) {
+							aasm_log(pass0 < 2 ? _LOG_ERROR : _LOG_FATAL,
+								"unknown 'cpu' type");
+							break;
+						}
+						if (!Session.ActiveArchend->ValidateBits(
+							Session.CurrentBits, cpu) ||
+							!Session.ActiveArchend->ValidateAbi(
+								Session.CurrentBits, cpu, Session.CurrentAbi)) {
+							aasm_log(_LOG_ERROR,
+								"cpu is incompatible with the current architecture, bit width, or abi");
+							break;
+						}
+						Session.CurrentCpu = cpu;
+						ConfigureTarget();
+						break;
+					}
+					if (!Session.ActiveArchend->ValidateInstructionSet(
+						Session.CurrentCore, set) ||
+						!Session.ActiveArchend->ValidateCore(
+							Session.CurrentCore, set)) {
+						aasm_log(_LOG_ERROR,
+							"instruction set is incompatible with the selected core");
+						break;
+					}
+					bool arm32_elf =
+						Session.ActiveArchend->DumpArchend().architecture ==
+							uni::lango::ArchitectureKind::ARM32 &&
+						SupportsARM32ELFTarget(codeend);
+					if (set && StrCompareInsensitive(
+						codeend.DumpCodeend().shortname, "bin") &&
+						!arm32_elf) {
+						aasm_log(_LOG_ERROR,
+							"selected instruction set currently requires Binary output");
+						break;
+					}
+					Session.CurrentInstructionSet = set;
+					ConfigureTarget();
+					break;
+				}
 				case Directive::List:		/* [LIST {+|-}] */
 					while (*value && ascii_isspace(*value))
 						value++;
@@ -607,13 +698,14 @@ Assembler::Directive Assembler::ParseDirective(char** directive, char** value)
 		{"arch", Directive::Arch},
 		{"bits", Directive::Bits},
 		{"common", Directive::Common},
+		{"core", Directive::Core},
 		{"cpu", Directive::Cpu},
 		{"debug", Directive::Debug},
 		{"default", Directive::Default},
 		{"extern", Directive::Extern},
 		{"float", Directive::Float},
 		{"global", Directive::Global},
-		{"inst", Directive::Cpu},
+		{"inst", Directive::Inst},
 		{"list", Directive::List},
 		{"section", Directive::Section},
 		{"segment", Directive::Segment},

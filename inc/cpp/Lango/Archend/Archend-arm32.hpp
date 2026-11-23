@@ -12,6 +12,11 @@ namespace uni::lango {
 
 class ArchendARM32 : public ArchendInterface {
 public:
+	virtual bool ParseCore(const char* name, uint32_t& core) const override;
+	virtual bool ParseInstructionSet(const char* name, uint32_t& set) const override;
+	virtual uint32_t DefaultInstructionSet(uint32_t core) const override;
+	virtual bool ValidateCore(uint32_t core, uint32_t set) const override;
+	virtual bool ValidateInstructionSet(uint32_t core, uint32_t set) const override;
 	virtual const ArchendInfo& DumpArchend() const override;
 	virtual uint32_t DefaultCpu() const override;
 	virtual bool ParseCpu(const char* name, uint32_t& cpu) const override;

@@ -97,17 +97,55 @@ bool ParseWidth(char*& text, uint8_t& width)
 	return true;
 }
 
-bool ParseAddressOperand(char* text, int parse_pass, bool require_width,
-	ARM64Operand& operand)
+bool ParseIndexExtend(char* text, int parse_pass, ARM64Address& address)
+{
+	text = SkipSpace(text);
+	if (!*text) return true;
+	if (*text != ',') return false;
+	text = SkipSpace(text + 1);
+	char* end = text;
+	while (isidchar(*end)) end++;
+	if (end == text) return false;
+	char saved = *end;
+	*end = '\0';
+	if (Equal(text, "lsl")) address.extend = ARM64IndexExtend::LSL;
+	else if (Equal(text, "uxtw")) address.extend = ARM64IndexExtend::UXTW;
+	else if (Equal(text, "sxtw")) address.extend = ARM64IndexExtend::SXTW;
+	else if (Equal(text, "sxtx")) address.extend = ARM64IndexExtend::SXTX;
+	else {
+		*end = saved;
+		return false;
+	}
+	*end = saved;
+	text = SkipSpace(end);
+	if (!*text) return true;
+	ARM64Value shift;
+	if (!ParseValue(text, parse_pass, shift) || shift.unknown ||
+		shift.external || shift.section != NO_SEG || shift.wrt != NO_SEG ||
+		shift.offset < 0 || shift.offset > 255) return false;
+	address.shift = static_cast<uint8_t>(shift.offset);
+	return true;
+}
+
+bool ParseAddressOperand(char* text, char* post_index, int parse_pass,
+	bool require_width, ARM64Operand& operand)
 {
 	text = SkipSpace(text);
 	if (require_width && !ParseWidth(text, operand.width)) return false;
 	if (*text != '[') return false;
-	char* close = text + StrLength(text);
-	while (close > text && ascii_isspace(close[-1])) close--;
-	if (close <= text + 1 || close[-1] != ']') return false;
-	char saved_close = close[-1];
-	close[-1] = '\0';
+	char* end = text + StrLength(text);
+	while (end > text && ascii_isspace(end[-1])) end--;
+	bool writeback = false;
+	if (end > text && end[-1] == '!') {
+		writeback = true;
+		end--;
+		while (end > text && ascii_isspace(end[-1])) end--;
+	}
+	if (end <= text + 1 || end[-1] != ']' || (writeback && post_index))
+		return false;
+	char* close = end - 1;
+	char saved_close = *close;
+	*close = '\0';
 	char* content = SkipSpace(text + 1);
 	TrimEnd(content);
 	operand.kind = ARM64OperandKind::Address;
@@ -120,24 +158,59 @@ bool ParseAddressOperand(char* text, int parse_pass, bool require_width,
 	if (ParseARM64Register(content, base)) {
 		*register_end = saved;
 		if (base.width != 64 || base.kind == ARM64RegisterKind::Zero) {
-			close[-1] = saved_close;
+			*close = saved_close;
 			return false;
 		}
-		operand.address_kind = ARM64AddressKind::RegisterRelative;
-		operand.reg = base;
+		operand.address.base = base;
 		char* displacement = SkipSpace(register_end);
-		bool valid = true;
-		if (*displacement) {
-			if (*displacement != '+' && *displacement != '-') valid = false;
-			else valid = ParseValue(displacement, parse_pass, operand.value);
+		if (post_index) {
+			bool valid = !*displacement &&
+				ParseValue(post_index, parse_pass,
+					operand.address.displacement);
+			operand.address.mode = ARM64AddressMode::PostIndex;
+			*close = saved_close;
+			return valid;
 		}
-		close[-1] = saved_close;
+		if (!*displacement) {
+			operand.address.mode = writeback ? ARM64AddressMode::PreIndex :
+				ARM64AddressMode::ImmediateOffset;
+			*close = saved_close;
+			return true;
+		}
+		if (*displacement != '+' && *displacement != '-') {
+			*close = saved_close;
+			return false;
+		}
+		char sign = *displacement;
+		char* second = SkipSpace(displacement + 1);
+		char* second_end = second;
+		while (isidchar(*second_end)) second_end++;
+		char second_saved = *second_end;
+		*second_end = '\0';
+		ARM64Register index;
+		bool register_offset = ParseARM64Register(second, index);
+		*second_end = second_saved;
+		if (register_offset) {
+			bool valid = sign == '+' && !writeback;
+			operand.address.mode = ARM64AddressMode::RegisterOffset;
+			operand.address.index = index;
+			if (valid)
+				valid = ParseIndexExtend(second_end, parse_pass, operand.address);
+			*close = saved_close;
+			return valid;
+		}
+		bool valid = ParseValue(displacement, parse_pass,
+			operand.address.displacement);
+		operand.address.mode = writeback ? ARM64AddressMode::PreIndex :
+			ARM64AddressMode::ImmediateOffset;
+		*close = saved_close;
 		return valid;
 	}
 	*register_end = saved;
-	operand.address_kind = ARM64AddressKind::Expression;
-	bool valid = ParseValue(content, parse_pass, operand.value);
-	close[-1] = saved_close;
+	operand.address.mode = ARM64AddressMode::Expression;
+	bool valid = !writeback && !post_index &&
+		ParseValue(content, parse_pass, operand.address.displacement);
+	*close = saved_close;
 	return valid;
 }
 
@@ -280,11 +353,20 @@ bool ParseNativeOperands(const ARM64InstructionInfo& info, char* operands[],
 				ARM64OperandKind::Immediate, instruction.operands[1]);
 	}
 	if (info.operands == ARM64OperandForm::RtAddress) {
-		if (count != 2) return false;
+		if (count != 2 && count != 3) return false;
 		instruction.operand_count = 2;
 		return ParseRegisterOperand(operands[0], instruction.operands[0]) &&
-			ParseAddressOperand(operands[1], parse_pass, false,
+			ParseAddressOperand(operands[1], count == 3 ? operands[2] : nullptr,
+				parse_pass, false,
 				instruction.operands[1]);
+	}
+	if (info.operands == ARM64OperandForm::RtRtAddress) {
+		if (count != 3 && count != 4) return false;
+		instruction.operand_count = 3;
+		return ParseRegisterOperand(operands[0], instruction.operands[0]) &&
+			ParseRegisterOperand(operands[1], instruction.operands[1]) &&
+			ParseAddressOperand(operands[2], count == 4 ? operands[3] : nullptr,
+				parse_pass, false, instruction.operands[2]);
 	}
 	return false;
 }
@@ -292,28 +374,29 @@ bool ParseNativeOperands(const ARM64InstructionInfo& info, char* operands[],
 bool ParseMove(char* operands[], unsigned count, int parse_pass,
 	ARM64Instruction& instruction)
 {
-	if (count != 2) {
-		aasm_log(_LOG_ERROR, "ARM64 MOV expects two operands");
+	if (count != 2 && count != 3) {
+		aasm_log(_LOG_ERROR, "ARM64 MOV expects two operands and optional post-index");
 		return false;
 	}
 	ARM64Operand destination;
 	if (ParseRegisterOperand(operands[0], destination)) {
 		ARM64Operand source;
-		if (ParseRegisterOperand(operands[1], source)) {
+		if (count == 2 && ParseRegisterOperand(operands[1], source)) {
 			instruction.kind = ARM64InstructionKind::MoveRegister;
 			instruction.operand_count = 2;
 			instruction.operands[0] = destination;
 			instruction.operands[1] = source;
 			return true;
 		}
-		if (ParseAddressOperand(operands[1], parse_pass, true, source)) {
+		if (ParseAddressOperand(operands[1], count == 3 ? operands[2] : nullptr,
+			parse_pass, true, source)) {
 			instruction.kind = ARM64InstructionKind::MoveLoad;
 			instruction.operand_count = 2;
 			instruction.operands[0] = destination;
 			instruction.operands[1] = source;
 			return true;
 		}
-		if (!ParseValueOperand(operands[1], parse_pass,
+		if (count != 2 || !ParseValueOperand(operands[1], parse_pass,
 			ARM64OperandKind::Immediate, source)) {
 			aasm_log(_LOG_ERROR,
 				"ARM64 MOV operand 2 must be a register, expression, or address");
@@ -325,7 +408,8 @@ bool ParseMove(char* operands[], unsigned count, int parse_pass,
 		instruction.operands[1] = source;
 		return true;
 	}
-	if (!ParseAddressOperand(operands[0], parse_pass, true, destination)) {
+	if (!ParseAddressOperand(operands[0], count == 3 ? operands[2] : nullptr,
+		parse_pass, true, destination)) {
 		aasm_log(_LOG_ERROR,
 			"ARM64 MOV operand 1 must be a register or sized address");
 		return false;

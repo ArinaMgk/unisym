@@ -711,6 +711,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\lib\c\ustring\astring\StrHeapN.c</FilePath>
             </File>
+            <File>
+              <FileName>_ae_jump.o</FileName>
+              <FileType>3</FileType>
+              <FilePath>D:\tmp\obj\stm32h7\_ae_jump.o</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

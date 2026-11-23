@@ -36,9 +36,10 @@ namespace uni {
 		uint32_t cluster_size = sectors_per_cluster * bytes_per_sector;
 		FAT_TableScratch fat_table_cache = {};
 		FAT_TableScratch* fat_cache = nullptr;
+		FATBlockBuffer fat_owner(allow_allocate ? bytes_per_sector : 0);
 		if (allow_allocate) {
-			fat_table_cache.buffer = new byte[bytes_per_sector];
-			if (!fat_table_cache.buffer) return false;
+			if (!fat_owner) return false;
+			fat_table_cache.buffer = fat_owner.Data();
 			fat_table_cache.current_sector = 0xFFFFFFFF;
 			fat_cache = &fat_table_cache;
 		}
@@ -46,7 +47,6 @@ namespace uni {
 			if (!ret && metadata_changed) MarkWriteFault();
 			ret = ret && getFaultState() == FilesysFaultState::Healthy;
 			if (!ret) *fh = original;
-			if (fat_cache) delete[] fat_table_cache.buffer;
 			return ret;
 		};
 
@@ -113,9 +113,10 @@ namespace uni {
 
 			// Write updated size to directory entry
 			if (!fh->is_unlinked) {
-				byte* dir_buf = new byte[bytes_per_sector];
-				if (!dir_buf) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
-				if (!ReadBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+				FATBlockBuffer dir_owner(bytes_per_sector);
+				if (!dir_owner) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+				byte* dir_buf = dir_owner.Data();
+				if (!ReadBlock(fh->dir_sector, dir_buf)) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
 				{
 					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 					entry->file_size = fh->size;
@@ -128,9 +129,8 @@ namespace uni {
 					if (getFatDateTime(fat_date, fat_time, fat_hundredths))
 						setFatWriteTime(*entry, fat_date, fat_time);
 #endif
-					if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_truncate(false); }
+					if (!WriteBlock(fh->dir_sector, dir_buf)) return finish_truncate(false);
 				}
-				delete[] dir_buf;
 			}
 		}
 		else {
@@ -151,16 +151,16 @@ namespace uni {
 				fh->current_cluster = cluster;
 
 				if (!fh->is_unlinked) {
-					byte* dir_buf = new byte[bytes_per_sector];
-					if (!dir_buf) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
-					if (!ReadBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+					FATBlockBuffer dir_owner(bytes_per_sector);
+					if (!dir_owner) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+					byte* dir_buf = dir_owner.Data();
+					if (!ReadBlock(fh->dir_sector, dir_buf)) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
 					{
 						FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 						entry->cluster_low = (uint16_t)(cluster & 0xFFFF);
 						entry->cluster_high = (uint16_t)(cluster >> 16);
-						if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_truncate(false); }
+						if (!WriteBlock(fh->dir_sector, dir_buf)) return finish_truncate(false);
 					}
-					delete[] dir_buf;
 				}
 			}
 
@@ -189,9 +189,10 @@ namespace uni {
 			fh->size = (uint32_t)size;
 
 			if (!fh->is_unlinked) {
-				byte* dir_buf = new byte[bytes_per_sector];
-				if (!dir_buf) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
-				if (!ReadBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+				FATBlockBuffer dir_owner(bytes_per_sector);
+				if (!dir_owner) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
+				byte* dir_buf = dir_owner.Data();
+				if (!ReadBlock(fh->dir_sector, dir_buf)) { if (metadata_changed) MarkWriteFault(); return finish_truncate(false); }
 				{
 					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 					entry->file_size = fh->size;
@@ -202,9 +203,8 @@ namespace uni {
 					if (getFatDateTime(fat_date, fat_time, fat_hundredths))
 						setFatWriteTime(*entry, fat_date, fat_time);
 #endif
-					if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_truncate(false); }
+					if (!WriteBlock(fh->dir_sector, dir_buf)) return finish_truncate(false);
 				}
-				delete[] dir_buf;
 			}
 		}
 

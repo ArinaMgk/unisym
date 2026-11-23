@@ -173,7 +173,7 @@ public:
 	virtual const unsigned char* StandardMacros() const = 0;
 	virtual void PrepareFilename(char* input_name, char* output_name) = 0;
 	virtual void Initialize(FILE* output,
-		uni::lango::ArchitectureKind architecture) = 0;
+		const uni::lango::AssemblyTargetProfile& target) = 0;
 	virtual void ConfigureTarget(
 		const uni::lango::AssemblyTargetProfile& target) = 0;
 	virtual void InitializeDebug(FILE* output) = 0;

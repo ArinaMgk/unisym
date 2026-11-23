@@ -15,10 +15,11 @@ my $header_path = "$header_directory/Instructions-arm64.hpp";
 my %formats = map { $_ => 1 } qw(
 	Fixed Branch ConditionalBranch RegisterBranch AddSubRegister
 	AddSubImmediate CompareRegister CompareImmediate LogicalRegister LoadStore
+	LoadStoreUnscaled LoadStorePair
 );
 my %operands = map { $_ => 1 } qw(
 	None Target Register RegisterOptional RdRnRm RdRnImmediate RnRm
-	RnImmediate RtAddress
+	RnImmediate RtAddress RtRtAddress
 );
 
 open my $input, '<', $input_path or die "unable to open $input_path: $!\n";
@@ -88,7 +89,9 @@ enum class ARM64EncodingFormat : uint8_t {
 	CompareRegister,
 	CompareImmediate,
 	LogicalRegister,
-	LoadStore
+	LoadStore,
+	LoadStoreUnscaled,
+	LoadStorePair
 };
 
 enum class ARM64OperandForm : uint8_t {
@@ -100,7 +103,8 @@ enum class ARM64OperandForm : uint8_t {
 	RdRnImmediate,
 	RnRm,
 	RnImmediate,
-	RtAddress
+	RtAddress,
+	RtRtAddress
 };
 
 struct ARM64InstructionInfo {

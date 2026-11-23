@@ -41,6 +41,9 @@ aasm [options] input
 | `-g` | 生成所选格式支持的调试信息 |
 | `-O level` | 设置分支优化级别 |
 | `-march=name`、`--arch name` | 选择指令架构 |
+| `-mcore=name` | 选择处理器核心 |
+| `-minst=name` | 选择指令集；未识别为指令集时按 CPU 等级解析 |
+| `-mbits=bits` | 选择代码位宽：16、32 或 64 |
 | `-mrelax` | 为支持的 RISC-V relocation 输出链接器松弛提示 |
 
 未指定 `-march` 或 `--arch` 时，默认目标为 `x86`，默认位宽为 16 位。
@@ -54,15 +57,17 @@ RISC-V 的默认 `align` 使用 `RALIGN`，以便 ELF 输出 `R_RISCV_ALIGN`。
 ## 目标架构
 
 命令行使用 `-march=name`、`-march name`、`--arch=name` 或 `--arch name` 选择
-源文件的初始架构。源文件中的 `[ARCH name]` 可以切换后续区域使用的架构。
+源文件的初始架构。`-mcore`、`-minst` 和 `-mbits` 设置初始目标配置，应放在
+`-march` 之后；源文件中的 `[ARCH name]`、`[CORE name]`、`[INST name]` 和
+`[BITS n]` 仍可切换或覆盖后续区域的配置。`-ha` 会列出架构支持的 CORE、INST 和 BITS。
 
 ### Arch、CPU 与 BITS
 
-| Arch | 默认 BITS | 支持的 BITS | 默认 CPU/INST | `[CPU]`、`[INST]` 支持的名称 |
+| Arch | 默认 BITS | 支持的 BITS | 默认配置 | 可选配置 |
 | :--- | ---: | :--- | :--- | :--- |
-| `x86` | 16 | 16；386 及以上支持 32；`x64`、`x86-64` 支持 64 | 不限制指令等级 | 见下方 x86 CPU 名称 |
-| `riscv` | 64 | 32、64 | `i` | `i[m][a][f][d][c][v][_zba][_zbb][_zbs][_zicond][_zicsr][_zifencei]` |
-| `arm32` | 32 | 32 | ARMv7-A A32 最小整数子集 | 不支持 `[CPU]`、`[INST]` |
+| `x86` | 16 | 16；386 及以上支持 32；`x64`、`x86-64` 支持 64 | 不限制指令等级 | `[CPU]` 或 `[INST]`：见下方 x86 CPU 名称 |
+| `riscv` | 64 | 32、64 | `i` | `[CPU]` 或 `[INST]`：`i[m][a][f][d][c][v][_zba][_zbb][_zbs][_zicond][_zicsr][_zifencei]` |
+| `arm32` | 32 | 32 | A32 | `[CORE cortex-m7]` 默认使用 T32；可显式写 `[INST A32]` 或 `[INST T32]` |
 | `arm64` | 64 | 64 | A64 最小整数子集 | 不支持 `[CPU]`、`[INST]` |
 
 x86 当前识别以下 CPU 名称：
@@ -84,9 +89,19 @@ x64, x86-64
 这些名称用于限制可选指令等级。16 位模式接受全部已识别的 x86 CPU；32 位模式要求
 CPU 等级不低于 386；64 位模式要求 CPU 为 `x64` 或 `x86-64`。
 
-`[INST value]` 是 `[CPU value]` 的等价写法，两者使用完全相同的 Archend 解析和验证
-逻辑。x86 可以继续使用 `[CPU]` 表示处理器指令等级；RISC-V 可以使用 `[INST]`
-突出指令集扩展，也可以统一使用 `[CPU]`。
+除 ARM32 外，`[INST value]` 保持与 `[CPU value]` 等价。ARM32 中，`[CORE]` 选择处理器
+核心，`[INST]` 选择 A32 或 T32 指令状态；两项不能互相替代。名称大小写不敏感。
+`[BITS 32]` 表示数据和通用寄存器宽度，不决定指令编码长度。
+
+```asm
+[ARCH arm32]
+[CORE cortex-m7]
+[INST T32]
+[BITS 32]
+```
+
+Cortex-M7 的 T32 指令可以使用 16 位或 32 位编码。当前接入的 T32 子集仅支持 Binary
+输出，具体助记符及操作数形式见 ARM32 指令说明。
 
 RISC-V 指令集名称必须以 `i` 开始，单字母扩展按 `m`、`a`、`f`、`d`、`c`、`v`
 的顺序书写，多字母扩展使用下划线分隔，并按 `zba`、`zbb`、`zbs`、`zicond`、
@@ -276,9 +291,9 @@ Archend 还支持 `LI`、`LA`、`TAIL`、`BEQZ`、`SEQZ`、`NEG`、`NOT`、整�
 
 `arm32` 表示固定 32 位的 A32 指令状态，不包含 Thumb/T32；`arm64` 表示固定 64 位
 目标下的 A64 指令状态。两者的机器指令均为 4 字节，但使用相互独立的寄存器、指令
-和编码模型。ARM32 与 ARM64 均已支持 Binary 最小整数、控制流和寄存器基址加载
-存储；本地标签可以跨 section 跳转、调用或作为 `MOV` 的地址源。ARM32 暂不支持
-Thumb/T32。
+和编码模型。ARM32 与 ARM64 均已支持 Binary 整数、控制流和加载存储；ARM64 还支持
+立即数及寄存器偏移、pre-index/post-index 写回和 `LDP/STP`。本地标签可以跨 section
+跳转、调用或作为 `MOV` 的地址源。ARM32 暂不支持 Thumb/T32。
 
 ARM 操作数继续遵循 AASM 的统一地址规则：裸立即数和标签表示数值或地址，方括号
 只表示内存访问，控制流目标和寄存器间接跳转不使用方括号。立即数不使用 `#` 前缀。

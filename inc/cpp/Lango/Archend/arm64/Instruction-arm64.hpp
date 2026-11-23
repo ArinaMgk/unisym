@@ -23,11 +23,6 @@ enum class ARM64OperandKind : uint8_t {
 	Address
 };
 
-enum class ARM64AddressKind : uint8_t {
-	RegisterRelative,
-	Expression
-};
-
 enum class ARM64InstructionKind : uint8_t {
 	Native,
 	ConditionalBranch,
@@ -45,10 +40,35 @@ struct ARM64Value {
 	bool external = false;
 };
 
+enum class ARM64AddressMode : uint8_t {
+	ImmediateOffset,
+	PreIndex,
+	PostIndex,
+	RegisterOffset,
+	Expression
+};
+
+enum class ARM64IndexExtend : uint8_t {
+	None,
+	LSL,
+	UXTW,
+	SXTW,
+	SXTX
+};
+
+struct ARM64Address {
+	ARM64AddressMode mode = ARM64AddressMode::ImmediateOffset;
+	ARM64Register base;
+	ARM64Register index;
+	ARM64Value displacement;
+	ARM64IndexExtend extend = ARM64IndexExtend::None;
+	uint8_t shift = 0;
+};
+
 struct ARM64Operand {
 	ARM64OperandKind kind = ARM64OperandKind::None;
 	ARM64Register reg;
-	ARM64AddressKind address_kind = ARM64AddressKind::RegisterRelative;
+	ARM64Address address;
 	ARM64Value value;
 	uint8_t width = 0;
 };

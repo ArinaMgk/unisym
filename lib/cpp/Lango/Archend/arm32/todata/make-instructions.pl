@@ -13,10 +13,10 @@ my $source_path = "$source_directory/Instructions-arm32.cpp";
 my $header_path = "$header_directory/Instructions-arm32.hpp";
 
 my %formats = map { $_ => 1 } qw(
-	Fixed Branch RegisterBranch DataProcessing Compare LoadStore LoadStoreExtra
+	Fixed Branch RegisterBranch DataProcessing Compare Multiply LoadStore LoadStoreExtra
 );
 my %operands = map { $_ => 1 } qw(
-	None Target Register RdRnOperand2 RnOperand2 RtAddress
+	None Target Register RdRnOperand2 RnOperand2 RdRnRm RtAddress
 );
 
 open my $input, '<', $input_path or die "unable to open $input_path: $!\n";
@@ -82,6 +82,7 @@ enum class ARM32EncodingFormat : uint8_t {
 	RegisterBranch,
 	DataProcessing,
 	Compare,
+	Multiply,
 	LoadStore,
 	LoadStoreExtra
 };
@@ -92,6 +93,7 @@ enum class ARM32OperandForm : uint8_t {
 	Register,
 	RdRnOperand2,
 	RnOperand2,
+	RdRnRm,
 	RtAddress
 };
 

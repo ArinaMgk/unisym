@@ -173,9 +173,33 @@ static void SelectArchitecture(AssemblerOptions& options, const char* name)
 	options.Target.SelectArchend(*archend);
 }
 
+static bool IsLongOption(const char* argument, const char* option)
+{
+	stduint length = StrLength(option);
+	return !StrCompareNInsensitive(argument, option, length) &&
+		(argument[length] == '\0' || argument[length] == '=');
+}
+
+static char* GetLongOptionParam(char* argument, char* next,
+	const char* option, int* advance)
+{
+	stduint length = StrLength(option);
+	*advance = false;
+	if (argument[length] == '=') return argument + length + 1;
+	if (next && next[0]) {
+		*advance = true;
+		return next;
+	}
+	log_0file = 1;
+	want_usage = 1;
+	aasm_log(_LOG_ERROR, "option `%s' requires an argument", argument);
+	return NULL;
+}
+
 bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 {
 	char* param;
+	const char* machine_option = NULL;
 	int i;
 	int advance = false;
 	//{}bool advance = false;
@@ -211,6 +235,43 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 				return advance;
 			}
 			SelectArchitecture(options, param);
+			return advance;
+		}
+		if (IsLongOption(p, "-mcore"))
+			machine_option = "-mcore";
+		else if (IsLongOption(p, "-minst"))
+			machine_option = "-minst";
+		else if (IsLongOption(p, "-mbits"))
+			machine_option = "-mbits";
+		if (machine_option) {
+			param = GetLongOptionParam(p, q, machine_option, &advance);
+			if (!param) return advance;
+			if (!StrCompareInsensitive(machine_option, "-mcore")) {
+				if (!options.Target.SelectCore(param))
+					aasm_log(_LOG_FATAL,
+						"core `%s' is unknown or incompatible with architecture `%s'",
+						param,
+						options.Target.Archend().DumpArchend().shortname);
+			}
+			else if (!StrCompareInsensitive(machine_option, "-minst")) {
+				if (!options.Target.SelectInstructionSet(param))
+					aasm_log(_LOG_FATAL,
+						"instruction set `%s' is unknown or incompatible with architecture `%s'",
+						param,
+						options.Target.Archend().DumpArchend().shortname);
+			}
+			else {
+				int bits = 0;
+				if (!StrCompareInsensitive(param, "16")) bits = 16;
+				else if (!StrCompareInsensitive(param, "32")) bits = 32;
+				else if (!StrCompareInsensitive(param, "64")) bits = 64;
+				if (!bits || !options.Target.SelectBits(bits))
+					aasm_log(_LOG_FATAL,
+						"bit width `%s' is unsupported for architecture `%s' or output format `%s'",
+						param,
+						options.Target.Archend().DumpArchend().shortname,
+						options.Target.Codeend().DumpCodeend().shortname);
+			}
 			return advance;
 		}
 	}
@@ -356,6 +417,9 @@ bool ProcessArgument(AssemblerOptions& options, char* p, char* q)
 			("    -O<digit>   optimize branch offsets (-O0 disables, default)\n"
 				"    -mrelax     emit RISC-V linker-relaxation hints\n"
 				"    -march=name select the instruction architecture\n"
+				"    -mcore=name select the processor core\n"
+				"    -minst=name select the instruction set or CPU level\n"
+				"    -mbits=bits select the code bit width\n"
 				"    --arch name select the instruction architecture\n"
 				"    -P<file>    pre-includes a file\n"
 				"    -D<macro>[=<value>] pre-defines a macro\n"

@@ -47,20 +47,15 @@ namespace uni {
 		// 3. Resolve Flags
 		bool create_as_dir = (flags & O_DIRECTORY) != 0;
 		uint32_t new_cluster = 0;
+		FATBlockBuffer sector_owner(allow_allocate ? storage->Block_Size : 0);
 		byte* sector_buffer = buffer_sector;
-		bool allocated_sector_buffer = false;
 		FAT_TableScratch fat_table_cache = {};
 		FAT_TableScratch* fat_cache = nullptr;
+		FATBlockBuffer fat_owner(allow_allocate ? storage->Block_Size : 0);
 		if (allow_allocate) {
-			sector_buffer = new byte[storage->Block_Size];
-			if (!sector_buffer) return false;
-			allocated_sector_buffer = true;
-
-			fat_table_cache.buffer = new byte[storage->Block_Size];
-			if (!fat_table_cache.buffer) {
-				delete[] sector_buffer;
-				return false;
-			}
+			if (!sector_owner || !fat_owner) return false;
+			sector_buffer = sector_owner.Data();
+			fat_table_cache.buffer = fat_owner.Data();
 			fat_table_cache.current_sector = 0xFFFFFFFF;
 			fat_cache = &fat_table_cache;
 		}
@@ -70,8 +65,6 @@ namespace uni {
 			ret = transaction.Finish(ret);
 			if (ret) parameter.handler = new_fh;
 			if (!ret) delete new_fh;
-			if (fat_cache) delete[] fat_table_cache.buffer;
-			if (allocated_sector_buffer) delete[] sector_buffer;
 			return ret;
 		};
 		// Prepare the result before creating an entry, keeping the input handler unchanged on failure.
@@ -96,8 +89,9 @@ namespace uni {
 			if (!set_fat_entry(new_cluster, end_mark, fat_cache)) return finish_create(false);
 
 			// --- [NEW LOGIC]: Initialize "." and ".." for the new directory ---
-			byte* dir_init_buf = new byte[storage->Block_Size];
-			if (!dir_init_buf) return finish_create(false);
+			FATBlockBuffer dir_init_owner(storage->Block_Size);
+			if (!dir_init_owner) return finish_create(false);
+			byte* dir_init_buf = dir_init_owner.Data();
 			MemSet(dir_init_buf, 0, storage->Block_Size);
 
 			FAT_DirEntry* dot = (FAT_DirEntry*)&dir_init_buf[0];
@@ -127,12 +121,11 @@ namespace uni {
 #endif
 
 			// Flush the initialization sector to disk
-			if (!WriteBlock(getSector_foCluster(new_cluster), dir_init_buf)) { delete[] dir_init_buf; return finish_create(false); }
+			if (!WriteBlock(getSector_foCluster(new_cluster), dir_init_buf)) return finish_create(false);
 			MemSet(dir_init_buf, 0, storage->Block_Size);
 			for (uint32_t offset = 1; offset < sectors_per_cluster; ++offset) {
-				if (!WriteBlock(getSector_foCluster(new_cluster) + offset, dir_init_buf)) { delete[] dir_init_buf; return finish_create(false); }
+				if (!WriteBlock(getSector_foCluster(new_cluster) + offset, dir_init_buf)) return finish_create(false);
 			}
-			delete[] dir_init_buf;
 			// ------------------------------------------------------------------
 		}
 

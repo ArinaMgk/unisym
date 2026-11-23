@@ -143,8 +143,15 @@ bool EncodeAddSubImmediate(const ARM64InstructionInfo& info,
 {
 	const ARM64Register& rd = instruction.operands[0].reg;
 	const ARM64Register& rn = instruction.operands[1].reg;
-	if (!SameWidth(rd, rn) ||
-		!RequireGeneralOrStack(rd, "immediate ADD/SUB destination") ||
+	if (!SameWidth(rd, rn)) return false;
+	uint32_t fixed;
+	if (!SelectFixed(info, rd.width, fixed)) return false;
+	if (fixed & (UINT32_C(1) << 29)) {
+		if (!RequireGeneralOrZero(rd, "flag-setting immediate ADD/SUB destination") ||
+			!RequireGeneralOrStack(rn, "flag-setting immediate ADD/SUB operand"))
+			return false;
+	}
+	else if (!RequireGeneralOrStack(rd, "immediate ADD/SUB destination") ||
 		!RequireGeneralOrStack(rn, "immediate ADD/SUB operand")) return false;
 	int64_t immediate;
 	if (!RequireAbsolute(instruction.operands[2].value, immediate)) return false;
@@ -162,8 +169,6 @@ bool EncodeAddSubImmediate(const ARM64InstructionInfo& info,
 			"ARM64 ADD/SUB immediate must fit 12 bits, optionally shifted by 12");
 		return false;
 	}
-	uint32_t fixed;
-	if (!SelectFixed(info, rd.width, fixed)) return false;
 	encoding = fixed | shift | rd.index | rn.index << 5 |
 		static_cast<uint32_t>(immediate) << 10;
 	return true;
@@ -227,41 +232,25 @@ bool EncodeLogicalRegister(const ARM64InstructionInfo& info,
 	return true;
 }
 
-bool ResolveRegisterAddress(const ARM64Operand& address,
-	uint8_t access_size, uint32_t& base, uint32_t& scaled_offset)
+bool ResolveMemoryBase(const ARM64Address& address, uint32_t& base)
 {
-	if (address.address_kind != ARM64AddressKind::RegisterRelative) {
-		aasm_log(_LOG_ERROR,
-			"ARM64 minimal load/store requires a register base address");
-		return false;
-	}
-	if (address.reg.width != 64 || address.reg.kind == ARM64RegisterKind::Zero) {
+	if (address.base.width != 64 ||
+		address.base.kind == ARM64RegisterKind::Zero) {
 		aasm_log(_LOG_ERROR,
 			"ARM64 memory base must be X0-X30, FP, LR, or SP");
 		return false;
 	}
-	int64_t offset;
-	if (!RequireAbsolute(address.value, offset)) return false;
-	if (offset < 0 || offset % access_size || offset / access_size > 0xfff) {
-		aasm_log(_LOG_ERROR,
-			"ARM64 load/store offset must be a nonnegative scaled 12-bit value");
-		return false;
-	}
-	base = address.reg.index;
-	scaled_offset = static_cast<uint32_t>(offset / access_size);
+	base = address.base.index;
 	return true;
 }
 
-bool EncodeLoadStore(const ARM64InstructionInfo& info,
-	const ARM64Instruction& instruction, uint32_t& encoding)
+bool SelectLoadStoreEncoding(const ARM64InstructionInfo& info,
+	const ARM64Register& rt, uint32_t& fixed, uint8_t& access_size)
 {
-	const ARM64Register& rt = instruction.operands[0].reg;
 	if (rt.kind == ARM64RegisterKind::StackPointer) {
 		aasm_log(_LOG_ERROR, "ARM64 load/store data register cannot be SP or WSP");
 		return false;
 	}
-	uint32_t fixed;
-	uint8_t access_size;
 	if (rt.width == 32) {
 		fixed = info.fixed32;
 		access_size = info.access32;
@@ -275,10 +264,189 @@ bool EncodeLoadStore(const ARM64InstructionInfo& info,
 			"ARM64 load/store does not support this data register width");
 		return false;
 	}
-	uint32_t base, scaled_offset;
-	if (!ResolveRegisterAddress(
-		instruction.operands[1], access_size, base, scaled_offset)) return false;
-	encoding = fixed | rt.index | base << 5 | scaled_offset << 10;
+	return true;
+}
+
+unsigned AccessShift(uint8_t access_size)
+{
+	if (access_size == 2) return 1;
+	if (access_size == 4) return 2;
+	if (access_size == 8) return 3;
+	return 0;
+}
+
+bool EncodeRegisterOffset(uint32_t fixed, const ARM64Address& address,
+	uint8_t access_size, uint32_t base, uint32_t rt, uint32_t& encoding)
+{
+	const ARM64Register& index = address.index;
+	if (index.kind == ARM64RegisterKind::StackPointer) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 memory index cannot be SP or WSP");
+		return false;
+	}
+	uint32_t option;
+	if (index.width == 64) {
+		if (address.extend == ARM64IndexExtend::None ||
+			address.extend == ARM64IndexExtend::LSL) option = 3;
+		else if (address.extend == ARM64IndexExtend::SXTX) option = 7;
+		else {
+			aasm_log(_LOG_ERROR,
+				"ARM64 X-register memory index requires LSL or SXTX");
+			return false;
+		}
+	}
+	else if (index.width == 32) {
+		if (address.extend == ARM64IndexExtend::UXTW) option = 2;
+		else if (address.extend == ARM64IndexExtend::SXTW) option = 6;
+		else {
+			aasm_log(_LOG_ERROR,
+				"ARM64 W-register memory index requires UXTW or SXTW");
+			return false;
+		}
+	}
+	else {
+		aasm_log(_LOG_ERROR, "ARM64 memory index register width is invalid");
+		return false;
+	}
+	unsigned scale = AccessShift(access_size);
+	if (address.shift != 0 && address.shift != scale) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 memory index shift must be zero or match the access size");
+		return false;
+	}
+	uint32_t shift = address.shift ? UINT32_C(1) << 12 : 0;
+	uint32_t unscaled = fixed & ~UINT32_C(0x01000000);
+	encoding = unscaled | UINT32_C(0x00200800) |
+		option << 13 | shift | index.index << 16 | base << 5 | rt;
+	return true;
+}
+
+bool EncodeLoadStore(const ARM64InstructionInfo& info,
+	const ARM64Instruction& instruction, bool force_unscaled,
+	uint32_t& encoding)
+{
+	const ARM64Register& rt = instruction.operands[0].reg;
+	uint32_t fixed;
+	uint8_t access_size;
+	if (!SelectLoadStoreEncoding(info, rt, fixed, access_size)) return false;
+	const ARM64Address& address = instruction.operands[1].address;
+	if (address.mode == ARM64AddressMode::Expression) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 load/store requires a register base address");
+		return false;
+	}
+	uint32_t base;
+	if (!ResolveMemoryBase(address, base)) return false;
+	if ((address.mode == ARM64AddressMode::PreIndex ||
+		address.mode == ARM64AddressMode::PostIndex) &&
+		address.base.kind == ARM64RegisterKind::General &&
+		rt.kind == ARM64RegisterKind::General && rt.index == base) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 load/store writeback base overlaps the data register");
+		return false;
+	}
+	if (force_unscaled && address.mode != ARM64AddressMode::ImmediateOffset) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 unscaled load/store only supports immediate offset addressing");
+		return false;
+	}
+	if (address.mode == ARM64AddressMode::RegisterOffset) {
+		if (force_unscaled) return false;
+		return EncodeRegisterOffset(
+			fixed, address, access_size, base, rt.index, encoding);
+	}
+	int64_t offset;
+	if (!RequireAbsolute(address.displacement, offset)) return false;
+	if (address.mode == ARM64AddressMode::ImmediateOffset && !force_unscaled &&
+		offset >= 0 && !(offset % access_size) &&
+		offset / access_size <= 0xfff) {
+		encoding = fixed | rt.index | base << 5 |
+			static_cast<uint32_t>(offset / access_size) << 10;
+		return true;
+	}
+	if (!SignedRange(offset, 9)) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 unscaled or writeback offset must fit signed 9 bits");
+		return false;
+	}
+	uint32_t mode = 0;
+	if (address.mode == ARM64AddressMode::PreIndex)
+		mode = UINT32_C(0x00000c00);
+	else if (address.mode == ARM64AddressMode::PostIndex)
+		mode = UINT32_C(0x00000400);
+	else if (address.mode != ARM64AddressMode::ImmediateOffset) {
+		aasm_log(_LOG_ERROR, "ARM64 load/store address mode is invalid");
+		return false;
+	}
+	uint32_t unscaled = force_unscaled ? fixed :
+		(fixed & ~UINT32_C(0x01000000));
+	encoding = unscaled | mode | rt.index | base << 5 |
+		(static_cast<uint32_t>(offset) & 0x1ff) << 12;
+	return true;
+}
+
+bool SamePhysicalRegister(const ARM64Register& left,
+	const ARM64Register& right)
+{
+	return left.kind == right.kind && left.index == right.index;
+}
+
+bool EncodeLoadStorePair(const ARM64InstructionInfo& info,
+	const ARM64Instruction& instruction, uint32_t& encoding)
+{
+	const ARM64Register& rt = instruction.operands[0].reg;
+	const ARM64Register& rt2 = instruction.operands[1].reg;
+	if (!SameWidth(rt, rt2) ||
+		rt.kind == ARM64RegisterKind::StackPointer ||
+		rt2.kind == ARM64RegisterKind::StackPointer) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 load/store pair requires matching W or X data registers");
+		return false;
+	}
+	uint32_t fixed;
+	uint8_t access_size;
+	if (!SelectLoadStoreEncoding(info, rt, fixed, access_size)) return false;
+	const ARM64Address& address = instruction.operands[2].address;
+	if (address.mode == ARM64AddressMode::Expression ||
+		address.mode == ARM64AddressMode::RegisterOffset) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 load/store pair requires an immediate register-base address");
+		return false;
+	}
+	uint32_t base;
+	if (!ResolveMemoryBase(address, base)) return false;
+	if (instruction.opcode == ARM64Opcode::Ldp &&
+		SamePhysicalRegister(rt, rt2)) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 LDP destination registers must be different");
+		return false;
+	}
+	bool writeback = address.mode == ARM64AddressMode::PreIndex ||
+		address.mode == ARM64AddressMode::PostIndex;
+	if (writeback && address.base.kind == ARM64RegisterKind::General &&
+		((rt.kind == ARM64RegisterKind::General && rt.index == base) ||
+		(rt2.kind == ARM64RegisterKind::General && rt2.index == base))) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 load/store pair writeback base overlaps a data register");
+		return false;
+	}
+	int64_t offset;
+	if (!RequireAbsolute(address.displacement, offset)) return false;
+	if (offset % access_size || !SignedRange(offset / access_size, 7)) {
+		aasm_log(_LOG_ERROR,
+			"ARM64 load/store pair offset must be aligned and fit signed 7 bits");
+		return false;
+	}
+	if (address.mode == ARM64AddressMode::PreIndex)
+		fixed += UINT32_C(0x00800000);
+	else if (address.mode == ARM64AddressMode::PostIndex)
+		fixed -= UINT32_C(0x00800000);
+	else if (address.mode != ARM64AddressMode::ImmediateOffset) {
+		aasm_log(_LOG_ERROR, "ARM64 load/store pair address mode is invalid");
+		return false;
+	}
+	uint32_t scaled = static_cast<uint32_t>(offset / access_size) & 0x7f;
+	encoding = fixed | rt.index | base << 5 | rt2.index << 10 | scaled << 15;
 	return true;
 }
 
@@ -423,7 +591,8 @@ bool EncodeMoveMemory(const ARM64Instruction& instruction, bool load,
 		native.operands[0].reg.width = 32;
 	native.operands[1] = address;
 	native.operand_count = 2;
-	return EncodeLoadStore(DumpARM64Instruction(opcode), native, encoding);
+	return EncodeLoadStore(
+		DumpARM64Instruction(opcode), native, false, encoding);
 }
 
 bool EncodeOne(const AssemblySession& session,
@@ -510,6 +679,14 @@ bool EncodeOne(const AssemblySession& session,
 		break;
 	case ARM64EncodingFormat::LoadStore:
 		if (!EncodeLoadStore(
+			info, instruction, false, encoded.encoding)) return false;
+		break;
+	case ARM64EncodingFormat::LoadStoreUnscaled:
+		if (!EncodeLoadStore(
+			info, instruction, true, encoded.encoding)) return false;
+		break;
+	case ARM64EncodingFormat::LoadStorePair:
+		if (!EncodeLoadStorePair(
 			info, instruction, encoded.encoding)) return false;
 		break;
 	case ARM64EncodingFormat::ConditionalBranch:

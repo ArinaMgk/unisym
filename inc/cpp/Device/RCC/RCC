@@ -210,7 +210,7 @@ namespace uni {
 		RCCAHB AHB;
 		RCCAPB APB1, APB2, APB3, APB4;
 		
-		RCC_t() : APB1(1), APB2(2), APB3(3), APB4(4), PLL1(1), PLL2(2), PLL3(3) {}
+		RCC_t() : PLL1(1), PLL2(2), PLL3(3), APB1(1), APB2(2), APB3(3), APB4(4) {}
 
 		inline Reference operator[](RCCReg::RCCReg idx) const { return _RCC_ADDR + _IMMx4(idx); }
 

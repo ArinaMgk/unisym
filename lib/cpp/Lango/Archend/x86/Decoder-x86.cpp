@@ -1344,6 +1344,7 @@ public:
 			ArchitectureKind::X86,
 			16,
 			"16/32/64",
+			"",
 			"CPU levels: 8086, 186, 286, 386, 486, 586, 686, P3, P4, Prescott, x64, IA64"
 		};
 		return info;

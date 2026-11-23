@@ -62,6 +62,7 @@ RunRISCVChecks()
 RunARM64Checks()
 {
 	CheckARM64
+	CheckARM64Addressing
 	CheckARM64Fixups
 	CheckARM64ELF
 	CheckARM64Diagnostics
@@ -70,6 +71,8 @@ RunARM64Checks()
 RunARM32Checks()
 {
 	CheckARM32
+	CheckCortexM7T32
+	CheckCortexM7Jump
 	CheckARM32Fixups
 	CheckARM32ELF
 	CheckARM32Diagnostics

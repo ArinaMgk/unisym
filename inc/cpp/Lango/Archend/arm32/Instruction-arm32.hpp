@@ -15,6 +15,16 @@ struct AssemblySession;
 
 namespace uni::lango {
 
+enum class ARM32Core : uint32_t {
+	Generic = 0,
+	CortexM7 = 1
+};
+
+enum class ARM32InstructionSet : uint32_t {
+	A32 = 0,
+	T32 = 1
+};
+
 enum class ARM32OperandKind : uint8_t {
 	None,
 	Register,
@@ -83,6 +93,7 @@ enum class ARM32FixupPairRole : uint8_t {
 
 struct ARM32EncodingResult {
 	uint32_t encoding = 0;
+	uint8_t size = 4;
 	ARM32FixupKind fixup = ARM32FixupKind::None;
 	ARM32Value target;
 	uint64_t pair_offset = 0;

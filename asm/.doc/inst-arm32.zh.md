@@ -1,18 +1,26 @@
 # 【ZH-CN】AASM ARM32 指令语法
 
-本文定义 `arm32` Archend 的指令语法。当前接入 ARMv7-A A32 最小整数、控制流和
-加载存储子集，可以输出 Binary 或 ELF32 对象。
+本文定义 `arm32` Archend 的指令语法。A32 支持 ARMv7-A 最小整数、控制流和加载存储
+子集，可以输出 Binary 或 ELF32 对象。Cortex-M7 的 T32 目前支持一组 16 位整数、访存
+和分支编码，只能输出 Binary。
 
 ## 目标模式
 
-`arm32` 只表示 A32 指令状态，固定使用 `[BITS 32]`，每条机器指令为 4 字节。不支持
-Thumb/T32，也不支持在源文件中切换 A32/T32 状态。当前以支持 `MOVW/MOVT` 的
-ARMv7-A A32 为编码基线，不接受 `[CPU]` 或 `[INST]`。
+未选择 Core 或指令集时，`arm32` 默认使用 A32。Cortex-M7 使用 T32，可按以下方式选择：
 
 ```asm
 [ARCH arm32]
+[CORE cortex-m7]
+[INST T32]
 [BITS 32]
 ```
+
+`CORE` 与 `INST` 的名称均不区分大小写；例如 `cortex-m7`、`CORTEX-M7`、`T32` 和
+`t32` 等价。`CORE cortex-m7` 默认选择 T32；`INST T32` 可明确写出当前指令状态。
+`BITS 32` 表示通用寄存器和数据位宽，不代表每条指令为 32 位。T32 指令可采用 16 位
+或 32 位编码；当前已接入的 T32 指令形式均为 16 位编码。
+
+T32 当前仅支持 Binary 输出。A32 的默认目标、语法和 ELF 输出不受此限制。
 
 指令和寄存器名称不区分大小写。
 
@@ -149,13 +157,55 @@ STRH R0, [R1]
 
 ```text
 NOP, B, BL, BX, BLX
-ADD, SUB, CMP
+ADD, SUB, RSB, ADC, SBC, CMP, TST, TEQ, MUL
 AND, ORR, EOR
 LDR, STR, LDRB, STRB, LDRH, STRH, LDRSB, LDRSH
 ```
 
 数据处理指令的 Operand2 支持 ARM modified immediate、普通寄存器和立即数移位
 寄存器。当前不支持寄存器指定的移位量。
+
+`RSB`、`ADC`、`SBC` 支持与 `ADD`、`SUB` 相同的 Operand2 形式；`TST` 和 `TEQ`
+接受一个寄存器及一个 Operand2，并更新条件标志；`MUL` 接受三个寄存器，顺序为
+`MUL Rd, Rm, Rs`，也支持 `.S` 更新条件标志。
+
+## Cortex-M7 T32 指令
+
+T32 通用寄存器为 32 位 `R0`–`R12`，另有 `SP`/`R13`、`LR`/`R14` 和 `PC`/`R15`。
+别名与编号不区分大小写。不同 16 位指令对可用寄存器有不同限制；目前支持的窄编码
+只接受其编码允许的寄存器，超出范围会报错。浮点寄存器和寄存器列表尚未接入。
+
+当前已接入的 16 位形式：
+
+| 指令 | 支持形式 |
+| :--- | :--- |
+| `MOVS` | `MOVS Rd, imm8`、`MOVS Rd, Rm` |
+| `MOV` | `MOV Rd, Rm`，寄存器复制且不更新标志 |
+| `ADDS`、`SUBS` | `Rd, Rn, Rm`；或 `Rd, Rd, imm8` |
+| `CMP` | `CMP Rn, Rm`、`CMP Rn, imm8` |
+| `ORRS` | `ORRS Rd, Rd, Rm` |
+| `LDR`、`STR` | 低寄存器、基址寄存器及 0–124 的 4 字节对齐正偏移 |
+| `B`、条件分支 | 16 位短分支；条件分支可写标准助记符 `BEQ`、`BNE`、`BHS` 等 |
+| `BX` | `BX Rm` |
+| `NOP` | 无操作数 |
+
+条件分支的目标使用裸标签，例如 `BHS ready`。当前 T32 分支超出 16 位短分支范围时
+会报错，不会自动扩展为 32 位分支。尚未支持 `.N`/`.W` 宽度限定，也不会为当前窄
+编码以外的操作数自动选择 32 位形式。
+
+```asm
+[ARCH arm32]
+[CORE Cortex-M7]
+[INST t32]
+[BITS 32]
+
+MOVS R0, 1
+ADDS R0, R0, 1
+STR R0, [R1 + 4]
+BHS ready
+ready:
+BX LR
+```
 
 ## 控制流简化形式
 

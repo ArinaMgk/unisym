@@ -80,7 +80,7 @@ namespace uni {
 		if (!_Hz || (SystemCoreClock / _Hz - 1 > SysTick_LOAD_RELOAD_Msk)) return false;
 		SysTickHz = _Hz;
 		uwTickStep = 1000 / _Hz;
-		uwTickPrio = (1 << _NVIC_PRIO_BITS) - 1;
+		uwTickPrio = 4;//! (1 << _NVIC_PRIO_BITS) - 1;
 		//aka HAL_SYSTICK_Config SysTick_Config
 		ref().LOAD = SystemCoreClock / _Hz - 1; /* set reload register */
 		NVIC.setPriority(IRQ_SysTick, uwTickPrio);

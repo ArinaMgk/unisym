@@ -44,6 +44,8 @@ struct AssemblyTargetProfile {
 	ArchitectureKind architecture = ArchitectureKind::X86;
 	int bits = 0;
 	uint32_t cpu = 0;
+	uint32_t core = 0;
+	uint32_t instruction_set = 0;
 	uint32_t abi = 0;
 	bool abi_explicit = false;
 };

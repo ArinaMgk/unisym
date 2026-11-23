@@ -437,10 +437,11 @@ FLAG+=-Wextra
 FLAX=$(FLAG) -fno-rtti -fno-use-cxa-atexit
 
 # TEMP
-FLAX+=-fno-threadsafe-statics
+FLAX+=-fno-threadsafe-statics  -Wno-volatile
 
 PREF=arm-none-eabi-
 DEST=$(ubinpath)/lib$(IDEN).a
+AASM?=aasm
 CC=$(PREF)gcc -c
 CX=$(PREF)g++ -c
 AR=$(PREF)ar
@@ -452,6 +453,7 @@ cppfile := $(sort $(wildcard lib/cpp/*.cpp lib/cpp/**/*.cpp lib/cpp/**/**/*.cpp 
 # ARM does not need the Lango compiler frontends or backends.
 h7_lango_end_cpp := $(wildcard lib/cpp/Lango/*end/*.cpp lib/cpp/Lango/*end/**/*.cpp lib/cpp/Lango/*end/**/**/*.cpp)
 cppfile := $(filter-out $(h7_lango_end_cpp),$(cppfile))
+asmfile := lib/asm/arm32/jump.asm
 
 # Keep the established language prefix and source basename for archive members.
 define c_to_o
@@ -462,9 +464,10 @@ $(OPATH)/_cx_$(notdir $(1:.cpp=.o)): $(1)
 endef
 cplobjs := $(foreach source,$(cplfile),$(OPATH)/_cc_$(notdir $(source:.c=.o)))
 cppobjs := $(foreach source,$(cppfile),$(OPATH)/_cx_$(notdir $(source:.cpp=.o)))
+asmobjs := $(foreach source,$(asmfile),$(OPATH)/_ae_$(notdir $(source:.asm=.o)))
 o0cppfile := lib/cpp/Device/Cache.cpp lib/cpp/stream.cpp lib/cpp/Datype/mempool.cpp lib/cpp/Format/Filesys/FAT.cpp
 o0cppobjs := $(foreach source,$(o0cppfile),$(OPATH)/_cx_$(notdir $(source:.cpp=.o)))
-objects := $(cplobjs) $(cppobjs)
+objects := $(asmobjs) $(cplobjs) $(cppobjs)
 depfiles := $(objects:.o=.d)
 
 .PHONY: all clean
@@ -484,6 +487,11 @@ $(foreach source,$(cppfile),$(eval $(call cpp_to_o,$(source))))
 
 $(objects): $(H7_MAKEFILE) | $(OPATH)
 $(o0cppobjs): FLAX := $(filter-out -O%,$(FLAX)) -O0
+
+$(asmobjs): $(asmfile)
+	@echo AE $<
+	@$(AASM) -march=arm32 -mcore=cortex-m7 -minst=t32 -mbits=32 -f elf32 \
+		$< -o $@ -MD $(@:.o=.d)
 
 $(cplobjs):
 	@echo CC $<

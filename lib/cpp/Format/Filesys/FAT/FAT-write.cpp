@@ -49,21 +49,16 @@ namespace uni {
 		}
 
 		byte* sector_buffer = buffer_sector;
-		bool allocated_sector_buffer = false;
+		FATBlockBuffer sector_owner(allow_allocate ? bytes_per_sector : 0);
 		FAT_TableScratch fat_table_cache = {};
 		FAT_TableScratch* fat_cache = nullptr;
+		FATBlockBuffer fat_owner(allow_allocate ? bytes_per_sector : 0);
 		if (allow_allocate) {
-			fat_table_cache.buffer = new byte[bytes_per_sector];
-			if (!fat_table_cache.buffer) return total_written;
+			if (!sector_owner || !fat_owner) return total_written;
+			fat_table_cache.buffer = fat_owner.Data();
 			fat_table_cache.current_sector = 0xFFFFFFFF;
 			fat_cache = &fat_table_cache;
 		}
-		auto finish_write = [&](stduint ret) -> stduint {
-			if (fat_cache) delete[] fat_table_cache.buffer;
-			if (allocated_sector_buffer) delete[] sector_buffer;
-			return ret;
-		};
-
 		// Helper lambda to check if a cluster is an End-Of-Cluster (EOC) marker
 		auto is_eof = [&](uint32_t c) {
 			return c == 0 || c >= eoc_threshold;
@@ -76,24 +71,24 @@ namespace uni {
 		// If it's a new empty file, allocate first cluster
 		if (is_eof(cluster)) {
 			cluster = find_free_cluster(fat_cache);
-			if (cluster == 0) return finish_write(0);
-			if (!set_fat_entry(cluster, eoc_mark, fat_cache)) return finish_write(0);
+			if (cluster == 0) return 0;
+			if (!set_fat_entry(cluster, eoc_mark, fat_cache)) return 0;
 			fh->start_cluster = cluster;
 			fh->current_cluster = cluster;
 
 			// Update directory entry immediately for the new start cluster
 			// Use dynamically allocated buffer to prevent stack overflow on large sector sizes
 			if (!fh->is_unlinked) {
-				byte* dir_buf = new byte[bytes_per_sector];
-				if (!dir_buf) { MarkWriteFault(); return finish_write(0); }
-				if (!ReadBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; MarkWriteFault(); return finish_write(0); }
+				FATBlockBuffer dir_owner(bytes_per_sector);
+				if (!dir_owner) { MarkWriteFault(); return 0; }
+				byte* dir_buf = dir_owner.Data();
+				if (!ReadBlock(fh->dir_sector, dir_buf)) { MarkWriteFault(); return 0; }
 				{
 					FAT_DirEntry* entry = (FAT_DirEntry*)&dir_buf[fh->dir_index * 32];
 					entry->cluster_low = (uint16_t)(cluster & 0xFFFF);
 					entry->cluster_high = (uint16_t)(cluster >> 16);
-					if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_write(0); }
+					if (!WriteBlock(fh->dir_sector, dir_buf)) return 0;
 				}
-				delete[] dir_buf;
 			}
 		}
 
@@ -107,7 +102,7 @@ namespace uni {
 			uint32_t last = fh->start_cluster;
 			while (true) {
 				uint32_t next = get_fat_entry(last, fat_cache);
-				if (next == 0xFFFFFFFFu) return finish_write(0);
+				if (next == 0xFFFFFFFFu) return 0;
 				if (is_eof(next)) break;
 				last = next;
 			}
@@ -115,8 +110,8 @@ namespace uni {
 			for (uint32_t i = current_cluster_count; i < clusters_needed; i++) {
 				uint32_t next = find_free_cluster(fat_cache);
 				if (next == 0) break; // disk full
-				if (!set_fat_entry(last, next, fat_cache)) return finish_write(0);
-				if (!set_fat_entry(next, eoc_mark, fat_cache)) { MarkWriteFault(); return finish_write(0); }
+				if (!set_fat_entry(last, next, fat_cache)) return 0;
+				if (!set_fat_entry(next, eoc_mark, fat_cache)) { MarkWriteFault(); return 0; }
 				last = next;
 			}
 		}
@@ -129,17 +124,15 @@ namespace uni {
 		uint64_t seek_pos = current_pos;
 		while (seek_pos >= cluster_size) {
 			cluster = get_fat_entry(cluster, fat_cache);
-			if (cluster == 0xFFFFFFFFu) return finish_write(0);
+			if (cluster == 0xFFFFFFFFu) return 0;
 			if (is_eof(cluster)) break;
 			seek_pos -= cluster_size;
 		}
 
 		if (allow_allocate) {
-			sector_buffer = new byte[bytes_per_sector];
-			if (!sector_buffer) return finish_write(total_written);
-			allocated_sector_buffer = true;
+			sector_buffer = sector_owner.Data();
 		}
-		if (!sector_buffer) return finish_write(total_written);
+		if (!sector_buffer) return total_written;
 
 		while (total_written < to_write && !is_eof(cluster)) {
 			uint32_t cluster_offset = (uint32_t)(current_pos % cluster_size);
@@ -176,7 +169,7 @@ namespace uni {
 		bool size_changed = total_written && current_pos > fh->size;
 		auto finish_data = [&]() -> stduint {
 			if (size_changed) fh->size = uint32_t(current_pos);
-			return finish_write(stduint(total_written));
+			return stduint(total_written);
 		};
 		bool update_entry = size_changed;
 #ifdef _FILESYS_DATETIME
@@ -188,13 +181,13 @@ namespace uni {
 		if (update_time) update_entry = true;
 #endif
 		if (update_entry && !fh->is_unlinked) {
-			byte* dir_buf = new byte[bytes_per_sector];
-			if (!dir_buf) {
+			FATBlockBuffer dir_owner(bytes_per_sector);
+			if (!dir_owner) {
 				if (size_changed) MarkWriteFault();
 				return finish_data();
 			}
+			byte* dir_buf = dir_owner.Data();
 			if (!ReadBlock(fh->dir_sector, dir_buf)) {
-				delete[] dir_buf;
 				if (size_changed) MarkWriteFault();
 				return finish_data();
 			}
@@ -204,9 +197,8 @@ namespace uni {
 #ifdef _FILESYS_DATETIME
 				if (update_time) setFatWriteTime(*entry, fat_date, fat_time);
 #endif
-				if (!WriteBlock(fh->dir_sector, dir_buf)) { delete[] dir_buf; return finish_data(); }
+				if (!WriteBlock(fh->dir_sector, dir_buf)) return finish_data();
 			}
-			delete[] dir_buf;
 		}
 
 		return finish_data();

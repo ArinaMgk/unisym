@@ -36,6 +36,9 @@
 extern "C" {
 #endif
 
+// Caller serializes CMOS port access. Bounded snapshot, 2000..2099; failure preserves output.
+int CMOS_ReadDateTime(struct datime_t* result);
+
 void CMOS_Readtime(struct tm* time);
 
 void RTC_Init();

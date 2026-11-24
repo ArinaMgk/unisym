@@ -196,12 +196,12 @@ namespace uni {
 
 	// aka HAL_RTC_SetDate
 	bool RTC_t::setDate(const datime_t& date, RTCFormat fmt) const {
-		// datime: year(since 1900), month[0-11], mday; RTC: 2-digit year[0-99], month[1-12]
-		byte year = (byte)(date.year - 100);
+		// datime: full calendar year, month[0-11], mday; RTC: year[0-99] since 2000, month[1-12]
+		byte year = (byte)(date.year - 2000);
 		byte month = (byte)(date.month + 1);
 		byte day = date.mday;
 		// unisym weekday(): 0=Sunday..6=Saturday; RTC: 1=Monday..7=Sunday
-		byte wday = (byte)weekday((word)(date.year + 1900), (word)month, (word)day);
+		byte wday = (byte)weekday((word)date.year, (word)month, (word)day);
 		if (!wday) wday = 7;
 
 		stduint tmpreg;
@@ -238,8 +238,8 @@ namespace uni {
 			month = _bcd2ToByte(month);
 			day = _bcd2ToByte(day);
 		}
-		// RTC 2-digit year -> since 1900; RTC month[1-12] -> datime[0-11]
-		date.year = (stdint)(year + 100);
+		// RTC 2-digit year -> full calendar year; RTC month[1-12] -> datime[0-11]
+		date.year = (stdint)(year + 2000);
 		date.month = (byte)(month - 1);
 		date.mday = day;
 		return true;
@@ -548,7 +548,7 @@ namespace uni {
 		time.hour = hour;
 		time.minute = minute;
 		time.second = second;
-		date.year = 0;// TSDR carries no year
+		date.year = 0;// Year is unavailable: TSDR carries no year
 		date.month = (byte)(month - 1);
 		date.mday = day;
 		self[RTCReg::ISR].setof(_RTC_ISR_POS_TSF, false);

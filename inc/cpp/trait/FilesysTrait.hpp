@@ -83,7 +83,6 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 
 #ifdef _FILESYS_DATETIME
 	struct FilesysTimeSource {
-		// Return local time; year is since 1900 and month is 0..11.
 		bool (*now)(datime_t& result, void* context);
 		void* context;
 	};

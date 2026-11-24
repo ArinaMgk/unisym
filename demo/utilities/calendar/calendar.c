@@ -1,4 +1,4 @@
-// ASCII C99 TAB4 CRLF
+// UTF-8 C99 TAB4 CRLF
 // Attribute: ArnCovenant yo Host
 // LastCheck: 2023 Nov 16 (Doshou Haruno dosconyo@gmail.com)
 // AllAuthor: @dosconio since RFT15
@@ -31,6 +31,30 @@ static char getSuffix(stdsint pasts) {
 	if (mod >= 5) return ']';
 	if (mod == 4) return '|';// if the ending of the period
 	else return ' ';// if in the period
+}
+
+static void ShowLunarDate(word year, byte month, byte day) {
+	static const char* const stems[] = { "甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸" };
+	static const char* const branches[] = { "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥" };
+	static const char* const months[] = { "正", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二" };
+	static const char* const digits[] = { "一", "二", "三", "四", "五", "六", "七", "八", "九", "十" };
+	struct datime_t date = {0};
+	LunarDate_t lunar;
+	date.year = year;
+	date.month = month - 1;
+	date.mday = day;
+	if (!GregorianToLunar(&date, &lunar)) {
+		printf("农历日期超出支持范围（2000—2050）\n");
+		return;
+	}
+	printf("%s%s年%s%s月", stems[(lunar.year - 4) % 10], branches[(lunar.year - 4) % 12],
+		lunar.leap_month ? "(闰)" : "", months[lunar.month - 1]);
+	if (lunar.day <= 10) printf("初%s", digits[lunar.day - 1]);
+	else if (lunar.day < 20) printf("十%s", digits[lunar.day - 11]);
+	else if (lunar.day == 20) printf("二十");
+	else if (lunar.day < 30) printf("廿%s", digits[lunar.day - 21]);
+	else printf("三十");
+	printf("\n");
 }
 
 void DrawCalendar(word year, word moon, byte crtday)
@@ -78,6 +102,7 @@ void DrawCalendar(word year, word moon, byte crtday)
 	}
 	ConStyleNormal();
 	printf("\n");
+	ShowLunarDate(year, (byte)moon, crtday ? crtday : 1);
 }
 
 int main(int argc, char* argv[])

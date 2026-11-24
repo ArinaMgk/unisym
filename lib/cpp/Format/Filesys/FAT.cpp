@@ -203,7 +203,7 @@ namespace uni {
 			if (!date || month < 1 || month > 12 || day < 1 ||
 				day > fat_month_days(year, (uint8_t)(month - 1)) ||
 				hour > 23 || minute > 59 || second > 59 || hundredths > 199) return false;
-			result.year = (stdint)(year - 1900);
+			result.year = (stdint)year;
 			result.month = (uint8_t)(month - 1);
 			result.mday = day;
 			result.hour = hour;
@@ -219,12 +219,12 @@ namespace uni {
 #ifdef _FILESYS_DATETIME
 	bool FilesysFAT::getFatDateTime(uint16_t& date, uint16_t& time, uint8_t& hundredths) const {
 		datime_t now = {};
-		if (!getCurrentTime(now) || now.year < 80 || now.year > 207 ||
+		if (!getCurrentTime(now) || now.year < 1980 || now.year > 2107 ||
 			now.month > 11 || now.mday < 1 ||
-			now.mday > fat_month_days((uint32_t)(now.year + 1900), now.month) ||
+			now.mday > fat_month_days((uint32_t)now.year, now.month) ||
 			now.hour > 23 || now.minute > 59 || now.second > 59) return false;
 		// Microsoft FAT Specification: directory entry date/time fields use local time and two-second units.
-		date = (uint16_t)(((now.year - 80) << 9) | ((now.month + 1) << 5) | now.mday);
+		date = (uint16_t)(((now.year - 1980) << 9) | ((now.month + 1) << 5) | now.mday);
 		time = (uint16_t)((now.hour << 11) | (now.minute << 5) | (now.second / 2));
 		hundredths = (now.second & 1) ? 100 : 0;
 		return true;

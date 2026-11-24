@@ -66,7 +66,7 @@ namespace uni {
 		if (!cd_adjust_to_utc(year, month, day, minutes, int(timestamp.gmt_offset_quarters) * 15)) return false;
 
 		result = {};
-		result.year = year - 1900;
+		result.year = year;
 		result.month = byte(month - 1);
 		result.mday = byte(day);
 		result.hour = byte(minutes / 60);
@@ -95,7 +95,7 @@ namespace uni {
 		if (!cd_adjust_to_utc(year, month, day, minutes, type == 1 && zone != -2047 ? zone : 0)) return false;
 
 		result = {};
-		result.year = year - 1900;
+		result.year = year;
 		result.month = byte(month - 1);
 		result.mday = byte(day);
 		result.hour = byte(minutes / 60);

@@ -55,28 +55,69 @@ inline static uint8 bin_to_bcd(uint8 value)
 	return (value / 10) * 0x10 + (value % 10);
 }
 
+// MC146818 register A UIP, register B data/hour format, and register D VRT.
+int CMOS_ReadDateTime(struct datime_t* result)
+{
+	if (!result) return 0;
+	const byte saved_index = innpb(PORT_CMOS_ADDR);
+	const byte registers[] = { CMOS_SECOND, CMOS_MINUTE, CMOS_HOUR, CMOS_MDAY, CMOS_MONTH, CMOS_YEAR };
+	byte first[6], second[6];
+	struct datime_t date = {0};
+	int valid = 0;
+	// read the time, and the delta is less than 1s
+	for (unsigned attempt = 0; attempt < 1024; ++attempt) {
+		if (CMOS_Get(CMOS_STATUS_A) & 0x80) continue;
+		const byte mode = CMOS_Get(CMOS_STATUS_B);
+		if ((mode & 0x80) || !(CMOS_Get(CMOS_STATUS_D) & 0x80)) continue;
+		for (unsigned i = 0; i < 6; ++i) first[i] = CMOS_Get(registers[i]);
+		if (CMOS_Get(CMOS_STATUS_A) & 0x80) continue;
+		for (unsigned i = 0; i < 6; ++i) second[i] = CMOS_Get(registers[i]);
+		if ((CMOS_Get(CMOS_STATUS_A) & 0x80) || mode != CMOS_Get(CMOS_STATUS_B)) continue;
+		int same = 1;
+		for (unsigned i = 0; i < 6; ++i) if (first[i] != second[i]) same = 0;
+		if (!same) continue;
+		const byte pm = first[2] & 0x80;
+		first[2] &= 0x7F;
+		if (!(mode & 4)) {
+			for (unsigned i = 0; i < 6; ++i) {
+				if ((first[i] & 15) > 9 || (first[i] >> 4) > 9) same = 0;
+				first[i] = bcd_to_bin(first[i]);
+			}
+		}
+		if (!same) break;
+		if (!(mode & 2)) {
+			if (first[2] < 1 || first[2] > 12) break;
+			first[2] = first[2] % 12 + (pm ? 12 : 0);
+		}
+		else if (pm) break;
+		if (first[0] > 59 || first[1] > 59 || first[2] > 23 ||
+			first[4] < 1 || first[4] > 12 || first[5] > 99 ||
+			first[3] < 1 || first[3] > moondays(2000 + first[5], first[4])) break;
+		date.second = first[0]; date.minute = first[1]; date.hour = first[2];
+		date.mday = first[3]; date.month = first[4] - 1;
+		date.year = 2000 + first[5];// Preserve the platform's existing 2000..2099 year window.
+		valid = 1;
+		break;
+	}
+	outpb(PORT_CMOS_ADDR, saved_index);
+	if (valid) *result = date;
+	return valid;
+}
+
 void CMOS_Readtime(struct tm* time)
 {
-	do // read the time, and the delta is less than 1s
-	{
-		time->tm_sec = CMOS_Get(CMOS_SECOND);
-		time->tm_min = CMOS_Get(CMOS_MINUTE);
-		time->tm_hour = CMOS_Get(CMOS_HOUR);
-		time->tm_wday = CMOS_Get(CMOS_WDAY);
-		time->tm_mday = CMOS_Get(CMOS_MDAY);
-		time->tm_mon = CMOS_Get(CMOS_MONTH);
-		time->tm_year = CMOS_Get(CMOS_YEAR);
-		// century = CMOS_Get(CMOS_CENTURY);
-	} while (time->tm_sec != CMOS_Get(CMOS_SECOND));
-	//
-	time->tm_sec = bcd_to_bin(time->tm_sec);
-	time->tm_min = bcd_to_bin(time->tm_min);
-	time->tm_hour = bcd_to_bin(time->tm_hour);
-	time->tm_wday = bcd_to_bin(time->tm_wday);
-	time->tm_mday = bcd_to_bin(time->tm_mday);
-	time->tm_mon = bcd_to_bin(time->tm_mon);
-	time->tm_year = bcd_to_bin(time->tm_year) + 2000;
-	time->tm_yday = herspan(time->tm_year, time->tm_mon, time->tm_mday) - herspan(time->tm_year, 1, 1);
+	if (!time) return;
+	struct datime_t date;
+	if (!CMOS_ReadDateTime(&date)) return;
+	// century = CMOS_Get(CMOS_CENTURY);
+	time->tm_sec = date.second;
+	time->tm_min = date.minute;
+	time->tm_hour = date.hour;
+	time->tm_mday = date.mday;
+	time->tm_mon = date.month + 1;
+	time->tm_year = date.year;// Legacy CMOS interface returns the full year and a 1-based month.
+	time->tm_wday = weekday((word)date.year, time->tm_mon, date.mday);
+	time->tm_yday = herspan(date.year, time->tm_mon, date.mday) - herspan(date.year, 1, 1);
 	time->tm_isdst = -1;
 	// century = bcd_to_bin(century);
 }
@@ -85,8 +126,9 @@ void CMOS_Readtime(struct tm* time)
 // Book a interrupt after n seconds
 void RTC_SetAlarm(uint32 secs)
 {
-	struct tm time;
+	struct tm time = {0};
 	CMOS_Readtime(&time);
+	if (!time.tm_year) return;
 	byte sec = secs % 60;
 	secs /= 60;
 	byte min = secs % 60;

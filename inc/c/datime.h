@@ -38,17 +38,64 @@
 // Compatible with `time.h`
 #define __time_h
 
+// `[MACRO]`
+#define isLeapYear(year) (!((year)&3)&&((year)%100)||!((year)%400)) // RFQ27
+
+// `[MACRO]` y: Yesus based
+#define getHerDaySpanYear(y) ((y>2013)?(4 + (y-1900-114)*365 + (y-1900-117+4)/4 - (y-1900-101)/100 + (y-1900-101)/400):-((2014-(y))*365 + (2016-(y))/4 - ((2100-(y))/100) + (2400-(y))/400 - (31-27)))
+
+// `[MACRO]`
+#define getHerDaySpanMonth(y,m) (getHerDaySpanYear(y) + (m-1)*31 - (m-1)/2 - (m>2)*(30-28-isLeapYear(y)) + ((m>8)&&(m&1)))
+
+// `[MACRO]`
+#define herspan(y,m,d) (getHerDaySpanMonth(y,m)+d-1)
+
+// `[MACRO]`
+#define getHerWeekNumber(y,m,d) ((herspan(y,m,d)+6)/7-(herspan(y,m,d)<0))
+// derived: get week number of the year, range 1 .. 1 + 365/7 + 1, aka [1,52]
+#define getYearWeekNumber(y,m,d)(getHerWeekNumber(y,m,d)-getHerWeekNumber(y,1,1)+1)
+
+typedef struct LunarDate_t {
+	stdint year; // Gregorian year containing this lunar year's New Year
+	byte month;  // 1..12
+	byte day;    // 1..30
+	byte leap_month; // 0 or 1
+} LunarDate_t;
+
+// Gregorian calendar
 struct datime_t {
 	// time
 	byte second;// [0 60], heap-second accepted
 	byte minute;// [0 60]
 	byte hour;  // [0 23]
 	// date
-	byte mday;  // [0 30]
+	byte mday;  // [1 31]
 	byte month; // [0 11]
-	stdint year;  //[CUSTOMED] usually 0 since 1900 or 0
+	stdint year;  // the first year of the Common Era
 	stduint property;
+
+	#ifdef _INC_CPP
+	auto getHerspan() const -> stdint { return herspan(year, (stdint)month + 1, mday); }
+	bool toLunar(LunarDate_t& result) const;
+	bool fromLunar(const LunarDate_t& source);
+	#endif
 };
+
+// Modern Chinese calendar dates, Gregorian 2000-01-01 through 2050-12-31.
+// Date-only conversion. Return 0 on invalid input or an unsupported date.
+// Failure preserves the output. Reverse conversion clears time and property.
+_ESYM_C int GregorianToLunar(const struct datime_t* date, LunarDate_t* result);
+_ESYM_C int LunarToGregorian(const LunarDate_t* date, struct datime_t* result);
+
+#ifdef _INC_CPP
+inline bool datime_t::toLunar(LunarDate_t& result) const {
+	return GregorianToLunar(this, &result) != 0;
+}
+
+inline bool datime_t::fromLunar(const LunarDate_t& source) {
+	return LunarToGregorian(&source, this) != 0;
+}
+#endif
 
 struct datimex_t {
 	struct datime_t datime;
@@ -73,22 +120,7 @@ struct tm {
 #endif
 
 		
-// `[MACRO]`
-#define isLeapYear(year) (!((year)&3)&&((year)%100)||!((year)%400)) // RFQ27
 
-// `[MACRO]` y: Yesus based
-#define getHerDaySpanYear(y) ((y>2013)?(4 + (y-1900-114)*365 + (y-1900-117+4)/4 - (y-1900-101)/100 + (y-1900-101)/400):-((2014-(y))*365 + (2016-(y))/4 - ((2100-(y))/100) + (2400-(y))/400 - (31-27)))
-
-// `[MACRO]`
-#define getHerDaySpanMonth(y,m) (getHerDaySpanYear(y) + (m-1)*31 - (m-1)/2 - (m>2)*(30-28-isLeapYear(y)) + ((m>8)&&(m&1)))
-
-// `[MACRO]`
-#define herspan(y,m,d) (getHerDaySpanMonth(y,m)+d-1)
-
-// `[MACRO]`
-#define getHerWeekNumber(y,m,d) ((herspan(y,m,d)+6)/7-(herspan(y,m,d)<0))
-// derived: get week number of the year, range 1 .. 1 + 365/7 + 1, aka [1,52]
-#define getYearWeekNumber(y,m,d)(getHerWeekNumber(y,m,d)-getHerWeekNumber(y,1,1)+1)
 
 // What is the day{`0~6`} of the day{`01~31`} in the month{`01~12`} of the year{`0000~9999`}
 _ESYM_C unsigned weekday(word year, word month, word day);

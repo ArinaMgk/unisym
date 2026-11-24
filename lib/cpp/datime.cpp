@@ -6,6 +6,12 @@
 
 #include "../../inc/c/datime.h"
 
+/*
+time_t mktime(struct tm* time);
+
+...
+*/
+
 namespace {
 	// HKO Gregorian-Lunar Conversion Tables, retrieved 2026-11-24:
 	// https://www.hko.gov.hk/en/gts/time/conversion1_text.htm

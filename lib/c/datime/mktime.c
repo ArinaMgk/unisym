@@ -20,10 +20,10 @@
 	limitations under the License.
 */
 
+#if 0
 #include <time.h>
 #include "../../../inc/c/datime.h"
 
-#if 0
 time_t mktime(struct tm* time)
 {
 	time_t res = 0;

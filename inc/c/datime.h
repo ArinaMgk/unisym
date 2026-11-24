@@ -141,8 +141,8 @@ POSIXGetSeconds(struct tm* tm);
 _ESYM_C void fromherp(stdint herspans, word* year, word* month, word* day);
 
 typedef struct {
-	stduint sec; //  s: second
-	stduint mic; // us: microsecond
+	sint64 sec; //  s: second
+	sint32 mic; // us: microsecond
 } timeval_t;
 
 //{TODO}

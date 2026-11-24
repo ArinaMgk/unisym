@@ -22,6 +22,11 @@
 
 #include "../../../../inc/c/driver/RealtimeClock.h"
 #include "../../../../inc/cpp/Device/SysTick"
+#if defined(_MCU_STM32H7x)
+#include "../../../../inc/cpp/Device/RCC/RCC"
+#include "../../../../inc/cpp/Device/RCC/RCC-STM32H7.hpp"
+#include "../../../../inc/cpp/Device/Power/Power-STM32H7.hpp"
+#endif
 
 #if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 
@@ -38,13 +43,38 @@ using namespace uni;
 #define _IRQ_RTC_TAMPSTAMP IRQ_xTAMP
 #endif
 
-// H7 RTC APB clock enable register (RCC_APB4ENR, bit 15 = RTCAPBEN)
+// H7 RTC APB clock enable register 
 #if defined(_MCU_STM32H7x)
 #define _RCC_APB4ENR_ADDR (_RCC_BDCR_ADDR - 0x70U + 0xF4U)
+#define _RTC_CR_HSEON_Pos RCC_CR_HSEON_Pos
+#define _RTC_CR_HSERDY_Pos RCC_CR_HSERDY_Pos
+#define _RTC_BDCR_LSEON_Pos RCC_BDCR_LSEON_Pos
+#define _RTC_BDCR_LSERDY_Pos RCC_BDCR_LSERDY_Pos
+#define _RTC_CSR_LSION_Pos RCC_CSR_LSION_Pos
+#define _RTC_CSR_LSIRDY_Pos RCC_CSR_LSIRDY_Pos
+#define _RTC_BDCR_RTCSEL_Pos RCC_BDCR_RTCSEL_Pos
+#define _RTC_BDCR_RTCEN_Pos RCC_BDCR_RTCEN_Pos
+#define _RTC_BDCR_RTCSEL_Msk RCC_BDCR_RTCSEL_Msk
+#else
+#define _RTC_CR_HSEON_Pos 16U
+#define _RTC_CR_HSERDY_Pos 17U
+#define _RTC_BDCR_LSEON_Pos 0U
+#define _RTC_BDCR_LSERDY_Pos 1U
+#define _RTC_CSR_LSION_Pos 0U
+#define _RTC_CSR_LSIRDY_Pos 1U
+#define _RTC_BDCR_RTCSEL_Pos 8U
+#define _RTC_BDCR_RTCEN_Pos 15U
+#define _RTC_BDCR_RTCSEL_Msk (0x3U << _RTC_BDCR_RTCSEL_Pos)
 #endif
 
 namespace uni {
 	RTC_t RTC;
+
+	static const Request_t RTC_Request_list[] = {
+		(Request_t)_IRQ_RTC_ALARM,
+		(Request_t)_IRQ_RTC_WKUP,
+		(Request_t)_IRQ_RTC_TAMPSTAMP,
+	};
 }
 
 // aka HAL RTC_ByteToBcd2
@@ -63,29 +93,84 @@ static byte _bcd2ToByte(byte number) {
 	return (byte)(tens + (number & 0x0FU));
 }
 
+static bool _rtcWaitBit(Reference& reg, stduint bit, bool state) {
+	uint64 tick = SysTick::getTick();
+	while (reg.bitof(bit) != state) {
+		if (SysTick::getTick() - tick > _RTC_TIMEOUT_VALUE) return false;
+	}
+	return true;
+}
+
 namespace uni {
+	Request_t RTC_t::getRequest(RTCRequest request) const {
+		stduint index = (stduint)request;
+		return index < numsof(RTC_Request_list) ? RTC_Request_list[index] : Request_None;
+	}
+
+	bool RTC_t::isAble() const {
+		if (!Reference(_RCC_BDCR_ADDR).bitof(_RTC_BDCR_RTCEN_Pos)) return false;
+	#if defined(_MCU_STM32H7x)
+		return Reference(_RCC_APB4ENR_ADDR).bitof(RCC_APB4ENR_RTCAPBEN_Pos);
+	#else
+		return true;
+	#endif
+	}
 
 	// aka clock part of HAL_RTC_MspInit (DBP + LSE + RTCSEL + RTCEN [+ H7 RTCAPBEN])
-	bool RTC_t::enClock(RTCClockSource src) const {
-		// Enable backup domain write access (PWR_CR/CR1.DBP bit 8)
-		Reference pwr(_PWR_CR_ADDR);
-		pwr.setof(8, true);
+	bool RTC_t::enClock(RTCClockSource src, byte hsePrediv) const {
+		if (src != RTCClockSource::LSE && src != RTCClockSource::LSI && src != RTCClockSource::HSE) return false;
 
 		Reference bdcr(_RCC_BDCR_ADDR);
-		// Enable LSE (BDCR.LSEON bit 0), wait for LSERDY bit 1
-		bdcr.setof(0, true);
-		uint64 tick = SysTick::getTick();
-		while (!bdcr.bitof(1)) {
-			if (SysTick::getTick() - tick > _RTC_TIMEOUT_VALUE) return false;
-		}
+		stduint currentSource = ((stduint)bdcr >> _RTC_BDCR_RTCSEL_Pos) & 0x3U;
+		if (currentSource != 0 && currentSource != (stduint)src) return false;
 
-		// Configure kernel clock source (BDCR.RTCSEL bit 9:8)
-		bdcr.maset(8, 2, (stduint)src);
-		// Enable RTC kernel clock (BDCR.RTCEN bit 15)
-		bdcr.setof(15, true);
+		// Enable backup domain write access.
+		Reference pwr(_PWR_CR_ADDR);
+		#if defined(_MCU_STM32H7x)
+		pwr.setof(PWR_CR1_DBP_Pos, true);
+		if (!_rtcWaitBit(pwr, PWR_CR1_DBP_Pos, true)) return false;
+		#else
+		pwr.setof(8U, true);
+		if (!_rtcWaitBit(pwr, 8U, true)) return false;
+		#endif
+
+		typeaddr sourceRegAddr;
+		stduint sourceEnableBit, sourceReadyBit;
+		switch (src) {
+		case RTCClockSource::LSE:
+			sourceRegAddr = _RCC_BDCR_ADDR;
+			sourceEnableBit = _RTC_BDCR_LSEON_Pos;
+			sourceReadyBit = _RTC_BDCR_LSERDY_Pos;
+			break;
+		case RTCClockSource::LSI:
+			sourceRegAddr = _RCC_BDCR_ADDR + sizeof(uint32);
+			sourceEnableBit = _RTC_CSR_LSION_Pos;
+			sourceReadyBit = _RTC_CSR_LSIRDY_Pos;
+			break;
+		case RTCClockSource::HSE:
+		#if defined(_MCU_STM32H7x)
+			if (!RCC_t::setPrediv(QrsDeviceList::RTC, hsePrediv)) return false;
+		#else
+			if (hsePrediv) return false;
+		#endif
+			sourceRegAddr = _RCC_BDCR_ADDR - 0x70U;
+			sourceEnableBit = _RTC_CR_HSEON_Pos;
+			sourceReadyBit = _RTC_CR_HSERDY_Pos;
+			break;
+		default:
+			return false;
+		}
+		Reference sourceReg(sourceRegAddr);
+		sourceReg.setof(sourceEnableBit, true);
+		if (!_rtcWaitBit(sourceReg, sourceReadyBit, true)) return false;
+
+		// Configure RTCSEL only when it has not already been selected.
+		if (currentSource == 0)
+			bdcr.maset(_RTC_BDCR_RTCSEL_Pos, 2U, (stduint)src);
+		bdcr.setof(_RTC_BDCR_RTCEN_Pos, true);
 #if defined(_MCU_STM32H7x)
-		// H7 additionally enables the RTC APB interface clock (RCC_APB4ENR.RTCAPBEN bit 15)
-		Reference(_RCC_APB4ENR_ADDR).setof(15, true);
+		// H7 additionally enables the RTC APB interface clock (RCC_APB4ENR.RTCAPBEN bit 16)
+		Reference(_RCC_APB4ENR_ADDR).setof(RCC_APB4ENR_RTCAPBEN_Pos, true);
 #endif
 		return true;
 	}
@@ -120,8 +205,7 @@ namespace uni {
 		return true;
 	}
 
-	// aka HAL_RTC_Init
-	bool RTC_t::init(RTCHourFormat fmt, stduint asynchPrediv, stduint synchPrediv) const {
+	bool RTC_t::setMode(RTCHourFormat fmt, stduint asynchPrediv, stduint synchPrediv) const {
 		// Return early if the calendar is already initialized
 		if (self[RTCReg::ISR].bitof(_RTC_ISR_POS_INITS)) return true;
 
@@ -139,8 +223,7 @@ namespace uni {
 		return ok;
 	}
 
-	// aka HAL_RTC_DeInit
-	bool RTC_t::deinit() const {
+	bool RTC_t::canMode() const {
 		wpDisable();
 		bool ok = enterInitMode();
 		if (ok) {

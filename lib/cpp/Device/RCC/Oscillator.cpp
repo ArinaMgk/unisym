@@ -39,6 +39,7 @@ namespace uni {
 
 #if 0
 #elif defined(_MCU_STM32H7x)
+	static constexpr uint64 _RCC_LSE_TIMEOUT_TICKS = 1000U;
 	bool RCCOscillatorHSI::isReady() const {
 		return RCC[RCCReg::CR].bitof(2);
 	}
@@ -330,11 +331,25 @@ namespace uni {
 		if (!ena) bypass = false;
 		// Enable write access to Backup domain
 		PWR[PWRReg::CR1] |= PWR_CR1_DBP;
-		while (PWR[PWRReg::CR1] & PWR_CR1_DBP);
+		Reference pwrCR1 = PWR[PWRReg::CR1];
+		SysTick::WaitBit(_RCC_LSE_TIMEOUT_TICKS, pwrCR1, PWR_CR1_DBP_Pos, true);
+		if (!pwrCR1.bitof(PWR_CR1_DBP_Pos)) return false;
+		Reference bdcr = RCC[RCCReg::BDCR];
+		if (ena && bdcr.bitof(RCC_BDCR_LSEON_Pos) &&
+			bdcr.bitof(RCC_BDCR_LSEBYP_Pos) != bypass) return false;
+		if (ena != isReady()) {
+			volatile SysTick_Map& systick = SysTick::ref();
+			if (!(systick.CTRL & SysTick_CTRL_ENABLE_Msk) || !systick.LOAD) return false;
+		}
 		// __HAL_RCC_LSE_CONFIG
-		RCC[RCCReg::BDCR].setof(0, ena);// RCC_BDCR_LSEON
-		RCC[RCCReg::BDCR].setof(2, bypass);// RCC_BDCR_LSEBYP
-		while (ena != isReady());
+		if (ena) {
+			bdcr.setof(RCC_BDCR_LSEBYP_Pos, bypass);
+			bdcr.setof(RCC_BDCR_LSEON_Pos, true);
+		}
+		else bdcr.setof(RCC_BDCR_LSEON_Pos, false);
+		SysTick::WaitBit(_RCC_LSE_TIMEOUT_TICKS, bdcr, RCC_BDCR_LSERDY_Pos, ena);
+		if (bdcr.bitof(RCC_BDCR_LSERDY_Pos) != ena) return false;
+		if (!ena) bdcr.setof(RCC_BDCR_LSEBYP_Pos, false);
 		return true;
 	}
 

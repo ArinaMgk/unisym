@@ -116,6 +116,22 @@ namespace uni {
 	}
 
 #elif defined(_MCU_STM32H7x)
+	bool RCC_t::setPrediv(QrsDeviceList device, byte div) {
+		switch (device) {
+		case QrsDeviceList::RTC: {
+			byte current = RCC[RCCReg::CFGR].masof(RCC_CFGR_RTCPRE_Pos, 6);
+			if (!div) div = current;
+			if (div < 2 || div > 63 || HSE_VALUE > 1000000U * div) return false;
+			if (div == current) return true;
+			if (RCC[RCCReg::BDCR].masof(RCC_BDCR_RTCSEL_Pos, 2) == 3 &&
+				RCC[RCCReg::BDCR].bitof(RCC_BDCR_RTCEN_Pos)) return false;
+			RCC[RCCReg::CFGR].maset(RCC_CFGR_RTCPRE_Pos, 6, div);
+			return true;
+		}
+		default:
+			return false;
+		}
+	}
 
 	bool RCCAHB::setMode(uint8 divexpo) {
 		static int lst[]{

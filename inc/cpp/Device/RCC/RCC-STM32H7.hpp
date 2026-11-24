@@ -19,6 +19,12 @@
 #define RCC_CR_D2CKRDY_Msk                     (0x1U << RCC_CR_D2CKRDY_Pos)    /*!< 0x00008000 */
 #define RCC_CR_D2CKRDY                         RCC_CR_D2CKRDY_Msk              /*!< D2 domain clocks ready flag */
 
+#define RCC_CR_HSEON_Pos                       (16U)
+#define RCC_CR_HSEON_Msk                       (0x1U << RCC_CR_HSEON_Pos)
+#define RCC_CR_HSEON                           RCC_CR_HSEON_Msk
+#define RCC_CR_HSERDY_Pos                      (17U)
+#define RCC_CR_HSERDY_Msk                      (0x1U << RCC_CR_HSERDY_Pos)
+#define RCC_CR_HSERDY                          RCC_CR_HSERDY_Msk
 
 #define RCC_CR_CSSHSEON_Pos                    (19U)
 #define RCC_CR_CSSHSEON_Msk                    (0x1U << RCC_CR_CSSHSEON_Pos)   /*!< 0x00080000 */
@@ -121,7 +127,9 @@
 #define RCC_CFGR_STOPKERWUCK                   ((uint32_t)0x00000080)          /*!< Kernel Clock Selection after a Wake Up from STOP */
 
 /*!< RTCPRE configuration */
-#define RCC_CFGR_RTCPRE                        ((uint32_t)0x00003F00)
+#define RCC_CFGR_RTCPRE_Pos                    (8U)
+#define RCC_CFGR_RTCPRE_Msk                    (0x3FU << RCC_CFGR_RTCPRE_Pos)
+#define RCC_CFGR_RTCPRE                        RCC_CFGR_RTCPRE_Msk
 #define RCC_CFGR_RTCPRE_0                      ((uint32_t)0x00000100)
 #define RCC_CFGR_RTCPRE_1                      ((uint32_t)0x00000200)
 #define RCC_CFGR_RTCPRE_2                      ((uint32_t)0x00000400)
@@ -533,6 +541,16 @@
 
 /********************  Bit definition for RCC_BDCR register  ******************/
 
+#define RCC_BDCR_LSEON_Pos                     (0U)
+#define RCC_BDCR_LSEON_Msk                     (0x1U << RCC_BDCR_LSEON_Pos)
+#define RCC_BDCR_LSEON                         RCC_BDCR_LSEON_Msk
+#define RCC_BDCR_LSERDY_Pos                    (1U)
+#define RCC_BDCR_LSERDY_Msk                    (0x1U << RCC_BDCR_LSERDY_Pos)
+#define RCC_BDCR_LSERDY                        RCC_BDCR_LSERDY_Msk
+#define RCC_BDCR_LSEBYP_Pos                    (2U)
+#define RCC_BDCR_LSEBYP_Msk                    (0x1U << RCC_BDCR_LSEBYP_Pos)
+#define RCC_BDCR_LSEBYP                        RCC_BDCR_LSEBYP_Msk
+
 #define RCC_BDCR_LSEDRV_Pos                    (3U)
 #define RCC_BDCR_LSEDRV_Msk                    (0x3U << RCC_BDCR_LSEDRV_Pos)   /*!< 0x00000018 */
 #define RCC_BDCR_LSEDRV                        RCC_BDCR_LSEDRV_Msk
@@ -558,6 +576,14 @@
 #define RCC_BDCR_BDRST_Pos                     (16U)
 #define RCC_BDCR_BDRST_Msk                     (0x1U << RCC_BDCR_BDRST_Pos)    /*!< 0x00010000 */
 #define RCC_BDCR_BDRST                         RCC_BDCR_BDRST_Msk
+
+/********************  Bit definition for RCC_CSR register  ******************/
+#define RCC_CSR_LSION_Pos                      (0U)
+#define RCC_CSR_LSION_Msk                      (0x1U << RCC_CSR_LSION_Pos)
+#define RCC_CSR_LSION                          RCC_CSR_LSION_Msk
+#define RCC_CSR_LSIRDY_Pos                     (1U)
+#define RCC_CSR_LSIRDY_Msk                     (0x1U << RCC_CSR_LSIRDY_Pos)
+#define RCC_CSR_LSIRDY                         RCC_CSR_LSIRDY_Msk
 
 
 /********************  Bit definition for RCC_AHB3ENR register  **************/

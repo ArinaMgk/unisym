@@ -200,7 +200,13 @@ namespace uni {
 			ALRMAR, ALRMBR, WPR, SSR, SHIFTR,
 			TSTR, TSDR, TSSSR, CALR,
 			TAFCR,// 0x40 F4=TAFCR, H7=TAMPCR
-			ALRMASSR, ALRMBSSR
+			ALRMASSR, ALRMBSSR,
+			BKP0R = 0x50 / sizeof(uint32),
+		#if defined(_MCU_STM32H7x)
+			BKP31R = 0xCC / sizeof(uint32)
+		#elif defined(_MCU_STM32F4x)
+			BKP19R = 0x9C / sizeof(uint32)
+		#endif
 		} RTCRegType;
 	}
 
@@ -212,6 +218,8 @@ namespace uni {
 
 	// RTC kernel clock source (BDCR.RTCSEL)
 	enum class RTCClockSource { LSE = 1, LSI = 2, HSE = 3 };
+
+	enum class RTCRequest { Alarm, WakeUp, TamperTimestamp };
 
 	// Alarm selection
 	enum class RTCAlarm { AlarmA = 0, AlarmB = 1 };
@@ -314,13 +322,15 @@ namespace uni {
 		}
 		Reference operator[](RTCReg::RTCRegType reg) const { return Reference(baseaddr + _IMMx4(reg)); }
 		stduint getBaseaddr() const { return baseaddr; }
+		Request_t getRequest(RTCRequest request) const;
+		bool isAble() const;
 
 		// Enable RTC kernel clock (aka clock part of HAL_RTC_MspInit + HAL_RCCEx_PeriphCLKConfig)
-		bool enClock(RTCClockSource src = RTCClockSource::LSE) const;
+		bool enClock(RTCClockSource src = RTCClockSource::LSE, byte hse_prediv = 0) const;
 
 		// aka HAL_RTC_Init / HAL_RTC_DeInit
-		bool init(RTCHourFormat fmt = RTCHourFormat::Hour24, stduint asynchPrediv = 0x7F, stduint synchPrediv = 0xFF) const;
-		bool deinit() const;
+		bool setMode(RTCHourFormat fmt = RTCHourFormat::Hour24, stduint asynchPrediv = 0x7F, stduint synchPrediv = 0xFF) const;
+		bool canMode() const;
 
 		// aka HAL_RTC_WaitForSynchro
 		bool waitSynchro() const;

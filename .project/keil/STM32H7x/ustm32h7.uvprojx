@@ -716,6 +716,11 @@
               <FileType>3</FileType>
               <FilePath>D:\tmp\obj\stm32h7\_ae_jump.o</FilePath>
             </File>
+            <File>
+              <FileName>fromherp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\lib\c\datime\fromherp.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

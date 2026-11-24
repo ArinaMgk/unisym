@@ -139,6 +139,19 @@ namespace uni {
 
 #if defined(_MCU_STM32F1x) || defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x)
 namespace uni {
+	void SysTick::WaitBit(stduint tick, Reference& reg, stduint bit, bool state) {
+		if (reg.bitof(bit) == state || !tick) return;
+		volatile SysTick_Map& systick = *(volatile SysTick_Map*)ADDR_SysTick_Map;
+		if (!(systick.CTRL & SysTick_CTRL_ENABLE_Msk) || !systick.LOAD) return;
+		uint32 lastValue = systick.VAL;
+		stduint elapsedTicks = 0;
+		while (reg.bitof(bit) != state) {
+			uint32 currentValue = systick.VAL;
+			if (currentValue > lastValue && ++elapsedTicks >= tick) return;
+			lastValue = currentValue;
+		}
+	}
+
 	// AKA HAL_GetTick
 	uint64 SysTick::getTick() { return uwTick; }
 	// AKA HAL_GetTickFreq

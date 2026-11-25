@@ -143,7 +143,7 @@ namespace uni {
 		tmp = Read();
 		RD.Toggle();
 		CS.Toggle();
-		return Color::FromBGR565(tmp);
+		return Color::FromRGB565(tmp);
 	}
 
 

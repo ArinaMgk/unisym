@@ -113,7 +113,7 @@ namespace uni {
 		Color(uint32 i = 0) : val(i){ }
 
 		static Color FromRGB888(uint32 argb);
-		static Color FromBGR565(uint16 col);
+		static Color FromRGB565(uint16 col);
 		static Color FromYCbCr(byte y, byte cb, byte cr, YCbCrMatrix matrix = YCbCrMatrix::BT601, YCbCrRange range = YCbCrRange::Full);
 		inline static Color FromGrey(int i) {
 			if (i < 0) i = 0;

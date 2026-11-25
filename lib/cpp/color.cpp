@@ -35,11 +35,15 @@ namespace uni {
 		return color;
 	}
 
-	Color Color::FromBGR565(uint16 col) {
+	Color Color::FromRGB565(uint16 col) {
 		Color color;
 		color.b = (col) & 0x1F;
 		color.g = (col >> 5) & 0x3F;
 		color.r = (col >> 11) & 0x1F;
+		color.b = (color.b << 3) | (color.b >> 2);
+		color.g = (color.g << 2) | (color.g >> 4);
+		color.r = (color.r << 3) | (color.r >> 2);
+		color.a = 0xFF;
 		return color;
 	}
 

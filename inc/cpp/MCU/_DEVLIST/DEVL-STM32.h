@@ -9,6 +9,8 @@ namespace uni {
 		LTDC,
 		FmcSDRAM,
 		Sdmmc1,
+		SAI1,
+		SAI2,
 		//
 		DeviceCount // must be last
 	};

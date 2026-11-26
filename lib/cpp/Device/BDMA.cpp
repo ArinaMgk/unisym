@@ -26,11 +26,14 @@
 #include "../../../inc/cpp/Device/NVIC"
 #include "../../../inc/cpp/Device/SysTick"
 #include "../../../inc/cpp/Device/Interrupt/interrupt_tab.h"
+#if defined(_MCU_STM32H7x)
+#include "../../../inc/cpp/Device/RCC/RCC-STM32H7.hpp"
+#endif
 
 namespace uni {
 #if defined(_MCU_STM32H7x)
 
-	// BDMA is in D3 domain; RCC_AHB4ENR.BDMAEN (bit21) gates BDMA + DMAMUX2 together.
+	// RM0433 RCC_AHB4ENR.BDMAEN gates BDMA and DMAMUX2.
 	static const stduint _BDMA_ADDR = D3_AHB1PERIPH_BASE + 0x5400;
 	static const stduint _DMAMUX2_ADDR = D3_AHB1PERIPH_BASE + 0x5800;
 	#define _BDMA_TIMEOUT_VALUE 0x1FFFFFFUL
@@ -45,8 +48,8 @@ namespace uni {
 	}
 
 	bool BDMA_t::enClock(bool ena) {
-		Reference(_RCC_AHB4ENR_ADDR).setof(21, ena);// BDMAEN gates BDMA + DMAMUX2
-		return Reference(_RCC_AHB4ENR_ADDR).bitof(21) == ena;
+		Reference(_RCC_AHB4ENR_ADDR).setof(RCC_AHB4ENR_BDMAEN_Pos, ena);
+		return Reference(_RCC_AHB4ENR_ADDR).bitof(RCC_AHB4ENR_BDMAEN_Pos) == ena;
 	}
 
 	bool BDMA_t::enAble(byte channel, bool ena) {

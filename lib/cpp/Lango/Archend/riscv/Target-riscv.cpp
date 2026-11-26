@@ -195,10 +195,43 @@ uint32_t RISCVABIFlags(RISCVABI abi)
 	return 0;
 }
 
+unsigned RISCVABIStackAlignment(RISCVABI)
+{
+	// The standard ILP32 and LP64 ABIs both require 16-byte stack alignment.
+	return 16;
+}
+
+unsigned RISCVABIIntegerArgumentRegisters(RISCVABI)
+{
+	return 8;
+}
+
+unsigned RISCVABIFloatArgumentRegisters(RISCVABI)
+{
+	return 8;
+}
+
+bool FormatRISCVInstructionSet(uint32_t extensions,
+	char* output, size_t capacity)
+{
+	if (!output || !capacity || !ValidateRISCVInstructionSet(extensions))
+		return false;
+	output[0] = '\0';
+	size_t length = 0;
+	for (const ExtensionInfo& extension : ExtensionTable) {
+		if (!HasRISCVExtension(extensions, extension.extension)) continue;
+		if (extension.kind == ExtensionNameKind::MultiLetter &&
+			!Append(output, capacity, length, "_")) return false;
+		if (!Append(output, capacity, length, extension.name)) return false;
+	}
+	return true;
+}
+
 bool FormatRISCVArchitecture(int bits, uint32_t extensions,
 	char* output, size_t capacity)
 {
-	if (!output || !capacity || (bits != 32 && bits != 64)) return false;
+	if (!output || !capacity || (bits != 32 && bits != 64) ||
+		!ValidateRISCVInstructionSet(extensions)) return false;
 	int written = outsfmtbufn(output, capacity, "rv%di2p1", bits);
 	if (written < 0 || static_cast<size_t>(written) >= capacity) return false;
 	size_t length = static_cast<size_t>(written);

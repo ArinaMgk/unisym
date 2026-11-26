@@ -24,6 +24,9 @@
 #if !defined(_INC_Standard_SAI)
 #define _INC_Standard_SAI
 #include "../stdinc.h"
+#if defined(_INC_CPP) && defined(_MCU_STM32H7x)
+#include "../../cpp/Device/Interrupt/interrupt_tab.h"
+#endif
 #if defined(_MCU_Intel8051)
 
 
@@ -98,12 +101,20 @@ namespace uni {
 		const DMAStream* hdmatx = nullptr;
 		const DMAStream* hdmarx = nullptr;
 		Handler_t mute_handler = nullptr;
+		const DMAStream* dma_stream = nullptr;
+		Handler_t saved_dma_complete = nullptr, saved_dma_half = nullptr, saved_dma_error = nullptr;
 	public:
 		SAI_Block(byte _id, byte _block) : id(_id), block(_block), sai_base(0) {}
 		void setBase(stduint _sai_base) { sai_base = _sai_base; }
 		stduint blockBase() const { return sai_base + (block == 2 ? 0x024 : 0x004); }
 		byte getID() const { return id; }
 		byte getBlock() const { return block; }
+#if defined(_MCU_STM32H7x)
+		bool getDMARequest(stduint& request) const;
+#endif
+		bool setDMA(const DMAStream* tx, const DMAStream* rx = nullptr);
+		const DMAStream* getTxDMA() const { return hdmatx; }
+		const DMAStream* getRxDMA() const { return hdmarx; }
 
 		Reference operator[](SAIReg reg);
 		bool canMode();
@@ -166,7 +177,16 @@ namespace uni {
 		void setState(SAIXState s) { state = s; }
 		void setError(stduint e) { error_code |= e; }
 		// callbacks (Handler_t, AKA HAL weak callbacks)
-		Handler_t TxCpltHandler, RxCpltHandler, ErrorHandler;
+		Handler_t TxCpltHandler = nullptr, RxCpltHandler = nullptr, ErrorHandler = nullptr;
+		void* ReceiveContext = nullptr;
+		void (*ReceiveBufferHandler)(void*, bool second) = nullptr;
+		bool IsPCMReceive(uint32 rate) const {
+			return (audio_mode == SAIAudioMode_E::SlaveRx || audio_mode == SAIAudioMode_E::MasterRx) &&
+				first_bit == SAIFirstBit_E::MSB && datasize == SAIDataSize_E::Data16 && comp == SAICompanding_E::None &&
+				mono == SAIMonoStereo_E::Stereo && slot_number == 2 && slot_active == 3 &&
+				(protocol == SAIProtocol_E::I2S || protocol == SAIProtocol_E::MsbJustified) &&
+				(!audio_freq || audio_freq == rate);
+		}
 		// ISR helpers (called from interrupt_sai.hpp; AKA HAL_SAI_IRQHandler split)
 		void irqHandler();
 		void innHandlerByInterrupt();
@@ -181,6 +201,8 @@ namespace uni {
 		bool dmaTxStart(pureptr_t mem, pureptr_t peri, stduint ndtr);
 		bool dmaRxStart(pureptr_t peri, pureptr_t mem, stduint ndtr);
 		void dmaCpltISR();
+		void dmaHalfISR();
+		bool ClaimDMA(const DMAStream* stream);
 		// AKA HAL_SAI_InitProtocol (I2S/PCM standard -> auto frame/slot config)
 		bool applyProtocolStandard();
 	};
@@ -195,6 +217,11 @@ namespace uni {
 			blkA.setBase(_base);
 			blkB.setBase(_base);
 		}
+	#if defined(_MCU_STM32H7x)
+		stduint getAddress() const;
+		Request_t getRequest() const;
+		bool isAble() const;
+	#endif
 		SAI_Block& operator[](byte block) { return block == 2 ? blkB : blkA; }
 		Reference operator[](SAIGlobalReg reg) { return baseaddr + _IMM(reg); }
 		bool enClock(bool ena = true);

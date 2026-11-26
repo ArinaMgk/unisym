@@ -23,6 +23,9 @@
 
 
 #include "../../../inc/c/driver/SAI.h"
+#if defined(_MCU_STM32H7x)
+#include "../../../inc/cpp/Device/RCC/RCC-STM32H7.hpp"
+#endif
 #if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 #include "../../../inc/cpp/Device/SysTick"
 #include "../../../inc/cpp/Device/DMA"
@@ -33,6 +36,13 @@ namespace uni {
 #if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 
 #if defined(_MCU_STM32H7x)
+	enum : stduint {
+		SAI1_A_DMA_REQUEST = 87,
+		SAI1_B_DMA_REQUEST = 88,
+		SAI2_A_DMA_REQUEST = 89,
+		SAI2_B_DMA_REQUEST = 90
+	};
+
 	static const stduint sai_addr[2] = {
 		D2_APB2PERIPH_BASE + 0x5800,// SAI1
 		D2_APB2PERIPH_BASE + 0x5C00,// SAI2
@@ -58,7 +68,10 @@ namespace uni {
 	// AKA HAL_SAI_MspInit clock enable
 	bool SAI_t::enClock(bool ena) {
 	#if defined(_MCU_STM32H7x)
-		auto reg = RCCReg::APB2ENR; byte bit = (id == 1) ? 22 : 23;
+		if (id != 1 && id != 2) return false;
+		auto reg = RCCReg::APB2ENR;
+		const stduint bit = id == 1
+			? RCC_APB2ENR_SAI1EN_Pos : RCC_APB2ENR_SAI2EN_Pos;
 		RCC[reg].setof(bit, ena);
 		return RCC[reg].bitof(bit) == ena;
 	#elif defined(_MPU_STM32MP13)
@@ -67,6 +80,26 @@ namespace uni {
 		return true;
 	#endif
 	}
+	#if defined(_MCU_STM32H7x)
+	stduint SAI_t::getAddress() const {
+		return id == 1 || id == 2 ? baseaddr : 0;
+	}
+
+	Request_t SAI_t::getRequest() const {
+		switch (id) {
+		case 1: return IRQ_SAI1;
+		case 2: return IRQ_SAI2;
+		default: return Request_None;
+		}
+	}
+
+	bool SAI_t::isAble() const {
+		if (!getAddress()) return false;
+		const stduint bit = id == 1
+			? RCC_APB2ENR_SAI1EN_Pos : RCC_APB2ENR_SAI2EN_Pos;
+		return RCC[RCCReg::APB2ENR].bitof(bit);
+	}
+	#endif
 
 	SAI_t& SAI_Global::operator[](byte id) {
 		return (id == 2) ? SAI2 : SAI1;
@@ -74,6 +107,36 @@ namespace uni {
 
 	Reference SAI_Block::operator[](SAIReg reg) {
 		return blockBase() + _IMM(reg);
+	}
+
+	#if defined(_MCU_STM32H7x)
+	bool SAI_Block::getDMARequest(stduint& request) const {
+		switch (id) {
+		case 1:
+			if (block == 1) request = SAI1_A_DMA_REQUEST;
+			else if (block == 2) request = SAI1_B_DMA_REQUEST;
+			else return false;
+			return true;
+		case 2:
+			if (block == 1) request = SAI2_A_DMA_REQUEST;
+			else if (block == 2) request = SAI2_B_DMA_REQUEST;
+			else return false;
+			return true;
+		default:
+			return false;
+		}
+	}
+	#endif
+
+	bool SAI_Block::setDMA(const DMAStream* tx, const DMAStream* rx) {
+	#if defined(_MCU_STM32H7x)
+		stduint request;
+		if ((tx || rx) && !getDMARequest(request)) return false;
+	#endif
+		if (state == SAIXState::BusyRX || state == SAIXState::BusyTX || dma_stream) return false;
+		hdmatx = tx;
+		hdmarx = rx;
+		return true;
 	}
 
 	bool SAI_Block::enAble(bool ena) {
@@ -327,6 +390,7 @@ namespace uni {
 		}
 		case IOMethod::DMA: {
 			if (state != SAIXState::Ready) return 0;
+			if (dma_stream && !StopDMA()) return 0;
 			state = SAIXState::BusyTX; error_code = _SAI_ERR_NONE;
 			tx_buff = tx; tx_size = size; tx_count = size;
 			rx_buff = nullptr; rx_size = 0; rx_count = 0;
@@ -384,6 +448,7 @@ namespace uni {
 		}
 		case IOMethod::DMA: {
 			if (state != SAIXState::Ready) return 0;
+			if (dma_stream && !StopDMA()) return 0;
 			state = SAIXState::BusyRX; error_code = _SAI_ERR_NONE;
 			rx_buff = rx; rx_size = size; rx_count = size;
 			tx_buff = nullptr; tx_size = 0; tx_count = 0;
@@ -447,8 +512,24 @@ namespace uni {
 	// AKA HAL_SAI_DMAStop
 	bool SAI_Block::StopDMA() {
 		self[SAIReg::CR1].rstof(SAI_xCR1_DMAEN_Pos);
-		if (hdmatx) hdmatx->Abort();
-		if (hdmarx) hdmarx->Abort();
+		if (dma_stream) {
+			DMA_t& dma = dma_stream->getParent();
+			byte index = dma_stream->getID();
+			dma[DMAReg::CR[index]].rstof(_DMA_SxCR_POS_EN);
+			uint32 polls = 0;
+			while (dma[DMAReg::CR[index]].bitof(_DMA_SxCR_POS_EN)) {
+				if (++polls >= 0x10000U) { error_code |= _SAI_ERR_DMA; return false; }
+			}
+			dma_stream->setInterruptSub(false);
+			dma_stream->ClearInterruptFlags();
+			dma.streamStates[index] = _DMA_STATE_READY;
+			dma.bind = nullptr;
+			dma.XferCpltCallback = saved_dma_complete;
+			dma.XferHalfCallback = saved_dma_half;
+			dma.XferErrorCallback = saved_dma_error;
+			dma_stream = nullptr;
+		}
+		tx_count = rx_count = 0;
 		state = SAIXState::Ready;
 		return true;
 	}
@@ -456,8 +537,7 @@ namespace uni {
 	bool SAI_Block::Abort() {
 		self[SAIReg::IMR] = 0;
 		self[SAIReg::CLRFR] = 0xFFFFFFFF;
-		if (hdmatx) hdmatx->Abort();
-		if (hdmarx) hdmarx->Abort();
+		if (!StopDMA()) return false;
 		disableSai();
 		self[SAIReg::CR2].setof(SAI_xCR2_FFLUSH_Pos);
 		tx_count = 0; rx_count = 0;
@@ -583,48 +663,98 @@ namespace uni {
 
 	// DMA completion (AKA SAI_DMATxCplt / SAI_DMARxCplt)
 	void SAI_Block::dmaCpltISR() {
-		SAIXState st = state;
+		SAIXState previous = state;
+		if (error_code == _SAI_ERR_NONE && dma_stream &&
+			dma_stream->getParent()[DMAReg::CR[dma_stream->getID()]].bitof(_DMA_SxCR_POS_CIRC)) {
+			if (previous == SAIXState::BusyRX) {
+				if (ReceiveBufferHandler) ReceiveBufferHandler(ReceiveContext, true);
+				if (RxCpltHandler) RxCpltHandler();
+			} else if (previous == SAIXState::BusyTX && TxCpltHandler) TxCpltHandler();
+			return;
+		}
 		self[SAIReg::CR1].rstof(SAI_xCR1_DMAEN_Pos);
-		tx_count = 0; rx_count = 0;
+		tx_count = rx_count = 0;
 		state = SAIXState::Ready;
-		if (error_code != _SAI_ERR_NONE) { if (ErrorHandler) ErrorHandler(); return; }
-		if (st == SAIXState::BusyTX) { if (TxCpltHandler) TxCpltHandler(); }
-		else if (st == SAIXState::BusyRX) { if (RxCpltHandler) RxCpltHandler(); }
+		if (error_code != _SAI_ERR_NONE) {
+			if (ErrorHandler) ErrorHandler();
+			return;
+		}
+		if (previous == SAIXState::BusyTX && TxCpltHandler) TxCpltHandler();
+		else if (previous == SAIXState::BusyRX) {
+			if (ReceiveBufferHandler) ReceiveBufferHandler(ReceiveContext, true);
+			if (RxCpltHandler) RxCpltHandler();
+		}
+	}
+
+	void SAI_Block::dmaHalfISR() {
+		if (state == SAIXState::BusyRX && error_code == _SAI_ERR_NONE && ReceiveBufferHandler)
+			ReceiveBufferHandler(ReceiveContext, false);
 	}
 
 	// DMA completion dispatch (AKA SAI_DMATxCplt / SAI_DMARxCplt / SAI_DMAError)
-	static void sai_dmaCplt() {
-		SAI_Block* sp = nullptr;
-		if (DMA1.XferCpltCallback == sai_dmaCplt) sp = (SAI_Block*)DMA1.bind;
-		else if (DMA2.XferCpltCallback == sai_dmaCplt) sp = (SAI_Block*)DMA2.bind;
-		if (!sp) return;
-		sp->dmaCpltISR();
+	// Each controller has its own dispatcher; an IRQ never searches another controller's binding.
+	template<byte controller> static void SAIComplete() {
+		DMA_t& dma = DMA[controller];
+		if (dma.bind) ((SAI_Block*)dma.bind)->dmaCpltISR();
 	}
-	static void sai_dmaError() {
-		SAI_Block* sp = nullptr;
-		if (DMA1.XferErrorCallback == sai_dmaError) sp = (SAI_Block*)DMA1.bind;
-		else if (DMA2.XferErrorCallback == sai_dmaError) sp = (SAI_Block*)DMA2.bind;
-		if (!sp) return;
-		sp->setError(_SAI_ERR_DMA);
-		sp->dmaCpltISR();
+	template<byte controller> static void SAIHalf() {
+		DMA_t& dma = DMA[controller];
+		if (dma.bind) ((SAI_Block*)dma.bind)->dmaHalfISR();
+	}
+	template<byte controller> static void SAIError() {
+		DMA_t& dma = DMA[controller];
+		if (!dma.bind) return;
+		SAI_Block* block = (SAI_Block*)dma.bind;
+		block->setError(_SAI_ERR_DMA);
+		block->dmaCpltISR();
+	}
+
+	bool SAI_Block::ClaimDMA(const DMAStream* stream) {
+		stduint encoded = _IMM(stream);
+		if ((encoded >> 8) < 1 || (encoded >> 8) > 2 || (encoded & 0x8FU)) return false;
+		// A previous completed transfer still owns callbacks until foreground cleanup.
+		if (dma_stream) return false;
+		DMA_t& dma = stream->getParent();
+		if (dma.bind || stream->getState() != _DMA_STATE_READY) return false;
+		for (byte i = 0; i < 8; ++i)
+			if (dma[DMAReg::CR[i]].bitof(_DMA_SxCR_POS_EN) ||
+				dma.streamStates[i] == _DMA_STATE_BUSY || dma.streamStates[i] == _DMA_STATE_ABORT) return false;
+		saved_dma_complete = dma.XferCpltCallback;
+		saved_dma_half = dma.XferHalfCallback;
+		saved_dma_error = dma.XferErrorCallback;
+		dma_stream = stream;
+		dma.bind = (pureptr_t)this;
+		bool first = &dma == &DMA1;
+		dma.XferCpltCallback = first ? SAIComplete<1> : SAIComplete<2>;
+		dma.XferHalfCallback = ReceiveBufferHandler ? (first ? SAIHalf<1> : SAIHalf<2>) : nullptr;
+		dma.XferErrorCallback = first ? SAIError<1> : SAIError<2>;
+		return true;
 	}
 
 	// DMA start helpers (DMA1/DMA2 streams)
 	bool SAI_Block::dmaTxStart(pureptr_t mem, pureptr_t peri, stduint ndtr) {
-		if (!hdmatx) return false;
-		DMA_t& dma = hdmatx->getParent();
-		dma.bind = (pureptr_t)this;
-		dma.XferCpltCallback = sai_dmaCplt;
-		dma.XferErrorCallback = sai_dmaError;
-		return hdmatx->Transfer(mem, peri, ndtr, IOMethod::Rupt);
+		if (!hdmatx || !ndtr || ndtr > 0xFFFFU) return false;
+	#if defined(_MCU_STM32H7x)
+		stduint request;
+		if (!getDMARequest(request)) return false;
+		hdmatx->setRequest(request);
+	#endif
+		if (!ClaimDMA(hdmatx)) return false;
+		if (hdmatx->Transfer(peri, mem, ndtr, IOMethod::Rupt)) return true;
+		StopDMA();
+		return false;
 	}
 	bool SAI_Block::dmaRxStart(pureptr_t peri, pureptr_t mem, stduint ndtr) {
-		if (!hdmarx) return false;
-		DMA_t& dma = hdmarx->getParent();
-		dma.bind = (pureptr_t)this;
-		dma.XferCpltCallback = sai_dmaCplt;
-		dma.XferErrorCallback = sai_dmaError;
-		return hdmarx->Transfer(peri, mem, ndtr, IOMethod::Rupt);
+		if (!hdmarx || !ndtr || ndtr > 0xFFFFU) return false;
+	#if defined(_MCU_STM32H7x)
+		stduint request;
+		if (!getDMARequest(request)) return false;
+		hdmarx->setRequest(request);
+	#endif
+		if (!ClaimDMA(hdmarx)) return false;
+		if (hdmarx->Transfer(peri, mem, ndtr, IOMethod::Rupt)) return true;
+		StopDMA();
+		return false;
 	}
 
 	SAI_t SAI1(1, sai_addr[0]), SAI2(2, sai_addr[1]);

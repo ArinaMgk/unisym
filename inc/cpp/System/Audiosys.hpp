@@ -27,6 +27,9 @@ namespace uni {
 		OutOfMemory,
 		IoError,
 		EndOfStream,
+		WouldBlock,
+		Busy,
+		Overrun,
 	};
 
 	enum class AudioContainerFormat {
@@ -50,6 +53,44 @@ namespace uni {
 		const void* data = nullptr;
 		uint32 byte_count = 0;
 	};
+
+	// The descriptor and its data have independent alignment requirements.
+	struct alignas(32) AudioBuffer {
+		AudioFormat format;
+		void* data = nullptr;
+		uint32 capacity = 0;
+		uint32 byte_count = 0;
+	};
+
+	enum class AudioCaptureMode : uint8 { Once, Continuous };
+	class IAudioCapture {
+	public:
+		virtual ~IAudioCapture() = default;
+		// Foreground calls only. Buffers remain borrowed until Stop succeeds.
+		virtual AudioResult Start(AudioCaptureMode mode, AudioBuffer* buffers, uint32 count) = 0;
+		virtual AudioResult AcquireBuffer(const AudioBuffer*& buffer) = 0;
+		virtual AudioResult ReturnBuffer(const AudioBuffer& buffer) = 0;
+		virtual AudioResult ServiceCapture() = 0;
+		virtual AudioResult Stop() = 0;
+	};
+
+	// The raw transport representation retains IEC 61937 framing and padding.
+	enum class AudioEncoding : uint8 { IEC61937 };
+	struct AudioPacketView {
+		AudioEncoding encoding = AudioEncoding::IEC61937;
+		const void* data = nullptr;
+		uint32 byte_count = 0;
+	};
+	struct AudioEncodeOptions {
+		uint32 bit_rate = 0;
+		uint32 quality = 0;
+	};
+	inline uint32 AudioFrameBytes(const AudioFormat& format) {
+		if (!format.channels || !format.sample_rate) return 0;
+		if (format.sample_format == AudioSampleFormat::U8) return format.channels;
+		if (format.sample_format == AudioSampleFormat::S16LE) return uint32(format.channels) * 2;
+		return 0;
+	}
 
 	struct AudioPlayRequest {
 		AudioFormat format = {};
@@ -84,6 +125,18 @@ namespace uni {
 		virtual ~IAudioStream() = default;
 	};
 
+	class IAudioEncoder : public IAudioObject {
+	public:
+		// OK consumes the entire block synchronously. A write failure is terminal.
+		virtual AudioResult WriteSamples(const AudioBufferView& samples) = 0;
+		virtual AudioResult Finish() = 0;
+	};
+	AudioResult OpenAudioEncoder(AudioContainerFormat container, StorageTrait& output,
+		const AudioFormat& input, const AudioEncodeOptions& options,
+		IAudioEncoder*& encoder, trait::Malloc& allocator);
+	// Byte-unit storage only. This preserves the transport, not a codec-specific file.
+	AudioResult WriteAudioPacket(StorageTrait& output, stduint& offset, const AudioPacketView& packet);
+
 	class IAudioCodec {
 	public:
 		virtual ~IAudioCodec() = default;
@@ -99,6 +152,15 @@ namespace uni {
 			IAudioStream*& outStream,
 			trait::Malloc& allocator
 		) const = 0;
+		// Reports whether this codec implements encoding.
+		virtual bool SupportsEncoding() const { return false; }
+		// Checks support for the input PCM format without creating an encoder.
+		virtual bool CanEncode(const AudioFormat&) const { return false; }
+		// Validates storage and options, then creates an encoder released by the caller.
+		virtual AudioResult OpenEncoder(StorageTrait&, const AudioFormat&, const AudioEncodeOptions&, IAudioEncoder*& encoder, trait::Malloc&) const {
+			encoder = nullptr;
+			return AudioResult::Unsupported;
+		}
 	};
 
 	class IAudioCodecManager {

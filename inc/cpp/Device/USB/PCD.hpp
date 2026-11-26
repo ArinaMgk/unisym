@@ -114,7 +114,7 @@ namespace uni {
 		// AKA HAL_PCD_Init / HAL_PCD_DeInit
 		bool setMode();
 		bool canMode();
-		// RCC AHB1ENR.OTG1HSEN / OTG2FSEN (AKA HAL_PCD_MspInit clock part)
+		// RCC AHB1ENR.OTG1HSEN / OTG2HSEN (AKA HAL_PCD_MspInit clock part)
 		void enClock(bool ena = true);
 		// AKA HAL_PCD_Start / HAL_PCD_Stop
 		bool Start();

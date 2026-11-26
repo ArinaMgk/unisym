@@ -156,6 +156,8 @@ static void _HandlerIRQ_DMAStreamx(byte dma_id, byte stream) {
 	DMARegType ifcr_reg = ishigh ? HIFCR : LIFCR;
 	bool is_circ = cr & (1U << _DMA_SxCR_POS_CIRC);
 	bool ct = cr & (1U << _DMA_SxCR_POS_CT); // current target: 0=M0, 1=M1 (double buffer)
+	auto& callbacks = crt.streamCallbacks[stream];
+	const bool has_stream_callbacks = callbacks.HasHandler();
 
 	// Transfer Error (aka HAL_DMA_IRQHandler TE block): clear + accumulate, callback handled at the end
 	if ((flag & (1U << (posi + _DMA_SxFLAG_POS_TEIF))) && (cr & (1U << _DMA_SxCR_POS_TEIE))) {
@@ -179,14 +181,20 @@ static void _HandlerIRQ_DMAStreamx(byte dma_id, byte stream) {
 		if ((cr & (1U << _DMA_SxCR_POS_DBM))) {
 			// Double buffer: CT selects the current buffer
 			if (ct) {
-				asserv(crt.XferM1HalfCpltCallback)();
+				if (callbacks.Memory1HalfComplete)
+					callbacks.Memory1HalfComplete(callbacks.Context);
+				else if (!has_stream_callbacks) asserv(crt.XferM1HalfCpltCallback)();
 			} else {
-				asserv(crt.XferHalfCallback)();
+				if (callbacks.HalfComplete)
+					callbacks.HalfComplete(callbacks.Context);
+				else if (!has_stream_callbacks) asserv(crt.XferHalfCallback)();
 			}
 		} else {
 			if (!is_circ)
 				crt[CR[stream]].setof(_DMA_SxCR_POS_HTIE, false);
-			asserv(crt.XferHalfCallback)();
+			if (callbacks.HalfComplete)
+				callbacks.HalfComplete(callbacks.Context);
+			else if (!has_stream_callbacks) asserv(crt.XferHalfCallback)();
 		}
 	}
 	// Transfer Complete
@@ -202,22 +210,27 @@ static void _HandlerIRQ_DMAStreamx(byte dma_id, byte stream) {
 			crt[FCR[stream]].setof(_DMA_SxFCR_POS_FEIE, false);
 			crt[ifcr_reg].maset(posi, 6, 0x3F); // clear all stream flags
 			crt.streamStates[stream] = _DMA_STATE_READY;
-			asserv(crt.XferAbortCallback)();
+			if (callbacks.Abort) callbacks.Abort(callbacks.Context);
+			else if (!has_stream_callbacks) asserv(crt.XferAbortCallback)();
 			return;
 		}
 		if ((cr & (1U << _DMA_SxCR_POS_DBM))) {
 			// Double buffer: on TC the CT bit is the *next* target, so the finished buffer is the opposite
 			if (ct) {
-				asserv(crt.XferCpltCallback)();
+				if (callbacks.Complete) callbacks.Complete(callbacks.Context);
+				else if (!has_stream_callbacks) asserv(crt.XferCpltCallback)();
 			} else {
-				asserv(crt.XferM1CpltCallback)();
+				if (callbacks.Memory1Complete)
+					callbacks.Memory1Complete(callbacks.Context);
+				else if (!has_stream_callbacks) asserv(crt.XferM1CpltCallback)();
 			}
 		} else {
 			if (!is_circ) {
 				crt[CR[stream]].setof(_DMA_SxCR_POS_TCIE, false);
 				crt.streamStates[stream] = _DMA_STATE_READY;
 			}
-			asserv(crt.XferCpltCallback)();
+			if (callbacks.Complete) callbacks.Complete(callbacks.Context);
+			else if (!has_stream_callbacks) asserv(crt.XferCpltCallback)();
 		}
 	}
 	// manage error case (aka HAL_DMA_IRQHandler trailing error handling)
@@ -233,7 +246,8 @@ static void _HandlerIRQ_DMAStreamx(byte dma_id, byte stream) {
 			crt.streamStates[stream] = crt[CR[stream]].bitof(_DMA_SxCR_POS_EN)
 				? _DMA_STATE_ERROR : _DMA_STATE_READY;
 		}
-		asserv(crt.XferErrorCallback)();
+		if (callbacks.Error) callbacks.Error(callbacks.Context);
+		else if (!has_stream_callbacks) asserv(crt.XferErrorCallback)();
 	}
 }
 

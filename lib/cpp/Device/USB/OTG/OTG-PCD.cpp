@@ -34,11 +34,11 @@ namespace uni {
 	PCD PCD1;// OTG1_HS @ 0x40040000
 	PCD PCD2;// OTG2_FS @ 0x40080000
 
-	// RCC AHB1ENR.OTG1HSEN / OTG2FSEN (AKA HAL_PCD_MspInit clock part)
+	// RCC AHB1ENR.OTG1HSEN / OTG2HSEN (AKA HAL_PCD_MspInit clock part)
 	void PCD::enClock(bool ena) {
 		Reference(_RCC_AHB1ENR_ADDR).setof((base == _OTG1_HS_ADDR)
 			? _RCC_AHB1ENR_POSI_ENCLK_OTG1HS
-			: _RCC_AHB1ENR_POSI_ENCLK_OTG2FS, ena);
+			: _RCC_AHB1ENR_POSI_ENCLK_OTG2HS, ena);
 	}
 
 	// AKA HAL_PCD_Init

@@ -572,6 +572,7 @@ namespace uni {
 		sel.XferM1HalfCpltCallback = 0;
 		sel.XferErrorCallback = 0;
 		sel.XferAbortCallback = 0;
+		sel.streamCallbacks[st] = {};
 		// reset state & error code (aka HAL_DMA_DeInit)
 		sel.streamErrors[st] = _DMA_ERROR_NONE;
 		sel.streamStates[st] = _DMA_STATE_RESET;
@@ -790,7 +791,11 @@ namespace uni {
 			// Enable common interrupts (TCIE | TEIE | DMEIE)
 			setInterruptSub(true);
 			// Double buffer: also enable HT if half callbacks are registered
-			if (sel.XferHalfCallback || sel.XferM1HalfCpltCallback)
+			const auto& callbacks = sel.streamCallbacks[st];
+			const bool half_callback = callbacks.HasHandler()
+				? callbacks.HalfComplete || callbacks.Memory1HalfComplete
+				: sel.XferHalfCallback || sel.XferM1HalfCpltCallback;
+			if (half_callback)
 				sel[CR[st]].setof(_DMA_SxCR_POS_HTIE, true);
 #if defined(_MPU_STM32MP13)
 			_DMAMUX_EnableOverrunIT(sel, st);
@@ -954,6 +959,36 @@ namespace uni {
 		return Reference(_REFADDR_DMA[DMA_ID] + _IMMx4(idx));
 	}
 
+	stduint DMA_t::getAddress() const {
+		if (!DMA_ID || DMA_ID > _DMA_Counts) return 0;
+		return _REFADDR_DMA[DMA_ID];
+	}
+
+	bool DMA_t::isAble() const {
+		if (!DMA_ID || DMA_ID > _DMA_Counts) return false;
+#if defined(_MPU_STM32MP13)
+		stduint dma_bit = 0, mux_bit = 0;
+		if (DMA_ID == 1)      { dma_bit = 0; mux_bit = 2; }
+		else if (DMA_ID == 2) { dma_bit = 1; mux_bit = 2; }
+		else                  { dma_bit = 3; mux_bit = 4; }
+		return RCC[MP_AHB2ENSETR].bitof(dma_bit) &&
+			RCC[MP_AHB2ENSETR].bitof(mux_bit);
+#else
+		const bool enabled = Reference(RCC_DMAx_addrs[DMA_ID - 1]).bitof(
+			RCC_DMAx_bitpos[DMA_ID - 1]);
+		return enabled;
+#endif
+	}
+
+#if defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
+	Request_t DMAStream::getRequest() const {
+		const byte dma_id = getParent().getID();
+		const byte stream = byte(getID());
+		if (!dma_id || dma_id > _DMA_Counts || stream > 7) return Request_None;
+		return DMAx_Stream_Requests_list[dma_id][stream];
+	}
+#endif
+
 	bool DMA_t::enClock(bool ena) {
 #if defined(_MPU_STM32MP13)
 		using namespace RCCReg;
@@ -969,11 +1004,8 @@ namespace uni {
 			return false;
 		return true;
 #else
+		if (!DMA_ID || DMA_ID > _DMA_Counts) return false;
 		Reference(RCC_DMAx_addrs[DMA_ID - 1]).setof(RCC_DMAx_bitpos[DMA_ID - 1], ena);
-	#if defined(_MCU_STM32H7x)
-		// DMAMUX1 is the request router for both DMA1 and DMA2; clock it together
-		Reference(_RCC_AHB1ENR_ADDR).setof(_RCC_AHB1ENR_POSI_ENCLK_DMAMUX1, ena);
-	#endif
 		if (ena != Reference(RCC_DMAx_addrs[DMA_ID - 1]).bitof(RCC_DMAx_bitpos[DMA_ID - 1]))
 			return false;
 		return true;

@@ -993,4 +993,112 @@ uni::AudioResult uni::WAVCodec::OpenStream(
 	return uni::AudioResult::OK;
 }
 
+
+namespace {
+	void WAVPut16(byte* destination, uint16 value) {
+		destination[0] = byte(value);
+		destination[1] = byte(value >> 8);
+	}
+	void WAVPut32(byte* destination, uint32 value) {
+		for (byte i = 0; i < 4; ++i) destination[i] = byte(value >> (i * 8));
+	}
+
+	class WAVEncoder : public uni::IAudioEncoder {
+		uni::StorageTrait& output;
+		uni::trait::Malloc& allocator;
+		uni::AudioFormat format;
+		uint32 data_bytes = 0;
+		bool failed = false, finished = false;
+
+		bool Header(uint32 size) {
+			byte header[44] = {};
+			WAVPut32(header, WAV_FOURCC_RIFF);
+			WAVPut32(header + 4, 36U + size + (size & 1U));
+			WAVPut32(header + 8, WAV_FOURCC_WAVE);
+			WAVPut32(header + 12, WAV_FOURCC_FMT);
+			WAVPut32(header + 16, 16);
+			WAVPut16(header + 20, 1);
+			WAVPut16(header + 22, format.channels);
+			WAVPut32(header + 24, format.sample_rate);
+			uint32 frame = uni::AudioFrameBytes(format);
+			WAVPut32(header + 28, format.sample_rate * frame);
+			WAVPut16(header + 32, uint16(frame));
+			WAVPut16(header + 34, format.sample_format == uni::AudioSampleFormat::U8 ? 8 : 16);
+			WAVPut32(header + 36, WAV_FOURCC_DATA);
+			WAVPut32(header + 40, size);
+			return output.Write(0, header, sizeof(header), nullptr) == sizeof(header);
+		}
+	public:
+		WAVEncoder(uni::StorageTrait& output, const uni::AudioFormat& format, uni::trait::Malloc& allocator)
+			: output(output), allocator(allocator), format(format) {}
+		bool Initialize() { return Header(0); }
+		void Release() override {
+			uni::trait::Malloc& memory = allocator;
+			this->~WAVEncoder();
+			memory.deallocate(this, sizeof(WAVEncoder));
+		}
+		uni::AudioResult WriteSamples(const uni::AudioBufferView& samples) override {
+			using uni::AudioResult;
+			if (failed) return AudioResult::IoError;
+			if (finished) return AudioResult::InvalidArgument;
+			if (!samples.byte_count) return AudioResult::OK;
+			if (!samples.data || samples.byte_count % uni::AudioFrameBytes(format))
+				return AudioResult::InvalidArgument;
+			uint64 total = uint64(data_bytes) + samples.byte_count;
+			uint64 file_size = 44ULL + total + (total & 1U);
+			if (36ULL + total + (total & 1U) > 0xFFFFFFFFULL || file_size > (stduint)-1)
+				return AudioResult::Unsupported;
+			stduint offset = stduint(44ULL + data_bytes);
+			if (output.Write(offset, samples.data, samples.byte_count, nullptr) != samples.byte_count) {
+				failed = true;
+				return AudioResult::IoError;
+			}
+			data_bytes += samples.byte_count;
+			return AudioResult::OK;
+		}
+		uni::AudioResult Finish() override {
+			using uni::AudioResult;
+			if (failed) return AudioResult::IoError;
+			if (finished) return AudioResult::OK;
+			if (data_bytes & 1U) {
+				byte padding = 0;
+				if (output.Write(stduint(44ULL + data_bytes), &padding, 1, nullptr) != 1) {
+					failed = true;
+					return AudioResult::IoError;
+				}
+			}
+			if (!Header(data_bytes)) {
+				failed = true;
+				return AudioResult::IoError;
+			}
+			finished = true;
+			return AudioResult::OK;
+		}
+	};
+}
+
+bool uni::WAVCodec::CanEncode(const AudioFormat& format) const {
+	uint32 frame = AudioFrameBytes(format);
+	return frame && format.channels <= 2 && frame <= 0xFFFFU &&
+		uint64(format.sample_rate) * frame <= 0xFFFFFFFFULL;
+}
+
+uni::AudioResult uni::WAVCodec::OpenEncoder(StorageTrait& output, const AudioFormat& format,
+	const AudioEncodeOptions& options, IAudioEncoder*& encoder, trait::Malloc& allocator) const {
+	encoder = nullptr;
+	if (!CanEncode(format)) return AudioResult::InvalidFormat;
+	if (options.bit_rate || options.quality || output.Block_Size != 1)
+		return AudioResult::Unsupported;
+	if (!output.writable) return AudioResult::IoError;
+	void* memory = allocator.allocate(sizeof(WAVEncoder), 3);
+	if (!memory) return AudioResult::OutOfMemory;
+	WAVEncoder* writer = new (memory) WAVEncoder(output, format, allocator);
+	if (!writer->Initialize()) {
+		writer->Release();
+		return AudioResult::IoError;
+	}
+	encoder = writer;
+	return AudioResult::OK;
+}
+
 #endif

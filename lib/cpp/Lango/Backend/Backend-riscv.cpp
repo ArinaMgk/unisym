@@ -49,6 +49,89 @@ namespace uni::lango {
 				type == clover::Type::F128;
 		}
 
+		bool IsRV32IntegerType(clover::Type type) {
+			return type == clover::Type::I1 || type == clover::Type::I8 ||
+				type == clover::Type::I16 || type == clover::Type::I32 ||
+				type == clover::Type::Ptr;
+		}
+
+		bool ValidateRV32Subset(const clover::Module& module) {
+			for (const clover::Function& function : module.functions) {
+				if (!IsRV32IntegerType(function.return_type) &&
+					function.return_type != clover::Type::Void) {
+					plogerro("RISC-V RV32 backend: unsupported function return type in '%s'",
+						function.name.reference());
+					return false;
+				}
+				if (function.returns_by_value) {
+					plogerro("RISC-V RV32 backend: by-value aggregate returns are not supported yet");
+					return false;
+				}
+				for (const clover::Parameter& parameter : function.parameters) {
+					if (parameter.by_value || !IsRV32IntegerType(parameter.value.type)) {
+						plogerro("RISC-V RV32 backend: unsupported parameter type in '%s'",
+							function.name.reference());
+						return false;
+					}
+				}
+				for (const clover::BasicBlock& block : function.blocks) {
+					for (const clover::Instruction& instruction : block.instructions) {
+						if (instruction.has_result &&
+							!IsRV32IntegerType(instruction.result.type)) {
+							plogerro("RISC-V RV32 backend: unsupported result type in '%s'",
+								function.name.reference());
+							return false;
+						}
+						if ((instruction.opcode == clover::Opcode::Load ||
+							instruction.opcode == clover::Opcode::Store ||
+							instruction.opcode == clover::Opcode::Const ||
+							instruction.opcode == clover::Opcode::Call ||
+							instruction.opcode == clover::Opcode::Ret) &&
+							instruction.type != clover::Type::Void &&
+							!IsRV32IntegerType(instruction.type)) {
+							plogerro("RISC-V RV32 backend: unsupported instruction type in '%s'",
+								function.name.reference());
+							return false;
+						}
+						if (instruction.by_value_return ||
+							(instruction.has_object_type &&
+							(!instruction.object_type.IsScalar() ||
+							 !IsRV32IntegerType(instruction.object_type.scalar)))) {
+							plogerro("RISC-V RV32 backend: aggregate and non-integer objects are not supported yet");
+							return false;
+						}
+						for (const clover::Value& operand : instruction.operands) {
+							if (!IsRV32IntegerType(operand.type)) {
+								plogerro("RISC-V RV32 backend: unsupported operand type in '%s'",
+									function.name.reference());
+								return false;
+							}
+						}
+						for (const clover::CallArgument& argument : instruction.call_arguments) {
+							if (argument.by_value || !IsRV32IntegerType(argument.value.type)) {
+								plogerro("RISC-V RV32 backend: unsupported call argument type in '%s'",
+									function.name.reference());
+								return false;
+							}
+						}
+					}
+				}
+			}
+			return true;
+		}
+
+		const char* RISCVABIName(RISCVABI abi) {
+			switch (abi) {
+			case RISCVABI::ILP32: return "ilp32";
+			case RISCVABI::ILP32F: return "ilp32f";
+			case RISCVABI::ILP32D: return "ilp32d";
+			case RISCVABI::LP64: return "lp64";
+			case RISCVABI::LP64F: return "lp64f";
+			case RISCVABI::LP64D: return "lp64d";
+			default: return nullptr;
+			}
+		}
+
 		unsigned ABIFloatBits(const RISCVTargetInfo& target) {
 			switch (target.abi) {
 			case RISCVABI::Default:
@@ -161,13 +244,16 @@ namespace uni::lango {
 
 		// Check target-wide requirements before writing partial assembly output.
 		bool ValidateTarget(const RISCVTargetInfo& target, const clover::Module& module) {
-			if (target.bits != 64) {
-				plogerro("RISC-V backend: unsupported -mbits=%[u]; supported bits: 64", target.bits);
+			if (target.bits != 32 && target.bits != 64) {
+				plogerro("RISC-V backend: unsupported -mbits=%[u]; supported bits: 32, 64", target.bits);
 				return false;
 			}
-			if (target.abi == RISCVABI::ILP32 || target.abi == RISCVABI::ILP32F ||
-				target.abi == RISCVABI::ILP32D) {
-				plogerro("RISC-V backend: ILP32 ABIs require a 32-bit backend target");
+			if (!ValidateRISCVInstructionSet(target.extensions)) {
+				plogerro("RISC-V backend: invalid or unsupported instruction-set extensions");
+				return false;
+			}
+			if (!ValidateRISCVABI(target.bits, target.extensions, target.abi)) {
+				plogerro("RISC-V backend: ABI is incompatible with the selected XLEN or extensions");
 				return false;
 			}
 			if (module.pointer_bits && module.pointer_bits != target.bits) {
@@ -175,21 +261,16 @@ namespace uni::lango {
 					module.pointer_bits, target.bits);
 				return false;
 			}
-			if (!target.extension_i) {
+			if (!HasRISCVExtension(target.extensions, RISCVExtension::I)) {
 				plogerro("RISC-V backend: the I instruction set is required");
 				return false;
 			}
-			if (target.extension_d && !target.extension_f) {
+			if (HasRISCVExtension(target.extensions, RISCVExtension::D) && !HasRISCVExtension(target.extensions, RISCVExtension::F)) {
 				plogerro("RISC-V backend: the D extension requires the F extension");
 				return false;
 			}
-			if (target.abi == RISCVABI::LP64F && !target.extension_f) {
-				plogerro("RISC-V backend: -mabi=lp64f requires -minst=imf or imfd");
-				return false;
-			}
-			if (target.abi == RISCVABI::LP64D && !target.extension_d) {
-				plogerro("RISC-V backend: -mabi=lp64d requires -minst=imfd");
-				return false;
+			if (target.bits == 32) {
+				if (!ValidateRV32Subset(module)) return false;
 			}
 			for (stduint index = 0; index < module.source_files.Count(); index++) {
 				const clover::SourceFile& source = module.source_files.begin()[index];
@@ -206,11 +287,11 @@ namespace uni::lango {
 			}
 			for (stduint index = 0; index < module.globals.Count(); index++) {
 				const clover::Global& global = module.globals.begin()[index];
-				if (global.type == clover::Type::F32 && !target.extension_f) {
+				if (global.type == clover::Type::F32 && !HasRISCVExtension(target.extensions, RISCVExtension::F)) {
 					plogerro("RISC-V backend: f32 globals require -minst=imf or imfd");
 					return false;
 				}
-				if (global.type == clover::Type::F64 && !target.extension_d) {
+				if (global.type == clover::Type::F64 && !HasRISCVExtension(target.extensions, RISCVExtension::D)) {
 					plogerro("RISC-V backend: f64 globals require -minst=imfd");
 					return false;
 				}
@@ -317,11 +398,11 @@ namespace uni::lango {
 							return false;
 						}
 					}
-					if (fragment.type == clover::Type::F32 && !target.extension_f) {
+					if (fragment.type == clover::Type::F32 && !HasRISCVExtension(target.extensions, RISCVExtension::F)) {
 						plogerro("RISC-V backend: f32 global data requires -minst=imf or imfd");
 						return false;
 					}
-					if (fragment.type == clover::Type::F64 && !target.extension_d) {
+					if (fragment.type == clover::Type::F64 && !HasRISCVExtension(target.extensions, RISCVExtension::D)) {
 						plogerro("RISC-V backend: f64 global data requires -minst=imfd");
 						return false;
 					}
@@ -376,11 +457,11 @@ namespace uni::lango {
 							uses_f32 = uses_f32 || operand.type == clover::Type::F32;
 							uses_f64 = uses_f64 || operand.type == clover::Type::F64;
 						}
-						if (uses_f32 && !target.extension_f) {
+						if (uses_f32 && !HasRISCVExtension(target.extensions, RISCVExtension::F)) {
 							plogerro("RISC-V backend: f32 Clover operations require -minst=imf or imfd");
 							return false;
 						}
-						if (uses_f64 && !target.extension_d) {
+						if (uses_f64 && !HasRISCVExtension(target.extensions, RISCVExtension::D)) {
 							plogerro("RISC-V backend: f64 Clover operations require -minst=imfd");
 							return false;
 						}
@@ -461,7 +542,7 @@ namespace uni::lango {
 								return false;
 							}
 						}
-						if (!target.extension_m &&
+						if (!HasRISCVExtension(target.extensions, RISCVExtension::M) &&
 							(instruction.opcode == clover::Opcode::Mul ||
 							instruction.opcode == clover::Opcode::SDiv ||
 							instruction.opcode == clover::Opcode::UDiv ||
@@ -523,11 +604,12 @@ namespace uni::lango {
 			uni::Vector<ValueSlot> slots;
 			stdsint frame_size = 0;
 			stdsint hidden_return_offset = 0;
+			unsigned word_bytes = 8;
 		};
 
 		// Round a frame size up to the RISC-V ABI's 16-byte stack alignment.
-		stdsint AlignFrame(stdsint size) {
-			return (size + 15) & ~stdsint(15);
+		stdsint AlignFrame(stdsint size, unsigned alignment) {
+			return (size + alignment - 1) & ~stdsint(alignment - 1);
 		}
 
 		stdsint TypeBits(clover::Type type, const RISCVTargetInfo& target) {
@@ -714,16 +796,18 @@ namespace uni::lango {
 		// Spill ordinary SSA results; fixed Local results retain only their object offset.
 		bool BuildLayout(const clover::Function& function, const clover::Module& module,
 			const RISCVTargetInfo& target, FunctionLayout& layout) {
+			layout.word_bytes = target.bits / 8;
 			bool found;
 			unsigned largest = LargestValueID(function, found);
 			layout.slots = uni::Vector<ValueSlot>::From(ValueSlot(), found ? largest + 1 : 0);
-			stdsint offset = 16; // -8(s0) and -16(s0) save ra and the caller's s0.
+			stdsint offset = layout.word_bytes * 2;
 			if (function.returns_by_value) {
 				stdsint return_size = TypeStorageBytes(module,
 					function.return_object_type, target);
 				if (return_size <= 0) return false;
 				if (return_size > (stdsint)(target.bits / 4)) {
-					layout.hidden_return_offset = offset = AlignOffset(offset + 8, 8);
+					layout.hidden_return_offset = offset = AlignOffset(
+						offset + layout.word_bytes, layout.word_bytes);
 				}
 			}
 			for (const clover::Parameter& parameter : function.parameters) {
@@ -734,8 +818,9 @@ namespace uni::lango {
 				}
 				slot.defined = true;
 				stdsint size = TypeStorageBytes(parameter.value.type, target);
-				if (size < 8) size = 8;
-				stdsint alignment = size > 8 ? 16 : 8;
+				if (size < (stdsint)layout.word_bytes) size = layout.word_bytes;
+				stdsint alignment = size > (stdsint)layout.word_bytes ? 16 :
+					layout.word_bytes;
 				slot.value_offset = offset = AlignOffset(offset + size, alignment);
 				if (parameter.by_value) {
 					stdsint object_size = TypeStorageBytes(module,
@@ -782,13 +867,15 @@ namespace uni::lango {
 					}
 					else {
 						stdsint size = TypeStorageBytes(instruction.result.type, target);
-						if (size < 8) size = 8;
-						stdsint alignment = size > 8 ? 16 : 8;
+						if (size < (stdsint)layout.word_bytes) size = layout.word_bytes;
+						stdsint alignment = size > (stdsint)layout.word_bytes ? 16 :
+							layout.word_bytes;
 						slot.value_offset = offset = AlignOffset(offset + size, alignment);
 					}
 				}
 			}
-			layout.frame_size = AlignFrame(offset);
+			layout.frame_size = AlignFrame(offset,
+				RISCVABIStackAlignment(target.abi));
 			return true;
 		}
 
@@ -850,7 +937,7 @@ namespace uni::lango {
 				output.OutFormat("\tslli %s, %s, %[u]\n", reg, reg, shift);
 				return;
 			}
-			if (target.extension_m) {
+			if (HasRISCVExtension(target.extensions, RISCVExtension::M)) {
 				output.OutFormat("\tli t1, %[i]\n\tmul %s, %s, t1\n",
 					multiplier, reg, reg);
 				return;
@@ -866,22 +953,24 @@ namespace uni::lango {
 		}
 
 		void EmitOutgoingStackStore(const char* reg, stduint offset,
-			uni::OstreamTrait& output) {
+			unsigned word_bytes, uni::OstreamTrait& output) {
+			const char* mnemonic = word_bytes == 4 ? "sw" : "sd";
 			if (offset <= 2047)
-				output.OutFormat("\tsd %s, %[u](sp)\n", reg, offset);
+				output.OutFormat("\t%s %s, %[u](sp)\n", mnemonic, reg, offset);
 			else {
-				output.OutFormat("\tli t2, %[u]\n\tadd t2, sp, t2\n\tsd %s, 0(t2)\n",
-					offset, reg);
+				output.OutFormat("\tli t2, %[u]\n\tadd t2, sp, t2\n\t%s %s, 0(t2)\n",
+					offset, mnemonic, reg);
 			}
 		}
 
 		void EmitIncomingStackLoad(const char* reg, stduint offset,
-			uni::OstreamTrait& output) {
+			unsigned word_bytes, uni::OstreamTrait& output) {
+			const char* mnemonic = word_bytes == 4 ? "lw" : "ld";
 			if (offset <= 2047)
-				output.OutFormat("\tld %s, %[u](s0)\n", reg, offset);
+				output.OutFormat("\t%s %s, %[u](s0)\n", mnemonic, reg, offset);
 			else {
-				output.OutFormat("\tli t2, %[u]\n\tadd t2, s0, t2\n\tld %s, 0(t2)\n",
-					offset, reg);
+				output.OutFormat("\tli t2, %[u]\n\tadd t2, s0, t2\n\t%s %s, 0(t2)\n",
+					offset, mnemonic, reg);
 			}
 		}
 
@@ -930,13 +1019,14 @@ namespace uni::lango {
 		}
 
 		void EmitFrameStore(const char* source, stdsint offset,
-			uni::OstreamTrait& output) {
+			unsigned word_bytes, uni::OstreamTrait& output) {
+			const char* mnemonic = word_bytes == 4 ? "sw" : "sd";
 			if (FitsSignedImmediate12(-offset))
-				output.OutFormat("\tsd %s, -%[i](s0)\n", source, offset);
+				output.OutFormat("\t%s %s, -%[i](s0)\n", mnemonic, source, offset);
 			else {
 				const char* address = StrCompare(source, "t3") ? "t3" : "t4";
 				EmitFrameAddress(address, offset, output);
-				output.OutFormat("\tsd %s, 0(%s)\n", source, address);
+				output.OutFormat("\t%s %s, 0(%s)\n", mnemonic, source, address);
 			}
 		}
 
@@ -961,11 +1051,12 @@ namespace uni::lango {
 				return true;
 			}
 			if (!slot->value_offset) return false;
+			const char* mnemonic = layout.word_bytes == 4 ? "lw" : "ld";
 			if (FitsSignedImmediate12(-slot->value_offset))
-				output.OutFormat("\tld %s, -%[i](s0)\n", reg, slot->value_offset);
+				output.OutFormat("\t%s %s, -%[i](s0)\n", mnemonic, reg, slot->value_offset);
 			else {
 				EmitFrameAddress(reg, slot->value_offset, output);
-				output.OutFormat("\tld %s, 0(%s)\n", reg, reg);
+				output.OutFormat("\t%s %s, 0(%s)\n", mnemonic, reg, reg);
 			}
 			return true;
 		}
@@ -976,7 +1067,7 @@ namespace uni::lango {
 			const ValueSlot* slot;
 			if (!instruction.has_result || !SlotOf(layout, instruction.result, slot)) return false;
 			if (!slot->value_offset) return false;
-			EmitFrameStore(reg, slot->value_offset, output);
+			EmitFrameStore(reg, slot->value_offset, layout.word_bytes, output);
 			return true;
 		}
 
@@ -1011,8 +1102,8 @@ namespace uni::lango {
 				return false;
 			if (FitsSignedImmediate12(-slot->value_offset) &&
 				FitsSignedImmediate12(-slot->value_offset + 8)) {
-				EmitFrameStore(low_register, slot->value_offset, output);
-				EmitFrameStore(high_register, slot->value_offset - 8, output);
+				EmitFrameStore(low_register, slot->value_offset, 8, output);
+				EmitFrameStore(high_register, slot->value_offset - 8, 8, output);
 			}
 			else {
 				EmitFrameAddress("t3", slot->value_offset, output);
@@ -1065,9 +1156,10 @@ namespace uni::lango {
 		}
 
 		// Emit the common function epilogue. t0 temporarily holds the caller's s0.
-		void EmitEpilogue(uni::OstreamTrait& output) {
-			output.OutFormat("\tld ra, -8(s0)\n");
-			output.OutFormat("\tld t0, -16(s0)\n");
+		void EmitEpilogue(unsigned word_bytes, uni::OstreamTrait& output) {
+			const char* mnemonic = word_bytes == 4 ? "lw" : "ld";
+			output.OutFormat("\t%s ra, -%u(s0)\n", mnemonic, word_bytes);
+			output.OutFormat("\t%s t0, -%u(s0)\n", mnemonic, word_bytes * 2);
 			output.OutFormat("\tmv sp, s0\n");
 			output.OutFormat("\tmv s0, t0\n");
 			output.OutFormat("\tret\n");
@@ -1109,6 +1201,27 @@ namespace uni::lango {
 			return StoreWideResult(layout, instruction, "a0", "a1", output);
 		}
 
+		void EmitZeroExtend(const char* reg, unsigned source_bits,
+			unsigned xlen, uni::OstreamTrait& output) {
+			if (source_bits >= xlen) return;
+			if (source_bits == 1 || source_bits == 8) {
+				output.OutFormat("\tandi %s, %s, %u\n", reg, reg,
+					(source_bits == 1) ? 1 : 255);
+				return;
+			}
+			unsigned shift = xlen - source_bits;
+			output.OutFormat("\tslli %s, %s, %u\n\tsrli %s, %s, %u\n",
+				reg, reg, shift, reg, reg, shift);
+		}
+
+		void EmitSignExtend(const char* reg, unsigned source_bits,
+			unsigned xlen, uni::OstreamTrait& output) {
+			if (source_bits >= xlen) return;
+			unsigned shift = xlen - source_bits;
+			output.OutFormat("\tslli %s, %s, %u\n\tsrai %s, %s, %u\n",
+				reg, reg, shift, reg, reg, shift);
+		}
+
 		// Assemble a little-endian unaligned integer from byte loads.
 		bool EmitUnalignedLoad(const clover::Instruction& instruction,
 			const FunctionLayout& layout, const RISCVTargetInfo& target,
@@ -1122,8 +1235,8 @@ namespace uni::lango {
 				output.OutFormat("\tor t1, t1, t2\n");
 			}
 			if (instruction.type == clover::Type::I16)
-				output.OutFormat("\tslli t1, t1, 48\n\tsrai t1, t1, 48\n");
-			else if (instruction.type == clover::Type::I32)
+				EmitSignExtend("t1", 16, target.bits, output);
+			else if (instruction.type == clover::Type::I32 && target.bits == 64)
 				output.OutFormat("\taddiw t1, t1, 0\n");
 			return StoreResult(layout, instruction, "t1", output);
 		}
@@ -1212,7 +1325,8 @@ namespace uni::lango {
 		}
 
 		const char* BinaryMnemonic(const clover::Instruction& instruction,
-			const char* wide, const char* word) {
+			const RISCVTargetInfo& target, const char* wide, const char* word) {
+			if (target.bits == 32) return wide;
 			return instruction.type == clover::Type::I32 ? word : wide;
 		}
 
@@ -1307,8 +1421,11 @@ namespace uni::lango {
 				case clover::Type::I8: output.OutFormat("\tlb t1, 0(t0)\n"); break;
 				case clover::Type::I16: output.OutFormat("\tlh t1, 0(t0)\n"); break;
 				case clover::Type::I32: output.OutFormat("\tlw t1, 0(t0)\n"); break;
-				case clover::Type::I64:
-				case clover::Type::Ptr: output.OutFormat("\tld t1, 0(t0)\n"); break;
+				case clover::Type::I64: output.OutFormat("\tld t1, 0(t0)\n"); break;
+				case clover::Type::Ptr:
+					output.OutFormat(target.bits == 32 ? "\tlw t1, 0(t0)\n" :
+						"\tld t1, 0(t0)\n");
+					break;
 				default: break;
 				}
 				return StoreResult(layout, instruction, "t1", output);
@@ -1355,8 +1472,11 @@ namespace uni::lango {
 				case clover::Type::I8: output.OutFormat("\tsb t0, 0(t1)\n"); break;
 				case clover::Type::I16: output.OutFormat("\tsh t0, 0(t1)\n"); break;
 				case clover::Type::I32: output.OutFormat("\tsw t0, 0(t1)\n"); break;
-				case clover::Type::I64:
-				case clover::Type::Ptr: output.OutFormat("\tsd t0, 0(t1)\n"); break;
+				case clover::Type::I64: output.OutFormat("\tsd t0, 0(t1)\n"); break;
+				case clover::Type::Ptr:
+					output.OutFormat(target.bits == 32 ? "\tsw t0, 0(t1)\n" :
+						"\tsd t0, 0(t1)\n");
+					break;
 				default: break;
 				}
 				return true;
@@ -1398,28 +1518,28 @@ namespace uni::lango {
 				return StoreResult(layout, instruction, "t0", output);
 
 			case clover::Opcode::Add: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "add", "addw"), output);
+				BinaryMnemonic(instruction, target, "add", "addw"), output);
 			case clover::Opcode::Sub: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "sub", "subw"), output);
+				BinaryMnemonic(instruction, target, "sub", "subw"), output);
 			case clover::Opcode::Mul: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "mul", "mulw"), output);
+				BinaryMnemonic(instruction, target, "mul", "mulw"), output);
 			case clover::Opcode::SDiv: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "div", "divw"), output);
+				BinaryMnemonic(instruction, target, "div", "divw"), output);
 			case clover::Opcode::UDiv: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "divu", "divuw"), output);
+				BinaryMnemonic(instruction, target, "divu", "divuw"), output);
 			case clover::Opcode::SRem: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "rem", "remw"), output);
+				BinaryMnemonic(instruction, target, "rem", "remw"), output);
 			case clover::Opcode::URem: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "remu", "remuw"), output);
+				BinaryMnemonic(instruction, target, "remu", "remuw"), output);
 			case clover::Opcode::And: return EmitBinary(instruction, layout, "and", output);
 			case clover::Opcode::Or: return EmitBinary(instruction, layout, "or", output);
 			case clover::Opcode::Xor: return EmitBinary(instruction, layout, "xor", output);
 			case clover::Opcode::Shl: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "sll", "sllw"), output);
+				BinaryMnemonic(instruction, target, "sll", "sllw"), output);
 			case clover::Opcode::AShr: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "sra", "sraw"), output);
+				BinaryMnemonic(instruction, target, "sra", "sraw"), output);
 			case clover::Opcode::LShr: return EmitBinary(instruction, layout,
-				BinaryMnemonic(instruction, "srl", "srlw"), output);
+				BinaryMnemonic(instruction, target, "srl", "srlw"), output);
 			case clover::Opcode::FAdd:
 				if (instruction.type == clover::Type::F128)
 					return EmitWideBinary(instruction, layout, "__addtf3", module,
@@ -1543,34 +1663,24 @@ namespace uni::lango {
 			case clover::Opcode::ZExt:
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
-				switch (TypeBits(instruction.operands.begin()[0].type, target)) {
-				case 1: output.OutFormat("\tandi t0, t0, 1\n"); break;
-				case 8: output.OutFormat("\tandi t0, t0, 255\n"); break;
-				case 16: output.OutFormat("\tslli t0, t0, 48\n\tsrli t0, t0, 48\n"); break;
-				case 32: output.OutFormat("\tslli t0, t0, 32\n\tsrli t0, t0, 32\n"); break;
-				}
+				EmitZeroExtend("t0",
+					(unsigned)TypeBits(instruction.operands.begin()[0].type, target),
+					target.bits, output);
 				return StoreResult(layout, instruction, "t0", output);
 
 			case clover::Opcode::SExt:
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
-				switch (TypeBits(instruction.operands.begin()[0].type, target)) {
-				case 1: output.OutFormat("\tslli t0, t0, 63\n\tsrai t0, t0, 63\n"); break;
-				case 8: output.OutFormat("\tslli t0, t0, 56\n\tsrai t0, t0, 56\n"); break;
-				case 16: output.OutFormat("\tslli t0, t0, 48\n\tsrai t0, t0, 48\n"); break;
-				case 32: output.OutFormat("\taddiw t0, t0, 0\n"); break;
-				}
+				EmitSignExtend("t0",
+					(unsigned)TypeBits(instruction.operands.begin()[0].type, target),
+					target.bits, output);
 				return StoreResult(layout, instruction, "t0", output);
 
 			case clover::Opcode::Trunc:
 				if (!RequireOperands(instruction, 1) ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output)) return false;
-				switch (TypeBits(instruction.type, target)) {
-				case 1: output.OutFormat("\tandi t0, t0, 1\n"); break;
-				case 8: output.OutFormat("\tandi t0, t0, 255\n"); break;
-				case 16: output.OutFormat("\tslli t0, t0, 48\n\tsrli t0, t0, 48\n"); break;
-				case 32: output.OutFormat("\tslli t0, t0, 32\n\tsrli t0, t0, 32\n"); break;
-				}
+				EmitZeroExtend("t0", (unsigned)TypeBits(instruction.type, target),
+					target.bits, output);
 				return StoreResult(layout, instruction, "t0", output);
 
 			case clover::Opcode::IntToPtr:
@@ -1585,12 +1695,8 @@ namespace uni::lango {
 					instruction.operands.begin()[0].type != clover::Type::Ptr ||
 					!LoadValue(layout, instruction.operands.begin()[0], "t0", output))
 					return false;
-				switch (TypeBits(instruction.type, target)) {
-				case 1: output.OutFormat("\tandi t0, t0, 1\n"); break;
-				case 8: output.OutFormat("\tandi t0, t0, 255\n"); break;
-				case 16: output.OutFormat("\tslli t0, t0, 48\n\tsrli t0, t0, 48\n"); break;
-				case 32: output.OutFormat("\tslli t0, t0, 32\n\tsrli t0, t0, 32\n"); break;
-				}
+				EmitZeroExtend("t0", (unsigned)TypeBits(instruction.type, target),
+					target.bits, output);
 				return StoreResult(layout, instruction, "t0", output);
 
 			case clover::Opcode::SIToFP:
@@ -1738,7 +1844,9 @@ namespace uni::lango {
 						argument.type, target, state, variadic, location);
 					if (!allocated || !locations.Append(location)) return false;
 				}
-				stdsint outgoing_size = (stdsint)((state.stack_bytes + 15) & ~stduint(15));
+				stduint stack_alignment = RISCVABIStackAlignment(target.abi);
+				stdsint outgoing_size = (stdsint)((state.stack_bytes +
+					stack_alignment - 1) & ~(stack_alignment - 1));
 				EmitStackAdjustment(-outgoing_size, output);
 				for (stduint index = 0; index < count; index++) {
 					const clover::CallArgument* call_argument =
@@ -1773,10 +1881,12 @@ namespace uni::lango {
 						}
 						else if (!LoadValue(layout, argument, "t1", output)) return false;
 						if (piece.kind == RISCVABIArgumentPieceKind::Stack)
-							EmitOutgoingStackStore("t1", piece.stack_offset, output);
+							EmitOutgoingStackStore("t1", piece.stack_offset,
+								target.bits / 8, output);
 						else {
 							output.OutFormat("\tmv %s, t1\n", destination);
-							if (!by_value && argument.type == clover::Type::I32)
+							if (!by_value && argument.type == clover::Type::I32 &&
+								target.bits == 64)
 								output.OutFormat("\taddiw %s, %s, 0\n", destination, destination);
 						}
 					}
@@ -1819,7 +1929,7 @@ namespace uni::lango {
 						return StoreFloatResult(layout, instruction, "fa0", output);
 					return StoreResult(layout, instruction, "a0", output);
 				}
-				if (instruction.type == clover::Type::I32)
+				if (instruction.type == clover::Type::I32 && target.bits == 64)
 					output.OutFormat("\taddiw a0, a0, 0\n");
 				return StoreResult(layout, instruction, "a0", output);
 			}
@@ -1891,12 +2001,12 @@ namespace uni::lango {
 								piece.register_index);
 						}
 					}
-					EmitEpilogue(output);
+					EmitEpilogue(target.bits / 8, output);
 					return true;
 				}
 				if (instruction.type == clover::Type::Void) {
 					if (instruction.operands.Count()) return false;
-					EmitEpilogue(output);
+					EmitEpilogue(target.bits / 8, output);
 					return true;
 				}
 				if (!RequireOperands(instruction, 1)) return false;
@@ -1914,7 +2024,7 @@ namespace uni::lango {
 				}
 				else if (!LoadValue(layout, instruction.operands.begin()[0], "a0", output))
 					return false;
-				EmitEpilogue(output);
+				EmitEpilogue(target.bits / 8, output);
 				return true;
 			}
 			return false;
@@ -1933,10 +2043,13 @@ namespace uni::lango {
 				function.visibility, function.linkage == clover::Linkage::External,
 				false, output)) return false;
 			output.OutFormat("%s:\n", function.name.reference());
+			const char* word_store = layout.word_bytes == 4 ? "sw" : "sd";
 			if (layout.frame_size <= 2047) {
 				output.OutFormat("\taddi sp, sp, -%[i]\n", layout.frame_size);
-				output.OutFormat("\tsd ra, %[i](sp)\n", layout.frame_size - 8);
-				output.OutFormat("\tsd s0, %[i](sp)\n", layout.frame_size - 16);
+				output.OutFormat("\t%s ra, %[i](sp)\n", word_store,
+					layout.frame_size - layout.word_bytes);
+				output.OutFormat("\t%s s0, %[i](sp)\n", word_store,
+					layout.frame_size - layout.word_bytes * 2);
 				output.OutFormat("\taddi s0, sp, %[i]\n", layout.frame_size);
 			}
 			else {
@@ -1945,12 +2058,15 @@ namespace uni::lango {
 				output.OutFormat("\tli t0, %[i]\n", layout.frame_size);
 				output.OutFormat("\tsub sp, sp, t0\n");
 				output.OutFormat("\tadd s0, sp, t0\n");
-				output.OutFormat("\tsd ra, -8(s0)\n");
-				output.OutFormat("\tsd t1, -16(s0)\n");
+				output.OutFormat("\t%s ra, -%u(s0)\n", word_store,
+					layout.word_bytes);
+				output.OutFormat("\t%s t1, -%u(s0)\n", word_store,
+					layout.word_bytes * 2);
 			}
 			RISCVABIArgumentState argument_state;
 			if (function.returns_by_value && layout.hidden_return_offset) {
-				EmitFrameStore("a0", layout.hidden_return_offset, output);
+				EmitFrameStore("a0", layout.hidden_return_offset,
+					layout.word_bytes, output);
 				RISCVABIArgumentLocation hidden_location;
 				if (!RISCVAllocateArgument(clover::Type::Ptr, target,
 					argument_state, false, hidden_location)) return false;
@@ -1972,7 +2088,8 @@ namespace uni::lango {
 						FloatArgumentRegisters[piece.register_index] :
 						ArgumentRegisters[piece.register_index];
 					if (piece.kind == RISCVABIArgumentPieceKind::Stack) {
-						EmitIncomingStackLoad("t0", piece.stack_offset, output);
+						EmitIncomingStackLoad("t0", piece.stack_offset,
+							layout.word_bytes, output);
 						source = "t0";
 					}
 					if (parameter.by_value && !location.indirect) {
@@ -1987,17 +2104,19 @@ namespace uni::lango {
 							slot->value_offset - (stdsint)piece.object_offset, output);
 						continue;
 					}
-					if (parameter.value.type == clover::Type::I32 &&
+					if (parameter.value.type == clover::Type::I32 && target.bits == 64 &&
 						!parameter.by_value) {
 						output.OutFormat("\taddiw t0, %s, 0\n", source);
 						source = "t0";
 					}
 					EmitFrameStore(source,
-						slot->value_offset - (stdsint)piece.object_offset, output);
+						slot->value_offset - (stdsint)piece.object_offset,
+						layout.word_bytes, output);
 				}
 				if (parameter.by_value && !location.indirect) {
 					EmitFrameAddress("t0", slot->argument_object_offset, output);
-					EmitFrameStore("t0", slot->value_offset, output);
+					EmitFrameStore("t0", slot->value_offset,
+						layout.word_bytes, output);
 				}
 			}
 
@@ -2028,7 +2147,7 @@ namespace uni::lango {
 					output.OutFormat(function.return_type == clover::Type::F32 ?
 						"\tfmv.w.x fa0, zero\n" : "\tfmv.d.x fa0, zero\n");
 				else output.OutFormat("\tli a0, 0\n");
-				EmitEpilogue(output);
+				EmitEpilogue(layout.word_bytes, output);
 			}
 			output.OutFormat(".size %s, .-%s\n", function.name.reference(), function.name.reference());
 			return true;
@@ -2052,14 +2171,11 @@ namespace uni::lango {
 		}
 		if (!ValidateTarget(target, module)) return false;
 		RISCVAssemblyOutputGCC gcc_output;
-		char instruction_set[8] = {'i', '\0'};
-		unsigned instruction_length = 1;
-		if (target.extension_m) instruction_set[instruction_length++] = 'm';
-		if (target.extension_f) instruction_set[instruction_length++] = 'f';
-		if (target.extension_d) instruction_set[instruction_length++] = 'd';
-		instruction_set[instruction_length] = '\0';
-		const char* abi = target.abi == RISCVABI::LP64D ? "lp64d" :
-			target.abi == RISCVABI::LP64F ? "lp64f" : "lp64";
+		char instruction_set[128];
+		if (!FormatRISCVInstructionSet(target.extensions, instruction_set,
+			sizeof(instruction_set))) return false;
+		const char* abi = RISCVABIName(target.abi);
+		if (!abi) return false;
 		RISCVAssemblyOutputAASM aasm_output(target.bits, instruction_set, abi, output);
 		RISCVAssemblyOutputInterface* assembly_output = nullptr;
 		uni::OstreamTrait* assembly_stream = &output;

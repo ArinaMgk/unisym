@@ -57,12 +57,13 @@ namespace {
 		bool align_pair, stduint stack_alignment,
 		RISCVABIArgumentLocation& location) {
 		const unsigned words = target.bits / 8;
+		const unsigned register_count = RISCVABIIntegerArgumentRegisters(target.abi);
 		if (align_pair && count == 2 && stack_alignment >= words * 2 &&
 			(state.integer_registers & 1))
 			state.integer_registers++;
 		unsigned in_registers = 0;
-		if (state.integer_registers < 8) {
-			in_registers = 8 - state.integer_registers;
+		if (state.integer_registers < register_count) {
+			in_registers = register_count - state.integer_registers;
 			if (in_registers > count) in_registers = count;
 		}
 		for (unsigned index = 0; index < count; index++) {
@@ -100,7 +101,8 @@ bool RISCVAllocateArgument(clover::Type type, const RISCVTargetInfo& target,
 	unsigned flen = FloatRegisterBits(target);
 	if (!force_integer_registers &&
 		(type == clover::Type::F32 || type == clover::Type::F64) &&
-		width <= flen && state.float_registers < 8) {
+			width <= flen && state.float_registers <
+				RISCVABIFloatArgumentRegisters(target.abi)) {
 		RISCVABIArgumentPiece& piece = location.pieces[0];
 		piece.kind = RISCVABIArgumentPieceKind::FloatRegister;
 		piece.register_index = state.float_registers++;

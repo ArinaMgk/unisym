@@ -182,14 +182,16 @@ namespace uni {
 			SAI1[1][SAIReg::CLRFR] = 0x77;
 		}
 
-		// DMA1 Stream5, circular double buffer. Request 87 = SAI1_A
+		// DMA1 Stream5, circular double buffer.
 		void dma_audio_init(byte* buf0, byte* buf1, uint32 num_items, uint32 element_size) {
-			DMA1.enClock();// also enables DMAMUX1 (RCC_AHB1ENR.DMAMUX1EN, bit 2)
-			// NOTE: never poke RCC_AHB1ENR bit 28 here: on STM32H743 that bit is
-			// USB2OTGHSULPIEN (USB2 ULPI PHY clock), not DMAMUX1EN — writing it
-			// reaches into the USB clock tree for no reason.
-			//(RCC_AHB1ENR_ADDR = 0x580244D8)
-			*(volatile uint32*)(0x40020800 + 5 * 4) = 87U;// DMAMUX1 channel 5 = request 87 (SAI1_A)
+			DMA1.enClock();// enable DMA1 before stream configuration
+#if defined(_MCU_STM32H7x)
+			stduint dma_request;
+			if (!SAI1[1].getDMARequest(dma_request)) return;
+			DMA1[5].setRequest(dma_request);
+#else
+			*(volatile uint32*)(0x40020800 + 5 * 4) = 87U;// ?
+#endif
 
 			DMA1.XferCpltCallback = on_dma_xfer_cplt0;
 			DMA1.XferM1CpltCallback = on_dma_xfer_cplt1;
@@ -333,22 +335,23 @@ namespace uni {
 		// Returns: 0 = idle, 1 = serviced (buffers may have been refilled), 2 = stream over.
 		uint8 ServicePlayback() override {
 			if (!running) return 0;
-			// One completion event covers a full M0+M1 round: refill both buffers, keeping the 1x cadence.
-			if (dma_done_count[0] || dma_done_count[1]) {
-				DMA1[5].enInterruptNVIC(false);
-				dma_done_count[0] = 0;
-				dma_done_count[1] = 0;
-				DMA1[5].enInterruptNVIC(true);
-				played_bytes += buffer_bytes[0] + buffer_bytes[1];
-				need_refill[0] = true;
-				need_refill[1] = true;
+			// Each completion consumes exactly one DMA buffer.
+			uint32 completed[2];
+			DMA1[5].enInterruptNVIC(false);
+			completed[0] = dma_done_count[0];
+			completed[1] = dma_done_count[1];
+			dma_done_count[0] = dma_done_count[1] = 0;
+			DMA1[5].enInterruptNVIC(true);
+			for (byte sb = 0; sb < buffer_count; ++sb) {
+				if (!completed[sb]) continue;
+				played_bytes += completed[sb] * buffer_bytes[sb];
+				need_refill[sb] = true;
 			}
-			// Refill a buffer only while the DMA reads the other one:
-			// CT (CR bit 19): 0 = DMA reads M0, 1 = DMA reads M1. No write/read contention, no replay.
-			bool dma_on1 = ((*(volatile uint32*)0x40020088) >> 19) & 1;
+			// Only a completed, inactive buffer may advance the source stream.
 			for (byte sb = 0; sb < buffer_count; sb++) {
-				bool dma_reading_this = (sb == 0) ? !dma_on1 : dma_on1;
-				if (!need_refill[sb] || dma_reading_this) continue;
+				if (!need_refill[sb]) continue;
+				bool dma_on1 = DMA1[DMAReg::CR[5]].bitof(_DMA_SxCR_POS_CT);
+				if (bool(sb) == dma_on1) continue;
 				byte* target = buffers[sb];
 				if (!paused && !stream_over) {
 					uint32 c = refill_cb(refill_context, target, buffer_size);

@@ -241,6 +241,23 @@ namespace uni {
 #if (defined(_MCU_STM32F4x) || defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13))
 	// AKA HAL_DMA_MemoryTypeDef
 	enum class MemorySel : byte { Memory0, Memory1 };
+	enum class DMADataWidth : byte { Byte = 2, HalfWord = 3, Word = 4 };
+
+	using DMAStreamHandler = void (*)(pureptr_t context);
+	struct DMAStreamCallbacks {
+		DMAStreamHandler Complete = nullptr;
+		DMAStreamHandler HalfComplete = nullptr;
+		DMAStreamHandler Memory1Complete = nullptr;
+		DMAStreamHandler Memory1HalfComplete = nullptr;
+		DMAStreamHandler Error = nullptr;
+		DMAStreamHandler Abort = nullptr;
+		pureptr_t Context = nullptr;
+
+		bool HasHandler() const {
+			return Complete || HalfComplete || Memory1Complete ||
+				Memory1HalfComplete || Error || Abort;
+		}
+	};
 #endif
 #if defined(_MCU_STM32H7x) || defined(_MPU_STM32MP13)
 	// AKA DMAMUX sync/request-generator polarity constants
@@ -267,13 +284,15 @@ namespace uni {
 		Handler_t XferErrorCallback;
 		Handler_t XferAbortCallback;
 		// Double buffer callbacks — AKA XferM1CpltCallback / XferM1HalfCpltCallback
-		// M1 callbacks fire when CT=1 (current target is Memory1); M0 fires standard XferCpltCallback
+		// TC reports the completed target, which is opposite the current CT bit.
 		Handler_t XferM1CpltCallback;
 		Handler_t XferM1HalfCpltCallback;
 		bool m2p;
 		pureptr_t bind;
 		//
 		byte getID() const { return DMA_ID; }
+		stduint getAddress() const;
+		bool isAble() const;
 		Reference operator[](DMAReg::DMARegType idx);
 		DMA_t(byte DMA_ID) : DMA_ID(DMA_ID) {
 			XferCpltCallback = 0;
@@ -288,6 +307,7 @@ namespace uni {
 			for0(i, 8) {
 				streamStates[i] = _DMA_STATE_RESET;
 				streamErrors[i] = _DMA_ERROR_NONE;
+				streamCallbacks[i] = {};
 			}
 		#endif
 		#if defined(_MPU_STM32MP13)
@@ -352,6 +372,7 @@ namespace uni {
 		// per-stream state and error (DMAStream is a pseudo-pointer, storage lives here)
 		byte streamStates[8];
 		uint32 streamErrors[8];
+		DMAStreamCallbacks streamCallbacks[8];
 	#if defined(_MPU_STM32MP13)
 		byte streamRequests[8];// DMAMUX request id (low 8-bit): 0=MEM2MEM, 1..8=request generator 0..7
 	#endif
@@ -416,6 +437,14 @@ namespace uni {
 			return (_IMM(this) >> 4) & 0b111;
 		}
 
+		Request_t getRequest() const;
+		void setCallbacks(const DMAStreamCallbacks& callbacks) const {
+			getParent().streamCallbacks[getID()] = callbacks;
+		}
+		void clearCallbacks() const {
+			getParent().streamCallbacks[getID()] = {};
+		}
+
 		void enAble(bool ena = true) const {
 			using namespace DMAReg;
 			DMA_t& sel = getParent();
@@ -465,7 +494,11 @@ namespace uni {
 			cr.setof(_DMA_SxCR_POS_TCIE, ena_total);
 			cr.setof(_DMA_SxCR_POS_TEIE, ena_total);
 			cr.setof(_DMA_SxCR_POS_DMEIE, ena_total);
-			cr.setof(_DMA_SxCR_POS_HTIE, ena_total && (sel.XferHalfCallback || sel.XferM1HalfCpltCallback));
+			const auto& callbacks = sel.streamCallbacks[getID()];
+			const bool half_callback = callbacks.HasHandler()
+				? callbacks.HalfComplete || callbacks.Memory1HalfComplete
+				: sel.XferHalfCallback || sel.XferM1HalfCpltCallback;
+			cr.setof(_DMA_SxCR_POS_HTIE, ena_total && half_callback);
 			sel[FCR[getID()]].setof(_DMA_SxFCR_POS_FEIE, ena_total);
 		}
 
@@ -542,6 +575,15 @@ namespace uni {
 			bool circular_mode = true,
 			stduint periph_align = 2 /*byte*/, stduint memory_align = 2 /*byte*/,
 			byte priority = 1) const;
+		bool setMode(
+			bool from_periph, bool to_periph,
+			bool periph_inc, bool memory_inc, bool circular_mode,
+			DMADataWidth periph_width, DMADataWidth memory_width,
+			byte priority = 1) const {
+			return setMode(from_periph, to_periph,
+				periph_inc, memory_inc, circular_mode,
+				_IMM(periph_width), _IMM(memory_width), priority);
+		}
 
 		void setTransfer(pureptr_t dst_addr, pureptr_t src_addr, stduint leng) const {
 			getParent().setTransfer(dst_addr, src_addr, leng);

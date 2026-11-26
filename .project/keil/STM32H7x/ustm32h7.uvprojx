@@ -1283,6 +1283,11 @@
               <FileType>8</FileType>
               <FilePath>..\..\..\lib\cpp\Format\Audio\FLAC.cpp</FilePath>
             </File>
+            <File>
+              <FileName>AudioManager.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\..\..\lib\cpp\System\Audiosys\AudioManager.cpp</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

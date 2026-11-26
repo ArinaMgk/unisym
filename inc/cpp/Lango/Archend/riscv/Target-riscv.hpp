@@ -49,6 +49,11 @@ bool HasRISCVExtension(uint32_t extensions, RISCVExtension extension);
 bool ParseRISCVABI(const char* name, RISCVABI& abi);
 bool ValidateRISCVABI(int bits, uint32_t extensions, RISCVABI abi);
 uint32_t RISCVABIFlags(RISCVABI abi);
+unsigned RISCVABIStackAlignment(RISCVABI abi);
+unsigned RISCVABIIntegerArgumentRegisters(RISCVABI abi);
+unsigned RISCVABIFloatArgumentRegisters(RISCVABI abi);
+bool FormatRISCVInstructionSet(uint32_t extensions,
+	char* output, size_t capacity);
 bool FormatRISCVArchitecture(int bits, uint32_t extensions,
 	char* output, size_t capacity);
 

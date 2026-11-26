@@ -30,12 +30,11 @@ namespace uni::lango {
 
 // Target features selected for one RISC-V backend instance.
 struct RISCVTargetInfo {
-	unsigned bits = 64;     // General-purpose register width.
-	bool extension_i = true; // Base integer instruction set.
-	bool extension_m = true; // Integer multiplication and division extension.
-	bool extension_f = false; // Single-precision floating-point extension.
-	bool extension_d = false; // Double-precision floating-point extension.
+	unsigned bits = 64; // General-purpose register width.
+	uint32_t extensions = RISCVExtensionMask(RISCVExtension::I) |
+		RISCVExtensionMask(RISCVExtension::M); // Canonical target feature set.
 	RISCVABI abi = RISCVABI::LP64; // Function calling convention.
+	bool abi_explicit = false; // Whether the caller selected an ABI explicitly.
 };
 
 // Output controls that do not change the target RISC-V instruction set.

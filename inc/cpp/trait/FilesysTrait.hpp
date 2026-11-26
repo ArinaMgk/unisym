@@ -311,14 +311,17 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 	};
 
 	// Loopback Device
-	class FileBlockBridge : public BlockTrait {
+	class FileBlockBridge : public StorageTrait {
 	private:
 		FilesysTrait* fs;
 		void* file_handle;
 		stduint file_size;
+		bool allow_growth;
 
 	public:
-		FileBlockBridge(FilesysTrait* filesystem, void* handle, stduint f_size, stduint block_size = 512) {
+		FileBlockBridge(FilesysTrait* filesystem, void* handle, stduint f_size, stduint block_size = 512, bool allow_growth = false) {
+			this->allow_growth = allow_growth;
+			this->Block_buffer = nullptr;
 			this->fs = filesystem;
 			this->file_handle = handle;
 			this->file_size = f_size;
@@ -330,46 +333,47 @@ Harddisk_PATA IDE1_1(0x11);// ... XXX
 		using BlockTrait::Read;
 		using BlockTrait::Write;
 
-		virtual bool Read(stduint BlockIden, void* Dest, stduint Times = 1) override {
-			if (!fs || !file_handle || !Times) return false;
+		virtual int operator[](uint64 offset) override {
+			if (!readable || !fs || !file_handle || offset >= file_size || offset > (stduint)-1) return -1;
+			byte value;
+			return fs->readfl(file_handle, Slice{stduint(offset), 1}, &value) == 1 ? value : -1;
+		}
 
-			stduint offset = BlockIden * Block_Size;
+		virtual bool Read(stduint block, void* dest, stduint count = 1) override {
+			if (!readable || !fs || !file_handle || !dest || !count || !Block_Size ||
+				block > (stduint)-1 / Block_Size || count > (stduint)-1 / Block_Size) return false;
+			stduint offset = block * Block_Size, requested = count * Block_Size;
 			if (offset >= file_size) return false;
-
-			stduint total_requested = Times * Block_Size;
-			stduint to_read = total_requested;
-			if (offset + to_read > file_size) {
-				to_read = file_size - offset;
-			}
-
-			stduint bytes_read = fs->readfl(file_handle, Slice{ offset, to_read }, (byte*)Dest);
-
+			stduint length = file_size - offset;
+			if (length > requested) length = requested;
+			stduint received = fs->readfl(file_handle, Slice{offset, length}, (byte*)dest);
+			if (received > length) return false;
 			// Safety Erase
-			if (bytes_read < total_requested) {
-				MemSet((byte*)Dest + bytes_read, 0, total_requested - bytes_read);
-			}
-
-			return bytes_read > 0;
+			// Preserve the block view's zero-filled final partial block.
+			if (received < requested) MemSet((byte*)dest + received, 0, requested - received);
+			return received == length;
 		}
 
-		virtual bool Write(stduint BlockIden, const void* Sors, stduint Times = 1) override {
-			if (!writable || !fs || !file_handle || !Times) return false;
-
-			stduint offset = BlockIden * Block_Size;
-			if (offset >= file_size) return false;
-
-			stduint to_write = Times * Block_Size;
-			if (offset + to_write > file_size) {
-				to_write = file_size - offset;
-			}
-
-			stduint bytes_written = fs->writfl(file_handle, Slice{ offset, to_write }, (const byte*)Sors);
-
-			return bytes_written > 0;
+		virtual bool Write(stduint block, const void* source, stduint count = 1) override {
+			if (!writable || !fs || !file_handle || !source || !count || !Block_Size ||
+				block > (stduint)-1 / Block_Size || count > (stduint)-1 / Block_Size) return false;
+			stduint offset = block * Block_Size, length = count * Block_Size;
+			// Growing streams use byte units to keep the logical file length exact.
+			if (allow_growth && Block_Size != 1) return false;
+			if (!allow_growth) {
+				if (offset >= file_size) return false;
+				if (length > file_size - offset) length = file_size - offset;
+			} else if (offset > file_size) return false;
+			if (length > (stduint)-1 - offset) return false;
+			stduint written = fs->writfl(file_handle, Slice{offset, length}, (const byte*)source);
+			if (written > length) return false;
+			if (allow_growth && offset + written > file_size) file_size = offset + written;
+			return written == length;
 		}
 
+		stduint getFileSize() const { return file_size; }
 		virtual stduint getUnits() override {
-			return vaultAlign(Block_Size, file_size);
+			return Block_Size ? file_size / Block_Size + (file_size % Block_Size != 0) : 0;
 		}
 	};
 }

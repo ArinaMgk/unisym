@@ -155,6 +155,11 @@ namespace uni {
 	class WAVCodec : public IAudioCodec {
 	public:
 		virtual ~WAVCodec() = default;
+		bool SupportsEncoding() const override { return true; }
+		bool CanEncode(const AudioFormat& format) const override;
+		auto OpenEncoder(
+			StorageTrait& output, const AudioFormat& format, const AudioEncodeOptions& options, IAudioEncoder*& encoder, trait::Malloc& allocator
+		) const -> AudioResult override;
 
 		virtual const char* GetName() const override;
 		virtual AudioContainerFormat GetFormat() const override;

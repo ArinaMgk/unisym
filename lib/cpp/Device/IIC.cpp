@@ -175,16 +175,17 @@ namespace uni {
 	bool IIC_HARD::enClock(bool ena) {
 		#if defined(_MCU_STM32H7x)
 		asrtret(Ranglin(id, 1, 4));
-		auto reg = RCCReg::APB1LENR;
-		if (id == 4) {
-			reg = RCCReg::APB4ENR;
-			RCC[reg].setof(7, ena);
-			return RCC[reg].bitof(7);
+		RCCReg::RCCReg reg;
+		stduint bit;
+		switch (id) {
+		case 1: reg = RCCReg::APB1LENR; bit = RCC_APB1LENR_I2C1EN_Pos; break;
+		case 2: reg = RCCReg::APB1LENR; bit = RCC_APB1LENR_I2C2EN_Pos; break;
+		case 3: reg = RCCReg::APB1LENR; bit = RCC_APB1LENR_I2C3EN_Pos; break;
+		case 4: reg = RCCReg::APB4ENR;  bit = RCC_APB4ENR_I2C4EN_Pos; break;
+		default: return false;
 		}
-		else {
-			RCC[reg].setof(21 - 1 + id, ena);
-			return RCC[reg].bitof(21 - 1 + id);
-		}
+		RCC[reg].setof(bit, ena);
+		return RCC[reg].bitof(bit) == ena;
 		#elif defined(_MPU_STM32MP13)
 		asrtret(Ranglin(id, 1, 5));
 		stduint refaddr;

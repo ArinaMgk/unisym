@@ -20,10 +20,11 @@
 	limitations under the License.
 */
 
-#include "../../../../inc/cpp/Device/Mcphone/SPDIF.hpp"
+#include "../../../../inc/cpp/Device/Mcphone/SPDIF-RX.hpp"
 
 #if defined(_MCU_STM32H7x)
 #include "../../../../inc/cpp/Device/DMA"
+#include "../../../../inc/cpp/Device/Cache"
 #include "../../../../inc/cpp/Device/NVIC"
 #include "../../../../inc/cpp/Device/RCC/RCC"
 #include "../../../../inc/cpp/Device/SysTick"
@@ -554,4 +555,97 @@ namespace uni {
 }
 
 extern "C" void SPDIF_RX_IRQHandler() { uni::SPDIFRX.HandleRupt(); }
+
+namespace uni {
+	SPDIFRXCapture* SPDIFRXCapture::active = nullptr;
+
+	SPDIFRXCapture::~SPDIFRXCapture() {
+		Stop();
+		if (active == this) {
+			receiver.DataHalfHandler = saved_half;
+			receiver.DataHandler = saved_complete;
+			receiver.ErrorHandler = saved_error;
+			active = nullptr;
+		}
+	}
+	void SPDIFRXCapture::HalfComplete() { if (active) active->NotifyHalf(false); }
+	void SPDIFRXCapture::Complete() { if (active) active->NotifyHalf(true); }
+	void SPDIFRXCapture::Failed() { if (active) active->NotifyError(); }
+
+	AudioResult SPDIFRXCapture::BeginSource() {
+		if (active || &receiver != &SPDIFRX || receiver.getState() != SPDIFRXState::Ready)
+			return AudioResult::Busy;
+		if (!sample_rate || sample_rate != getCaptureFormat().sample_rate) return AudioResult::InvalidFormat;
+		if (!receiver.data_dma) return AudioResult::InvalidArgument;
+		stduint encoded = _IMM(receiver.data_dma);
+		if ((encoded >> 8) < 1 || (encoded >> 8) > 2 || (encoded & 0x8FU)) return AudioResult::InvalidArgument;
+		DMA_t& dma = receiver.data_dma->getParent();
+		Reference control = dma[DMAReg::CR[receiver.data_dma->getID()]];
+		if (control.bitof(_DMA_SxCR_POS_EN) || dma.bind) return AudioResult::Busy;
+		Reference format = receiver[SPDIFRXReg::CR];
+		saved_format.packing = SPDIFRXPacking(format.masof(_SPDIFRX_CR_POS_DRFMT, 2));
+		saved_format.stereo = format.bitof(_SPDIFRX_CR_POS_RXSTEO);
+		saved_format.mask_parity_error = format.bitof(_SPDIFRX_CR_POS_PMSK);
+		saved_format.mask_validity = format.bitof(_SPDIFRX_CR_POS_VMSK);
+		saved_format.mask_channel_status = format.bitof(_SPDIFRX_CR_POS_CUMSK);
+		saved_format.mask_preamble = format.bitof(_SPDIFRX_CR_POS_PTMSK);
+		SPDIFRXDataFormat pcm;
+		pcm.packing = SPDIFRXPacking::Packed16;
+		pcm.mask_parity_error = pcm.mask_validity = pcm.mask_channel_status = pcm.mask_preamble = true;
+		if (!receiver.setDataFormat(pcm)) return AudioResult::Failed;
+		saved_half = receiver.DataHalfHandler;
+		saved_complete = receiver.DataHandler;
+		saved_error = receiver.ErrorHandler;
+		receiver.DataHalfHandler = HalfComplete;
+		receiver.DataHandler = Complete;
+		receiver.ErrorHandler = Failed;
+		saved_circular = control.bitof(_DMA_SxCR_POS_CIRC);
+		control.setof(_DMA_SxCR_POS_CIRC);
+		bound = true;
+		active = this;
+		L1C.CleanInvalidateDCacheRange(raw, stduint(half_bytes) * 2);
+		receiver.enInterrupt();
+		SPDIFRXResult started = receiver.Receive(SPDIFRXFlow::Data, (uint32*)raw,
+			half_bytes / 2, IOMethod::DMA);
+		return started == SPDIFRXResult::OK ? AudioResult::OK : AudioResult::Failed;
+	}
+	AudioResult SPDIFRXCapture::EndSource() {
+		if (!bound) return AudioResult::OK;
+		if (!receiver.Stop()) return AudioResult::Busy;
+		receiver.DataHalfHandler = saved_half;
+		receiver.DataHandler = saved_complete;
+		receiver.ErrorHandler = saved_error;
+		receiver.data_dma->getParent()[DMAReg::CR[receiver.data_dma->getID()]].
+			setof(_DMA_SxCR_POS_CIRC, saved_circular);
+		if (!receiver.setDataFormat(saved_format)) return AudioResult::Failed;
+		active = nullptr;
+		bound = false;
+		return AudioResult::OK;
+	}
+	bool SPDIFRXCapture::SourceFailed() const {
+		return receiver.getError() || receiver.data_dma->getError();
+	}
+	bool SPDIFRXCapture::IsHalfReadable(bool second) const {
+		const DMAStream& stream = *receiver.data_dma;
+		DMA_t& dma = stream.getParent();
+		byte position = (stream.getID() & 2 ? 16 : 0) + (stream.getID() & 1 ? 6 : 0);
+		Reference flags = dma[stream.getID() < 4 ? DMAReg::LISR : DMAReg::HISR];
+		if (receiver.getError() || stream.getError() ||
+			flags.bitof(position + _DMA_SxFLAG_POS_HTIF) ||
+			flags.bitof(position + _DMA_SxFLAG_POS_TCIF)) return false;
+		uint32 remaining = dma[DMAReg::NDTR[stream.getID()]];
+		return remaining <= half_bytes / 2 && (second ? remaining > half_bytes / 4 : remaining && remaining <= half_bytes / 4);
+	}
+	void SPDIFRXCapture::ConvertSamples(const byte* source, byte* dest, uint32 bytes) {
+		L1C.InvalidateDCacheRange((pureptr_t)source, bytes);
+		// RM0433 DRFMT=10: channel A occupies bits 31:16, channel B bits 15:0.
+		for (uint32 i = 0; i < bytes; i += 4) {
+			dest[i] = source[i + 2];
+			dest[i + 1] = source[i + 3];
+			dest[i + 2] = source[i];
+			dest[i + 3] = source[i + 1];
+		}
+	}
+}
+
 #endif

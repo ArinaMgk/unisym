@@ -30,6 +30,7 @@
 #include "../../atomic"
 #include "../../interrupt"
 #include "../../reference"
+#include "../../System/Audiosys/AudioCapture.hpp"
 
 #undef SPDIFRX
 extern "C" void SPDIF_RX_IRQHandler();
@@ -131,6 +132,31 @@ namespace uni {
 		static void ControlDMAComplete();
 		static void ControlDMAError();
 		friend void ::SPDIF_RX_IRQHandler();
+	};
+
+
+	// The caller establishes an LPCM source and its nominal rate before starting.
+	class SPDIFRXCapture : public AudioDMACapture {
+		SPDIFRX_t& receiver;
+		uint32 sample_rate;
+		SPDIFRXDataFormat saved_format;
+		Handler_t saved_half = nullptr, saved_complete = nullptr, saved_error = nullptr;
+		bool bound = false, saved_circular = false;
+		static SPDIFRXCapture* active;
+		static void HalfComplete();
+		static void Complete();
+		static void Failed();
+	protected:
+		AudioResult BeginSource() override;
+		AudioResult EndSource() override;
+		bool IsHalfReadable(bool second) const override;
+		bool SourceFailed() const override;
+		void ConvertSamples(const byte* source, byte* dest, uint32 bytes) override;
+	public:
+		// Allocate staging in DMA1/2-accessible memory; clocks and pins are board-owned.
+		SPDIFRXCapture(SPDIFRX_t& receiver, uint32 sample_rate, trait::Malloc& allocator)
+			: AudioDMACapture(allocator), receiver(receiver), sample_rate(sample_rate) {}
+		~SPDIFRXCapture() override;
 	};
 
 	extern SPDIFRX_t SPDIFRX;

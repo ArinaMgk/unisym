@@ -159,10 +159,6 @@ namespace {
 	};
 
 #if defined(_ACCM)
-#if !(_ACCM == 0x8632)
-#define Task_Audio_Serv 0
-#endif
-
 	// A rejected send has no reply; report transport failures before returning to the player.
 	static stdsint ExchangeAudioMessage(AudioMsg type, const void* payload, stduint length, void* response, stduint capacity) {
 		CommMsg message{};

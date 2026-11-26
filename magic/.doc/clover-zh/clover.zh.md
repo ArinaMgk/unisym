@@ -204,6 +204,7 @@ clover-riscv input.ir [options]
 
 | 选项 | 含义 |
 | :--- | :--- |
+| `-mbits=32` | 选择 RV32 目标；当前代码生成支持 `i1/i8/i16/i32` 与 `ptr` 标量 |
 | `-mbits=64` | 选择 64 位 RISC-V 目标 |
 | `-minst=i` | 使用基础整数指令集 |
 | `-minst=im` | 启用基础整数及乘除法指令集 |
@@ -212,13 +213,16 @@ clover-riscv input.ir [options]
 | `-mabi=lp64` | 浮点参数和返回值按照整数调用约定传递 |
 | `-mabi=lp64f` | `f32` 参数和返回值使用浮点寄存器，`f64` 使用整数调用约定 |
 | `-mabi=lp64d` | `f32`、`f64` 参数和返回值使用浮点寄存器 |
+| `-mabi=ilp32` | RV32 整数调用约定；浮点值不在当前 RV32 代码生成子集中 |
 | `-g` | IR 含源位置时输出当前汇编格式对应的源文件与行号信息 |
 | `--asm=gcc` | 输出 GCC 工具链接受的 GNU 汇编语法 |
 | `--asm=aasm` | 输出 Unisym `aasm` 接受的汇编语法 |
 | `-o file` | 将汇编写入指定文件 |
 | `-h`、`--help` | 显示帮助信息及已支持的目标信息 |
 
-当前默认后端目标为 `-mbits=64 -minst=im -mabi=lp64 --asm=gcc`。
+当前默认后端目标为 `-mbits=64 -minst=im -mabi=lp64 --asm=gcc`。RV32 当前限定为
+整数标量和指针的基本代码生成；`i64`、浮点及按值聚合参数/返回尚不支持，后端会在
+输出汇编前拒绝这些函数类型或操作。
 `mgc` 默认记录 `static` relocation model；指定 PIC/PIE 时该设置随 Clover IR
 传给后端。RISC-V 后端在 PIC/PIE 下会按符号定义、链接属性、visibility 和 binding
 选择 PC-relative 或 GOT 地址形式；静态模式保留原有地址生成行为。汇编输出同时保留

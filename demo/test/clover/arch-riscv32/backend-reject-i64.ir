@@ -1,0 +1,6 @@
+target ptrbits 32
+
+func @rv32_unsupported_i64(i64 %0) -> i64 {
+^entry:
+  ret i64 %0
+}

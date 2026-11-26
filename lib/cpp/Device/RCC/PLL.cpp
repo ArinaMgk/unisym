@@ -185,11 +185,14 @@ namespace uni {
 
 
 	static void getFrequencies(const RCCPLL& pll, stduint& P, stduint& Q, stduint& R) {
+		P = Q = R = 0;
 		if (!Ranglin(pll.getID(), 1, 3)) return;
 		byte id = pll.getID() - 1;
 		uint32_t    pllxm = 1, pllxfracen = 0;
 		float fracn1, pll_vco = 0;
-		pllxm = _IMM(RCC_PLLCKSELR_DIVM1);
+		static const byte divm_offsets[] = {4, 12, 20};
+		pllxm = RCC[RCCReg::PLLCKSELR].masof(divm_offsets[id], 6);
+		if (!pllxm) { P = Q = R = 0; return; }
 		pllxfracen = RCC[RCCReg::PLLCFGR].bitof(4 * id); // RCC_PLLCFGR_PLLxFRACEN;
 		static const RCCReg::RCCReg fracrs[]{ RCCReg::PLL1FRACR, RCCReg::PLL2FRACR, RCCReg::PLL3FRACR };
 		static const RCCReg::RCCReg plldivs[]{ RCCReg::PLL1DIVR, RCCReg::PLL2DIVR, RCCReg::PLL3DIVR };
